@@ -101,8 +101,8 @@
   {
     "name": "NAV-A-the-ripple-ignored",
     "file": "src/systems/naval/navalShots.js",
-    "old": "born: clock + Math.max(0, l.delay ?? 0),",
-    "new": "born: clock,",
+    "old": "born: clock - back + Math.max(0, l.delay ?? 0),",
+    "new": "born: clock - back,",
     "tests": [
       "test/nav_a_guns.test.js"
     ]

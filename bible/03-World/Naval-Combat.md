@@ -342,10 +342,14 @@ helper at the five doors). A merchantman, a navy that is not hunting the player,
   handover's count and the names' region last; an older word's sixteen or seventeen read as none, the first claim and
   the reader's own region), its volleys
   (NAVAL_WIRE_VOLLEYS: the shooter, the hull, the side, the pose, the elevation, the seed and the skill - everything a
-  peer needs to fly the same balls) and its barrels (each with its ship's number, AUDIT NAV1 online: an older word's four
-  fields read as the owner's own), kept NAVAL_VOLLEY_KEEP_MS; AUDIT NAV1 (online), its player's own boat at sea (`p`: her
-  hull, whether she is a wreck, whether they let pirates board them) and notoriety (`n`: each crown they are owed in, by
-  its row, 0..100); it rides the owner's foes frame (`nv`,
+  peer needs to fly the same balls - and, AUDIT NAV1 online #15, her AGE when the word is said, so a reader flies her
+  from as far along as she is, in step with her shooter's: she landed late by the word's cadence, or by a word and more
+  when a later one first carried her; the shot field walks a flight it came late to BALL_STEP_S at a time, along its
+  arc) and its barrels (each with its ship's number, AUDIT NAV1 online: an older word's four fields read as the
+  owner's own), kept NAVAL_VOLLEY_KEEP_MS and moved with the world when its origin shifts; AUDIT NAV1 (online), its
+  player's own boat at sea (`p`: her hull, whether she is a wreck, whether they let pirates board them), notoriety (`n`:
+  each crown they are owed in, by its row, 0..NOTORIETY.max), Ships at sea (`t`, only when it is not the default) and
+  the casks afloat in their sea (`f`, below); it rides the owner's foes frame (`nv`,
   beside Come Sail Away's `sa`) on every full frame and whenever it changed. `validNavalRecord` takes it whole or not
   at all, every number bounded (the pose bounds are `net/wire.js`'s own). NO RELAY CHANGE: the relay passes the foes
   frame through and routes a cell's hit by its `to`.
@@ -356,7 +360,12 @@ helper at the five doors). A merchantman, a navy that is not hunting the player,
   read as a player's - it blew under another player's boat for no hurt and floated on on her stander's screen). On
   the stander's screen another player's boat stops a ship's ball, tears on her canvas and sets off her barrels as the
   stander's own boat would - the splinters and the blast seen and heard there, the hurt hers to take on her own client -
-  and a player's shot passes her by (`hitBy`).
+  and a player's shot passes her by (`hitBy`). **A blow is never lost** (AUDIT NAV1, online #9): a blow on another's
+  ship, a grapple and a cask's claim and answer go out through the world's hit retry queue (`sendHit`, AUDIT FOES
+  FOE2's `net/hitPend.js`), so one the wire refused, or sent while the socket was away, goes a frame later instead of
+  never (they went out bare, and every refusal threw the blow away); and one player's words fly at most
+  PEER_VOLLEYS_MAX new volleys here in NAVAL_VOLLEY_KEEP_MS (#14: nothing bounded a word that said twelve new ones every
+  time), the rest seen and never flown.
 - **Each player answers to their own law** (AUDIT NAV1, online #6): the captains another stands judge each player by
   the notoriety their own word says - a navy hunts a wanted peer and leaves a lawful one be, whoever is wanted of her
   stander; the stander's director draws the navy after the most notorious player in its waters; and any player's blow
@@ -376,8 +385,15 @@ helper at the five doors). A merchantman, a navy that is not hunting the player,
   stander's words (`sinkOn`; a word that says she still sinks never starts her over), and one their word lets go of
   while she sinks - her stander drops her the moment she is under, a word or two before a peer's clock has her there -
   finishes going down before she is gone (`letGo`). A room left takes every peer's ship at once.
-- **Flotsam is the stander's**: a sunk ship's casks are dropped in the stander's world and are not on the wire, so only
-  the stander's boats haul them in.
+- **A sunk ship's casks are every player's** (AUDIT NAV1, online #15): they are dropped in her stander's world and said
+  in its word (`f`: the lot's key and her class by their rows, the place to half a metre), so every player sees them
+  where they float, and any player's boat hauls one in - CLAIMED of their owner (`navalHitData`'s `k`): the owner
+  answers the first claim (`a`) and lets the cask go, and the claimer draws its lot on the answer alone, so one cask is
+  one haul whoever reached it; a claim is said again every CLAIM_AGAIN_S while it waits (an answer lost is answered
+  again - the owner keeps its answers GRANT_KEEP_S - and drawn once), the cask kept from the claimer's screen meanwhile,
+  and given up past CLAIM_WAIT_S. A departed owner's casks are their heir's, the same casks taken over where they
+  float, kept ORPHAN_S by everyone else for the heir's word; an owner's word that says nothing leaves no cask behind
+  for anyone to raise again. (Only the stander's boats could haul them in: a peer who sank her saw none.)
 - **The pirates fight every player's boat** - a peer at their helm is a contact (`comeSailAwayPeers.js helmBoats`),
   led by the way their own word says: CSA-K's `m` on the boats' word, the velocity the boat at the helm says on the
   wire, carried through the frame as the lead carries it (the frame is affine, so a way is the difference of two
@@ -393,8 +409,9 @@ helper at the five doors). A merchantman, a navy that is not hunting the player,
   afloat. (A pirate beside a peer's wreck sat 76 m off for two minutes and never boarded - the peer could neither
   travel nor rest - and pirates grappled their stander alone.)
 - **The switch is forced ON online** (the Features row): the ships at sea are the room's world, and a room where one
-  player sees the pirate boarding another and the other does not is two worlds. The traffic, the boarders and a
-  voyage raid's plunder stay each player's own.
+  player sees the pirate boarding another and the other does not is two worlds. The boarders and a voyage raid's
+  plunder stay each player's own; a shared sea's traffic is the lowest Ships at sea among the players who share it
+  (AUDIT NAV1, online #15 - `trafficDensity`: its stander's alone sailed everyone's sea).
 
 ## The UI (NAV-F) - Enhanced Plus
 
@@ -548,7 +565,8 @@ a save's: they are the waters', rolled again.
 
 The Features row **Naval Combat** (group Combat, the port's own): the switch (`naval`, on; FORCED ON online), and in
 its drawer Ships at sea (`naval-ships`: few, some, many), Pirates board you (`naval-boarders`), Raiders' plunder
-(`naval-raid-prize`) and Broadside camera (`naval-aim-camera`, AUDIT NAV1) - each the player's own online.
+(`naval-raid-prize`) and Broadside camera (`naval-aim-camera`, AUDIT NAV1) - each the player's own online; a shared
+sea is sailed at the lowest Ships at sea among the players who share it (Online, above).
 
 ## Departures (Port-Ledger section A)
 
@@ -727,9 +745,14 @@ and their blows as directed frames (`test/navalRoom.mjs` now). Its fifteen findi
 | the law by the stander (#6) | the navy judged every player by its stander's notoriety: it cruised 350 m past a peer at 80 (whose own client, a hostile ship near, could neither travel nor rest) and engaged a lawful peer when the stander was the wanted; a peer who fired on a merchantman beside a navy provoked the merchantman alone | each word says its player's notoriety (`n`) and the captains judge each by their own; the director draws the navy after the most notorious; any player's blow provokes the witnesses | the navy engages the wanted peer within 3 s and never the lawful one beside a wanted stander; the navy that saw a peer fire on a merchantman is provoked by them |
 | a pirate's barrel under another's boat (#7) | a peer who sailed onto a brig's barrel heard it blow and kept a whole hull (the stander's own fell 1.00 to 0.90), and it floated on on the stander's screen | the barrel says its ship's number (`b`'s fifth field); another's boat a target on the stander's screen, for a ship's shot alone | her own barrel, dropped as her captain drops one for a pursuer close under her stern, took the peer's hull from 1.00 to 0.88 on their own client, and blew on her stander's screen too; a player's barrel still never hurts another |
 | another's wreck (#10) | a pirate beside a peer's wreck sat 76 m off for 120 s and never boarded: no travel, no rest, the guns silent | each word says its boat (`p`); a pirate comes alongside another's wreck as her stander's and her grapple is said to them (`g`); they take her over and fight her boarders | boarded in 28 to 97 s from 60-130 m (three approaches); a player who does not let pirates board is spared, and the wreck left after WRECK_SPARE_S |
+| a blow lost (#9) | every naval blow and claim went out bare: a refusal - the rate gate, a reconnect, a cell-seam crossing - was a blow that never happened, and a lost claim did lasting harm | through the world's hit retry queue (`sendHit`, AUDIT FOES FOE2) | a refused blow, grapple or cask's word goes a frame later, held 2 s at most |
+| a volley heard late (#15) | fired on arrival: landed late by the word's cadence, up to 1.5 s when a later word first carried it, where her mark no longer lay | each volley says its age; the reader flies it from as far along, walking the flight it came late to along its arc | a volley heard 600 ms late flies in step with its shooter's: every ball where the prompt reader's is, to the millimetre |
+| a sunk ship's casks (#15) | in the stander's world alone: a peer who sank her saw none | said in the stander's word, hauled by any player's boat, claimed of their owner and drawn on the answer | every player sees them; two boats reaching them at once: one haul each cask; a lost answer answered again and drawn once |
+| a word after the world moved (#15) | the volleys and barrels it kept were said where they were before an origin shift - an origin's move away | they move with the world | said where they are |
+| whose traffic (#15) | the stander's Ships at sea sailed everyone's sea, the bible's "each player's own" untrue | each word says its player's; the lowest of those who share the sea | a group of many and few sails at few; a player out of reach counts for nothing |
+| a flood of volleys (#14) | nothing bounded how many new volleys a word could say: twelve more every word | PEER_VOLLEYS_MAX of one player's in NAVAL_VOLLEY_KEEP_MS, the rest seen and never flown | at most 24 in 1.5 s |
 
-The rest - the blows' retry and the volleys' age (#9, #15), and the frame's cost (#12-#14) - are the online slice's
-next.
+The rest - the frame's cost (#11-#14) - is the online slice's next.
 
 ## The tests
 
@@ -764,9 +787,11 @@ ships' tags, the lookout, the tags drawn, her list and canvas, her smoke and pla
 shared sea of `test/navalSea.mjs` - and `navaudit_online` (the claim, the sea handed on, a quiet stander, boarding
 another's ship in one world, no twins, one number and one name, a ship between words, two standers meeting, a raider
 taken over, each player's own law, a pirate's barrel and ball at another's boat, another's wreck boarded through the
-grapple's word) over several players' seas in the room of `test/navalRoom.mjs`.
+grapple's word, a volley heard late and a late ball's arc, the word after the world moved, one sea's traffic, a
+peer's volleys bounded, a sunk ship's casks every player's and a cask's claim held to its end) over several players'
+seas in the room of `test/navalRoom.mjs`.
 Mutants: `tools/mutants/nav_a.json` to `nav_h.json`, `nav_r.json`, `navaudit_captains.json`, `navaudit_guns.json`,
-`navaudit_helm.json`, `navaudit_boarding.json`, `navaudit_presentation.json` and `navaudit_online.json`, 756 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
+`navaudit_helm.json`, `navaudit_boarding.json`, `navaudit_presentation.json` and `navaudit_online.json`, 806 records, every one dead (149 at the arc's close; 23 more at the merge with main - the
 card's place and the finger's screen, one raid at a time, a hostile ship an enemy nearby, a peer's way read off its
 word; 21 with NAV-R; 54 with the audit's captains, and eight of the arc's own re-aimed by content at the laws the
 rebuilt captains keep; 60 with the audit's guns, and eight more re-aimed at the laws the guns keep; 131 with the
@@ -787,7 +812,10 @@ let go, a yielded raider still mine to spend - and fourteen of the arc's own re-
 retired with the laws they checked: the board claims' door, the claim's mark, and the first of two holders a raider
 now has one of; 52 with each player's own law online, a pirate's barrel and ball at another's boat, and another's
 wreck boarded through the grapple's word, and four of the arc's own - her own planking, the crown asked, the zones'
-codes, a peer's blow - re-aimed by content at the lines it rewrote);
+codes, a peer's blow - re-aimed by content at the lines it rewrote; 50 with the wire's reliability - the blows through
+the retry queue, a volley's age and a late ball's arc, the casks every player's, one sea's traffic, a peer's volleys
+bounded - whose one survivor named a test whose owner's word was never empty straight from its casks, and ten of the
+arc's own re-aimed by content at the lines it rewrote);
 the first run's four survivors each named a test that was not checking its law (two hulls in one sweep, a moored boat
 once built, a stale owner masking the sink window, the sea off the player's shore), and each test was mended.
 

@@ -157,8 +157,8 @@
   {
     "name": "NAV1O-non-stander-launches",
     "file": "src/scenes/navalHost.js",
-    "old": "        density: stands ? density : 0, player: feet,",
-    "new": "        density, player: feet,",
+    "old": "density: stands ? trafficDensity(feet) : 0, player: feet,",
+    "new": "density: trafficDensity(feet), player: feet,",
     "tests": [
       "test/navaudit_online.test.js"
     ]
@@ -283,8 +283,8 @@
   {
     "name": "NAV1O-peer-word-unread",
     "file": "src/scenes/navalHost.js",
-    "old": "peerSelf.set(owner, { law: rec.law, me: rec.me });",
-    "new": "peerSelf.set(owner, { law: {}, me: null });",
+    "old": "peerSelf.set(owner, { law: rec.law, me: rec.me, traffic: rec.traffic, at: clock });",
+    "new": "peerSelf.set(owner, { law: {}, me: null, traffic: rec.traffic, at: clock });",
     "tests": [
       "test/navaudit_online.test.js"
     ]
@@ -292,8 +292,8 @@
   {
     "name": "NAV1O-law-unsaid",
     "file": "src/scenes/navalHost.js",
-    "old": "barrels: wireBarrels, me, law: notoriety.snapshot() }, toWire);",
-    "new": "barrels: wireBarrels, me, law: {} }, toWire);",
+    "old": "me, law: notoriety.snapshot(), traffic:",
+    "new": "me, law: {}, traffic:",
     "tests": [
       "test/navaudit_online.test.js"
     ]
@@ -301,8 +301,8 @@
   {
     "name": "NAV1O-boat-unsaid",
     "file": "src/scenes/navalHost.js",
-    "old": "barrels: wireBarrels, me, law: notoriety.snapshot() }, toWire);",
-    "new": "barrels: wireBarrels, me: null, law: notoriety.snapshot() }, toWire);",
+    "old": "barrels: wireBarrels, me, law: notoriety.snapshot(),",
+    "new": "barrels: wireBarrels, me: null, law: notoriety.snapshot(),",
     "tests": [
       "test/navaudit_online.test.js"
     ]
@@ -382,7 +382,7 @@
   {
     "name": "NAV1O-grapple-unsaid",
     "file": "src/scenes/navalHost.js",
-    "old": "deps.online?.sendHit?.(navalHitData(out.grapple, { n: e.n, grapple: true }));",
+    "old": "deps.sendHit?.(navalHitData(out.grapple, { n: e.n, grapple: true }));",
     "new": "void 0;",
     "tests": [
       "test/navaudit_online.test.js"
@@ -612,8 +612,8 @@
   {
     "name": "NAV1O-wire-self-alone-unsaid",
     "file": "src/systems/naval/navalWire.js",
-    "old": "return s.length || v.length || b.length || out.p || out.n ? out : null;",
-    "new": "return s.length || v.length || b.length ? out : null;",
+    "old": "return s.length || v.length || b.length || out.p || out.n || out.t !== undefined || out.f ? out : null;",
+    "new": "return s.length || v.length || b.length || out.t !== undefined || out.f ? out : null;",
     "tests": [
       "test/nav_g_online.test.js",
       "test/navaudit_online.test.js"
@@ -676,8 +676,8 @@
   {
     "name": "NAV1O-door-grapple-unread",
     "file": "src/systems/naval/navalWire.js",
-    "old": "grapple: nv.g === 1 };",
-    "new": "grapple: false };",
+    "old": "zone: ['hull', 'rig', 'holed'][nv.z], grapple: nv.g === 1,",
+    "new": "zone: ['hull', 'rig', 'holed'][nv.z], grapple: false,",
     "tests": [
       "test/nav_g_online.test.js",
       "test/navaudit_online.test.js"
@@ -730,6 +730,465 @@
     "new": "hull: s.hull, yaw });",
     "tests": [
       "test/nav_g_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-age-unflown-shots",
+    "file": "src/systems/naval/navalShots.js",
+    "old": "born: clock - back + Math.max(0, l.delay ?? 0)",
+    "new": "born: clock + Math.max(0, l.delay ?? 0)",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-chord-across-arc",
+    "file": "src/systems/naval/navalShots.js",
+    "old": "const t1 = Math.min(age, b.t + BALL_STEP_S);",
+    "new": "const t1 = age;",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-cask-pickup-ownerless",
+    "file": "src/systems/naval/navalShots.js",
+    "old": "emit({ type: 'pickup', id: f.id, lot: f.lot, from: f.from, owner: f.owner, collector: c.id, point: [...f.pos] });",
+    "new": "emit({ type: 'pickup', id: f.id, lot: f.lot, from: f.from, collector: c.id, point: [...f.pos] });",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-cask-never-removed",
+    "file": "src/systems/naval/navalShots.js",
+    "old": "if (i >= 0) floaters.splice(i, 1); return i >= 0;",
+    "new": "return i >= 0;",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-wire-age-unwritten",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "Math.max(0, Math.min(NAVAL_VOLLEY_KEEP_MS, Math.round(vo.age ?? 0)))]);",
+    "new": "0]);",
+    "tests": [
+      "test/nav_g_online.test.js",
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-wire-age-unread",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "skill: w[12], age: w[13] ?? 0 });",
+    "new": "skill: w[12], age: 0 });",
+    "tests": [
+      "test/nav_g_online.test.js",
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-wire-age-unbounded",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "if (w.length === 14 && !int(w[13], 0, NAVAL_VOLLEY_KEEP_MS)) return null;",
+    "new": "void 0;",
+    "tests": [
+      "test/nav_g_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-wire-traffic-unwritten",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "if (t >= 0 && view?.traffic !== TRAFFIC_DEFAULT) out.t = t;",
+    "new": "void t;",
+    "tests": [
+      "test/nav_g_online.test.js",
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-wire-traffic-default-said",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "if (t >= 0 && view?.traffic !== TRAFFIC_DEFAULT) out.t = t;",
+    "new": "if (t >= 0) out.t = t;",
+    "tests": [
+      "test/nav_g_online.test.js",
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-wire-traffic-unread",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "traffic: raw.t === undefined ? TRAFFIC_DEFAULT : DENSITY_KEYS[raw.t], casks };",
+    "new": "traffic: TRAFFIC_DEFAULT, casks };",
+    "tests": [
+      "test/nav_g_online.test.js",
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-wire-traffic-unbounded",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "if (raw.t !== undefined && !int(raw.t, 0, DENSITY_KEYS.length - 1)) return null;",
+    "new": "void 0;",
+    "tests": [
+      "test/nav_g_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-wire-casks-unwritten",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "  if (f.length) out.f = f;\n",
+    "new": "",
+    "tests": [
+      "test/nav_g_online.test.js",
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-wire-casks-unquantized",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "const p = toWire(c.pos.map((x) => Math.round(x * 2) / 2));",
+    "new": "const p = toWire(c.pos);",
+    "tests": [
+      "test/nav_g_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-wire-casks-uncapped",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "    if (f.length >= NAVAL_WIRE_CASKS) break;\n",
+    "new": "",
+    "tests": [
+      "test/nav_g_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-wire-casks-unread",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "      casks.push({ id: w[0], pos, from: SHIP_CLASSES[w[4]].id, lot: LOT_KEYS[w[5]] });",
+    "new": "      void pos;",
+    "tests": [
+      "test/nav_g_online.test.js",
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-wire-cask-lot-unbounded",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "!int(w[5], 0, LOT_KEYS.length - 1)",
+    "new": "!int(w[5], 0, LOT_KEYS.length)",
+    "tests": [
+      "test/nav_g_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-wire-casks-over-word",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "if (!Array.isArray(raw.f) || raw.f.length > NAVAL_WIRE_CASKS) return null;",
+    "new": "if (!Array.isArray(raw.f)) return null;",
+    "tests": [
+      "test/nav_g_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-wire-cask-frame-unwritten",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "if (cask != null) { nv.k = cask >>> 0; if (answer) nv.a = 1; }",
+    "new": "void cask;",
+    "tests": [
+      "test/nav_g_online.test.js",
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-wire-cask-frame-hurt",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "if (nv.k !== undefined && (!int(nv.k, 0, U32) || nv.g !== undefined || nv.h || nv.s || nv.c || nv.f)) return null;",
+    "new": "if (nv.k !== undefined && !int(nv.k, 0, U32)) return null;",
+    "tests": [
+      "test/nav_g_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-wire-answer-without-cask",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "if (nv.a !== undefined && (nv.a !== 1 || nv.k === undefined)) return null;",
+    "new": "if (nv.a !== undefined && nv.a !== 1) return null;",
+    "tests": [
+      "test/nav_g_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-wire-cask-hit-unread",
+    "file": "src/systems/naval/navalWire.js",
+    "old": "cask: nv.k ?? null, answer: nv.a === 1,",
+    "new": "cask: null, answer: nv.a === 1,",
+    "tests": [
+      "test/nav_g_online.test.js",
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-blows-bare-send",
+    "file": "src/scenes/world.js",
+    "old": "sendHit: (data) => hitSend(data),",
+    "new": "sendHit: (data) => !!online?.sendHit?.(data),",
+    "tests": [
+      "test/nav_h_host.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-age-unsaid-host",
+    "file": "src/scenes/navalHost.js",
+    "old": "const volleys = wireVolleys.map((v) => ({ ...v, age: (clock - v.at) * 1000 }));",
+    "new": "const volleys = wireVolleys;",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-age-unflown-host",
+    "file": "src/scenes/navalHost.js",
+    "old": "owner, since: (v.age ?? 0) / 1000 });",
+    "new": "owner, since: 0 });",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-offset-word-left",
+    "file": "src/scenes/navalHost.js",
+    "old": "for (const w of [...wireVolleys, ...wireBarrels]) { w.pos[0] += o[0]; w.pos[1] += o[1]; w.pos[2] += o[2]; }",
+    "new": "void o;",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-offset-barrels-left",
+    "file": "src/scenes/navalHost.js",
+    "old": "for (const w of [...wireVolleys, ...wireBarrels]) {",
+    "new": "for (const w of [...wireVolleys]) {",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-traffic-stander-alone",
+    "file": "src/scenes/navalHost.js",
+    "old": "if (p.feet && dist2d(p.feet, feet) <= NAVAL_SHARE_RADIUS) d = Math.min(d, of(peerSelf.get(p.id)?.traffic ?? TRAFFIC_DEFAULT));",
+    "new": "void p;",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-traffic-reach-unbounded",
+    "file": "src/scenes/navalHost.js",
+    "old": "if (p.feet && dist2d(p.feet, feet) <= NAVAL_SHARE_RADIUS) d =",
+    "new": "if (p.feet) d =",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-traffic-unsaid-host",
+    "file": "src/scenes/navalHost.js",
+    "old": "traffic: setting('ShipsAtSea', TRAFFIC_DEFAULT), casks }, toWire);",
+    "new": "traffic: TRAFFIC_DEFAULT, casks }, toWire);",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-traffic-unkept",
+    "file": "src/scenes/navalHost.js",
+    "old": "traffic: rec.traffic, at: clock });",
+    "new": "traffic: TRAFFIC_DEFAULT, at: clock });",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-flood-unbounded",
+    "file": "src/scenes/navalHost.js",
+    "old": "      if (flown.length >= PEER_VOLLEYS_MAX) continue;   // past what one player's guns say - seen, never flown\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-flood-window-kept",
+    "file": "src/scenes/navalHost.js",
+    "old": "const flown = (flownAt.get(owner) ?? []).filter((t) => clock - t <= NAVAL_VOLLEY_KEEP_MS / 1000);",
+    "new": "const flown = flownAt.get(owner) ?? [];",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-cask-unsaid-host",
+    "file": "src/scenes/navalHost.js",
+    "old": "const casks = shots.floaters().filter((f) => f.kind === 'flotsam' && !f.owner).map((f) => ({ id: Number(f.id), pos: f.pos, from: f.from, lot: f.lot }));",
+    "new": "const casks = [];",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-cask-drawn-unclaimed",
+    "file": "src/scenes/navalHost.js",
+    "old": "if (e.type === 'pickup') { if (e.owner) claimCask(e); else pickFlotsam(e); }",
+    "new": "if (e.type === 'pickup') pickFlotsam(e);",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-claim-unanswered",
+    "file": "src/scenes/navalHost.js",
+    "old": "    granted.set(raw, { to: from, at: clock });\n    deps.sendHit?.(navalHitData(from, { n: 0, cask: raw, answer: true }));\n",
+    "new": "    granted.set(raw, { to: from, at: clock });\n",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-claim-answered-to-all",
+    "file": "src/scenes/navalHost.js",
+    "old": "if (given.to === from) deps.sendHit?.(navalHitData(from, { n: 0, cask: raw, answer: true }));",
+    "new": "deps.sendHit?.(navalHitData(from, { n: 0, cask: raw, answer: true }));",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-claim-granted-twice",
+    "file": "src/scenes/navalHost.js",
+    "old": "    if (!f || f.kind !== 'flotsam' || f.owner) return false;   // hauled in, sunk, or never mine to give\n    shots.removeFloater(f.id);\n",
+    "new": "    if (!f || f.kind !== 'flotsam' || f.owner) return false;   // hauled in, sunk, or never mine to give\n",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-answer-drawn-twice",
+    "file": "src/scenes/navalHost.js",
+    "old": "    claims.delete(id);\n    pickFlotsam({ lot: c.lot, from: c.from, collector: c.collector, point: c.point });",
+    "new": "    pickFlotsam({ lot: c.lot, from: c.from, collector: c.collector, point: c.point });",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-answer-unclaimed-drawn",
+    "file": "src/scenes/navalHost.js",
+    "old": "    if (!c) return false;\n    claims.delete(id);",
+    "new": "    if (!c) { pickFlotsam({ lot: 'S', from: 'pirateSloop', collector: 'me:0', point: [0, 0, 0] }); return true; }\n    claims.delete(id);",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-claim-said-once",
+    "file": "src/scenes/navalHost.js",
+    "old": "      else if (clock - c.said >= CLAIM_AGAIN_S) { c.said = clock; deps.sendHit?.(navalHitData(c.owner, { n: 0, cask: c.raw })); }\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-claims-never-given-up",
+    "file": "src/scenes/navalHost.js",
+    "old": "      if (clock - c.at > CLAIM_WAIT_S) claims.delete(id);   // no answer: another's haul, or its owner gone\n      else if",
+    "new": "      if",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-grants-kept-forever",
+    "file": "src/scenes/navalHost.js",
+    "old": "    for (const [raw, g] of granted) if (clock - g.at > GRANT_KEEP_S) granted.delete(raw);\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-cask-gone-kept",
+    "file": "src/scenes/navalHost.js",
+    "old": "    for (const f of shots.floaters()) if (f.kind === 'flotsam' && f.owner === owner && !said.has(f.id)) shots.removeFloater(f.id);\n  }",
+    "new": "  }",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-cask-claimed-restood",
+    "file": "src/scenes/navalHost.js",
+    "old": "      if (claims.has(id)) continue;\n      const pos = toScene(c.pos);",
+    "new": "      const pos = toScene(c.pos);",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-cask-snap-unmoved",
+    "file": "src/scenes/navalHost.js",
+    "old": "      if (f) { f.pos[0] = pos[0]; f.pos[2] = pos[2]; }\n      else shots.dropFlotsam",
+    "new": "      if (!f) shots.dropFlotsam",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-cask-heir-rekey-unread",
+    "file": "src/scenes/navalHost.js",
+    "old": "        f = was ? shots.floater(was.id) : null;",
+    "new": "        f = null;",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-cask-heir-keeps-orphans",
+    "file": "src/scenes/navalHost.js",
+    "old": "      if (heir) { f.id = o.id.slice(owner.length + 1); f.owner = null; f.orphanAt = null; }\n      else f.orphanAt ??= clock;",
+    "new": "      f.orphanAt ??= clock;",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-cask-orphans-kept",
+    "file": "src/scenes/navalHost.js",
+    "old": "    for (const f of casks) { const at = shots.floater(f.id)?.orphanAt; if (at != null && clock - at >= ORPHAN_S) shots.removeFloater(f.id); }\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-cask-owner-by-ships-alone",
+    "file": "src/scenes/navalHost.js",
+    "old": "const owners = new Set([...[...sea.values()].map((e) => e.owner), ...casks.map((f) => f.owner)].filter(Boolean));",
+    "new": "const owners = new Set([...sea.values()].map((e) => e.owner).filter(Boolean));",
+    "tests": [
+      "test/navaudit_online.test.js"
+    ]
+  },
+  {
+    "name": "NAV1O-null-word-casks-kept",
+    "file": "src/scenes/navalHost.js",
+    "old": "      applyCasks(owner, [], toScene);   // AUDIT NAV1 (online #15): nothing of theirs afloat - never a cask an heir raises again\n",
+    "new": "",
+    "tests": [
+      "test/navaudit_online.test.js"
     ]
   }
 ]

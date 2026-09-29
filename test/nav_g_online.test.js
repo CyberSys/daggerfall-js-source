@@ -7,10 +7,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
-  NAVAL_WIRE_SHIPS, NAVAL_WIRE_VOLLEYS, NAVAL_WIRE_BARRELS, NAVAL_HIT_MAX, WIRE_STATES, SIDE_CODES, NAVAL_GEN_MAX,
+  NAVAL_WIRE_SHIPS, NAVAL_WIRE_VOLLEYS, NAVAL_WIRE_BARRELS, NAVAL_HIT_MAX, WIRE_STATES, SIDE_CODES, NAVAL_GEN_MAX, NAVAL_VOLLEY_KEEP_MS, TRAFFIC_DEFAULT, NAVAL_WIRE_CASKS,
   navalWireRecord, validNavalRecord, navalRecordKey, navalHitData, validNavalHit,
 } from '../src/systems/naval/navalWire.js';
 import { SHIP_CLASSES, classById } from '../src/systems/naval/navalShips.js';
+import { LOT_KEYS } from '../src/systems/naval/navalPlunder.js';
 import { HULL_VARIANT_COUNTS, Boat } from '../src/systems/comeSailAwayBoat.js';
 import { POSE_BOUND, POSE_Y_BOUND } from '../src/net/wire.js';
 import { createComeSailAwayPool } from '../src/scenes/comeSailAwayPool.js';
@@ -31,13 +32,18 @@ test('NAV-G my word: each ship I stand in the wire frame\'s natives, rounded as 
   assert.deepEqual(navalWireRecord({ ships: [ship({ gen: 999, region: 999 })] }).s[0].slice(17), [NAVAL_GEN_MAX, -1], 'the count at its ceiling, a region past the map none');
   assert.deepEqual(navalWireRecord({ ships: [ship({ gen: undefined, region: undefined })] }).s[0].slice(17), [0, -1]);
   assert.equal(navalWireRecord({ ships: [ship({ runOut: 0b0101 })] }).s[0][16], 0b0101, 'AUDIT NAV1: her run-out, a bit a side');
-  assert.deepEqual(rec.v, [[77, 3, 2, SIDE_CODES.indexOf('port'), 1001, -3, 2003, -0.5, 1.23, -2.35, 0.1235, 99, 0.55]]);
+  assert.deepEqual(rec.v, [[77, 3, 2, SIDE_CODES.indexOf('port'), 1001, -3, 2003, -0.5, 1.23, -2.35, 0.1235, 99, 0.55, 0]]);
+  // AUDIT NAV1 (online #15): her age when the word is said, whole milliseconds, never past the word's keep
+  assert.deepEqual([312.4, 5000, -5].map((age) => navalWireRecord({ volleys: [volley({ age })] }).v[0][13]), [312, NAVAL_VOLLEY_KEEP_MS, 0]);
   assert.deepEqual(rec.b, [[5, 1007, 3, 2009, -1]], 'AUDIT NAV1 (online #7): a barrel with no ship\'s number is the owner\'s own boat\'s');
   assert.equal(navalWireRecord({ barrels: [{ id: 5, pos: [7, 8, 9], shooter: 3 }] }).b[0][4], 3, 'her ship\'s number');
   // AUDIT NAV1 (online #6, #10): my own boat and my notoriety, crowns by their row - nothing else to say still says them
   const self = navalWireRecord({ me: { hull: 0.426, crippled: true, boarders: false }, law: { Wayrest: 80.4, Daggerfall: 0, Sentinel: 250 } });
   assert.deepEqual(self, { s: [], v: [], b: [], p: [43, 1, 0], n: [[1, 80], [2, 100]] });
   assert.equal(navalWireRecord({ law: { Wayrest: 0 } }), null, 'owed nothing and nothing else: null');
+  // AUDIT NAV1 (online #15): my Ships at sea by its row - never the default, which saying nothing already says
+  assert.deepEqual(['few', 'many', 'off'].map((traffic) => navalWireRecord({ traffic })), [1, 3, 0].map((t) => ({ s: [], v: [], b: [], t })));
+  assert.deepEqual([TRAFFIC_DEFAULT, 'lots', undefined].map((traffic) => navalWireRecord({ traffic })), [null, null, null]);
   assert.equal(navalWireRecord({ ships: [], volleys: [], barrels: [] }), null);
   assert.equal(navalWireRecord(null), null);
   assert.equal(navalWireRecord({ ships: [ship({ classId: 'ghostShip' })] }), null, 'no such class: not said');
@@ -63,12 +69,20 @@ test('NAV-G a peer\'s word through the door, whole or not at all: my own word co
   assert.deepEqual(['gen', 'region'].map((k) => validNavalRecord({ s: [rec.s[0].slice(0, 17)] }).ships[0][k]), [0, -1], 'an older build\'s word, without the handover: the first claim, the reader\'s own region');
   assert.equal(validNavalRecord({ s: [Object.assign([...rec.s[0]], { 16: 0b1001 })] }).ships[0].runOut, 0b1001);
   assert.equal(got.ships[1].variant, 3, 'a Large Boat has variants');
-  assert.deepEqual(got.volleys[0], { id: 77, shooter: 3, hull: 2, side: 'port', pos: [1, 2, 3], yaw: -0.5, vel: [1.23, 0, -2.35], elevation: 0.1235, seed: 99, skill: 0.55 });
+  assert.deepEqual(got.volleys[0], { id: 77, shooter: 3, hull: 2, side: 'port', pos: [1, 2, 3], yaw: -0.5, vel: [1.23, 0, -2.35], elevation: 0.1235, seed: 99, skill: 0.55, age: 0 });
+  assert.equal(validNavalRecord({ v: [Object.assign([...rec.v[0]], { 13: 640 })] }).volleys[0].age, 640, 'her age read');
+  assert.equal(validNavalRecord({ v: [rec.v[0].slice(0, 13)] }).volleys[0].age, 0, 'an older build\'s volley: fired as it is heard');
   assert.deepEqual(got.barrels, [{ id: 5, pos: [7, 8, 9], shooter: -1 }]);
   assert.deepEqual(validNavalRecord({ b: [[5, 7, 8, 9]] }).barrels, [{ id: 5, pos: [7, 8, 9], shooter: -1 }], 'an older build\'s barrel: the owner\'s own');
   assert.deepEqual(validNavalRecord({ b: [[5, 7, 8, 9, 3]] }).barrels, [{ id: 5, pos: [7, 8, 9], shooter: 3 }], 'her ship\'s number, read');
-  assert.deepEqual(validNavalRecord({}), { ships: [], volleys: [], barrels: [], me: null, law: {} }, 'an empty word stands for none');
-  assert.deepEqual(validNavalRecord({ p: [43, 1, 0], n: [[1, 80]] }), { ships: [], volleys: [], barrels: [], me: { hull: 0.43, crippled: true, boarders: false }, law: { Wayrest: 80 } });
+  assert.deepEqual(validNavalRecord({}), { ships: [], volleys: [], barrels: [], me: null, law: {}, traffic: TRAFFIC_DEFAULT, casks: [] }, 'an empty word stands for none');
+  assert.deepEqual(validNavalRecord({ p: [43, 1, 0], n: [[1, 80]] }), { ships: [], volleys: [], barrels: [], me: { hull: 0.43, crippled: true, boarders: false }, law: { Wayrest: 80 }, traffic: TRAFFIC_DEFAULT, casks: [] });
+  // AUDIT NAV1 (online #15): the casks afloat - the class and the lot by their rows, the place to half a metre
+  const casks = navalWireRecord({ casks: [{ id: 7, pos: [10.3, 0.12, -4.74], from: 'pirateBrig', lot: 'E' }, { id: 8, pos: [0, 0, 0], from: 'ghostShip', lot: 'E' }, { id: 9, pos: [0, 0, 0], from: 'pirateBrig', lot: 'Z' }] });
+  assert.deepEqual(casks, { s: [], v: [], b: [], f: [[7, 10.5, 0, -4.5, SHIP_CLASSES.findIndex((c) => c.id === 'pirateBrig'), LOT_KEYS.indexOf('E')]] }, 'no such class, no such lot: not said');
+  assert.deepEqual(validNavalRecord(casks).casks, [{ id: 7, pos: [10.5, 0, -4.5], from: 'pirateBrig', lot: 'E' }]);
+  assert.equal(navalWireRecord({ casks: Array.from({ length: 20 }, (_, id) => ({ id, pos: [0, 0, 0], from: 'pirateBrig', lot: 'S' })) }).f.length, NAVAL_WIRE_CASKS);
+  assert.deepEqual([0, 1, 3].map((t) => validNavalRecord({ t }).traffic), ['off', 'few', 'many']);
   const s0 = rec.s[0], v0 = rec.v[0];
   const withShip = (i, val) => ({ s: [Object.assign([...s0], { [i]: val })] });
   const withVolley = (i, val) => ({ v: [Object.assign([...v0], { [i]: val })] });
@@ -89,11 +103,16 @@ test('NAV-G a peer\'s word through the door, whole or not at all: my own word co
     [withShip(18, -2), 'a region before the map'], [withShip(18, 1e3), 'a region past the map'], [withShip(18, 2.5), 'half a region'],
     [withVolley(3, SIDE_CODES.length), 'a side past the stern'], [withVolley(1, -2), 'a shooter past the owner\'s own'],
     [withVolley(10, 2), 'a lay past the carriage'], [withVolley(12, 1.5), 'a skill past the best'],
+    [withVolley(13, -1), 'an age before the fire'], [withVolley(13, NAVAL_VOLLEY_KEEP_MS + 1), 'an age past the word\'s keep'], [withVolley(13, 2.5), 'a fractional age'],
     [{ b: [[1, POSE_BOUND + 1, 0, 0]] }, 'a barrel past the world'], [{ b: [[1.5, 0, 0, 0]] }, 'a fractional barrel id'],
     [{ b: [[1, 0, 0, 0, -2]] }, 'a barrel\'s shooter before the owner'], [{ b: [[1, 0, 0, 0, 1, 0]] }, 'six barrel fields'],
     [{ p: [101, 0, 1] }, 'a hull past whole'], [{ p: [50, 2, 1] }, 'a wreck that is not a bit'], [{ p: [50, 0] }, 'two fields of a boat'],
     [{ n: [[3, 50]] }, 'no such crown'], [{ n: [[0, 101]] }, 'notoriety past its ceiling'], [{ n: [[0, 5, 1]] }, 'three fields of a crown'],
     [{ n: [[0, 1], [1, 1], [2, 1], [0, 1]] }, 'more crowns than there are'],
+    [{ t: 4 }, 'no such traffic'], [{ t: -1 }, 'a traffic before the first'], [{ t: 1.5 }, 'half a traffic'],
+    [{ f: [[1, 0, 0, 0, SHIP_CLASSES.length, 0]] }, 'a cask of no such class'], [{ f: [[1, 0, 0, 0, 0, LOT_KEYS.length]] }, 'a cask of no such lot'],
+    [{ f: [[1, POSE_BOUND + 1, 0, 0, 0, 0]] }, 'a cask past the world'], [{ f: [[1, 0, 0, 0, 0]] }, 'five fields of a cask'],
+    [{ f: Array.from({ length: NAVAL_WIRE_CASKS + 1 }, (_, i) => [i, 0, 0, 0, 0, 0]) }, 'more casks than a word says'],
     [{ s: [s0, 'x'] }, 'one bad ship drops them all'],
   ]) assert.equal(validNavalRecord(bad), null, why);
 });
@@ -101,7 +120,12 @@ test('NAV-G a peer\'s word through the door, whole or not at all: my own word co
 test('NAV-G a blow on a ship another stands: the striker sends the directed hit frame - the ship, her hurts, a fire (a ball\'s 1, a barrel\'s 2 - AUDIT NAV1), the zone - and the stander\'s door takes only bounded numbers, a known fire and a known zone; AUDIT NAV1 (online): no board claims - a ship boarded is taken over at the grapple, never marked in her stander\'s world - and a GRAPPLE (my ship alongside your boat) carries no hurt (mutants: the ceiling, the zone\'s codes, a grapple with a hurt)', () => {
   const d = navalHitData('ann', { n: 7, hull: 33.4, sail: 5.6, crew: 2, fire: true, zone: 'holed' });
   assert.deepEqual(d, { to: 'ann', nv: { n: 7, h: 33, s: 6, c: 2, f: 1, z: 2 } });
-  assert.deepEqual(validNavalHit(d), { n: 7, hull: 33, sail: 6, crew: 2, fire: true, zone: 'holed', grapple: false });
+  assert.deepEqual(validNavalHit(d), { n: 7, hull: 33, sail: 6, crew: 2, fire: true, zone: 'holed', grapple: false, cask: null, answer: false });
+  // AUDIT NAV1 (online #15): a cask's claim, and its owner's answer
+  const k = navalHitData('ann', { n: 0, cask: 4000000000 }), a = navalHitData('bob', { n: 0, cask: 9, answer: true });
+  assert.deepEqual([k.nv.k, k.nv.a, a.nv.k, a.nv.a], [4000000000, undefined, 9, 1]);
+  assert.deepEqual([validNavalHit(k).cask, validNavalHit(k).answer, validNavalHit(a).cask, validNavalHit(a).answer], [4000000000, false, 9, true]);
+  assert.equal(navalHitData('ann', { n: 1, answer: true }).nv.a, undefined, 'an answer is a cask\'s');
   const g = navalHitData('ann', { n: 4, grapple: true });
   assert.deepEqual(g, { to: 'ann', nv: { n: 4, h: 0, s: 0, c: 0, f: 0, z: 0, g: 1 } });
   assert.equal(validNavalHit(g).grapple, true);
@@ -118,6 +142,8 @@ test('NAV-G a blow on a ship another stands: the striker sends the directed hit 
     [{ nv: { ...d.nv, c: 61 } }, 'more men than a galley'], [{ nv: { ...d.nv, f: 3 } }, 'no such fire'], [{ nv: { ...d.nv, f: 0.5 } }, 'half a fire'],
     [{ nv: { ...d.nv, z: 3 } }, 'no such zone'], [{ nv: { ...d.nv, h: 1.5 } }, 'a fraction'],
     [{ nv: { ...g.nv, h: 5 } }, 'a grapple with a hurt'], [{ nv: { ...g.nv, f: 1 } }, 'a grapple with a fire'], [{ nv: { ...g.nv, g: 2 } }, 'no such grapple'],
+    [{ nv: { ...k.nv, h: 5 } }, 'a claim with a hurt'], [{ nv: { ...k.nv, g: 1 } }, 'a claim and a grapple'], [{ nv: { ...k.nv, k: -1 } }, 'no such cask'],
+    [{ nv: { ...k.nv, k: 1.5 } }, 'half a cask'], [{ nv: { ...d.nv, a: 1 } }, 'an answer with no cask'], [{ nv: { ...a.nv, a: 2 } }, 'no such answer'],
   ]) assert.equal(validNavalHit(bad), null, why);
 });
 

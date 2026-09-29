@@ -6,16 +6,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { room } from './navalRoom.mjs';
-import { sea } from './navalSea.mjs';
-import { OWNER_SWEEP_S, OWNER_STALE_S, ORPHAN_S, PREDICT_MAX_S, PUPPET_SNAP_M, GRAPPLE_CLAIM_S, claimBeats, idSalt, hullBoxOf, rigBoxesOf } from '../src/scenes/navalHost.js';
-import { seedBaseOf, SEED_SALT, createNavalDirector } from '../src/systems/naval/navalDirector.js';
-import { NAVAL_GEN_MAX, navalWireRecord, validNavalRecord } from '../src/systems/naval/navalWire.js';
+import { sea, freshPool } from './navalSea.mjs';
+import { OWNER_SWEEP_S, OWNER_STALE_S, ORPHAN_S, PREDICT_MAX_S, PUPPET_SNAP_M, GRAPPLE_CLAIM_S, PEER_VOLLEYS_MAX, CLAIM_AGAIN_S, CLAIM_WAIT_S, GRANT_KEEP_S, claimBeats, idSalt, hullBoxOf, rigBoxesOf } from '../src/scenes/navalHost.js';
+import { seedBaseOf, SEED_SALT, createNavalDirector, DENSITY } from '../src/systems/naval/navalDirector.js';
+import { NAVAL_GEN_MAX, NAVAL_SHARE_RADIUS, NAVAL_WIRE_VOLLEYS, NAVAL_VOLLEY_KEEP_MS, navalWireRecord, validNavalRecord, navalHitData } from '../src/systems/naval/navalWire.js';
 import { SHIP_STATES } from '../src/systems/naval/navalDamage.js';
 import { GRAPPLE_S } from '../src/systems/naval/navalBoarding.js';
 import { CROWNS } from '../src/systems/naval/navalShips.js';
 import { NAVY_HUNTS, WRECK_SPARE_S } from '../src/systems/naval/navalAI.js';
 import { NAVAL_SFX } from '../src/systems/naval/navalSounds.js';
-import { BARREL_ARM } from '../src/systems/naval/navalShots.js';
+import { BARREL_ARM, BALL_STEP_S, createShotField } from '../src/systems/naval/navalShots.js';
+import { shotPosition } from '../src/systems/naval/navalBallistics.js';
 
 const bySeed = (c, seed) => [...c.s.host._sea.values()].find((e) => e.ship.seed === seed) ?? null;
 const flat = (a, b) => Math.hypot(a[0] - b[0], a[2] - b[2]);
@@ -474,4 +475,209 @@ test('AUDIT NAV1 (online) ANOTHER PLAYER\'S BOAT STOPS A SHIP\'S BALL on the sta
   heard = A.s.log.sounds.length;
   assert.equal(fly(brig.id), 0, 'and stops on her hull');
   assert.ok(struck(heard), 'heard striking her');
+});
+
+test('AUDIT NAV1 (online #15) A VOLLEY HEARD LATE landed late by the word\'s cadence - by a word and more when a later one first carried it - where her mark no longer lay; now each volley says its age and a reader flies it from as far along as it is, in step with her shooter\'s (mutants: the age unsaid, unread, the balls started at their fire)', async () => {
+  const online = { id: () => 'b-player', peers: () => [{ id: 'a-player', feet: [0, 0, 0] }], sendHit: () => true };
+  const prompt = await sea({ hull: 2, online, pool: await freshPool() });
+  const late = await sea({ hull: 2, online, pool: await freshPool() });
+  const word = (age) => ({ s: [], v: [[9, -1, 2, 0, 0, 3, 400, Math.PI, 0, 0, 0.05, 4242, 0.6, age]], b: [] });
+  prompt.host.applyWord('a-player', word(0), (p) => p);
+  for (let i = 0; i < 18; i++) prompt.host.frame(1 / 30);
+  late.host.applyWord('a-player', word(600), (p) => p);   // the word that first carried her, 600 ms after she fired
+  prompt.host.frame(0.2); late.host.frame(0.2);
+  const at = (h) => h.host._shots.balls().map((b) => b.pos.map((v) => +v.toFixed(3)));
+  assert.ok(at(prompt).length >= 4, 'her balls in flight');
+  assert.deepEqual(at(late), at(prompt), 'the late reader\'s balls where the prompt one\'s are');
+  // and my own word says each volley's age as it stands
+  const h = await sea({ hull: 2, online: { id: () => 'a-player', peers: () => [], sendHit: () => true }, pool: await freshPool() });
+  h.host.attackInput(true); h.host.frame(0.1); h.host.attackInput(false);
+  h.host.frame(0.25);
+  assert.deepEqual(h.host.word((p) => p).v.map((v) => v[13]), [250]);
+});
+
+test('AUDIT NAV1 (online #15) A LATE BALL FLIES ITS ARC: a flight the step came to late - a peer\'s volley heard after she fired, a hitched frame - is walked BALL_STEP_S at a time, so it strikes what its arc passes through, never only what the chord between its ends does (mutants: the chord across the arc)', () => {
+  const p0 = [0, 5, 0], v0 = [0, 3, 60], back = 0.6;
+  const mid = shotPosition(p0, v0, back / 2, undefined, [0, 0, 0]), end = shotPosition(p0, v0, back, undefined, [0, 0, 0]);
+  const chordY = (p0[1] + end[1]) / 2;
+  assert.ok(mid[1] - chordY > 0.4, `the arc stands over its chord (${(mid[1] - chordY).toFixed(2)} m)`);
+  // a plank across the arc's middle, clear of the chord by more than a ball's radius
+  const lo = chordY + 0.2, hi = mid[1] + 0.2;
+  const plank = { id: 'plank', box: { c: [mid[0], (lo + hi) / 2, mid[2]], ax: [1, 0, 0], ay: [0, 1, 0], az: [0, 0, 1], h: [3, (hi - lo) / 2, 0.5] } };
+  const struck = (fly) => {
+    const events = [];
+    const field = createShotField({ seaY: () => 0, targets: () => [plank], onEvent: (e) => events.push(e), random: () => 0.5 });
+    fly(field);
+    return events.some((e) => e.type === 'hit' && e.target === 'plank');
+  };
+  const launch = [{ gun: 'long', index: 0, p0, v0, delay: 0 }];
+  assert.equal(struck((f) => { f.fireVolley({ id: 'v', shooter: 'ship', launches: launch, since: back }); f.step(0.01); }), true, 'heard late');
+  assert.equal(struck((f) => { f.fireVolley({ id: 'v', shooter: 'ship', launches: launch }); f.step(0); f.step(back + 0.01); }), true, 'a hitched frame');
+  assert.ok(BALL_STEP_S <= 0.1);
+});
+
+test('AUDIT NAV1 (online #15) MY WORD AFTER THE WORLD MOVED: the volleys and barrels it keeps were said where they were fired in the frame before an origin shift - an origin\'s move away, for as long as it kept them; now they move with the world (mutants: the volleys left behind, the barrels left behind)', async () => {
+  const h = await sea({ hull: 2, online: { id: () => 'a-player', peers: () => [], sendHit: () => true }, pool: await freshPool() });
+  h.host.attackInput(true); h.host.frame(0.1); h.host.attackInput(false);
+  h.view.look = { origin: [0, 5, 0], dir: [0, -0.2, -1] };
+  h.host.attackInput(true); h.host.frame(0.1); h.host.attackInput(false);
+  const said = () => { const w = h.host.word((p) => p); return [...w.v.map((v) => v.slice(4, 7)), ...w.b.map((b) => b.slice(1, 4))]; };
+  const before = said();
+  assert.equal(before.length, 2, 'a volley and a barrel');
+  h.host.offsetAll([100, 0, -50]);
+  assert.deepEqual(said(), before.map(([x, y, z]) => [+(x + 100).toFixed(2), y, +(z - 50).toFixed(2)]));
+});
+
+test('AUDIT NAV1 (online #15) ONE SEA, ONE TRAFFIC: the stander sailed everyone\'s sea at its own Ships at sea - a player who chose few met its many - now each word says its player\'s and a shared sea is sailed at the lowest of those who share it; a player out of reach counts for nothing (mutants: the stander\'s alone, a peer\'s unread, the unsaid default misread, the reach unbounded)', async () => {
+  const bSet = { ShipsAtSea: 'few' };
+  const r = await room([{ id: 'a', hull: 2, settings: { ShipsAtSea: 'many' } }, { id: 'b', hull: 2, settings: bSet }]);
+  const A = r.get('a'), B = r.get('b');
+  const seen = [];
+  const director = A.s.host.directorState, step = director.step;
+  director.step = (d, ctx) => { seen.push(ctx.density); return step.call(director, d, ctx); };
+  r.run(1);
+  assert.equal(seen.at(-1), DENSITY.few, 'b chose few: the shared sea sails at few');
+  bSet.ShipsAtSea = 'some';
+  r.run(1);
+  assert.equal(seen.at(-1), DENSITY.some, 'b\'s word says nothing of it now: the default');
+  moor(B, [0, 0, NAVAL_SHARE_RADIUS + 400]);
+  bSet.ShipsAtSea = 'few';
+  r.run(1);
+  assert.equal(seen.at(-1), DENSITY.many, 'b out of reach: a\'s own');
+});
+
+test('AUDIT NAV1 (online #14) A PEER\'S VOLLEYS BOUNDED: a word says NAVAL_WIRE_VOLLEYS and nothing bounded how many of them were new - word after word of them flew here; now at most PEER_VOLLEYS_MAX of one player\'s are flown in NAVAL_VOLLEY_KEEP_MS, the rest seen and never flown (mutants: the bound unread, the window never emptied)', async () => {
+  const h = await sea({ hull: 2, online: { id: () => 'b-player', peers: () => [{ id: 'a-player', feet: [0, 0, 0] }], sendHit: () => true }, pool: await freshPool() });
+  let flown = 0;
+  const fire = h.host._shots.fireVolley;
+  h.host._shots.fireVolley = (v) => { flown++; return fire(v); };
+  const word = (k) => ({ s: [], v: Array.from({ length: NAVAL_WIRE_VOLLEYS }, (_, i) => [k * 100 + i, -1, 2, 0, 0, 3, 400, Math.PI, 0, 0, 0.05, 4242 + i, 0.6]), b: [] });
+  for (let k = 0; k < 5; k++) { h.host.applyWord('a-player', word(k), (p) => p); h.host.frame(0.2); }
+  assert.equal(flown, PEER_VOLLEYS_MAX);
+  h.host.applyWord('a-player', word(0), (p) => p);
+  assert.equal(flown, PEER_VOLLEYS_MAX, 'the ones seen are never flown later');
+  h.host.frame(NAVAL_VOLLEY_KEEP_MS / 1000);
+  h.host.applyWord('a-player', word(9), (p) => p);
+  assert.equal(flown, PEER_VOLLEYS_MAX + NAVAL_WIRE_VOLLEYS, 'the window past, a word\'s worth flies again');
+});
+
+/** A ship of a's sunk by b's blows, her casks afloat in a's sea. */
+function sinkFor(r, classId = 'merchantGalleon', pos = [0, 0, 100]) {
+  const A = r.get('a');
+  const e = stand(A, classId, pos);
+  r.run(0.5);
+  for (let i = 0; i < 40 && e.ship.damage.state !== SHIP_STATES.sinking; i++) { A.s.host.applyPeerHit('b', navalHitData('a', { n: e.n, hull: 400 })); r.run(0.5); }
+  assert.equal(e.ship.damage.state, SHIP_STATES.sinking);
+  return e;
+}
+const casksOf = (c, owner = null) => c.s.host._shots.floaters().filter((f) => f.kind === 'flotsam' && f.owner === owner);
+
+test('AUDIT NAV1 (online #15) A SUNK SHIP\'S CASKS, EVERY PLAYER\'S TO HAUL: her casks floated in her stander\'s sea alone - a peer who sank her saw none - now they ride the stander\'s word, every player sees them where they float, and any player\'s boat hauls one in, claimed of their owner and drawn on the answer: one cask, one haul, whoever else reached it (mutants: the casks unsaid, unread, a peer\'s cask drawn unclaimed, the claim unanswered, answered twice, the answer unread, a cask gone from the word kept)', async () => {
+  const r = await room([{ id: 'a', hull: 2 }, { id: 'b', hull: 2 }, { id: 'c', hull: 2 }]);
+  const A = r.get('a'), B = r.get('b'), C = r.get('c');
+  moor(A, [0, 0, -700]); moor(B, [0, 0, 300]); moor(C, [0, 0, 500]);
+  sinkFor(r);
+  const afloat = casksOf(A);
+  assert.ok(afloat.length >= 1, 'what floats free of her, in a\'s sea');
+  r.run(0.5);
+  for (const X of [B, C]) assert.deepEqual(casksOf(X, 'a').map((f) => f.id).sort(), afloat.map((f) => `a:${f.id}`).sort(), 'every player sees them, a\'s');
+  const near = (X, f) => Math.hypot(X.s.host._shots.floater(`a:${f.id}`).pos[0] - f.pos[0], X.s.host._shots.floater(`a:${f.id}`).pos[2] - f.pos[2]);
+  assert.ok(afloat.every((f) => near(B, f) < 0.8), 'where a says they float');
+  A.s.host._shots.floater(afloat[0].id).pos[0] += 6;   // her sea's drift, not mine
+  r.run(0.5);
+  assert.ok(near(B, afloat[0]) < 0.8, 'and where a says it drifted');
+  // b and c sail through them at once
+  moor(B, afloat[0].pos); moor(C, afloat[0].pos);
+  r.run(1);
+  const hauled = B.s.log.given.length + C.s.log.given.length;
+  assert.equal(hauled, afloat.length - casksOf(A).length, 'each cask hauled once, whoever reached it');
+  assert.ok(hauled >= 1);
+  assert.equal(A.s.log.given.length, 0, 'never drawn by their owner');
+  r.run(1);
+  for (const X of [B, C]) assert.equal(casksOf(X, 'a').length, casksOf(A).length, 'a cask hauled is gone from every screen');
+});
+
+test('AUDIT NAV1 (online #15) A CASK\'S CLAIM HELD TO ITS END: an answer lost is answered again on the claim said again, and drawn once whatever answers come; a departed owner\'s casks are their heir\'s, the same casks said in the heir\'s word; an owner\'s empty word never leaves a cask for an heir to raise again (mutants: the claim said once, answered twice, the heir\'s own new casks, the empty word\'s casks kept)', async () => {
+  const r = await room([{ id: 'a', hull: 2 }, { id: 'b', hull: 2 }, { id: 'c', hull: 2 }]);
+  const A = r.get('a'), B = r.get('b'), C = r.get('c');
+  moor(A, [0, 0, -700]); moor(B, [0, 0, 300]); moor(C, [0, 0, 500]);
+  sinkFor(r);
+  r.run(0.5);
+  const cask = casksOf(A)[0], before = casksOf(A).length;
+  // the first answer to b lost on the wire
+  const take = B.s.host.applyPeerHit;
+  let lost = null;
+  B.s.host.applyPeerHit = (from, body) => { if (body.nv?.a && !lost) { lost = body; return false; } return take(from, body); };
+  moor(B, cask.pos);
+  r.run(0.5);
+  const answered = before - casksOf(A).length;
+  assert.ok(lost && answered >= 1, 'answered');
+  assert.equal(B.s.log.given.length, answered - 1, 'the answer lost: that cask not drawn yet');
+  r.run(CLAIM_AGAIN_S + 0.5);
+  assert.equal(B.s.log.given.length, answered, 'the claim said again, answered again: drawn');
+  B.s.host.applyPeerHit = take;
+  assert.equal(B.s.host.applyPeerHit('a', lost), false, 'the lost answer come late: never drawn twice');
+  assert.equal(B.s.log.given.length, answered);
+  assert.ok(CLAIM_WAIT_S > CLAIM_AGAIN_S);
+  // a's answer kept GRANT_KEEP_S for b's claim said again - and forgotten after
+  const claim = { to: 'a', nv: { ...lost.nv } };
+  delete claim.nv.a;
+  assert.equal(A.s.host.applyPeerHit('b', claim), true, 'b\'s claim said again: answered again');
+  r.run(GRANT_KEEP_S + 1);
+  assert.equal(A.s.host.applyPeerHit('b', claim), false, 'forgotten');
+  // a claim that never reaches its owner: the cask kept from my screen while the claim waits, back when it is given up
+  const w = await room([{ id: 'a', hull: 2 }, { id: 'b', hull: 2 }]);
+  moor(w.get('a'), [0, 0, -700]); moor(w.get('b'), [0, 0, 300]);
+  sinkFor(w);
+  w.run(0.5);
+  const lone = casksOf(w.get('a'))[0];
+  const hear = w.get('a').s.host.applyPeerHit;
+  w.get('a').s.host.applyPeerHit = (from, body) => (body.nv?.k != null ? false : hear(from, body));
+  moor(w.get('b'), lone.pos);
+  w.run(0.5);
+  moor(w.get('b'), [0, 0, 300]);
+  w.run(CLAIM_WAIT_S - 2);
+  assert.equal(w.get('b').s.host._shots.floater(`a:${lone.id}`), null, 'claimed: not stood again from a\'s word while it waits');
+  w.run(3);
+  assert.ok(w.get('b').s.host._shots.floater(`a:${lone.id}`), 'given up: back where a says it floats');
+  assert.equal(w.get('b').s.log.given.length, 0);
+  // a departed: their casks the heir's - the same casks, said in b's word, c's own copies taken over
+  const h = await room([{ id: 'a', hull: 2 }, { id: 'b', hull: 2 }, { id: 'c', hull: 2 }]);
+  moor(h.get('a'), [0, 0, -700]); moor(h.get('b'), [0, 0, 300]); moor(h.get('c'), [0, 0, 500]);
+  const sunk = sinkFor(h);
+  for (let t = 0; t < 60 && h.get('a').s.host._sea.has(sunk.id); t += 1) h.run(1);
+  assert.equal(h.get('a').s.host._sea.has(sunk.id), false, 'her hull gone: a\'s sea is her casks alone');
+  h.run(0.5);
+  const left = casksOf(h.get('a')).map((f) => f.id);
+  assert.ok(left.length >= 1, 'her casks afloat');
+  h.get('a').present = false;
+  h.run(OWNER_SWEEP_S + 1);
+  assert.deepEqual(casksOf(h.get('b')).map((f) => f.id).sort(), [...left].sort(), 'b takes them over where they float');
+  assert.deepEqual(casksOf(h.get('c'), 'b').map((f) => f.id).sort(), left.map((id) => `b:${id}`).sort(), 'c\'s the same casks, b\'s now');
+  assert.equal(casksOf(h.get('c'), 'a').length, 0);
+  // no heir's word: a non-heir's orphans let go after ORPHAN_S
+  const o = await room([{ id: 'a', hull: 2 }, { id: 'b', hull: 2 }, { id: 'c', hull: 2 }]);
+  moor(o.get('a'), [0, 0, -700]); moor(o.get('b'), [0, 0, 300]); moor(o.get('c'), [0, 0, 500]);
+  sinkFor(o);
+  o.run(0.5);
+  assert.ok(casksOf(o.get('c'), 'a').length >= 1);
+  o.get('b').quiet = true;
+  o.get('a').present = false;
+  o.run(OWNER_SWEEP_S + 1);
+  assert.ok(casksOf(o.get('c'), 'a').length >= 1, 'kept for the heir\'s word');
+  o.run(ORPHAN_S + OWNER_SWEEP_S);
+  assert.equal(casksOf(o.get('c'), 'a').length, 0, 'no word came: let go');
+  // an empty word: nothing of theirs afloat, never a cask for their heir to raise
+  const q = await room([{ id: 'a', hull: null, settings: { ShipsAtSea: 'some' } }, { id: 'b', hull: 2 }]);
+  moor(q.get('b'), [0, 0, 300]);
+  const gone = sinkFor(q);
+  for (let t = 0; t < 60 && q.get('a').s.host._sea.has(gone.id); t += 1) q.run(1);
+  q.run(1);
+  assert.deepEqual(Object.keys(q.get('a').s.host.word((p) => p)).filter((k) => q.get('a').s.host.word((p) => p)[k]?.length), ['f'], 'a\'s word: her casks alone');
+  assert.ok(casksOf(q.get('b'), 'a').length >= 1);
+  for (const f of casksOf(q.get('a'))) q.get('a').s.host._shots.removeFloater(f.id);   // hauled in by a's own
+  assert.equal(q.get('a').s.host.word((p) => p), null, 'a says nothing now');
+  q.run(1);
+  assert.equal(casksOf(q.get('b'), 'a').length, 0, 'gone from b\'s screen');
+  assert.equal(casksOf(q.get('b')).length, 0, 'and never b\'s to raise');
 });

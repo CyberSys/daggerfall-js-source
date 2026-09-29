@@ -103,6 +103,7 @@ async function harness(o = {}) {
     law: { crime() {}, legal() {}, faction() {} },
     board: { leaveHelm() {}, placePlayer() {}, deckSpots: (_b, n) => Array.from({ length: n }, (_, i) => [[i, 5, 0], 0]), spawnFoe: () => ({ dead: false }), foeDown: () => false, removeFoe() {}, startRaid: () => null, openPlunder: () => true, giveItems: () => ({ left: [] }) },
     hold: () => [], online: o.online ?? null, setting: (k) => o.settings?.[k], random: seeded(3), shake() {},
+    sendHit: (d) => !!o.online?.sendHit?.(d),
     raiderSpent: (id) => log.spent.push(id),
   };
   const host = createNavalHost(deps);

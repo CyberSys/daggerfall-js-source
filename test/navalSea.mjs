@@ -77,6 +77,7 @@ export async function sea(o = {}) {
     hold: (key, tier) => [{ name: `${key}@${tier}` }],
     online: o.online ?? null, setting: (k) => (o.settings ?? { ShipsAtSea: 'off' })[k], random: seeded(o.seed ?? 5), shake: (a) => log.shake.push(a),
     peerBoats: () => o.peerBoats?.() ?? [],
+    sendHit: (d) => !!o.online?.sendHit?.(d),   // the world's hit retry queue, stood in for by the room's own door
     raiderSpent: (id) => log.spent.push(id),
   };
   const host = createNavalHost(deps);

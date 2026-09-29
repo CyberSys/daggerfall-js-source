@@ -154,4 +154,8 @@
 - Pirates attack every player's boat. Players cannot hurt each other's boats.
 - A pirate's fire barrel now hurts any player's boat that sails onto it. Before, it only hurt the player whose game ran the pirate.
 - Pirates now come alongside and board any player's crippled or stopped boat, and that player fights the boarders on their own deck. Before, a pirate would sit beside another player's wreck for good, and they could neither travel nor rest. Turn off Features > Naval Combat > Pirates board you and they leave you be.
+- The floating cargo of a sunk ship now shows for every player, and any player can haul it in by sailing through it. Each cask goes to whoever reaches it first. Before, only the player whose game ran the ship saw the casks, so a player who sank her got nothing.
+- Other players' broadsides now fly in time with their guns. Before, they could land up to a second and a half late on your screen, where their target no longer was.
+- A hit on another player's ship is no longer lost when the connection hiccups. It is sent again a moment later.
+- When players share a sea, it has the fewest ships any of them chose under Ships at sea. Before, the choice of the player whose game ran the sea applied to everyone.
 - Features > Naval Combat has settings for how many ships sail, whether pirates board you, the raiders' plunder and the broadside camera.

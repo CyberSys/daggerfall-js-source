@@ -6167,8 +6167,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     },
     get online() {
       if (!online || online.status !== 'open' || !isCellRoom(online.room)) return null;
-      return { id: () => online?.id ?? null, peers: () => peersNear() ?? [], sendHit: (data) => !!online?.sendHit?.(data) };
+      return { id: () => online?.id ?? null, peers: () => peersNear() ?? [] };
     },
+    // AUDIT NAV1 (online #9): a blow or a claim to another player through the world's hit retry queue (AUDIT FOES FOE2,
+    // net/hitPend.js) - one the wire refused, or sent while the socket was away, goes a frame later instead of never
+    sendHit: (data) => hitSend(data),
     peerBoats: () => csaPeers.helmBoats(),
     swimming: () => walkMode && playerSpawned && !!player.isPlayerSwimming,   // AUDIT NAV1: a cask hauled in by a swimmer
     warmAshesOn: () => warmAshesOn(),

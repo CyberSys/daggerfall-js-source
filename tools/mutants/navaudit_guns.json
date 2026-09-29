@@ -300,8 +300,8 @@
   {
     "name": "NAV1G-the-rig-never-struck",
     "file": "src/systems/naval/navalShots.js",
-    "old": "      for (const r of rigsCrossed(targets, a, next, radius, b, firstT)) {",
-    "new": "      for (const r of []) {",
+    "old": "    for (const r of rigsCrossed(targets, a, next, radius, b, firstT)) {",
+    "new": "    for (const r of []) {",
     "tests": [
       "test/navaudit_guns.test.js"
     ]
@@ -318,8 +318,8 @@
   {
     "name": "NAV1G-the-targets-per-ball",
     "file": "src/systems/naval/navalShots.js",
-    "old": "      const ship = nearestHit(targets, a, next, radius, b.shooter);",
-    "new": "      const ship = nearestHit(deps.targets(), a, next, radius, b.shooter);",
+    "old": "    const ship = nearestHit(targets, a, next, radius, b.shooter);",
+    "new": "    const ship = nearestHit(deps.targets(), a, next, radius, b.shooter);",
     "tests": [
       "test/navaudit_guns.test.js"
     ]

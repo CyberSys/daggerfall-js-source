@@ -79,6 +79,7 @@ async function harness(o = {}) {
     },
     hold: (key, tier) => [{ name: `${key}@${tier}` }],
     online: o.online ?? null, setting: (k) => o.settings?.[k], random: seeded(o.seed ?? 1), shake: (a) => log.shake.push(a),
+    sendHit: (d) => !!o.online?.sendHit?.(d),   // the world's hit retry queue, stood in for by the room's own door
   };
   const host = createNavalHost(deps);
   if (o.save) host.restoreSaveData(o.save);
@@ -404,9 +405,13 @@ test('NAV-H online, the striker: the stander\'s ships stand here as puppets ease
 
 // ── the world host's wiring ─────────────────────────────────────────────────────────────────────────────────────
 
-test('NAV-H the world host: one naval host on Come Sail Away\'s pool, its record in the save\'s per-mod slot, its frame after the helm moved the boat and before the pool walks the hulls, the Activate ladder\'s own arm, its pass after the boats\' drops, its lights beside the Thunderlock\'s flash, the origin\'s move, every transition, the quest foes on a boarded deck, the raid\'s end and Warm Ashes\' gate (mutants: a door unwired)', () => {
+test('NAV-H the world host: one naval host on Come Sail Away\'s pool, its record in the save\'s per-mod slot, its frame after the helm moved the boat and before the pool walks the hulls, the Activate ladder\'s own arm, its pass after the boats\' drops, its lights beside the Thunderlock\'s flash, the origin\'s move, every transition, the quest foes on a boarded deck, the raid\'s end and Warm Ashes\' gate, and (AUDIT NAV1, online #9) a blow or a claim to another player through the world\'s hit retry queue (mutants: a door unwired, a bare send)', () => {
   const w = src('scenes/world.js');
   assert.match(w, /naval = createNavalHost\(\{/);
+  // AUDIT NAV1 (online #9): the sea's blows and grapples through AUDIT FOES FOE2's pending set - one the wire refused, or
+  // sent while the socket was away, goes a frame later (a bare send threw the refusal away: a blow that never happened)
+  assert.match(w, /\n\s+sendHit: \(data\) => hitSend\(data\),\n/);
+  assert.match(w, /return \{ id: \(\) => online\?\.id \?\? null, peers: \(\) => peersNear\(\) \?\? \[\] \};/, 'the room\'s view carries no door of its own');
   assert.match(w, /registerModSaveData\(NAVAL_SAVE_VENDOR, naval\);/);
   assert.match(w, /cam\.pos = player\.eyeAt\(\);\n\s+navalFrame\(dt\);/, 'after the eye is taken');
   assert.ok(w.indexOf('navalFrame(dt);   // NAV-H') < w.indexOf('csaPoolFrame(dt);   // CSA-B/C'), 'before the pool walks the hulls it posed');

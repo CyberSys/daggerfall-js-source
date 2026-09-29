@@ -28,6 +28,8 @@ export const HOLD_KEYS = Object.freeze({
 });
 /** The flagship's strongbox. */
 export const STRONGBOX_KEY = 'J';
+/** AUDIT NAV1 (online #15): every key a lot can be drawn under, once - a cask says its lot on the wire by its row here. */
+export const LOT_KEYS = Object.freeze([...new Set([...Object.values(HOLD_KEYS).flat(), STRONGBOX_KEY])]);
 /** The captor's choices (AUDIT NAV1 B13: her papers the fourth). @type {readonly ('repair'|'powder'|'press'|'papers')[]} */
 export const CHOICES = Object.freeze(['repair', 'powder', 'press', 'papers']);
 /**
