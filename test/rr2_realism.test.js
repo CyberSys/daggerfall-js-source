@@ -140,7 +140,9 @@ test('RR2 the decision per person: the two switches, the face override for the b
   // the interior context asks per person and draws the answer; identity keeps the born flat
   const ic = rd('src/scenes/interiorContext.js');
   assert.match(ic, /const v = opts\.variantPerson\?\.\(pn\) \?\? null;/);
-  assert.match(ic, /\.\.\.\(v \? \{ drawArchive: v\.textureArchive, drawRecord: v\.textureRecord \} : \{\}\)/);
+  // NUDE-FLATS: the answer reaches the draw through drawnFlat (a dressed variant is itself), and a variant always draws
+  assert.match(ic, /const \[da, dr\] = drawnFlat\(v\?\.textureArchive \?\? pn\.textureArchive, v\?\.textureRecord \?\? pn\.textureRecord\);/);
+  assert.match(ic, /const redrawn = v \|\| da !== pn\.textureArchive \|\| dr !== pn\.textureRecord;[^\n]*\n[^\n]*\.\.\.\(redrawn \? \{ drawArchive: da, drawRecord: dr \} : \{\}\)/);
   // AUDIT 68 S21-person-hide-noop: the build's stand and the late one are one stand now - four reads, every one a draw
   assert.ok((ic.match(/pn\.drawArchive \?\? pn\.textureArchive/g) ?? []).length >= 4, 'every draw read');
   assert.doesNotMatch(ic, /(?:getTexture|uploadRecord|createBillboardBatch)\(pn\.textureArchive/, 'and none reads the born flat');

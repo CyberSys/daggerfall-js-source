@@ -4374,7 +4374,7 @@ room exists.
 
 **The boundary that makes that safe is `_layoutFoes`** - the dungeon
 host's index of where the layout's own run ends. Every foe past it "is
-this player's own" (`dungeonContext.js:1285`, AUDIT WORLD B2): a quest
+this player's own" (`dungeonContext.js:1287`, AUDIT WORLD B2): a quest
 foe is minted above it, never streamed, never puppet-ised by the room's
 authority switch, and never touched by a joiner's stream. So a joiner's
 quest foe really does spawn and really can be killed by the player whose
@@ -4743,7 +4743,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7005` read, on one physical line:
+`src/scenes/worldModes.js:7022` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4758,7 +4758,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:5117`). With the property missing that call is a
+(`dungeonContext.js:5129`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4885,7 +4885,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:6525` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:6570` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -10598,3 +10598,21 @@ law), and is out of this slice by Mac's choice. `/spawn` and `/killall` were lef
 foes are shared online, so both act on other players.
 
 `net/staffCommands.js` (pure); `test/staff1.test.js` (5); `tools/mutants/staff1.json` (16, all dead).
+
+## VOICE1 reverted (2026-09-28, Mac: "Do not merge voice chat. Please revert voice chat but keep other changes") - world124 again
+
+VOICE1 (proximity voice chat, world125) and AUDIT VOICE1 came out whole with PR #427's merge reverted:
+- the links and the sound (`net/proxVoice.js`), earshot (`net/voiceLaw.js`), and who is speaking (`ui/voiceHud.js`);
+- the relay's `rtc` frame and its arm;
+- the `PushToTalk` action and the voice prefs.
+
+The relay is world124's bytes again, and `RELAY_VERSION` names world124. world125's row stays in
+`test/relayversion.test.js` as the record of bytes that were deployed.
+
+Kept: VIEW-TOGGLE (PR #427's other change - `TogglePerspective`, one press first person or third, on the mouse's
+forward side button), and the side-button plumbing it rides, which came with VOICE1:
+- `ui/input.js` `MOUSE_CODES` through Mouse4;
+- `systems/keyCodes.js`' Mouse3 and Mouse4;
+- the world host keeping the side buttons from the browser's Back and Forward.
+
+`test/viewtoggle.test.js` pins all three.

@@ -13,10 +13,10 @@ const store = new Map();
 globalThis.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
 
 const { onlineSyncPlan, applyOnlineSync, undoOnlineSync, lastOnlineSync, ONLINE_SYNC_STORE_KEY, ONLINE_LAYOUT_SETTINGS } = await import('../src/systems/onlineSync.js');
-const { ONLINE_FORCED_PREFS, ONLINE_FORCED_SETTINGS, ONLINE_ROOM_MOD_KEYS } = await import('../src/systems/onlineLane.js');
+const { ONLINE_FORCED_PREFS, ONLINE_FORCED_SETTINGS, ONLINE_ROOM_MOD_KEYS, ONLINE_WHOLE_MODS } = await import('../src/systems/onlineLane.js');
 const { getPref, setPref, _resetForTests: resetPrefs } = await import('../src/systems/uiPrefs.js');
 const { getString, getBool, setValue, saveSettings, _resetForTests: resetSettings } = await import('../src/systems/settings.js');
-const { modSetting, setModSetting, _resetModSettings } = await import('../src/systems/modSettings.js');
+const { modSetting, setModSetting, _resetModSettings, MOD_SETTINGS } = await import('../src/systems/modSettings.js');
 const { onlineSyncCard, ONLINE_SYNC_TITLE, ONLINE_SYNC_SAME } = await import('../src/ui/enhancedMenu.js');
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
@@ -34,6 +34,9 @@ test('UXB1-E: the plan is the lane\'s tables, whole - every forced pref, every f
     ...Object.keys(ONLINE_FORCED_PREFS).map((k) => `prefs:${k}`),
     ...[ONLINE_FORCED_SETTINGS, ONLINE_LAYOUT_SETTINGS].flatMap((t) => Object.entries(t).flatMap(([s, keys]) => Object.keys(keys).map((k) => `settings:${s}/${k}`))),
     ...Object.entries(ONLINE_ROOM_MOD_KEYS).flatMap(([v, keys]) => Object.keys(keys).map((k) => `mods:${v}/${k}`)),
+    // REALM P0.2: and every other key of a balance mod the room owns whole (its shipped default), the cosmetic keys aside
+    ...Object.entries(ONLINE_WHOLE_MODS).flatMap(([v, own]) => Object.keys(MOD_SETTINGS[v].keys)
+      .filter((k) => !Object.hasOwn(ONLINE_ROOM_MOD_KEYS[v] ?? {}, k) && !own.includes(k)).map((k) => `mods:${v}/${k}`)),
   ];
   assert.deepEqual(ids, want);
   assert.ok(ids.includes('prefs:enhancedAI'), 'the registry\'s `online: true` rows are in the lane\'s table by the time the plan reads it');

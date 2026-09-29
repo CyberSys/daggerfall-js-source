@@ -54,8 +54,9 @@ test('SLOTS1: the pick seams hand a key and a name over once (mutant: a pick tak
   // TILE2: a TILE per slot now, in one grid - Mac: "I want [this pane]
   // reserved for a detailed tile based design for your saves". The
   // pressed one is still the character brought in.
-  assert.match(online, /body\.append\(tileGrid\(saves,[\s\S]*?_pickedSaveKey = save\.key; onAction\('online'\);/,
-    'a tile per slot, the pressed one is the character brought in');
+  // REALM P1.5: the pressed slot is brought in through customs now (bringOnline) - a local slot never boots online
+  assert.match(online, /body\.append\(tileGrid\(saves,[\s\S]*?onClick: \(\) => \{ if \(!realmBusy\) bringOnline\(save\); \},/,
+    'a tile per slot, the pressed one is the character brought in - once, through customs');
   // ACC1g MOVED THE GUARD OFF THIS BUTTON, and the reason is the whole
   // slice: NAME-F2's check was about a name the player TYPED into this
   // pane, and there is no such name any more. The account service
@@ -68,7 +69,7 @@ test('SLOTS1: the pick seams hand a key and a name over once (mutant: a pick tak
   // rather than a live one that fails at the relay: the relay refuses
   // an unverified hello whatever this pane does, and the pane declines
   // to send a player into a refusal it can already see.
-  const latch = online.indexOf('_pickedSaveKey = save.key;');
+  const latch = online.indexOf("_pickedRealmId = row.id; onAction('online');");   // REALM P1.3: the pick is the realm character's
   assert.ok(latch > 0, 'the pick is still latched by the press');
   assert.match(online, /disabled: !who(?: \|\| save\.testRoom)?,/, 'signed out is a dead Play online button (AUDIT SET D4: and a Test Room character\'s)');
   assert.match(online, /const who = storedSession\(appStorage\(\)\);/,
@@ -110,7 +111,8 @@ test('SLOTS1: the pick seams hand a key and a name over once (mutant: a pick tak
 test('SLOTS1: the doors act on the pick - main.js sets ?loadkey for load and online alone (set-or-delete), the pause door routes the name to saveAs and the key to loadKey behind the verbs the MAC1 pin reads, and the world host\'s load arm reads the key (mutant: the key set on Continue)', () => {
   const main = rd('src/main.js');
   const branch = main.slice(main.indexOf("if (choice !== 'begin') {"), main.indexOf('// FD1: BEGIN'));
-  assert.match(branch, /const \{ takePickedSaveKey \} = await import\('\.\/ui\/enhancedMenu\.js'\);\s*\n\s*const picked = takePickedSaveKey\(\);\s*\n\s*if \(\(choice === 'load' \|\| choice === 'online'\) && picked != null\) params\.set\('loadkey', String\(picked\)\);\s*\n\s*else params\.delete\('loadkey'\);/);
+  // REALM P1.3: online no longer brings a local slot in - the Online door's character is the realm's, its id rides ?realm
+  assert.match(branch, /const \{ takePickedSaveKey, takePickedRealmId \} = await import\('\.\/ui\/enhancedMenu\.js'\);\s*\n\s*const picked = takePickedSaveKey\(\);\s*\n\s*if \(choice === 'load' && picked != null\) params\.set\('loadkey', String\(picked\)\);[^\n]*\n\s*else params\.delete\('loadkey'\);/);
   assert.ok(branch.indexOf("params.set('loadkey'") < branch.indexOf('return bootWorld('), 'before the boot');
   const door = rd('src/ui/pauseDoor.js');
   assert.match(door, /function enhancedPauseOverlay\(show, base\) \{/);

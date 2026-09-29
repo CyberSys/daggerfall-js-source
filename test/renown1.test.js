@@ -1,9 +1,10 @@
 // RENOWN1 (2026-09-24, Mac: "What if the leveling system was something seperate unique to online but compatible"; asked:
 // the online health and magicka "On top" of Daggerfall's, a long "Grind", offline earning "No" - "Plus having their
 // level appear on the left side of character name and profile main menu + ingame profile"): THE RENOWN,
-// DRIVEN. The curve and the rules (net/renown.js); the service's track over the real migrations - the hour's bound
-// the ACCOUNT's across its characters and spent in one statement, the tracks' bound, the cap (server-account/src/
-// renownTracks.js) - and its routes and the token's `lv`; the token's and the order's law (a renown order never passes at
+// DRIVEN. The curve and the rules (net/renown.js - RENOWN-ACCOUNT's three quarters of every source); the service's
+// track over the real migrations - ONE an account since RENOWN-ACCOUNT, the hour's bound the ACCOUNT's and spent in one
+// statement, the cap (server-account/src/renownTracks.js; test/renown_account.test.js holds the account's own law) -
+// and its routes and the token's `lv`; the token's and the order's law (a renown order never passes at
 // the mute's door); the relay stamping the level beside the name and taking a renown order only from the account it
 // names; the client session reading both; the tracker's one rule for a kill (a foe pays whoever struck last, if a blow
 // of mine is recent) and its report; the online layer on top of the live maximums and never in a save; and the level
@@ -16,12 +17,12 @@ import { DatabaseSync } from 'node:sqlite';
 import worker from '../server-account/src/index.js';
 import { _resetKeyForTests } from '../server-account/src/signing.js';
 import { createGuest } from '../server-account/src/accounts.js';
-import { reportRenownXp, renownTracksOf, renownTrackOf, renownNameOf, RENOWN_CARD_TRACKS } from '../server-account/src/renownTracks.js';
+import { reportRenownXp, renownTrackOf } from '../server-account/src/renownTracks.js';
 import { ROUTES, OPEN_ROUTES } from '../server-account/src/service.js';
 import {
   RENOWN_MAX, RENOWN_XP_MAX, renownXpFor, renownForXp, renownProgress, renownProgressText, renownText,
-  renownKillXp, renownQuestXp, renownPartyXp, renownBonus, RENOWN_XP_REPORT_MAX, RENOWN_XP_HOUR_MAX, RENOWN_TRACKS_MAX, RENOWN_REPORT_MS,
-  RENOWN_KILL_XP_PER_LEVEL, RENOWN_KILL_LEVEL_MAX, RENOWN_PARTY_COUNT_MAX, RENOWN_HP_PER_LEVEL, RENOWN_MP_PER_LEVEL,
+  renownKillXp, renownQuestXp, renownPartyXp, renownBonus, RENOWN_XP_REPORT_MAX, RENOWN_XP_HOUR_MAX, RENOWN_REPORT_MS,
+  RENOWN_KILL_XP_PER_LEVEL, RENOWN_KILL_LEVEL_MAX, RENOWN_PARTY_COUNT_MAX, RENOWN_HP_PER_LEVEL, RENOWN_MP_PER_LEVEL, renownRate,
 } from '../src/net/renown.js';
 import {
   claimsValid, mintToken, verifyToken, orderValid, mintOrder, mintRenownOrder, verifyOrder, renownIssuable, ORDER_KINDS,
@@ -106,15 +107,15 @@ test('RENOWN1 the curve: EverQuest\'s shape in integers - level 2 at 100, 10 at 
   for (const bad of [0, 51, 1.5, '12', null, undefined]) assert.equal(renownText(bad), null, `${bad} is no level`);
 });
 
-test('RENOWN1 the rules: a kill is ten to its foe\'s level (clamped 1..30), a quest 100 + 40 a character level, a party adds 10% a head beyond the first up to its eight seats; the online bonus is 3 health and 2 magicka a level past the first - level 1 adds nothing, level 50 adds 147 and 98 (mutants: a party that SPLITS the kill; the bonus from level 0; a clamp unread)', () => {
-  // RENOWN3 reads both against the character's Renown; at the cap's Renown nothing is read lower, so these are the
-  // RENOWN1 rules themselves (test/renown3.test.js holds the ceiling)
-  assert.equal(renownKillXp(1, RENOWN_MAX), 10);
-  assert.equal(renownKillXp(20, RENOWN_MAX), 200);
-  assert.equal(renownKillXp(0, RENOWN_MAX), RENOWN_KILL_XP_PER_LEVEL, 'a foe with no level is a level-1 foe');
-  assert.equal(renownKillXp(99, RENOWN_MAX), RENOWN_KILL_XP_PER_LEVEL * RENOWN_KILL_LEVEL_MAX);
-  assert.equal(renownQuestXp(1, RENOWN_MAX), 140);
-  assert.equal(renownQuestXp(10, RENOWN_MAX), 500);
+test('RENOWN1 the rules: a kill is ten to its foe\'s level (clamped 1..30) and a quest 100 + 40 a character level at the full rate - RENOWN-ACCOUNT pays three quarters of both (7.5 a foe level, 75 + 30 a character level); a party adds 10% a head beyond the first up to its eight seats; the online bonus is 3 health and 2 magicka a level past the first - level 1 adds nothing, level 50 adds 147 and 98 (mutants: a party that SPLITS the kill; the bonus from level 0; a clamp unread)', () => {
+  // RENOWN3 reads both against the Renown; at the cap's Renown nothing is read lower, so these are the RENOWN1 rules
+  // themselves at RENOWN-ACCOUNT's rate (test/renown3.test.js holds the ceiling, test/renown_account.test.js the rate)
+  assert.equal(renownKillXp(1, RENOWN_MAX), 7);
+  assert.equal(renownKillXp(20, RENOWN_MAX), 150);
+  assert.equal(renownKillXp(0, RENOWN_MAX), renownRate(RENOWN_KILL_XP_PER_LEVEL), 'a foe with no level is a level-1 foe');
+  assert.equal(renownKillXp(99, RENOWN_MAX), renownRate(RENOWN_KILL_XP_PER_LEVEL * RENOWN_KILL_LEVEL_MAX));
+  assert.equal(renownQuestXp(1, RENOWN_MAX), 105);
+  assert.equal(renownQuestXp(10, RENOWN_MAX), 375);
   assert.equal(renownQuestXp(99, RENOWN_MAX), renownQuestXp(30, RENOWN_MAX));
   assert.equal(renownPartyXp(100, 1), 100, 'alone: the kill');
   assert.equal(renownPartyXp(100, 4), 130, 'four in the room: MORE a head, never a share');
@@ -125,60 +126,57 @@ test('RENOWN1 the rules: a kill is ten to its foe\'s level (clamped 1..30), a qu
   assert.deepEqual(renownBonus(50), { hp: 147, mp: 98 });
   assert.deepEqual(renownBonus(99), renownBonus(50));
   assert.equal(RENOWN_XP_REPORT_MAX, 5000);
-  assert.equal(RENOWN_XP_HOUR_MAX, 20000);
+  assert.equal(RENOWN_XP_HOUR_MAX, 15000, 'RENOWN-ACCOUNT: a quarter off the 20,000, as every source');
 });
 
 // ── THE SERVICE ─────────────────────────────────────────────────────
 
-test('RENOWN1 the track: one row a character, the level DERIVED from its total; the hour\'s bound is the ACCOUNT\'s across all its characters and a new clock hour opens it again; a report the hour spent is credited 0, answered, never refused; the track stops at the cap without spending the hour; `rose` says a level rose (mutants: the bound per character; the window never reset; the cap unread; rose always)', async () => {
+test('RENOWN1 the track: ONE row an ACCOUNT (RENOWN-ACCOUNT - it was one a character), the level DERIVED from its total; the hour\'s bound is the ACCOUNT\'s whichever character earns and a new clock hour opens it again; a report the hour spent is credited 0, answered, never refused; the track stops at the cap without spending the hour; `rose` says a level rose (mutants: the bound per character; the window never reset; the cap unread; rose always)', async () => {
   const db = d1();
   const P = await player(db);
   let r = await reportRenownXp({ db, nowS: T0 }, P, { character: 'char-aaaa', xp: 150, name: 'Mara Venn' });
-  assert.deepEqual(r, { character: 'char-aaaa', xp: 150, level: 2, credited: 150, rose: true });
+  assert.deepEqual(r, { xp: 150, level: 2, credited: 150, rose: true });
   r = await reportRenownXp({ db, nowS: T0 + 1 }, P, { character: 'char-aaaa', xp: 50 });
-  assert.deepEqual(r, { character: 'char-aaaa', xp: 200, level: 2, credited: 50, rose: false }, 'no new level, no rise');
-  // the hour, across two characters: 200 + 5000*3 + (the rest) = RENOWN_XP_HOUR_MAX
-  for (let i = 0; i < 3; i++) assert.equal((await reportRenownXp({ db, nowS: T0 + 2 + i }, P, { character: 'char-bbbb', xp: 5000 })).credited, 5000);
+  assert.deepEqual(r, { xp: 200, level: 2, credited: 50, rose: false }, 'no new level, no rise');
+  // the hour, across two characters: 200 + 5000*2 + (the rest) = RENOWN_XP_HOUR_MAX
+  for (let i = 0; i < 2; i++) assert.equal((await reportRenownXp({ db, nowS: T0 + 2 + i }, P, { character: 'char-bbbb', xp: 5000 })).credited, 5000);
   r = await reportRenownXp({ db, nowS: T0 + 9 }, P, { character: 'char-bbbb', xp: 5000 });
-  assert.equal(r.credited, RENOWN_XP_HOUR_MAX - 200 - 15000, 'the rest of the ACCOUNT\'s hour, not a fresh allowance for a second character');
+  assert.equal(r.credited, RENOWN_XP_HOUR_MAX - 200 - 10000, 'the rest of the ACCOUNT\'s hour, not a fresh allowance for a second character');
   r = await reportRenownXp({ db, nowS: T0 + 10 }, P, { character: 'char-aaaa', xp: 100 });
-  assert.deepEqual([r.credited, r.xp], [0, 200], 'the hour is spent: credited nothing, answered');
+  assert.deepEqual([r.credited, r.xp], [0, RENOWN_XP_HOUR_MAX], 'the hour is spent: credited nothing, answered - with the ACCOUNT\'s total, both characters\' XP on it');
   r = await reportRenownXp({ db, nowS: T0 + 3600 }, P, { character: 'char-aaaa', xp: 100 });
   assert.equal(r.credited, 100, 'the next clock hour is a new window');
-  // the tracks, the card's order, the names
-  const cards = await renownTracksOf({ db }, P.id);
-  assert.deepEqual(cards.map((t) => [t.character, t.name, t.level]), [['char-aaaa', 'Mara Venn', 3], ['char-bbbb', null, renownForXp(RENOWN_XP_HOUR_MAX - 200)]], 'most recently earned first; a report with no name keeps none');
-  assert.deepEqual(await renownTrackOf({ db }, P.id, 'char-aaaa'), { xp: 300, level: 3 });
-  assert.equal(await renownTrackOf({ db }, P.id, 'char-none'), null, 'a character that earned nothing has no track: level 1');
-  assert.equal(renownNameOf('  Mara \n Venn '), 'Mara Venn');
-  assert.equal(renownNameOf('x'.repeat(33)), null);
-  assert.equal(renownNameOf(''), null);
+  // THE ONE TRACK: both characters' XP on it - no name and no character kept
+  assert.deepEqual(await renownTrackOf({ db }, P.id), { xp: RENOWN_XP_HOUR_MAX + 100, level: renownForXp(RENOWN_XP_HOUR_MAX + 100) });
+  assert.equal(await renownTrackOf({ db }, (await player(db)).id), null, 'an account that earned nothing has no track: level 1');
+  assert.deepEqual(db._raw.prepare("SELECT name FROM pragma_table_info('renown_accounts')").all().map((c) => c.name).filter((c) => /name|char/.test(c)), [], 'no name and no character kept: the Renown is the account\'s');
   // the cap: a track at RENOWN_XP_MAX earns nothing and spends none of the hour
   const Q = await player(db);
-  db._raw.prepare('INSERT INTO renown_tracks (player, char_id, name, xp, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').run(Q.id, 'char-capp', 'Old', RENOWN_XP_MAX - 10, T0, T0);
+  db._raw.prepare('INSERT INTO renown_accounts (player, xp, created_at, updated_at) VALUES (?, ?, ?, ?)').run(Q.id, RENOWN_XP_MAX - 10, T0, T0);
   r = await reportRenownXp({ db, nowS: T0 + 7200 }, Q, { character: 'char-capp', xp: 500 });
   assert.deepEqual([r.xp, r.level, r.credited, r.rose, r.max], [RENOWN_XP_MAX, 50, 10, true, true], 'the last ten, and the top level');
-  r = await reportRenownXp({ db, nowS: T0 + 7201 }, Q, { character: 'char-capp', xp: 500, name: 'New' });
-  assert.deepEqual([r.xp, r.credited, r.rose, r.max], [RENOWN_XP_MAX, 0, false, true]);
+  r = await reportRenownXp({ db, nowS: T0 + 7201 }, Q, { character: 'char-newb', xp: 500, name: 'New' });
+  assert.deepEqual([r.xp, r.credited, r.rose, r.max], [RENOWN_XP_MAX, 0, false, true], 'and so for every character of the account');
   assert.equal(db._raw.prepare('SELECT renown_hour_xp AS n FROM players WHERE id = ?').get(Q.id).n, 10, 'the hour paid only the ten the track could take, and nothing at the cap');
-  assert.equal((await renownTracksOf({ db }, Q.id))[0].name, 'New', 'but it is still the character last played');
+  assert.deepEqual(await renownTrackOf({ db }, Q.id), { xp: RENOWN_XP_MAX, level: 50 });
 });
 
-test('RENOWN1 the service\'s refusals and the race: a character id outside the saves\' shape, an amount outside 1..RENOWN_XP_REPORT_MAX, a new character past RENOWN_TRACKS_MAX; two reports in flight at once never spend the same remainder (mutants: a report of 0 or a fraction taken; the tracks unbounded; read-then-write)', async () => {
+test('RENOWN1 the service\'s refusals and the race: an amount outside 1..RENOWN_XP_REPORT_MAX is refused - RENOWN-ACCOUNT: a character id outside the saves\' shape, or a new character past sixty, is not (the Renown is the account\'s: no character is its key, and there is no tracks\' bound); two reports in flight at once never spend the same remainder (mutants: a report of 0 or a fraction taken; read-then-write)', async () => {
   const db = d1();
   const P = await player(db);
-  for (const c of ['x', 'a b c d', '', null, 42]) assert.deepEqual(await reportRenownXp({ db, nowS: T0 }, P, { character: c, xp: 10 }), { error: 'renown-character' });
+  for (const c of ['x', 'a b c d', '', null, 42]) assert.equal((await reportRenownXp({ db, nowS: T0 }, P, { character: c, xp: 10 })).credited, 10, `${JSON.stringify(c)}: the account's, whichever character`);
   for (const xp of [0, -1, 1.5, '10', RENOWN_XP_REPORT_MAX + 1, null]) assert.deepEqual(await reportRenownXp({ db, nowS: T0 }, P, { character: 'char-aaaa', xp }), { error: 'renown-xp' });
-  for (let i = 0; i < RENOWN_TRACKS_MAX; i++) db._raw.prepare('INSERT INTO renown_tracks (player, char_id, xp, created_at, updated_at) VALUES (?, ?, 0, ?, ?)').run(P.id, `char-${String(i).padStart(4, '0')}`, T0, T0);
-  assert.deepEqual(await reportRenownXp({ db, nowS: T0 }, P, { character: 'char-new1', xp: 10 }), { error: 'renown-full' });
-  assert.equal((await reportRenownXp({ db, nowS: T0 }, P, { character: 'char-0003', xp: 10 })).credited, 10, 'a character it already keeps still earns');
-  // the race: two reports at once against 20,000 - between them, exactly what the hour has left
+  for (let i = 0; i < 60; i++) db._raw.prepare('INSERT INTO renown_tracks (player, char_id, xp, created_at, updated_at) VALUES (?, ?, 0, ?, ?)').run(P.id, `char-${String(i).padStart(4, '0')}`, T0, T0);   // sixty characters' history
+  assert.equal((await reportRenownXp({ db, nowS: T0 }, P, { character: 'char-new1', xp: 10 })).credited, 10, 'a sixty-first character earns - there is no tracks\' bound');
+  assert.equal((await reportRenownXp({ db, nowS: T0 }, P, { character: 'char-0003', xp: 10 })).credited, 10, 'and so does one the history keeps');
+  assert.deepEqual(await renownTrackOf({ db }, P.id), { xp: 70, level: 1 }, 'all of it on the one track');
+  // the race: two reports at once against 15,000 - between them, exactly what the hour has left
   const R = await player(db);
   const both = await Promise.all([15000, 15000].map((xp, i) => reportRenownXp({ db, nowS: T0 + 60 }, R, { character: `char-rac${i}`, xp: Math.min(xp, RENOWN_XP_REPORT_MAX) })));
   const more = await Promise.all([1, 2, 3].map(() => reportRenownXp({ db, nowS: T0 + 61 }, R, { character: 'char-rac0', xp: RENOWN_XP_REPORT_MAX })));
   const credited = [...both, ...more].reduce((a, r) => a + r.credited, 0);
   assert.equal(credited, RENOWN_XP_HOUR_MAX, 'five reports racing: the hour, exactly');
-  for (const w of ['renown-character', 'renown-xp', 'renown-full']) assert.equal(typeof REFUSALS[w], 'string', `${w} has its sentence`);
+  for (const w of ['renown-character', 'renown-xp', 'renown-full']) assert.equal(typeof REFUSALS[w], 'string', `${w} has its sentence - two the service answers no more, kept for one from before RENOWN-ACCOUNT`);
 });
 
 async function stand() {
@@ -197,7 +195,7 @@ async function stand() {
   return { env, call, kp };
 }
 
-test('RENOWN1 the worker: /v1/renown/xp behind a session, the account the session\'s - a rise answers a SIGNED renown order, a report that did not rise answers none; the token names the character\'s level when the mint names a character (1 before it earns), none when it names none; /v1/account carries the tracks (mutants: the route open to strangers; the order minted for a non-rise; the level off the body)', async (t) => {
+test('RENOWN1 the worker: /v1/renown/xp behind a session, the account the session\'s - a rise answers a SIGNED renown order, a report that did not rise answers none; the token names the level when the mint names a character (RENOWN-ACCOUNT: the account\'s, whichever character - 1 before it earns), none when it names none; /v1/account carries the one Renown (mutants: the route open to strangers; the order minted for a non-rise; the level off the body)', async (t) => {
   const clock = T0 * 1000;
   t.mock.method(Date, 'now', () => clock);
   const { call, kp } = await stand();
@@ -207,7 +205,7 @@ test('RENOWN1 the worker: /v1/renown/xp behind a session, the account the sessio
   assert.equal((await call('POST', '/v1/renown/xp', { character: 'char-aaaa', xp: 0 }, me.secret)).status, 400);
   // the token before any XP: level 1 for a named character; no level for none
   let tok = (await call('POST', '/v1/auth/token', { character: 'char-aaaa', level: 50, lv: 50 }, me.secret)).body;
-  assert.equal(tok.level, 1, 'the level is the track\'s, never the body\'s: a character that earned nothing is level 1');
+  assert.equal(tok.level, 1, 'the level is the account\'s track\'s, never the body\'s: an account that earned nothing is level 1');
   const pub = kp.publicKey;
   assert.equal((await verifyToken(tok.token, pub, { subtle, nowS: T0 })).claims.lv, 1);
   tok = (await call('POST', '/v1/auth/token', {}, me.secret)).body;
@@ -224,14 +222,15 @@ test('RENOWN1 the worker: /v1/renown/xp behind a session, the account the sessio
   assert.equal((await verifyOrder(r.order, pub, { subtle, nowS: T0, kind: 'mute' })).ok, false, 'a renown order carried to the mute\'s door is refused there');
   r = (await call('POST', '/v1/renown/xp', { character: 'char-aaaa', xp: 1 }, me.secret)).body;
   assert.deepEqual([r.rose, r.order], [false, null], 'no rise, no order');
-  // the next token carries the level the track has now
+  // the next token carries the level the track has now - RENOWN-ACCOUNT: whichever character the mint names
   tok = (await call('POST', '/v1/auth/token', { character: 'char-aaaa' }, me.secret)).body;
   assert.equal(tok.level, 9);
   assert.equal((await verifyToken(tok.token, pub, { subtle, nowS: T0 })).claims.lv, 9);
+  tok = (await call('POST', '/v1/auth/token', { character: 'char-bbbb' }, me.secret)).body;
+  assert.equal((await verifyToken(tok.token, pub, { subtle, nowS: T0 })).claims.lv, 9, 'another character of the account: the same Renown');
   const acct = (await call('GET', '/v1/account', undefined, me.secret)).body.account;
-  assert.deepEqual(acct.renown.map((x) => [x.character, x.name, x.xp, x.level]), [['char-aaaa', 'Mara', 5001, 9]]);
-  assert.equal(RENOWN_CARD_TRACKS, 5);
-  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct18"/);   // acct9 on the branch; main's FOUNDER2 took acct9; WB5b's gates closed moved it on (acct11); BASE-HIDE (acct12); RENOWN4 and GUILD1c (acct13 - acct11 and acct12 on their branch); SHADOW-FANG (acct14 - acct12 on its branch); FOUNDER3 (acct15); FOUNDER3 (acct15), then HOME-STATIONS (acct16 - acct15 on its branch)
+  assert.deepEqual(acct.renown, { xp: 5001, level: 9 }, 'the card\'s ONE Renown - it was a list of the characters\' tracks');
+  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct19"/);   // acct9 on the branch; main's FOUNDER2 took acct9; WB5b's gates closed moved it on (acct11); BASE-HIDE (acct12); RENOWN4 and GUILD1c (acct13 - acct11 and acct12 on their branch); SHADOW-FANG (acct14 - acct12 on its branch); FOUNDER3 (acct15); FOUNDER3 (acct15), then HOME-STATIONS (acct16 - acct15 on its branch)
   assert.match(src('.github/workflows/account-deploy.yml'), /- "src\/net\/renown\.js"/, 'the Worker bundles the curve, so a change to it deploys');
 });
 
@@ -617,7 +616,7 @@ test('RENOWN1 the Inspect card and the plaque: the level the relay stamped stand
   assert.match(src('src/scenes/world.js'), /const renown = online\?\.renownOf\?\.\(id\) \?\? null;[^\n]*\n\s+return \{ title: marks \? `\$\{name\} \$\{marks\}` : name, renown, subs:/, 'the plaque over a player is handed it BESIDE the name, never in its text');
 });
 
-test('RENOWN1 the main menu\'s account card: the level of the character most recently played online, left of the name, and a row for each of the five most recently played characters with how far into its level it is; an account with no track draws the heading it always drew (mutants: the oldest track\'s level; the heading changed for everyone)', () => {
+test('RENOWN1 the main menu\'s account card: the level left of the name, and a row with how far into its level it is - RENOWN-ACCOUNT: the ACCOUNT\'s one Renown, where it was the most recently played character\'s and a row a character; an account with no Renown draws the heading it always drew (mutants: the heading changed for everyone; the chip without its level)', () => {
   const mk = (tag) => {
     const n = {
       tag, className: '', title: '', children: [],
@@ -631,21 +630,18 @@ test('RENOWN1 the main menu\'s account card: the level of the character most rec
   const flow = AccountFlow({ io: { fetch: async () => { throw new Error('no network'); } }, storage });
   const card = accountCard({ createElement: mk }, flow);
   flow.stage = 'in';
-  flow.account = { id: 'p1', name: 'Lattymoy', kind: 'linked', handle: 'Lattymoy', playedS: 60, renown: [
-    { character: 'char-aaaa', name: 'Mara Venn', xp: 6000, level: 10 },
-    { character: 'char-bbbb', name: null, xp: 150, level: 2 },
-  ] };
+  flow.account = { id: 'p1', name: 'Lattymoy', kind: 'linked', handle: 'Lattymoy', playedS: 60, renown: { xp: 6000, level: 10 } };
   card.paint();
   const h3 = card.root.all.find((n) => n.tag === 'h3');
-  assert.deepEqual(h3.children.map((c) => [c.className, c.textContent]), [['acctrenown', '10'], ['acctname', 'Lattymoy']], 'the level of the character most recently played online, left of the name');
-  assert.equal(h3.children[0].title, 'Renown 10 - Mara Venn', 'AUDIT RENOWN1 UI-10: and whose it is');
+  assert.deepEqual(h3.children.map((c) => [c.className, c.textContent]), [['acctrenown', '10'], ['acctname', 'Lattymoy']], 'the account\'s level, left of the name');
+  assert.equal(h3.children[0].title, 'Renown 10 - shared by all your characters', 'AUDIT RENOWN1 UI-10: and whose it is - the account\'s');
   const rows = card.root.all.filter((n) => n.className === 'acctval').map((n) => n.textContent);
-  assert.ok(rows.includes('Mara Venn - Renown 10, 490 / 2,150 XP to Renown 11'), rows.join(' | '));
-  assert.ok(rows.includes('A character - Renown 2, 50 / 130 XP to Renown 3'), 'a character whose name the service never heard');
+  assert.ok(rows.includes('Renown 10, 490 / 2,150 XP to Renown 11'), rows.join(' | '));
+  assert.equal(rows.filter((x) => /Renown \d/.test(x)).length, 1, 'ONE Renown row');
   flow.account = { id: 'p1', name: 'Lattymoy', kind: 'linked', handle: 'Lattymoy', playedS: 60 };
   card.paint();
   const plain = card.root.all.find((n) => n.tag === 'h3');
-  assert.deepEqual([plain.textContent, plain.children.length], ['Lattymoy', 0], 'no track: the heading it always drew');
+  assert.deepEqual([plain.textContent, plain.children.length], ['Lattymoy', 0], 'no Renown: the heading it always drew');
   assert.match(src('src/ui/enhancedStyle.js'), /\.card h3 \.acctrenown \{/, 'the chip\'s colour is the skin\'s sheet, never the card\'s');
 });
 

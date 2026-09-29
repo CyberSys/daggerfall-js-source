@@ -119,8 +119,8 @@
   {
     "name": "DECOR1-the-cap-unread",
     "file": "server-account/src/decor.js",
-    "old": "mapId, buildingKey, player.id, character, mapId, buildingKey, DECOR_CAP).run();",
-    "new": "mapId, buildingKey, player.id, character, mapId, buildingKey, DECOR_CAP + 1).run();",
+    "old": "mapId, buildingKey, player.id, character, mapId, buildingKey, DECOR_CAP);",
+    "new": "mapId, buildingKey, player.id, character, mapId, buildingKey, DECOR_CAP + 1);",
     "tests": [
       "test/decor1.test.js"
     ]
@@ -191,8 +191,8 @@
   {
     "name": "DECOR1-client-secret-in-the-body",
     "file": "src/net/accountClient.js",
-    "old": "place: ({ mapId, buildingKey, character, piece }) => post('/v1/homes/decor/place', { mapId, buildingKey, character, piece }),",
-    "new": "place: ({ mapId, buildingKey, character, piece }) => post('/v1/homes/decor/place', { mapId, buildingKey, character, piece, secret: storedSession(storage)?.secret }),",
+    "old": "post('/v1/homes/decor/place', { mapId, buildingKey, character, piece, ...(realm",
+    "new": "post('/v1/homes/decor/place', { mapId, buildingKey, character, piece, secret: storedSession(storage)?.secret, ...(realm",
     "tests": [
       "test/decor1.test.js"
     ]

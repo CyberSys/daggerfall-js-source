@@ -29,9 +29,17 @@
 import { STAGES, FIELDS, FIELD_SPEC } from './accountFlow.js';
 import { TITLE_TEXT, glyphBadges, glyphArtNode, badgeClass } from './playerBadge.js';   // ACC3c: the SAME table the name over a head reads, so the picker shows what a player will actually wear - the COLOUR is the skin's (this card may not style itself, and a pin holds that)
 import { duelRecordText } from '../net/duelRecord.js';   // DUEL1: the account card's K/D row
-import { renownText, renownProgressText } from '../net/renown.js';   // RENOWN1: Renown, left of the name and in its rows
+import { renownText, renownProgressText } from '../net/renown.js';   // RENOWN1: Renown, left of the name and in its row
 import { gateRecordText } from '../net/gateClaims.js';   // WB5b: and its gates-closed row
 import { raidRecordText } from '../net/raidClaims.js';   // RAID4: and its towns-defended row
+
+/** RENOWN-ACCOUNT (Mac: "can you make sure renown is account based and not character based?"): the card's Renown as
+ *  the service sends it - the ACCOUNT's one, `{ xp, level }` - or null: none earned yet, or a service from before it
+ *  (which sent a list of its characters' tracks - no Renown of the account's, so none is drawn). */
+export function accountRenownOf(r) {
+  if (!r || typeof r !== 'object' || Array.isArray(r)) return null;
+  return renownText(r.level) && Number.isSafeInteger(r.xp) && r.xp >= 0 ? { level: r.level, xp: r.xp } : null;
+}
 
 /** COPY LIVES IN ONE TABLE, so a stage cannot be drawn with a heading
  *  from one slice and a paragraph from another. Keyed by stage, and a
@@ -252,16 +260,15 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
     // one twice.
     if (copy.tag !== 'Account') root.append(el('span', 'tag', copy.tag));
     // RENOWN1 (Mac: "having their level appear on the left side of character name and profile main menu"): the
-    // Renown of the character most recently played online, left of the name - the service's tracks come most
-    // recently played first (AUDIT RENOWN1 UI-10: "earned" was never what it measured - a report the hour had spent
-    // still marks its character played). None for an account that has not earned any yet, or a service before it.
-    const tracks = stage === 'in' && Array.isArray(flow.account?.renown) ? flow.account.renown : [];
+    // Renown left of the name. RENOWN-ACCOUNT: the ACCOUNT's one Renown, every character's - it was the Renown of the
+    // character most recently played online. None for an account that has not earned any yet, or a service before it.
+    const renown = stage === 'in' ? accountRenownOf(flow.account?.renown) : null;
     const heading = stage === 'in' ? (flow.account?.name ?? copy.title) : copy.title;
-    const lvText = renownText(tracks[0]?.level);
+    const lvText = renownText(renown?.level);
     if (lvText) {
       const head = el('h3', null, null);
       const chip = el('span', 'acctrenown', lvText);
-      chip.title = `Renown ${tracks[0].level}${typeof tracks[0].name === 'string' && tracks[0].name ? ` - ${tracks[0].name}` : ''}`;   // AUDIT RENOWN1 UI-10: whose Renown it is
+      chip.title = `Renown ${renown.level} - shared by all your characters`;   // AUDIT RENOWN1 UI-10: whose Renown it is - RENOWN-ACCOUNT: the account's
       head.append(chip, el('span', 'acctname', heading));
       root.append(head);
     } else root.append(el('h3', null, heading));
@@ -302,12 +309,9 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
       // (net/raidClaims.js carries the receipts). A service from before it says nothing.
       const raids = raidRecordText(flow.account.raids);
       if (raids) row('Towns defended', raids);
-      // RENOWN1: each character's Renown and how far into it they are - online's own level, never the save's. The
-      // service sends the RENOWN_CARD_TRACKS (five) most recently played.
-      for (const t of tracks) {
-        if (!Number.isSafeInteger(t?.level) || !Number.isSafeInteger(t?.xp)) continue;
-        row('Renown', `${typeof t.name === 'string' && t.name ? t.name : 'A character'} - Renown ${t.level}, ${renownProgressText(t.xp)}`);
-      }
+      // RENOWN1: the Renown and how far into it the account is - online's own level, never the save's. RENOWN-ACCOUNT:
+      // ONE row, the account's - it was a row for each of the five characters most recently played.
+      if (renown) row('Renown', `Renown ${renown.level}, ${renownProgressText(renown.xp)}`);
       root.append(rows);
       wardrobe();
       if (!flow.account.handle) {
