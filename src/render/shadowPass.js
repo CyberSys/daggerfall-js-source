@@ -859,7 +859,10 @@ export class ShadowPass {
     this._sunPlanes = SHADOW_CASCADES.map(() => new Float32Array(24));   // SHADOW-REACH: the cascades' frusta, for the hosts' reach test
     this._sunPlanesFrame = -1;
     this._shiftGen = 0;                 // AUDIT SC1: the floating origin's generation (shiftOrigin)
-    this._shiftAcc = [[0, 0, 0]];       // ...and the origin's cumulative offset at each generation
+    this._shiftNow = [0, 0, 0];         // ...and its cumulative offset now - AUDIT OW5 R4: each object keeps its own copy
+                                        // (`_shAx`/`_shAy`/`_shAz`, doubles born NaN on a batch - PERF-EXT10's law), where
+                                        // the pass kept one per generation for the session (a crossing every second or so
+                                        // on an Overworld journey: thousands an hour, never let go)
     this._shiftD = [0, 0, 0];
     this._identityView = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
     this._right = new Float32Array(3); this._up = new Float32Array([0, 1, 0]);
@@ -1045,8 +1048,8 @@ export class ShadowPass {
    *  Without it every still caster read as moved for SHADOW_DYNAMIC_HOLD frames after a crossing - a near-empty
    *  cache rebuilt per slot, then the whole town replayed as dynamic at the cadence for a second, then rebuilt again. */
   shiftOrigin(offset) {
-    const a = this._shiftAcc[this._shiftGen];
-    this._shiftAcc.push([a[0] + offset[0], a[1] + offset[1], a[2] + offset[2]]);
+    const a = this._shiftNow;
+    a[0] += offset[0]; a[1] += offset[1]; a[2] += offset[2];
     this._shiftGen++;
     this._sunDrawn.fill(0);   // AUDIT 68 S17-far-cascade-shift: the held far map and its matrix are the old origin's - drawn afresh next frame (EL8's never-drawn rule)
     this._sunAnchor[0] += offset[0]; this._sunAnchor[1] += offset[1]; this._sunAnchor[2] += offset[2];   // LA-SHADOW1: the same world point, so the grid does not move
@@ -1064,11 +1067,18 @@ export class ShadowPass {
       for (let j = 0; j + 3 < r.cellSpheres.length; j += 4) { r.cellSpheres[j] += offset[0]; r.cellSpheres[j + 1] += offset[1]; r.cellSpheres[j + 2] += offset[2]; }   // LA-AUDIT A1
     }
   }
-  /** the offset from generation `gen`'s origin to the current one */
-  _shiftDelta(gen) {
-    const from = this._shiftAcc[gen], to = this._shiftAcc[this._shiftGen], d = this._shiftD;
-    d[0] = to[0] - from[0]; d[1] = to[1] - from[1]; d[2] = to[2] - from[2];
+  /** the offset from the origin an object last saw (its `_shA*`; never seen: the first) to the current one */
+  _shiftDelta(o) {
+    const to = this._shiftNow, d = this._shiftD;
+    const seen = Number.isFinite(o._shAx);
+    d[0] = to[0] - (seen ? o._shAx : 0); d[1] = to[1] - (seen ? o._shAy : 0); d[2] = to[2] - (seen ? o._shAz : 0);
     return d;
+  }
+  /** AUDIT OW5 R4: an object's own copy of the origin it has now seen - three doubles written in place, no allocation */
+  _shiftSeen(o) {
+    const n = this._shiftNow;
+    o._shAx = n[0]; o._shAy = n[1]; o._shAz = n[2];
+    o._shGen = this._shiftGen;
   }
   /** SC1: is this object's placement the one it had when last recorded - and remember this one. A first sight is
    *  static (a new caster changes the signature by itself).
@@ -1082,11 +1092,11 @@ export class ShadowPass {
    *  wrong shadow, only a dearer one. */
   _moved(o, matrix) {
     let inst = o._shInst;
-    if (!inst) { inst = o._shInst = []; o._shGen = this._shiftGen; }
+    if (!inst) { inst = o._shInst = []; this._shiftSeen(o); }
     else if (o._shGen !== this._shiftGen) {
-      const d = this._shiftDelta(o._shGen);
+      const d = this._shiftDelta(o);
       for (const s of inst) { s.m[12] += d[0]; s.m[13] += d[1]; s.m[14] += d[2]; }
-      o._shGen = this._shiftGen;
+      this._shiftSeen(o);
     }
     const x = matrix[12], y = matrix[13], z = matrix[14];
     // AUDIT REACH: THE PLACEMENT ITSELF FIRST. The first cut matched the NEAREST remembered placement within the reach,
@@ -1189,8 +1199,8 @@ export class ShadowPass {
       // 211 prop's) and its FLIP's (a turn is the sign of size.w) - the first cut watched `frame` alone
       const fr = b.frame ?? -1, rec = b.record, flip = !!(b.size && b.size.w < 0);
       const swaying = b.sway > 0 && b.size && swayLean(wl, b.sway, b.size.h) > SHADOW_SWAY_STILL;   // leaning past half a texel: moving, on the sway's own cadence
-      if (b._shSeen === true && b._shGen !== this._shiftGen) { const d = this._shiftDelta(b._shGen ?? 0); b._shOx += d[0]; b._shOy += d[1]; b._shOz += d[2]; }
-      b._shGen = this._shiftGen;
+      if (b._shSeen === true && b._shGen !== this._shiftGen) { const d = this._shiftDelta(b); b._shOx += d[0]; b._shOy += d[1]; b._shOz += d[2]; }
+      if (b._shGen !== this._shiftGen) this._shiftSeen(b);
       if (b._shSeen === true && !(Math.abs(b._shOx - ox) <= SHADOW_STILL_EPS && Math.abs(b._shOy - oy) <= SHADOW_STILL_EPS && Math.abs(b._shOz - oz) <= SHADOW_STILL_EPS && b._shFrame === fr && b._shRec === rec && b._shFlip === flip)) b._shMovedAt = this.frameNo;
       const moving = b._dyn === true || b.selfCard === true || (b._shMovedAt != null && this.frameNo - b._shMovedAt < SHADOW_DYNAMIC_HOLD);   // built dynamic, the player's own card (DISC24-C), moved now, or within the hold
       const dyn = moving || swaying;

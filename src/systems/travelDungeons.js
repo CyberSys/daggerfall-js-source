@@ -166,11 +166,19 @@ export function lastLegStart(legs, feet, centre) {
  * @param {{minX:number, maxX:number, minZ:number, maxZ:number}} rect
  * @param {{x:number, z:number}} feet
  */
-export function dungeonApproach(rect, feet, grow = ARRIVAL_BUFFER) {
-  return {
-    x: Math.min(Math.max(feet.x, rect.minX - grow), rect.maxX + grow),
-    z: Math.min(Math.max(feet.z, rect.minZ - grow), rect.maxZ + grow),
-  };
+export function dungeonApproach(rect, feet, grow = ARRIVAL_BUFFER, within = null) {
+  const x = Math.min(Math.max(feet.x, rect.minX - grow), rect.maxX + grow);
+  const z = Math.min(Math.max(feet.z, rect.minZ - grow), rect.maxZ + grow);
+  if (!within) return { x, z };
+  // AUDIT OW5 J4: and never out of the walk's own pixel (`within`, its box): a spot's arrival is asked only inside its
+  // pixel, and a place whose footprint fills the pixel (eight blocks across) put the point 20 m into the next one - the
+  // walk passed through it, turned at each pixel edge and never arrived
+  return { x: Math.min(Math.max(x, within.minX), within.maxX), z: Math.min(Math.max(z, within.minZ), within.maxZ) };
+}
+/** AUDIT OW5 J4: a map pixel's own box (native), `inset` in from each edge. */
+export function pixelBox(px, py, inset = 256) {
+  const x0 = px * 32768, z0 = (499 - py) * 32768;
+  return { minX: x0 + inset, maxX: x0 + 32768 - inset, minZ: z0 + inset, maxZ: z0 + 32768 - inset };
 }
 
 /**

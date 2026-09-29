@@ -292,6 +292,7 @@ export const INSTEAD = Object.freeze({
 /** The one-line status a row's tier earns, shown in the help panel. */
 export const TIER_TEXT = Object.freeze({
   live: 'This works now.',
+  restart: 'Takes effect the next time the app starts.',   // FPS-VSYNC: the desktop shell reads it at launch
   stored: 'Your choice is saved, but nothing reads it yet.',
   unavailable: 'Fixed here - it cannot be changed in this port.',
 });

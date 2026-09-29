@@ -366,6 +366,9 @@ export function mwViewFootstep() {
  *  untouched. */
 export function mwViewTransition(kind) {
   if (!eotbLane()) return false;
+  // AUDIT OW5 V3: a door taken under the travel view - a row that DECIDES the POV decides it for the view's hold too; the
+  // view's release at the door came a frame later and put the head back (a player's "interior: third person" undone)
+  if (heldThird?.lane === 'eotb' && eotbCamera.transitionDecides(kind)) heldThird.changed = false;
   eotbCamera.transition(kind);
   return true;
 }

@@ -236,8 +236,8 @@
   {
     "name": "OWS3-host-chase-ashore",
     "file": "src/scenes/world.js",
-    "old": "!gamePaused() ? csaBoatUnderMe() : null;",
-    "new": "!gamePaused() ? true : null;",
+    "old": "(modes?.mode ?? 'exterior') === 'exterior' ? csaBoatUnderMe() : null;",
+    "new": "(modes?.mode ?? 'exterior') === 'exterior' ? true : null;",
     "tests": [
       "test/ows3_raiders.test.js"
     ]

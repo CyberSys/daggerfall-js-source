@@ -175,8 +175,11 @@ test('TV7 host: the bands about the traveller kept a life and a pixel; made once
   assert.match(rd('src/systems/campEncounters.js'), /^export function rollGroupComposition\(ctx, rolls\) \{/m, 'the themed group is the camps\' own');
   assert.match(w, /const bandNowMs = \(\) => Date\.now\(\) \+ \(online \? _sharedOffsetMs : 0\);/, 'the shared clock online');
   assert.match(w, /return px >= 0 && py >= 0 && px < 1000 && py < 500 && !tvWater\(px, py\) && !_bandPlacePixels\.has\(`\$\{px\},\$\{py\}`\);/, 'never the water, never a place - the maps\' own places, the same on every client (AUDIT OW4 B2)');
-  assert.match(w, /const _bandPlacePixels = new Set\(locationIndex\.keys\(\)\);/, 'taken at boot, before any spawn stands');
-  assert.ok(w.includes('const spawnedDungeonAt = ') && w.indexOf('const _bandPlacePixels = new Set(locationIndex.keys());') < w.indexOf('const spawnedDungeonAt = '), 'before the spawns can add to the index');
+  // PIN MOVED (AUDIT OW5 B2): filled in the boot's own index loop, from the game's rows alone - a world-data mod's
+  // appended rows stand only where Replace Game Artwork is on, each client's own switch
+  assert.match(w, /const baseCount = maps\.baseLocationCount\(r\);[\s\S]{0,420}?if \(l < baseCount\) \{ _hubRows\.push\(loc\); _bandPlacePixels\.add\(`\$\{p\.x\},\$\{p\.y\}`\); \}/, 'taken at boot, before any spawn stands - the game\'s own rows');
+  assert.ok(!/_bandPlacePixels = new Set\(locationIndex/.test(w), 'never the index, which holds a mod\'s rows too');
+  assert.ok(w.includes('const spawnedDungeonAt = ') && w.indexOf('_bandPlacePixels.add(`${p.x},${p.y}`); }') < w.indexOf('const spawnedDungeonAt = '), 'before the spawns can add to the index');
   assert.match(w, /const at = bandPixelOf\(playerTravelPixel\(\)\), ms = bandNowMs\(\), life = Math\.floor\(ms \/ BAND_LIFE_MS\);/, 'the bands\' own rows about me (AUDIT OW4 B1)');
   assert.match(w, /const now = performance\.now\(\), at = bandPixelOf\(playerTravelPixel\(\)\), life = Math\.floor\(bandNowMs\(\) \/ BAND_LIFE_MS\);/, 'a peer\'s word judged in the same rows');
   assert.match(w, /const night = tvBandSeen\.life === life \? tvBandSeen\.night : bandNight\(life \* BAND_LIFE_MS\);\n\s*tvBandSeen = \{ at, life, night, list: bandsNear\(\{ at, ms, night, ok: bandOk \}\) \};/, 'the night the life began in - the same for everyone, and read once a life (AUDIT OW3 T7-8)');
@@ -261,7 +264,7 @@ const liftBands = async () => {
     assert.ok(m, `${name} lifted`);
     return m[0];
   };
-  return { frame: cut('bandFrame'), stand: cut('bandStand'), hear: cut('bandHear'), drop: cut('bandDrop'), spend: cut('bandSpend') };
+  return { frame: cut('bandFrame'), stand: cut('bandStand'), hear: cut('bandHear'), drop: cut('bandDrop'), spend: cut('bandSpend'), hold: cut('bandHold') };
 };
 const bandHost = async (over = {}) => {
   const src = await liftBands();
@@ -289,7 +292,7 @@ const bandHost = async (over = {}) => {
     const partyGroupMembers = (t) => t, partySize = () => 1, exteriorFoes = { encounterRoom: () => d.room ?? Infinity };
     const _standCampEncounter = (hit) => { d.standCalls.push(hit.yawRad); return d.standOk(hit); };
     let _bandLast = 0;
-    ${src.spend} ${src.drop} ${src.stand} ${src.hear} ${src.frame}
+    ${src.spend} ${src.drop} ${src.hold} ${src.stand} ${src.hear} ${src.frame}
     return { bandFrame, bandStand, bandHear };`);
   return { d, ...make(d, law), stood };
 };
@@ -353,6 +356,20 @@ test('AUDIT OW4 B10 host run: water, a boat, a town\'s rect or the camps off end
     assert.equal(c.pos.z, 200 * NATIVE_PER_M, `${what}: the chase holds where it was`);
     assert.equal(h.d._bandSpent.size, 0);
   }
+});
+
+test('AUDIT OW5 B1 host run: a hold carries the chase\'s patience - two and a half minutes in a window, and the band chases on after it', async () => {
+  let paused = true;
+  const h = await bandHost({ gamePaused: () => paused });
+  const c = { band: bandAt('b1.1.5', 0, 245), pos: { x: 0, z: 245 * NATIVE_PER_M }, gainAt: h.d.ms, best: 245, tries: 0, retryAt: 0 };
+  h.d._bandChase.set('b1.1.5', c);
+  for (let t = 1000; t <= 151_000; t += 1000) { h.d.ms += 1000; h.bandFrame(t); }   // the shared clock runs on through the window
+  assert.equal(c.pos.z, 245 * NATIVE_PER_M, 'held where it was');
+  paused = false;
+  h.d.ms += 16;
+  h.bandFrame(151_016);
+  assert.ok(h.d._bandChase.has('b1.1.5'), 'the first frame after: still chasing (it was lost - 150 s past its last closing)');
+  assert.equal(h.d._bandSpent.size, 0, 'and not spent');
 });
 
 test('AUDIT OW4 B10 host run: a peer\'s word - only a band about me (in the bands\' own rows), a spent band spent here, a band we both chase kept by the lower id', async () => {

@@ -439,11 +439,15 @@ or none. The ray is the activation's own (`cam.pos` and the look), in
 third person too.
 
 1. **Iliac Puddle No More and a "DeepWaters" name** (the slab from above,
-   and - kept - the carved floor, whose name carries it too): "Boat
-   placed!", a second ray straight down with triggers ignored
-   names the Terrain under the point (none over a carved floor, which is
-   no Terrain), a deed repositions the boat of its UID, else a new boat
-   at the point.
+   and the carved floor, whose name carries it too): "Boat placed!"; a
+   point under the sea's top - the floor - is floated to it (FIELD-CSA1:
+   where the look crosses the sea, else straight above the floor it met;
+   a swimmer's ray starts inside the slab and never meets it, and with
+   Spawn Water Surfaces off there is no slab, so the C#'s boat stood on the
+   seabed); a second ray straight down with triggers ignored names the
+   Terrain under the point (none over a carved floor, which is no
+   Terrain), a deed repositions the boat of its UID, else a new boat at
+   the point.
 2. **A dungeon's water** (blockWaterLevel not 10000 - underground, or
    outdoors while Iliac Puddle No More's forge holds one): the plane at
    `blockWaterLevel x -0.025` (Unity's floats); no intersection, or one
@@ -454,9 +458,13 @@ third person too.
    0`, GetTileMapIndexAtPosition's float offsets truncated and clamped):
    placed there, the deed's boat repositioned. Anything else: "Boat can
    only be placed on water!".
-4. **Nothing hit, Iliac Puddle No More on**: the plane at world y 34 -
-   the scene's, not the sea's (kept: the plane knows no compensation) -
-   and no reach limit.
+4. **Nothing hit, Iliac Puddle No More on**: the plane at the sea's top -
+   the mod's 34 over the world's vertical compensation (FIELD-CSA1: the C#
+   read 34 bare, the sea only while no vertical recentre has happened) -
+   met within the ray's own 100 m, as arm 2's plane is (FIELD-CSA1: the
+   C# took any crossing, and a look out to sea stood the boat hundreds of
+   metres off); past it the C#'s too-far log line and "Placement aborted!"
+   for 3 s, the item kept.
 5. **Nothing hit, the mod off**: "Placement aborted!" for 3 s.
 
 The boat's forward is the player's right (broadside to where they
@@ -489,10 +497,17 @@ one placed inside hides and is destroyed unless Compatibility/
 PersistentDungeonBoats keeps it; a near one stands and reads its nodes.
 The one-boat form never destroys and reads the nodes whatever it
 decided. It runs on OnTransition (the four doors, the Respawner's outside
-arm too) and on OnLoad; on FloatingOrigin's recentre each boat active
-before or after its own visibility check moves by the offset, and -
-**kept bug for bug** - a boat out of sight before and after stays where
-the old origin had it, one recentre behind for every one it missed.
+arm too) and on OnLoad; on FloatingOrigin's recentre EVERY boat moves by
+the offset and then asks its own visibility (FIELD-CSA1: the C# moved one
+only when it was active before or after that check, and the port
+recentres at every map pixel crossed, so a boat left out of sight stood
+wherever the old origins had it when its player came back by another
+pixel) - all but a dungeon's boat out of sight (Persistent Dungeon Boats),
+which stands in its dungeon's own frame, and which the C# never moved either. A teleport's new frame (`scenes/world.js` `_teleportToPixel`:
+InitWorld, no offset to ride - the respawn at a temple, a fast travel, a
+load's landing) carries every boat by the frame's own move, then shows or
+hides each for the new pixel, the helm not asked (`OnWorldReanchored`,
+the port's own; the C# left each at the old frame's numbers).
 Inside a dungeon a boat is drawn, lit and baked by the dungeon's own
 frame (`host.drawModeMeshes`, `modeLights`, `extraBillboards`), and the
 runtime's Update and LateUpdate and the pool's LateUpdate run in every mode.
@@ -1136,7 +1151,13 @@ to one unless Travel Options' journey runs (4296-4299). Its answer is the
 isTravelActive message, asked each LateUpdate after the pause gate
 (4921-4934) - HCC's question (`travelOptionsActive`: null without the mod,
 which leaves the flag as it was); `wasTravelling` follows it and nothing
-reads it (kept). The beach's and the collision's resets and every event's
+reads it (kept). TRAVEL-X1 (2026-09-28, a departure): the reset asks it
+again itself before it reads the flag (`latchTravelling`, LateUpdate's own
+four lines) - a journey BEGUN in the pause (the travel map's Begin, its
+resume) had had no unpaused LateUpdate to latch it, because the port's
+click lands between frames where Unity's click frame runs its LateUpdate
+first, and every journey begun from the map ran at x1 under a panel
+saying x10. The beach's and the collision's resets and every event's
 (the transitions, fast travel, the load, death) were CSA-D's.
 
 THE HOST: the scale the helm sets runs everything the port runs on
@@ -1667,8 +1688,10 @@ getWaveHeights never sent. Compatibility/AnimatedWaterVertexWaves stays in
 the pane as the mod ships it and changes nothing; its description says so.
 Iliac Puddle No More is in the port, asked of the host
 (`iliacPuddleNoMore`), and its arms were checked and stand: the placement
-ray's hit on its DeepWaters slab, the WaterLevel plane when the ray finds
-nothing, the nodes' height test, the water walk's box height, and on its
+ray's hit on its DeepWaters slab (FIELD-CSA1: a hit on the carved floor
+floated to the sea over it), the WaterLevel plane when the ray finds
+nothing (FIELD-CSA1: within the ray's reach, at the sea's top under the
+vertical compensation), the nodes' height test, the water walk's box height, and on its
 own side the swim standing down on the boat's bundle. Travel Options'
 one message is CSA-G's.
 
@@ -2037,7 +2060,7 @@ the lights; files that will not load; and the renderer's two new doors
 (`emissionOff`, `updateMeshVertices`) over a stub GL.
 `tools/mutants/csa_boats.json`: 55 mutants, all dead.
 
-`test/csa_placing.test.js` (14): a prefab's colliders (the active and
+`test/csa_placing.test.js` (17): a prefab's colliders (the active and
 switched-on only, a box from outside, a mesh from both faces, a hull and
 its refusals, a turned and scaled node's inverse) and a built skiff's
 (the chosen variant, the switched-off Plane and flag cube, the two
@@ -2046,10 +2069,16 @@ the item message, GetTileMapIndexAtPosition's floats; the ray's five
 arms one by one (the sea's slab and the downward ray, a deed's
 reposition and its cargo, a dungeon's plane and its three refusals, the
 terrain's water tile, the WaterLevel plane, the abort, the declared
-refusal); the console; the visibility, the nodes and OnPositionUpdate's
-kept bug; the save written, restored and held. `tools/mutants/csa_placing.json`:
-59 mutants, 58 dead and one equivalent as recorded (a negative 128th floored
-rather than truncated clamps to the same first column).
+refusal); the console; the visibility, the nodes and OnPositionUpdate
+(FIELD-CSA1: every boat, in sight or not); the save written, restored and
+held. FIELD-CSA1 (+3): the carved floor's hit floated (a swimmer's ray,
+no surface, the vertical compensation), the sea plane held to the ray's
+reach with the deed kept, and OnWorldReanchored (every boat carried by a
+teleport's frame, hidden for the far pixel, the helm not asked). `tools/mutants/csa_placing.json`:
+58 mutants, 57 dead and one equivalent as recorded (a negative 128th floored
+rather than truncated clamps to the same first column) - FIELD-CSA1 re-aimed
+five to the moved source and retired the one whose mutation is now the law;
+its own fourteen are `tools/mutants/field_csa1.json`, all dead.
 
 `test/csa_sailing.test.js` (24): Unity's arithmetic in its floats;
 StartSailing and the borrowed ship; rowing (the pin, the freeze, the
@@ -2118,12 +2147,12 @@ the flag; RotateWind's rain and snow; the systems stepped at LateUpdate's
 head and a paused frame; the particles' materials and the soft dot.
 `tools/mutants/csa_waves.json`: 127 mutants, all dead.
 
-`test/csa_time_audio.test.js` (14): the helm's three time keys (the
+`test/csa_time_audio.test.js` (15): the helm's three time keys (the
 walk up to the fifth step and down to the first, reset, each step's
 Time.timeScale and its message for three times the scale of game
 seconds); IncreaseTimeScale's refusal with enemies near and the helm's
 unsaid put-back; Update's unpause reset and Travel Options' answer (no
-mod, no answer); the Animator's clip events (once a loop, weighed above
+mod, no answer; TRAVEL-X1: a journey begun in the pause keeps its scale); the Animator's clip events (once a loop, weighed above
 nought, a fresh state's time 0, a clip that does not loop, every
 answering component); the Rowboat's and the Trireme's oar events through
 the rudder's listener - their times in the stroke, the splashes' start

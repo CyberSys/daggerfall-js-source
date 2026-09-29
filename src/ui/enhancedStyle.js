@@ -525,6 +525,10 @@ button { font: inherit; background: none; border: 0; color: inherit; cursor: poi
 }
 .tier.live { background: var(--verdigris); }
 .tier.unavailable { background: var(--blood); }
+/* FPS-VSYNC: a key the desktop app reads at its next start - live, but
+   not yet: the live colour as a ring (AUDIT 28e: it wore the stored
+   tier's grey). */
+.tier.restart { background: transparent; box-shadow: inset 0 0 0 1.5px var(--verdigris); }
 /* SO1: TIER IS A GROUP. The live rows sit flat; the stored and the
    unavailable fold under a heading that carries their count, so the
    list a beginner sees is short and nothing is ever hidden. */
@@ -5189,8 +5193,49 @@ button.lv-note.lv-clickable:hover, button.lv-note.lv-clickable:focus-visible {
 .lv-pickname .f { display: block; font-size: 17px; margin-top: 2px; text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
 .lv-pickname .c { display: block; font-size: 12px; color: #7d7460; letter-spacing: 0.14em;
   text-transform: uppercase; margin-top: 2px; text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
+/* ASCEND-LIVE: a star wears what the character HAS, in the two colours the
+   classic sheet gives a live value above or below its permanent one
+   (DaggerfallUnityStatIncreasedTextColor / StatDrainedTextColor -
+   ui/charsheet.js STAT_INCREASED_COLOR, STAT_DRAINED_COLOR), and the line
+   over its blurb says so in words. The tint outranks a RAISED star's gold
+   (a point spent where it cannot show must still read as the bonus's) and
+   yields to a FULL star's grey (a star that takes no point says that
+   first) - by specificity, not by which sheet came last (AUDIT 28e). */
+.lv-star.boosted:not(.full) .lv-val { color: rgb(178,207,255); text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
+.lv-star.lowered:not(.full) .lv-val { color: rgb(190,85,24); text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
+/* THE LINE: one line, never two - it sits over the blurb in the
+   attribute's own cell (.lv-about, below). */
+.lv-live { height: 1.3em; line-height: 1.3em; font-size: 13px; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; color: rgb(178,207,255); text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
+.lv-live.lowered { color: rgb(190,85,24); }
+.lv-live:empty { display: none; }
 .lv-blurb { color: #c5bda2; font-size: 16px; line-height: 1.5; margin: 2px 0 0; max-width: 62ch;
-  text-align: center; text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
+  text-align: center; text-shadow: 2px 2px 0 rgba(0,0,0,0.8); display: grid; }
+/* The eight in one cell, the chosen one seen: the band's height is the
+   tallest's, whichever is chosen (AUDIT 28e). */
+.lv-blurb > .lv-about { grid-area: 1 / 1; min-width: 0; visibility: hidden; }
+.lv-blurb > .lv-about.on { visibility: visible; }
+.lv-about > p { margin: 0; }
+/* On a phone, or a screen with no height to spare, the line takes its
+   blurb's place rather than a line of its own, so a cursed character's
+   column is as tall as anyone's - at 360 wide a line's 17px was a figure
+   whose stars overlapped, and at 844x390 it pushed Ascend, the one way
+   out, below the screen (AUDIT 28e). */
+@media (max-width: 480px), (max-height: 620px) {
+  .lv-about:has(> .lv-live:not(:empty)) > p { display: none; }
+}
+/* In the blurb's place on a narrow phone it may take the blurb's two
+   lines (at 320 wide one line cut "won't show" off). */
+@media (max-width: 480px) {
+  .lv-live { height: auto; max-height: 2.6em; white-space: normal; }
+}
+/* ...and with no height to spare a blurb is one line, so the stacked
+   eight cost no more than the shortest did - and so is the line, even on
+   a narrow phone (after the rule above, so this one holds). */
+@media (max-height: 620px) {
+  .lv-about > p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lv-live { height: 1.3em; max-height: none; white-space: nowrap; }
+}
 
 /* THE RIBBON: the skills, and what each did for this level. Skyrim
    scrolls its skills across the foot of the sky; ours does the same,

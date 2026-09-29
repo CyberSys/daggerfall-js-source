@@ -26,6 +26,7 @@ import { ANY_LOCATION_KEY } from '../src/systems/worldDataVariants.js';
 import { SHIP_TYPES } from '../src/systems/banking.js';
 import { TRAVEL_VIEW_TEXT } from '../src/scenes/travelView.js';
 
+// PIN MOVED (AUDIT OW5 G2): the Overworld's own lines are said through tvSay - held at the scale they are said at
 const rd = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const M = NATIVE_PIXEL / 819.2;   // native units a metre
 const all = () => true;
@@ -211,13 +212,14 @@ test('OWS3 host wiring by source: the open sea a raider is born on, the shared c
   assert.match(w, /if \(maps\.getClimateIndex\(px, py\) !== CLIMATES\.Ocean\) return false;\n\s*for \(let dy = -1; dy <= 1; dy\+\+\) for \(let dx = -1; dx <= 1; dx\+\+\) if \(!tvWater\(px \+ dx, py \+ dy\)\) return false;/, 'the open sea: the ocean\'s, every pixel about it water');
   assert.match(w, /const raidNowMs = \(\) => Date\.now\(\) \+ _sharedOffsetMs;/);
   assert.match(w, /const ms = raidNowMs\(\), life = Math\.floor\(ms \/ RAIDER_LIFE_MS\);\n\s*if \(life !== tvRaid\.life\) \{ tvRaid\.life = life; for \(const id of tvRaid\.spent\) if \(!tvRaid\.chase\.has\(id\)\) tvRaid\.spent\.delete\(id\); \}[^\n]*\n\s*tvRaid\.list = raidersNear\(\{ at: playerTravelPixel\(\), ms, open: tvRaidOpen, sea: tvRaidSea \}\);/, 'AUDIT OWS A3: a new life forgets the last life\'s spent sails (a chase still running kept)');
-  assert.match(w, /const at = warmAshesOn\(\) && isEnhanced\(\) && walkMode && playerSpawned && \(modes\?\.mode \?\? 'exterior'\) === 'exterior' && !gamePaused\(\) \? csaBoatUnderMe\(\) : null;/, 'at sea: at a helm or aboard');
+  // PIN MOVED (AUDIT OW5 R1): a window or a death HOLDS the chase above the gate - it read as ashore (test/ow5_audit.test.js mounts it)
+  assert.match(w, /if \(playerEntity\.health <= 0 \|\| modes\?\.deathUp\?\.\(\) \|\| gamePaused\(\)\) return;\n\s*const at = warmAshesOn\(\) && isEnhanced\(\) && walkMode && playerSpawned && \(modes\?\.mode \?\? 'exterior'\) === 'exterior' \? csaBoatUnderMe\(\) : null;/, 'at sea: at a helm or aboard');
   assert.match(w, /if \(!at\) \{ for \(const id of tvRaid\.chase\.keys\(\)\) tvRaid\.spent\.add\(id\); tvRaid\.chase\.clear\(\); return; \}/);
   assert.match(w, /if \(up && tvRaid\.chase\.size < 1\) \{\n\s*const sight = raiderSight\(isNight\(minuteNow\(\)\)\);/, 'sighted under the view, one at a time, by the hour\'s light');
   assert.match(w, /contact: up \? RAIDER_CONTACT_M : RAIDER_CONTACT_PLAY_M, now: tvRaid\.clock,/);
   assert.match(w, /tvRaid\.clock \+= dt \* 1000 \* Math\.max\(1, scale\);/);
   assert.match(w, /if \(step\.state === 'contact'\) raidContact\(\);/);
-  assert.match(w, /const said = warmAshesRaidAtSea\(\);\n\s*if \(said !== 'raid' && said !== 'raid-lent'\) return;\n\s*travelControlUI\?\.closeWindow\?\.\(\);\n\s*townTalk\.say\(TRAVEL_VIEW_TEXT\.raidersAlongside\);/);
+  assert.match(w, /const said = warmAshesRaidAtSea\(\);\n\s*if \(said !== 'raid' && said !== 'raid-lent'\) return;\n\s*travelControlUI\?\.closeWindow\?\.\(\);\n\s*tvSay\(TRAVEL_VIEW_TEXT\.raidersAlongside\);/);
   assert.match(w, /tvRaid\.chase\.clear\(\); tvRaid\.spent\.clear\(\); tvRaid\.list = \[\]; tvRaid\.at = -Infinity;   \/\/ OWS3: no chase across a load/);
   assert.ok(w.indexOf('const tvRaid = {') < w.indexOf('tvRaid.chase.clear(); tvRaid.spent.clear();'), 'BOOT-TDZ: declared above the load that clears it');
   assert.match(w, /raidFrame\(dt\);[^\n]*\n\s*travelViewGovern\(dt\);/, 'each walking frame, before the cap');
