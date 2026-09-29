@@ -484,9 +484,26 @@ logs them.
 
 A boat's five nodes read their water on a terrain: inside a dungeon with
 water all five are water, a dry inside reads nothing; outdoors with Iliac
-Puddle No More `SampleHeight(node) < 34` (the drawn ground over the
-terrain's own y, DW-D's reading) is water and anything else land;
-without it the tile map's record. The Terrain form reads the player's
+Puddle No More `SampleHeight(node) < 34` (over the terrain's own y, at the
+precision Unity's 16-bit heightmap holds it - FIELD-CSA2, below) is water
+and anything else land; without it the tile map's record.
+
+FIELD-CSA2 (2026-09-29, the Discord through Mac: "I can't get my boat to
+work", "Ports are bugged for player boats"): the line is the sea's own
+height. The terrain sampler clamps the whole sea to the ocean elevation,
+27.2 x 1.25 = 34 m, and Unity holds a heightmap in steps of 1/32766 of the
+terrain's height (kMaxHeight): the flat sea is 579.105 steps, held as 579 -
+33.994 m, under the line. The stand-in first read the drawn ground's floats
+(DW-D's reading), 34.000001 m: every node of every boat on the open sea
+read land, so with the mod at its default no boat rowed (beached) or raised
+a sail ("Unable to raise sail. Boat is obstructed.") and the Overworld's
+crossing never launched. `scenes/world.js` `csaTerrainOf` reads
+`world/terrainSurface.js` `terrainSampleHeightAt` now: each corner as its
+step, the steps over the quad's two triangles (GetInterpolatedHeight, the
+drawn ground's own cut), the height a step times size.y over kMaxHeight.
+Declared: the port rounds a height to its step (Unity's own rounding is in
+no source the port has; the sea is step 579 either way).
+`01-Overview/Field-Bugs-2026-09-29b.md`. The Terrain form reads the player's
 terrain unless one is given; the pixel form reads its own pixel's, and
 nothing where none is built. UpdateAllBoatsNodes is kept as the C# has
 it: nothing calls it, and its `MapPixel == CurrentMapPixel` compares two
@@ -1691,7 +1708,10 @@ Iliac Puddle No More is in the port, asked of the host
 ray's hit on its DeepWaters slab (FIELD-CSA1: a hit on the carved floor
 floated to the sea over it), the WaterLevel plane when the ray finds
 nothing (FIELD-CSA1: within the ray's reach, at the sea's top under the
-vertical compensation), the nodes' height test, the water walk's box height, and on its
+vertical compensation), the nodes' height test (CORRECTED, FIELD-CSA2: it
+did not stand - read off the drawn ground's floats it took the open sea for
+land, and no boat moved on it; it reads Unity's heightmap precision now,
+above), the water walk's box height, and on its
 own side the swim standing down on the boat's bundle. Travel Options'
 one message is CSA-G's.
 
@@ -2079,6 +2099,21 @@ teleport's frame, hidden for the far pixel, the helm not asked). `tools/mutants/
 rather than truncated clamps to the same first column) - FIELD-CSA1 re-aimed
 five to the moved source and retired the one whose mutation is now the law;
 its own fourteen are `tools/mutants/field_csa1.json`, all dead.
+
+`test/field_csa2.test.js` (6): FIELD-CSA2 - the sampler's flat sea at the
+drawn ground's 34.000001; Terrain.SampleHeight at Unity's precision (the
+sea at step 579 under the line, a step up land, the port's rounding, any
+ground within a step of the drawn one, the far ring's stride); world.js's
+own `csaTerrainOf`, mounted from its source over a real StreamingWorldState
+and a vertical recentre; the runtime over the vendored hulls with Iliac
+Puddle No More on - all four hulls a shelf or parts give read the sea,
+raise their sails and row - and the shore still land; with the ARENA2 the
+open Bay south of Daggerfall the live probe sailed (209, 216): the deed's
+port found by world.js's own `csaIsPortTown`, the Small Ship's nodes on the
+Bay and its sail raised, the coast's first rise (208, 215) land. Four of
+the six red before the fix.
+`tools/mutants/field_csa2.json`: 11 mutants, all dead; CSA-J's clamp pin and
+its record re-aimed to the new call, by content.
 
 `test/csa_sailing.test.js` (24): Unity's arithmetic in its floats;
 StartSailing and the borrowed ship; rowing (the pin, the freeze, the
