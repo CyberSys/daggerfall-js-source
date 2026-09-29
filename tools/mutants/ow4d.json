@@ -222,7 +222,7 @@
   {
     "name": "OW4D4-stand-at-sea",
     "file": "src/scenes/world.js",
-    "old": "if (maps.getClimateIndex(px, py) === CLIMATES.Ocean || tvSpawnGone(px, py)) return null;",
+    "old": "if (maps.getClimateIndex(px, py) === CLIMATES.Ocean || !_spawnGround(px, py) || tvSpawnGone(px, py)) return null;",
     "new": "if (tvSpawnGone(px, py)) return null;",
     "tests": [
       "test/tv6_dungeons.test.js"
@@ -232,8 +232,8 @@
   {
     "name": "OW4D4-stand-expired",
     "file": "src/scenes/world.js",
-    "old": "if (maps.getClimateIndex(px, py) === CLIMATES.Ocean || tvSpawnGone(px, py)) return null;",
-    "new": "if (maps.getClimateIndex(px, py) === CLIMATES.Ocean) return null;",
+    "old": "if (maps.getClimateIndex(px, py) === CLIMATES.Ocean || !_spawnGround(px, py) || tvSpawnGone(px, py)) return null;",
+    "new": "if (maps.getClimateIndex(px, py) === CLIMATES.Ocean || !_spawnGround(px, py)) return null;",
     "tests": [
       "test/tv6_dungeons.test.js"
     ],
