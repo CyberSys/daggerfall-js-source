@@ -42,6 +42,10 @@
 //   unavailable  meaningless here (resolution, controllers, mod
 //                paths) or the port implements ONE side of the branch
 //                (EnhancedCombatAI, AdvancedClimbing - see the Ledger)
+//   restart      FPS-VSYNC: read by the desktop shell at its next launch
+//                (SHELL_AT_LAUNCH names the reader) - in the app it
+//                changes play from the next start; in a browser the
+//                same key is unavailable
 // A tier is a CLAIM about this port, so settings.test.js re-derives
 // the live set from the code and fails if a tier lies.
 
@@ -311,12 +315,24 @@ export const UNAVAILABLE = Object.freeze({
   'Video/ExclusiveFullscreen': 'the browser owns fullscreen',
   // FPS-CAP1: a page's frames always wait for the screen - there is no other mode to switch to. The Frame Rate Cap
   // holds under it (systems/frameCap.js: DFU's cap does nothing under VSync, which here would be never).
+  // FPS-VSYNC: in the BROWSER. The desktop app answers it at launch (SHELL_AT_LAUNCH, below).
   'Video/VSync': 'the browser always waits for the screen refresh',
 });
+/** FPS-VSYNC (2026-09-28, Mac, of the desktop app running above the screen's refresh: "Yes"): the keys the DESKTOP
+ *  SHELL reads at launch (app/lib/frameRate.cjs). A page cannot stop waiting for the screen; the app's Chromium can,
+ *  if told before it starts - so in the app VSync is a real choice, read at the next start ('restart'), and in a
+ *  browser it stays unavailable. */
+export const SHELL_AT_LAUNCH = Object.freeze({
+  'Video/VSync': 'app/lib/frameRate.cjs',
+});
+/** The preload's bridge (app/preload.cjs), which only the desktop shell puts on the page. */
+const inDesktopShell = () => !!globalThis.daggerShell;
 /** The tier of one "Section/Key". Everything not named above is
- *  STORED - it round-trips but nothing reads it yet. */
+ *  STORED - it round-trips but nothing reads it yet. RESTART is a key
+ *  the desktop shell reads at its next launch (FPS-VSYNC). */
 export function tierOf(key) {
   if (key in LIVE) return 'live';
+  if (key in SHELL_AT_LAUNCH && inDesktopShell()) return 'restart';
   if (key in UNAVAILABLE) return 'unavailable';
   return 'stored';
 }
