@@ -943,9 +943,9 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
     const b = W.state.writBudget;
     if (writMay(me, 'writBudget')) {
       out.push(el('div', 'dfsocial-sec', 'Writ budget'));
-      out.push(el('div', 'dfsocial-note', `What your Officers may post in guild writs a week, from the Marks treasury${b ? ` - ${marksText(b.budget)}, ${marksText(b.spent)} posted this week` : ''}. Your own writs are not counted.`));
+      out.push(el('div', 'dfsocial-note', `What your Officers may post in guild writs a week, from the Drake treasury${b ? ` - ${marksText(b.budget)}, ${marksText(b.spent)} posted this week` : ''}. Your own writs are not counted.`));
       const bform = el('div', 'dfsocial-form');
-      guildField(bform, 'Marks a week', d.budget ?? '', String(WRIT_BUDGET_MAX).length, (x) => { d.budget = x; });
+      guildField(bform, 'Drakes a week', d.budget ?? '', String(WRIT_BUDGET_MAX).length, (x) => { d.budget = x; });
       out.push(bform);
       const typed = () => { const t = String(d.budget ?? '').trim(); const n = /^\d+$/.test(t) ? Number(t) : null; return n != null && writBudgetOk(n) ? n : null; };
       const bacts = el('div', 'dfsocial-acts');
@@ -1027,10 +1027,10 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
     // MARKS1 (PROF0 10.5): THE MARKS TREASURY beside the gold one - any member puts Marks in from the account's balance,
     // the guildmaster alone takes them out; shown where Marks are this account's (the service's switch)
     if (g.marks?.state?.open === true) {
-      out.push(el('div', 'dfsocial-sec', 'Marks treasury'));
+      out.push(el('div', 'dfsocial-sec', 'Drake treasury'));
       out.push(el('div', 'dfsocial-note', `The treasury holds ${marksText(Number(v.marks ?? 0))}. You hold ${marksText(Number(g.marks.state.balance ?? 0))}.`));
       const mform = el('div', 'dfsocial-form');
-      guildField(mform, 'Marks', d.marks ?? '', 7, (x) => { d.marks = x; });
+      guildField(mform, 'Drakes', d.marks ?? '', 7, (x) => { d.marks = x; });
       out.push(mform);
       const marksTyped = () => (/^\d{1,7}$/.test(String(d.marks ?? '').trim()) ? Number(String(d.marks).trim()) : 0);
       const macts = el('div', 'dfsocial-acts');

@@ -209,7 +209,7 @@ test('AUDIT 30 U8: a number typed moves the words that hang on it - never a redr
   n.value = '5';
   n.oninput();
   assert.equal(t.redraws, before, 'a full redraw on each number');
-  assert.match(t.root.textContent, new RegExp(`Buy 5 Mithril Ore for 40 Marks \\+ ${courierFee(5, 386)} courier\\?`));
+  assert.match(t.root.textContent, new RegExp(`Buy 5 Mithril Ore for 40 Drakes \\+ ${courierFee(5, 386)} courier\\?`));
   await buttons(t.root).find((b) => b.textContent === 'Buy').onclick();
   assert.deepEqual(t.calls.find((c) => c[0] === 'buy')[1].units, 5, 'the typed number pressed');
 });
@@ -225,9 +225,9 @@ test('AUDIT 30 U7 + U9 + U10 + U16 + U17 + U18: the Orders view keeps one\'s own
   t.book.state.road = road;
   await t.tab.open();
   const text = t.root.textContent;
-  assert.match(text, /x11 Mark each/, 'one Mark, not "1 Marks"');
+  assert.match(text, /x11 Drake each/, 'one Drake, not "1 Drakes"');
   assert.match(text, new RegExp(`Wayrest \\+${courierFee(20, 386)} courier for 20, `), 'the whole listing\'s courier on the row, the pick\'s in the bar');
-  const [one, far, here, few] = ['x11 Mark each', 'x407 Marks eachWayrest', 'x408 Marks eachhere', 'x26 Marks eachWayrest'].map((w) => text.indexOf(w));
+  const [one, far, here, few] = ['x11 Drake each', 'x407 Drakes eachWayrest', 'x408 Drakes eachhere', 'x26 Drakes eachWayrest'].map((w) => text.indexOf(w));
   // landed: 1; Wayrest's 7 + 17/20 = 7.85; here's 8; Wayrest's 6 + 17/2 = 14.5 - by the listed price the last would be second
   assert.ok(one >= 0 && one < far && far < here && here < few, 'ordered by the service\'s listed price, the courier uncounted');
   // a press the market says has moved reads the view again at once
@@ -239,7 +239,7 @@ test('AUDIT 30 U7 + U9 + U10 + U16 + U17 + U18: the Orders view keeps one\'s own
   // the Orders view: this account's own order among the region's, Withdraw beside it
   buttons(t.root).find((b) => b.textContent === 'Orders').onclick();
   await tick();
-  assert.match(t.root.textContent, /Mithril Ore5 of 5 wanted at 1 Mark eachyours1 day left/);
+  assert.match(t.root.textContent, /Mithril Ore5 of 5 wanted at 1 Drake eachyours1 day left/);
   assert.ok(buttons(t.root).some((b) => b.textContent === 'Withdraw'));
   // a piece arrives while the tab stands: collected on the next read
   const s0 = t.calls.filter((c) => c[0] === 'settle').length;
