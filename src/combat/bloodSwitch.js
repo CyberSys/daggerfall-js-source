@@ -97,4 +97,8 @@ export const bloodDecalDeps = Object.freeze({
   capacity: bloodCapacity,
   density: bloodDensity,
   overkill: bloodOverkillOn,
+  // BLOOD5: a spray's drops FLY to their marks (bloodMarks' flight) - in
+  // every host that takes this bag; a pin's own bag leaves it out and
+  // gets its marks at once
+  flight: () => true,
 });

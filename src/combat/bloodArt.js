@@ -49,7 +49,9 @@ export const BLOOD_ATLAS_RECORD = 'marks';
 // is twice the sheet: 512 wide, still five rows tall. `pickCell`
 // mirrors on top of this (see there), so a kind now shows 16 faces
 // where it showed 4.
-export const ATLAS_SIZE = 512;
+// BLOOD5: and 1024 - the cell is 128 texels now (see THE SHAPES ARE
+// GROWN, below), eight variants still, so the sheet is 1024 x 640.
+export const ATLAS_SIZE = 1024;
 export const ATLAS_CELLS = 8;
 /** The kinds, one row each; the variants across the row. */
 export const ATLAS_KINDS = Object.freeze(['pool', 'spatter', 'streak', 'drip', 'print']);
@@ -123,6 +125,231 @@ function wobble(rng, n = 12, amount = 0.2) {
   };
 }
 
+// ── BLOOD5: THE SHAPES ARE GROWN, NOT STAMPED ────────────────────
+// (2026-09-30, Mac, with a shot of a corpse ringed by a perfect
+// starburst: "the blood splatter is too perfect of a circle ... more
+// variety, and less perfect patterns ... AAA grade").
+//
+// BLOOD2b's pool was a circle with a twelve-sample wobble on its
+// radius and its spatter the same circle with dots scattered on a
+// ring, at sixty-four texels a cell. Rotated and mirrored they were
+// still, every one of them, a round thing - and a floor of round
+// things laid on an even turn is the starburst in the shot. So:
+//
+//   THE CELL IS 128 TEXELS (ATLAS_SIZE 1024) - a droplet a metre of
+//     floor away is a few texels, and at 64 it was one;
+//   VALUE NOISE, fractal and domain-warped, roughens every edge, so a
+//     rim is ragged at every scale and never a wobble of one period;
+//   A POOL IS SEVERAL BLOBS MELTED TOGETHER (a smooth minimum), with
+//     fingers where it ran and satellite drops where it splashed;
+//   A SPATTER IS DIRECTIONAL - a core, tendrils thrown out in one or
+//     two clusters ending in beads, and a fine mist on the side the
+//     tendrils went - because an impact throws blood somewhere, not
+//     everywhere;
+//   A STREAK IS A TEARDROP that curves as it thins, sheds a line of
+//     droplets past its tail, and crowns behind its head.
+
+/** The noise lattice's side (it wraps), and the texels a cell is. */
+export const NOISE_SIZE = 64;
+
+/** A seeded value-noise sampler: `n(x, y)` in about -1..1, smooth, and
+ *  `fbm(x, y, octaves)` its fractal sum - one lattice for the sheet, a
+ *  cell reads it at its own offset so no two cells share a grain. */
+export function bloodNoise(rng) {
+  const N = NOISE_SIZE, g = new Float32Array(N * N);
+  for (let i = 0; i < g.length; i++) g[i] = rng() * 2 - 1;
+  const n = (x, y) => {
+    const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy;
+    const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+    const x0 = ix & (N - 1), x1 = (ix + 1) & (N - 1), y0 = (iy & (N - 1)) * N, y1 = ((iy + 1) & (N - 1)) * N;
+    const a = g[y0 + x0] + (g[y0 + x1] - g[y0 + x0]) * sx;
+    const b = g[y1 + x0] + (g[y1 + x1] - g[y1 + x0]) * sx;
+    return a + (b - a) * sy;
+  };
+  const fbm = (x, y, octaves = 3) => {
+    let sum = 0, amp = 1, norm = 0, f = 1;
+    for (let o = 0; o < octaves; o++) { sum += n(x * f + o * 17.3, y * f - o * 9.1) * amp; norm += amp; amp *= 0.5; f *= 2.03; }
+    return sum / norm;
+  };
+  return { n, fbm };
+}
+
+/** A smooth minimum: two distances melted together over `k`, which is
+ *  what makes blobs that touch read as one pool rather than two. */
+export function smin(a, b, k) {
+  const h = Math.max(0, Math.min(1, 0.5 + 0.5 * (b - a) / k));
+  return b + (a - b) * h - k * h * (1 - h);
+}
+
+/** Distance to a TAPERED run from (ax, ay) at half-width ra to (bx, by)
+ *  at rb - a capsule whose ends differ, which is a tendril, a finger
+ *  and a streak's body alike. */
+export function taperDist(x, y, ax, ay, ra, bx, by, rb) {
+  const dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy;
+  const t = len2 > 0 ? Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / len2)) : 0;
+  return len(x - (ax + dx * t), y - (ay + dy * t)) - (ra + (rb - ra) * t);
+}
+
+const TAU = Math.PI * 2;
+/** `Math.hypot` of two, without its generality - this runs per texel. */
+const len = (x, y) => Math.sqrt(x * x + y * y);
+/** A normal deviate from two uniforms (Box-Muller), clamped so a
+ *  generator that answers 0 or 1 still answers a number. */
+export const gaussOf = (u1, u2) => Math.sqrt(-2 * Math.log(Math.max(1e-6, 1 - u1))) * Math.cos(TAU * u2);
+/** How far inside the edge answers full thickness, per kind - the
+ *  heart of the shape. */
+const DEPTH_REACH = Object.freeze({ pool: 0.42, spatter: 0.2, streak: 0.19 });
+/** The noise on an edge, in cell units (a cell is 2 across). */
+const EDGE_ROUGH = 0.07;
+/** Turn a field into the cell's `{ a, depth }`: coverage from the
+ *  signed distance with a texel-wide soft edge, thickness from how far
+ *  inside it is. `aa` is a texel and a half in cell units. */
+const FIELD = { a: 0, depth: 0 };   // one answer, rewritten per texel - the build reads it before the next
+const fromField = (sdf, reach, aa) => {
+  FIELD.a = sdf >= aa ? 0 : 1 - smooth(-aa, aa, sdf);
+  FIELD.depth = sdf >= 0 ? 0 : Math.pow(Math.min(1, -sdf / reach), 0.8);
+  return FIELD;
+};
+/** The edge's grain: the fractal at two scales, and the whole point
+ *  warped by a third, so a rim is ragged at every size. */
+function roughen(noise, ox, oy) {
+  const out = { wx: 0, wy: 0, edge: 0 };   // rewritten per texel, read at once
+  return (x, y) => {
+    const wx = x + 0.09 * noise.fbm(x * 2.1 + ox, y * 2.1 + oy, 2);
+    const wy = y + 0.09 * noise.fbm(x * 2.1 + oy + 31.7, y * 2.1 + ox - 12.4, 2);
+    out.wx = wx; out.wy = wy; out.edge = EDGE_ROUGH * noise.fbm(wx * 4.3 + ox, wy * 4.3 + oy, 3);
+    return out;
+  };
+}
+/** A run's bounding circle, so a texel far from it skips the run: a
+ *  primitive further than a smooth minimum's `k` past the nearest so far
+ *  cannot change it. */
+const bound = (t) => ({ ...t, cx: (t.ax + t.bx) / 2, cy: (t.ay + t.by) / 2, br: len(t.bx - t.ax, t.by - t.ay) / 2 + Math.max(t.ra, t.rb) });
+const meltRun = (d, x, y, t, k) => (len(x - t.cx, y - t.cy) - t.br > d + k ? d : smin(d, taperDist(x, y, t.ax, t.ay, t.ra, t.bx, t.by, t.rb), k));
+/** How far outside a shape's smooth body the warp and the edge noise
+ *  can still reach (0.09 of warp, 0.07 of edge, and room): past it a
+ *  texel is empty without asking the noise, which is most of a cell. */
+const ROUGH_REACH = 0.2;
+/** Keep a primitive inside the cell's clear border (the frame is at
+ *  +-1; the border and the soft edge take the rest). */
+const INSIDE = 0.86;
+const clampIn = (v, r) => Math.max(-INSIDE + r, Math.min(INSIDE - r, v));
+
+function poolField(rng, noise) {
+  const ox = rng() * 64, oy = rng() * 64;
+  const rough = roughen(noise, ox, oy);
+  const main = { x: (rng() - 0.5) * 0.12, y: (rng() - 0.5) * 0.12, r: 0.38 + rng() * 0.1 };
+  // the lobes it spread into - a pool finds the floor's low side
+  const lobes = Array.from({ length: 2 + Math.floor(rng() * 4) }, () => {
+    const ang = rng() * TAU, d = 0.22 + rng() * 0.22, r = 0.14 + rng() * 0.15;
+    return { x: clampIn(main.x + Math.cos(ang) * d, r), y: clampIn(main.y + Math.sin(ang) * d, r), r };
+  });
+  // fingers where it ran, thinning to a point
+  const fingers = Array.from({ length: Math.floor(rng() * 3) }, () => {
+    const ang = rng() * TAU, from = main.r * 0.7, to = main.r + 0.18 + rng() * 0.2;
+    return bound({ ax: main.x + Math.cos(ang) * from, ay: main.y + Math.sin(ang) * from, ra: 0.07 + rng() * 0.04,
+      bx: clampIn(main.x + Math.cos(ang) * to, 0.03), by: clampIn(main.y + Math.sin(ang) * to, 0.03), rb: 0.015 + rng() * 0.02 });
+  });
+  // satellites where it splashed - clustered on one side
+  const side = rng() * TAU;
+  const sats = Array.from({ length: 3 + Math.floor(rng() * 8) }, () => {
+    const ang = side + gaussOf(rng(), rng()) * 0.9, d = 0.6 + rng() * 0.26, r = 0.015 + Math.pow(rng(), 2) * 0.05;
+    return { x: clampIn(Math.cos(ang) * d, r), y: clampIn(Math.sin(ang) * d, r), r };
+  });
+  const body = (wx, wy) => {
+    let d = len(wx - main.x, wy - main.y) - main.r;
+    for (const l of lobes) d = smin(d, len(wx - l.x, wy - l.y) - l.r, 0.12);
+    for (const f of fingers) d = meltRun(d, wx, wy, f, 0.06);
+    return d;
+  };
+  return (x, y) => {
+    let d = body(x, y);
+    if (d < ROUGH_REACH) { const { wx, wy, edge } = rough(x, y); d = body(wx, wy) + edge; }
+    for (const s of sats) d = Math.min(d, len(x - s.x, y - s.y) - s.r);
+    return fromField(d, DEPTH_REACH.pool, 0.024);
+  };
+}
+
+function spatterField(rng, noise) {
+  const ox = rng() * 64, oy = rng() * 64;
+  const rough = roughen(noise, ox, oy);
+  const core = { x: (rng() - 0.5) * 0.1, y: (rng() - 0.5) * 0.1, r: 0.2 + rng() * 0.08 };
+  const blobs = Array.from({ length: 1 + Math.floor(rng() * 3) }, () => {
+    const ang = rng() * TAU, d = core.r * (0.5 + rng() * 0.6), r = core.r * (0.4 + rng() * 0.4);
+    return { x: core.x + Math.cos(ang) * d, y: core.y + Math.sin(ang) * d, r };
+  });
+  // ONE OR TWO DIRECTIONS the impact threw it, and every tendril and
+  // most of the mist goes one of them
+  const aims = [rng() * TAU];
+  if (rng() < 0.45) aims.push(aims[0] + (rng() < 0.5 ? -1 : 1) * (1.2 + rng() * 1.6));
+  const aimAt = () => aims[Math.floor(rng() * aims.length) % aims.length];
+  const tendrils = Array.from({ length: 3 + Math.floor(rng() * 7) }, () => {
+    const ang = aimAt() + gaussOf(rng(), rng()) * 0.5;
+    const len = core.r + 0.18 + Math.pow(rng(), 0.7) * 0.45;
+    const bx = clampIn(core.x + Math.cos(ang) * len, 0.05), by = clampIn(core.y + Math.sin(ang) * len, 0.05);
+    const bead = 0.025 + rng() * 0.045;
+    const gap = rng() < 0.4 ? 0.03 + rng() * 0.06 : 0;   // some beads broke off the end of their run
+    return bound({ ax: core.x + Math.cos(ang) * core.r * 0.5, ay: core.y + Math.sin(ang) * core.r * 0.5, ra: 0.05 + rng() * 0.04,
+      bx, by, rb: 0.008 + rng() * 0.012,
+      beadX: clampIn(bx + Math.cos(ang) * (bead + gap), bead), beadY: clampIn(by + Math.sin(ang) * (bead + gap), bead), bead });
+  });
+  const mist = Array.from({ length: 18 + Math.floor(rng() * 40) }, () => {
+    const ang = (rng() < 0.8 ? aimAt() + gaussOf(rng(), rng()) * 0.7 : rng() * TAU);
+    const d = core.r + 0.1 + Math.pow(rng(), 0.6) * 0.6, r = 0.009 + Math.pow(rng(), 2.5) * 0.03;
+    return { x: clampIn(core.x + Math.cos(ang) * d, r), y: clampIn(core.y + Math.sin(ang) * d, r), r };
+  });
+  const body = (wx, wy) => {
+    let d = len(wx - core.x, wy - core.y) - core.r;
+    for (const b of blobs) d = smin(d, len(wx - b.x, wy - b.y) - b.r, 0.08);
+    for (const t of tendrils) d = meltRun(d, wx, wy, t, 0.05);
+    return d;
+  };
+  return (x, y) => {
+    let d = body(x, y);
+    if (d < ROUGH_REACH) { const { wx, wy, edge } = rough(x, y); d = body(wx, wy) + edge * 0.7; }
+    for (const t of tendrils) d = Math.min(d, len(x - t.beadX, y - t.beadY) - t.bead);
+    for (const m of mist) { const dx = x - m.x, dy = y - m.y; if (dx * dx + dy * dy < 0.01) d = Math.min(d, len(dx, dy) - m.r); }
+    return fromField(d, DEPTH_REACH.spatter, 0.022);
+  };
+}
+
+function streakField(rng, noise) {
+  const ox = rng() * 64, oy = rng() * 64;
+  const rough = roughen(noise, ox, oy);
+  // the head at -u where the drop struck, the tail thinning toward +u
+  const hx = -0.55 + (rng() - 0.5) * 0.08, hr = 0.2 + rng() * 0.07;
+  const end = 0.5 + rng() * 0.3, bend = (rng() - 0.5) * 0.3;
+  const yAt = (t) => bend * t * t;   // it curves as it slows
+  const SEG = 5;
+  const body = Array.from({ length: SEG }, (_, k) => {
+    const t0 = k / SEG, t1 = (k + 1) / SEG;
+    const x0 = hx + (end - hx) * t0, x1 = hx + (end - hx) * t1;
+    return bound({ ax: x0, ay: yAt(t0), ra: hr * 0.8 * (1 - t0 * 0.9), bx: x1, by: yAt(t1), rb: hr * 0.8 * (1 - t1 * 0.9) });
+  });
+  // the line of droplets it shed past its tail, each smaller
+  const trail = Array.from({ length: 1 + Math.floor(rng() * 4) }, (_, k) => {
+    const t = 1.08 + k * (0.07 + rng() * 0.06), r = Math.max(0.01, 0.035 * (1 - k * 0.2) * (0.6 + rng() * 0.6));
+    return { x: clampIn(hx + (end - hx) * t, r), y: clampIn(yAt(Math.min(1.4, t)) + (rng() - 0.5) * 0.04, r), r };
+  });
+  // and the crown behind the head, where the impact splashed back
+  const crown = Array.from({ length: 2 + Math.floor(rng() * 5) }, () => {
+    const ang = Math.PI + gaussOf(rng(), rng()) * 0.8, d = hr + 0.03 + rng() * 0.12, r = 0.012 + rng() * 0.025;
+    return { x: clampIn(hx + Math.cos(ang) * d, r), y: clampIn(Math.sin(ang) * d, r), r };
+  });
+  const run = (wx, wy) => {
+    let d = len((wx - hx) * 0.95, wy * 1.08) - hr;
+    for (const b of body) d = meltRun(d, wx, wy, b, 0.06);
+    return d;
+  };
+  return (x, y) => {
+    let d = run(x, y);
+    if (d < ROUGH_REACH) { const { wx, wy, edge } = rough(x, y); d = run(wx, wy) + edge * 0.6; }
+    for (const t of trail) d = Math.min(d, len(x - t.x, y - t.y) - t.r);
+    for (const c of crown) d = Math.min(d, len(x - c.x, y - c.y) - c.r);
+    return fromField(d, DEPTH_REACH.streak, 0.022);
+  };
+}
+
 /**
  * One cell's mask and DEPTH: answers `{ a, depth }` for a point in cell
  * space (x, y in -1..1, y up) - `a` the coverage, `depth` how much
@@ -136,43 +363,16 @@ function wobble(rng, n = 12, amount = 0.2) {
  * shape is deep; it says so here, in the one unit a film can use, and
  * the shading is the film's job now (see INK_DEPTH).
  */
-function shapeAt(kind, rng, bits) {
-  if (kind === 'pool') {
-    const w = wobble(rng, 14, 0.22);
-    return (x, y) => {
-      const r = Math.hypot(x, y), ang = Math.atan2(y, x);
-      const edge = 0.78 * (1 + w(ang));
-      return { a: 1 - smooth(edge - 0.1, edge + 0.05, r), depth: 1 - smooth(0, edge, r) };
-    };
-  }
-  if (kind === 'spatter') {
-    const w = wobble(rng, 10, 0.3);
-    const dots = Array.from({ length: 6 + Math.floor(rng() * 5) }, () => {
-      const ang = rng() * Math.PI * 2, d = 0.5 + rng() * 0.42;
-      return { x: Math.cos(ang) * d, y: Math.sin(ang) * d, r: 0.05 + rng() * 0.11 };
-    });
-    return (x, y) => {
-      const r = Math.hypot(x, y), ang = Math.atan2(y, x);
-      const edge = 0.42 * (1 + w(ang));
-      let a = 1 - smooth(edge - 0.08, edge + 0.04, r);
-      for (const d of dots) a = Math.max(a, 1 - smooth(d.r - 0.03, d.r + 0.03, Math.hypot(x - d.x, y - d.y)));
-      return { a, depth: 1 - smooth(0, edge, r) };
-    };
-  }
-  if (kind === 'streak') {
-    const w = wobble(rng, 8, 0.18);
-    const beads = Array.from({ length: 3 + Math.floor(rng() * 3) }, () => ({ x: 0.2 + rng() * 0.7, y: (rng() * 2 - 1) * 0.12, r: 0.04 + rng() * 0.07 }));
-    return (x, y) => {
-      // the head at -u, the tail thinning toward +u
-      const t = (x + 0.85) / 1.75;            // 0 at the head, 1 at the tail's end
-      const half = 0.3 * (1 - 0.8 * Math.max(0, t)) * (1 + w(t * Math.PI * 2)) + 0.02;
-      let a = x < -0.85 || x > 0.9 ? 0 : 1 - smooth(half - 0.06, half + 0.03, Math.abs(y));
-      const head = 1 - smooth(0.3, 0.42, Math.hypot(x + 0.55, y * 1.15));
-      a = Math.max(a, head);
-      for (const b of beads) a = Math.max(a, 1 - smooth(b.r - 0.02, b.r + 0.02, Math.hypot(x - b.x, y - b.y)));
-      return { a, depth: 1 - Math.max(0, Math.min(1, t)) };
-    };
-  }
+function shapeAt(kind, rng, noise) {
+  // BLOOD5: the pool, the spatter and the streak are SIGNED DISTANCE
+  // fields now - blobs, tapered runs and droplets joined by a smooth
+  // minimum and roughened by value noise (see `bloodNoise`) - where
+  // BLOOD2b drew each as one wobbled circle. Their thickness is how far
+  // inside the edge a texel sits, so every rim feathers to nothing and
+  // every heart is deep, whatever the shape grew into.
+  if (kind === 'pool') return poolField(rng, noise);
+  if (kind === 'spatter') return spatterField(rng, noise);
+  if (kind === 'streak') return streakField(rng, noise);
   if (kind === 'print') {
     // a boot: a heel disc at -u, a longer sole at +u, a waist between,
     // a little ragged so no two prints are the same stamp
@@ -180,8 +380,8 @@ function shapeAt(kind, rng, bits) {
     const toeX = 0.32 + rng() * 0.12, heelX = -0.5 - rng() * 0.08;
     return (x, y) => {
       const ang = Math.atan2(y, x);
-      const heel = 1 - smooth(0.2, 0.28, Math.hypot((x - heelX) * 1.1, y * 1.35) * (1 + w(ang)));
-      const sole = 1 - smooth(0.3, 0.38, Math.hypot((x - toeX) * 0.75, y * 1.15) * (1 + w(ang + 1)));
+      const heel = 1 - smooth(0.2, 0.28, len((x - heelX) * 1.1, y * 1.35) * (1 + w(ang)));
+      const sole = 1 - smooth(0.3, 0.38, len((x - toeX) * 0.75, y * 1.15) * (1 + w(ang + 1)));
       const waist = x > heelX && x < toeX ? 1 - smooth(0.16, 0.22, Math.abs(y) * (1 + 0.6 * Math.abs((x - (heelX + toeX) / 2) / ((toeX - heelX) / 2)))) : 0;
       return { a: Math.max(heel, sole, waist), depth: 1 - smooth(heelX, toeX, x) };
     };
@@ -229,8 +429,8 @@ function shapeAt(kind, rng, bits) {
   };
   const footX = beadX + drift;
   return (x, y) => {
-    const rBead = Math.hypot((x - beadX) * 1.2, (y - 0.5) * 0.9);
-    const rFoot = Math.hypot(x - footX, y - runTo);
+    const rBead = len((x - beadX) * 1.2, (y - 0.5) * 0.9);
+    const rFoot = len(x - footX, y - runTo);
     const bead = 1 - smooth(beadR, beadR + 0.1, rBead);
     const main = trail(x, y, beadX, runTo, width, true);
     const fork = forked ? trail(x, y, beadX + forkX, forkTo, forkW, false) : { a: 0, along: -1 };
@@ -266,26 +466,53 @@ function shapeAt(kind, rng, bits) {
  * @returns {{ colors: Uint8ClampedArray, width: number, height: number,
  *   cells: Array<{ kind: string, u0: number, v0: number, u1: number, v1: number }> }}
  */
-export function buildBloodAtlas({ size = ATLAS_SIZE, cells = ATLAS_CELLS, seed = 0x5EED, rng = null } = {}) {
+const EMPTY = Object.freeze({ a: 0, depth: 0 });
+export function buildBloodAtlas(opts = {}) {
+  const b = atlasBuilder(opts);
+  while (!b.step());
+  return b.atlas;
+}
+
+/**
+ * BLOOD5: THE SAME BUILD, A CELL AT A TIME. The 128-texel sheet is
+ * about four times the work of the 64-texel one (a couple of hundred
+ * milliseconds), and BLOOD AUDIT 4 already moved the old seventy off
+ * the boot path onto the first mark - where a quarter of a second is a
+ * hitch in the middle of a fight. So the build is a sequence of steps
+ * a host can run in the page's idle time (`prewarmBloodAtlas`); the
+ * rng is drawn in the same order either way, so the sheet is the same
+ * picture to the byte however it was stepped. `step()` answers true
+ * once the sheet is whole.
+ */
+export function atlasBuilder({ size = ATLAS_SIZE, cells = ATLAS_CELLS, seed = 0x5EED, rng = null } = {}) {
   const roll = rng ?? mulberry32(seed);
+  const noise = bloodNoise(roll);   // BLOOD5: one lattice for the sheet
   const cell = size / cells;
   const rows = ATLAS_KINDS.length;   // BLOOD2d: one row a kind - the sheet is `size` wide and `rows` cells tall
   const height = cell * rows;
   const colors = new Uint8ClampedArray(size * height * 4);
   const out = [];
   const BORDER = 2;
-  for (let row = 0; row < rows; row++) {
+  const atlas = { colors, width: size, height, cells: out };
+  let next = 0;
+  const total = rows * cells;
+  function step() {
+    if (next >= total) return true;
+    const row = Math.floor(next / cells), col = next % cells;
+    next++;
     const kind = ATLAS_KINDS[row];
-    for (let col = 0; col < cells; col++) {
-      const at = shapeAt(kind, roll, null);
-      const grain = wobble(roll, 24, 0.08);
+    {
+      const at = shapeAt(kind, roll, noise);
+      // BLOOD5: the grain is the noise's too - clotting, at two scales,
+      // where it was a wobble around the cell's centre
+      const gx = roll() * 64, gy = roll() * 64;
       const x0 = col * cell, y0 = row * cell;
       for (let py = 0; py < cell; py++) {
         for (let px = 0; px < cell; px++) {
           const inBorder = px < BORDER || py < BORDER || px >= cell - BORDER || py >= cell - BORDER;
           const x = ((px + 0.5) / cell) * 2 - 1, y = ((py + 0.5) / cell) * 2 - 1;
-          const { a, depth } = inBorder ? { a: 0, depth: 0 } : at(x, y);
-          const g = 1 + grain(Math.atan2(y, x)) * 0.5 + grain(px * 0.37 + py * 0.11) * 0.5;
+          const { a, depth } = inBorder ? EMPTY : at(x, y);
+          const g = inBorder || !(a > 0) ? 1 : 1 + 0.1 * noise.fbm(x * 7 + gx, y * 7 + gy, 2) + 0.05 * noise.n(x * 23 + gy, y * 23 + gx);
           const o = ((y0 + py) * size + (x0 + px)) * 4;
           // BLOOD AUDIT 4: white ink - the shape and its grain; the colour
           // is the tint's (see BLOOD_BASE).
@@ -309,13 +536,72 @@ export function buildBloodAtlas({ size = ATLAS_SIZE, cells = ATLAS_CELLS, seed =
         u1: (x0 + cell - 1) / size, v1: (y0 + cell - 1) / height,
       });
     }
+    return next >= total;
   }
-  return { colors, width: size, height, cells: out };
+  return { step, atlas, done: () => next >= total };
 }
 
-/** The one atlas every pool shares, built on first ask. */
+/** The one atlas every pool shares, built on first ask - and BLOOD5,
+ *  finished on first ask from wherever an idle prewarm left it. */
 let _atlas = null;
-export function bloodAtlas() { return _atlas ??= buildBloodAtlas(); }
+let _builder = null;
+export function bloodAtlas() {
+  if (_atlas) return _atlas;
+  _builder ??= atlasBuilder();
+  while (!_builder.step());
+  _atlas = _builder.atlas;
+  _builder = null;
+  return _atlas;
+}
+/** BLOOD5: build the shared sheet in the page's idle time, a few cells
+ *  a slice, so the first mark finds it made. `idle` is the scheduler
+ *  (the browser's requestIdleCallback); without one this does nothing
+ *  and the first mark builds it, as before. Answers whether it started. */
+export function prewarmBloodAtlas(idle = globalThis.requestIdleCallback) {
+  if (_atlas || _builder || typeof idle !== 'function') return false;
+  _builder = atlasBuilder();
+  const slice = (deadline) => {
+    if (_atlas || !_builder) return;
+    do { if (_builder.step()) { _atlas = _builder.atlas; _builder = null; return; } }
+    while ((deadline?.timeRemaining?.() ?? 0) > 6);
+    idle(slice);
+  };
+  idle(slice);
+  return true;
+}
+
+/** BLOOD5: THE DROPLET a spray carries through the air (bloodMarks'
+ *  flight) - its own record beside the atlas's, drawn through the
+ *  billboard pass, which is a CUTOUT: no soft edge, so the shape is in
+ *  the alpha and the roundness is in the colour. A bead, a shade taller
+ *  than wide with a tail up (a falling drop pulls into a teardrop), dark
+ *  at the rim, the blood's red through the body and one small glint
+ *  high on the side the light is usually on. */
+export const BLOOD_DROP_RECORD = 'drop';
+export const DROP_ART_SIZE = 16;
+let _droplet = null;
+export function bloodDropletArt() {
+  if (_droplet) return _droplet;
+  const N = DROP_ART_SIZE, colors = new Uint8ClampedArray(N * N * 4);
+  const base = BLOOD_BASE.map((c) => c * 255);
+  for (let py = 0; py < N; py++) {
+    for (let px = 0; px < N; px++) {
+      const x = ((px + 0.5) / N) * 2 - 1, y = ((py + 0.5) / N) * 2 - 1;   // y DOWN the image: py 0 is the top
+      // a bead in the lower two thirds and a tail narrowing up to a point
+      const bead = Math.sqrt(x * x / 0.36 + (y - 0.22) * (y - 0.22) / 0.42);
+      const tail = y < 0.22 ? Math.abs(x) / Math.max(0.001, 0.6 * (y + 0.85) / 1.07) : 99;
+      const inside = bead <= 1 || (tail <= 1 && y > -0.85);
+      const o = (py * N + px) * 4;
+      if (!inside) continue;
+      const rim = Math.min(1, bead);
+      const shade = 1.15 - 0.55 * rim * rim;
+      const glint = Math.max(0, 1 - Math.hypot(x + 0.22, y - 0.02) / 0.2);
+      for (let c = 0; c < 3; c++) colors[o + c] = Math.round(Math.min(255, base[c] * shade + glint * [150, 95, 85][c]));
+      colors[o + 3] = 255;
+    }
+  }
+  return (_droplet = { colors, width: N, height: N });
+}
 
 /** A cell of `kind`, chosen by the caller's chance. */
 export function pickCell(atlas, kind, rng = Math.random) {
