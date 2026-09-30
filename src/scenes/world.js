@@ -165,7 +165,8 @@ import { placeFoeFreely, PLACE_FOE_DEFAULTS } from '../systems/quest/sceneMount.
 import { PLAYED_STEP_MAX_SECONDS } from '../systems/quest/clock.js';   // WORLD7: the quest clocks' played step online
 import { mintQuestFoeWave, placeFoeEnv, entityOccupancy, questFoeGender, reviveQuestBehaviour, heldSpots, holdSpotWhile, questBoxHoldsFoes, questShareTag, sharedQuestFoe, partnerStandsQuestFoes, questBehaviourFor, adoptsOrphanQuestFoe, isPrivateQuestFoe } from './questFoeHost.js';   // B1   // AUDIT 63r F24: SerializableEnemy.cs:206-217's quest-link arm, the one home both hosts use
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';   // MERGE: FinalizeFoe's Flying lift reads the behaviour flag
-import { intermittentEnemySpawn, setEnemyAlert, areEnemiesNearby, passiveGuardSpawns, foeHostile } from '../systems/encounters.js';   // OW6: foeHostile, the one hostility gate
+import { intermittentEnemySpawn, setEnemyAlert, areEnemiesNearby, foeHostile } from '../systems/encounters.js';   // OW6: foeHostile, the one hostility gate
+import { createStandingWatch, installLegalNotices } from './standingHost.js';   // REP1: the watch's stop; REP5: the law's notices
 import { SPAWNER_ARMS } from '../systems/encounters.js';   // SURV6: the hunt's beast stands on the wilderness arm
 import { skillValue } from '../systems/skills.js';   // SURV6: the hunter's four skills
 import { inflictDisease } from '../systems/diseases.js';   // SURV6: a foul pool's water
@@ -520,7 +521,7 @@ import { morrowindDataCount, morrowindDataGeneration, getBytes } from './dataSou
 import { createQuestBridge, tokensToRows } from './questBridge.js';
 import { loadQuestPack } from './questData.js';
 import { ensureFactionRep, getReputation, changeReputation } from '../systems/factionRep.js';
-import { changeLegalRep, legalRepOf, CRIMES, setCrimeCommitted, lowerRepForCrime } from '../systems/court.js';   // PlayerEntity.Update:498-511 reads the region's LegalRep and levies Criminal_Conspiracy
+import { changeLegalRep, legalRepOf, CRIMES, setCrimeCommitted, lowerRepForCrime } from '../systems/court.js';   // the region's LegalRep: the status box, the quest actions, the crimes (REP1 retired :498-511's levy)
 import { isEquipped, unequipSlot, unequipItem } from '../systems/equip.js';
 import { ServiceFlowWindow } from '../ui/guildServiceWindows.js';
 import { makeItemPermanent } from '../systems/quest/item.js';
@@ -7135,19 +7136,10 @@ export async function bootWorld(canvas, renderer, params, status) {
       // banished character never ran. The rolls are independent and
       // each levies Criminal_Conspiracy first, exactly as DFU orders
       // it - the watch stands down the moment crimeCommitted clears.
-      const _region = _questRegionIndex();   // PlayerGPS.CurrentRegionIndex
-      const _owed = passiveGuardSpawns({
-        legalRep: legalRepOf(playerEntity, _region),
-        severePunishmentFlags: playerEntity.regionConditions?.[_region]?.severePunishmentFlags ?? 0,
-      });
-      for (let s = 0; s < _owed; s++) {
-        // WERE-LEVY (FIELD BUGS 2026-09-29g): :502/:509 assign the FIELD (`crimeCommitted = ...`), not the setter -
-        // DFU's one crime write that SuppressCrime is never asked of. V4 routed it through the setter, so a transformed
-        // lycanthrope with a hated name drew the watch with NO crime to answer: never halted, never charged, and the
-        // watch never stood down (EnemyEntity keeps guards while transformed) - "now all guards won't leave me alone".
-        playerEntity.crimeCommitted = CRIMES.Criminal_Conspiracy;
-        _witnessResponse();
-      }
+      // REP1 (Mac: "Challenged on sight"): THE PASSIVE LEVY IS RETIRED. :498-511 rolled a 5% Criminal Conspiracy every
+      // game minute below -10 (10% more banished) with no guard anywhere near - in a town the watch every hundred real
+      // seconds at the 12x clock, each arrest -2 and the sentence 0 back. A guard who SEES a known criminal stops them
+      // now (scenes/standingHost.js, looked for in the exterior frame); the minute rolls nothing for a bad name.
       // ROAD-B: :513-516, the THIRD statement of the same minute -
       // "If enemy guards have been spawned, any new NPC guards should
       // be made into enemyMobiles". `updatedGuards` makes it run at
@@ -7245,7 +7237,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     const fwd = [Math.sin(cam.yaw), 0, Math.cos(cam.yaw)];
     cityGuards.spawnCityGuards(!!immediate, { playerFeet: [...feet], playerFwd: fwd, pool: _guardPool() }).catch((e) => console.error('[guards]', e));
   }
-  function _witnessResponse() { _spawnGuards(false); }
+  // REP1: SpawnCityGuards(FALSE) - the witness arm - had one caller, the passive levy the minute loop no longer rolls; the
+  // watch's stop (standingHost.js) is its successor, and asks cityGuards.guardSeesPlayer with the same eye.
   function _crimeResponse() { _spawnGuards(true); }
   // G2: arrest + court through the townTalk overlay seam.
   //
@@ -7278,6 +7271,21 @@ export async function bootWorld(canvas, renderer, params, status) {
     clearEnemies: () => { for (const f of [...exteriorFoes.foes]) { if (!f.dead) exteriorFoes.removeFoe(f); } lockOn.unlock(); },   // AUDIT 62 F16: a removed foe is never flagged dead, so the lock must be let go here
     positionPlayerAtLocationEntrance: () => positionPlayerAtLocationEntrance(),
   });
+  // REP1: THE WATCH STOPS A KNOWN CRIMINAL IT SEES - on the street, a guard's clear line, once in two game hours per
+  // region, never in the grace an answered law gives (scenes/standingHost.js; the law's terms: systems/standing.js).
+  const standingWatch = createStandingWatch({
+    playerEntity, townTalk, arrestFlow, cityGuards,
+    guardPool: () => _guardPool(),
+    playerFeet: () => [...(walkMode && playerSpawned ? player.pos : cam.pos)],
+    regionIndex: () => _questRegionIndex(),
+    regionName: (r) => REGION_NAMES[r] ?? 'this region',
+    ownNow: () => ownMinutes(), worldNow: () => worldMinutes(),
+    crimeResponse: () => _crimeResponse(),
+    onStreet: () => (modes?.mode ?? 'exterior') === 'exterior' && playerSpawned,
+    blocked: () => townTalk.overlayActive || !!modes?.overlayHeld || !!travelView?.active || !!raidDefendingHere(),   // a raid on the town: the watch has other work
+  });
+  // REP5: a changed legal standing is said - the crime's charge, the debt paid, a penance, a contract's thanks
+  installLegalNotices({ playerEntity, say: (l) => townTalk.say(l), regionName: (r) => REGION_NAMES[r] ?? 'this region' });
   const weaponRig = createWeaponRig({
     activateHeld: () => held(keys, 'ActivateCenterObject') || _tapArmed > 0,   // AUDIT 62 F8: the finger's press too (it was 'Mouse0' in the held set until the tap stopped speaking a literal code)   // AUDIT 28 W12: the drawn bow's un-draw key
     renderer, canvas, fetchBytes, palette, audio, entity: playerEntity,
@@ -7595,7 +7603,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2733 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6431
+  // that context through modes.dungeonCtx - so worldModes.js:6434
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -7692,9 +7700,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     // encounter pool's remover for both. That was not a leak: removeFoe
     // (exteriorFoes.js:497-502) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
-    // got exactly what removeGuard (cityGuards.js:1564-1582) gives it -
+    // got exactly what removeGuard (cityGuards.js:1589-1607) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
-    // (cityGuards.js:981) and spliced out at the end of it (:1171).
+    // (cityGuards.js:1006) and spliced out at the end of it (:1196).
     // Routing by POOL MEMBERSHIP is an OWNERSHIP fix: each pool owns the
     // teardown of its own records so the two can diverge safely, and
     // removeFoe's `questBehaviour?.notifyDestroyed()` (exteriorFoes.js
@@ -12741,7 +12749,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9887-9951 -
+  // worldModes answers it in BOTH modes (worldModes.js:9890-9954 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -13212,7 +13220,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  :3552), so the in-place pass is right for both. Also: C# calls
    *  this whether or not GetQuest found anything - the null-parent arm
    *  is a DFU forum-bug fix INSIDE ExpandQuestMessage, not a caller
-   *  guard, and expandQuestMessage carries it (questMacros.js:564). */
+   *  guard, and expandQuestMessage carries it (questMacros.js:565). */
   const expandQuestTokens = (questID, tokens) => {
     expandQuestMessage(questBridge?.machine.getQuest(questID) ?? null, tokens, true);
     return tokensToString(tokens);
@@ -17077,6 +17085,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     level: () => playerEntity.level | 0 || 1,
     entity: () => playerEntity,
     townName: (px, py) => String(locationIndex.get(`${px},${py}`)?.name ?? ''),
+    regionAt: (px, py) => maps.getRegionIndexAt(px, py),   // REP4: the board's region, for the law's thanks
     // the ground a pack may stand on: land (the height bytes say where the sea is, as the gate's scan reads them), no
     // location of the game's own on the pixel, no spawned dungeon - every client's map files answer alike
     siteOk: (x, y) => x > 0 && y > 0 && x < 999 && y < 499 && !_bountyLocPixels.has(`${x},${y}`) && !spawnsDungeon(_spawnSalt, x, y)
@@ -22790,6 +22799,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const foeDt = _questBoxHoldsFoes() ? 0 : dt;
     livePersonBatches.push(...cityGuards.update(foeDt,
       walkMode && playerSpawned ? player.pos : cam.pos, cam.pos, _foeSenses()));
+    standingWatch.frame();   // REP1: a guard who sees a known criminal stops them
     // X-slice: the encounter pool drives + draws beside the watch; this
     // is the EXTERIOR arm of the cadence loop (AUDIT 62 F11: the modal
     // modes ring the same function through the mode machine, above the
@@ -23149,11 +23159,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // AFTER the damage fork closes (:615), so a shaft that lost the
         // roll still enrages what it hit and wakes the area. ROAD-G G1
         // (review): the WATCH carries the pair now
-        // (cityGuards.js:733-738), so this seam ROUTES by pool exactly
+        // (cityGuards.js:752-757), so this seam ROUTES by pool exactly
         // as `dealDamage` above it does, instead of excluding the
         // guards - a zero-damage shaft into a pacified watchman has to
         // reach the same door the zero-damage SWING already reaches
-        // (cityGuards.js:1285). DFU makes no pool distinction:
+        // (cityGuards.js:1310). DFU makes no pool distinction:
         // AssignBowDamageToTarget's player arm (DaggerfallMissile.cs
         // :660-688) calls WeaponDamage, so :630 runs for the shaft as
         // for the swing.

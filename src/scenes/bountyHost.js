@@ -33,6 +33,7 @@ import { registerModSaveData } from '../systems/modSaveData.js';
 import { addGoldPieces, addItem } from '../systems/inventory.js';
 import { BOUNTY_RING_R } from '../ui/bountyMapMark.js';
 import { setBountyJournal, BOUNTY_QUEST_PREFIX } from '../systems/bountyJournal.js';
+import { rewardContract } from '../systems/standing.js';   // REP4: a contract finished, the region's law two points better
 
 /** How often the host looks at the world, seconds. */
 export const BOUNTY_TICK_S = 0.5;
@@ -74,6 +75,7 @@ export const BOUNTY_REFUSALS = Object.freeze({
  *   level: () => number,                     // the player's level
  *   entity: () => any,                       // the player entity (gold, items)
  *   townName: (px:number, py:number) => string,
+ *   regionAt?: (px:number, py:number) => number,   // REP4: the board's region, for the law's thanks
  *   siteOk: (x:number, y:number) => boolean, // may a pack stand on this map pixel
  *   dungeonAt?: (x:number, y:number) => (string|null),   // the game's own dungeon on this pixel, by name
  *   playerPixel: () => ({x:number, y:number} | null),     // outdoors: my pixel; elsewhere null
@@ -334,6 +336,10 @@ export function createBountyHost(deps) {
     const item = mintBountyItem(posting.level, { rolls });
     addGoldPieces(entity, posting.gold);
     if (Array.isArray(entity?.items)) addItem(entity.items, item);
+    // REP4 (Mac: "Earn it + faster drift" - regional contracts): the board's region thinks better of the hunter who
+    // cleared its road - two points of its law (standing.js rewardContract), said by the law's own notice
+    const region = deps.regionAt?.(posting.town.px, posting.town.py);
+    if (Number.isInteger(region) && region >= 0 && entity) rewardContract(entity, region);
     const reward = bountyRewardRows(posting.gold, item);
     notices.push({
       title: BOUNTY_REWARD_TITLE,

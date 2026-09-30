@@ -110,7 +110,7 @@ installSurvivalLoot({ enabled: corpseFoodOn });   // SURV2: an animal's corpse c
 // import, the same wire SURV2's icons come in by - AFTER the survival
 // pair, whose adjacency that mod's own pin holds.
 installThunderlockIcons();   // THUNDERLOCK: the templates, the find and the legendary register at its import; the icons here
-import { normalizeReputations, NORMALIZE_INTERVAL_MINUTES } from './court.js';   // AUDIT 23 (C4)
+import { normalizeReputations, NORMALIZE_INTERVAL_MINUTES, RECOVERY_INTERVAL_MINUTES } from './court.js';   // AUDIT 23 (C4); REP4: the week's recovery
 // S43: the entity update's 7-day and 38-day arms (PlayerEntity.cs:460-472).
 import { regionPowerUpdate } from './regionPower.js';
 import { runSurvivalMinutes, clearSurvivalMods, pauseSurvival } from './survival/needs.js';   // SURV1: the needs, a world minute at a time; AUDIT SURV A: and the drains dropped when the feed stops; AUDIT SURV-TIERS: and paused while Off
@@ -982,6 +982,11 @@ export function runCalendarArms(entity, lastMinutes, nowMinutes, { rolls = Math.
   for (let i = lastMinutes; i < nowMinutes; i++) {
     if (ownArms && i % NORMALIZE_INTERVAL_MINUTES === 0 && !entity.preventNormalizingReputations) {
       normalizeReputations(entity, entity.factionRep ?? null);
+    } else if (ownArms && i % RECOVERY_INTERVAL_MINUTES === 0 && !entity.preventNormalizingReputations) {
+      // REP4 (Mac: "Earn it + faster drift"): between DFU's 112-day walks, a standing below zero recovers a point every
+      // seven days - the recovery half alone (a positive standing wears down on DFU's walk only). On a 112-day boundary
+      // the walk above is the week's too, so no minute pays twice.
+      normalizeReputations(entity, entity.factionRep ?? null, { recoveryOnly: true });
     }
     // S43 - :461-462, the SECOND arm of the :453-477 loop: every 7 days the
     // faction powers move. Until now nothing in the port ever changed a
@@ -1357,8 +1362,10 @@ export function normalizeAcross(entity, from, to) {
   if (!entity || !Number.isFinite(from) || !Number.isFinite(to)) return 0;
   const a = Math.floor(from), b = Math.floor(to);
   if (!(b > a)) return 0;
-  // multiples of the interval in [a, b): the same minute VALUES the loop above tests (DFU's `(i + last) % N == 0`)
-  const n = Math.floor((b - 1) / NORMALIZE_INTERVAL_MINUTES) - Math.floor((a - 1) / NORMALIZE_INTERVAL_MINUTES);
+  // multiples of the interval in [a, b): the same minute VALUES the loop above tests (DFU's `(i + last) % N == 0`).
+  // REP4: the absence pays the recovery half, and the recovery half is weekly now - every 7-day boundary crossed away
+  // is a point back for a standing below zero (the 112-day boundaries are among them).
+  const n = Math.floor((b - 1) / RECOVERY_INTERVAL_MINUTES) - Math.floor((a - 1) / RECOVERY_INTERVAL_MINUTES);
   if (n <= 0 || entity.preventNormalizingReputations) return 0;
   // AUDIT LIVED1b F3: at most NORMALIZE_ACROSS_MAX walks - a tampered save's -1e308 asked for ~1e300 and the load never
   // returned; a reputation is clamped to +-100 and each walk moves it one point, so no more can change anything

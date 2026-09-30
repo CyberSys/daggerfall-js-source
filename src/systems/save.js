@@ -18,7 +18,8 @@ import { rebuildEquipState, isEquipped, unequipSlot } from './equip.js';   // AU
 import { templateByIndex } from './itemTemplates.js';   // AUDIT 63r F28: `shortName` is SetItem's template read, not an optional override
 import { restartHeldEnchantments } from './enchantments.js';   // E2: the held bundles' restore half
 import { snapshotWeather, restoreWeather, rollClimateWeathersForDay } from './weatherSim.js';   // W1: playerPosition.weather (SerializablePlayer.cs:225) - one value, every host; AUDIT WORLD5 C4: the shared day's sky over a loaded one
-import { snapshotRegionConditions, restoreRegionConditions } from './regionConditions.js';   // S42: the CONDITION half of RegionDataRecord
+import { snapshotRegionConditions, restoreRegionConditions } from './regionConditions.js';
+import { snapshotStanding, restoreStanding } from './standing.js';   // REP: the standing book   // S42: the CONDITION half of RegionDataRecord
 import { snapshotDiscovery, restoreDiscovery } from './discovery.js';   // T4
 import { getWorldVariationSaveData, restoreWorldVariationData, clearWorldDataVariants } from './worldDataVariants.js';   // RR3b: the world-data variants ride the save
 import { snapshotAutomap, restoreAutomap } from './automap.js';   // A1: dictAutomapDungeonsDiscoveryState rides SaveData_v1
@@ -390,6 +391,7 @@ export function snapshotPlayer(entity, { position = null, pose = null, classicMi
   // legalRep is a region-keyed object here, not DFU's 62-entry array;
   // it must be COPIED or the snapshot aliases live state.
   snap.legalRep = entity.legalRep ? { ...entity.legalRep } : null;
+  snap.standing = snapshotStanding(entity);   // REP: the watch's clocks and the prices paid, per region
   // Any biography deltas still parked (only if FACTION.TXT was missing
   // at creation - S25 drains them at the chargen seam otherwise).
   snap.pendingFactionRep = (entity.pendingFactionRep ?? []).map((r) => ({ ...r }));
@@ -807,6 +809,7 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   entity.timeForThievesGuildLetter = snap.timeForThievesGuildLetter ?? 0;
   entity.timeForDarkBrotherhoodLetter = snap.timeForDarkBrotherhoodLetter ?? 0;
   entity.legalRep = snap.legalRep ? { ...snap.legalRep } : {};
+  restoreStanding(entity, snap.standing);   // REP: a pre-REP save restores an empty book
   // AUDIT 23 (C4/guilds-4): DFU clamps every region's LegalRep right
   // after restoring it (SerializablePlayer -> ClampLegalReputations) -
   // a save carrying a beyond-band value loads back into the band.

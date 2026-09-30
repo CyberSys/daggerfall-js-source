@@ -22,10 +22,10 @@
 // PrecipitationOverride and SeverePunishmentFlags are here because
 // nothing else has them. The weather override stays inert - classic
 // never sets it - but SeverePunishmentFlags is LIVE both ways as of
-// the arrest arc: scenes/arrestFlow.js:544-547 sets bit 1 on
+// the arrest arc: scenes/arrestFlow.js:557-560 sets bit 1 on
 // banishment (DaggerfallCourtWindow.cs:272) and encounters.js:243
 // passiveGuardSpawns reads it every catch-up minute through
-// scenes/world.js:4847-4849 (PlayerEntity.cs:507).
+// scenes/world.js:4848-4850 (PlayerEntity.cs:507).
 
 /** PlayerEntity.RegionDataFlags (:1588-1619), all thirty. */
 export const REGION_FLAGS = Object.freeze({
@@ -90,6 +90,7 @@ const blankRegion = () => ({
   precipitationOverride: 0,
   severePunishmentFlags: 0,
   idOfPersecutedTemple: 0,
+  banishedUntil: null,   // REP3: a banishment's term, on the world's calendar (systems/standing.js) - the port's own
 });
 
 /** InitializeRegionData's array half (:2189-2218). The twelve bootstrap
@@ -186,6 +187,7 @@ export function snapshotRegionConditions(store) {
     f: r.flags.map((b) => (b ? 1 : 0)).join(''),
     g: r.flags2.map((b) => (b ? 1 : 0)).join(''),
     p: r.precipitationOverride, s: r.severePunishmentFlags, t: r.idOfPersecutedTemple,
+    ...(Number.isFinite(r.banishedUntil) ? { b: r.banishedUntil } : {}),   // REP3: only a banishment standing carries one
   }));
 }
 export function restoreRegionConditions(snap, regionCount = REGION_COUNT) {
@@ -200,6 +202,7 @@ export function restoreRegionConditions(snap, regionCount = REGION_COUNT) {
     r.precipitationOverride = s.p ?? 0;
     r.severePunishmentFlags = s.s ?? 0;
     r.idOfPersecutedTemple = s.t ?? 0;
+    r.banishedUntil = Number.isFinite(s.b) ? s.b : null;   // REP3: a pre-REP banishment has none - standing.js gives it its thirty days
   }
   return store;
 }

@@ -442,10 +442,10 @@ export const DOESNT_NEED_IDENTIFY = 'This does not need to be identified.';
 //    (:161) feeds worldModes.js:2293-2313, which spends the magicka
 //    ONCE for the whole list whatever the outcome and tells the player
 //    "N of M identified"; the window opens from openIdentifyWindow
-//    (worldModes.js:9408), the entry point the magic arc owed.
+//    (worldModes.js:9411), the entry point the magic arc owed.
 //  - the LETTER OF CREDIT is tender and bankable: minted at systems/
-//    inventory.js:69, summed by creditAmount at systems/court.js:222,
-//    spent letters-before-coins by deductGold at court.js:264, and
+//    inventory.js:69, summed by creditAmount at systems/court.js:243,
+//    spent letters-before-coins by deductGold at court.js:285, and
 //    moved at systems/banking.js:636 depositAllLetters / :627
 //    withdrawLetter.
 //  - SellMagic's "fencing base price" TODO is DFU's own

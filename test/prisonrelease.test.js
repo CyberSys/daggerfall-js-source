@@ -275,9 +275,11 @@ test('flow: the guilty verdict opens the PRISON SCREEN and moves nothing yet', (
   // reputationLossPerCrime[5] = 0x14 = 20, so half = 10: the DFU
   // LITERALS, not court.js's own table.
   assert.equal(player.crimeCommitted, CRIMES.Murder, 'the convict\'s crime, unchanged by the verdict');
-  assert.equal(player.legalRep[17] - before.legal, 9, ':2304 - LegalRep += half - 1');
-  assert.equal(player.factionRep.dict.get(PEOPLE_ID).rep - before.people, 4,
-    ':2310 - the region People faction by (half - 1) / 2, truncating');
+  // REP2 (the reputation overhaul, Mac: "The charge, with a mark"): PIN MOVED - the sentence gives back the charge less a
+  // Murder's mark, half of each channel: legal 20 -> +10, the People's 10 -> +5 (DFU: half - 1 = 9, (half - 1) / 2 = 4).
+  assert.equal(player.legalRep[17] - before.legal, 10, 'LegalRep += the charge less the mark');
+  assert.equal(player.factionRep.dict.get(PEOPLE_ID).rep - before.people, 5,
+    'the region People faction by its own charge less the mark');
 });
 
 test('flow: the countdown\'s ZERO raises the clock behind BOTH prevent flags, then releases', () => {

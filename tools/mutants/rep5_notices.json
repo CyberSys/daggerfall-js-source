@@ -1,0 +1,84 @@
+[
+  {
+    "name": "REP5-a-band-edge-moved",
+    "file": "src/systems/legalBands.js",
+    "old": "  if (rep < -10) return 'a scoundrel';",
+    "new": "  if (rep <= -10) return 'a scoundrel';",
+    "tests": [
+      "test/rep5_notices.test.js"
+    ]
+  },
+  {
+    "name": "REP5-every-entity-said",
+    "file": "src/scenes/standingHost.js",
+    "old": "    if (player !== playerEntity) return;\n",
+    "new": "",
+    "tests": [
+      "test/rep5_notices.test.js"
+    ]
+  },
+  {
+    "name": "REP5-the-drift-said",
+    "file": "src/systems/court.js",
+    "old": "    if (v < 0) player.legalRep[key] = v + 1;",
+    "new": "    if (v < 0) changeLegalRep(player, key, 1, { kind: 'drift' });",
+    "tests": [
+      "test/rep5_notices.test.js"
+    ]
+  },
+  {
+    "name": "REP5-no-change-a-line",
+    "file": "src/systems/court.js",
+    "old": "  if (delta && _legalRepNotifier) {",
+    "new": "  if (_legalRepNotifier) {",
+    "tests": [
+      "test/rep5_notices.test.js"
+    ]
+  },
+  {
+    "name": "REP5-the-zero-row-drawn",
+    "file": "src/ui/enhancedMenu.js",
+    "old": "    if (rep === 0 && !days) continue;\n",
+    "new": "",
+    "tests": [
+      "test/rep5_notices.test.js"
+    ]
+  },
+  {
+    "name": "REP5-the-order",
+    "file": "src/ui/enhancedMenu.js",
+    "old": "  return out.sort((a, b) => a.rep - b.rep);",
+    "new": "  return out;",
+    "tests": [
+      "test/rep5_notices.test.js"
+    ]
+  },
+  {
+    "name": "REP5-the-law-not-drawn",
+    "file": "src/ui/enhancedMenu.js",
+    "old": "  statsLaw(detail, playerEntity);\n  statsGuilds(detail, playerEntity);",
+    "new": "  statsGuilds(detail, playerEntity);",
+    "tests": [
+      "test/rep5_notices.test.js",
+      "test/guildrep.test.js"
+    ]
+  },
+  {
+    "name": "REP5-the-stop's-price-not-said",
+    "file": "src/ui/enhancedMenu.js",
+    "old": "`known to the watch (a stop: ${challengeFine(entity, i, { worldNow })} gold)`",
+    "new": "'known to the watch'",
+    "tests": [
+      "test/rep5_notices.test.js"
+    ]
+  },
+  {
+    "name": "REP5-the-pardon's-price-not-said",
+    "file": "src/ui/enhancedMenu.js",
+    "old": " left (a pardon: ${pardonPrice(entity, i)} gold)`",
+    "new": " left`",
+    "tests": [
+      "test/rep5_notices.test.js"
+    ]
+  }
+]

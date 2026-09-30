@@ -131,7 +131,10 @@ test('F98: the EXECUTION is the one exit DFU does not refill', () => {
 
 test('F99: banishment sets bit 1 and execution bit 2, on the COURT\'S region', () => {
   const banished = finishArm("if (result.outcome === 'banished')");
-  assert.match(banished, /severePunishment\(SEVERE_PUNISHMENT_BANISHED\);/);
+  // REP3 (the reputation overhaul, "Timed or pardoned"): PIN MOVED - the banished arm sets the bit through
+  // systems/standing.js banish(), which ORs the same bit 1 into the same field of the court's live region and stamps its
+  // thirty days (test/rep3_banishment.test.js); the execution arm is DFU's own write, as before
+  assert.match(banished, /banish\(playerEntity, region\(\), worldMinutes\(\)\);/);
   assert.match(finishArm("if (result.outcome === 'executed')"), /severePunishment\(SEVERE_PUNISHMENT_EXECUTED\);/);
   assert.equal(SEVERE_PUNISHMENT_BANISHED, 1);
   assert.equal(SEVERE_PUNISHMENT_EXECUTED, 2);
