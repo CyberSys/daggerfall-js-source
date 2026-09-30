@@ -23,6 +23,20 @@
 // THE SAVE IS THE SNAPSHOT'S JSON - what a local slot holds under its
 // data key (saveSlots.js saveSlot), so a copy to offline is a slot like
 // any other, and a join's load parses what a slot load parses.
+//
+// ═══ RESCUE-SAVE: WHAT THE SERVICE HAS NOT TAKEN, THE DEVICE KEEPS ═══
+//
+// The 2026-09-30 outage (SwordsmanEB's lost progress): a save the
+// service did not take lived in this session's memory alone, so a page
+// closed, reloaded or exited while the service was away took everything
+// since the last checkpoint that landed - and so did an ordinary close,
+// whose keepalive leave can land before its checkpoint. Now every save
+// the session takes is kept on the device first (the same storage a
+// local slot is written to), with the sequence it follows, and dropped
+// once a put lands with nothing newer behind it. A join whose record
+// still stands at that sequence - nothing landed after it, from any tab,
+// device, trade or act - plays the kept save and checkpoints it; a
+// record that moved past it drops it unread.
 // ═══════════════════════════════════════════════════════════════════
 
 import { storedSession, serviceBase, forgetSession, accountRefusalText } from '../net/accountClient.js';
@@ -90,8 +104,12 @@ export const realmCustoms = (/** @type {any} */ io, /** @type {string} */ origin
 export const realmJoin = (/** @type {any} */ io, /** @type {string} */ id) => realmAsk(io, '/v1/realm/join', { method: 'POST', json: { id } });
 /** A leave: the lease given up. `keepalive` for the page's going. */
 export const realmLeave = (/** @type {any} */ io, /** @type {string} */ id, /** @type {string} */ lease, { keepalive = false } = {}) => realmAsk(io, '/v1/realm/leave', { method: 'POST', json: { id, lease }, keepalive });
-/** The player's own delete. */
-export const realmDelete = (/** @type {any} */ io, /** @type {string} */ id) => realmAsk(io, '/v1/realm/delete', { method: 'POST', json: { id } });
+/** The player's own delete - and the device's copy of an unsent save with it (RESCUE-SAVE). */
+export const realmDelete = async (/** @type {any} */ io, /** @type {string} */ id) => {
+  const r = await realmAsk(io, '/v1/realm/delete', { method: 'POST', json: { id } });
+  if (r.ok) forgetUnsent(io?.storage, id);
+  return r;
+};
 /** HOUSE-LOSS: a customs whose first save never landed, undone - its home, guild place and customs given back to the
  *  offline character (server-account/src/realm.js undoRealm). Its own route: an older service answers `not-found`. */
 export const realmUndo = (/** @type {any} */ io, /** @type {string} */ id) => realmAsk(io, '/v1/realm/undo', { method: 'POST', json: { id } });
@@ -113,6 +131,54 @@ export const realmTradeCall = (/** @type {any} */ io, /** @type {any} */ half) =
 
 /** The answers that end a session: the character is not this tab's to write any more. */
 export const REALM_LOST = Object.freeze(['lease', 'no-realm-character', 'auth', 'signed-out']);
+
+// ── RESCUE-SAVE: THE DEVICE'S COPY OF A SAVE THE SERVICE HAS NOT TAKEN ──
+
+/** The keys: the save's text under the character's id, and its record (`{ seq, at }`, the sequence it follows) beside
+ *  it. The record is written last and removed first, so a page gone between the writes leaves no record - never a text
+ *  under an older one's sequence. */
+export const REALM_UNSENT_PREFIX = 'dagger.realm.unsent.';
+const unsentKey = (/** @type {string} */ id) => `${REALM_UNSENT_PREFIX}${id}`;
+const unsentAtKey = (/** @type {string} */ id) => `${REALM_UNSENT_PREFIX}${id}.at`;
+/** The losses that keep the device's copy: the record may still stand where the save follows (another tab took the
+ *  lease, the account signed out) - the next join's sequence decides. Every other loss drops it: the record moved past
+ *  it ('seq'), the character is gone, or the service will never take it ('too-large'). */
+const UNSENT_KEPT_ON = Object.freeze(['lease', 'auth', 'signed-out']);
+
+/** The device's copy of the newest save this session was handed, following sequence `seq`. Never throws: a device with
+ *  no room keeps nothing, as before RESCUE-SAVE. */
+export function keepUnsent(/** @type {any} */ storage, /** @type {string} */ id, /** @type {number} */ seq, /** @type {string} */ text) {
+  if (!storage || !Number.isSafeInteger(seq) || seq < 1 || typeof text !== 'string' || !text) return false;
+  try {
+    storage.removeItem(unsentAtKey(id));
+    storage.setItem(unsentKey(id), text);
+    storage.setItem(unsentAtKey(id), JSON.stringify({ seq, at: Date.now() }));
+    return true;
+  } catch {
+    forgetUnsent(storage, id);   // quota: nothing half-kept
+    return false;
+  }
+}
+/** The device's copy - `{ seq, text, at }` - or null. */
+export function readUnsent(/** @type {any} */ storage, /** @type {string} */ id) {
+  try {
+    const at = JSON.parse(storage?.getItem?.(unsentAtKey(id)) ?? 'null');
+    const text = storage?.getItem?.(unsentKey(id)) ?? null;
+    if (!Number.isSafeInteger(at?.seq) || typeof text !== 'string' || !text) return null;
+    return { seq: at.seq, text, at: Number.isFinite(at.at) ? at.at : null };
+  } catch { return null; }
+}
+/** This session's own put landed and a newer save still waits: the copy follows the sequence the service now holds. */
+function rebaseUnsent(/** @type {any} */ storage, /** @type {string} */ id, /** @type {number} */ seq) {
+  try {
+    const at = JSON.parse(storage?.getItem?.(unsentAtKey(id)) ?? 'null');
+    if (Number.isSafeInteger(at?.seq) && at.seq !== seq) storage.setItem(unsentAtKey(id), JSON.stringify({ ...at, seq }));
+  } catch { forgetUnsent(storage, id); }
+}
+/** The copy dropped - the record first. */
+export function forgetUnsent(/** @type {any} */ storage, /** @type {string} */ id) {
+  try { storage?.removeItem?.(unsentAtKey(id)); storage?.removeItem?.(unsentKey(id)); } catch { /* storage away: nothing to drop */ }
+}
 /** AUDIT REALM2 C8: a checkpoint's refusal that may clear if the save is sent again - no answer, the service's own
  *  trouble (5xx: its error, its storage or its database away) or the account's request rate. Any other (the save too
  *  big, a request the service cannot read) meets the same save again every time. */
@@ -125,6 +191,7 @@ const putMayClear = (/** @type {any} */ r) => REALM_ACT_TRANSIENT.includes(r.err
  * @param {{ io: any, id: string, lease: string, seq: number, onLost?: (error: string) => void }} at
  */
 export function createRealmSession({ io, id, lease, seq, onLost = () => {} }) {
+  const storage = io?.storage ?? null;   // RESCUE-SAVE: the device's copy of what the service has not taken
   let current = seq;
   /** @type {{ text: string, summary: any, waiters: Array<(r: any) => void> } | null} */
   let pending = null;
@@ -156,12 +223,21 @@ export function createRealmSession({ io, id, lease, seq, onLost = () => {} }) {
           // our own last checkpoint landed and its answer was lost: the service is one ahead - adopt it, and send this one
           current = r.seq;
           unsure = false;
+          rebaseUnsent(storage, id, current);
           r = await realmPut(io, id, { lease, seq: current + 1, summary: job.summary }, job.text);
         }
-        if (r.ok) { unsure = false; current = r.data?.seq ?? current + 1; last = { ok: true, seq: current }; answer(job, last); continue; }
+        if (r.ok) {
+          unsure = false; current = r.data?.seq ?? current + 1; last = { ok: true, seq: current }; answer(job, last);
+          // RESCUE-SAVE: the newest save landed, or a newer one waits on the device at the sequence now held
+          if (pending) rebaseUnsent(storage, id, current); else forgetUnsent(storage, id);
+          continue;
+        }
         // AUDIT REALM2 C8: and a refusal no retry clears (the save too big) ends it too - it was kept and sent again at
         // every checkpoint for good, the host never told and F9 saying "saved"
-        if (REALM_LOST.includes(r.error) || r.error === 'seq' || !putMayClear(r)) { lose(r.error); last = { ok: false, error: r.error }; answer(job, last); break; }
+        if (REALM_LOST.includes(r.error) || r.error === 'seq' || !putMayClear(r)) {
+          if (!UNSENT_KEPT_ON.includes(r.error)) forgetUnsent(storage, id);   // RESCUE-SAVE: a copy no join may play
+          lose(r.error); last = { ok: false, error: r.error }; answer(job, last); break;
+        }
         // offline, a busy service, the hour's bound: this save waits for the next checkpoint unless a newer one came - and
         // an answer lost on the way (offline, the service's own error) may be a checkpoint that landed
         if (r.error === 'offline' || r.error === 'server') unsure = true;
@@ -190,6 +266,9 @@ export function createRealmSession({ io, id, lease, seq, onLost = () => {} }) {
       // REALM P2: a save composed while a transaction is in flight holds its goods in flight - never sent; the outcome's
       // own checkpoint (the host's, as it applies the answer) is the next one
       if (holding) return Promise.resolve({ ok: false, error: 'held' });
+      // RESCUE-SAVE: ON THE DEVICE BEFORE IT LEAVES - a page gone before the put lands (closed, reloaded, the service
+      // away, the keepalive leave ahead of it) leaves the save for the next join, never in this page's memory alone
+      keepUnsent(storage, id, current, text);
       // AUDIT REALM2 C4: EACH CHECKPOINT ANSWERED BY THE PUT THAT CARRIED ITS SAVE - or, replaced before it left, by the
       // newer one's. All were answered with the drain's LAST put: a checkpoint that landed (the spoils it held banked on
       // the service) was told it failed when the one queued behind it did, and the spoils were handed again at a join
@@ -247,6 +326,7 @@ export function createRealmSession({ io, id, lease, seq, onLost = () => {} }) {
       lease = j.data.lease;
       current = at;
       unsure = false;
+      rebaseUnsent(storage, id, current);   // RESCUE-SAVE: one on is this tab's own put, landed
       return { ok: true, seq: current };
     },
   };
@@ -299,7 +379,8 @@ export function realmRowAsSave(row, { dateText = () => null } = {}) {
  * THE BOOT'S JOIN: a new lease on the character, then its save read from the service - never a local slot - and
  * parsed as a slot load parses. The character's id in the save is the realm's (a customs character's save still names
  * the offline id it came from). Answers `{ ok, snap, lease, seq, origin }` - `origin` the offline id a customs
- * character came from, from the join (RESTORE) - or `{ ok: false, error }`.
+ * character came from, from the join (RESTORE) - or `{ ok: false, error }`. RESCUE-SAVE: `restored: true` when the
+ * save is the device's copy of one the service never took, played in place of the service's older one.
  * @param {{ io: any, id: string }} at
  */
 export async function openRealmBoot({ io, id }) {
@@ -309,13 +390,26 @@ export async function openRealmBoot({ io, id }) {
   if (!joined.ok) return { ok: false, error: joined.error };
   const { lease, seq, bytes, origin = null } = joined.data ?? {};
   if (!(bytes > 0)) return { ok: false, error: 'no-data' };
+  // RESCUE-SAVE: the device's copy follows the sequence the record still stands at - nothing landed after it - so it is
+  // newer than anything the service holds: played, and the first checkpoint gives it to the service. Past it, dropped.
+  const kept = readUnsent(io.storage, id);
+  if (kept && kept.seq === seq) {
+    const snap = parseSave(kept.text);
+    if (snap) { snap.characterId = id; return { ok: true, snap, lease, seq, origin: typeof origin === 'string' ? origin : null, restored: true }; }
+  }
+  if (kept) forgetUnsent(io.storage, id);
   const got = await realmFetch(io, id);
   if (!got.ok) return { ok: false, error: got.error };
-  let snap = null;
-  try { snap = JSON.parse(got.text); } catch { snap = null; }
-  if (!snap || typeof snap !== 'object' || Array.isArray(snap)) return { ok: false, error: 'no-data' };
+  const snap = parseSave(got.text);
+  if (!snap) return { ok: false, error: 'no-data' };
   snap.characterId = id;
   return { ok: true, snap, lease, seq: got.seq ?? seq, origin: typeof origin === 'string' ? origin : null };   // RESTORE: the offline id it came from
+}
+/** A save's text as the snapshot a slot load reads, or null. */
+function parseSave(/** @type {string} */ text) {
+  let snap = null;
+  try { snap = JSON.parse(text); } catch { snap = null; }
+  return snap && typeof snap === 'object' && !Array.isArray(snap) ? snap : null;
 }
 
 /** A word for the Online door, carried across the page's reload (sessionStorage - this tab's alone). */
@@ -382,6 +476,8 @@ export function realmRefusalText(/** @type {string} */ error) {
   if (error === 'unknown') return 'The realm did not answer about a trade in flight. Join again - the realm holds how it ended.';   // REALM P2.1
   return accountRefusalText(error);
 }
+/** RESCUE-SAVE: said once the world stands, when the join played the device's copy of a save the realm never took. */
+export const REALM_RESTORED_TEXT = 'Your last save had not reached the realm when you left. This device kept it, and you play on from it.';
 /** Said once the world stands, when an online boot carried no realm character (a stale address, a local save). */
 export const REALM_OFFLINE_TEXT = 'Online characters live in the realm now, so this one plays offline. The Online door brings it in, once.';
 
