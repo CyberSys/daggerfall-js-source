@@ -506,7 +506,7 @@ test('LA-COST3: THE FLAT\'S SUN IS READ ONCE A QUAD - the lane\'s billboard vert
     }
     assert.ok(vis.every((v) => v === vis[0]), `quad ${q}: the four corners agree (${vis})`);
     const base = vBBBase.map((x, i) => Math.fround(x + [0, 0.5, 0][i]));   // EL_BB_FS's `vec3 base = vBBBase + vec3(0.0, 0.5, 0.0);`
-    assert.equal(vis[0], fs.sunShadowSoftAt(base, [0, 1, 0]), `quad ${q}: the fragment's old read at the base, to the bit`);
+    assert.equal(vis[0], fs.sunShadowSoftAt(base, [0, 1, 0], U.uSize[1]), `quad ${q}: the fragment's old read at the base, to the bit (AUDIT FLICKER S1: with the flat's height)`);
     seen.add(vis[0] === 1 ? 'lit' : vis[0] === 0 ? 'dark' : 'edge');
   }
   assert.deepEqual([...seen].sort(), ['dark', 'edge', 'lit'], 'the quads landed lit, dark and on an edge - the law was asked of all three');

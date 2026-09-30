@@ -204,7 +204,7 @@ test('EL2: the receiver block and the depth shaders - six uniforms, no dynamic m
   // and handed on flat - the fragment wears it under the cloud's.
   assert.match(EL_BB_FS, /uBBSun \* cloudShadowAt\(vBBWorld\) \* vBBSunVis/);
   assert.match(EL_BB_FS, /flat in float vBBSunVis;/);
-  assert.match(EL_LANE.bbVs.main, /vBBSunVis = dot\(uBBSun, uBBSun\) > 0\.0 \? sunShadowSoftAt\(vBBBase \+ vec3\(0\.0, 0\.5, 0\.0\), vec3\(0\.0, 1\.0, 0\.0\)\) : 1\.0;/, 'the flat\'s point, the soft kernel, the night gate');
+  assert.match(EL_LANE.bbVs.main, /vBBSunVis = dot\(uBBSun, uBBSun\) > 0\.0 \? sunShadowSoftAt\(vBBBase \+ vec3\(0\.0, 0\.5, 0\.0\), vec3\(0\.0, 1\.0, 0\.0\), uSize\.y\) : 1\.0;/, 'the flat\'s point, the soft kernel, the night gate');
   assert.ok(EL_LANE.bbVs.head.includes(SHADOW_GLSL), 'the vertex stage carries the receiver block');
   assert.match(EL_BB_FS, /elPointFlat\(vBBWorld, base\)/);
   assert.ok(!EL_FAR_RING_FS.includes('uSunShadow'), 'the far ring receives no shadow');

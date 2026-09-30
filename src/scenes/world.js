@@ -22783,6 +22783,15 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       player.offsetOrigin(r.offset);   // EV1: shifts BOTH ends of the interpolation span - no 819-unit lerp frame
       sky.offsetOrigin(r.offset);   // VC4: the clouds and their shadow keep their place over the land
       renderer.shadowOriginShift?.(r.offset);   // AUDIT SC1: the shadow cache's remembered placements follow the origin too, or every still caster reads as moved for a second
+      // AUDIT FLICKER R2: AND THE FLATS THE NEXT REPLAY READS. The frame's records are replayed at the next beginFrame,
+      // before the pixel loop writes a pixel's translation and a townsman's place again - a pixel's flats stand at its
+      // translation (p._t, the very array their batches' origin is) and a townsman's batch at his place over it, both
+      // the old origin's on the crossing frame: every tree, bush, sign and passer-by cast nothing there, and the far
+      // cascade (every other frame) kept the hole a frame more
+      for (const p of built.values()) {
+        if (p._t) state.pixelTranslation(p.px, p.py, p._t);
+        if (p.personBatches) for (const b of p.personBatches.values()) { const o = b.origin; if (o) { o[0] += r.offset[0]; o[1] += r.offset[1]; o[2] += r.offset[2]; } }
+      }
       // AUDIT 17e F23: everything else holding a WORLD position must
       // follow the origin too, or it strands 819.2 units behind.
       doorGeneration += 1;   // WORLD-HOVER: the floating origin moved, so every door's WORLD matrix did
@@ -23315,10 +23324,10 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       if (cullOn && billboardOutside(b)) { if (renderer.shadowReachBatch(b)) castBatches.push(b); continue; }   // AUDIT REACH
       allBatches.push(b);
     }
-    if (peerRiders) for (const b of peerRiders.batches()) { if (!(cullOn && billboardOutside(b))) allBatches.push(b); }   // RIDE: the others in the saddle
-    if (peerWalkers) for (const b of peerWalkers.batches()) { if (!(cullOn && billboardOutside(b))) allBatches.push(b); }   // DISC23-B: and on foot, as they chose
-    if (bandSprites) for (const b of bandSprites.batches()) { if (!(cullOn && billboardOutside(b))) allBatches.push(b); }   // OW-FOES: the bands near, as their monsters
-    if (yards) for (const b of yards.batches()) { if (!(cullOn && billboardOutside(b))) allBatches.push(b); }   // HOME-YARD: the yards' flats, and the one being placed
+    if (peerRiders) for (const b of peerRiders.batches()) { if (cullOn && billboardOutside(b)) { if (renderer.shadowReachBatch(b)) castBatches.push(b); continue; } allBatches.push(b); }   // RIDE: the others in the saddle; AUDIT FLICKER R3: off screen, a shadow still in reach
+    if (peerWalkers) for (const b of peerWalkers.batches()) { if (cullOn && billboardOutside(b)) { if (renderer.shadowReachBatch(b)) castBatches.push(b); continue; } allBatches.push(b); }   // DISC23-B: and on foot, as they chose; AUDIT FLICKER R3: off screen, a shadow still in reach
+    if (bandSprites) for (const b of bandSprites.batches()) { if (cullOn && billboardOutside(b)) { if (renderer.shadowReachBatch(b)) castBatches.push(b); continue; } allBatches.push(b); }   // OW-FOES: the bands near, as their monsters; AUDIT FLICKER R3: off screen, a shadow still in reach
+    if (yards) for (const b of yards.batches()) { if (cullOn && billboardOutside(b)) { if (renderer.shadowReachBatch(b)) castBatches.push(b); continue; } allBatches.push(b); }   // HOME-YARD: the yards' flats, and the one being placed; AUDIT FLICKER R3: off screen, a shadow still in reach
     // NEAR-FIRST (2026-09-21): THE PIXELS ARE WALKED NEAREST FIRST. The
     // map's insertion order is the order the pixels streamed in, which
     // is nothing to do with where the eye is - so a far town's walls
