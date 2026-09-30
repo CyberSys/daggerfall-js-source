@@ -10743,7 +10743,7 @@ the guard from either file) go red.
 
 The `listPicker.js` edit is line-neutral by construction: the hover
 docstring was rewritten to the same six lines, so the four files and
-the Ledger row that cite `listPicker.js:292` and `:309` keep their
+the Ledger row that cite `listPicker.js:295` and `:312` keep their
 numbers.
 
 **THE COUNT SWEEP (review round, same date).** Raising the roster from
@@ -14340,7 +14340,7 @@ items off your character."*
 
 It did not, and the whole of the reason is one line. INV1 hung the
 gesture on the pack's rows - `itemRow`'s `if (from === 'local')
-dragFrom(row, item)` (`ui/enhancedInventory.js:2342`) - and made the
+dragFrom(row, item)` (`ui/enhancedInventory.js:2346`) - and made the
 body a drop TARGET, with `equippedList` saying so in its own comment:
 *"the body is the equip target - `dragFrom`'s pointerup finds it by hit
 test, so the map needs no handler of its own"*. True for the direction

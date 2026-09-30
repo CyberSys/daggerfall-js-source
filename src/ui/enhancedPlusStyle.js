@@ -403,6 +403,9 @@ body .dfchat-form .dfchat-close { min-width: 32px; padding: 4px 8px; }
 .inv-info-box.more p { color: ${FRAME_TONES.brassHi}; }
 .inv-info > .card > .act { align-self: center; min-width: 120px; }
 .inv-dismantle .acts { justify-content: center; margin-top: 10px; }   /* SS5: the dismantle's Dismantle and Keep, under the question */
+.inv-target .inv-info-body { gap: 0; }   /* MEND-AIM: the kit's chooser - one row a piece, the menu's own rows */
+.inv-target .inv-menu-item { text-transform: none; letter-spacing: 0.02em; }
+.inv-target .acts { justify-content: center; }
 
 
 /* PLUS5: THE PAUSE WINDOW'S RAIL AND TAB ROW (Quests/Stats/System, and Stats' own Character/

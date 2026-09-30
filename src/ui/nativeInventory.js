@@ -66,6 +66,7 @@ import { lockRefuses, lockedText } from '../systems/itemLock.js';   // AUDIT MER
 import { boundRefusesPut, boundText } from '../systems/itemBound.js';   // SS3: a bound piece stays the player's on this skin too
 import { dismantleStones, dismantleRefusal, dismantleWare, DISMANTLE_INSTEAD, DISMANTLED } from '../systems/sigilBroker.js';   // SS5: a Broker ware back into stones
 import { YesNoBoxWindow } from './yesNoBox.js';   // SS5: the dismantle's question, DFU's own Yes/No box
+import { ListPickerWindow, listPickerArtLoaded } from './listPicker.js';   // MEND-AIM: the piece a repair kit mends, chosen
 import { paintingImage, setPaintingArtDeps } from './paintingImage.js';   // ROAD-A7: the painting's picture
 import { goldAmount, deductGold } from '../systems/court.js';
 import { enchantArmorDisplayMod } from '../systems/enchantments.js';   // AUDIT 26 F122
@@ -768,6 +769,17 @@ export class NativeInventoryWindow {
       else this.boxes = [{ rows: [{ text: USE_PENDING[r.kind], center: true }] }];
       return;
     }
+    // MEND-AIM: a use that asks WHICH (a repair kit, with more than one piece to mend) pushes DFU's list picker over
+    // the pack, the choices in the law's order; a row chosen uses the item again, aimed at it, and a click outside
+    // keeps the kit. With no picker art the law's own first choice is taken, as the quick keys take it.
+    if (r.kind === 'chooseTarget') {
+      if (!listPickerArtLoaded()) { this._use(r.item, collection, r.targets[0]); return; }
+      this.inputBox = new ListPickerWindow({
+        items: r.labels, backdrop: 'none',
+        onPick: (i) => this._use(r.item, collection, r.targets[i]),
+      });
+      return;
+    }
     if (r.text) this.boxes = [{ rows: [{ text: r.text, center: true }] }];
     else if (r.textId && this.hooks.rows) this.boxes = [{ rows: expandRowValues(this.hooks.rows(r.textId) ?? [], r.macros ?? null) }];   // MACROS1: %map is the map's name
     else if (r.pending) this.boxes = [{ rows: [{ text: USE_PENDING[r.kind] ?? 'Nothing happens.', center: true }] }];
@@ -836,8 +848,9 @@ export class NativeInventoryWindow {
     });
   }
 
-  _use(it, collection) {
+  _use(it, collection, target = null) {
     this._useResult(useItem(it, collection, {
+      target, chooseTarget: target == null,   // MEND-AIM: this window can ask which piece a kit mends
       entity: this.hooks.entity,
       // AUDIT 22 F4: the oil arm looks for its lantern in the LOCAL
       // pack whatever list the click came from, so the bag travels
@@ -1178,6 +1191,7 @@ export class NativeInventoryWindow {
    *  hand the live point in (they already compute it for hover); the
    *  remembered one is only the fallback for a caller that has none. */
   wheel(dir, vx = this._mouse[0], vy = this._mouse[1]) {
+    if (dir && typeof this.inputBox?.wheel === 'function') { this.inputBox.wheel(dir); return; }   // MEND-AIM: the pushed picker scrolls
     if (!dir || this.topBox || this.inputBox) return;
     const R = INV_RECTS;
     const kind = dir > 0 ? 'down' : 'up';
@@ -1294,6 +1308,7 @@ export class NativeInventoryWindow {
       const t = this._tipItemAt(vx, vy);
       this._tip.show(t.item, vx, vy, { getQuest: this.hooks.getQuest ?? null, books: t.books });
     }
+    if (typeof this.inputBox?.hover === 'function') this.inputBox.hover(vx, vy, e);   // MEND-AIM: the pushed picker's rows light under the cursor
     if (this.topBox || this.inputBox) return;
     const R = INV_RECTS;
     // The GOLD button (:2243-2247). Not an item - two generated lines,
@@ -1509,7 +1524,7 @@ export class NativeInventoryWindow {
   /** MAC-N2: the release edge the hosts send on mouseup (ROAD-E E1) -
    *  VerticalScrollBar.Update's else arm (:123-129), for the frame the
    *  button comes up without a move to carry it. */
-  release() { this._drag = null; }
+  release() { this._drag = null; this.inputBox?.release?.(); }   // MEND-AIM: and the pushed picker's thumb
 
   /** ROAD-E E1's key-up half: only the Control state reads it here. */
   keyup(code, e = null) {

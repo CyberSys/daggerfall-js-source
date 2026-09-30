@@ -249,6 +249,10 @@ export function useItem(item, collection, {
   // use-click block below. A host with no quest machine leaves it
   // null and DFU's own fall-through arm stands.
   getQuest = null,
+  // MEND-AIM: a use AIMED at another item (a repair kit at the piece it mends), and whether the host can ask which -
+  // a handler that wants an aim answers `chooseTarget` with the choices, and the host uses the item again with the
+  // one chosen. The quick keys cannot ask, and take the handler's own first choice.
+  target = null, chooseTarget = false,
 } = {}) {
   if (!item) return { kind: 'none' };
   const named = (t) => expandItemMacro(USE_TEXT[t], item);
@@ -310,7 +314,7 @@ export function useItem(item, collection, {
   // RETURNS - past the ladder and past the Used-payload tail alike.
   const handler = itemUseHandler(item.templateIndex);
   if (handler) {
-    const handled = handler(item, collection, { entity, rolls, nowMinute });
+    const handled = handler(item, collection, { entity, rolls, nowMinute, localItems: bag, target, chooseTarget });   // MEND-AIM: the pack, the aim, and whether it may be asked
     if (handled) return questItem ? { ...handled, questItem: true } : handled;
   }
 

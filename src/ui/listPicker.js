@@ -89,6 +89,9 @@ export async function preloadListPickerArt(deps) {
   catch { console.warn('[picker] PICK00I0.IMG unavailable; list pickers stay closed'); }
 }
 export const listPickerArtLoaded = () => !!_art;
+/** MEND-AIM: the seam the other windows' art has (nativeInventory `_setInventoryArtForTests`) - a host that pushes a
+ *  picker only when the art is loaded is driven in a test without the IMG. */
+export function _setListPickerArtForTests(art) { _art = art; }
 
 /** AUDIT 58: DaggerfallUI.SmallFont (FONT0002, DaggerfallUI.cs:155)
  *  against the FONT0003 DefaultFont (:156). Three windows build this

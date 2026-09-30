@@ -553,6 +553,8 @@ export function useResultAction(r, { openBook = null, openSpellbook = null, plac
       ? { kind: 'placeCamp', item: r.item, closeFirst: true }
       : { kind: 'message', text: USE_PENDING[r.kind] };
   }
+  // MEND-AIM: a use that asks WHICH (a repair kit, more than one piece to mend) - the pack asks, and uses it again aimed
+  if (r.kind === 'chooseTarget') return { kind: 'chooseTarget', item: r.item, targets: r.targets, labels: r.labels, title: r.title };
   // The classic window's own ladder, in its own order: an explicit
   // text, then a TEXT.RSC id, then the pending stand-in. AUDIT 22 F9:
   // `enchanted` is a RIDER on the arm's result, not a kind that
@@ -1271,9 +1273,10 @@ function wear(item) {
 /** USING something, through the ONE law. The deps are the classic
  *  window's own, hook for hook - a host that hands none leaves the arm
  *  silent in exactly the way it leaves the classic window's silent. */
-function use(item, collection = deps.items?.() ?? []) {
+function use(item, collection = deps.items?.() ?? [], target = null) {
   notice = null;
   const r = useItem(item, collection, {
+    target, chooseTarget: target == null,   // MEND-AIM: the pack asks which piece a kit mends
     entity: deps.entity,
     // AUDIT 22 F4: the oil arm looks for its lantern in the LOCAL pack
     // whatever list the click came from, so the bag travels separately.
@@ -1314,6 +1317,7 @@ function use(item, collection = deps.items?.() ?? []) {
     place(act.item, collection);   // AUDIT SURV-TIERS: the list it came from (a wagon's tent leaves the wagon)
     return;
   }
+  if (act.kind === 'chooseTarget') { askTarget(act, collection); return; }   // MEND-AIM
   if (act.textId && deps.rows) {
     const rows = expandRowValues(deps.rows(act.textId) ?? [], act.macros ?? null);   // MACROS1: %map is the map's name
     notice = rows.map((row) => (typeof row === 'string' ? row : row?.text ?? '')).join(' ').trim() || null;
@@ -1458,7 +1462,7 @@ function stow(item) {
   // 26 F156: planStore answers `{ ok: true, map: true }` for a
   // MiscItems.Map - the reveal runs, the paper is consumed, nothing
   // lands in the destination. The classic window routes it
-  // (nativeInventory.js:926) and this one did not, so dragging a
+  // (nativeInventory.js:939) and this one did not, so dragging a
   // treasure map out of the pack dropped the paper on the floor and
   // revealed nothing.
   if (plan.map) { use(item, deps.items?.() ?? []); return; }
@@ -1477,7 +1481,7 @@ function stow(item) {
   // again on the other side, and a tip that stays open after every
   // press is the quirk being fixed.
   // AUDIT INV2 B-F1: THE ENTITY AND THE PROVENANCE RIDE, as they do at
-  // the classic window's own call (nativeInventory.js:932). Without them
+  // the classic window's own call (nativeInventory.js:945). Without them
   // `clearLightSourceOnLeave` - AUDIT 26 F157's first statement inside
   // applyTransfer - is a no-op, so a LIT TORCH dropped on the ground
   // went on lighting the player from where it lay. INV2 made that a
@@ -1514,7 +1518,7 @@ function take(item) {
   if (amount == null) { notice = HOW_MANY_ITEMS(plan.amount); render(); return; }
   // MAC-O6 (report: "looting gold/items makes no sound"): DoTransferItem's
   // own cue (:1569 gold's clink, :1583 everything else), which the classic
-  // window plays (nativeInventory.js:952) and this one never did - the ONLY
+  // window plays (nativeInventory.js:965) and this one never did - the ONLY
   // difference between the two windows' calls to planTake/applyTransfer was
   // that this one dropped `plan.sound` on the floor. Played here, ahead of
   // the gold interception below, exactly as DFU's own PlayOneShot sits
@@ -2935,6 +2939,54 @@ function askDismantle(item) {
   const timer = setTimeout(() => { document.addEventListener('pointerdown', away, true); document.addEventListener('keydown', key, true); }, 0);
   dismantleOff = () => { clearTimeout(timer); document.removeEventListener('pointerdown', away, true); document.removeEventListener('keydown', key, true); };
 }
+let targetEl = null, targetOff = null;
+function closeTarget() { targetEl?.remove(); targetEl = null; targetOff?.(); targetOff = null; }
+/** MEND-AIM (Discord suggestion, kurkku: "Allow targeting field repair kit use"): THE CHOOSER - the dismantle's stone
+ *  window over the pack, its question the law's ("Mend which?") and one row a piece, in the law's order (what is worn
+ *  first, then the most worn). A row uses the item again, aimed at that piece; Keep, Escape (the pad's B) or a press
+ *  outside keep the kit. The first row holds the focus, so Enter mends what the quick keys would have mended. */
+function askTarget(act, collection) {
+  hideTip(); closeMenu(); closeInfo(); closeDismantle(); closeTarget();
+  targetEl = el('div', 'inv-info inv-target');
+  targetEl.setAttribute('role', 'dialog');
+  targetEl.setAttribute('aria-label', act.title);
+  targetEl.setAttribute('aria-modal', 'true');
+  const card = el('div', 'card');
+  const head = el('div', 'inv-info-box');
+  head.append(el('p', 'center', act.title));
+  card.append(head);
+  const body = el('div', 'inv-info-body');
+  body.setAttribute('role', 'listbox');
+  const rows = act.targets.map((piece, i) => {
+    const b = el('button', 'inv-menu-item', act.labels[i]);
+    b.setAttribute('role', 'option');
+    b.onclick = (e) => { e?.stopPropagation?.(); closeTarget(); use(act.item, collection, piece); };
+    body.append(pairGuard(b));   // the second tap of the Use that opened it never mends
+    return b;
+  });
+  card.append(body);
+  const acts = el('div', 'acts');
+  const keep = el('button', 'act', 'Keep');
+  keep.onclick = (e) => { e?.stopPropagation?.(); closeTarget(); };
+  acts.append(keep);
+  card.append(acts);
+  targetEl.append(card);
+  document.body.append(targetEl);
+  rows[0]?.focus?.({ preventScroll: true });
+  // the dismantle's two laws: the dim layer is outside, and the listeners are this chooser's own
+  const mine = targetEl;
+  const away = (e) => { if (e.target === mine || !mine.contains(e.target)) { e.stopPropagation(); closeTarget(); } };
+  const key = (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeTarget(); return; }
+    const dir = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
+    if (!dir) return;
+    e.preventDefault(); e.stopPropagation();
+    const at = rows.indexOf(/** @type {any} */ (document.activeElement));
+    rows[Math.max(0, Math.min(rows.length - 1, at < 0 ? 0 : at + dir))]?.focus?.({ preventScroll: false });
+  };
+  const timer = setTimeout(() => { document.addEventListener('pointerdown', away, true); document.addEventListener('keydown', key, true); }, 0);
+  targetOff = () => { clearTimeout(timer); document.removeEventListener('pointerdown', away, true); document.removeEventListener('keydown', key, true); };
+}
 /** PLUS10: the Info box - a small stone window over the pack; Close, Escape (the pad's B) or a click outside shut it. */
 function openInfo(item) {
   hideTip(); closeMenu(); closeInfo();
@@ -3341,7 +3393,7 @@ function onKey(e) {
   // PLUS10: THE INFO BOX AND THE RIGHT-CLICK MENU TAKE BACK FIRST. This handler is the window's capture listener, so
   // it hears Escape (the pad's B) before the box's own document listener - and it closed the whole pack under an
   // open Info box. Back shuts the floater and keeps the pack, the way it ends a drag above.
-  if (overlayAction(e) === 'back' && (infoEl || menuEl || dismantleEl)) { e.preventDefault(); e.stopPropagation(); closeInfo(); closeMenu(); closeDismantle(); return; }   // SS5: and the dismantle's question
+  if (overlayAction(e) === 'back' && (infoEl || menuEl || dismantleEl || targetEl)) { e.preventDefault(); e.stopPropagation(); closeInfo(); closeMenu(); closeDismantle(); closeTarget(); return; }   // SS5: and the dismantle's question; MEND-AIM: and the kit's chooser
   // AUDIT2 GOLD-DROP 2: ...AND SO DOES THE GOLD FIELD, the pack's other floater (DFU's gold popup closes on its own).
   // Back shut the whole pack under the open field; it puts the field away now, and a second Back closes the pack.
   // Back pressed INSIDE the field never gets here - the text guard above lets a field's keys be - so its input answers.
@@ -3481,6 +3533,7 @@ export function mountEnhancedInventory(hostEl, d = {}) {
       hidePlusFloaters();   // PLUS7
       closeInfo();   // PLUS10: the Info box survives a repaint (it is about an item, not a row) but not the window
       closeDismantle();   // SS5: nor does the dismantle's question
+      closeTarget();   // MEND-AIM: nor the kit's chooser
       // EVERY LISTENER HAS AN OWNER, and this one claims F6 - an orphan
       // eats the key that opens the pack, for the rest of the session.
       if (keyHandler) globalThis.removeEventListener('keydown', keyHandler, { capture: true });

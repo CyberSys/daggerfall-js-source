@@ -1009,7 +1009,7 @@ test('CD7: no citation into a port file names a range that runs backwards', () =
 
 // ═══ CD8: the cites the ROAD-G G4 REVIEW re-resolved ═══
 //
-// G4 swept `ui/listPicker.js:259` - a line the E-group's edits had
+// G4 swept `ui/listPicker.js:262` - a line the E-group's edits had
 // moved - to `:291` at four sites, and :291 is `this.syncScrollBar();`.
 // The sentence at every one of those sites names the port's ONE reading
 // of `InputManager.GetMouseButton(0)`, which is the line AFTER it. The
