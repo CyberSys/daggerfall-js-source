@@ -35,6 +35,10 @@ import {
 import { createPlayerMagic } from '../src/scenes/hostMagic.js';
 import { equipItem } from '../src/systems/equip.js';
 import { potionRecipeKeys } from '../src/systems/potions.js';
+import { setPref } from '../src/systems/uiPrefs.js';
+// HB-LYCFREE (2026-09-30): the hotbar is the quick slots' default now. This suite is the DIAMOND's, written while the
+// diamond was the default, so it chooses the diamond (PIN MOVED: the environment it always ran in, now said).
+setPref('quickbarStyle', 'quickbar');
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
