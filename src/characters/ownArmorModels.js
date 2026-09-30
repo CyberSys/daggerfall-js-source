@@ -35,9 +35,13 @@ export const RRI_JERKIN_TEMPLATE = 520;
  *
  * `skinFrom`: the body slots the model was fitted over. It is SKINNED FROM THEM at bind time
  * (formats/mwSkinTransfer.js): every vertex copies the skin of the body vertex under it, so it moves by the body's
- * own bones and binds and never comes away from it. MW-BRIG1 hung it rigid on the Chest and Groin nodes instead, and
- * the torso the body skins to its spine and pelvis moved one way while the brigandine moved another (MW-BRIG2).
- * The meshes are baked where they sit on the resting body (tools/bakeBrigandine.mjs, `placement: 'scene'`).
+ * own bones and binds and never comes away from it (MW-BRIG2).
+ *
+ * `fitTo`: the body slot the model HIDES, and so must cover (MW-BRIG3). At bind time the model is moved onto the
+ * wearer - its top to that part's top, measured in the rest pose - before it is skinned. The meshes keep the
+ * modeller's scene placement (tools/bakeBrigandine.mjs, `placement: 'scene'`), but that scene's body stood lower than
+ * the Morrowind body: drawn at the scene's height, the brigandine sat below the torso and left the chest it hides
+ * bare, in MW-BRIG1 and MW-BRIG2 alike.
  */
 export const OWN_MW_ARMOR = Object.freeze([
   Object.freeze({
@@ -48,6 +52,7 @@ export const OWN_MW_ARMOR = Object.freeze([
     // One piece, worn as a cuirass (it hides the chest skin). The skirt needs no split of its own: skinned from the
     // groin, thighs and knees, it bends with the legs under it.
     skinFrom: Object.freeze(['chest', 'groin', 'upperleg', 'knee']),
+    fitTo: 'chest',   // MW-BRIG3: its closed top sits where the chest skin it hides ends, at the base of the neck
     parts: Object.freeze([
       Object.freeze({ part: 'cuirass', model: 'brigandine_steel.nif' }),
     ]),

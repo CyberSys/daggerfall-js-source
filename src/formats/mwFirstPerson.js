@@ -167,7 +167,7 @@ export { MW_BODY_PARTS, isFirstPersonId } from './mwEsmFile.js';
 import { MW_BODY_PARTS, isFirstPersonId } from './mwEsmFile.js';
 import FACE_TABLE from './mwFaceTable.json' with { type: 'json' };
 import { GRAPH_ROOT, ACCUM_ROOT_NAMES } from './mwSkin.js';
-import { transferSkin, sourceSkin } from './mwSkinTransfer.js';   // MW-BRIG2: a worn model skinned from the body under it
+import { transferSkin, sourceSkin, fitLift, liftBatch } from './mwSkinTransfer.js';   // MW-BRIG2: a worn model skinned from the body under it; MW-BRIG3: and fitted onto it
 import { getTextKeyTime, animVelocity } from './mwAnim.js';
 import { mat33Mul } from './mwNifMesh.js';   // AUDIT 68 S11-affine-dup: the one row-major 3x3 product
 
@@ -2595,9 +2595,14 @@ export function armPieceRows(pieces) {
  * MW-BRIG2: bind a garment SKINNED FROM THE BODY. `part.skinFrom` lists the body parts it is fitted over (the
  * player's own skin meshes, `{ slot, bones?, bytes }`); each is bound exactly as the body binds it - a skinned
  * shape by rule 15's filter per bone, a rigid one at its bone with rule 13's mirror and rule 14's offset - and the
- * garment copies their skins (formats/mwSkinTransfer.js), solved against the skeleton's rest pose, where the
- * modeller fitted it. A garment with no body under it is a note and is not drawn: floating free of the body is
- * exactly the failure this exists to end.
+ * garment copies their skins (formats/mwSkinTransfer.js), solved against the skeleton's rest pose. A garment with
+ * no body under it is a note and is not drawn: floating free of the body is exactly the failure this exists to end.
+ *
+ * MW-BRIG3: `part.fitTo` names the body part the garment hides (the cuirass hides the chest), and the garment is first
+ * MOVED ONTO THE WEARER - its top to that part's top, measured in the same rest pose (fitLift) - rather than trusted
+ * to sit where the modeller's scene put it. That scene's body stood lower than this one, and the brigandine drawn at
+ * the scene's height left the chest it hides bare. With no such part, the garment keeps its baked height and a note
+ * says so.
  */
 function bindSkinnedFromBody(assembly, part, bones) {
   const mod = assembly.fns;
@@ -2605,6 +2610,7 @@ function bindSkinnedFromBody(assembly, part, bones) {
   let nif;
   try { nif = mod.parseNif(part.bytes); } catch (err) { notes.push(`${part.slot}: ${err.message}`); return; }
   const sources = [];
+  const slotOf = new Map();   // MW-BRIG3: which body part each source is, for the fit
   for (const src of part.skinFrom) {
     let srcNif;
     try { srcNif = mod.parseNif(src.bytes); } catch (err) { notes.push(`${part.slot}: body ${src.slot}: ${err.message}`); continue; }
@@ -2618,11 +2624,16 @@ function bindSkinnedFromBody(assembly, part, bones) {
         if (nameless ? tookNameless : !shapeMatchesBone(b.name, bone)) continue;
         if (nameless) tookNameless = true;
         sources.push(b);
+        slotOf.set(b, src.slot);
       }
       if (bound.skinned.length) continue;   // a rig file's rigid shapes are not drawn (MW-D31), so they are no body
       const ref = skeleton.byName.get(bone.toLowerCase());
       const mirrored = (skeleton.nodes.get(ref)?.name ?? '').includes('Left');
-      for (const b of bound.attached) sources.push(sourceSkin(b, { attachRef: bound.attachRef, mirrored, boneOffset: bound.boneOffset || null }));
+      for (const b of bound.attached) {
+        const skin = sourceSkin(b, { attachRef: bound.attachRef, mirrored, boneOffset: bound.boneOffset || null });
+        sources.push(skin);
+        slotOf.set(skin, src.slot);
+      }
     }
   }
   if (!sources.length) {
@@ -2633,7 +2644,20 @@ function bindSkinnedFromBody(assembly, part, bones) {
   try { garment = mod.bindPart(skeleton, nif, bones[0] ? { attachBone: bones[0] } : {}); } catch (err) { notes.push(`${part.slot}: ${err.message}`); return; }
   const pose = mod.poseSkeleton(skeleton, null, null, 0, {});
   const ctx = { skeleton, pose, mats: mod.skelMats(skeleton, pose, GRAPH_ROOT), skinBatch: mod.skinBatch };
-  for (const g of [...garment.attached, ...garment.skinned]) {
+  let worn = [...garment.attached, ...garment.skinned];
+  // MW-BRIG3: ONTO THE WEARER FIRST - its top to the top of the part it hides - and only then skinned from the body
+  // there, so every vertex copies the skin of the body it now actually covers.
+  if (part.fitTo) {
+    const fit = fitLift(worn, sources.filter((s) => slotOf.get(s) === part.fitTo), ctx);
+    if (fit) {
+      worn = worn.map((g) => liftBatch(g, fit.lift));
+      notes.push(`${part.slot}: fitted to the ${part.fitTo} - moved ${fit.lift >= 0 ? 'up' : 'down'} ${Math.abs(fit.lift).toFixed(1)} `
+        + `(its top from ${fit.top.toFixed(1)} to the ${part.fitTo}'s top at ${fit.anchorTop.toFixed(1)})`);
+    } else {
+      notes.push(`${part.slot}: no ${part.fitTo} to fit it to - drawn at its baked height`);
+    }
+  }
+  for (const g of worn) {
     for (const batch of transferSkin(g, sources, ctx)) {
       pieces.push({ slot: part.slot, bone: bones[0] ?? null, kind: 'skinned', mirrored: false,
         batch, source: null, attachRef: null,
