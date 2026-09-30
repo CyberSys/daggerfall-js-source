@@ -362,6 +362,8 @@ export const REFUSALS = Object.freeze({
   // what counts, since "played online" read false to a player who had and never killed there
   // CUSTOMS-PASS (2026-09-29): and the one way past it, a developer's pass - named for the case it exists for, a character
   // played online on an older version of the game after the realm opened (which the relay admitted until REALM-DOOR)
+  // CUSTOMS-ELSEWHERE (FIELD BUGS 2026-09-30): counted, but on the account it went online with
+  'customs-other-account': 'The realm knows this character from another account - the one you played it online with. Sign in with that account to bring it in.',
   'customs-never-online': 'The realm has no record of this character from before it opened - no Renown, online home, guild place, raid or cloud backup - so it cannot come in. Make a new online character instead. If you played it online on an older version of the game after the realm opened, ask the developers on the Discord.',
   'customs-already': 'That character has already been brought into the realm.',
   // AUDIT REALM2 S1: a first save the realm reads - a new character's, or customs' own
