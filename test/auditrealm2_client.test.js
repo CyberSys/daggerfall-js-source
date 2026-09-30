@@ -40,7 +40,7 @@ import { COME_SAIL_AWAY_VENDOR, TEMPORARY_SHIP_SCENES } from '../src/systems/com
 import * as comeSailAway from '../src/systems/comeSailAway.js';
 import { assignShipToPlayer, sellShip, ownsShip, SHIP_TYPES } from '../src/systems/banking.js';
 import { createSceneCache, addPermanentScene, removePermanentScene, containsPermanentScene, takeSceneOwn } from '../src/systems/sceneCache.js';
-import { sellOnlineHome } from '../src/systems/onlineHomes.js';
+import { sellOnlineHome, HOME_SALE_OUT } from '../src/systems/onlineHomes.js';
 import { armUnloadGuard, releaseUnloadGuard } from '../src/systems/unloadGuard.js';
 import { installConsoleProbe, registerCommand } from '../src/systems/consoleCommands.js';
 import { checkpointAllowed } from '../src/systems/onlineCheckpoint.js';
@@ -493,7 +493,7 @@ test('AUDIT REALM2 C6: a realm home\'s sale gives the owner\'s own things back t
     const said = [];
     const sellHomeAt = mount(`${M.fn('sellHomeAt')}\nreturn sellHomeAt;`, {
       host: { onlineHomes: { release: async () => answer }, realmAct: (o) => realmGoldAct({ session, checkpoint: () => { checkpoints.push(snap()); }, wait: async () => {}, ...o }) },
-      sellOnlineHome, homeTownOf: () => 1, homeAccount: () => ({ get accountGold() { return state.bank; }, set accountGold(v) { state.bank = v; } }),
+      sellOnlineHome, HOME_SALE_OUT, homeTownOf: () => 1, homeAccount: () => ({ get accountGold() { return state.bank; }, set accountGold(v) { state.bank = v; } }),
       townTalk: { say: (t) => said.push(t) }, accountRefusalText: (e) => `refused: ${e}`, takeSceneOwn, sceneCache: () => cache, homeSceneName: () => 'Home',
       decorPackGive: (it) => state.pack.push(it.name), removePermanentScene, homeSoldLine: (r, d) => `sold ${r + (d ?? 0)}`, ownBackLines: (own) => `${own.length} back`, decorOwnBackLine: () => '',
     });

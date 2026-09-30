@@ -458,13 +458,13 @@ test('AUDIT LIVED1b P1: a party mirror\'s night walks the follower\'s own watch 
     const names = ['playerTicker', 'playerEntity', 'amGroupRollOwner', 'online', 'player', 'partyNear', 'modes', 'walkMode', 'playerSpawned',
       'intermittentEnemySpawn', 'sharedClockOn', 'worldMinutes', '_musicInLocationRect', 'maps', 'playerTravelPixel', 'SOLITARY_TYPES',
       'partyExtraFoes', 'partySize', '_standEncounterFoe', '_questRegionIndex', 'passiveGuardSpawns', 'legalRepOf', 'setCrimeCommitted', 'CRIMES',
-      '_witnessResponse', 'cityGuards', '_guardPool', 'cam'];
+      '_witnessResponse', 'cityGuards', '_guardPool', 'cam', 'effectiveLevel'];   // SOFTCAP2: the mentor's level the loop's roll reads
     const body = `let _lastEncMinutes = null;\n${fnText}\nconst mirrorHook = { ${MIRROR} };\nconst soloHook = { ${SOLO} };\n`
       + 'return { run: runEncounterTick, mirror: mirrorHook.advanceMinutes, solo: soloHook.advanceMinutes };';
     const h = new Function(...names, body)(ticker, e, () => true, { id: 'me' }, { pos: [0, 0, 0], feetAt: () => [0, 0, 0], isPlayerSwimming: false }, () => [], { mode: 'exterior' }, true, true,
       (a) => { counts.spawnAsks++; return intermittentEnemySpawn(a); }, sharedClockOn, worldMinutes, () => true, { getClimateIndex: () => 231 }, () => ({ x: 100, y: 100 }), SOLITARY_TYPES,
       partyExtraFoes, () => 2, () => {}, () => 17, passiveGuardSpawns, legalRepOf, setCrimeCommitted, CRIMES,
-      () => { counts.watch++; }, { makeNpcGuardsIntoEnemies: () => Promise.resolve() }, () => [], { pos: [0, 0, 0] });
+      () => { counts.watch++; }, { makeNpcGuardsIntoEnemies: () => Promise.resolve() }, () => [], { pos: [0, 0, 0] }, (x) => x?.level ?? 1);
     h.run([0, 0, 0]);
     e.isResting = true;
     for (let k = 0; k < 48; k++) (kind === 'solo' ? h.solo : h.mirror)(10);

@@ -562,8 +562,8 @@
   {
     "name": "SS5-the-yes-no-box-unfitted",
     "file": "src/ui/yesNoBox.js",
-    "old": "layoutMessageBox(font, fitBoxRows(font, this.rows), [MB_BUTTONS.Yes, MB_BUTTONS.No]);",
-    "new": "layoutMessageBox(font, this.rows, [MB_BUTTONS.Yes, MB_BUTTONS.No]);",
+    "old": "layoutMessageBox(font, fitBoxRows(font, this.rows), this.okOnly ? [MB_BUTTONS.OK] : [MB_BUTTONS.Yes, MB_BUTTONS.No]);",
+    "new": "layoutMessageBox(font, this.rows, this.okOnly ? [MB_BUTTONS.OK] : [MB_BUTTONS.Yes, MB_BUTTONS.No]);",
     "tests": [
       "test/ss1_stones.test.js"
     ]

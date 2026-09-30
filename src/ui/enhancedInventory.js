@@ -56,14 +56,14 @@
 // inventory slice's first job.
 // ═══════════════════════════════════════════════════════════════════
 
-import { getPref } from '../systems/uiPrefs.js';   // PLUS7: getPref, the hover card's switch
+import { getPref, setPref } from '../systems/uiPrefs.js';   // PLUS7: getPref, the hover card's switch; PACK-PHONE: setPref, the phone's Body
 import { USE_PENDING, powersRows, INFO_TEXT_POWERS } from './nativeInventory.js';   // PLUS10: the Info box's powers record
 import { itemInfoRows, questLetterName } from '../systems/itemInfo.js';   // PLUS10: the classic Info popup's own text
 import { magicPowersLines } from '../systems/itemPowers.js';   // PLUS10: %mpw
 import { CHAT_MAX } from '../net/wire.js';   // CHAT-POST: a posted item is one chat line
 import { itemIsIdentified } from '../systems/tradeModes.js';   // PLUS10: MagicPowers' identified arm
 import { PACK_PAGES, PAGE_IDS, pageOf, filterByPage } from './packPages.js';   // PX31: the pack's nine pages (the classic keeps DFU's four)
-import { useItem, isLightSource, usableItem, isPotionRecipe } from '../systems/useItem.js';   // PLUS10: isPotionRecipe, a recipe's second Info box   // HT2: the light source's own act; Mac: Use only where the law has an arm
+import { useItem, isLightSource, usableItem, isPotionRecipe, toggleHood, HOOD_TEXT } from '../systems/useItem.js';   // PLUS10: isPotionRecipe, a recipe's second Info box   // HT2: the light source's own act; Mac: Use only where the law has an arm   // HOOD-SAID: the hood's button and its lines
 // QS2: the quickslot model (systems/quickslots.js). This screen is the ONE
 // place a slot is filled - Mac's own words, "in the enhanced menu through the
 // tooltip to slot 1/2" - and it fills one by naming the item's KIND, which is
@@ -117,6 +117,7 @@ import { liveStat } from '../systems/statMods.js';
 import { conditionWord, conditionPercentage, itemNameParts, itemLongName, itemDamageLine, itemArmourLine, itemHandsLine } from '../systems/itemInfo.js';   // RF6: the long name's two parts, ResolveItemLongName's arms once
 import { survivalInfoTokens, potionMacroName, potionRecipeIngredientNames } from '../systems/itemInfo.js';   // AUDIT SURV C: the survival items' tokens on this skin's card too
 import { isSurvivalItem } from '../systems/survival/items.js';
+import { hoodCapable, hoodUp } from '../systems/survival/temperature.js';   // HOOD-SAID: the one hood law, on the card and the panel
 import { rarityAttr, rarityLines, lootRarityOn } from '../systems/lootRarity.js';   // LR1: the row's tier attribute and the card's lines
 import { pieceLines } from '../net/recipeLaw.js';   // PROF3: a crafted piece's quality and maker, above its powers
 import { sigilCard } from './sigilCard.js';   // SIGIL-UI: the sigil's own block on the card
@@ -1320,6 +1321,7 @@ function use(item, collection = deps.items?.() ?? []) {
     notice = act.text;
   }
   refresh();
+  if (act.repaint) refreshFigure();   // HOOD-SAID: a garment's drawing changed - the doll wears the new one (useResultAction's flag, unread until now)
   if (act.closesWindow) { onExit(); return; }
   picked = null;     // PX24: a use, however it reported, closes the tooltip
   render();
@@ -1354,6 +1356,17 @@ function takeOff(slot) {
   refresh();
   refreshFigure();
   picked = null;     // PX24: the action closes the tooltip
+  render();
+}
+
+/** HOOD-SAID: the hood raised or lowered (useItem.js toggleHood - the same drape, the other drawing), SAID, and DRAWN:
+ *  the doll recomposes as a wear does, and the card stays up with its Hood row and its button flipped, as Lock's does,
+ *  so the press is seen to land. */
+function hood(item) {
+  if (!toggleHood(item)) return;
+  notice = hoodUp(item) ? HOOD_TEXT.raise : HOOD_TEXT.lower;
+  refresh();
+  refreshFigure();
   render();
 }
 
@@ -1927,6 +1940,10 @@ function wornPanel(fam, byLabel, area) {
   b.append(txt);
   if (filled.length > 1) b.append(el('span', 'worncount', String(filled.length)));
   if (part >= 0) b.append(armourBadge(deps.entity, part));   // AC-COMPARE: the part's armour, as on the empty panel
+  // HOOD-SAID: A RAISED HOOD WEARS A CHIP, in the corner no part's number takes (a cloak's slot and a shirt's stand for
+  // none); a bare panel is a hood down. "Cloaks · hood up" beside the family word was wider than a panel's text line
+  // (72px on the desk), and a "Hood down" plate covered the word on a 360px phone.
+  if (hoodUp(top.item)) b.append(el('span', 'wornhood', 'Hood'));
   // MAC-M2 (Mac: "hold to drag ... doesn't work when trying to take
   // items off your character"): A FILLED PANEL DRAGS, on the same hold
   // and the same threshold a pack row takes. INV1 attached `dragFrom`
@@ -2714,6 +2731,7 @@ function infoCard(picked, side, ready = render, { body = false } = {}) {
   if (side === 'local') {
     if (isLightSource(picked)) pair('Lit', line.lit ? 'yes' : 'no');
     else pair('Worn', line.equipped ? 'yes' : 'no');
+    if (line.equipped && hoodCapable(picked)) pair('Hood', hoodUp(picked) ? 'up' : 'down');   // HOOD-SAID: the hood a worn cloak or robe is drawn with, as a light says Lit
   }
   else pair('Where', remote.title);
   into.append(dl);
@@ -2781,6 +2799,16 @@ function itemActs(picked, side, { qty = true } = {}) {
   // it on the REMOTE list too (:2048-2051), so this pane does.
   // Mac (2026-09-18): ...WAS. "Same for use for non-usables" - the law's own predicate (useItem.js usableItem)
   // says which items an arm would do something with; a sword or a gem gets no Use button.
+  // HOOD-SAID (FIELD BUGS 2026-09-30, "Vampire hood on cloaks dont show hood is up or down"): A WORN CLOAK OR ROBE
+  // RAISES AND LOWERS ITS HOOD - the light's Light / Douse, for a hood. Use stood here for it and was NextVariant, a
+  // step through the drawings (down, up, up, down, down, up on a casual cloak) with the doll left as it was. Use stays
+  // beside it only for an enchanted one, whose Used payload is Use's to fire. A cloak in the pack keeps DFU's Use.
+  const hooded = side === 'local' && line.equipped && hoodCapable(picked);
+  if (hooded) {
+    const h = el('button', 'act', hoodUp(picked) ? 'Lower hood' : 'Raise hood');
+    h.onclick = () => hood(picked);
+    acts.append(h);
+  }
   const u = el('button', 'act', 'Use');
   // THE COLLECTION IS THE LIVE LIST, not the model's. `useItem`
   // CONSUMES out of what it is handed (:2048-2051 - a potion drunk
@@ -2788,7 +2816,7 @@ function itemActs(picked, side, { qty = true } = {}) {
   // filtered COPY, so passing that would drink the potion and leave it
   // sitting in the pile. The bag travels separately for AUDIT 22 F4's
   // reason, inside `use`.
-  if (usableItem(picked)) {
+  if (usableItem(picked) && (!hooded || isEnchanted(picked))) {
     u.onclick = () => use(picked,
       side === 'remote' ? remoteTarget(deps, sessionState()) : (deps.items?.() ?? []));
     acts.append(u);
@@ -3083,6 +3111,16 @@ function render() {
     if (name) title.append(el('span', 'pack-who', name));
     who.append(title);
     head.append(who);
+    // PACK-PHONE (FIELD BUGS 2026-09-30, "we dont really need paperdoll on phone or at least if it could be hidden"):
+    // THE BODY IS A CHOICE ON A PHONE. The sheet hides the figure on a touch phone unless the shell carries `showdoll`,
+    // and draws this button there alone; the choice is the player's own shelf, so the pack opens as it was left.
+    const showDoll = getPref('packPhoneDoll') === true;
+    if (showDoll) shell.classList.add('showdoll');
+    const dollBtn = el('button', 'act dolltoggle', showDoll ? 'Hide body' : 'Body');
+    dollBtn.type = 'button';
+    dollBtn.setAttribute('aria-pressed', String(showDoll));
+    dollBtn.onclick = () => { setPref('packPhoneDoll', !showDoll); render(); };
+    head.append(dollBtn);
     const close = el('button', 'act', 'Close');
     close.onclick = () => onExit();
     head.append(close);

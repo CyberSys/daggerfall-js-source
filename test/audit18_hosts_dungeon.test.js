@@ -174,7 +174,7 @@ test('audit18 sweep: all three spawn sites run the one shared equip chain', () =
     if (name === 'hostCombat.js') continue;   // the one shared home
     assert.equal(/assignEnemyEquipment\(|\bequipEnemy\(/.test(src), false, `${name} keeps a private copy of the equip chain`);
   }
-  assert.match(hostSrc('hostCombat.js'), /^  const eq = equipEnemy\(entity, mobileType, player\.level, rolls, \{ player \}\);$/m, 'the seam runs the shared chain (RRI2: the player rides in for a mod\'s assigner)');
+  assert.match(hostSrc('hostCombat.js'), /^  const eq = equipEnemy\(entity, mobileType, effectiveLevel\(player\), rolls, \{ player \}\);   \/\/ SOFTCAP2/m, 'the seam runs the shared chain (RRI2: the player rides in for a mod\'s assigner)');
 });
 
 // ---------------------------------------------------------------
@@ -551,7 +551,7 @@ test('audit18 sweep: enemy loot rolls the PLAYER gender at both dungeon spawn si
   const src = hostSrc('dungeonContext.js');
   assert.equal((src.match(/spawnEnemyLoot\(entity, e\.mobileType, basics, D\.playerEntity, \{ \.\.\.eliteLootOpts\(e\), where: 'dungeon' \}\)/g) ?? []).length, 2);
   assert.equal(/generateItems\([^)]*gender: e\.gender/.test(src), false);
-  assert.match(hostSrc('hostCombat.js'), /generateItems\(enemyLootTableKey\(mobileType, basics\?\.lootTableKey \?\? '-'\), \{ level: player\.level, gender: player\.gender \}, undefined, \{ itemChanceScale, mobileType \}\)/, 'the PLAYER\'s gender, LootTables.cs:212/:229/:237');
+  assert.match(hostSrc('hostCombat.js'), /generateItems\(enemyLootTableKey\(mobileType, basics\?\.lootTableKey \?\? '-'\), \{ level: effectiveLevel\(player\), gender: player\.gender \}, undefined, \{ itemChanceScale, mobileType \}\)/, 'the PLAYER\'s gender (SOFTCAP2: at the mentor\'s level), LootTables.cs:212/:229/:237');
 });
 
 test('audit18 sweep: the swing fatigue and the tally arm are wired into the dungeon rig', () => {

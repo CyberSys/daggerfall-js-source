@@ -320,7 +320,8 @@ room for the mod's fifth). A meal takes half an hour and banks its
 worth against the hunger marker on the mod's own law (too full under
 the worth - "The rest goes to waste.", charged; four hours back past
 worth + 240; the worth banked). A drink takes a quarter hour, quenches
-forty of thirst, and counts by its kind - milk, tea, juice and coffee
+the thirst whole (TAVERN-DRINK, FIELD BUGS 2026-09-30 - the mod's forty,
+a departure), and counts by its kind - milk, tea, juice and coffee
 nothing, an ale ten, a wine twenty, a spirit thirty-five - against the
 endurance: past half "You are getting drunk...", past ten under it
 "You are very drunk...", past it the BLACKOUT: the night passes to six
@@ -1298,8 +1299,8 @@ characters regardless of mode should start with supplies"* - had been read
 as every tier, Off's included, and shipped that way (SURV-KIT, `23ee51b8`).
 It is reverted whole (`4dffc8ef`), but for six line cites in the kit's
 fallback seam that had rotted before it and named moved lines (`equip.js`'s
-`startingGear.js:70`, `chargenSession.js:223` and `world.js:4804`, `startingGear.js`'s
-`equip.js:325` and `world.js:4804`, `exterior.js`'s `equip.js:324`): each
+`startingGear.js:70`, `chargenSession.js:225` and `world.js:4815`, `startingGear.js`'s
+`equip.js:325` and `world.js:4815`, `exterior.js`'s `equip.js:324`): each
 names its line again. Casual and Hard characters set out with the kit on
 every creation path there is - the wizard and `?class=` in each of the three
 hosts, and online, where the tier is the player's own - and Off's bag is
@@ -1575,3 +1576,29 @@ this branch's: main's own `MAC-BUG-W5-13` (`combat/bloodMarks.js`'s pool
 gate asking `raycastHit` in place of `surfaceHit`) lives on main's head
 too - a gap in main's pins, left to its owner.
 
+
+## FIELD BUGS 2026-09-30 - SIX DEPARTURES FROM THE MOD AS READ (2026-09-30)
+
+A #bug-reports thread, "Climates & Calories Bugs" ("most people are disabling the mod because of these issues"): the
+temperature "seems to never change ... gets to either "Scorching" or "Freezing" or "Soaked" etc and seems to never
+recover"; a tavern drink "does not fill your hydration"; and "Waterskins should be refillable at an inn/tavern". The
+minute law was never stuck (every host feeds it; the reading is recomputed each minute); the rules held it in the red
+and said nothing on the way out. Six changes, each a declared departure (Port-Ledger A), the record in
+`01-Overview/Field-Bugs-2026-09-30.md`:
+
+- **TAVERN-DRINK** (`tavernMenu.js` `tavernDrink`): a drink quenches the thirst whole, as a meal fills the stomach whole;
+  its kind's drunkenness and its quarter hour stand. (It took forty off a hundred and fifty, and the quarter hour
+  climbed again: four paid cups to leave the red in a desert inn.)
+- **INN-WATER** (`tavernMenu.js`, both tavern windows): every menu's first drinks row is "Fill your waterskins", at the
+  list's cheapest soft drink - the fountain's own law (`drinkAtSource`); refused before any coin moves with no skin or
+  every skin full.
+- **MENU-CLIMATE** (`tavernMenu.js` `MENU_KEY_BY_CLIMATE`): the menus keyed by the CLIMATES enum's names - the table was
+  written 224-233 over climates that run 223-232, so every climate served the menu of the one before it (Sentinel's
+  desert served the bay's bananas; the mountains the desert's camel milk). A port bug, not the mod's.
+- **ROOF-SHELTER** (`temperature.js` `naturalTemperature`): inside a building the natural temperature is the milder of
+  the street's own now and the roofed half - a roof never makes it hotter or colder than the street (a desert inn at
+  23:00 read 35 while its street read 5).
+- **CLOTHES-BREATHE** (`temperature.js` `clothingWarmth`, `CLOTHES_BREATHE_ABOVE` 10): above a natural ten, clothing
+  counts at half its warmth before the wet eats it; the cold and armour unchanged.
+- **WARM-SAID** (`needs.js`): leaving a red temperature stage says "You are cooling down." or "You are warming up.",
+  and a soaking dried says "You have dried off." - once a recovery; the improving stages stay silent (the third pass).

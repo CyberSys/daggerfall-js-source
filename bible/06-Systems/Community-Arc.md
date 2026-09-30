@@ -690,8 +690,8 @@ The sixth merge's conflicts showed a Ledger row whose DFU message ids read "8076
 The struck row above it still reads "8076/8077", and DFU's TalkManager.cs answers with records 8075, 8076 and 8077
 (:2029-2035). `tools/citeShift.mjs` and `tools/citeMerge.mjs` had been moving it for as far back as the history goes.
 - **CITE-SLASH.** RF3's grammar read a bare `/N` after a cite, anywhere up to the next cite, as that cite's line. So
-  "8076/8077", a sentence after `world.js:6903`, was world.js:11823 to both tools, and it moved whenever that line did.
-  A bare `/N` now continues only the chain it touches: `world.js:10380/10381`, `:16/18`. The colon forms keep RF3's
+  "8076/8077", a sentence after `world.js:6914`, was world.js:11868 to both tools, and it moved whenever that line did.
+  A bare `/N` now continues only the chain it touches: `world.js:10425/10426`, `:16/18`. The colon forms keep RF3's
   reach, because the colon says what they are.
 - **CITE-CS.** RF3 ends a cite's region at a `.cs:N` cite, but DFU's members are mostly written without their file:
   "| TalkManager.GetReactionToPlayer_0_1_2 (:689-693) |" in the Ledger's DFU column, and
@@ -726,7 +726,7 @@ worked a batch each, and every span was checked here against the source before i
   - PlayerGPS.cs:747 and :766-776;
   - DaggerfallTalkWindow.cs:1465-1499;
   - three JS continuations that RF3 had given to the cite before them: `guildServiceFlow.js:269`/`:270` and
-    `useItem.js:322-346`/`:239-275`.
+    `useItem.js:353-377`/`:270-306`.
 - Found by the passes and left for a person: row 735's `DaggerfallCourtWindow.cs:191` names the Dark Brotherhood
   rescue's refill, not the acquittal's (:425).
 
@@ -748,7 +748,7 @@ Main moved thirty commits while the arc was in review. Merged, not rebased; 106 
 - **Six of main's mutant records, re-aimed by content.** Each is aimed at the site its name gives, and each dies
   against a green baseline.
   - Four SURV-TIERS records mutate line cites in source comments, and the merge had moved those cites
-    (`world.js:4823` is `:4834` now).
+    (`world.js:4834` is `:4845` now).
   - MUT-AIM found two that name two sites each:
     - DISC10-D-H1's stamp, which the hit's defaults and the kill's share;
     - DISC9's heard word, which DISC11's rain gain repeats below it.

@@ -152,7 +152,9 @@ test('AUDIT 27h S2: no way back from death comes up running - the Resurrect, the
   // the dungeons' loads: each host's ONE load law (DIAL-LOAD - every load its context runs lands by it), RUN out of
   // the live source, where this pin used to count copies of an applier's text
   const placed = [];
-  const motor = { spawn: (...p) => placed.push(['spawn', ...p]), stopAutorun: () => placed.push(['stop']) };
+  // FALL-KEPT (FIELD BUGS 2026-09-30, PIN MOVED): worldModes' law lands a saved fall after the spawn - none is handed
+  // here, and fb0930_fallkept.test.js runs it on the real motor.
+  const motor = { spawn: (...p) => placed.push(['spawn', ...p]), stopAutorun: () => placed.push(['stop']), restoreFall: () => {} };
   constOf(m, 'placeLoadedPlayer', { player: motor })([1, 2, 3]);
   constOf(rd('src/scenes/dungeon.js'), 'placeLoadedPlayer', { _motorRef: motor })([4, 5, 6]);
   assert.deepEqual(placed, [['spawn', 1, 2, 3], ['stop'], ['spawn', 4, 5, 6], ['stop']], 'the world-hosted dungeon\'s loads and the standalone\'s drop the latch');

@@ -86,13 +86,24 @@ export function createForagingWait({ entity, showOverlay = null, overlayActive =
     return own({ seconds: Math.max(0, seconds), label: r?.label ?? null, held });
   };
 
-  /** The held boxes, in order - only once the page has ended and the slot is free. */
+  /** set while release() runs: a box it shows is not held again (CHOP-WAIT) */
+  let _releasing = false;
+  /** The held boxes, in order - only once the page has ended and the slot is free.
+   *  CHOP-WAIT (FIELD BUGS 2026-09-30, "Hardlocked in woodcutting animation after game Crash"): a box the release runs
+   *  is SHOWN, and one release runs only the boxes held when it began. A held box is the host's showQuestBox, whose
+   *  first question is `holds()` - true while any box is still held - so with two boxes behind the page (two Wood-Axe
+   *  uses, each quest's find) the first went back behind the second and the second behind the first, for ever, in one
+   *  frame: the tab hung as the page ended. The record rides the save, so every login reopened the page and hung again
+   *  when it ran out. A box that takes the slot still ends the release; the next waits for the slot, a frame later. */
   function release() {
-    while (_held.length && !pending() && !_win && !overlayActive()) {
-      const { fn } = _held.shift();
-      write(0);
-      try { fn(); } catch (e) { console.warn('[foragingWait] a held box threw', e); }
-    }
+    _releasing = true;
+    try {
+      for (let n = _held.length; n > 0 && _held.length && !pending() && !_win && !overlayActive(); n--) {
+        const { fn } = _held.shift();
+        write(0);
+        try { fn(); } catch (e) { console.warn('[foragingWait] a held box threw', e); }
+      }
+    } finally { _releasing = false; }
   }
 
   /** The quest's `raise time by`, online: `gameSeconds` of the clock as a wait of real seconds, joined to any standing. */
@@ -145,8 +156,9 @@ export function createForagingWait({ entity, showOverlay = null, overlayActive =
 
   return {
     add, tick,
-    /** Whether a quest box must wait: a wait stands, or is pending behind the slot, or boxes wait their turn. */
-    holds: () => pending() || !!_win || _held.length > 0,
+    /** Whether a quest box must wait: a wait stands, or is pending behind the slot, or boxes wait their turn - never the
+     *  box the release is showing (CHOP-WAIT). */
+    holds: () => !_releasing && (pending() || !!_win || _held.length > 0),
     /** A quest box held behind the wait, run in order when it ends; `keep` - its copy for the save (plain data). */
     hold(fn, keep = null) {
       if (typeof fn !== 'function') return;

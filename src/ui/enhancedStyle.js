@@ -1220,16 +1220,10 @@ ${badgeCss()}
   .packlists.remotefirst > .packcol:not(.packremote) { order: 1; }
 }
 
-/* THE SCHEMATIC GOES LAST ON A PHONE. Stacked, it is 46vh of figure
-   above everything, so the LISTS started below the fold - the remote
-   one at y=781 in a 727px viewport, which is a browser-only finding
-   and exactly the shape AUDIT 24 keeps turning up. A player opening
-   their pack came for their items; the doll is what they scroll to. */
-@media (max-width: 860px) {
-  .pack .charcol { order: 2; }
-  .pack .packlists { order: 1; }
-  .pack .packdetail { order: 3; }
-}
+/* U53's "THE SCHEMATIC GOES LAST ON A PHONE" stood here - an order rule over .pack's children. PX19f put the region
+   in .pack-main and the list in .pack-dock, so it ordered nothing, and it is gone (PACK-PHONE, FIELD BUGS 2026-09-30):
+   a phone's list is kept on the screen by the stacked pack's own rules now, the dock's floor and the region's scroll
+   (the pack's rules, after PX31's). */
 
 .iconnote { color: var(--dim); font-size: 11.5px; margin: 12px 2px 0; line-height: 1.5; }
 
@@ -1864,6 +1858,41 @@ ${badgeCss()}
 .px-fill.blood { background: var(--blood); }
 .px-fill.verdigris { background: var(--verdigris); }
 .px-fill.thin { background: rgba(216,207,174,0.75); }
+/* SOFTCAP1: skills past 100 - the second, gold bar and its milestone ticks */
+.px-skillmeter { display: flex; flex-direction: column; gap: 2px; }
+.px-meter.px-over { position: relative; height: 4px; border-width: 1px; border-color: rgba(201,162,39,0.6); }
+.px-fill.px-overfill { background: linear-gradient(90deg, #c9a227, #f0d77a); }
+.px-tick { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(0,0,0,0.55); }
+/* SOFTCAP3: the Master Skills pane, and its Yes/No card's backdrop over the pause page */
+.px-master { margin: 4px 0 12px; }
+.px-master-state { color: #f0d77a; margin-bottom: 6px; }
+.px-master-about { margin: 0 0 6px; color: var(--dim); font-size: 13px; line-height: 1.45; }
+.px-master-note { margin: 6px 0; color: #d8cfae; }
+.px-master-slots { margin: 6px 0; color: #efe6c8; }
+.px-skill .k.px-mastered { color: #f0d77a; }
+.px-master-back { margin-bottom: 4px; }
+/* SOFTCAP6: the Master Skills page - a short lead, then one card per career group: its name, its slots as brass
+   pips and its count; each skill a row with its bar(s) and, on the right, its state - a gold tag, a Master button,
+   or a quiet word. Tuned to the Stats page's own type (the .px-mtop row) and brass (--brass). */
+.px-master-lead { margin: 2px 0 14px; color: var(--dim); font-size: 14px; letter-spacing: 0.04em; }
+.px-mgroup { margin: 0 0 16px; padding: 10px 14px 4px; border: 1px solid rgba(125,116,96,0.35); background: rgba(0,0,0,0.18); }
+.px-mhead { display: flex; align-items: baseline; gap: 12px; margin: 0 0 10px; padding-bottom: 6px; border-bottom: 1px solid rgba(125,116,96,0.3); }
+.px-mname { color: #d8cfae; font-size: 14px; letter-spacing: 0.2em; text-transform: uppercase; }
+.px-pips { display: inline-flex; gap: 4px; color: var(--brass); font-size: 13px; }
+.px-pip.on { color: #f0d77a; text-shadow: 0 0 6px rgba(240,215,122,0.35); }
+.px-mcount { margin-left: auto; color: #7d7460; font-size: 13px; letter-spacing: 0.08em; }
+.px-mrow2 { display: flex; align-items: center; gap: 16px; margin: 0 0 10px; }
+.px-mrow2 .px-mbody { flex: 1 1 auto; min-width: 0; }
+.px-mrow2 .px-mtop { margin-bottom: 3px; }
+.px-mrow2 .px-meter { height: 6px; border-width: 2px; }
+.px-mrow2.is-mastered .px-mtop .k { color: #f0d77a; }
+.px-mside { flex: 0 0 132px; display: flex; justify-content: flex-end; }
+.px-mtag { color: #7d7460; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; white-space: nowrap; }
+.px-mtag.gold { color: #f0d77a; }
+.px-mbtn { min-height: 34px; min-width: 104px; }
+.px-master-foot { margin-top: 6px; }
+.px-master-ask { position: fixed; inset: 0; z-index: 35; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.55); }
+.px-master-ask .yesnobox { position: static; transform: none; }
 .px-skillgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 4px 26px; margin-bottom: 8px; }
 .px-skill { margin: 0 0 8px; }
@@ -3904,6 +3933,8 @@ ${badgeCss()}
   display: flex; align-items: center; gap: 14px; text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }
 .pack-shell .pack-id h2::before { content: ''; flex: 0 0 48px; height: 2px;
   background: linear-gradient(90deg, transparent, rgba(125,116,96,0.7)); }
+/* PACK-PHONE: the phone's Body switch, beside Close - drawn by the touch-phone rule alone (after PX31's) */
+.pack-shell .pack-id .dolltoggle { display: none; margin: 0 8px 0 auto; white-space: nowrap; }
 /* PX19f: the reference's skeleton - the character region and the
    details share the top; the inventory is a BOTTOM DOCK. */
 .pack-shell .pack { flex: 1; min-height: 0; display: flex; flex-direction: column;
@@ -4044,7 +4075,10 @@ ${badgeCss()}
    measured a 250px list showing seven rows, because there the
    window is 94dvh and the region is the same 400. The breakpoint is
    min-width, so the stacked layout stays the default and this is
-   the wide-screen departure from it. */
+   the wide-screen departure from it.
+   (PACK-PHONE, 2026-09-30: it was. That Pixel 5 had no ARENA2 behind
+   the page, so no doll - with the art the stacked list is 0px. The
+   stacked layout's own departure follows this block.) */
 @media (min-width: 1000px) {
   .pack-shell .pack { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
     flex-direction: row; min-height: 0; }
@@ -4077,6 +4111,72 @@ ${badgeCss()}
      both look like the fix and only one of them is it. */
   .pack-shell .charcol .equipped { flex: 1 1 auto; min-height: 0; }
   .pack-shell .charcol .wornmap { grid-template-rows: repeat(6, minmax(44px, 1fr)); }
+}
+/* PACK-PHONE (FIELD BUGS 2026-09-30, Discord: "Still can't use my
+   bag/Inventory on mobile"; "we dont really need paperdoll on phone or
+   at least if it could be hidden"): UNDER THE COLUMN LAYOUT THE REGION
+   GIVES WAY. The stacked pack held its character region at its
+   content's height (PX22's 0 0 auto) in a window capped at 660px, and
+   the dock took what was left. With the doll's art nothing was left:
+   the doll's cell is height-driven (height 100%, aspect-ratio 110/184)
+   in a map whose rows are auto, a height that resolves to nothing, so
+   the sprite stood at its 4x bitmap size, 440x736. Measured in
+   Chromium with the real pack and a 440x736 figure standing in for the
+   art: a phone on its side (915x412) had a 0px list and not one tile a
+   finger could reach; upright (412x915) the panels' columns came to 0px
+   and the list to 8px; a tablet upright and a 900px mouse window read
+   0px too. So the region shrinks and scrolls on its own; the dock grows
+   from nothing, so the item count never sizes it, and never takes less
+   than 45% of the pack; and the doll is capped at a third of the screen
+   and at 240px, which is what the 660px window's region holds beside
+   that dock with the shelf under it. Inside the region's scroll the
+   column clips nothing and the map keeps its height. The column's width
+   is still the region's: one that clips nothing sizes the region's 1fr
+   to its own min-content, and at 360px the map ran past the screen.
+   The title gives way before Close does: a phone's width had pushed
+   Close half off the screen. */
+@media (max-width: 999px) {
+  .pack-shell .pack-id > div { min-width: 0; overflow: hidden; }
+  .pack-shell .pack-main { flex: 0 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+  .pack-shell .pack-dock { flex: 1 1 0; min-height: 45%; }
+  .pack-shell .charcol { overflow: visible; min-width: 0; }
+  .pack-shell .charcol .equipped { flex: 0 0 auto; }
+  .pack-shell .charcol .wornmap-doll.hasart { height: min(34dvh, 240px); }
+}
+/* PACK-PHONE: ON A PHONE THE BODY IS A CHOICE, hidden until the
+   header's Body shows it (uiPrefs packPhoneDoll, remembered). The worn
+   panels stand either way and keep every act - a tap reads the piece,
+   its card takes it off - so nothing worn is out of reach; the doll's
+   column closes up and the panels take the width. The overall armour
+   figure goes with the body it heads; each part's number stays on its
+   panel. The tab strip is one row that scrolls sideways: the nine
+   pages' three-by-three is 110px of a phone's dock. The header's two
+   buttons are a card's 64px, not LAYOUT1's 104, and the name cuts to an
+   ellipsis, so Body and Close fit a 360px screen beside PACK.
+   TOUCH-FIRST is TI3's pair (ui/touchDevice.js), and a phone is under
+   641px wide upright or under 541px tall on its side - a tablet keeps
+   its figure, capped as above. */
+@media (pointer: coarse) and (hover: none) and (max-width: 640px), (pointer: coarse) and (hover: none) and (max-height: 540px) {
+  .pack-shell .pack-id h2::before { display: none; }
+  .pack-shell .pack-id h2 { min-width: 0; }
+  .pack-shell .pack-id .pack-who { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pack-shell .pack-id .act { min-width: 64px; padding: 8px 10px; letter-spacing: 0.06em; }
+  .pack-shell .pack-id .dolltoggle { display: inline-block; }
+  .pack-shell .pack-dock .packcats .packtabs { display: flex; flex-wrap: nowrap; overflow-x: auto; }
+  .pack-shell .pack-dock .packtab { flex: 0 0 auto; }
+  .pack-shell:not(.showdoll) .wornmap-doll, .pack-shell:not(.showdoll) .wornmap .wornac-total { display: none; }
+  .pack-shell:not(.showdoll) .charcol .wornmap { grid-template-columns: minmax(0, 1fr) 0 minmax(0, 1fr); column-gap: 6px; }
+}
+/* PACK-PHONE: A PHONE ON ITS SIDE IS TWO COLUMNS, the region beside
+   the dock and each the pack's whole height, as PX31 stands them on
+   the desk: stacked, 412px of screen split three ways left the list
+   nothing. The one row is the height's, not min-content's: under 861px
+   the old phone rule's grid-auto-rows reached this grid, and a phone
+   740px wide scrolled the whole pack instead of its list. */
+@media (pointer: coarse) and (hover: none) and (orientation: landscape) and (max-height: 540px) {
+  .pack-shell .pack { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+  .pack-shell .pack-main { min-width: 0; }
+  .pack-shell .pack-dock { min-height: 0; border-top: 0; border-left: 2px solid rgba(125,116,96,0.35); }
 }
 /* .packtip.packdetail outranks the base .packdetail column rules
    (same-specificity, later-in-sheet was the trap: the tip computed

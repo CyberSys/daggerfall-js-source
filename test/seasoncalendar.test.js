@@ -314,8 +314,10 @@ test('ROAD-Ar R0: the streaming host arms the hold before the teardown and relea
   assert.match(tick.slice(0, teardown),
     /if \(walkMode && playerSpawned && keys\.includes\(`\$\{state\.current\.x\},\$\{state\.current\.y\}`\)\) _seasonHoldKey =/,
     'the hold is armed only when the player\'s own key is among the keys going down');
-  assert.match(world, /if \(_seasonHoldKey !== null && \(built\.has\(_seasonHoldKey\) \|\| \(!building && !queue\.length\)\)\) \{\s*\n\s*player\.spawn\(player\.pos\[0\], player\.pos\[1\], player\.pos\[2\]\);\s*\n\s*_seasonHoldKey = null;/,
-    'the release must wait for the pixel and re-anchor the fall (and never wedge)');
+  // FALL-KEPT (FIELD BUGS 2026-09-30, PIN MOVED): the re-anchor keeps a fall under way when the hold began - the held
+  // motor moved not at all, so the fall is the player's (fb0930_fallkept.test.js runs the release).
+  assert.match(world, /if \(_seasonHoldKey !== null && \(built\.has\(_seasonHoldKey\) \|\| \(!building && !queue\.length\)\)\) \{\s*\n\s*const fall = player\.fallSnapshot\(\);\s*\n\s*player\.spawn\(player\.pos\[0\], player\.pos\[1\], player\.pos\[2\]\);\s*\n\s*player\.restoreFall\(fall\);\s*\n\s*_seasonHoldKey = null;/,
+    'the release must wait for the pixel and re-anchor the motor, the fall kept (and never wedge)');
   assert.match(world, /const _seasonHeld = _seasonHoldKey !== null;/);
   assert.match(world, /if \(!_overlayHeld && !_seasonHeld\) player\.update\(dt,/,
     'the motor must not integrate gravity while the ground is being rebuilt');

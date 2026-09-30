@@ -45,6 +45,7 @@
 // Assault + an on-the-spot conversion (WeaponManager verbatim).
 
 import { liveStat } from '../systems/statMods.js';   // AUDIT 23 (characters-11)
+import { effectiveLevel } from '../systems/mentorMode.js';   // SOFTCAP2: mentor mode - the level the world is built around
 import { damageShieldPool } from '../characters/playerEntity.js';   // AUDIT 58: DecreaseHealth's shield hook is the BASE class's (DaggerfallEntity.cs:313-328)
 import { lycanthropeAttackVoice, isTransformedLycanthrope } from '../systems/lycanthropy.js';   // V4: the beast's attack voice   // GUARD1: EnemyEntity.cs:188's FOURTH despawn term
 import { playerWeaponHitEntity } from '../systems/worldTick.js';   // DISC10-D H1: OnWeaponHitEntity's one dispatcher
@@ -161,7 +162,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
   // with no Y test. The default keeps the two street pools as they were.
   playerInside = false,
   // ROAD-G G1: GameManager.MakeEnemiesHostile over the HOST's whole
-  // area, the encounter pool's dep to the line (exteriorFoes.js:176).
+  // area, the encounter pool's dep to the line (exteriorFoes.js:184).
   // DaggerfallEntityBehaviour.cs:255-258 fires it when a NON-hostile
   // enemy is struck by the player, and Knight_CityWatch is an
   // EnemyClass - one of the two EntityTypes that walk (:250). This
@@ -173,6 +174,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
   makeAreaHostile = null,
   playerWeaponSheathed = () => false,   // AUDIT 24 (wave 42): CalculateEnemyPacification's -25 / +10 arm
   raidHere = () => false,   // RAID-GUARDS: is a raid on in the town the player stands in (raidingParties.js raidDefendingHere)
+  fightHere = () => false,   // PROTECT-FIGHT: is the player in a fight - GameManager.AreEnemiesNearby over the street's pools (encounters.js)
   // AUDIT 63 F42 (review round): exteriorFoes' dep to the line
   // (exteriorFoes.js), for the same reason and at the same mount.
   // ObstacleCheck's `GetComponent<DaggerfallActionDoor>()`
@@ -241,7 +243,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     const gen = epoch;   // AUDIT-39r: the world this guard is being posted to
     try {
       const career = await ensureCareer();
-      const entity = makeEnemyEntity(GUARD_MOBILE_TYPE, basics, career, level ?? playerEntity.level, Math.random, { exactLevel: level != null });   // AUDIT ALL A6: a quickload re-rolled every standing watchman's Range(3,7) bonus - a free difficulty re-roll, and online the streamed `l` moved and every reader tore its puppet down
+      const entity = makeEnemyEntity(GUARD_MOBILE_TYPE, basics, career, level ?? effectiveLevel(playerEntity), Math.random, { exactLevel: level != null });   // AUDIT ALL A6: a quickload re-rolled every standing watchman's Range(3,7) bonus - a free difficulty re-roll, and online the streamed `l` moved and every reader tore its puppet down
       // RF2: SetEnemyCareer's whole loot chain, one seam
       // (hostCombat.spawnEnemyLoot) - the table on the PLAYER's gender
       // (AUDIT 18; Knight_CityWatch has NO LootTableKey in DFU, so the
@@ -291,7 +293,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
         entity.team = 'PlayerAlly'; entity.mobileTeam = 'PlayerAlly';
         if (threat?.ai) ai.makeEnemyHostileToAttacker(threat, threat.ai.feet, 600);
       } else ai.makeHostileToPlayer(600, attackerFeet);   // wave 36: MakeEnemyHostileToAttacker seeds the remembered position too
-      const attack = new EnemyAttack({ liveSpeed: () => liveStat(entity, 'speed'), playerLevel: () => playerEntity.level, reflexes: playerEntity.reflexes });   // AUDIT 39: EnemyAttack.cs:69-72, ditto
+      const attack = new EnemyAttack({ liveSpeed: () => liveStat(entity, 'speed'), playerLevel: () => effectiveLevel(playerEntity), reflexes: playerEntity.reflexes });   // AUDIT 39: EnemyAttack.cs:69-72, ditto
       // EnemyMotor.cs:131-137 computes hasBowAttack from the MobileEnemy
       // FLAGS, and EnemyBasics.cs:2197-2212 gives Knight_CityWatch
       // HasRangedAttack1 = false / CastsMagic = false - so DFU's
@@ -752,7 +754,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
    *  which arrowFlight.js calls unconditionally (arrowFlight.js:317)
    *  because `dealDamage` is inside its own `dmg > 0` fork - so the
    *  door is PUBLIC (the returned surface below), exactly as the
-   *  encounter pool's is (exteriorFoes.js:2474). */
+   *  encounter pool's is (exteriorFoes.js:2488). */
   function handleAttackFromPlayer(g, playerFeet = null) {
     if (!g?.ai) return;
     // DISC19-F (AUDIT DISC19): A BLOW ON A DEFENDER IS ASSAULT. The
@@ -1241,12 +1243,19 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
    *  every defender into the crime watch the next frame (update's enlist), which is how one stray swing in a raid
    *  became a squad to kill and a Halt to pay. While a raid is on here the player's blows pass such a guard by, as
    *  they pass a defender (Mac: "Raids shouldnt let you damage the guards") - and a townsperson too (Mac, on 29g's
-   *  first draft: "Spare townspeople in raid"): no Murder, the squad still the player's. No raid, DFU's rule. */
+   *  first draft: "Spare townspeople in raid"): no Murder, the squad still the player's. No raid, DFU's rule.
+   *  PROTECT-FIGHT (FIELD BUGS 2026-09-30, "Protect bystanders needs to work again - lost rep for no reason"): AND UNDER
+   *  THE PROTECTION, IN A FIGHT. The setting the menu calls Protect Bystanders is DFU's MeleeAttackFriendlyProtection,
+   *  which spares a pacified foe and an ally and never a townsperson - so a swing at a foe just past the reach landed on
+   *  the townsperson on the look ray: Murder (-20 legal) or, a walking guard, Assault and the watch. While enemies are
+   *  near (the rest's own AreEnemiesNearby, `fightHere`) the protection passes the street's walkers by as a raid does;
+   *  with none near, a blow at a townsperson is meant - a vampire's feeding, the Brotherhood's count - and DFU's rule
+   *  stands, as it does with the protection off. A declared departure (Port-Ledger A). */
   /** AUDIT 29g: what resolveCivilianHit answers when the swing STOPPED on a spared body - not `false`, which the hosts
    *  read as a swing that met nobody and hand to the door behind him (a bash, and in town a break-in). */
   const SWING_SPARED = Object.freeze({ spared: true });
   function playerSparesPerson(person) {
-    return !!person && !!raidHere();
+    return !!person && (!!raidHere() || (getBool('MeleeAttacks', 'MeleeAttackFriendlyProtection') && !!fightHere()));
   }
 
   /** The player's swing resolves against live guards (the dungeon's
