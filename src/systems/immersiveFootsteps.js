@@ -60,6 +60,8 @@ export const REFRESH_SLOTS_TICKS = 250;       // Object.cs:71
 export const MAX_TICKS_PER_FRAME = 5;         // the hosts' 0.1 s dt cap, in ticks
 export const SOUND_CLIP_QUALITY = Object.freeze({ Low: 0, High: 1 });   // SoundClipQuality: 0 'Low-Quality (Retro)', 1 'High-Quality'
 export const FLOOR_TYPE = Object.freeze({ Tile: 0, Stone: 1, Wood: 2 });   // Main.CurrInteriorFloorType
+/** SHIP-DECK: no tile's index (a tile is a byte, off the terrain -1) - stepping off a floor re-reads the ground. */
+const FLOOR_LEFT = -2;
 export const LANDING_VOLUME_SCALE = 4;        // Object.cs:504/512/519 - 4f * FootstepVolumeMulti
 /** UpdateSwayMaterialWeights (Main.cs:571-603): "0 = Head, 1 = Right-Arm,
  *  2 = Left-Arm, 3 = Chest, 4 = Gloves, 5 = Legs" - Feet is READ (WornBoots)
@@ -274,7 +276,8 @@ const nativeMaterialValue = (item) => (item ? rriNativeMaterialValue(item) : -1)
  *     { paused, grounded, standingStill, isRunning, movingLessThanHalfSpeed,
  *       transportMode, swimming (PlayerEnterExit.IsPlayerSwimming), pos [x,y,z],
  *       inside, inDungeon, centreY, waterSurfaceY (null = blockWaterLevel 10000),
- *       season, climateIndex, tileMapIndex, waterWalking, entity }
+ *       season, climateIndex, tileMapIndex, waterWalking, entity,
+ *       deck (SHIP-DECK: the feet on a boat's or a ship's deck), onStaticGeometry (the feet on a model) }
  *   onTransitionInterior({ buildingType, materials }) - PlayerEnterExit.OnTransitionInterior
  *   onTransitionExterior() - OnTransitionExterior AND OnTransitionDungeonExterior
  *   onTransitionDungeonInterior() - OnTransitionDungeonInterior
@@ -306,6 +309,7 @@ export function createImmersiveFootsteps({ audio = defaultAudio, settings = read
   let currentClimateFootsteps = null; // = PathFootstepsMain once the clips are in (Object.cs:35)
   let lastSeason = SEASON.Summer, lastClimateIndex = CLIMATES.Ocean, lastTileMapIndex = 0;
   let isInside = false;
+  let lastFloor = null;               // SHIP-DECK: the floor the last determine stood on ('deck' | 'floor' | null)
   // --- the port's own ---
   let acc = 0;                        // the fixed-step accumulator
   let lastM = null;                   // the last frame's place, for the out-of-band handlers
@@ -377,17 +381,23 @@ export function createImmersiveFootsteps({ audio = defaultAudio, settings = read
   /** The Mods pane is the mod's settings window: a change lands at once (ModSettingsChange), whichever entry point reads next. */
   const syncSettings = () => { const next = settings(); if (!sameSettings(s, next)) loadSettings(next); };
 
+  /** The wooden floor's set - Main.cs:497-503, the interior's Wood arm: iron boots and better plate, chain boots chain,
+   *  any other or none the boards. SHIP-DECK: a deck's too (determineExteriorClimateFootstep). */
+  function woodFloorFootsteps() {
+    const boots = worn.boots;
+    const mat = nativeMaterialValue(boots);
+    if (boots && mat >= ARMOR_MATERIAL.Iron) currentClimateFootsteps = cur('PlateFootsteps');
+    else if (boots && mat >= ARMOR_MATERIAL.Chain) currentClimateFootsteps = cur('ChainmailFootsteps');
+    else currentClimateFootsteps = cur('WoodFootsteps');
+  }
+
   /** UpdateInteriorArmorFootstepSounds (Main.cs:494-540). */
   function updateInteriorArmorFootstepSounds() {
     if (!clips) return;
     const boots = worn.boots;
     const mat = nativeMaterialValue(boots);
     if (currInteriorFloorType === FLOOR_TYPE.Wood) {
-      if (boots) {
-        if (mat >= ARMOR_MATERIAL.Iron) currentClimateFootsteps = cur('PlateFootsteps');
-        else if (mat >= ARMOR_MATERIAL.Chain) currentClimateFootsteps = cur('ChainmailFootsteps');
-        else currentClimateFootsteps = cur('WoodFootsteps');
-      } else currentClimateFootsteps = cur('WoodFootsteps');
+      woodFloorFootsteps();
     } else if (currInteriorFloorType === FLOOR_TYPE.Stone) {
       if (boots) {
         if (mat >= ARMOR_MATERIAL.Iron) currentClimateFootsteps = cur('PlateFootsteps');
@@ -482,8 +492,23 @@ export function createImmersiveFootsteps({ audio = defaultAudio, settings = read
     }
   }
 
-  /** DetermineExteriorClimateFootstep (Object.cs:220-299). */
+  /** DetermineExteriorClimateFootstep (Object.cs:220-299).
+   *
+   *  SHIP-DECK (DECLARED, the Port-Ledger's SHIP-DECK row; 2026-09-29, Mac: "Walking on the deck gives water sounds") - A
+   *  FLOOR UNDER THE FEET DECIDES. The mod reads the terrain tile under the player's X/Z and nothing else - its own noted
+   *  bug ("keep the bug where when on the player ship the footstep sounds are not always accurate", Object.cs:165-166) -
+   *  so a deck over the open sea (tile 0) stepped in deep water for the whole voyage, the set re-read only on a new
+   *  tile. The host says what the feet stand on (world.js exteriorSurfaceNow): a boat's or a ship's deck (`deck`) is a
+   *  wooden floor, the mod's own interior Wood rule (woodFloorFootsteps); any other model over a water tile
+   *  (`onStaticGeometry` - a bridge) is walked on, not waded - the armour's own ground (CheckToUseArmorFootsteps, as a
+   *  path tile is); everywhere else the tile ladder decides, verbatim. Stepping off a floor re-reads the ground.
+   *  AUDIT NAV2 F38: ANY water tile - a quay or a bridge over a coast's or a river's shallow edge (SHALLOW_WATER_TILES)
+   *  splashed as the tile ladder waded it; tile 0 alone was read. */
   function determineExteriorClimateFootstep(m) {
+    const floor = m.deck ? 'deck' : m.onStaticGeometry && ((m.tileMapIndex ?? 0) === 0 || SHALLOW_WATER_TILES.has(m.tileMapIndex)) ? 'floor' : null;
+    if (floor !== lastFloor) { lastFloor = floor; lastTileMapIndex = FLOOR_LEFT; }
+    if (floor === 'deck') { woodFloorFootsteps(); return; }
+    if (floor === 'floor') { checkToUseArmorFootsteps(); return; }
     const currentSeason = m.season ?? SEASON.Summer;
     const currentClimateIndex = m.climateIndex ?? CLIMATES.Ocean;
     const currentTileMapIndex = m.tileMapIndex ?? 0;
@@ -555,7 +580,7 @@ export function createImmersiveFootsteps({ audio = defaultAudio, settings = read
     if (m.transportMode === TRANSPORT_MODES.Horse || m.transportMode === TRANSPORT_MODES.Cart) footstepTimer = 0;
     if (!s.AllowFootstepSounds) footstepTimer = 0;
     if (!s.AllowArmorSwaySounds) { plateSwayTimer = 0; chainSwayTimer = 0; leatherSwayTimer = 0; }
-    // [verbatim] the ship's deck keeps the mod's own noted bug: no IsOnShip read
+    // SHIP-DECK: the mod's noted IsOnShip bug is answered by the host's `deck` (determineExteriorClimateFootstep)
     if (playerSwimming) {
       // GetHorizontalPosition (Object.cs:526-529) - despite the name, all three axes
       const position = [m.pos[0], m.pos[1], m.pos[2]];
@@ -669,7 +694,7 @@ export function createImmersiveFootsteps({ audio = defaultAudio, settings = read
         weights: { plate: plateWornSwayWeight, chain: chainWornSwayWeight, leather: leatherWornSwayWeight },
         intervals: { step: stepInterval, plate: plateSwayInterval, chain: chainSwayInterval, leather: leatherSwayInterval },
         timers: { footstep: footstepTimer, plate: plateSwayTimer, chain: chainSwayTimer, leather: leatherSwayTimer, refresh: refreshSlotsTimer },
-        distance, lastTileMapIndex, lastClimateIndex, lastSeason, volumeScale,
+        distance, lastTileMapIndex, lastClimateIndex, lastSeason, volumeScale, floor: lastFloor,
         worn: { ...worn },
         lastFootstepPlayed, lastSwaySoundPlayed,
         played: played.slice(),

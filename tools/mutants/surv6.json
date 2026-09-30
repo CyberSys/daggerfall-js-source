@@ -2,8 +2,8 @@
   {
     "name": "SURV6-the-hunt-rolls-at-night",
     "file": "src/systems/survival/hunting.js",
-    "old": "  if (!climate || !outdoors || inLocationRect || night || enemiesNear || resting) return null;",
-    "new": "  if (!climate || !outdoors || inLocationRect || enemiesNear || resting) return null;",
+    "old": "  if (!climate || !outdoors || afloat || inLocationRect || night || enemiesNear || resting) return null;",
+    "new": "  if (!climate || !outdoors || afloat || inLocationRect || enemiesNear || resting) return null;",
     "tests": [
       "test/surv6_hunting.test.js"
     ]

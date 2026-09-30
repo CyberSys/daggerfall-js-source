@@ -725,7 +725,10 @@ test('AUDIT NAV1 (the presentation) THE PAD AT THE GUNS: the readout names the p
   assert.deepEqual(navalPadPrompts(layoutModel({ armed: false }), codes), [], 'no guns: no rows');
   assert.deepEqual(navalPadPrompts(layoutModel({ aiming: false }), codes), [[[codes.aim], 'Hold: lay the guns'], [[codes.brace], 'Hold: brace']]);
   assert.deepEqual(navalPadPrompts(layoutModel(), codes)[0], [[codes.aim], 'Let go: fire']);
-  const board = (kind) => navalPadPrompts(layoutModel({ board: { name: 'The Red Wake', kind } }), codes).at(-1);
+  const board = (kind) => navalPadPrompts(layoutModel({ aiming: false, board: { name: 'The Red Wake', kind } }), codes).at(-1);
+  // GUN-HOLD: while the guns are laid Activate holds fire - its row says so, over any ship in reach
+  assert.deepEqual(navalPadPrompts(layoutModel({ board: { name: 'The Red Wake', kind: 'board' } }), codes).at(-1), [[codes.board], 'Hold fire']);
+  assert.deepEqual(navalPadPrompts(layoutModel(), codes).at(-1), [[codes.board], 'Hold fire'], 'laid, with nothing in reach: still the hold');
   assert.deepEqual(board('board'), [[codes.board], 'Board The Red Wake']);
   assert.deepEqual(board('hold'), [[codes.board], "Open The Red Wake's hold"]);
   assert.deepEqual(board('heave'), [[codes.board], 'Heave to']);
@@ -966,7 +969,7 @@ test('AUDIT NAV1 (the presentation) THE TAGS DRAWN (#14): one node a slot, moved
   assert.match(w, /const at = projectToScreen\(t\.point, w, h, proj, view, rect\);/);
   assert.match(w, /if \(shipSight\.blocked\(player\.collider, eye, t\.id, t\.point\)\) continue;/);
   assert.match(w, /drawNavalTags\(points, \{ covered, scale: enhancedHudScale\(\), reach: NAVAL_TAG_RANGE \}\);/);
-  assert.match(w, /drawNavalHud\(null\); drawNavalTags\(\[\]\); \};/, 'the clear hides them');
+  assert.match(w, /drawNavalHud\(null\); drawNavalTags\(\[\]\); drawCrewBars\(\[\]\); drawCrewLines\(\[\]\); \};/, 'the clear hides them - SHIPMATES: the crew\'s bars with them');
   assert.match(w, /drawNavalHud\(null\); drawNavalTags\(\[\]\); \} \}/, 'the switch off hides them');
 });
 

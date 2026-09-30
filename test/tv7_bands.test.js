@@ -284,6 +284,9 @@ const bandHost = async (over = {}) => {
     standOk: () => true, standCalls: [], online: { id: 'b' }, playerTravelPixel: () => ({ x: 0, y: 499 }),
     met: null, metCalls: 0, journeyMet: () => { d.metCalls++; d.order?.push('met'); return typeof d.met === 'function' ? d.met() : d.met; },   // AUDIT OW5b E1: no journey walks, unless a pin says one does
     owed: [], owSaySpent: (id) => d.owed.push(id),   // OW6L: a spend is owed to the cell's ledger
+    // SEA-HUNT: the host's one afloat predicate (world.js playerAfloat - its text pinned in deckfield.test.js), read off
+    // these same stand-ins: a helm, a boat's effect, the water
+    playerAfloat: () => !!d.csaRuntime?.isSailing?.() || (d.playerEntity.activeEffects ?? []).some((e) => d.isBoatEffectBundle(e?.bundleName)) || !!d.player.isPlayerSwimming,
     ...over,
   };
   const names = Object.keys(d).filter((k) => /^[A-Za-z_$][\w$]*$/.test(k));

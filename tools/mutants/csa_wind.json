@@ -650,8 +650,8 @@
   {
     "name": "CSA-E-arm-rudder-mod",
     "file": "src/systems/comeSailAway.js",
-    "old": "    state.TurnTarget = f(num18 * f(f(vMagnitude(state.MoveVectorCurrent) * f(boat.modifierRudder)) / 10));",
-    "new": "    state.TurnTarget = f(num18 * f(f(vMagnitude(state.MoveVectorCurrent) * f(boat.modifierRudder)) / 5));",
+    "old": "    state.TurnTarget = f(num18 * f(f(f(responsive() ? steerage(way) : way) * f(boat.modifierRudder)) / 10));",
+    "new": "    state.TurnTarget = f(num18 * f(f(f(responsive() ? steerage(way) : way) * f(boat.modifierRudder)) / 5));",
     "tests": [
       "test/csa_wind.test.js"
     ]
@@ -659,8 +659,8 @@
   {
     "name": "CSA-E-arm-rudder-left",
     "file": "src/systems/comeSailAway.js",
-    "old": "    else if (has('MoveLeft')) num18 = -1;\n    state.TurnTarget = f(num18",
-    "new": "    else if (has('MoveLeft')) num18 = 1;\n    state.TurnTarget = f(num18",
+    "old": "    else if (has('MoveLeft')) num18 = -1;\n    // HELM-WAY: the responsive rudder",
+    "new": "    else if (has('MoveLeft')) num18 = 1;\n    // HELM-WAY: the responsive rudder",
     "tests": [
       "test/csa_wind.test.js"
     ]

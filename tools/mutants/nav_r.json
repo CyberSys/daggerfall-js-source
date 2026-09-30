@@ -137,8 +137,8 @@
   {
     "name": "NAV-R-the-director-takes-her",
     "file": "src/scenes/navalHost.js",
-    "old": "boarding?.shipId === e.id || !!e.raider, afloat });",
-    "new": "boarding?.shipId === e.id, afloat });",
+    "old": "boarding?.shipId === e.id || !!e.raider || !!e.takenBy",
+    "new": "boarding?.shipId === e.id || !!e.takenBy",
     "tests": [
       "test/nav_r_raiders.test.js"
     ]
@@ -293,7 +293,7 @@
   {
     "name": "MERGE-NAVH-a-friend-a-threat",
     "file": "src/scenes/navalHost.js",
-    "old": "      if (!hostileToMe(e)) continue;\n      const chasing = chasesMe(e);\n",
+    "old": "      if (!hostileToMe(e, me)) continue;\n      const chasing = chasesMe(e);\n",
     "new": "      const chasing = chasesMe(e);\n",
     "tests": [
       "test/nav_r_raiders.test.js"

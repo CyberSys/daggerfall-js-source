@@ -370,7 +370,11 @@ import { ComeSailAwayRenderer, softParticleTexture as csaSoftParticleTexture } f
 import { createNavalHost, hullBoxOf as navalHullBoxOf, NAVAL_SAVE_VENDOR, NAVAL_TAG_RANGE } from './navalHost.js';   // NAV-H: the sea fight - the Iliac Bay's ships, the guns, boarding, the law and the word
 import { createNavalFlames } from './navalFlames.js';   // NAV-B: a burning ship's deck fires
 import { NavalRenderer } from '../render/navalRender.js';   // NAV-B: the smoke, the spray, the balls in flight and the aim
-import { drawNavalHud, navalTouchBrace, navalPadPrompts, drawNavalTags } from '../ui/navalHud.js';   // AUDIT NAV1 (#14): and the ships' tags
+import { drawNavalHud, navalTouchBrace, navalPadPrompts, drawNavalTags, drawCrewBars, CREW_BAR_RANGE, drawCrewLines, CREW_SAY_RANGE } from '../ui/navalHud.js';   // AUDIT NAV1 (#14): and the ships' tags - SHIPMATES: and the crew's bars - LIVING CREW: and their lines
+import { createNavalCrew, CREW_RANGE, CREW_KEEP } from './navalCrew.js';   // LIVING CREW: the crews on the decks near the eye
+import { crewRoster, crewCount } from '../systems/naval/crewLife.js';
+import { hullBuild } from '../systems/naval/navalShips.js';   // LIVING CREW: a room's boat's crew, her hull's own
+import { sparedByPlayer, isShipmate } from '../combat/friendlyFire.js';   // SHIPMATES: the player's own crew, spared his blows and wearing their bars
 import { padFamily } from '../ui/padGlyphs.js';   // AUDIT NAV1 (the presentation): the pad in hand's family - the readout names its buttons
 import { hdGlyphName } from '../ui/padGlyphsHD.js';   // NAV-F: the helm's readout; AUDIT NAV1: its Brace under a finger
 import { createNavalPlunderOverlay, closeNavalPlunder, createNavalYardOverlay, closeNavalYard } from '../ui/navalPlunderDoor.js';   // NAV-F: a taken ship's window, behind its door; AUDIT NAV1: the shipwright's
@@ -383,7 +387,8 @@ import { classicRecordRgba } from '../formats/derivedTexture.js';   // CSA-F: th
 import { toScreenOrder as csaToScreenOrder } from '../formats/color32Order.js';   // CSA-E: a screen quad's PNG keeps its rows
 import { parseHexColor as csaParseHexColor } from '../ui/toolTip.js';   // CSA-E: the widget's colour setting, RRGGBBAA
 import { horseOffsetHeight as csaHorseOffsetHeight } from '../ui/hudLarge.js';   // CSA-E: OnGUI's LargeHUD lift   // CSA-C: the boats placed, kept and saved; CSA-D: sailed
-import { raycastColliders, rayBoxEntry, colliderPoses, invertAffine, BUILTIN_COLLIDER_MESHES } from '../world/prefabColliders.js';   // CSA-C: a boat's colliders under the ray; CSA-D: and in the world's collider
+import { raycastColliders, rayBoxEntry, colliderPoses, invertAffine, BUILTIN_COLLIDER_MESHES, boxColliderTriangles } from '../world/prefabColliders.js';   // CSA-C: a boat's colliders under the ray; CSA-D: and in the world's collider
+import { DECK_STEP, DECK_HEADROOM, intoDeck, outOfDeck } from '../systems/naval/navalDeck.js';   // DECK-WALK: a body off her deck by more than a tread has left it; her deck's frame (AUDIT NAV2 F33: the headroom a deck point's ray starts under)
 import { warmAshesOn, LeaveShip, setWarmAshesHost, onPreFastTravel as warmAshesPreTravel, onPostFastTravel as warmAshesPostTravel, frame as warmAshesFrame, raidAtSea as warmAshesRaidAtSea, raidRefusal as warmAshesRaidRefusal, raidUnderWay as warmAshesRaidUnderWay, WA_RAID_QUESTS, WA_SEA_REGION } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships, the ambush at sea; OWS3: its raid, seen coming; THE MERGE (NAV-D, OWS3): one raid at a time
 import { raidersNear, raiderAt, raiderSight, chaseStep as raiderChaseStep, pixelOfNative, NATIVE_PIXEL as RAID_NATIVE_PIXEL, RAIDER_CONTACT_M, RAIDER_CONTACT_PLAY_M, RAIDER_CHASE_MPS, RAIDERS_WIRE_MAX, RAIDER_WORD_MS, raiderWordOf, validRaiderWord, raiderLifeOf, raiderNearMe, RAIDER_LABEL, RAIDER_LIFE_MS } from '../systems/seaRaiders.js';   // OWS3: Warm Ashes' raiders on the Overworld's sea
 import { RAIDER_LEAD_S } from '../systems/naval/navalRaiders.js';   // NAV-R: a raider ship steers its seeded course this far on
@@ -605,7 +610,7 @@ import { lastHealthLost, lastHealthLostPercent } from '../ui/hudVitals.js';   //
 import { fieldOfView } from '../ui/viewSettings.js';   // MENU: Video/FieldOfView, one home for five hosts
 import { keyEdges, noteKeyDown, noteKeyUp, beginInputFrame, pressed, released, actionsOf, actionOf, held, moveHeld, swallowBrowserKey, mouseCode, isSwingButton, keyboardLook, isTextEntryTarget, bindings, routeAction, installContextMenuGuard, POLLED_ACTIONS, QUICKSLOT_ACTIONS, swingKeyHeld } from '../ui/input.js';
 import { armUnloadGuard, releaseUnloadGuard } from '../systems/unloadGuard.js';   // MAC-L3: one door in front of every way out of a running game; AUDIT-MACL F3: ...and down for a door the game opened itself
-import { codeMeans, getBinding, codeForAction, getJoystickUIBinding } from '../systems/inputActions.js';   // AUDIT-TO1 H2: the help's TravelMap binding, read through the store's own accessor   // FIX-E: the overlay's QuickLoad read, off the code alone   // I2: the rebindable registry; AUDIT 39r: the mouse half of the held set
+import { codeMeans, getBinding, codeForAction, getJoystickUIBinding, HELM_RUDDER_ACTIONS } from '../systems/inputActions.js';   // AUDIT-TO1 H2: the help's TravelMap binding, read through the store's own accessor   // FIX-E: the overlay's QuickLoad read, off the code alone   // I2: the rebindable registry; AUDIT 39r: the mouse half of the held set
 import { buttonText } from '../systems/controlsConfig.js';   // AUDIT DEEP T1-12: the travel view's hint names the bound keys as the Controls page does
 import { hudShortcutKey, retroToggleKey, hudRenderEnabled } from '../ui/hudShortcuts.js';   // AUDIT 64 F36/F37: DaggerfallHUD.Update's LargeHUDToggle / HUDToggle arms
 import { createActivateGate, activateFrame, setClickDelay } from '../systems/activateGate.js';   // A8: PlayerActivate's ActivateCenterObject frame
@@ -4626,7 +4631,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // read it. It held the bare-skin block's naked-cold and sunburn
     // ticks and the byFire exposure damage (needs.js:516, :492) - the
     // health Mac wants ticking - and, the one TO-FIELD never counted,
-    // it shut the HUNTING roll off entirely (hunting.js:115 refuses on
+    // it shut the HUNTING roll off entirely (hunting.js:120 refuses on
     // `resting`), so a traveller could not hunt on the road at all.
     // One flag, four laws; the journey takes the world as it finds it.
     //
@@ -5332,7 +5337,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // pixel outdoors (TrackLooseObject), aged by the world clock.
   const droppedTorches = createDroppedTorches({
     renderer, audio, getTexture, uploadRecordFrame, collider: () => collider,
-    foes: () => [...cityGuards.guards.filter((g) => !g.defender), ...exteriorFoes.foes], foeSinks: (f) => foeSinks(f), makeEnemiesHostile: () => _makeEnemiesHostile(),   // DISC19-F (AUDIT DISC19): a thrown torch passes the town's defenders by, as the player's spells and shafts do
+    foes: () => [...cityGuards.guards.filter((g) => !g.defender), ...exteriorFoes.foes.filter((f) => !sparedByPlayer(f))], foeSinks: (f) => foeSinks(f), makeEnemiesHostile: () => _makeEnemiesHostile(),   // DISC19-F (AUDIT DISC19): a thrown torch passes the town's defenders by, as the player's spells and shafts do
     entity: playerEntity, camera: () => ({ pos: player.eyeAt(), feet: player.pos, yaw: cam.yaw, pitch: cam.pitch,
       forward: [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)], right: [Math.cos(cam.yaw), 0, -Math.sin(cam.yaw)], up: [0, 1, 0] }),
     inside: () => false, waterLevel: () => null, pixelKeyAt: () => `${playerTravelPixel().x},${playerTravelPixel().y}`, say: (l) => townTalk.say(l),
@@ -5586,13 +5591,6 @@ export async function bootWorld(canvas, renderer, params, status) {
     for (let r = 0; r < 3; r++) T[r] = m[r] * v[12] + m[4 + r] * v[13] + m[8 + r] * v[14] + m[12 + r];
     return true;
   }
-  const csaBoxTriangles = (c) => {
-    const ce = c.m_Center ?? { x: 0, y: 0, z: 0 }, sz = c.m_Size ?? { x: 1, y: 1, z: 1 };
-    const hx = Math.abs(sz.x) / 2, hy = Math.abs(sz.y) / 2, hz = Math.abs(sz.z) / 2;
-    const positions = [];
-    for (let i = 0; i < 8; i++) positions.push(ce.x + (i & 1 ? hx : -hx), ce.y + (i & 2 ? hy : -hy), ce.z + (i & 4 ? hz : -hz));
-    return { positions, indices: [0, 2, 1, 1, 2, 3, 4, 5, 6, 5, 7, 6, 0, 1, 4, 1, 5, 4, 2, 6, 3, 3, 6, 7, 0, 4, 2, 2, 4, 6, 1, 3, 5, 3, 7, 5] };
-  };
   function csaSyncColliders() {
     const col = csaModeCollider();
     const want = new Set();
@@ -5609,7 +5607,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         const shape = csaShapeOf(c);
         if (had && had.col === col && had.c === c && had.shape === shape && csaCarry(had, m)) continue;   // AUDIT NAV1 (#12): carried, not baked
         had?.col?.removeBucket?.(key);
-        const tri = c.type === 'BoxCollider' ? csaBoxTriangles(c) : csaColliderMesh(c);
+        const tri = c.type === 'BoxCollider' ? boxColliderTriangles(c) : csaColliderMesh(c);   // DECK-WALK: the one box's faces (world/prefabColliders.js), the deck's bake and the collider's alike
         const inv = invertAffine(m);
         if (!tri || !inv || !col?.addMesh) { _csaBuckets.delete(key); continue; }
         const b = { col, m: Float64Array.from(m), inv, c, shape, R: null, Rs: new Float64Array(9), T: [0, 0, 0], boat };
@@ -5974,7 +5972,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     hudText: (text, seconds) => townTalk.say(text, seconds),
     wayScale: (underSail) => naval?.wayScale(underSail) ?? 1,   // AUDIT NAV1 (the helm): her hurts in her way - the canvas left, a wreck's oars
     sailRefused: () => naval?.sailRefused() ?? null,   // ...and no sail on a wreck or a rig shot away, said once
-    accelScale: () => naval?.accelScale() ?? 1,   // ...and a heave-to's brake beside a struck ship
+    brake: () => naval?.brake() ?? 0,   // ...and a heave-to's brake beside a struck ship
+    handling: () => getPref('naval-handling') ?? 'responsive',   // HELM-WAY: the Features row's Ship handling
     midScreenText: (text, seconds) => setMidScreenText(text, seconds),
     log: (text) => console.log(text),
     time: () => _csaTime,
@@ -5986,9 +5985,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     dt: () => _csaDt,
     setting: (key) => { try { return modSetting(COME_SAIL_AWAY_VENDOR, key); } catch { return undefined; } },
     input: {
-      has: (action) => held(keys, action) || csaHelmInput.held.has(action) || csaHelmInput.chord.has(action) || csaJourneyHelm.held.has(action),   // InputManager.HasAction: the registry's held read (the mod's keys answer only while it is on); CSA-L: and the helm panel's holds; OWS2: and a journey's
-      started: (action) => pressed(latch.edge, keys, action) || csaHelmInput.edges.has(action),   // ActionStarted, and GetKeyDown on the mod's registry actions: the frame's down ring; CSA-L: and the helm panel's taps
-      horizontal: () => _csaAxes.h,
+      has: (action) => held(keys, action) || csaHelmInput.held.has(action) || csaHelmInput.chord.has(action) || csaJourneyHelm.held.has(action) || (!!HELM_RUDDER_ACTIONS[action] && helmTurnKeys() && held(keys, HELM_RUDDER_ACTIONS[action])),   // InputManager.HasAction: the registry's held read (the mod's keys answer only while it is on); CSA-L: and the helm panel's holds; OWS2: and a journey's; HELM-KEYS: at a helm the turn keys are the rudder's
+      started: (action) => (pressed(latch.edge, keys, action) && !(travelView?.active && [CSA_BOAT_ACTIONS.sailUp, CSA_BOAT_ACTIONS.sailDown, CSA_BOAT_ACTIONS.toggleSail].includes(action))) || csaHelmInput.edges.has(action),   // ActionStarted, and GetKeyDown on the mod's registry actions: the frame's down ring; CSA-L: and the helm panel's taps; AUDIT NAV2 F17: the sail keys stand down under the travel view, as the turn keys do (helmTurnKeys) - a journey holds the helm there, and its own press sets her sails
+      horizontal: () => (helmTurnKeys() ? Math.max(-1, Math.min(1, _csaAxes.h + (held(keys, 'TurnRight') ? 1 : 0) - (held(keys, 'TurnLeft') ? 1 : 0))) : _csaAxes.h),   // HELM-KEYS: the rudder's swing answers the turn keys too
       vertical: () => _csaAxes.v,
       get toggleAutorun() { return !!player.toggleAutorun || csaJourneyHelm.row; },   // OWS2: a journey's oars pull as the autorun does
       set toggleAutorun(v) { player.toggleAutorun = v; },
@@ -6159,6 +6158,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   const csaHoldsTimeScale = () => (csaRuntime?.state.timeScaleIndex ?? 0) > 0;
   /** OWS1: the boat I am on - my own at its helm, or another's I stand aboard (CSA-K) - else null. */
   const csaBoatUnderMe = () => (csaRuntime?.isSailing() ? csaRuntime.state.CurrentBoat : null) ?? csaAboard.aboard?.boat ?? null;
+  /** HELM-KEYS (systems/inputActions.js HELM_RUDDER_ACTIONS): the turn keys are the rudder's - at a helm, and never under
+   *  the travel view, whose look keys turn the view (TV1). */
+  const helmTurnKeys = () => !!csaRuntime?.isSailing() && !travelView?.active;
   /** OWS1: a boat's heading as `cam.yaw` counts it (radians, clockwise from north): its bow's flat direction. */
   const csaBoatYaw = (boat) => { const fw = csaQuatRotate(boat.GameObject.rotation, [0, 0, 1]); return Math.atan2(fw[0], fw[2]); };
   /** CSA-F: StreamingWorld.OnTeleportToCoordinates (Start 1055) - the waves a tenth of a second later. */
@@ -6547,13 +6549,88 @@ export async function bootWorld(canvas, renderer, params, status) {
     }
     return _navalPortAt.near;
   };
+  /** DECK-WALK: a point in a hull's deck frame (her mesh node's, systems/naval/navalDeck.js) to the world, where her
+   *  node stands, rolls and pitches now - and back; into `out` when given. */
+  const navalDeckToWorld = (boat, p, out) => outOfDeck(boat.MeshObject.worldMatrix(), p, out);
+  const navalWorldToDeck = (boat, p, out) => intoDeck(boat.MeshObject.worldMatrix(), p, out);
+  /** DECK-WALK: the bodies standing on a ship's deck - a boarding's muster and hands, a raid's waves - each with the
+   *  hull it stands on (`deckBoat`: the leash's, and a shipmate's mark - combat/friendlyFire.js). */
+  const _deckBodies = new Set();
+  const navalDeckBody = (f, boat) => { if (!f || !boat) return; f.deckBoat = boat; f.deckLocal = null; _deckBodies.add(f); };
+  /** AUDIT NAV2 F11: whether a hull still stands in the pool - a deck to lie on (a sea ship sunk or dropped, a boat destroyed, is out of it). */
+  const navalHullStands = (boat) => !!boat?.GameObject?.activeSelf && !!(csa.seaBoats?.includes(boat) || csa.boats?.includes(boat) || csa.peerBoats?.includes(boat));
+  /** DECK-WALK: every deck body kept on its deck - a step that carried one off her walkable cells (up a bulwark's ramp,
+   *  over the rail, off her end) is undone onto the deck's edge nearest it (sliding along it as it presses), and one
+   *  standing off her deck's height there by more than a stair's tread - climbed, or fallen through - is set back on
+   *  it. The collider lets a capsule up any face under 70 degrees and a bulwark is one; the deck is the only floor a
+   *  body on it has. Its points are the leash's own, made once. AUDIT NAV2 F34: EACH ON THE PIECE IT STANDS ON - the
+   *  floor under it nearest its own height (her deck, a stair's tread over it, her forecastle, her poop over her
+   *  cabin), and one off every floor back onto the piece it last stood on: a body on her forecastle was dragged 2.5 m
+   *  down onto her main deck, one on her poop 3.2 m down and 4.3 m across - a player there out of every boarder's reach. */
+  const _leashLocal = [0, 0, 0];
+  function navalLeash() {
+    for (const f of _deckBodies) {
+      const boat = f.deckBoat;
+      if (f.dead) { if (!f.corpse) { f.deckBoat = f.deckLocal = null; _deckBodies.delete(f); } continue; }   // AUDIT NAV2 F11: a body fallen on her deck is the carry's while it lies there; with none, it lets her hull go
+      if (!boat?.GameObject?.activeSelf || !exteriorFoes.foes.includes(f)) { _deckBodies.delete(f); continue; }
+      const feet = f.ai?.feet;
+      const deck = boat.MeshObject && csa.deckOf?.(boat.hull, boat.variant ?? 0);
+      if (!feet || !deck?.count) continue;
+      const local = navalWorldToDeck(boat, feet, _leashLocal);
+      const floor = deck.heightAt(local[0], local[2], local[1]);
+      if (!(Math.abs(local[1] - floor) <= DECK_STEP)) {   // off her deck (NaN off its cells: never within)
+        const was = f.deckLocal;
+        if (Number.isNaN(floor)) deck.clamp(local[0], local[2], local, was ? deck.pieceAt(was[0], was[2], was[1]) : 0); else local[1] = floor;
+        navalDeckToWorld(boat, local, feet);
+      }
+      const kept = f.deckLocal ??= [0, 0, 0];   // where the carry takes it from next frame
+      kept[0] = local[0]; kept[1] = local[1]; kept[2] = local[2];
+    }
+  }
+  /** DECK-WALK: THE CARRY - every deck body where the leash last left it on her deck, taken through her pose now (her
+   *  way, her turn, her roll), before the foes move: a ship under way no longer sails out from under her boarders (the
+   *  player's own body rides a deck the motor's way - player/motor.js; a foe had nothing to). AUDIT NAV2 F11: THE DEAD
+   *  LIE ON HER DECK AND GO DOWN WITH HER - a body fallen on her deck is carried as one standing (his corpse where he
+   *  fell, his body to loot there), and her hull out of the pool (sunk, dropped, destroyed) takes his corpse with it,
+   *  the record letting her hull go: corpses hung in the air where they fell, a prize cast adrift or sunk from under
+   *  them, and kept her prefab tree alive. */
+  function navalCarry() {
+    for (const f of _deckBodies) {
+      const boat = f.deckBoat, kept = f.deckLocal, feet = f.ai?.feet;
+      if (f.dead) {
+        if (f.corpse && navalHullStands(boat)) { if (kept && f.corpseMarker) exteriorFoes.moveCorpse(f, navalDeckToWorld(boat, kept, _leashLocal)); continue; }
+        if (f.corpse) exteriorFoes.removeCorpse(f);
+        f.deckBoat = f.deckLocal = null;
+        _deckBodies.delete(f);
+        continue;
+      }
+      if (!kept || !feet || !boat?.MeshObject || !boat.GameObject?.activeSelf) continue;
+      navalDeckToWorld(boat, kept, feet);
+    }
+  }
   /** Where a boat's deck is walkable: `n` standing spots from rays down onto its own colliders, spread along and across
    *  her, each [feet, yaw] facing her centre - the boarding's musters and a player set over her rail. */
   /** AUDIT NAV1 (B10): a deck spot is held while a body's capsule stands within this of it (m, questFoeHost.js
    *  entityOccupancy's own radius beside the capsule's). */
   const NAVAL_DECK_BODY_R = 0.45;
+  /** LIVING CREW: a party's gap along a rail (m) - a body and a blade's room. */
+  const NAVAL_RAIL_GAP = 1.3;
   function navalDeckSpots(boat, n = 8) {
     if (!boat?.GameObject) return [];
+    // DECK-WALK: spread across her walkable deck (systems/naval/navalDeck.js) - never her outer bow, her lower deck or her
+    // hold, as the box's blind rays stood them - each set down on her live colliders where she lies (her swell, her list)
+    const deck = boat.MeshObject && csa.deckOf?.(boat.hull, boat.variant ?? 0);
+    if (deck?.count) {
+      const mid = deck.nearest(0, 0);
+      const out = [];
+      for (const at of deck.spots(n)) {
+        const w = navalDeckToWorld(boat, at);
+        const hit = raycastColliders(boat.GameObject, [w[0], w[1] + DECK_HEADROOM - 0.1, w[2]], [0, -1, 0], DECK_HEADROOM + 2.9, { triggers: false, geometry: csaColliderMesh });   // AUDIT NAV2 F33: from under the headroom her deck keeps (navalDeckPoint's)
+        const c = mid ? navalDeckToWorld(boat, mid) : w;
+        out.push([[w[0], (hit ? hit.point[1] : w[1]) + 0.05, w[2]], Math.atan2(c[0] - w[0], c[2] - w[2])]);
+      }
+      return out;
+    }
     const box = navalHullBoxOf(boat, csa.models);
     if (!box) return [];
     const out = [];
@@ -6572,14 +6649,56 @@ export async function bootWorld(canvas, renderer, params, status) {
     // spread: every other spot first, so a short muster stands along the whole deck
     return [...out.filter((_, k) => k % 2 === 0), ...out.filter((_, k) => k % 2 === 1)].slice(0, n);
   }
+  /** LIVING CREW (seamless boarding): a deck point of hers set down on her live colliders where she lies, facing her
+   *  middle - `[feet, yaw]` (navalDeckSpots' own). AUDIT NAV2 F33: the ray starts under the headroom her deck keeps
+   *  over every cell (DECK_HEADROOM), and reaches as far under it as it did - from 3 m up it met what stands over her
+   *  deck higher than a head, and set 26 of the Carrack's 515 cells' points 2.1-2.7 m up on her bow structure (her
+   *  musters and her landings there), the Large Galley's corners on her stern tent. */
+  function navalDeckPoint(boat, deck, at) {
+    const w = navalDeckToWorld(boat, at);
+    const hit = raycastColliders(boat.GameObject, [w[0], w[1] + DECK_HEADROOM - 0.1, w[2]], [0, -1, 0], DECK_HEADROOM + 2.9, { triggers: false, geometry: csaColliderMesh });
+    const c = navalDeckToWorld(boat, deck.nearest(0, 0));
+    return [[w[0], (hit ? hit.point[1] : w[1]) + 0.05, w[2]], Math.atan2(c[0] - w[0], c[2] - w[2])];
+  }
+  /** Where a boarder lands on her deck: its point nearest `feet` (over her rail across from where he stood, never her
+   *  middle a haul's length off), facing her middle; null with no deck. */
+  function navalDeckLanding(boat, feet) {
+    const deck = boat?.MeshObject && csa.deckOf?.(boat.hull, boat.variant ?? 0);
+    if (!deck?.count || !feet) return null;
+    const local = navalWorldToDeck(boat, feet);
+    return navalDeckPoint(boat, deck, deck.clamp(local[0], local[2]));
+  }
+  /** `n` points along her rail on the side `toward` lies, spread fore and aft round the point across from it - where a
+   *  party comes over, or my hands land - each facing her middle. AUDIT NAV2 F32: A CELL A POINT - her rail's point past
+   *  her stem or her stern is her end row's (deck.rail clamps onto it), so a short rail answered one cell again and
+   *  again and stood bodies on one another; fewer than `n` where her rail is short. */
+  function navalRailSpots(boat, toward, n) {
+    const deck = boat?.MeshObject && csa.deckOf?.(boat.hull, boat.variant ?? 0);
+    if (!deck?.count || !toward || !(n >= 1)) return [];
+    const t = navalWorldToDeck(boat, toward), side = t[0] >= 0 ? 1 : -1, k = Math.floor(n), out = [], taken = new Set();
+    for (let i = 0; i < k; i++) {
+      const at = deck.rail(side, t[2] + (i - (k - 1) / 2) * NAVAL_RAIL_GAP), cell = `${at[0]},${at[2]}`;
+      if (taken.has(cell)) continue;
+      taken.add(cell);
+      out.push(navalDeckPoint(boat, deck, at));
+    }
+    return out;
+  }
   /** A boarding's foe, stood where the host says, on the side it names - the handle fills when its stand lands. */
-  const navalSpawnFoe = (mobile, feet, yaw, side, { name = null } = {}) => {
+  const navalSpawnFoe = (mobile, feet, yaw, side, { name = null, team = null, boat = null, gender = null } = {}) => {
     const handle = { foe: null, gone: false, yielded: false };
-    exteriorFoes.spawnFoe(mobile, feet, { yaw, feetGiven: true, placed: true, allied: side === 'ally' })
+    // DECK-WALK: a muster stands as one crew (`team` - a pirate's Spellsword and her barbarians fought each other with
+    // infighting on), and every body on the deck it stands on. AUDIT NAV2 F12 (Mac: "Share it now"): a boarding's bodies
+    // ride the foes frame - `loose` (no encounter cap's), never PLACED (a placed foe rides to no peer, fights none and
+    // is none's to strike), so the room sees her men and my crew (named in `cw`: its allies, green bars) and may join
+    // the fight. F13: `transient` - no save carries one (a won prize's yielded men were saved at deck height and stood
+    // over open water on a load)
+    exteriorFoes.spawnFoe(mobile, feet, { yaw, feetGiven: true, loose: true, transient: true, allied: side === 'ally', team: side === 'ally' ? null : team, ...(gender ? { gender } : {}) })   // LIVING CREW: a crewman stood as himself
       .then((f) => {
         if (!f) return;
         if (handle.gone) { exteriorFoes.removeFoe(f); return; }
         handle.foe = f;
+        navalDeckBody(f, boat);
         if (name && f.entity) f.entity.name = name;   // AUDIT NAV1 (B9): her captain by name - the target bar reads it (hudFoeTarget.js)
         if (handle.yielded) navalStandDown(handle);
       })
@@ -6630,6 +6749,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     townTalk.showOverlay(inv, () => { if (!model.fated()) navalOpenPlunder(model); });
   }
   const navalFlames = createNavalFlames({ renderer, getTexture, uploadRecordFrame });
+  const navalCrew = createNavalCrew({ renderer, getTexture, uploadRecordFrame });   // LIVING CREW: the crews on the decks near the eye
   const navalRender = new NavalRenderer(renderer);
   naval = createNavalHost({
     pool: csa,
@@ -6661,6 +6781,11 @@ export async function bootWorld(canvas, renderer, params, status) {
       leaveHelm: () => { if (csaRuntime?.isSailing?.()) csaCall(() => csaRuntime.StopSailing?.()); },
       placePlayer: (feet, yaw) => { player.spawn(feet[0], feet[1], feet[2]); cam.yaw = yaw; lookFilter.settle(); },
       deckSpots: (boat, n) => navalDeckSpots(boat, n),
+      // LIVING CREW (seamless boarding): a ship's standing crew taken off her deck where they stand, the landing across
+      // from me, and her rail across from another ship
+      crewOf: (boat, n, opts) => navalCrew.takeByBoat(boat, n, opts),
+      landing: (boat, feet) => navalDeckLanding(boat, feet),
+      railSpots: (boat, toward, n) => navalRailSpots(boat, toward, n),
       spawnFoe: navalSpawnFoe,
       foeDown: (h) => !!h?.foe?.dead,
       removeFoe: (h) => { if (!h) return; h.gone = true; if (h.foe && !h.foe.dead) exteriorFoes.removeFoe(h.foe); },
@@ -6705,6 +6830,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // net/hitPend.js) - one the wire refused, or sent while the socket was away, goes a frame later instead of never
     sendHit: (data) => hitSend(data),
     peerBoats: () => csaPeers.helmBoats(),
+    aboardPeer: () => csaAboard.aboard?.boat ?? null,   // AUDIT NAV2 F4: another player's boat I ride (CSA-K) - aboard, her fight mine
     swimming: () => walkMode && playerSpawned && !!player.isPlayerSwimming,   // AUDIT NAV1: a cask hauled in by a swimmer
     warmAshesOn: () => warmAshesOn(),
     raiderSpent: (id) => { seaRaidSpend(id); tvRaid.chase.delete(id); },   // NAV-R: the Overworld's law - spent for its life; THE MERGE (OW6): and said to the cell
@@ -6715,7 +6841,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   naval.setEnabled(navalOn());   // the switch's state from the first frame (navalFrame follows it after)
   registerModSaveData(NAVAL_SAVE_VENDOR, naval);   // the player's boats' hurts, the crowns' notoriety, a raid a load carries
   /** The sea emptied: a transition, a teleport, the arc switched off - its window with it. */
-  const navalClear = () => { naval?.clear(); navalFlames.clear(); closeNavalPlunder(); closeNavalYard(); drawNavalHud(null); drawNavalTags([]); };
+  const navalClear = () => { naval?.clear(); navalFlames.clear(); navalCrew.clear(); closeNavalPlunder(); closeNavalYard(); drawNavalHud(null); drawNavalTags([]); drawCrewBars([]); drawCrewLines([]); };
   const navalTransition = () => navalClear();
   let _navalWasOn = null;
   /** The frame: the switch read, the sounds loaded at the first sea, the host's step, the flames' clock. */
@@ -6767,6 +6893,123 @@ export async function bootWorld(canvas, renderer, params, status) {
     }
     drawNavalTags(points, { covered, scale: enhancedHudScale(), reach: NAVAL_TAG_RANGE });
   }
+  /** SHIPMATES (2026-09-29, Mac: "Ally crew member's should have green health bars above their head"): THE CREW'S BARS -
+   *  every shipmate (combat/friendlyFire.js isShipmate: mine on a deck, a room's its owner names) within CREW_BAR_RANGE,
+   *  a green bar over his head through the frame's own matrices, hidden behind the land by a sight cache of the crew's own (the ships' tags'
+   *  law), under the covers the tags keep. */
+  const crewSight = createSightCache();   // the crew's own, the session's (NAME1: never a frame's)
+  const _crewKeys = new WeakMap();
+  let _crewKey = 0;
+  function navalCrewBars(proj, view, eye) {
+    if (typeof document === 'undefined') return;
+    const covered = townTalk.overlayActive || gamePaused() || !!townTalk.hudHidden || _mode() !== 'exterior' || !!travelView?.active;
+    const points = [];
+    if (!covered) {
+      const w = canvas.clientWidth, h = canvas.clientHeight, rect = worldViewportRect(w, h);
+      for (const f of exteriorFoes.foes) {   // mine on a deck, and a room's crew its owner names (exteriorFoes.js `cw`)
+        const feet = f.ai?.feet;
+        if (!isShipmate(f) || !feet || !f.entity) continue;
+        const d = Math.hypot(feet[0] - eye[0], feet[1] - eye[1], feet[2] - eye[2]);
+        if (d > CREW_BAR_RANGE) continue;
+        const head = [feet[0], feet[1] + (f.ai.height ?? CAPSULE_HEIGHT) + 0.3, feet[2]];
+        const at = projectToScreen(head, w, h, proj, view, rect);
+        if (!at.front || at.x < -40 || at.x > w + 40 || at.y < -20 || at.y > h + 20) continue;
+        let key = _crewKeys.get(f);
+        if (key == null) { key = `crew:${++_crewKey}`; _crewKeys.set(f, key); }
+        if (crewSight.blocked(player.collider, eye, key, head)) continue;
+        const max = f.entity.maxHealth;
+        points.push({ x: at.x, y: at.y, share: max > 0 ? Math.max(0, f.entity.health) / max : 1, distance: d });
+      }
+    }
+    drawCrewBars(points, { covered, scale: enhancedHudScale() });
+  }
+  /** LIVING CREW (scenes/navalCrew.js, systems/naval/crewLife.js; 2026-09-29, Mac: "Crew members shouldnt be the static
+   *  sprites ... they should navigate the deck, talk with each other, blurb, sing chantys"): the crews on the decks
+   *  within CREW_RANGE of the eye - my crewed boats' (their count off my boat's crew), a room's (her owner's word's, her
+   *  hull's own till the host says it) and the sea's (her muster, what her crew has left) - stepped and carried, each
+   *  told her guns (`battle`), her colours (`struck`), a grapple's side or a boarding's at hand (both crews to the rail
+   *  facing the other) and where I stand on her (never walked through). A Warm Ashes raid holds my crew off my deck
+   *  (its own allies are them), and a fight's end brings my hands home; the arc off, none stands. */
+  let _crewBoarding = null;
+  const _crewCtx = { battle: false, struck: false, muster: 0, avoid: null }, _crewMe = [0, 0, 0], _crewThem = [0, 0, 0];
+  const _crewSeed = (s) => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193); return h >>> 0; };
+  /** AUDIT NAV2 F9: my boat's crew seeded as a room seeds her (comeSailAwayPeers peerKey, `${whose}:${which}` - which,
+   *  her place among my word's boats: csaWord's order, the active ones) so her owner and every reader stand one crew;
+   *  offline her deed's uid. */
+  const _crewSeedOf = (boat) => {
+    const id = online?.id ?? null;
+    if (id && csaRuntime) { let n = 0; for (const x of csaRuntime.AllBoats) { if (x === boat) return _crewSeed(`${id}:${n}`); if (x.GameObject?.activeSelf) n++; } }
+    return (boat.uid ?? 1) >>> 0;
+  };
+  /** AUDIT NAV2 F9: whose a room's boat is - her key's owner (`${owner}:${slot}`). */
+  const _crewOwner = (boat) => { const k = boat.peerKey ?? ''; return k.slice(0, k.lastIndexOf(':')); };
+  function navalCrewFrame(dt) {
+    // AUDIT NAV2 F52: the naval arc off, Come Sail Away stands as the mod stands - its own people flats, no living crew
+    if (!navalOn() || !csa?.deckOf || (modes?.mode ?? 'exterior') !== 'exterior') { navalCrew.clear(); return; }
+    const b = naval?.boarding ?? null;
+    if (_crewBoarding && !b) for (const boat of csa.boats) navalCrew.reset(boat);   // the fight over: my hands come home
+    _crewBoarding = b;
+    const eye = cam.pos, list = [];
+    const near = (key, pos) => !!pos && Math.hypot(pos[0] - eye[0], pos[2] - eye[2]) < (navalCrew.has(key) ? CREW_KEEP : CREW_RANGE);
+    for (const boat of csa.boats) {
+      if (!boat?.crewed || !boat.GameObject?.activeSelf || !near(boat, boat.GameObject.position)) continue;
+      const mine = naval?.myCrew?.(boat) ?? null, crew = mine?.crew ?? hullBuild(boat.hull).crew, seed = _crewSeedOf(boat);
+      // AUDIT NAV2 F43: a Warm Ashes raid on her deck is fought by its own `_ally_`, her crew (AUDIT NAV1 B2) - her living
+      // crew held off her deck till it ends, never walking and singing among the raiders
+      const raid = !!b?.quest && b.boat === boat;
+      list.push({ key: boat, boat, deck: csa.deckOf(boat.hull, boat.variant ?? 0), count: crewCount({ hull: boat.hull, crew }), rosterOf: () => crewRoster({ hull: boat.hull, seed, crew }), seed, faction: null, battle: !!mine?.battle, toward: mine?.toward ?? null, hold: raid });
+    }
+    for (const boat of csa.peerBoats) {
+      if (!boat?.crewed || !boat.GameObject?.activeSelf || !near(boat, boat.GameObject.position)) continue;
+      // AUDIT NAV2 F9: her crew and her fight as her owner's word says them (the host's peerBoat) - her hull's whole
+      // crew, at peace, until it does
+      const word = naval?.peerBoat?.(_crewOwner(boat)) ?? null;
+      const crew = Math.round(hullBuild(boat.hull).crew * (word?.crewShare ?? 1)), seed = _crewSeed(boat.peerKey ?? '');
+      list.push({ key: boat, boat, deck: csa.deckOf(boat.hull, boat.variant ?? 0), count: crewCount({ hull: boat.hull, crew }), rosterOf: () => crewRoster({ hull: boat.hull, seed, crew }), seed, faction: null, battle: !!word?.battle });
+    }
+    for (const s of naval?.crewShips?.() ?? []) {
+      if (!near(s.key, s.pos)) continue;
+      list.push({ key: s.key, boat: s.boat, deck: csa.deckOf(s.boat.hull, s.boat.variant ?? 0), count: crewCount({ hull: s.boat.hull, shipClass: s.shipClass, crewShare: s.crewShare }), rosterOf: () => crewRoster({ hull: s.boat.hull, seed: s.seed, shipClass: s.shipClass, crewShare: s.crewShare }), seed: s.seed, faction: s.faction, battle: s.battle, struck: s.struck, toward: s.toward, hold: s.hold });
+    }
+    navalCrew.sync(list);
+    const grapple = b?.phase === 'grapple' ? b : null;
+    navalCrew.frame(dt, eye, (key, ship) => {
+      const m = ship.boat.MeshObject.worldMatrix();
+      _crewCtx.battle = ship.battle; _crewCtx.struck = ship.struck; _crewCtx.muster = 0; _crewCtx.avoid = null;
+      if (walkMode && playerSpawned) {   // me on her deck: never walked through
+        intoDeck(m, player.pos, _crewMe);
+        if (Math.abs(_crewMe[1] - (ship.deck.heightAt(_crewMe[0], _crewMe[2]) || 0)) < 2) _crewCtx.avoid = _crewMe;
+      }
+      const other = grapple ? (key === grapple.shipId ? grapple.boat : key === grapple.boat ? naval.boatOf(grapple.shipId) : null) : null;
+      // AUDIT NAV2 F40: or a boarding at hand (navalHost crewShips/myCrew `toward`) - the rail on the side it lies on
+      const toward = other?.GameObject ? other.GameObject.position : ship.toward;
+      if (toward) { intoDeck(m, toward, _crewThem); _crewCtx.muster = _crewThem[0] >= 0 ? 1 : -1; }
+      return _crewCtx;
+    });
+  }
+  /** LIVING CREW: the lines over the crew's heads within CREW_SAY_RANGE, through the frame's own matrices, behind the
+   *  land by the crew's own sight cache, under the covers the bars keep. */
+  const _sayKeys = new WeakMap();
+  let _sayKey = 0;
+  function navalCrewLines(proj, view, eye) {
+    if (typeof document === 'undefined') return;
+    const covered = townTalk.overlayActive || gamePaused() || !!townTalk.hudHidden || _mode() !== 'exterior' || !!travelView?.active;
+    const points = [];
+    if (!covered) {
+      const w = canvas.clientWidth, h = canvas.clientHeight, rect = worldViewportRect(w, h);
+      for (const l of navalCrew.speech()) {
+        const d = Math.hypot(l.head[0] - eye[0], l.head[1] - eye[1], l.head[2] - eye[2]);
+        if (d > CREW_SAY_RANGE) continue;
+        const at = projectToScreen(l.head, w, h, proj, view, rect);
+        if (!at.front || at.x < -80 || at.x > w + 80 || at.y < -40 || at.y > h + 40) continue;
+        let key = _sayKeys.get(l.member);
+        if (key == null) { key = `say:${++_sayKey}`; _sayKeys.set(l.member, key); }
+        if (crewSight.blocked(player.collider, eye, key, l.head)) continue;
+        points.push({ x: at.x, y: at.y, text: l.text, kind: l.kind, distance: d });
+      }
+    }
+    drawCrewLines(points, { covered, scale: enhancedHudScale() });
+  }
   /** The helm's readout, under every window and with the HUD - `dt` the frame's (the card's hull bar's loss readout). */
   function navalHud(dt = 0) {
     if (!navalOn()) return;
@@ -6817,7 +7060,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const ab = helm ? null : csaAboard.aboard;
     drawEnhancedHelm({
       helm, aboard: ab ? { hull: ab.boat.hull, owner: peerName(ab.owner) } : null,
-      covered: townTalk.hudCovered || (modes?.hudCovered ?? false) || gamePaused() || !hudRenderEnabled(),
+      covered: townTalk.hudCovered || (modes?.hudCovered ?? false) || gamePaused() || !hudRenderEnabled() || !!travelView?.active,   // AUDIT NAV2 F17: under the travel view a journey holds the helm - its hand sets her sails, the arrows turn the view
       touch: !!touch, mouseFree: cursorActive() || pointerSurfaces.size > 0 || !document.pointerLockElement,
       freeKey: csaKeyLabel('FreeMouse'), keyOf: csaKeyLabel,
     }, csaHelmHooks);
@@ -6850,12 +7093,17 @@ export async function bootWorld(canvas, renderer, params, status) {
   // the minutes pass offline (online the clock stands, WORLD5), and
   // "the hunted" stands on the wilderness arm as an encounter would.
   // This host alone: exterior.js lives inside the town rect.
+  /** SEA-HUNT: the player afloat - at a helm (Come Sail Away sailing), on a boat's deck (its "I'm On A Boat"), aboard
+   *  another player's boat, on a sea ship's deck (the naval host's aboard), or swimming. The land's own business - the
+   *  hunt, a bounty's trail, a wilderness band's chase - is none of theirs there. */
+  const playerAfloat = () => !!csaRuntime?.isSailing?.() || (playerEntity.activeEffects ?? []).some((e) => isBoatEffectBundle(e?.bundleName))
+    || !!csaAboard.aboard?.boat || !!naval?.aboard?.() || (walkMode && playerSpawned && !!player.isPlayerSwimming);
   const hunting = createHunting({
     entity: playerEntity,
     env: () => ({
       minute: Math.floor(ownMinutes()), climateIndex: maps.getClimateIndex(playerTravelPixel().x, playerTravelPixel().y),   // LIVED1: the hunt's minute is the body's (its needs, its catch's age); the winter below is the sky's
       luck: liveStat(playerEntity, 'luck'), winter: seasonValue(dateFromClassicMinutes(worldMinutes())) === SEASONS.Winter,
-      outdoors: _mode() === 'exterior' && !(walkMode && playerSpawned && player.isPlayerSwimming), inLocationRect: _musicInLocationRect(), night: isNight(minuteNow()),
+      outdoors: _mode() === 'exterior' && !(walkMode && playerSpawned && player.isPlayerSwimming), afloat: playerAfloat(), inLocationRect: _musicInLocationRect(), night: isNight(minuteNow()),   // SEA-HUNT: nothing is hunted from a deck
       enemiesNear: areEnemiesNearby(exteriorFoePool()), resting: !!playerEntity.isResting || !!playerEntity.preventEnemySpawns,
       hasBow: weaponTypeForItem(weaponRig.playerWeapon.weapon) === WEAPON_TYPES.Bow,
       skills: { archery: skillValue(playerEntity, SKILLS.Archery), stealth: skillValue(playerEntity, SKILLS.Stealth), criticalStrike: skillValue(playerEntity, SKILLS.CriticalStrike), climbing: skillValue(playerEntity, SKILLS.Climbing) },
@@ -7352,7 +7600,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     playerEntity,
     feet: () => player.pos, yaw: () => cam.yaw,
     livePersons: () => _livePersons.filter((seat) => !cityGuards.playerSparesPerson(seat.person)),   // RAID-GUARDS-NPC: the trample passes a raid's walkers by (guards and townspeople)
-    foes: () => exteriorFoes.foes, guards: () => cityGuards.guards.filter((g) => !cityGuards.playerSpares(g)),   // RAID-GUARDS: the charge passes a spared defender by
+    foes: () => exteriorFoes.foes.filter((f) => !sparedByPlayer(f)), guards: () => cityGuards.guards.filter((g) => !cityGuards.playerSpares(g)),   // RAID-GUARDS: the charge passes a spared defender by - SHIPMATES: and the player's own crew
     isGuardRecord: (f) => f._encounter === undefined && cityGuards.guards.includes(f),
     splashBlood: (pos, fwd) => hitEffects.showBloodSplash(0, pos, fwd, LETHAL_HIT),
     playClip: (clip, volume) => audio.playOneShot(clip, volume),
@@ -7426,7 +7674,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     // a raid on the town: the watch has other work; AUDIT REP F3: nor does it stop a player in a fight - a foe that sees
     // them, or a duel (the box would stand over the blows: the ring's floor and the foe's swings are not the stop's to hold)
     blocked: () => townTalk.overlayActive || !!modes?.overlayHeld || !!travelView?.active || !!raidDefendingHere()
-      || duelEnemyNear() || areEnemiesNearby(exteriorFoes.foes),
+      || duelEnemyNear() || areEnemiesNearby(exteriorFoes.foes)
+      // AUDIT NAV2 F10 (Mac: "Not in a sea fight"): nor at sea mid-fight - a hostile ship near a player aboard (never
+      // one ashore: SEA-PEACE), or a boarding under way; a guard on the quay still stops a player at their boat
+      || !!naval?.hostileNear?.() || !!naval?.boarding,
   });
   // REP5: a changed legal standing is said - the crime's charge, the debt paid, a penance, a contract's thanks
   installLegalNotices({ playerEntity, say: (l) => townTalk.say(l), regionName: (r) => REGION_NAMES[r] ?? 'this region' });
@@ -7507,7 +7758,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         feet: () => (walkMode ? player.pos : cam.pos),
         entity: () => playerEntity,
         keyLabel: (a) => { const c = getBinding(bindings(), a); return c ? tagText(c) : '?'; },
-        input: () => ({ held: held(keys, 'Interact'), attack: pressed(latch.edge, keys, 'SwingWeapon'), choice: pressed(latch.edge, keys, 'ActChoice') }),
+        input: () => ({ held: held(keys, 'Interact'), attack: pressed(latch.edge, keys, 'SwingWeapon'), choice: !csaRuntime?.isSailing() && pressed(latch.edge, keys, 'ActChoice') }),   // HELM-KEYS: a helm's hands are on the wheel - the up arrow there is More sail's (inputActions.js DEFAULT_SHARES)
         active: () => walkMode && modeNow() === 'exterior' && !townTalk.overlayActive && !modes?.deathUp?.() && !modes?.transitioning && !travelView?.active,   // AUDIT 32 H10: never from under the travel view (its ray is the hidden head's - AUDIT OW5 V2's law for E)
         activeDungeon: () => walkMode && modeNow() === 'dungeon' && !modes?.dungeonCtx?.uiOverlayActive && !modes?.deathUp?.() && !modes?.transitioning,   // PROF2: a dungeon's veins
         onSettle: () => { profBook.settle(profMint, profMintCraft).catch(() => {}); },
@@ -7862,7 +8113,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // through the one that owns the billboard - `exteriorFoePool` is
     // the watch AND the encounter foes, and this arm reached the
     // encounter pool's remover for both. That was not a leak: removeFoe
-    // (exteriorFoes.js:511-516) never looks the record up in `foes`, and
+    // (exteriorFoes.js:512-517) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
     // got exactly what removeGuard (cityGuards.js:1627-1645) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
@@ -9051,11 +9302,14 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  the floating origin; it answers null off a built pixel, which
    *  playerTileMapIndex reads as DFU's -1. */
   const _SURFACE_DOWN = [0, -1, 0];
+  /** SHIP-DECK: a collider bucket of a boat's or a sea ship's hull (csaSyncColliders' keys). */
+  const isDeckBucket = (key) => typeof key === 'string' && key.startsWith('csaBoat:');
   const exteriorSurfaceNow = () => {
     const cy = player.pos[1] + player.height / 2;   // transform.position on a CharacterController
     const rayDistance = rayDistanceFor(isOnFoot(player.transportMode));
     const _ground = playerGroundSample();
-    return exteriorSurfaces({
+    const _down = collider.raycastHit([player.pos[0], cy, player.pos[2]], _SURFACE_DOWN, rayDistance * 2);
+    const surf = exteriorSurfaces({
       inside: false,
       rawTile: _ground?.tile ?? null,
       feet: _ground?.feet ?? null,   // MAC2: the player swims where the surface is drawn under the feet
@@ -9063,10 +9317,13 @@ export async function bootWorld(canvas, renderer, params, status) {
       probe: downProbe({
         centreY: cy,
         terrainY: heightAt(player.pos[0], player.pos[2], true),   // DW-D: GetOnExteriorGroundMethod wants a DaggerfallTerrain - never the carved sea's floor (and the mod gates the terrain collider off over it)
-        meshDist: collider.raycast([player.pos[0], cy, player.pos[2]], _SURFACE_DOWN, rayDistance * 2),
+        meshDist: _down.dist,
         rayDistance,
       }),
     });
+    // SHIP-DECK: the model the feet stand on is a hull - a boat's or a sea ship's deck (the footsteps' wooden floor)
+    surf.deck = surf.staticGeometry && isDeckBucket(_down.key);
+    return surf;
   };
   /** StreamingWorld's RandomStartMarker landing for the location that
    *  stands on a BUILT map pixel, in that pixel's own local frame.
@@ -13364,6 +13621,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (_deck === false) return false;
       if (_deck) {
         holdSpotWhile(collider, { x: _deck[0][0], y: _deck[0][1] + 0.9, z: _deck[0][2] }, () => exteriorFoes.spawnFoe(handle.foe.foeType, _deck[0], { gender: questFoeGender(handle.foe), yaw: _deck[1], questBehaviour: handle.behaviour, feetGiven: true }))
+          .then((f) => navalDeckBody(f, _deck[2]))   // DECK-WALK: a raid's wave stands on her deck, and stays on it
           .catch((e) => console.error('[quest] naval deck foe stand failed:', e?.message ?? e));
         return true;
       }
@@ -16596,10 +16854,12 @@ export async function bootWorld(canvas, renderer, params, status) {
   // their pixel; an heir took them as plain foes nothing counted, stood its own full sea beside them once elected, and
   // a third player saw only a plain foe's allowance of them. They stay the stander's, as a watchman goes with his own.
   // (AUDIT pre-merge Q3: a quest's foe kept on a partner's word goes to the party alone, as the quest's own does.)
+  // AUDIT NAV2 F12: nor a body on a deck - a boarding's, shared with the room now, goes with its boarder (all three
+  // handovers): an heir stood her men as plain foes on a deck with no leash and no boarding
   const handOverFoes = () => {
     const near = online?.room && isCellRoom(online.room) && (modes?.mode ?? 'exterior') === 'exterior' ? (peersNear() ?? []) : [];
     if (!near.length) return 0;
-    const heirOf = (f) => { if (f.entity?.team === 'PlayerAlly' || f.managed) return null; const at = f.ai?.feet; if (!at) return null; let id = null, best = Infinity; for (const q of near) { if ((isPrivateQuestFoe(f) || f._keptTag) && !social?.isPartyPeer(q.id)) continue; const d = Math.hypot(at[0] - q.feet[0], at[2] - q.feet[2]); if (d < best) { best = d; id = q.id; } } return id; };   // QUEST-PARTY phase 2: a shared quest's foe goes to a party member alone (CURSE-SYNC: a world quest's to anyone, as an encounter's); SUMMON-SYNC: and my ALLY to nobody - it goes with its summoner (the record carries no side, so an heir stood it as everyone's foe)
+    const heirOf = (f) => { if (f.entity?.team === 'PlayerAlly' || f.managed || f.deckBoat != null) return null; const at = f.ai?.feet; if (!at) return null; let id = null, best = Infinity; for (const q of near) { if ((isPrivateQuestFoe(f) || f._keptTag) && !social?.isPartyPeer(q.id)) continue; const d = Math.hypot(at[0] - q.feet[0], at[2] - q.feet[2]); if (d < best) { best = d; id = q.id; } } return id; };   // QUEST-PARTY phase 2: a shared quest's foe goes to a party member alone (CURSE-SYNC: a world quest's to anyone, as an encounter's); SUMMON-SYNC: and my ALLY to nobody - it goes with its summoner (the record carries no side, so an heir stood it as everyone's foe)
     const frame = exteriorFoes.handOverFrame(heirOf);
     return frame && online.sendFoes(frame) ? exteriorFoes.dropOwnLive() : 0;
   };
@@ -16622,7 +16882,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!near.length) return 0;
     const me = player.feetAt();
     const heirOf = (f) => {
-      if (f.puppet || f.dead || f.placed || f.managed || f.entity?.team === 'PlayerAlly' || isPrivateQuestFoe(f) || f._keptTag) return null;
+      if (f.puppet || f.dead || f.placed || f.managed || f.deckBoat != null || f.entity?.team === 'PlayerAlly' || isPrivateQuestFoe(f) || f._keptTag) return null;
       const at = f.ai?.feet;
       if (!at) return null;
       const mine = Math.hypot(at[0] - me[0], at[2] - me[2]);
@@ -16642,7 +16902,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const m = modes?.mode ?? 'exterior';
     const near = online?.room && isWorldRoom(online.room) && online.ownOk && (m === 'interior' || m === 'dungeon') ? (peersNear() ?? []) : [];
     if (!near.length) return 0;
-    const heirOf = (f) => { if (f.entity?.team === 'PlayerAlly') return null; const at = f.ai?.feet; if (!at) return null; let id = null, best = Infinity; for (const q of near) { if ((isPrivateQuestFoe(f) || f._keptTag) && !social?.isPartyPeer(q.id)) continue; const d = Math.hypot(at[0] - q.feet[0], at[2] - q.feet[2]); if (d < best) { best = d; id = q.id; } } return id; };   // SUMMON-SYNC: my ally goes with me, as outside
+    const heirOf = (f) => { if (f.entity?.team === 'PlayerAlly' || f.deckBoat != null) return null; const at = f.ai?.feet; if (!at) return null; let id = null, best = Infinity; for (const q of near) { if ((isPrivateQuestFoe(f) || f._keptTag) && !social?.isPartyPeer(q.id)) continue; const d = Math.hypot(at[0] - q.feet[0], at[2] - q.feet[2]); if (d < best) { best = d; id = q.id; } } return id; };   // SUMMON-SYNC: my ally goes with me, as outside
     const frame = modes?.ownHandOverFrame?.(heirOf);
     return frame && online.sendOwnFoes(frame) ? (modes?.dropOwnHanded?.() ?? 0) : 0;
   };
@@ -17374,7 +17634,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     canStandDungeon: () => (modes?.mode ?? 'exterior') === 'dungeon' && !!modes?.dungeonCtx && !gamePaused() && !playerEntity.isResting,
     standDungeonPack: (o) => _standBountyDungeonPack(o),
     canStand: () => (modes?.mode ?? 'exterior') === 'exterior' && playerSpawned && !gamePaused() && !playerEntity.isResting
-      && !travelOptions?.isTravelActive && !(walkMode && player.isPlayerSwimming),
+      && !travelOptions?.isTravelActive && !(walkMode && player.isPlayerSwimming) && !playerAfloat(),   // SEA-HUNT: no trail is read, no pack stood, from a deck
     standPack: (o) => _standBountyPack(o),
     foePool: () => ((modes?.mode ?? 'exterior') === 'dungeon' ? (modes?.dungeonCtx?.foes ?? []) : exteriorFoes.foes),
     say: (line) => townTalk.say(line),
@@ -19965,9 +20225,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     csaCall(() => { w = csaRuntime.nodeReadingAt([x, tvSeaY(), z], t) === 0; });
     return w;
   }
-  /** A boat that makes a crossing: sails, or a crew's oars (a lone rower tires long before a sea is crossed) - and not
-   *  the Carrack, which makes no way at all (the mod divides its cargo by a Cargo modifier it lacks - kept, CSA-D). */
-  const tvSeaCrosses = (rig) => !!rig && (rig.sails > 0 || rig.crewed) && rig.cargo > 0;
+  /** A boat that makes a crossing: sails, or a crew's oars (a lone rower tires long before a sea is crossed) - and a
+   *  hold: under the mod's own handling the Carrack makes no way at all (the mod divides its cargo by a Cargo modifier
+   *  it lacks - kept, CSA-D). AUDIT NAV2 F16: the responsive helm (HELM-WAY) gives her CARGO_HOLD_MISSING and sails her,
+   *  so she crosses wherever the runtime's own word on the handling is responsive (this helm's, else the row's). */
+  const tvSeaCrosses = (rig) => !!rig && (rig.sails > 0 || rig.crewed) && (rig.cargo > 0 || !!csaRuntime?.helmResponsive());
   const tvSeaRig = (b) => ({ sails: b.Sails.length, crewed: !!b.crewed, cargo: b.modifierCargoThreshold });
   /** The parts in the pack of a packable boat that crosses (the Large Boat's - the Rowboat's have no sail). */
   const tvSeaParts = () => (playerEntity.items ?? []).find((it) => it?.templateIndex === CSA_PARTS_TEMPLATE && tvSeaCrosses(csa.hullRig?.(csaHullFromMessage(it.message ?? 0)))) ?? null;
@@ -20649,7 +20911,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // B4 found the same; the one fix is the chases' own clock (`_bandClock`, below), which stands still on EVERY frame a
     // chase does not step - this hold, a world being moved, the view down with none - so nothing is carried over by hand
     if (playerEntity.health <= 0 || modes?.deathUp?.() || gamePaused()) return;
-    const aboard = !!csaRuntime?.isSailing?.() || (playerEntity.activeEffects ?? []).some((e) => isBoatEffectBundle(e?.bundleName));
+    const aboard = playerAfloat();   // SEA-HUNT: a sea ship's deck and another's boat too - the one afloat
     if (!isEnhanced() || (modes?.mode ?? 'exterior') !== 'exterior' || !walkMode || !playerSpawned || getPref('wildernessCamps') === false
       || playerEntity.preventEnemySpawns || player.isPlayerSwimming || aboard
       || _inAnyLocationRect(player.feetAt())) { bandDrop(); return; }   // AUDIT OW3 T7-7: nor into a town - a band gives up at its edge
@@ -21309,6 +21571,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // override-for-the-frame (:1510-1511): a held turn key beside a
       // moving mouse is not a case a player reaches on purpose.
       const kb = keyboardLook(keys);
+      if (helmTurnKeys()) kb.x = 0;   // HELM-KEYS: at a helm the turn keys turn the ship, never the view
       if (kb.x || kb.y) lookFilter.add(kb.x * keyboardLookRate() * dt, kb.y * keyboardLookRate() * dt * lookInvert());
       if (pressed(latch.edge, keys, 'CenterView')) lookFilter.centerPitch(cam);   // KB1: Home levels the view (classic Daggerfall's centre key; DFU binds it and reads it nowhere)
       _lockChest = lockOn.tick(dt, cam, cam.pos, lookFilter);   // TI1: the lock pays its facing into the same filter, owed to the NEXT tick like a look
@@ -22014,12 +22277,13 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           if (_step && classicFootstepAllowed(_step.clip)) audio.playOneShot(_step.clip, _step.volume);   // IF1: DisableVanillaFootsteps - every classic clip is None while the mod owns the stride; BA1: Better Ambience nulls all but Dungeon2 and Outside2 (DisableBuiltInFootsteps' slip)   // IF1: DisableVanillaFootsteps - every classic clip is None while the mod owns the stride; BA1: Better Ambience nulls all but Dungeon2 and Outside2 (DisableBuiltInFootsteps' slip)
           // IF1: ImmersiveFootstepsObject.FixedUpdate - the exterior arm reads the season, the climate and the tile the classic set above reads.
           immersiveFootsteps.update(dt, {
-            paused: _overlayHeld || _seasonHeld || _travelSoundsOff, entity: playerEntity,   // AUDIT-TO1 J1: the mod's stride stands down with the classic one
+            paused: _overlayHeld || _seasonHeld || _travelSoundsOff || _csaFootstepsOff, entity: playerEntity,   // AUDIT-TO1 J1: the mod's stride stands down with the classic one - SHIP-DECK: at the helm too (CSA-D's)
             grounded: player.grounded, standingStill: player.standing, isRunning: player.isRunning, movingLessThanHalfSpeed: player.movingLessThanHalfSpeed,
             transportMode: player.transportMode, swimming: !!player.isPlayerSwimming, pos: player.pos,
             inside: false, inDungeon: false,
             season, climateIndex: maps.getClimateIndex(_p.x, _p.y), tileMapIndex: _surf.tileIndex ?? -1,   // AUDIT-IF F2: StreamingWorld.PlayerTileMapIndex is -1 off terrain, and (byte)-1 sits in no table - never 0, which is water
             waterWalking: _surf.water === ON_EXTERIOR_WATER.WaterWalking,
+            deck: !!_surf.deck, onStaticGeometry: !!_surf.staticGeometry,   // SHIP-DECK: the floor under the feet decides before the tile under it
           });
           // BA1: BetterFootstepsComponentPlayer.Update, CameraShaker.Update, ReverbMod.Update and the rain source's Update, one call.
           betterAmbience.frame(dt, {
@@ -22069,13 +22333,19 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           hudBlocked: activeMouseOverLargeHUD(),
           paused: _overlayHeld,
         });
-        if (_act.cast && !gatherHost?.acting()) magic.interceptAttack(true);   // the frame's firePending sends it down the live look; AUDIT 29 D2: never a readied spell mid-act (the dungeon held it off already)
+        // GUN-HOLD: Activate while the guns are laid holds fire (navalHost.js holdFire, the bow's own cancel) - before the
+        // click casts a readied spell or the helm's ladder boards, heaves to or opens the yard
         const useEdge = !travelView?.active && pressed(latch.edge, keys, 'Interact');   // AUDIT OW5 V2: never from under the travel view - its ray is the hidden head's (a door took the traveller inside, a townsperson opened talk); KB1: the Interact ACTION (E by default, Mac's call) - it was a raw `KeyE` beside DFU's E-AbortSpell, and one press did both
+        // AUDIT NAV2 F31: and Interact - the readout's own "E: hold fire" - holds it too, spent before a patch or the ladder:
+        // E went to the ladder, whose naval arm grappled a struck ship in reach with the guns still laid, and the release
+        // then fired the broadside into the ship being hauled alongside
+        const _holdFire = (_act.activate || _act.cast || useEdge) && !!naval?.aiming && naval.holdFire();
+        if (_act.cast && !_holdFire && !gatherHost?.acting()) magic.interceptAttack(true);   // the frame's firePending sends it down the live look; AUDIT 29 D2: never a readied spell mid-act (the dungeon held it off already)
         // PROF1: E at an herb patch is the patch's - an act started, or what it needs said - spent before the ladder
-        const nodeTook = useEdge && !modes.transitioning && (gatherHost?.press() ?? false);   // PROF2: a patch's, a vein's or a boulder's
+        const nodeTook = useEdge && !_holdFire && !modes.transitioning && (gatherHost?.press() ?? false);   // PROF2: a patch's, a vein's or a boulder's
         // AUDIT 32 H5: a click mid-act is the act's too (AUDIT 29 D3's law for E) - it opened the body's loot under the
         // knife and ended the trace
-        if (((_act.activate && !gatherHost?.acting()) || (useEdge && !nodeTook)) && !modes.transitioning) {
+        if (((_act.activate && !gatherHost?.acting()) || (useEdge && !nodeTook)) && !modes.transitioning && !_holdFire) {
           // T3b: a townsperson under the ray wins the activation (the
           // PlayerActivate nearest-hit order); G3: a guard corpse next
           // (loot pickup on the dungeon's S2 shape); doors otherwise.
@@ -23222,8 +23492,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const _pf = walkMode && playerSpawned ? player.pos : cam.pos;
     if (!townTalk.overlayActive) runEncounterTick(_pf);
     if ((modes?.mode ?? 'exterior') === 'exterior') {
+      if (_deckBodies.size) navalCarry();   // DECK-WALK: the bodies on a ship's deck carried by her - after the ships moved, before the foes do
       exteriorFoes.update(foeDt, _pf, cam.pos, _foeSenses());   // WINFOE1: a window no longer zeroes the foes' clock (QUEST-POPUP-PAUSE: offline, a quest box does)
-      livePersonBatches.push(...exteriorFoes.batches());
+      if (_deckBodies.size) navalLeash();   // DECK-WALK: the bodies on a ship's deck kept on it - after they moved, before they are drawn
+      navalCrewFrame(gamePaused() ? 0 : foeDt);   // LIVING CREW: the crews at their work on the decks near the eye - AUDIT NAV2 F53: held with the sea under a window
+      livePersonBatches.push(...exteriorFoes.batches(), ...navalCrew.batches());
       if (playerSpawned) _townWatchFrame(foeDt);   // DISC19-F: the town's answer to what the pools just did
       if (playerSpawned) raidingPartiesFrame(gamePaused() ? 0 : foeDt);   // RAID1: the raids' Update - after the pools moved (a death counts on the frame it falls) and the watch answered, its clocks held by a pause (fix 7)
     }
@@ -23245,7 +23518,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // again". TO-FIELD held SURV6's roll while an accelerated journey
     // ran; the gate is REMOVED on Mac's word, with the `resting` flag
     // above that was holding the roll a second time from inside
-    // (hunting.js:115).
+    // (hunting.js:120).
     //
     // WHAT IT MEANS, said plainly so it is not rediscovered as a bug:
     // the roll fires once a GAME minute, and a journey spends those at
@@ -23729,6 +24002,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       if (walkMode && playerSpawned && !tvf) weaponRig.draw({ paralyzed });   // TV1: no hand on a camera 450 m up
       drawPeerNames(proj, view, mwv.eye);   // ONLINE1: the names over the heads
       navalTags(proj, view, mwv.eye);   // AUDIT NAV1 (#14): the ships' tags
+      navalCrewBars(proj, view, mwv.eye);   // SHIPMATES: the crew's green bars
+      navalCrewLines(proj, view, mwv.eye);   // LIVING CREW: the lines over their heads
       // WORLD-HOVER: the plaque, where this host already draws its HUD.
       // It races EXACTLY what the press races - the same six live picks
       // against the same door/person/board set, settled by the same

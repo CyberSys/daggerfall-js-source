@@ -239,3 +239,24 @@ that serves them (the suite runs under node with clips of one byte);
 whether Unity clamps `PlayOneShot`'s `volumeScale` above 1 (the mod's
 sliders reach 10, and the port's gain node does not clamp - a player who
 sets 10 hears 10 here and whatever Unity does there).
+
+## SHIP-DECK (2026-09-29, Mac: "Walking on the deck gives water sounds") - A DEPARTURE
+
+**What the field heard.** Every step on a boat's or a sea ship's deck over the open sea was a deep-water splash, for
+the whole voyage.
+
+**Why.** The mod picks its set off the terrain tile under the player's X/Z and nothing else
+(`determineExteriorClimateFootstep`, Object.cs:220-299), and the open sea is tile 0 - DeepWater. The author knew:
+"keep the bug where when on the player ship the footstep sounds are not always accurate" (Object.cs:165-166), and the
+port had kept it `[verbatim]`. The set is re-read only on a new tile, climate or season, so it stuck. The classic
+stride had the deck right all along (its down probe finds the hull, `onStaticGeometry`), but the mod owns the stride
+and mutes it.
+
+**The law now** (DECLARED, the Port-Ledger's SHIP-DECK row): the floor under the feet decides before the tile under it.
+The host's down probe keeps the collider bucket it struck (`world.js exteriorSurfaceNow`, `collider.raycastHit`), and a
+boat's or a sea ship's hull bucket (`csaBoat:` - csaSyncColliders' keys) is a DECK: the mod's own interior Wood rule
+(`woodFloorFootsteps` - iron boots and better plate, chain boots chain, any other or none the boards). Any other model
+over a water tile (a bridge) is walked on, not waded: the armour's ground (CheckToUseArmorFootsteps), as a path tile
+is. Over land a model keeps the tile ladder verbatim. Stepping off a floor re-reads the ground even on the same tile.
+The helm's own footsteps-off (CSA-D's `_csaFootstepsOff`) now stands the mod's stride down too - it had silenced only
+the classic one. Pins: `test/deckfield.test.js` (SHIP-DECK).

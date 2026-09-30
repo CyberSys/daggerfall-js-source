@@ -107,12 +107,17 @@ export function beastFor(climate, rolls = Math.random) {
  * The minute's roll. `s` is the survival record (the cooldown rides it
  * as `huntAt`, saved with the rest). Returns the event { climate, kind }
  * or null. The host asks once a game minute.
+ *
+ * SEA-HUNT (2026-09-29, Mac: "hunting notifications appear when sailing"): `afloat` - the player at a helm, on a
+ * boat's or a ship's deck, or in the water - rolls nothing. The mod's own gate asks the player outdoors and not
+ * swimming, which was the whole of "on land" before Come Sail Away put a deck under them; and the climate cannot say
+ * it either, since the coast's first sea pixels read as the land's (terrainHelper.js dilateCoastalClimate).
  */
 export function huntRoll(s, {
-  minute = 0, luck = 50, winter = false, outdoors = true, inLocationRect = false, night = false, enemiesNear = false, resting = false, climateIndex = 232,
+  minute = 0, luck = 50, winter = false, outdoors = true, afloat = false, inLocationRect = false, night = false, enemiesNear = false, resting = false, climateIndex = 232,
 } = {}, rolls = Math.random) {
   const climate = HUNT_CLIMATE[climateIndex];
-  if (!climate || !outdoors || inLocationRect || night || enemiesNear || resting) return null;
+  if (!climate || !outdoors || afloat || inLocationRect || night || enemiesNear || resting) return null;
   if (minute < (s?.huntAt ?? 0)) return null;
   const chance = (1 + luckMod(luck)) / (winter ? HUNT_ODDS.winter : HUNT_ODDS.summer);
   if (rolls() >= chance) return null;

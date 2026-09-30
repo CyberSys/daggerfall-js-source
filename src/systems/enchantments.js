@@ -40,7 +40,7 @@
 // mount, so RegensHealth/ItemDeteriorates/UserTakesDamage's
 // conditional arms are live), season(), moonPhase(param) (V2c:
 // ExtraSpellPts' IsFull/IsHalf/IsNewMoon over gameDate's lunar law),
-// nearbyFoes(range) -> [{ mobileType, hurt(n) }] (PlayerGPS.
+// nearbyFoes(range) -> [{ mobileType, spared, hurt(n, o) }] (PlayerGPS.
 // GetNearbyObjects - the affinity classifier lives HERE off
 // ENEMY_BASICS), spawnFoe(mobileType) (SoulBound's break, B1's
 // spawner), isResting(), allowMagicRepairs (a DFU setting, default
@@ -455,8 +455,8 @@ const REGISTRY = new Map([
     magicRound({ param, round, entity, ctx }) {
       if (param !== 0 || round % REGEN_PER_ROUNDS !== 0) return;
       const nearby = ctx?.nearbyFoes?.(VAMPIRIC_DRAIN_RANGE) ?? [];
-      for (const foe of nearby) {
-        foe.hurt?.(1);
+      for (const foe of nearby.filter((n) => !n.spared)) {   // AUDIT NAV2 F55: the player's own harm passes a shipmate and a town's defender by (the host's rows say which) - the drain too, and the wearer takes nothing of theirs
+        foe.hurt?.(1, { fromPlayer: false });   // AUDIT NAV2 F55: DFU writes CurrentHealth and raises no attack (no HandleAttackFromSource) - as the player's blow the drain woke the area (a prize's yielded men) and turned a drained ally on the wearer
         entity.health = Math.min(entity.maxHealth, entity.health + 1);
       }
     },

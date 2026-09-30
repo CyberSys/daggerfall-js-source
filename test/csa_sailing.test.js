@@ -13,7 +13,9 @@ import {
   createComeSailAwayRuntime, NO_WATER_LEVEL, ACTIVATION_DISTANCE, ACTIVATIONS, activationModelOf, BOAT_ACTIONS, HANDLING,
   OAR_FATIGUE, CARGO_WEIGHTS, TEMPORARY_SHIP_SCENES, TIME_SCALES, vNormalized, vEquals, vProjectOnPlane, vMoveTowards,
   mathfMoveTowards, mathfClamp, yawOfForward, PASSENGERS_ABOARD_TEXT, NICE_BOAT_TEXT, boardPlaceOf, carriedPoint, yawDelta,
+  IRONS_TELL_DEG, IRONS_TELL_WAY, IRONS_TELL_S, IRONS_TEXT,
 } from '../src/systems/comeSailAway.js';
+import { animatorOf } from '../src/systems/comeSailAwayBoat.js';
 import { quatRotate, quatAngleAxis } from '../src/world/quat.js';
 
 const DIR = new URL('../vendor/come-sail-away/Models/', import.meta.url);
@@ -473,6 +475,7 @@ test('CSA-D: the lantern key toggles the boat\'s lights at the helm; the helm ke
     disembark: 'BoatDisembark', toggleLight: 'BoatToggleLight',
     toggleSail: 'BoatToggleSail', trimRight: 'BoatTrimRight', trimLeft: 'BoatTrimLeft', trimModifier: 'BoatTrimModifier',   // CSA-E's four
     timeScaleUp: 'BoatTimeScaleUp', timeScaleDown: 'BoatTimeScaleDown', timeScaleReset: 'BoatTimeScaleReset',   // CSA-G's three
+    sailUp: 'BoatSailUp', sailDown: 'BoatSailDown',   // HELM-KEYS' two (the port's)
   });
 });
 
@@ -830,4 +833,88 @@ test('CSA-K: the laws another player\'s boat shares with mine, one export each -
   const turned = [0, 0, -1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 10, 0, 5, 1];   // a quarter turn about up, moved five along z
   closeV(carriedPoint(before, turned, [12, 1, 0]), [10, 1, 3], 1e-9, 'two metres off the root, carried round with it');
   assert.equal(yawDelta(before, turned), 90);
+});
+
+// ── HELM-KEYS (2026-09-29, the player: "Arrow keys should not only control your ship, but also setting and raising your
+// sails. I also want to find a way to make the ship controls more intuitive") ─────────────────────────────────────────
+
+const stowed = (sail) => animatorOf(sail).GetBool('Stowed');
+
+test('HELM-KEYS more and less sail (the port\'s, DECLARED): with the assist\'s square sails the arrows\' two steps are the mod\'s own raise and lower - a step with nowhere to go says so, a sailless boat says what the mod says; nothing moves the rudder (mutants: more sail lowering, less sail raising, the refusals unsaid)', () => {
+  const s = scene();
+  const boat = s.place(4, 0);
+  s.rt.StartSailing(boat);
+  s.out.hud.length = 0;
+  s.frame({ press: [BOAT_ACTIONS.sailUp] });
+  assert.equal(s.rt.state.sailPosition, 1, 'up: made sail');
+  assert.ok(s.out.hud.includes('Sail raised!'), 'the mod\'s own word');
+  s.frame({ press: [BOAT_ACTIONS.sailUp] });
+  assert.equal(s.out.hud.at(-1), 'All sail is set.', 'up again: nowhere to go');
+  s.frame({ press: [BOAT_ACTIONS.sailDown] });
+  assert.equal(s.rt.state.sailPosition, 0, 'down: struck');
+  assert.ok(boat.Sails.every(stowed), 'every sail stowed');
+  s.frame({ press: [BOAT_ACTIONS.sailDown] });
+  assert.equal(s.out.hud.at(-1), 'The sails are stowed.');
+  const row = scene();
+  const rowboat = row.place(0, 0);
+  row.rt.StartSailing(rowboat);
+  row.frame({ press: [BOAT_ACTIONS.sailUp] });
+  assert.equal(row.out.hud.at(-1), 'Boat does not have any sail.', 'the mod\'s own refusal');
+  assert.equal(row.rt.state.sailPosition, 0);
+});
+
+test('HELM-KEYS more and less sail step through the square sails where they are the player\'s (the assist\'s AutoStowSquareSails off, a hull with both kinds): all her canvas, then the fore-and-aft alone, then none - and back up the same way; the panel knows when more can be made (mutants: the square step skipped, the order reversed)', () => {
+  const s = scene({ settings: { 'SailingAssist.AutoStowSquareSails': false } });
+  const boat = s.place(4, 0);
+  assert.ok(boat.SailsSquare.length > 0 && (boat.SailsLateen.length > 0 || boat.SailsGaff.length > 0), 'the Carrack carries both kinds');
+  s.rt.StartSailing(boat);
+  assert.equal(s.rt.helmPanelState().moreSail, true, 'stowed: more can be made');
+  s.frame({ press: [BOAT_ACTIONS.sailUp] });
+  assert.ok(boat.Sails.every((x) => !stowed(x)), 'all her canvas');
+  assert.equal(s.rt.helmPanelState().moreSail, false, 'all set');
+  s.frame({ press: [BOAT_ACTIONS.sailDown] });
+  assert.equal(s.rt.state.sailPosition, 1, 'still under sail');
+  assert.ok(boat.SailsSquare.every(stowed), 'the square sails taken in first');
+  assert.ok(boat.Sails.filter((x) => !boat.SailsSquare.includes(x)).every((x) => !stowed(x)), 'the fore-and-aft standing');
+  assert.equal(s.rt.helmPanelState().moreSail, true, 'the square sails can be made again');
+  s.frame({ press: [BOAT_ACTIONS.sailUp] });
+  assert.ok(boat.SailsSquare.every((x) => !stowed(x)), 'up: the square sails again');
+  s.frame({ press: [BOAT_ACTIONS.sailDown] });
+  s.frame({ press: [BOAT_ACTIONS.sailDown] });
+  assert.equal(s.rt.state.sailPosition, 0, 'two steps down: none');
+  assert.ok(boat.Sails.every(stowed));
+});
+
+test('HELM-KEYS in irons: her sails up, her bow within IRONS_TELL_DEG of the wind\'s eye and her way under IRONS_TELL_WAY for IRONS_TELL_S running - the helm is told once how she comes out, again only after she has been out of them; the panel says it while it lasts; a sail just raised is not lying in irons (mutants: told every frame, told at once, the wind\'s sense reversed, the way unread)', () => {
+  // PIN MOVED (AUDIT NAV2 F15): under the mod's own default waves, the sea's current never forced away - it rides in her
+  // velocity (half the wind), and her way through the water is what is read
+  const s = scene({ settings: { 'Waves.Enable': true } });
+  const boat = s.place(4, 0);
+  s.rt.StartSailing(boat);
+  const ahead = [0, 0, -1];   // blowing TO her stern: from dead ahead (the bow is +z)
+  const lie = (seconds) => { for (let t = 0; t < seconds; t += 0.25) { s.rt.state.windVectorCurrent = ahead; s.frame(); } };
+  const told = () => s.out.hud.filter((t) => t === IRONS_TEXT).length;
+  s.rt.state.windVectorCurrent = ahead;
+  s.frame({ press: [BOAT_ACTIONS.sailUp] });
+  assert.equal(s.out.hud.at(-1), 'Sail raised!', 'a sail just raised into the wind: not yet in irons');
+  assert.equal(s.rt.helmPanelState().inIrons, false);
+  lie(IRONS_TELL_S - 0.5);
+  assert.equal(told(), 0, 'under the dwell: nothing said');
+  lie(0.75);
+  assert.equal(told(), 1, 'told once');
+  assert.equal(s.rt.helmPanelState().inIrons, true);
+  assert.ok(Math.hypot(...s.rt.state.velocityCurrent) >= IRONS_TELL_WAY, 'the current over the tell\'s way: not what is read');
+  s.rt.state.MoveVectorCurrent = [0, 0, IRONS_TELL_WAY + 0.5];
+  assert.equal(s.rt.helmPanelState().inIrons, false, 'with way on she answers her helm - not in irons');
+  s.rt.state.MoveVectorCurrent = [0, 0, 0];
+  lie(3);
+  assert.equal(told(), 1, 'not again while she lies there');
+  s.rt.state.windVectorCurrent = [1, 0, 0];   // the wind on her beam: out of irons
+  s.frame();
+  assert.equal(s.rt.helmPanelState().inIrons, false);
+  lie(IRONS_TELL_S + 0.25);
+  assert.equal(told(), 2, 'into irons again: told again');
+  s.frame({ press: [BOAT_ACTIONS.sailDown] });
+  assert.equal(s.rt.helmPanelState().inIrons, false, 'sail struck: no longer in irons - she rows');
+  assert.ok(IRONS_TELL_DEG > 0 && IRONS_TELL_DEG < 90 && IRONS_TELL_WAY > 0 && IRONS_TELL_S > 0);
 });

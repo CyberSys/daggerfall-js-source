@@ -11,8 +11,8 @@
   {
     "name": "NAV-C-the-crown-not-asked",
     "file": "src/systems/naval/navalAI.js",
-    "old": "    if (f === 'navy') return provokedBy || (contact.notoriety ?? notoriety)(ship.names?.crown ?? null) >= NAVY_HUNTS;",
-    "new": "    if (f === 'navy') return provokedBy || (contact.notoriety ?? notoriety)(null) >= NAVY_HUNTS;",
+    "old": "    if (f === 'navy') return (contact.notoriety ?? notoriety)(ship.names?.crown ?? null) >= NAVY_HUNTS;",
+    "new": "    if (f === 'navy') return (contact.notoriety ?? notoriety)(null) >= NAVY_HUNTS;",
     "tests": [
       "test/nav_c_ships.test.js"
     ]
@@ -20,8 +20,8 @@
   {
     "name": "NAV-C-the-memory-forever",
     "file": "src/systems/naval/navalAI.js",
-    "old": "  const provokedBy = (ship.provoked.get(contact.id) ?? -Infinity) > now - PROVOKED_S;",
-    "new": "  const provokedBy = ship.provoked.has(contact.id);",
+    "old": "  if ((ship.provoked.get(contact.id) ?? -Infinity) > now - PROVOKED_S) return true;",
+    "new": "  if (ship.provoked.has(contact.id)) return true;",
     "tests": [
       "test/nav_c_ships.test.js"
     ]
@@ -83,8 +83,8 @@
   {
     "name": "NAV-C-the-grapple-range-ignored",
     "file": "src/systems/naval/navalAI.js",
-    "old": ": enemyD <= GRAPPLE_RANGE;\n    if (close) out.grapple = enemy.id;",
-    "new": ": true;\n    if (close) out.grapple = enemy.id;",
+    "old": ": bearingTo(ship, q.pos).dist <= GRAPPLE_RANGE;\n    if (close) out.grapple = q.id;",
+    "new": ": true;\n    if (close) out.grapple = q.id;",
     "tests": [
       "test/nav_c_ships.test.js"
     ]

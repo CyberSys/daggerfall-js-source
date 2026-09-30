@@ -402,6 +402,16 @@ its own is up. world.js alone stands it - exterior.js lives inside the
 town rect and would never roll. Wildlife meat is SURV2's corpse law:
 the beast that hunted you carries it when it falls.
 
+**SEA-HUNT (2026-09-29, Mac: "hunting notifications appear when sailing").** The roll asked the player outdoors and
+not swimming - the whole of "on land" before Come Sail Away put a deck under them - and the climate could not say it
+either: the coast's first two sea pixels read as the land's (`terrainHelper.js dilateCoastalClimate`), and every port
+is on a coast. So a helm, a deck and a sea ship's boarding all rolled the hunt, with a box of tracks mid-voyage.
+`huntRoll` takes `afloat` now and rolls nothing (and spends no cooldown) while it holds (DECLARED, the Port-Ledger's
+SEA-HUNT row). The host has one predicate for it, `world.js playerAfloat`: at a helm, on a boat's deck (its "I'm On A
+Boat"), aboard another player's boat, on a sea ship's deck (`naval.aboard()`), or swimming. The same predicate now
+gates a bounty's trail lines and pack (`canStand`) and ends a wilderness band's chase (which had missed a sea ship's
+deck). Pins: `test/deckfield.test.js` (SEA-HUNT).
+
 ### The feed (SURV7)
 
 Every host owes the minute law the same question - where does the
@@ -1299,8 +1309,8 @@ characters regardless of mode should start with supplies"* - had been read
 as every tier, Off's included, and shipped that way (SURV-KIT, `23ee51b8`).
 It is reverted whole (`4dffc8ef`), but for six line cites in the kit's
 fallback seam that had rotted before it and named moved lines (`equip.js`'s
-`startingGear.js:70`, `chargenSession.js:225` and `world.js:4932`, `startingGear.js`'s
-`equip.js:325` and `world.js:4932`, `exterior.js`'s `equip.js:324`): each
+`startingGear.js:70`, `chargenSession.js:225` and `world.js:4937`, `startingGear.js`'s
+`equip.js:325` and `world.js:4937`, `exterior.js`'s `equip.js:324`): each
 names its line again. Casual and Hard characters set out with the kit on
 every creation path there is - the wizard and `?class=` in each of the three
 hosts, and online, where the tier is the player's own - and Off's bag is

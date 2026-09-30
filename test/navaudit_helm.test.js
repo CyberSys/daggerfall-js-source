@@ -12,7 +12,7 @@ import { HULL, batteryOf, hullBuild } from '../src/systems/naval/navalShips.js';
 import { SHIP_STATES, BRACE_TAKEN, BARE_POLES, WRECKED_OARS, STRUCK_AT } from '../src/systems/naval/navalDamage.js';
 import { BOARD_RANGE, BOARD_SPEED } from '../src/systems/naval/navalBoarding.js';
 import { NAVAL_DEG, shotPosition, segmentBoxEntry } from '../src/systems/naval/navalBallistics.js';
-import { hullBoxOf, rigBoxesOf, AIM_CAM_OUT, AIM_CAM_UP, AIM_CAM_AFT, AIM_CAM_TAU, AIM_CAM_CLEAR, RAM_REACH, RAM_MEMORY_S, RAM_DAMAGE, RAM_RECOIL, BOW_RECOIL, GALLEY_RAM, RAM_SPEED, RAM_COOLDOWN_S, HEAVE_TO_ACCEL, HEAVE_TO_S, COMPASS_SHIP_RANGE, PLAYER_SKILL, PLAYER_SKILL_THIN } from '../src/scenes/navalHost.js';
+import { hullBoxOf, rigBoxesOf, AIM_CAM_OUT, AIM_CAM_UP, AIM_CAM_AFT, AIM_CAM_TAU, AIM_CAM_CLEAR, RAM_REACH, RAM_MEMORY_S, RAM_DAMAGE, RAM_RECOIL, BOW_RECOIL, GALLEY_RAM, RAM_SPEED, RAM_COOLDOWN_S, HEAVE_TO_DECEL, HEAVE_TO_S, COMPASS_SHIP_RANGE, PLAYER_SKILL, PLAYER_SKILL_THIN } from '../src/scenes/navalHost.js';
 import { drawShipCompassMarks, SHIP_MARK_COLORS, compassMarkerLerp, DETECT_MARKER_W, DETECT_MARKER_H } from '../src/ui/hud.js';
 import { navalHudText, drawNavalHud, destroyNavalHud, navalTouchBrace, NAVAL_BRACE_H, NAVAL_HUD_CSS } from '../src/ui/navalHud.js';
 import { NavalRenderer, NAVAL_STRIDE, aimTone, AIM_TONES, AIM_POST_HALF_W, AIM_POST_HALF_H, AIM_STRIKE_HALF, flatAcross } from '../src/render/navalRender.js';
@@ -776,7 +776,7 @@ function struckAbeam(h) {
   return at;
 }
 
-test('AUDIT NAV1 H16 heave to: a struck ship in reach with the helm too fast to board - the card and the hint say so, and Activate strikes the sails and takes her way off at HEAVE_TO_ACCEL (Come Sail Away\'s `accelScale`), nothing driving her on, until she is under BOARD_SPEED - then the grapples are the key\'s; HEAVE_TO_S at most, and never for a ship no longer struck (mutants: the refusal silent, the brake unwired, the sails left set, the heave-to held past its end)', async () => {
+test('AUDIT NAV1 H16 heave to: a struck ship in reach with the helm too fast to board - the card and the hint say so, and Activate strikes the sails and takes her way off at HEAVE_TO_DECEL (Come Sail Away\'s `brake`, m/s^2 - HELM-WAY: its own number, never a multiple of a rate the Ship handling moves), nothing driving her on, until she is under BOARD_SPEED - then the grapples are the key\'s; HEAVE_TO_S at most, and never for a ship no longer struck (mutants: the refusal silent, the brake unwired, the sails left set, the heave-to held past its end)', async () => {
   const h = await helm();
   const at = struckAbeam(h);
   const name = h.e.ship.names.name;
@@ -791,12 +791,12 @@ test('AUDIT NAV1 H16 heave to: a struck ship in reach with the helm too fast to 
   let t = navalHudText({ ...m, target: { ...m.target, name, state: 'struck' } }, keys);
   assert.equal(t.plate.hint, `E: heave to beside ${name}`);
   assert.equal(t.card.state, 'Colours struck - E: heave to');
-  assert.equal(h.host.accelScale(), 1);
+  assert.equal(h.host.brake(), 0);
   // the press
   assert.equal(h.host.activate(), true);
   assert.equal(lowered, 1, 'the sails struck');
   assert.match(h.log.say.at(-1), /^Heave to!/);
-  assert.equal(h.host.accelScale(), HEAVE_TO_ACCEL, 'her way comes off hard');
+  assert.equal(h.host.brake(), HEAVE_TO_DECEL, 'her way comes off hard');
   assert.deepEqual([h.host.wayScale(true), h.host.wayScale(false)], [0, 0], 'nothing driving her on');
   frames(h, [[h.e, at]]);
   m = h.host.hudModel();
@@ -807,24 +807,24 @@ test('AUDIT NAV1 H16 heave to: a struck ship in reach with the helm too fast to 
   // under BOARD_SPEED: done, and the grapples are the key's
   h.runtime.state.velocityCurrent = [0, 0, BOARD_SPEED - 0.5];
   frames(h, [[h.e, at]]);
-  assert.equal(h.host.accelScale(), 1, 'heaved to');
+  assert.equal(h.host.brake(), 0, 'heaved to');
   assert.equal(h.host.hudModel().board.kind, 'board');
   // HEAVE_TO_S at most
   h.runtime.state.velocityCurrent = [0, 0, 6];
   frames(h, [[h.e, at]]);
   h.host.activate();
   frames(h, [[h.e, at]], Math.floor(HEAVE_TO_S * 10) - 2);
-  assert.equal(h.host.accelScale(), HEAVE_TO_ACCEL, 'still heaving to');
+  assert.equal(h.host.brake(), HEAVE_TO_DECEL, 'still heaving to');
   frames(h, [[h.e, at]], 4);
-  assert.equal(h.host.accelScale(), 1, 'past HEAVE_TO_S');
+  assert.equal(h.host.brake(), 0, 'past HEAVE_TO_S');
   // she is gone from the struck: the heave-to with her
   h.host.activate();
-  assert.equal(h.host.accelScale(), HEAVE_TO_ACCEL);
+  assert.equal(h.host.brake(), HEAVE_TO_DECEL);
   h.e.ship.damage.scuttle();
   frames(h, [[h.e, at]]);
-  assert.equal(h.host.accelScale(), 1, 'nothing to heave to for');
+  assert.equal(h.host.brake(), 0, 'nothing to heave to for');
   // the world hands the brake to Come Sail Away
-  assert.match(src('scenes/world.js'), /accelScale: \(\) => naval\?\.accelScale\(\) \?\? 1,/);
+  assert.match(src('scenes/world.js'), /brake: \(\) => naval\?\.brake\(\) \?\? 0,/);
 });
 
 test('AUDIT NAV1 H17 the sea\'s ships on the compass: within COMPASS_SHIP_RANGE, afloat or struck, each marked by what she is to me - hostile, a ship, struck - on the classic box a triangle turned up (never the party\'s or a Detect\'s) in SHIP_MARK_COLORS, on the enhanced strip a pooled mark; none going down, none far, none with the arc off (mutants: the range unread, the kinds merged, the marks never drawn, the triangle the party\'s)', async () => {
