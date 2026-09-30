@@ -81,7 +81,7 @@ const EMPTY_SIZE = Object.freeze({ width: 1, height: 1 });
 
 /**
  * @typedef {{buildingKey?: number, blockX?: number, blockY?: number, position?: number[],
- *            name?: string, isResidence?: boolean, questName?: string,
+ *            name?: string, isResidence?: boolean, questName?: string, questMarked?: boolean,
  *            buildingType?: number}} Summary
  * @typedef {{buildingKey?: number, displayName?: string, customUserDisplayName?: string,
  *            isOverrideName?: boolean}} Discovered
@@ -133,7 +133,7 @@ export function createTownSheet(deps = {}) {
 
   /**
    * WHICH BUILDINGS GET A NAME, and what that name is. The shipped
-   * town map's own ladder (ui/exteriorAutomapWindow.js:1064-1100),
+   * town map's own ladder (ui/exteriorAutomapWindow.js:1070-1106),
    * kept whole because it is the DISCOVERY law rather than a
    * presentation choice.
    */
@@ -149,6 +149,7 @@ export function createTownSheet(deps = {}) {
         if (!b.isResidence || rec.isOverrideName) {
           // the player's own name for it wins over the canonical one
           text = rec.customUserDisplayName || rec.displayName || b.name || '';
+          quest = !!b.questMarked;   // RES-RING: a quest's marked residence, override-named at its discovery
         } else if (b.questName) {
           // a discovered residence is named ONLY by a quest
           text = b.questName;
@@ -226,7 +227,7 @@ export function createTownSheet(deps = {}) {
     const found = discoveredBy();
     const out = [];
     for (const b of deps.buildings?.() ?? []) {
-      if (!b?.questName || !found.has(b.buildingKey)) continue;
+      if (!(b?.questName || b?.questMarked) || !found.has(b.buildingKey)) continue;   // RES-RING
       const [x, y] = nameplateAnchor(b.blockX ?? 0, b.blockY ?? 0, b.position ?? [0, 0, 0]);
       out.push({ x, y: sheetY(ensureField().h, y) });   // EM-BUG3: into sheet space, as the plates are
     }

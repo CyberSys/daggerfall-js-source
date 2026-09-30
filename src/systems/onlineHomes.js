@@ -117,6 +117,15 @@ export function homeDoorPrompt({ door, mode, price = 0, declined = false, asked 
 
 /** The door's name for a home, over the building's own. */
 export const homeDoorTitle = (home) => (home.own ? 'Your home' : `${home.owner}'s home`);
+/**
+ * FIELD BUGS 2026-09-30b (HOME-PLAQUE): "every door looks like just a house I can buy". A private house has no name
+ * (DFU's BuildingNames names none), and a nameless door drew no plaque - so HOME2's verbs, which ride the plaque, were
+ * never listed at an ordinary house, and the first click in Grab or Talk fell through to HOME-OFFER's box ("This house
+ * can be your home ... Buy it?") at every door in town. A house whose door has verbs to list is named with DFU's own
+ * word for one (Internal_Strings 50, "Residence"): its plaque stands, "Go in" lit, and the quest's residence - named
+ * "The <surname> Residence" and never for sale - reads apart from the rest.
+ */
+export const homeDoorName = (name, hasVerbs) => name || (hasVerbs ? 'Residence' : '');
 /** What a player reads at a home's door they may not open. */
 export const homeLockedLine = (home) => `This is ${home.owner}'s home. The door is locked.`;
 /** What a visitor reads at a home's cupboard. */

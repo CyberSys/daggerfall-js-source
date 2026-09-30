@@ -274,6 +274,7 @@ import {
   homeSoldLine, homeRefund, HOME_ENTRY_WORDS, HOME_BANK_LINES, buyOnlineHome, sellOnlineHome, HOME_BUY_BUSY, homeDoorPrompt,
   HOME_BUY_ARM_MS, HOME_VERB, homeBuyRows, homeOwnerRows, homeNextEntry, HOME_OFFER_BUY, HOME_OFFER_PASS,   // HOME2
   homeVisitorRows,   // HOME-RENT: a tenant's rows, and a home's with a room to rent
+  homeDoorName,   // FIELD BUGS 2026-09-30b HOME-PLAQUE: a nameless house with verbs is a Residence
 } from '../systems/onlineHomes.js';
 import { HOME_ENTRIES, homePriceOk, rentCost, rentDaysLeft } from '../net/homeLaw.js';
 // HOME-RENT: a home's rooms, rented at its door and offered, priced and collected in its owner's decorator
@@ -5522,8 +5523,11 @@ export function createWorldModes(host) {
       // its price. The town is asked for here without waiting: its answer moves `homesV`, and this door is read again.
       if (host.onlineHomes && homeCandidate(bd)) host.onlineHomes.ensure(homeTownOf(bd));
       const home = homeOf(bd);
+      // HOME-PLAQUE: the door's verbs first - a nameless house with verbs to list is named "Residence", so its plaque
+      // stands and lists them (it drew none, and the click fell through to HOME-OFFER's box at every house)
+      const houseVerbs = homeDoorVerbs(bd, home);
       _doorText = staticDoorName('building', {
-        displayName: home ? homeDoorTitle(home) : shownBuildingName(db, bd.name),   // EMPIRE-BANK: a bank's name now
+        displayName: home ? homeDoorTitle(home) : homeDoorName(shownBuildingName(db, bd.name), !!houseVerbs),   // EMPIRE-BANK: a bank's name now
         locationName: currentLocationName(),
         buildingType: bd.buildingType,
         unlocked: home ? true : resolveBuildingUnlocked(bd),
@@ -5531,7 +5535,7 @@ export function createWorldModes(host) {
       });
       // HOME2: a house I could buy, and my own home, list the door's VERBS on the plaque (onlineHomes.js homeBuyRows,
       // homeOwnerRows) - the wheel lights one, the click presses it; the price is the buy row's, not a line of its own
-      const verbs = _doorText ? homeDoorVerbs(bd, home) : null;
+      const verbs = _doorText ? houseVerbs : null;
       const homeLine = verbs ? null : home ? (homeDoorFor(bd, home) === 'locked' ? 'Locked' : null) : homeSaleHover(bd);
       if (_doorText && homeLine) _doorText = { ..._doorText, subs: [...(_doorText.subs ?? []), homeLine] };
       if (verbs) _doorText = { ..._doorText, actions: verbs };
