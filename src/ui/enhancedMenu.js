@@ -90,6 +90,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { fpArm, hasDaggerfallArrows } from '../combat/fpArm.js';
+import { dressStanding } from '../systems/clothingStanding.js';   // DRESS1 (2026-09-30, Discord): the Standing page's Dress line
 import { questRail, journalLines, questTitleOf, QUEST_URGENT_SECONDS, remainWords } from './questRail.js';
 import { entryTarget, targetWords, WHERE_TEXT } from './questLens.js';   // GUIDE2: where a quest points, and the way there   // MAC-K2: the ONE quest walk, shared with the chronicle
 import { questTracker, followOn, trackButton } from './questTracker.js';   // GUIDE4: the HUD's card - the Track toggle, and the quest the journal opens on
@@ -291,6 +292,8 @@ let questTimer = null;      // QT-LIVE1: the journal's once-a-second timer redra
 let pauseTab = 'system';    // PX3: which tab the pause window shows - System lands on Resume/Save
 let questSel = null;        // PX4: the journal's selected row - 'a:<uid>' | 'f:<index>' | null = first active
 let bountyAbandonArmed = null;   // BOUNTY1: the bounty whose Abandon was pressed once - the second press gives it up
+let journalCleanArmed = null;   // JOURNAL-CLEAN: 'f:<index>' (Remove) | 'clear' (Clear archive) pressed once - the second press acts
+let questShowHidden = false;    // JOURNAL-CLEAN: the rail's "Show hidden" - whether the hidden quests are drawn, in their own section
 let statsSec = 'character'; // PX6: the Stats page's rail - character | attributes | skills | standing
 let statsAllSkills = false; // PX6: the Miscellaneous disclosure, the sheet's own gesture
 let sysSec = 'save';        // PX7: the System page's rail - which pane fills the detail
@@ -3846,8 +3849,27 @@ function statsStanding(detail) {
     r.append(el('span', 'k', SOCIAL_GROUP_NAMES[i]), signedRep(reps[i] ?? 0));
     detail.append(r);
   }
+  statsDress(detail, playerEntity);
   statsLaw(detail, playerEntity);
   statsGuilds(detail, playerEntity);
+}
+
+/** DRESS1 (2026-09-30, Discord: "Add positive and negative reputation buffs for clothing items"): what the worn clothes
+ *  are doing right now - one light line under the groups, only when the dress moves anybody. Read live off the equip
+ *  table (dressStanding is pure), so it is right before the next magic round folds it into reactionMods. */
+export function dressLine(entity) {
+  const d = dressStanding(entity);
+  const parts = [];
+  for (let i = 0; i < SOCIAL_GROUP_NAMES.length; i++) if (d.groups[i]) parts.push(`${SOCIAL_GROUP_NAMES[i]} ${d.groups[i] > 0 ? '+' : ''}${d.groups[i]}`);
+  if (d.temple) parts.push(`Temples ${d.temple > 0 ? '+' : ''}${d.temple}`);
+  return parts.join(', ');
+}
+export function statsDress(detail, entity) {
+  const line = dressLine(entity);
+  if (!line) return;
+  const r = el('div', 'px-stat px-dress');
+  r.append(el('span', 'k', 'Dress'), el('span', 'v', line));
+  detail.append(r);
 }
 
 /** REP5: THE LAW, REGION BY REGION - every region with a standing other than a common citizen's, or a banishment. */
@@ -3940,7 +3962,8 @@ export function statsGuilds(detail, entity) {
  *  null when that quest no longer has a running clock. The words are
  *  the same the render writes; this is what the interval writes. */
 export function questTimerWords(log, key) {
-  const q = questRail(log ?? { active: [], finished: [] }).active.find((r) => r.key === key);
+  const r = questRail(log ?? { active: [], finished: [] });
+  const q = [...r.active, ...r.hidden].find((row) => row.key === key);   // JOURNAL-CLEAN: a hidden quest shown is still timed
   if (!q || q.clockSeconds == null) return null;
   return { text: `Time remains: ${remainWords(q.clockSeconds)}`, urgent: q.clockSeconds < QUEST_URGENT_SECONDS };
 }
@@ -3967,7 +3990,7 @@ function armQuestTimer(span, key) {
 }
 
 /** The finished-quest header the notebook files:
- *  '<name> completed|ended at <date>:' (notebook.js:153-184). The name
+ *  '<name> completed|ended at <date>:' (notebook.js:190-224). The name
  *  and the verdict come back out of it; a headerless overflow entry
  *  (the notebook's own kept quirk) reads as a continuation. */
 
@@ -4029,17 +4052,23 @@ function pauseQuests(body) {
   // MAC-K2: THE WALK IS ui/questRail.js's now, because the chronicle
   // needs the same one - the L key's window had no quests in it at all
   // and a second copy of this here is how the two would drift.
-  const { active, finished } = questRail(hooks.questLog() ?? { active: [], finished: [] });
-  if (!active.length && !finished.length) {
+  const { active, finished, hidden } = questRail(hooks.questLog() ?? { active: [], finished: [] });
+  // JOURNAL-CLEAN (2026-09-30, Discord: "Should there be a way to clean both finished and unfinished quests from your
+  // journal for a cleaner look?"): the host's tidy-ups (scenes/questBridge.js journalClean - remove / clear the
+  // archive, hide / unhide an active quest). A host that hands none draws no buttons rather than buttons that do
+  // nothing.
+  const clean = hooks.journalClean?.() ?? null;
+  if (!active.length && !finished.length && !hidden.length) {
     body.append(el('p', 'px-note', 'No active quests.'));
     return;
   }
-  const rows = [...active, ...finished];
+  const shown = questShowHidden ? hidden : [];
+  const rows = [...active, ...shown, ...finished];
   // GUIDE4: THE JOURNAL OPENS ON THE QUEST THE HUD SHOWS - the tracker's (the one tracked, else the one the journal
   // last changed) - and only then on the first row.
   if (!rows.some((r) => r.key === questSel)) {
     const onHud = followOn() ? questTracker.tracked()?.id : null;   // AUDIT GUIDE T2: the card's or the marks' quest
-    questSel = (onHud != null ? rows.find((r) => r.id === onHud)?.key : null) ?? rows[0].key;
+    questSel = (onHud != null ? rows.find((r) => r.id === onHud)?.key : null) ?? rows[0]?.key ?? null;   // JOURNAL-CLEAN: every quest hidden is no row
   }
   const sel = rows.find((r) => r.key === questSel);
 
@@ -4069,7 +4098,7 @@ function pauseQuests(body) {
   // The ARCHIVE is not split by kind, and that is not an oversight:
   // the notebook's filed header keeps only the display name, so the
   // questName main/side is gone by the time a quest is filed
-  // (notebook.js:153-184). Three sections is the shape the DATA has.
+  // (notebook.js:190-224). Three sections is the shape the DATA has.
   const mains = active.filter((q) => q.main);
   const sides = active.filter((q) => !q.main);
   const section = (label, items, cls, first = false) => {
@@ -4079,7 +4108,33 @@ function pauseQuests(body) {
   };
   section('Main Quests', mains, '', true);
   section('Side Quests', sides, '');
+  // JOURNAL-CLEAN: the hidden quests, drawn only when asked for, under their own heading - and the toggle that asks,
+  // which names how many are hidden so a tidied journal never looks like quests were lost.
+  if (questShowHidden && hidden.length) section('Hidden', hidden, ' done');
   section('Archived', finished, ' done');
+  const railAct = (label, onclick) => {
+    const b = el('button', 'px-qrow done', label);
+    b.style.cssText = 'font-size:12px;margin-top:6px';
+    b.onclick = onclick;
+    rail.append(b);
+  };
+  if (clean && finished.length) {
+    const armed = journalCleanArmed === 'clear';
+    railAct(armed ? 'Click again to clear archive' : `Clear archive (${finished.length})`, () => {
+      if (journalCleanArmed !== 'clear') { journalCleanArmed = 'clear'; render(); return; }
+      journalCleanArmed = null;
+      clean.clearFinished?.();
+      if (String(questSel).startsWith('f:')) questSel = null;
+      render();
+    });
+  }
+  if (hidden.length) {
+    railAct(questShowHidden ? `Hide hidden (${hidden.length})` : `Show hidden (${hidden.length})`, () => {
+      questShowHidden = !questShowHidden;
+      if (!questShowHidden && hidden.some((q) => q.key === questSel)) questSel = null;
+      render();
+    });
+  }
   wrap.append(rail);
 
   const detail = el('div', 'px-qdetail');
@@ -4132,6 +4187,36 @@ function pauseQuests(body) {
       };
       acts.append(ab);
       detail.append(acts);
+    }
+    // JOURNAL-CLEAN: an active quest HIDES from the journal (it keeps running - its clock, its HUD marks - and ends
+    // into the archive like any other), and a hidden one unhides; one press each, since either is undone by the other.
+    // An archived entry REMOVES - twice, BOUNTY1's arming, because a removed record does not come back.
+    if (clean) {
+      const acts = el('div', 'px-qacts');
+      acts.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;margin:6px 0 8px';
+      if (sel.entries && sel.id != null) {
+        const isHidden = hidden.some((q) => q.key === sel.key);
+        const hb = el('button', 'act', isHidden ? 'Unhide' : 'Hide from journal');
+        hb.onclick = () => {
+          if (isHidden) clean.unhide?.(sel.id);
+          else { clean.hide?.(sel.id); questSel = null; }
+          render();
+        };
+        acts.append(hb);
+      } else if (!sel.entries) {
+        const index = Number(String(sel.key).slice(2));
+        const armed = journalCleanArmed === sel.key;
+        const rb = el('button', 'act', armed ? 'Click again to remove' : 'Remove');
+        rb.onclick = () => {
+          if (journalCleanArmed !== sel.key) { journalCleanArmed = sel.key; render(); return; }
+          journalCleanArmed = null;
+          clean.removeFinished?.(index);
+          questSel = null;   // the indices past it moved down one: 'f:<index>' now names the next record
+          render();
+        };
+        acts.append(rb);
+      }
+      if (acts.childNodes.length) detail.append(acts);
     }
     if (sel.entries) {
       // Active: the LATEST entry is the state of the quest; the trail
@@ -4496,6 +4581,8 @@ export function mountEnhancedMenu(host, {
   else if (at && sections.some((l) => idOf(l) === at)) section = at;
   questSel = null;
   bountyAbandonArmed = null;   // AUDIT 28 B11: an armed Abandon never outlives the visit it was armed on
+  journalCleanArmed = null;   // JOURNAL-CLEAN: ...nor an armed Remove or Clear archive
+  questShowHidden = false;
   statsSec = 'character';
   resetProfPages();   // PROF1: an armed change of specialisation never outlives the visit
   statsAllSkills = false;

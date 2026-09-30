@@ -2,7 +2,7 @@
   {
     "name": "INN-WATER-no-water-row",
     "file": "src/systems/survival/tavernMenu.js",
-    "old": "  rows.push({ text: `${String(water).padStart(2)} gold   ${TAVERN_MENU_TEXT.water}`, kind: 'water', name: TAVERN_MENU_TEXT.water, price: water });\n",
+    "old": "  rows.push({ text: `${String(cost(water)).padStart(2)} gold   ${TAVERN_MENU_TEXT.water}`, kind: 'water', name: TAVERN_MENU_TEXT.water, price: cost(water) });   // ESSENTIALS-HALF: the water too\n",
     "new": "",
     "tests": [
       "test/fb0930_cc_innwater.test.js"
@@ -11,8 +11,8 @@
   {
     "name": "INN-WATER-the-shut-kitchen-hides-the-water",
     "file": "src/systems/survival/tavernMenu.js",
-    "old": "  rows.push({ text: `${String(water).padStart(2)} gold   ${TAVERN_MENU_TEXT.water}`, kind: 'water', name: TAVERN_MENU_TEXT.water, price: water });\n",
-    "new": "  if (!closed) rows.push({ text: `${String(water).padStart(2)} gold   ${TAVERN_MENU_TEXT.water}`, kind: 'water', name: TAVERN_MENU_TEXT.water, price: water });\n",
+    "old": "  rows.push({ text: `${String(cost(water)).padStart(2)} gold   ${TAVERN_MENU_TEXT.water}`, kind: 'water', name: TAVERN_MENU_TEXT.water, price: cost(water) });   // ESSENTIALS-HALF: the water too\n",
+    "new": "  if (!closed) rows.push({ text: `${String(cost(water)).padStart(2)} gold   ${TAVERN_MENU_TEXT.water}`, kind: 'water', name: TAVERN_MENU_TEXT.water, price: cost(water) });   // ESSENTIALS-HALF: the water too\n",
     "tests": [
       "test/fb0930_cc_innwater.test.js"
     ]

@@ -1022,3 +1022,31 @@ export function registerAutomapConsoleCommands() {
     console.error(`Error Registering Automap Console commands: ${ex?.message ?? ex}`);
   }
 }
+
+// ---- PARTY-MAP (2026-09-30, Discord: "share map data between party members, possibly with a spell effect so that
+// maintaining some kind of buff for it becomes part of the dungeoneering loop"): SHARED CARTOGRAPHY's two automap
+// halves. The port's own - DFU has no party and no shared map. The SENDER reads its live record's visitedThisRun (the
+// rows its OWN scan revealed this run - never the rows a mate sent it, so a share is never echoed back);
+// systems/partyMap.js batches them. The RECEIVER marks a mate's rows REVEALED and nothing else: not visitedThisRun (so
+// they draw in DFU's grayscale, known but not visited) and not the walked trail (EM3-3D: the solid sheet inks where I
+// stood, not where a mate did).
+
+/** The dungeon the player stands in, by its automap key - null outside (or in a building). */
+export const liveDungeonAutomapKey = () => (_inside ? _liveKey : null);
+
+/** A party mate's revealed rows for dungeon `key`, merged into MY record - only when I stand in that same dungeon,
+ *  and only rows the live level's model holds (a key from another layout is dropped). Answers how many were new. */
+export function mergePartyAutomap(key, rows) {
+  if (!_inside || key == null || key !== _liveKey || !Array.isArray(rows)) return 0;
+  const rec = _dungeons.get(key);
+  if (!rec) return 0;
+  const byKey = _live && _live.rec === rec ? _live.model?.byKey ?? null : null;
+  let added = 0;
+  for (const k of rows) {
+    if (typeof k !== 'string' || rec.revealed.has(k)) continue;
+    if (byKey && !byKey.has(k)) continue;
+    rec.revealed.add(k);
+    added++;
+  }
+  return added;
+}

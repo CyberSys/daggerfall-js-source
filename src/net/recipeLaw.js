@@ -79,6 +79,9 @@ const TOOL_TIER = Object.freeze({ spade: 2 });
 export const KIT_PRODUCT = product('kit', 'Repair Kit', 'kit', 692, 1, [[LEATHER, 1]]);
 export const REPAIR_KIT_TEMPLATE = 692;
 /** What a kit gives back (PROF0 9.3): a quarter of an item's condition, once. */
+/** REPAIR-EASE (2026-09-30, Mac: "Add repair items you can find by looting"): a FIELD Repair Kit - found in dungeon
+ *  piles and on foes that carry loot, never crafted - mends any metal's weapon or armour, by less than a smith's kit. */
+export const FIELD_KIT_REPAIR = 0.15;
 export const KIT_REPAIR = 0.25;
 
 /** The metals a recipe is made in: every ingot but the Daedric's and the Warforged's for the tools (Iron alone). */
@@ -318,6 +321,7 @@ export const markedName = (maker, name) => `${maker}'s ${name}`;
 /** The lines a crafted piece's tooltip and card carry above its powers (PROF0 9.2): its quality and its maker - or a
  *  Repair Kit's work. Nothing for a piece no anvil or workbench made. */
 export function pieceLines(item) {
+  if (item?.fieldKit === true) return [`Mends ${Math.round(FIELD_KIT_REPAIR * 100)}% of a weapon's or armour's condition, once`];   // REPAIR-EASE: a looted kit has no provenance
   if (!item || typeof item.provenance !== 'string' || !PROVENANCE_RE.test(item.provenance)) return [];
   if (Number.isInteger(item.kitMetal)) return [`Mends a quarter of a ${METAL_WORDS[item.kitMetal] ?? ''} piece's condition, once`];
   const out = [];
