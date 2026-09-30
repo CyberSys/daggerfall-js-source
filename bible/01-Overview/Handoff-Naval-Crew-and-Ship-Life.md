@@ -54,6 +54,12 @@ survtiers3 records, re-aimed and dead. The suite line was recounted. The
 full suite: 16090 tests, 15828 pass, and the one failure was those two
 records.
 
+Main moved again while slice D landed: #463 (FB0930-FOE-RAYS) and #459
+(MW-BRIG3, WERE-FRIGHT and its audit). Merge `4ed3f598b` brought them in
+the same way. 52 of its 53 conflicted files were citations only, and
+`Active-Arcs.md` keeps both sides' entries. citeMerge moved 125 cites and
+CD4 named six. The full suite: 16131 tests, 15870 pass, 0 fail.
+
 The page as first written:
 
 When this page was written, `main` (`066fe8a5c`) was 31 commits ahead of
