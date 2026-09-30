@@ -23,6 +23,9 @@
 
 import { OGHMA_BONUS_POOL } from './artifactEffects.js';   // V3: the sheet's oghmaBonusPool (:44)
 import { SKILLS, setSkillRecentlyIncreased, levelUpSkillSum } from './skills.js';
+// SOFTCAP1: skills past 100 - the cost ladder and the milestones (a leaf)
+import { SKILL_SOFT_CAP, SKILL_HARD_CAP, softcapCostMultiplier, milestoneAt } from './skillSoftcap.js';
+import { masterSkillsActive, skillCanPassCap } from './masterSkills.js';   // SOFTCAP3: the climb past 100 and the lifted 95 lock are Master Skills'
 import { hitPointsPerLevelUp, spendPoolLowest } from './chargen.js';
 // ORL1: the ONE question this file asks the vendored mod - whose law
 // levels this character. Everything DFU below is untouched by the
@@ -76,7 +79,16 @@ export const calculatePlayerLevel = (startingSum, currentSum) =>
 export { levelUpSkillSum };
 
 export function alreadyMasteredASkill(entity) {
-  return entity.career.primarySkills.some((id) => entity.skills[id] === 100);
+  // SOFTCAP1: `>=` - a primary climbed past 100 is still mastered (DFU's
+  // `== 100` was the same test when 100 was the ceiling)
+  return entity.career.primarySkills.some((id) => entity.skills[id] >= SKILL_SOFT_CAP);
+}
+
+/** SOFTCAP1: the uses a raise FROM `skillValue` needs - DFU's number,
+ *  times the softcap's ladder (4x / 8x / 16x past 100). May exceed the
+ *  20000 tally clamp; raiseSkills spends such a cost as progress. */
+export function softcapUsesForAdvancement(skillValue, skillMult, careerAdvMult, level) {
+  return skillUsesForAdvancement(skillValue, skillMult, careerAdvMult, level) * softcapCostMultiplier(skillValue);
 }
 
 // ── skillsRecentlyRaised ──────────────────────────────────────────
@@ -94,9 +106,9 @@ export { getSkillRecentlyIncreased as skillRecentlyIncreased, setSkillRecentlyIn
  * NOT A GAP (closeout): `onLevelUp` IS DFU's char-sheet route.
  * RaiseSkills' tail is `if (CheckForLevelUp()) DaggerfallUI.PostMessage(
  * dfuiOpenCharacterSheetWindow)` (PlayerEntity.cs:1413-1414), and every
- * live host supplies that message as the hook - world.js:4550/:8619,
- * exterior.js:1135/:2063, worldModes.js:557/:9546,
- * dungeonContext.js:2063. The immediate arm below is taken only when
+ * live host supplies that message as the hook - world.js:4560/:8650,
+ * exterior.js:1138/:2059, worldModes.js:557/:9550,
+ * dungeonContext.js:2079. The immediate arm below is taken only when
  * onLevelUp is null: a headless/test path (and the ?class= skip) that
  * DFU has no counterpart for, so there is nothing to diverge from.
  *
@@ -110,7 +122,7 @@ export { getSkillRecentlyIncreased as skillRecentlyIncreased, setSkillRecentlyIn
  * reason `onMastery` does: to give the host DFU's moment rather than
  * a batch after the fact.
  */
-export function raiseSkills(entity, classicTimeMinutes, rolls = Math.random, onLevelUp = null, onMastery = null, onRaise = null) {
+export function raiseSkills(entity, classicTimeMinutes, rolls = Math.random, onLevelUp = null, onMastery = null, onRaise = null, onMilestone = null) {
   if (!entity.chargenDone) return [];
   if ((classicTimeMinutes - (entity.lastSkillCheckTime ?? 0)) <= SKILL_RAISE_CHECK_INTERVAL) return [];
   entity.lastSkillCheckTime = classicTimeMinutes;
@@ -128,11 +140,33 @@ export function raiseSkills(entity, classicTimeMinutes, rolls = Math.random, onL
       entity.skills[i], SKILL_ADVANCEMENT_MULTIPLIER[i], entity.career.advancementMultiplier, entity.level);
     const reflexesMod = 0x10000 - ((entity.reflexes - 2) << 13);
     const calcUses = (entity.skillUses[i] * reflexesMod) >> 16;
+    // SOFTCAP1: PAST 100 the ladder's cost can exceed the 20000 tally clamp
+    // that keeps DFU's shift inside int32, so a raise there is bought as
+    // PROGRESS: each pass banks calcUses / (needed * ladder) of a point on
+    // entity.skillProgress and the point lands when it reaches 1 (one point
+    // a pass, the carry capped below 1, as DFU raises one a pass).
+    const master = masterSkillsActive(entity);
+    if (entity.skills[i] >= SKILL_SOFT_CAP && skillCanPassCap(entity, i)) {   // SOFTCAP4: a MASTERED skill only (2/2/1)
+      if (entity.skills[i] >= SKILL_HARD_CAP || calcUses <= 0) continue;
+      const prog = (entity.skillProgress ??= new Array(entity.skillUses.length).fill(0));
+      prog[i] = (prog[i] ?? 0) + calcUses / (needed * softcapCostMultiplier(entity.skills[i]));
+      entity.skillUses[i] = 0;
+      if (prog[i] < 1) continue;
+      prog[i] = Math.min(0.99, prog[i] - 1);
+      entity.skills[i] += 1;
+      setSkillRecentlyIncreased(entity, i);
+      raised.push(i);
+      onRaise?.(i);
+      const ms = milestoneAt(entity.skills[i]);
+      if (ms) onMilestone?.(i, ms);
+      continue;
+    }
     if (calcUses < needed) continue;
     entity.skillUses[i] = 0;
     // AlreadyMasteredASkill re-evaluated PER RAISE (audit F7): a
     // primary hitting 100 mid-pass blocks later 95+ raises, verbatim.
-    if (entity.skills[i] < 100 && (entity.skills[i] < 95 || !alreadyMasteredASkill(entity))) {
+    // SOFTCAP3: Master Skills lifts DFU's 95 lock - every skill may reach 100 (and, above, the climb goes on)
+    if (entity.skills[i] < 100 && (entity.skills[i] < 95 || master || !alreadyMasteredASkill(entity))) {
       // ORL1: the mod's own skill-level-up handler (player.lua:29-51),
       // in the mod's own position - BEFORE the raise lands, because
       // OpenMW calls it with the value the skill is leaving and the

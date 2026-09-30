@@ -112,7 +112,7 @@ import { sharedClassicMinutes } from '../net/wire.js';   // AUDIT LIVED1 G: the 
 import {
   realmIo, realmList, realmCustoms, realmPut, realmDelete, realmUndo, realmFetch, realmRowAsSave, realmSummaryOf, realmRefusalText, takeRealmNotice,
 } from '../systems/realmSaves.js';   // REALM P1.3: the Online door lists the realm's characters, the service's
-import { applyCustoms, customsLines } from '../systems/realmCustoms.js';   // REALM P1.5: an offline character comes in once, through customs
+import { applyCustoms, customsLines, crossLeveling, LEVELING_CROSS_LINE } from '../systems/realmCustoms.js';   // REALM P1.5: an offline character comes in once, through customs
 import { mintCharacterId } from '../systems/characterId.js';   // REALM P1.4: a copy to offline is a new offline character
 import { exportSavesZip, collectSlots, importSlots, entriesFromFiles, slotPathOf, TRANSFER_ZIP_NAME } from '../systems/saveTransfer.js';   // SP1: saves move between the website and the app
 import { appStorage } from '../systems/appStorage.js';   // SP1: the store under this build - the browser's on the site, the file store in the app   // SAV4: the slot store; SLOTS1: every slot
@@ -131,7 +131,7 @@ import { dateFromClassicMinutes, dateString, dateTimeString } from '../systems/g
 // PX5: the pause clock reads THE ONE CLOCK directly (AUDIT 23 C2's
 // law - every host already reads this same module), so no host seam
 // is needed and no host can drift.
-import { worldMinutes } from '../systems/worldTick.js';
+import { worldMinutes, trustedWorldMinutes } from '../systems/worldTick.js';
 import { BUILD_TAG } from '../buildTag.js';
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { repaintKeepingScroll } from './domRepaint.js';
@@ -142,7 +142,11 @@ import { drawPixelGround } from './pixelGround.js';
 // renders the tab, so the front door still reads no game state.
 import { sheetModel } from './enhancedCharSheet.js';
 import { profPagesShown, PROF_PAGE_SECTIONS, drawProfessionsPage, drawStoresPage, resetProfPages } from './profPages.js';   // PROF1: the Professions and Stores pages, online
-import { affiliations } from '../systems/affiliations.js';   // GUILD-REP: the sheet's Affiliations box, on the Standing page
+import { affiliations } from '../systems/affiliations.js';
+import { legalRepOf } from '../systems/court.js';   // REP5: the law, region by region
+import { banishmentLeft, KNOWN_CRIMINAL_BELOW, pardonPrice, challengeFine } from '../systems/standing.js';
+import { legalStandingWord } from '../systems/legalBands.js';
+import { REGION_NAMES } from '../formats/mapsTables.js';   // GUILD-REP: the sheet's Affiliations box, on the Standing page
 import { enhancedHudScale as hudScaleNow, HUD_SCALE_MIN, HUD_SCALE_MAX } from './enhancedHud.js';   // PX30c
 import { playerEntity } from '../characters/playerEntity.js';
 // PX6: the Stats page's skill labels - the one home (systems/skills.js).
@@ -1119,7 +1123,9 @@ function realmAct(run, words) {
 function bringOnline(save) {
   const snap = realmIoNow() ? loadSlot(save.key) : null;
   if (!snap || typeof snap.characterId !== 'string' || !snap.characterId || snap.testRoom === true) return customsNow(save);
-  const preview = customsLines(applyCustoms(JSON.parse(JSON.stringify(snap))), { before: true });
+  const trial = JSON.parse(JSON.stringify(snap));
+  const leveling = crossLeveling(trial);   // LEVEL-ONLINE: a Daggerfall-levelling character comes in on Oblivion's bar - said first
+  const preview = [...(leveling ? [LEVELING_CROSS_LINE.before] : []), ...customsLines(applyCustoms(trial), { before: true })];
   return ask(`Bring ${save.name} online?`, preview.join(' '), 'Bring online', () => { customsNow(save); });
 }
 /** REALM P1.5: CUSTOMS - the local save read, customs applied to a COPY (the offline character is untouched), the realm
@@ -1133,12 +1139,13 @@ function customsNow(save) {
     if (typeof snap.characterId !== 'string' || !snap.characterId) return { ok: false, error: 'customs-load-once' };
     if (snap.testRoom === true) return { ok: false, error: 'test-room' };   // AUDIT SET D4's law: the room's characters play offline
     const copy = onlineCopyOf(snap, sharedClassicMinutes(Date.now()));   // AUDIT LIVED1 G: the world's stamps onto the shared clock, and the world's minute it joins at
+    const leveling = crossLeveling(copy);   // LEVEL-ONLINE: a new online character levels the Oblivion way (the offline one keeps its own)
     const report = applyCustoms(copy);
     const made = await realmCustoms(io, snap.characterId, copy.name || save.name, realmSummaryOf(copy));
     if (!made.ok) return made;
     copy.characterId = made.data.id;
     const put = await realmPut(io, made.data.id, { lease: made.data.lease, seq: 1, summary: realmSummaryOf(copy) }, JSON.stringify(copy));
-    return put.ok ? { ok: true, lines: customsLines(report) } : put;
+    return put.ok ? { ok: true, lines: [...(leveling ? [LEVELING_CROSS_LINE.after] : []), ...customsLines(report)] } : put;
   }, (r) => [...r.lines, `${save.name} is in the realm now. Play them from above.`]);
 }
 /** REALM P1.4: COPY TO OFFLINE - the realm's save read and written as a NEW offline character (a new id), a slot like
@@ -3493,6 +3500,22 @@ function pxMeter(now, max, tone) {
   return wrap;
 }
 
+/** SOFTCAP1: a skill's meter - the classic 0..100 bar, and under it (only once
+ *  the skill has passed 100) a gold bar for the 100..200 climb, ticked at the
+ *  125/150/175 milestones. */
+function skillMeter(v, mastered = false) {
+  const wrap = pxMeter(Math.min(v, 100), 100, 'thin');
+  if (!mastered) return wrap;   // SOFTCAP7: the gold bar is a MASTERY's - a curse's or a Fortify's +30 never draws it
+  const box = el('div', 'px-skillmeter');
+  const over = el('div', 'px-meter px-over');
+  const fill = el('div', 'px-fill px-overfill');
+  fill.style.width = `${Math.max(0, Math.min(100, v - 100))}%`;
+  over.append(fill);
+  for (const at of [25, 50, 75]) { const t = el('div', 'px-tick'); t.style.left = `${at}%`; over.append(t); }
+  box.append(wrap, over);
+  return box;
+}
+
 function meterRow(label, now, max, tone) {
   const r = el('div', 'px-mrow');
   const top = el('div', 'px-mtop');
@@ -3524,7 +3547,7 @@ function pauseStats(body) {
   const detail = el('div', 'px-qdetail px-sys');   // DROPS-AUDIT F3: the system-page dress (Plus's; PLUS-DEAD: the only one)
   const profKit = { el, divider: pxDivider, meter: pxMeter };
   ({
-    character: statsCharacter, attributes: statsAttributes, skills: statsSkills, specials: statsSpecials, standing: statsStanding, effects: statsEffects,
+    character: statsCharacter, attributes: statsAttributes, skills: statsSkills, specials: statsSpecials, standing: statsStanding, effects: statsEffects, master: statsMaster,   // SOFTCAP4: `master` - the Master Skills door's page
     professions: (d) => drawProfessionsPage(d, render, profKit), stores: (d) => drawStoresPage(d, render, profKit),
   })[statsSec](detail, m);
   // PX25: THE DOORS THE F5 SHEET CARRIED. The classic character sheet
@@ -3534,7 +3557,7 @@ function pauseStats(body) {
   // it was simply the only one of the two with no way out. Each door
   // appears ONLY when the host handed one over, because a button that
   // opens nothing is PX14's drawn door.
-  const doors = [
+  const doors = statsSec === 'master' ? [] : [   // SOFTCAP6: the Master Skills page carries none of the sheet's doors
     ['Pack', hooks.openPack], ['Spellbook', hooks.openSpellbook], ['Chronicle', hooks.openChronicle],
   ].filter(([, fn]) => typeof fn === 'function');
   if (doors.length) {
@@ -3564,11 +3587,23 @@ function pauseStats(body) {
   // Drawn only when a door handed the hook over, exactly as the three
   // above are: ui/charSheetDoor.js's page always could (it owns the
   // entity), and ui/pauseDoor.js's could not until it was taught to.
-  if (typeof hooks.openAscend === 'function') {
+  // SOFTCAP4: THE MASTER SKILLS DOOR, beside Ascend (Mac, in game: "add a button to it like ASCEND and there it should
+  // be described and chosen"). Unlike Ascend it opens a page of THIS window (statsSec 'master'), so it neither
+  // resumes nor hands off; the page's own button comes back to Skills. A count on the button when a choice is waiting.
+  const masterDoor = m.master ? (() => {
+    const n = m.master.candidates?.length ?? 0;
+    const b = el('button', n ? 'act primary' : 'act', n ? `Master Skills (${n})` : 'Master Skills');
+    b.onclick = () => { statsSec = 'master'; _masterNote = null; render(); };
+    return b;
+  })() : null;
+  if (statsSec !== 'master' && (typeof hooks.openAscend === 'function' || masterDoor)) {
     const row = el('div', 'px-sheetdoors');
-    const b = el('button', 'act', 'Ascend');
-    b.onclick = () => hooks.openAscend();
-    row.append(b);
+    if (typeof hooks.openAscend === 'function') {
+      const b = el('button', 'act', 'Ascend');
+      b.onclick = () => hooks.openAscend();
+      row.append(b);
+    }
+    if (masterDoor) row.append(masterDoor);
     detail.append(row);
   }
   wrap.append(detail);
@@ -3635,7 +3670,98 @@ function statsAttributes(detail, m) {
 
 /** SKILLS: the three career groups open - the character's chosen
  *  shape - and Miscellaneous behind the sheet's own disclosure. */
+let _masterNote = null;   // SOFTCAP3: the switch's last answer, said under it until the page is left
+
+/** SOFTCAP3: THE MASTER SKILLS PANE - the state and the rules in words, always. ONLINE it is always on, so the pane
+ *  only explains. OFFLINE it carries the switch: a refusal (inside a dungeon) is said, never a greyed button (the kit's
+ *  rule: a control that cannot act says why); turning it ON asks first in the skin's Yes/No card, because it changes
+ *  how the world answers; turning it off does not. */
+function statsMaster(detail, m) {
+  const ms = m.master;
+  if (!ms) return;
+  // SOFTCAP6 (Mac, in game: the page must SHOW the skills you want to advance - polished, no walls of text, and none
+  // of the sheet's doors on it). One short line of what it is; then the three career groups, each with its slots as
+  // pips and every one of its skills as a row: mastered (gold, its climb on the gold bar), ready (a Master button that
+  // asks first), or not yet (why, in a word). Offline the switch stands at the foot.
+  const back = acts([{ label: '\u2039 Skills', onClick: () => { statsSec = 'skills'; _masterNote = null; render(); } }]);
+  back.classList.add('px-master-back');
+  detail.append(back, pxDivider('Master Skills'));
+  const lead = !ms.on
+    ? (ms.switchable ? 'Off \u2013 your skills stop at 100, as in Daggerfall.' : 'Off.')
+    : 'Choose the skills that may climb past 100, up to 200. A choice is permanent.';
+  detail.append(el('div', 'px-master-lead', lead));
+  if (_masterNote) detail.append(el('div', 'px-master-note', _masterNote));
+  for (const g of ms.groups) {
+    const card = el('section', 'px-mgroup');
+    const head = el('div', 'px-mhead');
+    const pips = el('span', 'px-pips');
+    for (let k = 0; k < g.max; k++) pips.append(el('span', k < g.used ? 'px-pip on' : 'px-pip', k < g.used ? '\u25c6' : '\u25c7'));
+    head.append(el('span', 'px-mname', g.label), pips, el('span', 'px-mcount', `${g.used} of ${g.max} chosen`));
+    card.append(head);
+    for (const sk of g.skills) {
+      const row = el('div', sk.mastered ? 'px-mrow2 is-mastered' : sk.candidate ? 'px-mrow2 is-ready' : 'px-mrow2');
+      const top = el('div', 'px-mtop');
+      top.append(el('span', 'k', `${sk.mastered ? '\u25c6 ' : ''}${sk.name}`), el('span', 'v', String(sk.value)));
+      const side = el('div', 'px-mside');
+      if (sk.mastered) side.append(el('span', 'px-mtag gold', sk.value >= 200 ? 'Mastered \u00b7 200' : 'Mastered'));
+      else if (sk.candidate) {
+        const b = el('button', 'act primary px-mbtn', 'Master');
+        b.onclick = () => askCard(sk.rows, () => { _masterNote = ms.master(sk.id).text; render(); });
+        side.append(b);
+      } else side.append(el('span', 'px-mtag', sk.why));
+      const body = el('div', 'px-mbody');
+      body.append(top, skillMeter(sk.value, sk.mastered));
+      row.append(body, side);
+      card.append(row);
+    }
+    detail.append(card);
+  }
+  if (ms.switchable) {   // offline only - online it is always on
+    const flip = () => { _masterNote = ms.toggle().text; render(); };
+    const foot = acts([{
+      label: ms.on ? 'Turn off Master Skills' : 'Activate Master Skills', primary: !ms.on,
+      onClick: () => {
+        if (ms.blocked) { _masterNote = ms.blocked; render(); return; }
+        if (ms.on) { flip(); return; }
+        askCard(['Activate Master Skills?', '', 'Dangerous dungeons will send stronger enemies,', 'and points past 100 are slow to earn.', 'You can turn it off here at any time.'], flip);
+      },
+    }]);
+    foot.classList.add('px-master-foot');
+    detail.append(foot);
+  }
+}
+
+/** SOFTCAP3: the enhanced face's own Yes/No card over the pause page (the same card class the skin's YesNo box wears). */
+function askCard(lines, onYes) {
+  const back = el('div', 'px-master-ask');
+  const card = el('div', 'inputbox yesnobox');
+  card.setAttribute('role', 'alertdialog');
+  const rows = el('div', 'inputbox-rows');
+  for (const t of lines) rows.append(el('div', 'notice-row center', t));
+  // DFU's keys, as the skin's YesNo box keeps them: Y yes, N or Return no (the default) - and Escape no here too, on
+  // CAPTURE and stopped, so it answers the card instead of closing the pause page under it
+  const onKey = (e) => {
+    const k = e.code;
+    if (k !== 'KeyY' && k !== 'KeyN' && k !== 'Enter' && k !== 'NumpadEnter' && k !== 'Escape') return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    close();
+    if (k === 'KeyY') onYes();
+  };
+  const close = () => { removeEventListener('keydown', onKey, true); back.remove(); };
+  addEventListener('keydown', onKey, true);
+  const bar = acts([
+    { label: 'Yes', onClick: () => { close(); onYes(); } },
+    { label: 'No', primary: true, onClick: close },
+  ]);
+  bar.classList.add('yesnobox-acts');
+  const hint = el('div', 'notice-hint', 'Y yes · N or Enter no');
+  card.append(rows, bar, hint);
+  back.append(card);
+  document.body.append(back);
+}
+
 function statsSkills(detail, m) {
+  if (m.mentor) detail.append(el('div', 'px-qrow', m.mentor));   // SOFTCAP1: mentor mode says so where the lowered numbers are
   for (const group of m.groups) {
     if (!group.career && !statsAllSkills) continue;
     if (!group.ids.length) continue;
@@ -3644,8 +3770,11 @@ function statsSkills(detail, m) {
     for (const id of group.ids) {
       const r = el('div', 'px-skill');
       const top = el('div', 'px-mtop');
-      top.append(el('span', 'k', SKILL_NAMES[id] ?? `Skill ${id}`), el('span', 'v', String(m.skill(id))));
-      r.append(top, pxMeter(m.skill(id), 100, 'thin'));
+      const mastered = !!m.master?.isMastered?.(id);   // SOFTCAP4: a mastered skill wears the diamond, in gold
+      top.append(el('span', mastered ? 'k px-mastered' : 'k', `${mastered ? '\u25c6 ' : ''}${SKILL_NAMES[id] ?? `Skill ${id}`}`), el('span', 'v', m.skillText ? m.skillText(id) : String(m.skill(id))));
+      // SOFTCAP1/6: 0..100 as ever, and under a MASTERED skill the gold 100..200 bar (its track shows from the moment
+      // of mastery, empty at 100) - the one mark this pane carries of it
+      r.append(top, skillMeter(m.skillBase ? m.skillBase(id) : m.skill(id), mastered));   // SOFTCAP7: the bars climb the TRAINED value
       grid.append(r);
     }
     detail.append(grid);
@@ -3702,11 +3831,11 @@ function statsSpecials(detail, m) {
   }
 }
 
-/** STANDING: the three reputation stores the game actually reads -
- *  the five named social groups (getReactionToPlayer's own inputs).
- *  Legal standing is PER REGION and the window does not know where
- *  you stand, so it stays with the court until a host hands a region
- *  seam - drawing a number without its region would be a lying row. */
+/** STANDING: the reputation stores the game actually reads - the five named social groups (getReactionToPlayer's own
+ *  inputs), the law of every region that knows the player's name, and the guilds. REP5 (the reputation overhaul): the
+ *  law was left out because "the window does not know where you stand" - so every row names its own region, which is
+ *  never a lying row: its band's word, its number, and what it costs (a banishment's days left, the watch knowing the
+ *  face). A region the law has never heard of is not listed. */
 const signedRep = (v) => el('span', `v${v > 0 ? ' won' : v < 0 ? ' bad' : ''}`, v > 0 ? `+${v}` : String(v));
 
 function statsStanding(detail) {
@@ -3717,7 +3846,40 @@ function statsStanding(detail) {
     r.append(el('span', 'k', SOCIAL_GROUP_NAMES[i]), signedRep(reps[i] ?? 0));
     detail.append(r);
   }
+  statsLaw(detail, playerEntity);
   statsGuilds(detail, playerEntity);
+}
+
+/** REP5: THE LAW, REGION BY REGION - every region with a standing other than a common citizen's, or a banishment. */
+export function statsLaw(detail, entity, { worldNow = trustedWorldMinutes() } = {}) {   // AUDIT REP F2
+  const rows = lawRows(entity, worldNow);
+  if (!rows.length) return;
+  detail.append(pxDivider('The law'));
+  for (const w of rows) {
+    const r = el('div', 'px-stat px-law');
+    r.append(el('span', 'k', w.region), el('span', 'v px-rank', w.note ? `${w.word} - ${w.note}` : w.word), signedRep(w.rep));
+    detail.append(r);
+  }
+}
+/** The law's rows, worst first: { region, rep, word, note }. */
+export function lawRows(entity, worldNow) {
+  const out = [];
+  const regions = new Set([...Object.keys(entity?.legalRep ?? {}).map(Number),
+    ...(entity?.regionConditions ?? []).map((r, i) => ((r?.severePunishmentFlags ?? 0) & 1 ? i : -1)).filter((i) => i >= 0)]);
+  for (const i of regions) {
+    if (!Number.isInteger(i) || i < 0) continue;
+    const rep = legalRepOf(entity, i);
+    // AUDIT REP F2: NaN is a banishment whose term is not known yet (online, the relay's clock unheard) - still a row
+    const left = banishmentLeft(entity, i, worldNow);
+    if (rep === 0 && left === 0) continue;
+    const days = Math.ceil(left / 1440);
+    const term = Number.isFinite(left) ? `, ${days} day${days === 1 ? '' : 's'} left` : '';
+    // the price of each: a pardon at the region's temple, a stop's fine on the street
+    const note = left !== 0 ? `banished${term} (a pardon: ${pardonPrice(entity, i)} gold)`
+      : rep < KNOWN_CRIMINAL_BELOW ? `known to the watch (a stop: ${challengeFine(entity, i, { worldNow })} gold)` : '';
+    out.push({ region: REGION_NAMES[i] ?? `Region ${i}`, rep, word: legalStandingWord(rep), note });
+  }
+  return out.sort((a, b) => a.rep - b.rep);
 }
 
 /** GUILD-REP (Mac: "we need to add guild reputation to our enhanced
@@ -3736,7 +3898,7 @@ export function statsGuilds(detail, entity) {
   }
   for (const a of book) {
     const r = el('div', 'px-stat px-guild');
-    r.append(el('span', 'k', a.affiliation), el('span', 'v px-rank', a.title), signedRep(a.rep));
+    r.append(el('span', 'k', a.affiliation), el('span', 'v px-rank', a.probation ? `${a.title} - on probation` : a.title), signedRep(a.rep));   // REP6
     detail.append(r);
   }
 }

@@ -59,7 +59,7 @@ FM-bank audit. Audio.md also still disowns `ActivateLockUnlock = 316`
 (`:158` "NOT OURS... neither of which is ported") - it sits in
 `soundClips.js:10` with three consumers (R1) - and still claims
 `deps.inCastle` stays false (`:105`), live since AUDIT 21
-(`dungeonContext.js:2935`). This is the one page whose live-queue
+(`dungeonContext.js:2952`). This is the one page whose live-queue
 claims actively contradict the code, the Ledger, and the rest of the
 bible at once.
 
@@ -127,11 +127,11 @@ per arc:
   (`mysticism.test.js:225-239`). The doc, the pin's design, and
   `mysticism.js:53`'s header are all wrong the same way. Also stale:
   S24 "the port has neither the [Spell Absorption] effect nor the
-  state" (`effects.js:1154-1177` + `absorption.js:77-91` land it
+  state" (`effects.js:1165-1188` + `absorption.js:77-91` land it
   first-arm); S40's "house ledger is unported" flag
   (`banking.js:173 isHouseOwned` feeds the rest seam); S16's
   "monsters 0-42 still spawn as billboards" (C11 pivoted them to real
-  foes, `dungeonContext.js:948-999`); the mid-file Queue
+  foes, `dungeonContext.js:951-1002`); the mid-file Queue
   (`:742-748`) still carries FreeAction / Create Item / enchantment
   value / rest-UI / "Later: guilds, shops, dialog, calendar" - all
   shipped, list actively maintained (it struck its fatigue line).
@@ -142,7 +142,7 @@ per arc:
   factual error found in the whole bible: `:798-805` claims "only %G
   has a capitalized handler" in DFU / "%G2/%G3 uppercase DO NOT
   EXIST" - refuted by the doc's own Wave 25 (`:2908`) and
-  `questMacros.js:513-524` ("MacroHelper.cs:240-245 registers ALL SIX
+  `questMacros.js:514-525` ("MacroHelper.cs:240-245 registers ALL SIX
   capitalized forms"); the early section was never corrected.
 - *World-Arc / Player-Arc*: ~20 clauses closed by later slices still
   read "pends" - T3c's list (`:653`) has three clauses T3d/T3e/T3f
@@ -163,7 +163,7 @@ per arc:
   `:3368`); `:4722` is now flatly false ("the interior host's
   char-sheet and inventory panels swallow their click and do
   nothing") and contradicts U43 in the same file
-  (`worldModes.js:5883-5884` routes them). UI-Arc carries no records
+  (`worldModes.js:5886-5887` routes them). UI-Arc carries no records
   at all for H1-H3 - the banking windows exist only in the Ledger.
 - *Combat.md*: the status head (first 51 lines) is the stale part -
   DrainMagicka "INTERIM no-op" (`:19`, real since S4a and
@@ -233,8 +233,8 @@ opposite of their own code and deserve a slice's attention:
 
 ## Line-citation drift (low, batched)
 
-`Port-Ledger.md:627` (save.js:35/:572/:591 → :28/:654/:686), `:622`
-(world.js:4845 → :2412); `Quest-Arc.md:724`/`:2911`
+`Port-Ledger.md:627` (save.js:36/:586/:605 → :28/:676/:708), `:636`
+(world.js:4855 → :2412); `Quest-Arc.md:724`/`:2911`
 (worldModes.js:634 → :903); `Player-Arc.md:979` (worldModes.js:934 →
 :2764), `:304` (world.js "531 lines" → 3,564); `Characters-Arc.md:190`
 (CHAR_PIXEL "7" - `renderer.js:644` ships 9, and the doc missed two

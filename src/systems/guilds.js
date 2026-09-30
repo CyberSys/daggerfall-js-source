@@ -92,6 +92,14 @@ import { DAYS_PER_YEAR } from './gameDate.js';
 export { DAYS_PER_YEAR };
 /** UpdateRank's gate: 28 days between rank changes. */
 export const DAYS_BETWEEN_RANK_CHANGES = 28;
+/** REP6: a member on probation is expelled only below this standing. */
+export const GUILD_EXPEL_BELOW = -10;
+/** REP6: the probation's words (no DFU record says it). */
+export const PROBATION_LINES = Object.freeze([
+  'Your standing with us has fallen below what we accept of a member.',
+  'You are on probation. Mend your reputation before your next review,',
+  'or you will be expelled.',
+]);
 
 /** The four guilds whose data is fully groundable from the sparse
  *  clone. Each carries its faction id (so reputation resolves through
@@ -285,6 +293,18 @@ export function updateRank(memberships, guild, entity, store, now, ctx = null) {
   if (today < m.lastRankChange + DAYS_BETWEEN_RANK_CHANGES) return null;
 
   const newRank = calculateNewRank(entity, guild, store);
+  // REP6 (the reputation overhaul, 2026-09-29 - "Guilds: probation below 0, and expulsion only below -10, with a warning
+  // first"): DFU expels a member the first review their standing is below zero - one failed quest's -2 from 0 was out
+  // ("i got expelled from the mages... it says i dont have reputation"), a timeout's -22 was out with a death squad
+  // behind it under Roleplay Realism. A member below zero is put ON PROBATION instead, told so, keeps their rank and
+  // has another 28 days; they are expelled only at a review that finds them on probation AND below -10. A standing back
+  // at zero or above ends the probation.
+  if (newRank < 0 && (!m.probation || getReputation(store, guild.factionId) >= GUILD_EXPEL_BELOW)) {
+    m.probation = true;
+    m.lastRankChange = today;   // the next review is 28 days on
+    return { outcome: 'probation', rank: m.rank, textId: null, lines: PROBATION_LINES };
+  }
+  if (newRank >= 0) m.probation = false;
   if (newRank === m.rank) return null;
 
   const outcome = newRank > m.rank ? 'promotion'

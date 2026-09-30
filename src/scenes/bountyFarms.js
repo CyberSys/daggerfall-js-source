@@ -41,6 +41,12 @@ export const FARM_SPOT_TRIES = 16;
 export const FARM_SINK_M = 0.25;
 /** A farm whose ground was not up yet (a far pixel) tries again after this many syncs. */
 export const FARM_RETRY_SYNCS = 4;
+/** BOUNTY-FARM-GROUND: the most the ground may rise across a farm's block (its 3x3 over the block), metres - a spot
+ *  steeper than this is a mountainside, and no farm stands there; with no spot under it the farm fails and its pack
+ *  stands as any other hunt's. */
+export const FARM_MAX_RISE_M = 8;
+/** BOUNTY-FARM-CLEAR: how far outside a farm building's footprint a foe must stand, metres. */
+export const FARM_BUILDING_CLEAR_M = 1.5;
 /** The collider bucket prefix - one bucket a farm. */
 export const FARM_BUCKET = 'bounty:farm:';
 
@@ -142,6 +148,7 @@ export function createBountyFarms(deps) {
         if (Number.isFinite(h)) { lo = Math.min(lo, h); hi = Math.max(hi, h); }
       }
       if (!Number.isFinite(lo)) { unbuilt = true; continue; }
+      if (hi - lo > FARM_MAX_RISE_M) continue;   // BOUNTY-FARM-GROUND: a mountainside is no farmyard
       if (hi - lo < best) { best = hi - lo; spot = [lx, lz]; }
     }
     if (!spot) { if (unbuilt) f.retry = FARM_RETRY_SYNCS; else f.failed = true; return; }   // a far pixel's ground is not up yet - try again
@@ -174,15 +181,27 @@ export function createBountyFarms(deps) {
       }
     }
     // the farmhouse: the model with the widest footprint - where a farm bounty's pack makes its stand
+    // BOUNTY-FARM-CLEAR: and every building's footprint, pixel-local, so no foe of the pack stands inside one
     let house = null, widest = -1;
+    const boxes = [];
     for (const m of models) {
       const pos = deps.cpuModel(m.id)?.positions;
       if (!pos?.length) continue;
-      let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
-      for (let i = 0; i < pos.length; i += 3) { x0 = Math.min(x0, pos[i]); x1 = Math.max(x1, pos[i]); z0 = Math.min(z0, pos[i + 2]); z1 = Math.max(z1, pos[i + 2]); }
+      let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      for (let i = 0; i < pos.length; i += 3) { x0 = Math.min(x0, pos[i]); x1 = Math.max(x1, pos[i]); y0 = Math.min(y0, pos[i + 1]); y1 = Math.max(y1, pos[i + 1]); z0 = Math.min(z0, pos[i + 2]); z1 = Math.max(z1, pos[i + 2]); }
       const area = (x1 - x0) * (z1 - z0);
       if (area > widest) { widest = area; house = m; }
+      // a fence or a sign is not a building: only models tall and wide enough to hold a foe
+      if (y1 - y0 < 2 || Math.min(x1 - x0, z1 - z0) < 1.5) continue;
+      const L = m.local;
+      let bx0 = Infinity, bx1 = -Infinity, bz0 = Infinity, bz1 = -Infinity;
+      for (const cx of [x0, x1]) for (const cz of [z0, z1]) {
+        const wx = L[0] * cx + L[8] * cz + L[12], wz = L[2] * cx + L[10] * cz + L[14];
+        bx0 = Math.min(bx0, wx); bx1 = Math.max(bx1, wx); bz0 = Math.min(bz0, wz); bz1 = Math.max(bz1, wz);
+      }
+      boxes.push([bx0, bz0, bx1, bz1]);
     }
+    f.boxes = boxes;
     f.house = house ? [house.local[12], house.local[13], house.local[14]] : [f.lx, f.ly, f.lz];
     f.models = models;
   }
@@ -234,5 +253,15 @@ export function createBountyFarms(deps) {
     failed: (id) => !!farms.get(id)?.failed,
     standing: () => [...farms.values()].filter((f) => f.models).map((f) => f.id),
     occupied: (x, z, r = 0) => occupied(x, z, r),
+    /** BOUNTY-FARM-CLEAR: whether scene point (x, z) is inside (or within `r` metres of) any standing farm's building. */
+    inBuilding: (x, z, r = FARM_BUILDING_CLEAR_M) => {
+      for (const f of farms.values()) {
+        if (!f.models || !f.boxes?.length) continue;
+        const t = deps.pixelTranslation(f.px, f.py);
+        const lx = x - t[0], lz = z - t[2];
+        for (const b of f.boxes) if (lx > b[0] - r && lx < b[2] + r && lz > b[1] - r && lz < b[3] + r) return true;
+      }
+      return false;
+    },
   };
 }

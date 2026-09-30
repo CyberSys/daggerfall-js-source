@@ -18,7 +18,8 @@ import { rebuildEquipState, isEquipped, unequipSlot } from './equip.js';   // AU
 import { templateByIndex } from './itemTemplates.js';   // AUDIT 63r F28: `shortName` is SetItem's template read, not an optional override
 import { restartHeldEnchantments } from './enchantments.js';   // E2: the held bundles' restore half
 import { snapshotWeather, restoreWeather, rollClimateWeathersForDay } from './weatherSim.js';   // W1: playerPosition.weather (SerializablePlayer.cs:225) - one value, every host; AUDIT WORLD5 C4: the shared day's sky over a loaded one
-import { snapshotRegionConditions, restoreRegionConditions } from './regionConditions.js';   // S42: the CONDITION half of RegionDataRecord
+import { snapshotRegionConditions, restoreRegionConditions } from './regionConditions.js';
+import { snapshotStanding, restoreStanding } from './standing.js';   // REP: the standing book   // S42: the CONDITION half of RegionDataRecord
 import { snapshotDiscovery, restoreDiscovery } from './discovery.js';   // T4
 import { getWorldVariationSaveData, restoreWorldVariationData, clearWorldDataVariants } from './worldDataVariants.js';   // RR3b: the world-data variants ride the save
 import { snapshotAutomap, restoreAutomap } from './automap.js';   // A1: dictAutomapDungeonsDiscoveryState rides SaveData_v1
@@ -301,6 +302,18 @@ export function snapshotPlayer(entity, { position = null, pose = null, classicMi
   // wrote. The stand-in columns themselves are that file's to retire.
   snap.skills = Array.isArray(entity.skills) ? [...entity.skills] : entity.skills;
   snap.skillUses = [...(entity.skillUses ?? [])];
+  // SOFTCAP1: the climb past 100 - the fractional real-use remainders
+  // (skills.js tallySkill) and the banked progress toward the next dear point
+  // (advancement.js raiseSkills). Both optional: a save from before them
+  // restores empty. The mentor PROFILE (`_mentor`) is never saved - mentoring
+  // is automatic and recomputed from the party.
+  snap.skillUseFrac = Array.isArray(entity.skillUseFrac) ? [...entity.skillUseFrac] : null;
+  snap.skillProgress = Array.isArray(entity.skillProgress) ? [...entity.skillProgress] : null;
+  snap.masterSkills = entity.masterSkills === true;   // SOFTCAP3: the Master Skills switch
+  snap.masterSkillsAsked = !!entity.masterSkillsAsked;   // SOFTCAP3: the one-time offline offer, made
+  snap.masterSkillsInfoSeen = !!entity.masterSkillsInfoSeen;   // SOFTCAP3: the one-time online explanation, shown
+  snap.masteredSkills = Array.isArray(entity.masteredSkills) ? [...entity.masteredSkills] : [];   // SOFTCAP4: the permanent 2/2/1 masteries
+  snap.masteryPrompted = Array.isArray(entity.masteryPrompted) ? [...entity.masteryPrompted] : [];   // SOFTCAP4: the skills already asked about
   snap.career = entity.career ? { ...entity.career } : null;   // plain CFG data
   snap.items = (entity.items ?? []).map((it) => ({ ...it }));
   // E4: `data.playerEntity.goldPieces = entity.GoldPieces`
@@ -391,6 +404,7 @@ export function snapshotPlayer(entity, { position = null, pose = null, classicMi
   // legalRep is a region-keyed object here, not DFU's 62-entry array;
   // it must be COPIED or the snapshot aliases live state.
   snap.legalRep = entity.legalRep ? { ...entity.legalRep } : null;
+  snap.standing = snapshotStanding(entity);   // REP: the watch's clocks and the prices paid, per region
   // Any biography deltas still parked (only if FACTION.TXT was missing
   // at creation - S25 drains them at the chargen seam otherwise).
   snap.pendingFactionRep = (entity.pendingFactionRep ?? []).map((r) => ({ ...r }));
@@ -623,6 +637,14 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   if (entity.fatigue == null) entity.fatigue = ((snap.stats?.strength ?? 0) + (snap.stats?.endurance ?? 0)) * 64;
   entity.skills = Array.isArray(snap.skills) ? [...snap.skills] : snap.skills;   // AUDIT 17e: pre-chargen skills is a flat number
   entity.skillUses = [...snap.skillUses];
+  entity.skillUseFrac = Array.isArray(snap.skillUseFrac) ? [...snap.skillUseFrac] : null;   // SOFTCAP1
+  entity.skillProgress = Array.isArray(snap.skillProgress) ? [...snap.skillProgress] : null;   // SOFTCAP1
+  entity.masterSkills = snap.masterSkills === true;   // SOFTCAP3
+  entity.masterSkillsAsked = snap.masterSkillsAsked === true;   // SOFTCAP3
+  entity.masterSkillsInfoSeen = snap.masterSkillsInfoSeen === true;   // SOFTCAP3
+  entity.masteredSkills = Array.isArray(snap.masteredSkills) ? snap.masteredSkills.filter(Number.isInteger) : [];   // SOFTCAP4
+  entity.masteryPrompted = Array.isArray(snap.masteryPrompted) ? snap.masteryPrompted.filter(Number.isInteger) : [];   // SOFTCAP4
+  entity._mentor = null;   // SOFTCAP1: recomputed by the party frame, never restored
   entity.career = snap.career ? { ...snap.career } : entity.career;
   entity.items = snap.items.map((it) => setItemFields(it));   // JAN1: SetItem's two writes on every item in (a copy, as before)
   entity.wagonItems = (snap.wagonItems ?? []).map((it) => setItemFields(it));   // W-slice (pre-W saves restore empty); JAN1: set on the way in
@@ -809,6 +831,7 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   entity.timeForThievesGuildLetter = snap.timeForThievesGuildLetter ?? 0;
   entity.timeForDarkBrotherhoodLetter = snap.timeForDarkBrotherhoodLetter ?? 0;
   entity.legalRep = snap.legalRep ? { ...snap.legalRep } : {};
+  restoreStanding(entity, snap.standing);   // REP: a pre-REP save restores an empty book
   // AUDIT 23 (C4/guilds-4): DFU clamps every region's LegalRep right
   // after restoring it (SerializablePlayer -> ClampLegalReputations) -
   // a save carrying a beyond-band value loads back into the band.

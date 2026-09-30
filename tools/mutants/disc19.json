@@ -218,8 +218,8 @@
   {
     "name": "DISC19-F-defenders-saved",
     "file": "src/scenes/cityGuards.js",
-    "old": "    return guards.filter((g) => !g.dead && !g.defender).map((g) => {",
-    "new": "    return guards.filter((g) => !g.dead).map((g) => {",
+    "old": "    return guards.filter((g) => !g.dead && !g.defender && !g.fleeing).map((g) => {",
+    "new": "    return guards.filter((g) => !g.dead && !g.fleeing).map((g) => {",
     "tests": [
       "test/disc19.test.js"
     ]

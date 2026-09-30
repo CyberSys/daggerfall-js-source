@@ -47,8 +47,8 @@
   {
     "name": "DISC28-B-surrender-to-nothing",
     "file": "src/scenes/arrestFlow.js",
-    "old": "if (crimeId() === 0) return; if (surrender",
-    "new": "if (surrender",
+    "old": "            if (crimeId() === 0) return;\n            // WERE-FRIGHT: the question was a man's",
+    "new": "            // WERE-FRIGHT: the question was a man's",
     "tests": [
       "test/disc28_arrest.test.js"
     ]
@@ -192,8 +192,8 @@
   {
     "name": "DISC28-F-boundary-off-by-one",
     "file": "src/systems/worldTick.js",
-    "old": "Math.floor((b - 1) / NORMALIZE_INTERVAL_MINUTES) - Math.floor((a - 1) / NORMALIZE_INTERVAL_MINUTES)",
-    "new": "Math.floor(b / NORMALIZE_INTERVAL_MINUTES) - Math.floor(a / NORMALIZE_INTERVAL_MINUTES)",
+    "old": "Math.floor((b - 1) / RECOVERY_INTERVAL_MINUTES) - Math.floor((a - 1) / RECOVERY_INTERVAL_MINUTES)",
+    "new": "Math.floor(b / RECOVERY_INTERVAL_MINUTES) - Math.floor(a / RECOVERY_INTERVAL_MINUTES)",
     "tests": [
       "test/disc28_fatigue.test.js"
     ]

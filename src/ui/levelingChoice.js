@@ -39,6 +39,11 @@ import {
 import {
   LEVELING_CLASSIC, LEVELING_VIRTUE, levelingSettings, LEVELUP_TOTAL,
 } from '../systems/oblivionLeveling.js';
+import { isEnhanced } from '../systems/uiSkin.js';   // LEVEL-PLUS: the Enhanced Plus face
+import { drawLevelingFace, releaseLevelingFace } from './enhancedLevelingChoice.js';
+
+/** LEVEL-ONLINE: why Daggerfall's option is shut on the online page (oblivionLeveling.js newCharacterLevelingSystem). */
+export const LEVELING_OFFLINE_ONLY_NOTE = 'Offline characters only';
 
 /**
  * The two answers, in the order they are offered. Daggerfall's own is
@@ -53,14 +58,19 @@ import {
  * (ORL1's adversarial review; the answer is read once, when the
  * question is built.)
  */
-export function levelingOptions(s = null) {
+export function levelingOptions(s = null, { online = false } = {}) {
   const set = s ?? levelingSettings();
+  // LEVEL-ONLINE: online, Daggerfall's leveling is shown but SHUT - a new online character levels Oblivion's way
+  // (the law is newCharacterLevelingSystem at finishChargen; this is only the screen saying so before it happens).
+  const shut = { locked: true, lockNote: LEVELING_OFFLINE_ONLY_NOTE };
+  const open = { locked: false, lockNote: null };
   const purse = set.attributePoints;
   const virtues = purse === 1 ? '1 virtue' : `${purse} virtues`;
   return Object.freeze([
     Object.freeze({
       id: LEVELING_CLASSIC,
       title: 'Daggerfall',
+      ...(online ? shut : open),
       lines: Object.freeze([
         'Level with your skills, as Daggerfall does.',
         'Primary, major and minor skills make a sum;',
@@ -71,6 +81,7 @@ export function levelingOptions(s = null) {
     Object.freeze({
       id: LEVELING_VIRTUE,
       title: 'Oblivion Remastered',
+      ...open,
       lines: Object.freeze([
         'Level with a bar, as Oblivion Remastered.',
         'Every skill you raise fills it, your best',
@@ -125,14 +136,14 @@ export function choiceAtNative(vx, vy, options = []) {
 
 export class LevelingChoiceScreen {
   /** @param {(id: string) => void} onAnswer */
-  constructor(onAnswer, { settings = null } = {}) {
+  constructor(onAnswer, { settings = null, online = false } = {}) {
     this._onAnswer = onAnswer;
     /** Read ONCE, when the question is built - a player cannot move a
      *  slider while this screen is up, and re-reading per frame would
      *  make the words change under them. */
-    this.options = levelingOptions(settings);
+    this.options = levelingOptions(settings, { online });
     this._fired = false;
-    this.cursor = 0;
+    this.cursor = this.defaultIndex;   // LEVEL-ONLINE: never parked on a shut option
     this.done = false;
     /** The hosts route by action name, not raw key codes, for this
      *  screen - it wants up/down/confirm and nothing typed. */
@@ -145,8 +156,33 @@ export class LevelingChoiceScreen {
     if (this._fired) return false;
     this._fired = true;
     this.done = true;
+    releaseLevelingFace(this);   // LEVEL-PLUS: the face goes with the question
     this._onAnswer?.(id);
     return true;
+  }
+
+  /** LEVEL-ONLINE: the first option that is open - where the cursor starts, and what a torn-down question answers. */
+  get defaultIndex() {
+    const i = this.options.findIndex((o) => !o.locked);
+    return i < 0 ? 0 : i;
+  }
+  get defaultId() { return this.options[this.defaultIndex].id; }
+
+  /** LEVEL-ONLINE: pick option `i` and answer - refused for a shut option. The one door the keys, the canvas click
+   *  and the Plus face's buttons all go through. */
+  pickIndex(i, sound = true) {   // a pointer's pick clicks; a key's answers quietly, as it always has
+    if (this._fired) return false;
+    const opt = this.options[i];
+    if (!opt || opt.locked) return false;
+    this.cursor = i;
+    if (sound) audio.playOneShot(SOUND.ButtonClick, 1);
+    return this.answer(opt.id);
+  }
+
+  /** The highlight follows the pointer onto an open option (the canvas hover and the Plus face's). */
+  hoverIndex(i) {
+    if (this._fired) return;
+    if (this.options[i] && !this.options[i].locked) this.cursor = i;
   }
 
   /** BOTH VOCABULARIES, as ui/charsheet.js's ROLLOUT_ACTIONS answers
@@ -166,13 +202,19 @@ export class LevelingChoiceScreen {
   input(action) {
     if (this._fired) return;
     switch (LevelingChoiceScreen.ACTIONS[action]) {
-      case 'up':
-        this.cursor = (this.cursor + 1) % this.options.length;
-        audio.playOneShot(SOUND.ButtonClick, 1);
+      case 'up': {
+        // LEVEL-ONLINE: the move skips a shut option (with one open option, the cursor stays on it)
+        let next = this.cursor;
+        for (let k = 0; k < this.options.length; k++) {
+          next = (next + 1) % this.options.length;
+          if (!this.options[next].locked) break;
+        }
+        if (next !== this.cursor) { this.cursor = next; audio.playOneShot(SOUND.ButtonClick, 1); }
         break;
-      case 'one': this.answer(this.options[0].id); break;
-      case 'two': this.answer(this.options[1].id); break;
-      case 'confirm': this.answer(this.options[this.cursor].id); break;
+      }
+      case 'one': this.pickIndex(0, false); break;
+      case 'two': this.pickIndex(1, false); break;
+      case 'confirm': this.pickIndex(this.cursor, false); break;
       default: break;   // every other key is inert: this screen has no way out but an answer
     }
   }
@@ -194,16 +236,14 @@ export class LevelingChoiceScreen {
     if (this._fired) return false;
     const i = choiceAtNative(vx, vy, this.options);
     if (i < 0) return false;
-    this.cursor = i;
-    audio.playOneShot(SOUND.ButtonClick, 1);
-    return this.answer(this.options[i].id);
+    return this.pickIndex(i);
   }
 
   /** ...and the highlight follows the pointer, as the wizard's lists do. */
   hover(vx, vy) {
     if (this._fired) return;
     const i = choiceAtNative(vx, vy, this.options);
-    if (i >= 0) this.cursor = i;
+    if (i >= 0) this.hoverIndex(i);
   }
 
   /**
@@ -227,6 +267,9 @@ export class LevelingChoiceScreen {
    * nativeMetrics of that returns ox = oy = 0.
    */
   draw(renderer, canvas, font) {
+    // LEVEL-PLUS: on the Enhanced Plus skin the question wears the Plus window (ui/enhancedLevelingChoice.js); the
+    // canvas below is the classic skin's, and the fallback for a host with no document.
+    if (!this._fired && isEnhanced() && typeof document !== 'undefined' && drawLevelingFace(this)) return;
     const m = nativeMetrics(canvas);
     const s = m.s;
     renderer.drawScreenQuad(null, { x: 0, y: 0, w: canvas.width, h: canvas.height },
@@ -247,7 +290,7 @@ export class LevelingChoiceScreen {
     this.options.forEach((opt, i) => {
       const on = i === this.cursor;
       let y = choiceTop(i);                    // the same table the hit test reads
-      at(`${on ? '>' : ' '} ${i + 1}. ${opt.title}`, 20, y, on ? hot : white);
+      at(`${on ? '>' : ' '} ${i + 1}. ${opt.title}${opt.locked ? ` - ${opt.lockNote}` : ''}`, 20, y, opt.locked ? dim : on ? hot : white);   // LEVEL-ONLINE: a shut option says why
       y += CHOICE_TITLE_H;
       for (const line of opt.lines) {
         at(`   ${line}`, 20, y, on ? white : dim);
