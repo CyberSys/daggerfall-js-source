@@ -10165,7 +10165,11 @@ export async function bootWorld(canvas, renderer, params, status) {
       // loaded back on the right hand's item (or bare fists). The
       // port stores the POSITIVE sense because PlayerWeapon holds
       // `usingRightHand`; it is the same bit.
-      pose: { yaw: cam.yaw, pitch: cam.pitch, crouching: !!player.crouching, ...mergeWeaponPose(wp, weaponPoseOf(weaponRig.playerWeapon)), camera: mwViewSaveCamera(), transport: player.transportMode },   // SL-2: the pair off the LIVE rig (the mode seam above), else this host's own - PER FIELD, which is mergeWeaponPose's whole job
+      // FALL-KEPT (FIELD BUGS 2026-09-30): and the FALL, which DFU never
+      // keeps - a save a metre above the ground loaded from rest and
+      // billed one metre. The motor's own record, null off a fall
+      // (motor.js fallSnapshot); the load lands it with the position.
+      pose: { yaw: cam.yaw, pitch: cam.pitch, crouching: !!player.crouching, ...mergeWeaponPose(wp, weaponPoseOf(weaponRig.playerWeapon)), camera: mwViewSaveCamera(), transport: player.transportMode, fall: player.fallSnapshot() },   // SL-2: the pair off the LIVE rig (the mode seam above), else this host's own - PER FIELD, which is mergeWeaponPose's whole job
       modData: { [HCC_VENDOR]: hccRuntime.getSaveData(), ...modSaveRecords() },   // WA1: every registered mod's record beside it (systems/modSaveData.js)   // AUDIT HCC H3: the mod's own record (WagonSaveData, GetSaveData [IL_9354]) in DFU's per-mod slot - written whatever the switch says, so a save taken with the mod off keeps the horse's name and the parked wagon for when it comes back on
       locationKey: 'world',
       world: {
@@ -10367,6 +10371,10 @@ export async function bootWorld(canvas, renderer, params, status) {
           if (walkMode) { player.spawn(lx, ly, lz); playerSpawned = true; }
           cam.pos = [lx, ly + (walkMode ? 0 : 40), lz];
         }
+        // FALL-KEPT (FIELD BUGS 2026-09-30): the saved fall lands with the saved position - the building re-entered
+        // (its core's spawn) or the street (the spawn above). The door's reposition is no place the save stood, so it
+        // carries none.
+        if (walkMode && (inside || !extras.interior)) player.restoreFall(extras.pose?.fall);
         // P2-slice (items-2): the teleport's teardown collected every
         // live pile (the reference's sweep); the envelope re-mints the
         // saved ones at their native spots.
@@ -21270,8 +21278,16 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // freeze the game for ever, and re-anchoring there is what keeps
       // the outage off the fall ledger. player.spawn IS the re-anchor
       // (fallStart = y, falling cleared) - _teleportToPixel's own tail.
+      // FALL-KEPT (FIELD BUGS 2026-09-30): ...and a fall under way when
+      // the hold began is put back after it. The held motor moved not at
+      // all through the outage, so the whole fall is the player's own.
+      // A rebuild in the frames after a load (the roads' network landing
+      // at boot, a late region) would otherwise wipe the fall the save
+      // carried.
       if (_seasonHoldKey !== null && (built.has(_seasonHoldKey) || (!building && !queue.length))) {
+        const fall = player.fallSnapshot();
         player.spawn(player.pos[0], player.pos[1], player.pos[2]);
+        player.restoreFall(fall);
         _seasonHoldKey = null;
       }
       const _seasonHeld = _seasonHoldKey !== null;

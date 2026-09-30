@@ -7698,7 +7698,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // record and points Automap.instance (the console verbs) at it
       bindAutomapLayout(automapRec, automapModel);
       signalAutomapReset();   // AUDIT-AMAP H3: InitWhenInInteriorOrDungeon raises it on the LOAD arm too (:2490, :2496, from :2548)
-      if (extras.position && extras.locationKey === _locationKey && setPlayerPos) setPlayerPos(extras.position);
+      // FALL-KEPT (FIELD BUGS 2026-09-30): the save's fall (the host's pose read) lands with the saved position, and
+      // only with it - the start-marker warp below places the player again, carrying none.
+      if (extras.position && extras.locationKey === _locationKey && setPlayerPos) setPlayerPos(extras.position, extras.pose?.fall);
       // AUDIT 28 W4 (SerializablePlayer.cs:462-472): saved in the OTHER
       // layout, the position may sit in blocks this build does not have -
       // warp to the start marker and say so. The law (story dungeons

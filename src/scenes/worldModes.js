@@ -493,8 +493,10 @@ export function createWorldModes(host) {
   /** DIAL-LOAD: THE ONE LAW A LOAD PLACES THE PLAYER BY in this host's dungeons - P14's spawn (a load clears motion
    *  state: DFU CancelMovement + ClearFallingDamage) and AUDIT 27h S2's autorun latch. The dungeon context is handed it
    *  at build, so every load it runs lands by it, whichever door opened the Load; the key route, the world's
-   *  dungeon-save restore and the CASTLE1 probe take the same one (S2 edited three copies, and the probe's kept its latch). */
-  const placeLoadedPlayer = (p) => { player.spawn(p[0], p[1], p[2]); player.stopAutorun(); };
+   *  dungeon-save restore and the CASTLE1 probe take the same one (S2 edited three copies, and the probe's kept its latch).
+   *  FALL-KEPT (FIELD BUGS 2026-09-30): the context hands the save's fall beside the saved position, and it lands after
+   *  the spawn has cleared the rest; the start-marker warp hands none. */
+  const placeLoadedPlayer = (p, fall = null) => { player.spawn(p[0], p[1], p[2]); player.restoreFall(fall); player.stopAutorun(); };
   /**
    * PlayerGPS.CurrentLocation.Name, in the PORT's spelling, once.
    *
@@ -7150,7 +7152,7 @@ export function createWorldModes(host) {
           // this mode machine owns the modal player and camera; the
           // context owns the weapon and folds weaponDrawn in itself.
           pose: {
-            read: () => ({ yaw: cam.yaw, pitch: cam.pitch, crouching: !!player.crouching }),
+            read: () => ({ yaw: cam.yaw, pitch: cam.pitch, crouching: !!player.crouching, fall: player.fallSnapshot() }),   // FALL-KEPT: and the fall (motor.js fallSnapshot), which the load lands with the position
             apply: (p) => {
               cam.yaw = p.yaw ?? cam.yaw;
               cam.pitch = p.pitch ?? cam.pitch;
