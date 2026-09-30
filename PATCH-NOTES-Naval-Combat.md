@@ -222,3 +222,53 @@
 - **They go to quarters.** When a ship's guns are out, her crew hurry about and shout battle orders. When grapples are thrown, both crews line the rail facing each other.
 - **Boarding is seamless.** You land on the enemy deck right across from where you were standing, not in the middle of her. Her crew fight where they stood, and your hands are your own crew, going over the rail with you. Boarders on your deck come over the rail from their ship, and your crew stand to where they are.
 - **Your crew's hands come home.** After a fight, your crew are back aboard your ship.
+
+## The audit's fixes (2026-09-30)
+
+A deep audit of everything above. The highlights:
+
+**At sea**
+- **Pirates fight smarter.** A pirate chasing a fleeing ship actually runs her down and brings her bow guns to bear, instead of falling back and giving up. Ships find their way round a spit or an island to reach a prize or a boat lying behind it, so hiding behind land is no longer a safe harbour, and they give up a prize they truly cannot reach.
+- **Galleys fight at the right range.** Their great guns can't aim down at a low boat close in, so a galley now keeps her distance from small hulls instead of sitting helpless beside them.
+- **Fair fights.** Who wins a duel between two ships now depends on how fast each can make the other surrender, by wrecking her hull or by killing her crew. The ship the numbers favour now wins most duels. Wary pirates judge their prey the same way, so a well-armed boat is left alone more often.
+- **Merchants don't take prizes.** A merchantman that beats off a pirate sails on.
+- **Loose ends.** Two ships that surrender to each other no longer sit there forever. A galley's ram forces a ship to surrender rather than sinking her outright. A ship being chased stays in the fight. A navy no longer chases gunfire that happened somewhere else.
+- **Mending waits for the fight to end.** Your crew only repair the boat while no enemy is near the boat itself, even if you've gone over the side.
+
+**At the helm**
+- **Changing Ship handling mid-voyage is safe.** The setting now applies the next time you take the helm (a Carrack could freeze in place before).
+- **"In irons" works with waves on**, and its advice fits the handling you use: with Responsive handling, just put the helm over.
+- **The Carrack can cross the sea on the Overworld.**
+- **During an Overworld sea crossing**, the helm panel and the sail keys stay out of the journey's way.
+- **E holds fire**, as the readout says. It no longer throws grapples while your guns are laid.
+
+**Boarding**
+- **Online, boarding is shared.** Everyone in your room sees the fight on deck, with your crew as allies (green bars), and can join in.
+- **No stacking.** Boarders, your crew and you each get your own spot on deck, even on small boats.
+- **Beaten boarders' ship surrenders properly**, her fires out, ready for you to board in turn.
+- **Your fallen crew stay fallen.** Each hand lost in a boarding costs your ship that much crew.
+- **Warm Ashes' raids**: the raid's own allies are your crew, so your deckhands step aside instead of wandering among the raiders. The raiders come over your rail first.
+- **Captured prizes stay captured.** A prize's surrendered crew no longer reappear hanging over the water after a load.
+
+**On deck**
+- **Every deck is reachable.** Forecastles, poops and stairs are part of the deck now, so nobody (you included) can hide on a raised deck out of a boarder's reach. Small boats have room to fight on.
+- **The dead stay aboard.** Bodies ride the ship and go down with her instead of hanging where they fell.
+- **Standing on a quay next to a ship no longer counts as being aboard** (the hunt and bounties work there again). Riding another player's boat does count.
+- **No hitch at first sight** of a Coasting Trader or a Pirate Sloop: every boat's deck is ready when the world loads.
+- A quay over shallow water sounds like wood, and a galley's helm is solid.
+
+**Your crew**
+- **They stand to before the grapples fly.** When a boarding is coming, both crews head for the rail on the side the other ship will be, in order along the rail.
+- **They keep out of each other's way.** No two crewmen stand in the same spot, and they let each other pass.
+- **Your crew grow back on deck** when you hire or press new hands, and a boat with no crew left shows nobody.
+- **They read the room.** Talk stops when the guns come out, a ship that has struck her colours goes quiet, the next shanty waits its turn, and a ship going down keeps her crew to the end.
+- **Everyone sees the same crew** on a player's boat, and a disguised owner's crew wears his disguise.
+- **Every player's crew of two or more has a bard** to lead the song.
+- **They pause with the game** under a menu, and stand down when the naval arc is switched off.
+
+**Your crew are safe from you**
+- **No pickpocketing your own crew** (or a town's defenders). A failed attempt on anyone else makes them fair game, as it should.
+- **A Vampiric Effect at range spares your crew** and doesn't wake up surrendered prisoners.
+- **A crewman's area spell spares you and his mates.**
+
+**The watch won't stop you mid-sea-fight.**

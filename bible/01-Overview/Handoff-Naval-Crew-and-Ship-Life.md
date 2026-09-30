@@ -210,6 +210,12 @@ the shape it points to.
     direction, sounded clear in a straight line, then a new one on
     arrival.
   - It has no purpose. Only a NAV-R raider's `ship.course` overrides it.
+- **A way round land exists for a boarding** (AUDIT NAV2 F22, `navalAI.js`
+  `routeTo`/`wayRound`/`legClear`): one sounded waypoint round a spit to
+  a berth, the berth itself sounded (`berthOpen`), and a boarding that
+  gains nothing in CHASE_GIVE_UP_S given up. It is a single detour, not
+  a path - a harbour's approach still wants the water grid below - but
+  its sounding is the one to reuse.
 - **No dock data exists.** A port town is only a flag in its exterior
   data. A harbour has to be found from the terrain: take the town's
   footprint (`world/streamingWorld.js` `locationWorldRect` in native
