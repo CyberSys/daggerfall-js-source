@@ -160,8 +160,10 @@ export const homeOwnerRows = (entry) => [
  */
 export function homeVisitorRows(home, door, nowS = Math.floor(Date.now() / 1000)) {
   if (!home || home.own) return null;
-  if (home.tenant) return [{ id: HOME_VERB.enter, label: 'Go in' }, { id: HOME_VERB.rent, label: rentTenantLabel(Math.max(1, rentDaysLeft(home.tenant, nowS))) }];
-  if (!home.rent) return null;
+  if (rentDaysLeft(home.tenant, nowS) > 0) return [{ id: HOME_VERB.enter, label: 'Go in' }, { id: HOME_VERB.rent, label: rentTenantLabel(rentDaysLeft(home.tenant, nowS)) }];
+  // AUDIT: never from one's own account (the service refuses it `rent-own`) - another character of the owner's is shown
+  // only the door
+  if (!home.rent || home.mine) return null;
   return [...(door === 'enter' ? [{ id: HOME_VERB.enter, label: 'Go in' }] : []), { id: HOME_VERB.rent, label: rentRowLabel(home.rent.from) }];
 }
 /** Who may enter after `entry`, a press on the row: only me, my party, anyone, and round again. */
@@ -179,8 +181,8 @@ export const homeSaleLines = (refund) => [`Sell your home for ${refund} gold?`, 
  *  a crossed deed (RESTORE), and that it stays a home. The door says them and asks no price. */
 export const HOME_CROSSED_LINES = Object.freeze([...CROSSED_DEED_LINES, 'It stays your home.']);
 /** The sale said: the home's share, and (DECOR1e) its pieces' half, both into the region's account. */
-export const homeSoldLine = (refund, piecesBack = 0) => `You sold your home. ${refund + piecesBack} gold went to this region's bank account`
-  + (piecesBack > 0 ? `, ${piecesBack} of it for its placed pieces.` : '.');
+export const homeSoldLine = (refund, piecesBack = 0, rent = 0) => `You sold your home. ${refund + piecesBack + rent} gold went to this region's bank account`
+  + ([piecesBack > 0 ? `${piecesBack} of it for its placed pieces` : null, rent > 0 ? `${rent} of it rent you had not collected` : null].filter(Boolean).map((t, i) => (i ? ` and ${t}` : `, ${t}`)).join('')) + '.';   // HOME-RENT: the held rent named
 /** The bank's answer to Buy House online (Mac chose the door, not the bank - its list is the offline house). */
 export const HOME_BANK_LINES = Object.freeze(['Online, a home is bought', 'at its own front door.']);
 
@@ -296,7 +298,8 @@ export function createOnlineHomes({ api, character = () => null, now = () => Dat
       const n = (v) => (Number.isSafeInteger(v) && v > 0 ? v : 0);
       // DECOR1e: and its placed pieces, gone with it, and half of what they cost - the service's own sum; AUDIT REALM
       // L1-F3: and, for a realm character's record, the deed share the record was paid (`refund`)
-      return { ok: true, price: n(r.data?.price), decorCount: n(r.data?.decorCount), decorBack: n(r.data?.decorBack), ...(r.data?.refund != null ? { refund: n(r.data.refund) } : {}), ...realmOf(r) };
+      // HOME-RENT: and the rent held on it that its owner never collected, paid with it (`rent`)
+      return { ok: true, price: n(r.data?.price), decorCount: n(r.data?.decorCount), decorBack: n(r.data?.decorBack), ...(r.data?.refund != null ? { refund: n(r.data.refund) } : {}), ...(r.data?.rent != null ? { rent: n(r.data.rent) } : {}), ...realmOf(r) };
     }
     if (r?.error === 'no-home' || r?.error === 'seq') ensure(id, { force: true });
     return refused(r);
@@ -420,8 +423,11 @@ async function sellOut(homes, { mapId, buildingKey, credit, realm }) {
         // AUDIT REALM L1-F3: what the RECORD was paid (the service's `refund`: the deed share of what a record paid for the
         // house - nothing for one from before the realm) - never this client's share of a price, which the record may
         // never have paid, and which the next checkpoint would then write over it
-        sold = { refund: Math.max(0, Number(res.refund) || 0), decorBack: Math.max(0, Number(res.decorBack) || 0) };
-        credit(sold.refund + sold.decorBack);
+        // HOME-RENT: and the rent held on the house that was never collected - the service paid it into the record with
+        // the rest, so the purse must take it too, or the act's checkpoint writes it away
+        const rent = Math.max(0, Number(res.rent) || 0);
+        sold = { refund: Math.max(0, Number(res.refund) || 0), decorBack: Math.max(0, Number(res.decorBack) || 0), ...(rent > 0 ? { rent } : {}) };
+        credit(sold.refund + sold.decorBack + rent);
       },
       call: (/** @type {any} */ at) => homes.release(mapId, buildingKey, at),
     });

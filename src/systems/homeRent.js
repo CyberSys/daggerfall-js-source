@@ -57,8 +57,8 @@ export const RENT_REALM_ONLY = 'Only an online character of the realm can rent a
  * A HOME'S ROOMS, read: `{ ok, rooms, due, owner, mine, now }` - each room `{ room, anchor, price, listed, taken, yours,
  * until, tenant }` as the service answers them (a row the law refuses dropped) - or `{ ok: false, error }`.
  */
-export async function homeRooms(api, mapId, buildingKey) {
-  const r = await api.rooms(mapId, buildingKey);
+export async function homeRooms(api, mapId, buildingKey, character = null) {
+  const r = await api.rooms(mapId, buildingKey, character);   // the playing character: a tenancy is `yours` to renew only for it
   if (!r?.ok) return { ok: false, error: r?.error ?? 'server' };
   const d = r.data ?? {};
   const rooms = (Array.isArray(d.rooms) ? d.rooms : []).filter((x) => rentRoomOk(x?.room) && rentPriceOk(x?.price) && rentAnchorOf(x?.anchor))
@@ -71,7 +71,7 @@ export async function homeRooms(api, mapId, buildingKey) {
 }
 
 /** The rooms a visitor may rent now - offered and free, or their own (to renew). */
-export const rentable = (rooms) => (rooms ?? []).filter((r) => (r.listed && !r.taken) || r.yours);
+export const rentable = (rooms) => (rooms ?? []).filter((r) => r.listed && (!r.taken || r.yours));   // one's own renewed while it is still offered (AUDIT: as the service allows)
 
 /**
  * RENT ONE (or renew one's own) for `days`: the purse pays at once and gets it back on a refusal, the tenant's record
@@ -116,8 +116,8 @@ export const rentPriceStep = (price, step) => Math.min(RENT_PRICE_MAX, Math.max(
 /**
  * THE OWNER'S ROOMS: each room the house's walls part it into (systems/decorRooms.js - `found`, `{ id, name, eye }`)
  * beside the service's offer for it (`offered`: the room whose point stands in it - `roomOf(point)` the finder's), and
- * every offer whose room the walls no longer make (a room a door once parted), so it can still be withdrawn. A found room
- * past RENT_ROOMS_MAX cannot be offered.
+ * every offer whose room the walls no longer make (a room a door once parted), so it can still be withdrawn. `number` is
+ * the room number an offer is written under; once RENT_ROOMS_MAX are held, a room not offered cannot be.
  * @param {{ id: number, name: string, eye: number[] }[]} found
  * @param {any[]} offers
  * @param {(p: number[]) => ({ id: number }|null)} roomOf
@@ -125,12 +125,18 @@ export const rentPriceStep = (price, step) => Math.min(RENT_PRICE_MAX, Math.max(
  */
 export function rentRoomsView(found, offers, roomOf, origin) {
   const used = new Set();
+  // AUDIT: THE NUMBER A ROOM IS OFFERED UNDER is its offer's own, or the first no offer holds - never the finder's (a door
+  // hung renumbers the rooms, and an offer written under the finder's number overwrote another room's)
+  const held = new Set((offers ?? []).map((x) => x.room));
+  let next = null;
+  for (let n = 1; n <= RENT_ROOMS_MAX && next == null; n++) if (!held.has(n)) next = n;
   const rows = (found ?? []).map((f) => {
     const o = (offers ?? []).find((x) => !used.has(x.room) && roomOf([origin[0] + x.anchor[0], origin[1] + x.anchor[1], origin[2] + x.anchor[2]])?.id === f.id) ?? null;
     if (o) used.add(o.room);
-    return { id: f.id, name: f.name, eye: f.eye, offer: o, offerable: rentRoomOk(f.id) };
+    const number = o ? o.room : next;
+    return { id: f.id, name: f.name, eye: f.eye, offer: o, number, offerable: number != null };
   });
-  for (const o of offers ?? []) if (!used.has(o.room)) rows.push({ id: null, name: `Room ${o.room} (its walls have changed)`, eye: null, offer: o, offerable: false });
+  for (const o of offers ?? []) if (!used.has(o.room)) rows.push({ id: null, name: `Room ${o.room} (its walls have changed)`, eye: null, offer: o, number: o.room, offerable: false });
   return rows;
 }
 
@@ -139,6 +145,7 @@ export function rentRowSub(row, nowS) {
   const o = row.offer;
   if (!o) return row.offerable ? 'Not offered to rent' : `Only ${RENT_ROOMS_MAX} rooms can be offered`;
   if (o.taken) return `Rented by ${o.tenant ?? 'a tenant'} - ${rentDaysLeft(o.until, nowS)} day${rentDaysLeft(o.until, nowS) === 1 ? '' : 's'} left${o.listed ? '' : ' - offered to nobody after'}`;
+  if (!o.listed) return 'No longer offered to rent';   // AUDIT: a room taken off the offer whose tenancy ran out (it said "Offered")
   return `Offered at ${o.price} gold a day`;
 }
 /** The anchor a found room is offered by: its flight's point, from the building's origin. */

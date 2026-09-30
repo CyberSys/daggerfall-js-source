@@ -244,7 +244,7 @@ export async function placeDecor(ctx, player, { mapId, buildingKey, character, p
     return realmDecorWrite(ctx, player, side.at, {
       mapId, buildingKey, delta, write: insert,
       after: async () => pieceOfRow(await db.prepare('SELECT * FROM home_decor WHERE map_id = ? AND building_key = ? AND id = ?').bind(mapId, buildingKey, p.id).first()),
-      refusal: async () => ((await db.prepare(`SELECT ${OWNS} AS owns`).bind(mapId, buildingKey, player.id, character).first())?.owns ? 'decor-cap' : 'no-home'),
+      refusal: async () => ((await db.prepare(`SELECT ${OWNS} AS owns`).bind(mapId, buildingKey, player.id, character).first())?.owns ? (out ? 'yard-cap' : 'decor-cap') : 'no-home'),
     });
   }
   const r = await insert.run();
@@ -256,7 +256,7 @@ export async function placeDecor(ctx, player, { mapId, buildingKey, character, p
     const had = pieceOfRow(row);
     return had && JSON.stringify(had) === JSON.stringify(p) ? { ok: true, repeat: true, piece: had } : { error: 'decor-taken' };
   }
-  return { error: 'decor-cap' };
+  return { error: out ? 'yard-cap' : 'decor-cap' };   // HOME-YARD (AUDIT): a yard's own cap, in its own words
 }
 
 /**

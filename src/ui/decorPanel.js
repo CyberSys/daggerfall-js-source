@@ -52,6 +52,7 @@ import {
   HOME_LOOK_PARTS, HOME_LOOK_PART_NAMES, HOME_LOOK_CLIMATES, HOME_LOOK_CLIMATE_NAMES, HOME_LOOK_SETS, HOME_LOOK_SET_NAMES, HOME_LOOK_DOOR_KEPT, homeLookOf, homeLookSig,
 } from '../net/homeLaw.js';   // HOME-LOOK: the house outside, painted
 import { homeLookSwatch } from '../world/homeLook.js';
+import { decorIsDoor } from '../systems/decorDoorways.js';   // HOME-DOORS (AUDIT): a door's controls
 /** The crafts a piece may be made here: every station, the Forge only where it works (AUDIT 29 B2). */
 export const stationsOffered = () => DECOR_STATIONS.filter((k) => !PROF_STATIONS.includes(k) || forgeOffered());   // PROF4: the workbench as the forge
 
@@ -165,11 +166,11 @@ export const decorPriceText = (price) => (price == null ? '...' : `${price} gold
 /**
  * WHY A PIECE CANNOT BE PLACED, or null when it can: its size is still being read (or could not be), the room is
  * full, or the gold is short.
- * @param {{ price: number|null, ready: boolean, gold: number, count: number, cap: number }} v
+ * @param {{ price: number|null, ready: boolean, gold: number, count: number, cap: number, yard?: boolean }} v
  */
-export function decorWhyNot({ price, ready, gold, count, cap }) {
+export function decorWhyNot({ price, ready, gold, count, cap, yard = false }) {
   if (price == null) return ready ? 'Its size cannot be read, so it has no price.' : 'Its size is still being read.';
-  if (count >= cap) return `This room already holds ${cap} pieces.`;
+  if (count >= cap) return `${yard ? 'Your yard' : 'This room'} already holds ${cap} pieces.`;   // HOME-YARD (AUDIT): a yard said "this room"
   if (price > gold) return `You need ${price - gold} more gold.`;
   return null;
 }
@@ -235,8 +236,8 @@ export function decorLookText(part, choice) {
 }
 /** HOME-LOOK: the choice a part starts from when its first chip is pressed - the town's own, turned into a choice. */
 export const decorLookStart = (part) => (part === 'walls' || part === 'windows' ? { set: 'village', climate: 'temperate' } : { climate: 'temperate', record: 0 });
-/** HOME-LOOK: how many styles a roof or a door offers in the painter (the archive decides how many stand - a record it
- *  lacks is drawn as the town's own). */
+/** HOME-LOOK: how many styles a roof or a door offers in the painter at the most - fewer where its family holds fewer
+ *  (the painter's door's `records`). */
 export const DECOR_LOOK_STYLES = 6;
 /** HOME-RENT: what the rooms view says with no room to offer - a house of one room, or rooms still being found. */
 export const DECOR_RENT_ONE_ROOM = 'A house of one room has none to rent out. Hang a door in a doorway to part it into two.';
@@ -630,6 +631,8 @@ export function createDecorPanel({
   }
   /** HOME-LOOK: the chosen part's choices - its climates, then its sets (walls, windows) or its styles (a roof, a door);
    *  its swatch in the preview; the look painted only when it differs from the house's. */
+  /** HOME-LOOK (AUDIT): the styles a roof's or a door's family holds in a climate, as the painter's door knows it, or null. */
+  function lookRecordsOf(part, climate) { return view?.paint?.records?.(part, climate) ?? null; }
   function paintPaintSide() {
     const part = paintPart;
     const choice = part ? paintLook?.[part] ?? null : null;
@@ -642,8 +645,10 @@ export function createDecorPanel({
     if (part === 'walls' || part === 'windows') {
       paintKinds.replaceChildren(...Object.keys(HOME_LOOK_SETS).map((k) => chip(HOME_LOOK_SET_NAMES[k], choice?.set === k, () => set({ ...start(), set: k }))));
     } else if (part) {
+      // AUDIT: only the styles its family holds in that climate (a record it lacks was tried and showed the town's own)
+      const have = lookRecordsOf(part, (choice ?? decorLookStart(part)).climate);
       const styles = [];
-      for (let r = 0; styles.length < DECOR_LOOK_STYLES && r <= 15; r++) if (!(part === 'door' && r === HOME_LOOK_DOOR_KEPT)) styles.push(r);
+      for (let r = 0; styles.length < DECOR_LOOK_STYLES && r <= 15 && (have == null || r < have); r++) if (!(part === 'door' && r === HOME_LOOK_DOOR_KEPT)) styles.push(r);
       paintKinds.replaceChildren(...styles.map((r) => chip(`Style ${r + 1}`, choice?.record === r, () => set({ ...start(), record: r }))));
     } else {
       paintKinds.replaceChildren();
@@ -800,6 +805,7 @@ export function createDecorPanel({
     (view?.base ?? []).map((it) => `${it.key}:${it.name}:${it.hidden ? 1 : 0}:${it.holds ? 1 : 0}:${it.room ?? ''}`).join(','),   // BASE-HIDE
     (view?.rooms ?? []).map((r) => `${r.id}:${r.name}`).join(','), view?.roomId ?? '', view?.doorways ?? '',
     view?.yard ? 'y' : '', view?.paint ? homeLookSig(view.paint.current) : '-',   // HOME-YARD; HOME-LOOK
+    paintPart === 'roof' || paintPart === 'door' ? String(lookRecordsOf(paintPart, (paintLook?.[paintPart] ?? decorLookStart(paintPart)).climate)) : '',   // HOME-LOOK (AUDIT): a family's count answered
     view?.rent ? `${view.rent.due}:${view.rent.busy ? 1 : 0}:${(view.rent.rows ?? []).map((r) => `${rentKeyOf(r)}:${r.offer ? `${r.offer.price}.${r.offer.taken ? 1 : 0}.${r.offer.listed ? 1 : 0}.${r.offer.until ?? ''}` : '-'}`).join(',')}` : ''].join('|');   // HOME-RENT   // DECOR-ROOMS: the tabs, and the one chosen; HOME-DOORS: the doorways free
 
   function paintSide() {
@@ -844,7 +850,7 @@ export function createDecorPanel({
       paintBaseSide();
     } else {
       const free = sel?.kind === 'own' || mode === 'look';   // DECOR2a: one's own costs nothing (DECOR2b: nor its look)
-      const why = sel ? decorWhyNot({ price: free ? 0 : priceOf(sel), ready: free || !!view?.ready, gold: view?.gold ?? 0, count: view?.count ?? 0, cap: view?.cap ?? 0 }) : null;
+      const why = sel ? decorWhyNot({ price: free ? 0 : priceOf(sel), ready: free || !!view?.ready, gold: view?.gold ?? 0, count: view?.count ?? 0, cap: view?.cap ?? 0, yard: !!view?.yard }) : null;
       pickWhy.textContent = why ?? '';
       place.disabled = !sel || why !== null;
       const label = mode === 'own' && sel?.looks ? DECOR_LOOK_BUTTON : 'Place';   // DECOR2b: furniture chooses its look first
@@ -877,10 +883,12 @@ export function createDecorPanel({
     stationPick.setAttribute('aria-label', `Station craft: ${words.pick.replace(/^Station: | >$/g, '')} - press for the next`);   // AUDIT HOME-STATIONS S9
     stationBtn.textContent = words.act;
     stationBtn.dataset.what = words.what;
-    stationPick.disabled = !it || !!it.piece.item || it.piece.storage;
+    const door = !!it && decorIsDoor(it.piece);   // HOME-DOORS (AUDIT): a door hangs in its doorway - no station, no store, no light
+    stationPick.disabled = !it || !!it.piece.item || it.piece.storage || door;
     stationBtn.disabled = stationPick.disabled;
-    for (const b of [moveBtn, lightBtn]) b.disabled = !it;
-    storeBtn.disabled = !it || !!it.piece.item || (it.piece.storage && it.holds) || !!it.piece.station;   // HOME-STATIONS: a station holds nothing
+    moveBtn.disabled = !it;
+    lightBtn.disabled = !it || door;
+    storeBtn.disabled = !it || !!it.piece.item || (it.piece.storage && it.holds) || !!it.piece.station || door;   // HOME-STATIONS: a station holds nothing
     removeBtn.disabled = !it || it.holds;
     pickWhy.textContent = it?.holds ? DECOR_HOLDS_LINE : '';
   }
@@ -896,7 +904,10 @@ export function createDecorPanel({
     for (const b of priceBtns) b.disabled = !it || !it.offerable || !!rent?.busy;
     offerBtn.textContent = it?.offer ? (rentPriceOf(it) === it.offer.price && it.offer.listed ? 'Offered' : `Offer at ${rentPriceOf(it)} gold a day`) : 'Offer to rent';
     offerBtn.disabled = !it || !it.offerable || !!rent?.busy || (!!it.offer && it.offer.listed && rentPriceOf(it) === it.offer.price);
-    withdrawBtn.disabled = !it?.offer || !it.offer.listed || !!rent?.busy;
+    // AUDIT: a room taken off the offer whose tenancy ran out can be cleared off the list (it could not); a tenancy still
+    // running on one is withdrawn already
+    withdrawBtn.textContent = it?.offer && !it.offer.listed ? 'Clear it' : 'Stop offering';
+    withdrawBtn.disabled = !it?.offer || (!it.offer.listed && !!it.offer.taken) || !!rent?.busy;
     collectBtn.textContent = decorRentDueText(rent?.due ?? 0);
     collectBtn.disabled = !(rent?.due > 0) || !!rent?.busy;
     pickWhy.textContent = rent && !rent.loaded ? 'Asking the account service about your rooms...' : it?.offer?.taken ? 'A price changed now is what the next tenant pays.' : '';

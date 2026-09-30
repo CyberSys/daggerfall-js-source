@@ -571,9 +571,20 @@ export async function deleteRealm({ db, bucket, nowS = Math.floor(Date.now() / 1
   if ((master?.treasury ?? 0) > 0) return { error: 'guild-treasury' };
   if (Number((await db.prepare(REALM_MARKET_OPEN_SQL).bind(playerId, id).first())?.n ?? 0) > 0) return { error: 'realm-market-open' };
   // HOME-RENT: a room another player is renting in its home waits for its days to run out, and rent held for it waits to
-  // be collected - the delete takes the home with it
-  if (Number((await db.prepare(HOME_TENANTS_SQL).bind(playerId, id, nowS).first())?.n ?? 0) > 0) return { error: 'home-tenants' };
-  if (Number((await db.prepare(HOME_RENT_DUE_SQL).bind(playerId, id).first())?.due ?? 0) > 0) return { error: 'home-rent-due' };
+  // be collected - the delete takes the home with it. AUDIT: then no room of it is offered any more, and both are asked
+  // again - a rent landing between the first asking and the delete's batch was deleted with the home (a rent needs its
+  // room offered, so none can land after the offers go)
+  const homeHeld = async () => {
+    if (Number((await db.prepare(HOME_TENANTS_SQL).bind(playerId, id, nowS).first())?.n ?? 0) > 0) return { error: 'home-tenants' };
+    if (Number((await db.prepare(HOME_RENT_DUE_SQL).bind(playerId, id).first())?.due ?? 0) > 0) return { error: 'home-rent-due' };
+    return null;
+  };
+  const held = await homeHeld();
+  if (held) return held;
+  await db.prepare(`UPDATE home_rooms SET listed = 0 WHERE EXISTS (SELECT 1 FROM homes h WHERE h.map_id = home_rooms.map_id
+    AND h.building_key = home_rooms.building_key AND h.player = ? AND h.char_id = ?)`).bind(playerId, id).run();
+  const late = await homeHeld();
+  if (late) return late;
   await dropCharacterObjects(bucket, playerId, id, [row.obj, row.prev]);
   await db.batch([
     db.prepare('DELETE FROM homes WHERE player = ? AND char_id = ?').bind(playerId, id),

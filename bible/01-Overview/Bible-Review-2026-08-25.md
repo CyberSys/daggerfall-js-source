@@ -121,7 +121,7 @@ prose; the standing lists were maintained inconsistently. The worst
 per arc:
 - *Systems-Arc*: `:1445-1454` (S27) "Open and Lock are still not
   wired" with a pin "that fails the moment either context calls
-  triggerOpen" - both are called from `world/actionSystem.js:1003-1004`
+  triggerOpen" - both are called from `world/actionSystem.js:1022-1023`
   (X1) and the pin never fired because it greps only
   dungeonContext/interiorContext, not the file the wiring landed in
   (`mysticism.test.js:225-239`). The doc, the pin's design, and
@@ -219,7 +219,7 @@ opposite of their own code and deserve a slice's attention:
   frame" - no host reads it (the Ledger row `:529` is right, the
   comment is wrong).
 - `src/systems/mysticism.js:53` header "OPEN AND LOCK ARE NOT WIRED" -
-  they are (X1, `actionSystem.js:1003-1004`).
+  they are (X1, `actionSystem.js:1022-1023`).
 - `src/systems/regionPower.js` "alliance mutators... which the port
   does not have" - `factionRelations.js` ships them (S44).
 - `src/combat/fpsWeapon.js:22` weaponOffsetHeight 0 - now a real gap
@@ -234,7 +234,7 @@ opposite of their own code and deserve a slice's attention:
 ## Line-citation drift (low, batched)
 
 `Port-Ledger.md:626` (save.js:36/:586/:605 → :28/:676/:708), `:636`
-(world.js:4939 → :2412); `Quest-Arc.md:724`/`:2911`
+(world.js:4952 → :2412); `Quest-Arc.md:724`/`:2911`
 (worldModes.js:643 → :903); `Player-Arc.md:979` (worldModes.js:971 →
 :2764), `:304` (world.js "531 lines" → 3,564); `Characters-Arc.md:190`
 (CHAR_PIXEL "7" - `renderer.js:644` ships 9, and the doc missed two

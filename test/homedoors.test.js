@@ -23,7 +23,7 @@ import { createDecorRoom, decorKeyOf } from '../src/scenes/decorRoom.js';
 import { ActionSystem } from '../src/world/actionSystem.js';
 import { DECOR_DOOR_FINDING, DECOR_DOOR_NONE, decorDoorAimLine, DECOR_DOOR_MARK_AIMED, DECOR_DOOR_MARK_FREE, decorDoorMarkPixels } from '../src/scenes/decorTool.js';
 import { DECOR_SCALE_MAX } from '../src/net/decorLaw.js';
-import { toolRig, placeFrom, rmb, settle, near } from './decorFakes.mjs';
+import { toolRig, placeFrom, rmb, settle, near, all } from './decorFakes.mjs';
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const IDENTITY = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
@@ -87,6 +87,12 @@ test('HOME-DOORS the finder: an opening in a thick wall is ONE doorway - its mid
   const { rooms, list, steps } = doorwaysOf(house());
   assert.equal(rooms.rooms().length, 1, 'an open doorway joins the halves (decorRooms)');
   assert.ok(steps >= 1);
+  // a few rays at a time: a small budget finds none of it in one step, and each step keeps within about its budget
+  const c = house();
+  let cast = 0;
+  const few = createDecorDoorways({ raycastHit: (o, d, m) => { cast++; return c.raycastHit(o, d, m, WALLS); }, links: rooms.links() });
+  assert.equal(few.step(20), false, 'not done in one small step');
+  assert.ok(cast < 20 + 60, `about its budget (${cast} rays)`);
   assert.equal(list.length, 1, 'one doorway, found once however many links cross it');
   const [w] = list;
   assert.equal(w.id, 1);
@@ -96,6 +102,26 @@ test('HOME-DOORS the finder: an opening in a thick wall is ONE doorway - its mid
   assert.ok(near(w.width, 1, 0.02), `a metre wide (${w.width})`);
   assert.ok(near(w.height, 2.1, 0.06), `under its lintel (${w.height})`);
   assert.deepEqual([...w.normal], [1, 0, 0], 'the way through');
+});
+
+test('HOME-DOORS the finder beside a corner and over a step: an opening whose jamb stands a hand from the room\'s corner is a doorway (the corner\'s wall, not a wall going on, stands past it), and one with a step in it measures to its lintel from its own floor (mutants: the corner unasked; the lintel from inside the step)', () => {
+  const T = 0.2;
+  const shell = (c) => {
+    box(c, 'interior', [0, -T, 0, 20, 0, 10]); box(c, 'interior', [0, 3, 0, 20, 3 + T, 10]);
+    box(c, 'interior', [-T, 0, 0, 0, 3, 10]); box(c, 'interior', [20, 0, 0, 20 + T, 3, 10]);
+    box(c, 'interior', [0, 0, -T, 20, 3, 0]); box(c, 'interior', [0, 0, 10, 20, 3, 10 + T]);
+  };
+  const wallWith = (c, z0, z1) => {
+    box(c, 'interior', [10 - T / 2, 0, 0, 10 + T / 2, 3, z0]);
+    box(c, 'interior', [10 - T / 2, 0, z1, 10 + T / 2, 3, 10]);
+    box(c, 'interior', [10 - T / 2, 2.1, z0, 10 + T / 2, 3, z1]);
+  };
+  const corner = new Collider(); shell(corner); wallWith(corner, 0.2, 1.2);
+  const [c1] = doorwaysOf(corner).list;
+  assert.ok(c1 && near(c1.center[2], 0.7, 0.02) && near(c1.width, 1, 0.02), `the corner's doorway (${JSON.stringify(c1?.center)})`);
+  const step = new Collider(); shell(step); wallWith(step, 4.5, 5.5); box(step, 'interior', [10.03, 0, 0, 20, 0.3, 10]);
+  const [s1] = doorwaysOf(step).list;
+  assert.ok(s1 && near(s1.height, 2.1, 0.06), `to its lintel, over the step (${s1?.height})`);
 });
 
 test('HOME-DOORS no doorway where there is none: a passage\'s length is no doorway (its two mouths are), two cupboards a metre apart are none (the walls alone are read), a wall\'s end and a post a metre past it are none (the wall goes on past each jamb), an opening a shut door stands in is none, and a house with no inner wall has none (mutants: every bucket read; the wall-goes-on test; the open link test)', () => {
@@ -112,7 +138,7 @@ test('HOME-DOORS no doorway where there is none: a passage\'s length is no doorw
   assert.deepEqual(none.doorways(), [], 'no links, nothing found');
 });
 
-test('HOME-DOORS the fit: the door turned so its thickness runs through the doorway, sized to the tighter of the opening\'s width and height (within the piece law), its middle on the doorway\'s middle and its foot on the floor - either way its box lies; a flip hangs it from the other jamb (mutants: the turn; the width axis; the scale\'s tighter; the lift)', () => {
+test('HOME-DOORS the fit: the door turned so its thickness runs through the doorway, sized to the tighter of the opening\'s width and height (within the piece law), its middle on the doorway\'s middle and its foot on the floor - either way its box lies; a flip hangs it from the other jamb (mutants: the turn; the width axis; the scale\'s tighter; the lift; the arch filled)', () => {
   const w = { center: [10, 0, 5], normal: [1, 0, 0], width: 1, height: 2.1 };
   const alongX = [0, 0, -0.05, 1, 2.1, 0.05];      // the hinge at x 0, a metre along x
   const f = decorDoorFit(w, alongX);
@@ -136,9 +162,13 @@ test('HOME-DOORS the fit: the door turned so its thickness runs through the door
   assert.equal(decorDoorFit({ ...w, width: 40, height: 40 }, alongX).scale, DECOR_SCALE_MAX, 'within the piece law');
   assert.equal(decorDoorFit(w, [0, 0, 0, 0, 0, 0]), null, 'no box, no door');
   assert.equal(decorDoorFit(null, alongX), null);
+  // AUDIT: scaled whole, a door closes an opening near its own width - never an arch twice as wide
+  assert.equal(f.fills, true, 'a metre door in a metre opening');
+  assert.equal(decorDoorFit({ ...w, width: 1.15 }, alongX).fills, true, 'a hand to spare, closed');
+  assert.equal(decorDoorFit({ ...w, width: 2 }, alongX).fills, false, 'half a metre open either side: no door for it');
 });
 
-test('HOME-DOORS which doorways are free and which one is looked at: a door standing near a doorway\'s middle takes it (a hinge or a middle, on its storey); the one looked at is the nearest the eye\'s line, ahead and in reach; a doorway\'s mark fills its opening to a door\'s height (mutants: the near test; the storey; behind the eye; the widest aim)', () => {
+test('HOME-DOORS which doorways are free and which one is looked at: a door standing near a doorway\'s middle takes it (a hinge or a middle, on its storey); the one looked at is the nearest the eye\'s line, ahead and in reach; a doorway\'s mark fills its opening to a door\'s height (mutants: the near test; the storey; behind the eye; the widest aim; the unseen aimed at)', () => {
   const a = { id: 1, center: [10, 0, 5], normal: [1, 0, 0], width: 1, height: 2.1 };
   const b = { id: 2, center: [10, 0, 8], normal: [1, 0, 0], width: 1, height: 2.1 };
   const up = { id: 3, center: [10, 3, 5], normal: [1, 0, 0], width: 1, height: 2.1 };
@@ -153,6 +183,12 @@ test('HOME-DOORS which doorways are free and which one is looked at: a door stan
   assert.equal(decorDoorwayAimed([a, b], eye, [-1, 0, 0], 12), null, 'never one behind');
   assert.equal(decorDoorwayAimed([a, b], eye, [1, 0, 0], 4), null, 'nor one out of reach');
   assert.equal(decorDoorwayAimed([a, b], eye, [0, 0, 1], 12), null, 'nor one far off the line');
+  // AUDIT: one the eye cannot see (a wall, a ceiling between) is never the one looked at - the next nearest the line is
+  const hidden = (mid) => !(mid[2] === 5);
+  const beyond = { id: 4, center: [14, 0, 5.2], normal: [1, 0, 0], width: 1, height: 2.1 };
+  assert.equal(decorDoorwayAimed([a, beyond], eye, [1, 0, 0], 12)?.id, 1, 'the nearer the line');
+  assert.equal(decorDoorwayAimed([a, beyond], eye, [1, 0, 0], 12, hidden)?.id, 4, 'the one seen, though further off the line');
+  assert.equal(decorDoorwayAimed([a], eye, [1, 0, 0], 12, hidden), null, 'looked straight at, through a wall: none');
   const q = decorDoorwayQuad({ ...a, height: 3 });
   assert.equal(q.size, DOORWAY_MARK_HIGH, 'a door\'s height, not an arch\'s');
   assert.ok(near(q.pos[1], DOORWAY_MARK_HIGH / 2) && near(q.stretch * q.size, 1), 'its opening\'s width');
@@ -225,6 +261,25 @@ test('HOME-DOORS the action system takes a door back out - the object, its link 
   assert.equal(actions.removeDoor(shut.key), true, 'shut as it is');
   assert.deepEqual(gone, ['act:decor:def'], 'a shut door\'s bucket is what stands in the doorway');
   assert.equal(actions.objects.size, 0);
+});
+
+test('HOME-DOORS a placed door\'s state that comes before its door - a save\'s, the room\'s memory\'s, a peer\'s, read while its model is still fetched - is taken by the door when it is hung, and written with the scene\'s records meanwhile; only a placed door\'s key waits, a handful at most (mutants: the early record dropped; the save forgetting it; any key kept)', () => {
+  const buckets = new Map();
+  const collider = { addMesh: (k) => buckets.set(k, true), removeBucket: (k) => buckets.delete(k) };
+  const actions = new ActionSystem(collider);
+  const cpu = { positions: new Float32Array(9), indices: new Uint32Array([0, 1, 2]) };
+  actions.restoreSaveData([{ key: 'act:decor:d1', state: 'end', t: 1, lock: 7 }, { key: 'door:99', state: 'end', t: 1 }]);
+  assert.deepEqual(actions.collectSaveData().map((r) => r.key), ['act:decor:d1'], 'kept, and saved while the door is not hung; a stranger\'s key is not');
+  const d1 = actions.addDoor(cpu, new Float32Array(IDENTITY), { ns: 'decor', positionKey: 'd1' });
+  assert.deepEqual([d1.state, d1.t, d1.currentLockValue], ['end', 1, 7], 'hung open and locked, as it was left');
+  assert.equal(buckets.has('act:decor:d1'), false, 'open: nothing to walk into');
+  assert.deepEqual(actions.collectSaveData().map((r) => r.key), ['act:decor:d1'], 'once: the door\'s own record now');
+  // a peer's frame for a door this client has not hung yet
+  assert.equal(actions.applyRemote([{ key: 'act:decor:d2', state: 'end', t: 1 }]), 0);
+  const d2 = actions.addDoor(cpu, new Float32Array(IDENTITY), { ns: 'decor', positionKey: 'd2' });
+  assert.equal(d2.state, 'end', 'the room\'s door as the others see it');
+  for (let i = 0; i < 100; i++) actions.restoreSaveData([{ key: `act:decor:x${i}`, state: 'end', t: 1 }]);
+  assert.ok(actions.collectSaveData().length <= 2 + 64, 'a handful waits, never the wire\'s worth');
 });
 
 /** The rig's house (origin 10, 0, 10; the eye at 10, 1.6, 10), thick-walled: x 4 to 24, z 5 to 15, 3 high, a wall at x 14
@@ -300,6 +355,44 @@ test('HOME-DOORS the decorator: a door chosen is fitted into the doorway looked 
   rig.tool.back();
   for (let i = 0; i < 20; i++) { rig.frame({ overlayUp: true }); await settle(); }
   assert.equal(roomTabs(), Math.max(2, before + 1), `the rooms found again: the door parts the house (${before} before)`);
+});
+
+test('HOME-DOORS a door hung on an earlier visit is moved within its own doorway - found again with the placed doors seen through, its own doorway free to it alone (mutants: the placed doors walled in; a door made a light)', async () => {
+  const collider = rigHouse();
+  const rig = toolRig({ collider, gold: 50_000, doors: [0], walls: WALLS, doorsHere: () => [] });
+  rig.cam.yaw = Math.PI / 2;
+  rig.cam.pitch = 0;
+  await placeFrom(rig, 'm9000');
+  for (let i = 0; i < 80 && !rig.tool.ghost(); i++) { rig.frame(); await settle(); }
+  assert.equal(await rig.tool.commit(), true);
+  const door = rig.standing.at(-1);
+  rig.tool.back();
+  // the next visit: the door stands shut in its doorway from the start (its bucket on the collider), found by no link
+  const next = toolRig({ collider, gold: 50_000, doors: [0], walls: WALLS, doorsHere: () => [] });
+  next.standing.push({ ...door });
+  next.cam.yaw = Math.PI / 2;
+  next.cam.pitch = 0;
+  next.frame();
+  next.tool.openPanel();
+  for (let i = 0; i < 40; i++) { next.frame({ overlayUp: true }); await settle(); }
+  const panel = next.doc.body.children.find((c) => c.className === 'dfdecor');
+  all(panel, 'dfdecor-chip').find((c) => /^In this room/.test(c.textContent)).fire('click');
+  next.frame({ overlayUp: true });
+  all(panel, 'dfdecor-row').find((r) => r.dataset.key === door.id).fire('click');
+  next.frame({ overlayUp: true });
+  // AUDIT: a door is no station (whose licence it could never use), holds nothing and gives no light - offered none, and
+  // a press reaching the tool changes nothing
+  const btn = (re) => all(panel, 'dfdecor-btn').find((b) => re.test(b.textContent));
+  for (const re of [/^Light/, /^Holds things/, /^Station/]) assert.equal(btn(re)?.disabled, true, `${re} not offered for a door`);
+  btn(/^Light/).fire('click');
+  await settle();
+  assert.equal(next.standing.find((p) => p.id === door.id).light ?? null, null, 'no light hung on it');
+  all(panel, 'dfdecor-btn').find((b) => b.textContent === 'Move').fire('click');
+  for (let i = 0; i < 120 && !next.tool.ghost(); i++) { next.frame(); await settle(); }
+  const ghost = next.tool.ghost();
+  assert.ok(ghost, `its own doorway found and free to it (${next.tool.why()})`);
+  assert.ok(near(10 + ghost.pos[0], 14, 0.02), 'in the wall');
+  assert.equal(next.tool.why(), null);
 });
 
 test('HOME-DOORS a house whose doorways are taken - one of the room\'s own doors standing in it - offers none, and says so (mutant: the host\'s doors unread)', async () => {

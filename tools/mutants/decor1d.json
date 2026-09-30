@@ -101,8 +101,8 @@
   {
     "name": "DECOR1d-the-cap-unread",
     "file": "src/ui/decorPanel.js",
-    "old": "  if (count >= cap) return `This room already holds ${cap} pieces.`;\n",
-    "new": "",
+    "old": "  if (count >= cap) return `${yard ? 'Your yard' : 'This room'} already holds ${cap} pieces.`;",
+    "new": "  if (false) return `${yard ? 'Your yard' : 'This room'} already holds ${cap} pieces.`;",
     "tests": [
       "test/decor1d.test.js"
     ]
@@ -218,8 +218,8 @@
   {
     "name": "DECOR1d-the-cap-unread-on-commit",
     "file": "src/scenes/decorTool.js",
-    "old": "gold: deps.wallet().gold, count: pool.size(), cap: capHere(r) })) return false;",
-    "new": "gold: deps.wallet().gold, count: 0, cap: capHere(r) })) return false;",
+    "old": "gold: deps.wallet().gold, count: pool.size(), cap: capHere(r), yard: !!r?.yard })) return false;",
+    "new": "gold: deps.wallet().gold, count: 0, cap: capHere(r), yard: !!r?.yard })) return false;",
     "tests": [
       "test/decor1d.test.js"
     ]

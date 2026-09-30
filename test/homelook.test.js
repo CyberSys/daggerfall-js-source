@@ -143,7 +143,8 @@ test('HOME-LOOK the painter, in the yard\'s panel: "Exterior" lists the four par
   assert.equal(decorLookText('roof', { climate: 'desert', record: 1 }), 'Desert, style 2');
   assert.deepEqual(decorLookStart('door'), { climate: 'temperate', record: 0 });
   const calls = [];
-  const door = { current: null, season: 0, preview: (look) => calls.push(['preview', look]), commit: async (look) => { calls.push(['commit', look]); return { ok: true }; } };
+  // AUDIT: a family's count, as the door knows it - the temperate roof's holds three styles
+  const door = { current: null, season: 0, records: (part, climate) => (part === 'roof' && climate === 'temperate' ? 3 : null), preview: (look) => calls.push(['preview', look]), commit: async (look) => { calls.push(['commit', look]); return { ok: true }; } };
   const r2 = toolRig({ room: { kind: 'home', yard: true, where: 'Your yard', mapId: 7, buildingKey: 300 }, look: () => door });
   r2.frame();
   assert.equal(r2.tool.openPanel(), true);
@@ -159,7 +160,12 @@ test('HOME-LOOK the painter, in the yard\'s panel: "Exterior" lists the four par
   chips().find((c) => c.textContent === 'Manor').fire('click');
   chips().find((c) => c.textContent === 'Swamp').fire('click');
   assert.deepEqual(calls.at(-1), ['preview', { walls: { set: 'manor', climate: 'swamp' } }], 'tried on the house');
+  all(root(), 'dfdecor-row').find((r) => r.dataset.key === 'roof').fire('click');
+  r2.frame({ overlayUp: true });
+  assert.deepEqual(chips().filter((c) => /^Style /.test(c.textContent)).map((c) => c.textContent), ['Style 1', 'Style 2', 'Style 3'], 'only the styles its family holds');
   all(root(), 'dfdecor-row').find((r) => r.dataset.key === 'door').fire('click');
+  r2.frame({ overlayUp: true });
+  assert.equal(chips().filter((c) => /^Style /.test(c.textContent)).length, 6, 'a count not known yet: six offered');
   chips().find((c) => c.textContent === 'Style 3').fire('click');
   assert.equal(chips().some((c) => c.textContent === 'Style 4'), false, 'the door\'s frame tapestry is never offered');
   assert.deepEqual(calls.at(-1), ['preview', { walls: { set: 'manor', climate: 'swamp' }, door: { climate: 'temperate', record: 2 } }]);
@@ -174,8 +180,18 @@ test('HOME-LOOK the painter, in the yard\'s panel: "Exterior" lists the four par
 
 test('HOME-LOOK the world host by source: a town\'s homes are asked before its buildings are merged, a home stands out of the merge with its own table, drawn (and its shadow) with it; a look landed or changed repaints it where it stands, the older ask never over a newer; a merged home painted later rebuilds its pixel; the painter\'s preview is the owner\'s screen alone (mutants: the home merged; the draw on the pixel\'s table; the rebuild unmarked)', () => {
   const w = src('src/scenes/world.js');
-  assert.match(w, /await onlineHomes\.waitFor\(homeTown, HOME_LOOK_BUILD_WAIT_MS\)/);
-  assert.match(w, /if \(homeRow\) \{[\s\S]{0,300}entry\.texRemap = await homeLookRemap\(gpu\.subMeshes, texRemap, look, season, pipeline\);[\s\S]{0,80}\}\n\s*models\.push\(entry\);\n\s*if \(!entry\._home && !isCityGate/, 'a home stays out of the merge');
+  // AUDIT: a town heard before is never waited for again (a rebuild stalled a second and a half)
+  assert.match(w, /if \(onlineHomes\.known\(homeTown\)\) onlineHomes\.ensure\(homeTown\)\.catch\(\(\) => \{\}\);\n\s*else \{ try \{ await onlineHomes\.waitFor\(homeTown, HOME_LOOK_BUILD_WAIT_MS\); \}/);
+  // AUDIT: only a painted home, or this account's, leaves the merge - and an unpainted one draws with the pixel's table
+  assert.match(w, /if \(homeRow && \(homeLook \|\| homeRow\.mine\)\) \{[\s\S]{0,300}entry\.texRemap = homeLook \? await homeLookRemap\(gpu\.subMeshes, texRemap, homeLook, season, pipeline\) : null;[\s\S]{0,80}\}\n\s*models\.push\(entry\);\n\s*if \(!entry\._home && !isCityGate/, 'a painted home stays out of the merge');
+  // AUDIT: each pixel from the registry as its build read it, the publish asking for a refresh; a merged home rebuilds
+  // its pixel for a look written or its becoming this account's, never for the painter's preview
+  assert.match(w, /homeLookRead = onlineHomes\.version\(\) \* 1024 \+ _lookPreviewGen;/);
+  assert.match(w, /_lookV: homeLookRead,/);
+  assert.match(w, /if \(homeTown\) _homeLookV = -1;/);
+  assert.match(w, /if \(!p\.homeTown \|\| p\._lookV === v\) continue;/);
+  assert.match(w, /if \(!p\.homeKeys\.has\(bk\) && p\.buildingKeys\.has\(bk\) && \(row\?\.look \|\| row\?\.mine\)\) merged = true;/);
+  assert.match(w, /if \(!look\) \{ m\.texRemap = null; continue; \}/);
   assert.match(w, /else renderer\.drawMesh\(m\.gpu, m\._world, m\.texRemap \?\? p\.texRemap\);/);
   assert.match(w, /renderer\.recordShadowMesh\(m\.gpu, m\._world, m\.texRemap \?\? p\.texRemap\);   \/\/ HOME-LOOK/);
   assert.match(w, /if \(merged\) \{ _reskin\.mark\(key\); continue; \}/);

@@ -41,7 +41,7 @@ import { HANDLE_RE } from './handleShape.js';
 import { LETTER_SUBJECT_MAX, LETTER_BODY_MAX, LETTER_LINES_MAX, LETTERS_SENT_MAX, LETTERS_PAIR_MAX } from './letterLaw.js';   // MAIL1: the letter's bounds, in the refusals' own sentences
 import { MUTE_RANGE_TEXT } from './moderation.js';   // AUDIT 68 S14-mute-range-text-duplicated: the mute's bound in the refusal's sentence, from its home
 import { HOME_CAP, RENT_ROOMS_MAX, RENT_HELD_MAX, RENT_DAYS_MAX } from './homeLaw.js';   // HOME1: the cap a refusal names; HOME-RENT: and the rooms'
-import { DECOR_CAP } from './decorLaw.js';   // DECOR1: the cap its refusal names
+import { DECOR_CAP, DECOR_YARD_CAP } from './decorLaw.js';   // DECOR1: the cap its refusal names; HOME-YARD: a yard's
 import { MARKS_MAX, MARKS_BANK, MARKS_MOVE_MAX } from './marksLaw.js';   // MARKS1: the bounds its refusals name
 import { NOTES_LIVE_MAX, NOTE_DAYS, NOTICE_DAYS_MAX } from './boardLaw.js';   // NOTICE1: the bounds its refusals name
 import { HARVESTS_PER_DAY, HARVESTS_PER_ACCOUNT_DAY, DEEP_UNCONFIRMED_PER_DAY, STORES_MAX, WITHDRAW_MAX, COURT_WRITS_PER_DAY, RESPEC } from './professionLaw.js';   // PROF1: the bounds its refusals name
@@ -169,7 +169,7 @@ export const REFUSALS = Object.freeze({
   'home-rate': 'You have bought and sold a lot of homes this hour. Try again later.',
   'no-home': 'That home is not yours any more.',
   'bad-home': 'The account service could not tell which building that is.',
-  'home-character': 'The account service could not tell which character is buying.',
+  'home-character': 'The account service could not tell which character this is for.',
   'bad-entry': 'The account service does not know that setting. The game may need updating.',
   'no-session': 'You are not signed in to an account.',
   // HOME-RENT: a home's rooms, rented (server-account/src/rent.js) - met at a door, or in the owner's decorator
@@ -189,6 +189,7 @@ export const REFUSALS = Object.freeze({
   'bad-look': 'The account service could not read that look. The game may need updating.',
   // DECOR1: an online home's decor (server-account/src/decor.js)
   'decor-cap': `A home holds at most ${DECOR_CAP} pieces. Remove one to place another.`,
+  'yard-cap': `A yard holds at most ${DECOR_YARD_CAP} pieces. Remove one to place another.`,   // HOME-YARD
   'decor-taken': 'Another piece already stands under that name. Place it again.',
   'decor-rate': 'You have placed and moved a great deal this hour. Try again later.',
   'no-decor': 'That piece is not in your home any more.',
@@ -826,7 +827,7 @@ export function accountHomes({ fetch, storage }) {
     entry: (mapId, buildingKey, entry) => post('/v1/homes/entry', { mapId, buildingKey, entry }),
     // HOME-RENT: a home's rooms (server-account/src/rent.js) - read at its door, offered and withdrawn by its owner, rented
     // by another player's realm character on its record, and the rent collected by the owner on theirs
-    rooms: (mapId, buildingKey) => post('/v1/homes/rooms', { mapId, buildingKey }),
+    rooms: (mapId, buildingKey, character = null) => post('/v1/homes/rooms', { mapId, buildingKey, ...(character ? { character } : {}) }),   // the character: whose tenancy is `yours`
     offerRoom: ({ mapId, buildingKey, character, room, anchor, price }) => post('/v1/homes/rooms/offer', { mapId, buildingKey, character, room, anchor, price }),
     withdrawRoom: ({ mapId, buildingKey, character, room }) => post('/v1/homes/rooms/withdraw', { mapId, buildingKey, character, room }),
     rentRoom: ({ mapId, buildingKey, character, room, days, price, realm = null }) => post('/v1/homes/rooms/rent', { mapId, buildingKey, character, room, days, price, ...(realm ? { realm } : {}) }),

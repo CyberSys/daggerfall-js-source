@@ -4917,7 +4917,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:7609` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:7622` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:336`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -9918,7 +9918,8 @@ home's alone - they are about other players.
   tenancy and the rent held on the home, the record asked first (realmActFirst), so a rent sent again after a lost
   answer reads as landed. The price the tenant saw must be the price that stands (`rent-price`); a room another rents
   is `rent-taken`; one's own account never rents from itself (`rent-own` - it would move gold between one's own
-  characters). COLLECT pays the held rent into the owner's record's purse, all of it, in one batch (the guild
+  characters). COLLECT pays the held rent into the owner's record's bank account in the home's region (the purse where it
+  keeps none - a sale's own place; AUDIT: a month of rooms in coin pinned its owner), all of it, in one batch (the guild
   treasury's pattern - an owner's record moves only with its own tab's lease). A home is not sold (`home-tenants`) nor
   its character deleted (`home-tenants`, `home-rent-due`) while a tenancy runs or rent is held; rent nobody collected
   comes with a sale. The town answer names each home's free rooms (`rent: { vacant, from }`) and, for the character
@@ -9998,12 +9999,53 @@ home's alone - they are about other players.
 - Known limits: the lot is a box round the footprint (a building turned off the grid has a wider lot); yard pieces are
   not activation targets; the street's wandering folk are not steered round them.
 
-Pinned: `test/homedoors.test.js` (11), `test/homerent.test.js` (9), `test/homelook.test.js` (7),
-`test/homeyard.test.js` (6); re-aimed by content in `test/decor1.test.js` (the kinds' count, the host's pool),
+### THE AUDIT (2026-09-30, asked: "let's do a nice audit on this. Just want to make sure it's perfect")
+
+Four lanes read the slices adversarially (the rent and its gold, the doors, the look and the yard, the merge and the
+service's routes); every finding was checked against the code before it was fixed, and every fix carries a mutant in
+`tools/mutants/housing.json` (75 records: 72 dead, 3 recorded equivalent - the doorway's depth bound, and the rent's
+early price and offer checks, which the write's own guards repeat).
+
+- HIGH - the rent held on a home was paid into the record at its sale and never into the tab's purse; the act's
+  checkpoint then wrote the tab's save over the record, and the rent was gone. `release` carries `rent`, the sale
+  credits it and says it (`homeSoldLine`).
+- Rent: a room taken off the offer could be renewed by its tenant for ever, holding the sale and the delete - renewal
+  needs the offer (read and in the write, `listed = 1`); a rent whose room changed under it said `rent-taken` whatever
+  changed (`roomMovedOf`: the new price, the offer gone, or taken); a collection was not rated; `yours` was the
+  account's while renewal is the character's (the rooms read names its character); an offer needs a landed save (a
+  customs undone would strand held rent); the delete withdraws the character's offers once its checks pass and asks
+  again, so no rent lands between; the owner's rooms are offered under their offer's own number or the first free one
+  (a door hung renumbers the finder's rooms, and a price change overwrote another room's offer); a room off the offer
+  whose tenancy ran out says so and can be cleared; the owner's other characters are offered no room; a tenancy opens
+  the door and the bed until its end, not until the town is read again; the rent collected goes to the home's region's
+  bank, as a sale pays.
+- Doors: a placed door's swing and lock were dropped on every restore, room memory and peer frame that came before the
+  door was hung (its model is fetched) - ActionSystem keeps such records by key (`act:decor:` only, a handful) and the
+  door takes its own when added, the save writing them meanwhile; a door hung on an earlier visit could not be moved
+  (its shut bucket hid its doorway from the rooms' links) - the doorways are found from the rooms with the placed
+  doors seen through; a door is offered no station, store or light (a station's licence on a door could never be
+  used); only a doorway the eye sees is aimed at; a doorway beside a room's corner or over a step is found; a door
+  hangs only where it closes the opening (`fills` - an arch twice its width is `DECOR_DOOR_TOO_WIDE`); a piece moved
+  before the catalogue is read is kinded by its model.
+- Look and yard: the painter's first preview on a home the merge swallowed rebuilt the owner's street under the open
+  panel, and the decorator went on writing into the yard taken down - a merged home rebuilds its pixel only for a look
+  written or once it is this account's, and a yard taken down under the decorator puts it away; only painted homes or
+  the account's own leave the merge (PERF4 kept for every other); each pixel is painted from the registry version its
+  build read (an answer landing mid-build was spent before the pixel stood); a town heard before is never waited for
+  again at a rebuild; a finger's tap or swipe under the yard's flight presses and swings nothing; the lot asks the
+  ground a piece covers (its turned box), not its middle; yards stand again the frame the world recentres; far yards
+  are not drawn (`YARD_DRAW_M`); yard pieces take their pixel's climate swaps; a full yard says so (`yard-cap`); the
+  painter offers only the styles a roof's or a door's family holds.
+- Known limits kept: a town's yards are read up to DECOR_YARDS_TOWN_MAX pieces (a town of more than about 33 full
+  yards shows the first by building key); a tenancy's end is read on the client's clock; a refused rent's reserve
+  comes back to the region's account, as a refused home purchase's does.
+
+Pinned: `test/homedoors.test.js` (14), `test/homerent.test.js` (10), `test/homelook.test.js` (7),
+`test/homeyard.test.js` (7); re-aimed by content in `test/decor1.test.js` (the kinds' count, the host's pool),
 `test/basehide.test.js` (the shell's bucket named), `test/home1.test.js` (the homes' door built from `homesApi`),
 `test/home2.test.js` (HOME_VERB's rent), `test/realm6.test.js` (four realm acts in the building host),
-`test/accountworker.test.js` (the tables), `test/renown_char.test.js` (the migrations after 0035) and the
-ACCOUNT_VERSION pins (`acct33`).
+`test/accountworker.test.js` (the tables), `test/renown_char.test.js` (the migrations after 0035), `test/decor1e.test.js`
+and `test/decor2b.test.js` (the sale's line, the tap under a flight) and the ACCOUNT_VERSION pins (`acct34`).
 
 
 ## GUILD1 (2026-09-25, Mac: "future ownership for online guilds"; asked, founding takes "Gold and Renown", a guild is joined "Per character", its ranks are "Four, renamed by the guildmaster", and the treasury is the "Guildmaster only" to take from) - a guild the players found, and the service keeps

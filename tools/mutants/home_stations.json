@@ -74,8 +74,8 @@
   {
     "name": "HOME-STATIONS-station-holds-things",
     "file": "src/ui/decorPanel.js",
-    "old": "(it.piece.storage && it.holds) || !!it.piece.station;",
-    "new": "(it.piece.storage && it.holds);",
+    "old": "(it.piece.storage && it.holds) || !!it.piece.station || door;",
+    "new": "(it.piece.storage && it.holds) || door;",
     "tests": [
       "test/homestations.test.js"
     ]
@@ -83,8 +83,8 @@
   {
     "name": "HOME-STATIONS-storage-made-a-station",
     "file": "src/ui/decorPanel.js",
-    "old": "    stationPick.disabled = !it || !!it.piece.item || it.piece.storage;",
-    "new": "    stationPick.disabled = !it;",
+    "old": "    stationPick.disabled = !it || !!it.piece.item || it.piece.storage || door;",
+    "new": "    stationPick.disabled = !it || door;",
     "tests": [
       "test/homestations.test.js"
     ]

@@ -70,6 +70,8 @@ export const DOORWAY_LINTEL_SIDE = 0.05;
 export const DOORWAY_RAYS_A_STEP = 400;
 /** How short of the lintel a fitted door stands. */
 export const DOOR_FIT_GAP = 0.02;
+/** AUDIT: the most of an opening's width a fitted door may leave open (both sides together) and still close it. */
+export const DOOR_FILL_SLACK = 0.2;
 /** How high a doorway's mark stands at the most - a door's height, not the ceiling of an arch. */
 export const DOORWAY_MARK_HIGH = 2.4;
 
@@ -150,7 +152,15 @@ export function createDecorDoorways({ raycastHit, links }) {
     // the wall goes on past both jambs, at the same depth - a wall with an opening in it, not a gap between two things
     const beyond = DOORWAY_OPENS + DOORWAY_STEP;
     const tr = along(r.u + beyond), tl = along(l.u - beyond);
-    if (!(Math.abs(tr - r.t) <= DOORWAY_STEP * 2) || !(Math.abs(tl - l.t) <= DOORWAY_STEP * 2)) return rays;
+    // AUDIT: or a wall meets it at a corner within that reach - a doorway beside a room's corner (a ray along the wall's
+    // face, just in front of it, outward from the jamb); a free-standing post has neither
+    const cornered = (j, side) => {
+      rays++;
+      const back = j.t - DOORWAY_STEP;
+      return cast([a[0] + p[0] * j.u + dir[0] * back, h, a[2] + p[2] * j.u + dir[2] * back], [p[0] * side, 0, p[2] * side], beyond) < beyond;
+    };
+    const goesOn = (t, j, side) => Math.abs(t - j.t) <= DOORWAY_STEP * 2 || cornered(j, side);
+    if (!goesOn(tr, r, 1) || !goesOn(tl, l, -1)) return rays;
     // the wall's far face, looked for back from past the thickest wall (a floor in the doorway may stand inside the
     // wall's thickness): the door hangs in the middle of the wall
     const near = Math.min(r.t, l.t);
@@ -167,9 +177,17 @@ export function createDecorDoorways({ raycastHit, links }) {
     if (!Number.isFinite(drop)) return rays;
     const floor = h - drop;
     // the lintel, a hair either side of the door's plane (a wall's own plane sees along its face, never into it)
-    rays += 2;
-    const up = Math.min(...[-1, 1].map((k) => cast([cx + dir[0] * k * DOORWAY_LINTEL_SIDE, floor + 0.05, cz + dir[2] * k * DOORWAY_LINTEL_SIDE], UP, DOORWAY_HEIGHT_MAX)));
-    const height = Number.isFinite(up) ? up + 0.05 : DOORWAY_HEIGHT_MAX;
+    // the lintel, either side of the wall's plane - each side from its own floor (AUDIT: a step at the doorway put one
+    // side's ray inside the step, and the opening measured a hand high), measured from the doorway's floor
+    rays += 4;
+    const lintel = Math.min(...[-1, 1].map((k) => {
+      const sx = cx + dir[0] * k * DOORWAY_LINTEL_SIDE, sz = cz + dir[2] * k * DOORWAY_LINTEL_SIDE;
+      const sd = cast([sx, h, sz], DOWN, h - Math.min(a[1], b[1]) + 0.5);
+      const sideFloor = Number.isFinite(sd) ? h - sd : floor;
+      const u = cast([sx, sideFloor + 0.05, sz], UP, DOORWAY_HEIGHT_MAX);
+      return Number.isFinite(u) ? sideFloor + 0.05 + u : Infinity;
+    }));
+    const height = Number.isFinite(lintel) ? lintel - floor : DOORWAY_HEIGHT_MAX;
     if (height < DOORWAY_HEIGHT_MIN) return rays;
     const c = { center: [cx, floor, cz], normal: [dir[0], 0, dir[2]], width, height };
     if (!found.some((d) => same(d, c))) found.push(c);
@@ -205,8 +223,10 @@ export function decorDoorwaysFree(doorways, doors) {
 /**
  * THE DOORWAY THE EYE LOOKS AT: of `doorways`, the one whose middle is nearest the line from `eye` along `dir`, ahead of
  * it and within `reach`, and no further off the line than half its width (DOORWAY_AIM at the least) - or null.
+ * AUDIT: `seen(mid, dist)`, when given, answers whether the eye sees that middle - a doorway behind a wall or above
+ * the ceiling is never the one looked at (the ghost and its mark would stand out of sight, and a click hang it there).
  */
-export function decorDoorwayAimed(doorways, eye, dir, reach) {
+export function decorDoorwayAimed(doorways, eye, dir, reach, seen = null) {
   let best = null;
   let bestD = Infinity;
   for (const w of doorways ?? []) {
@@ -216,6 +236,7 @@ export function decorDoorwayAimed(doorways, eye, dir, reach) {
     if (!(t > 0) || t > reach) continue;
     const off = Math.hypot(v[0] - dir[0] * t, v[1] - dir[1] * t, v[2] - dir[2] * t);
     if (off > Math.max(DOORWAY_AIM, w.width / 2) || off >= bestD) continue;
+    if (seen && !seen(m, Math.hypot(v[0], v[1], v[2]))) continue;
     bestD = off;
     best = w;
   }
@@ -252,6 +273,9 @@ export function decorDoorFit(doorway, box, flip = false) {
     pos: [doorway.center[0] - (c * mx + s * mz), doorway.center[1] - y0 * scale, doorway.center[2] - (-s * mx + c * mz)],
     yaw: Math.round(deg * 10) / 10 + 0,   // never -0
     scale,
+    // AUDIT: whether the door, so sized, closes the opening - scaled whole, a door in an opening much wider than itself
+    // (an arch) leaves a gap either side that parts no room and stops nobody
+    fills: doorway.width - wide * scale <= DOOR_FILL_SLACK,
   };
 }
 

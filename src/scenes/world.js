@@ -3297,6 +3297,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     let personBatches = null;
     let locBlocks = null;    // T3d: the layout blocks for the Where-is directory
     let homeTown = 0;        // HOME-LOOK: the town's map id, and its homes as heard at the build
+    let homeLookRead = -1;   // HOME-LOOK (AUDIT): the registry's version as this build read it - refreshHomeLooks starts from it
     /** @type {Map<number, any>|null} */
     let townHomes = null;
     const pixelHomeKeys = new Set();   // HOME-LOOK: the homes drawn out of the merge
@@ -3320,8 +3321,12 @@ export async function bootWorld(canvas, renderer, params, status) {
       // then is painted when it is heard of)
       homeTown = (dfLocation.mapTableData?.mapId ?? 0) >>> 0;
       if (onlineHomes && homeTown) {
-        try { await onlineHomes.waitFor(homeTown, HOME_LOOK_BUILD_WAIT_MS); } catch { /* painted once heard */ }
+        // AUDIT: a town heard before is read as it was heard (asked again behind the build; an answer that moves is
+        // painted by refreshHomeLooks) - only a town never heard is waited for, a moment, never at every rebuild
+        if (onlineHomes.known(homeTown)) onlineHomes.ensure(homeTown).catch(() => {});
+        else { try { await onlineHomes.waitFor(homeTown, HOME_LOOK_BUILD_WAIT_MS); } catch { /* painted once heard */ } }
         townHomes = onlineHomes.homesIn(homeTown);
+        homeLookRead = onlineHomes.version() * 1024 + _lookPreviewGen;
       }
       for (const b of loc.blocks) {
         const originMatrix = trs(
@@ -3374,22 +3379,22 @@ export async function bootWorld(canvas, renderer, params, status) {
           const box = transformedAabb(archAabb(placed.modelIdNum, cpu.positions), local);
           unionBox(box);
           const entry = { gpu, local, _box: box, _order: placed.modelIdNum };   // EV6: sort key
-          // HOME-LOOK: a player's home stands on its own, painted with its own table
+          // HOME-LOOK / HOME-YARD
           const homeKey = Number.isSafeInteger(placed.recordIndex) ? makeBuildingKey(b.x, b.y, placed.recordIndex) : null;
           if (homeKey != null) {
             pixelBuildingKeys.add(homeKey);
-            // HOME-YARD: the building's own place (its subrecord's origin, world/rmbLayout.js recordAt) and the box round
-            // every model of it - the frame and the footprint its yard is laid out from
+            // its own place (rmbLayout.js recordAt) and the box round its models: its yard's frame and footprint
             const at = Array.isArray(placed.recordAt) ? [locLocal[0] + b.originX + placed.recordAt[0], locLocal[1] + placed.recordAt[1], locLocal[2] + b.originZ + placed.recordAt[2]] : null;
             const f = pixelHomeFrames.get(homeKey);
             if (!f && at) pixelHomeFrames.set(homeKey, { at, box: [...box] });
             else if (f) for (let i = 0; i < 3; i++) { f.box[i] = Math.min(f.box[i], box[i]); f.box[i + 3] = Math.max(f.box[i + 3], box[i + 3]); }
           }
           const homeRow = homeKey != null ? townHomes?.get(homeKey) ?? null : null;
-          if (homeRow) {
-            const look = lookOfHome(homeTown, homeKey, homeRow);
-            entry._home = { bk: homeKey, sig: homeLookSig(look), seq: 0 };
-            entry.texRemap = await homeLookRemap(gpu.subMeshes, texRemap, look, season, pipeline);
+          const homeLook = homeRow ? lookOfHome(homeTown, homeKey, homeRow) : null;
+          // AUDIT: a painted home, or this account's, leaves the merge (PERF4 for every other); unpainted, the pixel's table
+          if (homeRow && (homeLook || homeRow.mine)) {
+            entry._home = { bk: homeKey, sig: homeLookSig(homeLook), seq: 0 };
+            entry.texRemap = homeLook ? await homeLookRemap(gpu.subMeshes, texRemap, homeLook, season, pipeline) : null;
             pixelHomeKeys.add(homeKey);
           }
           models.push(entry);
@@ -3878,6 +3883,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       locationRect,
       _seasonsGen: seasonsGen,   // SIB1: the install this pixel's flats were built under (AUDIT 61: captured at the lookups)
       homeTown, homeKeys: pixelHomeKeys, buildingKeys: pixelBuildingKeys,   // HOME-LOOK: the homes drawn on their own, and every building's key
+      _lookV: homeLookRead,   // HOME-LOOK (AUDIT)
       homeFrames: pixelHomeFrames, homeRegion: dfLocation?.regionIndex ?? 0,   // HOME-YARD: each building's frame, and the town's region (a yard's pieces are paid there)
       px, py, terrain, water, tilemapTex, tilemap, groundArchive, models, windmills, batches, flatAnims, texRemap, lights: pixelLights, hearths: pixelHearths, animals: pixelAnimals, springs: pixelSprings, skyBase: climate.skyBase, samples, natureCount: nature.length,
       tilemapBytes, season,   // GR1: the placer reads the tiles and the season
@@ -3952,6 +3958,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       const t = state.pixelTranslation(px, py);
       hccGroundMoved(t[0], t[2], t[0] + TERRAIN_SIZE, t[2] + TERRAIN_SIZE);
     }
+    if (homeTown) _homeLookV = -1;   // HOME-LOOK (AUDIT): a town's pixel stood after the registry moved is painted by the next refresh
     // AUDIT-TO1 B3: the second hook. BOOT-TDZ2: THE MOD IS ASKED FIRST,
     // because this builder runs inside the boot's OWN first build and
     // `playerTravelPixel()` reads `walkMode`, `player` and `cam` - three
@@ -4370,11 +4377,16 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (v === _homeLookV) return;
     _homeLookV = v;
     for (const [key, p] of built) {
-      if (!p.homeTown) continue;
+      // AUDIT: each pixel from the registry as its build read it - an answer landing mid-build is never spent before
+      // the pixel stands (the publish asks for a refresh)
+      if (!p.homeTown || p._lookV === v) continue;
       const homes = onlineHomes.homesIn(p.homeTown);
       if (!homes) continue;
+      p._lookV = v;
       let merged = false;
-      for (const [bk, row] of homes) if (!p.homeKeys.has(bk) && p.buildingKeys.has(bk) && lookOfHome(p.homeTown, bk, row)) merged = true;
+      // a home the merge swallowed rebuilds its pixel once a look is WRITTEN on it, or once it is this account's - never
+      // for the painter's preview (AUDIT: a colour tried tore the owner's street down under the open panel)
+      for (const [bk, row] of homes) if (!p.homeKeys.has(bk) && p.buildingKeys.has(bk) && (row?.look || row?.mine)) merged = true;
       if (merged) { _reskin.mark(key); continue; }
       for (const m of p.models) {
         if (!m._home) continue;
@@ -4383,6 +4395,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         if (sig === m._home.sig) continue;
         m._home.sig = sig;
         const seq = ++m._home.seq;
+        if (!look) { m.texRemap = null; continue; }   // the town's own: the pixel's table
         homeLookRemap(m.gpu.subMeshes, p.texRemap, look, p.season, pipeline).then((map) => { if (m._home.seq === seq) m.texRemap = map; }, () => {});
       }
     }
@@ -12442,6 +12455,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     attack: (dx, dy, held) => {
       if (!walkMode) { swipeHeld = false; return; }
       if (modeNow() === 'exterior') {
+        if (yards?.flying()) { swipeHeld = false; return; }   // HOME-YARD (AUDIT): a swipe under the yard's decorator turns the eye, never swings
         swipeHeld = held;
         if (held && gatherHost?.acting()) return;   // PROF1: an act's tap is the act's
         if (held && magic.interceptAttack(true)) return;   // M2: an armed cast eats the swing
@@ -12457,7 +12471,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // the finger's ray - A8's gate fires it on the release. A finger in
     // the docked bar's strip is no world tap at all.
     tap: (x, y, opts = null) => {
-      if (modes?.decorFlying?.()) return;   // DECOR1e: under the decorator's flight a tap is no press - the bar's Place places
+      if (modes?.decorFlying?.() || yards?.flying()) return;   // DECOR1e: under the decorator's flight a tap is no press - the bar's Place places; HOME-YARD (AUDIT): the yard's too
       if (!ndcFromScreen(x, y, canvas.clientWidth, canvas.clientHeight, worldViewportRect(canvas.clientWidth, canvas.clientHeight))) return;
       _tapPoint = [x, y]; _tapArmed = 2;   // AUDIT 62 F8: the arm IS the press - see _tapArmed at the gate below
       _tapLockOnly = !!opts?.lockOnly;   // TS1: touch.js's stick-half tap (TI1b) - the lock pick and nothing below it

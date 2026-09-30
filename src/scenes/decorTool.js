@@ -119,7 +119,12 @@ export const DECOR_MOUNT_NO_SURFACE = 'Look at a wall to hang it on.';
 /** HOME-DOORS: what the bar says while a door is being placed - the doorways still being found, none in the house, or
  *  how many are free while none is looked at. */
 export const DECOR_DOOR_FINDING = 'Finding the doorways...';
+/** HOME-DOORS (AUDIT): how far short of a doorway's middle a wall may be met and the doorway still seen - half the
+ *  deepest wall a doorway is found in (systems/decorDoorways.js DOORWAY_DEPTH_MAX). */
+export const DOOR_SIGHT_SPARE = 0.6;
 export const DECOR_DOOR_NONE = 'This house has no open doorway for a door.';
+/** HOME-DOORS (AUDIT): what the bar says when the free doorways are all wider than the door can close. */
+export const DECOR_DOOR_TOO_WIDE = 'The free doorways here are too wide for this door to close.';
 export const decorDoorAimLine = (n) => `Look at a marked doorway to hang the door (${n} free) - turn to swing it the other way.`;
 /** HOME-DOORS: the most doorways marked at once, and their marks' colours - a free one, and the one looked at. */
 export const DECOR_DOOR_MARKS = 32;
@@ -357,6 +362,7 @@ export function createDecorTool(deps) {
   // HOME-DOORS: the house's doorways, found from its rooms' links (for the collider they were found in)
   /** @type {any} */ let doorways = null;
   /** @type {any} */ let doorwaysFor = null;
+  /** @type {any} */ let doorRooms = null;   // HOME-DOORS (AUDIT): the rooms found with the placed doors seen through - the doorways' links
   /** @type {any} */ let markTex = null;
   // HOME-RENT: the service's word on this home's rooms - read once a visit while the panel is up, and after each change
   const rentState = { visit: /** @type {any} */ (undefined), list: /** @type {any[]|null} */ (null), due: 0, now: 0, busy: false };
@@ -446,9 +452,24 @@ export function createDecorTool(deps) {
     if (doorways && doorwaysFor === c) return doorways;
     const r = ensureRooms();
     if (!r.done()) return null;
+    // AUDIT: A PLACED DOOR STANDS SHUT ACROSS ITS DOORWAY, so the rooms' links never passed it and its doorway was never
+    // found again - the door could not be moved within it, nor turned, on any later visit. The links come from the
+    // rooms found once more with the placed doors seen through (their host bucket, or the pool's own where the host
+    // hangs none); the room tabs keep them as the walls they are. freeDoorways counts the doorways they stand in taken.
+    let src = r;
+    const skip = pool.list().filter((piece) => decorIsDoor(piece)).flatMap((piece) => [`act:decor:${piece.id}`, decorKeyOf(piece.id)]);
+    if (skip.length) {
+      const sig = skip.join('|');
+      if (!doorRooms || doorRooms.for !== c || doorRooms.sig !== sig) {
+        const box = typeof c?.bounds === 'function' ? c.bounds() : null;
+        doorRooms = { for: c, sig, rooms: createDecorRooms({ raycastHit: (o, d, m) => c.raycastHit(o, d, m, { skip }), box }) };
+      }
+      if (!doorRooms.rooms.done()) { doorRooms.rooms.step(); return null; }
+      src = doorRooms.rooms;
+    }
     doorwaysFor = c;
     const only = deps.walls ?? null;
-    doorways = createDecorDoorways({ raycastHit: (o, d, m) => c.raycastHit(o, d, m, only), links: r.links?.() ?? [] });
+    doorways = createDecorDoorways({ raycastHit: (o, d, m) => c.raycastHit(o, d, m, only), links: src.links?.() ?? [] });
     return doorways;
   }
   /** HOME-DOORS: THE DOORWAYS NO DOOR STANDS IN, once found (else null) - the room's own doors and the placed ones, a
@@ -465,6 +486,28 @@ export function createDecorTool(deps) {
     rooms = null;
     roomsFor = null;
     if (!keepDoorways) { doorways = null; doorwaysFor = null; }
+  }
+  /** HOME-DOORS (AUDIT): the free doorways the door being placed closes - its model fitted whole, one no wider than it
+   *  fills (null while they are found; every free one while its model is still fetched). */
+  function closableDoorways(p) {
+    const free = freeDoorways(p.editing?.id ?? null);
+    const m = free && p.entry?.model != null ? modelFor(p.entry.model) : null;
+    return m?.box ? free.filter((w) => decorDoorFit(w, m.box)?.fills) : free;
+  }
+  /** HOME-YARD (AUDIT): THE GROUND A PIECE COVERS, as offsets from where it stands in the room's frame - its model's box
+   *  turned and sized as it stands (a flat's width, square), so a lot is asked about all of it, not its middle alone. */
+  function footprintOf(p) {
+    const piece = p?.piece;
+    if (!piece) return [];
+    const s = piece.scale ?? 1;
+    const m = piece.model != null ? modelFor(piece.model) : null;
+    if (m?.box) {
+      const [x0, , z0, x1, , z1] = m.box;
+      const yaw = ((piece.rot?.[0] ?? 0) * Math.PI) / 180, c = Math.cos(yaw), sn = Math.sin(yaw);
+      return [[x0, z0], [x1, z0], [x1, z1], [x0, z1]].map(([lx, lz]) => [(c * lx + sn * lz) * s, (-sn * lx + c * lz) * s]);   // mat4 trs: local x to (cos, -sin), z to (sin, cos)
+    }
+    const r = (p.radius ?? 0) * s;
+    return r > 0 ? [[-r, -r], [r, -r], [r, r], [-r, r]] : [];
   }
   /** Where a placed piece stands, in this visit's frame. */
   const piecePoint = (piece) => { const o = deps.origin?.() ?? [0, 0, 0]; return [o[0] + piece.pos[0], o[1] + piece.pos[1], o[2] + piece.pos[2]]; };
@@ -507,9 +550,12 @@ export function createDecorTool(deps) {
     const key = decorKey(piece);
     const e = scan?.entries()?.find((x) => x.key === key);
     if (e) return e;
+    // the catalogue not read yet: its kind by its model all the same (AUDIT: a door moved in the first moments of a visit
+    // flew as furniture - set on any surface, at any turn - and was still hung as a door)
+    const kind = piece.model != null ? modelKind(piece.model) : 'decor';
     return {
-      key, model: piece.model ?? null, flat: piece.flat ?? null, kind: piece.model != null ? 'furniture' : 'decor',
-      name: deps.names?.get(key) ?? DECOR_KINDS[piece.model != null ? 'furniture' : 'decor'], count: 0, storage: !!piece.storage, light: piece.light ?? null,
+      key, model: piece.model ?? null, flat: piece.flat ?? null, kind,
+      name: deps.names?.get(key) ?? DECOR_KINDS[kind], count: 0, storage: !!piece.storage, light: piece.light ?? null,
     };
   }
 
@@ -622,15 +668,15 @@ export function createDecorTool(deps) {
       if (what === 'offer') {
         const anchor = row?.eye ? rentAnchorOfRoom(row, deps.origin?.() ?? [0, 0, 0]) : null;
         if (!anchor || !row.offerable) return false;
-        res = await door.offer({ room: row.id, anchor, price });
+        res = await door.offer({ room: row.number, anchor, price });   // AUDIT: its offer's own number (homeRent.js rentRoomsView), never the finder's
         if (res?.ok) deps.say?.(`${row.name} is offered to rent at ${price} gold a day.`);
       } else if (what === 'withdraw') {
-        if (!row?.offer) return false;
+        if (!row?.offer || (!row.offer.listed && row.offer.taken)) return false;
         res = await door.withdraw({ room: row.offer.room });
         if (res?.ok) deps.say?.(res.data?.gone === false ? `Room ${row.offer.room} is still rented - offered to nobody once its days run out.` : `Room ${row.offer.room} is no longer offered to rent.`);
       } else if (what === 'collect') {
         res = await door.collect();
-        if (res?.ok) deps.say?.(`You collected ${res.gold} gold in rent.`);
+        if (res?.ok) deps.say?.(`You collected ${res.gold} gold in rent. It went to this region's bank account.`);
       }
       if (!res?.ok) { if (res) deps.say?.(deps.refusal?.(res.error) ?? 'The room could not be changed.'); return false; }
       door.changed?.();
@@ -796,8 +842,8 @@ export function createDecorTool(deps) {
     if (p.editing) return commitMove(p, r);
     if (p.entry.kind === 'own') return commitOwn(p, r);
     const price = p.piece.paid;
-    if (decorWhyNot({ price, ready: true, gold: deps.wallet().gold, count: pool.size(), cap: capHere(r) })) return false;   // the bar says why
-    if (deps.placeOk?.(p.piece)) return false;   // HOME-YARD: off the lot - the bar says why
+    if (decorWhyNot({ price, ready: true, gold: deps.wallet().gold, count: pool.size(), cap: capHere(r), yard: !!r?.yard })) return false;   // the bar says why
+    if (deps.placeOk?.(p.piece, footprintOf(p))) return false;   // HOME-YARD: off the lot - the bar says why
     p.busy = true;
     p.refused = null;
     const piece = p.piece;
@@ -920,7 +966,7 @@ export function createDecorTool(deps) {
    *  back - then back to the room's view with the piece chosen. */
   async function commitMove(p, r) {
     const was = p.editing;
-    if (deps.placeOk?.(p.piece)) return false;   // HOME-YARD: off the lot - the bar says why
+    if (deps.placeOk?.(p.piece, footprintOf(p))) return false;   // HOME-YARD: off the lot - the bar says why
     const price = decorEditPrice(p.radius, was, p.piece.scale);
     if (price.pay > (deps.wallet?.().gold ?? 0)) return false;   // the bar says why
     p.busy = true;
@@ -1012,6 +1058,9 @@ export function createDecorTool(deps) {
   async function togglePiece(piece, what) {
     const r = deps.room?.();
     if (!r) return false;
+    // HOME-DOORS (AUDIT): a door is a door - it is no station (whose licence it could never use: a door is never a
+    // decor target), holds nothing and gives no light
+    if (decorIsDoor(piece) && (what === 'light' || what === 'storage' || (typeof what === 'string' && what.startsWith('station:')))) return false;
     if (typeof what === 'string' && what.startsWith('station:')) return setStation(r, piece, what.slice(8));
     let next;
     if (what === 'light') {
@@ -1222,8 +1271,16 @@ export function createDecorTool(deps) {
     const r = ensureRooms();
     if (!r.done()) r.step();
     else ensureDoorways()?.step();
-    const free = freeDoorways(p.editing?.id ?? null);
-    const aimed = free ? decorDoorwayAimed(free, p.fly, lookDir(cam.yaw, cam.pitch), DECOR_EYE_REACH) : null;
+    const free = closableDoorways(p);
+    // AUDIT: only a doorway the eye sees - a ray to its middle meets no wall short of it (half a thick wall's depth
+    // spared: the middle stands inside the wall's thickness)
+    const c = deps.collider?.() ?? null;
+    const seen = c ? (mid, dist) => {
+      const d = [(mid[0] - p.fly[0]) / dist, (mid[1] - p.fly[1]) / dist, (mid[2] - p.fly[2]) / dist];
+      const hit = c.raycastHit(p.fly, d, dist, deps.walls ?? null);
+      return !(typeof hit?.dist === 'number' && hit.dist < dist - DOOR_SIGHT_SPARE);
+    } : null;
+    const aimed = free ? decorDoorwayAimed(free, p.fly, lookDir(cam.yaw, cam.pitch), DECOR_EYE_REACH, seen) : null;
     const m = p.placer ? modelFor(p.entry.model) : null;
     const fit = aimed && m ? decorDoorFit(aimed, m.box, p.flip) : null;
     p.piece = fit ? decorPieceOf({
@@ -1271,11 +1328,13 @@ export function createDecorTool(deps) {
     if (p.refused && now() - p.refused.at < DECOR_REFUSAL_MS) return p.refused.text;
     if (!p.placer) return 'Loading...';
     if (p.door && !p.piece) {   // HOME-DOORS
-      const free = freeDoorways(p.editing?.id ?? null);
-      return !free ? DECOR_DOOR_FINDING : !free.length ? DECOR_DOOR_NONE : decorDoorAimLine(free.length);
+      const free = closableDoorways(p);
+      if (!free) return DECOR_DOOR_FINDING;
+      if (!free.length) return freeDoorways(p.editing?.id ?? null)?.length ? DECOR_DOOR_TOO_WIDE : DECOR_DOOR_NONE;   // AUDIT: free, but wider than this door closes
+      return decorDoorAimLine(free.length);
     }
     if (!p.piece) return p.entry.mount ? DECOR_MOUNT_NO_SURFACE : 'It cannot stand there.';
-    const lotWhy = deps.placeOk?.(p.piece) ?? null;   // HOME-YARD: the lot
+    const lotWhy = deps.placeOk?.(p.piece, footprintOf(p)) ?? null;   // HOME-YARD: the lot
     if (lotWhy) return lotWhy;
     if (p.editing) {   // a move is never refused for the room's count; a resize may be for the gold
       const { pay } = decorEditPrice(p.radius, p.editing, p.door ? p.piece.scale : p.placer.state().scale);
@@ -1284,7 +1343,7 @@ export function createDecorTool(deps) {
       return !deps.touch && !deps.locked?.() ? 'Click to look around again.' : null;
     }
     if (p.free && !deps.packHas?.(p.entry.own)) return p.entry.furnishing ? 'It is no longer among your things.' : 'It is no longer in your pack.';   // DECOR2a (DECOR2b: furniture)
-    const why = decorWhyNot({ price, ready: true, gold: deps.wallet?.().gold ?? 0, count: pool.size(), cap: capHere(deps.room?.()) });
+    const why = decorWhyNot({ price, ready: true, gold: deps.wallet?.().gold ?? 0, count: pool.size(), cap: capHere(deps.room?.()), yard: !!deps.room?.()?.yard });
     if (why) return why;
     return !deps.touch && !deps.locked?.() ? 'Click to look around again.' : null;
   }

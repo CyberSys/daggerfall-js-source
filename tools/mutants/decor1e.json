@@ -11,8 +11,8 @@
   {
     "name": "DECOR1e-a-full-piece-unheld",
     "file": "src/ui/decorPanel.js",
-    "old": "    storeBtn.disabled = !it || !!it.piece.item || (it.piece.storage && it.holds) || !!it.piece.station;   // HOME-STATIONS: a station holds nothing",
-    "new": "    storeBtn.disabled = !it || !!it.piece.item || !!it.piece.station;   // HOME-STATIONS: a station holds nothing",
+    "old": "    storeBtn.disabled = !it || !!it.piece.item || (it.piece.storage && it.holds) || !!it.piece.station || door;",
+    "new": "    storeBtn.disabled = !it || !!it.piece.item || !!it.piece.station || door;",
     "tests": [
       "test/decor1e.test.js"
     ]
@@ -389,8 +389,8 @@
   {
     "name": "DECOR1e-the-sale-line-the-home-alone",
     "file": "src/systems/onlineHomes.js",
-    "old": "`You sold your home. ${refund + piecesBack} gold",
-    "new": "`You sold your home. ${refund} gold",
+    "old": "`You sold your home. ${refund + piecesBack + rent} gold",
+    "new": "`You sold your home. ${refund + rent} gold",
     "tests": [
       "test/decor1e.test.js"
     ]
@@ -489,8 +489,8 @@
   {
     "name": "DECOR1e-a-tap-activating",
     "file": "src/scenes/world.js",
-    "old": "      if (modes?.decorFlying?.()) return;   // DECOR1e:",
-    "new": "      // DECOR1e:",
+    "old": "      if (modes?.decorFlying?.() || yards?.flying()) return;   // DECOR1e:",
+    "new": "      if (yards?.flying()) return;   // DECOR1e:",
     "tests": [
       "test/decor1e.test.js"
     ]
@@ -516,8 +516,8 @@
   {
     "name": "DECOR1e-the-sale-said-alone",
     "file": "src/scenes/worldModes.js",
-    "old": "homeSoldLine(r.refund, r.decorBack)",
-    "new": "homeSoldLine(r.refund)",
+    "old": "homeSoldLine(r.refund, r.decorBack, r.rent ?? 0)",
+    "new": "homeSoldLine(r.refund, 0, r.rent ?? 0)",
     "tests": [
       "test/decor1e.test.js"
     ]

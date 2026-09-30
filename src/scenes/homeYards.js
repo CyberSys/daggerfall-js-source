@@ -37,7 +37,10 @@
 import { createDecorRoom } from './decorRoom.js';
 import { createDecorTool } from './decorTool.js';
 import { decorYardPieceOf, DECOR_YARD_CAP } from '../net/decorLaw.js';
+import { homeLookRecords } from '../world/homeLook.js';   // HOME-LOOK (AUDIT): the styles a roof's or a door's family holds
 
+/** AUDIT: how far from the eye a yard's pieces are drawn, metres (its flats stand in the billboard pass's own cull). */
+export const YARD_DRAW_M = 300;
 /** How far past the house's footprint its lot runs, metres. */
 export const YARD_MARGIN = 6;
 /** How far outside its lot the owner may still stand and open the yard's decorator. */
@@ -53,7 +56,7 @@ export const YARD_SYNC_S = 0.5;
 export const YARD_OFF_LOT = 'Outside your lot - keep it within the marked edge.';
 export const YARD_IN_HOUSE = 'That is inside your house - place it in the yard around it.';
 export const YARD_ON_OTHER = "That is another building's ground.";
-export const YARD_FULL = `Your yard already holds ${DECOR_YARD_CAP} pieces.`;
+export const YARD_FULL = `Your yard already holds ${DECOR_YARD_CAP} pieces.`;   // the bar's words (ui/decorPanel.js decorWhyNot, `yard`)
 
 /**
  * A LOT from a building's frame: `origin` its own place and `box` the box round its models ([minX, minY, minZ, maxX,
@@ -70,13 +73,17 @@ const inRect = (x, z, r, pad = 0) => x >= r[0] - pad && x <= r[2] + pad && z >= 
 /**
  * WHY A PIECE CANNOT STAND at `pos` (from the frame's origin), or null: off the lot, inside the house's footprint (a
  * piece on its roof too), or on another building's (`others`, their footprints in the same frame [x0, z0, x1, z1]).
+ * AUDIT: `foot` - the ground it covers, offsets [dx, dz] from `pos` (decorTool.js footprintOf) - is asked too: all of
+ * it on the lot, none of it in the house or on another building's ground (its middle alone let a long piece straddle a
+ * wall).
  */
-export function yardWhyNot(pos, lot, others = []) {
+export function yardWhyNot(pos, lot, others = [], foot = []) {
   if (!lot || !Array.isArray(pos)) return YARD_OFF_LOT;
   const [x, , z] = pos;
-  if (!inRect(x, z, lot.lot)) return YARD_OFF_LOT;
-  if (inRect(x, z, lot.house, -0.05)) return YARD_IN_HOUSE;
-  if ((others ?? []).some((r) => inRect(x, z, r, -0.05))) return YARD_ON_OTHER;
+  const points = [[x, z], ...(foot ?? []).map(([dx, dz]) => [x + dx, z + dz])];
+  if (!points.every(([px, pz]) => inRect(px, pz, lot.lot))) return YARD_OFF_LOT;
+  if (points.some(([px, pz]) => inRect(px, pz, lot.house, -0.05))) return YARD_IN_HOUSE;
+  if ((others ?? []).some((r) => points.some(([px, pz]) => inRect(px, pz, r, -0.05)))) return YARD_ON_OTHER;
   return null;
 }
 /** Whether a world point stands on the lot (or within `near` of it) - `origin` the frame's, in the world. */
@@ -148,7 +155,7 @@ export function createHomeYards(deps) {
     return [t[0] + f.at[0], t[1] + f.at[1], t[2] + f.at[2]];
   };
   function makeYard(key, p, bk, frame) {
-    const y = { px: p.px, py: p.py, mapId: p.homeTown, bk, frame, t: [...deps.translation(p.px, p.py)], sig: '', lot: yardLot(frame.at, frame.box), pool: null };
+    const y = { key, px: p.px, py: p.py, mapId: p.homeTown, bk, frame, t: [...deps.translation(p.px, p.py)], sig: '', lot: yardLot(frame.at, frame.box), pool: null };
     y.pool = createDecorRoom({
       meshes: deps.meshes, renderer: deps.renderer, getTexture: deps.getTexture, uploadRecord: deps.uploadRecord, uploadRecordFrame: deps.uploadRecordFrame,
       collider: () => deps.collider?.() ?? null, origin: () => originOf(y),
@@ -185,6 +192,8 @@ export function createHomeYards(deps) {
     for (const [key, y] of yards) if (!live.has(key)) { y.pool.destroyAll(); yards.delete(key); }
   }
   const busyWriting = () => !!tool.flying() || !!tool.panelOpen();
+  /** A yard's pixel's climate swaps (its texRemap), or none. */
+  const remapOf = (y) => deps.built?.()?.get?.(`${y.px},${y.py}`)?.texRemap ?? null;
 
   /** THE OWNER'S YARD the player stands on (or near), in this frame - or null. */
   function ownYardHere() {
@@ -249,13 +258,25 @@ export function createHomeYards(deps) {
     openSlot: (o) => deps.openSlot?.(o), closeSlot: () => {},
     say: (l) => deps.say?.(l), refusal: (w) => deps.refusal?.(w) ?? null, now,
     // HOME-YARD: the lot - a piece off it refused, its edge marked
-    placeOk: (piece) => (cur ? yardWhyNot(piece.pos, cur.yard.lot, cur.others) : YARD_OFF_LOT),
+    placeOk: (piece, foot) => (cur ? yardWhyNot(piece.pos, cur.yard.lot, cur.others, foot) : YARD_OFF_LOT),
     lot: () => (cur ? yardLotQuads(cur.yard.lot, originOf(cur.yard)) : []),
     yardCap: DECOR_YARD_CAP,
     // HOME-LOOK: the house's outside, painted from the yard's panel
     look: () => (cur && deps.look ? lookDoor(cur.yard) : null),
   });
 
+  /** HOME-LOOK (AUDIT): how many styles a roof's or a door's family holds in a climate (in the season's archive) - asked
+   *  once each, null until it answers (or when it cannot: the painter offers its styles all the same). */
+  const lookCounts = new Map();
+  function lookRecordsOf(part, climate) {
+    const season = deps.look?.season?.() ?? 0;
+    const k = `${part}:${climate}:${season}`;
+    if (!lookCounts.has(k)) {
+      lookCounts.set(k, null);
+      homeLookRecords(part, climate, season, deps.getTexture).then((n) => lookCounts.set(k, n > 0 ? n : null), () => lookCounts.delete(k));
+    }
+    return lookCounts.get(k) ?? null;
+  }
   /** HOME-LOOK: THE PAINTER'S DOOR for the owner's house - its look as the town knows it, a look tried on it (the owner's
    *  own screen), and a look written. */
   function lookDoor(y) {
@@ -263,6 +284,7 @@ export function createHomeYards(deps) {
     return {
       current: home?.look ?? null,
       season: deps.look.season?.() ?? 0,
+      records: (part, climate) => lookRecordsOf(part, climate),
       preview: (look) => deps.look.preview(y.mapId, y.bk, look),
       commit: async (look) => {
         const r = await deps.homes.setLook(y.mapId, y.bk, look);
@@ -279,15 +301,35 @@ export function createHomeYards(deps) {
    */
   function frame({ dt, cam, overlayUp }) {
     syncIn -= dt > 0 ? dt : 0;
+    // AUDIT: the world recentred - every yard stood again this frame, never half a second in the old place
+    if (syncIn > 0) for (const y of yards.values()) { const t = deps.translation(y.px, y.py); if (t[0] !== y.t[0] || t[1] !== y.t[1] || t[2] !== y.t[2]) { syncIn = 0; break; } }
     if (syncIn <= 0) { syncIn = YARD_SYNC_S; sync(); }
     if (!tool.flying() && !tool.panelOpen()) cur = ownYardHere();   // the yard is held while the decorator is up
+    else if (cur && yards.get(cur.yard.key) !== cur.yard) {
+      // AUDIT: its pixel was built again under the open decorator (a painted home leaving the merge, a season) - the
+      // decorator follows the yard stood again in its place, never writing into the one taken down
+      const again = yards.get(cur.yard.key) ?? null;
+      if (again) cur = { ...cur, yard: again }; else { tool.close(); cur = null; }
+    }
     tool.frame({ dt, cam, overlayUp, interior: !!cur });
   }
 
   return {
     frame,
     /** The yards' models and the piece being placed, in the world's mesh pass. */
-    draw(r = deps.renderer) { let n = 0; for (const y of yards.values()) n += y.pool.draw(r, null); tool.draw(r, null); return n; },
+    /** AUDIT: with their pixel's climate swaps, as the town's own copies of the same models are drawn - and only the
+     *  yards within YARD_DRAW_M of the eye (a town of full yards is thousands of pieces). */
+    draw(r = deps.renderer) {
+      let n = 0;
+      const eye = deps.eye?.() ?? null;
+      for (const y of yards.values()) {
+        const o = originOf(y);
+        if (eye && y !== cur?.yard && Math.hypot(o[0] - eye[0], o[2] - eye[2]) > YARD_DRAW_M) continue;
+        n += y.pool.draw(r, remapOf(y));
+      }
+      tool.draw(r, cur ? remapOf(cur.yard) : null);
+      return n;
+    },
     /** The yards' flats and the flat being placed, for the world's billboard pass. */
     batches: () => [...[...yards.values()].flatMap((y) => y.pool.batches()), ...tool.batches()],
     /** The lot's edge while a piece is placed, on the world's decal pass. */

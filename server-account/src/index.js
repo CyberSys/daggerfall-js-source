@@ -674,7 +674,7 @@ export default {
           if (!('error' in r)) return json(r, 200, origin);
           const said = realmNo(r);
           if (said) return said;
-          const status = r.error === 'decor-cap' || r.error === 'decor-taken' ? 409
+          const status = r.error === 'decor-cap' || r.error === 'yard-cap' || r.error === 'decor-taken' ? 409
             : r.error === 'decor-rate' ? 429
               : r.error === 'no-home' || r.error === 'no-decor' ? 404 : 400;
           return no(r.error, status, origin);

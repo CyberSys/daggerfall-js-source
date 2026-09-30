@@ -376,12 +376,20 @@ const DOOR_TEXT_SKIP = new Set([7700, 7706, 7711, 7712, 7715, 7717, 7719]);
 export const CASTLE_DAGGERFALL_MAP_ID = 1291010263;              // PlayerGPS.CurrentLocation.MapTableData.MapId
 export const CASTLE_DAGGERFALL_FOYER_DOOR_LOAD_IDS = Object.freeze([29331574, 29331622]);
 
+/** HOME-DOORS (AUDIT): the keys a record may wait under for its object (a placed door's), and how many may wait. */
+const EARLY_KEY_PREFIX = 'act:decor:';
+const EARLY_MAX = 64;
+
 export class ActionSystem {
 constructor(collider, { damagePlayer = null, drainMagicka = null, castSpell = null, setGlobalVar = null, playerLevel = () => 1, lockpickSkill = () => 0, rolls = Math.random, insideDungeonCastle = () => false, magicDoorsContext = null } = {}) {
     this.collider = collider;
     this.objects = new Map(); // key -> runtime object
     this._links = new Map();  // `${ns}:${position}` -> object (the chain graph)
     this._doorCount = 0;
+    // HOME-DOORS (AUDIT): a placed door's record that came before its door - a save's, the room's memory's or a peer's,
+    // read while the door was still being hung (its model is fetched, scenes/decorRoom.js) - kept by its key until the
+    // door is added, and written with the scene's records meanwhile, so a visit that never hung it keeps its state
+    this._early = new Map();
     this._damagePlayer = damagePlayer;
     this._drainMagicka = drainMagicka;
     this._castSpell = castSpell;
@@ -502,7 +510,7 @@ constructor(collider, { damagePlayer = null, drainMagicka = null, castSpell = nu
       // life of the session - a door bricked open, for every player in the room, by one 146-byte frame.
       const rec = validActionRecord(raw);
       const o = rec && this.objects.get(rec.key);
-      if (!o) continue;
+      if (!o) { if (rec) this._keepEarly(rec); continue; }   // HOME-DOORS (AUDIT): a placed door not hung yet takes it when it is
       const opening = o.kind === 'door' && o.state !== 'forward' && rec.state === 'forward';
       // AUDIT WORLD3 B3: the author rings the RDB soundIndex on EVERY Play (`_play`, "if (PlaySound && Index > 0)"),
       // and a Play always moves the record's own state - a tween's start, or an INSTANT flip. Gating the peers' ring
@@ -768,7 +776,17 @@ constructor(collider, { damagePlayer = null, drainMagicka = null, castSpell = nu
     this.objects.set(key, o);
     if (opts.positionKey != null) this._links.set(`${ns}:${opts.positionKey}`, o);
     this.collider.addMesh(key, cpu.positions, cpu.indices, baseMatrix);
+    const early = this._early.get(key);
+    if (early) { this._early.delete(key); this.restoreSaveData([early]); }   // HOME-DOORS (AUDIT): its swing and lock, as they were left
     return o;
+  }
+
+  /** HOME-DOORS (AUDIT): a record whose object is not here - kept when it is a placed door's (`act:decor:`), which is
+   *  hung a moment after the scene's records are read; a bounded handful, the latest per key. */
+  _keepEarly(rec) {
+    if (typeof rec?.key !== 'string' || !rec.key.startsWith(EARLY_KEY_PREFIX)) return;
+    if (!this._early.has(rec.key) && this._early.size >= EARLY_MAX) this._early.delete(this._early.keys().next().value);
+    this._early.set(rec.key, rec);
   }
 
   /** HOME-DOORS (2026-09-30): a door taken back out - one an owner hung in a doorway (scenes/decorRoom.js), moved or
@@ -778,6 +796,7 @@ constructor(collider, { damagePlayer = null, drainMagicka = null, castSpell = nu
     const o = this.objects.get(key);
     if (!o || o.kind !== 'door') return false;
     this.objects.delete(key);
+    this._early.delete(key);
     for (const [k, v] of this._links) if (v === o) this._links.delete(k);
     this.collider.removeBucket(key);
     return true;
@@ -1314,7 +1333,7 @@ constructor(collider, { damagePlayer = null, drainMagicka = null, castSpell = nu
       ...(o.kind === 'door'
         ? { lock: o.currentLockValue, failedSkillLevel: o.failedSkillLevel ?? 0, moveState: o.moveState, moveT: o.moveT ?? 0 }   // P10 lock; the Move pair
         : {}),
-    }));
+    })).concat([...this._early.values()]);   // HOME-DOORS (AUDIT): a placed door's record whose door was not hung this visit
   }
 
   /** RestoreSaveData for the whole action graph: set the saved state,
@@ -1334,7 +1353,7 @@ constructor(collider, { damagePlayer = null, drainMagicka = null, castSpell = nu
   restoreSaveData(list) {
     list?.forEach((sa) => {
       const o = this.objects.get(sa.key);
-      if (!o) return;
+      if (!o) { this._keepEarly(sa); return; }   // HOME-DOORS (AUDIT): a placed door, hung a moment later, takes it then
       o.state = sa.state;
       o.t = sa.t;
       // F185: activationCount deliberately NOT restored - an old

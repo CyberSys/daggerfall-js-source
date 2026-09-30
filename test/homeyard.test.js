@@ -10,9 +10,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DECOR_YARD_CAP, DECOR_YARD_POS_MAX, decorYardPlaceOf, decorYardPieceOf, DECOR_CAP } from '../src/net/decorLaw.js';
 import {
-  yardLot, yardWhyNot, yardHolds, yardLotQuads, createHomeYards, YARD_MARGIN, YARD_OFF_LOT, YARD_IN_HOUSE, YARD_ON_OTHER,
+  yardLot, yardWhyNot, yardHolds, yardLotQuads, createHomeYards, YARD_MARGIN, YARD_OFF_LOT, YARD_IN_HOUSE, YARD_ON_OTHER, YARD_DRAW_M,
 } from '../src/scenes/homeYards.js';
 import { standService, T0 } from './accountDb.mjs';
+import { decorWhyNot } from '../src/ui/decorPanel.js';
 import { toolRig, fakeDoc, fakeWin, fakeBlocks, rmb, TOWN, settle } from './decorFakes.mjs';
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
@@ -40,6 +41,16 @@ test('HOME-YARD the lot: the house\'s footprint and YARD_MARGIN round it, from t
   assert.equal(yardWhyNot([0, 6, 0], lot), YARD_IN_HOUSE, 'on its roof is in its footprint');
   assert.equal(yardWhyNot([7, 0, -8], lot, [[5, -9, 9, -6]]), YARD_ON_OTHER);
   assert.equal(yardWhyNot(null, lot), YARD_OFF_LOT);
+  // AUDIT: a full yard is said to be a yard's, never "this room"
+  assert.equal(decorWhyNot({ price: 10, ready: true, gold: 100, count: DECOR_YARD_CAP, cap: DECOR_YARD_CAP, yard: true }), `Your yard already holds ${DECOR_YARD_CAP} pieces.`);
+  assert.equal(decorWhyNot({ price: 10, ready: true, gold: 100, count: 3, cap: 3 }), 'This room already holds 3 pieces.');
+  // AUDIT: the ground a piece covers, not its middle alone - a long piece whose middle stands in the yard but whose end
+  // is in the house, past the lot's edge or on a neighbour's ground
+  const long = [[-1.5, -0.2], [1.5, -0.2], [1.5, 0.2], [-1.5, 0.2]];
+  assert.equal(yardWhyNot([6, 0, 0], lot, [], long), null, 'all of it in the yard');
+  assert.equal(yardWhyNot([9.5, 0, 0], lot, [], long), YARD_OFF_LOT, 'its end past the edge');
+  assert.equal(yardWhyNot([5.2, 0, 0], lot, [], long), YARD_IN_HOUSE, 'its end through the wall');
+  assert.equal(yardWhyNot([7, 0, -5], lot, [[5, -9, 9, -6]], [[0, -1.2], [0, 1.2]]), YARD_ON_OTHER, 'its end on a neighbour\'s ground');
   assert.equal(yardLot(origin, [0, 0, 0, 0, 0, 0]), null, 'no footprint, no lot');
   assert.equal(yardHolds(lot, origin, [109, 5, 200]), true);
   assert.equal(yardHolds(lot, origin, [111, 5, 200]), false);
@@ -76,7 +87,7 @@ test('HOME-YARD the service: a yard\'s piece placed with `yard`, under its own c
   const ins = raw.prepare('INSERT INTO home_decor (map_id, building_key, id, model, place, placed_at, paid, yard) VALUES (7, 300, ?, 41000, ?, ?, 0, 1)');
   for (let i = 0; i < DECOR_YARD_CAP - 1; i++) ins.run(`y${i}`, JSON.stringify({ pos: [8, 0, 2], rot: [0, 0, 0], scale: 1, light: null, storage: false, paid: 0 }), T0);
   const full = await place({ piece: piece({ id: 'yardX' }), yard: true });
-  assert.equal(full.body.error, 'decor-cap', 'the yard\'s own cap');
+  assert.equal(full.body.error, 'yard-cap', 'the yard\'s own cap, in its own words');
   const roomStill = await place({ piece: piece({ id: 'room2' }) });
   assert.equal(roomStill.status, 200, 'the room\'s cap never counts the yard');
   assert.ok(DECOR_CAP > DECOR_YARD_CAP);
@@ -120,6 +131,25 @@ function world({ own = true, pieces = [piece()] } = {}) {
 }
 const cam = { pos: [18, 1.6, 10], yaw: Math.PI, pitch: -0.6 };
 
+test('HOME-YARD a yard stood again under the open decorator (its pixel built anew - a painted home leaving the merge, a season) puts the decorator away with it, and the yard it opens on next is the one standing, never the one taken down (mutant: the dead yard held)', async () => {
+  const w = world({ pieces: [piece({ id: 'old1', pos: [7, 0, 0] }), piece({ id: 'old2', pos: [-7, 0, 0] })] });
+  for (let i = 0; i < 3; i++) { w.yards.frame({ dt: 1, cam, overlayUp: false }); await settle(); await settle(); }
+  const before = w.yards.here().yard;
+  assert.equal(before.pool.list().length, 2);
+  assert.equal(w.yards.tool().openPanel(), true);
+  const frame = w.built.get('0,0');
+  w.built.clear();   // torn down while the panel is up...
+  w.yards.frame({ dt: 1, cam, overlayUp: true }); await settle();
+  assert.equal(w.yards.here(), null, 'no yard to write into: the decorator put away');
+  assert.equal(w.yards.tool().panelOpen(), false);
+  w.built.set('0,0', { ...frame });   // ...and stood again
+  for (let i = 0; i < 3; i++) { w.yards.frame({ dt: 1, cam, overlayUp: false }); await settle(); await settle(); }
+  assert.equal(w.yards.here().yard, w.yards.yards()[0], 'the owner\'s yard is the one standing');
+  assert.notEqual(w.yards.here().yard, before, 'never the one taken down');
+  assert.equal(w.yards.here().yard.pool.list().length, 2, 'all of it, as the town holds it');
+});
+
+
 test('HOME-YARD the town\'s yards stand in their pixels: each home\'s pieces read with the town and stood where its frame stands (the building\'s own place, in the scene), drawn, and stood again where they stand when the world recentres; a pixel gone takes its yards down (mutants: the frame\'s place; the recentre ignored; a yard kept past its pixel)', async () => {
   const w = world({ own: false });
   w.yards.frame({ dt: 1, cam, overlayUp: false });
@@ -131,8 +161,17 @@ test('HOME-YARD the town\'s yards stand in their pixels: each home\'s pieces rea
   assert.deepEqual(w.buckets.at(-1), ['decor:yard1', 18, 12], 'at its frame (10, 0, 10) and its place (8, 0, 2)');
   w.yards.draw();
   assert.ok(w.puts.includes(18), 'drawn in the world\'s pass');
+  // AUDIT: a yard far from the eye is not drawn at all
+  const at = w.feet.at;
+  w.feet.at = [at[0] + YARD_DRAW_M + 50, 0, at[2]];
+  w.yards.frame({ dt: 0.016, cam, overlayUp: false });
+  w.puts.length = 0;
+  w.yards.draw();
+  assert.equal(w.puts.includes(18), false, 'beyond YARD_DRAW_M');
+  w.feet.at = at;
+  w.yards.frame({ dt: 0.016, cam, overlayUp: false });
   w.t[0] = -100;   // the world recentres
-  w.yards.frame({ dt: 1, cam, overlayUp: false });
+  w.yards.frame({ dt: 0.016, cam, overlayUp: false });   // AUDIT: the very frame it does - never half a second in the old place
   await settle(); await settle();
   assert.deepEqual(w.buckets.at(-1), ['decor:yard1', -82, 12], 'stood again where it stands');
   w.built.clear();
@@ -202,6 +241,9 @@ test('HOME-YARD the world host by source: each building\'s own place and footpri
   assert.match(w, /yards\?\.drawDecals\(renderer\);/);
   assert.match(w, /seaReach: csaHelm \? csaSeaReach\(csaHelm\) : 0,[^\n]*\n\s*\}\);\n\s*if \(yards\?\.flying\(\)\) \{ const c = \{ pos: mwv0\.eye \}; yards\.cameraOverride\(c\); mwv0\.eye = c\.pos; \}/, 'the frame\'s own eye, before any reader of it');
   assert.match(w, /if \(yards\?\.flying\(\)\) mv\.analog = null;/);
+  // AUDIT: a finger under the yard's flight neither presses nor swings
+  assert.match(w, /if \(modes\?\.decorFlying\?\.\(\) \|\| yards\?\.flying\(\)\) return;/);
+  assert.match(w, /if \(yards\?\.flying\(\)\) \{ swipeHeld = false; return; \}/);
   const y = src('src/scenes/homeYards.js');
   assert.match(y, /place: \(a\) => deps\.api\.place\(\{ \.\.\.a, yard: true \}\),/);
   assert.match(src('src/world/rmbLayout.js'), /recordAt: \[subRecordMatrix\[12\], subRecordMatrix\[13\], subRecordMatrix\[14\]\],/);

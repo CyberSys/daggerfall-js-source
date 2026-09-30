@@ -58,10 +58,10 @@ const sameName = (a, b) => typeof a === 'string' && typeof b === 'string' && a.l
  * holds the owner - `partyNames` are the handles the relay signed over the party's heads. HOME-RENT: and a tenant
  * (`tenant`, when the playing character's tenancy there still runs), whoever else may.
  */
-export function homeMayEnter(home, { partyNames = [] } = {}) {
+export function homeMayEnter(home, { partyNames = [], nowS = Math.floor(Date.now() / 1000) } = {}) {
   if (!home) return true;
   if (home.mine) return true;
-  if (home.tenant) return true;   // HOME-RENT: a room rented in it, still running - the tenant walks in whoever else may
+  if (rentDaysLeft(home.tenant, nowS) > 0) return true;   // HOME-RENT: a room rented in it, still running - the tenant walks in whoever else may (AUDIT: until its end, not until the town is read again)
   if (home.entry === 'public') return true;
   if (home.entry === 'party') return (partyNames ?? []).some((n) => sameName(n, home.owner));
   return false;

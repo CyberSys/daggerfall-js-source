@@ -6042,8 +6042,8 @@ export function createWorldModes(host) {
   async function openHomeRent(bd, home) {
     const api = host.homesApi;
     if (!api) return;
-    const got = await homeRooms(api, homeTownOf(bd), bd.buildingKey);
-    if (!got.ok) { townTalk?.say?.(accountRefusalText(got.error)); return; }
+    const got = await homeRooms(api, homeTownOf(bd), bd.buildingKey, host.decorCharacter?.() ?? null);
+    if (!got.ok) { townTalk?.say?.(got.error === 'no-home' ? RENT_NONE_FREE : accountRefusalText(got.error)); return; }   // AUDIT: a home gone from under the door has no rooms - never "not yours any more"
     const list = rentable(got.rooms).slice(0, 9);
     if (!list.length) { townTalk?.say?.(RENT_NONE_FREE); return; }
     townTalk?.showOverlay?.(new ChoiceWindow({
@@ -6099,10 +6099,10 @@ export function createWorldModes(host) {
     if (!api || !interiorHome?.own || !b) return null;
     const at = { mapId: homeTownOf(b), buildingKey: b.buildingKey, character: host.decorCharacter?.() ?? null };
     return {
-      rooms: () => homeRooms(api, at.mapId, at.buildingKey),
+      rooms: () => homeRooms(api, at.mapId, at.buildingKey, at.character),
       offer: ({ room, anchor, price }) => api.offerRoom({ ...at, room, anchor, price }),
       withdraw: ({ room }) => api.withdrawRoom({ ...at, room }),
-      collect: () => collectHomeRent({ api, realm: host.realmAct ? { act: host.realmAct } : null, wallet: decorWallet(), ...at }),
+      collect: () => collectHomeRent({ api, realm: host.realmAct ? { act: host.realmAct } : null, wallet: homeWallet(b.regionIndex ?? 0), ...at }),   // into the region's bank account, as the record takes it
       changed: () => host.onlineHomes?.ensure?.(at.mapId, { force: true }),
     };
   };
@@ -6175,7 +6175,7 @@ export function createWorldModes(host) {
     });
     if (r.error === HOME_SALE_OUT) return;   // HOME-CROSSED: a second press while the first sale is out - its answer speaks
     if (!r.ok) { townTalk?.say?.(accountRefusalText(r.error)); return; }
-    townTalk?.say?.(homeSoldLine(r.refund, r.decorBack) + (own.length ? ` ${ownBackLines(own, decorOwnBackLine)}` : ''));   // DECOR1e: and its placed pieces' half
+    townTalk?.say?.(homeSoldLine(r.refund, r.decorBack, r.rent ?? 0) + (own.length ? ` ${ownBackLines(own, decorOwnBackLine)}` : ''));   // DECOR1e: and its placed pieces' half; HOME-RENT: and the rent it held
   }
 
   /** ROAD-B: PlayerActivate.AttemptExteriorDoorBash (:1056-1079) - THE
@@ -6444,7 +6444,7 @@ export function createWorldModes(host) {
       _insideResidence = insideResidence;
       _insidePartyRestExempt = partyRestExempt;
       interiorHome = home;   // HOME1: the visit's latch, committed with the identity and its three latches
-      if (home?.tenant && !home.own) say(rentWelcomeLine(Math.max(1, rentDaysLeft(home.tenant, Math.floor(Date.now() / 1000)))));   // HOME-RENT: a tenant is told their days
+      if (home && !home.own && rentDaysLeft(home.tenant, Math.floor(Date.now() / 1000)) > 0) say(rentWelcomeLine(rentDaysLeft(home.tenant, Math.floor(Date.now() / 1000))));   // HOME-RENT: a tenant is told their days
       // ...and my home's scene is KEPT, whichever page bought it: a purchase on a page that was never saved left the
       // service's word standing and the save's permanent set without it, and the next clearing of the scene cache would
       // have thrown my things away (idempotent - DFU's own AddPermanentScene guards with Contains).
@@ -8437,7 +8437,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:13836's own wave-46 note); the interior
+          // a blow (world.js:13850's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -9466,7 +9466,7 @@ export function createWorldModes(host) {
       // that lets you sleep in it" - and that moment arrived in the
       // same merge: DaggerfallBankManager.IsHouseOwned is live over
       // the region's own registry slot.
-      houseOwned: interiorHome ? (interiorHome.own || !!interiorHome.tenant) : isHouseOwned(playerEntity.houses ?? [], b?.regionIndex ?? 0, b?.buildingKey ?? 0),   // HOME1: my online home's bed is mine; HOME-RENT: and a tenant rests in the home they rent in
+      houseOwned: interiorHome ? (interiorHome.own || rentDaysLeft(interiorHome.tenant, Math.floor(Date.now() / 1000)) > 0) : isHouseOwned(playerEntity.houses ?? [], b?.regionIndex ?? 0, b?.buildingKey ?? 0),   // HOME1: my online home's bed is mine; HOME-RENT: and a tenant rests in the home they rent in
       // GetRentedRoom(mapId, buildingKey), through the SAME finder the
       // tavern window rents with - so the bed this answers is the bed
       // that was sold (tavern.js's own flag, retired here).
@@ -11063,7 +11063,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3469-3491), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:10288). So an F9 pressed in a shop
+     *  unconditionally (world.js:10301). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -11102,7 +11102,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:10403)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:10416)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -11112,7 +11112,7 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:9282`
+     *  HARD2c: this used to spell them out, and named `world.js:9295`
      *  and `dungeonContext.js:7572` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
