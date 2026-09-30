@@ -497,11 +497,12 @@
   {
     "name": "AUDIT28-H6-released-under-the-finished-page",
     "file": "src/scenes/foragingWait.js",
-    "old": "    while (_held.length && !pending() && !_win && !overlayActive()) {",
-    "new": "    while (_held.length && !pending() && !_win) {",
+    "old": "      for (let n = _held.length; n > 0 && _held.length && !pending() && !_win && !overlayActive(); n--) {",
+    "new": "      for (let n = _held.length; n > 0 && _held.length && !pending() && !_win; n--) {",
     "tests": [
       "test/audit28_forage.test.js"
-    ]
+    ],
+    "note": "CHOP-WAIT (FIELD BUGS 2026-09-30, PIN MOVED): re-aimed BY CONTENT - the release's `while` is a `for` bounded by the boxes held when it began now; the slot test it drops is the same law, same killer."
   },
   {
     "name": "AUDIT28-H7-escape-never-heard",

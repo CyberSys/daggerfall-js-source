@@ -18,13 +18,19 @@
 // first and the coins after; what is still owed comes off the region's
 // bank account (the online wallets - scenes/world.js's guild wallet,
 // worldModes.js's home and decor wallets). A credit goes to the purse, or
-// to a region's bank account (a home sold). The service imports this and
-// never systems/court.js, whose imports the Worker does not bundle.
+// to a region's bank account (a home sold), or (GUILD-LETTER) into the
+// pack as a letter of credit (a guild withdrawal too heavy to carry). The
+// service imports this and never systems/court.js, whose imports the
+// Worker does not bundle.
 // ═══════════════════════════════════════════════════════════════════
 import { decorSaleBack } from './decorLaw.js';   // AUDIT REALM2 T3: what a room's placed pieces pay back
 
 /** The letter of credit's template (systems/inventory.js LETTER_OF_CREDIT_TEMPLATE, pinned equal; a name of its own, so no symbol is declared twice - audit24 wave24). */
 export const REALM_LETTER_TEMPLATE = 275;
+/** GUILD-LETTER (FIELD BUGS 2026-09-30): THE LETTER OF CREDIT, as the game mints one (systems/inventory.js letterOfCredit,
+ *  pinned equal - its name is the item template's, which the Worker does not bundle). One maker for both ends: the
+ *  service writes it on the record and the client's wallet into the pack, so the two never differ. */
+export const realmLetterOfCredit = (/** @type {number} */ value) => ({ group: 'MiscItems', templateIndex: REALM_LETTER_TEMPLATE, name: 'Letter of Credit', value, stackCount: 1 });
 
 const whole = (/** @type {unknown} */ v) => (Number.isSafeInteger(v) && /** @type {number} */ (v) > 0 ? /** @type {number} */ (v) : 0);
 /** The bank account of `region` in a save, or null. */
@@ -67,12 +73,19 @@ export function payFromSave(save, amount, region = null) {
 }
 
 /** CREDIT `amount` to a save, in place: the purse, or `bank`'s account (a home sold - a missing account takes it in the
- *  purse, the gold kept either way). Answers false for an amount that is none. */
-export function creditSave(/** @type {any} */ save, /** @type {number} */ amount, /** @type {{ bank?: number | null }} */ { bank = null } = {}) {
+ *  purse, the gold kept either way). Answers false for an amount that is none.
+ *  GUILD-LETTER (FIELD BUGS 2026-09-30): or, `letter` true, A LETTER OF CREDIT worth all of it, at the front of the pack
+ *  as the trade window and the bank put one - what the pack cannot carry as coin (a guild withdrawal, which the client
+ *  weighs as tradeModes.js sellProceeds does). Only `true` is a letter: any other word is the purse. */
+export function creditSave(/** @type {any} */ save, /** @type {number} */ amount, /** @type {{ bank?: number | null, letter?: unknown }} */ { bank = null, letter = false } = {}) {
   if (!Number.isSafeInteger(amount) || amount < 0 || !save || typeof save !== 'object') return false;
   const a = bank == null ? null : accountOfSave(save, bank);
   if (a) a.accountGold = (Number.isFinite(a.accountGold) ? a.accountGold : 0) + amount;
-  else save.goldPieces = whole(save.goldPieces) + amount;
+  else if (letter === true) {
+    (Array.isArray(save.items) ? save.items : (save.items = [])).unshift(realmLetterOfCredit(amount));
+    // the lit light is an index into the pack (save.js lightSourceIndex): it moves with what it names
+    if (Number.isSafeInteger(save.lightSourceIndex) && save.lightSourceIndex >= 0) save.lightSourceIndex += 1;
+  } else save.goldPieces = whole(save.goldPieces) + amount;
   return true;
 }
 

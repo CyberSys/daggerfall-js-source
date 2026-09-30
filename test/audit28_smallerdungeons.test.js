@@ -157,7 +157,8 @@ test('AUDIT 28 W4: the save stamps the layout, and a load at the other size warp
   // port's spawn space is the landed one.
   assert.match(arm, /const p = this\.startSpawn\(\{ preferEnterMarker: false \}\);/, 'the start marker under the entry law is the destination');
   // The warp sits AFTER the position restore, so it overrides it.
-  const posAt = ctx.indexOf('if (extras.position && extras.locationKey === _locationKey && setPlayerPos) setPlayerPos(extras.position);');
+  // FALL-KEPT (FIELD BUGS 2026-09-30, PIN MOVED): the saved fall rides the saved position's placement.
+  const posAt = ctx.indexOf('if (extras.position && extras.locationKey === _locationKey && setPlayerPos) setPlayerPos(extras.position, extras.pose?.fall);');
   const warpAt = ctx.indexOf('needsStartWarp(extras.smallerDungeonsState, dfLocation)');
   assert.ok(posAt > 0 && warpAt > posAt, 'restore first, then the warp');
 });

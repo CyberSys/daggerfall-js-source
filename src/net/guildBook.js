@@ -86,8 +86,9 @@ export class GuildBook {
    * @param {object} opts
    * @param {any} opts.door  net/accountClient.js accountGuilds - every answer `call`'s shape
    * @param {() => (string|null)} opts.character  the character playing, or null
-   * @param {() => ({ gold: () => number, pay: (n: number) => void, credit: (n: number) => void, region?: () => number })} opts.wallet
-   *        the purse, then this region's bank account (`region`: which - REALM P2.2's record pays from the same one)
+   * @param {() => ({ gold: () => number, pay: (n: number) => void, credit: (n: number, o?: { letter?: boolean }) => void, paper?: (n: number) => boolean, region?: () => number })} opts.wallet
+   *        the purse, then this region's bank account (`region`: which - REALM P2.2's record pays from the same one);
+   *        GUILD-LETTER: `paper(n)` - n gold is past what the pack can carry - and `credit`'s `letter`, paid as a letter
    * @param {() => number} [opts.now]  ms
    * @param {((orders: { order?: string, outOrder?: string }) => void)|null} [opts.onOrders]  GUILD1c: the host carries them
    * @param {any} [opts.marks]  MARKS1: the account's Marks book (net/marksBook.js), or null
@@ -240,20 +241,26 @@ export class GuildBook {
   }
 
   /** TAKE GOLD OUT: the treasury first, then the purse. A realm character's record takes it in the treasury's own batch,
-   *  and the purse on the answer (REALM P2.2). */
+   *  and the purse on the answer (REALM P2.2).
+   *  GUILD-LETTER (FIELD BUGS 2026-09-30): GOLD THE PACK CANNOT CARRY COMES AS A LETTER OF CREDIT. It came as coin
+   *  whatever it weighed - a move is up to a million, 2,500 kg - and the player could not walk. The wallet weighs it
+   *  (`paper`, the trade window's sellProceeds) BEFORE the service is asked, so the record takes the same letter the
+   *  pack does (`letter` on the answer: the tab says so). */
   async withdraw(gold) {
     if (!guildGoldOk(gold)) return { ok: false, error: 'bad-gold' };
+    const letter = this.wallet().paper?.(gold) === true;
+    const said = (/** @type {any} */ r) => (r.ok && letter ? { ...r, letter } : r);
     if (this.realm) {
-      return this._act((character) => this.realm.act({
-        apply: () => this.wallet().credit(gold),
-        call: (/** @type {any} */ at) => this.door.withdraw(character, gold, at),
-      }));
+      return said(await this._act((character) => this.realm.act({
+        apply: () => this.wallet().credit(gold, { letter }),
+        call: (/** @type {any} */ at) => this.door.withdraw(character, gold, at, letter),
+      })));
     }
-    return this._act(async (character) => {
+    return said(await this._act(async (character) => {
       const r = await this.door.withdraw(character, gold);
-      if (r?.ok) this.wallet().credit(gold);
+      if (r?.ok) this.wallet().credit(gold, { letter });
       return r;
-    });
+    }));
   }
 
   /** MARKS1: THE MARKS TREASURY - in from the account's balance (any member) or out to it (the guildmaster's), through
