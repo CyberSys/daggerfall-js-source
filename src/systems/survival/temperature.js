@@ -109,11 +109,28 @@ export const armorMaterialClass = (material) => {
 
 /** The natural temperature: what the world is, before anyone stands in
  *  it. Indoors the weather does not reach you and the hour matters less;
- *  underground there is no hour at all. */
+ *  underground there is no hour at all.
+ *  FIELD BUGS 2026-09-30 (ROOF-SHELTER; #bug-reports, "Climates & Calories
+ *  Bugs": "Whether you are appropriately clothed for your region, indoors,
+ *  etc. your temperature gets to either "Scorching" or "Freezing" ... and
+ *  seems to never recover"): A ROOF SHELTERS, IT DOES NOT HEAT. Indoors
+ *  read half the climate and the season and never the hour, so a desert
+ *  inn at eleven at night read 30 while the street outside it read 0 -
+ *  in from the sand, the starting kit felt Hot all night, and the chip
+ *  never lifted. Inside a building the natural temperature is the MILDER
+ *  (the smaller in size) of the street's own now - climate, season, hour
+ *  and weather, as outdoors - and the roofed half; a tie is the roof's. A
+ *  roof never makes it hotter or colder than the street, and a mountain
+ *  inn keeps its roof. A declared departure (Port-Ledger A): SURV1 read
+ *  the mod's indoor temperature as the roofed half alone. */
 export function naturalTemperature({ climateIndex, month, hour, weather, insideBuilding = false, insideDungeon = false } = {}) {
   const climate = CLIMATE_TEMP[climateIndex] ?? 0;
   const season = MONTH_TEMP[((month ?? 0) % 12 + 12) % 12] ?? 0;
-  if (insideBuilding) return Math.trunc((climate + season) / 2);
+  if (insideBuilding) {
+    const roofed = Math.trunc((climate + season) / 2);
+    const street = climate + season + hourTemperature(hour, climateIndex) + (WEATHER_TEMP[weather] ?? 0);
+    return Math.abs(street) < Math.abs(roofed) ? street : roofed;
+  }
   const day = insideDungeon ? 0 : hourTemperature(hour, climateIndex);
   const sky = insideDungeon ? 0 : (WEATHER_TEMP[weather] ?? 0);
   return climate + season + day + sky;
