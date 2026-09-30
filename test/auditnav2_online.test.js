@@ -71,8 +71,9 @@ test('AUDIT NAV2 F2: a peer\'s boat is sized up as she sizes herself - a boat wi
   r.run(1);
   const own = B.s.host._contacts().find((c) => c.kind === 'player' && c.id === 'b')?.power;
   const seen = A.s.host._contacts().find((c) => c.kind === 'player' && c.id === 'b')?.power;
-  assert.ok(own > 0);
-  assert.ok(Math.abs(seen - own) < 1e-6, `a sizes b's boat as b does: ${seen} vs ${own}`);
+  // AUDIT NAV2 F25: the power is a measure now (navalAI.js fightingPower) - compared whole
+  assert.ok(own && own.hull === HULL.LargeBoat && own.crewed === false, 'b sizes her own boat - no crew node, single-handed');
+  assert.deepEqual(seen, own, 'a sizes b\'s boat as b does');
   r.run(40);
   assert.equal(e.ship.target === 'b', B.s.host.hostileNear(), 'b is warned exactly when the sloop comes for her');
   // a crewed boat's losses too: her word says her hands by count
@@ -84,19 +85,23 @@ test('AUDIT NAV2 F2: a peer\'s boat is sized up as she sizes herself - a boat wi
   r2.run(1);
   const cOwn = C.s.host._contacts().find((c) => c.kind === 'player' && c.id === 'c')?.power;
   const cSeen = r2.get('a').s.host._contacts().find((c) => c.kind === 'player' && c.id === 'c')?.power;
-  assert.ok(cOwn > 0 && Math.abs(cSeen - cOwn) < 1e-6, `a crewed boat 15 hands short sized so on both screens: ${cSeen} vs ${cOwn}`);
+  assert.ok(cOwn && cOwn.crew === 9 && cOwn.crewed === true);
+  assert.deepEqual(cSeen, cOwn, 'a crewed boat 15 hands short sized so on both screens');
 });
 
 test('AUDIT NAV2 F4: a rider on another player\'s boat is aboard her and sized as she is - a wary pirate that would take her is the rider\'s enemy too, so the rider is warned exactly when her owner is (SEA-PEACE read the rider as ashore, and a player off every boat of their own as one no wary pirate can size up) (mutants: the ridden boat unsized, the rider not aboard)', async () => {
-  const r = await room([{ id: 'a', hull: HULL.LargeBoat }, { id: 'b', hull: null }]);
+  // AUDIT NAV2 F25: the prize a wary pirate takes by the odds - a Large Galley with no crew to load her guns, to a brig
+  // (1.31 to one; a crewed one 1.12, a Large Boat's swivels keep every wary pirate off)
+  const r = await room([{ id: 'a', hull: HULL.LargeGalley }, { id: 'b', hull: null }]);
   const A = r.get('a'), B = r.get('b');
+  A.s.boat.crewed = false;
   A.s.boat.GameObject.position = [0, 0, 0]; A.s.view.feet = [0, 0, 0];
   B.s.view.feet = [0.5, 0, 0.5];
   B.s.deps.aboardPeer = () => A.s.boat;   // Come Sail Away's riding: b stands on a's boat
-  const e = A.s.host._sea.get(A.s.host.spawnShip('pirateSloop', { range: 250, bearing: Math.PI / 2, temper: TEMPERS.wary }));
+  const e = A.s.host._sea.get(A.s.host.spawnShip('pirateBrig', { range: 250, bearing: Math.PI / 2, temper: TEMPERS.wary }));
   e.ship.pos = [250, 0, 0];
   r.run(3);
-  assert.equal(A.s.host.hostileNear(), true, 'she would take a\'s boat (2,357 single-handed: outgunned 1.33 to 1)');
+  assert.equal(A.s.host.hostileNear(), true, 'she would take a\'s boat (a crewless Large Galley: 1.31 to one)');
   assert.equal(B.s.host.hostileNear(), true, 'and so her rider is warned: no rest, no journey');
   B.s.deps.aboardPeer = () => null;
   assert.equal(B.s.host.hostileNear(), false, 'ashore, nobody at sea is an enemy of theirs');

@@ -65,8 +65,8 @@
   {
     "name": "AUDIT-NAV2-F2-uncrewed-sized-crewed",
     "file": "src/scenes/navalHost.js",
-    "old": "    if (p.boat && !p.boat.crewed) return 1 / RELOAD_SINGLEHANDED;\n",
-    "new": "",
+    "old": "crew, crewed: !(p.boat && !p.boat.crewed) });",
+    "new": "crew, crewed: true });",
     "tests": [
       "test/auditnav2_online.test.js"
     ]
@@ -74,8 +74,8 @@
   {
     "name": "AUDIT-NAV2-F2-crew-unread",
     "file": "src/scenes/navalHost.js",
-    "old": "return said && said.hull === p.hull ? Math.max(0, Math.min(1, said.crew / Math.max(1, hullBuild(p.hull).crew))) : 1;",
-    "new": "return 1;",
+    "old": "const crew = said && said.hull === p.hull ? Math.max(0, Math.min(b.crew, said.crew)) : b.crew;",
+    "new": "const crew = b.crew;",
     "tests": [
       "test/auditnav2_online.test.js"
     ]
@@ -83,8 +83,8 @@
   {
     "name": "AUDIT-NAV2-F2-contacts-full-crew",
     "file": "src/scenes/navalHost.js",
-    "old": "hullShare: share, crewShare: peerCrewShare(p, self) }),\n      });",
-    "new": "hullShare: share }),\n      });",
+    "old": "        power: peerPowerOf(p, self),\n      });",
+    "new": "        power: p.hull == null ? null : fightingPower({ hull: p.hull, hullHp: hullBuild(p.hull).hullHp, hullShare: share }),\n      });",
     "tests": [
       "test/auditnav2_online.test.js"
     ]
@@ -200,8 +200,8 @@
   {
     "name": "AUDIT-NAV2-F4-rider-unsized",
     "file": "src/scenes/navalHost.js",
-    "old": "      if (p && p.hull != null) {\n        const self = peerSelf.get(p.id), share = self?.me?.hull ?? 1;",
-    "new": "      if (false) {\n        const self = peerSelf.get(p.id), share = self?.me?.hull ?? 1;",
+    "old": "      if (p && p.hull != null) {\n        const self = peerSelf.get(p.id);",
+    "new": "      if (false) {\n        const self = peerSelf.get(p.id);",
     "tests": [
       "test/auditnav2_online.test.js"
     ]

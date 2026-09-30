@@ -760,8 +760,8 @@
   {
     "name": "NAV1H-the-quiet-unread",
     "file": "src/scenes/navalHost.js",
-    "old": "      if (quiet && clock - s.damage.lastHitAt >= FIELD_QUIET_S) {",
-    "new": "      if (quiet) {",
+    "old": "      if (clock - s.damage.lastHitAt >= FIELD_QUIET_S && !hostileNearBoat(b, s)) {",
+    "new": "      if (!hostileNearBoat(b, s)) {",
     "tests": [
       "test/navaudit_helm.test.js"
     ]
@@ -778,8 +778,8 @@
   {
     "name": "NAV1H-a-hostile-unread-at-sea",
     "file": "src/scenes/navalHost.js",
-    "old": "    const quiet = !hostileNearMe();",
-    "new": "    const quiet = true;",
+    "old": "FIELD_QUIET_S && !hostileNearBoat(b, s)) {",
+    "new": "FIELD_QUIET_S) {",
     "tests": [
       "test/navaudit_helm.test.js"
     ]

@@ -8,12 +8,12 @@ import assert from 'node:assert/strict';
 import {
   TEMPERS, BOLD_SHARE, WARY_ODDS, PLAYER_GUN_SKILL, HEAR_GUNS_M, HEAR_S, CHASE_AWAY, ABAFT_DEG, CHASE_SHEER, FLEE_RANGE, GRAPPLE_HULL,
   WIND_RATED, BOW_BEAR,
-  createSeaShip, stepCaptain, hostile, provoke, temperOf, metalOf, fightingPower, shipPower, classPower, outguns, lookoutOf,
+  createSeaShip, stepCaptain, hostile, provoke, temperOf, fightingPower, shipPower, classPower, outguns, lookoutOf, odds, strikeTime, hitShare, TURN_PER_VOLLEY,
 } from '../src/systems/naval/navalAI.js';
 import { HULL, GUNS, classById, SHIP_CLASSES, batteryOf } from '../src/systems/naval/navalShips.js';
-import { SHIP_STATES } from '../src/systems/naval/navalDamage.js';
+import { SHIP_STATES, STRUCK_AT, HOLED_BONUS, WATERLINE_BAND } from '../src/systems/naval/navalDamage.js';
 import { NAVAL_DEG } from '../src/systems/naval/navalBallistics.js';
-import { RELOAD_SINGLEHANDED } from '../src/systems/naval/navalGunnery.js';
+import { reloadSeconds } from '../src/systems/naval/navalGunnery.js';
 import {
   createNavalDirector, encounterClasses, encounterRng, ENCOUNTER_CHANCE, ENCOUNTER_GAP, ENCOUNTERS, FIRST_ROLL_S, SPAWN_RING, SPAWN_CLEAR,
   DENSITY, weightedPick,
@@ -85,65 +85,84 @@ test('SEA-PEACE tempers: a merchant peaceful, a navy dutiful, a flagship bold, a
   assert.equal(m.ship.temper, TEMPERS.peaceful);
 });
 
-test('SEA-PEACE fighting power: a hull\'s weight of metal (a broadside, the bow and the stern guns, never a fire barrel) times the gunners\' hit share, the crew\'s share and the hull left - the Lanchester product; a class sized fresh from port, a sea ship as she stands (mutants: the barrel counted, the port side twice, the hull share unread)', () => {
-  const metal = (hull) => ['starboard', 'bow', 'stern'].reduce((m, side) => { const b = batteryOf(hull, side); return m + (b && b.gun !== 'barrel' ? b.muzzles.length * GUNS[b.gun].hull : 0); }, 0);
-  for (const h of [0, 1, 2, 3, 4]) assert.equal(metalOf(h), metal(h), `hull ${h}`);
-  assert.equal(metalOf(HULL.Rowboat), 0, 'a rowboat carries no gun');
-  assert.equal(metalOf(HULL.SmallShip), 6 * GUNS.long.hull + 2 * GUNS.chain.hull, 'one broadside and the chasers - her stern\'s barrels none');
-  assert.equal(fightingPower({ hull: HULL.SmallShip, hullHp: 420 }), metalOf(HULL.SmallShip) * (0.5 + PLAYER_GUN_SKILL) * 420);
-  assert.equal(fightingPower({ hull: HULL.SmallShip, hullHp: 420, hullShare: 0.5 }), fightingPower({ hull: HULL.SmallShip, hullHp: 420 }) / 2, 'half her hull, half her power');
-  assert.equal(fightingPower({ hull: HULL.SmallShip, hullHp: 420, crewShare: 0.5 }), fightingPower({ hull: HULL.SmallShip, hullHp: 420 }) / 2);
+// PIN MOVED (AUDIT NAV2 F25, Mac: "Model crew losses"): the weight of metal times the hull left is gone - a ship is sized
+// against another by the time each needs to make the other strike (test/auditnav2_captains.test.js); here, its sum
+test('SEA-PEACE fighting power (AUDIT NAV2 F25): her measure - her hull and build, the hull and men she has left, whether she strikes with them down, her gunners, range and turn - and the time she needs to make another strike: her broadside\'s balls (never the chasers, never a fire barrel, one side) each reload and the turn between, striking at the other\'s size, holing a low hull, the hull left above the strike line; a class sized fresh from port, a sea ship as she stands (mutants: the barrel counted, the port side twice, the hull share unread)', () => {
   const brig = classById('pirateBrig');
-  assert.equal(classPower(brig), metalOf(brig.hull) * (0.5 + brig.skill) * brig.hullHp);
   const s = shipOf('pirateBrig');
-  assert.equal(shipPower(s), classPower(brig));
+  assert.deepEqual(shipPower(s), classPower(brig), 'fresh from port');
+  assert.deepEqual([classPower(brig).hull, classPower(brig).hullHp, classPower(brig).crew, classPower(brig).strikes, classPower(brig).skill, classPower(brig).range, classPower(brig).tactic], [HULL.SmallShip, brig.hullHp, brig.crew, true, brig.skill, brig.range, 'broadside']);
+  const mine = fightingPower({ hull: HULL.SmallShip, hullHp: 420 });
+  assert.deepEqual([mine.strikes, mine.skill, mine.crewed], [false, PLAYER_GUN_SKILL, true], 'a player\'s boat never strikes; her gunners the player\'s');
+  // the brig on my Small Ship (by her hull alone): one broadside, a volley each reload and TURN_PER_VOLLEY at her turn
+  const bat = batteryOf(HULL.SmallShip, 'starboard');
+  const perS = bat.muzzles.length / (reloadSeconds('long', 1, true) + TURN_PER_VOLLEY / classPower(brig).turn);
+  const hullPerS = perS * hitShare(bat, brig.skill, HULL.SmallShip) * GUNS.long.hull * (1 + HOLED_BONUS * Math.min(1, WATERLINE_BAND / 10.92));
+  assert.ok(Math.abs(strikeTime(classPower(brig), mine) - 420 * (1 - STRUCK_AT) / hullPerS) < 1e-6, 'one side, her broadside alone');
+  assert.equal(strikeTime(fightingPower({ hull: HULL.Rowboat, hullHp: 60 }), mine), Infinity, 'a rowboat carries no gun');
+  // her hull above the strike line: half as much, half the time
+  const half = fightingPower({ hull: HULL.SmallShip, hullHp: 420, hullShare: STRUCK_AT + (1 - STRUCK_AT) / 2 });
+  assert.ok(Math.abs(strikeTime(classPower(brig), half) - strikeTime(classPower(brig), mine) / 2) < 1e-6, 'half her hull, half the time');
+  assert.ok(strikeTime(fightingPower({ ...classPower(brig), crewShare: 0.5 }), mine) > strikeTime(classPower(brig), mine), 'her men thinned, her guns load slower');
   s.damage.apply({ hull: Math.round(brig.hullHp / 2), sail: 0, crew: 0 });
-  assert.ok(Math.abs(shipPower(s) - classPower(brig) / 2) < 1e-6 * classPower(brig), 'as she stands');
+  assert.ok(Math.abs(shipPower(s).hullShare - 0.5) < 0.01, 'as she stands');
 });
 
-test('SEA-PEACE the odds: a wary pirate takes a prize she outguns WARY_ODDS to one - a Large Boat, not a Small Ship until it is holed or crippled - leaves one she cannot size up, and answers a blow; a bold one takes anything her trade does (mutants: the odds inverted, the holed hull unread, a blow unanswered)', () => {
+// PIN MOVED (AUDIT NAV2 F25): the prizes the odds give - a Large Boat's swivels take two men a ball and she never
+// strikes, so a wary brig leaves her be now; a Large Galley alone at her guns is the brig's prize
+test('SEA-PEACE the odds: a wary pirate takes a prize she outguns WARY_ODDS to one - a Large Galley alone at her guns, not a Small Ship until it is holed or crippled - leaves one she cannot size up, and answers a blow; a bold one takes anything her trade does (mutants: the odds inverted, the holed hull unread, a blow unanswered)', () => {
   const wary = shipOf('pirateBrig', { temper: 'wary' });
   const bold = shipOf('pirateBrig', { temper: 'bold' });
-  const boat = powerOfHull(HULL.LargeBoat), ship = powerOfHull(HULL.SmallShip);
-  assert.ok(shipPower(wary) >= WARY_ODDS * boat && shipPower(wary) < WARY_ODDS * ship, 'the numbers the pins stand on');
-  assert.equal(hostile(wary, me({ power: boat })), true, 'a Large Boat is her prize');
+  const boat = powerOfHull(HULL.LargeGalley, { crewed: false }), ship = powerOfHull(HULL.SmallShip);
+  assert.ok(odds(shipPower(wary), boat) >= WARY_ODDS && odds(shipPower(wary), ship) < WARY_ODDS, 'the numbers the pins stand on');
+  assert.equal(hostile(wary, me({ power: boat })), true, 'a Large Galley alone at her guns is her prize');
   assert.equal(hostile(wary, me({ power: ship })), false, 'a Small Ship she leaves be');
   assert.equal(hostile(wary, me({ power: ship, hullShare: GRAPPLE_HULL - 0.01 })), true, 'holed under GRAPPLE_HULL: prey');
   assert.equal(hostile(wary, me({ power: ship, crippled: true })), true, 'crippled: prey');
   assert.equal(hostile(wary, me()), false, 'a player she cannot size up (off every boat) she leaves be');
   assert.equal(hostile(bold, me()), true, 'bold: anything');
-  assert.equal(hostile(bold, me({ power: ship * 10 })), true);
+  assert.equal(hostile(bold, me({ power: powerOfHull(HULL.Carrack) })), true);
   provoke(wary, 'me', 5);
-  assert.equal(hostile(wary, me({ power: ship * 10 }), { now: 6 }), true, 'a blow is answered by every temper');
-  // ship against ship: a wary sloop takes a coaster, never a galleon; a navy takes every pirate; a merchant no one
+  assert.equal(hostile(wary, me({ power: powerOfHull(HULL.Carrack) }), { now: 6 }), true, 'a blow is answered by every temper');
+  // ship against ship: a wary brig takes a galleon, never a coaster (her swivels take two men a ball); a navy takes every
+  // pirate; a merchant no one
+  const brig = shipOf('pirateBrig', { temper: 'wary' });
   const sloop = shipOf('pirateSloop', { temper: 'wary' });
-  assert.equal(hostile(sloop, contactOf(shipOf('merchantCoaster'))), true);
-  assert.equal(hostile(sloop, contactOf(shipOf('merchantGalleon'))), false);
+  assert.equal(hostile(brig, contactOf(shipOf('merchantGalleon'))), true);
+  assert.equal(hostile(brig, contactOf(shipOf('merchantCoaster'))), false);
   assert.equal(hostile(sloop, contactOf(shipOf('pirateBrig'))), false, 'never her own trade');
   assert.equal(hostile(shipOf('navyCutter'), contactOf(shipOf('pirateFlagship'))), true, 'the navy\'s duty');
   assert.equal(hostile(shipOf('merchantCarrack'), contactOf(sloop)), false);
-  // outguns: the threat's power over hers, one unsized never
+  // outguns: the threat's odds over hers, one unsized never
   assert.equal(outguns(contactOf(shipOf('navyCutter')), shipOf('pirateBrig')), true);
-  assert.equal(outguns(contactOf(shipOf('merchantCoaster')), shipOf('pirateBrig')), false);
+  assert.equal(outguns(contactOf(shipOf('merchantGalleon')), shipOf('pirateBrig')), false);
   assert.equal(outguns(me(), shipOf('pirateBrig')), false);
 });
 
-test('SEA-PEACE the host sizes me up: my boat\'s power off her build and her hurts - single-handed without her crew - so a wary pirate leaves a sound Small Ship be and comes for a Large Boat (mutants: the crewless boat at full rate, the hurt unread)', async () => {
+// PIN MOVED (AUDIT NAV2 F25): my boat sized as the new measure has her - her men and whether they load her guns - and a
+// wary brig's prize a Large Galley alone at her guns (a Large Boat's swivels she leaves be now: two men a ball)
+test('SEA-PEACE the host sizes me up: my boat\'s power off her build and her hurts - single-handed without her crew - so a wary pirate leaves a sound Small Ship be and comes for a Large Galley alone at her guns, never one with her crew aboard (mutants: the crewless boat at full rate, the hurt unread)', async () => {
   const big = await sea({ hull: HULL.SmallShip });
   big.boat.crewed = false;
   const c = big.host._contacts().find((x) => x.kind === 'player');
-  assert.equal(c.power, fightingPower({ hull: HULL.SmallShip, hullHp: 420, crewShare: 1 / RELOAD_SINGLEHANDED }), 'a boat without her crew loads single-handed');
+  assert.deepEqual(c.power, fightingPower({ hull: HULL.SmallShip, hullHp: 420, crew: 24, crewed: false }), 'a boat without her crew loads single-handed');
   big.boat.crewed = true;
-  assert.equal(big.host._contacts().find((x) => x.kind === 'player').power, fightingPower({ hull: HULL.SmallShip, hullHp: 420 }));
+  assert.deepEqual(big.host._contacts().find((x) => x.kind === 'player').power, fightingPower({ hull: HULL.SmallShip, hullHp: 420, crew: 24 }));
   const w = big.host._sea.get(big.host.spawnShip('pirateBrig', { range: 300, temper: 'wary' }));
   big.run(4);
   assert.equal(w.ship.mode, 'cruise', 'a stronger ship: she sails on');
   assert.equal(big.host.hostileNear(), false);
-  const small = await sea({ hull: HULL.LargeBoat });
-  const w2 = small.host._sea.get(small.host.spawnShip('pirateBrig', { range: 300, temper: 'wary' }));
-  small.run(4);
+  const alone = await sea({ hull: HULL.LargeGalley });
+  alone.boat.crewed = false;
+  const w2 = alone.host._sea.get(alone.host.spawnShip('pirateBrig', { range: 300, temper: 'wary' }));
+  alone.run(4);
   assert.ok(w2.ship.mode === 'engage' || w2.ship.mode === 'board', `a prize: ${w2.ship.mode}`);
   assert.equal(w2.ship.target, 'local');
+  const manned = await sea({ hull: HULL.LargeGalley });
+  manned.boat.crewed = true;
+  const w3 = manned.host._sea.get(manned.host.spawnShip('pirateBrig', { range: 300, temper: 'wary' }));
+  manned.run(4);
+  assert.equal(w3.ship.mode, 'cruise', 'her crew at her guns: no prize');
 });
 
 test('SEA-PEACE a wary pirate runs from a ship that outguns her, inside FLEE_RANGE - one that fired on her too - where a bold one stands and fights (mutants: the wary flight dropped, a weaker threat fled)', () => {
@@ -154,9 +173,9 @@ test('SEA-PEACE a wary pirate runs from a ship that outguns her, inside FLEE_RAN
   assert.equal(w.mode, 'flee');
   assert.equal(w.target, 'n');
   assert.equal(flee('bold', navy).mode, 'engage', 'bold: she fights');
-  const coaster = shipOf('merchantCoaster', { id: 'c', pos: [0, 0, 200] });
-  provoke(coaster, 'p', 0);
-  assert.notEqual(flee('wary', coaster).mode, 'flee', 'a weaker ship she never runs from');
+  const galleon = shipOf('merchantGalleon', { id: 'c', pos: [0, 0, 200] });   // PIN MOVED (AUDIT NAV2 F25): a coaster's swivels outgun a brig now
+  provoke(galleon, 'p', 0);
+  assert.notEqual(flee('wary', galleon).mode, 'flee', 'a weaker ship she never runs from');
   // a player who fired on her and outguns her
   const p = shipOf('pirateSloop', { id: 'p', temper: 'wary' });
   provoke(p, 'me', 0);
@@ -217,7 +236,7 @@ test('SEA-PEACE the stern chase: a quarry running from her - her way away over C
 
 test('SEA-PEACE a prize taken: a navy that beats a pirate comes alongside her, grapples, lies lashed PRIZE_TAKE_S, then fires her - she founders - her own crew thinned by PRIZE_COST, and sails on; the news reaches my HUD within NEWS_RANGE (mutants: the prize never boarded, never fired, the crew uncharged, the news unbounded)', async () => {
   const s = await sea({ hull: null });
-  const p = s.host._sea.get(s.host.spawnShip('pirateSloop', { range: 400, bearing: 0 }));   // a cutter outguns her fifteen to one: hers is the win, and men to spare
+  const p = s.host._sea.get(s.host.spawnShip('pirateSloop', { range: 400, bearing: 0 }));   // the cutter's win here, and men to spare (PIN MOVED, AUDIT NAV2 F25: close, no longer fifteen to one)
   const n = s.host._sea.get(s.host.spawnShip('navyCutter', { range: 700, bearing: 299 * DEG }));
   let lashedAt = null, crewAt = null, prizeCrew = null;
   for (let t = 0; t < 600 && s.host._sea.has(p.id); t += 1) {
@@ -268,7 +287,7 @@ test('SEA-PEACE a prize her taker comes for is in a fight: though every player i
 
 test('SEA-PEACE a victor struck casts off her prize to fight, and the prize is anyone\'s again; a prize I board is never hers (mutants: the lash kept under fire)', async () => {
   const s = await sea({ hull: null });
-  const p = s.host._sea.get(s.host.spawnShip('pirateSloop', { range: 400, bearing: 0 }));   // a cutter outguns her fifteen to one: hers is the win, and men to spare
+  const p = s.host._sea.get(s.host.spawnShip('pirateSloop', { range: 400, bearing: 0 }));   // the cutter's win here, and men to spare (PIN MOVED, AUDIT NAV2 F25: close, no longer fifteen to one)
   const n = s.host._sea.get(s.host.spawnShip('navyCutter', { range: 700, bearing: 299 * DEG }));
   for (let t = 0; t < 600 && !n.ship.lashed; t++) s.run(1);
   assert.ok(n.ship.lashed, 'lashed');
@@ -311,13 +330,15 @@ test('SEA-PEACE the host hears the guns: every volley\'s first report is kept HE
 // ── the bay's own fights ───────────────────────────────────────────────────────────────────────────────────────────
 
 test('SEA-PEACE the director\'s pairs: of the rolls that launch with room for two, ENCOUNTER_CHANCE on the spawn\'s own stream launch a hunter with her quarry ENCOUNTER_GAP ahead on her course - a pirate on a merchantman she outguns WARY_ODDS to one, or a navy on a pirate; a single roll draws what it always drew (mutants: the chance, the pair\'s stream shared, the plunder\'s odds, room for one)', () => {
-  // a roll whose pair's stream says yes, and one whose says no
+  // a roll whose pair's stream says yes, and one whose says no - PIN MOVED (AUDIT NAV2 F25): one that past the chance
+  // would draw a pair (a corsair galley has no merchantman to plunder now, so the first "no" drew none either way)
   const ctx = (o = {}) => ({ density: DENSITY.some, player: [0, 0, 0], players: null, level: 9, ships: [], isOpenWater: () => true, nearPort: false, notoriety: 0, seedBase: 0, seaY: 0, ...o });
   let pairBase = -1, singleBase = -1;
   for (let b = 0; b < 400 && (pairBase < 0 || singleBase < 0); b++) {
-    const yes = encounterRng(hash32(b, 0))() < ENCOUNTER_CHANCE;
+    const r = encounterRng(hash32(b, 0));
+    const yes = r() < ENCOUNTER_CHANCE;
     if (yes && pairBase < 0) pairBase = b;
-    if (!yes && singleBase < 0) singleBase = b;
+    if (!yes && singleBase < 0 && encounterClasses(weightedPick(ENCOUNTERS, r()), 9, r)) singleBase = b;
   }
   const pair = createNavalDirector({ random: () => 0.1 }).step(FIRST_ROLL_S, ctx({ seedBase: pairBase })).spawn;
   assert.ok(pair?.company, 'a pair');
@@ -329,7 +350,7 @@ test('SEA-PEACE the director\'s pairs: of the rolls that launch with room for tw
   assert.equal(pair.company.seed, hash32(pairBase, 1), 'the company\'s seed the next count\'s');
   for (const x of [pair, pair.company]) { const r = Math.hypot(x.pos[0], x.pos[2]); assert.ok(r >= SPAWN_RING[0] - ENCOUNTER_GAP[1] && r <= SPAWN_RING[1] + ENCOUNTER_GAP[1] && r >= SPAWN_CLEAR, `${r} m`); }
   const [h, q] = [classById(pair.classId), classById(pair.company.classId)];
-  if (pair.encounter === 'plunder') { assert.equal(h.faction, 'pirate'); assert.equal(q.faction, 'merchant'); assert.ok(classPower(h) >= WARY_ODDS * classPower(q)); }
+  if (pair.encounter === 'plunder') { assert.equal(h.faction, 'pirate'); assert.equal(q.faction, 'merchant'); assert.ok(odds(classPower(h), classPower(q)) >= WARY_ODDS); }   // PIN MOVED (AUDIT NAV2 F25): the odds
   else { assert.equal(h.faction, 'navy'); assert.equal(q.faction, 'pirate'); assert.equal(q.flagship, false); }
   // room for one: never a pair
   assert.equal(createNavalDirector({ random: () => 0.1 }).step(FIRST_ROLL_S, ctx({ seedBase: pairBase, density: 1 })).spawn?.company, undefined);
@@ -342,12 +363,12 @@ test('SEA-PEACE the director\'s pairs: of the rolls that launch with room for tw
   for (let i = 0; i < 200; i++) {
     const r = mulberry32(i);
     const pl = encounterClasses('plunder', 9, r);
-    if (pl) assert.ok(classPower(pl.hunter) >= WARY_ODDS * classPower(pl.quarry) && !pl.hunter.flagship);
+    if (pl) assert.ok(odds(classPower(pl.hunter), classPower(pl.quarry)) >= WARY_ODDS && !pl.hunter.flagship);
     const pa = encounterClasses('patrol', 9, r);
     assert.ok(pa && pa.hunter.faction === 'navy' && pa.quarry.faction === 'pirate' && !pa.quarry.flagship);
   }
   assert.ok(weightedPick(ENCOUNTERS, 0) === 'plunder');
-  assert.ok(SHIP_CLASSES.some((c) => c.faction === 'merchant' && classPower(classById('pirateSloop')) >= WARY_ODDS * classPower(c)), 'the least pirate has a prize at level 1');
+  assert.ok(SHIP_CLASSES.some((c) => c.faction === 'merchant' && c.minLevel <= 1 && odds(classPower(classById('pirateSloop')), classPower(c)) >= WARY_ODDS), 'the least pirate has a prize at level 1');
 });
 
 test('SEA-PEACE the host stands a pair: both ships launched, the hunter at her quarry from the first steps (mutants: the company unlaunched)', async () => {

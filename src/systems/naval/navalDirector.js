@@ -31,7 +31,7 @@ import { hash32 } from '../../world/spawnedDungeons.js';
 import { mulberry32 } from '../../combat/bloodArt.js';
 import { classFor, HULL, SHIP_CLASSES } from './navalShips.js';
 import { HULL_VARIANT_COUNTS } from '../comeSailAwayBoat.js';
-import { classPower, WARY_ODDS } from './navalAI.js';   // SEA-PEACE: a plunder's merchantman is one her pirate outguns
+import { classPower, odds, WARY_ODDS } from './navalAI.js';   // SEA-PEACE: a plunder's merchantman is one her pirate outguns
 
 /** How many ships the density keeps at sea near a player. */
 export const DENSITY = Object.freeze({ off: 0, few: 2, some: 3, many: 5 });
@@ -84,7 +84,8 @@ export function encounterClasses(kind, level, r) {
   }
   const pirate = pirates.length ? pick(pirates) : null;
   if (!pirate) return null;
-  const prey = SHIP_CLASSES.filter((c) => c.faction === 'merchant' && c.minLevel <= lv && classPower(pirate) >= WARY_ODDS * classPower(c));
+  // AUDIT NAV2 F25: outguns by the odds - the time each needs to make the other strike (navalAI.js odds)
+  const prey = SHIP_CLASSES.filter((c) => c.faction === 'merchant' && c.minLevel <= lv && odds(classPower(pirate), classPower(c)) >= WARY_ODDS);
   const merchant = prey.length ? pick(prey) : null;
   return merchant ? { hunter: pirate, quarry: merchant } : null;
 }

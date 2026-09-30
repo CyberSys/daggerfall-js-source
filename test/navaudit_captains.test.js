@@ -346,14 +346,19 @@ test('AUDIT NAV1 M12 giving up: a chase that has not closed in CHASE_GIVE_UP_S w
   assert.ok(gaveUp != null && gaveUp >= CHASE_GIVE_UP_S - 1, `given up at ${gaveUp}`);
   assert.ok(b.spare.get('me') > b.clock, 'left be');
   assert.ok(SPARE_S >= 60);
-  // in the fight: never given up, however long - though her passes take her out and back
+  // in the fight: never given up, however long - though her passes take her out and back. PIN MOVED (AUDIT NAV2 F21: the
+  // gain is read against the farthest she lay in the last CHASE_GIVE_UP_S, so each return from a pass refreshed the
+  // chase by itself): a spell in the fight longer than CHASE_GIVE_UP_S before the passes, and never given up between
   const f = ship('pirateBrig', { yaw: 0 });
   const wf = world({ wind: [1.5, 0, 0], contacts: [player([90, 0, 0], { vel: [0, 0, 3], speed: 3 })] });   // under way: a fight, not a boarding
+  let quit = null;
   for (let t = 0; t < CHASE_GIVE_UP_S * 2; t += 1) {
-    const out = Math.floor(t / 20) % 2 === 1;   // twenty seconds in the fight, twenty seconds out on a pass
+    const out = t > CHASE_GIVE_UP_S && Math.floor(t / 20) % 2 === 1;   // then twenty seconds out on a pass, twenty in the fight
     wf.contacts[0].pos = [f.pos[0] + (out ? 260 : 90), 0, f.pos[2]];
     stepCaptain(f, { ...wf, dt: 1 });
+    if (quit == null && f.mode !== 'engage') quit = t;
   }
+  assert.equal(quit, null, `given up at ${quit}`);
   assert.equal(f.mode, 'engage');
   // held: kept past ENGAGE_RANGE to DISENGAGE times it
   const k = ship('pirateBrig');
