@@ -53,10 +53,11 @@
 //    one home here. The only difference is the +3 that moves the SELL
 //    modes onto their own three records.
 
-import { calculateCost, calculateTradePrice } from './shopStock.js';
+import { calculateCost, calculateTradePrice, essentialPrice } from './shopStock.js';   // ESSENTIALS-HALF: online, a potion costs half
 import { GOLD_PIECE_WEIGHT_KG, isEnchanted } from './inventory.js';
 import { calculateItemRepairCost, repairRefusal } from './repairService.js';
-import { itemValueOf, conditionPercentage } from './itemTemplates.js';   // JAN1: the one value read; RRI2: ConditionPercentage, the Sell arm's third argument
+import { itemValueOf, conditionPercentage } from './itemTemplates.js';
+import { isPotion } from './useItem.js';   // ESSENTIALS-HALF: the potion, by DFU's own IsPotion   // JAN1: the one value read; RRI2: ConditionPercentage, the Sell arm's third argument
 import { HOLIDAYS } from './holidays.js';
 import { GUILDS } from './guilds.js';
 import {
@@ -205,10 +206,13 @@ export function buyHolidayHalvesPrice(item, { holidayId = HOLIDAYS.None, guildFa
 /** One basket item's Buy price (:443-450). The halving is C# integer
  *  division on an int, so it TRUNCATES, and it lands AFTER the stack
  *  multiply rather than per unit. */
-export function buyItemPrice(item, { quality = 0, priceAdjustment = 1000, holidayId = HOLIDAYS.None, guildFactionId = null } = {}) {
+export function buyItemPrice(item, { quality = 0, priceAdjustment = 1000, holidayId = HOLIDAYS.None, guildFactionId = null, online = undefined } = {}) {
   const price = calculateCost(itemValueOf(item), quality, priceAdjustment) * (item.stackCount ?? 1);   // JAN1: the one value read
-  return buyHolidayHalvesPrice(item, { holidayId, guildFactionId })
+  const held = buyHolidayHalvesPrice(item, { holidayId, guildFactionId })
     ? Math.trunc(price / 2) : price;
+  // ESSENTIALS-HALF (2026-09-30, Discord: "cut the cost of most essential items by half"): online a POTION costs half
+  // (shopStock.js essentialPrice, rounded up - its law against buying to sell back), at every counter's Buy
+  return isPotion(item) ? essentialPrice(held, { online }) : held;
 }
 
 /**

@@ -694,6 +694,26 @@ export function calculateCost(baseValue, shopQuality, priceAdjustment = 1000, co
  *  and the regions' price walk paid a carrier. Offline, DFU's haggle stands. */
 export const ONLINE_SALE_SHARE = 0.5;
 
+/** ESSENTIALS-HALF (2026-09-30, Discord: "things are way too expensive rn for money to be nerfed so heavily... cut the cost of most essential items by half"):
+ *  ONLINE, AN ESSENTIAL COSTS HALF. REALM P0.4, MERC-RISE and MERC-CAP cut what a player EARNS online (the sale's half,
+ *  the pile's gold divided by level) and left what they PAY where DFU put it, so a bed, a meal, a cure, a fare and a
+ *  potion ate a far bigger share of a far smaller purse. The essentials - a tavern room and its food and drink
+ *  (tavern.js, survival/tavernMenu.js), a temple's disease cure (guildServiceActions.js cureDiseaseOffer), a travel
+ *  fare (ui/travelPopUp.js scaleTripCost, both map skins) and a POTION bought at any counter (tradeModes.js
+ *  buyItemPrice, which every shelf's Buy walks - the guild shelves' too) - cost ONLINE_ESSENTIALS_PRICE_SCALE of
+ *  their price online. Nothing else moves: repairs, training, spells, enchanting, houses and ships keep theirs.
+ *  The half ROUNDS UP and a priced essential asks at least a gold - a free one (a holiday's, a knight's room) stays
+ *  free. Rounding up is load-bearing for the potion: its sale online is capped at ONLINE_SALE_SHARE of the full ask,
+ *  and ceil(cost/2) haggled is never under half the full cost haggled, so buying a potion to sell it back never pays.
+ *  Offline, DFU's prices stand. */
+export const ONLINE_ESSENTIALS_PRICE_SCALE = 0.5;
+/** ESSENTIALS-HALF: an essential's price where the player stands - `price` offline, its rounded-up half (at least 1,
+ *  a 0 kept 0) online. */
+export function essentialPrice(price, { online = isOnlinePage() } = {}) {
+  if (!online || !(price > 0)) return price;
+  return Math.max(1, Math.ceil(price * ONLINE_ESSENTIALS_PRICE_SCALE));
+}
+
 /** MERC-RISE (FIELD BUGS 2026-09-29d, ValenValarys on Discord: "As the skill level increases, the sell price for items
  *  actually decreases" - 3499 gold at Mercantile 60, 2888 at 90, Personality 100): THE HALF IS OF THE LEAST THE
  *  COUNTER ASKS. P0.4 took half of the SELLER's own ask, and a seller's ask falls as their Mercantile and Personality

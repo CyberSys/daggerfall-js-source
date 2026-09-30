@@ -27,6 +27,22 @@ import { effectCost, effectSchool, TARGET_COST_MULT, CAST_COST_FLOOR } from './s
  *  pinned). */
 export const SPELL_ABSORPTION = Object.freeze({ None: 0, InLight: 1, InDarkness: 2, Always: 4 });
 
+/** ABSORB-NERF (2026-09-30, Discord: "Nerf spell absorption, it breaks the game"): THE PORT'S OWN, never DFU's. A
+ *  100% AbsorbsSpells item (or a 100% crafted Spell Absorption) made its wearer all but immune to casters AND refilled
+ *  their magicka off every bolt. Three numbers, one home:
+ *   - ABSORB_ENCHANT_CHANCE: the AbsorbsSpells item enchantment is a ROLL of 50%, no longer DFU's flat always;
+ *   - SPELL_ABSORPTION_CHANCE_CAP: the Spell Absorption EFFECT's computed chance never passes 50% (the Spell Maker's
+ *     chanceBase for it stops at the same 50, spellMaker.js spinnerRange);
+ *   - ABSORB_REFUND_SCALE: whatever absorbs, the magicka it gives back is HALF the points drunk, floored (effects.js
+ *     absorbRefund) - a 0 refund is fine.
+ *  The CAREER's Always (the Sorcerer, a custom class's advantage) keeps its 100%: a Sorcerer has no regen and lives on
+ *  it - but it too refunds only half. The Eye of Mora sigil set is untouched. */
+export const ABSORB_ENCHANT_CHANCE = 50;
+export const SPELL_ABSORPTION_CHANCE_CAP = 50;
+export const ABSORB_REFUND_SCALE = 0.5;
+/** ABSORB-NERF: the magicka an absorb of `points` gives back - half, floored. */
+export const absorbRefund = (points) => Math.max(0, Math.floor((Number(points) || 0) * ABSORB_REFUND_SCALE));
+
 /** GetEffectCastingCost (:1238-1252): the effect's own spellpoint
  *  cost, the TARGET-TYPE multiplier, then the floor of 5 - which DFU
  *  spells out as the guard that stops an absorb from DRAINING the
@@ -87,7 +103,9 @@ export function tryAbsorption(effect, targetType, target, { day = false, inside 
     if (c > 0 && Math.floor(rolls() * 100) < c) return cost;
   }
   if (careerAbsorbs(target?.career, { day, inside })) return cost;
-  if (absorbing) return cost;
+  // ABSORB-NERF (2026-09-30, Discord: "Nerf spell absorption, it breaks the game"): the AbsorbsSpells enchantment is
+  // a 50% roll, no longer DFU's flat always (:1196)
+  if (absorbing && Math.floor(rolls() * 100) < ABSORB_ENCHANT_CHANCE) return cost;
   return 0;
 }
 
@@ -110,5 +128,6 @@ export function spellAbsorptionChance(target) {
     const chance = a.chanceBase == null ? (a.chance ?? 0) : (a.chanceBase ?? 0) + (a.chanceMod ?? 0) * Math.floor((target?.level ?? 1) / per);
     if (chance > best) best = chance;
   }
-  return best;
+  // ABSORB-NERF (2026-09-30, Discord: "Nerf spell absorption, it breaks the game"): the effect's chance caps at 50%
+  return Math.min(SPELL_ABSORPTION_CHANCE_CAP, best);
 }

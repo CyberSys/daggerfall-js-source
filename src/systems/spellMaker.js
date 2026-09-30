@@ -175,8 +175,20 @@ export function blankEffectSettings() {
   return s;
 }
 
-export const clampSetting = (field, v) => {
+/** ABSORB-NERF (2026-09-30, Discord: "Nerf spell absorption, it breaks the game"): THE PORT'S OWN - a crafted Spell
+ *  Absorption (effect key '20,255') stops its chanceBase at 50, the same 50% absorption.js caps the live chance at.
+ *  Every other effect and field keeps SPINNER_RANGES as it stands. */
+export const SPELL_ABSORPTION_KEY = '20,255';
+export const SPELL_ABSORPTION_CHANCE_BASE_MAX = 50;
+/** The [min, max] of `field` for the effect `effectKey` (its `type,subType` key), or undefined for no such field. */
+export function spinnerRange(field, effectKey = null) {
   const r = SPINNER_RANGES[field];
+  if (r && field === 'chanceBase' && effectKey === SPELL_ABSORPTION_KEY) return [r[0], SPELL_ABSORPTION_CHANCE_BASE_MAX];
+  return r;
+}
+
+export const clampSetting = (field, v, effectKey = null) => {
+  const r = spinnerRange(field, effectKey);
   if (!r) return v;
   return Math.max(r[0], Math.min(r[1], Math.trunc(v)));
 };
@@ -200,18 +212,18 @@ export function applyPairRules(settings, changed) {
 
 /** One spinner step (the editor's ±1 per click, clamped, then the
  *  pair rule). Answers the new settings object. */
-export function stepSetting(settings, field, delta) {
+export function stepSetting(settings, field, delta, effectKey = null) {
   const next = { ...settings };
-  next[field] = clampSetting(field, (next[field] ?? 1) + delta);
+  next[field] = clampSetting(field, (next[field] ?? 1) + delta, effectKey);   // ABSORB-NERF: the effect's own range
   return applyPairRules(next, field);
 }
 
 /** HOLD-STEP (2026-09-27, Tabitha on Discord: "add a field to type in the value"): a value TYPED into a spinner, by
  *  the step's own law - clamped to the spinner's range, then the pair rule. Never DFU's (its spinners only step); the
  *  enhanced port's field. Answers the new settings object. */
-export function setSetting(settings, field, value) {
+export function setSetting(settings, field, value, effectKey = null) {
   const next = { ...settings };
-  next[field] = clampSetting(field, Number(value));
+  next[field] = clampSetting(field, Number(value), effectKey);   // ABSORB-NERF: the effect's own range
   return applyPairRules(next, field);
 }
 
@@ -248,6 +260,8 @@ export function buildCustomSpell({ slots, rangeType = 0, element = 4, name = '',
   for (const s of slots ?? []) {
     if (!s || s.type == null || s.type < 0) continue;
     const st = { ...blankEffectSettings(), ...(s.settings ?? {}) };
+    // ABSORB-NERF: a Spell Absorption record never carries a chanceBase past the maker's own 50
+    if (`${s.type},${s.subType ?? -1}` === SPELL_ABSORPTION_KEY && st.chanceBase > SPELL_ABSORPTION_CHANCE_BASE_MAX) st.chanceBase = SPELL_ABSORPTION_CHANCE_BASE_MAX;
     effects.push({
       type: s.type, subType: s.subType ?? -1,
       durationBase: st.durationBase, durationMod: st.durationMod, durationPerLevel: st.durationPerLevel,
