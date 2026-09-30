@@ -10,8 +10,10 @@
 
 /** How far a helm's zoom reaches, in the sailed hull's largest half-extents - one and a half of her lengths. */
 export const SEA_ZOOM_REACH = 3;
-/** Past the foot's far end, one notch out multiplies the distance by this (in: divides). */
-export const SEA_ZOOM_RATIO = 1.2;
+/** At a helm one notch out multiplies the distance by this (in: divides). HELM-ZOOM (2026-09-30, Mac: "increase the
+ *  sensitivity of the scrolling for zooming out and in when on the wheel"): 1.5, and the Morrowind camera's whole range
+ *  at a helm by it (mwCamera.js) - 1.2 past the foot's far end alone left sixty ten-unit notches from its base to it. */
+export const SEA_ZOOM_RATIO = 1.5;
 
 /** The zoom's reach at a helm (m) for a hull of that largest half-extent (m); 0 for none. */
 export function seaZoomReach(halfExtent) {

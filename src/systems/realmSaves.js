@@ -23,11 +23,18 @@
 // THE SAVE IS THE SNAPSHOT'S JSON - what a local slot holds under its
 // data key (saveSlots.js saveSlot), so a copy to offline is a slot like
 // any other, and a join's load parses what a slot load parses.
+//
+// REALM-GZIP: IT RIDES PACKED (net/realmSaveCodec.js). A long life's
+// JSON grew past the request's 4 MiB and every checkpoint was refused
+// for good; a put packs the text when the service said it opens a packed
+// save (`gzip` on the join, create and customs answers), and a read asks
+// for the save as stored and opens it here.
 // ═══════════════════════════════════════════════════════════════════
 
 import { storedSession, serviceBase, forgetSession, accountRefusalText } from '../net/accountClient.js';
 import { realmTradeRefusalText } from '../net/realmTradeLaw.js';   // REALM P2.1: a trade the realm settles
 import { REALM_DOOR_WORD } from '../net/wire.js';   // REALM-DOOR: the relay's word for a token that names no realm character
+import { gzipText, saveTextOf, canGzip, canGunzip } from '../net/realmSaveCodec.js';   // REALM-GZIP: a save rides packed
 
 /**
  * The service, as this device can reach it - or null when nobody is signed in (cloudSaves.js cloudIo's shape).
@@ -40,10 +47,11 @@ export function realmIo({ fetch, storage }) {
 }
 
 /**
- * ONE DOOR, the credential in a header and nowhere else (AUDIT-ACC F13). `raw` sends the save as text; a raw answer
- * comes back as `text` with the service's sequence. Never throws: a network failure is `{ ok: false, error: 'offline' }`.
+ * ONE DOOR, the credential in a header and nowhere else (AUDIT-ACC F13). `raw` sends the save - its text, or its bytes
+ * packed (REALM-GZIP); a raw answer comes back as its `bytes` with the service's sequence. Never throws: a network
+ * failure is `{ ok: false, error: 'offline' }`.
  * @param {any} io @param {string} path
- * @param {{ method?: string, json?: any, raw?: string | null, headers?: Record<string, string>, keepalive?: boolean }} [opts]
+ * @param {{ method?: string, json?: any, raw?: string | Uint8Array | null, headers?: Record<string, string>, keepalive?: boolean }} [opts]
  * @returns {Promise<any>}
  */
 async function realmAsk(io, path, { method = 'GET', json = null, raw = null, headers: extra = {}, keepalive = false } = {}) {
@@ -72,7 +80,9 @@ async function realmAsk(io, path, { method = 'GET', json = null, raw = null, hea
     try { return { ok: true, data: await res.json() }; } catch { return { ok: false, error: 'server' }; }
   }
   const seq = Number(res.headers?.get?.('x-realm-seq') ?? NaN);
-  return { ok: true, text: await res.text(), ...(Number.isSafeInteger(seq) ? { seq } : {}) };
+  let bytes;
+  try { bytes = new Uint8Array(await res.arrayBuffer()); } catch { return { ok: false, error: 'offline' }; }   // the body cut off on the way
+  return { ok: true, bytes, ...(Number.isSafeInteger(seq) ? { seq } : {}) };
 }
 
 const realmSavePath = (/** @type {string} */ id) => `/v1/realm/${encodeURIComponent(id)}/data`;
@@ -82,11 +92,11 @@ export const realmList = async (/** @type {any} */ io) => {
   const r = await realmAsk(io, '/v1/realm');
   return r.ok ? { ok: true, characters: Array.isArray(r.data?.characters) ? r.data.characters : [], max: r.data?.max ?? 0 } : r;
 };
-/** A character born online: `{ ok, data: { id, lease, seq } }`. */
+/** A character born online: `{ ok, data: { id, lease, seq, gzip } }` - `gzip` the service's word that it opens a packed save. */
 export const realmCreate = (/** @type {any} */ io, /** @type {string} */ name, /** @type {any} */ summary = null) => realmAsk(io, '/v1/realm/create', { method: 'POST', json: { name, summary } });
-/** An offline character brought in through customs, once: `{ ok, data: { id, lease, seq } }`. */
+/** An offline character brought in through customs, once: `{ ok, data: { id, lease, seq, gzip } }`. */
 export const realmCustoms = (/** @type {any} */ io, /** @type {string} */ origin, /** @type {string} */ name, /** @type {any} */ summary = null) => realmAsk(io, '/v1/realm/customs', { method: 'POST', json: { origin, name, summary } });
-/** A join: a new lease - `{ ok, data: { id, lease, seq, bytes } }`. */
+/** A join: a new lease - `{ ok, data: { id, lease, seq, bytes, gzip } }`. */
 export const realmJoin = (/** @type {any} */ io, /** @type {string} */ id) => realmAsk(io, '/v1/realm/join', { method: 'POST', json: { id } });
 /** A leave: the lease given up. `keepalive` for the page's going. */
 export const realmLeave = (/** @type {any} */ io, /** @type {string} */ id, /** @type {string} */ lease, { keepalive = false } = {}) => realmAsk(io, '/v1/realm/leave', { method: 'POST', json: { id, lease }, keepalive });
@@ -95,16 +105,29 @@ export const realmDelete = (/** @type {any} */ io, /** @type {string} */ id) => 
 /** HOUSE-LOSS: a customs whose first save never landed, undone - its home, guild place and customs given back to the
  *  offline character (server-account/src/realm.js undoRealm). Its own route: an older service answers `not-found`. */
 export const realmUndo = (/** @type {any} */ io, /** @type {string} */ id) => realmAsk(io, '/v1/realm/undo', { method: 'POST', json: { id } });
-/** The save as it stands: `{ ok, text, seq }` - a join's load, or a copy to offline. */
-export const realmFetch = (/** @type {any} */ io, /** @type {string} */ id) => realmAsk(io, realmSavePath(id));
+/** The save as it stands: `{ ok, text, seq }` - a join's load, or a copy to offline. REALM-GZIP: asked for as stored
+ *  when this tab can open a packed save (a service from before answers the text either way), and opened here; bytes
+ *  that will not open are `no-data`, as a save that is not there. */
+export const realmFetch = async (/** @type {any} */ io, /** @type {string} */ id) => {
+  const r = await realmAsk(io, `${realmSavePath(id)}${canGunzip() ? '?enc=gzip' : ''}`);
+  if (!r.ok) return r;
+  const text = await saveTextOf(r.bytes, Infinity);
+  return text == null ? { ok: false, error: 'no-data' } : { ok: true, text, ...(r.seq != null ? { seq: r.seq } : {}) };
+};
 /** AUDIT REALM2 C5: A HEADER CARRIES BYTES - a value past U+00FF makes fetch throw (WHATWG: a ByteString), so a tile
  *  whose class name the player typed as Łowca, Маг, an emoji or a smart apostrophe failed every checkpoint as
  *  'offline', for good. Every character past ASCII rides as its JSON escape, which the service's JSON.parse reads back. */
 const headerJson = (/** @type {any} */ v) => JSON.stringify(v).replace(/[\u007f-\uffff]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
-/** A checkpoint: the save's text under the lease at `seq`, the tile beside it. */
-export const realmPut = (/** @type {any} */ io, /** @type {string} */ id, /** @type {{ lease: string, seq: number, summary?: any }} */ { lease, seq, summary = null }, /** @type {string} */ text) =>
+/** REALM-GZIP: the save as it rides - packed when the service said it opens a packed save (`gzip`, off its join, create
+ *  or customs answer) and this runtime can pack; the text otherwise, as every save rode before. */
+async function realmBodyOf(/** @type {string} */ text, /** @type {boolean} */ gzip) {
+  if (!gzip || !canGzip()) return text;
+  try { return await gzipText(text); } catch { return text; }
+}
+/** A checkpoint: the save's text under the lease at `seq`, the tile beside it. `gzip`: the service opens a packed save. */
+export const realmPut = async (/** @type {any} */ io, /** @type {string} */ id, /** @type {{ lease: string, seq: number, summary?: any }} */ { lease, seq, summary = null }, /** @type {string} */ text, { gzip = false } = {}) =>
   realmAsk(io, realmSavePath(id), {
-    method: 'PUT', raw: text,
+    method: 'PUT', raw: await realmBodyOf(text, gzip),
     headers: { 'x-realm-lease': lease, 'x-realm-seq': String(seq), ...(summary ? { 'x-realm-summary': headerJson(summary) } : {}) },
   });
 
@@ -121,10 +144,11 @@ const putMayClear = (/** @type {any} */ r) => REALM_ACT_TRANSIENT.includes(r.err
 /**
  * THE PLAYING TAB'S SESSION over one realm character: the lease a join minted and the sequence it answered. Checkpoints
  * go one at a time, in order; one asked while another is in flight waits, the newest replacing an older one that never
- * left. `onLost(error)` is called once, when the service says the character is no longer this tab's.
- * @param {{ io: any, id: string, lease: string, seq: number, onLost?: (error: string) => void }} at
+ * left. `onLost(error)` is called once, when the service says the character is no longer this tab's. `gzip`: the join
+ * said the service opens a packed save (REALM-GZIP), so every checkpoint rides packed.
+ * @param {{ io: any, id: string, lease: string, seq: number, gzip?: boolean, onLost?: (error: string) => void }} at
  */
-export function createRealmSession({ io, id, lease, seq, onLost = () => {} }) {
+export function createRealmSession({ io, id, lease, seq, gzip = false, onLost = () => {} }) {
   let current = seq;
   /** @type {{ text: string, summary: any, waiters: Array<(r: any) => void> } | null} */
   let pending = null;
@@ -151,12 +175,12 @@ export function createRealmSession({ io, id, lease, seq, onLost = () => {} }) {
       while (pending && !lost) {
         const job = pending;
         pending = null;
-        let r = await realmPut(io, id, { lease, seq: current + 1, summary: job.summary }, job.text);
+        let r = await realmPut(io, id, { lease, seq: current + 1, summary: job.summary }, job.text, { gzip });
         if (!r.ok && r.error === 'seq' && r.seq === current + 1 && unsure) {
           // our own last checkpoint landed and its answer was lost: the service is one ahead - adopt it, and send this one
           current = r.seq;
           unsure = false;
-          r = await realmPut(io, id, { lease, seq: current + 1, summary: job.summary }, job.text);
+          r = await realmPut(io, id, { lease, seq: current + 1, summary: job.summary }, job.text, { gzip });
         }
         if (r.ok) { unsure = false; current = r.data?.seq ?? current + 1; last = { ok: true, seq: current }; answer(job, last); continue; }
         // AUDIT REALM2 C8: and a refusal no retry clears (the save too big) ends it too - it was kept and sent again at
@@ -245,6 +269,7 @@ export function createRealmSession({ io, id, lease, seq, onLost = () => {} }) {
       lost = null;
       if (!j.ok || !(at === current || (unsure && at === current + 1))) { lose(j.ok ? 'seq' : j.error); return { ok: false, error: lost }; }
       lease = j.data.lease;
+      gzip = j.data.gzip === true;   // REALM-GZIP: the service that answered this join is the one the checkpoints reach
       current = at;
       unsure = false;
       return { ok: true, seq: current };
@@ -298,8 +323,9 @@ export function realmRowAsSave(row, { dateText = () => null } = {}) {
 /**
  * THE BOOT'S JOIN: a new lease on the character, then its save read from the service - never a local slot - and
  * parsed as a slot load parses. The character's id in the save is the realm's (a customs character's save still names
- * the offline id it came from). Answers `{ ok, snap, lease, seq, origin }` - `origin` the offline id a customs
- * character came from, from the join (RESTORE) - or `{ ok: false, error }`.
+ * the offline id it came from). Answers `{ ok, snap, lease, seq, origin, gzip }` - `origin` the offline id a customs
+ * character came from, from the join (RESTORE); `gzip` the join's word that the service opens a packed save
+ * (REALM-GZIP), for the session's checkpoints - or `{ ok: false, error }`.
  * @param {{ io: any, id: string }} at
  */
 export async function openRealmBoot({ io, id }) {
@@ -315,7 +341,7 @@ export async function openRealmBoot({ io, id }) {
   try { snap = JSON.parse(got.text); } catch { snap = null; }
   if (!snap || typeof snap !== 'object' || Array.isArray(snap)) return { ok: false, error: 'no-data' };
   snap.characterId = id;
-  return { ok: true, snap, lease, seq: got.seq ?? seq, origin: typeof origin === 'string' ? origin : null };   // RESTORE: the offline id it came from
+  return { ok: true, snap, lease, seq: got.seq ?? seq, origin: typeof origin === 'string' ? origin : null, gzip: joined.data?.gzip === true };   // RESTORE: the offline id it came from
 }
 
 /** A word for the Online door, carried across the page's reload (sessionStorage - this tab's alone). */

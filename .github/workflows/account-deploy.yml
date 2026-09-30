@@ -77,6 +77,7 @@ on:
       - "src/net/realmTradeLaw.js"
       - "src/net/canon.js"
       - "src/net/realmGoldLaw.js"
+      - "src/net/realmSaveCodec.js"
       - "src/world/mat4.js"
       - "src/characters/nameGen.json"
       - "src/characters/dyes.js"
