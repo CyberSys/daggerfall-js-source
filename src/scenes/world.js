@@ -477,7 +477,7 @@ import { SOLITARY_TYPES } from '../characters/mobileFactions.js';   // AUDIT PSC
 import {
   realmIo, openRealmBoot, createRealmSession, realmSummaryOf, setRealmNotice, realmCreate, realmPut, realmBootSearch, realmRefusalText,
   sayRealmSave, REALM_OFFLINE_TEXT, REALM_EXIT_WAIT_MS, whenPageHides, whenPageGoes, realmTradeEscrow, realmGoldAct, realmDoorShut,
-  REALM_RESTORED_TEXT,
+  REALM_RESTORED_TEXT, realmSaveWithHeld,
 } from '../systems/realmSaves.js';   // REALM P1.3: an online character is the realm's - joined, loaded and checkpointed through the service
 import { reclaimFromDevice, reclaimLines } from '../systems/realmCustoms.js';   // RESTORE: what customs once kept back, given back at the boot
 import { appStorage } from '../systems/appStorage.js';   // ACC1d: where that session lives - the app's store, not the tab's (a second tab is the same player)
@@ -742,7 +742,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   if (realmSession) setRealmSaveSink((snap) => {
     const who = characterIdOf(playerEntity);
     const holding = _realmSaveHooks.held(who);
-    return realmSession.checkpoint(JSON.stringify(snap), realmSummaryOf(playerEntity), holding).then((r) => { if (r?.ok && holding?.length) _realmSaveHooks.landed(who, holding); return r; }).catch(() => ({ ok: false, error: 'server' }));   // AUDIT REALM2 C2: the outcome answered back - F9's word is the realm's answer
+    return realmSession.checkpoint(realmSaveWithHeld(snap, holding), realmSummaryOf(playerEntity)).then((r) => { if (r?.ok && holding?.length) _realmSaveHooks.landed(who, holding); return r; }).catch(() => ({ ok: false, error: 'server' }));   // AUDIT REALM2 C2: the outcome answered back - F9's word is the realm's answer
   });
   // MW-EARLY: the save the load door at the end of this boot restores - its pick, and its ONE parse (AUDIT MW-EARLY F3,
   // below). AUDIT FINAL F9: declared here, first, so the Test Room's check below reads that same parse and that same
@@ -16308,9 +16308,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   const courtFogNow = () => { _courtFog.mode = renderer._fogMode; _courtFog.density = renderer._fogDensity; _courtFog.range = renderer._fogRange; _courtFog.color = renderer._fogColor; _courtFog.camPos = renderer._camPos; return _courtFog; };
   const courtFireBeds = courtBraziers().map(([, p]) => courtToDungeon(p[0], 1.2, p[2]));
   let _spoilsAskedFor = null;
-  // AUDIT RESCUE-SAVE A1: a realm save the device kept already holds the records it was composed holding - the boot's
-  // own stand-up adopts them and hands none (systems/realmSaves.js openRealmBoot `held`); asked once, for that load
-  let _spoilsInSave = realmBoot?.restored ? realmBoot.held : null;
+  // AUDIT RESCUE-SAVE A1: a realm save names the records its pack holds - the device's copy or the service's (a put
+  // that landed with its answer lost cleared none) - so the boot's own stand-up adopts them and hands none
+  // (systems/realmSaves.js openRealmBoot `held`); asked once, for that load
+  let _spoilsInSave = realmBoot?.held ?? null;
   const spoilsRecoverFrame = () => {
     if (!playerSpawned) return;
     const who = characterIdOf(playerEntity);
@@ -19884,7 +19885,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   }
   if (testRoomOffline) townTalk.say(TEST_ROOM_OFFLINE_TEXT);   // AUDIT SET D4: said once the world stands, the character loaded
   if (realmRefused) townTalk.say(REALM_OFFLINE_TEXT);   // REALM P1.3: an online boot with no realm character plays offline, and says so
-  if (realmBoot?.restored) townTalk.say(REALM_RESTORED_TEXT);   // RESCUE-SAVE: the device's copy of a save the realm never took, played on
+  if (realmBoot?.restored && realmBoot.missed) townTalk.say(REALM_RESTORED_TEXT);   // RESCUE-SAVE: the device's copy of a save the realm refused or never answered, played on (AUDIT A8: an ordinary close's, silently)
   for (const line of reclaimLines(realmGiven)) townTalk.say(line);   // RESTORE: what came back, said once the world stands
   for (const line of loanAmnestyLines(loansForgiven)) townTalk.say(line);   // LOAN-AMNESTY: said once the world stands
   // EOTB-IL: StartGameBehaviour.OnNewGame (the mod's handler, IL_0930) -

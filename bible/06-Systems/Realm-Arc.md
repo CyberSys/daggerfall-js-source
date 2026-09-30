@@ -197,12 +197,17 @@ Items have no unique ids: "the port's items have no UID" (`save.js`), and "the p
   The service takes a checkpoint only from the lease holder, and only at `seq + 1`. So these can never write again:
   - an old tab or a second device;
   - a restored backup, an import, or an edited copy.
-  A copy of the blob is also worthless as a way in, because the Online door loads only from the service.
+  A copy of the blob is also worthless as a way in, because the Online door loads only from the service - with one
+  exception since RESCUE-SAVE: the device's own copy of a save the service never took, which a join plays while the
+  record still stands at its `seq`. An edited copy is therefore a way in, as a scripted checkpoint under the lease
+  always was (the service reads no checkpoint past the first; section 4's budget model is the answer to both).
+  **OPEN (AUDIT RESCUE-SAVE P1): Mac's call** - accept it until section 4, or make the copy harder to use.
 - **Crashes.** A crash loses at most two minutes of play, and never a hand-over, because every hand-over is settled on
   the service first.
-- **What the service has not taken, the device keeps (RESCUE-SAVE).** Every checkpoint is written to the device before
-  it is sent, with the `seq` it follows, and dropped once a put lands with nothing newer behind it. A join whose record
-  still stands at that `seq` plays the kept save and checkpoints it; a record that moved past it drops it unread.
+- **What the service has not taken, the device keeps (RESCUE-SAVE).** The newest save handed to the session is written
+  to the device with the `seq` it follows - once its put goes unanswered past a grace, at once on a hidden page, or when
+  a put is refused or unanswered - and dropped once a put lands with nothing newer behind it. A join whose record still
+  stands at that `seq` plays the kept save and checkpoints it; a record that moved past it drops it unread.
 - **Local slots never hold a realm character's truth.** A local copy is a cache under its own key, so offline Load
   never lists it.
 - **The hub gets one identity per player.** Friends, parties, the seat and guilds all hang off the account.
@@ -410,11 +415,18 @@ source and sink tallies. Tune by data rather than by guess.
   - **The join** (`openRealmBoot`): a copy whose `seq` is the record's own is newer than anything the service holds (nothing landed after it, from any tab, device, trade or act). It is played (`restored: true`) and the first checkpoint gives it to the service, and the world host says `REALM_RESTORED_TEXT` once the world stands. A record past the copy drops it unread: the copy never writes over the service.
   - **Not covered:** a tab out of the seat (ONE-SEAT) or on the death screen composes no checkpoint, so it keeps no copy. A put whose answer was lost after it landed leaves the copy one `seq` behind, and the copy is dropped (the service holds that put; only a newer save queued behind it is lost).
   - `test/rescuesave.test.js` (9; the outage, the ordinary close and the queued save fail without the copy).
-- **AUDIT RESCUE-SAVE done (2026-09-30, Mac: "Audit this").**
-  - **A1 (blocker): a kept save's spoils handed twice.** A gate's spoils and a town's thanks go into the pack with a device record, and the crash's door (`spoilsPool.js` `recoverSpoils`) hands the record back at every boot until a save holding its pieces lands (REALM P1.3's `landed` hook). A checkpoint composed holding them that never landed was the device's copy, and the join played it: the pack held them and the door handed them again. Now the sink hands the records a save holds (`holding`) to the checkpoint, the copy keeps them (`held`, at most sixty-four), the boot answers them, and the host's first stand-up passes them to the door (`_spoilsInSave`, `inSave`). The door adopts those records and hands no piece, and the save that lands clears them. A copy the join drops leaves them to be handed into the service's save, as before.
-  - **A2 (minor): a copy outliving its character.** A character deleted from another device left this device's copy for good. The join that answers `no-realm-character` now drops it.
-  - **Recorded, not changed.** Two tabs of one character in one browser share the copy's key. A tab that has lost its lease but has not yet been told may write over the newer tab's copy until the relay's seat takes it out (ONE-SEAT). Last writer wins between two saves of the same record, and no seq check can tell which is newer. While the service is away, the copy holds one save's worth of the device's storage, as an offline slot does.
-  - `test/rescuesave.test.js` (13, four new: A1's two, the title exit's resend, A2); `tools/mutants/rescuesave.json` (19, all dead); four records re-aimed by content (`auditwb_spoils.json` A6, `realm2.json`'s two, and `test/realm3.test.js`'s two sink pins moved to the checkpoint's third argument). `tools/mutants/restore.json` (45, all dead); eight T3 and HOUSE-LOSS records retired whose law was the stripping or its order, seven re-aimed at the crossing.
+- **AUDIT RESCUE-SAVE done (2026-09-30, Mac: "Audit this"; an independent review beside it).**
+  - **A1 (blocker): a kept save's spoils handed twice.** A gate's spoils and a town's thanks go into the pack with a device record, and the crash's door (`spoilsPool.js` `recoverSpoils`) hands the record back at every boot until a save holding its pieces lands (REALM P1.3's `landed` hook). A checkpoint composed holding them that never landed became the device's copy, and the join played it: the pack held them and the door handed them again (the review's demo: one grant, six reloads with the save's put blocked, six times the spoils). **The save now names the records its pack holds** (`realmSaveWithHeld`, the field `REALM_HELD_FIELD`, at most sixty-four), the boot reads them out of whichever save it plays and takes them out of the save the world loads (`openRealmBoot` `held`), and the host's first stand-up hands them to the door (`_spoilsInSave`, `inSave`), which adopts those records and hands no piece; the save that lands clears them. An offline copy carries none (`offlineCopyOf`).
+  - **A2 (minor): a copy outliving its character.** A character deleted from another device left this device's copy for good; the join that answers `no-realm-character` drops it.
+  - **A3 (blocker, older than RESCUE-SAVE): a landed save's spoils handed again.** A checkpoint that landed with its answer lost told the pool nothing, so its records stood and the next boot handed them into the service's save that already held them. A1's law closes it: the service's save names them too.
+  - **A4 (minor): an older tab's copy over a newer tab's.** Two tabs of one character in one browser share the copy's key; a tab the character was taken from wrote its older save over the newer tab's before it heard. The device now keeps the lease of its last join (`claimUnsent`, at the boot and at a back-forward rejoin), and a copy under another lease is never written.
+  - **A5 (minor): a device out of room dropped the copy it kept.** A new text that does not fit leaves the one before it standing, and now its record too; a text whose record will not fit is never left behind.
+  - **A6 (minor): a save-sized write at every checkpoint** (every profession act, three a trade, two a gold act - a file and an fsync in the desktop shell). The copy is written only when needed: once a put goes unanswered past `REALM_UNSENT_GRACE_MS` (1.5 s), at once on a hidden page (a close cuts its put off, and a phone may never send pagehide), when a put is refused or unanswered, and at the session's leave. A put that lands first writes nothing.
+  - **A7 (minor): copies no join can play.** The Online door drops a copy of the account's own character whose record has moved past it (`sweepUnsent` over the list's rows); another account's characters are not listed and theirs stay.
+  - **A8 (minor): the restore said after every close.** A close cuts the hidden page's put off, so most boots played a copy and said so. The copy's record now says whether a put of it was refused or unanswered (`missed`), and the world says the restore only then.
+  - **P1 (policy, OPEN): an edited copy is a way in** (section 2 above). Mac's call.
+  - **Recorded, not changed.** While the service is away, the copy holds one save's worth of the device's storage, as an offline slot does.
+  - `test/rescuesave.test.js` (18: RESCUE-SAVE's nine re-pinned to the written-when-needed copy, and A1, A1's drop and bounds, A2, A3, A4, A5, A6, A7 - A1 and A3 mounted from world.js's own sink, `_spoilsInSave` and `spoilsRecoverFrame` over the real pools and Worker); `tools/mutants/rescuesave.json` (32, all dead). Pins moved to the new law: `test/realm3.test.js`'s two sink pins, `raid4b_sets`'s and `wb5_gate_spoils`'s door pins; `test/auditrealm2_client.test.js`'s sink mounts given `realmSaveWithHeld`; `auditwb_spoils.json` A6 re-aimed by content.
 
 ## Decisions
 

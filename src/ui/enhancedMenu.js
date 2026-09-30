@@ -112,6 +112,7 @@ import { offlineCopyOf, onlineCopyOf } from '../systems/offlineCopy.js';   // AU
 import { sharedClassicMinutes } from '../net/wire.js';   // AUDIT LIVED1 G: the shared clock's minute a character joins at
 import {
   realmIo, realmList, realmCustoms, realmPut, realmDelete, realmUndo, realmFetch, realmRowAsSave, realmSummaryOf, realmRefusalText, takeRealmNotice,
+  sweepUnsent,
 } from '../systems/realmSaves.js';   // REALM P1.3: the Online door lists the realm's characters, the service's
 import { applyCustoms, customsLines, crossLeveling, LEVELING_CROSS_LINE } from '../systems/realmCustoms.js';   // REALM P1.5: an offline character comes in once, through customs
 import { mintCharacterId } from '../systems/characterId.js';   // REALM P1.4: a copy to offline is a new offline character
@@ -1083,6 +1084,7 @@ function realmCard(who) {
     realmAsked = true;
     realmList(realmIo({ fetch: (...a) => globalThis.fetch(...a), storage: appStorage() })).then((r) => {
       realmRows = r.ok ? r.characters : [];
+      if (r.ok) sweepUnsent(appStorage(), r.characters);   // AUDIT RESCUE-SAVE A7: a copy the record has moved past goes
       realmMax = r.ok ? r.max : 0;
       if (!r.ok) realmWords = [...realmWords, realmRefusalText(r.error)];
       render();
