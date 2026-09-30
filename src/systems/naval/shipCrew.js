@@ -125,7 +125,9 @@ export function handName(seed, hire, gender, regionIndex = 17) {
 export function createShipCrew({ seed, regionIndex = 17, record = null }) {
   /** @type {{ name: string, role: string, mobile: number, gender: 'male'|'female', fights: number, boardings: number }[]} */
   let hands = [];
-  let morale = MORALE_START, hires = 0, order = CREW_ORDERS.stand, seaT = 0, portT = 0, losses = 0;
+  let morale = MORALE_START, hires = 0, seaT = 0, portT = 0, losses = 0;
+  /** @type {string} */
+  let order = CREW_ORDERS.stand;
   if (record && typeof record === 'object') {
     const m = Number(record.morale);
     morale = Number.isFinite(m) ? clamp(m, 0, MORALE_MAX) : MORALE_START;
@@ -156,6 +158,7 @@ export function createShipCrew({ seed, regionIndex = 17, record = null }) {
       while (hands.length > roster.length) fell.push(hands.pop());
       for (let i = hands.length; i < roster.length; i++) {
         const r = roster[i];
+        /** @type {'male'|'female'} */
         const gender = r.gender === 'female' ? 'female' : 'male';
         const dealt = hands.filter((h) => h.role !== 'First Mate' && h.role !== 'Bard').length;
         const h = { name: handName(seed, hires++, gender, regionIndex), role: roleOf(i, r.mobile, dealt), mobile: r.mobile, gender, fights: 0, boardings: 0 };
@@ -205,7 +208,7 @@ export function createShipCrew({ seed, regionIndex = 17, record = null }) {
     },
     /** The order given - CREW_ORDERS' own words; answers whether it was one. @param {string} o */
     give(o) {
-      if (!Object.values(CREW_ORDERS).includes(o)) return false;
+      if (!/** @type {string[]} */ (Object.values(CREW_ORDERS)).includes(o)) return false;
       order = o;
       return true;
     },
@@ -214,7 +217,9 @@ export function createShipCrew({ seed, regionIndex = 17, record = null }) {
      * order's work first; then high spirits or low, a third of the time.
      */
     line() {
-      if (order !== CREW_ORDERS.stand && MORALE_LINES[order]) return MORALE_LINES[order][Math.floor(rng() * MORALE_LINES[order].length)];
+      /** @type {readonly string[] | undefined} */
+      const work = order !== CREW_ORDERS.stand ? /** @type {Record<string, readonly string[]>} */ (MORALE_LINES)[order] : undefined;
+      if (work) return work[Math.floor(rng() * work.length)];
       const s = morale >= 70 ? MORALE_LINES.high : morale <= 35 ? MORALE_LINES.low : null;
       if (!s || rng() >= 1 / 3) return null;
       return s[Math.floor(rng() * s.length)];
