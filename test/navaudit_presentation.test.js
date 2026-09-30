@@ -969,7 +969,7 @@ test('AUDIT NAV1 (the presentation) THE TAGS DRAWN (#14): one node a slot, moved
   assert.match(w, /const at = projectToScreen\(t\.point, w, h, proj, view, rect\);/);
   assert.match(w, /if \(shipSight\.blocked\(player\.collider, eye, t\.id, t\.point\)\) continue;/);
   assert.match(w, /drawNavalTags\(points, \{ covered, scale: enhancedHudScale\(\), reach: NAVAL_TAG_RANGE \}\);/);
-  assert.match(w, /drawNavalHud\(null\); drawNavalTags\(\[\]\); drawCrewBars\(\[\]\); \};/, 'the clear hides them - SHIPMATES: the crew\'s bars with them');
+  assert.match(w, /drawNavalHud\(null\); drawNavalTags\(\[\]\); drawCrewBars\(\[\]\); drawCrewLines\(\[\]\); \};/, 'the clear hides them - SHIPMATES: the crew\'s bars with them');
   assert.match(w, /drawNavalHud\(null\); drawNavalTags\(\[\]\); \} \}/, 'the switch off hides them');
 });
 

@@ -973,6 +973,50 @@ laws intact: the spawn's stand-down (navaudit_boarding), the world's sync (navau
 Mutants: `tools/mutants/deckwalk.json` (60), all dead; twelve records re-aimed onto the new text (DISC19's shaft, spell
 and torch, B9 and B10, the tags' scale, cover, fade and clear, RAID2's ally two), all dead.
 
+## LIVING CREW (2026-09-29) - the crew at their work, and a boarding that starts where they stand
+
+Mac: "Crew members shouldnt be the static sprites and instead the enemy type sprites with multiple animations, they
+should navigate the deck, talk with each other, blurb, sing chantys, etc" and "Boarding scenarios should be seamless,
+with crew naturally getting into position and fighting enemies".
+
+- **WHO STANDS** (`systems/naval/crewLife.js crewRoster`): a sea ship's crew is her muster (`musterOf`, by what her crew
+  has left) - her captain then her men, the first CREW_SHOWN of them (a Small Ship 6, a Galley or a Carrack 8), fewer as
+  the guns thin her (`trim`, the last first); a player's crewed boat is the hands' mix (PLAYER_CREW, a Bard among them to
+  lead the song), a man for every CREW_PER_HAND of her crew. Each seeded by the ship (her `seed`, a boat's uid, a room's
+  boat by whose and which), so every player sees her same crew; `crewCount` is their number without making them.
+- **WHERE** (`createCrewLife`): the mod's own people flats are where a hull's crew stood - one on her deck starts a
+  walker there, one off it (her helmsman's pair on the poop) is a STATION who keeps his post; the rest spread across her
+  deck (DECK-WALK's `spots`).
+- **THEIR WORK**: a walker walks her deck by its own `path` (never off it), stands, turns; one crosses to another and they
+  talk (CREW_TALKS - each his line in turn, facing each other); a man's own word now and then (CREW_BLURBS - her trade's
+  among them); every CHANTY_S the chanty (CHANTIES, the port's own words: the leader - her Bard - the verse, the whole
+  crew the chorus). Her guns out (`battle`: she engages, boards, runs, answers; my boat with the aim laid or a hostile
+  near): no song, the battle's words, a run from post to post. A grapple thrown (`muster`): every man to the rail facing
+  the other ship, evenly fore and aft (`deck.rail` - the outermost deck cell of the row, never the clamp from far abeam,
+  which lands every man on her widest cell), facing out, shouting. The player on her deck is never walked through (a
+  walker waits, then goes elsewhere after CREW_BLOCKED_S).
+- **THE HOST** (`scenes/navalCrew.js`): within CREW_RANGE of the eye (kept to CREW_KEEP) her crew stands as DFU's own
+  mobile units (the classes' sprites, idle and walking, turned to the eye - `MobileUnit`), carried by her mesh node, and
+  the mod's people flats on and above her deck stand down in their places (their renderer off - the pool's flats pass
+  skips them; a galley's rowers below never touched); past it they stand again. The lines over their heads go to the
+  naval HUD (`ui/navalHud.js drawCrewLines`: the CREW_SAY_MAX nearest, a song's in brass, a shout's in red, fading to
+  CREW_SAY_RANGE, behind the land by the crew's own sight cache).
+- **SEAMLESS BOARDING** (`scenes/navalHost.js beginFight`, the world's doors `crewOf`, `landing`, `railSpots`): I land on
+  her deck across from where I stood (her point nearest me), never her middle; her muster fights where her crew stands -
+  each man his class, his sex and his place, the rest up from below at her spots; my hands are my own crew, off my deck
+  and landed at her rail across from my ship. A repel: her party is her own men - never her captain - over my rail
+  across from her; my hands stand to where they stand. A raid's waves come over my rail first. Her crew held (`hold`: a
+  prize, her men the fight's, or another's boarding in a room - the wire's `boarded`) stands nobody, her flats down; the
+  fight's end brings my hands home (my boats' crews stood again whole).
+
+Found on the way and fixed: a room's boats carried no owner or uid, so every one would have seeded the same crew - each
+is stamped with whose and which at its build (`comeSailAwayPeers.js peerKey`); the rail point clamped from far abeam was
+her widest cell whatever `z` was asked (the new `deck.rail`).
+
+Pins: `test/livingcrew.test.js` (13). Mutants: `tools/mutants/livingcrew.json` (54), all dead; twelve records re-aimed
+onto the new text (the spawn's crew and deck, the muster's, the hands', the repel's, the tags' and bars' clears, B2's
+hands, B9's captain, B10's stack), all dead.
+
 ## The tests
 
 One suite a slice - `test/nav_a_guns.test.js` (the flight, the aim, the volley, the reload, a ball's hurt, a ship's

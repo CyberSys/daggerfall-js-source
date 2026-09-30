@@ -213,3 +213,12 @@
 - **No friendly fire.** Your swings, arrows, spells and their blasts, a thrown torch and a mount's charge pass your crew by, even a crewman standing alone in reach. Your crew's own arrows and blasts pass you by too.
 - **One crew each.** A ship's boarders fight as one crew, so a pirate captain no longer turns on her own men with infighting on.
 - **Online:** your crew stand as allies for everyone in your room, with green bars, and nobody's weapons hurt them.
+
+## A living crew (2026-09-29)
+
+- **The crew are people now.** The painted figures on the decks are gone near you: each crew member is a real animated character (warriors, rogues, archers, barbarians, a bard) walking the deck, turning, stopping at the rail. Far ships keep their painted crew, which you couldn't tell apart at that range anyway.
+- **They talk.** Two crewmen wander over to each other and chat, a line each over their heads. Others mutter about the weather, the captain, the next port. Pirates, merchants and navy sailors each have their own things to say.
+- **They sing.** Every so often the crew strikes up a sea shanty. The bard (if there is one) sings the verse, and everyone joins in on the chorus.
+- **They go to quarters.** When a ship's guns are out, her crew hurry about and shout battle orders. When grapples are thrown, both crews line the rail facing each other.
+- **Boarding is seamless.** You land on the enemy deck right across from where you were standing, not in the middle of her. Her crew fight where they stood, and your hands are your own crew, going over the rail with you. Boarders on your deck come over the rail from their ship, and your crew stand to where they are.
+- **Your crew's hands come home.** After a fight, your crew are back aboard your ship.

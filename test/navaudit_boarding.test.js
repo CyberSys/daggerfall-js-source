@@ -360,7 +360,7 @@ test('AUDIT NAV1 (B4, B6) a raider\'s ship gone under her boarders: they fight o
 
 test('AUDIT NAV1 (B3) the world host\'s stand-down, run: a boarder who yields is hostile no more where he stands (the quest system\'s own restrain), one still standing up yields as he arrives, and one who is gone never comes (mutants: the late one left hostile)', async () => {
   const pick = (re) => { const m = re.exec(WORLD); assert.ok(m, `${re} lifted`); return m[1]; };
-  const spawnSrc = pick(/\n {2}const navalSpawnFoe = (\(mobile, feet, yaw, side, \{ name = null, team = null, boat = null \} = \{\}\) => \{\n[\s\S]*?\n {2}\});\n/);
+  const spawnSrc = pick(/\n {2}const navalSpawnFoe = (\(mobile, feet, yaw, side, \{ name = null, team = null, boat = null, gender = null \} = \{\}\) => \{\n[\s\S]*?\n {2}\});\n/);
   const downSrc = pick(/\n {2}const navalStandDown = (\(handle\) => \{\n[\s\S]*?\n {2}\});\n/);
   let arrive = null;
   const removed = [], decked = [], asked = [];
