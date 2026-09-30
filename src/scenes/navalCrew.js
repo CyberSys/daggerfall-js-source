@@ -15,20 +15,29 @@ import { MobileUnit } from '../characters/mobileUnit.js';
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { mobileBillboardSize } from '../world/rmbFlats.js';
 import { NPC_FLAT_ARCHIVES } from '../world/rdbLayout.js';
-import { intoDeck, outOfDeck, DECK_STEP } from '../systems/naval/navalDeck.js';
-import { createCrewLife } from '../systems/naval/crewLife.js';
+import { intoDeck, outOfDeck, mainLevel, DECK_STEP } from '../systems/naval/navalDeck.js';
+import { createCrewLife, CREW_MUSTER_M } from '../systems/naval/crewLife.js';
+import { createPersonTextureKeys } from './townScratch.js';
+
+/** Her main deck's level - the deck's own (navalDeck.js), read here by the suites as it always was. */
+export { mainLevel };
 
 /** A ship's crew stands within this of the eye (m), and is kept to CREW_KEEP (a band, so it never flickers). */
 export const CREW_RANGE = 110;
 export const CREW_KEEP = 130;
 const PEOPLE = new Set(NPC_FLAT_ARCHIVES);
+const _flats = new WeakMap();
 
 /**
  * A hull's people flats, as the pool stands them: each billboard node of a people archive, its renderer, and where its
- * feet stand in her deck's frame now (her mesh node's).
+ * feet stand in her deck's frame (her mesh node's - they hang under it, so it never changes). AUDIT NAV2 F58: walked once
+ * a boat and rig, handed back after (a walk of the whole hull, 0.13 ms and 149 KB, at every crew's first sight) - walked
+ * again when her variant changes (the pool's own walk's law).
  * @param {any} boat
  */
 export function peopleFlatsOf(boat) {
+  const memo = _flats.get(boat);
+  if (memo && memo.variant === boat.variant) return memo.list;
   const out = [];
   const m = boat?.MeshObject?.worldMatrix?.();
   if (!m || !boat.GameObject) return out;
@@ -47,6 +56,7 @@ export function peopleFlatsOf(boat) {
     }
   };
   walk(boat.GameObject);
+  _flats.set(boat, { variant: boat.variant, list: out });
   return out;
 }
 
@@ -58,6 +68,13 @@ export function createNavalCrew({ renderer, getTexture, uploadRecordFrame, rand 
   /** @type {Map<any, any>} key -> { key, boat, deck, life, sprites: Map<member, sprite>, flats } */
   const ships = new Map();
   const _dir = [0, 0, 0], _fw = [0, 0, 0];
+  // AUDIT NAV2 F59: a crewman's frame minted no garbage (about 550 bytes of it a crewman a frame) - his unit's motion one
+  // object for the host, the texture cache's key memoised on its three numbers (PERF-TOWN1's) and his record's,
+  // `record#frame` (MAC4's shape), once a record and frame
+  const _motion = { moving: false };
+  const textureKey = createPersonTextureKeys();
+  const _records = new Map();
+  const recordKey = (record, frame) => { const k = record * 1024 + frame; let v = _records.get(k); if (v === undefined) { v = `${record}#${frame}`; _records.set(k, v); } return v; };
 
   function sprite(member) {
     const basics = ENEMY_BASICS[member.mobile];
@@ -80,18 +97,29 @@ export function createNavalCrew({ renderer, getTexture, uploadRecordFrame, rand 
   }
 
   /**
-   * The crewed ships this frame, each `{ key, boat, deck, count, rosterOf, seed, faction, battle, hold }` - one not named
-   * is stood down (its sprites gone, its flats back); a named one first seen stands her crew (`rosterOf()`, asked only
-   * then) in her flats' places; one standing is kept to `count` (the guns took the rest); a `hold` crew is off her deck
-   * (her men the fight's, a prize's) - her flats stay down and nobody stands.
+   * The crewed ships this frame, each `{ key, boat, deck, count, rosterOf, seed, faction, battle, struck, toward, hold }`
+   * - one not named is stood down (its sprites gone, its flats back); a named one first seen stands her crew
+   * (`rosterOf()`, asked then and when she grows) in her flats' places; one standing is kept to `count` (the guns took
+   * the rest, a mending brings them back); a `hold` crew is off her deck (her men the fight's, a prize's) - her flats stay
+   * down and nobody stands, and she stands again whole when the hold ends; `struck` her colours down; `toward` a
+   * boarding at hand, the point her crew musters toward - stood to within CREW_MUSTER_M of her.
    * @param {any[]} list
    */
   function sync(list) {
     const want = new Set();
+    for (const w of list) want.add(w.key);
+    // AUDIT NAV2 F6: a ship re-keyed (a room's hand-over keeps her hull under a new id) keeps her crew - her entry moves
+    // to her new key - and the rest out of the list stand down before any crew stands, so none reads a flat another has
+    // down (a second crew stood beside the flats the first switched back on, and they stayed down once she left)
     for (const w of list) {
-      want.add(w.key);
+      if (ships.has(w.key)) continue;
+      for (const [key, ship] of ships) if (ship.boat === w.boat && !want.has(key)) { ships.delete(key); ship.key = w.key; ships.set(w.key, ship); break; }
+    }
+    for (const [key, ship] of ships) if (!want.has(key)) { standDown(ship); ships.delete(key); }
+    for (const w of list) {
       let ship = ships.get(w.key);
-      if (ship && ship.boat !== w.boat) { standDown(ship); ships.delete(w.key); ship = null; }
+      // another hull under her key - F6: or her hold over, and she stands anew, whole (`held` was never let go)
+      if (ship && (ship.boat !== w.boat || ship.held && !w.hold)) { standDown(ship); ships.delete(w.key); ship = null; }
       if (!ship) {
         if (!w.deck?.count || !(w.hold || w.count > 0)) continue;
         const main = mainLevel(w.deck);
@@ -103,10 +131,18 @@ export function createNavalCrew({ renderer, getTexture, uploadRecordFrame, rand 
         ships.set(w.key, ship);
       }
       ship.battle = !!w.battle;
+      ship.struck = !!w.struck;   // AUDIT NAV2 F46: her colours down - no song, no talk
+      // AUDIT NAV2 F40: a boarding at hand (a ship closing to board her, a struck one in my reach): her crew to the rail
+      // toward it within CREW_MUSTER_M of her - the grapple's 2.2 s alone saw nobody reach it
+      const at = w.boat.GameObject?.position;
+      ship.toward = w.toward && at && Math.hypot(w.toward[0] - at[0], w.toward[2] - at[2]) <= CREW_MUSTER_M ? w.toward : null;
       if (w.hold && !ship.held) { ship.held = true; ship.life.take(Infinity); }   // another's fight took them (a room's)
       else if (!w.hold && ship.life.standing() > w.count) ship.life.trim(w.count);
+      else if (!w.hold && ship.life.standing() < w.count) {   // AUDIT NAV2 F42: mended - her crew grows back (it only ever thinned)
+        ship.life.restore(w.count, ship.life.members.length < w.count ? w.rosterOf() : []);
+        for (const m of ship.life.members) if (!m.gone && !ship.sprites.get(m)) ship.sprites.set(m, sprite(m));
+      }
     }
-    for (const [key, ship] of ships) if (!want.has(key)) { standDown(ship); ships.delete(key); }
   }
 
   /**
@@ -116,7 +152,7 @@ export function createNavalCrew({ renderer, getTexture, uploadRecordFrame, rand 
    */
   function frame(dt, eye, ctxOf) {
     for (const ship of ships.values()) {
-      ship.life.step(dt, ctxOf?.(ship.key, ship) ?? { battle: ship.battle });
+      ship.life.step(dt, ctxOf?.(ship.key, ship) ?? { battle: ship.battle, struck: ship.struck });
       const m = ship.boat.MeshObject?.worldMatrix?.();
       if (!m) continue;
       for (const [member, s] of ship.sprites) {
@@ -127,13 +163,15 @@ export function createNavalCrew({ renderer, getTexture, uploadRecordFrame, rand 
         // his facing, out of her frame: her node's turn of his forward
         _fw[0] = Math.sin(member.yaw); _fw[1] = 0; _fw[2] = Math.cos(member.yaw);
         _dir[0] = m[0] * _fw[0] + m[8] * _fw[2]; _dir[2] = m[2] * _fw[0] + m[10] * _fw[2];
-        const out = s.unit.update(dt, { moving: member.moving }, Math.atan2(_dir[0], _dir[2]), s.origin, eye);
-        const rkey = `${out.record}#${out.frame}`;
-        if (!renderer.textures?.has?.(`${s.archive}_${rkey}`)) uploadRecordFrame(s.archive, out.record, out.frame);
+        _motion.moving = member.moving;
+        const out = s.unit.update(dt, _motion, Math.atan2(_dir[0], _dir[2]), s.origin, eye);
+        if (!renderer.textures?.has?.(textureKey(s.archive, out.record, out.frame))) uploadRecordFrame(s.archive, out.record, out.frame);
         const sz = mobileBillboardSize(s.tex, out.record);
-        s.batch.record = rkey;
-        s.batch.size = { w: out.flip ? -sz.w : sz.w, h: sz.h };
+        s.batch.record = recordKey(out.record, out.frame);
+        const bs = s.batch.size ??= { w: 0, h: 0 };   // written through, not replaced (PERF-TOWN1's): read by value at the draw, held by nothing
+        bs.w = out.flip ? -sz.w : sz.w; bs.h = sz.h;
         s.batch.origin = s.origin;
+        s.batch.conceal = ship.boat.conceal ?? null;   // AUDIT NAV2 F50: a concealed owner's crew wears his look, as the pool's flats did (AUDIT PRE-MERGE 0928 O4)
         s.head = s.head ?? [0, 0, 0];
         s.head[0] = s.origin[0]; s.head[1] = s.origin[1] + sz.h + 0.25; s.head[2] = s.origin[2];
       }
@@ -192,12 +230,4 @@ export function createNavalCrew({ renderer, getTexture, uploadRecordFrame, rand 
     /** Every crew stood down, the flats all back. */
     clear() { for (const ship of ships.values()) standDown(ship); ships.clear(); },
   };
-}
-
-/** Her main deck's level (her frame's y): the median of her deck's cells. */
-export function mainLevel(deck) {
-  const ys = [];
-  for (let j = 0; j < deck.y.length; j++) if (!Number.isNaN(deck.y[j])) ys.push(deck.y[j]);
-  ys.sort((a, b) => a - b);
-  return ys.length ? ys[ys.length >> 1] : 0;
 }

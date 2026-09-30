@@ -239,7 +239,9 @@ test('LIVING CREW TAKEN, HELD, THINNED: a fight takes her men off her deck as th
   const first = ship.life.members[0];
   const taken = h.crew.takeByBoat(boat, 2);
   assert.equal(taken.length, 2);
-  assert.ok(Math.abs(taken[0].feet[0] - (first.pos[0] + 100)) < 1e-6 && Math.abs(taken[0].feet[2] - (first.pos[2] + 50)) < 1e-6, 'where he stands in the world');
+  // AUDIT NAV2 F35 PIN MOVED: her captain at the wheel on the poop is off her deck - taken at the deck point nearest him
+  const at = deck.clamp(first.pos[0], first.pos[2]);
+  assert.ok(Math.abs(taken[0].feet[0] - (at[0] + 100)) < 1e-6 && Math.abs(taken[0].feet[2] - (at[2] + 50)) < 1e-6, 'where he stands in the world');
   assert.equal(taken[0].mobile, first.mobile);
   assert.equal(h.crew.batches().length, 4, 'their sprites gone');
   h.crew.sync([entry(boat, deck, { count: 3 })]);
@@ -330,7 +332,9 @@ test('LIVING CREW THE SEA\'S CREWS: every ship with her boat built, afloat, stru
   e.ship.damage.takePrize();
   assert.equal(h.host.crewShips().find((x) => x.key === id).hold, true, 'a prize\'s crew held');
   e.ship.damage.scuttle();
-  assert.equal(h.host.crewShips().find((x) => x.key === id), undefined, 'none on a ship going down');
+  // AUDIT NAV2 F45 PIN MOVED: a ship going down keeps her living crew aboard to the end, her colours down (the decision)
+  const going = h.host.crewShips().find((x) => x.key === id);
+  assert.ok(!!going && going.struck === true && going.battle === false, 'a ship going down, her colours down');
   assert.equal(h.host.boatOf(id), e.boat);
   const mine = h.host.myCrew(h.boat);
   assert.ok(mine && mine.crew > 0 && typeof mine.battle === 'boolean');
@@ -386,7 +390,7 @@ test('LIVING CREW THE WORDS: a bubble a line over his head at the HUD\'s scale -
 });
 
 test('LIVING CREW THE WORLD by source: the crews stepped before the people are drawn, their sprites among them; the words after the bars; every clear stands them down; the fight\'s end brings my hands home; a grapple\'s side each crew\'s own, her other ship by the host\'s door; me never walked through; a room\'s boat seeded by whose and which; the boarding\'s doors (mutants: each unwired)', () => {
-  assert.match(WORLD, /navalCrewFrame\(foeDt\);[^\n]*\n\s+livePersonBatches\.push\(\.\.\.exteriorFoes\.batches\(\), \.\.\.navalCrew\.batches\(\)\);/);
+  assert.match(WORLD, /navalCrewFrame\(gamePaused\(\) \? 0 : foeDt\);[^\n]*\n\s+livePersonBatches\.push\(\.\.\.exteriorFoes\.batches\(\), \.\.\.navalCrew\.batches\(\)\);/);   // AUDIT NAV2 F53 PIN MOVED: held by a pause
   assert.match(WORLD, /navalCrewBars\(proj, view, mwv\.eye\);[^\n]*\n\s+navalCrewLines\(proj, view, mwv\.eye\);/);
   assert.match(WORLD, /navalFlames\.clear\(\); navalCrew\.clear\(\);[^\n]*drawCrewLines\(\[\]\); \};/);
   assert.match(WORLD, /if \(_crewBoarding && !b\) for \(const boat of csa\.boats\) navalCrew\.reset\(boat\);/);

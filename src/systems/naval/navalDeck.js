@@ -269,6 +269,21 @@ export function buildDeck(meshes, extent, { cell = DECK_CELL, inset = DECK_INSET
   return deckOf({ cell, minX, minZ, nx, nz, y, more: { at: moreAt, y: Float32Array.from(moreY), piece: Int32Array.from(morePiece) }, floors: { at: floorAt, y: Float32Array.from(floorY) } });
 }
 
+const _levels = new WeakMap();
+/** Her main deck's level (her frame's y): the median of her deck's cells - AUDIT NAV2 F58: once a deck, which never
+ *  changes (a sort of every cell, 0.46 ms on the galley, at every crew's first sight). Here beside the deck since F40:
+ *  her crew's muster reads it as her crew host does. */
+export function mainLevel(deck) {
+  const was = _levels.get(deck);
+  if (was !== undefined) return was;
+  const ys = [];
+  for (let j = 0; j < deck.y.length; j++) if (!Number.isNaN(deck.y[j])) ys.push(deck.y[j]);
+  ys.sort((a, b) => a - b);
+  const level = ys.length ? ys[ys.length >> 1] : 0;
+  _levels.set(deck, level);
+  return level;
+}
+
 const NO_SPOTS = Object.freeze([]);
 
 /**
@@ -457,10 +472,13 @@ export function deckOf(g) {
      * Her rail's deck point on `side` (+1 her starboard, her frame's +x; -1 port) at `z`: the outermost deck cell of the
      * row there - or of the nearest row with deck - `[x, y, z]` its centre, into `out`; null for a hull with no deck.
      * (The deck point nearest a point far abeam is her widest cell whatever `z` is asked - a tapered hull's rail is no
-     * clamp's.)
-     * @param {number} side @param {number} z @param {number[]} [out]
+     * clamp's.) AUDIT NAV2 F40: never past her centreline - a row whose deck lies all on her other side has no rail on
+     * this one (the Small Ship's forecastle stair's top row answered a starboard rail at 0.68 m to port) - and at `level`
+     * when asked, a cell within DECK_STEP of it: her main deck's rail (`mainLevel`), where her crew musters, never a
+     * raised deck's edge (F34's stair and forecastle are her deck now).
+     * @param {number} side @param {number} z @param {number[]} [out] @param {number} [level]
      */
-    rail(side, z, out = [0, 0, 0]) {
+    rail(side, z, out = [0, 0, 0], level = NaN) {
       if (!count) return null;
       const k0 = Math.min(nz - 1, Math.max(0, Math.floor((z - minZ) / cell)));
       for (let r = 0; r < nz; r++) {
@@ -468,9 +486,10 @@ export function deckOf(g) {
           const k = pass ? k0 + r : k0 - r;
           if (k < 0 || k >= nz) continue;
           for (let n = 0; n < nx; n++) {
-            const i = side > 0 ? nx - 1 - n : n, j = k * nx + i;
-            if (Number.isNaN(y[j])) continue;
-            out[0] = minX + (i + 0.5) * cell; out[1] = y[j]; out[2] = minZ + (k + 0.5) * cell;
+            const i = side > 0 ? nx - 1 - n : n, j = k * nx + i, x = minX + (i + 0.5) * cell;
+            if (x * side < 0) break;   // past her centreline: this row has no rail on `side`
+            if (Number.isNaN(y[j]) || Math.abs(y[j] - level) > DECK_STEP) continue;   // (no level asked: NaN, never over)
+            out[0] = x; out[1] = y[j]; out[2] = minZ + (k + 0.5) * cell;
             return out;
           }
         }
