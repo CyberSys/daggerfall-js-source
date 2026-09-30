@@ -18,7 +18,8 @@ import {
   surfaceBasis, writeDecalQuad, clearDecalQuad, decalIndices,
   DECAL_FLOATS, DECAL_FLOATS_PER_VERTEX, RATE_LADDER, RATE_NEAR_LETHAL, RATE_MAX, OVERKILL_PERCENT, OVERKILL_RATE, OVERKILL_RATE_HEAVY, OVERKILL_SPEED, ORDINARY_SPEED, OVERKILL_REACH_SCALE, HEAVY_WEAPON_TEMPLATE, SURFACE_LIFT,
   basisAlong, streakFor, STREAK_MAX,   // BLOOD2a
-  bloodHit, LETHAL_HIT, SWING_PUSH, SWING_LEAN, swingThrow, looksUp, isCeilingNormal, CEILING_DOT, CEILING_EVERY, burstCount, burstRate, burstReach, BURST_DROPS_MAX, sprayCount, sprayRadius, sprayOffset, dropSize, SPRAY_SHARE, SPRAY_MAX, SPATTER_SCALE, SIZE_JITTER, SPRAY_WOBBLE, SPRAY_RADIUS_MIN, SPRAY_RADIUS_MAX,   // BLOOD1b
+  bloodHit, LETHAL_HIT, SWING_PUSH, SWING_LEAN, swingThrow, looksUp, isCeilingNormal, CEILING_DOT, CEILING_EVERY, burstCount, burstRate, burstReach, BURST_DROPS_MAX, sprayCount, sprayRadius, sprayPattern, sprayScale, dropSize, SPRAY_SHARE, SPRAY_MAX, SPATTER_SCALE, SIZE_JITTER, SPRAY_RADIUS_MIN, SPRAY_RADIUS_MAX,   // BLOOD1b (BLOOD5: the pattern)
+  SPRAY_NEAR, SPRAY_FLYER_REACH, SPRAY_SCALE_MIN, SPRAY_SCALE_MAX, SPRAY_LOBES_MAX,   // BLOOD5
 } from '../src/combat/bloodDecals.js';
 
 import {
@@ -915,37 +916,59 @@ test('BLOOD1b: one blood event is a SPRAY, laid by area, and each drop finds its
   assert.ok(sprayRadius(150) > sprayRadius(70) && sprayRadius(70) > sprayRadius(30));
   // ...and it reads the ends rather than keeping a second copy of them
   const src = readFileSync(new URL('../src/combat/bloodDecals.js', import.meta.url), 'utf8');
-  const fn = src.slice(src.indexOf('export function sprayRadius('), src.indexOf('export const SPRAY_WOBBLE'));
+  const fn = src.slice(src.indexOf('export function sprayRadius('), src.indexOf('export const SPRAY_LOBES_MAX'));
   assert.match(fn, /const lo = ladderRate\(0\), hi = RATE_MAX;/);
   assert.doesNotMatch(fn.replace(/\/\/.*$/gm, ''), /\b(30|200)\b/, 'no second copy of the ladder’s ends');
 
   // DROP ZERO IS THE BODY'S OWN SPOT. Whatever else a spray does, the
-  // hit stains where it happened.
-  assert.deepEqual(sprayOffset(0, 8, 2, () => 0.5), [0, 0]);
-  assert.deepEqual(sprayOffset(-1, 8, 2, () => 0.5), [0, 0]);
+  // hit stains where it happened - at the size dropSize alone gives it.
+  assert.deepEqual(sprayPattern(8, 2, null, () => 0.5)[0], { dx: 0, dz: 0, scale: 1 });
+  assert.deepEqual(sprayPattern(1, 2, [1, 0], mulberry32(4)), [{ dx: 0, dz: 0, scale: 1 }], 'a one-drop spray is the pool alone');
+  assert.equal(sprayPattern(24, 2, null, mulberry32(4)).length, 24, 'a drop an entry');
 
-  // THE REST ARE LAID BY AREA, NOT BY RADIUS. sqrt() on the share is
-  // what keeps the middle from filling in: a linear radius piles the
-  // drops where the pool already is. Held still (rng 0.5), drop k sits
-  // at radius * sqrt((k + 0.5) / n) - which rises, and rises SLOWER
-  // than k does.
-  const n = 8, R = 2;
-  const rs = Array.from({ length: n }, (_, k) => {
-    const [x, z] = sprayOffset(k, n, R, () => 0.5);
-    return Math.hypot(x, z);
-  });
-  for (let k = 1; k < n; k++) assert.ok(rs[k] > rs[k - 1], 'each drop lands further out than the last');
-  assert.ok(rs.at(-1) <= R + 1e-9, 'and none of them past the reach');
-  assert.ok(Math.abs(rs[1] - R * Math.sqrt(1.5 / n)) < 1e-9, 'by area: sqrt of the share');
-  assert.ok(rs[4] - rs[3] < rs[1] - rs[0], 'so the outer rings crowd and the middle does not fill');
+  // BLOOD5: THE REST FALL IN LOBES, NOT ON AN EVEN TURN - the even turn
+  // was the starburst Mac's shot showed. Every drop lands between
+  // SPRAY_NEAR of the reach and a flyer's SPRAY_FLYER_REACH of it.
+  const n = 24, R = 2;
+  const rng = mulberry32(17);
+  for (let k = 0; k < 40; k++) {
+    for (const d of sprayPattern(n, R, null, rng).slice(1)) {
+      const r = Math.hypot(d.dx, d.dz);
+      assert.ok(r >= R * SPRAY_NEAR - 1e-9 && r <= R * SPRAY_FLYER_REACH + 1e-9, `inside the band (${r.toFixed(3)})`);
+      assert.ok(d.scale >= SPRAY_SCALE_MIN * 0.6 - 1e-9 && d.scale <= SPRAY_SCALE_MAX + 1e-9);
+    }
+  }
+  // a THROWN spray leans the way it was thrown: the drops' mean direction
+  // points along the throw, strongly - an even turn's points nowhere
+  let along = 0, total = 0;
+  for (let k = 0; k < 60; k++) {
+    for (const d of sprayPattern(n, R, [0, 1], rng).slice(1)) { const r = Math.hypot(d.dx, d.dz); along += d.dz / r; total++; }
+  }
+  assert.ok(along / total > 0.4, `the throw's side holds most of it (${(along / total).toFixed(2)})`);
+  // an UNthrown spray is lobed too - one spray's mean direction is far
+  // from nothing (the even turn's was zero to within its wobble)
+  let lobed = 0;
+  for (let k = 0; k < 60; k++) {
+    const ds = sprayPattern(n, R, null, rng).slice(1);
+    const mx = ds.reduce((s, d) => s + d.dx / Math.hypot(d.dx, d.dz), 0) / ds.length, mz = ds.reduce((s, d) => s + d.dz / Math.hypot(d.dx, d.dz), 0) / ds.length;
+    if (Math.hypot(mx, mz) > 0.25) lobed++;
+  }
+  assert.ok(lobed > 40, `most sprays lean somewhere (${lobed}/60)`);
+  // ...and never piles its drops on ONE spot, even under a generator held still
+  const still = sprayPattern(n, R, null, () => 0.5).slice(1);
+  assert.equal(new Set(still.map((d) => `${d.dx.toFixed(4)},${d.dz.toFixed(4)}`)).size, n - 1, 'each drop its own spot');
+  assert.ok(new Set(still.map((d) => Math.hypot(d.dx, d.dz).toFixed(4))).size > (n - 1) / 2, 'at its own reach, too - not a ring at one radius');
+  assert.ok(sprayPattern(n, R, null, () => 0.999999).every((d) => Number.isFinite(d.dx) && Number.isFinite(d.dz)), 'a generator at its top answers numbers');
+  assert.equal(SPRAY_LOBES_MAX, 3);
 
-  // AN EVEN ANGULAR TURN, not a random angle: random angles clump, and
-  // a clump of spatter reads as one badly drawn mark. The wobble is
-  // what stops the even turn reading as a stencil.
-  assert.equal(SPRAY_WOBBLE, 0.9);
-  const ang = (k, r) => { const [x, z] = sprayOffset(k, n, R, r); return Math.atan2(z, x); };
-  assert.ok(Math.abs(ang(2, () => 0.5) - ang(1, () => 0.5) - (Math.PI * 2) / n) < 1e-9, 'an even share of the circle');
-  assert.ok(Math.abs(ang(1, () => 1) - ang(1, () => 0)) - SPRAY_WOBBLE < 1e-9, 'and the wobble is the whole of the wander');
+  // MANY SMALL, A FEW LARGE: the scale's middle roll is one, a quarter
+  // of the rolls are well under it, about a tenth well over
+  assert.equal(sprayScale(0.5), 1);
+  assert.equal(sprayScale(0), SPRAY_SCALE_MIN); assert.equal(sprayScale(1), SPRAY_SCALE_MAX);
+  const rolls = Array.from({ length: 1000 }, (_, k) => sprayScale((k + 0.5) / 1000));
+  assert.ok(rolls.filter((v) => v < 0.7).length > 300, 'many small');
+  assert.ok(rolls.filter((v) => v > 1.5).length < 150, 'a few large');
+  for (let k = 1; k < rolls.length; k++) assert.ok(rolls[k] >= rolls[k - 1], 'monotone in the roll');
 
   // A POOL AND ITS SPATTER, not one size repeated
   assert.equal(SPATTER_SCALE, 0.45);
@@ -1649,8 +1672,12 @@ test('BLOOD1b: the SWING throws the spray, and the pool under the body does not 
   const right = swung('StrikeRight'), left = swung('StrikeLeft'), still = swung('Idle');
   assert.ok(mid(right) > mid(still), 'a right swipe throws the spatter right');
   assert.ok(mid(left) < mid(still), 'and a left swipe throws it left');
-  assert.ok(Math.abs(mid(right) - mid(still) - SWING_PUSH.StrikeRight[0] * SWING_LEAN) < 1e-9,
-    'by exactly what the push says, since the ring is the same ring either way');
+  // BLOOD5: by AT LEAST what the push says - the push still carries the
+  // whole spray over, and now the spray's main lobe points the way it
+  // was thrown as well (bloodDecals `sprayPattern`), where the even
+  // turn's ring was the same ring either way
+  assert.ok(mid(right) - mid(still) >= SWING_PUSH.StrikeRight[0] * SWING_LEAN - 1e-9,
+    'at least what the push says');
 
   // THE POOL DOES NOT LEAN. Drop zero is blood running off the body,
   // not blood thrown from it, so it stays at the body's own spot
@@ -2219,18 +2246,7 @@ test('BLOOD1 AUDIT 3: the ring draws its TOUCHED slots in AGE order - one range 
   assert.ok(Array.isArray(drew[0]) && drew[0].length >= 1 && drew[0][0][0] === 0, 'the pool’s own ranges reach drawDecals');
 });
 
-test('BLOOD1 AUDIT 3: the spray’s wobble is a share of the SLOT, so the top rung’s drops never cross - and blood does not pass through walls', () => {
-  // 0.9 RADIANS of wobble on a 15-degree slot (the top rung's 24 drops)
-  // put drops on top of each other; nine tenths of a slot cannot.
-  for (const n of [4, 24, SPRAY_MAX]) {
-    for (let i = 1; i < n - 1; i++) {
-      const hi = Math.atan2(...sprayOffset(i, n, 1, () => 1).reverse());
-      const lo = Math.atan2(...sprayOffset(i + 1, n, 1, () => 0).reverse());
-      assert.ok(lo - hi > 1e-9 || lo - hi < -Math.PI, `n=${n}: drop ${i} at its widest never reaches drop ${i + 1} at its narrowest`);
-    }
-  }
-  assert.ok(SPRAY_WOBBLE < 1, 'a share of the slot');
-
+test('BLOOD1 AUDIT 3: blood does not pass through walls (BLOOD5: the even turn and its wobble are gone - see the pattern pin)', () => {
   // A WALL BETWEEN THE BODY AND THE DROP: the drop lands nowhere. The
   // stub's wall stands at x = +0.3 for any ray heading +x.
   const wallAt = 0.3;
@@ -2245,7 +2261,9 @@ test('BLOOD1 AUDIT 3: the spray’s wobble is a share of the SLOT, so the top ru
       return d <= max ? { dist: d, normal: [-1, 0, 0] } : { dist: Infinity, normal: null };
     },
   });
-  const hit = { damage: 30, maxHealth: 40, fromPlayer: true, heavy: false, throw: [0, 0] };   // the top rung: 24 drops over 1.8 m
+  // the top rung: 24 drops over 1.8 m - BLOOD5: thrown a hair toward the
+  // wall, so the spray's main lobe (sprayPattern) is the wall's side
+  const hit = { damage: 30, maxHealth: 40, fromPlayer: true, heavy: false, throw: [0.001, 0] };
   const open = rigHitEffects({ collider: collider(false), settings: { enabled: () => true, capacity: () => 256, density: () => 1, overkill: () => false } });
   open.marks.useArt(380, 1, 6); open.fx.showBloodSplash(0, [0, 1, 0], null, hit);
   const walled = rigHitEffects({ collider: collider(true), settings: { enabled: () => true, capacity: () => 256, density: () => 1, overkill: () => false } });
@@ -2678,7 +2696,9 @@ test('BLOOD2b: a mark wears a cell of its KIND, is born a fresh red of its own, 
   // the LADDER'S TOP: twenty-four drops over 1.8 m (an overkill's blow with
   // the burst row off), so drops land short of a third of the reach
   // (spatter), past it (streaks), and against the wall at 0.9
-  fx.showBloodSplash(0, [0, 1, 0], null, { damage: 80, maxHealth: 40, fromPlayer: true, heavy: false, throw: [0, 0] });
+  // BLOOD5: thrown a hair toward the wall, so the spray's main lobe
+  // (sprayPattern) is the wall's side
+  fx.showBloodSplash(0, [0, 1, 0], null, { damage: 80, maxHealth: 40, fromPlayer: true, heavy: false, throw: [0.001, 0] });
   const ds = marks._pool().decals();
   assert.equal(ds.length, 24, 'the top rung, every drop landed somewhere');
   assert.deepEqual(uploads, [{ archive: BLOOD_ATLAS_ARCHIVE, record: BLOOD_ATLAS_RECORD, w: ATLAS_SIZE, opts: { smooth: true } }], 'the atlas, uploaded ONCE with the first mark, smooth');
