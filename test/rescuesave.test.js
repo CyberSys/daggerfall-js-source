@@ -23,7 +23,8 @@ import { REALM_MAX_BYTES } from '../server-account/src/realm.js';
 import { SESSION_KEY } from '../src/net/accountClient.js';
 import {
   realmIo, realmCreate, realmPut, realmFetch, realmLeave, realmDelete, realmList, openRealmBoot, createRealmSession,
-  readUnsent, keepUnsent, forgetUnsent, claimUnsent, sweepUnsent, realmSaveWithHeld,
+  readUnsent, keepUnsent, forgetUnsent, claimUnsent, sweepUnsent, realmSaveWithHeld, packUnsent, unpackUnsent,
+  REALM_UNSENT_PACK_OVER, REALM_UNSENT_PACKED,
   REALM_UNSENT_PREFIX, REALM_UNSENT_GRACE_MS, REALM_HELD_FIELD, REALM_RESTORED_TEXT,
 } from '../src/systems/realmSaves.js';
 import { offlineCopyOf } from '../src/systems/offlineCopy.js';
@@ -82,8 +83,9 @@ async function account() {
     storage.setItem(SESSION_KEY, JSON.stringify({ id: g.id, secret: g.secret }));
     let open = () => {};
     const gate = new Promise((r) => { open = r; });
-    const door = { plan: [], open: () => open() };
+    const door = { plan: [], puts: 0, open: () => open() };
     const fetch = async (url, init) => {
+      if (init?.method === 'PUT') door.puts++;   // the puts that reached the door (two sessions' packings race to it)
       const mode = init?.method === 'PUT' && door.plan.length ? door.plan.shift() : 'ok';
       if (mode === 'wait') await gate;
       if (mode === 'offline') throw new TypeError('network');
@@ -107,10 +109,10 @@ function clock() {
 }
 /** A session over a boot's join, the grace by hand and the page shown unless `hidden` says; `hide()` puts the page away
  *  (the session's own watch, AUDIT 2 B2). */
-const sessionOf = (dev, id, boot, { hidden = () => false, onLost = () => {} } = {}) => {
+const sessionOf = (dev, id, boot, { hidden = () => false, onLost = () => {}, pack = undefined } = {}) => {
   const time = clock();
   const hides = [];
-  const s = createRealmSession({ io: dev.io, id, lease: boot.lease, seq: boot.seq, gzip: boot.gzip === true, onLost, later: time.later, hidden, watchHidden: (fn) => { hides.push(fn); } });
+  const s = createRealmSession({ io: dev.io, id, lease: boot.lease, seq: boot.seq, gzip: boot.gzip === true, onLost, later: time.later, hidden, watchHidden: (fn) => { hides.push(fn); }, ...(pack ? { pack } : {}) });
   return Object.assign(s, { time, hide: () => { for (const fn of hides) fn(); } });
 };
 /** A realm character saved at 1 and joined as a boot joins it, on `dev`: its session, and the service's row and save. */
@@ -126,6 +128,8 @@ async function joined(acct, dev, save = { v: 1, name: 'SwordsmanEB', level: 12, 
 }
 const save = (level, gold) => ({ v: 1, name: 'SwordsmanEB', level, goldPieces: gold });
 const settle = async () => { for (let i = 0; i < 30; i++) await new Promise((r) => setTimeout(r, 0)); };
+/** Until `ok()` holds - a put packed (REALM-GZIP) reaches the door a turn or more after it is asked. */
+const until = async (ok) => { for (let i = 0; i < 500 && !ok(); i++) await new Promise((r) => setTimeout(r, 1)); assert.ok(ok(), 'waited too long'); };
 
 // ═══ RESCUE-SAVE ═════════════════════════════════════════════════════════════════════════════════════════════════════
 
@@ -561,7 +565,9 @@ test('AUDIT RESCUE-SAVE 2 B1: a tab the character was taken from never drops or 
   const bBoot = await openRealmBoot({ io: dev.io, id: a.id });
   const b = sessionOf(dev, a.id, bBoot);
   dev.door.plan = ['hang'];
+  const before = dev.door.puts;
   void b.checkpoint(JSON.stringify(save(50, 1)));
+  await until(() => dev.door.puts > before);   // the newer tab's put took the hang - never the older tab's, packed faster
   b.time.fire();   // the newer tab's copy, its put still out - nothing missed
   const bCopy = { ...readUnsent(dev.storage, a.id), at: null };
   assert.deepEqual([JSON.parse(bCopy.text).level, bCopy.missed], [50, false]);
@@ -702,4 +708,106 @@ test('AUDIT RESCUE-SAVE 2 (REALM-GZIP): a save past the request\'s bound rides p
   assert.deepEqual(await c.session.checkpoint(long), { ok: true, seq: 2 });
   assert.equal(readUnsent(dev.storage, c.id), null);
   assert.equal((await c.served()).level, 40);
+});
+
+// ═══ RESCUE-PACK (2026-09-30, Mac: "Do it") ══════════════════════════════════════════════════════════════════════════
+// A long life's copy rides packed: a save past REALM_UNSENT_PACK_OVER characters is kept gzipped (REALM-GZIP's codec)
+// as base64 - a browser's storage takes what the plain text would not.
+
+/** A long life's save: past the packing's threshold, and packing many times over. */
+const longSave = (level) => JSON.stringify({ ...save(level, 1), journal: 'the long life of SwordsmanEB '.repeat(20_000) });
+const rawCopy = (storage, id) => storage.getItem(`${REALM_UNSENT_PREFIX}${id}`);
+
+test('RESCUE-PACK: a long life\'s save the service never took is kept packed - many times smaller - and the next join opens it, plays it and gives it to the service', async () => {
+  const acct = await account();
+  const dev = acct.device();
+  const c = await joined(acct, dev);
+  const text = longSave(33);
+  assert.ok(text.length > REALM_UNSENT_PACK_OVER);
+  dev.door.plan = ['offline'];
+  await c.session.checkpoint(text);
+  await settle();   // packed off the frame
+  const kept = readUnsent(dev.storage, c.id);
+  assert.equal(kept.text, null);
+  assert.ok(kept.packed.startsWith(REALM_UNSENT_PACKED));
+  assert.equal(rawCopy(dev.storage, c.id), kept.packed);
+  assert.ok(kept.packed.length * 10 < text.length, `packed ${kept.packed.length} for ${text.length}`);
+  assert.equal(await unpackUnsent(kept.packed), text, 'opens to the save, whole');
+  await c.session.leave({ keepalive: true });
+  const boot = await openRealmBoot({ io: dev.io, id: c.id });
+  assert.equal(boot.restored, true);
+  assert.equal(boot.snap.level, 33);
+  assert.equal(boot.snap.journal.length, JSON.parse(text).journal.length);
+  assert.equal((await sessionOf(dev, c.id, boot).checkpoint(realmSaveWithHeld(boot.snap, boot.held))).ok, true);
+  assert.equal(readUnsent(dev.storage, c.id), null);
+});
+
+test('RESCUE-PACK: a device that will not hold a long life\'s text holds it packed; a page going away writes it as it stands when the device takes it, and packed when it does not', async () => {
+  const acct = await account();
+  const storage = fakeStorage();
+  const set = storage.setItem;
+  const room = { plain: false };
+  storage.setItem = (k, v) => { if (!room.plain && String(v).length > REALM_UNSENT_PACK_OVER) throw new Error('QuotaExceededError'); set(k, v); };
+  const dev = acct.device(storage);
+  let shown = true;
+  const c = await joined(acct, dev, undefined, { hidden: () => !shown });
+  dev.door.plan = ['offline'];
+  await c.session.checkpoint(longSave(34));
+  await settle();
+  assert.ok(readUnsent(storage, c.id).packed, 'the plain text would not fit; packed it does');
+  // the page put away, the device taking the text as it stands: written at once, nothing waits
+  shown = false;
+  room.plain = true;
+  dev.door.plan = ['hang'];
+  void c.session.checkpoint(longSave(35));
+  assert.equal(JSON.parse(readUnsent(storage, c.id).text).level, 35, 'as it stands, before the page can go');
+  // and when the device will not take it as it stands, packed - the best a page going away can do
+  room.plain = false;
+  void c.session.checkpoint(longSave(36));
+  await settle();
+  assert.equal(JSON.parse(await unpackUnsent(readUnsent(storage, c.id).packed)).level, 36);
+});
+
+test('RESCUE-PACK: a packing that finishes after the copy moved on writes nothing - never a copy the landing dropped, never over a newer one', async () => {
+  const acct = await account();
+  const dev = acct.device();
+  const outs = [];
+  const pack = (text) => new Promise((resolve) => { outs.push(() => packUnsent(text).then(resolve)); });
+  const c = await joined(acct, dev, undefined, { pack });
+  dev.door.plan = ['offline'];
+  await c.session.checkpoint(longSave(40));   // refused: its packing starts, and waits
+  assert.equal(outs.length, 1);
+  assert.deepEqual(await c.session.checkpoint(JSON.stringify(save(41, 1))), { ok: true, seq: 2 });   // lands: the copy is dropped
+  await outs[0]();
+  await settle();
+  assert.equal(readUnsent(dev.storage, c.id), null, 'the late packing lands nowhere');
+  // and never over the newest written anew: a long save refused, its packing out; the service back, a put lands with a
+  // newer save waiting (AUDIT 2 B3's rebase writes the newest) - then the old packing finishes
+  dev.door.plan = ['offline'];
+  await c.session.checkpoint(longSave(42));
+  assert.equal(outs.length, 2);
+  dev.door.plan = ['wait', 'hang'];
+  const t1 = c.session.checkpoint(JSON.stringify(save(43, 1)));
+  void c.session.checkpoint(JSON.stringify(save(44, 1)));
+  dev.door.open();
+  assert.equal((await t1).ok, true);
+  assert.equal(JSON.parse(readUnsent(dev.storage, c.id).text).level, 44, 'the newest, written anew');
+  await outs[1]();
+  await settle();
+  assert.equal(JSON.parse(readUnsent(dev.storage, c.id).text).level, 44, 'never the older packing over it');
+});
+
+test('RESCUE-PACK: a packed copy that will not open is dropped at the join, and the service\'s save played', async () => {
+  const acct = await account();
+  const dev = acct.device();
+  const c = await joined(acct, dev);
+  await c.session.leave({ keepalive: true });
+  assert.equal(await unpackUnsent('{"v":1}'), null, 'not packed');
+  assert.equal(await unpackUnsent(`${REALM_UNSENT_PACKED}!!!`), null, 'not base64');
+  assert.equal(await unpackUnsent(`${REALM_UNSENT_PACKED}${globalThis.btoa('not gzip at all, not at all')}`), null, 'not gzip');
+  keepUnsent(dev.storage, c.id, c.row().seq, `${REALM_UNSENT_PACKED}${globalThis.btoa('garbage')}`);
+  const boot = await openRealmBoot({ io: dev.io, id: c.id });
+  assert.equal(boot.restored, undefined);
+  assert.equal(boot.snap.level, 12, 'the service\'s');
+  assert.equal(readUnsent(dev.storage, c.id), null);
 });

@@ -51,7 +51,7 @@
 import { storedSession, serviceBase, forgetSession, accountRefusalText } from '../net/accountClient.js';
 import { realmTradeRefusalText } from '../net/realmTradeLaw.js';   // REALM P2.1: a trade the realm settles
 import { REALM_DOOR_WORD } from '../net/wire.js';   // REALM-DOOR: the relay's word for a token that names no realm character
-import { gzipText, saveTextOf, canGzip, canGunzip } from '../net/realmSaveCodec.js';   // REALM-GZIP: a save rides packed
+import { gzipText, gunzipText, saveTextOf, canGzip, canGunzip } from '../net/realmSaveCodec.js';   // REALM-GZIP: a save rides packed
 
 /**
  * The service, as this device can reach it - or null when nobody is signed in (cloudSaves.js cloudIo's shape).
@@ -176,6 +176,37 @@ const UNSENT_KEPT_ON = Object.freeze(['lease', 'auth', 'signed-out']);
  *  sooner costs the device nothing; a page hidden, a put refused or unanswered, or the session's leave writes at once. */
 export const REALM_UNSENT_GRACE_MS = 1_500;
 
+/** RESCUE-PACK (2026-09-30, Mac: "Do it"): A LONG LIFE'S COPY RIDES PACKED. The copy was the save's text, and a save
+ *  big enough to need REALM-GZIP's packing on the wire (past 4 MiB) will not fit a browser's storage (5-10 MB an origin)
+ *  - so the players with the most to lose kept no copy there. A save past REALM_UNSENT_PACK_OVER characters is kept
+ *  gzipped (REALM-GZIP's own codec), as base64 under `REALM_UNSENT_PACKED`, which no JSON text begins with. Packing is
+ *  asynchronous (the platform's CompressionStream), so a small save is kept as it stands, at once; a big one is packed
+ *  off the frame and written when it is done - unless the copy moved on meanwhile - and on a page going away, where
+ *  nothing may wait, it is written as it stands if the device takes it, and packed only when it does not. */
+export const REALM_UNSENT_PACK_OVER = 512 * 1024;
+export const REALM_UNSENT_PACKED = 'gzip64:';
+const B64_CHUNK = 0x8000;
+/** A save's text packed for the device: `gzip64:` and its gzip in base64 - or null when this runtime cannot pack. */
+export async function packUnsent(/** @type {string} */ text) {
+  if (!canGzip()) return null;
+  try {
+    const bytes = await gzipText(text);
+    let bin = '';
+    for (let i = 0; i < bytes.byteLength; i += B64_CHUNK) bin += String.fromCharCode(...bytes.subarray(i, i + B64_CHUNK));
+    return REALM_UNSENT_PACKED + globalThis.btoa(bin);
+  } catch { return null; }
+}
+/** A packed copy opened to its text - or null: not packed, not base64, not whole, or opening past the realm's bound. */
+export async function unpackUnsent(/** @type {unknown} */ kept) {
+  if (typeof kept !== 'string' || !kept.startsWith(REALM_UNSENT_PACKED) || !canGunzip()) return null;
+  try {
+    const bin = globalThis.atob(kept.slice(REALM_UNSENT_PACKED.length));
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return await gunzipText(bytes);
+  } catch { return null; }
+}
+
 /** AUDIT RESCUE-SAVE A1: THE SAVE NAMES THE SPOILS ITS PACK HOLDS - the records (scenes/spoilsPool.js heldIds, a gate's
  *  and a town's thanks) it was composed holding, in its own text, so whichever save a join plays - the device's copy or
  *  the service's - tells the crash's door which records its pieces already stand in. */
@@ -210,13 +241,15 @@ export function keepUnsent(/** @type {any} */ storage, /** @type {string} */ id,
     return false;
   }
 }
-/** The device's copy - `{ seq, text, at, missed }` - or null. */
+/** The device's copy - `{ seq, text, at, missed }` - or null. RESCUE-PACK: a packed copy's `text` is null and its
+ *  stored form is `packed` (unpackUnsent opens it); a copy kept as it stands has no `packed`. */
 export function readUnsent(/** @type {any} */ storage, /** @type {string} */ id) {
   try {
     const at = JSON.parse(storage?.getItem?.(unsentAtKey(id)) ?? 'null');
     const text = storage?.getItem?.(unsentKey(id)) ?? null;
     if (!Number.isSafeInteger(at?.seq) || typeof text !== 'string' || !text) return null;
-    return { seq: at.seq, text, at: Number.isFinite(at.at) ? at.at : null, missed: at.missed === true };
+    const packed = text.startsWith(REALM_UNSENT_PACKED);
+    return { seq: at.seq, text: packed ? null : text, at: Number.isFinite(at.at) ? at.at : null, missed: at.missed === true, ...(packed ? { packed: text } : {}) };
   } catch { return null; }
 }
 /** The copy's record revised in place - its sequence re-based as this session's own put lands with a newer save
@@ -307,13 +340,15 @@ const putMayClear = (/** @type {any} */ r) => REALM_ACT_TRANSIENT.includes(r.err
  * REALM_UNSENT_GRACE_MS (`later`), at once while the page is hidden (`hidden`) and as it hides (`watchHidden`), or when
  * a put is refused or unanswered or the session leaves; a put that lands with nothing newer behind it drops the copy.
  * @param {{ io: any, id: string, lease: string, seq: number, gzip?: boolean, onLost?: (error: string) => void,
- *   later?: (fn: () => void, ms: number) => (() => void), hidden?: () => boolean, watchHidden?: (fn: () => void) => void }} at
+ *   later?: (fn: () => void, ms: number) => (() => void), hidden?: () => boolean, watchHidden?: (fn: () => void) => void,
+ *   pack?: (text: string) => Promise<string | null> }} at
  */
 export function createRealmSession({
   io, id, lease, seq, gzip = false, onLost = () => {},
   later = (fn, ms) => { const t = setTimeout(fn, ms); return () => clearTimeout(t); },
   hidden = () => globalThis.document?.visibilityState === 'hidden',
   watchHidden = (fn) => whenPageHides(globalThis.document, fn),
+  pack = packUnsent,
 }) {
   const storage = io?.storage ?? null;   // RESCUE-SAVE: the device's copy of what the service has not taken
   let current = seq;
@@ -329,15 +364,26 @@ export function createRealmSession({
   /** @type {string | null} */
   let latest = null;   // AUDIT RESCUE-SAVE 2 B3: the newest save handed, written or not
   const player = io?.player ?? null;   // AUDIT RESCUE-SAVE 2 B5: the account the copy's record names
+  // RESCUE-PACK: every change of the copy is a generation; a packing that finishes after the copy moved on (a landing,
+  // a drop, a newer save kept) writes nothing
+  let copyGen = 0;
   const keepNow = () => {
     if (unkeptTimer) { unkeptTimer(); unkeptTimer = null; }
     if (unkept == null) return;
-    keepUnsent(storage, id, current, unkept, { lease, missed, player });
+    const text = unkept, at = current, gen = ++copyGen, how = { lease, missed, player };
     unkept = null;
+    const packLater = () => {
+      pack(text).then((packed) => { if (packed && gen === copyGen) keepUnsent(storage, id, at, packed, how); }).catch(() => {});
+    };
+    if (text.length <= REALM_UNSENT_PACK_OVER) { keepUnsent(storage, id, at, text, how); return; }
+    // a long life's save: on a page going away, as it stands if the device takes it - nothing may wait there
+    if (hidden() && keepUnsent(storage, id, at, text, how)) return;
+    packLater();
   };
   const dropCopy = () => {
     if (unkeptTimer) { unkeptTimer(); unkeptTimer = null; }
     unkept = null;
+    copyGen++;   // RESCUE-PACK: a packing still out lands nowhere
     if (ownsUnsent(storage, id, lease)) forgetUnsent(storage, id);   // AUDIT 2 B1: never a newer tab's copy
   };
   /** AUDIT RESCUE-SAVE 2 B1: the copy's record marked (its miss) only while it is this tab's. */
@@ -584,7 +630,7 @@ async function joinRealmBoot(/** @type {{ io: any, id: string }} */ { io, id }) 
   // newer than anything the service holds: played, and the first checkpoint gives it to the service. Past it, dropped.
   const kept = readUnsent(io.storage, id);
   if (kept && kept.seq === seq) {
-    const snap = parseSave(kept.text);
+    const snap = parseSave(kept.packed ? await unpackUnsent(kept.packed) : kept.text);   // RESCUE-PACK: opened first
     if (snap) { snap.characterId = id; return { ok: true, snap, lease, seq, origin: typeof origin === 'string' ? origin : null, restored: true, missed: kept.missed, gzip: joined.data?.gzip === true }; }
   }
   if (kept) forgetUnsent(io.storage, id);
@@ -596,9 +642,9 @@ async function joinRealmBoot(/** @type {{ io: any, id: string }} */ { io, id }) 
   return { ok: true, snap, lease, seq: got.seq ?? seq, origin: typeof origin === 'string' ? origin : null, gzip: joined.data?.gzip === true };   // RESTORE: the offline id it came from
 }
 /** A save's text as the snapshot a slot load reads, or null. */
-function parseSave(/** @type {string} */ text) {
+function parseSave(/** @type {string | null} */ text) {
   let snap = null;
-  try { snap = JSON.parse(text); } catch { snap = null; }
+  try { snap = typeof text === 'string' ? JSON.parse(text) : null; } catch { snap = null; }
   return snap && typeof snap === 'object' && !Array.isArray(snap) ? snap : null;
 }
 

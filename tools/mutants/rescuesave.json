@@ -281,8 +281,8 @@
   {
     "name": "AUDIT-RESCUE-SAVE-A8-a-miss-never-read",
     "file": "src/systems/realmSaves.js",
-    "old": "missed: at.missed === true };",
-    "new": "missed: false };",
+    "old": "missed: at.missed === true,",
+    "new": "missed: false,",
     "tests": [
       "test/rescuesave.test.js"
     ]
@@ -418,6 +418,60 @@
     "file": "src/systems/realmSaves.js",
     "old": "    try { storage?.removeItem?.(unsentOwnerKey(id)); } catch { /* storage away */ }\n  }",
     "new": "  }",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "RESCUE-PACK-never-packed",
+    "file": "src/systems/realmSaves.js",
+    "old": "if (text.length <= REALM_UNSENT_PACK_OVER) { keepUnsent(",
+    "new": "if (true) { keepUnsent(",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "RESCUE-PACK-a-page-going-waits-for-the-packing",
+    "file": "src/systems/realmSaves.js",
+    "old": "    if (hidden() && keepUnsent(storage, id, at, text, how)) return;\n",
+    "new": "",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "RESCUE-PACK-a-late-packing-lands",
+    "file": "src/systems/realmSaves.js",
+    "old": "if (packed && gen === copyGen) keepUnsent(",
+    "new": "if (packed) keepUnsent(",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "RESCUE-PACK-a-drop-leaves-the-packing-out",
+    "file": "src/systems/realmSaves.js",
+    "old": "    copyGen++;   // RESCUE-PACK: a packing still out lands nowhere\n",
+    "new": "",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "RESCUE-PACK-the-boot-never-opens-it",
+    "file": "src/systems/realmSaves.js",
+    "old": "parseSave(kept.packed ? await unpackUnsent(kept.packed) : kept.text)",
+    "new": "parseSave(kept.text)",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "RESCUE-PACK-a-packed-copy-read-as-text",
+    "file": "src/systems/realmSaves.js",
+    "old": "    const packed = text.startsWith(REALM_UNSENT_PACKED);",
+    "new": "    const packed = false;",
     "tests": [
       "test/rescuesave.test.js"
     ]
