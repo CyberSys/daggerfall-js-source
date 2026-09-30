@@ -748,9 +748,16 @@ export function addEnemyLootExtras(items, basics, rolls = Math.random) {
   if (key && key !== '-') {
     randomlyAddPotion(3, items, rolls);
     randomlyAddPotionRecipe(2, items, rolls);
+    for (const fn of [..._enemyLootExtras.values()]) {   // REPAIR-EASE: the port's own extras on a looting foe (the field kit)
+      try { fn({ items, basics, rolls }); } catch (e) { console.warn('[enemyLoot] an extra threw', e); }
+    }
   }
   return items;
 }
+/** REPAIR-EASE: the port's own extras on a foe with a loot table, by name - the pile event's shape (raiseTabledLootSpawned),
+ *  for the corpse that event never covers. */
+const _enemyLootExtras = new Map();
+export function registerEnemyLootExtra(name, fn) { if (typeof fn === 'function') _enemyLootExtras.set(name, fn); else _enemyLootExtras.delete(name); }
 
 /** REALM P0.4 (2026-09-28, bible/06-Systems/Realm-Arc.md "Pile gold divided by level"): ONLINE A PILE'S GOLD IS NOT
  *  THE LEVEL'S. GenerateRandomLoot rolls a pile's gold times the player's level, so a level-30 character found thirty

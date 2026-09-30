@@ -373,9 +373,12 @@ export function tierOf(key) {
 // smith turns an enchanted item away (RepairsObjects' magic arm). The
 // port's default mends it; online the lane forces it (onlineLane.js
 // ONLINE_FORCED_SETTINGS), so a player's own False stands offline only.
+//
+// REPAIR-EASE (2026-09-30, Mac: "instant repair on by default"): InstantRepairs. DFU ships False - a smith keeps
+// the item for days. The port's default hands it back at once; a player's own False still stands.
 export const PORT_DEFAULTS = Object.freeze({
   Enhancements: Object.freeze({ PlayerTorchFromItems: 'True' }),
-  Controls: Object.freeze({ WeaponSwingMode: '2', AllowMagicRepairs: 'True' }),
+  Controls: Object.freeze({ WeaponSwingMode: '2', AllowMagicRepairs: 'True', InstantRepairs: 'True' }),
 });
 
 /** The default in effect: the port's, else the vendored ini's. Every
