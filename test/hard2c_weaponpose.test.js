@@ -55,7 +55,7 @@ const RIG = [{ sheathed: true, usingRightHand: true }, { sheathed: true, usingRi
   { sheathed: false, usingRightHand: true }, { sheathed: false, usingRightHand: false }];
 
 test('HARD2c: the WRITE differential - the old inline arithmetic, carried verbatim', () => {
-  // worldModes.js:11206 and dungeonContext.js:7601, character for
+  // worldModes.js:11210 and dungeonContext.js:7601, character for
   // character as they stood before this slice.
   const oldCompose = (w) => ({ weaponDrawn: !w.sheathed, usingRightHand: w.usingRightHand });
   // world.js:10736's own, which is the MERGE - `wp` is the mode host's
@@ -82,7 +82,7 @@ test('HARD2c: the WRITE differential - the old inline arithmetic, carried verbat
 
 test('HARD2c: the RESTORE differential - all three copies were the same law', () => {
   // world.js:11079/:11111, dungeonContext.js:7653/:7653 and
-  // worldModes.js:11204-11205 - three copies, one law, carried verbatim.
+  // worldModes.js:11208-11209 - three copies, one law, carried verbatim.
   const oldApply = (w, pose) => {
     if (!pose) return;
     if (pose.weaponDrawn != null) w.sheathed = !pose.weaponDrawn;
