@@ -29,7 +29,8 @@
 // dishonest one a refusal or a copy the ledger sees.
 // ═══════════════════════════════════════════════════════════════════
 
-import { REALM_ID_RE, LEASE_RE, REALM_MAX_BYTES, mintObjectKey, dropObjects, dropIfUnnamed } from './realm.js';
+import { REALM_ID_RE, LEASE_RE, mintObjectKey, dropObjects, dropIfUnnamed, realmSaveTextOf } from './realm.js';
+import { REALM_TEXT_MAX_BYTES } from '../../src/net/realmSaveCodec.js';   // REALM-GZIP: the text's bound
 import { realmTradeHalfOf, halvesAgree, settleRealmTrade, REALM_TRADE_SID_RE, REALM_TRADE_TTL_S } from '../../src/net/realmTradeLaw.js';
 import { canon } from '../../src/net/canon.js';
 
@@ -39,12 +40,6 @@ export const REALM_TRADE_BODY_MAX = 32 * 1024;
 export const REALM_TRADE_KEEP_S = 7 * 24 * 3600;
 
 const utf8Bytes = (/** @type {string} */ s) => new TextEncoder().encode(s).byteLength;
-
-/** An R2 object's text: the platform's reader when it has one, its bytes otherwise. */
-async function textOf(/** @type {any} */ object) {
-  if (typeof object?.text === 'function') return object.text();
-  return new TextDecoder().decode(object?.body);
-}
 
 /** The outcome, as the side asking reads it - to the HALF THAT MADE IT alone (AUDIT REALM L1-F6): the account, the
  *  character, the sequence it was made at and the half itself, word for word. A sid is the peers' own, so a trade after
@@ -135,13 +130,13 @@ export async function tradeRealm({ db, bucket, rand, nowS }, playerId, body) {
   // EACH RECORD AS ITS OWN LAST CHECKPOINT LEFT IT
   const [objA, objB] = await Promise.all([bucket.get(other.obj), bucket.get(row.obj)]);
   let saveA = null, saveB = null;
-  try { saveA = JSON.parse(await textOf(objA)); saveB = JSON.parse(await textOf(objB)); } catch { saveA = saveB = null; }
+  try { saveA = JSON.parse(await realmSaveTextOf(objA)); saveB = JSON.parse(await realmSaveTextOf(objB)); } catch { saveA = saveB = null; }   // REALM-GZIP: packed or plain
   if (!saveA || !saveB || typeof saveA !== 'object' || typeof saveB !== 'object') return refuse(db, sid, 'no-data', playerId, asker, true);
   const s = settleRealmTrade(saveA, saveB, firstHalf, half);
   if (!s.ok) return refuse(db, sid, s.why ?? 'goods', playerId, asker, true);
   const textA = JSON.stringify(s.a), textB = JSON.stringify(s.b);
   const bytesA = utf8Bytes(textA), bytesB = utf8Bytes(textB);
-  if (bytesA > REALM_MAX_BYTES || bytesB > REALM_MAX_BYTES) return refuse(db, sid, 'too-large', playerId, asker, true);
+  if (bytesA > REALM_TEXT_MAX_BYTES || bytesB > REALM_TEXT_MAX_BYTES) return refuse(db, sid, 'too-large', playerId, asker, true);   // REALM-GZIP: written plain, within the text's bound
 
   // BOTH RECORDS ONE ON, as new objects - then ONE batch moves both rows to them and seals the trade, or none of it
   const keyA = mintObjectKey(rand, t.a_player, t.a_char, t.a_seq + 1);
