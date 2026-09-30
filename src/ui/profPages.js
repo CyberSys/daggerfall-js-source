@@ -233,14 +233,16 @@ const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'fishing', 'l
 /** PROF8: how a haul is made, as the page says it. */
 export const FISHING_HOW = 'With a Fishing-Net in your pack, stand in water, swim, or stand at sea, by daylight. Hold the use key to wind the net and let go to throw it; when the floats dip, press it again; then hold it to raise the band over the net\'s weight and let go to lower it - keep the weight inside to fill the net. Cast toward a rising school for an extra fish.';
 /** FIELD BUGS 2026-09-30b (TOOL-SAID): how the other three gathering professions gather, as the page says it - the page
- *  said it for Hunting and Fishing alone, and players used the tools from the pack (Foraging's own gesture, no XP). */
+ *  said it for Hunting and Fishing alone, and players used the tools from the pack. TOOL-USE: a tool's Use at the node
+ *  (the hotbar's, a quick slot's) is the key's; from the pack it only points the way. */
 export const GATHER_HOW = Object.freeze({
-  herbalism: 'Walk up to an herb patch in the wilderness until the prompt shows, then press the use key: common herbs come by hand, the rest need a Sickle in your pack. With a Basket, the act choice key searches the patch for food instead. Using the Sickle from your pack is Foraging\'s own and earns no XP.',
-  mining: 'With a Pick-Axe in your pack, walk up to an ore vein or a boulder in the wilderness, or a vein in a dungeon, until the prompt shows, then press the use key. Using the Pick-Axe from your pack is Foraging\'s own and earns no XP.',
-  logging: 'With a Wood-Axe in your pack, walk up to a tree in the wilderness until the prompt shows, then press the use key. Only some trees in each area can be felled each day. Using the Wood-Axe from your pack is Foraging\'s own and earns no XP.',
+  herbalism: 'Walk up to an herb patch in the wilderness until the prompt shows, then press the use key: common herbs come by hand, the rest need a Sickle in your pack. With a Basket, the act choice key searches the patch for food instead. Using the Sickle or the Basket from your hotbar or quick slot at the patch is the same as the key - the Sickle picks the herbs, the Basket searches for food. Used from your pack, they only point the way.',
+  mining: 'With a Pick-Axe in your pack, walk up to an ore vein or a boulder in the wilderness, or a vein in a dungeon, until the prompt shows, then press the use key. Using the Pick-Axe from your hotbar or quick slot there is the same as the key. Used from your pack, it only points the way.',
+  logging: 'With a Wood-Axe in your pack, walk up to a tree in the wilderness until the prompt shows, then press the use key. Only some trees in each area can be felled each day. Using the Wood-Axe from your hotbar or quick slot there is the same as the key. Used from your pack, it only points the way.',
 });
-/** TOOL-SAID: the empty Stores say where their goods come from - a node's act, never a tool used from the pack. */
-export const STORES_EMPTY_LINE = 'Your Stores are empty. What you gather online is kept here: press the use key at an herb patch, a tree, an ore vein or a boulder, a body you felled, or in water with a net. A tool used from your pack gathers into the pack, not here.';
+/** TOOL-SAID: the empty Stores say where their goods come from - a node's act (TOOL-USE: the key's, or the tool's Use
+ *  there), never a tool used from the pack. */
+export const STORES_EMPTY_LINE = 'Your Stores are empty. What you gather online is kept here: press the use key at an herb patch, a tree, an ore vein or a boulder, a body you felled, or in water with a net - or use the Sickle, Basket, Pick-Axe, Wood-Axe or Fishing-Net from your hotbar or quick slot there. A tool used from your pack gathers nothing: it only points the way.';
 /** A craft practised in part - what raises it now (none since PROF4: Smithing's is whole). */
 const PARTLY = Object.freeze({});
 

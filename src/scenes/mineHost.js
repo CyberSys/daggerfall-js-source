@@ -221,6 +221,7 @@ export function mineKind({ book }) {
     },
     flatsOf: (n) => [{ archive: ORE_FLAT_ARCHIVE, record: mineRecord(n), scale: n.what === 'boulder' ? STONE_SCALE : VEIN_SCALE, centers: mineFlats(n) }],
     gone: (n) => book.taken(n.key, harvestOf(n)),
+    tools: Object.freeze([FT.PickAxe]),   // TOOL-USE: the Pick-Axe's Use at a vein or a boulder is E there
     plan(n, { entity, rank }) {
       const plan = minePlan({
         node: n, taken: book.taken(n.key, harvestOf(n)), counting: book.counting(n.key, harvestOf(n)), rank: rank('mining'),

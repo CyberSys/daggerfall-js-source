@@ -69,6 +69,8 @@ registerCustomItemsForGroup(foragingCustomItemsForGroup);
  * @property {(name: string) => boolean} startQuest   QuestMachine.StartQuest(QuestListsManager.GetQuest(name, 0))
  * @property {() => boolean} [professionsOpen]   TOOL-SAID: the online professions are this account's (the book is open)
  * @property {(action: string) => (string|null)} [keyLabel]   TOOL-SAID: the key an action is bound to, as the prompt says it
+ * @property {(templateIndex: number) => (false|'started'|'taken')} [professionUse]   TOOL-USE: a profession tool's Use
+ *   at a node of its own kind, as E there (scenes/gatherHost.js useTool): 'started' an act, 'taken' its need said; false none
  */
 let _host = /** @type {ForagingHost|null} */ (null);
 /** The host that owns the player answers; returns the one it replaced (a nested host restores it). */
@@ -136,40 +138,53 @@ export const foragingToolIn = (entity, templateIndex) =>
  *  notices ("Your Sickle broke." after DFU's popup). */
 export const wearForagingTool = (item, entity) => { if (item && entity) wear(item, entity.items ?? null, entity); };
 
-// FIELD BUGS 2026-09-30b (TOOL-SAID, a declared departure): "I've been chopping wood but ... the logging profession
-// [isn't] changing", "using my sickle ... I dont get any exp", "I fish, or use the axe and I get no exp ... I just
-// physically get lumber in the misc tab". Online, a tool's Use from the pack or the hotbar is Foraging's own gesture
-// (law 4) - its yields into the pack, its quest, no profession - and nothing said so. With the professions this
-// account's, the Use now says, after the mod's own words, that it earns no XP and how the profession gathers. The
-// mod's yields, lines and quests are kept (law 1); only the line is added. The Spade stays Foraging's alone (14.2).
+// FIELD BUGS 2026-09-30b (TOOL-SAID, then TOOL-USE): "I've been chopping wood but ... the logging profession [isn't]
+// changing", "using my sickle ... I dont get any exp", "I fish, or use the axe and I get no exp ... I just physically get
+// lumber in the misc tab. Is using the tools in the wilderness via use/hotkey not how you gain exp?". Online, a tool's
+// Use from the pack or the hotbar was Foraging's own gesture (FORAGE0 law 4) - its yields into the pack, its quest, no
+// profession - and TOOL-SAID only said so after the mod's words. The owner (2026-09-30): "I dont care about DFU. We're
+// our own thing now" - laws 1 and 4 give way online. TOOL-USE: while the professions are this account's, the Wood-Axe,
+// the Pick-Axe, the Sickle, the Basket and the Fishing-Net are the professions' - their Use at a node of their own kind
+// is E there (the gathering host's act, or its need), and anywhere else, or from the open pack, it gives none of the
+// mod's yields, quests or wear: it says where the profession is done. Offline and a guest's lane are the mod's 1:1; the
+// Spade stays Foraging's alone (14.2).
 
-/** TOOL-SAID: how each profession tool's own profession gathers, by the Interact key `k` and the act choice key `c`. */
+/** TOOL-SAID: how each profession tool's own profession gathers, by the Interact key `k` and the act choice key `c` -
+ *  TOOL-USE: and that the tool's Use at the node is the key's. */
 export const PROFESSION_TOOL_HOW = Object.freeze({
-  [FT.WoodAxe]: (k) => `No Logging XP from this. Logging is done at a tree in the wilderness: walk up to one until the prompt shows, then press ${k}. Only some trees can be felled each day.`,
-  [FT.PickAxe]: (k) => `No Mining XP from this. Mining is done at an ore vein or a boulder in the wilderness, or a vein in a dungeon: walk up to one until the prompt shows, then press ${k}.`,
-  [FT.Sickle]: (k) => `No Herbalism XP from this. Herbalism is done at an herb patch in the wilderness: walk up to one until the prompt shows, then press ${k}.`,
-  [FT.Basket]: (k, c) => `No Herbalism XP from this. The Basket searches an herb patch in the wilderness: walk up to one until the prompt shows, press ${c} for the Basket, then ${k}.`,
-  [FT.FishingNet]: (k) => `No Fishing XP from this. Fishing is done in water by daylight: stand in it, swim, or stand at sea until the prompt shows, then press ${k}.`,
+  [FT.WoodAxe]: (k) => `Logging is done at a tree in the wilderness: walk up to one until the prompt shows, then press ${k} (or use the Wood-Axe). Only some trees can be felled each day.`,
+  [FT.PickAxe]: (k) => `Mining is done at an ore vein or a boulder in the wilderness, or a vein in a dungeon: walk up to one until the prompt shows, then press ${k} (or use the Pick-Axe).`,
+  [FT.Sickle]: (k) => `Herbalism is done at an herb patch in the wilderness: walk up to one until the prompt shows, then press ${k} (or use the Sickle).`,
+  [FT.Basket]: (k, c) => `The Basket searches an herb patch in the wilderness for food: walk up to one until the prompt shows, then use the Basket (or press ${c} for the Basket, then ${k}).`,
+  [FT.FishingNet]: (k) => `Fishing is done in water by daylight: stand in it, swim, or stand at sea until the prompt shows, then press ${k} (or use the Fishing-Net).`,
 });
-/** TOOL-SAID: the line a Use of this tool adds - online, with the professions open, for the five profession tools;
- *  null otherwise (offline, a guest, the Spade). */
+/** TOOL-SAID: the line a Use of this tool says where no node takes it - online, with the professions open, for the
+ *  five profession tools; null otherwise (offline, a guest, the Spade: the Use is Foraging's). */
 export function professionToolLine(templateIndex) {
   const how = PROFESSION_TOOL_HOW[templateIndex];
   if (!how || !isOnlinePage() || _host?.professionsOpen?.() !== true) return null;
   return how(_host.keyLabel?.('Interact') || 'E', _host.keyLabel?.('ActChoice') || 'the act choice key');
 }
 
-/** One tool's UseItem: the checks, the yield and its box, the quest, the wear. */
+/** One tool's UseItem: the checks, the yield and its box, the quest, the wear - TOOL-USE: online, with the professions
+ *  this account's, a profession tool's Use is the professions' instead, whatever the switch says (law 6). */
 export function useForagingTool(item, collection, { entity } = {}) {
   const how = professionToolLine(item?.templateIndex);
-  // TOOL-SAID: the mod switched off, the tools are still the professions' (law 6) - the Use says how they gather
-  if (!foragingOn() && how && entity) { hudText(how); return { kind: 'foraging', refused: true, text: how }; }
+  if (how) {
+    // TOOL-USE: at a node of the tool's own kind, what E does there - the act started, or what the node needs said
+    const took = _host?.professionUse?.(item.templateIndex) ?? false;
+    if (took === 'started') return { kind: 'foraging' };
+    if (took) return { kind: 'foraging', refused: true };   // the node said why nothing started: a refusal, never gold
+    // anywhere else, or the open pack's Use (its window holds the world off): no yield, quest or wear - the way said,
+    // in the HUD (the hotbar's) and in the box (the pack's), in place of Foraging's refusal ("You cannot mine in here!")
+    hudText(how);
+    return { kind: 'foraging', refused: true, text: how };
+  }
   if (!foragingOn() || !entity) return null;
   const w = worldNow();
   const refusal = foragingRefusal(item.templateIndex, w);
   if (refusal) {
     hudText(refusal);
-    if (how) hudText(how);   // TOOL-SAID: "You cannot mine in here!" beside the vein that would take E (29h's report 2)
     return { kind: 'foraging', refused: true };   // DFU's false falls to NextVariant: nothing visible
   }
   const s = stats(entity);
@@ -204,7 +219,6 @@ export function useForagingTool(item, collection, { entity } = {}) {
     default: return null;
   }
   if (started) wear(item, collection, entity);
-  if (how) text = text ? `${text} ${how}` : how;   // TOOL-SAID: after the mod's own words, in the same box (the hotbar says it)
   return { kind: 'foraging', text };   // the box over the open inventory (ClickAnywhereToClose)
 }
 

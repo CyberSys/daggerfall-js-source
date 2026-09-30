@@ -14595,10 +14595,10 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (quest) questBridge.machine.startQuestImmediate(quest);
       return !!quest;
     },
-    // FIELD BUGS 2026-09-30b (TOOL-SAID): a tool's Use online says how its profession gathers - while the professions are
-    // this account's, and naming the keys the prompt names
+    // FIELD BUGS 2026-09-30b (TOOL-SAID, TOOL-USE): the professions this account's, the keys the prompt names, and a tool's Use at its own node E there
     professionsOpen: () => profBook?.state.open === true,
     keyLabel: (a) => { const c = getBinding(bindings(), a); return c ? tagText(c) : null; },
+    professionUse: (t) => gatherHost?.useTool(t) ?? false,   // the gathering host's act, or what the node needs
   });
   // WA1: the mod's reaches into GameManager and DaggerfallBankManager, answered by this host (systems/warmAshesShips.js)
   setWarmAshesHost({

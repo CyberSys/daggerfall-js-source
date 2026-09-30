@@ -16,7 +16,8 @@
 //   .254, the plant's item flat - no new art). A patch is gone for the
 //   day once both its harvests are (herbs and food, PROF0 5.3).
 //   THE PLAN. What E does at a patch - the herbs first while untaken, the
-//   Basket by the act choice key - or what it needs.
+//   Basket by the act choice key - or what it needs. TOOL-USE: the
+//   Sickle's Use asks the herbs, the Basket's the food, the choice unmoved.
 //   THE ACT. Foraging's checks first, with the Sickle's lines or the
 //   Basket's (FORAGE0 14.3); the machine is systems/herbAct.js; the
 //   Sickle's steady hand draws DFU's Tanto in the hand.
@@ -73,21 +74,24 @@ export function patchFlats(patch) {
 /**
  * WHAT E DOES AT A PATCH, and the prompt that says it: `{ kind, verb, rest, ready, needsRank? }` - `kind` 'herbs' or 'food'
  * (the choice key's pick, the herbs first while untaken); `ready` false with `rest` naming what is missing, and a rank
- * short the rank it needs (VEIN-NEED).
+ * short the rank it needs (VEIN-NEED). TOOL-USE: `only` - a tool's Use asks `basket`'s harvest alone (the Sickle the
+ * herbs, the Basket the food): taken, it says so, never the other harvest's act.
  * @param {{ patch: any, taken: (k: string) => boolean, counting: (k: string) => boolean, basket: boolean, rank: number,
  *   sickle: boolean, basketTool: boolean, storesFull: (key: string) => boolean, herbKeyOf: (t: number) => string,
- *   today: number, cap: number }} o
+ *   today: number, cap: number, only?: boolean }} o
  */
-export function patchPlan({ patch, taken, counting, basket, rank, sickle, basketTool, storesFull, herbKeyOf, today, cap }) {
+export function patchPlan({ patch, taken, counting, basket, rank, sickle, basketTool, storesFull, herbKeyOf, today, cap, only = false }) {
   const herbsLeft = !taken('herbs') && !counting('herbs');
   const foodLeft = !taken('food') && !counting('food');
   let kind = basket ? 'food' : 'herbs';
-  if (kind === 'herbs' && !herbsLeft && foodLeft) kind = 'food';
-  if (kind === 'food' && !foodLeft && herbsLeft) kind = 'herbs';
+  if (!only && kind === 'herbs' && !herbsLeft && foodLeft) kind = 'food';
+  if (!only && kind === 'food' && !foodLeft && herbsLeft) kind = 'herbs';
   const both = herbsLeft && foodLeft;
   const name = templateByIndex(patch.herb)?.name ?? 'the herb';
   const rankWord = `Herbalism ${rank}`;
   if (!herbsLeft && !foodLeft) return { kind, verb: `${name} - gathered today`, rest: counting('herbs') || counting('food') ? 'being counted' : '', ready: false, both: false };
+  // TOOL-USE: the tool's own harvest gone, the other left
+  if (!(kind === 'food' ? foodLeft : herbsLeft)) return { kind, verb: kind === 'food' ? 'Search with the Basket' : `Pick ${name}`, rest: counting(kind) ? 'being counted' : 'gathered today', ready: false, both };
   if (today >= cap) return { kind, verb: kind === 'food' ? 'Search with the Basket' : `Pick ${name}`, rest: `${rankWord} - ${today} of ${cap} today`, ready: false, both, full: true };
   if (kind === 'food') {
     if (!basketTool) return { kind, verb: 'Search with the Basket', rest: 'needs a Basket', ready: false, both };
@@ -125,18 +129,21 @@ export function herbKind({ book }) {
       return Number.isInteger(record) ? [{ archive: HERB_FLAT_ARCHIVE, record, scale: PATCH_SCALE, centers: patchFlats(p) }] : [];
     },
     gone: (p) => book.taken(p.key, 'herbs') && book.taken(p.key, 'food'),
+    tools: Object.freeze([FT.Sickle, FT.Basket]),   // TOOL-USE
     choose() { basketChoice = !basketChoice; },
     retarget() { basketChoice = false; },
-    plan(p, { entity, info, rank, keyLabel }) {
+    plan(p, { entity, info, rank, keyLabel, tool = null }) {
+      // TOOL-USE: the Sickle's Use asks the herbs and the Basket's the food, whatever the choice key picked - the pick unmoved
+      const only = tool === FT.Sickle ? 'herbs' : tool === FT.Basket ? 'food' : null;
       const plan = patchPlan({
-        patch: p, taken: (k) => book.taken(p.key, k), counting: (k) => book.counting(p.key, k), basket: basketChoice,
+        patch: p, taken: (k) => book.taken(p.key, k), counting: (k) => book.counting(p.key, k), basket: only ? only === 'food' : basketChoice, only: !!only,
         rank: rank('herbalism'), sickle: !!foragingToolIn(entity, FT.Sickle), basketTool: !!foragingToolIn(entity, FT.Basket),
         storesFull: (key) => book.held(key) >= (book.state.caps?.stores ?? 5000), herbKeyOf: (h) => herbKey(h, info?.region ?? 0),
         today: book.state.today?.herbalism ?? 0, cap: book.state.caps?.harvests ?? 60,
       });
       return { ...plan, harvest: plan.kind, profession: 'herbalism', alt: plan.both ? `[${keyLabel('ActChoice')}] ${plan.kind === 'food' ? 'the herbs' : 'the Basket'}` : '' };
     },
-    start(p, plan, { entity, rank }) {
+    start(p, plan, { entity, rank, tool: used = null }) {
       const common = plan.harvest === 'herbs' && p.tier === 1;
       const refusal = foragingActRefusal(plan.harvest === 'food' ? FT.Basket : FT.Sickle);
       if (refusal) return { refused: refusal };
@@ -147,6 +154,7 @@ export function herbKind({ book }) {
         act: createHerbAct({ kind, band: actBand(liveStat(entity, 'intelligence')), botanist: book.track('herbalism').specs?.[50] === 'botanist', master: r >= PROF_RANK_MAX, gentle: getPref('gentleActs') === true }),
         harvest: plan.harvest, tool, profession: 'herbalism', label: plan.harvest === 'food' ? 'tap the glint' : '',
         hand: (a) => (a.harvest === 'herbs' && a.tool ? SICKLE_HAND : null),
+        heldByUse: !!used && kind === 'steady',   // TOOL-USE: the Sickle's Use holds the steady hand - keep still, no E held
       };
     },
     cleanNote: (a) => (a.harvest === 'food' ? ' (every find)' : ' (unbruised)'),

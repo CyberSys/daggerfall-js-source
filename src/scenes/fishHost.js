@@ -241,6 +241,9 @@ export function fishKind({ book, host }) {
     },
     /** A school is never a target; the cast is gone once its haul is asked (a new one stands). */
     gone: (n) => !!n.school || book.taken(n.key, 'fish'),
+    /** TOOL-USE: the Fishing-Net's Use at the cast is E there - a tap of it: no wind held, the net flies its shortest,
+     *  and E (or attack) takes the tug. */
+    tools: Object.freeze([FT.FishingNet]),
     frame(_dt, { translation: t }) {
       translation = t;
       if (live && !live.act.state.done && tooTiredForTheWater(live.entity)) { live.act.cancel(); live = null; }   // FISH-TIRED
