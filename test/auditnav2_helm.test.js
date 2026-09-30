@@ -296,7 +296,8 @@ test('AUDIT NAV2 F20 helmWay.js\'s measured figures are the runtime\'s, like-for
 
 test('AUDIT NAV2 F31 the frame\'s gate, lifted from the world: while the guns are laid Interact - the readout\'s "E: hold fire" - holds fire as Activate does, spent before a patch or the ladder (whose naval arm grappled a struck ship with a broadside owed on the release); with nothing laid E is the ladder\'s as ever (mutants: E not the hold, the patch taking the hold\'s press)', () => {
   const start = WORLD.indexOf('        // GUN-HOLD: Activate while the guns are laid holds fire');
-  const ifLine = '        if ((_act.activate || (useEdge && !nodeTook)) && !modes.transitioning && !_holdFire) {';
+  // PIN MOVED (the merge with AUDIT 32 H5: a click mid-act is the act's)
+  const ifLine = '        if (((_act.activate && !gatherHost?.acting()) || (useEdge && !nodeTook)) && !modes.transitioning && !_holdFire) {';
   const end = WORLD.indexOf(ifLine, start);
   assert.ok(start > 0 && end > start, 'the gate is where it was');
   const cond = ifLine.trim().slice('if ('.length, -') {'.length);
