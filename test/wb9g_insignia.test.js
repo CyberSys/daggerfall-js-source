@@ -493,7 +493,12 @@ test('WB9g the Broker\'s window: under the day\'s stock, the Insignia - its head
       assert.deepEqual(ins.map((r) => r.dataset.insignia), ['title:gatebreaker', 'aura:dagonfire']);
       assert.ok(ins.every((r) => r.classList.contains('broker-offer')), 'in the wares\' own grid');
       assert.deepEqual(ins.map((r) => [r.attrs.role, r.attrs.tabindex]), [['button', '0'], ['button', '0']], 'U10: controls');
-      assert.equal(one(ins[0], 'insignia-word').textContent, 'Gatebreaker', 'the title\'s word, in its own fire');
+      // AUDIT WB9 (the shots): the row's 36 px sign cut the whole word to "tebreak" - it is the word's first letter, in its
+      // own fire, and the row's name says the word
+      assert.equal(one(ins[0], 'insignia-word').textContent, 'G', 'the title\'s first letter, in its own fire');
+      assert.ok(one(ins[0], 'insignia-word').classList.contains('mono'));
+      assert.ok(one(ins[0], 'insignia-word').style.backgroundImage.startsWith('linear-gradient('), 'painted as the title is worn');
+      assert.equal(one(ins[0], 'broker-name').textContent, 'Gatebreaker');
       assert.ok(one(ins[1], 'aura-ring').classList.contains('aura-dagonfire'), 'the aura\'s ring');
       assert.equal(one(ins[0], 'broker-price').textContent, stonesText(30));
       assert.equal(one(ins[1], 'broker-price').textContent, 'Owned');
@@ -508,6 +513,9 @@ test('WB9g the Broker\'s window: under the day\'s stock, the Insignia - its head
       assert.ok(card, 'a row pressed shows the piece\'s card');
       assert.equal(card.children.find((c) => c.tagName === 'H3').textContent, INSIGNIA_CARD.aura[0]);
       assert.equal(kids(shell, 'broker-card').length, 1, 'one card - the piece\'s, not a ware\'s');
+      const t0 = kids(shell, 'broker-insig')[0];
+      t0.onkeydown({ key: 'Enter', target: t0, preventDefault() {} });
+      assert.equal(one(one(shell, 'broker-insignia-card'), 'insignia-word').textContent, 'Gatebreaker', 'the card\'s sign says the whole word');
       // the buy: pending until the account answers
       ins = kids(shell, 'broker-insig');
       btn(ins[0]).onclick({ stopPropagation() {} });

@@ -1,0 +1,29 @@
+[
+  {
+    "name": "AUDIT-WB9-the-whole-word-in-the-row-sign",
+    "file": "src/ui/brokerWindow.js",
+    "old": "hero ? g.name : [...g.name][0] ?? ''",
+    "new": "g.name",
+    "tests": [
+      "test/wb9g_insignia.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB9-the-card-sign-a-letter",
+    "file": "src/ui/brokerWindow.js",
+    "old": "hero ? g.name : [...g.name][0] ?? ''",
+    "new": "[...g.name][0] ?? ''",
+    "tests": [
+      "test/wb9g_insignia.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB9-the-letter-sized-as-the-word",
+    "file": "src/ui/brokerWindow.js",
+    "old": "hero ? 'insignia-word' : 'insignia-word mono'",
+    "new": "'insignia-word'",
+    "tests": [
+      "test/wb9g_insignia.test.js"
+    ]
+  }
+]

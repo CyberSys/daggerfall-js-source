@@ -117,11 +117,13 @@ function classicPicture(item, wearer, onReady) {
 }
 
 /** WB9g: a piece of the insignia's sign - the title's word in its own fire, or the aura's ring turning - the row's small
- *  one, or the card's large (`hero`). */
+ *  one, or the card's large (`hero`). AUDIT WB9 (the shots): the row's sign is 36 px and the whole word ~55 px at its
+ *  8 px, so a row read "tebreak" - the row's sign is the word's first letter, large, and the row's name beside it says
+ *  the word. */
 function insigniaSign(g, hero = false) {
   const sign = el('span', `insignia-sign insig-${g.kind}${hero ? ' hero' : ''}`);
   if (g.kind === 'title') {
-    const word = el('span', 'insignia-word', g.name);
+    const word = el('span', hero ? 'insignia-word' : 'insignia-word mono', hero ? g.name : [...g.name][0] ?? '');
     paintTitle(word, titleBadge({ title: g.key }));
     sign.append(word);
   } else sign.append(el('span', `aura-ring aura-${g.key}`));

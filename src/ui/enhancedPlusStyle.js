@@ -834,6 +834,7 @@ export const BROKER_CSS = `/* ── SET7: THE SIGIL BROKER'S WINDOW (ui/brokerW
 .broker-insig.owned .broker-price { color: #f3cf86; }
 .broker-shell .insignia-sign { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; overflow: hidden; }
 .broker-shell .insignia-word { font-size: 8px; letter-spacing: 0.01em; white-space: nowrap; }
+.broker-shell .insignia-word.mono { font-size: 26px; letter-spacing: 0; line-height: 1; }   /* AUDIT WB9: the row's sign, the word's first letter */
 .broker-shell .aura-ring { display: block; width: 30px; height: 30px; border-radius: 50%;
   background: conic-gradient(from 0deg, #ff6b14, #9e0d12, #ffd152, #ff6b14, #9e0d12, #ffd152, #ff6b14);
   -webkit-mask: radial-gradient(circle, transparent 48%, #000 54%, #000 70%, transparent 76%);
