@@ -32,8 +32,15 @@
 // it will not sell a meal to a stomach too full for it. Both are asked
 // in one place, `tavernOrder`, after the gold and BEFORE the coin
 // changes hands, so a refusal never costs a coin or a minute.
+//
+// FIELD BUGS 2026-09-30 (INN-WATER): and the house fills a skin - one
+// row under the drinks header, the fountain's own law at the price of
+// the list's cheapest soft drink (`innWaterPrice`, `tavernWater`),
+// refused in `tavernOrder` with the rest.
 import { NEED } from './needs.js';
 import { HARD_RULES } from './difficulty.js';
+import { isWaterskin, waterIn, WATERSKIN_CAPACITY_KG } from './food.js';
+import { drinkAtSource } from './items.js';   // INN-WATER: the fountain's own law, filled at the bar
 
 /** The mod's six keys, by the port's climate (temperature.js's indices 224-233). */
 export const MENU_KEY_BY_CLIMATE = Object.freeze({
@@ -141,12 +148,33 @@ export const TAVERN_MENU_TEXT = Object.freeze({
   fullForMeal: 'You are too full to eat a meal yet.',   // AUDIT SURV-TIERS: the tier without the wasted meal
   noGold: 'You do not have enough gold.',
   drinksHeader: '--- Drinks ---',
+  // INN-WATER: the row, and the house's two refusals before the coin
+  water: 'Fill your waterskins',
+  noSkin: 'You carry no waterskin.',
+  skinsFull: 'Your waterskins are full.',
 });
+
+/**
+ * FIELD BUGS 2026-09-30 (INN-WATER; #bug-reports, "Climates & Calories
+ * Bugs": "Waterskins should be refillable at an inn/tavern. ... since
+ * water is rare in some regions like Sentinel, but inns are plentiful,
+ * this should be added"): THE HOUSE FILLS A SKIN. A skin filled only at
+ * a fountain, a well or a trough, and a desert town may stand none in
+ * reach while every street has an inn. Every menu carries a row now,
+ * under the drinks header, priced at the list's cheapest soft drink -
+ * water costs what the milk or the tea costs - and at its cheapest drink
+ * when it pours no soft one. A declared departure (Port-Ledger A): the
+ * mod's menus sell no water.
+ */
+export function innWaterPrice(drinks) {
+  const soft = drinks.filter((k) => DRINK_STRENGTH[drinkKind(k.name)] === 0);
+  return Math.min(...(soft.length ? soft : drinks).map((k) => k.price));
+}
 
 /**
  * The menu as the picker shows it: the food (breakfast in the morning,
  * the tier's list otherwise), a header, the drinks. `hour` 0-23.
- * Returns { rows: [{ text, kind: 'food'|'drink'|'header', name, price, worth, strength }], closed, closedText }.
+ * Returns { rows: [{ text, kind: 'food'|'drink'|'header'|'water', name, price, worth, strength }], closed, closedText }.
  */
 export function tavernMenu({ climateIndex = 232, quality = 5, hour = 12 } = {}) {
   const key = menuKeyFor(climateIndex), tier = menuTier(quality);
@@ -156,6 +184,8 @@ export function tavernMenu({ climateIndex = 232, quality = 5, hour = 12 } = {}) 
   const rows = [];
   if (!closed) for (const f of FOOD_MENUS[key][list]) rows.push({ text: `${String(f.price).padStart(2)} gold   ${f.name}`, kind: 'food', name: f.name, price: f.price, worth: MEAL_WORTH[list] });
   rows.push({ text: TAVERN_MENU_TEXT.drinksHeader, kind: 'header', name: null, price: 0 });
+  const water = innWaterPrice(drinkMenuFor(key)[tier]);   // INN-WATER: first under the header, the kitchen shut or open
+  rows.push({ text: `${String(water).padStart(2)} gold   ${TAVERN_MENU_TEXT.water}`, kind: 'water', name: TAVERN_MENU_TEXT.water, price: water });
   for (const k of drinkMenuFor(key)[tier]) rows.push({ text: `${String(k.price).padStart(2)} gold   ${k.name}`, kind: 'drink', name: k.name, price: k.price, strength: DRINK_STRENGTH[drinkKind(k.name)] });
   return { rows, closed, closedText, key, tier, list };
 }
@@ -179,12 +209,27 @@ export function tavernPour(s, strength, { endurance = 50, rules = HARD_RULES } =
 /** AUDIT SURV-TIERS: whether the house serves this row at all - both windows ask it after the gold and BEFORE the
  *  coin changes hands. A drink is the pour's question (tavernPour). A meal on a stomach too full for it (the
  *  hunger under the meal's worth - tavernEat's own test) is Hard's to sell: TavernFood charges it, passes the half
- *  hour and wastes it, the mod's quirk kept (`wastedMeal`). A tier without the waste will not sell it. Never
- *  touches the record. */
-export function tavernOrder(s, now, row, { endurance = 50, rules = HARD_RULES } = {}) {
+ *  hour and wastes it, the mod's quirk kept (`wastedMeal`). A tier without the waste will not sell it. INN-WATER:
+ *  the water is the skins' question (innWaterOrder), off `items`, the player's pack. Never touches the record. */
+export function tavernOrder(s, now, row, { endurance = 50, rules = HARD_RULES, items = null } = {}) {
   if (row?.kind === 'drink') return tavernPour(s, row.strength, { endurance, rules });
+  if (row?.kind === 'water') return innWaterOrder(items);
   if (row?.kind === 'food' && !(rules ?? HARD_RULES).wastedMeal && now - (s?.lastAte ?? now) < (row.worth ?? 0)) return { ok: false, text: TAVERN_MENU_TEXT.fullForMeal };
   return { ok: true };
+}
+/** INN-WATER: whether the barkeep has a skin to fill - asked in `tavernOrder` with the drink and the meal, so it is
+ *  refused before the coin. `items` is the player's pack; a skin is full as food.js reads one (refillSkins: no room
+ *  left under the capacity), and every skin full is nothing to fill. Every tier refuses alike. */
+function innWaterOrder(items) {
+  const skins = (items ?? []).filter(isWaterskin);
+  if (!skins.length) return { ok: false, text: TAVERN_MENU_TEXT.noSkin };
+  if (skins.every((i) => WATERSKIN_CAPACITY_KG - waterIn(i) <= 0)) return { ok: false, text: TAVERN_MENU_TEXT.skinsFull };
+  return { ok: true };
+}
+/** INN-WATER: the fill is the fountain's own law (items.js drinkAtSource) - every skin the player carries filled, the
+ *  thirst quenched, the fountain's own words - and, as at the fountain, no time passes. */
+export function tavernWater(entity, now) {
+  return { text: drinkAtSource(entity, now).text, minutes: 0 };
 }
 /** TavernDrink: the thirst quenched, the counter up by the strength; the word by the endurance bands; past it, the
  *  blackout - in a tier that has one (`rules.blackout`; Hard's when no rules).
