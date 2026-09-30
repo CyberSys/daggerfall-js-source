@@ -156,8 +156,8 @@
   {
     "name": "FORAGE1-18-a-refusal-wears-the-tool",
     "file": "src/systems/foragingInstall.js",
-    "old": "    hudText(refusal);\n    return { kind: 'foraging', refused: true };",
-    "new": "    hudText(refusal);\n    wear(item, collection, entity);\n    return { kind: 'foraging', refused: true };",
+    "old": "    if (how) hudText(how);   // TOOL-SAID: \"You cannot mine in here!\" beside the vein that would take E (29h's report 2)\n    return { kind: 'foraging', refused: true };",
+    "new": "    if (how) hudText(how);   // TOOL-SAID: \"You cannot mine in here!\" beside the vein that would take E (29h's report 2)\n    wear(item, collection, entity);\n    return { kind: 'foraging', refused: true };",
     "tests": [
       "test/forage2_tools.test.js"
     ]
