@@ -147,7 +147,8 @@ test('GUN-HOLD: Activate while the guns are laid holds fire - the aim put down, 
 });
 
 test('GUN-HOLD: the world gives Activate to the hold first - before the click casts a readied spell or the helm\'s ladder boards, heaves to or opens the yard; the attack\'s own order is the cast law\'s (a readied spell takes the press, NAV-H\'s)', () => {
-  assert.match(WORLD, /const _holdFire = \(_act\.activate \|\| _act\.cast\) && !!naval\?\.aiming && naval\.holdFire\(\);\n\s+if \(_act\.cast && !_holdFire && !gatherHost\?\.acting\(\)\) magic\.interceptAttack\(true\);/);
+  // PIN MOVED (AUDIT NAV2 F31): Interact - the readout's "E: hold fire" - holds it too, read before the hold
+  assert.match(WORLD, /const useEdge = !travelView\?\.active && pressed\(latch\.edge, keys, 'Interact'\);[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*const _holdFire = \(_act\.activate \|\| _act\.cast \|\| useEdge\) && !!naval\?\.aiming && naval\.holdFire\(\);\n\s+if \(_act\.cast && !_holdFire && !gatherHost\?\.acting\(\)\) magic\.interceptAttack\(true\);/);
   assert.match(WORLD, /if \(\(_act\.activate \|\| \(useEdge && !nodeTook\)\) && !modes\.transitioning && !_holdFire\) \{/);
   assert.match(WORLD, /if \(magic\.interceptAttack\(true\)\) return; if \(naval\?\.attackInput\(true\)\) return; weaponRig\.attackInput\(0, 0, true\);/, 'the mouse: the cast law first, then the guns');
 });

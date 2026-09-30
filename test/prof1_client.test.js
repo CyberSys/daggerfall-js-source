@@ -377,7 +377,7 @@ test('PROF1 keys and hosts: the act choice is KB1\'s, on ;, in a Professions gro
   // PROF2: the herb host became the one gathering host (src/scenes/gatherHost.js) - Herbalism a kind in it
   assert.match(w, /gatherHost\?\.onBuilt\(built\.get\(key\)\);/);
   assert.match(w, /gatherHost\?\.onDestroyed\(p\);[^\n]*\n\s*for \(const b of p\.batches\) renderer\.destroyBatch\(b\);/, 'forgotten before the pixel frees its batches');
-  assert.match(w, /const nodeTook = useEdge && !modes\.transitioning && \(gatherHost\?\.press\(\) \?\? false\);[^\n]*\n\s*if \(\(_act\.activate \|\| \(useEdge && !nodeTook\)\) && !modes\.transitioning(?: && !_holdFire)?\) \{/);
+  assert.match(w, /const nodeTook = useEdge && (?:!_holdFire && )?!modes\.transitioning && \(gatherHost\?\.press\(\) \?\? false\);[^\n]*\n\s*if \(\(_act\.activate \|\| \(useEdge && !nodeTook\)\) && !modes\.transitioning(?: && !_holdFire)?\) \{/);   // PIN MOVED (AUDIT NAV2 F31): E that held fire is spent - no patch takes it
   assert.match(w, /if \(!townTalk\.overlayActive && act === 'Escape' && gatherHost\?\.cancel\(\)\) \{ e\.preventDefault\(\); e\.profActEnded = true; return true; \}/);
   assert.match(w, /actTool: \(\) => gatherHost\?\.handTool\(\) \?\? null,/);
   assert.equal((w.match(/gatherHost\?\.acting\(\)/g) ?? []).length, 6, 'the mouse, the drag, the key and the finger never swing through an act - the dungeon\'s swing asks it (PROF2), and the street\'s readied spell (AUDIT 29 D2)');

@@ -129,7 +129,7 @@
   {
     "name": "GUN-HOLD-world-no-hold",
     "file": "src/scenes/world.js",
-    "old": "const _holdFire = (_act.activate || _act.cast) && !!naval?.aiming && naval.holdFire();",
+    "old": "const _holdFire = (_act.activate || _act.cast || useEdge) && !!naval?.aiming && naval.holdFire();",
     "new": "const _holdFire = false;",
     "tests": [
       "test/deckfield.test.js"

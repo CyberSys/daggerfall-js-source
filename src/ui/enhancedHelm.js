@@ -283,16 +283,21 @@ export function drawEnhancedHelm(state = {}, hooks = {}, { doc = globalThis.docu
 /**
  * HELM-KEYS (2026-09-29, the player: "make the ship controls more intuitive instead of a bunch of buttons and key
  * binds"): the bar's line under its name - in irons, how she comes out (the key that strikes sail and the one that
- * rows); else, on a keyboard, the helm's whole hand at a glance - the sails on the arrows, the rudder on the turn keys -
- * and while the look holds the mouse, how to free it for the buttons. A finger reads the buttons themselves. Every key
- * is the one bound now (`keyOf`); one bound to nothing is left out.
+ * rows - under the responsive helm the rudder's keys first, AUDIT NAV2 F18); else, on a keyboard, the helm's whole
+ * hand at a glance - the sails on the arrows, the rudder on the turn keys - and while the look holds the mouse, how to
+ * free it for the buttons. A finger reads the buttons themselves. Every key is the one bound now (`keyOf`); one bound
+ * to nothing is left out.
  * @param {any} h - helmPanelState() @param {{ touch?: boolean, mouseFree?: boolean, freeKey?: string, keyOf?: (a: string) => string }} state
  */
 export function helmHint(h, state = {}) {
   const key = (a) => (state.touch ? '' : (state.keyOf?.(a) ?? ''));
   if (h.inIrons) {
     const strike = key(A.less), row = key('MoveForwards');
-    return `In irons - strike sail${strike ? ` (${strike})` : ''} and row her round${row ? ` (${row})` : ''}`;
+    const oars = `strike sail${strike ? ` (${strike})` : ''} and row her round${row ? ` (${row})` : ''}`;
+    if (!h.responsive) return `In irons - ${oars}`;
+    // AUDIT NAV2 F18: the responsive helm's rudder answers at rest (HELM-WAY) - the helm alone brings her off the wind
+    const steer = [key('TurnLeft'), key('TurnRight')].filter(Boolean).join(' ');
+    return `In irons - put the helm over${steer ? ` (${steer})` : ''}, or ${oars}`;
   }
   if (state.touch) return '';
   const pair = (label, a, b) => (key(a) || key(b) ? `${label} ${[key(a), key(b)].filter(Boolean).join(' ')}` : '');

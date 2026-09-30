@@ -133,7 +133,8 @@
 //   sailRefused() -> text | null                  why no sail will set (RaiseSails refuses with it)
 //   brake() -> m/s^2 | 0                          a heave-to's brake: her way comes off at this, whatever her own rate
 //   HELM-WAY (the port's; optional - none handed is the mod to the letter):
-//   handling() -> 'responsive' | 'classic'        the Features row's Ship handling (systems/helmWay.js)
+//   handling() -> 'responsive' | 'classic'        the Features row's Ship handling (systems/helmWay.js) - taken once a
+//                                                 helm, at StartSailing (AUDIT NAV2 F14)
 // }
 
 import { Boat, setLights, HULL_NAMES, HULL_PRICES, HULL_WEIGHTS, CARGO_CONTAINER_IMAGE, TRIGGER_MODEL, goModelName, meshLocalBounds, colliderBounds, animatorOf, boatAnimators, boatParticleSystems, nodeOf, AUDIO_CLIPS, SAIL_ANIMATION_SPEED } from './comeSailAwayBoat.js';
@@ -280,13 +281,16 @@ export const BOAT_ACTIONS = Object.freeze({
   sailUp: 'BoatSailUp', sailDown: 'BoatSailDown',
 });
 /** HELM-KEYS (the port's, DECLARED): a helm IN IRONS - her sails up, her bow within IRONS_TELL_DEG of the wind's eye and
- *  her way under IRONS_TELL_WAY m/s for IRONS_TELL_S running: the sails cannot draw and the rudder cannot turn a hull
- *  that makes no way, so the helm is told once how she comes out (IRONS_TEXT) - and the panel says it while it lasts
- *  (helmPanelState). The dwell: a sail just raised, or a tack through the wind's eye, is not lying in irons. */
+ *  her way under IRONS_TELL_WAY m/s for IRONS_TELL_S running: the sails cannot draw and the mod's rudder cannot turn a
+ *  hull that makes no way, so the helm is told once how she comes out (IRONS_TEXT) - and the panel says it while it lasts
+ *  (helmPanelState). The dwell: a sail just raised, or a tack through the wind's eye, is not lying in irons. AUDIT NAV2
+ *  F18: the responsive helm's rudder answers at rest (HELM-WAY's steerage) - a Small Ship's helm alone brings her
+ *  IRONS_TELL_DEG off the eye in some ten seconds - so it is told to put the helm over first (IRONS_HELM_TEXT). */
 export const IRONS_TELL_DEG = 40;
 export const IRONS_TELL_WAY = 0.4;
 export const IRONS_TELL_S = 2;
 export const IRONS_TEXT = 'In irons - the wind is dead ahead. Strike sail and row her round.';
+export const IRONS_HELM_TEXT = 'In irons - the wind is dead ahead. Put the helm over, or strike sail and row her round.';
 /** The C#'s field initializers (262-276): the oars' and the sails' speeds, accelerations and turns. */
 export const HANDLING = Object.freeze({
   moveSpeedOar: 2, moveSpeedSail: 2, moveAccelOar: 1, moveAccelSail: f(0.2),
@@ -622,7 +626,13 @@ export function createComeSailAwayRuntime(deps) {
     return f(f(f(f(HANDLING.moveSpeedSail * handlingMod('SailMoveSpeed')) * state.boatCargoMod) * f(b.modifierMoveSpeedSail)) * hurt);
   }
   /** HELM-WAY: the responsive helm is the host's to hand (`deps.handling`); none handed is the mod to the letter. */
-  const responsive = () => !!deps.handling && isResponsive(deps.handling());
+  const handed = () => !!deps.handling && isResponsive(deps.handling());
+  // AUDIT NAV2 F14: the hand is taken ONCE A HELM SESSION - at StartSailing, let go when she stops sailing (off a helm it
+  // is read as it stands) - so a change takes the next helm. Read live, a Carrack under way when it turned Classic
+  // weighed the mod's hold of 0 at the next magic round (UpdateBoatCargoMod), every rate times it: her way and her swing
+  // kept for good, no sail, oar or rudder to take them off.
+  let helmHanded = null;
+  const responsive = () => helmHanded ?? handed();
   /** moveAccel: the rate below - or, while the sea fight brakes her (AUDIT NAV1, the helm: a heave-to), its own
    *  `brake` (m/s^2, the port's seam; the mod has none), whatever her own rate: a heave-to's brake is the sea fight's
    *  number, not a multiple of a rate the Ship handling choice moves. */
@@ -842,6 +852,7 @@ export function createComeSailAwayRuntime(deps) {
     deps.helm.setPlayerPosition(boat.DrivePosition.position);
     // smoothFollowerLerpSpeed = 250 - the port's eye rides the body (declared)
     boat.MapPixel = deps.currentMapPixel();
+    helmHanded = handed();   // AUDIT NAV2 F14: this helm's Ship handling, kept until she stops sailing
     UpdateBoatCargoMod(boat);
     UpdateCurrentBoatNodes();
     boat.IdleObject?.setActive(false);
@@ -866,6 +877,7 @@ export function createComeSailAwayRuntime(deps) {
     state.TurnCurrent = 0;
     state.TurnTarget = 0;
     state.lastWeight = 0;
+    helmHanded = null;   // AUDIT NAV2 F14: the next helm takes the Ship handling as it stands then
     boat.MapPixel = deps.currentMapPixel();
     ResetTimeScale();
     boat.ActiveObject?.setActive(false);
@@ -1114,7 +1126,9 @@ export function createComeSailAwayRuntime(deps) {
   function inIrons(b) {
     if (state.sailPosition === 0 || b.Sails.length < 1) return false;
     const toWind = Math.abs(vSignedAngle(flat(forwardOf(b.GameObject)), flat(state.windVectorCurrent), V_UP));   // the wind blows TO: 180 is dead into it
-    return toWind >= 180 - IRONS_TELL_DEG && vMagnitude(state.velocityCurrent) < IRONS_TELL_WAY;
+    // AUDIT NAV2 F15: her way THROUGH THE WATER - velocityCurrent carries the sea's current too (half the wind with the
+    // waves on, the mod's default), which held a hull lying head to wind over IRONS_TELL_WAY: never told
+    return toWind >= 180 - IRONS_TELL_DEG && vMagnitude(state.MoveVectorCurrent) < IRONS_TELL_WAY;
   }
   /** Update's manual trim (4370-4410): the brackets turn the fore-and-aft booms to 90 each way, or the square ones
    *  to 45 (with the modifier, or on a boat with neither lateen nor gaff), at 15 degrees a second; every boom set. */
@@ -1283,7 +1297,7 @@ export function createComeSailAwayRuntime(deps) {
     // HELM-KEYS: in irons IRONS_TELL_S running, the helm told once how she comes out (again once she has been out of them)
     const irons = inIrons(boat);
     state.ironsFor = irons ? f(state.ironsFor + dt()) : 0;
-    if (state.ironsFor >= IRONS_TELL_S && !state.ironsTold) { state.ironsTold = true; deps.hudText(IRONS_TEXT); }
+    if (state.ironsFor >= IRONS_TELL_S && !state.ironsTold) { state.ironsTold = true; deps.hudText(responsive() ? IRONS_HELM_TEXT : IRONS_TEXT); }   // AUDIT NAV2 F18: the responsive rudder answers at rest
     else if (!irons) state.ironsTold = false;
     if (deps.input?.started?.(BOAT_ACTIONS.disembark) || deps.input?.started?.('Transport')) StopSailingDelayed();
     if (deps.input?.started?.(BOAT_ACTIONS.toggleLight)) setLights(boat, !boat.LightOn);
@@ -2755,8 +2769,12 @@ export function createComeSailAwayRuntime(deps) {
         manualTrim: !trimAuto(), squareOnly: !foreAft,
         // HELM-KEYS: whether more sail can be made (a sail stowed that the arrows' step raises), and whether she lies in irons
         moreSail: boat.Sails.length > 0 && (state.sailPosition === 0 || (squareHandled(boat) && squareStowed(boat))), inIrons: inIrons(boat) && state.ironsFor >= IRONS_TELL_S,
+        responsive: responsive(),   // AUDIT NAV2 F18: whose rudder she answers - the in-irons line's advice
       };
     },
+    /** AUDIT NAV2 F14 x F16: whether the helm is the responsive one (HELM-WAY) - this helm's word while one is taken,
+     *  else the hand's as it stands: the Overworld's crossing asks it of a boat (scenes/world.js tvSeaCrosses). */
+    helmResponsive: () => responsive(),
     StartPlacing, StopPlacing,
     PlaceBoat, PlaceBoatOnTerrain, PlaceBoatAtMapPixel, RepositionBoat, RepositionBoatAtMapPixel,
     PlaceBoatAtRayHit, PlaceBoatAtRayHitArgs,

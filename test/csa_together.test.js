@@ -697,7 +697,7 @@ test('CSA-L: the host\'s helm seam - the panel\'s and the pad\'s presses reach t
   const keys = new Set(), latch = { edge: { downFrame: new Set() } };
   let atHelm = false;   // HELM-KEYS: whether the turn keys are the rudder's (scenes/world.js helmTurnKeys)
   Object.assign(scope, { ...api, keys, latch, held: (k, a) => k.has(a), pressed: (e, k, a) => e.downFrame.has(a), HELM_RUDDER_ACTIONS, helmTurnKeys: () => atHelm });
-  const input = cut(WORLD, '      has: (action) => held(keys, action) ||', '\n') + cut(WORLD, '      started: (action) => pressed(latch.edge, keys, action) ||', '\n');
+  const input = cut(WORLD, '      has: (action) => held(keys, action) ||', '\n') + cut(WORLD, '      started: (action) => (pressed(latch.edge, keys, action) &&', '\n');   // PIN MOVED (AUDIT NAV2 F17): the sail keys' press gated by the travel view (test/auditnav2_helm.test.js)
   const { has, started } = mount(scope, `const __i = { ${input} };`, '__i');
   api.csaHelmPress('BoatToggleSail', 'BoatTrimModifier');
   assert.equal(started('BoatToggleSail'), true, 'the tap is the action\'s edge');
@@ -734,6 +734,6 @@ test('CSA-L: the host\'s helm seam - the panel\'s and the pad\'s presses reach t
   assert.match(WORLD, /csaDrawHelmPanel\(\);[^\n]*\n\s+spoilsRecoverFrame\(\);[^\n]*\n\s+if \(onlineOn && playerSpawned\) \{ if \(!online\) onlineStart\(\); onlineFrame\(now, dt\); \}/);
   const draw = cut(WORLD, 'function csaDrawHelmPanel() {', '\n  }\n');
   assert.match(draw, /if \(!csaRuntime \|\| !csaOn\(\) \|\| !isEnhancedPlus\(\) \|\| typeof document === 'undefined' \|\| !walkMode\) \{ if \(enhancedHelmMounted\(\)\) hideEnhancedHelm\(\); csaHelmInput\.held\.clear\(\); return; \}/);
-  assert.match(draw, /covered: townTalk\.hudCovered \|\| \(modes\?\.hudCovered \?\? false\) \|\| gamePaused\(\) \|\| !hudRenderEnabled\(\),/);
+  assert.match(draw, /covered: townTalk\.hudCovered \|\| \(modes\?\.hudCovered \?\? false\) \|\| gamePaused\(\) \|\| !hudRenderEnabled\(\) \|\| !!travelView\?\.active,/);   // PIN MOVED (AUDIT NAV2 F17): and under the travel view, where a journey holds the helm
   assert.match(WORLD, /up: \(\) => !!\(csaRuntime\?\.isSailing\(\) && csaOn\(\) && isEnhancedPlus\(\)\),\n\s+gesture: \(dir, kind\) => \{ let r = false; csaCall\(\(\) => \{ r = helmPadGesture\(dir, kind, csaRuntime\?\.helmPanelState\(\) \?\? null, \{ press: csaHelmPress, hold: csaHelmHold \}\); \}\); return r; \},/);
 });
