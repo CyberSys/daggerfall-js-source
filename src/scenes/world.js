@@ -3950,17 +3950,19 @@ export async function bootWorld(canvas, renderer, params, status) {
     // awaited between it and built.set - a sweep during the build has
     // cleared it, so a stale roll never stands in the new world.
     const dwResult = dwNear ? await dwNear.catch(() => null) : undefined;   // DW-B: before the carry, which nothing may await past (AUDIT BRANCH (WoD) m4)
+    // SEAT1a (Seats-Arc 3.4): a seat town's banner anchors - its palace's door, its gates, its rumour boards - measured
+    // where it is built (scenes/seatBanners.js); hung while the seats are open to this account
+    // (BOUNTY1's split of the boards through its one memo, AUDIT 28 H8 - and kept on the pixel, so it is never worked out again)
+    const pixelBoardSplit = dfLocation && locBlocks && seatAtMapId(townSeats, dfLocation.mapTableData?.mapId) ? boardSplitOf({ boards: pixelBoards }) : null;
+    const seatAnchors = pixelBoardSplit ? seatBannerAnchors({
+      frames: pixelHomeFrames, palaceKeys: palaceKeysOf(locBlocks, makeBuildingKey),
+      gates: pixelGates.map((g) => ({ local: g.local, box: g.entry?._box })), boards: pixelBoards, bounty: pixelBoardSplit,
+      centre: townCentreOf(pixelHomeFrames),
+    }) : null;
     const wodKept = adoptWodCarry(key, wodSpawners, privateersHold);
     const wodLife = wodKept.life ?? {};   // L1-3: this terrain's identity - kept across a rebuild or a pool, new on a promote
     if (!wodKept.life) wodForgetPeerSites(key);   // AUDIT WOD7: a fresh promote's markers are its own again
     if (_building.get(key) === made) _building.delete(key);   // BUILD-FAIL1: the entry owns them from here
-    // SEAT1a (Seats-Arc 3.4): a seat town's banner anchors - its palace's door, its gates, its rumour boards - measured
-    // where it is built (scenes/seatBanners.js); hung while the seats are open to this account
-    const seatAnchors = dfLocation && locBlocks && seatAtMapId(townSeats, dfLocation.mapTableData?.mapId) ? seatBannerAnchors({
-      frames: pixelHomeFrames, palaceKeys: palaceKeysOf(locBlocks, makeBuildingKey),
-      gates: pixelGates.map((g) => ({ local: g.local, box: g.entry?._box })), boards: pixelBoards, bounty: questBoardIndices(pixelBoards),
-      centre: townCentreOf(pixelHomeFrames),
-    }) : null;
     built.set(key, {
       staticBatch,   // PERF4: the merged static models, drawn with the pixel matrix; null when the pixel has none
       // AUDIT-TO1 B2: DaggerfallTerrain.MapData.locationRect - the tile
@@ -3973,6 +3975,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       _lookV: homeLookRead,   // HOME-LOOK (AUDIT)
       homeFrames: pixelHomeFrames, homeRegion: dfLocation?.regionIndex ?? 0,   // HOME-YARD: each building's frame, and the town's region (a yard's pieces are paid there)
       seatAnchors,   // SEAT1a: where a seat town's banners hang (null for a town that is no seat)
+      ...(pixelBoardSplit ? { _boardSplit: pixelBoardSplit } : {}),   // SEAT1a: BOUNTY1's split, worked out once at the build
       px, py, terrain, water, tilemapTex, tilemap, groundArchive, models, windmills, batches, flatAnims, texRemap, lights: pixelLights, hearths: pixelHearths, animals: pixelAnimals, springs: pixelSprings, skyBase: climate.skyBase, samples, natureCount: nature.length,
       tilemapBytes, season,   // GR1: the placer reads the tiles and the season
       paths,   // GRASS-PATH1: which tiles the road painter wrote; null on a pixel built before the network arrived

@@ -257,8 +257,9 @@ test('SEAT1a the hosts by source: the boot pass derives the seats over the hubs\
   assert.match(w, /const seatHere = \(mapId\) => \(seatBook\?\.open === true \? seatAtMapId\(townSeats, mapId\) : null\);/);
   assert.match(w, /if \(seat\) \{ townTalk\.say\(seatArrivalLine\(seat\), 5\); seatBook\.witness\(seat\); \}\n\s*else if \(hub\) townTalk\.say\(hubArrivalLine\(hub\), 5\);/);
   assert.match(w, /seatAt: seatBook \? \(summary\) => seatHere\(summary\?\.mapID \?\? summary\?\.mapId\) : null,/);
-  assert.match(w, /const seatAnchors = dfLocation && locBlocks && seatAtMapId\(townSeats, dfLocation\.mapTableData\?\.mapId\) \? seatBannerAnchors\(\{/);
-  assert.match(w, /boards: pixelBoards, bounty: questBoardIndices\(pixelBoards\),/);
+  assert.match(w, /const seatAnchors = pixelBoardSplit \? seatBannerAnchors\(\{/);
+  assert.match(w, /boards: pixelBoards, bounty: pixelBoardSplit,/);
+  assert.match(w, /const pixelBoardSplit = dfLocation && locBlocks && seatAtMapId\(townSeats, dfLocation\.mapTableData\?\.mapId\) \? boardSplitOf\(\{ boards: pixelBoards \}\) : null;/, 'BOUNTY1\'s split through its one memo (AUDIT 28 H8)');
   assert.match(w, /if \(isBulletinBoard\(placed\.modelIdNum\)\) pixelBoards\.push\(\{ box, local \}\);/);
   assert.match(w, /const all = \[\.\.\.\(hallBanners\?\.list\(\) \?\? \[\]\), \.\.\.\(seatBanners\?\.list\(\) \?\? \[\]\)\];/);
   assert.match(w, /const hung = bannersHung\(\);/);

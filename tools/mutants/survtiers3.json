@@ -432,12 +432,12 @@
   {
     "name": "SURVTIERS3-the-kit-cite-world-seed-rots",
     "file": "src/systems/equip.js",
-    "old": "(world.js:5007, exterior.js:1300)",
-    "new": "(world.js:5006, exterior.js:1300)",
+    "old": "(world.js:5033, exterior.js:1300)",
+    "new": "(world.js:5032, exterior.js:1300)",
     "tests": [
       "test/citedrift.test.js"
     ],
-    "note": "THE GUILD1d AUDIT'S MERGE (PIN MOVED): re-aimed by content to the cite the merge's citeMerge moved (main's #478/#481 and GUILD1d together); THE PROF7 MERGE's before it."
+    "note": "SEAT1a (PIN MOVED): re-aimed by content to the cite the slice's citeShift moved; THE GUILD1d AUDIT'S MERGE's before it."
   },
   {
     "name": "SURVTIERS3-the-gear-cite-equip-seed-rots",
@@ -451,12 +451,12 @@
   {
     "name": "SURVTIERS3-the-gear-cite-world-seed-rots",
     "file": "src/systems/startingGear.js",
-    "old": "world.js:5007 and exterior.js:1300 seed it",
-    "new": "world.js:5006 and exterior.js:1300 seed it",
+    "old": "world.js:5033 and exterior.js:1300 seed it",
+    "new": "world.js:5032 and exterior.js:1300 seed it",
     "tests": [
       "test/citedrift.test.js"
     ],
-    "note": "THE GUILD1d AUDIT'S MERGE (PIN MOVED): re-aimed by content to the cite the merge's citeMerge moved (main's #478/#481 and GUILD1d together); THE PROF7 MERGE's before it."
+    "note": "SEAT1a (PIN MOVED): re-aimed by content to the cite the slice's citeShift moved; THE GUILD1d AUDIT'S MERGE's before it."
   },
   {
     "name": "SURVTIERS3-the-exterior-cite-equip-guard-rots",
