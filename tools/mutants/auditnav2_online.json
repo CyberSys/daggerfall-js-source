@@ -196,5 +196,14 @@
     "tests": [
       "test/auditnav2_online.test.js"
     ]
+  },
+  {
+    "name": "AUDIT-NAV2-F4-rider-unsized",
+    "file": "src/scenes/navalHost.js",
+    "old": "      if (p && p.hull != null) {\n        const self = peerSelf.get(p.id), share = self?.me?.hull ?? 1;",
+    "new": "      if (false) {\n        const self = peerSelf.get(p.id), share = self?.me?.hull ?? 1;",
+    "tests": [
+      "test/auditnav2_online.test.js"
+    ]
   }
 ]

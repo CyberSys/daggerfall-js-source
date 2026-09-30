@@ -22,7 +22,7 @@ import {
   CREW_SHOWN, PLAYER_CREW, CREW_TALKS, CHANTIES, CREW_BLURBS, CREW_BLURB_S, CREW_LINE_S, CREW_HURRY, CREW_WALK, CREW_BLOCKED_S,
 } from '../src/systems/naval/crewLife.js';
 import { createNavalCrew, peopleFlatsOf, mainLevel, CREW_RANGE, CREW_KEEP } from '../src/scenes/navalCrew.js';
-import { buildDeck, intoDeck, outOfDeck, DECK_STEP } from '../src/systems/naval/navalDeck.js';
+import { buildDeck, intoDeck, outOfDeck, DECK_STEP, DECK_HEADROOM } from '../src/systems/naval/navalDeck.js';
 import { boxColliderTriangles } from '../src/world/prefabColliders.js';
 import { musterOf, MOBILE, CREW_PER_HAND, GRAPPLE_S, HAND } from '../src/systems/naval/navalBoarding.js';
 import { classById } from '../src/systems/naval/navalShips.js';
@@ -342,12 +342,13 @@ test('LIVING CREW THE LANDING AND THE RAIL, lifted from the world host over the 
   const boat = smallShip();
   const line = (start) => { const i = WORLD.indexOf(start); assert.ok(i >= 0, start); return WORLD.slice(i, WORLD.indexOf('\n', i) + 1); };
   const fn = (name) => { const m = new RegExp(`\\n  function ${name}\\([^)]*\\) \\{\\n[\\s\\S]*?\\n  \\}\\n`).exec(WORLD); assert.ok(m, name); return m[0]; };
-  const body = `const { intoDeck, outOfDeck, csa, raycastColliders, csaColliderMesh } = s;
+  // PIN MOVED (AUDIT NAV2 F33): the deck point's ray starts under her deck's headroom - DECK_HEADROOM in the lifted scope
+  const body = `const { intoDeck, outOfDeck, DECK_HEADROOM, csa, raycastColliders, csaColliderMesh } = s;
     ${line('  const navalDeckToWorld = (boat, p, out) =>')}${line('  const navalWorldToDeck = (boat, p, out) =>')}${line('  const NAVAL_RAIL_GAP =')}
     ${fn('navalDeckPoint')}${fn('navalDeckLanding')}${fn('navalRailSpots')}
     return { navalDeckLanding, navalRailSpots };`;
   // eslint-disable-next-line no-new-func
-  const w = new Function('s', body)({ intoDeck, outOfDeck, csa: { deckOf: () => deck }, raycastColliders: () => null, csaColliderMesh: null });
+  const w = new Function('s', body)({ intoDeck, outOfDeck, DECK_HEADROOM, csa: { deckOf: () => deck }, raycastColliders: () => null, csaColliderMesh: null });
   const [feet, yaw] = w.navalDeckLanding(boat, [14, 8, 2]);
   assert.ok(deck.walkable(feet[0], feet[2]) && feet[0] > 3, `her edge across from him: ${feet}`);
   assert.ok(Math.abs(feet[2] - 2) < 0.5, 'across from where he stood');

@@ -213,7 +213,7 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
     preloading ??= (async () => {
       if (!(await ensureModels())) return false;
       for (let hull = 0; hull < HULL_NAMES.length; hull++) await prepare(hull);
-      for (let hull = 0; hull < HULL_NAMES.length; hull++) deckOf(hull, 0);   // DECK-WALK: baked while the world loads (10-50 ms a hull), never mid-voyage
+      for (let hull = 0; hull < HULL_NAMES.length; hull++) deckOf(hull, 0);   // DECK-WALK: baked while the world loads (10-50 ms a hull), never mid-voyage (AUDIT NAV2 F57: every rig's deck, one a hull)
       preloaded = true;
       return true;
     })();
@@ -572,20 +572,26 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
   /** DECK-WALK (systems/naval/navalDeck.js): a hull's walkable deck, baked once per hull and variant off one stood at
    *  rest in her mesh node's frame (Boat.MeshObject, which the swell rolls and pitches - the deck's frame) - her
    *  switched-on, non-trigger colliders' triangles: a mesh's, a box's six faces, a built-in's - and kept. Null before
-   *  the models are in. */
+   *  the models are in. AUDIT NAV2 F57: ONE DECK A HULL, whatever her rig - a rig carries no collider of its own (the
+   *  Large Boat's seven stand her rig 0's own, pinned rig by rig - test/auditnav2_deck.test.js), so every rig's deck is
+   *  the one the preload bakes, never a throwaway boat spawned and a deck baked mid-voyage (a Coasting Trader's rig 3
+   *  first seen cost an 8.6-9.3 ms crew frame, the bake 4.9-16.9 ms); `variant` is a caller's word, never the key.
+   *  AUDIT NAV2 F39: and a classic model's collider (a ModelHelper's - the Large Galley's helm - the bed) as the world's
+   *  collider stands it (world.js csaColliderMesh): the pipeline's cpu model, loaded by the preload's `prepare`. */
   const decks = new Map();
   function deckOf(hull, variant = 0) {
     if (!models) return null;
-    const key = `${hull}:${variant}`;
-    if (decks.has(key)) return decks.get(key);
-    const probe = new Boat(hull, variant);
+    if (decks.has(hull)) return decks.get(hull);
+    const probe = new Boat(hull, 0);
     spawnBoat(probe, { models, player: () => ({ position: [0, 0, 0], rotation: [0, 0, 0, 1] }), billboardSize: billboardSizeOf, modelBounds: modelBoundsOf });
     const meshes = [];
     const frame = invertAffine(probe.MeshObject.worldMatrix());
     for (const { collider: c, world } of colliderPoses(probe.GameObject)) {
       if (c.m_IsTrigger || c.m_Enabled === false) continue;
       const m = frame ? multiply(frame, world, new Float32Array(16)) : world;
-      const g = c.type === 'BoxCollider' ? boxColliderTriangles(c) : c.m_Mesh?.mesh ? models.geometry(c.m_Mesh.mesh) : c.m_Mesh?.builtin ? BUILTIN_COLLIDER_MESHES[c.m_Mesh.builtin] : null;
+      const cpu = c.classicModel != null ? pipeline?.cpuModels?.get(c.classicModel) : null;   // AUDIT NAV2 F39: its triangles, once the pipeline holds them
+      const g = c.type === 'BoxCollider' ? boxColliderTriangles(c) : c.classicModel != null ? (cpu?.positions && cpu.indices ? cpu : null)
+        : c.m_Mesh?.mesh ? models.geometry(c.m_Mesh.mesh) : c.m_Mesh?.builtin ? BUILTIN_COLLIDER_MESHES[c.m_Mesh.builtin] : null;
       if (!g) continue;
       const p = g.positions, out = new Float64Array(p.length);
       for (let i = 0; i < p.length; i += 3) {
@@ -598,7 +604,7 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
     }
     const b = hullBuild(hull);
     const deck = buildDeck(meshes, { minX: -b.halfWidth - 1, maxX: b.halfWidth + 1, minZ: b.aftZ - 1, maxZ: b.bowZ + 1 });
-    decks.set(key, deck);
+    decks.set(hull, deck);
     return deck;
   }
 

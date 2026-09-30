@@ -70,6 +70,7 @@ import { constantCurve } from '../world/unityParticles.js';
 import { amGroupRollOwner } from '../systems/campEncounters.js';
 import { NAVAL_SFX, NAVAL_CLASSIC, NAVAL_FIRE_LOOP, NAVAL_SINK_LOOP, navalSoundRange } from '../systems/naval/navalSounds.js';
 import { raiderPlan, raiderClassOf } from '../systems/naval/navalRaiders.js';
+import { intoDeck } from '../systems/naval/navalDeck.js';   // AUDIT NAV2 F36: the feet in her deck's frame (aboardShip)
 
 /** The record's name in the save's per-mod slot (systems/modSaveData.js) - the port's own, as the Sigil Broker's is. */
 export const NAVAL_SAVE_VENDOR = 'NavalCombat';
@@ -179,7 +180,8 @@ export const HANDS_AROUND = 2.2;
 export const FOOT_BOARD_M = 14;
 /** Enemies near, for Come Sail Away's time scale: a hostile ship within this (m). */
 export const HOSTILE_NEAR_M = 700;
-/** AUDIT NAV1 (B14): feet this near a sea ship's hull box stand on her deck (m) - no save there. */
+/** AUDIT NAV1 (B14): feet this near a sea ship's hull box stand on her deck (m) - no save there. AUDIT NAV2 F36: and
+ *  aboard, feet this near a floor of hers (by her rail, past her deck's inset edge). */
 export const DECK_REACH_M = 1;
 /** AUDIT NAV1 (the boarding audit's minor): a swimmer's reach for a cask - the box about the feet it must come into. */
 export const SWIM_REACH = Object.freeze([0.6, 1.2, 0.6]);
@@ -1367,8 +1369,32 @@ export function createNavalHost(deps) {
     return null;
   }
   /** SEA-PEACE: whether the player stands aboard a ship - at a helm, on a boat of theirs, or on a sea ship's deck. Off
-   *  every ship the sea's hostility is nobody's business of theirs (the header's law). */
-  const aboardShip = () => !!boatInPlay() || !!seaDeckUnderMe();
+   *  every ship the sea's hostility is nobody's business of theirs (the header's law). AUDIT NAV2 F4: or on another
+   *  player's boat they ride (`deps.aboardPeer() -> boat | null`, Come Sail Away's riding: SEA-PEACE read the rider as
+   *  ashore while the ship under them was under the guns - rest, a journey and the time scale open). F36: ON A BOAT IS
+   *  STANDING ON HER - a floor of hers under the feet (systems/naval/navalDeck.js `under`: her deck, below it, by her
+   *  rail within DECK_REACH_M), her box grown a metre only where no deck of hers is baked; that box, far wider than her
+   *  hull at her bow and stern, read a quay or a beach off a moored hull's ends as aboard (332 m2 round a Small Ship, a
+   *  quay point 19.6 m from her hull) and stood the hunt, a bounty's trail and a band's chase down. F60: a hull whose
+   *  root stands past her own reach of the feet (her stem, her stern and her beam, and DECK_REACH_M) is never asked - her
+   *  box was built for every boat and every sea ship on every call (3.34 us and 11 KB: each step's hostileNear, the
+   *  threats, playerAfloat each frame). */
+  const _aboardLocal = [0, 0, 0];
+  const standsOn = (boat, feet) => {
+    const r = boat.GameObject?.worldMatrix?.(), b = hullBuild(boat.hull);
+    if (!r || Math.hypot(r[12] - feet[0], r[14] - feet[2]) > Math.hypot(Math.max(b.bowZ, -b.aftZ), b.halfWidth) + DECK_REACH_M) return false;
+    const deck = boat.MeshObject && deps.pool.deckOf?.(boat.hull, boat.variant ?? 0);
+    if (!deck?.count || !deck.under) { const box = hullBox(boat); return !!box && insideGrown(box, feet, DECK_REACH_M); }
+    const l = intoDeck(boat.MeshObject.worldMatrix(), feet, _aboardLocal);
+    return deck.under(l[0], l[2], l[1], DECK_REACH_M);
+  };
+  function aboardShip() {
+    if (myBoat() || (boarding?.boat && myBoats().includes(boarding.boat)) || deps.aboardPeer?.()) return true;
+    const feet = deps.feet();
+    for (const b of myBoats()) if (standsOn(b, feet)) return true;
+    for (const e of sea.values()) if (e.boat && standsOn(e.boat, feet)) return true;
+    return false;
+  }
   /** AUDIT NAV2 F2: a peer's boat's crew share as myPowerOf reads mine - single-handed without a crew node, else her
    *  hands by her word's count (an older build's word: a full crew, as before). */
   function peerCrewShare(p, self = peerSelf.get(p.id)) {

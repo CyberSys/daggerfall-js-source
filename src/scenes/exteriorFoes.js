@@ -1576,6 +1576,27 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       f.corpseMarker = null;
     }
   }
+  /** AUDIT NAV2 F11: A BODY ON A DECK THAT MOVES - its corpse carried to `pos` (the world's navalCarry, her deck's point
+   *  where he fell): the marker's ground point (the loot seam's) and its batch, drawn there by its origin - the centres
+   *  are baked at the mint (a recenter bakes a new batch where it lies), so the origin is the way it has come since. */
+  function moveCorpse(f, pos) {
+    const c = f?.corpseMarker;
+    if (!c || !pos) return;
+    const b = c.batch;
+    b._base ??= [c.pos[0], c.pos[1], c.pos[2]];
+    c.pos[0] = pos[0]; c.pos[1] = pos[1]; c.pos[2] = pos[2];
+    const o = (b.origin ??= [0, 0, 0]);
+    o[0] = pos[0] - b._base[0]; o[1] = pos[1] - b._base[1]; o[2] = pos[2] - b._base[2];
+  }
+  /** AUDIT NAV2 F11: A BODY GONE DOWN WITH THE HULL IT LAY ON - its corpse taken off (its batch destroyed, a marker still
+   *  loading refused on arrival - `_gone`) and the record ended, as CollectLooseObjects ends one (update's tail prunes a
+   *  dead record with no body). removeFoe spares the dead; this is the dead's. */
+  function removeCorpse(f) {
+    if (!f?.dead || f.puppet) return;
+    f._gone = true;
+    if (f.corpseMarker) { const i = corpseBatches.indexOf(f.corpseMarker); if (i >= 0) { renderer.destroyBillboardBatch(corpseBatches[i].batch); corpseBatches.splice(i, 1); } }
+    f.corpse = false; f.corpseMarker = null;
+  }
 
   /**
    * IF: TEARDOWN. Every allocation has an owner, and until a SECOND
@@ -2509,6 +2530,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
      *  is the name the world host's teleport asks for it by. */
     clearLive: destroy,
     collectPixel, arrowHitFoe, removeFoe: questPoolOps.removeFoe,
+    moveCorpse, removeCorpse,   // AUDIT NAV2 F11: a deck's dead ride her and go down with her
     // WORLD6b: the cell's stream - the net installed, my foes out, a peer's in, a peer's blow in, the puppets pruned
     setNet, foesFrame, applyFoes, applyHit, spellToOwner, pruneOwners, clearPuppets, handOverFrame, dropOwnLive,
     deepPuppetsNear,   // DEEP-SHARE: the deep's foes others stand near a point

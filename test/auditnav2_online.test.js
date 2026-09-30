@@ -87,6 +87,21 @@ test('AUDIT NAV2 F2: a peer\'s boat is sized up as she sizes herself - a boat wi
   assert.ok(cOwn > 0 && Math.abs(cSeen - cOwn) < 1e-6, `a crewed boat 15 hands short sized so on both screens: ${cSeen} vs ${cOwn}`);
 });
 
+test('AUDIT NAV2 F4: a rider on another player\'s boat is aboard her and sized as she is - a wary pirate that would take her is the rider\'s enemy too, so the rider is warned exactly when her owner is (SEA-PEACE read the rider as ashore, and a player off every boat of their own as one no wary pirate can size up) (mutants: the ridden boat unsized, the rider not aboard)', async () => {
+  const r = await room([{ id: 'a', hull: HULL.LargeBoat }, { id: 'b', hull: null }]);
+  const A = r.get('a'), B = r.get('b');
+  A.s.boat.GameObject.position = [0, 0, 0]; A.s.view.feet = [0, 0, 0];
+  B.s.view.feet = [0.5, 0, 0.5];
+  B.s.deps.aboardPeer = () => A.s.boat;   // Come Sail Away's riding: b stands on a's boat
+  const e = A.s.host._sea.get(A.s.host.spawnShip('pirateSloop', { range: 250, bearing: Math.PI / 2, temper: TEMPERS.wary }));
+  e.ship.pos = [250, 0, 0];
+  r.run(3);
+  assert.equal(A.s.host.hostileNear(), true, 'she would take a\'s boat (2,357 single-handed: outgunned 1.33 to 1)');
+  assert.equal(B.s.host.hostileNear(), true, 'and so her rider is warned: no rest, no journey');
+  B.s.deps.aboardPeer = () => null;
+  assert.equal(B.s.host.hostileNear(), false, 'ashore, nobody at sea is an enemy of theirs');
+});
+
 test('AUDIT NAV2 F3: her guns out on every screen - a peer\'s copy of a ship her stander fights has her crew at battle (crewShips), and a peer\'s boat in a fight says so (peerBoat) (mutants: the battle bit unsaid, unread, the peer\'s boat battle unsaid)', async () => {
   const r = await room([{ id: 'a', hull: HULL.SmallShip }, { id: 'b', hull: HULL.SmallShip }]);
   const A = r.get('a'), B = r.get('b');

@@ -470,8 +470,8 @@
   {
     "name": "WORLD-rail-side-unread",
     "file": "src/scenes/world.js",
-    "old": "    const t = navalWorldToDeck(boat, toward), side = t[0] >= 0 ? 1 : -1, k = Math.floor(n), out = [];",
-    "new": "    const t = navalWorldToDeck(boat, toward), side = -1, k = Math.floor(n), out = [];",
+    "old": "side = t[0] >= 0 ? 1 : -1, k = Math.floor(n), out = [], taken = new Set();",
+    "new": "side = -1, k = Math.floor(n), out = [], taken = new Set();",
     "tests": [
       "test/livingcrew.test.js"
     ]
