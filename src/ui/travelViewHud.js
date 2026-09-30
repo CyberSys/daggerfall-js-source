@@ -516,6 +516,7 @@ export const TRAVEL_VIEW_MARK_COLORS = Object.freeze({
   lair: '#b0443a',   // TV6: an undiscovered dungeon - a lair's dull red
   band: '#e0503c',   // TV7: a roaming band - the enemy's red
   camp: '#d9622b',   // OW6: a camp, a pack or a band stood - an ember's red-orange, apart from the roaming bands
+  bounty: '#0b0b0b', bountyRim: '#e6dccb',   // BOUNTY-OVERWORLD: a held bounty's hunt - BLACK, the maps' own circle (ui/bountyMapMark.js), with the legend's pale rim so it reads on dark ground
 });
 /** The plates' face - the stylesheet's --display, as the DOM plates had it. */
 export const TRAVEL_VIEW_PLATE_FONT = "'Cormorant', Georgia, serif";
@@ -574,6 +575,7 @@ export const isShipKind = (m) => /\bship\b/.test(m.kind ?? '');
 /** A mark's look, by its kind's first word. */
 const lookOf = (m) => {
   const k = (m.kind ?? '').split(' ')[0];
+  if (k === 'bounty') return k;   // BOUNTY-OVERWORLD: a held bounty's hunt
   return k === 'place' || k === 'far' || k === 'dest' || k === 'target' || k === 'party' || k === 'lair' || k === 'band' || k === 'raider' || k === 'camp' ? k : 'traveller';
 };
 /** OW-THEME (2026-09-28, Mac: "The overworld ui needs to follow enhanced ui theme"): the plates' stone - the Enhanced
@@ -780,14 +782,14 @@ function drawMarks(marks, vw, vh, dpr) {
   for (let i = placed.length - 1; i >= 0 && pointer; i--) {
     const q = placed[i];
     if (!q.m.pick) continue;
-    const b = markBox(q, vw);
+    const b = pickBox(q, vw);   // BOUNTY-SNAP
     if (pointer.x >= b.x0 && pointer.x <= b.x1 && pointer.y >= b.y0 && pointer.y <= b.y1) { hover = q.m.key; break; }
   }
   setHover(hover);
   // the picture this frame would draw: unchanged (a camera at rest), the canvas already shows it
   const sig = [bw, bh, hover ?? ''];
   for (const q of placed) sig.push(q.m.key, q.x, q.y, q.held ? Math.round(q.held.angle) : 999, q.m.label ?? '', q.m.sub ?? '', q.m.kind ?? '', q.bk, q.fade ? 1 : 0);
-  for (const q of placed) if (q.m.pick) nextHits.push({ key: q.m.key, ...markBox(q, vw) });
+  for (const q of placed) if (q.m.pick) nextHits.push({ key: q.m.key, ...pickBox(q, vw) });   // BOUNTY-SNAP: a bounty's on its ring alone
   hits = nextHits;
   sayPlaces(placed);
   if (sig.length === canvasSig.length && sig.every((v, i) => v === canvasSig[i])) return;
@@ -802,10 +804,11 @@ function drawMarks(marks, vw, vh, dpr) {
   for (const q of placed) {
     const { m, held, x, y, look } = q;
     g.globalAlpha = q.fade ? TV_UNDER_HUD_ALPHA : 1;   // OW-EDGES: faint where it would lie over the compass or the hotbar
-    const color = look === 'party' ? C.party : look === 'traveller' ? C.traveller : look === 'lair' ? C.lair : look === 'band' ? C.band : look === 'raider' ? C.raider : look === 'camp' ? C.camp : C.brass;   // OWS3: a raider in the cinnabar; OW6: a camp in the ember
+    const color = look === 'party' ? C.party : look === 'traveller' ? C.traveller : look === 'lair' ? C.lair : look === 'band' ? C.band : look === 'raider' ? C.raider : look === 'camp' ? C.camp : look === 'bounty' ? C.bounty : C.brass;   // OWS3: a raider in the cinnabar; OW6: a camp in the ember
     g.fillStyle = color; g.strokeStyle = '#000'; g.lineWidth = 1;
     if (held) {   // the arrow, turned the way it lies (0 up, clockwise)
       g.save(); g.translate(x, y); g.rotate((held.angle * Math.PI) / 180);
+      if (look === 'bounty') g.strokeStyle = C.bountyRim;   // BOUNTY-OVERWORLD: a black arrow needs the pale edge
       // AUDIT DEEP2 E5: a NOTCHED head - a near-equilateral triangle read the same turned a third either way
       g.beginPath(); g.moveTo(0, -10); g.lineTo(7, 7); g.lineTo(0, 2); g.lineTo(-7, 7); g.closePath(); g.fill(); g.stroke();
       g.restore();
@@ -813,6 +816,10 @@ function drawMarks(marks, vw, vh, dpr) {
       g.beginPath(); g.arc(x, y, 8, 0, Math.PI * 2); g.lineWidth = 2; g.strokeStyle = C.brass; g.stroke();
     } else if (isShipKind(m)) {
       drawShipMark(g, x, y);
+    } else if (look === 'bounty') {   // BOUNTY-OVERWORLD: a hunt - a ring round a dot, the held map's circle
+      g.beginPath(); g.arc(x, y, 7, 0, Math.PI * 2); g.lineWidth = 4; g.strokeStyle = C.bountyRim; g.stroke();
+      g.lineWidth = 2; g.strokeStyle = color; g.stroke();
+      g.beginPath(); g.arc(x, y, 2.5, 0, Math.PI * 2); g.lineWidth = 1; g.strokeStyle = C.bountyRim; g.fill(); g.stroke();
     } else if (look === 'camp') {   // OW6: a camp - a tent's peak, not a band's dot
       g.beginPath(); g.moveTo(x, y - 6); g.lineTo(x + 6, y + 5); g.lineTo(x - 6, y + 5); g.closePath(); g.fill(); g.stroke();
     } else {
@@ -1111,6 +1118,14 @@ function cornersOf(bound, s, items, sides, vw) {
   const near = (b) => (s === 0 ? b.x0 < reach : b.x1 > vw - reach);
   for (const it of sides[2]) { const b = markBox(it.q, vw); if (near(b)) bound[0] = Math.max(bound[0], b.y1 + HELD_GAP); }
   for (const it of sides[3]) { const b = markBox(it.q, vw); if (near(b)) bound[1] = Math.min(bound[1], b.y0 - HELD_GAP); }
+}
+/** BOUNTY-SNAP: how far from a bounty's ring (or its edge arrow) a click still takes it, px - the ring's own 7 and a
+ *  little slack, never its label: a click beside it is the ground's, so a walk near a hunt never snaps by accident. */
+export const BOUNTY_SNAP_PX = 10;
+/** The box a pickable mark takes a click in: a bounty's ring alone, every other mark its markBox. */
+function pickBox(q, vw) {
+  if (q.look === 'bounty') return { x0: q.x - BOUNTY_SNAP_PX, x1: q.x + BOUNTY_SNAP_PX, y0: q.y - BOUNTY_SNAP_PX, y1: q.y + BOUNTY_SNAP_PX };
+  return markBox(q, vw);
 }
 function markBox(q, vw) {
   const plate = q.look === 'place' || q.look === 'far';

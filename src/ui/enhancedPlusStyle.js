@@ -257,6 +257,48 @@ body .dfchat-form .dfchat-close { min-width: 32px; padding: 4px 8px; }
      dai-katana) hung out of the box into the rows beneath. The shop and a player trade (a trade-shell too). */
   display: flex; align-items: center; justify-content: center; }
 
+/* LEVEL-PLUS: THE LEVELING QUESTION (ui/enhancedLevelingChoice.js) - the last screen of making a character, in the
+   rest window's shell: an eyebrow, the question as the heading, one line of lead, then the two systems side by side as
+   sunk stone tiles (stacked on a phone). The chosen tile rises in brass; a tile shut online (LEVEL-ONLINE) is dimmed
+   with its reason where its Choose would be. Tints and bevels only - every Plus theme keeps its own stone. */
+.lvl-shell { z-index: 30; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.lvl-shell .px-win { width: min(780px, 100%); height: auto; max-height: min(640px, 92dvh); }
+.lvl-shell .px-body { overflow: auto; }
+.lvl-card { padding: 22px 26px 18px; }
+.lvl-eyebrow { text-align: center; font-size: 11px; letter-spacing: 0.3em; text-indent: 0.3em; text-transform: uppercase;
+  color: ${FRAME_TONES.brass}; text-shadow: 1px 1px 0 #050608; }
+.lvl-card h2.lvl-title { margin: 6px 0 8px; font-family: inherit; font-weight: 400; text-align: center; font-size: 24px; letter-spacing: 0.18em; text-indent: 0.18em;
+  text-transform: uppercase; color: #efe8d6; text-shadow: 1px 1px 0 #050608, 2px 2px 0 rgba(0,0,0,0.5); }
+.lvl-lead { margin: 0 0 18px; text-align: center; font-size: 14px; color: #c9bfa4; text-shadow: 1px 1px 0 #050608; }
+.lvl-opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.lvl-opt { font: inherit; text-align: left; color: #d8cfae; cursor: pointer; display: flex; flex-direction: column; gap: 10px;
+  padding: 14px 16px 12px; background: rgba(0,0,0,0.32); border: 2px solid;
+  border-color: ${FRAME_TONES.stoneDark} ${FRAME_TONES.stoneMid} ${FRAME_TONES.stoneLit} ${FRAME_TONES.stoneDim};
+  box-shadow: 0 0 0 1px #050608, inset 0 2px 0 rgba(0,0,0,0.45); transition: none; }
+.lvl-opt.is-on, .lvl-opt:focus-visible { outline: none; background: rgba(192,138,62,0.12);
+  border-color: ${FRAME_TONES.brassHi} ${FRAME_TONES.brassLo} #5c3f1a ${FRAME_TONES.brass};
+  box-shadow: 0 0 0 1px #050608, 0 0 14px rgba(243,207,134,0.18), inset 0 1px 0 rgba(255,244,210,0.18); }
+.lvl-opt-head { display: flex; align-items: baseline; gap: 10px; }
+.lvl-key { flex: 0 0 auto; min-width: 22px; text-align: center; font-size: 12px; padding: 1px 4px; color: #a89f88;
+  border: 1px solid rgba(125,116,96,0.55); }
+.lvl-opt.is-on .lvl-key { color: rgb(243,239,44); border-color: ${FRAME_TONES.brass}; }
+.lvl-opt-title { font-size: 18px; letter-spacing: 0.08em; text-transform: uppercase; color: #efe8d6; text-shadow: 1px 1px 0 #050608; }
+.lvl-opt.is-on .lvl-opt-title { color: rgb(243,239,44); text-shadow: 1px 1px 0 rgb(93,77,12); }
+.lvl-tag { margin-left: auto; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: #7d7460; white-space: nowrap; }
+.lvl-opt-body { margin: 0; font-size: 14px; line-height: 1.5; color: #c5bda2; text-shadow: 1px 1px 0 #050608; }
+.lvl-opt-foot { margin-top: auto; padding-top: 10px; border-top: 2px solid rgba(5,6,8,0.5); box-shadow: inset 0 1px 0 rgba(163,152,128,0.16);
+  display: flex; justify-content: flex-end; }
+.lvl-pick { font-size: 13px; letter-spacing: 0.2em; text-transform: uppercase; color: #a89f88; }
+.lvl-opt.is-on .lvl-pick { color: rgb(243,239,44); text-shadow: 1px 1px 0 rgb(93,77,12); }
+.lvl-lock { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: ${FRAME_TONES.brass}; }
+.lvl-opt:disabled { cursor: default; opacity: 0.55; }
+.lvl-hint { margin-top: 16px; text-align: center; font-size: 12px; letter-spacing: 0.06em; color: #7d7460; }
+@media (max-width: 560px) {
+  .lvl-shell { padding: 8px; } .lvl-shell .px-win { max-height: 96dvh; } .lvl-shell .px-body { padding: 10px 8px; } .lvl-card { padding: 14px 12px 12px; }
+  .lvl-card h2.lvl-title { font-size: 20px; }
+  .lvl-opt { min-height: 44px; padding: 12px 12px 10px; gap: 8px; } .lvl-opts { gap: 10px; } .lvl-lead { margin-bottom: 12px; } .lvl-hint { margin-top: 10px; }
+}
+
 /* PLUS6: THE REST WINDOW WHILE RESTING (ui/enhancedRest.js restingCard) - a title, a readout, a meter and a clear
    space before Stop. The vitals line sat on the button; now the rest reads top to bottom as a card: the mode as the
    window's heading, the hours in a large brass readout, a sunk meter with a banded brass fill, the vitals as three

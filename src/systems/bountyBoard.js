@@ -209,7 +209,7 @@ export const BOUNTY_DUNGEON_SLOTS_MAX = 2;
  * @param {number} px @param {number} py @param {(x:number, y:number) => (string|null)} dungeonAt
  * @returns {Array<{px:number, py:number, name:string}>}
  */
-export function bountyDungeons(px, py, dungeonAt) {
+export function bountyDungeons(px, py, dungeonAt, graveyardAt) {
   const out = [];
   if (typeof dungeonAt !== 'function') return out;
   for (let dy = -BOUNTY_MAX_PX; dy <= BOUNTY_MAX_PX; dy++) {
@@ -219,7 +219,10 @@ export function bountyDungeons(px, py, dungeonAt) {
       if (x < 0 || y < 0 || x >= 1000 || y >= 500) continue;
       let name = null;
       try { name = dungeonAt(x, y); } catch { name = null; }
-      if (name) out.push({ px: x, py: y, name: String(name) });
+      // GRAVEYARD: a graveyard's hunt is fought in the open air outside it, never down in its crypt
+      let grave = false;
+      if (name && typeof graveyardAt === 'function') { try { grave = !!graveyardAt(x, y); } catch { grave = false; } }
+      if (name) out.push({ px: x, py: y, name: String(name), graveyard: grave });
     }
   }
   return out;
@@ -288,6 +291,13 @@ export const BOUNTY_DUNGEON_STORIES = Object.freeze([
 export const FARM_STORY_RE = /granar|orchard|harvest|cattle|shepherd|farm/i;
 /** Every notice ends by sending the reader to the map. */
 export const BOUNTY_MAP_LINE = 'Take a look at your map: the place is marked with a black circle.';
+/** A graveyard's notices: they never say whether the hunt is inside or outside the place. {place} the graveyard's name. */
+export const BOUNTY_GRAVEYARD_STORIES = Object.freeze([
+  '{count} {foes} have been seen at {place}, {far} {dir} of {town}. They stir among the stones after dark. Hunt them down before they reach the road.',
+  'The gravedigger at {place} refuses to work after dusk: {foes}, {count} of them, have taken to the place. Put an end to them, {dir} of {town}, for good.',
+  'Mourners were driven from {place}, {dir} of {town}, by {count} {foes}. Rid the graveyard of them.',
+  'A reward is offered to any blade willing to stand watch at {place}, {dir} of {town}, and slay the {foes} haunting it - {count} strong, by the sexton\'s count.',
+]);
 /** ...and a dungeon's names the place. */
 export const bountyDungeonMapLine = (place) => `Take a look at your map: ${place} is marked with a black circle.`;
 
@@ -351,14 +361,15 @@ export function bountyPosting({ day, px, py, name = '', slot, level, sites, dung
   const dir = compassWord(tx - px, ty - py);
   const far = distanceWord(Math.max(Math.abs(tx - px), Math.abs(ty - py)));
   const town = name || 'town';
-  const template = pick(place ? BOUNTY_DUNGEON_STORIES : BOUNTY_STORIES[kind], bountyHash(day, px, py, slot, SALT.story));
+  const graveyard = !!place?.graveyard;
+  const template = pick(graveyard ? BOUNTY_GRAVEYARD_STORIES : place ? BOUNTY_DUNGEON_STORIES : BOUNTY_STORIES[kind], bountyHash(day, px, py, slot, SALT.story));
   const story = fillStory(template, { foes, count, town, dir, far, place: place?.name ?? '' });
   const lvl = clampLevel(level);
   return {
     id: bountyId(day, px, py, slot, lvl), slotKey: bountySlotKey(day, px, py, slot), day, slot, level: lvl,
     town: { px, py, name: town }, target: { px: tx, py: ty },
     mobileType, count, foes,
-    kind: place ? 'dungeon' : 'field', place: place?.name ?? null,
+    kind: place ? 'dungeon' : 'field', place: place?.name ?? null, graveyard,
     tier: bountyTierIndex(lvl) + 1, tierLabel: bountyTierLabel(lvl),   // BOUNTY-TIERLABEL
     farm: !place && FARM_STORY_RE.test(template),   // BOUNTY-FARM: a farm stands on its pixel while it is held
     title: place ? `${foes} in ${place.name}` : `${foes} ${dir === 'nearby' ? 'nearby' : `to the ${capital(dir)}`}`,

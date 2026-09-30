@@ -1858,6 +1858,41 @@ ${badgeCss()}
 .px-fill.blood { background: var(--blood); }
 .px-fill.verdigris { background: var(--verdigris); }
 .px-fill.thin { background: rgba(216,207,174,0.75); }
+/* SOFTCAP1: skills past 100 - the second, gold bar and its milestone ticks */
+.px-skillmeter { display: flex; flex-direction: column; gap: 2px; }
+.px-meter.px-over { position: relative; height: 4px; border-width: 1px; border-color: rgba(201,162,39,0.6); }
+.px-fill.px-overfill { background: linear-gradient(90deg, #c9a227, #f0d77a); }
+.px-tick { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(0,0,0,0.55); }
+/* SOFTCAP3: the Master Skills pane, and its Yes/No card's backdrop over the pause page */
+.px-master { margin: 4px 0 12px; }
+.px-master-state { color: #f0d77a; margin-bottom: 6px; }
+.px-master-about { margin: 0 0 6px; color: var(--dim); font-size: 13px; line-height: 1.45; }
+.px-master-note { margin: 6px 0; color: #d8cfae; }
+.px-master-slots { margin: 6px 0; color: #efe6c8; }
+.px-skill .k.px-mastered { color: #f0d77a; }
+.px-master-back { margin-bottom: 4px; }
+/* SOFTCAP6: the Master Skills page - a short lead, then one card per career group: its name, its slots as brass
+   pips and its count; each skill a row with its bar(s) and, on the right, its state - a gold tag, a Master button,
+   or a quiet word. Tuned to the Stats page's own type (the .px-mtop row) and brass (--brass). */
+.px-master-lead { margin: 2px 0 14px; color: var(--dim); font-size: 14px; letter-spacing: 0.04em; }
+.px-mgroup { margin: 0 0 16px; padding: 10px 14px 4px; border: 1px solid rgba(125,116,96,0.35); background: rgba(0,0,0,0.18); }
+.px-mhead { display: flex; align-items: baseline; gap: 12px; margin: 0 0 10px; padding-bottom: 6px; border-bottom: 1px solid rgba(125,116,96,0.3); }
+.px-mname { color: #d8cfae; font-size: 14px; letter-spacing: 0.2em; text-transform: uppercase; }
+.px-pips { display: inline-flex; gap: 4px; color: var(--brass); font-size: 13px; }
+.px-pip.on { color: #f0d77a; text-shadow: 0 0 6px rgba(240,215,122,0.35); }
+.px-mcount { margin-left: auto; color: #7d7460; font-size: 13px; letter-spacing: 0.08em; }
+.px-mrow2 { display: flex; align-items: center; gap: 16px; margin: 0 0 10px; }
+.px-mrow2 .px-mbody { flex: 1 1 auto; min-width: 0; }
+.px-mrow2 .px-mtop { margin-bottom: 3px; }
+.px-mrow2 .px-meter { height: 6px; border-width: 2px; }
+.px-mrow2.is-mastered .px-mtop .k { color: #f0d77a; }
+.px-mside { flex: 0 0 132px; display: flex; justify-content: flex-end; }
+.px-mtag { color: #7d7460; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; white-space: nowrap; }
+.px-mtag.gold { color: #f0d77a; }
+.px-mbtn { min-height: 34px; min-width: 104px; }
+.px-master-foot { margin-top: 6px; }
+.px-master-ask { position: fixed; inset: 0; z-index: 35; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.55); }
+.px-master-ask .yesnobox { position: static; transform: none; }
 .px-skillgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 4px 26px; margin-bottom: 8px; }
 .px-skill { margin: 0 0 8px; }

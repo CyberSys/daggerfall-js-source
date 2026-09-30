@@ -435,8 +435,8 @@
   {
     "name": "the-choice-never-reaches-the-entity",
     "file": "src/systems/chargenSession.js",
-    "old": "  initVirtueLeveling(playerEntity, result.levelingSystem ?? LEVELING_CLASSIC);",
-    "new": "  initVirtueLeveling(playerEntity, LEVELING_CLASSIC);",
+    "old": "  initVirtueLeveling(playerEntity, newCharacterLevelingSystem(result.levelingSystem ?? LEVELING_CLASSIC, { online: isOnlinePage() }));",
+    "new": "  initVirtueLeveling(playerEntity, newCharacterLevelingSystem(LEVELING_CLASSIC, { online: isOnlinePage() }));",
     "tests": [
       "test/orl1_leveling.test.js"
     ]
@@ -454,7 +454,7 @@
   {
     "name": "the-question-is-asked-with-the-mod-off",
     "file": "src/systems/chargenSession.js",
-    "old": "  if (!oblivionLevelingEnabled()) {",
+    "old": "  if (!oblivionLevelingEnabled() && !online) {",
     "new": "  if (false) {",
     "tests": [
       "test/orl1_leveling.test.js"
@@ -472,7 +472,7 @@
   {
     "name": "a-classic-import-levels-by-the-mod",
     "file": "src/systems/classicSave.js",
-    "old": "    levelingSystem: LEVELING_CLASSIC, levelProgress: 0, levelRollUp: 0,",
+    "old": "    levelingSystem: newCharacterLevelingSystem(LEVELING_CLASSIC, { online }), levelProgress: 0, levelRollUp: 0,",
     "new": "    levelingSystem: 'virtue', levelProgress: 0, levelRollUp: 0,",
     "tests": [
       "test/orl1_leveling.test.js"
@@ -644,7 +644,7 @@
   {
     "name": "a-window-torn-down-mid-question-swallows-the-answer",
     "file": "src/systems/chargenSession.js",
-    "old": "      prompt?.answer(LEVELING_CLASSIC);",
+    "old": "      prompt?.answer(prompt.defaultId);",
     "new": "",
     "tests": [
       "test/orl1_leveling.test.js"
@@ -727,8 +727,8 @@
   {
     "name": "both-digits-answer-with-the-same-system",
     "file": "src/ui/levelingChoice.js",
-    "old": "      case 'two': this.answer(this.options[1].id); break;",
-    "new": "      case 'two': this.answer(this.options[0].id); break;",
+    "old": "      case 'two': this.pickIndex(1, false); break;",
+    "new": "      case 'two': this.pickIndex(0, false); break;",
     "tests": [
       "test/orl1_leveling.test.js"
     ]

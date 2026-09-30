@@ -218,7 +218,7 @@ test('CUSTOMS-CARRY: "Bring online" asks first - the preview off a copy, and cus
   const menu = src('src/ui/enhancedMenu.js');
   const bring = menu.slice(menu.indexOf('function bringOnline(save) {'), menu.indexOf('function customsNow(save) {'));
   assert.ok(bring.length > 0 && menu.indexOf('function customsNow(save) {') > 0);
-  assert.match(bring, /const preview = customsLines\(applyCustoms\(JSON\.parse\(JSON\.stringify\(snap\)\)\), \{ before: true \}\);/);
+  assert.match(bring, /const trial = JSON\.parse\(JSON\.stringify\(snap\)\);\n\s+const leveling = crossLeveling\(trial\);[^\n]*\n\s+const preview = \[\.\.\.\(leveling \? \[LEVELING_CROSS_LINE\.before\] : \[\]\), \.\.\.customsLines\(applyCustoms\(trial\), \{ before: true \}\)\];/);
   assert.match(bring, /return ask\(`Bring \$\{save\.name\} online\?`, preview\.join\(' '\), 'Bring online', \(\) => \{ customsNow\(save\); \}\);/);
   assert.doesNotMatch(bring, /realmCustoms\(|realmPut\(/, 'nothing is sent before the answer');
   assert.match(bring, /if \(!snap \|\| typeof snap\.characterId !== 'string' \|\| !snap\.characterId \|\| snap\.testRoom === true\) return customsNow\(save\);/);

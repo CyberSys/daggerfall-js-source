@@ -177,7 +177,7 @@ test('a11: every host that can rest hands the mastery box a presenter', () => {
     assert.match(src(`src/${h}`), /\n\s*box: \(rows\) => /, `${h} passes no mastery box`);
   }
   assert.match(src('src/scenes/shared.js'),
-    /onRestFinished: \(\) => raisePlayerSkills\(entity, \{ say, onLevelUp, lines: rest\.endLines, box \}\)/,
+    /onRestFinished: \(\) => raisePlayerSkills\(entity, \{ say, onLevelUp, lines: rest\.endLines, box, ask \}\)/,   // SOFTCAP3: and the Master Skills offer's Yes/No presenter
     'the rest-end raise carries the rows and the presenter');
 });
 
