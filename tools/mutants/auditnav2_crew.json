@@ -510,11 +510,12 @@
   {
     "name": "AUDIT-NAV2-F43-raid-crew-not-held",
     "file": "src/scenes/world.js",
-    "old": "toward: mine?.toward ?? null, hold: raid });",
-    "new": "toward: mine?.toward ?? null, hold: false });",
+    "old": "toward: mine?.toward ?? null, hold: raid, mine });",
+    "new": "toward: mine?.toward ?? null, hold: false, mine });",
     "tests": [
       "test/auditnav2_crew.test.js"
-    ]
+    ],
+    "note": "SHIP-CREW (PIN MOVED): re-aimed at the moved line."
   },
   {
     "name": "AUDIT-NAV2-F43-any-boarding-holds",

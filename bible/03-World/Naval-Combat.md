@@ -1214,6 +1214,47 @@ recorded there too.
 Pins: `test/keepplunder.test.js` (the real host's prize and sinkings, the world's wiring, the default).
 `tools/mutants/keepplunder.json`: 12 mutants, all dead.
 
+## SHIP-CREW and SEA-REPAIR (2026-09-30) - named crew with spirits, deck orders, and repairs on the high seas - DECLARED
+
+Mac: *"Let's do #1 and a way to repair ships on the high seas"* - named crew with morale and deck orders, the
+immersion list's first; and of the choices put to him, morale *"Gentle"* (no wages, no desertion) and the repairs by
+*"Carpenter's stores"*. Daggerfall has no ships and Come Sail Away's crew is a count; all of this is the port's own.
+
+- **Named hands** (`systems/naval/shipCrew.js` `createShipCrew`, one per boat of the player's). The hands a crewed boat
+  stands on her deck (`crewLife.js playerCrewCount`) each have a name - DFU's `NameHelper.FullName` over the waters' bank
+  (as `navalShips.js` names a captain), off the boat's crew seed (the one her living crew stands on) and the hire's
+  number - and a role: her First Mate, her Bard (the roster's Bard), then Bosun, Gunner, Carpenter, Lookout, Cook,
+  Deckhand. Each counts the fights won and the boardings stood with her. A hand the guns take FALLS by name ("Aldric
+  Wayrest, Gunner, has fallen.") - the last to join first - and a hire signs on with a new name. A hand of hers speaks
+  by his first name over his head (`world.js navalCrewLines`); the sea's crews and another player's by none.
+- **Spirits, gently.** MORALE 0-100 (`MORALE_START` 60). Up: a ship struck to her, a prize taken, a hold filled, a
+  round of grog at the shipwright. Down: a hand lost (a fight's losses at most `LOSSES_CAP`), a wreck. The sea wears a
+  point every `SEA_DECAY_S` away from port; a port lifts one every `PORT_RISE_S` to `PORT_CAP`. They nudge: the reload
+  (`reloadScaleOf`, `MORALE_RELOAD` either way - the gun deck's `reloadScale`), her hands' mending (`mendScaleOf`), a
+  boarding's hands (`handsBonusOf` - one more at `HIGH_SPIRITS`, one fewer at `LOW_SPIRITS`), their lines (high, low)
+  and their song (none under `SING_MIN`). No wages, no desertion.
+- **Deck orders** (`ORDERS`): *Man the guns* (a quicker reload, `GUNS_RELOAD`; her crew at the guns as in a fight),
+  *All hands to the rail* (a boarding's hand more; the crew musters at the rail), *Make repairs* (below), *Stand down*.
+  Her First Mate answers by name. Given from the Plus helm panel's Orders button (`enhancedHelm.js`, a `hook`) or the
+  boat's menu (`csaBoatMenu.js` Crew and Give orders, with the naval arc on); a boat with no crew has the repairs and
+  standing down alone. The crew's card (Crew) lists her spirits, her order and each hand with his deeds. DECLARED: no
+  keybinding - the port's key registry pins its actions' order and defaults, and the panel and the menu give the orders.
+- **Repairs at sea** (`navalYard.js seaRepair`, the host's `repairStep`). CARPENTER'S STORES (`navalStores.js`, template
+  1330, 10 kg, stacking) are bought at the shipwright's (Provisions: `STORE_PRICE` each, to `STORES_STOCK` in her hold)
+  and sit in her hold as Come Sail Away's cargo. *Make repairs*, while nothing threatens her (the free mending's own
+  quiet), sets her hands to work: `SEA_REPAIR_PER_S` of the whole a second by her crew's share and spirits, her hull
+  first then her canvas, **all the way to whole**, a store spent for every `STORE_SHARE` of a whole made good (a store's
+  part-spent share kept in the save, `credit`). A wreck floats again past `FIELD_REFLOAT`. Whole, or her stores spent,
+  the order stands down with her First Mate's word. The free mending to `FIELD_MEND_CAP` stands beside it. The plate
+  says REPAIRING; a wreck's hint names the order when she has stores.
+- **The yard** sells PROVISIONS apart from her needs (never part of making her whole): the stores, and a round of grog
+  (`grogPrice`, a gold a hand) for a crewed boat whose spirits are short of the top.
+- **The save**: her crew (`mates` - the damage's own `crew` is her count) and her store's credit beside her hurts, by
+  her deed's UID; an older save's boat musters a new crew.
+
+Pins: `test/shipcrew.test.js` (the laws, the living crew's answer on her real deck, the real host's repairs, falls,
+spirits, orders, yard and save). `tools/mutants/shipcrew.json`: 40 mutants, all dead.
+
 ## The tests
 
 One suite a slice - `test/nav_a_guns.test.js` (the flight, the aim, the volley, the reload, a ball's hurt, a ship's
