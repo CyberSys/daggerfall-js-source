@@ -16,6 +16,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 import { repairCountdown, repairCountdownText, repairStatusLabel } from '../src/systems/repairService.js';
+import { setValue } from '../src/systems/settings.js';
+// REPAIR-EASE: InstantRepairs is the port's default now - the counters these pins read are a booked repair's, so they run with it off
+setValue('Controls', 'InstantRepairs', 'False');
 import { OIL_TEMPLATE } from '../src/systems/inventory.js';
 import { NativeTradeWindow } from '../src/ui/nativeTrade.js';
 import { HOW_MANY_ITEMS } from '../src/ui/nativeInventory.js';

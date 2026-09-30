@@ -99,6 +99,7 @@ const LAW = {
   world131: '6632343e503000a370d9ad41ed7200dbaa7008a4a79be516ac2960a7fc368b21',   // MERGE 2 (2026-09-29, Mac: "Merge and markdown notes", the professions branch onto main; NOT YET DEPLOYED): the branch's BOUNTY1 + AUDIT 28 (world125 on its branch, never deployed - its branch row named bytes 5198d471...; world125 is VOICE1's on main) one relay past REALM-DOOR - the party pose's `bq` and `lv`, a bounty row's `k`, `a` and `t`; a relay before it strips the bounty fields and nothing closes
   world132: '0fff43b15bbdd2029a59bde1d167dbd9fc98e70ee9a6cce1d00565fe682053e7',   // STRIKE-SHARED (2026-09-29, Mac: "Do #1"; NOT YET DEPLOYED): the hit's strike spell (`sp`, `lv`) and a dead foe record's trapper (`j`, `q`) - read by the clients alone; the relay fans both unread
   world133: '451295ab26369e5f957d4cfbf607b5bbc129708708f86e6bff7685f2b29a3a17',   // SOFTCAP1 (2026-09-29, NOT YET DEPLOYED): the party pose's `cl` - a member's character level, for mentor mode (systems/mentorMode.js); validPartyPose projects it, never gated - an older relay strips it and nobody mentors
+  world134: '65ddd6185143ec1d7b68c7bfc28ac8a916995afc5a982008a106f439b8987dba',   // PARTY-MAP (2026-09-30, NOT YET DEPLOYED): SHARED CARTOGRAPHY - the `amap` frame (a member's revealed dungeon automap rows under the buff), parsed by parseClient, metered by amapShareGate and AMAP_ROOM_HZ_MAX, fanned to the party alone
 };
 
 const rd = (p) => readFileSync(new URL('../' + p, import.meta.url));

@@ -185,9 +185,9 @@ const target = (over = {}) => ({
 const grant = (ent, type, chance = 100) => applySpell(
   buildCustomSpell({ slots: [{ type, subType: 255, settings: { ...blankEffectSettings(), durationBase: 10, chanceBase: chance } }], rangeType: 0 }),
   1, ent, {}, () => 0.5, null, {});
-const incoming = (ent, rangeType = 2, mag = 10) => applySpell(
+const incoming = (ent, rangeType = 2, mag = 10, roll = 0.5) => applySpell(
   buildCustomSpell({ slots: [{ type: 4, subType: 0, settings: { ...blankEffectSettings(), magnitudeBaseLow: mag, magnitudeBaseHigh: mag } }], rangeType }),
-  5, ent, {}, () => 0.5, { level: 5 }, {});
+  5, ent, {}, () => roll, { level: 5 }, {});
 
 test('X1 Elemental Resistance: a successful roll drops the effect WHOLE, per element, stacking additively', () => {
   const e = target();
@@ -222,13 +222,14 @@ test('X1 Elemental Resistance: a successful roll drops the effect WHOLE, per ele
 test('X1 Spell Absorption: the effect arm swallows the spell and credits its cost as magicka', () => {
   const e = target();
   grant(e, 20);
-  assert.ok(spellAbsorptionChance(e) >= 100);
+  // ABSORB-NERF (2026-09-30): a crafted 100 is built at the maker's 50, and the chance caps at 50 - a roll under it
+  assert.equal(spellAbsorptionChance(e), 50);
   const cost = effectCastingCost(
     buildCustomSpell({ slots: [{ type: 4, subType: 0, settings: { ...blankEffectSettings(), magnitudeBaseLow: 10, magnitudeBaseHigh: 10 } }] }).effects[0], 2, e);
-  const out = incoming(e);
+  const out = incoming(e, 2, 10, 0.4);
   assert.equal(out.absorbed, cost, 'the points absorbed ARE the recomputed casting cost');
   assert.equal(out.damage, 0, 'and the effect never lands');
-  assert.equal(e.magicka, cost, 'credited to the target');
+  assert.equal(e.magicka, Math.floor(cost / 2), 'ABSORB-NERF: half of them credited to the target');
   // without it the same spell hurts
   assert.ok(incoming(target()).damage > 0);
 });
@@ -238,7 +239,7 @@ test('X1 Spell Absorption: all-or-nothing - no room for the whole cost means no 
   // the free magicka the effect passes through untouched.
   const e = target({ magicka: 295, maxMagicka: 300 });
   grant(e, 20);
-  const out = incoming(e);
+  const out = incoming(e, 2, 10, 0.4);   // ABSORB-NERF: a roll the capped 50% would absorb on - it is the room that refuses
   assert.equal(out.absorbed, undefined, 'nothing absorbed');
   assert.ok(out.damage > 0, 'the spell lands in full');
   assert.equal(e.magicka, 295, 'and no magicka was gained');
@@ -411,8 +412,10 @@ test('X2: absorption recomputes from the TARGET level at absorb time; resistance
   const t = target({ level: 2 });
   applySpell(abs, 12, t, {}, () => 0.5, null, {});   // a level-12 caster
   assert.equal(spellAbsorptionChance(t), 15, 'the TARGET is level 2: 5 + 5*2');
+  t.level = 8;
+  assert.equal(spellAbsorptionChance(t), 45, 'levelling up raises it live - the arithmetic is at absorb time');
   t.level = 10;
-  assert.equal(spellAbsorptionChance(t), 55, 'levelling up raises it live - the arithmetic is at absorb time');
+  assert.equal(spellAbsorptionChance(t), 50, 'ABSORB-NERF: and never past the 50% cap');
   // resistance is the opposite: the caster's level, fixed at cast
   const res = buildCustomSpell({ slots: [{ type: 22, subType: 255, settings }], rangeType: 0 });
   const r = target({ level: 2 });

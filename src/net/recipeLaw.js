@@ -3,7 +3,9 @@
 // XP they give and the heat they are struck in. Design: bible/06-Systems/Professions-Arc.md 9.1-9.4 (the record) and
 // 24 (PROF3 as built); the name is section 14's ("recipeLaw.js (to be written, with PROF3)"). PROF4 (2026-09-28, Mac:
 // "Continue"; section 25): Carpentry's recipes beside them - the staves, bows, arrows, furniture, the Basket and the
-// Ram Kit - and the plane they are drawn with; a recipe names its profession.
+// Ram Kit - and the plane they are drawn with; a recipe names its profession. PROF7 (2026-09-29, Mac: "Do it"; section
+// 29): Outfitting's - the leather armour, DFU's clothing in its four cloths and its dyes, the rugs, tapestries and skins,
+// the Fishing-Net - and the stitch they are sewn with; the Skinning Knife at the anvil; the Harpy-feathered arrows.
 //
 // PURE, and both ends import it: the account service decides a craft by it (server-account/src/professions.js
 // craftAtAnvil), the client draws the anvil by it (ui/profPages.js) and mints the piece by it (systems/smithItems.js).
@@ -11,7 +13,11 @@
 // THE PIECE IS DFU'S. A recipe names a DFU template and a DFU material (ItemEnums.cs WeaponMaterialTypes; armour's
 // ArmorMaterialTypes - plate 0x0200 + the metal, chain 0x0100); the item is minted by DFU's own law and the quality
 // laid on it after. Not a DFU member: DFU crafts nothing. Ledger A (the professions' row).
-import { INGOTS, TIER_RANKS, topTierOf, actBand, minedMaterial, WOODS, PINE_PLANK, RESIN, HEARTWOOD, LINEN, BEAR_HIDE } from './professionLaw.js';
+import {
+  INGOTS, TIER_RANKS, topTierOf, actBand, minedMaterial, WOODS, PINE_PLANK, RESIN, HEARTWOOD, LINEN, WOOL, BEAR_HIDE, CLOTHS, HIDES,
+  CURED_LEATHER, HARDENED_LEATHER, SKINNING_KNIFE, COUNTER_ONLY,
+} from './professionLaw.js';
+import { CLOTHING_DYES } from '../characters/dyes.js';   // DFU's ten clothing dyes (DyeColors 0-9), one home
 
 // ─── THE METALS (PROF0 4.1) ──────────────────────────────────────────
 
@@ -25,7 +31,8 @@ export const INGOT_MATERIAL = Object.freeze({
 const METAL_WORDS = Object.freeze(['Iron', 'Steel', 'Silver', 'Elven', 'Dwarven', 'Mithril', 'Adamantium', 'Ebony', 'Orcish', 'Daedric']);
 /** The ingot a Warforged piece is made from counts a quality step (PROF0 4.7, 9.2). */
 export const WARFORGED = 'ingot:warforged';
-/** DFU's armour materials (ItemEnums.cs ArmorMaterialTypes): chain, and plate above the metal. */
+/** DFU's armour materials (ItemEnums.cs ArmorMaterialTypes): leather, chain, and plate above the metal. */
+export const ARMOR_LEATHER = 0x0000;
 export const ARMOR_CHAIN = 0x0100;
 export const ARMOR_PLATE = 0x0200;
 
@@ -68,10 +75,12 @@ export const SHIELDS = Object.freeze([
 ]);
 /** The chain (the plate's seven - DFU has no chain shield): the plate piece's ingots x 0.75 rounded up, nothing else. */
 export const CHAIN = Object.freeze(PLATE.map((p) => product(`chain-${p.id}`, p.name, 'chain', p.templateIndex, Math.ceil(p.ingots * 0.75))));
-/** Foraging's tools (FORAGE0 14.7), at Iron: their templates are Foraging's own (foragingLaw.js FT). */
+/** Foraging's tools (FORAGE0 14.7), at Iron: their templates are Foraging's own (foragingLaw.js FT). PROF7: and the
+ *  Skinning Knife (603, the port's own - FORAGE0 14.7's row), 1 Iron Ingot and 1 Pine Plank at rank 0. */
 export const TOOLS = Object.freeze([
   product('woodaxe', 'Wood-Axe', 'tool', 1600, 2, [[PINE, 1]]), product('pickaxe', 'Pick-Axe', 'tool', 1601, 2, [[PINE, 1]]),
   product('sickle', 'Sickle', 'tool', 1602, 1, [[PINE, 1]]), product('spade', 'Spade', 'tool', 1606, 2, [[OAK, 1]]),
+  product('knife', 'Skinning Knife', 'tool', SKINNING_KNIFE.templateIndex, 1, [[PINE, 1]]),
 ]);
 /** A tool's tier: the Spade's rank 10 (FORAGE0 14.7) is tier 2's; the rest tier 1. */
 const TOOL_TIER = Object.freeze({ spade: 2 });
@@ -79,6 +88,9 @@ const TOOL_TIER = Object.freeze({ spade: 2 });
 export const KIT_PRODUCT = product('kit', 'Repair Kit', 'kit', 692, 1, [[LEATHER, 1]]);
 export const REPAIR_KIT_TEMPLATE = 692;
 /** What a kit gives back (PROF0 9.3): a quarter of an item's condition, once. */
+/** REPAIR-EASE (2026-09-30, Mac: "Add repair items you can find by looting"): a FIELD Repair Kit - found in dungeon
+ *  piles and on foes that carry loot, never crafted - mends any metal's weapon or armour, by less than a smith's kit. */
+export const FIELD_KIT_REPAIR = 0.15;
 export const KIT_REPAIR = 0.25;
 
 /** The metals a recipe is made in: every ingot but the Daedric's and the Warforged's for the tools (Iron alone). */
@@ -86,9 +98,10 @@ const SMITH_INGOTS = Object.freeze(INGOTS.map((i) => i.key));
 const KIT_INGOTS = Object.freeze(SMITH_INGOTS.filter((k) => k !== WARFORGED));
 
 /**
- * @typedef {{ id: string, product: string, name: string, kind: string, family: string, profession: 'smithing'|'carpentry',
- *   templateIndex: number, metal: string|null, wood?: string|null, material: number, tier: number, rank: number,
- *   stack?: number, later?: string, inputs: readonly { key: string, n: number }[] }} Recipe
+ * @typedef {{ id: string, product: string, name: string, kind: string, family: string,
+ *   profession: 'smithing'|'carpentry'|'outfitting', templateIndex: number, metal: string|null, wood?: string|null,
+ *   material: number, tier: number, rank: number, stack?: number, later?: string, group?: string, cloth?: string,
+ *   leather?: string, dyes?: boolean, inputs: readonly { key: string, n: number }[] }} Recipe
  */
 const FAMILY = Object.freeze({ weapon: 'weapons', plate: 'armour', shield: 'armour', chain: 'armour', tool: 'tools', kit: 'kits' });
 /** @returns {Recipe} */
@@ -148,13 +161,17 @@ const BEDS = Object.freeze([
   ['bed-fancy-single', 'Fancy Single Bed', 218, 'cherry'], ['bed-fancy-double', 'Fancy Double Bed', 220, 'teak'],
 ]);
 /** EVERY RECIPE the workbench knows, in its window's order: the staves and bows at every wood; the arrows (the northern
- *  Twigs' and the southern's); the furniture; the Basket; the Ram Kit (named, never made in PROF4 - PROF0 25). */
+ *  Twigs', the southern's and - PROF7 - the Harpy's feathers'); the furniture; the Basket; the Ram Kit (named, never made
+ *  - PROF0 25). */
 export const CARPENTRY_RECIPES = Object.freeze([
   ...WOODS.map((w) => carpentry({ id: `staff:${w.id}`, name: `${w.name} Staff`, kind: 'staff', family: 'staves', templateIndex: STAFF_TEMPLATE, wood: w.id, material: WOOD_MATERIAL[w.id], inputs: [[plank(w.id), 3]] })),
   ...WOODS.map((w) => carpentry({ id: `shortbow:${w.id}`, name: `${w.name} Short Bow`, kind: 'bow', family: 'bows', templateIndex: SHORT_BOW_TEMPLATE, wood: w.id, material: WOOD_MATERIAL[w.id], inputs: [[plank(w.id), 3], [RESIN.key, 1]] })),
   ...WOODS.map((w) => carpentry({ id: `longbow:${w.id}`, name: `${w.name} Long Bow`, kind: 'bow', family: 'bows', templateIndex: LONG_BOW_TEMPLATE, wood: w.id, material: WOOD_MATERIAL[w.id], inputs: [[plank(w.id), 4], [RESIN.key, 1]] })),
   carpentry({ id: 'arrows:north', name: 'Arrows (northern Twigs)', kind: 'arrows', family: 'arrows', templateIndex: ARROWS_TEMPLATE, wood: 'pine', stack: ARROWS_STACK, inputs: [[PINE_PLANK.key, 1], ['ingot:iron', 1], [TWIGS_NORTH, 4]] }),
   carpentry({ id: 'arrows:south', name: 'Arrows (southern Twigs)', kind: 'arrows', family: 'arrows', templateIndex: ARROWS_TEMPLATE, wood: 'pine', stack: ARROWS_STACK, inputs: [[PINE_PLANK.key, 1], ['ingot:iron', 1], [TWIGS_SOUTH, 4]] }),
+  // PROF7 (PROF0 9.3's own fletching, waiting on Hunting since PROF4): one Harpy Feathers for the four Twigs - the same
+  // quiver, since an arrow takes no quality for "one step lower" to act on (PROF0 25, 29)
+  carpentry({ id: 'arrows:harpy', name: 'Arrows (Harpy Feathers)', kind: 'arrows', family: 'arrows', templateIndex: ARROWS_TEMPLATE, wood: 'pine', stack: ARROWS_STACK, inputs: [[PINE_PLANK.key, 1], ['ingot:iron', 1], ['hide:harpy', 1]] }),
   ...FURNITURE_WOODS.map(([w, i]) => carpentry({ id: `table-large:${w}`, name: `Large ${woodName(w)} Table`, kind: 'furniture', family: 'furniture', templateIndex: 221 + i, wood: w, inputs: [[plank(w), 6]] })),
   ...FURNITURE_WOODS.map(([w, i]) => carpentry({ id: `table-small:${w}`, name: `Small ${woodName(w)} Table`, kind: 'furniture', family: 'furniture', templateIndex: 225 + i, wood: w, inputs: [[plank(w), 3]] })),
   ...FURNITURE_WOODS.map(([w, i]) => carpentry({ id: `chair:${w}`, name: `${woodName(w)} Chair`, kind: 'furniture', family: 'furniture', templateIndex: 229 + i, wood: w, inputs: [[plank(w), 2]] })),
@@ -162,8 +179,93 @@ export const CARPENTRY_RECIPES = Object.freeze([
   carpentry({ id: 'basket:pine', name: 'Basket', kind: 'tool', family: 'tools', templateIndex: 1607, wood: 'pine', inputs: [[PINE_PLANK.key, 2]] }),
   carpentry({ id: 'ramkit:oak', name: 'Ram Kit', kind: 'siege', family: 'siege', templateIndex: RAM_KIT_TEMPLATE, wood: 'oak', tier: 5, rank: RAM_KIT_RANK, later: 'sieges', inputs: [[plank('oak'), 40], ['ingot:iron', 20], [BEAR_HIDE.key, 4]] }),
 ]);
-/** Every recipe, the anvil's and the workbench's. */
-export const RECIPES = Object.freeze([...SMITH_RECIPES, ...CARPENTRY_RECIPES]);
+// ─── OUTFITTING (PROF0 9.3, 29) ──────────────────────────────────────
+
+/** The leather armour (9.3): DFU's seven body pieces at Leather (ArmorMaterialTypes 0 - DFU has every one in leather),
+ *  in Cured Leather, or in Hardened Leather for "the tier 4-6 leathers' step" - a quality step, as a Warforged ingot's. */
+export const LEATHER_PIECES = Object.freeze([
+  ['cuirass', 'Cuirass', 102, 6], ['greaves', 'Greaves', 104, 4], ['helm', 'Helm', 107, 2], ['lpauldron', 'Left Pauldron', 105, 2],
+  ['rpauldron', 'Right Pauldron', 106, 2], ['gauntlets', 'Gauntlets', 103, 2], ['boots', 'Boots', 108, 2],
+].map((a) => Object.freeze(a)));
+/**
+ * DFU's CLOTHING (MensClothing 141-181, WomensClothing 182-216), each its 9.3 size - small a bolt, middle two, large
+ * three, boots a bolt and a Cured Leather. Every one takes a dye: AUDIT 32 L3 - DFU's "unchangeable" shirts (178, 179,
+ * 214, 215) are the ones whose VARIANT Use never changes (systems/useItem.js VARIANT_CHANGEABLE), and DFU's shelf and
+ * loot dye them as any other garment (systems/shopStock.js); the loom refused them a dye, sewing them in Blue's table. 9.3
+ * names most; DECIDED for the rest: the Loincloth small, the Wrap and the Peasant Blouse middle, the Toga large (PROF0
+ * 29). DFU's look-alike shirts are told apart by their own enum names (ItemEnums.cs), as the startingGear port quotes them.
+ */
+export const GARMENTS = Object.freeze([
+  [141, 'Straps', 's'], [142, 'Armbands', 's'], [143, 'Kimono', 'l'], [144, 'Fancy Armbands', 's'], [145, 'Sash', 's'],
+  [146, 'Eodoric', 'm'], [147, 'Shoes', 's'], [148, 'Tall Boots', 'b'], [149, 'Boots', 'b'], [150, 'Sandals', 's'],
+  [151, 'Casual Pants', 'm'], [152, 'Breeches', 'm'], [153, 'Short Skirt', 'm'], [154, 'Casual Cloak', 'l'],
+  [155, 'Formal Cloak', 'l'], [156, 'Khajiit Suit', 'l'], [157, 'Dwynnen Surcoat', 'l'], [158, 'Short Tunic', 'm'],
+  [159, 'Formal Tunic', 'm'], [160, 'Toga', 'l'], [161, 'Reversible Tunic', 'm'], [162, 'Loincloth', 's'],
+  [163, 'Plain Robes', 'l'], [164, 'Priest Robes', 'l'], [165, 'Short Shirt', 'm'], [166, 'Short Shirt, belted', 'm'],
+  [167, 'Long Shirt', 'm'], [168, 'Long Shirt, belted', 'm'], [169, 'Short Shirt, closed', 'm'],
+  [170, 'Short Shirt, closed (second cut)', 'm'], [171, 'Long Shirt, closed', 'm'], [172, 'Long Shirt, closed (second cut)', 'm'],
+  [173, 'Open Tunic', 'm'], [174, 'Wrap', 'm'], [175, 'Long Skirt', 'm'], [176, 'Anticlere Surcoat', 'l'],
+  [177, 'Challenger Straps', 's'], [178, 'Short Shirt, unchangeable', 'm'], [179, 'Long Shirt, unchangeable', 'm'],
+  [180, 'Vest', 'm'], [181, 'Champion Straps', 's'],
+  [182, 'Brassiere', 's'], [183, 'Formal Brassiere', 's'], [184, 'Peasant Blouse', 'm'], [185, 'Eodoric', 'm'],
+  [186, 'Shoes', 's'], [187, 'Tall Boots', 'b'], [188, 'Boots', 'b'], [189, 'Sandals', 's'], [190, 'Casual Pants', 'm'],
+  [191, 'Casual Cloak', 'l'], [192, 'Formal Cloak', 'l'], [193, 'Khajiit Suit', 'l'], [194, 'Formal Eodoric', 'm'],
+  [195, 'Evening Gown', 'l'], [196, 'Day Gown', 'l'], [197, 'Casual Dress', 'l'], [198, 'Strapless Dress', 'l'],
+  [199, 'Loincloth', 's'], [200, 'Plain Robes', 'l'], [201, 'Priestess Robes', 'l'], [202, 'Short Shirt', 'm'],
+  [203, 'Short Shirt, belted', 'm'], [204, 'Long Shirt', 'm'], [205, 'Long Shirt, belted', 'm'], [206, 'Short Shirt, closed', 'm'],
+  [207, 'Short Shirt, closed and belted', 'm'], [208, 'Long Shirt, closed', 'm'], [209, 'Long Shirt, closed and belted', 'm'],
+  [210, 'Open Tunic', 'm'], [211, 'Wrap', 'm'], [212, 'Long Skirt', 'm'], [213, 'Tights', 's'],
+  [214, 'Short Shirt, unchangeable', 'm'], [215, 'Long Shirt, unchangeable', 'm'], [216, 'Vest', 'm'],
+].map((a) => Object.freeze(a)));
+/** The bolts a garment's size asks (9.3). */
+export const GARMENT_BOLTS = Object.freeze({ s: 1, m: 2, l: 3, b: 1 });
+/** DFU's clothing groups: the men's and the women's. */
+export const garmentGroup = (templateIndex) => (templateIndex <= 181 ? 'MensClothing' : 'WomensClothing');
+/** DFU's rugs, tapestries and skins (Furniture 237-245), in 9.3's cloth: rugs 3 Wool, tapestries 4 Wool - FOUND, DFU's
+ *  furniture takes no dye, so "a dye" has nothing to colour - and the skins of a pelt, Large two, Small one. */
+export const RUGS = Object.freeze([[237, 'Small Plain Rug'], [238, 'Large Plain Rug'], [239, 'Small Fine Rug'], [240, 'Large Fine Rug']]);
+export const TAPESTRIES = Object.freeze([[241, 'Large Tapestry'], [242, 'Medium Tapestry'], [243, 'Small Tapestry']]);
+/** The pelts the skins are cut from: a fur's hide, never silk, chitin, scales, feathers or shell. */
+export const PELTS = Object.freeze(['hide:rat', 'hide:bat', 'hide:bear', 'hide:tiger']);
+/** The Fishing-Net (FORAGE0 14.7): Foraging's 1603, 2 Linen Bolt, rank 0. */
+export const FISHING_NET_TEMPLATE = 1603;
+const tierOfKey = (key) => minedMaterial(key)?.tier ?? 1;
+/** @returns {Recipe} */
+function outfitting({ id, name, kind, family, templateIndex, tier, material = 0, inputs, ...more }) {
+  return Object.freeze({
+    id, product: id.slice(0, id.indexOf(':')), name, kind, family, profession: 'outfitting', templateIndex, metal: null,
+    material, tier, rank: TIER_RANKS[tier - 1], ...more, inputs: Object.freeze(inputs.map(([key, n]) => Object.freeze({ key, n }))),
+  });
+}
+/** EVERY RECIPE the loom knows, in its window's order: the leather armour in its two leathers; every garment in each
+ *  cloth; the rugs, tapestries and skins; the Fishing-Net. */
+export const OUTFITTING_RECIPES = Object.freeze([
+  ...LEATHER_PIECES.flatMap(([id, name, t, n]) => [CURED_LEATHER, HARDENED_LEATHER].map((l) => outfitting({
+    id: `leather-${id}:${l === CURED_LEATHER ? 'cured' : 'hardened'}`, name: `${l === CURED_LEATHER ? 'Leather' : 'Hardened Leather'} ${name}`,
+    kind: 'leather', family: 'leather', templateIndex: /** @type {number} */ (t), tier: l.tier, material: ARMOR_LEATHER,
+    leather: l.key, inputs: [[l.key, /** @type {number} */ (n)]],
+  }))),
+  ...GARMENTS.flatMap(([t, name, size]) => CLOTHS.map((c) => outfitting({
+    id: `garment-${t}:${c.key.slice('cloth:'.length)}`, name: `${c.name.replace(/ Bolt$/, '')} ${name}`, kind: 'garment', family: 'clothing',
+    templateIndex: /** @type {number} */ (t), tier: c.tier, group: garmentGroup(t), cloth: c.key, dyes: true,
+    inputs: [[c.key, GARMENT_BOLTS[/** @type {string} */ (size)]], ...(size === 'b' ? [[CURED_LEATHER.key, 1]] : [])],
+  }))),
+  ...RUGS.map(([t, name]) => outfitting({ id: `rug-${t}:wool`, name: /** @type {string} */ (name), kind: 'furniture', family: 'furnishings', templateIndex: /** @type {number} */ (t), tier: WOOL.tier, inputs: [[WOOL.key, 3]] })),
+  ...TAPESTRIES.map(([t, name]) => outfitting({ id: `tapestry-${t}:wool`, name: /** @type {string} */ (name), kind: 'furniture', family: 'furnishings', templateIndex: /** @type {number} */ (t), tier: WOOL.tier, inputs: [[WOOL.key, 4]] })),
+  ...PELTS.flatMap((p) => [[244, 'Large Skins', 2], [245, 'Small Skins', 1]].map(([t, name, n]) => outfitting({
+    id: `skins-${t}:${p.slice('hide:'.length)}`, name: `${name} (${HIDES.find((h) => h.key === p)?.name ?? p})`, kind: 'furniture', family: 'furnishings',
+    templateIndex: /** @type {number} */ (t), tier: tierOfKey(p), inputs: [[p, /** @type {number} */ (n)]],
+  }))),
+  outfitting({ id: 'fishingnet:linen', name: 'Fishing-Net', kind: 'tool', family: 'tools', templateIndex: FISHING_NET_TEMPLATE, tier: LINEN.tier, inputs: [[LINEN.key, 2]] }),
+]);
+/** A garment's dyes (9.3: "itemDye.js's colours"): DFU's ten clothing dyes; a crafted garment is sewn in the one the
+ *  crafter chose, or none (DFU's Unchanged). */
+export const GARMENT_DYES = CLOTHING_DYES;
+/** Whether `dye` may be asked of recipe `r`: a garment that takes one, and one of DFU's ten - or none asked at all. */
+export const dyeOk = (r, dye) => (dye == null ? true : !!r && r.kind === 'garment' && r.dyes === true && Number.isInteger(dye) && GARMENT_DYES.includes(dye));
+
+/** Every recipe, the anvil's, the workbench's and (PROF7) the loom's. */
+export const RECIPES = Object.freeze([...SMITH_RECIPES, ...CARPENTRY_RECIPES, ...OUTFITTING_RECIPES]);
 const BY_ID = new Map(RECIPES.map((r) => [r.id, r]));
 /** A recipe by its id (`longsword:mithril`, `chain-cuirass:steel`, `kit:iron`, `table-small:oak`), or null. */
 export const recipeById = (id) => (typeof id === 'string' ? BY_ID.get(id) ?? null : null);
@@ -218,13 +320,15 @@ export function rollQuality(u, odds) {
   return odds.length - 1;
 }
 /** The steps a craft takes, each source at most one (PROF0 9.2): the clean act (the honest bound, 5.1), the family's
- *  specialisation (Weaponsmith the weapons, Armoursmith the plate, the chain and the shields; PROF4: Bowyer the bows),
- *  a Warforged ingot or a Heartwood - one step between them (9.2's "Heartwood or a Warforged ingot"). */
+ *  specialisation (Weaponsmith the weapons, Armoursmith the plate, the chain and the shields; PROF4: Bowyer the bows;
+ *  PROF7: Tailor the clothing, Leatherworker the leather armour), a Warforged ingot, a Heartwood or (PROF7) Hardened
+ *  Leather - one step between them (9.2's "Heartwood or a Warforged ingot"; 9.3's "the tier 4-6 leathers' step"). */
 export function qualitySteps(r, { clean = false, spec50 = null, heartwood = false } = {}) {
   let steps = clean ? 1 : 0;
   if ((spec50 === 'weaponsmith' && r.family === 'weapons') || (spec50 === 'armoursmith' && r.family === 'armour')
-    || (spec50 === 'bowyer' && r.family === 'bows')) steps++;
-  if (r.metal === WARFORGED || (heartwood && takesHeartwood(r))) steps++;
+    || (spec50 === 'bowyer' && r.family === 'bows') || (spec50 === 'tailor' && r.family === 'clothing')
+    || (spec50 === 'leatherworker' && r.family === 'leather')) steps++;
+  if (r.metal === WARFORGED || r.leather === HARDENED_LEATHER.key || (heartwood && takesHeartwood(r))) steps++;
   return steps;
 }
 /** The quality a craft is made at: the roll, then the steps; nothing past Masterwork. */
@@ -251,12 +355,21 @@ export const carriesMark = (r, quality, spec100 = null) => quality === MASTERWOR
 
 export const CRAFT_XP_PER_TIER = 20;
 export const FIRST_CRAFT_XP = 500;
-/** A craft's XP (Smithing's or Carpentry's): 20 x its tier - a quarter for a recipe more than two tiers below the rank's top - and 500 the
- *  first time the character makes it. */
+/** A craft's XP (Smithing's, Carpentry's or Outfitting's): 20 x its tier - a quarter for a recipe more than two tiers below the rank's top - and 500 the
+ *  first time the character makes it (where firstCraftPays). */
 export function craftXp(tier, rank, first) {
   const xp = CRAFT_XP_PER_TIER * tier;
   return (tier < topTierOf(rank) - 2 ? Math.floor(xp / 4) : xp) + (first ? FIRST_CRAFT_XP : 0);
 }
+/**
+ * AUDIT 32 S1 (Mac: "Whatever you think is best"): whether a recipe's first craft lays on FIRST_CRAFT_XP - not for a
+ * recipe made wholly of goods only a counter sells (professionLaw COUNTER_ONLY, the Weavers' Linen and Wool). 3.2's +500
+ * rewards a recipe learnt from the world's goods; the counter's supply has no end, and its 152 recipes (144 garments,
+ * the rugs and tapestries, the Fishing-Net) bought a fresh character Outfitting 87 for 811 Marks and no hide. A boot (a bolt and a
+ * Cured Leather) and every other recipe keep it - a gatherer's own leather and planks earn what 3.2 promised them.
+ * @param {Recipe|null} r
+ */
+export const firstCraftPays = (r) => !!r && !(r.inputs.length > 0 && r.inputs.every((i) => COUNTER_ONLY.includes(i.key)));
 /** The pieces a craft makes: one, a Quartermaster's kit two (3.3). */
 export const craftCount = (r, spec100) => (r.kind === 'kit' && spec100 === 'quartermaster' ? 2 : 1);
 
@@ -301,6 +414,21 @@ export const planeTolerance = (rank, band = 1) => PLANE_ACT.tol * band * (1 + PL
 /** The grain's line at `x` in [0, 1] for an act's `phase`: a share of the half-height, up positive. */
 export const grainAt = (x, phase) => PLANE_ACT.waveA * Math.sin(2 * Math.PI * (PLANE_ACT.waves * x + phase));
 
+// ─── THE STITCH (PROF0 9.4, 29) ──────────────────────────────────────
+
+/**
+ * PROF7 - "presses on a beat, eight in a row": the needle's beat comes every `beatS`; a stitch pressed while the beat
+ * stands within the band - `bandW` of the beat wide, centred on it, x the attribute band - is on the beat. Eight
+ * stitches, each at least `gapS` after the last; all eight on the beat are a clean act.
+ */
+export const STITCH_ACT = Object.freeze({ stitches: 8, beatS: 0.75, bandW: 0.2, gapS: 0.25 });
+/** Outfitting's attribute pair (PROF0 29): (AGI + SPD) / 2 - a quick, sure hand on the beat, Foraging's four bands. */
+export const stitchBand = ({ agility, speed }) => actBand(Math.trunc((agility + speed) / 2));
+/** Where the beat stands at `t` seconds, 0 to 1 - the beat itself at 0 (and 1). */
+export const beatAt = (t) => ((t / STITCH_ACT.beatS) % 1 + 1) % 1;
+/** Whether the beat at phase `u` is within a band `w` wide centred on it. */
+export const onBeat = (u, w) => u <= w / 2 || u >= 1 - w / 2;
+
 /** A maker's name as the mark keeps it: the character's name at the moment of making (PROF0 18), trimmed, at most 32. */
 export const MAKER_MAX = 32;
 export function makerName(name) {
@@ -318,6 +446,7 @@ export const markedName = (maker, name) => `${maker}'s ${name}`;
 /** The lines a crafted piece's tooltip and card carry above its powers (PROF0 9.2): its quality and its maker - or a
  *  Repair Kit's work. Nothing for a piece no anvil or workbench made. */
 export function pieceLines(item) {
+  if (item?.fieldKit === true) return [`Mends ${Math.round(FIELD_KIT_REPAIR * 100)}% of a weapon's or armour's condition, once`];   // REPAIR-EASE: a looted kit has no provenance
   if (!item || typeof item.provenance !== 'string' || !PROVENANCE_RE.test(item.provenance)) return [];
   if (Number.isInteger(item.kitMetal)) return [`Mends a quarter of a ${METAL_WORDS[item.kitMetal] ?? ''} piece's condition, once`];
   const out = [];

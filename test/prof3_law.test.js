@@ -96,8 +96,8 @@ test('PROF3 law: the smith\'s stock - Cured Leather 4, Oak Plank 4, Pine Plank 2
   for (const s of SMITH_STOCK) {
     const m = materialOf(s.key, herbTier);
     assert.equal(s.marks, 2 * m.value, s.key);
-    // PROF4 registered the planks' and Charcoal's templates (PROF0 25): Cured Leather alone waits, for Hunting
-    assert.equal(withdrawable(s.key), s.key !== 'leather:cured', s.key);
+    // PROF4 registered the planks' and Charcoal's templates (PROF0 25); PROF7 moved it: Cured Leather's too (665)
+    assert.equal(withdrawable(s.key), true, s.key);
   }
   assert.deepEqual([materialOf('leather:cured', herbTier).tier, materialOf('plank:oak', herbTier).tier, materialOf('plank:pine', herbTier).tier], [2, 2, 1]);
   assert.equal(stockOf('ingot:iron'), null);

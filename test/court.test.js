@@ -53,7 +53,7 @@ const fac = (o) => {
 const factionsForRep = () => (skipReal
   ? new Map([[100, fac({
     id: 100,
-    // getPeopleOfCurrentRegion (talk.js:46-55) matches on FOUR columns
+    // getPeopleOfCurrentRegion (talk.js:47-56) matches on FOUR columns
     // and requires EXACTLY ONE hit, so a record short of any of them is
     // silently no People faction at all - which is how a thinner
     // fixture would have made these pins vacuous.

@@ -274,8 +274,8 @@
   {
     "name": "FORAGE1-31-a-duel-is-no-enemy",
     "file": "src/scenes/world.js",
-    "old": "        enemiesNear: exterior ? (duelEnemyNear() || areEnemiesNearby(exteriorFoePool(), { resting: true })) : false,",
-    "new": "        enemiesNear: exterior ? areEnemiesNearby(exteriorFoePool(), { resting: true }) : false,",
+    "old": "exterior ? (duelEnemyNear() || areEnemiesNearby(exteriorFoePool(), { resting: true })) :",
+    "new": "exterior ? areEnemiesNearby(exteriorFoePool(), { resting: true }) :",
     "tests": [
       "test/forage2_tools.test.js"
     ]

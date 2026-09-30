@@ -114,7 +114,7 @@ test('PROF1 law: north and south - an herb\'s group is its region\'s by FALL.EXE
   assert.equal(regionPlantGroup(regions.indexOf('Sentinel')), 'p2', 'a Redguard region: southern');
   assert.deepEqual([herbKey(8, 21), herbKey(8, 20), herbKey(19, 20), herbKey(26, 21), herbKey(33, 21)], ['p1:8', 'p2:8', 'p1:19', 'p2:26', null]);
   assert.equal(plantGroupFor(14, 20), 'p1', 'Pine Branch is northern only');
-  assert.deepEqual(FOOD_KEYS, ['food:apple', 'food:orange', 'food:mushroom', 'food:egg']);
+  assert.deepEqual(FOOD_KEYS, ['food:apple', 'food:orange', 'food:mushroom', 'food:egg', 'food:meat', 'food:fish']);   // PROF7 moved it: a body's butchery
   assert.deepEqual([foodKey(2, 'Apple'), foodKey(2, 'Orange'), foodKey(3, 'Apple'), foodKey(4, 'Orange'), foodKey(5, 'Apple')], ['food:apple', 'food:orange', 'food:mushroom', 'food:egg', null]);
 });
 

@@ -78,6 +78,7 @@ on:
       - "src/net/realmGoldLaw.js"
       - "src/world/mat4.js"
       - "src/characters/nameGen.json"
+      - "src/characters/dyes.js"
       - ".github/workflows/account-deploy.yml"
   workflow_dispatch:
 

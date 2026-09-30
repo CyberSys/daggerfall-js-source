@@ -55,6 +55,7 @@ import { skillValue } from './skills.js';
 import { unitWeightInKg } from './inventory.js';   // AUDIT-RR2 G1: ExtraWeight's base
 import { enchantmentCost, defaultParam } from './enchantmentCatalogue.js';   // G4: the legacy value sum reads M4's costs
 import { artifactHook } from './artifactEffects.js';   // V3: the nine artifact classes' sub-registry
+import { applyDressStanding } from './clothingStanding.js';   // DRESS1 (2026-09-30, Discord): the clothing reaction, a leaf
 
 // EnchantmentTypes moved HOME to formats/magicDef.js (V3) - it is
 // FallExe's enum and the artifact registry reads it below this module
@@ -849,6 +850,7 @@ export function computeEnchantmentMods(entity, ctx = null, { clampMagicka = true
 export function enchantmentMagicRound(entity, round, { nowMinutes = 0, ctx = null } = {}) {
   ctx = mergeCtx(ctx);
   if (entity.isPlayer) (entity.reactionMods ??= new Array(SOCIAL_GROUP_COUNT).fill(0)).fill(0);   // ClearReactionMods (PlayerEntity.cs:1567-1570 - Array.Clear over all socialGroupCount = 11 entries)
+  applyDressStanding(entity);   // DRESS1 (2026-09-30, Discord "reputation buffs for clothing items"): worn clothing refills the just-cleared mods - BEFORE the early return, so plain clothes count with nothing enchanted worn
   const items = equippedEnchantedItems(entity);
   if (!items.length) { entity._enchantMods = null; return; }
   computeEnchantmentMods(entity, ctx);

@@ -95,7 +95,8 @@ import { firstHotkey } from '../systems/dialogShortcuts.js';   // A8: the Dagger
 // against the player's settings, and the fare is scaled here too.
 import { TRAVEL_OPTIONS_TEXT as TO_TEXT, format as toFormat } from '../systems/travelOptionsText.js';
 import { hasPort } from '../systems/travelPorts.js';
-import { calculateTradePrice } from '../systems/shopStock.js';   // TravelTimeCalculatorTO's FormulaHelper.CalculateTradePrice
+import { calculateTradePrice, essentialPrice } from '../systems/shopStock.js';   // TravelTimeCalculatorTO's FormulaHelper.CalculateTradePrice
+import { isOnlinePage } from '../systems/onlineLane.js';   // ESSENTIALS-HALF: online, a fare costs half
 import { liveStat } from '../systems/statMods.js';
 import { skillValue, SKILLS } from '../systems/skills.js';   // TO-FARE: GetLiveSkillValue(Mercantile)
 
@@ -212,7 +213,16 @@ export function enforceShipRestriction(settings, opts, ctx) {
  *  (GetLiveSkillValue, FormulaHelper.cs:1992/1998) - the fare read
  *  `liveStat(e, 'mercantile')`, a stat no entity has, so every scaled
  *  fare haggled at Mercantile 0 and a trained haggler paid a novice's. */
-export function scaleTripCost(c, settings, entity) {
+export function scaleTripCost(c, settings, entity, { online = isOnlinePage() } = {}) {
+  const scaled = modScaledTripCost(c, settings, entity);
+  if (!online) return scaled;
+  // ESSENTIALS-HALF (2026-09-30, Discord: "cut the cost of most essential items by half"): online the fare costs half
+  // (shopStock.js essentialPrice) - the inn nights and the passage each, after the mod's scaling, so both map skins
+  // (this popup and ui/heldMap.js) quote and charge the same half
+  const piecesCost = essentialPrice(scaled.piecesCost, { online });
+  return { piecesCost, totalCost: piecesCost + essentialPrice(scaled.totalCost - scaled.piecesCost, { online }) };
+}
+function modScaledTripCost(c, settings, entity) {
   const s = settings;
   if (!s) return c;
   const inns = s.fastTravelCostScaleFactor | 0, ships = s.shipTravelCostScaleFactor | 0;

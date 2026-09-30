@@ -29,7 +29,7 @@
 // Pure - the door, the storage, the clock and the ids are handed in - so
 // the pins drive it without a network.
 // ═══════════════════════════════════════════════════════════════════
-import { HARVEST_LATE_S } from './professionLaw.js';
+import { HARVEST_LATE_S, HIDES_PER_DAY, HIGH_HIDES_PER_DAY } from './professionLaw.js';
 import { pixelKey } from './nodeLaw.js';
 import { accountRefusalText } from './accountClient.js';
 
@@ -54,8 +54,9 @@ export const PROF_DUNGEONS_MAX = 4;
 export const PROF_REFRESH_BACKOFF_MS = 30_000;
 /** AUDIT 29 C8: a shut switch is asked again this often - it opens without a reload. */
 export const PROF_CLOSED_RECHECK_MS = 300_000;
-/** The answers an act is asked again after: the network, the service's own fault, the account's minute spent. */
-const RETRY = Object.freeze(['offline', 'server', 'rate']);
+/** The answers an act is asked again after: the network, the service's own fault, the account's minute spent; GATHER-SAID:
+ *  the service held for its maintenance minute (RESTORE's 503, answered before any route - the act never reached it). */
+const RETRY = Object.freeze(['offline', 'server', 'rate', 'maintenance']);
 /** The answers that say nothing about the act's row - kept, and asked again once there is a session. */
 const WAIT = Object.freeze(['no-session', 'auth']);
 /** The answers that say the professions are not this account's now. */
@@ -99,6 +100,8 @@ export function createProfBook({ door, storage = null, character = () => null, n
     caps: /** @type {any} */ (null),
     /** PROF3: the account's Marks as the smith's stock last answered them, or null */
     marks: /** @type {number|null} */ (null),
+    /** PROF7: the account's hides today, every character's together (PROF0 6: 30, of them 3 of tiers 5-6) */
+    hunt: { hides: 0, high: 0 },
   };
   const account = () => { try { return door.account?.() ?? null; } catch { return null; } };
   const slot = () => `${account() ?? ''}|${character() ?? ''}`;
@@ -160,6 +163,11 @@ export function createProfBook({ door, storage = null, character = () => null, n
     for (const s of data?.stores ?? []) applyStore(s);
     if (data?.writs) state.writs = { today: data.writs.today | 0, max: data.writs.max | 0 };
     state.caps = data?.caps ?? null;
+    applyHunt(data?.hunt);
+  }
+  /** PROF7: the account's hides today, as the state or a skinning answered them. */
+  function applyHunt(h) {
+    if (h && typeof h === 'object') state.hunt = { hides: Math.max(0, h.hides | 0), high: Math.max(0, h.high | 0) };
   }
 
   /** The pixels' states, as the service last said them this UTC day: 'x,y' -> { day, state, climate?, region? }. */
@@ -282,8 +290,8 @@ export function createProfBook({ door, storage = null, character = () => null, n
     taken(node, kind) { return state.taken.has(`${node}|${kind}`); },
     counting(node, kind) { return keptOf().harvests.some((h) => h.node === node && h.kind === kind); },
     /**
-     * A NODE HARVESTED: `{ node, kind, climate, region, act, at }` (the act's end, epoch seconds on the shared clock) -
-     * kept with its own id, then asked. Answers `{ ok: true, data }` (the service's harvest), `{ ok: false, error }` (the
+     * A NODE HARVESTED: `{ node, kind, climate, region, act, at }` (the act's end, epoch seconds on the shared clock;
+     * PROF7: a body's `foe` beside them) - kept with its own id, then asked. Answers `{ ok: true, data }` (the service's harvest), `{ ok: false, error }` (the
      * service's no - the act is let go), or `{ ok: false, kept: true }` (no answer yet - kept, and `pump` asks again).
      */
     async harvest(req) {
@@ -317,7 +325,7 @@ export function createProfBook({ door, storage = null, character = () => null, n
           // rise read after it was no rise (no toast, no banner)
           const ranks = new Map([...state.tracks].map(([p, t]) => [p, t.rank]));
           const r = await send(h, key);
-          if (!r.kept) onAnswer(h, r, ranks.get(r?.data?.track?.profession) ?? 0);
+          if (!r.kept && !r.elsewhere) onAnswer(h, r, ranks.get(r?.data?.track?.profession) ?? 0);   // AUDIT 32 B5: another character's, unsaid
         }
       })().finally(() => { _pump = null; });
       return _pump;
@@ -375,14 +383,14 @@ export function createProfBook({ door, storage = null, character = () => null, n
      * the craft and handed to `mint` with it - the tab that mints the pieces pays it, whenever the answer comes.
      * @returns {Promise<{ ok: boolean, data?: any, error?: string, kept?: boolean, elsewhere?: boolean }>}
      */
-    async craft(recipe, { clean = false, name = null, heartwood = false, fee = 0 } = {}, mint) {
+    async craft(recipe, { clean = false, name = null, heartwood = false, fee = 0, dye = null } = {}, mint) {
       if (_craftBusy) return { ok: false, error: 'prof-busy' };
       const key = slot();
       const c = character();
       if (!c || !account()) return { ok: false, error: 'no-session' };
       _craftBusy = (async () => {
         const w = { rid: rid(), recipe, clean: clean === true, name: typeof name === 'string' ? name : null, character: c, heartwood: heartwood === true,   // PROF4: a Heartwood for a plank
-          fee: Number.isSafeInteger(fee) && fee > 0 ? fee : 0 };
+          fee: Number.isSafeInteger(fee) && fee > 0 ? fee : 0, ...(Number.isInteger(dye) ? { dye } : {}) };   // PROF7: a garment's dye
         const kept = keptOf(key);
         kept.crafts.push(w);
         writeKept(kept, key);
@@ -506,15 +514,24 @@ export function createProfBook({ door, storage = null, character = () => null, n
 
   /** A kept harvest's one ask: answered (the state moved), refused (let go), or kept for the pump. */
   async function send(h, key) {
-    const body = { character: h.character, node: h.node, kind: h.kind, climate: h.climate, region: h.region, act: h.act, at: h.at, rid: h.rid };
+    const body = {
+      character: h.character, node: h.node, kind: h.kind, climate: h.climate, region: h.region, act: h.act, at: h.at, rid: h.rid,
+      ...(h.foe === undefined ? {} : { foe: h.foe }),   // PROF7: the foe a body is (PROF0 6: the client's claim)
+    };
     let r;
     sending.add(h.rid);
     try { r = await door.harvest(body); } catch { r = { ok: false, error: 'offline' }; } finally { sending.delete(h.rid); }
+    // AUDIT 32 B5: the answer is its press's character's - heard after a switch, it is let go and the book (the other
+    // character's now) is left as it stands; that character's next read says it (AUDIT 31 B2's law, the market's)
+    const here = key === slot();
+    if (r?.ok && !here) { drop(h.rid, key); return { ok: true, data: r.data, elsewhere: true }; }
     if (r?.ok) {
       drop(h.rid, key);
       state.taken.add(`${h.node}|${h.kind}`);
       applyStore(r.data?.store);
       applyStore(r.data?.gemStore);   // PROF2: a gem the strikes found
+      applyStore(r.data?.extraStore);   // PROF7 (FOUND): a tree's Resin and a body's butchery - PROF4 never applied it
+      applyHunt(r.data?.hunt);   // PROF7: the account's hides today
       applyTrack(r.data?.track);
       if (r.data?.track && Number.isSafeInteger(r.data?.today)) state.today = { ...state.today, [r.data.track.profession]: r.data.today };
       return { ok: true, data: r.data };
@@ -526,8 +543,13 @@ export function createProfBook({ door, storage = null, character = () => null, n
       return { ok: false, error: r?.error ?? 'offline', kept: true };
     }
     drop(h.rid, key);
+    if (!here) return { ok: false, error: r?.error ?? 'server', elsewhere: true };
     shutBy(r);
     if (r?.error === 'node-taken') state.taken.add(`${h.node}|${h.kind}`);
+    // AUDIT 32 B2: the account's day as the refusal says it - the book counted what this device saw, and another
+    // character (or device) of the account may have taken the rest; a knife worn on every try until the next day's read
+    if (r?.error === 'prof-hunt-cap') state.hunt = { ...(state.hunt ?? { hides: 0, high: 0 }), hides: Math.max(state.hunt?.hides ?? 0, state.caps?.hides ?? HIDES_PER_DAY) };
+    if (r?.error === 'prof-hunt-high') state.hunt = { ...(state.hunt ?? { hides: 0, high: 0 }), high: Math.max(state.hunt?.high ?? 0, state.caps?.highHides ?? HIGH_HIDES_PER_DAY) };
     return { ok: false, error: r?.error ?? 'server' };
   }
   function drop(id, key) {
@@ -538,7 +560,10 @@ export function createProfBook({ door, storage = null, character = () => null, n
   /** A kept craft's ask (PROF3): its pieces minted and the craft let go on an answer, let go on a refusal, kept on
    *  silence - the service's row answers the same id with the same pieces whenever it is asked again. */
   async function craftOne(w, key, mint) {
-    const r = await ask(() => door.craft(w.character, w.recipe, w.clean, w.name, w.rid, w.heartwood === true));
+    const r = await ask(() => door.craft(w.character, w.recipe, w.clean, w.name, w.rid, w.heartwood === true, Number.isInteger(w.dye) ? w.dye : null));
+    // AUDIT 32 B5: heard after a switch, the craft waits kept for its own character's settle - asked again there, the
+    // service's row answers the same pieces into the right pack
+    if (key !== slot()) return { ok: false, error: 'elsewhere', kept: true };
     const kept = keptOf(key);
     if (r?.ok) {
       const had = kept.crafts.some((x) => x.rid === w.rid);
@@ -559,6 +584,7 @@ export function createProfBook({ door, storage = null, character = () => null, n
   /** A kept withdrawal's ask: minted and let go on an answer, let go on a refusal, kept on silence. */
   async function settleOne(w, key, mint) {
     const r = await ask(() => door.withdraw(w.character, w.material, w.qty, w.rid));
+    if (key !== slot()) return { ok: false, kept: true, text: '' };   // AUDIT 32 B5: its own character's settle mints it
     const kept = keptOf(key);
     if (r?.ok) {
       // AUDIT 29 C5: minted by the tab that lets it go - read and removed in one turn, so a second tab settling the same

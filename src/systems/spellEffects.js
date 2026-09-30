@@ -107,6 +107,10 @@ const ROWS = [
   // MorphSelf is not: it is sold ready-made, online, at the spell shop (worldModes `resurrectionSpell`), and a
   // Spell Maker copy crafted offline would be a spell with no one to raise.
   [45, 255, 'Resurrect', '', [], false],
+  // PARTY-MAP (2026-09-30): the port's own (no classic key uses 46) - while it lasts, the dungeon automap rows the
+  // caster reveals reach party mates in the same dungeon (systems/partyMap.js). Duration alone, and CRAFTABLE: a copy
+  // made offline is a harmless buff (no party, nothing shared); sold ready-made at the spell shop online.
+  [46, 255, 'Shared Cartography', '', [D]],
   [30, 255, 'Water Breathing', '', [D]],
   [31, 255, 'Water Walking', '', [D]],
   [33, 0, 'Pacify', 'Animal', [C]],
@@ -162,6 +166,7 @@ export const PORTED_KEYS = new Set([
   '28,255',                                                         // Climbing (X1)
   '29,255',                                                         // Morph Self (V2a - the arm calls the racial override)
   '45,255',                                                         // Resurrect (RESURRECT1 - the arm is the cast engine's, at a fallen party member's body)
+  '46,255',                                                         // Shared Cartography (PARTY-MAP - BUFF_KINDS; the share is systems/partyMap.js)
   '30,255',                                                         // Water Breathing
   '31,255',                                                         // Water Walking
   '6,0', '6,1', '6,2',                                              // Dispel {Magic,Undead,Daedra} (X9 the sweeps, X10 the bundle picker)
@@ -381,6 +386,12 @@ export const PORT_EFFECT_DESCRIPTIONS = new Map([
     'Calls a fallen party member back from death.',
     'Cast by touch at their body; they rise where',
     'they fell, with 30% of their health.',
+  ])],
+  ['46,255', Object.freeze([
+    'Shared Cartography',
+    'While it lasts, the parts of a dungeon you',
+    'map are drawn on your party\'s maps too,',
+    'for those in the same dungeon.',
   ])],
 ]);
 export const portEffectDescription = (key) => PORT_EFFECT_DESCRIPTIONS.get(key) ?? null;

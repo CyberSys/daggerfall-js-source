@@ -2,8 +2,8 @@
   {
     "name": "X1-menu-guard-removed",
     "file": "src/ui/enhancedMenu.js",
-    "old": "  if (!app) return;\n  repaintKeepingScroll(app, () => renderInto());",
-    "new": "  repaintKeepingScroll(app, () => renderInto());",
+    "old": "  if (!app) return;\n  repaintKeepingScroll(app, () => renderInto(), { focus: true });",
+    "new": "  repaintKeepingScroll(app, () => renderInto(), { focus: true });",
     "tests": [
       "test/fieldbugs_x.test.js"
     ]

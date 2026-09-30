@@ -483,7 +483,7 @@ export const ACTION_GROUPS = Object.freeze([
     ['SocialInteract', 'Interact with player'],
   ]),
   g('Professions', [
-    ['ActChoice', 'At an herb patch: the herbs or the Basket'],   // PROF1 - Interact starts the act, attack plays it, Escape ends it
+    ['ActChoice', 'At an herb patch: the herbs or the Basket; at a body: skin it or search it'],   // PROF1 - Interact starts the act, attack plays the Basket's, Escape ends it; AUDIT 32 R1: PROF7's body (the knife's trace drawn with Interact held)
   ]),
   g('Game', [
     ['QuickSave', 'Quick save'], ['QuickLoad', 'Quick load'], ['PrintScreen', 'Screenshot'], ['DebugOverlay', 'Diagnostics readout'],

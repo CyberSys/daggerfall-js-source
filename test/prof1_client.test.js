@@ -377,10 +377,10 @@ test('PROF1 keys and hosts: the act choice is KB1\'s, on ;, in a Professions gro
   // PROF2: the herb host became the one gathering host (src/scenes/gatherHost.js) - Herbalism a kind in it
   assert.match(w, /gatherHost\?\.onBuilt\(built\.get\(key\)\);/);
   assert.match(w, /gatherHost\?\.onDestroyed\(p\);[^\n]*\n\s*for \(const b of p\.batches\) renderer\.destroyBatch\(b\);/, 'forgotten before the pixel frees its batches');
-  assert.match(w, /const nodeTook = useEdge && (?:!_holdFire && )?!modes\.transitioning && \(gatherHost\?\.press\(\) \?\? false\);[^\n]*\n\s*if \(\(_act\.activate \|\| \(useEdge && !nodeTook\)\) && !modes\.transitioning(?: && !_holdFire)?\) \{/);   // PIN MOVED (AUDIT NAV2 F31): E that held fire is spent - no patch takes it
+  assert.match(w, /const nodeTook = useEdge && (?:!_holdFire && )?!modes\.transitioning && \(gatherHost\?\.press\(\) \?\? false\);[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*if \(\(\(_act\.activate && !gatherHost\?\.acting\(\)\) \|\| \(useEdge && !nodeTook\)\) && !modes\.transitioning(?: && !_holdFire)?\) \{/, 'AUDIT 32 H5: nor a click through an act');   // PIN MOVED (AUDIT NAV2 F31): E that held fire is spent - no patch takes it
   assert.match(w, /if \(!townTalk\.overlayActive && act === 'Escape' && gatherHost\?\.cancel\(\)\) \{ e\.preventDefault\(\); e\.profActEnded = true; return true; \}/);
   assert.match(w, /actTool: \(\) => gatherHost\?\.handTool\(\) \?\? null,/);
-  assert.equal((w.match(/gatherHost\?\.acting\(\)/g) ?? []).length, 6, 'the mouse, the drag, the key and the finger never swing through an act - the dungeon\'s swing asks it (PROF2), and the street\'s readied spell (AUDIT 29 D2)');
+  assert.equal((w.match(/gatherHost\?\.acting\(\)/g) ?? []).length, 7, 'the mouse, the drag, the key and the finger never swing through an act - the dungeon\'s swing asks it (PROF2), the street\'s readied spell (AUDIT 29 D2), and a click never activates through one (AUDIT 32 H5)');
   assert.equal((w.match(/gatherHost\?\.tick\(dt\)/g) ?? []).length, 2, 'the street\'s frame and the modal one');
   assert.doesNotMatch(src('src/scenes/exterior.js'), /gatherHost|herbHost|createProfBook/, 'the fixed city: no wilderness, no nodes (PROF0 17.1)');
   assert.doesNotMatch(src('src/scenes/dungeonContext.js'), /herbHost|herbKind/, 'the dungeons: no herbs (their veins are PROF2\'s)');

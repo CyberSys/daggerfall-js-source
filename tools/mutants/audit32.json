@@ -1,0 +1,648 @@
+[
+ {
+  "name": "AUDIT32-L2-state-counts-bodies",
+  "file": "server-account/src/professions.js",
+  "old": "SELECT COALESCE(SUM(qty), 0) AS n, COALESCE(SUM(CASE WHEN tier >= ?3 THEN qty ELSE 0 END), 0) AS high",
+  "new": "SELECT COUNT(*) AS n, COALESCE(SUM(CASE WHEN tier >= ?3 THEN qty ELSE 0 END), 0) AS high",
+  "tests": [
+   "test/audit32_service.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-L2-state-high-counts-bodies",
+  "file": "server-account/src/professions.js",
+  "old": "COALESCE(SUM(CASE WHEN tier >= ?3 THEN qty ELSE 0 END), 0) AS high",
+  "new": "COALESCE(SUM(CASE WHEN tier >= ?3 THEN 1 ELSE 0 END), 0) AS high",
+  "tests": [
+   "test/audit32_service.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-L2-decision-counts-bodies",
+  "file": "server-account/src/professions.js",
+  "old": "const hunted = \"COALESCE((SELECT SUM(qty) FROM node_harvests WHERE player = ?1 AND profession = 'hunting' AND day = ?6), 0)\";",
+  "new": "const hunted = \"COALESCE((SELECT COUNT(*) FROM node_harvests WHERE player = ?1 AND profession = 'hunting' AND day = ?6), 0)\";",
+  "tests": [
+   "test/audit32_service.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-L2-day-room-uncut",
+  "file": "server-account/src/professions.js",
+  "old": "CASE WHEN ?9 = 'hunting' THEN ?21 - ${hunted} ELSE ?10 END",
+  "new": "?10",
+  "tests": [
+   "test/audit32_service.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-L2-high-room-uncut",
+  "file": "server-account/src/professions.js",
+  "old": "CASE WHEN ?9 = 'hunting' AND ?22 >= ?23 THEN ?24 - ${huntedHigh} ELSE ?10 END",
+  "new": "?10",
+  "tests": [
+   "test/audit32_service.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-S2-body-slots-read",
+  "file": "server-account/src/professions.js",
+  "old": "if (!deep && !isBody && n.slot >= (n.kind === 'vein'",
+  "new": "if (!deep && n.slot >= (n.kind === 'vein'",
+  "tests": [
+   "test/audit32_service.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-S3-second-find-all-or-nothing",
+  "file": "server-account/src/professions.js",
+  "old": "CASE WHEN ${storedExtra} < ?11 THEN ?20 END",
+  "new": "CASE WHEN ${storedExtra} + ?25 <= ?11 THEN ?20 END",
+  "tests": [
+   "test/audit32_service.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-S3-second-find-uncut",
+  "file": "server-account/src/professions.js",
+  "old": "CASE WHEN ${storedExtra} < ?11 THEN MIN(?25, ?11 - ${storedExtra}) ELSE 1 END",
+  "new": "?25",
+  "tests": [
+   "test/audit32_service.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-S4-foe-after-the-hour",
+  "file": "server-account/src/professions.js",
+  "old": "  if (isBody && !hide) return { error: 'prof-foe' };\n  if (await overRate(ctx, `prof:${player.id}`, PROF_OPS_MAX, PROF_OPS_WINDOW_S)) return { error: 'prof-rate' };\n",
+  "new": "  if (await overRate(ctx, `prof:${player.id}`, PROF_OPS_MAX, PROF_OPS_WINDOW_S)) return { error: 'prof-rate' };\n  if (isBody && !hide) return { error: 'prof-foe' };\n",
+  "tests": [
+   "test/audit32_service.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-S5-weave-answers-smithing",
+  "file": "server-account/src/professions.js",
+  "old": "const prof = r.xp ?? r.more?.profession ?? null;",
+  "new": "const prof = r.xp ?? r.more?.profession ?? 'smithing';",
+  "tests": [
+   "test/audit32_service.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-L1-far-never-moves",
+  "file": "src/systems/traceAct.js",
+  "old": "      st.far = hi;\n",
+  "new": "",
+  "tests": [
+   "test/audit32_law.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-L1-clock-at-the-press",
+  "file": "src/systems/traceAct.js",
+  "old": "st.tracing = true; st.t0 = null; st.far = aim.yaw;",
+  "new": "st.tracing = true; st.t0 = st.t; st.far = aim.yaw;",
+  "tests": [
+   "test/audit32_law.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-L5-any-bearing",
+  "file": "src/systems/traceAct.js",
+  "old": "const aim = given && Number.isFinite(given.yaw) && Number.isFinite(given.pitch) ? given : null;",
+  "new": "const aim = given;",
+  "tests": [
+   "test/audit32_law.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-L5-chord-past-the-line",
+  "file": "src/systems/traceAct.js",
+  "old": "const hi = Math.min(b.yaw, endYaw);",
+  "new": "const hi = b.yaw;",
+  "tests": [
+   "test/audit32_law.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-L3-shirts-undyed",
+  "file": "src/net/recipeLaw.js",
+  "old": "group: garmentGroup(t), cloth: c.key, dyes: true,",
+  "new": "group: garmentGroup(t), cloth: c.key, dyes: ![178, 179, 214, 215].includes(/** @type {number} */ (t)),",
+  "tests": [
+   "test/audit32_law.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-B1-no-lapse",
+  "file": "src/scenes/huntHost.js",
+  "old": "return s && s.key.startsWith(`body:${utcDayOfMs(nowMs())}:`) ? s : null;",
+  "new": "return s;",
+  "tests": [
+   "test/audit32_client.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-B2-cap-refusal-unheard",
+  "file": "src/net/profBook.js",
+  "old": "    if (r?.error === 'prof-hunt-cap') state.hunt",
+  "new": "    if (false) state.hunt",
+  "tests": [
+   "test/audit32_client.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-B2-high-refusal-unheard",
+  "file": "src/net/profBook.js",
+  "old": "    if (r?.error === 'prof-hunt-high') state.hunt",
+  "new": "    if (false) state.hunt",
+  "tests": [
+   "test/audit32_client.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-B5-harvest-elsewhere-applied",
+  "file": "src/net/profBook.js",
+  "old": "    if (r?.ok && !here) { drop(h.rid, key); return { ok: true, data: r.data, elsewhere: true }; }\n",
+  "new": "",
+  "tests": [
+   "test/audit32_client.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-B5-craft-elsewhere-minted",
+  "file": "src/net/profBook.js",
+  "old": "    if (key !== slot()) return { ok: false, error: 'elsewhere', kept: true };\n",
+  "new": "",
+  "tests": [
+   "test/audit32_client.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-H2-identity-required",
+  "file": "src/scenes/gatherHost.js",
+  "old": "      if (dungeon) this.leaveDungeon();\n      if (!d) return;\n",
+  "new": "      if (dungeon) this.leaveDungeon();\n      if (!d || !Number.isSafeInteger(d.id)) return;\n",
+  "tests": [
+   "test/audit32_client.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-H3-corpse-floats",
+  "file": "src/scenes/dungeonContext.js",
+  "old": "    f.corpsePos = p;   // AUDIT 32 H3",
+  "new": "    // AUDIT 32 H3",
+  "tests": [
+   "test/audit32_client.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-H4-ground-unasked",
+  "file": "src/scenes/huntHost.js",
+  "old": "  if (where) return { harvest, verb, rest: where, ready: false };\n",
+  "new": "",
+  "tests": [
+   "test/audit32_client.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-H5-click-through-the-act",
+  "file": "src/scenes/world.js",
+  "old": "if (((_act.activate && !gatherHost?.acting()) || (useEdge && !nodeTook)) && !modes.transitioning && !_holdFire) {",
+  "new": "if ((_act.activate || (useEdge && !nodeTook)) && !modes.transitioning && !_holdFire) {",
+  "tests": [
+   "test/audit32_client.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-H5-dungeon-click-through",
+  "file": "src/scenes/worldModes.js",
+  "old": "    if (!interact && host.profActing?.()) return true;\n",
+  "new": "",
+  "tests": [
+   "test/audit32_client.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-H6-dungeon-foes-unasked",
+  "file": "src/scenes/world.js",
+  "old": ": areEnemiesNearby(modes?.insideFoes?.() ?? [], { resting: true }),",
+  "new": ": false,",
+  "tests": [
+   "test/audit32_client.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-H7-reach-by-eye-height",
+  "file": "src/scenes/gatherHost.js",
+  "old": "if (s.loose ? Math.hypot(dx, dy, dz) > reach :",
+  "new": "if (false ? Math.hypot(dx, dy, dz) > reach :",
+  "tests": [
+   "test/audit32_client.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-H7-no-step-back",
+  "file": "src/scenes/huntHost.js",
+  "old": "  if (steep) return { harvest, verb, rest: 'step back', ready: false };\n",
+  "new": "",
+  "tests": [
+   "test/audit32_client.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-H8-search-by-the-ray",
+  "file": "src/scenes/gatherHost.js",
+  "old": "      if (plan?.open) { plan.open(); return true; }\n",
+  "new": "",
+  "tests": [
+   "test/audit32_client.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-H8-search-of-nothing",
+  "file": "src/scenes/huntHost.js",
+  "old": "const searchable = (b) => !openLoot || !!b?.lootKey?.();",
+  "new": "const searchable = () => true;",
+  "tests": [
+   "test/audit32_client.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-H9-dungeon-ground",
+  "file": "src/scenes/gatherHost.js",
+  "old": "places.push({ nodes, entry: null, info: null, loose: true, at: looseAt });",
+  "new": "places.push({ nodes, entry: null, info: under ? dungeon.info : null, loose: true, at: looseAt });",
+  "tests": [
+   "test/audit32_client.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-H10-under-the-travel-view",
+  "file": "src/scenes/world.js",
+  "old": " && !modes?.transitioning && !travelView?.active,   // AUDIT 32 H10",
+  "new": ",   // AUDIT 32 H10",
+  "tests": [
+   "test/audit32_client.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-H2-world-tells-known-alone",
+  "file": "src/scenes/world.js",
+  "old": "      if (!gatherHost) return;\n      const id = ctx?.profIdentity?.();\n",
+  "new": "      const id = ctx?.profIdentity?.();\n      if (!gatherHost || !id) return;\n",
+  "tests": [
+   "test/audit32_client.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-R1-label-herbs-alone",
+  "file": "src/systems/inputActions.js",
+  "old": "'At an herb patch: the herbs or the Basket; at a body: skin it or search it'",
+  "new": "'At an herb patch: the herbs or the Basket'",
+  "tests": [
+   "test/audit32_client.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-S6-route-table-stale",
+  "file": "server-account/src/index.js",
+  "old": "act, at, rid, foe? }",
+  "new": "act, at, rid }",
+  "tests": [
+   "test/audit32_client.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-B3-market-untold",
+  "file": "src/scenes/world.js",
+  "old": "{ marksBook?.set(balance); marketBook?.told(balance); }",
+  "new": "{ marksBook?.set(balance); }",
+  "tests": [
+   "test/audit30_client.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-B4-anvil-busy-everywhere",
+  "file": "src/scenes/world.js",
+  "old": "r?.kept ? st.kept : r?.error === 'prof-busy' ? st.busy : accountRefusalText(r?.error)",
+  "new": "r?.kept ? st.kept : accountRefusalText(r?.error)",
+  "tests": [
+   "test/audit30_client.test.js",
+   "test/prof3_client.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-P10-trace-end-unsaid",
+  "file": "src/scenes/huntHost.js",
+  "old": "      if (rep.torn) return ' (a torn pelt - its part lost)';\n",
+  "new": "",
+  "tests": [
+   "test/audit32_client.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-P10-host-cleannote-only",
+  "file": "src/scenes/gatherHost.js",
+  "old": "const note = a && k?.actNote ? k.actNote(a.report) : a?.clean",
+  "new": "const note = a?.clean",
+  "tests": [
+   "test/audit32_client.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-P1-stitch-at-the-frame",
+  "file": "src/systems/stitchAct.js",
+  "old": "const at = st.t + Math.max(0, Math.min(PRESS_LEAD_MAX_S, Number(lead) || 0));",
+  "new": "const at = st.t;",
+  "tests": [
+   "test/audit32_pages.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-P1-strike-at-the-frame",
+  "file": "src/systems/heatAct.js",
+  "old": "const at = st.t + Math.max(0, Math.min(PRESS_LEAD_MAX_S, Number(lead) || 0));",
+  "new": "const at = st.t;",
+  "tests": [
+   "test/audit32_pages.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-P1-click-a-second-press",
+  "file": "src/ui/profPages.js",
+  "old": "  b.onclick = (e) => { if (pointed) { pointed = false; return; } press(e); };",
+  "new": "  b.onclick = (e) => { press(e); };",
+  "tests": [
+   "test/audit32_pages.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-P1-own-button-ignored",
+  "file": "src/ui/profPages.js",
+  "old": "(isDomControlTarget(e.target) && e.target !== ownButton)",
+  "new": "isDomControlTarget(e.target)",
+  "tests": [
+   "test/audit32_pages.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-P2-loom-beside-the-heat",
+  "file": "src/ui/profPages.js",
+  "old": "!_loom.busy && !_loom.crafting && !_loom.act && !elsewhere && !short",
+  "new": "!_loom.busy && !_loom.crafting && !_loom.act && !short",
+  "tests": [
+   "test/audit32_pages.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-P4-repeats-pressed",
+  "file": "src/ui/profPages.js",
+  "old": "  if (!e.repeat) press(e);",
+  "new": "  press(e);",
+  "tests": [
+   "test/audit32_pages.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-P5-cures-live-while-sewing",
+  "file": "src/ui/profPages.js",
+  "old": "    b.disabled = state.busy || hold || most < 1 || !!short;",
+  "new": "    b.disabled = state.busy || most < 1 || !!short;",
+  "tests": [
+   "test/audit32_pages.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-P5-loom-one-flag",
+  "file": "src/ui/profPages.js",
+  "old": "      _loom.crafting = true; rerender();",
+  "new": "      _loom.busy = true; rerender();",
+  "tests": [
+   "test/audit32_pages.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-P6-weavers-unheld",
+  "file": "src/ui/profPages.js",
+  "old": "        buy.disabled = _loom.busy || shortOf;",
+  "new": "        buy.disabled = _loom.busy;",
+  "tests": [
+   "test/audit32_pages.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-P6-weavers-when-shut",
+  "file": "src/ui/profPages.js",
+  "old": " && p.stock && p.marksOpen?.() !== false) {",
+  "new": " && p.stock) {",
+  "tests": [
+   "test/audit32_pages.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-P8-silk-unsaid",
+  "file": "src/ui/profPages.js",
+  "old": "  if (_loom.family === 'clothing' && UNYIELDED.includes(_loom.cloth))",
+  "new": "  if (false)",
+  "tests": [
+   "test/audit32_pages.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-R4-skins-at-ten",
+  "file": "src/ui/profPages.js",
+  "old": "['Linen clothing; the Rat\\'s skins; the Fishing-Net', 1]",
+  "new": "['Linen clothing; the Fishing-Net', 1]",
+  "tests": [
+   "test/audit32_pages.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-P11-no-line",
+  "file": "src/ui/profHud.js",
+  "old": "        if (typeof doc.createElementNS === 'function') {",
+  "new": "        if (false) {",
+  "tests": [
+   "test/audit32_pages.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-P11-first-unmarked",
+  "file": "src/ui/profHud.js",
+  "old": "i === 0 ? 'prof-point first' : 'prof-point'",
+  "new": "'prof-point'",
+  "tests": [
+   "test/audit32_pages.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-P11-degrees-unequal",
+  "file": "src/ui/profHud.js",
+  "old": "        face.style.aspectRatio = `${w} / ${h}`;\n",
+  "new": "",
+  "tests": [
+   "test/audit32_pages.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-P10-slip-unsaid",
+  "file": "src/ui/profHud.js",
+  "old": " : st.slips > 0 ? `let go - hold ${key} on the first point again`",
+  "new": "",
+  "tests": [
+   "test/audit32_pages.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-P12-escape-closes-the-window",
+  "file": "src/ui/enhancedMenu.js",
+  "old": "    : profActUnderWay() ? () => { setDownProfAct(); render(); }\n",
+  "new": "",
+  "tests": [
+   "test/audit32_pages.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-P12-set-down-unsaid",
+  "file": "src/ui/profPages.js",
+  "old": "  if (_loom.act) { _loom.act.cancel(); endStitch(); _loom.word = 'You set the needle down; nothing is spent.'; return true; }",
+  "new": "  if (_loom.act) { _loom.act.cancel(); endStitch(); return true; }",
+  "tests": [
+   "test/audit32_pages.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-P3-focus-given-back-never",
+  "file": "src/ui/domRepaint.js",
+  "old": "  if (kept) giveFocus(host, kept);\n",
+  "new": "",
+  "tests": [
+   "test/audit32_pages.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-P3-menu-keeps-no-focus",
+  "file": "src/ui/enhancedMenu.js",
+  "old": "repaintKeepingScroll(app, () => renderInto(), { focus: true });",
+  "new": "repaintKeepingScroll(app, () => renderInto());",
+  "tests": [
+   "test/audit32_pages.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-P3-words-unread",
+  "file": "src/ui/domRepaint.js",
+  "old": "  if (k.words != null && (!n || n.textContent !== k.words)) n = [...host.querySelectorAll(k.tag)].find((x) => x.textContent === k.words) ?? null;\n",
+  "new": "",
+  "tests": [
+   "test/audit32_pages.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-P7-rows-flowed",
+  "file": "src/ui/enhancedPlusStyle.js",
+  "old": ".prof-smelt .act { grid-column: 3; grid-row: 1; }",
+  "new": ".prof-smelt .act { }",
+  "tests": [
+   "test/audit32_pages.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-P9-prompt-nowrap",
+  "file": "src/ui/enhancedPlusStyle.js",
+  "old": "width: max-content; max-width: calc(100vw - 24px); box-sizing: border-box; white-space: normal; text-align: center;",
+  "new": "white-space: nowrap;",
+  "tests": [
+   "test/audit32_pages.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-S1-service-always-pays",
+  "file": "server-account/src/professions.js",
+  "old": "nonce, firstCraftPays(r) ? FIRST_CRAFT_XP : 0, prof,",
+  "new": "nonce, FIRST_CRAFT_XP, prof,",
+  "tests": [
+   "test/audit32_service.test.js",
+   "test/prof7_service.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-S1-service-pays-inverted",
+  "file": "server-account/src/professions.js",
+  "old": "nonce, firstCraftPays(r) ? FIRST_CRAFT_XP : 0, prof,",
+  "new": "nonce, firstCraftPays(r) ? 0 : FIRST_CRAFT_XP, prof,",
+  "tests": [
+   "test/audit32_service.test.js",
+   "test/prof7_service.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-S1-law-any-counter-input",
+  "file": "src/net/recipeLaw.js",
+  "old": "r.inputs.every((i) => COUNTER_ONLY.includes(i.key))",
+  "new": "r.inputs.some((i) => COUNTER_ONLY.includes(i.key))",
+  "tests": [
+   "test/audit32_law.test.js",
+   "test/audit32_service.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-S1-law-empty-guard-lost",
+  "file": "src/net/recipeLaw.js",
+  "old": "!(r.inputs.length > 0 && r.inputs.every(",
+  "new": "!(r.inputs.every(",
+  "tests": [
+   "test/audit32_law.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-S1-law-null-guard-lost",
+  "file": "src/net/recipeLaw.js",
+  "old": "export const firstCraftPays = (r) => !!r && !(",
+  "new": "export const firstCraftPays = (r) => !(",
+  "tests": [
+   "test/audit32_law.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-S1-law-pays-all",
+  "file": "src/net/recipeLaw.js",
+  "old": "export const firstCraftPays = (r) => !!r && !(",
+  "new": "export const firstCraftPays = (r) => !!r || !(",
+  "tests": [
+   "test/audit32_law.test.js",
+   "test/audit32_service.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-S1-wool-not-counter-only",
+  "file": "src/net/professionLaw.js",
+  "old": "export const COUNTER_ONLY = Object.freeze([LINEN.key, WOOL.key]);",
+  "new": "export const COUNTER_ONLY = Object.freeze([LINEN.key]);",
+  "tests": [
+   "test/audit32_law.test.js",
+   "test/audit32_service.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-S1-cured-leather-counter-only",
+  "file": "src/net/professionLaw.js",
+  "old": "export const COUNTER_ONLY = Object.freeze([LINEN.key, WOOL.key]);",
+  "new": "export const COUNTER_ONLY = Object.freeze([LINEN.key, WOOL.key, CURED_LEATHER.key]);",
+  "tests": [
+   "test/audit32_law.test.js",
+   "test/audit32_service.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-R13-one-drakes",
+  "file": "src/ui/profPages.js",
+  "old": "`you hold ${marksText(balance)}`",
+  "new": "`you hold ${balance} Drakes`",
+  "tests": [
+   "test/audit32_pages.test.js"
+  ]
+ }
+]

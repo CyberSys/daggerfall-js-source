@@ -118,13 +118,13 @@ export function sinkFelled(forest, sunk, renderer) {
   }
 }
 
-/** A tree's plan: what E does at it, or what it needs. */
+/** A tree's plan: what E does at it, or what it needs (a rank short: the rank, `needsRank` - VEIN-NEED). */
 export function treePlan({ node, taken, counting, rank, axe, storesFull, today, cap, lumberjack = false }) {
   const name = materialLabel(node.material).replace(/ Log$/, '');
   const verb = `Chop ${name}`;
   const rankWord = `Logging ${rank} - ${chopsFor(node.tier, lumberjack)} chops`;   // AUDIT 30 A8: a Lumberjack's two fewer, as the act counts them
   if (taken || counting) return { harvest: 'logs', verb, rest: 'felled today', ready: false };
-  if (!tierOpen(rank, node.tier)) return { harvest: 'logs', verb, rest: `needs Logging ${TIER_RANKS[node.tier - 1]}`, ready: false };
+  if (!tierOpen(rank, node.tier)) return { harvest: 'logs', verb, rest: `needs Logging ${TIER_RANKS[node.tier - 1]}`, ready: false, needsRank: TIER_RANKS[node.tier - 1] };
   if (!axe) return { harvest: 'logs', verb, rest: 'needs a Wood-Axe', ready: false };
   if (today >= cap) return { harvest: 'logs', verb, rest: `Logging done for today (${cap})`, ready: false };
   if (storesFull(node.material)) return { harvest: 'logs', verb, rest: `Stores full - ${materialLabel(node.material)}`, ready: false };

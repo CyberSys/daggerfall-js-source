@@ -293,7 +293,7 @@ Generated from `ACTION_GROUPS` and the two default tables; the enhanced pane dra
 
 | Action | Key | Pad | What it does |
 |---|---|---|---|
-| `ActChoice` | UP |  | At an herb patch: the herbs or the Basket |
+| `ActChoice` | UP |  | At an herb patch: the herbs or the Basket; at a body: skin it or search it |
 
 ### Game
 

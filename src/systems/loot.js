@@ -18,7 +18,7 @@
 // (setMagicItemTemplates), and EVERY host that can generate loot now
 // loads it: scenes/shared.js:129-132 (loadMagicRegistries) feeds the
 // module table this file reads, called from dungeonContext.js:1501,
-// world.js:4872 and exterior.js:1314 - interiors run inside those hosts
+// world.js:4892 and exterior.js:1314 - interiors run inside those hosts
 // and read the same table. What is left is the data-absent boot, and
 // that is DFU's own answer rather than a stand-in: shared.js:140
 // records it, the category simply stays empty.
@@ -309,7 +309,7 @@ export function createRegularMagicItem(templates, playerLevel, gender, rolls = M
   // G4: THE VALUE IS OVERWRITTEN (:632). The gap that stood here from
   // S4c - the enchantment cost sum unported, so a magic item sold at
   // its mundane base - closed with M4's catalogue: the sum is
-  // legacyEnchantmentValue (enchantments.js:224-242) and it is called
+  // legacyEnchantmentValue (enchantments.js:225-243) and it is called
   // on the `value:` line below. `newItem.value = value` REPLACES
   // whatever the base item was
   // worth, so a daedric longsword and a leather boot with the same
@@ -748,9 +748,16 @@ export function addEnemyLootExtras(items, basics, rolls = Math.random) {
   if (key && key !== '-') {
     randomlyAddPotion(3, items, rolls);
     randomlyAddPotionRecipe(2, items, rolls);
+    for (const fn of [..._enemyLootExtras.values()]) {   // REPAIR-EASE: the port's own extras on a looting foe (the field kit)
+      try { fn({ items, basics, rolls }); } catch (e) { console.warn('[enemyLoot] an extra threw', e); }
+    }
   }
   return items;
 }
+/** REPAIR-EASE: the port's own extras on a foe with a loot table, by name - the pile event's shape (raiseTabledLootSpawned),
+ *  for the corpse that event never covers. */
+const _enemyLootExtras = new Map();
+export function registerEnemyLootExtra(name, fn) { if (typeof fn === 'function') _enemyLootExtras.set(name, fn); else _enemyLootExtras.delete(name); }
 
 /** REALM P0.4 (2026-09-28, bible/06-Systems/Realm-Arc.md "Pile gold divided by level"): ONLINE A PILE'S GOLD IS NOT
  *  THE LEVEL'S. GenerateRandomLoot rolls a pile's gold times the player's level, so a level-30 character found thirty

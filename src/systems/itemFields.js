@@ -121,12 +121,16 @@ export const ITEM_FIELDS = Object.freeze({
   provenance: str(),
   maker: str(),
   kitMetal: int({ min: 0, max: 9 }),
+  // REPAIR-EASE: a Field Repair Kit (systems/smithItems.js) - found in loot, mends any metal; true, or absent
+  fieldKit: bool(),
   // AUDIT 31 H3: the recipe a crafted piece was minted of (recipeLaw's id) - an Ebony and a Warforged piece share their
   // template and material, so a commission's picker reads this before any look-alike
   recipe: str(),
   // PROF4: a piece whose name carries its maker's mark below Masterwork - a Master Joiner's furniture (the service's
   // `products.marked`)
   marked: bool(),
+  // PROF7: a Butcher's Raw Meat, which spoils half as fast (PROF0 3.3; survival/food.js rotFoodDay)
+  slowRot: bool(),
 });
 
 /** The declared names, and those of one kind. */
