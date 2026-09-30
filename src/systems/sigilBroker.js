@@ -203,14 +203,68 @@ export function makeBrokerSale(offer, { items, day, canCarry = () => true }) {
     else if (t.count < Math.max(1, it.stackCount ?? 1)) rest.push({ ...it, stackCount: it.stackCount - t.count });
   }
   if (!canCarry(sale.give, rest)) return { ok: false, reason: 'heavy' };
-  for (const { item, count } of sale.take) {
+  takeFromPack(items, sale.take);
+  addItem(items, sale.give);
+  markBrokerBought(offer);
+  return { ok: true, item: sale.give };
+}
+
+/**
+ * WB9g: THE INSIGNIA'S PRICE, TAKEN (net/insignia.js - the title and the aura the account keeps): `price` unlocked Sigil
+ * Stones out of the pack (`items`, the list itself), first records first - a stack the price empties gone, one it
+ * draws on at what it keeps - all of it or none of it. Answers whether it was taken. The account service's sale is the
+ * other half, and comes first: a sale the service refused takes nothing here.
+ * @param {any[]} items @param {number} price
+ */
+export function spendStones(items, price) {
+  if (!Array.isArray(items) || !(price > 0)) return false;
+  const spendable = spendableStonesIn(items);
+  if (stoneCount(spendable) < price) return false;
+  takeFromPack(items, stonesToTake(spendable, price));
+  return true;
+}
+
+/** AUDIT WB9 (insignia F2): an answer from the account service that may have been WRITTEN all the same - the service
+ *  unreached (no status: `offline`), or failing (5xx) where its UPDATE may already have run. A 4xx is its own refusal:
+ *  nothing was written. */
+export const insigniaUnheard = (r) => !r?.ok && !(Number.isFinite(r?.status) && r.status < 500);
+
+/**
+ * AUDIT WB9 (insignia F1, F2): THE INSIGNIA'S SALE, BOTH HALVES. The pack's price is taken FIRST, so nothing spent while
+ * the service is asked - a ware bought, a stack dropped or locked - can leave it untaken (the service's half came first,
+ * and a pack short by its answer paid nothing); then the account service's sale (`buy`). A sale the service holds is
+ * kept and `save`d at once - its half is already written, and a page closed before the next checkpoint kept the stones
+ * as well; one it refused gives the stones back; one whose answer was lost (insigniaUnheard) is asked after (`held`: the
+ * wardrobe where it holds the piece, or null) - held, it is the sale; not held, or not heard either, the stones come back.
+ * Answers `{ ok: true, data }` (the service's wardrobe) or `{ ok: false, error }` ('stones': the pack short).
+ * @param {{ id: string, price: number }} offer
+ * @param {{ items: any[], buy: (id: string) => Promise<any>, held: (id: string) => Promise<any>, save: () => void }} io
+ */
+export async function insigniaSale(offer, { items, buy, held, save }) {
+  if (!spendStones(items, offer?.price)) return { ok: false, error: 'stones' };
+  let r;
+  try { r = await buy(offer.id); } catch { r = { ok: false, error: 'offline' }; }
+  if (insigniaUnheard(r)) {
+    let w = null;
+    try { w = await held(offer.id); } catch { w = null; }
+    if (w) r = { ok: true, data: w };
+  }
+  if (!r?.ok) {
+    addItem(items, Object.assign(sigilStone(), { stackCount: offer.price }));   // the stones back: the service holds no sale
+    return { ok: false, error: typeof r?.error === 'string' ? r.error : 'offline' };
+  }
+  save();
+  return { ok: true, data: r.data };
+}
+
+/** The stones out of the pack (`items`, the list itself), as `take` names them (`{ item, count }` each): a stack the
+ *  count empties gone, one it draws on at what it keeps (SS1). The sale's and the insignia's one hand. */
+function takeFromPack(items, take) {
+  for (const { item, count } of take) {
     const have = Math.max(1, item.stackCount ?? 1);
     if (count >= have) items.splice(items.indexOf(item), 1);
     else item.stackCount = have - count;
   }
-  addItem(items, sale.give);
-  markBrokerBought(offer);
-  return { ok: true, item: sale.give };
 }
 
 // ── the record: what this character bought, and the day it bought it ──

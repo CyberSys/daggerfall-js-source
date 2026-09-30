@@ -34,6 +34,7 @@ import { rarityVarsCss, SIGIL_VARS_CSS, SIGIL_KEYFRAMES_CSS, SIGIL_BLOCK_CSS, SE
 import { frameCss, scopeRules } from './enhancedFrame.js';
 import { isEnhancedPlus } from '../systems/uiSkin.js';
 import { isBound, BOUND_LINE } from '../systems/itemBound.js';   // SS4: the wares are bound, and the card says so
+import { paintTitle, titleBadge } from './playerBadge.js';   // WB9g: the Gatebreaker's word, in its own fire
 
 /** @param {string} tag @param {string|null} [cls] @param {string|null} [text] */
 const el = (tag, cls = null, text = null) => {
@@ -55,6 +56,25 @@ export const purseText = (have, locked = 0) => (locked > 0 ? `${stonesText(have)
 export const BROKER_SOLD = (name, price) => `Bought: ${name}, for ${stonesText(price)}.`;   // AUDIT SET U6: no article of its own - a Legendary's name brings one ("The Warden"), a Regalia piece's is a possessive
 /** How often the window re-reads the world while it stands: the turn's clock, and a stone won or dropped meanwhile. */
 export const BROKER_REPAINT_MS = 30_000;
+/** WB9g (2026-09-30, Mac: "Add a brand new title to the broker and a new addition (the aura) ... These items should be
+ *  expensive and sought after"): THE INSIGNIA'S WORDS - its heading, each piece's line, and its card. */
+export const INSIGNIA_HEAD = 'Insignia';
+export const INSIGNIA_SUB = 'Kept by your account, worn by every character of it - bought once';
+export const INSIGNIA_LINE = Object.freeze({
+  title: 'A title worn over your name, in the fire of the Gate that bore it',
+  aura: 'A ring of Dagon\'s fire burning about your feet, for every player to see',
+});
+export const INSIGNIA_CARD = Object.freeze({
+  title: ['Gatebreaker', 'Worn over your name for every player to read - the coal, the fire and the ember of an Oblivion Gate closed.', 'The Broker sells it once, to an account that has closed enough Gates to pay for it. Wear it here or on your account card; take it off and put it on again as often as you like.'],
+  aura: ['Dagon\'s Fire', 'A ring of fire that circles the ground where you stand - its flames chasing round it, embers wheeling in it, a glow in the stone within - seen by every player near you.', 'The Broker sells it once, to an account that has closed enough Gates to pay for it. Wear it here or on your account card.'],
+});
+/** WB9g: an insignia row's button word - why not, or what a press will do. */
+export function insigniaLabel(row, { have, busy, pending }) {
+  if (pending) return row.owned ? 'A moment...' : 'Buying...';
+  if (row.owned) return row.worn ? 'Take off' : 'Wear';
+  if (busy) return 'Buy';
+  return have >= row.price ? 'Buy' : `Need ${row.price - have} more`;
+}
 /** The Buy's own word - "Buy", or why not in a word or two that fits the button ("Need 3 more", "Bought"); the whole
  *  reason (the law's BROKER_REFUSALS) rides its title. A sentence on the button starved the name beside it to "Ruh...". */
 export function buyLabel(s) {
@@ -96,6 +116,20 @@ function classicPicture(item, wearer, onReady) {
   return img?.archive ? requestFittedIcon(img.archive, img.record, { box: SLOT_BOX.broker, dpr: screenDpr(), dye: img.dye, dyeTarget: img.dyeTarget, onReady }) : null;
 }
 
+/** WB9g: a piece of the insignia's sign - the title's word in its own fire, or the aura's ring turning - the row's small
+ *  one, or the card's large (`hero`). AUDIT WB9 (the shots): the row's sign is 36 px and the whole word ~55 px at its
+ *  8 px, so a row read "tebreak" - the row's sign is the word's first letter, large, and the row's name beside it says
+ *  the word. */
+function insigniaSign(g, hero = false) {
+  const sign = el('span', `insignia-sign insig-${g.kind}${hero ? ' hero' : ''}`);
+  if (g.kind === 'title') {
+    const word = el('span', hero ? 'insignia-word' : 'insignia-word mono', hero ? g.name : [...g.name][0] ?? '');
+    paintTitle(word, titleBadge({ title: g.key }));
+    sign.append(word);
+  } else sign.append(el('span', `aura-ring aura-${g.key}`));
+  return sign;
+}
+
 /**
  * Mount the window in the door's host.
  * @param {HTMLElement} host
@@ -104,7 +138,13 @@ function classicPicture(item, wearer, onReady) {
  *   buy: (offer: any) => { ok: boolean, reason?: string|null, text?: string|null },
  *   locked?: (() => number) | null, picture?: ((item: any) => { src: string, w: number, h: number, smooth?: boolean }|string|null) | null,
  *   wearer?: any, nameOf?: (item: any) => string, onExit?: (() => void) | null,
+ *   insignia?: (() => Array<{ id: string, kind: string, key: string, price: number, name: string, owned: boolean, worn: boolean }>) | null,
+ *   insigniaLoad?: (() => Promise<void>) | null, buyInsignia?: ((row: any) => Promise<{ ok: boolean, text?: string|null }>) | null,
+ *   wearInsignia?: ((row: any) => Promise<{ ok: boolean, text?: string|null }>) | null, insigniaBusy?: (() => boolean) | null,
  * }} deps
+ *   WB9g: `insignia` the Broker's insignia as the account holds them (net/insignia.js - the host's rows, the service's word),
+ *   `insigniaLoad` asked once as the window opens (the account's wardrobe), `buyInsignia` and `wearInsignia` the account's
+ *   sale and its wearing - each a promise; the window says "Buying..." until it answers.
  * @returns {{ repaint: () => void, unmount: () => void }}
  */
 export function mountBrokerWindow(host, deps) {
@@ -114,6 +154,8 @@ export function mountBrokerWindow(host, deps) {
   const nameOf = deps.nameOf ?? ((it) => String(it?.name ?? ''));
   const exit = () => deps.onExit?.();
   let pickedSlot = 0;
+  /** WB9g: the insignia row pressed (its card shown in place of a ware's), and the one whose press is in flight */
+  let pickedInsig = null, pendingInsig = null;
   /** The last press's word, and whether it was a sale (a refusal is read in the refusal's colour). */
   let note = null;
   const shell = el('div', 'broker-shell');
@@ -144,6 +186,14 @@ export function mountBrokerWindow(host, deps) {
   win.append(head, body);
   let card = null;
   let alive = true;
+  /** U10: A ROW IS A CONTROL - the pad's d-pad and the keyboard reach it, as the mouse always could; a key pressed on the
+   *  row picks it, and one pressed on its button is the button's. WB9g: the wares' rows and the insignia's alike. */
+  const pressable = (row, pick) => {
+    row.setAttribute('role', 'button');
+    row.setAttribute('tabindex', '0');
+    row.onclick = pick;
+    row.onkeydown = (e) => { if (e.target === row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault?.(); pick(); } };
+  };
   /** @param {{ reveal?: boolean }} [opts] reveal: a row was pressed - the card brought into view where it stands below the list */
   const render = ({ reveal = false } = {}) => {
     if (!alive) return;
@@ -158,11 +208,8 @@ export function mountBrokerWindow(host, deps) {
     for (const c of [...list.children]) c.remove();
     for (const o of offers) {
       const s = brokerOfferState(o, state);
-      const row = el('li', `broker-offer${o.slot === pickedSlot ? ' on' : ''}${s.ok ? '' : ` no-${s.reason}`}`);
+      const row = el('li', `broker-offer${o.slot === pickedSlot && !pickedInsig ? ' on' : ''}${s.ok ? '' : ` no-${s.reason}`}`);
       row.dataset.slot = String(o.slot);
-      // U10: a row is a control - the pad's d-pad and the keyboard reach it, as the mouse always could
-      row.setAttribute('role', 'button');
-      row.setAttribute('tabindex', '0');
       row.setAttribute('aria-pressed', o.slot === pickedSlot ? 'true' : 'false');
       row.setAttribute('aria-label', `${nameOf(o.item)}, ${offerSetName(o)}, ${stonesText(o.price)}`);
       const r = rarityAttr(o.item);
@@ -184,22 +231,73 @@ export function mountBrokerWindow(host, deps) {
       buy.setAttribute('type', 'button');
       buy.setAttribute('aria-label', s.ok ? `Buy ${nameOf(o.item)} for ${stonesText(o.price)}` : `${nameOf(o.item)}: ${BROKER_REFUSALS[s.reason] ?? ''}`);   // U14: the button says whose
       if (!s.ok) { buy.setAttribute('disabled', ''); buy.setAttribute('title', BROKER_REFUSALS[s.reason] ?? ''); }
+      else if (pendingInsig || deps.insigniaBusy?.()) buy.setAttribute('disabled', '');   // AUDIT WB9 (insignia F2): nothing else sold while a piece of the insignia is
       buy.onclick = (e) => {
         e.stopPropagation();
+        if (pendingInsig || deps.insigniaBusy?.()) return;
         const done = deps.buy(o);
         note = done?.ok ? { ok: true, text: BROKER_SOLD(nameOf(o.item), o.price) } : { ok: false, text: done?.text ?? BROKER_REFUSALS[done?.reason] ?? 'The Broker will not sell that.' };
         pickedSlot = o.slot;
         render();
       };
-      const pick = () => { pickedSlot = o.slot; render({ reveal: true }); };
       row.append(frame, text, price, buy);
-      row.onclick = pick;
-      row.onkeydown = (e) => { if (e.target === row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault?.(); pick(); } };
+      pressable(row, () => { pickedSlot = o.slot; pickedInsig = null; render({ reveal: true }); });   // U10
       list.append(row);
+    }
+    // WB9g: THE INSIGNIA, under the day's stock - its heading, then a row a piece in the wares' own grid
+    const insig = deps.insignia?.() ?? [];
+    if (insig.length) {
+      const head = el('li', 'broker-insignia-head');
+      head.setAttribute('role', 'presentation');
+      head.append(el('span', 'broker-insignia-title', INSIGNIA_HEAD), el('span', 'broker-set', INSIGNIA_SUB));
+      list.append(head);
+      const have = brokerOfferState(null, state).have, busy = !!deps.insigniaBusy?.();
+      for (const g of insig) {
+        const row = el('li', `broker-offer broker-insig${pickedInsig === g.id ? ' on' : ''}${g.owned ? ' owned' : ''}${g.worn ? ' worn' : ''}`);
+        row.dataset.insignia = g.id;
+        row.setAttribute('aria-pressed', pickedInsig === g.id ? 'true' : 'false');
+        row.setAttribute('aria-label', `${g.name}, ${g.kind === 'title' ? 'a title' : 'an aura'}, ${stonesText(g.price)}${g.owned ? ', owned' : ''}${g.worn ? ', worn' : ''}`);
+        const frame = el('span', 'broker-frame insignia-frame');
+        frame.append(insigniaSign(g));
+        const text = el('div', 'broker-offer-body');
+        text.append(el('span', 'broker-name', g.name), el('span', 'broker-set', INSIGNIA_LINE[g.kind] ?? ''));
+        const price = el('span', 'broker-price', g.owned ? (g.worn ? 'Worn' : 'Owned') : stonesText(g.price));
+        const btn = el('button', 'act broker-buy', insigniaLabel(g, { have, busy, pending: pendingInsig === g.id }));
+        btn.setAttribute('type', 'button');
+        const can = g.owned || have >= g.price;
+        if (!can || busy || pendingInsig) btn.setAttribute('disabled', '');
+        if (!can) btn.setAttribute('title', BROKER_REFUSALS.stones);
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          const act = g.owned ? deps.wearInsignia : deps.buyInsignia;
+          if (!act || pendingInsig) return;
+          pendingInsig = g.id; pickedInsig = g.id;
+          render();
+          Promise.resolve().then(() => act(g)).then((done) => {
+            note = done?.ok ? { ok: true, text: done.text ?? '' } : { ok: false, text: done?.text ?? 'The Broker will not sell that.' };
+          }, () => { note = { ok: false, text: 'The Broker will not sell that.' }; }).finally(() => { pendingInsig = null; render(); });
+        };
+        row.append(frame, text, price, btn);
+        pressable(row, () => { pickedInsig = g.id; render({ reveal: true }); });
+        list.append(row);
+      }
     }
     // the piece, whole: its tier's lines, its sigil, its set
     card?.remove();
     card = null;
+    const pickedG = pickedInsig ? insig.find((x) => x.id === pickedInsig) : null;
+    if (pickedG) {
+      // WB9g: a piece of the insignia, whole - its sign large, its name, what it is and how it is kept
+      card = el('div', 'card broker-card broker-insignia-card');
+      const hero = el('div', 'insignia-hero');
+      hero.append(insigniaSign(pickedG, true));
+      const [name, what, kept] = INSIGNIA_CARD[pickedG.kind] ?? [pickedG.name, '', ''];
+      card.append(hero, el('h3', null, name), el('p', 'insignia-what', what), el('p', 'insignia-kept', kept));
+      card.append(el('p', 'boundline', pickedG.owned ? (pickedG.worn ? 'Your account owns this, and you are wearing it.' : 'Your account owns this.') : `${stonesText(pickedG.price)} - once, for your account.`));
+      body.append(card);
+      if (reveal && globalThis.matchMedia?.('(max-width: 720px)')?.matches) card.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
+      return;
+    }
     const o = offers.find((x) => x.slot === pickedSlot) ?? offers[0];
     if (o) {
       card = el('div', 'card broker-card');
@@ -220,6 +318,8 @@ export function mountBrokerWindow(host, deps) {
   };
   render();
   host.append(shell);
+  // WB9g: the account's insignia asked once as the window opens - the rows say "Buy" until it answers, then the truth
+  if (deps.insigniaLoad) Promise.resolve().then(() => deps.insigniaLoad()).catch(() => null).then(() => render());
   const onKey = (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (overlayAction(e) === 'back') { e.preventDefault(); e.stopPropagation(); exit(); }

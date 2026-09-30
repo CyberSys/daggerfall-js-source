@@ -871,6 +871,267 @@ Pinned: `test/audit0929_gate.test.js` (3), and in `test/wb8b_gate_marks.test.js`
 one word a beat, the cone for all 112 sets) and `test/wb8c_gate_detail.test.js` (the court's words); mutants
 `tools/mutants/audit0929_gate.json` (11, all dead).
 
+## 14. Three courts, the Reckoning and the fall seen (WB9, 2026-09-30)
+
+Mac: "Can we add the modifers below his health bar? Allow people to see the modifers/trial as a popup before it
+starts. I want to further improve the boss also, wanna go more in depth. 1. I want to add 2 more arena's of the same
+size that the boss leaps to between each phase. A walkway should form to allow players to traverse through each arena.
+2. The boss should have a detailed wipe mechanic on the final phase that should require players to destroy oblivion
+crystaline formations that grow anywhere within the final phase arena, which then stuns his wipe mechanic. 3. Further
+improve his effects, ensure his ground affects actually cause damage and the player recieves proper feedback. 4.
+Increase boss damage, further improve his telegraphs 5. Improve the loot drops that emit on his death and have them
+spread out more. The player should be able to inspect and pick up the ground item, not just walk over it. 6. Add a
+brand new title to the broker and a new addition (the aura), an animated burning ground aura that circles the ground
+where your character stands. These items should be expensive and sought after. 7. Further improve the morrowind model
+performance as it's unplayable with so many players around."
+
+### The marks seen (WB9a)
+
+Under his health, a row of three chips - his aspect's sign, name and element in its colour, then each trial's sign,
+name and one line (`ui/gateMarksView.js marksViewOf`, made once a marks array; `ui/gateBossBar.js` writes a chip only
+when the night's marks change). Before the fight, a card: beside the gate's countdown in the street while it stands
+(`scenes/gatePool.js`, "Tonight's marks"), and over the court as a fighter steps in (`scenes/gateCourt.js`,
+MARKS_CARD_ARRIVE_MS, 9 s, fading over MARKS_CARD_FADE_MS) - each mark's sign, name, line and how to meet it
+(MARK_TIPS) - never over the step's fire (`ui/gateVeil.js`), never for a Warden already fallen.
+
+### Three courts and the walkways (WB9b)
+
+The court is three: the first where the players arrive, the second west of it, the third north of that (`net/gateBrain.js
+COURTS` - [0, 0], [-68, -22], [-74, -94] in the court frame; clear of the great tower's window). Each is the first's
+size (COURT_R 24), its own rune ring, spires and five braziers, each rim some 20 m of fire from the next. Each phase is
+fought in its own: at a phase's turn (PHASE_TURN) he **bounds across the fire** (`cross`: a 2.4 s wind-up, 2 s in the
+air, CROSS_HEIGHT 22 m at the top of the arc, a 7 m disc where he lands - the leap's weight - heard across all three
+courts) to the next court's heart, under a ward that holds through the bound (CROSS_WARD_MAX_MS). The bound's word lays
+a **walkway**: 25 slabs of the court's own flagstones and basalt rising stone by stone out of the sea of fire from the
+court he left (`world/gateArena.js walkSlabs`, `slabRise`, `slabMatrix`), each whole before the laid floor reaches it
+(WALK_LEAD_MS 1 s, then WALK_FORM_MS 4 s end to end; WALK_HALF_W 3.2 m either side). There he **waits** under his ward
+for a living challenger to cross into his court (at most CROSS_WAIT_MAX_MS, 30 s), then holds his own ward more
+(SHIELD_MS - Unyielding's 6 s) while the phase's signature is cast from its heart. He chooses, aims at and waits for
+the fighters standing in his court alone; a fighter left behind is not before him.
+
+ONE LAW OF THE FLOOR, BOTH ENDS (`onFloor`, `clampToFloor`): the first court always; a walkway as far as it is laid; a
+court past a walkway laid whole. The relay refuses a blow from off it (a pose's slack beyond), and the motor keeps a
+player on it (`world/gateArena.js courtArena` - one arena a frame, its crossings and the relay's clock refilled;
+`player/motor.js _putBack` takes the airborne momentum off the floor away, off a walkway's side as off a rim). The
+collider carries every disc and every deck; the motor is what says how much is laid.
+
+On the wire (relay world135 - main's SOFTCAP1 took world133 and its PARTY-MAP world134 first - the brain's law 4): the state says his court (`ct`) and the crossings (`xa`, the relay
+moments of the bound's words), and a bound's own word lays its walkway on every screen at once (`net/gateLink.js
+crossLaid`). GATE_COURT_BOUND is the three courts' (160 m). A fight checkpointed before WB9 crosses from the first court
+over every walkway up to the court it bounds to. The telegraph is drawn over the court it lands in (the Wrath's and the
+Reckoning's over all three - `render/gateTelegraph.js`, one quad per court); his mark over the court he stands in; the
+burning ground on each court's own quad. The braziers are lit nearest the camera first, after the fight's own lights
+(`courtLightsNear` - the classic renderer's sixteen slots drop a far court's fire, never him). The Deadlands' islands
+and hanging shards keep clear of every floor and walkway (`world/deadlandsLand.js floorGap`, LAND_CLEAR_M 12, and of the
+spires - `courtSpireAxes`, one law for the model and the land), and four more shards hang round each new court.
+
+### Dagon's Reckoning (WB9c)
+
+In the last court, once Dagon's Champion's turn is done, his Reckonings are armed: the first RECKON_FIRST_MS (18 s)
+later, each RECKON_EVERY_MS (60 s) after the last one ended. He leaps to the court's heart and calls **Dagon's
+Reckoning** - a 22 s wind-up no phase shortens - and **crystals of Oblivion** grow out of the floor anywhere on it
+(`growCrystals`: two and one for every two living challengers in his court, 3 to 8; RECKON_RING, 6 m clear of him to
+3 m short of the rim; CRYSTAL_GAP_M 7 apart; the relay's CSPRNG). Each has a health sized to the court: RECKON_TEAM_S (8)
+seconds of the living challengers' reference damage shared across the crystals (at least RECKON_CRYSTAL_MIN) - a court
+that splits up breaks them in well under half the wind-up, one that stands together round one does not.
+
+A blow on a crystal (`xhit`: which crystal, the blow's own sequence, its number, its kind) is judged by the same hand
+and purse as a blow on him (`applyCrystalHit`: his blow rate, the damage bucket, a swing within MELEE_REACH of its body
+- CRYSTAL_R 1.3 - a pose on the floor) and counts as dealt. Each broken is said at once (`cxb`, by the breaker's name);
+the last BREAKS THE RECKONING: it is called off and he is **stunned** STUN_MS (8 s) - on his knees, reeling on his hurt
+frames in a pale ember, no step and no blow, and every blow on him lands STUN_HIT_X (1.5) heavier, before the caps
+(`stun`). Leave one standing and it lands on the whole arena, every court, answered by nothing (`isDagons`: no saving
+throw, no aspect's element, no phase's cut - Dagon's, as the Wrath is); the crystals are spent in it. The Wrath at the
+gate's midnight overtakes a Reckoning and a stun alike.
+
+On every screen (`scenes/gateCourt.js`): the call said as they rise ("Dagon's Reckoning! Shatter all 5 crystals of
+Oblivion before it lands!" - to a fighter come in late through the wind-up too, with what is left), each one heard
+grinding up out of the stone; each a body the swing, the shaft and the spell meet by its surface as they meet him
+(`scenes/dungeonContext.js gateCrystalBodies` - never in `foes`; its stand-in `world/gateBoss.js crystalStandIn`,
+unarmoured and dodging nothing) once grown half out of the stone; a blow flashes it and rings the glass at once, its
+number out; each broken said by name ("Ann shatters a crystal - 2 remain.") with its crash; the stun said and heard
+("The Reckoning breaks! Valkynaz Ruhn is stunned - strike now!"); an unbroken Reckoning bursts every crystal still
+standing as it lands. The bar says what is left and how long ("Dagon's Reckoning - 2 of 5 crystals - 13s", in the
+crystals' colour), the stun its seconds, and the foot the next Reckoning's coming. Drawn by `render/courtCrystals.js`:
+one faceted cluster (a great prism and five lesser, each its own piece), growing out of the floor, glowing from a
+white-hot heart in his aspect's colour (Oblivion's crimson under the Burning), cracking as its health goes, flashing
+white when struck, flying apart into tumbling shards when it breaks; under each a pool of its light, and from each one
+standing a beam into his chest while the Reckoning winds up; a light over each standing crystal.
+
+### His ground felt (WB9d)
+
+Every pool bites half again what it did (POOLS: Hellfire's 8% and 3 a second, a meteor's 10% and 4; Scarring's scars
+alike). The law of the bite is WBX5's (a tick after the step in - a step through is free, standing is not); what moved
+is that it SAYS itself (`ui/gateGroundView.js`): the screen's rim glows in the ground's colour while I stand in it
+(breathing), flares at each bite, and his elemental blows flare it in their own colour as they land on me; the ground's
+name and "step out!" stand under the crosshair while I am in it; and the step in hisses at my feet at once
+(`world/gateBoss.js groundStepCue` - the burning ground's hiss, or his aspect's element's cast). DFU's red flash stays a
+blow's alone (spell damage never flashed - `ui/damageFlash.js`). The pools seethe in his ground's own grain.
+
+### His blows heavier, read and seen (WB9e)
+
+Every share and base about a third over WBX4's (the Cleave 45% and 12, the Slam 52% and 14, the Charge 40% and 12,
+Hellfire 40% and 9, the Nova 58% and 14, the Leap 45% and 12, the Meteor 64% and 16, the Spokes 52% and 14): two heavy
+landings end anyone who has not healed between them; no wind-up moved. The telegraph (`render/gateTelegraph.js`): an
+edge at least two pixels wide however far off (`fwidth`), a soft halo outside it; a FUSE burning down its rim as the
+wind-up runs, a spark where it burns; the fill throbbing faster as the landing nears (1.5 to 6.5 beats a second) and
+burning at a landing's brightness through the last TELEGRAPH_NOW_MS; the grain of what lands running through it (his
+weight's cracks, fire's flicker, frost's facets, the storm's crackle, venom's bubbles, Dagon's vortex); and a shockwave
+thrown out past its edge as it lands. The landing itself (`render/gateFx.js`): sparks out of the stone where it lands -
+grit for his weight, flame and his aspect's colours for his element, the heavy ones throwing more, further - and the
+meteor seen falling out of the Deadlands' sky onto its mark through the last METEOR_FALL_MS of its wind-up, its trail
+behind it.
+
+### His spoils spread and handled (WB9f)
+
+THE THROW (`world/gateSpew.js`): WB5 threw each piece on a bearing of its own roll inside 0.9 radians of the player's, at
+7-10.5 m/s, so five pieces could leave on one line and land in one heap. Each piece now takes its own SLOT of a fan 1.6
+radians either side (SPEW_SPREAD - a half-disc toward the player, never behind him), the slots dealt out in the seed's
+order and each piece jittered inside its own, never within SPEW_SLOT_MARGIN of its edges (`spewLaunches`), thrown at
+8-13 m/s: over 200 seeds no two of a kill's pieces rest within a metre of each other, none past a dozen metres out.
+A throw that hard could carry a piece off the court's edge into the fire, so each launch is FLOWN AHEAD over the
+court's floor (`restOf` - the torch's own flight over one plane, `floorRayAt`) and thrown softer (SPEW_KEEP_EASE a try,
+its direction kept) until it rests inside `keep` - the court he fell in, SPEW_RIM_M in from its edge
+(`scenes/gateCourt.js spoilsKeep`) - or, past SPEW_KEEP_TRIES, turned toward the centre (`keepLaunch`).
+
+THE PRESS (`scenes/spoilsPool.js`): a resting piece is an ACTIVATION TARGET in the loot piles' own shape - a box over
+its picture, won at the ray's reach (RAY_DISTANCE) and taken at the treasure's (TREASURE_ACTIVATION_DISTANCE, so "You
+are too far away" is said as a chest's is) - `spoil:<i>` for an item, ITEMISED (systems/worldHover.js ITEMISED_KEYS:
+the plaque lists the one item, with its tier and, under quick loot's stats, what it is), `spoilGold:<i>` for the gold
+(named: "412 Gold Pieces"). The pool answers the ray (`targets` - one list refilled, each piece's target made at its
+rest), the ladder (`nameOf` - the item's own word by the host's `itemName`, the loot piles' lootPileName, and its tier
+below it), the plaque (`contentsOf`) and the press (`pick` - into the pack, said as a walk-over says it; once). The
+court stands the family where it is stood (`scenes/worldModes.js standCourt` - the fourth `addActivationTargets`, its
+namer beside it), the dungeon arm's press takes a `spoil` key through the host after the reach is judged and before
+any loot rung, the context's `lootContents` asks the host for the plaque's list, and the world host hands the pool to
+all four. Walking over a piece still takes it (WBX3's SPOILS_TAKE_AFTER_MS after its rest).
+
+THE SIGHT (`render/gateFx.js`, `scenes/gateCourt.js`): as they leave him his chest bursts in gold (FX_KINDS.spoils) -
+the sparks falling to the floor under it (a burst's `floor`: `uFloor`, `sparkAt`'s `floorRel`), not hanging at his
+chest's height - and each piece's landing (the pool's `frame(onRest)`) throws its tier's sparks where it lies, a
+Rare-or-better's more and brighter (spoilRest, spoilRestRare).
+
+### The Broker's insignia (WB9g)
+
+A day's ware (`systems/sigilBroker.js`) is an item on the pack. A piece of the INSIGNIA is worn over the name or at the
+feet where every other player sees it, and a thing others see must be one no client can assert (ACC3's law) - so it is
+bought ONCE and kept by the ACCOUNT (`net/insignia.js`, the law both ends read): **Gatebreaker**, a title, for 30 Sigil
+Stones, and **Dagon's Fire**, an aura, for 50. A gate opens every two hours and drops one stone to a fighter, so they are
+some thirty and fifty gates closed, where the day's dearest ware (a piece of Ruhn's Regalia) is twelve.
+
+THE SALE (`server-account/src/accounts.js buyInsignia`, POST `/v1/account/insignia`) is recorded on the row (migration
+0040 - main's HOUSING took 0037-0039: `insignia`, the ids bought in their order; `insignia_spent`; `aura`, the aura worn)
+and paid for TWICE-CHECKED: the pack's spendable stones are taken on this side as a ware's are (`spendStones` - one hand
+with the sale's `takeFromPack`),
+and the service refuses a sale the account's own closed gates could not have paid for (gate_kills, one row a kill, less
+`insignia_spent`: 409 `short`, with the `purse` they can still pay and the `price`). ONE UPDATE is the sale - the id
+joins the column and the price the spend only where the row does not hold it yet and its gates still cover it - so two
+sales pressed at once never spend the same stones, and a piece is never bought twice (409 `owned`); a guest row keeps
+none (403 `guest`), and the id is appended in the UPDATE itself (AUDIT WB9 I3). The Broker HOLDS the stones before it
+asks the service and gives them back unless the service holds the sale - a lost answer asked after - and saves a held
+sale at once (AUDIT WB9 I1/I2: `systems/sigilBroker.js insigniaSale`), so a refused sale takes nothing and no sale goes
+unpaid; the account view says the purse beside the wardrobe.
+
+HELD, WORN, SIGNED. A title bought is held as a founder's is (`server-account/src/titles.js titlesHeld` reads it off the
+row) and worn through the title's own door. An aura is held off the row (`aurasHeld`) and worn through its own
+(`/v1/account/aura`, `equipAura` - 403 `not-held`, 400 `no-aura` for a word the vocabulary lacks), one at a time, pressed
+off as it is pressed on. The mint signs the aura worn (`au`, absent for none - `net/identityToken.js` AURAS, `claimsValid`,
+`mintToken`) and says it beside the token (`aura`); the relay reads it out of the signature (`_named`, `badged`,
+`readAura`) as it reads every badge (relay world135, account service acct38 - main's PROF7 took acct34-acct36 first, and its HOUSING acct37 with migrations 0037-0039). This device keeps its own on the stored
+session (`net/accountClient.js adoptIdentity` - every mint's answer and every wear's, from the account card or the
+Broker), so the fire at my own feet lights the moment any door changes it (`systems/ownGlyphs.js ownAura`); a peer's is
+its newest hello's (`net/online.js _peer`, `_refresh`, `auraOf`), kept in the session's memory through a blip (SLAM9's
+`_known`). The room sees a new one from the wearer's next hello, as it sees a title.
+
+THE WINDOW AND THE CARD. Under the day's stock the Broker's window (`ui/brokerWindow.js`) lists the Insignia: a row a
+piece in the wares' own grid (the title's word in its own fire, the aura's ring turning), a control the pad and the
+keyboard reach (U10's `pressable`, one home for both kinds of row), its price or Owned or Worn, and a button that says
+why not or what a press does (Buy, "Need 12 more", Wear, Take off - "Buying..." until the account answers, nothing else
+pressable meanwhile); pressed, the piece's card. The account card (`ui/enhancedAccount.js`) draws an Aura row beside the
+titles, in the Gatebreaker's own fire (`ui/playerBadge.js`: coal-crimson through fire to ember, edged in black).
+
+THE FIRE (`render/auraRing.js`), two draws a wearer. THE GROUND: one quad under the feet, answered per pixel about the
+wearer - a ring band broken by value-noise fire flowing round it and outward, bright crests chasing about it, ten embers
+circling in it, a glow in the stone within. THE FLAMES: a low cylinder of tongues rising out of noise scrolled up and
+round, white-hot at the root, orange, red and gone at the tip, both faces burning. The duel wall's law: fixed geometry
+placed by uniforms, added onto the frame (ONE, ONE), tested against the world's depth and never writing it, the ground
+offset off its stone, fogged with the frame's fog and focus (AUDIT DEEP R-1). The noise's lattice wraps where the ring
+closes and where the clock does, and every rate is a whole number of turns over AURA_CLOCK_PERIOD (120 s), written as
+turns a second times TAU - a rounded radian rate drifts off whole by its rounding times the period and steps the picture
+at the wrap. A wearer's fire kindles over AURA_KINDLE_S; a frame draws at most AURA_DRAW_MAX (16), the nearest within
+AURA_RANGE_M (90 m). The world host gathers them with the peers each frame (`scenes/world.js auraFrame` - mine off the
+stored session, a concealed peer's concealed with them, none under the travel view) and draws them after each mode's
+opaque world through the veiled bodies' hook, under the frame's own camera (every host calls it: the street, the
+dungeon's late draw, the building), a foreign pass. `tools/auraProbe.mjs` draws it in a real WebGL2 (11 checks).
+
+### The bodies in a crowd (WB9h)
+
+A gate is a crowd, and the other players' Morrowind bodies were its cost (`net/peerBodies.js`; the whole account is
+`07-Rendering/Performance-Rig.md` section WB9h): forty players milling round the eye built 81 bodies in thirty
+seconds as the nearest eight reshuffled - up to 24 in five, each a multi-second mesh parse - and skinned and drew
+every body whether it was seen or not. Now a body out of the view is neither drawn nor skinned (posed the moment it is
+seen), at most SKIN_BUDGET bodies are skinned a frame, a stranger's body is handed over only after SWAP_DWELL_MS, no
+oftener than SWAP_EVERY_MS and never behind a build, and a body given up is kept SPARE_MS for the next player who
+wears the same one. The same crowd: 11 builds, no body taken from a player standing near, a skin and a fifth a frame
+where there were five (`tools/peerCrowdProbe.mjs`).
+
+Pinned: `test/wb9a_gate_marks_seen.test.js` (7), `test/wb9b_gate_courts.test.js` (12), `test/wb9c_gate_reckoning.test.js`
+(16), `test/wb9d_gate_ground.test.js` (5), `test/wb9e_gate_blows.test.js` (6), `test/wb9f_gate_spoils.test.js` (10),
+`test/wb9g_insignia.test.js` (17), `test/wb9h_crowd_bodies.test.js` (7), and the audit's `test/audit_wb9.test.js` (16);
+mutants `tools/mutants/wb9b.json` (19, all dead), `tools/mutants/wb9c.json` (31: 30 dead, the dead counted at the
+crystals' growth equivalent as recorded - the court's living are filtered once), `tools/mutants/wb9d.json` (9, all
+dead), `tools/mutants/wb9e.json` (9, all dead), `tools/mutants/wb9f.json` (24, all dead), `tools/mutants/wb9g.json` (64,
+all dead), `tools/mutants/wb9h.json` (25, all dead), `tools/mutants/audit_wb9.json` (36, all dead). The older suites re-aimed
+where WB9 moved their law: the phase's turn (WB3, WBX5, WB8b - the bound and the wait for the leap), the court's
+geometry (WB3b, WB6b - three courts, the braziers and shards clear of the walkways), the damage numbers (WB4, WB8c),
+the telegraph's text (WB4), the motor's clamp (AUDIT DUEL1), the relay's version pins (world135); and for WB9f the
+burst's call (AUDIT WB A2, WBX3 - it hands the court's floor), the spew's bearing (WB5's toward-his-back mutant), the
+itemised keys and the court's fourth target family (WORLD-HOVER), the pool's keys (RAID4b's mutant), the spark's floor
+(WB9e); and for WB9g the title vocabulary's order and the wardrobe's shape (PENITENT, SHADOW-FANG, ACC3), the account
+Worker's columns and migrations (ACC-WORKER, RENOWN-CHAR) and its version pins (acct34), the foreign passes (AUDIT 18)
+and R-1's fogged programs (TV4), the Broker's rows (SET7's U10 - one `pressable`) and its stone-taking (SS1 - one
+`takeFromPack`), the session writer's mutants (NAME-ADOPT, SFSKIN), and the relay's version (world135).
+
+### AUDIT WB9 (2026-09-30, Mac: "Audit this before we merge")
+
+The branch audited in five parts before the merge - the relay's brain (WB9b/c), the court's client and its drawing
+(WB9a/c/d/e), the spoils (WB9f), the Broker's insignia (WB9g) and the bodies in a crowd (WB9h) - each finding reproduced
+by a script against the real modules before anything changed, and shots of the aura and the title taken in a real
+browser (the court's own floor, `render/auraRing.js`, `ui/nameLayer.js`, `ui/brokerWindow.js`, `ui/enhancedAccount.js`).
+Nineteen were real.
+
+| # | found | now |
+|---|---|---|
+| B1 | **blows landed from outside his court**: the relay judged a blow on the laid floor, but he chooses, aims at and waits for only those in his court - three casters at the first court's rim took him from 66% to 33% in a minute while he answered with nothing but his turn; one archer 49 m off broke a Reckoning's three crystals | no blow on him or on a crystal from outside the court he fights in (POSE_SLACK past its rim - `applyHit`, `applyCrystalHit`), and no screen sends one or offers a crystal from there (`gateCourt.js` fromHisCourt) |
+| B2 | **a crystal broken after the Reckoning landed still broke it**: the relay judged a break 120 ms after the landing and stunned him - a court every screen had just wiped was told "strike now", and a screen that heard the stun before its own landing spared itself | a crystal takes no blow in the Reckoning's last RECKON_CLOSE_MS (500 ms) nor after it (`reckonOpen`), and the screens stop offering them then |
+| B3 | the Wrath ended a stun on the relay alone - every screen knelt him through its wind-up | the Wrath's word ends a stun on every screen (`foldGate`) |
+| B4 | a kill mid-Reckoning left its crystals in the fight - every later state carried them | the kill spends them |
+| B5 | a fight woken from a pre-WB9 checkpoint laid only the last walkway on the screens (the relay laid both) | a bound's word lays every walkway up to its court (`crossLaid`) |
+| C1 | **every Cleave drew a full ring at its reach behind him**, and its sides on to the floor's edge: WB9e's rim width was the edge's own derivative, and the cone's edge jumps | the rim's width is the pixel's footprint on the floor (`fwidth(vCourt)`) |
+| C2 | the stun's "The Reckoning breaks!" was never read - said before the last crystal's line on the one label | said after it |
+| C3 | the urgency throb beat 12-16 a second, not 1.5-6.5 (its phase is `hz * uSince`, and `uT` grows with `uSince`) | a third of the quickening: 6.5 at the landing |
+| C4 | a strike or a pool at the rim reached the walkway past it - floor a fighter stands and is struck on - undrawn | his shapes and his ground go on over the laid walkways their court joins (`walks`, the strip pass), never his mark |
+| S1 | **about one kill in fifty let a piece fall through the court** (the collider takes no hit nearer than 0.1 mm, and a flight step begun that close missed the floor) | a kept throw flies over the floor it was kept to as well (`flyRay`) |
+| S2 | P or J pressed over a spoil stayed armed - the next E on a pile took all of it | the spoil's press spends it (`quickLootSpend`) |
+| I1 | **the pack's half of an insignia sale was never saved** - the service's half written at once, a page closed within the two-minute checkpoint kept the stones | a held sale is saved at once (PROF-SAVE's `saveSoon`) |
+| I2 | **the pack's half could be skipped**: the stones were taken after the service's answer, so a ware bought meanwhile (or a stack dropped or locked) left it untaken - 35 stones bought the title and a Regalia; a lost answer kept the stones and the piece | the price is held first and given back unless the service holds the sale; a lost answer (unreached, a 5xx) is asked after (`insigniaSale`); nothing else is sold while a piece is |
+| I3 | two sales of two pieces at once, each reading the row first, wrote the column from that read - both paid, one held | the id is appended in the UPDATE itself |
+| I4 | the Broker row's title sign read "tebreak" (36 px, the word ~55) | the word's first letter, in its fire; the card keeps the word |
+| H1 | a body out of view banked its particles' time without end - a minute behind the eye threw a lantern's flame out of its sprite | at most EFFECTS_BANK_MAX_S a step |
+| H2 | a hand-over allowed on a spare pushed that spare out of a full pool, and built behind another build | the spare a hand-over is for is never the one pushed out |
+| H3 | a rig was built from the look its peer wore when its build was reached, keyed on the one asked for - a spare worn in the wrong armour | built from the look its key names |
+| H4 | a concealed peer who took a spare was drawn open on that frame | its veil is set as it stands |
+
+Checked and sound: the relay's fights fuzzed (300, checkpoints round-tripped - no NaN, nothing the wire refuses, every
+clamp on the floor); the court's GL state, its DOM put away, its crystal targets; the spoils' keys, takes and gather;
+the sale's guards and migration, the token's `au` and the relay's stamp, the aura's GL state and its whole rates; the
+bodies' view planes (400k points against a clip-space test), their callers' lenses and the swap's bookkeeping.
+
+RELAY_VERSION world135 (not yet deployed) holds these; ACCOUNT_VERSION acct38 the sale's append. Pinned in
+`test/audit_wb9.test.js` (16) and `test/wb9g_insignia.test.js` (three more); mutants `tools/mutants/audit_wb9.json`
+(36, all dead). Re-aimed: the WB9b walkway blow, the WB9c court's feet (in his court), the WB9e shader's rim and throb,
+the WB4 telegraph's text (the strip), the WB9f spoil rung, the WB9g host's sale and its UPDATE's mutant, the WB9h bank.
+
 ## Shipped
 
 **WB1 (2026-09-25) - the omen.** `net/gateLaw.js` (the schedule, the room's key and window, the rolls, the boss table,

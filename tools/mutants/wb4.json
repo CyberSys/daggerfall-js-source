@@ -65,7 +65,7 @@
   {
     "name": "WB4-the-wrath-saved",
     "file": "src/net/gateStrike.js",
-    "old": "saved: L.el != null && A !== ATTACKS.wrath",
+    "old": "saved: L.el != null && !isDagons(A)",
     "new": "saved: L.el != null",
     "tests": [
       "test/wb4_gate_boss.test.js"
@@ -218,8 +218,8 @@
   {
     "name": "WB4-the-callout-after-the-landing",
     "file": "src/ui/gateBossBar.js",
-    "old": "const callout = !s.fell && A && tel && !tel.over ?",
-    "new": "const callout = !s.fell && A && tel ?",
+    "old": "let callout = !s.fell && A && tel && !tel.over ?",
+    "new": "let callout = !s.fell && A && tel ?",
     "tests": [
       "test/wb4_gate_boss.test.js"
     ]
@@ -335,8 +335,8 @@
   {
     "name": "WB4-the-glow-not-lit",
     "file": "src/scenes/worldModes.js",
-    "old": "withCourtLights(_dgLit, [...courtLights(), ...(host.gateCourtLights?.() ?? [])])",
-    "new": "withCourtLights(_dgLit, courtLights())",
+    "old": "withCourtLights(_dgLit, [...(host.gateCourtLights?.() ?? []), ...courtLightsNear(cam.pos)])",
+    "new": "withCourtLights(_dgLit, courtLightsNear(cam.pos))",
     "tests": [
       "test/wb4_gate_boss.test.js"
     ]

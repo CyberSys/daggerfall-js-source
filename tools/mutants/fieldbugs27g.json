@@ -272,8 +272,8 @@
   {
     "name": "DECOR-ROOMS-wall-joins",
     "file": "src/systems/decorRooms.js",
-    "old": "        if (d >= size - 1e-6) join(i, j);",
-    "new": "        join(i, j);",
+    "old": "if (d >= size - 1e-6) { join(i, j); linked.push([i, j, dx, dz]); }",
+    "new": "{ join(i, j); linked.push([i, j, dx, dz]); }",
     "tests": [
       "test/decorrooms.test.js"
     ]

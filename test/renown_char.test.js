@@ -169,8 +169,8 @@ test('RENOWN-CHAR the worker: the token\'s level is the NAMED character\'s own -
   assert.deepEqual(await call('POST', '/v1/guilds/found', { character: fresh.id, name: 'The Hound', tag: 'HND', realm: fresh.at() }, me.secret), { status: 403, body: { error: 'guild-renown' } }, 'a character that never earned is Renown 1 - whatever the account\'s best (Mara\'s 10)');
   env.DB._raw.prepare('INSERT INTO renown_tracks (player, char_id, name, xp, created_at, updated_at) VALUES (?, ?, ?, ?, 1, 1)').run(me.id, fresh.id, 'Fresh', renownXpFor(10));
   assert.equal((await call('POST', '/v1/guilds/found', { character: fresh.id, name: 'The Hound', tag: 'HND', realm: fresh.at() }, me.secret)).status, 200, 'at its own Renown 10, it founds');
-  assert.equal(ACCOUNT_VERSION, 'acct36', 'the PROF7 merge moved it on (acct36, past main\'s FIELD BUGS 2026-09-30 acct33); AUDIT 32 S1 before it (acct35); AUDIT 32 before it (acct34); PROF7 before it (acct33); PROF-DELETE before it (acct32); RENOWN-CHAR before it (acct31), past MERGE 2\'s acct30');
-  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct36"/);
+  assert.equal(ACCOUNT_VERSION, 'acct38', 'WB9g moved it on (acct38: the Broker\'s insignia); HOUSING before it (acct37); the PROF7 merge before it (acct36, past main\'s FIELD BUGS 2026-09-30 acct33); AUDIT 32 S1 before it (acct35); AUDIT 32 before it (acct34); PROF7 before it (acct33); PROF-DELETE before it (acct32); RENOWN-CHAR before it (acct31), past MERGE 2\'s acct30');
+  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct38"/);
 });
 
 test('RENOWN-CHAR the raid: a town defended is paid to the character that FOUGHT it, at its own Renown - never the account\'s best - another character\'s track untouched; a claim naming no character is refused (mutants: the raid read at the account\'s best track)', async () => {
@@ -194,7 +194,7 @@ test('RENOWN-CHAR the migration (0035), over the real migrations: each track its
   const raw = new DatabaseSync(':memory:');
   raw.exec('PRAGMA foreign_keys = ON');
   const at = MIGRATIONS.indexOf(CHAR_MIGRATION);
-  assert.ok(at > MIGRATIONS.indexOf('0021_renown_account.sql') && MIGRATIONS.slice(at + 1).every((f) => f > CHAR_MIGRATION), '0035 after RENOWN-ACCOUNT\'s 0021 (PROF7\'s 0036 after it)');
+  assert.ok(at > MIGRATIONS.indexOf('0021_renown_account.sql') && MIGRATIONS.slice(at + 1).every((f) => f > CHAR_MIGRATION), '0035 after RENOWN-ACCOUNT\'s 0021 (PROF7\'s 0036 after it, HOUSING\'s 0037-0039 and WB9g\'s 0040)');
   migrate(raw, MIGRATIONS.slice(0, at));
   const db = wrap(raw);
   const acct = () => ({ id: (() => { const id = mintId(rand); raw.prepare('INSERT INTO players (id, guest_name, created_at, last_seen) VALUES (?, ?, ?, ?)').run(id, 'Guest', T0, T0); return id; })() });

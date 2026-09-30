@@ -20,8 +20,8 @@
   {
     "name": "WB6b-a-shard-in-the-towers-window",
     "file": "src/world/deadlandsLand.js",
-    "old": "    if (Math.abs(offTower) < SHARD_WINDOW) az = SIGIL_TOWER.az + Math.sign(offTower || 1) * (SHARD_WINDOW + 0.1);",
-    "new": "    if (Math.abs(offTower) < SHARD_WINDOW) az = SIGIL_TOWER.az + Math.sign(offTower || 1) * 0.1;",
+    "old": "    const off = (a) => Math.abs(wrapPi(a - SIGIL_TOWER.az)) < SHARD_WINDOW || Math.abs(wrapPi(a - Math.PI)) < 0.45",
+    "new": "    const off = (a) => Math.abs(wrapPi(a - SIGIL_TOWER.az)) < 0.1 || Math.abs(wrapPi(a - Math.PI)) < 0.45",
     "tests": [
       "test/wb6b_deadlands_life.test.js"
     ]
@@ -38,8 +38,8 @@
   {
     "name": "WB6b-a-turn-off-the-whole",
     "file": "src/world/deadlandsLand.js",
-    "old": "      bobTurns: 40 + Math.floor(rolls() * 40),",
-    "new": "      bobTurns: 40.5 + Math.floor(rolls() * 40),",
+    "old": "    const bobTurns = 40 + Math.floor(rolls() * 40);",
+    "new": "    const bobTurns = 40.5 + Math.floor(rolls() * 40);",
     "tests": [
       "test/wb6b_deadlands_life.test.js"
     ]

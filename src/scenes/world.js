@@ -209,8 +209,10 @@ import { gateScanner, findGateSite, gateSeaPixel, politicClaimed } from '../syst
 import { createGatePool, GATE_TEXT } from './gatePool.js';   // WB2: the gate the world stands - its stone, its fire and beacon, its collider and its door
 import { createSigilBroker } from './sigilBrokerPool.js';   // SET7: the Sigil Broker beside the gate - her body, her box and name, her press
 import { createBrokerOverlay, closeBrokerDoor } from '../ui/brokerDoor.js';   // SET7: her window, a lazy chunk behind its door
-import { brokerStock, brokerDay, brokerBought, makeBrokerSale, spendableStonesIn, lockedStonesIn, stoneCount } from '../systems/sigilBroker.js';   // SET7: the day's stock, the record, the sale   // SS1: the stones counted over their stacks
+import { brokerStock, brokerDay, brokerBought, makeBrokerSale, spendableStonesIn, lockedStonesIn, stoneCount, insigniaSale, stonesText } from '../systems/sigilBroker.js';   // SET7: the day's stock, the record, the sale   // SS1: the stones counted over their stacks
 import { drawGateBanner } from '../ui/gateBanner.js';
+import { drawGateGround } from '../ui/gateGroundView.js';   // WB9d: his ground's rim and warning - hidden with a held frame (the court draws it)
+import { drawGateMarksCard } from '../ui/gateMarksView.js';   // WB9a: tonight's marks over the screen - by the gate before it is entered (and in the court as a fighter steps in: scenes/gateCourt.js)
 import { createGateLink, GATE_NO_TEXT, gateRefusalText } from '../net/gateLink.js'; import { readReceipt } from '../net/gateReceipt.js';   // AUDIT WB A2: a receipt's day, seed and account, for its spoils outside the court   // WB3b: what the client holds of a gate's fight - the relay's words, folded
 import { createGateClaims } from '../net/gateClaims.js';   // WB5b: the kill receipts, carried to the account service until counted
 import { createRaidClaims } from '../net/raidClaims.js';   // RAID4: the raid receipts, carried to the account service until counted and paid
@@ -226,7 +228,7 @@ import { bossPlace } from '../world/gateBoss.js';   // AUDIT WBX F3: where he fe
 import { itemIconColor32 } from '../ui/itemIconColor32.js';   // WBX3: a spoil's own picture on the court's floor
 import { setCourtRules } from '../systems/courtRules.js';   // WBX6: the court's laws, switched by the frame
 import { gateRoomKey, isGateRoom, gateBossOf, gateTimes, gateAdmits, gateAt, GATE_COLLAPSE_MS } from '../net/gateLaw.js';   // WB3b: the court's room, and its day's end
-import { gateLandingFor, courtRing, courtToDungeon, courtBraziers, COURT_TEXT, COURT_FOG, LAVA_Y } from '../world/gateArena.js';   // WB3b: the Burning Court's way home, its ring and its words   // WB2: the gate's countdown over the screen, near it
+import { gateLandingFor, courtRing, courtArena, courtToDungeon, courtBraziers, COURT_TEXT, COURT_FOG, LAVA_Y } from '../world/gateArena.js';   // WB3b: the Burning Court's way home, its ring and its words   // WB2: the gate's countdown over the screen, near it
 import { isMainStoryDungeon } from '../world/dungeonTextures.js';   // SPAWNED-DUNGEONS1: the main story's own dungeons are never cloned
 import { nearestSafeLocation, nearestSafeLocationAnywhere, respawnFlavorText, reviveForPlay, undergroundWakeSpot, undergroundWakeText } from '../systems/deathRespawn.js';   // D-ONLINE1: online, a death respawns instead of ending the run   // X-slice; the rest refusal raises the alert and asks the RESTING variant, the townsfolk idle the STRICT one; the catch-up loop's watch arm
 import { snapshotPlayer, restorePlayer, resolvePendingSpells, composeSessionState, restoreSessionState, dungeonPixelFor } from '../systems/save.js';   // P-slice: the above-ground quicksave; B4: the ONE quest+talk composer
@@ -336,7 +338,7 @@ import { testEntryById, applyTestCharacter, seedTestMount, seedTestLoot, testRoo
 import { publishBootParams, refuseOnlinePowerFlags, BOOT_DOOR_KEYS } from '../systems/onlineLane.js';   // AUDIT SET D4: a refused Test Room boot drops `online` from the URL the lane reads; REALM P0.1: the URL's powers stay offline
 import { preloadChargenArt } from '../ui/chargenArt.js';   // U10
 import { preloadMessageBoxArt } from '../ui/messageBox.js';   // U11
-import { buildingDataForDoor, locationBuildings, BUILDING_KEY_0 } from '../systems/talkTopics.js';   // E2: the shop identity   // H2: every building, with its key   // AUDIT 58: BuildingDirectory.buildingKey0, the key both ship interiors are filed under
+import { buildingDataForDoor, locationBuildings, BUILDING_KEY_0, makeBuildingKey } from '../systems/talkTopics.js';   // E2: the shop identity   // H2: every building, with its key   // AUDIT 58: BuildingDirectory.buildingKey0, the key both ship interiors are filed under
 import { hitSoundFor, swingSoundFor, ENEMY_HIT_VOLUME, PLAYER_HIT_VOLUME } from '../systems/soundClips.js';   // AUDIT 58: DFU's two hit volumes
 import { isInvisible, entityIsParalyzed, concealBits } from '../systems/effects.js';   // AUDIT 39: the S19 gate is host-agnostic in DFU
 import { hasActiveEffect } from '../systems/effects.js';   // PEERLIGHT2: my Light spell, for the pose
@@ -448,6 +450,9 @@ import { createWorldModes } from './worldModes.js';
 import { setAmbientTextHost, tickAmbientText } from '../systems/ambientText.js';   // AT2: Ambient Text's one component - this host claims it and feeds it the frame
 import { OnlineSession, roomKeyFor, DEFAULT_SERVER, WORLD_PUBLISH_MS, FOES_MS, FOES_FULL_MS, FOES_STALE_MS } from '../net/online.js';   // ONLINE1: the session; WORLD1: the room's memory
 import { createSeatLock, SEAT_NOTICE, SEAT_MID_TEXT, PLAY_HERE_LABEL } from '../net/oneSeat.js';   // ONE-SEAT: one tab of a player online - the browser's arm, beside the hub's
+import { readAccount, buyInsignia, equipTitle, equipAura, adoptIdentity as adoptSessionIdentity } from '../net/accountClient.js';   // WB9g: the Broker's insignia - the account's wardrobe, its sale and its wearing, and my own screen's word of it
+import { ownAura } from '../systems/ownGlyphs.js';   // WB9g: the aura at my own feet - the service's last word, kept on the stored session
+import { INSIGNIA, insigniaRefusal } from '../net/insignia.js';   // WB9g
 import { accountTokenMinter, storedSession, accountPlayBeat, muteAccount, serviceBase, accountRefusalText, accountDuels, accountRenown, accountHomes, accountDecor, accountGuilds, accountGates, accountMarks, accountBoard, accountProf, accountRaids, accountMarket, accountWrits } from '../net/accountClient.js';   // ACC1d: the hello's signed word, minted per connection from the account session this device holds   // ACC4: and the beat that counts time played
 import { parseModCommand, runModCommand, mutedText, mutedNotices } from '../net/moderation.js';   // MOD1: /mute and /unmute, and the line a muted player reads
 import { startPlayClock } from '../net/playClock.js';   // ACC4: time played, knocked from here and measured by the account service's clock
@@ -508,6 +513,7 @@ import { sellProceeds } from '../systems/tradeModes.js';   // GUILD-LETTER: a wi
 import { realmLetterOfCredit } from '../net/realmGoldLaw.js';   // GUILD-LETTER: the letter the service writes on a realm record, one maker
 import { createSocialPanel, TRY_AGAIN_TEXT, NO_PARTY_TEXT, LETTERS_SIGNED_OUT_TEXT } from '../ui/socialPanel.js';   // SOC3: the friends + party panel the Social button opens; AUDIT SOC B17: and its word for a refused act, so the F-menu's line and the panel's note agree
 import { glyphMarks } from '../ui/playerBadge.js';   // PEER-PLAQUE1: a badge's plain-text marks, for the plaque's title
+import { TITLE_TEXT, AURA_TEXT } from '../ui/playerBadge.js';   // WB9g: the Broker's insignia, named in its rows
 import { pickPeerInFront, SOCIAL_REACH, peerRayPick, peerIdOfKey, peerRelationText } from '../player/socialPick.js';   // SOC5: which body the ray struck, and how far "on their body" reaches; PEER-PLAQUE1: and the plaque's half of the same pick
 import { allyCastSpell, allyCastable, strangerCastable, allyReachFor, allyCastTargetLine, allyCastPlaqueLine } from '../systems/allyCast.js';
 import { composePartyFx } from '../net/partyBuffs.js';   // PARTY-BUFFS: my effects on the party pose   // ALLY-CAST: a beneficial spell at a party mate; SPELL-GIFT: and the stranger's list
@@ -523,6 +529,7 @@ import { createDuelManager, DUEL_RADIUS_M, DUEL_RANGE_M, DUEL_COUNTDOWN_MS, ring
 import { createDuelRecords, duelUncountedText } from '../net/duelRecord.js';   // DUEL1: the Inspect card's duelling record, asked and kept
 import { createDuelPrompt } from '../ui/duelPrompt.js';   // DUEL1: the challenge, as the challenged player sees it
 import { DuelWallRenderer } from '../render/duelWall.js';   // DUEL1: the ring's holographic wall
+import { AuraRingRenderer, auraWearers, AURA_KINDLE_S } from '../render/auraRing.js';   // WB9g: Dagon's Fire at a wearer's feet
 import { duelAttackerOf, duelWeaponOf, duelSwingOf, resolveDuelStrike, duelBlowPlausible, duelSpellOf, duelSpellFromWire, duelWearDamage, DUEL_TRAIL_MS } from '../combat/duelCombat.js';   // DUEL1: the blow between two duellists, both halves
 import { createPageWindow, pageView } from '../ui/pageWindow.js';   // JOURNAL1: a page another player holds out, read and kept
 import { PageOffers, pageOfferText, pageShownText, pageTooFarText, keptPageTokens, keptLetterTokens, letterOfPage, PAGE_UNSUPPORTED_TEXT, PAGE_NO_READERS_TEXT, PAGE_GONE_TEXT } from '../net/journalPage.js';   // JOURNAL1: a page of the journal shown, and one shown to me kept
@@ -583,6 +590,12 @@ import { warmPrograms } from '../render/warmPrograms.js';
 import { ROTOR_HUB, rotorPhase, advanceRotor, mountRotor, MILL_SOUND, millSoundPosition } from '../world/windmills.js';   // WM2b: the sails; WM4c: the hum
 import { BODY } from '../world/windmillMesh.js';   // WM2d: the tower, for the collider
 import { remapSubMeshes } from '../world/texRemap.js';   // WM3: the one climate/dungeon remap seam
+import { homeLookRemap, HOME_LOOK_BUILD_WAIT_MS } from '../world/homeLook.js';   // HOME-LOOK: a painted house's own table
+import { createHomeYards } from './homeYards.js';   // HOME-YARD: the town's yards, and the owner's decorator outside
+import { loadIcon } from '../ui/textureCanvas.js';   // HOME-YARD: the decorator's pictures
+import { BLOCK_TYPES } from '../formats/blocksFile.js';   // HOME-YARD: the catalogue's town blocks
+import { GLOBAL_SCALE } from '../world/meshReader.js';
+import { homeLookSig } from '../net/homeLaw.js';
 import { setWeather, setHeardWeather, heardWeather, currentWeather, currentWeatherRaw, tickWeather, weatherRespawn, applyClimateWeather, importClimateWeathers, weatherJumpStamp, setSharedWeather, rollClimateWeathersForDay, sampleWeatherField, weatherCrossingStamp, currentFieldCells, currentWeatherIntensity, currentCloudBase, currentWindApproach, currentMapSystems, sampleWeatherIndoors, weatherArrivalStamp, mapGround } from '../systems/weatherSim.js';
 import { createDistantStorms, thunderSourceAt, THUNDER_SOURCE_M } from '../systems/distantStorms.js';   // WEATHER3d: the storms at a distance
 import { createStormLights } from '../systems/lightning.js';   // BOLT: the strikes themselves - their channels and their light
@@ -602,7 +615,7 @@ import { CameraRecoiler } from '../player/cameraRecoiler.js';   // AUDIT 28 W9: 
 import { HeadBobber } from '../player/headBobber.js';   // AUDIT 28 W10: HeadBobbing
 import { lastHealthLost, lastHealthLostPercent } from '../ui/hudVitals.js';   // AUDIT 28 W9: the detector's loss
 import { fieldOfView } from '../ui/viewSettings.js';   // MENU: Video/FieldOfView, one home for five hosts
-import { keyEdges, noteKeyDown, noteKeyUp, beginInputFrame, pressed, released, actionsOf, held, moveHeld, swallowBrowserKey, mouseCode, isSwingButton, keyboardLook, isTextEntryTarget, bindings, routeAction, installContextMenuGuard, POLLED_ACTIONS, QUICKSLOT_ACTIONS, swingKeyHeld } from '../ui/input.js';
+import { keyEdges, noteKeyDown, noteKeyUp, beginInputFrame, pressed, released, actionsOf, actionOf, held, moveHeld, swallowBrowserKey, mouseCode, isSwingButton, keyboardLook, isTextEntryTarget, bindings, routeAction, installContextMenuGuard, POLLED_ACTIONS, QUICKSLOT_ACTIONS, swingKeyHeld } from '../ui/input.js';
 import { armUnloadGuard, releaseUnloadGuard } from '../systems/unloadGuard.js';   // MAC-L3: one door in front of every way out of a running game; AUDIT-MACL F3: ...and down for a door the game opened itself
 import { codeMeans, getBinding, codeForAction, getJoystickUIBinding, HELM_RUDDER_ACTIONS } from '../systems/inputActions.js';   // AUDIT-TO1 H2: the help's TravelMap binding, read through the store's own accessor   // FIX-E: the overlay's QuickLoad read, off the code alone   // I2: the rebindable registry; AUDIT 39r: the mouse half of the held set
 import { buttonText } from '../systems/controlsConfig.js';   // AUDIT DEEP T1-12: the travel view's hint names the bound keys as the Controls page does
@@ -1065,9 +1078,19 @@ export async function bootWorld(canvas, renderer, params, status) {
   // service's registry as this page knows it, one town at a time (systems/onlineHomes.js). The mode machine's doors
   // read it and the quest's residence filter asks it; offline it does not exist and every door is Daggerfall's. Read
   // off `params`: `onlineOn` is declared far below, and a quest can be set up before it is.
-  const onlineHomes = params.has('online')
-    ? createOnlineHomes({ api: accountHomes({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() }), character: () => characterIdOf(playerEntity) })
-    : null;
+  // HOME-RENT: the service's homes door itself, for a home's rooms - read at its door, rented, offered, collected
+  const homesApi = params.has('online') ? accountHomes({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() }) : null;
+  const onlineHomes = homesApi ? createOnlineHomes({ api: homesApi, character: () => characterIdOf(playerEntity) }) : null;
+  // HOME-LOOK (2026-09-30, asked: "The ability to choose the texture for the roof, walls, door, windows, etc"): A PLAYER'S
+  // HOME IS DRAWN OUT OF ITS PIXEL'S MERGE, with its OWN texture table - the pixel's climate swaps and its owner's look
+  // over them (world/homeLook.js) - so a look that lands, or changes, repaints it where it stands (refreshHomeLooks). A
+  // home the build merged (its town unheard, or bought after) is rebuilt once it is painted. `_lookPreview` is the
+  // owner's painter's (their own screen alone, until the look is written or put away).
+  let _homeLookV = -1;
+  let _lookPreviewGen = 0;
+  /** @type {Map<string, any>} `${mapId}:${buildingKey}` -> a look the owner's painter is trying */
+  const _lookPreview = new Map();
+  const lookOfHome = (mapId, bk, row) => (_lookPreview.has(`${mapId}:${bk}`) ? _lookPreview.get(`${mapId}:${bk}`) : row?.look ?? null);
   // MARKS1 (PROF0 10.5): the account's Marks as this page knows them - the balance, the Bank's sale carried to its end
   // (a sale whose answer was lost is kept and settled), a guild's Marks moved (net/marksBook.js). Online only.
   const marksBook = params.has('online')
@@ -3033,12 +3056,12 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  AUDIT-FIELD F7: A FLOOR, NOT THE WHOLE DISTANCE. The first cut
    *  called 64 "more than the fastest accelerated step", which is true
    *  of a fixed physics STEP and false of a FRAME: the motor moves
-   *  `speed * min(dt, MAX_FRAME_DT) * scale` in one go (motor.js:1226),
+   *  `speed * min(dt, MAX_FRAME_DT) * scale` in one go (motor.js:1236),
    *  and the frame that hitches is exactly the frame in which the
    *  streamer is behind. A horse at the shipped default limit of sixty
    *  covers ~65 units in a 10 fps frame and ~120 at the mod's ceiling of
    *  a hundred - past a 64-unit probe, off the built world, and once the
-   *  motor is airborne `airControl` is false (motor.js:1795) so zeroing
+   *  motor is airborne `airControl` is false (motor.js:1805) so zeroing
    *  the drive on the NEXT frame no longer steers: the fall is already
    *  paid for. `travelLookahead` measures the frame that is about to
    *  run instead, and keeps 64 as its floor. */
@@ -3305,6 +3328,14 @@ export async function bootWorld(canvas, renderer, params, status) {
     let locOrigin = null;    // the location origin, pixel-local
     let personBatches = null;
     let locBlocks = null;    // T3d: the layout blocks for the Where-is directory
+    let homeTown = 0;        // HOME-LOOK: the town's map id, and its homes as heard at the build
+    let homeLookRead = -1;   // HOME-LOOK (AUDIT): the registry's version as this build read it - refreshHomeLooks starts from it
+    /** @type {Map<number, any>|null} */
+    let townHomes = null;
+    const pixelHomeKeys = new Set();   // HOME-LOOK: the homes drawn out of the merge
+    const pixelBuildingKeys = new Set();   // HOME-LOOK: every building of the pixel, by its key
+    /** @type {Map<number, {at: number[], box: number[]}>} HOME-YARD: each building's own place and the box round its models, pixel-local */
+    const pixelHomeFrames = new Map();
     if (dfLocation) {
       // AUDIT 39 (#18): the skin reaches the layout, because the mill's
       // subrecord widens the block's building count and must not exist
@@ -3318,6 +3349,17 @@ export async function bootWorld(canvas, renderer, params, status) {
       // gate below no longer owns it) - the Where-is directory
       // resolves doors and the player in the LOCATION frame.
       locOrigin = [locLocal[0], locLocal[1], locLocal[2]];
+      // HOME-LOOK: the town's homes, asked before its buildings are merged (a moment, never long - a town unheard by
+      // then is painted when it is heard of)
+      homeTown = (dfLocation.mapTableData?.mapId ?? 0) >>> 0;
+      if (onlineHomes && homeTown) {
+        // AUDIT: a town heard before is read as it was heard (asked again behind the build; an answer that moves is
+        // painted by refreshHomeLooks) - only a town never heard is waited for, a moment, never at every rebuild
+        if (onlineHomes.known(homeTown)) onlineHomes.ensure(homeTown).catch(() => {});
+        else { try { await onlineHomes.waitFor(homeTown, HOME_LOOK_BUILD_WAIT_MS); } catch { /* painted once heard */ } }
+        townHomes = onlineHomes.homesIn(homeTown);
+        homeLookRead = onlineHomes.version() * 1024 + _lookPreviewGen;
+      }
       for (const b of loc.blocks) {
         const originMatrix = trs(
           locLocal[0] + b.originX, locLocal[1], locLocal[2] + b.originZ, 0, 0, 0);
@@ -3369,8 +3411,26 @@ export async function bootWorld(canvas, renderer, params, status) {
           const box = transformedAabb(archAabb(placed.modelIdNum, cpu.positions), local);
           unionBox(box);
           const entry = { gpu, local, _box: box, _order: placed.modelIdNum };   // EV6: sort key
+          // HOME-LOOK / HOME-YARD
+          const homeKey = Number.isSafeInteger(placed.recordIndex) ? makeBuildingKey(b.x, b.y, placed.recordIndex) : null;
+          if (homeKey != null) {
+            pixelBuildingKeys.add(homeKey);
+            // its own place (rmbLayout.js recordAt) and the box round its models: its yard's frame and footprint
+            const at = Array.isArray(placed.recordAt) ? [locLocal[0] + b.originX + placed.recordAt[0], locLocal[1] + placed.recordAt[1], locLocal[2] + b.originZ + placed.recordAt[2]] : null;
+            const f = pixelHomeFrames.get(homeKey);
+            if (!f && at) pixelHomeFrames.set(homeKey, { at, box: [...box] });
+            else if (f) for (let i = 0; i < 3; i++) { f.box[i] = Math.min(f.box[i], box[i]); f.box[i + 3] = Math.max(f.box[i + 3], box[i + 3]); }
+          }
+          const homeRow = homeKey != null ? townHomes?.get(homeKey) ?? null : null;
+          const homeLook = homeRow ? lookOfHome(homeTown, homeKey, homeRow) : null;
+          // AUDIT: a painted home, or this account's, leaves the merge (PERF4 for every other); unpainted, the pixel's table
+          if (homeRow && (homeLook || homeRow.mine)) {
+            entry._home = { bk: homeKey, sig: homeLookSig(homeLook), seq: 0 };
+            entry.texRemap = homeLook ? await homeLookRemap(gpu.subMeshes, texRemap, homeLook, season, pipeline) : null;
+            pixelHomeKeys.add(homeKey);
+          }
           models.push(entry);
-          if (!isCityGate(placed.modelIdNum) && cpu.normals && cpu.uvs) { staticBuilder.add(cpu, local, resolveTexKey); entry._batched = true; }   // PERF4: the remap for this model's textures is in the map by now (awaited above)
+          if (!entry._home && !isCityGate(placed.modelIdNum) && cpu.normals && cpu.uvs) { staticBuilder.add(cpu, local, resolveTexKey); entry._batched = true; }   // PERF4: the remap for this model's textures is in the map by now (awaited above); HOME-LOOK: a home stays out
           await breather.breathe();   // PERF7: a warm build gives the frame back every few milliseconds
           // AUDIT 64 F14: a city gate takes a collider bucket of its own
           // (the pixel's shared bucket has no per-mesh removal), keyed
@@ -3854,6 +3914,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       // (TravelOptionsMod.cs:541-551). Null for a pixel with no location.
       locationRect,
       _seasonsGen: seasonsGen,   // SIB1: the install this pixel's flats were built under (AUDIT 61: captured at the lookups)
+      homeTown, homeKeys: pixelHomeKeys, buildingKeys: pixelBuildingKeys,   // HOME-LOOK: the homes drawn on their own, and every building's key
+      _lookV: homeLookRead,   // HOME-LOOK (AUDIT)
+      homeFrames: pixelHomeFrames, homeRegion: dfLocation?.regionIndex ?? 0,   // HOME-YARD: each building's frame, and the town's region (a yard's pieces are paid there)
       px, py, terrain, water, tilemapTex, tilemap, groundArchive, models, windmills, batches, flatAnims, texRemap, lights: pixelLights, hearths: pixelHearths, animals: pixelAnimals, springs: pixelSprings, skyBase: climate.skyBase, samples, natureCount: nature.length,
       tilemapBytes, season,   // GR1: the placer reads the tiles and the season
       paths,   // GRASS-PATH1: which tiles the road painter wrote; null on a pixel built before the network arrived
@@ -3927,6 +3990,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       const t = state.pixelTranslation(px, py);
       hccGroundMoved(t[0], t[2], t[0] + TERRAIN_SIZE, t[2] + TERRAIN_SIZE);
     }
+    if (homeTown) _homeLookV = -1;   // HOME-LOOK (AUDIT): a town's pixel stood after the registry moved is painted by the next refresh
     // AUDIT-TO1 B3: the second hook. BOOT-TDZ2: THE MOD IS ASKED FIRST,
     // because this builder runs inside the boot's OWN first build and
     // `playerTravelPixel()` reads `walkMode`, `player` and `cam` - three
@@ -4336,6 +4400,46 @@ export async function bootWorld(canvas, renderer, params, status) {
   // the ground returns. Every other full teardown in this host ends
   // in player.spawn; this one holds instead, which is nearer the
   // reference still: the player does not move at all.
+  /** HOME-LOOK: THE HOMES REPAINTED, whenever the registry moves (a town heard, a look written) or the painter tries one -
+   *  each home drawn on its own takes its new table when it is ready (the older ask never lands over a newer); a pixel
+   *  that merged a home which is painted now is rebuilt, the season's own teardown (tickSeason), once. */
+  function refreshHomeLooks() {
+    if (!onlineHomes) return;
+    const v = onlineHomes.version() * 1024 + _lookPreviewGen;
+    if (v === _homeLookV) return;
+    _homeLookV = v;
+    for (const [key, p] of built) {
+      // AUDIT: each pixel from the registry as its build read it - an answer landing mid-build is never spent before
+      // the pixel stands (the publish asks for a refresh)
+      if (!p.homeTown || p._lookV === v) continue;
+      const homes = onlineHomes.homesIn(p.homeTown);
+      if (!homes) continue;
+      p._lookV = v;
+      let merged = false;
+      // a home the merge swallowed rebuilds its pixel once a look is WRITTEN on it, or once it is this account's - never
+      // for the painter's preview (AUDIT: a colour tried tore the owner's street down under the open panel)
+      for (const [bk, row] of homes) if (!p.homeKeys.has(bk) && p.buildingKeys.has(bk) && (row?.look || row?.mine)) merged = true;
+      if (merged) { _reskin.mark(key); continue; }
+      for (const m of p.models) {
+        if (!m._home) continue;
+        const look = lookOfHome(p.homeTown, m._home.bk, homes.get(m._home.bk));
+        const sig = homeLookSig(look);
+        if (sig === m._home.sig) continue;
+        m._home.sig = sig;
+        const seq = ++m._home.seq;
+        if (!look) { m.texRemap = null; continue; }   // the town's own: the pixel's table
+        homeLookRemap(m.gpu.subMeshes, p.texRemap, look, p.season, pipeline).then((map) => { if (m._home.seq === seq) m.texRemap = map; }, () => {});
+      }
+    }
+  }
+  /** HOME-LOOK: the painter's preview of a look on a home (null: put away) - the owner's own screen alone. */
+  function previewHomeLook(mapId, bk, look) {
+    const k = `${mapId}:${bk}`;
+    if (look === undefined) { if (_lookPreview.delete(k)) _lookPreviewGen++; return; }
+    _lookPreview.set(k, look);
+    _lookPreviewGen++;
+  }
+
   let _seasonHoldKey = null;
   function tickSeason() {
     if (_seasonStraightening) return;   // the FRAME's poll only (see above)
@@ -7918,10 +8022,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2750 mounts the same one, gated on
+  // and dungeonContext.js:2753 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6442
+  // that context through modes.dungeonCtx - so worldModes.js:6565
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -8229,6 +8333,41 @@ export async function bootWorld(canvas, renderer, params, status) {
     mode: () => _mode(),
     enhanced: () => isEnhanced(),
   });
+  // HOME-YARD (2026-09-30, asked: "allowing for prop placement on the outside within the limits of their house"): THE
+  // TOWN'S YARDS AND THE OWNER'S DECORATOR OUTSIDE (scenes/homeYards.js) - every online home's pieces outside, stood in
+  // its pixel for everyone in the street, and the decorator on the owner's own lot (the lot's edge marked, a piece off
+  // it refused). HOME-LOOK rides its panel: "Exterior", the house's outside painted. Online alone.
+  const homeYardWallet = (region) => {
+    playerEntity.bankAccounts ??= createBankAccounts(BANK_REGION_COUNT);
+    const a = playerEntity.bankAccounts[region] ?? null;
+    return {
+      gold: totalGoldAmount(playerEntity) + (a?.accountGold ?? 0),
+      pay: (n) => { const short = deductGold(playerEntity, n); if (a) a.accountGold -= short; },
+      credit: (n) => { addGold(playerEntity, n); },
+    };
+  };
+  const yards = homeDecor && onlineHomes ? createHomeYards({
+    api: homeDecor, homes: onlineHomes, built: () => built, translation: (px, py) => state.pixelTranslation(px, py),
+    feet: () => (walkMode && playerSpawned ? player.feetAt() : null),
+    outside: () => _mode() === 'exterior' && playerSpawned && !player.riding,
+    eye: () => cam.pos,
+    collider: () => collider, meshes: { getGpuMesh, cpuModels }, renderer, getTexture, uploadRecord, uploadRecordFrame,
+    iconUrl: (a, r) => loadIcon(a, r, { scale: 1 }),
+    scanDeps: () => ({
+      blocks, isTownBlock: (t) => t === BLOCK_TYPES.Rmb,
+      modelRadius: (id) => { const rec = arch?.getRecordIndex?.(id); if (rec == null || rec < 0) return null; const r = arch.getMesh(rec)?.radius ?? 0; return r > 0 ? r * GLOBAL_SCALE : null; },
+      flatRadius: async (a, r) => { const t = await getTexture(a); if (!t || !(r < t.recordCount)) return null; const size = billboardSize(t, r); return Math.hypot(size.w, size.h) / 2; },
+    }),
+    character: () => characterIdOf(playerEntity),
+    realm: () => (realmSession ? (o) => realmGoldAct({ session: realmSession, checkpoint: () => onlineCheckpoint(), ...o }) : null),
+    wallet: (region) => homeYardWallet(region), regionOf: (y) => built.get(`${y.px},${y.py}`)?.homeRegion ?? 0,
+    doc: typeof document !== 'undefined' ? document : null, win: typeof window !== 'undefined' ? window : null, canvas, touch: isTouchDevice(),
+    actionOf: (e) => actionOf(e, keys), locked: () => typeof document !== 'undefined' && document.pointerLockElement === canvas,
+    cursorOff: () => setCursorActive(false), stick: () => touch?.axes() ?? gamepad?.axes() ?? null,
+    say: (l) => townTalk.say(l), refusal: (w) => accountRefusalText(w), openSlot: (o) => townTalk.showOverlay(o),
+    look: { preview: (mapId, bk, look) => previewHomeLook(mapId, bk, look), season: () => season },   // HOME-LOOK
+    now: () => Date.now(),
+  }) : null;
   let _farmSyncT = 0;   // BOUNTY-FARM: the pool is brought in line twice a second
   let _noticeReadT = 0;   // NOTICE1: the town underfoot is asked about once a second (the book's cache answers the rest)
   /** BOUNTY-FARM / BOUNTY-TRAIL: how near its spot (the farmhouse, the second group's) the hunter must come before the
@@ -10466,7 +10605,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7557), so exterior mode and a
+    // composer, dungeonContext.js:7606), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -12621,6 +12760,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     attack: (dx, dy, held) => {
       if (!walkMode) { swipeHeld = false; return; }
       if (modeNow() === 'exterior') {
+        if (yards?.flying()) { swipeHeld = false; return; }   // HOME-YARD (AUDIT): a swipe under the yard's decorator turns the eye, never swings
         swipeHeld = held;
         if (held && gatherHost?.acting()) return;   // PROF1: an act's tap is the act's
         if (held && magic.interceptAttack(true)) return;   // M2: an armed cast eats the swing
@@ -12636,7 +12776,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // the finger's ray - A8's gate fires it on the release. A finger in
     // the docked bar's strip is no world tap at all.
     tap: (x, y, opts = null) => {
-      if (modes?.decorFlying?.()) return;   // DECOR1e: under the decorator's flight a tap is no press - the bar's Place places
+      if (modes?.decorFlying?.() || yards?.flying()) return;   // DECOR1e: under the decorator's flight a tap is no press - the bar's Place places; HOME-YARD (AUDIT): the yard's too
       if (!ndcFromScreen(x, y, canvas.clientWidth, canvas.clientHeight, worldViewportRect(canvas.clientWidth, canvas.clientHeight))) return;
       _tapPoint = [x, y]; _tapArmed = 2;   // AUDIT 62 F8: the arm IS the press - see _tapArmed at the gate below
       _tapLockOnly = !!opts?.lockOnly;   // TS1: touch.js's stick-half tap (TI1b) - the lock pick and nothing below it
@@ -13113,7 +13253,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9904-9968 -
+  // worldModes answers it in BOTH modes (worldModes.js:10051-10115 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -16059,6 +16199,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     who: () => characterIdOf(playerEntity),
     iconOf: (item) => itemIconColor32(item, { identity: playerEntity }),   // WBX3: each piece as its own picture - the pack's; AUDIT WBX S6: drawn for its wearer, as the pack draws it
     onSpent: (day) => { socialLink()?.sendGateSpent?.(day); },   // AUDIT WBX S1: a receipt spent here - the hub forgets its copy, so no other device or tab gives it again
+    itemName: (item) => lootPileName([item]),   // WB9f: a piece's word on the plaque, the loot piles' own (.cs:534-548)
   });
   /** RAID4b: A TOWN'S THANKS (systems/raidSpoils.js) - the spoils pool's door with no floor, under keys of its own (a
    *  town's receipts never push a boss's out of the spent list), and no word to the hub (it never kept a raid's receipt).
@@ -16139,6 +16280,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   // let go of what they held in the old one, and the crash's door asks again for the loaded character (a town's thanks
   // given, a load of a save from before them, then a save: the record cleared with its pieces in no pack at all)
   onSlotLoaded((characterId) => { spoilsPool.loaded(characterId); raidSpoils.loaded(characterId); _spoilsAskedFor = null; });
+  /** WB9b: the court's floor as the dungeon arm asks for it each frame - the fight's crossings and the relay's clock */
+  const _gateFloor = { xa: [], now: 0, none: Object.freeze([]) };
+  const _courtArena = courtArena(_gateFloor.none, 0);
   const gateCourt = gateLink ? createGateCourt({
     renderer, gl: renderer.gl, getTexture, uploadRecordFrame, audio, link: gateLink, spoils: spoilsPool,
     now: () => Date.now() + _sharedOffsetMs,
@@ -16149,7 +16293,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     strike: (dmg, how) => modes?.dungeonCtx?.strikePlayer?.(dmg, how),
     say: (text) => setMidScreenText(text),
     hudHidden: () => gamePaused() || !!townTalk.hudHidden,
+    veiled: () => !!gateVeil?.busy,   // WB9a: the marks' card waits under the step's fire (the veil is made just below - read at a frame, never at the build)
     send: (hit) => !!online?.sendGate?.({ k: 'hit', ...hit }),   // WB4b: a blow of mine on him, to the court's room
+    sendCrystal: (hit) => !!online?.sendGate?.({ k: 'xhit', ...hit }),   // WB9c: a blow of mine on a crystal of Oblivion
     portalDoor: (door) => { modes?.dungeonCtx?.exitDoors?.push?.(door); },   // WBX2: its door, for the exit's ray and name - and (SS3) its press, the one way through it
     // WBX7: a soul trap of mine still on him as he fell - the port's own kill roll (EnemyEntity.AttemptSoulTrap), his soul
     // into an empty gem of my pack, its words; the tether's arm is not his (the relay has already killed him)
@@ -16205,6 +16351,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (gateOmen) reportGateSite();   // DISCORD-GATES: where the gate stands, to the hub
     raidClaims?.tick();   // RAID4: and the raids' receipts, on theirs
     if (gatePool && (modes?.mode ?? 'exterior') !== 'exterior') drawGateBanner(null);   // WB2: the countdown is the street's; the pool's own frame runs there alone
+    if (gatePool && (modes?.mode ?? 'exterior') !== 'exterior' && modes?.gateArenaDay?.() == null) drawGateMarksCard(null);   // WB9a: the gate's card is the street's, the court draws its own - anywhere else, none
     // WB3b: the court stands until its gate's day is over - then it comes apart around whoever is in it, who land
     // before the gate; out of it, its state is forgotten (its falls and receipts are kept)
     const courtDay = modes?.gateArenaDay?.() ?? null;
@@ -16278,6 +16425,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     feet: () => (walkMode && playerSpawned ? player.feetAt() : null),
     say: (text) => setMidScreenText(text),
     banner: (text) => drawGateBanner(text, { hidden: gamePaused() || !!townTalk.hudHidden || !!gateVeil?.busy }),   // AUDIT WB C5: never over the step's fire
+    marks: (card) => drawGateMarksCard(card, { hidden: gamePaused() || !!townTalk.hudHidden || !!gateVeil?.busy }),   // WB9a: tonight's marks beside the countdown - never over the step's fire
     ready: () => !!online?.gateOk,   // WB3b: a relay that runs a gate's boss room (net/wire.js relaySupportsGate)
     landBefore: (g) => landBeforeGate(g),   // AUDIT WBX W1: a player sealed in a rising horn's root, set down before the gate
     enter: (g) => { modes?.enterGateArena?.(g); },   // WB3b: into the Burning Court (scenes/worldModes.js)
@@ -16306,12 +16454,82 @@ export async function bootWorld(canvas, renderer, params, status) {
     surfacePlayer();
     return sale;
   };
+  /** WB9g (2026-09-30, Mac: "Add a brand new title to the broker and a new addition (the aura) ... These items should be
+   *  expensive and sought after"): THE BROKER'S INSIGNIA (net/insignia.js) - the Gatebreaker title and Dagon's Fire aura,
+   *  bought once for Sigil Stones and kept by the ACCOUNT. What the account owns and wears is the service's (asked each
+   *  time her window opens - `insigniaLoad`); a sale is two halves, the service's (it records it, the account's closed
+   *  gates paying - server-account/src/accounts.js buyInsignia) and the pack's (its stones held before the service is
+   *  asked, and given back unless it holds the sale - AUDIT WB9: systems/sigilBroker.js insigniaSale); wearing
+   *  one is the account card's own door (equipTitle, equipAura), and my own name and feet show it at once - the room
+   *  sees it from the next hello the token signs. */
+  let _insignia = { loaded: false, busy: false, held: [], title: null, aura: null };
+  const insigniaIo = () => { const st = appStorage(); const ses = storedSession(st); return ses ? { fetch: (u, i) => globalThis.fetch(u, i), base: serviceBase(st), secret: ses.secret } : null; };
+  const insigniaAdopt = (w) => { if (w && typeof w === 'object') _insignia = { ..._insignia, loaded: true, held: Array.isArray(w.insignia) ? w.insignia : _insignia.held, title: w.title ?? null, aura: w.aura ?? null }; };
+  async function insigniaLoad() {
+    const io = insigniaIo();
+    if (!io) { _insignia = { ..._insignia, loaded: true, held: [], title: null, aura: null }; return; }
+    try { const r = await readAccount(io); if (r.ok) insigniaAdopt(r.data?.wardrobe); } catch { /* the rows say they cannot tell */ }
+  }
+  /** The rows the window draws: each offer, its word, whether the account owns and wears it. */
+  const insigniaRows = () => INSIGNIA.map((o) => ({
+    ...o, name: o.kind === 'title' ? TITLE_TEXT[o.key] ?? o.key : AURA_TEXT[o.key] ?? o.key,
+    owned: _insignia.held.includes(o.id), worn: o.kind === 'title' ? _insignia.title === o.key : _insignia.aura === o.key,
+  }));
+  /** My own badge, at once, off the service's answer to a wear - before the next mint says it: the session's own door
+   *  (the title my own lines wear, the aura it holds for me) and the stored session's (the fire at my feet - ownAura),
+   *  through their own readers, never a word the vocabulary does not hold. */
+  const insigniaSelf = (answer, secret) => {
+    online?.adoptIdentity?.({ title: _insignia.title, glyphs: online.glyphs, level: online.lv, aura: _insignia.aura });
+    adoptSessionIdentity(appStorage(), { glyphs: answer?.glyphs, aura: _insignia.aura, secret });
+  };
+  async function insigniaBuy(offer) {
+    if (_insignia.busy) return { ok: false, text: 'The Broker is already writing up a sale.' };
+    const io = insigniaIo();
+    const why = insigniaRefusal(offer, { held: _insignia.held, stones: stoneCount(spendableStonesIn(playerEntity.items ?? [])), online: !!io && !!online });
+    if (why === 'owned') return { ok: false, text: 'Your account already owns that.' };
+    if (why === 'offline') return { ok: false, text: 'Insignia is kept by your account - sign in and go online to buy it.' };
+    if (why === 'stones') return { ok: false, text: `Not enough Sigil Stones - it asks ${stonesText(offer.price)}.` };
+    if (why) return { ok: false, text: 'The Broker will not sell that.' };
+    _insignia.busy = true;
+    try {
+      playerEntity.items = playerEntity.items || [];
+      // AUDIT WB9 (insignia F1, F2): the pack's price held FIRST and given back unless the service holds the sale (a lost
+      // answer asked after), and a held sale saved at once - PROF-SAVE's door (systems/sigilBroker.js insigniaSale)
+      const r = await insigniaSale(offer, {
+        items: playerEntity.items, buy: (id) => buyInsignia(io, id), save: () => saveSoon.changed(),
+        held: async (id) => { const a = await readAccount(io); const w = a.ok ? a.data?.wardrobe : null; return Array.isArray(w?.insignia) && w.insignia.includes(id) ? w : null; },
+      });
+      if (!r.ok) return { ok: false, text: r.error === 'stones' ? `Not enough Sigil Stones - it asks ${stonesText(offer.price)}.` : r.error === 'short' ? `${accountRefusalText('short')} It asks ${stonesText(offer.price)}.` : accountRefusalText(r.error) };
+      insigniaAdopt(r.data);
+      audio.playOneShot(SOUND.GoldPieces, 1);
+      surfacePlayer();
+      const name = insigniaRows().find((x) => x.id === offer.id)?.name ?? offer.key;
+      return { ok: true, text: `Bought: ${name}, for ${stonesText(offer.price)}. It is your account's for good - wear it here or on your account card.` };
+    } catch { return { ok: false, text: accountRefusalText('offline') }; } finally { _insignia.busy = false; }
+  }
+  async function insigniaWear(offer) {
+    if (_insignia.busy) return { ok: false, text: 'A moment - the Broker is busy.' };
+    const io = insigniaIo();
+    if (!io) return { ok: false, text: 'Insignia is kept by your account - sign in to wear it.' };
+    const row = insigniaRows().find((x) => x.id === offer.id);
+    if (!row?.owned) return { ok: false, text: 'Your account does not own that.' };
+    _insignia.busy = true;
+    try {
+      const want = row.worn ? null : row.key;
+      const r = offer.kind === 'title' ? await equipTitle(io, want) : await equipAura(io, want);
+      if (!r.ok) return { ok: false, text: accountRefusalText(r.error) };
+      insigniaAdopt(r.data);
+      insigniaSelf(r.data, io.secret);
+      return { ok: true, text: want ? `Wearing ${row.name}. Others see it from your next step into a new place.` : `${row.name} put away.` };
+    } catch { return { ok: false, text: accountRefusalText('offline') }; } finally { _insignia.busy = false; }
+  }
   const openBroker = () => {
     const win = createBrokerOverlay({
       stock: brokerStockNow, day: () => brokerDay(_brokerNow()), now: _brokerNow,
       items: () => spendableStonesIn(playerEntity.items ?? []), locked: () => stoneCount(lockedStonesIn(playerEntity.items ?? [])),   // SS1: a locked stack counts whole
       bought: () => brokerBought(brokerDay(_brokerNow())), buy: brokerBuy,
       wearer: playerEntity, nameOf: (item) => itemLongName(item),
+      insignia: insigniaRows, insigniaLoad, buyInsignia: insigniaBuy, wearInsignia: insigniaWear, insigniaBusy: () => _insignia.busy,   // WB9g
     });
     if (win) townTalk.showOverlay(win);
   };
@@ -16367,7 +16585,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       while (_duelTrail.length && tNow - _duelTrail[0].t > DUEL_TRAIL_MS) _duelTrail.shift();
     } else if (_duelTrail.length) _duelTrail.length = 0;
     player.arena = live && (modes?.mode ?? 'exterior') === 'exterior' ? { centre: campToScene(live.c), radius: DUEL_RADIUS_M } : null;
-    if (!player.arena && modes?.gateArenaDay?.() != null) player.arena = courtRing();   // WB3b: the court's floor is a ring the body cannot leave
+    // WB3b: the court's floor is a ring the body cannot leave - WB9b: the three courts' floor, as far as the walkways
+    // between them are laid (one arena, its crossings and clock refilled each frame)
+    if (!player.arena && modes?.gateArenaDay?.() != null) { _courtArena.xa = gateLink?.state()?.xa ?? _gateFloor.none; _courtArena.now = Date.now() + _sharedOffsetMs; player.arena = _courtArena; }
     duelPrompt?.render();
   };
   /** DUEL1: THE RING I DUEL IN, FOR THE ONLOOKERS, on my foes frame (validRingRecord's shape): on every FULL frame while it
@@ -18788,6 +19008,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // after the bodies (a Morrowind player's own choice for everyone they meet), before the class sprite and the doll
     peerWalkers.sync(seen, onlineToScene, { eye: peerEye, right: peerRight, dt, skip: (id) => peerBodies.heightOf(id) > 0, hurt: (id) => peerHurtAge(id) < PEER_FLINCH_S, conceal: veilOf });   // PEERFX3: a class skin's hurt pose
     peerRiders.settle((id) => peerBodies.wolfStands(id));   // WEREWOLF1 (AUDIT E4): the deferred werewolves, now the bodies have stood - before anything reads the riders
+    auraFrame(seen);   // WB9g: the auras at the feet - mine and the drawn peers' - gathered with the rest
     // PCORPSE1: a body heard in a room this scene has left for another KIND of space (a dungeon's local frame, the
     // street's world frame) is not this scene's to draw; one heard anywhere in the overworld's cells still is
     // PCORPSE3: a party member's body their party pose tells of, that the death pose never brought me (I was between
@@ -18840,7 +19061,53 @@ export async function bootWorld(canvas, renderer, params, status) {
   const drawPeerBodies = (proj, view, eye) => { if (peerBodies) peerBodies.draw(canvas, { proj, view, eye, flashOf: peerFlashOf }); peerWalkers?.drawLanterns(); };   // HT-WAIST-BACK: the walkers' lanterns, each on its own tilted basis, beside the bodies - every mode's pass calls this after the player's own body (the exterior here, the dungeon and the interior through host.drawPeerBodies)
   /** INVIS-LOOK: the concealed peers' Morrowind bodies, translucent - blended with no depth write, so every mode's pass
    *  calls this AFTER its opaque world (net/peerBodies.js drawVeiled), with the camera its body pass took. */
-  const drawVeiledPeerBodies = () => { peerBodies?.drawVeiled(); };
+  const drawVeiledPeerBodies = () => { peerBodies?.drawVeiled(); drawAuras(); };   // WB9g: and the auras, after the opaque world as the veiled are
+  /** WB9g (2026-09-30, Mac: "an animated burning ground aura that circles the ground where your character stands"):
+   *  DAGON'S FIRE AT THE FEET (render/auraRing.js) - mine, as the service signed it (the session's `au`, adopted at each
+   *  mint), and every peer's the relay vouched for (their hello's `au`), each kindling as it first stands. Gathered with
+   *  the peers each frame (auraFrame), drawn after each mode's opaque world under the camera that world was drawn with
+   *  (the renderer's frame, as the fog it takes) through the veiled bodies' hook - every host calls it: the street, the
+   *  dungeon's lateWorldDraw, the building - added and fogged; never under the travel view, and a concealed peer's
+   *  fire is concealed with them. */
+  const _auraWearers = [], _auraDraw = [], _auraPool = new Map();
+  const _auraSelf = { id: 'self', at: [0, 0, 0], aura: null, seed: 0.37, kindle: 1, since: 0 };
+  let _auraPass = null, _auraTried = false;
+  const auraSeedOf = (id) => { let h = 2166136261; for (const ch of String(id)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return ((h >>> 0) % 997) / 997; };
+  function auraFrame(seen) {
+    _auraWearers.length = 0;
+    if (!online || travelView?.active) return;
+    const t = performance.now() / 1000;
+    const mine = ownAura();   // the service's last word on my own - a mint's, a wear's from any door
+    if (mine && playerSpawned) {
+      const f = player.feetAt();
+      if (_auraSelf.aura !== mine) _auraSelf.since = t;
+      _auraSelf.at[0] = f[0]; _auraSelf.at[1] = f[1]; _auraSelf.at[2] = f[2]; _auraSelf.aura = mine;
+      _auraSelf.kindle = Math.min(1, (t - _auraSelf.since) / AURA_KINDLE_S);
+      _auraWearers.push(_auraSelf);
+    } else _auraSelf.aura = null;
+    for (const d of seen) {
+      if (_veils.has(d.id) || !d.shown) continue;   // a concealed peer's fire is concealed with them
+      const au = online.auraOf?.(d.id) ?? null;
+      if (!au) { _auraPool.delete(d.id); continue; }
+      let w = _auraPool.get(d.id);
+      if (!w || w.aura !== au) { w = { id: d.id, at: [0, 0, 0], aura: au, seed: auraSeedOf(d.id), kindle: 0, since: t }; _auraPool.set(d.id, w); }
+      const p = onlineToScene(d.shown);
+      w.at[0] = p[0]; w.at[1] = p[1]; w.at[2] = p[2];
+      w.kindle = Math.min(1, (t - w.since) / AURA_KINDLE_S); w.seen = t;
+      _auraWearers.push(w);
+    }
+    if (_auraPool.size) for (const [id, w] of _auraPool) if (w.seen !== t) _auraPool.delete(id);   // the gone forget their kindling
+  }
+  function drawAuras() {
+    if (!_auraWearers.length) return;
+    const proj = renderer._proj, view = renderer._view, eye = renderer._camPos;   // the frame's camera, the world's own
+    if (proj && view && eye && auraWearers(_auraWearers, eye, _auraDraw).length) {
+      if (!_auraTried) { _auraTried = true; try { _auraPass = new AuraRingRenderer(renderer.gl); } catch (e) { console.warn('[online] the aura would not build', e?.message ?? e); _auraPass = null; } }
+      _auraPass?.draw(_auraDraw, proj, view, eye, performance.now() / 1000, { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, camPos: renderer._camPos, focus: renderer._focus });
+      if (_auraPass?.drawn) renderer.markForeignPass();
+    }
+    _auraWearers.length = 0;   // this frame's, drawn once: a frame that gathers none (the seat left, death, offline) draws none
+  }
   /** FONT1 (2026-09-16, Mac: "Especially the new online interfaces font use our enhanced font"): THE SOCKET'S OWN
    *  WORD, IN THE SKIN'S FACE. The online lane is the enhanced lane whole (systems/onlineLane.js), so this line -
    *  connecting, reconnecting, refused - was the one online surface still drawn in the classic bitmap font while
@@ -18946,9 +19213,18 @@ export async function bootWorld(canvas, renderer, params, status) {
     onTransitionExterior: () => { csaOnTransition(); navalTransition(); },   // CSA-C: PlayerEnterExit.OnTransitionExterior; NAV-H: a fresh sea at the door
     gateCourtLights: () => gateCourt?.lights() ?? [],   // WB4: the glow on him, in the court's light channel
     gateBoss: () => gateCourt?.target() ?? null,   // WB4b: him as a body my blows meet
+    gateFloor: () => { _gateFloor.xa = gateLink?.state()?.xa ?? _gateFloor.none; _gateFloor.now = Date.now() + _sharedOffsetMs; return _gateFloor; },   // WB9b: the walkways laid between the courts, on the relay's clock (one object, refilled - AUDIT WB D10's law)
     onBossHit: (hit) => !!gateCourt?.hit(hit),   // WB4b: a blow's number on him, out to the room
     onBossTrap: (trap) => !!gateCourt?.trapped(trap),   // WBX7: a soul trap laid on him - the court rolls it at his fall
     bossTrapNow: () => gateCourt?.trapNow?.() ?? null,   // AUDIT WBX F6: my trap running on him, for a recast to stack onto
+    gateCrystals: () => gateCourt?.crystalTargets() ?? null,   // WB9c: the Reckoning's crystals as bodies my blows meet
+    onCrystalHit: (hit) => !!gateCourt?.crystalHit(hit),   // WB9c: a blow's number on one, out to the room
+    // WB9f: HIS SPOILS ON THE FLOOR, pressed - the pool's resting pieces as targets, their words and their items for the
+    // plaque, and the press that takes one into the pack (the court's dungeon arm, worldModes.js standCourt)
+    spoilTargets: () => spoilsPool?.targets() ?? null,
+    spoilName: (key) => spoilsPool?.nameOf(key) ?? null,
+    spoilContents: (key) => spoilsPool?.contentsOf(key) ?? null,
+    takeSpoil: (key) => !!spoilsPool?.pick(key),
     // WB6a: the Deadlands' sea and sky, in the dungeon arm's world pass after the court's solid geometry - in the court's
     // own air (the renderer's fog as it set it for the court, the sky's light following the lane's with the fog's colour)
     drawGateBackdrop: ({ proj, view }) => {
@@ -19202,6 +19478,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // HOME1: the online homes' registry (null offline), and my party's names as the relay signs them - a home its owner
     // opened to their party opens to a player whose party holds the owner (net/homeLaw.js homeMayEnter)
     onlineHomes,
+    homesApi,   // HOME-RENT: a home's rooms, through the service's own door (null offline)
     marks: marksBook,   // MARKS1: the Bank of the Empire's Marks, online
     saveSoon: () => saveSoon.changed(),   // PROF-SAVE: a Marks sale's gold in the Bank's account saved soon
     homeDecor,   // DECOR1c: an online home's placed pieces (null offline - the house's and the ship's are the save's)
@@ -21417,7 +21694,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // AUDIT WB C5: and the gate's countdown goes down with it - a DOM line over the video would stand frozen on it.
     // AUDIT DEEP X-1: and the travel view is CUT - its readout stood over the film, its listeners on the canvas, until
     // its heartbeat noticed the frames had stopped
-    if (frameHeld()) { frameAbort(); hideWorldPlaque(); last = now; requestAnimationFrame(frame); drawGateBanner(null); travelView?.exit('video', true); return; }
+    if (frameHeld()) { frameAbort(); hideWorldPlaque(); last = now; requestAnimationFrame(frame); drawGateBanner(null); drawGateMarksCard(null); drawGateGround(null); travelView?.exit('video', true); return; }
     const dt = Math.min(0.1, (now - last) / 1000);
     // AUDIT 28 W7 + F-C1/F-C2 (self-audit 3): PlayerMouseLook.Update's
     // three answers - paused (:241-244) returns before ApplyLook and the
@@ -21556,6 +21833,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     });
 
 
+    // HOME-YARD: the yards in line, and the owner's decorator on their lot - above the modal gate, so a door walked
+    // through stands it down (its own frame reads the mode)
+    yards?.frame({ dt, cam, overlayUp: !!townTalk.overlayActive });
     // AT2: AmbientTextMod.Update. ABOVE THE MODAL GATE, for the same
     // reason the holiday text is: it is a MonoBehaviour Update and DFU
     // does not suspend those when you walk through a door. One tick
@@ -21890,6 +22170,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         if (_dwForge) { const afloat = afloatMessageStep(player, player.waterWalking); if (afloat) townTalk.say(afloat, CANNOT_FLOAT_HUD_SECONDS); }
         const mv = moveHeld(keys);
         mv.analog = touch?.axes() ?? gamepad?.axes() ?? null;   // TI2: the stick's throw, when the layer has one - MoveAxes' joystick arm takes it over the key impulse; GP1: the pad's stick when no finger
+        if (yards?.flying()) mv.analog = null;   // HOME-YARD: the stick flies the decorator's eye - the body stands
         // AUDIT 28 W8: the axes advance only on frames the motor runs (a
         // held overlay is DFU's timeScale 0 - no climb, no friction).
         // AUDIT 64 F3: InputManager.cs:542-545 - `if (ToggleAutorun)
@@ -22643,6 +22924,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       spherecast: (o, r, d, m) => { const h = collider.sphereCast(o, r, d, m, camFilter).dist; return Number.isFinite(h) ? h : null; },   // MAC-A: castSphere's seam beside the ray - the camera's two obstacle guards are sphere casts (camera.cpp:186, :200)
       seaReach: csaHelm ? csaSeaReach(csaHelm) : 0,   // #3
     });
+    if (yards?.flying()) { const c = { pos: mwv0.eye }; yards.cameraOverride(c); mwv0.eye = c.pos; }   // HOME-YARD: the decorator's free eye, while a piece is placed outside (no travel view is up then)
     // TV1: THE TRAVEL VIEW'S EYE, when it is up - risen out of the body's own camera (`ownEye`, the one the frame would
     // draw) and blended back into it on the way down. Every reader below that asks where the picture is taken from
     // reads `mwv.eye`; the fog and the sun's cascades measure from the traveller's head (renderer.setFocus - a frame's:
@@ -22682,6 +22964,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (_wodLate.size && !building) sweepWodLate();   // WOD6: a late region's pixels, the same way
     if (!building) sweepGateClear();   // GATE-CLEAR: the gate the clock is about turned - its clearing in, the last one's rock back
     if (seasonsActive) seasons.tick();   // SIB1: RefreshSeasonAfterLoad's second half, the frame after a load
+    refreshHomeLooks();   // HOME-LOOK: a look landed or changed repaints the home where it stands
     // W1/S41: the DRAIN ticks on the exterior frame, which is
     // WeatherManager.Update's own shape - it returns while the player
     // is inside, so a sky rolled by a day spent indoors or underground
@@ -22932,6 +23215,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     camps.draw(renderer);   // SURV3: the tents, the cart's own pass
     hcc.draw(renderer);   // HCC: the trailing / parked / following wagon and its cargo, mine and the peers' (the horses ride the flats' pass)
     bountyFarms?.draw(renderer);   // BOUNTY-FARM: a held farm bounty's farmstead
+    yards?.draw(renderer);   // HOME-YARD: the pieces outside the town's homes, and the one being placed
     if (csaOn()) csa.draw(renderer);   // CSA-B: the boats - the hulls, the classic models their helpers stand, the baked sails
 
     // WM2b: read the eased wind ONCE a frame, not once a mill.
@@ -22995,6 +23279,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (peerRiders) for (const b of peerRiders.batches()) { if (!(cullOn && billboardOutside(b))) allBatches.push(b); }   // RIDE: the others in the saddle
     if (peerWalkers) for (const b of peerWalkers.batches()) { if (!(cullOn && billboardOutside(b))) allBatches.push(b); }   // DISC23-B: and on foot, as they chose
     if (bandSprites) for (const b of bandSprites.batches()) { if (!(cullOn && billboardOutside(b))) allBatches.push(b); }   // OW-FOES: the bands near, as their monsters
+    if (yards) for (const b of yards.batches()) { if (!(cullOn && billboardOutside(b))) allBatches.push(b); }   // HOME-YARD: the yards' flats, and the one being placed
     // NEAR-FIRST (2026-09-21): THE PIXELS ARE WALKED NEAREST FIRST. The
     // map's insertion order is the order the pixels streamed in, which
     // is nothing to do with where the eye is - so a far town's walls
@@ -23059,8 +23344,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
             m._world = multiply(pixelMatrix, m.local, m._world || new Float32Array(16));
             m._worldGen = p._worldGen | 0;
           }
-          if (off) renderer.recordShadowMesh(m.gpu, m._world, p.texRemap);   // SHADOW-REACH: for the maps alone
-          else renderer.drawMesh(m.gpu, m._world, p.texRemap);
+          if (off) renderer.recordShadowMesh(m.gpu, m._world, m.texRemap ?? p.texRemap);   // SHADOW-REACH: for the maps alone; HOME-LOOK: a painted home's own table
+          else renderer.drawMesh(m.gpu, m._world, m.texRemap ?? p.texRemap);
         }
       } else if (pixelCasts) {
         // SHADOW-REACH: the whole pixel is off screen but inside a shadow's reach - its ground, its merged statics
@@ -23073,7 +23358,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
             m._world = multiply(pixelMatrix, m.local, m._world || new Float32Array(16));
             m._worldGen = p._worldGen | 0;
           }
-          renderer.recordShadowMesh(m.gpu, m._world, p.texRemap);
+          renderer.recordShadowMesh(m.gpu, m._world, m.texRemap ?? p.texRemap);   // HOME-LOOK
         }
       }
       // WM2b: THE SAILS, on the same eased wind vector the cloud deck
@@ -23211,10 +23496,12 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       for (let i = 0; i < n; i++) _waterRows[i].fill(null);   // a scratch keeps no evicted pixel's surface alive
     }
     meterFor(renderer.gl)?.markCpu('flats');   // PERF-CPU: submitting the billboards - the draws themselves, from JS. ABOVE setFlatWind, not between it and the draw: WIND3 pins the two as ADJACENT, and the wind is part of this phase anyway.
+    yards?.drawDecals(renderer);   // HOME-YARD: the lot's marked edge while a piece is placed
     bloodMarks.draw(camRight, UP_Y);   // BLOOD1a: the marks go down BEFORE the billboards, so a body standing in its own blood is over it and not under it. ABOVE setFlatWind for the reason its own neighbour gives: WIND3 pins the wind and the draw as ADJACENT.
     renderer.setFlatWind(floraSwayOn() && wd.on ? [wd.windV[0], wd.windV[1], now / 1000, wd.gust] : null);   // WIND3: the flats lean with the one wind; the flora batches carry their share (sway)
     renderer.drawBillboards(allBatches, camRight, bbUp);
     if (magic.batches().length) renderer.drawBillboards(magic.batches(), camRight, bbUp);   // M2: spell missiles
+    yards?.drawPreview();   // HOME-YARD: the decorator's panel, its pointed model turning in the preview box
     // T2 towns: every built populated pixel runs its own pool
     // (PopulationManager is per-location); the pool sees the player in
     // the pixel's LOCATION frame, and live persons draw through the

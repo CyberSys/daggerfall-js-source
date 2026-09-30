@@ -569,8 +569,8 @@
   {
     "name": "GUILD1c-the-minters-tag-dropped",
     "file": "src/net/accountClient.js",
-    "old": "          ...('guild' in answer.data ? { guild: typeof answer.data.guild === 'string' ? answer.data.guild : null } : {}) };",
-    "new": "          };",
+    "old": "          ...('guild' in answer.data ? { guild: typeof answer.data.guild === 'string' ? answer.data.guild : null } : {}),\n",
+    "new": "",
     "tests": [
       "test/guild1c.test.js"
     ]

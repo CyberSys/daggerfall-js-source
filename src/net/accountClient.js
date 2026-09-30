@@ -38,10 +38,11 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { HANDLE_RE } from './handleShape.js';
+import { AURAS } from './identityToken.js';   // WB9g: the auras that exist - a stored one is one of them, or none
 import { LETTER_SUBJECT_MAX, LETTER_BODY_MAX, LETTER_LINES_MAX, LETTERS_SENT_MAX, LETTERS_PAIR_MAX } from './letterLaw.js';   // MAIL1: the letter's bounds, in the refusals' own sentences
 import { MUTE_RANGE_TEXT } from './moderation.js';   // AUDIT 68 S14-mute-range-text-duplicated: the mute's bound in the refusal's sentence, from its home
-import { HOME_CAP } from './homeLaw.js';   // HOME1: the cap a refusal names
-import { DECOR_CAP } from './decorLaw.js';   // DECOR1: the cap its refusal names
+import { HOME_CAP, RENT_ROOMS_MAX, RENT_HELD_MAX, RENT_DAYS_MAX } from './homeLaw.js';   // HOME1: the cap a refusal names; HOME-RENT: and the rooms'
+import { DECOR_CAP, DECOR_YARD_CAP } from './decorLaw.js';   // DECOR1: the cap its refusal names; HOME-YARD: a yard's
 import { MARKS_MAX, MARKS_BANK, MARKS_MOVE_MAX } from './marksLaw.js';   // MARKS1: the bounds its refusals name
 import { NOTES_LIVE_MAX, NOTE_DAYS, NOTICE_DAYS_MAX } from './boardLaw.js';   // NOTICE1: the bounds its refusals name
 import {
@@ -138,6 +139,12 @@ export const REFUSALS = Object.freeze({
   // and gets a different sentence.
   'not-held': 'That title is not yours to wear any more.',
   'no-title': 'The account service does not know that title. The game may need updating.',
+  // WB9g, the Broker's insignia (server-account/src/accounts.js buyInsignia, equipAura)
+  'no-aura': 'The account service does not know that aura. The game may need updating.',
+  'no-insignia': 'The Broker does not sell that any more. The game may need updating.',
+  owned: 'Your account already owns that.',
+  short: 'Your account has not closed enough Oblivion Gates to pay for that. Each gate closed pays one Sigil Stone.',
+  guest: 'The Broker records insignia only on an account with a username and password. Give this account one first.',
   // MOD1, moderation. A moderator reads these in chat, beside the
   // command they just typed.
   'not-moderator': 'Only moderators can do that.',
@@ -172,11 +179,27 @@ export const REFUSALS = Object.freeze({
   'home-rate': 'You have bought and sold a lot of homes this hour. Try again later.',
   'no-home': 'That home is not yours any more.',
   'bad-home': 'The account service could not tell which building that is.',
-  'home-character': 'The account service could not tell which character is buying.',
+  'home-character': 'The account service could not tell which character this is for.',
   'bad-entry': 'The account service does not know that setting. The game may need updating.',
   'no-session': 'You are not signed in to an account.',
+  // HOME-RENT: a home's rooms, rented (server-account/src/rent.js) - met at a door, or in the owner's decorator
+  'rent-taken': 'Somebody else is renting that room now.',
+  'rent-held': `You already rent ${RENT_HELD_MAX} rooms. Let one run out before you rent another.`,
+  'rent-rooms': `A home can offer at most ${RENT_ROOMS_MAX} rooms to rent.`,
+  'rent-none': 'There is no rent waiting to be collected.',
+  'rent-own': 'You cannot rent a room in your own home.',
+  'rent-price': 'The owner has changed the price of that room. Look again.',
+  'rent-rate': 'You have changed a great deal about rooms this hour. Try again later.',
+  'rent-long': `A room can be rented at most ${RENT_DAYS_MAX} days ahead.`,
+  'no-rent-room': 'That room is not offered to rent any more.',
+  'bad-room': 'The account service could not read that room.',
+  'home-tenants': 'Somebody is renting a room in your home. It cannot be sold or deleted until their days run out.',
+  'home-rent-due': 'Rent is waiting to be collected at your home. Collect it first.',
+  // HOME-LOOK: an online home's outside (server-account/src/homes.js setHomeLook)
+  'bad-look': 'The account service could not read that look. The game may need updating.',
   // DECOR1: an online home's decor (server-account/src/decor.js)
   'decor-cap': `A home holds at most ${DECOR_CAP} pieces. Remove one to place another.`,
+  'yard-cap': `A yard holds at most ${DECOR_YARD_CAP} pieces. Remove one to place another.`,   // HOME-YARD
   'decor-taken': 'Another piece already stands under that name. Place it again.',
   'decor-rate': 'You have placed and moved a great deal this hour. Try again later.',
   'no-decor': 'That piece is not in your home any more.',
@@ -505,6 +528,12 @@ export const logout = (io, all = false) => call(io, '/v1/auth/logout', { all });
  *  itself would be a client that can wear anything, which is the hole
  *  ACC1g shut one field over. `{ ok, titles, title, glyphs }`. */
 export const equipTitle = (io, title) => call(io, '/v1/account/title', { title: title ?? null });
+/** WB9g: wear one of the Broker's auras, or none - `{ ok, titles, title, glyphs, auras, aura, insignia }`, the wardrobe
+ *  after the write. */
+export const equipAura = (io, aura) => call(io, '/v1/account/aura', { aura: aura ?? null });
+/** WB9g: buy a piece of the Broker's insignia (net/insignia.js INSIGNIA) for this account - the wardrobe after the sale and
+ *  the `purse` its closed gates can still pay, or a refusal (`owned`, `short` with `purse` and `price`, `guest`). */
+export const buyInsignia = (io, item) => call(io, '/v1/account/insignia', { item });
 
 /** ACC4: ONE BEAT OF TIME PLAYED. It carries no number - the service
  *  credits the gap by its own clock (net/playClock.js says why), and
@@ -548,9 +577,9 @@ export function storedSession(storage) {
 /** Keep the session this device signed in with. The RECOVERY CODE IS
  *  NEVER PART OF THIS - `register` and `recover` hand one back and it
  *  is the screen's to show and the player's to write down. */
-export function keepSession(storage, { id, name, kind, sessionId, secret, glyphs }) {
+export function keepSession(storage, { id, name, kind, sessionId, secret, glyphs, aura }) {
   try {
-    storage?.setItem?.(SESSION_KEY, JSON.stringify({ id, name, kind, sessionId, secret, glyphs }));   // SHADOW-FANG: `glyphs` when the service has stated them (adoptIdentity) - JSON leaves it out otherwise
+    storage?.setItem?.(SESSION_KEY, JSON.stringify({ id, name, kind, sessionId, secret, glyphs, aura }));   // SHADOW-FANG: `glyphs` when the service has stated them (adoptIdentity) - JSON leaves it out otherwise; WB9g: `aura` likewise
     return true;
   } catch { return false; }
 }
@@ -592,10 +621,14 @@ export function keepSession(storage, { id, name, kind, sessionId, secret, glyphs
  * adopted, one account's name and glyphs landed on another's device (and
  * dressed its werewolf in a skin it does not hold).
  *
+ * WB9g (2026-09-30): AND THE AURA WORN (`aura`, null for none), when the answer states it - a token's, a wardrobe's
+ * after any wear (the account card's, the Broker's) - so this device's own player sees the fire at their feet the moment
+ * any door changes it (systems/ownGlyphs.js ownAura). The room sees it from their next hello, off the signature.
+ *
  * @param {any} storage
- * @param {{ name?: string, kind?: string, glyphs?: string[], secret?: string }} [who]
+ * @param {{ name?: string, kind?: string, glyphs?: string[], aura?: string|null, secret?: string }} [who]
  */
-export function adoptIdentity(storage, { name, kind, glyphs, secret } = {}) {
+export function adoptIdentity(storage, { name, kind, glyphs, aura, secret } = {}) {
   const was = storedSession(storage);
   if (!was) return false;
   if (typeof secret === 'string' && was.secret !== secret) return false;
@@ -603,8 +636,10 @@ export function adoptIdentity(storage, { name, kind, glyphs, secret } = {}) {
   if (typeof name === 'string' && name) next.name = name;
   if (kind === 'guest' || kind === 'linked') next.kind = kind;
   if (Array.isArray(glyphs)) next.glyphs = glyphs.filter((g) => typeof g === 'string' && g.length <= 24).slice(0, 16);
+  if (aura !== undefined) next.aura = typeof aura === 'string' && AURAS.includes(aura) ? aura : null;   // WB9g: one that exists, or none
   const sameGlyphs = (next.glyphs ?? []).join('+') === (was.glyphs ?? []).join('+');
-  if (next.name === was.name && next.kind === was.kind && sameGlyphs) return false;   // nothing to write, and a write is a storage event every open tab hears
+  const sameAura = (next.aura ?? null) === (was.aura ?? null);
+  if (next.name === was.name && next.kind === was.kind && sameGlyphs && sameAura) return false;   // nothing to write, and a write is a storage event every open tab hears
   return keepSession(storage, next);
 }
 
@@ -673,7 +708,9 @@ export function accountTokenMinter({ fetch, storage, onIssued = null, character 
         const who = { name: answer.data.name, kind: answer.data.kind, title: answer.data.title ?? null, glyphs: Array.isArray(answer.data.glyphs) ? answer.data.glyphs : [], level: Number.isSafeInteger(answer.data.level) ? answer.data.level : null,
           xp: Number.isSafeInteger(answer.data.xp) && answer.data.xp >= 0 ? answer.data.xp : null,   // RENOWN4: the track's total, for the page's own bar - none from a service before acct13
           // GUILD1c: the tag my character's guild wears (null for none) - absent from a service before acct13, which says nothing
-          ...('guild' in answer.data ? { guild: typeof answer.data.guild === 'string' ? answer.data.guild : null } : {}) };
+          ...('guild' in answer.data ? { guild: typeof answer.data.guild === 'string' ? answer.data.guild : null } : {}),
+          // WB9g: the aura at my own feet (null for none) - absent from a service before acct38, which says nothing
+          ...('aura' in answer.data ? { aura: typeof answer.data.aura === 'string' ? answer.data.aura : null } : {}) };
         adoptIdentity(storage, { ...who, secret: session.secret });   // AUDIT B4: into the session that asked
         // A THROW HERE IS THE HOST'S AND IS NOT THE PLAYER'S. The token
         // is good and the connection is the thing that matters; a
@@ -812,11 +849,20 @@ function sessionPost({ fetch, storage }) {
 export function accountHomes({ fetch, storage }) {
   const post = sessionPost({ fetch, storage });
   return {
-    town: (mapId) => post('/v1/homes/town', { mapId }),
+    town: (mapId, character = null) => post('/v1/homes/town', { mapId, ...(character ? { character } : {}) }),   // HOME-RENT: the playing character's own tenancies
     mine: () => post('/v1/homes/mine', {}),
     claim: ({ mapId, buildingKey, region, character, price, realm = null }) => post('/v1/homes/claim', { mapId, buildingKey, region, character, price, ...(realm ? { realm } : {}) }),   // REALM P2.2b: a realm character's record pays
     release: (mapId, buildingKey, realm = null) => post('/v1/homes/release', { mapId, buildingKey, ...(realm ? { realm } : {}) }),
     entry: (mapId, buildingKey, entry) => post('/v1/homes/entry', { mapId, buildingKey, entry }),
+    // HOME-RENT: a home's rooms (server-account/src/rent.js) - read at its door, offered and withdrawn by its owner, rented
+    // by another player's realm character on its record, and the rent collected by the owner on theirs
+    rooms: (mapId, buildingKey, character = null) => post('/v1/homes/rooms', { mapId, buildingKey, ...(character ? { character } : {}) }),   // the character: whose tenancy is `yours`
+    offerRoom: ({ mapId, buildingKey, character, room, anchor, price }) => post('/v1/homes/rooms/offer', { mapId, buildingKey, character, room, anchor, price }),
+    withdrawRoom: ({ mapId, buildingKey, character, room }) => post('/v1/homes/rooms/withdraw', { mapId, buildingKey, character, room }),
+    rentRoom: ({ mapId, buildingKey, character, room, days, price, realm = null }) => post('/v1/homes/rooms/rent', { mapId, buildingKey, character, room, days, price, ...(realm ? { realm } : {}) }),
+    collectRent: ({ mapId, buildingKey, character, realm = null }) => post('/v1/homes/rooms/collect', { mapId, buildingKey, character, ...(realm ? { realm } : {}) }),
+    // HOME-LOOK: how a home looks outside, painted by its owner (null: the town's own)
+    look: ({ mapId, buildingKey, character, look = null }) => post('/v1/homes/look', { mapId, buildingKey, character, look }),
   };
 }
 
@@ -835,7 +881,8 @@ export function accountDecor({ fetch, storage, listWaitMs = DECOR_LIST_WAIT_MS }
   const waited = waitedPost({ fetch, storage }, listWaitMs);
   return {
     list: (mapId, buildingKey) => waited('/v1/homes/decor', { mapId, buildingKey }),
-    place: ({ mapId, buildingKey, character, piece, realm = null }) => post('/v1/homes/decor/place', { mapId, buildingKey, character, piece, ...(realm ? { realm } : {}) }),   // REALM P2.2b: and its gold on the record
+    place: ({ mapId, buildingKey, character, piece, realm = null, yard = false }) => post('/v1/homes/decor/place', { mapId, buildingKey, character, piece, ...(realm ? { realm } : {}), ...(yard ? { yard: true } : {}) }),   // REALM P2.2b: and its gold on the record; HOME-YARD: outside
+    yards: (mapId) => waited('/v1/homes/yards', { mapId }),   // HOME-YARD: every yard of a town
     move: ({ mapId, buildingKey, character, id, place, realm = null }) => post('/v1/homes/decor/move', { mapId, buildingKey, character, id, place, ...(realm ? { realm } : {}) }),
     remove: ({ mapId, buildingKey, character, id, realm = null }) => post('/v1/homes/decor/remove', { mapId, buildingKey, character, id, ...(realm ? { realm } : {}) }),
     // BASE-HIDE: the room's own furniture taken out - the whole list, written by the owner

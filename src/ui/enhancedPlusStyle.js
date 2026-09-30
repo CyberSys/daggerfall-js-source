@@ -827,6 +827,29 @@ export const BROKER_CSS = `/* ── SET7: THE SIGIL BROKER'S WINDOW (ui/brokerW
 .broker-card .setbox p.set-role { margin: 1px 0 6px; font-size: 11px; color: #b9ab93; font-style: italic; text-align: left; }
 .broker-card .setbox p.set-stage { margin: 0 0 4px; font-size: 12px; color: #e8dcc6; text-align: left; }
 .broker-card .boundline { margin: 8px 0 0; font-size: 12px; letter-spacing: 0.04em; color: #f3cf86; text-shadow: 1px 1px 0 #050608; }   /* SS4: the pack card's own line, on both skins' Broker sheets */
+/* WB9g: THE INSIGNIA - its heading under the day's stock, its rows in the wares' own grid, the title's word in its fire,
+   the aura's ring turning, and a piece's card with its sign large */
+.broker-insignia-head { display: flex; flex-direction: column; gap: 2px; margin-top: 8px; padding: 12px 10px 4px; border-top: 1px solid rgba(243,207,134,0.25); }
+.broker-insignia-title { font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: #ffb45c; text-shadow: 1px 1px 0 #050608, 0 0 8px rgba(255,107,20,0.45); }
+.broker-insig .broker-frame { border-color: #ff8a3d #5a1208 #5a1208 #ff8a3d;
+  background: radial-gradient(ellipse at 50% 62%, rgba(255,107,20,0.38), transparent 70%), rgba(20,4,2,0.82); }
+.broker-insig.worn .broker-price { color: #ffd152; }
+.broker-insig.owned .broker-price { color: #f3cf86; }
+.broker-shell .insignia-sign { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; overflow: hidden; }
+.broker-shell .insignia-word { font-size: 8px; letter-spacing: 0.01em; white-space: nowrap; }
+.broker-shell .insignia-word.mono { font-size: 26px; letter-spacing: 0; line-height: 1; }   /* AUDIT WB9: the row's sign, the word's first letter */
+.broker-shell .aura-ring { display: block; width: 30px; height: 30px; border-radius: 50%;
+  background: conic-gradient(from 0deg, #ff6b14, #9e0d12, #ffd152, #ff6b14, #9e0d12, #ffd152, #ff6b14);
+  -webkit-mask: radial-gradient(circle, transparent 48%, #000 54%, #000 70%, transparent 76%);
+  mask: radial-gradient(circle, transparent 48%, #000 54%, #000 70%, transparent 76%);
+  filter: drop-shadow(0 0 4px #ff6b14); animation: aura-turn 3.2s linear infinite; }
+@keyframes aura-turn { to { transform: rotate(360deg); } }
+.broker-shell .insignia-sign.hero { width: 100%; height: 120px; margin: 4px 0 10px; }
+.broker-shell .insignia-sign.hero .insignia-word { font-size: 28px; letter-spacing: 0.06em; }
+.broker-shell .insignia-sign.hero .aura-ring { width: 110px; height: 110px; filter: drop-shadow(0 0 12px #ff6b14) drop-shadow(0 0 3px #ffd152); }
+.broker-insignia-card .insignia-what { margin: 0 0 8px; font-size: 13px; line-height: 1.45; color: #e6dccb; }
+.broker-insignia-card .insignia-kept { margin: 0; font-size: 12px; line-height: 1.45; color: #b9ab93; }
+@media (prefers-reduced-motion: reduce) { .broker-shell .aura-ring { animation: none; } }
 @media (max-width: 720px) {
   .broker-shell { padding: 8px; }
   .broker-head { padding: 10px 12px; }
@@ -1488,7 +1511,13 @@ body .dfparty-vital.magicka .dfparty-fill { background: linear-gradient(180deg, 
    face, outlined. The fire's own colours stay his. */
 body .wb-boss-bar { ${PIXEL_FONT_CSS} font-weight: 400; letter-spacing: 0.06em; color: #efe8d6; text-shadow: 1px 1px 0 #050608, 2px 2px 0 rgba(0,0,0,0.7); }
 body .wb-boss-name { font-size: 14px; letter-spacing: 0.14em; text-shadow: ${OUTLINED}; }
-body .wb-boss-trials { font-size: 11px; letter-spacing: 0.12em; color: #d8cfae; text-shadow: ${OUTLINED}; }   /* WB8b: his trials, under his name */
+/* WB9a: the night's marks under his health - each chip its sign and name over its line, in the HUD's pixel face */
+body .wb-boss-marks { gap: 14px; margin: 3px 0 4px; }
+body .wb-boss-chip { text-shadow: ${OUTLINED}; }
+body .wb-boss-chip-head { font-size: 11px; letter-spacing: 0.12em; color: #efe8d6; }
+body .wb-boss-chip-icon { filter: drop-shadow(1px 1px 0 #050608); }
+body .wb-boss-chip-name { font-size: 11px; }
+body .wb-boss-chip-text { font-size: 10px; letter-spacing: 0.04em; color: #d8cfae; opacity: 1; }
 body .wb-boss-track { border: 2px solid; border-color: #9a9079 #3a352a #25221b #6e6755; isolation: isolate;
   background: linear-gradient(180deg, rgba(0,0,0,0.6) 0 2px, transparent 2px), #1e0906;
   box-shadow: 0 0 0 1px #050608, 3px 3px 0 1px rgba(0,0,0,0.45); }
@@ -1504,6 +1533,16 @@ body .wb-boss-track::after { right: -6px; }
 body .wb-boss-callout { font-size: 15px; letter-spacing: 0.12em; text-shadow: ${OUTLINED}; }
 body .wb-boss-foot { font-size: 11px; opacity: 1; color: #d8cfae; }
 body .wb-gate-banner { ${PIXEL_FONT_CSS} font-weight: 400; font-size: 14px; letter-spacing: 0.14em; text-shadow: ${OUTLINED}; }
+/* WB9a: the marks' card - a stone panel in the brass frame, the pixel face outlined; each aspect keeps its own colour */
+body .wb-marks-card { ${PIXEL_FONT_CSS} font-weight: 400; letter-spacing: 0.05em; color: #efe8d6; text-shadow: ${OUTLINED};
+  background: linear-gradient(180deg, rgba(0,0,0,0.5) 0 2px, transparent 2px), rgba(20,14,10,0.92);
+  border: 2px solid; border-color: ${FRAME_TONES.brassHi} ${FRAME_TONES.brassLo} #5c3f1a ${FRAME_TONES.brass};
+  box-shadow: 0 0 0 1px #050608, 3px 3px 0 1px rgba(0,0,0,0.45); }
+body .wb-marks-title { font-size: 11px; letter-spacing: 0.2em; color: ${FRAME_TONES.brassHi}; }
+body .wb-marks-sub { font-size: 14px; color: #efe8d6; }
+body .wb-marks-name { font-size: 12px; letter-spacing: 0.12em; }
+body .wb-marks-text { font-size: 11px; color: #d8cfae; opacity: 1; }
+body .wb-marks-tip { font-size: 11px; font-style: normal; color: #b9ab86; opacity: 1; }
 /* AUDIT MERGE-PLUS D3: STONE'S LIGHT GROUND. The lane's newer surfaces joined the window and panel roles above, and
    Stone paints those a light grey their words were never chosen for - they had kept their own dark ground on every
    theme until then (the F-menu's Cancel read at 2.3:1, a refused row's reason at 4.1:1). On Stone the lane's dim

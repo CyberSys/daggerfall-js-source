@@ -129,7 +129,7 @@ import {
   createGuest, openSession, resolveSession, closeSession, closeAllSessions,
   devicesOf, accountView, displayName, accountKind,
   register, login, recover, changePassword, setEmail, overRate,
-  accountWardrobe, equipTitle, creditPlay, muteAccount, isMuted, mutedUntil,
+  accountWardrobe, equipTitle, equipAura, buyInsignia, insigniaPurse, creditPlay, muteAccount, isMuted, mutedUntil,
   duelRecordOf, reportDuelLoss, gateRecordOf, claimGate, legalRefusal,
   ACCOUNT_MAX, ACCOUNT_WINDOW_S,
 } from './accounts.js';
@@ -137,16 +137,17 @@ import { mintToken, mintOrder, mintRenownOrder, mintGuildOrder, mintGuildOutOrde
 import { ACCOUNT_VERSION, MAX_BODY_BYTES, ROUTES, OPEN_ROUTES, savePathOf, realmPathOf, SAVE_MAX_BYTES, SHOT_MAX_BYTES, maintaining } from './service.js';
 import { listSaves, putCard, putBlob, getBlob, deleteSave, saveCardOf } from './saves.js';
 import { signingKey, gatePublicKey } from './signing.js';
-import { titleWorn, glyphsOf } from './titles.js';
+import { titleWorn, glyphsOf, auraWorn } from './titles.js';
 import { sendLetter, inboxOf, readLetter, deleteLetter } from './letters.js';   // MAIL1: the letters' routes
 import { reportRenownXp, renownTrackOf, renownTracksOf, renownCharacterOk } from './renownTracks.js';   // RENOWN1: Renown's track - RENOWN-CHAR: a character's again
 import { claimRaid, raidRecordOf } from './raids.js';   // RAID4: the towns defended
-import { claimHome, releaseHome, setHomeEntry, homesInTown, homesOf } from './homes.js';   // HOME1: the online homes' routes
+import { claimHome, releaseHome, setHomeEntry, homesInTown, homesOf, setHomeLook } from './homes.js';   // HOME1: the online homes' routes; HOME-LOOK: its outside
+import { roomsOf, offerRoom, withdrawRoom, rentRoom, collectRent } from './rent.js';   // HOME-RENT: a home's rooms, rented
 import {
   foundGuild, guildOf, invitesOf, inviteToGuild, answerInvite, leaveGuild, removeFromGuild, rankGuildMember, renameGuildRanks,
   depositToGuild, withdrawFromGuild, handOverGuild, disbandGuild, guildBadgeOf,
 } from './guilds.js';   // GUILD1: the guilds' routes; GUILD1c: the guild a token carries
-import { decorOf, placeDecor, moveDecor, removeDecor, hideDecorBase } from './decor.js';   // DECOR1: an online home's decor; BASE-HIDE: what its owner took out
+import { decorOf, placeDecor, moveDecor, removeDecor, hideDecorBase, yardsOf } from './decor.js';   // DECOR1: an online home's decor; BASE-HIDE: what its owner took out
 import { gateStrikeStatement, gateStrikeAnswer, marksOf, marksCardOf, exchangeMarks, depositGuildMarks, withdrawGuildMarks, marksReport } from './marks.js';   // MARKS1: the server's currency
 import { readBoard, pinNote, takeDownNote, reportNote, moderateNote, postNotice, removeNotice } from './board.js';   // NOTICE1: the Notice Board
 import { profState, profPixels, harvestNode, chooseSpec, withdrawStores, smeltAtForge, craftAtAnvil, buyStock, listWrits, deliverWrit } from './professions.js';   // PROF1: the professions; PROF2: the forge; PROF3: the anvil and the smith's stock
@@ -185,6 +186,11 @@ const no = (why, status, origin) => json({ error: why }, status, origin);
 /** REALM P1: each realm refusal's status - a bad shape 400 (the default), a character that is not the caller's 404, a
  *  lease another tab holds or a sequence that is not the next 409 (the tab that lost it goes offline), the account's
  *  bound 409, customs refused 403/409, no storage 503. */
+/** HOME-RENT: a room's refusals - a bad shape 400 (the default). */
+const RENT_STATUS = Object.freeze({
+  'rent-taken': 409, 'rent-held': 409, 'rent-rooms': 409, 'rent-none': 409, 'rent-own': 403, 'realm-only': 403,
+  'rent-rate': 429, 'no-rent-room': 404, 'no-home': 404,
+});
 const REALM_STATUS = Object.freeze({
   'no-realm-character': 404, 'no-data': 404, lease: 409, seq: 409, 'too-many-characters': 409,
   'customs-never-online': 403, 'customs-other-account': 403, 'customs-already': 409, 'no-storage': 503,   // CUSTOMS-ELSEWHERE: the other account's
@@ -192,6 +198,7 @@ const REALM_STATUS = Object.freeze({
   'guild-master-leaves': 409,   // AUDIT REALM L1-F7: a guildmaster deleted hands the guild over first
   'guild-treasury': 409,   // AUDIT REALM2 S8: and a lone one empties the treasury first
   'realm-market-open': 409,   // PROF-DELETE: and one with market business open settles it first
+  'home-tenants': 409, 'home-rent-due': 409,   // HOME-RENT: and one renting rooms out waits for its tenants and collects its rent
   'realm-birth': 403, 'customs-allowance': 403,   // AUDIT REALM2 S1: a first save the realm's law refuses
 });
 /** CUSTOMS-PASS: a pass's refusals - a bad shape 400 (the default), a caller who is no developer 403, no such account
@@ -481,6 +488,7 @@ export default {
         const wardrobe = {
           t: titleWorn(who.player, env),
           g: glyphsOf(who.player, env, nowS),
+          au: auraWorn(who.player),   // WB9g: the aura worn, the title's law - absent for none
         };
         // MOD1: A MUTE RIDES THE TOKEN, so a reconnect cannot shed one -
         // every room reads it off the signature at the hello. Only while
@@ -523,6 +531,7 @@ export default {
           level: lv ?? null,
           xp: track ? track.xp : null,
           guild: guild ? guild.gt : null,   // GUILD1c: the tag my own name wears, beside the token as the level is
+          aura: wardrobe.au ?? null,   // WB9g: the aura at my own feet, beside the token as the title is
           expiresAt: nowS + MAX_TTL_S,
         }, 200, origin);
       }
@@ -546,7 +555,7 @@ export default {
           // list of the characters' tracks again (RENOWN-ACCOUNT sent the account's one, `{ xp, level }`)
           // MARKS1: and the Marks balance, where Marks are this account's (null where not - a guest, the switch)
           account: { ...accountView(who.player, nowS), duels: await duelRecordOf(ctx, who.player.id), gates: await gateRecordOf(ctx, who.player.id), raids: await raidRecordOf(ctx, who.player.id), renown: await renownTracksOf(ctx, who.player.id), marks: await marksCardOf(ctx, who.player, env) },
-          wardrobe: accountWardrobe(who.player, env, nowS),
+          wardrobe: { ...accountWardrobe(who.player, env, nowS), purse: await insigniaPurse(ctx, who.player) },   // WB9g: and what the account's closed gates could still pay the Broker's insignia
           devices: await devicesOf(ctx, who.player.id),
         }, 200, origin);
       }
@@ -649,6 +658,14 @@ export default {
           const r = await decorOf(ctx, who.player, body);
           return 'error' in r ? no(r.error, 400, origin) : json(r, 200, origin);
         }
+        if (path === '/v1/homes/yards') {   // HOME-YARD: every yard of a town, read by anyone walking its streets
+          const r = await yardsOf(ctx, who.player, body);
+          return 'error' in r ? no(r.error, 400, origin) : json(r, 200, origin);
+        }
+        if (path === '/v1/homes/rooms') {   // HOME-RENT: a home's rooms, read by anyone at its door
+          const r = await roomsOf(ctx, who.player, body);
+          return 'error' in r ? no(r.error, r.error === 'no-home' ? 404 : 400, origin) : json(r, 200, origin);
+        }
         if (accountKind(who.player) !== 'linked') return no('homes-need-account', 403, origin);
         // REALM P2.2b: a realm character's record is in R2, and moves with the act; a sequence refused says the service's own
         const hctx = { ...ctx, bucket: env.SAVES };
@@ -662,10 +679,28 @@ export default {
           if (!('error' in r)) return json(r, 200, origin);
           const said = realmNo(r);
           if (said) return said;
-          const status = r.error === 'decor-cap' || r.error === 'decor-taken' ? 409
+          const status = r.error === 'decor-cap' || r.error === 'yard-cap' || r.error === 'decor-taken' ? 409
             : r.error === 'decor-rate' ? 429
               : r.error === 'no-home' || r.error === 'no-decor' ? 404 : 400;
           return no(r.error, status, origin);
+        }
+        if (path.startsWith('/v1/homes/rooms/')) {
+          // HOME-RENT: a room offered or withdrawn (the owner's), rented (another's, their record paying), its rent collected
+          const r = path === '/v1/homes/rooms/offer' ? await offerRoom(hctx, who.player, body)
+            : path === '/v1/homes/rooms/withdraw' ? await withdrawRoom(hctx, who.player, body)
+              : path === '/v1/homes/rooms/rent' ? await rentRoom(hctx, who.player, body)
+                : await collectRent(hctx, who.player, body);
+          if (!('error' in r)) return json(r, 200, origin);
+          const said = realmNo(r);
+          if (said) return said;
+          if (r.error === 'rent-price') return json({ error: 'rent-price', price: r.price }, 409, origin);   // the price that stands, for the door to show
+          const status = RENT_STATUS[r.error] ?? 400;
+          return no(r.error, status, origin);
+        }
+        if (path === '/v1/homes/look') {   // HOME-LOOK: how a home looks outside - its owner's character's
+          const r = await setHomeLook(hctx, who.player, body);
+          if (!('error' in r)) return json(r, 200, origin);
+          return no(r.error, r.error === 'no-home' ? 404 : r.error === 'decor-rate' ? 429 : 400, origin);
         }
         if (path === '/v1/homes/claim') {
           const r = await claimHome(hctx, who.player, body);
@@ -676,7 +711,7 @@ export default {
           return no(r.error, status, origin);
         }
         const r = path === '/v1/homes/release' ? await releaseHome(hctx, who.player, body) : await setHomeEntry(hctx, who.player, body);
-        if ('error' in r) return realmNo(r) ?? no(r.error, r.error === 'bad-entry' || r.error === 'realm-needed' ? 400 : r.error === 'home-crossed' ? 409 : 404, origin);   // HOME-CROSSED
+        if ('error' in r) return realmNo(r) ?? no(r.error, r.error === 'bad-entry' || r.error === 'realm-needed' ? 400 : r.error === 'home-crossed' || r.error === 'home-tenants' ? 409 : 404, origin);   // HOME-CROSSED; HOME-RENT: a sale waits for its tenants
         return json(r, 200, origin);
       }
 
@@ -824,6 +859,21 @@ export default {
         // title is simply not theirs. Same reading as the save wall.
         const r = await equipTitle(ctx, who.player, env, body.title ?? null);
         return r.error ? no(r.error, r.error === 'not-held' ? 403 : 400, origin) : json(r, 200, origin);
+      }
+
+      if (path === '/v1/account/aura' && request.method === 'POST') {
+        // WB9g: WEAR ONE AURA, OR NONE - the title's door at the feet. 403 for `not-held`, as the title's.
+        const r = await equipAura(ctx, who.player, env, body.aura ?? null);
+        return r.error ? no(r.error, r.error === 'not-held' ? 403 : 400, origin) : json(r, 200, origin);
+      }
+
+      if (path === '/v1/account/insignia' && request.method === 'POST') {
+        // WB9g: THE BROKER'S INSIGNIA, BOUGHT (accounts.js buyInsignia - one UPDATE, the account's closed gates paying).
+        // 403 for a guest (the credential is good, the sale is not theirs to keep); 409 for one owned or one the gates
+        // cannot pay - the row is as it was, and the answer says why (`purse`, `price` for `short`).
+        const r = await buyInsignia(ctx, who.player, env, body.item);
+        if (r.error) return r.error === 'short' ? json({ error: 'short', purse: r.purse, price: r.price }, 409, origin) : no(r.error, r.error === 'guest' ? 403 : r.error === 'owned' ? 409 : 400, origin);
+        return json(r, 200, origin);
       }
 
       if (path === '/v1/mod/mute' && request.method === 'POST') {

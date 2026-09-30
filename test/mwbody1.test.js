@@ -22,7 +22,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { PeerBodies, peerBuildOpts, peerCamera, BODIES_MAX, BODY_RETRY_MS, BODY_LINGER_MS, BODY_RANGE, JUMP_UNITS, SWAP_MARGIN, BODY_REBUILD_MS, YAW_EASE } from '../src/net/peerBodies.js';
+import { PeerBodies, peerBuildOpts, peerCamera, BODIES_MAX, BODY_RETRY_MS, BODY_LINGER_MS, BODY_RANGE, JUMP_UNITS, SWAP_MARGIN, BODY_REBUILD_MS, YAW_EASE, SWAP_DWELL_MS } from '../src/net/peerBodies.js';
 import { RemotePlayers, PEER_HEIGHT } from '../src/net/remotePlayers.js';
 import { EQUIP_SLOTS } from '../src/systems/equip.js';
 import { ARMOR_ENUM } from '../src/combat/enemyEquipment.js';
@@ -174,9 +174,12 @@ test('MWBODY1: the cap and the failure - the nearest peers first, a far body yie
   pb.sync(crowd, toScene, 0.016, [0, 0, -10]); await settle(BODIES_MAX * 2 + 4); pb.sync(crowd, toScene, 0.016, [0, 0, -10]);
   assert.equal(log.rigs.length, BODIES_MAX, 'the cap'); assert.equal(pb.has('p10'), true, 'the nearest has a body'); assert.equal(pb.has('p0'), false, 'the farthest stands as a doll');
   assert.equal(pb.has('p2'), false); assert.equal(pb.has('p3'), true);
-  // a bodiless peer comes near: the farthest body yields
+  // a bodiless peer comes near: the farthest body yields - WB9h: once it has wanted a body SWAP_DWELL_MS; and, the
+  // newcomer wearing the same body (the crowd is one look), the rig given up is the newcomer's at once - none built
   crowd[0].shown = pose(1); pb.sync(crowd, toScene, 0.016, [0, 0, -10]);
-  assert.equal(log.rigs.length, BODIES_MAX + 1, 'one released, one built'); await settle(); pb.sync(crowd, toScene, 0.016, [0, 0, -10]);
+  assert.equal(pb.has('p0'), false, 'WB9h: not the frame it comes near');
+  now += SWAP_DWELL_MS; pb.sync(crowd, toScene, 0.016, [0, 0, -10]);
+  assert.equal(log.rigs.length, BODIES_MAX, 'one released, its rig handed over, none built'); await settle(); pb.sync(crowd, toScene, 0.016, [0, 0, -10]);
   assert.equal(pb.has('p0'), true, 'the newcomer stands'); assert.equal(pb.has('p3'), false, 'the farthest body gave its slot');
   pb.destroy();
   const nob = peer('nob', 'Nobody', 0);

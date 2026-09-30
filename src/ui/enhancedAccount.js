@@ -27,7 +27,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { STAGES, FIELDS, FIELD_SPEC, AGREEMENTS, AGREEMENT_SPEC } from './accountFlow.js';
-import { TITLE_TEXT, glyphBadges, glyphArtNode, badgeClass } from './playerBadge.js';   // ACC3c: the SAME table the name over a head reads, so the picker shows what a player will actually wear - the COLOUR is the skin's (this card may not style itself, and a pin holds that)
+import { TITLE_TEXT, AURA_TEXT, glyphBadges, glyphArtNode, badgeClass } from './playerBadge.js';   // ACC3c: the SAME table the name over a head reads, so the picker shows what a player will actually wear - the COLOUR is the skin's (this card may not style itself, and a pin holds that)
 import { duelRecordText } from '../net/duelRecord.js';   // DUEL1: the account card's K/D row
 import { renownText, renownProgressText } from '../net/renown.js';   // RENOWN1: Renown, left of the name and in its rows
 import { gateRecordText } from '../net/gateClaims.js';   // WB5b: and its gates-closed row
@@ -251,7 +251,8 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
     const w = flow.wardrobe;
     const held = Array.isArray(w?.titles) ? w.titles : [];
     const glyphs = glyphBadges(w);
-    if (!held.length && !glyphs.length) return;
+    const auras = Array.isArray(w?.auras) ? w.auras : [];   // WB9g: the Broker's auras this account owns
+    if (!held.length && !glyphs.length && !auras.length) return;
 
     const box = el('div', 'acctwear');
     if (held.length) {
@@ -276,6 +277,24 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
         b.setAttribute('aria-pressed', worn ? 'true' : 'false');
         b.title = worn ? 'Wearing this - press to take it off' : `Wear ${TITLE_TEXT[key] ?? key}`;
         b.onclick = () => flow.equip(key);
+        row.append(b);
+      }
+      box.append(row);
+    }
+    if (auras.length) {
+      // WB9g: AN AURA IS WORN AS A TITLE IS - one at a time, pressed on, pressed off (the flow decides which), the fire at
+      // the feet every other player sees once the next hello carries it
+      box.append(el('span', 'fieldlabel', 'Aura'));
+      const row = el('div', 'acctwearrow');
+      for (const key of auras) {
+        const worn = w.aura === key;
+        const b = keyedAs(el('button', `acttitle actaura aura-${key}${worn ? ' worn' : ''}`), `aura:${key}`);
+        b.append(el('span', 'actauraword', AURA_TEXT[key] ?? key));
+        b.type = 'button';
+        b.disabled = !!flow.busy;
+        b.setAttribute('aria-pressed', worn ? 'true' : 'false');
+        b.title = worn ? 'Wearing this - press to take it off' : `Wear ${AURA_TEXT[key] ?? key}`;
+        b.onclick = () => flow.wearAura(key);
         row.append(b);
       }
       box.append(row);

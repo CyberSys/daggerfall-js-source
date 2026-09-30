@@ -153,11 +153,12 @@ test('WORLD-HOVER: only the loot keys itemise - everything else is a name', () =
   // mint, never strings written out here. `foeCorpse:`/`guardCorpse:`
   // are the two above-ground bodies, which PX21c could not reach.
   // DW-E3: `dwFish:` is Iliac Puddle No More's fish, a DaggerfallLoot of one item.
-  assert.deepEqual([...ITEMISED_KEYS], ['loot:', 'corpse:', 'droppedLoot:', 'foeCorpse:', 'guardCorpse:', 'dwFish:']);
-  for (const k of ['loot:0', 'corpse:3', 'droppedLoot:9', 'foeCorpse:abc', 'guardCorpse:x', 'dwFish:12']) {
+  // WB9f: `spoil:` a piece of the Burning Court's spoils on its floor, a pile of one; its gold (`spoilGold:`) a name.
+  assert.deepEqual([...ITEMISED_KEYS], ['loot:', 'corpse:', 'droppedLoot:', 'foeCorpse:', 'guardCorpse:', 'dwFish:', 'spoil:']);
+  for (const k of ['loot:0', 'corpse:3', 'droppedLoot:9', 'foeCorpse:abc', 'guardCorpse:x', 'dwFish:12', 'spoil:2']) {
     assert.equal(keyItemises(k), true, k);
   }
-  for (const k of ['door:2', 'person:1', 'act:1:2', 'exit:0', 'container:4', 'eotbWagon', '17', null, undefined]) {
+  for (const k of ['door:2', 'person:1', 'act:1:2', 'exit:0', 'container:4', 'eotbWagon', '17', 'spoilGold:4', null, undefined]) {
     assert.equal(keyItemises(k), false, String(k));
   }
   // and the itemised arm reads contents while the named arm never does
@@ -664,8 +665,12 @@ test('WORLD-HOVER: the dungeon\'s target list has ONE builder, and the hover rea
   // to and no `exit:`/`person:` arm - a target it cannot serve would win
   // the pick and eat the press in silence.
   const wm = read('src/scenes/worldModes.js');
-  assert.equal((wm.match(/ctx\.addActivationTargets\(/g) ?? []).length, 3,
-    'the exit doors, the quest stands and the static NPCs - three, named');
+  // WB9f: and a FOURTH, the Burning Court's own - his spoils on its floor - registered where the court is stood, beside
+  // the court's own namer (a family the court alone can answer: the dungeon arm's `spoil` rung)
+  assert.equal((wm.match(/ctx\.addActivationTargets\(/g) ?? []).length, 4,
+    'the exit doors, the quest stands and the static NPCs - three, named - and the court\'s spoils');
+  assert.match(wm, /ctx\.addActivationTargets\(\(\) => host\.spoilTargets\?\.\(\) \?\? NO_TARGETS\);\n\s*ctx\.addActivationNamer\(\(key\) => \(typeof key === 'string' && key\.startsWith\('spoil'\) \? host\.spoilName\?\.\(key\) \?\? null : null\)\);/,
+    'the spoils stood with their words');
   assert.doesNotMatch(read('src/scenes/dungeon.js'), /addActivationTargets/,
     'and the dev door stands none of them, on purpose');
 });

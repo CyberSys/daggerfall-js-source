@@ -75,6 +75,13 @@ export const TITLE_TEXT = Object.freeze({
   hierophant: 'Hierophant',
   shadowfang: 'Shadow Fang',         // SHADOW-FANG (2026-09-26, Mac): SirMcMobdon's own
   penitent: 'Penitent',              // PENITENT (2026-09-29, Mac): Diggleborf's own
+  gatebreaker: 'Gatebreaker',        // WB9g (2026-09-30, Mac): the Sigil Broker's, bought
+});
+
+/** WB9g (2026-09-30, Mac: "an animated burning ground aura that circles the ground where your character stands"): AN
+ *  AURA'S WORD, as a player reads it - the Broker's offer and the account card's button. */
+export const AURA_TEXT = Object.freeze({
+  dagonfire: "Dagon's Fire",
 });
 
 /** SHADOW-FANG (2026-09-26, Mac): "SirMcMobdon gets a brand new
@@ -101,6 +108,12 @@ const PENITENT_SKY = Object.freeze([0.529, 0.808, 0.922, 1]);   // #87ceeb
  *  still starting gold and ending sky blue. */
 const PENITENT_LIGHT = Object.freeze([1, 0.953, 0.839, 1]);     // #fff3d6
 
+/** WB9g (2026-09-30, Mac: "a brand new title to the broker ... expensive and sought after"): THE GATEBREAKER, the
+ *  Oblivion Gate's own fire - a coal's crimson, burning through the fire's orange into an ember's gold. */
+const GATEBREAKER_CRIMSON = Object.freeze([0.62, 0.05, 0.07, 1]);  // #9e0d12
+const GATEBREAKER_FIRE = Object.freeze([1, 0.42, 0.08, 1]);        // #ff6b14
+const GATEBREAKER_EMBER = Object.freeze([1, 0.82, 0.32, 1]);       // #ffd152
+
 /** A title's colour, RGBA 0..1 - the same shape SOC4's PARTY_GREEN is
  *  in, so `nameLayer.cssRgba` turns it into CSS and `drawText` takes it
  *  as a tint, and neither face writes a colour down a second time.
@@ -120,6 +133,8 @@ export const TITLE_RGBA = Object.freeze({
   shadowfang: SHADOW_CRIMSON,
   // PENITENT: the gradient's gold end - the account card's button, and the glyph's lozenge
   penitent: PENITENT_GOLD,
+  // WB9g: the fire at the gradient's middle - the colour a face that cannot draw a gradient uses
+  gatebreaker: GATEBREAKER_FIRE,
 });
 
 /** SHADOW-FANG: A TITLE DRAWN AS A GRADIENT - its stops, RGBA 0..1, left
@@ -130,6 +145,7 @@ export const TITLE_RGBA = Object.freeze({
 export const TITLE_GRADIENT = Object.freeze({
   shadowfang: Object.freeze([SHADOW_BLACK, SHADOW_CRIMSON]),
   penitent: Object.freeze([PENITENT_GOLD, PENITENT_LIGHT, PENITENT_SKY]),
+  gatebreaker: Object.freeze([GATEBREAKER_CRIMSON, GATEBREAKER_FIRE, GATEBREAKER_EMBER]),   // WB9g: coal, fire, ember
 });
 
 /** PENITENT: THE EDGE A GRADIENT TITLE WEARS, where it is not the title's
@@ -141,6 +157,7 @@ export const TITLE_GRADIENT = Object.freeze({
  *  one-colour title's text shadow is. */
 export const TITLE_EDGE = Object.freeze({
   penitent: Object.freeze([0, 0, 0, 1]),
+  gatebreaker: Object.freeze([0, 0, 0, 1]),   // WB9g: its ember end is bright - edged in black, as Penitent's
 });
 
 /** A glyph's colour. The sprout is green because Mac said green; the
@@ -359,6 +376,9 @@ export const badgeCss = () => [
   // SHADOW-FANG: a gradient title's word (the card wraps it in .acttitleword) - the button keeps the plain colour
   ...TITLES.filter((t) => TITLE_GRADIENT[t]).map((t) => `.card button.acttitle.${badgeClass('tl', t)} .acttitleword { ${wordCss(t)} }`),
   ...GLYPHS.map((g) => `.card .acctglyph.${badgeClass('gl', g)} .acctglyphart { color: ${cssRgba(GLYPH_RGBA[g])}; }`),
+  // WB9g: an aura's button wears the Gatebreaker's own fire - the Broker's two pieces are one family of colour - its
+  // word (.actauraword, the aura's name: a title's word rule stays one per gradient title) painted as that title's is
+  ...Object.keys(AURA_TEXT).map((a) => `.card button.acttitle.actaura.aura-${a} { color: ${cssRgba(TITLE_RGBA.gatebreaker)}; }\n.card button.acttitle.actaura.aura-${a} .actauraword { ${wordCss('gatebreaker')} }`),
 ].join('\n');
 
 /** The classic face's whole suffix: the marks, run together, or ''.
