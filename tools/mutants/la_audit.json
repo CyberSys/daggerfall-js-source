@@ -347,7 +347,7 @@
   {
     "name": "LA-AUDIT-F6-3-the-handover-hard",
     "file": "src/render/shadowPass.js",
-    "old": "return t > 0.0 ? mix(lit, sunCascadeTap(c + 1, wp, n, soft), t) : lit;",
+    "old": "return t > 0.0 ? mix(lit, sunCascadeTap(c + 1, wp, n, soft, h), t) : lit;",
     "new": "return lit;",
     "tests": [
       "test/la_audit.test.js"
