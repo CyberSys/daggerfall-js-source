@@ -107,6 +107,15 @@ export function setDeathPresenter(fn) {
   return prev;
 }
 
+/** DEATH-KEPT (FIELD BUGS 2026-09-30b): the live presenter asked again for a death already raised - a player at zero
+ *  whose screen a window took (a direct write over the host's slot, a replace over the stack's top). Not a blow: the
+ *  door below consulted the saves, the shield and AvoidDeath on the transition, once. False (nothing asked) alive. */
+export function presentPlayerDeath(entity = playerEntity) {
+  if (!(entity.health <= 0)) return false;
+  _deathPresenter?.(entity);
+  return true;
+}
+
 // AUDIT 26 F117: GuildManager.AvoidDeath, consulted by SetHealth at
 // the zero crossing (PlayerEntity.cs:1205-1211). The hook is the
 // host's - it closes over the live submersion state Temple.AvoidDeath
