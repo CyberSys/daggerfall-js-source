@@ -20,8 +20,8 @@ one to a tag.
 | 9 | "Protect bystanders needs to work again - lost rep for no reason" | the same list | the menu's Protect Bystanders is DFU's MeleeAttackFriendlyProtection, which spares a pacified foe and an ally and, outside a raid, never a townsperson: a swing at a foe just past the reach landed on the townsperson on the look ray - Murder | fixed, a departure (PROTECT-FIGHT) |
 | 10 | "The realm has no record of this character from before it opened ... And yes, I did go online with this one in an older build" (#dev-chat) | Dwarfblood | the designed door (decision 6 and CUSTOMS-PASS): a level-1 character that never backed up, earned Renown or held a home leaves no trace the census counts, and "ask the developers" is the staff pass; the one fault is that a character counted on ANOTHER account of the player's got the same "no record" | fixed (CUSTOMS-ELSEWHERE); a pass is Mac's |
 | 11 | Climates & Calories: "The player characters temperature seems to never change ... gets to either "Scorching" or "Freezing" or "Soaked" etc and seems to never recover"; "Drinking beverages at an inn/tavern does not fill your hydration"; "Waterskins should be refillable at an inn/tavern" | the thread's author | see the C&C section | fixed, departures (CC-*) |
-| 12 | "Bugged Brigandine Jerkin" | mememagikal, Rensic | PR #459 (MW-BRIG3, the steel brigandine fitted onto the wearer) - another session's, a draft | said |
-| 13 | "Rep need a reset function for guilds / citys should he a base cost and become more expensive more someone had to re use" | the same list | the REP1-REP6 reputation overhaul (another session's branch, unmerged): a temple's penance buys five points of a region's law at 200 x n | said |
+| 12 | "Bugged Brigandine Jerkin" | mememagikal, Rensic | PR #459 (MW-BRIG3, the steel brigandine fitted onto the wearer) - another session's, merged beside this batch | said |
+| 13 | "Rep need a reset function for guilds / citys should he a base cost and become more expensive more someone had to re use" | the same list | the REP1-REP6 reputation overhaul (another session's, PR #464, merged beside this batch): a temple's penance buys five points of a region's law at 200 x n | said |
 | 14 | "admin comman tp fix possibly? Have selected player cast anchor for..." | the same list | cut off in the screenshot | asked |
 
 ## HOME-CROSSED: a house no record paid for stays a house (1)
@@ -221,7 +221,7 @@ GameManager.AreEnemiesNearby over both street pools (`fightHere`) - the walkers 
 the swing stopped on them; with none near a blow at a townsperson is meant (a vampire's feeding, the Brotherhood's
 count, pinned by `disc10_lycan`/`disc10_vampire`) and DFU's rule stands, as it does with the protection off. The
 fixed-city host's riding trample asks the same rule as world.js's (it took the walkers unfiltered). The passive
-Conspiracy levy that followed a first mark is the REP branch's to retire. `test/fb0930_protectfight.test.js` (2); two
+Conspiracy levy that followed a first mark is retired by REP1 (#464). `test/fb0930_protectfight.test.js` (2); two
 RAID-GUARDS-NPC records re-aimed.
 
 ## CUSTOMS-ELSEWHERE: a character counted on another account is told so (10)
@@ -245,10 +245,10 @@ CUSTOMS-ELSEWHERE); the relay is untouched.
 
 ## Said, not changed
 
-**12 - the brigandine.** PR #459 (MW-BRIG3) fits the steel brigandine onto the wearer's Morrowind torso; it is another
-session's draft, not this batch's.
+**12 - the brigandine.** PR #459 (MW-BRIG3) fits the steel brigandine onto the wearer's Morrowind torso; another
+session's, merged beside this batch.
 
-**13 - a reputation reset.** The REP1-REP6 overhaul (another session's branch, not yet a PR) has it: a temple's penance
+**13 - a reputation reset.** The REP1-REP6 overhaul (another session's, PR #464, merged beside this batch) has it: a temple's penance
 buys five points of a region's law at 200 x n, a standing below zero recovers a point every seven days, and the passive
 Conspiracy levy - the "lost rep for no reason" that follows a first mark below -10 - is retired.
 
