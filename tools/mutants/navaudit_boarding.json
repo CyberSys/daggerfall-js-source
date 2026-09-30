@@ -399,8 +399,8 @@
   {
     "name": "NAVB-B10-the-muster-stacked",
     "file": "src/scenes/navalHost.js",
-    "old": "        const spot = c ? [c.feet, c.yaw] : deal() ?? first;\n        // AUDIT NAV1 (B9)",
-    "new": "        const spot = c ? [c.feet, c.yaw] : first;\n        // AUDIT NAV1 (B9)",
+    "old": "        const spot = c && free(c.feet) ? claim([c.feet, c.yaw]) : pick(deal);\n        if (!spot) continue;\n        // AUDIT NAV1 (B9)",
+    "new": "        const spot = c && free(c.feet) ? claim([c.feet, c.yaw]) : first;\n        if (!spot) continue;\n        // AUDIT NAV1 (B9)",
     "tests": [
       "test/navaudit_boarding.test.js"
     ]

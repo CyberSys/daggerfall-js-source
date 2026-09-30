@@ -42,6 +42,17 @@
 //       cask drifts, and a word said again for every centimetre of it would be a frame every FOES_MS), at most
 //       NAVAL_WIRE_CASKS: every player sees them and any player's boat hauls one in, claimed of their owner (below).
 //       They were the stander's alone: a peer who sank her saw none
+//   k - AUDIT NAV2 F1/F3/F5: the captains, each [n, temper, mode, struckTo] for a ship of `s` by her number: her
+//       temper by TEMPER_CODES' row (a raider's and a hand-launched pirate's bold is her stander's, never her seed's, so
+//       a peer read her wary off the seed and was never warned), her captain's mode by MODE_CODES' row (her guns out -
+//       her crew at battle - on every screen; a peer's copy sailed in 'cruise' through every fight), and the number of
+//       the ship of this word she struck to (-1: none, or a player) - her prize's victor, kept through a handover
+//   m - AUDIT NAV2 F2/F3: the owner's own boat beside `p` - [crew, battle, hull]: her hands by count and her hull by
+//       HULL_NAMES' row, so every client sizes her as her owner does, to the man (the stander sized a peer's boat at a
+//       full crew, the peer herself single-handed), and whether she fights (her crew at battle on every screen)
+//   `k` and `m` are keys of their own because an older build's door checks every field of `s` and `p` by count: it
+//   passes a word with them whole and reads none of them, and a newer door reads an older build's word as saying none.
+//   Nor are theirs counted: a newer build's longer entry reads as its first fields, never the whole word refused.
 // A word passes the door whole or not at all (`validNavalRecord`): a known class and variant, bounded places, a state
 // the ship can be in, shares in 0..100, a side, a finite lay.
 //
@@ -66,6 +77,7 @@ import { NOTORIETY } from './navalLaw.js';
 import { DENSITY_KEYS } from './navalDirector.js';
 import { REGION_NAMES } from '../../formats/mapsFile.js';
 import { HULL_NAMES, HULL_VARIANT_COUNTS } from '../comeSailAwayBoat.js';
+import { TEMPERS } from './navalAI.js';
 
 /** The radius within which players stand one sea between them (m): a ship's fighting reach and then some. */
 export const NAVAL_SHARE_RADIUS = 1200;
@@ -85,6 +97,10 @@ export const WIRE_STATES = Object.freeze(['afloat', 'struck', 'sinking', 'sunk',
 export const SIDE_CODES = Object.freeze(['starboard', 'port', 'bow', 'stern']);
 /** AUDIT NAV1 (online): a ship's handover count's ceiling - taken over past it she stays at it (a tie is the ids'). */
 export const NAVAL_GEN_MAX = 255;
+/** AUDIT NAV2 F1: the tempers on the wire, by code (the `k` key's). */
+export const TEMPER_CODES = Object.freeze(Object.values(TEMPERS));
+/** AUDIT NAV2 F3: a captain's modes on the wire, by code (navalAI.js stepCaptain's; one not listed is said as 'cruise'). */
+export const MODE_CODES = Object.freeze(['cruise', 'engage', 'board', 'flee', 'answer', 'struck', 'prize', 'boarded']);
 
 const r2 = (v) => Math.round(v * 100) / 100;
 const r4 = (v) => Math.round(v * 10000) / 10000;
@@ -97,11 +113,11 @@ const U32 = 0xffffffff;
  * My word: the ships I stand, the volleys and barrels of the last moments - in scene units, `toWire` taking a scene
  * point to the wire frame - and (AUDIT NAV1, online) my own boat at sea and my notoriety by crown. Null when there is
  * nothing to say (the reader drops mine).
- * @param {{ ships?: any[], volleys?: any[], barrels?: any[], me?: { hull: number, crippled: boolean, boarders: boolean } | null,
+ * @param {{ ships?: any[], volleys?: any[], barrels?: any[], me?: { hull: number, crippled: boolean, boarders: boolean, crew?: number, battle?: boolean, boatHull?: number } | null,
  *   law?: Record<string, number>, traffic?: string, casks?: { id: number, pos: number[], from: string, lot: string }[] }} view
  */
 export function navalWireRecord(view, toWire = (p) => p) {
-  const s = [], v = [], b = [];
+  const s = [], v = [], b = [], k = [];
   for (const sh of view?.ships ?? []) {
     if (s.length >= NAVAL_WIRE_SHIPS) break;
     const cls = SHIP_CLASSES.findIndex((c) => c.id === sh.classId);
@@ -110,6 +126,9 @@ export function navalWireRecord(view, toWire = (p) => p) {
     s.push([sh.n | 0, cls, sh.variant | 0, r2(p[0]), r2(p[1]), r2(p[2]), r4(sh.yaw), r2(sh.speed), r2(sh.sails), pct(sh.hull), pct(sh.sail), pct(sh.crew),
       Math.max(0, WIRE_STATES.indexOf(sh.state)), Math.round(sh.heel * 10) / 10, sh.seed >>> 0, sh.fire ? 1 : 0, (sh.runOut | 0) & 15,
       Math.max(0, Math.min(NAVAL_GEN_MAX, sh.gen | 0)), Number.isInteger(sh.region) && sh.region >= 0 && sh.region < REGION_NAMES.length ? sh.region : -1]);
+    // AUDIT NAV2 F1/F3/F5: her captain - a ship said without a temper (a caller's older view) is said without one
+    const temper = TEMPER_CODES.indexOf(sh.temper);
+    if (temper >= 0) k.push([sh.n | 0, temper, Math.max(0, MODE_CODES.indexOf(sh.mode)), Number.isInteger(sh.struckTo) && sh.struckTo >= 0 && sh.struckTo <= 0xffff ? sh.struckTo : -1]);
   }
   for (const vo of view?.volleys ?? []) {
     if (v.length >= NAVAL_WIRE_VOLLEYS) break;
@@ -136,6 +155,8 @@ export function navalWireRecord(view, toWire = (p) => p) {
   if (f.length) out.f = f;
   const me = view?.me;
   if (me) out.p = [pct(me.hull), me.crippled ? 1 : 0, me.boarders === false ? 0 : 1];
+  if (k.length) out.k = k;
+  if (me && int(me.crew, 0, 0xffff) && int(me.boatHull, 0, HULL_NAMES.length - 1)) out.m = [me.crew, me.battle ? 1 : 0, me.boatHull];   // AUDIT NAV2 F2/F3
   const law = [];
   for (const [i, c] of CROWNS.entries()) { const n = Math.round(view?.law?.[c.name] ?? 0); if (n > 0) law.push([i, Math.min(NOTORIETY.max, n)]); }
   if (law.length) out.n = law;
@@ -144,10 +165,24 @@ export function navalWireRecord(view, toWire = (p) => p) {
   return s.length || v.length || b.length || out.p || out.n || out.t !== undefined || out.f ? out : null;
 }
 
+/** AUDIT NAV2 F1/F3/F5: the captains' key through the door - a Map from a ship's number to her temper, her captain's
+ *  mode and the number she struck to; null when malformed (the word fails whole). */
+function validCaptains(raw) {
+  const out = new Map();
+  if (raw === undefined) return out;
+  if (!Array.isArray(raw) || raw.length > NAVAL_WIRE_SHIPS) return null;
+  for (const w of raw) {
+    if (!Array.isArray(w) || !int(w[0], 0, 0xffff) || !int(w[1], 0, TEMPER_CODES.length - 1) || !int(w[2], 0, MODE_CODES.length - 1) || !int(w[3], -1, 0xffff)) return null;
+    out.set(w[0], { temper: TEMPER_CODES[w[1]], mode: MODE_CODES[w[2]], struckTo: w[3] });
+  }
+  return out;
+}
+
 /**
  * A peer's word through the door - whole or not at all.
  * @returns {{ ships: any[], volleys: any[], barrels: any[], me: { hull: number, crippled: boolean, boarders: boolean } | null,
- *   law: Record<string, number>, traffic: string, casks: { id: number, pos: number[], from: string, lot: string }[] } | null}
+ *   law: Record<string, number>, traffic: string, casks: { id: number, pos: number[], from: string, lot: string }[],
+ *   captains: Map<number, { temper: string, mode: string, struckTo: number }>, boat: { crew: number, battle: boolean, hull: number } | null } | null}
  */
 export function validNavalRecord(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
@@ -210,7 +245,15 @@ export function validNavalRecord(raw) {
       casks.push({ id: w[0], pos, from: SHIP_CLASSES[w[4]].id, lot: LOT_KEYS[w[5]] });
     }
   }
-  return { ships, volleys, barrels, me, law, traffic: raw.t === undefined ? TRAFFIC_DEFAULT : DENSITY_KEYS[raw.t], casks };
+  // AUDIT NAV2 F1-F3/F5: the captains and the owner's boat - an older build's word says neither
+  const captains = validCaptains(raw.k);
+  if (!captains) return null;
+  let boat = null;
+  if (raw.m !== undefined) {
+    if (!Array.isArray(raw.m) || !int(raw.m[0], 0, 0xffff) || !int(raw.m[1], 0, 1) || !int(raw.m[2], 0, HULL_NAMES.length - 1)) return null;
+    boat = { crew: raw.m[0], battle: raw.m[1] === 1, hull: raw.m[2] };
+  }
+  return { ships, volleys, barrels, me, law, traffic: raw.t === undefined ? TRAFFIC_DEFAULT : DENSITY_KEYS[raw.t], casks, captains, boat };
 }
 
 /** A change key: the word rides a delta frame only when it moved (the full frame always carries it). */

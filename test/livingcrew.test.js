@@ -287,7 +287,9 @@ test('LIVING CREW SEAMLESS BOARDING: her muster fights where her crew stands - e
   assert.deepEqual(enemies.slice(0, 4).map((f) => f.pos), [0, 1, 2, 3].map((i) => [20, 7, i]), 'where they stood');
   assert.ok(enemies.length > 4 && enemies.slice(4).every((f) => f.pos[0] !== 20), 'the rest up from below');
   const muster = musterOf(e.ship.cls, e.ship.damage.crewShare());
-  assert.deepEqual(enemies.map((f) => f.mobile), [muster.captain, ...muster.men], 'her muster\'s classes, in order');
+  // AUDIT NAV2 F44: PIN MOVED - each man stands as HIMSELF where he stood (the stand-in crew's own classes), and only
+  // the men up from below take the muster's next classes (the muster's order was pinned over the man's own)
+  assert.deepEqual(enemies.map((f) => f.mobile), [MOBILE.Rogue, MOBILE.Barbarian, MOBILE.Bard, MOBILE.Archer, ...[muster.captain, ...muster.men].slice(4)], 'each man his own class, the rest her muster\'s');
   assert.ok(hands.length > 0);
   assert.deepEqual(hands.slice(0, 3).map((f) => f.mobile), [MOBILE.Rogue, MOBILE.Barbarian, MOBILE.Bard].slice(0, hands.length), 'my own crew');
   assert.ok(hands.every((f) => f.pos[0] === 17), 'at her rail across from my ship');

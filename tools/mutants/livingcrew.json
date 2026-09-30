@@ -245,8 +245,8 @@
   {
     "name": "SEAM-crew-places-unread",
     "file": "src/scenes/navalHost.js",
-    "old": "        const spot = c ? [c.feet, c.yaw] : deal() ?? first;",
-    "new": "        const spot = deal() ?? first;",
+    "old": "        const spot = c && free(c.feet) ? claim([c.feet, c.yaw]) : pick(deal);",
+    "new": "        const spot = pick(deal);",
     "tests": [
       "test/livingcrew.test.js"
     ]
@@ -272,8 +272,8 @@
   {
     "name": "SEAM-hands-rail-unread",
     "file": "src/scenes/navalHost.js",
-    "old": "        const spot = rail() ?? deal() ?? first;",
-    "new": "        const spot = deal() ?? first;",
+    "old": "        const spot = pick(rail, deal);",
+    "new": "        const spot = pick(deal);",
     "tests": [
       "test/livingcrew.test.js"
     ]
@@ -290,8 +290,8 @@
   {
     "name": "SEAM-repel-rail-unread",
     "file": "src/scenes/navalHost.js",
-    "old": "      const spot = rail() ?? deal();\n      if (!spot) break;\n      const handle = deps.board?.spawnFoe?.(party[i]",
-    "new": "      const spot = deal();\n      if (!spot) break;\n      const handle = deps.board?.spawnFoe?.(party[i]",
+    "old": "      const spot = pick(rail, deal);\n      if (!spot) break;\n      const handle = deps.board?.spawnFoe?.(party[i]",
+    "new": "      const spot = pick(deal);\n      if (!spot) break;\n      const handle = deps.board?.spawnFoe?.(party[i]",
     "tests": [
       "test/livingcrew.test.js"
     ]
@@ -299,8 +299,8 @@
   {
     "name": "SEAM-repel-hands-moved",
     "file": "src/scenes/navalHost.js",
-    "old": "      const spot = mine[i] ? [mine[i].feet, mine[i].yaw] : deal();",
-    "new": "      const spot = deal();",
+    "old": "      const spot = mine[i] && free(mine[i].feet) ? claim([mine[i].feet, mine[i].yaw]) : pick(deal);",
+    "new": "      const spot = pick(deal);",
     "tests": [
       "test/livingcrew.test.js"
     ]

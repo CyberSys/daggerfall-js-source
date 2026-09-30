@@ -6532,8 +6532,12 @@ export async function bootWorld(canvas, renderer, params, status) {
   const navalSpawnFoe = (mobile, feet, yaw, side, { name = null, team = null, boat = null, gender = null } = {}) => {
     const handle = { foe: null, gone: false, yielded: false };
     // DECK-WALK: a muster stands as one crew (`team` - a pirate's Spellsword and her barbarians fought each other with
-    // infighting on), and every body on the deck it stands on
-    exteriorFoes.spawnFoe(mobile, feet, { yaw, feetGiven: true, placed: true, allied: side === 'ally', team: side === 'ally' ? null : team, ...(gender ? { gender } : {}) })   // LIVING CREW: a crewman stood as himself
+    // infighting on), and every body on the deck it stands on. AUDIT NAV2 F12 (Mac: "Share it now"): a boarding's bodies
+    // ride the foes frame - `loose` (no encounter cap's), never PLACED (a placed foe rides to no peer, fights none and
+    // is none's to strike), so the room sees her men and my crew (named in `cw`: its allies, green bars) and may join
+    // the fight. F13: `transient` - no save carries one (a won prize's yielded men were saved at deck height and stood
+    // over open water on a load)
+    exteriorFoes.spawnFoe(mobile, feet, { yaw, feetGiven: true, loose: true, transient: true, allied: side === 'ally', team: side === 'ally' ? null : team, ...(gender ? { gender } : {}) })   // LIVING CREW: a crewman stood as himself
       .then((f) => {
         if (!f) return;
         if (handle.gone) { exteriorFoes.removeFoe(f); return; }
@@ -7491,7 +7495,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     // a raid on the town: the watch has other work; AUDIT REP F3: nor does it stop a player in a fight - a foe that sees
     // them, or a duel (the box would stand over the blows: the ring's floor and the foe's swings are not the stop's to hold)
     blocked: () => townTalk.overlayActive || !!modes?.overlayHeld || !!travelView?.active || !!raidDefendingHere()
-      || duelEnemyNear() || areEnemiesNearby(exteriorFoes.foes),
+      || duelEnemyNear() || areEnemiesNearby(exteriorFoes.foes)
+      // AUDIT NAV2 F10 (Mac: "Not in a sea fight"): nor at sea mid-fight - a hostile ship near a player aboard (never
+      // one ashore: SEA-PEACE), or a boarding under way; a guard on the quay still stops a player at their boat
+      || !!naval?.hostileNear?.() || !!naval?.boarding,
   });
   // REP5: a changed legal standing is said - the crime's charge, the debt paid, a penance, a contract's thanks
   installLegalNotices({ playerEntity, say: (l) => townTalk.say(l), regionName: (r) => REGION_NAMES[r] ?? 'this region' });
@@ -16551,10 +16558,12 @@ export async function bootWorld(canvas, renderer, params, status) {
   // their pixel; an heir took them as plain foes nothing counted, stood its own full sea beside them once elected, and
   // a third player saw only a plain foe's allowance of them. They stay the stander's, as a watchman goes with his own.
   // (AUDIT pre-merge Q3: a quest's foe kept on a partner's word goes to the party alone, as the quest's own does.)
+  // AUDIT NAV2 F12: nor a body on a deck - a boarding's, shared with the room now, goes with its boarder (all three
+  // handovers): an heir stood her men as plain foes on a deck with no leash and no boarding
   const handOverFoes = () => {
     const near = online?.room && isCellRoom(online.room) && (modes?.mode ?? 'exterior') === 'exterior' ? (peersNear() ?? []) : [];
     if (!near.length) return 0;
-    const heirOf = (f) => { if (f.entity?.team === 'PlayerAlly' || f.managed) return null; const at = f.ai?.feet; if (!at) return null; let id = null, best = Infinity; for (const q of near) { if ((isPrivateQuestFoe(f) || f._keptTag) && !social?.isPartyPeer(q.id)) continue; const d = Math.hypot(at[0] - q.feet[0], at[2] - q.feet[2]); if (d < best) { best = d; id = q.id; } } return id; };   // QUEST-PARTY phase 2: a shared quest's foe goes to a party member alone (CURSE-SYNC: a world quest's to anyone, as an encounter's); SUMMON-SYNC: and my ALLY to nobody - it goes with its summoner (the record carries no side, so an heir stood it as everyone's foe)
+    const heirOf = (f) => { if (f.entity?.team === 'PlayerAlly' || f.managed || f.deckBoat != null) return null; const at = f.ai?.feet; if (!at) return null; let id = null, best = Infinity; for (const q of near) { if ((isPrivateQuestFoe(f) || f._keptTag) && !social?.isPartyPeer(q.id)) continue; const d = Math.hypot(at[0] - q.feet[0], at[2] - q.feet[2]); if (d < best) { best = d; id = q.id; } } return id; };   // QUEST-PARTY phase 2: a shared quest's foe goes to a party member alone (CURSE-SYNC: a world quest's to anyone, as an encounter's); SUMMON-SYNC: and my ALLY to nobody - it goes with its summoner (the record carries no side, so an heir stood it as everyone's foe)
     const frame = exteriorFoes.handOverFrame(heirOf);
     return frame && online.sendFoes(frame) ? exteriorFoes.dropOwnLive() : 0;
   };
@@ -16577,7 +16586,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!near.length) return 0;
     const me = player.feetAt();
     const heirOf = (f) => {
-      if (f.puppet || f.dead || f.placed || f.managed || f.entity?.team === 'PlayerAlly' || isPrivateQuestFoe(f) || f._keptTag) return null;
+      if (f.puppet || f.dead || f.placed || f.managed || f.deckBoat != null || f.entity?.team === 'PlayerAlly' || isPrivateQuestFoe(f) || f._keptTag) return null;
       const at = f.ai?.feet;
       if (!at) return null;
       const mine = Math.hypot(at[0] - me[0], at[2] - me[2]);
@@ -16597,7 +16606,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const m = modes?.mode ?? 'exterior';
     const near = online?.room && isWorldRoom(online.room) && online.ownOk && (m === 'interior' || m === 'dungeon') ? (peersNear() ?? []) : [];
     if (!near.length) return 0;
-    const heirOf = (f) => { if (f.entity?.team === 'PlayerAlly') return null; const at = f.ai?.feet; if (!at) return null; let id = null, best = Infinity; for (const q of near) { if ((isPrivateQuestFoe(f) || f._keptTag) && !social?.isPartyPeer(q.id)) continue; const d = Math.hypot(at[0] - q.feet[0], at[2] - q.feet[2]); if (d < best) { best = d; id = q.id; } } return id; };   // SUMMON-SYNC: my ally goes with me, as outside
+    const heirOf = (f) => { if (f.entity?.team === 'PlayerAlly' || f.deckBoat != null) return null; const at = f.ai?.feet; if (!at) return null; let id = null, best = Infinity; for (const q of near) { if ((isPrivateQuestFoe(f) || f._keptTag) && !social?.isPartyPeer(q.id)) continue; const d = Math.hypot(at[0] - q.feet[0], at[2] - q.feet[2]); if (d < best) { best = d; id = q.id; } } return id; };   // SUMMON-SYNC: my ally goes with me, as outside
     const frame = modes?.ownHandOverFrame?.(heirOf);
     return frame && online.sendOwnFoes(frame) ? (modes?.dropOwnHanded?.() ?? 0) : 0;
   };
