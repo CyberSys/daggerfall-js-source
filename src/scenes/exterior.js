@@ -4135,7 +4135,7 @@ export async function bootExterior(canvas, renderer, params, status) {
    *  mode machine reaches shop shelves (shopStock.js's MagicItems
    *  group) and dungeon loot. It mounted NOTHING, so
    *  setDefaultEnchantCtx's `_defaultCtx` stayed null for the whole
-   *  session (enchantments.js:255-257) and every arm that folds it in
+   *  session (enchantments.js:256-258) and every arm that folds it in
    *  optional-chained into silence - the exact FS1 shape the standalone
    *  ?dungeon host was in before wave D. Worse: exterior.js builds
    *  createWorldModes, which passes `enchantCtx: false` to
@@ -4145,7 +4145,7 @@ export async function bootExterior(canvas, renderer, params, status) {
    *
    *  What was dead, with the ctx null: CastWhenUsed and CastWhenStrikes
    *  found no spell record and still billed 10 condition
-   *  (enchantments.js:341-352, :379-400), HealthLeech never billed the
+   *  (enchantments.js:342-353, :380-401), HealthLeech never billed the
    *  wearer and stamped its last-used minute at epoch 0
    *  (:556-577), CastWhenHeld could never take the resting degrade rate
    *  (:364), and the held/round scans - VampiricEffect AtRange,

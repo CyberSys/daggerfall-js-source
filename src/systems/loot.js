@@ -309,7 +309,7 @@ export function createRegularMagicItem(templates, playerLevel, gender, rolls = M
   // G4: THE VALUE IS OVERWRITTEN (:632). The gap that stood here from
   // S4c - the enchantment cost sum unported, so a magic item sold at
   // its mundane base - closed with M4's catalogue: the sum is
-  // legacyEnchantmentValue (enchantments.js:224-242) and it is called
+  // legacyEnchantmentValue (enchantments.js:225-243) and it is called
   // on the `value:` line below. `newItem.value = value` REPLACES
   // whatever the base item was
   // worth, so a daedric longsword and a leather boot with the same

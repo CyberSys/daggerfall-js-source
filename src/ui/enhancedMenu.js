@@ -90,6 +90,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { fpArm, hasDaggerfallArrows } from '../combat/fpArm.js';
+import { dressStanding } from '../systems/clothingStanding.js';   // DRESS1 (2026-09-30, Discord): the Standing page's Dress line
 import { questRail, journalLines, questTitleOf, QUEST_URGENT_SECONDS, remainWords } from './questRail.js';
 import { entryTarget, targetWords, WHERE_TEXT } from './questLens.js';   // GUIDE2: where a quest points, and the way there   // MAC-K2: the ONE quest walk, shared with the chronicle
 import { questTracker, followOn, trackButton } from './questTracker.js';   // GUIDE4: the HUD's card - the Track toggle, and the quest the journal opens on
@@ -3848,8 +3849,27 @@ function statsStanding(detail) {
     r.append(el('span', 'k', SOCIAL_GROUP_NAMES[i]), signedRep(reps[i] ?? 0));
     detail.append(r);
   }
+  statsDress(detail, playerEntity);
   statsLaw(detail, playerEntity);
   statsGuilds(detail, playerEntity);
+}
+
+/** DRESS1 (2026-09-30, Discord: "Add positive and negative reputation buffs for clothing items"): what the worn clothes
+ *  are doing right now - one light line under the groups, only when the dress moves anybody. Read live off the equip
+ *  table (dressStanding is pure), so it is right before the next magic round folds it into reactionMods. */
+export function dressLine(entity) {
+  const d = dressStanding(entity);
+  const parts = [];
+  for (let i = 0; i < SOCIAL_GROUP_NAMES.length; i++) if (d.groups[i]) parts.push(`${SOCIAL_GROUP_NAMES[i]} ${d.groups[i] > 0 ? '+' : ''}${d.groups[i]}`);
+  if (d.temple) parts.push(`Temples ${d.temple > 0 ? '+' : ''}${d.temple}`);
+  return parts.join(', ');
+}
+export function statsDress(detail, entity) {
+  const line = dressLine(entity);
+  if (!line) return;
+  const r = el('div', 'px-stat px-dress');
+  r.append(el('span', 'k', 'Dress'), el('span', 'v', line));
+  detail.append(r);
 }
 
 /** REP5: THE LAW, REGION BY REGION - every region with a standing other than a common citizen's, or a banishment. */

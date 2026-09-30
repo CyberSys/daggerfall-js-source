@@ -2475,7 +2475,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   //
   // FS1 - SHIPPED (wave D, THE FOUR HOSTS RULE): THE ENCHANT CTX IS
   // MOUNTED HERE NOW, below the engine it casts through.
-  // setDefaultEnchantCtx (systems/enchantments.js:256) used to have
+  // setDefaultEnchantCtx (systems/enchantments.js:257) used to have
   // exactly ONE caller in the tree, scenes/world.js, so in the
   // standalone ?dungeon host every item-enchantment arm that needs a
   // host ran against no ctx at all: CastWhenUsed's CasterOnly assign
