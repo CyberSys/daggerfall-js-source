@@ -100,7 +100,8 @@ const ON_TRAVEL = grab(/buildTravelMapWindow\(\{ onTravel: (\(pick, opts, comput
 const ON_COORDS = grab(/\n\s*onTravelToCoords: (\(pick, opts\) => \{ [^\n]*? \}),/, 'the map\'s onTravelToCoords');
 const HOST = [
   lineSource('const TV_SEA_EPS_M = '), lineSource('const tvQuiet = '), lineSource('const tvTrip = '), lineSource('const tvWater = '),
-  lineSource('let _tvRouteGround = null;'), lineSource('const tvRouteGround = '), lineSource('const tvLegMid = '), lineSource('const tvSeaAsk = '),
+  lineSource('let _tvRouteGround = null;'), lineSource('let _tvRocksFrom = null, _tvRocksRoads = null, _tvRocks = null;'), fnSource('tvWodRocks'), lineSource('const tvRouteGround = '), lineSource('const tvLegMid = '), lineSource('const tvSeaAsk = '),
+  lineSource('const _tvTownRects = new Map();'), fnSource('tvTownRects'), fnSource('tvRingAt'),   // OW-WOD-PATH, OW-TOWN-RING: the host's own (no World of Daggerfall list here; no location on the way)
   constBlock('travelViewAllowed'),
   fnSource('tvOwnsJourneys'), fnSource('tvRoutesJourneys'), fnSource('tvMapForcesRoads'), fnSource('travelViewResume'), fnSource('beginAcceleratedTravel'),
   fnSource('travelViewRouteTo'), fnSource('tvFreePull'), fnSource('tvJoinedLegs'), fnSource('travelViewWalkTo'), fnSource('tvJourneyUp'),
@@ -178,7 +179,7 @@ function host({ firstPerson = false, roads = false, enhanced = true } = {}) {
     mapPixelToWorldCoords: mapPixelWorldOrigin, tvSceneOf: (nx, nz, lift = 0) => [nx, 10 + lift, nz], tvSeaY: () => 0,
     state: { worldCoords: (p) => ({ x: p[0], z: p[2] }) }, player: { get pos() { return [h.me.x, 10, h.me.z]; } },
     playerTravelPixel: () => worldCoordToMapPixel(h.me.x, h.me.z),
-    terrainGen: { roads: () => NET }, maps: { getClimateIndex: climateAt }, woods: { getHeightMapValue: heightAt }, WATER_BYTE,
+    terrainGen: { roads: () => NET }, maps: { getClimateIndex: climateAt }, woods: { getHeightMapValue: heightAt }, WATER_BYTE, wod: null, _locationToBuild: () => null,
     planRoute, routeGround, routeLegs, joinPoint, routeDrawPoints, roadShare, crossesWater, dryLine, TV_MOUNTAIN_CLIMATE, travelTripLine,
     travelPathUsesRoads, TRAVEL_PATH_TEXT,   // OW-PATH (main's Roads / Free switch on the Overworld's bar): the route asks it
     tvSeaMeans: () => null, tvSeaBegin: () => {}, csaRuntime: null, csaOn: () => false, csaAboard: { aboard: false },

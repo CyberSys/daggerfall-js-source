@@ -122,7 +122,7 @@ import { shortcutBinding, sequenceString } from '../systems/dialogShortcuts.js';
 // implement 1:1"): TRAVEL OPTIONS 1.11 (Hazelnut) - the accelerated
 // journey the player WALKS, its control panel and its junction map,
 // plus the path following that rides the port's Basic Roads.
-import { createTravelOptions, readTravelOptionsSettings, locationTypeName as travelLocationTypeName, TRAVEL_OPTIONS_VENDOR } from '../systems/travelOptions.js';
+import { createTravelOptions, readTravelOptionsSettings, locationTypeName as travelLocationTypeName, TRAVEL_OPTIONS_VENDOR, locationRectsOf, ringPassPoints } from '../systems/travelOptions.js';   // OW-TOWN-RING: a town's rects, and the ring a route walks round it
 import { HUD_TEXT_POP_DELAY } from '../ui/hudText.js';   // AUDIT OW5 G2: the Overworld's own lines (tvSay)
 import { createTravelControlUI, preloadTravelControlArt, stripTakesClick } from '../ui/travelControlUI.js';
 import { pointToNative, nativeMetrics } from '../ui/nativePanel.js';   // TO1: the travel panel's clicks land in the 320x200 panel's own coordinates
@@ -261,7 +261,7 @@ import { createLoadGovernor, unbuiltAround } from '../systems/travelGovernor.js'
 import { threatCap } from '../systems/travelThreat.js';   // OW6: the journey slows as enemies close
 import { farPlaces, settlementPixels, farDistanceText, PIXEL_KM } from '../systems/travelFarPlaces.js';   // TV5: the far places, held at the view's edge
 import { dungeonRows, spawnedPixels, filedSpawns, nearDungeons, dungeonApproach, pixelBox, lastLegStart, dungeonToFind, dungeonFoundText, NATIVE_PER_M } from '../systems/travelDungeons.js';   // TV6: the dungeons, discovered on approach; AUDIT OW3 D1/D3: off the map rows, and the spawns with them; AUDIT OW4 D4/D6: the far found spawns, the last leg's start
-import { routeGround, joinPoint, routeDrawPoints, TV_MOUNTAIN_CLIMATE } from '../systems/travelRoute.js';   // OW-MOUNTAINS, OW-ROADSIDE; AUDIT OW3 J4: the drawn route's points; AUDIT OW4 J3: the ground read once
+import { routeGround, joinPoint, routeDrawPoints } from '../systems/travelRoute.js';   // OW-MOUNTAINS, OW-ROADSIDE; AUDIT OW3 J4: the drawn route's points; AUDIT OW4 J3: the ground read once
 import { bandsNear, wanderAt, bandSight, bandChaseStep, bandLabel, bandMakeSeed, bandSizeOf, bandLevelOf, BAND_LIFE_MS, BAND_CONTACT_M, BAND_CHASE_MPS, BAND_STAND_M, BAND_STAND_MIN_M, BAND_STAND_RETRY_MS, BAND_STAND_TRIES } from '../systems/travelBands.js';   // TV7: the roaming bands; OW6: their number and their level
 import { bandWordOf, validBandWord, chaseYields, bandLifeOf, bandNearMe, bandPixelOf, BAND_WORD_MS, BANDS_WIRE_MAX } from '../systems/travelBands.js';   // TV7b: the chase, shared
 import { walkBegin, leaderWalkStep, walkHeard, memberAnswer, memberFollowing, memberStopOf, memberWalkStep, walkAskStands, sameWalkDest, NO_WALK_ANSWER, PARTY_WALK_RADIUS_M } from '../systems/partyWalk.js';   // TV8: group travel, the leader drives (AUDIT OW3: the whole law, pure)
@@ -3689,6 +3689,11 @@ export async function bootWorld(canvas, renderer, params, status) {
       }
       privateersHold = { origins: holdBlocks.map((o) => [o[12], o[13], o[14]]), state: { rolled: false, foes: [], gone: false } };   // a carried roll replaces it at publish (m4)
     }
+
+    // OW-WOD-LAG: the pixel's wide faces (a World of Daggerfall massif's rocks) in their tree now, once every mesh of the
+    // pixel's bucket is in - inside the build, never raised by the first query of a frame in play
+    collider.settle(key);
+    await breather.breathe();
 
     // SIB1: DaggerfallTerrain.OnInstantiateTerrain - ApplyCurrentSeason
     // (false) before this terrain's batches take their material, so the
@@ -19495,7 +19500,22 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   // byte tables, the sea and the peaks' law off them, and the land's pieces that answer "no way by land" at once) - the
   // two map files are the world's own, fixed for the session. J1: its `peakAt` is the start's own range's flood fill
   let _tvRouteGround = null;
-  const tvRouteGround = () => (_tvRouteGround ??= routeGround((x, y) => maps.getClimateIndex(x, y), (x, y) => woods.getHeightMapValue(x, y), WATER_BYTE));
+  // OW-WOD-PATH (2026-09-29, Mac: "Pathing doesnt go around mountains"): and the World of Daggerfall massifs - the pixels
+  // the mod's list stands a Mountains layout on (WodWorld mountainPixels), less those a road or a track crosses (the
+  // mod never stands a site on a path's pixel, LocationLoader.cs:146-151) - handed to the ground whenever the list or
+  // the roads have changed since
+  let _tvRocksFrom = null, _tvRocksRoads = null, _tvRocks = null;
+  function tvWodRocks() {
+    if (!wod) return null;
+    const src = wod.mountainPixels();
+    const net = terrainGen.roads();
+    if (src === _tvRocksFrom && net === _tvRocksRoads) return _tvRocks;
+    const out = new Uint8Array(src.length);
+    for (let i = 0; i < src.length; i++) if (src[i] && !((net?.roads?.[i] ?? 0) | (net?.tracks?.[i] ?? 0))) out[i] = 1;
+    _tvRocksFrom = src; _tvRocksRoads = net; _tvRocks = out;
+    return out;
+  }
+  const tvRouteGround = () => { (_tvRouteGround ??= routeGround((x, y) => maps.getClimateIndex(x, y), (x, y) => woods.getHeightMapValue(x, y), WATER_BYTE)).setRocks(tvWodRocks()); return _tvRouteGround; };
   /** OW-ROADSIDE (2026-09-28, Mac: routes "appear traveling alongside" the road): a route whose first step is a road's (or
    *  a track's) is joined first at the nearest point of that first run - never walked beside it to its far end. */
   // OW-FREE-STRAIGHT: the planner walks the pixel grid (diagonal, then straight), so a FREE journey bent at a pixel middle
@@ -19534,13 +19554,43 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     }
     return keep.length >= px.length ? plan : { ...plan, pixels: keep, kinds: keep.slice(1).map(() => 'open') };
   }
+  /** OW-TOWN-RING (2026-09-29, Mac: "Pathing doesnt follow the road around cities"): a location's rects - Travel Options'
+   *  own (locationRectsOf: the town and its border ring), native - from the tile rect the pixel's build stamps
+   *  (setLocationTiles over the location's own blocks), so a town a route passes far ahead of the streamed terrain has
+   *  its ring too; the built pixel's own rect where it stands. Null for a pixel with no location, or none on the ground.
+   *  Kept per pixel, and asked again when the pixel's location changes (a spawned dungeon's stand). */
+  const _tvTownRects = new Map();
+  function tvTownRects(x, y) {
+    const key = `${x},${y}`;
+    const loc = _locationToBuild(x, y) || null;
+    const had = _tvTownRects.get(key);
+    if (had && had.loc === loc) return had.rects;
+    let rects = null;
+    if (loc?.exterior?.exteriorData && loc.mapTableData) {
+      const r = built.get(key)?.locationRect ?? setLocationTiles(loc, maps, blocks, new Uint8Array(128 * 128));
+      if (r && Number.isFinite(r.xMin + r.xMax + r.yMin + r.yMax)) {
+        const o = mapPixelToWorldCoords(x, y);
+        rects = locationRectsOf(o.x, o.z, { x: r.xMin, y: r.yMin, width: r.xMax - r.xMin, height: r.yMax - r.yMin }, loc.mapTableData.locationType === LOCATION_TYPES.TownCity, hasCustomLocationPosition(loc));
+      }
+    }
+    _tvTownRects.set(key, { loc, rects });
+    return rects;
+  }
+  /** OW-TOWN-RING: the points of a location's border ring a route through pixel (x, y) walks - in on the side it comes
+   *  from, round, out on the side it leaves by (travelOptions.js ringPassPoints) - or null where the pixel holds none. */
+  function tvRingAt(x, y, from, to) {
+    const r = tvTownRects(x, y);
+    if (!r) return null;
+    const o = mapPixelToWorldCoords(x, y);
+    return ringPassPoints(r.locationRect, r.locationBorderRect, from, to, { x: o.x + 16384, z: o.z + 16384 });
+  }
   function tvJoinedLegs(from, plan, roads = false) {
     plan = tvFreePull(plan, roads);
-    const legs = routeLegs(plan.pixels, plan.kinds);
+    const legs = routeLegs(plan.pixels, plan.kinds, { ringAt: tvRingAt });   // OW-TOWN-RING: round a town the route passes through
     if (!legs.length || (plan.kinds[0] !== 'road' && plan.kinds[0] !== 'track')) return legs;   // THE MERGE: a launch (OWS2) is no road to join
     const c = (p) => { const o = mapPixelToWorldCoords(p.x, p.y); return { x: o.x + 16384, z: o.z + 16384 }; };
     const me = state.worldCoords(player.pos);
-    return [{ x: from.x, y: from.y, kind: 'open', at: joinPoint({ x: me.x, z: me.z }, c(from), c(legs[0])) }, ...legs];
+    return [{ x: from.x, y: from.y, kind: 'open', at: joinPoint({ x: me.x, z: me.z }, c(from), legs[0].at ?? c(legs[0])) }, ...legs];   // OW-TOWN-RING: a first leg on a town's ring is joined toward its own point
   }
   /** A walk to a spot. AUDIT OW4 D1/D6: `door` (a spawned dungeon's exterior rect, native - travelViewSpawnWalk) makes it
    *  a walk to a PLACE's door: its pixel is a place's (never refused for the peaks, its step in exempt - a spawn stands on
@@ -19549,7 +19599,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   /** OWS2: `water` - the click landed on the sea: a spot on it, sailed to. `roads`: as travelViewRouteTo's (TO-ROADS x OW-PATH). */
   function travelViewWalkTo(point, pix, { door = null, water = false, roads = false } = {}) {
     let n = state.worldCoords(point);
-    if (!door && !water && maps.getClimateIndex(pix.x, pix.y) === TV_MOUNTAIN_CLIMATE) { tvSay(TRAVEL_VIEW_TEXT.mountains); return false; }   // OW-MOUNTAINS
+    if (!door && !water && tvRouteGround().peakAt(pix.x, pix.y)) { tvSay(TRAVEL_VIEW_TEXT.mountains); return false; }   // OW-MOUNTAINS; OW-WOD-PATH: a World of Daggerfall massif's pixel too
     // OW-MOUNTAINS: to the spot's pixel round the peaks (the roads where they help), then to the spot itself
     const from = playerTravelPixel();
     const roadsRaw = terrainGen.roads(), roadNet = roadsRaw?.source === 'basic-roads' ? roadsRaw : null;   // AUDIT DEEP T2-7's law: Hazelnut's bytes or none

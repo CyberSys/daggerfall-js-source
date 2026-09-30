@@ -82,8 +82,8 @@
   {
     "name": "OW-ROADSIDE-join-dropped",
     "file": "src/systems/travelOptions.js",
-    "old": "'open', ...(l.at ? { at: { x: l.at.x, z: l.at.z } } : {}) }));",
-    "new": "'open' }));",
+    "old": "'open', ...(l.at ? { at: { x: l.at.x, z: l.at.z } } : {}), ...(l.ring",
+    "new": "'open', ...(l.ring",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],
@@ -152,7 +152,7 @@
   {
     "name": "OW-MOUNTAINS-spot-in-the-peaks",
     "file": "src/scenes/world.js",
-    "old": "    if (!door && !water && maps.getClimateIndex(pix.x, pix.y) === TV_MOUNTAIN_CLIMATE) { tvSay(TRAVEL_VIEW_TEXT.mountains); return false; }   // OW-MOUNTAINS\n",
+    "old": "    if (!door && !water && tvRouteGround().peakAt(pix.x, pix.y)) { tvSay(TRAVEL_VIEW_TEXT.mountains); return false; }   // OW-MOUNTAINS; OW-WOD-PATH: a World of Daggerfall massif's pixel too\n",
     "new": "",
     "tests": [
       "test/tv2_click_to_move.test.js",
