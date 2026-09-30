@@ -21,6 +21,9 @@ import {
 } from '../src/systems/realmSaves.js';
 import { r2, freshSave, layRecord } from './realmSeat.mjs';
 import { ACCEPTED } from '../src/net/legalLaw.js';
+import * as acorn from 'acorn';
+import { createSpoilsPool, spoilsStore, recoverSpoils, SPOILS_STORE_KEY, SPOILS_TEXT } from '../src/scenes/spoilsPool.js';
+import { raidSpoilsList, raidSpoilsDay, RAID_SPOILS_KEYS, RAID_SPOILS_TEXT, RAID_SPOILS_RECORDS_MAX } from '../src/systems/raidSpoils.js';
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
@@ -95,7 +98,7 @@ test('RESCUE-SAVE: THE OUTAGE - a save the service never took is kept on the dev
   // the service goes away: the newest save waits - in the page's memory, and now on the device, at the sequence it follows
   dev.door.plan = ['offline'];
   assert.equal((await c.session.checkpoint(JSON.stringify(save(15, 9000)))).ok, false);
-  assert.deepEqual({ ...readUnsent(dev.storage, c.id), at: null }, { seq: 2, text: JSON.stringify(save(15, 9000)), at: null });
+  assert.deepEqual({ ...readUnsent(dev.storage, c.id), at: null }, { seq: 2, text: JSON.stringify(save(15, 9000)), at: null, held: [] });
   // the page goes (the keepalive leave alone, as world.js whenPageGoes sends it) - before RESCUE-SAVE, levels 13-15 went with it
   await c.session.leave({ keepalive: true });
   assert.equal(c.row().lease, null, 'the lease given up');
@@ -163,7 +166,7 @@ test('RESCUE-SAVE: a put that lands with a newer save waiting keeps that one, at
   const second = c.session.checkpoint(JSON.stringify(save(14, 2)));   // waits behind it
   assert.deepEqual(await first, { ok: true, seq: 2 });
   assert.equal((await second).ok, false);
-  assert.deepEqual({ ...readUnsent(dev.storage, c.id), at: null }, { seq: 2, text: JSON.stringify(save(14, 2)), at: null }, 'the newer save, following the one that landed');
+  assert.deepEqual({ ...readUnsent(dev.storage, c.id), at: null }, { seq: 2, text: JSON.stringify(save(14, 2)), at: null, held: [] }, 'the newer save, following the one that landed');
   await c.session.leave({ keepalive: true });
   const boot = await openRealmBoot({ io: dev.io, id: c.id });
   assert.equal(boot.restored, true);
@@ -214,10 +217,16 @@ test('RESCUE-SAVE: a device with no room keeps nothing half-written, and the che
   const acct = await account();
   const storage = fakeStorage();
   const set = storage.setItem;
-  storage.setItem = (k, v) => { if (String(k).startsWith(REALM_UNSENT_PREFIX) && !String(k).endsWith('.at')) throw new Error('QuotaExceededError'); set(k, v); };
+  // the save's text fits and its record does not: the text written must not stay behind without it
+  storage.setItem = (k, v) => { if (String(k).startsWith(REALM_UNSENT_PREFIX) && String(k).endsWith('.at')) throw new Error('QuotaExceededError'); set(k, v); };
   const dev = acct.device(storage);
   const c = await joined(acct, dev);
   assert.deepEqual(await c.session.checkpoint(JSON.stringify(save(13, 1))), { ok: true, seq: 2 });
+  assert.deepEqual([...storage._map.keys()].filter((k) => k.startsWith(REALM_UNSENT_PREFIX)), []);
+  // and with the service away, the text written before its record failed goes at once - never a save-sized orphan no
+  // join can read, holding the device's room until some later put lands
+  dev.door.plan = ['offline'];
+  assert.equal((await c.session.checkpoint(JSON.stringify(save(14, 2)))).ok, false);
   assert.deepEqual([...storage._map.keys()].filter((k) => k.startsWith(REALM_UNSENT_PREFIX)), []);
   // and the law of the copy itself: no sequence before the first save, no storage, no text - nothing kept
   const s = fakeStorage();
@@ -235,4 +244,167 @@ test('RESCUE-SAVE: the world host says it once the world stands, beside the real
   assert.ok(said > 0, 'the host says the restore');
   assert.ok(Math.abs(said - w.indexOf('if (realmRefused) townTalk.say(REALM_OFFLINE_TEXT);')) < 400, 'beside REALM P1.3\'s own boot word');
   assert.match(REALM_RESTORED_TEXT, /this device kept it/i);
+});
+
+// ═══ AUDIT RESCUE-SAVE (2026-09-30, Mac: "Audit this") ═══════════════════════════════════════════════════════════════
+// A1 - A KEPT SAVE HOLDS THE SPOILS IT WAS COMPOSED HOLDING. A gate's spoils and a town's thanks go into the pack with a
+// device record the crash's door hands back at every boot until a save holding them lands (scenes/spoilsPool.js
+// recoverSpoils; REALM P1.3's `landed` hook). A checkpoint composed holding them that never landed was the device's copy,
+// and the join played it - so the pack held them AND the door handed them again: every piece twice. The copy now keeps
+// the records its save holds (`held`), the boot answers them, and the door adopts those records without handing a piece;
+// the save that lands clears them. A copy the join drops leaves the records to be handed as before - nothing lost.
+
+/** world.js's own statements, sliced (test/auditrealm2_client.test.js's harness). */
+function sliced(rel) {
+  const S = src(rel);
+  const AST = acorn.parse(S, { ecmaVersion: 'latest', sourceType: 'module' });
+  const all = (pred) => {
+    const hits = [];
+    (function walk(n) {
+      if (!n || typeof n.type !== 'string') return;
+      if (pred(n)) hits.push(n);
+      for (const k of Object.keys(n)) { const v = n[k]; if (Array.isArray(v)) v.forEach(walk); else if (v && typeof v.type === 'string') walk(v); }
+    })(AST);
+    return hits;
+  };
+  const text = (n) => S.slice(n.start, n.end);
+  const one = (hits, what) => { assert.equal(hits.length, 1, `${rel}: ${what} (${hits.length} found)`); return text(hits[0]); };
+  const decl = (name) => one(all((n) => n.type === 'VariableDeclaration' && n.declarations.some((d) => d.id?.name === name)), `the declaration of ${name}`);
+  const top = (host, has) => {
+    const h = all((n) => n.type === 'FunctionDeclaration' && n.id?.name === host);
+    assert.equal(h.length, 1, `${rel}: function ${host}`);
+    return one(h[0].body.body.filter((st) => text(st).includes(has)), `${host}'s statement holding ${has}`);
+  };
+  return { decl, top };
+}
+const scoped = (state) => new Proxy(state, {
+  has: (t, k) => k !== '__s',
+  get: (t, k) => (k === Symbol.unscopables ? undefined : (k in t ? t[k] : globalThis[k])),
+  set: (t, k, v) => { t[k] = v; return true; },
+});
+// eslint-disable-next-line no-new-func
+const mount = (body, state) => new Function('__s', `with (__s) { ${body} }`)(scoped(state));
+const W = sliced('src/scenes/world.js');
+
+/** One boot of the world host's realm half over `dev`'s storage: the realm save sink, both spoils pools and their hooks,
+ *  and the crash's door as the host's stand-up asks it - every one of them world.js's own statement. */
+function hostBoot(dev, R, realmSession, realmBoot) {
+  const pack = { gold: 0, items: [] };
+  const takeSpoil = (p) => { if (p.kind === 'gold') pack.gold += p.gold; else pack.items.push(p.item); };
+  let sink = null;
+  const said = [];
+  const host = mount(`
+    const _realmSaveHooks = { held: () => null, landed: () => {} };
+    ${W.top('bootWorld', 'if (realmSession) setRealmSaveSink(')}
+    const spoilsPool = createSpoilsPool({ ray: () => null, now: () => 1, take: takeSpoil, store: _spoilsStore, who: () => characterIdOf(playerEntity) });
+    const raidSpoils = createSpoilsPool({ ray: () => null, now: () => 1, take: takeSpoil, store: _spoilsStore, who: () => characterIdOf(playerEntity), keys: RAID_SPOILS_KEYS, recordsMax: RAID_SPOILS_RECORDS_MAX });
+    ${W.top('bootWorld', '_realmSaveHooks.held = ')}
+    ${W.top('bootWorld', '_realmSaveHooks.landed = ')}
+    ${W.decl('_spoilsAskedFor')}
+    ${W.decl('_spoilsInSave')}
+    ${W.decl('spoilsRecoverFrame')}
+    spoilsRecoverFrame();
+    return { spoilsPool, raidSpoils };
+  `, {
+    realmSession, realmBoot, playerSpawned: true,
+    setRealmSaveSink: (f) => { sink = f; },
+    characterIdOf: () => R, realmSummaryOf: () => null, playerEntity: {},
+    createSpoilsPool, recoverSpoils, RAID_SPOILS_KEYS, RAID_SPOILS_RECORDS_MAX, SPOILS_TEXT, RAID_SPOILS_TEXT, takeSpoil,
+    _spoilsStore: spoilsStore(dev.storage), enumerateSaves: () => ({ info: new Map() }), setMidScreenText: (t) => said.push(t),
+    console: { warn() {} },
+  });
+  return { ...host, pack, said, save: (snap) => sink(snap) };
+}
+const settle = async () => { for (let i = 0; i < 30; i++) await new Promise((r) => setTimeout(r, 0)); };
+
+test('AUDIT RESCUE-SAVE A1: a kept save holds the spoils it was composed holding - the join plays it and the crash\'s door adopts their records, handing no piece twice; the save that lands clears them (mutants: nothing held with the copy, the door hands them anyway, the host never asks)', async () => {
+  const acct = await account();
+  const dev = acct.device();
+  const c = await joined(acct, dev);
+  const one = hostBoot(dev, c.id, c.session, null);
+  assert.deepEqual([one.pack.gold, one.pack.items.length], [0, 0], 'a first boot: nothing on the device');
+  // a town defended and a boss's spoils: in the pack, and on the device until a save holding them lands
+  assert.equal(one.raidSpoils.grant({ day: raidSpoilsDay('k:1:40:7'), acct: 'acct-a', roll: () => raidSpoilsList(0xC0FFEE, 30, 2), text: RAID_SPOILS_TEXT.granted, owner: c.id }), true);
+  assert.equal(one.spoilsPool.grant({ day: 700, seed: 99, level: 30, acct: 'acct-a' }), true);
+  const got = { gold: one.pack.gold, items: one.pack.items.length };
+  assert.ok(got.gold > 0 && got.items > 0);
+  // the two-minute checkpoint, composed holding both - and the service away
+  dev.door.plan = ['offline'];
+  one.save({ v: 1, name: 'SwordsmanEB', level: 12, pack: got });
+  await settle();
+  const kept = readUnsent(dev.storage, c.id);
+  assert.equal(kept.held.length, 2, 'the copy keeps both records its save holds');
+  assert.ok(dev.storage.getItem(SPOILS_STORE_KEY) && dev.storage.getItem(RAID_SPOILS_KEYS.store), 'and both records stay on the device: unlanded');
+  await c.session.leave({ keepalive: true });
+  // the next boot plays the copy, whose pack holds them: the door hands nothing
+  const boot = await openRealmBoot({ io: dev.io, id: c.id });
+  assert.equal(boot.restored, true);
+  assert.deepEqual(boot.held, kept.held);
+  assert.deepEqual(boot.snap.pack, got, 'the kept save holds the spoils');
+  const s = createRealmSession({ io: dev.io, id: c.id, lease: boot.lease, seq: boot.seq });
+  const two = hostBoot(dev, c.id, s, boot);
+  assert.deepEqual([two.pack.gold, two.pack.items.length], [0, 0], 'no piece handed twice');
+  assert.deepEqual(two.said, [], 'and nothing said gathered');
+  assert.deepEqual([...two.spoilsPool.heldIds(c.id), ...two.raidSpoils.heldIds(c.id)].sort(), [...kept.held].sort(), 'adopted: the next save holds them');
+  // the restored save's first checkpoint lands: the records go, and the copy with them
+  two.save(boot.snap);
+  await settle();
+  assert.equal(dev.storage.getItem(SPOILS_STORE_KEY), null);
+  assert.equal(dev.storage.getItem(RAID_SPOILS_KEYS.store), null);
+  assert.equal(readUnsent(dev.storage, c.id), null);
+});
+
+test('AUDIT RESCUE-SAVE A1: a copy the join drops leaves its records to the crash\'s door, which hands them into the service\'s save - nothing lost', async () => {
+  const acct = await account();
+  const dev = acct.device();
+  const c = await joined(acct, dev);
+  const one = hostBoot(dev, c.id, c.session, null);
+  one.spoilsPool.grant({ day: 701, seed: 7, level: 30, acct: 'acct-a' });
+  const got = one.pack.items.length + one.pack.gold;
+  dev.door.plan = ['offline'];
+  one.save({ v: 1, name: 'SwordsmanEB', level: 12 });
+  await settle();
+  assert.equal(readUnsent(dev.storage, c.id).held.length, 1);
+  await c.session.leave({ keepalive: true });
+  // another device plays on and saves: the record moved past the copy
+  const other = acct.device();
+  const theirs = await openRealmBoot({ io: other.io, id: c.id });
+  assert.equal((await createRealmSession({ io: other.io, id: c.id, lease: theirs.lease, seq: theirs.seq }).checkpoint(JSON.stringify(save(13, 5)))).ok, true);
+  const boot = await openRealmBoot({ io: dev.io, id: c.id });
+  assert.equal(boot.restored, undefined, 'the copy dropped');
+  const two = hostBoot(dev, c.id, createRealmSession({ io: dev.io, id: c.id, lease: boot.lease, seq: boot.seq }), boot);
+  assert.equal(two.pack.items.length + two.pack.gold, got, 'the spoils handed into the service\'s save, once');
+});
+
+test('AUDIT RESCUE-SAVE A2: a character deleted from another device takes this device\'s copy with it at the next join - no copy outlives its character', async () => {
+  const acct = await account();
+  const dev = acct.device();
+  const c = await joined(acct, dev);
+  dev.door.plan = ['offline'];
+  await c.session.checkpoint(JSON.stringify(save(13, 1)));
+  await c.session.leave({ keepalive: true });
+  assert.ok(readUnsent(dev.storage, c.id));
+  const other = acct.device();
+  assert.equal((await realmDelete(other.io, c.id)).ok, true);
+  assert.deepEqual(await openRealmBoot({ io: dev.io, id: c.id }), { ok: false, error: 'no-realm-character' });
+  assert.equal(readUnsent(dev.storage, c.id), null);
+});
+
+test('AUDIT RESCUE-SAVE A1: the title exit sends the waiting save once more - and a copy kept again keeps the records its save holds', async () => {
+  const acct = await account();
+  const dev = acct.device();
+  const c = await joined(acct, dev);
+  dev.door.plan = ['offline'];
+  await c.session.checkpoint(JSON.stringify(save(13, 1)), null, ['700::1', 'raid:k:1:40:7::2']);
+  assert.deepEqual(readUnsent(dev.storage, c.id).held, ['700::1', 'raid:k:1:40:7::2']);
+  // the pause menu's Exit (world.js setBeforeTitleExit): the waiting save sent again, and the service still away
+  dev.door.plan = ['offline'];
+  await c.session.leave();
+  assert.deepEqual(readUnsent(dev.storage, c.id).held, ['700::1', 'raid:k:1:40:7::2'], 'kept with it: never dropped by the resend');
+  // and the copy's record bounds what it keeps: strings only, sixty-four at most
+  keepUnsent(dev.storage, c.id, 3, '{"v":1}', ['a', 7, null, 'x'.repeat(129), ...Array.from({ length: 80 }, (_, i) => `k${i}`)]);
+  const h = readUnsent(dev.storage, c.id).held;
+  assert.equal(h.length, 64);
+  assert.equal(h[0], 'a');
+  assert.ok(h.every((x) => typeof x === 'string' && x.length <= 128));
 });

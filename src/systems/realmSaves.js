@@ -145,27 +145,32 @@ const unsentAtKey = (/** @type {string} */ id) => `${REALM_UNSENT_PREFIX}${id}.a
  *  it ('seq'), the character is gone, or the service will never take it ('too-large'). */
 const UNSENT_KEPT_ON = Object.freeze(['lease', 'auth', 'signed-out']);
 
-/** The device's copy of the newest save this session was handed, following sequence `seq`. Never throws: a device with
- *  no room keeps nothing, as before RESCUE-SAVE. */
-export function keepUnsent(/** @type {any} */ storage, /** @type {string} */ id, /** @type {number} */ seq, /** @type {string} */ text) {
+/** AUDIT RESCUE-SAVE A1: the spoils records a save was composed holding (scenes/spoilsPool.js heldIds - a gate's and a
+ *  town's thanks), kept beside the copy: their pieces are in its pack, so the crash's door must not hand them again. */
+const REALM_UNSENT_HELD_MAX = 64;
+const heldList = (/** @type {unknown} */ v) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string' && x && x.length <= 128).slice(0, REALM_UNSENT_HELD_MAX) : []);
+
+/** The device's copy of the newest save this session was handed, following sequence `seq`, and the spoils records
+ *  (`held`) its pack holds. Never throws: a device with no room keeps nothing, as before RESCUE-SAVE. */
+export function keepUnsent(/** @type {any} */ storage, /** @type {string} */ id, /** @type {number} */ seq, /** @type {string} */ text, /** @type {unknown} */ held = null) {
   if (!storage || !Number.isSafeInteger(seq) || seq < 1 || typeof text !== 'string' || !text) return false;
   try {
     storage.removeItem(unsentAtKey(id));
     storage.setItem(unsentKey(id), text);
-    storage.setItem(unsentAtKey(id), JSON.stringify({ seq, at: Date.now() }));
+    storage.setItem(unsentAtKey(id), JSON.stringify({ seq, at: Date.now(), held: heldList(held) }));
     return true;
   } catch {
     forgetUnsent(storage, id);   // quota: nothing half-kept
     return false;
   }
 }
-/** The device's copy - `{ seq, text, at }` - or null. */
+/** The device's copy - `{ seq, text, at, held }` - or null. */
 export function readUnsent(/** @type {any} */ storage, /** @type {string} */ id) {
   try {
     const at = JSON.parse(storage?.getItem?.(unsentAtKey(id)) ?? 'null');
     const text = storage?.getItem?.(unsentKey(id)) ?? null;
     if (!Number.isSafeInteger(at?.seq) || typeof text !== 'string' || !text) return null;
-    return { seq: at.seq, text, at: Number.isFinite(at.at) ? at.at : null };
+    return { seq: at.seq, text, at: Number.isFinite(at.at) ? at.at : null, held: heldList(at.held) };
   } catch { return null; }
 }
 /** This session's own put landed and a newer save still waits: the copy follows the sequence the service now holds. */
@@ -193,7 +198,7 @@ const putMayClear = (/** @type {any} */ r) => REALM_ACT_TRANSIENT.includes(r.err
 export function createRealmSession({ io, id, lease, seq, onLost = () => {} }) {
   const storage = io?.storage ?? null;   // RESCUE-SAVE: the device's copy of what the service has not taken
   let current = seq;
-  /** @type {{ text: string, summary: any, waiters: Array<(r: any) => void> } | null} */
+  /** @type {{ text: string, summary: any, held: unknown, waiters: Array<(r: any) => void> } | null} */
   let pending = null;
   /** @type {Promise<any> | null} */
   let running = null;
@@ -260,20 +265,21 @@ export function createRealmSession({ io, id, lease, seq, onLost = () => {} }) {
     get seq() { return current; },
     get lost() { return lost; },
     get waiting() { return !!pending; },
-    /** A checkpoint of this save text; answers a promise of the outcome - the put that carried it, or a newer one's. */
-    checkpoint(/** @type {string} */ text, /** @type {any} */ summary = null) {
+    /** A checkpoint of this save text; answers a promise of the outcome - the put that carried it, or a newer one's.
+     *  `held`: the spoils records its pack holds (AUDIT RESCUE-SAVE A1), kept with the device's copy. */
+    checkpoint(/** @type {string} */ text, /** @type {any} */ summary = null, /** @type {unknown} */ held = null) {
       if (lost) return Promise.resolve({ ok: false, error: lost });
       // REALM P2: a save composed while a transaction is in flight holds its goods in flight - never sent; the outcome's
       // own checkpoint (the host's, as it applies the answer) is the next one
       if (holding) return Promise.resolve({ ok: false, error: 'held' });
       // RESCUE-SAVE: ON THE DEVICE BEFORE IT LEAVES - a page gone before the put lands (closed, reloaded, the service
       // away, the keepalive leave ahead of it) leaves the save for the next join, never in this page's memory alone
-      keepUnsent(storage, id, current, text);
+      keepUnsent(storage, id, current, text, held);
       // AUDIT REALM2 C4: EACH CHECKPOINT ANSWERED BY THE PUT THAT CARRIED ITS SAVE - or, replaced before it left, by the
       // newer one's. All were answered with the drain's LAST put: a checkpoint that landed (the spoils it held banked on
       // the service) was told it failed when the one queued behind it did, and the spoils were handed again at a join
       return new Promise((settle) => {
-        pending = { text, summary, waiters: [...(pending?.waiters ?? []), settle] };
+        pending = { text, summary, held, waiters: [...(pending?.waiters ?? []), settle] };
         if (!running) running = drain();
       });
     },
@@ -309,7 +315,7 @@ export function createRealmSession({ io, id, lease, seq, onLost = () => {} }) {
      *  which a browser can finish after the page is gone), then the lease given up. */
     async leave({ keepalive = false } = {}) {
       if (lost) return { ok: false, error: lost };
-      if (!keepalive) { if (running) await running; if (pending) await session.checkpoint(pending.text, pending.summary); }
+      if (!keepalive) { if (running) await running; if (pending) await session.checkpoint(pending.text, pending.summary, pending.held); }
       lost = 'left';
       return realmLeave(io, id, lease, { keepalive });
     },
@@ -380,14 +386,18 @@ export function realmRowAsSave(row, { dateText = () => null } = {}) {
  * parsed as a slot load parses. The character's id in the save is the realm's (a customs character's save still names
  * the offline id it came from). Answers `{ ok, snap, lease, seq, origin }` - `origin` the offline id a customs
  * character came from, from the join (RESTORE) - or `{ ok: false, error }`. RESCUE-SAVE: `restored: true` when the
- * save is the device's copy of one the service never took, played in place of the service's older one.
+ * save is the device's copy of one the service never took, played in place of the service's older one, with `held`
+ * the spoils records its pack already holds (AUDIT RESCUE-SAVE A1 - the crash's door adopts them, never hands them).
  * @param {{ io: any, id: string }} at
  */
 export async function openRealmBoot({ io, id }) {
   if (!io) return { ok: false, error: 'signed-out' };
   if (typeof id !== 'string' || !REALM_ID_SHAPE.test(id)) return { ok: false, error: 'no-realm-character' };
   const joined = await realmJoin(io, id);
-  if (!joined.ok) return { ok: false, error: joined.error };
+  if (!joined.ok) {
+    if (joined.error === 'no-realm-character') forgetUnsent(io.storage, id);   // AUDIT RESCUE-SAVE A2: deleted elsewhere - its copy goes too
+    return { ok: false, error: joined.error };
+  }
   const { lease, seq, bytes, origin = null } = joined.data ?? {};
   if (!(bytes > 0)) return { ok: false, error: 'no-data' };
   // RESCUE-SAVE: the device's copy follows the sequence the record still stands at - nothing landed after it - so it is
@@ -395,7 +405,7 @@ export async function openRealmBoot({ io, id }) {
   const kept = readUnsent(io.storage, id);
   if (kept && kept.seq === seq) {
     const snap = parseSave(kept.text);
-    if (snap) { snap.characterId = id; return { ok: true, snap, lease, seq, origin: typeof origin === 'string' ? origin : null, restored: true }; }
+    if (snap) { snap.characterId = id; return { ok: true, snap, lease, seq, origin: typeof origin === 'string' ? origin : null, restored: true, held: kept.held }; }
   }
   if (kept) forgetUnsent(io.storage, id);
   const got = await realmFetch(io, id);

@@ -192,11 +192,13 @@ function keptPiece(p) {
  * one does; a save since the burst holds them, and the record is cleared; another character's record waits for them.
  * Answers how many pieces it handed over.
  * @param {{ get: (k: string) => any, remove: (k: string) => void, set?: (k: string, v: any) => void }} store @param {(piece: any) => void} take
- * @param {{ who?: string|null, saves?: Iterable<any>, onHanded?: ((rec: any) => void)|null, key?: string }} [opts] this character's id,
+ * @param {{ who?: string|null, saves?: Iterable<any>, onHanded?: ((rec: any) => void)|null, key?: string, inSave?: readonly string[]|null }} [opts] this character's id,
  *   the save slots' infos, who is told of each record of this build handed over (the pool's `adopt` - its next save
- *   clears it), and (RAID4b) the key the records are kept under - a boss's by default
+ *   clears it), (RAID4b) the key the records are kept under - a boss's by default - and (AUDIT RESCUE-SAVE A1) the
+ *   records the loaded save's pack already holds: a realm save the device kept (systems/realmSaves.js openRealmBoot
+ *   `held`) was composed holding them, so they are adopted and never handed again; the next save that lands clears them
  */
-export function recoverSpoils(store, take, { who = null, saves = [], onHanded = null, key = SPOILS_STORE_KEY } = {}) {
+export function recoverSpoils(store, take, { who = null, saves = [], onHanded = null, key = SPOILS_STORE_KEY, inSave = null } = {}) {
   let v = null;
   try { v = store.get(key); } catch { v = null; }
   if (!v) return 0;
@@ -209,6 +211,8 @@ export function recoverSpoils(store, take, { who = null, saves = [], onHanded = 
     // AUDIT WBX S3: a record of this build is cleared by the save that holds it (the pool's `saved`) - never by a clock;
     // an older build's keeps the old rule, the slots' realTime against its own
     if (rec.v !== SPOILS_RECORD_V && savedSince(infos, rec.who ?? who, rec.at)) continue;   // a save since holds them: it goes
+    // AUDIT RESCUE-SAVE A1: the loaded save already holds them - adopted, so the save that lands clears the record
+    if (rec.v === SPOILS_RECORD_V && inSave?.includes(rec.id)) { left.push(rec); onHanded?.(rec); continue; }
     for (const p of rec.pieces) { const q = keptPiece(p); if (q) { take(q); n++; } }
     left.push(rec);   // and it stays until a save does
     if (rec.v === SPOILS_RECORD_V) onHanded?.(rec);   // in the pack now: the next save of its character clears it

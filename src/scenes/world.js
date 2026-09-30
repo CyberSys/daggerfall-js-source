@@ -742,7 +742,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   if (realmSession) setRealmSaveSink((snap) => {
     const who = characterIdOf(playerEntity);
     const holding = _realmSaveHooks.held(who);
-    return realmSession.checkpoint(JSON.stringify(snap), realmSummaryOf(playerEntity)).then((r) => { if (r?.ok && holding?.length) _realmSaveHooks.landed(who, holding); return r; }).catch(() => ({ ok: false, error: 'server' }));   // AUDIT REALM2 C2: the outcome answered back - F9's word is the realm's answer
+    return realmSession.checkpoint(JSON.stringify(snap), realmSummaryOf(playerEntity), holding).then((r) => { if (r?.ok && holding?.length) _realmSaveHooks.landed(who, holding); return r; }).catch(() => ({ ok: false, error: 'server' }));   // AUDIT REALM2 C2: the outcome answered back - F9's word is the realm's answer
   });
   // MW-EARLY: the save the load door at the end of this boot restores - its pick, and its ONE parse (AUDIT MW-EARLY F3,
   // below). AUDIT FINAL F9: declared here, first, so the Test Room's check below reads that same parse and that same
@@ -16308,13 +16308,17 @@ export async function bootWorld(canvas, renderer, params, status) {
   const courtFogNow = () => { _courtFog.mode = renderer._fogMode; _courtFog.density = renderer._fogDensity; _courtFog.range = renderer._fogRange; _courtFog.color = renderer._fogColor; _courtFog.camPos = renderer._camPos; return _courtFog; };
   const courtFireBeds = courtBraziers().map(([, p]) => courtToDungeon(p[0], 1.2, p[2]));
   let _spoilsAskedFor = null;
+  // AUDIT RESCUE-SAVE A1: a realm save the device kept already holds the records it was composed holding - the boot's
+  // own stand-up adopts them and hands none (systems/realmSaves.js openRealmBoot `held`); asked once, for that load
+  let _spoilsInSave = realmBoot?.restored ? realmBoot.held : null;
   const spoilsRecoverFrame = () => {
     if (!playerSpawned) return;
     const who = characterIdOf(playerEntity);
     if (who === _spoilsAskedFor) return;
     _spoilsAskedFor = who;
-    try { if (recoverSpoils(_spoilsStore, takeSpoil, { who, saves: enumerateSaves().info.values(), onHanded: (rec) => spoilsPool.adopt(rec) })) setMidScreenText(SPOILS_TEXT.gathered); } catch (e) { console.warn('[gate] spoils', e?.message ?? e); }   // AUDIT WBX S3: in the pack now - the next save clears it
-    try { if (recoverSpoils(_spoilsStore, takeSpoil, { who, saves: enumerateSaves().info.values(), onHanded: (rec) => raidSpoils.adopt(rec), key: RAID_SPOILS_KEYS.store })) setMidScreenText(RAID_SPOILS_TEXT.recovered); } catch (e) { console.warn('[raid] spoils', e?.message ?? e); }   // RAID4b: a town's thanks, the same door
+    try { if (recoverSpoils(_spoilsStore, takeSpoil, { who, saves: enumerateSaves().info.values(), onHanded: (rec) => spoilsPool.adopt(rec), inSave: _spoilsInSave })) setMidScreenText(SPOILS_TEXT.gathered); } catch (e) { console.warn('[gate] spoils', e?.message ?? e); }   // AUDIT WBX S3: in the pack now - the next save clears it
+    try { if (recoverSpoils(_spoilsStore, takeSpoil, { who, saves: enumerateSaves().info.values(), onHanded: (rec) => raidSpoils.adopt(rec), key: RAID_SPOILS_KEYS.store, inSave: _spoilsInSave })) setMidScreenText(RAID_SPOILS_TEXT.recovered); } catch (e) { console.warn('[raid] spoils', e?.message ?? e); }   // RAID4b: a town's thanks, the same door
+    _spoilsInSave = null;   // AUDIT RESCUE-SAVE A1: the boot's load alone - a load in the session is its own pack
   };
   // AUDIT ONLINE2 F3 (AUDIT RAID R8d): A LOAD IN THE SESSION IS A STAND-UP - the pack is the loaded save's, so the pools
   // let go of what they held in the old one, and the crash's door asks again for the loaded character (a town's thanks

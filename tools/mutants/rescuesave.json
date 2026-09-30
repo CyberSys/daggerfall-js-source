@@ -1,0 +1,174 @@
+[
+  {
+    "name": "RESCUE-SAVE-never-kept",
+    "file": "src/systems/realmSaves.js",
+    "old": "      keepUnsent(storage, id, current, text, held);\n",
+    "new": "",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "RESCUE-SAVE-the-copy-never-played",
+    "file": "src/systems/realmSaves.js",
+    "old": "if (kept && kept.seq === seq) {",
+    "new": "if (kept && false) {",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "RESCUE-SAVE-played-past-the-record",
+    "file": "src/systems/realmSaves.js",
+    "old": "if (kept && kept.seq === seq) {",
+    "new": "if (kept && kept.seq <= seq) {",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "RESCUE-SAVE-a-stale-copy-kept",
+    "file": "src/systems/realmSaves.js",
+    "old": "  if (kept) forgetUnsent(io.storage, id);\n",
+    "new": "",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "RESCUE-SAVE-landed-keeps-the-copy",
+    "file": "src/systems/realmSaves.js",
+    "old": "if (pending) rebaseUnsent(storage, id, current); else forgetUnsent(storage, id);",
+    "new": "if (pending) rebaseUnsent(storage, id, current);",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "RESCUE-SAVE-never-rebased",
+    "file": "src/systems/realmSaves.js",
+    "old": "if (pending) rebaseUnsent(storage, id, current); else forgetUnsent(storage, id);",
+    "new": "if (!pending) forgetUnsent(storage, id);",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "RESCUE-SAVE-a-refused-copy-kept",
+    "file": "src/systems/realmSaves.js",
+    "old": "          if (!UNSENT_KEPT_ON.includes(r.error)) forgetUnsent(storage, id);",
+    "new": "",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "RESCUE-SAVE-lease-drops-the-copy",
+    "file": "src/systems/realmSaves.js",
+    "old": "const UNSENT_KEPT_ON = Object.freeze(['lease', 'auth', 'signed-out']);",
+    "new": "const UNSENT_KEPT_ON = Object.freeze(['auth', 'signed-out']);",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "RESCUE-SAVE-delete-keeps-the-copy",
+    "file": "src/systems/realmSaves.js",
+    "old": "  if (r.ok) forgetUnsent(io?.storage, id);\n",
+    "new": "",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "RESCUE-SAVE-a-held-save-kept",
+    "file": "src/systems/realmSaves.js",
+    "old": "      if (holding) return Promise.resolve({ ok: false, error: 'held' });\n      // RESCUE-SAVE: ON THE DEVICE BEFORE IT LEAVES",
+    "new": "      if (holding) { keepUnsent(storage, id, current, text, held); return Promise.resolve({ ok: false, error: 'held' }); }\n      // RESCUE-SAVE: ON THE DEVICE BEFORE IT LEAVES",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "RESCUE-SAVE-half-kept-on-a-full-device",
+    "file": "src/systems/realmSaves.js",
+    "old": "    forgetUnsent(storage, id);   // quota: nothing half-kept\n",
+    "new": "",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "RESCUE-SAVE-the-host-never-says",
+    "file": "src/scenes/world.js",
+    "old": "  if (realmBoot?.restored) townTalk.say(REALM_RESTORED_TEXT);",
+    "new": "",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-RESCUE-SAVE-A1-nothing-held-with-the-copy",
+    "file": "src/scenes/world.js",
+    "old": "realmSummaryOf(playerEntity), holding).then(",
+    "new": "realmSummaryOf(playerEntity)).then(",
+    "tests": [
+      "test/rescuesave.test.js",
+      "test/realm3.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-RESCUE-SAVE-A1-the-door-hands-them-anyway",
+    "file": "src/scenes/spoilsPool.js",
+    "old": "    if (rec.v === SPOILS_RECORD_V && inSave?.includes(rec.id)) { left.push(rec); onHanded?.(rec); continue; }\n",
+    "new": "",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-RESCUE-SAVE-A1-the-host-never-asks",
+    "file": "src/scenes/world.js",
+    "old": "let _spoilsInSave = realmBoot?.restored ? realmBoot.held : null;",
+    "new": "let _spoilsInSave = null;",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-RESCUE-SAVE-A1-the-boot-answers-none",
+    "file": "src/systems/realmSaves.js",
+    "old": "restored: true, held: kept.held };",
+    "new": "restored: true };",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-RESCUE-SAVE-A1-the-resend-drops-them",
+    "file": "src/systems/realmSaves.js",
+    "old": "await session.checkpoint(pending.text, pending.summary, pending.held); }",
+    "new": "await session.checkpoint(pending.text, pending.summary); }",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-RESCUE-SAVE-A1-held-unbounded",
+    "file": "src/systems/realmSaves.js",
+    "old": ".slice(0, REALM_UNSENT_HELD_MAX)",
+    "new": "",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-RESCUE-SAVE-A2-deleted-elsewhere-keeps-the-copy",
+    "file": "src/systems/realmSaves.js",
+    "old": "    if (joined.error === 'no-realm-character') forgetUnsent(io.storage, id);",
+    "new": "",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  }
+]
