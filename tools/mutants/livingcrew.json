@@ -74,7 +74,7 @@
   {
     "name": "CREW-blurbs-unspaced",
     "file": "src/systems/naval/crewLife.js",
-    "old": "        m.blurbT = within(rng, CREW_BLURB_S) * (battle ? 0.35 : 1);",
+    "old": "        m.blurbT = within(rng, CREW_BLURB_S) * (battle ? 0.35 : struck ? 2 : 1);",
     "new": "        m.blurbT = 0;",
     "tests": [
       "test/livingcrew.test.js"
@@ -83,8 +83,8 @@
   {
     "name": "CREW-song-under-the-guns",
     "file": "src/systems/naval/crewLife.js",
-    "old": "    if (!battle && !muster) {\n      if (chanty) {",
-    "new": "    if (!muster) {\n      if (chanty) {",
+    "old": "    if (!battle && !muster && !struck) {\n      if (chanty) {",
+    "new": "    if (!muster && !struck) {\n      if (chanty) {",
     "tests": [
       "test/livingcrew.test.js"
     ]
@@ -101,7 +101,7 @@
   {
     "name": "CREW-muster-unspread",
     "file": "src/systems/naval/crewLife.js",
-    "old": "          const z = ext ? ext[0] + (ext[1] - ext[0]) * ((zs[n] + 0.5) / crew.length) : m.pos[2];",
+    "old": "          const z = ext ? ext[0] + (ext[1] - ext[0]) * ((zs[n] + 0.5) / walkers.length) : m.pos[2];",
     "new": "          const z = m.pos[2];",
     "tests": [
       "test/livingcrew.test.js"
@@ -128,8 +128,8 @@
   {
     "name": "CREW-never-gives-up",
     "file": "src/systems/naval/crewLife.js",
-    "old": "> CREW_BLOCKED_S && m.state === 'walk') { m.path = null; m.blockT = 0; }",
-    "new": "> 1e9 && m.state === 'walk') { m.path = null; m.blockT = 0; }",
+    "old": "> CREW_BLOCKED_S) { m.path = null; m.blockT = 0; if (m.state === 'toTalk') endTalk(m); }",
+    "new": "> 1e9) { m.path = null; m.blockT = 0; if (m.state === 'toTalk') endTalk(m); }",
     "tests": [
       "test/livingcrew.test.js"
     ]
@@ -146,7 +146,7 @@
   {
     "name": "CREW-trim-from-the-first",
     "file": "src/systems/naval/crewLife.js",
-    "old": "      for (let i = members.length - 1; i > 0 && alive > n; i--) {",
+    "old": "      for (let i = members.length - 1; i >= 0 && alive > n; i--) {",
     "new": "      for (let i = 0; i < members.length && alive > n; i++) {",
     "tests": [
       "test/livingcrew.test.js"
@@ -371,7 +371,7 @@
   {
     "name": "WORLD-crew-unstepped",
     "file": "src/scenes/world.js",
-    "old": "      navalCrewFrame(foeDt);   // LIVING CREW: the crews at their work on the decks near the eye\n",
+    "old": "      navalCrewFrame(gamePaused() ? 0 : foeDt);   // LIVING CREW: the crews at their work on the decks near the eye - AUDIT NAV2 F53: held with the sea under a window\n",
     "new": "",
     "tests": [
       "test/livingcrew.test.js"

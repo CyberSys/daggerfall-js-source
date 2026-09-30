@@ -2949,26 +2949,65 @@ export function createNavalHost(deps) {
       return out;
     },
     /** LIVING CREW (scenes/navalCrew.js): the sea's ships whose crew can stand on her deck - her boat built, afloat,
-     *  struck or taken - each with her class (the muster's classes), what her crew has left, her seed, her faction,
-     *  whether her guns are out (`battle`: she engages, boards, runs or answers gunfire) and whether her crew is held
-     *  off her deck (`hold`: a prize, or her men the fight's - my boarding's, or another's in a room). */
+     *  struck or taken, AUDIT NAV2 F45: or going down (her living crew aboard to the end, never the mod's static flats in
+     *  her last minute; she drops once sunk) - each with her class (the muster's classes), what her crew has left, her
+     *  seed, her faction, whether her guns are out (`battle`: she engages, boards, runs or answers gunfire), AUDIT NAV2
+     *  F46: whether her colours are down (`struck`: struck, taken or going down - no song, no calm word), whether her
+     *  crew is held off her deck (`hold`: a prize, or her men the fight's - my boarding's, or another's in a room) and,
+     *  AUDIT NAV2 F40, a boarding at hand (`toward`, the point her crew musters toward): the ship she closes on to board
+     *  (her 'board' course), or me in reach to board her once she has struck (my helm within BOARD_RANGE past the two
+     *  beams, my feet within FOOT_BOARD_M of her side) - a ship to come alongside set abeam of her on the side it will
+     *  lie once she is (berthPose's: she lies on the side of its keel she is on, her heading its own or its reciprocal),
+     *  at its distance (her men swung rail to rail while she came up bow-on). */
     crewShips() {
       if (!enabled) return [];
       const out = [];
+      const helm = myBoat();
+      let feet = null;
+      const abeam = (e, pos, yaw) => {
+        const lie = (e.ship.pos[0] - pos[0]) * Math.cos(yaw) - (e.ship.pos[2] - pos[2]) * Math.sin(yaw) >= 0 ? 1 : -1;
+        const s = (Math.cos(e.ship.yaw - yaw) >= 0 ? -lie : lie) * dist2d(e.ship.pos, pos);
+        return [e.ship.pos[0] + Math.cos(e.ship.yaw) * s, e.ship.pos[1], e.ship.pos[2] - Math.sin(e.ship.yaw) * s];
+      };
       for (const e of sea.values()) {
         const st = e.ship.damage.state;
-        if (!e.boat || (st !== SHIP_STATES.afloat && st !== SHIP_STATES.struck && st !== SHIP_STATES.prize)) continue;
+        if (!e.boat || (st !== SHIP_STATES.afloat && st !== SHIP_STATES.struck && st !== SHIP_STATES.prize && st !== SHIP_STATES.sinking)) continue;
         const mine = boarding?.shipId === e.id;
         const hold = st === SHIP_STATES.prize || (mine ? boarding.phase === 'fight' && boarding.kind === 'board' : !!e.ship.boarded);
         const battle = st === SHIP_STATES.afloat && e.ship.mode !== 'cruise';
-        out.push({ key: e.id, boat: e.boat, pos: e.ship.pos, shipClass: e.ship.cls, crewShare: e.ship.damage.crewShare(), seed: e.ship.seed, faction: e.ship.cls.faction, battle, hold });
+        let toward = null;
+        if (st === SHIP_STATES.afloat && e.ship.mode === 'board' && !e.ship.boarded) {
+          const t = e.ship.target, me = t === myId() ? boatInPlay() : null, other = me ? null : sea.get(t);
+          const peer = me || other ? null : (deps.peerBoats?.() ?? []).find((p) => p.id === t);
+          const [pos, yaw] = me ? [me.GameObject.position, yawOfRot(me.GameObject.rotation)] : other ? [other.ship.pos, other.ship.yaw] : [peer?.pos ?? null, peer?.yaw];
+          if (pos) toward = Number.isFinite(yaw) ? abeam(e, pos, yaw) : pos;
+        } else if (st === SHIP_STATES.struck && !e.ship.boarded && !boarding) {
+          const from = helm ? helm.GameObject.position : (feet ??= deps.feet());
+          const gap = dist2d(e.ship.pos, from) - hullBuild(e.ship.hull).beam - (helm ? hullBuild(helm.hull).beam : 0);
+          if (gap <= (helm ? BOARD_RANGE : FOOT_BOARD_M)) toward = helm ? abeam(e, from, yawOfRot(helm.GameObject.rotation)) : from;
+        }
+        out.push({ key: e.id, boat: e.boat, pos: e.ship.pos, shipClass: e.ship.cls, crewShare: e.ship.damage.crewShare(), seed: e.ship.seed, faction: e.ship.cls.faction, battle, struck: st !== SHIP_STATES.afloat, hold, toward });
       }
       return out;
     },
     /** LIVING CREW: a sea ship's boat by her id (a grapple's other ship, whose rail a crew musters toward). */
     boatOf: (id) => sea.get(id)?.boat ?? null,
-    /** LIVING CREW: a boat of mine's crew - her count and whether she is in a fight (the aim laid, a hostile near). */
-    myCrew(boat) { const st = myBoatState(boat); return st ? { crew: st.damage.crew, battle: aiming || hostileNearMe() } : null; },
+    /** LIVING CREW: a boat of mine's crew - her count, whether she is in a fight (the aim laid, a hostile near) and, AUDIT
+     *  NAV2 F40, a boarding at hand (`toward`, the point her crew musters toward): a ship closing on her to board, or -
+     *  at her helm - a struck ship in her reach (BOARD_RANGE past the two beams). */
+    myCrew(boat) {
+      const st = myBoatState(boat);
+      if (!st) return null;
+      let toward = null;
+      for (const e of sea.values()) {
+        const s = e.ship.damage.state;
+        if (s === SHIP_STATES.afloat && e.ship.mode === 'board' && !e.ship.boarded && e.ship.target === myId()) {
+          if (boat === boatInPlay()) { toward = e.ship.pos; break; }
+        } else if (!toward && !boarding && boat === myBoat() && s === SHIP_STATES.struck && !e.ship.boarded && e.boat
+          && dist2d(e.ship.pos, boat.GameObject.position) - hullBuild(e.ship.hull).beam - hullBuild(boat.hull).beam <= BOARD_RANGE) toward = e.ship.pos;
+      }
+      return { crew: st.damage.crew, battle: aiming || hostileNearMe(), toward };
+    },
     /** The sea ships' boats standing near enough to be struck and walked on (the world's collider takes them). */
     collidable() { const f = deps.feet(); return [...sea.values()].filter((e) => e.boat && dist2d(e.ship.pos, f) < COLLIDE_RANGE).map((e) => e.boat); },
     /** Every sea ship's boat (their particles ride Come Sail Away's lists). */

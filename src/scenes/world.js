@@ -6764,15 +6764,27 @@ export async function bootWorld(canvas, renderer, params, status) {
   }
   /** LIVING CREW (scenes/navalCrew.js, systems/naval/crewLife.js; 2026-09-29, Mac: "Crew members shouldnt be the static
    *  sprites ... they should navigate the deck, talk with each other, blurb, sing chantys"): the crews on the decks
-   *  within CREW_RANGE of the eye - my crewed boats' (their count off my boat's crew), a room's (her hull's own) and the
-   *  sea's (her muster, what her crew has left) - stepped and carried, each told her guns (`battle`), a grapple's side
-   *  (both crews to the rail facing the other) and where I stand on her (never walked through). A fight's end brings my
-   *  hands home. */
+   *  within CREW_RANGE of the eye - my crewed boats' (their count off my boat's crew), a room's (her owner's word's, her
+   *  hull's own till the host says it) and the sea's (her muster, what her crew has left) - stepped and carried, each
+   *  told her guns (`battle`), her colours (`struck`), a grapple's side or a boarding's at hand (both crews to the rail
+   *  facing the other) and where I stand on her (never walked through). A fight's end brings my hands home; the arc off,
+   *  none stands. */
   let _crewBoarding = null;
-  const _crewCtx = { battle: false, muster: 0, avoid: null }, _crewMe = [0, 0, 0], _crewThem = [0, 0, 0];
+  const _crewCtx = { battle: false, struck: false, muster: 0, avoid: null }, _crewMe = [0, 0, 0], _crewThem = [0, 0, 0];
   const _crewSeed = (s) => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193); return h >>> 0; };
+  /** AUDIT NAV2 F9: my boat's crew seeded as a room seeds her (comeSailAwayPeers peerKey, `${whose}:${which}` - which,
+   *  her place among my word's boats: csaWord's order, the active ones) so her owner and every reader stand one crew;
+   *  offline her deed's uid. */
+  const _crewSeedOf = (boat) => {
+    const id = online?.id ?? null;
+    if (id && csaRuntime) { let n = 0; for (const x of csaRuntime.AllBoats) { if (x === boat) return _crewSeed(`${id}:${n}`); if (x.GameObject?.activeSelf) n++; } }
+    return (boat.uid ?? 1) >>> 0;
+  };
+  /** AUDIT NAV2 F9: whose a room's boat is - her key's owner (`${owner}:${slot}`). */
+  const _crewOwner = (boat) => { const k = boat.peerKey ?? ''; return k.slice(0, k.lastIndexOf(':')); };
   function navalCrewFrame(dt) {
-    if (!csa?.deckOf || (modes?.mode ?? 'exterior') !== 'exterior') { navalCrew.clear(); return; }
+    // AUDIT NAV2 F52: the naval arc off, Come Sail Away stands as the mod stands - its own people flats, no living crew
+    if (!navalOn() || !csa?.deckOf || (modes?.mode ?? 'exterior') !== 'exterior') { navalCrew.clear(); return; }
     const b = naval?.boarding ?? null;
     if (_crewBoarding && !b) for (const boat of csa.boats) navalCrew.reset(boat);   // the fight over: my hands come home
     _crewBoarding = b;
@@ -6780,29 +6792,34 @@ export async function bootWorld(canvas, renderer, params, status) {
     const near = (key, pos) => !!pos && Math.hypot(pos[0] - eye[0], pos[2] - eye[2]) < (navalCrew.has(key) ? CREW_KEEP : CREW_RANGE);
     for (const boat of csa.boats) {
       if (!boat?.crewed || !boat.GameObject?.activeSelf || !near(boat, boat.GameObject.position)) continue;
-      const mine = naval?.myCrew?.(boat) ?? null, crew = mine?.crew ?? hullBuild(boat.hull).crew, seed = (boat.uid ?? 1) >>> 0;
-      list.push({ key: boat, boat, deck: csa.deckOf(boat.hull, boat.variant ?? 0), count: crewCount({ hull: boat.hull, crew }), rosterOf: () => crewRoster({ hull: boat.hull, seed, crew }), seed, faction: null, battle: !!mine?.battle });
+      const mine = naval?.myCrew?.(boat) ?? null, crew = mine?.crew ?? hullBuild(boat.hull).crew, seed = _crewSeedOf(boat);
+      list.push({ key: boat, boat, deck: csa.deckOf(boat.hull, boat.variant ?? 0), count: crewCount({ hull: boat.hull, crew }), rosterOf: () => crewRoster({ hull: boat.hull, seed, crew }), seed, faction: null, battle: !!mine?.battle, toward: mine?.toward ?? null });
     }
     for (const boat of csa.peerBoats) {
       if (!boat?.crewed || !boat.GameObject?.activeSelf || !near(boat, boat.GameObject.position)) continue;
-      const crew = hullBuild(boat.hull).crew, seed = _crewSeed(boat.peerKey ?? '');
-      list.push({ key: boat, boat, deck: csa.deckOf(boat.hull, boat.variant ?? 0), count: crewCount({ hull: boat.hull, crew }), rosterOf: () => crewRoster({ hull: boat.hull, seed, crew }), seed, faction: null, battle: false });
+      // AUDIT NAV2 F9: her crew and her fight as her owner's word says them (the host's peerBoat) - her hull's whole
+      // crew, at peace, until it does
+      const word = naval?.peerBoat?.(_crewOwner(boat)) ?? null;
+      const crew = Math.round(hullBuild(boat.hull).crew * (word?.crewShare ?? 1)), seed = _crewSeed(boat.peerKey ?? '');
+      list.push({ key: boat, boat, deck: csa.deckOf(boat.hull, boat.variant ?? 0), count: crewCount({ hull: boat.hull, crew }), rosterOf: () => crewRoster({ hull: boat.hull, seed, crew }), seed, faction: null, battle: !!word?.battle });
     }
     for (const s of naval?.crewShips?.() ?? []) {
       if (!near(s.key, s.pos)) continue;
-      list.push({ key: s.key, boat: s.boat, deck: csa.deckOf(s.boat.hull, s.boat.variant ?? 0), count: crewCount({ hull: s.boat.hull, shipClass: s.shipClass, crewShare: s.crewShare }), rosterOf: () => crewRoster({ hull: s.boat.hull, seed: s.seed, shipClass: s.shipClass, crewShare: s.crewShare }), seed: s.seed, faction: s.faction, battle: s.battle, hold: s.hold });
+      list.push({ key: s.key, boat: s.boat, deck: csa.deckOf(s.boat.hull, s.boat.variant ?? 0), count: crewCount({ hull: s.boat.hull, shipClass: s.shipClass, crewShare: s.crewShare }), rosterOf: () => crewRoster({ hull: s.boat.hull, seed: s.seed, shipClass: s.shipClass, crewShare: s.crewShare }), seed: s.seed, faction: s.faction, battle: s.battle, struck: s.struck, toward: s.toward, hold: s.hold });
     }
     navalCrew.sync(list);
     const grapple = b?.phase === 'grapple' ? b : null;
     navalCrew.frame(dt, eye, (key, ship) => {
       const m = ship.boat.MeshObject.worldMatrix();
-      _crewCtx.battle = ship.battle; _crewCtx.muster = 0; _crewCtx.avoid = null;
+      _crewCtx.battle = ship.battle; _crewCtx.struck = ship.struck; _crewCtx.muster = 0; _crewCtx.avoid = null;
       if (walkMode && playerSpawned) {   // me on her deck: never walked through
         intoDeck(m, player.pos, _crewMe);
         if (Math.abs(_crewMe[1] - (ship.deck.heightAt(_crewMe[0], _crewMe[2]) || 0)) < 2) _crewCtx.avoid = _crewMe;
       }
       const other = grapple ? (key === grapple.shipId ? grapple.boat : key === grapple.boat ? naval.boatOf(grapple.shipId) : null) : null;
-      if (other?.GameObject) { intoDeck(m, other.GameObject.position, _crewThem); _crewCtx.muster = _crewThem[0] >= 0 ? 1 : -1; }
+      // AUDIT NAV2 F40: or a boarding at hand (navalHost crewShips/myCrew `toward`) - the rail on the side it lies on
+      const toward = other?.GameObject ? other.GameObject.position : ship.toward;
+      if (toward) { intoDeck(m, toward, _crewThem); _crewCtx.muster = _crewThem[0] >= 0 ? 1 : -1; }
       return _crewCtx;
     });
   }
@@ -23089,7 +23106,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       if (_deckBodies.size) navalCarry();   // DECK-WALK: the bodies on a ship's deck carried by her - after the ships moved, before the foes do
       exteriorFoes.update(foeDt, _pf, cam.pos, _foeSenses());   // WINFOE1: a window no longer zeroes the foes' clock (QUEST-POPUP-PAUSE: offline, a quest box does)
       if (_deckBodies.size) navalLeash();   // DECK-WALK: the bodies on a ship's deck kept on it - after they moved, before they are drawn
-      navalCrewFrame(foeDt);   // LIVING CREW: the crews at their work on the decks near the eye
+      navalCrewFrame(gamePaused() ? 0 : foeDt);   // LIVING CREW: the crews at their work on the decks near the eye - AUDIT NAV2 F53: held with the sea under a window
       livePersonBatches.push(...exteriorFoes.batches(), ...navalCrew.batches());
       if (playerSpawned) _townWatchFrame(foeDt);   // DISC19-F: the town's answer to what the pools just did
       if (playerSpawned) raidingPartiesFrame(gamePaused() ? 0 : foeDt);   // RAID1: the raids' Update - after the pools moved (a death counts on the frame it falls) and the watch answered, its clocks held by a pause (fix 7)
