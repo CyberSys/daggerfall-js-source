@@ -825,7 +825,7 @@ export async function runLauncher(canvas, renderer, status) {
   let font;
   try { font = makeFont(renderer, new FntFile().load(await getBytes('FONT0003.FNT')), 'FONT0003'); }
   catch (e) { console.warn('[settings] FONT0003.FNT unavailable; skipping the settings screen', e); return; }
-  // AUDIT: boot audio HERE. main.js:104 runs this scene before the splash's
+  // AUDIT: boot audio HERE. main.js:107 runs this scene before the splash's
   // ensureAudio, so audio.enabled was false and every playOneShot in the old
   // launcher was silently a no-op. Un-awaited: audio.ensure creates the
   // context in its synchronous prefix and attaches its own gesture resume
@@ -912,7 +912,7 @@ This single test would have caught the phone text halving, the 8‑px picker row
 | Glyph advance, space width, trailing spacing | `DaggerfallFont.cs:377-383`, `:623-627` → `text.js` |
 | Default text colour + `+1,+1` shadow; `ShadowPosition = zero` inside filled buttons | `DaggerfallUI` → `nativePanel.js:25-26`; precedent `guildServiceWindow.js:178-180` |
 | `ScreenDimColor` behind modals | `DaggerfallUI` → `nativePanel.js:27` |
-| The launcher gate (wizard shown when unvalidated OR `ShowOptionsAtStart` OR a held key; skip straight to Options when the path is good) | `SceneControl.cs:46`, wizard `:154` → `main.js:104` |
+| The launcher gate (wizard shown when unvalidated OR `ShowOptionsAtStart` OR a held key; skip straight to Options when the path is good) | `SceneControl.cs:46`, wizard `:154` → `main.js:107` |
 
 ### 9.2 OURS — the presentation split (Ledger A), flagged in each file's header
 
