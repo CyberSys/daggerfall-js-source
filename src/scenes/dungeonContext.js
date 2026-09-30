@@ -6456,12 +6456,16 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         const out = f._mout;
         const rkey = `${out.record}#${out.frame}`;
         if (!renderer.textures.has(`${f.mobileArchive}_${rkey}`)) uploadRecordFrame(f.mobileArchive, out.record, out.frame);
-        const sz = mobileBillboardSize(f.mobileTex, out.record);   // AUDIT MM1: a mobile unit's record cache carries the xml scale
+        const sz = mobileBillboardSize(f.mobileTex, out.record);   // AUDIT MM1: a mobile unit's record cache carries the xml scale - a shared, cached object: read, never written
         // C17: the texture-475 female casting records read too small
         // from the files - DFU post-scales 20-24 by 1.35 (OrientEnemy).
-        if (f.mobileArchive === 475 && out.record >= 20 && out.record <= 24) { sz.w *= 1.35; sz.h *= 1.35; }
+        // FB0930-FOE-RAYS: onto LOCALS. It multiplied the width and height ON the
+        // cache's own object, so every frame a caster spent casting grew
+        // that record by another 35% for the rest of the session.
+        const szK = f.mobileArchive === 475 && out.record >= 20 && out.record <= 24 ? 1.35 : 1;
+        const szW = sz.w * szK, szH = sz.h * szK;
         f.batch.record = rkey;
-        f.batch.size = { w: out.flip ? -sz.w : sz.w, h: sz.h };   // negative width = FlipLeftRight (UVs ride the corners)
+        f.batch.size = { w: out.flip ? -szW : szW, h: szH };   // negative width = FlipLeftRight (UVs ride the corners)
         // INCIDENT 2026-09-04: the billboard shader bottom-anchors. A
         // walker's origin is its feet (DaggerfallMobileUnit.cs:402-406
         // keeps them aligned across records); a flyer or swimmer keeps
@@ -6469,7 +6473,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         const _bh = f.mobile.basics.behaviour ?? 'General';
         if ((_bh === 'Flying' || _bh === 'Aquatic') && f.idleH !== undefined) {
           const o = f._origin ?? (f._origin = [0, 0, 0]);
-          o[0] = f.ai.feet[0]; o[1] = spriteOriginY(f.ai.feet[1], f.idleH, sz.h, _bh); o[2] = f.ai.feet[2];
+          o[0] = f.ai.feet[0]; o[1] = spriteOriginY(f.ai.feet[1], f.idleH, szH, _bh); o[2] = f.ai.feet[2];
           f.batch.origin = o;
         } else f.batch.origin = f.ai.feet;
         _mobileBatches.push(f.batch);

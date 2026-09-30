@@ -172,5 +172,6 @@ test('PERF-COL1: the walks keep their laws - the live local point per triangle, 
   const overlaps = src.slice(src.indexOf('  sphereOverlaps(center, radius) {'), src.indexOf('  capsuleCast('));
   assert.match(overlaps, /if \(!sphereTouchesBox\(lx, ly, lz, radius, bucket\.min, bucket\.max\)\) continue;/, 'the overlap test at its bare radius (its narrow phase is < r2, no skin)');
   assert.match(overlaps, /const visited = VISITED;\s*\n\s*visited\.clear\(\);/);
-  assert.equal((src.match(/new Set\(\)/g) || []).length, 2, 'the ray\'s per-bucket set and the module scratch - the two sphere walks mint none');
+  // FB0930-FOE-RAYS: the ray's set is a per-triangle stamp now (rayMarks), so the module scratch is the one Set left
+  assert.equal((src.match(/new Set\(\)/g) || []).length, 1, 'the module scratch alone - the two sphere walks mint none, the ray stamps');
 });
