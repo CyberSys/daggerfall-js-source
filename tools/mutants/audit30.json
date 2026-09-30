@@ -155,7 +155,7 @@
   {
     "name": "AUDIT30-U15-the-seller-s-listed-total",
     "file": "server-account/src/market.js",
-    "old": "'sold', kind, material, provenance, units, price, total - tax - tithe, at",
+    "old": "'sold', kind, material, provenance, units, price, total - tax - tithe - fee, at",
     "new": "'sold', kind, material, provenance, units, price, total, at",
     "tests": [
       "test/audit30_service.test.js"
@@ -391,7 +391,7 @@
   {
     "name": "AUDIT30-U13-a-listing-past-the-thirty",
     "file": "src/ui/marketTab.js",
-    "old": "b.disabled = ui.busy() || full || !can() || short(fee);",
+    "old": "b.disabled = ui.busy() || full || !can() || (!gold && short(fee));",
     "new": "b.disabled = ui.busy() || !can();",
     "tests": [
       "test/audit30_client.test.js"

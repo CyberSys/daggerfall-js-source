@@ -25,14 +25,21 @@
 // standing bid or the opening, the time left, the picked row's Bid at the next bid (or "Your bid leads", or the seller's
 // Cancel while no bid stands); "An auction (Masterworks)" in the List form; the account's auctions and bids under My
 // listings; what the bids hold beside "Your Marks".
+//
+// GOLD-MARKET (Professions-Arc 10.8): for a realm character, EACH VIEW IN ONE CURRENCY - Drakes or Gold, a switch beside
+// the filters (Materials, Crafted, History): a gold row's price, courier (a Drake's worth of gold a Drake) and median in
+// gold, its Buy the purse's (the exact cost out of it as the service is asked); the List form's "Priced in" for a Stores
+// material or a piece - gold's units its own and those gold bought, never Drakes'; under My listings, the gold the sales
+// hold and its Collect into the bank here. Any other character sees the Drakes' market alone, as before.
 import { accountRefusalText } from '../net/accountClient.js';
 import { MARKET_MOVED } from '../net/marketBook.js';   // AUDIT 31 B8
 import {
   MARKET_VIEWS, MARKET_FAMILIES, CRAFTED_FAMILIES, MARKET_PRICE_MAX, MARKET_UNITS_MAX, MARKET_LISTINGS_MAX, MARKET_ORDERS_MAX,
   listingFee, saleTax, courierFee, wearOf, wearText, medianText, marketCatalogue, AUCTION_S, AUCTION_RAISE_PCT, AUCTION_LATE_S, AUCTION_ADD_S, AUCTION_BID_MAX,
+  goldText, goldSaleOf,
 } from '../net/marketLaw.js';
 import { QUALITY_NAMES, MASTERWORK } from '../net/recipeLaw.js';
-import { marksText } from '../net/marksLaw.js';
+import { marksText, MARK_WORTH_GOLD } from '../net/marksLaw.js';
 
 /** @param {string} tag @param {string|null} [cls] @param {string|null} [text] */
 const el = (tag, cls = null, text = null) => {
@@ -72,6 +79,12 @@ const MOVED = MARKET_MOVED;
 /** AUDIT 30 U11: the words that say the market is not this account's. */
 const SHUT = ['market-closed', 'prof-need-account'];
 const plural = (n, one) => `${n.toLocaleString('en-US')} ${one}${n === 1 ? '' : 's'}`;
+/** GOLD-MARKET: an amount in its currency's words - "12 Drakes", "120 gold". */
+export const priceText = (n, currency) => (currency === 'gold' ? goldText(n) : marksText(n));
+/** GOLD-MARKET: the views whose rows are in one currency - the switch stands beside them. */
+const CURRENCY_VIEWS = Object.freeze(['materials', 'crafted', 'history']);
+/** GOLD-MARKET: the Stores units a listing in `currency` may take - its own, and what was bought in its own currency. */
+export const listableUnits = (s, currency) => (s ? s.own + (currency === 'gold' ? (s.gold | 0) : s.bought) : 0);
 /** "32 minutes", "2 hours", "arrived". */
 export function arrivalText(atS, nowS) {
   const s = (Number(atS) || 0) - nowS;
@@ -127,12 +140,18 @@ export function createMarketTab(m, ui) {
   const st = {
     view: 'materials', family: /** @type {string|null} */ (null), tier: 0, query: '', picked: /** @type {string|null} */ (null),
     qty: 1, data: /** @type {any} */ (null), error: /** @type {string|null} */ (null), stale: false, loading: false,
-    list: { kind: 'material', material: '', units: 1, price: 1, piece: '' }, post: { material: '', units: 1, price: 1 },
+    list: { kind: 'material', material: '', units: 1, price: 1, piece: '', currency: 'marks' }, post: { material: '', units: 1, price: 1 },
+    currency: 'marks',   // GOLD-MARKET: the currency the Materials, Crafted and History views show
     fills: /** @type {Record<string, number>} */ ({}), weave: /** @type {Record<string, number>} */ ({}),
     bid: /** @type {Record<string, number>} */ ({}),   // PROF5b: the bids typed, by auction
   };
   const balance = () => m.book.state.balance;
   const short = (marks) => balance() != null && balance() < marks;
+  /** GOLD-MARKET: whether this character trades in gold (a realm character's), and what its save can pay here. */
+  const goldOk = () => m.book.goldOk === true;
+  const purse = () => m.book.purse?.(m.region) ?? null;
+  const shortOf = (amount, currency) => (currency === 'gold' ? (purse() ?? 0) < amount : short(amount));
+  const viewCurrency = () => (goldOk() && CURRENCY_VIEWS.includes(st.view) ? st.currency : 'marks');
   /** AUDIT 30 U2: a search's words as the catalogue's materials (their family and tier too) - the service reads those. */
   const searched = () => {
     const needle = st.query.trim().toLowerCase();
@@ -143,7 +162,8 @@ export function createMarketTab(m, ui) {
   const q = () => {
     const found = st.view === 'materials' ? searched() : null;
     return { region: m.region, hubs: m.hubs, ...(['materials', 'orders', 'crafted', 'auctions'].includes(st.view) ? { family: st.family } : {}),
-      ...(st.view === 'materials' && st.tier ? { tier: st.tier } : {}), ...(found ? { materials: found } : {}) };
+      ...(st.view === 'materials' && st.tier ? { tier: st.tier } : {}), ...(found ? { materials: found } : {}),
+      ...(viewCurrency() === 'gold' ? { currency: 'gold' } : {}) };   // GOLD-MARKET: a gold view asks gold's rows
   };
   /** AUDIT 30 U3: the last read asked - an answer to an earlier one (a view or a filter since left) is dropped. */
   let seq = 0;
@@ -183,18 +203,21 @@ export function createMarketTab(m, ui) {
     if (MOVED.includes(r?.error)) { st.picked = null; load(true); }
     return { ok: false, text: r?.text ?? accountRefusalText(r?.error) };
   });
-  const held = (key) => { const s = m.stores().get(key); return s ? s.own + s.bought : 0; };
+  /** What the Stores may spend or sell for Drakes of a material - never what gold bought (GOLD-MARKET's wall). */
+  const held = (key) => listableUnits(m.stores().get(key), 'marks');
   const where = (row) => (row.region === m.region ? 'here' : m.regionNameOf(row.region));
   /** The units a row's pick starts at, and its courier's quote is for. */
   const pickOf = (row) => (row.kind === 'piece' || row.kind === 'auction' ? 1 : Math.max(1, Math.min(row.units, PICK_UNITS)));
-  const courierOf = (row, units) => (row.region === m.region ? 0 : row.road ? courierFee(units, row.road.road) : null);
+  // GOLD-MARKET: a gold row's courier a Drake's worth of gold a Drake, as the service charges it
+  const courierOf = (row, units) => (row.region === m.region ? 0 : row.road ? courierFee(units, row.road.road) * (row.currency === 'gold' ? MARK_WORTH_GOLD : 1) : null);
   /** AUDIT 30 U16: a unit's price landed here - its courier's share of the pick's. */
   const landed = (row) => { const n = pickOf(row), c = courierOf(row, n); return c == null ? Infinity : row.price + c / n; };
   const roadText = (row) => {
     if (row.region === m.region) return '';
     if (!row.road) return ' no courier knows the road';
     const n = pickOf(row);
-    return ` +${courierOf(row, n)} courier${row.kind === 'piece' ? '' : ` for ${n}`}, ${arrivalText(row.road.seconds, 0)}`;
+    const c = courierOf(row, n);
+    return ` +${row.currency === 'gold' ? goldText(c) : c} courier${row.kind === 'piece' ? '' : ` for ${n}`}, ${arrivalText(row.road.seconds, 0)}`;
   };
 
   function viewsNode() {
@@ -239,10 +262,18 @@ export function createMarketTab(m, ui) {
       row.append(search);
     }
     row.append(select([['', 'All'], ...families], st.family ?? '', (v) => { st.family = v || null; st.picked = null; load(false); }, 'Family'));
+    const cur = currencyNode();
+    if (cur) row.append(cur);
     if (st.view === 'materials') {
       row.append(select([['0', 'Any tier'], ...[1, 2, 3, 4, 5, 6, 7].map((t) => [String(t), `Tier ${t}`])], String(st.tier), (v) => { st.tier = Number(v) || 0; st.picked = null; load(false); }, 'Tier'));
     }
     return row;
+  }
+
+  /** GOLD-MARKET: the currency switch - a realm character's alone; a view shows one currency at a time. */
+  function currencyNode() {
+    if (!goldOk() || !CURRENCY_VIEWS.includes(st.view)) return null;
+    return select([['marks', 'Drakes'], ['gold', 'Gold']], st.currency, (v) => { st.currency = v === 'gold' ? 'gold' : 'marks'; st.picked = null; load(false); }, 'Currency');
   }
 
   const pick = (row) => { st.picked = st.picked === row.id ? null : row.id; st.qty = pickOf(row); ui.rerender(); };
@@ -257,7 +288,7 @@ export function createMarketTab(m, ui) {
     const med = st.data?.medians?.[row.material];
     const b = rowButton(row, '');
     b.append(el('b', null, `${m.name(row.material)} x${row.units.toLocaleString('en-US')}`),
-      el('span', 'market-price', `${marksText(row.price)} each`),
+      el('span', 'market-price', `${priceText(row.price, row.currency)} each`),
       el('span', 'market-where', `${where(row)}${roadText(row)}`),
       el('span', 'market-median', `median ${medianText(med?.median ?? null)}`));
     const line = medianLineNode(med?.line);
@@ -271,7 +302,7 @@ export function createMarketTab(m, ui) {
     const b = rowButton(row, ' market-piece');
     b.append(el('b', null, m.pieceName(p)),
       el('span', 'market-quality', [QUALITY_NAMES[p.quality] ?? null, p.maker ? `made by ${p.maker}` : null, wearText(p.wear)].filter(Boolean).join(' · ')),
-      el('span', 'market-price', marksText(row.price)),
+      el('span', 'market-price', priceText(row.price, row.currency)),
       el('span', 'market-where', `${where(row)}${roadText(row)}`));
     if (row.mine) b.append(el('span', 'market-mine', 'yours'));
     if (row.reports != null) b.append(el('span', 'market-mod', plural(row.reports, 'report')));
@@ -286,16 +317,18 @@ export function createMarketTab(m, ui) {
     const what = (units) => (piece ? m.pieceName(row.piece) : `${units} ${m.countName(row.material, units)}`);
     const ask = el('span', 'market-ask');
     ask.setAttribute('aria-live', 'polite');
+    const gold = row.currency === 'gold';   // GOLD-MARKET: bought off the purse, at its exact cost
     const buy = button('primary market-buy', m.book.busy ? 'Buying...' : 'Buy', () => {
       const units = unitsNow(), courier = courierOf(row, units), w = what(units);
-      return act(() => m.book.buy({ region: m.region, listing: row.id, units, max: units * row.price + (courier ?? 0), hubs: m.hubs }, m.mint),
+      return act(() => m.book.buy({ region: m.region, listing: row.id, units, max: units * row.price + (courier ?? 0), hubs: m.hubs, ...(gold ? { currency: 'gold' } : {}) }, m.mint),
         (d) => (d?.sale?.here ? `Bought ${w}.` : `Bought ${w} - the courier brings it from ${m.regionNameOf(row.region)} in ${arrivalText(d?.sale?.arrivesAt, ui.nowS())}.`));
     });
     const refresh = () => {
       const units = unitsNow(), courier = courierOf(row, units), total = units * row.price;
       ask.textContent = courier == null ? `The couriers do not know the road to ${m.regionNameOf(row.region)} yet.`
-        : `Buy ${what(units)} for ${marksText(total)}${courier ? ` + ${courier} courier` : ''}?`;
-      buy.disabled = ui.busy() || row.mine || courier == null || short(total + (courier ?? 0));
+        : gold ? `Buy ${what(units)} for ${goldText(total)}${courier ? ` + ${goldText(courier)} courier` : ''}? From your purse, then your account here.`
+          : `Buy ${what(units)} for ${marksText(total)}${courier ? ` + ${courier} courier` : ''}?`;
+      buy.disabled = ui.busy() || row.mine || courier == null || (gold && !goldOk()) || shortOf(total + (courier ?? 0), row.currency);
     };
     if (!piece) {
       const n = numberInput(unitsNow(), 1, row.units, 'Units to buy', `qty|${row.id}`);
@@ -389,24 +422,32 @@ export function createMarketTab(m, ui) {
     const box = el('div', 'market-listform');
     box.append(el('h4', null, 'List on the market'));
     box.append(select([['material', 'From the Stores'], ['piece', 'A crafted piece'], ['auction', 'An auction (Masterworks)']], st.list.kind, (v) => { st.list.kind = v; ui.rerender(); }, 'What to list'));
-    const price = numberInput(st.list.price, 1, MARKET_PRICE_MAX, 'Price in Drakes', 'list-price');
+    // GOLD-MARKET: a realm character prices a Stores material or a piece in Drakes or gold (an auction stays Drakes')
+    const gold = goldOk() && st.list.kind !== 'auction' && st.list.currency === 'gold';
+    if (goldOk() && st.list.kind !== 'auction') {
+      box.append(select([['marks', 'Priced in Drakes'], ['gold', 'Priced in gold']], st.list.currency, (v) => { st.list.currency = v === 'gold' ? 'gold' : 'marks'; ui.rerender(); }, 'Currency'));
+    }
+    const cur = gold ? 'gold' : 'marks';
+    const unitWord = gold ? 'gold' : 'Drakes';
+    const price = numberInput(st.list.price, 1, MARKET_PRICE_MAX, `Price in ${unitWord}`, 'list-price');
     const hint = el('p', 'notice-tip');
     const b = button('primary market-list', 'List', () => send());
     const full = (m.book.state.counts?.listings ?? 0) >= MARKET_LISTINGS_MAX;
     let can = () => false, send = () => {}, worth = () => 0;
     if (st.list.kind === 'material') {
-      const stores = [...m.stores().values()].filter((s) => s.own + s.bought > 0);
+      // GOLD-MARKET: the units a listing in its currency may take - never the other currency's bought ones
+      const stores = [...m.stores().values()].filter((s) => listableUnits(s, cur) > 0);
       if (!stores.some((s) => s.material === st.list.material)) st.list.material = stores[0]?.material ?? '';
-      const most = held(st.list.material);
+      const most = listableUnits(m.stores().get(st.list.material), cur);
       st.list.units = intOf(st.list.units, 1, Math.max(1, Math.min(most, MARKET_UNITS_MAX)));
       const units = numberInput(st.list.units, 1, Math.max(1, Math.min(most, MARKET_UNITS_MAX)), 'Units to list', 'list-units');
       units.oninput = () => { st.list.units = intOf(units.value, 1, Math.max(1, Math.min(most, MARKET_UNITS_MAX))); refresh(); };
-      box.append(select(stores.map((s) => [s.material, `${m.name(s.material)} (${(s.own + s.bought).toLocaleString('en-US')})`]), st.list.material, (v) => { st.list.material = v; ui.rerender(); }, 'Material'),
-        el('span', 'notice-label', 'Units'), units, el('span', 'notice-label', 'Drakes each'), price);
+      box.append(select(stores.map((s) => [s.material, `${m.name(s.material)} (${listableUnits(s, cur).toLocaleString('en-US')})`]), st.list.material, (v) => { st.list.material = v; ui.rerender(); }, 'Material'),
+        el('span', 'notice-label', 'Units'), units, el('span', 'notice-label', `${unitWord} each`), price);
       worth = () => st.list.units * st.list.price;
       can = () => !!st.list.material && most >= st.list.units;
-      send = () => act(() => m.book.list({ region: m.region, kind: 'material', material: st.list.material, units: st.list.units, price: st.list.price, hubs: m.hubs }),
-        `Listed ${st.list.units} ${m.countName(st.list.material, st.list.units)} at ${marksText(st.list.price)} each.`);
+      send = () => act(() => m.book.list({ region: m.region, kind: 'material', material: st.list.material, units: st.list.units, price: st.list.price, hubs: m.hubs, ...(gold ? { currency: 'gold' } : {}) }),
+        `Listed ${st.list.units} ${m.countName(st.list.material, st.list.units)} at ${priceText(st.list.price, cur)} each.`);
     } else {
       // PROF5b: an auction offers the Masterworks alone (10.2)
       const auction = st.list.kind === 'auction';
@@ -415,24 +456,26 @@ export function createMarketTab(m, ui) {
       const chosen = pieces.find((p) => p.item.provenance === st.list.piece) ?? null;
       box.append(pieces.length ? select(pieces.map((p) => [p.item.provenance, `${p.name}${p.where === 'home' ? ' (your home)' : ''}`]), st.list.piece, (v) => { st.list.piece = v; ui.rerender(); }, 'Crafted piece')
         : el('span', 'notice-tip', auction ? 'You carry no Masterwork to auction.' : 'You carry no crafted piece to sell.'),
-      el('span', 'notice-label', auction ? 'Opening bid in Drakes' : 'Price in Drakes'), price);
+      el('span', 'notice-label', auction ? 'Opening bid in Drakes' : `Price in ${unitWord}`), price);
       worth = () => st.list.price;
       can = () => !!chosen;
       const piece = () => ({ item: chosen.item, where: chosen.where, take: () => m.take(chosen.item, chosen.where), putBack: m.putBack });
       send = auction
         ? () => act(() => m.book.auction({ region: m.region, provenance: chosen.item.provenance, wear: wearOf(chosen.item), opening: st.list.price, hubs: m.hubs }, piece()),
           `${chosen?.name} is up for auction, opening at ${marksText(st.list.price)}.`)
-        : () => act(() => m.book.list({ region: m.region, kind: 'piece', provenance: chosen.item.provenance, wear: wearOf(chosen.item), price: st.list.price, hubs: m.hubs }, piece()),
-          `Listed ${chosen?.name} at ${marksText(st.list.price)}.`);
+        : () => act(() => m.book.list({ region: m.region, kind: 'piece', provenance: chosen.item.provenance, wear: wearOf(chosen.item), price: st.list.price, hubs: m.hubs, ...(gold ? { currency: 'gold' } : {}) }, piece()),
+          `Listed ${chosen?.name} at ${priceText(st.list.price, cur)}.`);
     }
     // AUDIT 30 U13: a listing the fee or the board's limit would refuse is not offered - the words say which
     const refresh = () => {
       const fee = listingFee(worth());
       hint.textContent = full ? `You have ${MARKET_LISTINGS_MAX} listings standing, the most one account may. Cancel one, or wait for one to sell.`
+        // GOLD-MARKET: no fee now - each sale pays its share and the tax; the gold is held for the seller to collect
+        : gold ? `No fee to list: each sale pays 1% and ${saleTax(100)}% tax out of its price. It stands on the boards of ${m.regionName} for 72 hours; the gold is held for you to collect into your bank (${goldText(goldSaleOf(0, worth()).gets)} if it all sells). Only what you gathered, made or bought with gold sells for gold.`
         : st.list.kind === 'auction'
           ? `Listing fee ${marksText(fee)}, kept if you cancel (only while no bid stands). It stands on the boards of ${m.regionName} for ${AUCTION_S / 3600} hours; each bid must be ${AUCTION_RAISE_PCT}% over the last, and a bid with less than ${AUCTION_LATE_S / 60} minutes left adds ${AUCTION_ADD_S / 60} more. The highest bid buys it; you receive it less ${saleTax(100)}%.`
           : `Listing fee ${marksText(fee)}, kept if you cancel. It stands on the boards of ${m.regionName} for 72 hours; a sale pays you its price less ${saleTax(100)}% (${marksText(worth() - saleTax(worth()))} if it all sells).`;
-      b.disabled = ui.busy() || full || !can() || short(fee);
+      b.disabled = ui.busy() || full || !can() || (!gold && short(fee));
     };
     price.oninput = () => { st.list.price = intOf(price.value, 1, MARKET_PRICE_MAX); refresh(); };
     refresh();
@@ -490,15 +533,28 @@ export function createMarketTab(m, ui) {
     return li;
   }
 
+  /** GOLD-MARKET: the gold this character's sales hold, and its Collect into the bank of the board's region. */
+  function goldHeldNode() {
+    const n = m.book.state.goldHeld ?? 0;
+    if (!goldOk() || !(n > 0)) return null;
+    const box = el('div', 'market-goldheld');
+    box.append(el('span', 'market-ask', `Your sales hold ${goldText(n)} for you.`),
+      button('primary market-collectgold', 'Collect into your bank here', () => act(() => m.book.collectGold(m.region),
+        (d) => `${goldText(d?.gold ?? n)} into your account at the bank of ${m.regionName}.`)));
+    return box;
+  }
+
   function mineNode() {
     const box = el('div', 'market-mine-view');
+    const goldHeld = goldHeldNode();
+    if (goldHeld) box.append(goldHeld);
     box.append(listForm());
     const rows = st.data?.rows ?? [];
     const ul = el('ul', 'market-list');
     for (const l of rows) {
       const li = el('li', `market-listing state-${l.state}`);
       li.append(el('b', null, l.kind === 'piece' ? m.pieceName(l.piece) : `${m.name(l.material)} - ${l.units} of ${l.listed} left`),
-        el('span', 'market-price', `${marksText(l.price)}${l.kind === 'piece' ? '' : ' each'}`),
+        el('span', 'market-price', `${priceText(l.price, l.currency)}${l.kind === 'piece' ? '' : ' each'}`),
         el('span', 'market-where', l.region === m.region ? 'here' : m.regionNameOf(l.region)),
         el('span', 'market-state', l.state === 'open' ? `${plural(Math.max(0, Math.ceil((l.expiresAt - ui.nowS()) / 3600)), 'hour')} left` : l.state));
       if (l.state === 'open') li.append(button('market-cancel', 'Cancel', () => act(() => m.book.cancel(l.id, m.mint), 'Cancelled. The goods are back; the fee is kept.')));
@@ -548,6 +604,8 @@ export function createMarketTab(m, ui) {
 
   function historyNode() {
     const box = el('div', 'market-history');
+    const cur = currencyNode();   // GOLD-MARKET: the week's prices in one currency
+    if (cur) { const row = el('div', 'market-filters'); row.append(cur); box.append(row); }
     const ul = el('ul', 'market-list');
     for (const h of st.data?.history ?? []) {
       const li = el('li', 'market-histrow');
@@ -569,7 +627,7 @@ export function createMarketTab(m, ui) {
       for (const t of trades) {
         const what = t.kind === 'piece' ? 'a crafted piece' : `${t.units} ${m.countName(t.material, t.units)}`;
         const [v, way] = verb[t.side] ?? [t.side, ''];
-        tl.append(el('li', 'market-trade', `${v} ${what} - ${marksText(t.total)} ${way} - ${agoText(t.at, ui.nowS())}`));
+        tl.append(el('li', 'market-trade', `${v} ${what} - ${priceText(t.total, t.currency)} ${way} - ${agoText(t.at, ui.nowS())}`));
       }
       box.append(tl);
     }
@@ -628,7 +686,8 @@ export function createMarketTab(m, ui) {
       box.append(ul, orderForm());
     } else box.append(historyNode());
     const held = m.book.state.held ?? 0;
-    const foot = el('p', 'market-foot', `Your Drakes: ${balance() == null ? '-' : marksText(balance())}${held > 0 ? ` (${marksText(held)} held in bids)` : ''}${st.stale ? ' - the market may be out of date' : ''}`);
+    const gold = goldOk() && purse() != null ? ` · Your gold here: ${goldText(purse())}` : '';   // GOLD-MARKET: the purse and the account here
+    const foot = el('p', 'market-foot', `Your Drakes: ${balance() == null ? '-' : marksText(balance())}${held > 0 ? ` (${marksText(held)} held in bids)` : ''}${gold}${st.stale ? ' - the market may be out of date' : ''}`);
     box.append(foot);
     return box;
   }

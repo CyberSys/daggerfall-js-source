@@ -126,7 +126,7 @@ test('AUDIT 29 C1: a page drawn over a stale state it cannot read draws again on
   setProfessionsPages(null);
 });
 
-test('AUDIT 29 B2: a home\'s Forge station is offered, and sold, only where a Forge works - the pages shown (online, the trades open) on the Enhanced skin', async () => {
+test('AUDIT 29 B2: a home\'s Forge station is offered, and sold, only where a Forge works - the pages shown (online, the trades open); CLASSIC-PAGES: on either skin', async () => {
   const { setProfessionsPages, forgeOffered, FORGE_COLD_LINE } = await import('../src/ui/profPages.js');
   const { stationsOffered } = await import('../src/ui/decorPanel.js');
   const { setPref } = await import('../src/systems/uiPrefs.js');
@@ -136,7 +136,7 @@ test('AUDIT 29 B2: a home\'s Forge station is offered, and sold, only where a Fo
   const book = { state: { open: true } };
   setProfessionsPages({ book });
   setPref('skin', 'classic');
-  assert.equal(forgeOffered(), false, 'the classic skin\'s pause has no Stores page');
+  assert.equal(forgeOffered(), true, 'CLASSIC-PAGES: the Stores page opens on the classic skin too (ui/pauseDoor.js)');
   setPref('skin', 'enhanced');
   assert.equal(forgeOffered(), true);
   assert.deepEqual(stationsOffered(), ['alchemy', 'spells', 'enchant', 'forge', 'workbench', 'loom'], 'PROF4: the workbench by the same gate; PROF7: the loom');

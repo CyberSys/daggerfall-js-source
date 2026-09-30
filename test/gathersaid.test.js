@@ -21,7 +21,7 @@ import { MINE_ACT, xpForRank } from '../src/net/professionLaw.js';
 import { mineKind } from '../src/scenes/mineHost.js';
 import { herbKind } from '../src/scenes/herbHost.js';
 import {
-  createGatherHost, aimAt, storesLine, STORES_WHERE_LINE, ACT_STOPPED_LINE, KEPT_LINE, KEPT_SIGNED_OUT_LINE, LAPSED_LINE,
+  createGatherHost, aimAt, storesLine, storesWhereLine, ACT_STOPPED_LINE, KEPT_LINE, KEPT_SIGNED_OUT_LINE, LAPSED_LINE,
 } from '../src/scenes/gatherHost.js';
 import { createToastQueue, PROF_TOASTS_MAX } from '../src/ui/profHud.js';
 import { setForagingHost } from '../src/systems/foragingInstall.js';
@@ -151,7 +151,7 @@ test('GATHER-SAID the report, reproduced: Iron and an Amber at a rank\'s rise to
   assert.equal(r.book.held('metal:iron'), 3, 'the Stores applied');
   assert.equal(r.said.length, 5, r.said.join(' | '));
   assert.deepEqual([r.said[0], r.said[1], r.said[3], r.said[4]], [
-    '+3 Iron and an Amber to your Stores', STORES_WHERE_LINE, 'Mining 49 -> 50',
+    '+3 Iron and an Amber to your Stores', storesWhereLine('E'), 'Mining 49 -> 50',
     'A specialisation may be chosen on the Professions page (the pause menu\'s Stats).',
   ], 'the goods, where they went, the rise and the hint: five lines');
   assert.match(r.said[2], /^\+33 Mining XP/);
@@ -161,7 +161,7 @@ test('GATHER-SAID the report, reproduced: Iron and an Amber at a rank\'s rise to
   assert.ok(reading.some((t) => /^\+33 Mining XP/.test(t)), 'and the XP beside them');
   // a second harvest this session: the goods and the XP, the Stores' way said once
   await r.mine(1);
-  assert.equal(r.said.filter((t) => t === STORES_WHERE_LINE).length, 1, 'where the Stores are, once a session');
+  assert.equal(r.said.filter((t) => t === storesWhereLine('E')).length, 1, 'where the Stores are, once a session');
 }));
 
 test('GATHER-SAID kept: every kept act says so - the second slow answer too; a signed-out account is told it is signed out', outside(async () => {

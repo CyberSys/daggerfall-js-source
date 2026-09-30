@@ -27,6 +27,7 @@ import { LOOT_CONTAINER_TYPES } from './sceneCache.js';
 import { dice100 } from '../combat/formulas.js';   // Dice100.SuccessRoll, one home
 import { isPlayerInTown } from './nearbyObjects.js';
 import { ON_EXTERIOR_WATER } from '../player/exteriorSurface.js';
+import { SEA_REGION } from '../net/nodeLaw.js';   // PROF8: the sea coast's region, one home
 import { TEMPLATE as CC_TEMPLATE } from './survival/food.js';   // Climates & Calories' own ids, imported (ONE DFU MEMBER, ONE EXPORT)
 // PROF1: the draws, the bands, the day and the Basket's blocks live in foragingCore.js - pure, so the account service rolls
 // the Basket's food with the IL's own tables (bible/06-Systems/Professions-Arc.md 22) - and are this module's still.
@@ -125,8 +126,9 @@ export const CHECK_ORDER = Object.freeze({
  * @property {string} exteriorWater      PlayerMotor.OnExteriorWater (ON_EXTERIOR_WATER)
  */
 
-/** The High Rock sea coast's politic region - the sea pixel's (mapsFile.getRegionIndexAt). */
-export const SEA_REGION = 31;
+/** The High Rock sea coast's politic region - the sea pixel's (mapsFile.getRegionIndexAt). PROF8: one home, the net's
+ *  law's (net/nodeLaw.js), which the service reads too. */
+export { SEA_REGION };
 
 /** The net's water (IL_1be9-IL_1c45): any one passes. */
 export function netHasWater(w) {

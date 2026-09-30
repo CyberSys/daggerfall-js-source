@@ -141,8 +141,8 @@
   {
     "name": "AUDIT31-svc-no-record-list",
     "file": "server-account/src/market.js",
-    "old": "  if (kind === 'material') return { error: 'stores-short' };\n  const p = await db.prepare('SELECT owner, listed FROM products WHERE provenance = ?1').bind(provenance).first();\n  if (!p) return { error: 'market-no-record' };",
-    "new": "  if (kind === 'material') return { error: 'stores-short' };\n  const p = await db.prepare('SELECT owner, listed FROM products WHERE provenance = ?1').bind(provenance).first();\n  if (!p) return { error: 'market-not-yours' };",
+    "old": "  const p = await db.prepare('SELECT owner, listed, bought_with FROM products WHERE provenance = ?1').bind(provenance).first();\n  if (!p) return { error: 'market-no-record' };",
+    "new": "  const p = await db.prepare('SELECT owner, listed, bought_with FROM products WHERE provenance = ?1').bind(provenance).first();\n  if (!p) return { error: 'market-not-yours' };",
     "tests": [
       "test/prof5_service.test.js"
     ]

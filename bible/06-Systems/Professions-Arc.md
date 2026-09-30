@@ -58,7 +58,9 @@ src/net/nodeLaw.js (the nodes). Appendix B lists them in one place.
    (`src/systems/lootRarity.js`); Sigil Sets are online set gear (`11-Multiplayer/Sigil-Sets.md`). DECIDED: a craft
    reaches **Rare** at most (a Masterwork); Legendary, Aetheric, Artifact and Sigil pieces are never craftable.
 8. **MARKS, NOT GOLD** - DECIDED (Mac: "New currency"). Everything this arc prices between players is in Marks
-   (10.5), which only the server holds and only server-witnessed acts mint.
+   (10.5), which only the server holds and only server-witnessed acts mint. GOLD-MARKET (10.8, Mac: "Gold listings,
+   walled"): a realm character's gold is its record's on the service now (REALM P2), so a market listing may be priced
+   in it - and gold still never becomes Marks: what gold bought is walled from every Marks-earning act.
 
 ## 2. What already stands (FACT)
 
@@ -188,7 +190,7 @@ two rarities.
 
 | Wood (log / plank, 4.8) | Tier | Climates |
 |---|---|---|
-| Pine | 1 | Mountain, MountainWoods |
+| Pine | 1 | Mountain, MountainWoods; and 2 trees in 5 of every other forest, on any ground (PINE-SHARE) |
 | Oak | 2 | Woodlands, MountainWoods, Swamp |
 | Cherry | 3 | Woodlands, Subtropical |
 | Teak | 4 | Subtropical, Rainforest |
@@ -445,7 +447,8 @@ else Foraging's Fish (1605). A **trophy** is the species' own Deep Waters templa
   already exports a `STORES` (the three preference stores), and one word must not name two things.
 - **The Stores tab** (section 8) is the only place a Stores material is seen. Moving to the pack is allowed (one-way, law 3);
   a pack item never moves into the Stores.
-- **Origin.** Every unit is **own** or **bought**. Own: this character's harvest (section 6), a craft whose every input
+- **Origin.** Every unit is **own** or **bought** - or, GOLD-MARKET (10.8), **gold**: bought on the market with gold,
+  which goes to the pack or back on the market for gold and to nothing else. Own: this character's harvest (section 6), a craft whose every input
   was own (section 9), Disenchanting's Essence from an own provenance item (one this character made, never sold), a
   Siege Honour's Spoils. Bought: a market purchase, a filled buy order, a counter's goods (4.5), a craft with any
   bought input, Essence from any other provenance item. A craft spends bought units first, so a character's own stay
@@ -806,6 +809,26 @@ the names' pass, the measure. `tools/mutants/notice1.json`, 26 mutations, 26 dea
 AUDIT 28): `test/audit28_notice.test.js` (14) - N1-N16 fixed, among them THE MODAL CONTRACT's pin this section owed (the
 note's answer plan, one shape from every exit) and the window driven on the minimal DOM.
 
+### 10.8 GOLD-MARKET - a listing's currency (DECIDED 2026-09-30, Mac: "Allow trading with gold or drakes on the marketplace"; "Gold listings, walled"; BUILT the same day)
+
+Law 8 priced the market in Marks because online gold was the save's. REALM P2 put a realm character's gold on its
+record on the service, moved only in an act's own batch (a guild deposit, a house) - so gold bought with it is gold the
+buyer had.
+
+- **Who**: a realm character alone lists or buys in gold (`market-gold-realm`); any other character's market is the
+  Marks' as before.
+- **What**: a Stores material or a crafted piece. Buy orders, auctions and commissions stay in Marks.
+- **The price**: the seller's own, in gold. No fee at listing; each sale pays the tax (5% of the listing's running
+  total, as in Marks) and 1% of itself (the listing fee's rate), both burnt. The courier is a Mark's worth of gold a Mark
+  (10 gold). The buyer pays the exact cost off its record - purse, letters, then the account of the board's region.
+- **The proceeds**: held on the service for the seller's character (at most 100,000,000 gold), collected by its own
+  record into the bank account of the board it stands at. A character with gold held is not deleted.
+- **The wall** (law 8 kept): goods bought with gold are the Stores' third origin, and a piece bought with gold is
+  marked; they go to the pack or back on the market for gold, and to nothing else - no station, craft, Court or guild
+  writ, guild Stores, buy-order fill or Marks listing. And goods bought with Marks never list for gold, or the market
+  would be a way round the Bank's daily cap and spread (10.5).
+- **As built**: `06-Systems/Online-Arc.md` GOLD-MARKET (acct40, `0041_gold_market.sql`).
+
 ## 11. Writs - the Work tab
 
 - **Court writs** (the faucet): every region with a seat or hub posts **6 x max(1, ceil(active / 100)) a UTC day** (a
@@ -852,7 +875,7 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 | A modified client fakes a craft | The service crafts; the client only receives (9.1) |
 | A modified client plays a perfect act | Capped at one quality step and +50% yield, never past the rank (5.1) |
 | A save-edited item enters the economy | The Stores are one-way (law 3); only a provenance id's owner lists it, one listing at a time (10.2, 18) |
-| Fake gold buys the market | The market is in Marks (10.5) |
+| Fake gold buys the market | The market is in Marks (10.5); a gold listing is a realm character's alone, bought off its record on the service in the sale's own batch, and what gold bought never becomes Marks (10.8) |
 | Marks inflate | Faucets only from witnessed acts, each capped; the weekly report; the Bank's spread and every fee burn |
 | Bots farm nodes | Per-character nodes, daily caps, travel |
 | A modified client claims a rich node on a pixel nobody walks | The witnessed world: an unconfirmed pixel yields tiers 1-2 only (section 6) |
@@ -943,7 +966,7 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 | **PROF6** - SHIPPED 2026-09-29 (at `dev`, section 28) | Writs: guild writs and the guild Stores, commissions and the note's button (built); seat writs with SEAT1b, bounties with SEAT1d's Edicts | A Guildmaster's writ delivered by an outsider and a member into the guild Stores, an Officer's posted within the week's budget and refused past it (AUDIT 31 R12: this row said an Officer's writ was delivered); a commission through a crafter's note filled with a piece of their make and in the poster's pack. Seat writs need SEAT1b |
 | **PROF6b** | Found and writ-only recipes (9.1): the Recipe Scroll (695), the found recipes named, a guild's posted recipe reward | Needs a witnessed roll for loot's 1 in 500, and PROF2b's Motherlode for its 1 in 20 |
 | **PROF7** - SHIPPED 2026-09-30 (live, section 29) | Hunting (the trace), the Skinning Knife (603: its template, its online shelves - law 6's exception, for 603); Outfitting | A bear felled by the player's own blow skinned online, its hides cured and sewn into a Leather Helm in the pack; a shirt in the dye its sewer chose. Needs FORAGE1-2 (shipped: the shelves' registry) |
-| **PROF8** | Fishing with the net (the throw, the tug, the haul) | Needs FORAGE1-2 (shipped: the net, and the three-valued water state in both exterior hosts) |
+| **PROF8** - BUILT 2026-09-30 (section 30) | Fishing with the net (the throw, the tug, the haul) | A haul of Raw Fish from a river, its species named; a Pearl at sea on confirmed ground; forty hauls an account a day. Needs FORAGE1-2 (shipped: the net, and the three-valued water state in both exterior hosts) |
 | **PROF9** | Cooking | - |
 | **PROF10** | Jewelcrafting | - |
 | **PROF11** | Masonry | Needs PROF2 (quarrying); SEAT2b and PLOT1 consume what it makes |
@@ -1318,9 +1341,10 @@ instruction), and what was found (FACT):
   at rank 50). An ingot is **own** only when every unit that made it was (bought units are spent first, section 7).
   Up to 100 a smelt. **The forge**: a Weaponsmith's or an Armorer's (50 gold a smelt, the use fee, paid from the purse)
   or a home's **forge** station - HOME-STATIONS grows a fourth craft (`DECOR_STATIONS`, its licence 50,000 gold as the
-  alchemy station's - offered, sold and worked only where the Stores page is: online, the professions the account's, on
-  the Enhanced skin, AUDIT 29). The Forge is a section of the Stores page (`ui/profPages.js`, the Enhanced pause menu;
-  the classic skin's has no pages - **FLAGGED**), live while
+  alchemy station's - offered, sold and worked only where the Stores page is: online, the professions the account's,
+  AUDIT 29; on either skin since CLASSIC-PAGES). The Forge is a section of the Stores page (`ui/profPages.js`, the
+  Enhanced pause menu; CLASSIC-PAGES, 2026-09-30: a door pressed for a professions page - the Professions key, the down arrow, or
+  a station - opens that page on the classic skin too, `ui/pauseDoor.js` openPauseFlow), live while
   the player stands inside a Weaponsmith's or an Armorer's (`scenes/worldModes.js` forgeHere; the fee paid on the
   first answer the press hears, a `repeat` included - AUDIT 29 C3; AUDIT 30: "never on a repeat" stood here since) or
   their own home with a forge station, whose press opens the pause menu at
@@ -1335,7 +1359,7 @@ instruction), and what was found (FACT):
 - **One gathering host.** FACT: the streaming world's Herbalism was one host (`scenes/herbHost.js`), and every
   gathering profession needs the same shell - a pixel's nodes stood, the nearest target, one prompt, one act, the book.
   DECIDED: the shell is `scenes/gatherHost.js`, each profession a kind in it (Herbalism's patches and Mining's veins and
-  boulders now; Logging's trees, Hunting's bodies and Fishing's water later), one prompt and one act at a time.
+  boulders now; Logging's trees, Hunting's bodies and - PROF8, section 30 - Fishing's water since), one prompt and one act at a time.
 
 As built:
 
@@ -1521,6 +1545,12 @@ Mac's instruction - "make the decisions ... This is your baby"), and what was fo
   wood's one in twenty is its own roll first, on a confirmed pixel only. **A pixel not confirmed is held to tiers 1-2**
   (section 6) - so an unconfirmed Rainforest or Subtropical pixel stands no tree at all until three witnesses vouch for
   it (a claimed Rainforest anywhere would otherwise be Teak on anyone's word); its herbs and veins bring the witnesses.
+  **PINE-SHARE** (2026-09-30, Mac: "2 in 5 trees Pine"; found tracing GATHER-SAID): Pine, the one tier-1 wood, stood only
+  in the Mountain and Mountain Woods, so a Novice logger in the other five forests could never chop - every herb and
+  vein table holds a tier 1, the woods alone did not. A forest whose woods hold no tier 1 now stands `PINE_SHARE` (2 in
+  5, section 6's tier-1 weight) of its trees as Pine, on any ground, rolled after the rare wood (`nodeLaw.js` tree,
+  `PINE_WOOD`); an unconfirmed Rainforest or Subtropical pixel stands its Pine and nothing past it - still no Teak on
+  anyone's word. The Court's writ table names that Pine. The Mountain and Mountain Woods are untouched.
 - **Where a tree stands** (section 6: "a tree flat for a tree"). FACT: the streaming world lays out Daggerfall's own
   nature flats per pixel from a seeded roll (`world/terrainNature.js` layoutNature - every client the same forest), one
   merged billboard batch per (archive, record) (`scenes/world.js`), and nothing kept which flat was a tree. FACT: World
@@ -2365,6 +2395,64 @@ As built:
 - **For Mac**: what Trophy Hunter, Couturier and Saddler should stand as; whether the borrowed pictures read right
   (the woods' open flag); whether a body felled in a building's interior should be a node.
 
+## 30. PROF8 - Fishing with the net, as built (BUILT 2026-09-30)
+
+Mac: **"Continue the arc"** (2026-09-30, after GOLD-MARKET), and **"XP follows your rank"** (the one call this section
+asked). What sections 5.2, 6 and 3.3 left open for PROF8, DECIDED here, and what was found (FACT):
+
+- **What PROF8 is.** 15's row - "Fishing with the net (the throw, the tug, the haul)" - whole: a haul of Raw Fish from any
+  water the net works in, its species named, the sea's Pearl and Slaughterfish, the day's schools, a trophy; the Fishing
+  track and its four specialisations practised; the page's day and how.
+- **XP FOLLOWS THE RANK** (Mac). FACT: every haul is Raw Fish, tier 1, and `harvestXp` quarters a tier more than two below
+  the rank's own - worked at its catch's tier, a rank 55 haul earned 3 XP, and Fishing would never have climbed. DECIDED:
+  a haul is worked at the highest tier the rank opens (`professionLaw.js` haulTier, `topTierOf`): 15 XP a Novice's, 75 a
+  rank 55's, 105 a Master's; a full net x1.5.
+- **Bounded, not witnessed** (6). A haul names no node: its key is the client's own, `haul:<x>:<y>:<day>:<id>` - the map
+  pixel cast from, the UTC day, twelve hex digits drawn at the cast (`nodeLaw.js` haulKey, read in its one spelling). The
+  service reads the pixel's ground (the witnesses' confirmation for the sea's finds), the day, the daylight (every haul,
+  07:00-17:59 on the shared clock - `prof-night`), and **forty hauls an ACCOUNT a day**, decided in the harvest's own
+  INSERT (`prof-fish-cap`). A haul from an account a week old witnesses its pixel, as any harvest's does - so the sea's
+  pixels come to be confirmed by those who fish them.
+- **The catch** (5.2). Raw Fish (`food:fish`) into the Stores as own, 1-2 a haul; in 6's order: the roll, a full net's
+  x1.5 (the act's bound), a march's +25%, a school's fish (a Netter's two), a Slaughterfish's weight; the fraction a
+  chance (`haulYield`). The finds (`haulFinds`): **at sea** - the Ocean's climate, or the sea coast's region, as the
+  net reads it (`haulAtSea`; Foraging's `SEA_REGION` now the law's one home) - **on confirmed ground**, a **Pearl** 1 in
+  50 (a Pearl Diver x3, a Deep-Sea x2) and a **Slaughterfish** 1 in 100 (a Deep-Sea x2) - its Scales (PROF7's hide) and a
+  fish more; a **trophy** 1 in 200 anywhere. FACT: DFU's Pearl is template 77 (MiscellaneousIngredients2, 150 gold) -
+  a Stores material now (`PEARL`, tier 5 by its price's band), withdrawn as DFU's own and listed on the market.
+- **The species** (5.2): Deep Waters' own for the pixel's water - `pickSpecies` over `PASSIVE_FISH_SPECIES`, the climate
+  by `climateToBiome`, half-way down the water column - drawn from the haul's KEY on the client (`fishHost.js`
+  speciesOfHaul), so every answer to a haul names the same fish ("+2 Largemouth Bass, as Raw Fish"). FACT: the species
+  module imports the scenes' draw and the loot tables, which the Worker must not bundle - so the species is the client's
+  word, as its toast and its trophy are; the Stores keep Raw Fish whatever it was.
+- **A trophy**: the service says it (`trophy`, a column of `node_harvests`, said again to an answer asked twice); the
+  client puts the species' own Deep Waters item in the pack (`deepWatersFishItems.js` createFishItem) - once a haul,
+  however many answers say it. It is an item the game already lets a player take from the water.
+- **The schools** (6): two a pixel a day, each at the first of 24 spots the clock draws (`schoolSpots`) that falls on a
+  water tile - a pixel with no water stands none; stood as three of Foraging's Fish item's own world picture on the water
+  (1605's template, DFU's TEXTURE.211 - as an herb patch stands its plant's; FOUND: not Deep Waters' fish, which the port
+  draws from the mod's own pictures), and said in the prompt's words ("a school rises 14 m north"). Never a target: a cast that lands within 10 m of one is a school's haul - the act's report names it (0 or 1),
+  the service reads nothing else of it (`netOf`), and the day's forty bound it.
+- **The act** (5.2; `systems/fishAct.js`): E starts it and, held, winds the net (0.3-1.5 s, 3-12 m); let go, it flies;
+  the wait (5-30 s, halved at 07:00 and 17:00 on the game clock, doubled in thunder); the tug - a new press of E, or
+  attack, inside 600 ms (an Angler's 840), the phone buzzing where the touch layer's haptics are on; the haul - the net's
+  weight wanders the bar, E held raises the tension band (20% of the bar at Novice to 30% at Master, the net's
+  attribute pair - Intelligence and Agility, Foraging's own - widening it), let go it falls; the weight kept inside for 6 s
+  (OPEN) fills a full net; 2 s outside in all, or 20 s unfilled, and it comes in plain. A missed tug is a plain net,
+  never nothing. Gentle acts: a plain net after the wait. DECIDED: E, not attack, is the act's key throughout - the
+  gathering host hands an act E's level and attack's edge alone, and every other act's hold is E's.
+- **Where** (5.1): the cast stands just ahead of the look while the pack holds an unbroken Fishing-Net and the player
+  stands in the net's water (Foraging's own `netHasWater`: in water, swimming, at sea); never underground. Its prompt
+  says the ground's refusal first (in here, a settlement, the dark), the account's forty, the Stores' room; the start asks
+  Foraging's full checks for the net, with its own lines ("You cannot fish with enemies nearby!").
+- **The service**: **acct41**, migration `0042_fishing.sql` (`node_harvests` rebuilt: the kind `fish`, and `trophy`). The
+  state and every haul's answer say the account's hauls today.
+- **Found and FLAGGED, not built here**: the net is not drawn in the hand (5.1's "the item's own picture" on the classic
+  lane - the act's `hand` is none, as the Basket's); no splash is played at the tug (no splash clip is wired for an act);
+  peers do not see the throw (5.1's pose activity field is none of the acts' yet).
+- **Pinned**: `test/prof8_law.test.js` (7), `test/prof8_service.test.js` (3, through the real Worker), `test/prof8_client
+  .test.js` (12). Mutants: `tools/mutants/prof8.json` (34, all dead). Patch notes: `PATCH-NOTES-Fishing.md`.
+
 ## Appendix A - a day of a gatherer
 
 Ilsa, a Journeyman herbalist and Apprentice miner in Anticlere (a march), sets out at seven, when the wilderness opens. The board's Work tab has a
@@ -2411,7 +2499,7 @@ At dusk the hub warns of a Motherlode in the Wrothgarian foothills in ten minute
 | Outfitting's recipes (PROF7) | leather armour at Leather - Cuirass 6, Greaves 4, the rest 2 - Cured (rank 10) or Hardened (rank 55, a step); DFU's 76 garments in each cloth - a bolt, two, three, boots a bolt and a Cured Leather; rugs 3 Wool, tapestries 4 Wool, skins 2 and 1 of a pelt; the Fishing-Net 2 Linen; the steps a Tailor's clothing, a Leatherworker's leather armour; XP 20 x tier, +500 the first (AUDIT 32 S1: not the 152 made wholly of Linen and Wool) |
 | A garment's dye (PROF7) | DFU's ten clothing dyes (0-9), chosen at the loom, signed into the record (`u`); every garment (AUDIT 32 L3: the four unchangeable shirts too) |
 | The stitch (PROF7) | eight presses, the beat every 0.75 s, the band 0.2 of it x (AGI + SPD) / 2's band, 0.25 s between presses; all eight on the beat a step |
-| Fishing | throw 0.3-1.5 s / 3-12 m, wait 5-30 s (first and last daylight hour x0.5, storm x2), tug 600 ms, band 20-30%, 20 s, slip 2 s; pearl 1/50, slaughterfish 1/100, trophy 1/200; Raw Fish tier 1, 1 Mark |
+| Fishing | throw 0.3-1.5 s / 3-12 m, wait 5-30 s (first and last daylight hour x0.5, storm x2), tug 600 ms (Angler 840), band 20-30%, fill 6 s inside, 20 s, slip 2 s; pearl 1/50 (Pearl Diver x3, Deep-Sea x2), slaughterfish 1/100 (Deep-Sea x2) - at sea on confirmed ground - trophy 1/200; 1-2 fish, a school +1 (Netter +2); schools 2 a pixel a day, 24 spots, 10 m; 40 hauls an account a day; XP at the rank's own tier (PROF8); Raw Fish tier 1, 1 Mark; Pearl tier 5 |
 | The Basket's food | tier 1, 1 Mark; 15 XP, 22 with all three found (the clean act) |
 | The Basket | three glints of 1.0-1.4 s; clean +50%, two +25% |
 | Stores cap | 5,000 a material |
@@ -2421,7 +2509,7 @@ At dusk the hub warns of a Motherlode in the Wrothgarian foothills in ten minute
 | The smith's stock (PROF3) | Cured Leather 4, Oak Plank 4, Pine Plank 2, Charcoal 2 Marks a unit (twice the Marks value), 100 a purchase, bought units; the planks and Charcoal withdraw since PROF4, Cured Leather since PROF7 (AUDIT 30 R3) |
 | A piece's quality (PROF3) | condition x0.75 / 1 / 1.15 / 1.30 / 1.30; weight x1 / 1 / 0.95 / 0.90 / 0.90; Superior a Magic roll, Masterwork a Rare roll and the maker's mark; a tool's life 37 / 50 / 57 / 65 / 65 |
 | The Repair Kit (PROF3) | 1 ingot + 1 Cured Leather; a quarter of the most-worn piece of its metal, once; a Quartermaster's two; 10 gold + 10 a tier |
-| The woods (PROF4) | Pine 1, Oak 2, Cherry 3, Teak 4, Mahogany 5, Ironwood 6, Ghostwood 6; Ironwood and Ghostwood one tree in 20, confirmed ground only; an unconfirmed pixel's trees tiers 1-2 |
+| The woods (PROF4) | Pine 1, Oak 2, Cherry 3, Teak 4, Mahogany 5, Ironwood 6, Ghostwood 6; Ironwood and Ghostwood one tree in 20, confirmed ground only; an unconfirmed pixel's trees tiers 1-2; PINE-SHARE: Pine 2 trees in 5 in a forest whose woods hold no tier 1 (Woodlands, Haunted Woodlands, Swamp, Rainforest, Subtropical), any ground, after the rare wood's roll |
 | A tree (PROF4) | 2-4 logs (+25% a march); Resin one tree in four; Heartwood 2% a Clean Cut on confirmed ground, a Forester's 4%, one at most; Logging XP 15 x the tier |
 | The ring (PROF4) | chops 5 (tiers 1-2), 6 (3-4), 8 (5-6), a Lumberjack's two fewer, three at least; the circle from 3x the notch to it over 0.9 s and on to 0.5x; the band 12% (novice) to 20% (Master) of the notch x (INT + STR) / 2's band; a Clean Cut two chops; a swing 0.45 s; the creak at half; the fall 1.5 s, a tip and no fade (AUDIT 30 R10) |
 | Burning and sawing (PROF4) | a log a Charcoal at a forge (a Charcoal Burner's two); a log two planks at a workbench (a Timberwright's three); no XP |

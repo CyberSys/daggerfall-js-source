@@ -73,7 +73,7 @@ test('PROF4 DONE WHEN: DECOR places a crafted table - an Oak felled, its logs sa
   const day = utcDayOfMs(NOON * 1000);
   let felled = null;
   for (let x = 300; x < 400 && !felled; x++) {
-    const tr = trees({ x, y: 222, day, climate: WOODS })[0];
+    const tr = trees({ x, y: 222, day, climate: WOODS }).find((q) => q.material === 'log:oak');   // PINE-SHARE: the Oak, by name
     if (!tr) continue;
     const r = await book.harvest({ node: nodeKey({ kind: 'tree', x, y: 222, day, slot: tr.slot }), kind: 'logs', climate: WOODS, region: GLENUMBRA, act: { chops: 3, cuts: 3, clean: true }, at: NOON - 1 });
     assert.equal(r.ok, true, JSON.stringify(r));
@@ -209,7 +209,7 @@ test('PROF4 trees: a pixel\'s trees stand at the forest\'s own tree flats, the n
   const stood = standTrees({ px: 400, py: 150, day, climate: WOODS, forest });
   assert.equal(stood.length, law.length);
   stood.forEach((n, i) => {
-    assert.deepEqual([n.what, n.material, n.flat.id, n.local, n.key], ['tree', 'log:oak', i, [forest.trees[i].x, 0, forest.trees[i].z], nodeKey({ kind: 'tree', x: 400, y: 150, day, slot: law[i].slot })]);
+    assert.deepEqual([n.what, n.material, n.flat.id, n.local, n.key], ['tree', law[i].material, i, [forest.trees[i].x, 0, forest.trees[i].z], nodeKey({ kind: 'tree', x: 400, y: 150, day, slot: law[i].slot })]);
   });
   assert.deepEqual(standTrees({ px: 400, py: 150, day, climate: WOODS, forest: null }), [], 'no forest, no trees');
   const one = { ...forest, trees: [forest.trees[0]] };
@@ -224,7 +224,8 @@ test('PROF4 trees: a pixel\'s trees stand at the forest\'s own tree flats, the n
   assert.deepEqual(moved[2], [12, forest.groups.get('504_12').centers.map((c) => c[1])], 'the day turned: stood again');
   sinkFelled(forest, new Set(), renderer);
   assert.equal(moved.length, 3, 'nothing felled then or now: untouched');
-  const node = stood[0];
+  assert.deepEqual([...new Set(stood.map((q) => q.material))].sort(), ['log:oak', 'log:pine'], 'PINE-SHARE: an unconfirmed Woodlands pixel stands its Oak and Pine');
+  const node = stood.find((q) => q.material === 'log:oak');
   const plan = (o) => treePlan({ node, taken: false, counting: false, rank: 10, axe: true, storesFull: () => false, today: 0, cap: 60, ...o });
   assert.deepEqual(plan({}), { harvest: 'logs', verb: 'Chop Oak', rest: `Logging 10 - ${chopsFor(2)} chops`, ready: true });
   assert.deepEqual([plan({ rank: 9 }).rest, plan({ axe: false }).rest, plan({ taken: true }).rest, plan({ today: 60 }).rest], ['needs Logging 10', 'needs a Wood-Axe', 'felled today', 'Logging done for today (60)']);
@@ -274,7 +275,7 @@ test('PROF4 host: the tree targeted, E starts the Wood-Axe\'s ring (DFU\'s War A
     const nodes = host.nodesOf(400, 150);
     assert.ok(nodes.length >= 1 && nodes.every((n) => n.kind === 'tree'));
     assert.equal(made.length, 0, 'a standing tree is the forest\'s own flat: no node flat');
-    const n = nodes[0];
+    const n = nodes.find((q) => q.material === 'log:oak');   // PINE-SHARE: the Oak the door answers
     const [x, y, z] = n.local;
     feet[0] = x; feet[1] = y; feet[2] = z - 1.5;
     const at = aimAt([x, y + 1.6, z - 1.5], [x, y + n.lift, z], { yaw: 0, pitch: 0 });

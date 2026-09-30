@@ -51,19 +51,20 @@ test('PROF4 law: a pixel\'s trees - the climate\'s woods (the haunted wood Woodl
   let seen = new Set(), rare = 0, n = 0;
   for (let x = 100; x < 700; x++) {
     for (const t of trees({ x, y: 200, day: 20000, climate: C.Woodlands })) { seen.add(`${t.material}:${t.tier}`); assert.ok(t.u >= 0.04 && t.u <= 0.96 && t.v >= 0.04 && t.v <= 0.96); }
-    assert.equal(trees({ x, y: 200, day: 20000, climate: C.Rainforest, confirmed: false }).length, 0, 'Teak and Mahogany are past tier 2');
-    assert.equal(trees({ x, y: 200, day: 20000, climate: C.Subtropical, confirmed: false }).length, 0);
+    // PINE-SHARE: Teak and Mahogany are past tier 2 - an unconfirmed Rainforest or Subtropical pixel stands only its Pine
+    assert.ok(trees({ x, y: 200, day: 20000, climate: C.Rainforest, confirmed: false }).every((t) => t.material === 'log:pine'), 'Teak and Mahogany are past tier 2');
+    assert.ok(trees({ x, y: 200, day: 20000, climate: C.Subtropical, confirmed: false }).every((t) => t.material === 'log:pine'));
     for (const t of trees({ x, y: 200, day: 20000, climate: C.Rainforest, confirmed: true })) { n++; if (t.rare) { rare++; assert.deepEqual([t.material, t.tier], ['log:ironwood', 6]); } }
     for (const t of trees({ x, y: 200, day: 20000, climate: C.HauntedWoodlands, confirmed: true })) if (t.rare) assert.equal(t.material, 'log:ghostwood');
     assert.ok(!trees({ x, y: 200, day: 20000, climate: C.HauntedWoodlands, confirmed: false }).some((t) => t.rare), 'no rare wood unconfirmed');
   }
-  assert.deepEqual([...seen], ['log:oak:2'], 'an unconfirmed Woodlands pixel: Oak alone (Cherry is tier 3)');
+  assert.deepEqual([...seen].sort(), ['log:oak:2', 'log:pine:1'], 'an unconfirmed Woodlands pixel: Oak (Cherry is tier 3), and PINE-SHARE\'s Pine');
   assert.ok(rare > n * 0.02 && rare < n * 0.09, `about one in twenty (${rare} of ${n})`);
   assert.equal(trees({ x: 400, y: 200, day: 20000, climate: C.Woodlands }).length, NODE_COUNTS[C.Woodlands].tree);
   assert.equal(tree({ x: 400, y: 200, day: 20000, slot: NODE_COUNTS[C.Woodlands].tree, climate: C.Woodlands }), null, 'past the day\'s count');
   const conf = new Set();
   for (let x = 100; x < 400; x++) for (const t of trees({ x, y: 200, day: 20000, climate: C.Woodlands, confirmed: true })) conf.add(t.material);
-  assert.deepEqual([...conf].sort(), ['log:cherry', 'log:oak'], 'confirmed: the whole table');
+  assert.deepEqual([...conf].sort(), ['log:cherry', 'log:oak', 'log:pine'], 'confirmed: the whole table, and PINE-SHARE\'s Pine');
 });
 
 test('PROF4 law: a tree yields 2-4 logs (a march +25%, the fraction a chance); Resin one tree in four, any ground; Heartwood 2% a Clean Cut, a Forester\'s twice, one at most, confirmed ground only; the chops 5, 6, 8 by tier (a Lumberjack two fewer, three at least); the ring\'s band 12% to 20% x the Wood-Axe\'s, its (INT + STR) / 2', () => {
@@ -164,10 +165,10 @@ test('PROF4 law: a crafted piece\'s record takes the workbench\'s recipes (arrow
   assert.equal(decorItemOf({ t: 225, pv: '0123456789abcdef', mk: ' Ann ' }), null, 'a mark not as the maker\'s name keeps it');
   assert.equal(decorItemOf({ t: 225, pv: '0123456789abcdef', mk: 'x'.repeat(33) }), null);
   const woods = regionWritTable(17, [{ climate: CLIMATES.Woodlands, confirmed: false }], SEASONS.Summer).map((m) => m.material).filter((k) => k.startsWith('log:'));
-  assert.deepEqual(woods, ['log:oak'], 'an unconfirmed Woodlands pixel: its Oak');
+  assert.deepEqual(woods, ['log:oak', 'log:pine'], 'an unconfirmed Woodlands pixel: its Oak, and PINE-SHARE\'s Pine');
   const haunted = (confirmed) => regionWritTable(17, [{ climate: CLIMATES.HauntedWoodlands, confirmed }], SEASONS.Summer).map((m) => m.material).filter((k) => k.startsWith('log:'));
   assert.deepEqual([haunted(false).includes('log:ghostwood'), haunted(true).includes('log:ghostwood')], [false, true], 'the rare wood is confirmed ground\'s alone');
   const conf = regionWritTable(17, [{ climate: CLIMATES.Rainforest, confirmed: true }], SEASONS.Summer).map((m) => m.material).filter((k) => k.startsWith('log:') || k.startsWith('plank:') || k.startsWith('wood:'));
-  assert.deepEqual(conf, ['log:ironwood', 'log:mahogany', 'log:teak'], 'confirmed: its woods and its rare wood - never a plank, Charcoal, Resin or Heartwood');
+  assert.deepEqual(conf, ['log:ironwood', 'log:mahogany', 'log:pine', 'log:teak'], 'confirmed: its woods, its rare wood and PINE-SHARE\'s Pine - never a plank, Charcoal, Resin or Heartwood');
   assert.deepEqual(regionWritTable(17, [{ climate: CLIMATES.Desert, confirmed: true }], SEASONS.Summer).filter((m) => m.material.startsWith('log:')), [], 'the Desert grows no tree');
 });

@@ -188,6 +188,8 @@ import { herbKind } from './herbHost.js';   // PROF1: Herbalism's patches, a kin
 import { mineKind, PROSPECT_M } from './mineHost.js';   // PROF2: Mining's veins and Quarrying's boulders, a kind in it; the Prospector's reach
 import { treeKind, isTreeRecord } from './treeHost.js';   // PROF4: Logging's trees - the forest's own - a kind in it
 import { huntKind, createBodyStamps, bodiesOf, trackerMarks } from './huntHost.js';   // PROF7: Hunting's bodies - a kind in it, the kills that stamp them, a Tracker's marks
+import { fishKind } from './fishHost.js';   // PROF8: Fishing's casts and schools - a kind in it
+import { utcDayOfMs } from '../net/nodeLaw.js';   // PROF8: a haul's UTC day
 import { registerPlayerKillListener } from '../systems/playerKills.js';   // PROF7: the player's own kill stamps a body
 import { setProfessionsPages } from '../ui/profPages.js';   // PROF1: the Professions and Stores pages on the character sheet's rail
 import { withdrawIntoPack, materialLabel, materialCountLabel } from '../systems/profItems.js';   // PROF1: a Stores material as DFU's own item
@@ -1116,7 +1118,22 @@ export async function bootWorld(canvas, renderer, params, status) {
     ? createMarketBook({ door: accountMarket({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() }), storage: appStorage(),
       character: () => characterIdOf(playerEntity), now: () => Date.now() + _sharedOffsetMs, marks: marksBook,
       stores: { apply: (st) => profBook?.applyStore(st) },   // AUDIT 30 U1: what the market moves in the Stores, the Stores' count
-      holds: (pv) => !!writBook?.holdsPiece(pv) })   // AUDIT 31 H1: a piece the writs' book keeps a fill of is not listed too
+      holds: (pv) => !!writBook?.holdsPiece(pv),   // AUDIT 31 H1: a piece the writs' book keeps a fill of is not listed too
+      // GOLD-MARKET: a realm character's gold trade moves its record on the service, in the sale's own batch - the purse
+      // checkpointed first (realmSaves.js realmGoldAct) - and the save's gold as the record's pays at the BOARD's region:
+      // the purse, its letters, then that region's account (realmGoldLaw payFromSave; court.js deductGold, the same order)
+      realm: realmSession ? { act: (o) => realmGoldAct({ ...o, session: realmSession, checkpoint: () => onlineCheckpoint() }) } : null,
+      wallet: realmSession ? (region) => {
+        playerEntity.bankAccounts ??= createBankAccounts(BANK_REGION_COUNT);
+        const account = playerEntity.bankAccounts[region] ?? null;
+        return {
+          gold: () => totalGoldAmount(playerEntity) + Math.max(0, account?.accountGold ?? 0),
+          pay: (n) => { const owed = deductGold(playerEntity, n); if (account && owed > 0) account.accountGold -= owed; },
+          credit: (n) => addGold(playerEntity, n),
+          // collected: into that region's account, the purse where there is none (realmGoldLaw creditSave's `bank`)
+          bank: (n) => { if (account) account.accountGold = (Number.isFinite(account.accountGold) ? account.accountGold : 0) + n; else addGold(playerEntity, n); },
+        };
+      } : null })
     : null;
   // PROF6 (bible/06-Systems/Professions-Arc.md 28): the writs' book - a guild writ posted, supplied, withdrawn; a
   // commission posted, filled (the piece KEPT before it is asked), cancelled, declined; the guild Stores (net/writBook.js).
@@ -7746,7 +7763,28 @@ export async function bootWorld(canvas, renderer, params, status) {
       gatherHost = createGatherHost({
         book: profBook, hud, kinds: [herbKind({ book: profBook }), mineKind({ book: profBook }),
           treeKind({ book: profBook, renderer, flatBatchAabb, getTexture, billboardSize, uploadRecord }),   // PROF4: Logging's trees
-          huntKind({ book: profBook, bodies: () => huntBodies(), openLoot: openHuntLoot })],   // PROF7: Hunting's bodies
+          huntKind({ book: profBook, bodies: () => huntBodies(), openLoot: openHuntLoot }),   // PROF7: Hunting's bodies
+          // PROF8: Fishing's casts - the net in its water, the pixel and its ground the player stands in, the game clock's
+          // hour and a storm for the wait, a trophy into the pack (the species' own Deep Waters item)
+          fishKind({ book: profBook, host: {
+            pixel: () => playerTravelPixel(),
+            ground: () => { try { const px = playerTravelPixel(); return { climate: maps.getClimateIndex(px.x, px.y), region: maps.getRegionIndexAt(px.x, px.y) }; } catch { return null; } },
+            eye: () => ({ pos: cam.pos, dir: [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)] }),
+            feet: () => (walkMode ? player.pos : cam.pos),
+            hour: () => Math.floor((((worldMinutes() % 1440) + 1440) % 1440) / 60),
+            storm: () => currentWeather() === 'thunder',
+            climateAt: (x, y) => { try { return maps.getClimateIndex(x, y); } catch { return null; } },
+            day: () => utcDayOfMs(Date.now() + _sharedOffsetMs),
+            // the tug's buzz (5.2: "the pad and phone buzz") - the touch layer's own pulse, under its own pref (TI2)
+            tug: () => { if (!getPref('touchHaptics')) return; try { navigator.vibrate?.(120); } catch { /* a platform without it */ } },
+            trophy: (species) => {
+              const item = createFishItem(species);
+              if (!item) return false;
+              addItem((playerEntity.items ??= []), item);
+              saveSoon.changed();
+              return true;
+            },
+          } })],
         renderer, getTexture, uploadRecord, billboardSize, flatBatchAabb,
         built: () => built, pixelTranslation: (x, y, out) => state.pixelTranslation(x, y, out),
         pixelInfo: (x, y) => { try { return { climate: maps.getClimateIndex(x, y), region: maps.getRegionIndexAt(x, y) }; } catch { return null; } },
@@ -12137,6 +12175,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // the HUD's own standing reminder uses: one answer to "is a level
     // waiting", not a second copy of the flag.
     openSheetPage: () => (levelOwed(playerEntity) ? hudCtx.toggleCharSheet() : hudCtx.togglePause({ at: 'stats' })),
+    sailing: () => !!csaRuntime?.isSailing(),   // CLASSIC-PAGES: at a helm the down arrow is less sail's, never the Professions key's
     // MAC-L1: ONE SIGNATURE ACROSS THE FOUR HOSTS, and ONE READER of
     // its options. `routeAction`'s Escape arm used to hand a position
     // applier over positionally, and this host reads argument one as

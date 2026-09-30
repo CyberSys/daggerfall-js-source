@@ -155,7 +155,7 @@ import {
   writBoard, postGuildWrit, supplyGuildWrit, withdrawGuildWrit, setWritBudget, postCommission, fulfilCommission, cancelCommission, declineCommission,
   guildStores, depositGuildStores, withdrawGuildStores,
 } from './writs.js';   // PROF6: guild writs, commissions and the guild Stores
-import { marketRead, marketList, marketBuy, marketCancel, marketOrder, marketFill, marketUnorder, marketCollect, marketReport, marketRemove, marketAuction, marketBid } from './market.js';   // PROF5: the market; PROF5b: its auctions
+import { marketRead, marketList, marketBuy, marketCancel, marketOrder, marketFill, marketUnorder, marketCollect, marketReport, marketRemove, marketAuction, marketBid, marketGoldCollect } from './market.js';   // PROF5: the market; PROF5b: its auctions; GOLD-MARKET: gold held collected
 import {
   listRealm, createRealm, customsRealm, joinRealm, checkpointRealm, getRealmBlob, leaveRealm, deleteRealm, undoRealm,
   realmCharacterHeld, grantCustomsPass, REALM_CHARACTERS_MAX, REALM_MAX_BYTES,
@@ -245,6 +245,7 @@ const PROF_STATUS = Object.freeze({
   'prof-no-pack-form': 409,   // PROF3: the smith's stock stays in the Stores until its professions' templates
   'prof-later': 409,   // PROF4: a recipe whose slice is to come - the Ram Kit (PROF0 25)
   'prof-hunt-cap': 409, 'prof-hunt-high': 409, 'prof-foe': 400, 'prof-dye': 400,   // PROF7: Hunting's day (30 hides, 3 of tiers 5-6), a body no knife skins, a dye asked of what takes none
+  'prof-fish-cap': 409,   // PROF8: Fishing's day (40 hauls an account)
   'node-taken': 409, 'writ-taken': 409, 'writ-expired': 409, 'writ-cap': 409, 'marks-full': 409, 'marks-short': 409, 'prof-respec-pending': 409,
   'prof-rate': 429,
   // PROF6: guild writs, commissions and the guild Stores
@@ -272,6 +273,9 @@ const MARKET_STATUS = Object.freeze({
   'market-no-record': 409,   // AUDIT 31 H1
   'auction-not-masterwork': 409, 'auction-low': 409, 'auction-leading': 409, 'auction-bid-standing': 409,   // PROF5b
   'auction-moved': 409,   // AUDIT 31 S4
+  // GOLD-MARKET: gold is a realm record's; what gold bought stays gold's (the wall); a record's own refusals
+  'market-gold-realm': 409, 'market-currency': 409, 'market-gold-goods': 409, 'market-drakes-goods': 409, 'market-gold-none': 409, 'market-gold-full': 409,
+  'stores-gold': 409, 'realm-gold': 409, lease: 409, 'realm-needed': 400, 'no-realm-character': 404, 'no-data': 404, 'no-storage': 503,
   'market-rate': 429,
 });
 /** GUILD1c: A GUILD ACT'S ANSWER WITH ITS ORDERS SIGNED in place of what they say (guilds.js). `badge` - the actor's
@@ -830,10 +834,11 @@ export default {
       // each first); a moderator's removal. Every act carries its request id, and one asked twice is one.
       if (path.startsWith('/v1/market/')) {
         if (request.method !== 'POST') return no('method', 405, origin);
+        const mctx = { ...ctx, bucket: env.SAVES };   // GOLD-MARKET: a gold buy or collect moves a realm record, in R2
         const act = {
           '/v1/market/read': () => marketRead(ctx, who.player, env, body),
           '/v1/market/list': () => marketList(ctx, who.player, env, body),
-          '/v1/market/buy': () => marketBuy(ctx, who.player, env, body),
+          '/v1/market/buy': () => marketBuy(mctx, who.player, env, body),
           '/v1/market/cancel': () => marketCancel(ctx, who.player, env, body),
           '/v1/market/order': () => marketOrder(ctx, who.player, env, body),
           '/v1/market/fill': () => marketFill(ctx, who.player, env, body),
@@ -843,9 +848,11 @@ export default {
           '/v1/market/remove': () => marketRemove(ctx, who.player, env, body),
           '/v1/market/auction': () => marketAuction(ctx, who.player, env, body),   // PROF5b
           '/v1/market/bid': () => marketBid(ctx, who.player, env, body),
+          '/v1/market/gold': () => marketGoldCollect(mctx, who.player, env, body),   // GOLD-MARKET
         }[path];
         if (!act) return no('not-found', 404, origin);
         const r = await act();
+        if (r.error === 'seq') return json({ error: 'seq', seq: r.seq }, 409, origin);   // GOLD-MARKET: the service's own, as a checkpoint's
         return 'error' in r ? no(r.error, MARKET_STATUS[r.error] ?? 400, origin) : json(r, 200, origin);
       }
 
