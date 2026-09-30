@@ -7270,7 +7270,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:7622), so the OUTER host's one rides in.
+          // (dungeonContext.js:7623), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:847 -> the
@@ -8043,7 +8043,7 @@ export function createWorldModes(host) {
       // grounded-gated and false in the air, so `player.standing` is
       // the faithful term (and the footstep gate above now reads it
       // too - AUDIT 64 F3 review).
-      if (!overlayHeld) dungeonCtx.reportActivity?.({ running: player.isRunning && !player.standing, runningTally: player.isRunning && !player.riding, standing: !!player.standing, swimming: player.swimming, climbing: !!player.climb?.isClimbing, jumped: player.jumped, movingLessThanHalfSpeed: player.movingLessThanHalfSpeed, fell: player.landedFallDistance, odometer: player.odometer });   // P13 sneak state + P14 fall landing (AUDIT 26 F083: + the climbing arm; MOVE-REAL: + the odometer)
+      if (!overlayHeld) dungeonCtx.reportActivity?.({ running: player.isRunning && !player.standing, runningTally: player.isRunning && !player.riding, standing: !!player.standing, swimming: player.swimming, climbing: !!player.climb?.isClimbing, jumped: player.jumped, parkoured: player.parkoured, movingLessThanHalfSpeed: player.movingLessThanHalfSpeed, fell: player.landedFallDistance, odometer: player.odometer });   // P13 sneak state + P14 fall landing (AUDIT 26 F083: + the climbing arm; MOVE-REAL: + the odometer)
       // PlayerMotor.StartRestGroundedCheck (:184-194) reads the LIVE
       // grounded state; dungeonContext's `_grounded` is host-fed and
       // only dungeon.js:415 fed it, so in a world-hosted dungeon the
@@ -8090,6 +8090,7 @@ export function createWorldModes(host) {
         runningTally: player.isRunning && !player.riding,
         swimming: false,
         jumped: player.jumped,   // C6
+        parkoured: player.parkoured,   // CLIMB1
         odometer: player.odometer,   // MOVE-REAL: the ground the body covered - the movement skills past 100 count it
       });
       // IF: the pool's frame. Armed for MobileTeams targeting like
@@ -11151,7 +11152,7 @@ export function createWorldModes(host) {
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
      *  HARD2c: this used to spell them out, and named `world.js:9637`
-     *  and `dungeonContext.js:7633` for its two sibling copies - lines
+     *  and `dungeonContext.js:7634` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {

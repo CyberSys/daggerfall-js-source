@@ -205,7 +205,7 @@ import { startInfection, liveInfection } from '../systems/infection.js';   // V1
 import { diseaseCount } from '../systems/diseases.js';
 import { MINUTES_PER_DAY } from '../systems/gameDate.js';
 import { spellRecordOfIndex } from '../systems/loot.js';   // QG1: CastSpellDo's classic-record read (the G4 registry) - world.js:302's import
-import { fetchBytes, loadMagicRegistries, seasonOverride, createSkyController, createPlayerTicker, createRestDeps, plainLines, wireInfectionVideos, createMusicDirector, motorStats, climbingDeps, createDetectFeed, foeNearbyRecord, lootNearbyRecord, nearbyLootRecords, claimFrame, frameAlive, frameHeld, applyFallLanding, ensureAudio, applyMotorEffectFlags, populatesWanderingNpcs, endRunToTitleMenu, exitToTitleMenu, subscribeFoePools, sensesContext, routeMouseDrag, liveEnchantFoes, liveEnchantFoeSinks, enchantFoeHost } from './shared.js';   // AUDIT 58 (f2/hosts): the live enchant pool, its sinks router and the membership question
+import { fetchBytes, loadMagicRegistries, seasonOverride, createSkyController, createPlayerTicker, createRestDeps, plainLines, wireInfectionVideos, createMusicDirector, motorStats, climbingDeps, parkourDeps, createDetectFeed, foeNearbyRecord, lootNearbyRecord, nearbyLootRecords, claimFrame, frameAlive, frameHeld, applyFallLanding, ensureAudio, applyMotorEffectFlags, populatesWanderingNpcs, endRunToTitleMenu, exitToTitleMenu, subscribeFoePools, sensesContext, routeMouseDrag, liveEnchantFoes, liveEnchantFoeSinks, enchantFoeHost } from './shared.js';   // AUDIT 58 (f2/hosts): the live enchant pool, its sinks router and the membership question
 import {
   WEATHER_TYPES, fogForWeather, skyOffsetForWeather, weatherSunlightScale,
   weatherRng, fogFactor, precipitationForWeather,
@@ -1040,7 +1040,7 @@ export async function bootExterior(canvas, renderer, params, status) {
   let _shotPosed = false;   // DS1: set by window.__pose - the scout's fixed framing gives way to the posed camera
   // P1: grounded first-person is the default; ?fly restores the fly cam.
   const walkMode = params.has('play') || (!params.has('fly') && !shotMode);
-  const player = new PlayerMotor(collider, motorStats(playerEntity), { jumpBoost: () => jumpSpeedMultiplier(playerEntity), enhancedJumping: () => isEnhancedJumping(playerEntity), carriedWeight: () => carriedWeight(playerEntity), climbing: climbingDeps(playerEntity, (l) => townTalk?.say(l)) });   // AcrobatMotor skill jump (P14) + M3 climbing; motorStats = the LIVE entity (PlayerSpeedChanger reads LiveSpeed/Running/Swimming every step)
+  const player = new PlayerMotor(collider, motorStats(playerEntity), { jumpBoost: () => jumpSpeedMultiplier(playerEntity), enhancedJumping: () => isEnhancedJumping(playerEntity), carriedWeight: () => carriedWeight(playerEntity), climbing: climbingDeps(playerEntity, (l) => townTalk?.say(l)), parkour: parkourDeps(playerEntity) });   // AcrobatMotor skill jump (P14) + M3 climbing; motorStats = the LIVE entity (PlayerSpeedChanger reads LiveSpeed/Running/Swimming every step)
   // AUDIT 21 (hosts lane, F3): onLevelUp. Without it advancement.js takes its
   // HEADLESS arm - `spendPoolLowest`, which dumps every point into your LOWEST
   // stats with no message and no choice. Cross a level threshold walking a
@@ -4702,6 +4702,7 @@ export async function bootExterior(canvas, renderer, params, status) {
         swimming: player.isPlayerSwimming,   // XL-1: PlayerEntity.cs:410 reads PlayerEnterExit.IsPlayerSwimming - the flag the surface model below writes
         climbing: !!player.climb?.isClimbing,   // AUDIT 26 F083
         jumped: player.jumped,
+        parkoured: player.parkoured,   // CLIMB1
         odometer: player.odometer,   // MOVE-REAL: the ground the body covered - the movement skills past 100 count it
       });
       // QX1: QuestMachine.Update's pacing (QuestMachine.cs:305-320) -
@@ -5335,7 +5336,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // ROAD-G G2: THE ENEMY ARM EXISTS NOW - the note here said "this
     // host mounts no bow-armed pool", which stopped being true with the
     // encounter mount above, and an archer's shaft would have flown
-    // through the player for ever. world.js:23175-23436 is the shape.
+    // through the player for ever. world.js:23176-23437 is the shape.
     arrows.update(dt, {
       // enemy arrows hunt only a WALKING player - the fly camera has no
       // capsule to hit
@@ -5593,7 +5594,7 @@ export async function bootExterior(canvas, renderer, params, status) {
         const swing = {};   // AUDIT DISC19: one swing, one attack grunt, however many pools it is offered to
         if (!cityGuards.resolvePlayerHit(weaponRig.playerWeapon, eye, fwd, player.pos, makeInView(proj, view, multiply), guardHitSound, { swing })) {
           // ROAD-G G2: encounter foes resolve AFTER the watch and
-          // BEFORE civilians - world.js:23564's order, and the order
+          // BEFORE civilians - world.js:23565's order, and the order
           // matters because a watchman standing over a quest foe must
           // still be the one the swing finds.
           if (exteriorFoes.resolvePlayerHit(weaponRig.playerWeapon, eye, fwd, player.pos, makeInView(proj, view, multiply), guardHitSound, { swing })) {

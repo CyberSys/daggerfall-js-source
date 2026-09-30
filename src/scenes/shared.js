@@ -21,6 +21,8 @@ import { VolumetricClouds, QUALITY as CLOUD_QUALITY } from '../render/volumetric
 import { cloudsStateUnderMod, dynamicMoonState, dynamicMoonlight } from '../render/dynamicSkiesBridge.js';   // DS1/DS2: the mod's state in the port's shapes - the moons, the clouds, and the moons' own term (AUDIT 65 MC-3: the bridge's third export had no caller and this file carried its body inline)
 import { isEnhanced } from '../systems/uiSkin.js';
 import { getPref } from '../systems/uiPrefs.js';   // RA1: the Enhanced pane's sky switch
+import { pageParam } from '../systems/pageQuery.js';   // CLIMB1: `?parkour=off`, the enhanced climb's kill door
+import { isOnlinePage } from '../systems/onlineLane.js';   // CLIMB1: online the skin is not asked
 import { DynamicSkiesRenderer } from '../render/dynamicSkiesRenderer.js';   // DS1: Dynamic Skies' skybox, the mod's own pass
 import { DynamicSkies } from '../systems/dynamicSkiesRuntime.js';   // DS1: BLBSkybox's instance
 import { MAX_DELTA_SECONDS } from '../systems/dynamicSkies.js';   // Time.maximumDeltaTime, the mod's frame clamp
@@ -749,6 +751,32 @@ export function climbingDeps(entity, say = null) {
     }),
     tally: () => tallyMovementSkill(entity, SKILLS.Climbing),   // MOVE-REAL: past 100 only a climb that went up or down counts
     say,
+  };
+}
+
+/** CLIMB1: THE ENHANCED CLIMB'S SWITCH - the Features row (`enhancedClimbing`)
+ *  and `?parkour=off`, the kill door. Offline the classic skin keeps DFU's
+ *  classic climb whatever the row says, as every enhanced lane does. Online
+ *  the skin is not asked: it is the player's own (OVH3 - "nothing the room
+ *  agrees on reads the skin"), and a way over a rooftop is something the
+ *  room agrees on, so the row - forced on there - is the whole answer. */
+export function parkourSwitchOn(search) {
+  if (pageParam('parkour', search) === 'off') return false;
+  return (isOnlinePage(search) || isEnhanced(search)) && !!getPref('enhancedClimbing');
+}
+
+/** CLIMB1: the enhanced climb's deps every host wires the same way - the
+ *  switch, read live (the row takes effect at once), and the Climbing
+ *  skill's reads, the same the classic climb's chance takes (climbingDeps:
+ *  the live skill, the Khajiit arm, the Climbing spell's doubling). */
+export function parkourDeps(entity) {
+  return {
+    enabled: () => parkourSwitchOn(),
+    inputs: () => ({
+      climbing: skillValue(entity, SKILLS.Climbing),
+      khajiit: entity.race === 'Khajiit',
+      enhanced: !!entity?.activeEffects?.some((a) => a.kind === 'climbing'),
+    }),
   };
 }
 

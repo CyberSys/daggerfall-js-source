@@ -743,6 +743,16 @@ function tickPlayerMinutesOnce({
     sinks.drainFatigue?.(Math.trunc(FATIGUE_LOSS.Jumping * fatigueMultiplier * FATIGUE_DRAIN_SCALE));   // BALANCE1: exertion's scale
     tallyMovementSkill(entity, SKILLS.Jumping);
   }
+  // CLIMB1 (the Enhanced Climbing arc): a mantle or a vault the enhanced
+  // climb starts is one exertion - a jump's fatigue, the port's own price -
+  // and trains the skill it used: a vault is a leap (Jumping), a mantle a
+  // climb (Climbing). The motor never raises `jumped` for either, so neither
+  // is billed twice. MOVE-REAL's odometer still weighs the tally past 100.
+  if (activity.parkoured) {
+    const exertion = FATIGUE_LOSS.Jumping;   // priced as the jump it takes the place of
+    sinks.drainFatigue?.(Math.trunc(exertion * fatigueMultiplier * FATIGUE_DRAIN_SCALE));
+    tallyMovementSkill(entity, activity.parkoured === 'vault' ? SKILLS.Jumping : SKILLS.Climbing);
+  }
 
   // AUDIT 23 (entity-5) - PlayerEntity.cs:309-320: TallySkill(Running, 1)
   // every 4th classic update (4 x 0.0625s) while running. The counter
