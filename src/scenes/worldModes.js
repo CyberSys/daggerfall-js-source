@@ -52,7 +52,8 @@ import { drawnFlat } from '../characters/nudeFlats.js';   // NUDE-FLATS: Show Nu
 import { offHandQuickslot, offHandOffersSwap, tickQuickslotHold } from '../systems/quickslots.js';   // QS4: the off-hand cell's press, on THIS mode's own rig   // QS6: the off hand's swap question, and the hold machine this mode's frame drives
 import { createPlayerTicker , wireInfectionVideos, endRunToTitleMenu, exitToTitleMenu, doorSpellFor, exteriorOpenSpellFor, consumeDoorSpell, wireDoorSpells, createDetectFeed, createRestDeps, foeNearbyRecord, nearbyLootRecords} from './shared.js';   // AUDIT 18: the interior host's world clock; S40: its rest deps
 import { triggerExteriorOpen, DOOR_SPELL_TEXT } from '../systems/mysticism.js';   // X3: the Open spell's EXTERIOR-door arm
-import { buildInteriorContext, seedInteriorTreasure } from './interiorContext.js';   // AUDIT 63 F22: AddFlats' RandomTreasure arm lives with the walk that finds its markers
+import { buildInteriorContext, seedInteriorTreasure } from './interiorContext.js';
+import { INTERIOR_SHELL_BUCKET } from './decorBase.js';   // HOME-DOORS: a doorway is an opening in the shell's walls   // AUDIT 63 F22: AddFlats' RandomTreasure arm lives with the walk that finds its markers
 import { advanceMachinery, mountMachineryChild, machineryChildPos, MILL_SOUND } from '../world/windmills.js';   // WM4b: the machinery's moving parts; WM4c: its hum
 import { buildDungeonContext } from './dungeonContext.js';
 import { createTransitionGate } from './transitionGate.js';   // AUDIT 68 X3-transition-build-race: the door builds, serial and cancellable
@@ -272,8 +273,14 @@ import {
   homeForSaleLine, homeOfferLines, HOME_BOUGHT_LINE, homeShortLine, homeOwnerLines, homeEntryLine, homeSaleLines, HOME_CROSSED_LINES, HOME_SALE_OUT,
   homeSoldLine, homeRefund, HOME_ENTRY_WORDS, HOME_BANK_LINES, buyOnlineHome, sellOnlineHome, HOME_BUY_BUSY, homeDoorPrompt,
   HOME_BUY_ARM_MS, HOME_VERB, homeBuyRows, homeOwnerRows, homeNextEntry, HOME_OFFER_BUY, HOME_OFFER_PASS,   // HOME2
+  homeVisitorRows,   // HOME-RENT: a tenant's rows, and a home's with a room to rent
 } from '../systems/onlineHomes.js';
-import { HOME_ENTRIES, homePriceOk } from '../net/homeLaw.js';
+import { HOME_ENTRIES, homePriceOk, rentCost, rentDaysLeft } from '../net/homeLaw.js';
+// HOME-RENT: a home's rooms, rented at its door and offered, priced and collected in its owner's decorator
+import {
+  homeRooms, rentable, rentHomeRoom, collectHomeRent, rentPickLines, rentDaysLines, rentConfirmLines, rentDoneLine, rentShortLine,
+  RENT_NONE_FREE, RENT_REALM_ONLY, RENT_DAY_ROWS, rentWelcomeLine,
+} from '../systems/homeRent.js';
 // DECOR1c: the pieces a room's owner placed (their law, and the pool that stands them in the room)
 import { decorPieceOf, decorSaleBack, DECOR_STATION_SERVICES, DECOR_STATION_NAMES } from '../net/decorLaw.js';
 import { forgeOffered, PROF_STATIONS, stationColdLine } from '../ui/profPages.js';   // AUDIT 29 B2: a Forge worked only where the Stores page is; PROF4: a Workbench
@@ -714,10 +721,36 @@ export function createWorldModes(host) {
   // mountPicture) - the room and the decorator's ghost ask the same door - and the room asks again when the build does.
   const decorMwPicture = (item) => fpArm.mountPicture(item);
   let _decorMwStamp = null;
+  // HOME-DOORS: A DOOR THE OWNER HUNG (systems/decorDoorways.js) - one of the room's own action doors, keyed
+  // `act:decor:<id>` (world/actionSystem.js addDoor's positionKey: the same key on every client and every visit, so its
+  // swing is saved and shared as the room's own doors' are), drawn and ticked with them and named as one on the hover.
+  const decorDoorHooks = {
+    add(piece, model, matrix) {
+      const ctx = interiorCtx;
+      if (!ctx?.actions || !model?.cpu || !model?.gpu) return null;
+      ctx.actions.removeDoor(`act:decor:${piece.id}`);
+      const object = ctx.actions.addDoor(model.cpu, matrix, { ns: 'decor', positionKey: piece.id });
+      ctx.dynamicDraws.push({ gpu: model.gpu, object, decorDoor: piece.id });
+      return object;
+    },
+    remove(id) {
+      const ctx = interiorCtx;
+      if (!ctx?.actions) return;
+      ctx.actions.removeDoor(`act:decor:${id}`);
+      const i = ctx.dynamicDraws.findIndex((d) => d.decorDoor === id);
+      if (i >= 0) ctx.dynamicDraws.splice(i, 1);
+    },
+  };
+  /** HOME-DOORS: where the room's own doors stand (their hinges), so a doorway one of them hangs in is taken - open or
+   *  shut, the placed ones aside (the decorator counts those itself). */
+  const decorBuiltInDoors = () => [...(interiorCtx?.actions?.objects?.values?.() ?? [])]
+    .filter((o) => o.kind === 'door' && !String(o.key).startsWith('act:decor:') && o.base)
+    .map((o) => [o.base[12], o.base[13], o.base[14]]);
   const interiorDecor = createDecorRoom({
     meshes: { getGpuMesh, cpuModels }, renderer, getTexture, uploadRecord, uploadRecordFrame, flatAnims: () => interiorCtx?.flatAnims ?? null,
     collider: () => interiorCtx?.collider ?? null, origin: () => buildingOrigin(), roomLights: () => interiorCtx?.lights ?? null,
     mwPicture: decorMwPicture,
+    doors: decorDoorHooks,   // HOME-DOORS: a placed door hangs as one of the room's own action doors
   });
   let _decorVisit = 0;   // a visit's token: an online home's pieces landing after the visit ended stand nowhere
   let _decorListed = -1;   // DECOR-SHELL: the visit whose online home's list has stood (AUDIT DECOR-SHELL 2) - no decorating before it
@@ -746,6 +779,8 @@ export function createWorldModes(host) {
     visit: () => _decorVisit,
     openSlot: (o) => { interiorOverlay = o; }, closeSlot: (o) => { if (interiorOverlay === o) interiorOverlay = null; },
     say, refusal: (w) => accountRefusalText(w),
+    doorsHere: () => decorBuiltInDoors(), walls: { only: [INTERIOR_SHELL_BUCKET] },   // HOME-DOORS: the room's own doors, and its walls alone
+    rent: () => decorRentDoor(),   // HOME-RENT: an online home's rooms, offered to rent, priced and collected
   });
   const interiorHitEffects = createHitEffects({ renderer, getTexture, uploadRecordFrame, marks: interiorBloodMarks });
   /** PlayerMotor.FindGroundPosition, on the interior's own collider -
@@ -5565,7 +5600,7 @@ export function createWorldModes(host) {
   function homeDoorVerbs(bd, home) {
     if (!host.onlineHomes || getInteractionMode() === 'steal') return null;
     if (home?.own) return homeOwnerRows(home.entry);
-    if (home) return null;
+    if (home) return homeVisitorRows(home, homeDoorFor(bd, home));   // HOME-RENT: a tenant's own room, or a room to rent
     const price = homeOfferPrice(bd);
     return price ? homeBuyRows(price, homeArmed(bd)) : null;
   }
@@ -5740,6 +5775,10 @@ export function createWorldModes(host) {
           await host.onlineHomes.waitFor(homeTownOf(bd));
           home = homeOf(bd);
           const door = homeDoorFor(bd, home);
+          // HOME-RENT: the rent row pressed - or, where the plaque lists none, a click on a home that shuts me out but has a
+          // room to rent - asks which room, and for how long, before Daggerfall's lock ladder
+          if (home && !home.own && !isBash && !homeAsked && getInteractionMode() !== 'steal'
+            && (verb === HOME_VERB.rent || (verb == null && door === 'locked' && home.rent))) { openHomeRent(bd, home).catch((e) => console.error(e)); return true; }
           if (door === 'locked') { townTalk?.say?.(homeLockedLine(home)); return true; }
           // HOME2: THE VERB THE PLAQUE LIT, pressed - read against the door as it stands now, not as it was drawn
           const mode = getInteractionMode();
@@ -5985,6 +6024,89 @@ export function createWorldModes(host) {
     addPermanentScene(sceneCache(), homeSceneName(mapId, bd.buildingKey));
     townTalk?.say?.(HOME_BOUGHT_LINE);
   }
+  // ═══ HOME-RENT — A ROOM RENTED AT THE DOOR (systems/homeRent.js) ═════════════════════════════════════════════════
+  // Asked: "the owner can choose to rent out to other players and adjust the price as needed". A home with a room free
+  // lists "Rent a room" on its door (or asks on a click where it would shut me out): which room, for how many days,
+  // and the price asked before it is paid - on my record, in the rent's own write (the service's), the purse paying at
+  // once and getting it back on a refusal. A tenant's own room is renewed the same way.
+  /** The purse and this building's region's account, as a home is paid (buyHomeAt's order) - given back to the account. */
+  function homeWallet(region) {
+    const purse = bankPurse();
+    const a = homeAccount(region);
+    return {
+      gold: purse.totalGold() + (a?.accountGold ?? 0),
+      pay: (n) => { const short = purse.deductGold(n); if (a) a.accountGold -= short; },
+      credit: (n) => { if (a) a.accountGold += n; else purse.addGold(n); },
+    };
+  }
+  /** THE RENT WINDOW: the home's rooms free to rent (and my own, to renew), each at its price a day. */
+  async function openHomeRent(bd, home) {
+    const api = host.homesApi;
+    if (!api) return;
+    const got = await homeRooms(api, homeTownOf(bd), bd.buildingKey, host.decorCharacter?.() ?? null);
+    if (!got.ok) { townTalk?.say?.(got.error === 'no-home' ? RENT_NONE_FREE : accountRefusalText(got.error)); return; }   // AUDIT: a home gone from under the door has no rooms - never "not yours any more"
+    const list = rentable(got.rooms).slice(0, 9);
+    if (!list.length) { townTalk?.say?.(RENT_NONE_FREE); return; }
+    townTalk?.showOverlay?.(new ChoiceWindow({
+      lines: rentPickLines(got.owner || home.owner),
+      options: [
+        ...list.map((r, i) => ({
+          code: `Digit${i + 1}`, label: `${i + 1} - Room ${r.room}: ${r.price} gold a day${r.yours ? ' (yours - renew it)' : ''}`,
+          action: () => openHomeRentDays(bd, r),
+        })),
+        { code: 'Escape', label: 'Esc - close', action: () => {} },
+      ],
+    }));
+  }
+  /** For how many days - each with what it costs. */
+  function openHomeRentDays(bd, room) {
+    townTalk?.showOverlay?.(new ChoiceWindow({
+      lines: rentDaysLines(room.room, room.price),
+      options: [
+        ...RENT_DAY_ROWS.map((d, i) => ({
+          code: `Digit${i + 1}`, label: `${i + 1} - ${d} day${d === 1 ? '' : 's'}: ${rentCost(room.price, d)} gold`,
+          action: () => openHomeRentConfirm(bd, room, d),
+        })),
+        { code: 'Escape', label: 'Esc - close', action: () => {} },
+      ],
+    }));
+  }
+  /** The price asked, before it is paid - one press never spends a week's rent. */
+  function openHomeRentConfirm(bd, room, days) {
+    townTalk?.showOverlay?.(new ChoiceWindow({
+      lines: rentConfirmLines(room.room, days, room.price),
+      options: [
+        { code: 'KeyY', label: 'Y - yes', action: () => { rentHomeAt(bd, room, days).catch((e) => console.error(e)); } },
+        { code: 'KeyN', label: 'N - no', action: () => {} },
+      ],
+    }));
+  }
+  async function rentHomeAt(bd, room, days) {
+    const r = await rentHomeRoom({
+      api: host.homesApi, homes: host.onlineHomes, realm: host.realmAct ? { act: host.realmAct } : null, wallet: homeWallet(bd.regionIndex ?? 0),
+      mapId: homeTownOf(bd), buildingKey: bd.buildingKey, character: host.decorCharacter?.() ?? null, room: room.room, days, price: room.price,
+    });
+    if (!r.ok) {
+      townTalk?.say?.(r.error === 'gold' ? rentShortLine(rentCost(room.price, days)) : r.error === 'realm-only' ? RENT_REALM_ONLY : accountRefusalText(r.error));
+      return;
+    }
+    townTalk?.say?.(rentDoneLine(room.room, days));
+  }
+  /** HOME-RENT: THE OWNER'S ROOMS in the decorator (scenes/decorTool.js `rent`) - read, offered, withdrawn and the rent
+   *  collected through the service's door, the collection on the owner's record as a rent is on the tenant's. */
+  const decorRentDoor = () => {
+    const api = host.homesApi;
+    const b = interiorBuilding;
+    if (!api || !interiorHome?.own || !b) return null;
+    const at = { mapId: homeTownOf(b), buildingKey: b.buildingKey, character: host.decorCharacter?.() ?? null };
+    return {
+      rooms: () => homeRooms(api, at.mapId, at.buildingKey, at.character),
+      offer: ({ room, anchor, price }) => api.offerRoom({ ...at, room, anchor, price }),
+      withdraw: ({ room }) => api.withdrawRoom({ ...at, room }),
+      collect: () => collectHomeRent({ api, realm: host.realmAct ? { act: host.realmAct } : null, wallet: homeWallet(b.regionIndex ?? 0), ...at }),   // into the region's bank account, as the record takes it
+      changed: () => host.onlineHomes?.ensure?.(at.mapId, { force: true }),
+    };
+  };
   /** THE OWNER'S MENU at their own door (Info): go in, who may enter, sell it. */
   function openHomeOwnerMenu(bd, home, hit, entries) {
     townTalk?.showOverlay?.(new ChoiceWindow({
@@ -6054,7 +6176,7 @@ export function createWorldModes(host) {
     });
     if (r.error === HOME_SALE_OUT) return;   // HOME-CROSSED: a second press while the first sale is out - its answer speaks
     if (!r.ok) { townTalk?.say?.(accountRefusalText(r.error)); return; }
-    townTalk?.say?.(homeSoldLine(r.refund, r.decorBack) + (own.length ? ` ${ownBackLines(own, decorOwnBackLine)}` : ''));   // DECOR1e: and its placed pieces' half
+    townTalk?.say?.(homeSoldLine(r.refund, r.decorBack, r.rent ?? 0) + (own.length ? ` ${ownBackLines(own, decorOwnBackLine)}` : ''));   // DECOR1e: and its placed pieces' half; HOME-RENT: and the rent it held
   }
 
   /** ROAD-B: PlayerActivate.AttemptExteriorDoorBash (:1056-1079) - THE
@@ -6323,6 +6445,7 @@ export function createWorldModes(host) {
       _insideResidence = insideResidence;
       _insidePartyRestExempt = partyRestExempt;
       interiorHome = home;   // HOME1: the visit's latch, committed with the identity and its three latches
+      if (home && !home.own && rentDaysLeft(home.tenant, Math.floor(Date.now() / 1000)) > 0) say(rentWelcomeLine(rentDaysLeft(home.tenant, Math.floor(Date.now() / 1000))));   // HOME-RENT: a tenant is told their days
       // ...and my home's scene is KEPT, whichever page bought it: a purchase on a page that was never saved left the
       // service's word standing and the save's permanent set without it, and the next clearing of the scene cache would
       // have thrown my things away (idempotent - DFU's own AddPermanentScene guards with Contains).
@@ -7131,7 +7254,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:7572), so the OUTER host's one rides in.
+          // (dungeonContext.js:7573), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:847 -> the
@@ -7901,7 +8024,7 @@ export function createWorldModes(host) {
       // grounded-gated and false in the air, so `player.standing` is
       // the faithful term (and the footstep gate above now reads it
       // too - AUDIT 64 F3 review).
-      if (!overlayHeld) dungeonCtx.reportActivity?.({ running: player.isRunning && !player.standing, runningTally: player.isRunning && !player.riding, standing: !!player.standing, swimming: player.swimming, climbing: !!player.climb?.isClimbing, jumped: player.jumped, movingLessThanHalfSpeed: player.movingLessThanHalfSpeed, fell: player.landedFallDistance });   // P13 sneak state + P14 fall landing (AUDIT 26 F083: + the climbing arm)
+      if (!overlayHeld) dungeonCtx.reportActivity?.({ running: player.isRunning && !player.standing, runningTally: player.isRunning && !player.riding, standing: !!player.standing, swimming: player.swimming, climbing: !!player.climb?.isClimbing, jumped: player.jumped, movingLessThanHalfSpeed: player.movingLessThanHalfSpeed, fell: player.landedFallDistance, odometer: player.odometer });   // P13 sneak state + P14 fall landing (AUDIT 26 F083: + the climbing arm; MOVE-REAL: + the odometer)
       // PlayerMotor.StartRestGroundedCheck (:184-194) reads the LIVE
       // grounded state; dungeonContext's `_grounded` is host-fed and
       // only dungeon.js:415 fed it, so in a world-hosted dungeon the
@@ -7948,6 +8071,7 @@ export function createWorldModes(host) {
         runningTally: player.isRunning && !player.riding,
         swimming: false,
         jumped: player.jumped,   // C6
+        odometer: player.odometer,   // MOVE-REAL: the ground the body covered - the movement skills past 100 count it
       });
       // IF: the pool's frame. Armed for MobileTeams targeting like
       // every other pool (MT) - the candidate list is this host's
@@ -8318,7 +8442,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:14040's own wave-46 note); the interior
+          // a blow (world.js:14173's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -9347,7 +9471,7 @@ export function createWorldModes(host) {
       // that lets you sleep in it" - and that moment arrived in the
       // same merge: DaggerfallBankManager.IsHouseOwned is live over
       // the region's own registry slot.
-      houseOwned: interiorHome ? interiorHome.own : isHouseOwned(playerEntity.houses ?? [], b?.regionIndex ?? 0, b?.buildingKey ?? 0),   // HOME1: my online home's bed is mine
+      houseOwned: interiorHome ? (interiorHome.own || rentDaysLeft(interiorHome.tenant, Math.floor(Date.now() / 1000)) > 0) : isHouseOwned(playerEntity.houses ?? [], b?.regionIndex ?? 0, b?.buildingKey ?? 0),   // HOME1: my online home's bed is mine; HOME-RENT: and a tenant rests in the home they rent in
       // GetRentedRoom(mapId, buildingKey), through the SAME finder the
       // tavern window rents with - so the bed this answers is the bed
       // that was sold (tavern.js's own flag, retired here).
@@ -10953,7 +11077,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3470-3492), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:10490). So an F9 pressed in a shop
+     *  unconditionally (world.js:10622). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -10992,7 +11116,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:10605)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:10737)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -11002,8 +11126,8 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:9484`
-     *  and `dungeonContext.js:7583` for its two sibling copies - lines
+     *  HARD2c: this used to spell them out, and named `world.js:9616`
+     *  and `dungeonContext.js:7584` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {

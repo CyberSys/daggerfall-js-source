@@ -566,7 +566,7 @@ test('S40 hosts: all four can now rest, and each supplies its own place', () => 
   assert.match(wm, /return interiorRestPlace\(\{/);
   assert.match(wm, /room: findRentedRoom\(playerEntity\.rentedRooms/);
   // H1's ledger, which both rest lanes had to leave as a constant.
-  assert.match(wm, /houseOwned: interiorHome \? interiorHome\.own : isHouseOwned\(playerEntity\.houses/);   // HOME1 re-aim: my online home's bed is mine too
+  assert.match(wm, /houseOwned: interiorHome \? \(interiorHome\.own \|\| rentDaysLeft\(interiorHome\.tenant, Math\.floor\(Date\.now\(\) \/ 1000\)\) > 0\) : isHouseOwned\(playerEntity\.houses/);   // HOME1 re-aim: my online home's bed is mine too; HOME-RENT re-aim: and my rented room's
   assert.match(wm, /guildCanRest\(guild, membershipOf/);
   assert.match(wm, /m\.type === INTERIOR_MARKER\.REST/);
   assert.match(wm, /permanentScene: !!scene && containsPermanentScene\(sceneCache\(\), scene\)/);
@@ -1634,8 +1634,8 @@ test('S40 IsResting: the THIRD consumer - no per-minute fatigue drain while rest
   const sw = mk(); sw.isResting = true; sw.raceId = 99; sw.skillUses = { };
   setWorldMinutes(1000);
   createPlayerTicker(sw, {}).tick(60 / 12, { running: false, swimming: true });
-  assert.match(src('src/systems/worldTick.js'),
-    /tallySkill\(entity, SKILLS\.Swimming\);[\s\S]{0,900}?if \(!entity\.isResting\) sinks\.drainFatigue/);
+  assert.match(src('src/systems/worldTick.js'),   // MOVE-REAL: the motion tally's own door, in the same place
+    /tallyMovementSkill\(entity, SKILLS\.Swimming\);[\s\S]{0,900}?if \(!entity\.isResting\) sinks\.drainFatigue/);
 
   // The window is what raises the flag, so the gate is live end to end.
   const e = mk();

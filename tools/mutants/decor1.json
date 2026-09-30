@@ -119,8 +119,8 @@
   {
     "name": "DECOR1-the-cap-unread",
     "file": "server-account/src/decor.js",
-    "old": "mapId, buildingKey, player.id, character, mapId, buildingKey, DECOR_CAP);",
-    "new": "mapId, buildingKey, player.id, character, mapId, buildingKey, DECOR_CAP + 1);",
+    "old": "mapId, buildingKey, out, out ? DECOR_YARD_CAP : DECOR_CAP);",
+    "new": "mapId, buildingKey, out, out ? DECOR_YARD_CAP : DECOR_CAP + 1);",
     "tests": [
       "test/decor1.test.js"
     ]
@@ -173,8 +173,8 @@
   {
     "name": "DECOR1-the-cap-not-a-conflict",
     "file": "server-account/src/index.js",
-    "old": "const status = r.error === 'decor-cap' || r.error === 'decor-taken' ? 409",
-    "new": "const status = r.error === 'decor-taken' ? 409",
+    "old": "const status = r.error === 'decor-cap' || r.error === 'yard-cap' || r.error === 'decor-taken' ? 409",
+    "new": "const status = r.error === 'yard-cap' || r.error === 'decor-taken' ? 409",
     "tests": [
       "test/decor1.test.js"
     ]

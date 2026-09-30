@@ -426,7 +426,7 @@ test('DECOR2b the host (worldModes.js) by source: the tool reads the deliveries;
   assert.match(m, /if \(shopShelfTheft\(shelfBefore, shelf\.items\.length\)\) tallyCrimeGuildRequirements\(playerEntity, true, 1\);\n\s*decorDeliverCarried\(\);/, 'the closed shop');
   assert.match(m, /function decorDeliverCarried\(\) \{\n\s*const pack = playerEntity\.items \?\? \[\];\n\s*const carried = pack\.filter\(isFurnishing\);\n\s*for \(const it of carried\) pack\.splice\(pack\.indexOf\(it\), 1\);\n\s*decorDeliver\(carried\);/);
   assert.match(m, /if \(own\.length\) say\(ownBackLines\(own, decorOwnBackLine\)\);/, 'a sold house or ship');
-  assert.match(m, /homeSoldLine\(r\.refund, r\.decorBack\) \+ \(own\.length \? ` \$\{ownBackLines\(own, decorOwnBackLine\)\}` : ''\)/, 'a sold online home');
+  assert.match(m, /homeSoldLine\(r\.refund, r\.decorBack, r\.rent \?\? 0\) \+ \(own\.length \? ` \$\{ownBackLines\(own, decorOwnBackLine\)\}` : ''\)/, 'a sold online home');
   assert.match(m, /if \(back\.length\) say\(ownBackLines\(back, \(n\) =>/, 'the strays');
   const n = src('src/ui/nativeTrade.js');
   assert.match(n, /this\._deliverFurniture\(this\.basket\);[^\n]*\n\s*transferAll\(this\.basket, this\.hooks\.packItems\(\)\);/);

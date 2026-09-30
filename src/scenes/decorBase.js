@@ -27,6 +27,9 @@ import { DECOR_BASE_KEY_RE, DECOR_HIDDEN_CAP, decorHiddenOf } from '../net/decor
 
 /** A built-in model's collider bucket - its own, so a piece taken out is nothing to walk into. */
 export const baseBucketOf = (key) => `base:${key}`;
+/** The collider bucket the room's own shell stands in - its walls, floors and ceilings (interiorContext.js); HOME-DOORS
+ *  looks for doorways in it alone. */
+export const INTERIOR_SHELL_BUCKET = 'interior';
 
 /**
  * THE ROOM'S OWN PIECES. `drawList` - the room's draw list; `batches()`, `lights()` - its billboard batches and its

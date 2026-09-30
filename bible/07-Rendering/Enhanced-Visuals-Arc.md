@@ -20,7 +20,7 @@ floating origin verbatim (streamingWorld.js, fuzz-pinned in
 streaming.test.js:139 - `|pixelTranslation(current)| < 1e-6` over
 2000 steps); worst-case uploaded coordinates are ~3276 units, f32 ulp
 0.24mm. What judders is TIME: motor.js runs a fixed 1/60 accumulator
-(the mobile-hotfix shape, motor.js:61-74) with NO render-time
+(the mobile-hotfix shape, motor.js:61-77) with NO render-time
 interpolation - the eye advances 0, 1 or 2 steps per rendered frame
 while the look filter, the head bob and the nod are all render-rate
 smooth. Perfectly smooth rotation over stepped translation is the
@@ -34,9 +34,9 @@ matrix/draw path (GC spikes riding the beat).
 FOUND ON THE WAY, both real: a recenter injects 819.2 units into
 footsteps' stride accumulator (a spurious footstep at every map-pixel
 crossing, footsteps.js:166), and `_playerStill` reads one moving
-frame per crossing (world.js:13251-13253).
+frame per crossing (world.js:13384-13386).
 
-frame per crossing (world.js:22876-22901).
+frame per crossing (world.js:23017-23042).
 
 THE DISTANCE IS FOG-BOUND, NOT STREAM-BOUND. Linear fog ends at 2400
 units (weather.js:50-57, DFU's own number) while the default 7x7

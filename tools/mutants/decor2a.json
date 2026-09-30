@@ -301,8 +301,8 @@
   {
     "name": "DECOR2a-holds-things-open-to-ones-own",
     "file": "src/ui/decorPanel.js",
-    "old": "    storeBtn.disabled = !it || !!it.piece.item || (it.piece.storage && it.holds) || !!it.piece.station;   // HOME-STATIONS: a station holds nothing",
-    "new": "    storeBtn.disabled = !it || (it.piece.storage && it.holds) || !!it.piece.station;   // HOME-STATIONS: a station holds nothing",
+    "old": "    storeBtn.disabled = !it || !!it.piece.item || (it.piece.storage && it.holds) || !!it.piece.station || door;",
+    "new": "    storeBtn.disabled = !it || (it.piece.storage && it.holds) || !!it.piece.station || door;",
     "tests": [
       "test/decor2a.test.js"
     ]
