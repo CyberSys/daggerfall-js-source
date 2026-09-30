@@ -31,6 +31,10 @@ import {
 import { hdGlyphSvg } from '../src/ui/padGlyphsHD.js';   // PLUS-ONLY: the HUD's glyph under the one enhanced dress
 import { quickslotTag, quickslotOffTag, tagKey, CELL_ACTIONS, tagText } from '../src/ui/quickslotTags.js';
 import { createBindings, setBinding } from '../src/systems/inputActions.js';
+import { setPref } from '../src/systems/uiPrefs.js';
+// HB-LYCFREE (2026-09-30): the hotbar is the quick slots' default now. This suite is the DIAMOND's, written while the
+// diamond was the default, so it chooses the diamond (PIN MOVED: the environment it always ran in, now said).
+setPref('quickbarStyle', 'quickbar');
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const HUD = read('src/ui/enhancedHud.js');

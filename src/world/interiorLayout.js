@@ -42,7 +42,10 @@ import { modelScaleVector } from './rmbLayout.js';   // WD1: RMBLayout.GetModelS
 // because DFU gates the ladder (:492) and the whole furniture-action
 // chain (:500) on the SAME clause.
 export const PROP_MODEL_TYPE = 3;
-const DOOR_MODEL_BASE_ID = 9000;
+/** DaggerfallInterior's action doors: model 9000 plus the record's door model index, of five (AddActionDoors). HOME-DOORS
+ *  reads the same five as the doors an owner may hang in a doorway (systems/decorDoorways.js). */
+export const DOOR_MODEL_BASE_ID = 9000;
+export const DOOR_MODEL_COUNT = 5;
 
 /** MAC-BUG1: the box a synthesised exit offers the activation ray, in
  *  the port's world units. A classic building door is about a metre
@@ -203,7 +206,7 @@ export function layoutInterior(dfBlock, blockIndex, recordIndex, getModel) {
       0,
     );
     actionDoors.push({
-      modelIdNum: DOOR_MODEL_BASE_ID + (obj.doorModelIndex % 5),
+      modelIdNum: DOOR_MODEL_BASE_ID + (obj.doorModelIndex % DOOR_MODEL_COUNT),
       matrix,
       openRotation: obj.openRotation,
     });

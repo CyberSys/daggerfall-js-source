@@ -336,7 +336,7 @@ import { testEntryById, applyTestCharacter, seedTestMount, seedTestLoot, testRoo
 import { publishBootParams, refuseOnlinePowerFlags, BOOT_DOOR_KEYS } from '../systems/onlineLane.js';   // AUDIT SET D4: a refused Test Room boot drops `online` from the URL the lane reads; REALM P0.1: the URL's powers stay offline
 import { preloadChargenArt } from '../ui/chargenArt.js';   // U10
 import { preloadMessageBoxArt } from '../ui/messageBox.js';   // U11
-import { buildingDataForDoor, locationBuildings, BUILDING_KEY_0 } from '../systems/talkTopics.js';   // E2: the shop identity   // H2: every building, with its key   // AUDIT 58: BuildingDirectory.buildingKey0, the key both ship interiors are filed under
+import { buildingDataForDoor, locationBuildings, BUILDING_KEY_0, makeBuildingKey } from '../systems/talkTopics.js';   // E2: the shop identity   // H2: every building, with its key   // AUDIT 58: BuildingDirectory.buildingKey0, the key both ship interiors are filed under
 import { hitSoundFor, swingSoundFor, ENEMY_HIT_VOLUME, PLAYER_HIT_VOLUME } from '../systems/soundClips.js';   // AUDIT 58: DFU's two hit volumes
 import { isInvisible, entityIsParalyzed, concealBits } from '../systems/effects.js';   // AUDIT 39: the S19 gate is host-agnostic in DFU
 import { hasActiveEffect } from '../systems/effects.js';   // PEERLIGHT2: my Light spell, for the pose
@@ -583,6 +583,12 @@ import { warmPrograms } from '../render/warmPrograms.js';
 import { ROTOR_HUB, rotorPhase, advanceRotor, mountRotor, MILL_SOUND, millSoundPosition } from '../world/windmills.js';   // WM2b: the sails; WM4c: the hum
 import { BODY } from '../world/windmillMesh.js';   // WM2d: the tower, for the collider
 import { remapSubMeshes } from '../world/texRemap.js';   // WM3: the one climate/dungeon remap seam
+import { homeLookRemap, HOME_LOOK_BUILD_WAIT_MS } from '../world/homeLook.js';   // HOME-LOOK: a painted house's own table
+import { createHomeYards } from './homeYards.js';   // HOME-YARD: the town's yards, and the owner's decorator outside
+import { loadIcon } from '../ui/textureCanvas.js';   // HOME-YARD: the decorator's pictures
+import { BLOCK_TYPES } from '../formats/blocksFile.js';   // HOME-YARD: the catalogue's town blocks
+import { GLOBAL_SCALE } from '../world/meshReader.js';
+import { homeLookSig } from '../net/homeLaw.js';
 import { setWeather, setHeardWeather, heardWeather, currentWeather, currentWeatherRaw, tickWeather, weatherRespawn, applyClimateWeather, importClimateWeathers, weatherJumpStamp, setSharedWeather, rollClimateWeathersForDay, sampleWeatherField, weatherCrossingStamp, currentFieldCells, currentWeatherIntensity, currentCloudBase, currentWindApproach, currentMapSystems, sampleWeatherIndoors, weatherArrivalStamp, mapGround } from '../systems/weatherSim.js';
 import { createDistantStorms, thunderSourceAt, THUNDER_SOURCE_M } from '../systems/distantStorms.js';   // WEATHER3d: the storms at a distance
 import { createStormLights } from '../systems/lightning.js';   // BOLT: the strikes themselves - their channels and their light
@@ -602,7 +608,7 @@ import { CameraRecoiler } from '../player/cameraRecoiler.js';   // AUDIT 28 W9: 
 import { HeadBobber } from '../player/headBobber.js';   // AUDIT 28 W10: HeadBobbing
 import { lastHealthLost, lastHealthLostPercent } from '../ui/hudVitals.js';   // AUDIT 28 W9: the detector's loss
 import { fieldOfView } from '../ui/viewSettings.js';   // MENU: Video/FieldOfView, one home for five hosts
-import { keyEdges, noteKeyDown, noteKeyUp, beginInputFrame, pressed, released, actionsOf, held, moveHeld, swallowBrowserKey, mouseCode, isSwingButton, keyboardLook, isTextEntryTarget, bindings, routeAction, installContextMenuGuard, POLLED_ACTIONS, QUICKSLOT_ACTIONS, swingKeyHeld } from '../ui/input.js';
+import { keyEdges, noteKeyDown, noteKeyUp, beginInputFrame, pressed, released, actionsOf, actionOf, held, moveHeld, swallowBrowserKey, mouseCode, isSwingButton, keyboardLook, isTextEntryTarget, bindings, routeAction, installContextMenuGuard, POLLED_ACTIONS, QUICKSLOT_ACTIONS, swingKeyHeld } from '../ui/input.js';
 import { armUnloadGuard, releaseUnloadGuard } from '../systems/unloadGuard.js';   // MAC-L3: one door in front of every way out of a running game; AUDIT-MACL F3: ...and down for a door the game opened itself
 import { codeMeans, getBinding, codeForAction, getJoystickUIBinding, HELM_RUDDER_ACTIONS } from '../systems/inputActions.js';   // AUDIT-TO1 H2: the help's TravelMap binding, read through the store's own accessor   // FIX-E: the overlay's QuickLoad read, off the code alone   // I2: the rebindable registry; AUDIT 39r: the mouse half of the held set
 import { buttonText } from '../systems/controlsConfig.js';   // AUDIT DEEP T1-12: the travel view's hint names the bound keys as the Controls page does
@@ -1065,9 +1071,19 @@ export async function bootWorld(canvas, renderer, params, status) {
   // service's registry as this page knows it, one town at a time (systems/onlineHomes.js). The mode machine's doors
   // read it and the quest's residence filter asks it; offline it does not exist and every door is Daggerfall's. Read
   // off `params`: `onlineOn` is declared far below, and a quest can be set up before it is.
-  const onlineHomes = params.has('online')
-    ? createOnlineHomes({ api: accountHomes({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() }), character: () => characterIdOf(playerEntity) })
-    : null;
+  // HOME-RENT: the service's homes door itself, for a home's rooms - read at its door, rented, offered, collected
+  const homesApi = params.has('online') ? accountHomes({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() }) : null;
+  const onlineHomes = homesApi ? createOnlineHomes({ api: homesApi, character: () => characterIdOf(playerEntity) }) : null;
+  // HOME-LOOK (2026-09-30, asked: "The ability to choose the texture for the roof, walls, door, windows, etc"): A PLAYER'S
+  // HOME IS DRAWN OUT OF ITS PIXEL'S MERGE, with its OWN texture table - the pixel's climate swaps and its owner's look
+  // over them (world/homeLook.js) - so a look that lands, or changes, repaints it where it stands (refreshHomeLooks). A
+  // home the build merged (its town unheard, or bought after) is rebuilt once it is painted. `_lookPreview` is the
+  // owner's painter's (their own screen alone, until the look is written or put away).
+  let _homeLookV = -1;
+  let _lookPreviewGen = 0;
+  /** @type {Map<string, any>} `${mapId}:${buildingKey}` -> a look the owner's painter is trying */
+  const _lookPreview = new Map();
+  const lookOfHome = (mapId, bk, row) => (_lookPreview.has(`${mapId}:${bk}`) ? _lookPreview.get(`${mapId}:${bk}`) : row?.look ?? null);
   // MARKS1 (PROF0 10.5): the account's Marks as this page knows them - the balance, the Bank's sale carried to its end
   // (a sale whose answer was lost is kept and settled), a guild's Marks moved (net/marksBook.js). Online only.
   const marksBook = params.has('online')
@@ -3320,6 +3336,14 @@ export async function bootWorld(canvas, renderer, params, status) {
     let locOrigin = null;    // the location origin, pixel-local
     let personBatches = null;
     let locBlocks = null;    // T3d: the layout blocks for the Where-is directory
+    let homeTown = 0;        // HOME-LOOK: the town's map id, and its homes as heard at the build
+    let homeLookRead = -1;   // HOME-LOOK (AUDIT): the registry's version as this build read it - refreshHomeLooks starts from it
+    /** @type {Map<number, any>|null} */
+    let townHomes = null;
+    const pixelHomeKeys = new Set();   // HOME-LOOK: the homes drawn out of the merge
+    const pixelBuildingKeys = new Set();   // HOME-LOOK: every building of the pixel, by its key
+    /** @type {Map<number, {at: number[], box: number[]}>} HOME-YARD: each building's own place and the box round its models, pixel-local */
+    const pixelHomeFrames = new Map();
     if (dfLocation) {
       // AUDIT 39 (#18): the skin reaches the layout, because the mill's
       // subrecord widens the block's building count and must not exist
@@ -3333,6 +3357,17 @@ export async function bootWorld(canvas, renderer, params, status) {
       // gate below no longer owns it) - the Where-is directory
       // resolves doors and the player in the LOCATION frame.
       locOrigin = [locLocal[0], locLocal[1], locLocal[2]];
+      // HOME-LOOK: the town's homes, asked before its buildings are merged (a moment, never long - a town unheard by
+      // then is painted when it is heard of)
+      homeTown = (dfLocation.mapTableData?.mapId ?? 0) >>> 0;
+      if (onlineHomes && homeTown) {
+        // AUDIT: a town heard before is read as it was heard (asked again behind the build; an answer that moves is
+        // painted by refreshHomeLooks) - only a town never heard is waited for, a moment, never at every rebuild
+        if (onlineHomes.known(homeTown)) onlineHomes.ensure(homeTown).catch(() => {});
+        else { try { await onlineHomes.waitFor(homeTown, HOME_LOOK_BUILD_WAIT_MS); } catch { /* painted once heard */ } }
+        townHomes = onlineHomes.homesIn(homeTown);
+        homeLookRead = onlineHomes.version() * 1024 + _lookPreviewGen;
+      }
       for (const b of loc.blocks) {
         const originMatrix = trs(
           locLocal[0] + b.originX, locLocal[1], locLocal[2] + b.originZ, 0, 0, 0);
@@ -3384,8 +3419,26 @@ export async function bootWorld(canvas, renderer, params, status) {
           const box = transformedAabb(archAabb(placed.modelIdNum, cpu.positions), local);
           unionBox(box);
           const entry = { gpu, local, _box: box, _order: placed.modelIdNum };   // EV6: sort key
+          // HOME-LOOK / HOME-YARD
+          const homeKey = Number.isSafeInteger(placed.recordIndex) ? makeBuildingKey(b.x, b.y, placed.recordIndex) : null;
+          if (homeKey != null) {
+            pixelBuildingKeys.add(homeKey);
+            // its own place (rmbLayout.js recordAt) and the box round its models: its yard's frame and footprint
+            const at = Array.isArray(placed.recordAt) ? [locLocal[0] + b.originX + placed.recordAt[0], locLocal[1] + placed.recordAt[1], locLocal[2] + b.originZ + placed.recordAt[2]] : null;
+            const f = pixelHomeFrames.get(homeKey);
+            if (!f && at) pixelHomeFrames.set(homeKey, { at, box: [...box] });
+            else if (f) for (let i = 0; i < 3; i++) { f.box[i] = Math.min(f.box[i], box[i]); f.box[i + 3] = Math.max(f.box[i + 3], box[i + 3]); }
+          }
+          const homeRow = homeKey != null ? townHomes?.get(homeKey) ?? null : null;
+          const homeLook = homeRow ? lookOfHome(homeTown, homeKey, homeRow) : null;
+          // AUDIT: a painted home, or this account's, leaves the merge (PERF4 for every other); unpainted, the pixel's table
+          if (homeRow && (homeLook || homeRow.mine)) {
+            entry._home = { bk: homeKey, sig: homeLookSig(homeLook), seq: 0 };
+            entry.texRemap = homeLook ? await homeLookRemap(gpu.subMeshes, texRemap, homeLook, season, pipeline) : null;
+            pixelHomeKeys.add(homeKey);
+          }
           models.push(entry);
-          if (!isCityGate(placed.modelIdNum) && cpu.normals && cpu.uvs) { staticBuilder.add(cpu, local, resolveTexKey); entry._batched = true; }   // PERF4: the remap for this model's textures is in the map by now (awaited above)
+          if (!entry._home && !isCityGate(placed.modelIdNum) && cpu.normals && cpu.uvs) { staticBuilder.add(cpu, local, resolveTexKey); entry._batched = true; }   // PERF4: the remap for this model's textures is in the map by now (awaited above); HOME-LOOK: a home stays out
           await breather.breathe();   // PERF7: a warm build gives the frame back every few milliseconds
           // AUDIT 64 F14: a city gate takes a collider bucket of its own
           // (the pixel's shared bucket has no per-mesh removal), keyed
@@ -3869,6 +3922,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       // (TravelOptionsMod.cs:541-551). Null for a pixel with no location.
       locationRect,
       _seasonsGen: seasonsGen,   // SIB1: the install this pixel's flats were built under (AUDIT 61: captured at the lookups)
+      homeTown, homeKeys: pixelHomeKeys, buildingKeys: pixelBuildingKeys,   // HOME-LOOK: the homes drawn on their own, and every building's key
+      _lookV: homeLookRead,   // HOME-LOOK (AUDIT)
+      homeFrames: pixelHomeFrames, homeRegion: dfLocation?.regionIndex ?? 0,   // HOME-YARD: each building's frame, and the town's region (a yard's pieces are paid there)
       px, py, terrain, water, tilemapTex, tilemap, groundArchive, models, windmills, batches, flatAnims, texRemap, lights: pixelLights, hearths: pixelHearths, animals: pixelAnimals, springs: pixelSprings, skyBase: climate.skyBase, samples, natureCount: nature.length,
       tilemapBytes, season,   // GR1: the placer reads the tiles and the season
       paths,   // GRASS-PATH1: which tiles the road painter wrote; null on a pixel built before the network arrived
@@ -3942,6 +3998,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       const t = state.pixelTranslation(px, py);
       hccGroundMoved(t[0], t[2], t[0] + TERRAIN_SIZE, t[2] + TERRAIN_SIZE);
     }
+    if (homeTown) _homeLookV = -1;   // HOME-LOOK (AUDIT): a town's pixel stood after the registry moved is painted by the next refresh
     // AUDIT-TO1 B3: the second hook. BOOT-TDZ2: THE MOD IS ASKED FIRST,
     // because this builder runs inside the boot's OWN first build and
     // `playerTravelPixel()` reads `walkMode`, `player` and `cam` - three
@@ -4351,6 +4408,46 @@ export async function bootWorld(canvas, renderer, params, status) {
   // the ground returns. Every other full teardown in this host ends
   // in player.spawn; this one holds instead, which is nearer the
   // reference still: the player does not move at all.
+  /** HOME-LOOK: THE HOMES REPAINTED, whenever the registry moves (a town heard, a look written) or the painter tries one -
+   *  each home drawn on its own takes its new table when it is ready (the older ask never lands over a newer); a pixel
+   *  that merged a home which is painted now is rebuilt, the season's own teardown (tickSeason), once. */
+  function refreshHomeLooks() {
+    if (!onlineHomes) return;
+    const v = onlineHomes.version() * 1024 + _lookPreviewGen;
+    if (v === _homeLookV) return;
+    _homeLookV = v;
+    for (const [key, p] of built) {
+      // AUDIT: each pixel from the registry as its build read it - an answer landing mid-build is never spent before
+      // the pixel stands (the publish asks for a refresh)
+      if (!p.homeTown || p._lookV === v) continue;
+      const homes = onlineHomes.homesIn(p.homeTown);
+      if (!homes) continue;
+      p._lookV = v;
+      let merged = false;
+      // a home the merge swallowed rebuilds its pixel once a look is WRITTEN on it, or once it is this account's - never
+      // for the painter's preview (AUDIT: a colour tried tore the owner's street down under the open panel)
+      for (const [bk, row] of homes) if (!p.homeKeys.has(bk) && p.buildingKeys.has(bk) && (row?.look || row?.mine)) merged = true;
+      if (merged) { _reskin.mark(key); continue; }
+      for (const m of p.models) {
+        if (!m._home) continue;
+        const look = lookOfHome(p.homeTown, m._home.bk, homes.get(m._home.bk));
+        const sig = homeLookSig(look);
+        if (sig === m._home.sig) continue;
+        m._home.sig = sig;
+        const seq = ++m._home.seq;
+        if (!look) { m.texRemap = null; continue; }   // the town's own: the pixel's table
+        homeLookRemap(m.gpu.subMeshes, p.texRemap, look, p.season, pipeline).then((map) => { if (m._home.seq === seq) m.texRemap = map; }, () => {});
+      }
+    }
+  }
+  /** HOME-LOOK: the painter's preview of a look on a home (null: put away) - the owner's own screen alone. */
+  function previewHomeLook(mapId, bk, look) {
+    const k = `${mapId}:${bk}`;
+    if (look === undefined) { if (_lookPreview.delete(k)) _lookPreviewGen++; return; }
+    _lookPreview.set(k, look);
+    _lookPreviewGen++;
+  }
+
   let _seasonHoldKey = null;
   function tickSeason() {
     if (_seasonStraightening) return;   // the FRAME's poll only (see above)
@@ -7936,7 +8033,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2750 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6442
+  // that context through modes.dungeonCtx - so worldModes.js:6565
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -8244,6 +8341,41 @@ export async function bootWorld(canvas, renderer, params, status) {
     mode: () => _mode(),
     enhanced: () => isEnhanced(),
   });
+  // HOME-YARD (2026-09-30, asked: "allowing for prop placement on the outside within the limits of their house"): THE
+  // TOWN'S YARDS AND THE OWNER'S DECORATOR OUTSIDE (scenes/homeYards.js) - every online home's pieces outside, stood in
+  // its pixel for everyone in the street, and the decorator on the owner's own lot (the lot's edge marked, a piece off
+  // it refused). HOME-LOOK rides its panel: "Exterior", the house's outside painted. Online alone.
+  const homeYardWallet = (region) => {
+    playerEntity.bankAccounts ??= createBankAccounts(BANK_REGION_COUNT);
+    const a = playerEntity.bankAccounts[region] ?? null;
+    return {
+      gold: totalGoldAmount(playerEntity) + (a?.accountGold ?? 0),
+      pay: (n) => { const short = deductGold(playerEntity, n); if (a) a.accountGold -= short; },
+      credit: (n) => { addGold(playerEntity, n); },
+    };
+  };
+  const yards = homeDecor && onlineHomes ? createHomeYards({
+    api: homeDecor, homes: onlineHomes, built: () => built, translation: (px, py) => state.pixelTranslation(px, py),
+    feet: () => (walkMode && playerSpawned ? player.feetAt() : null),
+    outside: () => _mode() === 'exterior' && playerSpawned && !player.riding,
+    eye: () => cam.pos,
+    collider: () => collider, meshes: { getGpuMesh, cpuModels }, renderer, getTexture, uploadRecord, uploadRecordFrame,
+    iconUrl: (a, r) => loadIcon(a, r, { scale: 1 }),
+    scanDeps: () => ({
+      blocks, isTownBlock: (t) => t === BLOCK_TYPES.Rmb,
+      modelRadius: (id) => { const rec = arch?.getRecordIndex?.(id); if (rec == null || rec < 0) return null; const r = arch.getMesh(rec)?.radius ?? 0; return r > 0 ? r * GLOBAL_SCALE : null; },
+      flatRadius: async (a, r) => { const t = await getTexture(a); if (!t || !(r < t.recordCount)) return null; const size = billboardSize(t, r); return Math.hypot(size.w, size.h) / 2; },
+    }),
+    character: () => characterIdOf(playerEntity),
+    realm: () => (realmSession ? (o) => realmGoldAct({ session: realmSession, checkpoint: () => onlineCheckpoint(), ...o }) : null),
+    wallet: (region) => homeYardWallet(region), regionOf: (y) => built.get(`${y.px},${y.py}`)?.homeRegion ?? 0,
+    doc: typeof document !== 'undefined' ? document : null, win: typeof window !== 'undefined' ? window : null, canvas, touch: isTouchDevice(),
+    actionOf: (e) => actionOf(e, keys), locked: () => typeof document !== 'undefined' && document.pointerLockElement === canvas,
+    cursorOff: () => setCursorActive(false), stick: () => touch?.axes() ?? gamepad?.axes() ?? null,
+    say: (l) => townTalk.say(l), refusal: (w) => accountRefusalText(w), openSlot: (o) => townTalk.showOverlay(o),
+    look: { preview: (mapId, bk, look) => previewHomeLook(mapId, bk, look), season: () => season },   // HOME-LOOK
+    now: () => Date.now(),
+  }) : null;
   let _farmSyncT = 0;   // BOUNTY-FARM: the pool is brought in line twice a second
   let _noticeReadT = 0;   // NOTICE1: the town underfoot is asked about once a second (the book's cache answers the rest)
   /** BOUNTY-FARM / BOUNTY-TRAIL: how near its spot (the farmhouse, the second group's) the hunter must come before the
@@ -12637,6 +12769,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     attack: (dx, dy, held) => {
       if (!walkMode) { swipeHeld = false; return; }
       if (modeNow() === 'exterior') {
+        if (yards?.flying()) { swipeHeld = false; return; }   // HOME-YARD (AUDIT): a swipe under the yard's decorator turns the eye, never swings
         swipeHeld = held;
         if (held && gatherHost?.acting()) return;   // PROF1: an act's tap is the act's
         if (held && magic.interceptAttack(true)) return;   // M2: an armed cast eats the swing
@@ -12652,7 +12785,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // the finger's ray - A8's gate fires it on the release. A finger in
     // the docked bar's strip is no world tap at all.
     tap: (x, y, opts = null) => {
-      if (modes?.decorFlying?.()) return;   // DECOR1e: under the decorator's flight a tap is no press - the bar's Place places
+      if (modes?.decorFlying?.() || yards?.flying()) return;   // DECOR1e: under the decorator's flight a tap is no press - the bar's Place places; HOME-YARD (AUDIT): the yard's too
       if (!ndcFromScreen(x, y, canvas.clientWidth, canvas.clientHeight, worldViewportRect(canvas.clientWidth, canvas.clientHeight))) return;
       _tapPoint = [x, y]; _tapArmed = 2;   // AUDIT 62 F8: the arm IS the press - see _tapArmed at the gate below
       _tapLockOnly = !!opts?.lockOnly;   // TS1: touch.js's stick-half tap (TI1b) - the lock pick and nothing below it
@@ -13129,7 +13262,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9904-9968 -
+  // worldModes answers it in BOTH modes (worldModes.js:10027-10091 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -19218,6 +19351,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // HOME1: the online homes' registry (null offline), and my party's names as the relay signs them - a home its owner
     // opened to their party opens to a player whose party holds the owner (net/homeLaw.js homeMayEnter)
     onlineHomes,
+    homesApi,   // HOME-RENT: a home's rooms, through the service's own door (null offline)
     marks: marksBook,   // MARKS1: the Bank of the Empire's Marks, online
     saveSoon: () => saveSoon.changed(),   // PROF-SAVE: a Marks sale's gold in the Bank's account saved soon
     homeDecor,   // DECOR1c: an online home's placed pieces (null offline - the house's and the ship's are the save's)
@@ -21572,6 +21706,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     });
 
 
+    // HOME-YARD: the yards in line, and the owner's decorator on their lot - above the modal gate, so a door walked
+    // through stands it down (its own frame reads the mode)
+    yards?.frame({ dt, cam, overlayUp: !!townTalk.overlayActive });
     // AT2: AmbientTextMod.Update. ABOVE THE MODAL GATE, for the same
     // reason the holiday text is: it is a MonoBehaviour Update and DFU
     // does not suspend those when you walk through a door. One tick
@@ -21906,6 +22043,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         if (_dwForge) { const afloat = afloatMessageStep(player, player.waterWalking); if (afloat) townTalk.say(afloat, CANNOT_FLOAT_HUD_SECONDS); }
         const mv = moveHeld(keys);
         mv.analog = touch?.axes() ?? gamepad?.axes() ?? null;   // TI2: the stick's throw, when the layer has one - MoveAxes' joystick arm takes it over the key impulse; GP1: the pad's stick when no finger
+        if (yards?.flying()) mv.analog = null;   // HOME-YARD: the stick flies the decorator's eye - the body stands
         // AUDIT 28 W8: the axes advance only on frames the motor runs (a
         // held overlay is DFU's timeScale 0 - no climb, no friction).
         // AUDIT 64 F3: InputManager.cs:542-545 - `if (ToggleAutorun)
@@ -22659,6 +22797,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       spherecast: (o, r, d, m) => { const h = collider.sphereCast(o, r, d, m, camFilter).dist; return Number.isFinite(h) ? h : null; },   // MAC-A: castSphere's seam beside the ray - the camera's two obstacle guards are sphere casts (camera.cpp:186, :200)
       seaReach: csaHelm ? csaSeaReach(csaHelm) : 0,   // #3
     });
+    if (yards?.flying()) { const c = { pos: mwv0.eye }; yards.cameraOverride(c); mwv0.eye = c.pos; }   // HOME-YARD: the decorator's free eye, while a piece is placed outside (no travel view is up then)
     // TV1: THE TRAVEL VIEW'S EYE, when it is up - risen out of the body's own camera (`ownEye`, the one the frame would
     // draw) and blended back into it on the way down. Every reader below that asks where the picture is taken from
     // reads `mwv.eye`; the fog and the sun's cascades measure from the traveller's head (renderer.setFocus - a frame's:
@@ -22698,6 +22837,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (_wodLate.size && !building) sweepWodLate();   // WOD6: a late region's pixels, the same way
     if (!building) sweepGateClear();   // GATE-CLEAR: the gate the clock is about turned - its clearing in, the last one's rock back
     if (seasonsActive) seasons.tick();   // SIB1: RefreshSeasonAfterLoad's second half, the frame after a load
+    refreshHomeLooks();   // HOME-LOOK: a look landed or changed repaints the home where it stands
     // W1/S41: the DRAIN ticks on the exterior frame, which is
     // WeatherManager.Update's own shape - it returns while the player
     // is inside, so a sky rolled by a day spent indoors or underground
@@ -22948,6 +23088,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     camps.draw(renderer);   // SURV3: the tents, the cart's own pass
     hcc.draw(renderer);   // HCC: the trailing / parked / following wagon and its cargo, mine and the peers' (the horses ride the flats' pass)
     bountyFarms?.draw(renderer);   // BOUNTY-FARM: a held farm bounty's farmstead
+    yards?.draw(renderer);   // HOME-YARD: the pieces outside the town's homes, and the one being placed
     if (csaOn()) csa.draw(renderer);   // CSA-B: the boats - the hulls, the classic models their helpers stand, the baked sails
 
     // WM2b: read the eased wind ONCE a frame, not once a mill.
@@ -23011,6 +23152,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (peerRiders) for (const b of peerRiders.batches()) { if (!(cullOn && billboardOutside(b))) allBatches.push(b); }   // RIDE: the others in the saddle
     if (peerWalkers) for (const b of peerWalkers.batches()) { if (!(cullOn && billboardOutside(b))) allBatches.push(b); }   // DISC23-B: and on foot, as they chose
     if (bandSprites) for (const b of bandSprites.batches()) { if (!(cullOn && billboardOutside(b))) allBatches.push(b); }   // OW-FOES: the bands near, as their monsters
+    if (yards) for (const b of yards.batches()) { if (!(cullOn && billboardOutside(b))) allBatches.push(b); }   // HOME-YARD: the yards' flats, and the one being placed
     // NEAR-FIRST (2026-09-21): THE PIXELS ARE WALKED NEAREST FIRST. The
     // map's insertion order is the order the pixels streamed in, which
     // is nothing to do with where the eye is - so a far town's walls
@@ -23075,8 +23217,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
             m._world = multiply(pixelMatrix, m.local, m._world || new Float32Array(16));
             m._worldGen = p._worldGen | 0;
           }
-          if (off) renderer.recordShadowMesh(m.gpu, m._world, p.texRemap);   // SHADOW-REACH: for the maps alone
-          else renderer.drawMesh(m.gpu, m._world, p.texRemap);
+          if (off) renderer.recordShadowMesh(m.gpu, m._world, m.texRemap ?? p.texRemap);   // SHADOW-REACH: for the maps alone; HOME-LOOK: a painted home's own table
+          else renderer.drawMesh(m.gpu, m._world, m.texRemap ?? p.texRemap);
         }
       } else if (pixelCasts) {
         // SHADOW-REACH: the whole pixel is off screen but inside a shadow's reach - its ground, its merged statics
@@ -23089,7 +23231,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
             m._world = multiply(pixelMatrix, m.local, m._world || new Float32Array(16));
             m._worldGen = p._worldGen | 0;
           }
-          renderer.recordShadowMesh(m.gpu, m._world, p.texRemap);
+          renderer.recordShadowMesh(m.gpu, m._world, m.texRemap ?? p.texRemap);   // HOME-LOOK
         }
       }
       // WM2b: THE SAILS, on the same eased wind vector the cloud deck
@@ -23227,10 +23369,12 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       for (let i = 0; i < n; i++) _waterRows[i].fill(null);   // a scratch keeps no evicted pixel's surface alive
     }
     meterFor(renderer.gl)?.markCpu('flats');   // PERF-CPU: submitting the billboards - the draws themselves, from JS. ABOVE setFlatWind, not between it and the draw: WIND3 pins the two as ADJACENT, and the wind is part of this phase anyway.
+    yards?.drawDecals(renderer);   // HOME-YARD: the lot's marked edge while a piece is placed
     bloodMarks.draw(camRight, UP_Y);   // BLOOD1a: the marks go down BEFORE the billboards, so a body standing in its own blood is over it and not under it. ABOVE setFlatWind for the reason its own neighbour gives: WIND3 pins the wind and the draw as ADJACENT.
     renderer.setFlatWind(floraSwayOn() && wd.on ? [wd.windV[0], wd.windV[1], now / 1000, wd.gust] : null);   // WIND3: the flats lean with the one wind; the flora batches carry their share (sway)
     renderer.drawBillboards(allBatches, camRight, bbUp);
     if (magic.batches().length) renderer.drawBillboards(magic.batches(), camRight, bbUp);   // M2: spell missiles
+    yards?.drawPreview();   // HOME-YARD: the decorator's panel, its pointed model turning in the preview box
     // T2 towns: every built populated pixel runs its own pool
     // (PopulationManager is per-location); the pool sees the player in
     // the pixel's LOCATION frame, and live persons draw through the

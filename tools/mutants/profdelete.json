@@ -38,8 +38,8 @@
   {
     "name": "PROF-DELETE-refused-after-the-objects-go",
     "file": "server-account/src/realm.js",
-    "old": "  if (Number((await db.prepare(REALM_MARKET_OPEN_SQL).bind(playerId, id).first())?.n ?? 0) > 0) return { error: 'realm-market-open' };\n  await dropCharacterObjects(bucket, playerId, id, [row.obj, row.prev]);",
-    "new": "  await dropCharacterObjects(bucket, playerId, id, [row.obj, row.prev]);\n  if (Number((await db.prepare(REALM_MARKET_OPEN_SQL).bind(playerId, id).first())?.n ?? 0) > 0) return { error: 'realm-market-open' };",
+    "old": "  if (Number((await db.prepare(REALM_MARKET_OPEN_SQL).bind(playerId, id).first())?.n ?? 0) > 0) return { error: 'realm-market-open' };\n",
+    "new": "  await dropCharacterObjects(bucket, playerId, id, [row.obj, row.prev]);\n  if (Number((await db.prepare(REALM_MARKET_OPEN_SQL).bind(playerId, id).first())?.n ?? 0) > 0) return { error: 'realm-market-open' };\n",
     "tests": [
       "test/profdelete.test.js"
     ]

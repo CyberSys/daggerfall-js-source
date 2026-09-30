@@ -104,6 +104,9 @@ export function layoutRmbBlock(dfBlock, { enhanced = false, windmills = true } =
         modelIdNum: obj.modelIdNum,
         matrix: multiply(subRecordMatrix, modelMatrix),
         recordIndex,
+        // HOME-YARD (not a DFU field): where the building itself stands in its block - the subrecord's own origin, the
+        // same for each of its models, and the frame a player's yard is laid out from (scenes/homeYards.js)
+        recordAt: [subRecordMatrix[12], subRecordMatrix[13], subRecordMatrix[14]],
       });
     }
   }

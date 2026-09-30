@@ -40,6 +40,10 @@ import { equipItem, equipTableOf, EQUIP_SLOTS } from '../src/systems/equip.js';
 import { assignQuickslot, clearQuickslots, swapQuickslot, quickslotOf } from '../src/systems/quickslots.js';
 import { USE_PENDING as USE_PENDING_SYS } from '../src/systems/useItem.js';
 import { USE_PENDING as USE_PENDING_UI } from '../src/ui/nativeInventory.js';
+import { setPref } from '../src/systems/uiPrefs.js';
+// HB-LYCFREE (2026-09-30): the hotbar is the quick slots' default now. This suite is the DIAMOND's, written while the
+// diamond was the default, so it chooses the diamond (PIN MOVED: the environment it always ran in, now said).
+setPref('quickbarStyle', 'quickbar');
 
 const rd = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 

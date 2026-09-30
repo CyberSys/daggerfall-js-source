@@ -827,7 +827,7 @@ buyer had.
   marked; they go to the pack or back on the market for gold, and to nothing else - no station, craft, Court or guild
   writ, guild Stores, buy-order fill or Marks listing. And goods bought with Marks never list for gold, or the market
   would be a way round the Bank's daily cap and spread (10.5).
-- **As built**: `06-Systems/Online-Arc.md` GOLD-MARKET (acct38, `0037_gold_market.sql`).
+- **As built**: `06-Systems/Online-Arc.md` GOLD-MARKET (acct39, `0040_gold_market.sql`).
 
 ## 11. Writs - the Work tab
 

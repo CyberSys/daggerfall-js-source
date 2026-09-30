@@ -462,7 +462,7 @@ test('DECOR1e the touch screen\'s flight in the host (worldModes.js, world.js) b
   assert.match(m, /mv\.analog = host\.stickAxes\?\.\(\) \?\? null;[^\n]*\n\s*if \(decorTool\.flying\(\)\) mv\.analog = null;/, 'the body\'s stick nulled under the flight, right after the read');
   assert.match(m, /attackInput\(dx, dy, held\) \{ if \(held && decorTool\.flying\(\)\) return; modalAttackSink\(\)\?\.\(dx, dy, held\); \},/);
   assert.match(m, /decorFlying: \(\) => decorTool\.flying\(\),/);
-  assert.match(w, /tap: \(x, y, opts = null\) => \{\n\s*if \(modes\?\.decorFlying\?\.\(\)\) return;/, 'the first thing a tap asks');
+  assert.match(w, /tap: \(x, y, opts = null\) => \{\n\s*if \(modes\?\.decorFlying\?\.\(\) \|\| yards\?\.flying\(\)\) return;/, 'the first thing a tap asks');   // HOME-YARD re-aim (AUDIT): the yard's flight too
 });
 
 // ─── A ROOM SOLD ─────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -499,6 +499,6 @@ test('DECOR1e a room sold takes its placed pieces: online, the service\'s count 
   assert.match(m, /const pieces = takeSceneDecor\(sceneCache\(\), sceneName\)\.filter\(\(p\) => !p\?\.item\);[^\n]*\n\s*if \(!pieces\.length\) return 0;\n\s*const back = decorSaleBack\(pieces\);\n\s*const account = homeAccount\(region\);\n\s*if \(account && back > 0\) account\.accountGold \+= back;/, 'DECOR2a: the bought pieces alone - the owner\'s own were never bought');
   assert.match(m, /removePermanentScene: \(mapId, k\) => \{ decorSold\(interiorSceneName\(mapId, k\), region\); removePermanentScene\(sceneCache\(\), interiorSceneName\(mapId, k\)\); \},/, 'the house: its pieces\' half before its scene is dropped');
   assert.match(m, /removePermanentScene: \(ship\) => \{\n\s*decorSold\(interiorSceneName\(SHIP_INTERIOR_MAP_IDS\[ship\], BUILDING_KEY_0\), bankRegion\(\)\);/, 'the ship: its interior\'s');
-  assert.match(m, /townTalk\?\.say\?\.\(homeSoldLine\(r\.refund, r\.decorBack\) \+ /, 'the online sale says both');
+  assert.match(m, /townTalk\?\.say\?\.\(homeSoldLine\(r\.refund, r\.decorBack, r\.rent \?\? 0\) \+ /, 'the online sale says both');   // HOME-RENT re-aim: and the held rent
   assert.match(m, /credit: \(n\) => \{ purse\.addGold\(n\); \},/, 'a removal\'s or a shrink\'s half into the purse');
 });
