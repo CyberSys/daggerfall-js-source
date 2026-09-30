@@ -356,6 +356,11 @@ export function quickLootArm(action) {
   return false;
 }
 
+/** AUDIT WB9 (spoils F2): THE ARMED KEY SPENT by a press that takes through no pile - a piece of the Warden's spoils (the
+ *  court's own rung, scenes/worldModes.js): P or J over one armed the mode, the press took the piece and never read it,
+ *  and the next E on a pile took all of it (or opened its window). */
+export function quickLootSpend() { _pending = null; }
+
 /** WHICH item the highlighted row is, out of this container.
  *
  *  The key is checked because a host asking about a pile the crosshair

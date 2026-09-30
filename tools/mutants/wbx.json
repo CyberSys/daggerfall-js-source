@@ -93,7 +93,7 @@
   {
     "name": "WBX5-the-nova-at-the-roar",
     "file": "src/net/gateBrain.js",
-    "old": "  2: Object.freeze([Object.freeze({ a: 'leap', centre: true }), Object.freeze({ a: 'nova' })]),",
+    "old": "  2: Object.freeze([Object.freeze({ a: 'cross', court: 1 }), Object.freeze({ wait: 'arrive' }), Object.freeze({ a: 'nova' })]),",
     "new": "  2: Object.freeze([Object.freeze({ a: 'nova' })]),",
     "tests": [
       "test/wbx_gate_fixes.test.js",
@@ -103,8 +103,8 @@
   {
     "name": "WBX5-the-spokes-in-phase-two",
     "file": "src/net/gateBrain.js",
-    "old": "pct: 0.40, base: 10, el: 'fire', aim: 'self', phase: 3, range: 40, w: 2, minGap: 0 }),",
-    "new": "pct: 0.40, base: 10, el: 'fire', aim: 'self', phase: 2, range: 40, w: 2, minGap: 0 }),",
+    "old": "pct: 0.52, base: 14, el: 'fire', aim: 'self', phase: 3, range: 40, w: 2, minGap: 0 }),",
+    "new": "pct: 0.52, base: 14, el: 'fire', aim: 'self', phase: 2, range: 40, w: 2, minGap: 0 }),",
     "tests": [
       "test/wbx_gate_fixes.test.js",
       "test/wb3_gate_room.test.js"

@@ -117,7 +117,7 @@ test('PROF8 law: the catch is Raw Fish (tier 1, a Mark); the Pearl is a Stores m
   assert.deepEqual(material(PEARL.key), { key: 'gem:pearl', family: 'gems', tier: 5, value: TIER_VALUES[4], group: 'MiscellaneousIngredients2', templateIndex: 77 });
   assert.ok(MINED_KEYS.includes(PEARL.key));
   assert.equal(FT.FishingNet, 1603);
-  const sql = src('server-account/migrations/0041_fishing.sql');
+  const sql = src('server-account/migrations/0042_fishing.sql');
   assert.match(sql, /kind\s+TEXT NOT NULL CHECK \(kind IN \('herbs', 'food', 'ore', 'stone', 'logs', 'hide', 'fish'\)\)/);
   assert.match(sql, /trophy\s+INTEGER NOT NULL DEFAULT 0 CHECK \(trophy IN \(0, 1\)\)/);
   assert.match(sql, /CREATE INDEX IF NOT EXISTS idx_node_harvests_today/);

@@ -4775,7 +4775,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7249` read, on one physical line:
+`src/scenes/worldModes.js:7265` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4790,7 +4790,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:5257`). With the property missing that call is a
+(`dungeonContext.js:5306`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4917,9 +4917,9 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:7949` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:7958` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
-  provenance argument `applySpellToFoe` hands them (`hostMagic.js:337`)
+  provenance argument `applySpellToFoe` hands them (`hostMagic.js:352`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
   Threading it touches four hosts.
 - **A building interior streams no foes at all.** `makeInteriorFoes`
@@ -7140,7 +7140,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1100`, `src/net/online.js:2296`):**
+**Now (`src/net/wire.js:1100`, `src/net/online.js:2306`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -12083,7 +12083,7 @@ every vein table); the woods were the one gap.
   Teak on anyone's word, kept); the Mountain and Mountain Woods byte for byte their table's draw. The Court's writ table
   names the Pine a forest stands.
 - **The service** recomputes every felling from this law (`professions.js` harvestNode), so it is the fix's only
-  service change: **acct38** (past HOUSING's acct37, merged the same day), no migration, no route. A node's key names no wood, so a tree felled before the deploy
+  service change: **acct39** (past HOUSING's acct37 and WB9g's acct38, merged the same day), no migration, no route. A node's key names no wood, so a tree felled before the deploy
   stays felled and one standing is read again under the new law. Deploy the account service first: an old service
   refuses a Novice's Pine as `prof-rank` until it lands; an old client beside a new service only shows the Oak's need.
 - **The XP curve is unchanged**: rank 10 is 67 plain tier-1 harvests or 46 clean ones (22 XP), inside a day's 60.
@@ -12131,7 +12131,7 @@ pay in gold it never had. REALM P2 moved a realm character's gold onto its recor
 gold can now change hands the way a guild deposit or a house's price does - in the act's own batch. Professions-Arc
 10.8 holds the decision; this is the build.
 
-- **A listing names its currency** (`src/net/marketLaw.js` MARKET_CURRENCIES; migration `0040_gold_market.sql`):
+- **A listing names its currency** (`src/net/marketLaw.js` MARKET_CURRENCIES; migration `0041_gold_market.sql`):
   Drakes as ever, or GOLD - a realm character's own Stores units, or a crafted piece, listed with no fee at listing; each
   gold sale pays the 5% tax and 1% of itself (the Drakes' listing fee) out of its price, both burnt (`goldSaleOf`). Buy
   orders, auctions and commissions stay in Drakes. The Materials, Crafted and History views read one currency at a time
@@ -12158,7 +12158,7 @@ gold can now change hands the way a guild deposit or a house's price does - in t
   answer); the List form's "Priced in gold"; under My listings the gold held and its Collect. The Stores page counts
   gold's units, splits them ("bought with gold") and says where they may go. Any other character sees the Drakes'
   market alone.
-- **The service**: **acct39** (past HOUSING's acct37 and PINE-SHARE's acct38), migration `0040_gold_market.sql` (the Stores rebuilt for the third origin; a listing's
+- **The service**: **acct40** (past HOUSING's acct37, WB9g's acct38 and PINE-SHARE's acct39), migration `0041_gold_market.sql` (the Stores rebuilt for the third origin; a listing's
   and a sale's currency; a sale's fee; a piece's `bought_with`; `market_gold`, `market_gold_prices`). Deploy the
   migration and the service before the client: an old service refuses every gold word as a bad act, and an old client
   beside a new service sees the Drakes' market as before.
@@ -12179,7 +12179,7 @@ record; in short:
   buzzing); the haul - the tension band over the net's weight. **The kind** (`scenes/fishHost.js`): the cast ahead of the
   look with a net in the net's water; the day's two schools a pixel on water, as the fish's own flats and in the prompt's
   words; the species named in the toast.
-- **The service**: **acct40**, migration `0041_fishing.sql`. Deploy the migration and the service before the client: an
+- **The service**: **acct41**, migration `0042_fishing.sql`. Deploy the migration and the service before the client: an
   old service refuses every haul as a bad node.
 - **Pinned:** `test/prof8_law.test.js` (7), `test/prof8_service.test.js` (3), `test/prof8_client.test.js` (12). Mutants:
   `tools/mutants/prof8.json` (33, all dead). Patch notes: `PATCH-NOTES-Fishing.md`.

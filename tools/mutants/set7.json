@@ -164,8 +164,8 @@
   {
     "name": "SET7-a-heavy-sale-half-made",
     "file": "src/systems/sigilBroker.js",
-    "old": "  if (!canCarry(sale.give, rest)) return { ok: false, reason: 'heavy' };\n  for (const { item, count } of sale.take) {\n    const have = Math.max(1, item.stackCount ?? 1);\n    if (count >= have) items.splice(items.indexOf(item), 1);\n    else item.stackCount = have - count;\n  }",
-    "new": "  for (const { item, count } of sale.take) {\n    const have = Math.max(1, item.stackCount ?? 1);\n    if (count >= have) items.splice(items.indexOf(item), 1);\n    else item.stackCount = have - count;\n  }\n  if (!canCarry(sale.give, rest)) return { ok: false, reason: 'heavy' };",
+    "old": "  if (!canCarry(sale.give, rest)) return { ok: false, reason: 'heavy' };\n  takeFromPack(items, sale.take);",
+    "new": "  takeFromPack(items, sale.take);\n  if (!canCarry(sale.give, rest)) return { ok: false, reason: 'heavy' };",
     "tests": [
       "test/set7_broker.test.js"
     ]
@@ -605,7 +605,7 @@
   {
     "name": "SET7-AUDIT-U10-rows-unreachable",
     "file": "src/ui/brokerWindow.js",
-    "old": "      row.setAttribute('tabindex', '0');\n",
+    "old": "    row.setAttribute('tabindex', '0');\n",
     "new": "",
     "tests": [
       "test/set7_broker.test.js"

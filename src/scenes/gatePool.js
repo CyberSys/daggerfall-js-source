@@ -30,7 +30,8 @@ import { buildGateModel, gateArchProfile, GATE_ARCHIVE, GATE_HEIGHT, PORTAL_CENT
 import { gateArt } from '../world/gateArt.js';
 import { GatePassRenderer, gateSpinRate } from '../render/gatePass.js';
 import { gateSceneXZ } from '../systems/gateOmen.js';
-import { gateYaw, gatePhase, gateCountdown, countdownText, countdownWords, GATE_RISE_MS, GATE_COLLAPSE_MS } from '../net/gateLaw.js';
+import { gateYaw, gatePhase, gateCountdown, countdownText, countdownWords, gateModsOf, gateBossOf, GATE_RISE_MS, GATE_COLLAPSE_MS } from '../net/gateLaw.js';
+import { marksCardModel } from '../ui/gateMarksView.js';   // WB9a: tonight's marks, over the screen before the gate is entered
 import { trs } from '../world/mat4.js';
 import { RAY_DISTANCE } from '../player/activate.js';
 
@@ -136,12 +137,15 @@ export function gateLocal(place, p) {
  *   now: () => number, feet?: () => (number[]|null), say?: (text: string) => void, banner?: (text: string|null) => void,
  *   ready?: () => boolean, enter?: (gate: any) => void, landBefore?: (gate: any) => boolean,
  *   groundAt?: ((px:number, py:number, x:number, z:number) => number)|null,
+ *   marks?: (card: any) => void,
  * }} deps
+ *   WB9a: `marks` is handed the marks' card while the banner stands (ui/gateMarksView.js marksCardModel - the day's
+ *   marks, the ones the relay's fight is born under), null otherwise.
  */
 export function createGatePool({
   renderer = null, gl = null, collider = () => null, standing, pixelTranslation, heightAt, now,
   feet = () => null, say = () => {}, banner = () => {}, ready = () => false, enter = () => {}, groundAt = null,
-  landBefore = () => false,
+  landBefore = () => false, marks = () => {},
 }) {
   const model = buildGateModel();
   /** AUDIT WBX W6: the fire's box, made when the gate's place moves - the hover asked for a new one every frame */
@@ -238,7 +242,11 @@ export function createGatePool({
       if (place && f && Math.hypot(f[0] - place.origin[0], f[2] - place.origin[2]) <= GATE_BANNER_M) {
         const cd = gateCountdown(g.t, now(), place.phase);
         banner(cd ? `${GATE_TEXT.name} - ${cd.to === 'collapse' ? 'sealed, ' : ''}${countdownWords(cd)}` : null);   // GATE-COLLAPSE: the sealed hours count down to the collapse
-      } else banner(null);
+        // WB9a (Mac: "Allow people to see the modifers/trial as a popup before it starts"): TONIGHT'S MARKS beside the
+        // countdown, while it stands - the day's draw (net/gateLaw.js gateModsOf), which is what the relay's fight is
+        // born under; a gate collapsing (its master fallen, or the Wrath) has none to show
+        marks(cd && place.phase !== 'collapsing' ? marksCardModel(gateModsOf(g.day), gateBossOf(g.day), { mode: 'gate' }) : null);
+      } else { banner(null); marks(null); }
       return place;
     },
     /** The stone, in the host's world pass. */

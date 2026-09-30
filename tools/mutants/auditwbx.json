@@ -29,8 +29,8 @@
   {
     "name": "AUDWBX-R3-the-cleave-back-at-six",
     "file": "src/net/gateBrain.js",
-    "old": "arc: 110, pct: 0.35, base: 8, el: null, aim: 'target', phase: 1, range: 7,",
-    "new": "arc: 110, pct: 0.35, base: 8, el: null, aim: 'target', phase: 1, range: 6,",
+    "old": "arc: 110, pct: 0.45, base: 12, el: null, aim: 'target', phase: 1, range: 7,",
+    "new": "arc: 110, pct: 0.45, base: 12, el: null, aim: 'target', phase: 1, range: 6,",
     "tests": [
       "test/auditwbx.test.js"
     ]

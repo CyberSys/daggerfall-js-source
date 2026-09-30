@@ -827,7 +827,7 @@ buyer had.
   marked; they go to the pack or back on the market for gold, and to nothing else - no station, craft, Court or guild
   writ, guild Stores, buy-order fill or Marks listing. And goods bought with Marks never list for gold, or the market
   would be a way round the Bank's daily cap and spread (10.5).
-- **As built**: `06-Systems/Online-Arc.md` GOLD-MARKET (acct39, `0040_gold_market.sql`).
+- **As built**: `06-Systems/Online-Arc.md` GOLD-MARKET (acct40, `0041_gold_market.sql`).
 
 ## 11. Writs - the Work tab
 
@@ -2445,7 +2445,7 @@ asked). What sections 5.2, 6 and 3.3 left open for PROF8, DECIDED here, and what
   stands in the net's water (Foraging's own `netHasWater`: in water, swimming, at sea); never underground. Its prompt
   says the ground's refusal first (in here, a settlement, the dark), the account's forty, the Stores' room; the start asks
   Foraging's full checks for the net, with its own lines ("You cannot fish with enemies nearby!").
-- **The service**: **acct40**, migration `0041_fishing.sql` (`node_harvests` rebuilt: the kind `fish`, and `trophy`). The
+- **The service**: **acct41**, migration `0042_fishing.sql` (`node_harvests` rebuilt: the kind `fish`, and `trophy`). The
   state and every haul's answer say the account's hauls today.
 - **Found and FLAGGED, not built here**: the net is not drawn in the hand (5.1's "the item's own picture" on the classic
   lane - the act's `hand` is none, as the Basket's); no splash is played at the tug (no splash clip is wired for an act);

@@ -135,7 +135,7 @@ test('ACC1b: the migration is the real schema, and applying it twice changes not
   // provenance id, owner and signed record) and `prof_stock` (one row a purchase from the smith's stock)
   // PROF5 (0032_market.sql): the market's seven - listings, sales, deliveries, orders, fills, prices, reports
   // HOME-RENT (0037_home_rooms.sql): `home_rooms` (one row a room offered to rent, and its tenancy)
-  // GOLD-MARKET added two (0040): `market_gold` (the gold a character's sales hold for it) and `market_gold_prices`
+  // GOLD-MARKET added two (0041): `market_gold` (the gold a character's sales hold for it) and `market_gold_prices`
   // (gold's own price table)
   assert.deepEqual(tables, ['board_notes', 'board_notices', 'board_reports', 'commissions', 'duel_results', 'gate_kills', 'guild_invites', 'guild_ledger', 'guild_marks', 'guild_members', 'guild_prof_stores', 'guild_store_ledger', 'guild_store_moves', 'guild_writ_budgets', 'guild_writ_fills', 'guild_writs', 'guilds', 'home_decor', 'home_hidden', 'home_rooms', 'homes', 'letters', 'market_auction_reports', 'market_auctions', 'market_bids', 'market_deliveries', 'market_fills', 'market_gold', 'market_gold_prices', 'market_listings', 'market_orders', 'market_prices', 'market_reports', 'market_sales', 'marks', 'marks_ledger', 'node_harvests', 'players', 'products', 'prof_choices', 'prof_crafts', 'prof_smelts', 'prof_stock', 'prof_stores', 'prof_tracks', 'prof_withdrawals', 'raid_cleanses', 'raid_spoils', 'rate_limits', 'realm_census', 'realm_characters', 'realm_passes', 'realm_trades', 'realm_tx_guard', 'renown_accounts', 'renown_tracks', 'saves', 'sessions', 'world_witness', 'writ_days', 'writs']);
   // ACC1b IS IDENTITY ALONE, and the PLAYERS row still is: the save
@@ -162,7 +162,12 @@ test('ACC1b: the migration is the real schema, and applying it twice changes not
   // date, src/net/legalLaw.js) and `legal_accepted_at`. An agreement is a
   // fact about the account itself, made once by its player, so it is the
   // row's; NULL on every account made before the boxes existed.
-  assert.deepEqual(cols.sort(), ['created_at', 'email', 'guest_name', 'handle', 'handle_lc', 'id',
+  // WB9g added THREE - the Sigil Broker's insignia (0040): `insignia`, the
+  // pieces the account BOUGHT, and `insignia_spent`, what they cost in all
+  // (a sale is a fact that happened, never a rule a row satisfies - so it
+  // is recorded, and what is held is still read off it at every ask), and
+  // `aura`, the aura WORN, the one choice about it, as `title` is.
+  assert.deepEqual(cols.sort(), ['aura', 'created_at', 'email', 'guest_name', 'handle', 'handle_lc', 'id', 'insignia', 'insignia_spent',
     'last_seen', 'legal_accepted_at', 'muted_by', 'muted_until', 'password', 'played_at', 'played_s', 'privacy_version', 'recovery_hash',
     'registered_at', 'renown_hour', 'renown_hour_xp', 'renown_last_credit', 'terms_version', 'title']);
   assert.ok(!cols.some((c) => /founder|developer|sprout|glyph|grant/i.test(c)), `a grant became a column: ${cols}`);

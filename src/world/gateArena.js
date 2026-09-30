@@ -24,7 +24,7 @@
 // players arriving at +z (the bridge) and facing -z, at the boss.
 //
 // Not a DFU member. Ledger A (WB).
-import { COURT_CENTRE, COURT_R, BOSS_REACH_R } from '../net/gateBrain.js';
+import { COURT_CENTRE, COURT_R, BOSS_REACH_R, COURTS, WALKS, WALK_HALF_W, WALK_LEAD_MS, WALK_FORM_MS, clampToFloor } from '../net/gateBrain.js';
 import { faces, spike, GATE_ARCHIVE, GATE_STONE_RECORD, PLINTH_H, PLINTH_STEP_H } from './gateModel.js';
 import { gateYaw } from '../net/gateLaw.js';
 
@@ -144,9 +144,99 @@ export function gateArenaBlocks(real) {
 }
 
 /**
- * THE COURT, WHOLE: renderer.createMesh's model shape in the DUNGEON's frame - the floor (flagstones over its skirt of
- * the gate's basalt), the rune ring, the spires and braziers round the edge, the broken bridge and the way home's arch
- * and membrane. Sub-meshes by (archive, record): the court's own four and the gate's stone.
+ * WB9b: WHAT STANDS CLEAR ROUND COURT `k`'s RIM - the directions (the builder's angle: x = cos a, z = sin a) its walkways
+ * leave it by, and the first court's bridge (+z): no spire leans over a walkway's mouth and no brazier stands in one.
+ */
+export function courtOpenings(k) {
+  const out = [];
+  for (const w of WALKS) {
+    if (w.k === k) out.push(Math.atan2(w.uz, w.ux));
+    if (w.k + 1 === k) out.push(Math.atan2(-w.uz, -w.ux));
+  }
+  if (k === 0) out.push(Math.PI / 2);   // the bridge the players came by
+  return out;
+}
+const angleOff = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+/** How wide a clearing each keeps about an opening, radians: a leaning spire the more (it leans out 3.5 m), a brazier's
+ *  bowl the less (the walkway's half-width at the rim is 0.13). The bridge's own clearing is WB3b's 0.35. */
+const SPIRE_CLEAR = 0.3, BRAZIER_CLEAR = 0.16, BRIDGE_CLEAR = 0.35;
+const clearOf = (k, a, w) => courtOpenings(k).every((o, i, all) => angleOff(a, o) > (k === 0 && i === all.length - 1 ? BRIDGE_CLEAR : w));
+/** The spires' square base's half-width, metres (a spike's own - world/gateModel.js spike). */
+export const SPIRE_BASE_W = 1.6;
+/**
+ * WB9b: THE SPIRES STANDING ROUND COURT `k`'s RIM - each one's base (down in the fire) and tip (leaning out over it), in
+ * the court frame: SPIRES about the rim, those over an opening left out (courtOpenings). The model stands exactly these
+ * (standCourtPiece), and the land keeps its hanging stone clear of them (world/deadlandsLand.js). Pure, made once a court.
+ */
+export function courtSpireAxes(k) {
+  if (_spireAxes[k]) return _spireAxes[k];
+  const [ox, oz] = COURTS[k] ?? COURTS[0], out = [];
+  for (let i = 0; i < SPIRES; i++) {
+    const a = ((i + 0.5) / SPIRES) * Math.PI * 2;
+    if (!clearOf(k, a, SPIRE_CLEAR)) continue;
+    const r = RIM_OUT + 1.5 + (i % 3) * 0.8;
+    out.push(Object.freeze({ i, b: Object.freeze([ox + Math.cos(a) * r, -14, oz + Math.sin(a) * r]), t: Object.freeze([ox + Math.cos(a) * (r + 3.5), 11 + (i % 4) * 2.5, oz + Math.sin(a) * (r + 3.5)]) }));
+  }
+  return (_spireAxes[k] = Object.freeze(out));
+}
+const _spireAxes = [];
+
+/**
+ * ONE COURT of the model (WB9b: the three stand alike): its floor of flagstones over a skirt of basalt, the rock tapering
+ * under it into the fire, the rune ring he never crosses, and the spires and braziers round its rim - clear of its
+ * walkways' mouths and (the first court's) the bridge. The flagstones' tiles run on in the court frame, so the three
+ * floors and the walkways between them read as one pavement.
+ */
+function standCourtPiece(f, k, STONE) {
+  const [ox, oz] = COURTS[k];
+  const C = (x, y, z) => courtToDungeon(ox + x, y, oz + z);
+  const uvFloor = (p) => [(p[0] - COURT_CENTRE[0]) / FLOOR_TILE_M, (p[2] - COURT_CENTRE[2]) / FLOOR_TILE_M];
+  // the floor: a fan of flagstones (wound to face up), and its skirt down into the dark
+  for (let i = 0; i < FLOOR_SIDES; i++) {
+    const a0 = (i / FLOOR_SIDES) * Math.PI * 2, a1 = ((i + 1) / FLOOR_SIDES) * Math.PI * 2;
+    const c = C(0, 0, 0), p0 = C(Math.cos(a0) * COURT_R, 0, Math.sin(a0) * COURT_R), p1 = C(Math.cos(a1) * COURT_R, 0, Math.sin(a1) * COURT_R);
+    f.tri(COURT_FLOOR_RECORD, c, p1, p0, uvFloor(c), uvFloor(p1), uvFloor(p0));
+    const b0 = [p0[0], -FLOOR_SKIRT, p0[2]], b1 = [p1[0], -FLOOR_SKIRT, p1[2]];
+    f.quad(STONE, b0, p0, p1, b1, [0, 0], [0, 1], [1, 1], [1, 0]);
+  }
+  // the rock under it: the floor's rim tapering down into the fire (its sides the gate's basalt)
+  for (let i = 0; i < ROOT_SIDES; i++) {
+    const a0 = (i / ROOT_SIDES) * Math.PI * 2, a1 = ((i + 1) / ROOT_SIDES) * Math.PI * 2;
+    const t0 = C(Math.cos(a0) * COURT_R, -FLOOR_SKIRT, Math.sin(a0) * COURT_R), t1 = C(Math.cos(a1) * COURT_R, -FLOOR_SKIRT, Math.sin(a1) * COURT_R);
+    const b0 = C(Math.cos(a0 + 0.2) * ROOT_FOOT_R, LAVA_Y - 2, Math.sin(a0 + 0.2) * ROOT_FOOT_R), b1 = C(Math.cos(a1 + 0.2) * ROOT_FOOT_R, LAVA_Y - 2, Math.sin(a1 + 0.2) * ROOT_FOOT_R);
+    f.quad(STONE, b0, t0, t1, b1, [0, 0], [0, 8], [2, 8], [2, 0]);
+    f.tri(STONE, t0, C(0, -FLOOR_SKIRT, 0), t1, [0, 0], [1, 1], [2, 0]);   // its underside's lid, so the rim never shows sky through it
+  }
+  // the rune ring, a hair over the floor, its u round the circle
+  const RING_SIDES = 96, rr0 = BOSS_REACH_R - RUNE_HALF_W, rr1 = BOSS_REACH_R + RUNE_HALF_W, y = 0.02;
+  for (let i = 0; i < RING_SIDES; i++) {
+    const a0 = (i / RING_SIDES) * Math.PI * 2, a1 = ((i + 1) / RING_SIDES) * Math.PI * 2;
+    const u0 = (i / RING_SIDES) * 24, u1 = ((i + 1) / RING_SIDES) * 24;
+    const i0 = C(Math.cos(a0) * rr0, y, Math.sin(a0) * rr0), i1 = C(Math.cos(a1) * rr0, y, Math.sin(a1) * rr0);
+    const o0 = C(Math.cos(a0) * rr1, y, Math.sin(a0) * rr1), o1 = C(Math.cos(a1) * rr1, y, Math.sin(a1) * rr1);
+    f.quad(COURT_RUNE_RECORD, i0, i1, o1, o0, [u0, 0], [u1, 0], [u1, 1], [u0, 1]);
+  }
+  // WB6a: the sea of fire and the sky are not the court's mesh - render/deadlands.js draws both, first in the pass
+  // the spires round the edge, rising out of the fire and leaning out; the braziers between them; the openings clear
+  for (const sp of courtSpireAxes(k)) spike(f, courtToDungeon(sp.b[0], sp.b[1], sp.b[2]), SPIRE_BASE_W, courtToDungeon(sp.t[0], sp.t[1], sp.t[2]));
+  for (const [, p] of courtBraziers(k)) {
+    const top = courtToDungeon(p[0], 1.1, p[2]), foot = courtToDungeon(p[0], -10, p[2]);
+    const R = 0.55, sides = 6;
+    for (let j = 0; j < sides; j++) {
+      const a0 = (j / sides) * Math.PI * 2, a1 = ((j + 1) / sides) * Math.PI * 2;
+      const t0 = [top[0] + Math.cos(a0) * R, top[1], top[2] + Math.sin(a0) * R], t1 = [top[0] + Math.cos(a1) * R, top[1], top[2] + Math.sin(a1) * R];
+      const f0 = [foot[0] + Math.cos(a0) * R, foot[1], foot[2] + Math.sin(a0) * R], f1 = [foot[0] + Math.cos(a1) * R, foot[1], foot[2] + Math.sin(a1) * R];
+      f.quad(STONE, f0, t0, t1, f1, [0, 0], [0, 3], [0.3, 3], [0.3, 0]);
+      f.tri(COURT_LAVA_RECORD, top, t1, t0, [0.5, 0.5], [0.5 + Math.cos(a1) * 0.1, 0.5 + Math.sin(a1) * 0.1], [0.5 + Math.cos(a0) * 0.1, 0.5 + Math.sin(a0) * 0.1]);   // the fire bed
+    }
+  }
+}
+
+/**
+ * THE COURTS, WHOLE: renderer.createMesh's model shape in the DUNGEON's frame - WB9b: the three courts (each standCourtPiece),
+ * and the first court's own: the broken bridge the players came by and the way home's arch and membrane. Sub-meshes by
+ * (archive, record): the court's own four and the gate's stone. The walkways between the courts are not this mesh - their
+ * slabs rise on their own (buildWalkSlabModel, walkSlabs).
  */
 export function buildCourtModel() {
   const f = faces();
@@ -155,57 +245,8 @@ export function buildCourtModel() {
   const STONE = GATE_STONE_RECORD + 1000;   // the gate's basalt, told apart from the court's own records below
   byArchive.set(STONE, [GATE_ARCHIVE, GATE_STONE_RECORD]);
   for (const rec of [COURT_FLOOR_RECORD, COURT_RUNE_RECORD, COURT_LAVA_RECORD, COURT_MEMBRANE_RECORD]) byArchive.set(rec, [COURT_ARCHIVE, rec]);
-  const uvFloor = (p) => [(p[0] - COURT_CENTRE[0]) / FLOOR_TILE_M, (p[2] - COURT_CENTRE[2]) / FLOOR_TILE_M];
-  // the floor: a fan of flagstones (wound to face up), and its skirt down into the dark
-  for (let k = 0; k < FLOOR_SIDES; k++) {
-    const a0 = (k / FLOOR_SIDES) * Math.PI * 2, a1 = ((k + 1) / FLOOR_SIDES) * Math.PI * 2;
-    const c = C(0, 0, 0), p0 = C(Math.cos(a0) * COURT_R, 0, Math.sin(a0) * COURT_R), p1 = C(Math.cos(a1) * COURT_R, 0, Math.sin(a1) * COURT_R);
-    f.tri(COURT_FLOOR_RECORD, c, p1, p0, uvFloor(c), uvFloor(p1), uvFloor(p0));
-    const b0 = [p0[0], -FLOOR_SKIRT, p0[2]], b1 = [p1[0], -FLOOR_SKIRT, p1[2]];
-    f.quad(STONE, b0, p0, p1, b1, [0, 0], [0, 1], [1, 1], [1, 0]);
-  }
-  // the rock under it: the floor's rim tapering down into the fire (its sides the gate's basalt)
-  for (let k = 0; k < ROOT_SIDES; k++) {
-    const a0 = (k / ROOT_SIDES) * Math.PI * 2, a1 = ((k + 1) / ROOT_SIDES) * Math.PI * 2;
-    const t0 = C(Math.cos(a0) * COURT_R, -FLOOR_SKIRT, Math.sin(a0) * COURT_R), t1 = C(Math.cos(a1) * COURT_R, -FLOOR_SKIRT, Math.sin(a1) * COURT_R);
-    const b0 = C(Math.cos(a0 + 0.2) * ROOT_FOOT_R, LAVA_Y - 2, Math.sin(a0 + 0.2) * ROOT_FOOT_R), b1 = C(Math.cos(a1 + 0.2) * ROOT_FOOT_R, LAVA_Y - 2, Math.sin(a1 + 0.2) * ROOT_FOOT_R);
-    f.quad(STONE, b0, t0, t1, b1, [0, 0], [0, 8], [2, 8], [2, 0]);
-    f.tri(STONE, t0, C(0, -FLOOR_SKIRT, 0), t1, [0, 0], [1, 1], [2, 0]);   // its underside's lid, so the rim never shows sky through it
-  }
-  // the rune ring, a hair over the floor, its u round the circle
-  const RING_SIDES = 96, rr0 = BOSS_REACH_R - RUNE_HALF_W, rr1 = BOSS_REACH_R + RUNE_HALF_W, y = 0.02;
-  for (let k = 0; k < RING_SIDES; k++) {
-    const a0 = (k / RING_SIDES) * Math.PI * 2, a1 = ((k + 1) / RING_SIDES) * Math.PI * 2;
-    const u0 = (k / RING_SIDES) * 24, u1 = ((k + 1) / RING_SIDES) * 24;
-    const i0 = C(Math.cos(a0) * rr0, y, Math.sin(a0) * rr0), i1 = C(Math.cos(a1) * rr0, y, Math.sin(a1) * rr0);
-    const o0 = C(Math.cos(a0) * rr1, y, Math.sin(a0) * rr1), o1 = C(Math.cos(a1) * rr1, y, Math.sin(a1) * rr1);
-    f.quad(COURT_RUNE_RECORD, i0, i1, o1, o0, [u0, 0], [u1, 0], [u1, 1], [u0, 1]);
-  }
-  // WB6a: the sea of fire and the sky are not the court's mesh - render/deadlands.js draws both, first in the pass
-  // the spires round the edge, rising out of the fire and leaning out; the braziers between them; the bridge's gap
-  // (the +z side the players came by) left clear
-  const clearOfBridge = (a) => Math.abs(Math.atan2(Math.cos(a), Math.sin(a))) > 0.35;   // +z is a = PI/2
-  for (let k = 0; k < SPIRES; k++) {
-    const a = ((k + 0.5) / SPIRES) * Math.PI * 2;
-    if (!clearOfBridge(a)) continue;
-    const r = RIM_OUT + 1.5 + (k % 3) * 0.8;
-    const base = C(Math.cos(a) * r, -14, Math.sin(a) * r);
-    const tip = C(Math.cos(a) * (r + 3.5), 11 + (k % 4) * 2.5, Math.sin(a) * (r + 3.5));
-    spike(f, base, 1.6, tip);
-  }
-  for (const [, p] of courtBraziers()) {
-    const [bx, , bz] = p;
-    const top = C(bx, 1.1, bz), foot = C(bx, -10, bz);
-    const R = 0.55, sides = 6;
-    for (let k = 0; k < sides; k++) {
-      const a0 = (k / sides) * Math.PI * 2, a1 = ((k + 1) / sides) * Math.PI * 2;
-      const t0 = [top[0] + Math.cos(a0) * R, top[1], top[2] + Math.sin(a0) * R], t1 = [top[0] + Math.cos(a1) * R, top[1], top[2] + Math.sin(a1) * R];
-      const f0 = [foot[0] + Math.cos(a0) * R, foot[1], foot[2] + Math.sin(a0) * R], f1 = [foot[0] + Math.cos(a1) * R, foot[1], foot[2] + Math.sin(a1) * R];
-      f.quad(STONE, f0, t0, t1, f1, [0, 0], [0, 3], [0.3, 3], [0.3, 0]);
-      f.tri(COURT_LAVA_RECORD, top, t1, t0, [0.5, 0.5], [0.5 + Math.cos(a1) * 0.1, 0.5 + Math.sin(a1) * 0.1], [0.5 + Math.cos(a0) * 0.1, 0.5 + Math.sin(a0) * 0.1]);   // the fire bed
-    }
-  }
-  // the broken bridge: a slab from the floor's edge out over the fire, its far end snapped off
+  for (let k = 0; k < COURTS.length; k++) standCourtPiece(f, k, STONE);
+  // the broken bridge: a slab from the first floor's edge out over the fire, its far end snapped off
   {
     const w = 3, z0 = COURT_R - 0.5, z1 = COURT_R + 9, t = 1.2;
     const q = (x, yy, z) => C(x, yy, z);
@@ -221,12 +262,17 @@ export function buildCourtModel() {
   // the way home: two posts and a lintel of the gate's stone, and the membrane between them, facing the court
   {
     const z = EXIT_Z, hw = EXIT_HALF_W, h = EXIT_H;
-    for (const s of [-1, 1]) spike(f, C(s * (hw + 0.4), 0, z), 0.5, C(s * (hw + 0.1), h + 1.4, z));
+    for (const sd of [-1, 1]) spike(f, C(sd * (hw + 0.4), 0, z), 0.5, C(sd * (hw + 0.1), h + 1.4, z));
     spike(f, C(-hw - 0.4, h + 0.2, z), 0.35, C(hw + 0.4, h + 0.6, z));
     const a = C(-hw, 0.05, z), b = C(hw, 0.05, z), c = C(hw, h, z), d = C(-hw, h, z);
     f.quad(COURT_MEMBRANE_RECORD, a, b, c, d, [0, 0], [1, 0], [1, 1], [0, 1]);   // seen from the court (-z)
     f.quad(COURT_MEMBRANE_RECORD, b, a, d, c, [0, 0], [1, 0], [1, 1], [0, 1]);   // and from the bridge
   }
+  return packFaces(f, byArchive);
+}
+
+/** A faces() build packed into renderer.createMesh's model shape, sub-meshes by record (sorted), 32-bit indices. */
+function packFaces(f, byArchive) {
   const recs = [...f.byRec.keys()].sort((x, yy) => x - yy);
   const count = recs.reduce((n, r) => n + f.byRec.get(r).p.length / 3, 0);
   const positions = new Float32Array(count * 3), normals = new Float32Array(count * 3), uvs = new Float32Array(count * 2);
@@ -245,21 +291,40 @@ export function buildCourtModel() {
   return { positions, normals, uvs, indices, subMeshes };
 }
 
-/** The braziers: `[index, [x, y, z] in the court's frame]`, spaced round the edge between the spires, clear of the bridge. */
-export function courtBraziers() {
+/** The braziers of court `k` (the first by default - WB3b's five): `[index, [x, y, z] in the court's frame]`, spaced
+ *  round its rim between the spires, clear of its openings (courtOpenings - the bridge, the walkways' mouths). */
+export function courtBraziers(k = 0) {
   const out = [];
-  for (let k = 0; k < BRAZIERS; k++) {
-    const a = (k / BRAZIERS) * Math.PI * 2 - Math.PI / 2;   // the first due -z, behind the boss
-    if (Math.abs(Math.atan2(Math.cos(a), Math.sin(a))) <= 0.35) continue;
-    out.push([k, [Math.cos(a) * (COURT_R + 1.2), 0, Math.sin(a) * (COURT_R + 1.2)]]);
+  const [ox, oz] = COURTS[k] ?? COURTS[0];
+  for (let i = 0; i < BRAZIERS; i++) {
+    const a = (i / BRAZIERS) * Math.PI * 2 - Math.PI / 2;   // the first due -z, behind the boss
+    if (!clearOf(k, a, BRAZIER_CLEAR)) continue;
+    out.push([k * BRAZIERS + i, [ox + Math.cos(a) * (COURT_R + 1.2), 0, oz + Math.sin(a) * (COURT_R + 1.2)]]);
   }
   return out;
 }
+/** WB9b: every court's braziers, the first court's first. */
+export const allCourtBraziers = () => (_allBraziers ??= Object.freeze(COURTS.flatMap((_, k) => courtBraziers(k))));
+let _allBraziers = null;
 
-/** The braziers' lights, in the dungeon's frame: `{ x, y, z, range, color }` over each fire bed, their colour their own. */
-export const courtLights = () => (_courtLights ??= Object.freeze(courtBraziers().map(([, p]) => { const [x, y, z] = courtToDungeon(p[0], 2.2, p[2]); return Object.freeze({ x, y, z, range: BRAZIER_RANGE, color: BRAZIER_COLOR }); })));
+/** The braziers' lights, in the dungeon's frame: `{ x, y, z, range, color }` over each fire bed, their colour their own -
+ *  WB9b: every court's (allCourtBraziers). */
+export const courtLights = () => (_courtLights ??= Object.freeze(allCourtBraziers().map(([, p]) => { const [x, y, z] = courtToDungeon(p[0], 2.2, p[2]); return Object.freeze({ x, y, z, range: BRAZIER_RANGE, color: BRAZIER_COLOR }); })));
 /** AUDIT WB D10: the braziers' lights, made once - they stand where they stand, and the court asks every frame. */
 let _courtLights = null;
+/**
+ * WB9b: THE BRAZIERS' LIGHTS, THE NEAREST FIRST - three courts' fires are more than the classic renderer's sixteen slots
+ * hold beside the player's own lights and the fight's (his glow, the crystals, the spoils), and its cap drops from the
+ * end: the fires about the fight on this screen are kept and the far courts' go. One list, sorted again in place (AUDIT
+ * WB D10's law).
+ * @param {ArrayLike<number>|null} eye the camera, in the dungeon's frame
+ */
+export function courtLightsNear(eye) {
+  const L = (_courtLightsNear ??= [...courtLights()]);
+  if (eye) L.sort((a, b) => ((a.x - eye[0]) ** 2 + (a.z - eye[2]) ** 2) - ((b.x - eye[0]) ** 2 + (b.z - eye[2]) ** 2));
+  return L;
+}
+let _courtLightsNear = null;
 
 /**
  * The braziers joined to the frame's lights. The paired shape the dungeon host hands the renderer in (`{ data, colors }`,
@@ -282,14 +347,22 @@ export function withCourtLights(lit, lights) {
   return { data, colors, carried };
 }
 
-/** The collider's floor: the disc's top and the bridge's deck, as unindexed triangles in the dungeon's frame (the
- *  motor keeps a player inside COURT_R; the deck is there so a step onto its lip never falls through). */
+/** The collider's floor: the discs' tops (WB9b: all three courts) and the walkways' decks, as unindexed triangles in the
+ *  dungeon's frame (the motor keeps a player on the floor as far as it is laid - courtArena; the rest is there so a step
+ *  onto a lip never falls through). */
 export function courtFloorTris() {
   const out = [];
   const C = (x, z) => courtToDungeon(x, 0, z);
-  for (let k = 0; k < FLOOR_SIDES; k++) {
-    const a0 = (k / FLOOR_SIDES) * Math.PI * 2, a1 = ((k + 1) / FLOOR_SIDES) * Math.PI * 2;
-    out.push(...C(0, 0), ...C(Math.cos(a1) * COURT_R, Math.sin(a1) * COURT_R), ...C(Math.cos(a0) * COURT_R, Math.sin(a0) * COURT_R));
+  for (const [ox, oz] of COURTS) {
+    for (let k = 0; k < FLOOR_SIDES; k++) {
+      const a0 = (k / FLOOR_SIDES) * Math.PI * 2, a1 = ((k + 1) / FLOOR_SIDES) * Math.PI * 2;
+      out.push(...C(ox, oz), ...C(ox + Math.cos(a1) * COURT_R, oz + Math.sin(a1) * COURT_R), ...C(ox + Math.cos(a0) * COURT_R, oz + Math.sin(a0) * COURT_R));
+    }
+  }
+  for (const w of WALKS) {
+    const nx = w.uz, nz = -w.ux, h = WALK_HALF_W;
+    const a0 = C(w.ax + nx * h, w.az + nz * h), a1 = C(w.ax - nx * h, w.az - nz * h), b0 = C(w.bx + nx * h, w.bz + nz * h), b1 = C(w.bx - nx * h, w.bz - nz * h);
+    out.push(...a0, ...b0, ...b1, ...a0, ...b1, ...a1);   // wound as the discs are (both faces are one to the collider)
   }
   return new Float32Array(out);
 }
@@ -333,6 +406,104 @@ export function courtDoorAabb(door) {
 
 /** The ring the motor keeps a player inside (player/motor.js `arena`): the court's centre and the floor's radius. */
 export const courtRing = () => ({ centre: [...COURT_CENTRE], radius: COURT_R });
+/**
+ * WB9b: THE FLOOR THE MOTOR KEEPS A PLAYER ON in the court (player/motor.js `arena`): courtRing's shape, and a `clamp` that
+ * answers the nearest point of the floor as far as it is laid at `now` (net/gateBrain.js clampToFloor - the fight's
+ * crossings `xa`, the relay's own law of it) to a body at `pos` (the dungeon's frame), or null where it already stands on it.
+ * @param {ReadonlyArray<number>} xa @param {number} now
+ */
+export function courtArena(xa, now) {
+  const [cx, , cz] = COURT_CENTRE;
+  // `xa` and `now` are the arena's own fields - the host keeps one and refills them each frame (AUDIT WB D10's law)
+  const a = {
+    centre: [...COURT_CENTRE], radius: COURT_R, xa, now,
+    clamp: (pos, inset = 0) => { const to = clampToFloor(pos[0] - cx, pos[2] - cz, a.xa, a.now, inset); return to ? [to[0] + cx, to[1] + cz] : null; },
+  };
+  return a;
+}
+
+// ═══ WB9b: THE WALKWAYS' SLABS ════════════════════════════════════════════════════════════════════════
+/** A walkway is laid in slabs of about this length (each its own draw, rising on its own). */
+export const SLAB_LEN_M = 2.3;
+/** A slab's thickness under its flagstones, and how deep its rock hangs under it. */
+export const SLAB_THICK_M = 1.2;
+export const SLAB_ROOT_M = 7;
+/** How long a slab takes to rise out of the fire (the first ones faster - none may rise before the bound's word). */
+export const SLAB_RISE_MS = 1500;
+/**
+ * The walkways' slabs: `[{ walk, j, n, x, z, yaw, len }]` in the court frame - walkway `walk`'s `j`th of `n`, its middle,
+ * its turn (the walkway's direction) and its length - from the court the bound leaves toward the one it reaches.
+ */
+export function walkSlabs() {
+  if (_slabs) return _slabs;
+  const out = [];
+  for (const w of WALKS) {
+    const n = Math.max(1, Math.ceil(w.len / SLAB_LEN_M)), len = w.len / n;
+    for (let j = 0; j < n; j++) {
+      const t = (j + 0.5) * len;
+      out.push(Object.freeze({ walk: w.k, j, n, x: w.ax + w.ux * t, z: w.az + w.uz * t, yaw: Math.atan2(w.ux, w.uz), len }));
+    }
+  }
+  return (_slabs = Object.freeze(out));
+}
+let _slabs = null;
+/**
+ * WHERE A SLAB STANDS at `now` - how far it has risen (0 under the fire, 1 laid): walkway k's front reaches the slab's near
+ * edge WALK_LEAD_MS + (j / n) of WALK_FORM_MS after the bound's word (net/gateBrain.js walkFormed - the floor as far as it
+ * is laid), and the slab is whole by then, having risen over SLAB_RISE_MS (less for the first, which may not rise before
+ * the word). Pure.
+ */
+export function slabRise(slab, xa, now) {
+  const at = Array.isArray(xa) ? xa[slab.walk] : null;
+  if (!Number.isFinite(at)) return 0;
+  const done = at + WALK_LEAD_MS + (slab.j / slab.n) * WALK_FORM_MS, from = Math.max(at, done - SLAB_RISE_MS);
+  return done <= from ? (now >= done ? 1 : 0) : Math.max(0, Math.min(1, (now - from) / (done - from)));
+}
+/**
+ * A slab's matrix at `now`: up out of the fire with a little overshoot and a settling tilt, laid flat at the floor once
+ * risen; below the sea (hidden by it) before it begins. Column-major, into `out`.
+ * @param {ReturnType<typeof walkSlabs>[number]} slab @param {ReadonlyArray<number>} xa @param {number} now
+ */
+export function slabMatrix(slab, xa, now, out = new Float32Array(16)) {
+  const p = slabRise(slab, xa, now);
+  // slow out of the fire, fast through the air, a hair past the floor and settled onto it
+  const sm = (x) => x * x * (3 - 2 * x);
+  const e = p >= 1 ? 1 : p < 0.8 ? 1.04 * sm(p / 0.8) : 1.04 - 0.04 * sm((p - 0.8) / 0.2);
+  const y = p <= 0 ? LAVA_Y - SLAB_ROOT_M - 4 : LAVA_Y + (0 - LAVA_Y) * e;
+  const tilt = p >= 1 ? 0 : 0.18 * (1 - p) * Math.sin(slab.j * 1.7 + 0.5);   // each rocks as it comes, and settles
+  const cy = Math.cos(slab.yaw), sy = Math.sin(slab.yaw), ct = Math.cos(tilt), st = Math.sin(tilt);
+  const k = slab.len / SLAB_LEN_M;   // the model is SLAB_LEN_M long along its local z; this walkway's slabs a hair more or less
+  const [px, , pz] = courtToDungeon(slab.x, 0, slab.z);
+  // R = yaw(y) * roll(z by tilt), then the length scale on local z
+  out[0] = cy * ct; out[1] = st; out[2] = -sy * ct; out[3] = 0;
+  out[4] = -cy * st; out[5] = ct; out[6] = sy * st; out[7] = 0;
+  out[8] = sy * k; out[9] = 0; out[10] = cy * k; out[11] = 0;
+  out[12] = px; out[13] = y; out[14] = pz; out[15] = 1;
+  return out;
+}
+/**
+ * One slab's model (its local frame: its middle at the origin, its top at y 0, SLAB_LEN_M long along z and the walkway's
+ * width across x): flagstones on top, basalt sides SLAB_THICK_M deep, and rock hanging under it like the floor's shards -
+ * so a slab risen out of the fire looks torn from the same stone as the courts.
+ */
+export function buildWalkSlabModel() {
+  const f = faces();
+  const STONE = GATE_STONE_RECORD + 1000;
+  const byArchive = new Map([[STONE, [GATE_ARCHIVE, GATE_STONE_RECORD]], [COURT_FLOOR_RECORD, [COURT_ARCHIVE, COURT_FLOOR_RECORD]]]);
+  const hw = WALK_HALF_W, hl = SLAB_LEN_M / 2 - 0.04, t = SLAB_THICK_M;   // a hair's joint between slabs
+  const tl = [-hw, 0, -hl], tr = [hw, 0, -hl], br = [hw, 0, hl], bl = [-hw, 0, hl];
+  const uv = (p) => [p[0] / FLOOR_TILE_M, p[2] / FLOOR_TILE_M];
+  f.quad(COURT_FLOOR_RECORD, tl, bl, br, tr, uv(tl), uv(bl), uv(br), uv(tr));
+  const d = (p) => [p[0], p[1] - t, p[2]];
+  f.quad(STONE, d(tl), tl, tr, d(tr), [0, 0], [0, 0.3], [1, 0.3], [1, 0]);
+  f.quad(STONE, d(tr), tr, br, d(br), [0, 0], [0, 0.3], [0.4, 0.3], [0.4, 0]);
+  f.quad(STONE, d(br), br, bl, d(bl), [0, 0], [0, 0.3], [1, 0.3], [1, 0]);
+  f.quad(STONE, d(bl), bl, tl, d(tl), [0, 0], [0, 0.3], [0.4, 0.3], [0.4, 0]);
+  // the rock under it: the slab's underside tapering to a root
+  const tip = [0.4, -t - SLAB_ROOT_M, 0.1], ring = [d(tl), d(tr), d(br), d(bl)];
+  for (let i = 0; i < 4; i++) f.tri(STONE, ring[(i + 1) % 4], ring[i], tip, [1, 0], [0, 0], [0.5, 3]);
+  return packFaces(f, byArchive);
+}
 
 /**
  * WBX2 (2026-09-26, Mac: "The oblivion portal on the inside should spawn inside at the end of the fight. Currently

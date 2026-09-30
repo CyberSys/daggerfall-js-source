@@ -24,7 +24,7 @@
 ---
 
 ### For the team: deploy order
-1. Apply migration **`0041_fishing.sql`** to production D1 and deploy the account service (**`acct40`**).
+1. Apply migration **`0042_fishing.sql`** to production D1 and deploy the account service (**`acct41`**).
 2. Then ship the client.
 
 An older service refuses every haul as a bad node. This PR doesn't change the relay.

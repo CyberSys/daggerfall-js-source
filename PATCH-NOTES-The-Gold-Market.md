@@ -23,7 +23,7 @@
 ---
 
 ### For the team: deploy order
-1. Apply migration **`0040_gold_market.sql`** to production D1 and deploy the account service (**`acct39`**).
+1. Apply migration **`0041_gold_market.sql`** to production D1 and deploy the account service (**`acct40`**).
 2. Then ship the client.
 
 An older service refuses every gold listing and gold purchase. An older client with the new service keeps seeing the Drakes market as before. This PR doesn't change the relay.
