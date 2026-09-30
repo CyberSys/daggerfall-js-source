@@ -20945,6 +20945,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   });
   const lookGate = makeLookGate(canvas);
   const _frameToken = claimFrame();   // P0: this session owns the loop until someone claims after it
+  status(null);   // FB0930-TITLE: the boot is done - the window loses its last loading step
   function frame(now) {
     // AUDIT-WH L4: THE PLAQUE DIES WITH THE LOOP THAT RAISED IT. This
     // is the host's only unwind point - a later boot or an unwind has
@@ -23548,6 +23549,5 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     frameEnd();   // PERF1
     requestAnimationFrame(frame);
   }
-  status(null);   // FB0930-TITLE: the boot is done - the window loses its last loading step
   requestAnimationFrame(frame);
 }
