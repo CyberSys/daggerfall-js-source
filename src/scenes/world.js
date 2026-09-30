@@ -3033,12 +3033,12 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  AUDIT-FIELD F7: A FLOOR, NOT THE WHOLE DISTANCE. The first cut
    *  called 64 "more than the fastest accelerated step", which is true
    *  of a fixed physics STEP and false of a FRAME: the motor moves
-   *  `speed * min(dt, MAX_FRAME_DT) * scale` in one go (motor.js:1208),
+   *  `speed * min(dt, MAX_FRAME_DT) * scale` in one go (motor.js:1226),
    *  and the frame that hitches is exactly the frame in which the
    *  streamer is behind. A horse at the shipped default limit of sixty
    *  covers ~65 units in a 10 fps frame and ~120 at the mod's ceiling of
    *  a hundred - past a 64-unit probe, off the built world, and once the
-   *  motor is airborne `airControl` is false (motor.js:1776) so zeroing
+   *  motor is airborne `airControl` is false (motor.js:1795) so zeroing
    *  the drive on the NEXT frame no longer steers: the fall is already
    *  paid for. `travelLookahead` measures the frame that is about to
    *  run instead, and keeps 64 as its floor. */
@@ -10466,7 +10466,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7556), so exterior mode and a
+    // composer, dungeonContext.js:7557), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -13113,7 +13113,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9903-9967 -
+  // worldModes answers it in BOTH modes (worldModes.js:9904-9968 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -21863,6 +21863,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         swimming: player.isPlayerSwimming,   // XL-1: PlayerEntity.cs:410 reads PlayerEnterExit.IsPlayerSwimming - the flag the surface model below writes
         climbing: !!player.climb?.isClimbing,   // AUDIT 26 F083: the band's first arm (:405-408)
         jumped: player.jumped,   // C6: the per-jump drain+tally ride the tick
+        odometer: player.odometer,   // MOVE-REAL: the ground the body covered - the movement skills past 100 count it
       }, dt * timeScaleMult * travelScale, walkRaise);   // WALK-CLOCK: the real seconds as ever (the scaled dt, the default), and the walk's minutes past the world's
         // AUDIT 18 HOST GAP: levitate/waterWalking/slowFall were
         // written ONLY inside the dungeon branch of worldModes and

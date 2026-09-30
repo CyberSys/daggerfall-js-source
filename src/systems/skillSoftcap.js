@@ -34,6 +34,10 @@
 //   damped separately: each skill keeps a leaky counter of its recent
 //   weighted uses (half-life SPAM_HALF_LIFE_MS) and a use past the
 //   category's free burst is worth free/recent of itself.
+//
+//   MOVE-REAL: Running, Jumping, Swimming and Climbing take neither -
+//   their motion tallies count the ground actually covered instead
+//   (movementTallyWeight, below).
 
 import { masterSkillsActive, masterCappedSkill } from './masterSkills.js';   // SOFTCAP3: a leaf
 
@@ -161,6 +165,62 @@ export function overcapTallyWeight(entity, skillId, amount, skill, now = Date.no
   else q = 1;
   if (q <= 0) return 0;
   return amount * q * spamWeight(entity, skillId, cat, amount * q, now);
+}
+
+// ---- the movement skills (MOVE-REAL) --------------------------------------
+//
+// MOVE-REAL (Mac, 2026-09-30: "No spam protection, because running a lot is the normal way to use the skill. Instead,
+// only real movement counts past 100"). The spam counter above would stop a runner cold - Running tallies four times
+// a second against a utility burst of 6 a minute, about 2% of a run - so past 100 a MOTION tally (the run's, the
+// jump's, the swim's, the climb's check; skills.js tallyMovementSkill) takes no spam weight. It takes the ground the
+// body actually covered under its own power instead: the motor's odometer (player/motor.js), which counts its own
+// steps only - a deck's carry, a helm pin, a teleport or a load is none of it. Each use needs `stride` metres of the
+// skill's own axis since that skill's last use; one short of it counts the part it made, and what is left over rides
+// to the next use, never more than MOVE_CREDIT_CAP uses of it (a walk banks no run). So the run key held standing
+// still or against a wall, a hop in place, treading water and a climber pressed under a ledge teach a master nothing,
+// and nothing can be trained AFK. A guild's or a quest's training is no motion and keeps the law above.
+//
+// The strides sit under an honest move's worst case, so real movement counts whole: a run is 5-10 m/s against the
+// stride's 4, a swim at 100 about 3 m/s against 0.6, a climb about 1.5 m/s against 0.6. Running constantly (four
+// whole uses a second, a career multiplier of 1, average Reflexes) then takes, from 100:
+//
+//   level     to 125      to 150      to 200
+//     20      ~35 h       ~120 h      ~540 h
+//     30      ~50 h       ~175 h      ~800 h
+
+/** Per movement skill (skills.js ids): the odometer axis its motion is read on and the metres one use needs.
+ *  h = across the ground, v = up or down, hv = either (through water). */
+export const MOVEMENT_SKILLS = Object.freeze({
+  3: Object.freeze({ axis: 'h', stride: 1 }),     // Jumping: a jump that carried you somewhere (one in place goes nowhere)
+  17: Object.freeze({ axis: 'hv', stride: 3 }),   // Swimming: a use a game minute (5 real seconds) through the water
+  18: Object.freeze({ axis: 'v', stride: 0.5 }),  // Climbing: a check each ~0.8 s up or down the wall
+  21: Object.freeze({ axis: 'h', stride: 1 }),    // Running: a use every quarter second (DFU's cadence)
+});
+/** The most a movement skill's unspent motion is worth, in uses. */
+export const MOVE_CREDIT_CAP = 2;
+
+export const isMovementSkill = (id) => Object.prototype.hasOwnProperty.call(MOVEMENT_SKILLS, id);
+
+/**
+ * THE MOVEMENT WEIGHT of `amount` motion uses of a movement skill at 100+ (0 = it went nowhere). Reads the
+ * odometer the host handed the entity (`entity._odometer`, the motor's live { h, v }); none handed, nothing moved.
+ * Each skill keeps its own mark on it (`entity._moveMark`), so the run and the jump never spend each other's ground.
+ */
+export function movementTallyWeight(entity, skillId, amount, skill) {
+  const law = MOVEMENT_SKILLS[skillId];
+  if (!law || !(amount > 0) || skill >= SKILL_HARD_CAP) return 0;
+  const odo = entity?._odometer;
+  const read = odo ? (law.axis === 'h' ? odo.h : law.axis === 'v' ? odo.v : odo.h + odo.v) : NaN;
+  if (!Number.isFinite(read)) return 0;
+  const marks = (entity._moveMark ??= {});
+  const m = marks[skillId];
+  // a first use, or another motor's odometer (a host swap), starts the mark with nothing banked
+  if (!m || m.src !== odo || !(read >= m.at)) { marks[skillId] = { src: odo, at: read, credit: 0 }; return 0; }
+  m.credit = Math.min(MOVE_CREDIT_CAP, m.credit + (read - m.at) / law.stride);
+  m.at = read;
+  const w = Math.min(amount, m.credit);
+  m.credit -= w;
+  return w;
 }
 
 // ---- tougher enemies (SOFTCAP2) -----------------------------------------
