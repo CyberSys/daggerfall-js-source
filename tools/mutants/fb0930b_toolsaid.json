@@ -1,0 +1,72 @@
+[
+  {
+    "name": "TOOL-SAID-a-guest-hears-the-line",
+    "file": "src/systems/foragingInstall.js",
+    "old": "if (!how || !isOnlinePage() || _host?.professionsOpen?.() !== true) return null;",
+    "new": "if (!how || !isOnlinePage()) return null;",
+    "tests": ["test/fb0930b_toolsaid.test.js"]
+  },
+  {
+    "name": "TOOL-SAID-offline-hears-the-line",
+    "file": "src/systems/foragingInstall.js",
+    "old": "if (!how || !isOnlinePage() || _host?.professionsOpen?.() !== true) return null;",
+    "new": "if (!how || _host?.professionsOpen?.() !== true) return null;",
+    "tests": ["test/fb0930b_toolsaid.test.js"]
+  },
+  {
+    "name": "TOOL-SAID-the-box-says-nothing-more",
+    "file": "src/systems/foragingInstall.js",
+    "old": "  if (how) text = text ? `${text} ${how}` : how;",
+    "new": "",
+    "tests": ["test/fb0930b_toolsaid.test.js"]
+  },
+  {
+    "name": "TOOL-SAID-the-line-replaces-the-mods-words",
+    "file": "src/systems/foragingInstall.js",
+    "old": "  if (how) text = text ? `${text} ${how}` : how;",
+    "new": "  if (how) text = how;",
+    "tests": ["test/fb0930b_toolsaid.test.js"]
+  },
+  {
+    "name": "TOOL-SAID-a-refusal-says-nothing-more",
+    "file": "src/systems/foragingInstall.js",
+    "old": "    if (how) hudText(how);",
+    "new": "",
+    "tests": ["test/fb0930b_toolsaid.test.js"]
+  },
+  {
+    "name": "TOOL-SAID-the-switch-off-offers-no-use",
+    "file": "src/systems/foragingInstall.js",
+    "old": "  toolUse.usable = (item) => foragingOn() || !!professionToolLine(item?.templateIndex);",
+    "new": "  toolUse.usable = () => foragingOn();",
+    "tests": ["test/fb0930b_toolsaid.test.js"]
+  },
+  {
+    "name": "TOOL-SAID-the-switch-off-says-nothing",
+    "file": "src/systems/foragingInstall.js",
+    "old": "  if (!foragingOn() && how && entity) { hudText(how); return { kind: 'foraging', refused: true, text: how }; }",
+    "new": "",
+    "tests": ["test/fb0930b_toolsaid.test.js"]
+  },
+  {
+    "name": "TOOL-SAID-the-basket-names-no-choice-key",
+    "file": "src/systems/foragingInstall.js",
+    "old": "return how(_host.keyLabel?.('Interact') || 'E', _host.keyLabel?.('ActChoice') || 'the act choice key');",
+    "new": "return how(_host.keyLabel?.('Interact') || 'E', 'the act choice key');",
+    "tests": ["test/fb0930b_toolsaid.test.js"]
+  },
+  {
+    "name": "TOOL-SAID-the-world-never-says-the-professions-are-open",
+    "file": "src/scenes/world.js",
+    "old": "    professionsOpen: () => profBook?.state.open === true,\n    keyLabel: (a) => { const c = getBinding(bindings(), a); return c ? tagText(c) : null; },",
+    "new": "",
+    "tests": ["test/fb0930b_toolsaid.test.js"]
+  },
+  {
+    "name": "TOOL-SAID-the-page-keeps-its-silence",
+    "file": "src/ui/profPages.js",
+    "old": "    if (GATHER_HOW[_sel]) pane.append(el('p', 'px-note', GATHER_HOW[_sel]));   // TOOL-SAID",
+    "new": "",
+    "tests": ["test/fb0930b_toolsaid.test.js"]
+  }
+]

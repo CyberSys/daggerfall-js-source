@@ -14592,6 +14592,10 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (quest) questBridge.machine.startQuestImmediate(quest);
       return !!quest;
     },
+    // FIELD BUGS 2026-09-30b (TOOL-SAID): a tool's Use online says how its profession gathers - while the professions are
+    // this account's, and naming the keys the prompt names
+    professionsOpen: () => profBook?.state.open === true,
+    keyLabel: (a) => { const c = getBinding(bindings(), a); return c ? tagText(c) : null; },
   });
   // WA1: the mod's reaches into GameManager and DaggerfallBankManager, answered by this host (systems/warmAshesShips.js)
   setWarmAshesHost({
