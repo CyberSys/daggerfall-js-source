@@ -20,7 +20,7 @@
   {
     "name": "NAV1-the-radius-unread",
     "file": "src/systems/naval/navalAI.js",
-    "old": "  return Math.min(ship.cls.turn * DEG, Math.max(floor, ship.speed / turnRadius(ship)));",
+    "old": "  return Math.min(ship.cls.turn * DEG, Math.max(floor, (HULL_HELM[ship.hull] ?? 1) * steerage(v) * DEG));",
     "new": "  return ship.cls.turn * DEG;",
     "tests": [
       "test/navaudit_captains.test.js"
@@ -236,8 +236,8 @@
   {
     "name": "NAV1-bent-while-loaded",
     "file": "src/systems/naval/navalAI.js",
-    "old": "  const bendOf = (side) => (ship.guns.ready(side) && d <= reach * PRESENT_WITHIN && d >= range * POINT_BLANK ? 0 : clamp((d - range) / range, -1, 1) * RANGE_BEND * DEG);",
-    "new": "  const bendOf = () => clamp((d - range) / range, -1, 1) * RANGE_BEND * DEG;",
+    "old": "    if (ship.guns.ready(side) && d <= reach * PRESENT_WITHIN && d >= Math.max(range * POINT_BLANK, deadZone) && holdsLead(side)) return 0;\n",
+    "new": "",
     "tests": [
       "test/navaudit_captains.test.js"
     ]
@@ -281,8 +281,8 @@
   {
     "name": "NAV1-the-fights-refresh",
     "file": "src/systems/naval/navalAI.js",
-    "old": "  else if (d < ship.chase.best * (1 - CHASE_GAIN) || d <= ship.cls.range * CLOSE_FROM) { ship.chase.best = d; ship.chase.since = ship.clock; }   // closing, or in the fight",
-    "new": "  else if (d < ship.chase.best * (1 - CHASE_GAIN)) { ship.chase.best = d; ship.chase.since = ship.clock; }",
+    "old": "  if (d < far * (1 - CHASE_GAIN) || d <= ship.cls.range * CLOSE_FROM) c.since = ship.clock;   // closing, or in the fight",
+    "new": "  if (d < far * (1 - CHASE_GAIN)) c.since = ship.clock;",
     "tests": [
       "test/navaudit_captains.test.js"
     ]
@@ -326,8 +326,8 @@
   {
     "name": "NAV1-the-gap-unread",
     "file": "src/systems/naval/navalAI.js",
-    "old": "    const close = enemy.hull != null && Number.isFinite(enemy.yaw) ? hullGap(ship.pos, ship.yaw, ship.hull, enemy.pos, enemy.yaw, enemy.hull) <= GRAPPLE_GAP : enemyD <= GRAPPLE_RANGE;",
-    "new": "    const close = enemyD <= GRAPPLE_RANGE;",
+    "old": "    const close = q.hull != null && Number.isFinite(q.yaw) ? hullGap(ship.pos, ship.yaw, ship.hull, q.pos, q.yaw, q.hull) <= GRAPPLE_GAP : bearingTo(ship, q.pos).dist <= GRAPPLE_RANGE;",
+    "new": "    const close = bearingTo(ship, q.pos).dist <= GRAPPLE_RANGE;",
     "tests": [
       "test/navaudit_captains.test.js"
     ]
@@ -416,8 +416,8 @@
   {
     "name": "NAV1-a-prize-engaged",
     "file": "src/scenes/navalHost.js",
-    "old": "engaged: e.ship.mode === 'engage' || e.ship.mode === 'board' || boarding?.shipId === e.id || !!e.raider,",
-    "new": "engaged: e.ship.mode === 'engage' || e.ship.mode === 'board' || boarding?.shipId === e.id || !!e.raider || e.ship.damage.state === SHIP_STATES.prize,",
+    "old": "engaged: (afloat && (e.ship.mode === 'engage' || e.ship.mode === 'board')) || boarding?.shipId === e.id || !!e.raider || !!e.takenBy",
+    "new": "engaged: (afloat && (e.ship.mode === 'engage' || e.ship.mode === 'board')) || boarding?.shipId === e.id || !!e.raider || e.ship.damage.state === SHIP_STATES.prize || !!e.takenBy",
     "tests": [
       "test/navaudit_captains.test.js"
     ]

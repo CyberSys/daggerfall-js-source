@@ -156,7 +156,8 @@ test('AUDIT pre-merge P2 executed: a lost election gives back the reservations n
 test('AUDIT pre-merge P1 + P2 + P4 by source: the deep\'s foes are never handed (they stay their stander\'s); the host keeps the election\'s last answer and gives back its reservations when it loses; no camp stands over the deep\'s water', () => {
   const w = rd('src/scenes/world.js');
   const hand = w.slice(w.indexOf('const handOverFoes = () => {'), w.indexOf('const handOverRoomFoes = () => {'));
-  assert.match(hand, /const heirOf = \(f\) => \{ if \(f\.entity\?\.team === 'PlayerAlly' \|\| f\.managed\) return null;/, 'the open air\'s handover refuses the deep\'s');
+  // AUDIT NAV2 F12: PIN MOVED - and a body on a deck (a boarding's, shared now) after the deep's
+  assert.match(hand, /const heirOf = \(f\) => \{ if \(f\.entity\?\.team === 'PlayerAlly' \|\| f\.managed(?: \|\| f\.deckBoat != null)?\) return null;/, 'the open air\'s handover refuses the deep\'s');
   assert.match(w, /let _deepStanding = true;\n\s*const _standsTheDeep = \(\) => \{\n\s*const now = standsTheDeep\(online\?\.id \?\? null, player\.feetAt\(\), peersNear\(\), _deepStanding\);\n\s*if \(_deepStanding && !now\) dwEnemies\?\.dropPending\?\.\(\);\n\s*_deepStanding = now;/);
   assert.match(w, /const _overDeepWater = \(x, z\) => \{ const c = dwPlayer\?\.rawColumnAt\?\.\(x, z\); return !!c && c\.depth >= 0\.25; \};/);
   assert.match(w, /if \(anchor && _overDeepWater\(anchor\.x, anchor\.z\)\) anchor = null;/, 'the anchor');

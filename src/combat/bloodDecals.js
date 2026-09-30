@@ -177,36 +177,98 @@ export function sprayRadius(rate) {
   return SPRAY_RADIUS_MIN + (SPRAY_RADIUS_MAX - SPRAY_RADIUS_MIN) * t;
 }
 
-/** How far a drop's angle may wander off its share of the circle, AS A
- *  FRACTION OF THAT SHARE. BLOOD1 AUDIT 3: this was 0.9 RADIANS - fine
- *  at the bottom rung's four drops (90 degrees apart) and nonsense at
- *  the top rung's twenty-four (15 degrees apart, wobbling 52), where
- *  the even turn the comment below argues for was wholly swamped and
- *  every spray had drops on top of each other. Nine tenths of a slot
- *  keeps neighbours from crossing. */
-export const SPRAY_WOBBLE = 0.9;
-
 /**
- * Where the i-th drop of a spray falls, as a horizontal offset from
- * the body.
+ * BLOOD5 - WHERE THE DROPS OF A SPRAY FALL (Mac, with a shot of a
+ * corpse ringed by a starburst: "the blood splatter is too
+ * perfect of a circle").
  *
- * DROP ZERO IS ALWAYS THE BODY'S OWN SPOT. A hit stains where it
- * happened whatever else it does, which is what keeps BLOOD1a's single
- * mark as the floor of this and what a player who turns the density
- * right down still gets.
+ * BLOOD1b laid the drops on an EVEN TURN - drop i at i/n of the circle,
+ * wobbling inside its own slot - and BLOOD2a stretched each one along
+ * its travel, which is outward from the body. Together that is a star:
+ * every spray a wheel of spokes, the same wheel at every body. The even
+ * turn was chosen because random angles clump; a spray that clumps is
+ * what a real one DOES, so long as the clumps are where the blow threw
+ * them rather than wherever the dice fell. So:
  *
- * The rest are laid on an EVEN angular turn with a wobble, not on a
- * random angle: random angles clump, and a clump of spatter reads as
- * one badly drawn mark rather than as a spray. The radius goes as the
- * SQUARE ROOT of the drop's share, which spreads them by AREA - a
- * linear radius piles them into the middle, where the pool already is.
+ *   ONE TO THREE LOBES. A blow throws blood somewhere - the main lobe
+ *     points the way the swing threw it when the site says, anywhere
+ *     when it does not - and a lesser lobe or two splits off it;
+ *   A DROP'S ANGLE IS ITS LOBE'S PLUS A NORMAL SPREAD, and a share of
+ *     drops (SPRAY_STRAY) go any way at all - the mist a hit throws
+ *     round the body whatever else it does;
+ *   THE REACH IS A SHARE OF THE RADIUS, biased outward (a power under
+ *     one), never nearer than SPRAY_NEAR of it - the pool owns the
+ *     body's own spot - and a few FLYERS carry past the radius;
+ *   A DROP'S SIZE IS SKEWED - many small, a few large (see `scale`).
+ *
+ * The draws that say WHERE are mixed with a low-discrepancy sequence
+ * (the golden ratio's family, one constant per question), so a spray
+ * never piles every drop on one spot even under a generator that
+ * answers the same number every time, and still clumps as a lobe does.
+ *
+ * DROP ZERO IS ALWAYS THE BODY'S OWN SPOT at scale one, as it has been
+ * since BLOOD1a: a hit stains where it happened whatever else it does.
+ *
+ * Answers `count` entries of `{ dx, dz, scale }` - the horizontal offset
+ * from the body and the drop's size against `dropSize`'s.
  */
-export function sprayOffset(i, count, radius, rng = Math.random) {
-  if (!(i > 0)) return [0, 0];
-  const n = Math.max(1, count);
-  const turn = (i / n) * Math.PI * 2 + (rng() - 0.5) * SPRAY_WOBBLE * (Math.PI * 2 / n);   // BLOOD1 AUDIT 3: the wobble is a share of the slot, not an angle
-  const r = (radius > 0 ? radius : 0) * Math.sqrt(Math.min(1, (i + rng()) / n));
-  return [Math.cos(turn) * r, Math.sin(turn) * r];
+export const SPRAY_LOBES_MAX = 3;
+/** A lobe's spread (radians, one standard deviation) - about 24 degrees. */
+export const SPRAY_LOBE_SPREAD = 0.42;
+/** The share of drops that go any way at all. */
+export const SPRAY_STRAY = 0.18;
+/** The innermost share of the reach a thrown drop lands at. */
+export const SPRAY_NEAR = 0.18;
+/** The share of drops that fly past the radius, and how far. */
+export const SPRAY_FLYER = 0.08;
+export const SPRAY_FLYER_REACH = 1.35;
+/** How small and how large a drop's scale runs: many near the bottom,
+ *  a few near the top, one at the middle roll. */
+export const SPRAY_SCALE_MIN = 0.3;
+export const SPRAY_SCALE_MAX = 2.1;
+const TAU = Math.PI * 2;
+const frac = (x) => x - Math.floor(x);
+const gauss = (u1, u2) => Math.sqrt(-2 * Math.log(Math.max(1e-6, 1 - u1))) * Math.cos(TAU * u2);
+/** The skew: a roll of one half is scale one (so a generator held at
+ *  one half sizes every drop as `dropSize` alone does); below it the
+ *  scale falls toward SPRAY_SCALE_MIN, above it rises - as a cube, so
+ *  large drops are the rare ones - toward SPRAY_SCALE_MAX. */
+export function sprayScale(u) {
+  const v = Math.max(0, Math.min(1, u));
+  return v < 0.5
+    ? SPRAY_SCALE_MIN + (1 - SPRAY_SCALE_MIN) * Math.pow(2 * v, 1.5)
+    : 1 + (SPRAY_SCALE_MAX - 1) * Math.pow(2 * v - 1, 3);
+}
+export function sprayPattern(count, radius, thrown = null, rng = Math.random) {
+  const n = Math.max(1, Math.floor(count) || 1);
+  const R = radius > 0 ? radius : 0;
+  const out = [{ dx: 0, dz: 0, scale: 1 }];
+  if (n === 1) return out;
+  const tx = thrown?.[0] ?? 0, tz = thrown?.[1] ?? 0;
+  const main = Math.hypot(tx, tz) > 1e-6 ? Math.atan2(tz, tx) + (rng() - 0.5) * 0.4 : rng() * TAU;
+  const k = Math.min(SPRAY_LOBES_MAX, 1 + Math.floor(rng() * SPRAY_LOBES_MAX));
+  const lobes = [];
+  let weight = 0;
+  for (let j = 0; j < k; j++) {
+    const ang = j === 0 ? main : main + (rng() < 0.5 ? -1 : 1) * (0.9 + rng() * 2);
+    const w = j === 0 ? 1 : 0.3 + rng() * 0.4;
+    lobes.push({ ang, w, spread: SPRAY_LOBE_SPREAD * (0.6 + rng() * 0.9) });
+    weight += w;
+  }
+  for (let i = 1; i < n; i++) {
+    let ang;
+    if (frac(rng() + i * 0.7548776662) < SPRAY_STRAY) ang = frac(rng() + i * 0.6180339887) * TAU;
+    else {
+      let pick = frac(rng() + i * 0.6180339887) * weight, lobe = lobes[0];
+      for (const l of lobes) { lobe = l; pick -= l.w; if (pick < 0) break; }
+      ang = lobe.ang + gauss(rng(), frac(rng() + i * 0.5698402910)) * lobe.spread;
+    }
+    let r = R * (SPRAY_NEAR + (1 - SPRAY_NEAR) * Math.pow(frac(rng() + i * 0.4142135624), 0.8));
+    let scale = sprayScale(rng());
+    if (rng() < SPRAY_FLYER) { r *= SPRAY_FLYER_REACH; scale *= 0.6; }   // a flyer went far because it was small
+    out.push({ dx: Math.cos(ang) * r, dz: Math.sin(ang) * r, scale });
+  }
+  return out;
 }
 
 /** A POOL AND ITS SPATTER, not one size of mark repeated. Drop zero is
@@ -470,6 +532,24 @@ export const STREAK_MAX = 2.5;
 export function streakFor(flown, reach) {
   if (!(flown > 0) || !(reach > 0)) return 1;
   return 1 + Math.min(1, flown / reach) * (STREAK_MAX - 1);
+}
+
+/** BLOOD5 - HOW LONG A STAIN IS, FROM HOW IT HIT. A drop that flew
+ *  (bloodMarks' flight) knows the angle it came down at, and a stain's
+ *  length over its width is one over the sine of that angle - the law a
+ *  bloodstain analyst reads backwards. A drop falling straight down is
+ *  round; one skimming in flat is long; capped at STREAK_MAX either way.
+ *  `across` and `down` are its speeds along the surface and into it.
+ *
+ *  THIS IS WHAT UNDID THE SPOKES. `streakFor` stretched by distance, so
+ *  every drop at the edge of a spray was a long streak pointing away
+ *  from the body - a wheel. Most drops of a real spray fall steeply and
+ *  land round; only the fast, far-flung few streak. */
+export function impactStretch(across, down) {
+  const h = Math.abs(across), v = Math.abs(down);
+  if (!(h > 0) || !Number.isFinite(h)) return 1;
+  if (!(v > 0)) return STREAK_MAX;
+  return Math.min(STREAK_MAX, Math.hypot(h, v) / v);
 }
 
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];

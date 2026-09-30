@@ -4917,9 +4917,9 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:7565` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:7816` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
-  provenance argument `applySpellToFoe` hands them (`hostMagic.js:336`)
+  provenance argument `applySpellToFoe` hands them (`hostMagic.js:337`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
   Threading it touches four hosts.
 - **A building interior streams no foes at all.** `makeInteriorFoes`
@@ -11913,7 +11913,10 @@ nothing said.
   window's), and the function keys a player would guess are DFU's, the HUD's or the browser's (F7 caret browsing, F10
   the large HUD, F12 the dev tools - HT4 refused F7). It opens the pause on the Professions page, in every host (the
   router's Escape arm's own door). In the Professions group, a port row the classic windows yield; `Controls.md`
-  generated with it.
+  generated with it. MERGED WITH HELM-KEYS (main's, the same day): less sail took the down arrow, so the Professions key
+  is a DEFAULT SHARE on it beside less sail (`DEFAULT_SHARES`), as more sail shares the act choice's up arrow - it owns
+  no key (KB1 law 3), and it opens nothing while the host sails (`routeAction` asks the host's `sailing`): at a helm the
+  down arrow is the sails' alone.
 - **The stations**: `forgeOffered` is the pages alone now - a shop's or a home's Forge, Workbench or Loom opens the
   Stores page on either skin; their cold lines and GATHER-SAID's first-harvest line name no skin, the latter the key the
   player has bound ("DOWN opens your Stores page"). AUDIT 29 B2's mutant, whose "mutant" is now the law, re-aimed at what

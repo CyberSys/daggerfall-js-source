@@ -19,7 +19,9 @@
 // on every zone), a barrel burned as a ball's fire, and a fire could not spread nor touch her canvas or crew.
 //
 // THE STATES (SHIP_STATES) follow Black Flag's rhythm. An AI ship brought to STRUCK_AT of its hull STRIKES ITS COLOURS: it stops
-// fighting and heaves to, and can be boarded (navalBoarding.js) - or shot on until it sinks; the rest of the volley
+// fighting and heaves to, and can be boarded (navalBoarding.js) - or shot on until it sinks. HELM-WAY: so does one whose
+// every hand is down (`unmanned` - a crewed hull at no crew): nobody is left to lay her guns or trim her sails (a sloop
+// with no men aboard went on loading and firing, and gunned a cutter's twenty-six down to none); the rest of the volley
 // that struck her cannot (`apply`'s floor, the host's STRUCK_GRACE_S), so sinking a prize is a new volley, never the
 // same click that took her. At nought it SINKS, over
 // SINK_SECONDS, then is SUNK and gone, its flotsam left floating. A ship taken by boarding is a PRIZE.
@@ -135,6 +137,8 @@ export function createShipDamage({ hullHp, sailHp, crew, player = false }) {
     if (harm(s.fires[low]) < harm(f)) s.fires[low] = f;
   };
   const douse = () => { s.fires = []; s.crewBurn = 0; };
+  /** HELM-WAY: a crewed hull with every hand down - an AI ship so left strikes (`settle`). */
+  const unmanned = () => s.maxCrew > 0 && s.crew <= 0;
   const d = {
     get state() { return s.state; },
     get hull() { return s.hull; }, get maxHull() { return s.maxHull; },
@@ -177,6 +181,7 @@ export function createShipDamage({ hullHp, sailHp, crew, player = false }) {
       } else if (s.state === SHIP_STATES.afloat || s.state === SHIP_STATES.struck) {
         if (s.hull <= 0) { s.state = SHIP_STATES.sinking; s.sinkT = 0; }   // AUDIT NAV1: her fires burn on as she goes down
         else if (s.state === SHIP_STATES.afloat && s.hull <= s.maxHull * STRUCK_AT) { s.state = SHIP_STATES.struck; douse(); }
+        else if (s.state === SHIP_STATES.afloat && unmanned()) s.state = SHIP_STATES.struck;   // HELM-WAY: nobody left to fight her fires either
       }
       return s.state !== was ? s.state : null;
     },
@@ -227,7 +232,7 @@ export function createShipDamage({ hullHp, sailHp, crew, player = false }) {
       // AUDIT NAV1 (the helm): a wreck floats again once her hull passes `refloat` of its whole (the crew's mending at
       // sea, navalYard.js FIELD_REFLOAT); a yard's timber or a prize's, at once
       if (s.state === SHIP_STATES.wrecked && s.hull > s.maxHull * refloat && s.hull > 0) s.state = SHIP_STATES.afloat;
-      if (s.state === SHIP_STATES.struck && s.hull > s.maxHull * STRUCK_AT) s.state = SHIP_STATES.afloat;
+      if (s.state === SHIP_STATES.struck && s.hull > s.maxHull * STRUCK_AT && !unmanned()) s.state = SHIP_STATES.afloat;
     },
     /** What the save or the wire keeps. */
     snapshot: () => ({ hull: Math.round(s.hull), sail: Math.round(s.sail), crew: s.crew, fire: +d.fire.toFixed(1), state: s.state }),

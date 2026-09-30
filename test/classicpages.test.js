@@ -14,7 +14,7 @@ import { openPauseFlow, PROF_PAGES_CLOSED_LINE, profPageAt } from '../src/ui/pau
 import { setProfessionsPages, forgeOffered, stationColdLine, PROF_PAGE_SECTIONS } from '../src/ui/profPages.js';
 import { storesWhereLine } from '../src/scenes/gatherHost.js';
 import { routeAction } from '../src/ui/input.js';
-import { ACTIONS, DEFAULT_BINDINGS, ACTION_GROUPS, PORT_ACTIONS } from '../src/systems/inputActions.js';
+import { ACTIONS, DEFAULT_BINDINGS, DEFAULT_SHARES, ACTION_GROUPS, PORT_ACTIONS } from '../src/systems/inputActions.js';
 import { setUiSkin } from '../src/systems/uiSkin.js';
 import { _resetForTests } from '../src/systems/uiPrefs.js';
 import { registerPresenter, _resetNotifyForTests } from '../src/systems/notify.js';
@@ -89,10 +89,10 @@ test('CLASSIC-PAGES: with no pages to show (offline, the switch shut) the door s
   assert.deepEqual(['quests', 'stats', 'system', 'settings', undefined].map(profPageAt), [false, false, false, false, false]);
 });
 
-test('CLASSIC-PAGES: THE PROFESSIONS KEY - appended, on the down arrow (beside the act choice\'s up arrow), in the Professions group, a port row; the router opens the pause on the Professions page', () => {
-  assert.equal(ACTIONS.at(-1), 'Professions', 'appended: the classic grid and a saved file resolve by position');
-  assert.ok(DEFAULT_BINDINGS.some(([c, a]) => c === 'ArrowDown' && a === 'Professions'));
-  assert.equal(DEFAULT_BINDINGS.filter(([c]) => c === 'ArrowDown').length, 1, 'the down arrow is the key\'s alone');
+test('CLASSIC-PAGES: THE PROFESSIONS KEY - appended, a default share on the down arrow beside less sail (as more sail shares the act choice\'s up arrow), in the Professions group, a port row; the router opens the pause on the Professions page, and nothing while sailing', () => {
+  assert.equal(ACTIONS.at(-1), 'Professions', 'appended after HELM-KEYS\' two: the classic grid and a saved file resolve by position');
+  assert.ok(DEFAULT_SHARES.some(([c, a, partner]) => c === 'ArrowDown' && a === 'Professions' && partner === 'BoatSailDown'), 'shared onto less sail\'s own key');
+  assert.ok(!DEFAULT_BINDINGS.some(([, a]) => a === 'Professions'), 'it owns no key - KB1 law 3 keeps every owner once');
   assert.ok(DEFAULT_BINDINGS.some(([c, a]) => c === 'ArrowUp' && a === 'ActChoice'), 'the professions\' two keys on the arrows');
   assert.ok(PORT_ACTIONS.includes('Professions'), 'the classic windows yield it');
   assert.ok(ACTION_GROUPS.find((g) => g.title === 'Professions').rows.some((r) => r.action === 'Professions'));
@@ -102,6 +102,11 @@ test('CLASSIC-PAGES: THE PROFESSIONS KEY - appended, on the down arrow (beside t
   assert.equal(routeAction('Professions', ctx, pos), true);
   assert.deepEqual(asked, [{ at: 'professions', setPlayerPos: pos }]);
   assert.equal(routeAction('Professions', {}), false, 'a host with no pause door leaves the key');
+  const atHelm = [];
+  assert.equal(routeAction('Professions', { togglePause: (o) => atHelm.push(o), sailing: () => true }), false, 'at a helm the down arrow is less sail\'s');
+  assert.deepEqual(atHelm, [], 'nothing opened while sailing');
+  assert.equal(routeAction('Professions', { togglePause: () => {}, sailing: () => false }), true);
+  assert.match(rd('src/scenes/world.js'), /sailing: \(\) => !!csaRuntime\?\.isSailing\(\),/, 'the streaming world says when it sails');
 });
 
 test('CLASSIC-PAGES: a Forge, Workbench or Loom works on either skin while the pages stand; the stations and the first harvest\'s line name no skin', () => {

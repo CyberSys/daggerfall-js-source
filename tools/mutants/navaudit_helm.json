@@ -760,8 +760,8 @@
   {
     "name": "NAV1H-the-quiet-unread",
     "file": "src/scenes/navalHost.js",
-    "old": "      if (quiet && clock - s.damage.lastHitAt >= FIELD_QUIET_S) {",
-    "new": "      if (quiet) {",
+    "old": "      if (clock - s.damage.lastHitAt >= FIELD_QUIET_S && !hostileNearBoat(b, s)) {",
+    "new": "      if (!hostileNearBoat(b, s)) {",
     "tests": [
       "test/navaudit_helm.test.js"
     ]
@@ -778,8 +778,8 @@
   {
     "name": "NAV1H-a-hostile-unread-at-sea",
     "file": "src/scenes/navalHost.js",
-    "old": "    const quiet = !hostileNearMe();",
-    "new": "    const quiet = true;",
+    "old": "FIELD_QUIET_S && !hostileNearBoat(b, s)) {",
+    "new": "FIELD_QUIET_S) {",
     "tests": [
       "test/navaudit_helm.test.js"
     ]
@@ -949,8 +949,8 @@
   {
     "name": "NAV1H-the-brake-unwired",
     "file": "src/scenes/navalHost.js",
-    "old": "  const accelScale = () => (enabled && heaveTo && myBoat() ? HEAVE_TO_ACCEL : 1);",
-    "new": "  const accelScale = () => 1;",
+    "old": "  const brake = () => (enabled && heaveTo && myBoat() ? HEAVE_TO_DECEL : 0);",
+    "new": "  const brake = () => 0;",
     "tests": [
       "test/navaudit_helm.test.js"
     ]
@@ -1003,7 +1003,7 @@
   {
     "name": "NAV1H-the-brake-unread",
     "file": "src/systems/comeSailAway.js",
-    "old": "    return f(moveAccelOwn() * f(Math.max(0, Math.min(20, Number(deps.accelScale?.() ?? 1)))));",
+    "old": "    return brake > 0 ? f(Math.min(20, brake)) : moveAccelOwn();",
     "new": "    return moveAccelOwn();",
     "tests": [
       "test/csa_wind.test.js"
@@ -1012,8 +1012,8 @@
   {
     "name": "NAV1H-the-brake-unheld",
     "file": "src/systems/comeSailAway.js",
-    "old": "    return f(moveAccelOwn() * f(Math.max(0, Math.min(20, Number(deps.accelScale?.() ?? 1)))));",
-    "new": "    return f(moveAccelOwn() * f(Number(deps.accelScale?.() ?? 1)));",
+    "old": "    return brake > 0 ? f(Math.min(20, brake)) : moveAccelOwn();",
+    "new": "    return brake > 0 ? f(brake) : moveAccelOwn();",
     "tests": [
       "test/csa_wind.test.js"
     ]
@@ -1021,8 +1021,8 @@
   {
     "name": "NAV1H-the-brake-unwired-world",
     "file": "src/scenes/world.js",
-    "old": "    accelScale: () => naval?.accelScale() ?? 1,",
-    "new": "    accelScale: () => 1,",
+    "old": "    brake: () => naval?.brake() ?? 0,",
+    "new": "    brake: () => 0,",
     "tests": [
       "test/navaudit_helm.test.js"
     ]
@@ -1057,7 +1057,7 @@
   {
     "name": "NAV1H-the-hostile-unmarked",
     "file": "src/scenes/navalHost.js",
-    "old": "          : hostile(e.ship, { kind: 'player', id: myId() }, { notoriety: (c) => notoriety.get(c), now: clock }) ? 'hostile' : 'ship';\n        out.push",
+    "old": "          : hostile(e.ship, me, { notoriety: (c) => notoriety.get(c), now: clock }) ? 'hostile' : 'ship';\n        out.push",
     "new": "          : 'ship';\n        out.push",
     "tests": [
       "test/navaudit_helm.test.js"

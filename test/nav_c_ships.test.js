@@ -13,6 +13,7 @@ import {
   GRAPPLE_HULL, NAVY_HUNTS, ACCEL, PROVOKED_S, RUN_OUT_S,
   windFactor, createSeaShip, velocityOf, hostile, provoke, courseClear, avoidLand, bearingTo, leadPoint, stepCaptain,
   batteryReach, broadsideReach, shipWireState, quatOfYaw, forwardOfYaw,
+  TEMPERS,
 } from '../src/systems/naval/navalAI.js';
 import {
   DENSITY, SPAWN_RING, SPAWN_CLEAR, DESPAWN_BEYOND, SPAWN_EVERY, FIRST_ROLL_S, SHIP_SPAWN_CHANCE, FACTION_WEIGHTS, PORT_WEIGHTS,
@@ -115,7 +116,7 @@ test('NAV-C the point of sail: a run most of her best, a broad reach all of it, 
 });
 
 test('NAV-C who takes whom: pirates take anything; a navy takes pirates, and the player once their notoriety in ITS crown\'s waters reaches NAVY_HUNTS or they struck it; a merchant only who fired on it; a blow is remembered PROVOKED_S (mutants: the crown not asked, the memory forever)', () => {
-  const pirate = createSeaShip({ id: 1, seed: 1, classId: 'pirateBrig', pos: [0, 0, 0] });
+  const pirate = createSeaShip({ id: 1, seed: 1, classId: 'pirateBrig', pos: [0, 0, 0], temper: TEMPERS.bold });   // SEA-PEACE: a bold one's table (a wary one's, test/seapeace.test.js)
   const navy = createSeaShip({ id: 2, seed: 2, classId: 'navyCutter', pos: [0, 0, 0], names: { crown: 'Wayrest' } });
   const merchant = createSeaShip({ id: 3, seed: 3, classId: 'merchantGalleon', pos: [0, 0, 0] });
   const me = { kind: 'player', id: 'p' };
@@ -233,7 +234,7 @@ test('NAV-C running: a merchant runs from what would take her; a pirate short of
   assert.ok(200 < FLEE_RANGE);
   assert.ok(PIRATE_RUNS_AT > STRUCK_AT, 'a band where she runs before she strikes');
   const hurt = (id) => {
-    const s = createSeaShip({ id, seed: 3, classId: id === 'flag' ? 'pirateFlagship' : 'pirateBrig', pos: [0, 0, 0] });
+    const s = createSeaShip({ id, seed: 3, classId: id === 'flag' ? 'pirateFlagship' : 'pirateBrig', pos: [0, 0, 0], temper: TEMPERS.bold });   // SEA-PEACE: one that fought
     s.damage.apply({ hull: Math.ceil(s.damage.maxHull * (1 - (PIRATE_RUNS_AT - 0.03))), sail: 0, crew: 0 });
     assert.equal(s.damage.state, SHIP_STATES.afloat);
     stepCaptain(s, world({ contacts: [player([0, 0, 300])] }));
@@ -244,7 +245,7 @@ test('NAV-C running: a merchant runs from what would take her; a pirate short of
 });
 
 test('NAV-C the grapple: a pirate with men to send takes a boat within GRAPPLE_RANGE that is crippled at once, or one lying still for GRAPPLE_STILL_S; way on resets the count (mutants: the stillness never counted, the range ignored)', () => {
-  const sloop = () => createSeaShip({ id: 's', seed: 1, classId: 'pirateSloop', pos: [0, 0, 0], yaw: 0 });
+  const sloop = () => createSeaShip({ id: 's', seed: 1, classId: 'pirateSloop', pos: [0, 0, 0], yaw: 0, temper: TEMPERS.bold });   // SEA-PEACE: a bold one (a wary one's grapple: a crippled or holed boat alone)
   const s = sloop();
   const got = [];
   for (let i = 0; i < GRAPPLE_STILL_S; i++) got.push(stepCaptain(s, world({ contacts: [player([20, 0, 0])] })).grapple);
@@ -284,8 +285,11 @@ test('NAV-C a struck, taken or sinking ship fights no more: her canvas comes in,
 // ── the traffic ─────────────────────────────────────────────────────────────────────────────────────────────────
 
 const ctx = (o = {}) => ({ density: DENSITY.some, player: [0, 0, 0], players: null, level: 5, ships: [], isOpenWater: () => true, nearPort: false, notoriety: 0, seedBase: 1234, seaY: 0, ...o });
+const ctxAll = ctx;
 
 test('NAV-C the director: nothing before FIRST_ROLL_S, then a roll every SPAWN_EVERY while the density has room - the ship stood SPAWN_RING out on open water, never within SPAWN_CLEAR of a player, her seed hash32(seedBase, count) (mutants: the ring, the clear, the count not advanced)', () => {
+  // SEA-PEACE: room for one ship - a pair already at it is its own law (test/seapeace.test.js)
+  const ctx = (o = {}) => ctxAll({ density: 1, ...o });
   const d = createNavalDirector({ random: () => 0.1 });
   assert.equal(d.step(FIRST_ROLL_S - 0.5, ctx()).spawn, null);
   const { spawn } = d.step(0.5, ctx());
@@ -356,7 +360,7 @@ test('NAV-C who sails: the open bay\'s weights, a port adding merchants and the 
   let hunter = null;
   for (let base = 0; base < 400 && !hunter; base++) {
     const s = createNavalDirector({ random: () => 0.1 }).step(FIRST_ROLL_S, ctx({ seedBase: base, notoriety: HUNTER_AT })).spawn;
-    if (s?.classId.startsWith('navy')) hunter = s;
+    if (s?.classId.startsWith('navy') && !s.encounter) hunter = s;   // SEA-PEACE: a patrol's navy hunts her pirate, not me
   }
   assert.ok(hunter, 'a navy ship among the seeds');
   assert.equal(hunter.hunter, true);

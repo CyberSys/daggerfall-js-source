@@ -434,7 +434,7 @@ test('ROAD-H H2: the sweep and the player arm are wired through the one helper, 
   assert.ok(!/f\.ai\.feet\[1\] \+ \(f\.ai\.height \?\? 1\.8\) \/ 2, f\.ai\.feet\[2\]\];\n\s*if \(Math\.hypot/.test(sc),
     'and no longer a point at the capsule centre within the bare radius');
   const hm = src('scenes/hostMagic.js');
-  assert.match(hm, /if \(playerFeet && sphereOverlapsCapsule\(pos, EXPLOSION_RADIUS, playerFeet, playerHeight, PLAYER_BODY_RADIUS\)\)/);   // AUDIT 65 CV-2
+  assert.match(hm, /if \(playerFeet && (?:!crewBlast && )?sphereOverlapsCapsule\(pos, EXPLOSION_RADIUS, playerFeet, playerHeight, PLAYER_BODY_RADIUS\)\)/);   // AUDIT 65 CV-2
   assert.ok(!/playerFeet\[1\] \+ 0\.9 - pos\[1\]/.test(hm), 'the feet + 0.9 point is gone');
   // Every caller of explodeAt hands it the live capsule.
   for (const m of hm.matchAll(/\bexplodeAt\((?!pos, spell)[^\n]*/g)) {

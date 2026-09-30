@@ -276,7 +276,7 @@ const q3 = (v) => Math.round(v * 1000) / 1000; const GENDER_BIT = ['male', 'fema
 const HIT_POS_MAX = 1e6;
 // AUDIT FOES FOE5: the most damage one peer's blow may claim. The host TRUSTS the number (it never recomputes - the
 // striker's own calc is the game's), so without a bound any joiner could one-shot every foe in the room and empty it
-// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2333); the dungeon
+// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2367); the dungeon
 // had none. Past anything a legal swing, shaft or blast can roll.
 const HIT_DMG_MAX = 10000;
 /** REST-SYNC: a joiner's ask is answered - or given up on - inside this long: its rest breaks once, at the next hour. */
@@ -1909,7 +1909,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:13968 / exterior.js:3755), set
+  // host's own townTalk sink (world.js:14227 / exterior.js:3755), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -2064,7 +2064,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   let _motorYaw = 0;   // A1: the automap window's player-arrow heading
   let _mouseState = 'no events';
   let _inputState = '';
-  const _activity = { running: false, runningTally: false, swimming: false, climbing: false, standing: false, jumped: false, movingLessThanHalfSpeed: true };   // AUDIT 64 F7: the tally's gate is PlayerEntity.cs:311, the fatigue band's is :408   // AUDIT 26 F083: + climbing   // P11 fatigue state; P13 sneak state; C6 jump edge
+  const _activity = { running: false, runningTally: false, swimming: false, climbing: false, standing: false, jumped: false, movingLessThanHalfSpeed: true, odometer: null };   // MOVE-REAL: + the motor's odometer   // AUDIT 64 F7: the tally's gate is PlayerEntity.cs:311, the fatigue band's is :408   // AUDIT 26 F083: + climbing   // P11 fatigue state; P13 sneak state; C6 jump edge
   let _grounded = true;   // U7: the rest gate reads the motor's live grounded flag
   // U7: the rest session's scene seams. tickVitals = one rested hour
   // (the S20 rates + the Medical tally, clamped); enemiesNearby is
@@ -3736,8 +3736,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:23417,
-              // exterior.js:5369 and worldModes.js:8343 already ran;
+              // playerArrowHitFoe is the one copy world.js:23692,
+              // exterior.js:5370 and worldModes.js:8344 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -4571,7 +4571,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const i = data.i | 0, dmg = Number(data.dmg);
     const xs = data.xs === 1;   // REST-SYNC: a shared encounter, by the room's number - not a layout index
     const f = xs ? (_sharedById.get(i) ?? null) : foes[i];
-    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2333). The number is a peer's
+    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2367). The number is a peer's
     // word and the host trusts it without recomputing, so an unbounded one let any joiner one-shot every foe in the
     // room - and, through the kill door, empty it. 10000 is past anything a legal swing, shaft or blast can roll.
     if (!f || (!xs && i >= _layoutFoes) || f.dead || !Number.isFinite(dmg) || dmg < 0 || dmg > HIT_DMG_MAX) return false;
@@ -5137,7 +5137,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // InstantiatePrefab's a fresh GameObject per saved record, so
     // EnemyEntity's `PickpocketByPlayerAttempted` default is the loaded
     // truth for every enemy. The re-minting pools match that by
-    // construction (exteriorFoes.js:1756's restoreWorld goes through
+    // construction (exteriorFoes.js:1778's restoreWorld goes through
     // spawnFoe), but this host patches the LIVE foes in place, so a
     // same-dungeon reload kept a raised latch and a failed pickpocket
     // could never be retried - falsifying the law
@@ -7539,7 +7539,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // jump fatigue/tally (PlayerEntity: 11 x multiplier + Jumping
     // tally once per jump), and the state the per-minute fatigue
     // drain reads.
-    reportActivity({ running = false, runningTally = false, swimming = false, climbing = false, standing = false, jumped = false, movingLessThanHalfSpeed = true, fell = 0 } = {}) {
+    reportActivity({ running = false, runningTally = false, swimming = false, climbing = false, standing = false, jumped = false, movingLessThanHalfSpeed = true, fell = 0, odometer = null } = {}) {
       // AUDIT 58: PlayLargeSplash is PlayOneShot(SplashLargeSound, 0,
       // FootstepVolumeScale) - PlayerFootsteps.cs:323-326.
       if (swimming && !_activity.swimming && !immersiveFootsteps.playLargeSplash()) audio.playOneShot(SOUND.SplashLarge, FOOTSTEP_VOLUME);   // PlayLargeSplash on entry; IF1: the mod's Water_Landing when it owns the stride
@@ -7552,6 +7552,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // (PlayerEntity.cs:425-430 is the entity update) - the edge rides
       // the activity so every host shares the one law.
       _activity.jumped = jumped;
+      _activity.odometer = odometer;   // MOVE-REAL: the motor's live odometer - the movement skills past 100 count it
       // P14 fall landing (CheckFallingDamage + PlayerHealth verbatim):
       // damage = trunc(5 * (distance - 5)) past the threshold with the
       // fall-damage sound; a 2.5..5 drop is the hard-fall alert only.

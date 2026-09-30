@@ -126,6 +126,7 @@ export function createComeSailAwayPeers({ pool, selfId = () => null, log = conso
       const w = l.boats[i];
       try {
         const boat = pool.spawnPeerNow(new Boat(w.hull, w.variant));
+        if (boat) boat.peerKey = `${owner}:${i}`;   // LIVING CREW: whose, and which - her crew's seed (scenes/navalCrew.js)
         if (boat) list[i] = { boat, hull: w.hull, variant: w.variant, wire: w.position, slot: i, shown: null, turn: null, helm: false, light: false };
       } catch (e) { fail(owner, e); }
       return;

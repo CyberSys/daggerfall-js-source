@@ -48,11 +48,12 @@
   {
     "name": "CLASSICPAGES-key-unrouted",
     "file": "src/ui/input.js",
-    "old": "    case 'Professions': return ctx.togglePause ? (ctx.togglePause({ at: 'professions', setPlayerPos }), true) : false;\n",
+    "old": "    case 'Professions': return ctx.togglePause && ctx.sailing?.() !== true ? (ctx.togglePause({ at: 'professions', setPlayerPos }), true) : false;\n",
     "new": "",
     "tests": [
       "test/classicpages.test.js"
-    ]
+    ],
+    "note": "HELM-KEYS' merge (PIN MOVED): the arm asks whether the host sails, re-aimed by content."
   },
   {
     "name": "CLASSICPAGES-key-lands-on-stats",
@@ -66,18 +67,28 @@
   {
     "name": "CLASSICPAGES-key-unbound",
     "file": "src/systems/inputActions.js",
-    "old": "  ['ArrowDown', 'Professions'],   // CLASSIC-PAGES: the professions' two keys on the arrows - the act choice up, the pages down\n",
+    "old": "  Object.freeze(['ArrowDown', 'Professions', 'BoatSailDown']),\n",
     "new": "",
     "tests": [
       "test/classicpages.test.js",
       "test/inputactions.test.js"
-    ]
+    ],
+    "note": "HELM-KEYS' merge (PIN MOVED): the key is a default share on the down arrow now - its share is the binding."
   },
   {
     "name": "CLASSICPAGES-where-line-no-key",
     "file": "src/scenes/gatherHost.js",
     "old": "${key ? `${key} opens your Stores page` : 'the pause menu\\'s Stores page'}",
     "new": "the pause menu\\'s Stores page",
+    "tests": [
+      "test/classicpages.test.js"
+    ]
+  },
+  {
+    "name": "CLASSICPAGES-key-opens-at-the-helm",
+    "file": "src/ui/input.js",
+    "old": "ctx.togglePause && ctx.sailing?.() !== true ?",
+    "new": "ctx.togglePause ?",
     "tests": [
       "test/classicpages.test.js"
     ]

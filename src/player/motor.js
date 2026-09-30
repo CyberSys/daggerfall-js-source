@@ -71,6 +71,9 @@ export const GROUNDED_JUMP_GATE_S = 0.1;
 // clamps jank spikes exactly as Unity's maximumDeltaTime does (time
 // slows instead of the integrator exploding).
 export const FIXED_DT = 1 / 60;
+/** MOVE-REAL: metres a second no body's own step reaches (a run at 200 with Speed 100 is ~13) - past it a step's move
+ *  is a placement, and the odometer skips it. */
+export const ODOMETER_MAX_SPEED = 60;
 export const MAX_FRAME_DT = 0.25;
 
 /** WW2 (Mac: "the bob movement plays even when idle"): THE ONE MOTION BAG every host hands the weapon rig and the
@@ -396,6 +399,9 @@ export class PlayerMotor {
     // update - a frame that runs zero steps must keep the last real
     // span so the eye can continue across it), read only by eyeAt.
     this._prevPos = new Float32Array(3);
+    // MOVE-REAL: the ground this body covered under its OWN steps, across (h) and up or down (v) - what the movement
+    // skills count past 100 (systems/skillSoftcap.js movementTallyWeight). Hosts hand this live object on.
+    this.odometer = { h: 0, v: 0 };
     this._alpha = 1;               // _acc / FIXED_DT after the last update
     this._eyeFeetY = null;         // MAC1: the render eye's LOW-PASSED interpolated feet height (eyeAt); null = not yet primed
     this._eyeSmoothing = true;     // MAC1: the harness's off switch, so a bare walk can be measured beside a smoothed one
@@ -682,6 +688,18 @@ export class PlayerMotor {
     if (dx * dx + dy * dy + dz * dz > PlayerMotor.SNAP_SPAN * PlayerMotor.SNAP_SPAN) return [p[0], p[1], p[2]];
     const a = Math.max(0, Math.min(1, alpha));
     return [q[0] + dx * a, q[1] + dy * a, q[2] + dz * a];
+  }
+
+  /** MOVE-REAL: one step's own move onto the odometer - the span _prevPos latched before it to where the step (and
+   *  the duel ring's clamp) left the feet, so a run into a wall that slides nowhere adds nothing. A step faster than
+   *  any body moves is a placement, never motion. A carry (carryBy), a pin (pinFeet), a spawn and an origin shift
+   *  happen outside the steps and are never counted. */
+  _countOdometer(step) {
+    const p = this.pos, q = this._prevPos;
+    const h = Math.hypot(p[0] - q[0], p[2] - q[2]), v = Math.abs(p[1] - q[1]);
+    if (!(h + v <= ODOMETER_MAX_SPEED * step)) return;
+    this.odometer.h += h;
+    this.odometer.v += v;
   }
 
   /** CSA-D: another script writes the PlayerObject's transform - Come Sail Away's helm pin (`playerObject.transform
@@ -1246,6 +1264,7 @@ export class PlayerMotor {
       this._prevPos[0] = this.pos[0]; this._prevPos[1] = this.pos[1]; this._prevPos[2] = this.pos[2];
       this._step(step, input, yaw, pitch);
       if (this.arena) this._keepInArena();   // DUEL1: after the collider's move, so both ends of the span stand inside
+      this._countOdometer(step);   // MOVE-REAL
     }
     this._alpha = Math.min(1, this._acc / step);
     this._smoothEyeFeet(frameDt);   // MAC1: once per RENDER frame, like the bob and the look

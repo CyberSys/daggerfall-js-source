@@ -327,7 +327,7 @@ export function castEnemySpell(f, spell, {
     // wrong under both models, and off by up to a metre against the
     // 4.0-radius OverlapSphere, which flips rim membership.
     explodeAt?.([f.ai.feet[0], casterTransformY, f.ai.feet[2]], spell, f.entity.level, playerFeet,
-      { entity: f.entity, sinks: foeSinks(f) }, { excludeFoe: f, playerHeight });
+      { entity: f.entity, sinks: foeSinks(f), foe: f }, { excludeFoe: f, playerHeight });   // AUDIT NAV2 F56: the wrapper carries its foe, as a missile's does (hostMagic.js missileCaster) - the engine asks it whose blast this is, and a crewman's passes the player and the crew by
     return true;
   }
   fireMissile?.(from, spell, f.entity.level, f, aimAt);

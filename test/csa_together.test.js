@@ -7,6 +7,7 @@
 // through the host's one seam (scenes/world.js). The boats are the vendored hulls over a stand-in renderer and pipeline
 // (test/csa_online.test.js's); world.js's own statements are mounted where they are behaviour (audit0928_online's law).
 import { test } from 'node:test';
+import { HELM_RUDDER_ACTIONS } from '../src/systems/inputActions.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -504,6 +505,7 @@ test('CSA-L: the helm\'s buttons for the mod\'s state - the sails (their label t
   assert.deepEqual(HELM_ACTIONS, {
     sail: BOAT_ACTIONS.toggleSail, light: BOAT_ACTIONS.toggleLight, disembark: BOAT_ACTIONS.disembark, trimLeft: BOAT_ACTIONS.trimLeft, trimRight: BOAT_ACTIONS.trimRight,
     trimModifier: BOAT_ACTIONS.trimModifier, slower: BOAT_ACTIONS.timeScaleDown, faster: BOAT_ACTIONS.timeScaleUp, normal: BOAT_ACTIONS.timeScaleReset,
+    more: BOAT_ACTIONS.sailUp, less: BOAT_ACTIONS.sailDown,   // HELM-KEYS
   });
   const acts = (h) => helmButtons(h).map((b) => b.act);
   assert.deepEqual(acts(H()), ['sails', 'light', 'slower', 'normal', 'faster', 'position', 'leave']);
@@ -514,6 +516,9 @@ test('CSA-L: the helm\'s buttons for the mod\'s state - the sails (their label t
   assert.deepEqual(acts(H({ manualTrim: true, hasSquare: true, squareOnly: true })), ['sails', 'trimLeft', 'trimRight', 'light', 'slower', 'normal', 'faster', 'position', 'leave'], 'a square rig alone trims with the bare brackets');
   const by = (h, act) => helmButtons(h).find((b) => b.act === act);
   assert.deepEqual([by(H(), 'sails').label, by(H({ sailsUp: true }), 'sails').label], ['Raise sails', 'Stow sails']);
+  // HELM-KEYS: the sails' button presses what the arrows do - more sail up, less sail down; with the square sails the
+  // player's own, the stow is the mod's own toggle (all her canvas, as it says)
+  assert.deepEqual([by(H(), 'sails').action, by(H({ sailsUp: true }), 'sails').action, by(H({ sailsUp: true, squareToggle: true }), 'sails').action], ['BoatSailUp', 'BoatSailDown', 'BoatToggleSail']);
   assert.deepEqual([by(H({ squareToggle: true }), 'square').label, by(H({ squareToggle: true, squareUp: true }), 'square').label], ['Raise square sails', 'Stow square sails']);
   assert.deepEqual([by(H(), 'light').label, by(H({ light: true }), 'light').label], ['Light lanterns', 'Douse lanterns']);
   assert.deepEqual(by(H({ squareToggle: true }), 'square'), { act: 'square', label: 'Raise square sails', kind: 'tap', action: 'BoatToggleSail', withHeld: 'BoatTrimModifier' }, 'End with the modifier held, as the key\'s chord');
@@ -530,20 +535,20 @@ test('CSA-L: the panel on a page - under the compass, titled with the hull, a ke
   const doc = fakeDoc();
   const pressed = [], holds = [];
   const hooks = { press: (a, w) => pressed.push([a, w]), hold: (a, on) => holds.push([a, on]), position: () => pressed.push(['position']) };
-  const keyOf = (a) => ({ BoatToggleSail: 'End', BoatToggleLight: ';', BoatDisembark: "'" })[a] ?? '';
+  const keyOf = (a) => ({ BoatToggleSail: 'End', BoatToggleLight: ';', BoatDisembark: "'", BoatSailUp: 'UP', BoatSailDown: 'DOWN', TurnLeft: 'LEFT', TurnRight: 'RIGHT' })[a] ?? '';
   try {
     const root = drawEnhancedHelm({ helm: H({ squareToggle: true, manualTrim: true, hasSquare: true }), keyOf, mouseFree: false, freeKey: 'Y' }, hooks, { doc });
     assert.ok(root && root.id === ENHANCED_HELM_ID && doc.body.children.includes(root), 'mounted on the page');
     assert.equal(enhancedHelmBar(), one(root, 'helmpanel-bar'), 'THE MERGE with NAV-F: the bar standing, which the sea\'s target card stands under');
     assert.equal(one(root, 'helmpanel-name').textContent, 'At the helm - Large Boat');
-    assert.equal(one(root, 'helmpanel-hint').textContent, 'Free the mouse (Y) to use these');
+    assert.equal(one(root, 'helmpanel-hint').textContent, 'Sails UP DOWN · Steer LEFT RIGHT · Free the mouse (Y) to use these', 'HELM-KEYS: the helm\'s hand at a glance');
     const btn = (act) => all(root, 'helmpanel-btn').find((b) => b.dataset.act === act);
-    assert.equal(one(btn('sails'), 'helmpanel-key').textContent, 'End', 'the key it stands for');
+    assert.equal(one(btn('sails'), 'helmpanel-key').textContent, 'UP', 'the key it stands for (HELM-KEYS: more sail\'s)');
     assert.equal(one(btn('leave'), 'helmpanel-key').textContent, "'");
     btn('sails').fire('click');
     btn('square').fire('click');
     btn('position').fire('click');
-    assert.deepEqual(pressed, [['BoatToggleSail', null], ['BoatToggleSail', 'BoatTrimModifier'], ['position']]);
+    assert.deepEqual(pressed, [['BoatSailUp', null], ['BoatToggleSail', 'BoatTrimModifier'], ['position']]);
     btn('trimRight').fire('pointerdown', { pointerId: 1 });
     assert.deepEqual(holds, [['BoatTrimRight', true]]);
     btn('trimRight').fire('pointerdown', { pointerId: 1 });
@@ -564,7 +569,7 @@ test('CSA-L: the panel on a page - under the compass, titled with the hull, a ke
     drawEnhancedHelm({ helm: H({ squareToggle: true, manualTrim: true, hasSquare: true, sailsUp: true }), keyOf, mouseFree: true }, hooks, { doc });
     assert.equal(root.style.display, '');
     assert.equal(one(btn('sails'), 'helmpanel-label').textContent, 'Stow sails', 'updated in place');
-    assert.equal(one(root, 'helmpanel-hint').textContent, '', 'the mouse free: no hint');
+    assert.equal(one(root, 'helmpanel-hint').textContent, 'Sails UP DOWN · Steer LEFT RIGHT', 'the mouse free: the legend alone');
     // a disabled button presses nothing
     btn('slower').fire('click');
     assert.equal(pressed.length, 3, 'nothing slower than one');
@@ -690,8 +695,9 @@ test('CSA-L: the host\'s helm seam - the panel\'s and the pad\'s presses reach t
   const journey = cut(WORLD, '  const csaJourneyHelm = { held: new Set(), row: false };', '\n');   // OWS2: the journey's hand, beside the panel's
   const api = mount(scope, `${seam}${press}${hold}${journey}`, '{ csaHelmInput, csaHelmPress, csaHelmHold, csaJourneyHelm }');
   const keys = new Set(), latch = { edge: { downFrame: new Set() } };
-  Object.assign(scope, { ...api, keys, latch, held: (k, a) => k.has(a), pressed: (e, k, a) => e.downFrame.has(a) });
-  const input = cut(WORLD, '      has: (action) => held(keys, action) ||', '\n') + cut(WORLD, '      started: (action) => pressed(latch.edge, keys, action) ||', '\n');
+  let atHelm = false;   // HELM-KEYS: whether the turn keys are the rudder's (scenes/world.js helmTurnKeys)
+  Object.assign(scope, { ...api, keys, latch, held: (k, a) => k.has(a), pressed: (e, k, a) => e.downFrame.has(a), HELM_RUDDER_ACTIONS, helmTurnKeys: () => atHelm });
+  const input = cut(WORLD, '      has: (action) => held(keys, action) ||', '\n') + cut(WORLD, '      started: (action) => (pressed(latch.edge, keys, action) &&', '\n');   // PIN MOVED (AUDIT NAV2 F17): the sail keys' press gated by the travel view (test/auditnav2_helm.test.js)
   const { has, started } = mount(scope, `const __i = { ${input} };`, '__i');
   api.csaHelmPress('BoatToggleSail', 'BoatTrimModifier');
   assert.equal(started('BoatToggleSail'), true, 'the tap is the action\'s edge');
@@ -709,6 +715,14 @@ test('CSA-L: the host\'s helm seam - the panel\'s and the pad\'s presses reach t
   api.csaJourneyHelm.held.add('MoveLeft');
   assert.equal(has('MoveLeft'), true, 'OWS2: a journey\'s rudder key reaches the mod through the same seam');
   api.csaJourneyHelm.held.clear();
+  // HELM-KEYS: at a helm the turn keys hold the rudder's two - and only there
+  keys.add('TurnLeft');
+  assert.equal(has('MoveLeft'), false, 'off a helm the turn key turns the view alone');
+  atHelm = true;
+  assert.equal(has('MoveLeft'), true, 'at a helm the left arrow is the rudder\'s');
+  assert.equal(has('MoveRight'), false);
+  assert.equal(has('TurnLeft'), true, 'and still its own');
+  keys.delete('TurnLeft'); atHelm = false;
   keys.add('BoatToggleLight'); latch.edge.downFrame.add('BoatToggleLight');
   assert.equal(started('BoatToggleLight') && has('BoatToggleLight'), true, 'the keys still press');
   api.csaHelmPress(42);
@@ -720,6 +734,6 @@ test('CSA-L: the host\'s helm seam - the panel\'s and the pad\'s presses reach t
   assert.match(WORLD, /csaDrawHelmPanel\(\);[^\n]*\n\s+spoilsRecoverFrame\(\);[^\n]*\n\s+if \(onlineOn && playerSpawned\) \{ if \(!online\) onlineStart\(\); onlineFrame\(now, dt\); \}/);
   const draw = cut(WORLD, 'function csaDrawHelmPanel() {', '\n  }\n');
   assert.match(draw, /if \(!csaRuntime \|\| !csaOn\(\) \|\| !isEnhancedPlus\(\) \|\| typeof document === 'undefined' \|\| !walkMode\) \{ if \(enhancedHelmMounted\(\)\) hideEnhancedHelm\(\); csaHelmInput\.held\.clear\(\); return; \}/);
-  assert.match(draw, /covered: townTalk\.hudCovered \|\| \(modes\?\.hudCovered \?\? false\) \|\| gamePaused\(\) \|\| !hudRenderEnabled\(\),/);
+  assert.match(draw, /covered: townTalk\.hudCovered \|\| \(modes\?\.hudCovered \?\? false\) \|\| gamePaused\(\) \|\| !hudRenderEnabled\(\) \|\| !!travelView\?\.active,/);   // PIN MOVED (AUDIT NAV2 F17): and under the travel view, where a journey holds the helm
   assert.match(WORLD, /up: \(\) => !!\(csaRuntime\?\.isSailing\(\) && csaOn\(\) && isEnhancedPlus\(\)\),\n\s+gesture: \(dir, kind\) => \{ let r = false; csaCall\(\(\) => \{ r = helmPadGesture\(dir, kind, csaRuntime\?\.helmPanelState\(\) \?\? null, \{ press: csaHelmPress, hold: csaHelmHold \}\); \}\); return r; \},/);
 });

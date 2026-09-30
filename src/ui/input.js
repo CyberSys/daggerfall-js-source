@@ -906,7 +906,8 @@ export function routeAction(action, ctx, setPlayerPos = null) {
     case 'Inventory': ctx.toggleInventory(); return true;
     // CLASSIC-PAGES: the Professions key opens the pause on the Professions page - on either skin (ui/pauseDoor.js
     // openPauseFlow opens the enhanced pages for it), or says why not
-    case 'Professions': return ctx.togglePause ? (ctx.togglePause({ at: 'professions', setPlayerPos }), true) : false;
+    // HELM-KEYS' merge: the key shares the down arrow with less sail - at a helm it is the sails' alone (`sailing`)
+    case 'Professions': return ctx.togglePause && ctx.sailing?.() !== true ? (ctx.togglePause({ at: 'professions', setPlayerPos }), true) : false;
     // GameManager.cs:550-553 - the CastSpell ACTION opens the
     // spellbook window; the cast itself is the attack click.
     case 'CastSpell': ctx.toggleSpellbook(); return true;
