@@ -80,6 +80,7 @@ import { EFFECT_BITS, SPECIAL_ABILITY_BITS } from './specialAdvantages.js';   //
 import { SOUND } from './soundClips.js';   // V5: the gendered attack voices
 import { endVampireQuests } from './racialQuests.js';   // V2d: the cure's P0* tombstone sweep
 import { cloakState } from './survival/temperature.js';   // VAMP-HOOD: the ONE "is the hood up" - the felt temperature's, never a second list
+import { isEnhanced } from './uiSkin.js';   // HOOD-SAID: the hint names the skin's own button
 
 /** VampirismEffect.VampirismCurseKey (:33). */
 export const VAMPIRISM_CURSE_KEY = 'Vampirism-Curse';
@@ -137,8 +138,16 @@ export const NOT_SATED_TEXT_ID = 36;
  *  the travel map's door (DaggerfallUI.cs:619), so both speak it. */
 export const SUNLIGHT_TRAVEL_TEXT = 'You cannot initiate fast travel during the day.';
 /** VAMP-HOOD: the port's own line, said after DFU's refusal at the map's
- *  door - the rule, where the sun's rule is met. */
-export const VAMPIRE_HOOD_TEXT = 'Raise the hood of a cloak or robe to travel by day.';
+ *  door - the rule, where the sun's rule is met.
+ *  HOOD-SAID (FIELD BUGS 2026-09-30): AND THE BUTTON THAT DOES IT. The
+ *  line sent a player to raise a hood with no button of that name: the
+ *  pack's card offered Use, which stepped the cloak through its drawings
+ *  and drew nothing. The card carries Raise hood now (ui/enhancedInventory.js),
+ *  and the line names it. The classic window has no such button - its
+ *  Use on the doll steps DFU's drawings, the doll redrawn at each - so
+ *  on that skin the line says that. */
+export const VAMPIRE_HOOD_TEXT = 'Raise the hood of a cloak or robe to travel by day - Raise hood, on its card in the pack.';
+export const VAMPIRE_HOOD_TEXT_CLASSIC = 'Use a cloak or robe on your doll until its hood is up.';
 
 /** The live curse entry, or null. VU1 moved the DECLARATION into
  *  systems/racialLive.js - an import-free leaf - because
@@ -386,7 +395,7 @@ export function racialSunAverse(entity) {
 export function racialFastTravelBlock(entity, nowMinutes = 0) {
   if (!racialSunAverse(entity)) return null;
   if (!isDayFromMinutes(nowMinutes)) return null;
-  return { text: SUNLIGHT_TRAVEL_TEXT, hint: VAMPIRE_HOOD_TEXT };
+  return { text: SUNLIGHT_TRAVEL_TEXT, hint: isEnhanced() ? VAMPIRE_HOOD_TEXT : VAMPIRE_HOOD_TEXT_CLASSIC };   // HOOD-SAID: the skin's own button
 }
 
 /**

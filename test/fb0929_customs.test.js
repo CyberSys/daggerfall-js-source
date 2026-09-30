@@ -160,10 +160,11 @@ test('CUSTOMS-CARRY 0022: every character customs already made takes its origin\
     { char_id: vamp, guild_id: 'gold', rank: GUILD_RANK_MASTER },
     { char_id: 'joiner001', guild_id: 'gold', rank: 3 },
   ], 'the master\'s place is carried; one guild a character, so the joiner keeps the one it founded');
-  // a house from before the realm comes back as a house, never as gold (0020 `paid`, L1-F3)
+  // a house from before the realm comes back as a house, never as gold (0020 `paid`, L1-F3) - and HOME-CROSSED (FIELD
+  // BUGS 2026-09-30, PIN MOVED): it is not sold at all, where it was sold for nothing and taken
   const sold = await s.call('/v1/homes/release', { mapId: 4242, buildingKey: 7, realm: realmAt(s.env, vamp) }, A.secret);
-  assert.equal(sold.status, 200);
-  assert.equal(sold.body.refund, 0);
+  assert.deepEqual([sold.status, sold.body?.error], [409, 'home-crossed']);
+  assert.ok(s.env.DB._raw.prepare('SELECT 1 FROM homes WHERE map_id = 4242 AND building_key = 7').get(), 'the house stands');
   assert.equal((await s.load(vamp, A.secret)).goldPieces, freshSave().goldPieces, 'the record gained nothing');
   // and the treasury's gold from before the realm is not the realm's (0020 `realm_gold`, L1-F3)
   const took = await s.call('/v1/guilds/withdraw', { character: vamp, gold: 1_000, realm: realmAt(s.env, vamp) }, A.secret);
@@ -217,7 +218,7 @@ test('CUSTOMS-CARRY: "Bring online" asks first - the preview off a copy, and cus
   const menu = src('src/ui/enhancedMenu.js');
   const bring = menu.slice(menu.indexOf('function bringOnline(save) {'), menu.indexOf('function customsNow(save) {'));
   assert.ok(bring.length > 0 && menu.indexOf('function customsNow(save) {') > 0);
-  assert.match(bring, /const preview = customsLines\(applyCustoms\(JSON\.parse\(JSON\.stringify\(snap\)\)\), \{ before: true \}\);/);
+  assert.match(bring, /const trial = JSON\.parse\(JSON\.stringify\(snap\)\);\n\s+const leveling = crossLeveling\(trial\);[^\n]*\n\s+const preview = \[\.\.\.\(leveling \? \[LEVELING_CROSS_LINE\.before\] : \[\]\), \.\.\.customsLines\(applyCustoms\(trial\), \{ before: true \}\)\];/);
   assert.match(bring, /return ask\(`Bring \$\{save\.name\} online\?`, preview\.join\(' '\), 'Bring online', \(\) => \{ customsNow\(save\); \}\);/);
   assert.doesNotMatch(bring, /realmCustoms\(|realmPut\(/, 'nothing is sent before the answer');
   assert.match(bring, /if \(!snap \|\| typeof snap\.characterId !== 'string' \|\| !snap\.characterId \|\| snap\.testRoom === true\) return customsNow\(save\);/);

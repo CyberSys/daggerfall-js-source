@@ -199,7 +199,10 @@ export const REFUSALS = Object.freeze({
   'bad-gold': `Gold goes in or out 1 to ${GUILD_MOVE_MAX} at a time.`,
   'guild-treasury-full': 'The treasury can hold no more.',
   'guild-treasury-short': 'The treasury does not hold that much.',
-  'guild-treasury-old': 'That much of the treasury came in before the realm - it stays in the treasury.',   // AUDIT REALM L1-F3
+  // AUDIT REALM L1-F3: a realm withdrawal takes from what realm records paid in alone (guilds.js `realm_gold`). GUILD-LETTER
+  // (FIELD BUGS 2026-09-30): the words say that rule. They named only "before the realm" - but the old lane's deposits
+  // made since are held the same - and never said what a realm character may still take out
+  'guild-treasury-old': 'A realm character takes out only the gold realm characters put in, and not that much of theirs is left. The rest came in before the realm or from a character outside it - it stays in the treasury.',
   // WB5b: a gate's kill receipt carried to the service. net/gateClaims.js says nothing of these to the player - it keeps
   // what they do not settle and lets go of what they do - but a word the service can say is a word with a sentence.
   'no-gate-key': 'The account service cannot check a gate\'s receipt right now. It is kept and tried again.',
@@ -343,6 +346,10 @@ export const REFUSALS = Object.freeze({
   'commission-piece': 'That piece is not what the commission asks.',
   'commission-not-made': 'A commission is filled with a piece of your own make.',
   'commission-worn': 'A commission is new work: that piece is worn.',
+  // HOME-CROSSED (FIELD BUGS 2026-09-30): a home customs carried in - RESTORE's words for a crossed deed
+  // (systems/onlineHomes.js HOME_CROSSED_LINES, pinned equal), and a realm act asked while the last is still out
+  'home-crossed': 'That came into the realm through customs. The bank of the Empire does not buy it back. It stays your home.',
+  busy: 'Your last dealing with the realm is still being settled. Try again in a moment.',
   server: 'The account service had a problem. Try again.',
   offline: 'Could not reach the account service. Check your connection.',
   maintenance: 'The account service is being looked after for a minute. Try again shortly.',   // RESTORE: the history restore's minute
@@ -355,6 +362,8 @@ export const REFUSALS = Object.freeze({
   // what counts, since "played online" read false to a player who had and never killed there
   // CUSTOMS-PASS (2026-09-29): and the one way past it, a developer's pass - named for the case it exists for, a character
   // played online on an older version of the game after the realm opened (which the relay admitted until REALM-DOOR)
+  // CUSTOMS-ELSEWHERE (FIELD BUGS 2026-09-30): counted, but on the account it went online with
+  'customs-other-account': 'The realm knows this character from another account - the one you played it online with. Sign in with that account to bring it in.',
   'customs-never-online': 'The realm has no record of this character from before it opened - no Renown, online home, guild place, raid or cloud backup - so it cannot come in. Make a new online character instead. If you played it online on an older version of the game after the realm opened, ask the developers on the Discord.',
   'customs-already': 'That character has already been brought into the realm.',
   // AUDIT REALM2 S1: a first save the realm reads - a new character's, or customs' own
@@ -843,7 +852,8 @@ export function accountGuilds({ fetch, storage }) {
     rank: (character, member, rank) => post('/v1/guilds/rank', { character, member, rank }),
     ranks: (character, ranks) => post('/v1/guilds/ranks', { character, ranks }),
     deposit: (character, gold, realm = null, region = null) => post('/v1/guilds/deposit', { character, gold, ...(realm ? { realm, region } : {}) }),   // REALM P2.2
-    withdraw: (character, gold, realm = null) => post('/v1/guilds/withdraw', { character, gold, ...(realm ? { realm } : {}) }),
+    // GUILD-LETTER (FIELD BUGS 2026-09-30): `letter`, the record takes it as a letter of credit - the pack cannot carry it
+    withdraw: (character, gold, realm = null, letter = false) => post('/v1/guilds/withdraw', { character, gold, ...(realm ? { realm, letter: letter === true } : {}) }),
     handOver: (character, member) => post('/v1/guilds/handover', { character, member }),
     disband: (character) => post('/v1/guilds/disband', { character }),
   };

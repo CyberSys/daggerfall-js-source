@@ -73,7 +73,10 @@ async function boot() {
       .catch((err) => console.warn('[update] the update notice could not load:', err?.message ?? err));
   }
   mountFpsCounter({ enabled: () => params.has('fps') || !!getPref('showFps'), stats: () => renderer.stats, info: () => renderer.frameInfo });   // FPS1: over every host, on the pref or the probe door; PERF3: with the renderer's counts; PERF-SCALE: and its GPU and frame size
+  // FB0930-TITLE: a boot's steps name themselves in the title, and a null step is the boot done - the bare name, so
+  // the window does not say "loading the saved game" for the rest of the session.
   const status = (msg) => {
+    if (msg == null) { document.title = 'Daggerfall Online'; return; }
     document.title = `Daggerfall Online - ${msg}`;
   };
   // Data gate: readers load user-supplied ARENA2 at runtime

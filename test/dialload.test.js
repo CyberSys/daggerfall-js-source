@@ -86,7 +86,9 @@ test('DIAL-LOAD: the pause bag passes its door\'s applier through; each dungeon 
     const text = rd(file);
     // the law, run out of the live source: P14's spawn and AUDIT 27h S2's latch
     const calls = [];
-    const motor = { spawn: (...p) => calls.push(['spawn', ...p]), stopAutorun: () => calls.push(['stop']) };
+    // FALL-KEPT (FIELD BUGS 2026-09-30, PIN MOVED): worldModes' law lands a saved fall after the spawn - none is handed
+    // here, and fb0930_fallkept.test.js runs it on the real motor.
+    const motor = { spawn: (...p) => calls.push(['spawn', ...p]), stopAutorun: () => calls.push(['stop']), restoreFall: () => {} };
     constOf(text, 'placeLoadedPlayer', { [motorName]: motor })([1, 2, 3]);
     assert.deepEqual(calls, [['spawn', 1, 2, 3], ['stop']], `${file}: the law places the player and drops the latch`);
     // handed to the context at build

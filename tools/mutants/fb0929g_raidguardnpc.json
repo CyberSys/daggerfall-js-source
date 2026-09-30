@@ -12,22 +12,22 @@
   {
     "name": "RAID-GUARDS-NPC-spared-without-a-raid",
     "file": "src/scenes/cityGuards.js",
-    "old": "    return !!person && !!raidHere();",
+    "old": "    return !!person && (!!raidHere() || (getBool('MeleeAttacks', 'MeleeAttackFriendlyProtection') && !!fightHere()));",
     "new": "    return !!person;",
     "tests": [
       "test/fb0929_raidguards.test.js"
     ],
-    "note": "Every walker spared, raid or not: DFU's Assault and Murder gone."
+    "note": "Every walker spared, raid or not: DFU's Assault and Murder gone. PROTECT-FIGHT (FIELD BUGS 2026-09-30, PIN MOVED): re-aimed by content to the rule's new line."
   },
   {
     "name": "RAID-GUARDS-NPC-townsperson-unspared",
     "file": "src/scenes/cityGuards.js",
-    "old": "    return !!person && !!raidHere();",
-    "new": "    return !!person?.guard && !!raidHere();",
+    "old": "    return !!person && (!!raidHere() || (getBool('MeleeAttacks', 'MeleeAttackFriendlyProtection') && !!fightHere()));",
+    "new": "    return !!person && (!!person.guard && !!raidHere() || (getBool('MeleeAttacks', 'MeleeAttackFriendlyProtection') && !!fightHere()));",
     "tests": [
       "test/fb0929_raidguards.test.js"
     ],
-    "note": "Only the walking guard spared: a townsperson struck in a raid is still Murder (Mac: \"Spare townspeople in raid\")."
+    "note": "Only the walking guard spared: a townsperson struck in a raid is still Murder (Mac: \"Spare townspeople in raid\"). PROTECT-FIGHT (FIELD BUGS 2026-09-30, PIN MOVED): re-aimed by content to the rule's new line."
   },
   {
     "name": "RAID-GUARDS-NPC-trample-unfiltered",

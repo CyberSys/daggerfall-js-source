@@ -53,6 +53,7 @@ import {
   guildMay, guildMayMove, guildOutranks, guildNameOf, guildTagOf, guildRankNamesOf,
 } from '../net/guildLaw.js';   // GUILD1b: the Guild tab's rules are the service's
 import { GUILD_DEPOSIT_UNSURE } from '../net/guildBook.js';
+import { LETTER_OF_CREDIT_TEXT } from '../systems/tradeModes.js';   // GUILD-LETTER: the trade window's own line for a letter of credit
 import { writMay, guildMoveOk, writBudgetOk, GUILD_STORES_MAX, WRIT_BUDGET_MAX } from '../net/writLaw.js';   // PROF6: the guild Stores' and the writ budget's ranks and bounds
 import { STORES_MAX } from '../net/professionLaw.js';   // AUDIT 31 U8: a character's Stores' most of a material
 import { marksText } from '../net/marksLaw.js';   // MARKS1: the Marks treasury's words   // MAIL1: the form's caps are the service's
@@ -102,6 +103,10 @@ export function guildWordText(error) {
   if (error === 'guild-unsure') return GUILD_DEPOSIT_UNSURE;
   return accountRefusalText(error);
 }
+/** GUILD-LETTER (FIELD BUGS 2026-09-30): a guild act's word once done - and a withdrawal paid as a letter of credit (the
+ *  book's `letter`: the pack could not carry the coin) says so in the trade window's own line, or the gold reads as
+ *  never paid. */
+export const guildDoneText = (okWord, r) => (r?.letter === true ? `${okWord} ${LETTER_OF_CREDIT_TEXT}` : okWord);
 
 /** The panel's sheet: the enhanced tokens (enhancedStyle.js) where they exist, a fallback where the skin's sheet is
  *  not loaded - the same bargain ui/chatPanel.js strikes.
@@ -809,7 +814,7 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
     guildUi.word = ''; guildUi.arm = null; ui++;
     Promise.resolve(promise).then((r) => {
       guildUi.bad = !r?.ok;
-      guildUi.word = r?.ok ? okWord : guildWordText(r?.error);
+      guildUi.word = r?.ok ? guildDoneText(okWord, r) : guildWordText(r?.error);
       if (r?.ok) after?.(r);
       ui++;
     });

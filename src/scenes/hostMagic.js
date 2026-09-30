@@ -36,6 +36,7 @@
 //                               where the dungeon answers a constant.
 
 import { FlatAnimator, armFlatAnim, MISSILE_FPS } from '../render/flatAnimation.js';   // FA1
+import { effectiveLevel } from '../systems/mentorMode.js';   // SOFTCAP2: mentor mode - a mentor casts at the group's level
 import { hasSpellbook } from '../systems/spellMaker.js';   // FIX-F: RecastSpell's book test (EntityEffectManager.cs:260)
 const NO_SPELLBOOK_TEXT = 'You have no spellbook!';   // TextManager noSpellbook (Systems-Arc: the localized string, verbatim)
 import {
@@ -170,7 +171,7 @@ export function createPlayerMagic({
     foes: () => playerTargets().filter((t) => t && !t.dead && t.entity),
     feet: () => _doorFeet,
     hurtFoe: (t, n) => { if (t && !t.dead && n > 0) foeSinks(t, true)?.hurt?.(Math.round(n), { fromPlayer: true }); },
-    castOnPlayer: (bundle) => { if (bundle) applySpellToPlayer(bundle, playerEntity.level ?? 1, null, { bypassSavingThrows: true, bypassChance: true }); },
+    castOnPlayer: (bundle) => { if (bundle) applySpellToPlayer(bundle, effectiveLevel(playerEntity) ?? 1, null, { bypassSavingThrows: true, bypassChance: true }); },
     player: () => playerEntity,
     clear: (a, b) => burstClear(collider, a, b),   // AUDIT SET M4
   });
@@ -221,7 +222,7 @@ export function createPlayerMagic({
    *  mate's own client applies it (ALLY-CAST's receiver). */
   function giveToAlly(mark, sp, { quiet = false } = {}) {
     let sent = false;
-    try { sent = !!castAtAlly?.(mark.id, allyCastFrame(sp, playerEntity.level, mark.id)); } catch { sent = false; }
+    try { sent = !!castAtAlly?.(mark.id, allyCastFrame(sp, effectiveLevel(playerEntity), mark.id)); } catch { sent = false; }
     if (sent && !quiet) say(allyCastCasterLine(sp.name, mark.name));
     return sent;
   }
@@ -626,7 +627,7 @@ export function createPlayerMagic({
     }
     const allyReach = allyReachFor(sp.rangeType);
     const ally = !readiedFree && allyReach !== null && allyCastable(sp) ? allyInReach(eye, dir, allyReach) : null;
-    if (ally && castAtAlly?.(ally.id, allyCastFrame(sp, playerEntity.level, ally.id))) {
+    if (ally && castAtAlly?.(ally.id, allyCastFrame(sp, effectiveLevel(playerEntity), ally.id))) {
       lastCastCost = cost;
       tallyCastSkills(sp);
       surfacePlayer();
@@ -637,7 +638,7 @@ export function createPlayerMagic({
       // S7: CasterOnly applies to SELF (Balyna's Balm heals) - no
       // missile; AssignBundle at :2117.
       tallyCastSkills(sp);
-      const r = applySpellToPlayer(sp, playerEntity.level, playerCaster());
+      const r = applySpellToPlayer(sp, effectiveLevel(playerEntity), playerCaster());
       // AUDIT 24 scenes: PlayerSpellCasting_OnReleaseFrame assigns the
       // CasterOnly bundle at :2117 and only stamps
       // `lastReadySpellCastingCost = readySpellCastingCost` at :2138 -
@@ -661,7 +662,7 @@ export function createPlayerMagic({
       if (t?.ally) giveToAlly(t, sp);   // AID1 onto ALLY-CAST: the touch met a mate the crosshair pick did not name
       else if (t?.duel) giveToDuel(t, sp);   // DUEL1: the touch met my duel opponent
       else if (t?.boss) giveToBoss(t, sp);   // WB4b: the touch met the court's boss
-      else if (t) applySpellToFoe(sp, playerEntity.level, t, playerCaster());
+      else if (t) applySpellToFoe(sp, effectiveLevel(playerEntity), t, playerCaster());
       return done(true);
     }
     if (sp.rangeType === 3) {
@@ -670,7 +671,7 @@ export function createPlayerMagic({
       tallyCastSkills(sp);
       surfacePlayer();
       for (const t of sweepFoes(eye, EXPLOSION_RADIUS, playerTargets())) {   // DISC19-F (AUDIT DISC19): nor my area
-        applySpellToFoe(sp, playerEntity.level, t, playerCaster());
+        applySpellToFoe(sp, effectiveLevel(playerEntity), t, playerCaster());
       }
       giveToAllies(sweepFoes(eye, EXPLOSION_RADIUS, allyMarksFor(sp)), sp);   // AID1 onto ALLY-CAST: the mates around me - SPELL-GIFT: one line for all of them
       for (const t of sweepFoes(eye, EXPLOSION_RADIUS, duelMarksFor(sp))) giveToDuel(t, sp);   // DUEL1: and my duel opponent, if they stand in it
@@ -879,7 +880,7 @@ export function createPlayerMagic({
           // AUDIT WORLD6b-iii(a) A1: an ENEMY missile's blast on a wall is the ENEMY's - its caster's level and sinks
           // (the flight's own arm below had them); this arm credited every enemy blast to ME at MY level, with the
           // reflect chain and the skill tallies mine to pay
-          explodeAt(impact, m.spell, m.fromPlayer === false ? (m.casterLevel ?? 1) : playerEntity.level, playerFeet, missileCaster(m), { playerHeight, allies: !!m.ally, duel: !!m.duel, boss: m.boss ?? !!m.duel });   // ROAD-H H2: the blast's OverlapSphere meets the player's LIVE capsule
+          explodeAt(impact, m.spell, m.fromPlayer === false ? (m.casterLevel ?? 1) : effectiveLevel(playerEntity), playerFeet, missileCaster(m), { playerHeight, allies: !!m.ally, duel: !!m.duel, boss: m.boss ?? !!m.duel });   // ROAD-H H2: the blast's OverlapSphere meets the player's LIVE capsule
         }
         showImpactFlash(m, impact);   // F033: DFU flashes on ANY wall hit, AoE or not
         retireMissile(m);
@@ -923,7 +924,7 @@ export function createPlayerMagic({
         const hitMate = allyMarksFor(m.spell, false).find((p) => missileHitsCapsule(m.pos, p.ai.feet, p.ai.height, PLAYER_BODY_RADIUS));
         if (hitMate) {
           const at = [m.pos[0], m.pos[1], m.pos[2]];
-          if (m.spell.rangeType === 4) explodeAt(at, m.spell, playerEntity.level, playerFeet, playerCaster(), { playerHeight, allies: true, duel: !!m.duel, boss: m.boss ?? !!m.duel });
+          if (m.spell.rangeType === 4) explodeAt(at, m.spell, effectiveLevel(playerEntity), playerFeet, playerCaster(), { playerHeight, allies: true, duel: !!m.duel, boss: m.boss ?? !!m.duel });
           else giveToAlly(hitMate, m.spell);
           showImpactFlash(m, at);
           retireMissile(m);
@@ -936,7 +937,7 @@ export function createPlayerMagic({
         const hitFoe = duelMarksFor(m.spell).find((p) => missileHitsCapsule(m.pos, p.ai.feet, p.ai.height, PLAYER_BODY_RADIUS));
         if (hitFoe) {
           const at = [m.pos[0], m.pos[1], m.pos[2]];
-          if (m.spell.rangeType === 4) explodeAt(at, m.spell, playerEntity.level, playerFeet, playerCaster(), { playerHeight, allies: !!m.ally, duel: true, boss: m.boss ?? true });
+          if (m.spell.rangeType === 4) explodeAt(at, m.spell, effectiveLevel(playerEntity), playerFeet, playerCaster(), { playerHeight, allies: !!m.ally, duel: true, boss: m.boss ?? true });
           else giveToDuel(hitFoe, m.spell);
           showImpactFlash(m, at);
           retireMissile(m);
@@ -949,7 +950,7 @@ export function createPlayerMagic({
         const hitBoss = bossMarksFor(m.spell).find((p) => missileHitsCapsule(m.pos, p.ai.feet, p.ai.height, p.ai.radius));
         if (hitBoss) {
           const at = [m.pos[0], m.pos[1], m.pos[2]];
-          if (m.spell.rangeType === 4) explodeAt(at, m.spell, playerEntity.level, playerFeet, playerCaster(), { playerHeight, allies: !!m.ally, duel: !!m.duel, boss: true });
+          if (m.spell.rangeType === 4) explodeAt(at, m.spell, effectiveLevel(playerEntity), playerFeet, playerCaster(), { playerHeight, allies: !!m.ally, duel: !!m.duel, boss: true });
           else giveToBoss(hitBoss, m.spell);
           showImpactFlash(m, at);
           retireMissile(m);
@@ -959,8 +960,8 @@ export function createPlayerMagic({
       for (const f of playerTargets()) {   // DISC19-F (AUDIT DISC19): my missile flies through a defender
         if (f.dead) continue;
         if (missileHitsFoe(m.pos, f)) {   // ROAD-H tail: DaggerfallMissile.cs:339's SphereCast meets the foe's CAPSULE (REVIEW 2026-09-05 had its centre as a point)
-          if (m.spell.rangeType === 4) explodeAt(m.pos, m.spell, playerEntity.level, playerFeet, playerCaster(), { playerHeight, allies: !!m.ally, duel: !!m.duel, boss: m.boss ?? !!m.duel });   // ROAD-H H2
-          else applySpellToFoe(m.spell, playerEntity.level, f, playerCaster());
+          if (m.spell.rangeType === 4) explodeAt(m.pos, m.spell, effectiveLevel(playerEntity), playerFeet, playerCaster(), { playerHeight, allies: !!m.ally, duel: !!m.duel, boss: m.boss ?? !!m.duel });   // ROAD-H H2
+          else applySpellToFoe(m.spell, effectiveLevel(playerEntity), f, playerCaster());
           showImpactFlash(m, [m.pos[0], m.pos[1], m.pos[2]]);   // F033
           retireMissile(m);
           break;
@@ -985,7 +986,7 @@ export function createPlayerMagic({
     // the live bundle (EntityEffectManager.cs:469). Open.CheckCastByItem
     // is its only reader and it is why the Skeleton's Key can open a
     // lock above the holder's level at all.
-    const r = applySpellToPlayer(spell, playerEntity.level, playerCaster(), { bypassSavingThrows: true, bypassChance: true, castByItem: item });
+    const r = applySpellToPlayer(spell, effectiveLevel(playerEntity), playerCaster(), { bypassSavingThrows: true, bypassChance: true, castByItem: item });
     if (r.healed > 0) say(`You are healed ${r.healed} points.`);
     surfacePlayer();
     return r;
@@ -1037,7 +1038,7 @@ export function createPlayerMagic({
     drinkPotion(recipeKey) {
       const bundle = potionBundle(recipeKey);
       if (!bundle) return null;
-      applySpellToPlayer(bundle, playerEntity.level, null,
+      applySpellToPlayer(bundle, effectiveLevel(playerEntity), null,
         { bypassSavingThrows: true, bypassChance: true });
       audio.playOneShotId(SPELL_CAST_SOUND[bundle.element] ?? SPELL_CAST_SOUND[4], 1);   // AUDIT 58: the same ID door
       return bundle.name;

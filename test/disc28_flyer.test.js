@@ -25,6 +25,7 @@ import { flyerSpawnFeet, flyerStandFeet, floorUnderHang, feetFromCentre, enemyCo
 import { ENEMY_BASICS } from '../src/characters/enemyBasics.js';
 import { EnemyAI } from '../src/characters/enemyMotor.js';
 import { Collider } from '../src/player/collider.js';
+import { effectiveLevel } from '../src/systems/mentorMode.js';   // SOFTCAP2: the mentor's level the spawn sites read (a free name there, the module's own import)
 
 const I = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 function box(x0, y0, z0, x1, y1, z1) {
@@ -59,7 +60,7 @@ const fnSrc = (name) => {
 };
 const scoped = (state) => new Proxy(state, {
   has: (t, k) => k !== '__s',
-  get: (t, k) => (k === Symbol.unscopables ? undefined : (k in t ? t[k] : globalThis[k])),
+  get: (t, k) => (k === Symbol.unscopables ? undefined : (k in t ? t[k] : k === 'effectiveLevel' ? effectiveLevel : k === 'applyProgressionScalingTo' ? () => {} : globalThis[k])),   // SOFTCAP2: the host's own import
   set: (t, k, v) => { t[k] = v; return true; },
 });
 const mount = (body, state) => new Function('__s', `with (__s) { ${body} }`)(scoped(state));

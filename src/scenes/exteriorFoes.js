@@ -14,6 +14,7 @@
 // 13 fixed-list casters do not cast up here yet.
 
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';
+import { effectiveLevel } from '../systems/mentorMode.js';   // SOFTCAP2: mentor mode - the level the world is built around
 import { markFoeStruck } from '../ui/hudFoeTarget.js';   // PX30
 import { damageShieldPool, playerBlowCameToNothing } from '../characters/playerEntity.js';   // AUDIT 58: DecreaseHealth's shield hook is the BASE class's (DaggerfallEntity.cs:313-328)
 import { lycanthropeAttackVoice } from '../systems/lycanthropy.js';   // V4: the beast's attack voice
@@ -30,7 +31,9 @@ import { calculateCastCost } from '../systems/spellcost.js';   // X3: costs pric
 import { silenceBlocksCast, attemptSoulTrap, SOUL_TRAP_TEXT, fillEmptyTrap, peerSoulTrapOf } from '../systems/mysticism.js';   // X3: the enemy silence gate; X5: the soul trap's kill intercept; STRIKE-SHARED: a peer's trap is its caster's
 import { isAzurasStarEquipped, registerFoeDoor } from '../systems/artifactEffects.js';   // V3: the Star's kill capture; AUDIT PSCALE1 DOORS-2: Namira's reflection through this pool's door
 import { EnemyAttack } from '../characters/enemyAttack.js';
-import { makeEnemyEntity, loadMonsterCareer, KNIGHT_CITYWATCH_ID } from '../characters/enemyEntity.js';   // AUDIT WATCH1 A1: the watch's own puppet allowance
+import { makeEnemyEntity, loadMonsterCareer, KNIGHT_CITYWATCH_ID, applyProgressionScaling } from '../characters/enemyEntity.js';
+import { combatStanding, foeShare, progressionScaling, wildernessShare } from '../systems/skillSoftcap.js';   // SOFTCAP5: tougher foes in the wilds
+import { isNight } from '../world/worldClock.js';   // SOFTCAP5: the wilds' night share   // AUDIT WATCH1 A1: the watch's own puppet allowance
 import { MobileUnit, MOBILE_DAEDRA_SEDUCER, SeducerTransformBehaviour } from '../characters/mobileUnit.js';   // A5: the Seducer transform pair + its trigger
 import { ClassFile } from '../formats/classFile.js';
 import { spawnEnemyLoot, hasBowAttack, backstabChanceOf, zeroDamageHitSound, enemyMissSound, enemyAttackVoice, enemyPainVoice, playerAttackGrunt, tickEnemySound, playEnemyClip, tryLanguagePacification, applyDamageToNonPlayer } from './hostCombat.js';   // C2-slice (combat-9/17); MT-ii: the foe-vs-foe payload
@@ -149,6 +152,10 @@ export const CAMP_CULL_DISTANCE = 200;
 
 export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture, uploadRecordFrame,
   playerEntity, audio, onPlayerHurt, currentMinute, say = null, rolls = Math.random,
+  // SOFTCAP5: is the player on a location's ground (a town, a city, a dungeon's or a graveyard's own rect)? Only the
+  // WILDERNESS scales its foes, so a host that cannot say keeps them all as they were (an interior's pool, the
+  // one-location exterior host).
+  inLocation = () => true,
   playerSinks = null,   // AUDIT 24 (wave 30): the player's damage/drain doors - the nymph and lamia riders need drainFatigue
   regionIndex = () => -1,   // DISC10-D V3: PlayerGPS.CurrentRegionIndex - the infection a vampire's bite starts records it (VampirismInfection.cs:91)
   onArrow = null,   // X2-slice: the host's arrow seam - (from, dir, foe) at the shoot frame
@@ -323,7 +330,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       const career = isClass
         ? (() => { const cf = new ClassFile(); return fetchBytes(`CLASS${String(mobileType - 128).padStart(2, '0')}.CFG`).then((b) => { cf.load(b); return cf.career; }); })()
         : loadMonsterCareer(mobileType, fetchBytes);
-      const builtLevel = level ?? playerEntity.level;
+      const builtLevel = level ?? effectiveLevel(playerEntity);   // SOFTCAP2: a mentor's foes at the group's level
       const entity = makeEnemyEntity(mobileType, basics, await career, builtLevel, Math.random, { exactLevel: !!puppet });   // AUDIT WORLD6b-ii B2: a puppet at its OWNER's foe's level, not mine; AUDIT WATCH1 A5: EXACTLY that level (the City Watch bonus is the owner's roll, already in the word)
       // MT-ii: an ALLIED summon (Sanguine Rose / Skull of Corruption).
       // SetupDemoEnemy.cs:85-86 overwrites the MobileEnemy STRUCT COPY
@@ -332,6 +339,13 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // frozen basics row (the STATIC table the ally-revert reads)
       // does not. Getting that wrong would ally every foe of the type.
       if (allied) { entity.team = 'PlayerAlly'; entity.mobileTeam = 'PlayerAlly'; }
+      // SOFTCAP5: THE WILDS ARE AN AREA TOO - the dungeons' law, with the wilderness's share (22% by day, 44% at night):
+      // my own foes only (a puppet is its owner's build), never an ally, never on a location's ground
+      if (!puppet && !allied && !inLocation()) {
+        let night = false;
+        try { night = isNight(currentMinute()); } catch { /* no clock: day */ }
+        applyProgressionScaling(entity, progressionScaling(combatStanding(playerEntity), wildernessShare(night), foeShare(basics?.level ?? entity.level, isClass)));
+      }
       // DW-E4: SetEnemyTeam - Entity.Team alone (the treasure guards' Undead), the MobileEnemy copy kept
       if (team) entity.team = team;
       // AUDIT WORLD6b B14: a PUPPET carries no loot of this player's (its body is its owner's - WORLD6b-iii(c): taken under the owner's grant), wears no
@@ -394,7 +408,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         hasMagickaToCast: () => hasMagickaToCast(entity),   // GetDestination's own term (:539-540)
       });
       pending.feet = ai.feet;   // AUDIT 39: the AI's copy is the live array from here
-      const attack = new EnemyAttack({ liveSpeed: () => liveStat(entity, 'speed'), playerLevel: () => playerEntity.level, reflexes: playerEntity.reflexes, rolls });   // AUDIT 39: EnemyAttack.cs:69-72, ditto
+      const attack = new EnemyAttack({ liveSpeed: () => liveStat(entity, 'speed'), playerLevel: () => effectiveLevel(playerEntity), reflexes: playerEntity.reflexes, rolls });   // AUDIT 39: EnemyAttack.cs:69-72, ditto
       // X2-slice: the arrow seam exists (the host's onArrow) - bow
       // foes read the SAME ranged-flags law the dungeon build does,
       // and the C-slice 6..51.2 band drives them above ground.
@@ -457,7 +471,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       f.uid = _nextUid++;   // AUDIT WORLD6b B15: the corpse loot's stable key (an index names another body once anything ahead is spliced)
       // AUDIT FOES FOE8: the level this body was BUILT at, which is not always the
       // level it ended up with - makeEnemyEntity adds Range(3,7) to a Knight_CityWatch it builds fresh (a PUPPET hands the streamed level in as final - AUDIT WATCH1 A5 - so for it builtLevel and entity.level agree); a fresh watchman's is
-      // inside the constructor (enemyEntity.js:87, DFU's own). The stream's `l` is the
+      // inside the constructor (enemyEntity.js:116, DFU's own). The stream's `l` is the
       // owner's BUILD level, so comparing it against entity.level found a mismatch on
       // every record and tore the puppet down and rebuilt it five times a second, for
       // ever. The record's own word is what the record's word is compared to.

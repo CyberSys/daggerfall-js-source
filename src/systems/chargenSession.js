@@ -9,7 +9,7 @@
 // characters/playerEntity.js:5). The dungeon kept its own copy of
 // the load/apply code, which is exactly the duplication the audit's
 // rules forbid, so both live here now. FIXED, not pending: world.js:
-// 126/:1364-1366 and exterior.js:191/:1344-1346 both import and run
+// 126/:1364-1366 and exterior.js:193/:1346-1348 both import and run
 // createChargenFlow + createChargenWindow from here, so a town boot
 // runs the wizard.
 //
@@ -40,7 +40,8 @@ import { bootstrapRegionPower } from './regionPower.js';   // AUDIT 26 F107   //
 // ORL1: the leveling choice - its screen, and the two names the
 // answer is spelled with.
 import { LevelingChoiceScreen } from '../ui/levelingChoice.js';
-import { oblivionLevelingEnabled, initVirtueLeveling, LEVELING_CLASSIC } from './oblivionLeveling.js';
+import { oblivionLevelingEnabled, initVirtueLeveling, LEVELING_CLASSIC, newCharacterLevelingSystem } from './oblivionLeveling.js';
+import { isOnlinePage } from './onlineLane.js';   // LEVEL-ONLINE: Daggerfall's leveling is offline-only for a new character
 
 /** SPELLS.STD as an index -> spell map. AUDIT 17f: the exterior
  *  hosts ran chargen without one and called finishChargen with no
@@ -157,7 +158,8 @@ export async function applyHeadlessChargen(playerEntity, classIndex, { fetchByte
   // a test, a headless run - and a question nobody is there to answer
   // must not be asked and must not be guessed at. Daggerfall's leveling
   // is what every ?class= character has always had.
-  initVirtueLeveling(playerEntity, LEVELING_CLASSIC);
+  // LEVEL-ONLINE: ...and online the port's law is Oblivion's (newCharacterLevelingSystem).
+  initVirtueLeveling(playerEntity, newCharacterLevelingSystem(LEVELING_CLASSIC, { online: isOnlinePage() }));
   console.log(`[chargen] ${CLASS_CAREERS[classIndex]}: HP ${playerEntity.maxHealth}, spells ${playerEntity.spells.length}`);
   return playerEntity;
 }
@@ -284,7 +286,9 @@ export function finishChargen(playerEntity, result, spellsByIndex = null, { roll
   // question wrote (createChargenWindow); a result that carries none -
   // a test's literal, a caller that built a flow by hand - is a classic
   // character, which is the port's own law and the safe default.
-  initVirtueLeveling(playerEntity, result.levelingSystem ?? LEVELING_CLASSIC);
+  // LEVEL-ONLINE: an online character is born on Oblivion's bar whatever a result carries - the question offers
+  // Daggerfall's only offline, and this is the law's own door, not the screen's (a hand-built result goes through it too).
+  initVirtueLeveling(playerEntity, newCharacterLevelingSystem(result.levelingSystem ?? LEVELING_CLASSIC, { online: isOnlinePage() }));
   return playerEntity;
 }
 
@@ -368,8 +372,8 @@ export function createChargenWindow(flow, { onDone, onCancel, hudScale = 2 } = {
   //
   // THE FOUR HOSTS RULE, answered here rather than three times over.
   // Three hosts run a new game and all three build their wizard
-  // through this function - world.js:5061, exterior.js:1400,
-  // dungeonContext.js:2751 - so the question is asked once, in the
+  // through this function - world.js:5072, exterior.js:1402,
+  // dungeonContext.js:2768 - so the question is asked once, in the
   // seam, and not one of them learns a new word. THE FOURTH HOST,
   // scenes/worldModes.js, IS ACCOUNTED FOR AND ASKS NOTHING: a new game
   // never begins inside a building, that host runs no chargen at all
@@ -419,7 +423,11 @@ function chargenWizard(flow, { onDone, onCancel, hudScale = 2 } = {}) {
  * applyHeadlessChargen (the `?class=` skip) sets it there.
  */
 function withLevelingChoice(flow, { onDone, onCancel, hudScale = 2 } = {}) {
-  if (!oblivionLevelingEnabled()) {
+  // LEVEL-ONLINE: online the question is ALWAYS put, mod or no mod - Daggerfall's option shown and shut, Oblivion's
+  // the answer - so the player reads which system they are getting before the world, rather than finding out at
+  // their first level. Offline with the mod off, nothing changed: no question, Daggerfall's law.
+  const online = isOnlinePage();
+  if (!oblivionLevelingEnabled() && !online) {
     return chargenWizard(flow, {
       onCancel, hudScale, onDone: (r) => onDone?.({ ...r, levelingSystem: LEVELING_CLASSIC }),
     });
@@ -436,7 +444,7 @@ function withLevelingChoice(flow, { onDone, onCancel, hudScale = 2 } = {}) {
       prompt = new LevelingChoiceScreen((id) => {
         fired = true;
         onDone?.({ ...r, levelingSystem: id });
-      });
+      }, { online });
     },
   });
   return {
@@ -466,7 +474,8 @@ function withLevelingChoice(flow, { onDone, onCancel, hudScale = 2 } = {}) {
       // the finished character with it, so the question falls back to
       // the same law every unasked path takes: Daggerfall's own.
       // `_fired` makes this a no-op on every normal close and on cancel.
-      prompt?.answer(LEVELING_CLASSIC);
+      // LEVEL-ONLINE: the first OPEN answer - Daggerfall's offline, Oblivion's online (Daggerfall's is shut there).
+      prompt?.answer(prompt.defaultId);
       inner.dispose?.();
     },
   };
@@ -522,7 +531,7 @@ function classicChargenWindow(flow, { onDone, onCancel, hudScale = 2 } = {}) {
     // the wizard already routes a mousemove here: world.js and
     // exterior.js through `townTalk.hover` (townTalk.js:1298-1309,
     // the route itself :1307), dungeonContext.js through `overlayHover`
-    // (:8089), which dungeon.js:552 and worldModes.js:10002 both feed.
+    // (:8108), which dungeon.js:552 and worldModes.js:10010 both feed.
     // (ROAD-G G4 review: all four were stale - re-resolved by content,
     // against the same six routes G4-11 sweeps.) Hovering never
     // advances the flow, so no done check.

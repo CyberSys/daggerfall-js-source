@@ -72,7 +72,8 @@ test('audit26 F222: both hosts write the pose and land it on load', () => {
   // (combat/playerWeapon.js), so what is matched here is the host's
   // WIRING - which rig it offers and where the pair sits in the bag -
   // and the law itself is CALLED below rather than quoted.
-  assert.match(w, /pose: \{ yaw: cam\.yaw, pitch: cam\.pitch, crouching: !!player\.crouching, \.\.\.mergeWeaponPose\(wp, weaponPoseOf\(weaponRig\.playerWeapon\)\), camera: mwViewSaveCamera\(\), transport: player\.transportMode \}/);
+  // FALL-KEPT (FIELD BUGS 2026-09-30, PIN MOVED): the fall joined the bag's tail (fb0930_fallkept.test.js runs it).
+  assert.match(w, /pose: \{ yaw: cam\.yaw, pitch: cam\.pitch, crouching: !!player\.crouching, \.\.\.mergeWeaponPose\(wp, weaponPoseOf\(weaponRig\.playerWeapon\)\), camera: mwViewSaveCamera\(\), transport: player\.transportMode, fall: player\.fallSnapshot\(\) \}/);
   assert.match(w, /const wp = modes\?\.weaponPose\?\.\(\) \?\? null;/, 'and `wp` is the mode host\'s answer, null outside interior mode');
   // SAV3 moved the landing into the ONE pose-apply (quickload + the
   // classic import share it); HARD2c moved the inversion one step
@@ -88,7 +89,8 @@ test('audit26 F222: both hosts write the pose and land it on load', () => {
     'the dungeon context folds its own weapon AND the hand in, and takes yaw/pitch/crouch from the host seam');
   assert.match(d, /opts\.pose\?\.apply\?\.\(extras\.pose\);/);
   const m = rd('src/scenes/worldModes.js');
-  assert.match(m, /read: \(\) => \(\{ yaw: cam\.yaw, pitch: cam\.pitch, crouching: !!player\.crouching \}\)/,
+  // FALL-KEPT (FIELD BUGS 2026-09-30, PIN MOVED): and the fall beside it (fb0930_fallkept.test.js runs it).
+  assert.match(m, /read: \(\) => \(\{ yaw: cam\.yaw, pitch: cam\.pitch, crouching: !!player\.crouching, fall: player\.fallSnapshot\(\) \}\)/,
     'the mode host supplies the modal camera half');
 });
 
