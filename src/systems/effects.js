@@ -147,6 +147,12 @@ export const BUFF_KINDS = Object.freeze({
   // it - in the candle producer, not in this table - so a foe really
   // does carry the effect and really does stay dark.
   '15,255': 'light',
+  // PARTY-MAP (2026-09-30, Discord: "share map data between party members, possibly with a spell effect so that
+  // maintaining some kind of buff for it becomes part of the dungeoneering loop"): SHARED CARTOGRAPHY (46,255 - the
+  // port's own, no classic key uses 46; RESURRECT1's 45 is the precedent). Duration-only and CasterOnly, stacking
+  // rounds as every row here does; the entry's PRESENCE is the share - systems/partyMap.js reads it, and a caster in
+  // no party (offline, solo) holds a buff that does nothing at all.
+  '46,255': 'sharedCartography',
 });
 
 /** DaggerfallEntity.IsInvisible / IsBlending / IsAShade, verbatim:
@@ -241,6 +247,7 @@ export const MAGIC_ONLY_KEYS = new Set([
   '27,255', '28,255', '29,255', '30,255', '31,255', '33,0', '33,1',
   '33,2', '33,3', '35,255', '39,0', '39,1', '39,2', '40,255',
   '43,255', '44,255',
+  '46,255',   // PARTY-MAP: Shared Cartography, the port's own - a self-buff, Magic as every buff here
 ]);
 
 /** THE BUFF LANDING ALERTS - every line DFU speaks on the frame a
@@ -260,6 +267,7 @@ export const BUFF_START_TEXT = Object.freeze({
   chameleonNormal: 'You are blending.', chameleonTrue: 'You are blending.',
   shadeNormal: 'You are a shade.', shadeTrue: 'You are a shade.',
   silenced: 'You are silenced.',   // Silence.cs:91-95
+  sharedCartography: 'Your map is shared with your party.',   // PARTY-MAP: the port's own line
 });
 /** The name this table shipped under, kept live for its importers. */
 export const CONCEALMENT_START_TEXT = BUFF_START_TEXT;
