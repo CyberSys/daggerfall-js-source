@@ -307,7 +307,7 @@ reference surface absent · **Departure** = deliberate, ledgered.
 | **scenes-support** | Near-1:1 | **Near-1:1** | ROAD-D D9 stood the city-watch fallback through `FoeSpawner.PlaceFoeFreely` on its own collider. Court reads the live region. |
 | **render-core** | Partial (presentation) | **Near-1:1** | The auto-emissive table is present and byte-exact at 182 records / 24 archives. Fog pass-space was the wave. |
 | **render-modules** | Verbatim (classic) / Partial (enhanced) | **unchanged, and still un-oracled** | The port-original modules (frustum, far ring, precipitation, enhanced sky) have no parity oracle by construction. This is the one structural verification hole the campaign did not touch. |
-| **player** | Near-1:1 / one lethal seam | **Near-1:1** | `cancelMovement` is a real motor field set on the mode edges (`player/motor.js:408,:494,:502`). ROAD-A A6 took the -0.28 doorway head-dip, `PlayerMoveScanner`'s three probes, `controllerSwimHeight` 0.30 with Do(Un)Sinking, and `FreezeMotor` on teleports. |
+| **player** | Near-1:1 / one lethal seam | **Near-1:1** | `cancelMovement` is a real motor field set on the mode edges (`player/motor.js:414,:500,:508`). ROAD-A A6 took the -0.28 doorway head-dip, `PlayerMoveScanner`'s three probes, `controllerSwimHeight` 0.30 with Do(Un)Sinking, and `FreezeMotor` on teleports. |
 | **combat** | Math exact / wiring broken | **Verbatim** | Four hosts resolve a player arrow. ROAD-A A12 shipped the left-hand weapon (ToggleHand/SwitchHand/`usingRightHand`, the classic import's `usingLeftHandWeapon`, the mirrored draw). |
 | **characters-ai** | Verbatim | **Verbatim** | `stopDistance` picks `CLASSIC_MELEE_DISTANCE_VS_AI` per pass (`enemyMotor.js:1295`, `enemyAttack.js:188`). ROAD-A A5 took enemy levitation, invisibility/Shade as live sources, foe fall damage and the Seducer transform pair. |
 | **characters-voxel** | Departure (deliberate) | **Departure, still editor-only** | 86 designs across seven tables - 42 of the 43 monster mobiles, 19 class, 25 villager. The rig is 1,791 lines across 7 modules and is still gated: `worldModes.js:5582` passes `voxelfolk`, `scenes/interiorContext.js:609` consumes it. |
@@ -403,7 +403,7 @@ are the **narrowed remainders** Wave D recorded rather than shipped
   "DR1: THE TWO WINDOW SEAMS, MOUNTED"), pinned by three DR1 cases in
   `test/x11b.test.js`. This was also Ledger row `:783`'s adjudication,
   and that row is struck with it.
-- **`src/ui/enhancedMenu.js:3926`** - the rest of the keyboard; the
+- **`src/ui/enhancedMenu.js:3930`** - the rest of the keyboard; the
   wizard walks to `done` with no pointer. *The enhanced menu is the
   enhanced skin, a Ledger A departure, so no C# line is owed. The flag
   names its own blocker: focus order across a rail, a settings list and
@@ -609,7 +609,7 @@ are the **narrowed remainders** Wave D recorded rather than shipped
   INTERIM 0 behind a flag blaming a decode that had ALREADY SHIPPED".~~
   **CLOSED (ROAD-F GS2, 2026-09-03).**
   *The work was already done. D9 shipped `AcrobatMotor.cs:96-101`'s nested
-  `ImprovedAthleticism` term at `skills.js:276-296`, over the two
+  `ImprovedAthleticism` term at `skills.js:283-303`, over the two
   constants named from `AcrobatMotor.cs:14-15` - and the sentence the
   list quoted was a past-tense retirement record that happened to
   contain the marker. `tools/flagSites.mjs` deliberately does not try

@@ -1634,8 +1634,8 @@ test('S40 IsResting: the THIRD consumer - no per-minute fatigue drain while rest
   const sw = mk(); sw.isResting = true; sw.raceId = 99; sw.skillUses = { };
   setWorldMinutes(1000);
   createPlayerTicker(sw, {}).tick(60 / 12, { running: false, swimming: true });
-  assert.match(src('src/systems/worldTick.js'),
-    /tallySkill\(entity, SKILLS\.Swimming\);[\s\S]{0,900}?if \(!entity\.isResting\) sinks\.drainFatigue/);
+  assert.match(src('src/systems/worldTick.js'),   // MOVE-REAL: the motion tally's own door, in the same place
+    /tallyMovementSkill\(entity, SKILLS\.Swimming\);[\s\S]{0,900}?if \(!entity\.isResting\) sinks\.drainFatigue/);
 
   // The window is what raises the flag, so the gate is live end to end.
   const e = mk();

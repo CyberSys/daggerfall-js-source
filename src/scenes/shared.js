@@ -29,7 +29,7 @@ import { modSetting, modSettingsOf } from '../systems/modSettings.js';   // DS1:
 import { weatherSunlightScale } from '../world/weather.js';   // DS1: WeatherManager's ScaleFactor, for the skybox's _LightColor0
 import { seasonValue, SEASONS, dateFromClassicMinutes } from '../systems/gameDate.js';   // DS1: the winter arm of that scale
 import { hasActiveEffect, isEntityWaterWalking, isBlending, isInvisible, isAShade } from '../systems/effects.js';
-import { skillValue, displaySkillValue, tallySkill, SKILLS, SKILL_NAMES } from '../systems/skills.js';
+import { skillValue, displaySkillValue, tallySkill, tallyMovementSkill, SKILLS, SKILL_NAMES } from '../systems/skills.js';   // MOVE-REAL: the climb's check is a motion tally
 import { expandRowValues } from '../systems/quest/questMacros.js';   // MACRO-3: the mastery box's %pcn and %ski
 // LV2: the level-up notification's seams. The CLASSIC lane's line and
 // box are still this file's - the seam takes them and uses them - so
@@ -723,7 +723,8 @@ export function motorStats(entity) {
  *  inputs = CalculateClimbingChance's reads (live Climbing, live
  *  Luck, the Khajiit racial arm; the Climbing effect pends - the
  *  `enhanced` seam is here); tally = ClimbingSkillCheck's
- *  TallySkill(Climbing, 1), once per check.
+ *  TallySkill(Climbing, 1), once per check (MOVE-REAL: a motion tally -
+ *  past 100 it counts the wall climbed, skills.js tallyMovementSkill).
  *
  *  RECORDED, not a gap, and the old reason here was wrong: the luck
  *  ternary below LOOKS like motorStats' `speed` guard and is not one.
@@ -746,7 +747,7 @@ export function climbingDeps(entity, say = null) {
       // `enhanced`, which was hardcoded false waiting for this.
       enhanced: !!entity?.activeEffects?.some((a) => a.kind === 'climbing'),
     }),
-    tally: () => tallySkill(entity, SKILLS.Climbing),
+    tally: () => tallyMovementSkill(entity, SKILLS.Climbing),   // MOVE-REAL: past 100 only a climb that went up or down counts
     say,
   };
 }

@@ -9,7 +9,7 @@
 import { SPECIAL_ABILITY_BITS } from './specialAdvantages.js';
 // SOFTCAP1: two more leaves (neither imports anything) - the softcap's law
 // and mentor mode's overlay.
-import { effectiveSkill, overcapTallyWeight, SKILL_SOFT_CAP, SKILL_HARD_CAP } from './skillSoftcap.js';
+import { effectiveSkill, overcapTallyWeight, movementTallyWeight, SKILL_SOFT_CAP, SKILL_HARD_CAP } from './skillSoftcap.js';   // MOVE-REAL: the movement skills' own weight
 import { mentoredSkill } from './mentorMode.js';
 import { masterCappedSkill, skillCanPassCap } from './masterSkills.js';   // SOFTCAP3: Master Skills - past 100 only when on (and online)
 export { SKILL_SOFT_CAP, SKILL_HARD_CAP, effectiveSkill } from './skillSoftcap.js';
@@ -146,7 +146,7 @@ export function skillValueText(entity, skillId) {
  *  what keeps the source's (uses * reflexesMod) >> 16 inside int32:
  *  20000 * 0x14000 fits; an unclamped tally would overflow the shift
  *  in C# and JS alike (caught by S3b's own test). */
-export function tallySkill(entity, skillId, amount = 1) {
+export function tallySkill(entity, skillId, amount = 1, movement = false) {
   if (!entity.skillUses) return;
   // SOFTCAP1: a skill at 100+ counts only REAL use (skillSoftcap.js
   // overcapTallyWeight - a foe tough for the skill, no spam). The weight
@@ -158,7 +158,7 @@ export function tallySkill(entity, skillId, amount = 1) {
   // 100 simply never spends it)
   if (real >= SKILL_SOFT_CAP && skillCanPassCap(entity, skillId)) {   // SOFTCAP4: and only for a MASTERED skill
     if (real >= SKILL_HARD_CAP) return;
-    const w = overcapTallyWeight(entity, skillId, amount, real);
+    const w = movement ? movementTallyWeight(entity, skillId, amount, real) : overcapTallyWeight(entity, skillId, amount, real);   // MOVE-REAL
     if (!(w > 0)) return;
     const frac = (entity.skillUseFrac ??= new Array(SKILL_COUNT).fill(0));
     const total = (frac[skillId] ?? 0) + w;
@@ -169,6 +169,13 @@ export function tallySkill(entity, skillId, amount = 1) {
   }
   entity.skillUses[skillId] += amount;
   if (entity.skillUses[skillId] > 20000) entity.skillUses[skillId] = 20000;
+}
+
+/** MOVE-REAL: a movement skill's use FROM MOTION - the run's quarter second, the jump, the swim's minute, the climb's
+ *  check. Below 100 it is TallySkill verbatim; past 100 it counts the ground the body covered (skillSoftcap.js
+ *  movementTallyWeight), never a spam counter. Training and quests tally these skills through tallySkill. */
+export function tallyMovementSkill(entity, skillId, amount = 1) {
+  tallySkill(entity, skillId, amount, true);
 }
 
 // ---- PlayerEntity.skillsRecentlyRaised (:70, :218-231) -------------
@@ -268,7 +275,7 @@ export function levelUpSkillSum(entity) {
  *          if (ImprovedAthleticism) += improvedAthleticismMultiplier;
  *      }
  *
- *  - exactly the shape shared.js:1432 already uses for the same pair
+ *  - exactly the shape shared.js:1433 already uses for the same pair
  *  on the fatigue rate, so the item alone does nothing and the two
  *  together make +20%. X1 landed the Jump SPELL's term (+0.6,
  *  AcrobatMotor's own jumpSpellMultiplier :16, added when
