@@ -8301,8 +8301,9 @@ the street should feel different, and the pins hold the street's range beside th
 shows.
 
 **Frightened**, the crime is forgotten through the one setter (V4's `setCrimeCommitted` - transformed, it writes None
-whatever it is handed) and the host sends its watch running (`watchFlees`: world.js the street's pool and the building's
-through `worldModes.frightenWatch`, exterior.js its pool). Clearing the crime alone would not do it: GUARD1's fourth
+whatever it is handed) and the host sends its watch running (`watchFlees`: in both exterior hosts, world.js and
+exterior.js, the street's pool and the building's through `worldModes.frightenWatch` - AUDIT WERE-FRIGHT F1: exterior.js
+sent its street alone). Clearing the crime alone would not do it: GUARD1's fourth
 clause keeps the watch standing while the player is a beast. `cityGuards.frighten` sends every watchman of the crime
 running for `FRIGHTENED_RUN_SECONDS` (5) and then retires him as the walk-away - no body, the batch freed, the record
 pruned; a defender is not the crime's and holds his post; the witnesses' 5-10 second countdown still to come is called
@@ -8318,7 +8319,8 @@ TurnToTarget's 20 degrees until the way away is inside the 5.625-degree move gat
 `_step`'s grounded tail, EXTRACTED so both call the one copy: the rest fast path, gravity, AttemptMove's obstacle and
 ledge probes and DFU's detour (a wall across the way is run along, not pushed into), the one capsule move. A blow shoves
 it through `_knockbackStep` - KnockbackMovement's motion, likewise extracted from `_step` - with the hurt anim, and the
-run resumes when the shove is spent. `flee` drops the target and the hostility and senses nothing from then on: no
+run resumes when the shove is spent. `flee` drops the target - not the hostility (AUDIT WERE-FRIGHT F3: a routed foe
+is not a pacified one) - and senses nothing from then on: no
 sight, no detection, no encounter edge, so no alert is raised and no tongue roll (tryLanguagePacification) is made. The
 point it runs from rides the floating origin. The motor's `this.collider.move` census stays six (incident_ceiling_bats,
 squeeze1).
@@ -8331,3 +8333,54 @@ Pins: 12 in `test/werefright.test.js`, through the real flow, pool and motor on 
 `tools/mutants/werefright.json`, 29 mutants, 29 dead. The seven records in six files that the change moved under
 (auditdisc19, auditdisc28_arrest's AR1 and AR3, disc19, disc28, and the two SURVTIERS cites the cite shift moved) are
 re-aimed by content, and those six files' 356 mutants re-run: 355 dead and the one recorded equivalent.
+
+### AUDIT WERE-FRIGHT - PR #459 AUDITED IN SIX LENSES (2026-09-30)
+
+Mac: "Audit this" - PR #459 whole, WERE-FRIGHT and MW-BRIG3, in six lenses: the arrest flow and its laws, the watch
+pool, the enemy motor, the hosts' seams (online and every input path to the box), MW-BRIG3's fit, and the records.
+Three findings, each verified by a pin that failed on the code before its fix (`test/auditwerefright.test.js`), and
+five mutants, five dead (`tools/mutants/auditwerefright.json`).
+
+**F1 - THE EXTERIOR HOST SENT ITS STREET ALONE.** Both exterior hosts build the mode machine, and with it a watch that
+can be called into a building (ROAD-B's interiorGuards). world.js's `watchFlees` summed the street's pool and the
+building's; exterior.js's ran its street alone. A roar that worked inside a building there forgot the crime and left
+the building's watch standing - the player a beast, GUARD1's fourth clause - striking a beast with no crime left to
+halt it for, so no box and no second roar. Both hosts sum both now, held by a pin that walks every host that builds
+the mode machine.
+
+**F2 - A MAN COULD ROAR.** Online the world runs under the box (WORLD5), so the change can end while the beast's
+question stands - the mirror of the man's question answered as a beast, which WERE-FRIGHT already turned to a fight.
+The roar did not look: a man pressing F rolled it, and on a success his crime was written to None through the setter -
+outside beast form that write is real - and the watch was routed by a roar nobody heard. Mac's rule is the form's
+("human form surrenders as before"): `roarAtTheWatch` reads the form at the answer, and a man has no roar - the blow
+lands, as N lands it, the crime untouched. The question was the beast's, so it is not asked again of this watch (it
+is once a watch, DFU's law); a fatal blow still carries the man to court.
+
+**F3 - A ROUTED WATCHMAN READ AS A PACIFIED ONE.** `flee` cleared `isHostile`. IsHostile false is DFU's PASSIVE foe -
+a pacified one, a castle's guard before the castle turns - and the port reads it that way: a blow on a passive foe is
+MakeEnemiesHostile over the area (DaggerfallEntityBehaviour.cs:255-258, the pools' `makeAreaHostile`), and
+MeleeAttackFriendlyProtection spares one from a swing's box pass. So a beast striking a man it had routed turned every
+pacified creature around it hostile, and its swings passed over the men running from it. The run now takes the
+target alone - which is all that stops a foe striking - and a routed watchman stays hostile. What that changes, said
+plainly: for the five seconds of the run a fleer still in its spawn band counts as an enemy nearby (areEnemiesNearby),
+so a rest or a fast travel is refused until he is gone, as it is for any hostile foe in reach.
+
+**Checked and sound.** The extraction is behaviour-equivalent for every foe that is not fleeing: origin/main's
+EnemyAI and this branch's driven side by side on a real collider through nine scripted scenarios (a pursuit through a
+wall and its detour, a knockback, a paralysis, a ledge, a flyer knocked down, a levitator knocked back, the idle fast
+path, a paused one-shot's knock, uneven frame times) matched in every field at every one of 2,924 steps; and neither
+extracted method reads a name from `_step`'s old scope. `resumeLive` (the online seat's reset) needs no flight term -
+the watch never changes seat. Every input path reaches F: the keyboard through townTalk's raw codes, the Enhanced UI's
+buttons (a button per labelled option), a mouse or a finger on the box's rows, and a pad's pointer. Interiors stand at
+their building's world matrix (P8), so a roar inside sends the street's frozen watch running from the building when the
+player steps out. No other host asks a surrender (the dungeon host keeps no city watch). MW-BRIG3's fit rides the one
+binder every worn part goes through (`bindPartsInto` -> `bindSkinnedFromBody`), with `fitTo` carried on the one part
+builder (fpArm's), so the third person, the peers and the paper doll are all fitted; the wolf wears nothing. The cites:
+every one of the 182 the PR moves names by content the line it named on main, but for ten on two struck Port-Ledger
+rows (669, 719) - and those keep the text they were MEASURED on at the merge base, where main's own let them drift a
+line when LOAN-AMNESTY moved world.js: the branch's are right, and are kept. No cite was left behind by a line the
+branch moved, but for three synthetic examples in citeShift's own header and pins, which the tool keeps by design.
+
+**Said, not changed.** A hated or banished name's passive levy (WERE-LEVY) can send the next watch at once after a
+fright - DFU's own levy, and that watch is halted afresh, so the beast is asked again. A man asked the question who
+turns beast afterwards does not get a roar for that watch - the question is once a watch, and it was asked.

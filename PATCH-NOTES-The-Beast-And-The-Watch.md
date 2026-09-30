@@ -8,6 +8,8 @@
 - A blow that would kill you no longer forces you to surrender while you're transformed. It lands.
 - In human form nothing changes: you're asked to surrender as before.
 - If you turn into the beast while the surrender question is on screen, you can't surrender any more: answering fights on.
+- If you turn back into your human form while the frighten question is on screen, you can't roar any more: answering fights on.
+- Hitting a guard who is running from you is an ordinary hit. It doesn't turn calmed creatures nearby against you.
 
 ## Known issues
 - Not yet tried with other players watching. They should see the frightened guards run off and disappear.

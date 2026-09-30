@@ -322,8 +322,11 @@ export function createArrestFlow({
     });
   }
 
-  /** WERE-FRIGHT: the roar and its roll. Answers whether the watch fled. */
+  /** WERE-FRIGHT: the roar and its roll. Answers whether the watch fled. AUDIT WERE-FRIGHT F2: the roar is the FORM's,
+   *  read at the answer as the man's Y reads it - online the change can end under the box, and a man has no roar: he
+   *  fights (the blow lands, as N lands it), his crime untouched and the watch unrouted. */
   function roarAtTheWatch(applyDamage, guardLevel) {
+    if (!isTransformedLycanthrope(playerEntity)) { applyDamage(); return false; }
     const roar = frightenRoar(playerEntity);
     if (roar != null) playSound(roar);
     const chance = frightenChance(playerEntity.level, guardLevel ?? playerEntity.level);

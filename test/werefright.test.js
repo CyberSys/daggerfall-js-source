@@ -229,14 +229,13 @@ function field({ wall = null } = {}) {
 const flat = (a, b) => Math.hypot(a[0] - b[0], a[2] - b[2]);
 const SENSES = { gameMinutes: 0, playerStealth: 0, rolls: () => 0.5 };
 
-test('WERE-FRIGHT: a frightened foe runs - away from the beast, turning its back, through the collider, hostile to no one', () => {
+test('WERE-FRIGHT: a frightened foe runs - away from the beast, turning its back, through the collider, striking no one', () => {
   const c = field();
   const beast = [0, 0, 0];
   const ai = new EnemyAI(c, [0, 0, 2], Math.PI, { liveSpeed: 50 });   // two units north, facing the beast
   Object.assign(ai, { inSight: true, detected: true, justEncountered: true, canAct: true });   // it had the beast in its eye
   ai.flee(beast, 3);
-  assert.equal(ai.isHostile, false);
-  assert.equal(ai.target, null);
+  assert.equal(ai.target, null, 'it drops its target (AUDIT WERE-FRIGHT F3: and keeps its hostility - routed, not pacified)');
   assert.deepEqual([ai.inSight, ai.detected, ai.justEncountered, ai.canAct], [false, false, false, false],
     'it senses nothing from the fright on - no alert to raise, no first meeting for a tongue to answer');
   const d0 = flat(ai.feet, beast);

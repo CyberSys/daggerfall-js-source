@@ -1560,7 +1560,7 @@ export class EnemyAI {
 
   /**
    * WERE-FRIGHT (2026-09-29, the port's own - no DFU motor ever runs FROM anything): FRIGHTENED OFF. For `seconds`
-   * the foe drops its target and its hostility and runs from `fromFeet`, by the pursuit's own laws turned round: per
+   * the foe drops its target and runs from `fromFeet`, by the pursuit's own laws turned round: per
    * classic tick it turns (TurnToTarget's 20 degrees) in place until it is inside the 5.625 degree move gate of the
    * way away, and only then runs, at its own move speed, through the same capsule, obstacle and ledge probes and
    * gravity its pursuit walks with - and what blocks it buys DFU's own detour (_findDetour), which it runs round as a
@@ -1571,7 +1571,9 @@ export class EnemyAI {
   flee(fromFeet, seconds) {
     this.fleeFrom = [fromFeet[0], fromFeet[1], fromFeet[2]];
     this.fleeLeft = seconds;
-    this.isHostile = false;
+    // AUDIT WERE-FRIGHT F3: NOT its hostility. IsHostile false is DFU's PASSIVE foe - a blow on one turns the area
+    // (MakeEnemiesHostile) and friendly protection spares one from a swing - and a routed foe is neither. The run
+    // takes its target, which is all that stops it striking.
     this.target = null;
     this.secondaryTarget = null;
     this.moving = false;   // it turns first

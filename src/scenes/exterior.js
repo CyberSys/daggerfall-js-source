@@ -2140,10 +2140,10 @@ export async function bootExterior(canvas, renderer, params, status) {
     // ROAD-B B5: InputManager.GetBackButton, the prison countdown's
     // held-Escape accelerator (DaggerfallCourtWindow.cs:301-304).
     backButtonHeld: () => backButtonHeld,
-    // WERE-FRIGHT: the beast's roar at the watch - its line, the roar, and this host's one pool sent running
+    // WERE-FRIGHT: the beast's roar at the watch - its line, the roar, and every watchman of this host sent running
     say: (l) => townTalk.say(l),
     playSound: (clip) => audio.playOneShot(clip, 1),
-    watchFlees: () => cityGuards.frighten(walkMode ? player.pos : cam.pos),   // the feet the pool is driven against (the frame's update)
+    watchFlees: () => cityGuards.frighten(walkMode ? player.pos : cam.pos) + (modes?.frightenWatch?.() ?? 0),   // the street's pool at the feet its frame drives it with, and a building's (AUDIT WERE-FRIGHT F1: this host keeps one too - createWorldModes, below)
   });
   const weaponRig = createWeaponRig({
     // EM-BUG1: HANDS HOLDING A MAP ARE NOT ALSO HOLDING A SWORD.
