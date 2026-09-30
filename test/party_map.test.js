@@ -245,3 +245,16 @@ test('PARTY-MAP effect: the ready-made spell lands the buff on its caster for a 
   assert.ok(cost.sp >= 5 && cost.sp < 60, `and cheap to keep up: ${cost.sp} SP`);
   assert.match(rd('src/scenes/worldModes.js'), /isOnlinePage\(\) \? \[resurrectionSpell\(\), sharedCartographySpell\(\)\] : \[\]/);
 });
+
+test('AUDIT PARTY-MAP F2: the sender walks its whole map again every AMAP_RESYNC_MS - a mate who arrived late still gets it', async () => {
+  const { AMAP_RESYNC_MS } = await import('../src/systems/partyMap.js');
+  const tx = createPartyMapSender({ sendMs: 0, max: 128, resyncMs: 1000 });
+  const rec = { visitedThisRun: new Set(['1:2', '3:4']) };
+  const at = (nowMs) => tx.next({ active: true, inDungeon: true, key: '5/Privateer', rec, nowMs });
+  const f1 = at(0); tx.commit(f1, 0);
+  assert.deepEqual(f1.r, ['1:2', '3:4']);
+  assert.equal(at(500), null, 'nothing new before the resync');
+  const f2 = at(1000);
+  assert.deepEqual(f2?.r, ['1:2', '3:4'], 'the whole map again');
+  assert.equal(AMAP_RESYNC_MS, 60000);
+});

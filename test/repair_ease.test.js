@@ -68,3 +68,11 @@ test('REPAIR-EASE: field kits turn up in dungeon piles J-O and on looting foes, 
   assert.equal(at(0.059), 1);
   assert.equal(at(0.06), 0);
 });
+
+test('AUDIT REPAIR-EASE F4: the live price carries no instant-repair premium - the default does not undo the two thirds', () => {
+  for (const [value, q, cond, max] of [[1000, 10, 50, 100], [300, 5, 10, 100]]) {
+    const plain = calculateItemRepairCost(value, q, cond, max, { instantRepairs: false });
+    assert.equal(calculateItemRepairCost(value, q, cond, max, { instantRepairs: true }), plain);
+    assert.equal(plain, Math.max(1, Math.round(dfuItemRepairCost(value, q, cond, max, { instantRepairs: false }) * 2 / 3)));
+  }
+});

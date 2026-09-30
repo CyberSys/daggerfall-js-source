@@ -208,11 +208,13 @@ export function buyHolidayHalvesPrice(item, { holidayId = HOLIDAYS.None, guildFa
  *  multiply rather than per unit. */
 export function buyItemPrice(item, { quality = 0, priceAdjustment = 1000, holidayId = HOLIDAYS.None, guildFactionId = null, online = undefined } = {}) {
   const price = calculateCost(itemValueOf(item), quality, priceAdjustment) * (item.stackCount ?? 1);   // JAN1: the one value read
-  const held = buyHolidayHalvesPrice(item, { holidayId, guildFactionId })
-    ? Math.trunc(price / 2) : price;
+  const holiday = buyHolidayHalvesPrice(item, { holidayId, guildFactionId });
+  const held = holiday ? Math.trunc(price / 2) : price;
   // ESSENTIALS-HALF (2026-09-30, Discord: "cut the cost of most essential items by half"): online a POTION costs half
-  // (shopStock.js essentialPrice, rounded up - its law against buying to sell back), at every counter's Buy
-  return isPotion(item) ? essentialPrice(held, { online }) : held;
+  // (shopStock.js essentialPrice, rounded up - its law against buying to sell back), at every counter's Buy. AUDIT
+  // ESSENTIALS F1: never on top of a holiday's own half - the sale cap reads the full price, so a quarter bought on
+  // Merchants Festival sold back for half; the two halves do not stack
+  return isPotion(item) && !holiday ? essentialPrice(held, { online }) : held;
 }
 
 /**

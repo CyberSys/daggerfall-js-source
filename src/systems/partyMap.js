@@ -47,15 +47,21 @@ export function sharedCartographySpell() {
  *  - `inDungeon`: the player stands in a dungeon, with `key` its automap key and `rec` its live record;
  *  - `partied`: the player is in a party (nobody to tell otherwise).
  */
-export function createPartyMapSender({ sendMs = AMAP_SEND_MS, max = AMAP_KEYS_MAX } = {}) {
+/** AUDIT PARTY-MAP F2: how often the sender forgets what it sent and walks its map again - a mate who entered late,
+ *  was loading, or reconnected keeps only what arrives while they stand in the dungeon, so a map sent once was a map
+ *  they never got. The receiver's merge is idempotent (a Set), so a second pass costs bytes and nothing else. */
+export const AMAP_RESYNC_MS = 60_000;
+export function createPartyMapSender({ sendMs = AMAP_SEND_MS, max = AMAP_KEYS_MAX, resyncMs = AMAP_RESYNC_MS } = {}) {
   let key = null;
   let sent = new Set();
   let lastAt = -Infinity;
+  let syncAt = -Infinity;
   return {
     next({ active, inDungeon, partied = true, key: k, rec, nowMs }) {
       if (!inDungeon || !k || !rec) { key = null; sent = new Set(); return null; }   // left: the next dungeon starts whole
-      if (k !== key) { key = k; sent = new Set(); }
+      if (k !== key) { key = k; sent = new Set(); syncAt = nowMs; }
       if (!active || !partied) return null;
+      if (nowMs - syncAt >= resyncMs) { sent = new Set(); syncAt = nowMs; }   // AUDIT PARTY-MAP F2: the whole map again
       if (nowMs - lastAt < sendMs) return null;
       const r = [];
       for (const row of rec.visitedThisRun ?? []) {

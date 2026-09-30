@@ -152,6 +152,15 @@ export class PlayerNotebook {
 
   getHiddenQuests() { return [...this.hiddenQuests]; }
   isQuestHidden(id) { return id != null && this.hiddenQuests.includes(String(id)); }
+  /** AUDIT JOURNAL-CLEAN F3: keep only the hidden ids of quests still RUNNING (`liveIds`). A quest ended any way but
+   *  completion (the quest repair, a clear by name or prefix, an error) left its id behind, saved - and uids are reused
+   *  after a load, so a new quest could start hidden. Answers how many were dropped. */
+  pruneHiddenQuests(liveIds) {
+    const live = new Set([...(liveIds ?? [])].map(String));
+    const before = this.hiddenQuests.length;
+    this.hiddenQuests = this.hiddenQuests.filter((id) => live.has(id));
+    return before - this.hiddenQuests.length;
+  }
   /** Answers whether the quest was newly hidden (a second hide of one id is not a second entry). */
   hideQuest(id) {
     if (id == null || this.isQuestHidden(id)) return false;

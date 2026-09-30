@@ -143,3 +143,12 @@ test('JOURNAL-CLEAN: the Quests tab draws Remove (armed twice), Clear archive (a
   // the live timer still finds a hidden quest that is shown
   assert.match(src, /\[\.\.\.r\.active, \.\.\.r\.hidden\]\.find\(\(row\) => row\.key === key\)/);
 });
+
+test('AUDIT JOURNAL-CLEAN F3: a hidden id whose quest no longer runs is dropped - a reused uid never starts hidden', () => {
+  const nb = new PlayerNotebook({});
+  nb.hideQuest('7'); nb.hideQuest('9');
+  assert.equal(nb.pruneHiddenQuests(['9', '12']), 1);
+  assert.deepEqual(nb.getHiddenQuests(), ['9']);
+  const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../src/scenes/questBridge.js'), 'utf8');
+  assert.equal((src.match(/notebook\?\.pruneHiddenQuests\?\.\(/g) ?? []).length, 2, 'the walk and the load both prune');
+});

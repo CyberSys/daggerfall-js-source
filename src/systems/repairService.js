@@ -45,8 +45,11 @@ import { conditionBasedPricesOn, conditionRepairCostBase } from './rriRealism.js
 /** REPAIR-EASE (2026-09-30, Mac: "nerf repair costs"): every repair costs two thirds of what Daggerfall's formula
  *  asks - offline and online, every shop and guild, applied after the guild discount, floored at 1. */
 export const REPAIR_COST_SCALE = 2 / 3;
+/** AUDIT REPAIR-EASE F4: and no instant-repair premium. Roleplay & Realism: Items prices an instant repair at 0.9 of
+ *  the damage against 0.6 - 1.5 times - which the port's InstantRepairs-on default turned on for everyone and so
+ *  undid the two thirds exactly under conditionBasedPrices. Instant is the port's default now, not a service bought. */
 export function calculateItemRepairCost(baseItemValue, shopQuality, condition, max, opts = {}) {
-  const cost = dfuItemRepairCost(baseItemValue, shopQuality, condition, max, opts);
+  const cost = dfuItemRepairCost(baseItemValue, shopQuality, condition, max, { ...opts, instantRepairs: false });
   return cost > 0 ? Math.max(1, Math.round(cost * REPAIR_COST_SCALE)) : cost;
 }
 /** DFU's own CalculateItemRepairCost, unscaled. */

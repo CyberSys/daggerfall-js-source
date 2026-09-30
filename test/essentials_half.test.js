@@ -16,6 +16,7 @@ import { startDisease } from '../src/systems/diseases.js';
 import { SKILLS } from '../src/systems/skills.js';
 import { GUILDS } from '../src/systems/guilds.js';
 import { TEMPLATES } from '../src/systems/useItem.js';
+import { HOLIDAYS } from '../src/systems/holidays.js';
 
 /** The page's own switch (onlineLane.js isOnlinePage), for the doors that read it themselves. */
 function onlinePage(fn) {
@@ -136,4 +137,23 @@ test('ESSENTIALS-HALF: repairs stay at their price online', () => {
   const off = tradeCost('Repair', [blade], { quality: 10 });
   const on = onlinePage(() => tradeCost('Repair', [blade], { quality: 10 }));
   assert.equal(on.cost, off.cost);
+});
+
+test('AUDIT ESSENTIALS F1: the online potion half never stacks on a holiday\'s half - bought on the holidays, sold for no more', () => {
+  onlinePage(() => {
+    for (const [holidayId, guildFactionId] of [[HOLIDAYS.Merchants_Festival, null], [HOLIDAYS.Tales_and_Tallow, GUILDS.MagesGuild.factionId]]) {
+      const ctx = { quality: 10, holidayId, guildFactionId };
+      const it = potion(100);
+      const holidayOnly = buyItemPrice(it, { ...ctx, online: false });
+      assert.equal(buyItemPrice(it, { ...ctx, online: true }), holidayOnly, 'the holiday\'s half alone');
+      for (const q of [1, 10, 20]) {
+        for (const m of [0, 50, 100]) {
+          const s = { mercantile: m, personality: m };
+          const buy = getTradePrice('Buy', tradeCost('Buy', [potion(100)], { ...ctx, quality: q }).cost, q, s, 1);
+          const sell = getTradePrice('Sell', tradeCost('Sell', [potion(100)], { ...ctx, quality: q }).cost, q, s);
+          assert.ok(sell <= buy, `holiday ${holidayId} q ${q} m ${m}: sells ${sell}, bought ${buy}`);
+        }
+      }
+    }
+  });
 });
