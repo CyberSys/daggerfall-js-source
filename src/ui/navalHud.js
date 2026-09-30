@@ -80,6 +80,13 @@ export const CREW_BAR_W = 30;
 export const CREW_GREEN = PARTY_GREEN_CSS;
 export const CREW_BAR_RANGE = 45;
 export const CREW_FADE_FROM = 15;
+/** LIVING CREW (2026-09-29, Mac: "talk with each other, blurb, sing chantys"): the lines over the crew's heads
+ *  (drawCrewLines) - whole to CREW_SAY_FADE_FROM metres, TAG_FADE_TO of it at CREW_SAY_RANGE, the CREW_SAY_MAX nearest,
+ *  each no wider than CREW_SAY_W - a word, a talk's line, a chanty's verse (the brass of the song) or a shout. */
+export const CREW_SAY_RANGE = 32;
+export const CREW_SAY_FADE_FROM = 12;
+export const CREW_SAY_MAX = 6;
+export const CREW_SAY_W = 190;
 export const TAG_FADE_FROM = 150;
 export const TAG_FADE_TO = 0.55;
 /**
@@ -325,6 +332,12 @@ body:has(.hud-foe.on.blade) .dfnaval-hud { --nc-top: ${NAVAL_CARD_TOP_BLADE}; }
   transform-origin: 0 0; will-change: transform, opacity; }
 .dfnaval-crew > i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(180deg, #b8ffb8 0 1px, ${CREW_GREEN} 1px); }
 .dfnaval-tally.miss .dfnaval-tally-hits { color: #b3a684; }
+.dfnaval-say { position: absolute; left: 0; top: 0; max-width: ${CREW_SAY_W}px; padding: 2px 7px 3px; font-size: 11px; line-height: 1.3;
+  color: #efe8d6; text-shadow: ${OUTLINED}; text-align: center; white-space: normal; text-wrap: balance;
+  background: rgba(8, 10, 12, 0.62); box-shadow: 0 0 0 1px rgba(5, 6, 8, 0.8); transform-origin: 0 0; will-change: transform, opacity; }
+.dfnaval-say::after { content: ''; position: absolute; left: 50%; bottom: -5px; margin-left: -4px; border: 4px solid transparent; border-bottom: 0; border-top-color: rgba(8, 10, 12, 0.62); }
+.dfnaval-say.sing { color: ${T.brassHi}; font-style: italic; }
+.dfnaval-say.shout { color: #ffc6b8; letter-spacing: 0.04em; }
 `;
 
 /** A share as a whole percent, bounded. */
@@ -841,10 +854,43 @@ export function drawCrewBars(points, { covered = false, doc = globalThis.documen
   });
 }
 
+/**
+ * LIVING CREW: the lines over the crew's heads - `points` `[{ x, y, text, kind, distance }]` (the world's projection of
+ * each head), the CREW_SAY_MAX nearest drawn: a bubble a line, moved and re-worded, never rebuilt, at the HUD's scale,
+ * fading with the distance; a window over the world hides them all.
+ */
+let saySlots = [];
+export function drawCrewLines(points, { covered = false, doc = globalThis.document, scale = 1 } = {}) {
+  const want = covered ? [] : [...(points ?? [])].sort((a, b) => a.distance - b.distance).slice(0, CREW_SAY_MAX);
+  if (!tagRoot) {
+    if (!want.length || !doc?.createElement) return;
+    injectSheets(doc);
+    tagRoot = el(doc, 'div', 'dfnaval-tags');
+    tagRoot.setAttribute?.('aria-hidden', 'true');
+    (doc.body ?? doc.documentElement)?.append(tagRoot);
+  }
+  while (saySlots.length < want.length) {
+    const n = el(doc, 'div', 'dfnaval-say');
+    tagRoot.append(n);
+    saySlots.push({ n, k: {} });
+  }
+  saySlots.forEach((slot, i) => {
+    const p = want[i];
+    const on = !!p;
+    if (slot.k.on !== on) { slot.k.on = on; slot.n.style.display = on ? '' : 'none'; }
+    if (!p) return;
+    const set = (key, v, write) => { if (slot.k[key] !== v) { slot.k[key] = v; write(v); } };
+    set('text', p.text, (v) => { slot.n.textContent = v; });
+    set('kind', p.kind === 'sing' || p.kind === 'shout' ? `dfnaval-say ${p.kind}` : 'dfnaval-say', (v) => { slot.n.className = v; });
+    set('at', `translate(${Math.round(p.x)}px, ${Math.round(p.y)}px) scale(${scale}) translate(-50%, calc(-100% - 6px))`, (v) => { slot.n.style.transform = v; });
+    set('a', String(Math.round(tagAlpha(p.distance, CREW_SAY_RANGE, CREW_SAY_FADE_FROM) * 100) / 100), (v) => { slot.n.style.opacity = v; });
+  });
+}
+
 /** The page is going (a test's reset, the host's teardown): the node leaves with it. */
 export function destroyNavalHud() {
   root?.remove?.();
   root = null; parts = null; shown = {}; touchBrace = false; loss = null; hudClock = 0;
   tagRoot?.remove?.();
-  tagRoot = null; tagSlots = []; crewSlots = [];
+  tagRoot = null; tagSlots = []; crewSlots = []; saySlots = [];
 }

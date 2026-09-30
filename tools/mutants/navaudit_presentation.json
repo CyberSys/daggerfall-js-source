@@ -1205,8 +1205,8 @@
   {
     "name": "NAVP-tags-left-on-clear",
     "file": "src/scenes/world.js",
-    "old": "drawNavalHud(null); drawNavalTags([]); drawCrewBars([]); };",
-    "new": "drawNavalHud(null); drawCrewBars([]); };",
+    "old": "drawNavalHud(null); drawNavalTags([]); drawCrewBars([]); drawCrewLines([]); };",
+    "new": "drawNavalHud(null); drawCrewBars([]); drawCrewLines([]); };",
     "tests": [
       "test/navaudit_presentation.test.js"
     ]

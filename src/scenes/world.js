@@ -362,7 +362,10 @@ import { ComeSailAwayRenderer, softParticleTexture as csaSoftParticleTexture } f
 import { createNavalHost, hullBoxOf as navalHullBoxOf, NAVAL_SAVE_VENDOR, NAVAL_TAG_RANGE } from './navalHost.js';   // NAV-H: the sea fight - the Iliac Bay's ships, the guns, boarding, the law and the word
 import { createNavalFlames } from './navalFlames.js';   // NAV-B: a burning ship's deck fires
 import { NavalRenderer } from '../render/navalRender.js';   // NAV-B: the smoke, the spray, the balls in flight and the aim
-import { drawNavalHud, navalTouchBrace, navalPadPrompts, drawNavalTags, drawCrewBars, CREW_BAR_RANGE } from '../ui/navalHud.js';   // AUDIT NAV1 (#14): and the ships' tags - SHIPMATES: and the crew's bars
+import { drawNavalHud, navalTouchBrace, navalPadPrompts, drawNavalTags, drawCrewBars, CREW_BAR_RANGE, drawCrewLines, CREW_SAY_RANGE } from '../ui/navalHud.js';   // AUDIT NAV1 (#14): and the ships' tags - SHIPMATES: and the crew's bars - LIVING CREW: and their lines
+import { createNavalCrew, CREW_RANGE, CREW_KEEP } from './navalCrew.js';   // LIVING CREW: the crews on the decks near the eye
+import { crewRoster, crewCount } from '../systems/naval/crewLife.js';
+import { hullBuild } from '../systems/naval/navalShips.js';   // LIVING CREW: a room's boat's crew, her hull's own
 import { sparedByPlayer, isShipmate } from '../combat/friendlyFire.js';   // SHIPMATES: the player's own crew, spared his blows and wearing their bars
 import { padFamily } from '../ui/padGlyphs.js';   // AUDIT NAV1 (the presentation): the pad in hand's family - the readout names its buttons
 import { hdGlyphName } from '../ui/padGlyphsHD.js';   // NAV-F: the helm's readout; AUDIT NAV1: its Brace under a finger
@@ -6464,6 +6467,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** AUDIT NAV1 (B10): a deck spot is held while a body's capsule stands within this of it (m, questFoeHost.js
    *  entityOccupancy's own radius beside the capsule's). */
   const NAVAL_DECK_BODY_R = 0.45;
+  /** LIVING CREW: a party's gap along a rail (m) - a body and a blade's room. */
+  const NAVAL_RAIL_GAP = 1.3;
   function navalDeckSpots(boat, n = 8) {
     if (!boat?.GameObject) return [];
     // DECK-WALK: spread across her walkable deck (systems/naval/navalDeck.js) - never her outer bow, her lower deck or her
@@ -6498,12 +6503,37 @@ export async function bootWorld(canvas, renderer, params, status) {
     // spread: every other spot first, so a short muster stands along the whole deck
     return [...out.filter((_, k) => k % 2 === 0), ...out.filter((_, k) => k % 2 === 1)].slice(0, n);
   }
+  /** LIVING CREW (seamless boarding): a deck point of hers set down on her live colliders where she lies, facing her
+   *  middle - `[feet, yaw]` (navalDeckSpots' own). */
+  function navalDeckPoint(boat, deck, at) {
+    const w = navalDeckToWorld(boat, at);
+    const hit = raycastColliders(boat.GameObject, [w[0], w[1] + 3, w[2]], [0, -1, 0], 6, { triggers: false, geometry: csaColliderMesh });
+    const c = navalDeckToWorld(boat, deck.nearest(0, 0));
+    return [[w[0], (hit ? hit.point[1] : w[1]) + 0.05, w[2]], Math.atan2(c[0] - w[0], c[2] - w[2])];
+  }
+  /** Where a boarder lands on her deck: its point nearest `feet` (over her rail across from where he stood, never her
+   *  middle a haul's length off), facing her middle; null with no deck. */
+  function navalDeckLanding(boat, feet) {
+    const deck = boat?.MeshObject && csa.deckOf?.(boat.hull, boat.variant ?? 0);
+    if (!deck?.count || !feet) return null;
+    const local = navalWorldToDeck(boat, feet);
+    return navalDeckPoint(boat, deck, deck.clamp(local[0], local[2]));
+  }
+  /** `n` points along her rail on the side `toward` lies, spread fore and aft round the point across from it - where a
+   *  party comes over, or my hands land - each facing her middle. */
+  function navalRailSpots(boat, toward, n) {
+    const deck = boat?.MeshObject && csa.deckOf?.(boat.hull, boat.variant ?? 0);
+    if (!deck?.count || !toward || !(n >= 1)) return [];
+    const t = navalWorldToDeck(boat, toward), side = t[0] >= 0 ? 1 : -1, k = Math.floor(n), out = [];
+    for (let i = 0; i < k; i++) out.push(navalDeckPoint(boat, deck, deck.rail(side, t[2] + (i - (k - 1) / 2) * NAVAL_RAIL_GAP)));
+    return out;
+  }
   /** A boarding's foe, stood where the host says, on the side it names - the handle fills when its stand lands. */
-  const navalSpawnFoe = (mobile, feet, yaw, side, { name = null, team = null, boat = null } = {}) => {
+  const navalSpawnFoe = (mobile, feet, yaw, side, { name = null, team = null, boat = null, gender = null } = {}) => {
     const handle = { foe: null, gone: false, yielded: false };
     // DECK-WALK: a muster stands as one crew (`team` - a pirate's Spellsword and her barbarians fought each other with
     // infighting on), and every body on the deck it stands on
-    exteriorFoes.spawnFoe(mobile, feet, { yaw, feetGiven: true, placed: true, allied: side === 'ally', team: side === 'ally' ? null : team })
+    exteriorFoes.spawnFoe(mobile, feet, { yaw, feetGiven: true, placed: true, allied: side === 'ally', team: side === 'ally' ? null : team, ...(gender ? { gender } : {}) })   // LIVING CREW: a crewman stood as himself
       .then((f) => {
         if (!f) return;
         if (handle.gone) { exteriorFoes.removeFoe(f); return; }
@@ -6559,6 +6589,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     townTalk.showOverlay(inv, () => { if (!model.fated()) navalOpenPlunder(model); });
   }
   const navalFlames = createNavalFlames({ renderer, getTexture, uploadRecordFrame });
+  const navalCrew = createNavalCrew({ renderer, getTexture, uploadRecordFrame });   // LIVING CREW: the crews on the decks near the eye
   const navalRender = new NavalRenderer(renderer);
   naval = createNavalHost({
     pool: csa,
@@ -6590,6 +6621,11 @@ export async function bootWorld(canvas, renderer, params, status) {
       leaveHelm: () => { if (csaRuntime?.isSailing?.()) csaCall(() => csaRuntime.StopSailing?.()); },
       placePlayer: (feet, yaw) => { player.spawn(feet[0], feet[1], feet[2]); cam.yaw = yaw; lookFilter.settle(); },
       deckSpots: (boat, n) => navalDeckSpots(boat, n),
+      // LIVING CREW (seamless boarding): a ship's standing crew taken off her deck where they stand, the landing across
+      // from me, and her rail across from another ship
+      crewOf: (boat, n, opts) => navalCrew.takeByBoat(boat, n, opts),
+      landing: (boat, feet) => navalDeckLanding(boat, feet),
+      railSpots: (boat, toward, n) => navalRailSpots(boat, toward, n),
       spawnFoe: navalSpawnFoe,
       foeDown: (h) => !!h?.foe?.dead,
       removeFoe: (h) => { if (!h) return; h.gone = true; if (h.foe && !h.foe.dead) exteriorFoes.removeFoe(h.foe); },
@@ -6644,7 +6680,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   naval.setEnabled(navalOn());   // the switch's state from the first frame (navalFrame follows it after)
   registerModSaveData(NAVAL_SAVE_VENDOR, naval);   // the player's boats' hurts, the crowns' notoriety, a raid a load carries
   /** The sea emptied: a transition, a teleport, the arc switched off - its window with it. */
-  const navalClear = () => { naval?.clear(); navalFlames.clear(); closeNavalPlunder(); closeNavalYard(); drawNavalHud(null); drawNavalTags([]); drawCrewBars([]); };
+  const navalClear = () => { naval?.clear(); navalFlames.clear(); navalCrew.clear(); closeNavalPlunder(); closeNavalYard(); drawNavalHud(null); drawNavalTags([]); drawCrewBars([]); drawCrewLines([]); };
   const navalTransition = () => navalClear();
   let _navalWasOn = null;
   /** The frame: the switch read, the sounds loaded at the first sea, the host's step, the flames' clock. */
@@ -6725,6 +6761,73 @@ export async function bootWorld(canvas, renderer, params, status) {
       }
     }
     drawCrewBars(points, { covered, scale: enhancedHudScale() });
+  }
+  /** LIVING CREW (scenes/navalCrew.js, systems/naval/crewLife.js; 2026-09-29, Mac: "Crew members shouldnt be the static
+   *  sprites ... they should navigate the deck, talk with each other, blurb, sing chantys"): the crews on the decks
+   *  within CREW_RANGE of the eye - my crewed boats' (their count off my boat's crew), a room's (her hull's own) and the
+   *  sea's (her muster, what her crew has left) - stepped and carried, each told her guns (`battle`), a grapple's side
+   *  (both crews to the rail facing the other) and where I stand on her (never walked through). A fight's end brings my
+   *  hands home. */
+  let _crewBoarding = null;
+  const _crewCtx = { battle: false, muster: 0, avoid: null }, _crewMe = [0, 0, 0], _crewThem = [0, 0, 0];
+  const _crewSeed = (s) => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193); return h >>> 0; };
+  function navalCrewFrame(dt) {
+    if (!csa?.deckOf || (modes?.mode ?? 'exterior') !== 'exterior') { navalCrew.clear(); return; }
+    const b = naval?.boarding ?? null;
+    if (_crewBoarding && !b) for (const boat of csa.boats) navalCrew.reset(boat);   // the fight over: my hands come home
+    _crewBoarding = b;
+    const eye = cam.pos, list = [];
+    const near = (key, pos) => !!pos && Math.hypot(pos[0] - eye[0], pos[2] - eye[2]) < (navalCrew.has(key) ? CREW_KEEP : CREW_RANGE);
+    for (const boat of csa.boats) {
+      if (!boat?.crewed || !boat.GameObject?.activeSelf || !near(boat, boat.GameObject.position)) continue;
+      const mine = naval?.myCrew?.(boat) ?? null, crew = mine?.crew ?? hullBuild(boat.hull).crew, seed = (boat.uid ?? 1) >>> 0;
+      list.push({ key: boat, boat, deck: csa.deckOf(boat.hull, boat.variant ?? 0), count: crewCount({ hull: boat.hull, crew }), rosterOf: () => crewRoster({ hull: boat.hull, seed, crew }), seed, faction: null, battle: !!mine?.battle });
+    }
+    for (const boat of csa.peerBoats) {
+      if (!boat?.crewed || !boat.GameObject?.activeSelf || !near(boat, boat.GameObject.position)) continue;
+      const crew = hullBuild(boat.hull).crew, seed = _crewSeed(boat.peerKey ?? '');
+      list.push({ key: boat, boat, deck: csa.deckOf(boat.hull, boat.variant ?? 0), count: crewCount({ hull: boat.hull, crew }), rosterOf: () => crewRoster({ hull: boat.hull, seed, crew }), seed, faction: null, battle: false });
+    }
+    for (const s of naval?.crewShips?.() ?? []) {
+      if (!near(s.key, s.pos)) continue;
+      list.push({ key: s.key, boat: s.boat, deck: csa.deckOf(s.boat.hull, s.boat.variant ?? 0), count: crewCount({ hull: s.boat.hull, shipClass: s.shipClass, crewShare: s.crewShare }), rosterOf: () => crewRoster({ hull: s.boat.hull, seed: s.seed, shipClass: s.shipClass, crewShare: s.crewShare }), seed: s.seed, faction: s.faction, battle: s.battle, hold: s.hold });
+    }
+    navalCrew.sync(list);
+    const grapple = b?.phase === 'grapple' ? b : null;
+    navalCrew.frame(dt, eye, (key, ship) => {
+      const m = ship.boat.MeshObject.worldMatrix();
+      _crewCtx.battle = ship.battle; _crewCtx.muster = 0; _crewCtx.avoid = null;
+      if (walkMode && playerSpawned) {   // me on her deck: never walked through
+        intoDeck(m, player.pos, _crewMe);
+        if (Math.abs(_crewMe[1] - (ship.deck.heightAt(_crewMe[0], _crewMe[2]) || 0)) < 2) _crewCtx.avoid = _crewMe;
+      }
+      const other = grapple ? (key === grapple.shipId ? grapple.boat : key === grapple.boat ? naval.boatOf(grapple.shipId) : null) : null;
+      if (other?.GameObject) { intoDeck(m, other.GameObject.position, _crewThem); _crewCtx.muster = _crewThem[0] >= 0 ? 1 : -1; }
+      return _crewCtx;
+    });
+  }
+  /** LIVING CREW: the lines over the crew's heads within CREW_SAY_RANGE, through the frame's own matrices, behind the
+   *  land by the crew's own sight cache, under the covers the bars keep. */
+  const _sayKeys = new WeakMap();
+  let _sayKey = 0;
+  function navalCrewLines(proj, view, eye) {
+    if (typeof document === 'undefined') return;
+    const covered = townTalk.overlayActive || gamePaused() || !!townTalk.hudHidden || _mode() !== 'exterior' || !!travelView?.active;
+    const points = [];
+    if (!covered) {
+      const w = canvas.clientWidth, h = canvas.clientHeight, rect = worldViewportRect(w, h);
+      for (const l of navalCrew.speech()) {
+        const d = Math.hypot(l.head[0] - eye[0], l.head[1] - eye[1], l.head[2] - eye[2]);
+        if (d > CREW_SAY_RANGE) continue;
+        const at = projectToScreen(l.head, w, h, proj, view, rect);
+        if (!at.front || at.x < -80 || at.x > w + 80 || at.y < -40 || at.y > h + 40) continue;
+        let key = _sayKeys.get(l.member);
+        if (key == null) { key = `say:${++_sayKey}`; _sayKeys.set(l.member, key); }
+        if (crewSight.blocked(player.collider, eye, key, l.head)) continue;
+        points.push({ x: at.x, y: at.y, text: l.text, kind: l.kind, distance: d });
+      }
+    }
+    drawCrewLines(points, { covered, scale: enhancedHudScale() });
   }
   /** The helm's readout, under every window and with the HUD - `dt` the frame's (the card's hull bar's loss readout). */
   function navalHud(dt = 0) {
@@ -22981,7 +23084,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       if (_deckBodies.size) navalCarry();   // DECK-WALK: the bodies on a ship's deck carried by her - after the ships moved, before the foes do
       exteriorFoes.update(foeDt, _pf, cam.pos, _foeSenses());   // WINFOE1: a window no longer zeroes the foes' clock (QUEST-POPUP-PAUSE: offline, a quest box does)
       if (_deckBodies.size) navalLeash();   // DECK-WALK: the bodies on a ship's deck kept on it - after they moved, before they are drawn
-      livePersonBatches.push(...exteriorFoes.batches());
+      navalCrewFrame(foeDt);   // LIVING CREW: the crews at their work on the decks near the eye
+      livePersonBatches.push(...exteriorFoes.batches(), ...navalCrew.batches());
       if (playerSpawned) _townWatchFrame(foeDt);   // DISC19-F: the town's answer to what the pools just did
       if (playerSpawned) raidingPartiesFrame(gamePaused() ? 0 : foeDt);   // RAID1: the raids' Update - after the pools moved (a death counts on the frame it falls) and the watch answered, its clocks held by a pause (fix 7)
     }
@@ -23488,6 +23592,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       drawPeerNames(proj, view, mwv.eye);   // ONLINE1: the names over the heads
       navalTags(proj, view, mwv.eye);   // AUDIT NAV1 (#14): the ships' tags
       navalCrewBars(proj, view, mwv.eye);   // SHIPMATES: the crew's green bars
+      navalCrewLines(proj, view, mwv.eye);   // LIVING CREW: the lines over their heads
       // WORLD-HOVER: the plaque, where this host already draws its HUD.
       // It races EXACTLY what the press races - the same six live picks
       // against the same door/person/board set, settled by the same

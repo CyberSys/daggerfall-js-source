@@ -56,8 +56,8 @@
   {
     "name": "NAVB-B2-the-fallback-hands-never-stood",
     "file": "src/scenes/navalHost.js",
-    "old": "    const hands = handsOf(myBoatState(boat)?.damage.crew ?? 0, crewed);\n    for (let i = 0; i < hands; i++) {\n      const spot = deal();",
-    "new": "    const hands = 0;\n    for (let i = 0; i < hands; i++) {\n      const spot = deal();",
+    "old": "    const hands = handsOf(myBoatState(boat)?.damage.crew ?? 0, crewed);\n    const mine = deps.board?.crewOf?.(boat, hands) ?? [];",
+    "new": "    const hands = 0;\n    const mine = deps.board?.crewOf?.(boat, hands) ?? [];",
     "tests": [
       "test/navaudit_boarding.test.js"
     ]
@@ -399,8 +399,8 @@
   {
     "name": "NAVB-B10-the-muster-stacked",
     "file": "src/scenes/navalHost.js",
-    "old": "        const spot = deal() ?? first;\n        // AUDIT NAV1 (B9)",
-    "new": "        const spot = first;\n        // AUDIT NAV1 (B9)",
+    "old": "        const spot = c ? [c.feet, c.yaw] : deal() ?? first;\n        // AUDIT NAV1 (B9)",
+    "new": "        const spot = c ? [c.feet, c.yaw] : first;\n        // AUDIT NAV1 (B9)",
     "tests": [
       "test/navaudit_boarding.test.js"
     ]
@@ -417,8 +417,8 @@
   {
     "name": "NAVB-B9-the-captain-unnamed",
     "file": "src/scenes/navalHost.js",
-    "old": "const named = { ...(i === 0 && entry.ship.names?.captain ? { name: `Captain ${entry.ship.names.captain}` } : {}), team: crewTeamOf(entry.ship.cls), boat: entry.boat };",
-    "new": "const named = { team: crewTeamOf(entry.ship.cls), boat: entry.boat };",
+    "old": "const named = { ...(i === 0 && entry.ship.names?.captain ? { name: `Captain ${entry.ship.names.captain}` } : {}), team: crewTeamOf(entry.ship.cls), boat: entry.boat, ...(c ? { gender: c.gender } : {}) };",
+    "new": "const named = { team: crewTeamOf(entry.ship.cls), boat: entry.boat, ...(c ? { gender: c.gender } : {}) };",
     "tests": [
       "test/navaudit_boarding.test.js"
     ]

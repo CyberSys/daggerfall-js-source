@@ -335,6 +335,30 @@ export function deckOf(g) {
       out[2] = Math.min(z0 + cell - e, Math.max(z0 + e, z));
       return out;
     },
+    /**
+     * Her rail's deck point on `side` (+1 her starboard, her frame's +x; -1 port) at `z`: the outermost deck cell of the
+     * row there - or of the nearest row with deck - `[x, y, z]` its centre, into `out`; null for a hull with no deck.
+     * (The deck point nearest a point far abeam is her widest cell whatever `z` is asked - a tapered hull's rail is no
+     * clamp's.)
+     * @param {number} side @param {number} z @param {number[]} [out]
+     */
+    rail(side, z, out = [0, 0, 0]) {
+      if (!count) return null;
+      const k0 = Math.min(nz - 1, Math.max(0, Math.floor((z - minZ) / cell)));
+      for (let r = 0; r < nz; r++) {
+        for (let pass = 0; pass < (r ? 2 : 1); pass++) {
+          const k = pass ? k0 + r : k0 - r;
+          if (k < 0 || k >= nz) continue;
+          for (let n = 0; n < nx; n++) {
+            const i = side > 0 ? nx - 1 - n : n, j = k * nx + i;
+            if (Number.isNaN(y[j])) continue;
+            out[0] = minX + (i + 0.5) * cell; out[1] = y[j]; out[2] = minZ + (k + 0.5) * cell;
+            return out;
+          }
+        }
+      }
+      return null;
+    },
     /** `n` spots spread across the deck - farthest-point sampling from the cell nearest her middle - `[x, y, z]`. */
     spots(n) {
       if (!count || n <= 0) return [];

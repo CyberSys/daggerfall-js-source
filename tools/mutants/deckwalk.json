@@ -245,8 +245,8 @@
   {
     "name": "DECK-WALK-ally-a-crew",
     "file": "src/scenes/world.js",
-    "old": "allied: side === 'ally', team: side === 'ally' ? null : team })",
-    "new": "allied: side === 'ally', team })",
+    "old": "team: side === 'ally' ? null : team, ...(gender ? { gender } : {}) })",
+    "new": "team, ...(gender ? { gender } : {}) })",
     "tests": [
       "test/navaudit_boarding.test.js"
     ]
@@ -254,8 +254,8 @@
   {
     "name": "DECK-WALK-muster-team-dropped",
     "file": "src/scenes/navalHost.js",
-    "old": "{}), team: crewTeamOf(entry.ship.cls), boat: entry.boat };",
-    "new": "{}), boat: entry.boat };",
+    "old": "{}), team: crewTeamOf(entry.ship.cls), boat: entry.boat, ...(c ? { gender: c.gender } : {}) };",
+    "new": "{}), boat: entry.boat, ...(c ? { gender: c.gender } : {}) };",
     "tests": [
       "test/deckwalk.test.js"
     ]
@@ -263,8 +263,8 @@
   {
     "name": "DECK-WALK-muster-deck-dropped",
     "file": "src/scenes/navalHost.js",
-    "old": "{}), team: crewTeamOf(entry.ship.cls), boat: entry.boat };",
-    "new": "{}), team: crewTeamOf(entry.ship.cls) };",
+    "old": "{}), team: crewTeamOf(entry.ship.cls), boat: entry.boat, ...(c ? { gender: c.gender } : {}) };",
+    "new": "{}), team: crewTeamOf(entry.ship.cls), ...(c ? { gender: c.gender } : {}) };",
     "tests": [
       "test/deckwalk.test.js"
     ]
@@ -272,8 +272,8 @@
   {
     "name": "DECK-WALK-hands-deck-dropped",
     "file": "src/scenes/navalHost.js",
-    "old": "spawnFoe?.(HAND, spot[0], spot[1], 'ally', { boat: entry.boat });",
-    "new": "spawnFoe?.(HAND, spot[0], spot[1], 'ally');",
+    "old": "'ally', { boat: entry.boat, ...(mine[i] ? { gender: mine[i].gender } : {}) });",
+    "new": "'ally', { ...(mine[i] ? { gender: mine[i].gender } : {}) });",
     "tests": [
       "test/deckwalk.test.js"
     ]
@@ -281,8 +281,8 @@
   {
     "name": "DECK-WALK-repel-team-dropped",
     "file": "src/scenes/navalHost.js",
-    "old": "'enemy', { team: crewTeamOf(entry.ship.cls), boat });",
-    "new": "'enemy', { boat });",
+    "old": "'enemy', { team: crewTeamOf(entry.ship.cls), boat, ...(party[i] ? { gender: party[i].gender } : {}) });",
+    "new": "'enemy', { boat, ...(party[i] ? { gender: party[i].gender } : {}) });",
     "tests": [
       "test/deckwalk.test.js"
     ]
@@ -290,8 +290,8 @@
   {
     "name": "DECK-WALK-repel-deck-dropped",
     "file": "src/scenes/navalHost.js",
-    "old": "'enemy', { team: crewTeamOf(entry.ship.cls), boat });",
-    "new": "'enemy', { team: crewTeamOf(entry.ship.cls) });",
+    "old": "'enemy', { team: crewTeamOf(entry.ship.cls), boat, ...(party[i] ? { gender: party[i].gender } : {}) });",
+    "new": "'enemy', { team: crewTeamOf(entry.ship.cls), ...(party[i] ? { gender: party[i].gender } : {}) });",
     "tests": [
       "test/deckwalk.test.js"
     ]
@@ -299,8 +299,8 @@
   {
     "name": "DECK-WALK-repel-hands-off-deck",
     "file": "src/scenes/navalHost.js",
-    "old": "spawnFoe?.(HAND, spot[0], spot[1], 'ally', { boat });",
-    "new": "spawnFoe?.(HAND, spot[0], spot[1], 'ally');",
+    "old": "'ally', { boat, ...(mine[i] ? { gender: mine[i].gender } : {}) });",
+    "new": "'ally', { ...(mine[i] ? { gender: mine[i].gender } : {}) });",
     "tests": [
       "test/deckwalk.test.js"
     ]
@@ -471,8 +471,8 @@
   {
     "name": "SHIPMATES-bars-clear-unwired",
     "file": "src/scenes/world.js",
-    "old": "drawNavalTags([]); drawCrewBars([]); };",
-    "new": "drawNavalTags([]); };",
+    "old": "drawNavalTags([]); drawCrewBars([]); drawCrewLines([]); };",
+    "new": "drawNavalTags([]); drawCrewLines([]); };",
     "tests": [
       "test/deckwalk.test.js"
     ]

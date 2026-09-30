@@ -1868,25 +1868,34 @@ export function createNavalHost(deps) {
     if (b.kind === 'board') {
       const spots = deps.board?.deckSpots?.(entry.boat, DECK_SPOTS) ?? [];
       const [first, ...rest] = spots.length ? spots : [[entry.ship.pos, entry.ship.yaw]];
-      deps.board?.placePlayer?.(first[0], first[1]);
-      const deal = dealer(rest);   // AUDIT NAV1 (B10): every body a spot of its own, the deck's own dealt round
+      // LIVING CREW (seamless): over the rail onto her deck across from where I stand - never her middle, a haul off
+      const landing = deps.board?.landing?.(entry.boat, deps.feet()) ?? null;
+      deps.board?.placePlayer?.((landing ?? first)[0], (landing ?? first)[1]);
+      const deal = dealer(landing ? spots : rest);   // AUDIT NAV1 (B10): every body a spot of its own, the deck's own dealt round
       const muster = musterOf(entry.ship.cls, entry.ship.damage.crewShare());
       const all = [muster.captain, ...muster.men];
+      // LIVING CREW: her crew fight where they stand - the men on her deck are her muster's first, in its order
+      // (crewLife.js crewRoster is musterOf's), each his own sex; the rest come up from below at the deck's spots
+      const crew = deps.board?.crewOf?.(entry.boat, Infinity) ?? [];
       b.foes = [];
       for (let i = 0; i < all.length; i++) {
-        const spot = deal() ?? first;
+        const c = crew[i];
+        const spot = c ? [c.feet, c.yaw] : deal() ?? first;
         // AUDIT NAV1 (B9): her captain by his name - the one the win asks for, never one more Spellsword among the rest
         // DECK-WALK: one crew (her faction's team) on her deck
-        const named = { ...(i === 0 && entry.ship.names?.captain ? { name: `Captain ${entry.ship.names.captain}` } : {}), team: crewTeamOf(entry.ship.cls), boat: entry.boat };
+        const named = { ...(i === 0 && entry.ship.names?.captain ? { name: `Captain ${entry.ship.names.captain}` } : {}), team: crewTeamOf(entry.ship.cls), boat: entry.boat, ...(c ? { gender: c.gender } : {}) };
         const handle = deps.board?.spawnFoe?.(all[i], spot[0], spot[1], 'enemy', named);
         if (handle) b.foes.push({ handle, captain: i === 0 });
       }
       entry.deck = b.foes.map((f) => f.handle);   // they fall on her deck, and go with her
       const st = myBoatState(boat);
       const hands = handsOf(st?.damage.crew ?? 0, !!boat?.crewed);
+      // LIVING CREW: my hands are my own crew, off my deck and over with me, onto her rail across from my ship
+      const mine = deps.board?.crewOf?.(boat, hands) ?? [];
+      const rail = dealer(deps.board?.railSpots?.(entry.boat, boat ? boatPose(boat).position : deps.feet(), hands) ?? []);
       for (let i = 0; i < hands; i++) {
-        const spot = deal() ?? first;
-        const handle = deps.board?.spawnFoe?.(HAND, spot[0], spot[1], 'ally', { boat: entry.boat });   // DECK-WALK: my hands on her deck
+        const spot = rail() ?? deal() ?? first;
+        const handle = deps.board?.spawnFoe?.(mine[i]?.mobile ?? HAND, spot[0], spot[1], 'ally', { boat: entry.boat, ...(mine[i] ? { gender: mine[i].gender } : {}) });   // DECK-WALK: my hands on her deck
         if (handle) b.hands.push({ handle });
       }
       deps.mid?.(`You board ${entry.ship.names?.name ?? 'her'}!`, 3);
@@ -1902,20 +1911,24 @@ export function createNavalHost(deps) {
     }
     const deal = dealer(deps.board?.deckSpots?.(boat, DECK_SPOTS) ?? []);   // AUDIT NAV1 (B10)
     const n = repelPartyOf(entry.ship.cls);
+    // LIVING CREW (seamless): her party is her own men (never her captain), off her deck and over my rail across from her
+    const party = deps.board?.crewOf?.(entry.boat, n, { from: 1 }) ?? [];
+    const rail = dealer(deps.board?.railSpots?.(boat, entry.ship.pos, n) ?? []);
     b.foes = [];
     for (let i = 0; i < n; i++) {
-      const spot = deal();
+      const spot = rail() ?? deal();
       if (!spot) break;
-      const handle = deps.board?.spawnFoe?.(musterOf(entry.ship.cls).men[i % 4], spot[0], spot[1], 'enemy', { team: crewTeamOf(entry.ship.cls), boat });   // DECK-WALK: her party, one crew, on my deck
+      const handle = deps.board?.spawnFoe?.(party[i]?.mobile ?? musterOf(entry.ship.cls).men[i % 4], spot[0], spot[1], 'enemy', { team: crewTeamOf(entry.ship.cls), boat, ...(party[i] ? { gender: party[i].gender } : {}) });   // DECK-WALK: her party, one crew, on my deck
       if (handle) b.foes.push({ handle, captain: false });
     }
     // AUDIT NAV1 (B2): her crew stands to repel them - Warm Ashes' raid refused (one at a time) or the mod off, a crewed
     // boat's hands fight beside the player as they go over with them to board (handsOf; none from an uncrewed boat)
     const hands = handsOf(myBoatState(boat)?.damage.crew ?? 0, crewed);
+    const mine = deps.board?.crewOf?.(boat, hands) ?? [];   // LIVING CREW: my own crew, standing to where they stand
     for (let i = 0; i < hands; i++) {
-      const spot = deal();
+      const spot = mine[i] ? [mine[i].feet, mine[i].yaw] : deal();
       if (!spot) break;
-      const handle = deps.board?.spawnFoe?.(HAND, spot[0], spot[1], 'ally', { boat });   // DECK-WALK: my hands on my own deck
+      const handle = deps.board?.spawnFoe?.(mine[i]?.mobile ?? HAND, spot[0], spot[1], 'ally', { boat, ...(mine[i] ? { gender: mine[i].gender } : {}) });   // DECK-WALK: my hands on my own deck
       if (handle) b.hands.push({ handle });
     }
   }
@@ -2133,7 +2146,7 @@ export function createNavalHost(deps) {
     const b = raids.get(quest);
     if (!b) return quest && raidUids.has(quest.uid) ? false : null;
     if (!b.boat) return null;
-    b.deal ??= dealer(deps.board?.deckSpots?.(b.boat, DECK_SPOTS) ?? []);
+    b.deal ??= dealer([...(deps.board?.railSpots?.(b.boat, sea.get(b.shipId)?.ship.pos ?? deps.feet(), DECK_SPOTS / 2) ?? []), ...(deps.board?.deckSpots?.(b.boat, DECK_SPOTS) ?? [])]);   // LIVING CREW: a raid's waves over my rail across from her first
     for (let i = 0; i < b.deal.size; i++) {
       const spot = b.deal();
       if (spot && (!isFree || isFree(spot))) return [spot[0], spot[1], b.boat];   // DECK-WALK: and the deck it is on - the wave stays on it
@@ -2935,6 +2948,27 @@ export function createNavalHost(deps) {
       }
       return out;
     },
+    /** LIVING CREW (scenes/navalCrew.js): the sea's ships whose crew can stand on her deck - her boat built, afloat,
+     *  struck or taken - each with her class (the muster's classes), what her crew has left, her seed, her faction,
+     *  whether her guns are out (`battle`: she engages, boards, runs or answers gunfire) and whether her crew is held
+     *  off her deck (`hold`: a prize, or her men the fight's - my boarding's, or another's in a room). */
+    crewShips() {
+      if (!enabled) return [];
+      const out = [];
+      for (const e of sea.values()) {
+        const st = e.ship.damage.state;
+        if (!e.boat || (st !== SHIP_STATES.afloat && st !== SHIP_STATES.struck && st !== SHIP_STATES.prize)) continue;
+        const mine = boarding?.shipId === e.id;
+        const hold = st === SHIP_STATES.prize || (mine ? boarding.phase === 'fight' && boarding.kind === 'board' : !!e.ship.boarded);
+        const battle = st === SHIP_STATES.afloat && e.ship.mode !== 'cruise';
+        out.push({ key: e.id, boat: e.boat, pos: e.ship.pos, shipClass: e.ship.cls, crewShare: e.ship.damage.crewShare(), seed: e.ship.seed, faction: e.ship.cls.faction, battle, hold });
+      }
+      return out;
+    },
+    /** LIVING CREW: a sea ship's boat by her id (a grapple's other ship, whose rail a crew musters toward). */
+    boatOf: (id) => sea.get(id)?.boat ?? null,
+    /** LIVING CREW: a boat of mine's crew - her count and whether she is in a fight (the aim laid, a hostile near). */
+    myCrew(boat) { const st = myBoatState(boat); return st ? { crew: st.damage.crew, battle: aiming || hostileNearMe() } : null; },
     /** The sea ships' boats standing near enough to be struck and walked on (the world's collider takes them). */
     collidable() { const f = deps.feet(); return [...sea.values()].filter((e) => e.boat && dist2d(e.ship.pos, f) < COLLIDE_RANGE).map((e) => e.boat); },
     /** Every sea ship's boat (their particles ride Come Sail Away's lists). */

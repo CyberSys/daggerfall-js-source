@@ -449,7 +449,7 @@ test('SHIPMATES THE CREW\'S BARS: a green bar a crewman - the party\'s one green
   assert.match(WORLD, /for \(const f of exteriorFoes\.foes\) \{[^\n]*\n\s+const feet = f\.ai\?\.feet;\n\s+if \(!isShipmate\(f\) \|\| !feet \|\| !f\.entity\) continue;/);
   assert.match(WORLD, /if \(crewSight\.blocked\(player\.collider, eye, key, head\)\) continue;/);
   assert.match(WORLD, /const crewSight = createSightCache\(\);/);
-  assert.match(WORLD, /drawNavalHud\(null\); drawNavalTags\(\[\]\); drawCrewBars\(\[\]\); \};/);
+  assert.match(WORLD, /drawNavalHud\(null\); drawNavalTags\(\[\]\); drawCrewBars\(\[\]\); drawCrewLines\(\[\]\); \};/);
 });
 
 // ── the room: another's crew ────────────────────────────────────────────────────────────────────────────────────
