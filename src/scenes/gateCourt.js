@@ -16,14 +16,16 @@
 // has already cued, landed and judged, and the host's doors.
 //
 // Not a DFU member. Ledger A (WB).
-import { ATTACK_BY_ID, ATTACKS, COURT_CENTRE, HIT_KINDS, POOL_TICK_MS, PHASE_NAMES, profileOf, nearestCourt, windupOf, CRYSTAL_R, CRYSTAL_H } from '../net/gateBrain.js';
+import { ATTACK_BY_ID, ATTACKS, COURT_CENTRE, COURTS, COURT_R, HIT_KINDS, POOL_TICK_MS, PHASE_NAMES, profileOf, nearestCourt, windupOf, CRYSTAL_R, CRYSTAL_H } from '../net/gateBrain.js';
 import { strikeVerdict, blowOf, strikeDamage, savedShare, landingPools, poolUnder } from '../net/gateStrike.js';
 import { GATE_BOSSES, gateBossOf } from '../net/gateLaw.js';
 import { bossAct, bossFrame, bossGlow, bossPlace, bossHop, bossLookOf, bossStandIn, bossCue, BOSS_CUES, BOSS_STRIDE_M, GROWL_EVERY_MS, HURT_GAP_MS, HURT_SHARE, QUAKE_ON, THUD_AT_MS, WARD_COLOR, EMBER_COLOR, poolColor, emberColor, attackColor, crystalStandIn, crystalColor, groundStepCue } from '../world/gateBoss.js';
 import { courtToDungeon, portalDoor, PORTAL_AFTER_MS, PORTAL_RISE_MS, PORTAL_DROP, COURT_TEXT } from '../world/gateArena.js';
 import { GateTelegraphRenderer, telegraphShape, markShape, poolShapes, TELEGRAPH_STYLE } from '../render/gateTelegraph.js';
 import { CourtCrystalRenderer, crystalGrowth, CRYSTAL_GROW_MS, CRYSTAL_SHATTER_MS, CRYSTAL_FLASH_MS, CRYSTALS_DRAW_MAX } from '../render/courtCrystals.js';   // WB9c: the crystals of Oblivion, drawn
-import { GateFxRenderer, fxBurstOf, meteorFall, FX_BURST_MS, FX_BURSTS_MAX } from '../render/gateFx.js';   // WB9e: his blows seen landing
+import { GateFxRenderer, fxBurstOf, meteorFall, FX_BURST_MS, FX_BURSTS_MAX, FX_KINDS } from '../render/gateFx.js';   // WB9e: his blows seen landing
+import { tierColour } from '../render/spoilsGlow.js';   // WB9f: a piece's landing sparks in its tier's colour
+import { RARITIES } from '../systems/lootRarity.js';
 import { GatePassRenderer, gateSpinRate } from '../render/gatePass.js';   // WBX2: the portal's fire is the gate's own
 import { gateArchProfile } from '../world/gateModel.js';
 import { ONLINE_MINUTES_PER_MS } from '../net/wire.js';   // WBX7: a soul trap's rounds on the shared world's clock
@@ -89,6 +91,16 @@ export const COURT_ROUND_MS = Math.round(1 / ONLINE_MINUTES_PER_MS);
  *  aspect's ember (MARK_COLOR the Burning Warden's). */
 export const markColorOf = (ember) => Object.freeze(ember.map((c) => Math.min(1, c * 1.1)));
 export const MARK_COLOR = markColorOf(EMBER_COLOR);
+/** WB9f: his spoils rest no nearer the court's edge than this (m) - the throw is softened until they do
+ *  (world/gateSpew.js keepLaunch) - and the gold his chest bursts in as they leave it. */
+export const SPEW_RIM_M = 2;
+export const SPOILS_BURST_COLOR = Object.freeze([1, 0.78, 0.28]);
+/** WB9f: the court floor his spoils must come to rest on - the court he fell in, SPEW_RIM_M in from its edge, in the
+ *  dungeon's frame (the burst's `keep`). Pure. */
+export function spoilsKeep(x, z) {
+  const C = COURTS[nearestCourt(x, z)], centre = courtToDungeon(C[0], 0, C[1]);
+  return { centre, r: COURT_R - SPEW_RIM_M, floorY: centre[1] };
+}
 /** WB5: his body bursts this long into his fall, and the spoils leave it (world/gateBoss.js FALL_MS is the whole fall);
  *  a receipt not come this long after it never will. */
 export const SPEW_AT_MS = 500;
@@ -369,22 +381,34 @@ export function createGateCourt({
     const [x, z] = bossPlace(s, s.fell.at);
     const at = courtToDungeon(x, profileOf(s).bossH * 0.55, z), f = feet();   // his chest - WB8b: Colossal's stands higher
     const bearing = f ? Math.atan2(f[0] - at[0], f[2] - at[2]) : s.yaw;
-    if (spoils.spew({ day: s.day, seed: claims.c, level: spoilsLevel(player()?.level ?? 1, claims.l), at, bearing, acct: claims.s })) say(COURT_STRIKE_TEXT.spilled(bossOf(s).name));   // AUDIT WBX S2: never past the level the fight admitted   // AUDIT WB A9: once a receipt - its day and account; WBX3: and said to be theirs
+    const keep = spoilsKeep(x, z);   // WB9f: on the floor of the court he fell in, never off its edge into the fire
+    if (spoils.spew({ day: s.day, seed: claims.c, level: spoilsLevel(player()?.level ?? 1, claims.l), at, bearing, acct: claims.s, keep })) {   // AUDIT WBX S2: never past the level the fight admitted   // AUDIT WB A9: once a receipt - its day and account
+      say(COURT_STRIKE_TEXT.spilled(bossOf(s).name));   // WBX3: and said to be theirs
+      addBurst(at, t, FX_KINDS.spoils, SPOILS_BURST_COLOR, keep.floorY);   // WB9f: his chest bursts in gold as they leave it
+    }
   }
 
   /** WB9e: THE BURSTS A LANDING THROWS (render/gateFx.js fxBurstOf) - at his feet for his own (the slam, the nova,
    *  Dagon's), where it lands for a leap, a bound or a meteor, under each mark for Hellfire - from its moment on the
    *  relay's clock, in its colour under his profile; a slot reused, the oldest given up past FX_BURSTS_MAX. */
+  /** A burst at `p` (the dungeon's frame) from `at0` (the relay's clock) - a slot reused, the oldest given up past
+   *  FX_BURSTS_MAX; `floor` the floor's height under it (WB9f: his spoils' gold bursts out of his chest), else its own. */
+  function addBurst(p, at0, kind, color, floor = NaN) {
+    let b = _bursts.length < FX_BURSTS_MAX ? null : _bursts.reduce((o, q) => (q.at0 < o.at0 ? q : o));
+    if (!b) { b = { at: [0, 0, 0], at0: 0, t: 0, kind, color, floor: NaN }; _bursts.push(b); }
+    b.at[0] = p[0]; b.at[1] = p[1]; b.at[2] = p[2]; b.at0 = at0; b.kind = kind; b.color = color; b.floor = floor;
+  }
+  /** WB9f: A PIECE OF HIS SPOILS CAME TO REST (scenes/spoilsPool.js frame's `onRest`): its tier's sparks where it lies,
+   *  a Rare-or-better's brighter. Made once, handed every frame. */
+  const onSpoilRest = (pos, tier) => {
+    const rare = (RARITIES[tier]?.rank ?? 0) >= RARITIES.rare.rank;
+    addBurst(pos, now(), rare ? FX_KINDS.spoilRestRare : FX_KINDS.spoilRest, tierColour(tier));
+  };
   function burstsOf(atk, A, P) {
     const kind = fxBurstOf(A);
     if (!kind) return;
     const color = attackColor(A, P);
-    const add = (x, z) => {
-      let b = _bursts.length < FX_BURSTS_MAX ? null : _bursts.reduce((o, q) => (q.at0 < o.at0 ? q : o));
-      if (!b) { b = { at: [0, 0, 0], at0: 0, t: 0, kind, color }; _bursts.push(b); }
-      const p = courtToDungeon(x, 0.1, z);
-      b.at[0] = p[0]; b.at[1] = p[1]; b.at[2] = p[2]; b.at0 = atk.at; b.kind = kind; b.color = color;
-    };
+    const add = (x, z) => addBurst(courtToDungeon(x, 0.1, z), atk.at, kind, color);
     if (A.aim === 'self') add(atk.x, atk.z);
     else if (A.aim === 'point') { const p = atk.tg?.[0]; if (p) add(p[0], p[1]); }
     else if (A.aim === 'players') for (const p of atk.tg ?? NONE) add(p[0], p[1]);
@@ -558,7 +582,7 @@ export function createGateCourt({
       fxFrame(s, t, P);   // WB9e: the sparks of his landings and the meteor's fall
       drawBody(s, t, P);
       burst(s, t);
-      spoils?.frame();
+      spoils?.frame(onSpoilRest);   // WB9f: each piece's landing sparks
       portalFrame(s, t, Number.isFinite(prevT) ? Math.max(0, t - prevT) / 1000 : 0);   // WBX2: the way home, once he has fallen
       shape = s.fell ? null : telegraphShape(s.atk, s.phase, t, P);
       // WBX4: his mark under him, while he stands; WBX5: the burning ground (WB8b: his aspect's)

@@ -40,10 +40,12 @@ export const HOVER_MAX = 6;
  * `loot:` and `corpse:` are the dungeon's RDB piles and its bodies,
  * `droppedLoot:` is what a player left on the floor, and `foeCorpse:`
  * and `guardCorpse:` are the two above-ground bodies; `dwFish:` is Iliac
- * Puddle No More's fish, a DaggerfallLoot of one item (DW-E3). A key whose
- * prefix is not here draws as a name.
+ * Puddle No More's fish, a DaggerfallLoot of one item (DW-E3); `spoil:` is a
+ * piece of the Burning Court's spoils on its floor, a pile of one (WB9f - the
+ * gold beside it is `spoilGold:`, a name). A key whose prefix is not here
+ * draws as a name.
  */
-export const ITEMISED_KEYS = Object.freeze(['loot:', 'corpse:', 'droppedLoot:', 'foeCorpse:', 'guardCorpse:', 'dwFish:']);
+export const ITEMISED_KEYS = Object.freeze(['loot:', 'corpse:', 'droppedLoot:', 'foeCorpse:', 'guardCorpse:', 'dwFish:', 'spoil:']);
 
 /** Does this key open a list, or only a name? */
 export const keyItemises = (key) => typeof key === 'string' && ITEMISED_KEYS.some((p) => key.startsWith(p));

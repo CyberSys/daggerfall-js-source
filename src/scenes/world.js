@@ -12788,7 +12788,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9904-9968 -
+  // worldModes answers it in BOTH modes (worldModes.js:9915-9979 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -15723,6 +15723,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     who: () => characterIdOf(playerEntity),
     iconOf: (item) => itemIconColor32(item, { identity: playerEntity }),   // WBX3: each piece as its own picture - the pack's; AUDIT WBX S6: drawn for its wearer, as the pack draws it
     onSpent: (day) => { socialLink()?.sendGateSpent?.(day); },   // AUDIT WBX S1: a receipt spent here - the hub forgets its copy, so no other device or tab gives it again
+    itemName: (item) => lootPileName([item]),   // WB9f: a piece's word on the plaque, the loot piles' own (.cs:534-548)
   });
   /** RAID4b: A TOWN'S THANKS (systems/raidSpoils.js) - the spoils pool's door with no floor, under keys of its own (a
    *  town's receipts never push a boss's out of the spent list), and no word to the hub (it never kept a raid's receipt).
@@ -18601,6 +18602,12 @@ export async function bootWorld(canvas, renderer, params, status) {
     bossTrapNow: () => gateCourt?.trapNow?.() ?? null,   // AUDIT WBX F6: my trap running on him, for a recast to stack onto
     gateCrystals: () => gateCourt?.crystalTargets() ?? null,   // WB9c: the Reckoning's crystals as bodies my blows meet
     onCrystalHit: (hit) => !!gateCourt?.crystalHit(hit),   // WB9c: a blow's number on one, out to the room
+    // WB9f: HIS SPOILS ON THE FLOOR, pressed - the pool's resting pieces as targets, their words and their items for the
+    // plaque, and the press that takes one into the pack (the court's dungeon arm, worldModes.js standCourt)
+    spoilTargets: () => spoilsPool?.targets() ?? null,
+    spoilName: (key) => spoilsPool?.nameOf(key) ?? null,
+    spoilContents: (key) => spoilsPool?.contentsOf(key) ?? null,
+    takeSpoil: (key) => !!spoilsPool?.pick(key),
     // WB6a: the Deadlands' sea and sky, in the dungeon arm's world pass after the court's solid geometry - in the court's
     // own air (the renderer's fog as it set it for the court, the sky's light following the lane's with the fog's colour)
     drawGateBackdrop: ({ proj, view }) => {

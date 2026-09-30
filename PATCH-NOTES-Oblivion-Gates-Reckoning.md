@@ -23,4 +23,11 @@ The Warden's fight now crosses three courts and ends in a wipe you have to break
 - **Clearer telegraphs**: a sharp edge you can read from anywhere, a fuse that burns around the rim as the wind-up runs down, faster pulsing as it's about to land, a texture showing what it is (fire, frost, lightning, venom), and a shockwave when it hits.
 - **Impacts throw sparks and debris**, and you can **see the Meteor fall** out of the sky onto its target.
 
+## His spoils
+- **Your loot spreads out** when he falls. Each piece flies in its own direction across a wide arc toward you and lands at least a metre from the others, instead of in one heap.
+- **Nothing falls off the edge.** Every piece lands on the court's floor, however close to the edge he died.
+- **Look at a piece to inspect it**: its name and rarity show under your crosshair, with its stats in quick loot. The gold shows how much it is.
+- **Press activate to pick it up**, like any loot pile. Walking over it still works too.
+- His chest bursts in gold as the spoils leave it, and each piece sparks in its rarity's colour where it lands (brighter for Rare and up).
+
 Reload the game after the update to fight (the gate needs this version).

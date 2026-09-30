@@ -982,13 +982,46 @@ grit for his weight, flame and his aspect's colours for his element, the heavy o
 meteor seen falling out of the Deadlands' sky onto its mark through the last METEOR_FALL_MS of its wind-up, its trail
 behind it.
 
+### His spoils spread and handled (WB9f)
+
+THE THROW (`world/gateSpew.js`): WB5 threw each piece on a bearing of its own roll inside 0.9 radians of the player's, at
+7-10.5 m/s, so five pieces could leave on one line and land in one heap. Each piece now takes its own SLOT of a fan 1.6
+radians either side (SPEW_SPREAD - a half-disc toward the player, never behind him), the slots dealt out in the seed's
+order and each piece jittered inside its own, never within SPEW_SLOT_MARGIN of its edges (`spewLaunches`), thrown at
+8-13 m/s: over 200 seeds no two of a kill's pieces rest within a metre of each other, none past a dozen metres out.
+A throw that hard could carry a piece off the court's edge into the fire, so each launch is FLOWN AHEAD over the
+court's floor (`restOf` - the torch's own flight over one plane, `floorRayAt`) and thrown softer (SPEW_KEEP_EASE a try,
+its direction kept) until it rests inside `keep` - the court he fell in, SPEW_RIM_M in from its edge
+(`scenes/gateCourt.js spoilsKeep`) - or, past SPEW_KEEP_TRIES, turned toward the centre (`keepLaunch`).
+
+THE PRESS (`scenes/spoilsPool.js`): a resting piece is an ACTIVATION TARGET in the loot piles' own shape - a box over
+its picture, won at the ray's reach (RAY_DISTANCE) and taken at the treasure's (TREASURE_ACTIVATION_DISTANCE, so "You
+are too far away" is said as a chest's is) - `spoil:<i>` for an item, ITEMISED (systems/worldHover.js ITEMISED_KEYS:
+the plaque lists the one item, with its tier and, under quick loot's stats, what it is), `spoilGold:<i>` for the gold
+(named: "412 Gold Pieces"). The pool answers the ray (`targets` - one list refilled, each piece's target made at its
+rest), the ladder (`nameOf` - the item's own word by the host's `itemName`, the loot piles' lootPileName, and its tier
+below it), the plaque (`contentsOf`) and the press (`pick` - into the pack, said as a walk-over says it; once). The
+court stands the family where it is stood (`scenes/worldModes.js standCourt` - the fourth `addActivationTargets`, its
+namer beside it), the dungeon arm's press takes a `spoil` key through the host after the reach is judged and before
+any loot rung, the context's `lootContents` asks the host for the plaque's list, and the world host hands the pool to
+all four. Walking over a piece still takes it (WBX3's SPOILS_TAKE_AFTER_MS after its rest).
+
+THE SIGHT (`render/gateFx.js`, `scenes/gateCourt.js`): as they leave him his chest bursts in gold (FX_KINDS.spoils) -
+the sparks falling to the floor under it (a burst's `floor`: `uFloor`, `sparkAt`'s `floorRel`), not hanging at his
+chest's height - and each piece's landing (the pool's `frame(onRest)`) throws its tier's sparks where it lies, a
+Rare-or-better's more and brighter (spoilRest, spoilRestRare).
+
 Pinned: `test/wb9a_gate_marks_seen.test.js` (7), `test/wb9b_gate_courts.test.js` (12), `test/wb9c_gate_reckoning.test.js`
-(16), `test/wb9d_gate_ground.test.js` (5), `test/wb9e_gate_blows.test.js` (6); mutants `tools/mutants/wb9b.json` (19, all
-dead), `tools/mutants/wb9c.json` (31: 30 dead, the dead counted at the crystals' growth equivalent as recorded - the court's
-living are filtered once), `tools/mutants/wb9d.json` (9, all dead), `tools/mutants/wb9e.json` (9, all dead). The older
-suites re-aimed where WB9 moved their law: the phase's turn (WB3, WBX5, WB8b - the bound and the wait for the leap), the
-court's geometry (WB3b, WB6b - three courts, the braziers and shards clear of the walkways), the damage numbers (WB4,
-WB8c), the telegraph's text (WB4), the motor's clamp (AUDIT DUEL1), the relay's version pins (world134).
+(16), `test/wb9d_gate_ground.test.js` (5), `test/wb9e_gate_blows.test.js` (6), `test/wb9f_gate_spoils.test.js` (10);
+mutants `tools/mutants/wb9b.json` (19, all dead), `tools/mutants/wb9c.json` (31: 30 dead, the dead counted at the
+crystals' growth equivalent as recorded - the court's living are filtered once), `tools/mutants/wb9d.json` (9, all
+dead), `tools/mutants/wb9e.json` (9, all dead), `tools/mutants/wb9f.json` (24, all dead). The older suites re-aimed
+where WB9 moved their law: the phase's turn (WB3, WBX5, WB8b - the bound and the wait for the leap), the court's
+geometry (WB3b, WB6b - three courts, the braziers and shards clear of the walkways), the damage numbers (WB4, WB8c),
+the telegraph's text (WB4), the motor's clamp (AUDIT DUEL1), the relay's version pins (world134); and for WB9f the
+burst's call (AUDIT WB A2, WBX3 - it hands the court's floor), the spew's bearing (WB5's toward-his-back mutant), the
+itemised keys and the court's fourth target family (WORLD-HOVER), the pool's keys (RAID4b's mutant), the spark's floor
+(WB9e).
 
 ## Shipped
 

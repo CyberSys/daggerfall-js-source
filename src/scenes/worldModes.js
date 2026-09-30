@@ -6832,6 +6832,7 @@ export function createWorldModes(host) {
    *  the court, once a session. WB9b: and the one slab every walkway between the courts is laid in. */
   let _landMesh = null, _shardMesh = null, _slabMesh = null;
   const NO_XA = Object.freeze([]);   // WB9b: no crossings heard - every walkway under the fire
+  const NO_TARGETS = Object.freeze([]);   // WB9f: a court with no spoils on its floor stands no targets
   const COURT_BUCKET = 'wb:court';
   /** AUDIT WB D10: the court's equator light, one array filled each frame (the renderer reads it that frame). */
   const _courtEquator = new Float32Array(3);
@@ -6861,6 +6862,12 @@ export function createWorldModes(host) {
     ctx.collider.addMesh(COURT_BUCKET, tris, idx, identity());
     ctx.exitDoors.push(courtExitDoor());   // the made block has no door: the membrane is the level's one exit
     ctx.addActivationNamer((key) => (typeof key === 'string' && key.startsWith('exit:') ? { title: COURT_TEXT.wayHome } : null));   // before the dungeon exit's own namer, so it answers first
+    // WB9f (Mac: "The player should be able to inspect and pick up the ground item, not just walk over it"): HIS SPOILS
+    // ON THE FLOOR, PRESSED - each resting piece a target the one ray can win (the outer host's pool - scenes/spoilsPool.js
+    // targets), named by its own word, its item listed on the plaque (the context's lootContents asks `spoilContents`)
+    // and taken by the press (the dungeon arm's `spoil` rung)
+    ctx.addActivationTargets(() => host.spoilTargets?.() ?? NO_TARGETS);
+    ctx.addActivationNamer((key) => (typeof key === 'string' && key.startsWith('spoil') ? host.spoilName?.(key) ?? null : null));
   }
   /** WB6b: THE DEADLANDS' LAND stood into the court's context, after the court (whose art it is cut from): the islands
    *  among its draws, and each of the floor's shards with a matrix of its own - moved every frame on the sky's clock
@@ -7080,6 +7087,7 @@ export function createWorldModes(host) {
           bossTrapNow: () => host.bossTrapNow?.() ?? null,   // AUDIT WBX F6: the trap running on him, so a recast stacks onto it
           gateCrystals: () => host.gateCrystals?.() ?? null,   // WB9c: the Reckoning's crystals as bodies my blows meet (none but in a Reckoning)
           onCrystalHit: (hit) => !!host.onCrystalHit?.(hit),   // WB9c: and the door a blow's number on one leaves through
+          spoilContents: (key) => host.spoilContents?.(key) ?? null,   // WB9f: a piece of his spoils, listed on the plaque
           onActions: (data) => host.onActions?.(data), peers: () => host.peers?.() ?? null, selfId: () => host.selfId?.() ?? null, party: () => host.partyNear?.() ?? [],   // WORLD3: a door moved goes out; the peers the foes see; whose blow a puppet's is
           postItem: (text) => host.postItem?.(text) ?? false, canPostItem: () => host.canPostItem?.() ?? false,   // CHAT-POST: the dungeon's pack posts through the outer host
           allyMarks: (sp) => host.allyMarks?.(sp) ?? null,   // AID1 onto ALLY-CAST: the party mates' bodies, in the dungeon's frame - SPELL-GIFT: with the spell
@@ -7467,6 +7475,9 @@ export function createWorldModes(host) {
     // un-widened family answers `reach === distance` and never gets
     // here. The quest resource stays the recorded delta it is.
     if (_pick.distance > _pick.reach) { setMidScreenText(TOO_FAR_AWAY_TEXT); return true; }
+    // WB9f: A PIECE OF HIS SPOILS, pressed - into the pack, said as a walk-over says it (the court's own rung: the court
+    // alone stands these keys)
+    if (key.startsWith('spoil')) { host.takeSpoil?.(key); return true; }
     // U26: droppedLoot: is the player's own pile - the same three-way
     // arm the standalone dungeon scene carries, kept in step here.
     if (key.startsWith('loot:') || key.startsWith('corpse:') || key.startsWith('droppedLoot:') || key.startsWith('droppedTorch:') || key.startsWith('camp:') || key.startsWith('hearth:')) {   // AUDIT-WH2 L2-F1: hearth: - HEARTH1's fourth host, stood and named down here since it shipped and never answered

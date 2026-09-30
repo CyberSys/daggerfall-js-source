@@ -11,8 +11,8 @@
   {
     "name": "WB5-toward-his-back",
     "file": "src/world/gateSpew.js",
-    "old": "    const a = bearing + (rolls() * 2 - 1) * SPEW_SPREAD;",
-    "new": "    const a = bearing + Math.PI + (rolls() * 2 - 1) * SPEW_SPREAD;",
+    "old": "    const a = bearing + (u * 2 - 1) * SPEW_SPREAD;",
+    "new": "    const a = bearing + Math.PI + (u * 2 - 1) * SPEW_SPREAD;",
     "tests": [
       "test/wb5_gate_spoils.test.js"
     ]

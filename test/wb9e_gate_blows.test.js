@@ -104,7 +104,7 @@ test('WB9e the landing\'s bursts: sparks from the slam, the leap, the bound, Hel
     assert.equal(late.spent, 1, 'spent within the burst');
   }
   assert.ok(Math.hypot(sparkAt(3, 0.3, 1.6).at[0], sparkAt(3, 0.3, 1.6).at[2]) > Math.hypot(sparkAt(3, 0.3, 1).at[0], sparkAt(3, 0.3, 1).at[2]), 'further for the heavy');
-  assert.match(FX_SPARK_VS, /max\(upv \* t - 7\.000 \* t \* t, 0\.05\)/, 'the shader\'s own rest on the floor');
+  assert.match(FX_SPARK_VS, /max\(upv \* t - 7\.000 \* t \* t, uFloor - uAt\.y \+ 0\.05\)/, 'the shader\'s own rest on the floor (WB9f: the floor under it)');
 });
 
 test('WB9e the meteor seen falling: through the last METEOR_FALL_MS of its wind-up, out of the sky down its path onto its mark, gathering speed; none before, none after, none for any other attack (mutants: the stone at its mark all the wind-up)', () => {

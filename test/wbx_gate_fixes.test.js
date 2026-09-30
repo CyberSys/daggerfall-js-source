@@ -267,7 +267,7 @@ test('WBX3 the picture, the burst and the pieces\' words: the icon\'s key is its
   assert.equal(await itemIconColor32(null), null);
   assert.equal(await itemIconColor32({ templateIndex: 101 }), null, 'node has no canvas - the pile stands');
   const gc = read('src/scenes/gateCourt.js');
-  assert.match(gc, /if \(spoils\.spew\(\{[^\n]*\}\)\) say\(COURT_STRIKE_TEXT\.spilled\(bossOf\(s\)\.name\)\);/);
+  assert.match(gc, /if \(spoils\.spew\(\{[^\n]*\}\)\) \{[^\n]*\n\s*say\(COURT_STRIKE_TEXT\.spilled\(bossOf\(s\)\.name\)\);/);
   assert.match(COURT_STRIKE_TEXT.spilled('Valkynaz Ruhn'), /yours alone/);
   assert.match(read('src/scenes/world.js'), /iconOf: \(item\) => itemIconColor32\(item, \{ identity: playerEntity \}\),/);   // AUDIT WBX S6: drawn for its wearer
   assert.ok(lineHeight('artifact') > lineHeight('legendary'));

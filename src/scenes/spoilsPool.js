@@ -56,16 +56,26 @@
 // roll and words at the grant; the crash's door asks their record by its own key. Its "day" is the raid's
 // (raidSpoilsDay - a string), and it tells the hub nothing: no `onSpent` (the hub never kept a raid's receipt).
 //
+// WB9f (2026-09-30, Mac: "Improve the loot drops that emit on his death and have them spread out more. The player should
+// be able to inspect and pick up the ground item, not just walk over it"): THE SPOILS, SPREAD AND HANDLED. The burst
+// throws each piece its own slot of a wider fan, kept on the court's floor (world/gateSpew.js keepLaunch, off the
+// court's `keep` the burst hands in); and a resting piece is an ACTIVATION TARGET - `spoil:<i>` for an item (a pile of
+// one, so the plaque lists it with its tier and, under quick loot's stats, what it is), `spoilGold:<i>` for the gold -
+// that the press takes into the pack (`pick`), the hosts' ladder naming it (`nameOf`) and the plaque reading it
+// (`contentsOf`). Walking over a piece still takes it. Each piece's rest is told to the court (`frame(onRest)`), which
+// throws its tier's sparks where it lands.
+//
 // Not a DFU member. Ledger A (WB).
 import { rollSpoils } from '../systems/gateSpoils.js';
 import { seededRng } from '../systems/wind.js';
-import { spewLaunches, spewPiece, flySpew } from '../world/gateSpew.js';
+import { spewLaunches, spewPiece, flySpew, keepLaunch } from '../world/gateSpew.js';
 import { SpoilsGlowRenderer, tierColour } from '../render/spoilsGlow.js';   // WBX3: the loot line
 import { RARITIES } from '../systems/lootRarity.js';
 import { RANDOM_TREASURE_ARCHIVE, RANDOM_TREASURE_ICONS, validLootItem } from '../systems/loot.js';
 import { billboardSize } from '../world/rmbFlats.js';
 import { SOUND } from '../systems/soundClips.js';
 import { CLIPS } from '../systems/handheldTorches.js';
+import { RAY_DISTANCE, TREASURE_ACTIVATION_DISTANCE } from '../player/activate.js';   // WB9f: a piece is pressed as a loot pile is
 
 /** A resting piece is taken when the player's feet come within this of it (metres, across the floor). */
 export const SPOILS_TAKE_M = 1.3;
@@ -83,6 +93,14 @@ export function iconSize(width, height) {
   const k = Math.min(SPOILS_ICON_M_PER_PX, SPOILS_ICON_MAX_M / Math.max(1, width, height));
   return { w: Math.max(1, width) * k, h: Math.max(1, height) * k };
 }
+/** WB9f: THE PRESS - the keys a resting piece is pressed by (an item's is itemised: the plaque lists it), and the
+ *  half-width of its box about where it rests and the least height of it (a flat coin pile is still a thing to aim at).
+ *  It is won at the ray's reach and taken at DFU's TreasureActivationDistance - the loot piles' own
+ *  (dungeonContext.js lootTargets): too far, and the ladder says so. */
+export const SPOIL_KEY = 'spoil:';
+export const SPOIL_GOLD_KEY = 'spoilGold:';
+export const SPOIL_BOX_HALF_M = 0.45;
+export const SPOIL_BOX_MIN_H = 0.5;
 /** The glow rises over this long once a piece rests. */
 export const SPOILS_RISE_MS = 400;
 /** A Rare-or-better resting piece's light: its reach and its strength. */
@@ -100,6 +118,7 @@ export const SPOILS_TEXT = Object.freeze({
   gold: (n) => `You take ${n} gold pieces.`,
   item: (name, tier) => (tier && tier !== 'common' ? `You take ${name} (${RARITIES[tier]?.label ?? tier}).` : `You take ${name}.`),
   gathered: 'The spoils of the Burning Court are in your pack.',
+  goldName: (n) => `${n} Gold Pieces`,   // WB9f: the pile's name on the plaque
   granted: 'Your share of the Burning Court\'s spoils is in your pack.',   // AUDIT WB A2: a receipt that came outside its court
 });
 
@@ -210,7 +229,7 @@ export function recoverSpoils(store, take, { who = null, saves = [], onHanded = 
  *   store?: { get: (k: string) => any, set: (k: string, v: any) => void, remove: (k: string) => void, hold?: (k: string, v: any) => void, persisted?: (k: string) => boolean }|null,
  *   who?: () => string|null, wall?: () => number,
  *   iconOf?: ((item: any) => Promise<{key: string, width: number, height: number, colors: ArrayLike<number>}|null>)|null,
- *   onSpent?: (day: number) => void, keys?: { store: string, day: string }, recordsMax?: number,
+ *   onSpent?: (day: number) => void, keys?: { store: string, day: string }, recordsMax?: number, itemName?: ((item: any) => string)|null,
  * }} deps
  *   AUDIT WBX S1: `onSpent` is told each day whose receipt is spent here and safe (its record on the device, or a save
  *   holding its pieces) - and again whenever a spent one is offered - so the hub forgets its kept copy.
@@ -219,11 +238,13 @@ export function recoverSpoils(store, take, { who = null, saves = [], onHanded = 
  *   RAID4b: `keys` the device keys its records and its spent receipts go under (SPOILS_KEYS, a boss's, by default).
  *   AUDIT RAID R8a: `recordsMax` the crash records it keeps (SPOILS_RECORDS_MAX - a boss's one a day; a town's thanks
  *   come many a session, and a ninth unsaved pushed the first's pieces out of the crash's reach).
+ *   WB9f: `itemName` an item's word on the plaque (the host's - systems/worldTooltips.js lootPileName, the loot piles'
+ *   own), when a resting piece is under the crosshair.
  */
 export function createSpoilsPool({
   renderer = null, gl = null, getTexture = null, uploadRecordFrame = null, audio = null,
   ray, feet = () => null, now, take, say = () => {}, store = null, who = () => null, wall = () => Date.now(), iconOf = null,
-  onSpent = () => {}, keys = SPOILS_KEYS, recordsMax = SPOILS_RECORDS_MAX,
+  onSpent = () => {}, keys = SPOILS_KEYS, recordsMax = SPOILS_RECORDS_MAX, itemName = (item) => item?.name ?? 'Something',
 }) {
   const STORE_KEY = keys.store, DAY_KEY = keys.day;   // RAID4b: a town's thanks keep their own
   let glow = null;
@@ -232,9 +253,13 @@ export function createSpoilsPool({
   let rec = null, t0 = 0, from = null, launches = [];
   /** WBX3: `sprite` the piece's own picture once it has loaded ({record, w, h} under SPOILS_ICON_ARCHIVE), 'none' when it
    *  has none (gold, a picture that would not load) - then the treasure pile stands; `batchIcon` what its batch wears.
-   *  @type {Array<{ piece: any, fly: any, left: boolean, restAt: number, taken: boolean, batch: any, sprite: any, batchIcon: boolean, h: number }>} */
+   *  WB9f: `target` its activation target, made at its rest.
+   *  @type {Array<{ piece: any, fly: any, left: boolean, restAt: number, taken: boolean, batch: any, sprite: any, batchIcon: boolean, h: number, target: any }>} */
   let floor = [];
   let lastT = 0, tex = null, texLoading = null;
+  /** WB9f: the resting pieces' activation targets (AUDIT WB D10: one list, refilled; each piece's target made once, at
+   *  its rest - a resting piece never moves) */
+  const _targets = [];
 
   const keep = (k, v) => { try { store?.set(k, v); } catch { /* the floor still holds them */ } };
   const read = (k) => { try { return store?.get(k) ?? null; } catch { return null; } };
@@ -327,19 +352,32 @@ export function createSpoilsPool({
     if (spewId && floor.every((g) => g.taken)) { held.set(spewId, { who: who(), day: rec?.day }); spewId = null; }   // AUDIT WBX S3: all of it in the pack
   }
 
+  /** WB9f: the floor's piece a key names - resting, not yet taken - or null. */
+  function pieceAt(key) {
+    if (typeof key !== 'string' || !floor.length) return null;
+    const gold = key.startsWith(SPOIL_GOLD_KEY);
+    if (!gold && !key.startsWith(SPOIL_KEY)) return null;
+    const i = Number(key.slice(gold ? SPOIL_GOLD_KEY.length : SPOIL_KEY.length));
+    const f = Number.isInteger(i) ? floor[i] : null;
+    if (!f || f.taken || !f.fly.rest || (f.piece.kind === 'gold') !== gold) return null;
+    return f;
+  }
+
   return {
     /**
      * THE BURST: the spoils of `day` for this player (the receipt's `seed`, the player's `level`) leave his chest `at`
      * (the dungeon's frame) toward `bearing` (the angle from him to the player). Once a day, on this device: a day
      * already spent is nothing. The pieces as rolled go into the device's record the moment they leave him.
+     * WB9f: `keep` the court's floor they must come to rest on (`{ centre, r, floorY }` - world/gateSpew.js keepLaunch).
      */
-    spew({ day, seed, level, at, bearing, acct = '' }) {
+    spew({ day, seed, level, at, bearing, acct = '', keep = null }) {
       if (spentOn(day, acct)) { if (spentBy(day, acct)) said(day); return false; }   // AUDIT WBX S1: spent - said so again, for a hub that missed it
       rec = { day };
       t0 = now(); lastT = t0; from = [...at];
       const list = spoilsList(seed >>> 0, Math.max(1, level | 0));
       launches = spewLaunches(seededRng(((seed >>> 0) ^ 0x5a5a) >>> 0), list.length, bearing);
-      floor = list.map((piece, i) => ({ piece, fly: spewPiece(from, launches[i]), left: false, restAt: 0, taken: false, batch: null, sprite: null, batchIcon: false, h: 0 }));
+      if (keep) launches = launches.map((l) => keepLaunch(from, l, keep));   // WB9f: every piece rests on the court's floor
+      floor = list.map((piece, i) => ({ piece, fly: spewPiece(from, launches[i]), left: false, restAt: 0, taken: false, batch: null, sprite: null, batchIcon: false, h: 0, target: null }));
       spewId = spend(day, acct, list);
       loadTex();
       for (const f of floor) askSprite(f);   // WBX3: each item's own picture, asked for while the first pieces are still in the air
@@ -399,8 +437,8 @@ export function createSpoilsPool({
       return all.length - left.length;
     },
     /** One frame: the pieces leave on their schedule, fly, clatter and rest; a resting piece under the player's feet is
-     *  taken. */
-    frame() {
+     *  taken. WB9f: `onRest(pos, tier, kind)` is told of each piece the frame it comes to rest (the court's sparks). */
+    frame(onRest = null) {
       if (!rec) return;
       const t = now(), dt = Math.max(0, Math.min(0.1, (t - lastT) / 1000));
       lastT = t;
@@ -415,6 +453,7 @@ export function createSpoilsPool({
           if (f.fly.rest) {
             f.restAt = t;
             if ((RARITIES[f.piece.tier]?.rank ?? 0) >= RARITIES.rare.rank) audio?.play3d?.(SOUND.MakeItem, [...f.fly.pos], 1, { maxDistance: 30 });   // the rare chime (corpseMarker.js playRareDrop's own)
+            try { onRest?.(f.fly.pos, f.piece.tier, f.piece.kind); } catch { /* a spark is not the spoils' problem */ }   // WB9f
           }
         }
         const b = batchOf(f);
@@ -423,6 +462,38 @@ export function createSpoilsPool({
         if (f.fly.rest && t - f.restAt >= SPOILS_TAKE_AFTER_MS && f0 && Math.hypot(f.fly.pos[0] - f0[0], f.fly.pos[2] - f0[2]) <= SPOILS_TAKE_M && Math.abs(f.fly.pos[1] - f0[1]) < 2) takeOne(f);
       });
     },
+    /**
+     * WB9f: THE RESTING PIECES AS THE RAY SEES THEM - `{ key, aabb, distance, reach }`, the loot piles' own shape
+     * (dungeonContext.js lootTargets): a box over the piece's picture, won at the ray's reach and taken at the
+     * treasure's. A piece in the air, or taken, is no target. AUDIT WB D10: an empty floor makes nothing, and a full
+     * one refills one list.
+     */
+    targets() {
+      if (!floor.length) return NONE;
+      _targets.length = 0;
+      floor.forEach((f, i) => {
+        if (f.taken || !f.left || !f.fly.rest) return;
+        if (!f.target) {
+          const [x, y, z] = f.fly.pos, h = Math.max(SPOIL_BOX_MIN_H, f.h || 0);
+          f.target = { key: `${f.piece.kind === 'gold' ? SPOIL_GOLD_KEY : SPOIL_KEY}${i}`, aabb: { min: [x - SPOIL_BOX_HALF_M, y, z - SPOIL_BOX_HALF_M], max: [x + SPOIL_BOX_HALF_M, y + h, z + SPOIL_BOX_HALF_M] }, distance: RAY_DISTANCE, reach: TREASURE_ACTIVATION_DISTANCE };
+        } else if (f.h > 0) f.target.aabb.max[1] = f.target.aabb.min[1] + Math.max(SPOIL_BOX_MIN_H, f.h);   // the picture landed after the pile: its box follows
+        _targets.push(f.target);
+      });
+      return _targets;
+    },
+    /** WB9f: a piece's word under the crosshair - an item's own name (the host's `itemName`) and its tier below it, the
+     *  gold as a sum - or null for a key that is not a resting piece's. */
+    nameOf(key) {
+      const f = pieceAt(key);
+      if (!f) return null;
+      if (f.piece.kind === 'gold') return { title: SPOILS_TEXT.goldName(f.piece.gold) };
+      const label = f.piece.tier && f.piece.tier !== 'common' ? RARITIES[f.piece.tier]?.label : null;
+      return { title: itemName(f.piece.item), subs: label ? [label] : [] };
+    },
+    /** WB9f: what an item's key holds, for the plaque's list - the one item - or null. */
+    contentsOf(key) { const f = pieceAt(key); return f && f.piece.kind === 'item' ? [f.piece.item] : null; },
+    /** WB9f: THE PRESS - the piece a key names into the pack, said as a walk-over says it; false when it is not there. */
+    pick(key) { const f = pieceAt(key); if (!f) return false; takeOne(f); return true; },
     /** The pieces, for the host's billboard pass (AUDIT WB D10: an empty floor - the court's every frame but a kill's -
      *  makes nothing). */
     batches: () => (floor.length ? floor.filter((f) => f.batch && !f.taken && f.left).map((f) => f.batch) : NONE),
