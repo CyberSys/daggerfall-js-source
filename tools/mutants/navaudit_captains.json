@@ -398,8 +398,8 @@
   {
     "name": "NAV1-every-ship-a-berth",
     "file": "src/systems/naval/navalDirector.js",
-    "old": "      const alive = (ctx.ships ?? []).filter((s) => !out.despawn.includes(s.id) && s.afloat !== false).length;",
-    "new": "      const alive = (ctx.ships ?? []).filter((s) => !out.despawn.includes(s.id)).length;",
+    "old": "s.afloat !== false && !s.berthed).length;",
+    "new": "!s.berthed).length;",
     "tests": [
       "test/navaudit_captains.test.js"
     ]

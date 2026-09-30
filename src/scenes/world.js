@@ -6452,6 +6452,29 @@ export async function bootWorld(canvas, renderer, params, status) {
     }
     return _navalPortAt.near;
   };
+  /** SHIP-LIFE (systems/naval/shipLife.js): the port town within a pixel of the player - its location's key and its
+   *  footprint in the scene NOW (the native rect, locationWorldRect, through the floating origin's localFromWorld), which
+   *  the naval host finds its harbour off - or null where no port stands near. The town asked once a pixel. */
+  let _navalHarbourAt = null;   // { key, town: { id, loc, x, y } | null }
+  const navalHarbourNear = () => {
+    const p = playerTravelPixel();
+    const key = `${p.x},${p.y}`;
+    if (_navalHarbourAt?.key !== key) {
+      let town = null;
+      for (let dy = -1; dy <= 1 && !town; dy++) for (let dx = -1; dx <= 1 && !town; dx++) {
+        if (!csaIsPortTown(p.x + dx, p.y + dy)) continue;
+        const summary = travelLocationSummaryAt(mapDict, p.x + dx, p.y + dy);
+        const loc = summary ? maps.getLocation(summary.regionIndex, summary.locationIndex ?? summary.mapIndex) : null;
+        if (loc?.exterior?.exteriorData) town = { id: summary.id, loc, x: p.x + dx, y: p.y + dy };
+      }
+      _navalHarbourAt = { key, town };
+    }
+    const t = _navalHarbourAt.town;
+    if (!t) return null;
+    const r = locationWorldRect(t.loc, t.x, t.y);
+    const [ax, az] = state.localFromWorld(r.minX, r.minZ), [bx, bz] = state.localFromWorld(r.maxX, r.maxZ);
+    return { key: `port:${t.id}`, rect: { minX: Math.min(ax, bx), maxX: Math.max(ax, bx), minZ: Math.min(az, bz), maxZ: Math.max(az, bz) } };
+  };
   /** DECK-WALK: a point in a hull's deck frame (her mesh node's, systems/naval/navalDeck.js) to the world, where her
    *  node stands, rolls and pitches now - and back; into `out` when given. */
   const navalDeckToWorld = (boat, p, out) => outOfDeck(boat.MeshObject.worldMatrix(), p, out);
@@ -6659,6 +6682,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     csa: () => (navalOn() ? csaRuntime : null),
     seaY: () => tvSeaY(),
     isWater: navalIsWater,
+    harbourNear: navalHarbourNear,   // SHIP-LIFE: the port town near the player, which the host finds a harbour off
     groundY: (x, z) => surfaceAt(x, z),
     feet: () => player.feetAt(),
     look: () => ({

@@ -37,6 +37,7 @@ carries its row instead. It stands on three things the port already had:
 | AUDIT NAV1 | THE DEEP AUDIT (2026-09-29): six lenses measured the arc against Black Flag on its own harnesses; the captains' seamanship rebuilt (below), the hulls kept apart, a galley's ram, the sea on the world's clock; THE GUNS - the captains' gunnery and the run-out that tells a broadside is coming, the rig a target, fire, the prize kept a prize, the readout's warning and tally | `systems/naval/navalAI.js`, `navalShips.js` (the hulls' extents and rigs, the classes' pace, the carriages), `navalDirector.js` (the berths), `navalDamage.js`, `navalShots.js`, `navalGunnery.js`, `navalWire.js` (the run-out's bits, a barrel's fire), `navalSounds.js` and `tools/navalSfx.mjs` (the run-out), `navalEffects.js` (the glint, the shreds), `scenes/navalHost.js` (`stepSea`, `separateHulls`, `checkShipRams`, `strike`, the tell and the tally), `ui/navalHud.js` (the warning, the tally), `scenes/comeSailAwayPeers.js` (helmBoats' hull and heading); THE HELM - the aim a look lays and its red, the broadside camera, the brace, the ram, her hurts in her handling, the shipwright and the mending at sea: `navalGunnery.js` (lookReach), `navalYard.js`, `systems/comeSailAway.js` (wayScale, sailRefused), `render/navalRender.js` (the posts, the strikes, the tones), `ui/navalYardWindow.js`, `ui/navalPlunderDoor.js` (one door for both windows) |
 | NAV-R | WARM ASHES' RAIDERS AS SHIPS (merged OWS3): a raider near the player at sea stood as a pirate of her seed's own class and name, sailing her seeded course until her lookout sights a boat, then fighting and boarding as any pirate; spent for her life; one copy between two players | `systems/naval/navalRaiders.js`, `scenes/navalHost.js` (`raiders`, `raiderShipOf`), `systems/naval/navalAI.js` (`sight`, `course`), `scenes/world.js` (`raidShips`, the marks) |
 | AUDIT NAV2 | THE SECOND PASS'S DEEP AUDIT (2026-09-30, Mac: "Let's do a deep comprehensive audit on everything developed thus far"): seven lenses over SEA-PEACE, HELM-KEYS, DECK-FIELD, HELM-WAY, DECK-WALK, SHIPMATES and LIVING CREW and the merges that carried them - sixty-two findings, each pinned red first, fixed and mutation-proven: the captain's temper and a boat's hands on the word, a boarding shared with the room, the stern chase, the way round land, the dead zone, a fighting power the duels bear out (Mac's call), the helm's handling and its advice, a shipmate no mark, a deck of every level, the crew at a boarding at hand (`01-Overview/Audit-NAV2.md`) | `systems/naval/navalWire.js` (`k`, `m`), `navalAI.js` (`strikeTime`, `odds`, `layMin`, `routeTo`), `navalDeck.js` (levels, pieces, `mainLevel`), `crewLife.js`, `scenes/navalHost.js`, `scenes/navalCrew.js`, `scenes/world.js`, `systems/comeSailAway.js`, `systems/helmWay.js`, `player/mobileEnemyActivate.js`, `scenes/hostEnchant.js`, `characters/enemyCasting.js` |
+| SHIP-LIFE | SHIPS THAT BERTH AND GO SOMEWHERE (Mac's item 1, slice E): a port's harbour found off the terrain, its berths and mouth; a bounded A* over the water; the errands - moored, depart, voyage, arrive, patrol, lurk - drawn off a ship's seed; the harbour roll of moored ships, the port's and the day's | `systems/naval/shipLife.js`, `navalAI.js` (the cruise branch's errand, `moor`), `navalDirector.js` (`berthed`), `scenes/navalHost.js` (`harbourFrame`, the errands' door), `scenes/world.js` (`navalHarbourNear`) |
 
 ## How it plays
 
@@ -357,6 +358,10 @@ them, and no captain takes them for a contact.
   ships where they lie for ORPHAN_S, for the heir's word to claim the same entries, and lets them go after; one going
   down finishes going down. A raider taken over is known by her seed (her raider id, held and spent by the heir's law).
   Her names are drawn in the region her word carries (`region`), so a navy ship is her stander's crown's to everyone.
+- **The traffic is launched by a player on the water** (SEA-TRAFFIC, 2026-09-30, Mac: "players arent seeing boats"):
+  only a player at a helm, on a deck or swimming launches ships, so the launcher is elected among those alone
+  (`navalHost.js launchesTraffic`, the share's election and hysteresis) - elected among every player near, a lower id
+  still ashore in the port town launched nothing and the one sailing out met an empty sea.
 - **Every player lets its own ships go** out of sight (the director's despawn, standing or not - two standers who met
   kept six ships for good); only the stander launches, and it counts the whole shared sea near it against the density.
 - **The word** (`navalWire.js`): the ships an owner stands (NAVAL_WIRE_SHIPS, nineteen fields each - the run-out, the
@@ -1128,6 +1133,57 @@ Pins: `test/livingcrew.test.js` (13); AUDIT NAV2's `test/auditnav2_crew.test.js`
 64, all dead - `01-Overview/Audit-NAV2.md`). Mutants: `tools/mutants/livingcrew.json` (54), all dead; twelve records re-aimed
 onto the new text (the spawn's crew and deck, the muster's, the hands', the repel's, the tags' and bars' clears, B2's
 hands, B9's captain, B10's stack), all dead.
+
+## SHIP-LIFE (2026-09-30) - ships that berth, depart, voyage and keep their own errands
+
+Mac's item 1 of the six-part sea ask, slice E (`01-Overview/Handoff-Naval-Crew-and-Ship-Life.md`): "ships that berth at
+ports, depart, voyage and keep their own errands". Before it the sea stood ships on a ring round the player and let each
+cruise to random waypoints; a port had no ships at all. `systems/naval/shipLife.js`, pure, and the host's harbours:
+
+- **THE HARBOUR OFF THE TERRAIN** (`findHarbour`). No dock data exists - a port town is a flag in its exterior data -
+  so the world hands the host the port town within a pixel of the player and its footprint in the scene
+  (`world.js navalHarbourNear`: `locationWorldRect` through the floating origin's `localFromWorld`), and the host finds
+  its harbour once: the town's rect grown HARBOUR_REACH walked on a SHORE_STEP grid for water beside land; each shore
+  point stood off the land along the shore's normal by her half width and BERTH_MARGIN is a BERTH lying parallel to the
+  shore - kept only where her whole footprint (sized for BERTH_HULL, the Carrack) floats, and BERTH_SPACING of her
+  length from every other, the nearest the town first, HARBOUR_BERTHS at most. Each berth has its APPROACH, open water
+  APPROACH_LENGTHS astern of it and APPROACH_OUT off the shore. The MOUTH is the first point out along the berths' mean
+  normal with MOUTH_CLEAR of open water all round. A town with no shore, or a harbour with no way out, has none.
+- **A WAY THROUGH THE WATER** (`createWaterGrid`): WATER_CELL cells, open where her hull floats at the centre and at
+  eight points WATER_CLEAR of a cell round it, met lazily; a bounded A* (PATH_NODES expansions at most - a query's
+  cost is fixed, and a way not found in them is none), eight neighbours with no corner cut; the corners straightened
+  wherever the line keeps LEG_MARGIN of water either side (the captains' lookout swings off land nearer than that) save
+  within LEG_END_M of its own ends, where a berth lies by the shore.
+- **THE ERRANDS** (`errandFor`, `stepErrand`), drawn off her seed on ERRAND_SALT and where she is - so any client that
+  takes her over draws the same one again and nothing new rides the word: MOORED at her berth for a DWELL_S draw, her
+  way off and her sails stowed (eased onto the berth over MOOR_EASE_S); DEPART, berth to mouth; VOYAGE, to another
+  known harbour within VOYAGE_REACH, or out of the world VOYAGE_DIST on a bearing with OUTBOUND_OPEN of open water ahead;
+  ARRIVE, through the mouth to her berth's approach and along the shore into it, her sail shortened from ARRIVE_EASE_M
+  to ARRIVE_SAILS - the last leg into a sounded berth free of the lookout's land swing - moored within BERTH_SNAP_M
+  under BERTH_WAY; PATROL, a navy's PATROL_POINTS round the mouth at PATROL_R for PATROL_S, then a voyage; LURK, a
+  pirate on a ring LURK_R off the mouth where merchantmen pass. Into or out of a harbour with the wind in her teeth she
+  is warped on her sweeps (SWEEP_WAY), as a boarding's pirate is pulled alongside - a coaster beat forty minutes in the
+  lee of a headland and never came in. A ship that makes no way under sail for STALL_S (a hulk across her way) takes a
+  DETOUR_M detour abeam where the water is open - the other side if that one holds her too - and plans anew past it.
+- **A FIGHT COMES FIRST** (navalAI.js stepCaptain): the errand is the cruise branch's - an enemy, a threat, a prize or
+  the guns heard decide first, so a navy at her berth answers a pirate and a merchantman flees one; after the fight
+  her way is planned anew from where it left her, and a ship off her berth sails back to it.
+- **THE HARBOUR ROLL** (navalHost.js `harbourFrame`): while a harbour's mouth is within HARBOUR_STAND of the player -
+  ashore too - the stander stands HARBOUR_ROLL of its berths with ships moored, HARBOUR_NAVY of them the crown's (no
+  galley: she rows in and out), each seeded by the port, the day and her berth (HARBOUR_SALT - never the stander's id),
+  so every player in that port sees the same ships at the same berths and a new stander stands no twin. They are the
+  harbour's own count: the sea's density never counts a moored ship (navalDirector.js `berthed`). Past HARBOUR_LEAVE
+  they go, to be stood again the same on the player's return - save the ones that sailed that day.
+- **THE SEA NEAR A PORT GOES SOMEWHERE**: the director's ships launched while a harbour is known are given errands by
+  their trade (a merchantman arrives at a free berth, a navy patrols, a pirate lurks); a hunter and a pair already at
+  it keep their fight; with no harbour known the traffic keeps its cruise, as before.
+- **The world moves**: `offsetAll` moves the harbours, every errand's way, goal and detour, and makes the grids again;
+  a transition forgets the harbours, found again where the world is next. **Online**: a ship taken over (`adopt`)
+  draws her errand again where she lies.
+
+Not built: fishing boats (no fishing class exists), a harbour's own lights and quays, ships at anchor off a harbour with
+no berth, and a voyage's port-to-port route beyond the loaded terrain (the water is only known where the world is).
+Pins: `test/shiplife.test.js` (11). Mutants: `tools/mutants/shiplife.json` (32).
 
 ## The tests
 

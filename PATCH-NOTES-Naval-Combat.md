@@ -272,3 +272,12 @@ A deep audit of everything above. The highlights:
 - **A crewman's area spell spares you and his mates.**
 
 **The watch won't stop you mid-sea-fight.**
+
+## Ships with somewhere to be (2026-09-30)
+
+- **Harbours come alive.** Port towns now have ships moored along their shore, sails stowed. Every player in the port sees the same ships in the same berths.
+- **Ships come and go.** A moored ship stays a while, then sets sail, clears the harbour mouth and heads out to sea. Merchantmen sail in from the sea and tie up at a free berth.
+- **Everyone has a purpose.** Near a port, merchantmen are coming or going, navy ships patrol the harbour approaches, and pirates lurk offshore waiting for merchants. Follow a merchant and she'll lead you to port.
+- **Ships steer round the coast.** They find their way round headlands and into harbours instead of running at the shore, and use their sweeps to get in or out when the wind is against them.
+- **A fight still comes first.** A navy ship at her berth will sail out to meet a pirate, and a merchant will flee. Once the fight is over, she heads back to her berth.
+- **Fixed: an empty sea online.** Sailing out while a friend was still in town could leave you with no ships at all at sea. The sea now fills around whoever is actually on the water.

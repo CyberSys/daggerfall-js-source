@@ -157,7 +157,7 @@
   {
     "name": "NAV1O-non-stander-launches",
     "file": "src/scenes/navalHost.js",
-    "old": "density: stands ? trafficDensity(feet) : 0, player: feet,",
+    "old": "density: launchesTraffic() ? trafficDensity(feet) : 0, player: feet,",
     "new": "density: trafficDensity(feet), player: feet,",
     "tests": [
       "test/navaudit_online.test.js"
