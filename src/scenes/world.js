@@ -1005,6 +1005,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   let bountyFarms = null;   // BOUNTY-FARM: the farm pool, made beside the bounty pack's stander; read late (a transition, a load, the frame)
   const _bountyFarmLocs = [];   // BOUNTY-FARM: the game's own farmsteads - the nearest lends a farm bounty its buildings
   const _bountyDungeonPixels = new Map();   // BOUNTY1: the game's own dungeons, by pixel -> name, for a board's underground hunts
+  const _bountyGraveyardPixels = new Set();   // BOUNTY-GRAVEYARD: the game's own graveyards, by pixel - a board's hunt there stands outside
   const _bountyLocPixels = new Set();   // BOUNTY1: the pixels the game's OWN locations stand on (no spawn, no mod row), for a hunt's ground
   // AUDIT OW4 D5: THE INDEX'S GENERATION - bumped at every set and delete after the boot's fill (the spawns: stood,
   // expired, taken back by a road), so a reader that keeps a list off the index (the Overworld's dungeons) sees ANY
@@ -1027,7 +1028,10 @@ export async function bootWorld(canvas, renderer, params, status) {
         // a dungeon a board may name - the game's own, never a town's (a city's castle is the city's)
         const lt = loc.mapTableData?.locationType;
         if (lt === LOCATION_TYPES.HomeFarms) _bountyFarmLocs.push({ px: p.x, py: p.y, loc });   // BOUNTY-FARM: the game's own farms, whose first block a farm bounty stands
-        if (loc.hasDungeon && lt !== LOCATION_TYPES.TownCity && lt !== LOCATION_TYPES.TownHamlet && lt !== LOCATION_TYPES.TownVillage) _bountyDungeonPixels.set(`${p.x},${p.y}`, String(loc.name ?? ''));
+        if (loc.hasDungeon && lt !== LOCATION_TYPES.TownCity && lt !== LOCATION_TYPES.TownHamlet && lt !== LOCATION_TYPES.TownVillage) {
+          _bountyDungeonPixels.set(`${p.x},${p.y}`, String(loc.name ?? ''));
+          if (lt === LOCATION_TYPES.Graveyard || /graveyard|cemetery/i.test(String(loc.name ?? ''))) _bountyGraveyardPixels.add(`${p.x},${p.y}`);
+        }
       }
     }
   }
@@ -1686,6 +1690,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   let tvFar = { at: null, near: -1, list: [] };   // TV5: the far places about the traveller (above its readers: BOOT-TDZ - a load empties it)
   let tvDng = { at: null, dg: -1, list: [] };   // TV6: the dungeons about the traveller (above its readers: BOOT-TDZ - a load empties it)
   let tvFind = { at: null, dg: -1, n: -1, list: [] };   // AUDIT OW5 D1: the find's own, uncapped (above its readers: BOOT-TDZ - a load empties it)
+  const _tvBountyHold = new Map();   // BOUNTY-OVERWORLD: each held bounty's kept scene point, by bounty id
   const _tvPartyHold = new Map();   // AUDIT OW5 P6: each party member's kept scene point (PERF-TV's own holder), by account
   const TV_FIND_REACH = 4;   // AUDIT OW5 D1: map pixels about the traveller's that a kilometre from the feet can reach
   let tvBandSeen = { at: null, life: -1, list: [] };   // TV7: the bands about the traveller, this life's (above its readers: BOOT-TDZ)
@@ -7806,6 +7811,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (anchor && _inAnyLocationRect([anchor.x, anchor.y, anchor.z])) anchor = null;   // DISC19-F: a camp is a wilderness thing - never pitched in a town's rect from a player standing at its edge
       if (anchor && _nearRoad([anchor.x, anchor.y, anchor.z], (hit.spacing ?? 0) + CAMP_ROAD_CLEAR_M)) anchor = null;   // ROADS-CLEAR: pitched off the road, its whole ring clear of it
       if (anchor && _overDeepWater(anchor.x, anchor.z)) anchor = null;   // AUDIT (pre-merge) P4: never on the carved seabed - a player on the shore rolled land camps 100-150 m out, under the sea
+      if (anchor && hit.spotOk && !hit.spotOk(anchor.x, anchor.z)) anchor = null;   // BOUNTY-FARM-CLEAR: the caller's own ground law (never inside a farm building)
     }
     if (!anchor) return null;   // AUDIT OW3 T7-1: whether it stood (null: nobody) - a band's contact tries another bearing
     const campId = exteriorFoes.newCampId();   // OW6: the pool's one counter - a camp an heir takes over never shares my number
@@ -7832,6 +7838,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         if (spot && _inAnyLocationRect([spot.x, spot.y, spot.z])) spot = null;   // DISC19-F: nor a member over its line
         if (spot && _nearRoad([spot.x, spot.y, spot.z], CAMP_ROAD_CLEAR_M)) spot = null;   // ROADS-CLEAR: nor on a road
         if (spot && _overDeepWater(spot.x, spot.z)) spot = null;   // AUDIT (pre-merge) P4: nor a member in the water
+        if (spot && hit.spotOk && !hit.spotOk(spot.x, spot.z)) spot = null;   // BOUNTY-FARM-CLEAR: nor a member inside a building
       }
       if (!spot) continue;
       placed++;
@@ -7944,8 +7951,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     // (`transient` - scenes/bountyHost.js stands what is left again)
     const stood = _standCampEncounter({
       mobileTypes: Array(count).fill(mobileType), fixed: true, spacing: PACK_SPACING, alertRadius: PACK_ALERT_RADIUS,
-      minDistance: spotAt ? (farm ? 10 : 0) : 60, maxDistance: spotAt ? (farm ? 18 : 8) : 110,   // in the farmyard, beside the house / on the trail's spot
+      minDistance: spotAt ? (farm ? 10 : 0) : 60, maxDistance: spotAt ? (farm ? 24 : 8) : 110,   // in the farmyard, beside the house / on the trail's spot
       bearingDegrees: Math.random() * 360, spawnOpts: { loose: true, transient: true },
+      // BOUNTY-FARM-CLEAR (field: foes stood inside the farmhouse and could not be reached): never in a farm's building
+      spotOk: (x, z) => !(bountyFarms?.inBuilding?.(x, z) ?? false),
     }, spotAt ?? feet);
     if (!stood) return null;
     return { foes: stood.foes, dx: stood.anchorFeet[0] - feet[0], dz: stood.anchorFeet[2] - feet[2] };
@@ -17081,8 +17090,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     // the ground a pack may stand on: land (the height bytes say where the sea is, as the gate's scan reads them), no
     // location of the game's own on the pixel, no spawned dungeon - every client's map files answer alike
     siteOk: (x, y) => x > 0 && y > 0 && x < 999 && y < 499 && !_bountyLocPixels.has(`${x},${y}`) && !spawnsDungeon(_spawnSalt, x, y)
-      && !gateSeaPixel(maps.getClimateIndex(x, y), woods.getHeightMapValue(x, y)),
+      && !gateSeaPixel(maps.getClimateIndex(x, y), woods.getHeightMapValue(x, y))
+      && maps.getClimateIndex(x, y) !== TV_MOUNTAIN_CLIMATE,   // BOUNTY-GROUND: never a mountain pixel - the Overworld cannot walk there
     dungeonAt: (x, y) => _bountyDungeonPixels.get(`${x},${y}`) || null,
+    graveyardAt: (x, y) => _bountyGraveyardPixels.has(`${x},${y}`),
     playerPixel: () => ((modes?.mode ?? 'exterior') === 'exterior' ? playerTravelPixel() : null),
     // underground the streamer's pixel is frozen at the entrance - the dungeon's own pixel (playerTravelPixel's A10 note)
     // the dungeon's OWN pixel - its location's map-table position - rather than the streamer's last pixel (which is
@@ -19966,6 +19977,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (tvEnemyMarkKey(key)) { tvEnemyClick(key, e); return; }   // OW-ATTACK
     _tvAttack = null;   // OW-ATTACK: a journey elsewhere lets the attack go
     // AUDIT DEEP2 B-1: the journey's own flag - its place again, from where the traveller stands (a stop's resume)
+    if (key.startsWith('bounty:')) { travelViewBountyWalk(key.slice(7)); return; }   // BOUNTY-SNAP: a bounty's ring - a walk to its hunt
     if (key === 'dest') { const summary = tvTripLive() ? tvTrip.plan?.summary : null; if (summary && travelViewCanGo()) travelViewRouteTo(summary); return; }
     if (key.startsWith('spawn:')) { travelViewSpawnWalk(key); return; }   // AUDIT OW3 D1: a spawn's plate - a walk to its door
     const plate = tvPlates.list.find((p) => p.key === key) ?? tvFar.list.find((p) => p.key === key) ?? tvDng.list.find((p) => p.key === key && p.summary);   // TV5: a far place's plate is the same journey
@@ -20086,6 +20098,30 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
    *  AUDIT OW4 D1/D6: walked as a PLACE (`door`: never refused for the peaks, its pixel's step exempt - a spawn stands
    *  on a Mountain pixel as a MAPS dungeon does, and its plate walked nowhere), to the edge its route's last leg comes
    *  in by (travelViewWalkTo aims it once the route is known); AUDIT OW4 D2: and asked its clocks at the click. */
+  /** BOUNTY-SNAP (the player: "make it snap but keep the snap radius small"): A BOUNTY'S RING, CLICKED - a walk to its
+   *  hunt: a dungeon's or a graveyard's door (the spawn's own walk), a farm standing its yard short of the farmhouse
+   *  (never into its walls), else the middle of the hunt's pixel. */
+  const BOUNTY_SNAP_YARD_M = 20;
+  function travelViewBountyWalk(id) {
+    const s = _tvBountyHold.get(id)?.snap;
+    if (!s || !travelViewCanGo()) return false;
+    const pix = { x: s.px, y: s.py };
+    if (s.place) {
+      const loc = locationIndex.get(`${s.px},${s.py}`);
+      if (loc) {
+        const r = locationWorldRect(loc, s.px, s.py);
+        return travelViewWalkTo(tvSceneOf((r.minX + r.maxX) / 2, (r.minZ + r.maxZ) / 2, 0), pix, { door: r });
+      }
+    }
+    const house = s.farmKey ? (bountyFarms?.anchorFor?.(s.farmKey) ?? null) : null;
+    if (house) {
+      const feet = player.feetAt();
+      const d = Math.hypot(feet[0] - house[0], feet[2] - house[2]) || 1;
+      const k = Math.min(1, BOUNTY_SNAP_YARD_M / d);
+      return travelViewWalkTo([house[0] + (feet[0] - house[0]) * k, house[1], house[2] + (feet[2] - house[2]) * k], pix);
+    }
+    return travelViewWalkTo(tvSceneOf(s.x, s.z, 0), pix);
+  }
   function travelViewSpawnWalk(key) {
     const g = travelViewDungeons().find((p) => p.key === key && p.found);
     if (!g || tvSpawnGone(g.px, g.py) || !travelViewCanGo()) return false;
@@ -20398,6 +20434,23 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // standing about, a camp, a pack or a band stood: mine, and each peer's by the tags their frames carry
     // (world/campShared.js) - one mark where its living members stand, with its kind and its number; gone with its last
     for (const c of travelViewCamps()) marks.push({ key: `camp:${c.key}`, at: [c.at[0], c.at[1] + 2, c.at[2]], label: c.label, kind: 'camp', pick: true });   // OW-ATTACK: pressable
+    // BOUNTY-OVERWORLD (the player: "can the bounties also be shown on the overworld map"): EVERY BOUNTY I HOLD - its
+    // hunt's pixel (the held map's black circle, scenes/bountyHost.js mapMarks), its foes and its distance, held at the
+    // edge off the picture as the journey's end is, so the way to it is always shown
+    const bountyIds = new Set();
+    for (const b of bountyHost?.mapMarks?.() ?? []) {
+      const px = Math.floor(b.cx), py = Math.floor(b.cy);
+      if (!Number.isInteger(px) || !Number.isInteger(py) || !b.id) continue;
+      bountyIds.add(b.id);
+      const o = mapPixelToWorldCoords(px, py);
+      const x = o.x + 16384, z = o.z + 16384;   // the pixel's middle, native units
+      let h = _tvBountyHold.get(b.id);
+      if (!h) { h = {}; _tvBountyHold.set(b.id, h); }
+      const km = (Math.hypot(x - here.x, z - here.z) / 32768) * PIXEL_KM;
+      h.snap = { px, py, x, z, place: !!b.place, farmKey: b.farmKey ?? null };   // BOUNTY-SNAP: where its click walks
+      marks.push({ key: `bounty:${b.id}`, at: tvSceneKept(h, x, z, TV_PLACE_LIFT), label: `Bounty: ${b.label}`, sub: farDistanceText(km), kind: 'bounty', edge: true, pick: true });   // BOUNTY-SNAP: pressable, on its ring alone (ui/travelViewHud.js pickBox)
+    }
+    for (const id of [..._tvBountyHold.keys()]) if (!bountyIds.has(id)) _tvBountyHold.delete(id);   // a bounty over lets its point go
     // AUDIT DEEP2 B-1: THE JOURNEY'S END IS NEVER OFF THE SCREEN UNSEEN - held at the edge as a far place is (a far town's
     // plate gave way to a flag drawn above the picture, and the destination was gone for the whole journey), a place's
     // with its distance, and a click on a place's flag is its journey again (after a stop there is no ground to click)
