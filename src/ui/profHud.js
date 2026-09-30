@@ -34,17 +34,23 @@ export const PROF_TOAST_S = 3;
 /** The rank's banner stands this long. */
 export const PROF_BANNER_S = 4;
 
-/** THE TOASTS' LAW: `push` a line (the oldest goes past four), `tick` ages them, `lines` what stands. */
+/** THE TOASTS' LAW: `push` a line (the oldest goes past four), `tick` ages them, `lines` what stands. GATHER-SAID: a line
+ *  pushed `keep` (a harvest's goods) is passed over while an unkept one is older - an answer's XP, its rank's rise and a
+ *  specialisation's hint went past four and took the goods' line with them, so a harvest looked as if it gave nothing. */
 export function createToastQueue({ max = PROF_TOASTS_MAX, ttl = PROF_TOAST_S } = {}) {
   let seq = 0;
-  /** @type {{ id: number, text: string, left: number }[]} */
+  /** @type {{ id: number, text: string, left: number, keep: boolean }[]} */
   let rows = [];
   return {
-    push(text) {
+    /** @param {any} text  @param {{ keep?: boolean }|null} [o] */
+    push(text, o = null) {
       const t = String(text ?? '').trim();
       if (!t) return;
-      rows.push({ id: ++seq, text: t, left: ttl });
-      if (rows.length > max) rows = rows.slice(rows.length - max);
+      rows.push({ id: ++seq, text: t, left: ttl, keep: o?.keep === true });
+      while (rows.length > max) {
+        const i = rows.findIndex((r) => !r.keep);
+        rows.splice(i < 0 ? 0 : i, 1);
+      }
     },
     tick(dt) {
       const step = Math.max(0, Number(dt) || 0);
@@ -257,8 +263,8 @@ export function createProfHud({ doc = globalThis.document } = {}) {
         : (label || 'kneeling...');
       meter.append(bar, hint);
     },
-    /** A line on the right. */
-    toast(text) { queue.push(text); },
+    /** A line on the right; `keep` (GATHER-SAID) outlasts the unkept past four. */
+    toast(text, o) { queue.push(text, o); },
     /** The rank's banner. */
     banner(text) { banner.textContent = String(text ?? ''); bannerLeft = text ? PROF_BANNER_S : 0; },
     /** The chip under the compass, or null to take it away. */

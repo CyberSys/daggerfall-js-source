@@ -18,7 +18,7 @@ import { bodyKey, parseNodeKey, utcDayOfMs } from '../src/net/nodeLaw.js';
 import { xpForRank, SKINNING_KNIFE, TRACE_ACT, KNIFE_REFUSALS, HIDES_PER_DAY, TRACKER_M } from '../src/net/professionLaw.js';
 import { TOOL_LIFE, recipeById } from '../src/net/recipeLaw.js';
 import { createBodyStamps, bodiesOf, trackerMarks, huntPlan, huntKind, KNIFE_HAND, BODY_REACH, bodyId } from '../src/scenes/huntHost.js';
-import { createGatherHost, aimAt } from '../src/scenes/gatherHost.js';
+import { createGatherHost, aimAt, STORES_WHERE_LINE } from '../src/scenes/gatherHost.js';
 import { registerPlayerKillListener, reportPlayerKill } from '../src/systems/playerKills.js';
 import { setForagingHost } from '../src/systems/foragingInstall.js';
 import { mintPiece, mintPieces, garmentItem, isCraftedFurniture, LOOM_KEPT_TEXT } from '../src/systems/smithItems.js';
@@ -144,9 +144,9 @@ test('PROF7 DONE WHEN: a bear felled by the player\'s own blow, skinned online w
       assert.equal(h.host.acting(), false);
     }
     assert.ok(book.held('hide:bear') >= 2, `two bears' hides at the least: ${book.held('hide:bear')}`);
-    assert.ok(h.said.some((x) => /^\+[12] Bear Hides? to your Stores$/.test(x)), h.said.join(' | '));
+    assert.ok(h.said.some((x) => /^\+[12] Bear Hides?(, .+)? and (\d+ )?Raw Meat to your Stores$/.test(x)), h.said.join(' | '));   // GATHER-SAID: the butchery in the hides' line
     assert.ok(h.said.some((x) => / Hunting XP \(a clean pelt\)$/.test(x)), 'a line traced true: a clean pelt');
-    assert.ok(h.said.includes('...and Raw Meat'), 'the butchery said');
+    assert.ok(h.said.some((x) => / Raw Meat to your Stores$/.test(x)), 'the butchery said');
     assert.equal(h.entity.items[0].currentCondition, 48, 'the knife worn by one a body');
     assert.deepEqual([book.state.hunt.hides, book.state.today.hunting], [book.held('hide:bear'), 2], 'the day in hides (AUDIT 32 L2), the harvests two');
   } finally { h.done(); setForagingHost(null); }
@@ -290,7 +290,7 @@ test('PROF7 host: a body is a node only while the pack holds a knife; targeted w
     await answered(book);
     assert.equal(asked.length, 1);
     assert.deepEqual([asked[0].node, asked[0].kind, asked[0].foe, asked[0].climate, asked[0].region, asked[0].act.clean], [h.stamps.of(bear.entity).key, 'hide', 4, null, null, true]);
-    assert.deepEqual(h.said.slice(-4), ['+1 Bear Hide to your Stores', '...and a Big Tooth!', '...and 2 Raw Meat', '+30 Hunting XP (a clean pelt)']);
+    assert.deepEqual(h.said.slice(-3), ['+1 Bear Hide, a Big Tooth and 2 Raw Meat to your Stores', STORES_WHERE_LINE, '+30 Hunting XP (a clean pelt)']);   // GATHER-SAID: one line of goods, and the session's first says where they went
     assert.deepEqual([book.state.hunt, book.held('food:meat'), book.held('part:tooth')], [{ hides: 5, high: 0 }, 2, 1], 'the book applies the butchery\'s Stores and the day');
     h.host.tick(0.016);
     assert.equal(h.host.target, null, 'skinned: DFU\'s corpse again');

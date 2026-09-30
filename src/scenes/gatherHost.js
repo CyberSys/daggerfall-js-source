@@ -65,6 +65,31 @@ export function needLine(plan, rankOf) {
   return `${plan.verb}: ${plan.rest}${own}`;
 }
 
+/**
+ * GATHER-SAID (the PROF7 merge, 2026-09-30, Mac: "had reports of people not getting materials when using a profession"):
+ * A HARVEST'S GOODS IN ONE LINE - the Stores' own, a gem (PROF2) and a second find (PROF4's Resin, PROF7's butchery) beside
+ * them: "+1 Bear Hide, a Big Tooth and 2 Raw Meat to your Stores". Each was a line of its own, and with the XP and a rank's
+ * rise an answer said five into the four the toasts hold (PROF0 8) - the Stores' line, the oldest, went first.
+ * @param {{ qty: number, material: string, gem?: string|null, extra?: string|null, extraQty?: number }} d the answer's data
+ */
+export function storesLine(d) {
+  const goods = [`${d.qty} ${materialCountLabel(d.material, d.qty)}`];
+  if (d.gem) { const g = materialCountLabel(d.gem, 1); goods.push(`${/^[aeiou]/i.test(g) ? 'an' : 'a'} ${g}`); }
+  if (d.extra) { const n = Number(d.extraQty) || 1; goods.push(`${n > 1 ? `${n} ` : ''}${materialCountLabel(d.extra, n)}`); }
+  const said = goods.length > 1 ? `${goods.slice(0, -1).join(', ')} and ${goods[goods.length - 1]}` : goods[0];
+  return `+${said} to your Stores`;
+}
+/** GATHER-SAID: where the Stores are, said with a session's first harvest - the goods are never in the pack. */
+export const STORES_WHERE_LINE = 'Gathered goods go to your Stores, not your pack: the Enhanced pause menu\'s Stores page.';
+/** GATHER-SAID: an act that ended before its end - let go, walked off, a window over it, the dungeon left - nothing asked. */
+export const ACT_STOPPED_LINE = 'The gathering stopped before its end - nothing was taken.';
+/** A harvest the service did not answer, kept and asked again (net/profBook.js PROF_QUEUE_MS: ten minutes). */
+export const KEPT_LINE = 'The counting-house is slow to answer. Your gathering is kept and will be counted.';
+/** GATHER-SAID: kept because the account is signed out ('auth', 'no-session') - asked again once there is a session. */
+export const KEPT_SIGNED_OUT_LINE = 'You are signed out. Your gathering is kept for ten minutes, and counted once you sign in.';
+/** A kept harvest let go unanswered: its ten minutes out, or the UTC day turned under it. */
+export const LAPSED_LINE = 'A gathering the counting-house never answered has lapsed - it was not counted.';
+
 /** The shortest signed angle a - b, degrees in (-180, 180]. */
 export const wrapDeg = (d) => { let x = d % 360; if (x > 180) x -= 360; if (x <= -180) x += 360; return x; };
 /**
@@ -133,7 +158,8 @@ export function createGatherHost(deps) {
   let day = utcDayOfMs(deps.nowMs());
   let target = null;          // { node, px, py, info, world }
   let act = null;             // { act, node, harvest, tool, profession, label, px, py, info, world, hand }
-  let refreshAt = 0, sayKept = false, pixelsAt = 0, targetKey = null;
+  let refreshAt = 0, pixelsAt = 0, targetKey = null;
+  let storesSaid = false;     // GATHER-SAID: STORES_WHERE_LINE said this session
   let passedOn = '';          // VEIN-NEED: what the node the last press passed on needs, until the host hands it back
   let chipLeft = 0;
   let chipProfession = /** @type {string|null} */ (null);
@@ -354,9 +380,8 @@ export function createGatherHost(deps) {
       const d = r.data;
       const profession = d.track?.profession ?? a?.profession ?? 'herbalism';
       const k = a ? kindOf(a.node) : kindOfProfession(profession);
-      hud.toast(`+${d.qty} ${materialCountLabel(d.material, d.qty)} to your Stores`);
-      if (d.gem) hud.toast(`...and a ${materialCountLabel(d.gem, 1)}!`);
-      if (d.extra) hud.toast(`...and ${Number(d.extraQty) > 1 ? `${d.extraQty} ` : ''}${materialCountLabel(d.extra, Number(d.extraQty) || 1)}`);   // PROF4: a tree's Resin; PROF7: a body's butchery (a Butcher's two)
+      hud.toast(storesLine(d), { keep: true });   // GATHER-SAID: the goods in one line, outlasting the rest; PROF4's Resin, PROF7's butchery in it
+      if (!storesSaid) { storesSaid = true; hud.toast(STORES_WHERE_LINE); }
       const note = a && k?.actNote ? k.actNote(a.report) : a?.clean ? (k?.cleanNote(a, d) ?? '') : '';   // AUDIT 32 P10
       hud.toast(`+${d.xp} ${professionName(profession)} XP${note}`);
       const after = d.track?.rank ?? before;
@@ -384,11 +409,9 @@ export function createGatherHost(deps) {
       } else if (!a && nodeKeyOf) restandNode(nodeKeyOf);
       return;
     }
-    if (r?.kept) {
-      if (!sayKept) { sayKept = true; hud.toast('The counting-house is slow to answer. Your gathering is kept and will be counted.'); }
-      return;
-    }
-    if (r?.error === 'lapsed') { hud.toast('A gathering the counting-house never answered has lapsed with the day.'); return; }
+    // GATHER-SAID: every kept act says so (a flag once a session left the second slow answer silent), and why
+    if (r?.kept) { hud.toast(r.error === 'auth' || r.error === 'no-session' ? KEPT_SIGNED_OUT_LINE : KEPT_LINE); return; }
+    if (r?.error === 'lapsed') { hud.toast(LAPSED_LINE); return; }
     hud.toast(accountRefusalText(r?.error));
     if (a && !a.loose && r?.error === 'node-taken') restandOf(a);
   }
@@ -423,7 +446,7 @@ export function createGatherHost(deps) {
       if (!d) return;
       for (const b of d.batches) d.drop(b);
       d.batches = [];
-      if (act?.dungeon) { act.act.cancel(); act = null; hud.setMeter(null); }
+      if (act?.dungeon) { act.act.cancel(); act = null; hud.setMeter(null); hud.toast(ACT_STOPPED_LINE); }   // GATHER-SAID
     },
     /** Whether an act is playing - the host keeps the weapon's swing, and the press ladder, off it. */
     acting: () => !!act,
@@ -499,7 +522,7 @@ export function createGatherHost(deps) {
         act.act.tick(dt, { held: input.held, attack: input.attack, view: v, pos: { x: feet[0], z: feet[2] }, aim: aimAt(pos, act.world, v) });
         const away = gone || Math.hypot(act.world[0] - pos[0], act.world[2] - pos[2]) > (act.node.reach ?? NODE_REACH) + 1;
         const here = act.dungeon ? inDungeon() : deps.active();
-        if (act.act.state.cancelled || away || !here) { act = null; hud.setMeter(null); }
+        if (act.act.state.cancelled || away || !here) { act = null; hud.setMeter(null); hud.toast(ACT_STOPPED_LINE); }   // GATHER-SAID: said, never only the meter gone (Escape ends it in `cancel`, unsaid)
         else if (act.act.state.done) finish(act);
         else hud.setMeter(act.act, act.label ?? '');
         hud.setPrompt(null);

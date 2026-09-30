@@ -873,11 +873,12 @@
   {
     "name": "PROF7-gather-extra-uncounted",
     "file": "src/scenes/gatherHost.js",
-    "old": "${Number(d.extraQty) > 1 ? `${d.extraQty} ` : ''}",
-    "new": "",
+    "old": "${n > 1 ? `${n} ` : ''}${materialCountLabel(d.extra, n)}",
+    "new": "${materialCountLabel(d.extra, n)}",
     "tests": [
       "test/prof7_client.test.js"
-    ]
+    ],
+    "note": "GATHER-SAID (PIN MOVED): the butchery's count said in the goods' one line (gatherHost.js storesLine), re-aimed by content."
   },
   {
     "name": "PROF7-book-foe-dropped",

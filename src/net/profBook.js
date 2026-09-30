@@ -54,8 +54,9 @@ export const PROF_DUNGEONS_MAX = 4;
 export const PROF_REFRESH_BACKOFF_MS = 30_000;
 /** AUDIT 29 C8: a shut switch is asked again this often - it opens without a reload. */
 export const PROF_CLOSED_RECHECK_MS = 300_000;
-/** The answers an act is asked again after: the network, the service's own fault, the account's minute spent. */
-const RETRY = Object.freeze(['offline', 'server', 'rate']);
+/** The answers an act is asked again after: the network, the service's own fault, the account's minute spent; GATHER-SAID:
+ *  the service held for its maintenance minute (RESTORE's 503, answered before any route - the act never reached it). */
+const RETRY = Object.freeze(['offline', 'server', 'rate', 'maintenance']);
 /** The answers that say nothing about the act's row - kept, and asked again once there is a session. */
 const WAIT = Object.freeze(['no-session', 'auth']);
 /** The answers that say the professions are not this account's now. */

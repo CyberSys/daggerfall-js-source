@@ -262,8 +262,7 @@ test('PROF2 host: one host, every kind - the vein stood on its rock, the nearest
     assert.deepEqual([rig.asked[0].node, rig.asked[0].kind, rig.asked[0].climate, rig.asked[0].region], [vs[0].key, 'ore', WOODS, GLENUMBRA]);
     assert.ok(Number.isSafeInteger(rig.asked[0].act.strikes) && rig.asked[0].act.strikes >= 2);
     assert.equal(rig.pick.currentCondition, 49, 'the act wore the Pick-Axe by one (FORAGE0 14.1)');
-    assert.ok(rig.said.includes('+3 Iron to your Stores'));
-    assert.ok(rig.said.includes('...and a Amber!') || rig.said.some((t) => /Amber/.test(t)), 'the gem said');
+    assert.ok(rig.said.includes('+3 Iron and an Amber to your Stores'), 'the gem said with the ore (GATHER-SAID: one line)');
     assert.ok(rig.said.some((t) => /^\+22 Mining XP/.test(t)));
     assert.equal(rig.book.held('gem:amber'), 1, 'the gem\'s Stores applied');
     rig.host.dispose();

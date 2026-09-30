@@ -11835,3 +11835,39 @@ is one now:
   left as they were, as MERGE 2 left its own.
 - **Records.** Systems.md counts 328 modules (main's 326 and PROF7's `traceAct.js` and `stitchAct.js`); Testing.md's
   Suite line is the merged tree's own.
+
+## GATHER-SAID (2026-09-30, Mac: "Also not sure if XP works when you gather nodes, also had reports of people not getting materials when using a profession") - what a harvest says
+
+Driven end to end - the gathering host over the real book over the real Worker (node:sqlite) - every gathering
+profession credits its goods to the Stores and its XP to its track in one batch, and the book applies both from the
+answer, and the service's `prof_stores` and `prof_tracks` rows are the book's: Herbalism 15 XP a tier-1 pick, Mining 22
+a clean vein or boulder, Logging 22 a clean tree, Hunting 45 a clean pelt (the goods' counts are the roll's;
+`gatherHost.js`, `profBook.js` send, `professions.js` harvestXp). XP is 0 only at Master.
+What failed was what the HUD SAID of it, and the reports read that as nothing given:
+
+- **The goods went past the fourth toast.** An answer said a line a good - the Stores' own, a gem (PROF2), a tree's
+  Resin (PROF4), a body's part and butchery (PROF7) - then its XP, a rank's rise and, at 50 and 100, the
+  specialisation's hint: five and six lines into the four the toasts hold (PROF0 8), and the oldest - the goods - went
+  first. A bear at a rise read "...and a Big Tooth!", "...and Raw Meat", "+45 Hunting XP", "Hunting 10 -> 11". The
+  goods are ONE line now (`storesLine`: "+1 Bear Hide, a Big Tooth and 2 Raw Meat to your Stores"), pushed `keep`, and
+  the toasts' law passes a kept line over while an unkept one is older (`profHud.js` createToastQueue).
+- **The goods are never in the pack.** The session's first harvest says so, once: "Gathered goods go to your Stores, not
+  your pack: the Enhanced pause menu's Stores page." (`STORES_WHERE_LINE`).
+- **A kept act said nothing after the first.** "Slow to answer" was said once a session - a flag never reset - so every
+  later kept act ended in silence. Every kept act says so now; an act kept because the account is signed out (`auth`,
+  `no-session`) says that (`KEPT_SIGNED_OUT_LINE`); a lapse says the gathering was not counted, never "with the day" of
+  its ten minutes (`LAPSED_LINE`).
+- **An act that stopped short only lost its meter.** Let go, walked off, a window over it, the dungeon left: the act
+  ended, nothing was asked, and nothing said. It says "The gathering stopped before its end - nothing was taken."
+  (`ACT_STOPPED_LINE`); Escape, the player's own, stays unsaid.
+- **The maintenance minute let the act go.** RESTORE's 503 is answered before any route, so the act never reached one;
+  `maintenance` is an answer the book keeps and asks again (`profBook.js` RETRY), as it keeps `server` and `rate`.
+- **Pinned:** `test/gathersaid.test.js` (7, each red on the code before with only the new names shimmed); the prof2,
+  prof4 and prof7 client pins read the one line. Mutants: `tools/mutants/gathersaid.json` (13, all dead); prof4's
+  Resin and prof7's butchery-count records re-aimed by content. Patch notes: `PATCH-NOTES-What-a-Harvest-Says.md`.
+- **For Mac** (found in the trace, not changed here): the classic skin's pause has no pages, so a classic player online
+  can neither see nor withdraw the Stores, nor read a rank past the toasts and the chip; Foraging's own tools, used from
+  the pack online, run Foraging's quest and give the pack its goods with no profession XP; a new logger in the
+  Woodlands, the Haunted Woodlands or a Swamp stands only Oak (tier 2, Logging 10) and can never chop; rank 10 is 67 tier-1
+  harvests, past a day's 60; touch and pad cannot start an act (FLAGGED already); and the account service (acct36, with
+  0036) must deploy before the client, whose skinning the acct33 service refuses as "nothing here to gather".
