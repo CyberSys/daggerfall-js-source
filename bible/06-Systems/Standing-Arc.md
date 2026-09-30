@@ -124,8 +124,9 @@ warned first. A standing back at zero or above ends the probation.
 
 ## What stays punishing
 
-A crime is still charged the moment the watch catches you, and stays charged if you get away - only answering for it
-(a sentence, a fine, an acquittal) gives it back; the answer still costs gold and days; a violent crime keeps its mark
+A crime is still charged the moment the watch catches you, and stays charged if you get away - or die: an online death
+ends the chase (Mac's call after AUDIT REP, "What do you think? I trust you" - the crime cleared at the respawn, as the
+travel map's arrival clears it) but gives nothing back - only answering for it (a sentence, a fine, an acquittal) does; the answer still costs gold and days; a violent crime keeps its mark
 (a Murder -10) and may still banish; the watch still stops a bad name and hunts a refusal; low standing still closes
 guilds, talk and quests; a slain watchman in the chase still ends in the killing blow.
 
@@ -141,7 +142,7 @@ faction's charges, Vagrancy's resting law, Roleplay Realism's squads.
 `test/rep1_watchstop.test.js` (7), `test/rep2_sentences.test.js` (8), `test/rep3_banishment.test.js` (5),
 `test/rep4_recovery.test.js` (5), `test/rep5_notices.test.js` (4), `test/rep6_probation.test.js` (3).
 `tools/mutants/rep{1..6}_*.json`: 64 records, 64 dead. AUDIT REP (`01-Overview/Audit-REP.md`, 2026-09-30):
-`test/auditrep.test.js` (7), `tools/mutants/auditrep.json` 17/17 dead; two pins moved (REP3's short purse, F4;
+`test/auditrep.test.js` (8), `tools/mutants/auditrep.json` 19/19 dead; two pins moved (REP3's short purse, F4;
 audit39_guildstravel's F99, the court's banishment on the trusted calendar, F2). Fifteen older pin files moved with the law (each marked PIN
 MOVED): court, prisonrelease, guilds, rr1_realism, guildrep, auditdisc28_time, disc28_fatigue, auditlived1b, lived1,
 audit26_dungeonfoes, exteriorfoes, beastform, audit39_guildstravel, audit39_worldlegaltalk, auditrr; seven older mutant

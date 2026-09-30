@@ -9789,6 +9789,13 @@ export async function bootWorld(canvas, renderer, params, status) {
     surfacePlayer();
     player.stopAutorun();   // SEA-RISE: a player raised from death does not come up running - the latch walked them back into the sea
     const goldLost = applyDeathPenalty(playerEntity);   // DEATH-PENALTY: once per death - the _respawning guard above is what makes it once
+    // AUDIT REP, Mac's call ("What do you think? I trust you"): A DEATH ENDS THE CHASE. The respawn is handled as the
+    // journey it most resembles (HCC H2, below) and the travel map's arrival clears the crime (PostFastTravel), but the
+    // teleport raised neither, so a criminal woke at the nearest temple still wanted - and with a watchman slain in the
+    // chase, the next wave's killing blow waited there too. The crime goes with the death, before the teleport's await
+    // (no guard's blow lands in it); a charge already laid stays whole - only a sentence gives any of it back.
+    setCrimeCommitted(playerEntity, CRIMES.None);
+    arrestFlow.abandon();   // the surrender question withdrawn, the chase's charge and slain watchman forgotten
     _deathWasOnline = null;   // armed fresh for the NEXT death
     const mode = modes?.mode ?? 'exterior';
     const wasInDungeon = mode === 'dungeon';

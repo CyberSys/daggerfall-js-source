@@ -172,3 +172,18 @@ test('AUDIT REP F6: DFU\'s per-minute levy stays retired - no production caller;
   assert.deepEqual(callers, []);
   assert.match(src('src/systems/encounters.js'), /AUDIT REP F6: KEPT, WITH NO PRODUCTION CALLER SINCE REP1/);
 });
+
+test('AUDIT REP, Mac\'s call ("What do you think? I trust you"): an online death ends the chase - the crime cleared and the chase forgotten at the respawn\'s top, before the teleport\'s await; the charge laid stays (mutants: the crime kept through the death; the chase kept)', () => {
+  const w = src('src/scenes/world.js');
+  const body = w.slice(w.indexOf('  function respawnOnlinePlayer() {'), w.indexOf('    Promise.resolve().then(async () => {', w.indexOf('  function respawnOnlinePlayer() {')));
+  assert.match(body, /reviveForPlay\(playerEntity, \{ force: true \}\);[\s\S]*applyDeathPenalty\(playerEntity\);[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*setCrimeCommitted\(playerEntity, CRIMES\.None\);\n\s*arrestFlow\.abandon\(\);/,
+    'after the revive and the death\'s price, before anything is awaited');
+  // abandon's own law (REP2's pin): the chase's charge and its slain watchman go with it; the name keeps the charge
+  const r = flowRig(CRIMES.Murder);
+  r.flow.onGuardHit(5, () => {});
+  r.p.watchSlain = true;
+  r.p.crimeCommitted = 0;   // the respawn's clear
+  r.flow.abandon();
+  assert.deepEqual([r.p.chargedCrime, r.p.watchSlain, legalRepOf(r.p, 2)], [0, false, -20], 'the Murder\'s charge stands whole');
+  r.flow.dispose();
+});

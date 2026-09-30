@@ -151,5 +151,23 @@
     "tests": [
       "test/auditrep.test.js"
     ]
+  },
+  {
+    "name": "AUDITREP-MAC-the-crime-kept-through-the-death",
+    "file": "src/scenes/world.js",
+    "old": "    setCrimeCommitted(playerEntity, CRIMES.None);\n    arrestFlow.abandon();   // the surrender question withdrawn",
+    "new": "    arrestFlow.abandon();   // the surrender question withdrawn",
+    "tests": [
+      "test/auditrep.test.js"
+    ]
+  },
+  {
+    "name": "AUDITREP-MAC-the-chase-kept-through-the-death",
+    "file": "src/scenes/world.js",
+    "old": "    arrestFlow.abandon();   // the surrender question withdrawn, the chase's charge and slain watchman forgotten\n",
+    "new": "",
+    "tests": [
+      "test/auditrep.test.js"
+    ]
   }
 ]

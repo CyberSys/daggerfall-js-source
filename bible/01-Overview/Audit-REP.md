@@ -6,7 +6,8 @@ court opens, both clocks a term or a stop reads, both street hosts' gates, the t
 legal standing, and the retired levy's readers and records.
 
 Every finding below was checked against the code before it was fixed and pinned by a test that fails on the code as
-REP shipped it: `test/auditrep.test.js` (7). Mutation-proven: `tools/mutants/auditrep.json` 17 records, all dead. Each
+REP shipped it: `test/auditrep.test.js` (7, and an eighth for Mac's call below). Mutation-proven:
+`tools/mutants/auditrep.json` 19 records, all dead. Each
 fix carries an `AUDIT REP F<n>` comment. Two older pins moved with it, each marked PIN MOVED: `rep3_banishment`'s short
 purse (F4) and `audit39_guildstravel`'s F99, whose court now banishes on the trusted calendar (F2). Five court rigs that
 model a convict already past the surrender box now record the box's charge (`prisonrelease`, `roadb_court_backdrop`,
@@ -33,10 +34,22 @@ model a convict already past the surrender box now record the box's charge (`pri
 - **The stop's box works by key, click and pad.** Its rows are clickable, and on pad or touch they are buttons.
 - **The drift.** The weekly recovery walks each world minute once (LIVED1 I's spans), including across an absence, and the absence is paid only when the relay's clock is heard (P4).
 
-## For Mac
+## Mac's calls
 
-1. **A bounty contract pays above zero.** `rewardContract` gives +2 up to the band's top (+100), so contracts raise a good name as well as mend a bad one. Should they stop at zero, the way a penance does?
-2. **An online death keeps the crime.** The respawn does not answer for it, so the watch still hunts. If a watchman fell in the chase, an involuntary surrender stays refused, but a voluntary one (Y at the next wave's box) is always taken. DFU has no respawn to compare with. Should dying answer for the crime?
-3. **The numbers are first cuts** (the arc page's list): two game hours between stops, a day's grace, 30 days of banishment, a pardon at 2,500 x n, a penance at 200 x n for five points, a contract +2, a week's recovery.
+Mac, on the three questions this record put to him: *"What do you think? I trust you"*. Decided:
+
+1. **A bounty contract keeps paying above zero. No change.** Gold buys forgiveness, not honour. A penance stops at zero
+   because it is bought. A contract is work done for the region, as a raid's defence (+5 to +100) and a quest's
+   `legal repute` are, and both of those raise a good name too. +2 a contract is slow, and a good name still wears down
+   on DFU's 112 days.
+2. **An online death ends the chase. Built.** The online respawn is handled as the journey it most resembles (HCC H2),
+   and the travel map's arrival clears the crime (PostFastTravel). But the respawn's teleport raised neither, so a
+   criminal woke at the nearest temple still wanted, and with a watchman slain in the chase the next wave's killing blow
+   was waiting there too. `world.js respawnOnlinePlayer` now clears the crime through the one setter and ends the chase
+   (`arrestFlow.abandon`) at its top, before the teleport's await. A charge already laid stays whole, because only a
+   sentence gives any of it back: a Murder that dies instead of serving keeps -20, not a sentence's -10. An uncaught
+   crime goes with the death uncharged, as it goes with any journey away. Pinned in `test/auditrep.test.js` (8);
+   2 more mutants, dead.
+3. **The numbers stand as first cut**, to be tuned from what players report rather than guessed again now.
 
 Not verified in a browser.
