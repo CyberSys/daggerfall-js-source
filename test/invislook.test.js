@@ -90,12 +90,14 @@ test('INVIS-LOOK executed: the walker and the rider - the chosen set and the sad
   w.sync([walker], toScene, { eye: [4, 1, 20], dt: 0, conceal: () => V });
   assert.equal(w.isWalking('w'), true);
   assert.equal(w.batches()[0].conceal, V, 'the walker: the look');
-  // a new sprite (another set chosen) is a new batch - it keeps the figure's look
-  const before = w.batches()[0];
+  // a new sprite (another set chosen) - AUDIT FLICKER R1: written through the batch standing (a batch made again at
+  // every frame of the walk left the next replay a dead one - the shadow strobed), and it keeps the figure's look
+  const before = w.batches()[0], beforeKey = `${before.archive}:${before.record}`;
   const other = { ...walker, look: { eo: 4 } };
   w.sync([other], toScene, { eye: [4, 1, 20], dt: 0, conceal: () => V }); await settle();
   w.sync([other], toScene, { eye: [4, 1, 20], dt: 0, conceal: () => V });
-  assert.notEqual(w.batches()[0], before, 'a new sprite');
+  assert.equal(w.batches()[0], before, 'the same batch');
+  assert.notEqual(`${w.batches()[0].archive}:${w.batches()[0].record}`, beforeKey, 'a new sprite through it');
   assert.equal(w.batches()[0].conceal, V, 'still concealed');
   w.sync([walker], toScene, { eye: [4, 1, 20], dt: 0 });
   assert.equal(w.batches()[0].conceal, null, 'the spell ended: plain');

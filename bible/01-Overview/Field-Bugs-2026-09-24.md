@@ -1076,7 +1076,7 @@ local player's goes through `mwView.mwViewDrawBody` (`mwView.js:395`,
 and `dungeon.js:1096`. `dungeonContext.js`, the fourth motor host, builds
 the dungeon for those hosts and draws no body of its own. The other players'
 bodies go through `peerBodies.js:650` (`PeerBodies.draw`, and INVIS-LOOK's `drawVeiled`, by `_drawBodies`). The open world
-calls it at `world.js:23251`, and the modal passes reach it through
+calls it at `world.js:23260`, and the modal passes reach it through
 `host.drawPeerBodies` (`worldModes.js:8316`, `:8423`). The fix therefore
 sits in one place and reaches every host.
 
