@@ -111,3 +111,25 @@ test('AUDIT WERE-FRIGHT F3: a routed watchman is not a pacified one - struck as 
   assert.equal(turned, 0, 'a blow on a routed watchman turns no one else in the area');
   assert.equal(pool.anyWatchStanding(), false, 'and he is still not the watch standing');
 });
+
+// ── F4 (the arrest flow, met by the merge of #464) ──────────────────────────────────────────────────────────────────
+test('AUDIT WERE-FRIGHT F4: the watch\'s stop (REP1, merged in) walks no beast into court - "come quietly" is no answer a beast has', () => {
+  // REP1's stop (scenes/standingHost.js) challenges a known criminal on sight and never a transformed one - the beast is
+  // nobody's face. Online the world runs under its box (WORLD5), so the change can come while it stands, and S reached
+  // surrenderToChallenge, which wrote the Conspiracy, charged it and carried the beast into court: the surrender the
+  // beast has not got (WERE-FRIGHT), by the door the merge brought in. The stop lapses instead, as it never began.
+  const beast = mkWanted({ crimeCommitted: 0, legalRep: { 17: 5 } });
+  const f = mkFlow(beast);
+  assert.equal(f.flow.surrenderToChallenge(), false, 'no surrender taken');
+  assert.equal(beast.arrested, false, 'no beast is tried');
+  assert.equal(beast.crimeCommitted, 0, 'no Conspiracy written for it');
+  assert.equal(beast.haveShownSurrenderDialogue, false, 'nothing asked');
+  assert.equal(beast.chargedCrime ?? null, null, 'nothing charged');
+  f.flow.dispose();
+  // a man still comes quietly, as REP1 built it
+  const man = mkWanted({ crimeCommitted: 0, legalRep: { 17: 5 }, activeEffects: [curse(false)] });
+  const m = mkFlow(man);
+  assert.equal(m.flow.surrenderToChallenge(), true);
+  assert.equal(man.arrested, true);
+  m.flow.abandon(); m.flow.dispose();
+});

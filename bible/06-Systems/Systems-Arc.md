@@ -3196,7 +3196,7 @@ collapse is a bare `RaiseTime(1 * SecondsPerHour)` (`:2429`) that
 returns; `Update` is not re-entered.
 
 The port's hosts implement that same RaiseTime as
-`playerTicker.advance(60)` (`exterior.js:1084`, `world.js:2972`), fired
+`playerTicker.advance(60)` (`exterior.js:1085`, `world.js:2973`), fired
 from inside `sinks.drainFatigue` - so it re-enters `tickPlayerMinutes`
 from inside that function's own fatigue band. The nested tick wrote the
 marker an hour ahead, the outer frame's own `setWorldMinutes` then
@@ -4597,7 +4597,7 @@ the true clause along with the false ones is in the campaign, because
 over-retiring is the equal and opposite failure.
 
 **And one delegation pointed at a flag nobody had ever written.**
-`world.js:4360` said the dungeon-mode enchant ctx was "FLAGGED there
+`world.js:4361` said the dungeon-mode enchant ctx was "FLAGGED there
 with the rest of its enchant wiring" in `dungeonContext.js`. It was
 not. `setDefaultEnchantCtx` had exactly **one** caller in the tree, so
 the standalone `?dungeon` host ran every arm that needs a host
@@ -5575,7 +5575,7 @@ to that cite and moves under the same content check; citeMerge had
 done this since CS2 and citeShift only reported them, so the two
 regexes are one law now, exported from citeShift (`ANY_CITE`,
 `CONTINUATION`) and imported by citeMerge. (2) A TEST'S ESCAPED
-LITERAL FOLLOWS THE ROW IT PINS: `world\.js:9448` in citedrift.test.js
+LITERAL FOLLOWS THE ROW IT PINS: `world\.js:9459` in citedrift.test.js
 is a quote of a Ledger row's text; the row is STRUCK and its number
 held, and the literal used to move anyway, parting the pin from its
 row at every shift. The CLI plans every doc first, learns which
@@ -8038,7 +8038,10 @@ legal reputation less one (`court.js`, PlayerEntity.cs:2301-2304,
 to charge Criminal_Conspiracy and call the watch (PlayerEntity.cs:
 498-504); a banishment rolls 10% for good (:506-511). A player with a
 bad name in a region is hunted there after the sentence in Daggerfall
-too. Pinned in `test/jailhit.test.js` (3); `arrestshield.test.js`'s
+too. [SUPERSEDED by the reputation overhaul, REP1-REP6 (2026-09-29, Mac: "Something just much better and not as
+punishing, but still punishing"; `06-Systems/Standing-Arc.md`): a sentence gives the charge back less a violent crime's
+mark, the per-minute roll is retired for a guard who sees a known criminal stopping them, and a banishment is timed or
+pardoned.] Pinned in `test/jailhit.test.js` (3); `arrestshield.test.js`'s
 source pin and `audit39_worldlegaltalk.test.js`'s fixture (which never
 answered its surrender box) re-aimed. Mutants
 `tools/mutants/jail_hit.json` (6, all dead).
@@ -8338,8 +8341,9 @@ re-aimed by content, and those six files' 356 mutants re-run: 355 dead and the o
 
 Mac: "Audit this" - PR #459 whole, WERE-FRIGHT and MW-BRIG3, in six lenses: the arrest flow and its laws, the watch
 pool, the enemy motor, the hosts' seams (online and every input path to the box), MW-BRIG3's fit, and the records.
-Three findings, each verified by a pin that failed on the code before its fix (`test/auditwerefright.test.js`), and
-five mutants, five dead (`tools/mutants/auditwerefright.json`).
+Four findings - the fourth met where the merge of #464 (REP1-REP6, the reputation overhaul) brought a new surrender
+in - each verified by a pin that failed on the code before its fix (`test/auditwerefright.test.js`), and six mutants,
+six dead (`tools/mutants/auditwerefright.json`).
 
 **F1 - THE EXTERIOR HOST SENT ITS STREET ALONE.** Both exterior hosts build the mode machine, and with it a watch that
 can be called into a building (ROAD-B's interiorGuards). world.js's `watchFlees` summed the street's pool and the
@@ -8365,6 +8369,13 @@ target alone - which is all that stops a foe striking - and a routed watchman st
 plainly: for the five seconds of the run a fleer still in its spawn band counts as an enemy nearby (areEnemiesNearby),
 so a rest or a fast travel is refused until he is gone, as it is for any hostile foe in reach.
 
+**F4 - THE WATCH'S STOP COULD WALK A BEAST INTO COURT.** REP1 (merged in with #464) stops a known criminal on sight
+(`scenes/standingHost.js`): pay, come quietly, or refuse. It never stops a transformed one - the beast is nobody's face
+- but online the world runs under its box, so the change can come while it stands, and "S - come quietly" reached
+`arrestFlow.surrenderToChallenge`, which wrote the Conspiracy, charged it and carried the beast into court: the
+surrender WERE-FRIGHT denies a beast, by a door it had not met. `surrenderToChallenge` is never a beast's now - the
+stop lapses with nothing written, charged or tried, as if it had not begun; a man still comes quietly.
+
 **Checked and sound.** The extraction is behaviour-equivalent for every foe that is not fleeing: origin/main's
 EnemyAI and this branch's driven side by side on a real collider through nine scripted scenarios (a pursuit through a
 wall and its detour, a knockback, a paralysis, a ledge, a flyer knocked down, a levitator knocked back, the idle fast
@@ -8381,6 +8392,6 @@ rows (669, 719) - and those keep the text they were MEASURED on at the merge bas
 line when LOAN-AMNESTY moved world.js: the branch's are right, and are kept. No cite was left behind by a line the
 branch moved, but for three synthetic examples in citeShift's own header and pins, which the tool keeps by design.
 
-**Said, not changed.** A hated or banished name's passive levy (WERE-LEVY) can send the next watch at once after a
-fright - DFU's own levy, and that watch is halted afresh, so the beast is asked again. A man asked the question who
-turns beast afterwards does not get a roar for that watch - the question is once a watch, and it was asked.
+**Said, not changed.** Since REP1 the passive levy on a hated name (WERE-LEVY's) has no caller: the watch stops a known
+criminal only by sight, and never a beast, so a fright is not undone by a levy the next minute. A man asked the question
+who turns beast afterwards does not get a roar for that watch - the question is once a watch, and it was asked.

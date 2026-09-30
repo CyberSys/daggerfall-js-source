@@ -160,8 +160,13 @@ test('guilds: a lost reputation demotes, and a negative one expels', () => {
   assert.equal(down.textId, DEMOTION_TEXT_ID, 'every guild demotes on the shared 667');
   assert.equal(hasJoined(memberships, g), true, 'a demotion keeps the membership');
 
+  // REP6 (the reputation overhaul: "probation below 0, and expulsion only below -10, with a warning first"): PIN MOVED -
+  // below zero is a probation first (the rank and the membership kept, test/rep6_probation.test.js), and the review that
+  // finds the member still on probation and below -10 expels (DFU: the first review below zero)
   setReputation(store, g.factionId, -1);
-  const out = updateRank(memberships, g, entity, store, day(56));
+  assert.equal(updateRank(memberships, g, entity, store, day(56)).outcome, 'probation');
+  setReputation(store, g.factionId, -11);
+  const out = updateRank(memberships, g, entity, store, day(84));
   assert.equal(out.outcome, 'expulsion');
   assert.equal(out.rank, -1);
   assert.equal(out.textId, EXPULSION_TEXT_ID, 'and expels on the shared 668');

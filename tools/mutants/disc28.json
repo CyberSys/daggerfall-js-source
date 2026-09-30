@@ -192,8 +192,8 @@
   {
     "name": "DISC28-F-boundary-off-by-one",
     "file": "src/systems/worldTick.js",
-    "old": "Math.floor((b - 1) / NORMALIZE_INTERVAL_MINUTES) - Math.floor((a - 1) / NORMALIZE_INTERVAL_MINUTES)",
-    "new": "Math.floor(b / NORMALIZE_INTERVAL_MINUTES) - Math.floor(a / NORMALIZE_INTERVAL_MINUTES)",
+    "old": "Math.floor((b - 1) / RECOVERY_INTERVAL_MINUTES) - Math.floor((a - 1) / RECOVERY_INTERVAL_MINUTES)",
+    "new": "Math.floor(b / RECOVERY_INTERVAL_MINUTES) - Math.floor(a / RECOVERY_INTERVAL_MINUTES)",
     "tests": [
       "test/disc28_fatigue.test.js"
     ]

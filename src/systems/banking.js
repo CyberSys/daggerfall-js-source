@@ -4,7 +4,7 @@
 //
 // Audit-25 listed banking among the six systems at or near zero, and
 // several laws already in the tree have been waiting on it with no
-// caller at all: CRIMES.LoanDefault (court.js:44) has never fired,
+// caller at all: CRIMES.LoanDefault (court.js:52) has never fired,
 // U40's letter of credit is minted and carried with nowhere to cash
 // it, and staticNpcRoute has answered { merchant, 'banking' } since G8
 // into a dead arm.
@@ -211,7 +211,7 @@ export function allocateHouseToPlayer(houses, regionIndex, { buildingKey, mapId,
  * whatever the purse could not cover.
  *
  * The mechanism is DeductGoldAmount's return value, which is the
- * SHORTFALL rather than nothing (court.js:213 ports it, letters of
+ * SHORTFALL rather than nothing (court.js:235 ports it, letters of
  * credit and all) - so `accountGold -= deductGold(...)` subtracts
  * exactly the remainder, and subtracts ZERO when the purse covered it.
  * Written any other way this either double-charges or lets the account

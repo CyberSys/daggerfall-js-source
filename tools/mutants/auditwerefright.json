@@ -43,5 +43,14 @@
     "tests": [
       "test/auditwerefright.test.js"
     ]
+  },
+  {
+    "name": "AUDIT-WERE-FRIGHT-F4-a-beast-comes-quietly",
+    "file": "src/scenes/arrestFlow.js",
+    "old": "    if (inCourt() || isTransformedLycanthrope(playerEntity)) return false;",
+    "new": "    if (inCourt()) return false;",
+    "tests": [
+      "test/auditwerefright.test.js"
+    ]
   }
 ]

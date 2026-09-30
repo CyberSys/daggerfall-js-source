@@ -10,6 +10,7 @@
 - If you turn into the beast while the surrender question is on screen, you can't surrender any more: answering fights on.
 - If you turn back into your human form while the frighten question is on screen, you can't roar any more: answering fights on.
 - Hitting a guard who is running from you is an ordinary hit. It doesn't turn calmed creatures nearby against you.
+- The watch never stops a beast on sight. If you change while a guard is stopping you, "come quietly" does nothing: a beast can't be taken to court.
 
 ## Known issues
 - Not yet tried with other players watching. They should see the frightened guards run off and disappear.
