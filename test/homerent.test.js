@@ -400,7 +400,7 @@ test('HOME-RENT the host by source: the door lists a tenant\'s and a room-to-ren
   assert.match(wm, /&& \(verb === HOME_VERB\.rent \|\| \(verb == null && door === 'locked' && home\.rent\)\)\) \{ openHomeRent\(bd, home\)/);
   assert.ok(wm.indexOf('openHomeRent(bd, home).catch') < wm.indexOf("if (door === 'locked') { townTalk?.say?.(homeLockedLine(home)); return true; }"), 'before the lock');
   assert.match(wm, /action: \(\) => openHomeRentConfirm\(bd, room, d\)/, 'the price asked before it is paid');
-  assert.match(wm, /houseOwned: interiorHome \? \(interiorHome\.own \|\| rentDaysLeft\(interiorHome\.tenant, Math\.floor\(Date\.now\(\) \/ 1000\)\) > 0\)/);
+  assert.match(wm, /houseOwned: interiorHome \? \(interiorHome\.own \|\| \(interiorHome\.hall && interiorHome\.member\) \|\| rentDaysLeft\(interiorHome\.tenant, Math\.floor\(Date\.now\(\) \/ 1000\)\) > 0\)/);   // GUILD1d (re-aimed by content): and a member in their guild's hall
   assert.match(wm, /if \(home && !home\.own && rentDaysLeft\(home\.tenant, Math\.floor\(Date\.now\(\) \/ 1000\)\) > 0\) say\(rentWelcomeLine/);
   assert.match(wm, /rent: \(\) => decorRentDoor\(\),/);
   assert.match(wm, /if \(!api \|\| !interiorHome\?\.own \|\| !b\) return null;/, 'the owner\'s alone');

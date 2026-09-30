@@ -146,7 +146,9 @@ export const homeShortLine = (price) => `You need ${price} gold, in your purse a
  * screen, World Tooltips off) the click itself offers, once a house a session (worldModes.js).
  */
 export const HOME_BUY_ARM_MS = 5_000;
-export const HOME_VERB = Object.freeze({ enter: 'home-enter', buy: 'home-buy', entry: 'home-entry', sell: 'home-sell', rent: RENT_VERB, hall: 'home-hall', hallEntry: 'home-hall-entry' });   // HOME-RENT: a room rented at the door; GUILD1d: a hall bought, and who may walk in
+export const HOME_VERB = Object.freeze({ enter: 'home-enter', buy: 'home-buy', entry: 'home-entry', sell: 'home-sell', rent: RENT_VERB });   // HOME-RENT: a room rented at the door
+/** GUILD1d: a house bought as its guild's hall, and who may walk into a hall - the hall's own verbs beside a home's. */
+export const HALL_VERB = Object.freeze({ buy: 'home-hall', entry: 'home-hall-entry' });
 /** The rows over a house anyone may buy, at `price`; `armed` after its first press. */
 export const homeBuyRows = (price, armed = false) => [
   { id: HOME_VERB.enter, label: 'Go in' },
@@ -165,6 +167,7 @@ export const homeOwnerRows = (entry) => [
  * homeDoorAnswer's; `nowS` the clock the days left are counted by. Null where a plain door is all there is.
  */
 export function homeVisitorRows(home, door, nowS = Math.floor(Date.now() / 1000)) {
+  if (home?.hall) return homeHallRows(home, door);   // GUILD1d: a guild's hall - its members' rows, never a room to rent
   if (!home || home.own) return null;
   if (rentDaysLeft(home.tenant, nowS) > 0) return [{ id: HOME_VERB.enter, label: 'Go in' }, { id: HOME_VERB.rent, label: rentTenantLabel(rentDaysLeft(home.tenant, nowS)) }];
   // AUDIT: never from one's own account (the service refuses it `rent-own`) - another character of the owner's is shown
@@ -181,11 +184,11 @@ export function homeVisitorRows(home, door, nowS = Math.floor(Date.now() / 1000)
 export function homeHallBuyRow(price, guild, armed = false) {
   if (!guild || guild.rank !== 0 || guild.hall) return null;
   const cost = guildHallPrice(price);
-  return { id: HOME_VERB.hall, label: armed ? `Click again to buy it for ${guild.name}: ${cost} gold` : `Buy it for ${guild.name}: ${cost} gold from the treasury` };
+  return { id: HALL_VERB.buy, label: armed ? `Click again to buy it for ${guild.name}: ${cost} gold` : `Buy it for ${guild.name}: ${cost} gold from the treasury` };
 }
 export function homeHallRows(home, door) {
   if (!home?.hall || door !== 'enter') return null;
-  return [{ id: HOME_VERB.enter, label: 'Go in' }, ...(home.keeper ? [{ id: HOME_VERB.hallEntry, label: `Who may enter: ${GUILD_HALL_ENTRY_WORDS[home.entry] ?? GUILD_HALL_ENTRY_WORDS.guild}` }] : [])];
+  return [{ id: HOME_VERB.enter, label: 'Go in' }, ...(home.keeper ? [{ id: HALL_VERB.entry, label: `Who may enter: ${GUILD_HALL_ENTRY_WORDS[home.entry] ?? GUILD_HALL_ENTRY_WORDS.guild}` }] : [])];
 }
 /** GUILD1d: who may walk into a hall after `entry`, a press on the row: members, anyone, and round again. */
 export const hallNextEntry = (entry) => GUILD_HALL_ENTRIES[(Math.max(0, GUILD_HALL_ENTRIES.indexOf(entry)) + 1) % GUILD_HALL_ENTRIES.length];

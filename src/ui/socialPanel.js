@@ -171,7 +171,7 @@ ${PIXELIFY_FIVE_FACE}
 .dfsocial-note { flex: none; padding: 4px 8px; font-size: 12px; color: #e0b070; }
 .dfsocial-note:empty { display: none; }
 .dfsocial-banner { flex: none; display: flex; gap: 10px; align-items: flex-start; padding: 4px 0; }
-.dfsocial-banner svg { flex: none; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
+.dfsocial-banner img { flex: none; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
 .dfsocial-tabs { flex: none; display: flex; gap: 2px; padding: 4px 4px 0; border-bottom: 1px solid var(--iron, #2b323b); }
 .dfsocial-tab { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--dim, #8b8578); font: inherit; font-size: 13px;
   letter-spacing: .05em; text-transform: uppercase; padding: 6px 10px; cursor: pointer; }
@@ -1008,8 +1008,11 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
     if (may && !d.heraldry) d.heraldry = { ...(v.heraldry ?? { field: 'azure', border: 'gold', device: 'wolf' }) };
     const shown = may ? heraldryOf(d.heraldry) ?? v.heraldry : v.heraldry;
     const pic = el('div', 'dfsocial-banner');
-    pic.innerHTML = bannerSvg(shown, { width: 44 });   // our own drawing, from the law's colours and paths alone
-    pic.append(el('div', 'dfsocial-note', v.heraldry ? heraldryText(v.heraldry) : GUILD_HERALDRY_NONE_TEXT));
+    const img = doc.createElement('img');   // our own drawing as a picture - never markup (SOC3)
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(bannerSvg(shown, { width: 44 }))}`;
+    img.setAttribute('width', '44'); img.setAttribute('height', '132');
+    img.setAttribute('alt', shown ? heraldryText(shown) : 'An undrawn banner');
+    pic.append(img, el('div', 'dfsocial-note', v.heraldry ? heraldryText(v.heraldry) : GUILD_HERALDRY_NONE_TEXT));
     out.push(pic);
     if (!may) return out;
     const pick = (label, options, value, onPick) => {

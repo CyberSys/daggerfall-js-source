@@ -274,7 +274,7 @@ import {
   homeSoldLine, homeRefund, HOME_ENTRY_WORDS, HOME_BANK_LINES, buyOnlineHome, sellOnlineHome, HOME_BUY_BUSY, homeDoorPrompt,
   HOME_BUY_ARM_MS, HOME_VERB, homeBuyRows, homeOwnerRows, homeNextEntry, HOME_OFFER_BUY, HOME_OFFER_PASS,   // HOME2
   homeVisitorRows,   // HOME-RENT: a tenant's rows, and a home's with a room to rent
-  homeHallBuyRow, homeHallRows, hallNextEntry, hallBoughtLine, hallShortLine, HALL_CHEST_SHUT,   // GUILD1d: a guild's hall
+  HALL_VERB, homeHallBuyRow, hallNextEntry, hallBoughtLine, hallShortLine, HALL_CHEST_SHUT,   // GUILD1d: a guild's hall
 } from '../systems/onlineHomes.js';
 import { guildHallPrice, GUILD_HALL_ENTRY_WORDS } from '../net/hallLaw.js';   // GUILD1d: what a hall costs, in its refusal's words; who may walk in
 import { HOME_ENTRIES, homePriceOk, rentCost, rentDaysLeft } from '../net/homeLaw.js';
@@ -3484,10 +3484,11 @@ export function createWorldModes(host) {
    *  potion maker's ingredients, the spell maker's spellbook, what each charges). No guild is asked: the licence was
    *  paid when the piece was made a station. */
   function useDecorStation(piece) {
-    // GUILD1d: a hall's stations are its members' - the licence its keeper paid serves the guild
-    if (!decorOwnerHere() && !(interiorHome?.hall && interiorHome.member)) {
-      if (interiorHome) say(homeBelongsLine(interiorHome));
-      return;
+    if (!decorOwnerHere()) {
+      if (!interiorHome?.member) {   // GUILD1d: a hall's stations are its members'
+        if (interiorHome) say(homeBelongsLine(interiorHome));
+        return;
+      }
     }
     // PROF2 (bible/06-Systems/Professions-Arc.md 23): a forge is no guild's maker - it opens the Stores' own forge, where
     // the player's smelting is done; where the Stores page is not (offline, the switch shut, the classic skin) it says
@@ -5609,14 +5610,12 @@ export function createWorldModes(host) {
   const homeArmed = (bd) => !!_homeArm && _homeArm.id === homeIdOf(bd) && performance.now() - _homeArm.at <= HOME_BUY_ARM_MS;
   /** What the door's cached text depends on beyond the door: whether verbs are listed at all (Steal lists none) and the
    *  arm that is live - its lapse repaints the row back to "Buy it". */
-  const homeVerbsSig = () => `${host.onlineHomes && getInteractionMode() !== 'steal' ? 'v' : ''}|${_homeArm && performance.now() - _homeArm.at <= HOME_BUY_ARM_MS ? _homeArm.id : ''}`
-    + `|${_hallArm && performance.now() - _hallArm.at <= HOME_BUY_ARM_MS ? _hallArm.id : ''}|${(() => { const g = hallGuild(); return g ? `${g.name}:${g.rank}:${g.hall ? 1 : 0}` : ''; })()}`;   // GUILD1d: the hall's arm, and whether this character may buy one
+  const homeVerbsSig = () => `${host.onlineHomes && getInteractionMode() !== 'steal' ? 'v' : ''}|${_homeArm && performance.now() - _homeArm.at <= HOME_BUY_ARM_MS ? _homeArm.id : ''}`;
   /** The door's verbs, or null: my own home's, or a house's I could buy (homeOfferPrice), in any mode but Steal. */
   function homeDoorVerbs(bd, home) {
     if (!host.onlineHomes || getInteractionMode() === 'steal') return null;
     if (home?.own) return homeOwnerRows(home.entry);
-    if (home?.hall) return homeHallRows(home, homeDoorFor(bd, home));   // GUILD1d: a hall's members go in; its keepers say who may
-    if (home) return homeVisitorRows(home, homeDoorFor(bd, home));   // HOME-RENT: a tenant's own room, or a room to rent
+    if (home) return homeVisitorRows(home, homeDoorFor(bd, home));   // HOME-RENT: a tenant's own room, or a room to rent; GUILD1d: a hall's members go in, its keepers say who may
     const price = homeOfferPrice(bd);
     if (!price) return null;
     // GUILD1d: and, to a guildmaster whose guild holds no hall, the house bought as the guild's hall from its treasury
@@ -5626,13 +5625,14 @@ export function createWorldModes(host) {
   /** GUILD1d: the playing character's guild as the guild book last read it (`{ name, rank, hall, treasury }`), or null -
    *  asking it again, without waiting, when that read is old. */
   const hallGuild = () => host.guildHall?.info?.() ?? null;
-  /** GUILD1d: the hall's buy armed by its first press - a second on the same house within HOME_BUY_ARM_MS buys. */
-  let _hallArm = null;
-  const hallArmed = (bd) => !!_hallArm && _hallArm.id === homeIdOf(bd) && performance.now() - _hallArm.at <= HOME_BUY_ARM_MS;
+  /** GUILD1d: the hall's buy armed by its first press - a second on the same house within HOME_BUY_ARM_MS buys. The home's
+   *  own arm (`_homeArm`, the door text's signature reads it), under the house's id marked `hall:` - one arm a door. */
+  const hallArmId = (bd) => `hall:${homeIdOf(bd)}`;
+  const hallArmed = (bd) => !!_homeArm && _homeArm.id === hallArmId(bd) && performance.now() - _homeArm.at <= HOME_BUY_ARM_MS;
   /** GUILD1d: THE HALL'S ROW PRESSED - armed, then bought from the treasury (net/guildBook.js buyHall; no purse moves). */
   function pressHallBuy(bd, price) {
-    if (!hallArmed(bd)) { _hallArm = { id: homeIdOf(bd), at: performance.now() }; return; }
-    _hallArm = null;
+    if (!hallArmed(bd)) { _homeArm = { id: hallArmId(bd), at: performance.now() }; return; }
+    _homeArm = null;
     const g = hallGuild();
     const mapId = homeTownOf(bd);
     Promise.resolve(host.guildHall?.buy?.({ mapId, buildingKey: bd.buildingKey, region: bd.regionIndex ?? 0, price }))
@@ -5834,10 +5834,10 @@ export function createWorldModes(host) {
           const price = door === 'none' ? homeOfferPrice(bd) : 0;
           if (!isBash && !homeAsked && mode !== 'steal') {
             if (verb === HOME_VERB.buy && price) { pressHomeBuy(bd, price); return true; }
-            if (verb === HOME_VERB.hall && price) { pressHallBuy(bd, price); return true; }   // GUILD1d
-            if (verb === HOME_VERB.hallEntry && home?.hall && home.keeper) { turnHallEntry(bd, home); return true; }   // GUILD1d
             if (verb === HOME_VERB.entry && door === 'own') { turnHomeEntry(bd, home); return true; }
             if (verb === HOME_VERB.sell && door === 'own') { openHomeSale(bd); return true; }
+            if (verb === HALL_VERB.buy && price) { pressHallBuy(bd, price); return true; }   // GUILD1d: the house bought as the guild's hall
+            if (verb === HALL_VERB.entry && home?.hall && home.keeper) { turnHallEntry(bd, home); return true; }   // GUILD1d: who may walk into the hall
           }
           // ...and where the plaque listed none (a touch screen, World Tooltips off), the click's own ask - HOME-OFFER's
           // prompt: a house's offer in any mode but Steal, once a session per house (Info always asks); my home's menu

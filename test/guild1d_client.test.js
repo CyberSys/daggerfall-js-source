@@ -16,7 +16,7 @@ import {
 import { HOME_ENTRIES, homeMayEnter, homeEntryOk } from '../src/net/homeLaw.js';
 import { DEVICE_ART, DEVICES_DRAWN, bannerSvg, drawBanner, BANNER_CLOTH } from '../src/ui/heraldryArt.js';
 import {
-  createOnlineHomes, homeDoorTitle, homeLockedLine, homeBelongsLine, homeDoorAnswer, homeHallBuyRow, homeHallRows, hallNextEntry, HOME_VERB,
+  createOnlineHomes, homeDoorTitle, homeLockedLine, homeBelongsLine, homeDoorAnswer, homeHallBuyRow, homeHallRows, hallNextEntry, HOME_VERB, HALL_VERB, homeVisitorRows,
   HOME_ENTRY_WORDS, homeNextEntry,
 } from '../src/systems/onlineHomes.js';
 import { GuildBook } from '../src/net/guildBook.js';
@@ -137,14 +137,15 @@ test('GUILD1d the homes\' registry reads a hall: its guild, whether the characte
 
 test('GUILD1d the door\'s rows: "Buy it for <guild>" to a guildmaster whose guild holds no hall, at half again, armed by its first press; a hall\'s "Go in" to its members and "Who may enter" to its keepers (mutants: an Officer offered the buy; a guild with a hall offered it; the entry row to a member)', () => {
   const gm = { name: 'The Hand', rank: 0, hall: false, treasury: 50_000 };
-  assert.deepEqual(homeHallBuyRow(20_000, gm), { id: HOME_VERB.hall, label: 'Buy it for The Hand: 30000 gold from the treasury' });
+  assert.deepEqual(homeHallBuyRow(20_000, gm), { id: HALL_VERB.buy, label: 'Buy it for The Hand: 30000 gold from the treasury' });
   assert.equal(homeHallBuyRow(20_000, gm, true).label, 'Click again to buy it for The Hand: 30000 gold');
   assert.equal(homeHallBuyRow(20_000, { ...gm, rank: 1 }), null, 'the guildmaster\'s alone');
   assert.equal(homeHallBuyRow(20_000, { ...gm, hall: true }), null, 'one hall');
   assert.equal(homeHallBuyRow(20_000, null), null);
   const hall = { entry: 'guild', hall: { name: 'The Hand' }, member: true };
   assert.deepEqual(homeHallRows(hall, 'enter'), [{ id: HOME_VERB.enter, label: 'Go in' }]);
-  assert.deepEqual(homeHallRows({ ...hall, keeper: true }, 'enter')[1], { id: HOME_VERB.hallEntry, label: 'Who may enter: Members' });
+  assert.deepEqual(homeHallRows({ ...hall, keeper: true }, 'enter')[1], { id: HALL_VERB.entry, label: 'Who may enter: Members' });
+  assert.deepEqual(homeVisitorRows({ ...hall, keeper: true, rent: { vacant: 1, from: 5 } }, 'enter'), homeHallRows({ ...hall, keeper: true }, 'enter'), 'a hall is visited as a hall - no room to rent');
   assert.equal(homeHallRows(hall, 'locked'), null);
   assert.equal(hallNextEntry('guild'), 'public');
   assert.equal(hallNextEntry('public'), 'guild');
@@ -291,7 +292,8 @@ test('GUILD1d the Guild tab: with no hall how one is bought; with one where it s
   assert.equal(button(recruit.panel.root, 'Open it to anyone'), undefined);
   assert.equal(button(recruit.panel.root, 'Sell the hall'), undefined);
   assert.equal(button(recruit.panel.root, 'Change it'), undefined);
-  assert.equal(find(recruit.panel.root, 'dfsocial-banner').length, 1);
+  const [banner] = find(recruit.panel.root, 'dfsocial-banner');
+  assert.ok(banner.children[0].src.startsWith('data:image/svg+xml') && banner.children[0].src.includes(encodeURIComponent('#3b6fd8')), 'the banner a picture of its own drawing, never markup');
 });
 
 test('GUILD1d the banners\' anchors: a door\'s corners through its building\'s matrix; two cloths beside it, each past a jamb, hanging off its face away from the building\'s middle, their tops over its foot (mutants: the face toward the building; one banner; the gap dropped; the foot the top corner)', () => {
@@ -355,11 +357,11 @@ test('GUILD1d the cloth: rows of two triangles; the clock wrapped and every rate
 
 test('GUILD1d wired: the building host - the hall\'s rows and its buy, the chest, stations and rest for members, the keepers\' decor as a hall; the world host - the door measured at the build, the banners built and drawn after the duel walls, the guild\'s hall handed down; the decorator offers a hall no personal things (by source)', () => {
   const wm = src('src/scenes/worldModes.js');
-  assert.match(wm, /if \(home\?\.hall\) return homeHallRows\(home, homeDoorFor\(bd, home\)\);/);
+  assert.match(wm, /if \(home\) return homeVisitorRows\(home, homeDoorFor\(bd, home\)\);[^\n]*GUILD1d/);
   assert.match(wm, /const hall = homeHallBuyRow\(price, hallGuild\(\), hallArmed\(bd\)\);/);
-  assert.match(wm, /if \(verb === HOME_VERB\.hall && price\) \{ pressHallBuy\(bd, price\); return true; \}/);
+  assert.match(wm, /if \(verb === HALL_VERB\.buy && price\) \{ pressHallBuy\(bd, price\); return true; \}/);
   assert.match(wm, /if \(c && interiorHome\?\.hall && interiorHome\.member\) \{ openHallChest\(\); return true; \}/);
-  assert.match(wm, /if \(!decorOwnerHere\(\) && !\(interiorHome\?\.hall && interiorHome\.member\)\) \{/);
+  assert.match(wm, /if \(!decorOwnerHere\(\)\) \{\n\s*if \(!interiorHome\?\.member\) \{   \/\/ GUILD1d: a hall's stations are its members'/);
   assert.match(wm, /if \(interiorHome\?\.hall\) return \{ kind: 'home', hall: true, where: "Your guild's hall"/);
   assert.match(wm, /\(interiorHome\.hall && interiorHome\.member\) \|\| rentDaysLeft/);
   assert.match(wm, /if \(mode !== 'interior' \|\| !b \|\| !\(decorOwnerHere\(\) \|\| decorKeeperHere\(\)\)\) return null;/);

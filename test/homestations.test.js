@@ -134,7 +134,7 @@ test('HOME-STATIONS an online home: the account service first - a station it kee
 test('HOME-STATIONS the room and the service: a station pressed opens its craft\'s maker for its owner alone, through the guild service\'s own door; the account service writes the craft with the place (mutants: the station never pressed; any visitor served; the craft never stored)', () => {
   const M = src('src/scenes/worldModes.js');
   assert.match(M, /if \(piece\?\.station\) \{ useDecorStation\(piece\); return; \}/);
-  const use = M.slice(M.indexOf('  function useDecorStation(piece) {'), M.indexOf('  function useDecorStation(piece) {') + 900);
+  const use = M.slice(M.indexOf('  function useDecorStation(piece) {'), M.indexOf('  function useDecorStation(piece) {') + 1100);   // GUILD1d (re-aimed by content): the hall's members' rung inside the owner's check
   assert.match(use, /if \(!decorOwnerHere\(\)\) \{/, 'the owner\'s alone');
   assert.match(use, /openServiceFlow\(DECOR_STATION_SERVICES\[piece\.station\], \{ guild: null, memberships: null, store: null, rows, route: null \}\)/);
   assert.match(src('server-account/src/decor.js'), /const placeJson = \(\{ pos, rot, scale, light, storage, paid, station \}\) => JSON\.stringify\(\{ pos, rot, scale, light, storage, paid, \.\.\.\(station \? \{ station \} : \{\}\) \}\);/);

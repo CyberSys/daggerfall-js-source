@@ -258,8 +258,8 @@
   {
     "name": "GUILD1d-entry-row-to-a-member",
     "file": "src/systems/onlineHomes.js",
-    "old": "...(home.keeper ? [{ id: HOME_VERB.hallEntry,",
-    "new": "...(true ? [{ id: HOME_VERB.hallEntry,",
+    "old": "...(home.keeper ? [{ id: HALL_VERB.entry,",
+    "new": "...(true ? [{ id: HALL_VERB.entry,",
     "tests": [
       "test/guild1d_client.test.js"
     ]

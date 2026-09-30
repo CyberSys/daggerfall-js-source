@@ -53,6 +53,8 @@ on:
       - "src/net/homeLaw.js"
       - "src/net/decorLaw.js"
       - "src/net/guildLaw.js"
+      - "src/net/hallLaw.js"
+      - "src/net/heraldryLaw.js"
       - "src/net/marksLaw.js"
       - "src/net/boardLaw.js"
       - "src/net/professionLaw.js"
