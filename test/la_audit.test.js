@@ -432,13 +432,13 @@ test('LA-AUDIT F6: SHADOW_GLSL DRIVEN, NOT READ - sunShadowTap over the real cas
   let reads = 0;
   const tap = (src) => glslFunctions(src, { uSunShadowParams: [...SHADOW_CASCADES, 1], uSunTexel: [sunTexelWorld(0), sunTexelWorld(1), sunTexelWorld(2), 0], uSunVP: vp.map((m) => Array.from(m)), uCamPos: [0, 0, 0],
     texture: (name, c) => { reads++; return LAYER[Math.round(c[2])]; } }, {});
-  const walk = (src) => { const f = tap(src); let prev = null, worst = 0; for (let d = 0.5; d <= 238; d += 0.01) { const v = f.sunShadowTap([0, 0, d], [0, 1, 0], true); if (prev !== null) worst = Math.max(worst, Math.abs(v - prev)); prev = v; } return worst; };
+  const walk = (src) => { const f = tap(src); let prev = null, worst = 0; for (let d = 0.5; d <= 238; d += 0.01) { const v = f.sunShadowTap([0, 0, d], [0, 1, 0], true, 0); if (prev !== null) worst = Math.max(worst, Math.abs(v - prev)); prev = v; } return worst; };
   assert.ok(walk(SHADOW_GLSL) < 0.01, 'no step');
-  const HARD = SHADOW_GLSL.replace('return t > 0.0 ? mix(lit, sunCascadeTap(c + 1, wp, n, soft), t) : lit;', 'return lit;');
+  const HARD = SHADOW_GLSL.replace('return t > 0.0 ? mix(lit, sunCascadeTap(c + 1, wp, n, soft, h), t) : lit;', 'return lit;');
   assert.notEqual(HARD, SHADOW_GLSL);
   assert.ok(walk(HARD) > 0.3, 'the hard handover steps');
   const f = tap(SHADOW_GLSL);
-  reads = 0; f.sunShadowTap([0, 0, 230], [0, 1, 0], true);
+  reads = 0; f.sunShadowTap([0, 0, 230], [0, 1, 0], true, 0);
   assert.equal(reads, 0, 'past the fade, no read');
   // the lo compare: slot j's word carries a far of 16; the light's live range 11.2 or 15.9 - the compare the same
   const refs = (range, one) => {

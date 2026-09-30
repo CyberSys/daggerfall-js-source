@@ -227,5 +227,5 @@ test('DISC23-B: the host - one art store, the walkers after the bodies and skipp
   assert.match(w, /peerBodies\.sync\(afoot,[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*peerWalkers\.sync\(seen, onlineToScene, \{ eye: peerEye, right: peerRight, dt, skip: \(id\) => peerBodies\.heightOf\(id\) > 0, hurt: \(id\) => peerHurtAge\(id\) < PEER_FLINCH_S, conceal: veilOf \}\);/);   // PEERFX3: and a class skin's hurt pose
   assert.match(w, /bodyHeight: \(id\) => peerRiders\.heightOf\(id\) \|\| peerBodies\.heightOf\(id\) \|\| peerWalkers\.heightOf\(id\),/);
   assert.match(w, /peerWalkers\?\.offsetAll\(r\.offset\);/);
-  assert.match(w, /if \(peerWalkers\) for \(const b of peerWalkers\.batches\(\)\) \{ if \(!\(cullOn && billboardOutside\(b\)\)\) allBatches\.push\(b\); \}/);
+  assert.match(w, /if \(peerWalkers\) for \(const b of peerWalkers\.batches\(\)\) \{ if \(cullOn && billboardOutside\(b\)\) \{ if \(renderer\.shadowReachBatch\(b\)\) castBatches\.push\(b\); continue; \} allBatches\.push\(b\); \}/);
 });

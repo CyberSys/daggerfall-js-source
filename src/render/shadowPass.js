@@ -174,6 +174,9 @@ export const SHADOW_CASCADES = Object.freeze([12, 48, 240]);
  * can only want the tap less. A fourth cascade would be cheap, and should be.
  */
 export const SHADOW_PCF_CASCADES = 2;
+/** AUDIT FLICKER S1: how many texels up its own card a flat's soft sun read reaches (the 4x4 kernel's two, and half a
+ *  texel of the bilinear tap) - the height its own-card bias covers. */
+export const SUN_FLAT_REACH_TEXELS = 2.5;
 /** LA-SHADOW2: the fraction of a cascade's radius, below its handover at 0.9, over which the next cascade is mixed
  *  in (the far cascade: faded to lit) - 12 units' cascade from 8.4 to 10.8, 48's from 33.6 to 43.2, 240's from 168
  *  to 216. */
@@ -405,9 +408,27 @@ export const SUN_ANCHOR_HOLD = 24;
 /** LA-SHADOW1: re-anchor `anchor` (a world point, or NaN for none) at the eye when the eye has left its hold.
  *  Answers whether it moved.
  *  @param {ArrayLike<number>} eye @param {{[i: number]: number}} anchor @returns {boolean} */
-export function sunAnchorFor(eye, anchor) {
+export function sunAnchorFor(eye, anchor, lightDir = null, texel = 0) {
   const dx = eye[0] - anchor[0], dy = eye[1] - anchor[1], dz = eye[2] - anchor[2];
   if (dx * dx + dy * dy + dz * dz <= SUN_ANCHOR_HOLD * SUN_ANCHOR_HOLD) return false;   // NaN compares false: a fresh anchor is taken
+  if (lightDir && texel > 0 && Number.isFinite(dx) && Number.isFinite(dy) && Number.isFinite(dz)) {
+    // AUDIT FLICKER S2: A RE-ANCHOR KEEPS THE GRID. A fresh anchor's phase on the grid it replaces is arbitrary, and
+    // the snap puts it on a whole texel - every cascade's grid jumped up to half a texel in one frame, every 24-31 m
+    // walked (and mid-turn in third person, the eye circling). So the anchor moves from the old one by WHOLE texels of
+    // the far cascade across the light (`texel`: the cascades are 1 : 4 : 20, so a far texel is whole in all three)
+    // and freely along it, where no texel lies: the grid the maps are drawn on does not move.
+    const up = Math.abs(lightDir[2]) < 0.9 ? Z_UP : Y_UP;   // sunCascadeMatrices' own basis
+    const zl = Math.hypot(lightDir[0], lightDir[1], lightDir[2]) || 1;
+    const z0 = lightDir[0] / zl, z1 = lightDir[1] / zl, z2 = lightDir[2] / zl;
+    let x0 = up[1] * z2 - up[2] * z1, x1 = up[2] * z0 - up[0] * z2, x2 = up[0] * z1 - up[1] * z0;
+    const xl = Math.hypot(x0, x1, x2) || 1; x0 /= xl; x1 /= xl; x2 /= xl;
+    const y0 = z1 * x2 - z2 * x1, y1 = z2 * x0 - z0 * x2, y2 = z0 * x1 - z1 * x0;
+    const ax = Math.round((dx * x0 + dy * x1 + dz * x2) / texel) * texel, ay = Math.round((dx * y0 + dy * y1 + dz * y2) / texel) * texel, az = dx * z0 + dy * z1 + dz * z2;
+    anchor[0] += x0 * ax + y0 * ay + z0 * az;
+    anchor[1] += x1 * ax + y1 * ay + z1 * az;
+    anchor[2] += x2 * ax + y2 * ay + z2 * az;
+    return true;
+  }
   anchor[0] = Math.round(eye[0] / SUN_ANCHOR_STEP) * SUN_ANCHOR_STEP;
   anchor[1] = Math.round(eye[1] / SUN_ANCHOR_STEP) * SUN_ANCHOR_STEP;
   anchor[2] = Math.round(eye[2] / SUN_ANCHOR_STEP) * SUN_ANCHOR_STEP;
@@ -511,15 +532,22 @@ export const CASTER_KEEP_RATIO = 0.8;
 /** Was the light at `lights[i]` a caster last frame? `held` is the flat [x, y, z, _] list the pass kept, by
  *  POSITION (the hosts re-sort their lights every frame, so an index is no name - SC1's own matching). */
 function heldAt(held, heldN, lights, i) {
-  for (let k = 0; k < heldN; k++) if (held[k * 4] === lights[i * 4] && held[k * 4 + 1] === lights[i * 4 + 1] && held[k * 4 + 2] === lights[i * 4 + 2]) return true;
+  for (let k = 0; k < heldN; k++) if (samePlace(held, k * 4, lights, i * 4)) return true;
   return false;
 }
+/** AUDIT FLICKER P3: two lights' places the same, within SHADOW_STILL_EPS. The kept copies (DISC6's hold, SC1's
+ *  sticky slots, DISC15's lo slots, the card's pair) and the host's lights take a floating-origin shift's offset in
+ *  different precisions (a Float32 slot, a Float64 hold, the host's own doubles written to the frame's list), and an
+ *  exact match lost them all on the crossing frame: 125 of 300 recentres in a lantern-lit street swapped a lantern in
+ *  or out of the eight - one lighting through walls for a frame - and every static cache rebuilt at once. */
+export const samePlace = (a, ai, b, bi) => Math.abs(a[ai] - b[bi]) <= SHADOW_STILL_EPS && Math.abs(a[ai + 1] - b[bi + 1]) <= SHADOW_STILL_EPS && Math.abs(a[ai + 2] - b[bi + 2]) <= SHADOW_STILL_EPS;
 /** AUDIT DISC7 C6: where the caster at `rank` stands among the frame's casters by TRUE distance to the eye. The pick's
  *  order carries DISC6's keep margin (a held caster is measured at CASTER_KEEP_RATIO), which decides who HOLDS a map;
  *  which two maps are redrawn every frame is about who is nearest, and a held caster a little farther must not take
  *  that redraw from a nearer one. Ties go to the earlier rank. At most SHADOW_POINT_CASTERS squared compares. */
-export function nearestRank(casters, lights, eye, rank) {
-  const d2 = (i) => { const dx = lights[i * 4] - eye[0], dy = lights[i * 4 + 1] - eye[1], dz = lights[i * 4 + 2] - eye[2]; return dx * dx + dy * dy + dz * dz; };
+export function nearestRank(casters, lights, eye, rank, held = null, heldN = 0) {
+  const keep = CASTER_KEEP_RATIO * CASTER_KEEP_RATIO;   // AUDIT FLICKER P2: a held light (`held`, by place) at the keep ratio of its distance
+  const d2 = (i) => { const dx = lights[i * 4] - eye[0], dy = lights[i * 4 + 1] - eye[1], dz = lights[i * 4 + 2] - eye[2]; const d = dx * dx + dy * dy + dz * dz; return held && heldAt(held, heldN, lights, i) ? d * keep : d; };
   const mine = d2(casters[rank]);
   let n = 0;
   for (let r = 0; r < casters.length; r++) if (r !== rank) { const d = d2(casters[r]); if (d < mine || (d === mine && r < rank)) n++; }
@@ -611,13 +639,27 @@ vec2 cubeFaceUv(vec3 d, out int face, out float m) {
   return vec2(dot(FACE_X[face], d), dot(FACE_Y[face], d)) / max(m, 1e-4) * 0.5 + 0.5;
 }
 // LA-SHADOW2: cascade c's lookup at wp - the whole of what sunShadowTap did for the one cascade it picked
-float sunCascadeTap(int c, vec3 wp, vec3 n, bool soft) {
+float sunCascadeTap(int c, vec3 wp, vec3 n, bool soft, float h) {
   float texel = c == 0 ? uSunTexel.x : c == 1 ? uSunTexel.y : uSunTexel.z;
   mat4 vp = c == 0 ? uSunVP[0] : c == 1 ? uSunVP[1] : uSunVP[2];
   vec4 lp = vp * vec4(wp + n * texel * 1.5, 1.0);
   vec3 p = lp.xyz / lp.w * 0.5 + 0.5;
   if (p.x < 0.0 || p.x > 1.0 || p.y < 0.0 || p.y > 1.0 || p.z > 1.0) return 1.0;
   float ref = p.z - ${SHADOW_SUN_BIAS};   // AUDIT-EL F15: ~0.06 world units over the 1200-unit box (0.0004 was half a unit - feet floated off their shadows)
+  // AUDIT FLICKER S1: A FLAT'S OWN CARD. The sun replay draws each flat as an upright card through the very base it
+  // reads at (EL2), and the sun is not level: the card above the read point stands nearer the light by tan(elevation)
+  // a unit up, and the kernel reaches ${SUN_FLAT_REACH_TEXELS} texels up it - past the constant bias once that reach
+  // times tan(e) passes it, by a share the sun's turn slides texel by texel (a tree stepped a third of its sun in one
+  // frame, and chattered on the far cascade's redraws). A flat's read is lowered by what its own card could hold over
+  // it: the kernel's reach up the card (tan(e) a texel), never more than the card above the point holds (h, the
+  // flat's height: sin(e) a unit up it).
+  if (soft && h > 0.0) {
+    vec3 zr = vec3(vp[0][2], vp[1][2], vp[2][2]);
+    float zl = length(zr);
+    vec3 toSun = -zr / max(zl, 1e-6);
+    float sinE = max(toSun.y, 0.0);
+    ref -= min(${SUN_FLAT_REACH_TEXELS} * texel * sinE / max(length(toSun.xz), 1e-3), max(h - 0.5, 0.0) * sinE) * 0.5 * zl;
+  }
   float texelUv = 1.0 / ${SHADOW_SUN_SIZE}.0;   // AUDIT-EL F17: not 'step' - a built-in's name
   // PERF-SUN: the far cascade takes ONE tap, which the sampler already
   // makes a hardware 2x2 (COMPARE_REF_TO_TEXTURE + LINEAR). Its texel is
@@ -674,20 +716,21 @@ float sunCascadeTap(int c, vec3 wp, vec3 n, bool soft) {
 // stopped at its square edge, a line that turned with the sun. Now the last SUN_CASCADE_BAND of each cascade's reach
 // mixes in the next one, which covers it whole, and the far cascade's last stretch fades to lit by distance - a
 // circle, not the box's turning square. Two lookups only in the band.
-float sunShadowTap(vec3 wp, vec3 n, bool soft) {
+float sunShadowTap(vec3 wp, vec3 n, bool soft, float h) {
   if (uSunShadowParams.w <= 0.0) return 1.0;
   float d = length(wp - (uSunOrigin.w > 0.5 ? uSunOrigin.xyz : uCamPos));   // TV1: picked about the point the cascades stand on - the travel view's traveller, else the eye
   int c = d < uSunShadowParams.x * 0.9 ? 0 : d < uSunShadowParams.y * 0.9 ? 1 : 2;
   float r = c == 0 ? uSunShadowParams.x : c == 1 ? uSunShadowParams.y : uSunShadowParams.z;
   float t = smoothstep(r * ${(0.9 - SUN_CASCADE_BAND).toFixed(2)}, r * 0.9, d);   // 0 short of the band, 1 at the handover
-  if (c == 2) return t >= 1.0 ? 1.0 : mix(sunCascadeTap(2, wp, n, soft), 1.0, t);
-  float lit = sunCascadeTap(c, wp, n, soft);
-  return t > 0.0 ? mix(lit, sunCascadeTap(c + 1, wp, n, soft), t) : lit;
+  if (c == 2) return t >= 1.0 ? 1.0 : mix(sunCascadeTap(2, wp, n, soft, h), 1.0, t);
+  float lit = sunCascadeTap(c, wp, n, soft, h);
+  return t > 0.0 ? mix(lit, sunCascadeTap(c + 1, wp, n, soft, h), t) : lit;
 }
 /** A surface that shades per fragment: the cheap tap past SHADOW_PCF_CASCADES. */
-float sunShadowAt(vec3 wp, vec3 n) { return sunShadowTap(wp, n, false); }
-/** A FLAT, which reads once for a whole sprite: the kernel at every distance (TREES1). */
-float sunShadowSoftAt(vec3 wp, vec3 n) { return sunShadowTap(wp, n, true); }
+float sunShadowAt(vec3 wp, vec3 n) { return sunShadowTap(wp, n, false, 0.0); }
+/** A FLAT, which reads once for a whole sprite: the kernel at every distance (TREES1). AUDIT FLICKER S1: h its
+ *  height, whose own card the read is kept off. */
+float sunShadowSoftAt(vec3 wp, vec3 n, float h) { return sunShadowTap(wp, n, true, h); }
 // the face's depth of a point whose major-axis distance is m (cubeDepthRef in shadowPass.js)
 float cubeDepthOfM(float m, float far) {
   float near = ${SHADOW_POINT_NEAR};
@@ -869,6 +912,9 @@ export class ShadowPass {
     this._slotOfScratch = new Int32Array(SHADOW_POINT_CASTERS);   // SC1: rank -> slot
     this._heldCasters = new Float64Array(4 * SHADOW_POINT_CASTERS);   // DISC6: last frame's casters, by position (Float64: an exact copy of whatever the host sent, so the match by position holds)
     this._heldCasterN = 0;
+    /** AUDIT FLICKER P2: the card's lamps last frame (x, y, z, _), by place, and this frame's as they are found */
+    this._selfHeld = new Float64Array(4 * SHADOW_POINT_CASTERS); this._selfHeldN = 0;
+    this._selfNext = new Float64Array(4 * SHADOW_POINT_CASTERS);
     this._slotTakenScratch = new Uint8Array(SHADOW_POINT_CASTERS);
     // PERF-EXT3: the static signatures' inputs and answers - (x, y, z, far) and (hash, count) per ranked caster, one
     // walk filling all of them (_staticSignatures); and one light's, for DISC15's lo tier (_staticSignature)
@@ -957,7 +1003,7 @@ export class ShadowPass {
     for (let i = 0; i < n; i++) {
       if (!ShadowPass._castsAt(L, f.carried, i)) continue;
       for (let j = 0; j < cap; j++) {
-        if (!taken[j] && sl[j * 4] === L[i * 4] && sl[j * 4 + 1] === L[i * 4 + 1] && sl[j * 4 + 2] === L[i * 4 + 2]) { slotOf[i] = j; taken[j] = 1; break; }
+        if (!taken[j] && samePlace(sl, j * 4, L, i * 4)) { slotOf[i] = j; taken[j] = 1; break; }   // AUDIT FLICKER P3
       }
     }
     for (let i = 0; i < n; i++) {
@@ -1074,6 +1120,13 @@ export class ShadowPass {
     this._shiftGen++;
     this._sunDrawn.fill(0);   // AUDIT 68 S17-far-cascade-shift: the held far map and its matrix are the old origin's - drawn afresh next frame (EL8's never-drawn rule)
     this._sunAnchor[0] += offset[0]; this._sunAnchor[1] += offset[1]; this._sunAnchor[2] += offset[2];   // LA-SHADOW1: the same world point, so the grid does not move
+    // AUDIT FLICKER P3: the lights KEPT by place follow too - DISC6's hold, SC1's sticky slots, DISC15's lo slots and the
+    // card's pair (NaN, an empty slot, stays NaN) - so the crossing frame keeps its casters and its maps
+    const move = (a, n) => { for (let k = 0; k < n; k++) { a[k * 4] += offset[0]; a[k * 4 + 1] += offset[1]; a[k * 4 + 2] += offset[2]; } };
+    move(this._heldCasters, this._heldCasterN);
+    move(this._selfHeld, this._selfHeldN);
+    move(this._slotLight, this._slotLight.length >> 2);
+    move(this._loSlotLight, this._loSlotLight.length >> 2);
     // AUDIT REACH: and the records IN HAND follow too - the frame's records are replayed at the next beginFrame
     // against the next frame's lights and eye (EL2), which the host has already moved; left behind, the crossing's
     // frame had no shadow at all and every cache was built twice (once empty). A batch's origin is the host's own
@@ -1268,7 +1321,7 @@ export class ShadowPass {
       // AUDIT DEEP R-3: the travel view's scale - a far map drawn at the other scale is never kept (EL8's every-other-frame)
       const k = f.cascadeScale > 1 ? f.cascadeScale : 1;
       if (k !== this._sunScaleK) { this._sunScaleK = k; this._sunDrawn.fill(0); }
-      sunAnchorFor(f.eye, this._sunAnchor);   // LA-SHADOW1
+      sunAnchorFor(f.eye, this._sunAnchor, f.lightDir, sunTexelWorld(SHADOW_CASCADES.length - 1, k));   // LA-SHADOW1; AUDIT FLICKER S2: on the grid it had
       sunCascadeMatrices(f.eye, f.lightDir, this._sunVPNew, this._sunAnchor, k);
       const ld = f.lightDir;
       const rl = Math.hypot(ld[2], ld[0]) || 1;
@@ -1308,7 +1361,7 @@ export class ShadowPass {
     for (let rank = 0; rank < casters.length; rank++) {
       const i = casters[rank];
       for (let k = 0; k < SHADOW_POINT_CASTERS; k++) {
-        if (!taken[k] && sl[k * 4] === L[i * 4] && sl[k * 4 + 1] === L[i * 4 + 1] && sl[k * 4 + 2] === L[i * 4 + 2]) { slotOf[rank] = k; taken[k] = 1; break; }
+        if (!taken[k] && samePlace(sl, k * 4, L, i * 4)) { slotOf[rank] = k; taken[k] = 1; break; }   // AUDIT FLICKER P3: within the still epsilon
       }
     }
     for (let rank = 0; rank < casters.length; rank++) {
@@ -1319,7 +1372,7 @@ export class ShadowPass {
     const farOf = this._farOf;
     for (let rank = 0; rank < casters.length; rank++) {
       const i = casters[rank], o = slotOf[rank] * 4;
-      const same = sl[o] === L[i * 4] && sl[o + 1] === L[i * 4 + 1] && sl[o + 2] === L[i * 4 + 2];
+      const same = samePlace(sl, o, L, i * 4);   // AUDIT FLICKER P3
       farOf[rank] = same ? heldShadowFar(sl[o + 3], L[i * 4 + 3]) : shadowFarFor(L[i * 4 + 3]);
     }
     if (this.cacheOn && casters.length) {
@@ -1332,6 +1385,7 @@ export class ShadowPass {
       }
       this._staticSignatures(cp, casters.length, this._sigOut, !f.everyLight);   // the review: a room drawn whole by the sphere
     }
+    let selfN = 0;   // AUDIT FLICKER P2: the card's lamps this frame, held for the next
     for (let rank = 0; rank < casters.length; rank++) {
       const i = casters[rank], k = slotOf[rank];
       const pos = [L[i * 4], L[i * 4 + 1], L[i * 4 + 2]];
@@ -1343,7 +1397,7 @@ export class ShadowPass {
       const far = farOf[rank];
       // EL8: the slot's layers are drawn again when its light changed (position or range), every frame for the nearest lights, every third otherwise
       const o = k * 4;
-      const changed = !(sl[o] === pos[0] && sl[o + 1] === pos[1] && sl[o + 2] === pos[2] && sl[o + 3] === far);
+      const changed = !(samePlace(sl, o, pos, 0) && sl[o + 3] === far);   // AUDIT FLICKER P3: a floating-origin shift is no change
       const near = nearestRank(casters, L, f.eye, rank) < SHADOW_NEAR_CASTERS;   // SC1: by the light's RANK - the nearest two, whatever slot they hold; AUDIT DISC7 C6: its TRUE rank, not the keep margin's
       // DISC24-C: the player's own card casts only into a map redrawn EVERY frame (see SELF CARD above replay), and a
       // slot whose live layers disagree with that is redrawn now - never left holding the card a frame after its rank
@@ -1352,7 +1406,11 @@ export class ShadowPass {
       // camera turning round a player standing still moved the silhouette from lamp to lamp (twice in half a turn in
       // the Daggerfall Mages Guild); the card's own place moves only when the player does. Those lamps are redrawn
       // every frame too (`due`); the eye's two keep the cadence they had.
-      const selfNear = selfAt ? nearestRank(casters, L, selfAt, rank) < SHADOW_NEAR_CASTERS : near;
+      // AUDIT FLICKER P2: with DISC6's hold - last frame's two by place, at the keep ratio. In first person the card stands
+      // a pace before the eye and circles the feet as the player turns, so turning in place hopped the player's
+      // shadow from lamp to lamp (a hall of ten lamps: 506 hops over 833 spots in one turn each, two on successive frames)
+      const selfNear = selfAt ? nearestRank(casters, L, selfAt, rank, this._selfHeld, this._selfHeldN) < SHADOW_NEAR_CASTERS : near;
+      if (selfAt && selfNear && selfN < SHADOW_POINT_CASTERS) { this._selfNext[selfN * 4] = pos[0]; this._selfNext[selfN * 4 + 1] = pos[1]; this._selfNext[selfN * 4 + 2] = pos[2]; selfN++; }
       const selfWant = selfNear ? 1 : 0;
       const selfMoved = this._slotSelf[k] !== selfWant;
       const due = near || selfNear || (this.frameNo + k) % SHADOW_FAR_CASTER_EVERY === 0;
@@ -1411,6 +1469,7 @@ export class ShadowPass {
       if (i < SHADOW_CASTER_TABLE) this.casterOf[i] = k;
     }
     for (let k = 0; k < SHADOW_POINT_CASTERS; k++) if (!taken[k]) { this._slotLight[k * 4] = NaN; this._slotCached[k] = 0; this._slotLiveDyn[k] = 0; this._slotSelf[k] = 0; }   // an emptied slot is drawn afresh when it is filled
+    this._selfHeld.set(this._selfNext); this._selfHeldN = selfN;   // AUDIT FLICKER P2
     if (f.everyLight) this._renderLo(f, L);   // DISC15: a room drawn whole - every other light reads its lo map
     this.casters = casters.length;
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);

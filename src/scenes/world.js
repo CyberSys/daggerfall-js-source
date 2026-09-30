@@ -365,6 +365,7 @@ import { createComeSailAwayPool } from './comeSailAwayPool.js';   // CSA-B: Come
 import { createComeSailAwayPeers } from './comeSailAwayPeers.js';   // CSA-J: another player's boats, seen
 import { createComeSailAwayAboard, CSA_ABOARD_GRACE, deckPose as csaDeckPose, helmWord as csaHelmWordOf, localOf as csaLocalOf } from './comeSailAwayAboard.js';   // CSA-K: another player's boat, boarded; FIELD BUGS 2026-09-29 (the sea) #1: the deck's frame, the helmsman's place
 import { csaWireRecord, csaRecordKey } from '../systems/comeSailAwayWire.js';   // CSA-J: my boats, said
+import { boatTriggers, boatMenuRows, boatMenuStart, pressBoatVerb } from '../systems/csaBoatMenu.js';   // BOAT-MENU: a boat of mine's verbs on the plaque
 import { TRIGGER_MODEL as CSA_TRIGGER_MODEL, setLights as csaSetLights, HULL_NAMES as CSA_HULL_NAMES, nodeOf as csaNodeOf, AUDIO_CLIPS as CSA_AUDIO_CLIPS, colliderBoundsInChildren as csaColliderBoundsInChildren, animatorOf as csaAnimatorOf, meshLocalBounds as csaMeshLocalBounds } from '../systems/comeSailAwayBoat.js';   // CSA-B: the probe's lanterns; CSA-D: the plaque's word for a boat; CSA-G: the loops' objects and the five clips; CSA-J: Eye of the Beholder's Collider.bounds
 import { travelMapPicture, TRAVEL_MAP_IMG, LINE_TEXTURE as CSA_LINE_TEXTURE } from '../systems/comeSailAwayMap.js';   // CSA-I: the position reading's picture and lines
 import { createComeSailAwayRuntime, comeSailAwayCarrier, WATER_WALKING_SILENT, COME_SAIL_AWAY_VENDOR, CONSOLE as CSA_CONSOLE, NO_WATER_LEVEL, NICE_BOAT_TEXT as CSA_NICE_BOAT_TEXT, activationModelOf as csaActivationModelOf, customModelOf as csaCustomModelOf, ACTIVATION_DISTANCE as CSA_ACTIVATION_DISTANCE, windWidgetFrameCount as csaWindWidgetFrameCount, BOAT_ACTIONS as CSA_BOAT_ACTIONS, HANDLING as CSA_HANDLING, hullFromMessage as csaHullFromMessage, tileMapIndexAtPosition as csaTileMapIndexAtPosition } from '../systems/comeSailAway.js';   // NAV-H: the tile a sea ship floats on
@@ -5789,7 +5790,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     const modelId = csaActivationModelOf(best.hit.node?.name);
     const bed = modelId == null && bedSleepingOn() && csaCustomModelOf(best.hit.node?.name, BED_MODELS) != null;   // CSA-G
     return {
-      key: `csaBoat:${csaBoatId(best.boat)}:${modelId ?? (bed ? 'bed' : 'hull')}`, distance: best.hit.distance,
+      // AUDIT BOAT-MENU C2: the helm's box under Steal is a key of its own - the mode switched there lights its own verb
+      // again (the helm, or the pack), as the mod's press follows the mode it is pressed in
+      key: `csaBoat:${csaBoatId(best.boat)}:${modelId ?? (bed ? 'bed' : 'hull')}${modelId === CSA_TRIGGER_MODEL.drive && getInteractionMode() === 'steal' ? ':steal' : ''}`, distance: best.hit.distance,
       reach: bed ? DEFAULT_ACTIVATION_DISTANCE : CSA_ACTIVATION_DISTANCE,
       modelId, bed, boat: best.boat, hit: { ...best.hit, root: best.boat.GameObject },
     };
@@ -5855,22 +5858,81 @@ export async function bootWorld(canvas, renderer, params, status) {
       default: { const owned = ownedLine(peerName(pick.owner)); townTalk.say(`This ${CSA_HULL_NAMES[pick.boat.hull] ?? 'boat'} - ${owned.charAt(0).toLowerCase()}${owned.slice(1)}.`); }
     }
   }
+  /** BOAT-MENU: a boat of mine by its plaque key (`csaBoat:<id>:<box|hull|bed>[:steal]`), and the box the key names. */
+  const csaBoatOfKey = (key) => {
+    const m = typeof key === 'string' ? /^csaBoat:(\d+):([^:]+)(?::steal)?$/.exec(key) : null;
+    if (!m) return null;
+    const boat = csa.boats.find((b) => _csaBoatIds.get(b) === Number(m[1]));
+    return boat ? { boat, part: m[2] } : null;
+  };
+  /** BOAT-MENU: whether I stand on this boat's deck - the ground under me one of its buckets (the wake's own test). */
+  const csaStandsOn = (boat) => !!player.grounded && typeof player.groundKey === 'string' && player.groundKey.startsWith(`csaBoat:${csaBoatId(boat)}:`);
+  /** BOAT-MENU: a boat of mine's boxes and its rows (systems/csaBoatMenu.js) - what the plaque lists and the picker. */
+  const _csaBoxes = new WeakMap();   // BOAT-MENU: boat -> { root, variant, boxes } - the walk once per hull and style, not each frame the plaque asks
+  const csaBoatMenu = (boat) => {
+    let c = _csaBoxes.get(boat);
+    if (!c || c.root !== boat.GameObject || c.variant !== boat.variant) _csaBoxes.set(boat, (c = { root: boat.GameObject, variant: boat.variant, boxes: boatTriggers(boat.GameObject, csaActivationModelOf, CSA_TRIGGER_MODEL) }));
+    const boxes = c.boxes;
+    const sailingThis = !!csaRuntime?.isSailing() && csaRuntime.state.CurrentBoat === boat;
+    const rows = boatMenuRows({
+      boxes, packable: !!boat.packable, sailingThis, sailing: !!csaRuntime?.isSailing(), aboard: csaStandsOn(boat),
+      passengers: csaPassengersOn(boat), variants: boat.VariantObject != null && boat.GetVariantCount >= 1,
+    });
+    return { boxes, rows };
+  };
+  /** BOAT-MENU: a verb pressed on a boat of mine - through the mod's own activation on that verb's box (its 3.2 reach
+   *  from the point aimed at, silent past it as the box's press is), a refused row saying why in the mod's words. */
+  const csaBoatVerb = (pick, verb) => {
+    if (!csaRuntime) return;
+    const { boxes, rows } = csaBoatMenu(pick.boat);
+    pressBoatVerb({
+      boxes, rows, verb, distance: pick.distance, reach: CSA_ACTIVATION_DISTANCE, at: dwPlayerObjectPosition(), posOf: (n) => n.position, aimed: pick.hit?.node ?? null,
+      hit: pick.hit, mode: getInteractionMode(), models: CSA_TRIGGER_MODEL,
+      activate: (model, hit, mode) => csaCall(() => csaRuntime.activate(model, hit, mode)), say: (l) => setMidScreenText(l),
+    });
+  };
   const csaActivate = (pick) => {
     if (pick?.peer) { csaPeerActivate(pick); return; }   // CSA-K
     if (pick?.bed) {
       if (pick.distance <= DEFAULT_ACTIVATION_DISTANCE) { if ((modes?.mode ?? 'exterior') === 'exterior') { _restFromBed = true; try { toggleRest(); } finally { _restFromBed = false; } } else modes?.restFromBed?.(); }
       return;
     }
-    if (pick?.modelId != null) csaCall(() => csaRuntime.activate(pick.modelId, pick.hit, getInteractionMode()));
+    // BOAT-MENU: the verb the plaque lit on this boat (it starts on the box under the crosshair's own) ...
+    const verb = plaqueActionFor(pick?.key);
+    if (verb && pick.boat) { csaBoatVerb(pick, verb); return; }
+    if (pick?.modelId != null) { csaCall(() => csaRuntime.activate(pick.modelId, pick.hit, getInteractionMode())); return; }
+    // ... and where no plaque lists them (a phone's tap, the classic skins; AUDIT BOAT-MENU C5: a building's or a
+    // dungeon's, whose plaque races no boat) a press on the hull opens them as a list - never at a helm (C1)
+    if (pick?.boat && (!worldPlaqueOn() || (modes?.mode ?? 'exterior') !== 'exterior') && !csaRuntime?.isSailing() && pick.distance <= CSA_ACTIVATION_DISTANCE) csaOpenBoatMenu(pick);
+  };
+  /** BOAT-MENU: the verbs as a picker (ListPickerWindow: a tap, the pad or the mouse) - a refused row with its reason. */
+  const csaOpenBoatMenu = (pick) => {
+    const { rows } = csaBoatMenu(pick.boat);
+    if (!rows.length) return;
+    csaOpenListPicker(rows.map((r) => (r.disabled ? `${r.label} (${r.why})` : r.label)), (i) => {
+      if (_csaPicker) { modes?.closeWindow?.(_csaPicker); _csaPicker = null; }
+      csaBoatVerb(pick, rows[i]?.id);
+    });
   };
   /** CSA-D: the plaque's word for a boat - the port's own (DFU names nothing): the hull's name. */
   const csaHoverName = (key) => {
     const peer = typeof key === 'string' ? /^csaPeer:(.+):(\d+):[^:]+$/.exec(key) : null;   // CSA-K: another player's boat - its hull, and whose (a peer's wagon's plaque, HCC-TIP)
     if (peer) { const boat = csaPeers.boatAt(peer[1], Number(peer[2])); return boat ? { title: CSA_HULL_NAMES[boat.hull] ?? 'Boat', subs: [ownedLine(peerName(peer[1]))] } : null; }
-    if (typeof key !== 'string' || !key.startsWith('csaBoat:')) return null;
-    const id = Number(key.split(':')[1]);
-    const boat = csa.boats.find((b) => _csaBoatIds.get(b) === id);
-    return boat ? { title: CSA_HULL_NAMES[boat.hull] ?? 'Boat' } : null;
+    const mine = csaBoatOfKey(key);
+    if (!mine) return null;
+    const title = CSA_HULL_NAMES[mine.boat.hull] ?? 'Boat';
+    // AUDIT BOAT-MENU C1: none at a helm - the pad's d-pad is the helm's there, and a list under a crosshair looking
+    // down at her own deck took it (and any other boat of mine's helm was a press away, unleft)
+    if (mine.part === 'bed' || csaRuntime?.isSailing()) return { title };
+    // BOAT-MENU: my boat lists its verbs, the box under the crosshair's lit first
+    const { rows } = csaBoatMenu(mine.boat);
+    if (!rows.length) return { title };
+    const box = Object.keys(CSA_TRIGGER_MODEL).find((k) => String(CSA_TRIGGER_MODEL[k]) === mine.part) ?? null;
+    // AUDIT BOAT-MENU C4: the hull's list starts unlit (a player's does) - a plain click on the deck took the helm; the
+    // wheel's or the d-pad's first step lights its top row
+    if (box == null) return { title, actions: rows, actionsUnlit: true };
+    const start = boatMenuStart(box, rows, getInteractionMode());
+    return start < 0 ? { title } : { title, actions: rows, actionsStart: start };   // a door keeps its own press
   };
   let _csaDt = 0;               // CSA-D: Time.deltaTime for the mod - zero while paused, scaled with the world
   /** CSA-L: THE HELM PANEL'S PRESSES (ui/enhancedHelm.js, and the pad's helm d-pad) - the registry actions it presses,
@@ -5995,6 +6057,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     camera: () => ({ position: [...cam.pos], forward: [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)] }),   // the activation's own ray (cam.pos, the look) - the F key's law in third person too
     currentMapPixel: () => { const px = playerTravelPixel(); return { X: px.x, Y: px.y }; },   // PlayerGPS.CurrentMapPixel, a new one each read
     isPlayerInside: () => (modes?.mode ?? 'exterior') !== 'exterior',
+    isPlayerInsideDungeon: () => (modes?.mode ?? 'exterior') === 'dungeon',   // AUDIT KEEP-BOATS D2: a boat kept in a dungeon stands in the dungeon, never a building on its pixel
     blockWaterLevel: () => {
       const mode = modes?.mode ?? 'exterior';
       if (mode === 'dungeon') return modes?.dungeonCtx?.blockWaterLevelAt?.(player.pos[0], player.pos[2]) ?? NO_WATER_LEVEL;   // the block the player stands in; off every block, 10000
@@ -6588,6 +6651,29 @@ export async function bootWorld(canvas, renderer, params, status) {
     }
     return _navalPortAt.near;
   };
+  /** SHIP-LIFE (systems/naval/shipLife.js): the port town within a pixel of the player - its location's key and its
+   *  footprint in the scene NOW (the native rect, locationWorldRect, through the floating origin's localFromWorld), which
+   *  the naval host finds its harbour off - or null where no port stands near. The town asked once a pixel. */
+  let _navalHarbourAt = null;   // { key, town: { id, loc, x, y } | null }
+  const navalHarbourNear = () => {
+    const p = playerTravelPixel();
+    const key = `${p.x},${p.y}`;
+    if (_navalHarbourAt?.key !== key) {
+      let town = null;
+      for (let dy = -1; dy <= 1 && !town; dy++) for (let dx = -1; dx <= 1 && !town; dx++) {
+        if (!csaIsPortTown(p.x + dx, p.y + dy)) continue;
+        const summary = travelLocationSummaryAt(mapDict, p.x + dx, p.y + dy);
+        const loc = summary ? maps.getLocation(summary.regionIndex, summary.locationIndex ?? summary.mapIndex) : null;
+        if (loc?.exterior?.exteriorData) town = { id: summary.id, loc, x: p.x + dx, y: p.y + dy };
+      }
+      _navalHarbourAt = { key, town };
+    }
+    const t = _navalHarbourAt.town;
+    if (!t) return null;
+    const r = locationWorldRect(t.loc, t.x, t.y);
+    const [ax, az] = state.localFromWorld(r.minX, r.minZ), [bx, bz] = state.localFromWorld(r.maxX, r.maxZ);
+    return { key: `port:${t.id}`, rect: { minX: Math.min(ax, bx), maxX: Math.max(ax, bx), minZ: Math.min(az, bz), maxZ: Math.max(az, bz) } };
+  };
   /** DECK-WALK: a point in a hull's deck frame (her mesh node's, systems/naval/navalDeck.js) to the world, where her
    *  node stands, rolls and pitches now - and back; into `out` when given. */
   const navalDeckToWorld = (boat, p, out) => outOfDeck(boat.MeshObject.worldMatrix(), p, out);
@@ -6795,6 +6881,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     csa: () => (navalOn() ? csaRuntime : null),
     seaY: () => tvSeaY(),
     isWater: navalIsWater,
+    harbourNear: navalHarbourNear,   // SHIP-LIFE: the port town near the player, which the host finds a harbour off
     groundY: (x, z) => surfaceAt(x, z),
     feet: () => player.feetAt(),
     look: () => ({
@@ -6882,6 +6969,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** The sea emptied: a transition, a teleport, the arc switched off - its window with it. */
   const navalClear = () => { naval?.clear(); navalFlames.clear(); navalCrew.clear(); closeNavalPlunder(); closeNavalYard(); drawNavalHud(null); drawNavalTags([]); drawCrewBars([]); drawCrewLines([]); };
   const navalTransition = () => navalClear();
+  /** KEEP-PLUNDER: before a transition or a jump empties the sea, my crew stows what I left on it (navalHost
+   *  stowPlunder) - ahead of Come Sail Away's own transition, while my boats still stand. Never on a load: the loaded
+   *  save's hold is the one that stands. */
+  const navalStow = () => { if (!_loading) naval?.stowPlunder?.(); };
   let _navalWasOn = null;
   /** The frame: the switch read, the sounds loaded at the first sea, the host's step, the flames' clock. */
   function navalFrame(dt) {
@@ -9482,6 +9573,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // landing to the new place.
     cameraRecoiler.reset();
     dwTeleported(performance.now() / 1000);   // DW-D: OnTeleportToCoordinates' grace
+    if (modEvent !== 'load') navalStow();   // KEEP-PLUNDER: a jump's sea stowed first - never a load's
     csaOnTeleport();   // CSA-F: OnTeleportToCoordinates - the waves, a tenth of a second on
     navalTransition();   // NAV-H: the sea at the old place is gone with it (its ships were never a save's)
     // AUDIT OW5 J2 (the audit before the merge): A JUMP STOPS A ROUTE'S WALK - a fast travel taken from the map mid-journey,
@@ -10415,6 +10507,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     hccRuntimeOn()?.handlePreFastTravel();
     let hccPostDue = true;   // AUDIT HCC: the Post is owed once the Pre ran (the finally)
     _traveling = true;
+    navalStow();   // KEEP-PLUNDER: stowed into her hold before the fast travel packs her (PackBoat carries the hold)
     if (csaRuntime) csaCall(() => csaRuntime.OnPreFastTravel());   // CSA-D: ComeSailAway.OnPreFastTravel, the same event's other subscriber - placing stops, the helm is left
     try {
       // DeductFastTravelGold (:469-473): the inn nights come out of
@@ -19268,8 +19361,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     csaDrawWindWidget: () => csaDrawWindWidget(),   // CSA-E: the wind widget over a mode's HUD
     csaOnPlayerDeath: () => { if (csaRuntime) csaCall(() => csaRuntime.OnPlayerDeath()); },   // CSA-J (the audit): PlayerEntity.OnDeath and OnExhausted reach ComeSailAway.OnPlayerDeath in every mode (Start 1059-1060)
     csaFrame: (dt, axes) => { _csaAxes = axes; csaFrame(dt); },   // CSA-C: a MonoBehaviour's Update and LateUpdate indoors too - a boat placed on a dungeon's water is baked, lit and drawn there; CSA-J (the audit): from the modes' frame, after its motor, on its axes
-    onTransitionInterior: () => { csaOnTransition(); navalTransition(); },   // CSA-C: PlayerEnterExit.OnTransitionInterior; NAV-H: a building has no sea
-    onTransitionExterior: () => { csaOnTransition(); navalTransition(); },   // CSA-C: PlayerEnterExit.OnTransitionExterior; NAV-H: a fresh sea at the door
+    onTransitionInterior: () => { navalStow(); csaOnTransition(); navalTransition(); },   // CSA-C: PlayerEnterExit.OnTransitionInterior; NAV-H: a building has no sea
+    onTransitionExterior: () => { navalStow(); csaOnTransition(); navalTransition(); },   // CSA-C: PlayerEnterExit.OnTransitionExterior; NAV-H: a fresh sea at the door
     gateCourtLights: () => gateCourt?.lights() ?? [],   // WB4: the glow on him, in the court's light channel
     gateBoss: () => gateCourt?.target() ?? null,   // WB4b: him as a body my blows meet
     gateFloor: () => { _gateFloor.xa = gateLink?.state()?.xa ?? _gateFloor.none; _gateFloor.now = Date.now() + _sharedOffsetMs; return _gateFloor; },   // WB9b: the walkways laid between the courts, on the relay's clock (one object, refilled - AUDIT WB D10's law)
@@ -19326,9 +19419,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     onDungeonLeave: () => { const n = handOverRoomFoes(); if (n) console.info(`[foes] handed ${n} quest foe(s) at the dungeon's door`); gatherHost?.leaveDungeon(); worldPublish(performance.now(), true); },   // WORLD1: the room's memory goes out while the dungeon still stands; QUEST-PARTY phase 3c: my shared quest's foes to the party who stay
     // OH-D: the four DFU events There's a Hole in the Bottom of the Ocean subscribes to (its Install), raised by the doors
     onSetDungeon: (ctx) => ohAbyss?.onDungeonSet(ohDungeonOf(ctx)),   // DaggerfallDungeon.OnSetDungeon
-    onTransitionDungeonInterior: (ctx) => { ohAbyss?.onDungeonEntered(ohDungeonOf(ctx)); csaOnTransition(); navalTransition(); },   // PlayerEnterExit.OnTransitionDungeonInterior (CSA-C: Come Sail Away's OnTransition after OceanHoles' - the mods' load order)
+    onTransitionDungeonInterior: (ctx) => { navalStow(); ohAbyss?.onDungeonEntered(ohDungeonOf(ctx)); csaOnTransition(); navalTransition(); },   // PlayerEnterExit.OnTransitionDungeonInterior (CSA-C: Come Sail Away's OnTransition after OceanHoles' - the mods' load order)
     onFailedTransition: () => { ohAbyss?.onTransitionFailed(); },   // PlayerEnterExit.OnFailedTransition
-    onTransitionDungeonExterior: () => { ohAbyss?.onDungeonExited(); csaOnTransition(); navalTransition(); },   // PlayerEnterExit.OnTransitionDungeonExterior (and Come Sail Away's)
+    onTransitionDungeonExterior: () => { navalStow(); ohAbyss?.onDungeonExited(); csaOnTransition(); navalTransition(); },   // PlayerEnterExit.OnTransitionDungeonExterior (and Come Sail Away's)
     onEnemySpawn: (rec) => { const d = ohDungeonOf(modes?.dungeonCtx); if (d) ohAbyss?.onEnemySpawned(d, d.foeView(rec)); },   // OH-E: GameManager.OnEnemySpawn
     // OH-E: OceanHoles.LateUpdate's presentation over the bound abyss, or null - off the dungeon's own water fog and
     // PlayerAmbientLight's DungeonAmbientLight (the component the port always has), DungeonAmbientLightScale on top
@@ -22821,6 +22914,15 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       player.offsetOrigin(r.offset);   // EV1: shifts BOTH ends of the interpolation span - no 819-unit lerp frame
       sky.offsetOrigin(r.offset);   // VC4: the clouds and their shadow keep their place over the land
       renderer.shadowOriginShift?.(r.offset);   // AUDIT SC1: the shadow cache's remembered placements follow the origin too, or every still caster reads as moved for a second
+      // AUDIT FLICKER R2: AND THE FLATS THE NEXT REPLAY READS. The frame's records are replayed at the next beginFrame,
+      // before the pixel loop writes a pixel's translation and a townsman's place again - a pixel's flats stand at its
+      // translation (p._t, the very array their batches' origin is) and a townsman's batch at his place over it, both
+      // the old origin's on the crossing frame: every tree, bush, sign and passer-by cast nothing there, and the far
+      // cascade (every other frame) kept the hole a frame more
+      for (const p of built.values()) {
+        if (p._t) state.pixelTranslation(p.px, p.py, p._t);
+        if (p.personBatches) for (const b of p.personBatches.values()) { const o = b.origin; if (o) { o[0] += r.offset[0]; o[1] += r.offset[1]; o[2] += r.offset[2]; } }
+      }
       // AUDIT 17e F23: everything else holding a WORLD position must
       // follow the origin too, or it strands 819.2 units behind.
       doorGeneration += 1;   // WORLD-HOVER: the floating origin moved, so every door's WORLD matrix did
@@ -23353,10 +23455,10 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       if (cullOn && billboardOutside(b)) { if (renderer.shadowReachBatch(b)) castBatches.push(b); continue; }   // AUDIT REACH
       allBatches.push(b);
     }
-    if (peerRiders) for (const b of peerRiders.batches()) { if (!(cullOn && billboardOutside(b))) allBatches.push(b); }   // RIDE: the others in the saddle
-    if (peerWalkers) for (const b of peerWalkers.batches()) { if (!(cullOn && billboardOutside(b))) allBatches.push(b); }   // DISC23-B: and on foot, as they chose
-    if (bandSprites) for (const b of bandSprites.batches()) { if (!(cullOn && billboardOutside(b))) allBatches.push(b); }   // OW-FOES: the bands near, as their monsters
-    if (yards) for (const b of yards.batches()) { if (!(cullOn && billboardOutside(b))) allBatches.push(b); }   // HOME-YARD: the yards' flats, and the one being placed
+    if (peerRiders) for (const b of peerRiders.batches()) { if (cullOn && billboardOutside(b)) { if (renderer.shadowReachBatch(b)) castBatches.push(b); continue; } allBatches.push(b); }   // RIDE: the others in the saddle; AUDIT FLICKER R3: off screen, a shadow still in reach
+    if (peerWalkers) for (const b of peerWalkers.batches()) { if (cullOn && billboardOutside(b)) { if (renderer.shadowReachBatch(b)) castBatches.push(b); continue; } allBatches.push(b); }   // DISC23-B: and on foot, as they chose; AUDIT FLICKER R3: off screen, a shadow still in reach
+    if (bandSprites) for (const b of bandSprites.batches()) { if (cullOn && billboardOutside(b)) { if (renderer.shadowReachBatch(b)) castBatches.push(b); continue; } allBatches.push(b); }   // OW-FOES: the bands near, as their monsters; AUDIT FLICKER R3: off screen, a shadow still in reach
+    if (yards) for (const b of yards.batches()) { if (cullOn && billboardOutside(b)) { if (renderer.shadowReachBatch(b)) castBatches.push(b); continue; } allBatches.push(b); }   // HOME-YARD: the yards' flats, and the one being placed; AUDIT FLICKER R3: off screen, a shadow still in reach
     // NEAR-FIRST (2026-09-21): THE PIXELS ARE WALKED NEAREST FIRST. The
     // map's insertion order is the order the pixels streamed in, which
     // is nothing to do with where the eye is - so a far town's walls

@@ -139,11 +139,12 @@
   {
     "name": "NAV1O-theirs-uncounted",
     "file": "src/scenes/navalHost.js",
-    "old": "        else if (e.orphan == null && dist2d(e.ship.pos, feet) <= DESPAWN_BEYOND) ships.push({ id: e.id, pos: e.ship.pos, classId: e.ship.cls.id, theirs: true, afloat });\n",
+    "old": "        else if (e.orphan == null && dist2d(e.ship.pos, feet) <= DESPAWN_BEYOND) ships.push({ id: e.id, pos: e.ship.pos, classId: e.ship.cls.id, theirs: true, afloat, berthed: atBerth(e.ship) });   // AUDIT SHIP-LIFE B1: another's moored ship is no more the sea's traffic than mine\n",
     "new": "",
     "tests": [
       "test/navaudit_online.test.js"
-    ]
+    ],
+    "note": "AUDIT PR478 (PIN MOVED): re-aimed at the audited line."
   },
   {
     "name": "NAV1O-non-stander-keeps-its-own",
@@ -157,7 +158,7 @@
   {
     "name": "NAV1O-non-stander-launches",
     "file": "src/scenes/navalHost.js",
-    "old": "density: stands ? trafficDensity(feet) : 0, player: feet,",
+    "old": "density: launchesTraffic() ? trafficDensity(feet) : 0, player: feet,",
     "new": "density: trafficDensity(feet), player: feet,",
     "tests": [
       "test/navaudit_online.test.js"
