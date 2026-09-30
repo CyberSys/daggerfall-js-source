@@ -771,6 +771,18 @@ constructor(collider, { damagePlayer = null, drainMagicka = null, castSpell = nu
     return o;
   }
 
+  /** HOME-DOORS (2026-09-30): a door taken back out - one an owner hung in a doorway (scenes/decorRoom.js), moved or
+   *  removed. Not a DFU member (Daggerfall's doors are never taken down): the object, its place in the chain graph and
+   *  its collider bucket go, open or shut. Answers whether there was one. */
+  removeDoor(key) {
+    const o = this.objects.get(key);
+    if (!o || o.kind !== 'door') return false;
+    this.objects.delete(key);
+    for (const [k, v] of this._links) if (v === o) this._links.delete(k);
+    this.collider.removeBucket(key);
+    return true;
+  }
+
   /** Register a SPECIAL door (verbatim DaggerfallActionDoorSpecial):
    *  a plain placed model whose action flag is OpenDoor (or CloseDoor
    *  on a non-door) swings like a hinged door - same -90/1.5s and the

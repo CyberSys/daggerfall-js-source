@@ -46,6 +46,7 @@ import { decorMountDye, decorMountDyeTarget, decorMountItem } from '../systems/d
 import { toColor32 } from '../formats/color32Order.js';   // MW-MOUNT: a rendered picture's rows, as the upload reads them
 import { preloadTextureRecord } from '../systems/textureReplacement.js';   // MOUNT-LAZY: the record's own replacement, decoded before its upload
 import { writeDecalQuad, clearDecalQuad, DECAL_FLOATS } from '../combat/bloodDecals.js';
+import { decorIsDoor } from '../systems/decorDoorways.js';   // HOME-DOORS: a door piece hangs as one of the room's own doors
 
 /** How far the eye reaches a placed piece - the room's own furniture's reach (a bed's, a shelf's: 128 units). */
 export const DECOR_REACH = DEFAULT_ACTIVATION_DISTANCE;
@@ -158,12 +159,16 @@ export function decorMatrix(piece, origin) {
  *   mwPicture(item) - MW-MOUNT: the host's Morrowind picture of a mount's item (combat/fpArm.js mountPicture), or
  *                  none; a mount hangs as it while a build stands (loadMountPicture)
  *   later(f, ms)  - AUDIT DECOR-SHELL 3: setTimeout's shape, for a model asked again
+ *   doors         - HOME-DOORS: the host's action doors - `add(piece, model, matrix)` hangs a door piece as one of the
+ *                  room's own doors (world/actionSystem.js addDoor: it swings, blocks while shut, is saved and shared,
+ *                  and the host draws, ticks and names it) and answers it, or null; `remove(id)` takes it down. With
+ *                  none, a door piece stands as any model does
  */
 export function createDecorRoom({
   meshes, renderer, getTexture, uploadRecord, uploadRecordFrame, flatAnims = () => null, collider, origin, roomLights = () => null,
-  mwPicture = null, later = setTimeout,
+  mwPicture = null, later = setTimeout, doors = null,
 }) {
-  /** @type {Map<string, {piece: any, gpu: any, box: any, matrix: Float32Array, batch: any, anims: any, size: any, light: any, mount: any}>} */
+  /** @type {Map<string, {piece: any, gpu: any, box: any, matrix: Float32Array, batch: any, anims: any, size: any, light: any, mount: any, door: any}>} */
   const standing = new Map();
   const models = new Map();   // model id -> Promise<{gpu, cpu, box}>
   const flats = new Map();    // "a.r" -> Promise<{t, w, h} | null>
@@ -245,6 +250,7 @@ export function createDecorRoom({
   }
   function unmount(entry) {
     if (!entry) return;
+    if (entry.door) { doors?.remove?.(entry.piece.id); entry.door = null; }   // HOME-DOORS: the room's door, taken down
     collider?.()?.removeBucket?.(decorKeyOf(entry.piece.id));
     if (entry.mount) { renderer?.destroyDecalBatch?.(entry.mount.batch); entry.mount = null; }   // DECOR2c
     if (entry.batch) {
@@ -264,7 +270,7 @@ export function createDecorRoom({
   function put(piece) {
     unmount(standing.get(piece.id));
     const o = origin?.() ?? [0, 0, 0];
-    const entry = { piece, gpu: null, box: null, matrix: decorMatrix(piece, o), batch: null, anims: null, size: null, light: null, mount: null };
+    const entry = { piece, gpu: null, box: null, matrix: decorMatrix(piece, o), batch: null, anims: null, size: null, light: null, mount: null, door: null };
     standing.set(piece.id, entry);
     if (decorIsMount(piece)) {   // DECOR2c: hung flat on its surface, as its pack picture (MW-MOUNT: or its Morrowind one)
       artOf(piece).then((art) => {
@@ -284,8 +290,11 @@ export function createDecorRoom({
         // AUDIT2 DECOR-SHELL 7: twice as long each time, to the list's own bound - a build that throws was rebuilt every
         // two seconds a piece for the whole visit
         if (!m.gpu) { /** @type {any} */ (later(() => stand(Math.min(2 * wait, DECOR_LIST_RETRY_MAX_MS)), wait))?.unref?.(); return; }
-        entry.gpu = m.gpu;
         entry.box = m.box;
+        // HOME-DOORS: a door hangs as one of the room's own doors - the host's to draw, swing and share, never a solid
+        // piece of furniture in the doorway
+        if (decorIsDoor(piece) && doors && m.cpu?.positions && m.cpu?.indices) { entry.door = doors.add(piece, m, entry.matrix) ?? null; if (entry.door) return; }
+        entry.gpu = m.gpu;
         if (m.cpu?.positions && m.cpu?.indices) collider?.()?.addMesh?.(decorKeyOf(piece.id), m.cpu.positions, m.cpu.indices, entry.matrix);
       });
       stand();
@@ -355,6 +364,7 @@ export function createDecorRoom({
     const o = origin?.() ?? [0, 0, 0];
     for (const e of standing.values()) {
       const key = decorKeyOf(e.piece.id);
+      if (e.door) continue;   // HOME-DOORS: the room's own door answers the eye (`act:decor:<id>`), as the room's doors do
       if (e.piece.model != null) {
         if (!e.box) continue;
         const b = transformedAabb(e.box, e.matrix);

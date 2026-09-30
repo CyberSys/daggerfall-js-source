@@ -307,3 +307,36 @@ export function decorHiddenOf(raw) {
   }
   return [...seen].sort();
 }
+
+// ═══ HOME-YARD (2026-09-30) — PIECES OUTSIDE A HOME, ON ITS OWN LOT ══
+//
+// Asked: "allowing for prop placement on the outside within the limits of
+// their house". A yard's piece is a piece of decor standing OUTSIDE its
+// home: one of the catalogue's (never one's own item - a thing left in the
+// street is no thing kept), holding nothing, serving no craft and giving no
+// light (an outdoor lamp is the town's), its place from the building's own
+// origin outdoors - the building's position in its town, the same on every
+// client (scenes/homeYards.js). The LOT - the building's footprint and a
+// margin round it, clear of every other building - is the client's to
+// measure (the service has no town to measure it in); the law's bound is
+// the lot's widest.
+
+/** How many pieces one yard holds - a garden's worth, never a town's. */
+export const DECOR_YARD_CAP = 60;
+/** How far from the building's origin a yard's piece may stand, on each axis, metres - past any lot. */
+export const DECOR_YARD_POS_MAX = 48;
+/** The most pieces one town's yards answer at once. */
+export const DECOR_YARDS_TOWN_MAX = 2_000;
+
+/** A yard piece's place, projected (decorPlaceOf's), or null - one that holds things, serves a craft, gives light or
+ *  stands past the yard's bound is no yard's. */
+export function decorYardPlaceOf(raw) {
+  const pl = decorPlaceOf(raw);
+  if (!pl || pl.storage || pl.station || pl.light) return null;
+  return pl.pos.every((v) => Math.abs(v) <= DECOR_YARD_POS_MAX) ? pl : null;
+}
+/** A whole yard piece (decorPieceOf's), or null - one's own item stands in no yard. */
+export function decorYardPieceOf(raw) {
+  const p = decorPieceOf(raw);
+  return p && !p.item && decorYardPlaceOf(p) ? p : null;
+}

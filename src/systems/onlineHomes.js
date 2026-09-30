@@ -38,8 +38,9 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import {
-  HOME_ENTRIES, HOME_ENTRY_DEFAULT, homeMapIdOk, homeBuildingKeyOk, homePriceOk, homeMayEnter,
+  HOME_ENTRIES, HOME_ENTRY_DEFAULT, homeMapIdOk, homeBuildingKeyOk, homePriceOk, homeMayEnter, rentPriceOk, rentDaysLeft, homeLookOf,
 } from '../net/homeLaw.js';
+import { RENT_VERB, rentRowLabel, rentTenantLabel } from './homeRent.js';   // HOME-RENT: the door's rows for a room to rent
 import { BUILDING_TYPES, isResidence } from '../world/buildingNames.js';
 import { DEED_SELL_MULT } from './banking.js';
 
@@ -139,7 +140,7 @@ export const homeShortLine = (price) => `You need ${price} gold, in your purse a
  * screen, World Tooltips off) the click itself offers, once a house a session (worldModes.js).
  */
 export const HOME_BUY_ARM_MS = 5_000;
-export const HOME_VERB = Object.freeze({ enter: 'home-enter', buy: 'home-buy', entry: 'home-entry', sell: 'home-sell' });
+export const HOME_VERB = Object.freeze({ enter: 'home-enter', buy: 'home-buy', entry: 'home-entry', sell: 'home-sell', rent: RENT_VERB });   // HOME-RENT: a room rented at the door
 /** The rows over a house anyone may buy, at `price`; `armed` after its first press. */
 export const homeBuyRows = (price, armed = false) => [
   { id: HOME_VERB.enter, label: 'Go in' },
@@ -152,6 +153,17 @@ export const homeOwnerRows = (entry) => [
   { id: HOME_VERB.entry, label: `Who may enter: ${HOME_ENTRY_WORDS[entry] ?? HOME_ENTRY_WORDS[HOME_ENTRY_DEFAULT]}` },
   { id: HOME_VERB.sell, label: 'Sell it' },
 ];
+/**
+ * HOME-RENT: THE ROWS OVER SOMEONE ELSE'S HOME, where they say more than "Locked": a tenant's (go in, and their own room
+ * to renew), and a home with rooms free to rent - go in where the door opens for me, and rent one. `door` is
+ * homeDoorAnswer's; `nowS` the clock the days left are counted by. Null where a plain door is all there is.
+ */
+export function homeVisitorRows(home, door, nowS = Math.floor(Date.now() / 1000)) {
+  if (!home || home.own) return null;
+  if (home.tenant) return [{ id: HOME_VERB.enter, label: 'Go in' }, { id: HOME_VERB.rent, label: rentTenantLabel(Math.max(1, rentDaysLeft(home.tenant, nowS))) }];
+  if (!home.rent) return null;
+  return [...(door === 'enter' ? [{ id: HOME_VERB.enter, label: 'Go in' }] : []), { id: HOME_VERB.rent, label: rentRowLabel(home.rent.from) }];
+}
 /** Who may enter after `entry`, a press on the row: only me, my party, anyone, and round again. */
 export const homeNextEntry = (entry) => HOME_ENTRIES[(Math.max(0, HOME_ENTRIES.indexOf(entry)) + 1) % HOME_ENTRIES.length];
 /** Where the plaque draws no rows, the click's own offer: its two answers. */
@@ -196,7 +208,7 @@ export function createOnlineHomes({ api, character = () => null, now = () => Dat
     if (flying) return flying;
     if (!force && now() - (failed.get(id) ?? -Infinity) < HOME_RETRY_MS) return Promise.resolve(!!had);
     const p = Promise.resolve()
-      .then(() => api.town(id))
+      .then(() => api.town(id, character()))   // HOME-RENT: the playing character's own tenancies ride the answer
       .then((r) => {
         const list = r?.ok ? r.data?.homes : null;
         // unanswered: what was known stands, nothing new is believed, and the next ask waits a little
@@ -208,6 +220,10 @@ export function createOnlineHomes({ api, character = () => null, now = () => Dat
             buildingKey: h.buildingKey, owner: h.owner,
             entry: HOME_ENTRIES.includes(h.entry) ? h.entry : HOME_ENTRY_DEFAULT,
             mine: h.mine === true, character: typeof h.character === 'string' ? h.character : null,
+            // HOME-RENT: rooms free to rent (how many, from what a day), and the playing character's tenancy's end
+            rent: Number.isSafeInteger(h.rent?.vacant) && h.rent.vacant > 0 && rentPriceOk(h.rent.from) ? { vacant: h.rent.vacant, from: h.rent.from } : null,
+            tenant: Number.isSafeInteger(h.tenant) && h.tenant > 0 ? h.tenant : null,
+            look: homeLookOf(h.look ?? null),   // HOME-LOOK: how its owner painted it (null: the town's own)
           });
         }
         towns.set(id, { at: now(), homes });
@@ -294,7 +310,27 @@ export function createOnlineHomes({ api, character = () => null, now = () => Dat
     return { ok: false, error: r?.error ?? 'server' };
   }
 
-  return { ensure, waitFor, known, homeAt, claim, release, setEntry, version: () => version };
+  /** HOME-LOOK: MY HOME PAINTED - shown at once (every house in the town is drawn from this registry) and read back. */
+  async function setLook(mapId, buildingKey, look) {
+    const id = idOf(mapId);
+    const next = look == null ? null : homeLookOf(look);
+    if (look != null && !next) return { ok: false, error: 'bad-look' };
+    const r = await api.look({ mapId: id, buildingKey, character: character(), look: next });
+    if (r?.ok) {
+      const row = towns.get(id)?.homes.get(buildingKey);
+      wrote(id, buildingKey, row ? { ...row, look: homeLookOf(r.data?.look ?? next) } : null);
+      return { ok: true, look: next };
+    }
+    if (r?.error === 'no-home') ensure(id, { force: true });
+    return { ok: false, error: r?.error ?? 'server' };
+  }
+  /** HOME-LOOK: every home of a town this page has heard from, by its building key - the pixel's painter reads it. */
+  function homesIn(mapId) {
+    const t = towns.get(idOf(mapId));
+    return t ? new Map([...t.homes].map(([k, row]) => [k, row])) : null;
+  }
+
+  return { ensure, waitFor, known, homeAt, claim, release, setEntry, setLook, homesIn, version: () => version };
 }
 
 /**

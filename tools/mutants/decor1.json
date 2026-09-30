@@ -119,8 +119,8 @@
   {
     "name": "DECOR1-the-cap-unread",
     "file": "server-account/src/decor.js",
-    "old": "mapId, buildingKey, player.id, character, mapId, buildingKey, DECOR_CAP);",
-    "new": "mapId, buildingKey, player.id, character, mapId, buildingKey, DECOR_CAP + 1);",
+    "old": "mapId, buildingKey, out, out ? DECOR_YARD_CAP : DECOR_CAP);",
+    "new": "mapId, buildingKey, out, out ? DECOR_YARD_CAP : DECOR_CAP + 1);",
     "tests": [
       "test/decor1.test.js"
     ]

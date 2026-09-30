@@ -218,8 +218,8 @@
   {
     "name": "DECOR1d-the-cap-unread-on-commit",
     "file": "src/scenes/decorTool.js",
-    "old": "gold: deps.wallet().gold, count: pool.size(), cap: DECOR_CAP })) return false;",
-    "new": "gold: deps.wallet().gold, count: 0, cap: DECOR_CAP })) return false;",
+    "old": "gold: deps.wallet().gold, count: pool.size(), cap: capHere(r) })) return false;",
+    "new": "gold: deps.wallet().gold, count: 0, cap: capHere(r) })) return false;",
     "tests": [
       "test/decor1d.test.js"
     ]

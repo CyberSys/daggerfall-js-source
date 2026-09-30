@@ -363,8 +363,8 @@
   {
     "name": "DECOR2c-the-surface-unread",
     "file": "src/scenes/decorTool.js",
-    "old": "    p.piece = p.placer ? p.placer.pieceAt(hit.point, origin, p.id, hit.normal, cam.yaw) : null;",
-    "new": "    p.piece = p.placer ? p.placer.pieceAt(hit.point, origin, p.id) : null;",
+    "old": "else p.piece = p.placer ? p.placer.pieceAt(hit.point, origin, p.id, hit.normal, cam.yaw) : null;",
+    "new": "else p.piece = p.placer ? p.placer.pieceAt(hit.point, origin, p.id) : null;",
     "tests": [
       "test/decor2c.test.js"
     ]

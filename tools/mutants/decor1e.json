@@ -56,8 +56,8 @@
   {
     "name": "DECOR1e-the-room-view-drawing-the-catalogue",
     "file": "src/ui/decorPanel.js",
-    "old": "    if (mode === 'room') {\n      const placed = roomed(view.placed ?? []);",
-    "new": "    if (false) {\n      const placed = roomed(view.placed ?? []);",
+    "old": "} else if (mode === 'room') {\n      const placed = roomed(view.placed ?? []);",
+    "new": "} else if (false) {\n      const placed = roomed(view.placed ?? []);",
     "tests": [
       "test/decor1e.test.js"
     ]
@@ -83,8 +83,8 @@
   {
     "name": "DECOR1e-the-tabs-idle",
     "file": "src/ui/decorPanel.js",
-    "old": "chip('Catalogue', mode === 'catalogue', () => setMode('catalogue'))",
-    "new": "chip('Catalogue', mode === 'catalogue', () => {})",
+    "old": "chip('Catalogue', mode === 'catalogue', () => setMode('catalogue')), chip(`In this room",
+    "new": "chip('Catalogue', mode === 'catalogue', () => {}), chip(`In this room",
     "tests": [
       "test/decor1e.test.js"
     ]

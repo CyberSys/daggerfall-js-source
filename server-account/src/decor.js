@@ -30,7 +30,7 @@
 import { accountKind, overRate } from './accounts.js';
 import { CHAR_ID_RE } from './service.js';
 import { homeMapIdOk, homeBuildingKeyOk } from '../../src/net/homeLaw.js';
-import { DECOR_CAP, DECOR_ID_RE, DECOR_OPS_MAX, DECOR_OPS_WINDOW_S, DECOR_STATION_FEES, decorPieceOf, decorPlaceOf, decorHiddenOf, decorRefund } from '../../src/net/decorLaw.js';
+import { DECOR_CAP, DECOR_ID_RE, DECOR_OPS_MAX, DECOR_OPS_WINDOW_S, DECOR_STATION_FEES, decorPieceOf, decorPlaceOf, decorHiddenOf, decorRefund, DECOR_YARD_CAP, DECOR_YARDS_TOWN_MAX, decorYardPieceOf, decorYardPlaceOf } from '../../src/net/decorLaw.js';   // HOME-YARD: and a yard's
 import { prepareRealmRecord, realmSideOf, realmActFirst, recordMovedOf, mustChange, dropObjects, dropIfUnnamed, REALM_ID_RE } from './realm.js';   // REALM P2.2b; AUDIT REALM L1-F2: the record asked first; AUDIT REALM2 S2/S3
 import { payFromSave, creditSave } from '../../src/net/realmGoldLaw.js';   // REALM P2.2b: the wallet's own order, over the record
 
@@ -139,9 +139,28 @@ async function writeDoor({ db, nowS }, player, { mapId, buildingKey, character }
  */
 export async function decorOf({ db }, _player, { mapId, buildingKey } = {}) {
   if (!homeMapIdOk(mapId) || !homeBuildingKeyOk(buildingKey)) return { error: 'bad-home' };
-  const { results = [] } = await db.prepare(`SELECT * FROM home_decor WHERE map_id = ? AND building_key = ?
-    ORDER BY placed_at, id LIMIT ?`).bind(mapId, buildingKey, DECOR_CAP).all();
+  const { results = [] } = await db.prepare(`SELECT * FROM home_decor WHERE map_id = ? AND building_key = ? AND yard = 0
+    ORDER BY placed_at, id LIMIT ?`).bind(mapId, buildingKey, DECOR_CAP).all();   // HOME-YARD: the room's alone
   return { mapId, buildingKey, pieces: results.map(pieceOfRow).filter(Boolean), hidden: await hiddenOf(db, mapId, buildingKey) };
+}
+
+/**
+ * HOME-YARD: EVERY YARD OF A TOWN, for everyone walking its streets - each home's pieces outside, by its building key,
+ * oldest first; never more than DECOR_YARDS_TOWN_MAX in one answer.
+ * @param {{db: any}} ctx
+ */
+export async function yardsOf({ db }, _player, { mapId } = {}) {
+  if (!homeMapIdOk(mapId)) return { error: 'bad-home' };
+  const { results = [] } = await db.prepare(`SELECT * FROM home_decor WHERE map_id = ? AND yard = 1
+    ORDER BY building_key, placed_at, id LIMIT ?`).bind(mapId, DECOR_YARDS_TOWN_MAX).all();
+  const by = new Map();
+  for (const row of results) {
+    const p = pieceOfRow(row);
+    if (!p || !decorYardPieceOf(p)) continue;
+    if (!by.has(row.building_key)) by.set(row.building_key, []);
+    by.get(row.building_key).push(p);
+  }
+  return { mapId, yards: [...by].map(([buildingKey, pieces]) => ({ buildingKey, pieces })) };
 }
 
 /** BASE-HIDE: what the home's owner took out of the room (migration 0015) - projected on the way out, so a list the law
@@ -196,7 +215,7 @@ async function provenOf(db, player, p, mapId, buildingKey) {
  * answer was lost finds the same piece standing and is answered as the placement.
  * @param {{db: any, nowS: number}} ctx
  */
-export async function placeDecor(ctx, player, { mapId, buildingKey, character, piece, realm = null } = {}) {
+export async function placeDecor(ctx, player, { mapId, buildingKey, character, piece, realm = null, yard = false } = {}) {
   const { db, nowS } = ctx;
   if (realm != null) {
     const first = await realmActFirst(db, player.id, character, realm);   // AUDIT REALM L1-F2: where the record stands, before the door's rate
@@ -204,18 +223,20 @@ export async function placeDecor(ctx, player, { mapId, buildingKey, character, p
   }
   const shut = await writeDoor(ctx, player, { mapId, buildingKey, character }, true);   // AUDIT REALM2 S2: a realm character's
   if (shut) return { error: shut };
-  const sent = decorPieceOf(piece);
+  const sent = yard === true ? decorYardPieceOf(piece) : decorPieceOf(piece);   // HOME-YARD: outside, the yard's own law
   if (!sent) return { error: 'bad-decor' };
+  const out = yard === true ? 1 : 0;
   const p = sent.item?.pv ? await provenOf(db, player, sent, mapId, buildingKey) : sent;   // PROF4: a crafted piece's mark off its own record
   if (!p) return { error: 'bad-decor' };
   const { delta, ledger } = decorGoldMove(null, p);
   const side = decorSideOf(character, realm, delta);   // REALM P2.2b
   if (side.error) return side;
   // AUDIT REALM L1-F3: `paid`, what a record paid for it - the price, when a realm character's record pays it; nothing else
-  const insert = db.prepare(`INSERT OR IGNORE INTO home_decor (map_id, building_key, id, model, flat_archive, flat_record, place, placed_at, item, paid)
-    SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE ${OWNS} AND (SELECT COUNT(*) FROM home_decor WHERE map_id = ? AND building_key = ?) < ?`)
+  // HOME-YARD: a yard's pieces and a room's are counted apart, each against its own cap
+  const insert = db.prepare(`INSERT OR IGNORE INTO home_decor (map_id, building_key, id, model, flat_archive, flat_record, place, placed_at, item, paid, yard)
+    SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE ${OWNS} AND (SELECT COUNT(*) FROM home_decor WHERE map_id = ? AND building_key = ? AND yard = ?) < ?`)
     .bind(mapId, buildingKey, p.id, p.model, p.flat?.[0] ?? null, p.flat?.[1] ?? null, placeJson(p), nowS, p.item ? JSON.stringify(p.item) : null,
-      side.at ? ledger : 0, mapId, buildingKey, player.id, character, mapId, buildingKey, DECOR_CAP);
+      side.at ? ledger : 0, out, mapId, buildingKey, player.id, character, mapId, buildingKey, out, out ? DECOR_YARD_CAP : DECOR_CAP);
   if (side.at && delta !== 0) {
     // REALM P2.2b: the piece and what it cost, together - a placement sent again found the record one on above
     const had = await db.prepare('SELECT * FROM home_decor WHERE map_id = ? AND building_key = ? AND id = ?').bind(mapId, buildingKey, p.id).first();
@@ -261,6 +282,7 @@ export async function moveDecor(ctx, player, { mapId, buildingKey, character, id
   // gold or hold things (a piece the law refuses reads as nothing, and its cost would be owed at a sale)
   const was = pieceOfRow(row);
   if (!was || !decorPieceOf({ ...was, ...pl })) return { error: 'bad-decor' };
+  if (row.yard === 1 && !decorYardPlaceOf(pl)) return { error: 'bad-decor' };   // HOME-YARD: a yard's piece stays a yard's
   const { delta, ledger } = decorGoldMove(was, pl, row.paid);   // AUDIT REALM L1-F3: half back of what records paid
   const side = decorSideOf(character, realm, delta);
   if (side.error) return side;

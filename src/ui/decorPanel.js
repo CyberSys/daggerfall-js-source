@@ -47,6 +47,11 @@ import { registerOverlay } from './enhancedOverlays.js';   // PX28b: Tab puts it
 import { DECOR_KINDS, DECOR_SIZES, decorSize, filterDecor } from '../systems/decorCatalogue.js';
 import { decorRefund, DECOR_FURNITURE_GROUP, DECOR_STATIONS, DECOR_STATION_FEES, DECOR_STATION_NAMES } from '../net/decorLaw.js';
 import { forgeOffered, PROF_STATIONS } from './profPages.js';
+import { rentRowSub, rentPriceStep, RENT_PRICE_STEPS, RENT_PRICE_FIRST } from '../systems/homeRent.js';   // HOME-RENT: the owner's rooms
+import {
+  HOME_LOOK_PARTS, HOME_LOOK_PART_NAMES, HOME_LOOK_CLIMATES, HOME_LOOK_CLIMATE_NAMES, HOME_LOOK_SETS, HOME_LOOK_SET_NAMES, HOME_LOOK_DOOR_KEPT, homeLookOf, homeLookSig,
+} from '../net/homeLaw.js';   // HOME-LOOK: the house outside, painted
+import { homeLookSwatch } from '../world/homeLook.js';
 /** The crafts a piece may be made here: every station, the Forge only where it works (AUDIT 29 B2). */
 export const stationsOffered = () => DECOR_STATIONS.filter((k) => !PROF_STATIONS.includes(k) || forgeOffered());   // PROF4: the workbench as the forge
 
@@ -75,6 +80,17 @@ ${PIXELIFY_FIVE_FACE}
 .dfdecor-card[data-mode="base"] .dfdecor-filters, .dfdecor-card[data-mode="base"] .dfdecor-place,
 .dfdecor-card[data-mode="base"] .dfdecor-room-actions, .dfdecor-card:not([data-mode="base"]) .dfdecor-base-actions { display: none; }
 .dfdecor-base-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.dfdecor-card[data-mode="rent"] { grid-template-rows: auto auto minmax(0, 1fr) auto; }   /* HOME-RENT */
+.dfdecor-card[data-mode="rent"] .dfdecor-filters, .dfdecor-card[data-mode="rent"] .dfdecor-place,
+.dfdecor-card[data-mode="rent"] .dfdecor-room-actions, .dfdecor-card[data-mode="rent"] .dfdecor-base-actions,
+.dfdecor-card[data-mode="rent"] .dfdecor-preview, .dfdecor-card:not([data-mode="rent"]) .dfdecor-rent-actions { display: none; }
+.dfdecor-rent-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+.dfdecor-card[data-yard="1"] .dfdecor-yardless { display: none; }   /* HOME-YARD: nothing held, no light, no craft outside */
+.dfdecor-card[data-mode="paint"] { grid-template-rows: auto auto minmax(0, 1fr) auto; }   /* HOME-LOOK */
+.dfdecor-card[data-mode="paint"] .dfdecor-filters, .dfdecor-card[data-mode="paint"] .dfdecor-place,
+.dfdecor-card[data-mode="paint"] .dfdecor-room-actions, .dfdecor-card[data-mode="paint"] .dfdecor-base-actions,
+.dfdecor-card[data-mode="paint"] .dfdecor-rent-actions, .dfdecor-card:not([data-mode="paint"]) .dfdecor-paint-actions { display: none; }
+.dfdecor-paint-actions { display: flex; flex-direction: column; gap: 6px; }
 .dfdecor-card[data-mode="look"] .dfdecor-room-actions, .dfdecor-card[data-mode="look"] .dfdecor-kinds,
 .dfdecor-card[data-mode="look"] .dfdecor-has { display: none; }
 .dfdecor-room-actions { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -207,6 +223,26 @@ export function decorFurnishLine(e) {
 export const DECOR_LOOK_BUTTON = 'Choose its look';
 export const DECOR_LOOK_LINE = 'Choose how it looks - any of these, free.';
 
+/** HOME-DOORS: what a door says beside its line - it hangs in a doorway, and how many this house has free (null: still
+ *  being found). */
+export const decorDoorLine = (n) => (n == null ? 'hangs in a doorway - finding them...' : n === 0 ? 'hangs in a doorway - this house has none free'
+  : `hangs in a doorway - ${n} free here, marked while you place it`);
+/** HOME-LOOK: what a part's choice reads as - its set and climate, its climate and its number, or the town's own. */
+export function decorLookText(part, choice) {
+  if (!choice) return "The town's own";
+  if (part === 'walls' || part === 'windows') return `${HOME_LOOK_SET_NAMES[choice.set]}, ${HOME_LOOK_CLIMATE_NAMES[choice.climate]}`;
+  return `${HOME_LOOK_CLIMATE_NAMES[choice.climate]}, style ${choice.record + 1}`;
+}
+/** HOME-LOOK: the choice a part starts from when its first chip is pressed - the town's own, turned into a choice. */
+export const decorLookStart = (part) => (part === 'walls' || part === 'windows' ? { set: 'village', climate: 'temperate' } : { climate: 'temperate', record: 0 });
+/** HOME-LOOK: how many styles a roof or a door offers in the painter (the archive decides how many stand - a record it
+ *  lacks is drawn as the town's own). */
+export const DECOR_LOOK_STYLES = 6;
+/** HOME-RENT: what the rooms view says with no room to offer - a house of one room, or rooms still being found. */
+export const DECOR_RENT_ONE_ROOM = 'A house of one room has none to rent out. Hang a door in a doorway to part it into two.';
+export const DECOR_RENT_FINDING = 'Finding the rooms of your house...';
+/** HOME-RENT: the rent waiting to be collected, as the rooms view says it. */
+export const decorRentDueText = (due) => (due > 0 ? `Collect rent: ${due} gold` : 'No rent to collect');
 /** What one catalogue row says under its name. */
 export function decorRowSub(entry, radius) {
   const size = decorSize(radius);
@@ -278,11 +314,12 @@ export function createDecorButton({ onPress, touch = false, doc = document }) {
  * @param {{ onPlace: (entry: any) => void, onClose?: () => void, onPoint?: (entry: any) => void,
  *   thumbOf?: (entry: any) => Promise<string|null>|null, onMove?: (piece: any) => void, onRemove?: (piece: any) => void,
  *   onToggle?: (piece: any, what: string) => void, onPlaceLook?: (furniture: any, look: any) => void,
- *   onBase?: (keys: string[], out: boolean) => void, onRoom?: (id: number) => void, doc?: any, win?: any }} opts
+ *   onBase?: (keys: string[], out: boolean) => void, onRoom?: (id: number) => void, onRent?: (what: string, row: any, price: number|null) => void,
+ *   onPaint?: (what: string, look: any) => void, doc?: any, win?: any }} opts
  */
 export function createDecorPanel({
   onPlace, onClose = () => {}, onPoint = () => {}, thumbOf = () => null, onMove = () => {}, onRemove = () => {}, onToggle = () => {},
-  onPlaceLook = () => {}, onBase = () => {}, onRoom = () => {}, doc = document, win = globalThis,
+  onPlaceLook = () => {}, onBase = () => {}, onRoom = () => {}, onRent = () => {}, onPaint = () => {}, doc = document, win = globalThis,
 }) {
   injectStyle(doc);
   const el = maker(doc);
@@ -346,6 +383,7 @@ export function createDecorPanel({
     stationArmed = null;
     if (what) onToggle(it.piece, what);
   });
+  for (const b of [lightBtn, storeBtn, stationPick, stationBtn]) b.className += ' dfdecor-yardless';   // HOME-YARD
   roomActions.append(moveBtn, lightBtn, storeBtn, stationPick, stationBtn, removeBtn);
   // BASE-HIDE: the room's own furniture - the chosen piece out or back, and the whole room at once
   const baseActions = el('div', 'dfdecor-base-actions');
@@ -354,8 +392,25 @@ export function createDecorPanel({
   const allOutBtn = act('Take all out', () => { const ks = roomed(view?.base ?? []).filter((it) => !it.hidden && !it.holds).map((it) => it.key); if (ks.length) onBase(ks, true); });
   const allBackBtn = act('Put all back', () => { const ks = roomed(view?.base ?? []).filter((it) => it.hidden).map((it) => it.key); if (ks.length) onBase(ks, false); });
   baseActions.append(baseBtn, allOutBtn, allBackBtn);
+  // HOME-RENT: the chosen room's price moved, offered or withdrawn - and the rent held, collected
+  const rentActions = el('div', 'dfdecor-rent-actions');
+  const priceBtns = RENT_PRICE_STEPS.map((step) => act(`${step > 0 ? '+' : ''}${step}`, () => { const it = rentSelected(); if (!it) return; rentPrices.set(rentKeyOf(it), rentPriceStep(rentPriceOf(it), step)); paintRentSide(); }));
+  const offerBtn = act('Offer to rent', () => { const it = rentSelected(); if (it && !offerBtn.disabled) onRent('offer', it, rentPriceOf(it)); });
+  const withdrawBtn = act('Stop offering', () => { const it = rentSelected(); if (it && !withdrawBtn.disabled) onRent('withdraw', it, null); });
+  const collectBtn = act('Collect rent', () => { if (!collectBtn.disabled) onRent('collect', null, null); });
+  rentActions.append(...priceBtns, offerBtn, withdrawBtn, collectBtn);
+  // HOME-LOOK: the chosen part's climates and its sets or styles, the town's own, and the look painted or put back
+  const paintActions = el('div', 'dfdecor-paint-actions');
+  const paintClimates = el('div', 'dfdecor-chips');
+  const paintKinds = el('div', 'dfdecor-chips');
+  const paintBtns = el('div', 'dfdecor-rent-actions');
+  const ownBtn = act("The town's own", () => { if (!paintPart || !paintLook) return; delete paintLook[paintPart]; tryLook(); });
+  const paintBtn = act('Paint it', () => { if (!paintBtn.disabled) onPaint('commit', homeLookOf(paintLook)); });
+  const backBtn = act('Put back', () => { paintLook = { ...(view?.paint?.current ?? {}) }; tryLook(); });
+  paintBtns.append(ownBtn, paintBtn, backBtn);
+  paintActions.append(paintClimates, paintKinds, paintBtns);
   const pickWhy = el('div', 'dfdecor-pick-why');
-  side.append(preview, pickName, pickLine, pickPrice, place, roomActions, baseActions, pickWhy);
+  side.append(preview, pickName, pickLine, pickPrice, place, roomActions, baseActions, rentActions, paintActions, pickWhy);
   body.append(list, side);
 
   const foot = el('div', 'dfdecor-foot');
@@ -376,7 +431,13 @@ export function createDecorPanel({
   const f = { kinds: new Set(), text: '', size: null, storage: null, light: null, sort: 'common' };
   let selectedKey = null;
   let hoverKey = null;
-  let mode = 'catalogue';     // DECOR1e: or 'room'; DECOR2a: or 'own'; DECOR2b: or 'look'; BASE-HIDE: or 'base'
+  let mode = 'catalogue';     // DECOR1e: or 'room'; DECOR2a: or 'own'; DECOR2b: or 'look'; BASE-HIDE: or 'base'; HOME-RENT: or 'rent'
+  let rentKey = null;         // HOME-RENT: the room chosen in the rooms view
+  let paintPart = null;       // HOME-LOOK: the part chosen in the painter
+  /** @type {any} HOME-LOOK: the look being tried, before it is painted */
+  let paintLook = null;
+  /** @type {Map<string, number>} HOME-RENT: a price being set for a room, before it is offered */
+  const rentPrices = new Map();
   let baseKey = null;         // BASE-HIDE: the built-in piece chosen
   let placedId = null;        // the placed piece chosen in the room's view
   let ownKey = null;          // DECOR2a: the item chosen in the pack's list
@@ -419,6 +480,11 @@ export function createDecorPanel({
     : null;
 
   const placedSelected = () => (view?.placed ?? []).find((it) => it.piece.id === placedId) ?? null;
+  /** HOME-RENT: a room row's own key (a found room by its number, an offer whose walls changed by the offer's), the row
+   *  chosen, and the price shown for it - the one being set, else the one it is offered at, else the first. */
+  const rentKeyOf = (it) => (it.id != null ? `r${it.id}` : `o${it.offer?.room}`);
+  const rentSelected = () => (view?.rent?.rows ?? []).find((it) => rentKeyOf(it) === rentKey) ?? null;
+  const rentPriceOf = (it) => rentPrices.get(rentKeyOf(it)) ?? it.offer?.price ?? RENT_PRICE_FIRST;
   /** DECOR-ROOMS (2026-09-27, Discord: "For a house with multiple connects, add room switching tabs"): a house of two
    *  rooms or more lists the chosen room's pieces - its placed ones and its own furniture - and a piece the host could
    *  not stand in any room (none beneath it) in every one, so nothing is lost from the lists. */
@@ -456,12 +522,19 @@ export function createDecorPanel({
     return c;
   }
   function drawTabs() {
+    if (card.dataset.yard !== (view?.yard ? '1' : '0')) card.dataset.yard = view?.yard ? '1' : '0';
+    if (view?.yard) {   // HOME-YARD: the catalogue, the yard's pieces, and (HOME-LOOK) the house outside
+      tabs.replaceChildren(chip('Catalogue', mode === 'catalogue', () => setMode('catalogue')), chip(`In this yard (${(view.placed ?? []).length})`, mode === 'room', () => setMode('room')),
+        ...(view.paint ? [chip('Exterior', mode === 'paint', () => setMode('paint'))] : []));
+      return;
+    }
     const n = roomed(view?.placed ?? []).length;
     const m = view?.own?.length ?? 0;
     const k = roomed(view?.base ?? []).length;
     tabs.replaceChildren(chip('Catalogue', mode === 'catalogue', () => setMode('catalogue')), chip(`In this room (${n})`, mode === 'room', () => setMode('room')),
       chip(`Your things (${m})`, mode === 'own' || mode === 'look', () => setMode('own')),   // DECOR2b: a look is chosen within them
       chip(`Built in (${k})`, mode === 'base', () => setMode('base')),   // BASE-HIDE: the room's own furniture
+      ...(view?.rent ? [chip(`Rooms to rent (${(view.rent.rows ?? []).filter((r) => r.offer).length})`, mode === 'rent', () => setMode('rent'))] : []),   // HOME-RENT
       ...roomChips());   // DECOR-ROOMS
   }
   /** DECOR-ROOMS: THE ROOM TABS - one a room, the chosen one pressed, each saying how many pieces stand in it. Choosing
@@ -480,6 +553,7 @@ export function createDecorPanel({
   }
   function setMode(m) {
     if (mode === m) return;
+    if (mode === 'paint') { paintLook = null; onPaint('reset', null); }   // HOME-LOOK: a look tried and left is put away
     mode = m;
     card.dataset.mode = m;
     hoverKey = null;
@@ -534,6 +608,68 @@ export function createDecorPanel({
     main.append(el('div', 'dfdecor-row-name', it.name), el('div', 'dfdecor-row-sub', decorBaseSub(it)));
     r.append(thumb, main, el('span', 'dfdecor-row-price', it.hidden ? 'out' : 'free'));
     r.addEventListener('click', () => { baseKey = it.key; redraw(); });
+    return r;
+  }
+  /** HOME-LOOK: one part of the house - its name, and what it wears (the look being tried). */
+  function paintRow(part) {
+    const r = el('div', 'dfdecor-row');
+    r.setAttribute('role', 'option');
+    r.dataset.key = part;
+    r.setAttribute('aria-selected', part === paintPart ? 'true' : 'false');
+    const main = el('span', '');
+    const was = homeLookSig(view?.paint?.current?.[part] ? { [part]: view.paint.current[part] } : null) !== homeLookSig(paintLook?.[part] ? { [part]: paintLook[part] } : null);
+    main.append(el('div', 'dfdecor-row-name', HOME_LOOK_PART_NAMES[part]), el('div', 'dfdecor-row-sub', decorLookText(part, paintLook?.[part] ?? null)));
+    r.append(el('span', 'dfdecor-thumb', HOME_LOOK_PART_NAMES[part].slice(0, 2)), main, el('span', 'dfdecor-row-price', was ? 'changed' : ''));
+    r.addEventListener('click', () => { paintPart = part; redraw(); });
+    return r;
+  }
+  /** HOME-LOOK: the look being tried, shown on the house (the host's preview) and in the list. */
+  function tryLook() {
+    onPaint('preview', homeLookOf(paintLook));
+    redraw();
+  }
+  /** HOME-LOOK: the chosen part's choices - its climates, then its sets (walls, windows) or its styles (a roof, a door);
+   *  its swatch in the preview; the look painted only when it differs from the house's. */
+  function paintPaintSide() {
+    const part = paintPart;
+    const choice = part ? paintLook?.[part] ?? null : null;
+    pickName.textContent = part ? HOME_LOOK_PART_NAMES[part] : 'Choose a part of your house';
+    pickLine.textContent = part ? decorLookText(part, choice) : 'Walls, windows, roof and door - each can wear another of Daggerfall\'s own looks.';
+    pickPrice.textContent = 'Free';
+    const set = (next) => { paintLook = { ...paintLook, [part]: next }; tryLook(); };
+    const start = () => choice ?? decorLookStart(part);
+    paintClimates.replaceChildren(...(part ? Object.keys(HOME_LOOK_CLIMATES).map((c) => chip(HOME_LOOK_CLIMATE_NAMES[c], choice?.climate === c, () => set({ ...start(), climate: c }))) : []));
+    if (part === 'walls' || part === 'windows') {
+      paintKinds.replaceChildren(...Object.keys(HOME_LOOK_SETS).map((k) => chip(HOME_LOOK_SET_NAMES[k], choice?.set === k, () => set({ ...start(), set: k }))));
+    } else if (part) {
+      const styles = [];
+      for (let r = 0; styles.length < DECOR_LOOK_STYLES && r <= 15; r++) if (!(part === 'door' && r === HOME_LOOK_DOOR_KEPT)) styles.push(r);
+      paintKinds.replaceChildren(...styles.map((r) => chip(`Style ${r + 1}`, choice?.record === r, () => set({ ...start(), record: r }))));
+    } else {
+      paintKinds.replaceChildren();
+    }
+    ownBtn.disabled = !part || !choice;
+    const differs = homeLookSig(homeLookOf(paintLook)) !== homeLookSig(view?.paint?.current ?? null);
+    paintBtn.disabled = !differs;
+    backBtn.disabled = !differs;
+    const sw = part ? homeLookSwatch(part, choice, view?.paint?.season ?? 0) : null;
+    const shape = sw ? { key: `look:${sw.archive}.${sw.record}`, flat: [sw.archive, sw.record] } : null;
+    if (shape && !thumbs.has(shape.key)) askThumb(shape);
+    const url = shape ? thumbs.get(shape.key) : null;
+    if (url) previewImg.setAttribute('src', url); else previewImg.removeAttribute?.('src');
+    if (preview.dataset.model !== '0') preview.dataset.model = '0';
+    pickWhy.textContent = differs ? 'Tried on your house - paint it to keep it, for everyone to see.' : '';
+  }
+  /** HOME-RENT: one of the house's rooms - its name, what it is offered at or who rents it, its price. */
+  function rentRow(it) {
+    const r = el('div', 'dfdecor-row');
+    r.setAttribute('role', 'option');
+    r.dataset.key = rentKeyOf(it);
+    r.setAttribute('aria-selected', rentKeyOf(it) === rentKey ? 'true' : 'false');
+    const main = el('span', '');
+    main.append(el('div', 'dfdecor-row-name', it.name), el('div', 'dfdecor-row-sub', rentRowSub(it, view?.rent?.now ?? 0)));
+    r.append(el('span', 'dfdecor-thumb', String(it.id ?? it.offer?.room ?? '')), main, el('span', 'dfdecor-row-price', it.offer ? `${it.offer.price} a day` : '-'));
+    r.addEventListener('click', () => { rentKey = rentKeyOf(it); redraw(); });
     return r;
   }
   function drawChips() {
@@ -614,7 +750,20 @@ export function createDecorPanel({
     const entries = view.entries;
     watcher?.disconnect();   // the rows it watched are gone
     waiting.clear();
-    if (mode === 'room') {
+    if (mode === 'rent' && !view.rent) { mode = 'catalogue'; card.dataset.mode = mode; }   // HOME-RENT: no rooms door here any more
+    if (mode === 'paint' && !view.paint) { mode = 'catalogue'; card.dataset.mode = mode; }   // HOME-LOOK: no painter here any more
+    if (mode === 'paint') {   // HOME-LOOK: a row a part
+      paintLook ??= { ...(view.paint.current ?? {}) };
+      list.replaceChildren(...HOME_LOOK_PARTS.map(paintRow));
+      listSig = signature();
+      paintSide();
+      return;
+    }
+    if (mode === 'rent') {   // HOME-RENT
+      const rows = view.rent.rows ?? [];
+      if (rentKey && !rows.some((it) => rentKeyOf(it) === rentKey)) rentKey = null;
+      list.replaceChildren(...(rows.length ? rows.map(rentRow) : [el('div', 'dfdecor-empty', view.rent.rooms ? DECOR_RENT_FINDING : DECOR_RENT_ONE_ROOM)]));
+    } else if (mode === 'room') {
       const placed = roomed(view.placed ?? []);   // DECOR-ROOMS: the chosen room's
       if (placedId && !placed.some((it) => it.piece.id === placedId)) placedId = null;   // removed, or gone from the room
       list.replaceChildren(...(placed.length ? placed.map(placedRow) : [el('div', 'dfdecor-empty', 'Nothing placed in this room yet.')]));
@@ -649,7 +798,9 @@ export function createDecorPanel({
     (view?.placed ?? []).map((it) => `${it.piece.id}:${it.piece.paid}:${it.piece.light ? 1 : 0}:${it.piece.storage ? 1 : 0}:${it.holds ? 1 : 0}:${it.piece.station ?? ''}:${it.room ?? ''}`).join(','),   // AUDIT HOME-STATIONS S3: and its craft; DECOR-ROOMS: and its room
     (view?.own ?? []).map((e) => `${e.key}:${e.name}:${e.count ?? 1}`).join(','),   // DECOR2a: the pack's list
     (view?.base ?? []).map((it) => `${it.key}:${it.name}:${it.hidden ? 1 : 0}:${it.holds ? 1 : 0}:${it.room ?? ''}`).join(','),   // BASE-HIDE
-    (view?.rooms ?? []).map((r) => `${r.id}:${r.name}`).join(','), view?.roomId ?? ''].join('|');   // DECOR-ROOMS: the tabs, and the one chosen
+    (view?.rooms ?? []).map((r) => `${r.id}:${r.name}`).join(','), view?.roomId ?? '', view?.doorways ?? '',
+    view?.yard ? 'y' : '', view?.paint ? homeLookSig(view.paint.current) : '-',   // HOME-YARD; HOME-LOOK
+    view?.rent ? `${view.rent.due}:${view.rent.busy ? 1 : 0}:${(view.rent.rows ?? []).map((r) => `${rentKeyOf(r)}:${r.offer ? `${r.offer.price}.${r.offer.taken ? 1 : 0}.${r.offer.listed ? 1 : 0}.${r.offer.until ?? ''}` : '-'}`).join(',')}` : ''].join('|');   // HOME-RENT   // DECOR-ROOMS: the tabs, and the one chosen; HOME-DOORS: the doorways free
 
   function paintSide() {
     const e = shown();
@@ -668,7 +819,7 @@ export function createDecorPanel({
       if (url) previewImg.setAttribute('src', url); else previewImg.removeAttribute?.('src');
     } else {
       pickName.textContent = e.name;
-      pickLine.textContent = decorRowSub(e, radiusOf(e));
+      pickLine.textContent = e.kind === 'door' && mode === 'catalogue' ? `${decorRowSub(e, radiusOf(e))} - ${decorDoorLine(view?.doorways ?? null)}` : decorRowSub(e, radiusOf(e));   // HOME-DOORS
       pickPrice.textContent = decorPriceText(priceOf(e));
       if (e.flat && !thumbs.has(e.key)) askThumb(e);   // chosen out of view: its picture all the same
       const url = e.flat ? thumbs.get(e.key) : null;
@@ -681,7 +832,13 @@ export function createDecorPanel({
     }
     const model = e && e.model != null ? '1' : '0';
     if (preview.dataset.model !== model) preview.dataset.model = model;
-    if (mode === 'room') {
+    if (mode === 'paint') {
+      paintPaintSide();
+      return;
+    }
+    if (mode === 'rent') {
+      paintRentSide();
+    } else if (mode === 'room') {
       paintRoomSide();
     } else if (mode === 'base') {
       paintBaseSide();
@@ -726,6 +883,23 @@ export function createDecorPanel({
     storeBtn.disabled = !it || !!it.piece.item || (it.piece.storage && it.holds) || !!it.piece.station;   // HOME-STATIONS: a station holds nothing
     removeBtn.disabled = !it || it.holds;
     pickWhy.textContent = it?.holds ? DECOR_HOLDS_LINE : '';
+  }
+
+  /** HOME-RENT: the chosen room - what it is offered at or who rents it, the price being set, and the room's three acts;
+   *  the rent held, collected. A room its walls no longer make can only be withdrawn. */
+  function paintRentSide() {
+    const it = rentSelected();
+    const rent = view?.rent ?? null;
+    pickName.textContent = it ? it.name : (rent?.rows?.length ? 'Choose a room' : '');
+    pickLine.textContent = it ? rentRowSub(it, rent?.now ?? 0) : '';
+    pickPrice.textContent = it && it.offerable ? `Price: ${rentPriceOf(it)} gold a day` : '';
+    for (const b of priceBtns) b.disabled = !it || !it.offerable || !!rent?.busy;
+    offerBtn.textContent = it?.offer ? (rentPriceOf(it) === it.offer.price && it.offer.listed ? 'Offered' : `Offer at ${rentPriceOf(it)} gold a day`) : 'Offer to rent';
+    offerBtn.disabled = !it || !it.offerable || !!rent?.busy || (!!it.offer && it.offer.listed && rentPriceOf(it) === it.offer.price);
+    withdrawBtn.disabled = !it?.offer || !it.offer.listed || !!rent?.busy;
+    collectBtn.textContent = decorRentDueText(rent?.due ?? 0);
+    collectBtn.disabled = !(rent?.due > 0) || !!rent?.busy;
+    pickWhy.textContent = rent && !rent.loaded ? 'Asking the account service about your rooms...' : it?.offer?.taken ? 'A price changed now is what the next tenant pays.' : '';
   }
 
   /** BASE-HIDE: the chosen built-in piece - its line, free, out or back; and the whole room's two buttons. A piece that
@@ -827,6 +1001,8 @@ export function createDecorPanel({
     previewCanvas: () => previewGl,
     /** Choose a piece by its key (the host's reopen after a placement keeps the choice). */
     select(key) { selectedKey = key; if (open) redraw(); },
+    /** HOME-RENT: the rooms view. */
+    showRent() { if (mode === 'rent') redraw(); else setMode('rent'); },
     /** DECOR1e: which view - 'catalogue' or 'room' (DECOR2a: 'own'; DECOR2b: 'look') - and the placed piece chosen in the room's. */
     mode: () => mode,
     showRoom(id = null) { placedId = id ?? placedId; if (mode === 'room') redraw(); else setMode('room'); },

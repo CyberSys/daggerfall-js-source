@@ -484,8 +484,8 @@
   {
     "name": "HOME1-the-registry-built-offline",
     "file": "src/scenes/world.js",
-    "old": "  const onlineHomes = params.has('online')\n",
-    "new": "  const onlineHomes = true\n",
+    "old": "  const homesApi = params.has('online')",
+    "new": "  const homesApi = true",
     "tests": [
       "test/home1.test.js"
     ]

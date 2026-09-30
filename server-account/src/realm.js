@@ -549,7 +549,7 @@ export async function leaveRealm({ db }, /** @type {string} */ playerId, /** @ty
  *  reach them (MERGE 2's open question 3). What another player is part of waits: while the character has market
  *  business open ('realm-market-open', REALM_MARKET_OPEN_SQL) the delete is refused, since the goods or the piece it
  *  would be handed come to this character. The history (the ledger, the crafts, the sales) stays. */
-export async function deleteRealm({ db, bucket }, /** @type {string} */ playerId, /** @type {unknown} */ id) {
+export async function deleteRealm({ db, bucket, nowS = Math.floor(Date.now() / 1000) }, /** @type {string} */ playerId, /** @type {unknown} */ id) {
   if (typeof id !== 'string' || !REALM_ID_RE.test(id)) return { error: 'body' };
   const row = await db.prepare('SELECT obj, prev, bytes, origin_id FROM realm_characters WHERE id = ? AND player = ?').bind(id, playerId).first();
   if (!row) return { error: 'no-realm-character' };
@@ -560,6 +560,10 @@ export async function deleteRealm({ db, bucket }, /** @type {string} */ playerId
   if ((master?.n ?? 0) > 1) return { error: 'guild-master-leaves' };
   if ((master?.treasury ?? 0) > 0) return { error: 'guild-treasury' };
   if (Number((await db.prepare(REALM_MARKET_OPEN_SQL).bind(playerId, id).first())?.n ?? 0) > 0) return { error: 'realm-market-open' };
+  // HOME-RENT: a room another player is renting in its home waits for its days to run out, and rent held for it waits to
+  // be collected - the delete takes the home with it
+  if (Number((await db.prepare(HOME_TENANTS_SQL).bind(playerId, id, nowS).first())?.n ?? 0) > 0) return { error: 'home-tenants' };
+  if (Number((await db.prepare(HOME_RENT_DUE_SQL).bind(playerId, id).first())?.due ?? 0) > 0) return { error: 'home-rent-due' };
   await dropCharacterObjects(bucket, playerId, id, [row.obj, row.prev]);
   await db.batch([
     db.prepare('DELETE FROM homes WHERE player = ? AND char_id = ?').bind(playerId, id),
@@ -571,6 +575,13 @@ export async function deleteRealm({ db, bucket }, /** @type {string} */ playerId
   ]);
   return { ok: true };
 }
+
+/** HOME-RENT (2026-09-30): THE TENANCIES STILL RUNNING in a character's homes - a sale (homes.js) or the character's
+ *  delete waits for them: another player paid for those days. `?1` the account, `?2` the character, `?3` now; `n`. */
+export const HOME_TENANTS_SQL = `SELECT COUNT(*) AS n FROM home_rooms r JOIN homes h ON h.map_id = r.map_id AND h.building_key = r.building_key
+  WHERE h.player = ?1 AND h.char_id = ?2 AND r.tenant IS NOT NULL AND r.until > ?3`;
+/** HOME-RENT: the rent held on a character's homes, not yet collected (`due`) - its delete waits for it too. */
+export const HOME_RENT_DUE_SQL = 'SELECT COALESCE(SUM(rent_due), 0) AS due FROM homes WHERE player = ?1 AND char_id = ?2';
 
 /** PROF-DELETE: A CHARACTER'S MARKET BUSINESS STILL OPEN (`?1` the account, `?2` the character) - each a thing another
  *  player is part of whose goods, piece or Marks' worth would come to this character: a listing or an auction still

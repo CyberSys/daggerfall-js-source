@@ -39,8 +39,9 @@ import { prepareRealmRecord, realmActFirst, realmAtOf, recordMovedOf, mustChange
 import { payFromSave, creditSave } from '../../src/net/realmGoldLaw.js';   // REALM P2.2b: the wallet's own order, over the record
 import {
   HOME_CAP, HOME_ENTRY_DEFAULT, HOME_CLAIMS_MAX, HOME_CLAIMS_WINDOW_S, HOME_TOWN_MAX,
-  homeMapIdOk, homeBuildingKeyOk, homeRegionOk, homePriceOk, homeEntryOk, homeSaleRefund,
+  homeMapIdOk, homeBuildingKeyOk, homeRegionOk, homePriceOk, homeEntryOk, homeSaleRefund, homeLookOf,
 } from '../../src/net/homeLaw.js';
+import { DECOR_OPS_MAX, DECOR_OPS_WINDOW_S } from '../../src/net/decorLaw.js';   // HOME-LOOK: a repaint counts as a decorator's write
 
 const homeOf = (row) => ({
   mapId: row.map_id, buildingKey: row.building_key, region: row.region, character: row.char_id,
@@ -129,13 +130,14 @@ async function realmRelease(ctx, player, at, home) {
   const d = await realmDecorBackStatement(db, home.map_id, home.building_key).first();
   const decorCount = Number(d?.n) || 0, decorBack = Math.max(0, Number(d?.back) || 0);
   const refund = homeSaleRefund(Math.max(0, Number(home.paid) || 0));
-  const back = refund + decorBack;
+  const rentDue = Math.max(0, Number(home.rent_due) || 0);   // HOME-RENT: the rent held on it, never collected, comes with the sale
+  const back = refund + decorBack + rentDue;
   const prep = await prepareRealmRecord(ctx, player.id, at, (save) => (creditSave(save, back, { bank: home.region }) ? null : 'no-data'));
   if (prep.error) return prep;
   try {
     await db.batch([
       ...prep.steps,
-      db.prepare('DELETE FROM homes WHERE map_id = ? AND building_key = ? AND player = ? AND char_id = ? AND paid = ?').bind(home.map_id, home.building_key, player.id, at.id, home.paid),
+      db.prepare('DELETE FROM homes WHERE map_id = ? AND building_key = ? AND player = ? AND char_id = ? AND paid = ? AND rent_due = ?').bind(home.map_id, home.building_key, player.id, at.id, home.paid, home.rent_due ?? 0),   // HOME-RENT: a rent landing between the read and the sale is never lost
       mustChange(db),
     ]);
   } catch {
@@ -143,7 +145,7 @@ async function realmRelease(ctx, player, at, home) {
     return (await recordMovedOf(db, player.id, at)) || { error: 'no-home' };
   }
   await dropObjects(bucket, [prep.prev]);
-  return { ok: true, price: home.price, refund, decorCount, decorBack, realm: { seq: prep.seq } };
+  return { ok: true, price: home.price, refund, decorCount, decorBack, ...(rentDue ? { rent: rentDue } : {}), realm: { seq: prep.seq } };
 }
 
 /**
@@ -162,6 +164,9 @@ export async function releaseHome(ctx, player, { mapId, buildingKey, realm = nul
     if (moved) return moved;
   }
   const home = await db.prepare('SELECT * FROM homes WHERE map_id = ? AND building_key = ? AND player = ?').bind(mapId, buildingKey, player.id).first();
+  // HOME-RENT: a home another player is renting a room in is not sold from under them - their days were paid for
+  if (home && Number((await db.prepare(`SELECT COUNT(*) AS n FROM home_rooms WHERE map_id = ? AND building_key = ? AND tenant IS NOT NULL AND until > ?`)
+    .bind(mapId, buildingKey, ctx.nowS ?? Math.floor(Date.now() / 1000)).first())?.n ?? 0) > 0) return { error: 'home-tenants' };
   if (realm != null || (typeof home?.char_id === 'string' && REALM_ID_RE.test(home.char_id))) {
     return at ? realmRelease(ctx, player, at, home) : { error: 'realm-needed' };
   }
@@ -193,19 +198,47 @@ export async function setHomeEntry({ db }, player, { mapId, buildingKey, entry }
 }
 
 /**
+ * HOME-LOOK (2026-09-30): HOW A HOME LOOKS OUTSIDE, as its owner paints it (net/homeLaw.js homeLookOf) - the owner's
+ * character's alone, free, a decorator's write against the hour's (decor.js's own count). `look` null paints it back
+ * the town's own. Every client reads it with the town's homes.
+ * @param {{db: any, nowS: number}} ctx
+ */
+export async function setHomeLook({ db, nowS }, player, { mapId, buildingKey, character, look = null } = {}) {
+  if (!homeMapIdOk(mapId) || !homeBuildingKeyOk(buildingKey)) return { error: 'bad-home' };
+  if (typeof character !== 'string' || !CHAR_ID_RE.test(character)) return { error: 'home-character' };
+  const next = look == null ? null : homeLookOf(look);
+  if (look != null && !next) return { error: 'bad-look' };
+  if (await overRate({ db, nowS }, `decor:${player.id}`, DECOR_OPS_MAX, DECOR_OPS_WINDOW_S)) return { error: 'decor-rate' };
+  const r = await db.prepare('UPDATE homes SET look = ? WHERE map_id = ? AND building_key = ? AND player = ? AND char_id = ?')
+    .bind(next ? JSON.stringify(next) : null, mapId, buildingKey, player.id, character).run();
+  return r?.meta?.changes ? { ok: true, look: next } : { error: 'no-home' };
+}
+
+/**
  * A TOWN'S HOMES, for everyone standing in it - guests too: whose each is (the handle the relay signs), who may walk
  * in, and which are the caller's own. Never the price, never another account's character.
  * @param {{db: any}} ctx
  */
-export async function homesInTown({ db }, player, { mapId } = {}) {
+export async function homesInTown({ db, nowS = Math.floor(Date.now() / 1000) }, player, { mapId, character = null } = {}) {
   if (!homeMapIdOk(mapId)) return { error: 'bad-home' };
-  const { results = [] } = await db.prepare(`SELECT building_key, player, char_id, owner_name, entry FROM homes
-    WHERE map_id = ? ORDER BY building_key LIMIT ?`).bind(mapId, HOME_TOWN_MAX).all();
+  // HOME-RENT: each home's rooms still free to rent (how many, and the cheapest a day), and - for the character the
+  // caller names - the end of its own tenancy there, which opens the door to it
+  const me = typeof character === 'string' && CHAR_ID_RE.test(character) ? character : '';
+  const { results = [] } = await db.prepare(`SELECT h.building_key, h.player, h.char_id, h.owner_name, h.entry, h.look,
+      (SELECT COUNT(*) FROM home_rooms r WHERE r.map_id = h.map_id AND r.building_key = h.building_key AND r.listed = 1 AND (r.tenant IS NULL OR r.until <= ?1)) AS vacant,
+      (SELECT MIN(r.price) FROM home_rooms r WHERE r.map_id = h.map_id AND r.building_key = h.building_key AND r.listed = 1 AND (r.tenant IS NULL OR r.until <= ?1)) AS rent_from,
+      (SELECT MAX(r.until) FROM home_rooms r WHERE r.map_id = h.map_id AND r.building_key = h.building_key AND r.tenant = ?2 AND r.tenant_char = ?3 AND r.until > ?1) AS tenancy
+    FROM homes h WHERE h.map_id = ?4 ORDER BY h.building_key LIMIT ?5`).bind(nowS, player.id, me, mapId, HOME_TOWN_MAX).all();
   return {
     mapId,
     homes: results.map((h) => {
       const mine = h.player === player.id;
-      return { buildingKey: h.building_key, owner: h.owner_name, entry: h.entry, mine, ...(mine ? { character: h.char_id } : {}) };
+      return {
+        buildingKey: h.building_key, owner: h.owner_name, entry: h.entry, mine, ...(mine ? { character: h.char_id } : {}),
+        ...(Number(h.vacant) > 0 ? { rent: { vacant: Number(h.vacant), from: Number(h.rent_from) } } : {}),
+        ...(Number.isSafeInteger(h.tenancy) && h.tenancy > nowS ? { tenant: h.tenancy } : {}),
+        ...(h.look ? (() => { const look = homeLookOf(h.look); return look ? { look } : {}; })() : {}),   // HOME-LOOK: how its owner painted it
+      };
     }),
   };
 }
