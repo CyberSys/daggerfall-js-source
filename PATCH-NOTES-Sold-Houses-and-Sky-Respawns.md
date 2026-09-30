@@ -22,3 +22,17 @@
 
 ## Protect Bystanders
 - **With Protect Bystanders on, your blows pass townspeople and the town's walking guards by during a fight.** A swing at an enemy just out of reach no longer lands on the townsperson behind it (no murder, no assault, no lost reputation). With no enemy near, attacking a townsperson is still a crime, as before.
+
+## Inventory on phones
+- **The inventory works on phones.** The item list now has room on a phone, upright or on its side: the character picture is hidden until you tap **Body** in the pack's header (your choice is remembered), the worn panels stay a tap away, and the tabs scroll in one row. Tablets and narrow windows keep the picture, smaller.
+
+## Hoods
+- **Raise and lower a cloak's or robe's hood from its card.** In the pack, a worn cloak or robe now has **Raise hood** / **Lower hood** (it used to say Use and step through drawings), shows whether the hood is up, says "You raise your hood." or "You lower your hood.", and your figure updates at once. A **Hood** chip marks the panel while it is up. (Vampires: a raised hood is what lets you out by day.)
+
+## Climates & Calories
+- **A tavern drink quenches your thirst fully**, whatever you order. Ale, wine and spirits still make you drunk.
+- **Inns and taverns refill your waterskins.** Every tavern menu has "Fill your waterskins", at the price of its cheapest soft drink.
+- **Each region's tavern serves its own menu.** The menus were off by one climate (Sentinel's deserts were served the bay's dishes).
+- **Being indoors helps.** Inside a building the temperature is never worse than the street outside - a desert inn at night is as cool as the night.
+- **Light clothes in the heat.** In hot weather your clothes count for half their warmth, so dressing lightly in the desert helps.
+- **You are told when you recover.** Coming out of Scorching or Freezing says "You are cooling down." or "You are warming up.", and drying out says "You have dried off."

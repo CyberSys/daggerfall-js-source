@@ -156,6 +156,45 @@ panel; an enchanted hooded cloak keeps its Use for its Used payload. The hint na
 window is DFU's and unchanged - it redraws its doll at every drawing. `test/fb0930_hoodsaid.test.js` (4); three older
 pins and three records re-aimed.
 
+## CC: Climates & Calories - six departures from the mod as read (11)
+
+**Traced first** (the real `createPlayerTicker`, offline and online): the minute law is not stuck - the felt
+temperature is recomputed every minute from scratch and every host feeds it (a reading of 50 outdoors went to 20 a step
+inside). The rules held it in the red and amber and said nothing on the way out: indoors read half the climate and the
+season and never the hour (a desert inn at 23:00 read 35, Hot, while its street read 5); clothing only ever added
+warmth, at full weight in any heat (the starting kit's shirt and pants are fifteen degrees); the need lines speak only
+when a stage worsens (the Tiers' third pass), so warming or drying was never said. A drink took forty off a thirst that
+runs to 150 and its quarter hour climbed again: a desert inn's juice read 150, 127, 103, 80, 57 - four paid cups to leave
+the red, the Casual loan owed through three. No source of the mod's (the bundle carries a DLL) names a tavern refill.
+
+**The fixes** (`systems/survival/tavernMenu.js`, `temperature.js`, `needs.js`, `ui/tavernWindow.js`,
+`ui/enhancedTavern.js`), each a declared departure (Port-Ledger A) but one:
+- **TAVERN-DRINK**: a drink quenches the thirst whole, whatever its kind, as a meal fills the stomach whole; its
+  drunkenness by kind and its quarter hour stand, and the Casual loan comes back in the same pick. The desert juice:
+  150 to 12.5 in one cup. `test/fb0930_cc_drink.test.js` (3).
+- **INN-WATER**: every tavern menu - the classic picker and the enhanced list - opens its drinks with "Fill your
+  waterskins", at the list's cheapest soft drink (2 gold at quality 10), the fountain's own law (`drinkAtSource`: every
+  skin filled, the thirst quenched, its words, no time passed); refused before any coin moves with "You carry no
+  waterskin." or "Your waterskins are full.". Tavern rows are no realm act; the water pays as the others do.
+  `test/fb0930_cc_innwater.test.js` (4).
+- **MENU-CLIMATE** - the port's own fault: `MENU_KEY_BY_CLIMATE` was written 224-233 over climates that run 223 (Ocean)
+  to 232 (Haunted Woodlands), so every climate served the menu of the one before it - Sentinel's desert the bay's
+  bananas, the mountains the desert's camel milk, the Ocean the default. Keyed by the enum's names now, each the menu its
+  number was written for. `test/fb0930_cc_menuclimate.test.js` (2).
+- **ROOF-SHELTER**: inside a building the natural temperature is the milder of the street's own now and the roofed half
+  (a tie the roof's) - a roof never makes it hotter or colder than the street. The desert inn at 23:00 reads 5, at noon
+  27 (warm); a mountain inn keeps its roof's -30 against a street of -60. Underground unchanged.
+  `test/fb0930_cc_roof.test.js` (3).
+- **CLOTHES-BREATHE**: above a natural ten (the warm word's line) clothing counts at half its warmth, truncated, before
+  the wet eats it; the cold and armour unchanged. `test/fb0930_cc_breathe.test.js` (2).
+- **WARM-SAID**: leaving scorching for a stage that is not red says "You are cooling down.", leaving freezing or deadly
+  cold "You are warming up.", and a soaking dried "You have dried off." - once a recovery, the improving stages still
+  silent. A Woodlands winter soak, then an inn: "You are warming up." at 22 minutes, "You have dried off." at 79, and
+  comfortable. `test/fb0930_cc_said.test.js` (3).
+
+Older pins re-aimed: `surv5_ui` (the drink, the menu keys), `survtiers` (the order call), `surv1_model` (the hood's two
+reads), and two `survtiers` records.
+
 ## GUILD-LETTER: a withdrawal the pack cannot carry comes as a letter of credit (8)
 
 A treasury withdrawal was paid in coin whatever it weighed: the Guild book credited the purse through `addGold`, the
@@ -198,3 +237,34 @@ played it online with. Sign in with that account to bring it in."), and a charac
 account is `customs-already`; the gate (customsRealm's one guarded write) is unchanged. `test/fb0930_customselsewhere.test.js`
 (1); `realm1`'s stranger line and one `customspass` record re-aimed. `acct33`.
 
+Pins: `test/fb0930_{homecrossed,chopwait,respawnground,realmbirth,fallkept,packphone,hoodsaid,guildletter,protectfight,
+customselsewhere,cc_drink,cc_innwater,cc_menuclimate,cc_roof,cc_breathe,cc_said}.test.js` (55), each red on the code
+before it. Mutants: `tools/mutants/fb0930_*.json`, 191 records, 191 dead. `acct33` (HOME-CROSSED, GUILD-LETTER,
+CUSTOMS-ELSEWHERE); the relay is untouched.
+
+## Said, not changed
+
+**12 - the brigandine.** PR #459 (MW-BRIG3) fits the steel brigandine onto the wearer's Morrowind torso; it is another
+session's draft, not this batch's.
+
+**13 - a reputation reset.** The REP1-REP6 overhaul (another session's branch, not yet a PR) has it: a temple's penance
+buys five points of a region's law at 200 x n, a standing below zero recovers a point every seven days, and the passive
+Conspiracy levy - the "lost rep for no reason" that follows a first mark below -10 - is retired.
+
+## For Mac
+
+1. **Seanobi's house (1).** The sale deleted it and its pieces before HOME-CROSSED; D1 Time Travel still holds the rows.
+   Putting it back is a restore of one home and its `home_decor` (the realm-restore workflow's machinery, aimed at one
+   row), or a price paid in its place - yours to choose.
+2. **Dwarfblood's Tabby the Sneaky (10).** If it was never online on another of their accounts, the realm has nothing
+   of it, and the designed door is a staff pass: `node tools/customsPass.mjs <their handle>`.
+3. **The departures, to take back if you want them back:** PROTECT-FIGHT (a fight spares the walkers), FALL-KEPT (the
+   fall rides the save), and Climates & Calories' five (a drink quenches whole; an inn fills a skin at its cheapest soft
+   drink; a roof shelters; clothes breathe above ten; a recovery is said).
+4. **"admin comman tp fix possibly? Have selected player cast anchor for..." (14)** is cut off in the screenshot - the
+   rest of it, and it is built.
+
+Found on the way, not changed: the standalone `?dungeon` dev scene carries no fall in its pose (FALL-KEPT is the three
+play hosts'); on a phone the pack's overall armour plaque hides with the body (each panel keeps its own number); the
+Plus card no longer steps a cloak through its drapes (the classic skin's Use still does); a page born online reloads
+(F5) into the character rather than to the menu.
