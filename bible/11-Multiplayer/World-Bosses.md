@@ -1011,17 +1011,72 @@ the sparks falling to the floor under it (a burst's `floor`: `uFloor`, `sparkAt`
 chest's height - and each piece's landing (the pool's `frame(onRest)`) throws its tier's sparks where it lies, a
 Rare-or-better's more and brighter (spoilRest, spoilRestRare).
 
+### The Broker's insignia (WB9g)
+
+A day's ware (`systems/sigilBroker.js`) is an item on the pack. A piece of the INSIGNIA is worn over the name or at the
+feet where every other player sees it, and a thing others see must be one no client can assert (ACC3's law) - so it is
+bought ONCE and kept by the ACCOUNT (`net/insignia.js`, the law both ends read): **Gatebreaker**, a title, for 30 Sigil
+Stones, and **Dagon's Fire**, an aura, for 50. A gate opens every two hours and drops one stone to a fighter, so they are
+some thirty and fifty gates closed, where the day's dearest ware (a piece of Ruhn's Regalia) is twelve.
+
+THE SALE (`server-account/src/accounts.js buyInsignia`, POST `/v1/account/insignia`) is recorded on the row (migration
+0036: `insignia`, the ids bought in their order; `insignia_spent`; `aura`, the aura worn) and paid for TWICE-CHECKED: the
+pack's spendable stones are taken on this side as a ware's are (`spendStones` - one hand with the sale's `takeFromPack`),
+and the service refuses a sale the account's own closed gates could not have paid for (gate_kills, one row a kill, less
+`insignia_spent`: 409 `short`, with the `purse` they can still pay and the `price`). ONE UPDATE is the sale - the id
+joins the column and the price the spend only where the row does not hold it yet and its gates still cover it - so two
+sales pressed at once never spend the same stones, and a piece is never bought twice (409 `owned`); a guest row keeps
+none (403 `guest`). The Broker asks the service first and takes the stones second, so a refused sale takes nothing; the
+account view says the purse beside the wardrobe.
+
+HELD, WORN, SIGNED. A title bought is held as a founder's is (`server-account/src/titles.js titlesHeld` reads it off the
+row) and worn through the title's own door. An aura is held off the row (`aurasHeld`) and worn through its own
+(`/v1/account/aura`, `equipAura` - 403 `not-held`, 400 `no-aura` for a word the vocabulary lacks), one at a time, pressed
+off as it is pressed on. The mint signs the aura worn (`au`, absent for none - `net/identityToken.js` AURAS, `claimsValid`,
+`mintToken`) and says it beside the token (`aura`); the relay reads it out of the signature (`_named`, `badged`,
+`readAura`) as it reads every badge (relay world134, account service acct34). This device keeps its own on the stored
+session (`net/accountClient.js adoptIdentity` - every mint's answer and every wear's, from the account card or the
+Broker), so the fire at my own feet lights the moment any door changes it (`systems/ownGlyphs.js ownAura`); a peer's is
+its newest hello's (`net/online.js _peer`, `_refresh`, `auraOf`), kept in the session's memory through a blip (SLAM9's
+`_known`). The room sees a new one from the wearer's next hello, as it sees a title.
+
+THE WINDOW AND THE CARD. Under the day's stock the Broker's window (`ui/brokerWindow.js`) lists the Insignia: a row a
+piece in the wares' own grid (the title's word in its own fire, the aura's ring turning), a control the pad and the
+keyboard reach (U10's `pressable`, one home for both kinds of row), its price or Owned or Worn, and a button that says
+why not or what a press does (Buy, "Need 12 more", Wear, Take off - "Buying..." until the account answers, nothing else
+pressable meanwhile); pressed, the piece's card. The account card (`ui/enhancedAccount.js`) draws an Aura row beside the
+titles, in the Gatebreaker's own fire (`ui/playerBadge.js`: coal-crimson through fire to ember, edged in black).
+
+THE FIRE (`render/auraRing.js`), two draws a wearer. THE GROUND: one quad under the feet, answered per pixel about the
+wearer - a ring band broken by value-noise fire flowing round it and outward, bright crests chasing about it, ten embers
+circling in it, a glow in the stone within. THE FLAMES: a low cylinder of tongues rising out of noise scrolled up and
+round, white-hot at the root, orange, red and gone at the tip, both faces burning. The duel wall's law: fixed geometry
+placed by uniforms, added onto the frame (ONE, ONE), tested against the world's depth and never writing it, the ground
+offset off its stone, fogged with the frame's fog and focus (AUDIT DEEP R-1). The noise's lattice wraps where the ring
+closes and where the clock does, and every rate is a whole number of turns over AURA_CLOCK_PERIOD (120 s), written as
+turns a second times TAU - a rounded radian rate drifts off whole by its rounding times the period and steps the picture
+at the wrap. A wearer's fire kindles over AURA_KINDLE_S; a frame draws at most AURA_DRAW_MAX (16), the nearest within
+AURA_RANGE_M (90 m). The world host gathers them with the peers each frame (`scenes/world.js auraFrame` - mine off the
+stored session, a concealed peer's concealed with them, none under the travel view) and draws them after each mode's
+opaque world through the veiled bodies' hook, under the frame's own camera (every host calls it: the street, the
+dungeon's late draw, the building), a foreign pass. `tools/auraProbe.mjs` draws it in a real WebGL2 (11 checks).
+
 Pinned: `test/wb9a_gate_marks_seen.test.js` (7), `test/wb9b_gate_courts.test.js` (12), `test/wb9c_gate_reckoning.test.js`
-(16), `test/wb9d_gate_ground.test.js` (5), `test/wb9e_gate_blows.test.js` (6), `test/wb9f_gate_spoils.test.js` (10);
+(16), `test/wb9d_gate_ground.test.js` (5), `test/wb9e_gate_blows.test.js` (6), `test/wb9f_gate_spoils.test.js` (10),
+`test/wb9g_insignia.test.js` (14);
 mutants `tools/mutants/wb9b.json` (19, all dead), `tools/mutants/wb9c.json` (31: 30 dead, the dead counted at the
 crystals' growth equivalent as recorded - the court's living are filtered once), `tools/mutants/wb9d.json` (9, all
-dead), `tools/mutants/wb9e.json` (9, all dead), `tools/mutants/wb9f.json` (24, all dead). The older suites re-aimed
+dead), `tools/mutants/wb9e.json` (9, all dead), `tools/mutants/wb9f.json` (24, all dead), `tools/mutants/wb9g.json` (65,
+all dead). The older suites re-aimed
 where WB9 moved their law: the phase's turn (WB3, WBX5, WB8b - the bound and the wait for the leap), the court's
 geometry (WB3b, WB6b - three courts, the braziers and shards clear of the walkways), the damage numbers (WB4, WB8c),
 the telegraph's text (WB4), the motor's clamp (AUDIT DUEL1), the relay's version pins (world134); and for WB9f the
 burst's call (AUDIT WB A2, WBX3 - it hands the court's floor), the spew's bearing (WB5's toward-his-back mutant), the
 itemised keys and the court's fourth target family (WORLD-HOVER), the pool's keys (RAID4b's mutant), the spark's floor
-(WB9e).
+(WB9e); and for WB9g the title vocabulary's order and the wardrobe's shape (PENITENT, SHADOW-FANG, ACC3), the account
+Worker's columns and migrations (ACC-WORKER, RENOWN-CHAR) and its version pins (acct34), the foreign passes (AUDIT 18)
+and R-1's fogged programs (TV4), the Broker's rows (SET7's U10 - one `pressable`) and its stone-taking (SS1 - one
+`takeFromPack`), the session writer's mutants (NAME-ADOPT, SFSKIN), and the relay's version (world134).
 
 ## Shipped
 

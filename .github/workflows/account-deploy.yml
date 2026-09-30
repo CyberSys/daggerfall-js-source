@@ -72,6 +72,7 @@ on:
       - "src/net/raidReceipt.js"
       - "src/net/wire.js"
       - "src/net/gateMods.js"
+      - "src/net/insignia.js"
       - "src/net/dice.js"
       - "src/net/realmTradeLaw.js"
       - "src/net/canon.js"

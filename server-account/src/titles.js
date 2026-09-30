@@ -23,6 +23,11 @@
 //             each list grants the title AND its glyph.
 //   SHADOW FANG (SHADOW-FANG, 2026-09-26) the same, one player's own.
 //   PENITENT (PENITENT, 2026-09-29) the same, Diggleborf's own.
+//   GATEBREAKER (WB9g, 2026-09-30) - the ONE grant that is not derived
+//             but recorded: the title the Sigil Broker sells, held because
+//             the account bought it (the row's `insignia`, 0036). A sale is
+//             a fact that happened, not a rule a row satisfies - and what
+//             is HELD is still read off the row at every ask, as the rest.
 //
 // WHY THAT AND NOT A `grants` TABLE. Mac asked that "all current
 // players should be granted the founder title", and the obvious
@@ -50,7 +55,8 @@
 // worn by a row nobody has looked at since.
 // ═══════════════════════════════════════════════════════════════════
 
-import { TITLES, GLYPHS } from '../../src/net/identityToken.js';
+import { TITLES, GLYPHS, AURAS } from '../../src/net/identityToken.js';
+import { insigniaHeld, insigniaKeys } from '../../src/net/insignia.js';   // WB9g: the Broker's insignia - a title and an aura bought
 
 /** THE FOUNDER CUTOFF, and it is a date rather than a count because
  *  "all current players" is a statement about a MOMENT. Everyone who
@@ -185,7 +191,25 @@ export function titlesHeld(player, env) {
   if (Number.isFinite(player?.registered_at) && firstPlayed(player) <= FOUNDER_UNTIL) held.push('founder');
   if (isDeveloper(player, env)) held.push('developer');
   for (const t of Object.keys(TIER_LISTS)) if (holdsTier(t, player, env)) held.push(t);   // TITLE-N
+  // WB9g: AND THE BROKER'S - a title bought with Sigil Stones, held because the sale is recorded on the row (0036). A
+  // guest row cannot buy one (accounts.js buyInsignia refuses it), so none is ever read off one.
+  for (const t of insigniaKeys(player?.insignia, 'title')) if (!held.includes(t)) held.push(t);
   return held;
+}
+
+/** WB9g: THE AURAS THIS PLAYER HOLDS - the Broker's, bought (the row's `insignia`), in the offers' order. */
+export const aurasHeld = (player) => insigniaKeys(player?.insignia, 'aura');
+/** WB9g: the aura this player WEARS - the stored one, while they hold it (titleWorn's law). */
+export function auraWorn(player) {
+  const a = player?.aura;
+  if (typeof a !== 'string' || !a) return undefined;
+  return aurasHeld(player).includes(a) ? a : undefined;
+}
+/** WB9g: what a player may wear at their feet - the refusal word, or null; `null` (none) is always allowed. */
+export function auraRefusal(aura, player) {
+  if (aura === null) return null;
+  if (typeof aura !== 'string' || !AURAS.includes(aura)) return 'no-aura';
+  return aurasHeld(player).includes(aura) ? null : 'not-held';
 }
 
 /** THE GLYPHS THAT ARE TRUE OF THIS PLAYER. Not held and not worn -
@@ -220,11 +244,15 @@ export function equipRefusal(title, player, env) {
   return titlesHeld(player, env).includes(title) ? null : 'not-held';
 }
 
-/** The account view's own half: what to show in the window. */
+/** The account view's own half: what to show in the window. WB9g: and the auras held and the one worn, and the
+ *  Broker's insignia the account bought (its ids). */
 export const wardrobeOf = (player, env, nowS) => ({
   titles: titlesHeld(player, env),
   title: titleWorn(player, env) ?? null,
   glyphs: glyphsOf(player, env, nowS),
+  auras: aurasHeld(player),
+  aura: auraWorn(player) ?? null,
+  insignia: insigniaHeld(player?.insignia),
 });
 
 export { TITLES, GLYPHS };

@@ -159,7 +159,12 @@ test('ACC1b: the migration is the real schema, and applying it twice changes not
   // date, src/net/legalLaw.js) and `legal_accepted_at`. An agreement is a
   // fact about the account itself, made once by its player, so it is the
   // row's; NULL on every account made before the boxes existed.
-  assert.deepEqual(cols.sort(), ['created_at', 'email', 'guest_name', 'handle', 'handle_lc', 'id',
+  // WB9g added THREE - the Sigil Broker's insignia (0036): `insignia`, the
+  // pieces the account BOUGHT, and `insignia_spent`, what they cost in all
+  // (a sale is a fact that happened, never a rule a row satisfies - so it
+  // is recorded, and what is held is still read off it at every ask), and
+  // `aura`, the aura WORN, the one choice about it, as `title` is.
+  assert.deepEqual(cols.sort(), ['aura', 'created_at', 'email', 'guest_name', 'handle', 'handle_lc', 'id', 'insignia', 'insignia_spent',
     'last_seen', 'legal_accepted_at', 'muted_by', 'muted_until', 'password', 'played_at', 'played_s', 'privacy_version', 'recovery_hash',
     'registered_at', 'renown_hour', 'renown_hour_xp', 'renown_last_credit', 'terms_version', 'title']);
   assert.ok(!cols.some((c) => /founder|developer|sprout|glyph|grant/i.test(c)), `a grant became a column: ${cols}`);

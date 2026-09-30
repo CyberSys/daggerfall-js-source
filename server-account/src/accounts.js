@@ -36,7 +36,8 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { guestName, isHandleShaped, isGuestShaped } from './guestName.js';
-import { wardrobeOf, equipRefusal, canModerate } from './titles.js';   // ACC3: what a player holds, wears and is true of - all four derived
+import { wardrobeOf, equipRefusal, canModerate, auraRefusal } from './titles.js';   // ACC3: what a player holds, wears and is true of - all four derived; WB9g: and the aura worn
+import { insigniaById, insigniaHeld, insigniaWith } from '../../src/net/insignia.js';   // WB9g: the Broker's insignia - one law both ends
 import { ID_RE, nameIsIssuable } from '../../src/net/identityToken.js';
 import { PLAY_GRACE_S } from '../../src/net/playClock.js';   // ACC4: the widest gap one beat may credit - one home both ends
 import { MUTE_MAX_MIN } from '../../src/net/moderation.js';   // MOD1: the longest mute - the command and the service agree in one place
@@ -367,6 +368,58 @@ export async function equipTitle({ db, nowS }, player, env, title) {
   // The ROW this answer describes is the row after the write, so the
   // caller never has to re-read to know what it did.
   return { ok: true, ...wardrobeOf({ ...player, title }, env, nowS) };
+}
+
+/**
+ * WB9g - WEAR ONE AURA, OR NONE. equipTitle's law at the feet: refused against what the player HOLDS, derived now (a
+ * bought aura is held because the row records the sale); `null` takes it off and is always allowed. Answers the
+ * wardrobe after the write.
+ */
+export async function equipAura({ db, nowS }, player, env, aura) {
+  const why = auraRefusal(aura, player);
+  if (why) return { error: why };
+  await db.prepare('UPDATE players SET aura = ?, last_seen = ? WHERE id = ?').bind(aura, nowS, player.id).run();
+  return { ok: true, ...wardrobeOf({ ...player, aura }, env, nowS) };
+}
+
+/** WB9g: what the account's own closed gates could still pay for - one Sigil Stone a gate closed (gate_kills, WB5b),
+ *  less what its insignia already cost (`insignia_spent`). Never below 0. */
+export async function insigniaPurse({ db }, player) {
+  const r = await db.prepare('SELECT COUNT(*) AS n FROM gate_kills WHERE account = ?1').bind(player.id).first();
+  const spent = Number.isSafeInteger(player?.insignia_spent) ? player.insignia_spent : 0;
+  return Math.max(0, Number(r?.n ?? 0) - spent);
+}
+
+/**
+ * WB9g - THE BROKER'S SALE OF A PIECE OF INSIGNIA (src/net/insignia.js INSIGNIA), recorded for the account. Refused:
+ * `no-insignia` (not an offer), `guest` (a guest row is one storage clear from gone - ACC3's founder reasoning - and the
+ * gate records nothing for one either, claimGate), `owned`, and `short` when the account's closed gates less what its
+ * insignia already cost cannot pay the price (`purse` says what they can). ONE UPDATE is the sale: the id joins the
+ * column and the price the spend only where the row does not hold it yet and its gates still cover it - so two sales
+ * pressed at once cannot both spend the same stones, nor one piece be bought twice. The client takes the stones from
+ * the pack; this is the half no client can skip. Answers the wardrobe after the write and the purse left.
+ * @param {{ db: any, nowS: number }} ctx
+ */
+export async function buyInsignia({ db, nowS }, player, env, id) {
+  const offer = insigniaById(id);
+  if (!offer) return { error: 'no-insignia' };
+  if (!player?.handle) return { error: 'guest' };
+  if (insigniaHeld(player.insignia).includes(offer.id)) return { error: 'owned' };
+  const next = insigniaWith(player.insignia, offer.id);
+  const row = await db.prepare(
+    `UPDATE players SET insignia = ?2, insignia_spent = insignia_spent + ?3, last_seen = ?4
+     WHERE id = ?1
+       AND (' ' || COALESCE(insignia, '') || ' ') NOT LIKE ('% ' || ?5 || ' %')
+       AND (SELECT COUNT(*) FROM gate_kills WHERE account = ?1) - insignia_spent >= ?3
+     RETURNING insignia, insignia_spent`,
+  ).bind(player.id, next, offer.price, nowS, offer.id).first();
+  if (!row) {
+    const now = await db.prepare('SELECT * FROM players WHERE id = ?').bind(player.id).first();
+    if (insigniaHeld(now?.insignia).includes(offer.id)) return { error: 'owned' };
+    return { error: 'short', purse: await insigniaPurse({ db }, now ?? player), price: offer.price };
+  }
+  const after = { ...player, insignia: row.insignia, insignia_spent: row.insignia_spent };
+  return { ok: true, bought: offer.id, ...wardrobeOf(after, env, nowS), purse: await insigniaPurse({ db }, after) };
 }
 
 /** A handle a player asks for, judged before anything is written: one

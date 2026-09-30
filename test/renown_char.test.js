@@ -169,8 +169,8 @@ test('RENOWN-CHAR the worker: the token\'s level is the NAMED character\'s own -
   assert.deepEqual(await call('POST', '/v1/guilds/found', { character: fresh.id, name: 'The Hound', tag: 'HND', realm: fresh.at() }, me.secret), { status: 403, body: { error: 'guild-renown' } }, 'a character that never earned is Renown 1 - whatever the account\'s best (Mara\'s 10)');
   env.DB._raw.prepare('INSERT INTO renown_tracks (player, char_id, name, xp, created_at, updated_at) VALUES (?, ?, ?, ?, 1, 1)').run(me.id, fresh.id, 'Fresh', renownXpFor(10));
   assert.equal((await call('POST', '/v1/guilds/found', { character: fresh.id, name: 'The Hound', tag: 'HND', realm: fresh.at() }, me.secret)).status, 200, 'at its own Renown 10, it founds');
-  assert.equal(ACCOUNT_VERSION, 'acct33', 'FIELD BUGS 2026-09-30 moved it on (acct33); PROF-DELETE before it (acct32); RENOWN-CHAR before it (acct31), past MERGE 2\'s acct30');
-  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct33"/);
+  assert.equal(ACCOUNT_VERSION, 'acct34', 'WB9g moved it on (acct34: the Broker\'s insignia); FIELD BUGS 2026-09-30 before it (acct33); PROF-DELETE before it (acct32); RENOWN-CHAR before it (acct31), past MERGE 2\'s acct30');
+  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct34"/);
 });
 
 test('RENOWN-CHAR the raid: a town defended is paid to the character that FOUGHT it, at its own Renown - never the account\'s best - another character\'s track untouched; a claim naming no character is refused (mutants: the raid read at the account\'s best track)', async () => {
@@ -194,7 +194,7 @@ test('RENOWN-CHAR the migration (0035), over the real migrations: each track its
   const raw = new DatabaseSync(':memory:');
   raw.exec('PRAGMA foreign_keys = ON');
   const at = MIGRATIONS.indexOf(CHAR_MIGRATION);
-  assert.ok(at > MIGRATIONS.indexOf('0021_renown_account.sql') && at === MIGRATIONS.length - 1, '0035 after RENOWN-ACCOUNT\'s 0021 - the last migration there is');
+  assert.ok(at > MIGRATIONS.indexOf('0021_renown_account.sql') && MIGRATIONS.slice(at + 1).every((m) => m === '0036_insignia.sql'), '0035 after RENOWN-ACCOUNT\'s 0021 - the last migration there is but WB9g\'s 0036, which touches only the players row');
   migrate(raw, MIGRATIONS.slice(0, at));
   const db = wrap(raw);
   const acct = () => ({ id: (() => { const id = mintId(rand); raw.prepare('INSERT INTO players (id, guest_name, created_at, last_seen) VALUES (?, ?, ?, ?)').run(id, 'Guest', T0, T0); return id; })() });

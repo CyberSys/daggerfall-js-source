@@ -30,4 +30,12 @@ The Warden's fight now crosses three courts and ends in a wipe you have to break
 - **Press activate to pick it up**, like any loot pile. Walking over it still works too.
 - His chest bursts in gold as the spoils leave it, and each piece sparks in its rarity's colour where it lands (brighter for Rare and up).
 
+## The Broker's insignia
+- **The Sigil Broker sells two new pieces**, listed under the day's stock as **Insignia**. They belong to your account: buy once, and every character on it can wear them.
+- **Gatebreaker** (30 Sigil Stones): a new title, worn over your name in the colours of a Gate's fire.
+- **Dagon's Fire** (50 Sigil Stones): an **aura**, a ring of fire that circles the ground where you stand. Flames lick up out of it and embers wheel around it, and every player near you sees it.
+- **They are expensive on purpose.** Each Gate you help close drops one Sigil Stone, so the title takes about thirty Gates and the aura about fifty. Your account has to have closed enough Gates to pay the price, not only carry the stones.
+- **Wear them or take them off** from the Broker's window or your account card. Your own aura lights at once, and other players see it from your next step into a new area.
+- You need to be signed in with a username and password to buy insignia; guest accounts can't keep them.
+
 Reload the game after the update to fight (the gate needs this version).

@@ -39,7 +39,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import {
-  openGuest, register, login, recover, readAccount, changePassword, logout, equipTitle, adoptIdentity,
+  openGuest, register, login, recover, readAccount, changePassword, logout, equipTitle, equipAura, adoptIdentity,
   storedSession, keepSession, forgetSession, accountRefusalText, handleShapeOk,
   PASSWORD_MIN_LEN,
 } from '../net/accountClient.js';
@@ -251,7 +251,7 @@ export function AccountFlow({ io, storage, onChange = () => {} }) {
     // top-right button reads the stored session. This is the next answer
     // that states the name after a registration (acknowledging the code
     // lands here), and it is the service's own word, so it is adopted.
-    adoptIdentity(storage, { name: r.data.account?.name, kind: r.data.account?.kind, glyphs: r.data.wardrobe?.glyphs, secret: asked });   // SHADOW-FANG: and what is true of the account; AUDIT B4: into the session that asked
+    adoptIdentity(storage, { name: r.data.account?.name, kind: r.data.account?.kind, glyphs: r.data.wardrobe?.glyphs, aura: auraStated(r.data.wardrobe), secret: asked });   // SHADOW-FANG: and what is true of the account; AUDIT B4: into the session that asked; WB9g: and the aura worn
     // ACC3c: THE WARDROBE IS ITS OWN FIELD, exactly as the service
     // answers it - what this account HOLDS, what it WEARS, and what is
     // true of it. Held beside `account` rather than folded into it,
@@ -283,6 +283,7 @@ export function AccountFlow({ io, storage, onChange = () => {} }) {
   self.equip = async (title) => {
     if (self.busy || self.stage !== 'in') return false;
     const want = self.wardrobe?.title === title ? null : (title ?? null);
+    const asked = secret();
     self.busy = true; self.error = ''; self.note = ''; changed();
     try {
       const r = await ask(() => equipTitle(door(), want));
@@ -292,9 +293,41 @@ export function AccountFlow({ io, storage, onChange = () => {} }) {
       // the write, so nothing here has to guess what took and what did
       // not - and a title that lapsed comes back missing from `titles`
       // in the same breath as the refusal would have.
-      self.wardrobe = { titles: r.data.titles, title: r.data.title, glyphs: r.data.glyphs };
+      self.wardrobe = { ...(self.wardrobe ?? {}), titles: r.data.titles, title: r.data.title, glyphs: r.data.glyphs, ...auraHalf(r.data) };   // WB9g: the auras ride the same answer
       self.busy = false;
       self.note = want ? `Wearing ${want}.` : 'Title removed.';
+      adoptIdentity(storage, { glyphs: r.data.glyphs, aura: auraStated(r.data), secret: asked });   // WB9g: my own screen's word, from the answer (AUDIT B4: into the session that asked)
+      changed();
+      return true;
+    } catch {
+      return refuse(accountRefusalText('offline'));
+    }
+  };
+
+  /** WB9g: the aura half of a wardrobe answer - what a service since acct34 says (its auras held, the one worn, the
+   *  Broker's insignia owned), or nothing from one before it. */
+  const auraHalf = (d) => (Array.isArray(d?.auras) ? { auras: d.auras, aura: d.aura ?? null, insignia: Array.isArray(d.insignia) ? d.insignia : [] } : {});
+  /** WB9g: the aura a wardrobe answer says is worn (null for none), or undefined from a service before acct34. */
+  function auraStated(d) { return Array.isArray(d?.auras) ? (d.aura ?? null) : undefined; }
+  /**
+   * WB9g - WEAR ONE AURA, OR NONE: `equip`'s law at the feet (Mac: "an animated burning ground aura that circles the
+   * ground where your character stands"). It asks; the service decides what is held; the answer replaces the wardrobe;
+   * pressing the one worn takes it off. The stored session learns it (net/accountClient.js adoptIdentity), so the fire
+   * at the player's own feet lights or goes out at once - the room sees it from the next hello the token signs.
+   */
+  self.wearAura = async (aura) => {
+    if (self.busy || self.stage !== 'in') return false;
+    const want = self.wardrobe?.aura === aura ? null : (aura ?? null);
+    const asked = secret();
+    self.busy = true; self.error = ''; self.note = ''; changed();
+    try {
+      const r = await ask(() => equipAura(door(), want));
+      if (!r) return false;
+      if (!r.ok) return refuse(accountRefusalText(r.error));
+      self.wardrobe = { ...(self.wardrobe ?? {}), titles: r.data.titles, title: r.data.title, glyphs: r.data.glyphs, ...auraHalf(r.data) };
+      self.busy = false;
+      self.note = want ? `Wearing ${want}.` : 'Aura removed.';
+      adoptIdentity(storage, { glyphs: r.data.glyphs, aura: auraStated(r.data), secret: asked });
       changed();
       return true;
     } catch {

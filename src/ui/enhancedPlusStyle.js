@@ -824,6 +824,28 @@ export const BROKER_CSS = `/* ── SET7: THE SIGIL BROKER'S WINDOW (ui/brokerW
 .broker-card .setbox p.set-role { margin: 1px 0 6px; font-size: 11px; color: #b9ab93; font-style: italic; text-align: left; }
 .broker-card .setbox p.set-stage { margin: 0 0 4px; font-size: 12px; color: #e8dcc6; text-align: left; }
 .broker-card .boundline { margin: 8px 0 0; font-size: 12px; letter-spacing: 0.04em; color: #f3cf86; text-shadow: 1px 1px 0 #050608; }   /* SS4: the pack card's own line, on both skins' Broker sheets */
+/* WB9g: THE INSIGNIA - its heading under the day's stock, its rows in the wares' own grid, the title's word in its fire,
+   the aura's ring turning, and a piece's card with its sign large */
+.broker-insignia-head { display: flex; flex-direction: column; gap: 2px; margin-top: 8px; padding: 12px 10px 4px; border-top: 1px solid rgba(243,207,134,0.25); }
+.broker-insignia-title { font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: #ffb45c; text-shadow: 1px 1px 0 #050608, 0 0 8px rgba(255,107,20,0.45); }
+.broker-insig .broker-frame { border-color: #ff8a3d #5a1208 #5a1208 #ff8a3d;
+  background: radial-gradient(ellipse at 50% 62%, rgba(255,107,20,0.38), transparent 70%), rgba(20,4,2,0.82); }
+.broker-insig.worn .broker-price { color: #ffd152; }
+.broker-insig.owned .broker-price { color: #f3cf86; }
+.broker-shell .insignia-sign { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; overflow: hidden; }
+.broker-shell .insignia-word { font-size: 8px; letter-spacing: 0.01em; white-space: nowrap; }
+.broker-shell .aura-ring { display: block; width: 30px; height: 30px; border-radius: 50%;
+  background: conic-gradient(from 0deg, #ff6b14, #9e0d12, #ffd152, #ff6b14, #9e0d12, #ffd152, #ff6b14);
+  -webkit-mask: radial-gradient(circle, transparent 48%, #000 54%, #000 70%, transparent 76%);
+  mask: radial-gradient(circle, transparent 48%, #000 54%, #000 70%, transparent 76%);
+  filter: drop-shadow(0 0 4px #ff6b14); animation: aura-turn 3.2s linear infinite; }
+@keyframes aura-turn { to { transform: rotate(360deg); } }
+.broker-shell .insignia-sign.hero { width: 100%; height: 120px; margin: 4px 0 10px; }
+.broker-shell .insignia-sign.hero .insignia-word { font-size: 28px; letter-spacing: 0.06em; }
+.broker-shell .insignia-sign.hero .aura-ring { width: 110px; height: 110px; filter: drop-shadow(0 0 12px #ff6b14) drop-shadow(0 0 3px #ffd152); }
+.broker-insignia-card .insignia-what { margin: 0 0 8px; font-size: 13px; line-height: 1.45; color: #e6dccb; }
+.broker-insignia-card .insignia-kept { margin: 0; font-size: 12px; line-height: 1.45; color: #b9ab93; }
+@media (prefers-reduced-motion: reduce) { .broker-shell .aura-ring { animation: none; } }
 @media (max-width: 720px) {
   .broker-shell { padding: 8px; }
   .broker-head { padding: 10px 12px; }

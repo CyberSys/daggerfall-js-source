@@ -203,14 +203,35 @@ export function makeBrokerSale(offer, { items, day, canCarry = () => true }) {
     else if (t.count < Math.max(1, it.stackCount ?? 1)) rest.push({ ...it, stackCount: it.stackCount - t.count });
   }
   if (!canCarry(sale.give, rest)) return { ok: false, reason: 'heavy' };
-  for (const { item, count } of sale.take) {
+  takeFromPack(items, sale.take);
+  addItem(items, sale.give);
+  markBrokerBought(offer);
+  return { ok: true, item: sale.give };
+}
+
+/**
+ * WB9g: THE INSIGNIA'S PRICE, TAKEN (net/insignia.js - the title and the aura the account keeps): `price` unlocked Sigil
+ * Stones out of the pack (`items`, the list itself), first records first - a stack the price empties gone, one it
+ * draws on at what it keeps - all of it or none of it. Answers whether it was taken. The account service's sale is the
+ * other half, and comes first: a sale the service refused takes nothing here.
+ * @param {any[]} items @param {number} price
+ */
+export function spendStones(items, price) {
+  if (!Array.isArray(items) || !(price > 0)) return false;
+  const spendable = spendableStonesIn(items);
+  if (stoneCount(spendable) < price) return false;
+  takeFromPack(items, stonesToTake(spendable, price));
+  return true;
+}
+
+/** The stones out of the pack (`items`, the list itself), as `take` names them (`{ item, count }` each): a stack the
+ *  count empties gone, one it draws on at what it keeps (SS1). The sale's and the insignia's one hand. */
+function takeFromPack(items, take) {
+  for (const { item, count } of take) {
     const have = Math.max(1, item.stackCount ?? 1);
     if (count >= have) items.splice(items.indexOf(item), 1);
     else item.stackCount = have - count;
   }
-  addItem(items, sale.give);
-  markBrokerBought(offer);
-  return { ok: true, item: sale.give };
 }
 
 // ── the record: what this character bought, and the day it bought it ──

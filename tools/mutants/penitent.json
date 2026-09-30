@@ -38,8 +38,8 @@
   {
     "name": "PENITENT-edge-its-own-gold",
     "file": "src/ui/playerBadge.js",
-    "old": "export const TITLE_EDGE = Object.freeze({\n  penitent: Object.freeze([0, 0, 0, 1]),\n});",
-    "new": "export const TITLE_EDGE = Object.freeze({\n});",
+    "old": "export const TITLE_EDGE = Object.freeze({\n  penitent: Object.freeze([0, 0, 0, 1]),\n",
+    "new": "export const TITLE_EDGE = Object.freeze({\n",
     "tests": [
       "test/penitent.test.js"
     ]
@@ -47,8 +47,8 @@
   {
     "name": "PENITENT-edge-for-shadow-fang-too",
     "file": "src/ui/playerBadge.js",
-    "old": "  penitent: Object.freeze([0, 0, 0, 1]),\n});",
-    "new": "  penitent: Object.freeze([0, 0, 0, 1]),\n  shadowfang: Object.freeze([0, 0, 0, 1]),\n});",
+    "old": "  penitent: Object.freeze([0, 0, 0, 1]),\n  gatebreaker:",
+    "new": "  penitent: Object.freeze([0, 0, 0, 1]),\n  shadowfang: Object.freeze([0, 0, 0, 1]),\n  gatebreaker:",
     "tests": [
       "test/penitent.test.js"
     ]
@@ -191,8 +191,8 @@
   {
     "name": "PENITENT-title-not-in-the-vocabulary",
     "file": "src/net/identityToken.js",
-    "old": "'shadowfang', 'penitent']);   // TITLE-N (2026-09-24, Mac)",
-    "new": "'shadowfang']);   // TITLE-N (2026-09-24, Mac)",
+    "old": "'shadowfang', 'penitent', 'gatebreaker']);   // TITLE-N (2026-09-24, Mac)",
+    "new": "'shadowfang', 'gatebreaker']);   // TITLE-N (2026-09-24, Mac)",
     "tests": [
       "test/penitent.test.js"
     ]

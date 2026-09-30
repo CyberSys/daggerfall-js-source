@@ -205,7 +205,7 @@ import { gateScanner, findGateSite, gateSeaPixel, politicClaimed } from '../syst
 import { createGatePool, GATE_TEXT } from './gatePool.js';   // WB2: the gate the world stands - its stone, its fire and beacon, its collider and its door
 import { createSigilBroker } from './sigilBrokerPool.js';   // SET7: the Sigil Broker beside the gate - her body, her box and name, her press
 import { createBrokerOverlay, closeBrokerDoor } from '../ui/brokerDoor.js';   // SET7: her window, a lazy chunk behind its door
-import { brokerStock, brokerDay, brokerBought, makeBrokerSale, spendableStonesIn, lockedStonesIn, stoneCount } from '../systems/sigilBroker.js';   // SET7: the day's stock, the record, the sale   // SS1: the stones counted over their stacks
+import { brokerStock, brokerDay, brokerBought, makeBrokerSale, spendableStonesIn, lockedStonesIn, stoneCount, spendStones, stonesText } from '../systems/sigilBroker.js';   // SET7: the day's stock, the record, the sale   // SS1: the stones counted over their stacks
 import { drawGateBanner } from '../ui/gateBanner.js';
 import { drawGateGround } from '../ui/gateGroundView.js';   // WB9d: his ground's rim and warning - hidden with a held frame (the court draws it)
 import { drawGateMarksCard } from '../ui/gateMarksView.js';   // WB9a: tonight's marks over the screen - by the gate before it is entered (and in the court as a fighter steps in: scenes/gateCourt.js)
@@ -441,6 +441,9 @@ import { createWorldModes } from './worldModes.js';
 import { setAmbientTextHost, tickAmbientText } from '../systems/ambientText.js';   // AT2: Ambient Text's one component - this host claims it and feeds it the frame
 import { OnlineSession, roomKeyFor, DEFAULT_SERVER, WORLD_PUBLISH_MS, FOES_MS, FOES_FULL_MS, FOES_STALE_MS } from '../net/online.js';   // ONLINE1: the session; WORLD1: the room's memory
 import { createSeatLock, SEAT_NOTICE, SEAT_MID_TEXT, PLAY_HERE_LABEL } from '../net/oneSeat.js';   // ONE-SEAT: one tab of a player online - the browser's arm, beside the hub's
+import { readAccount, buyInsignia, equipTitle, equipAura, adoptIdentity as adoptSessionIdentity } from '../net/accountClient.js';   // WB9g: the Broker's insignia - the account's wardrobe, its sale and its wearing, and my own screen's word of it
+import { ownAura } from '../systems/ownGlyphs.js';   // WB9g: the aura at my own feet - the service's last word, kept on the stored session
+import { INSIGNIA, insigniaRefusal } from '../net/insignia.js';   // WB9g
 import { accountTokenMinter, storedSession, accountPlayBeat, muteAccount, serviceBase, accountRefusalText, accountDuels, accountRenown, accountHomes, accountDecor, accountGuilds, accountGates, accountMarks, accountBoard, accountProf, accountRaids, accountMarket, accountWrits } from '../net/accountClient.js';   // ACC1d: the hello's signed word, minted per connection from the account session this device holds   // ACC4: and the beat that counts time played
 import { parseModCommand, runModCommand, mutedText, mutedNotices } from '../net/moderation.js';   // MOD1: /mute and /unmute, and the line a muted player reads
 import { startPlayClock } from '../net/playClock.js';   // ACC4: time played, knocked from here and measured by the account service's clock
@@ -501,6 +504,7 @@ import { sellProceeds } from '../systems/tradeModes.js';   // GUILD-LETTER: a wi
 import { realmLetterOfCredit } from '../net/realmGoldLaw.js';   // GUILD-LETTER: the letter the service writes on a realm record, one maker
 import { createSocialPanel, TRY_AGAIN_TEXT, NO_PARTY_TEXT, LETTERS_SIGNED_OUT_TEXT } from '../ui/socialPanel.js';   // SOC3: the friends + party panel the Social button opens; AUDIT SOC B17: and its word for a refused act, so the F-menu's line and the panel's note agree
 import { glyphMarks } from '../ui/playerBadge.js';   // PEER-PLAQUE1: a badge's plain-text marks, for the plaque's title
+import { TITLE_TEXT, AURA_TEXT } from '../ui/playerBadge.js';   // WB9g: the Broker's insignia, named in its rows
 import { pickPeerInFront, SOCIAL_REACH, peerRayPick, peerIdOfKey, peerRelationText } from '../player/socialPick.js';   // SOC5: which body the ray struck, and how far "on their body" reaches; PEER-PLAQUE1: and the plaque's half of the same pick
 import { allyCastSpell, allyCastable, strangerCastable, allyReachFor, allyCastTargetLine, allyCastPlaqueLine } from '../systems/allyCast.js';
 import { composePartyFx } from '../net/partyBuffs.js';   // PARTY-BUFFS: my effects on the party pose   // ALLY-CAST: a beneficial spell at a party mate; SPELL-GIFT: and the stranger's list
@@ -516,6 +520,7 @@ import { createDuelManager, DUEL_RADIUS_M, DUEL_RANGE_M, DUEL_COUNTDOWN_MS, ring
 import { createDuelRecords, duelUncountedText } from '../net/duelRecord.js';   // DUEL1: the Inspect card's duelling record, asked and kept
 import { createDuelPrompt } from '../ui/duelPrompt.js';   // DUEL1: the challenge, as the challenged player sees it
 import { DuelWallRenderer } from '../render/duelWall.js';   // DUEL1: the ring's holographic wall
+import { AuraRingRenderer, auraWearers, AURA_KINDLE_S } from '../render/auraRing.js';   // WB9g: Dagon's Fire at a wearer's feet
 import { duelAttackerOf, duelWeaponOf, duelSwingOf, resolveDuelStrike, duelBlowPlausible, duelSpellOf, duelSpellFromWire, duelWearDamage, DUEL_TRAIL_MS } from '../combat/duelCombat.js';   // DUEL1: the blow between two duellists, both halves
 import { createPageWindow, pageView } from '../ui/pageWindow.js';   // JOURNAL1: a page another player holds out, read and kept
 import { PageOffers, pageOfferText, pageShownText, pageTooFarText, keptPageTokens, keptLetterTokens, letterOfPage, PAGE_UNSUPPORTED_TEXT, PAGE_NO_READERS_TEXT, PAGE_GONE_TEXT } from '../net/journalPage.js';   // JOURNAL1: a page of the journal shown, and one shown to me kept
@@ -16011,12 +16016,77 @@ export async function bootWorld(canvas, renderer, params, status) {
     surfacePlayer();
     return sale;
   };
+  /** WB9g (2026-09-30, Mac: "Add a brand new title to the broker and a new addition (the aura) ... These items should be
+   *  expensive and sought after"): THE BROKER'S INSIGNIA (net/insignia.js) - the Gatebreaker title and Dagon's Fire aura,
+   *  bought once for Sigil Stones and kept by the ACCOUNT. What the account owns and wears is the service's (asked each
+   *  time her window opens - `insigniaLoad`); a sale is the service's first (it records it, the account's closed gates
+   *  paying - server-account/src/accounts.js buyInsignia) and the pack's second (the stones taken - spendStones); wearing
+   *  one is the account card's own door (equipTitle, equipAura), and my own name and feet show it at once - the room
+   *  sees it from the next hello the token signs. */
+  let _insignia = { loaded: false, busy: false, held: [], title: null, aura: null };
+  const insigniaIo = () => { const st = appStorage(); const ses = storedSession(st); return ses ? { fetch: (u, i) => globalThis.fetch(u, i), base: serviceBase(st), secret: ses.secret } : null; };
+  const insigniaAdopt = (w) => { if (w && typeof w === 'object') _insignia = { ..._insignia, loaded: true, held: Array.isArray(w.insignia) ? w.insignia : _insignia.held, title: w.title ?? null, aura: w.aura ?? null }; };
+  async function insigniaLoad() {
+    const io = insigniaIo();
+    if (!io) { _insignia = { ..._insignia, loaded: true, held: [], title: null, aura: null }; return; }
+    try { const r = await readAccount(io); if (r.ok) insigniaAdopt(r.data?.wardrobe); } catch { /* the rows say they cannot tell */ }
+  }
+  /** The rows the window draws: each offer, its word, whether the account owns and wears it. */
+  const insigniaRows = () => INSIGNIA.map((o) => ({
+    ...o, name: o.kind === 'title' ? TITLE_TEXT[o.key] ?? o.key : AURA_TEXT[o.key] ?? o.key,
+    owned: _insignia.held.includes(o.id), worn: o.kind === 'title' ? _insignia.title === o.key : _insignia.aura === o.key,
+  }));
+  /** My own badge, at once, off the service's answer to a wear - before the next mint says it: the session's own door
+   *  (the title my own lines wear, the aura it holds for me) and the stored session's (the fire at my feet - ownAura),
+   *  through their own readers, never a word the vocabulary does not hold. */
+  const insigniaSelf = (answer, secret) => {
+    online?.adoptIdentity?.({ title: _insignia.title, glyphs: online.glyphs, level: online.lv, aura: _insignia.aura });
+    adoptSessionIdentity(appStorage(), { glyphs: answer?.glyphs, aura: _insignia.aura, secret });
+  };
+  async function insigniaBuy(offer) {
+    if (_insignia.busy) return { ok: false, text: 'The Broker is already writing up a sale.' };
+    const io = insigniaIo();
+    const why = insigniaRefusal(offer, { held: _insignia.held, stones: stoneCount(spendableStonesIn(playerEntity.items ?? [])), online: !!io && !!online });
+    if (why === 'owned') return { ok: false, text: 'Your account already owns that.' };
+    if (why === 'offline') return { ok: false, text: 'Insignia is kept by your account - sign in and go online to buy it.' };
+    if (why === 'stones') return { ok: false, text: `Not enough Sigil Stones - it asks ${stonesText(offer.price)}.` };
+    if (why) return { ok: false, text: 'The Broker will not sell that.' };
+    _insignia.busy = true;
+    try {
+      const r = await buyInsignia(io, offer.id);
+      if (!r.ok) return { ok: false, text: r.error === 'short' ? `${accountRefusalText('short')} It asks ${stonesText(offer.price)}.` : accountRefusalText(r.error) };
+      insigniaAdopt(r.data);
+      playerEntity.items = playerEntity.items || [];
+      spendStones(playerEntity.items, offer.price);   // the pack's half, after the service's
+      audio.playOneShot(SOUND.GoldPieces, 1);
+      surfacePlayer();
+      const name = insigniaRows().find((x) => x.id === offer.id)?.name ?? offer.key;
+      return { ok: true, text: `Bought: ${name}, for ${stonesText(offer.price)}. It is your account's for good - wear it here or on your account card.` };
+    } catch { return { ok: false, text: accountRefusalText('offline') }; } finally { _insignia.busy = false; }
+  }
+  async function insigniaWear(offer) {
+    if (_insignia.busy) return { ok: false, text: 'A moment - the Broker is busy.' };
+    const io = insigniaIo();
+    if (!io) return { ok: false, text: 'Insignia is kept by your account - sign in to wear it.' };
+    const row = insigniaRows().find((x) => x.id === offer.id);
+    if (!row?.owned) return { ok: false, text: 'Your account does not own that.' };
+    _insignia.busy = true;
+    try {
+      const want = row.worn ? null : row.key;
+      const r = offer.kind === 'title' ? await equipTitle(io, want) : await equipAura(io, want);
+      if (!r.ok) return { ok: false, text: accountRefusalText(r.error) };
+      insigniaAdopt(r.data);
+      insigniaSelf(r.data, io.secret);
+      return { ok: true, text: want ? `Wearing ${row.name}. Others see it from your next step into a new place.` : `${row.name} put away.` };
+    } catch { return { ok: false, text: accountRefusalText('offline') }; } finally { _insignia.busy = false; }
+  }
   const openBroker = () => {
     const win = createBrokerOverlay({
       stock: brokerStockNow, day: () => brokerDay(_brokerNow()), now: _brokerNow,
       items: () => spendableStonesIn(playerEntity.items ?? []), locked: () => stoneCount(lockedStonesIn(playerEntity.items ?? [])),   // SS1: a locked stack counts whole
       bought: () => brokerBought(brokerDay(_brokerNow())), buy: brokerBuy,
       wearer: playerEntity, nameOf: (item) => itemLongName(item),
+      insignia: insigniaRows, insigniaLoad, buyInsignia: insigniaBuy, wearInsignia: insigniaWear, insigniaBusy: () => _insignia.busy,   // WB9g
     });
     if (win) townTalk.showOverlay(win);
   };
@@ -18471,6 +18541,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // after the bodies (a Morrowind player's own choice for everyone they meet), before the class sprite and the doll
     peerWalkers.sync(seen, onlineToScene, { eye: peerEye, right: peerRight, dt, skip: (id) => peerBodies.heightOf(id) > 0, hurt: (id) => peerHurtAge(id) < PEER_FLINCH_S, conceal: veilOf });   // PEERFX3: a class skin's hurt pose
     peerRiders.settle((id) => peerBodies.wolfStands(id));   // WEREWOLF1 (AUDIT E4): the deferred werewolves, now the bodies have stood - before anything reads the riders
+    auraFrame(seen);   // WB9g: the auras at the feet - mine and the drawn peers' - gathered with the rest
     // PCORPSE1: a body heard in a room this scene has left for another KIND of space (a dungeon's local frame, the
     // street's world frame) is not this scene's to draw; one heard anywhere in the overworld's cells still is
     // PCORPSE3: a party member's body their party pose tells of, that the death pose never brought me (I was between
@@ -18523,7 +18594,53 @@ export async function bootWorld(canvas, renderer, params, status) {
   const drawPeerBodies = (proj, view, eye) => { if (peerBodies) peerBodies.draw(canvas, { proj, view, eye, flashOf: peerFlashOf }); peerWalkers?.drawLanterns(); };   // HT-WAIST-BACK: the walkers' lanterns, each on its own tilted basis, beside the bodies - every mode's pass calls this after the player's own body (the exterior here, the dungeon and the interior through host.drawPeerBodies)
   /** INVIS-LOOK: the concealed peers' Morrowind bodies, translucent - blended with no depth write, so every mode's pass
    *  calls this AFTER its opaque world (net/peerBodies.js drawVeiled), with the camera its body pass took. */
-  const drawVeiledPeerBodies = () => { peerBodies?.drawVeiled(); };
+  const drawVeiledPeerBodies = () => { peerBodies?.drawVeiled(); drawAuras(); };   // WB9g: and the auras, after the opaque world as the veiled are
+  /** WB9g (2026-09-30, Mac: "an animated burning ground aura that circles the ground where your character stands"):
+   *  DAGON'S FIRE AT THE FEET (render/auraRing.js) - mine, as the service signed it (the session's `au`, adopted at each
+   *  mint), and every peer's the relay vouched for (their hello's `au`), each kindling as it first stands. Gathered with
+   *  the peers each frame (auraFrame), drawn after each mode's opaque world under the camera that world was drawn with
+   *  (the renderer's frame, as the fog it takes) through the veiled bodies' hook - every host calls it: the street, the
+   *  dungeon's lateWorldDraw, the building - added and fogged; never under the travel view, and a concealed peer's
+   *  fire is concealed with them. */
+  const _auraWearers = [], _auraDraw = [], _auraPool = new Map();
+  const _auraSelf = { id: 'self', at: [0, 0, 0], aura: null, seed: 0.37, kindle: 1, since: 0 };
+  let _auraPass = null, _auraTried = false;
+  const auraSeedOf = (id) => { let h = 2166136261; for (const ch of String(id)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return ((h >>> 0) % 997) / 997; };
+  function auraFrame(seen) {
+    _auraWearers.length = 0;
+    if (!online || travelView?.active) return;
+    const t = performance.now() / 1000;
+    const mine = ownAura();   // the service's last word on my own - a mint's, a wear's from any door
+    if (mine && playerSpawned) {
+      const f = player.feetAt();
+      if (_auraSelf.aura !== mine) _auraSelf.since = t;
+      _auraSelf.at[0] = f[0]; _auraSelf.at[1] = f[1]; _auraSelf.at[2] = f[2]; _auraSelf.aura = mine;
+      _auraSelf.kindle = Math.min(1, (t - _auraSelf.since) / AURA_KINDLE_S);
+      _auraWearers.push(_auraSelf);
+    } else _auraSelf.aura = null;
+    for (const d of seen) {
+      if (_veils.has(d.id) || !d.shown) continue;   // a concealed peer's fire is concealed with them
+      const au = online.auraOf?.(d.id) ?? null;
+      if (!au) { _auraPool.delete(d.id); continue; }
+      let w = _auraPool.get(d.id);
+      if (!w || w.aura !== au) { w = { id: d.id, at: [0, 0, 0], aura: au, seed: auraSeedOf(d.id), kindle: 0, since: t }; _auraPool.set(d.id, w); }
+      const p = onlineToScene(d.shown);
+      w.at[0] = p[0]; w.at[1] = p[1]; w.at[2] = p[2];
+      w.kindle = Math.min(1, (t - w.since) / AURA_KINDLE_S); w.seen = t;
+      _auraWearers.push(w);
+    }
+    if (_auraPool.size) for (const [id, w] of _auraPool) if (w.seen !== t) _auraPool.delete(id);   // the gone forget their kindling
+  }
+  function drawAuras() {
+    if (!_auraWearers.length) return;
+    const proj = renderer._proj, view = renderer._view, eye = renderer._camPos;   // the frame's camera, the world's own
+    if (proj && view && eye && auraWearers(_auraWearers, eye, _auraDraw).length) {
+      if (!_auraTried) { _auraTried = true; try { _auraPass = new AuraRingRenderer(renderer.gl); } catch (e) { console.warn('[online] the aura would not build', e?.message ?? e); _auraPass = null; } }
+      _auraPass?.draw(_auraDraw, proj, view, eye, performance.now() / 1000, { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, camPos: renderer._camPos, focus: renderer._focus });
+      if (_auraPass?.drawn) renderer.markForeignPass();
+    }
+    _auraWearers.length = 0;   // this frame's, drawn once: a frame that gathers none (the seat left, death, offline) draws none
+  }
   /** FONT1 (2026-09-16, Mac: "Especially the new online interfaces font use our enhanced font"): THE SOCKET'S OWN
    *  WORD, IN THE SKIN'S FACE. The online lane is the enhanced lane whole (systems/onlineLane.js), so this line -
    *  connecting, reconnecting, refused - was the one online surface still drawn in the classic bitmap font while
