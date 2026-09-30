@@ -7405,7 +7405,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   ];
   const _makeEnemiesHostile = () => makeEnemiesHostile(_liveEnemyDatabase());
   const cityGuards = createCityGuards({
-    renderer, collider, fetchBytes, getTexture, uploadRecordFrame, playerEntity, audio, hitEffects,
+    renderer, collider, fetchBytes, getTexture, uploadRecordFrame, playerEntity, audio, hitEffects, groundStands: (x, z) => Number.isFinite(heightAt(x, z)),   // FALL-HOLD: a watchman over a pixel not built is held, not stepped
     playerWeaponSheathed: () => !!weaponRig.playerWeapon.sheathed,   // AUDIT 24 (wave 42): pacification's drawn-weapon penalty
     raidHere: () => raidDefendingHere(),   // RAID-GUARDS: a raid on in this town spares its defenders every blow of the player's
     fightHere: () => areEnemiesNearby([...cityGuards.guards, ...exteriorFoes.foes]),   // PROTECT-FIGHT: under the protection, a fight spares the street's walkers
@@ -7448,7 +7448,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // LIVE. Same damage door shape as the guards; no crime machinery.
   const exteriorFoes = createExteriorFoes({
     inLocation: () => _musicInLocationRect(),   // SOFTCAP5: only the wilderness scales its foes (towns and cities never)
-    renderer, collider, fetchBytes, getTexture, uploadRecordFrame, playerEntity, audio, hitEffects,
+    renderer, collider, fetchBytes, getTexture, uploadRecordFrame, playerEntity, audio, hitEffects, groundStands: (x, z) => Number.isFinite(heightAt(x, z)),   // FALL-HOLD: a foe over a pixel not built is held, not stepped
     playerWeaponSheathed: () => !!weaponRig.playerWeapon.sheathed,   // AUDIT 24 (wave 42): pacification's drawn-weapon penalty
     currentMinute: () => Math.floor(playerTicker.ownMinutes),
     currentPixelKey: () => `${playerTravelPixel().x},${playerTravelPixel().y}`,   // TrackLooseObject's stamp

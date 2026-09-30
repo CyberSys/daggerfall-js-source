@@ -207,7 +207,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   // No More's swim driver holds the sea's forged level
   // (scenes/deepWatersPlayer.js waterLevelY), so an aquatic foe swims
   // only then, as it does under the mod. Absent: no water.
-  waterLevelY = null,
+  waterLevelY = null, groundStands = null,   // FALL-HOLD: (x, z) => whether ground is BUILT under that column (the streaming host's heightAt) - a foe over none is held (EnemyAI.holdFrame); absent, nothing is
   magicHooks = null }) {  // X3-slice: { explodeAt, fireMissile } - the host's spell release seams
   const foes = [];        // { mobile, ai, attack, entity, batch, tex, archive, mobileType, dead, _encounter: true }
   const corpseBatches = [];
@@ -1096,7 +1096,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // action at all (EnemyMotor.cs:464-466 + :267-269,
       // EnemyAttack.cs:59-61), not merely no anim intent.
       const _fPaused = !!(f.mobile?.isPlayingOneShot() && f.mobile.oneShotPauseActionsWhilePlaying());
-      f.ai.update(foeFrameDt(dt), playerFeet, _armed(f, senses), _fParalyzed, _fPaused);   // FOE-CATCHUP: three steps a frame at most
+      if (groundStands && !groundStands(f.ai.feet[0], f.ai.feet[2])) f.ai.holdFrame(); else f.ai.update(foeFrameDt(dt), playerFeet, _armed(f, senses), _fParalyzed, _fPaused);   // FALL-HOLD: no ground built under it - held, not stepped; FOE-CATCHUP: three steps a frame at most
       // MT-ii: the foe now aims at whatever it SELECTED - the player
       // (the only candidate in an unarmed host) or another enemy.
       const _tgt = _targetFeet(f, playerFeet);
