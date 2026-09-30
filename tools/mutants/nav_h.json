@@ -200,11 +200,13 @@
   {
     "name": "NAV-H-the-stander-launching-for-all",
     "file": "src/scenes/navalHost.js",
-    "old": "    standing = amGroupRollOwner(id, deps.feet(), peers, standing ? NAVAL_SHARE_RADIUS : NAVAL_SHARE_RADIUS * SHARE_HYSTERESIS);",
+    "old": "    standing = amGroupRollOwner(id, deps.feet(), near, HARBOUR_STAND * 2);",
     "new": "    standing = true;",
     "tests": [
-      "test/nav_h_host.test.js"
-    ]
+      "test/nav_h_host.test.js",
+      "test/auditshiplife_host.test.js"
+    ],
+    "note": "AUDIT PR478 (PIN MOVED): re-aimed at the audited line."
   },
   {
     "name": "NAV-H-the-drag-a-swing-at-the-guns",

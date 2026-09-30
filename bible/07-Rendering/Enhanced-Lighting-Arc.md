@@ -1995,3 +1995,59 @@ auditreach 2, el8, perfexta, perfextb, weeds1). `01-Overview/Field-Bugs-2026-09-
   measure and DISC6's hold, are made casters (`reserveSelfCasters`), each in place of the eye's farthest pick.
 `test/disc29_lamps.test.js` (5), `test/lightnear1.test.js`'s source pin; `tools/mutants/audit0929_render.json` (4, all
 dead).
+
+## AUDIT FLICKER - THE SHADOWS THAT CHANGED WHEN NOTHING DID (2026-09-30, a player through Mac: "interior lights flickering and not casting right on nvidia gpu but not on amd build"; Mac: "investigate shadow flickering with enhanced lighting")
+
+Four passes over the lane - the sun's cascades, the lamps' maps, the frame's records, the receivers - each looking
+for a frame where a shadow moved, came or went with nothing in the world moving. The GPU vendor first: none of them
+found a vendor-dependent path. No code branches on the renderer string; the pass's GL state is complete at every draw
+(no feedback loop, no `polygonOffset`, no `gl_FragDepth`, the layer indices agree between writer and reader, the
+NaNs guarded, fp32 margins wide). What differs between machines is the frame rate, and most of what follows is a
+record replayed a frame late (EL2) - how far a flat moved in that frame, and how often a record lands dead, is a
+matter of frames per second.
+
+| # | What flickered | Why | Fix |
+|---|---|---|---|
+| S1 | a flat in the sun (a tree, a townsman) lost a third of its light, and stepped as the sun turned | the sun replay draws each flat as an upright card through the very base it reads at, and the soft kernel reaches 2.5 texels up it: past the constant bias once that reach times tan(elevation) passes it - on the far cascade (23 cm texels) any sun over six degrees | `sunCascadeTap`'s soft read lowers its reference by what its own card could hold over it: the kernel's reach up the card (tan(e) a texel), never more than the card above the point (sin(e) a unit up it, the flat's height `h` - `sunShadowSoftAt(wp, n, h)`, EL_BB_VS_EXT passing `uSize.y`) |
+| S2 | the whole sun shadow shimmered once every 24-31 m walked | a re-anchor (LA-SHADOW1) took a fresh anchor at the eye rounded to 8 m: an arbitrary phase on the grid it replaced, so every cascade's grid jumped up to half a texel in one frame | `sunAnchorFor(eye, anchor, lightDir, texel)` moves the old anchor by whole far-cascade texels across the light (a far texel is whole in all three: 1 : 4 : 20) and freely along it |
+| P1 | a flat walking away from a lamp lost that lamp's light, frame by frame | the flat read the lamp's shadow ON its own card, which the lamp's map holds where the flat stood a frame to three ago | the read is lifted `EL_FLAT_LAMP_LIFT` (0.35) toward the lamp, never past half the way, with no normal offset |
+| P2 | in first person, turning in place hopped the player's shadow from lamp to lamp | the card stands a pace before the eye and circles the feet as the player turns; its two lamps were picked afresh every frame (a hall of ten lamps: 506 hops over 833 spots in one turn each) | `nearestRank(..., held, heldN)`: last frame's pair, by place, at DISC6's keep ratio |
+| P3 | a lantern swapped into the eight for a frame at a floating-origin crossing (lit through its wall), every map redrawn | the kept copies (a Float32 slot, a Float64 hold) and the host's moved lights are sums in two precisions, matched exactly; and `shiftOrigin` moved none of them | `samePlace` (within SHADOW_STILL_EPS) for the hold, the sticky slots, the change test and the held far; `shiftOrigin` moves the hold, the card's pair, the slots and the lo slots |
+| R1 | a mounted or walking peer's shadow strobed with its walk | its sprite batch was destroyed and made again at every animation frame, after the frame's records were taken: the next frame's replay met a dead batch | the new frame is written through the standing batch (archive, record, size, reach), as the foes' and the bands' are |
+| R2 | on the crossing frame every tree, sign and passer-by cast nothing, and the far cascade kept the hole a frame more | the records are replayed at the next beginFrame, before the pixel loop writes the pixels' translations and the townsfolk's places again | the recentre re-makes each pixel's translation (its flats' origin) and moves the townsfolk's batches with the offset |
+| R3 | a peer riding or walking, a band's monster or a yard's flat just off screen cast no shadow into the view | the four lists skipped the reach test the townsfolk have (SHADOW-REACH) | off screen, a batch in shadow reach still casts |
+| R4 | stepping out of a room, the street's cascades held the room's walls for a frame or two | the replay was discarded on the way in only | discarded at the edge either way |
+| F3 | ambient occlusion along a skyline, different from GPU to GPU | `AO_FS` returned for a sky pixel and then took `dFdx`/`dFdy` of the position: a derivative after non-uniform control flow is undefined (GLSL ES 3.00), so the partner lane held whatever the GPU left there - 9 of 120 rim pixels differed between three legal behaviours, NaN among them | the derivatives are taken before the return, in every pixel of the quad; a degenerate cross faces the eye |
+| F4 | (latent, 16-bit GPUs) a dense night street's fragments lit by the wrong lanterns | the cluster list's offset (up to 55,259 on 48 lanterns at 8 m) passed through a fragment shader's default mediump int | `highp` from the cell's fetch to the list's |
+
+The receivers and the screen passes (the fourth pass, run through the evaluator and on SwiftShader): with the camera
+still every pass is frame-stable - 0 pixels change over 24 frames. What moves needs the camera to move, and the look
+filter keeps a sub-pixel drift going for many frames after each input. Two findings there are recorded, not changed:
+- **F1 - the contact march at night.** A lantern with no caster slot (a street's, past the eight) takes EL8's contact
+  shadow off last frame's depth, and both its self-check and each step's claim read ONE nearest texel: as the view
+  drifts the texel grid slides against the world - at 0.3 px a frame, 89 of 2614 shadowed receivers swing a tenth of
+  the lantern's light or more, frame to frame (0.580 0.768 0.635 0.817...); 0 on exact depth. Tested: each step judged
+  on the four texels about it and the claims blended bilinearly (a shadow compare's own filtering), the self-check
+  passing when any of the four holds the surface - 96 flipping pixels to 10 on SwiftShader, LA-POST6's and LA-AUDIT
+  B1's laws unchanged. Not shipped: 20 depth fetches a marched light where there were 5, on the exterior frame the
+  players already call slow - for Mac to weigh. Interpolating the depth itself is worse (1,651 pixels): it invents a
+  thin occluder at every outline. Never indoors: every light there has a map.
+- **F2 - the emitters' bloom at a quarter of the resolution.** A small emitter covers a varying number of bloom
+  texels as the view drifts (a lamp flat at 10 m: 1344 to 2026 of bloom energy), and under about four quarter-size
+  pixels the implicit-LOD cutout reads the 2x2 mip and it drops out of the bloom. Drawn at full resolution, or
+  multisampled and box-downsampled (LA-POST1's rule), with the cutout at `textureLod(..., 0.0)`, it would hold.
+
+For the report itself (NVIDIA, a shop's hanging lamp): nothing found depends on the vendor indoors. The shadow
+lookups sit in per-light loops, but all three maps have one level with MIN = MAG = LINEAR, so no LOD a GPU picks can
+change a result; no index runs out of range; no noise from time or a frame counter. The one path left whose result a
+driver decides is SC1's depth blit from the static cache into the live layers (`_blitSlot`, valid by the spec: the
+same DEPTH_COMPONENT24, the same size, NEAREST) - unconfirmed, and not changed on a guess. What this section fixed
+indoors is frame-rate dependent (P1, P2, R1, R4), and frame rate is what differs between two machines.
+
+Recorded, not changed: a batch past 128 placements is treated as dynamic (raising the cap costs a pairwise walk); the
+record pool stops at 6000; a boat's lantern follows the boat a frame behind; the player's own card, the corpses and the
+flyers are not moved at a crossing (one frame); a cut from room to room inside one interior replays the last room's
+casters for a frame; a peer's WB9h body out of view does not cast.
+`test/audit_flicker.test.js` (7); fourteen older pins re-aimed at the new text (el2, perfsun_fragment, la_audit,
+la_shadow, perfexta, la_post, sc1, disc15, el5_field, disc23b, la_cost, invislook; el3_air and lc1_clusters for F3
+and F4). `tools/mutants/audit_flicker.json` (28, all dead).

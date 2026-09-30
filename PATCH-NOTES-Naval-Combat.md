@@ -272,3 +272,33 @@ A deep audit of everything above. The highlights:
 - **A crewman's area spell spares you and his mates.**
 
 **The watch won't stop you mid-sea-fight.**
+
+## Ships with somewhere to be (2026-09-30)
+
+- **Harbours come alive.** Port towns now have ships moored along their shore, sails stowed. Every player in the port sees the same ships in the same berths.
+- **Ships come and go.** A moored ship stays a while, then sets sail, clears the harbour mouth and heads out to sea. Merchantmen sail in from the sea and tie up at a free berth.
+- **Everyone has a purpose.** Near a port, merchantmen are coming or going, navy ships patrol the harbour approaches, and pirates lurk offshore waiting for merchants. Follow a merchant and she'll lead you to port.
+- **Ships steer round the coast.** They find their way round headlands and into harbours instead of running at the shore, and use their sweeps to get in or out when the wind is against them.
+- **A fight still comes first.** A navy ship at her berth will sail out to meet a pirate, and a merchant will flee. Once the fight is over, she heads back to her berth.
+- **Fixed: an empty sea online.** Sailing out while a friend was still in town could leave you with no ships at all at sea. The sea now fills around whoever is actually on the water.
+- **Faster zoom at the helm.** The mouse wheel zooms in and out at the helm much more quickly: from first person to framing your whole ship in about a dozen notches, instead of scrolling for ages before it picked up speed. On foot nothing changes.
+
+## A boat menu (2026-09-30)
+
+- **Everything from one menu.** Look at any part of your own boat and its options appear under the crosshair, like the loot list: Take the helm, Board, Open storage, Pick up, Change style, Status and Position (whichever your boat has). Scroll the mouse wheel or the d-pad to choose, and press activate. On the hull nothing is picked until you scroll, so a stray click on your deck does nothing. The menu stays out of the way while you're at the helm.
+- **Your old habits still work.** Looking right at the helm, the chest or the ladder lights that option first, so a single press does what it always did (the ladder you look at is the one you board at). In Steal mode the helm lights "Pick up", and switching mode switches it back.
+- **No more guessing why.** An option you can't use right now is shown with the reason, such as "Pick up (at her helm)" or "Pick up (passengers aboard)". Ships from a deed can't be picked up.
+- **On a phone, with the classic interface, or indoors,** tap or click the boat's hull to get the same options as a list.
+
+## Owning a ship, less punishing (2026-09-30)
+
+- **Your plunder no longer vanishes.** If you fast travel or go through a door before emptying a captured ship's hold, or before picking up the floating casks from a ship you sank, your crew stows it all in your boat's hold first (or your pack, and it tells you if anything wouldn't fit). Casks still sink a couple of minutes after a ship goes down, so don't sail off and leave them. (Casks from ships someone else sank are still theirs.)
+- **Boats left in dungeons stay.** A boat you place underground is now kept when you leave, along with everything in its hold, and waits for you in that dungeon. Before, it was destroyed and its cargo lost. You can turn this back off in Come Sail Away's settings (Compatibility).
+
+## Checked before release (2026-09-30)
+
+- **Harbours are sturdier.** Towns on an isthmus or a peninsula keep their harbour, a port whose coast hadn't loaded yet finds its harbour a moment later, and ships no longer try to sail through a spit or a breakwater into a berth.
+- **Ships don't get stuck.** A ship blocked by a wreck on her way into a berth takes another berth. A ship that can't find a way round a long headland goes about her own business instead of running at the shore. Pirates lurk and navy ships patrol on open water, not on the beach.
+- **Ports look the same for everyone online.** Moored ships no longer depend on your character's level, a friend's moored ships no longer empty your sea, and sailing a little way out and back no longer empties the harbour.
+- **Gamepad steering at the helm** is no longer taken over by the boat menu when you look down at your deck.
+- **Zoom at the helm** now moves on the first notch when your ship's rigging is in the way, and a trackpad swipe no longer rushes through the whole range.

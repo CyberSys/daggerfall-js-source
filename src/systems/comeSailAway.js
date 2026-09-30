@@ -64,6 +64,7 @@
 //   camera() -> { position, forward }             MainCameraObject.transform
 //   currentMapPixel() -> { X, Y }                 PlayerGPS.CurrentMapPixel (a new one each call)
 //   isPlayerInside(), blockWaterLevel()           PlayerEnterExit
+//   isPlayerInsideDungeon()                       AUDIT KEEP-BOATS D2: a kept dungeon boat stands in a dungeon alone
 //   iliacPuddleNoMore() -> bool                   the mod's `IliacPuddleNoMore != null`
 //   raycast(origin, direction, maxDistance, { triggers }) -> { distance, point, name, terrain, root, node?, collider? } | null
 //   playerTerrain() -> terrain | null             StreamingWorld.PlayerTerrainTransform
@@ -2254,12 +2255,16 @@ export function createComeSailAwayRuntime(deps) {
   const pixelsApart = (a, b) => Math.max(Math.abs(a.X - b.X), Math.abs(a.Y - b.Y));
   /** UpdateBoatVisibility() (3727-3782): inside, only a boat placed inside this pixel stands; outside, a boat more
    *  than a pixel off (or placed inside) goes - destroyed when it was placed inside, unless the setting keeps it. */
+  /** AUDIT KEEP-BOATS D2 (DECLARED): a boat placed underground (`inside` - placed only where a block has water, a
+   *  dungeon's) stands only in a dungeon. The mod shows it in any interior on its pixel - a building's too - which its
+   *  own PersistentDungeonBoats off never met (the boat was gone once outside); the port ships that key on. */
+  const inDungeon = () => deps.isPlayerInsideDungeon?.() ?? true;
   function UpdateBoatVisibility() {
     if (state.AllBoats.length < 1) return;
     if (deps.isPlayerInside()) {
       for (const allBoat of state.AllBoats) {
         const cur = deps.currentMapPixel();
-        if (allBoat.inside && allBoat.MapPixel.X === cur.X && allBoat.MapPixel.Y === cur.Y) {
+        if (allBoat.inside && inDungeon() && allBoat.MapPixel.X === cur.X && allBoat.MapPixel.Y === cur.Y) {
           if (!allBoat.GameObject.activeSelf) setBoatActive(allBoat, true);
         } else if (allBoat.GameObject.activeSelf) setBoatActive(allBoat, false);
       }
@@ -2286,7 +2291,7 @@ export function createComeSailAwayRuntime(deps) {
     if (boat == null) return;
     if (deps.isPlayerInside()) {
       const cur = deps.currentMapPixel();
-      if (boat.inside && boat.MapPixel.X === cur.X && boat.MapPixel.Y === cur.Y) {
+      if (boat.inside && inDungeon() && boat.MapPixel.X === cur.X && boat.MapPixel.Y === cur.Y) {
         if (!boat.GameObject.activeSelf) setBoatActive(boat, true);
       } else if (boat.GameObject.activeSelf) setBoatActive(boat, false);
       return;

@@ -69,7 +69,8 @@ function fakeStorage() {
 }
 const unsentKeys = (storage) => [...storage._map.keys()].filter((k) => k.startsWith(REALM_UNSENT_PREFIX) && !k.endsWith('.lease'));
 /** One account on the service, and its devices: each its own storage and its own door, the same Worker behind them.
- *  `door.plan` is a queue of per-request modes: 'ok'; 'offline' (the service away); 'hang' (a put the page never sees
+ *  `door.plan` is a queue of modes for the save's PUTs - every other request passes (REALM-GZIP packs a put before it
+ *  leaves, so a leave asked after it can reach the door first): 'ok'; 'offline' (the service away); 'hang' (a put the page never sees
  *  answered - its going cuts it off); 'lose-answer' (it lands, and its answer is lost); 'wait' (held until `door.open()`,
  *  then as 'ok'). Empty is 'ok'. */
 async function account() {
@@ -82,7 +83,7 @@ async function account() {
     const gate = new Promise((r) => { open = r; });
     const door = { plan: [], open: () => open() };
     const fetch = async (url, init) => {
-      const mode = door.plan.length ? door.plan.shift() : 'ok';
+      const mode = init?.method === 'PUT' && door.plan.length ? door.plan.shift() : 'ok';
       if (mode === 'wait') await gate;
       if (mode === 'offline') throw new TypeError('network');
       if (mode === 'hang') return new Promise(() => {});
@@ -143,6 +144,7 @@ test('RESCUE-SAVE: THE OUTAGE - a save the service never took is kept on the dev
   assert.equal(boot.ok, true);
   assert.equal(boot.restored, true);
   assert.equal(boot.missed, true, 'a put refused or unanswered: the world says so (A8)');
+  assert.equal(boot.gzip, true, 'REALM-GZIP: the restored save\'s checkpoints ride packed, as the join says - a long life\'s restore is never refused too-large');
   assert.equal(boot.seq, 2);
   assert.deepEqual(boot.snap, { ...save(15, 9000), characterId: c.id });
   assert.equal(c.row().lease, boot.lease, 'joined under a new lease');

@@ -286,5 +286,14 @@
     "tests": [
       "test/rescuesave.test.js"
     ]
+  },
+  {
+    "name": "RESCUE-SAVE-x-REALM-GZIP-a-restore-rides-unpacked",
+    "file": "src/systems/realmSaves.js",
+    "old": "restored: true, missed: kept.missed, gzip: joined.data?.gzip === true };",
+    "new": "restored: true, missed: kept.missed };",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
   }
 ]

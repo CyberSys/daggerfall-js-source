@@ -205,7 +205,7 @@ test('DISC15: the shaders read either tier - the lit loop and the flat through c
   for (const [name, fs] of [['mesh', EL_MESH_FS], ['terrain', EL_TERRAIN_FS], ['char', EL_CHAR_FS]]) {
     assert.match(fs, /float sh = k >= 0 \? casterShadowAt\(k, uPointLights\[i\], wp, n\)/, `${name}: either tier`);
   }
-  assert.match(EL_BB_FS, /shadowOfLight\(i, uPointLights\[i\], base, vec3\(0\.0, 1\.0, 0\.0\)\)/, 'the flat: either tier');
+  assert.match(EL_BB_FS, /shadowOfLight\(i, uPointLights\[i\], at, vec3\(0\.0\)\)/, 'the flat: either tier');
   assert.match(rd('src/render/airPass.js'), /sum \+= casterShadowOne\(k, Lr, uCamPos \+ dir \* t\)/, 'the air\'s march: either tier');
   assert.equal(SHADOW_LO_UNIT, 8);
   const sp = rd('src/render/shadowPass.js');

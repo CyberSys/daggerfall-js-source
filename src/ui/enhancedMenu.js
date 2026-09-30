@@ -1149,7 +1149,7 @@ function customsNow(save) {
     const made = await realmCustoms(io, snap.characterId, copy.name || save.name, realmSummaryOf(copy));
     if (!made.ok) return made;
     copy.characterId = made.data.id;
-    const put = await realmPut(io, made.data.id, { lease: made.data.lease, seq: 1, summary: realmSummaryOf(copy) }, JSON.stringify(copy));
+    const put = await realmPut(io, made.data.id, { lease: made.data.lease, seq: 1, summary: realmSummaryOf(copy) }, JSON.stringify(copy), { gzip: made.data.gzip === true });   // REALM-GZIP: a long offline life comes in packed
     return put.ok ? { ok: true, lines: [...(leveling ? [LEVELING_CROSS_LINE.after] : []), ...customsLines(report)] } : put;
   }, (r) => [...r.lines, `${save.name} is in the realm now. Play them from above.`]);
 }

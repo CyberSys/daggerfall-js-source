@@ -640,9 +640,15 @@ export function createEotbCamera() {
       // FIELD BUGS 2026-09-29 (the sea) #3: AT A HELM THE FAR END IS THE HULL'S REACH (player/seaZoom.js) - past the
       // mod's own MAX_Z a notch is a ratio, one a frame and by its sign as the mod reads a notch, down to MAX_Z coming
       // in; the mod's own boat override (CameraOverrideBoat) keeps its own ladder, scaled by the hull already
+      // HELM-ZOOM (Mac: "increase the sensitivity ... when on the wheel"): at a helm the ratio runs from the offset's own
+      // base distance out - the mod's 0.2 a notch took forty notches from it to MAX_Z - and below the base the mod's own
+      // ladder takes her in to first person
       const far = seaReach > -MAX_Z && !(cfg.overrides.Boat.enabled && isSailing) ? -seaReach : MAX_Z;
-      if (far < MAX_Z && clicks && (z < MAX_Z || (clicks < 0 && z <= MAX_Z))) {
-        offsetScroll += z + seaZoomStep(-z, clicks > 0 ? 1 : -1, -MAX_Z, -far);
+      const baseDist = -(z + offsetScroll);   // the offset at no scroll
+      // AUDIT HELM-ZOOM E3: out by the ratio from the base up - below it the mod's own ladder both ways (out from there
+      // leapt to the base in one notch, in stepped it by 0.2)
+      if (far < MAX_Z && clicks && (-z > baseDist + 1e-6 || (clicks < 0 && -z >= baseDist - 1e-6))) {
+        offsetScroll += z + seaZoomStep(-z, clicks > 0 ? 1 : -1, Math.min(baseDist, -MAX_Z), -far);
         return offset;
       }
       if (clicks > 0) offsetScroll -= cfg.increment;
