@@ -30,7 +30,7 @@ import { _resetKeyForTests } from '../server-account/src/signing.js';
 import { SESSION_KEY } from '../src/net/accountClient.js';
 import {
   realmIo, realmCreate, realmPut, realmJoin, realmFetch, realmList, openRealmBoot, createRealmSession, realmSummaryOf,
-  realmGoldAct, realmTradeEscrow, realmRefusalText, REALM_SAVED_TEXT,
+  realmGoldAct, realmTradeEscrow, realmRefusalText, REALM_SAVED_TEXT, realmSaveWithHeld,
 } from '../src/systems/realmSaves.js';
 import * as realmSaves from '../src/systems/realmSaves.js';
 import { createSpoilsPool, spoilsStore, recoverSpoils, SPOILS_STORE_KEY } from '../src/scenes/spoilsPool.js';
@@ -172,7 +172,7 @@ function spoilsBoot(disk, R, checkpoint) {
   `, {
     realmSession: { checkpoint },
     setRealmSaveSink: (f) => { sink = f; },
-    characterIdOf: () => R, realmSummaryOf: () => null, playerEntity: {},
+    characterIdOf: () => R, realmSummaryOf: () => null, realmSaveWithHeld, playerEntity: {},
     createSpoilsPool, RAID_SPOILS_KEYS, RAID_SPOILS_RECORDS_MAX, takeSpoil, _spoilsStore: spoilsStore(disk), console: { warn() {} },
   });
   const store = spoilsStore(disk);
@@ -320,7 +320,7 @@ test('AUDIT REALM2 C2: F9 says what the realm answered - "Saved to the realm." o
   const c = await joined(dev);
   let sink = null;
   mount(`const _realmSaveHooks = { held: () => null, landed: () => {} };\n${W.top(WORLD, 'if (realmSession) setRealmSaveSink(')}`, {
-    realmSession: c.session, setRealmSaveSink: (f) => { sink = f; }, characterIdOf: () => c.id, realmSummaryOf, playerEntity: { level: 2 },
+    realmSession: c.session, setRealmSaveSink: (f) => { sink = f; }, characterIdOf: () => c.id, realmSummaryOf, realmSaveWithHeld, playerEntity: { level: 2 },
   });
   assert.deepEqual(await sink({ v: 2 }), { ok: true, seq: 2 });
   await c.session.leave();

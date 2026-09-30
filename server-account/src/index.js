@@ -162,6 +162,7 @@ import {
 } from './realm.js';   // REALM P1: the realm's characters
 import { isGzip, gzipSizeOf, gunzipText, REALM_TEXT_MAX_BYTES } from '../../src/net/realmSaveCodec.js';   // REALM-GZIP: a save rides packed
 import { tradeRealm, REALM_TRADE_BODY_MAX } from './realmTrade.js';   // REALM P2.1: a trade, settled here
+import { measured } from './metrics.js';   // SCALE1: every request counted (Workers Analytics Engine)
 
 // THIS MODULE EXPORTS `default` AND NOTHING ELSE, and that is a
 // runtime requirement rather than a preference: in a module Worker
@@ -326,7 +327,9 @@ async function readBody(request, max = MAX_BODY_BYTES) {
   try { const v = JSON.parse(text); return v && typeof v === 'object' && !Array.isArray(v) ? v : null; } catch { return null; }
 }
 
-export default {
+// SCALE1: THE SERVICE, and below it the handler workerd calls - which serves it and counts it (metrics.js). The
+// service is a plain object, not an export: this module still exports `default` and nothing else.
+const service = {
   async fetch(request, env) {
     const subtle = crypto.subtle;
     const rand = (b) => crypto.getRandomValues(b);
@@ -1140,4 +1143,8 @@ export default {
       return no('server', 500, origin);
     }
   },
+};
+
+export default {
+  fetch: (request, env) => measured(request, env, service.fetch),
 };

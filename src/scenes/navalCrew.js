@@ -132,6 +132,7 @@ export function createNavalCrew({ renderer, getTexture, uploadRecordFrame, rand 
       }
       ship.battle = !!w.battle;
       ship.struck = !!w.struck;   // AUDIT NAV2 F46: her colours down - no song, no talk
+      ship.mine = w.mine ?? null;   // SHIP-CREW: a boat of the player's - her crew's order, spirits and lines (navalHost myCrew)
       // AUDIT NAV2 F40: a boarding at hand (a ship closing to board her, a struck one in my reach): her crew to the rail
       // toward it within CREW_MUSTER_M of her - the grapple's 2.2 s alone saw nobody reach it
       const at = w.boat.GameObject?.position;

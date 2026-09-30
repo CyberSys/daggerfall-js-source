@@ -386,8 +386,10 @@ async function mediansOf(db, keys, today, currency = 'marks') {
   const out = new Map();
   if (!keys.length) return out;
   const table = currency === 'gold' ? 'market_gold_prices' : 'market_prices';   // GOLD-MARKET: gold's own history, never the Drakes'
+  // SCALE1: the keys as ONE bound JSON array (json_each) - a view's hundred materials bound one each were 101
+  // parameters, past the 100 D1 takes in one statement (node:sqlite, the pins' database, takes 32766)
   const { results = [] } = await db.prepare(`SELECT day, material, price, units FROM ${table} WHERE day > ?1 AND material IN
-    (${keys.map((_, i) => `?${i + 2}`).join(', ')})`).bind(today - MARKET_MEDIAN_DAYS, ...keys).all();
+    (SELECT value FROM json_each(?2))`).bind(today - MARKET_MEDIAN_DAYS, JSON.stringify(keys)).all();
   for (const k of keys) {
     const rows = results.filter((r) => r.material === k).map((r) => ({ day: Number(r.day), price: Number(r.price), units: Number(r.units) }));
     out.set(k, { median: medianOf(rows), line: medianLine(rows, today) });
@@ -457,8 +459,8 @@ export async function marketRead(ctx, player, env, { character, region, view, fa
     if (keys && !keys.length) return { ...(await base()), rows: [], medians: {} };
     // GOLD-MARKET: one currency a view - a gold price and a Drakes price sort nothing together
     const { results = [] } = await db.prepare(`SELECT * FROM market_listings WHERE state = 'open' AND kind = 'material' AND expires_at > ?1 AND currency = '${currency}'
-      ${keys ? `AND material IN (${keys.map((_, i) => `?${i + 2}`).join(', ')})` : ''} ORDER BY price, at LIMIT ${MARKET_SHOWN}`)
-      .bind(nowS, ...(keys ?? [])).all();
+      ${keys ? 'AND material IN (SELECT value FROM json_each(?2))' : ''} ORDER BY price, at LIMIT ${MARKET_SHOWN}`)
+      .bind(nowS, ...(keys ? [JSON.stringify(keys)] : [])).all();   // SCALE1: one bound array - a search's 120 were 121 parameters
     const rows = results.filter((l) => material(l.material));
     const quotes = await quote(rows, (l) => Number(l.own) + Number(l.bought));
     const medians = await mediansOf(db, [...new Set(rows.map((l) => l.material))], today, currency);

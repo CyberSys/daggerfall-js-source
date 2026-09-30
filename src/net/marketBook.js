@@ -32,6 +32,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { MARKET_RID_RE } from './marketLaw.js';
+import { ASK_AGAIN_NOW, jittered } from './backoff.js';   // SCALE1: asks again spread out, and never at once into a minute's refusal
 
 export const MARKET_KEPT_KEY = 'prof5.kept';
 export const MARKET_CACHE_MS = 60_000;
@@ -147,9 +148,9 @@ export function createMarketBook({ door, storage = null, character, now = () => 
   async function ask(fn) {
     let r = null;
     for (let i = 0; i < MARKET_TRIES; i++) {
-      if (i > 0) await sleep(MARKET_RETRY_MS[Math.min(i - 1, MARKET_RETRY_MS.length - 1)]);
+      if (i > 0) await sleep(jittered(MARKET_RETRY_MS[Math.min(i - 1, MARKET_RETRY_MS.length - 1)]));
       try { r = await fn(); } catch { r = { ok: false, error: 'offline' }; }
-      if (r?.ok || !RETRY.includes(r?.error)) return r;
+      if (r?.ok || !ASK_AGAIN_NOW.includes(r?.error)) return r;   // SCALE1: `rate` goes back kept, to the pump
     }
     return r;
   }
