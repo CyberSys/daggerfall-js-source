@@ -104,11 +104,13 @@ function clock() {
     get waiting() { return due.size; },
   };
 }
-/** A session over a boot's join, the grace by hand and the page shown unless `hidden` says. */
+/** A session over a boot's join, the grace by hand and the page shown unless `hidden` says; `hide()` puts the page away
+ *  (the session's own watch, AUDIT 2 B2). */
 const sessionOf = (dev, id, boot, { hidden = () => false, onLost = () => {} } = {}) => {
   const time = clock();
-  const s = createRealmSession({ io: dev.io, id, lease: boot.lease, seq: boot.seq, onLost, later: time.later, hidden });
-  return Object.assign(s, { time });
+  const hides = [];
+  const s = createRealmSession({ io: dev.io, id, lease: boot.lease, seq: boot.seq, onLost, later: time.later, hidden, watchHidden: (fn) => { hides.push(fn); } });
+  return Object.assign(s, { time, hide: () => { for (const fn of hides) fn(); } });
 };
 /** A realm character saved at 1 and joined as a boot joins it, on `dev`: its session, and the service's row and save. */
 async function joined(acct, dev, save = { v: 1, name: 'SwordsmanEB', level: 12, goldPieces: 100 }, opts = {}) {
@@ -543,4 +545,39 @@ test('AUDIT RESCUE-SAVE A7: the Online door drops a copy of the account\'s own c
   assert.match(src('src/ui/enhancedMenu.js'), /realmRows = r\.ok \? r\.characters : \[\];\n\s*if \(r\.ok\) sweepUnsent\(appStorage\(\), r\.characters\);/);
   claimUnsent(dev.storage, stranger, 'a'.repeat(32));
   assert.equal(keepUnsent(dev.storage, stranger, 4, '{"v":2}', { lease: 'b'.repeat(32) }), false, 'A4 by the letter: another lease writes nothing');
+});
+
+// ═══ AUDIT RESCUE-SAVE 2 (2026-09-30, Mac: "Audit this", again - over the merge with REALM-GZIP) ════════════════════════
+
+test('AUDIT RESCUE-SAVE 2 B1: a tab the character was taken from never drops or marks the newer tab\'s copy - not by a refusal the route answers before the lease (too-large), not by its own lease refused', async () => {
+  const acct = await account();
+  const dev = acct.device();
+  const a = await joined(acct, dev);
+  const aLease = a.row().lease;
+  const bBoot = await openRealmBoot({ io: dev.io, id: a.id });
+  const b = sessionOf(dev, a.id, bBoot);
+  dev.door.plan = ['hang'];
+  void b.checkpoint(JSON.stringify(save(50, 1)));
+  b.time.fire();   // the newer tab's copy, its put still out - nothing missed
+  const bCopy = { ...readUnsent(dev.storage, a.id), at: null };
+  assert.deepEqual([JSON.parse(bCopy.text).level, bCopy.missed], [50, false]);
+  // the older tab, not yet told: its own lease refused
+  assert.deepEqual(await a.session.checkpoint(JSON.stringify(save(11, 1))), { ok: false, error: 'lease' });
+  assert.deepEqual({ ...readUnsent(dev.storage, a.id), at: null }, bCopy, 'never marked missed by the tab that lost it');
+  // another page of the older join, asking with a save past the request's bound: refused before the lease is read
+  const stale = sessionOf(dev, a.id, { lease: aLease, seq: 1 });
+  assert.equal((await stale.checkpoint('x'.repeat(REALM_MAX_BYTES + 1))).error, 'too-large');
+  assert.deepEqual({ ...readUnsent(dev.storage, a.id), at: null }, bCopy, 'never dropped by it');
+});
+
+test('AUDIT RESCUE-SAVE 2 B2: the page put away writes the save that waits out its grace - even when its own checkpoint is refused (a duel, the death screen), and a phone never sends the pagehide', async () => {
+  const acct = await account();
+  const dev = acct.device();
+  const c = await joined(acct, dev);
+  dev.door.plan = ['hang'];
+  void c.session.checkpoint(JSON.stringify(save(22, 1)));
+  assert.equal(readUnsent(dev.storage, c.id), null, 'the grace not yet out');
+  c.session.hide();   // no checkpoint of its own: world.js's refused one
+  assert.equal(JSON.parse(readUnsent(dev.storage, c.id).text).level, 22);
+  assert.equal(c.session.time.waiting, 0, 'and the grace stands down');
 });

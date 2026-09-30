@@ -56,8 +56,8 @@
   {
     "name": "RESCUE-SAVE-landed-keeps-the-copy",
     "file": "src/systems/realmSaves.js",
-    "old": "if (pending) reviseUnsent(storage, id, { seq: current, missed: false }); else dropCopy();",
-    "new": "if (pending) reviseUnsent(storage, id, { seq: current, missed: false });",
+    "old": "if (pending) revise({ seq: current, missed: false }); else dropCopy();",
+    "new": "if (pending) revise({ seq: current, missed: false });",
     "tests": [
       "test/rescuesave.test.js"
     ]
@@ -65,7 +65,7 @@
   {
     "name": "RESCUE-SAVE-never-rebased",
     "file": "src/systems/realmSaves.js",
-    "old": "if (pending) reviseUnsent(storage, id, { seq: current, missed: false }); else dropCopy();",
+    "old": "if (pending) revise({ seq: current, missed: false }); else dropCopy();",
     "new": "if (!pending) dropCopy();",
     "tests": [
       "test/rescuesave.test.js"
@@ -74,8 +74,8 @@
   {
     "name": "RESCUE-SAVE-a-refused-copy-kept",
     "file": "src/systems/realmSaves.js",
-    "old": "reviseUnsent(storage, id, { missed: true }); } else dropCopy();",
-    "new": "reviseUnsent(storage, id, { missed: true }); }",
+    "old": "revise({ missed: true }); } else dropCopy();",
+    "new": "revise({ missed: true }); }",
     "tests": [
       "test/rescuesave.test.js"
     ]
@@ -292,6 +292,33 @@
     "file": "src/systems/realmSaves.js",
     "old": "restored: true, missed: kept.missed, gzip: joined.data?.gzip === true };",
     "new": "restored: true, missed: kept.missed };",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-RESCUE-SAVE-2-B1-a-stale-tab-drops-the-copy",
+    "file": "src/systems/realmSaves.js",
+    "old": "if (ownsUnsent(storage, id, lease)) forgetUnsent(storage, id);   // AUDIT 2 B1",
+    "new": "forgetUnsent(storage, id);   // AUDIT 2 B1",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-RESCUE-SAVE-2-B1-a-stale-tab-marks-the-copy",
+    "file": "src/systems/realmSaves.js",
+    "old": "=> { if (ownsUnsent(storage, id, lease)) reviseUnsent(storage, id, patch); };",
+    "new": "=> { reviseUnsent(storage, id, patch); };",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-RESCUE-SAVE-2-B2-the-hide-writes-nothing",
+    "file": "src/systems/realmSaves.js",
+    "old": "  watchHidden(() => { keepNow(); });\n",
+    "new": "",
     "tests": [
       "test/rescuesave.test.js"
     ]
