@@ -74,7 +74,7 @@
   {
     "name": "HELMKEYS-the-way-unread",
     "file": "src/systems/comeSailAway.js",
-    "old": " && vMagnitude(state.velocityCurrent) < IRONS_TELL_WAY;",
+    "old": " && vMagnitude(state.MoveVectorCurrent) < IRONS_TELL_WAY;",
     "new": ";",
     "tests": [
       "test/csa_sailing.test.js"

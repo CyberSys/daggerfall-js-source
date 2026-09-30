@@ -886,11 +886,13 @@ test('HELM-KEYS more and less sail step through the square sails where they are 
 });
 
 test('HELM-KEYS in irons: her sails up, her bow within IRONS_TELL_DEG of the wind\'s eye and her way under IRONS_TELL_WAY for IRONS_TELL_S running - the helm is told once how she comes out, again only after she has been out of them; the panel says it while it lasts; a sail just raised is not lying in irons (mutants: told every frame, told at once, the wind\'s sense reversed, the way unread)', () => {
-  const s = scene();
+  // PIN MOVED (AUDIT NAV2 F15): under the mod's own default waves, the sea's current never forced away - it rides in her
+  // velocity (half the wind), and her way through the water is what is read
+  const s = scene({ settings: { 'Waves.Enable': true } });
   const boat = s.place(4, 0);
   s.rt.StartSailing(boat);
   const ahead = [0, 0, -1];   // blowing TO her stern: from dead ahead (the bow is +z)
-  const lie = (seconds) => { for (let t = 0; t < seconds; t += 0.25) { s.rt.state.windVectorCurrent = ahead; s.rt.state.velocityCurrent = [0, 0, 0]; s.frame(); } };
+  const lie = (seconds) => { for (let t = 0; t < seconds; t += 0.25) { s.rt.state.windVectorCurrent = ahead; s.frame(); } };
   const told = () => s.out.hud.filter((t) => t === IRONS_TEXT).length;
   s.rt.state.windVectorCurrent = ahead;
   s.frame({ press: [BOAT_ACTIONS.sailUp] });
@@ -901,8 +903,10 @@ test('HELM-KEYS in irons: her sails up, her bow within IRONS_TELL_DEG of the win
   lie(0.75);
   assert.equal(told(), 1, 'told once');
   assert.equal(s.rt.helmPanelState().inIrons, true);
-  s.rt.state.velocityCurrent = [0, 0, IRONS_TELL_WAY + 0.5];
+  assert.ok(Math.hypot(...s.rt.state.velocityCurrent) >= IRONS_TELL_WAY, 'the current over the tell\'s way: not what is read');
+  s.rt.state.MoveVectorCurrent = [0, 0, IRONS_TELL_WAY + 0.5];
   assert.equal(s.rt.helmPanelState().inIrons, false, 'with way on she answers her helm - not in irons');
+  s.rt.state.MoveVectorCurrent = [0, 0, 0];
   lie(3);
   assert.equal(told(), 1, 'not again while she lies there');
   s.rt.state.windVectorCurrent = [1, 0, 0];   // the wind on her beam: out of irons

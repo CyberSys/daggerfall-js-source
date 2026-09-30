@@ -1087,7 +1087,7 @@ export const FEATURES = Object.freeze([
       + 'then let go to fire. Pirates, merchant ships and navies sail the Bay; batter a ship until she surrenders, board '
       + 'her, take her cargo, then sink her or let her go. Piracy is a crime, and pirates who board you bring Warm '
       + 'Ashes\u2019 raids. Online, everyone in the room shares one sea.',
-    effect: 'Takes effect at once. Online, the sea is on for everyone.',
+    effect: 'Takes effect at once; Ship handling, the next time you take the helm. Online, the sea is on for everyone.',   // AUDIT NAV2 F14: the helm takes the handling once a session (comeSailAway.js responsive)
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({
       store: 'prefs', key: 'naval', initial: true, online: true,   // scenes/world.js navalOn: the host stands down and empties the sea

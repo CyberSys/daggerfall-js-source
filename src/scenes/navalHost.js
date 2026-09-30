@@ -1747,7 +1747,7 @@ export function createNavalHost(deps) {
    * up), go over her rail when she is within reach and the look is on her. True when it took the press.
    */
   function activate() {
-    if (!enabled || boarding) return false;
+    if (!enabled || boarding || aiming) return false;   // AUDIT NAV2 F31: the guns laid, Activate is the hold's (holdFire) - never a grapple thrown with a broadside owed on the release
     const boat = myBoat();
     // a prize of mine whose fate is not yet set: her hold again
     const prize = prizeInReach(boat);

@@ -65,8 +65,8 @@
   {
     "name": "HELM-WAY-classic-moved",
     "file": "src/systems/comeSailAway.js",
-    "old": "  const responsive = () => !!deps.handling && isResponsive(deps.handling());",
-    "new": "  const responsive = () => true;",
+    "old": "  const handed = () => !!deps.handling && isResponsive(deps.handling());",
+    "new": "  const handed = () => true;",
     "tests": [
       "test/helmway.test.js",
       "test/csa_wind.test.js",

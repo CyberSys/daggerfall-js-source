@@ -5858,7 +5858,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     setting: (key) => { try { return modSetting(COME_SAIL_AWAY_VENDOR, key); } catch { return undefined; } },
     input: {
       has: (action) => held(keys, action) || csaHelmInput.held.has(action) || csaHelmInput.chord.has(action) || csaJourneyHelm.held.has(action) || (!!HELM_RUDDER_ACTIONS[action] && helmTurnKeys() && held(keys, HELM_RUDDER_ACTIONS[action])),   // InputManager.HasAction: the registry's held read (the mod's keys answer only while it is on); CSA-L: and the helm panel's holds; OWS2: and a journey's; HELM-KEYS: at a helm the turn keys are the rudder's
-      started: (action) => pressed(latch.edge, keys, action) || csaHelmInput.edges.has(action),   // ActionStarted, and GetKeyDown on the mod's registry actions: the frame's down ring; CSA-L: and the helm panel's taps
+      started: (action) => (pressed(latch.edge, keys, action) && !(travelView?.active && [CSA_BOAT_ACTIONS.sailUp, CSA_BOAT_ACTIONS.sailDown, CSA_BOAT_ACTIONS.toggleSail].includes(action))) || csaHelmInput.edges.has(action),   // ActionStarted, and GetKeyDown on the mod's registry actions: the frame's down ring; CSA-L: and the helm panel's taps; AUDIT NAV2 F17: the sail keys stand down under the travel view, as the turn keys do (helmTurnKeys) - a journey holds the helm there, and its own press sets her sails
       horizontal: () => (helmTurnKeys() ? Math.max(-1, Math.min(1, _csaAxes.h + (held(keys, 'TurnRight') ? 1 : 0) - (held(keys, 'TurnLeft') ? 1 : 0))) : _csaAxes.h),   // HELM-KEYS: the rudder's swing answers the turn keys too
       vertical: () => _csaAxes.v,
       get toggleAutorun() { return !!player.toggleAutorun || csaJourneyHelm.row; },   // OWS2: a journey's oars pull as the autorun does
@@ -6879,7 +6879,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const ab = helm ? null : csaAboard.aboard;
     drawEnhancedHelm({
       helm, aboard: ab ? { hull: ab.boat.hull, owner: peerName(ab.owner) } : null,
-      covered: townTalk.hudCovered || (modes?.hudCovered ?? false) || gamePaused() || !hudRenderEnabled(),
+      covered: townTalk.hudCovered || (modes?.hudCovered ?? false) || gamePaused() || !hudRenderEnabled() || !!travelView?.active,   // AUDIT NAV2 F17: under the travel view a journey holds the helm - its hand sets her sails, the arrows turn the view
       touch: !!touch, mouseFree: cursorActive() || pointerSurfaces.size > 0 || !document.pointerLockElement,
       freeKey: csaKeyLabel('FreeMouse'), keyOf: csaKeyLabel,
     }, csaHelmHooks);
@@ -19890,9 +19890,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     csaCall(() => { w = csaRuntime.nodeReadingAt([x, tvSeaY(), z], t) === 0; });
     return w;
   }
-  /** A boat that makes a crossing: sails, or a crew's oars (a lone rower tires long before a sea is crossed) - and not
-   *  the Carrack, which makes no way at all (the mod divides its cargo by a Cargo modifier it lacks - kept, CSA-D). */
-  const tvSeaCrosses = (rig) => !!rig && (rig.sails > 0 || rig.crewed) && rig.cargo > 0;
+  /** A boat that makes a crossing: sails, or a crew's oars (a lone rower tires long before a sea is crossed) - and a
+   *  hold: under the mod's own handling the Carrack makes no way at all (the mod divides its cargo by a Cargo modifier
+   *  it lacks - kept, CSA-D). AUDIT NAV2 F16: the responsive helm (HELM-WAY) gives her CARGO_HOLD_MISSING and sails her,
+   *  so she crosses wherever the runtime's own word on the handling is responsive (this helm's, else the row's). */
+  const tvSeaCrosses = (rig) => !!rig && (rig.sails > 0 || rig.crewed) && (rig.cargo > 0 || !!csaRuntime?.helmResponsive());
   const tvSeaRig = (b) => ({ sails: b.Sails.length, crewed: !!b.crewed, cargo: b.modifierCargoThreshold });
   /** The parts in the pack of a packable boat that crosses (the Large Boat's - the Rowboat's have no sail). */
   const tvSeaParts = () => (playerEntity.items ?? []).find((it) => it?.templateIndex === CSA_PARTS_TEMPLATE && tvSeaCrosses(csa.hullRig?.(csaHullFromMessage(it.message ?? 0)))) ?? null;
@@ -21943,11 +21945,14 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         });
         // GUN-HOLD: Activate while the guns are laid holds fire (navalHost.js holdFire, the bow's own cancel) - before the
         // click casts a readied spell or the helm's ladder boards, heaves to or opens the yard
-        const _holdFire = (_act.activate || _act.cast) && !!naval?.aiming && naval.holdFire();
-        if (_act.cast && !_holdFire && !gatherHost?.acting()) magic.interceptAttack(true);   // the frame's firePending sends it down the live look; AUDIT 29 D2: never a readied spell mid-act (the dungeon held it off already)
         const useEdge = !travelView?.active && pressed(latch.edge, keys, 'Interact');   // AUDIT OW5 V2: never from under the travel view - its ray is the hidden head's (a door took the traveller inside, a townsperson opened talk); KB1: the Interact ACTION (E by default, Mac's call) - it was a raw `KeyE` beside DFU's E-AbortSpell, and one press did both
+        // AUDIT NAV2 F31: and Interact - the readout's own "E: hold fire" - holds it too, spent before a patch or the ladder:
+        // E went to the ladder, whose naval arm grappled a struck ship in reach with the guns still laid, and the release
+        // then fired the broadside into the ship being hauled alongside
+        const _holdFire = (_act.activate || _act.cast || useEdge) && !!naval?.aiming && naval.holdFire();
+        if (_act.cast && !_holdFire && !gatherHost?.acting()) magic.interceptAttack(true);   // the frame's firePending sends it down the live look; AUDIT 29 D2: never a readied spell mid-act (the dungeon held it off already)
         // PROF1: E at an herb patch is the patch's - an act started, or what it needs said - spent before the ladder
-        const nodeTook = useEdge && !modes.transitioning && (gatherHost?.press() ?? false);   // PROF2: a patch's, a vein's or a boulder's
+        const nodeTook = useEdge && !_holdFire && !modes.transitioning && (gatherHost?.press() ?? false);   // PROF2: a patch's, a vein's or a boulder's
         if ((_act.activate || (useEdge && !nodeTook)) && !modes.transitioning && !_holdFire) {
           // T3b: a townsperson under the ray wins the activation (the
           // PlayerActivate nearest-hit order); G3: a guard corpse next
