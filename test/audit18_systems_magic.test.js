@@ -148,12 +148,13 @@ const expectedTable = () => {
 test('audit18 magic: EFFECT_COST_TABLE is DFU\'s whole effect library, key for key', () => {
   // DFU's library, plus the ONE row the port adds of its own: RESURRECT1's Resurrect (45,255, no classic key uses
   // 45), zero-component and priced by the fudge at Restoration as MorphSelf is at Illusion
-  const want = { ...expectedTable(), '45,255': { skill: SKILLS.Restoration } };
+  // PARTY-MAP (2026-09-30): and a second, Shared Cartography (46,255), a Mysticism duration buff priced as Light is
+  const want = { ...expectedTable(), '45,255': { skill: SKILLS.Restoration }, '46,255': { skill: SKILLS.Mysticism, duration: { A: 8, B: 8, offset: 0 } } };
   // plain-object copy so deepEqual compares values, not frozenness
   const got = {};
   for (const [k, v] of Object.entries(EFFECT_COST_TABLE)) got[k] = { ...v };
   assert.deepEqual(got, want);
-  assert.equal(Object.keys(EFFECT_COST_TABLE).length, 92);
+  assert.equal(Object.keys(EFFECT_COST_TABLE).length, 93);   // PARTY-MAP: 92 and Shared Cartography
   // The families that shipped after S10 and were priced by the fudge
   // at the wrong skill until this pass:
   for (const k of ['14,255', '18,255', '9,0', '7,0', '11,0', '11,8', '11,9', '10,0', '10,9', '4,1', '1,1', '4,2', '1,2']) {

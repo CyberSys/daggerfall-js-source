@@ -78,6 +78,7 @@ export const flagOfIndex = (i) => (1 << i);
 const SELF_TARGET_KEYS = new Set([
   '2,255', '6,0', '6,1', '6,2', '14,255', '15,255', '16,255', '17,255', '25,255',
   '29,255', '39,0', '39,1', '39,2', '40,255', '43,255', '44,255',
+  '46,255',   // PARTY-MAP: Shared Cartography, the port's own - the caster's map is the one shared
 ]);
 const OTHER_TARGET_KEYS = new Set([
   '0,255', '1,0', '1,1', '1,2', '4,0', '4,1', '4,2', '5,255', '7,0',

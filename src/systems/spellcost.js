@@ -85,6 +85,7 @@ export const EFFECT_COST_TABLE = Object.freeze({
   '17,255': row(SKILLS.Mysticism, { chance: costs(20, 100) }),                              // Open
   '19,255': row(SKILLS.Mysticism, { duration: costs(20, 100), chance: costs(20, 100) }),    // Silence
   '43,255': row(SKILLS.Mysticism, {}),                                                      // Teleport - NO components (the fudge, at Mysticism)
+  '46,255': row(SKILLS.Mysticism, { duration: costs(8, 8) }),                               // PARTY-MAP: Shared Cartography - the port's own; Light's cheap per-round price, cheap enough to keep up
   '44,255': row(SKILLS.Mysticism, { duration: costs(60, 68), chance: costs(40, 68) }),      // ComprehendLanguages
 
   // ---- Restoration ----
