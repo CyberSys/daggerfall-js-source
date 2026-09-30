@@ -30,8 +30,8 @@
   {
     "name": "WB7-the-wrath-without-its-neapolitan",
     "file": "src/systems/gateScore.js",
-    "old": "const WAR_C = Object.freeze(['Dm', 'Eb', 'C', 'A', 'Dm', 'Eb', 'Bb', 'A']);",
-    "new": "const WAR_C = Object.freeze(['Dm', 'Bb', 'C', 'A', 'Dm', 'Bb', 'Bb', 'A']);",
+    "old": "const WAR_C = Object.freeze(['Dm', 'Eb', 'Dm', 'Eb', 'Bbm', 'Gm', 'A', 'A']);",
+    "new": "const WAR_C = Object.freeze(['Dm', 'Bbm', 'Dm', 'Bbm', 'Bbm', 'Gm', 'A', 'A']);",
     "tests": ["test/wb7_boss_audio.test.js"]
   },
   {

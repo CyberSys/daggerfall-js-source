@@ -702,6 +702,22 @@ to the tick, where DFU's rewind rings a second past a song's end first (the clas
 timed from when it began on this machine (`createCourtScore`) and ended by `MusicService.fadeOut` - DISC20-B's fade
 and then a stop, where `stop()` is a cut; and his grunt counts the loss since his last one.
 
+WB10a (2026-09-30, Mac: "make it more loud, just feel like its too quite, and I feel like the music is too jolly"): A
+SONG'S OWN PRESS - a port departure with no DFU member behind it (DFU's music has no dynamics; the port's made songs
+are the only ones that ask). WBX9 had given a song its own level (`songLevel`, one gain between the channels and the
+fader), and the score had spent it: its drums peaked 15 to 19 dB over its body, a decibel under the clip at the highest
+MusicVolume. A song may now carry `press` (`songPress`: threshold, knee, ratio, attack and release held to the Web Audio
+compressor's ranges, `out` to (0, PRESS_OUT_MAX], a `ceiling` in dBFS at the highest MusicVolume to [-24, 0], the clip
+itself when none is named). `SongPlayer` builds the press once - a DynamicsCompressor, a gain carrying the drive into
+a WaveShaper's [-1, 1], the shaper on `ceilingCurve` (tanh(CEILING_DRIVE u), 4x oversampled), a gain out at the
+ceiling's amplitude (`ceilingAmplitude`: over MUSIC_GAIN) - and routes the level through it for a song that carries one
+and straight to the fader for a song that does not, as before; a context without a compressor or a shaper plays the
+song unpressed. The ceiling is a bound by construction: nothing leaves the curve past its ends. Every song MIDI.BSA holds
+carries none. The court's four carry `SCORE_PRESS` and read -15.8 / -15.4 / -14.2 dBFS at war and -15.6 at his fall
+(from -25.6 / -22.1 / -21.5 / -22.9), every peak under -1 dBFS at the highest MusicVolume - `tools/gateScoreProbe.mjs`,
+which also plays one player through the whole fight and the song after it. See `11-Multiplayer/World-Bosses.md` section
+15; `test/wb10a_gate_score.test.js`.
+
 ## FIELD-WIND1 (2026-09-29): the wind was a moan - a bed the port makes
 
 The Discord through Mac: "A repetitive moaning sound in the open world." The port's wind (WIND3, `systems/windAudio.js`;
