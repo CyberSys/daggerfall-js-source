@@ -915,7 +915,7 @@ player on it (`world/gateArena.js courtArena` - one arena a frame, its crossings
 `player/motor.js _putBack` takes the airborne momentum off the floor away, off a walkway's side as off a rim). The
 collider carries every disc and every deck; the motor is what says how much is laid.
 
-On the wire (relay world133, the brain's law 4): the state says his court (`ct`) and the crossings (`xa`, the relay
+On the wire (relay world134 - main's SOFTCAP1 took world133 first - the brain's law 4): the state says his court (`ct`) and the crossings (`xa`, the relay
 moments of the bound's words), and a bound's own word lays its walkway on every screen at once (`net/gateLink.js
 crossLaid`). GATE_COURT_BOUND is the three courts' (160 m). A fight checkpointed before WB9 crosses from the first court
 over every walkway up to the court it bounds to. The telegraph is drawn over the court it lands in (the Wrath's and the
@@ -988,7 +988,7 @@ dead), `tools/mutants/wb9c.json` (31: 30 dead, the dead counted at the crystals'
 living are filtered once), `tools/mutants/wb9d.json` (9, all dead), `tools/mutants/wb9e.json` (9, all dead). The older
 suites re-aimed where WB9 moved their law: the phase's turn (WB3, WBX5, WB8b - the bound and the wait for the leap), the
 court's geometry (WB3b, WB6b - three courts, the braziers and shards clear of the walkways), the damage numbers (WB4,
-WB8c), the telegraph's text (WB4), the motor's clamp (AUDIT DUEL1), the relay's version pins (world133).
+WB8c), the telegraph's text (WB4), the motor's clamp (AUDIT DUEL1), the relay's version pins (world134).
 
 ## Shipped
 
