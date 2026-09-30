@@ -171,6 +171,21 @@ test('AUDIT NAV2 F54 ANY OTHER ALLY IS FAIR GAME: an ally of the player\'s ashor
 /** A worn ring of Vampiric Effect, At Range (param 0). */
 const vampire = (pe) => ({ ...pe, health: 20, maxHealth: 50, items: [{ name: 'Ring', templateIndex: 135, group: 4, currentCondition: 100, maxCondition: 100, equipSlot: 9, enchantments: [{ type: T.VampiricEffect, param: 0 }] }] });
 
+test('AUDIT NAV2 F54 NO SPARED ONE IS A MARK: a town\'s defender (DISC19) whose purse the player fails at turned on the player while every harm of theirs still passed him by (sparedByPlayer) - the shipmate\'s twin; refused as a shipmate is, nothing rolled, nobody turned (mutant: the shipmate alone refused)', async () => {
+  resetToDefaults();
+  const { pool, pe } = foesPool({ rolls: () => 0.5 });
+  const feet = [100, 0, 98.8];
+  const guard = await hand(pool, [100, 0, 100], null);
+  guard.defender = true;
+  assert.equal(isShipmate(guard), false, 'no deck under him');
+  assert.equal(sparedByPlayer(guard), true, 'a defender: the player\'s harm passes him by');
+  let rolled = 0, walked = 0;
+  assert.equal(activateMobileEnemy(guard, 1.2, 'steal', clumsy(pe), { hud: () => {}, modal: () => {}, midScreen: () => {}, makeEnemiesHostile: () => { walked++; }, playerFeet: feet, rolls: () => { rolled++; return 0.999; } }), true, 'consumed');
+  assert.deepEqual({ rolled, walked }, { rolled: 0, walked: 0 }, 'nothing rolled, nobody turned');
+  assert.notEqual(guard.ai.target, PLAYER_TARGET, 'he never turns on the player');
+  assert.equal(sparedByPlayer(guard), true);
+});
+
 test('AUDIT NAV2 F55 THE DRAIN IS NO ATTACK, AND PASSES THE SPARED BY: one At Range round of a worn Vampiric Effect through the world\'s own chain (the shared enchant ctx body, world.js\'s enchant pool and membership router, its foe sinks, the pool\'s damage door) drains the pirates inside 2.25 m into the wearer - a yielded man of the prize\'s among them, who stays yielded, and no one across her deck wakes; the shipmate beside the player and a town\'s defender are passed by - health, team and target kept - and pay the wearer nothing (mutants: the rows\' spared unwritten, the rows spare no defender, the rows drop the drain\'s word, the drain\'s skip dropped, the drain the player\'s attack again)', async () => {
   const { pool, pe } = foesPool();
   const player = { pos: [100, 0, 98.8] };

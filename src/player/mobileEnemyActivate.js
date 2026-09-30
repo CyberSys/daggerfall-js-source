@@ -51,7 +51,7 @@ import { setMidScreenText } from '../ui/midScreenText.js';   // AUDIT 64 F34: :8
 import { PLAYER_TARGET, resetAllyTeamOnPlayerAttack } from '../characters/enemyTargets.js';   // AUDIT NAV2 F54: MakeEnemyHostileToAttacker's entity-side half
 import { enemyDisplayName } from '../characters/enemyBasics.js';
 import { pickpocket } from '../systems/talk.js';
-import { isShipmate } from '../combat/friendlyFire.js';   // AUDIT NAV2 F54: the player's own hands are no mark
+import { sparedByPlayer } from '../combat/friendlyFire.js';   // AUDIT NAV2 F54: the player's own hands - and a town's defenders - are no mark
 
 /** Internal_Strings.csv:23-24 - `youSeeAn,You see an %s.` and
  *  `youSeeA,You see a %s.`, picked by the vowel test at :817 over the
@@ -109,8 +109,10 @@ export function activateMobileEnemy(foe, distance, mode, player, {
   // deck breaks out as the monster above does: consumed, silent at any
   // range, nothing rolled, no attempt spent. A failed lift turned him on
   // the player (the tail below) while every door of the player's harm
-  // still passed him by - he was a shipmate yet (isShipmate's law).
-  if (isShipmate(foe)) return true;
+  // still passed him by - he was a shipmate yet (isShipmate's law). And
+  // so a town's defender (DISC19): whoever the player's harm passes by
+  // (sparedByPlayer) is no mark, or the lift turns him on an untouchable.
+  if (sparedByPlayer(foe)) return true;
   // :830 - the flag wraps EVERYTHING below, the distance line included.
   if (entity.pickpocketAttempted) return true;
   if (distance > PICKPOCKET_DISTANCE) { midScreen?.(TOO_FAR_AWAY_TEXT); return true; }   // :834 - the mid-screen refusal

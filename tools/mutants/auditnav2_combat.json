@@ -2,7 +2,7 @@
  {
   "name": "AUDIT-NAV2-F54-a-shipmate-is-a-mark-again",
   "file": "src/player/mobileEnemyActivate.js",
-  "old": "  if (isShipmate(foe)) return true;\n",
+  "old": "  if (sparedByPlayer(foe)) return true;\n",
   "new": "  if (false && isShipmate(foe)) return true;\n",
   "tests": [
    "test/auditnav2_combat.test.js"
@@ -11,8 +11,8 @@
  {
   "name": "AUDIT-NAV2-F54-the-refusal-under-the-distance-line",
   "file": "src/player/mobileEnemyActivate.js",
-  "old": "  if (isShipmate(foe)) return true;\n  // :830 - the flag wraps EVERYTHING below, the distance line included.\n  if (entity.pickpocketAttempted) return true;\n  if (distance > PICKPOCKET_DISTANCE) { midScreen?.(TOO_FAR_AWAY_TEXT); return true; }   // :834 - the mid-screen refusal\n",
-  "new": "  // :830 - the flag wraps EVERYTHING below, the distance line included.\n  if (entity.pickpocketAttempted) return true;\n  if (distance > PICKPOCKET_DISTANCE) { midScreen?.(TOO_FAR_AWAY_TEXT); return true; }   // :834 - the mid-screen refusal\n  if (isShipmate(foe)) return true;\n",
+  "old": "  if (sparedByPlayer(foe)) return true;\n  // :830 - the flag wraps EVERYTHING below, the distance line included.\n  if (entity.pickpocketAttempted) return true;\n  if (distance > PICKPOCKET_DISTANCE) { midScreen?.(TOO_FAR_AWAY_TEXT); return true; }   // :834 - the mid-screen refusal\n",
+  "new": "  // :830 - the flag wraps EVERYTHING below, the distance line included.\n  if (entity.pickpocketAttempted) return true;\n  if (distance > PICKPOCKET_DISTANCE) { midScreen?.(TOO_FAR_AWAY_TEXT); return true; }   // :834 - the mid-screen refusal\n  if (sparedByPlayer(foe)) return true;\n",
   "tests": [
    "test/auditnav2_combat.test.js"
   ]
@@ -20,8 +20,8 @@
  {
   "name": "AUDIT-NAV2-F54-the-refusal-after-the-roll",
   "file": "src/player/mobileEnemyActivate.js",
-  "old": "  if (isShipmate(foe)) return true;\n  // :830 - the flag wraps EVERYTHING below, the distance line included.\n  if (entity.pickpocketAttempted) return true;\n  if (distance > PICKPOCKET_DISTANCE) { midScreen?.(TOO_FAR_AWAY_TEXT); return true; }   // :834 - the mid-screen refusal\n  entity.pickpocketAttempted = true;   // :837\n  const r = pickpocket(player, { target: entity, rolls, nothingText });   // :838 -> :1611\n",
-  "new": "  // :830 - the flag wraps EVERYTHING below, the distance line included.\n  if (entity.pickpocketAttempted) return true;\n  if (distance > PICKPOCKET_DISTANCE) { midScreen?.(TOO_FAR_AWAY_TEXT); return true; }   // :834 - the mid-screen refusal\n  entity.pickpocketAttempted = true;   // :837\n  const r = pickpocket(player, { target: entity, rolls, nothingText });   // :838 -> :1611\n  if (isShipmate(foe)) return true;\n",
+  "old": "  if (sparedByPlayer(foe)) return true;\n  // :830 - the flag wraps EVERYTHING below, the distance line included.\n  if (entity.pickpocketAttempted) return true;\n  if (distance > PICKPOCKET_DISTANCE) { midScreen?.(TOO_FAR_AWAY_TEXT); return true; }   // :834 - the mid-screen refusal\n  entity.pickpocketAttempted = true;   // :837\n  const r = pickpocket(player, { target: entity, rolls, nothingText });   // :838 -> :1611\n",
+  "new": "  // :830 - the flag wraps EVERYTHING below, the distance line included.\n  if (entity.pickpocketAttempted) return true;\n  if (distance > PICKPOCKET_DISTANCE) { midScreen?.(TOO_FAR_AWAY_TEXT); return true; }   // :834 - the mid-screen refusal\n  entity.pickpocketAttempted = true;   // :837\n  const r = pickpocket(player, { target: entity, rolls, nothingText });   // :838 -> :1611\n  if (sparedByPlayer(foe)) return true;\n",
   "tests": [
    "test/auditnav2_combat.test.js"
   ]
@@ -121,6 +121,15 @@
   "file": "src/characters/enemyCasting.js",
   "old": "      { entity: f.entity, sinks: foeSinks(f), foe: f }, { excludeFoe: f, playerHeight });",
   "new": "      { entity: f.entity, sinks: foeSinks(f) }, { excludeFoe: f, playerHeight });",
+  "tests": [
+   "test/auditnav2_combat.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT-NAV2-F54-the-shipmate-alone-refused",
+  "file": "src/player/mobileEnemyActivate.js",
+  "old": "if (sparedByPlayer(foe)) return true;",
+  "new": "if (foe?.deckBoat != null && foe.entity?.team === 'PlayerAlly' && !foe.dead) return true;",
   "tests": [
    "test/auditnav2_combat.test.js"
   ]
