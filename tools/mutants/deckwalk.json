@@ -29,8 +29,8 @@
   {
     "name": "DECK-WALK-flood-step-unread",
     "file": "src/systems/naval/navalDeck.js",
-    "old": "for (const q of cand[n]) if (Math.abs(q - here) <= DECK_STEP && (best == null",
-    "new": "for (const q of cand[n]) if ((best == null",
+    "old": "if (live[a] && Math.abs(lv[a] - h) <= DECK_JOIN) return a;",
+    "new": "if (live[a]) return a;",
     "tests": [
       "test/deckwalk.test.js"
     ]
@@ -38,8 +38,8 @@
   {
     "name": "DECK-WALK-no-inset",
     "file": "src/systems/naval/navalDeck.js",
-    "old": "  for (let pass = 0; pass < inset; pass++) {",
-    "new": "  for (let pass = 0; pass < 0; pass++) {",
+    "old": "    for (let pass = 0; pass < passes; pass++) {",
+    "new": "    for (let pass = 0; pass < 0; pass++) {",
     "tests": [
       "test/deckwalk.test.js"
     ]
@@ -47,8 +47,8 @@
   {
     "name": "DECK-WALK-pieces-kept",
     "file": "src/systems/naval/navalDeck.js",
-    "old": "  for (let j = 0; j < y.length; j++) if (piece[j] !== best) y[j] = NaN;\n",
-    "new": "",
+    "old": "  for (let a = 0; a < M; a++) if (s.live[a] && s.piece[a] === s.open) { y[nodeCell[a]] = lv[a]; top[nodeCell[a]] = a; }",
+    "new": "  for (let a = 0; a < M; a++) if (s.live[a]) { y[nodeCell[a]] = lv[a]; top[nodeCell[a]] = a; }",
     "tests": [
       "test/deckwalk.test.js"
     ]
@@ -101,7 +101,7 @@
   {
     "name": "DECK-WALK-corner-cut-past-edge",
     "file": "src/systems/naval/navalDeck.js",
-    "old": "          if (di && dk && (Number.isNaN(y[k * nx + ii]) || Number.isNaN(y[kk * nx + i]))) continue;   // no corner cut past the edge\n",
+    "old": "          if (di && dk && !(Math.abs(y[k * nx + ii] - y[j]) <= DECK_JOIN && Math.abs(y[kk * nx + i] - y[j]) <= DECK_JOIN)) continue;   // no corner cut past the edge (AUDIT NAV2 F34: nor past a drop - a stair's tread beside the deck it climbs from)\n",
     "new": "",
     "tests": [
       "test/deckwalk.test.js"
@@ -128,7 +128,7 @@
   {
     "name": "DECK-WALK-leg-tread-unread",
     "file": "src/systems/naval/navalDeck.js",
-    "old": "!Number.isNaN(y[kk * nx + ii]) && Math.abs(y[kk * nx + ii] - was) <= DECK_STEP;",
+    "old": "!Number.isNaN(y[kk * nx + ii]) && Math.abs(y[kk * nx + ii] - was) <= DECK_JOIN;",
     "new": "!Number.isNaN(y[kk * nx + ii]);",
     "tests": [
       "test/deckwalk.test.js"
@@ -182,7 +182,7 @@
   {
     "name": "DECK-WALK-leash-a-centre",
     "file": "src/scenes/world.js",
-    "old": "        if (Number.isNaN(floor)) deck.clamp(local[0], local[2], local); else local[1] = floor;",
+    "old": "        if (Number.isNaN(floor)) deck.clamp(local[0], local[2], local, was ? deck.pieceAt(was[0], was[2], was[1]) : 0); else local[1] = floor;",
     "new": "        if (Number.isNaN(floor)) { const c = deck.nearest(local[0], local[2]); local[0] = c[0]; local[1] = c[1]; local[2] = c[2]; } else local[1] = floor;",
     "tests": [
       "test/deckwalk.test.js"
@@ -200,8 +200,8 @@
   {
     "name": "DECK-WALK-leash-keeps-the-dead",
     "file": "src/scenes/world.js",
-    "old": "      if (f.dead || !boat?.GameObject?.activeSelf || !exteriorFoes.foes.includes(f)) { _deckBodies.delete(f); continue; }",
-    "new": "      if (!boat?.GameObject?.activeSelf || !exteriorFoes.foes.includes(f)) { _deckBodies.delete(f); continue; }",
+    "old": "      if (f.dead) { if (!f.corpse) { f.deckBoat = f.deckLocal = null; _deckBodies.delete(f); } continue; }",
+    "new": "      if (f.dead) continue;",
     "tests": [
       "test/deckwalk.test.js"
     ]

@@ -501,9 +501,11 @@ export function createImmersiveFootsteps({ audio = defaultAudio, settings = read
    *  tile. The host says what the feet stand on (world.js exteriorSurfaceNow): a boat's or a ship's deck (`deck`) is a
    *  wooden floor, the mod's own interior Wood rule (woodFloorFootsteps); any other model over a water tile
    *  (`onStaticGeometry` - a bridge) is walked on, not waded - the armour's own ground (CheckToUseArmorFootsteps, as a
-   *  path tile is); everywhere else the tile ladder decides, verbatim. Stepping off a floor re-reads the ground. */
+   *  path tile is); everywhere else the tile ladder decides, verbatim. Stepping off a floor re-reads the ground.
+   *  AUDIT NAV2 F38: ANY water tile - a quay or a bridge over a coast's or a river's shallow edge (SHALLOW_WATER_TILES)
+   *  splashed as the tile ladder waded it; tile 0 alone was read. */
   function determineExteriorClimateFootstep(m) {
-    const floor = m.deck ? 'deck' : m.onStaticGeometry && (m.tileMapIndex ?? 0) === 0 ? 'floor' : null;
+    const floor = m.deck ? 'deck' : m.onStaticGeometry && ((m.tileMapIndex ?? 0) === 0 || SHALLOW_WATER_TILES.has(m.tileMapIndex)) ? 'floor' : null;
     if (floor !== lastFloor) { lastFloor = floor; lastTileMapIndex = FLOOR_LEFT; }
     if (floor === 'deck') { woodFloorFootsteps(); return; }
     if (floor === 'floor') { checkToUseArmorFootsteps(); return; }

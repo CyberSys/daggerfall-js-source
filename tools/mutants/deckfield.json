@@ -20,7 +20,7 @@
   {
     "name": "SHIP-DECK-every-model-a-floor",
     "file": "src/systems/immersiveFootsteps.js",
-    "old": "m.onStaticGeometry && (m.tileMapIndex ?? 0) === 0 ? 'floor'",
+    "old": "m.onStaticGeometry && ((m.tileMapIndex ?? 0) === 0 || SHALLOW_WATER_TILES.has(m.tileMapIndex)) ? 'floor'",
     "new": "m.onStaticGeometry ? 'floor'",
     "tests": [
       "test/deckfield.test.js"

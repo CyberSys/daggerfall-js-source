@@ -232,7 +232,9 @@ test('DECK-WALK THE REAL HULLS: the Small Ship\'s main deck at 6.77 m, the Large
       const hit = raycastColliders(b.GameObject, [c[0], c[1] + DECK_HEADROOM - 0.05, c[2]], [0, -1, 0], DECK_HEADROOM + 1, { triggers: false, geometry });
       assert.ok(hit && Math.abs(hit.point[1] - c[1]) < 0.12, `hull ${hull} at (${c[0]}, ${c[2]}): her floor under a head's height clear (${hit?.point[1]} for ${c[1]})`);
     }
-    for (const s of d.spots(16)) assert.ok(d.walkable(s[0], s[2]) && Math.abs(s[1] - level) < 1.9, `hull ${hull}: a spot on her deck ${s}`);
+    // PIN MOVED (AUDIT NAV2 F34): her forecastle, 2.49 m up her stair, is her deck now - a spot never under her main deck
+    // (her hold, her lower deck), and no higher than a raised deck of hers
+    for (const s of d.spots(16)) assert.ok(d.walkable(s[0], s[2]) && s[1] > level - DECK_STEP && s[1] < level + 2 * DECK_HEADROOM, `hull ${hull}: a spot on her deck ${s}`);
   }
   // HER MESH NODE'S FRAME: the Large Boat's node stands 0.1 m up her root - her deck's heights are the node's, a ray in
   // the world (her root at the origin) meeting it 0.1 m higher

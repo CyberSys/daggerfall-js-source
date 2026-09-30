@@ -380,7 +380,7 @@ import { toScreenOrder as csaToScreenOrder } from '../formats/color32Order.js'; 
 import { parseHexColor as csaParseHexColor } from '../ui/toolTip.js';   // CSA-E: the widget's colour setting, RRGGBBAA
 import { horseOffsetHeight as csaHorseOffsetHeight } from '../ui/hudLarge.js';   // CSA-E: OnGUI's LargeHUD lift   // CSA-C: the boats placed, kept and saved; CSA-D: sailed
 import { raycastColliders, rayBoxEntry, colliderPoses, invertAffine, BUILTIN_COLLIDER_MESHES, boxColliderTriangles } from '../world/prefabColliders.js';   // CSA-C: a boat's colliders under the ray; CSA-D: and in the world's collider
-import { DECK_STEP, intoDeck, outOfDeck } from '../systems/naval/navalDeck.js';   // DECK-WALK: a body off her deck by more than a tread has left it; her deck's frame
+import { DECK_STEP, DECK_HEADROOM, intoDeck, outOfDeck } from '../systems/naval/navalDeck.js';   // DECK-WALK: a body off her deck by more than a tread has left it; her deck's frame (AUDIT NAV2 F33: the headroom a deck point's ray starts under)
 import { warmAshesOn, LeaveShip, setWarmAshesHost, onPreFastTravel as warmAshesPreTravel, onPostFastTravel as warmAshesPostTravel, frame as warmAshesFrame, raidAtSea as warmAshesRaidAtSea, raidRefusal as warmAshesRaidRefusal, raidUnderWay as warmAshesRaidUnderWay, WA_RAID_QUESTS, WA_SEA_REGION } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships, the ambush at sea; OWS3: its raid, seen coming; THE MERGE (NAV-D, OWS3): one raid at a time
 import { raidersNear, raiderAt, raiderSight, chaseStep as raiderChaseStep, pixelOfNative, NATIVE_PIXEL as RAID_NATIVE_PIXEL, RAIDER_CONTACT_M, RAIDER_CONTACT_PLAY_M, RAIDER_CHASE_MPS, RAIDERS_WIRE_MAX, RAIDER_WORD_MS, raiderWordOf, validRaiderWord, raiderLifeOf, raiderNearMe, RAIDER_LABEL, RAIDER_LIFE_MS } from '../systems/seaRaiders.js';   // OWS3: Warm Ashes' raiders on the Overworld's sea
 import { RAIDER_LEAD_S } from '../systems/naval/navalRaiders.js';   // NAV-R: a raider ship steers its seeded course this far on
@@ -6429,23 +6429,30 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  hull it stands on (`deckBoat`: the leash's, and a shipmate's mark - combat/friendlyFire.js). */
   const _deckBodies = new Set();
   const navalDeckBody = (f, boat) => { if (!f || !boat) return; f.deckBoat = boat; f.deckLocal = null; _deckBodies.add(f); };
+  /** AUDIT NAV2 F11: whether a hull still stands in the pool - a deck to lie on (a sea ship sunk or dropped, a boat destroyed, is out of it). */
+  const navalHullStands = (boat) => !!boat?.GameObject?.activeSelf && !!(csa.seaBoats?.includes(boat) || csa.boats?.includes(boat) || csa.peerBoats?.includes(boat));
   /** DECK-WALK: every deck body kept on its deck - a step that carried one off her walkable cells (up a bulwark's ramp,
    *  over the rail, off her end) is undone onto the deck's edge nearest it (sliding along it as it presses), and one
    *  standing off her deck's height there by more than a stair's tread - climbed, or fallen through - is set back on
    *  it. The collider lets a capsule up any face under 70 degrees and a bulwark is one; the deck is the only floor a
-   *  body on it has. Its points are the leash's own, made once. */
+   *  body on it has. Its points are the leash's own, made once. AUDIT NAV2 F34: EACH ON THE PIECE IT STANDS ON - the
+   *  floor under it nearest its own height (her deck, a stair's tread over it, her forecastle, her poop over her
+   *  cabin), and one off every floor back onto the piece it last stood on: a body on her forecastle was dragged 2.5 m
+   *  down onto her main deck, one on her poop 3.2 m down and 4.3 m across - a player there out of every boarder's reach. */
   const _leashLocal = [0, 0, 0];
   function navalLeash() {
     for (const f of _deckBodies) {
       const boat = f.deckBoat;
-      if (f.dead || !boat?.GameObject?.activeSelf || !exteriorFoes.foes.includes(f)) { _deckBodies.delete(f); continue; }
+      if (f.dead) { if (!f.corpse) { f.deckBoat = f.deckLocal = null; _deckBodies.delete(f); } continue; }   // AUDIT NAV2 F11: a body fallen on her deck is the carry's while it lies there; with none, it lets her hull go
+      if (!boat?.GameObject?.activeSelf || !exteriorFoes.foes.includes(f)) { _deckBodies.delete(f); continue; }
       const feet = f.ai?.feet;
       const deck = boat.MeshObject && csa.deckOf?.(boat.hull, boat.variant ?? 0);
       if (!feet || !deck?.count) continue;
       const local = navalWorldToDeck(boat, feet, _leashLocal);
-      const floor = deck.heightAt(local[0], local[2]);
+      const floor = deck.heightAt(local[0], local[2], local[1]);
       if (!(Math.abs(local[1] - floor) <= DECK_STEP)) {   // off her deck (NaN off its cells: never within)
-        if (Number.isNaN(floor)) deck.clamp(local[0], local[2], local); else local[1] = floor;
+        const was = f.deckLocal;
+        if (Number.isNaN(floor)) deck.clamp(local[0], local[2], local, was ? deck.pieceAt(was[0], was[2], was[1]) : 0); else local[1] = floor;
         navalDeckToWorld(boat, local, feet);
       }
       const kept = f.deckLocal ??= [0, 0, 0];   // where the carry takes it from next frame
@@ -6454,11 +6461,22 @@ export async function bootWorld(canvas, renderer, params, status) {
   }
   /** DECK-WALK: THE CARRY - every deck body where the leash last left it on her deck, taken through her pose now (her
    *  way, her turn, her roll), before the foes move: a ship under way no longer sails out from under her boarders (the
-   *  player's own body rides a deck the motor's way - player/motor.js; a foe had nothing to). */
+   *  player's own body rides a deck the motor's way - player/motor.js; a foe had nothing to). AUDIT NAV2 F11: THE DEAD
+   *  LIE ON HER DECK AND GO DOWN WITH HER - a body fallen on her deck is carried as one standing (his corpse where he
+   *  fell, his body to loot there), and her hull out of the pool (sunk, dropped, destroyed) takes his corpse with it,
+   *  the record letting her hull go: corpses hung in the air where they fell, a prize cast adrift or sunk from under
+   *  them, and kept her prefab tree alive. */
   function navalCarry() {
     for (const f of _deckBodies) {
       const boat = f.deckBoat, kept = f.deckLocal, feet = f.ai?.feet;
-      if (!kept || !feet || f.dead || !boat?.MeshObject || !boat.GameObject?.activeSelf) continue;
+      if (f.dead) {
+        if (f.corpse && navalHullStands(boat)) { if (kept && f.corpseMarker) exteriorFoes.moveCorpse(f, navalDeckToWorld(boat, kept, _leashLocal)); continue; }
+        if (f.corpse) exteriorFoes.removeCorpse(f);
+        f.deckBoat = f.deckLocal = null;
+        _deckBodies.delete(f);
+        continue;
+      }
+      if (!kept || !feet || !boat?.MeshObject || !boat.GameObject?.activeSelf) continue;
       navalDeckToWorld(boat, kept, feet);
     }
   }
@@ -6479,7 +6497,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       const out = [];
       for (const at of deck.spots(n)) {
         const w = navalDeckToWorld(boat, at);
-        const hit = raycastColliders(boat.GameObject, [w[0], w[1] + 3, w[2]], [0, -1, 0], 6, { triggers: false, geometry: csaColliderMesh });
+        const hit = raycastColliders(boat.GameObject, [w[0], w[1] + DECK_HEADROOM - 0.1, w[2]], [0, -1, 0], DECK_HEADROOM + 2.9, { triggers: false, geometry: csaColliderMesh });   // AUDIT NAV2 F33: from under the headroom her deck keeps (navalDeckPoint's)
         const c = mid ? navalDeckToWorld(boat, mid) : w;
         out.push([[w[0], (hit ? hit.point[1] : w[1]) + 0.05, w[2]], Math.atan2(c[0] - w[0], c[2] - w[2])]);
       }
@@ -6504,10 +6522,13 @@ export async function bootWorld(canvas, renderer, params, status) {
     return [...out.filter((_, k) => k % 2 === 0), ...out.filter((_, k) => k % 2 === 1)].slice(0, n);
   }
   /** LIVING CREW (seamless boarding): a deck point of hers set down on her live colliders where she lies, facing her
-   *  middle - `[feet, yaw]` (navalDeckSpots' own). */
+   *  middle - `[feet, yaw]` (navalDeckSpots' own). AUDIT NAV2 F33: the ray starts under the headroom her deck keeps
+   *  over every cell (DECK_HEADROOM), and reaches as far under it as it did - from 3 m up it met what stands over her
+   *  deck higher than a head, and set 26 of the Carrack's 515 cells' points 2.1-2.7 m up on her bow structure (her
+   *  musters and her landings there), the Large Galley's corners on her stern tent. */
   function navalDeckPoint(boat, deck, at) {
     const w = navalDeckToWorld(boat, at);
-    const hit = raycastColliders(boat.GameObject, [w[0], w[1] + 3, w[2]], [0, -1, 0], 6, { triggers: false, geometry: csaColliderMesh });
+    const hit = raycastColliders(boat.GameObject, [w[0], w[1] + DECK_HEADROOM - 0.1, w[2]], [0, -1, 0], DECK_HEADROOM + 2.9, { triggers: false, geometry: csaColliderMesh });
     const c = navalDeckToWorld(boat, deck.nearest(0, 0));
     return [[w[0], (hit ? hit.point[1] : w[1]) + 0.05, w[2]], Math.atan2(c[0] - w[0], c[2] - w[2])];
   }
@@ -6520,12 +6541,19 @@ export async function bootWorld(canvas, renderer, params, status) {
     return navalDeckPoint(boat, deck, deck.clamp(local[0], local[2]));
   }
   /** `n` points along her rail on the side `toward` lies, spread fore and aft round the point across from it - where a
-   *  party comes over, or my hands land - each facing her middle. */
+   *  party comes over, or my hands land - each facing her middle. AUDIT NAV2 F32: A CELL A POINT - her rail's point past
+   *  her stem or her stern is her end row's (deck.rail clamps onto it), so a short rail answered one cell again and
+   *  again and stood bodies on one another; fewer than `n` where her rail is short. */
   function navalRailSpots(boat, toward, n) {
     const deck = boat?.MeshObject && csa.deckOf?.(boat.hull, boat.variant ?? 0);
     if (!deck?.count || !toward || !(n >= 1)) return [];
-    const t = navalWorldToDeck(boat, toward), side = t[0] >= 0 ? 1 : -1, k = Math.floor(n), out = [];
-    for (let i = 0; i < k; i++) out.push(navalDeckPoint(boat, deck, deck.rail(side, t[2] + (i - (k - 1) / 2) * NAVAL_RAIL_GAP)));
+    const t = navalWorldToDeck(boat, toward), side = t[0] >= 0 ? 1 : -1, k = Math.floor(n), out = [], taken = new Set();
+    for (let i = 0; i < k; i++) {
+      const at = deck.rail(side, t[2] + (i - (k - 1) / 2) * NAVAL_RAIL_GAP), cell = `${at[0]},${at[2]}`;
+      if (taken.has(cell)) continue;
+      taken.add(cell);
+      out.push(navalDeckPoint(boat, deck, at));
+    }
     return out;
   }
   /** A boarding's foe, stood where the host says, on the side it names - the handle fills when its stand lands. */
@@ -6670,6 +6698,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // net/hitPend.js) - one the wire refused, or sent while the socket was away, goes a frame later instead of never
     sendHit: (data) => hitSend(data),
     peerBoats: () => csaPeers.helmBoats(),
+    aboardPeer: () => csaAboard.aboard?.boat ?? null,   // AUDIT NAV2 F4: another player's boat I ride (CSA-K) - aboard, her fight mine
     swimming: () => walkMode && playerSpawned && !!player.isPlayerSwimming,   // AUDIT NAV1: a cask hauled in by a swimmer
     warmAshesOn: () => warmAshesOn(),
     raiderSpent: (id) => { seaRaidSpend(id); tvRaid.chase.delete(id); },   // NAV-R: the Overworld's law - spent for its life; THE MERGE (OW6): and said to the cell
