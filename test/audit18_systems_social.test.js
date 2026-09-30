@@ -264,6 +264,7 @@ function courtHarness({ legalRep = 0, gold = 1000, rolls, name = 'Mack Cothran' 
     name, health: 30, crimeCommitted: CRIMES.Pickpocketing, haveShownSurrenderDialogue: true,
     legalRep: { 17: legalRep }, skills: 30, skillUses: [], stats: { personality: 50 },
     items: [], goldPieces: gold,
+    chargedCrime: CRIMES.Pickpocketing,   // AUDIT REP F1: the box charged it - the court charges only a crime not yet charged, so the rig says so
   };
   const flow = createArrestFlow({ townTalk, playerEntity, regionIndex: 17, rolls });
   // The overlay seam: a ChoiceWindow marks itself done, then its

@@ -390,6 +390,34 @@ export const racialSuppressCrime = (entity) => isTransformedNow(entity);
  *  beast; walkers already out keep walking, DFU's own shape). */
 export const racialSuppressPopulationSpawns = (entity) => isTransformedNow(entity);
 
+/**
+ * WERE-FRIGHT (2026-09-29, Mac: "being a werewolf has a different interaction with guards ... you cannot surrender,
+ * but instead a chance to frighten"): THE BEAST'S ANSWER TO THE WATCH. The port's own - neither classic nor DFU has a
+ * beast that frightens the guards off, and there a transformed lycanthrope with a crime on record is asked to
+ * surrender like anyone. Here it cannot surrender; it roars (scenes/arrestFlow.js carries the box). The chance is
+ * Mac's pick of the three offered: the beast's level against the level of the guard who halted it - 50%, five points
+ * a level either way, never under 10 nor over 90. The city watch is minted three to six levels above the player
+ * (DFU's Range(3, 7) on Knight_CityWatch, characters/enemyEntity.js makeEnemyEntity), so against the watch the roar
+ * runs 20-35%: an even guard is the formula's middle, not the street's.
+ */
+export const FRIGHTEN_BASE_CHANCE = 50;
+export const FRIGHTEN_CHANCE_PER_LEVEL = 5;
+export const FRIGHTEN_MIN_CHANCE = 10;
+export const FRIGHTEN_MAX_CHANCE = 90;
+/** The percent chance the watch flees; a guard of unknown level is taken at the beast's own. */
+export function frightenChance(playerLevel, guardLevel = playerLevel) {
+  const p = Number.isFinite(playerLevel) ? playerLevel : 1;
+  const g = Number.isFinite(guardLevel) ? guardLevel : p;
+  return Math.min(FRIGHTEN_MAX_CHANCE, Math.max(FRIGHTEN_MIN_CHANCE, FRIGHTEN_BASE_CHANCE + FRIGHTEN_CHANCE_PER_LEVEL * (p - g)));
+}
+/** The roar the frighten is made with: the strain's own bark (the clip its landed blows roll 20% for), or null for
+ *  anyone not in beast form. */
+export function frightenRoar(entity) {
+  const entry = liveLycanthropy(entity);
+  if (!entry?.isTransformed) return null;
+  return entry.infectionType === LYCANTHROPY_TYPES.Wereboar ? SOUND.EnemyWereboarBark : SOUND.EnemyWerewolfBark;
+}
+
 /** OnWeaponHitEntity's voice half (:349-372): a transformed
  *  lycanthrope's landed hit rolls 10% for the attack cry, ELSE 20%
  *  for the bark - two separate Dice100 rolls, strain-keyed clips.

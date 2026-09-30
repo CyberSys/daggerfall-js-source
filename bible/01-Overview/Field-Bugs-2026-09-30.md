@@ -239,7 +239,8 @@ account is `customs-already`; the gate (customsRealm's one guarded write) is unc
 
 Pins: `test/fb0930_{homecrossed,chopwait,respawnground,realmbirth,fallkept,packphone,hoodsaid,guildletter,protectfight,
 customselsewhere,cc_drink,cc_innwater,cc_menuclimate,cc_roof,cc_breathe,cc_said}.test.js` (55), each red on the code
-before it. Mutants: `tools/mutants/fb0930_*.json`, 191 records, 191 dead. `acct33` (HOME-CROSSED, GUILD-LETTER,
+before it. Mutants: the sixteen `tools/mutants/fb0930_*.json` of the same names, 191 records, 191 dead (FB0930-FOE-RAYS, #463,
+is another session's batch of the same day). `acct33` (HOME-CROSSED, GUILD-LETTER,
 CUSTOMS-ELSEWHERE); the relay is untouched.
 
 ## Said, not changed

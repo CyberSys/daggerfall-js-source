@@ -36,7 +36,9 @@ const mkConvict = (over = {}) => ({
   name: 'Mack', health: 1, maxHealth: 40, fatigue: 0, maxFatigue: 100, magicka: 0, maxMagicka: 20,
   stats: { endurance: 50, strength: 50, willpower: 50, personality: 50 },
   crimeCommitted: CRIMES.Murder, legalRep: { 17: -25 }, items: [], skills: 30,
-  haveShownSurrenderDialogue: true, arrested: false, activeEffects: [], ...over,
+  haveShownSurrenderDialogue: true, arrested: false, activeEffects: [],
+  chargedCrime: CRIMES.Murder,   // AUDIT REP F1: the box charged it - the court charges only a crime not yet charged, so the rig says so
+  ...over,
 });
 // the court's dice high: both of startCourt's rolls fail their thresholds (12 and 25 at -25), so the sentence is PRISON
 // (punishmentType 2) and never the banishment a low roll gives - a pin, not a coin flip

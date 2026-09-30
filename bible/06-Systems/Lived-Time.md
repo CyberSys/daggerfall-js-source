@@ -96,7 +96,8 @@ character's.
   (28 days) and join date;
 - the Thieves Guild's and Dark Brotherhood's letters (three days);
 - **rented rooms, loans (with their reminders and the Empire's call) and repairs**;
-- the reputation drift (112 days) and the racial override quests (the clans' 38 days, the cure's 84);
+- the reputation drift (a bad name's point back every 7 days since REP4, a good name's down every 112 -
+  `06-Systems/Standing-Arc.md`) and the racial override quests (the clans' 38 days, the cure's 84);
 - the wandering-spawn cadence (the minute a roll is asked on).
 
 ### What moves the character's clock
@@ -152,7 +153,7 @@ still does is the world's:
 - the tick's world reading re-anchors, so the absence walks none of the world's arms (the standing
   rule);
 - TM-1 stands (Mac, 2026-09-28: *"Recovery only"*): over the world's minutes from the one the save
-  left at, a reputation below zero moves back one point per 112-day boundary - measured on the RELAY's
+  left at, a reputation below zero moves back one point per boundary (a week's since REP4) - measured on the RELAY's
   clock, paid when the world host hears it (AUDIT LIVED1b P4: the boot loads on this machine's clock, and
   one set months fast bought months of recovery; until the relay is heard a save keeps the minute the
   character left at);

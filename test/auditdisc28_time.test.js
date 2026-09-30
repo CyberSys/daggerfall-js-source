@@ -71,7 +71,9 @@ test('AUDIT DISC28 TM-1: an absence pays the recovery half only - a Fighters Gui
   m.rank = 4;   // rank 4 asks a reputation of 40 (Guild.cs rankReqReputation)
   alignEntityClocks(e, back, { worldLeft: last });   // the arrival - save.js's load arm, from the world's minute the save left at (LIVED1)
   assert.equal(getReputation(e.factionRep, g.factionId), 40, 'a positive standing is not worn down by the time away');
-  assert.deepEqual(e.legalRep, [0, -5, 3], 'a legal reputation below zero drifts back a point a boundary; one above it is kept');
+  // REP4 (the reputation overhaul, "Earn it + faster drift"): PIN MOVED - the recovery half is WEEKLY now, so the ten
+  // 112-day spans away are 160 weeks and the -15 is home (DFU's ten boundaries: -5); the good standing is kept as ever
+  assert.deepEqual(e.legalRep, [0, 0, 3], 'a legal reputation below zero drifts back a point a week; one above it is kept');
   assert.equal(updateRank(memberships, g, e, e.factionRep, dateFromClassicMinutes(back)), null, 'and the next rank check moves nothing');
   // ...and a legal -15 away across ONE boundary goes to -14
   const once = { legalRep: [-15], factionRep: null, lastGameMinutes: N - 5 };
@@ -143,8 +145,10 @@ test('AUDIT DISC28 TM-2: a Resurrect replays no dead minute of the encounter loo
   // eslint-disable-next-line no-new-func
   const host = new Function(...deps, body)({ get classicMinutes() { return worldMinutes(); }, get ownMinutes() { return ownMinutes(); } }, e, () => true, null,
     { feetAt: () => [0, 0, 0], isPlayerSwimming: false, stopAutorun() {} }, () => [], { mode: 'exterior', clearDeath() {} }, true, true,
-    () => null, () => true, { getClimateIndex: () => 0 }, () => ({ x: 0, y: 0 }), new Set(), () => 0, () => 1, () => {}, () => 1,
-    (ctx) => passiveGuardSpawns(ctx, () => 0), legalRepOf, setCrimeCommitted, CRIMES, () => { guardCalls++; },   // every conspiracy roll lands: a pin, not a chance
+    // REP1: PIN MOVED - the loop's minute no longer rolls DFU's conspiracy (the watch's stop replaced it), so the minute
+    // this pin counts is the encounter roll's own ask - every minute the loop walks asks it once
+    () => { guardCalls++; return null; }, () => true, { getClimateIndex: () => 0 }, () => ({ x: 0, y: 0 }), new Set(), () => 0, () => 1, () => {}, () => 1,
+    (ctx) => passiveGuardSpawns(ctx, () => 0), legalRepOf, setCrimeCommitted, CRIMES, () => {},
     { makeNpcGuardsIntoEnemies: () => Promise.resolve() }, () => [], reviveForPlay, RESURRECT_HEALTH_PCT, RESURRECT_TEXT,
     { overlay: null, overlayActive: false, say() {}, closeOverlay() {} }, class { restoreView() {} }, () => true, worldMinutes, () => null, () => {});
   host.runEncounterTick([0, 0, 0]);   // a living frame: the marker at now
@@ -152,7 +156,7 @@ test('AUDIT DISC28 TM-2: a Resurrect replays no dead minute of the encounter loo
   host.resurrectInPlace({ name: 'Mate' });
   assert.equal(e.preventEnemySpawns, true, 'the rise raised the flag');
   host.runEncounterTick([0, 0, 0]);   // the first frame up
-  assert.equal(guardCalls, 0, `the first frame after the rise rolled the dead span's conspiracy: ${guardCalls} guard call(s)`);
+  assert.equal(guardCalls, 0, `the first frame after the rise rolled the dead span's minutes: ${guardCalls} roll(s)`);
   assert.equal(host.marker(), Math.floor(clock), 'the host\'s marker moved to now OUTSIDE the guard (PlayerEntity.Update\'s lastGameMinutes)');
   assert.equal(e.preventEnemySpawns, false, 'and the flag lowered at the tail, as the Update\'s own');
   clock += 3; host.runEncounterTick([0, 0, 0]);

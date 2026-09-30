@@ -99,7 +99,7 @@ test('bats 1: both spawn hosts build the capsule from the idle sprite and drop a
   assert.doesNotMatch(d, /const canFly = behaviour === 'Flying' \|\| behaviour === 'Spectral';/, 'a Spectral grounds at the layout');
   assert.equal([...d.matchAll(/height: enemyControllerHeight\(idleH, /g)].length, 2, 'the class and monster branches both size the capsule');
   assert.equal([...d.matchAll(/gender: e\.gender, idleH, marker: \[e\.x, e\.y, e\.z\], src: e \}\);/g)].length, 2, 'both records carry the idle height for the draw (and the layout marker, REVIEW 2026-09-05)');
-  assert.match(d, /o\[1\] = spriteOriginY\(f\.ai\.feet\[1\], f\.idleH, sz\.h, _bh\);/, 'the dungeon draw pins a flyer\'s centre');
+  assert.match(d, /o\[1\] = spriteOriginY\(f\.ai\.feet\[1\], f\.idleH, szH, _bh\);/, 'the dungeon draw pins a flyer\'s centre');   // FB0930-FOE-RAYS: the record's height as drawn (the casting 1.35 on a local, not the cache)
   const x = src('src/scenes/exteriorFoes.js');
   // REVIEW 2026-09-05: a DELTA on the live pending array (offsetAll may
   // have recentred it during the awaits), gated off for a restore whose
