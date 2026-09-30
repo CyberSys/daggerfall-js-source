@@ -215,6 +215,21 @@ export function hoodUp(item) {
   return cloakState({ [HOODED_ROBES.has(item.templateIndex) ? EQUIP_SLOTS.ChestClothes : EQUIP_SLOTS.Cloak1]: item }).hood;
 }
 
+/** FIELD BUGS 2026-09-30 (CLOTHES-BREATHE; #bug-reports, "Climates &
+ *  Calories Bugs": "Whether you are appropriately clothed for your
+ *  region, indoors, etc. your temperature gets to either "Scorching" or
+ *  "Freezing" ... and seems to never recover"): CLOTHES BREATHE IN THE
+ *  HEAT. Clothing only ever added warmth, at full weight in any weather,
+ *  so nothing worn lowered a hot reading and the lightest outfit in the
+ *  desert was charged its every point: the starting kit's short shirt and
+ *  casual pants are fifteen degrees, and a desert inn at noon read Hot in
+ *  them. Above this natural temperature - the warm word's own line
+ *  (temperatureWord), where the drying and the sun on bare skin read heat
+ *  (needs.js) - the clothes count at half their warmth, truncated, before
+ *  the wet eats what is left. The cold is unchanged; armour is unchanged,
+ *  its metal's heat in the sun its own rule (armorWarmth). A declared
+ *  departure (Port-Ledger A): the mod's clothes warm alike in any heat. */
+export const CLOTHES_BREATHE_ABOVE = 10;
 /** Clothing warmth: chest, legs, feet and the cloaks, less the wetness,
  *  never below nothing; a hood in strong sun cools the head. */
 export function clothingWarmth(worn, { wet = 0, natural = 0, inSunlight = false } = {}) {
@@ -227,6 +242,7 @@ export function clothingWarmth(worn, { wet = 0, natural = 0, inSunlight = false 
     const v = CLOAK_WARMTH[c.variant ?? 0] ?? CLOAK_WARMTH[0];
     warmth += FORMAL_CLOAKS.has(c.templateIndex) ? 3 * v : CASUAL_CLOAKS.has(c.templateIndex) ? v : 0;
   }
+  if (natural > CLOTHES_BREATHE_ABOVE) warmth = Math.trunc(warmth / 2);   // CLOTHES-BREATHE: half in the heat, the dry reading with it
   const pure = warmth;
   warmth = Math.max(0, warmth - Math.min(wet, WET_MAX));
   if (natural > 30 && inSunlight && hood) warmth = Math.max(0, warmth - HOOD_SHADE);   // AUDIT SURV D: never below nothing, as the law says
