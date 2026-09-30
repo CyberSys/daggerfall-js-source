@@ -341,12 +341,21 @@ export function storesRows(stores, { family = null, query = '', sort = 'tier' } 
   const q = String(query ?? '').trim().toLowerCase();
   const rows = [...stores.values()].map((s) => {
     const m = material(s.material);
-    return { ...s, name: nameOf(s.material), family: m?.family ?? null, tier: m?.tier ?? 0, value: m?.value ?? 0, total: s.own + s.bought };
+    return { ...s, name: nameOf(s.material), family: m?.family ?? null, tier: m?.tier ?? 0, value: m?.value ?? 0, total: s.own + s.bought + (s.gold | 0) };   // GOLD-MARKET: what gold bought is held too
   }).filter((r) => r.total > 0 && (!family || r.family === family) && (!q || r.name.toLowerCase().includes(q)));
   const byName = (a, b) => a.name.localeCompare(b.name);
   rows.sort(sort === 'name' ? byName : sort === 'count' ? (a, b) => (b.total - a.total) || byName(a, b) : (a, b) => (a.tier - b.tier) || byName(a, b));
   return rows;
 }
+
+/** A Stores card's split: own, bought and (GOLD-MARKET) bought with gold - "own" alone where nothing was bought. */
+export function storesSplit(r) {
+  const gold = r.gold | 0;
+  if (!gold) return r.bought ? `${r.own} own · ${r.bought} bought` : 'own';
+  return [r.own ? `${r.own} own` : null, r.bought ? `${r.bought} bought` : null, `${gold} bought with gold`].filter(Boolean).join(' · ');
+}
+/** GOLD-MARKET: what the page says of a material gold bought (Professions-Arc 10.8's wall). */
+export const GOLD_GOODS_LINE = 'Bought with gold: to your pack, or back on the market for gold. No station, craft, writ or Drakes sale takes it.';
 
 /**
  * THE STORES PAGE.
@@ -389,7 +398,7 @@ export function drawStoresPage(detail, rerender, kit) {
   for (const r of rows) {
     const card = el('button', `prof-mat${_stores.picked === r.material ? ' on' : ''}`);
     card.type = 'button';
-    card.append(el('b', null, r.name), el('span', 'prof-count', r.total.toLocaleString('en-US')), el('span', 'prof-split', r.bought ? `${r.own} own · ${r.bought} bought` : 'own'));
+    card.append(el('b', null, r.name), el('span', 'prof-count', r.total.toLocaleString('en-US')), el('span', 'prof-split', storesSplit(r)));
     card.onclick = () => { _stores.picked = r.material; _stores.qty = Math.min(_stores.qty, r.total) || 1; _stores.word = null; rerender(); };
     grid.append(card);
   }
@@ -417,6 +426,7 @@ export function drawStoresPage(detail, rerender, kit) {
     detail.append(el('p', 'px-note', withdrawable(pick.material)
       ? 'Withdrawn, a material is an item in your pack and never goes back into the Stores. Writs are delivered at a Notice Board\'s Work tab.'
       : STOCK_STAYS_LINE));
+    if ((pick.gold | 0) > 0) detail.append(el('p', 'px-note', GOLD_GOODS_LINE));
   }
   if (_stores.word) detail.append(el('p', 'prof-word', _stores.word));
   drawForge(detail, rerender, kit);

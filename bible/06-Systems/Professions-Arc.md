@@ -58,7 +58,9 @@ src/net/nodeLaw.js (the nodes). Appendix B lists them in one place.
    (`src/systems/lootRarity.js`); Sigil Sets are online set gear (`11-Multiplayer/Sigil-Sets.md`). DECIDED: a craft
    reaches **Rare** at most (a Masterwork); Legendary, Aetheric, Artifact and Sigil pieces are never craftable.
 8. **MARKS, NOT GOLD** - DECIDED (Mac: "New currency"). Everything this arc prices between players is in Marks
-   (10.5), which only the server holds and only server-witnessed acts mint.
+   (10.5), which only the server holds and only server-witnessed acts mint. GOLD-MARKET (10.8, Mac: "Gold listings,
+   walled"): a realm character's gold is its record's on the service now (REALM P2), so a market listing may be priced
+   in it - and gold still never becomes Marks: what gold bought is walled from every Marks-earning act.
 
 ## 2. What already stands (FACT)
 
@@ -806,6 +808,26 @@ the names' pass, the measure. `tools/mutants/notice1.json`, 26 mutations, 26 dea
 AUDIT 28): `test/audit28_notice.test.js` (14) - N1-N16 fixed, among them THE MODAL CONTRACT's pin this section owed (the
 note's answer plan, one shape from every exit) and the window driven on the minimal DOM.
 
+### 10.8 GOLD-MARKET - a listing's currency (DECIDED 2026-09-30, Mac: "Allow trading with gold or drakes on the marketplace"; "Gold listings, walled"; BUILT the same day)
+
+Law 8 priced the market in Marks because online gold was the save's. REALM P2 put a realm character's gold on its
+record on the service, moved only in an act's own batch (a guild deposit, a house) - so gold bought with it is gold the
+buyer had.
+
+- **Who**: a realm character alone lists or buys in gold (`market-gold-realm`); any other character's market is the
+  Marks' as before.
+- **What**: a Stores material or a crafted piece. Buy orders, auctions and commissions stay in Marks.
+- **The price**: the seller's own, in gold. No fee at listing; each sale pays the tax (5% of the listing's running
+  total, as in Marks) and 1% of itself (the listing fee's rate), both burnt. The courier is a Mark's worth of gold a Mark
+  (10 gold). The buyer pays the exact cost off its record - purse, letters, then the account of the board's region.
+- **The proceeds**: held on the service for the seller's character (at most 100,000,000 gold), collected by its own
+  record into the bank account of the board it stands at. A character with gold held is not deleted.
+- **The wall** (law 8 kept): goods bought with gold are the Stores' third origin, and a piece bought with gold is
+  marked; they go to the pack or back on the market for gold, and to nothing else - no station, craft, Court or guild
+  writ, guild Stores, buy-order fill or Marks listing. And goods bought with Marks never list for gold, or the market
+  would be a way round the Bank's daily cap and spread (10.5).
+- **As built**: `06-Systems/Online-Arc.md` GOLD-MARKET (acct38, `0037_gold_market.sql`).
+
 ## 11. Writs - the Work tab
 
 - **Court writs** (the faucet): every region with a seat or hub posts **6 x max(1, ceil(active / 100)) a UTC day** (a
@@ -852,7 +874,7 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 | A modified client fakes a craft | The service crafts; the client only receives (9.1) |
 | A modified client plays a perfect act | Capped at one quality step and +50% yield, never past the rank (5.1) |
 | A save-edited item enters the economy | The Stores are one-way (law 3); only a provenance id's owner lists it, one listing at a time (10.2, 18) |
-| Fake gold buys the market | The market is in Marks (10.5) |
+| Fake gold buys the market | The market is in Marks (10.5); a gold listing is a realm character's alone, bought off its record on the service in the sale's own batch, and what gold bought never becomes Marks (10.8) |
 | Marks inflate | Faucets only from witnessed acts, each capped; the weekly report; the Bank's spread and every fee burn |
 | Bots farm nodes | Per-character nodes, daily caps, travel |
 | A modified client claims a rich node on a pixel nobody walks | The witnessed world: an unconfirmed pixel yields tiers 1-2 only (section 6) |

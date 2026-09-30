@@ -119,8 +119,8 @@
   {
     "name": "PROF-DELETE-a-piece-to-collect-unread",
     "file": "server-account/src/realm.js",
-    "old": "  + (SELECT COUNT(*) FROM market_deliveries WHERE player = ?1 AND char_id = ?2 AND collected = 0) AS n`;",
-    "new": "  AS n`;",
+    "old": "  + (SELECT COUNT(*) FROM market_deliveries WHERE player = ?1 AND char_id = ?2 AND collected = 0)\n",
+    "new": "",
     "tests": [
       "test/profdelete.test.js"
     ]

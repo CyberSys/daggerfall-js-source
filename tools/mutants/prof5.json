@@ -463,8 +463,8 @@
   {
     "name": "PROF5-svc-anyones-piece",
     "file": "server-account/src/market.js",
-    "old": "          OR (?5 = 'piece' AND EXISTS (SELECT 1 FROM products WHERE provenance = ?7 AND owner = ?1 AND listed = 0)",
-    "new": "          OR (?5 = 'piece' AND EXISTS (SELECT 1 FROM products WHERE provenance = ?7 AND listed = 0)",
+    "old": "          OR (?5 = 'piece' AND EXISTS (SELECT 1 FROM products WHERE provenance = ?7 AND owner = ?1 AND listed = 0 AND (bought_with IS NULL OR bought_with = ?17))",
+    "new": "          OR (?5 = 'piece' AND EXISTS (SELECT 1 FROM products WHERE provenance = ?7 AND listed = 0 AND (bought_with IS NULL OR bought_with = ?17))",
     "tests": [
       "test/prof5_service.test.js"
     ]
@@ -472,8 +472,8 @@
   {
     "name": "PROF5-svc-fee-unburnt",
     "file": "server-account/src/market.js",
-    "old": "      SELECT 'account', ?1, 'burn', NULL, 'market-fee', fee, ?2, at, ?1, id, rid || ':fee' FROM market_listings WHERE seller = ?1 AND rid = ?3 AND n = ?4`)",
-    "new": "      SELECT 'account', ?1, 'burn', NULL, 'market-fee', fee, ?2, at, ?1, id, rid || ':fee' FROM market_listings WHERE seller = ?1 AND rid = ?3 AND n = ?4 AND 0`)",
+    "old": "WHERE seller = ?1 AND rid = ?3 AND n = ?4 AND currency = 'marks'`)",
+    "new": "WHERE seller = ?1 AND rid = ?3 AND n = ?4 AND currency = 'marks' AND 0`)",
     "tests": [
       "test/prof5_service.test.js",
       "test/prof5_client.test.js"
@@ -482,8 +482,8 @@
   {
     "name": "PROF5-svc-listing-unspent",
     "file": "server-account/src/market.js",
-    "old": "    ...(kind === 'material' ? spendStatements(db, { player: me, character, materialSql: '?3', qtySql: '?4', guard: mine, binds: [key, units, rid, nonce] }) : []),",
-    "new": "",
+    "old": "      : spendStatements(db, { player: me, character, materialSql: '?3', qtySql: '?4', guard: mine, binds: [key, units, rid, nonce] })) : []),",
+    "new": "      : [])) : []),",
     "tests": [
       "test/prof5_service.test.js"
     ]
@@ -491,8 +491,8 @@
   {
     "name": "PROF5-svc-own-bought",
     "file": "server-account/src/market.js",
-    "old": "  if (l.seller === me) return { error: 'market-own' };\n  if (l.kind === 'piece') units = 1;",
-    "new": "  if (l.kind === 'piece') units = 1;",
+    "old": "  if (l.seller === me) return { error: 'market-own' };\n  // GOLD-MARKET: a gold listing",
+    "new": "  // GOLD-MARKET: a gold listing",
     "tests": [
       "test/prof5_service.test.js"
     ]
@@ -518,8 +518,8 @@
   {
     "name": "PROF5-svc-here-no-room",
     "file": "server-account/src/market.js",
-    "old": "          OR COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?3 AND material = l.material), 0) + ?4 <= ?19)`)",
-    "new": "          OR ?4 <= ?19)`)",
+    "old": "          OR COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?3 AND material = l.material), 0) + ?4 <= ?19)`)\n      .bind(me, rid, character, units, total, tax, tithe, road.courier,",
+    "new": "          OR ?4 <= ?19)`)\n      .bind(me, rid, character, units, total, tax, tithe, road.courier,",
     "tests": [
       "test/prof5_service.test.js"
     ]
@@ -527,8 +527,8 @@
   {
     "name": "PROF5-svc-sale-own-first",
     "file": "server-account/src/market.js",
-    "old": "    db.prepare(`UPDATE market_listings SET own = own - MAX(0, ?4 - bought), bought = MAX(0, bought - ?4),",
-    "new": "    db.prepare(`UPDATE market_listings SET bought = bought - MAX(0, ?4 - own), own = MAX(0, own - ?4),",
+    "old": "    // the units out of the listing, bought first (the seller keeps its own for a cancel), and a listing sold out closed\n    db.prepare(`UPDATE market_listings SET own = own - MAX(0, ?4 - bought), bought = MAX(0, bought - ?4),",
+    "new": "    // the units out of the listing, bought first (the seller keeps its own for a cancel), and a listing sold out closed\n    db.prepare(`UPDATE market_listings SET bought = bought - MAX(0, ?4 - own), own = MAX(0, own - ?4),",
     "tests": [
       "test/prof5_service.test.js"
     ]
@@ -536,8 +536,8 @@
   {
     "name": "PROF5-svc-never-sold-out",
     "file": "server-account/src/market.js",
-    "old": "        state = CASE WHEN own + bought = ?4 THEN 'sold' ELSE state END,",
-    "new": "        state = state,",
+    "old": "        state = CASE WHEN own + bought = ?4 THEN 'sold' ELSE state END, closed_at = CASE WHEN own + bought = ?4 THEN ?5 ELSE closed_at END\n      WHERE id = ?6 AND ${sold}`).bind(me, rid, nonce, units, nowS, id),",
+    "new": "        state = state, closed_at = CASE WHEN own + bought = ?4 THEN ?5 ELSE closed_at END\n      WHERE id = ?6 AND ${sold}`).bind(me, rid, nonce, units, nowS, id),",
     "tests": [
       "test/prof5_service.test.js"
     ]
@@ -583,7 +583,7 @@
   {
     "name": "PROF5-svc-owner-kept",
     "file": "server-account/src/market.js",
-    "old": "    db.prepare(`UPDATE products SET owner = ?1, listed = 0 WHERE provenance = (SELECT provenance FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3 AND kind = 'piece')`)",
+    "old": "    db.prepare(`UPDATE products SET owner = ?1, listed = 0, bought_with = 'marks' WHERE provenance = (SELECT provenance FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3 AND kind = 'piece')`)",
     "new": "    db.prepare(`UPDATE products SET listed = 0 WHERE ?1 IS NOT NULL AND provenance = (SELECT provenance FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3 AND kind = 'piece')`)",
     "tests": [
       "test/prof5_service.test.js",
@@ -593,8 +593,8 @@
   {
     "name": "PROF5-svc-here-delivered",
     "file": "server-account/src/market.js",
-    "old": "      WHERE s.buyer = ?1 AND s.rid = ?2 AND s.n = ?3 AND s.kind = 'piece' AND s.from_region != s.to_region`).bind(me, rid, nonce, mintId(rand)),",
-    "new": "      WHERE s.buyer = ?1 AND s.rid = ?2 AND s.n = ?3 AND s.kind = 'piece'`).bind(me, rid, nonce, mintId(rand)),",
+    "old": "      WHERE s.buyer = ?1 AND s.rid = ?2 AND s.n = ?3 AND s.kind = 'piece' AND s.from_region != s.to_region`).bind(me, rid, nonce, mintId(rand)),\n    // the price table (10.2's History) - a material's sale",
+    "new": "      WHERE s.buyer = ?1 AND s.rid = ?2 AND s.n = ?3 AND s.kind = 'piece'`).bind(me, rid, nonce, mintId(rand)),\n    // the price table (10.2's History) - a material's sale",
     "tests": [
       "test/prof5_service.test.js"
     ]
@@ -602,8 +602,8 @@
   {
     "name": "PROF5-svc-prices-unkept",
     "file": "server-account/src/market.js",
-    "old": "      SELECT day, material, price, units FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3 AND kind = 'material'\n",
-    "new": "      SELECT day, material, price, units FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3 AND kind = 'material' AND 0\n",
+    "old": "    db.prepare(`INSERT INTO market_prices (day, material, price, units)\n      SELECT day, material, price, units FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3 AND kind = 'material'\n",
+    "new": "    db.prepare(`INSERT INTO market_prices (day, material, price, units)\n      SELECT day, material, price, units FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3 AND kind = 'material' AND 0\n",
     "tests": [
       "test/prof5_service.test.js"
     ]
@@ -629,8 +629,8 @@
   {
     "name": "PROF5-svc-piece-to-stores",
     "file": "server-account/src/market.js",
-    "old": "FROM market_listings WHERE id = ?1 AND rn = ?2 AND kind = 'material' AND ${origin} > 0",
-    "new": "FROM market_listings WHERE id = ?1 AND rn = ?2 AND ${origin} > 0",
+    "old": "FROM market_listings WHERE id = ?1 AND rn = ?2 AND kind = 'material' AND ${col} > 0",
+    "new": "FROM market_listings WHERE id = ?1 AND rn = ?2 AND ${col} > 0",
     "tests": [
       "test/prof5_service.test.js"
     ]
@@ -854,7 +854,7 @@
   {
     "name": "PROF5-tab-whole-courier",
     "file": "src/ui/marketTab.js",
-    "old": "const courierOf = (row, units) => (row.region === m.region ? 0 : row.road ? courierFee(units, row.road.road) : null);",
+    "old": "const courierOf = (row, units) => (row.region === m.region ? 0 : row.road ? courierFee(units, row.road.road) * (row.currency === 'gold' ? MARK_WORTH_GOLD : 1) : null);",
     "new": "const courierOf = (row, units) => (row.region === m.region ? 0 : row.road ? row.road.courier : null);",
     "tests": [
       "test/prof5_client.test.js"
@@ -863,8 +863,8 @@
   {
     "name": "PROF5-tab-max-price-only",
     "file": "src/ui/marketTab.js",
-    "old": "listing: row.id, units, max: units * row.price + (courier ?? 0), hubs: m.hubs }, m.mint),",
-    "new": "listing: row.id, units, max: units * row.price, hubs: m.hubs }, m.mint),",
+    "old": "listing: row.id, units, max: units * row.price + (courier ?? 0), hubs: m.hubs, ...(gold ? { currency: 'gold' } : {}) }, m.mint),",
+    "new": "listing: row.id, units, max: units * row.price, hubs: m.hubs, ...(gold ? { currency: 'gold' } : {}) }, m.mint),",
     "tests": [
       "test/prof5_client.test.js"
     ]

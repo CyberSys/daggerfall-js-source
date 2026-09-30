@@ -4917,7 +4917,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:7816` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:7831` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:337`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -11927,3 +11927,44 @@ nothing said.
   count pins (inputactions, qs2, viewtoggle, prof1's Professions group) and AUDIT 29 B2 flipped. Mutants:
   `tools/mutants/classicpages.json` (9, all dead); gathersaid's two records re-aimed by content. Patch notes:
   `PATCH-NOTES-Professions-on-the-Classic-Skin.md`.
+
+## GOLD-MARKET (2026-09-30, Mac: "Allow trading with gold or drakes on the marketplace"; "Gold listings, walled") - the market in gold or Drakes
+
+The market priced everything in Drakes (Professions-Arc law 8), because online gold was the save's and a client could
+pay in gold it never had. REALM P2 moved a realm character's gold onto its record on the service, so a realm record's
+gold can now change hands the way a guild deposit or a house's price does - in the act's own batch. Professions-Arc
+10.8 holds the decision; this is the build.
+
+- **A listing names its currency** (`src/net/marketLaw.js` MARKET_CURRENCIES; migration `0037_gold_market.sql`):
+  Drakes as ever, or GOLD - a realm character's own Stores units, or a crafted piece, listed with no fee at listing; each
+  gold sale pays the 5% tax and 1% of itself (the Drakes' listing fee) out of its price, both burnt (`goldSaleOf`). Buy
+  orders, auctions and commissions stay in Drakes. The Materials, Crafted and History views read one currency at a time
+  (gold's own price table, `market_gold_prices`; the Drakes' medians and the weekly report never read a gold price).
+- **A gold buy moves the buyer's record** (`server-account/src/market.js` buyWithGold): where the record stands asked
+  first (realmActFirst, AUDIT REALM L1-F2), the exact cost - the price and the courier, a Drake's worth of gold a Drake -
+  paid off it (purse, letters, then the board region's account: realmGoldLaw payFromSave) in the batch that decides the
+  sale, GUARDED (mustChange): a sale that does not land rolls the record back. The seller's share is held on the service
+  for its character (`market_gold`, at most 100,000,000) until its own record collects it into the bank account of the
+  board it stands at (`/v1/market/gold`, creditSave's `bank`; the purse where the record keeps no account there). A
+  realm character with gold held is not deleted (REALM_MARKET_OPEN_SQL).
+- **THE WALL** (law 8 kept: gold never becomes Drakes): what gold bought comes into the Stores as their third origin,
+  `gold`, and a piece bought on the market, at auction or by commission is marked `bought_with`. Gold's units go to the
+  pack (withdrawn first) or back on the market for gold, and nowhere else - every station, craft, Court or guild writ,
+  guild Stores deposit, buy-order fill and Drakes listing reads `spendableSql` (own and bought, never gold) and says
+  `stores-gold` or `market-gold-goods`. The other way too: what Drakes bought never lists for gold
+  (`market-drakes-goods`), so the market is never the Bank's way round its daily cap and its spread. STRICTER THAN ASKED:
+  Mac's "walled" named Drakes sales, writs and first-craft XP; gold's goods are kept from every station and craft too,
+  so no path from a gold purchase to a Drakes-earning act needs its own guard (a default closed, not a list to keep).
+- **The client** (`src/net/marketBook.js`, `src/ui/marketTab.js`): for a realm character a currency switch beside the
+  filters, gold rows priced in gold, a gold Buy through the host's realm act (`realmGoldAct`: the purse checkpointed,
+  the exact cost out of it as the service is asked, given back on the service's refusal); KEPT as a Drakes buy is, and
+  asked again by a settle when its answer is lost (a repeat pays nothing; a sale made on the settle is paid on its
+  answer); the List form's "Priced in gold"; under My listings the gold held and its Collect. The Stores page counts
+  gold's units, splits them ("bought with gold") and says where they may go. Any other character sees the Drakes'
+  market alone.
+- **The service**: **acct38**, migration `0037_gold_market.sql` (the Stores rebuilt for the third origin; a listing's
+  and a sale's currency; a sale's fee; a piece's `bought_with`; `market_gold`, `market_gold_prices`). Deploy the
+  migration and the service before the client: an old service refuses every gold word as a bad act, and an old client
+  beside a new service sees the Drakes' market as before.
+- **Pinned:** `test/goldmarket_service.test.js` (8) and `test/goldmarket_client.test.js` (9); the schema's table list
+  (accountworker ACC1b). Mutants: `tools/mutants/goldmarket.json` (34). Patch notes: `PATCH-NOTES-The-Gold-Market.md`.

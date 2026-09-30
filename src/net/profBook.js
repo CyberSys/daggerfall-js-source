@@ -145,9 +145,11 @@ export function createProfBook({ door, storage = null, character = () => null, n
 
   // ─── WHAT THE SERVICE SAID ─────────────────────────────────────────
   const applyTrack = (t) => { if (t && typeof t.profession === 'string') state.tracks.set(t.profession, t); };
+  // GOLD-MARKET: and what gold bought, where there is any - to the pack or back on the market for gold, nowhere else
   const applyStore = (s) => {
     if (!s || typeof s.material !== 'string') return;
-    if ((s.own | 0) + (s.bought | 0) > 0) state.stores.set(s.material, { material: s.material, own: s.own | 0, bought: s.bought | 0 });
+    const gold = s.gold | 0;
+    if ((s.own | 0) + (s.bought | 0) + gold > 0) state.stores.set(s.material, { material: s.material, own: s.own | 0, bought: s.bought | 0, ...(gold > 0 ? { gold } : {}) });
     else state.stores.delete(s.material);
   };
   function apply(data) {
@@ -231,8 +233,9 @@ export function createProfBook({ door, storage = null, character = () => null, n
     },
     /** A track as the service last said it (never null: a profession not worked yet is at nothing). */
     track(profession) { return state.tracks.get(profession) ?? { profession, xp: 0, rank: 0, specs: { 50: null, 100: null }, respec: null }; },
-    /** One material's count in the Stores, own and bought. */
+    /** One material's count in the Stores, own and bought (GOLD-MARKET: and `gold`, bought with gold, where held). */
     store(material) { return state.stores.get(material) ?? { material, own: 0, bought: 0 }; },
+    /** What a station, a craft or a writ may spend of it - never what gold bought (GOLD-MARKET's wall). */
     held(material) { const s = this.store(material); return s.own + s.bought; },
     /** AUDIT 30 U1: a material's count as another book heard it from the service (the market's answers - a listing's
      *  units out, a purchase or a cancel in, a fill, a delivery landed) - one count, whoever asked. */

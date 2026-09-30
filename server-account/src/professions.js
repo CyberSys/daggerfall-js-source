@@ -109,14 +109,27 @@ function trackView(row, profession, nowS) {
 }
 const trackRow = (db, player, character, profession) =>
   db.prepare('SELECT * FROM prof_tracks WHERE player = ?1 AND char_id = ?2 AND profession = ?3').bind(player, character, profession).first();
-/** One material's count in a character's Stores, own and bought. PROF5: the market's answers read it too. */
+/** A Stores row's origin as a count's name - own, bought (with Drakes) or GOLD-MARKET's gold (bought with gold). */
+const originOf = (o) => (o === 'bought' || o === 'gold' ? o : 'own');
+/** GOLD-MARKET: a Stores count's gold units said only where there are any - a Stores nothing bought with gold keeps the
+ *  shape every client before it read ({ material, own, bought }). */
+const withGold = (s) => {
+  if (!(s.gold > 0)) delete s.gold;
+  return s;
+};
+/** One material's count in a character's Stores, own, bought and (GOLD-MARKET) bought with gold, where held. PROF5: the
+ *  market's answers read it too. */
 export async function storeOf(db, player, character, key) {
   const { results = [] } = await db.prepare('SELECT origin, qty FROM prof_stores WHERE player = ?1 AND char_id = ?2 AND material = ?3')
     .bind(player, character, key).all();
-  const out = { material: key, own: 0, bought: 0 };
-  for (const r of results) out[r.origin === 'bought' ? 'bought' : 'own'] = Number(r.qty);
-  return out;
+  const out = { material: key, own: 0, bought: 0, gold: 0 };
+  for (const r of results) out[originOf(r.origin)] = Number(r.qty);
+  return withGold(out);
 }
+/** GOLD-MARKET: THE UNITS A STATION, A CRAFT, A WRIT OR A DRAKES ACT MAY SPEND of a material in SQL - own and bought,
+ *  never bought with gold (the wall: gold's goods go to the pack or back on the market for gold, nowhere else). `m` the
+ *  material's SQL, `p` and `c` the player's and the character's. */
+export const spendableSql = (p, c, m) => `COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ${p} AND char_id = ${c} AND material = ${m} AND origin != 'gold'), 0)`;
 /** A character's harvests today, by profession. */
 async function todayOf(db, player, character, day) {
   const { results = [] } = await db.prepare('SELECT profession, COUNT(*) AS n FROM node_harvests WHERE player = ?1 AND char_id = ?2 AND day = ?3 GROUP BY profession')
@@ -142,8 +155,8 @@ export async function profState({ db, nowS }, player, env, { character } = {}) {
     .bind(player.id, character).all();
   const held = new Map();
   for (const r of stores) {
-    const s = held.get(r.material) ?? { material: r.material, own: 0, bought: 0 };
-    s[r.origin === 'bought' ? 'bought' : 'own'] = Number(r.qty);
+    const s = held.get(r.material) ?? { material: r.material, own: 0, bought: 0, gold: 0 };
+    s[originOf(r.origin)] = Number(r.qty);
     held.set(r.material, s);
   }
   const { results: taken = [] } = await db.prepare('SELECT node, kind FROM node_harvests WHERE player = ?1 AND char_id = ?2 AND day = ?3')
@@ -153,7 +166,7 @@ export async function profState({ db, nowS }, player, env, { character } = {}) {
     tracks: PROFESSIONS.map((p) => trackView(byProf.get(p.id), p.id, nowS)),
     today: await todayOf(db, player.id, character, day),
     taken: taken.map((t) => `${t.node}|${t.kind}`),
-    stores: [...held.values()],
+    stores: [...held.values()].map(withGold),
     writs: { today: await writsToday(db, player.id, day), max: COURT_WRITS_PER_DAY },
     hunt: await huntToday(db, player.id, day),   // PROF7: the account's hides today (PROF0 6)
     caps: { harvests: HARVESTS_PER_DAY, stores: STORES_MAX, withdraw: WITHDRAW_MAX, hides: HIDES_PER_DAY, highHides: HIGH_HIDES_PER_DAY },
@@ -578,6 +591,22 @@ export function spendStatements(db, { player, character, materialSql, qtySql, gu
   ];
 }
 
+/** GOLD-MARKET: spend `qtySql` units of a material over the origins `order` names, first to last - each charged what the
+ *  ones before it cannot cover, read before they are charged (so the statements run last-first) - where `guard` holds;
+ *  the rows left at 0 deleted. A withdrawal spends ['gold', 'bought', 'own'] (every unit goes to the pack); a gold
+ *  listing ['gold', 'own']. The caller's decision holds the units of exactly these origins. */
+export function spendOrigins(db, { player, character, materialSql, qtySql, guard, binds, order }) {
+  const heldOf = (o) => `COALESCE((SELECT h.qty FROM prof_stores h WHERE h.player = ?1 AND h.char_id = ?2 AND h.material = ${materialSql} AND h.origin = '${o}'), 0)`;
+  const out = [];
+  for (let i = order.length - 1; i >= 0; i--) {
+    const covered = i > 0 ? order.slice(0, i).map(heldOf).join(' + ') : '0';
+    out.push(db.prepare(`UPDATE prof_stores SET qty = MAX(0, qty - MAX(0, ${qtySql} - (${covered})))
+      WHERE player = ?1 AND char_id = ?2 AND origin = '${order[i]}' AND material = ${materialSql} AND ${guard}`).bind(player, character, ...binds));
+  }
+  out.push(db.prepare('DELETE FROM prof_stores WHERE player = ?1 AND char_id = ?2 AND qty = 0').bind(player, character));
+  return out;
+}
+
 /**
  * WITHDRAW TO PACK: `{ character, material, qty, rid }` - `qty` units out of the Stores, bought first, for the client to
  * mint as the items the law names (professionLaw materialOf). They never come back (law 3).
@@ -601,9 +630,11 @@ export async function withdrawStores(ctx, player, env, { character, material: ke
       SELECT ?1, ?3, ?2, ?4, ?5, ?6, ?7
       WHERE COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?2 AND material = ?4), 0) >= ?5`)
       .bind(player.id, character, rid, key, qty, nowS, nonce),
-    ...spendStatements(db, {
+    // GOLD-MARKET: every origin goes to the pack - gold's first (the goods the wall keeps out of everything else)
+    ...spendOrigins(db, {
       player: player.id, character, materialSql: '?3', qtySql: '?4',
       guard: 'EXISTS (SELECT 1 FROM prof_withdrawals WHERE player = ?1 AND rid = ?5 AND n = ?6)', binds: [key, qty, rid, nonce],
+      order: ['gold', 'bought', 'own'],
     }),
   ]);
   const made = await db.prepare('SELECT * FROM prof_withdrawals WHERE player = ?1 AND rid = ?2').bind(player.id, rid).first();
@@ -665,7 +696,7 @@ export async function smeltAtForge(ctx, player, env, { character, recipe: id, co
   r.inputs.forEach((inp, i) => {
     const k = `?${11 + 2 * i}`, need = `?${12 + 2 * i}`;
     binds.push(inp.key, inp.n * count);
-    held.push(`COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?2 AND material = ${k}), 0) >= ${need}`);
+    held.push(`${spendableSql('?1', '?2', k)} >= ${need}`);   // GOLD-MARKET: never gold's units
     // the products bought: the most any input's bought units reach, product by product (professionLaw smeltOrigin)
     boughtOf.push(`((MIN(COALESCE((SELECT qty FROM prof_stores WHERE player = ?1 AND char_id = ?2 AND material = ${k} AND origin = 'bought'), 0), ${need}) + ${inp.n} - 1) / ${inp.n})`);
   });
@@ -698,7 +729,7 @@ export async function smeltAtForge(ctx, player, env, { character, recipe: id, co
   if (made) return answer(made, { repeat: true });
   for (const inp of r.inputs) {
     const st = await storeOf(db, player.id, character, inp.key);
-    if (st.own + st.bought < inp.n * count) return { error: 'stores-short', material: inp.key };
+    if (st.own + st.bought < inp.n * count) return { error: st.own + st.bought + (st.gold ?? 0) >= inp.n * count ? 'stores-gold' : 'stores-short', material: inp.key };   // GOLD-MARKET: short only of what gold bought
   }
   return { error: 'stores-full', material: r.out };
 }
@@ -787,7 +818,7 @@ export async function craftAtAnvil(ctx, player, env, { character, recipe: id, cl
   const held = [];
   inputs.forEach((inp, i) => {
     binds.push(inp.key, inp.n);
-    held.push(`COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?2 AND material = ?${17 + 2 * i}), 0) >= ?${18 + 2 * i}`);
+    held.push(`${spendableSql('?1', '?2', `?${17 + 2 * i}`)} >= ?${18 + 2 * i}`);   // GOLD-MARKET: never gold's units
   });
   const decided = 'EXISTS (SELECT 1 FROM prof_crafts WHERE player = ?1 AND rid = ?5 AND n = ?6)';
   await db.batch([
@@ -818,7 +849,7 @@ export async function craftAtAnvil(ctx, player, env, { character, recipe: id, cl
   if (made) return craftAnswer(db, player, made, nowS, { repeat: true });
   for (const inp of inputs) {
     const st = await storeOf(db, player.id, character, inp.key);
-    if (st.own + st.bought < inp.n) return { error: 'stores-short', material: inp.key };
+    if (st.own + st.bought < inp.n) return { error: st.own + st.bought + (st.gold ?? 0) >= inp.n ? 'stores-gold' : 'stores-short', material: inp.key };   // GOLD-MARKET
   }
   return { error: 'stores-short' };
 }
@@ -993,7 +1024,7 @@ export async function deliverWrit(ctx, player, env, { character, id, rid } = {})
       WHERE id = ?5 AND filled_by IS NULL AND expires_at > ?3
         AND NOT EXISTS (SELECT 1 FROM writs WHERE filled_by = ?1 AND rid = ?4)
         AND (SELECT COUNT(*) FROM writs WHERE filled_by = ?1 AND day = ?7) < ?8
-        AND COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?2 AND material = writs.material), 0) >= writs.qty
+        AND ${spendableSql('?1', '?2', 'writs.material')} >= writs.qty   -- GOLD-MARKET: never gold's units
         AND COALESCE((SELECT balance FROM marks WHERE account = ?1), 0) + writs.pay <= ?9`)
       .bind(player.id, character, nowS, rid, id, nonce, day, COURT_WRITS_PER_DAY, MARKS_MAX),
     // the units out of the Stores, bought first
@@ -1032,6 +1063,6 @@ export async function deliverWrit(ctx, player, env, { character, id, rid } = {})
   if (Number(now?.expires_at ?? 0) <= nowS) return { error: 'writ-expired' };
   if ((await writsToday(db, player.id, day)) >= COURT_WRITS_PER_DAY) return { error: 'writ-cap' };
   const s = await storeOf(db, player.id, character, w.material);
-  if (s.own + s.bought < Number(w.qty)) return { error: 'stores-short' };
+  if (s.own + s.bought < Number(w.qty)) return { error: s.own + s.bought + (s.gold ?? 0) >= Number(w.qty) ? 'stores-gold' : 'stores-short' };   // GOLD-MARKET
   return { error: 'marks-full' };
 }

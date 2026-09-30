@@ -1093,7 +1093,22 @@ export async function bootWorld(canvas, renderer, params, status) {
     ? createMarketBook({ door: accountMarket({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() }), storage: appStorage(),
       character: () => characterIdOf(playerEntity), now: () => Date.now() + _sharedOffsetMs, marks: marksBook,
       stores: { apply: (st) => profBook?.applyStore(st) },   // AUDIT 30 U1: what the market moves in the Stores, the Stores' count
-      holds: (pv) => !!writBook?.holdsPiece(pv) })   // AUDIT 31 H1: a piece the writs' book keeps a fill of is not listed too
+      holds: (pv) => !!writBook?.holdsPiece(pv),   // AUDIT 31 H1: a piece the writs' book keeps a fill of is not listed too
+      // GOLD-MARKET: a realm character's gold trade moves its record on the service, in the sale's own batch - the purse
+      // checkpointed first (realmSaves.js realmGoldAct) - and the save's gold as the record's pays at the BOARD's region:
+      // the purse, its letters, then that region's account (realmGoldLaw payFromSave; court.js deductGold, the same order)
+      realm: realmSession ? { act: (o) => realmGoldAct({ ...o, session: realmSession, checkpoint: () => onlineCheckpoint() }) } : null,
+      wallet: realmSession ? (region) => {
+        playerEntity.bankAccounts ??= createBankAccounts(BANK_REGION_COUNT);
+        const account = playerEntity.bankAccounts[region] ?? null;
+        return {
+          gold: () => totalGoldAmount(playerEntity) + Math.max(0, account?.accountGold ?? 0),
+          pay: (n) => { const owed = deductGold(playerEntity, n); if (account && owed > 0) account.accountGold -= owed; },
+          credit: (n) => addGold(playerEntity, n),
+          // collected: into that region's account, the purse where there is none (realmGoldLaw creditSave's `bank`)
+          bank: (n) => { if (account) account.accountGold = (Number.isFinite(account.accountGold) ? account.accountGold : 0) + n; else addGold(playerEntity, n); },
+        };
+      } : null })
     : null;
   // PROF6 (bible/06-Systems/Professions-Arc.md 28): the writs' book - a guild writ posted, supplied, withdrawn; a
   // commission posted, filled (the piece KEPT before it is asked), cancelled, declined; the guild Stores (net/writBook.js).
