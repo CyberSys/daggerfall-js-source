@@ -298,7 +298,9 @@ same collider with every box widened past the grid (the old walk), the work
 order for a filed and an unfiled bucket both ways and after a re-registration,
 the filing following a new, a grown and a removed bucket, the comb of walls
 that carries a sphere over a broad cell's edge, the skin shell against the Y
-reject, the wrap, and the nine rays. Ten mutants, ten caught.
+reject, the wrap, and the nine rays. Mutants: `tools/mutants/fb0930_frame.json`,
+10, 10 dead; `perfcol1.json`'s never-cleared set re-aimed by content to the
+stamp never bumped, 9, 9 dead.
 
 **Not measured here, said plainly:** a real dungeon's door count, on the
 player's machine. The trace is the build before both fixes; the next trace
