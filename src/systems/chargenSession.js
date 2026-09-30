@@ -522,7 +522,7 @@ function classicChargenWindow(flow, { onDone, onCancel, hudScale = 2 } = {}) {
     // the wizard already routes a mousemove here: world.js and
     // exterior.js through `townTalk.hover` (townTalk.js:1298-1309,
     // the route itself :1307), dungeonContext.js through `overlayHover`
-    // (:8085), which dungeon.js:552 and worldModes.js:9999 both feed.
+    // (:8089), which dungeon.js:552 and worldModes.js:9999 both feed.
     // (ROAD-G G4 review: all four were stale - re-resolved by content,
     // against the same six routes G4-11 sweeps.) Hovering never
     // advances the flow, so no done check.
