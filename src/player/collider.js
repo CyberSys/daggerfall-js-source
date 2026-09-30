@@ -681,6 +681,17 @@ export class Collider {
     if (this._buckets.delete(bucketKey)) this._broad = null;   // FB0930-FRAME: the filing is dropped with it
   }
 
+  /** AUDIT CLIMB1 F5: where a bucket stands now - `{ t, r }`, its translation and its turn (r null for an unturned
+   *  one; intoBucket's convention: local = r (p - t)), copies, or null for no such bucket. The enhanced climb's move
+   *  onto a mover (a boat's hull) reads it every step and rides the difference (player/parkour.js carryMove). */
+  bucketPose(bucketKey) {
+    const bucket = this._buckets.get(bucketKey);
+    if (!bucket) return null;
+    const t = bucket.t();
+    const r = bucket.r ? bucket.r() : null;
+    return { t: [t[0], t[1], t[2]], r: r ? Array.from(r) : null };
+  }
+
   /** DECOR-ROOMS: the box every bucket's triangles stand in, in world space (each bucket's own bounds moved by its
    *  translation) - `{ min, max }`, or null for a collider that holds no triangle. */
   bounds() {

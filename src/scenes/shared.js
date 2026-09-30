@@ -22,7 +22,7 @@ import { cloudsStateUnderMod, dynamicMoonState, dynamicMoonlight } from '../rend
 import { isEnhanced } from '../systems/uiSkin.js';
 import { getPref } from '../systems/uiPrefs.js';   // RA1: the Enhanced pane's sky switch
 import { pageParam } from '../systems/pageQuery.js';   // CLIMB1: `?parkour=off`, the enhanced climb's kill door
-import { isOnlinePage } from '../systems/onlineLane.js';   // CLIMB1: online the skin is not asked
+import { isOnlinePage, onlineForcedPref } from '../systems/onlineLane.js';   // CLIMB1: online the skin is not asked, and the row is the lane's
 import { DynamicSkiesRenderer } from '../render/dynamicSkiesRenderer.js';   // DS1: Dynamic Skies' skybox, the mod's own pass
 import { DynamicSkies } from '../systems/dynamicSkiesRuntime.js';   // DS1: BLBSkybox's instance
 import { MAX_DELTA_SECONDS } from '../systems/dynamicSkies.js';   // Time.maximumDeltaTime, the mod's frame clamp
@@ -762,21 +762,28 @@ export function climbingDeps(entity, say = null) {
  *  room agrees on, so the row - forced on there - is the whole answer. */
 export function parkourSwitchOn(search) {
   if (pageParam('parkour', search) === 'off') return false;
-  return (isOnlinePage(search) || isEnhanced(search)) && !!getPref('enhancedClimbing');
+  // AUDIT CLIMB1 F11: the lane asked with the page this is handed - getPref reads the tab's own, so a caller that
+  // names a page (a probe, a pin) got the shelf's value where the online lane forces the row
+  const row = onlineForcedPref('enhancedClimbing', search) ?? getPref('enhancedClimbing');
+  return (isOnlinePage(search) || isEnhanced(search)) && !!row;
 }
 
 /** CLIMB1: the enhanced climb's deps every host wires the same way - the
  *  switch, read live (the row takes effect at once), and the Climbing
  *  skill's reads, the same the classic climb's chance takes (climbingDeps:
- *  the live skill, the Khajiit arm, the Climbing spell's doubling). */
-export function parkourDeps(entity) {
+ *  the live skill, the Khajiit arm, the Climbing spell's doubling), plus the
+ *  Jumping skill a vault's pace reads (AUDIT CLIMB1 R7). `say` is the host's
+ *  HUD line, the climbingMode line's own (a refused climb's word, F10). */
+export function parkourDeps(entity, say = null) {
   return {
     enabled: () => parkourSwitchOn(),
     inputs: () => ({
       climbing: skillValue(entity, SKILLS.Climbing),
+      jumping: skillValue(entity, SKILLS.Jumping),
       khajiit: entity.race === 'Khajiit',
       enhanced: !!entity?.activeEffects?.some((a) => a.kind === 'climbing'),
     }),
+    say,
   };
 }
 

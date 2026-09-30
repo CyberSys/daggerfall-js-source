@@ -88,6 +88,9 @@ export function motionBagOf(player) {
     forward: player.moveForward || 0, strafe: player.moveStrafe || 0, running: !!player.isRunning, speed: player.moveSpeed || 0,
     grounded: player.grounded !== false, jumping: !!player.jumping, swimming: !!player.swimming, levitating: !!player.levitating,
     crouching: !!player.crouching, riding: !!player.riding, standing: !!player.standing, speedField: player.speed || 0,
+    // AUDIT CLIMB1 F9: the climb - the classic one or a mantle in flight - for what puts the hands away for it (the
+    // dungeon host's torch read `climbing` off this bag, which never carried it: no torch stowed on a dungeon wall)
+    climbing: !!(player.climb?.isClimbing || player.mantling),
     // EOTB-IL: what Eye Of The Beholder's PlayerBillboard reads off PlayerMotor beside the above - the sneak
     // (its frame time doubles), FreezeMotor (a frozen motor is "stopped"), OnExteriorWater == Swimming (the sprite's
     // top at the swim line), and the live capsule height (the billboard's parent is the capsule's centre)
@@ -255,8 +258,9 @@ import { ClimbingState, climbingSpeed } from './climbing.js';
 // Climbing arc). The same runtime-only cycle shape: parkour.js imports
 // nothing from here, and every motor constant it needs is handed in.
 import {
-  senseLedge, senseVault, planMantle, planVault, movePoint, offsetMove,
-  parkourSkill, parkourReach, PARKOUR_AIR_REACH, PARKOUR_AIR_LOW, PARKOUR_VAULT_EXIT_VY,
+  senseLedge, senseVault, senseOver, planMantle, planClamber, planVault, movePoint, offsetMove, carryMove,
+  parkourSkill, jumpingSkill, parkourReach, parkourCatchHold, parkourRefusal,
+  PARKOUR_AIR_REACH, PARKOUR_AIR_LOW, PARKOUR_OVER_DROP, PARKOUR_QUIET_STEPS,
 } from './parkour.js';
 // A6: PlayerMoveScanner is a component on the player object in DFU
 // (PlayerMotor.Start :265 GetComponent), so the motor owns one. Same
@@ -403,6 +407,9 @@ export class PlayerMotor {
     this.parkour = parkour;
     this._pkMove = null;         // the move in flight (player/parkour.js planMantle/planVault), null between moves
     this.parkoured = null;       // 'mantle' | 'vault' for the frame a move starts (the fatigue/tally consumer, as `jumped`)
+    this._pkJumpLatch = false;   // AUDIT CLIMB1 F7: Jump held through a move is spent on it - the next jump is a fresh press
+    this._pkSaid = false;        // AUDIT CLIMB1 F10: a refused climb's line said once a press
+    this._pkQuiet = 0;           // steps the air catch and the top-out rest after a refused lip (PARKOUR_QUIET_STEPS)
     // A6: the step/head probes (PlayerMoveScanner). Always mounted, as
     // the component always is; it backs off on a collider with no
     // sweep API rather than crashing the step.
@@ -721,6 +728,7 @@ export class PlayerMotor {
    *  and BOTH ends of the render span with it, so the eye does not lerp behind a moving deck; no motion state is
    *  touched (the motor is frozen at the helm, and a write to a transform is no teleport). */
   pinFeet(x, y, z) {
+    this._pkMove = null;   // AUDIT CLIMB1 F4: a pin is a placement - the move it interrupts is over, never resumed
     this.pos[0] = x; this.pos[1] = y; this.pos[2] = z;
     this._prevPos[0] = x; this._prevPos[1] = y; this._prevPos[2] = z;
     this._eyeFeetY = null;   // MAC1: the smoothing primes afresh on the pinned height
@@ -731,6 +739,7 @@ export class PlayerMotor {
    *  eye with it, and a fall's start too, so a deck's rise is no fall. No motion state is touched: the carry is the
    *  deck's, and the body's own walk goes on in the world from where it stands. */
   carryBy(dx, dy, dz) {
+    if (this._pkMove) offsetMove(this._pkMove, [dx, dy, dz]);   // AUDIT CLIMB1 F5: a move on the deck is carried with it
     this.pos[0] += dx; this.pos[1] += dy; this.pos[2] += dz;
     this._prevPos[0] += dx; this._prevPos[1] += dy; this._prevPos[2] += dz;
     if (this._eyeFeetY != null) this._eyeFeetY += dy;
@@ -1016,6 +1025,11 @@ export class PlayerMotor {
       // GetBaseSpeed's crouch-before-riding order unreachable - and
       // the climb and forced-swim arms are refused from the saddle
       // with it. setTransportMode owns the mount/dismount actions.
+    } else if (this._pkMove) {
+      // AUDIT CLIMB1 F1: a move in flight owns the stance - the sensor proved its
+      // path at one height, and a crouch toggled mid-move could stand the body
+      // up into the ceiling a crouched mantle passes under. (A pending action
+      // below still runs its clock: the crouched move's own eye.)
     } else if (input.crouch && (!this.swimming || this.grounded)) {
       this.heightAction = this.crouching ? 'stand' : 'crouch';
       this.heightTimerMax = HEIGHT_TIMER_FAST;
@@ -1073,7 +1087,7 @@ export class PlayerMotor {
       //
       // The pass condition is `!Number.isFinite(dist)`, not a
       // comparison against the distance: collider.sphereCast
-      // (collider.js:1197) returns Infinity ONLY on a clear sweep and a
+      // (collider.js:1208) returns Infinity ONLY on a clear sweep and a
       // finite dist (0 on a start-overlap) for any hit, which is
       // exactly Unity's boolean. One accepted deviation: Unity's
       // SphereCast ignores colliders overlapping the START sphere, so a
@@ -1468,30 +1482,40 @@ export class PlayerMotor {
    *  start one, and each asks the ledge sensor along the look (the wall's
    *  own latched normal for a climber):
    *    - JUMP ON THE GROUND, behind the jump's own 0.1 s grounded gate: a
-   *      lip in reach is mantled, or at a run with Forward held vaulted,
-   *      INSTEAD of the jump; no lip and the jump below goes as ever;
+   *      lip in reach is climbed onto (or over, a thin top), or with Forward
+   *      held vaulted, INSTEAD of the jump; no lip and the jump below goes as
+   *      ever. The Jump a move spent is not pressed again until it is let go
+   *      (AUDIT CLIMB1 F7);
    *    - JUMP HELD IN THE AIR (Mac: "Jump is the grab"): a lip coming into
-   *      reach while rising or falling is caught and mantled;
+   *      reach while rising or falling is caught - if the fall so far is one
+   *      the Climbing skill holds (F6: "Skill scales it");
    *    - THE CLASSIC CLIMB arriving under a lip: the top-out, with no key.
-   *  Never from water, a saddle, levitation or paralysis. The reach and the
-   *  pace are the Climbing skill's (parkourSkill - it gates no move). */
+   *  Never from water, a saddle, levitation or paralysis. A climb (onto, or
+   *  over) asks Roleplay & Realism's gate first (F10); a vault does not. The
+   *  reach and the pace are the Climbing skill's, a vault's pace the Jumping
+   *  skill's (parkourSkill, jumpingSkill - neither gates a move). */
   _parkourStep(dt, input, yaw) {
     const pk = this.parkour;
     if (!pk) return false;
+    if (!input.jump) { this._pkJumpLatch = false; this._pkSaid = false; }
     if (this._pkMove) { this._parkourAdvance(dt); return true; }
     if (!pk.enabled?.()) return false;
     if (this.swimming || this.levitating || this.riding || this.sunk || this.paralyzed) return false;
     let mode = null;
     if (this.climb?.isClimbing && !this.climb.isSlipping) mode = 'topout';
-    else if (input.jump && this.grounded
+    else if (input.jump && !this._pkJumpLatch && this.grounded
       && (this.climb?.wasClimbing || this.groundedTime >= GROUNDED_JUMP_GATE_S)) mode = 'ground';
     else if (input.jump && !this.grounded) mode = 'air';
     if (!mode) return false;
-    const skill = parkourSkill(pk.inputs?.() ?? {});
+    if (mode !== 'ground' && this._pkQuiet > 0) { this._pkQuiet--; return false; }
+    const inputs = pk.inputs?.() ?? {};
+    const skill = parkourSkill(inputs);
+    if (mode === 'air' && this.falling && this.fallStart - this.pos[1] > parkourCatchHold(skill)) return false;
     const geo = {
       low: mode === 'ground' ? STEP_OFFSET : PARKOUR_AIR_LOW,
       high: parkourReach(skill) + (mode === 'ground' ? 0 : PARKOUR_AIR_REACH),
       radius: CAPSULE_RADIUS, stand: CAPSULE_HEIGHT, crouch: CROUCH_HEIGHT, height: this.height,
+      footing: mode === 'ground',
     };
     const dir = (mode === 'topout' && this._climbWallDir) ? this._climbWallDir : [Math.sin(yaw), 0, Math.cos(yaw)];
     const ledge = senseLedge(this.collider, this.pos, dir, geo);
@@ -1499,32 +1523,63 @@ export class PlayerMotor {
     let move = null;
     if (mode === 'ground' && input.forward > 0) {
       const vault = senseVault(this.collider, this.pos, ledge, geo);
-      if (vault) move = planVault(this.pos, ledge, vault, skill, this.speed);
+      if (vault) move = planVault(this.pos, ledge, vault, jumpingSkill(inputs), this.speed);
     }
-    if (!move && ledge.mantle) move = planMantle(this.pos, ledge, skill);
-    if (!move) return false;
-    this._pkMove = move;
-    this.parkoured = move.kind;
-    this.climb?.stop();   // the top-out ends the climb it came out of
-    // a crouch-only top: the eye sinks across the whole move and the
-    // capsule flips crouched as it arrives (the crouch action's own clock)
-    if (move.crouch && !this.crouching) {
-      this.heightAction = 'crouch';
-      this.heightTimer = 0;
-      this.heightTimerMax = move.dur;
+    if (!move) {
+      const over = ledge.mantle ? null : senseOver(this.collider, this.pos, ledge, geo, PARKOUR_OVER_DROP);
+      const refusal = (ledge.mantle || over) ? parkourRefusal() : null;
+      if ((!ledge.mantle && !over) || refusal) {
+        if (refusal && !this._pkSaid) { pk.say?.(refusal); this._pkSaid = true; }
+        if (mode !== 'ground') this._pkQuiet = PARKOUR_QUIET_STEPS;
+        return false;
+      }
+      move = ledge.mantle ? planMantle(this.pos, ledge, skill) : planClamber(this.pos, ledge, over, skill);
     }
+    this._parkourBegin(move);
     this._parkourAdvance(dt);
     return true;
+  }
+
+  /** CLIMB1: a move begins. The classic climb it came out of stops; the Jump
+   *  that started it is spent (F7); the walk input is gone (F9 - the arms, the
+   *  body and the peers read it); a move onto what moves notes where that
+   *  stands (F5). A crouched move is CROUCHED from its first step (AUDIT
+   *  CLIMB1 F1): the sensor proved its path at the crouch's height, and the
+   *  first cut only armed the crouch's clock, which ran out a frame after the
+   *  move - its last step and its settle were a standing body's, up through
+   *  the ceiling over the top. The eye sinks across the rise on the crouch's
+   *  own clock, so it is down before the body passes under anything. */
+  _parkourBegin(move) {
+    this._pkMove = move;
+    this.parkoured = move.kind;
+    this._pkJumpLatch = true;
+    this.climb?.stop();
+    this.moveForward = 0;
+    this.moveStrafe = 0;
+    this.moveSpeed = 0;
+    if (move.crouch && !this.crouching) {
+      this.standingHeightAdjustment = 0;
+      this.crouching = true;
+      this.heightAction = 'crouch';
+      this.heightTimer = 0;
+      this.heightTimerMax = move.dur * move.split;
+    }
+    move.carrier = move.key != null ? (this.collider.bucketPose?.(move.key) ?? null) : null;
   }
 
   /** CLIMB1: one step of the move in flight. The feet ride the scripted
    *  path (every point of it proven clear before it began), carrying no
    *  velocity and no fall: a catch in the air anchors any later fall at the
-   *  catch, as the classic climb's grasp does. A mantle ends settled on the
-   *  top; a vault ends in the air past the far edge and is handed back to
-   *  the ballistic arm with its momentum and a small rise. */
+   *  catch, as the classic climb's grasp does. A move onto a mover rides it.
+   *  A mantle ends settled on the top; a vault or a clamber ends in the air
+   *  past the far edge and is handed back to the ballistic arm - a vault with
+   *  its momentum and a small rise, a clamber at a step's pace. */
   _parkourAdvance(dt) {
     const m = this._pkMove;
+    if (m.carrier) {
+      const now = this.collider.bucketPose(m.key);
+      if (now) { carryMove(m, m.carrier, now); m.carrier = now; }
+    }
     m.t = Math.min(1, m.t + dt / m.dur);
     movePoint(m, m.t, this.pos);
     this.velY = 0;
@@ -1537,9 +1592,9 @@ export class PlayerMotor {
     this.groundKey = null;
     if (m.t >= 1) {
       this._pkMove = null;
-      if (m.kind === 'vault') {
+      if (m.exit) {
         this.jumping = true;   // Jumping withholds the floor snap until the landing
-        this.velY = PARKOUR_VAULT_EXIT_VY;
+        this.velY = m.exitVy ?? 0;
         this._airVelX = m.exit[0];
         this._airVelZ = m.exit[1];
       } else {
@@ -1621,6 +1676,7 @@ export class PlayerMotor {
     // loose in it; the tick that runs the clock out raises
     // CancelMovement, which the block above spends on the NEXT step.
     if (this.freezeMotor > 0) {
+      this._pkMove = null;   // AUDIT CLIMB1 F4: a freeze follows a placement (the helm's, a teleport's) - the move is over
       this.freezeMotor -= dt;
       if (this.freezeMotor <= 0) {
         this.freezeMotor = 0;
@@ -1955,7 +2011,7 @@ export class PlayerMotor {
     // HandleJumpInput while the player wades a record-0 tile and
     // refuses the leap; the port granted the full JUMP_SPEED * boost.
     // (The paralysis clause is covered host-side by the zeroed bag.)
-    if (this.grounded && input.jump && !this.slowFalling
+    if (this.grounded && input.jump && !this.slowFalling && !this._pkJumpLatch   // AUDIT CLIMB1 F7: not the Jump a move spent
         && !this.onExteriorWater
         && this.transportMode !== TRANSPORT_MODES.Cart
         && (this.climb?.wasClimbing || this.groundedTime >= GROUNDED_JUMP_GATE_S)) {

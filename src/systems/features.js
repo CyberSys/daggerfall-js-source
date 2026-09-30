@@ -360,9 +360,9 @@ export const FEATURES = Object.freeze([
     id: 'enhanced-climbing',
     group: 'world',
     title: 'Enhanced climbing',
-    note: 'Press Jump at a ledge to climb onto it, hold Jump in the air to catch one, and press it at a run to vault '
-      + 'a low wall; climbing a wall ends with you pulling yourself over the top. Your Climbing skill sets how high '
-      + 'you reach and how fast you climb, and Off keeps Daggerfall\u2019s climbing.',
+    note: 'Press Jump at a ledge to climb onto or over it, hold Jump in the air to catch one, and press it moving '
+      + 'forward to vault a low wall; climbing a wall ends with you pulling yourself over the top. Your Climbing '
+      + 'skill sets how high you reach and how fast you climb, and Off keeps Daggerfall\u2019s climbing.',
     effect: 'Takes effect at once.',
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({ store: 'prefs', key: 'enhancedClimbing', initial: true, online: true }),

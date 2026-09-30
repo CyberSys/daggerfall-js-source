@@ -1,33 +1,38 @@
 // CLIMB1 (2026-09-30, the Enhanced Climbing arc - bible/03-World/Parkour-Arc.md):
-// THE LEDGE SENSOR, THE MANTLE AND THE VAULT. Mac: "a proper and detailed
-// climbing system... Being able to latch, mantle, jump from one location to
-// another ledge. Almost parkour like", after Assassin's Creed and Dying Light.
-// His four calls: JUMP IS THE GRAB, THE SKILL SCALES IT (it gates no move),
-// SHEER WALLS FREE-CLIMB ON GRIP, and LEAPS OF THEIR OWN scaled by Jumping.
+// THE LEDGE SENSOR, THE MANTLE, THE CLAMBER AND THE VAULT. Mac: "a proper and
+// detailed climbing system... Being able to latch, mantle, jump from one
+// location to another ledge. Almost parkour like", after Assassin's Creed and
+// Dying Light. The four calls: JUMP IS THE GRAB, THE SKILL SCALES IT (it gates
+// no move), SHEER WALLS FREE-CLIMB ON GRIP, and LEAPS OF THEIR OWN scaled by
+// Jumping.
 //
 // The port's own law, not DFU's: ClimbingMotor's classic path (climbing.js)
 // has no idea what a ledge is - the wall-hug shoves the capsule over the lip
 // (DISC21) - and its `AdvancedClimbing` arms (hang, rappel, corner wraps) are
 // Ledger A off-road and stay so. This module is ENHANCED LANE ONLY: the motor
 // consults it only when its host hands `parkour` deps whose switch answers
-// yes (scenes/shared.js parkourDeps - the enhanced skin and the Features row),
-// so the classic climb is untouched on the classic skin and with the row off.
+// yes (scenes/shared.js parkourSwitchOn), so the classic climb is untouched on
+// the classic skin offline and with the row off.
 //
 // What CLIMB1 moves:
 //   - MANTLE: a lip within reach of the hands (Jump pressed on the ground, Jump
 //     held in the air, or the classic climb arriving under one) is climbed
-//     onto along a scripted path - up the face, then over the lip - ending
-//     standing on the top, or crouched where only a crouch fits;
-//   - VAULT: a lip at the waist or under whose top ends within a stride,
-//     taken at a run with Forward held, is passed over and the body carries
-//     on beyond it with its momentum.
+//     onto - up the face, then over the lip - ending standing on the top, in
+//     the middle of a narrow one, or crouched where only a crouch fits;
+//   - CLAMBER: a top too thin to stand on (a parapet, a railing's top rail, a
+//     thin fence) is climbed over onto the floor just behind it;
+//   - VAULT: a lip at the waist or under whose top ends within a stride, taken
+//     moving forward, is passed over and the body carries on beyond it.
 // The path is SCRIPTED, not physics (the one thing both reference games do),
-// and it is proven clear before it starts: every point it passes through is
-// a capsule the collider says fits.
+// and the WHOLE of it is proven clear before it starts (AUDIT CLIMB1 F2: the
+// first sensor proved only the two ends, and a body stepped through railings,
+// slots and lintels): every point the body passes through is a capsule the
+// collider says fits, at the height the body will have there.
 //
-// This module is pure - the collider is handed in and nothing is imported
-// from the motor, whose constants arrive as arguments (the motor imports this
-// file; a top-level read of a motor constant here would meet the cycle's TDZ).
+// This module is pure - the collider is handed in - and it takes no motor
+// constant at its top level: the motor imports this file, so a top-level read
+// of a motor constant here would meet the cycle's TDZ. The two numbers it
+// shares with the motor are restated and pinned equal (test/auditclimb1).
 
 import { KHAJIIT_CLIMBING_BONUS } from './climbing.js';
 
@@ -51,28 +56,84 @@ export const PARKOUR_FACING_DOT = Math.cos((50 * Math.PI) / 180);
 export const PARKOUR_FACE_MAX_NY = 0.5;
 /** A top pitched past 45 degrees is a roof the body would slide off. */
 export const PARKOUR_TOP_MIN_NY = Math.cos((45 * Math.PI) / 180);
-/** The wall scan's rung: level rays this far apart up the face. */
-export const PARKOUR_SCAN_STEP = 0.2;
-/** The down ray that finds the top lands this far past the face. */
-export const PARKOUR_LIP_INSET = 0.2;
+/** The wall scan's rung: level rays this far apart up the face. AUDIT CLIMB1
+ *  G4: 0.2 at CLIMB1, and a table top thinner than a rung was found only when
+ *  a rung happened to land in its edge. */
+export const PARKOUR_SCAN_STEP = 0.1;
+/** The face goes on while the next rung meets it within this much farther
+ *  (a face leaning back up to ~38 degrees); farther, or nothing, and the face
+ *  has ended under that rung - a 45-degree roof's rise is 0.1 a rung. */
+export const PARKOUR_FACE_LEAN = 0.08;
+/** The lip is the top just past the face: the down ray that finds it lands
+ *  this far in. AUDIT CLIMB1 G1/G3: it was 0.2 in, which read a pitched
+ *  roof's lip 0.2 up its slope and missed a fence thinner than 0.2 outright. */
+export const PARKOUR_EDGE_INSET = 0.03;
+/** The face under the lip is confirmed this far below it (a 4 cm table top's
+ *  edge is still a face). */
+export const PARKOUR_UNDER = 0.02;
 /** The feet land the capsule's radius plus this past the face. */
 export const PARKOUR_TOP_INSET = 0.12;
-/** The top under the landing feet is sought from this far over the lip, and
- *  may stand 0.35 above or below it. */
+/** The top is sought from this far over it (plus a 45-degree slope's rise). */
 export const PARKOUR_TOP_PROBE = 0.3;
+/** The top's profile: a down ray every this far from the face, out to the walk. */
+export const PARKOUR_TOP_STEP = 0.1;
+export const PARKOUR_TOP_WALK = 1.0;
+/** A surface more than this under the lip is past the top's far edge. */
+export const PARKOUR_TOP_DROP = 0.1;
+/** A top shallower than this is stood on by nobody - it is climbed over (the
+ *  clamber) or vaulted; one at least this deep is stood on in its middle when
+ *  the usual landing would overhang it (AUDIT CLIMB1 G3). */
+export const PARKOUR_MIN_STAND_DEPTH = 0.28;
+/** The landing may stand this far off the plane the lip's own slope draws: a
+ *  flat tread 0.25 above its lip is the next stair, not this top (G5). */
+export const PARKOUR_SLOPE_SLACK = 0.1;
+/** On the ground, the floor just in front of the face must be the body's own
+ *  - within this of the feet. A tread higher than that between the body and
+ *  the face is a stair, and the face a riser further up it (AUDIT CLIMB1 G5:
+ *  near a staircase's head a press mantled onto the landing two treads up). */
+export const PARKOUR_FOOTING = 0.15;
+/** Where the straight landing does not fit - an inner corner, a taller wall
+ *  beside the ledge - the body slides along the face by these (G2). */
+export const PARKOUR_NUDGE = Object.freeze([0, 0.15, -0.15, 0.3, -0.3]);
 /** The body rises this far off the face, and this far over the lip. */
 export const PARKOUR_UP_GAP = 0.04;
+/** A mantle's step over the lip rises this much more at its middle. */
+export const PARKOUR_MANTLE_ARC = 0.03;
 /** "Clear": the push collider.penetrationAt reports, findClearFloor's own. */
 export const PARKOUR_FIT_EPS = 0.03;
+/** The path is proven at least this often - under a quarter of the radius. */
+export const PARKOUR_PATH_STEP = 0.08;
+/** After a lip is found and every way onto or over it refused, the air catch
+ *  and the top-out rest this many steps before asking again - the refusal
+ *  proves the whole path at up to ten tries (1.4 ms on a railing), and held
+ *  Jump would otherwise ask it every step. 50 ms is a few centimetres of fall. */
+export const PARKOUR_QUIET_STEPS = 3;
 /** A vault: the lip at the waist or under, the top ending within a stride. */
 export const PARKOUR_VAULT_MAX = 1.2;
 export const PARKOUR_VAULT_DEPTH = 0.9;
-/** The vault's body clears the top by this, and leaves it with this rise. */
+/** The body clears a thin top by this going over it; a vault leaves it with
+ *  this rise. */
 export const PARKOUR_VAULT_CLEAR = 0.08;
 export const PARKOUR_VAULT_EXIT_VY = 1.0;
 /** The slowest a vault leaves its far side, m/s - a standing vault still
  *  carries the body off the top rather than dropping it onto the edge. */
 export const PARKOUR_VAULT_EXIT_MIN = 3.5;
+/** DFU's fall-damage threshold (motor.js FALL_DAMAGE_THRESHOLD, AcrobatMotor's
+ *  fallingDamageThreshold), restated for the cycle and pinned equal. A vault
+ *  never leaps into a fall that hurts (G6); a catch at Climbing 0 holds only a
+ *  fall that could not have hurt anyway (F6). */
+export const PARKOUR_SAFE_DROP = 5;
+/** A clamber comes down behind the thin top onto a floor at most this far
+ *  under its lip, stepping off it at this pace. */
+export const PARKOUR_OVER_DROP = 1.5;
+export const PARKOUR_OVER_EXIT = 0.8;
+/** How far a body may have FALLEN and still hold a lip it catches (Mac's
+ *  "Skill scales it": the skill says whether a hard catch holds): the fall
+ *  threshold at Climbing 0, three times it at 100. AUDIT CLIMB1 F6: every catch
+ *  held and cancelled the fall above it - Jump held beside a tower was a fall
+ *  from any height without a scratch. */
+export const PARKOUR_CATCH_HOLD_MIN = PARKOUR_SAFE_DROP;
+export const PARKOUR_CATCH_HOLD_MAX = 15;
 
 const clamp01 = (t) => Math.min(1, Math.max(0, t));
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -88,206 +149,347 @@ export function parkourSkill({ climbing = 0, khajiit = false, enhanced = false }
   return Math.min(100, Math.max(0, s));
 }
 
+/** The Jumping skill a vault reads (its pace; a vault trains Jumping too),
+ *  held to 0..100 the same way. */
+export function jumpingSkill({ jumping = 0 } = {}) {
+  return Math.min(100, Math.max(0, jumping));
+}
+
 /** The lip height a standing body's hands reach at this skill. */
 export function parkourReach(skill) {
   return lerp(PARKOUR_REACH_MIN, PARKOUR_REACH_MAX, clamp01(skill / 100));
 }
 
+/** The fall a caught lip still holds at this Climbing skill (metres). */
+export function parkourCatchHold(skill) {
+  return lerp(PARKOUR_CATCH_HOLD_MIN, PARKOUR_CATCH_HOLD_MAX, clamp01(skill / 100));
+}
+
 /** Seconds a mantle takes: longer the higher the lip, a third quicker at
- *  Climbing 100 than at 0 (a 2 m lip: 0.9 s at 0, 0.55 s at 100). */
+ *  Climbing 100 than at 0 (a 1.5 m lip: 0.75 s at 0, 0.46 s at 100). */
 export function mantleDuration(rise, skill) {
   return (0.25 + 0.22 * Math.max(0, rise)) * (1.3 - 0.5 * clamp01(skill / 100));
 }
 
-/** Seconds a vault takes, the same shape and quicker. */
+/** Seconds a vault takes, the same shape and quicker - the Jumping skill's. */
 export function vaultDuration(rise, skill) {
   return (0.22 + 0.12 * Math.max(0, rise)) * (1.2 - 0.3 * clamp01(skill / 100));
 }
+
+/** Roleplay & Realism's seam (AUDIT CLIMB1 F10): a registered gate answers a
+ *  line when a climb must be refused ("You can't climb whilst holding your
+ *  weapon."), null otherwise. The mantle and the clamber ask it; a vault is a
+ *  leap and does not. One gate, the mod's (systems/rrInstall.js). */
+let _gate = null;
+export function registerParkourGate(fn) { _gate = typeof fn === 'function' ? fn : null; }
+export const parkourRefusal = () => _gate?.() ?? null;
 
 /** A capsule at these feet, this tall, stands in the open. Two questions,
  *  because penetrationAt is one of them only: it reports how far the
  *  resolve PUSHED the body, and the resolve will not depenetrate a body up
  *  into a ceiling - it reverts it (collider.js _resolveCapsule, "A body
- *  cannot be depenetrated UP into a ceiling") - so a standing body with its
- *  head through a slab reads clear there. The ray up the axis to the head
- *  is the headroom. (A body wholly inside a thick solid would pass both;
- *  the sensor never asks about a point it did not reach through the open -
- *  the top by a down ray from a height a level ray found clear, the risen
- *  body in the column over the body's own head.) */
+ *  cannot be depenetrated UP into a ceiling") - so a standing body passing
+ *  through a slab reads clear there. The ray up the axis to the head is the
+ *  headroom. (A body wholly inside a thick solid would pass both; the path
+ *  that reaches such a point crosses the solid's face on the way, and the
+ *  path is proven at every step - pathClear.) */
 export function capsuleFits(collider, p, height) {
   if (!(collider.penetrationAt(p, height) < PARKOUR_FIT_EPS)) return false;
   return !Number.isFinite(collider.raycast([p[0], p[1] + 0.05, p[2]], [0, 1, 0], height - 0.1));
+}
+
+/** A level hit that is a wall the look meets: its distance, its horizontal
+ *  normal toward the body, its bucket. */
+function faceHit(collider, origin, dir, reach) {
+  const hit = collider.raycastHit(origin, dir, reach);
+  if (!Number.isFinite(hit.dist) || !hit.normal) return null;
+  const [nx, ny, nz] = hit.normal;
+  const l = Math.hypot(nx, nz);
+  if (Math.abs(ny) > PARKOUR_FACE_MAX_NY || l < 1e-4) return null;
+  if (-(nx * dir[0] + nz * dir[2]) / l < PARKOUR_FACING_DOT) return null;
+  return { dist: hit.dist, normal: [nx / l, 0, nz / l], key: hit.key ?? null };
+}
+
+/** THE WALL, by rungs: level rays from the axis every PARKOUR_SCAN_STEP up the
+ *  band; the lowest to meet a wall the look meets is the face. The scan then
+ *  climbs on until a rung meets nothing within the face's lean - the first
+ *  height the face is no longer there (`openY`), with the face's distance
+ *  just under it (`faceDist`). No such height one rung past the reach is a
+ *  wall that runs on above it (`openY` null). */
+function scanFace(collider, feet, dir, low, high, reach) {
+  let wall = null, faceDist = 0;
+  for (let i = 0; ; i++) {
+    const h = low + i * PARKOUR_SCAN_STEP;
+    if (h > high + PARKOUR_SCAN_STEP + 1e-9) break;
+    const y = feet[1] + h;
+    if (!wall) {
+      if (h > high + 1e-9) break;
+      const f = faceHit(collider, [feet[0], y, feet[2]], dir, reach);
+      if (f) { wall = { y, dist: f.dist, normal: f.normal, key: f.key }; faceDist = f.dist; }
+      continue;
+    }
+    const d = collider.raycast([feet[0], y, feet[2]], dir, faceDist + PARKOUR_FACE_LEAN);
+    if (!Number.isFinite(d)) return { ...wall, openY: y, faceDist };
+    faceDist = d;
+  }
+  return wall ? { ...wall, openY: null, faceDist } : null;
+}
+
+/** THE WALL, by its top (AUDIT CLIMB1 G4): a slab whose edge is thinner than a
+ *  rung - a table top, a shelf - meets no rung. Down rays just ahead find its
+ *  top instead, from a height a level ray found open, and the edge just under
+ *  that top is the face. */
+function scanSlab(collider, feet, dir, low, high, reach, radius) {
+  const y0 = feet[1] + high + 0.05;
+  for (const d of [radius + 0.1, radius + 0.25, reach]) {
+    if (Number.isFinite(collider.raycast([feet[0], y0, feet[2]], dir, d + 0.02))) continue;
+    const down = collider.surfaceHit([feet[0] + dir[0] * d, y0, feet[2] + dir[2] * d], [0, -1, 0], high + 0.05 - low);
+    if (!Number.isFinite(down.dist) || !down.normal || down.normal[1] < PARKOUR_TOP_MIN_NY) continue;
+    const topY = y0 - down.dist;
+    const f = faceHit(collider, [feet[0], topY - PARKOUR_UNDER, feet[2]], dir, reach);
+    if (!f) continue;
+    if (Number.isFinite(collider.raycast([feet[0], topY + 0.05, feet[2]], dir, f.dist + PARKOUR_FACE_LEAN))) continue;
+    return { y: topY - PARKOUR_UNDER, dist: f.dist, normal: f.normal, key: f.key, openY: topY + 0.05, faceDist: f.dist };
+  }
+  return null;
+}
+
+/** The top's profile, walked away from the face along `into`: down rays from
+ *  over a 45-degree rise, every PARKOUR_TOP_STEP out to the walk. The top goes
+ *  on while each finds a surface no more than PARKOUR_TOP_DROP under the lip;
+ *  the first that does not is past its far edge, which a bisection finds to a
+ *  centimetre (`depth`; null for a top that runs on past the walk). */
+function topProfile(collider, face, into, lipY) {
+  const onTop = (s) => {
+    const oy = lipY + PARKOUR_TOP_PROBE + s;
+    const h = collider.surfaceHit([face[0] + into[0] * s, oy, face[2] + into[2] * s], [0, -1, 0], PARKOUR_TOP_PROBE + s + PARKOUR_TOP_DROP);
+    return Number.isFinite(h.dist);
+  };
+  let last = 0;
+  for (let i = 0; ; i++) {
+    const s = 0.05 + i * PARKOUR_TOP_STEP;
+    if (s > PARKOUR_TOP_WALK + 1e-9) return { depth: null };
+    if (onTop(s)) { last = s; continue; }
+    let a = i === 0 ? PARKOUR_EDGE_INSET : last, b = s;
+    for (let k = 0; k < 4; k++) { const mid = (a + b) / 2; if (onTop(mid)) a = mid; else b = mid; }
+    return { depth: (a + b) / 2 };
+  }
+}
+
+/** The landing on the top at `s` past the face at (fx, fz): the surface there,
+ *  if it is the lip's own - no steeper than 45 degrees, on the plane the
+ *  lip's slope draws give or take the slack (a flat tread a riser above is the
+ *  next stair), and no lower than the top's drop - with the feet lifted so the
+ *  capsule's round foot rests on a slope rather than in it (r/cos - r). A
+ *  surface too high to be the top is asked under once more: the probe's origin
+ *  can stand inside a lid low over the top, and a ray out of a solid meets its
+ *  underside (the top is still there - it is the fit's to refuse, "no-room"). */
+function landingAt(collider, fx, fz, into, lipY, s, radius) {
+  const px = fx + into[0] * s, pz = fz + into[2] * s, floor = lipY - PARKOUR_TOP_DROP;
+  let oy = lipY + PARKOUR_TOP_PROBE + s;
+  for (let tries = 0; tries < 2; tries++) {
+    const h = collider.surfaceHit([px, oy, pz], [0, -1, 0], oy - floor);
+    if (!Number.isFinite(h.dist) || !h.normal) return null;
+    const ny = h.normal[1];
+    const y = oy - h.dist;
+    const tan = ny > 0 ? Math.sqrt(Math.max(0, 1 - ny * ny)) / ny : Infinity;
+    if (ny >= PARKOUR_TOP_MIN_NY && y - lipY <= s * tan + PARKOUR_SLOPE_SLACK) return { y: y + radius / ny - radius, key: h.key ?? null };
+    oy = y - 0.02;
+    if (oy <= floor) return null;
+  }
+  return null;
+}
+
+/** The two-segment path every move rides (movePoint), as the sensor proves it. */
+const path = (from, up, to, split, arc) => ({ from: [from[0], from[1], from[2]], up, to, split, arc });
+const splitFor = (rise) => Math.min(0.75, Math.max(0.45, 0.35 + 0.2 * rise));
+
+/** THE PATH, PROVEN (AUDIT CLIMB1 F2/F3): the body fits at every point of the
+ *  move at least every PARKOUR_PATH_STEP - under a quarter of the radius, so
+ *  anything the path crosses is within the radius of some point's axis (a bar
+ *  a centimetre thick through the middle of the body reads 0.35 deep). The
+ *  body is `body` tall throughout: a crouched move is crouched from its first
+ *  step (the motor flips the stance as the move begins). (The first sensor
+ *  asked a straight column over the body's head instead; the real path leaves
+ *  that column as it rises, so the column refused paths that were clear and
+ *  proved nothing the points do not - the audit's mutation run found it.) */
+function pathClear(collider, m, body) {
+  const len = Math.hypot(m.up[0] - m.from[0], m.up[1] - m.from[1], m.up[2] - m.from[2])
+    + Math.hypot(m.to[0] - m.up[0], m.to[1] - m.up[1], m.to[2] - m.up[2]) + 2 * m.arc;
+  const n = Math.max(6, Math.ceil(len / PARKOUR_PATH_STEP));
+  for (let i = 1; i <= n; i++) {
+    if (!capsuleFits(collider, movePoint(m, i / n), body)) return false;
+  }
+  return true;
 }
 
 /**
  * THE LEDGE SENSOR. From the feet, looking along `dir` (a horizontal unit
  * vector), is there a lip the hands can take - and where would the body go?
  *
- *   1. THE WALL: level rays from the capsule's axis, from `low` over the feet
- *      upward every 0.2 m; the lowest to meet a near-vertical face within
- *      reach that the look meets within 50 degrees is the wall.
- *   2. THE OPEN: the scan climbs on until a level ray runs clear past the
- *      face - the first height the wall is no longer there. None by `high`
- *      plus a rung is a wall that runs on above the reach. The top is then
- *      found by a ray straight down just past the face, from that height -
- *      never from a fixed height, which in a low dungeon room would start
- *      inside the ceiling and meet its underside.
- *   3. THE LIP: the top is level enough to stand on and inside the band, the
- *      face runs up to it (a level ray just under it meets the face) and the
- *      edge is open for the hands (a level ray just over it meets nothing).
- *   4. THE ROOM: the body fits standing on the top (else crouched, else no),
- *      fits risen in front of the face with its feet at the lip, and has a
- *      clear column over its head to rise through.
+ *   1. THE WALL: rungs up the band (scanFace), or - for a slab thinner than a
+ *      rung - its top from above (scanSlab).
+ *   2. THE LIP: a down ray just past the face (PARKOUR_EDGE_INSET) from the
+ *      first height the face is gone - never from a fixed height, which in a
+ *      low room starts inside the ceiling - finds the top at the edge: level
+ *      enough to stand on, inside the band, the face running up to it.
+ *   3. THE TOP: its profile (topProfile) says how deep it is.
+ *   4. THE LANDING: the radius and an inset past the face, or the middle of a
+ *      top too shallow for that; the body fits there standing, else crouched;
+ *      failing that, slid along the face; and the whole path to it proven
+ *      (pathClear) - the stage a refusal reached is its reason: no top at the
+ *      landing, no room on it, or no way up to it.
  *
- * `opts` = { low, high, radius, stand, crouch, height } - the band, the
- * capsule's radius, its standing and crouched heights, and its height now.
+ * `opts` = { low, high, radius, stand, crouch, height, footing } - the band,
+ * the capsule's radius, its standing and crouched heights, its height now,
+ * and whether the body stands on the ground (the stair check, G5).
  * Answers { ok: false, why } when there is no lip in reach, else { ok: true,
- * lipY, rise, normal, into, face, mantle, why } - `mantle` is { up, top,
- * crouch } when the body can end on the top, else null with the reason in
- * `why`. The whys are what the pins and the probe read.
+ * lipY, rise, normal, into, face, depth, faceKey, mantle, why } - `mantle` is
+ * { up, top, crouch, split, arc, key } when the body can end on the top, else
+ * null with the reason in `why` (a thin top is the clamber's or the vault's:
+ * senseOver). The whys are what the pins and the probe read.
  */
 export function senseLedge(collider, feet, dir, opts) {
-  const { low, high, radius, stand, crouch, height = stand } = opts;
+  const { low, high, radius, stand, crouch, height = stand, footing = false } = opts;
   if (!collider?.raycastHit) return { ok: false, why: 'no-collider' };
   const reach = radius + PARKOUR_WALL_REACH;
-  const heights = [];
-  for (let h = low; h < high + PARKOUR_SCAN_STEP; h += PARKOUR_SCAN_STEP) heights.push(h);
-  // 1. the wall
-  let wall = null, i = 0;
-  for (; i < heights.length && heights[i] <= high; i++) {
-    const y = feet[1] + heights[i];
-    const hit = collider.raycastHit([feet[0], y, feet[2]], dir, reach);
-    if (!Number.isFinite(hit.dist) || !hit.normal) continue;
-    const [nx, ny, nz] = hit.normal;
-    const l = Math.hypot(nx, nz);
-    if (Math.abs(ny) <= PARKOUR_FACE_MAX_NY && l > 1e-4
-        && -(nx * dir[0] + nz * dir[2]) / l >= PARKOUR_FACING_DOT) {
-      wall = { y, dist: hit.dist, normal: [nx / l, 0, nz / l] };
-      break;
-    }
-  }
+  const wall = scanFace(collider, feet, dir, low, high, reach) ?? scanSlab(collider, feet, dir, low, high, reach, radius);
   if (!wall) return { ok: false, why: 'no-wall' };
+  if (wall.openY == null) return { ok: false, why: 'too-high' };
   const wn = wall.normal;                       // out of the wall, toward the body
   const into = [-wn[0], 0, -wn[2]];
-  // 2. the open
-  const past = wall.dist + PARKOUR_LIP_INSET + 0.05;
-  let openY = null;
-  for (i++; i < heights.length; i++) {
-    const y = feet[1] + heights[i];
-    if (!Number.isFinite(collider.raycast([feet[0], y, feet[2]], dir, past))) { openY = y; break; }
-  }
-  if (openY == null) return { ok: false, why: 'too-high' };
-  const fx = feet[0] + dir[0] * wall.dist, fz = feet[2] + dir[2] * wall.dist;
-  const ip = [fx + into[0] * PARKOUR_LIP_INSET, openY + 0.02, fz + into[2] * PARKOUR_LIP_INSET];
-  const down = collider.surfaceHit(ip, [0, -1, 0], ip[1] - (wall.y - 0.05));
+  // 2. the lip
+  const ey = wall.openY + 0.02;
+  const ex = feet[0] + dir[0] * wall.faceDist + into[0] * PARKOUR_EDGE_INSET;
+  const ez = feet[2] + dir[2] * wall.faceDist + into[2] * PARKOUR_EDGE_INSET;
+  const down = collider.surfaceHit([ex, ey, ez], [0, -1, 0], ey - (wall.y - 0.05));
   if (!Number.isFinite(down.dist)) return { ok: false, why: 'no-top' };
-  const lipY = ip[1] - down.dist;
-  // 3. the lip
+  const lipY = ey - down.dist;
   if (!down.normal || down.normal[1] < PARKOUR_TOP_MIN_NY) return { ok: false, why: 'steep-top' };
   const rise = lipY - feet[1];
   if (rise > high) return { ok: false, why: 'too-high' };
   if (rise < low - 0.05) return { ok: false, why: 'too-low' };
-  const under = collider.raycastHit([feet[0], lipY - 0.08, feet[2]], dir, wall.dist + 0.3);
+  const under = collider.raycastHit([feet[0], lipY - PARKOUR_UNDER, feet[2]], dir, wall.faceDist + 0.3);
   if (!Number.isFinite(under.dist)) return { ok: false, why: 'no-lip' };
-  const faceDist = under.dist;
-  if (Number.isFinite(collider.raycast([feet[0], lipY + 0.1, feet[2]], dir,
-    faceDist + PARKOUR_LIP_INSET + 0.1))) return { ok: false, why: 'blocked-lip' };
-  const face = [feet[0] + dir[0] * faceDist, lipY, feet[2] + dir[2] * faceDist];
-  // 4. the room - the lip is real from here on; what is left is whether the
-  // body can end up standing on it (a fence's top is a lip with no room on
-  // it, which is the vault's to answer - senseVault)
-  const ledge = { ok: true, lipY, rise, normal: wn, into, face, mantle: null, why: null };
-  const tIn = radius + PARKOUR_TOP_INSET;
-  const tx = face[0] + into[0] * tIn, tz = face[2] + into[2] * tIn;
-  // from just over the lip, not a body's height over it: a lid low over the
-  // top would hold a higher origin inside it, and a ray out of a solid meets
-  // its underside (a lid that low leaves no room, which the fit says below)
-  const floor = collider.surfaceHit([tx, lipY + PARKOUR_TOP_PROBE, tz], [0, -1, 0], PARKOUR_TOP_PROBE + 0.35);
-  const topY = lipY + PARKOUR_TOP_PROBE - floor.dist;
-  if (!Number.isFinite(floor.dist) || Math.abs(topY - lipY) > 0.35
-      || !floor.normal || floor.normal[1] < PARKOUR_TOP_MIN_NY) {
-    ledge.why = 'no-top';
-    return ledge;
+  const face = [feet[0] + dir[0] * under.dist, lipY, feet[2] + dir[2] * under.dist];
+  if (footing) {
+    const f = collider.surfaceHit([face[0] + wn[0] * 0.1, lipY - PARKOUR_UNDER, face[2] + wn[2] * 0.1], [0, -1, 0], lipY - feet[1] + 0.5);
+    if (Number.isFinite(f.dist) && lipY - PARKOUR_UNDER - f.dist - feet[1] > PARKOUR_FOOTING) return { ok: false, why: 'riser' };
   }
-  const top = [tx, topY + 0.02, tz];
-  let body = stand, crouched = false;
-  if (!capsuleFits(collider, top, stand)) {
-    if (!capsuleFits(collider, top, crouch)) { ledge.why = 'no-room'; return ledge; }
-    body = crouch;
-    crouched = true;
+  // 3. the top
+  const { depth } = topProfile(collider, face, into, lipY);
+  const ledge = { ok: true, lipY, rise, normal: wn, into, face, depth, faceKey: wall.key, mantle: null, why: null };
+  // 4. the landing
+  const full = radius + PARKOUR_TOP_INSET;
+  let s;
+  if (depth == null || depth >= full + 0.05) s = full;
+  else if (depth >= PARKOUR_MIN_STAND_DEPTH) s = depth / 2;
+  else { ledge.why = 'no-top'; return ledge; }
+  const tangent = [-into[2], 0, into[0]];
+  const bodies = height > crouch + 1e-6 ? [height, crouch] : [height];
+  const split = splitFor(rise);
+  let stage = 0;   // how far the best try got: 0 no top there, 1 no room on it, 2 no way up to it
+  for (const body of bodies) {
+    for (const n of PARKOUR_NUDGE) {
+      const fx = face[0] + tangent[0] * n, fz = face[2] + tangent[2] * n;
+      const land = landingAt(collider, fx, fz, into, lipY, s, radius);
+      if (!land) continue;
+      stage = Math.max(stage, 1);
+      const top = [fx + into[0] * s, land.y + 0.02, fz + into[2] * s];
+      if (!capsuleFits(collider, top, body)) continue;
+      stage = 2;
+      const upOff = radius + PARKOUR_UP_GAP;
+      const up = [fx + wn[0] * upOff, lipY + PARKOUR_UP_GAP, fz + wn[2] * upOff];
+      if (!capsuleFits(collider, up, body)) continue;
+      if (!pathClear(collider, path(feet, up, top, split, PARKOUR_MANTLE_ARC), body)) continue;
+      ledge.mantle = { up, top, crouch: body < height - 1e-6, split, arc: PARKOUR_MANTLE_ARC, key: land.key };
+      return ledge;
+    }
   }
-  const up = risePoint(face, wn, radius, lipY + PARKOUR_UP_GAP);
-  if (!riseClear(collider, feet, up, body, height)) { ledge.why = 'no-room-up'; return ledge; }
-  ledge.mantle = { up, top, crouch: crouched };
+  ledge.why = ['no-top', 'no-room', 'no-room-up'][stage];
   return ledge;
 }
 
-/** The feet of a body risen up the face: off it by the radius and a gap. */
-function risePoint(face, wn, radius, y) {
-  const off = radius + PARKOUR_UP_GAP;
-  return [face[0] + wn[0] * off, y, face[2] + wn[2] * off];
-}
-
-/** The body can rise from `feet` to `up` and fit there: a clear column over
- *  its head to the risen head's height, and a capsule that fits at the
- *  risen feet and half way along. */
-function riseClear(collider, feet, up, body, height) {
-  const head = feet[1] + height - 0.05;
-  const column = up[1] + body - head;
-  if (column > 0 && Number.isFinite(collider.raycast([feet[0], head, feet[2]], [0, 1, 0], column))) return false;
-  if (!capsuleFits(collider, up, body)) return false;
-  const mid = [(feet[0] + up[0]) / 2, (feet[1] + up[1]) / 2, (feet[2] + up[2]) / 2];
-  return capsuleFits(collider, mid, Math.min(body, height));
-}
-
 /**
- * THE VAULT'S OWN QUESTION, over a ledge senseLedge found: does the top end
- * within a stride of the face, with room beyond it? Down rays walk the top
- * away from the face every 0.1 m; the first to find no top at the lip's
- * height is past the far edge. Answers { over, depth } - `over` the feet the
- * body leaves the top at, clear by PARKOUR_VAULT_CLEAR - or null (a deep top
- * is mantled onto, not vaulted).
+ * OVER A THIN TOP - the vault's question and the clamber's, over a ledge
+ * senseLedge found: does the top end within a stride of the face, is there a
+ * floor behind it within `maxDrop` of the lip, and does the body pass over it
+ * - the whole way proven - to a point past its far edge? Answers { up, over,
+ * depth, floorY, key } or null. AUDIT CLIMB1 F3: the first vault asked only
+ * its landing and one point over the top, and a down ray that started inside
+ * the wall behind a step read "past the far edge": the body was vaulted into
+ * the wall. G6: and it asked nothing of the far side - a railing over a 10 m
+ * drop was vaulted into the drop.
  */
-export function senseVault(collider, feet, ledge, { radius, stand, height = stand }) {
-  if (!(ledge?.ok) || ledge.rise > PARKOUR_VAULT_MAX) return null;
-  const { face, into, normal, lipY } = ledge;
-  let depth = null;
-  for (let d = 0.2; d <= PARKOUR_VAULT_DEPTH + 1e-6; d += 0.1) {
-    const p = [face[0] + into[0] * d, lipY + 0.3, face[2] + into[2] * d];
-    if (!Number.isFinite(collider.surfaceHit(p, [0, -1, 0], 0.55).dist)) { depth = d; break; }
-  }
-  if (depth == null) return null;
+export function senseOver(collider, feet, ledge, opts, maxDrop) {
+  if (!(ledge?.ok) || ledge.depth == null || ledge.depth > PARKOUR_VAULT_DEPTH) return null;
+  const { radius, stand, height = stand } = opts;
+  const { face, into, normal, lipY, depth } = ledge;
   const y = lipY + PARKOUR_VAULT_CLEAR;
-  const up = risePoint(face, normal, radius, y);
-  if (!riseClear(collider, feet, up, stand, height)) return null;
   const out = depth + radius + 0.1;
-  const over = [face[0] + into[0] * out, y, face[2] + into[2] * out];
-  const mid = [face[0] + into[0] * (depth / 2), y, face[2] + into[2] * (depth / 2)];
-  if (!capsuleFits(collider, over, stand) || !capsuleFits(collider, mid, stand)) return null;
-  return { up, over, depth };
+  const tangent = [-into[2], 0, into[0]];
+  for (const n of PARKOUR_NUDGE) {
+    const fx = face[0] + tangent[0] * n, fz = face[2] + tangent[2] * n;
+    const up = [fx + normal[0] * (radius + PARKOUR_UP_GAP), y, fz + normal[2] * (radius + PARKOUR_UP_GAP)];
+    const over = [fx + into[0] * out, y, fz + into[2] * out];
+    const below = collider.surfaceHit([over[0], y + 0.05, over[2]], [0, -1, 0], maxDrop + PARKOUR_VAULT_CLEAR + 0.05);
+    if (!Number.isFinite(below.dist)) continue;
+    if (!capsuleFits(collider, up, height) || !capsuleFits(collider, over, height)) continue;
+    if (!pathClear(collider, path(feet, up, over, 0.4, 0.1), height)) continue;
+    return { up, over, depth, floorY: y + 0.05 - below.dist, key: ledge.faceKey };
+  }
+  return null;
 }
 
-/** A mantle's move: from the feet, up the face, onto the top. The first
- *  segment's share of the time grows with the rise - a waist-high step-up
- *  is mostly the step over, a head-high pull-up mostly the pull. */
+/** The vault's own question: a lip at the waist or under, and a fall beyond
+ *  that could not hurt (PARKOUR_SAFE_DROP). */
+export function senseVault(collider, feet, ledge, opts) {
+  if (!(ledge?.ok) || ledge.rise > PARKOUR_VAULT_MAX) return null;
+  return senseOver(collider, feet, ledge, opts, PARKOUR_SAFE_DROP);
+}
+
+/** A mantle's move: from the feet, up the face, onto the top - the path the
+ *  sensor proved (its split and arc are the sensor's). The first segment's
+ *  share of the time grows with the rise - a waist-high step-up is mostly the
+ *  step over, a head-high pull-up mostly the pull. */
 export function planMantle(feet, ledge, skill) {
+  const { up, top, crouch, split, arc, key } = ledge.mantle;
   return {
     kind: 'mantle',
     from: [feet[0], feet[1], feet[2]],
-    up: [...ledge.mantle.up],
-    to: [...ledge.mantle.top],
-    split: Math.min(0.75, Math.max(0.45, 0.35 + 0.2 * ledge.rise)),
+    up: [...up],
+    to: [...top],
+    split, arc,
     dur: mantleDuration(ledge.rise, skill),
-    arc: 0.06,
-    crouch: !!ledge.mantle.crouch,
+    crouch: !!crouch,
     exit: null,
+    key: key ?? null,
+    t: 0,
+  };
+}
+
+/** A clamber's move: up the face, over the thin top, and off its far side at a
+ *  step's pace onto the floor behind (a climb - it trains Climbing). */
+export function planClamber(feet, ledge, over, skill) {
+  return {
+    kind: 'mantle',
+    from: [feet[0], feet[1], feet[2]],
+    up: [...over.up],
+    to: [...over.over],
+    split: 0.4, arc: 0.1,
+    dur: mantleDuration(ledge.rise, skill) * 1.15,
+    crouch: false,
+    exit: [ledge.into[0] * PARKOUR_OVER_EXIT, ledge.into[2] * PARKOUR_OVER_EXIT],
+    exitVy: 0,
+    key: over.key ?? null,
     t: 0,
   };
 }
 
 /** A vault's move: from the feet up the face to clear the top, over it, and
  *  out beyond the far edge, where the body is handed back to the fall with
- *  its momentum along the wall's own normal (`exitSpeed` m/s). */
+ *  its momentum along the wall's own normal (`exitSpeed` m/s) and a small
+ *  rise. Its pace is the Jumping skill's. */
 export function planVault(feet, ledge, vault, skill, exitSpeed) {
   const s = Math.max(PARKOUR_VAULT_EXIT_MIN, exitSpeed || 0);
   return {
@@ -295,11 +497,12 @@ export function planVault(feet, ledge, vault, skill, exitSpeed) {
     from: [feet[0], feet[1], feet[2]],
     up: [...vault.up],
     to: [...vault.over],
-    split: 0.4,
+    split: 0.4, arc: 0.1,
     dur: vaultDuration(ledge.rise, skill),
-    arc: 0.1,
     crouch: false,
     exit: [ledge.into[0] * s, ledge.into[2] * s],
+    exitVy: PARKOUR_VAULT_EXIT_VY,
+    key: vault.key ?? null,
     t: 0,
   };
 }
@@ -325,9 +528,28 @@ export function movePoint(m, t, out = [0, 0, 0]) {
   return out;
 }
 
-/** Shift a move with the world (the motor's offsetOrigin). */
+/** Shift a move with the world (the motor's offsetOrigin) or with a deck that
+ *  carries the body (carryBy). */
 export function offsetMove(m, offset) {
   for (const p of [m.from, m.up, m.to]) {
     p[0] += offset[0]; p[1] += offset[1]; p[2] += offset[2];
+  }
+}
+
+/** AUDIT CLIMB1 F5: a move onto what moves - a boat's hull, a lift - rides it.
+ *  `was` and `now` are the bucket's poses ({ t, r } - collider.bucketPose); the
+ *  path is carried by the rigid motion between them - into the bucket's frame
+ *  at `was`, out at `now` (collider.js intoBucket's convention: local =
+ *  r (p - t), so world = r-transposed local + t). */
+export function carryMove(m, was, now) {
+  const wr = was.r, nr = now.r;
+  for (const p of [m.from, m.up, m.to]) {
+    const x = p[0] - was.t[0], y = p[1] - was.t[1], z = p[2] - was.t[2];
+    const lx = wr ? wr[0] * x + wr[1] * y + wr[2] * z : x;
+    const ly = wr ? wr[3] * x + wr[4] * y + wr[5] * z : y;
+    const lz = wr ? wr[6] * x + wr[7] * y + wr[8] * z : z;
+    p[0] = (nr ? nr[0] * lx + nr[3] * ly + nr[6] * lz : lx) + now.t[0];
+    p[1] = (nr ? nr[1] * lx + nr[4] * ly + nr[7] * lz : ly) + now.t[1];
+    p[2] = (nr ? nr[2] * lx + nr[5] * ly + nr[8] * lz : lz) + now.t[2];
   }
 }

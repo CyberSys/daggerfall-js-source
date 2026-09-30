@@ -78,6 +78,7 @@ test('CLIMB1: the sensor refuses what the hands cannot take - out of reach, too 
   assert.equal(senseLedge(world(2.0), FEET, LOOK, GEO(1.8)).why, 'too-high', 'a lip above the reach');
   assert.equal(senseLedge(world(8.0), FEET, LOOK, GEO(1.8)).why, 'too-high', 'a wall that runs on above the reach has no lip in it');
   assert.equal(senseLedge(world(2.0), FEET, LOOK, GEO(2.1)).ok, true, 'the same lip in a longer reach');
+  assert.equal(senseLedge(world(1.85), FEET, LOOK, GEO(1.8)).why, 'too-high', 'five centimetres past the reach, under the scan\'s last rung');
   assert.equal(senseLedge(world(1.5), [0, 0, -0.2], LOOK, GEO(1.8)).why, 'no-wall', 'the face beyond arm\'s length');
   const at = (deg) => [Math.sin((deg * Math.PI) / 180), 0, Math.cos((deg * Math.PI) / 180)];
   assert.equal(senseLedge(world(1.5), FEET, at(40), GEO(1.8)).ok, true, 'looking 40 degrees off square');
@@ -124,7 +125,7 @@ test('CLIMB1: the probe starts where the wall stops, not at a fixed height - a c
   const edge = world(1.5, 3, (c) => box(c, 'eave', -10, 2.6, -10, 10, 2.9, 0.24));
   const far = [0, 0, 0.2];
   const eave = senseLedge(edge, far, LOOK, GEO(1.8));
-  assert.equal(eave.why, 'no-room-up', 'the eave over the body\'s own head');
+  assert.equal(eave.mantle?.crouch, true, 'the eave over the body\'s own head stops a standing rise - a crouched one passes under it (AUDIT CLIMB1: the sensor tries the crouch before it gives up)');
   assert.equal(senseLedge(world(1.5), far, LOOK, GEO(1.8)).ok && !!senseLedge(world(1.5), far, LOOK, GEO(1.8)).mantle, true, 'and without it the same reach climbs');
 });
 
@@ -136,7 +137,10 @@ test('CLIMB1: the vault - a top that ends within a stride with room beyond it; a
   assert.equal(fence.why, 'no-top');
   const v = senseVault(fenceCol, FEET, fence, GEO(1.8));
   assert.ok(v, 'the fence is vaulted');
-  assert.ok(Math.abs(v.depth - 0.3) < 1e-6, 'the far edge is found at the first down ray past it');
+  assert.ok(Math.abs(v.depth - 0.2) < 0.02, `the far edge is the fence's own back (${v.depth.toFixed(3)})`);
+  const thin = world(1.0, 0.13);
+  const t13 = senseVault(thin, FEET, senseLedge(thin, FEET, LOOK, GEO(1.8)), GEO(1.8));
+  assert.ok(t13 && Math.abs(t13.depth - 0.13) < 0.015, `to a centimetre, between the profile's steps (${t13?.depth.toFixed(3)} - AUDIT CLIMB1: bisected)`);
   assert.ok(v.over[2] > 1.2 + CAPSULE_RADIUS && Math.abs(v.over[1] - 1.08) < 1e-6, 'the body leaves it past the far edge, clear of the top');
   const deepCol = world(1.0, 3);
   assert.equal(senseVault(deepCol, FEET, senseLedge(deepCol, FEET, LOOK, GEO(1.8)), GEO(1.8)), null, 'a 3 m top is climbed onto, not vaulted');
@@ -233,16 +237,17 @@ test('CLIMB1 LIVE: Jump held in the air catches a lip the jump brings into reach
   assert.deepEqual(tapped.log.started, [], 'Jump is the grab: no key held, no catch');
 });
 
-test('CLIMB1 LIVE: Jump at a run vaults a fence - over it, onward, and down; without Forward it is a plain jump; a deep top is climbed onto', () => {
+test('CLIMB1 LIVE: Jump at a run vaults a fence - over it, onward, and down; without Forward it is climbed over; a deep top is climbed onto', () => {
   const run = drive(world(1.0, 0.2), { input: (i) => ({ forward: i >= 5 && i < 60 ? 1 : 0, jump: i === 10 }) });
   assert.deepEqual(run.log.started, [[10, 'vault']]);
   assert.equal(run.m.grounded, true);
   assert.ok(run.m.pos[2] > 1.2 + CAPSULE_RADIUS, `beyond the fence (z=${run.m.pos[2].toFixed(2)})`);
   assert.ok(Math.abs(run.m.pos[1]) < 0.05, 'on the ground past it');
-  // the same press standing still: a fence has no top to stand on, so no move at all
+  // the same press standing still: a fence has no top to stand on - it is CLIMBED over (AUDIT CLIMB1 G3, the
+  // clamber: a climb, so a mantle's tally), onto the floor just behind it, never vaulted
   const still = drive(world(1.0, 0.2), { input: tap() });
-  assert.deepEqual(still.log.started, [], 'no Forward, no vault');
-  assert.ok(still.m.pos[2] < 1, 'still on the near side');
+  assert.deepEqual(still.log.started, [[10, 'mantle']], 'no Forward, no vault - a clamber');
+  assert.ok(still.m.pos[2] > 1.2 && Math.abs(still.m.pos[1]) < 0.05, `over it and down (${[...still.m.pos].map((v) => v.toFixed(2))})`);
   // no fence to vault on a deep top: a run and a Jump climbs onto it
   const deep = drive(world(1.0, 3), { input: (i) => ({ forward: i >= 5 && i < 45 ? 1 : 0, jump: i === 10 }) });
   assert.deepEqual(deep.log.started, [[10, 'mantle']]);
@@ -350,7 +355,7 @@ test('CLIMB1: every host mounts the enhanced climb and reports its edge - the th
   const read = (f) => readFileSync(new URL(`../src/scenes/${f}.js`, import.meta.url), 'utf8');
   for (const f of ['world', 'exterior', 'dungeon']) {
     const s = read(f);
-    assert.match(s, /new PlayerMotor\([^\n]*climbing: climbingDeps\([^\n]*\), parkour: parkourDeps\(playerEntity\) \}\);/, `${f}: the motor is handed the deps`);
+    assert.match(s, /new PlayerMotor\([^\n]*climbing: climbingDeps\([^\n]*\), parkour: parkourDeps\(playerEntity(, \(l\) => townTalk\?\.say\(l\))?\) \}\);/, `${f}: the motor is handed the deps`);
     assert.match(s, /import \{[^}]*\bparkourDeps\b[^}]*\} from '\.\/shared\.js';/, `${f}: imported from the one home`);
   }
   assert.match(read('world'), /jumped: player\.jumped,[^\n]*\n\s*parkoured: player\.parkoured,/);
