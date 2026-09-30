@@ -41,10 +41,18 @@ import { NEED } from './needs.js';
 import { HARD_RULES } from './difficulty.js';
 import { isWaterskin, waterIn, WATERSKIN_CAPACITY_KG } from './food.js';
 import { drinkAtSource } from './items.js';   // INN-WATER: the fountain's own law, filled at the bar
+import { CLIMATES } from '../../formats/mapsFile.js';   // MENU-CLIMATE: the menus keyed by the enum's names
 
-/** The mod's six keys, by the port's climate (temperature.js's indices 224-233). */
+/** The mod's six keys, by the port's climate.
+ *  FIELD BUGS 2026-09-30 (MENU-CLIMATE; the #bug-reports "Climates & Calories Bugs" thread's Sentinel inn): KEYED BY
+ *  THE CLIMATES ENUM'S NAMES, NOT BY NUMBERS. The table was written as 224 to 233, and the climates run 223 (Ocean) to
+ *  232 (Haunted Woodlands) - every climate served the menu meant for the one before it. The Desert, Sentinel's, served
+ *  the bay's bananas; the Mountain the desert's camel milk; the Ocean fell to the default; and 233 is no climate. Each
+ *  name keys the menu its number was written for. A declared departure (Port-Ledger A): the mod's region switch is not
+ *  recoverable whole from the IL, and the port keys the dishes by climate. */
 export const MENU_KEY_BY_CLIMATE = Object.freeze({
-  224: 'b', 225: 's', 226: 's', 227: 'ne', 228: 'b', 229: 'se', 230: 'b', 231: 'ne', 232: 'n', 233: 'n',
+  [CLIMATES.Ocean]: 'b', [CLIMATES.Desert]: 's', [CLIMATES.Desert2]: 's', [CLIMATES.Mountain]: 'ne', [CLIMATES.Rainforest]: 'b',
+  [CLIMATES.Swamp]: 'se', [CLIMATES.Subtropical]: 'b', [CLIMATES.MountainWoods]: 'ne', [CLIMATES.Woodlands]: 'n', [CLIMATES.HauntedWoodlands]: 'n',
 });
 export const menuKeyFor = (climateIndex) => MENU_KEY_BY_CLIMATE[climateIndex] ?? 'n';
 /** The tier by the tavern's quality (1-20): the mod's three tables a key. */
