@@ -23570,7 +23570,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (dwDecor) drawDeepWatersDecorations(groundQueue);   // DW-E2: the decorations, cut-out (the AlphaTest queue), on the floors they stand on
     if (dwFish) drawDeepWatersFish();   // DW-E3: the fish - the same material, their own facing (FaceY) and cut-out (0.1)
     if (dwLoot) drawDeepWatersLoot();   // DW-E5: the sunken piles - the same material, a DaggerfallBillboard's facing, the billboard's cut-out (0.5)
-    csaDrawWaves();   // CSA-F: Come Sail Away's waves along the coasts - opaque, cut out and dithered
+    // CSA-F: Come Sail Away's waves along the coasts - opaque, cut out and dithered. FIELD BUGS 2026-09-30b (TV-SURF):
+    // never under the travel view - from 150-450 m up a breaker strip is its whole plan, a pixel-aligned half-tone sheet
+    // on open water and low shore (the screenshot's light-blue rectangles); the surf waits for the traveller's eye, as
+    // the grass does
+    if (!tvf) csaDrawWaves();
     csaDrawParticlesOpaque();   // CSA-F: its wakes, splashes and flags
     const _bbYaw = tvf ? tvf.yaw : cam.yaw;   // TV1: the flats face the view's eye
     _camRight[0] = Math.cos(_bbYaw); _camRight[1] = 0; _camRight[2] = -Math.sin(_bbYaw);
