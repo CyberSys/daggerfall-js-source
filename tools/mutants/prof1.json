@@ -374,7 +374,7 @@
   {
     "name": "PROF1-41-a-writ-from-empty-stores",
     "file": "server-account/src/professions.js",
-    "old": "        AND COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?2 AND material = writs.material), 0) >= writs.qty",
+    "old": "        AND ${spendableSql('?1', '?2', 'writs.material')} >= writs.qty",
     "new": "        AND 1 = 1",
     "tests": [
       "test/prof1_service.test.js"

@@ -129,7 +129,7 @@ import {
   createGuest, openSession, resolveSession, closeSession, closeAllSessions,
   devicesOf, accountView, displayName, accountKind,
   register, login, recover, changePassword, setEmail, overRate,
-  accountWardrobe, equipTitle, creditPlay, muteAccount, isMuted, mutedUntil,
+  accountWardrobe, equipTitle, equipAura, buyInsignia, insigniaPurse, creditPlay, muteAccount, isMuted, mutedUntil,
   duelRecordOf, reportDuelLoss, gateRecordOf, claimGate, legalRefusal,
   ACCOUNT_MAX, ACCOUNT_WINDOW_S,
 } from './accounts.js';
@@ -137,7 +137,7 @@ import { mintToken, mintOrder, mintRenownOrder, mintGuildOrder, mintGuildOutOrde
 import { ACCOUNT_VERSION, MAX_BODY_BYTES, ROUTES, OPEN_ROUTES, savePathOf, realmPathOf, SAVE_MAX_BYTES, SHOT_MAX_BYTES, maintaining } from './service.js';
 import { listSaves, putCard, putBlob, getBlob, deleteSave, saveCardOf } from './saves.js';
 import { signingKey, gatePublicKey } from './signing.js';
-import { titleWorn, glyphsOf } from './titles.js';
+import { titleWorn, glyphsOf, auraWorn } from './titles.js';
 import { sendLetter, inboxOf, readLetter, deleteLetter } from './letters.js';   // MAIL1: the letters' routes
 import { reportRenownXp, renownTrackOf, renownTracksOf, renownCharacterOk } from './renownTracks.js';   // RENOWN1: Renown's track - RENOWN-CHAR: a character's again
 import { claimRaid, raidRecordOf } from './raids.js';   // RAID4: the towns defended
@@ -155,7 +155,7 @@ import {
   writBoard, postGuildWrit, supplyGuildWrit, withdrawGuildWrit, setWritBudget, postCommission, fulfilCommission, cancelCommission, declineCommission,
   guildStores, depositGuildStores, withdrawGuildStores,
 } from './writs.js';   // PROF6: guild writs, commissions and the guild Stores
-import { marketRead, marketList, marketBuy, marketCancel, marketOrder, marketFill, marketUnorder, marketCollect, marketReport, marketRemove, marketAuction, marketBid } from './market.js';   // PROF5: the market; PROF5b: its auctions
+import { marketRead, marketList, marketBuy, marketCancel, marketOrder, marketFill, marketUnorder, marketCollect, marketReport, marketRemove, marketAuction, marketBid, marketGoldCollect } from './market.js';   // PROF5: the market; PROF5b: its auctions; GOLD-MARKET: gold held collected
 import {
   listRealm, createRealm, customsRealm, joinRealm, checkpointRealm, getRealmBlob, leaveRealm, deleteRealm, undoRealm,
   realmCharacterHeld, grantCustomsPass, REALM_CHARACTERS_MAX, REALM_MAX_BYTES,
@@ -245,6 +245,7 @@ const PROF_STATUS = Object.freeze({
   'prof-no-pack-form': 409,   // PROF3: the smith's stock stays in the Stores until its professions' templates
   'prof-later': 409,   // PROF4: a recipe whose slice is to come - the Ram Kit (PROF0 25)
   'prof-hunt-cap': 409, 'prof-hunt-high': 409, 'prof-foe': 400, 'prof-dye': 400,   // PROF7: Hunting's day (30 hides, 3 of tiers 5-6), a body no knife skins, a dye asked of what takes none
+  'prof-fish-cap': 409,   // PROF8: Fishing's day (40 hauls an account)
   'node-taken': 409, 'writ-taken': 409, 'writ-expired': 409, 'writ-cap': 409, 'marks-full': 409, 'marks-short': 409, 'prof-respec-pending': 409,
   'prof-rate': 429,
   // PROF6: guild writs, commissions and the guild Stores
@@ -272,6 +273,9 @@ const MARKET_STATUS = Object.freeze({
   'market-no-record': 409,   // AUDIT 31 H1
   'auction-not-masterwork': 409, 'auction-low': 409, 'auction-leading': 409, 'auction-bid-standing': 409,   // PROF5b
   'auction-moved': 409,   // AUDIT 31 S4
+  // GOLD-MARKET: gold is a realm record's; what gold bought stays gold's (the wall); a record's own refusals
+  'market-gold-realm': 409, 'market-currency': 409, 'market-gold-goods': 409, 'market-drakes-goods': 409, 'market-gold-none': 409, 'market-gold-full': 409,
+  'stores-gold': 409, 'realm-gold': 409, lease: 409, 'realm-needed': 400, 'no-realm-character': 404, 'no-data': 404, 'no-storage': 503,
   'market-rate': 429,
 });
 /** GUILD1c: A GUILD ACT'S ANSWER WITH ITS ORDERS SIGNED in place of what they say (guilds.js). `badge` - the actor's
@@ -488,6 +492,7 @@ export default {
         const wardrobe = {
           t: titleWorn(who.player, env),
           g: glyphsOf(who.player, env, nowS),
+          au: auraWorn(who.player),   // WB9g: the aura worn, the title's law - absent for none
         };
         // MOD1: A MUTE RIDES THE TOKEN, so a reconnect cannot shed one -
         // every room reads it off the signature at the hello. Only while
@@ -530,6 +535,7 @@ export default {
           level: lv ?? null,
           xp: track ? track.xp : null,
           guild: guild ? guild.gt : null,   // GUILD1c: the tag my own name wears, beside the token as the level is
+          aura: wardrobe.au ?? null,   // WB9g: the aura at my own feet, beside the token as the title is
           expiresAt: nowS + MAX_TTL_S,
         }, 200, origin);
       }
@@ -553,7 +559,7 @@ export default {
           // list of the characters' tracks again (RENOWN-ACCOUNT sent the account's one, `{ xp, level }`)
           // MARKS1: and the Marks balance, where Marks are this account's (null where not - a guest, the switch)
           account: { ...accountView(who.player, nowS), duels: await duelRecordOf(ctx, who.player.id), gates: await gateRecordOf(ctx, who.player.id), raids: await raidRecordOf(ctx, who.player.id), renown: await renownTracksOf(ctx, who.player.id), marks: await marksCardOf(ctx, who.player, env) },
-          wardrobe: accountWardrobe(who.player, env, nowS),
+          wardrobe: { ...accountWardrobe(who.player, env, nowS), purse: await insigniaPurse(ctx, who.player) },   // WB9g: and what the account's closed gates could still pay the Broker's insignia
           devices: await devicesOf(ctx, who.player.id),
         }, 200, origin);
       }
@@ -828,10 +834,11 @@ export default {
       // each first); a moderator's removal. Every act carries its request id, and one asked twice is one.
       if (path.startsWith('/v1/market/')) {
         if (request.method !== 'POST') return no('method', 405, origin);
+        const mctx = { ...ctx, bucket: env.SAVES };   // GOLD-MARKET: a gold buy or collect moves a realm record, in R2
         const act = {
           '/v1/market/read': () => marketRead(ctx, who.player, env, body),
           '/v1/market/list': () => marketList(ctx, who.player, env, body),
-          '/v1/market/buy': () => marketBuy(ctx, who.player, env, body),
+          '/v1/market/buy': () => marketBuy(mctx, who.player, env, body),
           '/v1/market/cancel': () => marketCancel(ctx, who.player, env, body),
           '/v1/market/order': () => marketOrder(ctx, who.player, env, body),
           '/v1/market/fill': () => marketFill(ctx, who.player, env, body),
@@ -841,9 +848,11 @@ export default {
           '/v1/market/remove': () => marketRemove(ctx, who.player, env, body),
           '/v1/market/auction': () => marketAuction(ctx, who.player, env, body),   // PROF5b
           '/v1/market/bid': () => marketBid(ctx, who.player, env, body),
+          '/v1/market/gold': () => marketGoldCollect(mctx, who.player, env, body),   // GOLD-MARKET
         }[path];
         if (!act) return no('not-found', 404, origin);
         const r = await act();
+        if (r.error === 'seq') return json({ error: 'seq', seq: r.seq }, 409, origin);   // GOLD-MARKET: the service's own, as a checkpoint's
         return 'error' in r ? no(r.error, MARKET_STATUS[r.error] ?? 400, origin) : json(r, 200, origin);
       }
 
@@ -857,6 +866,21 @@ export default {
         // title is simply not theirs. Same reading as the save wall.
         const r = await equipTitle(ctx, who.player, env, body.title ?? null);
         return r.error ? no(r.error, r.error === 'not-held' ? 403 : 400, origin) : json(r, 200, origin);
+      }
+
+      if (path === '/v1/account/aura' && request.method === 'POST') {
+        // WB9g: WEAR ONE AURA, OR NONE - the title's door at the feet. 403 for `not-held`, as the title's.
+        const r = await equipAura(ctx, who.player, env, body.aura ?? null);
+        return r.error ? no(r.error, r.error === 'not-held' ? 403 : 400, origin) : json(r, 200, origin);
+      }
+
+      if (path === '/v1/account/insignia' && request.method === 'POST') {
+        // WB9g: THE BROKER'S INSIGNIA, BOUGHT (accounts.js buyInsignia - one UPDATE, the account's closed gates paying).
+        // 403 for a guest (the credential is good, the sale is not theirs to keep); 409 for one owned or one the gates
+        // cannot pay - the row is as it was, and the answer says why (`purse`, `price` for `short`).
+        const r = await buyInsignia(ctx, who.player, env, body.item);
+        if (r.error) return r.error === 'short' ? json({ error: 'short', purse: r.purse, price: r.price }, 409, origin) : no(r.error, r.error === 'guest' ? 403 : r.error === 'owned' ? 409 : 400, origin);
+        return json(r, 200, origin);
       }
 
       if (path === '/v1/mod/mute' && request.method === 'POST') {

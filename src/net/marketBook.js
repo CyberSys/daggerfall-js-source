@@ -21,6 +21,14 @@
 //
 // PROF5b: an auction posted is a listed piece's act (kept, put back on a refusal) with its own route; a bid is an
 // order's (its id kept for a press asked again - it moves Marks, and the won piece comes by delivery).
+//
+// GOLD-MARKET (Professions-Arc 10.8): A GOLD BUY MOVES THE BUYER'S RECORD. A realm character's gold is its record's, so
+// a gold listing is bought through the host's realm act (systems/realmSaves.js realmGoldAct): the purse checkpointed,
+// the exact cost taken out of it as the service is asked (`reserve` - the service's batch pays the record the same, or
+// neither), given back on a refusal. It is KEPT too, as a Drakes buy is: an answer lost ends the realm session (a join
+// reads the record), and the tab's next settle asks it again with its id - a sale that landed answered as the repeat
+// (its piece minted, nothing paid again), one that did not landed now (the cost paid off the purse on the answer). The
+// gold a character's sales hold comes in by the same act (`collectGold`), into the board's bank account as the record's.
 // ═══════════════════════════════════════════════════════════════════
 
 import { MARKET_RID_RE } from './marketLaw.js';
@@ -69,11 +77,16 @@ export function mintMarketRid() {
 /**
  * @param {{ door: any, storage?: Storage|null, character: () => (string|null), now?: () => number,
  *   marks?: { set?: (n: number) => void } | null, stores?: { apply?: (s: any) => void } | null,
- *   holds?: ((provenance: string) => boolean) | null, sleep?: (ms: number) => Promise<void> }} o `stores` - the
- *   professions' book (AUDIT 30 U1: what an answer says of the Stores is its count too); `holds` - AUDIT 31 H1: whether
- *   another book keeps an act on a piece (the writs' kept fill), so it is not taken twice
+ *   holds?: ((provenance: string) => boolean) | null, sleep?: (ms: number) => Promise<void>,
+ *   realm?: { act: (o: any) => Promise<any> } | null,
+ *   wallet?: ((region: number) => { gold: () => number, pay: (n: number) => void, credit: (n: number) => void, bank: (n: number) => void }) | null }} o
+ *   `stores` - the professions' book (AUDIT 30 U1: what an answer says of the Stores is its count too); `holds` - AUDIT 31
+ *   H1: whether another book keeps an act on a piece (the writs' kept fill), so it is not taken twice; GOLD-MARKET:
+ *   `realm` - a realm character's act on its record (systems/realmSaves.js realmGoldAct over the playing session), null
+ *   for any other character (no gold trade); `wallet` - the save's gold as it pays at a board's region (the purse, its
+ *   letters, then that region's account - realmGoldLaw payFromSave's order) and `bank`, gold into that region's account
  */
-export function createMarketBook({ door, storage = null, character, now = () => Date.now(), marks = null, stores = null, holds = null, sleep = wait }) {
+export function createMarketBook({ door, storage = null, character, now = () => Date.now(), marks = null, stores = null, holds = null, sleep = wait, realm = null, wallet = null }) {
   let _shut = /** @type {number|null} */ (null);
   const state = {
     /** null until the service has answered; false while the market is shut to this account - asked again after
@@ -87,6 +100,8 @@ export function createMarketBook({ door, storage = null, character, now = () => 
     counts: { listings: 0, orders: 0, bids: 0 },
     /** PROF5b: the Marks this account's bids hold (standing, or outbid and not yet back) */
     held: 0,
+    /** GOLD-MARKET: the gold this character's sales hold for it, to collect */
+    goldHeld: 0,
   };
   const account = () => { try { return door.account?.() ?? null; } catch { return null; } };
   const slot = () => `${account() ?? ''}|${character() ?? ''}`;
@@ -150,6 +165,7 @@ export function createMarketBook({ door, storage = null, character, now = () => 
     if (Array.isArray(d.road)) state.road = d.road;
     if (d.counts) state.counts = { listings: d.counts.listings | 0, orders: d.counts.orders | 0, bids: d.counts.bids | 0 };
     if (Number.isSafeInteger(d.held)) state.held = d.held;
+    if (Number.isSafeInteger(d.goldHeld)) state.goldHeld = d.goldHeld;   // GOLD-MARKET
     for (const st of [d.store, ...(Array.isArray(d.stores) ? d.stores : [])]) {
       if (st && typeof st.material === 'string') { try { stores?.apply?.(st); } catch { /* the professions' book's own */ } }
     }
@@ -159,7 +175,7 @@ export function createMarketBook({ door, storage = null, character, now = () => 
 
   // ─── THE READS ─────────────────────────────────────────────────────
   const cache = new Map();
-  const keyOf = (view, q) => [view, q.region, q.family ?? '', q.tier ?? '', q.material ?? '', (q.materials ?? []).join(',')].join('|');
+  const keyOf = (view, q) => [view, q.region, q.family ?? '', q.tier ?? '', q.material ?? '', (q.materials ?? []).join(','), q.currency ?? 'marks'].join('|');
   const pending = new Map();
   /** AUDIT 30 C6: the acts answered so far - a read begun before an act's answer is overtaken by it, and asked again. */
   let gen = 0;
@@ -224,6 +240,33 @@ export function createMarketBook({ door, storage = null, character, now = () => 
     return { ok: false, error: r?.error ?? 'server' };
   }
 
+  /** GOLD-MARKET: A GOLD BUY asked through the realm act - `first`, the press: the exact cost out of the purse as it
+   *  asks, back on a refusal; a settle's ask again: paid on the answer, and only for a sale this ask made (a repeat's
+   *  record paid, and the purse a join loaded is that record's). Let go on the answer, the piece minted once after; kept
+   *  on silence, and while the save is another character's. */
+  async function goldBuy(entry, mint, key, first) {
+    if (!realm || !wallet) return { ok: false, error: 'market-gold-realm' };
+    const w = wallet(entry.body.region);
+    const cost = entry.body.max;
+    const r = heard(await realm.act({
+      needsAnswer: true,
+      ...(first ? { reserve: () => { w.pay(cost); return () => w.credit(cost); } } : { apply: (/** @type {any} */ a) => { if (!a?.data?.repeat) w.pay(cost); } }),
+      call: (/** @type {any} */ at) => door.buy({ ...entry.body, realm: at }),
+    }));
+    if (slot() !== key) return { ok: false, kept: true, error: 'other-character', text: MARKET_KEPT_TEXT };
+    if (r?.ok) {
+      const had = letGo('buys', entry.rid, key);
+      forget();
+      if (had && r.data?.piece) { try { mint?.(r.data.piece, 'buys'); } catch (e) { console.warn('[market] mint', e); } }
+      return { ok: true, data: r.data };
+    }
+    // kept until the SERVICE says no (an answer with its status): a session lost or busy, or an answer never come, is no
+    // word on the sale - letting it go lost a piece a sale that landed paid for
+    if (r?.unknown || kept(r) || !Number.isSafeInteger(r?.status)) return { ok: false, kept: true, error: r?.error ?? 'offline', text: MARKET_KEPT_TEXT };
+    letGo('buys', entry.rid, key);
+    return { ok: false, error: r?.error ?? 'server' };
+  }
+
   /** A piece posted (listed, or PROF5b auctioned): out of the save first, kept with its request and its route, let go on
    *  the answer, put back on a refusal, kept on silence. AUDIT 31: never without an account to keep it under (B1), never
    *  a piece another kept act holds (H1), the slot the press's (B2), and never put back when the service says the piece
@@ -270,15 +313,42 @@ export function createMarketBook({ door, storage = null, character, now = () => 
         return r;
       });
     },
-    /** BUY: a piece bought here minted on the answer (kept before asked); a material into the Stores (`store`). */
+    /** BUY: a piece bought here minted on the answer (kept before asked); a material into the Stores (`store`).
+     *  GOLD-MARKET: `req.currency` 'gold' - a gold listing, bought off this realm character's record at `req.max`, its
+     *  exact cost (the price and the courier in gold), which the purse must hold. */
     buy(req, mint) {
       return once(`buy|${req?.listing}|${req?.units}`, async () => {
         if (!signedIn()) return { ok: false, error: 'no-session' };
+        const { currency = 'marks', ...ask } = req ?? {};
+        const gold = currency === 'gold';
+        if (gold && !(realm && wallet)) return { ok: false, error: 'market-gold-realm' };
+        if (gold && wallet(ask.region).gold() < ask.max) return { ok: false, error: 'realm-gold' };
         const rid = mintMarketRid();
-        const body = { character: character(), ...req, rid };
+        const body = { character: character(), ...ask, rid };
         const key = slot();
-        keep('buys', { rid, body }, key);
-        return keptAct('buys', { rid }, () => door.buy(body), mint, key);
+        keep('buys', { rid, body, ...(gold ? { gold: true } : {}) }, key);
+        return gold ? goldBuy({ rid, body }, mint, key, true) : keptAct('buys', { rid }, () => door.buy(body), mint, key);
+      });
+    },
+    /** GOLD-MARKET: whether this character trades in gold - a realm character's (its gold is its record's). */
+    get goldOk() { return !!(realm && wallet); },
+    /** GOLD-MARKET: the gold the save can pay at a board of `region` (the purse, its letters, that region's account), or
+     *  null for a character that trades in none. */
+    purse(region) { try { return realm && wallet ? wallet(region).gold() : null; } catch { return null; } },
+    /** GOLD-MARKET: COLLECT the gold this character's sales hold, into the record's account at `region` (the board's) - the
+     *  record's own act: the save's account credited with what the service answers it moved. */
+    collectGold(region) {
+      return once(`gold|${region}`, async () => {
+        if (!signedIn()) return { ok: false, error: 'no-session' };
+        if (!realm || !wallet) return { ok: false, error: 'market-gold-realm' };
+        const me = character();
+        const r = heard(await realm.act({
+          needsAnswer: true,
+          apply: (/** @type {any} */ a) => { if (Number.isSafeInteger(a?.data?.gold) && a.data.gold > 0) wallet(region).bank(a.data.gold); },
+          call: (/** @type {any} */ at) => door.gold({ character: me, realm: at, region }),
+        }));
+        if (r?.ok) { state.goldHeld = 0; forget(); }
+        return r;
       });
     },
     /** CANCEL a listing: a piece answered back and minted; a material's units into the Stores. */
@@ -353,7 +423,8 @@ export function createMarketBook({ door, storage = null, character, now = () => 
             settled++;
           }
         }
-        for (const b of k.buys) if (here() && (await keptAct('buys', b, () => door.buy(b.body), mint, key)).ok) settled++;
+        // GOLD-MARKET: a kept gold buy asked again through the realm act (paid on the answer, a repeat paid nothing)
+        for (const b of k.buys) if (here() && (await (b.gold ? goldBuy(b, mint, key, false) : keptAct('buys', b, () => door.buy(b.body), mint, key))).ok) settled++;
         for (const c of k.cancels) if (here() && (await keptAct('cancels', c, () => door.cancel(me, c.listing, c.rid), mint, key)).ok) settled++;
         for (const c of k.collects) if (here() && (await keptAct('collects', c, () => door.collect(me, c.delivery, c.rid), mint, key)).ok) settled++;
         for (const d of state.road.filter((x) => x.kind === 'piece' && x.ready && x.character === me)) {

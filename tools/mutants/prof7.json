@@ -1011,8 +1011,8 @@
   {
     "name": "PROF7-pages-hunting-unpractised",
     "file": "src/ui/profPages.js",
-    "old": "const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'logging', 'smithing', 'outfitting', 'carpentry']);",
-    "new": "const PRACTISED = Object.freeze(['herbalism', 'mining', 'logging', 'smithing', 'outfitting', 'carpentry']);",
+    "old": "const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'fishing', 'logging', 'smithing', 'outfitting', 'carpentry']);   // PROF8: Fishing",
+    "new": "const PRACTISED = Object.freeze(['herbalism', 'mining', 'fishing', 'logging', 'smithing', 'outfitting', 'carpentry']);   // PROF8: Fishing",
     "tests": [
       "test/prof7_client.test.js"
     ]

@@ -342,7 +342,7 @@ export const STONES = Object.freeze([
 /** A gem's tier by its DFU price's band (PROF0 23): to 10 gold 2, to 50 3, to 100 4, to 250 5, past it 6. */
 export const gemTierOfPrice = (price) => (price <= 10 ? 2 : price <= 50 ? 3 : price <= 100 ? 4 : price <= 250 ? 5 : 6);
 /** DFU's eight gems (Gems, itemTemplatesData.js), each at its price's tier (Ruby 250, Emerald 425, Sapphire 375,
- *  Diamond 500, Jade 10, Turquoise 50, Malachite 25, Amber 100 - itemTemplates.json). Pearl comes with Fishing. */
+ *  Diamond 500, Jade 10, Turquoise 50, Malachite 25, Amber 100 - itemTemplates.json). The Pearl is Fishing's (PEARL, PROF8). */
 export const GEMS = Object.freeze([
   dfu('gem:ruby', 'gems', gemTierOfPrice(250), 'Gems', 0), dfu('gem:emerald', 'gems', gemTierOfPrice(425), 'Gems', 1),
   dfu('gem:sapphire', 'gems', gemTierOfPrice(375), 'Gems', 2), dfu('gem:diamond', 'gems', gemTierOfPrice(500), 'Gems', 3),
@@ -484,6 +484,54 @@ export const KNIFE_REFUSALS = Object.freeze({
 export const KNIFE_WHERE = Object.freeze(['town', 'sea']);
 export const KNIFE_WHERE_WORDS = Object.freeze({ town: 'not in a settlement', sea: 'not out here' });
 
+// ─── PROF8: FISHING WITH THE NET (PROF0 5.2, 6; Appendix B) ─────────
+//
+// The Fishing-Net is Foraging's own (1603, FORAGE0 6.4: in water, swimming, or at sea). A haul names no node: like
+// Hunting, Fishing is BOUNDED, NOT WITNESSED - forty hauls an account a day - its pixel the client's word, read for the
+// ground the witnesses confirmed (the sea's finds) and its day.
+
+/** The catch in the Stores: Raw Fish (FOOD_KEYS), tier 1, a Mark (5.2) - the species named in the toast alone. */
+export const FISH_KEY = 'food:fish';
+/** The sea's find: DFU's Pearl (MiscellaneousIngredients2, template 77; 150 gold, so tier 5 by its price's band). */
+export const PEARL = dfu('gem:pearl', 'gems', gemTierOfPrice(150), 'MiscellaneousIngredients2', 77);
+/** A Slaughterfish in the net: its scales (PROF7's hide), and its body the heaviest haul - a fish more. */
+export const SLAUGHTERFISH_SCALES = 'hide:slaughterfish';
+/** Hauls an ACCOUNT a day (PROF0 6) - not a character's: Fishing's whole bound. */
+export const HAULS_PER_DAY = 40;
+/** A haul's fish before the act (PROF0 6). */
+export const HAUL_YIELD = Object.freeze([1, 2]);
+/** A school's fish on top (PROF0 6) - a Netter's two (3.3). */
+export const SCHOOL_FISH = Object.freeze({ plain: 1, netter: 2 });
+/** The finds, a haul each (5.2): at sea, on ground the witnesses confirmed, a Pearl 1 in 50 (a Pearl Diver's x3, a
+ *  Deep-Sea's x2) and a Slaughterfish 1 in 100 (a Deep-Sea's x2); a trophy 1 in 200 anywhere. */
+export const FISH_CHANCE = Object.freeze({ pearl: 1 / 50, slaughterfish: 1 / 100, trophy: 1 / 200, pearlDiver: 3, deepSea: 2 });
+/** XP FOLLOWS THE RANK (Mac, 2026-09-30: "XP follows your rank"): a haul is worked at the highest tier the rank opens.
+ *  Raw Fish is tier 1, and a tier more than two below the rank's is quartered (harvestXp), so a haul worked at its
+ *  catch's tier would have held Fishing at a Novice's pace for good; at the rank's own tier it climbs as the others do. */
+export const haulTier = (rank) => topTierOf(rank);
+/**
+ * THE ACT (PROF0 5.2): hold to wind the throw, 0.3-1.5 s, and the net flies 3-12 m; the wait, 5-30 s - halved in the
+ * first and last daylight hours (07:00, 17:00), doubled in a storm; the tug, 600 ms to haul (an Angler's +40%); the
+ * haul - the net's weight wanders the bar, the tension band rises while held and falls when let go, 20% of the bar at
+ * Novice to 30% at Master; the weight kept inside fills the meter (`fillS` inside, OPEN) within 20 s; 2 s outside, in
+ * all, and it comes in plain. The band's own speeds are OPEN.
+ */
+export const FISH_ACT = Object.freeze({
+  windMinS: 0.3, windMaxS: 1.5, throwMinM: 3, throwMaxM: 12, waitMinS: 5, waitMaxS: 30, tugS: 0.6, angler: 1.4,
+  bandLo: 0.2, bandHi: 0.3, haulS: 20, slipS: 2, fillS: 6, rise: 0.9, fall: 0.7, drift: 0.35,
+});
+/** The tension band's width at a rank, a share of the bar: 20% at Novice, 30% at Master. */
+export const fishBand = (rank) => FISH_ACT.bandLo + (FISH_ACT.bandHi - FISH_ACT.bandLo) * Math.max(0, Math.min(1, rank / PROF_RANK_MAX));
+/** The tug's window, seconds (an Angler's +40%). */
+export const tugWindow = (angler = false) => FISH_ACT.tugS * (angler ? FISH_ACT.angler : 1);
+/** The wait's multiplier: the first and last daylight hours halve it, a storm doubles it. */
+export const waitMult = (hour, storm = false) => (hour === 7 || hour === 17 ? 0.5 : 1) * (storm ? 2 : 1);
+/** The throw's distance for a wind held `s` seconds: 3 m at 0.3 s, 12 m at 1.5 s, straight between. */
+export const throwM = (s) => {
+  const t = Math.max(0, Math.min(1, (s - FISH_ACT.windMinS) / (FISH_ACT.windMaxS - FISH_ACT.windMinS)));
+  return FISH_ACT.throwMinM + t * (FISH_ACT.throwMaxM - FISH_ACT.throwMinM);
+};
+
 // ─── THE SMITH'S STOCK (PROF0 24) ────────────────────────────────────
 
 /** PROF3: the fittings Smithing's recipes ask (PROF0 9.3) that no profession yielded then - Hunting's Cured Leather
@@ -521,7 +569,7 @@ export const STOCK_MAX = 100;
 export const NO_PACK_FORM = Object.freeze([]);
 /** Whether the Stores may give a material to the pack. */
 export const withdrawable = (key) => !NO_PACK_FORM.includes(key);
-const MINED = new Map([...METALS, ...ORES, ...INGOTS, ...STONES, ...GEMS, ...WOOD_TEMPLATES, ...HIDE_TEMPLATES, ...PARTS].map((m) => [m.key, m]));   // PROF7: the hides, leathers, cloth and a body's DFU parts
+const MINED = new Map([...METALS, ...ORES, ...INGOTS, ...STONES, ...GEMS, PEARL, ...WOOD_TEMPLATES, ...HIDE_TEMPLATES, ...PARTS].map((m) => [m.key, m]));   // PROF7: the hides, leathers, cloth and a body's DFU parts; PROF8: the sea's Pearl
 /** A mined (or smelted) material's row, or null. */
 export const minedMaterial = (key) => MINED.get(key) ?? null;
 /** PROF5: every registered material's key, in the registry's order - the market's catalogue beside the herbs and foods. */

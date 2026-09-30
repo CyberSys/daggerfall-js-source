@@ -425,7 +425,7 @@ export class SpellbookWindow {
     this._tipHover(x, y, vx, vy);
     // ROAD-G G4: THE THUMB DRAG (VerticalScrollBar.Update, :101-130).
     // `e.buttons & 1` is the port's read of GetMouseButton(0) - the
-    // same read `listPicker.js:292` makes - and the host's mousemove
+    // same read `listPicker.js:295` makes - and the host's mousemove
     // is the frame. The drag continues wherever the cursor goes,
     // including off the bar and off the panel, because DFU polls a
     // POSITION and a held button, not a component the pointer is over.
@@ -805,7 +805,7 @@ export class SpellbookWindow {
   /** AUDIT 65 UI-1: THE HOSTS OWN THE THIRD AND FOURTH SLOTS. Every
    *  host that holds an overlay slot dispatches
    *  `click(vx, vy, right, middle)` - `scenes/townTalk.js:1254`,
-   *  `scenes/worldModes.js:10103`, `scenes/dungeonContext.js:7949` - so
+   *  `scenes/worldModes.js:10127`, `scenes/dungeonContext.js:7998` - so
    *  a clock threaded positionally here arrived as `e.button === 2`, a
    *  BOOLEAN. `false ?? Date.now()` keeps the `false`, `false != null`
    *  is true and `false - false === 0 < 300`, which made EVERY second

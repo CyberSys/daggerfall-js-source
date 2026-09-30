@@ -213,7 +213,7 @@ test('AUDIT 39 #160: every rAF host WAITS on the hold instead of drawing under t
       + String.raw`\s+frameBegin\(now\);[^\n]*\n`
       + String.raw`\s+beginInputFrame\([A-Za-z.]+\);[^\n]*\n`
       + String.raw`(?:\s*//[^\n]*\n)*`
-      + String.raw`\s+if \(frameHeld\(\)\) \{ frameAbort\(\); hideWorldPlaque\(\); last = now; requestAnimationFrame\(frame\); ${h.endsWith('world.js') ? String.raw`drawGateBanner\(null\); travelView\?\.exit\('video', true\); ` : ''}return; \}\n`   // AUDIT DEEP X-1: and the travel view cut on the same return   // AUDIT WB C5: the world host's gate countdown is a DOM line too, and goes down on the same line as the plaque
+      + String.raw`\s+if \(frameHeld\(\)\) \{ frameAbort\(\); hideWorldPlaque\(\); last = now; requestAnimationFrame\(frame\); ${h.endsWith('world.js') ? String.raw`drawGateBanner\(null\); drawGateMarksCard\(null\); drawGateGround\(null\); travelView\?\.exit\('video', true\); ` : ''}return; \}\n`   // AUDIT DEEP X-1: and the travel view cut on the same return   // AUDIT WB C5: the world host's gate countdown is a DOM line too, and goes down on the same line as the plaque   // WB9a / WB9d: and so are the Warden's marks card and his ground's rim - DOM, down with it
       + String.raw`\s+const dt =`),
     `${h} waits out the video and keeps its loop`);
   }

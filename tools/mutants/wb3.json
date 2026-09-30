@@ -11,8 +11,8 @@
   {
     "name": "WB3-the-bucket-rate-off-the-claim",
     "file": "src/net/gateBrain.js",
-    "old": "p.bucket + (Math.max(0, now - p.bucketAt) / 1000) * BUCKET_RATE_X * ref);",
-    "new": "p.bucket + (Math.max(0, now - p.bucketAt) / 1000) * BUCKET_RATE_X * dpsRef(LV_MAX));",
+    "old": "  // the damage: WB8b's Unyielding lightens it, then it is capped a blow, then the bucket\n  const ref = dpsRef(p.lv);\n  p.bucket = Math.min(BUCKET_DEPTH_X * ref, p.bucket + (Math.max(0, now - p.bucketAt) / 1000) * BUCKET_RATE_X * ref);",
+    "new": "  // the damage: WB8b's Unyielding lightens it, then it is capped a blow, then the bucket\n  const ref = dpsRef(p.lv);\n  p.bucket = Math.min(BUCKET_DEPTH_X * ref, p.bucket + (Math.max(0, now - p.bucketAt) / 1000) * BUCKET_RATE_X * dpsRef(LV_MAX));",
     "tests": [
       "test/wb3_gate_room.test.js"
     ]
@@ -74,8 +74,8 @@
   {
     "name": "WB3-a-blow-from-off-the-court",
     "file": "src/net/gateBrain.js",
-    "old": "  if (Math.hypot(pose.x, pose.z) > COURT_R + POSE_SLACK) return 0;",
-    "new": "  if (Math.hypot(pose.x, pose.z) > COURT_R * 3 + POSE_SLACK) return 0;",
+    "old": "  if (!onFloor(pose.x, pose.z, f.xa, now, POSE_SLACK)) return 0;",
+    "new": "  if (!onFloor(pose.x, pose.z, f.xa, now, POSE_SLACK * 30)) return 0;",
     "tests": [
       "test/wb3_gate_room.test.js"
     ]
@@ -182,8 +182,8 @@
   {
     "name": "WB3-phase-three-cuts-the-wrath",
     "file": "src/net/gateBrain.js",
-    "old": "(phase >= 3 && atk.id !== ATTACKS.wrath.id ? ",
-    "new": "(phase >= 3 ? ",
+    "old": "(phase >= 3 && atk.id !== ATTACKS.wrath.id && atk.id !== ATTACKS.reckon.id",
+    "new": "(phase >= 3 && atk.id !== ATTACKS.reckon.id",
     "tests": [
       "test/wb3_gate_room.test.js"
     ]
@@ -236,8 +236,8 @@
   {
     "name": "WB3-a-dead-target-kept",
     "file": "src/net/gateBrain.js",
-    "old": "    let target = f.target ? bodies.find((b) => b.sub === f.target && !b.dead) ?? null : null;",
-    "new": "    let target = f.target ? bodies.find((b) => b.sub === f.target) ?? null : null;",
+    "old": "  const here = bodies.filter((b) => !b.dead && f.players[b.sub] && inCourt(b.x, b.z, f.court, POSE_SLACK));",
+    "new": "  const here = bodies.filter((b) => f.players[b.sub] && inCourt(b.x, b.z, f.court, POSE_SLACK));",
     "tests": [
       "test/wb3_gate_room.test.js"
     ]

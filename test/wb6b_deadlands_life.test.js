@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 
 import {
   deadlandsIslands, buildDeadlandsLand, deadlandsShards, buildShardModel, shardMatrix,
-  ISLAND_COUNT, ISLAND_NEAR, ISLAND_FAR, TOWER_WINDOW, SHARD_COUNT, SHARD_RING, SHARD_RISE, SHARD_WINDOW,
+  ISLAND_COUNT, ISLAND_NEAR, ISLAND_FAR, TOWER_WINDOW, SHARD_COUNT, SHARD_RING, SHARD_RISE, SHARD_WINDOW, SHARD_COUNT_FAR, LAND_CLEAR_M, floorGap,
 } from '../src/world/deadlandsLand.js';
 import {
   DeadlandsRenderer, lifeVertices, deadlandsWind, deadlandsFlash, flashOfSlot, courtLighting, deadClock,
@@ -25,7 +25,7 @@ import { SPEED_OF_SOUND, THUNDER_SOURCE_M } from '../src/systems/distantStorms.j
 import { courtToDungeon, courtBraziers, LAVA_Y, ARRIVE_Z, RIM_OUT, SPIRES, GATE_BLOCK_SIDE } from '../src/world/gateArena.js';
 import { GATE_ARCHIVE } from '../src/world/gateModel.js';
 import { COURT_ARCHIVE } from '../src/world/gateArena.js';
-import { COURT_R } from '../src/net/gateBrain.js';
+import { COURT_R, COURTS, nearestCourt } from '../src/net/gateBrain.js';
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const C = courtToDungeon(0, 0, 0);
@@ -39,14 +39,16 @@ function* courtVerts(model, m = null) {
     yield [x - C[0], y - C[1], z - C[2]];
   }
 }
-/** The court's rim spires as world/gateArena.js buildCourtModel stands them: axis and the square base's corner reach. */
-function courtSpires() {
+/** The court's rim spires as world/gateArena.js buildCourtModel stands them: axis and the square base's corner reach.
+ *  WB9b: court `c`'s (every place a spire may stand - its walkways' mouths cleared of some, never added to). */
+function courtSpires(c = 0) {
   const out = [];
+  const [ox, oz] = COURTS[c];
   for (let k = 0; k < SPIRES; k++) {
     const a = ((k + 0.5) / SPIRES) * Math.PI * 2;
-    if (!(Math.abs(Math.atan2(Math.cos(a), Math.sin(a))) > 0.35)) continue;
+    if (c === 0 && !(Math.abs(Math.atan2(Math.cos(a), Math.sin(a))) > 0.35)) continue;
     const r = RIM_OUT + 1.5 + (k % 3) * 0.8;
-    out.push({ b: [Math.cos(a) * r, -14, Math.sin(a) * r], t: [Math.cos(a) * (r + 3.5), 11 + (k % 4) * 2.5, Math.sin(a) * (r + 3.5)], w: 1.6 * Math.SQRT2 });
+    out.push({ b: [ox + Math.cos(a) * r, -14, oz + Math.sin(a) * r], t: [ox + Math.cos(a) * (r + 3.5), 11 + (k % 4) * 2.5, oz + Math.sin(a) * (r + 3.5)], w: 1.6 * Math.SQRT2 });
   }
   return out;
 }
@@ -82,13 +84,17 @@ test('WB6b the islands: seeded and pure, round the court from ISLAND_NEAR to ISL
 test('WB6b the floor\'s shards: off the court past its rim, off the floor, clear of the tower\'s window and of the bridge, never touching the court\'s spires over the whole period; bobbing and turning whole over it (the matrix a period later the same), a rotation and a scale never mirrored; the flagstones on top, the gate\'s stone under (mutants: a shard in the tower\'s window; a turn off the whole; the matrix mirrored)', () => {
   const s = deadlandsShards();
   assert.deepEqual(s, deadlandsShards(), 'seeded, pure');
-  assert.equal(s.length, SHARD_COUNT);
+  assert.equal(s.length, SHARD_COUNT + SHARD_COUNT_FAR * (COURTS.length - 1), 'WB9b: and SHARD_COUNT_FAR round each court past the first');
   assert.ok(SHARD_RING[0] > RIM_OUT + 5, 'past the rim');
-  for (const sh of s) {
-    const d = Math.hypot(sh.x, sh.z), az = azOf(sh.x, sh.z);
+  // WB9b: each shard hangs round its own court - the first SHARD_COUNT round the first, then SHARD_COUNT_FAR round each
+  const ownOf = (i) => (i < SHARD_COUNT ? 0 : 1 + Math.floor((i - SHARD_COUNT) / SHARD_COUNT_FAR));
+  s.forEach((sh, i) => {
+    const own = ownOf(i), [ox, oz] = COURTS[own];
+    const d = Math.hypot(sh.x - ox, sh.z - oz), az = azOf(sh.x - ox, sh.z - oz);
     assert.ok(d >= SHARD_RING[0] && d <= SHARD_RING[1] && sh.y >= SHARD_RISE[0] && sh.y <= SHARD_RISE[1]);
-    assert.ok(Math.abs(wrap(az - SIGIL_TOWER.az)) >= SHARD_WINDOW, 'out of the tower\'s window');
-    assert.ok(Math.abs(wrap(az - Math.PI)) >= 0.45, 'not over the bridge the players came by');
+    if (own === 0) assert.ok(Math.abs(wrap(az - SIGIL_TOWER.az)) >= SHARD_WINDOW, 'out of the tower\'s window');
+    if (own === 0) assert.ok(Math.abs(wrap(az - Math.PI)) >= 0.45, 'not over the bridge the players came by');
+    assert.ok(floorGap(sh.x, sh.z, own) >= LAND_CLEAR_M, `WB9b: clear of the other courts and every walkway (shard ${i})`);
     assert.ok(Number.isInteger(sh.bobTurns) && Number.isInteger(sh.spinTurns) && sh.spinTurns !== 0, 'whole over the period');
     for (const t of [0, 17.3, 333.3]) {
       const m = shardMatrix(sh, t), n = shardMatrix(sh, t + DEAD_CLOCK_PERIOD);
@@ -98,15 +104,15 @@ test('WB6b the floor\'s shards: off the court past its rim, off the floor, clear
       const at = courtToDungeon(sh.x, sh.y, sh.z);
       assert.ok(Math.abs(m[12] - at[0]) < 1e-4 && Math.abs(m[14] - at[2]) < 1e-4 && Math.abs(m[13] - at[1]) <= sh.bob + 1e-4, 'at its place, bobbing (a float32 matrix)');
     }
-  }
+  });
   const model = buildShardModel();
   assert.deepEqual(model.subMeshes.map((m) => m.textureArchive).sort(), [GATE_ARCHIVE, COURT_ARCHIVE].sort());
   const top = model.subMeshes.find((m) => m.textureArchive === COURT_ARCHIVE);
   for (let i = top.startIndex; i < top.startIndex + top.primitiveCount * 3; i++) assert.ok(model.normals[i * 3 + 1] > 0.9, 'the flagstones face up');
-  // never touching a rim spire (a square spike from its base to its tip), over the whole period
-  const spires = courtSpires();
+  // never touching a rim spire (a square spike from its base to its tip), over the whole period - WB9b: its own court's
   let gap = Infinity;
-  for (const sh of s) {
+  for (const [i, sh] of s.entries()) {
+    const spires = courtSpires(ownOf(i));
     for (let t = 0; t < DEAD_CLOCK_PERIOD; t += 2) {
       for (const [x, y, z] of courtVerts(model, shardMatrix(sh, t))) {
         for (const sp of spires) {
@@ -114,7 +120,8 @@ test('WB6b the floor\'s shards: off the court past its rim, off the floor, clear
           const u = Math.max(0, Math.min(1, (ab[0] * ap[0] + ab[1] * ap[1] + ab[2] * ap[2]) / (ab[0] ** 2 + ab[1] ** 2 + ab[2] ** 2)));
           gap = Math.min(gap, Math.hypot(ap[0] - ab[0] * u, ap[1] - ab[1] * u, ap[2] - ab[2] * u) - sp.w * (1 - u));
         }
-        assert.ok(Math.hypot(x, z) > COURT_R + 2 || y > 4, 'never into the court\'s floor');
+        const k = nearestCourt(x, z);
+        assert.ok(Math.hypot(x - COURTS[k][0], z - COURTS[k][1]) > COURT_R + 2 || y > 4, 'never into a court\'s floor');
       }
     }
   }

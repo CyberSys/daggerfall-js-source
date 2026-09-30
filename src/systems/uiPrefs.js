@@ -13,7 +13,8 @@ const STORAGE_KEY = 'dagger.ui.v1';
  *  can be told from one written after it. Bumping it does NOT re-run
  *  the adoption below - that reads the stamp's ABSENCE. */
 const SHELF_STAMP = '_rev';
-const SHELF_REV = 1;
+/** HB-LYCFREE: rev 2 is the shelf written since the hotbar became the default - see loadPrefs. */
+const SHELF_REV = 2;
 /** PREF1: the keys whose default the port changed after shelves had
  *  already materialised the old one, adopted once on an unstamped
  *  shelf. A key joins this list only when the old stored value cannot
@@ -178,6 +179,13 @@ export function loadPrefs() {
             if (p[k] !== undefined && p[k] !== PREF_DEFAULTS[k]) _prefs[k] = PREF_DEFAULTS[k];
           }
         }
+        // HB-LYCFREE (2026-09-30, Mac: "want to make the hotbar the default on option"): THE HOTBAR BECAME THE
+        // DEFAULT on `quickbarStyle`, and a shelf written before it stored nothing there - 'quickbar' was the default
+        // and this shelf writes no default. A player who turned the quick slots Off stored `quickslots: false` alone,
+        // and the new default would put a bar up over that answer; a shelf older than rev 2 holding it keeps the
+        // diamond's style, and so stays Off. Diamond was the old default and left no trace: it moves to the hotbar
+        // with everyone who never chose.
+        if ((p[SHELF_STAMP] ?? 0) < 2 && p.quickbarStyle === undefined && p.quickslots === false) _prefs.quickbarStyle = 'quickbar';
         // EE1: a shelf written before Enhanced Environments existed
         // carries only the old sky answer. It becomes the new key's,
         // ONCE - only when the new key is absent - so a player who has

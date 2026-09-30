@@ -188,6 +188,8 @@ import { herbKind } from './herbHost.js';   // PROF1: Herbalism's patches, a kin
 import { mineKind, PROSPECT_M } from './mineHost.js';   // PROF2: Mining's veins and Quarrying's boulders, a kind in it; the Prospector's reach
 import { treeKind, isTreeRecord } from './treeHost.js';   // PROF4: Logging's trees - the forest's own - a kind in it
 import { huntKind, createBodyStamps, bodiesOf, trackerMarks } from './huntHost.js';   // PROF7: Hunting's bodies - a kind in it, the kills that stamp them, a Tracker's marks
+import { fishKind } from './fishHost.js';   // PROF8: Fishing's casts and schools - a kind in it
+import { utcDayOfMs } from '../net/nodeLaw.js';   // PROF8: a haul's UTC day
 import { registerPlayerKillListener } from '../systems/playerKills.js';   // PROF7: the player's own kill stamps a body
 import { setProfessionsPages } from '../ui/profPages.js';   // PROF1: the Professions and Stores pages on the character sheet's rail
 import { withdrawIntoPack, materialLabel, materialCountLabel } from '../systems/profItems.js';   // PROF1: a Stores material as DFU's own item
@@ -209,8 +211,10 @@ import { gateScanner, findGateSite, gateSeaPixel, politicClaimed } from '../syst
 import { createGatePool, GATE_TEXT } from './gatePool.js';   // WB2: the gate the world stands - its stone, its fire and beacon, its collider and its door
 import { createSigilBroker } from './sigilBrokerPool.js';   // SET7: the Sigil Broker beside the gate - her body, her box and name, her press
 import { createBrokerOverlay, closeBrokerDoor } from '../ui/brokerDoor.js';   // SET7: her window, a lazy chunk behind its door
-import { brokerStock, brokerDay, brokerBought, makeBrokerSale, spendableStonesIn, lockedStonesIn, stoneCount } from '../systems/sigilBroker.js';   // SET7: the day's stock, the record, the sale   // SS1: the stones counted over their stacks
+import { brokerStock, brokerDay, brokerBought, makeBrokerSale, spendableStonesIn, lockedStonesIn, stoneCount, insigniaSale, stonesText } from '../systems/sigilBroker.js';   // SET7: the day's stock, the record, the sale   // SS1: the stones counted over their stacks
 import { drawGateBanner } from '../ui/gateBanner.js';
+import { drawGateGround } from '../ui/gateGroundView.js';   // WB9d: his ground's rim and warning - hidden with a held frame (the court draws it)
+import { drawGateMarksCard } from '../ui/gateMarksView.js';   // WB9a: tonight's marks over the screen - by the gate before it is entered (and in the court as a fighter steps in: scenes/gateCourt.js)
 import { createGateLink, GATE_NO_TEXT, gateRefusalText } from '../net/gateLink.js'; import { readReceipt } from '../net/gateReceipt.js';   // AUDIT WB A2: a receipt's day, seed and account, for its spoils outside the court   // WB3b: what the client holds of a gate's fight - the relay's words, folded
 import { createGateClaims } from '../net/gateClaims.js';   // WB5b: the kill receipts, carried to the account service until counted
 import { createRaidClaims } from '../net/raidClaims.js';   // RAID4: the raid receipts, carried to the account service until counted and paid
@@ -226,7 +230,7 @@ import { bossPlace } from '../world/gateBoss.js';   // AUDIT WBX F3: where he fe
 import { itemIconColor32 } from '../ui/itemIconColor32.js';   // WBX3: a spoil's own picture on the court's floor
 import { setCourtRules } from '../systems/courtRules.js';   // WBX6: the court's laws, switched by the frame
 import { gateRoomKey, isGateRoom, gateBossOf, gateTimes, gateAdmits, gateAt, GATE_COLLAPSE_MS } from '../net/gateLaw.js';   // WB3b: the court's room, and its day's end
-import { gateLandingFor, courtRing, courtToDungeon, courtBraziers, COURT_TEXT, COURT_FOG, LAVA_Y } from '../world/gateArena.js';   // WB3b: the Burning Court's way home, its ring and its words   // WB2: the gate's countdown over the screen, near it
+import { gateLandingFor, courtRing, courtArena, courtToDungeon, courtBraziers, COURT_TEXT, COURT_FOG, LAVA_Y } from '../world/gateArena.js';   // WB3b: the Burning Court's way home, its ring and its words   // WB2: the gate's countdown over the screen, near it
 import { isMainStoryDungeon } from '../world/dungeonTextures.js';   // SPAWNED-DUNGEONS1: the main story's own dungeons are never cloned
 import { nearestSafeLocation, nearestSafeLocationAnywhere, respawnFlavorText, reviveForPlay, undergroundWakeSpot, undergroundWakeText } from '../systems/deathRespawn.js';   // D-ONLINE1: online, a death respawns instead of ending the run   // X-slice; the rest refusal raises the alert and asks the RESTING variant, the townsfolk idle the STRICT one; the catch-up loop's watch arm
 import { snapshotPlayer, restorePlayer, resolvePendingSpells, composeSessionState, restoreSessionState, dungeonPixelFor } from '../systems/save.js';   // P-slice: the above-ground quicksave; B4: the ONE quest+talk composer
@@ -449,6 +453,9 @@ import { createWorldModes } from './worldModes.js';
 import { setAmbientTextHost, tickAmbientText } from '../systems/ambientText.js';   // AT2: Ambient Text's one component - this host claims it and feeds it the frame
 import { OnlineSession, roomKeyFor, DEFAULT_SERVER, WORLD_PUBLISH_MS, FOES_MS, FOES_FULL_MS, FOES_STALE_MS } from '../net/online.js';   // ONLINE1: the session; WORLD1: the room's memory
 import { createSeatLock, SEAT_NOTICE, SEAT_MID_TEXT, PLAY_HERE_LABEL } from '../net/oneSeat.js';   // ONE-SEAT: one tab of a player online - the browser's arm, beside the hub's
+import { readAccount, buyInsignia, equipTitle, equipAura, adoptIdentity as adoptSessionIdentity } from '../net/accountClient.js';   // WB9g: the Broker's insignia - the account's wardrobe, its sale and its wearing, and my own screen's word of it
+import { ownAura } from '../systems/ownGlyphs.js';   // WB9g: the aura at my own feet - the service's last word, kept on the stored session
+import { INSIGNIA, insigniaRefusal } from '../net/insignia.js';   // WB9g
 import { accountTokenMinter, storedSession, accountPlayBeat, muteAccount, serviceBase, accountRefusalText, accountDuels, accountRenown, accountHomes, accountDecor, accountGuilds, accountGates, accountMarks, accountBoard, accountProf, accountRaids, accountMarket, accountWrits } from '../net/accountClient.js';   // ACC1d: the hello's signed word, minted per connection from the account session this device holds   // ACC4: and the beat that counts time played
 import { parseModCommand, runModCommand, mutedText, mutedNotices } from '../net/moderation.js';   // MOD1: /mute and /unmute, and the line a muted player reads
 import { startPlayClock } from '../net/playClock.js';   // ACC4: time played, knocked from here and measured by the account service's clock
@@ -509,6 +516,7 @@ import { sellProceeds } from '../systems/tradeModes.js';   // GUILD-LETTER: a wi
 import { realmLetterOfCredit } from '../net/realmGoldLaw.js';   // GUILD-LETTER: the letter the service writes on a realm record, one maker
 import { createSocialPanel, TRY_AGAIN_TEXT, NO_PARTY_TEXT, LETTERS_SIGNED_OUT_TEXT } from '../ui/socialPanel.js';   // SOC3: the friends + party panel the Social button opens; AUDIT SOC B17: and its word for a refused act, so the F-menu's line and the panel's note agree
 import { glyphMarks } from '../ui/playerBadge.js';   // PEER-PLAQUE1: a badge's plain-text marks, for the plaque's title
+import { TITLE_TEXT, AURA_TEXT } from '../ui/playerBadge.js';   // WB9g: the Broker's insignia, named in its rows
 import { pickPeerInFront, SOCIAL_REACH, peerRayPick, peerIdOfKey, peerRelationText } from '../player/socialPick.js';   // SOC5: which body the ray struck, and how far "on their body" reaches; PEER-PLAQUE1: and the plaque's half of the same pick
 import { allyCastSpell, allyCastable, strangerCastable, allyReachFor, allyCastTargetLine, allyCastPlaqueLine } from '../systems/allyCast.js';
 import { composePartyFx } from '../net/partyBuffs.js';   // PARTY-BUFFS: my effects on the party pose   // ALLY-CAST: a beneficial spell at a party mate; SPELL-GIFT: and the stranger's list
@@ -524,6 +532,7 @@ import { createDuelManager, DUEL_RADIUS_M, DUEL_RANGE_M, DUEL_COUNTDOWN_MS, ring
 import { createDuelRecords, duelUncountedText } from '../net/duelRecord.js';   // DUEL1: the Inspect card's duelling record, asked and kept
 import { createDuelPrompt } from '../ui/duelPrompt.js';   // DUEL1: the challenge, as the challenged player sees it
 import { DuelWallRenderer } from '../render/duelWall.js';   // DUEL1: the ring's holographic wall
+import { AuraRingRenderer, auraWearers, AURA_KINDLE_S } from '../render/auraRing.js';   // WB9g: Dagon's Fire at a wearer's feet
 import { duelAttackerOf, duelWeaponOf, duelSwingOf, resolveDuelStrike, duelBlowPlausible, duelSpellOf, duelSpellFromWire, duelWearDamage, DUEL_TRAIL_MS } from '../combat/duelCombat.js';   // DUEL1: the blow between two duellists, both halves
 import { createPageWindow, pageView } from '../ui/pageWindow.js';   // JOURNAL1: a page another player holds out, read and kept
 import { PageOffers, pageOfferText, pageShownText, pageTooFarText, keptPageTokens, keptLetterTokens, letterOfPage, PAGE_UNSUPPORTED_TEXT, PAGE_NO_READERS_TEXT, PAGE_GONE_TEXT } from '../net/journalPage.js';   // JOURNAL1: a page of the journal shown, and one shown to me kept
@@ -1110,7 +1119,22 @@ export async function bootWorld(canvas, renderer, params, status) {
     ? createMarketBook({ door: accountMarket({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() }), storage: appStorage(),
       character: () => characterIdOf(playerEntity), now: () => Date.now() + _sharedOffsetMs, marks: marksBook,
       stores: { apply: (st) => profBook?.applyStore(st) },   // AUDIT 30 U1: what the market moves in the Stores, the Stores' count
-      holds: (pv) => !!writBook?.holdsPiece(pv) })   // AUDIT 31 H1: a piece the writs' book keeps a fill of is not listed too
+      holds: (pv) => !!writBook?.holdsPiece(pv),   // AUDIT 31 H1: a piece the writs' book keeps a fill of is not listed too
+      // GOLD-MARKET: a realm character's gold trade moves its record on the service, in the sale's own batch - the purse
+      // checkpointed first (realmSaves.js realmGoldAct) - and the save's gold as the record's pays at the BOARD's region:
+      // the purse, its letters, then that region's account (realmGoldLaw payFromSave; court.js deductGold, the same order)
+      realm: realmSession ? { act: (o) => realmGoldAct({ ...o, session: realmSession, checkpoint: () => onlineCheckpoint() }) } : null,
+      wallet: realmSession ? (region) => {
+        playerEntity.bankAccounts ??= createBankAccounts(BANK_REGION_COUNT);
+        const account = playerEntity.bankAccounts[region] ?? null;
+        return {
+          gold: () => totalGoldAmount(playerEntity) + Math.max(0, account?.accountGold ?? 0),
+          pay: (n) => { const owed = deductGold(playerEntity, n); if (account && owed > 0) account.accountGold -= owed; },
+          credit: (n) => addGold(playerEntity, n),
+          // collected: into that region's account, the purse where there is none (realmGoldLaw creditSave's `bank`)
+          bank: (n) => { if (account) account.accountGold = (Number.isFinite(account.accountGold) ? account.accountGold : 0) + n; else addGold(playerEntity, n); },
+        };
+      } : null })
     : null;
   // PROF6 (bible/06-Systems/Professions-Arc.md 28): the writs' book - a guild writ posted, supplied, withdrawn; a
   // commission posted, filled (the piece KEPT before it is asked), cancelled, declined; the guild Stores (net/writBook.js).
@@ -3050,12 +3074,12 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  AUDIT-FIELD F7: A FLOOR, NOT THE WHOLE DISTANCE. The first cut
    *  called 64 "more than the fastest accelerated step", which is true
    *  of a fixed physics STEP and false of a FRAME: the motor moves
-   *  `speed * min(dt, MAX_FRAME_DT) * scale` in one go (motor.js:1226),
+   *  `speed * min(dt, MAX_FRAME_DT) * scale` in one go (motor.js:1236),
    *  and the frame that hitches is exactly the frame in which the
    *  streamer is behind. A horse at the shipped default limit of sixty
    *  covers ~65 units in a 10 fps frame and ~120 at the mod's ceiling of
    *  a hundred - past a 64-unit probe, off the built world, and once the
-   *  motor is airborne `airControl` is false (motor.js:1795) so zeroing
+   *  motor is airborne `airControl` is false (motor.js:1805) so zeroing
    *  the drive on the NEXT frame no longer steers: the fall is already
    *  paid for. `travelLookahead` measures the frame that is about to
    *  run instead, and keeps 64 as its floor. */
@@ -7830,7 +7854,28 @@ export async function bootWorld(canvas, renderer, params, status) {
       gatherHost = createGatherHost({
         book: profBook, hud, kinds: [herbKind({ book: profBook }), mineKind({ book: profBook }),
           treeKind({ book: profBook, renderer, flatBatchAabb, getTexture, billboardSize, uploadRecord }),   // PROF4: Logging's trees
-          huntKind({ book: profBook, bodies: () => huntBodies(), openLoot: openHuntLoot })],   // PROF7: Hunting's bodies
+          huntKind({ book: profBook, bodies: () => huntBodies(), openLoot: openHuntLoot }),   // PROF7: Hunting's bodies
+          // PROF8: Fishing's casts - the net in its water, the pixel and its ground the player stands in, the game clock's
+          // hour and a storm for the wait, a trophy into the pack (the species' own Deep Waters item)
+          fishKind({ book: profBook, host: {
+            pixel: () => playerTravelPixel(),
+            ground: () => { try { const px = playerTravelPixel(); return { climate: maps.getClimateIndex(px.x, px.y), region: maps.getRegionIndexAt(px.x, px.y) }; } catch { return null; } },
+            eye: () => ({ pos: cam.pos, dir: [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)] }),
+            feet: () => (walkMode ? player.pos : cam.pos),
+            hour: () => Math.floor((((worldMinutes() % 1440) + 1440) % 1440) / 60),
+            storm: () => currentWeather() === 'thunder',
+            climateAt: (x, y) => { try { return maps.getClimateIndex(x, y); } catch { return null; } },
+            day: () => utcDayOfMs(Date.now() + _sharedOffsetMs),
+            // the tug's buzz (5.2: "the pad and phone buzz") - the touch layer's own pulse, under its own pref (TI2)
+            tug: () => { if (!getPref('touchHaptics')) return; try { navigator.vibrate?.(120); } catch { /* a platform without it */ } },
+            trophy: (species) => {
+              const item = createFishItem(species);
+              if (!item) return false;
+              addItem((playerEntity.items ??= []), item);
+              saveSoon.changed();
+              return true;
+            },
+          } })],
         renderer, getTexture, uploadRecord, billboardSize, flatBatchAabb,
         built: () => built, pixelTranslation: (x, y, out) => state.pixelTranslation(x, y, out),
         pixelInfo: (x, y) => { try { return { climate: maps.getClimateIndex(x, y), region: maps.getRegionIndexAt(x, y) }; } catch { return null; } },
@@ -8106,7 +8151,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2750 mounts the same one, gated on
+  // and dungeonContext.js:2753 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
   // that context through modes.dungeonCtx - so worldModes.js:6565
@@ -10691,7 +10736,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7557), so exterior mode and a
+    // composer, dungeonContext.js:7606), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -12223,6 +12268,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // the HUD's own standing reminder uses: one answer to "is a level
     // waiting", not a second copy of the flag.
     openSheetPage: () => (levelOwed(playerEntity) ? hudCtx.toggleCharSheet() : hudCtx.togglePause({ at: 'stats' })),
+    sailing: () => !!csaRuntime?.isSailing(),   // CLASSIC-PAGES: at a helm the down arrow is less sail's, never the Professions key's
     // MAC-L1: ONE SIGNATURE ACROSS THE FOUR HOSTS, and ONE READER of
     // its options. `routeAction`'s Escape arm used to hand a position
     // applier over positionally, and this host reads argument one as
@@ -13339,7 +13385,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10027-10091 -
+  // worldModes answers it in BOTH modes (worldModes.js:10051-10115 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -16285,6 +16331,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     who: () => characterIdOf(playerEntity),
     iconOf: (item) => itemIconColor32(item, { identity: playerEntity }),   // WBX3: each piece as its own picture - the pack's; AUDIT WBX S6: drawn for its wearer, as the pack draws it
     onSpent: (day) => { socialLink()?.sendGateSpent?.(day); },   // AUDIT WBX S1: a receipt spent here - the hub forgets its copy, so no other device or tab gives it again
+    itemName: (item) => lootPileName([item]),   // WB9f: a piece's word on the plaque, the loot piles' own (.cs:534-548)
   });
   /** RAID4b: A TOWN'S THANKS (systems/raidSpoils.js) - the spoils pool's door with no floor, under keys of its own (a
    *  town's receipts never push a boss's out of the spent list), and no word to the hub (it never kept a raid's receipt).
@@ -16365,6 +16412,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   // let go of what they held in the old one, and the crash's door asks again for the loaded character (a town's thanks
   // given, a load of a save from before them, then a save: the record cleared with its pieces in no pack at all)
   onSlotLoaded((characterId) => { spoilsPool.loaded(characterId); raidSpoils.loaded(characterId); _spoilsAskedFor = null; });
+  /** WB9b: the court's floor as the dungeon arm asks for it each frame - the fight's crossings and the relay's clock */
+  const _gateFloor = { xa: [], now: 0, none: Object.freeze([]) };
+  const _courtArena = courtArena(_gateFloor.none, 0);
   const gateCourt = gateLink ? createGateCourt({
     renderer, gl: renderer.gl, getTexture, uploadRecordFrame, audio, link: gateLink, spoils: spoilsPool,
     now: () => Date.now() + _sharedOffsetMs,
@@ -16375,7 +16425,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     strike: (dmg, how) => modes?.dungeonCtx?.strikePlayer?.(dmg, how),
     say: (text) => setMidScreenText(text),
     hudHidden: () => gamePaused() || !!townTalk.hudHidden,
+    veiled: () => !!gateVeil?.busy,   // WB9a: the marks' card waits under the step's fire (the veil is made just below - read at a frame, never at the build)
     send: (hit) => !!online?.sendGate?.({ k: 'hit', ...hit }),   // WB4b: a blow of mine on him, to the court's room
+    sendCrystal: (hit) => !!online?.sendGate?.({ k: 'xhit', ...hit }),   // WB9c: a blow of mine on a crystal of Oblivion
     portalDoor: (door) => { modes?.dungeonCtx?.exitDoors?.push?.(door); },   // WBX2: its door, for the exit's ray and name - and (SS3) its press, the one way through it
     // WBX7: a soul trap of mine still on him as he fell - the port's own kill roll (EnemyEntity.AttemptSoulTrap), his soul
     // into an empty gem of my pack, its words; the tether's arm is not his (the relay has already killed him)
@@ -16431,6 +16483,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (gateOmen) reportGateSite();   // DISCORD-GATES: where the gate stands, to the hub
     raidClaims?.tick();   // RAID4: and the raids' receipts, on theirs
     if (gatePool && (modes?.mode ?? 'exterior') !== 'exterior') drawGateBanner(null);   // WB2: the countdown is the street's; the pool's own frame runs there alone
+    if (gatePool && (modes?.mode ?? 'exterior') !== 'exterior' && modes?.gateArenaDay?.() == null) drawGateMarksCard(null);   // WB9a: the gate's card is the street's, the court draws its own - anywhere else, none
     // WB3b: the court stands until its gate's day is over - then it comes apart around whoever is in it, who land
     // before the gate; out of it, its state is forgotten (its falls and receipts are kept)
     const courtDay = modes?.gateArenaDay?.() ?? null;
@@ -16504,6 +16557,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     feet: () => (walkMode && playerSpawned ? player.feetAt() : null),
     say: (text) => setMidScreenText(text),
     banner: (text) => drawGateBanner(text, { hidden: gamePaused() || !!townTalk.hudHidden || !!gateVeil?.busy }),   // AUDIT WB C5: never over the step's fire
+    marks: (card) => drawGateMarksCard(card, { hidden: gamePaused() || !!townTalk.hudHidden || !!gateVeil?.busy }),   // WB9a: tonight's marks beside the countdown - never over the step's fire
     ready: () => !!online?.gateOk,   // WB3b: a relay that runs a gate's boss room (net/wire.js relaySupportsGate)
     landBefore: (g) => landBeforeGate(g),   // AUDIT WBX W1: a player sealed in a rising horn's root, set down before the gate
     enter: (g) => { modes?.enterGateArena?.(g); },   // WB3b: into the Burning Court (scenes/worldModes.js)
@@ -16532,12 +16586,82 @@ export async function bootWorld(canvas, renderer, params, status) {
     surfacePlayer();
     return sale;
   };
+  /** WB9g (2026-09-30, Mac: "Add a brand new title to the broker and a new addition (the aura) ... These items should be
+   *  expensive and sought after"): THE BROKER'S INSIGNIA (net/insignia.js) - the Gatebreaker title and Dagon's Fire aura,
+   *  bought once for Sigil Stones and kept by the ACCOUNT. What the account owns and wears is the service's (asked each
+   *  time her window opens - `insigniaLoad`); a sale is two halves, the service's (it records it, the account's closed
+   *  gates paying - server-account/src/accounts.js buyInsignia) and the pack's (its stones held before the service is
+   *  asked, and given back unless it holds the sale - AUDIT WB9: systems/sigilBroker.js insigniaSale); wearing
+   *  one is the account card's own door (equipTitle, equipAura), and my own name and feet show it at once - the room
+   *  sees it from the next hello the token signs. */
+  let _insignia = { loaded: false, busy: false, held: [], title: null, aura: null };
+  const insigniaIo = () => { const st = appStorage(); const ses = storedSession(st); return ses ? { fetch: (u, i) => globalThis.fetch(u, i), base: serviceBase(st), secret: ses.secret } : null; };
+  const insigniaAdopt = (w) => { if (w && typeof w === 'object') _insignia = { ..._insignia, loaded: true, held: Array.isArray(w.insignia) ? w.insignia : _insignia.held, title: w.title ?? null, aura: w.aura ?? null }; };
+  async function insigniaLoad() {
+    const io = insigniaIo();
+    if (!io) { _insignia = { ..._insignia, loaded: true, held: [], title: null, aura: null }; return; }
+    try { const r = await readAccount(io); if (r.ok) insigniaAdopt(r.data?.wardrobe); } catch { /* the rows say they cannot tell */ }
+  }
+  /** The rows the window draws: each offer, its word, whether the account owns and wears it. */
+  const insigniaRows = () => INSIGNIA.map((o) => ({
+    ...o, name: o.kind === 'title' ? TITLE_TEXT[o.key] ?? o.key : AURA_TEXT[o.key] ?? o.key,
+    owned: _insignia.held.includes(o.id), worn: o.kind === 'title' ? _insignia.title === o.key : _insignia.aura === o.key,
+  }));
+  /** My own badge, at once, off the service's answer to a wear - before the next mint says it: the session's own door
+   *  (the title my own lines wear, the aura it holds for me) and the stored session's (the fire at my feet - ownAura),
+   *  through their own readers, never a word the vocabulary does not hold. */
+  const insigniaSelf = (answer, secret) => {
+    online?.adoptIdentity?.({ title: _insignia.title, glyphs: online.glyphs, level: online.lv, aura: _insignia.aura });
+    adoptSessionIdentity(appStorage(), { glyphs: answer?.glyphs, aura: _insignia.aura, secret });
+  };
+  async function insigniaBuy(offer) {
+    if (_insignia.busy) return { ok: false, text: 'The Broker is already writing up a sale.' };
+    const io = insigniaIo();
+    const why = insigniaRefusal(offer, { held: _insignia.held, stones: stoneCount(spendableStonesIn(playerEntity.items ?? [])), online: !!io && !!online });
+    if (why === 'owned') return { ok: false, text: 'Your account already owns that.' };
+    if (why === 'offline') return { ok: false, text: 'Insignia is kept by your account - sign in and go online to buy it.' };
+    if (why === 'stones') return { ok: false, text: `Not enough Sigil Stones - it asks ${stonesText(offer.price)}.` };
+    if (why) return { ok: false, text: 'The Broker will not sell that.' };
+    _insignia.busy = true;
+    try {
+      playerEntity.items = playerEntity.items || [];
+      // AUDIT WB9 (insignia F1, F2): the pack's price held FIRST and given back unless the service holds the sale (a lost
+      // answer asked after), and a held sale saved at once - PROF-SAVE's door (systems/sigilBroker.js insigniaSale)
+      const r = await insigniaSale(offer, {
+        items: playerEntity.items, buy: (id) => buyInsignia(io, id), save: () => saveSoon.changed(),
+        held: async (id) => { const a = await readAccount(io); const w = a.ok ? a.data?.wardrobe : null; return Array.isArray(w?.insignia) && w.insignia.includes(id) ? w : null; },
+      });
+      if (!r.ok) return { ok: false, text: r.error === 'stones' ? `Not enough Sigil Stones - it asks ${stonesText(offer.price)}.` : r.error === 'short' ? `${accountRefusalText('short')} It asks ${stonesText(offer.price)}.` : accountRefusalText(r.error) };
+      insigniaAdopt(r.data);
+      audio.playOneShot(SOUND.GoldPieces, 1);
+      surfacePlayer();
+      const name = insigniaRows().find((x) => x.id === offer.id)?.name ?? offer.key;
+      return { ok: true, text: `Bought: ${name}, for ${stonesText(offer.price)}. It is your account's for good - wear it here or on your account card.` };
+    } catch { return { ok: false, text: accountRefusalText('offline') }; } finally { _insignia.busy = false; }
+  }
+  async function insigniaWear(offer) {
+    if (_insignia.busy) return { ok: false, text: 'A moment - the Broker is busy.' };
+    const io = insigniaIo();
+    if (!io) return { ok: false, text: 'Insignia is kept by your account - sign in to wear it.' };
+    const row = insigniaRows().find((x) => x.id === offer.id);
+    if (!row?.owned) return { ok: false, text: 'Your account does not own that.' };
+    _insignia.busy = true;
+    try {
+      const want = row.worn ? null : row.key;
+      const r = offer.kind === 'title' ? await equipTitle(io, want) : await equipAura(io, want);
+      if (!r.ok) return { ok: false, text: accountRefusalText(r.error) };
+      insigniaAdopt(r.data);
+      insigniaSelf(r.data, io.secret);
+      return { ok: true, text: want ? `Wearing ${row.name}. Others see it from your next step into a new place.` : `${row.name} put away.` };
+    } catch { return { ok: false, text: accountRefusalText('offline') }; } finally { _insignia.busy = false; }
+  }
   const openBroker = () => {
     const win = createBrokerOverlay({
       stock: brokerStockNow, day: () => brokerDay(_brokerNow()), now: _brokerNow,
       items: () => spendableStonesIn(playerEntity.items ?? []), locked: () => stoneCount(lockedStonesIn(playerEntity.items ?? [])),   // SS1: a locked stack counts whole
       bought: () => brokerBought(brokerDay(_brokerNow())), buy: brokerBuy,
       wearer: playerEntity, nameOf: (item) => itemLongName(item),
+      insignia: insigniaRows, insigniaLoad, buyInsignia: insigniaBuy, wearInsignia: insigniaWear, insigniaBusy: () => _insignia.busy,   // WB9g
     });
     if (win) townTalk.showOverlay(win);
   };
@@ -16593,7 +16717,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       while (_duelTrail.length && tNow - _duelTrail[0].t > DUEL_TRAIL_MS) _duelTrail.shift();
     } else if (_duelTrail.length) _duelTrail.length = 0;
     player.arena = live && (modes?.mode ?? 'exterior') === 'exterior' ? { centre: campToScene(live.c), radius: DUEL_RADIUS_M } : null;
-    if (!player.arena && modes?.gateArenaDay?.() != null) player.arena = courtRing();   // WB3b: the court's floor is a ring the body cannot leave
+    // WB3b: the court's floor is a ring the body cannot leave - WB9b: the three courts' floor, as far as the walkways
+    // between them are laid (one arena, its crossings and clock refilled each frame)
+    if (!player.arena && modes?.gateArenaDay?.() != null) { _courtArena.xa = gateLink?.state()?.xa ?? _gateFloor.none; _courtArena.now = Date.now() + _sharedOffsetMs; player.arena = _courtArena; }
     duelPrompt?.render();
   };
   /** DUEL1: THE RING I DUEL IN, FOR THE ONLOOKERS, on my foes frame (validRingRecord's shape): on every FULL frame while it
@@ -19014,6 +19140,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // after the bodies (a Morrowind player's own choice for everyone they meet), before the class sprite and the doll
     peerWalkers.sync(seen, onlineToScene, { eye: peerEye, right: peerRight, dt, skip: (id) => peerBodies.heightOf(id) > 0, hurt: (id) => peerHurtAge(id) < PEER_FLINCH_S, conceal: veilOf });   // PEERFX3: a class skin's hurt pose
     peerRiders.settle((id) => peerBodies.wolfStands(id));   // WEREWOLF1 (AUDIT E4): the deferred werewolves, now the bodies have stood - before anything reads the riders
+    auraFrame(seen);   // WB9g: the auras at the feet - mine and the drawn peers' - gathered with the rest
     // PCORPSE1: a body heard in a room this scene has left for another KIND of space (a dungeon's local frame, the
     // street's world frame) is not this scene's to draw; one heard anywhere in the overworld's cells still is
     // PCORPSE3: a party member's body their party pose tells of, that the death pose never brought me (I was between
@@ -19066,7 +19193,53 @@ export async function bootWorld(canvas, renderer, params, status) {
   const drawPeerBodies = (proj, view, eye) => { if (peerBodies) peerBodies.draw(canvas, { proj, view, eye, flashOf: peerFlashOf }); peerWalkers?.drawLanterns(); };   // HT-WAIST-BACK: the walkers' lanterns, each on its own tilted basis, beside the bodies - every mode's pass calls this after the player's own body (the exterior here, the dungeon and the interior through host.drawPeerBodies)
   /** INVIS-LOOK: the concealed peers' Morrowind bodies, translucent - blended with no depth write, so every mode's pass
    *  calls this AFTER its opaque world (net/peerBodies.js drawVeiled), with the camera its body pass took. */
-  const drawVeiledPeerBodies = () => { peerBodies?.drawVeiled(); };
+  const drawVeiledPeerBodies = () => { peerBodies?.drawVeiled(); drawAuras(); };   // WB9g: and the auras, after the opaque world as the veiled are
+  /** WB9g (2026-09-30, Mac: "an animated burning ground aura that circles the ground where your character stands"):
+   *  DAGON'S FIRE AT THE FEET (render/auraRing.js) - mine, as the service signed it (the session's `au`, adopted at each
+   *  mint), and every peer's the relay vouched for (their hello's `au`), each kindling as it first stands. Gathered with
+   *  the peers each frame (auraFrame), drawn after each mode's opaque world under the camera that world was drawn with
+   *  (the renderer's frame, as the fog it takes) through the veiled bodies' hook - every host calls it: the street, the
+   *  dungeon's lateWorldDraw, the building - added and fogged; never under the travel view, and a concealed peer's
+   *  fire is concealed with them. */
+  const _auraWearers = [], _auraDraw = [], _auraPool = new Map();
+  const _auraSelf = { id: 'self', at: [0, 0, 0], aura: null, seed: 0.37, kindle: 1, since: 0 };
+  let _auraPass = null, _auraTried = false;
+  const auraSeedOf = (id) => { let h = 2166136261; for (const ch of String(id)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return ((h >>> 0) % 997) / 997; };
+  function auraFrame(seen) {
+    _auraWearers.length = 0;
+    if (!online || travelView?.active) return;
+    const t = performance.now() / 1000;
+    const mine = ownAura();   // the service's last word on my own - a mint's, a wear's from any door
+    if (mine && playerSpawned) {
+      const f = player.feetAt();
+      if (_auraSelf.aura !== mine) _auraSelf.since = t;
+      _auraSelf.at[0] = f[0]; _auraSelf.at[1] = f[1]; _auraSelf.at[2] = f[2]; _auraSelf.aura = mine;
+      _auraSelf.kindle = Math.min(1, (t - _auraSelf.since) / AURA_KINDLE_S);
+      _auraWearers.push(_auraSelf);
+    } else _auraSelf.aura = null;
+    for (const d of seen) {
+      if (_veils.has(d.id) || !d.shown) continue;   // a concealed peer's fire is concealed with them
+      const au = online.auraOf?.(d.id) ?? null;
+      if (!au) { _auraPool.delete(d.id); continue; }
+      let w = _auraPool.get(d.id);
+      if (!w || w.aura !== au) { w = { id: d.id, at: [0, 0, 0], aura: au, seed: auraSeedOf(d.id), kindle: 0, since: t }; _auraPool.set(d.id, w); }
+      const p = onlineToScene(d.shown);
+      w.at[0] = p[0]; w.at[1] = p[1]; w.at[2] = p[2];
+      w.kindle = Math.min(1, (t - w.since) / AURA_KINDLE_S); w.seen = t;
+      _auraWearers.push(w);
+    }
+    if (_auraPool.size) for (const [id, w] of _auraPool) if (w.seen !== t) _auraPool.delete(id);   // the gone forget their kindling
+  }
+  function drawAuras() {
+    if (!_auraWearers.length) return;
+    const proj = renderer._proj, view = renderer._view, eye = renderer._camPos;   // the frame's camera, the world's own
+    if (proj && view && eye && auraWearers(_auraWearers, eye, _auraDraw).length) {
+      if (!_auraTried) { _auraTried = true; try { _auraPass = new AuraRingRenderer(renderer.gl); } catch (e) { console.warn('[online] the aura would not build', e?.message ?? e); _auraPass = null; } }
+      _auraPass?.draw(_auraDraw, proj, view, eye, performance.now() / 1000, { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, camPos: renderer._camPos, focus: renderer._focus });
+      if (_auraPass?.drawn) renderer.markForeignPass();
+    }
+    _auraWearers.length = 0;   // this frame's, drawn once: a frame that gathers none (the seat left, death, offline) draws none
+  }
   /** FONT1 (2026-09-16, Mac: "Especially the new online interfaces font use our enhanced font"): THE SOCKET'S OWN
    *  WORD, IN THE SKIN'S FACE. The online lane is the enhanced lane whole (systems/onlineLane.js), so this line -
    *  connecting, reconnecting, refused - was the one online surface still drawn in the classic bitmap font while
@@ -19172,9 +19345,18 @@ export async function bootWorld(canvas, renderer, params, status) {
     onTransitionExterior: () => { navalStow(); csaOnTransition(); navalTransition(); },   // CSA-C: PlayerEnterExit.OnTransitionExterior; NAV-H: a fresh sea at the door
     gateCourtLights: () => gateCourt?.lights() ?? [],   // WB4: the glow on him, in the court's light channel
     gateBoss: () => gateCourt?.target() ?? null,   // WB4b: him as a body my blows meet
+    gateFloor: () => { _gateFloor.xa = gateLink?.state()?.xa ?? _gateFloor.none; _gateFloor.now = Date.now() + _sharedOffsetMs; return _gateFloor; },   // WB9b: the walkways laid between the courts, on the relay's clock (one object, refilled - AUDIT WB D10's law)
     onBossHit: (hit) => !!gateCourt?.hit(hit),   // WB4b: a blow's number on him, out to the room
     onBossTrap: (trap) => !!gateCourt?.trapped(trap),   // WBX7: a soul trap laid on him - the court rolls it at his fall
     bossTrapNow: () => gateCourt?.trapNow?.() ?? null,   // AUDIT WBX F6: my trap running on him, for a recast to stack onto
+    gateCrystals: () => gateCourt?.crystalTargets() ?? null,   // WB9c: the Reckoning's crystals as bodies my blows meet
+    onCrystalHit: (hit) => !!gateCourt?.crystalHit(hit),   // WB9c: a blow's number on one, out to the room
+    // WB9f: HIS SPOILS ON THE FLOOR, pressed - the pool's resting pieces as targets, their words and their items for the
+    // plaque, and the press that takes one into the pack (the court's dungeon arm, worldModes.js standCourt)
+    spoilTargets: () => spoilsPool?.targets() ?? null,
+    spoilName: (key) => spoilsPool?.nameOf(key) ?? null,
+    spoilContents: (key) => spoilsPool?.contentsOf(key) ?? null,
+    takeSpoil: (key) => !!spoilsPool?.pick(key),
     // WB6a: the Deadlands' sea and sky, in the dungeon arm's world pass after the court's solid geometry - in the court's
     // own air (the renderer's fog as it set it for the court, the sky's light following the lane's with the fog's colour)
     drawGateBackdrop: ({ proj, view }) => {
@@ -21644,7 +21826,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // AUDIT WB C5: and the gate's countdown goes down with it - a DOM line over the video would stand frozen on it.
     // AUDIT DEEP X-1: and the travel view is CUT - its readout stood over the film, its listeners on the canvas, until
     // its heartbeat noticed the frames had stopped
-    if (frameHeld()) { frameAbort(); hideWorldPlaque(); last = now; requestAnimationFrame(frame); drawGateBanner(null); travelView?.exit('video', true); return; }
+    if (frameHeld()) { frameAbort(); hideWorldPlaque(); last = now; requestAnimationFrame(frame); drawGateBanner(null); drawGateMarksCard(null); drawGateGround(null); travelView?.exit('video', true); return; }
     const dt = Math.min(0.1, (now - last) / 1000);
     // AUDIT 28 W7 + F-C1/F-C2 (self-audit 3): PlayerMouseLook.Update's
     // three answers - paused (:241-244) returns before ApplyLook and the
@@ -22694,6 +22876,15 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       player.offsetOrigin(r.offset);   // EV1: shifts BOTH ends of the interpolation span - no 819-unit lerp frame
       sky.offsetOrigin(r.offset);   // VC4: the clouds and their shadow keep their place over the land
       renderer.shadowOriginShift?.(r.offset);   // AUDIT SC1: the shadow cache's remembered placements follow the origin too, or every still caster reads as moved for a second
+      // AUDIT FLICKER R2: AND THE FLATS THE NEXT REPLAY READS. The frame's records are replayed at the next beginFrame,
+      // before the pixel loop writes a pixel's translation and a townsman's place again - a pixel's flats stand at its
+      // translation (p._t, the very array their batches' origin is) and a townsman's batch at his place over it, both
+      // the old origin's on the crossing frame: every tree, bush, sign and passer-by cast nothing there, and the far
+      // cascade (every other frame) kept the hole a frame more
+      for (const p of built.values()) {
+        if (p._t) state.pixelTranslation(p.px, p.py, p._t);
+        if (p.personBatches) for (const b of p.personBatches.values()) { const o = b.origin; if (o) { o[0] += r.offset[0]; o[1] += r.offset[1]; o[2] += r.offset[2]; } }
+      }
       // AUDIT 17e F23: everything else holding a WORLD position must
       // follow the origin too, or it strands 819.2 units behind.
       doorGeneration += 1;   // WORLD-HOVER: the floating origin moved, so every door's WORLD matrix did
@@ -23226,10 +23417,10 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       if (cullOn && billboardOutside(b)) { if (renderer.shadowReachBatch(b)) castBatches.push(b); continue; }   // AUDIT REACH
       allBatches.push(b);
     }
-    if (peerRiders) for (const b of peerRiders.batches()) { if (!(cullOn && billboardOutside(b))) allBatches.push(b); }   // RIDE: the others in the saddle
-    if (peerWalkers) for (const b of peerWalkers.batches()) { if (!(cullOn && billboardOutside(b))) allBatches.push(b); }   // DISC23-B: and on foot, as they chose
-    if (bandSprites) for (const b of bandSprites.batches()) { if (!(cullOn && billboardOutside(b))) allBatches.push(b); }   // OW-FOES: the bands near, as their monsters
-    if (yards) for (const b of yards.batches()) { if (!(cullOn && billboardOutside(b))) allBatches.push(b); }   // HOME-YARD: the yards' flats, and the one being placed
+    if (peerRiders) for (const b of peerRiders.batches()) { if (cullOn && billboardOutside(b)) { if (renderer.shadowReachBatch(b)) castBatches.push(b); continue; } allBatches.push(b); }   // RIDE: the others in the saddle; AUDIT FLICKER R3: off screen, a shadow still in reach
+    if (peerWalkers) for (const b of peerWalkers.batches()) { if (cullOn && billboardOutside(b)) { if (renderer.shadowReachBatch(b)) castBatches.push(b); continue; } allBatches.push(b); }   // DISC23-B: and on foot, as they chose; AUDIT FLICKER R3: off screen, a shadow still in reach
+    if (bandSprites) for (const b of bandSprites.batches()) { if (cullOn && billboardOutside(b)) { if (renderer.shadowReachBatch(b)) castBatches.push(b); continue; } allBatches.push(b); }   // OW-FOES: the bands near, as their monsters; AUDIT FLICKER R3: off screen, a shadow still in reach
+    if (yards) for (const b of yards.batches()) { if (cullOn && billboardOutside(b)) { if (renderer.shadowReachBatch(b)) castBatches.push(b); continue; } allBatches.push(b); }   // HOME-YARD: the yards' flats, and the one being placed; AUDIT FLICKER R3: off screen, a shadow still in reach
     // NEAR-FIRST (2026-09-21): THE PIXELS ARE WALKED NEAREST FIRST. The
     // map's insertion order is the order the pixels streamed in, which
     // is nothing to do with where the eye is - so a far town's walls

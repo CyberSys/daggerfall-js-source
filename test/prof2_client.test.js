@@ -395,7 +395,7 @@ test('PROF2 DONE WHEN: veins placed on rock fields; signatures by kingdom - a co
 
 test('PROF2 hosts: the streaming world stands every kind through the one host, its rock pieces carried on the pixel; the dungeon\'s veins through its own doors; the forge at a smith\'s or a home; the Prospector\'s compass on both skins', () => {
   const w = src('src/scenes/world.js');
-  assert.match(w, /gatherHost = createGatherHost\(\{\n\s*book: profBook, hud, kinds: \[herbKind\(\{ book: profBook \}\), mineKind\(\{ book: profBook \}\),\n\s*treeKind\(\{ book: profBook, renderer, flatBatchAabb, getTexture, billboardSize, uploadRecord \}\),[^\n]*\n\s*huntKind\(\{ book: profBook, bodies: \(\) => huntBodies\(\), openLoot: openHuntLoot \}\)\],/);   // PROF4: Logging's trees, the third; PROF7: Hunting's bodies, the fourth
+  assert.match(w, /gatherHost = createGatherHost\(\{\n\s*book: profBook, hud, kinds: \[herbKind\(\{ book: profBook \}\), mineKind\(\{ book: profBook \}\),\n\s*treeKind\(\{ book: profBook, renderer, flatBatchAabb, getTexture, billboardSize, uploadRecord \}\),[^\n]*\n\s*huntKind\(\{ book: profBook, bodies: \(\) => huntBodies\(\), openLoot: openHuntLoot \}\),/);   // PROF4: Logging's trees, the third; PROF7: Hunting's bodies, the fourth; PROF8's casts after them
   assert.match(w, /if \(rockPick\(m\.pick\)\) pixelRocks\.push\(box\);/, 'a rock piece that stood - after the road\'s clearance');
   assert.match(w, /rocks: pixelRocks,/);
   assert.match(w, /const rockPick = \(i\) => wodPicks\[i\]\?\.name === 'Rocks' \|\| wodPicks\[i\]\?\.name === 'Mountains';/);

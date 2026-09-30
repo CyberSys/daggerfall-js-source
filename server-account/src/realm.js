@@ -608,8 +608,8 @@ export const HOME_RENT_DUE_SQL = 'SELECT COALESCE(SUM(rent_due), 0) AS due FROM 
  *  player is part of whose goods, piece or Marks' worth would come to this character: a listing or an auction still
  *  standing, or closed with its goods not yet back (market.js settle hands them back on the next read); a leading bid; a
  *  buy order or a commission still open; a courier's load of materials still on the road to its Stores; a piece to
- *  collect. Escrowed Marks come back to the ACCOUNT, never the character, so an outbid bid or a closed order holds
- *  nothing up. `n`, the count. */
+ *  collect; gold its sales hold for it (GOLD-MARKET: collected into its own record alone). Escrowed Marks come back to
+ *  the ACCOUNT, never the character, so an outbid bid or a closed order holds nothing up. `n`, the count. */
 export const REALM_MARKET_OPEN_SQL = `SELECT
   (SELECT COUNT(*) FROM market_listings WHERE seller = ?1 AND char_id = ?2
     AND (state = 'open' OR (state IN ('expired', 'removed') AND returned = 0)))
@@ -619,7 +619,8 @@ export const REALM_MARKET_OPEN_SQL = `SELECT
   + (SELECT COUNT(*) FROM market_orders WHERE poster = ?1 AND char_id = ?2 AND state = 'open')
   + (SELECT COUNT(*) FROM commissions WHERE poster = ?1 AND poster_char = ?2 AND state = 'open')
   + (SELECT COUNT(*) FROM market_sales WHERE buyer = ?1 AND char_id = ?2 AND kind = 'material' AND delivered = 0)
-  + (SELECT COUNT(*) FROM market_deliveries WHERE player = ?1 AND char_id = ?2 AND collected = 0) AS n`;
+  + (SELECT COUNT(*) FROM market_deliveries WHERE player = ?1 AND char_id = ?2 AND collected = 0)
+  + (SELECT COUNT(*) FROM market_gold WHERE player = ?1 AND char_id = ?2 AND gold > 0) AS n`;
 
 /** A character's objects: the ones its row names, and anything else under its prefix a lost write left. Best effort -
  *  an object that will not go is not a reason to keep the row. */

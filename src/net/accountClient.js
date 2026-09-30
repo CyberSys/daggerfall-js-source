@@ -38,6 +38,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { HANDLE_RE } from './handleShape.js';
+import { AURAS } from './identityToken.js';   // WB9g: the auras that exist - a stored one is one of them, or none
 import { LETTER_SUBJECT_MAX, LETTER_BODY_MAX, LETTER_LINES_MAX, LETTERS_SENT_MAX, LETTERS_PAIR_MAX } from './letterLaw.js';   // MAIL1: the letter's bounds, in the refusals' own sentences
 import { MUTE_RANGE_TEXT } from './moderation.js';   // AUDIT 68 S14-mute-range-text-duplicated: the mute's bound in the refusal's sentence, from its home
 import { HOME_CAP, RENT_ROOMS_MAX, RENT_HELD_MAX, RENT_DAYS_MAX } from './homeLaw.js';   // HOME1: the cap a refusal names; HOME-RENT: and the rooms'
@@ -46,7 +47,7 @@ import { MARKS_MAX, MARKS_BANK, MARKS_MOVE_MAX } from './marksLaw.js';   // MARK
 import { NOTES_LIVE_MAX, NOTE_DAYS, NOTICE_DAYS_MAX } from './boardLaw.js';   // NOTICE1: the bounds its refusals name
 import {
   HARVESTS_PER_DAY, HARVESTS_PER_ACCOUNT_DAY, DEEP_UNCONFIRMED_PER_DAY, STORES_MAX, WITHDRAW_MAX, COURT_WRITS_PER_DAY, RESPEC,
-  HIDES_PER_DAY, HIGH_HIDES_PER_DAY,
+  HIDES_PER_DAY, HIGH_HIDES_PER_DAY, HAULS_PER_DAY,
 } from './professionLaw.js';   // PROF1: the bounds its refusals name; PROF7: Hunting's day
 import {
   GUILD_FOUND_RENOWN, GUILD_MEMBERS_MAX, GUILD_NAME_MIN, GUILD_NAME_MAX, GUILD_RANK_NAME_MAX, GUILD_MOVE_MAX,
@@ -138,6 +139,12 @@ export const REFUSALS = Object.freeze({
   // and gets a different sentence.
   'not-held': 'That title is not yours to wear any more.',
   'no-title': 'The account service does not know that title. The game may need updating.',
+  // WB9g, the Broker's insignia (server-account/src/accounts.js buyInsignia, equipAura)
+  'no-aura': 'The account service does not know that aura. The game may need updating.',
+  'no-insignia': 'The Broker does not sell that any more. The game may need updating.',
+  owned: 'Your account already owns that.',
+  short: 'Your account has not closed enough Oblivion Gates to pay for that. Each gate closed pays one Sigil Stone.',
+  guest: 'The Broker records insignia only on an account with a username and password. Give this account one first.',
   // MOD1, moderation. A moderator reads these in chat, beside the
   // command they just typed.
   'not-moderator': 'Only moderators can do that.',
@@ -283,6 +290,7 @@ export const REFUSALS = Object.freeze({
   'prof-later': 'That is made when the sieges come.',   // PROF4: the Ram Kit (PROF0 25)
   // PROF7: Hunting's day - the account's, every character's together (PROF0 6)
   'prof-hunt-cap': `Your account has taken all the hides a day allows (${HIDES_PER_DAY}, across your characters).`,
+  'prof-fish-cap': `Your account has hauled all the nets a day allows (${HAULS_PER_DAY}, across your characters). The water rests until midnight UTC.`,   // PROF8
   'prof-hunt-high': `Your account has taken all the rare hides a day allows (${HIGH_HIDES_PER_DAY}, across your characters).`,
   'prof-foe': 'No knife takes a hide from that body.',
   'prof-dye': 'That cannot be dyed so.',
@@ -326,6 +334,14 @@ export const REFUSALS = Object.freeze({
   'market-standing': 'That piece stands in a home. Take it up first.',
   'market-unyielded': 'Nothing yields that yet, so no one could fill an order for it.',
   'market-busy': 'The counting-house is still settling your last business.',
+  // GOLD-MARKET: gold is a realm character's, and what gold bought stays gold's (Professions-Arc 10.8)
+  'market-gold-realm': 'Gold changes hands on the market only between characters of the online realm.',
+  'market-currency': 'That listing is priced in the other currency. Look again.',
+  'market-gold-goods': 'What you bought with gold goes to your pack or back on the market for gold - never for Drakes, to a station, a craft or a writ.',
+  'market-drakes-goods': 'What you bought with Drakes sells for Drakes. Only what you gathered, made or bought with gold sells for gold.',
+  'market-gold-none': 'Your sales hold no gold for you just now.',
+  'market-gold-full': 'The seller cannot hold any more gold from the market just now.',
+  'stores-gold': 'What you bought with gold is not used there. Withdraw it to your pack, or sell it again for gold.',
   // PROF5b: the auctions
   'auction-not-masterwork': 'Only a Masterwork is sold at auction. List it at a price instead.',
   'auction-low': 'Another bid came first. The next bid is higher now.',
@@ -521,6 +537,12 @@ export const logout = (io, all = false) => call(io, '/v1/auth/logout', { all });
  *  itself would be a client that can wear anything, which is the hole
  *  ACC1g shut one field over. `{ ok, titles, title, glyphs }`. */
 export const equipTitle = (io, title) => call(io, '/v1/account/title', { title: title ?? null });
+/** WB9g: wear one of the Broker's auras, or none - `{ ok, titles, title, glyphs, auras, aura, insignia }`, the wardrobe
+ *  after the write. */
+export const equipAura = (io, aura) => call(io, '/v1/account/aura', { aura: aura ?? null });
+/** WB9g: buy a piece of the Broker's insignia (net/insignia.js INSIGNIA) for this account - the wardrobe after the sale and
+ *  the `purse` its closed gates can still pay, or a refusal (`owned`, `short` with `purse` and `price`, `guest`). */
+export const buyInsignia = (io, item) => call(io, '/v1/account/insignia', { item });
 
 /** ACC4: ONE BEAT OF TIME PLAYED. It carries no number - the service
  *  credits the gap by its own clock (net/playClock.js says why), and
@@ -564,9 +586,9 @@ export function storedSession(storage) {
 /** Keep the session this device signed in with. The RECOVERY CODE IS
  *  NEVER PART OF THIS - `register` and `recover` hand one back and it
  *  is the screen's to show and the player's to write down. */
-export function keepSession(storage, { id, name, kind, sessionId, secret, glyphs }) {
+export function keepSession(storage, { id, name, kind, sessionId, secret, glyphs, aura }) {
   try {
-    storage?.setItem?.(SESSION_KEY, JSON.stringify({ id, name, kind, sessionId, secret, glyphs }));   // SHADOW-FANG: `glyphs` when the service has stated them (adoptIdentity) - JSON leaves it out otherwise
+    storage?.setItem?.(SESSION_KEY, JSON.stringify({ id, name, kind, sessionId, secret, glyphs, aura }));   // SHADOW-FANG: `glyphs` when the service has stated them (adoptIdentity) - JSON leaves it out otherwise; WB9g: `aura` likewise
     return true;
   } catch { return false; }
 }
@@ -608,10 +630,14 @@ export function keepSession(storage, { id, name, kind, sessionId, secret, glyphs
  * adopted, one account's name and glyphs landed on another's device (and
  * dressed its werewolf in a skin it does not hold).
  *
+ * WB9g (2026-09-30): AND THE AURA WORN (`aura`, null for none), when the answer states it - a token's, a wardrobe's
+ * after any wear (the account card's, the Broker's) - so this device's own player sees the fire at their feet the moment
+ * any door changes it (systems/ownGlyphs.js ownAura). The room sees it from their next hello, off the signature.
+ *
  * @param {any} storage
- * @param {{ name?: string, kind?: string, glyphs?: string[], secret?: string }} [who]
+ * @param {{ name?: string, kind?: string, glyphs?: string[], aura?: string|null, secret?: string }} [who]
  */
-export function adoptIdentity(storage, { name, kind, glyphs, secret } = {}) {
+export function adoptIdentity(storage, { name, kind, glyphs, aura, secret } = {}) {
   const was = storedSession(storage);
   if (!was) return false;
   if (typeof secret === 'string' && was.secret !== secret) return false;
@@ -619,8 +645,10 @@ export function adoptIdentity(storage, { name, kind, glyphs, secret } = {}) {
   if (typeof name === 'string' && name) next.name = name;
   if (kind === 'guest' || kind === 'linked') next.kind = kind;
   if (Array.isArray(glyphs)) next.glyphs = glyphs.filter((g) => typeof g === 'string' && g.length <= 24).slice(0, 16);
+  if (aura !== undefined) next.aura = typeof aura === 'string' && AURAS.includes(aura) ? aura : null;   // WB9g: one that exists, or none
   const sameGlyphs = (next.glyphs ?? []).join('+') === (was.glyphs ?? []).join('+');
-  if (next.name === was.name && next.kind === was.kind && sameGlyphs) return false;   // nothing to write, and a write is a storage event every open tab hears
+  const sameAura = (next.aura ?? null) === (was.aura ?? null);
+  if (next.name === was.name && next.kind === was.kind && sameGlyphs && sameAura) return false;   // nothing to write, and a write is a storage event every open tab hears
   return keepSession(storage, next);
 }
 
@@ -689,7 +717,9 @@ export function accountTokenMinter({ fetch, storage, onIssued = null, character 
         const who = { name: answer.data.name, kind: answer.data.kind, title: answer.data.title ?? null, glyphs: Array.isArray(answer.data.glyphs) ? answer.data.glyphs : [], level: Number.isSafeInteger(answer.data.level) ? answer.data.level : null,
           xp: Number.isSafeInteger(answer.data.xp) && answer.data.xp >= 0 ? answer.data.xp : null,   // RENOWN4: the track's total, for the page's own bar - none from a service before acct13
           // GUILD1c: the tag my character's guild wears (null for none) - absent from a service before acct13, which says nothing
-          ...('guild' in answer.data ? { guild: typeof answer.data.guild === 'string' ? answer.data.guild : null } : {}) };
+          ...('guild' in answer.data ? { guild: typeof answer.data.guild === 'string' ? answer.data.guild : null } : {}),
+          // WB9g: the aura at my own feet (null for none) - absent from a service before acct38, which says nothing
+          ...('aura' in answer.data ? { aura: typeof answer.data.aura === 'string' ? answer.data.aura : null } : {}) };
         adoptIdentity(storage, { ...who, secret: session.secret });   // AUDIT B4: into the session that asked
         // A THROW HERE IS THE HOST'S AND IS NOT THE PLAYER'S. The token
         // is good and the connection is the thing that matters; a
@@ -984,6 +1014,8 @@ export function accountMarket({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) 
     // PROF5b: an auction posted (a Masterwork at its opening bid), and a bid on one
     auction: (req) => post('/v1/market/auction', req),
     bid: (req) => post('/v1/market/bid', req),
+    // GOLD-MARKET: a realm character's gold its sales hold, collected into its record (`{ character, realm, region }`)
+    gold: (req) => post('/v1/market/gold', req),
   };
 }
 

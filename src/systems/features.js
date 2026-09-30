@@ -893,6 +893,8 @@ export const FEATURES = Object.freeze([
   // FT18: QUICK SLOTS, ONE ROW. QS's diamond switch and HB1's quickbar-or-hotbar were two tiles over one corner of
   // the HUD, and the diamond's switch did nothing while the hotbar was up (HB1 puts the diamond away). Three states,
   // one bar (systems/featureLanes.js 'quickSlots'): Off is QS's - the diamond hidden, its keys still working.
+  // HB-LYCFREE (2026-09-30, Mac: "want to make the hotbar the default on option"): Hotbar is the default; a shelf that
+  // chose Off before it keeps Off (systems/uiPrefs.js loadPrefs, shelf rev 2).
   Object.freeze({
     id: 'quick-slots',
     group: 'interface',
@@ -903,7 +905,7 @@ export const FEATURES = Object.freeze([
     effect: 'Takes effect at once.',
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({
-      store: 'prefs', key: 'quickbarStyle', initial: 'quickbar', online: 'player', lane: 'quickSlots',   // HB1: ui/enhancedHotbar.js HOTBAR_PREF
+      store: 'prefs', key: 'quickbarStyle', initial: 'hotbar', online: 'player', lane: 'quickSlots',   // HB1: ui/enhancedHotbar.js HOTBAR_PREF
       also: Object.freeze([Object.freeze({ store: 'prefs', key: 'quickslots', initial: true, online: 'player' })]),   // QS: ui/enhancedHud.js hides the diamond on false
     }),
   }),

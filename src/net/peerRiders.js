@@ -35,6 +35,7 @@ import {
   isRearView, createLanternArt, loadLanternArt, createSpriteLantern, stepSpriteLantern, spriteStride, hangSpriteLantern,
   mintSpriteLantern, dropSpriteLantern,
 } from '../player/eotbLantern.js';   // HT-WAIST-BACK: the lantern on every EOTB sprite, one home - the local body's and these
+import { quadHalfDiagonal } from '../render/bounds.js';   // AUDIT FLICKER R1: a sprite's reach, as the batch was made with
 import { stepPeerPace } from './peerPace.js';   // HT-WAIST-BACK: the pace off the drawn pose, MWBODY1's law
 
 /** The table a riding pose shows: standing, walking, galloping (EOTB's three mounted tables). */
@@ -109,11 +110,18 @@ function figureLayer(art) {
       const xml = spriteOffset(s.archive, s.record);
       const size = spriteSize(up.w, up.h, mode, xml.scale);
       const key = `${s.archive}:${s.rec}`;
-      if (!r.batch || r.batchKey !== key) {
-        if (r.batch) renderer?.destroyBillboardBatch?.(r.batch);
+      if (!r.batch) {
         r.batch = renderer.createBillboardBatch(s.archive, s.rec, size, [[0, 0, 0]]);
         r.batch.origin = [0, 0, 0];
         r.batch.conceal = r.veil ?? null;   // INVIS-LOOK: a new sprite keeps the figure's draw
+        r.batchKey = key;
+      } else if (r.batchKey !== key) {
+        // AUDIT FLICKER R1: A NEW FRAME IS WRITTEN THROUGH THE BATCH STANDING, as the foes' and the bands' are. It was
+        // destroyed and made again at every animation frame (a rider's every 1/16 s) in the update, after the frame's
+        // records were taken and before the next frame replays them: the replay met a dead batch and the figure cast
+        // no shadow on each such frame - a rider's shadow strobing, and every lamp's static cache rebuilt twice a frame
+        r.batch.archive = s.archive; r.batch.record = s.rec; r.batch.size = size;
+        if (r.batch.bounds) r.batch.bounds[3] = quadHalfDiagonal(size);
         r.batchKey = key;
       }
       r.size = size; r.xml = xml; r.mirror = s.mirror;

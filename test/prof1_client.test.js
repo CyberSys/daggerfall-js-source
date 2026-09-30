@@ -372,7 +372,7 @@ test('PROF1 FORAGE0 law 6\'s exception: online, the six tools shelve whatever Fo
 
 test('PROF1 keys and hosts: the act choice is KB1\'s, on ;, in a Professions group; the streaming world wires the patches, the press, Escape and the swing; the fixed city and the dungeons stand none (FLAGGED)', () => {
   assert.ok(DEFAULT_BINDINGS.some(([c, a]) => c === 'ArrowUp' && a === 'ActChoice'), 'on the up arrow - `=` is the decorator\'s, `;` Come Sail Away\'s lantern (THE MERGE)');
-  assert.deepEqual(ACTION_GROUPS.find((g) => g.title === 'Professions')?.rows.map((r) => r.action), ['ActChoice']);
+  assert.deepEqual(ACTION_GROUPS.find((g) => g.title === 'Professions')?.rows.map((r) => r.action), ['ActChoice', 'Professions'], 'CLASSIC-PAGES: the Professions key beside it');
   const w = src('src/scenes/world.js');
   // PROF2: the herb host became the one gathering host (src/scenes/gatherHost.js) - Herbalism a kind in it
   assert.match(w, /gatherHost\?\.onBuilt\(built\.get\(key\)\);/);

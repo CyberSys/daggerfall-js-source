@@ -431,8 +431,8 @@
   {
     "name": "PROF3-kit-least-worn",
     "file": "src/systems/smithItems.js",
-    "old": "  want.sort((a, b) => share(a) - share(b) ||",
-    "new": "  want.sort((a, b) => share(b) - share(a) ||",
+    "old": "worn(b) - worn(a) || conditionShare(a) - conditionShare(b));",
+    "new": "worn(b) - worn(a) || conditionShare(b) - conditionShare(a));",
     "tests": [
       "test/prof3_client.test.js"
     ]
@@ -449,8 +449,8 @@
   {
     "name": "PROF3-kit-not-spent",
     "file": "src/systems/smithItems.js",
-    "old": "  if (i >= 0) items.splice(i, 1);\n  return { item: it, before, after: share(it) };",
-    "new": "  return { item: it, before, after: share(it) };",
+    "old": "  if (i >= 0) items.splice(i, 1);\n  return { item: it, before, after: conditionShare(it) };",
+    "new": "  return { item: it, before, after: conditionShare(it) };",
     "tests": [
       "test/prof3_client.test.js"
     ]

@@ -102,6 +102,35 @@ export const saleTithe = (total, pct = MARKET_TITHE_PCT) => Math.floor((total * 
 /** What the seller receives of a sale: the price less the tax and the Tithe (10.4). */
 export const sellerGets = (total, tithePct = MARKET_TITHE_PCT) => total - saleTax(total) - saleTithe(total, tithePct);
 
+// ─── GOLD-MARKET (2026-09-30, Mac: "Allow trading with gold or drakes on the marketplace"; "Gold listings, walled") ───
+//
+// A listing names its currency: Drakes (`marks`, the code's name for them) as ever, or GOLD - a realm character's own
+// gold, paid off its record on the service and held for its seller until collected into a bank account. Buy orders,
+// auctions and commissions stay in Drakes. THE WALL (law 8, "gold never becomes Marks", kept): goods bought with gold
+// come into the Stores as their own origin, `gold`, and a piece bought with gold is marked (`bought_with`) - such goods
+// go to the pack or back on the market for gold, and nowhere else: no Drakes listing, buy-order fill, station, craft,
+// Court or guild writ, auction or commission takes them. And a Drakes listing's `bought` units - goods bought with
+// Drakes - never list for gold, so the market is never the Bank's way round (its daily cap and its spread stand).
+
+/** The two currencies a listing may name, the Drakes first. */
+export const MARKET_CURRENCIES = Object.freeze(['marks', 'gold']);
+export const currencyOk = (c) => MARKET_CURRENCIES.includes(c);
+/** The Stores' three origins: gathered or made (`own`), bought with Drakes (`bought`), bought with gold (`gold`). */
+export const STORE_ORIGINS = Object.freeze(['own', 'bought', 'gold']);
+/** The origins a listing of `currency` may take units of - its own, and what was bought in its own currency. */
+export const listableOrigins = (currency) => (currency === 'gold' ? Object.freeze(['own', 'gold']) : Object.freeze(['own', 'bought']));
+/** The most gold a character's sales hold for it on the service, uncollected - ten times a Drakes balance's cap. */
+export const MARKET_GOLD_HELD_MAX = 10 * MARKS_MAX;
+/** A gold sale: its tax (5% of the listing's running total, as a Drakes sale's) and its listing fee, both burnt - a
+ *  gold listing pays its fee out of each sale, 1% of it rounded up, where a Drakes listing pays it at listing (a gold
+ *  seller holds no gold on the service to pay it from); `gets`, what is held for the seller. */
+export function goldSaleOf(before, total) {
+  const tax = saleTaxOn(before, total), fee = listingFee(total), tithe = saleTithe(total);
+  return { tax, fee, tithe, gets: Math.max(0, total - tax - fee - tithe) };
+}
+/** An amount of gold in words, as the game's own windows say it. */
+export const goldText = (n) => `${Number(n).toLocaleString('en-US')} gold`;
+
 /** A map pixel as `world_witness` keeps a hub's: "x,y" - MAPS.BSA's 1000 x 500 (mapsFile.js). */
 export const hubReport = (x, y) => `${x},${y}`;
 export const hubPixelOk = (x, y) => Number.isSafeInteger(x) && Number.isSafeInteger(y) && x >= 0 && x < 1000 && y >= 0 && y < 500;
