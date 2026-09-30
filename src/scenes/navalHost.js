@@ -53,8 +53,8 @@ import { createNavalEffects } from '../systems/naval/navalEffects.js';
 import { createNavalDirector, DENSITY, seedBaseOf, SEED_SALT, DESPAWN_BEYOND } from '../systems/naval/navalDirector.js';
 import { createSeaShip, stepCaptain, quatOfYaw, forwardOfYaw, velocityOf, provoke, hostile, lookoutOf, fightingPower, TEMPERS, HEAR_S, RUN_OUT_S, RUN_OUT_DEG, BOW_RUN_OUT, SPARE_S } from '../systems/naval/navalAI.js';
 import { wrapAngle } from '../world/mat4.js';   // ONCRASH1: the port's one angle wrap
-import { createShipDamage, shotDamage, SHIP_STATES, SINK_SECONDS, SINK_CLEAR, sinkAngles, sinkDepth, BRACE_TAKEN, FIRE_CHANCE, WRECKED_OARS, repairCost } from '../systems/naval/navalDamage.js';
-import { createGunDeck, aimSolution, volleyLaunches, bearingOf, sideForBearing, toWorld, RIPPLE_S, READY_FLASH_S, RELOAD_SINGLEHANDED } from '../systems/naval/navalGunnery.js';
+import { createShipDamage, shotDamage, SHIP_STATES, SINK_SECONDS, SINK_CLEAR, sinkAngles, sinkDepth, BRACE_TAKEN, FIRE_CHANCE, WRECKED_OARS, repairCost, STRUCK_AT } from '../systems/naval/navalDamage.js';
+import { createGunDeck, aimSolution, volleyLaunches, bearingOf, sideForBearing, toWorld, RIPPLE_S, READY_FLASH_S } from '../systems/naval/navalGunnery.js';
 import { hullBuild, batteryOf, batteriesOf, GUNS, classById, shipNames, crownOf, classLine, SIDES, SIDE_DIR, BARREL, NAVAL_FACTIONS, HULL } from '../systems/naval/navalShips.js';
 import { orientedBox, arcPoints, flatUnit, NAVAL_DEG, rangeAt, segmentBoxEntry, shotPosition, landing } from '../systems/naval/navalBallistics.js';
 import { lawOf, createNotoriety, crownRegion, notorietyLevel, WITNESS_RANGE, KNIGHTLY_FACTION, TEMPLE_FACTION } from '../systems/naval/navalLaw.js';
@@ -1356,9 +1356,10 @@ export function createNavalHost(deps) {
    *  every ship the sea's hostility is nobody's business of theirs (the header's law). */
   const aboardShip = () => !!boatInPlay() || !!seaDeckUnderMe();
   /** SEA-PEACE: my boat's fighting power as a captain sizes it up (navalAI.js fightingPower) - a boat without her crew
-   *  loads single-handed (navalGunnery.js reloadSeconds). */
+   *  loads single-handed (navalGunnery.js reloadSeconds). AUDIT NAV2 F25: her men and whether they load her guns - a
+   *  player's boat never strikes, whatever her men. */
   function myPowerOf(boat, st = myBoatState(boat)) {
-    return fightingPower({ hull: boat.hull, hullHp: st.damage.maxHull, hullShare: st.damage.hullShare(), crewShare: boat.crewed ? st.damage.crewShare() : 1 / RELOAD_SINGLEHANDED });
+    return fightingPower({ hull: boat.hull, hullHp: st.damage.maxHull, hullShare: st.damage.hullShare(), crewShare: st.damage.crewShare(), crew: st.damage.crew, crewed: !!boat.crewed });
   }
   /** SEA-PEACE: me as the table reads me - the boat I am in play by, sized up, or (off every boat of mine) a player
    *  no wary pirate can size up. */
@@ -1387,6 +1388,14 @@ export function createNavalHost(deps) {
     if (!aboardShip()) return false;
     const feet = deps.feet(), me = meContact();
     for (const e of sea.values()) if (dist2d(e.ship.pos, feet) <= HOSTILE_NEAR_M && hostileToMe(e, me)) return true;
+    return false;
+  }
+  /** AUDIT NAV2 F29: whether a hostile ship afloat is within HOSTILE_NEAR_M of a boat of mine, sized up as she lies -
+   *  her hands' quiet to mend in, wherever I stand. */
+  function hostileNearBoat(b, st) {
+    const p = b.GameObject.position;
+    const me = { kind: 'player', id: myId(), hullShare: st.damage.hullShare(), crippled: st.damage.state === SHIP_STATES.wrecked, power: myPowerOf(b, st) };
+    for (const e of sea.values()) if (dist2d(e.ship.pos, p) <= HOSTILE_NEAR_M && hostileToMe(e, me)) return true;
     return false;
   }
   /** THE MERGE with main's OW6 (a fast journey slows as enemies close, systems/travelThreat.js): the hostile ships
@@ -2289,15 +2298,15 @@ export function createNavalHost(deps) {
     clock += d;
     // my boats: their clocks, the brace, their fires
     // AUDIT NAV1 (the helm): her hands mend her between fights - no hostile ship near, nothing struck her lately (a fire
-    // aboard strikes her every step it burns: navalDamage.js step)
-    const quiet = !hostileNearMe();
+    // aboard strikes her every step it burns: navalDamage.js step). AUDIT NAV2 F29: near HER - over the side or ashore
+    // (no longer aboard: hostileNear false) the fight she lies in went on and she mended in it
     mending = false;
     for (const b of myBoats()) {
       const s = myBoatState(b);
       s.guns.step(d);
       s.guns.braced = b === boat && braceHeld;
       s.damage.step(d, clock);
-      if (quiet && clock - s.damage.lastHitAt >= FIELD_QUIET_S) {
+      if (clock - s.damage.lastHitAt >= FIELD_QUIET_S && !hostileNearBoat(b, s)) {
         const m = fieldMend(s.damage, d, { crewed: !!b.crewed, crewShare: s.damage.crewShare() });
         if (m.hull > 0 || m.sail > 0) {
           s.damage.repair({ hull: m.hull, sail: m.sail, crew: 0 }, { refloat: FIELD_REFLOAT });
@@ -2323,10 +2332,15 @@ export function createNavalHost(deps) {
         const afloat = e.ship.damage.state === SHIP_STATES.afloat;
         // AUDIT NAV1 (B1): engaged while she fights, comes alongside or is boarded - a prize, a struck hulk or a boarding
         // given up is let go once out of sight - and only a ship afloat counts against the density; NAV-R: a raider is
-        // its own law's to despawn (raiders()), and counts in the density
-        if (!e.owner) ships.push({ id: e.id, pos: e.ship.pos, classId: e.ship.cls.id, engaged: e.ship.mode === 'engage' || e.ship.mode === 'board' || boarding?.shipId === e.id || !!e.raider || !!e.takenBy || !!e.ship.lashed || (!!e.struck && sea.get(e.struck.by)?.ship.target === e.id), afloat });   // SEA-PEACE: a prize her taker comes for or takes, and the taker, are in a fight
+        // its own law's to despawn (raiders()), and counts in the density. AUDIT NAV2 F23: she fights only AFLOAT - two
+        // struck to each other kept each other for ever, each the other's taker by a stale target
+        if (!e.owner) ships.push({ id: e.id, pos: e.ship.pos, classId: e.ship.cls.id, engaged: (afloat && (e.ship.mode === 'engage' || e.ship.mode === 'board')) || boarding?.shipId === e.id || !!e.raider || !!e.takenBy || !!e.ship.lashed, afloat });
         else if (e.orphan == null && dist2d(e.ship.pos, feet) <= DESPAWN_BEYOND) ships.push({ id: e.id, pos: e.ship.pos, classId: e.ship.cls.id, theirs: true, afloat });
       }
+      // AUDIT NAV2 F27: and a ship is in a fight while an engaged ship of mine targets her - SEA-PEACE's prize her taker
+      // comes for or takes, and a quarry running (let go from under the pursuer kept for her)
+      const chased = new Set(ships.filter((y) => y.engaged && !y.theirs).map((y) => sea.get(y.id)?.ship.target));
+      for (const x of ships) if (!x.theirs && chased.has(x.id)) x.engaged = true;
       const out = director.step(d, {
         density: stands ? trafficDensity(feet) : 0, player: feet, players, level: deps.level?.() ?? 1, seaY, ships,
         // AUDIT NAV1 (online #6): the waters draw the navy after the most notorious player in them, not the stander alone
@@ -2495,7 +2509,11 @@ export function createNavalHost(deps) {
         const dealt = Math.round(closing * RAM_DAMAGE * GALLEY_RAM);
         effects.hit(bow, f, true);
         sound(NAVAL_SFX.hit, bow, 1);
-        strike(t, { hull: dealt, sail: 0, crew: Math.round(dealt / 40) }, e.id);
+        // AUDIT NAV2 F26: a sound ship is rammed to her strike, never under it - one blow sank a prize outright (the rest
+        // of a volley is floored only once she has struck: strike's STRUCK_GRACE_S)
+        const td = t.ship.damage;
+        const room = td.state === SHIP_STATES.afloat && td.hullShare() > STRUCK_AT ? Math.ceil(td.hull - td.maxHull * STRUCK_AT) : Infinity;
+        strike(t, { hull: Math.min(dealt, room), sail: 0, crew: Math.round(dealt / 40) }, e.id);
         s.damage.apply({ hull: Math.round(dealt * RAM_RECOIL / GALLEY_RAM), sail: 0, crew: 0 }, clock);
         break;
       }
@@ -2871,6 +2889,7 @@ export function createNavalHost(deps) {
     // after the shift put them an origin's move away for as long as it kept them
     for (const w of [...wireVolleys, ...wireBarrels]) { w.pos[0] += o[0]; w.pos[1] += o[1]; w.pos[2] += o[2]; }
     for (const c of claims.values()) { c.point[0] += o[0]; c.point[1] += o[1]; c.point[2] += o[2]; }
+    for (const g of gunfire) { g.pos[0] += o[0]; g.pos[1] += o[1]; g.pos[2] += o[2]; }   // AUDIT NAV2 F8: the guns heard are the world's - a navy steered for a report an origin's move away
     if (boarding) for (const p of [boarding.from, boarding.to]) { p.pos[0] += o[0]; p.pos[2] += o[2]; }
     shots.offsetAll(o);
     effects.offsetAll(o);
@@ -2881,6 +2900,7 @@ export function createNavalHost(deps) {
     shots.clear();
     effects.clear();
     wireVolleys = []; wireBarrels = [];
+    gunfire = [];   // AUDIT NAV2 F8: the guns heard go with the sea they were fired on
     claims.clear(); granted.clear();
     seenVolleys.clear();
     flashes.length = 0;

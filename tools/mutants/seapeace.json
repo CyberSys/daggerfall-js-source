@@ -56,8 +56,8 @@
   {
     "name": "SEAPEACE-the-barrel-counted",
     "file": "src/systems/naval/navalAI.js",
-    "old": "if (bat && bat.gun !== 'barrel') m += bat.muzzles.length * GUNS[bat.gun].hull;",
-    "new": "if (bat) m += bat.muzzles.length * GUNS[bat.gun].hull;",
+    "old": "  const sides = a.tactic === 'bow' ? ['bow', 'starboard'] : ['starboard'];",
+    "new": "  const sides = ['starboard', 'bow', 'stern'];",
     "tests": [
       "test/seapeace.test.js"
     ]
@@ -65,8 +65,8 @@
   {
     "name": "SEAPEACE-the-port-side-twice",
     "file": "src/systems/naval/navalAI.js",
-    "old": "for (const side of ['starboard', 'bow', 'stern']) {\n    const bat = batteryOf(hull, side);\n    if (bat && bat.gun !== 'barrel')",
-    "new": "for (const side of ['starboard', 'port', 'bow', 'stern']) {\n    const bat = batteryOf(hull, side);\n    if (bat && bat.gun !== 'barrel')",
+    "old": "    const balls = bat.muzzles.length / sides.length / (",
+    "new": "    const balls = 2 * bat.muzzles.length / sides.length / (",
     "tests": [
       "test/seapeace.test.js"
     ]
@@ -74,8 +74,8 @@
   {
     "name": "SEAPEACE-the-hull-share-unread",
     "file": "src/systems/naval/navalAI.js",
-    "old": " * Math.max(0, hullHp) * clamp(hullShare, 0, 1);",
-    "new": " * Math.max(0, hullHp);",
+    "old": "  const byHull = hull > 0 ? b.hullHp * Math.max(0, b.hullShare - STRUCK_AT) / hull : Infinity;",
+    "new": "  const byHull = hull > 0 ? b.hullHp * (1 - STRUCK_AT) / hull : Infinity;",
     "tests": [
       "test/seapeace.test.js"
     ]
@@ -83,8 +83,8 @@
   {
     "name": "SEAPEACE-the-odds-inverted",
     "file": "src/systems/naval/navalAI.js",
-    "old": "return theirs != null && shipPower(ship) >= WARY_ODDS * theirs;",
-    "new": "return theirs != null && shipPower(ship) * WARY_ODDS >= theirs;",
+    "old": "  return theirs != null && odds(shipPower(ship), theirs) >= WARY_ODDS;",
+    "new": "  return theirs != null && odds(theirs, shipPower(ship)) >= WARY_ODDS;",
     "tests": [
       "test/seapeace.test.js"
     ]
@@ -119,8 +119,8 @@
   {
     "name": "SEAPEACE-the-chase-pace-unread",
     "file": "src/systems/naval/navalAI.js",
-    "old": "> CHASE_AWAY * paceOf(ship, world.wind) && offBow",
-    "new": "> CHASE_AWAY * ev && offBow",
+    "old": "away > CHASE_AWAY * own)",
+    "new": "away > CHASE_AWAY * ev)",
     "tests": [
       "test/seapeace.test.js"
     ]
@@ -146,7 +146,7 @@
   {
     "name": "SEAPEACE-the-prize-never-boarded",
     "file": "src/systems/naval/navalAI.js",
-    "old": "} else if (prize && ship.damage.crew > 0) {",
+    "old": "} else if (prize && ship.damage.crew > 0 && ship.cls.faction !== 'merchant') {",
     "new": "} else if (false) {",
     "tests": [
       "test/seapeace.test.js"
@@ -191,8 +191,8 @@
   {
     "name": "SEAPEACE-the-prize-let-go-before-the-grapple",
     "file": "src/scenes/navalHost.js",
-    "old": " || (!!e.struck && sea.get(e.struck.by)?.ship.target === e.id), afloat });",
-    "new": ", afloat });",
+    "old": "      for (const x of ships) if (!x.theirs && chased.has(x.id)) x.engaged = true;",
+    "new": "",
     "tests": [
       "test/seapeace.test.js"
     ]
@@ -254,7 +254,7 @@
   {
     "name": "SEAPEACE-the-plunder-odds-unread",
     "file": "src/systems/naval/navalDirector.js",
-    "old": "classPower(pirate) >= WARY_ODDS * classPower(c));",
+    "old": "odds(classPower(pirate), classPower(c)) >= WARY_ODDS);",
     "new": "true);",
     "tests": [
       "test/seapeace.test.js"
@@ -290,8 +290,8 @@
   {
     "name": "SEAPEACE-a-crewless-boat-at-full-rate",
     "file": "src/scenes/navalHost.js",
-    "old": "crewShare: boat.crewed ? st.damage.crewShare() : 1 / RELOAD_SINGLEHANDED",
-    "new": "crewShare: st.damage.crewShare()",
+    "old": "crewed: !!boat.crewed });",
+    "new": "crewed: true });",
     "tests": [
       "test/seapeace.test.js"
     ]

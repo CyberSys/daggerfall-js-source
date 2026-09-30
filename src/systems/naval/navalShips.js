@@ -75,7 +75,9 @@ export const SIDE_DIR = Object.freeze({ starboard: Object.freeze([1, 0, 0]), por
  * from each yard - the Small Ship's two lateens fore and aft along her centreline, the galley's one square sail across
  * her at the mast, the Carrack's two square courses across and her lateen mizzen along; a ball through one tears
  * canvas and flies on (systems/naval/navalShots.js). The rowboat carries none; the Large Galley's yard is 53 m end to
- * end, but a box that wide would be mostly air, so hers stops at the canvas's own 50.
+ * end, but a box that wide would be mostly air, so hers stops at the canvas's own 50. AUDIT NAV2 F28: `sailWay` is the
+ * prefab's sail acceleration modifier (Come Sail Away's modifierMoveAccelerationSail) - the rate her way comes and goes
+ * under sail and off it, the player's and the captains' alike (navalAI.js helm).
  */
 /** A hull's rig boxes, frozen. */
 function rigOf(...boxes) { return Object.freeze(boxes.map((b) => Object.freeze(b.map((p) => Object.freeze(p))))); }
@@ -83,7 +85,7 @@ function rigOf(...boxes) { return Object.freeze(boxes.map((b) => Object.freeze(b
 export const HULL_BUILDS = Object.freeze([
   Object.freeze({   // 0 Rowboat - no guns; a rowboat is shot at, never fights
     hull: 0, gun: null, broadside: Object.freeze([]), bow: null, stern: null,
-    hullHp: 60, sailHp: 0, crew: 0, deck: 0.1, beam: 1.0, ram: false, bowZ: 2.94, aftZ: -2.14, halfWidth: 1.08, keel: -0.23, top: 0.78,
+    hullHp: 60, sailHp: 0, crew: 0, deck: 0.1, beam: 1.0, ram: false, bowZ: 2.94, aftZ: -2.14, halfWidth: 1.08, keel: -0.23, top: 0.78, sailWay: 1,
     rig: Object.freeze([]),
   }),
   Object.freeze({   // 1 Large Boat - swivels on the gunwale (1.2 m), three a side and one in the bow
@@ -91,7 +93,7 @@ export const HULL_BUILDS = Object.freeze([
     broadside: Object.freeze([[1.8, 1.3, -2.3], [2.05, 1.3, 0.3], [1.8, 1.3, 2.3]].map(Object.freeze)),
     bow: Object.freeze({ gun: 'swivel', muzzles: Object.freeze([Object.freeze([0, 1.6, 5.9])]) }),
     stern: null,
-    hullHp: 150, sailHp: 60, crew: 0, deck: 0.1, beam: 1.9, ram: false, bowZ: 6.51, aftZ: -5.99, halfWidth: 2.15, keel: -0.64, top: 1.59,
+    hullHp: 150, sailHp: 60, crew: 0, deck: 0.1, beam: 1.9, ram: false, bowZ: 6.51, aftZ: -5.99, halfWidth: 2.15, keel: -0.64, top: 1.59, sailWay: 1,
     rig: rigOf([[-1.7, 1.59, -5.44], [1.7, 9.27, 6.71]]),
   }),
   Object.freeze({   // 2 Small Ship - the gun deck at 3.64, ports 0.9 over it from the quarter to the forecastle
@@ -99,7 +101,7 @@ export const HULL_BUILDS = Object.freeze([
     broadside: Object.freeze([[7.2, 4.5, -12], [7.8, 4.5, -8], [8.1, 4.5, -4.5], [7.8, 4.5, -1], [7.4, 4.5, 2.5], [7.0, 4.5, 6]].map(Object.freeze)),
     bow: Object.freeze({ gun: 'chain', muzzles: Object.freeze([Object.freeze([-1.4, 7.6, 16.0]), Object.freeze([1.4, 7.6, 16.0])]) }),
     stern: Object.freeze({ gun: 'barrel', muzzles: Object.freeze([Object.freeze([0, 7.6, -23.0])]) }),
-    hullHp: 420, sailHp: 160, crew: 24, deck: 3.64, beam: 7.4, ram: false, bowZ: 19.88, aftZ: -24.25, halfWidth: 8.43, keel: -3.35, top: 10.92,
+    hullHp: 420, sailHp: 160, crew: 24, deck: 3.64, beam: 7.4, ram: false, bowZ: 19.88, aftZ: -24.25, halfWidth: 8.43, keel: -3.35, top: 10.92, sailWay: 1,
     rig: rigOf([[-3.5, 10.92, -20.1], [3.5, 34, 26]]),
   }),
   Object.freeze({   // 3 Large Galley - four long guns a side on the upper deck (10.25), three heavy guns over the stem, a ram
@@ -107,7 +109,7 @@ export const HULL_BUILDS = Object.freeze([
     broadside: Object.freeze([[9.3, 11.1, -20], [9.3, 11.1, -8], [9.3, 11.1, 4], [9.3, 11.1, 16]].map(Object.freeze)),
     bow: Object.freeze({ gun: 'heavy', muzzles: Object.freeze([Object.freeze([-1.6, 8.3, 45.0]), Object.freeze([0, 8.3, 46.0]), Object.freeze([1.6, 8.3, 45.0])]) }),
     stern: null,
-    hullHp: 520, sailHp: 90, crew: 60, deck: 10.25, beam: 8.8, ram: true, bowZ: 51.27, aftZ: -41.89, halfWidth: 11.17, keel: -2.46, top: 14.09,
+    hullHp: 520, sailHp: 90, crew: 60, deck: 10.25, beam: 8.8, ram: true, bowZ: 51.27, aftZ: -41.89, halfWidth: 11.17, keel: -2.46, top: 14.09, sailWay: 0.5,
     rig: rigOf([[-25, 17, 12.5], [25, 36.9, 17]]),
   }),
   Object.freeze({   // 4 Carrack - seven long guns a side on the main deck (3.64), chasers under the forecastle, barrels astern
@@ -115,7 +117,7 @@ export const HULL_BUILDS = Object.freeze([
     broadside: Object.freeze([[6.3, 4.5, -16], [7.0, 4.5, -12], [7.7, 4.5, -8], [7.9, 4.5, -4.2], [7.4, 4.5, 0], [7.1, 4.5, 4.2], [5.8, 4.5, 8.4]].map(Object.freeze)),
     bow: Object.freeze({ gun: 'chain', muzzles: Object.freeze([Object.freeze([-1.2, 10.1, 19.5]), Object.freeze([1.2, 10.1, 19.5])]) }),
     stern: Object.freeze({ gun: 'barrel', muzzles: Object.freeze([Object.freeze([0, 7.6, -27.5])]) }),
-    hullHp: 560, sailHp: 220, crew: 30, deck: 3.64, beam: 7.4, ram: false, bowZ: 23.71, aftZ: -28.24, halfWidth: 8.43, keel: -3.35, top: 11.82,
+    hullHp: 560, sailHp: 220, crew: 30, deck: 3.64, beam: 7.4, ram: false, bowZ: 23.71, aftZ: -28.24, halfWidth: 8.43, keel: -3.35, top: 11.82, sailWay: 1,
     rig: rigOf([[-13.8, 20, 14], [13.8, 39.6, 18.5]], [[-10.5, 26, -5], [10.5, 45.3, -1.5]], [[-3, 17, -31], [3, 39.7, -10.7]]),
   }),
 ]);
