@@ -257,7 +257,9 @@ test('CHAT1 / AUDIT CHAT: the session as a CHANNEL (presence: false) - the hello
   let clock = 1_000_000;
   const now = () => clock;
   const heard = [];
-  const s = new OnlineSession({ url: 'wss://relay.test', name: 'Mac', id: 'mac-0001', secret: 'secret-of-mac-0001', presence: false, WebSocketImpl: FakeWS, now });
+  // SCALE2: the rejoin's jitter at its middle (rand 0.5: a factor of one) - this pin reads the wait as CHAT_REJOIN_MS;
+  // test/scale2.test.js holds the spread
+  const s = new OnlineSession({ url: 'wss://relay.test', name: 'Mac', id: 'mac-0001', secret: 'secret-of-mac-0001', presence: false, WebSocketImpl: FakeWS, now, rand: () => 0.5 });
   s.onChat = (line) => heard.push(line);
   assert.equal(s.presence, false);
   s.join(CHAT_WORLD_ROOM, { x: 1, y: 2, z: 3, yaw: 0, pitch: 0, mv: 1 });

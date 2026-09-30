@@ -3,7 +3,7 @@
 // createCharacter (systems/chargen) rolls the real career the first
 // time a chargen-running context boots, and every host runs it
 // through systems/chargenSession.js - dungeonContext.js:2414,
-// world.js:5258, exterior.js:1406 and applyHeadlessChargen for the
+// world.js:5260, exterior.js:1406 and applyHeadlessChargen for the
 // test room (AUDIT 23).
 //
 // NOT A GAP (recorded): the stand-ins below - flat skills 30,
@@ -105,6 +105,15 @@ export function setDeathPresenter(fn) {
   const prev = _deathPresenter;
   _deathPresenter = fn ?? null;
   return prev;
+}
+
+/** DEATH-KEPT (FIELD BUGS 2026-09-30b): the live presenter asked again for a death already raised - a player at zero
+ *  whose screen a window took (a direct write over the host's slot, a replace over the stack's top). Not a blow: the
+ *  door below consulted the saves, the shield and AvoidDeath on the transition, once. False (nothing asked) alive. */
+export function presentPlayerDeath(entity = playerEntity) {
+  if (!(entity.health <= 0)) return false;
+  _deathPresenter?.(entity);
+  return true;
 }
 
 // AUDIT 26 F117: GuildManager.AvoidDeath, consulted by SetHealth at

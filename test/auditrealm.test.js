@@ -20,6 +20,7 @@ import { CSA_ITEM_TEMPLATES } from '../src/systems/comeSailAwayItems.js';   // T
 import { RRI_TEMPLATES, RRI_TEMPLATE_PATCHES } from '../src/systems/rriItems.js';
 import { FORAGING_TEMPLATES } from '../src/systems/foragingLaw.js';   // MERGE 2: the professions branch's two registrars (FORAGE1, PROF2-PROF4)
 import { MINING_TEMPLATE_ROWS, WOOD_TEMPLATE_ROWS, REPAIR_KIT_ROW } from '../src/systems/profTemplates.js';
+import { STORES_ROW } from '../src/systems/naval/navalStores.js';   // SEA-REPAIR: the carpenter's stores' row
 import { createTradePack, tradeRefusal } from '../src/systems/tradePack.js';
 import { createWeapon } from '../src/combat/enemyEquipment.js';
 import { realmIo, realmCreate, realmFetch, realmPut, realmTradeCall, realmJoin, realmDelete, createRealmSession, realmGoldAct, realmTradeEscrow } from '../src/systems/realmSaves.js';
@@ -147,10 +148,11 @@ test('AUDIT REALM F1: BOUND_TEMPLATES is every row the game registers with `boun
     ...ITEM_TEMPLATES.map((t, i) => ({ ...t, index: t.index ?? i })),
     ...SURVIVAL_TEMPLATES, ...DEEP_WATERS_FISH_TEMPLATES, ...SIGIL_STONE_TEMPLATES, ...THUNDERLOCK_TEMPLATES, ...CSA_ITEM_TEMPLATES, ...RRI_TEMPLATES, ...RRI_TEMPLATE_PATCHES,
     ...FORAGING_TEMPLATES, ...MINING_TEMPLATE_ROWS, ...WOOD_TEMPLATE_ROWS, REPAIR_KIT_ROW,   // MERGE 2: Foraging's and the professions' rows - none bound: a material and a tool change hands
+    STORES_ROW,   // SEA-REPAIR: the carpenter's stores - not bound: timber and pitch change hands
   ];
   assert.deepEqual(rows.filter((t) => t.bound === true).map((t) => t.index).sort((a, b) => a - b), [...BOUND_TEMPLATES]);
   assert.ok(BOUND_TEMPLATES.includes(SIGIL_STONE_TEMPLATE));
-  // a ninth registrar must join the list above, or its bound rows would pass the service unseen
+  // PIN MOVED (SEA-REPAIR): the carpenter's stores the ninth registrar - a tenth must join the list above, or its bound rows would pass the service unseen
   const registrars = [];
   const walk = (dir) => {
     for (const e of readdirSync(new URL(`../${dir}`, import.meta.url), { withFileTypes: true })) {
@@ -160,7 +162,7 @@ test('AUDIT REALM F1: BOUND_TEMPLATES is every row the game registers with `boun
     }
   };
   walk('src');
-  assert.deepEqual(registrars.sort(), ['src/systems/comeSailAwayItems.js', 'src/systems/deepWatersFishItems.js', 'src/systems/foragingInstall.js', 'src/systems/gateSpoils.js', 'src/systems/profTemplates.js', 'src/systems/rriInstall.js', 'src/systems/survival/items.js', 'src/systems/thunderlock.js']);
+  assert.deepEqual(registrars.sort(), ['src/systems/comeSailAwayItems.js', 'src/systems/deepWatersFishItems.js', 'src/systems/foragingInstall.js', 'src/systems/gateSpoils.js', 'src/systems/naval/navalStores.js', 'src/systems/profTemplates.js', 'src/systems/rriInstall.js', 'src/systems/survival/items.js', 'src/systems/thunderlock.js']);   // SEA-REPAIR: the ninth, the carpenter's stores
   // and the honest client never offers one: the window's pack refuses it before a half is ever written
   const holder = { items: [{ ...sigilStone(), stackCount: 2 }], goldPieces: 0 };
   assert.equal(createTradePack(holder).offerable(holder.items[0]), tradeRefusal(holder.items[0]));

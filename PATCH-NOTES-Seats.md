@@ -19,7 +19,7 @@ The first part of guild town control is in. It is open to the developers first, 
 ---
 
 ### For the team
-- Apply migration **`0045_town_seats.sql`** (with 0043 and 0044) to production D1 and deploy the account service (**`acct43`**).
+- Apply migration **`0046_town_seats.sql`** (with 0044 and 0045, after main's 0043) to production D1 and deploy the account service (**`acct44`**).
 - Seats are behind **`SEATS_OPEN = "dev"`** in `server-account/wrangler.toml`. Change it to `"on"` to open them to everyone.
 - **SEAT-COUNT**: run `ARENA2_PATH=/path/to/arena2 node tools/seatCount.mjs` to list every seat and the totals.
 - A developer can strike a false seat from the registry in chat: `/seat strike <map id>`.

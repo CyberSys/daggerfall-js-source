@@ -4917,7 +4917,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:8095` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:8134` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:352`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -10208,7 +10208,7 @@ channel lists). `tools/mutants/guild1c.json` (64, all dead).
 
 **GUILD1d - the guild hall, the `guild` entry and heraldry** (2026-09-30, Mac: "Lets do this" - the guilds before the rest
 of the professions; `11-Multiplayer/Seats-Arc.md` 8, whose decisions it builds: SEAT0 left "decisions ... binding for the
-build slices"). One deploy of the account service (`acct43` - `acct42` on its branch, renumbered past main's REALM-GZIP at the merge; migration 0043); no relay change - the hall's law is its
+build slices"). One deploy of the account service (`acct43` - `acct42` on its branch, renumbered past main's REALM-GZIP at the merge, and `acct44` past main's SCALE1 at the next; migration 0044, 0043 until SCALE1 took it); no relay change - the hall's law is its
 own module (`src/net/hallLaw.js`), never net/guildLaw.js, which is in the relay's bundle (SLAM8).
 
 - **The law** (`src/net/hallLaw.js`, both ends): a guild owns ONE home as its hall, bought from its gold treasury at
@@ -10217,7 +10217,7 @@ own module (`src/net/hallLaw.js`), never net/guildLaw.js, which is in the relay'
   guildmaster's, who may walk in and the decor the Officers' too. A home's own entries gain `guild`
   (`net/homeLaw.js` HOME_ENTRIES): the owner's character's guildmates walk in (`homeMayEnter` reads the service's
   `guildmate`); a hall's rule comes first - its members (`member`), and anyone when public, never an account's `mine`.
-- **The store** (`server-account/src/halls.js` over `migrations/0043_guild_halls.sql`): a hall is a row of the homes
+- **The store** (`server-account/src/halls.js` over `migrations/0044_guild_halls.sql`): a hall is a row of the homes
   table (HOME1's one owner a building) naming its guild (`homes.guild_id`, a partial unique index - one hall a guild)
   and carrying the guild's own mark where a home names its character (`guild:<id>`, outside CHAR_ID_RE) - so no
   character's path reaches it: a home's sale, its entry, its rooms and its outside each name a character, and the
@@ -10291,7 +10291,7 @@ them at the first); heraldry is not yet on the map ring, the guild tag's frame, 
 Pinned: `test/guild1d_service.test.js` (5), `test/guild1d_client.test.js` (12); re-aimed by content in
 `test/home1.test.js` (the entries), `test/decor1.test.js`, `test/decor1d.test.js`, `test/decorshell.test.js` (the
 room's host), `test/glstate.test.js`, `test/farring.test.js`, `test/audit18_bible_docs.test.js` (the foreign passes)
-and the ACCOUNT_VERSION pins (`acct43`). `tools/mutants/guild1d.json` (38, all dead).
+and the ACCOUNT_VERSION pins (`acct43`, now `acct44`). `tools/mutants/guild1d.json` (38, all dead).
 
 ### AUDIT GUILD1d (2026-09-30, Mac: "let's do an audit on this")
 
@@ -10384,9 +10384,9 @@ banners change heraldry only when its town's list is next read.
 (2026-09-30, Mac: "Finish the seats" - the Seats arc's slices in order, sieges
 included; `11-Multiplayer/Seats-Arc.md` 8.2: "the hall carries the guild Stores chest and a private guild board (the
 board's Guilds tab, members only)"; PROF0 10.1's Guilds tab: "Recruitment posters (each guild's heraldry and a line); a
-guild's own notes, members only"). Rides the undeployed `acct43` with GUILD1d (migration 0044); no relay change.
+guild's own notes, members only"). Rides the undeployed `acct44` with GUILD1d (migration 0045); no relay change.
 
-- **The notes** (`server-account/src/guildBoard.js` over `migrations/0044_guild_board.sql`): a guild's notes are the
+- **The notes** (`server-account/src/guildBoard.js` over `migrations/0045_guild_board.sql`): a guild's notes are the
   guild's (`guild_notes`, keyed by its id), never a town's. Any member reads and pins; an author takes down their own,
   and the Officers and the guildmaster anyone's (`net/hallLaw.js` HALL_POWERS.notes). A note is `noteWords`' letter
   with no button (the members answer one another in the guild's chat), 1, 3 or 7 days; each member's live notes
@@ -10421,7 +10421,7 @@ market twice, NOTICE1's cache aimed at the town read alone).
 
 ### SEAT1a - every palace a seat: the derivation, the witnessed registry, the rings, the arrival lines, the banners
 
-Rides the undeployed `acct43` (migration 0045); no relay change. Behind `SEATS_OPEN`, shipped at `dev` (Seats-Arc 18:
+Rides the undeployed `acct44` (migration 0046); no relay change. Behind `SEATS_OPEN`, shipped at `dev` (Seats-Arc 18:
 the developers see the seats first).
 
 - **The derivation** (`src/systems/townSeats.js`, Seats-Arc 3.1): in the boot pass, over the rows `pickRegionHubs`
@@ -10437,7 +10437,7 @@ the developers see the seats first).
   dispute) read through `parseSeatReport`; the ignored accounts (three disagreements nobody shares, inside a week); the
   Charter's, the arrival's and the map box's words; the map's marks; the kingdom's plain banner; the seat week (the
   first Turning Sunday 2026-09-20 18:00 UTC, the Reckoning the week's last 48 hours).
-- **The registry** (`server-account/src/townSeats.js` over `migrations/0045_town_seats.sql`, 3.2): `world_witness`
+- **The registry** (`server-account/src/townSeats.js` over `migrations/0046_town_seats.sql`, 3.2): `world_witness`
   admits the kind `seat`; `/v1/seats/witness` records a registered account a week old's first answer on a seat (anyone
   else is answered, `counted: false`); `/v1/seats/list` answers the confirmed seats - disputed ones too, which keep
   every effect - and a developer's reading names the unconfirmed and the audit (a confirmation still resting on its

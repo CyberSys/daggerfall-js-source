@@ -97,7 +97,19 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # SCALE1 (2026-09-30, the scaling audit): THE SUITE FIRST. This service
+  # deployed on every push that touched it whatever the check said - on
+  # 2026-09-30 the site's deploy stopped at a red "lint and types" while
+  # this job shipped the same commit's service to every player. The
+  # site's deploy waits up to thirty minutes for this service's version
+  # (deploy.yml), which the suite's few minutes fit inside.
+  verify:
+    uses: ./.github/workflows/verify.yml
+    with:
+      build: false
+
   deploy:
+    needs: verify
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -234,6 +246,24 @@ jobs:
       # NOT idempotent - `ALTER TABLE ADD COLUMN` has no IF NOT EXISTS -
       # so "apply each one exactly once" has to be something a tool
       # knows, not something a comment asks for.
+      # SCALE1 (2026-09-30, the scaling audit): THE DATABASE AS IT STOOD
+      # BEFORE THEM, written where a person will look. Some migrations are
+      # not idempotent and none can be undone by another; D1 Time Travel
+      # can put the whole database back to this bookmark (realm-restore.yml
+      # reads it the same way). A bookmark that cannot be read is a warning,
+      # not a stop - a restore by timestamp still works without it.
+      - name: Record the database's bookmark before the migrations
+        working-directory: server-account
+        run: |
+          set -uo pipefail
+          b=$($WRANGLER d1 time-travel info "$DB_NAME" --json | jq -r '.bookmark // empty' || true)
+          if [ -z "$b" ]; then
+            echo "::warning::could not read the database's Time Travel bookmark before the migrations"
+            exit 0
+          fi
+          echo "before the migrations: $b"
+          { echo "The database before this deploy's migrations, should it need putting back:"; echo ""; echo "    npx wrangler d1 time-travel restore $DB_NAME --bookmark $b"; echo ""; } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Apply migrations
         working-directory: server-account
         run: |

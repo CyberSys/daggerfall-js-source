@@ -365,7 +365,7 @@ import { createComeSailAwayPool } from './comeSailAwayPool.js';   // CSA-B: Come
 import { createComeSailAwayPeers } from './comeSailAwayPeers.js';   // CSA-J: another player's boats, seen
 import { createComeSailAwayAboard, CSA_ABOARD_GRACE, deckPose as csaDeckPose, helmWord as csaHelmWordOf, localOf as csaLocalOf } from './comeSailAwayAboard.js';   // CSA-K: another player's boat, boarded; FIELD BUGS 2026-09-29 (the sea) #1: the deck's frame, the helmsman's place
 import { csaWireRecord, csaRecordKey } from '../systems/comeSailAwayWire.js';   // CSA-J: my boats, said
-import { boatTriggers, boatMenuRows, boatMenuStart, pressBoatVerb } from '../systems/csaBoatMenu.js';   // BOAT-MENU: a boat of mine's verbs on the plaque
+import { boatTriggers, boatMenuRows, boatMenuStart, pressBoatVerb, BOAT_VERB } from '../systems/csaBoatMenu.js';   // BOAT-MENU: a boat of mine's verbs on the plaque
 import { TRIGGER_MODEL as CSA_TRIGGER_MODEL, setLights as csaSetLights, HULL_NAMES as CSA_HULL_NAMES, nodeOf as csaNodeOf, AUDIO_CLIPS as CSA_AUDIO_CLIPS, colliderBoundsInChildren as csaColliderBoundsInChildren, animatorOf as csaAnimatorOf, meshLocalBounds as csaMeshLocalBounds } from '../systems/comeSailAwayBoat.js';   // CSA-B: the probe's lanterns; CSA-D: the plaque's word for a boat; CSA-G: the loops' objects and the five clips; CSA-J: Eye of the Beholder's Collider.bounds
 import { travelMapPicture, TRAVEL_MAP_IMG, LINE_TEXTURE as CSA_LINE_TEXTURE } from '../systems/comeSailAwayMap.js';   // CSA-I: the position reading's picture and lines
 import { createComeSailAwayRuntime, comeSailAwayCarrier, WATER_WALKING_SILENT, COME_SAIL_AWAY_VENDOR, CONSOLE as CSA_CONSOLE, NO_WATER_LEVEL, NICE_BOAT_TEXT as CSA_NICE_BOAT_TEXT, activationModelOf as csaActivationModelOf, customModelOf as csaCustomModelOf, ACTIVATION_DISTANCE as CSA_ACTIVATION_DISTANCE, windWidgetFrameCount as csaWindWidgetFrameCount, BOAT_ACTIONS as CSA_BOAT_ACTIONS, HANDLING as CSA_HANDLING, hullFromMessage as csaHullFromMessage, tileMapIndexAtPosition as csaTileMapIndexAtPosition } from '../systems/comeSailAway.js';   // NAV-H: the tile a sea ship floats on
@@ -437,12 +437,14 @@ import { exteriorSurfaces, downProbe, rayDistanceFor, ON_EXTERIOR_WATER, exterio
 import { isOnFoot } from '../systems/transport.js';   // TransportManager.IsOnFoot - the raycast's reach and the mounted footstep gate
 import { floorLanding } from '../player/enterExit.js';   // FixStanding for the exterior arrivals (2026-08-27)
 import { jumpSpeedMultiplier, isEnhancedJumping, tallySkill, SKILLS } from '../systems/skills.js';   // TO1: the avoid-encounter roll reads skillValue live (imported above, SURV6) Stealth   // AUDIT 64 F2: CheckAirControl's IsEnhancedJumping disjunct
-import { playerEntity, surfacePlayer, hurtPlayer, playerBlowCameToNothing, setDeathPresenter, setAvoidDeathHook, registerDuelFell, duelSpare, setStaffPowers, staffPowers } from '../characters/playerEntity.js';
+import { playerEntity, surfacePlayer, hurtPlayer, playerBlowCameToNothing, setDeathPresenter, presentPlayerDeath, setAvoidDeathHook, registerDuelFell, duelSpare, setStaffPowers, staffPowers } from '../characters/playerEntity.js';
 import { SOUND } from '../systems/soundClips.js';
 import { createWeaponRig, autoBuildArms, armIdentityOf, armBuiltFor, armsReady, sheetHolderOf, buildArmsFor, prebuildArmsForSave } from '../combat/weaponRig.js';   // MWA1: the arms at boot; MWA3: the identity the arm should stand for, beside the one it does; MW-EARLY: and before the world is read
 import { weaponPoseOf, applyWeaponPose, mergeWeaponPose, playerMeleeCanHit } from '../combat/playerWeapon.js';   // HARD2c: the sheath+hand pair as ONE law, and SL-2's per-field merge with the mode host's live rig
 import { ArrowFlight, playerArrowHitFoe } from '../combat/arrowFlight.js';   // C13: visible exterior arrows; AUDIT 39 (#64): and the shaft that LANDS
-import { addItem, addGoldPieces, spendAmmoFor, carriedWeight } from '../systems/inventory.js';   // E4: PlayerEntity.CarriedWeight carries the gold counter's own term
+import { addItem, addGoldPieces, spendAmmoFor, carriedWeight } from '../systems/inventory.js';
+import { storesIn, spendStore, mintStores } from '../systems/naval/navalStores.js';
+import { orderRows } from '../systems/naval/shipCrew.js';   // SHIP-CREW: the orders list   // SEA-REPAIR: carpenter's stores in a hold   // E4: PlayerEntity.CarriedWeight carries the gold counter's own term
 import { calculateAttackDamage } from '../combat/formulas.js';   // X2-slice: enemy-arrow impacts
 import { inflictPoison } from '../systems/poisons.js';   // X2-slice: poisoned enemy arrows
 import { weaponTypeForItem, WEAPON_TYPES } from '../combat/fpsWeapon.js';
@@ -5908,6 +5910,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const rows = boatMenuRows({
       boxes, packable: !!boat.packable, sailingThis, sailing: !!csaRuntime?.isSailing(), aboard: csaStandsOn(boat),
       passengers: csaPassengersOn(boat), variants: boat.VariantObject != null && boat.GetVariantCount >= 1,
+      naval: navalOn(), crewed: !!boat.crewed,   // SHIP-CREW: her crew's card and her orders
     });
     return { boxes, rows };
   };
@@ -5915,6 +5918,11 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  from the point aimed at, silent past it as the box's press is), a refused row saying why in the mod's words. */
   const csaBoatVerb = (pick, verb) => {
     if (!csaRuntime) return;
+    // SHIP-CREW: her crew's card and her orders - the port's own rows, no box of the mod's (in reach as a box is)
+    if (verb === BOAT_VERB.crew || verb === BOAT_VERB.orders) {
+      if (pick.distance <= CSA_ACTIVATION_DISTANCE) { if (verb === BOAT_VERB.crew) navalCrewCard(pick.boat); else navalOrders(pick.boat); }
+      return;
+    }
     const { boxes, rows } = csaBoatMenu(pick.boat);
     pressBoatVerb({
       boxes, rows, verb, distance: pick.distance, reach: CSA_ACTIVATION_DISTANCE, at: dwPlayerObjectPosition(), posOf: (n) => n.position, aimed: pick.hit?.node ?? null,
@@ -6972,6 +6980,13 @@ export async function bootWorld(canvas, renderer, params, status) {
     gold: () => totalGoldAmount(playerEntity),
     pay: (n) => { deductGold(playerEntity, n); surfacePlayer(); },
     openYard: (model) => navalOpenYard(model),
+    // SEA-REPAIR: her carpenter's stores, in her hold (Come Sail Away's cargo) - counted, spent, bought into it
+    stores: {
+      count: (boat) => storesIn(boat?.Cargo?.Items),
+      spend: (boat) => spendStore(boat?.Cargo?.Items),
+      add: (boat, n) => { if (!boat?.Cargo?.Items) return false; addItem(boat.Cargo.Items, mintStores(n)); return true; },
+    },
+    crewSeed: (boat) => _crewSeedOf(boat),   // SHIP-CREW: her crew's names off the seed her living crew stands on
     hold: (key, tier) => {
       const items = generateLootItems(key, { level: playerEntity.level, gender: playerEntity.gender });
       addPileLootExtras(items, key, undefined, { level: playerEntity.level });   // THE MERGE (REALM P0.4): a hold is a pile - online, the level's gold divided back
@@ -7092,7 +7107,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  facing the other) and where I stand on her (never walked through). A Warm Ashes raid holds my crew off my deck
    *  (its own allies are them), and a fight's end brings my hands home; the arc off, none stands. */
   let _crewBoarding = null;
-  const _crewCtx = { battle: false, struck: false, muster: 0, avoid: null }, _crewMe = [0, 0, 0], _crewThem = [0, 0, 0];
+  const _crewCtx = { battle: false, struck: false, muster: 0, avoid: null, order: null, sings: true, line: null }, _crewMe = [0, 0, 0], _crewThem = [0, 0, 0];
   const _crewSeed = (s) => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193); return h >>> 0; };
   /** AUDIT NAV2 F9: my boat's crew seeded as a room seeds her (comeSailAwayPeers peerKey, `${whose}:${which}` - which,
    *  her place among my word's boats: csaWord's order, the active ones) so her owner and every reader stand one crew;
@@ -7118,7 +7133,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // AUDIT NAV2 F43: a Warm Ashes raid on her deck is fought by its own `_ally_`, her crew (AUDIT NAV1 B2) - her living
       // crew held off her deck till it ends, never walking and singing among the raiders
       const raid = !!b?.quest && b.boat === boat;
-      list.push({ key: boat, boat, deck: csa.deckOf(boat.hull, boat.variant ?? 0), count: crewCount({ hull: boat.hull, crew }), rosterOf: () => crewRoster({ hull: boat.hull, seed, crew }), seed, faction: null, battle: !!mine?.battle, toward: mine?.toward ?? null, hold: raid });
+      list.push({ key: boat, boat, deck: csa.deckOf(boat.hull, boat.variant ?? 0), count: crewCount({ hull: boat.hull, crew }), rosterOf: () => crewRoster({ hull: boat.hull, seed, crew }), seed, faction: null, battle: !!mine?.battle, toward: mine?.toward ?? null, hold: raid, mine });   // SHIP-CREW: `mine` her order, spirits and lines
     }
     for (const boat of csa.peerBoats) {
       if (!boat?.crewed || !boat.GameObject?.activeSelf || !near(boat, boat.GameObject.position)) continue;
@@ -7137,6 +7152,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     navalCrew.frame(dt, eye, (key, ship) => {
       const m = ship.boat.MeshObject.worldMatrix();
       _crewCtx.battle = ship.battle; _crewCtx.struck = ship.struck; _crewCtx.muster = 0; _crewCtx.avoid = null;
+      _crewCtx.order = ship.mine?.order ?? null; _crewCtx.sings = ship.mine?.sings ?? true; _crewCtx.line = ship.mine?.line ?? null;   // SHIP-CREW
       if (walkMode && playerSpawned) {   // me on her deck: never walked through
         intoDeck(m, player.pos, _crewMe);
         if (Math.abs(_crewMe[1] - (ship.deck.heightAt(_crewMe[0], _crewMe[2]) || 0)) < 2) _crewCtx.avoid = _crewMe;
@@ -7166,7 +7182,9 @@ export async function bootWorld(canvas, renderer, params, status) {
         let key = _sayKeys.get(l.member);
         if (key == null) { key = `say:${++_sayKey}`; _sayKeys.set(l.member, key); }
         if (crewSight.blocked(player.collider, eye, key, l.head)) continue;
-        points.push({ x: at.x, y: at.y, text: l.text, kind: l.kind, distance: d });
+        // SHIP-CREW: a hand of mine speaks by his name (his first) - the sea's crews and another player's by none
+        const name = csa.boats.includes(l.key) ? naval?.crewName?.(l.key, l.member.i) : null;
+        points.push({ x: at.x, y: at.y, text: name ? `${name.split(' ')[0]}: ${l.text}` : l.text, kind: l.kind, distance: d });
       }
     }
     drawCrewLines(points, { covered, scale: enhancedHudScale() });
@@ -7212,11 +7230,32 @@ export async function bootWorld(canvas, renderer, params, status) {
     press: (action, withHeld) => csaHelmPress(action, withHeld),
     hold: (action, on) => csaHelmHold(action, on),
     position: () => csaCall(() => { const b = csaRuntime?.state?.CurrentBoat; if (b) csaRuntime.StartShowBoatPosition(b); }),   // the position box's reading, from the wheel (DECLARED: the box itself is out of reach there)
+    orders: () => { const b = csaRuntime?.state?.CurrentBoat; if (b) navalOrders(b); },   // SHIP-CREW: her captain's orders, from the wheel
   };
+  /** SHIP-CREW: a boat of mine's orders as a list (shipCrew.js orderRows) - the one picked given (navalHost giveOrder). */
+  function navalOrders(boat) {
+    if (!navalOn() || !naval || !boat) return false;
+    const c = naval.crewOf?.(boat);
+    if (!c) return false;
+    const rows = orderRows({ crewed: c.crewed, order: c.order });
+    csaOpenListPicker(rows.map((r) => r.label), (i) => {
+      if (_csaPicker) { modes?.closeWindow?.(_csaPicker); _csaPicker = null; }
+      if (rows[i]) naval.giveOrder?.(boat, rows[i].id);
+    });
+    return true;
+  }
+  /** SHIP-CREW: a boat of mine's crew card - her spirits, her order and each hand by name (shipCrew.js crewCard). */
+  function navalCrewCard(boat) {
+    const c = naval?.crewOf?.(boat);
+    if (!c) return false;
+    messageBox(c.crewed ? c.card : [`The ${CSA_HULL_NAMES[boat.hull] ?? 'boat'} carries no crew.`]);
+    return true;
+  }
   function csaDrawHelmPanel() {
     if (!csaRuntime || !csaOn() || !isEnhancedPlus() || typeof document === 'undefined' || !walkMode) { if (enhancedHelmMounted()) hideEnhancedHelm(); csaHelmInput.held.clear(); return; }
     let helm = null;
     csaCall(() => { helm = csaRuntime.helmPanelState(); });
+    if (helm) helm = { ...helm, orders: navalOn() };   // SHIP-CREW: the Orders button while the naval arc is on
     if (!helm) csaHelmInput.held.clear();
     const ab = helm ? null : csaAboard.aboard;
     drawEnhancedHelm({
@@ -21955,6 +21994,16 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       if (pressed(latch.edge, keys, 'CenterView')) lookFilter.centerPitch(cam);   // KB1: Home levels the view (classic Daggerfall's centre key; DFU binds it and reads it nowhere)
       _lockChest = lockOn.tick(dt, cam, cam.pos, lookFilter);   // TI1: the lock pays its facing into the same filter, owed to the NEXT tick like a look
     }
+    // DEATH-KEPT (FIELD BUGS 2026-09-30b, Niwy: "If you cure a disease and die at the same time you will became
+    // immortal"): A PLAYER AT ZERO IS DYING, whatever took the screen. The damage door raises a death on the blow that
+    // crosses to zero and never again (the TRANSITION, AUDIT 21), so the death lives in its screen - and a window written
+    // over a host's slot took it: a temple priest's Talk closing into its service window over a building's death, a
+    // replace over the stack's top (holdsTop is the push's alone). The player stood at 0% health with no screen; every
+    // later blow found them already at zero, the stat-zero and exhaustion kills stand down at zero, and online read them
+    // alive (the D12 gate reads the screen). DFU's deathInProgress is no window: nothing can close it. Asked again here,
+    // above every mode gate - the presenters already refuse a second screen over their own - and never while the world
+    // moves (a load restores the save's health under its latch; a respawn heals first).
+    if (playerSpawned && playerEntity.health <= 0 && !worldMoveBusy() && !(townTalk.overlay instanceof DeathScreen) && !modes?.deathUp?.()) presentPlayerDeath(playerEntity);
     // AUDIT DEEP X-1: A DOOR CUTS THE VIEW HERE - a door, a teleport, a load inside. Its own cut (`travelView.frame` reads
     // the host's mode) is in the exterior frame, below the mode's return, so indoors the view stood up until its heartbeat:
     // the readout over the room, the canvas's clicks picks, Escape its own, the traveller turned by the keys
@@ -22246,7 +22295,15 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         player.restoreFall(fall);
         _seasonHoldKey = null;
       }
-      const _seasonHeld = _seasonHoldKey !== null;
+      // RESPAWN-HELD (FIELD BUGS 2026-09-30b, BrixBlox: "One time I died in a dungeon, and for some reason I respawned
+      // high enough in the air to kill me with fall damage"): AN ARRIVAL HOLDS THE MOTOR WHILE ITS DESTINATION BUILDS.
+      // _teleportToPixel's straightening latch is up from its first statement until the build resolves (a `finally`),
+      // and nothing is awaited between that and its landing's player.spawn - so the latch is exactly the build's frames.
+      // They stepped the motor: an outdoor death's screen held it (townTalk's slot outlives the await), but a dungeon's
+      // or a building's went with the exit, and the body - stood over the new pixel at the INTERIOR's height - fell
+      // through the half-built world onto a model collider or the terrain as each went in, and the frame billed it.
+      // The landing re-anchors the fall (player.spawn), so a held body arrives with none.
+      const _seasonHeld = _seasonHoldKey !== null || _seasonStraightening;
       if (!playerSpawned && built.has(startKey)) {
         // FIX-C: THE FIRST STAND IS DFU'S. StartNewCharacter
         // (StartGameBehaviour.cs:404-409) puts an exterior start through

@@ -1909,7 +1909,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:14563 / exterior.js:3755), set
+  // host's own townTalk sink (world.js:14602 / exterior.js:3755), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -3785,7 +3785,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:24244,
+              // playerArrowHitFoe is the one copy world.js:24301,
               // exterior.js:5370 and worldModes.js:8580 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
@@ -5879,7 +5879,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         // The three-argument door is the IMPORT (hurtEntity, :26), not
         // this file's one-argument hurtPlayer wrapper (:1030) that
         // shadows its name: called through the wrapper the entity
-        // arrived as `dmg`, playerEntity.js:111's `!(dmg > 0)` guard read
+        // arrived as `dmg`, playerEntity.js:120's `!(dmg > 0)` guard read
         // NaN and returned, and dungeon drowning never dealt a point.
         // bypassShield because SetHealth(0) is a kill, not damage.
         hurtEntity(playerEntity, playerEntity.health, { bypassShield: true });   // SetHealth(0): drowned

@@ -678,15 +678,32 @@ export function forgetSession(storage) {
   try { storage?.removeItem?.(SESSION_KEY); return true; } catch { return false; }
 }
 
+/** SCALE2 (2026-09-30, the scaling audit): how long a minted token is handed to OTHER rooms before a fresh one is
+ *  minted. A relay room spends a token once - in THAT room (server/src/index.js `_spent`, one set a room) - so the one
+ *  token may open the cell, its halos, the hub and the region channel of one connect. A minute covers a connect's
+ *  burst (and a deploy's reconnect wave) and keeps what the token signs - the level, the title, the guild - no older
+ *  than that in any room it opens; the token itself lives MAX_TTL_S (five minutes). */
+export const TOKEN_REUSE_MS = 60_000;
+
 /**
- * ACC1d: ONE FRESH TOKEN FOR ONE RELAY CONNECTION.
+ * ACC1d: ONE TOKEN FOR ONE RELAY CONNECTION - NEVER TWICE INTO ONE ROOM.
  *
  * This is what `OnlineSession({ mintToken })` (net/online.js) calls on
- * every socket open, and its answer is the hello's `tok`. The relay
- * spends a token once (bible ACC1d D4), so there is no caching here and
- * there must not be: a token held over and sent twice is the exact frame
+ * every socket open, with the ROOM it opens, and its answer is the
+ * hello's `tok`. The relay spends a token once IN A ROOM (bible ACC1d
+ * D4): a token held over and sent twice into one room is the exact frame
  * the relay refuses, and a player who reconnected would be refused their
- * own name.
+ * own name - so a room this token has opened never gets it again.
+ *
+ * SCALE2: AND ONE MINT A CONNECT, NOT ONE A SOCKET. Every socket minted
+ * its own - the cell, up to three halos, the hub and the region channel,
+ * three to six at once, each ~8 D1 statements and a signature - and a
+ * relay deploy reconnects every player in the same second: the storm
+ * that is what breaks first at five hundred players (bible
+ * 11-Multiplayer/Scale-Arc.md). A token is now handed to every OTHER
+ * room asked within TOKEN_REUSE_MS of its mint, under the same session
+ * and character; sockets opening together share the one mint in flight.
+ * A call that names no room is minted fresh, as before.
  *
  * IT ANSWERS `null` FOR EVERY REASON A PLAYER MIGHT HAVE NO TOKEN - no
  * session on this device, a service that is down, a rate limit, a secret
@@ -715,20 +732,53 @@ export function forgetSession(storage) {
  * `who.guild` the character's guild's tag, signed into the token beside
  * the level. A getter that answers nothing mints as before.
  *
+ * SCALE2: the minter says WHY it answered null (`minter.lastWhy`: 'no-session', or the service's refusal word -
+ * 'auth', 'rate', 'server', 'offline'...; null after a token), so a session can tell "sign in" from "try again".
+ *
  * @param {object} io
  * @param {(url: string, init: object) => Promise<any>} io.fetch
  * @param {any} io.storage  appStorage() in the app, a Map in a test
  * @param {((who: {name: string, kind: string, title: string|null, glyphs: string[], level: number|null, xp: number|null, guild?: string|null}) => void)|null} [io.onIssued]
  * @param {(() => string|null)|null} [io.character]
- * @returns {() => Promise<string|null>}
+ * @param {(() => number)} [io.now]
+ * @returns {((room?: string|null) => Promise<string|null>) & { lastWhy: string|null }}
  */
-export function accountTokenMinter({ fetch, storage, onIssued = null, character = null }) {
-  return async () => {
+export function accountTokenMinter({ fetch, storage, onIssued = null, character = null, now = () => Date.now() }) {
+  /** @type {{ token: string, secret: string, character: string|null, at: number, rooms: Set<string> } | null} */
+  let held = null;
+  /** @type {Promise<string|null> | null} */
+  let minting = null;
+  const reuse = (/** @type {string|null} */ room, /** @type {string} */ secret, /** @type {string|null} */ named) => {
+    if (!held || room == null || held.rooms.has(room) || held.secret !== secret || held.character !== named) return null;
+    if (!(now() - held.at < TOKEN_REUSE_MS)) return null;
+    held.rooms.add(room);
+    return held.token;
+  };
+  const minter = Object.assign(async (/** @type {string|null} */ room = null) => {
     const session = storedSession(storage);
-    if (!session) { console.warn('[account] no identity token: no sign-in stored on this device'); return null; }   // TOKEN-WAIT
+    if (!session) { minter.lastWhy = 'no-session'; console.warn('[account] no identity token: no sign-in stored on this device'); return null; }   // TOKEN-WAIT
     let named = null;
     try { named = character?.() ?? null; } catch { named = null; }   // a seam that throws costs the level, never the hello
-    const answer = await mintIdentity({ fetch, base: serviceBase(storage), secret: session.secret }, typeof named === 'string' && named ? named : null);
+    named = typeof named === 'string' && named ? named : null;
+    const again = reuse(room, session.secret, named);
+    if (again) { minter.lastWhy = null; return again; }
+    // a mint already on the wire (the sockets of one connect open together): its token, if this room has not had it
+    if (minting) {
+      await minting.catch(() => null);
+      const shared = reuse(room, session.secret, named);
+      if (shared) { minter.lastWhy = null; return shared; }
+    }
+    const p = mintFresh(session, named).then((token) => {
+      if (token) held = { token, secret: session.secret, character: named, at: now(), rooms: new Set(room != null ? [room] : []) };
+      return token;
+    });
+    minting = p;
+    try { return await p; } finally { if (minting === p) minting = null; }
+  }, { lastWhy: /** @type {string|null} */ (null) });
+
+  /** One mint on the wire - the identity adopted, or null with `lastWhy` said. */
+  async function mintFresh(/** @type {any} */ session, /** @type {string|null} */ named) {
+    const answer = await mintIdentity({ fetch, base: serviceBase(storage), secret: session.secret }, named);
     if (answer.ok) {
       const token = typeof answer.data?.token === 'string' ? answer.data.token : null;
       if (token) {
@@ -744,6 +794,7 @@ export function accountTokenMinter({ fetch, storage, onIssued = null, character 
         // display seam that breaks must not cost the hello its word.
         try { onIssued?.(who); } catch { /* the token still goes */ }
       }
+      minter.lastWhy = token ? null : 'refused';
       return token;
     }
     // A SECRET THE SERVICE HAS STOPPED HONOURING IS NOT A SESSION, and
@@ -752,11 +803,13 @@ export function accountTokenMinter({ fetch, storage, onIssued = null, character 
     // having a bad minute, and signing a player out over a 503 or a
     // rate limit would make an outage permanent.
     if (answer.error === 'auth') forgetSession(storage);
+    minter.lastWhy = answer.error ?? 'refused';
     // FIELD BUGS 29h (TOKEN-WAIT): the refusal said where a player can read it - without a token the relay refuses the
     // hello as "sign in to play online", which is all the World line can show, whatever the service's own answer was
     console.warn(`[account] no identity token: ${answer.error ?? 'refused'}${answer.status ? ` (${answer.status})` : ''}`);
     return null;
-  };
+  }
+  return minter;
 }
 
 /**

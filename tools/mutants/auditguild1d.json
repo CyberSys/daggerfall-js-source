@@ -175,7 +175,7 @@
   },
   {
     "name": "AUDIT-GUILD1d-S9-trigger-remembers-the-kind",
-    "file": "server-account/migrations/0043_guild_halls.sql",
+    "file": "server-account/migrations/0044_guild_halls.sql",
     "old": "  UPDATE guilds SET moved_kind = NULL WHERE id = NEW.id AND moved_kind IS NOT NULL;\n",
     "new": "",
     "tests": [

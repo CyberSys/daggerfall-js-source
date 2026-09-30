@@ -316,7 +316,11 @@ test('NAV-H the save: each boat of mine by its deed\'s UID (its hurts and barrel
   const d = h.host.getSaveData();
   assert.equal(d.v, NAVAL_SAVE_VERSION);
   assert.deepEqual(Object.keys(d.boats), ['42']);
-  assert.deepEqual(d.boats[42], { hull: 100, sail: 50, crew: 10, fire: 0, state: 'afloat', barrels: 1 });
+  // PIN MOVED (SHIP-CREW, SEA-REPAIR): her crew as people (`mates`) and her store part-spent (`credit`) beside her hurts
+  const { mates, credit, ...hurts } = d.boats[42];
+  assert.deepEqual(hurts, { hull: 100, sail: 50, crew: 10, fire: 0, state: 'afloat', barrels: 1 });
+  assert.equal(credit, 0);
+  assert.equal(mates.hands.length, 2, 'her two hands on deck, named');
   assert.deepEqual(d.notoriety, { Wayrest: 40 });
   assert.deepEqual(d.raids, [777]);
   assert.ok(Math.abs(h.host.hudModel().ship.hull - 100 / hullBuild(2).hullHp) < 1e-3, 'her hurts as saved (AUDIT NAV1: her hands mending from there - test/navaudit_helm.test.js)');

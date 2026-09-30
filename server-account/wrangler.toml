@@ -54,10 +54,29 @@ workers_dev = true
 [observability]
 enabled = true
 
+# SCALE1 (2026-09-30, the scaling audit): EVERY REQUEST COUNTED - route,
+# method, status, a refusal's word, wall ms and the D1 statements it ran
+# - to Workers Analytics Engine (src/metrics.js says what each field is
+# and how to query it). The dataset is created by its first write; no
+# player is identified in any point. A Worker without the binding serves
+# exactly as before.
+[[analytics_engine_datasets]]
+binding = "METRICS"
+dataset = "daggerfall_accounts"
+
+# SCALE1: SMART PLACEMENT. A request here makes its D1 round trips one
+# after another - a checkpoint seven, a harvest up to seventeen, a
+# market read about twenty - and each pays the distance between the
+# Worker and the database. Cloudflare runs the Worker where that sum is
+# least (near the database) once it has seen the traffic; a Worker with
+# no bindings to reach would stay at the edge.
+[placement]
+mode = "smart"
+
 [vars]
 # Answered by /health so a deploy that did not happen cannot look like
 # one that did. Kept in step with ACCOUNT_VERSION in src/service.js.
-ACCOUNT_VERSION = "acct43"
+ACCOUNT_VERSION = "acct44"
 # WB5b: THE RELAY'S PUBLIC HALF, GATE_PUBLIC_KEY - the key an Oblivion
 # Gate's kill receipts verify with (src/net/gateReceipt.js) - is NOT a
 # var here. GATE-KEYS (2026-09-26): the account deploy mints the pair

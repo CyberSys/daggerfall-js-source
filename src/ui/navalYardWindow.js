@@ -35,7 +35,12 @@ const WORDS = Object.freeze({
   sail: { label: 'Canvas', verb: 'Mend', done: 'Her canvas mended', unit: (n) => `${n} ${n === 1 ? 'yard' : 'yards'}` },
   crew: { label: 'Hands', verb: 'Hire', done: 'Hands hired', unit: (n) => `${n} ${n === 1 ? 'man' : 'men'}` },
   barrels: { label: 'Fire barrels', verb: 'Buy', done: 'Fire barrels stowed', unit: (n) => `${n} ${n === 1 ? 'barrel' : 'barrels'}` },
+  // SEA-REPAIR, SHIP-CREW: her provisions - carpenter's stores for her repairs at sea, and a round of grog for her crew
+  stores: { label: 'Carpenter\'s stores', verb: 'Buy', done: 'Stores stowed in her hold', unit: (n) => `${n} ${n === 1 ? 'store' : 'stores'}` },
+  grog: { label: 'Grog', verb: 'Stand a round', done: 'A round for the crew', unit: () => 'the crew\'s spirits lifted' },
 });
+/** SHIP-CREW: her crew's spirits in a word (shipCrew.js SPIRITS). */
+const spiritsWord = (m) => (m >= 85 ? 'roaring' : m >= 65 ? 'high' : m >= 45 ? 'steady' : m >= 25 ? 'low' : 'grim');
 const gold = (n) => `${Math.round(n).toLocaleString('en-US')} gold`;
 
 /** The window's standing words for a model - pure, the pins' reading. */
@@ -60,7 +65,22 @@ export function yardText(model) {
   const bill = rows.reduce((sum, r) => sum + (o.rows.find((x) => x.id === r.id)?.whole ?? 0), 0);
   let purse = o.gold, paid = 0;
   for (const r of o.rows) { if (!shown(r)) continue; const n = Math.min(r.missing, Math.floor(purse / r.price)); paid += n * r.price; purse -= n * r.price; }
+  // SEA-REPAIR, SHIP-CREW: her provisions, apart from her needs - never part of making her whole
+  const po = model.provisions?.() ?? null;
+  const provisions = (po?.rows ?? []).map((r) => {
+    const w = WORDS[r.id];
+    const state = r.id === 'stores'
+      ? (r.missing === 0 ? `${r.have} in her hold - her stores are full` : `${r.have} in her hold - ${r.missing} more at ${gold(r.price)} each`)
+      : (r.missing === 0 ? 'Her crew\'s spirits are as high as they go' : `Her crew's spirits are ${spiritsWord(r.have)} - a round is ${gold(r.price)}`);
+    return {
+      id: r.id, label: w.label, state,
+      press: r.missing === 0 ? (r.id === 'stores' ? 'Full' : 'No need') : r.afford === 0 ? `${w.verb} - ${gold(r.price)}${r.id === 'stores' ? ' each' : ''}`
+        : r.id === 'grog' ? `${w.verb} - ${gold(r.cost)}` : r.afford === r.missing ? `${w.verb} ${r.afford} - ${gold(r.cost)}` : `${w.verb} ${r.afford} - ${gold(r.cost)}`,
+      can: r.missing > 0 && r.afford > 0,
+    };
+  });
   return {
+    provisions,
     title: 'The shipwright',
     sub: `${model.name} - your purse: ${gold(o.gold)}`,
     lede: bill === 0 ? 'She is sound from keel to masthead - there is nothing to mend.'
@@ -147,7 +167,13 @@ export function mountNavalYardWindow(host, deps) {
   const whole = button('', 'dfnaval-btn dfnaval-take dfnaval-whole', () => { note = yardNote(m.buyAll?.()); render(); });
   acts.append(whole);
   sec.append(secHead, list, acts);
-  body.append(lede, sec);
+  // SEA-REPAIR, SHIP-CREW: her provisions - the stores her crew repairs her with at sea, and a round for them
+  const pSec = el('section', 'dfnaval-sec');
+  const pHead = el('h3', 'dfnaval-sechead');
+  pHead.append(el('span', null, 'Provisions'), el('span', 'dfnaval-count', 'for the voyage'));
+  const pList = el('ul', 'dfnaval-holdlist');
+  pSec.append(pHead, pList);
+  body.append(lede, sec, pSec);
   win.append(head, body);
 
   let alive = true;
@@ -169,6 +195,16 @@ export function mountNavalYardWindow(host, deps) {
       li.append(el('b', null, r.label), el('span', null, r.state), press);
       list.append(li);
     }
+    for (const c of [...pList.children]) c.remove();
+    for (const r of t.provisions) {
+      const li = el('li', 'dfnaval-item dfnaval-yardrow');
+      li.setAttribute('data-row', r.id);
+      const press = button(r.press, 'dfnaval-btn dfnaval-yardbuy', () => { note = yardNote(m.buyProvision?.(r.id)); render(); });
+      able(press, r.can);
+      li.append(el('b', null, r.label), el('span', null, r.state), press);
+      pList.append(li);
+    }
+    pSec.style.display = t.provisions.length ? '' : 'none';
     whole.style.display = t.whole ? '' : 'none';
     whole.textContent = t.whole ?? '';
     able(whole, t.canWhole);

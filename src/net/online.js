@@ -143,6 +143,9 @@ export const DEFAULT_SERVER = 'wss://daggerfall-online.mackcothran.workers.dev';
 // last pose; SLAM8/13 pin the ratio (a standing peer is heard at least three times before it could vanish), and a
 // literal here went quietly wrong the day the heartbeat moved. Four heartbeats, the margin the 20000/5000 pair had.
 export const PEER_TIMEOUT_MS = 4 * HEARTBEAT_MS;
+/** SCALE2: a hello refused for its missing token is asked again - unless it had none because this device holds no
+ *  sign-in ('no-session') or the service refused the one it holds ('auth'): signing in is the way back from those. */
+export const tokenRetryable = (/** @type {string|null|undefined} */ why) => typeof why === 'string' && why !== 'no-session' && why !== 'auth';
 /** Reconnect backoff bounds, ms. */
 export const BACKOFF_MIN_MS = 1000;
 export const BACKOFF_MAX_MS = 8000;
@@ -333,6 +336,9 @@ export class OnlineSession {
     // every build before this slice was.
     this.mintToken = mintToken;
     this.token = null;
+    /** SCALE2: sockets whose hello went without a token, and why (`_mint`'s word) - read by their close. */
+    this._tokenless = new WeakMap();
+    this._tokenWhy = null;
     this.presence = !!presence;   // false: a channel's session (CHAT1) - no pose out, a ping for a heartbeat
     this.onChat = null;           // (line) => void: a chat line in - {id, name, text, at, mine}
     this.onRed = null;            // RED1: (line) => void: the SERVER's own line - {text, at}, no id and no name, because nobody is speaking it
@@ -1118,17 +1124,19 @@ export class OnlineSession {
    *  one, which is a connection that works and a name the relay will
    *  not vouch for - strictly better than a player who cannot connect
    *  because a second Worker is having a bad minute. */
-  async _mint() {
+  async _mint(room = null) {
+    this._tokenWhy = null;
     try {
       const late = Symbol('late');
       const got = await Promise.race([
-        Promise.resolve(this.mintToken()).catch(() => null),
+        Promise.resolve(this.mintToken(room)).catch(() => null),   // SCALE2: the room it opens - a token opens each room once
         new Promise((r) => setTimeout(() => r(late), TOKEN_WAIT_MS)),
       ]);
       // TOKEN-WAIT: said, so a player's console can tell a slow service from a missing sign-in (the minter says its own)
-      if (got === late) { console.warn(`[online] no identity token within ${TOKEN_WAIT_MS} ms - the hello goes without one, and the relay refuses it`); return null; }
+      if (got === late) { this._tokenWhy = 'late'; console.warn(`[online] no identity token within ${TOKEN_WAIT_MS} ms - the hello goes without one, and the relay refuses it`); return null; }
+      if (!got) this._tokenWhy = this.mintToken?.lastWhy ?? 'refused';
       return got;
-    } catch { return null; }
+    } catch { this._tokenWhy = 'refused'; return null; }
   }
 
   /** The one handler set for a socket, the primary's or a halo's - the role is read at event time (_roomOf). */
@@ -1144,9 +1152,11 @@ export class OnlineSession {
       // A session with no token is admitted as every build before this
       // slice was (bible ACC1d D1).
       if (this.mintToken) {
-        this.token = await this._mint();
+        this.token = await this._mint(room);
         // the socket may have been replaced or closed while we waited
         if (this._roomOf(ws) == null) return;
+        // SCALE2: why this socket's hello goes without one - its close is read by it (tokenRetryable)
+        if (this.token) this._tokenless.delete(ws); else this._tokenless.set(ws, this._tokenWhy ?? 'refused');
       }
       const frame = this._helloFrame();
       const hello = JSON.stringify(frame);
@@ -1180,9 +1190,10 @@ export class OnlineSession {
         if (this._closedByUs) { this._halo.delete(room); return; }
         // AUDIT WORLD6b-iii(b) A2: a terminal verdict is REMEMBERED (ws null, no retry) - the entry deleted, setHalo
         // re-opened the room the next frame, and a refused hello became connect-hello-refuse at the wire's rate
-        if (code === CLOSE_REPLACED || code === CLOSE_POLICY) { h.ws = null; h.status = 'terminal'; h.retryAt = null; return; }
+        const noToken = code === CLOSE_POLICY && tokenRetryable(this._tokenless.get(ws));   // SCALE2: refused for a token the service did not give in time - asked again
+        if (code === CLOSE_REPLACED || (code === CLOSE_POLICY && !noToken)) { h.ws = null; h.status = 'terminal'; h.retryAt = null; return; }
         h.ws = null; h.status = 'closed';
-        if (code === CLOSE_BUSY) h.backoff = Math.max(h.backoff, BACKOFF_MAX_MS / 2);
+        if (code === CLOSE_BUSY || noToken) h.backoff = Math.max(h.backoff, BACKOFF_MAX_MS / 2);
         h.retryAt = this._now() + BACKOFF_MIN_MS + this._rand() * Math.max(BACKOFF_MIN_MS, h.backoff - BACKOFF_MIN_MS); h.backoff = Math.min(BACKOFF_MAX_MS, h.backoff * 2);   // SLAM2: jittered
         return;
       }
@@ -1193,6 +1204,11 @@ export class OnlineSession {
       // them ON PURPOSE: through a one-second blip the crowd stays drawn where it was rather than vanishing and
       // re-standing, and the reconnect's welcome merges over it (AUDIT ONLINE B13).
       if (code === CLOSE_REPLACED) { this.superseded = true; this.terminal = true; this.terminalAt = this._now(); this.status = 'error'; this.error = SEAT_TEXT; this._endHalo(); this._forgetRoom(this.room); this._deliver('superseded', () => this.onSuperseded?.()); return; }   // ONE-SEAT: sticky - another tab or window has the seat (the hub's word), or this tab's own id (a duplicated tab)   // AUDIT WORLD6b-iii(b) A4
+      // SCALE2: A HELLO REFUSED FOR ITS MISSING TOKEN, WHILE THIS DEVICE IS SIGNED IN, IS ASKED AGAIN. The account service
+      // was slow (a relay deploy reconnects every player at once, and every socket asks it for a token) or had a bad
+      // minute: the relay refused the tokenless hello and this close was terminal - the player offline until they
+      // changed room. Only a missing sign-in ('no-session') or one the service stopped honouring ('auth') is final.
+      if (code === CLOSE_POLICY && tokenRetryable(this._tokenless.get(ws))) { this.status = 'closed'; this.error = 'waiting for the account service'; this._backoff = Math.max(this._backoff, BACKOFF_MAX_MS / 2); this._scheduleRetry(); return; }
       if (code === CLOSE_POLICY) { this.terminal = true; this.terminalAt = this._now(); this.status = 'error'; this.error = this.error ?? 'the relay refused a frame'; this._endHalo(); this._forgetRoom(this.room); return; }
       if (code === CLOSE_BUSY) { this.status = 'closed'; this.error = 'the room is busy'; this._backoff = Math.max(this._backoff, BACKOFF_MAX_MS / 2); this._scheduleRetry(); return; }   // full or gated: back off hard, then try again
       this.status = 'closed';
@@ -1664,7 +1680,10 @@ export class OnlineSession {
   rejoin(room, afterMs) {
     if (this.superseded) return false;   // ONE-SEAT: a superseded session waits for its player, never for a clock
     if (this.room && !this.terminal) return false;
-    if (this.terminal && this._now() - (this.terminalAt ?? 0) < afterMs) return false;
+    // SCALE2: THE WAIT IS JITTERED, once a terminal close - anywhere in [afterMs/2, 3afterMs/2). It was the same thirty
+    // seconds for everyone, so a relay that closed every channel at once had every tab's channels back in one second.
+    if (this.terminal && this._rejoinFor !== this.terminalAt) { this._rejoinFor = this.terminalAt; this._rejoinFactor = 0.5 + this._rand(); }
+    if (this.terminal && this._now() - (this.terminalAt ?? 0) < afterMs * (this._rejoinFactor ?? 1)) return false;
     this.join(room);
     return true;
   }
