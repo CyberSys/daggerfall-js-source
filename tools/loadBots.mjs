@@ -32,6 +32,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ACCEPTED } from '../src/net/legalLaw.js';
+import { isMain } from './lib/isMain.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const run = promisify(execFile);
@@ -278,6 +279,6 @@ async function main() {
   }
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (isMain(import.meta.url)) {
   main().catch((e) => { console.error(e?.stack ?? String(e)); process.exit(1); });
 }
