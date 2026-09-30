@@ -106,7 +106,7 @@ direction). The real staleness is where the sweep cannot see:
   row's own title records the previous three.
 - `:340` residue "a static NPC currently answers with the
   no-response line" - contradicts the same row's own head and row
-  `:446` (B7); `worldModes.js:1550-1561` opens the real talk window.
+  `:446` (B7); `worldModes.js:1585-1596` opens the real talk window.
 - `:339` "house/ship PURCHASE popups... still out" - contradicts row
   `:441` ("this row is now CLOSED", H1-H3) and
   `ui/bankPurchaseWindow.js`.
@@ -121,7 +121,7 @@ prose; the standing lists were maintained inconsistently. The worst
 per arc:
 - *Systems-Arc*: `:1445-1454` (S27) "Open and Lock are still not
   wired" with a pin "that fails the moment either context calls
-  triggerOpen" - both are called from `world/actionSystem.js:991-992`
+  triggerOpen" - both are called from `world/actionSystem.js:1022-1023`
   (X1) and the pin never fired because it greps only
   dungeonContext/interiorContext, not the file the wiring landed in
   (`mysticism.test.js:225-239`). The doc, the pin's design, and
@@ -163,7 +163,7 @@ per arc:
   `:3368`); `:4722` is now flatly false ("the interior host's
   char-sheet and inventory panels swallow their click and do
   nothing") and contradicts U43 in the same file
-  (`worldModes.js:5889-5890` routes them). UI-Arc carries no records
+  (`worldModes.js:5928-5929` routes them). UI-Arc carries no records
   at all for H1-H3 - the banking windows exist only in the Ledger.
 - *Combat.md*: the status head (first 51 lines) is the stale part -
   DrainMagicka "INTERIM no-op" (`:19`, real since S4a and
@@ -219,7 +219,7 @@ opposite of their own code and deserve a slice's attention:
   frame" - no host reads it (the Ledger row `:530` is right, the
   comment is wrong).
 - `src/systems/mysticism.js:53` header "OPEN AND LOCK ARE NOT WIRED" -
-  they are (X1, `actionSystem.js:991-992`).
+  they are (X1, `actionSystem.js:1022-1023`).
 - `src/systems/regionPower.js` "alliance mutators... which the port
   does not have" - `factionRelations.js` ships them (S44).
 - `src/combat/fpsWeapon.js:22` weaponOffsetHeight 0 - now a real gap
@@ -234,8 +234,8 @@ opposite of their own code and deserve a slice's attention:
 ## Line-citation drift (low, batched)
 
 `Port-Ledger.md:627` (save.js:36/:586/:605 → :28/:676/:708), `:636`
-(world.js:4880 → :2412); `Quest-Arc.md:724`/`:2911`
-(worldModes.js:637 → :903); `Player-Arc.md:979` (worldModes.js:937 →
+(world.js:4977 → :2412); `Quest-Arc.md:724`/`:2911`
+(worldModes.js:644 → :903); `Player-Arc.md:979` (worldModes.js:972 →
 :2764), `:304` (world.js "531 lines" → 3,564); `Characters-Arc.md:190`
 (CHAR_PIXEL "7" - `renderer.js:644` ships 9, and the doc missed two
 later revisions recorded in `paperdollViewer.js:138`), `:2114`
