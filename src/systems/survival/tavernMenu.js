@@ -13,8 +13,9 @@
 // meal's worth ("You are too full to finish your meal. The rest goes
 // to waste." - charged, the mod's own quirk kept), otherwise the
 // marker moves by the worth, never more than four hours ahead.
-// THE DRINK (TavernDrink): a quarter hour passes; a soft drink quenches
-// the thirst, an ale adds ten to the drunk counter, a wine twenty, a
+// THE DRINK (TavernDrink): a quarter hour passes; every drink quenches
+// the thirst whole (TAVERN-DRINK, below), a soft one counts nothing,
+// an ale adds ten to the drunk counter, a wine twenty, a
 // spirit thirty-five; past half the endurance "You are getting
 // drunk...", past the endurance you BLACK OUT (ShitFaced) - the host
 // passes the night (the clock to six in the morning offline), the
@@ -52,8 +53,6 @@ export const MEAL_WORTH = Object.freeze({ breakfast: 120, low: 120, mid: 200, hi
 /** The drinks' kinds and what each does to the counter. */
 export const DRINK_STRENGTH = Object.freeze({ soft: 0, ale: 10, wine: 20, spirit: 35 });
 export const MEAL_MINUTES = 30, DRINK_MINUTES = 15;
-/** A drink quenches this much thirst (a skin's drink is 40, food.js). */
-export const DRINK_THIRST_RELIEF = 40;
 
 const d = (name, price) => Object.freeze({ name, price });
 export const FOOD_MENUS = Object.freeze({
@@ -188,9 +187,17 @@ export function tavernOrder(s, now, row, { endurance = 50, rules = HARD_RULES } 
   return { ok: true };
 }
 /** TavernDrink: the thirst quenched, the counter up by the strength; the word by the endurance bands; past it, the
- *  blackout - in a tier that has one (`rules.blackout`; Hard's when no rules). */
+ *  blackout - in a tier that has one (`rules.blackout`; Hard's when no rules).
+ *  FIELD BUGS 2026-09-30 (TAVERN-DRINK; #bug-reports, "Climates & Calories Bugs": "Drinking beverages at an inn/tavern
+ *  does not fill your hydration. It is supposed to, and food works properly, it's only beverages."): A TAVERN DRINK
+ *  QUENCHES THE THIRST WHOLE, whatever its kind, as a meal fills the stomach whole (tavernEat). It took forty off a
+ *  thirst that runs to a hundred and fifty, and its quarter hour climbed again while it was drunk: a desert inn's juice
+ *  read 150, 127, 103, 80 and 57, four paid cups to leave the red. A Casual thirst loan (needs.js `borrowed`) is repaid
+ *  when the thirst leaves red, so it stayed owed through three of them. The quarter hour the host passes after the pour
+ *  is the minute law's first sight of the met thirst, and the loan comes back in the same pick. The drunk counter by
+ *  kind and the quarter hour stand. A declared departure (Port-Ledger A): SURV5 restated TavernDrink as forty. */
 export function tavernDrink(s, strength, { endurance = 50, rules = HARD_RULES } = {}) {
-  s.thirst = Math.max(0, (s.thirst ?? 0) - DRINK_THIRST_RELIEF);
+  s.thirst = 0;
   s.drunk = (s.drunk ?? 0) + (strength | 0);
   if (s.drunk > endurance && (rules ?? HARD_RULES).blackout) return { text: TAVERN_MENU_TEXT.blackout, blackout: true, minutes: DRINK_MINUTES };
   if (s.drunk > endurance / 2) return { text: s.drunk > endurance - 10 ? TAVERN_MENU_TEXT.veryDrunk : TAVERN_MENU_TEXT.gettingDrunk, blackout: false, minutes: DRINK_MINUTES };

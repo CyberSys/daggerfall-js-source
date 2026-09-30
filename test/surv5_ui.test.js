@@ -69,7 +69,8 @@ test('SURV5: the meal and the drink - the mod\'s marker law (too full under the 
   assert.equal(far.lastAte, 2000 - NEED.PECKISH_AT + 200, 'past worth + 240 the marker starts four hours back');
   const d = { ...newSurvival(0), thirst: 60, drunk: 0 };
   assert.deepEqual(tavernDrink(d, 0, { endurance: 50 }), { text: TAVERN_MENU_TEXT.fortified, blackout: false, minutes: DRINK_MINUTES }); assert.equal(DRINK_MINUTES, 15);
-  assert.equal(d.thirst, 20, 'a drink quenches forty'); assert.equal(d.drunk, 0, 'a soft drink counts nothing');
+  // TAVERN-DRINK (FIELD BUGS 2026-09-30, PIN MOVED): 20 -> 0 - a tavern drink quenches the thirst whole, whatever its kind (test/fb0930_cc_drink.test.js)
+  assert.equal(d.thirst, 0, 'a drink quenches the thirst whole'); assert.equal(d.drunk, 0, 'a soft drink counts nothing');
   assert.equal(tavernDrink(d, 35, { endurance: 50 }).text, TAVERN_MENU_TEXT.gettingDrunk); assert.equal(d.drunk, 35);
   d.drunk = 41; assert.equal(tavernDrink(d, 0, { endurance: 50 }).text, TAVERN_MENU_TEXT.veryDrunk, 'past endurance - 10');
   const b = tavernDrink(d, 10, { endurance: 50 });
