@@ -22049,7 +22049,15 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         player.restoreFall(fall);
         _seasonHoldKey = null;
       }
-      const _seasonHeld = _seasonHoldKey !== null;
+      // RESPAWN-HELD (FIELD BUGS 2026-09-30b, BrixBlox: "One time I died in a dungeon, and for some reason I respawned
+      // high enough in the air to kill me with fall damage"): AN ARRIVAL HOLDS THE MOTOR WHILE ITS DESTINATION BUILDS.
+      // _teleportToPixel's straightening latch is up from its first statement until the build resolves (a `finally`),
+      // and nothing is awaited between that and its landing's player.spawn - so the latch is exactly the build's frames.
+      // They stepped the motor: an outdoor death's screen held it (townTalk's slot outlives the await), but a dungeon's
+      // or a building's went with the exit, and the body - stood over the new pixel at the INTERIOR's height - fell
+      // through the half-built world onto a model collider or the terrain as each went in, and the frame billed it.
+      // The landing re-anchors the fall (player.spawn), so a held body arrives with none.
+      const _seasonHeld = _seasonHoldKey !== null || _seasonStraightening;
       if (!playerSpawned && built.has(startKey)) {
         // FIX-C: THE FIRST STAND IS DFU'S. StartNewCharacter
         // (StartGameBehaviour.cs:404-409) puts an exterior start through
