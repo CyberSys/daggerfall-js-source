@@ -38,4 +38,8 @@ The Warden's fight now crosses three courts and ends in a wipe you have to break
 - **Wear them or take them off** from the Broker's window or your account card. Your own aura lights at once, and other players see it from your next step into a new area.
 - You need to be signed in with a username and password to buy insignia; guest accounts can't keep them.
 
+## Crowds
+- **Much smoother with lots of players around** when you use the Morrowind bodies. Players outside your view are no longer animated and drawn every frame, the bodies near you share the work across frames, and a crowd milling around you no longer makes the game rebuild bodies over and over (the main cause of the stutter).
+- When a nearer player takes over a body slot from a farther one, it now waits a moment instead of swapping constantly, and a player wearing the same look reuses a body that was just freed instantly.
+
 Reload the game after the update to fight (the gate needs this version).

@@ -12,7 +12,7 @@ import {
 } from '../src/systems/partyRestLaw.js';
 import { validPartyPose, PARTY_MAX, PARTY_OFFLINE_MS, SOCIAL_ROOM, byteGate, QUEST_ROOM_BYTES_PER_S, QUEST_FRAME_MAX, RELAY_VERSION, NOTE_IN_HZ_MAX } from '../src/net/wire.js';
 import { SocialState } from '../src/net/social.js';
-import { PeerBodies, BODIES_MAX } from '../src/net/peerBodies.js';
+import { PeerBodies, BODIES_MAX, SWAP_DWELL_MS } from '../src/net/peerBodies.js';
 import { fakeRoom } from './fakeRoom.mjs';
 import { MAX_REST_HOURS, loiterLimitHours, cannotLoiterLines, CANNOT_REST_MORE_THAN_99_HOURS_ID } from '../src/systems/restSession.js';
 
@@ -269,8 +269,9 @@ const rig = () => ({ attach() {}, async build() { return { ok: true }; }, canThi
 const peer = (id, z, told = true) => ({ id, told, look: { race: 'Nord', gender: 'male', faceIndex: 0, items: [] }, shown: { x: 0, y: 0, z, yaw: 0, mv: 0 } });
 const same = (p) => [p.x, p.y, p.z];
 
-test('AUDIT PARTY8 bodies: a party mate is sorted first, takes a stranger\'s slot outright, and never loses hers to one', () => {
-  const pb = new PeerBodies({ renderer: {}, createRig: rig, buildOpts: () => ({}), now: () => 1000 });
+test('AUDIT PARTY8 bodies: a party mate is sorted first, takes a stranger\'s slot outright, and never loses hers to one', async () => {
+  let now = 1000;
+  const pb = new PeerBodies({ renderer: {}, createRig: rig, buildOpts: () => ({}), now: () => now });
   const mates = Array.from({ length: PARTY_MAX - 1 }, (_, i) => peer(`m${i}`, 10 + i));   // seven companions, 10..16 away
   const strangers = [peer('s0', 1), peer('s1', 2)];   // two strangers nearer than any of them
   const isMate = (id) => id.startsWith('m');
@@ -279,7 +280,12 @@ test('AUDIT PARTY8 bodies: a party mate is sorted first, takes a stranger\'s slo
   assert.deepEqual(mates.map((m) => pb._bodies.has(m.id)), mates.map(() => true), 'every companion stands in a body - nearest-first alone gave two of them to the strangers');
   assert.equal(pb._bodies.has('s0'), true, 'the eighth body is the nearest stranger\'s'); assert.equal(pb._bodies.has('s1'), false);
   assert.deepEqual([...pb._bodies.keys()].slice(0, PARTY_MAX - 1), mates.map((m) => m.id), 'the companions are SEATED first - their rigs are the first the one-at-a-time builder makes, not the strangers\' (nearest-first alone seated the two strangers ahead of every companion)');
-  // a stranger walking right up to me takes the FAR stranger's slot by the margin rule, never a companion's
+  // a stranger walking right up to me takes the FAR stranger's slot by the margin rule, never a companion's - WB9h: once it
+  // has wanted a body SWAP_DWELL_MS, and with no build in flight (the builds are let land first)
+  await new Promise((r) => setTimeout(r, 0));
+  pb.sync([...strangers, peer('s2', 0.1), ...mates], same, 0.016, [0, 0, 0], { priority: isMate });
+  assert.equal(pb._bodies.has('s2'), false, 'WB9h: not the frame it walks up');
+  now += SWAP_DWELL_MS;
   pb.sync([...strangers, peer('s2', 0.1), ...mates], same, 0.016, [0, 0, 0], { priority: isMate });
   assert.deepEqual(mates.map((m) => pb._bodies.has(m.id)), mates.map(() => true), 'the seven companions keep their bodies');
   assert.equal(pb._bodies.has('s2'), true, 'the nearer stranger took the farther stranger\'s slot'); assert.equal(pb._bodies.has('s0'), false);

@@ -1061,13 +1061,24 @@ stored session, a concealed peer's concealed with them, none under the travel vi
 opaque world through the veiled bodies' hook, under the frame's own camera (every host calls it: the street, the
 dungeon's late draw, the building), a foreign pass. `tools/auraProbe.mjs` draws it in a real WebGL2 (11 checks).
 
+### The bodies in a crowd (WB9h)
+
+A gate is a crowd, and the other players' Morrowind bodies were its cost (`net/peerBodies.js`; the whole account is
+`07-Rendering/Performance-Rig.md` section WB9h): forty players milling round the eye built 81 bodies in thirty
+seconds as the nearest eight reshuffled - up to 24 in five, each a multi-second mesh parse - and skinned and drew
+every body whether it was seen or not. Now a body out of the view is neither drawn nor skinned (posed the moment it is
+seen), at most SKIN_BUDGET bodies are skinned a frame, a stranger's body is handed over only after SWAP_DWELL_MS, no
+oftener than SWAP_EVERY_MS and never behind a build, and a body given up is kept SPARE_MS for the next player who
+wears the same one. The same crowd: 11 builds, no body taken from a player standing near, a skin and a fifth a frame
+where there were five (`tools/peerCrowdProbe.mjs`).
+
 Pinned: `test/wb9a_gate_marks_seen.test.js` (7), `test/wb9b_gate_courts.test.js` (12), `test/wb9c_gate_reckoning.test.js`
 (16), `test/wb9d_gate_ground.test.js` (5), `test/wb9e_gate_blows.test.js` (6), `test/wb9f_gate_spoils.test.js` (10),
-`test/wb9g_insignia.test.js` (14);
+`test/wb9g_insignia.test.js` (14), `test/wb9h_crowd_bodies.test.js` (7);
 mutants `tools/mutants/wb9b.json` (19, all dead), `tools/mutants/wb9c.json` (31: 30 dead, the dead counted at the
 crystals' growth equivalent as recorded - the court's living are filtered once), `tools/mutants/wb9d.json` (9, all
 dead), `tools/mutants/wb9e.json` (9, all dead), `tools/mutants/wb9f.json` (24, all dead), `tools/mutants/wb9g.json` (65,
-all dead). The older suites re-aimed
+all dead), `tools/mutants/wb9h.json` (25, all dead). The older suites re-aimed
 where WB9 moved their law: the phase's turn (WB3, WBX5, WB8b - the bound and the wait for the leap), the court's
 geometry (WB3b, WB6b - three courts, the braziers and shards clear of the walkways), the damage numbers (WB4, WB8c),
 the telegraph's text (WB4), the motor's clamp (AUDIT DUEL1), the relay's version pins (world135); and for WB9f the
