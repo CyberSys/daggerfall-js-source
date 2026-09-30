@@ -144,6 +144,8 @@ export function createPlayerMagic({
   // Only a spell with a harmful family reaches him (duelSpellOf, the duel's own test of harm).
   bossMark = null,
   castAtBoss = null,
+  crystalMarks = null,
+  castAtCrystal = null,
   // HOME-MAGIC (2026-09-27, Discord: "Players can use magic in player non owned houses"): THE HOST'S WORD ON THE PLACE -
   // a sentence refusing any cast where the player stands (a visitor in another's online home: worldModes.js
   // visitorMagicRefusal), or null. Asked at the ready, at the click (a spell readied outside is fired inside) and by an
@@ -203,13 +205,26 @@ export function createPlayerMagic({
    *  for anything else, outside a fight, or with no seam. */
   function bossMarksFor(sp) {
     if (!bossMark || !castAtBoss || !sp || !(duelSpellOf(sp) || (sp.effects ?? []).some((e) => e && isSoulTrapEffect(e)) || spellSways(sp))) return [];   // WB8a: a Pacify or a Charm stops at him too - and is refused there
+    const crystals = crystalMarksFor(sp);   // WB9c: the Reckoning's crystals meet a harmful spell as he does (a harmful one alone)
     let q = null;
-    try { q = bossMark() ?? null; } catch { return []; }
-    if (!q || !Array.isArray(q.feet) || q.feet.length !== 3 || !q.feet.every(Number.isFinite) || !(q.height > 0) || !(q.radius > 0)) return [];
-    return [{ boss: true, name: q.name ?? '', dead: false, ai: { feet: q.feet, height: q.height, radius: q.radius } }];
+    try { q = bossMark() ?? null; } catch { return crystals; }
+    if (!q || !Array.isArray(q.feet) || q.feet.length !== 3 || !q.feet.every(Number.isFinite) || !(q.height > 0) || !(q.radius > 0)) return crystals;
+    return [{ boss: true, name: q.name ?? '', dead: false, ai: { feet: q.feet, height: q.height, radius: q.radius } }, ...crystals];
   }
-  /** WB4b: a spell met him: out through the court's door. Nothing lands here - the relay holds his health. */
+  /** WB9c: THE RECKONING'S CRYSTALS as foe-shaped marks for a spell with a harmful family - each carrying its number and
+   *  the boss's door (`boss`, so a touch and a blast route them as they route him); [] otherwise. */
+  function crystalMarksFor(sp) {
+    if (!crystalMarks || !castAtCrystal || !sp || !duelSpellOf(sp)) return [];
+    let list = null;
+    try { list = crystalMarks() ?? null; } catch { return []; }
+    if (!Array.isArray(list)) return [];
+    return list.filter((q) => Number.isInteger(q?.c) && Array.isArray(q.feet) && q.feet.length === 3 && q.feet.every(Number.isFinite) && q.height > 0 && q.radius > 0)
+      .map((q) => ({ boss: true, crystal: q.c, name: 'Crystal of Oblivion', dead: false, ai: { feet: q.feet, height: q.height, radius: q.radius } }));
+  }
+  /** WB4b: a spell met him: out through the court's door. Nothing lands here - the relay holds his health. WB9c: or one
+   *  of the Reckoning's crystals, by its number. */
   function giveToBoss(mark, sp) {
+    if (mark?.crystal != null) { try { return !!castAtCrystal?.(sp, mark.crystal); } catch { return false; } }
     try { return !!castAtBoss?.(sp); } catch { return false; }
   }
   /** DUEL1: a blow landed on the opponent: out through the duel's door. Nothing lands here - their client resolves it. */

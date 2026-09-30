@@ -15,7 +15,7 @@
 // size, each attack's reach, element, name, ground and weight), the Warden unmarked when none is given.
 //
 // Not a DFU member. Ledger A (WB).
-import { ATTACK_BY_ID, ATTACKS, BASE_PROFILE, windupOf } from './gateBrain.js';
+import { ATTACK_BY_ID, ATTACKS, BASE_PROFILE, windupOf, isDagons } from './gateBrain.js';
 
 /** A landing is decided at the first frame at or past it - and a frame that comes later than this past its span (a
  *  stalled or hidden screen) lets it pass: nobody is struck by what their screen never showed land. */
@@ -139,7 +139,7 @@ export const blowOf = (atk, P = BASE_PROFILE) => {
   const A = ATTACK_BY_ID[atk?.a];
   if (!A) return null;
   const L = P.atk[A.key];
-  return { pct: L.pct, base: L.base, el: L.el, name: L.name, saved: L.el != null && A !== ATTACKS.wrath };
+  return { pct: L.pct, base: L.base, el: L.el, name: L.name, saved: L.el != null && !isDagons(A) };   // WB9c: Dagon's Reckoning, as his Wrath, is answered by nothing
 };
 
 /** The damage a struck player takes: `pct` of their maximum health and WBX4's `base` points beside it, whole points, at

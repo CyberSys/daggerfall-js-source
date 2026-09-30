@@ -176,7 +176,7 @@ test('AUDIT DEEP R-1: EVERY fogged program under the travel view measures its fo
   const fogged = readdirSync(dir).filter((f) => f.endsWith('.js')).filter((f) => /\$\{FOG_GLSL\}|\$\{FOG_FACTOR_GLSL\}/.test(readFileSync(new URL(f, dir), 'utf8')));
   const RENDERER_OWNED = { 'renderer.js': 'its own programs (_fogLocs, _waterLocs, _uploadFog)', 'waterSurface.js': 'the renderer\'s _waterLocs upload it' };
   const DW_SENT = { 'oceanHolesRender.js': 'Deep Waters\' _frameUniforms sends it (merged beside OH-C)' };
-  const NEVER_UNDER_THE_VIEW = { 'deadlands.js': 'the Burning Court alone - no sky, no view', 'gateTelegraph.js': 'the Burning Court alone', 'spoilsGlow.js': 'the Burning Court alone' };
+  const NEVER_UNDER_THE_VIEW = { 'deadlands.js': 'the Burning Court alone - no sky, no view', 'gateTelegraph.js': 'the Burning Court alone', 'spoilsGlow.js': 'the Burning Court alone', 'courtCrystals.js': 'the Burning Court alone (WB9c: the Reckoning\'s crystals)', 'gateFx.js': 'the Burning Court alone (WB9e: his blows\' sparks, the meteor)' };
   for (const f of fogged) {
     if (RENDERER_OWNED[f] || NEVER_UNDER_THE_VIEW[f]) continue;
     const src = readFileSync(new URL(f, dir), 'utf8');

@@ -22,7 +22,7 @@ import {
   newFight, joinFight, applyHit, stepBrain, stateOf, attacksFor, pickTarget, windupOf, fightProfile, profileOf, attackUnder,
   BASE_PROFILE, SCAR_POOLS, FAVOURED_PHASE, ATTACKS, ATTACK_BY_ID, POOLS, BOSS_R, BOSS_H, SHIELD_MS, THREAT_PICK, THREAT_DECAY,
   BOSS_TTK_S, dpsRef, HIT_KINDS, MELEE_REACH, POSE_SLACK, PHASE_AT, COURT_CENTRE, BRAIN_TICK_MS, OPENING_MS, TURN_BREATH_MS,
-  SEAT_KEEP_MS, RECEIPT_SHARE, hasPart,
+  SEAT_KEEP_MS, RECEIPT_SHARE, hasPart, COURTS, CROSS_WARD_MAX_MS,
 } from '../src/net/gateBrain.js';
 import { validGateOut, GATE_OUT_KINDS, GATE_BRAIN_V, GATE_BRAIN_MIN, RELAY_VERSION } from '../src/net/wire.js';
 import { fakeRooms } from './fakeRoom.mjs';
@@ -174,7 +174,7 @@ test('WB8b the trials, as numbers: Colossal a quarter larger and harder to fell 
   assert.equal(S.atk.hellfire.pool.ms, POOLS.hellfire.ms * 1.5); assert.equal(S.atk.cleave.pool, null, 'a blade leaves none');
   assert.equal(BASE_PROFILE.atk.slam.pool, null, 'no scar without the trial');
   const SV = fightProfile(['burning', 'scarring', 'vengeful']);
-  assert.deepEqual(SV.atk.leap.pool, { r: 3.5, ms: 9000, pct: 0.05 * 1.25, base: 2 * 1.25 }, 'the two together');
+  assert.deepEqual(SV.atk.leap.pool, { r: 3.5, ms: 9000, pct: SCAR_POOLS.leap.pct * 1.25, base: SCAR_POOLS.leap.base * 1.25 }, 'the two together');   // WB9d: the scar's bite raised with every ground's
   const G = fightProfile(['burning', 'grudge']);
   assert.deepEqual([G.threatPick, G.threatDecay], [0.85, 0]);
   assert.equal(fightProfile(['burning', 'soulhungry']).feed, 0.03);
@@ -239,7 +239,13 @@ test('WB8b Unyielding in the brain: his ward holds SHIELD_MS twice over at a pha
   assert.equal(f.players.s1.clipped, 0, 'nothing clipped');
   f.hp = f.max * PHASE_AT[0]; f.nextAt = T0;
   const out = stepBrain(f, T0 + 2000, [body('s1', 0, 8)], seeded(3));
-  assert.deepEqual(out.find((o) => o.k === 'ph'), { k: 'ph', n: 2, until: T0 + 2000 + 6000 });
+  // WB9b: the turn's ward holds through the bound and the wait in the next court; once a challenger crosses, HIS ward
+  // holds from there - twice SHIELD_MS
+  assert.deepEqual(out.find((o) => o.k === 'ph'), { k: 'ph', n: 2, until: T0 + 2000 + CROSS_WARD_MAX_MS });
+  const t = f.atk.until;
+  stepBrain(f, t, [body('s1', 0, 8)], seeded(3));
+  const arrive = stepBrain(f, t + TURN_BREATH_MS, [body('s1', COURTS[1][0], COURTS[1][1] + 8)], seeded(3));
+  assert.deepEqual(arrive.find((o) => o.k === 'ph'), { k: 'ph', n: 2, until: t + TURN_BREATH_MS + 6000 });
 });
 
 test('WB8b the Grudge-Bearer in the brain: his threat never forgets, and he goes at the one who hurt him most 85 times in a hundred (mutants: the decay kept; the old pick)', () => {
@@ -355,15 +361,15 @@ test('WB8b Echoing in the brain: a meteor falls again a breath after the first -
   turned.f.hp = turned.f.max * PHASE_AT[1];
   const out = stepBrain(turned.f, turned.end + 50, [body('s1', 6, -5)], RNG);
   assert.ok(out.some((o) => o.k === 'ph'));
-  assert.equal(turned.f.atk.a, ATTACKS.leap.id, 'the turn\'s leap');
+  assert.equal(turned.f.atk.a, ATTACKS.cross.id, 'the turn\'s bound (WB9b)');
   assert.ok(turned.f.pending === null && turned.f.queue.every((e) => !e.echo), 'the echo is gone with the turn');
 });
 
 // ═══ THE WIRE AND THE RELAY ═══════════════════════════════════════════════════════════════════════════════════════
 
 test('WB8b the wire: the brain\'s law is 3 - a game that does not know the marks is refused and told to reload; the room says `fed`, projected field by field; the relay was world128 - world126 on its branch, one relay past main\'s OW6L (world127) at the merge - and PENITENT\'s badge vocabulary moved it on (world129) (mutants: the law not raised; a `fed` taken raw)', () => {
-  assert.equal(GATE_BRAIN_V, 3); assert.equal(GATE_BRAIN_MIN, 3);
-  assert.equal(RELAY_VERSION, 'world132');   // STRIKE-SHARED moved it on last (world132: the strike spell on a hit and the trapper on a dead foe, both read by the clients alone); before it MERGE 2 moved it on (world131: the professions branch, BOUNTY1 + AUDIT 28 - `bq` and `lv` on the party pose, `k`, `a` and `t` on a bounty row - world125 on its branch, never deployed, a number VOICE1 took on main); before it REALM-DOOR moved it on (world130: the door refuses a token the account service signed as naming no realm character), past PENITENT's badge vocabulary (world129); WB8's marks were world128
+  assert.equal(GATE_BRAIN_V, 4); assert.equal(GATE_BRAIN_MIN, 4);   // WB9b/c: 4 - the three courts, the bound and the Reckoning
+  assert.equal(RELAY_VERSION, 'world133');   // WB9 moved it on last (world133: the three courts of the Warden and the Reckoning of Dagon - his court and the walkways laid in the state (`ct`, `xa`), the crystals, their breaking and the stun (`cx`, `cxh`, `cxb`, `stun`, `su`, `rk`) and a blow on a crystal (`xhit`), judged and fanned by the relay); before it STRIKE-SHARED moved it on (world132: the strike spell on a hit and the trapper on a dead foe, both read by the clients alone); before it MERGE 2 moved it on (world131: the professions branch, BOUNTY1 + AUDIT 28 - `bq` and `lv` on the party pose, `k`, `a` and `t` on a bounty row - world125 on its branch, never deployed, a number VOICE1 took on main); before it REALM-DOOR moved it on (world130: the door refuses a token the account service signed as naming no realm character), past PENITENT's badge vocabulary (world129); WB8's marks were world128
   assert.ok(GATE_OUT_KINDS.includes('fed'));
   assert.deepEqual(validGateOut({ k: 'fed', ns: ['Ann'], h: 5, m: 10, at: 99, x: 1 }), { k: 'fed', ns: ['Ann'], h: 5, m: 10, at: 99 });
   assert.deepEqual(validGateOut({ k: 'fed', ns: ['  Ann\u0007\u202e ', 'Bran'], h: 5, m: 10, at: 99 }).ns, ['Ann', 'Bran'], 'each name as the wire says every name');

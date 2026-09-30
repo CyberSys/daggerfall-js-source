@@ -56,8 +56,8 @@
   {
     "name": "WB8c-the-throw-fire-s-alone",
     "file": "src/net/gateStrike.js",
-    "old": "saved: L.el != null && A !== ATTACKS.wrath };",
-    "new": "saved: L.el === 'fire' && A !== ATTACKS.wrath };",
+    "old": "saved: L.el != null && !isDagons(A) };",
+    "new": "saved: L.el === 'fire' && !isDagons(A) };",
     "tests": [
       "test/wb8c_gate_detail.test.js"
     ]
@@ -119,8 +119,8 @@
   {
     "name": "WB8c-an-unmarked-warden-speaks",
     "file": "src/scenes/gateCourt.js",
-    "old": "if (P.md && !s.fell && s.wrath == null) say(COURT_MARKS_TEXT.arrive(P)); }",
-    "new": "if (!s.fell && s.wrath == null) say(COURT_MARKS_TEXT.arrive(P)); }",
+    "old": "if (P.md && !s.fell && s.wrath == null) { say(COURT_MARKS_TEXT.arrive(P)); marksAt = t; } }",
+    "new": "if (!s.fell && s.wrath == null) { say(COURT_MARKS_TEXT.arrive(P)); marksAt = t; } }",
     "tests": [
       "test/wb8c_gate_detail.test.js",
       "test/wbx_gate_fixes.test.js"
@@ -228,7 +228,7 @@
   {
     "name": "WB8c-the-wrath-in-his-aspect-s-voice",
     "file": "src/world/gateBoss.js",
-    "old": "  if (!cue || A === ATTACKS.wrath || !P?.atk?.[A.key]?.el",
+    "old": "  if (!cue || isDagons(A) || !P?.atk?.[A.key]?.el",
     "new": "  if (!cue || !P?.atk?.[A.key]?.el",
     "tests": [
       "test/wb8c_gate_detail.test.js"
@@ -291,8 +291,8 @@
   {
     "name": "WB8c-an-empty-trials-line-shown",
     "file": "src/ui/gateBossBar.js",
-    "old": "parts.trials.style.display = trials ? '' : 'none';",
-    "new": "parts.trials.style.display = '';",
+    "old": "parts.marks.style.display = view ? '' : 'none';",
+    "new": "parts.marks.style.display = '';",
     "tests": [
       "test/wb8c_gate_detail.test.js"
     ]
@@ -328,8 +328,8 @@
   {
     "name": "WB8c-the-feeding-forgotten",
     "file": "src/net/gateLink.js",
-    "old": "md: g.md ?? null, fed: s.day === g.d ? s.fed ?? null : null };",
-    "new": "md: g.md ?? null, fed: null };",
+    "old": "md: g.md ?? null, fed: same ? s.fed ?? null : null,",
+    "new": "md: g.md ?? null, fed: null,",
     "tests": [
       "test/wb8c_gate_detail.test.js"
     ]
@@ -337,8 +337,8 @@
   {
     "name": "WB8c-the-state-forgets-the-marks",
     "file": "src/net/gateLink.js",
-    "old": "md: g.md ?? null, fed: s.day === g.d ? s.fed ?? null : null };",
-    "new": "md: null, fed: s.day === g.d ? s.fed ?? null : null };",
+    "old": "md: g.md ?? null, fed: same ? s.fed ?? null : null,",
+    "new": "md: null, fed: same ? s.fed ?? null : null,",
     "tests": [
       "test/wb8c_gate_detail.test.js"
     ]

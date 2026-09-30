@@ -90,7 +90,7 @@ test('WB8c the court\'s strikes: his frost through MY frost throw - the host ask
   const h = court({ feet: [1, 0, 1], maxHealth: 200, health: 200, save: 50 });
   await tick(h, 13000, state({ md, atk: W('hellfire', { i: 7, at: 13001, tg: [[1, 1]] }), phase: 2 }));
   await tick(h, 13001);
-  assert.deepEqual(h.struck, [[33, { fire: false, el: 'frost', name: 'Rimefall' }]], '30% of 200 and its 6, halved by my frost throw');
+  assert.deepEqual(h.struck, [[44, { fire: false, el: 'frost', name: 'Rimefall' }]], 'WB9e: 40% of 200 and its 9, halved by my frost throw');
   assert.ok(h.saves.includes('frost'), 'the throw asked for is frost');
   // the rime it left: a step in, a tick, a bite - frost again
   await tick(h, 13001 + 1000); await tick(h, 13001 + 2001);
@@ -159,8 +159,9 @@ test('WB8c the court\'s words: his marks said as I step through (his aspect\'s o
   // the turns
   assert.equal(courtPhaseText(2, gateAspectOf('burning')), COURT_PHASE_TEXT[2]);
   assert.equal(courtPhaseText(3, gateAspectOf('burning')), COURT_PHASE_TEXT[3]);
-  assert.equal(courtPhaseText(2, gateAspectOf('rime')), 'The Burning Court: the ward breaks and the floor will freeze - keep out of the rime.');
-  assert.equal(courtPhaseText(3, gateAspectOf('storm')), 'Dagon\'s Champion: he calls on Dagon - stand between the spokes of lightning.');
+  // WB9b/c: each turn crosses to the next court, and the last brings the Reckoning
+  assert.equal(courtPhaseText(2, gateAspectOf('rime')), 'The Burning Court: he bounds across the fire - follow him over the walkway. There the floor will freeze - keep out of the rime.');
+  assert.equal(courtPhaseText(3, gateAspectOf('storm')), 'Dagon\'s Champion: he bounds to the last court and calls on Dagon - stand between the spokes of lightning, and shatter the crystals when he calls his Reckoning.');
   await tick(h, 3000, state({ md, phase: 2 }));
   assert.ok(h.said.includes(courtPhaseText(2, gateAspectOf('rime'))));
   destroyGateBossBar();
@@ -278,7 +279,7 @@ test('WB8c the seams, by source: the relay births each fight on the day\'s marks
   assert.match(gc, /const P = profileOf\(s\);   \/\/ WB8b: the fight's marks, as law/);
   assert.match(gc, /judge\(s, t, P\);/); assert.match(gc, /burn\(s, t, P\);/); assert.match(gc, /cue\(s, t, P\);/); assert.match(gc, /drawBody\(s, t, P\);/);
   assert.match(gc, /shape = s\.fell \? null : telegraphShape\(s\.atk, s\.phase, t, P\);/);
-  assert.match(gc, /poolDraw = pools\.length \? poolShapes\(pools, t, poolColor\(P\)\) : NONE;/);
+  assert.match(gc, /poolDraw = pools\.length \? poolShapes\(pools, t, poolColor\(P\), TELEGRAPH_STYLE\[P\.el\] \?\? TELEGRAPH_STYLE\.fire\) : NONE;/);   // WB9e: in his ground's own grain
   assert.match(gc, /const w = sz\.w \* body\.scale \* P\.size, h = sz\.h \* body\.scale \* P\.size;/);
   assert.match(read('src/ui/enhancedPlusStyle.js'), /body \.wb-boss-marks \{/);   // WB9a: the marks' row under his health, dressed where the trials' line was
   assert.ok(windupOf(ATTACKS.meteor, 2) > 0 && COURT_CENTRE.length === 3);

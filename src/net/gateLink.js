@@ -11,18 +11,24 @@
 //
 // Not a DFU member. Ledger A (WB).
 import { readReceipt } from './gateReceipt.js';
+import { ATTACKS, nearestCourt } from './gateBrain.js';   // WB9b: the bound's word and the court it lands in
 
 /**
  * @typedef {{day: number|null, boss: string|null, phase: number, hp: number, max: number, x: number, z: number, yaw: number,
  *   move: any, atk: any, shieldUntil: number, wrathAt: number|null, fighters: number, fell: any, wrath: number|null, heardAt: number,
- *   md: ReadonlyArray<string>|null, fed: {ns: ReadonlyArray<string>, at: number}|null}} GateState
+ *   md: ReadonlyArray<string>|null, fed: {ns: ReadonlyArray<string>, at: number}|null,
+ *   xa: ReadonlyArray<number>, cx: {i: number, m: number, c: number[][], broke: ReadonlyArray<{c: number, n: string, at: number}>}|null,
+ *   stunUntil: number, stunAt: number, rk: number}} GateState
  *   WB8b: `md` his marks (net/gateMods.js - the fight's profile is made from them, net/gateBrain.js fightProfile), `fed`
- *   the last fallen challenger a Soul-Hungry Warden fed on (their name, the relay's moment).
+ *   the last fallen challenger a Soul-Hungry Warden fed on (their name, the relay's moment). WB9b: `xa` the crossings'
+ *   words (the walkways laid - net/gateBrain.js walkFormed). WB9c: `cx` the Reckoning's crystals ({i, m, c: [[x, z, h]]}
+ *   and who broke which), `stunUntil`/`stunAt` a broken Reckoning's stun, `rk` when the next Reckoning comes.
  */
 /** The empty state: nothing heard yet. @type {Readonly<GateState>} */
 export const GATE_STATE_EMPTY = Object.freeze({
   day: null, boss: null, phase: 1, hp: 0, max: 0, x: 0, z: 0, yaw: 0, move: null, atk: null, shieldUntil: 0,
   wrathAt: null, fighters: 0, fell: null, wrath: null, heardAt: 0, md: null, fed: null,
+  xa: Object.freeze([]), cx: null, stunUntil: 0, stunAt: 0, rk: 0,
 });
 
 /**
@@ -41,17 +47,32 @@ export const GATE_STATE_EMPTY = Object.freeze({
 export function foldGate(s, g, now, place = bossAt) {
   if (!g) return s;
   if (g.k === 'st') {
-    // WB8b: the marks are the fight's; a feeding already heard is kept through a state of the same fight
-    return { day: g.d, boss: g.b, phase: g.ph, hp: g.h, max: g.m, x: g.x, z: g.z, yaw: g.yw, move: g.mv, atk: g.atk, shieldUntil: g.sh, wrathAt: g.wr, fighters: g.n, fell: g.fell, wrath: g.wrath, heardAt: now, md: g.md ?? null, fed: s.day === g.d ? s.fed ?? null : null };
+    // WB8b: the marks are the fight's; a feeding already heard is kept through a state of the same fight. WB9c: so are
+    // the crystals already seen broken (a state names their health, not who broke them) and the stun's moment
+    const same = s.day === g.d;
+    const cx = g.cx ? { i: g.cx.i, m: g.cx.m, c: g.cx.c.map((q) => [q[0], q[1], q[2]]), broke: same && s.cx?.i === g.cx.i ? s.cx.broke : [] } : null;
+    return {
+      day: g.d, boss: g.b, phase: g.ph, hp: g.h, max: g.m, x: g.x, z: g.z, yaw: g.yw, move: g.mv, atk: g.atk, shieldUntil: g.sh, wrathAt: g.wr, fighters: g.n, fell: g.fell, wrath: g.wrath, heardAt: now, md: g.md ?? null, fed: same ? s.fed ?? null : null,
+      xa: g.xa ?? [], cx, stunUntil: g.su ?? 0, stunAt: same && s.stunUntil === (g.su ?? 0) ? s.stunAt : (g.su ? now : 0), rk: g.rk ?? 0,
+    };
   }
   if (s.day === null) return s;   // nothing but a whole state starts a fight
   switch (g.k) {
-    case 'mv': return { ...s, atk: null, move: { x: g.x, z: g.z, tx: g.tx, tz: g.tz, v: g.v, at: g.at }, x: g.x, z: g.z, yaw: g.v > 0 ? Math.atan2(g.tx - g.x, g.tz - g.z) : s.yaw, heardAt: now };
-    case 'atk': return { ...s, atk: { i: g.i, a: g.a, at: g.at, x: g.x, z: g.z, yw: g.yw, tg: g.tg }, move: null, x: g.x, z: g.z, yaw: g.yw, heardAt: now };
+    // WB9c: a walk, or another attack's word, and the Reckoning's crystals are done with (the relay grows them only with
+    // its word, and spends them at its landing or its breaking - no word of their own says so)
+    case 'mv': return { ...s, atk: null, move: { x: g.x, z: g.z, tx: g.tx, tz: g.tz, v: g.v, at: g.at }, x: g.x, z: g.z, yaw: g.v > 0 ? Math.atan2(g.tx - g.x, g.tz - g.z) : s.yaw, heardAt: now, cx: null };
+    case 'atk': return { ...s, atk: { i: g.i, a: g.a, at: g.at, x: g.x, z: g.z, yw: g.yw, tg: g.tg }, move: null, x: g.x, z: g.z, yaw: g.yw, heardAt: now, cx: s.cx && s.cx.i === g.i ? s.cx : null, ...crossLaid(s, g) };
     case 'hp': return { ...s, hp: g.h, max: g.m, heardAt: now };
     case 'ph': return { ...s, phase: g.n, shieldUntil: g.until, heardAt: now };
     case 'wrath': return { ...s, wrath: g.at, atk: null, heardAt: now };
     case 'fed': return { ...s, hp: g.h, max: g.m, fed: { ns: g.ns, at: g.at }, heardAt: now };   // WB8b: the health his feeding left, and who fed him (AUDIT PRE-MERGE 0929 W1-3: every one of the beat's)
+    // WB9c: THE CRYSTALS - grown whole at the Reckoning's word, their health as it falls, each one broken (and by whom),
+    // and the Reckoning broken: he is stunned and the crystals are gone. A word of another Reckoning's crystals is not these.
+    case 'cx': return { ...s, cx: { i: g.i, m: g.m, c: g.c.map((q) => [q[0], q[1], g.m]), broke: [] }, heardAt: now };
+    case 'cxh': return s.cx && s.cx.i === g.i ? { ...s, cx: { ...s.cx, c: s.cx.c.map((q, k) => [q[0], q[1], Number.isFinite(g.h[k]) ? g.h[k] : q[2]]) }, heardAt: now } : s;
+    case 'cxb': return s.cx && s.cx.i === g.i && s.cx.c[g.c] ? { ...s, cx: { ...s.cx, c: s.cx.c.map((q, k) => (k === g.c ? [q[0], q[1], 0] : q)), broke: [...s.cx.broke, { c: g.c, n: g.n, at: g.at }] }, heardAt: now } : s;
+    // (the stun keeps the crystals, every one broken - who broke the last is said with it; the next word clears them)
+    case 'stun': return { ...s, stunUntil: g.until, stunAt: g.at, atk: null, move: null, cx: s.cx ? { ...s.cx, c: s.cx.c.map((q) => [q[0], q[1], 0]) } : null, heardAt: now };
     case 'fell': {
       if (g.d !== undefined && g.d !== s.day) return s;
       if (s.fell) return { ...s, heardAt: now };   // said again (the hub's echo): he has already fallen where he fell
@@ -60,6 +81,18 @@ export function foldGate(s, g, now, place = bossAt) {
     }
     default: return s;
   }
+}
+
+/** WB9b: A BOUND'S WORD LAYS ITS WALKWAY on every screen that hears it - the walkway into the court it lands in, from
+ *  the word's own moment (its landing less its wind-up: the relay's `xa`, net/gateBrain.js beginTurn), so the stones
+ *  rise here as they rise on the relay's clock without waiting for the next whole state. Pure; `{}` for any other word. */
+export function crossLaid(s, g) {
+  if (g.a !== ATTACKS.cross.id || !g.tg?.[0]) return {};
+  const k = nearestCourt(g.tg[0][0], g.tg[0][1]) - 1;
+  if (!(k >= 0) || Number.isFinite(s.xa?.[k])) return {};
+  const xa = [...(s.xa ?? [])];
+  xa[k] = g.at - ATTACKS.cross.windup;
+  return { xa };
 }
 
 /**

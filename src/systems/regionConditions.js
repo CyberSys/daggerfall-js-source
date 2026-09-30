@@ -25,7 +25,7 @@
 // the arrest arc: scenes/arrestFlow.js:544-547 sets bit 1 on
 // banishment (DaggerfallCourtWindow.cs:272) and encounters.js:243
 // passiveGuardSpawns reads it every catch-up minute through
-// scenes/world.js:4853-4855 (PlayerEntity.cs:507).
+// scenes/world.js:4855-4857 (PlayerEntity.cs:507).
 
 /** PlayerEntity.RegionDataFlags (:1588-1619), all thirty. */
 export const REGION_FLAGS = Object.freeze({

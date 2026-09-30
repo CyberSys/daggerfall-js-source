@@ -15,7 +15,7 @@
 // The charge is run on the walk's frames at a run's pace, his body carried down the lane as the brain carries it.
 //
 // Not a DFU member. Ledger A (WB).
-import { ATTACK_BY_ID, ATTACKS, BOSS_H, LEAP_AIR_MS, leapAt, profileOf } from '../net/gateBrain.js';
+import { ATTACK_BY_ID, ATTACKS, BOSS_H, LEAP_AIR_MS, CROSS_AIR_MS, airOf, leapAt, profileOf, isDagons } from '../net/gateBrain.js';
 import { bossAt } from '../net/gateLink.js';
 import { telegraphAt, chargeHead } from '../net/gateStrike.js';
 import {
@@ -59,6 +59,22 @@ export function bossStandIn(look, name) {
   e.pacifyImmune = true;
   return e;
 }
+/**
+ * WB9c: THE ENTITY A BLOW ON A CRYSTAL OF OBLIVION IS COMPUTED AGAINST - his stand-in's law (every metal bites, a health
+ * nothing here can empty - the relay holds its real one, never swayed), but it is glass grown out of stone, not a body:
+ * no armour turns a blow (CRYSTAL_ARMOR, an unarmoured ArmorValues - DFU's 100) and nothing dodges (every skill
+ * nothing - formulas.js CalculateSkillsToHit reads the target's Dodging). One a fight, shared by every crystal.
+ */
+export const CRYSTAL_ARMOR = 100;
+export const CRYSTAL_NAME = 'Crystal of Oblivion';
+export function crystalStandIn(look) {
+  const e = bossStandIn(look, CRYSTAL_NAME);
+  e.armor = CRYSTAL_ARMOR;
+  e.armorValues = new Array(7).fill(CRYSTAL_ARMOR);
+  e.skills = 0;
+  e.crystal = true;
+  return e;
+}
 /** WB8a: what a Pacify or a Charm aimed at him says. */
 export const BOSS_SWAY_TEXT = (name) => `${name || 'The Warden'} cannot be swayed.`;
 /** WB8a: how often at most it is said - a Cast When Strikes sway rides every blow. */
@@ -84,6 +100,8 @@ export function bossReach(eye, body) {
 export const RUN_ANIM_SPEED = 14;
 /** A blow of mine lands: he flinches this long (only while he does nothing else - a wind-up is never broken). */
 export const FLINCH_MS = 450;
+/** WB9c: his reel while stunned, frames a second (his hurt clip, slowed - he is dazed, not struck). */
+export const STUN_ANIM_SPEED = 3;
 /** The fall: the hurt frames played slowly this long, and then he is gone (WB5's spoils spill at the fall). */
 export const FALL_MS = 2400;
 
@@ -100,7 +118,14 @@ export const ATTACK_COLORS = Object.freeze({
   leap: Object.freeze([1.0, 0.42, 0.1]),
   meteor: Object.freeze([1.0, 0.56, 0.06]),
   spokes: Object.freeze([1.0, 0.14, 0.32]),
+  // WB9b: the bound's landing, his weight's colour; WB9c: Dagon's Reckoning, the Wrath's blood-red deepened toward black
+  cross: Object.freeze([1.0, 0.46, 0.12]),
+  reckon: Object.freeze([0.95, 0.08, 0.16]),
 });
+/** WB9c: the crystals of Oblivion - their heart's glow (his aspect's colour where he wears one: CRYSTAL_ASPECT), and the
+ *  stunned Warden's daze (a pale ember). */
+export const CRYSTAL_COLOR = Object.freeze([1.0, 0.18, 0.34]);
+export const STUN_COLOR = Object.freeze([0.62, 0.7, 1.0]);
 export const WARD_COLOR = Object.freeze([1.0, 0.86, 0.5]);
 export const EMBER_COLOR = Object.freeze([0.9, 0.32, 0.1]);
 /** WBX5: the burning ground's colour on the floor (render/gateTelegraph.js draws each pool as a filled disc). */
@@ -123,11 +148,17 @@ export const attackColor = (A, P) => ASPECT_COLORS[P?.aspect?.id]?.[A.key] ?? AT
 /** His ground's colour, and his ember's, under a profile. */
 export const poolColor = (P) => ASPECT_COLORS[P?.aspect?.id]?.pool ?? POOL_COLOR;
 export const emberColor = (P) => ASPECT_COLORS[P?.aspect?.id]?.ember ?? EMBER_COLOR;
+/** WB9c: the crystals' colour under a profile - Oblivion's crimson under the Burning, his aspect's own blow colour
+ *  otherwise (the rime's ice, the storm's violet, the venom's green): the Reckoning is Dagon's, the crystals his. */
+export const crystalColor = (P) => ASPECT_COLORS[P?.aspect?.id]?.spokes ?? CRYSTAL_COLOR;
 
 /** WBX5: THE LEAP'S FLIGHT - he is in the air LEAP_AIR_MS before it lands (the brain's law, net/gateBrain.js leapAt),
  *  and this high at the top of his arc (metres). */
-export { LEAP_AIR_MS };
+export { LEAP_AIR_MS, CROSS_AIR_MS };
 export const LEAP_HEIGHT = 3.2;
+/** WB9b: the bound's arc over the fire - high enough that the fire below lights his underside, and every court sees him
+ *  go. */
+export const CROSS_HEIGHT = 22;
 
 /** Where he stands at `now`, in the court's frame: down the lane while the charge runs and at its end after (the brain
  *  carries him so, net/gateBrain.js stepBrain - the next word finds him there); WBX5: through the air to where a leap
@@ -145,10 +176,12 @@ export function bossPlace(s, now) {
 
 /** WBX5: how high he stands over the floor at `now` - the leap's arc over its air time, else 0 (metres). */
 export function bossHop(s, now) {
-  const atk = s?.atk;
-  if (!atk || ATTACK_BY_ID[atk.a] !== ATTACKS.leap || now < atk.at - LEAP_AIR_MS || now >= atk.at) return 0;
-  const k = (now - (atk.at - LEAP_AIR_MS)) / LEAP_AIR_MS;
-  return 4 * LEAP_HEIGHT * k * (1 - k);
+  const atk = s?.atk, A = atk ? ATTACK_BY_ID[atk.a] : null;
+  if (A !== ATTACKS.leap && A !== ATTACKS.cross) return 0;
+  const air = airOf(A);
+  if (now < atk.at - air || now >= atk.at) return 0;
+  const k = (now - (atk.at - air)) / air;
+  return 4 * (A === ATTACKS.cross ? CROSS_HEIGHT : LEAP_HEIGHT) * k * (1 - k);   // WB9b: the bound's arc is its own
 }
 
 /**
@@ -165,11 +198,14 @@ export function bossAct(s, now, hurtAt = -Infinity) {
     if (since >= FALL_MS) return { act: 'gone', anims: HURT_ANIMS, frame: 0, loop: false, atk: null, t: 1 };
     return { act: 'fall', anims: HURT_ANIMS, frame: Math.max(0, Math.floor((since / FALL_MS) * 5)), loop: false, atk: null, t: since / FALL_MS };
   }
+  // WB9c: STUNNED - his Reckoning broken, he reels on his hurt frames, slowly, until it passes (a blow still flinches him)
+  if (now < (s.stunUntil ?? 0) && now >= (s.stunAt ?? 0)) return { act: 'stunned', anims: HURT_ANIMS, frame: Math.floor(((now - (s.stunAt ?? now)) / 1000) * STUN_ANIM_SPEED), loop: true, atk: null, t: 0 };
   const atk = s.atk, A = atk ? ATTACK_BY_ID[atk.a] : null;
   if (A) {
     const tel = telegraphAt(atk, s.phase, now);
-    // WBX5: the leap in the air - his legs under him, as the charge runs
-    if (A === ATTACKS.leap && now < atk.at && now >= atk.at - LEAP_AIR_MS) return { act: 'run', anims: MOVE_ANIMS, frame: Math.floor(((now - atk.at + LEAP_AIR_MS) / 1000) * RUN_ANIM_SPEED), loop: true, atk: A.key, t: tel?.t ?? 1 };
+    // WBX5: the leap in the air - his legs under him, as the charge runs; WB9b: and the bound's long flight
+    const air = airOf(A);
+    if ((A === ATTACKS.leap || A === ATTACKS.cross) && now < atk.at && now >= atk.at - air) return { act: 'run', anims: MOVE_ANIMS, frame: Math.floor(((now - atk.at + air) / 1000) * RUN_ANIM_SPEED), loop: true, atk: A.key, t: tel?.t ?? 1 };
     if (tel && now < atk.at) return { act: 'windup', anims: PRIMARY_ATTACK_ANIMS, frame: tel.t < 0.5 ? 0 : 1, loop: false, atk: A.key, t: tel.t };
     if (A === ATTACKS.charge && now < atk.at + A.active) {
       return { act: 'run', anims: MOVE_ANIMS, frame: Math.floor(((now - atk.at) / 1000) * RUN_ANIM_SPEED), loop: true, atk: A.key, t: 1 };
@@ -227,6 +263,7 @@ export function bossGlow(s, now) {
     if (tel && tel.since < Math.max(A.active, 1) + 350) return lit(color, 2.4 * (1 - (tel.since - Math.max(A.active, 1)) / 350), GLOW_RANGE.landing);
   }
   if (now < s.shieldUntil) return lit(WARD_COLOR, 0.9 + 0.3 * Math.sin(now / 90), GLOW_RANGE.windup);
+  if (now < (s.stunUntil ?? 0)) return lit(STUN_COLOR, 0.55 + 0.25 * Math.sin(now / 160), GLOW_RANGE.windup);   // WB9c: dazed
   return lit(ember, 0.45, GLOW_RANGE.ember);
 }
 
@@ -238,6 +275,10 @@ const B = ENEMY_BASICS[31];
 const voice = (clip, pitch, volume = 1.3) => Object.freeze({ clip, pitch, volume, reach: 60, at: 'him' });
 export const BURNING = 420;   // systems/soundClips.js SOUND.Burning
 export const BODY_FALL = 15;   // systems/soundClips.js SOUND.BodyFall - a body meeting the floor (WB7)
+/** WB9c: the crystals' sounds - DAGGER.SND's own (SoundClips indices, verbatim): the dungeon's grind (AmbientGrind, 68) as
+ *  one rises out of the stone, the parry's ring (Parry6, 433) pitched up into glass as it is struck, and the large
+ *  splash (SplashLarge, 342) pitched high into a crash of shards as it breaks, with the parry's ring deep under it. */
+export const CRYSTAL_CLIPS = Object.freeze({ rise: 68, hit: 433, shatter: 342 });
 export const THUNDER_ROLL = 350;   // systems/ambientEffects.js AMBIENT_SOUNDS.storm's ThunderRoll (WB7)
 export const FIRE_CAST_ID = 352;   // systems/enemySpells.js SPELL_CAST_SOUND[0], the fire's
 export const BOSS_CUES = Object.freeze({
@@ -253,6 +294,10 @@ export const BOSS_CUES = Object.freeze({
     leap: voice(B.barkSound, 0.6, 1.5),
     meteor: Object.freeze({ id: FIRE_CAST_ID, pitch: 0.5, volume: 1.5, reach: 70, at: 'him' }),
     spokes: voice(B.barkSound, 0.52, 1.6),
+    // WB9b: the bound - his roar as he gathers himself, heard across every court; WB9c: the Reckoning - Dagon called,
+    // the deepest roar and the fire's cast under it, heard from anywhere in the arena
+    cross: Object.freeze({ clip: B.barkSound, pitch: 0.46, volume: 1.9, reach: 160, at: 'him' }),
+    reckon: Object.freeze({ clip: B.barkSound, pitch: 0.38, volume: 2.1, reach: 160, at: 'him' }),
   }),
   land: Object.freeze({
     cleave: voice(B.attackSound, 0.8),
@@ -264,6 +309,8 @@ export const BOSS_CUES = Object.freeze({
     leap: voice(B.attackSound, 0.55, 1.7),
     meteor: Object.freeze({ clip: BURNING, pitch: 0.55, volume: 2, reach: 80, at: 'targets' }),
     spokes: Object.freeze({ clip: BURNING, pitch: 0.65, volume: 1.8, reach: 60, at: 'him' }),
+    cross: Object.freeze({ clip: BODY_FALL, pitch: 0.24, volume: 2.2, reach: 160, at: 'him' }),
+    reckon: Object.freeze({ clip: BURNING, pitch: 0.42, volume: 2.2, reach: 200, at: 'him' }),
   }),
   roar: voice(B.barkSound, 0.5, 1.8),
   fall: voice(B.barkSound, 0.4, 1.8),
@@ -277,6 +324,15 @@ export const BOSS_CUES = Object.freeze({
   quake: Object.freeze({ clip: BODY_FALL, pitch: 0.3, volume: 1.8, reach: 70, at: 'him' }),
   thunder: Object.freeze({ clip: THUNDER_ROLL, pitch: 0.62, volume: 1.4, reach: 140, at: 'him' }),
   thud: Object.freeze({ clip: BODY_FALL, pitch: 0.26, volume: 2.0, reach: 90, at: 'him' }),
+  // WB9c: THE CRYSTALS, heard - each one's rising (glass grinding up out of the stone), each blow on one, each one's
+  // shattering, and the Reckoning broken (his roar cut short, the ward's ring as he falls to his knees)
+  crystalRise: Object.freeze({ clip: CRYSTAL_CLIPS.rise, pitch: 0.7, volume: 1.3, reach: 60, at: 'point' }),
+  crystalHit: Object.freeze({ clip: CRYSTAL_CLIPS.hit, pitch: 1.55, volume: 0.9, reach: 30, at: 'point' }),
+  crystalBreak: Object.freeze({ clip: CRYSTAL_CLIPS.shatter, pitch: 1.9, volume: 1.7, reach: 80, at: 'point' }),
+  crystalRing: Object.freeze({ clip: CRYSTAL_CLIPS.hit, pitch: 0.55, volume: 1.4, reach: 80, at: 'point' }),
+  stunned: Object.freeze({ clip: B.barkSound, pitch: 0.7, volume: 1.8, reach: 120, at: 'him' }),
+  // WB9d: a step into his burning ground - the fire's hiss under my own feet, at once (the bite is a tick off)
+  groundStep: Object.freeze({ clip: BURNING, pitch: 1.35, volume: 0.9, reach: 14, at: 'point' }),
 });
 /**
  * WB8b: HIS ASPECT, HEARD - his elemental blows' wind-ups and landings under each aspect but his burning one: the
@@ -294,10 +350,16 @@ export const ASPECT_LAND = Object.freeze({
 export function bossCue(kind, A, P) {
   const cue = BOSS_CUES[kind]?.[A.key] ?? null;
   const aspect = P?.aspect?.id;
-  if (!cue || A === ATTACKS.wrath || !P?.atk?.[A.key]?.el || !(aspect in ASPECT_CUE_IDS)) return cue;   // Dagon's Wrath is Dagon's
+  if (!cue || isDagons(A) || !P?.atk?.[A.key]?.el || !(aspect in ASPECT_CUE_IDS)) return cue;   // Dagon's Wrath is Dagon's - WB9c: and his Reckoning
   if (kind === 'windup') return { id: ASPECT_CUE_IDS[aspect], pitch: cue.pitch, volume: cue.volume, reach: cue.reach, at: cue.at };
   const land = ASPECT_LAND[aspect];
   return { ...(land.clip != null ? { clip: land.clip } : { id: land.id }), pitch: land.pitch * (cue.pitch / 0.7), volume: cue.volume, reach: cue.reach, at: cue.at };
+}
+/** WB9d: the hiss of a step into his ground under a profile - the burning ground's own, or his aspect's element's cast
+ *  (the rime's cold, the storm's shock, the venom's poison), high and short, at my feet. */
+export function groundStepCue(P) {
+  const id = ASPECT_CUE_IDS[P?.aspect?.id];
+  return id != null ? { id, pitch: 1.3, volume: BOSS_CUES.groundStep.volume, reach: BOSS_CUES.groundStep.reach, at: 'point' } : BOSS_CUES.groundStep;
 }
 /** WB7: his stride (metres of his walk or his charge between two steps), how often he growls between his attacks
  *  (ms, the next drawn in this span), the least time between two grunts, the least share of his health a grunt
@@ -306,5 +368,5 @@ export const BOSS_STRIDE_M = 2.8;
 export const GROWL_EVERY_MS = Object.freeze([7000, 13000]);
 export const HURT_GAP_MS = 1400;
 export const HURT_SHARE = 0.004;
-export const QUAKE_ON = Object.freeze(['slam', 'charge', 'nova', 'wrath', 'leap', 'meteor']);   // WBX5: his leap's landing and a meteor's fall shake it too
+export const QUAKE_ON = Object.freeze(['slam', 'charge', 'nova', 'wrath', 'leap', 'meteor', 'cross', 'reckon']);   // WBX5: his leap's landing and a meteor's fall shake it too; WB9: the bound's and the Reckoning's
 export const THUD_AT_MS = 1500;

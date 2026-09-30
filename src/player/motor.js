@@ -806,10 +806,20 @@ export class PlayerMotor {
     const a = this.arena;
     const c = a?.centre;
     if (!c || !(a.radius > 0)) return;
+    // WB9b: an arena with a clamp of its own - the gate's three courts and the walkways laid between them
+    // (world/gateArena.js courtArena, net/gateBrain.js clampToFloor - the relay's law of the floor)
+    if (typeof a.clamp === 'function') { this._putBack(a.clamp(this.pos, CAPSULE_RADIUS)); return; }
     // AUDIT DUEL1 D4: THE ONE CLAMP (net/duelSession.js clampToRing), the geometry the duel's own pins drive
     const to = clampToRing(this.pos, c, a.radius, CAPSULE_RADIUS);
+    this._putBack(to);
+  }
+
+  /** The body put back at `to` ([x, z] - or null, where it already stands), and whatever of its airborne momentum points
+   *  out of the floor taken away - outward from where it is put back to where it had got to (a ring's radius, a
+   *  walkway's side). */
+  _putBack(to) {
     if (!to) return;
-    const dx = this.pos[0] - c[0], dz = this.pos[2] - c[2];
+    const dx = this.pos[0] - to[0], dz = this.pos[2] - to[1];
     const d = Math.hypot(dx, dz);
     const nx = d > 1e-9 ? dx / d : 1, nz = d > 1e-9 ? dz / d : 0;
     this.pos[0] = to[0];

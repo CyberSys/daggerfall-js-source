@@ -241,15 +241,17 @@ test('WB4 the shader\'s text says what the reading says: each shape\'s inside, t
   for (const re of [
     /inside = d <= uR && \(d <= uBody \|\| ang <= uHalfArc\);/,
     /float ang = abs\(wrapAngle\(atan\(rel\.x, rel\.y\) - uYaw\)\);/,
-    /for \(int i = 0; i < 10; i\+\+\) \{ if \(i >= uCount\) break; m = min\(m, length\(vCourt - uPts\[i\]\)\); \}\n\s*inside = m <= uR;/,
+    /for \(int i = 0; i < 10; i\+\+\) \{ if \(i >= uCount\) break; m = min\(m, length\(vCourt - uPts\[i\]\)\);[^\n]*\}\n\s*inside = m <= uR;/,   // WB9e: and the nearest's own centre, for the fuse's course
     /float ld = length\(vCourt - \(uOrigin \+ v \* h\)\);\n\s*inside = ld <= uHalfW;/,
     /inside = d >= uR0 && d <= uR1;/,
     /if \(c > uFloorR\) discard;/,
     /float filled = fin \* step\(s, uT\);/,
     /light = mix\(light, 1\.1 \* fin \+ 0\.6 \* rim, uFlash\);/,
-    /o = vec4\(uColor \* light \* uAlpha \* fogFactorAt\(vWorld\), 1\.0\);/,
+    /vec3 col = uColor;/,
+    /o = vec4\(col \* light \* uAlpha \* fogFactorAt\(vWorld\), 1\.0\);/,
   ]) assert.match(TELEGRAPH_FS, re);
-  assert.match(TELEGRAPH_VS, /vWorld = uCentre \+ vec3\(aCourt\.x, uLift, aCourt\.y\);/);
+  // WB9b: over the court it lies over - the quad's corner about that court's own centre
+  assert.match(TELEGRAPH_VS, /vCourt = uCourt \+ aCourt;\n\s*vWorld = uCentre \+ vec3\(vCourt\.x, uLift, vCourt\.y\);/);
   assert.match(TELEGRAPH_FS, /uniform vec2 uPts\[10\];/);
 });
 
@@ -352,7 +354,7 @@ test('WB4 the court\'s driver, the strikes: each attack judged once against my f
   await tick(h, 9000, state({ atk: slam }));
   assert.equal(h.struck.length, 0, 'nothing before the landing');
   await tick(h, 10005);
-  assert.deepEqual(h.struck, [[90, { fire: false, el: null, name: 'Ground Slam' }]], 'WBX4: 40% of my 200, and its 10');
+  assert.deepEqual(h.struck, [[118, { fire: false, el: null, name: 'Ground Slam' }]], 'WB9e: 52% of my 200, and its 14');
   await tick(h, 10050); await tick(h, 10100);
   assert.equal(h.struck.length, 1, 'judged once');
   const nova = W('nova', { i: 6, at: 12001 });
@@ -362,7 +364,7 @@ test('WB4 the court\'s driver, the strikes: each attack judged once against my f
   const hf = W('hellfire', { i: 7, at: 13001, tg: [[1, 1]] });
   await tick(h, 13000, state({ atk: hf, phase: 2 }));
   await tick(h, 13001);
-  assert.deepEqual(h.struck[1], [33, { fire: true, el: 'fire', name: 'Hellfire' }], 'WBX4: 30% of 200 and its 6, halved by my throw');
+  assert.deepEqual(h.struck[1], [44, { fire: true, el: 'fire', name: 'Hellfire' }], 'WB9e: 40% of 200 and its 9, halved by my throw');
   const r = court({ feet: [1, 0, 1], save: 0 });
   await tick(r, 13000, state({ atk: hf, phase: 2 })); await tick(r, 13001);
   assert.deepEqual(r.struck, []); assert.deepEqual(r.said, [COURT_STRIKE_TEXT.resisted('Hellfire')]);
@@ -457,7 +459,7 @@ test('WB4 the seams, by source: the world host makes the court on the link, fram
   // WB6b: the telegraph's pass and the air's life share the hook - either drawn marks the seam, once
   assert.match(w, /const told = gateCourt\?\.drawPass\(proj, view, eye, [^\n]*\);\n[^\n]*\n[^\n]*\n\s+if \(told \|\| lived\) renderer\.markForeignPass\(\);/);
   const wm = read('src/scenes/worldModes.js');
-  assert.match(wm, /withCourtLights\(_dgLit, \[\.\.\.courtLights\(\), \.\.\.\(host\.gateCourtLights\?\.\(\) \?\? \[\]\)\]\)/);
+  assert.match(wm, /withCourtLights\(_dgLit, \[\.\.\.\(host\.gateCourtLights\?\.\(\) \?\? \[\]\), \.\.\.courtLightsNear\(cam\.pos\)\]\)/);   // WB9b: the fight's lights first - the renderer's cap drops a far brazier, never him
   const bb = wm.indexOf('renderer.drawBillboards([...dungeonCtx.billboardBatches'), tg = wm.indexOf('if (isGateArena(dungeonLoc)) host.drawGateCourt?.({ proj, view, eye: mwv.eye });'), foes = wm.indexOf('dungeonCtx.drawFoes(dt, canvas');
   assert.ok(bb > 0 && tg > bb && tg < foes, 'the telegraph after the court and its billboards, before drawFoes\' screen quads end the world pass');
   const dc = read('src/scenes/dungeonContext.js');

@@ -871,6 +871,125 @@ Pinned: `test/audit0929_gate.test.js` (3), and in `test/wb8b_gate_marks.test.js`
 one word a beat, the cone for all 112 sets) and `test/wb8c_gate_detail.test.js` (the court's words); mutants
 `tools/mutants/audit0929_gate.json` (11, all dead).
 
+## 14. Three courts, the Reckoning and the fall seen (WB9, 2026-09-30)
+
+Mac: "Can we add the modifers below his health bar? Allow people to see the modifers/trial as a popup before it
+starts. I want to further improve the boss also, wanna go more in depth. 1. I want to add 2 more arena's of the same
+size that the boss leaps to between each phase. A walkway should form to allow players to traverse through each arena.
+2. The boss should have a detailed wipe mechanic on the final phase that should require players to destroy oblivion
+crystaline formations that grow anywhere within the final phase arena, which then stuns his wipe mechanic. 3. Further
+improve his effects, ensure his ground affects actually cause damage and the player recieves proper feedback. 4.
+Increase boss damage, further improve his telegraphs 5. Improve the loot drops that emit on his death and have them
+spread out more. The player should be able to inspect and pick up the ground item, not just walk over it. 6. Add a
+brand new title to the broker and a new addition (the aura), an animated burning ground aura that circles the ground
+where your character stands. These items should be expensive and sought after. 7. Further improve the morrowind model
+performance as it's unplayable with so many players around."
+
+### The marks seen (WB9a)
+
+Under his health, a row of three chips - his aspect's sign, name and element in its colour, then each trial's sign,
+name and one line (`ui/gateMarksView.js marksViewOf`, made once a marks array; `ui/gateBossBar.js` writes a chip only
+when the night's marks change). Before the fight, a card: beside the gate's countdown in the street while it stands
+(`scenes/gatePool.js`, "Tonight's marks"), and over the court as a fighter steps in (`scenes/gateCourt.js`,
+MARKS_CARD_ARRIVE_MS, 9 s, fading over MARKS_CARD_FADE_MS) - each mark's sign, name, line and how to meet it
+(MARK_TIPS) - never over the step's fire (`ui/gateVeil.js`), never for a Warden already fallen.
+
+### Three courts and the walkways (WB9b)
+
+The court is three: the first where the players arrive, the second west of it, the third north of that (`net/gateBrain.js
+COURTS` - [0, 0], [-68, -22], [-74, -94] in the court frame; clear of the great tower's window). Each is the first's
+size (COURT_R 24), its own rune ring, spires and five braziers, each rim some 20 m of fire from the next. Each phase is
+fought in its own: at a phase's turn (PHASE_TURN) he **bounds across the fire** (`cross`: a 2.4 s wind-up, 2 s in the
+air, CROSS_HEIGHT 22 m at the top of the arc, a 7 m disc where he lands - the leap's weight - heard across all three
+courts) to the next court's heart, under a ward that holds through the bound (CROSS_WARD_MAX_MS). The bound's word lays
+a **walkway**: 25 slabs of the court's own flagstones and basalt rising stone by stone out of the sea of fire from the
+court he left (`world/gateArena.js walkSlabs`, `slabRise`, `slabMatrix`), each whole before the laid floor reaches it
+(WALK_LEAD_MS 1 s, then WALK_FORM_MS 4 s end to end; WALK_HALF_W 3.2 m either side). There he **waits** under his ward
+for a living challenger to cross into his court (at most CROSS_WAIT_MAX_MS, 30 s), then holds his own ward more
+(SHIELD_MS - Unyielding's 6 s) while the phase's signature is cast from its heart. He chooses, aims at and waits for
+the fighters standing in his court alone; a fighter left behind is not before him.
+
+ONE LAW OF THE FLOOR, BOTH ENDS (`onFloor`, `clampToFloor`): the first court always; a walkway as far as it is laid; a
+court past a walkway laid whole. The relay refuses a blow from off it (a pose's slack beyond), and the motor keeps a
+player on it (`world/gateArena.js courtArena` - one arena a frame, its crossings and the relay's clock refilled;
+`player/motor.js _putBack` takes the airborne momentum off the floor away, off a walkway's side as off a rim). The
+collider carries every disc and every deck; the motor is what says how much is laid.
+
+On the wire (relay world133, the brain's law 4): the state says his court (`ct`) and the crossings (`xa`, the relay
+moments of the bound's words), and a bound's own word lays its walkway on every screen at once (`net/gateLink.js
+crossLaid`). GATE_COURT_BOUND is the three courts' (160 m). A fight checkpointed before WB9 crosses from the first court
+over every walkway up to the court it bounds to. The telegraph is drawn over the court it lands in (the Wrath's and the
+Reckoning's over all three - `render/gateTelegraph.js`, one quad per court); his mark over the court he stands in; the
+burning ground on each court's own quad. The braziers are lit nearest the camera first, after the fight's own lights
+(`courtLightsNear` - the classic renderer's sixteen slots drop a far court's fire, never him). The Deadlands' islands
+and hanging shards keep clear of every floor and walkway (`world/deadlandsLand.js floorGap`, LAND_CLEAR_M 12, and of the
+spires - `courtSpireAxes`, one law for the model and the land), and four more shards hang round each new court.
+
+### Dagon's Reckoning (WB9c)
+
+In the last court, once Dagon's Champion's turn is done, his Reckonings are armed: the first RECKON_FIRST_MS (18 s)
+later, each RECKON_EVERY_MS (60 s) after the last one ended. He leaps to the court's heart and calls **Dagon's
+Reckoning** - a 22 s wind-up no phase shortens - and **crystals of Oblivion** grow out of the floor anywhere on it
+(`growCrystals`: two and one for every two living challengers in his court, 3 to 8; RECKON_RING, 6 m clear of him to
+3 m short of the rim; CRYSTAL_GAP_M 7 apart; the relay's CSPRNG). Each has a health sized to the court: RECKON_TEAM_S (8)
+seconds of the living challengers' reference damage shared across the crystals (at least RECKON_CRYSTAL_MIN) - a court
+that splits up breaks them in well under half the wind-up, one that stands together round one does not.
+
+A blow on a crystal (`xhit`: which crystal, the blow's own sequence, its number, its kind) is judged by the same hand
+and purse as a blow on him (`applyCrystalHit`: his blow rate, the damage bucket, a swing within MELEE_REACH of its body
+- CRYSTAL_R 1.3 - a pose on the floor) and counts as dealt. Each broken is said at once (`cxb`, by the breaker's name);
+the last BREAKS THE RECKONING: it is called off and he is **stunned** STUN_MS (8 s) - on his knees, reeling on his hurt
+frames in a pale ember, no step and no blow, and every blow on him lands STUN_HIT_X (1.5) heavier, before the caps
+(`stun`). Leave one standing and it lands on the whole arena, every court, answered by nothing (`isDagons`: no saving
+throw, no aspect's element, no phase's cut - Dagon's, as the Wrath is); the crystals are spent in it. The Wrath at the
+gate's midnight overtakes a Reckoning and a stun alike.
+
+On every screen (`scenes/gateCourt.js`): the call said as they rise ("Dagon's Reckoning! Shatter all 5 crystals of
+Oblivion before it lands!" - to a fighter come in late through the wind-up too, with what is left), each one heard
+grinding up out of the stone; each a body the swing, the shaft and the spell meet by its surface as they meet him
+(`scenes/dungeonContext.js gateCrystalBodies` - never in `foes`; its stand-in `world/gateBoss.js crystalStandIn`,
+unarmoured and dodging nothing) once grown half out of the stone; a blow flashes it and rings the glass at once, its
+number out; each broken said by name ("Ann shatters a crystal - 2 remain.") with its crash; the stun said and heard
+("The Reckoning breaks! Valkynaz Ruhn is stunned - strike now!"); an unbroken Reckoning bursts every crystal still
+standing as it lands. The bar says what is left and how long ("Dagon's Reckoning - 2 of 5 crystals - 13s", in the
+crystals' colour), the stun its seconds, and the foot the next Reckoning's coming. Drawn by `render/courtCrystals.js`:
+one faceted cluster (a great prism and five lesser, each its own piece), growing out of the floor, glowing from a
+white-hot heart in his aspect's colour (Oblivion's crimson under the Burning), cracking as its health goes, flashing
+white when struck, flying apart into tumbling shards when it breaks; under each a pool of its light, and from each one
+standing a beam into his chest while the Reckoning winds up; a light over each standing crystal.
+
+### His ground felt (WB9d)
+
+Every pool bites half again what it did (POOLS: Hellfire's 8% and 3 a second, a meteor's 10% and 4; Scarring's scars
+alike). The law of the bite is WBX5's (a tick after the step in - a step through is free, standing is not); what moved
+is that it SAYS itself (`ui/gateGroundView.js`): the screen's rim glows in the ground's colour while I stand in it
+(breathing), flares at each bite, and his elemental blows flare it in their own colour as they land on me; the ground's
+name and "step out!" stand under the crosshair while I am in it; and the step in hisses at my feet at once
+(`world/gateBoss.js groundStepCue` - the burning ground's hiss, or his aspect's element's cast). DFU's red flash stays a
+blow's alone (spell damage never flashed - `ui/damageFlash.js`). The pools seethe in his ground's own grain.
+
+### His blows heavier, read and seen (WB9e)
+
+Every share and base about a third over WBX4's (the Cleave 45% and 12, the Slam 52% and 14, the Charge 40% and 12,
+Hellfire 40% and 9, the Nova 58% and 14, the Leap 45% and 12, the Meteor 64% and 16, the Spokes 52% and 14): two heavy
+landings end anyone who has not healed between them; no wind-up moved. The telegraph (`render/gateTelegraph.js`): an
+edge at least two pixels wide however far off (`fwidth`), a soft halo outside it; a FUSE burning down its rim as the
+wind-up runs, a spark where it burns; the fill throbbing faster as the landing nears (1.5 to 6.5 beats a second) and
+burning at a landing's brightness through the last TELEGRAPH_NOW_MS; the grain of what lands running through it (his
+weight's cracks, fire's flicker, frost's facets, the storm's crackle, venom's bubbles, Dagon's vortex); and a shockwave
+thrown out past its edge as it lands. The landing itself (`render/gateFx.js`): sparks out of the stone where it lands -
+grit for his weight, flame and his aspect's colours for his element, the heavy ones throwing more, further - and the
+meteor seen falling out of the Deadlands' sky onto its mark through the last METEOR_FALL_MS of its wind-up, its trail
+behind it.
+
+Pinned: `test/wb9a_gate_marks_seen.test.js` (7), `test/wb9b_gate_courts.test.js` (12), `test/wb9c_gate_reckoning.test.js`
+(16), `test/wb9d_gate_ground.test.js` (5), `test/wb9e_gate_blows.test.js` (6); mutants `tools/mutants/wb9b.json` (19, all
+dead), `tools/mutants/wb9c.json` (31: 30 dead, the dead counted at the crystals' growth equivalent as recorded - the court's
+living are filtered once), `tools/mutants/wb9d.json` (9, all dead), `tools/mutants/wb9e.json` (9, all dead). The older
+suites re-aimed where WB9 moved their law: the phase's turn (WB3, WBX5, WB8b - the bound and the wait for the leap), the
+court's geometry (WB3b, WB6b - three courts, the braziers and shards clear of the walkways), the damage numbers (WB4,
+WB8c), the telegraph's text (WB4), the motor's clamp (AUDIT DUEL1), the relay's version pins (world133).
+
 ## Shipped
 
 **WB1 (2026-09-25) - the omen.** `net/gateLaw.js` (the schedule, the room's key and window, the rolls, the boss table,

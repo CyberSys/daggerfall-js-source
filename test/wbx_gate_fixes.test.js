@@ -28,7 +28,7 @@ import { EYE_HEIGHT } from '../src/player/motor.js';
 import { identity } from '../src/world/mat4.js';
 import { buildDeadlandsLand, buildShardModel } from '../src/world/deadlandsLand.js';
 import {
-  ATTACKS, ATTACK_BY_ID, POOLS, POOL_TICK_MS, PHASE_NAMES, PHASE_TURN, BOSS_R, COURT_R, BOSS_REACH_R, COURT_CENTRE, newFight, joinFight, stepBrain,
+  ATTACKS, ATTACK_BY_ID, POOLS, POOL_TICK_MS, PHASE_NAMES, PHASE_TURN, COURTS, BOSS_R, COURT_R, BOSS_REACH_R, COURT_CENTRE, newFight, joinFight, stepBrain,
   windupOf, wrapYaw, PHASE_AT,
 } from '../src/net/gateBrain.js';
 import { inAttack, spokeLanes, landingPools, poolUnder, strikeDamage, blowOf, strikeVerdict } from '../src/net/gateStrike.js';
@@ -386,26 +386,28 @@ test('WBX5 the burning ground: Hellfire leaves a pool under each mark, the Meteo
 
 test('WBX5 the phases: named, and each turn a sequence - the leap into the court\'s heart, then the Flame Nova (the Burning Court) or the spokes and the four between them (Dagon\'s Champion); the new attacks their phase\'s own; no attack faster than before (Mac: "I dont think making mechanics faster is the play") (mutants: the nova at the roar; the spokes in phase two)', () => {
   assert.deepEqual(PHASE_NAMES, ['The Warden', 'The Burning Court', "Dagon's Champion"]);
-  assert.deepEqual(PHASE_TURN[2].map((e) => e.a), ['leap', 'nova']);
-  assert.deepEqual(PHASE_TURN[3].map((e) => e.a), ['leap', 'spokes', 'spokes']);
-  assert.ok(PHASE_TURN[2][0].centre && PHASE_TURN[3][0].centre, 'each opens at the heart');
-  assert.ok(Math.abs(PHASE_TURN[3][2].turn - Math.PI / 4) < 1e-12, 'the four between them');
+  // WB9b: each turn opens with the bound to the next court's heart and a wait there for a challenger to cross
+  assert.deepEqual(PHASE_TURN[2].map((e) => e.a ?? e.wait), ['cross', 'arrive', 'nova']);
+  assert.deepEqual(PHASE_TURN[3].map((e) => e.a ?? e.wait), ['cross', 'arrive', 'spokes', 'spokes']);
+  assert.ok(PHASE_TURN[2][0].court === 1 && PHASE_TURN[3][0].court === 2, 'each bounds to the next court\'s heart');
+  assert.ok(Math.abs(PHASE_TURN[3][3].turn - Math.PI / 4) < 1e-12, 'the four between them');
   assert.equal(ATTACKS.leap.phase, 2); assert.equal(ATTACKS.meteor.phase, 2); assert.equal(ATTACKS.spokes.phase, 3);
   for (const k of ['cleave', 'slam', 'charge', 'hellfire', 'nova']) assert.equal(windupOf(ATTACKS[k], 1), { cleave: 1400, slam: 1600, charge: 1200, hellfire: 2000, nova: 2200 }[k], `${k}: its wind-up as it was`);
   // the brain, whole: a fight crossing both lines walks the sequences
   const f = newFight(8, 0, 10_000_000, 'ruhn');
   assert.ok(joinFight(f, 'a', 'A', 20, 0, true));
-  const bodies = [{ sub: 'a', x: 0, z: 6, dead: false }];
+  // the fighter follows him over each walkway as it is laid (WB9b - the brain waits for one in his new court)
+  const bodies = () => [{ sub: 'a', x: COURTS[f.court][0], z: COURTS[f.court][1] + 6, dead: false }];
   f.nextAt = 0; f.pos = [5, 5];
   f.hp = f.max * PHASE_AT[0];
   const seen = [];
   const rng = seeded(11);
-  for (let t = 100; t < 30000; t += 50) for (const o of stepBrain(f, t, bodies, rng)) if (o.k === 'atk' || o.k === 'ph') seen.push(o.k === 'ph' ? `ph${o.n}` : ATTACK_BY_ID[o.a].key);
-  assert.deepEqual(seen.slice(0, 3), ['ph2', 'leap', 'nova'], 'the ward breaks: the leap, then the nova');
+  for (let t = 100; t < 30000; t += 50) for (const o of stepBrain(f, t, bodies(), rng)) if (o.k === 'atk' || o.k === 'ph') seen.push(o.k === 'ph' ? `ph${o.n}` : ATTACK_BY_ID[o.a].key);
+  assert.deepEqual(seen.slice(0, 4), ['ph2', 'cross', 'ph2', 'nova'], 'the ward breaks: the bound, a challenger crosses after him, then the nova');
   f.hp = f.max * PHASE_AT[1];
   const seen3 = [];
-  for (let t = 30000; t < 60000; t += 50) for (const o of stepBrain(f, t, bodies, rng)) if (o.k === 'atk' || o.k === 'ph') seen3.push(o.k === 'ph' ? `ph${o.n}` : ATTACK_BY_ID[o.a].key);
-  assert.ok(seen3.join(',').includes('ph3,leap,spokes,spokes'), `Dagon's Champion: ${seen3.slice(0, 6).join(',')}`);
+  for (let t = 30000; t < 60000; t += 50) for (const o of stepBrain(f, t, bodies(), rng)) if (o.k === 'atk' || o.k === 'ph') seen3.push(o.k === 'ph' ? `ph${o.n}` : ATTACK_BY_ID[o.a].key);
+  assert.ok(seen3.join(',').includes('ph3,cross,ph3,spokes,spokes'), `Dagon's Champion: ${seen3.slice(0, 6).join(',')}`);
   assert.ok(Math.abs(wrapYaw(3 * Math.PI)) <= Math.PI + 1e-9 && Math.abs(wrapYaw(7.5)) <= Math.PI + 1e-9, 'a turned facing stays one the wire admits');
 });
 

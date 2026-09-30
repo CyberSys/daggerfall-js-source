@@ -43,6 +43,98 @@ export const BOSS_REACH_R = 16;
 /** How fast he walks, metres a second (a player runs 7.6 - motor.js - so a runner can always get clear). */
 export const BOSS_SPEED = 3.2;
 
+// ── WB9b: THE THREE COURTS ──────────────────────────────────────────────
+/**
+ * WB9b (2026-09-30, Mac: "I want to add 2 more arena's of the same size that the boss leaps to between each phase. A
+ * walkway should form to allow players to traverse through each arena"): THE COURTS - three floors of one size over the
+ * one sea of fire, fought in turn: the Warden in the first (where the players arrive - this frame's origin), the Burning
+ * Court in the second, Dagon's Champion in the third. West, then north: clear of the great tower's window
+ * (render/deadlands.js SIGIL_TOWER, a little east of north), so the arrival's sightline to it stays as WB6a left it.
+ * Each rim is some 24 m from the next - a walkway's length.
+ */
+export const COURTS = Object.freeze([Object.freeze([0, 0]), Object.freeze([-68, -22]), Object.freeze([-74, -94])]);
+/** The court a phase is fought in (its index in COURTS). */
+export const courtOfPhase = (phase) => Math.max(0, Math.min(COURTS.length - 1, (phase | 0) - 1));
+/** The court nearest a point - where a body standing there is (the courts' discs never meet). */
+export function nearestCourt(x, z) {
+  let best = 0, bd = Infinity;
+  COURTS.forEach((c, k) => { const d = Math.hypot(x - c[0], z - c[1]); if (d < bd) { bd = d; best = k; } });
+  return best;
+}
+/** Is (x, z) within `pad` of court `k`'s floor? */
+export const inCourt = (x, z, k, pad = 0) => !!COURTS[k] && Math.hypot(x - COURTS[k][0], z - COURTS[k][1]) <= COURT_R + pad;
+/**
+ * WB9b: THE WALKWAYS - a lane from one court to the next, WALK_HALF_W either side of the line between their centres,
+ * reaching WALK_SINK_M into each floor it joins (no seam at either rim). LAID, not standing: from the word of the leap
+ * that crosses it (the fight's `xa[k]`) its stones rise out of the fire from the court he leaves toward the one he leaps
+ * to - the first WALK_LEAD_MS after the word, then on over WALK_FORM_MS - and it is floor as far as it has risen
+ * (walkFormed; world/gateArena.js slabRise raises each stone whole before the floor reaches it). Walkway k joins court k
+ * to court k+1.
+ */
+export const WALK_HALF_W = 3.2;
+export const WALK_LEAD_MS = 1000;
+export const WALK_FORM_MS = 4000;
+export const WALK_SINK_M = 2;
+/** Walkway k's line: from `a` (in court k) to `b` (in court k+1), its direction and its length. */
+export function walkwayOf(k) {
+  const A = COURTS[k], B = COURTS[k + 1];
+  if (!A || !B) return null;
+  const dx = B[0] - A[0], dz = B[1] - A[1], d = Math.hypot(dx, dz), ux = dx / d, uz = dz / d, r = COURT_R - WALK_SINK_M;
+  const ax = A[0] + ux * r, az = A[1] + uz * r, bx = B[0] - ux * r, bz = B[1] - uz * r;
+  return Object.freeze({ k, ax, az, bx, bz, ux, uz, len: Math.hypot(bx - ax, bz - az) });
+}
+export const WALKS = Object.freeze(COURTS.slice(1).map((_, k) => walkwayOf(k)));
+/** How much of walkway k is laid at `now` (0..1) - from WALK_LEAD_MS after its crossing's word (`xa[k]`) over
+ *  WALK_FORM_MS; none before. */
+export function walkFormed(xa, k, now) {
+  const at = Array.isArray(xa) ? xa[k] : null;
+  return Number.isFinite(at) ? Math.max(0, Math.min(1, (now - at - WALK_LEAD_MS) / WALK_FORM_MS)) : 0;
+}
+/**
+ * WB9b: THE FLOOR A BODY MAY STAND ON at `now` (the fight's crossings `xa`): the first court; each walkway as far as it
+ * is laid; each court past a walkway laid whole. `pad` widens every part (a pose's slack). The relay's bound on where a
+ * blow may come from, and (clampToFloor) the motor's on where a player may walk - one law, both ends. Pure.
+ */
+export function onFloor(x, z, xa, now, pad = 0) {
+  if (!Number.isFinite(x) || !Number.isFinite(z)) return false;
+  for (let k = 0; k < COURTS.length; k++) {
+    if (k > 0 && walkFormed(xa, k - 1, now) < 1) break;
+    if (inCourt(x, z, k, pad)) return true;
+  }
+  for (const w of WALKS) {
+    const f = walkFormed(xa, w.k, now);
+    if (!(f > 0)) break;
+    const t = (x - w.ax) * w.ux + (z - w.az) * w.uz, side = Math.abs((x - w.ax) * w.uz - (z - w.az) * w.ux);
+    if (t >= -pad && t <= w.len * f + pad && side <= WALK_HALF_W + pad) return true;
+  }
+  return false;
+}
+/**
+ * WB9b: THE NEAREST POINT OF THE FLOOR (onFloor's, every part drawn in by `inset` - a body's own radius) to (x, z), or
+ * null when (x, z) already stands on it: the motor's clamp in the court (world/gateArena.js courtArena), as the duel's
+ * ring clamps to its disc. Pure.
+ */
+export function clampToFloor(x, z, xa, now, inset = 0) {
+  let best = null, bd = Infinity;
+  const consider = (px, pz) => { const d = Math.hypot(px - x, pz - z); if (d < bd) { bd = d; best = [px, pz]; } };
+  for (let k = 0; k < COURTS.length; k++) {
+    if (k > 0 && walkFormed(xa, k - 1, now) < 1) break;
+    const [cx, cz] = COURTS[k], r = Math.max(0, COURT_R - inset), d = Math.hypot(x - cx, z - cz);
+    if (d <= r) return null;
+    consider(cx + ((x - cx) / d) * r, cz + ((z - cz) / d) * r);
+  }
+  for (const w of WALKS) {
+    const f = walkFormed(xa, w.k, now);
+    if (!(f > 0)) break;
+    const hw = Math.max(0, WALK_HALF_W - inset), L = w.len * f;
+    const t = (x - w.ax) * w.ux + (z - w.az) * w.uz, s2 = (x - w.ax) * w.uz - (z - w.az) * w.ux;
+    if (t >= 0 && t <= L && Math.abs(s2) <= hw) return null;
+    const tc = Math.max(0, Math.min(L, t)), sc = Math.max(-hw, Math.min(hw, s2));
+    consider(w.ax + w.ux * tc + w.uz * sc, w.az + w.uz * tc - w.ux * sc);
+  }
+  return best;
+}
+
 // ── the clock of the fight ─────────────────────────────────────────────
 /** The brain's beat, ms: the relay's alarm steps it this often while the fight lives. */
 export const BRAIN_TICK_MS = 250;
@@ -53,8 +145,9 @@ export const STATE_SEND_MS = 5000;
 export const CHECKPOINT_MS = 2000;
 /** The longest step one beat credits: a room woken after a long sleep stands nobody the time it slept. */
 export const STEP_MAX_MS = 1000;
-/** He stands this long after the first fighter enters before he moves - time to see him. */
-export const OPENING_MS = 3000;
+/** He stands this long after the first fighter enters before he moves - time to see him. WB9a: and to read his marks
+ *  (ui/gateMarksView.js - the card stands MARKS_CARD_ARRIVE_MS as a fighter steps in). */
+export const OPENING_MS = 8000;
 /** A walk is said again when its goal moves this far (metres) or this long has passed (ms). */
 export const MOVE_RESAY_M = 1.5;
 export const MOVE_RESAY_MS = 1000;
@@ -128,29 +221,45 @@ export const PHASE_NAMES = Object.freeze(['The Warden', 'The Burning Court', "Da
  *  the saving throw answers it). Resolved on the standing player's machine, as every strike is; the relay never learns
  *  of it, because every screen that saw the landing knows where it burns. */
 export const POOL_TICK_MS = 1000;
+/** WB9d (2026-09-30, Mac: "ensure his ground affects actually cause damage and the player recieves proper feedback"):
+ *  the ground bites harder - half again what WBX5 set (a second in it was 5% and 2 points, easy to stand through). */
 export const POOLS = Object.freeze({
-  hellfire: Object.freeze({ r: 3, ms: 6000, pct: 0.05, base: 2 }),
-  meteor: Object.freeze({ r: 5, ms: 9000, pct: 0.07, base: 3 }),
+  hellfire: Object.freeze({ r: 3, ms: 6000, pct: 0.08, base: 3 }),
+  meteor: Object.freeze({ r: 5, ms: 9000, pct: 0.1, base: 4 }),
 });
+//
+// WB9e (2026-09-30, Mac: "Increase boss damage, further improve his telegraphs"): EVERY SHARE AND BASE RAISED AGAIN, by
+// about a third over WBX4's - two of his heavy landings now end anyone who has not healed between them, and the Meteor
+// or the Nova alone takes most of a body. Still his words at every level; still every one escaped by moving (the pins
+// hold it under every set of marks), none of them faster.
 export const ATTACKS = Object.freeze({
-  cleave: Object.freeze({ id: 0, key: 'cleave', name: 'Cleave', windup: 1400, active: 200, recover: 900, shape: 'cone', r: 9, arc: 110, pct: 0.35, base: 8, el: null, aim: 'target', phase: 1, range: 7, w: 3, minGap: 0 }),   // AUDIT WBX R3: range 7 - a fighter at the court's edge stood 6.2 m past his body, out of the cleave's 6 and inside the charge's 8, and he struck nothing all phase
-  slam: Object.freeze({ id: 1, key: 'slam', name: 'Ground Slam', windup: 1600, active: 200, recover: 1100, shape: 'disc', r: 7, pct: 0.40, base: 10, el: null, aim: 'self', phase: 1, range: 4, w: 2, minGap: 0 }),
-  charge: Object.freeze({ id: 2, key: 'charge', name: 'Charge', windup: 1200, active: 900, recover: 1200, shape: 'lane', w: 2, width: 3.5, len: 22, pct: 0.30, base: 8, el: null, aim: 'target', phase: 1, range: 40, minGap: 8 }),
-  hellfire: Object.freeze({ id: 3, key: 'hellfire', name: 'Hellfire', windup: 2000, active: 300, recover: 900, shape: 'disc', r: 3.5, max: 5, pct: 0.30, base: 6, el: 'fire', aim: 'players', phase: 2, range: 40, w: 2, minGap: 0, pool: POOLS.hellfire }),
-  nova: Object.freeze({ id: 4, key: 'nova', name: 'Flame Nova', windup: 2200, active: 300, recover: 1300, shape: 'ring', r0: 4, r1: 30, pct: 0.45, base: 10, el: 'fire', aim: 'self', phase: 2, range: 40, w: 1, minGap: 0 }),
+  cleave: Object.freeze({ id: 0, key: 'cleave', name: 'Cleave', windup: 1400, active: 200, recover: 900, shape: 'cone', r: 9, arc: 110, pct: 0.45, base: 12, el: null, aim: 'target', phase: 1, range: 7, w: 3, minGap: 0 }),   // AUDIT WBX R3: range 7 - a fighter at the court's edge stood 6.2 m past his body, out of the cleave's 6 and inside the charge's 8, and he struck nothing all phase
+  slam: Object.freeze({ id: 1, key: 'slam', name: 'Ground Slam', windup: 1600, active: 200, recover: 1100, shape: 'disc', r: 7, pct: 0.52, base: 14, el: null, aim: 'self', phase: 1, range: 4, w: 2, minGap: 0 }),
+  charge: Object.freeze({ id: 2, key: 'charge', name: 'Charge', windup: 1200, active: 900, recover: 1200, shape: 'lane', w: 2, width: 3.5, len: 22, pct: 0.40, base: 12, el: null, aim: 'target', phase: 1, range: 40, minGap: 8 }),
+  hellfire: Object.freeze({ id: 3, key: 'hellfire', name: 'Hellfire', windup: 2000, active: 300, recover: 900, shape: 'disc', r: 3.5, max: 5, pct: 0.40, base: 9, el: 'fire', aim: 'players', phase: 2, range: 40, w: 2, minGap: 0, pool: POOLS.hellfire }),
+  nova: Object.freeze({ id: 4, key: 'nova', name: 'Flame Nova', windup: 2200, active: 300, recover: 1300, shape: 'ring', r0: 4, r1: 30, pct: 0.58, base: 14, el: 'fire', aim: 'self', phase: 2, range: 40, w: 1, minGap: 0 }),
   wrath: Object.freeze({ id: 5, key: 'wrath', name: "Dagon's Wrath", windup: 6000, active: 500, recover: 0, shape: 'all', pct: 9.99, base: 0, el: 'fire', aim: 'self', phase: 99, range: 999, w: 0, minGap: 0 }),
   // WBX5: the Burning Court's reach - he leaps at whoever stands far off, and lands on them (and at every phase's turn,
   // into the court's heart); and a meteor falls where a fighter stands and leaves the ground burning
-  leap: Object.freeze({ id: 6, key: 'leap', name: 'Crushing Leap', windup: 1500, active: 300, recover: 900, shape: 'disc', r: 6, pct: 0.35, base: 8, el: null, aim: 'point', phase: 2, range: 40, w: 2, minGap: 10 }),
-  meteor: Object.freeze({ id: 7, key: 'meteor', name: 'Meteor of Oblivion', windup: 2800, active: 300, recover: 700, shape: 'disc', r: 6.5, pct: 0.50, base: 12, el: 'fire', aim: 'point', phase: 2, range: 40, w: 1, minGap: 0, pool: POOLS.meteor }),
+  leap: Object.freeze({ id: 6, key: 'leap', name: 'Crushing Leap', windup: 1500, active: 300, recover: 900, shape: 'disc', r: 6, pct: 0.45, base: 12, el: null, aim: 'point', phase: 2, range: 40, w: 2, minGap: 10 }),
+  meteor: Object.freeze({ id: 7, key: 'meteor', name: 'Meteor of Oblivion', windup: 2800, active: 300, recover: 700, shape: 'disc', r: 6.5, pct: 0.64, base: 16, el: 'fire', aim: 'point', phase: 2, range: 40, w: 1, minGap: 0, pool: POOLS.meteor }),
   // WBX5: Dagon's Champion's own - four lanes of fire from his feet; at the turn into his phase, the four between them
   // follow at once (PHASE_TURN)
-  spokes: Object.freeze({ id: 8, key: 'spokes', name: 'Spokes of Dagon', windup: 1800, active: 200, recover: 500, shape: 'spokes', n: 4, width: 3.5, len: 30, pct: 0.40, base: 10, el: 'fire', aim: 'self', phase: 3, range: 40, w: 2, minGap: 0 }),
+  spokes: Object.freeze({ id: 8, key: 'spokes', name: 'Spokes of Dagon', windup: 1800, active: 200, recover: 500, shape: 'spokes', n: 4, width: 3.5, len: 30, pct: 0.52, base: 14, el: 'fire', aim: 'self', phase: 3, range: 40, w: 2, minGap: 0 }),
+  // WB9b: THE BOUND ACROSS THE FIRE - at a phase's turn he leaps from the court he stands in to the next one's heart
+  // (never chosen: PHASE_TURN's), a long flight (CROSS_AIR_MS) and a landing that strikes whoever ran ahead of him
+  cross: Object.freeze({ id: 9, key: 'cross', name: 'Bound Across the Fire', windup: 2400, active: 300, recover: 600, shape: 'disc', r: 7, pct: 0.45, base: 12, el: null, aim: 'point', phase: 99, range: 999, w: 0, minGap: 0 }),
+  // WB9c: DAGON'S RECKONING - Dagon's Champion's wipe: at the court's heart he calls Dagon over a long wind-up while
+  // crystals of Oblivion grow across the floor (RECKON_*); break every one and the Reckoning breaks and stuns him (STUN_MS);
+  // leave one standing and it lands on the whole arena - his fire answered by nothing (Dagon's, as the Wrath's)
+  reckon: Object.freeze({ id: 10, key: 'reckon', name: "Dagon's Reckoning", windup: 22000, active: 600, recover: 1800, shape: 'all', pct: 9.99, base: 0, el: 'fire', aim: 'self', phase: 99, range: 999, w: 0, minGap: 0 }),
 });
 /** The attacks by their wire id. */
 export const ATTACK_BY_ID = Object.freeze(Object.values(ATTACKS).sort((a, b) => a.id - b.id));
-/** The ones he chooses among (the wrath is the clock's, not his). */
+/** The ones he chooses among (the wrath is the clock's, not his; WB9b/c: the bound and the Reckoning are his turns'). */
 const CHOSEN = Object.freeze([ATTACKS.cleave, ATTACKS.slam, ATTACKS.charge, ATTACKS.hellfire, ATTACKS.nova, ATTACKS.leap, ATTACKS.meteor, ATTACKS.spokes]);
+/** WB9c: the attacks no ward, no stun and no phase shortens - the clock's Wrath and Dagon's Reckoning. */
+export const isDagons = (A) => A === ATTACKS.wrath || A === ATTACKS.reckon;
 /**
  * WBX5: THE TURN OF A PHASE, as a sequence - he leaps into the court's heart (the Crushing Leap at its centre, while the
  * ward stands) and there casts the new phase's signature: the Flame Nova as the ward breaks, the Spokes of Dagon and at
@@ -158,9 +267,45 @@ const CHOSEN = Object.freeze([ATTACKS.cleave, ATTACKS.slam, ATTACKS.charge, ATTA
  * lanes are turned from the one before.
  */
 export const PHASE_TURN = Object.freeze({
-  2: Object.freeze([Object.freeze({ a: 'leap', centre: true }), Object.freeze({ a: 'nova' })]),
-  3: Object.freeze([Object.freeze({ a: 'leap', centre: true }), Object.freeze({ a: 'spokes' }), Object.freeze({ a: 'spokes', turn: Math.PI / 4 })]),
+  // WB9b: the turn now CROSSES - he bounds from the court he stands in to the next one's heart, and under his ward waits
+  // there for a challenger to come over the walkway the bound laid (`wait`), then casts the phase's signature
+  2: Object.freeze([Object.freeze({ a: 'cross', court: 1 }), Object.freeze({ wait: 'arrive' }), Object.freeze({ a: 'nova' })]),
+  3: Object.freeze([Object.freeze({ a: 'cross', court: 2 }), Object.freeze({ wait: 'arrive' }), Object.freeze({ a: 'spokes' }), Object.freeze({ a: 'spokes', turn: Math.PI / 4 })]),
 });
+/** WB9b: THE BOUND'S FLIGHT - he is in the air this long before it lands (a long arc over the fire), and the ward holds
+ *  from the phase's turn until a challenger stands in his new court (the turn's `wait`) - or this long at most, when
+ *  nobody comes. Once one does, it holds his profile's ward (P.shieldMs) more while the signature is cast. */
+export const CROSS_AIR_MS = 2000;
+export const CROSS_WAIT_MAX_MS = 30_000;
+/** The ward the turn raises: through the bound, the walkway's laying and the whole wait at most - the wait's end (a
+ *  challenger in the court) sets it to his profile's ward from then. */
+export const CROSS_WARD_MAX_MS = 45_000;
+
+// ── WB9c: DAGON'S RECKONING AND THE CRYSTALS ────────────────────────────
+/** When the first Reckoning comes after Dagon's Champion's turn is done, and each after the last one ended (broken or
+ *  landed) - ms. */
+export const RECKON_FIRST_MS = 18_000;
+export const RECKON_EVERY_MS = 60_000;
+/** THE CRYSTALS OF OBLIVION the Reckoning grows: how many (2 and one for every two living challengers in the court, 3
+ *  to 8), their body (radius, height - a blow's reach is measured to it, as to his), where they rise (a ring about the
+ *  court's heart, `RECKON_RING[0]` clear of him to `[1]` short of the rim) and how far apart at least. */
+export const RECKON_CRYSTALS = Object.freeze([3, 8]);
+export const CRYSTAL_R = 1.3;
+export const CRYSTAL_H = 4.4;
+export const RECKON_RING = Object.freeze([6, COURT_R - 3]);
+export const CRYSTAL_GAP_M = 7;
+/** How many crystals for `n` living challengers in the court. */
+export const crystalCountFor = (n) => Math.max(RECKON_CRYSTALS[0], Math.min(RECKON_CRYSTALS[1], 2 + Math.ceil(Math.max(0, n) / 2)));
+/** Each crystal's health: RECKON_TEAM_S seconds of the living challengers' reference damage between them all, shared
+ *  across the crystals - so a court of any size breaks them in about half the wind-up if it splits up, and a court that
+ *  stands together round one does not. At least RECKON_CRYSTAL_MIN. */
+export const RECKON_TEAM_S = 8;
+export const RECKON_CRYSTAL_MIN = 20;
+export const crystalHpFor = (lvs, n) => Math.max(RECKON_CRYSTAL_MIN, Math.round((RECKON_TEAM_S * lvs.reduce((s, lv) => s + dpsRef(lv), 0)) / Math.max(1, n)));
+/** THE STUN a broken Reckoning leaves him in: this long on his knees - no blow of his, no step - and every blow on him
+ *  lands STUN_HIT_X heavier (before the caps: the bucket still decides what lands). */
+export const STUN_MS = 8000;
+export const STUN_HIT_X = 1.5;
 /** WBX5: the pause between two attacks of one turn (a sequence breathes less than a choice does). */
 export const TURN_BREATH_MS = 150;
 /** The share of aimed attacks at the player who dealt the most lately; the rest at a random living one. */
@@ -189,8 +334,8 @@ export const hasPart = (p) => p.dealt >= RECEIPT_SHARE * p.share || p.stoodMs >=
 /** WB8b: SCARRED GROUND - under the Scarring trial his Ground Slam leaves it at his feet and his Crushing Leap where it
  *  lands (POOLS' shape: a radius, a span, a share and a base a POOL_TICK_MS), of his aspect's element as all his ground. */
 export const SCAR_POOLS = Object.freeze({
-  slam: Object.freeze({ r: 3, ms: 6000, pct: 0.05, base: 2 }),
-  leap: Object.freeze({ r: 3.5, ms: 6000, pct: 0.05, base: 2 }),
+  slam: Object.freeze({ r: 3, ms: 6000, pct: 0.08, base: 3 }),   // WB9d: the ground's bite, raised with POOLS'
+  leap: Object.freeze({ r: 3.5, ms: 6000, pct: 0.08, base: 3 }),
 });
 /** An attack as the profile reads it - any of ATTACKS, each shape's own fields optional.
  * @typedef {{id: number, key: string, name: string, windup: number, active: number, recover: number, shape: string, pct: number,
@@ -225,7 +370,7 @@ export function fightProfile(md) {
   const ground = (G) => (G ? Object.freeze({ r: G.r, ms: Math.round(G.ms * groundMsX), pct: G.pct * dmgX, base: G.base * dmgX }) : null);
   const atk = {};
   for (const A of /** @type {ReadonlyArray<GateAttack>} */ (ATTACK_BY_ID)) {
-    const el = A.el === 'fire' && A !== ATTACKS.wrath ? aspect.el : A.el;   // his fire is his aspect's; Dagon's Wrath is Dagon's
+    const el = A.el === 'fire' && !isDagons(A) ? aspect.el : A.el;   // his fire is his aspect's; Dagon's Wrath and Reckoning are Dagon's
     atk[A.key] = Object.freeze({
       // AUDIT PRE-MERGE 0929 W1-2: a cone reaches from his body, as far past it as it ever did - its range is measured
       // past his body (attacksFor), and a Colossal Warden chose the Cleave at fighters up to 9.25 m from his centre with
@@ -273,11 +418,14 @@ const _profileByMd = new WeakMap();
 export const attackUnder = (A, P = BASE_PROFILE) => P.atk[A.key];
 
 const dist = (ax, az, bx, bz) => Math.hypot(ax - bx, az - bz);
-/** A point kept inside a disc of radius `r` about the court's centre (the boss's own, by default). */
-export function keepInCourt(x, z, r = BOSS_REACH_R) {
-  const d = Math.hypot(x, z);
-  return d <= r ? [x, z] : [(x / d) * r, (z / d) * r];
+/** A point kept inside a disc of radius `r` about a court's centre (the first court's, and the boss's own ring, by
+ *  default - WB9b: `c` the court he fights in). */
+export function keepInCourt(x, z, r = BOSS_REACH_R, c = COURTS[0]) {
+  const dx = x - c[0], dz = z - c[1], d = Math.hypot(dx, dz);
+  return d <= r ? [x, z] : [c[0] + (dx / d) * r, c[1] + (dz / d) * r];
 }
+/** WB9b: the centre of the court he fights in. */
+const hisCourt = (f) => COURTS[Math.max(0, Math.min(COURTS.length - 1, f.court | 0))];
 
 /**
  * A fresh fight: nobody in it, the boss at the court's centre facing the south door, no health until someone brings
@@ -297,6 +445,13 @@ export function newFight(day, now, wrathAt, boss, md = null) {
     feeds: 0,
     pos: [0, 0], yaw: 0, move: null, atk: null, lastA: -1, nextAt: now + OPENING_MS, seq: 0,
     target: null, targetAt: 0,
+    /** WB9b: the court he fights in (COURTS), and the moment each crossing's word was said - walkway k is laid from xa[k]
+     *  (walkFormed); `waitUntil` the longest his ward waits in a new court for a challenger */
+    court: 0, xa: [], waitUntil: 0,
+    /** WB9c: when the next Reckoning comes (0 none armed yet - armed as Dagon's Champion's turn ends in the last court;
+     *  -2 while one is under way), the crystals of the one in flight ({i, c: [{x, z, h}], m} - its attack's number), and
+     *  how long a broken one leaves him stunned */
+    rk: 0, cx: null, stunUntil: 0, cxSentAt: 0, cxSent: '',
     /** WBX5: a phase's turn still to come - PHASE_TURN's entries after the one in flight - and the next of them, begun
      *  when the breath after the last is over */
     queue: [], pending: null,
@@ -409,7 +564,7 @@ export function applyHit(f, sub, d, r, pose, now) {
   if (p.rate < 1) return 0;
   p.rate -= 1;
   if (!pose || !Number.isFinite(pose.x) || !Number.isFinite(pose.z)) return 0;
-  if (Math.hypot(pose.x, pose.z) > COURT_R + POSE_SLACK) return 0;   // nobody strikes the court from off it
+  if (!onFloor(pose.x, pose.z, f.xa, now, POSE_SLACK)) return 0;   // nobody strikes the court from off it - WB9b: its floor as far as it is laid
   const P = profileOf(f);
   const gap = dist(pose.x, pose.z, f.pos[0], f.pos[1]) - P.bossR;   // WB8b: his body's own size (Colossal's is larger)
   if (r === HIT_KINDS.Melee && gap > MELEE_REACH + POSE_SLACK) return 0;
@@ -417,7 +572,7 @@ export function applyHit(f, sub, d, r, pose, now) {
   const ref = dpsRef(p.lv);
   p.bucket = Math.min(BUCKET_DEPTH_X * ref, p.bucket + (Math.max(0, now - p.bucketAt) / 1000) * BUCKET_RATE_X * ref);
   p.bucketAt = now;
-  const want = d * P.hitX;
+  const want = d * P.hitX * (now < (f.stunUntil ?? 0) ? STUN_HIT_X : 1);   // WB9c: a stunned Warden takes it heavier
   const got = Math.max(0, Math.min(want, HIT_CAP_X * ref, p.bucket, f.hp));
   p.bucket -= got;
   p.clipped += want - got;   // the caps' clipping - what his ward took off is his, not a cap's
@@ -440,21 +595,26 @@ export function settleAt(f, now) {
   const A = f.atk ? ATTACK_BY_ID[f.atk.a] : null;
   if (A === ATTACKS.charge && now >= f.atk.at) {
     const k = Math.min(1, (now - f.atk.at) / A.active), end = f.atk.tg[0];
-    if (end) f.pos = keepInCourt(f.atk.x + (end[0] - f.atk.x) * k, f.atk.z + (end[1] - f.atk.z) * k);
-  } else if (A === ATTACKS.leap) { const p = leapAt(f.atk, now); if (p) f.pos = keepInCourt(p[0], p[1]); }
+    if (end) f.pos = keepInCourt(f.atk.x + (end[0] - f.atk.x) * k, f.atk.z + (end[1] - f.atk.z) * k, BOSS_REACH_R, hisCourt(f));
+  } else if (A === ATTACKS.leap || A === ATTACKS.cross) { const p = leapAt(f.atk, now); if (p) f.pos = p; }   // a leap lands where it was said to (begin kept it in the court)
   else if (!A && f.move) stepWalk(f, now);
 }
 
-/** WBX5: THE LEAP'S FLIGHT - he leaves the floor this long before it lands (world/gateBoss.js draws the arc). */
+/** WBX5: THE LEAP'S FLIGHT - he leaves the floor this long before it lands (world/gateBoss.js draws the arc). WB9b: the
+ *  bound across the fire flies CROSS_AIR_MS. */
 export const LEAP_AIR_MS = 650;
+/** How long a leap of either kind is in the air. */
+export const airOf = (A) => (A === ATTACKS.cross ? CROSS_AIR_MS : LEAP_AIR_MS);
 /** Where a leap carries him at `now`, or null while he still stands on the floor: from where it began to where it lands
  *  over its last LEAP_AIR_MS, and there after. The ONE law of it - the beat's, the kill's (`settleAt`) and every
  *  screen's (world/gateBoss.js bossPlace). AUDIT WBX2 M5: the screens flew him while the relay held him at its start -
  *  a kill in the air stood him in two places, and a blow on him in the air was judged from where he had left. Pure. */
 export function leapAt(atk, now) {
-  const e = atk?.tg?.[0];
-  if (ATTACK_BY_ID[atk?.a] !== ATTACKS.leap || !e || !(now >= atk.at - LEAP_AIR_MS)) return null;
-  const k = Math.min(1, (now - (atk.at - LEAP_AIR_MS)) / LEAP_AIR_MS);
+  const e = atk?.tg?.[0], A = ATTACK_BY_ID[atk?.a];
+  if ((A !== ATTACKS.leap && A !== ATTACKS.cross) || !e) return null;   // WB9b: the bound across the fire flies the same law, longer
+  const air = airOf(A);
+  if (!(now >= atk.at - air)) return null;
+  const k = Math.min(1, (now - (atk.at - air)) / air);
   return [atk.x + (e[0] - atk.x) * k, atk.z + (e[1] - atk.z) * k];
 }
 
@@ -477,8 +637,8 @@ export function earned(f, sub) {
 /** How `sub` earned it, for the receipt: 'dealt' first (it is the stronger claim), else 'stood'. */
 export const earnedBy = (f, sub) => (f.players[sub]?.dealt >= RECEIPT_SHARE * (f.players[sub]?.share ?? Infinity) ? 'dealt' : 'stood');
 
-/** The attack's wind-up in this phase. */
-export const windupOf = (atk, phase) => (phase >= 3 && atk.id !== ATTACKS.wrath.id ? Math.round(atk.windup * PHASE3_WINDUP) : atk.windup);
+/** The attack's wind-up in this phase (WB9c: Dagon's are never shortened; WB9b: nor the bound - its flight is fixed). */
+export const windupOf = (atk, phase) => (phase >= 3 && atk.id !== ATTACKS.wrath.id && atk.id !== ATTACKS.reckon.id && atk.id !== ATTACKS.cross.id ? Math.round(atk.windup * PHASE3_WINDUP) : atk.windup);
 
 /** Pick who he goes at: THREAT_PICK of the time (WB8b: his profile's - the Grudge-Bearer's is more) the living player
  *  with the most threat, else a random living one. */
@@ -521,6 +681,10 @@ export function stepBrain(f, now, bodies, rng) {
   f.lastTickAt = now;
   if (f.fell || f.wrath) return out;
   const P = profileOf(f);   // WB8b: the numbers his marks move
+  // a fight checkpointed before WB9 wakes in the first court with nothing crossed, nothing grown
+  f.queue ??= [];   // (and one before WBX5 with no turn to come)
+  if (!Array.isArray(f.xa)) f.xa = [];
+  f.court ??= nearestCourt(f.pos?.[0] ?? 0, f.pos?.[1] ?? 0);
   // standing: a living body in the court stands its time; AUDIT WBX R4: and the fight's own clock runs while one does
   let living = false;
   for (const b of bodies) { const p = f.players[b.sub]; if (p && !b.dead) { p.stoodMs += dt; living = true; } }
@@ -565,61 +729,96 @@ export function stepBrain(f, now, bodies, rng) {
   }
   if (now >= f.wrathAt - wr.windup) {
     f.move = null;
+    f.cx = null; f.stunUntil = 0;   // WB9c: the midnight overtakes a Reckoning and a stun alike
     f.atk = { i: ++f.seq, a: wr.id, at: Math.max(f.wrathAt, now + 1000), x: f.pos[0], z: f.pos[1], yw: f.yaw, tg: [], until: 0 };
     f.atk.until = f.atk.at + wr.active;
     out.push({ k: 'atk', ...atkFrame(f.atk) });
     hpFrame(f, now, out);   // AUDIT WBX R5
     return out;
   }
-  // a phase crossed: a roar, a shield, and the phase's turn (WBX5 PHASE_TURN - the leap into the court's heart, then its
-  // signature); an attack in flight is superseded - the new word is the one every screen draws
-  f.queue ??= [];   // a fight checkpointed before WBX5 wakes with no turn to come
+  // WB9b: the challengers standing in the court he fights in - the only ones he chooses, aims at and waits for (a body
+  // still on the walkway, or left behind in a court he has leapt from, is not before him)
+  const here = bodies.filter((b) => !b.dead && f.players[b.sub] && inCourt(b.x, b.z, f.court, POSE_SLACK));
+  // a phase crossed: a roar, the ward, and the phase's turn (WB9b PHASE_TURN - the bound to the next court, the wait
+  // there for a challenger, then its signature); an attack in flight is superseded - the new word is the one every
+  // screen draws
   if (f.max > 0 && f.phase < 3 && f.hp / f.max <= PHASE_AT[f.phase - 1]) {
     f.phase++;
-    f.shieldUntil = now + P.shieldMs;   // WB8b: Unyielding's ward holds twice as long
+    f.shieldUntil = now + CROSS_WARD_MAX_MS;   // WB9b: the ward holds through the bound and the wait (the wait sets its end)
     f.move = null;
+    f.cx = null; f.stunUntil = 0;
     out.push({ k: 'ph', n: f.phase, until: f.shieldUntil });
     const [first, ...rest] = PHASE_TURN[f.phase];
     f.queue = rest.map((e) => ({ ...e }));
     f.pending = null;
-    beginTurn(f, first, now, bodies, rng, out);
+    beginTurn(f, first, now, here, rng, out);
   }
-  // an attack in flight: the charge runs its lane over its active span, the leap lands him where it falls; the rest hold
+  // WB9c: STUNNED - his Reckoning broken, he kneels: no step, no blow, until it passes
+  if (now < (f.stunUntil ?? 0)) { hpFrame(f, now, out); stateFrame(f, now, out); return out; }
+  // an attack in flight: the charge runs its lane over its active span, a leap lands him where it falls; the rest hold
   // still until their recovery ends
   if (f.atk) {
     settleAt(f, now);   // the charge down its lane, the leap through the air (WBX5) - AUDIT WBX2 M8: the kill's own rule, one copy
-    if (now < f.atk.until) { hpFrame(f, now, out); stateFrame(f, now, out); return out; }
+    const A = ATTACK_BY_ID[f.atk.a];
+    if (A === ATTACKS.cross && now >= f.atk.at && Number.isInteger(f.atk.to)) {   // WB9b: he stands in the new court from the landing
+      f.court = f.atk.to;
+    }
+    if (A === ATTACKS.reckon && now >= f.atk.at && f.cx) f.cx = null;   // WB9c: the Reckoning landed - the crystals are spent in it
+    if (now < f.atk.until) { hpFrame(f, now, out); cxFrame(f, now, out); stateFrame(f, now, out); return out; }
     const was = f.atk;
     f.lastA = f.atk.a;
     f.atk = null;
     f.target = null;
     f.nextAt = now + BREATH_MS;
+    if (ATTACK_BY_ID[was.a] === ATTACKS.reckon) f.rk = now + RECKON_EVERY_MS;   // WB9c: the next a minute after this one's end
     // WB8b: ECHOING - a meteor falls again, a breath after the first: on the one it fell for, where they stand now (and
     // alive), else where the first fell; an echo has none of its own, and a phase's turn clears it with the rest
     if (P.echo && ATTACK_BY_ID[was.a] === ATTACKS.meteor && !was.echo) f.queue.unshift({ a: 'meteor', echo: true, who: was.who ?? null, point: was.tg?.[0] ?? null });
     // WBX5: a turn still to come goes on from here, a breath later
-    if (f.queue.length) { const next = f.queue.shift(); f.nextAt = now + TURN_BREATH_MS; f.pending = next; }
+    if (f.queue.length) { const next = f.queue.shift(); f.nextAt = now + TURN_BREATH_MS; f.pending = next; if (next.wait) f.waitUntil = now + CROSS_WAIT_MAX_MS; }
   }
-  if (f.pending && now >= f.nextAt) {
+  // WB9b: THE WAIT in a new court - his ward holds until a living challenger stands in it (or CROSS_WAIT_MAX_MS), then
+  // holds his profile's ward more while the turn goes on (the signature is cast under it)
+  if (f.pending?.wait && now >= f.nextAt) {
+    if (!here.length && now < (f.waitUntil ?? 0)) { hpFrame(f, now, out); stateFrame(f, now, out); return out; }
+    f.shieldUntil = now + P.shieldMs;
+    out.push({ k: 'ph', n: f.phase, until: f.shieldUntil });
+    f.pending = f.queue.length ? f.queue.shift() : null;
+    f.nextAt = now + TURN_BREATH_MS;
+  }
+  if (f.pending && !f.pending.wait && now >= f.nextAt) {
     const next = f.pending;
     f.pending = null;
-    beginTurn(f, next, now, bodies, rng, out);
+    beginTurn(f, next, now, here, rng, out);
     hpFrame(f, now, out); stateFrame(f, now, out);
     return out;
   }
+  // WB9c: Dagon's Champion's turn done in the last court, his Reckonings are armed - the first RECKON_FIRST_MS from then;
+  // one due - he leaps to the court's heart and calls it (`rk` -2 while it is under way: its end sets the next)
+  if (f.phase >= 3 && !f.pending && !f.queue.length && !f.atk) {
+    if (!f.rk && f.court === COURTS.length - 1) f.rk = now + RECKON_FIRST_MS;
+    if (f.rk > 0 && now >= f.rk && now >= f.nextAt) {
+      f.rk = -2;
+      f.move = null;
+      f.queue = [{ a: 'reckon' }];
+      beginTurn(f, { a: 'leap', centre: true }, now, here, rng, out);
+      hpFrame(f, now, out); stateFrame(f, now, out);
+      return out;
+    }
+  }
   // choose: a target he keeps a while, and what can be done to it from here - else walk at it
-  if (now >= f.nextAt) {
-    let target = f.target ? bodies.find((b) => b.sub === f.target && !b.dead) ?? null : null;
+  if (now >= f.nextAt && !f.pending) {
+    let target = f.target ? here.find((b) => b.sub === f.target) ?? null : null;
     if (!target || now - f.targetAt >= TARGET_HOLD_MS) {
-      target = pickTarget(f, bodies, rng);
+      target = pickTarget(f, here, rng);
       f.target = target?.sub ?? null;
       f.targetAt = now;
     }
     if (target) {
       const gap = dist(target.x, target.z, f.pos[0], f.pos[1]) - P.bossR;
-      const near = bodies.filter((b) => !b.dead && f.players[b.sub] && dist(b.x, b.z, f.pos[0], f.pos[1]) <= P.atk.slam.r).length;   // WB8b: Colossal's slam reaches further
+      const near = here.filter((b) => dist(b.x, b.z, f.pos[0], f.pos[1]) <= P.atk.slam.r).length;   // WB8b: Colossal's slam reaches further
       const can = attacksFor(f.phase, gap, near, f.lastA, P);
-      if (can.length) { f.move = null; begin(f, chooseAttack(can, rng), now, target, bodies, rng, out); }
+      if (can.length) { f.move = null; begin(f, chooseAttack(can, rng), now, target, here, rng, out); }
       else walkToward(f, target, now, out);
     } else if (f.move) {
       stepWalk(f, now);
@@ -629,6 +828,7 @@ export function stepBrain(f, now, bodies, rng) {
   }
   stepWalk(f, now);
   hpFrame(f, now, out);
+  cxFrame(f, now, out);
   stateFrame(f, now, out);
   return out;
 }
@@ -640,7 +840,7 @@ function stepWalk(f, now) {
   const len = dist(m.x, m.z, m.tx, m.tz);
   if (len < 1e-6) { f.pos = [m.tx, m.tz]; return; }
   const along = Math.min(len, (Math.max(0, now - m.at) / 1000) * m.v);
-  f.pos = keepInCourt(m.x + ((m.tx - m.x) / len) * along, m.z + ((m.tz - m.z) / len) * along);
+  f.pos = keepInCourt(m.x + ((m.tx - m.x) / len) * along, m.z + ((m.tz - m.z) / len) * along, BOSS_REACH_R, hisCourt(f));
 }
 
 /** Walk at a target, stopping short of it by his body and a little: a new segment is said when its goal moved past
@@ -649,7 +849,7 @@ function walkToward(f, target, now, out) {
   stepWalk(f, now);
   const dx = target.x - f.pos[0], dz = target.z - f.pos[1], d = Math.hypot(dx, dz);
   const stop = Math.max(0, d - (profileOf(f).bossR + 1));
-  const [tx, tz] = keepInCourt(f.pos[0] + (d > 0 ? (dx / d) * stop : 0), f.pos[1] + (d > 0 ? (dz / d) * stop : 0));
+  const [tx, tz] = keepInCourt(f.pos[0] + (d > 0 ? (dx / d) * stop : 0), f.pos[1] + (d > 0 ? (dz / d) * stop : 0), BOSS_REACH_R, hisCourt(f));
   const m = f.move;
   if (m && dist(m.tx, m.tz, tx, tz) < MOVE_RESAY_M && now - m.at < MOVE_RESAY_MS) return;
   f.move = { x: f.pos[0], z: f.pos[1], tx, tz, v: BOSS_SPEED, at: now };
@@ -668,33 +868,118 @@ function beginTurn(f, entry, now, bodies, rng, out) {
   if (!atk) return;
   if (entry.turn) f.yaw = wrapYaw(f.yaw + entry.turn);
   const who = entry.who ? bodies.find((b) => b.sub === entry.who && !b.dead && f.players[b.sub]) ?? null : null;
-  begin(f, atk, now, who, bodies, rng, out, entry.centre ? [0, 0] : who ? null : entry.point ?? null, !!entry.echo);
+  // WB9b: the bound lands at the next court's heart, and says the walkway it lays (its word's moment, `xa`)
+  if (atk === ATTACKS.cross && Number.isInteger(entry.court) && COURTS[entry.court]) {
+    f.xa = [...(Array.isArray(f.xa) ? f.xa : [])];
+    // every walkway up to the court he bounds to - a fight woken from a checkpoint older than WB9 crosses from the first
+    // court straight to the third, and its players walk both (the wire says them in order: no gap)
+    for (let k = 0; k < entry.court; k++) if (!Number.isFinite(f.xa[k])) f.xa[k] = now;
+    begin(f, atk, now, null, bodies, rng, out, COURTS[entry.court], false, entry.court);
+    return;
+  }
+  begin(f, atk, now, who, bodies, rng, out, entry.centre ? hisCourt(f) : who ? null : entry.point ?? null, !!entry.echo);   // WB9b: the heart of the court he fights in
 }
 
 /** Begin an attack: where it lands and when, said now so every screen draws the wind-up at once. `point` (WBX5): where a
  *  'point' attack lands when it is not the target's feet (the leap into the court's heart). WB8b: the fighter it was
  *  begun at (`who`) and whether it is an echo are kept on the attack - the fight's own, never on the wire. */
-function begin(f, atk, now, target, bodies, rng, out, point = null, echo = false) {
+function begin(f, atk, now, target, bodies, rng, out, point = null, echo = false, to = null) {
   const at = now + windupOf(atk, f.phase);
+  const C = hisCourt(f);   // WB9b: the court he fights in - what he keeps to, and what his fire falls on
   let tg = [];
   if (target) f.yaw = Math.atan2(target.x - f.pos[0], target.z - f.pos[1]);
   if (atk === ATTACKS.charge) {
-    tg = [keepInCourt(f.pos[0] + Math.sin(f.yaw) * atk.len, f.pos[1] + Math.cos(f.yaw) * atk.len)];
+    tg = [keepInCourt(f.pos[0] + Math.sin(f.yaw) * atk.len, f.pos[1] + Math.cos(f.yaw) * atk.len, BOSS_REACH_R, C)];
+  } else if (atk === ATTACKS.cross) {
+    // WB9b: the bound - to the next court's heart, over the fire
+    tg = [[point[0], point[1]]];
+    f.yaw = Math.atan2(point[0] - f.pos[0], point[1] - f.pos[1]);
   } else if (atk.aim === 'point') {
     // WBX5: one spot - the leap comes down inside the ring he keeps to, a meteor falls anywhere on the floor
     const p = point ?? (target ? [target.x, target.z] : [f.pos[0], f.pos[1]]);
-    tg = [keepInCourt(p[0], p[1], atk === ATTACKS.leap ? BOSS_REACH_R : COURT_R)];
+    tg = [keepInCourt(p[0], p[1], atk === ATTACKS.leap ? BOSS_REACH_R : COURT_R, C)];
     if (atk === ATTACKS.leap && (tg[0][0] !== f.pos[0] || tg[0][1] !== f.pos[1])) f.yaw = Math.atan2(tg[0][0] - f.pos[0], tg[0][1] - f.pos[1]);
   } else if (atk === ATTACKS.hellfire) {
     const live = bodies.filter((b) => !b.dead && f.players[b.sub]);
     for (let i = live.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)) % (i + 1); const t = live[i]; live[i] = live[j]; live[j] = t; }
     const first = live.slice(0, atk.max);
-    tg = first.map((b) => keepInCourt(b.x, b.z, COURT_R));
+    tg = first.map((b) => keepInCourt(b.x, b.z, COURT_R, C));
     // phase three: a second volley, scattered about the same feet
-    if (f.phase >= 3) tg = tg.concat(first.map((b) => keepInCourt(b.x + (rng() - 0.5) * 6, b.z + (rng() - 0.5) * 6, COURT_R)));
+    if (f.phase >= 3) tg = tg.concat(first.map((b) => keepInCourt(b.x + (rng() - 0.5) * 6, b.z + (rng() - 0.5) * 6, COURT_R, C)));
   }
-  f.atk = { i: ++f.seq, a: atk.id, at, x: f.pos[0], z: f.pos[1], yw: f.yaw, tg, until: at + atk.active + atk.recover, ...(target ? { who: target.sub } : {}), ...(echo ? { echo: true } : {}) };
+  f.atk = { i: ++f.seq, a: atk.id, at, x: f.pos[0], z: f.pos[1], yw: f.yaw, tg, until: at + atk.active + atk.recover, ...(target ? { who: target.sub } : {}), ...(echo ? { echo: true } : {}), ...(Number.isInteger(to) ? { to } : {}) };
   out.push({ k: 'atk', ...atkFrame(f.atk) });
+  if (atk === ATTACKS.reckon) growCrystals(f, now, bodies, rng, out);   // WB9c: the crystals rise as he calls it
+}
+
+/**
+ * WB9c: THE CRYSTALS OF OBLIVION rise as the Reckoning is called - crystalCountFor(the living challengers in his court)
+ * of them, anywhere on its floor (a ring RECKON_RING about its heart, CRYSTAL_GAP_M apart at least - the dice's, the
+ * relay's CSPRNG), each with crystalHpFor(their levels) health. Said once (`cx`: the Reckoning's number, the spots, the
+ * health each), then their health as it falls (`cxh`) and each one's breaking (`cxb`).
+ */
+function growCrystals(f, now, bodies, rng, out) {
+  const live = bodies.filter((b) => !b.dead && f.players[b.sub]);
+  const n = crystalCountFor(live.length), m = crystalHpFor(live.map((b) => f.players[b.sub].lv), n);
+  const [cx, cz] = hisCourt(f), spots = [];
+  for (let tries = 0; spots.length < n && tries < n * 60; tries++) {
+    const a = rng() * Math.PI * 2, r = Math.sqrt(RECKON_RING[0] ** 2 + rng() * (RECKON_RING[1] ** 2 - RECKON_RING[0] ** 2));   // even over the ring's area
+    const x = r2(cx + Math.sin(a) * r), z = r2(cz + Math.cos(a) * r);
+    if (spots.some((q) => Math.hypot(q[0] - x, q[1] - z) < CRYSTAL_GAP_M)) continue;
+    spots.push([x, z]);
+  }
+  for (let k = spots.length; k < n; k++) { const a = (k / n) * Math.PI * 2; spots.push([r2(cx + Math.sin(a) * 14), r2(cz + Math.cos(a) * 14)]); }   // a floor too crowded for the dice: a ring
+  f.cx = { i: f.atk.i, m, c: spots.map(([x, z]) => ({ x, z, h: m })) };
+  f.cxSent = cxHealthKey(f.cx); f.cxSentAt = now;
+  out.push({ k: 'cx', i: f.cx.i, m, c: spots.map((q) => [q[0], q[1]]) });
+}
+const cxHealthKey = (cx) => cx.c.map((q) => Math.ceil(q.h)).join(',');
+/** WB9c: the crystals' health, at most every HP_SEND_MS, when it has moved. */
+function cxFrame(f, now, out) {
+  if (!f.cx || now - (f.cxSentAt ?? 0) < HP_SEND_MS) return;
+  const key = cxHealthKey(f.cx);
+  if (key === f.cxSent) return;
+  f.cxSent = key; f.cxSentAt = now;
+  out.push({ k: 'cxh', i: f.cx.i, h: f.cx.c.map((q) => Math.ceil(q.h)) });
+}
+
+/**
+ * WB9c: A BLOW ON A CRYSTAL from `sub`, standing at `pose` ({x, z}, the court's frame), of kind `r`, claiming `d` on
+ * crystal `c` of the Reckoning in flight. The same caps as a blow on him - his blow rate and his damage bucket (one hand,
+ * one purse), a melee blow within reach of the crystal's body, from the floor - and it counts as dealt (a crystal broken
+ * is a part in the fight). Answers the frames to fan: a crystal broken (`cxb`, by whom), and when it was the last, THE
+ * RECKONING BROKEN - it is called off, and he is stunned STUN_MS (`stun`); the next comes RECKON_EVERY_MS after.
+ */
+export function applyCrystalHit(f, sub, c, d, r, pose, now) {
+  const out = [];
+  const p = f.players[sub], X = f.cx, q = X && Number.isInteger(c) ? X.c[c] : null;
+  if (!p || f.fell || f.wrath || !q || !(q.h > 0) || !Number.isFinite(d) || !(d > 0) || now >= f.wrathAt) return out;
+  p.rate = Math.min(GATE_HIT_HZ_MAX, p.rate + (Math.max(0, now - p.rateAt) / 1000) * GATE_HIT_HZ_MAX);
+  p.rateAt = now;
+  if (p.rate < 1) return out;
+  p.rate -= 1;
+  if (!pose || !Number.isFinite(pose.x) || !Number.isFinite(pose.z) || !onFloor(pose.x, pose.z, f.xa, now, POSE_SLACK)) return out;
+  if (r === HIT_KINDS.Melee && dist(pose.x, pose.z, q.x, q.z) - CRYSTAL_R > MELEE_REACH + POSE_SLACK) return out;
+  const ref = dpsRef(p.lv);
+  p.bucket = Math.min(BUCKET_DEPTH_X * ref, p.bucket + (Math.max(0, now - p.bucketAt) / 1000) * BUCKET_RATE_X * ref);
+  p.bucketAt = now;
+  const got = Math.max(0, Math.min(d, HIT_CAP_X * ref, p.bucket, q.h));
+  p.bucket -= got;
+  p.clipped += d - got;
+  p.dealt += got;
+  q.h -= got;
+  if (q.h > 1e-6) return out;
+  q.h = 0;
+  out.push({ k: 'cxb', i: X.i, c, n: p.name, at: now });
+  if (X.c.every((o) => o.h <= 0)) {
+    f.cx = null;
+    f.atk = null; f.move = null; f.queue = []; f.pending = null; f.target = null;
+    f.stunUntil = now + STUN_MS;
+    f.nextAt = f.stunUntil;
+    f.rk = f.stunUntil + RECKON_EVERY_MS;
+    out.push({ k: 'stun', until: f.stunUntil, at: now });
+  }
+  return out;
 }
 
 const r2 = (v) => Math.round(v * 100) / 100;
@@ -720,5 +1005,10 @@ export function stateOf(f) {
     atk: f.atk ? atkFrame(f.atk) : null, sh: f.shieldUntil, wr: f.wrathAt, n: Object.keys(f.players).length,
     fell: f.fell ? { at: f.fell.at, top: f.fell.top, n: f.fell.n } : null, wrath: f.wrath ? f.wrath.at : null,
     md: f.md ?? null,   // WB8b: his marks - every screen fights the fight's own, whatever the day's draw would say
+    // WB9b: the court he fights in and the crossings' words (the walkways laid); WB9c: the crystals standing, the stun,
+    // and when the next Reckoning comes (for its countdown)
+    ct: f.court | 0, xa: (Array.isArray(f.xa) ? f.xa : []).filter(Number.isFinite),
+    cx: f.cx ? { i: f.cx.i, m: f.cx.m, c: f.cx.c.map((q) => [q.x, q.z, Math.ceil(q.h)]) } : null,
+    su: f.stunUntil > 0 ? f.stunUntil : 0, rk: f.rk > 0 ? f.rk : 0,
   };
 }

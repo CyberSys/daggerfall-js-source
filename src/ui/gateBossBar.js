@@ -11,10 +11,10 @@
 // `bossBarModel` is pure - the court's state and the clock in, what the bar says out; the pins read it.
 //
 // Not a DFU member. Ledger A (WB).
-import { ATTACK_BY_ID, PHASE_AT, PHASE_NAMES, profileOf } from '../net/gateBrain.js';
+import { ATTACK_BY_ID, ATTACKS, PHASE_AT, PHASE_NAMES, profileOf } from '../net/gateBrain.js';
 import { telegraphAt } from '../net/gateStrike.js';
 import { countdownText } from '../net/gateLaw.js';
-import { attackColor } from '../world/gateBoss.js';
+import { attackColor, crystalColor, STUN_COLOR } from '../world/gateBoss.js';
 import { GATE_RING_CSS } from './gateMapMark.js';
 import { marksViewOf, markIconSvg, MARKS_CARD_TEXT } from './gateMarksView.js';   // WB9a: the night's marks under his health, each its sign, name and line
 
@@ -32,6 +32,11 @@ export const BOSS_BAR_TEXT = Object.freeze({
   fighters: (n) => (n === 1 ? '1 in the court' : `${n} in the court`),
   // WBX5 (Mac: "The boss phases need to be more defined"): the phase he fights in, by its number and its name
   phase: (n) => `${['I', 'II', 'III'][Math.max(1, Math.min(3, n | 0)) - 1]} - ${PHASE_NAMES[Math.max(1, Math.min(3, n | 0)) - 1]}`,
+  // WB9c: DAGON'S RECKONING on the bar - its name, the crystals still standing and the seconds to its landing; the stun
+  // a broken one leaves him in, and its seconds; and the next one's coming, in the foot
+  reckon: (name, left, n, secs) => `${name} - ${left} of ${n} ${n === 1 ? 'crystal' : 'crystals'} - ${secs}s`,
+  stunned: (secs) => `Stunned - ${secs}s`,
+  reckonIn: (left) => `Reckoning in ${left}`,
 });
 
 const css = (c) => `rgb(${Math.round(c[0] * 255)}, ${Math.round(c[1] * 255)}, ${Math.round(c[2] * 255)})`;
@@ -78,8 +83,15 @@ export function bossBarModel(s, now, boss) {
   const frac = s.fell ? 0 : s.max > 0 ? Math.max(0, Math.min(1, s.hp / s.max)) : 1;
   const atk = s.atk, A = atk ? ATTACK_BY_ID[atk.a] : null;
   const tel = A ? telegraphAt(atk, s.phase, now) : null;
-  const callout = !s.fell && A && tel && !tel.over ? { text: P.atk[A.key].name, color: css(attackColor(A, P)) } : null;
+  let callout = !s.fell && A && tel && !tel.over ? { text: P.atk[A.key].name, color: css(attackColor(A, P)) } : null;
+  // WB9c: the Reckoning winding up says what is left to break and how long there is; a stun says itself
+  if (!s.fell && A === ATTACKS.reckon && tel && now < atk.at && s.cx) {
+    let left = 0;
+    for (const q of s.cx.c) if (q[2] > 0) left++;
+    callout = { text: BOSS_BAR_TEXT.reckon(P.atk.reckon.name, left, s.cx.c.length, Math.ceil((atk.at - now) / 1000)), color: css(crystalColor(P)) };
+  } else if (!s.fell && s.wrath == null && now < (s.stunUntil ?? 0)) callout = { text: BOSS_BAR_TEXT.stunned(Math.ceil((s.stunUntil - now) / 1000)), color: css(STUN_COLOR) };
   const toWrath = Number.isFinite(s.wrathAt) ? s.wrathAt - now : Infinity;
+  const toReckon = !s.fell && s.wrath == null && s.phase >= 3 && s.rk > now ? s.rk - now : null;
   return {
     name: boss.name, title: boss.title, frac, marks: [...PHASE_AT], phase: s.phase,
     epithet: P.md ? P.aspect.epithet : '', trials: P.trialsLine,   // AUDIT PRE-MERGE 0929 W2-2: joined once, on the profile
@@ -88,6 +100,7 @@ export function bossBarModel(s, now, boss) {
     wrath: !s.fell && s.wrath == null && toWrath <= WRATH_WARN_MS ? BOSS_BAR_TEXT.wrathIn(countdownText(toWrath)) : null,
     fighters: s.fighters | 0,
     phaseName: BOSS_BAR_TEXT.phase(s.phase),   // WBX5
+    reckonIn: toReckon !== null ? BOSS_BAR_TEXT.reckonIn(countdownText(toReckon)) : null,   // WB9c
   };
 }
 
@@ -174,7 +187,7 @@ export function drawGateBossBar(model, { hidden = false, doc = globalThis.docume
     parts.callout.textContent = callout;
     parts.callout.style.color = color;
   }
-  const foot = [model.fallen ? null : model.phaseName, BOSS_BAR_TEXT.fighters(model.fighters), model.wrath].filter(Boolean).join('  -  ');   // WBX5: the phase first
+  const foot = [model.fallen ? null : model.phaseName, BOSS_BAR_TEXT.fighters(model.fighters), model.fallen ? null : model.reckonIn, model.wrath].filter(Boolean).join('  -  ');   // WBX5: the phase first; WB9c: the next Reckoning
   if (foot !== shown.foot) { shown.foot = foot; parts.foot.textContent = foot; }
 }
 

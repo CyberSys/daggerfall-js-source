@@ -74,8 +74,8 @@
   {
     "name": "WB4b-the-number-unrounded",
     "file": "src/scenes/gateCourt.js",
-    "old": "      const dmg = Math.round(d);",
-    "new": "      const dmg = d;",
+    "old": "      if (t < s.shieldUntil) return false;\n      const dmg = Math.round(d);",
+    "new": "      if (t < s.shieldUntil) return false;\n      const dmg = d;",
     "tests": [
       "test/wb4b_gate_blows.test.js"
     ]
