@@ -4,18 +4,19 @@
 // the minute's band charges a swimmer holding still the swim's price (systems/worldTick.js; FATIGUE-IDLE spares dry
 // ground only - treading water is not standing): 33 fatigue a game minute on a failed Swimming roll, 8 on a passed one,
 // a game minute every five real seconds - 6.3 a real second at Swimming 5, a 6,400 bar (STR and END 50) gone in 17 real
-// minutes. The day's forty hauls take about that long. At 0 in the water DFU's collapse is death whatever the health -
-// PlayerEntity.OnExhausted SetHealth(0)s a swimmer (systems/rest.js exhaustionOutcome, scenes/world.js
-// onExhaustedExterior's hurtPlayer(entity, entity.health)) - and nothing is said before it: no line, only the HUD's
-// bar, while the act's meter holds the eye. Measured on the real modules: from a full bar at Swimming 5, nine of twenty
-// seeded days died inside the forty (hauls 36-39); from three quarters, below, at haul 30 with full health.
+// minutes. The day's forty hauls take about that long. At 0 in the water DFU's collapse was death whatever the health -
+// PlayerEntity.OnExhausted SetHealth(0)s a swimmer - and nothing was said before it: no line, only the HUD's bar, while
+// the act's meter holds the eye. Measured on the real modules: from a full bar at Swimming 5, nine of twenty seeded days
+// died inside the forty (hauls 36-39); from three quarters at haul 30 with full health.
 //
-// The collapse is DFU's and stays (a swimmer who runs out drowns anywhere). The net is the port's: no net is cast in
+// SWIM-SPENT (systems/rest.js; Mac: "I dont care about DFU") ends the death: a drain to nothing in the water now costs a
+// tenth of the health a game minute, said on the HUD. The net still keeps its angler off it: no net is cast in
 // the water on the last quarter of the fatigue bar, and an act there ends when the bar falls into it - the prompt, and
 // E, say "too tired to fish in the water - get out and rest", with a quarter of the bar to swim out on (of 6,400, four
 // minutes of treading water at the worst rate). On a pier or a deck (not swimming) the bar asks nothing. The real
 // gathering host (scenes/gatherHost.js), Fishing's real kind and act (scenes/fishHost.js, systems/fishAct.js), the real
-// player ticker (scenes/shared.js createPlayerTicker -> systems/worldTick.js) and world.js's collapse over it.
+// player ticker (scenes/shared.js createPlayerTicker -> systems/worldTick.js) and world.js's collapse over it (a collapse in
+// the water, drowned or not, is what the pins count).
 import './modsOff.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -94,10 +95,10 @@ function stand({ swimming = true, share = 1 } = {}) {
   const deaths = [];
   const ticker = createPlayerTicker(entity, {
     isInside: () => false,
-    onExhausted: () => {   // scenes/world.js onExhaustedExterior, its two arms
+    onExhausted: () => {   // scenes/world.js onExhaustedExterior, its three arms (SWIM-SPENT: the water's is a share of the health)
       const out = exhaustionOutcome({ enemiesNearby: false, swimming: !!w.swimming, entity, day: true, inside: false });
       if (out.kind === 'rest') { ticker.advance(60); entity.fatigue = Math.min(maxFatigue(entity), entity.fatigue + out.fatigue); }
-      else { deaths.push({ health: entity.health, hauls: book.state.hauls }); hurtPlayer(entity, entity.health, { bypassShield: true }); }
+      else { deaths.push({ health: entity.health, hauls: book.state.hauls, kind: out.kind }); hurtPlayer(entity, out.kind === 'drown' ? out.damage : entity.health, { bypassShield: true }); }
     },
   });
   const dt = 1 / 30;

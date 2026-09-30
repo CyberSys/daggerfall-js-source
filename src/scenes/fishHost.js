@@ -58,12 +58,12 @@ const schoolPicture = () => { const t = templateByIndex(FT.Fish); return t?.worl
 /** The net's own words where the cast stands but the ground refuses it (the prompt's; the act says Foraging's lines). */
 export const NET_WHERE = Object.freeze(['inside', 'town', 'daylight']);
 export const NET_WHERE_WORDS = Object.freeze({ inside: 'not in here', town: 'not in a settlement', daylight: 'the fish bite by daylight (07:00-17:59)' });
-/** FISH-TIRED (FIELD BUGS 2026-09-30b: "you can get instakilled when fishing"). In the water a collapse is death, whatever
- *  the health - DFU's PlayerEntity.OnExhausted SetHealth(0)s a swimmer (systems/rest.js exhaustionOutcome, scenes/world.js
- *  onExhaustedExterior) and says nothing before it - and the minute's band charges an angler treading water the swim's
- *  price, 8 or 33 fatigue every five real seconds (systems/worldTick.js; FATIGUE-IDLE spares dry ground only). So no net
- *  is cast in the water on the last quarter of the fatigue bar, and an act there ends when the bar falls into it: the
- *  prompt says why, with minutes left to swim out and rest. The collapse itself is DFU's, untouched. */
+/** FISH-TIRED (FIELD BUGS 2026-09-30b: "you can get instakilled when fishing"). The minute's band charges an angler
+ *  treading water the swim's price, 8 or 33 fatigue every five real seconds (systems/worldTick.js; FATIGUE-IDLE spares
+ *  dry ground only), and in the water a collapse was DFU's death whatever the health - now a tenth of the health a game
+ *  minute (SWIM-SPENT, systems/rest.js exhaustionOutcome). Either way no net is cast in the water on the last quarter of
+ *  the fatigue bar, and an act there ends when the bar falls into it: the prompt says why, with minutes left to swim out
+ *  and rest. */
 export const NET_TIRED_SHARE = 0.25;
 export const NET_TIRED_WORDS = 'too tired to fish in the water - get out and rest';
 /** Whether the angler swims (the collapse's own test, PlayerEnterExit.IsPlayerSwimming, as Foraging's world answers it)
