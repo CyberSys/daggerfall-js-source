@@ -18,20 +18,43 @@ Mac's six-part ask for the sea, 2026-09-29:
 >    and not be able to engage in friendly fire.
 
 It was cut into five slices. Three are on the naval PR (#456, branch
-`ccr-08848d60-ieuci5`). The fourth is finished and parked, and the fifth
+`ccr-08848d60-ieuci5`). The fourth was finished and parked, and the fifth
 is designed but not built. On 2026-09-30, with slice D finished and
 verified but not yet committed, Mac said: "Lets pause before slice D and
 log it for another session". This page is that log.
+
+Later that day Mac said to the next session: "Just wanna pick up where the
+naval session left off. Slice D". That session brought main in and landed
+slice D. The PR's branch is its author's, so both ride a branch of their
+own, `claude/exciting-keller-prkcjt`: the PR's A to C, then main, then D.
 
 | Slice | Mac's items | State |
 |---|---|---|
 | A - DECK-FIELD | 2 | on the PR, `0d41a1fb3` |
 | B - HELM-WAY | 3 | on the PR, `735f0c447` |
 | C - DECK-WALK and SHIPMATES | 5 (the rail), 6 | on the PR, `304ec692d` |
-| D - LIVING CREW | 4, 5 (seamless boarding) | **parked**, `7feab89ff` on `ccr-08848d60-ieuci5-living-crew` |
+| D - LIVING CREW | 4, 5 (seamless boarding) | **landed** 2026-09-30, `7feab89ff` merged onto `claude/exciting-keller-prkcjt` (`c394e9520`) |
 | E - SHIP-LIFE | 1 | **not started** - the research and design are below |
 
-## First: the PR is behind main
+## First: the PR was behind main - brought in 2026-09-30
+
+**Done.** Merge `2ac2fc5b4` on `claude/exciting-keller-prkcjt`. By then
+main was 38 commits ahead: #464, REP1-REP6, had landed too. The merge
+conflicted in 79 files:
+- 75 were citation numbers only, a hunk whose two sides differ in digits
+  alone, and none of them a number in code. They took main's side.
+- 4 were real. `Active-Arcs.md` keeps both sides' entries. `Systems.md`
+  keeps both sides' modules, with the census at the tree's own 324.
+  `court.js` and `regionConditions.js` keep main's REP rewrite of the
+  banishment comment, which the PR had only re-numbered.
+
+Then the recipe below, as written. citeMerge moved 182 cites. CD4 named
+seven `world.js` cites, re-pointed by content. mutantdrift named two
+survtiers3 records, re-aimed and dead. The suite line was recounted. The
+full suite: 16090 tests, 15828 pass, and the one failure was those two
+records.
+
+The page as first written:
 
 When this page was written, `main` (`066fe8a5c`) was 31 commits ahead of
 the PR: #444, #457, #458, #460, #461 and #462. A trial merge conflicted in
@@ -50,12 +73,12 @@ else. Follow the recipe this branch's earlier merges used:
 5. Recount the Testing page's suite line.
 6. Run the full suite.
 
-## Slice D - LIVING CREW, parked
+## Slice D - LIVING CREW, landed 2026-09-30
 
-**Where it is.** The single commit `7feab89ff` on the branch
-`ccr-08848d60-ieuci5-living-crew`, pushed with Mac's approval. The branch
-was cut from `304ec692d`, the PR head at the time. No PR has been opened
-for it. It is not on the PR.
+**Where it is.** On `claude/exciting-keller-prkcjt`, merge `c394e9520`.
+The branch `ccr-08848d60-ieuci5-living-crew` was merged there after main
+came in. It holds the single commit `7feab89ff`, pushed with Mac's
+approval and cut from `304ec692d`, the PR head at the time.
 
 **What it does.** A ship's crew stands on her deck as DFU's own mobile
 units: each crew class's sprite, idle and walking, turned to the eye as
@@ -72,12 +95,11 @@ where he stands, with his own class and sex. The landing is a deck point
 next to the player. A party going over the rail is dealt rail spots
 (`deck.rail(side, z)`, the outermost deck cell of that row).
 
-**The files.** The two new modules and the new test files exist only on the parked branch, so they are named
-here in `git show`'s own `<branch>:<path>` form, for example `git show ccr-08848d60-ieuci5-living-crew:src/scenes/navalCrew.js`.
-- `ccr-08848d60-ieuci5-living-crew:src/systems/naval/crewLife.js` (new): the pure crew brain. It holds the
+**The files.**
+- `src/systems/naval/crewLife.js` (new): the pure crew brain. It holds the
   roster, stations, walks, talk, blurbs, chanties, the grapple muster and
   take/trim.
-- `ccr-08848d60-ieuci5-living-crew:src/scenes/navalCrew.js` (new): the host. It stands the flats down,
+- `src/scenes/navalCrew.js` (new): the host. It stands the flats down,
   draws the sprites and gives the speech with each speaker's head point.
 - `src/systems/naval/navalDeck.js`: adds `rail(side, z)`.
 - `src/scenes/navalHost.js`:
@@ -92,8 +114,8 @@ here in `git show`'s own `<branch>:<path>` form, for example `git show ccr-08848
   - the speech drawn by `navalHud`'s `drawCrewLines`.
 - `src/scenes/comeSailAwayPeers.js`: a peer's boat carries its `peerKey`,
   which seeds its crew.
-- `ccr-08848d60-ieuci5-living-crew:test/livingcrew.test.js` (13 tests) and
-  `ccr-08848d60-ieuci5-living-crew:tools/mutants/livingcrew.json` (54 records).
+- `test/livingcrew.test.js` (13 tests) and
+  `tools/mutants/livingcrew.json` (54 records).
 - Docs:
   - the Naval-Combat "LIVING CREW" section;
   - the Port-Ledger "THE CREW LIVES" row;
@@ -115,37 +137,48 @@ here in `git show`'s own `<branch>:<path>` form, for example `git show ccr-08848
 - The gates were run: citedrift, mutantdrift, ledger, doctrine,
   audit24_onehome, boot2, audit18, landing, manifest, relayversion.
 - eslint and `npm run types` are clean.
-- `ccr-08848d60-ieuci5-living-crew:tools/mutants/livingcrew.json`: 54 of 54 dead.
+- `tools/mutants/livingcrew.json`: 54 of 54 dead.
 - `tools/mutants/deckwalk.json`: 60 of 60 dead.
 
-**What the next session does to land it.**
-1. Fetch the branch and bring `7feab89ff` onto the current PR head. If
-   PR #456 has merged, bring it onto `main` instead. `git cherry-pick
-   7feab89ff` applies cleanly onto `304ec692d` plus this page's commit,
-   because the slice does not touch `Active-Arcs.md`.
-2. If the base has moved, the conflicts will be citation numbers in the
-   bible and in source comments. Do not resolve them by hand:
-   1. Take the base's side of every citation-only hunk.
-   2. Keep the slice's code, tests and doc sections.
-   3. Rerun `node tools/citeShift.mjs --apply`. It reads HEAD against the
-      working tree, and it refuses a second run until the first is
-      committed.
-   4. Fix whatever CD4 then names, by content.
-3. Rerun, in this order:
-   1. the full suite, `node --test --test-concurrency=8 "test/*.test.js"`;
-   2. the gates above, eslint and `npm run types`;
-   3. `node tools/mutate.mjs --jobs 6 tools/mutants/livingcrew.json`;
-   4. the same for `tools/mutants/deckwalk.json`.
+**How it landed.**
+1. **Merged, not cherry-picked.** This page said to cherry-pick onto the
+   PR head, then run `citeShift`. With main in, `world.js` had moved about
+   a hundred lines under the slice. A cherry-pick carries the slice's own
+   new cites (the Naval-Combat section's, the Ledger row's) at its old
+   tree's numbers, and `citeShift`, which reads HEAD against the working
+   tree, never reads them as stale. Merging the parked branch lets
+   `citeMerge` map every line from the side it came from, the slice's new
+   lines off the slice's head. That is the case the tool was written for,
+   and the history keeps `7feab89ff` as it was.
+2. **The conflicts.** 68 files conflicted:
+   - 66 were citation-only. They took our side, the merged head's
+     numbers, for `citeMerge` to move through the slice's code.
+   - In `court.js` and `regionConditions.js` the slice had only
+     re-numbered the comment main's REP rewrote, so main's was kept.
+   - The slice's code, tests and doc sections merged clean.
+3. **The cites.** `node tools/citeMerge.mjs
+   origin/ccr-08848d60-ieuci5-living-crew <merged head> --apply` moved 169
+   cites. CD4 named the same seven `world.js` cites again, re-pointed, and
+   the modal-frame range's close. mutantdrift named the two survtiers3
+   records again, re-aimed at `world.js:4839` and dead. Every change the
+   cites took is digits alone, checked line by line. The suite line: 16071
+   tests across 1695 files.
+4. **Verified on the merged tree.**
+   - The full suite: 16103 tests, 15842 pass, 0 fail, 261 skipped.
+   - The gates above, eslint, `npm run types` and the build.
+   - `tools/mutants/livingcrew.json` 54 of 54 dead, and
+     `tools/mutants/deckwalk.json` 60 of 60.
 
-   Then set the Testing page's suite line to the new count.
-4. The laws the slice already keeps, which must stay kept:
-   - Nothing in `server/src`, `src/net/*` or `src/world/mat4.js` changes,
-     not even a comment. The relay's bundle hash covers them (SLAM8).
-   - No method named `lines` or `rows` (MACRO-7).
-   - `combat/friendlyFire.js`'s `isShipmate` stays the only spare test.
-     DISC19 W5's defenders depend on it.
-5. Then close this page's slice D row: mark it landed in the table, and
-   close its line in `Active-Arcs.md` if slice E has landed too.
+**The laws the slice keeps, which must stay kept.**
+- Nothing in `server/src`, `src/net/*` or `src/world/mat4.js` changes,
+  not even a comment. The relay's bundle hash covers them (SLAM8). At
+  landing, none of them differed from main.
+- No method named `lines` or `rows` (MACRO-7).
+- `combat/friendlyFire.js`'s `isShipmate` stays the only spare test.
+  DISC19 W5's defenders depend on it.
+
+Its row in the table above is closed. Its line in `Active-Arcs.md` stays
+open until slice E lands.
 
 ## Slice E - SHIP-LIFE, designed, not built
 
