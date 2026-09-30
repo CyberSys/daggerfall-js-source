@@ -351,7 +351,7 @@ export class EffectSettingsEditorWindow {
     if (!this.enabled(field)) return;
     const slot = this.deps.slot;
     if (!slot) return;
-    slot.settings = stepSetting(slot.settings ?? blankEffectSettings(), field, delta);
+    slot.settings = stepSetting(slot.settings ?? blankEffectSettings(), field, delta, slot.key);   // ABSORB-NERF: the effect's own range
     this.deps.onSettingsChanged?.();   // OnValueChanged -> UpdateCosts (:409-470)
   }
 
@@ -361,7 +361,7 @@ export class EffectSettingsEditorWindow {
     if (!this.enabled(field) || !Number.isFinite(Number(value))) return;
     const slot = this.deps.slot;
     if (!slot) return;
-    slot.settings = setSetting(slot.settings ?? blankEffectSettings(), field, value);
+    slot.settings = setSetting(slot.settings ?? blankEffectSettings(), field, value, slot.key);   // ABSORB-NERF: the effect's own range
     this.deps.onSettingsChanged?.();   // OnValueChanged -> UpdateCosts, as a step's
   }
 

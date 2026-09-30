@@ -102,7 +102,7 @@ const state = { c1: null, c2: null, swap: null };
  *  item: it carries no group, no template and no material, so
  *  `quickslotKey` has nothing to say about it. What it does carry is an
  *  INDEX - a SPELLS.STD record number, or the negative one a made spell
- *  mints (systems/spellMaker.js:221-239) - and that index is already
+ *  mints (systems/spellMaker.js:234-252) - and that index is already
  *  this port's name for "which spell": it is what the save writes
  *  (systems/save.js:357), what a restore reads back, and what
  *  `setReadiedByIndex` resolves a readied spell by. So the slot keeps

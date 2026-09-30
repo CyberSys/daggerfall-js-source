@@ -39,9 +39,9 @@
 //
 // The three clauses that stood here are all closed (D1):
 // - the TALK button routes to TalkManager.TalkToStaticNPC (:263):
-//   worldModes.js:3189 supplies `onTalk: () => openStaticNpc(pn,
+//   worldModes.js:3190 supplies `onTalk: () => openStaticNpc(pn,
 //   { forceTalk: true })`, which this file consumes at :256 and :265.
-// - AddPermanentScene (:246) shipped at P1 - systems/tavern.js:143
+// - AddPermanentScene (:246) shipped at P1 - systems/tavern.js:150
 //   addPermanentScene / :93 removePermanentScene, with this window
 //   handing rentRoom its sceneCache at :261. A rented room's CONTENTS
 //   survive now, not just the rental.
@@ -71,7 +71,7 @@ import {
   TOO_MANY_DAYS_ID, OFFER_PRICE_ID, NOT_ENOUGH_GOLD_ID,
   HOW_MANY_DAYS_ID, HOW_MANY_ADDITIONAL_DAYS_ID,
   ROOM_FREE_FOR_KNIGHT, ROOM_FREE_HEARTS_DAY, YOU_ARE_NOT_HUNGRY,
-  TAVERN_MENU, removeExpiredRooms, findRentedRoom, roomRemainingHours,
+  tavernMenuLabels, removeExpiredRooms, findRentedRoom, roomRemainingHours,
   rentalDecision, rentRoom, canEat, eatOrDrink,
 } from '../systems/tavern.js';
 
@@ -328,7 +328,7 @@ export class TavernWindow {
       return;
     }
     this._chain([{
-      picker: [...TAVERN_MENU],
+      picker: tavernMenuLabels(),   // ESSENTIALS-HALF: online, the row's gold is the half it costs
       onPick: (i) => {
         audio.playOneShot(SOUND.ButtonClick, 1);   // F145: FoodAndDrink_OnItemPicked (:307)
         const r = eatOrDrink(i, { gold: totalGoldAmount(h.entity), gameMinutes: h.worldNow?.() ?? now });   // F103: GetGoldAmount (:324); LIVED1: the meal's holiday is the world's calendar

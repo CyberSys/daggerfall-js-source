@@ -34,7 +34,7 @@ import { mentorDamageTakenMult } from './mentorMode.js';   // SOFTCAP2: a leaf
 import { raceById, raceByKey } from './races.js';   // L2-slice (magic-10): the racial immunity arm
 import { STAT_KEYS_ORDER, FATIGUE_MULTIPLIER, maxFatigue, increaseDrainMagnitude, liveStat } from './statMods.js';
 import { dice100 } from '../combat/formulas.js';
-import { tryAbsorption, effectCastingCost } from './absorption.js';
+import { tryAbsorption, effectCastingCost, absorbRefund } from './absorption.js';
 import { enemyGroupOf, NEARBY } from './nearbyObjects.js';   // X8: Pacify matches on DFU's EnemyGroups, the same table X4 ported   // S24; X7: the Identify refund reads the same per-effect cost
 // AUDIT 24 (wave 31): the concealment BREAK lives in its own leaf so that
 // combat/formulas.js can reach it without the effects -> spellcast ->
@@ -147,6 +147,12 @@ export const BUFF_KINDS = Object.freeze({
   // it - in the candle producer, not in this table - so a foe really
   // does carry the effect and really does stay dark.
   '15,255': 'light',
+  // PARTY-MAP (2026-09-30, Discord: "share map data between party members, possibly with a spell effect so that
+  // maintaining some kind of buff for it becomes part of the dungeoneering loop"): SHARED CARTOGRAPHY (46,255 - the
+  // port's own, no classic key uses 46; RESURRECT1's 45 is the precedent). Duration-only and CasterOnly, stacking
+  // rounds as every row here does; the entry's PRESENCE is the share - systems/partyMap.js reads it, and a caster in
+  // no party (offline, solo) holds a buff that does nothing at all.
+  '46,255': 'sharedCartography',
 });
 
 /** DaggerfallEntity.IsInvisible / IsBlending / IsAShade, verbatim:
@@ -241,6 +247,7 @@ export const MAGIC_ONLY_KEYS = new Set([
   '27,255', '28,255', '29,255', '30,255', '31,255', '33,0', '33,1',
   '33,2', '33,3', '35,255', '39,0', '39,1', '39,2', '40,255',
   '43,255', '44,255',
+  '46,255',   // PARTY-MAP: Shared Cartography, the port's own - a self-buff, Magic as every buff here
 ]);
 
 /** THE BUFF LANDING ALERTS - every line DFU speaks on the frame a
@@ -260,6 +267,7 @@ export const BUFF_START_TEXT = Object.freeze({
   chameleonNormal: 'You are blending.', chameleonTrue: 'You are blending.',
   shadeNormal: 'You are a shade.', shadeTrue: 'You are a shade.',
   silenced: 'You are silenced.',   // Silence.cs:91-95
+  sharedCartography: 'Your map is shared with your party.',   // PARTY-MAP: the port's own line
 });
 /** The name this table shipped under, kept live for its importers. */
 export const CONCEALMENT_START_TEXT = BUFF_START_TEXT;
@@ -872,7 +880,7 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
     if (isParalyze(e) && isEntityImmuneToParalysis(target)) continue;
     // DFU requires a CASTER ENTITY on the bundle (:505) and
     // BundleType == Spell - repeated on ALL THREE gates (:509, :521,
-    // :525). D9: the enchantment arc arrived (enchantments.js:284
+    // :525). D9: the enchantment arc arrived (enchantments.js:285
     // routes CastWhenHeld through this same applySpell with caster
     // `{ entity }` and ctx.heldItem set), so the caster check alone
     // stopped being the whole gate: a HeldMagicItem bundle is
@@ -1790,8 +1798,10 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
     // to the raw target entity never matched, so the cap was dead.
     if (caster?.entity === target && selfCastCost > 0 && totalAbsorbed > selfCastCost) totalAbsorbed = selfCastCost;
     out.absorbed = totalAbsorbed;
+    // ABSORB-NERF (2026-09-30, Discord: "Nerf spell absorption, it breaks the game"): the refund is HALF the points
+    // absorbed, floored - every source, the Sorcerer's Always included (absorption.js absorbRefund)
     if (target.maxMagicka != null) {
-      target.magicka = Math.min(target.maxMagicka, (target.magicka ?? 0) + totalAbsorbed);
+      target.magicka = Math.min(target.maxMagicka, (target.magicka ?? 0) + absorbRefund(totalAbsorbed));
     }
     sinks?.say?.(SPELL_ABSORBED_TEXT);
   }

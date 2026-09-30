@@ -468,6 +468,7 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
       const ended = [];
       for (const q of machine.quests.values()) {
         if (q.questComplete) {
+          notebook?.unhideQuest?.(q.uid);   // JOURNAL-CLEAN: an ended quest is no longer hidden (one that filed no entry never reached addFinishedQuest's drop)
           ended.push({ id: String(q.uid), name: q.displayName || null, questName: q.questName || '', success: !!q.questSuccess });
           continue;
         }
@@ -496,7 +497,37 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
         }
         active.push({ id: String(q.uid), name: q.displayName || null, questName: q.questName || '', clockSeconds, clocks, messages, steps });
       }
-      return { active, finished: notebook?.getFinishedQuests() ?? [], ended };
+      // JOURNAL-CLEAN: `hidden` is the uids the player hid from the journal. The rows stay in `active` - the lens,
+      // the tracker and the marks read this walk and a hidden quest still runs - and the journal's rail
+      // (ui/questRail.js) is what leaves them out.
+      // AUDIT JOURNAL-CLEAN F3: an id hidden for a quest no longer running is dropped - whatever ended it
+      notebook?.pruneHiddenQuests?.([...machine.quests.values()].filter((q) => !q.questComplete).map((q) => q.uid));
+      return { active, finished: notebook?.getFinishedQuests() ?? [], ended, hidden: notebook?.getHiddenQuests?.() ?? [] };
+    },
+
+    /**
+     * JOURNAL-CLEAN (2026-09-30, Discord: "Should there be a way to clean both finished and unfinished quests from
+     * your journal for a cleaner look?"): the enhanced journal's four tidy-ups, one home - every host that hands its
+     * pause window `questLog` hands `journalClean` beside it (world.js, worldModes.js through world.js's host,
+     * exterior.js, dungeonContext.js). Removing an archived entry and clearing the archive act on the notebook's
+     * filed entries (the classic logbook's right-click remove, ui/questJournal.js removeEntry, is the same store);
+     * hide/unhide only file a uid in the notebook's hidden list, which saves with the notebook.
+     */
+    journalClean: {
+      /** The archived entry at notebook index `i` (the rail's `f:<i>` key); answers whether one went. */
+      removeFinished(i) {
+        if (!notebook || !Number.isInteger(i) || i < 0 || i >= notebook.getFinishedQuests().length) return false;
+        notebook.removeFinishedQuest(i);
+        return true;
+      },
+      /** Every archived entry; answers how many went. */
+      clearFinished() {
+        const n = notebook?.getFinishedQuests().length ?? 0;
+        notebook?.clearFinishedQuests();
+        return n;
+      },
+      hide: (id) => notebook?.hideQuest(id) ?? false,
+      unhide: (id) => notebook?.unhideQuest(id) ?? false,
     },
 
     /** SetLayoutData's direct overload for a host that has a quest
@@ -647,6 +678,8 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
       // wiped every note and filed quest of the session on an
       // old-version envelope.
       if (data.notebook) notebook.restoreSaveData(data.notebook);
+      // AUDIT JOURNAL-CLEAN F3: ...and at the load, before any new quest can take a uid a stale id names
+      notebook?.pruneHiddenQuests?.([...machine.quests.values()].filter((q) => !q.questComplete).map((q) => q.uid));
       questLists.oneTimeQuestsAccepted = data.oneTimeQuestsAccepted ? [...data.oneTimeQuestsAccepted] : null;
       lens.reset();   // GUIDE1: a loaded game is not news
       questTracker.forget();   // GUIDE4: ...nor what the last game's card followed (the tracked quest is the save's own record)

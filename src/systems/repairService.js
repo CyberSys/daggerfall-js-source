@@ -42,7 +42,18 @@ import { conditionBasedPricesOn, conditionRepairCostBase } from './rriRealism.js
  *  rank scaling; every other guild returns the price unchanged).
  *  NOTE the condition/max pair gates the zero alone - DFU's repair
  *  price does NOT scale with how damaged the item is. */
-export function calculateItemRepairCost(baseItemValue, shopQuality, condition, max, { reducedRepairCost = null, priceAdjustment = 1000, instantRepairs = getBool('Controls', 'InstantRepairs') } = {}) {
+/** REPAIR-EASE (2026-09-30, Mac: "nerf repair costs"): every repair costs two thirds of what Daggerfall's formula
+ *  asks - offline and online, every shop and guild, applied after the guild discount, floored at 1. */
+export const REPAIR_COST_SCALE = 2 / 3;
+/** AUDIT REPAIR-EASE F4: and no instant-repair premium. Roleplay & Realism: Items prices an instant repair at 0.9 of
+ *  the damage against 0.6 - 1.5 times - which the port's InstantRepairs-on default turned on for everyone and so
+ *  undid the two thirds exactly under conditionBasedPrices. Instant is the port's default now, not a service bought. */
+export function calculateItemRepairCost(baseItemValue, shopQuality, condition, max, opts = {}) {
+  const cost = dfuItemRepairCost(baseItemValue, shopQuality, condition, max, { ...opts, instantRepairs: false });
+  return cost > 0 ? Math.max(1, Math.round(cost * REPAIR_COST_SCALE)) : cost;
+}
+/** DFU's own CalculateItemRepairCost, unscaled. */
+export function dfuItemRepairCost(baseItemValue, shopQuality, condition, max, { reducedRepairCost = null, priceAdjustment = 1000, instantRepairs = getBool('Controls', 'InstantRepairs') } = {}) {
   if (condition === max) return 0;
   // RRI2: the mod's override (RoleplayRealismItemsMod.cs:262-278) scales the
   // tenth by the damage - 0.6 (0.9 under InstantRepairs) of the missing

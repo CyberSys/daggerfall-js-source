@@ -58,7 +58,7 @@ import { BODY_PARTS } from '../src/systems/armorMaterials.js';
 import { mintCondition } from '../src/systems/itemTemplates.js';
 import { buildAutomapModel } from '../src/systems/automapModel.js';
 import { calculateCost, calculateTradePrice } from '../src/systems/shopStock.js';
-import { calculateItemRepairCost } from '../src/systems/repairService.js';
+import { dfuItemRepairCost as calculateItemRepairCost } from '../src/systems/repairService.js';   // REPAIR-EASE: DFU's formula, unscaled
 import { normalizeReputations } from '../src/systems/court.js';
 import { createFactionRep, setReputation } from '../src/systems/factionRep.js';
 import { _wearScaleForTests } from '../src/systems/equip.js';   // BALANCE1: DFU's wear, read unscaled
@@ -328,7 +328,7 @@ test('AUDIT 58: ApplyRegionalPriceAdjustment has its OWN floor of 1 (FormulaHelp
   assert.equal(calculateCost(1, 12, 250), 2, 'PRICE_ADJUSTMENT_MIN, the worst case');
   // and the live wire that reaches it: CalculateItemRepairCost hands
   // CalculateCost a base of exactly 1 for any item worth <= 10 gold
-  // (repairService.js:46-51), so without the floor a cheap repair in a
+  // (repairService.js:57-62), so without the floor a cheap repair in a
   // cheap province is FREE.
   assert.equal(calculateItemRepairCost(5, 10, 0, 100, { priceAdjustment: 750 }), 2);
 });

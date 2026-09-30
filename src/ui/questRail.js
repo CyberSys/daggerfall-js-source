@@ -215,5 +215,12 @@ export function questRail(log, readLines = journalLines) {
     };
   }).filter((q) => q.entries.length);
   const finished = (log?.finished ?? []).map(parseFinished).filter((q) => q.lines.length || q.name);
-  return { active, finished };
+  // JOURNAL-CLEAN (2026-09-30, Discord: "...clean both finished and unfinished quests from your journal"): a quest
+  // the player HID (the walk's `hidden` uids, the notebook's list) leaves `active` for `hidden` - the journal faces
+  // draw `active`, and the pause tab's "Show hidden" draws `hidden`. A log with no `hidden` (the lens hands none)
+  // hides nothing.
+  const hiddenIds = new Set((log?.hidden ?? []).map(String));
+  if (!hiddenIds.size) return { active, finished, hidden: [] };
+  const isHidden = (q) => q.id != null && hiddenIds.has(String(q.id));
+  return { active: active.filter((q) => !isHidden(q)), finished, hidden: active.filter(isHidden) };
 }

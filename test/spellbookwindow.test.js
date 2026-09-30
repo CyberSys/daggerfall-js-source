@@ -820,7 +820,7 @@ test('U42 clicks: a list row selects, and a second click inside the double-click
   //
   // AUDIT 65 UI-1: driven through the HOST'S CALL SHAPE. Every host
   // that owns an overlay slot dispatches `click(vx, vy, right, middle)`
-  // - townTalk.js:1254, worldModes.js:9977, dungeonContext.js:7947 -
+  // - townTalk.js:1254, worldModes.js:9979, dungeonContext.js:7948 -
   // so the clock is stubbed on the window's OWN `_now()` seam, not
   // handed to a positional the hosts already fill with a button.
   // MUTANT: `click(vx, vy, now)` with `const t = now ?? Date.now()`
@@ -1207,7 +1207,7 @@ test('U42: BuySpells and BuySpellsMages are no longer FLAGGED nulls', () => {
   const modes = readFileSync(new URL('../src/scenes/worldModes.js', import.meta.url), 'utf8');
   assert.ok(modes.includes("destination === 'guildServiceSpellbook'"), 'the interior host runs the arm');
   assert.ok(/\{ buyMode: true \}/.test(modes), '...in BUY mode');
-  assert.ok(/offered: \(\) => \[\.\.\.sbi\.values\(\), \.\.\.\(isOnlinePage\(\) \? \[resurrectionSpell\(\)\] : \[\]\)\]/.test(modes), 'over the whole of SPELLS.STD - and, online, RESURRECT1\'s ready-made Resurrection');
+  assert.ok(/offered: \(\) => \[\.\.\.sbi\.values\(\), \.\.\.\(isOnlinePage\(\) \? \[resurrectionSpell\(\), sharedCartographySpell\(\)\] : \[\]\)\]/.test(modes), 'over the whole of SPELLS.STD - and, online, RESURRECT1\'s ready-made Resurrection and PARTY-MAP\'s Shared Cartography');
   // The popup's onService reads what openServiceFlow RETURNS and
   // answers "not available yet" on a null, so this arm hands the
   // window back as the repair arm does rather than mounting silently.
