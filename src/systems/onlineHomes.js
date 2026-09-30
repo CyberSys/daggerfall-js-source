@@ -361,15 +361,15 @@ const _selling = new WeakMap();
  * (homeRefund) of what the service says was paid, never of a price this client names. `credit(n)` pays it in.
  */
 export async function sellOnlineHome(homes, { mapId, buildingKey, credit, realm = null }) {
-  const key = `${mapId}:${buildingKey}`;
-  let out = _selling.get(homes);
-  if (!out) _selling.set(homes, out = new Set());
-  if (out.has(key)) return { ok: false, error: HOME_SALE_OUT };
-  out.add(key);
+  const house = `${mapId}:${buildingKey}`;
+  let selling = _selling.get(homes);
+  if (!selling) _selling.set(homes, selling = new Set());
+  if (selling.has(house)) return { ok: false, error: HOME_SALE_OUT };
+  selling.add(house);
   try {
     return await sellOut(homes, { mapId, buildingKey, credit, realm });
   } finally {
-    out.delete(key);
+    selling.delete(house);
   }
 }
 async function sellOut(homes, { mapId, buildingKey, credit, realm }) {
