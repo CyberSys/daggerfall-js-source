@@ -56,7 +56,7 @@
 // inventory slice's first job.
 // ═══════════════════════════════════════════════════════════════════
 
-import { getPref } from '../systems/uiPrefs.js';   // PLUS7: getPref, the hover card's switch
+import { getPref, setPref } from '../systems/uiPrefs.js';   // PLUS7: getPref, the hover card's switch; PACK-PHONE: setPref, the phone's Body
 import { USE_PENDING, powersRows, INFO_TEXT_POWERS } from './nativeInventory.js';   // PLUS10: the Info box's powers record
 import { itemInfoRows, questLetterName } from '../systems/itemInfo.js';   // PLUS10: the classic Info popup's own text
 import { magicPowersLines } from '../systems/itemPowers.js';   // PLUS10: %mpw
@@ -3083,6 +3083,16 @@ function render() {
     if (name) title.append(el('span', 'pack-who', name));
     who.append(title);
     head.append(who);
+    // PACK-PHONE (FIELD BUGS 2026-09-30, "we dont really need paperdoll on phone or at least if it could be hidden"):
+    // THE BODY IS A CHOICE ON A PHONE. The sheet hides the figure on a touch phone unless the shell carries `showdoll`,
+    // and draws this button there alone; the choice is the player's own shelf, so the pack opens as it was left.
+    const showDoll = getPref('packPhoneDoll') === true;
+    if (showDoll) shell.classList.add('showdoll');
+    const dollBtn = el('button', 'act dolltoggle', showDoll ? 'Hide body' : 'Body');
+    dollBtn.type = 'button';
+    dollBtn.setAttribute('aria-pressed', String(showDoll));
+    dollBtn.onclick = () => { setPref('packPhoneDoll', !showDoll); render(); };
+    head.append(dollBtn);
     const close = el('button', 'act', 'Close');
     close.onclick = () => onExit();
     head.append(close);
