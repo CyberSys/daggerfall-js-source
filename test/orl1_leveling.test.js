@@ -1107,10 +1107,10 @@ test('ORL1: the choice rides the ONE chargen door, and every apply path answers 
   const cs = rd('src/systems/chargenSession.js');
   assert.match(cs, /return withLevelingChoice\(flow, \{ onDone, onCancel, hudScale \}\);/,
     'createChargenWindow wraps the wizard rather than each host wiring a prompt');
-  assert.match(cs, /initVirtueLeveling\(playerEntity, result\.levelingSystem \?\? LEVELING_CLASSIC\);/,
-    'finishChargen sets the answer beside the DFU level anchor');
-  assert.match(cs, /initVirtueLeveling\(playerEntity, LEVELING_CLASSIC\);/,
-    'and the ?class= skip takes the port\'s own law');
+  assert.match(cs, /initVirtueLeveling\(playerEntity, newCharacterLevelingSystem\(result\.levelingSystem \?\? LEVELING_CLASSIC, \{ online: isOnlinePage\(\) \}\)\);/,
+    'finishChargen sets the answer beside the DFU level anchor (LEVEL-ONLINE: through the one law for a new character)');
+  assert.match(cs, /initVirtueLeveling\(playerEntity, newCharacterLevelingSystem\(LEVELING_CLASSIC, \{ online: isOnlinePage\(\) \}\)\);/,
+    'and the ?class= skip takes the port\'s own law (LEVEL-ONLINE: Oblivion\'s online)');
   // THE FOUR HOSTS, each named at this seam
   for (const host of ['world.js', 'exterior.js', 'worldModes.js', 'dungeonContext.js']) {
     assert.ok(cs.includes(host), `the leveling seam does not name ${host}`);
@@ -1154,9 +1154,9 @@ test('ORL1: the choice and the bar ride the SAVE, not the mod-settings store', (
   for (const f of ['levelingSystem', 'levelProgress', 'levelRollUp']) {
     assert.match(save, new RegExp(`'${f}'`), `${f} is carried by the save`);
   }
-  // a classic import is a classic character
+  // a classic import is a classic character - offline (LEVEL-ONLINE: an online import is a new online character)
   assert.match(rd('src/systems/classicSave.js'),
-    /levelingSystem: LEVELING_CLASSIC, levelProgress: 0, levelRollUp: 0,/);
+    /levelingSystem: newCharacterLevelingSystem\(LEVELING_CLASSIC, \{ online \}\), levelProgress: 0, levelRollUp: 0,/);
   // AND THE CHOICE IS NOT IN THE MOD STORE: that store is per-browser
   // and shared by every character, which is the wrong lifetime for it.
   assert.equal(Object.keys(MOD_SETTINGS[V].keys).includes('levelingSystem'), false);
@@ -1204,9 +1204,10 @@ test('ORL1: the mod ships ON, and a switched-off mod asks nobody', () => {
   assert.equal(oblivionLevelingEnabled(reader()), true);
   assert.equal(oblivionLevelingEnabled(reader({ Enabled: false })), false);
   // ...and with it off the wizard's answer goes straight out, carrying
-  // the port's own law rather than a question nobody was asked.
+  // the port's own law rather than a question nobody was asked - OFFLINE (LEVEL-ONLINE: online the question is
+  // always put, Daggerfall's option shut).
   assert.match(rd('src/systems/chargenSession.js'),
-    /if \(!oblivionLevelingEnabled\(\)\) \{\n\s*return chargenWizard\(flow, \{\n\s*onCancel, hudScale, onDone: \(r\) => onDone\?\.\(\{ \.\.\.r, levelingSystem: LEVELING_CLASSIC \}\),/);
+    /if \(!oblivionLevelingEnabled\(\) && !online\) \{\n\s*return chargenWizard\(flow, \{\n\s*onCancel, hudScale, onDone: \(r\) => onDone\?\.\(\{ \.\.\.r, levelingSystem: LEVELING_CLASSIC \}\),/);
 });
 
 test('ORL1: neither screen claims native geometry it has no source for', () => {

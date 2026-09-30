@@ -950,14 +950,14 @@ does the pack's USE arm.
                         worldModes.js:2430 (the factory) and :1904 (a
                         HAND-ROLLED second one, 342 lines below it in
                         the same file),
-                        dungeonContext.js:1237, world.js:4417,
-                        exterior.js:2615. It is the only window TWO
+                        dungeonContext.js:1252, world.js:4426,
+                        exterior.js:2618. It is the only window TWO
                         enhanced screens already push - the sheet's
                         button and the pack's USE hand-off, whose
                         close-then-hand-over ordering U55 got
                         backwards. No law needs extracting first.
     THE LOGBOOK         THREE sites: charSheetNav.js:53,
-    / NOTEBOOK          world.js:11411, dungeonContext.js:8090. A seam
+    / NOTEBOOK          world.js:11427, dungeonContext.js:8107. A seam
                         wants making, as U52's and U53's did.
     HISTORY             ONE site (charSheetNav.js:61), and it reads
                         only the entity's backStory. The small one.
@@ -4866,7 +4866,7 @@ literal with no duplicates; all 71 display labels match DFU's recovered
 FALL.EXE text exactly; every secondary list matches its DFU array in
 order; the builder is reconstructed on re-entry on both sides, so the
 pick lists reset; a career's flags survive the save round trip (the
-career is spread as plain CFG data, save.js:305,529 - worth checking
+career is spread as plain CFG data, save.js:317,529 - worth checking
 because AUDIT 17h caught exactly this shape dropping player
 reputation); and parseCareerData leaves every numeric field finite and
 unsigned under the maximal fourteen-pick set.
@@ -4877,7 +4877,7 @@ showed up as an obvious bug.
 
 DFU reads `attacker.Career.<group>AttackModifier` for every attacker
 (FormulaHelper.cs:993-1030). The port flattened that byte onto the
-entity, and only the FOE builder ever set it (enemyEntity.js:117). A
+entity, and only the FOE builder ever set it (enemyEntity.js:146). A
 player carries `career` and no flat field, so
 `bonusOrPenaltyByEnemyType`'s null guard returned 0 on every swing.
 That alone would have been enough.
@@ -5641,7 +5641,7 @@ and `questJournal.js` (DaggerfallQuestJournalWindow), both on
 LGBK00I0.IMG - DFU's own choice: in classic your history and your log
 are the same book. Neither needed new state. History reads
 `playerEntity.backStory`, which chargen has composed since U13 and
-`save.js` has round-tripped since; `chargenSession.js:172` names this
+`save.js` has round-tripped since; `chargenSession.js:174` names this
 window in its own comment. The journal reads
 `QuestMachine.getAllQuestLogMessages()` (already verbatim) and
 `PlayerNotebook`, whose module has carried `MAX_LINES_QUESTS` /
@@ -8764,7 +8764,7 @@ window over, and both halves of it were here too.
 IT READ THE NAMES AND THREW AWAY THE NUMBERS. `spellEffects` hands
 back the effect RECORDS, and every one carries `magnitudeBaseLow/High`
 with its per-level step, `durationBase/Mod`, and `chanceBase/Mod` -
-the exact fields systems/effects.js:522-530 reads to resolve a live
+the exact fields systems/effects.js:523-531 reads to resolve a live
 effect. The first draft printed the two names and dropped the rest,
 which is the chronicle's flattened date wearing a different hat. Each
 part now appears only when the effect HAS it, because "0 to 0" is
@@ -8794,7 +8794,7 @@ mutations, 4 dead.
 
 PX24 (Mac: "with the logbook and history, I want them as one detailed
 UI"): THE CHRONICLE. Two classic windows built at four sites -
-questJournal.js from charSheetNav:53, world.js:4868 and
+questJournal.js from charSheetNav:53, world.js:4877 and
 dungeonContext.js, playerHistory.js from charSheetNav:61 - become ONE
 seam (ui/chronicleDoor.js, the U52/U53/PX23 shape a sixth time) and,
 on the enhanced skin, ONE WINDOW.
@@ -9421,7 +9421,7 @@ and firing THAT twice is a second PopToHUD.
 
 ### Why only two of the four hosts crashed
 
-`worldModes.js:7723` and `dungeonContext.js:1854` answer the same
+`worldModes.js:7723` and `dungeonContext.js:1870` answer the same
 `onClose` by nulling their slot and never disposing - nothing to
 re-enter. Only the two hosts that come through `townTalk.closeOverlay`
 dispose. **The four-hosts rule caught this one by accident**: the two
@@ -10674,9 +10674,9 @@ re-resolved the `exterior.js` half of a three-file sentence and left the
 `ExteriorAutomapWindow` construction, `:4101` on a `locationName:`
 field). Both halves are now read by `test/citedrift.test.js` - the
 existing entries only ever captured the exterior number, which is how
-the other half went stale unnoticed. (The rest cite named `world.js:11829`,
+the other half went stale unnoticed. (The rest cite named `world.js:11845`,
 the first of the host's TWO identical `act === 'Rest'` arms; ROAD-H H5
-deleted the second and the cite is `world.js:11835` now.)
+deleted the second and the cite is `world.js:11851` now.)
 
 ## AUDIT 62 F24/F25 - THE SENTINEL SWEEP WAS TWO WINDOWS SHORT (2026-09-07)
 
@@ -15575,9 +15575,9 @@ whether an entry MATCHES and asserts nothing.
 Following it out was worse than the symptom. Five Ledger rows cite a
 PAIR - `` `world.js:N`, `exterior.js:M` `` - and the table captured `M`
 alone. So `M` was re-resolved at every wave for a year and `N` was never
-read: `world.js:9401` named a line that is 8950, `:1536` one that is
+read: `world.js:9416` named a line that is 8950, `:1544` one that is
 1215, `:1094` one that is 2194, `:3903` one that is 3066, `:3920` one
-that is 8907. `world.js:9135-9167` and `dungeonContext.js:1658` were
+that is 8907. `world.js:9150-9182` and `dungeonContext.js:1674` were
 stale the same way. Seven numbers re-resolved BY CONTENT, every
 uncaptured half de-baked to `\d+`, and eight new entries added so every
 number in a pair is captured. The half nobody reads cannot rot in
@@ -16914,7 +16914,7 @@ there; all-max gets the sentence that is true of it.
 The window's own promise is that each attribute line is true of code
 that runs. Willpower cited `questMacros.js:630`, which only PRINTS
 MagicResist for the `%mr` macro - the consumer is `spellcast.js:158`'s
-saving throw. Agility cited `toHitModifier` (formulas.js:118), which is
+saving throw. Agility cited `toHitModifier` (formulas.js:120), which is
 the CHARACTER SHEET's display modifier and is read by chargen's derived
 block and the quest macros and by nothing in the hit roll; the term
 that actually rides a swing is `statsToHit` (:306-307), a tenth of the
@@ -17148,7 +17148,7 @@ says in its own header that a second `--apply` against the same base
 moves every cite AGAIN. Recovering this slice's line shifts by
 reverting the tree except the files it had edited re-created exactly
 that: the kept files still carried the first pass's moves, and the
-second pass moved them a second time - `dungeonContext.js:2733` became
+second pass moved them a second time - `dungeonContext.js:2750` became
 2221 where the line had gone to 2215. The repair is a pairing walk:
 read HEAD's number at the same position in the same file, resolve it
 BY CONTENT in the working tree, and write that. Forty-seven cites came
@@ -17191,7 +17191,7 @@ what it describes.
 **F2 - AN UNSPENT LEVEL SHOUTED ONCE PER REST.** The one that would
 have reached a player. `RaiseSkills`' tail sits OUTSIDE the skill loop
 (:1413) and `checkForLevelUp` stays true for as long as `level` is
-behind the calculated level (`systems/advancement.js:174`, whose own
+behind the calculated level (`systems/advancement.js:208`, whose own
 comment says it "re-offers the sheet"), so EVERY later pass that clears
 the 360-minute gate reaches the level-up arm again. Re-opening a window
 the player must answer is that law and it is right. RE-ANNOUNCING is a
@@ -17321,7 +17321,7 @@ reading the LAB's own window, which the door lane never shuts); and an
 Oghma Infinium read while a level is already owed DOES eat that level's
 `Level++` through `applyLevelUp`'s oghma arm, but `checkForLevelUp`
 re-raises the flag on the next pass because `level` is still behind the
-calculated one - the mechanism `advancement.js:163-169` was written for,
+calculated one - the mechanism `advancement.js:197-203` was written for,
 verified by running it rather than by reading it.
 
 ## PAD1 - THE PAD PASS (2026-09-21)

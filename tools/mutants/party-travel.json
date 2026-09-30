@@ -236,8 +236,8 @@
   {
     "name": "PT-chat-travel-not-host",
     "file": "src/net/chatCommands.js",
-    "old": "'ready', 'leader', 'travel', 'event', 'note']);",
-    "new": "'ready', 'leader', 'event', 'note']);",
+    "old": "'ready', 'leader', 'travel', 'event', 'note', 'mentor']);",
+    "new": "'ready', 'leader', 'event', 'note', 'mentor']);",
     "tests": [
       "test/partytravel.test.js"
     ]

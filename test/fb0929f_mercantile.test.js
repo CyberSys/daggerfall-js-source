@@ -94,8 +94,13 @@ test('MERC-CAP: the purchases the haggle prices past the counter - a room, a cur
   const cure = (m) => cureDiseaseOffer(diseased(m), GUILDS.FightersGuild, null, { quality: 10 }).cost;
   // offline, Daggerfall's own: the 30 nights and the cure at 346 cost under nothing, and deductGold (DeductGoldAmount)
   // pays such a price to the buyer - put to Mac (Field-Bugs-2026-09-29f)
-  assert.ok(room(346) < 0 && cure(346) < 0, `${room(346)} and ${cure(346)}`);
-  assert.equal(cure(346), calculateTradePrice(calculateCost(250, 10), 10, skills(346), false, { online: false }));
+  // SOFTCAP3 (Master Skills): the cure reads the healer's customer through the LIVE skill, which is 100 for an unmastered
+  // Mercantile - so offline the cure at 346 costs what 100 costs, not under nothing. The room is priced off a bare
+  // skills bag (no entity to cap), and still reads Daggerfall's unbounded formula offline.
+  assert.ok(room(346) < 0, `${room(346)}`);
+  assert.equal(cure(346), cure(100));
+  assert.ok(cure(346) > 0, `${cure(346)}`);
+  assert.ok(calculateTradePrice(calculateCost(250, 10), 10, skills(346), false, { online: false }) < 0, 'the raw formula at 346 is still under nothing');
   onlinePage(() => {
     for (const m of [101, 200, 233, 346]) {
       assert.equal(room(m), room(100), `the room at Mercantile ${m}`);
