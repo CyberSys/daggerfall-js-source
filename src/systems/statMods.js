@@ -14,6 +14,7 @@
 // of active mods on that stat, so expiry/heal restores the base
 // cleanly and the raw (permanent) stat is never mutated.
 
+import { mentoredStat } from './mentorMode.js';   // SOFTCAP1: mentor mode's overlay - a leaf, so this file stays cycle-free
 export const STAT_KEYS_ORDER = Object.freeze([
   'strength', 'intelligence', 'willpower', 'agility',
   'endurance', 'personality', 'speed', 'luck',
@@ -34,7 +35,7 @@ export const MAX_STAT_VALUE = 100;
  *  unbounded, as DFU's do. Combat and advancement read THIS, never
  *  the raw base. */
 export function liveStat(entity, statName, skipKind = null) {   // AUDIT SURV-TIERS: `skipKind` leaves one entry kind out - the survival law caps its own entry against the stat WITHOUT it
-  const base = entity.stats?.[statName] ?? 0;
+  const base = mentoredStat(entity, statName, entity.stats?.[statName] ?? 0);   // SOFTCAP1: mentor mode's attribute overlay (a no-op outside it)
   let mod = 0;
   let survival = 0;   // AUDIT SURV-TIERS: the needs' entry, capped below against everything else
   let curse = 0;   // VAMP-DAY: a racial override's PENALTY (the vampire's day), capped below so it never zeroes a stat

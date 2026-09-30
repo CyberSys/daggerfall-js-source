@@ -9367,6 +9367,7 @@ export function createWorldModes(host) {
     topWindow: () => interiorOverlay,
     // The MASTERY box (RaiseSkills :1390-1401) - TEXT.RSC 4020.
     box: (rows) => mountInterior(new ActionTextBox(rows)),
+    ask: (rows, onYes, onNo, opts = {}) => mountInterior(new YesNoBoxWindow({ rows, onYes, onNo, ...opts })),   // SOFTCAP3: the Master Skills box - DFU's Yes/No or OK box (both skins)
     // AUDIT 62 F11: and the loop rides the rest's minutes too, exactly
     // as the outdoor hosts' rest deps do (world.js's twin). TickRest
     // advances the clock in sub-ticks and PlayerEntity.Update consumes

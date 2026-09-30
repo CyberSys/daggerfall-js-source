@@ -623,18 +623,18 @@ test('AUDIT 63 F35: the two-column page is sized and centred for its rows, not c
   const { rects } = drawPage(4);
   const panel = rects[0];
   // 23 misc skills -> ceil(23/2) = 12 lines, and Hand-to-Hand is one
-  // of them, so one more for the damage row: 13 * 9 + 14 = 131.
-  assert.equal(panel.h, 131, 'the panel holds every line');
+  // of them, so one more for the damage row, and SOFTCAP3's Master Skills row under it: 14 * 9 + 14 = 140.
+  assert.equal(panel.h, 140, 'the panel holds every line');
   assert.equal(panel.w, 246, "DFU's own 136 column pitch plus a column of text");
   assert.equal(panel.x, Math.floor((320 - 246) / 2), 'centred, as the message box is');
-  assert.equal(panel.y, Math.floor((200 - 131) / 2));
+  assert.equal(panel.y, Math.floor((200 - 140) / 2));
 
   // pages 1-3 keep the single-column, sheet-anchored plate
   const p1 = drawPage(1).rects[0];
   assert.equal(p1.w, 130);
   assert.equal(p1.x, 8);
   assert.equal(p1.y, 100);
-  assert.equal(p1.h, 3 * 9 + 14, 'three primary skills, three rows - no H2H in this group');
+  assert.equal(p1.h, 4 * 9 + 14, 'three primary skills, three rows - no H2H in this group - and the Master Skills row (SOFTCAP3)');
 });
 
 test('AUDIT 63 F34: the hand-to-hand damage line, on the group that holds the skill (:283-284, :309-318)', () => {
@@ -654,7 +654,7 @@ test('AUDIT 63 F34: the hand-to-hand damage line, on the group that holds the sk
   const e2 = sheetEntity();
   e2.career = { ...CAREER, primarySkills: [SKILLS.HandToHand, SKILLS.Axe, SKILLS.CriticalStrike] };
   const moved = drawPage(1, e2).rects[0];
-  assert.equal(moved.h, 3 * 9 + 14 + 9, 'the line follows the skill onto the primary page');
+  assert.equal(moved.h, 4 * 9 + 14 + 9, 'the line follows the skill onto the primary page');
   const misc2 = drawPage(4, e2).rects[0];
   assert.equal(misc2.h, withHth - 9, 'and leaves the misc page, which is a line shorter');
 

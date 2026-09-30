@@ -78,6 +78,7 @@ export const BOUNTY_REFUSALS = Object.freeze({
  *   regionAt?: (px:number, py:number) => number,   // REP4: the board's region, for the law's thanks
  *   siteOk: (x:number, y:number) => boolean, // may a pack stand on this map pixel
  *   dungeonAt?: (x:number, y:number) => (string|null),   // the game's own dungeon on this pixel, by name
+ *   graveyardAt?: (x:number, y:number) => (string|null),   // GRAVEYARD-BOUNTY: the graveyard on this pixel, by name - its hunt stands outside it
  *   playerPixel: () => ({x:number, y:number} | null),     // outdoors: my pixel; elsewhere null
  *   dungeonPixel?: () => ({x:number, y:number} | null),   // in a dungeon: its entrance's pixel; elsewhere null
  *   canStand: () => boolean,                 // outdoors, awake, not on a journey, not in the water

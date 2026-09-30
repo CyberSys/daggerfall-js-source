@@ -169,6 +169,10 @@ import { intermittentEnemySpawn, setEnemyAlert, areEnemiesNearby, foeHostile } f
 import { createStandingWatch, installLegalNotices } from './standingHost.js';   // REP1: the watch's stop; REP5: the law's notices
 import { SPAWNER_ARMS } from '../systems/encounters.js';   // SURV6: the hunt's beast stands on the wilderness arm
 import { skillValue } from '../systems/skills.js';   // SURV6: the hunter's four skills
+import { refreshMentor, mentorStatusText, effectiveLevel } from '../systems/mentorMode.js';
+import { setMasterSkillsGate, MASTER_SKILLS_DUNGEON_TEXT } from '../systems/masterSkills.js';   // SOFTCAP3
+import { isOnlinePage } from '../systems/onlineLane.js';   // SOFTCAP3: Master Skills is online only
+// SOFTCAP1: mentor mode, the party's overlay
 import { inflictDisease } from '../systems/diseases.js';   // SURV6: a foul pool's water
 import { createHunting } from './hunting.js';   // SURV6: hunting, foraging and the water search as real-time events
 import { createForagingWait } from './foragingWait.js';
@@ -262,7 +266,7 @@ import { createLoadGovernor, unbuiltAround } from '../systems/travelGovernor.js'
 import { threatCap } from '../systems/travelThreat.js';   // OW6: the journey slows as enemies close
 import { farPlaces, settlementPixels, farDistanceText, PIXEL_KM } from '../systems/travelFarPlaces.js';   // TV5: the far places, held at the view's edge
 import { dungeonRows, spawnedPixels, filedSpawns, nearDungeons, dungeonApproach, pixelBox, lastLegStart, dungeonToFind, dungeonFoundText, NATIVE_PER_M } from '../systems/travelDungeons.js';   // TV6: the dungeons, discovered on approach; AUDIT OW3 D1/D3: off the map rows, and the spawns with them; AUDIT OW4 D4/D6: the far found spawns, the last leg's start
-import { routeGround, joinPoint, routeDrawPoints } from '../systems/travelRoute.js';   // OW-MOUNTAINS, OW-ROADSIDE; AUDIT OW3 J4: the drawn route's points; AUDIT OW4 J3: the ground read once
+import { routeGround, joinPoint, routeDrawPoints, TV_MOUNTAIN_CLIMATE } from '../systems/travelRoute.js';   // OW-MOUNTAINS, OW-ROADSIDE; AUDIT OW3 J4: the drawn route's points; AUDIT OW4 J3: the ground read once
 import { bandsNear, wanderAt, bandSight, bandChaseStep, bandLabel, bandMakeSeed, bandSizeOf, bandLevelOf, BAND_LIFE_MS, BAND_CONTACT_M, BAND_CHASE_MPS, BAND_STAND_M, BAND_STAND_MIN_M, BAND_STAND_RETRY_MS, BAND_STAND_TRIES } from '../systems/travelBands.js';   // TV7: the roaming bands; OW6: their number and their level
 import { bandWordOf, validBandWord, chaseYields, bandLifeOf, bandNearMe, bandPixelOf, BAND_WORD_MS, BANDS_WIRE_MAX } from '../systems/travelBands.js';   // TV7b: the chase, shared
 import { walkBegin, leaderWalkStep, walkHeard, memberAnswer, memberFollowing, memberStopOf, memberWalkStep, walkAskStands, sameWalkDest, NO_WALK_ANSWER, PARTY_WALK_RADIUS_M } from '../systems/partyWalk.js';   // TV8: group travel, the leader drives (AUDIT OW3: the whole law, pure)
@@ -6960,6 +6964,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // X-slice: the encounter-foe pool - S32's above-ground arms go
   // LIVE. Same damage door shape as the guards; no crime machinery.
   const exteriorFoes = createExteriorFoes({
+    inLocation: () => _musicInLocationRect(),   // SOFTCAP5: only the wilderness scales its foes (towns and cities never)
     renderer, collider, fetchBytes, getTexture, uploadRecordFrame, playerEntity, audio, hitEffects,
     playerWeaponSheathed: () => !!weaponRig.playerWeapon.sheathed,   // AUDIT 24 (wave 42): pacification's drawn-weapon penalty
     currentMinute: () => Math.floor(playerTicker.ownMinutes),
@@ -7066,7 +7071,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         // tables roll, day and night.
         inLocationRect: _musicInLocationRect(),
         climateIndex: maps.getClimateIndex(playerTravelPixel().x, playerTravelPixel().y),
-        playerLevel: playerEntity.level,
+        playerLevel: effectiveLevel(playerEntity),   // SOFTCAP2: mentor mode - the group's encounters
       });
       if (hit && _rollsForGroup) {   // PSCALE1: a roll that is not the group's stands nothing - the group's roller stands it for everyone
         // RE1: DFU's own placement. This used to walk eight compass
@@ -8594,6 +8599,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // click-anywhere box when a primary skill lands on 100. Same
     // overlay slot the rest window has just vacated.
     box: (rows) => townTalk.showOverlay(new ActionTextBox(rows)),
+        ask: (rows, onYes, onNo, opts = {}) => townTalk.showOverlay(new YesNoBoxWindow({ rows, onYes, onNo, ...opts })),   // SOFTCAP3: the Master Skills box - DFU's Yes/No or OK box (both skins)
     // U48: the ENCOUNTER catch-up rides INSIDE the advance. This host
     // is the only one with a mobile foe pool to spawn into, and its
     // frame body returns at the overlay gate - so left to the frame, a
@@ -10043,6 +10049,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         // arrival raise owes it exactly as the rest-end raise does.
         lines: (id) => townTalk.lines(id),
         box: (rows) => townTalk.showOverlay(new ActionTextBox(rows)),
+        ask: (rows, onYes, onNo, opts = {}) => townTalk.showOverlay(new YesNoBoxWindow({ rows, onYes, onNo, ...opts })),   // SOFTCAP3: the Master Skills box - DFU's Yes/No or OK box (both skins)
         onLevelUp: () => announceLevelUp(playerEntity, {   // LV2: the arrival raise takes the same fork as the other two
           say: (m) => townTalk.say(m),
           open: () => townTalk.showOverlay(makeCharSheetWindow()),
@@ -15015,6 +15022,12 @@ export async function bootWorld(canvas, renderer, params, status) {
         // expires PARTY_READY_TIMEOUT_MS after it was cast (checked every
         // frame in partyRestFollowTick, which already runs unconditionally),
         // so the next rest always needs its own fresh round of /ready.
+        // SOFTCAP1: `/mentor` - what mentoring is doing right now. There is no switch: a party well below my level
+        // makes me its mentor automatically (systems/mentorMode.js)
+        if (/^\/mentor$/i.test(text.trim())) {
+          chatLog.push(tabId, { text: mentorStatusText(playerEntity), system: true });
+          return true;
+        }
         if (/^\/ready$/i.test(text.trim())) {
           // AUDIT PARTY-REST (2026-09-23): the chat's vote keeps the Rest key's own law (PARTY-REST26) - a member
           // answers the leader's round and never opens one - and is stamped on the SHARED clock: `readyAt` rides
@@ -16126,6 +16139,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // fired (or it has fully expired - see partyRestGate itself for where this is set) - never the current
       // moment; broadcasting "now" every pose would make every tab look like an ongoing vote forever.
       voteAt: Number.isFinite(_partyRestGateRefusedAt) ? _partyRestGateRefusedAt : null,
+      cl: playerEntity.level ?? 1,   // SOFTCAP1: my REAL level, so a mentor in my party can play at it (net/wire.js validPartyPose `cl`)
       // PARTY-REST19 (2026-09-22, per-request: "An non initiator MUST cancel the rest for all if he cancels
       // the ongoing resting"): stamped by a follower's own Stop click (partyRestMirrorDeps' `onManualStop`),
       // naming the ONE account they were mirroring - broadcast unconditionally, like restEnemyAt above, so
@@ -17420,7 +17434,20 @@ export async function bootWorld(canvas, renderer, params, status) {
     // what I walk now, for the next step's reading - AFTER the party's halt, so its stop is never taken for mine
     _walkWas = walkJourneying() && memberFollowing(_walkMine, tw) && sameWalkDest(tw, walkDestLive(), true);
   }
+  // SOFTCAP3: Master Skills may not change inside a dungeon - its foes were scaled (or not) as they spawned
+  setMasterSkillsGate(() => ((modes?.mode ?? 'exterior') === 'dungeon' ? MASTER_SKILLS_DUNGEON_TEXT : null));
   const partyFrame = (nowMs) => {
+    playerEntity._online = isOnlinePage();   // SOFTCAP3: Master Skills is in force only online (systems/masterSkills.js)
+    // SOFTCAP1: MENTOR MODE follows the party every frame - the other members'
+    // levels off their poses (`cl`; a relay from before world131 strips it and
+    // mentoring simply stays off), none at all when I am in no party, so
+    // leaving the group hands my real character back the same frame.
+    const mentorLevels = social?.party ? social.others().filter((m) => m.online !== false && Number.isInteger(m.p?.cl)).map((m) => m.p.cl) : [];
+    const mentorWord = refreshMentor(playerEntity, mentorLevels);
+    if (mentorWord) {
+      const text = mentorWord === 'on' ? mentorStatusText(playerEntity) : 'Mentoring ended - your real level, skills, attributes and gear are back.';
+      try { chatLog.push(chatLog.active, { text, system: true }); } catch { /* no chat yet: the sheet says it too */ }
+    }
     if (!social) return;
     // AUDIT SOC B7: the HUB LINK's clock - its welcome carries the relay's `now` (AUDIT SOC B7, server side), and it is
     // the link whose stamps (last seen, an invite's lapse) the picture reads; the presence session's stands in for a
@@ -22160,7 +22187,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         const chunkCampHits = rollCampEncountersOnChunkLoad({
           inside: false, inLocationRect: _inAnyLocationRect(walkMode ? player.pos : cam.pos),   // DISC19-F: the pixel just entered, not the one syncTopics last resolved
           climateIndex: maps.getClimateIndex(r.current.x, r.current.y),
-          playerLevel: playerEntity.level,
+          playerLevel: effectiveLevel(playerEntity),   // SOFTCAP2
           // CAMP-SEA (2026-09-26, SquidKamer: "I jumped in last night and it summoned an army of everything"): the deep's
           // own suppression and the lone roll's swim gate, asked HERE - the frame's flag is written after this crossing and
           // cleared before the next, so this read `false` at sea every time and stood land camps on the carved seabed
