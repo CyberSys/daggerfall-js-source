@@ -504,6 +504,8 @@ export function createNavalHost(deps) {
    *  collector, point, at, said } - and my answers on mine - raw id -> { to, at }. */
   const claims = new Map();
   const granted = new Map();
+  /** KEEP-PLUNDER: the casks of the ships I sank, by floater id - the ones stowPlunder hauls in before the sea goes. */
+  const myCasks = new Set();
   /** AUDIT NAV1 (online): each peer's own word of themselves - owner -> { law: { crown: notoriety }, me: their boat's
    *  { hull, crippled, boarders } | null } - the captains I stand judge each player by their own. */
   const peerSelf = new Map();
@@ -828,7 +830,9 @@ export function createNavalHost(deps) {
     // her lots that float free
     for (const key of flotsamKeys(s.cls, s.seed)) {
       const a = random() * Math.PI * 2, r = 6 + random() * 10;
-      shots.dropFlotsam({ id: String(u32()), pos: [s.pos[0] + Math.sin(a) * r, deps.seaY(), s.pos[2] + Math.cos(a) * r], lot: key, from: s.cls.id });
+      const id = String(u32());
+      shots.dropFlotsam({ id, pos: [s.pos[0] + Math.sin(a) * r, deps.seaY(), s.pos[2] + Math.cos(a) * r], lot: key, from: s.cls.id });
+      if (by === myId()) myCasks.add(id);   // KEEP-PLUNDER: a ship I sank - her casks are mine to stow if the sea goes first
     }
     if (by === myId()) chargePlayer('sink', entry);
   }
@@ -2091,6 +2095,35 @@ export function createNavalHost(deps) {
     for (const it of left) hold.push(it);
     return { taken: all.length - left.length, left: left.length, where: boat ? 'hold' : 'pack' };
   }
+  /**
+   * KEEP-PLUNDER (2026-09-30, Mac: ship ownership "less punishing" - "Keep boats & cargo"): the sea is never a save's,
+   * and a transition or a fast travel empties it (clear) - a prize whose hold was not yet emptied and the casks of the
+   * ships I sank went with it. Before it goes, my crew stows them: a prize's hold into the boat that took her (her
+   * captor gone from the world: the helm's boat, else the pack as far as it carries - takeInto), a cask of mine into
+   * the helm's boat or the one of mine nearest it. A scuttled prize's hold goes down with her (her casks float); a
+   * cask another player's sea floats, or one another ship sank, is not mine. The host skips a load (the loaded save's
+   * own hold stands). Answers the tally, said once.
+   */
+  function stowPlunder() {
+    if (!enabled) return { items: 0, prizes: 0, casks: 0 };
+    let items = 0, prizes = 0, casks = 0;
+    const standing = myBoats();
+    for (const e of sea.values()) {
+      const pz = e.prize;
+      if (!pz?.hold?.length || pz.fate === 'scuttle') continue;
+      const r = takeInto(pz.hold, standing.includes(pz.boat) ? pz.boat : myBoat());
+      if (r.taken) { items += r.taken; prizes++; }
+    }
+    for (const f of shots.floaters().filter((o) => o.kind === 'flotsam' && !o.owner && myCasks.has(o.id))) {
+      const got = deps.hold?.(f.lot, holdTier(classById(f.from))) ?? [];
+      const r = got.length ? deps.board?.giveItems?.(got, myBoat() ?? nearestBoat(f.pos)) ?? { left: got } : { left: [] };
+      shots.removeFloater(f.id);
+      casks++;
+      items += got.length - (Array.isArray(r.left) ? r.left.length : 0);
+    }
+    if (items) deps.say?.(`Your crew stows the plunder left at sea (${items} ${items === 1 ? 'thing' : 'things'}).`, 3);
+    return { items, prizes, casks };
+  }
   /** The boat of mine nearest a place, within COLLIDE_RANGE - the one a prize taken on foot answers to. */
   function nearestBoat(pos) {
     let best = null, bestD = COLLIDE_RANGE;
@@ -3103,6 +3136,7 @@ export function createNavalHost(deps) {
     gunfire = [];   // AUDIT NAV2 F8: the guns heard go with the sea they were fired on
     harbours.clear(); grids = new Map();   // SHIP-LIFE: found again, and their ships stood again, where the world is next
     claims.clear(); granted.clear();
+    myCasks.clear();   // KEEP-PLUNDER
     seenVolleys.clear();
     flashes.length = 0;
     aiming = false; aim = null; aimHit = null; heaveTo = null; wayIn = [];
@@ -3140,7 +3174,7 @@ export function createNavalHost(deps) {
   }
 
   return {
-    frame, attackInput, cancelAim, holdFire, activate, hudModel, drawFrame, lights, offsetAll, clear, aimEye, wayScale, sailRefused, brake,
+    frame, attackInput, cancelAim, holdFire, activate, hudModel, drawFrame, lights, offsetAll, clear, stowPlunder, aimEye, wayScale, sailRefused, brake,
     word, applyWord, sweepOwners, applyPeerHit, dropOwner, clearPeers,
     /** AUDIT NAV2 F3/F9: another player's boat at sea as their word says her - her crew's share and whether she
      *  fights (her crew at battle on every screen) - or null (no word, or an older build's). */

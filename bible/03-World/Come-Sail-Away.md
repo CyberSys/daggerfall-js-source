@@ -2149,6 +2149,14 @@ own (`systems/csaBoatMenu.js`, pure):
   her buckets (`csaStandsOn`, the aboard word's own test). Another player's boat keeps CSA-K's press (the ladder boards
   it, the rest say whose it is). Pins: `test/boatmenu.test.js`; `tools/mutants/boatmenu.json`.
 
+## A boat left in a dungeon is kept (KEEP-BOATS, 2026-09-30 - DECLARED)
+
+`Compatibility.PersistentDungeonBoats` ships off in the mod, and off, UpdateBoatVisibility destroys a boat placed
+indoors or underground once the player is back outside: a packable boat and its hold are gone for good, and a crewed
+one comes back from its deed with an empty hold. On Mac's ask that ship ownership be *"less punishing"* the port ships
+the key ON (`systems/modSettings.js`); the player can still turn it off. `test/csa_registration.test.js` DEPARTED;
+`03-World/Naval-Combat.md` KEEP-PLUNDER is the other half.
+
 ## What was already waiting in the port
 
 - Iliac Puddle No More's swim stands down on a boat

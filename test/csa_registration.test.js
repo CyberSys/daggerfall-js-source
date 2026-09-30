@@ -40,6 +40,10 @@ test('CSA-A: the vendored manifest is the bundle\'s own - the title, version, au
     '5ffe546383201ec9faf1442f521599122fd33103cfc0ec8acbffc10354e2bdf5', 'the assembly is the bundle\'s, byte for byte');
 });
 
+/** The shipped defaults the port moves, each a DEPARTURE recorded where it is declared (systems/modSettings.js):
+ *  KEEP-BOATS (2026-09-30) keeps a boat placed in a dungeon, and her hold, when the player leaves it. */
+const DEPARTED = Object.freeze({ 'Compatibility.PersistentDungeonBoats': true });
+
 test('CSA-A: every shipped key is declared - its section and name joined with a dot, its kind, range, default and options as shipped, the six descriptions the mod wrote verbatim - and nothing else is, but the port\'s Enabled (mutants: a default moved, a key dropped)', () => {
   assert.equal(DEF.title, 'Come Sail Away');
   assert.equal(DEF.author, 'RedRoryOTheGlen');
@@ -54,7 +58,7 @@ test('CSA-A: every shipped key is declared - its section and name joined with a 
       const d = DEF.keys[name];
       assert.ok(d, `${name} is declared`);
       switch (kind(k)) {
-        case 'ToggleKey': assert.equal(d.default, k.Value, name); break;
+        case 'ToggleKey': assert.equal(d.default, name in DEPARTED ? DEPARTED[name] : k.Value, name); break;
         case 'TextKey': assert.equal(d.text, true, name); assert.equal(d.default, k.Value, name); break;
         case 'SliderIntKey': assert.deepEqual([d.default, d.min, d.max, !!d.float], [k.Value, k.Min, k.Max, false], name); break;
         case 'SliderFloatKey': assert.deepEqual([d.default, d.min, d.max, d.float], [k.Value, k.Min, k.Max, true], name); break;

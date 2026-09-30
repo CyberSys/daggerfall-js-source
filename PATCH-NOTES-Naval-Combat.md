@@ -289,3 +289,8 @@ A deep audit of everything above. The highlights:
 - **Your old habits still work.** Looking right at the helm, the chest or the ladder lights that option first, so a single press does what it always did. In Steal mode the helm lights "Pick up".
 - **No more guessing why.** An option you can't use right now is shown with the reason, such as "Pick up (at her helm)" or "Pick up (passengers aboard)". Ships from a deed can't be picked up.
 - **On a phone, or with the classic interface,** tap the boat's hull to get the same options as a list.
+
+## Owning a ship, less punishing (2026-09-30)
+
+- **Your plunder no longer vanishes.** If you sail off, fast travel or go through a door before emptying a captured ship's hold, or before picking up the floating casks from a ship you sank, your crew stows it all in your hold first. (Casks from ships someone else sank are still theirs.)
+- **Boats left in dungeons stay.** A boat you place indoors or underground is now kept when you leave, along with everything in its hold. Before, it was destroyed and its cargo lost. You can turn this back off in Come Sail Away's settings (Compatibility).

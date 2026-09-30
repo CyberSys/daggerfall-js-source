@@ -1185,6 +1185,30 @@ Not built: fishing boats (no fishing class exists), a harbour's own lights and q
 no berth, and a voyage's port-to-port route beyond the loaded terrain (the water is only known where the world is).
 Pins: `test/shiplife.test.js` (11). Mutants: `tools/mutants/shiplife.json` (32).
 
+## KEEP-PLUNDER and KEEP-BOATS (2026-09-30) - nothing of the player's goes with the sea
+
+Mac: ship ownership *"less punishing"*, and of the choices put to him, *"Keep boats & cargo"*. The sea is never a
+save's, and a transition, a jump or a fast travel empties it (`scenes/navalHost.js clear`). Two things the player had
+won went with it: a prize's hold not yet emptied, and the casks of the ships the player sank.
+- **The crew stows them first** (`stowPlunder`). A prize's hold goes into the boat that took her through the prize
+  window's own `takeInto`; if her captor no longer stands in the world it goes to the helm's boat, else into the pack
+  as far as the pack carries. A cask goes into the helm's boat, or the player's boat nearest it, its lot drawn as a
+  cask hauled in by hand is. The tally is said once ("Your crew stows the plunder left at sea (N things).").
+- **Only what was the player's.** A scuttled prize keeps her hold, since she goes down and her casks float. A cask of
+  a ship another player or the sea's own fight sank is not the player's: the host keeps the ids of the casks floated
+  by the ships the player sank (`myCasks`, `onSinking`).
+- **Where it runs** (`scenes/world.js navalStow`): ahead of Come Sail Away's own transition in every one of the four
+  transition hooks, while the boats still stand; before a jump's `csaOnTeleport`; and before a fast travel's
+  `OnPreFastTravel`, so the stowed hold is packed with her. It never runs on a load, where the loaded save's hold is the
+  one that stands.
+- **A boat left in a dungeon is kept** (`systems/modSettings.js`, DECLARED). The mod's
+  `Compatibility.PersistentDungeonBoats` ships off: a boat placed indoors or underground was destroyed once the player
+  was back outside, a packable one and its hold for good, and a crewed one's hold with it. The port ships the key ON; it
+  stays the player's switch. `test/csa_registration.test.js` names it among the DEPARTED defaults.
+
+Pins: `test/keepplunder.test.js` (the real host's prize and sinkings, the world's wiring, the default).
+`tools/mutants/keepplunder.json`: 12 mutants, all dead.
+
 ## The tests
 
 One suite a slice - `test/nav_a_guns.test.js` (the flight, the aim, the volley, the reload, a ball's hurt, a ship's
