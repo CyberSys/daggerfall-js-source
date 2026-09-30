@@ -32,6 +32,7 @@ import { seasonValue, SEASONS, dateFromClassicMinutes, lunarPhasesFromMinutes, L
 import { placeFoeFreely } from '../systems/quest/sceneMount.js';   // B1: CreateFoe's raycast ring
 import { placeFoeEnv, entityOccupancy, heldSpots, holdSpotWhile } from './questFoeHost.js';   // QUEST-WAVE: the held spots' one home
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';
+import { sparedByPlayer } from '../combat/friendlyFire.js';   // AUDIT NAV2 F55: who the drain passes by
 
 /** The law REFUSES a spot DFU would have rejected - no floor under it,
  *  something already there, too close to the wall the ray found - and
@@ -212,7 +213,13 @@ export function createEnchantCtx({
           // (SanguineRoseEffect.cs:47-48, SkullOfCorruptionEffect
           // .cs:47-48), so your own standing summons never count.
           team: f.entity?.team ?? 'PlayerEnemy',
-          hurt: (n) => foeSinks(f).hurt?.(n),
+          // AUDIT NAV2 F55: whether the player's own harm passes this
+          // body by (combat/friendlyFire.js - a town's defender, a
+          // shipmate): the vampiric drain skips it, the scans count it
+          // as ever. And the drain's word rides to the host's sink - it
+          // is no attack of the player's.
+          spared: sparedByPlayer(f),
+          hurt: (n, o) => foeSinks(f).hurt?.(n, o),
         }));
     },
     // SD1: the two SPAWN arms - SoulBound's break release and the
