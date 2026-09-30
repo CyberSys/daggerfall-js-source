@@ -1659,6 +1659,7 @@ export async function bootExterior(canvas, renderer, params, status) {
   const cityGuards = createCityGuards({
     renderer, collider, fetchBytes, getTexture, uploadRecordFrame, playerEntity, audio, hitEffects,
     playerWeaponSheathed: () => !!weaponRig.playerWeapon.sheathed,   // AUDIT 24 (wave 42): pacification's drawn-weapon penalty
+    fightHere: () => areEnemiesNearby([...cityGuards.guards, ...exteriorFoes.foes]),   // PROTECT-FIGHT: world.js's twin
     say: (l) => townTalk.say(l),   // C-slice: equipment breaks speak
     currentMinute: () => Math.floor(playerTicker.ownMinutes),   // AUDIT 23 (hosts-3): a guard's poison anchors at NOW, not 0
     makeAreaHostile: _makeEnemiesHostile,   // ROAD-G G1: DaggerfallEntityBehaviour.cs:255-258 - a struck PASSIVE watchman turns the area
@@ -1773,7 +1774,9 @@ export async function bootExterior(canvas, renderer, params, status) {
   const rrRiding = createRrRidingContacts({
     playerEntity,
     feet: () => player.pos, yaw: () => cam.yaw,
-    livePersons: () => _livePersons, foes: () => exteriorFoes.foes, guards: () => cityGuards.guards,
+    // PROTECT-FIGHT: the trample asks world.js's rule of the walkers and the defenders (RAID-GUARDS, RAID-GUARDS-NPC)
+    livePersons: () => _livePersons.filter((seat) => !cityGuards.playerSparesPerson(seat.person)),
+    foes: () => exteriorFoes.foes, guards: () => cityGuards.guards.filter((g) => !cityGuards.playerSpares(g)),
     isGuardRecord: (f) => cityGuards.guards.includes(f),
     splashBlood: (pos, fwd) => hitEffects.showBloodSplash(0, pos, fwd, LETHAL_HIT),
     playClip: (clip, volume) => audio.playOneShot(clip, volume),

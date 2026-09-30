@@ -170,6 +170,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
   makeAreaHostile = null,
   playerWeaponSheathed = () => false,   // AUDIT 24 (wave 42): CalculateEnemyPacification's -25 / +10 arm
   raidHere = () => false,   // RAID-GUARDS: is a raid on in the town the player stands in (raidingParties.js raidDefendingHere)
+  fightHere = () => false,   // PROTECT-FIGHT: is the player in a fight - GameManager.AreEnemiesNearby over the street's pools (encounters.js)
   // AUDIT 63 F42 (review round): exteriorFoes' dep to the line
   // (exteriorFoes.js), for the same reason and at the same mount.
   // ObstacleCheck's `GetComponent<DaggerfallActionDoor>()`
@@ -1189,12 +1190,19 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
    *  every defender into the crime watch the next frame (update's enlist), which is how one stray swing in a raid
    *  became a squad to kill and a Halt to pay. While a raid is on here the player's blows pass such a guard by, as
    *  they pass a defender (Mac: "Raids shouldnt let you damage the guards") - and a townsperson too (Mac, on 29g's
-   *  first draft: "Spare townspeople in raid"): no Murder, the squad still the player's. No raid, DFU's rule. */
+   *  first draft: "Spare townspeople in raid"): no Murder, the squad still the player's. No raid, DFU's rule.
+   *  PROTECT-FIGHT (FIELD BUGS 2026-09-30, "Protect bystanders needs to work again - lost rep for no reason"): AND UNDER
+   *  THE PROTECTION, IN A FIGHT. The setting the menu calls Protect Bystanders is DFU's MeleeAttackFriendlyProtection,
+   *  which spares a pacified foe and an ally and never a townsperson - so a swing at a foe just past the reach landed on
+   *  the townsperson on the look ray: Murder (-20 legal) or, a walking guard, Assault and the watch. While enemies are
+   *  near (the rest's own AreEnemiesNearby, `fightHere`) the protection passes the street's walkers by as a raid does;
+   *  with none near, a blow at a townsperson is meant - a vampire's feeding, the Brotherhood's count - and DFU's rule
+   *  stands, as it does with the protection off. A declared departure (Port-Ledger A). */
   /** AUDIT 29g: what resolveCivilianHit answers when the swing STOPPED on a spared body - not `false`, which the hosts
    *  read as a swing that met nobody and hand to the door behind him (a bash, and in town a break-in). */
   const SWING_SPARED = Object.freeze({ spared: true });
   function playerSparesPerson(person) {
-    return !!person && !!raidHere();
+    return !!person && (!!raidHere() || (getBool('MeleeAttacks', 'MeleeAttackFriendlyProtection') && !!fightHere()));
   }
 
   /** The player's swing resolves against live guards (the dungeon's
