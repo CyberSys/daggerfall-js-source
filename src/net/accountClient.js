@@ -343,6 +343,10 @@ export const REFUSALS = Object.freeze({
   'commission-piece': 'That piece is not what the commission asks.',
   'commission-not-made': 'A commission is filled with a piece of your own make.',
   'commission-worn': 'A commission is new work: that piece is worn.',
+  // HOME-CROSSED (FIELD BUGS 2026-09-30): a home customs carried in - RESTORE's words for a crossed deed
+  // (systems/onlineHomes.js HOME_CROSSED_LINES, pinned equal), and a realm act asked while the last is still out
+  'home-crossed': 'That came into the realm through customs. The bank of the Empire does not buy it back. It stays your home.',
+  busy: 'Your last dealing with the realm is still being settled. Try again in a moment.',
   server: 'The account service had a problem. Try again.',
   offline: 'Could not reach the account service. Check your connection.',
   maintenance: 'The account service is being looked after for a minute. Try again shortly.',   // RESTORE: the history restore's minute
