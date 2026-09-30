@@ -111,7 +111,8 @@ test('AUDIT REP F7: an invisible criminal is nobody\'s face - the witness arm\'s
 });
 
 test('AUDIT REP F3: no stop in a fight - a foe that sees the player, or a duel, holds the watch on both street hosts (mutant: the fight not a block)', () => {
-  assert.match(src('src/scenes/world.js'), /blocked: \(\) => townTalk\.overlayActive \|\| !!modes\?\.overlayHeld \|\| !!travelView\?\.active \|\| !!raidDefendingHere\(\)\n\s*\|\| duelEnemyNear\(\) \|\| areEnemiesNearby\(exteriorFoes\.foes\),/);
+  // AUDIT NAV2 F10: PIN MOVED - the sea fight's arms follow the foot fight's (the world host alone has a sea)
+  assert.match(src('src/scenes/world.js'), /blocked: \(\) => townTalk\.overlayActive \|\| !!modes\?\.overlayHeld \|\| !!travelView\?\.active \|\| !!raidDefendingHere\(\)\n\s*\|\| duelEnemyNear\(\) \|\| areEnemiesNearby\(exteriorFoes\.foes\)[,\n]/);
   assert.match(src('src/scenes/exterior.js'), /blocked: \(\) => townTalk\.overlayActive \|\| !!modes\?\.overlayHeld \|\| areEnemiesNearby\(exteriorFoes\.foes\),/);
 });
 

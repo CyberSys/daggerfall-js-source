@@ -142,7 +142,7 @@ import { drawPixelGround } from './pixelGround.js';
 // Both are plain modules with no game data; the boot door never
 // renders the tab, so the front door still reads no game state.
 import { sheetModel } from './enhancedCharSheet.js';
-import { profPagesShown, PROF_PAGE_SECTIONS, drawProfessionsPage, drawStoresPage, resetProfPages } from './profPages.js';   // PROF1: the Professions and Stores pages, online
+import { profPagesShown, PROF_PAGE_SECTIONS, drawProfessionsPage, drawStoresPage, resetProfPages, profActUnderWay, setDownProfAct } from './profPages.js';   // PROF1: the Professions and Stores pages, online
 import { affiliations } from '../systems/affiliations.js';
 import { legalRepOf } from '../systems/court.js';   // REP5: the law, region by region
 import { banishmentLeft, KNOWN_CRIMINAL_BELOW, pardonPrice, challengeFine } from '../systems/standing.js';
@@ -4266,7 +4266,7 @@ function render() {
   // nulls `app`). A screen that is gone has nothing to paint; the repaint after it was the crash, on every exit
   // through the confirm.
   if (!app) return;
-  repaintKeepingScroll(app, () => renderInto());
+  repaintKeepingScroll(app, () => renderInto(), { focus: true });   // AUDIT 32 P3: the focus and the caret too
 }
 
 /** The rebuild. Wrapped for the reason the wizard's is: the settings
@@ -4460,6 +4460,8 @@ function onKey(e) {
   // the door, so the one press that means "not that" must close IT
   // rather than walk the screen out from under it.
   const back = accountOpen ? () => { accountOpen = false; render(); }
+    // AUDIT 32 P12: an act under way on the Stores page is set down first (nothing spent, said) - never the window
+    : profActUnderWay() ? () => { setDownProfAct(); render(); }
     : confirming ? () => { confirming = null; render(); }
     : sheetOpen ? () => { sheetOpen = false; render(); }
       : controlsPromptOpen() ? () => dismissControlsPrompt()   // AUDIT KB1: the Controls pane's own prompt answers No first - it never leaves the section with the staged binds

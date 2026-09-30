@@ -38,7 +38,7 @@
   {
     "name": "NAV1O-dropped-at-once",
     "file": "src/scenes/navalHost.js",
-    "old": "      if (heir) adopt(e);\n      else e.orphan ??= clock;",
+    "old": "      if (heir) { adopt(e); adopted.push(e); } else e.orphan ??= clock;",
     "new": "      letGo(e);",
     "tests": [
       "test/navaudit_online.test.js",
@@ -48,8 +48,8 @@
   {
     "name": "NAV1O-heir-unread",
     "file": "src/scenes/navalHost.js",
-    "old": "      if (heir) adopt(e);\n      else e.orphan ??= clock;",
-    "new": "      adopt(e);",
+    "old": "      if (heir) { adopt(e); adopted.push(e); } else e.orphan ??= clock;",
+    "new": "      adopt(e); adopted.push(e);",
     "tests": [
       "test/navaudit_online.test.js"
     ]
@@ -166,7 +166,7 @@
   {
     "name": "NAV1O-raider-seed-unread",
     "file": "src/scenes/navalHost.js",
-    "old": "      if (!e.owner && !e.raider && e.ship.cls.faction === 'pirate') { const r = list.find((x) => (x.seed >>> 0) === e.ship.seed); if (r) e.raider = { id: r.id, chased: false, spent: spent.has(r.id) }; }\n",
+    "old": "      if (!e.owner && !e.raider && e.ship.cls.faction === 'pirate') { const r = list.find((x) => (x.seed >>> 0) === e.ship.seed); if (r) { e.raider = { id: r.id, chased: false, spent: spent.has(r.id) }; e.ship.temper = TEMPERS.bold; } }   // SEA-PEACE: a raider is bold\n",
     "new": "",
     "tests": [
       "test/navaudit_online.test.js"
@@ -283,8 +283,8 @@
   {
     "name": "NAV1O-peer-word-unread",
     "file": "src/scenes/navalHost.js",
-    "old": "peerSelf.set(owner, { law: rec.law, me: rec.me, traffic: rec.traffic, at: clock });",
-    "new": "peerSelf.set(owner, { law: {}, me: null, traffic: rec.traffic, at: clock });",
+    "old": "peerSelf.set(owner, { law: rec.law, me: rec.me, traffic: rec.traffic, at: clock, boat: rec.boat });",
+    "new": "peerSelf.set(owner, { law: {}, me: null, traffic: rec.traffic, at: clock, boat: rec.boat });",
     "tests": [
       "test/navaudit_online.test.js"
     ]
@@ -319,8 +319,8 @@
   {
     "name": "NAV1O-boat-wreck-unsaid",
     "file": "src/scenes/navalHost.js",
-    "old": "crippled: st.damage.state === SHIP_STATES.wrecked, boarders: setting('Boarders', true) !== false } : null;",
-    "new": "crippled: false, boarders: setting('Boarders', true) !== false } : null;",
+    "old": "crippled: st.damage.state === SHIP_STATES.wrecked, boarders: setting('Boarders', true) !== false,",
+    "new": "crippled: false, boarders: setting('Boarders', true) !== false,",
     "tests": [
       "test/navaudit_online.test.js"
     ]
@@ -328,8 +328,8 @@
   {
     "name": "NAV1O-boat-setting-unsaid",
     "file": "src/scenes/navalHost.js",
-    "old": "crippled: st.damage.state === SHIP_STATES.wrecked, boarders: setting('Boarders', true) !== false } : null;",
-    "new": "crippled: st.damage.state === SHIP_STATES.wrecked, boarders: true } : null;",
+    "old": "crippled: st.damage.state === SHIP_STATES.wrecked, boarders: setting('Boarders', true) !== false,",
+    "new": "crippled: st.damage.state === SHIP_STATES.wrecked, boarders: true,",
     "tests": [
       "test/navaudit_online.test.js"
     ]
@@ -346,8 +346,8 @@
   {
     "name": "NAV1O-contact-hull-unread",
     "file": "src/scenes/navalHost.js",
-    "old": "hullShare: self?.me?.hull ?? 1, crippled",
-    "new": "hullShare: 1, crippled",
+    "old": "      const share = self?.me?.hull ?? 1;",
+    "new": "      const share = 1;",
     "tests": [
       "test/navaudit_online.test.js"
     ]
@@ -820,8 +820,8 @@
   {
     "name": "NAV1O-wire-traffic-unread",
     "file": "src/systems/naval/navalWire.js",
-    "old": "traffic: raw.t === undefined ? TRAFFIC_DEFAULT : DENSITY_KEYS[raw.t], casks };",
-    "new": "traffic: TRAFFIC_DEFAULT, casks };",
+    "old": "traffic: raw.t === undefined ? TRAFFIC_DEFAULT : DENSITY_KEYS[raw.t], casks, captains, boat };",
+    "new": "traffic: TRAFFIC_DEFAULT, casks, captains, boat };",
     "tests": [
       "test/nav_g_online.test.js",
       "test/navaudit_online.test.js"
@@ -1005,8 +1005,8 @@
   {
     "name": "NAV1O-traffic-unkept",
     "file": "src/scenes/navalHost.js",
-    "old": "traffic: rec.traffic, at: clock });",
-    "new": "traffic: TRAFFIC_DEFAULT, at: clock });",
+    "old": "traffic: rec.traffic, at: clock, boat: rec.boat });",
+    "new": "traffic: TRAFFIC_DEFAULT, at: clock, boat: rec.boat });",
     "tests": [
       "test/navaudit_online.test.js"
     ]

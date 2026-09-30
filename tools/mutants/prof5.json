@@ -308,7 +308,7 @@
       "test/prof5_law.test.js"
     ],
     "equivalent": true,
-    "why": "every registered key, food and herb template the catalogue walks, less the three nothing yields (AUDIT 30 UNYIELDED), has a standing under the law today (94 of 94), so the filter removes nothing - it guards a later template the law gives no tier"
+    "why": "every registered key, food and herb template the catalogue walks, less the three nothing yields (AUDIT 30 UNYIELDED), has a standing under the law today (94 of 94 then; 112 of 112 since PROF7 - AUDIT 32 R12), so the filter removes nothing - it guards a later template the law gives no tier"
   },
   {
     "name": "PROF5-law-witness-reads-pixels",
@@ -330,10 +330,10 @@
     ]
   },
   {
-    "name": "PROF5-law-wool-withdrawn",
+    "name": "PROF5-law-wool-held-back",
     "file": "src/net/professionLaw.js",
-    "old": "export const NO_PACK_FORM = Object.freeze(['leather:cured', 'hide:bear', 'cloth:linen', 'cloth:wool']);",
-    "new": "export const NO_PACK_FORM = Object.freeze(['leather:cured', 'hide:bear', 'cloth:linen']);",
+    "old": "export const NO_PACK_FORM = Object.freeze([]);",
+    "new": "export const NO_PACK_FORM = Object.freeze(['cloth:wool']);",
     "tests": [
       "test/prof5_law.test.js",
       "test/prof5_service.test.js"
@@ -944,7 +944,7 @@
   {
     "name": "PROF5-host-stock-untold",
     "file": "src/scenes/world.js",
-    "old": "          if (Number.isSafeInteger(r?.data?.balance)) marksBook?.set(r.data.balance);   // PROF5 (FOUND): the Bank's balance told too",
+    "old": "          toldBalance(r?.data?.balance);   // PROF5 (FOUND): the Bank's balance told too; AUDIT 32 B3: and the market's",
     "new": "",
     "tests": [
       "test/prof5_client.test.js"

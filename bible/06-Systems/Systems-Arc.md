@@ -3196,7 +3196,7 @@ collapse is a bare `RaiseTime(1 * SecondsPerHour)` (`:2429`) that
 returns; `Update` is not re-entered.
 
 The port's hosts implement that same RaiseTime as
-`playerTicker.advance(60)` (`exterior.js:1087`, `world.js:2986`), fired
+`playerTicker.advance(60)` (`exterior.js:1087`, `world.js:3009`), fired
 from inside `sinks.drainFatigue` - so it re-enters `tickPlayerMinutes`
 from inside that function's own fatigue band. The nested tick wrote the
 marker an hour ahead, the outer frame's own `setWorldMinutes` then
@@ -4597,7 +4597,7 @@ the true clause along with the false ones is in the campaign, because
 over-retiring is the equal and opposite failure.
 
 **And one delegation pointed at a flag nobody had ever written.**
-`world.js:4374` said the dungeon-mode enchant ctx was "FLAGGED there
+`world.js:4397` said the dungeon-mode enchant ctx was "FLAGGED there
 with the rest of its enchant wiring" in `dungeonContext.js`. It was
 not. `setDefaultEnchantCtx` had exactly **one** caller in the tree, so
 the standalone `?dungeon` host ran every arm that needs a host
@@ -5575,7 +5575,7 @@ to that cite and moves under the same content check; citeMerge had
 done this since CS2 and citeShift only reported them, so the two
 regexes are one law now, exported from citeShift (`ANY_CITE`,
 `CONTINUATION`) and imported by citeMerge. (2) A TEST'S ESCAPED
-LITERAL FOLLOWS THE ROW IT PINS: `world\.js:9492` in citedrift.test.js
+LITERAL FOLLOWS THE ROW IT PINS: `world\.js:9787` in citedrift.test.js
 is a quote of a Ledger row's text; the row is STRUCK and its number
 held, and the literal used to move anyway, parting the pin from its
 row at every shift. The CLI plans every doc first, learns which
@@ -6130,9 +6130,14 @@ stays so. The enemy's failure tail replaces the crime with the room:
 `if (!IsHostile) MakeEnemiesHostile();` then
 `MakeEnemyHostileToAttacker(player)` (`:1661-1671`), the hostility read
 BEFORE the walk because the walk flips this foe too.
-`resetAllyTeamOnPlayerAttack` is NOT part of it - that belongs to
-`DaggerfallEntityBehaviour`'s damage path, and Pickpocket does not call
-it.
+AUDIT NAV2 F54 corrected this line: the ally revert
+(`resetAllyTeamOnPlayerAttack`) IS part of it - DFU's lives inside
+MakeEnemyHostileToAttacker's player arm, which the damage path reaches
+only through that same call - so a failed lift makes an ally fair game,
+his species' team again. And whoever the player's harm passes by
+(`combat/friendlyFire.js sparedByPlayer`: a shipmate, a town's defender)
+is no mark: the arm refuses him before anything is rolled - the lift
+turned him on the player while every blow back passed him by.
 
 All five ladders carry the arm - `scenes/world.js`, `scenes/exterior.js`,
 both of `scenes/worldModes.js`, and `scenes/dungeon.js`. Each calls it

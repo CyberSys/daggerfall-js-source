@@ -96,7 +96,11 @@ export function rotFoodDay(collections, rotDay = 0, rolls = Math.random) {
   for (const list of collections) for (const item of list ?? []) {
     if (!foodOf(item) || foodOf(item).keeps == null) continue;
     if (!Number.isFinite(item.rotDay)) item.rotDay = rotDay;
-    if (rotRoll(item, Math.max(0, rotDay - item.rotDay), rolls)) n++;
+    const kept = Math.max(0, rotDay - item.rotDay);
+    // PROF7: a Butcher's meat spoils half as fast (PROF0 3.3) - the same days at half the pace: rolled every other day,
+    // aged half its days
+    if (item.slowRot === true) { if (kept % 2 === 1) continue; if (rotRoll(item, Math.floor(kept / 2), rolls)) n++; continue; }
+    if (rotRoll(item, kept, rolls)) n++;
   }
   return n;
 }

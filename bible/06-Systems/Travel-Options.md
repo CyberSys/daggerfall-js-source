@@ -654,7 +654,7 @@ third was a thing the port never said out loud.
 > not a fatigue knob, it is the needs' one word for "sat still", and
 > FOUR laws read it - the two fatigue drains it was aimed at, the two
 > health arms F12 later disclosed, and SURV6's hunting roll, which
-> refuses outright on `resting` (`hunting.js:115`). One flag reached
+> refuses outright on `resting` (`hunting.js:120`). One flag reached
 > three laws nobody had asked it to reach. That is the lesson worth
 > keeping out of this whole exchange.
 
@@ -767,7 +767,7 @@ which `InitLocationRects` keeps refreshing the rects MID-journey
 (`:606-612`, `autopilot == null || destinationName != null`;
 `travelOptions.js:676-679`). A town's ring reaches into its neighbour
 pixels; the crossing fired `OnMapPixelChanged`, the host's
-`locationTileRect` answered null for the neighbour (world.js:10946 -
+`locationTileRect` answered null for the neighbour (world.js:11241 -
 null both for a pixel not yet built and for one with no location),
 `SetLocationRects` nulled both rects (`:602-604`), and the walk's own
 `OnArrival` (`circumnavigateLocation`, `:753-797`) read

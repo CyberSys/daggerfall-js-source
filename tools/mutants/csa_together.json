@@ -670,8 +670,8 @@
   {
     "name": "CSAL-panel-hint-mouse-free",
     "file": "src/ui/enhancedHelm.js",
-    "old": "const hint = h && !state.touch && !state.mouseFree ?",
-    "new": "const hint = h && !state.touch ?",
+    "old": "  if (!state.mouseFree) parts.push(`Free the mouse (${state.freeKey || 'Y'}) to use these`);",
+    "new": "  parts.push(`Free the mouse (${state.freeKey || 'Y'}) to use these`);",
     "tests": [
       "test/csa_together.test.js"
     ]
@@ -814,8 +814,8 @@
   {
     "name": "CSAL-seam-chord",
     "file": "src/scenes/world.js",
-    "old": "has: (action) => held(keys, action) || csaHelmInput.held.has(action) || csaHelmInput.chord.has(action) || csaJourneyHelm.held.has(action),",
-    "new": "has: (action) => held(keys, action) || csaHelmInput.held.has(action) || csaJourneyHelm.held.has(action),",
+    "old": " || csaHelmInput.chord.has(action) || csaJourneyHelm.held.has(action) || (!!HELM_RUDDER_ACTIONS",
+    "new": " || csaJourneyHelm.held.has(action) || (!!HELM_RUDDER_ACTIONS",
     "tests": [
       "test/csa_together.test.js"
     ]

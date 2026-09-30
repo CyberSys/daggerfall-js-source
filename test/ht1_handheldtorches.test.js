@@ -36,7 +36,7 @@ import { domCodeForKeyCode, keyCodeForDomCode, isBindableKeyCode, KEYCODE_NONE }
 import { MOD_SETTINGS, isIntKey, isFloatKey, isChoiceKey, isTextKey, isTupleKey, modSettingsOf, setModSetting, _resetModSettings } from '../src/systems/modSettings.js';
 import { BOB_SHAPE as WW_BOB_SHAPE, STEP_CONDITION as WW_STEP_CONDITION } from '../src/combat/weaponWidget.js';
 import { FEATURES } from '../src/systems/features.js';
-import { DEFAULT_BINDINGS, PORT_ACTIONS, MOD_ACTIONS } from '../src/systems/inputActions.js';   // HT4: the keys DFU already answers; KB1: and the mods' own, which are actions now
+import { DEFAULT_BINDINGS, DEFAULT_SHARES, PORT_ACTIONS, MOD_ACTIONS } from '../src/systems/inputActions.js';   // HT4: the keys DFU already answers; KB1: and the mods' own, which are actions now
 import { shortcutBinding } from '../src/systems/dialogShortcuts.js';   // KB1: DFU's world shortcuts
 import { CREDITS } from '../src/ui/credits.js';
 import { TEMPLATES } from '../src/systems/useItem.js';
@@ -938,7 +938,9 @@ test('HT4 (re-aimed by KB1): no action ships on a key another action, DFU\'s wor
     assert.ok(!browser.has(code), `${action} ships ${code}, which the browser takes`);
   }
   // every mod action ships a key, and the three this mod ships are the three it ships, named
-  const def = new Map(DEFAULT_BINDINGS.map(([code, action]) => [action, code]));
+  // HELM-KEYS: a default share ships its key too (inputActions.js DEFAULT_SHARES) - held to the same world and browser law
+  for (const [code, action] of DEFAULT_SHARES) { assert.ok(!world.has(code) && !browser.has(code), `${action} shares ${code}, a key DFU or the browser takes`); }
+  const def = new Map([...DEFAULT_BINDINGS.map(([code, action]) => [action, code]), ...DEFAULT_SHARES.map(([code, action]) => [action, code])]);
   for (const rows of Object.values(MOD_ACTIONS)) for (const r of rows) assert.ok(def.has(r.action), `${r.action} ships a key`);
   assert.equal(def.get('TorchToggleLight'), 'KeyO', 'SOC5: off the F-menu\'s F');
   assert.equal(def.get('TorchDrop'), 'KeyG', 'HT4: off the dial\'s Tab');

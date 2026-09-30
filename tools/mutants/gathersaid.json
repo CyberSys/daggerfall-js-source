@@ -1,0 +1,124 @@
+[
+  {
+    "name": "GATHERSAID-queue-keep-ignored",
+    "file": "src/ui/profHud.js",
+    "old": "        const i = rows.findIndex((r) => !r.keep);",
+    "new": "        const i = 0;",
+    "tests": [
+      "test/gathersaid.test.js"
+    ]
+  },
+  {
+    "name": "GATHERSAID-queue-overflow-unbounded",
+    "file": "src/ui/profHud.js",
+    "old": "      while (rows.length > max) {",
+    "new": "      while (rows.length > max + 1) {",
+    "tests": [
+      "test/gathersaid.test.js",
+      "test/prof1_client.test.js"
+    ]
+  },
+  {
+    "name": "GATHERSAID-goods-unkept",
+    "file": "src/scenes/gatherHost.js",
+    "old": "      hud.toast(storesLine(d), { keep: true });",
+    "new": "      hud.toast(storesLine(d));",
+    "tests": [
+      "test/gathersaid.test.js"
+    ]
+  },
+  {
+    "name": "GATHERSAID-gem-own-line-again",
+    "file": "src/scenes/gatherHost.js",
+    "old": "  if (d.gem) { const g = materialCountLabel(d.gem, 1); goods.push(`${/^[aeiou]/i.test(g) ? 'an' : 'a'} ${g}`); }",
+    "new": "",
+    "tests": [
+      "test/gathersaid.test.js",
+      "test/prof2_client.test.js"
+    ]
+  },
+  {
+    "name": "GATHERSAID-gem-article-always-a",
+    "file": "src/scenes/gatherHost.js",
+    "old": "${/^[aeiou]/i.test(g) ? 'an' : 'a'} ${g}",
+    "new": "a ${g}",
+    "tests": [
+      "test/gathersaid.test.js",
+      "test/prof2_client.test.js"
+    ]
+  },
+  {
+    "name": "GATHERSAID-goods-list-no-and",
+    "file": "src/scenes/gatherHost.js",
+    "old": "`${goods.slice(0, -1).join(', ')} and ${goods[goods.length - 1]}`",
+    "new": "goods.join(', ')",
+    "tests": [
+      "test/gathersaid.test.js",
+      "test/prof7_client.test.js"
+    ]
+  },
+  {
+    "name": "GATHERSAID-stores-where-unsaid",
+    "file": "src/scenes/gatherHost.js",
+    "old": "      if (!storesSaid) { storesSaid = true; hud.toast(STORES_WHERE_LINE); }\n",
+    "new": "",
+    "tests": [
+      "test/gathersaid.test.js",
+      "test/prof7_client.test.js"
+    ]
+  },
+  {
+    "name": "GATHERSAID-stores-where-every-time",
+    "file": "src/scenes/gatherHost.js",
+    "old": "      if (!storesSaid) { storesSaid = true; hud.toast(STORES_WHERE_LINE); }",
+    "new": "      hud.toast(STORES_WHERE_LINE);",
+    "tests": [
+      "test/gathersaid.test.js"
+    ]
+  },
+  {
+    "name": "GATHERSAID-kept-signed-out-unsaid",
+    "file": "src/scenes/gatherHost.js",
+    "old": "r.error === 'auth' || r.error === 'no-session' ? KEPT_SIGNED_OUT_LINE : KEPT_LINE",
+    "new": "KEPT_LINE",
+    "tests": [
+      "test/gathersaid.test.js"
+    ]
+  },
+  {
+    "name": "GATHERSAID-kept-said-once",
+    "file": "src/scenes/gatherHost.js",
+    "old": "    if (r?.kept) { hud.toast(",
+    "new": "    if (r?.kept) { if (!answered.once) answered.once = true; else return; hud.toast(",
+    "tests": [
+      "test/gathersaid.test.js"
+    ]
+  },
+  {
+    "name": "GATHERSAID-lapse-unsaid",
+    "file": "src/scenes/gatherHost.js",
+    "old": "    if (r?.error === 'lapsed') { hud.toast(LAPSED_LINE); return; }",
+    "new": "    if (r?.error === 'lapsed') return;",
+    "tests": [
+      "test/gathersaid.test.js"
+    ]
+  },
+  {
+    "name": "GATHERSAID-stopped-unsaid",
+    "file": "src/scenes/gatherHost.js",
+    "old": "        if (act.act.state.cancelled || away || !here) { act = null; hud.setMeter(null); hud.toast(ACT_STOPPED_LINE); }",
+    "new": "        if (act.act.state.cancelled || away || !here) { act = null; hud.setMeter(null); }",
+    "tests": [
+      "test/gathersaid.test.js"
+    ]
+  },
+  {
+    "name": "GATHERSAID-maintenance-let-go",
+    "file": "src/net/profBook.js",
+    "old": "const RETRY = Object.freeze(['offline', 'server', 'rate', 'maintenance']);",
+    "new": "const RETRY = Object.freeze(['offline', 'server', 'rate']);",
+    "tests": [
+      "test/gathersaid.test.js"
+    ]
+  }
+]

@@ -10,7 +10,8 @@
 //   the METER   - centred under the crosshair while an act plays: the
 //                 kneel's and the steady hand's bar (the hold turns red
 //                 when the herb bruises), the Basket's leaves with the
-//                 glint to tap; a still bar under reduced motion (the
+//                 glint to tap; PROF7 the knife's dotted line over the
+//                 carcass, the points drawn past lit; a still bar under reduced motion (the
 //                 system's own - the port has no setting of its own);
 //   the TOASTS  - on the right, four at most, three seconds each:
 //                 "+3 Red Roses to your Stores", "+45 Herbalism XP",
@@ -24,7 +25,7 @@
 // ═══════════════════════════════════════════════════════════════════
 import { BASKET_SPOTS } from '../systems/herbAct.js';
 import { MINE_POINTS } from '../systems/mineAct.js';   // PROF2: the vein's face
-import { MINE_ACT, CHOP_ACT } from '../net/professionLaw.js';
+import { MINE_ACT, CHOP_ACT, TRACE_ACT } from '../net/professionLaw.js';
 import { PROF_CSS } from './enhancedPlusStyle.js';
 
 /** The toasts: four at most, three seconds each (PROF0 8). */
@@ -33,17 +34,23 @@ export const PROF_TOAST_S = 3;
 /** The rank's banner stands this long. */
 export const PROF_BANNER_S = 4;
 
-/** THE TOASTS' LAW: `push` a line (the oldest goes past four), `tick` ages them, `lines` what stands. */
+/** THE TOASTS' LAW: `push` a line (the oldest goes past four), `tick` ages them, `lines` what stands. GATHER-SAID: a line
+ *  pushed `keep` (a harvest's goods) is passed over while an unkept one is older - an answer's XP, its rank's rise and a
+ *  specialisation's hint went past four and took the goods' line with them, so a harvest looked as if it gave nothing. */
 export function createToastQueue({ max = PROF_TOASTS_MAX, ttl = PROF_TOAST_S } = {}) {
   let seq = 0;
-  /** @type {{ id: number, text: string, left: number }[]} */
+  /** @type {{ id: number, text: string, left: number, keep: boolean }[]} */
   let rows = [];
   return {
-    push(text) {
+    /** @param {any} text  @param {{ keep?: boolean }|null} [o] */
+    push(text, o = null) {
       const t = String(text ?? '').trim();
       if (!t) return;
-      rows.push({ id: ++seq, text: t, left: ttl });
-      if (rows.length > max) rows = rows.slice(rows.length - max);
+      rows.push({ id: ++seq, text: t, left: ttl, keep: o?.keep === true });
+      while (rows.length > max) {
+        const i = rows.findIndex((r) => !r.keep);
+        rows.splice(i < 0 ? 0 : i, 1);
+      }
     },
     tick(dt) {
       const step = Math.max(0, Number(dt) || 0);
@@ -106,7 +113,7 @@ export function createProfHud({ doc = globalThis.document } = {}) {
       k.textContent = `[${p.key}]`;
       prompt.append(k, doc.createTextNode(` ${p.verb}`));
       if (p.rest) { const d = doc.createElement('span'); d.className = 'dim'; d.textContent = ` - ${p.rest}`; prompt.append(d); }
-      if (p.alt) { const d = doc.createElement('span'); d.className = 'dim'; d.textContent = `   ${p.alt}`; prompt.append(d); }
+      if (p.alt) { const d = doc.createElement('span'); d.className = 'dim prof-alt'; d.textContent = `   ${p.alt}`; prompt.append(d); }   // AUDIT 32 P9: its own line on a phone
     },
     /** The meter for an act (systems/herbAct.js), or null to take it down. `label` the act's words. */
     setMeter(act, label = '') {
@@ -174,6 +181,61 @@ export function createProfHud({ doc = globalThis.document } = {}) {
         meter.append(face, pips, hint);
         return;
       }
+      if (st.kind === 'trace') {
+        // PROF7: THE TRACE - the carcass's face as a box (the line's span, a margin round it), the dotted line, the points
+        // the knife has passed lit, and where the crosshair is on it; a hold's bar for Gentle acts
+        // (`label` the key held - E, the use key's own binding)
+        const key = label || 'the use key';
+        if (st.gentle) {
+          const bar = mk('prof-bar');
+          const fill = doc.createElement('i');
+          fill.style.width = `${Math.round(act.progress * 100)}%`;
+          bar.append(fill);
+          const hint = mk('prof-hint');
+          hint.textContent = `hold ${key}`;
+          meter.append(bar, hint);
+          return;
+        }
+        const face = mk('prof-face');
+        const w = TRACE_ACT.spanYawDeg + 2 * TRACE_ACT.startDeg, h = 2 * (TRACE_ACT.spanPitchDeg + TRACE_ACT.startDeg);
+        // AUDIT 32 P11: a degree the same across as up (the face was 8.4px a degree across and 5.8 up, so a stray up read a
+        // third smaller than it was), the line the points are scored against drawn through them, and the first marked
+        face.classList.add('prof-traceface');
+        face.style.height = 'auto';
+        face.style.aspectRatio = `${w} / ${h}`;
+        /** @param {readonly number[]} p [yaw, pitch] degrees */
+        const at = (p) => [50 + (p[0] / w) * 100, 50 - (p[1] / h) * 100];
+        if (typeof doc.createElementNS === 'function') {
+          const NS = 'http://www.w3.org/2000/svg';
+          const svg = doc.createElementNS(NS, 'svg');
+          svg.setAttribute('class', 'prof-line');
+          svg.setAttribute('viewBox', '0 0 100 100');
+          svg.setAttribute('preserveAspectRatio', 'none');
+          const line = doc.createElementNS(NS, 'polyline');
+          line.setAttribute('points', st.points.map((p) => at(p).map((v) => v.toFixed(2)).join(',')).join(' '));
+          svg.append(line);
+          face.append(svg);
+        }
+        st.points.forEach((p, i) => {
+          const passed = st.tracing && i <= st.reached;
+          const n = mk(passed ? 'prof-glint' : i === 0 ? 'prof-point first' : 'prof-point');
+          const [x, y] = at(p);
+          n.style.left = `${x}%`; n.style.top = `${y}%`;
+          if (passed && reduced()) n.style.animation = 'none';
+          face.append(n);
+        });
+        if (st.aim) {
+          const a = mk('prof-aim');
+          const [x, y] = at([Math.max(-w / 2, Math.min(w / 2, st.aim.yaw)), Math.max(-h / 2, Math.min(h / 2, st.aim.pitch))]);
+          a.style.left = `${x}%`; a.style.top = `${y}%`;
+          face.append(a);
+        }
+        const hint = mk('prof-hint');
+        // AUDIT 32 P10: a slip said - the trace let go before the last point starts again, and the meter said only its start
+        hint.textContent = st.tracing ? 'draw the knife along the line' : st.slips > 0 ? `let go - hold ${key} on the first point again` : `hold ${key} on the first point`;
+        meter.append(face, hint);
+        return;
+      }
       if (st.kind === 'basket') {
         const leaves = mk('prof-leaves');
         if (st.spot >= 0) {
@@ -201,8 +263,8 @@ export function createProfHud({ doc = globalThis.document } = {}) {
         : (label || 'kneeling...');
       meter.append(bar, hint);
     },
-    /** A line on the right. */
-    toast(text) { queue.push(text); },
+    /** A line on the right; `keep` (GATHER-SAID) outlasts the unkept past four. */
+    toast(text, o) { queue.push(text, o); },
     /** The rank's banner. */
     banner(text) { banner.textContent = String(text ?? ''); bannerLeft = text ? PROF_BANNER_S : 0; },
     /** The chip under the compass, or null to take it away. */

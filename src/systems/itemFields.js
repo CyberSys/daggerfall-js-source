@@ -129,6 +129,8 @@ export const ITEM_FIELDS = Object.freeze({
   // PROF4: a piece whose name carries its maker's mark below Masterwork - a Master Joiner's furniture (the service's
   // `products.marked`)
   marked: bool(),
+  // PROF7: a Butcher's Raw Meat, which spoils half as fast (PROF0 3.3; survival/food.js rotFoodDay)
+  slowRot: bool(),
 });
 
 /** The declared names, and those of one kind. */

@@ -18,11 +18,20 @@
 // DETERMINISM. Every spawn's seed is `hash32(seedBase, count)` - the pixel and the day the host folds into
 // seedBase, and the spawn's own count - so the same waters on the same day send the same ships, and a pin can name
 // one.
+//
+// SEA-PEACE (2026-09-29, the player: "Enemy AI and Friendly AI should engage in their own encounters naturally") - THE
+// BAY'S OWN FIGHTS. Of the rolls that launch with room for two, ENCOUNTER_CHANCE launch a pair already at it, drawn by
+// ENCOUNTERS' weights: a pirate on a merchantman she outguns WARY_ODDS to one (`plunder` - a wary one takes her too),
+// or a crown's ship on a pirate (`patrol`). The quarry sails ENCOUNTER_GAP ahead of her hunter on the hunter's own
+// course, the pair on the spawn ring and crossing the player's waters as any ship does, so the fight is theirs and
+// in sight. The roll and the pair are drawn on the spawn's own ENCOUNTER_SALT stream (`encounterRng`), so a roll that
+// launches one ship draws exactly what it drew before; the company's seed is the next count's.
 
 import { hash32 } from '../../world/spawnedDungeons.js';
 import { mulberry32 } from '../../combat/bloodArt.js';
-import { classFor, HULL } from './navalShips.js';
+import { classFor, HULL, SHIP_CLASSES } from './navalShips.js';
 import { HULL_VARIANT_COUNTS } from '../comeSailAwayBoat.js';
+import { classPower, odds, WARY_ODDS } from './navalAI.js';   // SEA-PEACE: a plunder's merchantman is one her pirate outguns
 
 /** How many ships the density keeps at sea near a player. */
 export const DENSITY = Object.freeze({ off: 0, few: 2, some: 3, many: 5 });
@@ -44,6 +53,42 @@ export const HUNTER_AT = 50;
 export const HUNTER_WEIGHT = 45;
 /** The bearings a spawn tries before it gives the roll up. */
 export const SPAWN_TRIES = 10;
+/** SEA-PEACE: the share of launching rolls that launch a pair at it, the kinds' weights, the gap between hunter and
+ *  quarry (m, a draw in the range), and the pair's own stream's salt on the spawn's seed. */
+export const ENCOUNTER_CHANCE = 0.3;
+export const ENCOUNTERS = Object.freeze({ plunder: 60, patrol: 40 });
+export const ENCOUNTER_GAP = Object.freeze([140, 220]);
+export const ENCOUNTER_SALT = 0x3ea7f1a5;
+/** SEA-PEACE: the pair's stream off a spawn's seed - never the single spawn's own. */
+export const encounterRng = (seed) => mulberry32(((seed >>> 0) ^ ENCOUNTER_SALT) >>> 0);
+
+/**
+ * SEA-PEACE: the two classes of an encounter at the player's level - `plunder` a pirate (never the flagship) and a
+ * merchantman she outguns WARY_ODDS to one, by weight among those; `patrol` a navy ship and a pirate (never the
+ * flagship). Null where the level offers no such pair.
+ * @param {'plunder'|'patrol'} kind @param {number} level @param {() => number} r
+ */
+export function encounterClasses(kind, level, r) {
+  const lv = Math.max(1, level | 0);
+  const pirates = SHIP_CLASSES.filter((c) => c.faction === 'pirate' && !c.flagship && c.minLevel <= lv);
+  const pick = (list) => {
+    const total = list.reduce((sum, c) => sum + c.weight, 0);
+    let x = r() * total;
+    for (const c of list) { if ((x -= c.weight) < 0) return c; }
+    return list[list.length - 1] ?? null;
+  };
+  if (kind === 'patrol') {
+    const navy = classFor('navy', lv, r());
+    const pirate = pirates.length ? pick(pirates) : null;
+    return navy && pirate ? { hunter: navy, quarry: pirate } : null;
+  }
+  const pirate = pirates.length ? pick(pirates) : null;
+  if (!pirate) return null;
+  // AUDIT NAV2 F25: outguns by the odds - the time each needs to make the other strike (navalAI.js odds)
+  const prey = SHIP_CLASSES.filter((c) => c.faction === 'merchant' && c.minLevel <= lv && odds(classPower(pirate), classPower(c)) >= WARY_ODDS);
+  const merchant = prey.length ? pick(prey) : null;
+  return merchant ? { hunter: pirate, quarry: merchant } : null;
+}
 
 /** A weighted pick from `{ key: weight }` with a draw in [0, 1). */
 export function weightedPick(weights, r) {
@@ -76,6 +121,31 @@ export function factionWeights({ nearPort = false, notoriety = 0 } = {}) {
 export function createNavalDirector({ random = Math.random } = {}) {
   let wait = FIRST_ROLL_S;
   let count = 0;
+  /** SEA-PEACE: the pair a launching roll stands on its own stream - the hunter's spec with the quarry's as `company` -
+   *  or null (the roll missed, no pair at this level, or no water for both). */
+  function encounterSpawn(seed, ctx, nearest) {
+    const r = encounterRng(seed);
+    if (!(r() < ENCOUNTER_CHANCE)) return null;
+    const kind = /** @type {'plunder'|'patrol'} */ (weightedPick(ENCOUNTERS, r()));
+    const pair = encounterClasses(kind, ctx.level ?? 1, r);
+    if (!pair) return null;
+    for (let i = 0; i < SPAWN_TRIES; i++) {
+      const a = r() * Math.PI * 2;
+      const d = SPAWN_RING[0] + r() * (SPAWN_RING[1] - SPAWN_RING[0]);
+      const mid = [ctx.player[0] + Math.sin(a) * d, ctx.seaY ?? ctx.player[1], ctx.player[2] + Math.cos(a) * d];
+      const toPlayer = Math.atan2(ctx.player[0] - mid[0], ctx.player[2] - mid[2]);
+      const yaw = toPlayer + (r() < 0.5 ? 1 : -1) * (0.6 + r() * 0.9);
+      const gap = ENCOUNTER_GAP[0] + r() * (ENCOUNTER_GAP[1] - ENCOUNTER_GAP[0]);
+      const along = (k) => [mid[0] + Math.sin(yaw) * gap * k, mid[1], mid[2] + Math.cos(yaw) * gap * k];
+      const hunterPos = along(-0.5), quarryPos = along(0.5);
+      if (nearest(hunterPos) < SPAWN_CLEAR || nearest(quarryPos) < SPAWN_CLEAR) continue;
+      if (!ctx.isOpenWater(hunterPos[0], hunterPos[2], pair.hunter.hull) || !ctx.isOpenWater(quarryPos[0], quarryPos[2], pair.quarry.hull)) continue;
+      const variantOf = (cls) => { const n = HULL_VARIANT_COUNTS[cls.hull] ?? 0; return cls.hull === HULL.LargeBoat && n > 0 ? Math.floor(r() * n) : 0; };
+      const company = { seed: hash32(ctx.seedBase >>> 0, count++), classId: pair.quarry.id, variant: variantOf(pair.quarry), pos: quarryPos, yaw, hunter: false };
+      return { seed, classId: pair.hunter.id, variant: variantOf(pair.hunter), pos: hunterPos, yaw, hunter: false, encounter: kind, company };
+    }
+    return null;
+  }
   const director = {
     step(dt, ctx) {
       const out = { spawn: null, despawn: [] };
@@ -89,6 +159,11 @@ export function createNavalDirector({ random = Math.random } = {}) {
       const alive = (ctx.ships ?? []).filter((s) => !out.despawn.includes(s.id) && s.afloat !== false).length;   // AUDIT NAV1 (B1): a prize, a hulk or a wreck going down fills no berth
       if (alive >= (ctx.density ?? 0) || random() >= SHIP_SPAWN_CHANCE) return out;
       const seed = hash32(ctx.seedBase >>> 0, count++);
+      // SEA-PEACE: a pair already at it, where the density has room for two
+      if (alive + 2 <= (ctx.density ?? 0)) {
+        const pair = encounterSpawn(seed, ctx, nearest);
+        if (pair) { out.spawn = pair; return out; }
+      }
       const rng = mulberry32(seed);
       const faction = weightedPick(factionWeights({ nearPort: !!ctx.nearPort, notoriety: ctx.notoriety ?? 0 }), rng());
       let cls = classFor(faction, ctx.level ?? 1, rng());

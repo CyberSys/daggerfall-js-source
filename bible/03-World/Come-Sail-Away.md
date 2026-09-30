@@ -2021,6 +2021,76 @@ Plus only; the classic skin keeps the mod's keys as the mod drew them.
 It is dressed by the kit (`ui/enhancedFrame.js` FRAME_ROLES: the bar a
 window, the presses buttons); its own sheet only places and letters.
 
+## The arrows are the helm (HELM-KEYS, 2026-09-29 - DECLARED)
+
+The player: "Arrow keys should not only control your ship, but also setting
+and raising your sails. I also want to find a way to make the ship controls
+more intuitive instead of a bunch of buttons and key binds." The port's own,
+on the mod's own states (`bible/10-UI/Controls.md` HELM-KEYS has the keys):
+
+- **More sail and less sail** (`MoreSail`, `LessSail`; `BoatSailUp` on the up
+  arrow, `BoatSailDown` on the down): stowed, raised - and where the square
+  sails are the player's own (the assist's AutoStowSquareSails off, a hull
+  with both kinds) all her canvas, the fore-and-aft alone, none: RaiseSails
+  and ToggleSquareSails up, ToggleSquareSails and LowerSails down, each with
+  the mod's own words. A step with nowhere to go says so ("All sail is set.",
+  "The sails are stowed."); a sailless boat says what ToggleSails says.
+- **The turn keys are the rudder's at a helm** (the world's input seam:
+  `has('MoveLeft')` answers `TurnLeft` too, `horizontal()` swings the rudder
+  with them), and the keyboard look leaves them be there.
+- **In irons** (`IRONS_TELL_DEG` of the wind's eye, under `IRONS_TELL_WAY` of her
+  own way through the water - `MoveVectorCurrent`, never the sea's current, which
+  under the mod's default waves is half the wind and kept the tell off: AUDIT NAV2
+  F15 - her sails up): the helm is told once how she comes out, again only after
+  she has been out of them - under the Classic helm `IRONS_TEXT` (strike sail and
+  row her round), under the Responsive one `IRONS_HELM_TEXT` (put the helm over, or
+  strike sail and row: her rudder answers at rest, and the helm alone brings her
+  40 deg off the wind's eye in about 10 s - AUDIT NAV2 F18);
+  `helmPanelState().inIrons` and `.responsive` put the right advice, with the
+  keys, on the panel's line while it lasts (`ui/enhancedHelm.js helmHint`).
+- **The panel teaches the arrows**: its line is the helm's hand at a glance,
+  and its sails' button presses More sail to raise and Less sail to stow (the
+  mod's own toggle where the square sails are the player's, which strikes all
+  her canvas as its label says) - so its key hint is the arrow.
+
+## The responsive helm (HELM-WAY, 2026-09-29 - DECLARED)
+
+Mac: "Improve the overall mobility and maneuverability of ships." Measured first on the real runtime (1/60 s frames,
+waves off, a 1.5 m/s beam wind - AUDIT NAV2 F20 re-measured every figure here like for like, where the first cut mixed
+thresholds): a Small Ship took 25.4 s to her full way (7.61 m/s; 95% of it in 24.1 s) and, her sails struck, 25.6 s to
+come down to 2.5 m/s and 38.1 s (145 m) to rest; she turned only with way on (the rudder IS her way: `TurnTarget = |v|
+x rudder / 10`), 0.75 deg/s at 1 m/s and none at rest, on a 153 m circle at every speed; a Large Galley under sail
+turned 0.85 deg/s (a 458 m circle); and a Carrack could neither make way nor turn - she has no `Cargo` node, so
+UpdateBoatCargoMod's `2 - w / (500 x 0)` clamps every speed and turn to nothing (kept, above, as the mod's own).
+
+**The law** (`systems/helmWay.js`, DECLARED - the Port-Ledger's HELM-WAY row): the Features row Naval Combat's drawer
+has **Ship handling** (`naval-handling`: Responsive, the default, or Classic - the mod to the letter), each player's
+own. The runtime is the mod unless the host hands a handling (`deps.handling`). AUDIT NAV2 F14: it is TAKEN ONCE A HELM
+SESSION - read at StartSailing, let go when she stops sailing (`helmResponsive()`), so a change takes the next helm:
+the hold is weighed at StartSailing and each magic round, and a Carrack under way when the row flipped to Classic lost
+her hold on the next round and froze at 10.81 m/s and 7.14 deg/s for good (every acceleration x 0 - the mod's own
+overloaded-hold freeze, reached through the port's switch). Under the responsive helm:
+
+- her way comes on at `HELM_WAY.sailAccel` (3.5) of the mod's rate under sail, and off at `HELM_WAY.coast` (3) of it
+  with her sails struck - every Handling dial still multiplies it; the oars are the mod's own;
+- her rudder answers her STEERAGE, not her way: `steerage(v)` - `steerFloor` at rest (the wind in her canvas swings
+  her), `steerPeak` at `steerPeakV`, easing toward her full way (`x e^(1 - x)`), times the rudder modifier as the mod's
+  way was - so half sail turns tightest, as Black Flag's does; the helm comes over at `HELM_WAY.turnAccelSail` (2.4)
+  of the mod's rate;
+- a hull with no Cargo node carries `CARGO_HOLD_MISSING` (the Large Galley's hold): the Carrack makes way and turns.
+
+Measured after, on the same runtime and wind: a Small Ship to 95% of her way in 6.9 s (24.1 s the mod's) and to her
+full way in 7.25 s (25.4 s); struck, to 2.5 m/s in 8.5 s (25.6 s) and to rest in 12.7 s over 48 m (38.1 s over 145 m);
+her rudder 2.25 deg/s at rest (none), 10.50 deg/s at 4.5 m/s on a 49 m circle, 9.24 deg/s at her full 7.61 m/s on 94 m
+and 8.32 deg/s at 9 m/s on 124 m (153 m at every way the mod's); two seconds from rest with the helm over she swings
+8.78 deg/s at 2.1 m/s (0.45 at 0.6 m/s); a Large Galley under sail 3.40 deg/s at 3.4 m/s (a 114.5 m circle; 0.85 and
+458 m), her way full in 6.4 s and off in 11.3 s (22.5 and 33.8 s); a Carrack makes 9.15 m/s, full in 8.7 s, and swings
+10.5 deg/s four seconds from rest (none, the mod's). Head to wind with the helm held over she comes 40 deg off its eye
+in 10.1 s (the mod's stays in irons).
+The heave-to's brake (NAV1's `accelScale`, ten times her own coast) is its own number now - `brake`, HEAVE_TO_DECEL
+m/s^2 - so the handling choice never moves it. Pins: `test/helmway.test.js` (the harness `test/csaScene.mjs`, the
+wind suite's scene, one module).
+
 ## The Overworld's crossing (OWS2, 2026-09-28)
 
 The player's ask: *"You should transition to your boat if traveling across water then back onto land when hitting
@@ -2040,8 +2110,13 @@ row's (42).
   host's one input seam (`csaJourneyHelm`, read by `input.has` beside the keys and CSA-L's panel, and by the autorun):
   the rudder keys held, the ToggleSail key's edge, the oars' autorun, and at the landfall the disembark key - the mod's
   code moves, turns, beaches and leaves the boat, and PackBoat packs it. A packable boat is to hand again after its
-  landfall; a crewed one is left moored. The Rowboat (no sail) and the Carrack (no Cargo modifier: it makes no way,
-  kept) are no crossing's boat.
+  landfall; a crewed one is left moored. The Rowboat (no sail) is no crossing's boat; the Carrack (no Cargo modifier) is
+  one under the Responsive helm only, which gives her a hold (`tvSeaCrosses`: AUDIT
+  NAV2 F16 - she was refused under the default helm she sails best under). AUDIT
+  NAV2 F17: while the journey holds the helm (the travel view up) the helm panel is
+  covered and the keyboard's sail keys (More sail, Less sail, the sail toggle) stand
+  down - they made and struck sail against the journey's own hand, and the panel
+  said "Steer" for keys the view had; the journey's own press still sets her sails.
 
 ## What was already waiting in the port
 

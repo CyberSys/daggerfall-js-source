@@ -398,5 +398,6 @@ test('PROF5 service: the Weavers\' counter - a Wool Bolt 3 Marks and a Linen Bol
   assert.deepEqual([linen.body.marks, linen.body.balance], [10, 60]);
   assert.deepEqual([s.stores(mac, 'cloth:wool'), s.stores(mac, 'cloth:linen')], [[['bought', 10]], [['bought', 5]]]);
   assert.deepEqual(s.lines('stock').map((l) => l[4]), [30, 10]);
-  assert.deepEqual((await s.call('/v1/stores/withdraw', { character: mac.character, material: 'cloth:wool', qty: 1, rid: rid() }, mac.secret)).body, { error: 'prof-no-pack-form' });
+  const out = (await s.call('/v1/stores/withdraw', { character: mac.character, material: 'cloth:wool', qty: 1, rid: rid() }, mac.secret)).body;
+  assert.deepEqual([out.ok, out.store], [true, { material: 'cloth:wool', own: 0, bought: 9 }], 'PROF7 moved it: a Wool Bolt withdraws now (669)');
 });

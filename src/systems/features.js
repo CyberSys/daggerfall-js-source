@@ -1087,7 +1087,7 @@ export const FEATURES = Object.freeze([
       + 'then let go to fire. Pirates, merchant ships and navies sail the Bay; batter a ship until she surrenders, board '
       + 'her, take her cargo, then sink her or let her go. Piracy is a crime, and pirates who board you bring Warm '
       + 'Ashes\u2019 raids. Online, everyone in the room shares one sea.',
-    effect: 'Takes effect at once. Online, the sea is on for everyone.',
+    effect: 'Takes effect at once; Ship handling, the next time you take the helm. Online, the sea is on for everyone.',   // AUDIT NAV2 F14: the helm takes the handling once a session (comeSailAway.js responsive)
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({
       store: 'prefs', key: 'naval', initial: true, online: true,   // scenes/world.js navalOn: the host stands down and empties the sea
@@ -1096,12 +1096,14 @@ export const FEATURES = Object.freeze([
         Object.freeze({ store: 'prefs', key: 'naval-boarders', initial: true, online: 'player' }),   // navalHost.js: a pirate's grapple on MY boat
         Object.freeze({ store: 'prefs', key: 'naval-raid-prize', initial: true, online: 'player' }),   // navalHost.js leaveShipGate: the voyage raiders' hold
         Object.freeze({ store: 'prefs', key: 'naval-aim-camera', initial: true, online: 'player' }),   // navalHost.js aimEye: the broadside camera (AUDIT NAV1)
+        Object.freeze({ store: 'prefs', key: 'naval-handling', initial: 'responsive', online: 'player' }),   // systems/helmWay.js: HELM-WAY's responsive helm, or Come Sail Away's own
       ]),
       parts: Object.freeze([
         Object.freeze({ key: 'naval-ships', label: 'Ships at sea', tiers: Object.freeze([['few', 'Few'], ['some', 'Some'], ['many', 'Many']]) }),
         Object.freeze({ key: 'naval-boarders', label: 'Pirates board you' }),
         Object.freeze({ key: 'naval-raid-prize', label: 'Raiders\u2019 plunder' }),
         Object.freeze({ key: 'naval-aim-camera', label: 'Broadside camera' }),
+        Object.freeze({ key: 'naval-handling', label: 'Ship handling', tiers: Object.freeze([['responsive', 'Responsive'], ['classic', 'Classic']]) }),
       ]),
     }),
   }),

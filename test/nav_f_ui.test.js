@@ -76,7 +76,9 @@ test('NAV-F the ship plate\'s words: her name, the crown\'s waters and the ancho
 
 test('NAV-F the hint says the press that matters most, in the registry\'s own names: a ship in reach to board or plunder, then the guns - hold to aim, let go to fire - and the brace; a boat with no guns says so (mutants: the board hint shadowed by the guns, the keys hard-coded)', () => {
   assert.equal(navalHudText(helm(), KEYS).plate.hint, 'Hold RIGHT CLICK to aim - C: brace');
-  assert.equal(navalHudText(helm({ aiming: true }), KEYS).plate.hint, 'Let go to fire - C: brace');
+  assert.equal(navalHudText(helm({ aiming: true }), KEYS).plate.hint, 'Let go to fire - E: hold fire', 'GUN-HOLD: laid, Activate holds fire');
+  assert.equal(navalHudText(helm({ aiming: true, board: { name: 'The Red Wake', kind: 'board' } }), KEYS).plate.hint, 'Let go to fire - E: hold fire', 'GUN-HOLD: laid, Activate is the hold, never the boarding');
+  assert.equal(navalHudText(helm({ aiming: true, ship: { ...helm().ship, wrecked: true } }), KEYS).plate.hint, 'Crippled - make port for a shipwright', 'a wreck\'s guns are silent: the way out is what is said');
   assert.equal(navalHudText(helm({ armed: false, batteries: [] }), KEYS).plate.hint, 'No guns aboard');
   assert.equal(navalHudText(helm({ board: { name: 'The Red Wake', kind: 'board' } }), KEYS).plate.hint, 'E: board The Red Wake');
   assert.equal(navalHudText(helm({ board: { name: 'The Red Wake', kind: 'hold' } }), KEYS).plate.hint, "E: open The Red Wake's hold");
@@ -116,14 +118,14 @@ test('NAV-F the target card: her name and colours, her class, captain and distan
 test('NAV-F a finger\'s screen: no key is named - a tap boards her and opens her hold (the host\'s one activation arm, a key\'s, a click\'s or a tap\'s), the finger held and dragged lays the guns and its lift fires them, the plate\'s own Brace held the brace (AUDIT NAV1 - test/navaudit_helm.test.js); the plate stands over the touch corner\'s presses, never on them (mutants: the keys named to a finger, the plate on the presses, the finger\'s root never marked)', () => {
   const T = { touch: true };
   assert.equal(navalHudText(helm(), KEYS, T).plate.hint, 'Hold and drag to aim - hold Brace');
-  assert.equal(navalHudText(helm({ aiming: true }), KEYS, T).plate.hint, 'Lift to fire - hold Brace');
+  assert.equal(navalHudText(helm({ aiming: true }), KEYS, T).plate.hint, 'Lift to fire - Tap: hold fire');
   assert.equal(navalHudText(helm({ board: { name: 'The Red Wake', kind: 'board' } }), KEYS, T).plate.hint, 'Tap: board The Red Wake');
   assert.equal(navalHudText(helm({ board: { name: 'The Red Wake', kind: 'hold' } }), KEYS, T).plate.hint, "Tap: open The Red Wake's hold");
   assert.equal(navalHudText(helm({ target: card({ state: 'struck' }), board: { name: 'The Red Wake', kind: 'board' } }), KEYS, T).card.state, 'Colours struck - Tap: board her');
   assert.equal(navalHudText(helm({ armed: false, batteries: [] }), KEYS, T).plate.hint, 'No guns aboard');
   // the keys' own words off a finger's screen, unchanged
   assert.equal(navalHudText(helm(), KEYS).plate.hint, 'Hold RIGHT CLICK to aim - C: brace');
-  assert.equal(navalHudText(helm({ aiming: true }), KEYS).plate.hint, 'Let go to fire - C: brace');
+  assert.equal(navalHudText(helm({ aiming: true }), KEYS).plate.hint, 'Let go to fire - E: hold fire');
   // the plate over the corner: the touch layer's presses stand 16px up and 48px tall, and the plate a gap above them
   const touchSrc = readFileSync(new URL('../src/ui/touch.js', import.meta.url), 'utf8');
   assert.match(touchSrc, /const at = \[edge\('right', right\), edge\('bottom', 16\), action\.w \?\? 60\];/);

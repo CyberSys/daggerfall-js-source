@@ -276,6 +276,7 @@ test('AUDIT 68 S19-removed-foe-lootable: a Destroy()ed foe (dispel, Wabbajack, a
     ${fnSrc('lootKeyOf')}
     ${has('lootableBody') ? fnSrc('lootableBody') : ''}
     ${fnSrc('lootHolder')}
+    ${has('corpseAt') ? fnSrc('corpseAt') : ''}
     ${fnSrc('lootTargets')}
     ${fnSrc('dropCandidate')}
     const removeFoe = ${memberSrc('removeFoe')};

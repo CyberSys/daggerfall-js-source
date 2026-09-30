@@ -235,7 +235,7 @@ test('RENOWN1 the worker: /v1/renown/xp behind a session, the account the sessio
   const acct = (await call('GET', '/v1/account', undefined, me.secret)).body.account;
   assert.deepEqual(acct.renown.map((x) => [x.character, x.name, x.xp, x.level]), [['char-aaaa', 'Mara', 5001, 9]]);
   assert.equal(RENOWN_CARD_TRACKS, 5);
-  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct33"/);   // FIELD BUGS 2026-09-30 moved it on (acct33); PROF-DELETE before it (acct32); RENOWN-CHAR before it (acct31: Renown a character's again); MERGE 2 before it (acct30: the professions branch - acct22 to acct29 on its branch, never deployed - past main's acct23); HOUSE-LOSS and RESTORE moved it on (acct23 - acct20, then acct21 and acct22, on their branch, which TERMS1, PENITENT and REALM-DOOR took first). acct9 on the branch; main's FOUNDER2 took acct9; WB5b's gates closed moved it on (acct11); BASE-HIDE (acct12); RENOWN4 and GUILD1c (acct13 - acct11 and acct12 on their branch); SHADOW-FANG (acct14 - acct12 on its branch); FOUNDER3 (acct15); FOUNDER3 (acct15), then HOME-STATIONS (acct16 - acct15 on its branch)
+  assert.match(src('server-account/wrangler.toml'), /ACCOUNT_VERSION = "acct36"/);   // the PROF7 merge moved it on (acct36, past main's FIELD BUGS 2026-09-30 acct33); AUDIT 32 S1 before it (acct35); AUDIT 32 before it (acct34); PROF7 before it (acct33); PROF-DELETE before it (acct32); RENOWN-CHAR before it (acct31: Renown a character's again); MERGE 2 before it (acct30: the professions branch - acct22 to acct29 on its branch, never deployed - past main's acct23); HOUSE-LOSS and RESTORE moved it on (acct23 - acct20, then acct21 and acct22, on their branch, which TERMS1, PENITENT and REALM-DOOR took first). acct9 on the branch; main's FOUNDER2 took acct9; WB5b's gates closed moved it on (acct11); BASE-HIDE (acct12); RENOWN4 and GUILD1c (acct13 - acct11 and acct12 on their branch); SHADOW-FANG (acct14 - acct12 on its branch); FOUNDER3 (acct15); FOUNDER3 (acct15), then HOME-STATIONS (acct16 - acct15 on its branch)
   assert.match(src('.github/workflows/account-deploy.yml'), /- "src\/net\/renown\.js"/, 'the Worker bundles the curve, so a change to it deploys');
 });
 
@@ -453,7 +453,7 @@ test('RENOWN1 a foe you fought: it pays once when it dies within RENOWN_ASSIST_M
   _resetRenownKillsForTests();
   // THE DOORS: my blow stamps and every death asks - in both foe pools, a copy's death included; the watch never
   const ex = src('src/scenes/exteriorFoes.js'), dg = src('src/scenes/dungeonContext.js'), cg = src('src/scenes/cityGuards.js');
-  assert.match(ex, /if \(f\.dead\) return;[^\n]*\n\s+if \(fromPlayer && !peer\) renownFoeStruck\(f\);/, 'the outdoor door stamps my blow before a puppet\'s divert');
+  assert.match(ex, /if \(f\.dead[^\n]*\) return;[^\n]*\n\s+if \(fromPlayer && !peer\) renownFoeStruck\(f\);/, 'the outdoor door stamps my blow before a puppet\'s divert');   // PIN MOVED (AUDIT NAV2 F55): the dead check carries the shipmate's guard now - a blow that lands nothing stamps nothing
   assert.match(ex, /f\.dead = true;\n(?:\s+if \(fromPlayer && !peer\) reportPlayerKill\([^\n]*\n)?\s+renownFoeDied\(f\);\s+\/\/ RENOWN1: whoever struck last/);   // SET2: the kill told as mine may stand between
   assert.match(ex, /function puppetDie\(f\) \{[\s\S]{0,400}?f\.dead = true;\n\s+renownFoeDied\(f\);/, 'an owner\'s foe that fell');
   assert.match(dg, /if \(foe\.dead\) return;\n\s+if \(fromPlayer && !peer\) renownFoeStruck\(foe\);/, 'the dungeon door stamps a joiner\'s blow before the divert');

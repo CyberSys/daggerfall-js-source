@@ -282,7 +282,7 @@ test('SURV6: by source - the overworld host alone rolls, opens in the slot, pass
   assert.match(world, /const hunting = createHunting\(\{/);
   assert.match(world, /minute: Math\.floor\(ownMinutes\(\)\), climateIndex: maps\.getClimateIndex\(playerTravelPixel\(\)\.x, playerTravelPixel\(\)\.y\),/);   // LIVED1: the hunt's minute is the body's
   assert.match(world, /luck: liveStat\(playerEntity, 'luck'\), winter: seasonValue\(dateFromClassicMinutes\(worldMinutes\(\)\)\) === SEASONS\.Winter,/);
-  assert.match(world, /outdoors: _mode\(\) === 'exterior' && !\(walkMode && playerSpawned && player\.isPlayerSwimming\), inLocationRect: _musicInLocationRect\(\), night: isNight\(minuteNow\(\)\),/);
+  assert.match(world, /outdoors: _mode\(\) === 'exterior' && !\(walkMode && playerSpawned && player\.isPlayerSwimming\), afloat: playerAfloat\(\), inLocationRect: _musicInLocationRect\(\), night: isNight\(minuteNow\(\)\),/);
   assert.match(world, /enemiesNear: areEnemiesNearby\(exteriorFoePool\(\)\), resting: !!playerEntity\.isResting \|\| !!playerEntity\.preventEnemySpawns,/);
   assert.match(world, /hasBow: weaponTypeForItem\(weaponRig\.playerWeapon\.weapon\) === WEAPON_TYPES\.Bow,/);
   assert.match(world, /skills: \{ archery: skillValue\(playerEntity, SKILLS\.Archery\), stealth: skillValue\(playerEntity, SKILLS\.Stealth\), criticalStrike: skillValue\(playerEntity, SKILLS\.CriticalStrike\), climbing: skillValue\(playerEntity, SKILLS\.Climbing\) \},/);

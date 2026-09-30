@@ -335,7 +335,7 @@ test('OWS2 words: the trip\'s line says a crossing; the refusals say why', () =>
 test('OWS2 host wiring by source: the boat a journey crosses in; the plan asked with it; the frame before the mod\'s; the launch, the helm\'s keys through the one seam, the landfall, the step ashore and the pack', () => {
   const w = rd('src/scenes/world.js');
   // the means: at its helm, mine moored in reach, the parts in the pack - a boat that crosses
-  assert.match(w, /const tvSeaCrosses = \(rig\) => !!rig && \(rig\.sails > 0 \|\| rig\.crewed\) && rig\.cargo > 0;/);
+  assert.match(w, /const tvSeaCrosses = \(rig\) => !!rig && \(rig\.sails > 0 \|\| rig\.crewed\) && \(rig\.cargo > 0 \|\| !!csaRuntime\?\.helmResponsive\(\)\);/);   // PIN MOVED (AUDIT NAV2 F16): the Carrack crosses where the responsive helm sails her
   assert.match(w, /return tvSeaCrosses\(tvSeaRig\(b\)\) \? \{ start: 'sea', again: !!b\.packable, boat: b, how: 'helm' \} : null;/);
   assert.match(w, /if \(Math\.hypot\(p\[0\] - feet\[0\], p\[2\] - feet\[2\]\) <= TV_SEA_MOORED_M\) return \{ start: 'sea', again: !!b\.packable, boat: b, how: 'moored' \};/);
   assert.match(w, /return tvSeaParts\(\) \? \{ start: 'land', again: true, boat: null, how: 'parts' \} : null;/);
@@ -354,7 +354,7 @@ test('OWS2 host wiring by source: the boat a journey crosses in; the plan asked 
   const sea = w.indexOf('tvSeaFrame(dt);   // OWS2'), mod = w.indexOf('const report = travelOptions.update({'), govern = w.indexOf('travelViewGovern(dt);   // TV2');
   assert.ok(sea >= 0 && govern > sea && mod > govern && mod - sea < 3000, 'the crossing\'s frame first, then the cap\'s, then the mod\'s own update');
   // the seam: the helm reads the journey's keys and oars beside the rest
-  assert.match(w, /\|\| csaJourneyHelm\.held\.has\(action\),/);
+  assert.match(w, /\|\| csaJourneyHelm\.held\.has\(action\)(?: \|\| \(!!HELM_RUDDER_ACTIONS\[action\] && helmTurnKeys\(\) && held\(keys, HELM_RUDDER_ACTIONS\[action\]\)\))?,/);   // HELM-KEYS: the turn keys beside it at a helm
   assert.match(w, /get toggleAutorun\(\) \{ return !!player\.toggleAutorun \|\| csaJourneyHelm\.row; \},/);
   // PIN MOVED (AUDIT OW5 S1): the crossing's alone - a mod journey at a helm meets the mod's own ocean stop
   assert.match(w, /atSea: \(\) => !!tvSea\.means && \(!!csaBoatUnderMe\(\) \|\| tvSea\.phase === 'landing'\),/, 'afloat, and coming ashore - on the crossing');

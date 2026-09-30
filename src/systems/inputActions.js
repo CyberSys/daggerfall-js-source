@@ -146,6 +146,11 @@ export const ACTIONS = Object.freeze([
   // reads in play (THE MERGE: `;`, its key on its branch, is Come Sail Away's lantern - CSA-D, shipped first); the
   // prompt names it. (MERGE 2: after main's TogglePerspective, which shipped first.)
   'ActChoice',
+  // HELM-KEYS (2026-09-29, the player: "Arrow keys should not only control your ship, but also setting and raising
+  // your sails"): Come Sail Away's helm on the arrows - MORE SAIL and LESS SAIL, the port's own two steps through the
+  // mod's sail states (systems/comeSailAway.js MoreSail, LessSail), the down arrow's and the up arrow's (a DEFAULT
+  // SHARE beside ActChoice, below). Appended, like every port action before them.
+  'BoatSailUp', 'BoatSailDown',
 ]);
 
 /** AUDIT SOC D3: THE PORT'S OWN ROWS, NAMED SO THE CLASSIC WINDOWS CAN YIELD THEM.
@@ -162,7 +167,7 @@ export const PORT_ACTIONS = Object.freeze(['SocialInteract', 'QuickUse1', 'Quick
   'Interact', 'QuickDial', 'Hotbar5', 'Hotbar6', 'Hotbar7', 'Hotbar8', 'Hotbar9', 'Hotbar10',
   'TorchToggleLight', 'TorchDrop', 'TorchThrow', 'ShoulderSwitch', 'AutoPerspective', 'FollowPaths', 'HorseMount', 'HorseSummon', 'DebugOverlay',
   'BoatDisembark', 'BoatToggleLight', 'BoatToggleSail', 'BoatTrimRight', 'BoatTrimLeft', 'BoatTrimModifier',
-  'BoatTimeScaleUp', 'BoatTimeScaleDown', 'BoatTimeScaleReset', 'TravelView', 'WalkMode', 'TogglePerspective', 'ActChoice']);   // KB1; TV1; PADWALK; VIEW-TOGGLE; PROF1   // QUICK-LOOT B4: the plaque's two, drawn in the enhanced pane under their own heading - the classic windows cannot draw them at all
+  'BoatTimeScaleUp', 'BoatTimeScaleDown', 'BoatTimeScaleReset', 'TravelView', 'WalkMode', 'TogglePerspective', 'ActChoice', 'BoatSailUp', 'BoatSailDown']);   // KB1; TV1; PADWALK; VIEW-TOGGLE; PROF1   // QUICK-LOOT B4: the plaque's two, drawn in the enhanced pane under their own heading - the classic windows cannot draw them at all
 
 const ACTION_SET = new Set(ACTIONS);
 
@@ -338,7 +343,29 @@ export const DEFAULT_BINDINGS = Object.freeze([
   ['NumpadSubtract', 'BoatTimeScaleDown'],
   ['NumpadEnter', 'BoatTimeScaleReset'],
   ['ArrowUp', 'ActChoice'],   // PROF1 (THE MERGE: `;` is Come Sail Away's lantern, CSA-D; the up arrow is read by no action in play)
+  ['ArrowDown', 'BoatSailDown'],   // HELM-KEYS: less sail - the down arrow is read by nothing else in play (its More sail is DEFAULT_SHARES')
 ]);
+
+/**
+ * HELM-KEYS (2026-09-29, the player: "Arrow keys should not only control your ship, but also setting and raising your
+ * sails"): A DEFAULT SHARE - one key shipped to two actions that are never live at once (UXB1-S's share, as a default;
+ * KB1 law 3 keeps every OWNER once). `[code, action, partner]`: `action` answers `code` beside `partner`, the key's
+ * owner in DEFAULT_BINDINGS. resetDefaults seats it only while the key's owner IS the partner - a player's own rebind
+ * of the key is never shared onto - and an autofill only while the action is keyless and not force-removed, so a
+ * player's own unbinding stands. The one pair: MORE SAIL on the up arrow beside PROF1's ActChoice - the helm's and an
+ * herb patch's: a helm's hands are on the wheel, and the professions read no choice there (scenes/world.js).
+ */
+export const DEFAULT_SHARES = Object.freeze([
+  Object.freeze(['ArrowUp', 'BoatSailUp', 'ActChoice']),
+]);
+
+/**
+ * HELM-KEYS: AT A HELM THE TURN KEYS ARE THE RUDDER'S - DFU's TurnLeft and TurnRight (the left and right arrows) turn
+ * the ship as MoveLeft and MoveRight (A and D) do, and the view does not turn with them (scenes/world.js keyboard
+ * look): one action, one meaning - a turn - read by whoever the player's hands are on. Under the travel view the look
+ * keys stay the view's (TV1). rudder action -> the turn action that answers it too.
+ */
+export const HELM_RUDDER_ACTIONS = Object.freeze({ MoveLeft: 'TurnLeft', MoveRight: 'TurnRight' });
 
 /** KB1: THE TWO DFU ACTIONS THE PORT DOES NOT HAVE - ToggleConsole (there is no console) and Slide (DFU declares it
  *  and binds Left Ctrl; nothing in DFU reads it either). They stay in ACTIONS (the list is never cut: a saved file
@@ -376,6 +403,9 @@ export const MOD_ACTIONS = Object.freeze({
     Object.freeze({ action: 'HorseSummon', legacy: 'Hotkeys.SummonTransport', shipped: Object.freeze(['Alpha6', 'F10', 'G']) }),
   ]),
   'come-sail-away': Object.freeze([
+    // HELM-KEYS: the port's own two, first as the Controls group has them - no TextKey of the mod's to carry (`legacy` null)
+    Object.freeze({ action: 'BoatSailUp', legacy: null, shipped: Object.freeze([]) }),
+    Object.freeze({ action: 'BoatSailDown', legacy: null, shipped: Object.freeze([]) }),
     Object.freeze({ action: 'BoatDisembark', legacy: 'Controls.Disembark', shipped: Object.freeze(['C']) }),
     Object.freeze({ action: 'BoatToggleLight', legacy: 'Controls.ToggleLight', shipped: Object.freeze(['Period']) }),
     Object.freeze({ action: 'BoatToggleSail', legacy: 'Controls.ToggleSail', shipped: Object.freeze(['Space']) }),
@@ -453,7 +483,7 @@ export const ACTION_GROUPS = Object.freeze([
     ['SocialInteract', 'Interact with player'],
   ]),
   g('Professions', [
-    ['ActChoice', 'At an herb patch: the herbs or the Basket'],   // PROF1 - Interact starts the act, attack plays it, Escape ends it
+    ['ActChoice', 'At an herb patch: the herbs or the Basket; at a body: skin it or search it'],   // PROF1 - Interact starts the act, attack plays the Basket's, Escape ends it; AUDIT 32 R1: PROF7's body (the knife's trace drawn with Interact held)
   ]),
   g('Game', [
     ['QuickSave', 'Quick save'], ['QuickLoad', 'Quick load'], ['PrintScreen', 'Screenshot'], ['DebugOverlay', 'Diagnostics readout'],
@@ -471,6 +501,7 @@ export const ACTION_GROUPS = Object.freeze([
     ['HorseMount', 'Mount or dismount'], ['HorseSummon', 'Summon horse and wagon'],
   ], 'horse-cart-and-cargo'),
   g('Come Sail Away', [
+    ['BoatSailUp', 'More sail'], ['BoatSailDown', 'Less sail'],   // HELM-KEYS: first - the helm's arrows
     ['BoatDisembark', 'Leave the helm'], ['BoatToggleLight', 'Light or douse the boat\u2019s lanterns'],
     ['BoatToggleSail', 'Raise or stow the sails'], ['BoatTrimRight', 'Trim the sails right'], ['BoatTrimLeft', 'Trim the sails left'],
     ['BoatTrimModifier', 'Trim the square sails (hold)'],
@@ -982,6 +1013,12 @@ export function resetDefaults(store, autofill = false) {
     ? (code, action) => testSetBinding(store, code, action, true)
     : (code, action) => setBinding(store, code, action, true);
   for (const [code, action] of DEFAULT_BINDINGS) set(code, action);
+  // HELM-KEYS: the default shares, onto their partner's key alone (DEFAULT_SHARES)
+  for (const [code, action, partner] of DEFAULT_SHARES) {
+    if (store.primary.get(code) !== partner) continue;
+    if (autofill && (getBinding(store, action, true) != null || getBinding(store, action, false) != null || store.removedPrimary.has(action))) continue;
+    shareBinding(store, code, action, true);
+  }
   // PAD1: THE PAD LAYOUT, in the SECONDARY dict and always by testSetBinding
   // - a full reset restores the keyboard primaries as DFU's does (:956-960)
   // and leaves every secondary a player chose standing, so the pad rows can
@@ -1281,6 +1318,7 @@ export function migrateKeyBinds(store, fromVersion) {
   const spoken = (code) => actionForCode(store, code) != null || comboModifiers(store).has(code);
   for (const [vendor, rows] of Object.entries(MOD_ACTIONS)) {
     for (const row of rows) {
+      if (row.legacy == null) continue;   // HELM-KEYS: a port row - no old setting to carry
       let saved;
       try { saved = storedModSetting(vendor, row.legacy); } catch { saved = undefined; }
       if (saved === undefined || row.shipped.includes(saved)) continue;

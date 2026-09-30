@@ -22,7 +22,7 @@
 
 import {
   FORAGING_TEMPLATES, FORAGING_VENDOR, FORAGING_GROUP, FORAGING_QUEST_LIST, FT, TOOL_TEMPLATES, FORAGING_TEXTURE_ARCHIVES,
-  foragingRefusal, woodAxeBundles, woodAxeMessage, pickAxeQuest, sickleQuest, fishingCount, fishingMessage, fishTemplate,
+  foragingRefusal, checksRefusal, woodAxeBundles, woodAxeMessage, pickAxeQuest, sickleQuest, fishingCount, fishingMessage, fishTemplate,
   spadeQuest, basketDraw, basketFind, TOOL_QUESTS, brokeMessage, FOODS, FORAGING_COMMAND,
   foragingLootItem, containerLootDraw, dungeonLootDraw, corpseLootDraw,
 } from './foragingLaw.js';
@@ -114,7 +114,7 @@ const stats = (entity) => ({
 function wear(item, collection, entity) {
   lowerCondition(item, 1, entity, (line) => popupMessage(line), collection);
   if ((item.currentCondition ?? 0) > 0) return;
-  hudText(brokeMessage(item.templateIndex));
+  hudText(brokeMessage(item.templateIndex, item.name));
   if (collection) { const i = collection.indexOf(item); if (i >= 0) collection.splice(i, 1); }
 }
 
@@ -124,6 +124,8 @@ function wear(item, collection, entity) {
  *  Sickle's for an herb, the Basket's for its food) - never asking Foraging's switch (law 6: the acts are the
  *  server's). Null where every check passes. */
 export const foragingActRefusal = (templateIndex, skip = null) => foragingRefusal(templateIndex, worldNow(), skip);   // PROF2: a dungeon vein skips the surface's checks
+/** PROF7 (FORAGE0 14.3): a tool not Foraging's asks the same checks of the same world, with its own lines. */
+export const actChecksRefusal = (order, lines) => checksRefusal(order, lines, worldNow());
 /** PROF1 (FORAGE0 14.1): which tool an act draws - the first of its kind in the pack, in the pack's order (as DFU's
  *  ItemCollection finds it), one not yet broken. */
 export const foragingToolIn = (entity, templateIndex) =>
