@@ -25,16 +25,17 @@ export const SEAT_TIERS = Object.freeze(['palace', 'crown']);
  *  must also match: tier crown, name in HUB_CAPITALS, region index 17, 23 or 20"). */
 export const CROWN_SEAT_REGIONS = Object.freeze({ 17: 'daggerfall', 23: 'wayrest', 20: 'sentinel' });
 
-/** THE WITNESSED REGISTRY (SEAT0 3.2, Appendix B): confirmed by 3 distinct witnesses reporting byte-identically;
- *  disputed only by 2 agreeing on another answer; a witness an account at least 7 days old; an account whose
- *  disagreements match nobody else's 3 times is ignored for a week; 24 reports an account an hour. */
-export const SEAT_WITNESSES_CONFIRM = 3;
-export const SEAT_WITNESSES_DISPUTE = 2;
-export const SEAT_WITNESS_AGE_S = 7 * 86400;
+/** THE WITNESSED REGISTRY (SEAT0 3.2, Appendix B). A seat is witnessed as the professions' pixels are - ONE table
+ *  (`world_witness`, the kind `seat`, keyed by the map id) and ONE law (net/nodeLaw.js witnessedFact and WITNESS: an
+ *  account a week registered; three agreeing byte for byte confirm; two agreeing on another answer dispute). What is
+ *  the seats' own: an account whose disagreements match nobody else's three times has its seat reports ignored for a
+ *  week; 24 reports an account an hour; a client reports a seat town it stands in once a UTC day. */
 export const SEAT_WITNESS_UNMATCHED_MAX = 3;
+/** THE AUDIT (SEAT0 3.2: "a seat confirmed by exactly three witnesses whom nobody else ever joins"): a seat whose
+ *  confirmation still rests on this many (WITNESS.confirm), no fourth ever agreeing, is listed for a person to read. */
+export const SEAT_WITNESSES_AUDIT = 3;
 export const SEAT_WITNESS_IGNORED_S = 7 * 86400;
 export const SEAT_WITNESS_REPORTS_HOUR = 24;
-/** How often a client standing in a seat town reports it: once a UTC day (SEAT0 3.2). */
 export const SEAT_REPORT_EVERY_S = 86400;
 
 /** The switch the service's config holds (SEATS_OPEN, SEAT0 18): off, dev (the developers alone), on. */
@@ -54,44 +55,55 @@ const nameOk = (n) => typeof n === 'string' && n.length >= 1 && n.length <= 48 &
 /**
  * A SEAT AS A CLIENT REPORTS IT, checked and CANONICAL - `{ key, name, region, tier, pixel: [x, y] }` in that key order,
  * so two witnesses who derived the same seat report the same bytes (seatReportText) - or null. A crown must stand in
- * its crown's region (SEAT0 3.2); a palace never does in a crown region's capital's place is not asked here (the
- * derivation's), only the shape.
+ * its crown's region and bear its name (SEAT0 3.2); the rest is the shape.
  * @param {any} raw
  */
 export function seatReportOf(raw) {
   if (!raw || typeof raw !== 'object') return null;
   const { key, name, region, tier, pixel } = raw;
   if (!seatKeyOk(key) || !nameOk(name) || !seatRegionOk(region) || !SEAT_TIERS.includes(tier) || !pixelOk(pixel)) return null;
-  if (tier === 'crown' && !Object.prototype.hasOwnProperty.call(CROWN_SEAT_REGIONS, region)) return null;
+  // a crown stands in its crown's region and bears its name (SEAT0 3.2: "tier crown, name in HUB_CAPITALS, region index
+  // 17, 23 or 20")
+  if (tier === 'crown' && (!Object.prototype.hasOwnProperty.call(CROWN_SEAT_REGIONS, region) || name !== KINGDOMS[CROWN_SEAT_REGIONS[region]]?.name)) return null;
   return { key, name, region, tier, pixel: [pixel[0], pixel[1]] };
 }
 /** The report's bytes - what three witnesses must agree on, byte for byte. */
 export const seatReportText = (seat) => JSON.stringify([seat.key, seat.name, seat.region, seat.tier, seat.pixel[0], seat.pixel[1]]);
 
+/** A seat's report read back (witnessedFact's `parse`): the seat it names, or null for a report that is no seat's. */
+export function parseSeatReport(text) {
+  let a;
+  try { a = JSON.parse(text); } catch { return null; }
+  if (!Array.isArray(a) || a.length !== 6) return null;
+  const seat = seatReportOf({ key: a[0], name: a[1], region: a[2], tier: a[3], pixel: [a[4], a[5]] });
+  return seat && seatReportText(seat) === text ? { seat } : null;
+}
+
 /**
- * THE ONE DISPUTE RULE (SEAT0 3.2), over a seat's reports - `[{ text, witness }]`, one per witness (their latest):
- * the answer at least SEAT_WITNESSES_CONFIRM witnesses agree on byte for byte is CONFIRMED; once a row is confirmed, it
- * keeps every effect, and becomes DISPUTED only when SEAT_WITNESSES_DISPUTE witnesses agree on ONE other answer (a lone
- * dissenter is counted, not obeyed). Before any confirmation the row is unconfirmed. `confirmed` is the text the row was
- * confirmed with (null before). Answers `{ state: 'unconfirmed'|'confirmed'|'disputed', text }` - `text` the answer in
- * force (the confirmed one, whatever the dispute).
- * @param {{ text: string, witness: string }[]} reports
- * @param {string|null} confirmed
+ * THE ACCOUNTS WHOSE SEAT REPORTS ARE IGNORED (SEAT0 3.2: "An account whose disagreements match nobody else's three times
+ * has its reports ignored for a week"): over every seat's reports (`[{ key, account, report, at }]`) and each seat's
+ * confirmed answer (`confirmed`: key -> text), an account that, in the last SEAT_WITNESS_IGNORED_S before `nowS`, gave
+ * SEAT_WITNESS_UNMATCHED_MAX answers that differ from the confirmed one and that no other account gave. Pure.
+ * @param {{ key: string, account: string, report: string, at: number }[]} rows
+ * @param {Map<string, string>} confirmed
+ * @param {number} nowS
  */
-export function seatStateOf(reports, confirmed = null) {
-  const by = new Map();
-  for (const r of reports ?? []) {
-    if (!r || typeof r.text !== 'string' || typeof r.witness !== 'string') continue;
-    const set = by.get(r.text) ?? new Set();
-    set.add(r.witness);
-    by.set(r.text, set);
+export function seatIgnoredAccounts(rows, confirmed, nowS) {
+  const givers = new Map();   // `${key}\n${report}` -> accounts
+  for (const r of rows ?? []) {
+    const k = `${r.key}\n${r.report}`;
+    const set = givers.get(k) ?? new Set();
+    set.add(r.account);
+    givers.set(k, set);
   }
-  if (confirmed == null) {
-    const agreed = [...by.entries()].filter(([, w]) => w.size >= SEAT_WITNESSES_CONFIRM).sort((a, b) => b[1].size - a[1].size || (a[0] < b[0] ? -1 : 1));
-    return agreed.length ? { state: 'confirmed', text: agreed[0][0] } : { state: 'unconfirmed', text: null };
+  const unmatched = new Map();
+  for (const r of rows ?? []) {
+    const c = confirmed.get(r.key);
+    if (c == null || r.report === c || r.at < nowS - SEAT_WITNESS_IGNORED_S) continue;
+    if ((givers.get(`${r.key}\n${r.report}`)?.size ?? 0) > 1) continue;
+    unmatched.set(r.account, (unmatched.get(r.account) ?? 0) + 1);
   }
-  const other = [...by.entries()].some(([t, w]) => t !== confirmed && w.size >= SEAT_WITNESSES_DISPUTE);
-  return { state: other ? 'disputed' : 'confirmed', text: confirmed };
+  return new Set([...unmatched].filter(([, n]) => n >= SEAT_WITNESS_UNMATCHED_MAX).map(([a]) => a));
 }
 
 /** The kingdom a seat is under (kingdomLaw.js) - its id, or null for a March or a Free Land. */
@@ -119,6 +131,12 @@ export function seatArrivalLine(seat, holder = null) {
     return holder ? `${seat.name}, capital of the Kingdom of ${k}, held by ${guildWords(holder)}.` : `${seat.name}, capital of the Kingdom of ${k}. Its Crown Charter is unheld.`;
   }
   return holder ? `${seat.name}, held by ${guildWords(holder)}.` : `${seat.name}. Its Charter is unheld.`;
+}
+
+/** The map's line for a seat, in its box: "The Charter of Anticlere: unheld" (SEAT1c: "held by the Silver Hand <SH>"). */
+export function seatInfoLine(seat, holder = null) {
+  const c = charterName(seat);
+  return `${c[0].toUpperCase()}${c.slice(1)}: ${holder ? `held by ${guildWords(holder)}` : 'unheld'}`;
 }
 
 /** THE MAP'S MARKS (SEAT0 3.3): the unheld ring's stone grey; each crown's metal; a free land's green. */

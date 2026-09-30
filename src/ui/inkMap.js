@@ -43,6 +43,7 @@ import { GATE_RING_CSS, GATE_FILL_CSS } from './gateMapMark.js';   // WB1: the O
 import { BOUNTY_RING_CSS, BOUNTY_FILL_CSS } from './bountyMapMark.js';   // BOUNTY1: a held bounty's black circle
 import { RAID_MARK_CSS } from './eventMapMarks.js';   // EVENT-TIP: a town under attack
 import { QUEST_MARK_CSS, QUEST_MARK_LIFT } from './questMarks.js';   // GUIDE5: where a quest points
+import { seatMapMark } from '../net/townSeatLaw.js';   // SEAT1a: how a seat is marked - its ring, a crown, a second ring
 
 // ── THE INK (skin): the pen and its washes ───────────────────────────────────────────────
 /** THE TWO GROUNDS EVERY COLOUR ON THIS SHEET IS MIXED FROM. The pen
@@ -580,11 +581,13 @@ export function buildInkModel(deps) {
  * what the mod's mark and ports laws key on.
  * HUB1: `hubAt` answers the region hub a mark IS (systems/regionHubs.js), or null - online alone; the host hands
  * none offline and no mark carries one.
+ * SEAT1a: `seatAt` answers the seat a mark IS (systems/townSeats.js), or null - online, while the seats are open; the
+ * mark carries it and how the map marks it (net/townSeatLaw.js seatMapMark).
  * @param {{ summaries?: Iterable<any>, filters?: any,
  *   isDiscovered?: (summary: any) => boolean, nameOf?: (summary: any) => string,
- *   isPort?: (summary: any) => boolean, hubAt?: (summary: any) => any }} deps
+ *   isPort?: (summary: any) => boolean, hubAt?: (summary: any) => any, seatAt?: (summary: any) => any }} deps
  */
-export function buildInkMarks({ summaries = [], filters = {}, isDiscovered = undefined, nameOf = () => '', isPort = () => false, hubAt = () => null }) {
+export function buildInkMarks({ summaries = [], filters = {}, isDiscovered = undefined, nameOf = () => '', isPort = () => false, hubAt = () => null, seatAt = () => null }) {
   const opts = isDiscovered ? { isDiscovered } : {};
   return buildMarkerModel(summaries, filters, opts).map((m) => ({
     x: m.x, y: -m.z,             // the pixel's centre, in map pixels (y down)
@@ -595,8 +598,11 @@ export function buildInkMarks({ summaries = [], filters = {}, isDiscovered = und
     mapId: m.summary?.mapID ?? m.summary?.mapId ?? null,
     port: !!isPort(m.summary),
     hub: hubAt(m.summary) ?? null,
+    ...seatMarkOf(seatAt(m.summary)),
   }));
 }
+/** SEAT1a: a mark's seat and its marks - `{ seat, seatMark }`, or nothing for a place that is none. */
+const seatMarkOf = (seat) => (seat ? { seat, seatMark: seatMapMark(seat) } : {});
 
 // ── THE VIEW ─────────────────────────────────────────────────────
 
@@ -988,7 +994,9 @@ export function paintInkStatic(ctx, model, view, opts) {
     inked.push([m, ...toPaper(view, m.x, m.y)]);
   }
   // HUB1: a hub's circle goes down FIRST - its glyph's halo and ink then sit on it, so the town reads on the colour
-  for (const [m, x, y] of inked) if (m.hub) paintHubCircle(ctx, x, y, markReach(m), !!m.hub.capital);
+  for (const [m, x, y] of inked) if (m.hub) paintHubCircle(ctx, x, y, markReach(m) - (m.seat ? SEAT_RING_PAD : 0), !!m.hub.capital);
+  // SEAT1a (Seats-Arc 3.3): a seat's ring, in HUB1's order - under the glyph, round any hub's circle
+  for (const [m, x, y] of inked) if (m.seatMark) paintSeatRing(ctx, x, y, markReach(m), m.seatMark);
   for (const [m, x, y] of inked) paintGlyph(ctx, m.kind, x, y, true);
   for (const [m, x, y] of inked) {
     paintGlyph(ctx, m.kind, x, y, false, opts.inks?.[m.kind]);   // MAP-KEY: in its classic dot's hue, where there is a palette
@@ -1254,8 +1262,43 @@ export const HUB_CIRCLE = Object.freeze({
 });
 /** How far the circle reaches past the glyph it holds, in paper pixels. */
 export const HUB_CIRCLE_PAD = 3.5;
-/** How far a mark's ink reaches from its centre: its glyph, and a hub's circle round it. Names keep clear of it. */
-export const markReach = (m) => (GLYPH_R[m.kind] ?? 4) + (m.hub ? HUB_CIRCLE_PAD : 0);
+/** SEAT1a: how far a seat's ring sits past the glyph (or the hub's circle) it rings, in paper pixels, and its second
+ *  ring (a March's, a Free Land's) past that. */
+export const SEAT_RING_PAD = 2.5;
+export const SEAT_SECOND_PAD = 2;
+/** How far a mark's ink reaches from its centre: its glyph, a hub's circle round it and a seat's ring round that. Names
+ *  keep clear of it. */
+export const markReach = (m) => (GLYPH_R[m.kind] ?? 4) + (m.hub ? HUB_CIRCLE_PAD : 0) + (m.seat ? SEAT_RING_PAD : 0);
+/**
+ * SEAT1a (Seats-Arc 3.3): ONE SEAT'S MARKS at paper (x, y), `r` its ring's radius - the ring, hollow, in `mark.ring`
+ * (stone grey while unheld); a March's thin second ring half in each claiming crown's metal, a Free Land's green; and
+ * over a crown seat a small crown in its kingdom's metal. Skin.
+ */
+export function paintSeatRing(ctx, x, y, r, mark) {
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.strokeStyle = mark.ring;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  if (mark.second?.length) {
+    const n = mark.second.length;
+    mark.second.forEach((c, i) => {
+      ctx.beginPath();
+      ctx.arc(x, y, r + SEAT_SECOND_PAD, (i / n) * Math.PI * 2, ((i + 1) / n) * Math.PI * 2);
+      ctx.strokeStyle = c;
+      ctx.lineWidth = 0.9;
+      ctx.stroke();
+    });
+  }
+  if (mark.crown) {
+    const cy = y - r - (mark.second?.length ? SEAT_SECOND_PAD : 0) - 2.5;
+    ctx.beginPath();
+    ctx.moveTo(x - 3, cy); ctx.lineTo(x - 3, cy - 3); ctx.lineTo(x - 1.5, cy - 1.5); ctx.lineTo(x, cy - 3.5);
+    ctx.lineTo(x + 1.5, cy - 1.5); ctx.lineTo(x + 3, cy - 3); ctx.lineTo(x + 3, cy); ctx.closePath();
+    ctx.fillStyle = mark.crown;
+    ctx.fill();
+  }
+}
 /** Paint one hub's circle at paper (x, y): the wash, then the rim. Skin. */
 export function paintHubCircle(ctx, x, y, r, capital = false) {
   const c = capital ? HUB_CIRCLE.capital : HUB_CIRCLE.hub;

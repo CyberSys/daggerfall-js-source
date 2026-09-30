@@ -149,6 +149,7 @@ import {
 } from './guilds.js';   // GUILD1: the guilds' routes; GUILD1c: the guild a token carries
 import { buyHall, sellHall, setHallEntry, setHeraldry } from './halls.js';   // GUILD1d: the guild hall and heraldry
 import { readGuildBoard, pinGuildNote, takeDownGuildNote } from './guildBoard.js';   // GUILD1e: a guild's own board
+import { listSeats, witnessSeat, strikeSeat } from './townSeats.js';   // SEAT1a: the seats' witnessed registry
 import { decorOf, placeDecor, moveDecor, removeDecor, hideDecorBase, yardsOf } from './decor.js';   // DECOR1: an online home's decor; BASE-HIDE: what its owner took out
 import { gateStrikeStatement, gateStrikeAnswer, marksOf, marksCardOf, exchangeMarks, depositGuildMarks, withdrawGuildMarks, marksReport } from './marks.js';   // MARKS1: the server's currency
 import { readBoard, pinNote, takeDownNote, reportNote, moderateNote, postNotice, removeNotice } from './board.js';   // NOTICE1: the Notice Board
@@ -243,6 +244,11 @@ const BOARD_STATUS = Object.freeze({
   'no-note': 404, 'no-notice': 404, 'note-no-guild': 404,
   'notes-full': 409,
   'board-rate': 429, 'board-ops-rate': 429,
+});
+/** SEAT1a: each seat refusal's status - not this account's (a guest, the switch, a developer's act) 403, a seat struck
+ *  409, the hour's reports spent 429, a bad shape 400 (the default). */
+const SEAT_STATUS = Object.freeze({
+  'seats-need-account': 403, 'seats-closed': 403, 'not-developer': 403, 'seat-struck': 409, 'seats-rate': 429,
 });
 /** PROF1: each professions refusal's status - not this account's (a guest, the switch, the Marks' switch, the rank) 403,
  *  no such writ 404, a conflict with what stands (the day, the hour, the cap, the Stores, a node or writ taken) 409, the
@@ -797,6 +803,22 @@ export default {
         if (!act) return no('not-found', 404, origin);
         const r = await act();
         return 'error' in r ? no(r.error, BOARD_STATUS[r.error] ?? 400, origin) : json(r, 200, origin);
+      }
+
+      // ═══ SEAT1a: THE SEATS ════════════════════════════════════════════
+      //
+      // The witnessed registry (townSeats.js): the seats the witnesses confirmed, read by anyone the switch lets in; a
+      // seat reported by the client standing in its town; a developer's strike.
+      if (path.startsWith('/v1/seats/')) {
+        if (request.method !== 'POST') return no('method', 405, origin);
+        const act = {
+          '/v1/seats/list': () => listSeats(ctx, who.player, env),
+          '/v1/seats/witness': () => witnessSeat(ctx, who.player, env, body),
+          '/v1/seats/strike': () => strikeSeat(ctx, who.player, env, body),
+        }[path];
+        if (!act) return no('not-found', 404, origin);
+        const r = await act();
+        return 'error' in r ? no(r.error, SEAT_STATUS[r.error] ?? 400, origin) : json(r, 200, origin);
       }
 
       // ═══ PROF1: THE PROFESSIONS ══════════════════════════════════════

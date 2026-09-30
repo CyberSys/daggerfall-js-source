@@ -267,9 +267,9 @@ test('AUDIT GUILD1d A1-A9: members rest (the online bed its own permanence), use
 test('AUDIT GUILD1d R1-R4, R6-R9: the banners sway on the wind\'s own 0..1, out along their face alone, drawn before every glow; their width runs from their face whatever the door\'s vertex order; a failed picture still marks the seam and is asked again; an idle texture is given back; premultiplied, and lit by the moon (mutants: the slider; the two-way swing; the order; the width off the record; the true; the null kept; the prune; the premultiply; the moon)', () => {
   const w = src('src/scenes/world.js');
   assert.match(w, /wind: Math\.min\(1, wd\.strength01 \* wd\.gust\),/, 'R1');
-  assert.ok(w.indexOf('const hung = hallBanners.list();') < w.indexOf('    drawVeiledPeerBodies();   // INVIS-LOOK'), 'R3: before the veiled bodies');
-  assert.ok(w.indexOf('const hung = hallBanners.list();') < w.indexOf('duelWall.draw(rings'), 'R3: before the duel walls');
-  const bannerDraw = w.slice(w.indexOf('const hung = hallBanners.list();'), w.indexOf('})) renderer.markForeignPass();', w.indexOf('const hung = hallBanners.list();')));
+  assert.ok(w.indexOf('const hung = bannersHung();') < w.indexOf('    drawVeiledPeerBodies();   // INVIS-LOOK'), 'R3: before the veiled bodies');
+  assert.ok(w.indexOf('const hung = bannersHung();') < w.indexOf('duelWall.draw(rings'), 'R3: before the duel walls');
+  const bannerDraw = w.slice(w.indexOf('const hung = bannersHung();'), w.indexOf('})) renderer.markForeignPass();', w.indexOf('const hung = bannersHung();')));
   assert.match(bannerDraw, /light: \{[^}]*moonDir: renderer\._moonDir, moonScale: renderer\._moonScale, moonCol: renderer\._moonColor \},/, 'R9: the banners\' own light carries the moon');
   assert.match(BANNER_VS, /float swing = 0\.5 \+ 0\.5 \* sin\(/, 'R2');
   assert.match(BANNER_VS, /float ripple = 0\.5 \+ 0\.5 \* sin\(/);

@@ -368,7 +368,7 @@ test('GUILD1d wired: the building host - the hall\'s rows and its buy, the chest
   const w = src('src/scenes/world.js');
   assert.match(w, /if \(hf && !hf\.door\) hf\.door = doorCornersOf\(cpu\.doors\[0\], local\);/);
   assert.match(w, /const hallBanners = onlineHomes && bannerPass \? createHallBanners\(\{/);
-  assert.ok(w.indexOf('const hung = hallBanners.list();') < w.indexOf('    drawVeiledPeerBodies();   // INVIS-LOOK'), 'before every glow (AUDIT GUILD1d R3)');
+  assert.ok(w.indexOf('const hung = bannersHung();') < w.indexOf('    drawVeiledPeerBodies();   // INVIS-LOOK'), 'before every glow (AUDIT GUILD1d R3; SEAT1a: the seats\' banners with the halls\')');
   assert.match(w, /openStores: \(\) => socialPanel\?\.openGuild\?\.\(\) === true,/);
   assert.match(w, /onHall: \(mapId\) => \{ onlineHomes\?\.ensure\?\.\(mapId, \{ force: true \}\); \},/);
   const dt = src('src/scenes/decorTool.js');

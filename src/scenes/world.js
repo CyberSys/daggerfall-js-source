@@ -456,7 +456,7 @@ import { createSeatLock, SEAT_NOTICE, SEAT_MID_TEXT, PLAY_HERE_LABEL } from '../
 import { readAccount, buyInsignia, equipTitle, equipAura, adoptIdentity as adoptSessionIdentity } from '../net/accountClient.js';   // WB9g: the Broker's insignia - the account's wardrobe, its sale and its wearing, and my own screen's word of it
 import { ownAura } from '../systems/ownGlyphs.js';   // WB9g: the aura at my own feet - the service's last word, kept on the stored session
 import { INSIGNIA, insigniaRefusal } from '../net/insignia.js';   // WB9g
-import { accountTokenMinter, storedSession, accountPlayBeat, muteAccount, serviceBase, accountRefusalText, accountDuels, accountRenown, accountHomes, accountDecor, accountGuilds, accountGates, accountMarks, accountBoard, accountProf, accountRaids, accountMarket, accountWrits } from '../net/accountClient.js';   // ACC1d: the hello's signed word, minted per connection from the account session this device holds   // ACC4: and the beat that counts time played
+import { accountTokenMinter, storedSession, accountPlayBeat, muteAccount, serviceBase, accountRefusalText, accountDuels, accountRenown, accountHomes, accountDecor, accountGuilds, accountGates, accountMarks, accountBoard, accountProf, accountRaids, accountMarket, accountWrits, accountSeats } from '../net/accountClient.js';   // ACC1d: the hello's signed word, minted per connection from the account session this device holds   // ACC4: and the beat that counts time played
 import { parseModCommand, runModCommand, mutedText, mutedNotices } from '../net/moderation.js';   // MOD1: /mute and /unmute, and the line a muted player reads
 import { startPlayClock } from '../net/playClock.js';   // ACC4: time played, knocked from here and measured by the account service's clock
 import { renownKillXp, renownQuestXp, renownPartyXp, renownText } from '../net/renown.js';   // RENOWN1: what a kill and a quest are worth, and the party's bonus (RENOWN3: read against my Renown)
@@ -464,6 +464,9 @@ import { createRenownTracker, setRenownKillHandler, renownFoeLevel, renownAnswer
 import { setRenownLayer } from '../systems/renownLayer.js';   // RENOWN1: the level's health and magicka, on top of Daggerfall's while online
 import { setHudRenown } from '../ui/hudRenown.js';   // RENOWN4: my own Renown and its bar, under the vitals
 import { pickRegionHubs, hubAtMapId, hubArrivalLine } from '../systems/regionHubs.js';   // HUB1: every region's main city, its hub
+import { deriveTownSeats, seatAtMapId } from '../systems/townSeats.js';   // SEAT1a: every palace a seat, the three capitals crowns
+import { createTownSeatBook, parseSeatCommand } from '../net/townSeatBook.js';   // SEAT1a: the seats open, confirmed, witnessed
+import { seatArrivalLine } from '../net/townSeatLaw.js';   // SEAT1a: the seat's arrival line
 import { createOnlineHomes } from '../systems/onlineHomes.js';   // HOME1: the account service's homes, one town at a time
 import { townBoardRows, townHomeRows } from '../ui/townMapMarks.js';   // TOWN-MARKS: the Notice Boards and the player housing on the town map
 import { setSigilOnline, setSigilRenown } from '../systems/sigil.js';   // SIGIL1: a weapon won online carries a sigil, woken by my Renown
@@ -532,8 +535,9 @@ import { createDuelManager, DUEL_RADIUS_M, DUEL_RANGE_M, DUEL_COUNTDOWN_MS, ring
 import { createDuelRecords, duelUncountedText } from '../net/duelRecord.js';   // DUEL1: the Inspect card's duelling record, asked and kept
 import { createDuelPrompt } from '../ui/duelPrompt.js';   // DUEL1: the challenge, as the challenged player sees it
 import { DuelWallRenderer } from '../render/duelWall.js';   // DUEL1: the ring's holographic wall
-import { BannerRenderer, BANNER_TEX_W } from '../render/bannerPass.js';   // GUILD1d: a guild's banners, the cloth
-import { createHallBanners, doorCornersOf } from './hallBanners.js';   // GUILD1d: ...hung beside its hall's door
+import { BannerRenderer, BANNER_TEX_W, BANNERS_MAX } from '../render/bannerPass.js';   // GUILD1d: a guild's banners, the cloth
+import { createHallBanners, doorCornersOf } from './hallBanners.js';
+import { createSeatBanners, seatBannerAnchors, palaceKeysOf, townCentreOf } from './seatBanners.js';   // SEAT1a: a seat town's banners   // GUILD1d: ...hung beside its hall's door
 import { drawBanner } from '../ui/heraldryArt.js';   // GUILD1d: ...its heraldry painted on it
 import { AuraRingRenderer, auraWearers, AURA_KINDLE_S } from '../render/auraRing.js';   // WB9g: Dagon's Fire at a wearer's feet
 import { duelAttackerOf, duelWeaponOf, duelSwingOf, resolveDuelStrike, duelBlowPlausible, duelSpellOf, duelSpellFromWire, duelWearDamage, DUEL_TRAIL_MS } from '../combat/duelCombat.js';   // DUEL1: the blow between two duellists, both halves
@@ -1079,6 +1083,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   // this is its one fix.)
   // HUB1: every region's main city, one answer on every client (systems/regionHubs.js) - read online alone
   const regionHubs = pickRegionHubs(_hubRows, { regionNameOf: (r) => maps.getRegionName(r) });
+  // SEAT1a (Seats-Arc 3.1): every location with a Palace a seat, the three capitals crowns - over the SAME rows, the
+  // game's own (a mod's rows never count), so every client derives the same seats (systems/townSeats.js). Online alone.
+  const townSeats = deriveTownSeats(_hubRows, { regionNameOf: (r) => maps.getRegionName(r), isHub: (k) => regionHubs.byMapId.has(k) });
   _hubRows.length = 0;
   // HOME1 (Mac: "allowing online players to purchase housing in any location"): the online homes - the account
   // service's registry as this page knows it, one town at a time (systems/onlineHomes.js). The mode machine's doors
@@ -1108,6 +1115,14 @@ export async function bootWorld(canvas, renderer, params, status) {
   const noticeBook = params.has('online')
     ? createNoticeBook({ door: accountBoard({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() }), storage: appStorage() })
     : null;
+  // SEAT1a (Seats-Arc 3.2): whether the seats are open to this account (SEATS_OPEN), the ones the witnesses confirmed,
+  // and the seat this client stands in reported once a day (net/townSeatBook.js). Online only - offline the Bay is DFU's.
+  const seatBook = params.has('online')
+    ? createTownSeatBook({ door: accountSeats({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() }), storage: appStorage() })
+    : null;
+  /** SEAT1a: the seat a location IS, while the seats are open to this account - off the client's own derivation (a seat
+   *  it lacks is never drawn, listed or honoured). */
+  const seatHere = (mapId) => (seatBook?.open === true ? seatAtMapId(townSeats, mapId) : null);
   // PROF1 (bible/06-Systems/Professions-Arc.md 22): this character's professions - its tracks, Stores and day as the
   // account service last said them, its harvests kept until answered, its withdrawals, its Court writs
   // (net/profBook.js). Online only: offline nothing earns a profession (PROF0 law 1). The clock is the shared one.
@@ -3490,7 +3505,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           // looks for (:393-398). This port has no components, so the
           // pixel keeps the boards it stood - pixel-local, like its
           // NPCs and lights - and the activation ray reads that list.
-          if (isBulletinBoard(placed.modelIdNum)) pixelBoards.push({ box });
+          if (isBulletinBoard(placed.modelIdNum)) pixelBoards.push({ box, local });   // SEAT1a: and its matrix - a seat's pennant faces as the board does
           // AUDIT 64 F14: ...and the CITY GATES, stood standalone for
           // exactly the same reason (RMBLayout.cs:857) so
           // DaggerfallCityGate can ride them (:959-963) and swap the
@@ -3939,6 +3954,13 @@ export async function bootWorld(canvas, renderer, params, status) {
     const wodLife = wodKept.life ?? {};   // L1-3: this terrain's identity - kept across a rebuild or a pool, new on a promote
     if (!wodKept.life) wodForgetPeerSites(key);   // AUDIT WOD7: a fresh promote's markers are its own again
     if (_building.get(key) === made) _building.delete(key);   // BUILD-FAIL1: the entry owns them from here
+    // SEAT1a (Seats-Arc 3.4): a seat town's banner anchors - its palace's door, its gates, its rumour boards - measured
+    // where it is built (scenes/seatBanners.js); hung while the seats are open to this account
+    const seatAnchors = dfLocation && locBlocks && seatAtMapId(townSeats, dfLocation.mapTableData?.mapId) ? seatBannerAnchors({
+      frames: pixelHomeFrames, palaceKeys: palaceKeysOf(locBlocks, makeBuildingKey),
+      gates: pixelGates.map((g) => ({ local: g.local, box: g.entry?._box })), boards: pixelBoards, bounty: questBoardIndices(pixelBoards),
+      centre: townCentreOf(pixelHomeFrames),
+    }) : null;
     built.set(key, {
       staticBatch,   // PERF4: the merged static models, drawn with the pixel matrix; null when the pixel has none
       // AUDIT-TO1 B2: DaggerfallTerrain.MapData.locationRect - the tile
@@ -3950,6 +3972,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       homeTown, homeKeys: pixelHomeKeys, buildingKeys: pixelBuildingKeys,   // HOME-LOOK: the homes drawn on their own, and every building's key
       _lookV: homeLookRead,   // HOME-LOOK (AUDIT)
       homeFrames: pixelHomeFrames, homeRegion: dfLocation?.regionIndex ?? 0,   // HOME-YARD: each building's frame, and the town's region (a yard's pieces are paid there)
+      seatAnchors,   // SEAT1a: where a seat town's banners hang (null for a town that is no seat)
       px, py, terrain, water, tilemapTex, tilemap, groundArchive, models, windmills, batches, flatAnims, texRemap, lights: pixelLights, hearths: pixelHearths, animals: pixelAnimals, springs: pixelSprings, skyBase: climate.skyBase, samples, natureCount: nature.length,
       tilemapBytes, season,   // GR1: the placer reads the tiles and the season
       paths,   // GRASS-PATH1: which tiles the road painter wrote; null on a pixel built before the network arrived
@@ -8494,6 +8517,19 @@ export async function bootWorld(canvas, renderer, params, status) {
   const hallBanners = onlineHomes && bannerPass ? createHallBanners({
     built: () => built, homes: onlineHomes, translation: (px, py) => state.pixelTranslation(px, py), eye: () => cam.pos,
   }) : null;
+  // SEAT1a: the seat towns' banners (scenes/seatBanners.js) - the kingdom's plain cloth while a seat is unheld - on the
+  // same pass, while the seats are open to this account
+  const seatBanners = seatBook && bannerPass ? createSeatBanners({
+    built: () => built, seatAt: (mapId) => seatHere(mapId), translation: (px, py) => state.pixelTranslation(px, py), eye: () => cam.pos,
+    version: () => (seatBook.open === true ? 1 : 0),
+  }) : null;
+  /** GUILD1d + SEAT1a: this frame's banners - the halls' and the seats', the nearest BANNERS_MAX of them. */
+  const bannersHung = () => {
+    const all = [...(hallBanners?.list() ?? []), ...(seatBanners?.list() ?? [])];
+    if (all.length <= BANNERS_MAX) return all;
+    const e = cam.pos;
+    return all.sort((x, y) => Math.hypot(x.top[0] - e[0], x.top[2] - e[2]) - Math.hypot(y.top[0] - e[0], y.top[2] - e[2])).slice(0, BANNERS_MAX);
+  };
   const yards = homeDecor && onlineHomes ? createHomeYards({
     api: homeDecor, homes: onlineHomes, built: () => built, translation: (px, py) => state.pixelTranslation(px, py),
     feet: () => (walkMode && playerSpawned ? player.feetAt() : null),
@@ -11823,6 +11859,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       bounties: () => bountyHost?.mapMarks() ?? [],
       // HUB1: each region's hub, marked and named - online alone (systems/regionHubs.js); offline the map is DFU's
       hubAt: params.has('online') ? (summary) => hubAtMapId(regionHubs, summary?.mapID ?? summary?.mapId) : null,
+      // SEAT1a: each seat's ring (and a crown's crown, a March's and a Free Land's second ring) - while the seats are open
+      seatAt: seatBook ? (summary) => seatHere(summary?.mapID ?? summary?.mapId) : null,
       // TO1: the mod itself rides travelFareDeps (above); the reads its additions to this window need follow.
       // AUDIT-TO1 I4: ...and the door ACTS on the refusal it can still get
       // (the popup was minted before the online state could change).
@@ -15597,6 +15635,15 @@ export async function bootWorld(canvas, renderer, params, status) {
         }   // CHAT-CHAN: from any tab, on the World channel - the one room every player online is in
         // NOTICE1 (PROF0 20): `/note remove <id>` - a moderator's remove of a note from anywhere. NOT GUARDED HERE:
         // whether this player may is the account service's question, and its refusal comes back as a line.
+        // SEAT1a (Seats-Arc 3.2): `/seat strike <key>` - a developer's strike of a seat from the registry. NOT GUARDED HERE.
+        const seatCmd = parseSeatCommand(text);
+        if (seatCmd) {
+          const say = (line) => chatLog.push(tabId, { text: line, system: true });
+          if ('error' in seatCmd) { say(seatCmd.error); return true; }
+          if (!seatBook) { say(accountRefusalText('seats-closed')); return true; }
+          seatBook.strike(seatCmd.key).then((r) => say(r.text), () => say(accountRefusalText('server')));
+          return true;
+        }
         const noteCmd = parseNoteCommand(text);
         if (noteCmd) {
           const say = (line) => chatLog.push(tabId, { text: line, system: true });
@@ -23730,7 +23777,16 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // reveal follows the member into every town.
         revealMemberGuildHalls();
         // HUB1: walking into a region's hub says so, online - "Daggerfall, capital of the Kingdom of Daggerfall."
-        if (onlineOn) { const hub = hubAtMapId(regionHubs, _musicLoc?.mapTableData?.mapId); if (hub) townTalk.say(hubArrivalLine(hub), 5); }
+        // SEAT1a (Seats-Arc 3.3): a seat town says its Charter instead - "Anticlere. Its Charter is unheld." - and this
+        // client, standing in it, reports the seat it derived (once a day; net/townSeatBook.js witness)
+        if (onlineOn) {
+          const mapId = _musicLoc?.mapTableData?.mapId;
+          seatBook?.read();
+          const seat = seatHere(mapId);
+          const hub = hubAtMapId(regionHubs, mapId);
+          if (seat) { townTalk.say(seatArrivalLine(seat), 5); seatBook.witness(seat); }
+          else if (hub) townTalk.say(hubArrivalLine(hub), 5);
+        }
         onlineHomes?.ensure(_musicLoc?.mapTableData?.mapId);   // HOME1: the town's homes asked for as I walk in - its doors' names and prices are ready before I reach one
         // RR3: RoleplayRealism.PlayerGPS_OnEnterLocationRect (:259-267) - the master armorer's shop discovered under its own name
         if (rrEnabled()) {
@@ -24098,8 +24154,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // fogged as the ground is, swaying on the weather's wind (render/bannerPass.js). AUDIT GUILD1d R3: BEFORE the veiled
     // bodies, the duel walls and the gate's fire - an opaque pass that writes depth drawn after them painted over every
     // glow in front of it. AUDIT GUILD1d R1: the wind's own 0..1 (`strength01`), never the lab's 0..200 slider
-    if (hallBanners) {
-      const hung = hallBanners.list();
+    if (hallBanners || seatBanners) {
+      const hung = bannersHung();   // SEAT1a: the seats' banners with the halls'
       if (hung.length && bannerPass.draw(hung, proj, view, new Float32Array(mwv.eye), now / 1000, {
         light: { sunDir: renderer._lightDir, amb: renderer._ambient, sunCol: renderer._sunColor, sunScale: renderer._sunScale, moonDir: renderer._moonDir, moonScale: renderer._moonScale, moonCol: renderer._moonColor },   // AUDIT GUILD1d R9: and the moon, as the grass takes it
         wind: Math.min(1, wd.strength01 * wd.gust),

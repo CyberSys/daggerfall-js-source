@@ -135,6 +135,11 @@ BOARD_OPEN = "on"
 # SWITCH-ON (2026-09-29, Mac: "Fuck it lets switch everything on"): "on" - the professions and, with Marks and the
 # board, the market are everyone's, after PROF-SAVE and PROF-DELETE.
 PROFESSIONS_OPEN = "on"
+# SEAT1a (SEAT0 18: "The account service's config gains SEATS_OPEN (off, dev, on). At dev only accounts with the dev
+# glyph see seats, so each slice is played on the live servers before anyone else sees it"): the seats by this switch.
+# Shipped at "dev": the developers witness the seats, see the map's rings and the arrival lines first; opened to
+# everyone by this one line.
+SEATS_OPEN = "dev"
 # PENITENT (2026-09-29, Mac: "This new custom title/glyph is for the user
 # Diggleborf", whose ask it is: "Looking to do a Trinimac themed one, so
 # maybe "Penitent" for the title starting gold and ending a sky blue", with

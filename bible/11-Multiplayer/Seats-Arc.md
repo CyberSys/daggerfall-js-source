@@ -1,6 +1,7 @@
 # THE SEATS ARC - guilds hold the Iliac Bay (SEAT0, the design record)
 
-**Status: DESIGN RECORD, every question decided. Nothing of SEAT's own is built** - the two slices it stands on are:
+**Status: DESIGN RECORD, every question decided; being built (2026-09-30, Mac: "Finish the seats"; "Or we could go ahead
+and do sieges") - GUILD1d, GUILD1e and SEAT1a SHIPPED (section 13)** - the two slices it stands on are:
 MARKS1 (PROF0's currency) and NOTICE1 (PROF0's board) SHIPPED on the professions branch (AUDIT 28 corrected this line,
 which said nothing was). Opened 2026-09-28. This page is the whole
 design of guild town control - SEAT1 (holding a seat) and SEAT2 (sieges) of THE HOLDINGS ARC
@@ -116,6 +117,10 @@ seat = { key: unsigned mapId, name: l.name, region: r, kingdom: KINGDOM_OF[r], t
   economy is built so the count does not break it: every cost is per seat, and the influence a guild can earn is
   capped per account, not per seat, so twenty seats or two hundred leave the balance where it is.
 
+BUILT (SEAT1a, 2026-09-30; `06-Systems/Online-Arc.md` SEAT1a): src/systems/townSeats.js `deriveTownSeats`, run in the
+boot pass over the rows `pickRegionHubs` reads; tools/seatCount.mjs is SEAT-COUNT (it tallies each seat's boards as
+BOARD-COUNT does).
+
 ### 3.2 How the servers know a seat without game data
 
 DECIDED (Mac: "Figure it out"): **the witnessed registry**. The servers never hold ARENA2, so they learn seats from
@@ -158,6 +163,13 @@ A disputed row keeps its confirmed worth until a moderator settles it - so no lo
 board or gate day; an unconfirmed row is worth the least its kind allows (PROF0 6). Three colluding accounts can forge one row - which is why each kind's reward is bounded and every
 confirmation is on the audit list.
 
+BUILT (SEAT1a): the kind `seat` of the one witness table and law (`world_witness`, nodeLaw.js witnessedFact - as the
+professions' pixels, dungeons and hubs), keyed by the map id, its report the seat's canonical bytes
+(townSeatLaw.js seatReportText); the ignored accounts, the audit and the strike as written above
+(`server-account/src/townSeats.js`). As built: a witness's FIRST answer on a seat stands (the table's INSERT OR IGNORE,
+as every kind's); a struck key is never witnessed again (the strike's history row says so); "the audit" reads "a seat
+whose confirmation still rests on exactly three witnesses, whom nobody else has joined".
+
 ### 3.3 The Charter, the words, the map
 
 - **The Charter**: "the Charter of <Town>" for a palace seat, "the Crown Charter of <Kingdom>" for a crown seat.
@@ -180,6 +192,12 @@ confirmation is on the audit list.
 
 The ring is drawn in HUB1's order (under the glyph, before any halo) and names are kept clear of it (`markReach`).
 
+BUILT (SEAT1a): the unheld words (townSeatLaw.js charterName, seatArrivalLine - an unheld crown "Wayrest, capital of the
+Kingdom of Wayrest. Its Crown Charter is unheld.", the record naming only a held one) said in HUB1's place at a seat
+town's gate (a hub that is no seat keeps HUB1's line); the unheld ring, a crown's crown, a March's and a Free Land's
+second ring on the held map (ui/inkMap.js paintSeatRing, under the glyph, round a hub's circle), and the Charter in the
+map's box. The held, Contested and siege-week marks come with their slices.
+
 ### 3.4 Banners and heraldry in the town
 
 DECIDED (Mac, the Holdings plan: "the holder's banners and colours in the city").
@@ -195,6 +213,12 @@ DECIDED (Mac, the Holdings plan: "the holder's banners and colours in the city")
   integral (the same wind the clouds and the grass read). An unheld seat's anchors carry the kingdom's plain banner
   (the crown's metal, no device); a free land's carry nothing.
 - **Nothing offline**: offline the town is DFU's, with no banner.
+
+BUILT (SEAT1a; scenes/seatBanners.js): anchors 1-3 as written - a banner at each city gate (on its town side, beside a
+post), the palace door's two (GUILD1d's measure of a building's first door record), a pennant over each rumour board -
+at most 8, measured where the pixel is built; the kingdom's plain banner (townSeatLaw.js seatPlainBanner; a March's its
+two claimants' metals, field and border), drawn by GUILD1d's cloth pass. NOT YET: anchor 4, the crown seats' two at the
+castle's entrance in the city (the castle is a dungeon door the city block stands, not a building record).
 
 ## 4. Influence - the currency of a claim
 
@@ -791,12 +815,12 @@ bible updated in the same change, mutants recorded.
 | Slice | What | Done when |
 |---|---|---|
 | **SEAT0** | This record | - |
-| **SEAT-COUNT** | The count tool (3.1) | Mac has run it; the count is recorded here |
+| **SEAT-COUNT** | The count tool (3.1) - **BUILT** 2026-09-30 (`tools/seatCount.mjs`, with SEAT1a) | Mac has run it; the count is recorded here |
 | **MARKS1** | PROF0's currency - **SHIPPED** (PROF0 10.5, `06-Systems/Online-Arc.md`) | PROF0 15 |
 | **NOTICE1** | PROF0's board - **SHIPPED** (PROF0 10.7) | PROF0 15 |
 | **GUILD1d** | Guild halls, the guild entry, heraldry (8) - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` GUILD1d; the hall's board is GUILD1e) | A guild buys a hall, members enter, the banner draws on a test layout |
 | **GUILD1e** | The hall's private guild board (8.2: the board's Guilds tab, members only) - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` GUILD1e) | A member posts a note only its guild reads, at a board in its hall |
-| **SEAT1a** | The derivation; the registry; the map rings; arrival lines; banners (unheld: the kingdom's) | Pins over a fixture MAPS set: every Palace record is a seat, capitals are crowns, mod rows never count; three witnesses confirm |
+| **SEAT1a** | The derivation; the registry; the map rings; arrival lines; banners (unheld: the kingdom's) - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` SEAT1a; behind SEATS_OPEN at `dev`) | Pins over a fixture MAPS set: every Palace record is a seat, capitals are crowns, mod rows never count; three witnesses confirm |
 | **SEAT1b** | Influence: pledges, the Watch, gate kills, homes, Renown's region, Tribute; the standings on the board | Each source's cap pinned; per-account war and the 7-day wait pinned |
 | **SEAT1c** | The Turning; claims; Contested; the Charter; titles and glyphs (relay first); the Seat tab | `settleWeek` idempotent under two racing readers; a held seat's banners in the guild's colours |
 | **SEAT1d** | Upkeep, Overreach, Tithe, discounts, Standing, Edicts, Neglect; the economy model as a tool reading townSeatLaw.js and professionLaw.js (PROF0 Appendix C) | Every Standing row pinned; the Tithe routes only Marks; the model re-runs Appendix C's table. The Tithe needs PROF5 (the market) |

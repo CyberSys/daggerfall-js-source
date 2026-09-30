@@ -247,6 +247,12 @@ export const REFUSALS = Object.freeze({
   'guild-marks-full': `A guild's treasury holds at most ${MARKS_MAX.toLocaleString('en-US')} Drakes.`,
   'marks-rate': 'You have moved a great many Drakes this hour. Try again later.',
   'not-developer': 'Only a developer may do that.',   // MARKS1's report, NOTICE1's notices, CUSTOMS-PASS's grant
+  // SEAT1a: the seats' registry (server-account/src/townSeats.js)
+  'seats-need-account': 'The seats are witnessed by registered accounts. Add a username to witness one.',
+  'seats-closed': 'The seats are not open yet.',
+  'bad-seat': 'That seat could not be read.',
+  'seats-rate': 'You have reported a great many seats this hour. Try again later.',
+  'seat-struck': 'That seat was struck from the registry.',
   // NOTICE1: the Notice Board (server-account/src/board.js)
   'board-need-account': 'Notes are pinned by registered accounts. Add a username to pin one.',
   'board-closed': 'The notice board is not open yet.',
@@ -990,6 +996,17 @@ export function accountBoard({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
     guildRead: (character) => post('/v1/guilds/board', { character }),
     guildPin: ({ character, subject, body, days }, rid) => post('/v1/guilds/board/pin', { character, subject, body, days, rid }),
     guildTakeDown: (character, id) => post('/v1/guilds/board/take-down', { character, id }),
+  };
+}
+
+/** SEAT1a: THE SEATS' REGISTRY (server-account/src/townSeats.js) through the one door - the seats the witnesses confirmed,
+ *  a seat this client stands in reported, and a developer's strike. Each waited for ACCOUNT_ACT_WAIT_MS at most. */
+export function accountSeats({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
+  const post = waitedPost({ fetch, storage }, waitMs);
+  return {
+    list: () => post('/v1/seats/list', {}),
+    witness: (seat) => post('/v1/seats/witness', { seat }),
+    strike: (key) => post('/v1/seats/strike', { key }),
   };
 }
 

@@ -4917,7 +4917,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:8064` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:8087` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:352`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -10416,6 +10416,59 @@ Pinned: `test/guild1e_service.test.js` (5), `test/guild1e_client.test.js` (5); r
 `test/notice1.test.js` (a recruitment note's guild carries its heraldry) and `test/guild1d_client.test.js` (the hall's
 powers). `tools/mutants/guild1e.json` (30, all dead); four older records re-aimed (DECOR1c's visitor, PROF5's hidden
 market twice, NOTICE1's cache aimed at the town read alone).
+
+## THE SEATS (SEAT1a onwards, 2026-09-30, Mac: "Finish the seats"; asked what a Right of Siege does while no siege exists: "Or we could go ahead and do sieges") - `11-Multiplayer/Seats-Arc.md`, built in its section 13 order
+
+### SEAT1a - every palace a seat: the derivation, the witnessed registry, the rings, the arrival lines, the banners
+
+Rides the undeployed `acct43` (migration 0045); no relay change. Behind `SEATS_OPEN`, shipped at `dev` (Seats-Arc 18:
+the developers see the seats first).
+
+- **The derivation** (`src/systems/townSeats.js`, Seats-Arc 3.1): in the boot pass, over the rows `pickRegionHubs`
+  reads - MAPS.BSA's own, a world-data mod's never - a crown seat is a location named for Daggerfall, Wayrest or
+  Sentinel standing in the region of that name (17, 23, 20); a palace seat every other location whose building records
+  hold a Palace (buildingType 16). One seat a location; a capital with a palace record is a crown, never also a palace
+  seat; the key its map id unsigned. `tools/seatCount.mjs` is SEAT-COUNT: the same derivation over a player's ARENA2,
+  each seat laid out and its boards tallied (BOARD-COUNT's `boardTally`), the totals by tier and kingdom. It writes
+  nothing; Mac runs it.
+- **The law** (`src/net/townSeatLaw.js`, the one module Appendix B's numbers live in): a seat's report and its
+  canonical bytes (`seatReportOf`, `seatReportText` - a crown in its region under its name, a name MAPS.BSA could hold);
+  the witness rule is the professions' own (nodeLaw.js `witnessedFact`, `WITNESS` - three a week old confirm, two
+  dispute) read through `parseSeatReport`; the ignored accounts (three disagreements nobody shares, inside a week); the
+  Charter's, the arrival's and the map box's words; the map's marks; the kingdom's plain banner; the seat week (the
+  first Turning Sunday 2026-09-20 18:00 UTC, the Reckoning the week's last 48 hours).
+- **The registry** (`server-account/src/townSeats.js` over `migrations/0045_town_seats.sql`, 3.2): `world_witness`
+  admits the kind `seat`; `/v1/seats/witness` records a registered account a week old's first answer on a seat (anyone
+  else is answered, `counted: false`); `/v1/seats/list` answers the confirmed seats - disputed ones too, which keep
+  every effect - and a developer's reading names the unconfirmed and the audit (a confirmation still resting on its
+  bare three); `/v1/seats/strike` (a developer's, `/seat strike <key>` in chat) deletes a seat's reports and writes the
+  first `town_seat_history` row, and a struck key is never witnessed again. 24 reports an account an hour.
+- **The book** (`src/net/townSeatBook.js`): whether the seats are open to this account (a list read; a session not yet
+  there asked again at the next ask), the confirmed seats' states, and the seat a client stands in reported once a UTC
+  day. A seat is DRAWN off the client's own derivation while the seats are open (3.2: a client never draws a seat its
+  derivation lacks); what the witnesses confirmed is what a pledge will need (SEAT1b).
+- **The arrival** (3.3): walking into a seat town says "Anticlere. Its Charter is unheld." (a crown: "Wayrest, capital
+  of the Kingdom of Wayrest. Its Crown Charter is unheld.") in HUB1's place, and reports the seat; a hub that is no seat
+  keeps HUB1's line.
+- **The map** (3.3; `ui/inkMap.js`, `ui/heldMap.js`): a seat's hollow ring in stone grey, under its glyph and round any
+  hub's circle, the names kept clear of it (`markReach`); a crown in its kingdom's metal over a crown seat; a March's
+  thin second ring half in each claiming crown's metal, a Free Land's green; the Charter's line in the map's box.
+- **The banners** (3.4; `src/scenes/seatBanners.js`): anchors measured where a seat town's pixel is built - the
+  palace door's two (GUILD1d's measure), a banner at each city gate on its town side beside a post, a pennant over each
+  rumour board (never a bounty board), at most 8 - hung with the kingdom's plain banner (a March's two claimants'
+  metals, a Free Land's none) on GUILD1d's cloth pass, the halls' and the seats' banners the nearest sixteen together
+  (`world.js` bannersHung). `ui/heraldryArt.js` draws a plain banner (two colours, no device).
+- **Four hosts**: `world.js` WIRED; `worldModes.js` and `dungeonContext.js` stand no street; `exterior.js` (the fixed
+  city) FLAGGED - it runs no account service, so no seat is open there.
+
+Known limits (a later slice's): the held, Contested and siege-week marks, the holder's banners and the arrival's
+"held by" come with SEAT1c; the crown seats' two banners at the castle's entrance (Seats-Arc 3.4's anchor 4) wait - the
+castle is a dungeon door the city block stands, not a building record; the seat count is Mac's to run and record.
+
+Pinned: `test/seat1a_service.test.js` (4), `test/seat1a_client.test.js` (8); re-aimed by content in
+`test/hub1.test.js` (the arrival), `test/bulletinboard.test.js` (a board's matrix), `test/guild1d_client.test.js`,
+`test/auditguild1d.test.js` and `test/tv4_weather_above.test.js` (the banners hung together), `test/accountworker.test.js`
+(the schema). `tools/mutants/seat1a.json` (44, all dead); four HUB1 records re-aimed, all dead.
 
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 

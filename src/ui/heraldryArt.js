@@ -79,11 +79,23 @@ function deviceSvg(device, fgHex, bgHex) {
 }
 
 /**
+ * SEAT1a (Seats-Arc 3.4: "An unheld seat's anchors carry the kingdom's plain banner (the crown's metal, no device)"): a
+ * PLAIN banner - two colours of the palette and no device (net/townSeatLaw.js seatPlainBanner) - or null. A guild's
+ * heraldry always carries a device (heraldryOf); only a seat's plain cloth has none.
+ */
+export function plainBannerOf(raw) {
+  if (!raw || typeof raw !== 'object' || raw.device !== null) return null;
+  return heraldryColourOf(raw.field) && heraldryColourOf(raw.border) ? { field: raw.field, border: raw.border, device: null } : null;
+}
+/** What a banner draws: a guild's heraldry, a seat's plain cloth, or null (the unheld's Ash). */
+const drawnOf = (raw) => heraldryOf(raw) ?? plainBannerOf(raw);
+
+/**
  * THE BANNER AS SVG - for the Guild tab: `heraldry` (heraldryLaw.js's shape; none draws the unheld's plain Ash cloth)
  * at `width` pixels wide, three times as tall. A string: the tab sets it as its picture's markup.
  */
 export function bannerSvg(heraldry, { width = 60 } = {}) {
-  const h = heraldryOf(heraldry);
+  const h = drawnOf(heraldry);
   const field = heraldryColourOf(h?.field ?? 'ash')?.hex ?? '#8a8a8a';
   const border = heraldryColourOf(h?.border ?? 'ash')?.hex ?? '#8a8a8a';
   const d = BANNER_DEVICE;
@@ -102,7 +114,7 @@ export function bannerSvg(heraldry, { width = 60 } = {}) {
  * @param {CanvasRenderingContext2D} ctx @param {any} heraldry @param {number} w
  */
 export function drawBanner(ctx, heraldry, w) {
-  const h = heraldryOf(heraldry);
+  const h = drawnOf(heraldry);
   const field = heraldryColourOf(h?.field ?? 'ash')?.hex ?? '#8a8a8a';
   const border = heraldryColourOf(h?.border ?? 'ash')?.hex ?? '#8a8a8a';
   const P = globalThis.Path2D;
