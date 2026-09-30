@@ -322,7 +322,7 @@ test('PROF1 faces: THE WORK TAB - the region\'s Court writs under the Court\'s s
   };
   const notices = { seenAt: () => null, read: async () => ({ board: { notes: [], notices: [], me: {} } }), markSeen() {}, cached: () => null, draft: () => ({ subject: '', body: '', days: 7, button: '' }), noticeDraft: () => ({ subject: '', body: '', days: 3 }) };
   const host = document.createElement('div');
-  const v = mountNoticeBoard(host, { town: { name: 'Anticlere', mapId: 5 }, book: notices, work: { book, region: 21, regionName: 'Anticlere', countName: (k, n) => materialCountLabel(k, n), onTaken: () => 'Writ filled: 72 Marks.' } });
+  const v = mountNoticeBoard(host, { town: { name: 'Anticlere', mapId: 5 }, book: notices, work: { book, region: 21, regionName: 'Anticlere', countName: (k, n) => materialCountLabel(k, n), onTaken: () => 'Writ filled: 72 Drakes.' } });
   await tick();
   const tabs = byClass(host, 'notice-tab');
   assert.deepEqual(tabs.map((t) => t.textContent), ['Notices', 'Work']);
@@ -332,7 +332,7 @@ test('PROF1 faces: THE WORK TAB - the region\'s Court writs under the Court\'s s
   assert.equal(cards.length, 2);
   assert.ok(cards[0].className.includes('seal-court'));
   assert.match(cards[0].textContent, /The Court of Anticlere needs 30 Red Roses/);
-  assert.match(cards[0].textContent, /Pays 72 Marks, 150 Renown/);
+  assert.match(cards[0].textContent, /Pays 72 Drakes, 150 Renown/);
   assert.match(cards[0].textContent, /34 in your Stores/);
   assert.match(cards[1].textContent, /Filled by another/);
   assert.equal(byClass(cards[1], 'notice-take').length, 0, 'a taken writ has no Take');
@@ -340,7 +340,7 @@ test('PROF1 faces: THE WORK TAB - the region\'s Court writs under the Court\'s s
   byClass(cards[0], 'notice-take')[0].click();
   for (let i = 0; i < 3; i++) await tick();
   assert.deepEqual(delivered, ['c:1:21:0']);
-  assert.match(host.textContent, /Writ filled: 72 Marks\./);
+  assert.match(host.textContent, /Writ filled: 72 Drakes\./);
   assert.match(byClass(host, 'notice-writ')[0].textContent, /Taken by you/);
   v.unmount();
   const short = { ...book, held: () => 12 };

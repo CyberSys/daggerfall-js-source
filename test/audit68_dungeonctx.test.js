@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import * as acorn from 'acorn';
 import { makeWindowStack, pauseWhileOpen } from '../src/ui/windowStack.js';
 import { ActionTextBox } from '../src/ui/actionText.js';
-import { attemptSoulTrap, fillEmptyTrap, SOUL_TRAP_TEMPLATE } from '../src/systems/mysticism.js';
+import { attemptSoulTrap, fillEmptyTrap, peerSoulTrapOf, SOUL_TRAP_TEMPLATE } from '../src/systems/mysticism.js';
 import { applySpell } from '../src/systems/effects.js';
 import { inflictPoison, POISONS } from '../src/systems/poisons.js';
 import { runMagicRoundsFor } from '../src/systems/worldTick.js';
@@ -96,7 +96,7 @@ function killHarness({ foes, foeDeps = null, getTexture = async () => ({ recordC
     markFoeStruck: () => {}, markConcealedHit: () => {}, makeEnemiesHostile: () => {}, peerCandidate: () => null, renownFoeStruck, renownFoeDied, reportPlayerKill,   // RENOWN1: the kill door's two stamps, the real ones (no handler: nothing paid)
     partyFoeLoses, noteFighter, foeFighters, takeWholeBlow, PARTY_ME, registerFoeDoor,   // PSCALE1: the real weight - only my own blows land here, so every foe fights one and every blow lands whole
     ownRides: () => false,   // PSCALE-OWN / SUMMON-SYNC: nothing of mine on the own lane here
-    damageShieldPool: (e, n) => n, attemptSoulTrap, fillEmptyTrap, isAzurasStarEquipped: () => false,
+    damageShieldPool: (e, n) => n, attemptSoulTrap, peerSoulTrapOf, fillEmptyTrap, isAzurasStarEquipped: () => false,
     hudText: { add: (l) => log.hud.push(l) }, SOUL_TRAP_TEXT: { trapSuccess: 'ok', trapFail: 'fail', trapNoneEmpty: 'none' },
     setEnemyAlert, playRareDrop: () => { log.chimes++; }, raiseEnemyDeath: () => { log.deaths++; }, liveStat: () => 50, stampWonWeapons,
     audio: {}, ENEMY_BASICS, weaponKnockbackApplies: () => false, maxFatigue: () => 100, q2: (x) => x, q3: (x) => x,

@@ -264,6 +264,39 @@ export function locBorderCornerRects(locationRect, locationBorderRect) {
   };
 }
 
+/** OW-TOWN-RING (2026-09-29, Mac: "Pathing doesnt follow the road around cities"): A ROUTE THROUGH A TOWN'S PIXEL WALKS
+ *  ITS BORDER RING. Basic Roads' bytes meet at the hub of a location's pixel - a road "through" a town is two edge bits
+ *  joined at the pixel middle, inside the walls - while the painter stops those arms at the town and paves the ring
+ *  round it (world/roadPainter.js, "paint roads around locations"). The mod never walks a road into a town either: a
+ *  followed leg into a location pixel is aimed at its BORDER rect (BeginPathTravel :700) and the follow key then walks
+ *  the ring corner to corner (CircumnavigateLocation :753-797). This is that walk for a planned route, which knows both
+ *  roads: in on the side the route arrives from, round the ring the shorter way (a corner at a time, the mod's own
+ *  corner squares, locBorderCornerRects), and out on the side it leaves by.
+ *  `from` and `to` the map-pixel steps toward the pixel before and the pixel after ([dx, dy], map Y runs south); `mid`
+ *  the pixel's middle, native (the road's lane runs middle to middle, so a road meets a side of the ring there).
+ *  Returns the points to walk, native {x, z}: the way in, the corners between, the way out. Pure. */
+export const RING_ORDER = Object.freeze(['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw']);
+export function ringSideOf(dx, dy) {
+  const sx = Math.sign(dx), sy = Math.sign(dy);
+  return (sy < 0 ? 'n' : sy > 0 ? 's' : '') + (sx > 0 ? 'e' : sx < 0 ? 'w' : '');
+}
+export function ringPassPoints(locationRect, locationBorderRect, from, to, mid) {
+  const L = locationRect, B = locationBorderRect;
+  // the middle of the ring's band on each side (north is +z), and a side's point on the road's own line, kept on the side
+  const wx = (B.xMin + L.xMin) / 2, ex = (L.xMax + B.xMax) / 2, nz = (L.zMax + B.zMax) / 2, sz = (B.zMin + L.zMin) / 2;
+  const cx = Math.min(L.xMax, Math.max(L.xMin, mid.x)), cz = Math.min(L.zMax, Math.max(L.zMin, mid.z));
+  const at = { n: { x: cx, z: nz }, ne: { x: ex, z: nz }, e: { x: ex, z: cz }, se: { x: ex, z: sz }, s: { x: cx, z: sz }, sw: { x: wx, z: sz }, w: { x: wx, z: cz }, nw: { x: wx, z: nz } };
+  const a = RING_ORDER.indexOf(ringSideOf(from[0], from[1])), b = RING_ORDER.indexOf(ringSideOf(to[0], to[1]));
+  if (a < 0 || b < 0) return [];
+  if (a === b) return [at[RING_ORDER[a]]];
+  // the shorter way round (clockwise on a tie: the ring is paved all the way, either way is the road)
+  const cw = (b - a + 8) % 8, step = cw <= 4 ? 1 : -1;
+  const out = [at[RING_ORDER[a]]];
+  for (let i = (a + step + 8) % 8; i !== b; i = (i + step + 8) % 8) if (RING_ORDER[i].length === 2) out.push(at[RING_ORDER[i]]);
+  out.push(at[RING_ORDER[b]]);
+  return out;
+}
+
 /** :753-797, CircumnavigateLocation's target pick: which corner of the
  *  border ring to walk to next, from where the player stands in the
  *  ring and which way they face. Pure, because the eight-branch
@@ -555,7 +588,7 @@ export function createTravelOptions(deps = {}) {
    *  point at the run's own end is where the leg aims anyway. */
   function rejoinPoint(r) {
     const leg = r.legs[r.i], prev = r.legs[r.i - 1];
-    if (!leg || !prev || leg.kind === 'open') return null;
+    if (!leg || !prev || leg.kind === 'open' || leg.ring || prev.ring) return null;   // OW-TOWN-RING: a ring's points are walked point to point - no road's lane runs between them
     const me = pos(), end = legMiddle(leg);
     const j = joinPoint(me, legMiddle(prev), end);
     return Math.hypot(j.x - me.x, j.z - me.z) > P_SIZE / 2 && Math.hypot(j.x - end.x, j.z - end.z) > P_SIZE / 2 ? j : null;
@@ -571,7 +604,7 @@ export function createTravelOptions(deps = {}) {
     // AUDIT OW3 J3: a JOIN's (OW-ROADSIDE) pixel is the start's, so standing in it skips it too - and `join`, below, makes
     // it again from where the traveller stands now (the skip alone aimed straight at the far end of the road's first
     // run, beside the road all the way)
-    if (cur && cur.x === mp.x && cur.y === mp.y) best = r.i + 1;   // standing on it: the next
+    if (cur && !cur.ring && cur.x === mp.x && cur.y === mp.y) best = r.i + 1;   // standing on it: the next (OW-TOWN-RING: not a ring's point - the whole ring stands in the town's pixel, and skipping one cut across the town)
     else if (cur) {
       let bestD = Math.hypot(cur.x - mp.x, cur.y - mp.y);
       for (let k = r.i + 1; k < r.legs.length; k++) {
@@ -581,7 +614,7 @@ export function createTravelOptions(deps = {}) {
     }
     // AUDIT OW3 J3: a join still ahead (the traveller knocked out of its pixel) is made again too - the run after it
     // taken up, never the point where the old join lay walked to
-    if (r.legs[best]?.at && best + 1 < r.legs.length) best++;
+    if (r.legs[best]?.at && !r.legs[best].ring && best + 1 < r.legs.length) best++;   // OW-TOWN-RING: a ring's point is no join
     r.i = best;
     r.join = rejoinPoint(r);
     st.autopilot = null;
@@ -599,7 +632,7 @@ export function createTravelOptions(deps = {}) {
    */
   function beginTravelAlongRoute(plan, speedCautious = false, { quiet = false } = {}) {
     if (!plan || (!plan.summary && !plan.point)) return false;
-    const legs = (plan.legs ?? []).map((l) => ({ x: l.x, y: l.y, kind: l.kind ?? 'open', ...(l.at ? { at: { x: l.at.x, z: l.at.z } } : {}) }));   // OW-ROADSIDE: a join's own point
+    const legs = (plan.legs ?? []).map((l) => ({ x: l.x, y: l.y, kind: l.kind ?? 'open', ...(l.at ? { at: { x: l.at.x, z: l.at.z } } : {}), ...(l.ring ? { ring: true } : {}) }));   // OW-ROADSIDE: a join's own point; OW-TOWN-RING: a town's ring point
     const name = plan.summary ? (deps.localizedLocationName?.(plan.summary) ?? plan.summary.name ?? plan.name ?? '') : (plan.name ?? '');
     st.route = { legs, i: 0, summary: plan.summary ?? null, point: plan.point ?? null, quiet: typeof quiet === 'function' ? quiet : !!quiet, join: null };   // AUDIT OW3 J3: `join` a resume's rejoin
     // AUDIT TV A3: not a ring walk - its path-crossing watch would stop this journey at the first pixel middle

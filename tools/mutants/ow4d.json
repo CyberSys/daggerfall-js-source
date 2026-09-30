@@ -2,8 +2,8 @@
   {
     "name": "OW4D1-door-refused-in-the-peaks",
     "file": "src/scenes/world.js",
-    "old": "    if (!door && !water && maps.getClimateIndex(pix.x, pix.y) === TV_MOUNTAIN_CLIMATE)",
-    "new": "    if (!water && maps.getClimateIndex(pix.x, pix.y) === TV_MOUNTAIN_CLIMATE)",
+    "old": "    if (!door && !water && tvRouteGround().peakAt(pix.x, pix.y))",
+    "new": "    if (!water && tvRouteGround().peakAt(pix.x, pix.y))",
     "tests": [
       "test/tv6_dungeons.test.js"
     ],
@@ -82,8 +82,8 @@
   {
     "name": "OW4D2-gone-while-inside",
     "file": "src/scenes/world.js",
-    "old": "return _spawnLedger.expired(key, _spawnClock()) && !_insideSpawn(key) && !built.has(key); };",
-    "new": "return _spawnLedger.expired(key, _spawnClock()) && !built.has(key); };",
+    "old": "return _spawnLedger.expired(key, _spawnClock()) && !_insideSpawn(key) && built.get(key)?.location == null; };",
+    "new": "return _spawnLedger.expired(key, _spawnClock()) && built.get(key)?.location == null; };",
     "tests": [
       "test/tv6_dungeons.test.js"
     ],

@@ -712,8 +712,8 @@
   {
     "name": "AUDIT-DEEP2-A2-pad-drives-the-world",
     "file": "src/scenes/world.js",
-    "old": "    overlayActive: () => townTalk.overlayActive || !!travelView?.active,",
-    "new": "    overlayActive: () => townTalk.overlayActive,",
+    "old": "    overlayActive: () => townTalk.overlayActive || !!travelView?.active || !!modes?.overlayHeld,",
+    "new": "    overlayActive: () => townTalk.overlayActive || !!modes?.overlayHeld,",
     "tests": [
       "test/tv1_travel_view.test.js"
     ],

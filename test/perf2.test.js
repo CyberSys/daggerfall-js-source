@@ -13,6 +13,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { LabGrassRenderer, createGrassField, grassPerCell, GRASS_CELL, LAB_GRASS } from '../src/render/labGrass.js';
 import { perspective, mirrorProjectionX, lookAt } from '../src/world/mat4.js';
+import { codeOnly } from './codeOnly.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(root, p), 'utf8');
@@ -210,4 +211,8 @@ test('PERF2 pins: the sky passes, the clouds\' composite and the ring sit AT the
   const eMesh = e.lastIndexOf('renderer.drawMesh(d.mesh, d.matrix, texRemap);'), eArrows = e.indexOf('arrows.draw(renderer, texRemap);');
   assert.ok(eMesh > 0 && eArrows > eMesh && eTerrain > eArrows, 'exterior: the ground after the buildings, the mills and the arrows');
   assert.match(w, /window\.__grassStats = \(\) => \(\{ blades: labGrass\.count, drawn: labGrass\.drawn,/, 'the probe reports what was drawn');
+  // PERF-URL (2026-09-29): the hook's `cells` and `slots` sat INSIDE a trailing comment on its first line, so it had
+  // answered without them since at least 2026-09-24 - held in the CODE now (codeOnly blanks comments), not the text
+  const hook = codeOnly(w.slice(w.indexOf('window.__grassStats = () => ({'), w.indexOf('window.__grassStats = () => ({') + 1200));
+  assert.match(hook, /cells: labGrassField\?\.live\.size \?\? 0, slots: labGrassField\?\.slots \?\? 0,/, 'the probe reports the field\u2019s cells and slots');
 });

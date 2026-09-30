@@ -35,6 +35,8 @@
 // Not a DFU member: Daggerfall Unity lights on Unity's forward renderer, which culls its own lights per object.
 // Ledger A row (ENHANCED).
 
+import { pageParam } from '../systems/pageQuery.js';   // PERF-URL: the page's query, parsed once a search
+
 /** The grid: 16 tiles across, 9 down (a 16:9 tile is square at 16:9), 24 depth slices. 3456 cells. */
 export const CLUSTER_X = 16;
 export const CLUSTER_Y = 9;
@@ -67,7 +69,7 @@ export const CLUSTER_Z_SCALE = CLUSTER_Z / LOG_FAR_NEAR;
 
 /** The URL door: `?clusters=off` walks every light in every fragment, as before LC1 (the air's `?air=off` shape). */
 export function clustersOn(search = globalThis.location?.search ?? '') {
-  return new URLSearchParams(search).get('clusters') !== 'off';
+  return pageParam('clusters', search) !== 'off';   // PERF-URL
 }
 
 /** The depth slice a view depth falls in, the shader's own arithmetic (elCluster): the log of the depth over

@@ -59,6 +59,7 @@ import { lookAt, multiply, ortho, perspective } from '../world/mat4.js';
 import { spherePlanes, transformSphere, matrixScale, transformSphereScaled, recordVisible, subMeshVisible, batchVisible, sphereInPlanes, batchSphere, ZERO_ORIGIN, placementRadius, placedHalfDiagonal, placementsInCube, placementsInVolume } from './bounds.js';   // EL5: the cull; PERF-EXT1: and a batch's placements
 import { billboardKey } from './billboardKey.js';   // AUDIT 68 S16-bbkey-stale-shadow-reach: re-keyed here, however the batch reached the records
 import { aabbOutside } from './frustum.js';   // SHADOW-REACH: a host's box against the cascades
+import { pageParam } from '../systems/pageQuery.js';   // PERF-URL: the page's query, parsed once a search
 
 /** The sun map: two cascades of this size, as a depth texture array. */
 export const SHADOW_SUN_SIZE = 2048;
@@ -349,7 +350,7 @@ export const SHADOW_LO_MAX = SHADOW_CASTER_TABLE;
 export const SHADOW_LO_REBUILDS = 2;
 /** SC1: the door - `?shadowcache=off` replays every caster at the cadence, as before. */
 export function shadowCacheOn(search = globalThis.location?.search ?? '') {
-  return new URLSearchParams(search).get('shadowcache') !== 'off';
+  return pageParam('shadowcache', search) !== 'off';   // PERF-URL
 }
 /** SC1: are two spheres touching - a record's against a lantern's reach. */
 export function spheresTouch(ax, ay, az, ar, bx, by, bz, br) {

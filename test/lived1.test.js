@@ -206,15 +206,17 @@ test('LIVED1: arrival and death move NOTHING of the character\'s - the clock tha
   // the save's door: the character left the world at N - 5 and comes back at 3N + 10 (three boundaries of the world's)
   const own = 2 * N + 100;   // [own, now) would cross one boundary; the world's [left, now) crosses three
   lane(true, { own, world: N - 5 });
-  const snap = JSON.parse(JSON.stringify(snapshotPlayer(player({ legalRep: [-15], rentedRooms: [{ expiryMinutes: own + 600 }] }), { classicMinutes: own })));
+  // REP4 (the reputation overhaul): PIN MOVED - the recovery is weekly now, so the name starts deep enough (-100) for the
+  // WORLD's span (thirty-three weeks) and the character's own (sixteen) to read differently, as DFU's 3 and 1 boundaries did
+  const snap = JSON.parse(JSON.stringify(snapshotPlayer(player({ legalRep: [-100], rentedRooms: [{ expiryMinutes: own + 600 }] }), { classicMinutes: own })));
   setSharedClock(() => 3 * N + 10);
   const back = player();
   restorePlayer(back, snap);
   assert.equal(ownMinutes(), own, 'their clock is where they left it');
   assert.equal(back.rentedRooms[0].expiryMinutes, own + 600, 'the room keeps its ten hours');
-  assert.equal(back.legalRep[0], -15, 'AUDIT LIVED1b P4: the absence waits for the relay\'s clock');
+  assert.equal(back.legalRep[0], -100, 'AUDIT LIVED1b P4: the absence waits for the relay\'s clock');
   hearSharedClock();
-  assert.equal(back.legalRep[0], -12, 'the absence\'s one arm, measured on the WORLD\'s minutes: three of its boundaries, three points back');
+  assert.equal(back.legalRep[0], -67, 'the absence\'s one arm, measured on the WORLD\'s minutes: thirty-three of its weeks, thirty-three points back');
   // death: the corpse lies an hour under the screen; the rise moves nothing of theirs
   const { e, t } = lane(true, { own: 5000, world: 9000 });
   e.survival = { lastMinute: 5000, lastAte: 4900, awakeSince: 4000 };

@@ -3196,7 +3196,7 @@ collapse is a bare `RaiseTime(1 * SecondsPerHour)` (`:2429`) that
 returns; `Update` is not re-entered.
 
 The port's hosts implement that same RaiseTime as
-`playerTicker.advance(60)` (`exterior.js:1084`, `world.js:2972`), fired
+`playerTicker.advance(60)` (`exterior.js:1085`, `world.js:2975`), fired
 from inside `sinks.drainFatigue` - so it re-enters `tickPlayerMinutes`
 from inside that function's own fatigue band. The nested tick wrote the
 marker an hour ahead, the outer frame's own `setWorldMinutes` then
@@ -3354,7 +3354,7 @@ PNG through the DOM and cached `{ width, height, data }` - the shape
 pass that object straight on as a colour32
 (`const color32 = swap ?? t.getColor32(bitmap, ...)`), and
 `renderer.uploadTexture` reads `color32.colors` and calls `asBytes` on
-it (`renderer.js:3275`). `colors` was `undefined`, `asBytes` reads
+it (`renderer.js:3277`). `colors` was `undefined`, `asBytes` reads
 `.buffer` off it, and the upload threw. Every pin on this door held:
 they asserted the cache stored the object the decoder returned, by
 IDENTITY, which is precisely the assertion that cannot see a wrong
@@ -3365,7 +3365,7 @@ orientation is not its only problem".
 **And orientation was the other half.** The port's texel convention is
 bottom-up: `getColor32` writes `dstRow = (dstHeight - 1 - border - y) *
 dstWidth` (`baseImageFile.js:143`, `BaseImageFile.cs:250`), the upload
-leaves `UNPACK_FLIP_Y_WEBGL` off (`renderer.js:3265`), and `BB_VS`
+leaves `UNPACK_FLIP_Y_WEBGL` off (`renderer.js:3267`), and `BB_VS`
 samples the quad's top at v=1 (`renderer.js:383-414`). A browser decode
 is TOP row first. So a swap named correctly would still have drawn
 mirrored beside the classic art in the same batch loop - the exact
@@ -4597,7 +4597,7 @@ the true clause along with the false ones is in the campaign, because
 over-retiring is the equal and opposite failure.
 
 **And one delegation pointed at a flag nobody had ever written.**
-`world.js:4355` said the dungeon-mode enchant ctx was "FLAGGED there
+`world.js:4363` said the dungeon-mode enchant ctx was "FLAGGED there
 with the rest of its enchant wiring" in `dungeonContext.js`. It was
 not. `setDefaultEnchantCtx` had exactly **one** caller in the tree, so
 the standalone `?dungeon` host ran every arm that needs a host
@@ -5053,7 +5053,7 @@ predicate read prettier.
 by the same sweep and each verified against the tree before deletion:
 the interior detect claim above; "there is nowhere to cash one yet" on
 the letter of credit, which B2 answered with `DepositAll_LOC`
-(`banking.js:634`, the window's own :377-389); "the BANKING arm stays
+(`banking.js:673`, the window's own :377-389); "the BANKING arm stays
 FLAGGED below", written nine lines above the live banking arm; and
 "every other arm is FLAGGED by name in
 `guildServiceFlow.SERVICE_DESTINATION`" after DR2 closed the last of
@@ -5575,7 +5575,7 @@ to that cite and moves under the same content check; citeMerge had
 done this since CS2 and citeShift only reported them, so the two
 regexes are one law now, exported from citeShift (`ANY_CITE`,
 `CONTINUATION`) and imported by citeMerge. (2) A TEST'S ESCAPED
-LITERAL FOLLOWS THE ROW IT PINS: `world\.js:9496` in citedrift.test.js
+LITERAL FOLLOWS THE ROW IT PINS: `world\.js:9552` in citedrift.test.js
 is a quote of a Ledger row's text; the row is STRUCK and its number
 held, and the literal used to move anyway, parting the pin from its
 row at every shift. The CLI plans every doc first, learns which
@@ -6512,7 +6512,7 @@ settles it: DFU draws both rolls, so the line goes.
 **REVIEW ROUND (2026-09-08).** Moving the line left a stale cite in
 someone else's pin. `test/audit58_pins2.test.js`'s
 "IsImmuneToDisease reads the PENDING marker" test quoted
-"`diseases.js:240 if (target.racialOverride || target.racialOverridePending)`"
+"`diseases.js:247 if (target.racialOverride || target.racialOverridePending)`"
 - the exact line this fix deleted. The pin still passes, because
 `isEntityImmuneToDisease` reads the pending marker and `inflictDisease`
 now reaches it through `startDisease`, so the record cited source that
@@ -8038,7 +8038,10 @@ legal reputation less one (`court.js`, PlayerEntity.cs:2301-2304,
 to charge Criminal_Conspiracy and call the watch (PlayerEntity.cs:
 498-504); a banishment rolls 10% for good (:506-511). A player with a
 bad name in a region is hunted there after the sentence in Daggerfall
-too. Pinned in `test/jailhit.test.js` (3); `arrestshield.test.js`'s
+too. [SUPERSEDED by the reputation overhaul, REP1-REP6 (2026-09-29, Mac: "Something just much better and not as
+punishing, but still punishing"; `06-Systems/Standing-Arc.md`): a sentence gives the charge back less a violent crime's
+mark, the per-minute roll is retired for a guard who sees a known criminal stopping them, and a banishment is timed or
+pardoned.] Pinned in `test/jailhit.test.js` (3); `arrestshield.test.js`'s
 source pin and `audit39_worldlegaltalk.test.js`'s fixture (which never
 answered its surrender box) re-aimed. Mutants
 `tools/mutants/jail_hit.json` (6, all dead).

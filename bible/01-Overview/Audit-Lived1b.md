@@ -172,7 +172,8 @@ The first audit's own record is corrected where this one found its fixes short (
 4. **A clock out of range** now loads at the clock that stands (the world's online, the host's offline). Refuse the
    load instead, and say so?
 5. **The Overworld's walked journey** (the default enhanced journey on main) charges the character's clock 1x online and
-   Nx offline - the first audit's For Mac 2, now for every walked trip.
+   Nx offline - the first audit's For Mac 2, now for every walked trip. [ANSWERED with it: FIELD BUGS 2026-09-29h
+   WALK-CLOCK charges it Nx online too, on the character's own clock.]
 6. **At the merge:** VAMP-HOOD answers Lived-Time's OPEN 2 (reword it and the patch note); the door says DFU's line,
    the nightfall, then the hood (or the hood first?), and should the party's and the passage's refusals give the hint;
    the Overworld passage's "N days of your time".

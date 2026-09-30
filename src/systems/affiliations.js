@@ -47,6 +47,7 @@ export function affiliations(entity) {
       title: getTitle(membership, entity, guild),
       rep: entity?.factionRep ? getReputation(entity.factionRep, guild.factionId) : 0,
       factionId: guild.factionId,
+      probation: !!membership.probation,   // REP6: on probation - the next review below -10 expels
     });
   }
   return out;

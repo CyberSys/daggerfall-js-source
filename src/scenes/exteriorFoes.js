@@ -25,9 +25,9 @@ import { FALL_DAMAGE_THRESHOLD, FALL_HP_PER_METRE, CAPSULE_HEIGHT } from '../pla
 import { SOUND, hitSoundFor, ENEMY_HIT_VOLUME } from '../systems/soundClips.js';   // CH3: the FallDamage clip; WORLD6b: a peer's blow rung at the owner
 import { EnemyCaster, castEnemySpell, hasMagickaToCast, MIN_RANGED_DISTANCE, MAX_RANGED_DISTANCE } from '../characters/enemyCasting.js';   // X3: the shared decision + the ONE cast executor
 import { assignEnemySpells, SPELL_CAST_SOUND } from '../systems/enemySpells.js';   // X3
-import { applySpell, maxFatigue, entityIsParalyzed, applyEnemyMotorEffectFlags, concealmentFlags, concealFlagsOfBits } from '../systems/effects.js';   // X3: self-casts land through the effect spine   // A5: the enemy Levitate arm, the foe-target concealment closure + EntityConcealmentBehaviour's visual
+import { applySpell, isSoulTrapEffect, maxFatigue, entityIsParalyzed, applyEnemyMotorEffectFlags, concealmentFlags, concealFlagsOfBits } from '../systems/effects.js';   // X3: self-casts land through the effect spine   // A5: the enemy Levitate arm, the foe-target concealment closure + EntityConcealmentBehaviour's visual
 import { calculateCastCost } from '../systems/spellcost.js';   // X3: costs priced off the player (magic-15 note)
-import { silenceBlocksCast, attemptSoulTrap, SOUL_TRAP_TEXT, fillEmptyTrap } from '../systems/mysticism.js';   // X3: the enemy silence gate; X5: the soul trap's kill intercept
+import { silenceBlocksCast, attemptSoulTrap, SOUL_TRAP_TEXT, fillEmptyTrap, peerSoulTrapOf } from '../systems/mysticism.js';   // X3: the enemy silence gate; X5: the soul trap's kill intercept; STRIKE-SHARED: a peer's trap is its caster's
 import { isAzurasStarEquipped, registerFoeDoor } from '../systems/artifactEffects.js';   // V3: the Star's kill capture; AUDIT PSCALE1 DOORS-2: Namira's reflection through this pool's door
 import { EnemyAttack } from '../characters/enemyAttack.js';
 import { makeEnemyEntity, loadMonsterCareer, KNIGHT_CITYWATCH_ID } from '../characters/enemyEntity.js';   // AUDIT WATCH1 A1: the watch's own puppet allowance
@@ -48,7 +48,7 @@ import { inflictPoison } from '../systems/poisons.js';
 import { onMonsterHit, SPIDER_TOUCH_SPELL_INDEX } from '../systems/diseases.js';   // AUDIT 24 (wave 30): the monster special-attack rider, above ground
 import { MINUTES_PER_DAY, playerWeaponHitEntity, playerWeaponKillReported } from '../systems/worldTick.js';   // DISC10-D H1: OnWeaponHitEntity's one dispatcher
 import { FOES_MS } from '../net/online.js';   // AUDIT ALL B2: the watchman moved since the frame the striker swung at
-import { validFoeRecord, CELL_PUPPETS_MAX, CELL_WATCH_PUPPETS_MAX, CELL_FRAME_RECORDS_MAX, FOE_SEQ_MAX, POSE_BOUND, POSE_Y_BOUND, tokenGate, FOE_HEALTH_MAX, hitPoisonOf, HIT_ARROWS_MAX } from '../net/wire.js';
+import { validFoeRecord, CELL_PUPPETS_MAX, CELL_WATCH_PUPPETS_MAX, CELL_FRAME_RECORDS_MAX, FOE_SEQ_MAX, POSE_BOUND, POSE_Y_BOUND, tokenGate, FOE_HEALTH_MAX, hitPoisonOf, hitSpellOf, hitSpellFields, HIT_ARROWS_MAX } from '../net/wire.js';   // STRIKE-SHARED: a strike spell rides the hit
 import { CORPSE_ACTIVATION_DISTANCE, liveFoeTargets, liveFoeFor } from '../player/activate.js';   // WORLD-HOVER H2: the LIVE bodies, in the shape the hover's one seam takes
 import { WEAPON_REACH } from '../combat/playerWeapon.js';   // AUDIT WATCH1 B2: a peer's melee blow on my watch lands from the player's own reach, no farther   // AUDIT WORLD6b-iii(c) A1/C7: the owner reads the taker's reach
 import { createWeapon, bowDamageArrow } from '../combat/enemyEquipment.js';   // MAC-N1: the recovered shaft is CreateWeapon's arrow, value and all   // AUDIT WORLD6b-ii B2: a puppet's weapon is its owner's word, rebuilt from the descriptor   // AUDIT WORLD6b B3/C2: a cell's record projected and its puppets capped, the wire's law
@@ -540,6 +540,26 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   }).catch(() => {});
   }
 
+  /** STRIKE-SHARED (2026-09-29, Mac: "Do #1"): A STRIKE SPELL OF MINE ON A PEER'S FOE GOES TO ITS OWNER, WHOLE. The
+   *  puppet is a copy its owner's next frame overwrites, so a Cast When Strikes paralysis, sleep, drain or trap landed
+   *  on it and was gone - only damage crossed (as a blow). The spell rides a hit of no damage (kind 'spell': it turns
+   *  the owner's foe on me, as any connect does) through the ONE divert this pool's blows take, and the owner lands it
+   *  on its real foe (applyHit). Answers whether it went; false for a foe of mine, or a record the wire refuses - the
+   *  caller lands those as before. And false for a peer's WATCHMAN: the watch is the crime's and lands a peer's blow
+   *  through its own door alone (WATCH1), which takes damage and nothing else - so the spell lands on the copy as
+   *  before and its damage crosses as a blow. */
+  function spellToOwner(f, record, level, playerFeet = null) {
+    if (!f?.puppet || f.dead || !foes.includes(f) || f.mobileType === KNIGHT_CITYWATCH_ID) return false;
+    const spell = hitSpellFields(record, level);
+    if (!spell) return false;
+    damageFoe(f, 0, playerFeet, null, { kind: 'spell', spell });
+    if (record.effects.some((e) => e && isSoulTrapEffect(e))) f._trapSent = true;   // the owner names me on the body if my trap was on it (applyPuppetRecord's `j`)
+    return true;
+  }
+  /** STRIKE-SHARED: the sinks a PEER's strike spell lands through on my foe - its damage is that peer's blow (the
+   *  fighters' count, the `slain` answer), every other sink the foe's own. */
+  const peerSpellSinks = (f, from) => ({ ...foeSinks(f), hurt: (n, o) => damageFoe(f, n, null, null, { fromPlayer: true, peer: true, peerId: from, kind: 'spell', whole: !!o?.whole }) });
+
   /** The one damage door: corpse + loot on death (no crime - these
    *  are monsters and brigands, not the watch). */
   /** X3-slice: the per-foe sinks the cast executor feeds (the
@@ -695,7 +715,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     f.entity.health = Math.min(f.entity.maxHealth ?? Infinity, f.entity.health + h);
   }
 
-  function damageFoe(f, damage, playerFeet, knockDir = null, { fromPlayer = true, bypassShield = false, kind = 'melee', peer = false, peerId = null, whole = false } = {}) {
+  function damageFoe(f, damage, playerFeet, knockDir = null, { fromPlayer = true, bypassShield = false, kind = 'melee', peer = false, peerId = null, whole = false, spell = null } = {}) {
     if (f.dead) return;   // AUDIT 68 S20-foe-dies-twice: a corpse takes no blow - a magic round after the killing one re-ran the whole death (notice, loot handlers, corpse)
     if (fromPlayer && !peer) renownFoeStruck(f);   // RENOWN1: MY blow - a puppet's too, before the divert sends it to the owner
     // AUDIT PSCALE1 DOORS-1: a KILL is not a blow - a Disintegrate, a stat drained to zero (the sinks' `whole`), the
@@ -728,6 +748,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
           ...(knockDir ? { d: [q3(knockDir[0]), q3(knockDir[1]), q3(knockDir[2])] } : {}),
           ...(_pt != null ? { pt: _pt } : {}),   // WORLD6b-iii(e): the striker's poison rides to the owner's foe. AUDIT WORLD6b-iii(e) A3: the dose is the CALC's word - FormulaHelper doses on the calc's damage and the Strikes payload can zero the number after it (LowDamageVs), so the number gates nothing here
           ...(kind === 'arrow' ? { ar: 1 } : {}),
+          ...(spell ?? {}),   // STRIKE-SHARED: a strike spell's record and level (`sp`, `lv`) - the owner lands the whole spell
           ...(_whole ? { z: 1 } : {}) });   // AUDIT PSCALE1 DOORS-1: a kill goes to the owner as a kill. WORLD6b-iii(e): the shaft lands in the owner's copy, where BowDamage puts it (WORLD3's spelling for the dungeon's hit)
       }
       return;
@@ -760,9 +781,13 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // override sits (:157-177) - before the death, every source alike.
       // AUDIT WORLD6b B2 (AUDIT WORLD2 B9's law, the dungeon's): a PEER's killing blow reads no gem of mine and fills
       // no Star of mine, and speaks no kill notice of mine - the kill is the peer's
-      const trap = peer ? { allowDeath: true } : attemptSoulTrap(f.entity, f.mobileType, playerEntity.items, Math.random());
+      // STRIKE-SHARED: and a PEER's trap reads no gem of mine whoever struck - its soul is its caster's, named on the
+      // body's record (foesFrame's `j`, `q`) for the caster to roll against its own pack
+      const _peerTrap = peerSoulTrapOf(f.entity);
+      const trap = peer || _peerTrap ? { allowDeath: true } : attemptSoulTrap(f.entity, f.mobileType, playerEntity.items, Math.random());
       if (trap.alert) say?.(SOUL_TRAP_TEXT[trap.alert]);
       if (!trap.allowDeath) { f.entity.health = 1; return; }
+      if (_peerTrap) { f._trapBy = _peerTrap.by; f._trapQ = Math.max(0, Math.min(100, Math.trunc(Number(_peerTrap.chance) || 0))); }
       // V3: the equipped AZURA'S STAR takes every slain MONSTER's soul
       // (DaggerfallEntityBehaviour.cs:240-247); after the trap, so a
       // trap-filled Star is no longer empty; classes have no soul.
@@ -1734,7 +1759,8 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
    *  WATCH1: and `watch` - { list() -> the city watch pool's live records, hurt(g, dmg, at, dir) -> the pool's own
    *  damage door, with the host's own provenance } - so the criminal's watchmen ride this stream as `t: 146` records
    *  and a peer's blow on one lands through the watch's door, never this pool's. A watchman's `seq` is minted here,
-   *  off the one counter. */
+   *  off the one counter. STRIKE-SHARED: and `spellOnFoe(f, spell, level, sinks, from)` - a peer's strike spell on my
+   *  foe, through the host's cast engine (its trap marked as `from`'s). */
   function setNet(net) { _net = net ?? null; }
   /** WATCH1: the watchmen that ride my stream - every live or killed-and-lying one of MINE (the pool's own prune
    *  splices the walk-aways on its next update, and foesFrame's `dead && !corpse` skip holds the frame between - a
@@ -1794,6 +1820,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       const wpn = f.entity.weapon, wd = wpn && Number.isInteger(wpn.templateIndex) ? [wpn.templateIndex, wpn.material | 0] : null;
       const r = { i: f.seq, t: f.mobileType, x: f.gender === 'female' ? 1 : 0, f: [q2(w[0]), q2(w[1]), q2(w[2])], y: q3(f.ai.yaw), ...(Number.isFinite(f.entity.health) ? { h: Math.max(0, Math.min(FOE_HEALTH_MAX, f.entity.health)) } : {}), ...(Number.isFinite(f.entity.maxHealth) && f.entity.maxHealth >= 1 ? { k: Math.min(FOE_HEALTH_MAX, f.entity.maxHealth) } : {}), d: f.dead ? 1 : 0, a: f._atkA | 0, b: f._atkB ?? '', m: f.ai.moving ? 1 : 0, g, l: f.entity.level | 0, w: wd, c: f._castN | 0, s: f._castIdx | 0, u: f._castU ?? '', o: onWatch || _questLike(f) ? 0 : (f.corpse ? Math.min(255, f.entity?.items?.length | 0) : 0) };   // AUDIT (pre-merge) Q5: nor a quest foe's body - its take arm answers only the owner's own (A5), so a member's press asked again forever   // AUDIT WATCH1 A3: a watch body advertises NO pile - its take arm is its owner's own door (cityGuards.takeLoot), which the wire does not reach, so a peer offered the body clicked it for ever and heard nothing; WORLD6b-iii: the cast count and its spell; AUDIT WORLD6b-iii(a) A3: b/u whom the last blow/cast was at; WORLD6b-iii(c): o the body's pile
       if (!onWatch && !f.dead && _sharedFoe(f)) { const n = fightN(f); if (n > 1) r.n = n; }   // AUDIT PSCALE1: how many fight it - every reader weighs its hits by the owner's count
+      if (!onWatch && f.dead && typeof f._trapBy === 'string') { r.j = f._trapBy; r.q = f._trapQ | 0; }   // STRIKE-SHARED: whose soul trap was on it as it fell, and the trap's chance
       if (heirOf && !onWatch && !f.dead) { const h = heirOf(f) ?? null; f._heir = h; if (h) r.e = h; }   // AUDIT CONTRIB P1: the handover frame's heir (handOverFrame); QUEST-PARTY phase 2: a shared quest's foe too - the host names a party member   // AUDIT CONTRIB P1: the handover frame's heir (handOverFrame)
       const key = `${r.f[0]},${r.f[1]},${r.f[2]},${r.y},${r.h},${r.k},${r.d},${r.a},${r.b},${r.m},${r.g},${r.l},${wd ? wd.join('/') : '-'},${r.c},${r.s},${r.u},${r.o},${r.n}`;
       if (!full && f._sentKey === key) continue;
@@ -2026,7 +2053,20 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     if (r.a !== undefined) { if (p.a != null && r.a !== p.a) p.strike = { kind: (r.a & 1) ? 'ranged' : 'melee', at: r.b ?? r.g ?? p.target }; p.a = r.a; }
     // WORLD6b-iii: a cast once per count, never the count a joiner arrived with; AUDIT WORLD6b-iii(a) B3/C9: no spell, no cast
     if (r.c !== undefined) { if (p.c != null && r.c !== p.c && Number.isInteger(r.s)) p.cast = { s: r.s, at: r.u ?? r.g ?? p.target }; p.c = r.c; }
-    if (r.d === 1 && !f.dead) { const t = p.wire ? _net.toScene(p.wire) : null; if (t) { f.ai.feet[0] = t[0]; f.ai.feet[1] = t[1]; f.ai.feet[2] = t[2]; } puppetDie(f); }
+    if (r.d === 1 && !f.dead) {
+      if (r.j !== undefined) casterSoulTrap(f, r);
+      const t = p.wire ? _net.toScene(p.wire) : null; if (t) { f.ai.feet[0] = t[0]; f.ai.feet[1] = t[1]; f.ai.feet[2] = t[2]; } puppetDie(f);
+    }
+  }
+  /** STRIKE-SHARED (2026-09-29): MY SOUL TRAP WAS ON A PEER'S FOE AS IT FELL - the owner's record names me (`j`) with the
+   *  trap's chance (`q`), and the soul is mine to roll for, into my own pack, as EnemyEntity.AttemptSoulTrap rolls it at
+   *  the kill (the gate court's own arm, world.js WBX7) - with no tether, since the foe fell on its owner's machine. Once,
+   *  and only on a puppet I sent a trap to: the name alone is the owner's word, and it fills no gem of mine unasked. */
+  function casterSoulTrap(f, r) {
+    if (!f._trapSent || r.j !== (_net?.selfId?.() ?? null)) return;
+    f._trapSent = false;
+    const res = attemptSoulTrap({ activeEffects: [{ kind: 'soulTrap', chance: r.q }] }, f.mobileType, playerEntity.items ?? [], rolls());
+    if (res.alert) say?.(SOUL_TRAP_TEXT[res.alert]);
   }
   /** AUDIT WORLD6b-ii B1/C1: whether a blow (or a cast, WORLD6b-iii) of this puppet's owner's may land on me now - the
    *  owner's budget spent, and never from a puppet that leapt. */
@@ -2253,6 +2293,11 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     // DISC10-E: and if that blow killed it (it was alive at the door above), the striker is told - its OnWeaponHitEntity
     // asks whether the target died, and the death happened HERE. The grant's own path back (to, the cell, the number);
     // an older client's applyHit reads no `dmg` in it and refuses it whole.
+    // STRIKE-SHARED: the striker's strike spell, landed on MY foe - the real one - through the host's own foe door (its
+    // saving throw, its pacify, its trap), its damage the striker's blow; before the kill report, so a killing spell
+    // says `slain` too. Never on my watch (a watchman is the crime's, and no strike payload lands on one here).
+    const hs = onWatch || f.dead ? null : hitSpellOf(data);
+    if (hs) _net?.spellOnFoe?.(f, hs.spell, hs.level, peerSpellSinks(f, from), from);
     if (f.dead) _net?.onPeerHit?.({ to: from, k: data.k ?? _net?.room?.() ?? null, i: data.i | 0, slain: 1 });
     return true;
   }
@@ -2451,7 +2496,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     clearLive: destroy,
     collectPixel, arrowHitFoe, removeFoe: questPoolOps.removeFoe,
     // WORLD6b: the cell's stream - the net installed, my foes out, a peer's in, a peer's blow in, the puppets pruned
-    setNet, foesFrame, applyFoes, applyHit, pruneOwners, clearPuppets, handOverFrame, dropOwnLive,
+    setNet, foesFrame, applyFoes, applyHit, spellToOwner, pruneOwners, clearPuppets, handOverFrame, dropOwnLive,
     deepPuppetsNear,   // DEEP-SHARE: the deep's foes others stand near a point
     setQuestShare,   // QUEST-PARTY
     setOnSites, removeSiteFoes,   // WOD7

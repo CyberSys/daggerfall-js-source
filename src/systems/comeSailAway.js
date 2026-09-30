@@ -166,6 +166,9 @@ export const ANIMATED_WATER = null;
 export const WATER_LEVEL = WOD_TERRAIN != null ? 100 : 34;
 /** ComeSailAway.terrainEdge. */
 export const TERRAIN_EDGE = Math.fround(819.2);
+/** FIELD BUGS 29h (LOST-BOAT): metres of ground over a hull's place, or of sea over it, before the port calls it lost -
+ *  more than a keel on a shelving beach or a hull riding a swell. */
+export const LOST_UNDER_M = 2;
 /** The placement ray's reach, and the dungeon water plane's. */
 export const PLACE_RAY_DISTANCE = 100;
 /** Update's `Time.time - placeTime > 0.2f`: the click that asked to place is not the click that places. */
@@ -1391,11 +1394,40 @@ export function createComeSailAwayRuntime(deps) {
     if (state.wasPaused) latchTravelling();
     if (state.wasPaused && f(deps.timeScale?.() ?? 1) !== 1 && !state.isTravelling) ResetTimeScale();
     state.wasPaused = false;
+    recoverLostBoats();   // FIELD BUGS 29h (LOST-BOAT): the port's own
     if (isSailing() && state.CurrentBoat != null) updateSailing();
     if (!waveOn() || animatedWaterWaves()) return;   // (4769) `!wave || waveObject == null || (AnimatedWater != null && AWVertexWaves)`
     const step = stepWaveFrame(state.waveFrameIndex, state.waveFrameTimer, waveFrameTimeOf(setting('Waves.Speed', 100)), dt(), WAVE_FRAME_COUNT, isDayHour(deps.hour?.() ?? 12));
     state.waveFrameIndex = step.index;   // material.SetTexture("_MainTex", waveFrames[waveFrameIndex]) - the host draws the index
     state.waveFrameTimer = step.timer;
+  }
+  /**
+   * FIELD BUGS 29h (LOST-BOAT, the port's own; Julian: "my previous attempts at spawning in large boat deeds (before
+   * today's patch) may have left the large boats floating underneath the town. When i travel to the town i can hear very
+   * loud boat noises but no boats to be seen"): A BOAT THE PORT LOST IS GIVEN BACK. Before FIELD-CSA1 a placed boat could
+   * be stood on the seabed, or left in an old frame's numbers by a respawn or a recentre - under the ground by the temple
+   * its owner woke at - and the save keeps the place it stood, which the load restores as it was. Its loops play from
+   * there whenever its pixel is near. So once the ground under a boat is built, it is asked ONCE: a hull whose place is
+   * LOST_UNDER_M under the ground or under the sea's top is lost, and an uncrewed one (its deed spent on placing) is packed
+   * into its parts - the mod's own PackBoat, the cargo with it - for the player to place again; a crewed hull's deed
+   * still calls it to a port. Never a boat indoors (a dungeon's water is its own), nor the one being sailed.
+   */
+  function recoverLostBoats() {
+    if (state.AllBoats.length < 1 || deps.isPlayerInside()) return;
+    const t0 = deps.playerTerrain?.();
+    if (t0 == null) return;
+    for (const boat of [...state.AllBoats]) {
+      if (boat.groundAsked || boat.inside || boat === state.CurrentBoat || !boat.GameObject?.activeSelf) continue;
+      const p = boat.GameObject.position, o = t0.position;
+      // the pixel under the boat, off the player's own: map x grows with the scene's x, map y against its z
+      const t = deps.terrainAt(t0.mapPixelX + Math.floor((p[0] - o[0]) / TERRAIN_EDGE), t0.mapPixelY - Math.floor((p[2] - o[2]) / TERRAIN_EDGE));
+      if (t == null) continue;   // its ground not built yet: asked when it is
+      boat.groundAsked = true;
+      const ground = f(f(t.position[1]) + f(t.sampleHeight(p)));
+      if (!(ground > p[1] + LOST_UNDER_M || p[1] < seaTop() - LOST_UNDER_M) || boat.crewed) continue;
+      deps.hudText('A boat of yours was lost where no one could reach it');
+      PackBoat(boat, true);
+    }
   }
   /** CSA-G: `if (TravelOptions != null)` its isTravelActive message (4921-4934), which Update's unpause reset reads;
    *  wasTravelling follows it and is read nowhere (kept). */
@@ -1597,19 +1629,27 @@ export function createComeSailAwayRuntime(deps) {
   /** portSearchRange (276): LoadSettings' Controls/PortLocationSearchRange (823), read live. */
   const portSearchRange = () => Number(setting('Controls.PortLocationSearchRange', 3)) | 0;
   /**
-   * IsNearPort (1095-1117): a location with a port within the square round the player's pixel - the C#'s loops run
-   * from X - range while `< X + range - 1`, so the square reaches range pixels west and north and range - 2 east and
-   * south (kept); the `break` leaves the inner loop only (kept: the answer is the same).
+   * IsNearPort (1095-1117): a location with a port within the square round the player's pixel. FIELD BUGS 29h
+   * (DEED-PORT, the port's own; Swordsman: "I have been ALL over the coast trying to drop my boat at a port ... it
+   * tells me I'm not near a port"; Mac: "Dont worry abour DFU"): the square is CENTRED on the player now, `range`
+   * pixels every way. The C#'s loops ran from X - range while `< X + range - 1` - range pixels west and north, range - 2
+   * east and south - so a port two pixels east or south was never near, and a range of 1 never asked the player's own.
    */
   function IsNearPort(range = 3) {
-    let result = false;
     const currentMapPixel = deps.currentMapPixel();
-    for (let i = currentMapPixel.X - range; i < currentMapPixel.X + range - 1; i++) {
-      for (let j = currentMapPixel.Y - range; j < currentMapPixel.Y + range - 1; j++) {
-        if (deps.isPortTown?.(i, j)) { result = true; break; }
+    for (let i = currentMapPixel.X - range; i <= currentMapPixel.X + range; i++) {
+      for (let j = currentMapPixel.Y - range; j <= currentMapPixel.Y + range; j++) {
+        if (deps.isPortTown?.(i, j)) return true;
       }
     }
-    return result;
+    return false;
+  }
+  /** DEED-PORT: a refusal for want of a port says where one is - the host's nearest (`deps.nearestPort`: its name and
+   *  the way to it), the mod's own line alone where the host names none; long enough on screen to be read. */
+  function sayNoPort(text) {
+    const near = deps.nearestPort?.() ?? null;
+    if (near) deps.midScreenText(`${text}. The nearest port is ${near.name}, to the ${near.way}`, f(4));
+    else deps.midScreenText(text, f(1.5));
   }
   /**
    * PackBoat (6130-6158): as an item, the boat's parts - `hull * 10 + variant`, the hull's price and weight, its name
@@ -1654,7 +1694,7 @@ export function createComeSailAwayRuntime(deps) {
    *  number, over the top window. */
   function OpenBoatVariantPicker(boat) {
     if (boat.VariantObject == null || boat.GetVariantCount < 1) { deps.midScreenText('This boat has no variants', f(1.5)); return; }
-    if (!IsNearPort(portSearchRange())) { deps.midScreenText('There is no port nearby', f(1.5)); return; }
+    if (!IsNearPort(portSearchRange())) { sayNoPort('There is no port nearby'); return; }
     state.variantBoatTarget = boat;
     const rows = [];
     for (let i = 0; i < boat.GetVariantCount; i++) rows.push(String(i));
@@ -1689,11 +1729,11 @@ export function createComeSailAwayRuntime(deps) {
     if (placedBoatWithUID != null) {
       const here = deps.currentMapPixel();
       if ((placedBoatWithUID.MapPixel?.X !== here.X || placedBoatWithUID.MapPixel?.Y !== here.Y) && !IsNearPort(portSearchRange())) {
-        deps.midScreenText('There is no port nearby or ship is in another location', f(1.5));
+        sayNoPort('There is no port nearby or ship is in another location');
         return false;
       }
     } else if (!IsNearPort(portSearchRange())) {
-      deps.midScreenText('There is no port nearby', f(1.5));
+      sayNoPort('There is no port nearby');
       return false;
     }
     StartPlacing(item, collection);

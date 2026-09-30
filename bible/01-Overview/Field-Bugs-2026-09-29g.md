@@ -14,7 +14,7 @@ plainly and left to Mac.
 | 6 | "reduce the encounter speed slowing distance by like 40%" | the port's own OW6 governor (not DFU's) | fixed (OW6-NEAR) |
 | 7 | running, jumping, climbing past 100; "all bonus for skills should scale" | no port clamp on the skills; Speed stops at 100 and the climb chance at 95, both DFU's | for Mac |
 | 8 | "jumping and running and climbing spells seem to have 0 effect" | Jumping and Climbing land on the real motor; DFU has no running spell | nothing to fix found; said |
-| 9 | "Magic enchantments on strike from weapons broke" | no regression; the Warden's strike went nowhere in the real game (a port fault), and online only a strike's DAMAGE crosses to a foe another player owns | the Warden: fixed (WARDEN-STRIKE). Shared foes and duels: for Mac |
+| 9 | "Magic enchantments on strike from weapons broke" | no regression; the Warden's strike went nowhere in the real game (a port fault), and online only a strike's DAMAGE crosses to a foe another player owns | the Warden: fixed (WARDEN-STRIKE). Shared foes: fixed at Mac's word (STRIKE-SHARED). Duels: for Mac |
 | 10 | "Quest timer is fucked ... loitering around for hours nothing" | online a loiter moves the character's clock, and quest time reads the world's | Lived-Time OPEN 1, Mac's |
 
 ## RAID-GUARDS-NPC: the town's walkers are spared in a raid (1)
@@ -81,6 +81,36 @@ a shared foe. And a duel's weapon crosses the wire as template, material and con
 enchantment fires in a duel. Both recorded limits (Online-Arc; Community-Arc's fresh weapon), neither new; for a player
 who fights in company it is most of his fights, which fits "doesn't work at all".
 
+## STRIKE-SHARED: a strike spell reaches a foe another player runs (For Mac 4, first half)
+
+Mac: *"Do #1"* - the shared-foe half of For Mac 4. The duel half stands as recorded.
+
+**The strike goes to the foe's owner, whole.** The enchant ctx's `applySpellToTarget` asks a new host door,
+`spellToOwner(foe, record, level)`, before it lands a player's strike on a foe. Each pool answers only for a foe another
+player runs: the cell's puppet (`exteriorFoes.js`), and underground the room's foe on a joiner, a party member's quest
+foe or loose stand (`_ownFrom`, `dungeonContext.js`). The spell rides a hit of no damage (kind `spell`, so the owner's
+foe turns on the striker as any connect does) through the one divert each pool's blows already take: `sp` is the
+record through the cast frame's own projection (`castSpellOf`: five elements, at most three classic effects, byte
+components; the icon rides as 0), with any of the five range types, and `lv` is the striker's level, clamped to
+CAST_LEVEL_MAX. A record the wire refuses lands locally as before. The owner lands it on its real foe through the
+cast engine's own foe door (`applySpellToFoe`): its saving throw, its pacify, its absorb and resist gauntlet against a
+caster that stands in at the striker's level. Every point of its damage is the striker's blow (the fighters' count,
+`slain` above ground, `v` below). The relay reads no hit, and an older owner reads past the fields.
+
+**A peer's soul trap is its caster's.** `attemptSoulTrap` fills the pack of the player who cast the trap, and the owner
+holds no such pack. So the cast engine marks a peer's new trap with its caster (`ctx.peerCaster` -> `by`) and says
+nothing (the owner is not the caster). Whoever kills the foe, the owner's kill door reads no gem of its own for that trap
+and names the caster on the body's record (`j`, with `q` the trap's chance; the wire admits both on a dead record
+only). The caster rolls it against its own pack, as the Gate court's WBX7 arm already does: once, only for a puppet it
+sent a trap to, and with no tether, since the foe fell on the owner's machine.
+
+**Left as it is.** A peer's watchman stays on the watch's own door (WATCH1: a peer's blow and nothing else), so a strike
+on one lands on the copy as before and its damage crosses as a blow. A foe that reflects a peer's strike has no body to
+send it back to (the stand-in caster), so the reflected bundle lands nowhere. A lingering damage effect's later ticks
+are nobody's blow at the owner (the stand-in is no player), as a fall's are, so a kill by a tick pays no one. The
+striker hears no "Trap active." line, because the save is rolled at the owner.
+`test/strikeshared.test.js` (7), `tools/mutants/strikeshared.json` (16, 16 dead).
+
 ## OW6-NEAR: the journey's hold on enemies begins 40% nearer (6)
 
 The slowdown is the port's own (OW6, `06-Systems/Travel-View.md`): while fast-travelling, the time scale is held so the
@@ -119,12 +149,19 @@ short of a band's sight, not 1280; on foot 168 m, not 280. The second "too early
 1. **A townsperson in a raid.** [ANSWERED: *"Spare townspeople in raid"* - RAID-GUARDS-NPC spares every walker while a
    raid is on. Outside a raid Protect Bystanders stays DFU's box-pass rule.]
 2. **Serving time, the levy, banishment.** A refund of at least a Conspiracy's loss, a grace after release, no levy on
-   the online clock, a way to lift the banish bit - any, or DFU's?
+   the online clock, a way to lift the banish bit - any, or DFU's? [ANSWERED by the reputation overhaul (REP1-REP3,
+   2026-09-29, `06-Systems/Standing-Arc.md`; Mac: *"The charge, with a mark"*, *"Challenged on sight"*, *"Timed or
+   pardoned"*): a sentence gives the charge back (a Conspiracy's whole 2), a day's grace after the law is answered, no
+   levy at all - a guard who sees a known criminal stops them - and a banishment lifts after 30 days or with a pardon.]
 3. **A reputation reset (5).** Its reach (a region's legal reputation and People, the banish bit, a guild's standing),
    where it is sold (a temple, the court, a guild), the price and its rise per use (a count kept per character, the
-   server's online).
+   server's online). [ANSWERED by REP3/REP4 (Mac: *"Earn it + faster drift"*): a temple's penance buys five points of a
+   region's law (200 gold, a step more each time there) and its pardon lifts a banishment (2,500, a step more each
+   time), both counted per character in the save; a guild's standing mends by its quests and the weekly drift, under
+   REP6's probation. The count lives in the character's save, as every standing does - the server holds none.]
 4. **Strikes on shared foes and in duels.** Carry a strike spell's whole effect to the owner (the cast lane's
    `castSpellOf` frame), and a duel weapon's enchantments across the wire - or leave both recorded limits?
+   [ANSWERED for shared foes: *"Do #1"* - STRIKE-SHARED. Duels still open.]
 5. **Past 100.** Movement past the Speed clamp, climb speed from the Climbing skill, a steeper Running slope, the duel
    card's cap - against Realm-Arc's planned online cap of 100. Offline, as MERC-CAP, DFU's reads stand unless you say.
 6. **Quest clocks (10)** are Lived-Time's OPEN 1: countdowns on the character's clock (a loiter spends them, as DFU),

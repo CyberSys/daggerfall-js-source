@@ -563,6 +563,15 @@ export function cureAllOfKind(target, kind, keepInfections = false) {
   if (target?.activeEffects) target.activeEffects = target.activeEffects.filter((a) => a.kind !== kind || (keepInfections && !!a.infection));
 }
 export const cureAllDiseases = (t) => cureAllOfKind(t, 'disease');
+/** FIELD BUGS 29h (INFECTION-KEPT; Julian: "during this time i had gotten another disease from a dungeon and had to cure
+ *  it which likely wiped my lycanthropy progress"; Mac: "Dont worry abour DFU"): A CURE OF DISEASE TAKES THE PLAIN
+ *  DISEASES FIRST. DFU stores a lycanthropy or vampirism infection as a disease bundle, and CureAllDiseases ended it
+ *  with the plague caught beside it. While a plain disease runs, a cure (the temple's, a spell's, a potion's) ends the
+ *  plain ones and leaves the infection to its turn; a cure with nothing else to end ends the infection, so curing it
+ *  before the turn still saves a player who does not want it. The turn's CureAll of the old life
+ *  (lycanthropy.js endOldLifeEffects) still ends every disease there is. */
+export const plainDiseaseLive = (t) => (t?.activeEffects ?? []).some((a) => a.kind === 'disease' && !a.ended && !a.infection);
+export const cureDiseasesInfectionsLast = (t) => cureAllOfKind(t, 'disease', plainDiseaseLive(t));
 export const cureAllPoisons = (t) => cureAllOfKind(t, 'poison');
 export const cureParalyzation = (t) => cureAllOfKind(t, 'paralyze');
 const CURE_MARKER_KINDS = Object.freeze(['cureDisease', 'curePoison', 'cureParalyzation']);   // the three cure CLASSES themselves
@@ -1243,8 +1252,9 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
         continue;
       }
       // AUDIT SPELL-GIFT B6: a STRANGER's Cure Disease leaves an incubating infection be (systems/infection.js stores
-      // one as a disease) - a player choosing the curse lost it for good to anyone passing with a Cure
-      cureAllOfKind(target, CURE_KINDS[e.subType], ctx?.strangerCast === true);
+      // one as a disease) - a player choosing the curse lost it for good to anyone passing with a Cure. FIELD BUGS 29h
+      // (INFECTION-KEPT): and any cure leaves it while a plain disease is there to take (cureDiseasesInfectionsLast)
+      cureAllOfKind(target, CURE_KINDS[e.subType], ctx?.strangerCast === true || plainDiseaseLive(target));
       pushInstantMarker(target, CURE_MARKER_KINDS[e.subType], e);   // after the removal pass, as AssignBundle adds before MagicRound cures
       out.cured = (out.cured ?? 0) + 1;
       continue;

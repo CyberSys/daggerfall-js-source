@@ -4,7 +4,7 @@
 //
 // Audit-25 listed banking among the six systems at or near zero, and
 // several laws already in the tree have been waiting on it with no
-// caller at all: CRIMES.LoanDefault (court.js:44) has never fired,
+// caller at all: CRIMES.LoanDefault (court.js:52) has never fired,
 // U40's letter of credit is minted and carried with nowhere to cash
 // it, and staticNpcRoute has answered { merchant, 'banking' } since G8
 // into a dead arm.
@@ -211,7 +211,7 @@ export function allocateHouseToPlayer(houses, regionIndex, { buildingKey, mapId,
  * whatever the purse could not cover.
  *
  * The mechanism is DeductGoldAmount's return value, which is the
- * SHORTFALL rather than nothing (court.js:213 ports it, letters of
+ * SHORTFALL rather than nothing (court.js:235 ports it, letters of
  * credit and all) - so `accountGold -= deductGold(...)` subtracts
  * exactly the remainder, and subtracts ZERO when the purse covered it.
  * Written any other way this either double-charges or lets the account
@@ -588,6 +588,45 @@ export function callInEmpireDebt(accounts, player, { cap = 0, nowMinutes = 0 } =
   });
   return out;
 }
+
+/**
+ * LOAN-AMNESTY (2026-09-29, Mac: "Can we reset the loans for everyone online. The bank of the empire has decided to
+ * forgive everyone's loans"): THE EMPIRE FORGIVES EVERY LOAN ONCE. A save's `loanAmnesty` says which amnesty it has had;
+ * one older than LOAN_AMNESTY has every loan struck off - the debt, its due date and the mark of a default, so the
+ * Empire lends again and nothing is garnished - and is marked with it. The gold borrowed stays where it is; what was
+ * already repaid, garnished or drawn stays paid; the reputation a default cost stays lost (it recovers as reputation
+ * does). A save written before the amnesty carries no mark (0); every save written after it carries the mark (save.js),
+ * so a character made after it, and a loan taken after it, are never forgiven. Applied to an online character's save as
+ * it boots, before it is restored and before the Empire's join settles a loan (scenes/world.js); a character crossing
+ * customs is marked as it crosses (realmCustoms.js) - an offline loan is never forgiven by walking it online.
+ * Answers `{ forgiven, defaulted }` (the gold owed that was struck off, and the regions that had defaulted), or null
+ * when the save had nothing to forgive or had its amnesty already.
+ */
+export const LOAN_AMNESTY = 1;
+export function forgiveLoans(snap) {
+  if (!snap || typeof snap !== 'object') return null;
+  if ((Number.isSafeInteger(snap.loanAmnesty) ? snap.loanAmnesty : 0) >= LOAN_AMNESTY) return null;
+  snap.loanAmnesty = LOAN_AMNESTY;
+  let forgiven = 0, defaulted = 0;
+  for (const a of Array.isArray(snap.bankAccounts) ? snap.bankAccounts : []) {
+    if (!a || typeof a !== 'object') continue;
+    if (!(a.loanTotal > 0) && a.hasDefaulted !== true && !a.loanDueDate) continue;
+    if (a.loanTotal > 0) forgiven += Math.trunc(a.loanTotal);
+    if (a.hasDefaulted === true) defaulted++;
+    a.loanTotal = 0;
+    a.loanDueDate = 0;
+    a.hasDefaulted = false;
+  }
+  return forgiven > 0 || defaulted > 0 ? { forgiven, defaulted } : null;
+}
+/** What the character is told when its loans are forgiven, once the world stands. */
+export function loanAmnestyLines(r) {
+  if (!r) return [];
+  return [r.forgiven > 0
+    ? `The Bank of the Empire has forgiven your loan of ${r.forgiven.toLocaleString('en-US')} gold.`
+    : 'The Bank of the Empire has forgiven your debt.',
+  'Its branches will lend to you again.'];
+}
 /** The join's words: what the Empire called in, and what stands unpaid. */
 export function empireCallInLines({ called, owed }) {
   if (!(called > 0)) return [];
@@ -906,7 +945,7 @@ export function bankingStatusRows(accounts, { regionName = () => '', dueText = n
 //    the permanent-scene set, so housesForSale, allocateHouseToPlayer
 //    and sellHouse above are live; H2/H4 brought the BUY UI itself -
 //    DaggerfallBankPurchasePopUp is ui/bankPurchaseWindow.js
-//    (BankPurchaseWindow :102), mounted at scenes/worldModes.js:3033
+//    (BankPurchaseWindow :102), mounted at scenes/worldModes.js:3037
 //    openPurchase with drawBankModelPreview (:1938) as the dedicated
 //    3D model panel, and ui/bankWindow.js:291-304 routes BUY HOUSE's
 //    'pick' into it (a host without the window still falls back to

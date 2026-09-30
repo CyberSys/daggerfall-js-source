@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as acorn from 'acorn';
-import { validFoeRecord, hitPoisonOf, FOE_HEALTH_MAX, FOE_LEVEL_MAX, FOES_FRAME_MAX, PARTY_MAX } from '../src/net/wire.js';
+import { validFoeRecord, hitPoisonOf, hitSpellOf, FOE_HEALTH_MAX, FOE_LEVEL_MAX, FOES_FRAME_MAX, PARTY_MAX } from '../src/net/wire.js';
 import { ELITE_FOE_MULTIPLIER } from '../src/world/spawnedDungeons.js';
 
 const D = readFileSync(new URL('../src/scenes/dungeonContext.js', import.meta.url), 'utf8');
@@ -302,7 +302,7 @@ test('REST-SYNC: a joiner\'s blow at the room\'s encounter goes to the host by t
   const own = foe(), enc = foe({ _encId: 2 });
   const h = {
     _authority: true, foes: [foe(), own, enc], _layoutFoes: 1, _sharedById: new Map([[2, enc]]),
-    hitPoisonOf, audio: { play3d() {} }, hitSoundFor: () => 0, ENEMY_HIT_VOLUME: 1, hitEffects: null, enemyPainVoice: () => null,
+    hitPoisonOf, hitSpellOf, audio: { play3d() {} }, hitSoundFor: () => 0, ENEMY_HIT_VOLUME: 1, hitEffects: null, enemyPainVoice: () => null,
     damageFoe: (f, dmg, at, dir, o) => landed.push([f, dmg, o.peerId]),
   };
   const hd = mount(`${consts()}\n${fnSrc('applyHit')}\n${fnSrc('landPeerBlow')}\nreturn { applyHit };`, h);   // QUEST-PARTY phase 3c: the blow's landing is one door, landPeerBlow

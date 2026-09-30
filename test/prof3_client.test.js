@@ -221,7 +221,7 @@ test('PROF3 anvil page: at a smith\'s forge - the families and metals, a recipe\
   assert.match(text(), /Cured Leather|leather:cured/);
   assert.match(text(), /margin 0: Crude 20 \| Standard 60 \| Fine 20/);
   assert.equal(buttons().find((b) => b.textContent === 'Craft').disabled, true);
-  await press('Buy 1 from the smith - 4 Marks');
+  await press('Buy 1 from the smith - 4 Drakes');
   assert.deepEqual(bought, [['leather:cured', 1]]);
   assert.equal(buttons().find((b) => b.textContent === 'Craft').disabled, false);
   press('Craft');

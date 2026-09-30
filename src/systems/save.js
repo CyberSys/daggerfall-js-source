@@ -18,7 +18,8 @@ import { rebuildEquipState, isEquipped, unequipSlot } from './equip.js';   // AU
 import { templateByIndex } from './itemTemplates.js';   // AUDIT 63r F28: `shortName` is SetItem's template read, not an optional override
 import { restartHeldEnchantments } from './enchantments.js';   // E2: the held bundles' restore half
 import { snapshotWeather, restoreWeather, rollClimateWeathersForDay } from './weatherSim.js';   // W1: playerPosition.weather (SerializablePlayer.cs:225) - one value, every host; AUDIT WORLD5 C4: the shared day's sky over a loaded one
-import { snapshotRegionConditions, restoreRegionConditions } from './regionConditions.js';   // S42: the CONDITION half of RegionDataRecord
+import { snapshotRegionConditions, restoreRegionConditions } from './regionConditions.js';
+import { snapshotStanding, restoreStanding } from './standing.js';   // REP: the standing book   // S42: the CONDITION half of RegionDataRecord
 import { snapshotDiscovery, restoreDiscovery } from './discovery.js';   // T4
 import { getWorldVariationSaveData, restoreWorldVariationData, clearWorldDataVariants } from './worldDataVariants.js';   // RR3b: the world-data variants ride the save
 import { snapshotAutomap, restoreAutomap } from './automap.js';   // A1: dictAutomapDungeonsDiscoveryState rides SaveData_v1
@@ -38,7 +39,7 @@ import { resetMagicRoundMarker, sharedClockOn, worldMinutes, alignEntityClocks, 
 import { alignSurvival, ALIGN_GRACE_MINUTES } from './survival/needs.js';   // SURV7: the needs' markers on the load arm
 import { saneSaveClock } from './offlineCopy.js';   // AUDIT LIVED1b F3: the envelope's clocks, read once - the doors' law too
 import { isMembershipStore } from './guilds.js';   // V2e: the two-book membership store rides the save whole
-import { createBankAccounts, createHouses } from './banking.js';   // JAN1: a save with no accounts restores the full table - an EMPTY one is truthy and the host's `??=` never minted it
+import { createBankAccounts, createHouses, LOAN_AMNESTY } from './banking.js';   // JAN1: a save with no accounts restores the full table - an EMPTY one is truthy and the host's `??=` never minted it
 import { setItemFields } from './itemTemplates.js';   // JAN1: an item saved before MAC-N1 (no value) is set on the way in, so the trade strip never sums NaN
 import { restoreKnightlyOrderFlags } from './knightlyGifts.js';   // D9: KnightlyOrder.RestoreGuildData's armour-bit back-fill
 import { GUILD_GROUPS } from '../formats/factionFile.js';   // the membership book's key IS the guild group
@@ -331,6 +332,7 @@ export function snapshotPlayer(entity, { position = null, pose = null, classicMi
   snap.houses = (entity.houses ?? []).map((h) => ({ ...h }));
   snap.ownedShip = entity.ownedShip ?? -1;
   if (entity.shipCrossed === true) snap.shipCrossed = true;   // RESTORE: a ship that came through customs, which the realm's bank never buys back (banking.js)
+  snap.loanAmnesty = Number.isSafeInteger(entity.loanAmnesty) ? entity.loanAmnesty : LOAN_AMNESTY;   // LOAN-AMNESTY: which amnesty this character has had - a character never restored from an older save is born after the last
   // TR4: SerializablePlayer.cs:180 - the BOARDING MEMORY is saved
   // beside the deed. Without it a save taken at sea loads with no way
   // back: IsOnShip needs the memory to answer true, so disembarking
@@ -390,6 +392,7 @@ export function snapshotPlayer(entity, { position = null, pose = null, classicMi
   // legalRep is a region-keyed object here, not DFU's 62-entry array;
   // it must be COPIED or the snapshot aliases live state.
   snap.legalRep = entity.legalRep ? { ...entity.legalRep } : null;
+  snap.standing = snapshotStanding(entity);   // REP: the watch's clocks and the prices paid, per region
   // Any biography deltas still parked (only if FACTION.TXT was missing
   // at creation - S25 drains them at the chargen seam otherwise).
   snap.pendingFactionRep = (entity.pendingFactionRep ?? []).map((r) => ({ ...r }));
@@ -655,6 +658,7 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   entity.houses = snap.houses?.length ? snap.houses.map((h) => ({ ...h })) : createHouses(entity.bankAccounts.length);   // JAN1: the same law for the house registry (H1 mints it beside the accounts)
   entity.ownedShip = snap.ownedShip ?? -1;
   if (snap.shipCrossed === true) entity.shipCrossed = true; else delete entity.shipCrossed;   // RESTORE: its customs mark, or none
+  entity.loanAmnesty = Number.isSafeInteger(snap.loanAmnesty) ? snap.loanAmnesty : 0;   // LOAN-AMNESTY: a save from before the first amnesty has had none
   entity.boardShipPosition = snap.boardShipPosition ?? null;   // TR4 (:425)
   entity.anchorPosition = snap.anchorPosition ? { ...snap.anchorPosition } : null;   // TP-slice
   // A4: the three stragglers' restore arms (see the snapshot side).
@@ -807,6 +811,7 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   entity.timeForThievesGuildLetter = snap.timeForThievesGuildLetter ?? 0;
   entity.timeForDarkBrotherhoodLetter = snap.timeForDarkBrotherhoodLetter ?? 0;
   entity.legalRep = snap.legalRep ? { ...snap.legalRep } : {};
+  restoreStanding(entity, snap.standing);   // REP: a pre-REP save restores an empty book
   // AUDIT 23 (C4/guilds-4): DFU clamps every region's LegalRep right
   // after restoring it (SerializablePlayer -> ClampLegalReputations) -
   // a save carrying a beyond-band value loads back into the band.

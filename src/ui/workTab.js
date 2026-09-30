@@ -244,7 +244,7 @@ export function createWorkTab(w, ui) {
       // AUDIT 31 H6: a filled one of yours comes by the market's deliveries - collected at the Market tab
       const said = c.state === 'open' ? writLeftText(c.expiresAt, ui.nowS())
         : c.mine && c.state === 'filled' ? 'filled - collect it at the Market tab'
-          : `${COMMISSION_SAID[c.state] ?? c.state}${c.mine ? (c.returned ? ' - Marks back' : ' - Marks to come back') : ''}`;
+          : `${COMMISSION_SAID[c.state] ?? c.state}${c.mine ? (c.returned ? ' - Drakes back' : ' - Drakes to come back') : ''}`;
       li.append(el('span', 'work-what', `${who}: ${commissionPieceText(c)}, ${marksText(c.pay)}`), el('span', 'work-where', `${where} · ${said}`));
       if (c.state === 'open' && c.mine) {
         li.append(why(button('work-withdraw', 'Withdraw', () => act(() => w.writs.cancel(c.id), `Withdrawn. ${marksText(c.pay)} back to your account.`)), busyWhy()));
@@ -276,7 +276,7 @@ export function createWorkTab(w, ui) {
     const mat = select(catalogue.map((m) => [m.key, w.countName(m.key, 2)]), f.material, (v) => { f.material = v; f.pay = Math.min(f.pay, writPayMax(v)); ui.rerender(); }, 'The material the writ asks');
     const units = input('number', f.units, 'Units the writ asks', 'writ|units');
     units.min = '1'; units.max = String(WRIT_UNITS_MAX);
-    const pay = input('number', f.pay, 'Marks each', 'writ|pay');
+    const pay = input('number', f.pay, 'Drakes each', 'writ|pay');
     pay.min = '1'; pay.max = String(max());
     const said = el('p', 'work-hint');
     said.setAttribute('aria-live', 'polite');
@@ -301,7 +301,7 @@ export function createWorkTab(w, ui) {
     pay.oninput = () => { f.pay = intOf(pay.value, 1, Math.max(1, max())); refresh(); };
     refresh();
     const row = el('div', 'work-fields');
-    row.append(labelled('Material', mat, 'work-label-wide'), labelled('Units', units), labelled('Marks each', pay), go);
+    row.append(labelled('Material', mat, 'work-label-wide'), labelled('Units', units), labelled('Drakes each', pay), go);
     box.append(row, said);
     return box;
   }
@@ -316,7 +316,7 @@ export function createWorkTab(w, ui) {
     const rec = select(recipesOf(f.family).map((r) => [r.id, r.name]), f.recipe, (v) => { f.recipe = v; ui.rerender(); }, 'The piece');
     const takesQ = commissionTakesQuality(f.recipe);
     const q = takesQ ? select(QUALITY_NAMES.map((n, i) => [String(i), `${n} or better`]), String(f.quality), (v) => { f.quality = intOf(v, 0, MASTERWORK); }, 'The least quality it takes') : null;
-    const pay = input('number', f.pay, 'Marks it pays', 'comm|pay');
+    const pay = input('number', f.pay, 'Drakes it pays', 'comm|pay');
     pay.min = '1'; pay.max = String(MARKET_PRICE_MAX);
     const said = el('p', 'work-hint');
     said.setAttribute('aria-live', 'polite');
@@ -334,7 +334,7 @@ export function createWorkTab(w, ui) {
             : data?.me && name.toLowerCase() === String(data.me).toLowerCase() ? 'You cannot commission yourself.'
               : !f.recipe ? 'Choose the piece.'
                 : mineOpen >= COMMISSIONS_MAX ? `You have ${COMMISSIONS_MAX} commissions posted already.`
-                  : balance != null && f.pay > balance ? `Your Marks hold only ${marksText(balance)}.` : '');
+                  : balance != null && f.pay > balance ? `You hold only ${marksText(balance)}.` : '');
       said.textContent = `Holds ${marksText(f.pay)} for seven days; the crafter receives it less ${marksText(saleTax(f.pay))} tax, and only for a piece of their own make, unworn. At most ${COMMISSIONS_MAX} of yours stand at once.`
         + (reason && !busyWhy() ? ` ${reason}` : '');
       why(go, reason);
@@ -344,7 +344,7 @@ export function createWorkTab(w, ui) {
     refresh();
     const row = el('div', 'work-fields');
     row.append(labelled('Crafter', who, 'work-label-wide'), labelled('Kind', fam), labelled('Piece', rec, 'work-label-wide'),
-      ...(q ? [labelled('Least quality', q)] : []), labelled('Pay (Marks)', pay), go);
+      ...(q ? [labelled('Least quality', q)] : []), labelled('Pay (Drakes)', pay), go);
     box.append(row, said);
     return box;
   }

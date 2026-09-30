@@ -41,11 +41,12 @@ import {
 } from '../systems/court.js';
 import { guildOfFaction, membershipOf, activeMemberships } from '../systems/guilds.js';   // CR1: the rescue arms' member reads
 import { resolveVariantGuild } from '../systems/guildVariants.js';
-import { advanceOwnMinutes, MINUTES_PER_DAY } from '../systems/worldTick.js';   // LIVED1: a sentence is served on the prisoner's own clock, online too
+import { advanceOwnMinutes, MINUTES_PER_DAY, ownMinutes, trustedWorldMinutes } from '../systems/worldTick.js';   // LIVED1: a sentence is served on the prisoner's own clock, online too
+import { banish, grantGrace } from '../systems/standing.js';   // REP3: a banishment's term; REP1: the grace an answered law gives
 import { setSyntheticTimeIncrease } from '../systems/effectBroker.js';   // AUDIT 63 F13: DaggerfallCourtWindow_OnEndPrisonTime (EntityEffectBroker.cs:841-842)
 import { fillVitalSigns } from '../systems/statMods.js';
 import { registerPlayerDamageVeto } from '../characters/playerEntity.js';   // ARREST-SHIELD: the one damage door consults this flow while a trial is up online
-import { SEVERE_PUNISHMENT_BANISHED, SEVERE_PUNISHMENT_EXECUTED } from '../systems/encounters.js';   // F99: the court's own two bits
+import { SEVERE_PUNISHMENT_EXECUTED } from '../systems/encounters.js';   // F99: the court's own two bits
 import { PrisonScreenWindow, CourtScreenWindow } from '../ui/prisonScreen.js';   // the serving-time presentation (SwitchToPrisonScreen + UpdatePrisonScreen)   // ROAD-B B5: Setup's courtPanel, the backdrop the trial stands on
 
 /** ReleaseFromPrison (DaggerfallCourtWindow.cs:482-491) opens with
@@ -236,12 +237,22 @@ export function createArrestFlow({
   const inCourt = () => awaitingSurrenderAnswer || !!playerEntity.arrested;
   registerPlayerDamageVeto(inCourt);
 
+  /** REP2: A CRIME IS CHARGED ONCE PER CHASE. DFU's surrender box - the one caller of LowerRepForCrime - is re-armed
+   *  whenever no watchman stands (cityGuards.js, PlayerEntity.cs:533-537), so a criminal who outran one wave paid the
+   *  whole charge again to the next: a Murder fled twice was -60. The charge is the crime's now, once, until the crime
+   *  clears (cityGuards.js clears `chargedCrime` with it); a WORSE crime committed in the chase is charged as itself. */
+  function chargeOnce() {
+    if (playerEntity.chargedCrime === crimeId()) return;
+    playerEntity.chargedCrime = crimeId();
+    lowerRepForCrime(playerEntity, region(), crimeId());
+  }
+
   function onGuardHit(dmg, applyDamage) {
     if (crimeId() === 0) return false;
     if (inCourt()) return true;
     if (!playerEntity.haveShownSurrenderDialogue) {
       playerEntity.haveShownSurrenderDialogue = true;
-      lowerRepForCrime(playerEntity, region(), crimeId());
+      chargeOnce();
       awaitingSurrenderAnswer = true;
       // DISC28-B: the question is about THIS crime. Online the world runs under the box (WORLD5), so the crime can
       // clear while it stands - the guard's blow lands as the travel map commits, and the arrival clears the crime
@@ -313,6 +324,12 @@ export function createArrestFlow({
     // JAIL-HIT: one trial at a time - DFU's court is a modal window, so nothing reaches a second surrender while one
     // stands; a nested court here would replace the first's screen and drop its release
     if (playerEntity.arrested) return;
+    // AUDIT REP F1: THE COURT CHARGES THE CRIME IT TRIES. The surrender box charges the crime it asks about - but the
+    // fatal blow's surrender (and a Y read after the world moved under the box) takes the player to court for the crime
+    // held NOW, which can be a worse one committed after the box: a townsperson murdered in the chase was tried, never
+    // charged, and its sentence CREDITED (DFU +9, REP2's mark +10) - a murder that raised the name. Charged once, here,
+    // before startCourt prices the fine off the standing the charge leaves (DFU's order: the loss, then the court).
+    if (crimeId() !== 0) chargeOnce();
     // DISC28-B (Discord: "the game locks up if guards hit you the moment you fast travel"): the trial is read BEFORE
     // anything is armed. DFU's court closes itself when no crime is assigned (DaggerfallCourtWindow.cs:109-114) and its
     // OnPop (:432-438) clears Arrested - so a court over no crime is no court at all. The port set `arrested`, opened
@@ -385,8 +402,8 @@ export function createArrestFlow({
       // AUDIT 17e F22: DFU raises reputation on a successful defense
       // (DaggerfallCourtWindow.cs:426) - and says so against classic
       // in its own comment two lines up ("Also does not repair
-      // reputation"). We port DFU.
-      raiseRepForSentence(playerEntity, court);
+      // reputation"). We port DFU. REP2: and an acquittal gives the WHOLE charge back - no crime found, no mark.
+      raiseRepForSentence(playerEntity, court, { acquitted: true });
       // AUDIT 21 F2: including `arrested`. The bare clearArrest() used
       // to run ABOVE the pair; DFU's free arm ends `state = 6` (:427),
       // and state 6 is `repositionPlayer = true; state = 100` (:292-296)
@@ -406,7 +423,9 @@ export function createArrestFlow({
       // AUDIT 17e F22: state 4 (Banished) does NOT call
       // RaiseReputationForDoingSentence (DaggerfallCourtWindow.cs:263-278)
       // - being run out of the region repairs nothing.
-      severePunishment(SEVERE_PUNISHMENT_BANISHED);
+      // REP3 (Mac: "Timed or pardoned"): the bit DFU sets, and its term - thirty days of the world's calendar, or a
+      // pardon bought at a temple (systems/standing.js). DFU's bit alone was for ever.
+      banish(playerEntity, region(), trustedWorldMinutes());   // AUDIT REP F2: an unheard relay stamps no term - the first trusted read does
       // ":276 - Refill player vitals after banishment, otherwise player
       // left with 1HP outside city gates", DFU's own comment.
       fillVitalSigns(playerEntity);
@@ -531,9 +550,10 @@ export function createArrestFlow({
    *  (:272) and state 5 (Execution) `|= 2` (:289). Bit 1 is not a
    *  record - PlayerEntity.cs:506-511 reads it every catch-up minute
    *  and rolls a 10% Criminal_Conspiracy guard spawn in that region
-   *  for ever after, which is the whole cost of being banished. The
-   *  port's consumer (encounters.passiveGuardSpawns, fed at
-   *  world.js's minute catch-up) has been live with nothing to read.
+   *  for ever after, which is the whole cost of being banished. (REP3:
+   *  bit 1 is written by systems/standing.js banish, with its term, and
+   *  DFU's roll has no caller since REP1 - AUDIT REP F6; this writes
+   *  bit 2 alone.)
    *  A host whose region store is absent writes nothing rather than
    *  minting one - DFU's RegionData is allocated at chargen.
    *
@@ -573,7 +593,10 @@ export function createArrestFlow({
     advanceMinutes(RELEASE_MINUTES);
     playerEntity.arrested = false;
     playerEntity.crimeCommitted = 0;   // ReleaseFromPrison: the crime clears; guards despawn on the crime-clear law
+    playerEntity.chargedCrime = 0;     // REP2: the chase is over with it
+    playerEntity.watchSlain = false;
     playerEntity.haveShownSurrenderDialogue = false;
+    grantGrace(playerEntity, region(), ownMinutes());   // REP1: a day's grace from the watch's stops - the law is answered
     playerEntity.inPrison = false;     // OnPop (:438) - the flag never outlives the window
   }
 
@@ -663,6 +686,22 @@ export function createArrestFlow({
     courtScreen = null;
     playerEntity.arrested = false;   // OnPop
     playerEntity.inPrison = false;   // OnPop
+    // REP2: and the chase it was part of - the loaded save's own crime is a chase of its own, charged at its first box
+    playerEntity.chargedCrime = 0;
+    playerEntity.watchSlain = false;
   }
-  return { onGuardHit, startCourtFlow, inCourt, crimeCleared, abandon, dispose };
+  /** REP1: "come quietly" at the watch's stop - the known criminal surrenders to a Criminal Conspiracy (DFU's own charge
+   *  for the levy this stop replaces), charged once, and goes to court as a voluntary surrender does. A crime already
+   *  held is the one answered. Answers whether a court opened. */
+  function surrenderToChallenge() {
+    if (inCourt()) return false;
+    if (crimeId() === 0) playerEntity.crimeCommitted = CRIMES.Criminal_Conspiracy;   // the levy's own write (WERE-LEVY: the field)
+    playerEntity.haveShownSurrenderDialogue = true;
+    chargeOnce();
+    if (!surrenderToCityGuards(playerEntity, region(), true, { setHealth1: () => { playerEntity.health = 1; } })) return false;
+    startCourtFlow();
+    return !!playerEntity.arrested;
+  }
+
+  return { onGuardHit, startCourtFlow, inCourt, crimeCleared, abandon, dispose, surrenderToChallenge };
 }

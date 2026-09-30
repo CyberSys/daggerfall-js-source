@@ -113,6 +113,10 @@ export function standLooseFoe({ collider, feet, yawRad, fovDegrees, foes, spawn 
  * @param travelUIShowing   () => bool (AUDIT-TO1 F2: CastWhenHeldTO - no
  *                          wear at all while an accelerated journey's
  *                          control panel is up)
+ * @param spellToOwner      (foe, record, level) => bool - STRIKE-SHARED: a
+ *                          strike spell of the player's on a foe another
+ *                          player runs goes to that player whole; true
+ *                          when it went (nothing lands here)
  */
 export function createEnchantCtx({
   playerEntity,
@@ -132,6 +136,7 @@ export function createEnchantCtx({
   isResting = () => !!playerEntity?.isResting,
   travelUIShowing = () => false,
   bossSpell = null,
+  spellToOwner = null,
 } = {}) {
   return {
     spellsByIndex,
@@ -184,6 +189,10 @@ export function createEnchantCtx({
       if (target?.spareGear) { bossSpell?.(record); return; }
       const f = foes().find((x) => !x.dead && x.entity === target);
       if (!f) return;
+      // STRIKE-SHARED (2026-09-29, Mac: "Do #1"): the player's strike on a foe ANOTHER player runs goes to that player,
+      // whole - landed on this machine's copy it was overwritten by the runner's next frame, and every effect but the
+      // damage (which crossed as a blow) did nothing. A spell the wire cannot carry lands here as before.
+      if (attacker === playerEntity && spellToOwner?.(f, record, playerEntity.level ?? 1)) return;
       // AUDIT 68 S21-strike-landing-dup: the cast paths' ONE foe landing (the Soul Trap line, the Calm/Charm flag,
       // the reflection's re-target), handed this door's membership-routed sinks. A copy here kept the reflection
       // alone, so a Cast When Strikes Soul Trap never said "Trap active." and a struck Charm never pacified.

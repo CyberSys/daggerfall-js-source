@@ -80,9 +80,13 @@ Each is quoted where the code keeps it, beside the line it decided.
   bytes' sea test, as the gate's scan reads it), holds none of the game's OWN locations (never a mod's row - it stands
   on one client and not another) and no spawned dungeon. Four slots, four different pixels where the ground allows.
 - **Dungeon bounties**: a real dungeon of the game's own 4 to 10 out (never a town's) sends slot 3 underground; two
-  send slots 2 and 3, to two different dungeons. The pack is 2 to 4, and lairs where one of the dungeon's own foes
-  stands 25 to 90 metres from the hunter (the farthest when none is in that band), stood through the dungeon's own
-  chain (`spawnLooseFoe`, so it rides the room's lane online). Slots 0 and 1 always hunt the open ground.
+  send slots 2 and 3, to two different dungeons. The pack is 2 to 4, and lairs at one of the dungeon's QUEST SPAWN
+  MARKERS 25 to 90 metres from the hunter (the farthest when none is in that band) - where Daggerfall stands every
+  dungeon quest's foe (199.11, EnumerateDungeonQuestMarkers; `systems/quest/place.js` dungeonQuestSpawnSpots) - and at
+  one of its own foes' places only in a dungeon with none; stood through the dungeon's own chain (`spawnLooseFoe`, so it
+  rides the room's lane online). Slots 0 and 1 always hunt the open ground. BOUNTY-LAIR (FIELD BUGS 2026-09-29h,
+  Skibbster: "Bounty targets can spawn in inaccessible parts of dungeons"): the lair was any foe's place, and a foe
+  stands at every enemy marker of every block - sealed rooms, water, the far side of a held door.
 - **The map**: a held bounty's pixel is a BLACK circle on both maps (`ui/bountyMapMark.js`; the held map's ink,
   `ui/inkMap.js` paintBountyRing; the classic region page's texels) - black because green is the party's.
 

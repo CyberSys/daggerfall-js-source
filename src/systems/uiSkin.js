@@ -30,6 +30,7 @@
 // an instruction, and the port's own settings law reads a bad value as
 // the default rather than as a new one.
 import { getPref, setPref } from './uiPrefs.js';
+import { pageParam } from './pageQuery.js';   // PERF-URL: the page's query, parsed once a search
 
 export const SKINS = Object.freeze(['enhanced', 'classic']);
 export const DEFAULT_SKIN = 'enhanced';
@@ -42,7 +43,7 @@ const clean = (v) => (SKINS.includes(v) ? v : null);
 /** The URL's answer for this page load only, or null. Injectable so a
  *  node test can ask the question without a location. */
 export function skinOverride(search = globalThis.location?.search ?? '') {
-  return clean(new URLSearchParams(search).get('skin'));
+  return clean(pageParam('skin', search));   // PERF-URL
 }
 
 /** The skin in effect: the URL override, else the stored choice, else

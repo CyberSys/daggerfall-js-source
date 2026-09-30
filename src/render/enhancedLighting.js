@@ -69,6 +69,7 @@ import { CLOUD_SHADOW_GLSL } from './cloudShadow.js';   // AUDIT 68 S16-el-cloud
 import { CLUSTER_X, CLUSTER_Y, CLUSTER_Z, CLUSTER_LIST_W, clustersOn } from './lightClusters.js';   // LC1: the grid the lantern loop walks, and its door   // EL6: the dither at the encode - the port's one Bayer
 import { SHADE_DARK } from '../systems/concealDraw.js';   // AUDIT-EL F14: the shade's pull toward black, interpolated as the classic BB_FS does   // EL3: the ambient occlusion image by screen position, and its kill door; EL4: the adapted exposure
 import { HIT_FLASH_GLSL } from '../systems/hitFlash.js';   // HITFLASH1: the struck-red term, the classic BB_FS's own
+import { pageParam } from '../systems/pageQuery.js';   // PERF-URL: the page's query, parsed once a search
 
 /** The lane's light cap - the classic lane's sixteen, tripled. Forty-eight
  *  vec4 + forty-eight vec3 are 96 uniform vectors; ES 3.0 guarantees 224
@@ -100,11 +101,11 @@ export const EL_SCATTER = 0.35;
 /** VOL1: `?volumetrics=off` - the lanterns' glow marched through their shadows (airPass.js VOL_FS) or the lane's
  *  own analytic glow per fragment, as before. */
 export function volumetricsOn(search = globalThis.location?.search ?? '') {
-  return new URLSearchParams(search).get('volumetrics') !== 'off';
+  return pageParam('volumetrics', search) !== 'off';   // PERF-URL
 }
 /** VC7b: the sun in the haze has its own door - `?haze=off` keeps the beams and drops the march. */
 export function hazeOn(search = globalThis.location?.search ?? '') {
-  return new URLSearchParams(search).get('haze') !== 'off';
+  return pageParam('haze', search) !== 'off';   // PERF-URL
 }
 /** The near-field gain and the falloff's knee (elAttenuation). */
 export const EL_LIGHT_GAIN = 2;
@@ -163,13 +164,13 @@ export const EL_FLAME_COLOR = Object.freeze([1.0, 0.72, 0.42]);
  *  enhanced skin, the Enhanced Lighting pref, and `?lighting=classic` as
  *  the kill door. */
 export function enhancedLightingOn(search = globalThis.location?.search ?? '') {
-  return isEnhanced() && !!getPref('enhancedLighting') && new URLSearchParams(search).get('lighting') !== 'classic';
+  return isEnhanced() && !!getPref('enhancedLighting') && pageParam('lighting', search) !== 'classic';   // PERF-URL
 }
 
 /** The exposure a page asks for: `?exposure=1.2` for tuning; EL_EXPOSURE
  *  otherwise. A non-number or a non-positive number is the default. */
 export function exposureFor(search = globalThis.location?.search ?? '') {
-  const v = Number(new URLSearchParams(search).get('exposure'));
+  const v = Number(pageParam('exposure', search));   // PERF-URL
   return Number.isFinite(v) && v > 0 ? v : EL_EXPOSURE;
 }
 

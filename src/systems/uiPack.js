@@ -23,6 +23,7 @@ import manifest from '../../vendor/grimoire-ui/grimoire-ui.files.json' with { ty
 import { getPref, setPref } from './uiPrefs.js';
 import { uiSkin, skinOverride } from './uiSkin.js';
 import { APP_ROOT } from './appRoot.js';
+import { pageParam } from './pageQuery.js';   // PERF-URL: the page's query, parsed once a search
 
 export const UI_PACK_NONE = 'none';
 /** The packs, by the pref's token. One today; a second is one row and its listing. */
@@ -36,7 +37,7 @@ const clean = (v) => (v === UI_PACK_NONE || Object.hasOwn(UI_PACKS, v) ? v : nul
 
 /** The URL's answer for this page load only, or null (uiSkin's override law). */
 export function uiPackOverride(search = globalThis.location?.search ?? '') {
-  return clean(new URLSearchParams(search).get('uipack'));
+  return clean(pageParam('uipack', search));   // PERF-URL
 }
 
 /** The pack being worn, or null: the URL's `uipack`, else - with no URL skin override - the stored choice; and only
