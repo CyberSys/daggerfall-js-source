@@ -60,6 +60,12 @@ export class PlayerNotebook {
     this.finishedQuests = [];    // token[][]
     this.messages = [];          // the 50-slot ring
     this.nextMessageIndex = 0;
+    // JOURNAL-CLEAN (2026-09-30, Discord: "Should there be a way to clean both finished and unfinished quests from
+    // your journal for a cleaner look?"): the uids (as strings - the quest walk's own `id`, scenes/questBridge.js
+    // questLog) of the ACTIVE quests the player has hidden from the journal. Hiding is the journal's, not the
+    // machine's: a hidden quest keeps running, its clock keeps counting and the HUD's marks keep pointing - only the
+    // journal's list leaves it out until it is unhidden or it ends (addFinishedQuest drops its id as it files it).
+    this.hiddenQuests = [];
   }
 
   // ---- notes ----
@@ -138,6 +144,28 @@ export class PlayerNotebook {
   getFinishedQuest(index) { return index < this.finishedQuests.length ? this.finishedQuests[index] : null; }
   removeFinishedQuest(index) { this.finishedQuests.splice(index, 1); }
 
+  /** JOURNAL-CLEAN: the archive emptied in one stroke - the enhanced journal's "Clear archive". The notes and the
+   *  hidden list are not the archive's, and stay. */
+  clearFinishedQuests() { this.finishedQuests.length = 0; }
+
+  // ---- JOURNAL-CLEAN: hidden active quests ----
+
+  getHiddenQuests() { return [...this.hiddenQuests]; }
+  isQuestHidden(id) { return id != null && this.hiddenQuests.includes(String(id)); }
+  /** Answers whether the quest was newly hidden (a second hide of one id is not a second entry). */
+  hideQuest(id) {
+    if (id == null || this.isQuestHidden(id)) return false;
+    this.hiddenQuests.push(String(id));
+    return true;
+  }
+  /** Answers whether the quest had been hidden. */
+  unhideQuest(id) {
+    const i = id == null ? -1 : this.hiddenQuests.indexOf(String(id));
+    if (i < 0) return false;
+    this.hiddenQuests.splice(i, 1);
+    return true;
+  }
+
   moveFinishedQuest(srcIdx, destIdx) {
     const item = this.finishedQuests[srcIdx];
     this.finishedQuests.splice(srcIdx, 1);
@@ -161,6 +189,9 @@ export class PlayerNotebook {
   addFinishedQuest(messages) {
     if (!messages || messages.length === 0) return;
     const quest = messages[0].parentQuest;
+    // JOURNAL-CLEAN: a hidden quest that ends is filed like any other - the archive shows it - and its hidden id,
+    // which now names nothing live, goes.
+    if (quest?.uid != null) this.unhideQuest(quest.uid);
     const questName = quest.displayName || EN.quest;
     let entry = this._createFinishedQuest(questName, quest.questSuccess);
     for (const msg of messages) {
@@ -190,6 +221,7 @@ export class PlayerNotebook {
   clear() {
     this.notes.length = 0;
     this.finishedQuests.length = 0;
+    this.hiddenQuests.length = 0;   // JOURNAL-CLEAN: a new game hides nothing
   }
 
   /** GetNotebookSaveData (:264-306): entries flatten to LINE LISTS
@@ -200,6 +232,9 @@ export class PlayerNotebook {
     return {
       notebookEntries: this.notes.map(convertEntry),
       finishedQuestEntries: this.finishedQuests.map(convertEntry),
+      // JOURNAL-CLEAN: the port's own field beside DFU's two - written only when something is hidden, so a save with
+      // nothing hidden is the shape it always was.
+      ...(this.hiddenQuests.length ? { hiddenQuestIds: [...this.hiddenQuests] } : {}),
     };
   }
 
@@ -207,6 +242,9 @@ export class PlayerNotebook {
   restoreSaveData(data) {
     this.notes = (data.notebookEntries ?? []).map(convertLines);
     this.finishedQuests = (data.finishedQuestEntries ?? []).map(convertLines);
+    // JOURNAL-CLEAN: an older save carries no list and hides nothing; a malformed one is read for what it holds.
+    const hidden = Array.isArray(data.hiddenQuestIds) ? data.hiddenQuestIds : [];
+    this.hiddenQuests = [...new Set(hidden.filter((id) => typeof id === 'string' || Number.isFinite(id)).map(String))];
   }
 }
 

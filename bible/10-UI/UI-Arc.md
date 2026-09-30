@@ -957,7 +957,7 @@ does the pack's USE arm.
                         close-then-hand-over ordering U55 got
                         backwards. No law needs extracting first.
     THE LOGBOOK         THREE sites: charSheetNav.js:53,
-    / NOTEBOOK          world.js:11427, dungeonContext.js:8107. A seam
+    / NOTEBOOK          world.js:11427, dungeonContext.js:8108. A seam
                         wants making, as U52's and U53's did.
     HISTORY             ONE site (charSheetNav.js:61), and it reads
                         only the entity's backStory. The small one.
@@ -7623,7 +7623,7 @@ because a Daggerfall quest speaks in journal entries, not objective
 flags: the entries ARE the tasks, and inventing checkbox objectives
 the machine does not track would be a lying UI. Archived quests parse
 the notebook's own filed header ('<name> completed|ended at <date>:',
-notebook.js:153-184) back into name/verdict/date - the verdict line
+notebook.js:181-215) back into name/verdict/date - the verdict line
 gold for completed, dim for ended - with the headerless overflow
 entry (the notebook's kept quirk) reading as a continuation. Data
 arrives RAW through the new `hooks.questLog` (world.js walks
@@ -8613,7 +8613,7 @@ and _BRISIEN is the MQ opener (StartGameBehaviour.cs:445-447) - so
 which quest is which is untouched. And the ARCHIVE is still not split
 by kind, which is the DATA's shape rather than an omission: the
 notebook's filed header keeps only the display name, so the questName
-is gone by the time a quest is filed (notebook.js:153-184). Three
+is gone by the time a quest is filed (notebook.js:181-215). Three
 sections is what this log can honestly draw.
 
 Pins: 2 in enhancedPause.test.js (the three sections in order from one
@@ -8848,7 +8848,7 @@ typed.
 
 AND IT THREW AWAY A DATE THE DATA ALREADY HELD. `_createNote` stamps
 every note with a HIGHLIGHT token first - the day and the city, from
-the host's own clock (notebook.js:108) - and the finished-quest filing
+the host's own clock (notebook.js:114) - and the finished-quest filing
 does the same. Flattening every token to a string turned that header
 into just another line, and the window numbered its entries 1, 2, 3
 instead, which tells a player nothing. `chronicleEntry` makes the
@@ -8863,7 +8863,7 @@ PX24c (Mac: "do it" - the same look for messages and history). Two
 faults, one of them mine from the pass before.
 
 PX24b PRINTED A LIE ON EVERY MESSAGE. `addMessage` builds a CENTRE
-token and the words (notebook.js:125) and never a highlight, so a
+token and the words (notebook.js:131) and never a highlight, so a
 message has no dated head - ever. The "- continued -" fallback,
 correct for a NOTE whose page split, ran on all fifty messages
 instead. It is the note's alone now; a message gets the only true
@@ -10674,9 +10674,9 @@ re-resolved the `exterior.js` half of a three-file sentence and left the
 `ExteriorAutomapWindow` construction, `:4101` on a `locationName:`
 field). Both halves are now read by `test/citedrift.test.js` - the
 existing entries only ever captured the exterior number, which is how
-the other half went stale unnoticed. (The rest cite named `world.js:11845`,
+the other half went stale unnoticed. (The rest cite named `world.js:11846`,
 the first of the host's TWO identical `act === 'Rest'` arms; ROAD-H H5
-deleted the second and the cite is `world.js:11851` now.)
+deleted the second and the cite is `world.js:11852` now.)
 
 ## AUDIT 62 F24/F25 - THE SENTINEL SWEEP WAS TWO WINDOWS SHORT (2026-09-07)
 

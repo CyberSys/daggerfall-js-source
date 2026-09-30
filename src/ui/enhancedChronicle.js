@@ -89,7 +89,7 @@ export function chronicleLines(entry) {
  *
  * `PlayerNotebook._createNote` puts a HIGHLIGHT token first - the
  * dated header, `noteHeader` formatted with the host's own
- * dateTimeString and cityName (notebook.js:108) - and the finished-
+ * dateTimeString and cityName (notebook.js:114) - and the finished-
  * quest filing does the same (:179). Flattening every token to a
  * string turned that date into just another line, and the window
  * numbered its entries 1, 2, 3 instead, which tells a player nothing.
@@ -115,7 +115,7 @@ export function chronicleEntry(entry) {
  * PX24c: WHAT A MESSAGE IS, checked rather than assumed.
  *
  * `addMessage` builds `[{formatting:'center', text:''}, {text: str}]`
- * (notebook.js:125) - a CENTRE token and the words. It never writes a
+ * (notebook.js:131) - a CENTRE token and the words. It never writes a
  * highlight, so a message has NO dated head, ever. PX24b's fallback
  * printed "- continued -" on every one of them, which is a lie about
  * all fifty: a continuation is a note whose page split, and a message
@@ -369,7 +369,7 @@ function render() {
     // shares through the party, the history is chargen's), and null offline, where nothing is drawn.
     const share = section === 'notes' && deps.notebook?.() ? (deps.pageShare?.() ?? null) : null;
     // PX24b: THE PLAYER MAY WRITE. The classic notebook has AddNote and
-    // RemoveNote (notebook.js:80, :69); the first draft was read-only,
+    // RemoveNote (notebook.js:86, :75); the first draft was read-only,
     // which is a LOSS of function dressed as a nicer window. The
     // composer sits above the entries, where a new note lands.
     if (section === 'notes' && deps.notebook?.()) {
@@ -406,7 +406,7 @@ function render() {
       // NEWEST FIRST for messages (the ring's own order is oldest
       // first and the last thing you were told is the thing you
       // opened this for); notes keep the player's OWN order, because
-      // they arranged them (MoveNote is a law, notebook.js:66-74).
+      // they arranged them (MoveNote is a law, notebook.js:72-80).
       const list = section === 'messages'
         ? rows.map((e, i) => ({ e, i })).reverse()
         : rows.map((e, i) => ({ e, i }));
@@ -430,7 +430,7 @@ function render() {
         const entry = el('div', `cr-entry${isFolded(folded, section, i) ? ' cr-shut' : ''}`);
         const top = el('div', 'cr-head');
         // THE DATE, which the notebook wrote and PX24 lost. A NOTE
-        // whose page split files with no header (notebook.js:99-109)
+        // whose page split files with no header (notebook.js:105-115)
         // and says so; a MESSAGE never has one at all, so it gets the
         // only true thing there is to say - which of them is newest.
         const head = e.head ?? (section === 'messages'
