@@ -108,6 +108,7 @@ test('TORCH-BIND (re-aimed by KB1): every key a vendored mod answers is a regist
   for (const [vendor, rows] of Object.entries(MOD_ACTIONS)) {
     assert.deepEqual(rows.map((r) => r.action), byMod[vendor], `${vendor}: every key has a Controls row, under the mod`);
     for (const r of rows) {
+      if (r.legacy == null) continue;   // HELM-KEYS: a port row (More sail, Less sail) - no old setting of the mod's to carry
       assert.ok(MOD_SETTINGS[vendor].keys[r.legacy], `${vendor}/${r.legacy} is still declared - the one-time carry reads a player's old choice off it`);
       assert.ok(!modDials(vendor).includes(r.legacy), `${vendor}/${r.legacy} is off the tile - its door is Controls`);
     }

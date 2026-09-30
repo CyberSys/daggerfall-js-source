@@ -218,8 +218,8 @@
   {
     "name": "NAV1G-point-blank-slugs",
     "file": "src/systems/naval/navalAI.js",
-    "old": " && d >= range * POINT_BLANK ? 0 :",
-    "new": " ? 0 :",
+    "old": " && d >= Math.max(range * POINT_BLANK, deadZone) && holdsLead(side)) return 0;",
+    "new": " && d >= deadZone && holdsLead(side)) return 0;",
     "tests": [
       "test/navaudit_guns.test.js"
     ]

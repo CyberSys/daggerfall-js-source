@@ -100,6 +100,12 @@ export function musterOf(shipClass, crewShare = 1) {
   return { captain: m.captain, men };
 }
 
+/** DECK-WALK: the one team a ship's crew fights as - a pirate's the Criminals', a merchantman's and a navy's the Knights
+ *  and Mages' (DFU's MobileTeams) - so a muster of mixed classes (a pirate's Spellsword captain among her barbarians and
+ *  archers) never turns on itself under infighting. */
+export const CREW_TEAMS = Object.freeze({ pirate: 'Criminals', merchant: 'KnightsAndMages', navy: 'KnightsAndMages' });
+export const crewTeamOf = (shipClass) => CREW_TEAMS[shipClass?.faction] ?? CREW_TEAMS.pirate;
+
 /** The hands a crewed ship of the player's sends with them: one for every CREW_PER_HAND of her crew, HANDS_MAX at most. */
 export const handsOf = (crew, crewed) => (crewed ? clamp(Math.floor(crew / CREW_PER_HAND), 0, HANDS_MAX) : 0);
 

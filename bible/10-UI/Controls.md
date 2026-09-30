@@ -115,6 +115,32 @@ the helm; left and right the time scale, held the trim), none of it a binding - 
 for the nine, and the prompt bar says what the d-pad does there. Aboard another player's boat (CSA-K) there is no
 key and no button: the helm is its owner's.
 
+HELM-KEYS (2026-09-29, the player: "Arrow keys should not only control your ship, but also setting and raising your
+sails. I also want to find a way to make the ship controls more intuitive instead of a bunch of buttons and key
+binds") - THE ARROWS ARE THE HELM (DECLARED, the Port-Ledger's HELM-KEYS row):
+
+- **Up and down make and take in sail** - `BoatSailUp` (More sail) and `BoatSailDown` (Less sail), the port's own two
+  steps through the mod's own sail states (`systems/comeSailAway.js MoreSail, LessSail`): stowed, raised; and where the
+  square sails are the player's own (the assist's AutoStowSquareSails off, a hull with both kinds) all her canvas, the
+  fore-and-aft alone, none. A step with nowhere to go says so. End still toggles, the brackets still trim.
+- **Left and right steer**: at a helm DFU's `TurnLeft` and `TurnRight` - the arrows - are the RUDDER's, as A and D are
+  (`inputActions.js HELM_RUDDER_ACTIONS`, read through the mod's own input seam, its rudder's swing too), and the
+  keyboard look does not turn the view with them there. One action, one meaning - a turn - read by whoever the hands
+  are on. Under the travel view the look keys stay the view's (TV1).
+- **The up arrow is a DEFAULT SHARE** (`inputActions.js DEFAULT_SHARES`): law 3 ships every OWNER once, and the up arrow
+  is PROF1's `ActChoice` - so More sail answers it beside its owner (UXB1-S's share, shipped as a default), seated only
+  onto the partner's own key (a player's own rebind of the arrow is never shared onto) and, on a saved file, only
+  while More sail is keyless and not unbound on purpose. The two are never live together: a helm's hands are on the
+  wheel, and the professions read no choice there (`world.js`). The down arrow was free.
+- **The helm panel teaches them**: its line under the name is the helm's hand at a glance - the sails on the arrows,
+  the rudder on the turn keys, as bound now - and its sails' button presses More and Less sail, so its hint is the
+  arrow. IN IRONS (her sails up, her bow within IRONS_TELL_DEG of the wind's eye, her way through the water under
+  IRONS_TELL_WAY - never the sea's current: AUDIT NAV2 F15) the helm is told once how she comes out - under the Classic
+  helm strike sail and row her round, under the Responsive one put the helm over first (AUDIT NAV2 F18) - and the
+  panel's line says it, with the keys, while it lasts. AUDIT NAV2 F17: while an Overworld journey holds the helm (the
+  travel view up) the panel is covered and the arrows' More sail and Less sail, and the sail toggle, stand down - the
+  journey sets her sails, and the turn keys were already the view's there.
+
 ## The sea fight at the helm (NAV-H, 2026-09-28 - for Mac's read)
 
 The naval arc spends NO key of its own; at a helm with guns three actions the player already has take the sea's
@@ -310,6 +336,8 @@ Generated from `ACTION_GROUPS` and the two default tables; the enhanced pane dra
 
 | Action | Key | Pad | What it does |
 |---|---|---|---|
+| `BoatSailUp` | UP |  | More sail |
+| `BoatSailDown` | DOWN |  | Less sail |
 | `BoatDisembark` | ' |  | Leave the helm |
 | `BoatToggleLight` | ; |  | Light or douse the boat’s lanterns |
 | `BoatToggleSail` | END |  | Raise or stow the sails |

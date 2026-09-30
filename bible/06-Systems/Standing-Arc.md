@@ -53,7 +53,8 @@ gold, or come with me."* (or *"You are banished from ..."*).
 
 At most one stop in two game hours per region (ten real minutes), never inside a game day's grace after the law is
 answered (a fine paid, any court exit, a pardon). Never under another window, never in the travel view or a raid on
-the town, never in a fight (a foe that sees the player, a duel - AUDIT REP F3), never in a trial, never on a crime
+the town, never in a fight (a foe that sees the player, a duel - AUDIT REP F3; a hostile ship near a player aboard, a
+boarding under way - AUDIT NAV2 F10, Mac: "Not in a sea fight"), never in a trial, never on a crime
 already held, never dead, never in a beast's form (DFU's SuppressCrime), never invisible (the town witness's own gate -
 AUDIT REP F7).
 The box has no Escape. Online and offline alike; the stop runs on the character's own clock (LIVED1: the standing is

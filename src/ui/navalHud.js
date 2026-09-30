@@ -36,6 +36,7 @@ import { isEnhancedPlus } from '../systems/uiSkin.js';
 import { stepGhost, chunkFrame } from './barLoss.js';   // AUDIT NAV1 (the presentation): her hull bar's loss, the foe bar's law
 import { injectEnhancedFonts } from './enhancedStyle.js';   // AUDIT NAV1 (the presentation): the kit's face on the classic skin too
 import { READY_FLASH_S } from '../systems/naval/navalGunnery.js';   // AUDIT NAV1 (the presentation): a battery's flash, the host's word
+import { PARTY_GREEN_CSS } from '../net/social.js';   // SHIPMATES: the crew's bars in the party's one green
 
 export const NAVAL_HUD_STYLE_ID = 'dagger-naval-hud-style';
 export const NAVAL_KIT_STYLE_ID = 'dagger-naval-kit-style';
@@ -71,6 +72,21 @@ export const CARD_HIT_S = 0.24;
 /** AUDIT NAV1 (the presentation, #14): a ship's tag - its hull bar's width, and its fade with her distance: whole to
  *  TAG_FADE_FROM metres, TAG_FADE_TO of it at the tags' reach (the host's NAVAL_TAG_RANGE, the world's to hand). */
 export const NAVAL_TAG_BAR_W = 44;
+/** SHIPMATES (2026-09-29, Mac: "Ally crew member's should have green health bars above their head"): the player's own
+ *  crew's health over their heads (drawCrewBars) - the party's green (net/social.js PARTY_GREEN_CSS), a bar a crewman,
+ *  whole to CREW_FADE_FROM metres, TAG_FADE_TO of it at CREW_BAR_RANGE (the tags' own fade over the crew's reach - the
+ *  ships' starts at 150 m, past every bar). */
+export const CREW_BAR_W = 30;
+export const CREW_GREEN = PARTY_GREEN_CSS;
+export const CREW_BAR_RANGE = 45;
+export const CREW_FADE_FROM = 15;
+/** LIVING CREW (2026-09-29, Mac: "talk with each other, blurb, sing chantys"): the lines over the crew's heads
+ *  (drawCrewLines) - whole to CREW_SAY_FADE_FROM metres, TAG_FADE_TO of it at CREW_SAY_RANGE, the CREW_SAY_MAX nearest,
+ *  each no wider than CREW_SAY_W - a word, a talk's line, a chanty's verse (the brass of the song) or a shout. */
+export const CREW_SAY_RANGE = 32;
+export const CREW_SAY_FADE_FROM = 12;
+export const CREW_SAY_MAX = 6;
+export const CREW_SAY_W = 190;
 export const TAG_FADE_FROM = 150;
 export const TAG_FADE_TO = 0.55;
 /**
@@ -312,7 +328,16 @@ body:has(.hud-foe.on.blade) .dfnaval-hud { --nc-top: ${NAVAL_CARD_TOP_BLADE}; }
 .dfnaval-tag.target .dfnaval-tag-bar { box-shadow: 0 0 0 1px #050608, 0 0 0 2px ${T.brassHi}; }
 .dfnaval-tag-state { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: ${T.brassHi}; text-shadow: ${OUTLINED}; }
 .dfnaval-tag-state:empty { display: none; }
+.dfnaval-crew { position: absolute; left: 0; top: 0; width: ${CREW_BAR_W}px; height: 4px; background: #0b1409; box-shadow: 0 0 0 1px #050608;
+  transform-origin: 0 0; will-change: transform, opacity; }
+.dfnaval-crew > i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(180deg, #b8ffb8 0 1px, ${CREW_GREEN} 1px); }
 .dfnaval-tally.miss .dfnaval-tally-hits { color: #b3a684; }
+.dfnaval-say { position: absolute; left: 0; top: 0; max-width: ${CREW_SAY_W}px; padding: 2px 7px 3px; font-size: 11px; line-height: 1.3;
+  color: #efe8d6; text-shadow: ${OUTLINED}; text-align: center; white-space: normal; text-wrap: balance;
+  background: rgba(8, 10, 12, 0.62); box-shadow: 0 0 0 1px rgba(5, 6, 8, 0.8); transform-origin: 0 0; will-change: transform, opacity; }
+.dfnaval-say::after { content: ''; position: absolute; left: 50%; bottom: -5px; margin-left: -4px; border: 4px solid transparent; border-bottom: 0; border-top-color: rgba(8, 10, 12, 0.62); }
+.dfnaval-say.sing { color: ${T.brassHi}; font-style: italic; }
+.dfnaval-say.shout { color: #ffc6b8; letter-spacing: 0.04em; }
 `;
 
 /** A share as a whole percent, bounded. */
@@ -377,7 +402,8 @@ export function navalPadPrompts(model, codes = {}) {
   if (codes.aim) rows.push([[codes.aim], model.aiming ? 'Let go: fire' : 'Hold: lay the guns']);
   if (codes.brace) rows.push([[codes.brace], 'Hold: brace']);
   const b = model.board;
-  if (codes.board && b) rows.push([[codes.board], b.kind === 'hold' ? `Open ${b.name}'s hold` : b.kind === 'heave' ? 'Heave to' : b.kind === 'yard' ? 'The shipwright' : `Board ${b.name}`]);
+  if (codes.board && model.aiming) rows.push([[codes.board], 'Hold fire']);   // GUN-HOLD: Activate's, while they are laid
+  else if (codes.board && b) rows.push([[codes.board], b.kind === 'hold' ? `Open ${b.name}'s hold` : b.kind === 'heave' ? 'Heave to' : b.kind === 'yard' ? 'The shipwright' : `Board ${b.name}`]);
   return rows;
 }
 
@@ -418,12 +444,14 @@ export function navalHudText(model, keys = {}, { touch = false } = {}) {
     hull: pct(ship.hull), sail: ship.sail == null ? null : pct(ship.sail), crew: ship.crew == null ? null : pct(ship.crew),
     chips: [ship.wrecked ? 'wreck' : null, ship.fire ? 'fire' : null, ship.braced ? 'brace' : null, ship.mending ? 'mend' : null].filter(Boolean),
     batteries,
-    // the press that matters most, first: a ship in reach to board or plunder, then the guns
-    hint: model.board ? (model.board.kind === 'heave' && model.board.heaving ? `Heaving to beside ${model.board.name}`
+    // the press that matters most, first: the guns while they are laid (GUN-HOLD: Activate holds fire then, never
+    // boards), a ship in reach to board or plunder, then the guns
+    hint: model.aiming && model.armed && !ship.wrecked ? `${touch ? 'Lift' : 'Let go'} to fire - ${boardKey}: hold fire`
+      : model.board ? (model.board.kind === 'heave' && model.board.heaving ? `Heaving to beside ${model.board.name}`
       : `${boardKey}: ${model.board.kind === 'hold' ? `open ${model.board.name}'s hold` : model.board.kind === 'yard' ? model.board.name
         : model.board.kind === 'heave' ? `heave to beside ${model.board.name}` : `board ${model.board.name}`}`)
       : ship.wrecked ? 'Crippled - make port for a shipwright'   // AUDIT NAV1: the way out of a wreck, said
-      : !model.armed ? 'No guns aboard' : model.aiming ? `${touch ? 'Lift' : 'Let go'} to fire - ${bracePress}`
+      : !model.armed ? 'No guns aboard'
       : `${touch ? 'Hold and drag' : `Hold ${aimKey}`} to aim - ${bracePress}`,
     brace: touch && !!model.armed,
   } : null;
@@ -757,8 +785,8 @@ let tagSlots = [];
 export function tagState(t) {
   return t.state === 'afloat' && !t.boarded ? '' : cardState(t, null, '').text;
 }
-/** A tag's opacity by her distance: whole to TAG_FADE_FROM, TAG_FADE_TO at the tags' `reach`. */
-export const tagAlpha = (d, reach) => 1 - (1 - TAG_FADE_TO) * Math.max(0, Math.min(1, ((d ?? 0) - TAG_FADE_FROM) / Math.max(1, reach - TAG_FADE_FROM)));
+/** A tag's opacity by her distance: whole to `from` (TAG_FADE_FROM), TAG_FADE_TO at the tags' `reach`. */
+export const tagAlpha = (d, reach, from = TAG_FADE_FROM) => 1 - (1 - TAG_FADE_TO) * Math.max(0, Math.min(1, ((d ?? 0) - from) / Math.max(1, reach - from)));
 /**
  * The tags over the sea's ships (the host's `tags`, projected by the world onto the screen - `x`, `y` the point over
  * her highest spar in CSS px): her name in her trade's colour (a hostile ship's red), her hull, her state - the card's
@@ -797,10 +825,72 @@ export function drawNavalTags(points, { covered = false, doc = globalThis.docume
   });
 }
 
+/** SHIPMATES: the player's own crew's bars (the constants beside the ships' tags, whose sheet they share). */
+let crewSlots = [];
+export function drawCrewBars(points, { covered = false, doc = globalThis.document, scale = 1 } = {}) {
+  const want = covered ? [] : points ?? [];
+  if (!tagRoot) {
+    if (!want.length || !doc?.createElement) return;
+    injectSheets(doc);
+    tagRoot = el(doc, 'div', 'dfnaval-tags');
+    tagRoot.setAttribute?.('aria-hidden', 'true');
+    (doc.body ?? doc.documentElement)?.append(tagRoot);
+  }
+  while (crewSlots.length < want.length) {
+    const n = el(doc, 'div', 'dfnaval-crew'), fill = el(doc, 'i');
+    n.append(fill);
+    tagRoot.append(n);
+    crewSlots.push({ n, fill, k: {} });
+  }
+  crewSlots.forEach((slot, i) => {
+    const p = want[i];
+    const on = !!p;
+    if (slot.k.on !== on) { slot.k.on = on; slot.n.style.display = on ? '' : 'none'; }
+    if (!p) return;
+    const set = (key, v, write) => { if (slot.k[key] !== v) { slot.k[key] = v; write(v); } };
+    set('share', pct(p.share), (v) => { slot.fill.style.width = `${v}%`; });
+    set('at', `translate(${Math.round(p.x)}px, ${Math.round(p.y)}px) scale(${scale}) translate(-50%, -100%)`, (v) => { slot.n.style.transform = v; });
+    set('a', String(Math.round(tagAlpha(p.distance, CREW_BAR_RANGE, CREW_FADE_FROM) * 100) / 100), (v) => { slot.n.style.opacity = v; });
+  });
+}
+
+/**
+ * LIVING CREW: the lines over the crew's heads - `points` `[{ x, y, text, kind, distance }]` (the world's projection of
+ * each head), the CREW_SAY_MAX nearest drawn: a bubble a line, moved and re-worded, never rebuilt, at the HUD's scale,
+ * fading with the distance; a window over the world hides them all.
+ */
+let saySlots = [];
+export function drawCrewLines(points, { covered = false, doc = globalThis.document, scale = 1 } = {}) {
+  const want = covered ? [] : [...(points ?? [])].sort((a, b) => a.distance - b.distance).slice(0, CREW_SAY_MAX);
+  if (!tagRoot) {
+    if (!want.length || !doc?.createElement) return;
+    injectSheets(doc);
+    tagRoot = el(doc, 'div', 'dfnaval-tags');
+    tagRoot.setAttribute?.('aria-hidden', 'true');
+    (doc.body ?? doc.documentElement)?.append(tagRoot);
+  }
+  while (saySlots.length < want.length) {
+    const n = el(doc, 'div', 'dfnaval-say');
+    tagRoot.append(n);
+    saySlots.push({ n, k: {} });
+  }
+  saySlots.forEach((slot, i) => {
+    const p = want[i];
+    const on = !!p;
+    if (slot.k.on !== on) { slot.k.on = on; slot.n.style.display = on ? '' : 'none'; }
+    if (!p) return;
+    const set = (key, v, write) => { if (slot.k[key] !== v) { slot.k[key] = v; write(v); } };
+    set('text', p.text, (v) => { slot.n.textContent = v; });
+    set('kind', p.kind === 'sing' || p.kind === 'shout' ? `dfnaval-say ${p.kind}` : 'dfnaval-say', (v) => { slot.n.className = v; });
+    set('at', `translate(${Math.round(p.x)}px, ${Math.round(p.y)}px) scale(${scale}) translate(-50%, calc(-100% - 6px))`, (v) => { slot.n.style.transform = v; });
+    set('a', String(Math.round(tagAlpha(p.distance, CREW_SAY_RANGE, CREW_SAY_FADE_FROM) * 100) / 100), (v) => { slot.n.style.opacity = v; });
+  });
+}
+
 /** The page is going (a test's reset, the host's teardown): the node leaves with it. */
 export function destroyNavalHud() {
   root?.remove?.();
   root = null; parts = null; shown = {}; touchBrace = false; loss = null; hudClock = 0;
   tagRoot?.remove?.();
-  tagRoot = null; tagSlots = [];
+  tagRoot = null; tagSlots = []; crewSlots = []; saySlots = [];
 }
