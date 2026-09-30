@@ -70,6 +70,8 @@ export const CRAFTED_FAMILIES = Object.freeze([
   Object.freeze(['weapons', 'Weapons']), Object.freeze(['armour', 'Armour']), Object.freeze(['staves', 'Staves']),
   Object.freeze(['bows', 'Bows']), Object.freeze(['tools', 'Tools']), Object.freeze(['kits', 'Repair Kits']),
   Object.freeze(['furniture', 'Furniture']),
+  // PROF7: the loom's - the leather armour, the clothing (its dye carried with the piece), the rugs, tapestries and skins
+  Object.freeze(['leather', 'Leather Armour']), Object.freeze(['clothing', 'Clothing']), Object.freeze(['furnishings', 'Furnishings']),
 ]);
 /** The material families the Materials view filters by - the Stores' own (section 8). */
 export const MARKET_FAMILIES = MATERIAL_FAMILIES;
@@ -175,9 +177,9 @@ export function medianLine(rows, today, days = MARKET_MEDIAN_DAYS) {
 export const medianText = (m) => (m == null ? '-' : Number.isInteger(m) ? String(m) : m.toFixed(1));
 
 /** AUDIT 30 L7: the materials nothing yields yet - an order for one could only hold its Marks for a week. The Daedric
- *  Ingot waits on its heart and its stone (4.1, the Oblivion Gate's gift), the Warforged on a siege's Spoils (SEAT2), the
- *  Bear Hide on Hunting (PROF7). */
-export const UNYIELDED = Object.freeze(['ingot:daedric', 'ingot:warforged', 'hide:bear']);
+ *  Ingot waits on its heart and its stone (4.1, the Oblivion Gate's gift), the Warforged on a siege's Spoils (SEAT2), and
+ *  Standard-bearer's Silk on the same Spoils (4.7). PROF7: Hunting yields the Bear Hide now. */
+export const UNYIELDED = Object.freeze(['ingot:daedric', 'ingot:warforged', 'cloth:standard']);
 /** AUDIT 30 L2: a crafted piece lists only of a family the market lists (CRAFTED_FAMILIES) - never arrows (a quiver's
  *  stack, re-minted whole) nor a siege work. */
 export const pieceListable = (recipeId) => CRAFTED_FAMILIES.some(([f]) => f === recipeById(recipeId)?.family);

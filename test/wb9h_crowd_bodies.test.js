@@ -10,7 +10,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  PeerBodies, BODIES_MAX, BODY_LINGER_MS, SKIN_BUDGET, poseCadenceFor, SWAP_DWELL_MS, SWAP_EVERY_MS, SPARE_MS, SPARE_MAX, BODY_REACH, CULL_MARGIN_M,
+  PeerBodies, BODIES_MAX, BODY_LINGER_MS, SKIN_BUDGET, poseCadenceFor, SWAP_DWELL_MS, SWAP_EVERY_MS, SPARE_MS, SPARE_MAX, BODY_SPHERE_SHARE, CULL_MARGIN_M,
   viewPlanes, sphereInView, peerCamera,
 } from '../src/net/peerBodies.js';
 import { CAPSULE_HEIGHT } from '../src/player/motor.js';
@@ -62,7 +62,7 @@ test('WB9h the view\'s sides: off the game\'s own lens (mirrored in x) and its v
   const out = new Float64Array(20);
   assert.equal(viewPlanes(proj, view, out), out, 'into the list it was handed');
   for (let i = 0; i < 20; i += 4) assert.ok(Math.abs(Math.hypot(out[i], out[i + 1], out[i + 2]) - 1) < 1e-9, 'each side normalised');
-  const r = CAPSULE_HEIGHT * BODY_REACH;
+  const r = CAPSULE_HEIGHT * BODY_SPHERE_SHARE;
   const inside = (x, z, rr = r) => sphereInView(out, x, 0.9, z, rr);
   assert.equal(inside(0, -10), true, 'ahead');
   assert.equal(inside(0, 10), false, 'behind');
@@ -83,7 +83,7 @@ test('WB9h the view: a body out of the view is neither drawn nor skinned - its c
   const pb = new PeerBodies({ renderer: {}, createRig: R.factory, buildOpts: (l) => ({ race: l.race }), now: () => 1000 });
   const ahead = peer('ahead', 0, -8), behind = peer('behind', 0, 8);
   // one just off the edge of the view 8 m out: past it by more than its reach, within the skin's margin
-  const halfW = 8 * Math.tan((35 * Math.PI) / 180) * (16 / 9), reach = CAPSULE_HEIGHT * BODY_REACH;
+  const halfW = 8 * Math.tan((35 * Math.PI) / 180) * (16 / 9), reach = CAPSULE_HEIGHT * BODY_SPHERE_SHARE;
   const edgy = peer('edgy', -(halfW + (reach + CULL_MARGIN_M / 2) / Math.cos(Math.atan(halfW / 8))), -8);
   await stand(pb, [ahead, behind]);
   const front = lens();

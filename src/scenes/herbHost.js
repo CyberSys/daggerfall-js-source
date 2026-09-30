@@ -71,8 +71,9 @@ export function patchFlats(patch) {
 }
 
 /**
- * WHAT E DOES AT A PATCH, and the prompt that says it: `{ kind, verb, rest, ready, needs? }` - `kind` 'herbs' or 'food'
- * (the choice key's pick, the herbs first while untaken); `ready` false with `rest` naming what is missing.
+ * WHAT E DOES AT A PATCH, and the prompt that says it: `{ kind, verb, rest, ready, needsRank? }` - `kind` 'herbs' or 'food'
+ * (the choice key's pick, the herbs first while untaken); `ready` false with `rest` naming what is missing, and a rank
+ * short the rank it needs (VEIN-NEED).
  * @param {{ patch: any, taken: (k: string) => boolean, counting: (k: string) => boolean, basket: boolean, rank: number,
  *   sickle: boolean, basketTool: boolean, storesFull: (key: string) => boolean, herbKeyOf: (t: number) => string,
  *   today: number, cap: number }} o
@@ -92,7 +93,7 @@ export function patchPlan({ patch, taken, counting, basket, rank, sickle, basket
     if (!basketTool) return { kind, verb: 'Search with the Basket', rest: 'needs a Basket', ready: false, both };
     return { kind, verb: 'Search with the Basket', rest: rankWord, ready: true, both };
   }
-  if (!tierOpen(rank, patch.tier)) return { kind, verb: `Pick ${name}`, rest: `needs Herbalism ${TIER_RANKS[patch.tier - 1]}`, ready: false, both };
+  if (!tierOpen(rank, patch.tier)) return { kind, verb: `Pick ${name}`, rest: `needs Herbalism ${TIER_RANKS[patch.tier - 1]}`, ready: false, both, needsRank: TIER_RANKS[patch.tier - 1] };
   if (patch.tier > 1 && !sickle) return { kind, verb: `Pick ${name}`, rest: 'needs a Sickle', ready: false, both };
   const key = herbKeyOf(patch.herb);
   if (key && storesFull(key)) return { kind, verb: `Pick ${name}`, rest: `Stores full - ${materialLabel(key)}`, ready: false, both };

@@ -117,7 +117,7 @@ export const SPARE_MS = 60000;
 export const SPARE_MAX = 4;
 /** WB9h: a body's sphere for the view's test - about its middle, this share of its height round it - and the margin the
  *  SKIN's test adds (metres), so a body the view is swinging onto is posed before it comes into sight. */
-export const BODY_REACH = 0.75;
+export const BODY_SPHERE_SHARE = 0.75;
 export const CULL_MARGIN_M = 2;
 /** Frames between poses for a body at squared distance d2 - the first POSE_CADENCE row within which it stands. */
 export function poseCadenceFor(d2) {
@@ -471,11 +471,11 @@ export class PeerBodies {
     b.inView = !this._planesOk || this._sees(b, CULL_MARGIN_M);   // WB9h: in the last pass's view, with the margin a turning eye needs
   }
 
-  /** WB9h: does the view the last body pass drew (viewPlanes) reach this body - its sphere about its middle, BODY_REACH of
+  /** WB9h: does the view the last body pass drew (viewPlanes) reach this body - its sphere about its middle, BODY_SPHERE_SHARE of
    *  its height round, `margin` metres more? */
   _sees(b, margin) {
     const h = CAPSULE_HEIGHT * (b.rig.raceHeightScale?.() ?? 1);
-    return sphereInView(this._planes, b.feet[0], b.feet[1] + h / 2, b.feet[2], h * BODY_REACH + margin);
+    return sphereInView(this._planes, b.feet[0], b.feet[1] + h / 2, b.feet[2], h * BODY_SPHERE_SHARE + margin);
   }
 
   /**

@@ -146,7 +146,9 @@ test('AUDIT 30 U1 + U6 + U9 + U11: every answer\'s Stores told to the profession
   prof.applyStore({ material: 'ore:iron', own: 5, bought: 0 });
   assert.equal(prof.held('ore:iron'), 0, 'never read: nothing told');
   assert.match(src('src/scenes/world.js'), /stores: \{ apply: \(st\) => profBook\?\.applyStore\(st\) \},/);   // AUDIT 31: its holds beside it
-  assert.match(src('src/scenes/world.js'), /marksBook\?\.set\(r\.data\.balance\); marketBook\.told\(r\.data\.balance\); \}/);
+  // AUDIT 32 B3: one door for every counter's balance - the Bank's book and the market's
+  assert.match(src('src/scenes/world.js'), /const toldBalance = \(balance\) => \{ if \(Number\.isSafeInteger\(balance\)\) \{ marksBook\?\.set\(balance\); marketBook\?\.told\(balance\); \} \};/);
+  assert.equal((src('src/scenes/world.js').match(/toldBalance\(r\?\.data\?\.balance\);/g) ?? []).length, 2, 'the Stores page\'s counters and the Market tab\'s Weavers\'');
 });
 
 // ─── THE TAB ─────────────────────────────────────────────────────────
@@ -410,7 +412,9 @@ test('AUDIT 30 C4 + A4: a kept craft keeps its station\'s fee and hands it to th
   assert.deepEqual(paid, [25], 'a kept craft settled later paid the smith nothing');
   const w = src('src/scenes/world.js');
   assert.match(w, /const profMintCraft = \(data, kept = null\) => \{\n\s*if \(kept\?\.fee > 0\) \{ deductGold\(playerEntity, Math\.min\(kept\.fee, totalGoldAmount\(playerEntity\)\)\); saveSoon\.changed\(\); \}/);
-  assert.match(w, /r\?\.kept \? \(bench \? BENCH_KEPT_TEXT : CRAFT_KEPT_TEXT\)/, 'a workbench\'s kept craft said "The anvil rang"');
+  // PROF7 moved it: each station its own kept word, the loom's too (craftStation)
+  assert.match(w, /if \(!r\?\.ok\) return \{ ok: false, text: r\?\.kept \? st\.kept : r\?\.error === 'prof-busy' \? st\.busy : accountRefusalText\(r\?\.error\) \};/, 'a workbench\'s kept craft said "The anvil rang" (AUDIT 32 B4: and its busy word)');
+  assert.match(w, /profession === 'carpentry'\n\s*\? \{ here: \(\) => modes\?\.workbenchHere\?\.\(\) \?\? null, a: 'a workbench', who: 'furnisher', noun: 'workbench', kept: BENCH_KEPT_TEXT/);
   assert.equal((w.match(/if \(f\.fee > 0\) \{ deductGold\(playerEntity, f\.fee\); saveSoon\.changed\(\); \}/g) ?? []).length, 1, 'the smelt\'s alone - the craft\'s is the mint\'s (PROF-SAVE: each saved soon)');
 });
 

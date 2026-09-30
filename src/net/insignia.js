@@ -10,7 +10,7 @@
 // shop here is. A piece of the INSIGNIA is not an item - it is a thing worn over the name or at the feet, that every
 // other player SEES - and a thing others see must be one no client can assert (ACC3's law: a title rides the signed
 // token). So a piece is bought ONCE and kept by the ACCOUNT: the account service records the sale (players.insignia,
-// server-account/migrations/0036_insignia.sql), signs the title and the aura worn into the token (`t`, `au`), and the
+// server-account/migrations/0037_insignia.sql), signs the title and the aura worn into the token (`t`, `au`), and the
 // relay reads them out of it as it reads every badge.
 //
 // THE PRICE IS PAID TWICE-CHECKED. The stones are the pack's (the Sigil Stones the gate drops, one a kill), taken on

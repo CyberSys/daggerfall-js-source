@@ -280,7 +280,7 @@ test('WB9g the client\'s doors: the aura and the sale through the one call door,
   assert.equal(ownAura(st), null, 'a stored word the vocabulary does not hold lights nothing');
 });
 
-test('WB9g the online session: my own aura adopted through the wire\'s reader (an answer from a service before acct34 says nothing, and keeps it); a peer\'s off its introduction, its newest hello\'s whatever it is (a taken-off aura is gone at the next), and kept in the session\'s memory so a peer re-stood after a blip wears it at once; `auraOf` answers mine and any peer\'s (mutants: the peer\'s aura never read; the refresh keeping the first; the memory losing it)', () => quiet(() => {
+test('WB9g the online session: my own aura adopted through the wire\'s reader (an answer from a service before acct37 says nothing, and keeps it); a peer\'s off its introduction, its newest hello\'s whatever it is (a taken-off aura is gone at the next), and kept in the session\'s memory so a peer re-stood after a blip wears it at once; `auraOf` answers mine and any peer\'s (mutants: the peer\'s aura never read; the refresh keeping the first; the memory losing it)', () => quiet(() => {
   const { FakeWS, sockets } = fakeSocketClass();
   const clock = { t: 1000 };
   const s = new OnlineSession({ url: 'wss://relay.test', name: 'Mac', id: 'mac-0001', secret: 'secret-of-mac-0001', WebSocketImpl: FakeWS, now: () => clock.t });
@@ -662,5 +662,5 @@ test('WB9g the world host, by source: the auras gathered with the peers each fra
   const svc = rd('server-account/src/service.js');
   assert.match(svc, /'\/v1\/account\/insignia', '\/v1\/account\/aura',/);
   assert.match(rd('.github/workflows/account-deploy.yml'), /- "src\/net\/insignia\.js"/, 'the Worker bundles the law - a change to it deploys');
-  assert.match(rd('server-account/migrations/0036_insignia.sql'), /ALTER TABLE players ADD COLUMN insignia TEXT;\nALTER TABLE players ADD COLUMN insignia_spent INTEGER NOT NULL DEFAULT 0;\nALTER TABLE players ADD COLUMN aura TEXT;/);
+  assert.match(rd('server-account/migrations/0037_insignia.sql'), /ALTER TABLE players ADD COLUMN insignia TEXT;\nALTER TABLE players ADD COLUMN insignia_spent INTEGER NOT NULL DEFAULT 0;\nALTER TABLE players ADD COLUMN aura TEXT;/);
 });

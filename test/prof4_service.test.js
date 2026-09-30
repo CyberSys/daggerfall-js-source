@@ -250,11 +250,11 @@ test('PROF4 service: arrows are twenty at no quality (their record -1), one piec
   assert.deepEqual([buy.body.marks, s.balance(mac), s.stores(mac, 'cloth:linen')], [4, 96, [['bought', 2]]]);
   assert.equal(s.raw.prepare("SELECT who FROM marks_ledger WHERE actor = ? AND kind = 'stock'").get(mac.id).who, 'cloth:linen');
   assert.equal((await s.call('/v1/prof/stock', { character: mac.character, material: 'cloth:linen', qty: STOCK_MAX + 1, rid: rid() }, mac.secret)).body.error, 'bad-qty');
-  assert.equal((await s.call('/v1/stores/withdraw', { character: mac.character, material: 'cloth:linen', qty: 1, rid: rid() }, mac.secret)).body.error, 'prof-no-pack-form', 'Linen stays at the bench');
   s.give(mac, 'plank:pine', 'own', 8);
   const bed = await s.call('/v1/prof/craft', craft(mac, 'bed-plain-single:pine'), mac.secret);
   assert.equal(bed.status, 200, JSON.stringify(bed.body));
   assert.deepEqual([s.stores(mac, 'cloth:linen'), s.stores(mac, 'plank:pine')], [[], []]);
+  assert.equal((await s.call('/v1/stores/withdraw', { character: mac.character, material: 'cloth:linen', qty: 1, rid: rid() }, mac.secret)).body.error, 'stores-short', 'PROF7 moved it: Linen withdraws now (668) - there is none left');
   const w = await s.call('/v1/stores/withdraw', { character: mac.character, material: 'log:oak', qty: 1, rid: rid() }, mac.secret);
   assert.equal(w.body.error, 'stores-short', 'a log is withdrawable - there are none');
 });

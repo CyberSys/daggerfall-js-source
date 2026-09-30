@@ -354,7 +354,7 @@ middle of one.
 - **THE VIEW.** The last body pass's frustum is kept (`viewPlanes`: the
   left, right, bottom, top and near sides off `proj x view`, normalised -
   the far one left out, a lens with no far has none). A body whose sphere
-  (about its middle, BODY_REACH of its height round it) is past a side is
+  (about its middle, BODY_SPHERE_SHARE of its height round it) is past a side is
   not drawn, and in the next frame's sync is not skinned (CULL_MARGIN_M,
   2 m, more for the skin's test, so a body the view is swinging onto is
   posed before it is seen). Its clocks and its weapon still step every

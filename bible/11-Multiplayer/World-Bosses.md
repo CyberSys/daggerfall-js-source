@@ -1020,7 +1020,7 @@ Stones, and **Dagon's Fire**, an aura, for 50. A gate opens every two hours and 
 some thirty and fifty gates closed, where the day's dearest ware (a piece of Ruhn's Regalia) is twelve.
 
 THE SALE (`server-account/src/accounts.js buyInsignia`, POST `/v1/account/insignia`) is recorded on the row (migration
-0036: `insignia`, the ids bought in their order; `insignia_spent`; `aura`, the aura worn) and paid for TWICE-CHECKED: the
+0037: `insignia`, the ids bought in their order; `insignia_spent`; `aura`, the aura worn) and paid for TWICE-CHECKED: the
 pack's spendable stones are taken on this side as a ware's are (`spendStones` - one hand with the sale's `takeFromPack`),
 and the service refuses a sale the account's own closed gates could not have paid for (gate_kills, one row a kill, less
 `insignia_spent`: 409 `short`, with the `purse` they can still pay and the `price`). ONE UPDATE is the sale - the id
@@ -1034,7 +1034,7 @@ row) and worn through the title's own door. An aura is held off the row (`aurasH
 (`/v1/account/aura`, `equipAura` - 403 `not-held`, 400 `no-aura` for a word the vocabulary lacks), one at a time, pressed
 off as it is pressed on. The mint signs the aura worn (`au`, absent for none - `net/identityToken.js` AURAS, `claimsValid`,
 `mintToken`) and says it beside the token (`aura`); the relay reads it out of the signature (`_named`, `badged`,
-`readAura`) as it reads every badge (relay world135, account service acct34). This device keeps its own on the stored
+`readAura`) as it reads every badge (relay world135, account service acct37 - main's PROF7 took acct34-acct36 first). This device keeps its own on the stored
 session (`net/accountClient.js adoptIdentity` - every mint's answer and every wear's, from the account card or the
 Broker), so the fire at my own feet lights the moment any door changes it (`systems/ownGlyphs.js ownAura`); a peer's is
 its newest hello's (`net/online.js _peer`, `_refresh`, `auraOf`), kept in the session's memory through a blip (SLAM9's

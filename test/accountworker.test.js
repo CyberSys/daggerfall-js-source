@@ -159,7 +159,7 @@ test('ACC1b: the migration is the real schema, and applying it twice changes not
   // date, src/net/legalLaw.js) and `legal_accepted_at`. An agreement is a
   // fact about the account itself, made once by its player, so it is the
   // row's; NULL on every account made before the boxes existed.
-  // WB9g added THREE - the Sigil Broker's insignia (0036): `insignia`, the
+  // WB9g added THREE - the Sigil Broker's insignia (0037): `insignia`, the
   // pieces the account BOUGHT, and `insignia_spent`, what they cost in all
   // (a sale is a fact that happened, never a rule a row satisfies - so it
   // is recorded, and what is held is still read off it at every ask), and

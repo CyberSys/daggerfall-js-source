@@ -32,6 +32,7 @@ import { basketBlock, BASKET_BLOCKS } from '../systems/foragingCore.js';   // th
 import {
   herbKey, materialOf, foodKey, WRIT_UNITS, WRIT_TIER_WEIGHTS, writPay, writRenown, minedMaterial, CUT_RATIO,
   DEEP_DELVER_MULT, GEM_CHANCE, PROSPECTOR_GEM, HEARTWOOD_CHANCE, FORESTER_MULT, RESIN_CHANCE, RESIN, HEARTWOOD,
+  HIDE_YIELD, ACT_YIELD_MAX, PART_CHANCE, BUTCHERY,
 } from './professionLaw.js';
 import { kingdomOf, FREE_LANDS, MARCH_REGIONS, isMarch } from './kingdomLaw.js';   // SEAT0 4.3's map, one home (PROF2)
 
@@ -131,8 +132,14 @@ export const regionOk = (r) => Number.isSafeInteger(r) && r >= 0 && r < REGION_N
  *  dungeon instead: `dvein:<id>:<day>:<slot>`. */
 export const nodeKey = ({ kind, x, y, day, slot }) => `${kind}:${x}:${y}:${day}:${slot}`;
 export const dveinKey = ({ dungeon, day, slot }) => `dvein:${dungeon}:${day}:${slot}`;
+/** PROF7: a body's id - `body:<day>:<id>`, the UTC day of the kill and twelve hex digits the killer's client drew at it
+ *  (scenes/huntHost.js). Hunting is bounded, not witnessed (PROF0 6): the id is the client's word and the day's cap
+ *  its bound - so it names no pixel, no dungeon and no foe, and the service reads none of it but the day. */
+export const bodyKey = ({ day, id }) => `body:${day}:${id}`;
+export const BODY_ID_RE = /^[0-9a-f]{12}$/;
 const NODE_KEY_RE = /^(tree|herb|vein|boulder):(\d{1,3}):(\d{1,3}):(\d{1,6}):(\d{1,2})$/;
 const DVEIN_KEY_RE = /^dvein:(\d{1,7}):(\d{1,6}):(\d{1,2})$/;
+const BODY_KEY_RE = /^body:(\d{1,6}):([0-9a-f]{12})$/;
 /** A dungeon's identity, DFU's own: `MapTableData.MapId & 0xfffff` (formats/mapsFile.js). */
 export const DUNGEON_ID_MAX = 0xfffff;
 export const dungeonOk = (id) => Number.isSafeInteger(id) && id >= 0 && id <= DUNGEON_ID_MAX;
@@ -141,6 +148,8 @@ export const dungeonOk = (id) => Number.isSafeInteger(id) && id >= 0 && id <= DU
  *  in a second spelling was a node taken twice. */
 export function parseNodeKey(s) {
   if (typeof s !== 'string') return null;
+  const b = BODY_KEY_RE.exec(s);
+  if (b) return bodyKey({ day: Number(b[1]), id: b[2] }) === s ? { kind: 'body', day: Number(b[1]), id: b[2] } : null;
   const d = DVEIN_KEY_RE.exec(s);
   if (d) {
     const [dungeon, day, slot] = [Number(d[1]), Number(d[2]), Number(d[3])];
@@ -418,6 +427,19 @@ export const MARCH_MULT = 1.25;
 export function wholeYield(y, chance) {
   const whole = Math.floor(y + 1e-9);
   return whole + (chance < y - whole - 1e-9 ? 1 : 0);
+}
+/** PROF7 - A BODY'S HIDE (PROF0 6, 29): one, a clean pelt's x1.5 (the act's bound), the fraction a chance - no march
+ *  and no Tide: a body names no ground. */
+export const hideYield = ({ clean = false }, chance) => Math.max(1, wholeYield(HIDE_YIELD * (clean ? ACT_YIELD_MAX : 1), chance));
+/**
+ * PROF7 - A BODY'S FINDS beside its hide (PROF0 4.4, 29): its DFU part one body in four - lost with a torn pelt - and its
+ * butchery, a Raw Meat (a Butcher's two) or a Slaughterfish's Raw Fish, where the foe gives any. `dice()` the service's.
+ * @param {{ hide: { part: string|null, meat: string|null }, torn?: boolean, butcher?: boolean }} o
+ * @returns {{ part: string|null, meat: string|null, meatQty: number }}
+ */
+export function bodyFinds({ hide, torn = false, butcher = false }, dice) {
+  const part = hide.part && !torn && dice() < PART_CHANCE ? hide.part : null;
+  return { part, meat: hide.meat, meatQty: hide.meat ? (butcher ? BUTCHERY.butcher : BUTCHERY.meat) : 0 };
 }
 /**
  * AN HERB'S YIELD, in PROF0 6's order: the base roll (+1 a common herb for a Gardener); the season (spring's blooms,
