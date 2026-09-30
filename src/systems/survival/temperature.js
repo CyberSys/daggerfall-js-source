@@ -187,6 +187,17 @@ export function cloakState(worn) {
   return { cloak, hood, cloaks };
 }
 
+/** HOOD-SAID (FIELD BUGS 2026-09-30): the garments that carry a hood - the casual and the formal cloak on either
+ *  body, and plain robes. */
+export const hoodCapable = (item) => CASUAL_CLOAKS.has(item?.templateIndex) || FORMAL_CLOAKS.has(item?.templateIndex)
+  || HOODED_ROBES.has(item?.templateIndex);
+/** HOOD-SAID: whether ONE garment is drawn hood up - cloakState asked of a table holding that piece alone, in the slot
+ *  its hood is read from, so a piece's hood is the one hood law and never a second list. */
+export function hoodUp(item) {
+  if (!hoodCapable(item)) return false;
+  return cloakState({ [HOODED_ROBES.has(item.templateIndex) ? EQUIP_SLOTS.ChestClothes : EQUIP_SLOTS.Cloak1]: item }).hood;
+}
+
 /** Clothing warmth: chest, legs, feet and the cloaks, less the wetness,
  *  never below nothing; a hood in strong sun cools the head. */
 export function clothingWarmth(worn, { wet = 0, natural = 0, inSunlight = false } = {}) {

@@ -38,6 +38,7 @@ import { isSurvivalItem, useSurvivalItem } from './survival/items.js';   // SURV
 import { survivalRules } from './survival/switch.js';   // SURV-TIERS: a meal's sickness is the tier's
 import { SURVIVAL_RULES } from './survival/difficulty.js';   // AUDIT SURV-TIERS: and with the arc off, Casual's - none
 import { setLightSource } from './lightSource.js';   // DISC7: the light in hand's one door
+import { hoodCapable, hoodUp } from './survival/temperature.js';   // HOOD-SAID: the one hood law, for toggleHood
 
 /** THE ARMS WHOSE DESTINATION WINDOW THE PORT HAS NOT BUILT, named so a use
  *  SAYS something rather than eating itself. Keyed by this module's own result
@@ -157,6 +158,36 @@ export function nextVariant(item) {
   item.variant = variant;
   return true;
 }
+
+/** HOOD-SAID (FIELD BUGS 2026-09-30, Discord: "Vampire hood on cloaks dont show hood is up or down making them think
+ *  its a bug"): THE HOOD IS RAISED OR LOWERED, NOT CYCLED. NextVariant steps a garment through every drawing, and a
+ *  casual cloak's six run hood down, UP, UP, down, down, UP, so a Use that meant "hood up" could put it down. The
+ *  drawings come in pairs, one drape hood down and hood up: 0/1, 2/3 and 4/5 on the casual cloak - the felt
+ *  temperature's own tables say so, every pair holding one hooded drawing that is the warmer by one
+ *  (survival/temperature.js HOODED_CLOAK_VARIANTS, CLOAK_WARMTH) - and 0/1 on the formal cloak and on plain robes. So the
+ *  hood moves to the same drape's other drawing, `variant ^ 1`; a drawing with no partner (a stray value past the
+ *  template's count) takes NextVariant's own order to the first whose hood differs, one round at most. Only the six
+ *  hooded garments move (temperature.js hoodCapable); true when the hood changed. The classic window keeps DFU's
+ *  NextVariant on its Use and middle click - its doll is redrawn at each step, so every drawing stays in reach. */
+export function toggleHood(item) {
+  if (!hoodCapable(item)) return false;
+  const total = templateByIndex(item.templateIndex)?.variants ?? 0;
+  const from = item.variant ?? 0;
+  const up = hoodUp(item);
+  if ((from ^ 1) < total) {
+    item.variant = from ^ 1;
+    if (hoodUp(item) !== up) return true;
+    item.variant = from;
+  }
+  for (let i = 1; i < total; i++) {
+    nextVariant(item);
+    if (hoodUp(item) !== up) return true;
+  }
+  item.variant = from;
+  return false;
+}
+/** HOOD-SAID: what a press of the pack's hood button says - the port's own lines, beside UseItem's "You light the %it.". */
+export const HOOD_TEXT = Object.freeze({ raise: 'You raise your hood.', lower: 'You lower your hood.' });
 
 // ── the strings UseItem shows (DFU's Internal_Strings) ────────────
 
