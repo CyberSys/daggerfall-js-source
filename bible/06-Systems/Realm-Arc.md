@@ -201,7 +201,9 @@ Items have no unique ids: "the port's items have no UID" (`save.js`), and "the p
   exception since RESCUE-SAVE: the device's own copy of a save the service never took, which a join plays while the
   record still stands at its `seq`. An edited copy is therefore a way in, as a scripted checkpoint under the lease
   always was (the service reads no checkpoint past the first; section 4's budget model is the answer to both).
-  **OPEN (AUDIT RESCUE-SAVE P1): Mac's call** - accept it until section 4, or make the copy harder to use.
+  **Decided (AUDIT RESCUE-SAVE P1, Mac 2026-09-30: "1" - accept it for now):** it stands until section 4's checks, which
+  answer an edited copy and a scripted checkpoint alike. (`server-account/src/realm.js`'s header still says a copy is
+  no way in; its next edit takes this sentence.)
 - **Crashes.** A crash loses at most two minutes of play, and never a hand-over, because every hand-over is settled on
   the service first.
 - **What the service has not taken, the device keeps (RESCUE-SAVE).** The newest save handed to the session is written
@@ -432,7 +434,7 @@ source and sink tallies. Tune by data rather than by guess.
   - **A6 (minor): a save-sized write at every checkpoint** (every profession act, three a trade, two a gold act - a file and an fsync in the desktop shell). The copy is written only when needed: once a put goes unanswered past `REALM_UNSENT_GRACE_MS` (1.5 s), at once on a hidden page (a close cuts its put off, and a phone may never send pagehide), when a put is refused or unanswered, and at the session's leave. A put that lands first writes nothing.
   - **A7 (minor): copies no join can play.** The Online door drops a copy of the account's own character whose record has moved past it (`sweepUnsent` over the list's rows); another account's characters are not listed and theirs stay.
   - **A8 (minor): the restore said after every close.** A close cuts the hidden page's put off, so most boots played a copy and said so. The copy's record now says whether a put of it was refused or unanswered (`missed`), and the world says the restore only then.
-  - **P1 (policy, OPEN): an edited copy is a way in** (section 2 above). Mac's call.
+  - **P1 (policy): an edited copy is a way in** (section 2 above). Decided (Mac, 2026-09-30, "1"): accepted until section 4's server-side checks; the other two roads (restore only a recent copy; no copy at all) were declined - the first only narrows the window, the second brings the outage's loss back.
   - **Recorded, not changed.** While the service is away, the copy holds one save's worth of the device's storage, as an offline slot does. The copy is the save's text (its put packs it, REALM-GZIP), so a long life's save past a browser's storage is kept only in the desktop shell's files - A5 keeps the copy before it, or none, as before RESCUE-SAVE (a packed copy is the next step if the field asks). **With REALM-GZIP (merged beside it):** a restored copy's answer carries the join's `gzip`, so its checkpoints ride packed as the service's own save's do.
   - `test/rescuesave.test.js` (18: RESCUE-SAVE's nine re-pinned to the written-when-needed copy, and A1, A1's drop and bounds, A2, A3, A4, A5, A6, A7 - A1 and A3 mounted from world.js's own sink, `_spoilsInSave` and `spoilsRecoverFrame` over the real pools and Worker); `tools/mutants/rescuesave.json` (33, all dead). Pins moved to the new law: `test/realm3.test.js`'s two sink pins, `raid4b_sets`'s and `wb5_gate_spoils`'s door pins; `test/auditrealm2_client.test.js`'s sink mounts given `realmSaveWithHeld`; `auditwb_spoils.json` A6 re-aimed by content.
 - **AUDIT RESCUE-SAVE 2 done (2026-09-30, Mac: "Audit this", again - over the merge with REALM-GZIP).**
@@ -481,3 +483,7 @@ Mac, 2026-09-29, after HOUSE-LOSS: "I want people to get their stuff back" (REST
 4. **Custom classes online:** rebalanced points, a curated list, or standard classes only.
 5. **The numbers:** the online level cap, the customs allowance, the vendor spread, the trade tax, the upkeep and the
    death fee.
+
+Mac, 2026-09-30, answering AUDIT RESCUE-SAVE P1 (an edited device copy is a way into the realm): "1" - **accept it for
+now**; section 4's server-side checks close it, and the scripted checkpoint beside it. Restoring only a recent copy
+(narrows the window, never shuts it) and no copy at all (the outage's loss back) were declined.
