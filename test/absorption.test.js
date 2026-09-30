@@ -106,7 +106,8 @@ test('S24: an absorbed effect does NOT land, and the points are credited', () =>
   assert.equal(out.damage, 0, 'the damage branch never ran');
   assert.deepEqual(hurt, [], 'and nothing reached the hurt sink');
   assert.ok(out.absorbed > 0, 'the points are reported');
-  assert.equal(target.magicka, out.absorbed, 'and credited to the pool');
+  // ABSORB-NERF (2026-09-30): the pool is credited HALF the points absorbed, floored (absorption.js absorbRefund)
+  assert.equal(target.magicka, Math.floor(out.absorbed / 2), 'and half of them credited to the pool');
   assert.deepEqual(said, [SPELL_ABSORBED_TEXT]);
 });
 
@@ -147,7 +148,7 @@ test('S24: a SELF-cast cannot refund more than it cost', () => {
   // wrappers). The old raw-entity fixture never matched in production.
   const selfOut = applySpell(spell, 1, selfTarget, {}, () => 0, { entity: selfTarget, sinks: {} }, { inside: true, selfCastCost: 3 });
   assert.equal(selfOut.absorbed, 3, 'a self-cast is capped at what it cost');
-  assert.equal(selfTarget.magicka, 3);
+  assert.equal(selfTarget.magicka, 1, 'ABSORB-NERF: and half of the capped 3 refunded, floored');
   // and the cap does not apply to another entity's spell
   assert.equal(both > 3, true, 'the same spell from another caster refunds the full tally');
 });

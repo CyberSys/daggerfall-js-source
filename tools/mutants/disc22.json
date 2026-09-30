@@ -5,8 +5,8 @@
     "tests": [
       "test/disc22a_magic_repairs.test.js"
     ],
-    "old": "  Controls: Object.freeze({ WeaponSwingMode: '2', AllowMagicRepairs: 'True' }),",
-    "new": "  Controls: Object.freeze({ WeaponSwingMode: '2' }),"
+    "old": "  Controls: Object.freeze({ WeaponSwingMode: '2', AllowMagicRepairs: 'True', InstantRepairs: 'True' }),",
+    "new": "  Controls: Object.freeze({ WeaponSwingMode: '2', InstantRepairs: 'True' }),"
   },
   {
     "name": "D22A-getData-ignores-the-room",

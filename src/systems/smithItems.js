@@ -35,12 +35,13 @@
 // own, its quality its life.
 // ═══════════════════════════════════════════════════════════════════
 import {
-  recipeById, QUALITY_EFFECTS, TOOL_LIFE, MASTERWORK, REPAIR_KIT_TEMPLATE, KIT_REPAIR, INGOT_MATERIAL, ARMOR_PLATE,
+  recipeById, QUALITY_EFFECTS, TOOL_LIFE, MASTERWORK, REPAIR_KIT_TEMPLATE, KIT_REPAIR, FIELD_KIT_REPAIR, INGOT_MATERIAL, ARMOR_PLATE,
   ARMOR_CHAIN, PROVENANCE_RE, makerName, QUALITY_NAMES,
 } from '../net/recipeLaw.js';
 import { minedMaterial } from '../net/professionLaw.js';
 import { weaponOfMaterial, armorOfMaterial, createWeapon } from '../combat/enemyEquipment.js';
 import { setItemFields, mintCondition, templateByIndex, registerItemUseHandler } from './itemTemplates.js';
+import { registerTabledLootHandler, registerEnemyLootExtra } from './loot.js';   // REPAIR-EASE: the field kit's two loot doors
 import { itemLongName } from './itemInfo.js';
 import './profTemplates.js';   // the Repair Kit's row (692), registered with the ores and ingots
 import { applyRarity, rarityEligible, RARE_FLAVOURS } from './lootRarity.js';
@@ -153,6 +154,7 @@ export const isCraftedFurniture = (item) => item?.group === 'Furniture';
 
 /** Whether a kit of metal `m` mends an item: a weapon of the metal, a plate piece of it, and Steel's the chain too. */
 export function kitMends(m, item) {
+  if (m === FIELD_KIT && item?.maxCondition > 0) return item.group === 'Weapons' || item.group === 'Armor';   // REPAIR-EASE: any metal
   if (!item || !Number.isInteger(m) || !(item.maxCondition > 0)) return false;
   if (item.group === 'Weapons') return item.material === m;
   if (item.group === 'Armor') return item.material === ARMOR_PLATE + m || (m === 1 && item.material === ARMOR_CHAIN);
@@ -168,13 +170,14 @@ export function kitMends(m, item) {
  */
 export function useRepairKit(kit, items) {
   if (!kit || kit.templateIndex !== REPAIR_KIT_TEMPLATE || !Array.isArray(items)) return null;
-  const want = items.filter((it) => it !== kit && kitMends(kit.kitMetal, it) && it.currentCondition < it.maxCondition);
+  const metal = kit.fieldKit === true ? FIELD_KIT : kit.kitMetal;   // REPAIR-EASE: a field kit mends any metal, by less
+  const want = items.filter((it) => it !== kit && kitMends(metal, it) && it.currentCondition < it.maxCondition);
   if (!want.length) return null;
   const share = (it) => it.currentCondition / it.maxCondition;
   want.sort((a, b) => share(a) - share(b) || (b.equipSlot != null ? 1 : 0) - (a.equipSlot != null ? 1 : 0));
   const it = want[0];
   const before = share(it);
-  it.currentCondition = Math.min(it.maxCondition, it.currentCondition + Math.ceil(it.maxCondition * KIT_REPAIR));
+  it.currentCondition = Math.min(it.maxCondition, it.currentCondition + Math.ceil(it.maxCondition * (kit.fieldKit === true ? FIELD_KIT_REPAIR : KIT_REPAIR)));
   const i = items.indexOf(kit);
   if (i >= 0) items.splice(i, 1);
   return { item: it, before, after: share(it) };
@@ -186,14 +189,42 @@ export const kitMetalName = (kit) => METALS[kit?.kitMetal] ?? 'its metal';
  *  said so. Offline as online - a kit is the pack's, and mending asks no service. */
 export function repairKitUse(item, collection) {
   const done = useRepairKit(item, collection);
-  if (!done) return { kind: 'repairKit', text: `Nothing of ${kitMetalName(item)} here wants mending.` };
+  if (!done) return { kind: 'repairKit', text: item?.fieldKit === true ? 'Nothing here wants mending.' : `Nothing of ${kitMetalName(item)} here wants mending.` };   // REPAIR-EASE
   // AUDIT 30 C8: a marked piece's name is its maker's - "Silverthorn's Longsword", never "The Silverthorn's"
   const long = itemLongName(done.item);
   const named = typeof done.item.maker === 'string' && long.startsWith(`${done.item.maker}'s `);
   return { kind: 'repairKit', text: `${named ? long : `The ${long}`} is mended: ${Math.round(done.before * 100)}% to ${Math.round(done.after * 100)}%.` };
 }
-/** Every host's install (scenes/shared.js): the Repair Kit's use on the item-use door. */
-export function installSmithing() { registerItemUseHandler(REPAIR_KIT_TEMPLATE, repairKitUse); }
+/** REPAIR-EASE: the field kit's `metal` in kitMends - any weapon or armour. */
+export const FIELD_KIT = 'any';
+/** REPAIR-EASE: the chance, in percent, a dungeon pile (keys J-O, where DFU's own map and potion roll) holds a field
+ *  kit, and a foe with a loot table carries one. */
+export const FIELD_KIT_PILE_CHANCE = 6;
+export const FIELD_KIT_ENEMY_CHANCE = 3;
+/** REPAIR-EASE: a Field Repair Kit - the Repair Kit's template and picture, undyed, worth 15 gold. */
+export function mintFieldRepairKit() {
+  const item = mintCondition(setItemFields({ group: 'UselessItems2', templateIndex: REPAIR_KIT_TEMPLATE, material: 0, flags: 0, variant: 0, message: 0, stackCount: 1 }));
+  item.name = 'Field Repair Kit';
+  item.fieldKit = true;
+  item.value = 15;
+  return item;
+}
+/** REPAIR-EASE: one roll of `pct` percent, and a field kit into `items` on a hit. Answers whether one was added. */
+export function maybeAddFieldKit(items, pct, rolls = Math.random) {
+  if (!Array.isArray(items) || !(rolls() * 100 < pct)) return false;
+  items.push(mintFieldRepairKit());
+  return true;
+}
+/** Every host's install (scenes/shared.js): the Repair Kit's use on the item-use door; REPAIR-EASE: and the field kit
+ *  into the loot - a J-O pile on LootTables.OnLootSpawned, a looting foe on the enemy-extras hook. */
+export function installSmithing() {
+  registerItemUseHandler(REPAIR_KIT_TEMPLATE, repairKitUse);
+  registerTabledLootHandler('field-repair-kit', ({ key, items, rolls }) => {
+    const i = typeof key === 'string' ? key.charCodeAt(0) - 64 : 0;
+    if (i >= 10 && i <= 15) maybeAddFieldKit(items, FIELD_KIT_PILE_CHANCE, rolls);
+  });
+  registerEnemyLootExtra('field-repair-kit', ({ items, rolls }) => maybeAddFieldKit(items, FIELD_KIT_ENEMY_CHANCE, rolls));
+}
 
 /** What a craft says it made: "You made a Fine Mithril Longsword." - "two Mithril Repair Kits" for a Quartermaster's;
  *  PROF4: "20 Arrows"; a table waits among the home's things. */

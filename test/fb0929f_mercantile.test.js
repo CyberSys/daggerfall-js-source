@@ -12,7 +12,7 @@
 // haggle reads its own range now, 0 to 100; offline, DFU's reads stand.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateTradePrice, calculateCost, ONLINE_SALE_SHARE, ONLINE_HAGGLE_MAX } from '../src/systems/shopStock.js';
+import { calculateTradePrice, calculateCost, ONLINE_SALE_SHARE, ONLINE_HAGGLE_MAX, essentialPrice } from '../src/systems/shopStock.js';
 import { getTradePrice } from '../src/systems/tradeModes.js';
 import { rentalDecision } from '../src/systems/tavern.js';
 import { cureDiseaseOffer } from '../src/systems/guildServiceActions.js';
@@ -107,6 +107,7 @@ test('MERC-CAP: the purchases the haggle prices past the counter - a room, a cur
       assert.equal(cure(m), cure(100), `the cure at Mercantile ${m}`);
     }
     assert.ok(room(100) > 0 && cure(100) > 0, `${room(100)} and ${cure(100)}`);
-    assert.equal(cure(100), calculateTradePrice(calculateCost(250, 10), 10, skills(100), false, { online: false }), 'the best haggler\'s own price - inside the range nothing moves');
+    // ESSENTIALS-HALF (2026-09-30): online a cure costs half the best haggler's own price (shopStock.js essentialPrice)
+    assert.equal(cure(100), essentialPrice(calculateTradePrice(calculateCost(250, 10), 10, skills(100), false, { online: false }), { online: true }), 'the best haggler\'s own price, halved - inside the range nothing else moves');
   });
 });

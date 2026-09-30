@@ -10,6 +10,8 @@ import { walkModeOn, bindWalkMode } from '../player/walkMode.js';   // PADWALK: 
 import { iilSyncLane } from '../systems/improvedInteriorLighting.js';   // IIL2
 import { dfmodGroundLayers } from '../systems/dfmodTextures.js';   // GROUND1: an attached mod's terrain tile set
 import { RESURRECT_HOLD_MS, RESURRECT_HEALTH_PCT, RESURRECT_TEXT, rezSnapshot, rezFor } from '../systems/resurrect.js';   // RESURRECT1
+import { createPartyMapSender, hasSharedCartography } from '../systems/partyMap.js';   // PARTY-MAP
+import { liveDungeonAutomapKey, getDungeonAutomap, mergePartyAutomap } from '../systems/automap.js';   // PARTY-MAP: the live dungeon's record, and a mate's rows merged into it
 import { FlatAnimator, armFlatAnim } from '../render/flatAnimation.js';   // FA1: the flats that move
 import { WORLD_FRAME } from '../render/renderer.js';   // AUDIT-EL F5
 import { windmillsOn } from '../world/windmills.js';   // WM3: the Windmills pack's switch
@@ -7637,7 +7639,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2753 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6441
+  // that context through modes.dungeonCtx - so worldModes.js:6442
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -10176,7 +10178,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7594), so exterior mode and a
+    // composer, dungeonContext.js:7595), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -11558,6 +11560,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // than a copied walk survives.
     questLog: () => questBridge?.questLog() ?? { active: [], finished: [] },
     repairQuests: () => questBridge?.repair?.() ?? null,   // QREPAIR: the Settings' Repair active quests
+    journalClean: () => questBridge?.journalClean ?? null,   // JOURNAL-CLEAN: the Quests tab's remove / clear archive / hide / unhide (scenes/questBridge.js journalClean)
     // GUIDE2: the Quests tab's WHERE and its way there - HandleQuestClicks' two world questions (the same two the
     // logbook is handed, makeJournalWindow) and the door itself: this bag is the street's, where the map opens.
     currentLocationName: () => _questLoc()?.name ?? '',
@@ -12822,7 +12825,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9922-9986 -
+  // worldModes answers it in BOTH modes (worldModes.js:9924-9988 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -15151,6 +15154,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     social = new SocialState({ acct: link.acct });
     link.onSocial = (f) => { social.apply(f); };
     link.onParty = (acct, p) => { social.applyParty(acct, p); };
+    // PARTY-MAP: a mate's Shared Cartography rows - a seat in my party alone (applyParty's own rule), merged only when I
+    // stand in that same dungeon, as revealed and nothing more (automap.js mergePartyAutomap)
+    link.onAmap = (acct, _name, k, r) => { if (social.inMyParty(acct)) mergePartyAutomap(k, r); };
     // QUEST1: a party member's shared quest lands here - the three receiver gates (already active, already
     // done/tombstoned, the guild membership the quest assumes) all run inside receiveSharedQuest, never here; this
     // reads only the result and says it in a word, success or refusal, the same as sendQuest's own send-side note.
@@ -17556,6 +17562,16 @@ export async function bootWorld(canvas, renderer, params, status) {
   }
   // SOFTCAP3: Master Skills may not change inside a dungeon - its foes were scaled (or not) as they spawned
   setMasterSkillsGate(() => ((modes?.mode ?? 'exterior') === 'dungeon' ? MASTER_SKILLS_DUNGEON_TEXT : null));
+  // PARTY-MAP (2026-09-30, Discord: "share map data between party members, possibly with a spell effect"): SHARED
+  // CARTOGRAPHY's sender - while the buff is live, in a dungeon, in a party, the rows I revealed go to the hub in
+  // batches (systems/partyMap.js); `commit` only once the link really sent them, so a refused send loses nothing.
+  const _partyMapSender = createPartyMapSender();
+  const partyMapFrame = (nowMs) => {
+    const k = (modes?.mode ?? 'exterior') === 'dungeon' ? liveDungeonAutomapKey() : null;
+    const f = _partyMapSender.next({ active: hasSharedCartography(playerEntity), inDungeon: !!k, partied: !!social?.party,
+      key: k, rec: k ? getDungeonAutomap(k) : null, nowMs });
+    if (f && socialLink()?.shareAutomap(f.k, f.r)) _partyMapSender.commit(f, nowMs);
+  };
   const partyFrame = (nowMs) => {
     playerEntity._online = isOnlinePage();   // SOFTCAP3: Master Skills is in force only online (systems/masterSkills.js)
     // SOFTCAP1: MENTOR MODE follows the party every frame - the other members'
@@ -17575,6 +17591,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const hub = socialLink();
     social.setClockOffset(hub?.clockRead ? hub.clockOffsetMs : (online?.clockOffsetMs ?? 0));
     partyWalkFrame(nowMs);   // TV8: the party's walk - the leader's halts, a member's steps
+    partyMapFrame(nowMs);   // PARTY-MAP: Shared Cartography's batches
     if (!social.party || nowMs - _partyComposedAt < PARTY_SEND_MS / 2) return;
     _partyComposedAt = nowMs;
     _partyPose = composePartyPose();
@@ -19107,6 +19124,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // said "world.js keeps two copies of this walk" and it was right.
     pauseQuestLog: () => questBridge?.questLog() ?? { active: [], finished: [] },
     repairQuests: () => questBridge?.repair?.() ?? null,   // QREPAIR: the interior pause's Settings row, off this host's bridge
+    journalClean: () => questBridge?.journalClean ?? null,   // JOURNAL-CLEAN: the Quests tab's remove / clear archive / hide / unhide (scenes/questBridge.js journalClean), for the interior pause
     revealLocation,
     magic, spellsByIndex: () => spellsByIndex,   // M2: the one cast engine + SPELLS.STD ride into the interior arm
     townTalk,   // U23: the interior host borrows FACTION.TXT/TEXT.RSC + the talk seam

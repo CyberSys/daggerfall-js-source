@@ -73,7 +73,7 @@ import { tabStorage } from '../systems/appStorage.js';   // the tab's own storag
 import { wrapAngle } from '../world/mat4.js';   // ONCRASH1: the port's one angle wrap, which cannot loop
 
 import { isGateRoom } from './gateLaw.js';   // WB3: a gate's arena is one room of its own
-import { poseChanged, SOCKETS_MAX, WORLD_CELL, RANGE_PIXELS, PIXEL_UNITS, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, WORLD_FRAME_MAX, worldFrameMaxFor, isCellRoom, hitOwnerOf, validPose, validLook, sanitizeName, readBadge, sanitizeChat, chatGate, redGate, dmGate, relaySupportsDm, muteGate, subOf, mutedUntilOf, worldRoom, inRange, relayUrl, isWorldRoom, isChatRoom, foesGate, FOES_FRAME_MAX, MAX_FRAME_BYTES, hitGate, actGate, actFrameFits, whoGate, WHO_RETRY_MS, HEARTBEAT_MS, PING_MS, relayVersionOf, chatInGate, CHAT_ROOM_HZ_MAX, socialGate, partyGate, validPartyPose, validSocialFrame, validPartyFrame, PARTY_SEND_MS, validSocialAct, socialInGate, noteInGate, partyInGate, SOCIAL_IN_HZ_MAX, NOTE_IN_HZ_MAX, INBOUND_FRAME_MAX, questInGate, validQuestFrame, QUEST_SEND_MS, QUEST_HUB_MIN_MS, PARTY_MAX, tokenGate, validTradeData, tradeGate, tradeInGate, validCastData, castGate, castInGate, CAST_FRAME_MAX, CAST_IN_HZ_MAX, relaySupportsCast, TRADE_IN_HZ_MAX, relaySupportsTrade, TRADE_FRAME_MAX, parkGate, relaySupportsPark, PARK_CELL_MAX, PARK_KEY_RE, PARK_TTL_MS, relaySupportsChannels, CHAT_LINE_CHANNELS, partyChatInGate, PARTY_CHAT_ROOM_HZ_MAX, relaySupportsRoll, rollGate, validRollSpec, validRoll, relaySupportsEmote, validCardData, cardGate, cardInGate, CARD_FRAME_MAX, CARD_IN_HZ_MAX, relaySupportsCard, validPageData, pageGate, pageInGate, PAGE_FRAME_MAX, PAGE_IN_HZ_MAX, relaySupportsPage, validDuelData, duelGate, duelInGate, DUEL_FRAME_MAX, DUEL_IN_HZ_MAX, relaySupportsDuel, readRenown, renownGate, relaySupportsRenown, RENOWN_ORDER_KEEP_MS, RENOWN_RESEND_MS, lookGate, relaySupportsLook, relaySupportsPartyTravel, relaySupportsRestOpt, relaySupportsEvent, eventGate, validLiveEvent, LIVE_EVENTS, isSocialRoom, validGateIn, validGateOut, gateGate, relaySupportsGate, relaySupportsOwn, relaySupportsGateSpent, relaySupportsGateSite, gatePlaceWire, readGuildTag, readAura, relaySupportsGuild, GUILD_ORDER_KEEP_MS, guildChatInGate, GUILD_CHAT_ROOM_HZ_MAX, validRaidIn, validRaidOut, raidGate, relaySupportsRaid, validRaidTownsIn, isRegionRoom, validTravellerMark, validTravellerFrame, relaySupportsTravellers, travInGate, TRAV_SEND_MIN_MS, TRAV_WELCOME_MAX, TRAV_STALE_MS, relaySupportsPartyWalk } from './wire.js';   // SOC2: the hub's law, at home; AUDIT SOC B3/B11/B20: the act's projection, the inbound gates, the inbound bound
+import { poseChanged, SOCKETS_MAX, WORLD_CELL, RANGE_PIXELS, PIXEL_UNITS, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, WORLD_FRAME_MAX, worldFrameMaxFor, isCellRoom, hitOwnerOf, validPose, validLook, sanitizeName, readBadge, readAura, sanitizeChat, chatGate, redGate, dmGate, relaySupportsDm, muteGate, subOf, mutedUntilOf, worldRoom, inRange, relayUrl, isWorldRoom, isChatRoom, foesGate, FOES_FRAME_MAX, MAX_FRAME_BYTES, hitGate, actGate, actFrameFits, whoGate, WHO_RETRY_MS, HEARTBEAT_MS, PING_MS, relayVersionOf, chatInGate, CHAT_ROOM_HZ_MAX, socialGate, partyGate, validPartyPose, validSocialFrame, validPartyFrame, PARTY_SEND_MS, validSocialAct, socialInGate, noteInGate, partyInGate, SOCIAL_IN_HZ_MAX, NOTE_IN_HZ_MAX, INBOUND_FRAME_MAX, questInGate, validQuestFrame, QUEST_SEND_MS, QUEST_HUB_MIN_MS, PARTY_MAX, tokenGate, validTradeData, tradeGate, tradeInGate, validCastData, castGate, castInGate, CAST_FRAME_MAX, CAST_IN_HZ_MAX, relaySupportsCast, TRADE_IN_HZ_MAX, relaySupportsTrade, TRADE_FRAME_MAX, parkGate, relaySupportsPark, PARK_CELL_MAX, PARK_KEY_RE, PARK_TTL_MS, relaySupportsChannels, CHAT_LINE_CHANNELS, partyChatInGate, PARTY_CHAT_ROOM_HZ_MAX, relaySupportsRoll, rollGate, validRollSpec, validRoll, relaySupportsEmote, validCardData, cardGate, cardInGate, CARD_FRAME_MAX, CARD_IN_HZ_MAX, relaySupportsCard, validPageData, pageGate, pageInGate, PAGE_FRAME_MAX, PAGE_IN_HZ_MAX, relaySupportsPage, validDuelData, duelGate, duelInGate, DUEL_FRAME_MAX, DUEL_IN_HZ_MAX, relaySupportsDuel, readRenown, renownGate, relaySupportsRenown, RENOWN_ORDER_KEEP_MS, RENOWN_RESEND_MS, lookGate, relaySupportsLook, relaySupportsPartyTravel, relaySupportsRestOpt, relaySupportsEvent, eventGate, validLiveEvent, LIVE_EVENTS, isSocialRoom, validGateIn, validGateOut, gateGate, relaySupportsGate, relaySupportsOwn, relaySupportsGateSpent, relaySupportsGateSite, gatePlaceWire, readGuildTag, relaySupportsGuild, GUILD_ORDER_KEEP_MS, guildChatInGate, GUILD_CHAT_ROOM_HZ_MAX, validRaidIn, validRaidOut, raidGate, relaySupportsRaid, validRaidTownsIn, isRegionRoom, validTravellerMark, validTravellerFrame, relaySupportsTravellers, travInGate, TRAV_SEND_MIN_MS, TRAV_WELCOME_MAX, TRAV_STALE_MS, relaySupportsPartyWalk, relaySupportsPartyMap, validAmapFrame, amapBody, AMAP_SEND_MS, AMAP_HUB_MIN_MS } from './wire.js';   // SOC2: the hub's law, at home; AUDIT SOC B3/B11/B20: the act's projection, the inbound gates, the inbound bound
 import { RAID_TOWNS_CHUNK } from './raidLaw.js';   // RAID-ROLL: the towns table's pieces
 import { owGate, validOwIn, validOwOut, relaySupportsOverworld, OW_WORD_IDS_MAX, OW_WORD_ROWS_MAX } from './wire.js';   // OW6L: the overworld ledger's frame, both ways
 import { owIdInCell, owRowInCell, owRowSane } from './overworldLaw.js';   // OW6L: and the cell's law, held at home before a word is said
@@ -293,6 +293,9 @@ export class OnlineSession {
     this.onSocial = null;         // SOC2: (frame) => void - a hub frame in, through the wire's door (validSocialFrame): state, presence, party, invite, note, error
     this.onParty = null;          // SOC2: (acct, p) => void - a party member's pose in (never my own account's back)
     this.onQuestShared = null;    // QUEST1: (acct, name, quest) => void - a party member's shared quest in
+    this.onAmap = null;           // PARTY-MAP: (acct, name, k, r) => void - a party member's revealed automap rows in
+    this.amapOk = false;          // PARTY-MAP: the relay knows the `amap` frame (relaySupportsPartyMap) - an older one closes on it
+    this._lastAmapAt = -Infinity; // PARTY-MAP: the client's own floor between two sends (AMAP_SEND_MS)
     this.onTraveller = null;      // TV3: (frame) => void - a traveller's mark in my region (p null: they went in, or hid)
     this.onTravellerRoom = null;  // TV3: (frames) => void - the region room's marks, whole, on its welcome
     this.onTravellerLeft = null;  // TV3: (id) => void - a traveller left my region's room
@@ -450,6 +453,7 @@ export class OnlineSession {
     this._inSocial = new Map(); this._inNote = new Map(); this._inParty = new Map(); this._inQuest = new Map();
     this._inTrav = new Map();   // TV3: a region's marks in, per room (travInGate)
     this._inQuestRoom = new Map();   // AUDIT 68 S14-quest-inbound-ungated: the quest arm's own per-room gate, ahead of its per-sender cooldown
+    this._inAmap = new Map(); this._inAmapRoom = new Map();   // PARTY-MAP: the map shares' per-sender cooldown (room|acct) and per-room gate, the quest arm's pair
     this._inSocialSaid = false;
     this.peers = new Map();    // id -> { id, name, look, pose, from, at, shown, seenAt } - MERGED over every room held (WORLD6b-iii(b))
     this._fallen = new Set();  // AUDIT CONTRIB A2: ids whose death pose was delivered - ONE death per life, however many sockets carry it
@@ -684,6 +688,8 @@ export class OnlineSession {
     this._inSocial.delete(room); this._inNote.delete(room); this._inParty.delete(room);   // AUDIT SOC B3: and the hub's three
     for (const k of [...this._inQuest.keys()]) if (k.startsWith(`${room}|`)) this._inQuest.delete(k);   // AUDIT DROPS C2: keyed room|acct
     this._inQuestRoom.delete(room);   // AUDIT 68 S14-quest-inbound-ungated
+    for (const k of [...this._inAmap.keys()]) if (k.startsWith(`${room}|`)) this._inAmap.delete(k);   // PARTY-MAP
+    this._inAmapRoom.delete(room);
     if (s) for (const id of s) if (!this._held(id)) this.peers.delete(id);
   }
   _openHalo(room, backoff = BACKOFF_MIN_MS) {
@@ -1148,6 +1154,7 @@ export class OnlineSession {
         this.status = 'open'; this.error = null;   // SLAM12: `_backoff` is reset by the WELCOME (`_receive`), not here - see there
         this._lastSent = null; this._lastSentAt = -Infinity;
         this._lastParty = null; this._lastPartyAt = -Infinity;   // SOC2: a fresh socket is a fresh attachment at the hub - the next party pose goes whole
+        this.amapOk = false;   // PARTY-MAP: likewise, the welcome says
         this.travOk = false;   // AUDIT DEEP T3-5: this socket's relay says whether it knows `trav` on ITS welcome (a rollback to world121 closes on one)
         this._send(frame);
         if (!this.presence) this._lastSentAt = this._now();   // the heartbeat clock starts at the hello
@@ -1635,6 +1642,21 @@ export class OnlineSession {
     return true;
   }
 
+  /** PARTY-MAP (2026-09-30, Discord: "share map data between party members"): SHARED CARTOGRAPHY's send - the
+   *  automap rows I revealed in dungeon `k` since my last send (systems/partyMap.js gathers them), to the hub, which
+   *  fans them to my party alone. A background batch, never a click: AMAP_SEND_MS is the client's floor beside the
+   *  hub's own cooldown at half of it (amapShareGate), and a relay that does not know the frame is never sent one. */
+  shareAutomap(k, r) {
+    if (!this.acct || !this.amapOk) return false;
+    const body = amapBody({ k, r });
+    if (!body) return false;
+    const now = this._now();
+    if (now - this._lastAmapAt < AMAP_SEND_MS) return false;
+    if (!this._send({ t: 'amap', ...body })) return false;
+    this._lastAmapAt = now; this.stats.amapShares = (this.stats.amapShares ?? 0) + 1;
+    return true;
+  }
+
   /** The one door back for a session nothing else re-joins (AUDIT CHAT A6/B4/B6): a channel never changes
    *  rooms, so a page's goodbye (leave) or a terminal close would otherwise hold for the life of the page.
    *  Joins `room` at once after a leave, and once `afterMs` has passed since a terminal close; false when
@@ -1803,6 +1825,7 @@ export class OnlineSession {
       if (primary) this.partyWalkOk = relaySupportsPartyWalk(relayV);   // TV8
       else { const h = this._halo.get(room); if (h) h.lookOk = relaySupportsLook(relayV); }   // PROFILE2: a halo says for itself
       if (primary) this.travOk = relaySupportsTravellers(relayV);   // TV3
+      if (primary) this.amapOk = relaySupportsPartyMap(relayV);   // PARTY-MAP
       // TV3: A REGION'S WELCOME SAYS ITS TRAVELLERS (`tr`), and says none when there are none - so it REPLACES the book,
       // a region crossed or a room rejoined included. Through the wire's own door, cut at TRAV_WELCOME_MAX. (AUDIT TV C6:
       // below the halo's `else`, which belongs to the rest-opt line above it.)
@@ -2166,6 +2189,20 @@ export class OnlineSession {
       // hub fans to the other members' sockets, and this is the belt for a relay that does not)
       const f = validPartyFrame(m);
       if (f && f.acct !== this.acct) this._deliver('party', () => this.onParty?.(f.acct, f.p));
+    } else if (m.t === 'amap') {
+      // PARTY-MAP: a party member's revealed automap rows - the quest arm's two gates (per room, then per sender at the
+      // hub's own cooldown), never my own account's back
+      const f = validAmapFrame(m);
+      if (!f || f.acct === this.acct) return;
+      const rg = tokenGate(this._inAmapRoom.get(room), now, ((PARTY_MAX - 1) * 1000) / AMAP_HUB_MIN_MS, PARTY_MAX - 1);
+      this._inAmapRoom.set(room, rg.bucket);
+      if (!rg.pass) { this.stats.amapDropped = (this.stats.amapDropped ?? 0) + 1; return; }
+      if (this._inAmap.size > TRADE_IN_SENDERS_MAX) this._inAmap.clear();
+      const ak = `${room}|${f.acct}`;
+      const last = this._inAmap.get(ak);
+      if (last != null && now - last < AMAP_HUB_MIN_MS) { this.stats.amapDropped = (this.stats.amapDropped ?? 0) + 1; return; }
+      this._inAmap.set(ak, now);
+      this._deliver('amap', () => this.onAmap?.(f.acct, f.name, f.k, f.r));
     } else if (m.t === 'quest') {
       // QUEST1: a party member's shared quest, under questInGate's cooldown per SENDER (AUDIT DROPS C2; QUEST_HUB_MIN_MS,
       // the hub's own) - an honest hub, at most PARTY_MAX-1 senders each held to that cooldown, never trips it; a flood does.

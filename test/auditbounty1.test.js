@@ -86,11 +86,11 @@ test('AUDIT BOUNTY1 B3: the archive\'s words that no longer said the law - the r
   assert.doesNotMatch(read('src/systems/bountyReward.js'), /from level 11/, 'bountyReward.js: nor the piece\'s header');
 });
 
-test('AUDIT BOUNTY1 B4: the relay pins say who moved it - BOUNTY1 + AUDIT 28 (world131 since MERGE 2; world125 at the merge of main; world122 and world123 on the branch), then REALM-DOOR (world130); STRIKE-SHARED moved it on after (world132), SOFTCAP1 after it (world133), and WB9 after SOFTCAP1 (world134)', () => {
+test('AUDIT BOUNTY1 B4: the relay pins say who moved it - BOUNTY1 + AUDIT 28 (world131 since MERGE 2; world125 at the merge of main; world122 and world123 on the branch), then REALM-DOOR (world130); STRIKE-SHARED moved it on after (world132), SOFTCAP1 after it (world133), PARTY-MAP after SOFTCAP1 (world134), and WB9 after PARTY-MAP (world135)', () => {
   for (const f of ['test/soc1_hub.test.js', 'test/allycast.test.js', 'test/guild1c.test.js', 'test/renown1.test.js']) {
     const t = read(f);
-    assert.ok(t.includes("RELAY_VERSION, 'world134'"), `${f}: the pin is on world134`);
-    assert.ok(/WB9 moved it on last \(world134[^\n]*SOFTCAP1 moved it on \(world133[^\n]*STRIKE-SHARED moved it on \(world132[^\n]*MERGE 2 moved it on \(world131: the professions branch, BOUNTY1 \+ AUDIT 28[^\n]*REALM-DOOR moved it on \(world130/.test(t), `${f}: crediting BOUNTY1 + AUDIT 28, then REALM-DOOR`);
+    assert.ok(t.includes("RELAY_VERSION, 'world135'"), `${f}: the pin is on world135`);
+    assert.ok(/WB9 moved it on last \(world135[^\n]*PARTY-MAP moved it on \(world134[^\n]*SOFTCAP1 moved it on \(world133[^\n]*STRIKE-SHARED moved it on \(world132[^\n]*MERGE 2 moved it on \(world131: the professions branch, BOUNTY1 \+ AUDIT 28[^\n]*REALM-DOOR moved it on \(world130/.test(t), `${f}: crediting BOUNTY1 + AUDIT 28, then REALM-DOOR`);
     assert.ok(!/world13[01][^\n]*REALM-DOOR moved it on last/.test(t), `${f}: and does not still credit REALM-DOOR with the move`);
   }
 });

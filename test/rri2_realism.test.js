@@ -20,7 +20,7 @@ import { generateItems, LOOT_MATRICES, enemyLootTableKey, createRandomPotion, ad
 import { isStackable } from '../src/systems/inventory.js';
 import { useItem } from '../src/systems/useItem.js';
 import { calculateCost } from '../src/systems/shopStock.js';
-import { calculateItemRepairCost } from '../src/systems/repairService.js';
+import { dfuItemRepairCost as calculateItemRepairCost } from '../src/systems/repairService.js';   // REPAIR-EASE: the mod's formula, before the port's two-thirds
 import { weaponMinDamage, weaponMaxDamage, WEAPONS, WEAPON_MATERIALS } from '../src/characters/weapons.js';
 import { getMeleeWeaponAnimTime, CLASSIC_FRAME_UPDATE, swingFrameSeconds, swingHandling, swingHeft } from '../src/characters/weaponStates.js';
 import { installSwingLaw } from '../src/combat/swingLaw.js';

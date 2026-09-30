@@ -915,7 +915,7 @@ player on it (`world/gateArena.js courtArena` - one arena a frame, its crossings
 `player/motor.js _putBack` takes the airborne momentum off the floor away, off a walkway's side as off a rim). The
 collider carries every disc and every deck; the motor is what says how much is laid.
 
-On the wire (relay world134 - main's SOFTCAP1 took world133 first - the brain's law 4): the state says his court (`ct`) and the crossings (`xa`, the relay
+On the wire (relay world135 - main's SOFTCAP1 took world133 and its PARTY-MAP world134 first - the brain's law 4): the state says his court (`ct`) and the crossings (`xa`, the relay
 moments of the bound's words), and a bound's own word lays its walkway on every screen at once (`net/gateLink.js
 crossLaid`). GATE_COURT_BOUND is the three courts' (160 m). A fight checkpointed before WB9 crosses from the first court
 over every walkway up to the court it bounds to. The telegraph is drawn over the court it lands in (the Wrath's and the
@@ -1034,7 +1034,7 @@ row) and worn through the title's own door. An aura is held off the row (`aurasH
 (`/v1/account/aura`, `equipAura` - 403 `not-held`, 400 `no-aura` for a word the vocabulary lacks), one at a time, pressed
 off as it is pressed on. The mint signs the aura worn (`au`, absent for none - `net/identityToken.js` AURAS, `claimsValid`,
 `mintToken`) and says it beside the token (`aura`); the relay reads it out of the signature (`_named`, `badged`,
-`readAura`) as it reads every badge (relay world134, account service acct34). This device keeps its own on the stored
+`readAura`) as it reads every badge (relay world135, account service acct34). This device keeps its own on the stored
 session (`net/accountClient.js adoptIdentity` - every mint's answer and every wear's, from the account card or the
 Broker), so the fire at my own feet lights the moment any door changes it (`systems/ownGlyphs.js ownAura`); a peer's is
 its newest hello's (`net/online.js _peer`, `_refresh`, `auraOf`), kept in the session's memory through a blip (SLAM9's
@@ -1070,13 +1070,13 @@ dead), `tools/mutants/wb9e.json` (9, all dead), `tools/mutants/wb9f.json` (24, a
 all dead). The older suites re-aimed
 where WB9 moved their law: the phase's turn (WB3, WBX5, WB8b - the bound and the wait for the leap), the court's
 geometry (WB3b, WB6b - three courts, the braziers and shards clear of the walkways), the damage numbers (WB4, WB8c),
-the telegraph's text (WB4), the motor's clamp (AUDIT DUEL1), the relay's version pins (world134); and for WB9f the
+the telegraph's text (WB4), the motor's clamp (AUDIT DUEL1), the relay's version pins (world135); and for WB9f the
 burst's call (AUDIT WB A2, WBX3 - it hands the court's floor), the spew's bearing (WB5's toward-his-back mutant), the
 itemised keys and the court's fourth target family (WORLD-HOVER), the pool's keys (RAID4b's mutant), the spark's floor
 (WB9e); and for WB9g the title vocabulary's order and the wardrobe's shape (PENITENT, SHADOW-FANG, ACC3), the account
 Worker's columns and migrations (ACC-WORKER, RENOWN-CHAR) and its version pins (acct34), the foreign passes (AUDIT 18)
 and R-1's fogged programs (TV4), the Broker's rows (SET7's U10 - one `pressable`) and its stone-taking (SS1 - one
-`takeFromPack`), the session writer's mutants (NAME-ADOPT, SFSKIN), and the relay's version (world134).
+`takeFromPack`), the session writer's mutants (NAME-ADOPT, SFSKIN), and the relay's version (world135).
 
 ## Shipped
 

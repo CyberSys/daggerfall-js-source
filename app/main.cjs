@@ -78,8 +78,16 @@ app.on('second-instance', () => {
   if (w) { if (w.isMinimized()) w.restore(); w.focus(); }
 });
 
+// DA11 (2026-09-30, Mac: "Everytime DFO updates, even with the launcher, it deletes itself"): packaged, the built
+// site rides INSIDE app.asar (app/package.json `files`) - one file, where it was 18,354 loose ones under
+// resources/dist. A Windows update is electron-builder's silent NSIS: the old uninstaller moves every installed
+// file out, then the new installer unpacks every new one and copies it in, a file at a time with no window up.
+// At 18,430 files the install folder stood empty for as long as that took, while the launcher said "reopens by
+// itself in a few seconds" - a shortcut clicked then was a dead one Windows offers to delete, and a restart or a
+// logoff there left no app at all. The install is under a hundred files now. Electron's fs and its file:// fetch both read
+// inside the archive (Electron 42: stat, readFile, net.fetch) - handleDagger is unchanged (test/da11_install_whole).
 const DIST = app.isPackaged
-  ? path.join(process.resourcesPath, 'dist')
+  ? path.join(__dirname, 'dist')
   : path.join(__dirname, '..', 'dist');
 const CONFIG_FILE = () => path.join(app.getPath('userData'), 'config.json');
 
