@@ -24,7 +24,7 @@ import { consumeRacialOverridePending, lycanthropyMagicRound } from './lycanthro
 import { consumeVampirismPending, vampirismMagicRound } from './vampirism.js';   // V2b: the other curse
 import { updatePoisons } from './poisons.js';
 import { tickActiveEffects } from './effects.js';
-import { skillValue, tallySkill, SKILLS } from './skills.js';
+import { skillValue, tallyMovementSkill, SKILLS } from './skills.js';   // MOVE-REAL: the motion tallies' own door
 import { FATIGUE_LOSS, FATIGUE_DRAIN_SCALE, killIfAnyLiveStatZero } from './statMods.js';
 import { decayEnemyAlert } from './encounters.js';   // PlayerEntity.Update:380-384, the 8-hour alert decay
 import { dice100, setPlayerStruckHook } from '../combat/formulas.js';
@@ -435,7 +435,7 @@ export function runMagicRounds({ entity, fromMinute, toMinute, sinks, rolls = Ma
  * @param {number} o.classicMinutes the clock BEFORE this step
  * @param {number} o.dt            real seconds elapsed
  * @param {object} o.sinks         { hurt, heal, drainMagicka, drainFatigue, restoreFatigue, restoreMagicka, say }
- * @param {object} [o.activity]    { running, swimming } - the fatigue band
+ * @param {object} [o.activity]    { running, swimming } - the fatigue band; MOVE-REAL: + `odometer`, the motor's live { h, v }
  * @param {number} [o.fatigueMultiplier] PlayerEntity.cs:388-400, 0.9 with Athleticism
  * @param {Function} [o.rolls]     injectable RNG
  * @param {Function} [o.say]       message sink for disease/skill text
@@ -736,9 +736,12 @@ function tickPlayerMinutesOnce({
   // the ENTITY update; activity.jumped is the motor's frame edge, so
   // every host that feeds the tick gets the law (the dungeon's inline
   // reportActivity arm moved here).
+  // MOVE-REAL: the motor's live odometer (player/motor.js), which the movement skills past 100 count - the host hands
+  // it on with the activity (the climb's check, inside the motor's own step, reads it off the entity too)
+  if (activity.odometer) entity._odometer = activity.odometer;
   if (activity.jumped) {
     sinks.drainFatigue?.(Math.trunc(FATIGUE_LOSS.Jumping * fatigueMultiplier * FATIGUE_DRAIN_SCALE));   // BALANCE1: exertion's scale
-    tallySkill(entity, SKILLS.Jumping);
+    tallyMovementSkill(entity, SKILLS.Jumping);
   }
 
   // AUDIT 23 (entity-5) - PlayerEntity.cs:309-320: TallySkill(Running, 1)
@@ -756,7 +759,7 @@ function tickPlayerMinutesOnce({
     entity._runTallyAcc = (entity._runTallyAcc ?? 0) + dt;
     while (entity._runTallyAcc >= 0.25) {
       entity._runTallyAcc -= 0.25;
-      tallySkill(entity, SKILLS.Running);
+      tallyMovementSkill(entity, SKILLS.Running);   // MOVE-REAL: past 100 only the ground covered counts
     }
   }
 
@@ -796,7 +799,7 @@ function tickPlayerMinutesOnce({
       // the parallel Player lane the same day - two finders, one law.)
       if (entity.raceId !== RACES.Argonian
         && !dice100(skillValue(entity, SKILLS.Swimming), rolls())) loss = FATIGUE_LOSS.Swimming;
-      tallySkill(entity, SKILLS.Swimming);          // the 20000 clamp is load-bearing
+      tallyMovementSkill(entity, SKILLS.Swimming);  // the 20000 clamp is load-bearing; MOVE-REAL: past 100, treading water teaches nothing
     }
     // S40 - PlayerEntity.cs:417-418, `if (!isResting) DecreaseFatigue`.
     // The gate is on THIS drain only: the jumping one above is C#'s

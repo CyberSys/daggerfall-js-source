@@ -3535,7 +3535,11 @@ function pauseStats(body) {
   const m = sheetModel(playerEntity);
   const wrap = el('div', 'px-journal');
   const rail = el('div', 'px-qrail');
-  if (!statsSections().some(([id]) => id === statsSec)) statsSec = 'character';   // a page gone (the switch, offline) is never drawn
+  // a page gone (the switch, offline) is never drawn. MASTER-DOOR: the Master Skills page is the one page OFF the rail
+  // (its door is the button beside Ascend) - this guard took it for a page gone and turned every press of that button
+  // into the Character page; it stands while the sheet has a Master Skills model to draw it from
+  const offRail = statsSec === 'master' && !!m.master;
+  if (!offRail && !statsSections().some(([id]) => id === statsSec)) statsSec = 'character';
   for (const [id, label] of statsSections()) {
     const b = el('button', `px-qrow${id === statsSec ? ' on' : ''}`);
     b.append(el('span', 'px-c', '\u25c6'), document.createTextNode(label));
