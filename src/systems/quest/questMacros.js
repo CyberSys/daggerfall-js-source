@@ -48,6 +48,7 @@ import { dateFromSeconds, dateString, dayName, monthName, birthSignName, SEASON_
 import { REGION_TEMPLES, LOCATION_TYPES } from '../../formats/mapsFile.js';
 import { factionRaceFromRace } from '../../characters/staticNpc.js';
 import { rulerTitle } from '../../world/buildingNames.js';   // AUDIT 68 S30-ruler-divine-tables-dup: GetRulerTitle's one home
+import { legalStandingWord } from '../legalBands.js';   // %ltn's fourteen bands, one home
 
 export const MACRO_TYPES = Object.freeze({
   None: 0, NameMacro1: 1, NameMacro2: 2, NameMacro3: 3, NameMacro4: 4,
@@ -690,20 +691,7 @@ const HANDLERS = {
   '%ltn': (mcp, hooks) => {
     const rep = hooks?.world?.legalRepNow?.();
     if (rep == null) return null;
-    if (rep > 80) return 'revered';
-    if (rep > 60) return 'esteemed';
-    if (rep > 40) return 'honored';
-    if (rep > 20) return 'admired';
-    if (rep > 10) return 'respected';
-    if (rep > 0) return 'dependable';
-    if (rep === 0) return 'a common citizen';
-    if (rep < -80) return 'hated';
-    if (rep < -60) return 'pond scum';
-    if (rep < -40) return 'a villain';
-    if (rep < -20) return 'a criminal';
-    if (rep < -10) return 'a scoundrel';
-    if (rep < 0) return 'undependable';
-    return 'unknown';
+    return legalStandingWord(rep);   // REP5: the ladder's one home (systems/legalBands.js), which the notices read too
   },
 
   // PLACE (globals over the world hook)

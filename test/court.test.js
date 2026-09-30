@@ -66,22 +66,20 @@ const factionsForRep = () => (skipReal
 
 const seq = (...v) => { let i = 0; return () => v[Math.min(i++, v.length - 1)]; };
 
-test('court: rep loss, the surrender gates, and the coin flip', () => {
+test('court: rep loss, and the surrender gates (REP2: the coin and the -20 line retired)', () => {
   const p = { health: 30, items: [], skills: 30, stats: { personality: 50 } };
   lowerRepForCrime(p, 17, CRIMES.Pickpocketing);
   assert.equal(legalRepOf(p, 17), -REPUTATION_LOSS_PER_CRIME[12]);   // -2
-  // legalRep -2 (in -20..0): involuntary rides the DFRandom coin -
-  // odd refuses, even accepts; voluntary always accepts.
-  assert.equal(surrenderToCityGuards(p, 17, false, { dfRand: () => 1 }), false);
-  assert.equal(p.health, 1, 'SetHealth(1) fires before the refusal');
+  // REP2 (the reputation overhaul, Mac's signed shape: "Surrender is always honoured, unless you killed a watchman during
+  // that chase"): PIN MOVED - DFU's involuntary surrender rode the DFRandom coin in -20..0 (odd refused) and was refused
+  // outright below -20; both are retired (test/rep2_sentences.test.js). SetHealth(1) still fires first.
+  assert.equal(surrenderToCityGuards(p, 17, false), true);
+  assert.equal(p.health, 1, 'SetHealth(1) fires before the answer');
   p.health = 30;
-  assert.equal(surrenderToCityGuards(p, 17, false, { dfRand: () => 2 }), true);
-  p.health = 30;
-  assert.equal(surrenderToCityGuards(p, 17, true, { dfRand: () => 1 }), true);
-  // legalRep < -20 refuses involuntary outright, accepts voluntary
+  assert.equal(surrenderToCityGuards(p, 17, true), true);
   const q = { health: 30, legalRep: { 17: -30 }, items: [] };
-  assert.equal(surrenderToCityGuards(q, 17, false, { dfRand: () => 0 }), false);
-  assert.equal(surrenderToCityGuards(q, 17, true, { dfRand: () => 1 }), true);
+  assert.equal(surrenderToCityGuards(q, 17, false), true, 'below -20: taken to court now');
+  assert.equal(surrenderToCityGuards({ health: 30, legalRep: { 17: -30 }, watchSlain: true }, 17, false), false, 'a watchman slain in the chase: refused');
   // dead players never surrender
   assert.equal(surrenderToCityGuards({ health: 0 }, 17, true, {}), false);
 });
@@ -134,7 +132,8 @@ test('court: the not-guilty pleas - free, and the never-charged guilty-verdict q
     const c4 = startCourt(p4, 17, CRIMES.Murder, { rolls: seq(0.99, 0.99), dfRand: () => 1 });
     c4.daysInPrison = 0;
     assert.equal(resolveGuiltyVerdict(c4, p4).outcome, 'released');
-    assert.equal(legalRepOf(p4, 17), 9, 'the state-2 release CREDITS the sentence: half(20) - 1');
+    // REP2: PIN MOVED - the credit is the charge less a Murder's mark: 20 - 10 (DFU: half(20) - 1 = 9)
+    assert.equal(legalRepOf(p4, 17), 10, 'the state-2 release CREDITS the sentence: the charge less the mark');
   } else {
     assert.equal(legalRepOf(p2, 17), repBefore, 'the prison arm credits later, from the flow');
   }
@@ -146,14 +145,15 @@ test('court: the not-guilty pleas - free, and the never-charged guilty-verdict q
     goldPieces: 100000, items: [] };
   const c5 = { punishmentType: 2, fine: 0, daysInPrison: 0, crime: CRIMES.Murder, regionIndex: 17 };
   assert.equal(pleaGuilty(c5, p5).outcome, 'released');
-  assert.equal(legalRepOf(p5, 17), 9, 'the zero-day guilty PLEA credits the sentence too');
+  assert.equal(legalRepOf(p5, 17), 10, 'the zero-day guilty PLEA credits the sentence too (REP2: 20 less the mark)');
 
-  // Serving raises rep by half the loss - 1 (Pickpocketing: 2/2-1 = 0)
+  // REP2: PIN MOVED - serving gives the charge back (Pickpocketing: its whole 2) and a Murder keeps half as its mark (+10);
+  // DFU gave half the loss - 1 (Pickpocketing 0, Murder 9). test/rep2_sentences.test.js holds every crime's row.
   const p3 = mk();
   raiseRepForSentence(p3, { crime: CRIMES.Pickpocketing, regionIndex: 17 });
-  assert.equal(legalRepOf(p3, 17), 0);
-  raiseRepForSentence(p3, { crime: CRIMES.Murder, regionIndex: 17 });   // 20/2-1 = +9
-  assert.equal(legalRepOf(p3, 17), 9);
+  assert.equal(legalRepOf(p3, 17), 2);
+  raiseRepForSentence(p3, { crime: CRIMES.Murder, regionIndex: 17 });   // +10
+  assert.equal(legalRepOf(p3, 17), 12);
 });
 
 
@@ -306,7 +306,7 @@ test('AUDIT 21 F3: normalize drifts FACTION reputations too, through the walk', 
   // AUDIT 58: this comment used to say the faction side PROPAGATES. It
   // does not - PlayerEntity.cs:2239/:2241 calls the TWO-argument
   // ChangeReputation and PersistentFactionData.cs:390 defaults propagate
-  // to false, which is what court.js:174-178 records AUDIT 23 as having
+  // to false, which is what court.js:196-200 records AUDIT 23 as having
   // corrected. The ONLY asymmetry is direct increment (legal) vs clamped
   // ChangeReputation (faction); neither side fans out. The pin that can
   // actually see the flag needs a hierarchy this one-record fixture does
@@ -417,11 +417,13 @@ test('AUDIT 21 F11: the court clamps, at both ends', () => {
   // At legalRep -200 both thresholds are 75. FailedRoll(t) is `roll >= t`,
   // so a roll of 74 PASSES both and the sentence is banishment (type 0);
   // without the cap threshold2 would be 100 and 74 would fail it.
+  // REP3: PIN MOVED - only a Murder or a Treason can be banished now (court.js BANISHABLE_CRIMES), so the cap is read on
+  // a Murder; the thresholds are the same numbers for every crime
   const deep = mk(-200);
-  assert.equal(startCourt(deep, 17, CRIMES.Pickpocketing,
+  assert.equal(startCourt(deep, 17, CRIMES.Murder,
     { rolls: seq(0.74), dfRand: () => 1 }).punishmentType, 0,
   'a roll of 74 clears both capped thresholds');
-  assert.equal(startCourt(mk(-200), 17, CRIMES.Pickpocketing,
+  assert.equal(startCourt(mk(-200), 17, CRIMES.Murder,
     { rolls: seq(0.75, 0.75), dfRand: () => 1 }).punishmentType, 2,
   'and a roll of 75 fails both, exactly at the cap');
 

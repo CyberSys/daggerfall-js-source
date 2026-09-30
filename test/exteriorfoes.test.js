@@ -141,9 +141,11 @@ test('exteriorfoes: the FIXED-CITY host carries the catch-up loop too, both host
   assert.ok(fn.includes('Math.min(now - _lastEncMinutes, 1440)'), 'the catch-up is bounded');
   assert.ok(fn.includes('const span = playerEntity.preventEnemySpawns ? 0 : Math.min(now - _lastEncMinutes, 1440);'), 'the suppression flag gates the whole loop (:482)');
   assert.ok(fn.includes('if (playerEntity.preventEnemySpawns) playerEntity.preventEnemySpawns = false;'), 'and clears at the tail (:524-525)');
-  assert.ok(fn.includes('passiveGuardSpawns({'), 'the two passive-guard rolls (:498-511)');
-  assert.ok(fn.includes('playerEntity.crimeCommitted = CRIMES.Criminal_Conspiracy;'), 'each levies Criminal_Conspiracy first - the field, as :502/:509 (WERE-LEVY)');
-  assert.ok(fn.includes('_witnessResponse();'), 'through SpawnCityGuards(false)');
+  // REP1 (the reputation overhaul, "Challenged on sight"): PIN MOVED - the two passive-guard rolls (:498-511) are retired
+  // here as in world.js; the fixed-city host's watch stops a known criminal a guard sees (scenes/standingHost.js)
+  assert.ok(!fn.includes('passiveGuardSpawns('), 'no passive levy in the loop');
+  assert.ok(!fn.includes('CRIMES.Criminal_Conspiracy'), 'and no Conspiracy levied by it');
+  assert.match(e, /\n\s*standingWatch\.frame\(\);   \/\/ REP1: a guard who sees a known criminal stops them/, 'the stop, in this host\'s frame');
   const _sweepLatch = /let _updatedGuards = false;[^]*if \(!_updatedGuards\) \{\n\s*_updatedGuards = true;(?:\n\s*\/\/[^\n]*)*\n\s*if \(_m === 'exterior'\) cityGuards\.makeNpcGuardsIntoEnemies\(/;
   // :488-491 - no encounter roll while the player swims (DFU: or is on a ship; the port has no ship state)
   // AUDIT 65 XL-1: PlayerEntity.cs:489 reads PlayerEnterExit.IsPlayerSwimming,

@@ -21,7 +21,7 @@ import { maxFatigue } from '../src/systems/statMods.js';
 import { SURVIVAL_RULES } from '../src/systems/survival/difficulty.js';
 import { newSurvival } from '../src/systems/survival/needs.js';
 import { exhaustionOutcome } from '../src/systems/rest.js';
-import { NORMALIZE_INTERVAL_MINUTES } from '../src/systems/court.js';
+import { NORMALIZE_INTERVAL_MINUTES, RECOVERY_INTERVAL_MINUTES } from '../src/systems/court.js';
 
 afterEach(() => setSharedClock(null));
 
@@ -103,22 +103,26 @@ test('DISC28-E (LIVED1): the skip moves nothing of the player\'s - their own clo
 });
 
 const N = NORMALIZE_INTERVAL_MINUTES;
+// REP4 (the reputation overhaul, "Earn it + faster drift"): PIN MOVED - an absence pays the recovery half on the WEEKLY
+// boundaries now (court.js RECOVERY_INTERVAL_MINUTES), so these pins count weeks where they counted DFU's 112 days; the
+// laws they hold - every boundary paid once, [last, now), the prison skip's shield - are the same
+const W = RECOVERY_INTERVAL_MINUTES;
 const convict = (last) => ({ lastGameMinutes: last, legalRep: [0, -15, 3], factionRep: null });
 
 test('DISC28-F: an arrival across three normalise boundaries pays all three - the reputation walks back toward zero', () => {
-  setSharedClock(() => 3 * N + 10);
-  const e = convict(N - 5);
-  alignEntityClocks(e, 3 * N + 10, { worldLeft: N - 5 });   // crosses N, 2N and 3N - from the world's minute the save left at (LIVED1)
+  setSharedClock(() => 3 * W + 10);
+  const e = convict(W - 5);
+  alignEntityClocks(e, 3 * W + 10, { worldLeft: W - 5 });   // crosses W, 2W and 3W - from the world's minute the save left at (LIVED1)
   // AUDIT DISC28 TM-1 (Mac, 2026-09-28: "Recovery only"): an absence pays the recovery half - the -15 walks back three,
   // the +3 standing is kept (it went to 0 before the decision)
   assert.deepEqual(e.legalRep.slice(0, 3), [0, -12, 3], 'three boundaries, three points of recovery, no standing lost');
 });
 
 test('DISC28-F: an arrival inside one interval pays nothing; the boundary minute is [last, now) - DFU\'s own convention', () => {
-  const e = convict(N + 1);
-  alignEntityClocks(e, 2 * N, { worldLeft: N + 1 });   // 2N itself is not in [N+1, 2N)
+  const e = convict(W + 1);
+  alignEntityClocks(e, 2 * W, { worldLeft: W + 1 });   // 2W itself is not in [W+1, 2W)
   assert.deepEqual(e.legalRep.slice(0, 3), [0, -15, 3]);
-  assert.equal(normalizeAcross(convict(N), N, N + 1), 1, 'N itself is in [N, N+1)');
+  assert.equal(normalizeAcross(convict(W), W, W + 1), 1, 'W itself is in [W, W+1)');
   assert.equal(normalizeAcross(convict(0), 5, 5), 0);
 });
 

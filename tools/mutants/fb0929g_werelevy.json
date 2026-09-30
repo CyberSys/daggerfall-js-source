@@ -1,25 +1,24 @@
 [
   {
-    "name": "WERE-LEVY-world-through-the-setter",
-    "file": "src/scenes/world.js",
-    "old": "        playerEntity.crimeCommitted = CRIMES.Criminal_Conspiracy;\n        _witnessResponse();",
-    "new": "        setCrimeCommitted(playerEntity, CRIMES.Criminal_Conspiracy);\n        _witnessResponse();",
+    "name": "WERE-LEVY-the-stop-refused-through-the-setter",
+    "file": "src/scenes/standingHost.js",
+    "old": "        playerEntity.crimeCommitted = CRIMES.Criminal_Conspiracy;   // the levy's own write (WERE-LEVY: the field)",
+    "new": "        setCrimeCommitted(playerEntity, CRIMES.Criminal_Conspiracy);   // the levy's own write (WERE-LEVY: the field)",
     "tests": [
-      "test/audit26_dungeonfoes.test.js",
-      "test/exteriorfoes.test.js",
-      "test/beastform.test.js"
+      "test/beastform.test.js",
+      "test/rep1_watchstop.test.js"
     ],
-    "note": "The levy asked SuppressCrime: a transformed lycanthrope drew the watch with no crime to answer."
+    "note": "REP1 retired the per-minute levy from world.js and exterior.js; its Conspiracy is the watch's stop's, and it writes the field as the levy did."
   },
   {
-    "name": "WERE-LEVY-fixed-city-through-the-setter",
-    "file": "src/scenes/exterior.js",
-    "old": "        playerEntity.crimeCommitted = CRIMES.Criminal_Conspiracy;   // WERE-LEVY",
-    "new": "        setCrimeCommitted(playerEntity, CRIMES.Criminal_Conspiracy);   // WERE-LEVY",
+    "name": "WERE-LEVY-come-quietly-through-the-setter",
+    "file": "src/scenes/arrestFlow.js",
+    "old": "    if (crimeId() === 0) playerEntity.crimeCommitted = CRIMES.Criminal_Conspiracy;   // the levy's own write (WERE-LEVY: the field)",
+    "new": "    if (crimeId() === 0) setCrimeCommitted(playerEntity, CRIMES.Criminal_Conspiracy);   // the levy's own write (WERE-LEVY: the field)",
     "tests": [
-      "test/exteriorfoes.test.js",
-      "test/beastform.test.js"
+      "test/beastform.test.js",
+      "test/rep2_sentences.test.js"
     ],
-    "note": "The ?town route's levy asked SuppressCrime."
+    "note": "The stop's come-quietly door writes the levy's Conspiracy on the field."
   }
 ]

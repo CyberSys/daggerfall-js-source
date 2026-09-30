@@ -84,7 +84,7 @@ import { FACTION_TYPES, GUILD_GROUPS } from '../formats/factionFile.js';
 import { MOBILE_TYPES } from '../characters/mobileTypes.js';
 import { findFactionByTypeAndRegion } from './talk.js';
 import { changeReputation } from './factionRep.js';
-import { legalRepOf, LEGAL_REP_MIN, LEGAL_REP_MAX } from './court.js';
+import { legalRepOf, changeLegalRep, LEGAL_REP_MIN, LEGAL_REP_MAX } from './court.js';
 import { ORDERS } from './guildVariants.js';
 import { GUILDS } from './guilds.js';
 import { renownStruckAt } from '../net/renownTracker.js';
@@ -242,8 +242,10 @@ export const raidActive = (raid, now) => !raid.cleansed && now >= raid.startMinu
 export function grantRaidReputation(ctx, region) {
   const player = ctx?.player, store = ctx?.store;
   if (!player || !store?.dict) return false;
-  if (!player.legalRep) player.legalRep = {};
-  player.legalRep[region] = Math.min(LEGAL_REP_MAX, Math.max(LEGAL_REP_MIN, legalRepOf(player, region) + RAID_LEGAL_REP));
+  // AUDIT REP F5: through the one door, with its cause - REP5's "a notice on every change" (the raid's +5 was the one
+  // legal change a cause moved that said nothing); the clamp is the mod's own, kept: the delta is what it lets through
+  const rep = legalRepOf(player, region);
+  changeLegalRep(player, region, Math.min(LEGAL_REP_MAX, Math.max(LEGAL_REP_MIN, rep + RAID_LEGAL_REP)) - rep, { kind: 'raid' });
   const people = findFactionByTypeAndRegion(store.dict, FACTION_TYPES.People, region);
   if (people && people.region === region) changeReputation(store, people.id, RAID_PEOPLE_REP, false);
   const orders = new Set(Object.values(ORDERS));
