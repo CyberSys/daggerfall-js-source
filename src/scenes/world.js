@@ -9051,6 +9051,19 @@ export async function bootWorld(canvas, renderer, params, status) {
     bountyFarms?.destroyAll();   // BOUNTY-FARM: the frame moves under it - it stands again from the bounty, in the new one
     csaReanchor(state.initOffset);   // FIELD-CSA1: and every placed boat with it
     _streamSince = null;   // PERF-EXT24 (the review): the sweep ended the old world's stream - the new one's two seconds start at its first pump
+    // RESPAWN-GROUND (FIELD BUGS 2026-09-30, "Respawning high in the air after death"): THE EYE STANDS ON THE NEW PIXEL
+    // WHILE IT BUILDS. The frames of the awaits below feed `cam.pos` to the streamer, which reads it in the new frame -
+    // whose own pixel is the square [0, TERRAIN_SIZE) - and an eye outside that square is a pixel change: the whole new
+    // world moved 819.2 over mid-build, and the landing, reckoned on the pixel at its unmoved place, stood over a
+    // neighbour not yet built, where the floor ray found nothing and the arrival hung ARRIVAL_LIFT up (TL2's edge
+    // landing the same) - a 42-unit fall, 185 health off a body revived at half. An open-world eye is always in the
+    // square (the origin follows it); a dungeon's, a castle's or the drowned dungeon's is at that interior's own
+    // coordinates, and the respawn, Recall, a quest's teleport and the cemetery all leave a dungeon for here
+    const eye = walkMode ? player.pos : cam.pos;
+    if (!(eye[0] >= 0 && eye[0] < TERRAIN_SIZE && eye[2] >= 0 && eye[2] < TERRAIN_SIZE)) {
+      if (walkMode) player.spawn(TERRAIN_SIZE / 2, player.pos[1], TERRAIN_SIZE / 2);
+      cam.pos = walkMode ? player.eyeAt() : [TERRAIN_SIZE / 2, cam.pos[1], TERRAIN_SIZE / 2];
+    }
     const first = queue.shift();
     if (seasonsActive && modEvent === 'travel') await seasons.onPostFastTravel().catch((e) => console.warn('[seasons] travel:', e?.message ?? e));   // SIB1: OnPostFastTravel, off the arrival month (SIB2: the travel popup's arm alone)
     if (seasonsActive && modEvent === 'load') await seasons.onLoad().catch((e) => console.warn('[seasons] load:', e?.message ?? e));   // SIB2: SaveLoadManager.OnLoad - the forced apply now, the unforced one next frame (seasons.tick)
@@ -9790,6 +9803,12 @@ export async function bootWorld(canvas, renderer, params, status) {
     // AUDIT OH-F B5: a death in the drowned dungeon wakes at ITS door - the pit (the dungeon's own pixel is the borrowed
     // template's, perhaps across the map), stood on the entrance as the way up stands it. Read before the exit clears it.
     const ohReturn = wasInDungeon ? ohAbyss?.returnPoint() ?? null : null;
+    // RESPAWN-GROUND (FIELD BUGS 2026-09-30, lumin's "Respawning high in the air after death": "dying inside a dungeon
+    // and it would respawn me high above a nearby city"): THE PIXEL THE PLAYER FELL ON, read while the mode they fell in
+    // still stands. playerTravelPixel answers a dungeon's entrance only while the dungeon is mounted; read after the exit
+    // (which leaves the player at the dungeon's own coordinates), it read those through the open world's origin - a body
+    // west or south of the dungeon's corner (a negative x or z) woke on the neighbouring pixel
+    const px = ohReturn?.pixel ?? playerTravelPixel();
     const courtGate = modes?.gateArenaGate?.() ?? null;   // WB3b: a death in the Burning Court is CAST OUT - before its gate, not at a temple
     Promise.resolve().then(async () => {
       if (courtGate) {
@@ -9801,7 +9820,6 @@ export async function bootWorld(canvas, renderer, params, status) {
       // modal host's death screen with the rest of its slot (a
       // building's interiorOverlay, a dungeon's activeOverlay).
       if (mode !== 'exterior') modes?.forceExitToExterior();
-      const px = ohReturn?.pixel ?? playerTravelPixel();
       // D-ONLINE2 (2026-09-18, Mac: "make sure privateers hold does not apply to the respawn mechanic - that
       // would just skip the dungeon when you die and spawn in front of it"): THE TUTORIAL DUNGEON IS THE ONE
       // DUNGEON THE DOOR OUT IS NOT A MERCY. D-ONLINE1 respawns a dungeon death at the dungeon's own pixel -
