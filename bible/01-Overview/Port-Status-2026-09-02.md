@@ -420,7 +420,7 @@ are the **narrowed remainders** Wave D recorded rather than shipped
 
 **Blocked - host scope.**
 
-- **`src/scenes/exterior.js:2277`** - Recall pends here; the anchor
+- **`src/scenes/exterior.js:2280`** - Recall pends here; the anchor
   machinery lives in the streaming `?world` host. *(The triage measured
   this row at `:1033`; RE-RESOLVED onto the live refusal at ROAD-G G7,
   because this is the one row in the two lists that is still OPEN - a
@@ -913,7 +913,7 @@ ships, which is the warning the section's own preamble opens with.
 9. **`:649` UseItem's unbuilt destinations.** Every arm the row names is
    built: `DrinkPotion` (`systems/useItem.js:205`, `:296-306`),
    `RecordLocationFromMap`/`DiscoverRandomLocation`
-   (`ui/nativeInventory.js:849-853`, `scenes/world.js:7184`), the
+   (`ui/nativeInventory.js:849-853`, `scenes/world.js:7189`), the
    quest-item click (`useItem.js:252`, `:260-261`) and
    `DoItemEnchantmentPayloads(Used)` (already struck at E2). D10 closed
    the last residue in the row's book-reader clause - the fixed 10px row

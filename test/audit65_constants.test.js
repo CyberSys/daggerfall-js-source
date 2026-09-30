@@ -149,8 +149,8 @@ test('AUDIT 65 CV-1: the enhanced skin reads the same law - the number AND the m
   // The accessor's ONE consumer draws the value text and the bar from
   // it, so the meter tracks the same figure the attribute bars do.
   const menu = src('src/ui/enhancedMenu.js');
-  assert.match(menu, /el\('span', 'v', String\(m\.skill\(id\)\)\)/, 'the number reads through the model');
-  assert.match(menu, /pxMeter\(m\.skill\(id\), 100, 'thin'\)/, '...and so does the meter beside it');
+  assert.match(menu, /el\('span', 'v', m\.skillText \? m\.skillText\(id\) : String\(m\.skill\(id\)\)\)/, 'the number reads through the model');   // SOFTCAP1: \"85 (150)\" while mentoring
+  assert.match(menu, /skillMeter\(m\.skillBase \? m\.skillBase\(id\) : m\.skill\(id\), mastered\)/, '...and so does the meter beside it');   // SOFTCAP6: and the mastery's gold track   // SOFTCAP1: the 0..100 bar and the gold 100..200 one
   // sheetModel's empty-entity path stays safe: `entity ?? {}` and
   // skillValue({}, id) is 0.
   assert.equal(sheetModel(undefined).skill(SKILLS.HandToHand), 0, 'the art-less/entity-less path still answers 0');

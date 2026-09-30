@@ -293,6 +293,17 @@ export function announceSkillRaise(id, value, { say = null, now = nowMs(), doc =
   return true;
 }
 
+/** SOFTCAP1: a milestone past 100 (skillSoftcap.js SKILL_MILESTONES) - one
+ *  line in both lanes, and on the enhanced strip the skill's row with its
+ *  new value and title. */
+export function announceSkillMilestone(id, milestone, { say = null, now = nowMs(), doc = DOC } = {}) {
+  const text = `${milestone.title} of ${SKILL_NAMES[id]}: your ${SKILL_NAMES[id]} has reached ${milestone.at}.`;
+  say?.(text);
+  if (!isEnhanced() || !doc) return false;
+  levelNotices.announceSkill(id, `${milestone.at} - ${milestone.title}`, now);
+  return true;
+}
+
 /**
  * A mastery. DFU raises TEXT.RSC 4020 in a click-anywhere box and
  * plays the fanfare (RaiseSkills :1390-1407); the box carries no

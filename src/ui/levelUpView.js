@@ -74,7 +74,7 @@ import { MUST_DISTRIBUTE_BONUS_POINTS } from './charsheet.js';
 import { REMAINING_POINTS_ERROR, REMAINING_POINTS_LABEL, TAKE_ONE_BACK_HINT } from './virtueLevelUp.js';
 import { attributeOffset, canRaiseAttribute, canLowerAttribute, LEVELUP_TOTAL, levelBarProgress, levelingSettings, usesVirtueLeveling } from '../systems/oblivionLeveling.js';   // ASCEND-ANYTIME: a mod-law view still needs the mod's own prices to draw a row
 import { LEVELUP_SKILL_SUM_PER_LEVEL, skillRecentlyIncreased } from '../systems/advancement.js';
-import { SKILL_NAMES, skillValue } from '../systems/skills.js';
+import { SKILL_NAMES, displaySkillValue } from '../systems/skills.js';
 import { liveStat } from '../systems/statMods.js';   // ASCEND-LIVE: what a star IS, beside what the rollout spends
 import { sheetModel } from './enhancedCharSheet.js';
 
@@ -667,7 +667,7 @@ export function riseRibbon(entity) {
     name: SKILL_NAMES[id] ?? '',
     // AUDIT 65 CV-1's read, the one sheetModel makes: GetLiveSkillValue,
     // so a lycanthrope's +30 shows here exactly as it shows there.
-    value: skillValue(e, id),
+    value: displaySkillValue(e, id),   // SOFTCAP1: the printed 0..200 value, not the formula's
     group: groups.get(id) ?? 'Miscellaneous',
     role: roles.get(id) ?? ROLE_IDLE,
     note: ROLE_NOTE[roles.get(id) ?? ROLE_IDLE],

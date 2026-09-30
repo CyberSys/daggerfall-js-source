@@ -5,6 +5,8 @@
 // location's climate (CLIMATE.PAK -> GetWorldClimateSettings).
 
 import { walkModeOn, bindWalkMode } from '../player/walkMode.js';   // PADWALK: walk mode, one button on and off
+import { YesNoBoxWindow } from '../ui/yesNoBox.js';   // SOFTCAP3: the Master Skills offer
+import { effectiveLevel } from '../systems/mentorMode.js';   // SOFTCAP2: mentor mode - the level the world is built around
 import { dfmodGroundLayers } from '../systems/dfmodTextures.js';   // GROUND1: an attached mod's terrain tile set
 import { getFloat } from '../systems/settings.js';   // AUDIT 28 W1: NightAmbientLightScale
 import { markPuddleWater, carryPuddleMask } from '../world/puddleMask.js';   // WATER-PUDDLE: the puddle is the art's
@@ -1866,7 +1868,7 @@ export async function bootExterior(canvas, renderer, params, status) {
         restAsks: playerEntity.isResting ? playerEntity.restAsks : 1,   // SURV4 + SURV-TIERS: the rest's asks, its kind priced by the tier at the open (scenes/shared.js) - a rough rest asks twice in Hard, once in Casual
         inLocationRect: _musicInLocationRect(),   // F061: the WIDENED TOWN RECT - this host lives inside it
         climateIndex: locClimateIndex,
-        playerLevel: playerEntity.level,
+        playerLevel: effectiveLevel(playerEntity),   // SOFTCAP2: mentor mode - the group's encounters
       });
       if (hit) { _standEncounterFoe(hit, playerFeet); break; }
       // CAMP1 - GROUP ENCOUNTERS (camps and packs, systems/campEncounters.js):
@@ -1887,7 +1889,7 @@ export async function bootExterior(canvas, renderer, params, status) {
           gameMinutes: _lastEncMinutes + l + 1, inside: _m !== 'exterior',
           inLocationRect: _musicInLocationRect(),
           climateIndex: locClimateIndex,
-          playerLevel: playerEntity.level,
+          playerLevel: effectiveLevel(playerEntity),   // SOFTCAP2
           preventEnemySpawns: playerEntity.preventEnemySpawns,
         });
         if (campHit) { _standCampEncounter(campHit, playerFeet); break; }
@@ -2028,6 +2030,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     topWindow: () => townTalk.overlay,
     // The MASTERY box (RaiseSkills :1390-1401) - TEXT.RSC 4020.
     box: (rows) => townTalk.showOverlay(new ActionTextBox(rows)),
+    ask: (rows, onYes, onNo, opts = {}) => townTalk.showOverlay(new YesNoBoxWindow({ rows, onYes, onNo, ...opts })),   // SOFTCAP3: the Master Skills box - DFU's Yes/No or OK box (both skins)
     advanceMinutes: (n, sharedEnd) => { playerTicker.advance(n, sharedEnd); runEncounterTick(walkMode ? player.pos : cam.pos, sharedEnd, true); },   // CAMP1-REST: every tick this drives IS a rest   // ROAD-G TAIL: the catch-up loop rides the rest's minutes, as world.js:7501 has it   // RESTX2: sharedEnd is the session's local sim-minutes online, so the roll still gets a fresh `now` while the real clock stands   // REST-ROUNDS: the sub-tick's end reaches the rounds too (null here - no online)
     // QX1: TickRest's per-hour QuestMachine.Instance.Tick (:379),
     // through THIS host's own bridge. It used to be `null` with a note

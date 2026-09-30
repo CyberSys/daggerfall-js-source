@@ -29,12 +29,13 @@ import { modSetting, modSettingsOf } from '../systems/modSettings.js';   // DS1:
 import { weatherSunlightScale } from '../world/weather.js';   // DS1: WeatherManager's ScaleFactor, for the skybox's _LightColor0
 import { seasonValue, SEASONS, dateFromClassicMinutes } from '../systems/gameDate.js';   // DS1: the winter arm of that scale
 import { hasActiveEffect, isEntityWaterWalking, isBlending, isInvisible, isAShade } from '../systems/effects.js';
-import { skillValue, tallySkill, SKILLS, SKILL_NAMES } from '../systems/skills.js';
+import { skillValue, displaySkillValue, tallySkill, SKILLS, SKILL_NAMES } from '../systems/skills.js';
 import { expandRowValues } from '../systems/quest/questMacros.js';   // MACRO-3: the mastery box's %pcn and %ski
 // LV2: the level-up notification's seams. The CLASSIC lane's line and
 // box are still this file's - the seam takes them and uses them - so
 // nothing about the old skin is decided in a UI module.
-import { announceSkillRaise, announceMastery } from '../ui/levelNotice.js';
+import { announceSkillRaise, announceMastery, announceSkillMilestone } from '../ui/levelNotice.js';
+import { masterSkillsBoxDue, setMasterSkills, MASTER_SKILLS_OFFER_ROWS, MASTER_SKILLS_INFO_ROWS, MASTER_SKILLS_DECLINED_TEXT, MASTER_SKILLS_INTRO_ROWS, nextMasteryChoice, masteryChoiceRows, masterSkill } from '../systems/masterSkills.js';   // SOFTCAP3/4
 import { DOOR_SPELL_TEXT, castBySkeletonKey } from '../systems/mysticism.js';   // X1: the door-spell alert lines; D9: Open.CheckCastByItem
 import { raiseSkills } from '../systems/advancement.js';   // AUDIT 23 (entity-1): the rest-end raise
 import { tickPlayerMinutes, claimMagicRounds, runMagicRoundsFor, worldMinutes, setWorldMinutes, advanceWorldMinutes, MINUTES_PER_DAY, CLASSIC_MINUTES_PER_SECOND, sharedClockOn } from '../systems/worldTick.js';
@@ -1304,7 +1305,10 @@ export function raisePlayerSkills(entity, { say = () => {}, onLevelUp = null, ro
   // TEXT.RSC reader (townTalk.lines), `box` its click-anywhere
   // presenter. A host that hands neither still gets the fanfare, the
   // way DFU plays it outside the `tokens != null` gate.
-  lines = null, box = null } = {}) {
+  lines = null, box = null,
+  // SOFTCAP3: the host's message-box presenter - (rows, onYes, onNo, { okOnly }) => window - for the one-time
+  // Master Skills box (DFU's own box on the classic skin, the skin's card on the enhanced one)
+  ask = null } = {}) {
   // ROAD-Ar R12 - THE PRESENTATION RUNS IN THE LOOP, NOT AFTER IT.
   // RaiseSkills (:1371-1414) pops skillImprove and builds the mastery
   // box inside the skill loop and posts dfuiOpenCharacterSheetWindow
@@ -1345,8 +1349,13 @@ export function raisePlayerSkills(entity, { say = () => {}, onLevelUp = null, ro
     entity.lastSkillCheckTime = (entity.lastSkillCheckTime ?? 0) - entity.restSimMinutes;
     entity.restSimMinutes = 0;
   }
-  return raiseSkills(entity, Math.floor(worldMinutes()), rolls, onLevelUp,
+  // SOFTCAP3: whether THIS pass put a window up (a mastery box, a level-up sheet) - the Master Skills offer never
+  // lands on top of one, because a single-slot host would lose the window under it (R12's lesson, above)
+  let windowed = false;
+  const levelUpHook = onLevelUp ? (e) => { windowed = true; return onLevelUp(e); } : null;
+  const raised = raiseSkills(entity, Math.floor(worldMinutes()), rolls, levelUpHook,
     (id) => {
+      windowed = true;
       // AUDIT LV2 F3: the TEXT.RSC read is a THUNK, so it happens on
       // the lane that shows it. Passed by value it ran on BOTH - the
       // enhanced skin read record 4020 off disk at every mastery and
@@ -1355,7 +1364,37 @@ export function raisePlayerSkills(entity, { say = () => {}, onLevelUp = null, ro
       announceMastery(id, { box, rows: () => expandRowValues(plainLines(lines?.(MASTERY_TEXT_ID)), null) });   // MACRO-3: %pcn and %ski are MacroHelper globals - DFU's box expands them with no source (PlayerEntity.cs:1397-1401)
       audio.playOneShot(SOUND.ArenaFanfareLevelUp, 1);
     },
-    (id) => announceSkillRaise(id, skillValue(entity, id), { say })) ?? [];
+    (id) => announceSkillRaise(id, displaySkillValue(entity, id), { say }),   // SOFTCAP1: the 0..200 number the player climbs, not the formula's
+    // SOFTCAP1: a milestone past 100 (125/150/175/200) - the line, and the fanfare mastery plays
+    (id, ms) => {
+      announceSkillMilestone(id, ms, { say });
+      audio.playOneShot(SOUND.ArenaFanfareLevelUp, 1);
+    }) ?? [];
+  // SOFTCAP3: THE MASTER SKILLS BOX - once per character, a primary mastered, on a quiet pass (the mastery pass put its
+  // own box up, so this is the NEXT rest's or journey's). ONLINE it is always in force, so the box EXPLAINS it and has
+  // one OK; OFFLINE it ASKS (Yes/No) and No leaves the switch in the skill screen (systems/masterSkills.js).
+  // SOFTCAP4: THE MASTERY CHOICE - a skill at 100 whose group (2 primary / 2 major / 1 minor) still has a slot is
+  // asked about ONCE, permanently decided by Yes; No leaves it to the skill screen. Online the first one carries the
+  // Master Skills explanation above it, so a new master reads the rules and the choice in one box.
+  const due = ask && !windowed ? masterSkillsBoxDue(entity) : null;
+  const pick = ask && !windowed && due !== 'offer' ? nextMasteryChoice(entity) : null;
+  if (pick != null) {
+    (entity.masteryPrompted ??= []).push(pick);
+    const intro = due === 'info' ? [...MASTER_SKILLS_INTRO_ROWS] : [];
+    if (due === 'info') entity.masterSkillsInfoSeen = true;
+    ask([...intro, ...masteryChoiceRows(entity, pick, SKILL_NAMES)],
+      () => { const r = masterSkill(entity, pick, SKILL_NAMES); say(r.text); if (r.ok) audio.playOneShot(SOUND.ArenaFanfareLevelUp, 1); },
+      () => say(`You can still master ${SKILL_NAMES[pick]} later in your skill screen.`));
+  } else if (due === 'info') {
+    entity.masterSkillsInfoSeen = true;
+    ask([...MASTER_SKILLS_INFO_ROWS], null, null, { okOnly: true });
+  } else if (due === 'offer') {
+    entity.masterSkillsAsked = true;
+    ask([...MASTER_SKILLS_OFFER_ROWS],
+      () => { say(setMasterSkills(entity, true).text); audio.playOneShot(SOUND.ArenaFanfareLevelUp, 1); },
+      () => say(MASTER_SKILLS_DECLINED_TEXT));
+  }
+  return raised;
 }
 
 /**
@@ -2149,6 +2188,7 @@ export function createRestDeps(entity, opts = {}) {
     // come from the host's `endLines`, which is already its TEXT.RSC
     // reader - one host dep, not a second one that could disagree.
     box = null,
+    ask = null,   // SOFTCAP3: the host's message-box presenter (Yes/No, or OK), for the Master Skills box
     place = null,
     // SURV4: the host's word on WHERE the sleep is (survival/rest.js restKind) - a bed, a camp, or rough; a
     // host that says nothing sleeps rough, which is what the window alone has always been
@@ -2244,7 +2284,7 @@ export function createRestDeps(entity, opts = {}) {
     // so it is COMPOSED here beside setResting rather than asked of
     // four hosts, and the same read feeds each host's open gate.
     preventedRestMessage: getPreventedRestMessage,
-    onRestFinished: () => raisePlayerSkills(entity, { say, onLevelUp, lines: rest.endLines, box }),
+    onRestFinished: () => raisePlayerSkills(entity, { say, onLevelUp, lines: rest.endLines, box, ask }),
     // SURV4: the hour by its kind - DFU's whole hour in a bed or by a fire, half of it rough (survival/rest.js restHour)
     tickVitals: () => {
       if (_kind === REST_KIND.Rough) _roughHours++;

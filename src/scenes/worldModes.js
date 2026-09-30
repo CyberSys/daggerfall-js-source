@@ -1239,8 +1239,8 @@ export function createWorldModes(host) {
    *  This host owned two pools and ran NO fan-out at all - no
    *  runMagicRoundsFor, so no tickActiveEffects and no updatePoisons
    *  (worldTick.js:389-390), and no killIfAnyLiveStatZero. Both pools
-   *  READ the effect list every frame (exteriorFoes.js:1050-1054 and
-   *  cityGuards.js:989-995 each take `entityIsParalyzed` +
+   *  READ the effect list every frame (exteriorFoes.js:1064-1068 and
+   *  cityGuards.js:990-996 each take `entityIsParalyzed` +
    *  `applyEnemyMotorEffectFlags`), and nothing ever ended one: a
    *  Continuous Damage bundle on a foe in a shop never took a round,
    *  a poison inflicted at this host's own onInflictPoison never
@@ -8266,10 +8266,10 @@ export function createWorldModes(host) {
         // AUDIT 58: WeaponManager.cs:630 after the damage fork - a
         // zero-damage shaft still enrages its mark and the room.
         // ROAD-G G1 (review): the interior WATCH carries the pair now
-        // (cityGuards.js:733-738), so this seam splits by pool exactly
+        // (cityGuards.js:734-739), so this seam splits by pool exactly
         // as `dealDamage` above it does rather than dropping the
         // non-encounter half - the zero-damage SWING already reaches
-        // that door (cityGuards.js:1270) and the shaft owes the same.
+        // that door (cityGuards.js:1271) and the shaft owes the same.
         onAttackFromPlayer: (f) => (f._encounter
           ? interiorFoes?.attackFromPlayer(f, player.pos, 'arrow')   // AUDIT WORLD6b-iii(e) A2: the pool's one door, the shaft's kind on it
           : interiorGuards?.handleAttackFromPlayer(f, player.pos)),
@@ -9292,6 +9292,7 @@ export function createWorldModes(host) {
     topWindow: () => interiorOverlay,
     // The MASTERY box (RaiseSkills :1390-1401) - TEXT.RSC 4020.
     box: (rows) => mountInterior(new ActionTextBox(rows)),
+    ask: (rows, onYes, onNo, opts = {}) => mountInterior(new YesNoBoxWindow({ rows, onYes, onNo, ...opts })),   // SOFTCAP3: the Master Skills box - DFU's Yes/No or OK box (both skins)
     // AUDIT 62 F11: and the loop rides the rest's minutes too, exactly
     // as the outdoor hosts' rest deps do (world.js's twin). TickRest
     // advances the clock in sub-ticks and PlayerEntity.Update consumes
