@@ -35,6 +35,7 @@
 // ═══════════════════════════════════════════════════════════════════
 import { MARKS_BANK, MARKS_MOVE_MAX, marksAmountOk, marksText, exchangeGold } from './marksLaw.js';
 import { accountRefusalText } from './accountClient.js';
+import { jittered } from './backoff.js';   // SCALE1: a press's asks spread out
 
 /** The sales whose answers did not come, kept to be asked again - { [account|character]: sale }. */
 export const MARKS_PENDING_KEY = 'marks1.pendingSale';
@@ -45,6 +46,9 @@ export const MARKS_PENDING_KEY = 'marks1.pendingSale';
 export const MARKS_FINAL = Object.freeze(['bad-marks', 'marks-short', 'marks-bank-cap', 'marks-rate', 'marks-rid', 'marks-closed']);
 /** How many times one press asks before the sale is left to settle later. */
 export const MARKS_TRIES = 3;
+/** SCALE1: the waits between a press's asks (ms, jittered - net/backoff.js). They were asked back to back: a service
+ *  that stumbled was asked three times in the same instant by every tab it failed. */
+export const MARKS_RETRY_MS = Object.freeze([400, 1500]);
 /** The answers a sale is asked again after (the service did not say no): the network, the service's own fault. */
 const RETRY = Object.freeze(['offline', 'server']);
 
@@ -72,9 +76,11 @@ export function mintMarksRid(rand = (b) => globalThis.crypto.getRandomValues(b))
  *   store?: { get: (k: string) => any, set: (k: string, v: any) => void }|null,
  *   character?: () => (string|null),
  *   rid?: () => string,
- * }} deps `character` the character this device plays now (a kept sale pays only it)
+ *   sleep?: (ms: number) => Promise<void>,
+ * }} deps `character` the character this device plays now (a kept sale pays only it); `sleep` the wait between a
+ *   press's asks (SCALE1 - the pins pass their own)
  */
-export function createMarksBook({ door, store = null, character = () => null, rid = () => mintMarksRid() }) {
+export function createMarksBook({ door, store = null, character = () => null, rid = () => mintMarksRid(), sleep = (ms) => new Promise((r) => setTimeout(r, ms)) }) {
   const state = { balance: /** @type {number|null} */ (null), today: /** @type {any} */ (null), open: /** @type {boolean|null} */ (null) };
   const account = () => { try { return door.account?.() ?? null; } catch { return null; } };
   /** The table as the store holds it - a store that refused a write is read from memory, and only then (AUDIT 28 M1:
@@ -119,6 +125,7 @@ export function createMarksBook({ door, store = null, character = () => null, ri
   async function ask(fn) {
     let r = null;
     for (let i = 0; i < MARKS_TRIES; i++) {
+      if (i > 0) await sleep(jittered(MARKS_RETRY_MS[Math.min(i - 1, MARKS_RETRY_MS.length - 1)]));   // SCALE1
       try { r = await fn(); } catch { r = { ok: false, error: 'offline' }; }
       if (r?.ok || !RETRY.includes(r?.error)) return r;
     }

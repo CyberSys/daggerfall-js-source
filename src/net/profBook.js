@@ -32,6 +32,7 @@
 import { HARVEST_LATE_S, HIDES_PER_DAY, HIGH_HIDES_PER_DAY, HAULS_PER_DAY } from './professionLaw.js';   // PROF8: the day's forty hauls
 import { pixelKey } from './nodeLaw.js';
 import { accountRefusalText } from './accountClient.js';
+import { ASK_AGAIN_NOW, jittered } from './backoff.js';   // SCALE1: asks again spread out, and never at once into a minute's refusal
 
 /** Where this device keeps the acts whose answers did not come: { [account|character]: { harvests, withdrawals } }. */
 export const PROF_KEPT_KEY = 'prof1.kept';
@@ -137,9 +138,9 @@ export function createProfBook({ door, storage = null, character = () => null, n
   async function ask(fn) {
     let r = null;
     for (let i = 0; i < PROF_TRIES; i++) {
-      if (i > 0) await sleep(PROF_RETRY_MS[Math.min(i - 1, PROF_RETRY_MS.length - 1)]);
+      if (i > 0) await sleep(jittered(PROF_RETRY_MS[Math.min(i - 1, PROF_RETRY_MS.length - 1)]));
       try { r = await fn(); } catch { r = { ok: false, error: 'offline' }; }
-      if (r?.ok || !RETRY.includes(r?.error)) return r;
+      if (r?.ok || !ASK_AGAIN_NOW.includes(r?.error)) return r;   // SCALE1: `rate` and `maintenance` go back kept, to the pump
     }
     return r;
   }
