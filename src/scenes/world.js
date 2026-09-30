@@ -7128,7 +7128,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       insideTavern: modes?.insideTavern ?? false,
       insideResidence: modes?.insideResidence ?? false,
     }),
-    onPlayerHurt: (dmg, wpn) => {
+    onPlayerHurt: (dmg, wpn, hit) => {   // WERE-FRIGHT: `hit` carries the striker's level, for a beast's roar
       if (dmg <= 0) return;
       const held = heldPlayerBlow();   // AUDIT SETS L3: the guard's blow as its struck tail marked it - the arrest flow may land it seconds from now
       const apply = () => {
@@ -7143,7 +7143,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       };
       // G2: the verbatim arrest interception - a guard hit on an
       // active crime opens the surrender box instead of the damage
-      if (!arrestFlow.onGuardHit(dmg, apply)) apply();
+      if (!arrestFlow.onGuardHit(dmg, apply, hit)) apply();
       else playerBlowCameToNothing(playerEntity);   // AUDIT SETS L3: withheld now - its mark is the door's "nothing", never the next hurt's
     },
   });
@@ -7471,6 +7471,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     // crime-clear law), which is DFU's order too.
     clearEnemies: () => { for (const f of [...exteriorFoes.foes]) { if (!f.dead) exteriorFoes.removeFoe(f); } lockOn.unlock(); },   // AUDIT 62 F16: a removed foe is never flagged dead, so the lock must be let go here
     positionPlayerAtLocationEntrance: () => positionPlayerAtLocationEntrance(),
+    // WERE-FRIGHT: the beast's roar at the watch - its line on the HUD, the roar heard, and when it works every
+    // watchman of this host sent running: the street's pool here, and a building's through the modes host
+    say: (l) => townTalk.say(l),
+    playSound: (clip) => audio.playOneShot(clip, 1),
+    watchFlees: () => cityGuards.frighten(walkMode && playerSpawned ? player.pos : cam.pos) + (modes?.frightenWatch?.() ?? 0),   // the feet the street's pool is driven against (the frame's update)
   });
   // REP1: THE WATCH STOPS A KNOWN CRIMINAL IT SEES - on the street, a guard's clear line, once in two game hours per
   // region, never in the grace an answered law gives (scenes/standingHost.js; the law's terms: systems/standing.js).
@@ -7904,9 +7909,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     // encounter pool's remover for both. That was not a leak: removeFoe
     // (exteriorFoes.js:498-503) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
-    // got exactly what removeGuard (cityGuards.js:1589-1607) gives it -
+    // got exactly what removeGuard (cityGuards.js:1618-1636) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
-    // (cityGuards.js:1006) and spliced out at the end of it (:1196).
+    // (cityGuards.js:1029) and spliced out at the end of it (:1223).
     // Routing by POOL MEMBERSHIP is an OWNERSHIP fix: each pool owns the
     // teardown of its own records so the two can diverge safely, and
     // removeFoe's `questBehaviour?.notifyDestroyed()` (exteriorFoes.js
@@ -10328,7 +10333,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7520), so exterior mode and a
+    // composer, dungeonContext.js:7528), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -18984,7 +18989,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // watch. The court flow and the overlay it opens are this host's,
     // so the interior pool asks through here instead of building a
     // second copy. Answers TRUE when the surrender box took the blow.
-    onGuardHit: (dmg, apply) => arrestFlow.onGuardHit(dmg, apply),
+    onGuardHit: (dmg, apply, hit) => arrestFlow.onGuardHit(dmg, apply, hit),   // WERE-FRIGHT: the striker's level rides through
 
     // Q4-v: the quest bridge + the scene context the NPC-data law needs
     questBridge,
@@ -23431,11 +23436,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // AFTER the damage fork closes (:615), so a shaft that lost the
         // roll still enrages what it hit and wakes the area. ROAD-G G1
         // (review): the WATCH carries the pair now
-        // (cityGuards.js:752-757), so this seam ROUTES by pool exactly
+        // (cityGuards.js:775-780), so this seam ROUTES by pool exactly
         // as `dealDamage` above it does, instead of excluding the
         // guards - a zero-damage shaft into a pacified watchman has to
         // reach the same door the zero-damage SWING already reaches
-        // (cityGuards.js:1310). DFU makes no pool distinction:
+        // (cityGuards.js:1337). DFU makes no pool distinction:
         // AssignBowDamageToTarget's player arm (DaggerfallMissile.cs
         // :660-688) calls WeaponDamage, so :630 runs for the shaft as
         // for the swing.

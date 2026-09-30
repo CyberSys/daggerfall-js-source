@@ -5575,7 +5575,7 @@ to that cite and moves under the same content check; citeMerge had
 done this since CS2 and citeShift only reported them, so the two
 regexes are one law now, exported from citeShift (`ANY_CITE`,
 `CONTINUATION`) and imported by citeMerge. (2) A TEST'S ESCAPED
-LITERAL FOLLOWS THE ROW IT PINS: `world\.js:9655` in citedrift.test.js
+LITERAL FOLLOWS THE ROW IT PINS: `world\.js:9660` in citedrift.test.js
 is a quote of a Ledger row's text; the row is STRUCK and its number
 held, and the literal used to move anyway, parting the pin from its
 row at every shift. The CLI plans every doc first, learns which
@@ -8273,3 +8273,125 @@ also gained FindExistingStack's first term, `checkItem != item`: a record alread
 A2's and ROAD-Ar R5's pins flipped to the new law (the R5 re-merge now on a potion the producer mints).
 `test/fb0929d_booksplit.test.js` (4); `tools/mutants/fb0929d_booksplit.json`, 11 mutants, 11 dead.
 `01-Overview/Field-Bugs-2026-09-29d.md` BOOK-SPLIT.
+
+### WERE-FRIGHT - THE BEAST CANNOT SURRENDER; IT ROARS (2026-09-29)
+
+Mac: "Can you make it where being a werewolf has a different interaction with guards? Where you cannot surrender, but
+instead a chance to frighten?" Asked, Mac picked: frightened, the guards "flee, crime dropped"; the chance "your level vs
+theirs"; "werewolves and wereboars" - any lycanthrope in beast form, the human form surrendering as before. The port's
+own law - neither classic nor DFU has it.
+
+**What it was.** A transformed lycanthrope with a crime on record - one carried into the change, or WERE-LEVY's passive
+levy on a hated name - was asked "Halt! You are under arrest. Do you surrender?" like anyone, and a fatal blow forced the
+surrender (SurrenderToCityGuards) and carried the beast into court.
+
+**The beast's halt** (`scenes/arrestFlow.js beastHaltBox`). The surrender question's own box in every way but its
+answers: the same one moment a watch (`haveShownSurrenderDialogue`), the same reputation lost for the crime
+(`lowerRepForCrime`), the blow withheld while it stands, withdrawn by a load or a cleared crime exactly as the man's is
+(AUDIT DISC28 AR-1/AR-3), and a key that reaches it withdrawn answers nothing. Its lines are "Halt! The watch has you
+cornered." / "You cannot surrender in this form."; its answers F - frighten and N - fight on. There is no Y. A fatal
+blow on a beast lands - the forced surrender is a man's. And a man asked the question who is a beast before he answers
+(online, the moon's round runs under the box) fights: no beast walks into court.
+
+**The roar** (`systems/lycanthropy.js frightenChance`, `frightenRoar`; `arrestFlow.js roarAtTheWatch`). The strain's own
+bark is heard (the clip its landed blows roll 20% for), and one roll is made: 50%, five points a level either way on the
+beast's level against the level of the guard whose blow opened the halt - the watch pool hands it on the hit
+(`onPlayerHurt(dmg, wpn, { guardLevel })`), both hosts and a building's watch pass it through - held to 10-90, and a
+guard of unknown level taken at the beast's own. SAID PLAINLY: the watch is minted three to six levels above the player
+(DFU's Range(3, 7) on Knight_CityWatch, `characters/enemyEntity.js makeEnemyEntity`), so against the real watch the roar
+works 20-35% of the time, never 50. That is Mac's formula as picked; `FRIGHTEN_BASE_CHANCE` is the one number to move if
+the street should feel different, and the pins hold the street's range beside the formula's so a change to either
+shows.
+
+**Frightened**, the crime is forgotten through the one setter (V4's `setCrimeCommitted` - transformed, it writes None
+whatever it is handed) and the host sends its watch running (`watchFlees`: in both exterior hosts, world.js and
+exterior.js, the street's pool and the building's through `worldModes.frightenWatch` - AUDIT WERE-FRIGHT F1: exterior.js
+sent its street alone). Clearing the crime alone would not do it: GUARD1's fourth
+clause keeps the watch standing while the player is a beast. `cityGuards.frighten` sends every watchman of the crime
+running for `FRIGHTENED_RUN_SECONDS` (5) and then retires him as the walk-away - no body, the batch freed, the record
+pruned; a defender is not the crime's and holds his post; the witnesses' 5-10 second countdown still to come is called
+off. While he runs, a fleer is not the watch standing (`anyWatchStanding`, struck or not - so the next watch is halted
+afresh and no guard NPC is turned by MakeNPCGuardsIntoEnemies on his account), is not saved (a load must not set him on
+the beast again), selects no target (so no swing and no blow), and calls no "Halt!" (the attract bark asks no
+hostility, only 16 m). **Unafraid**, the watch stands its ground, the blow the question withheld lands, and the crime
+stands - N's outcome with a roar before it.
+
+**The run** (`characters/enemyMotor.js flee`, `_fleeStep`). No DFU motor ever runs from anything, so the run is the
+pursuit's own laws turned round, not a new walker: per classic tick (the motor's one `_classicTimer`) it turns in place by
+TurnToTarget's 20 degrees until the way away is inside the 5.625-degree move gate, then walks through `_walkStep` -
+`_step`'s grounded tail, EXTRACTED so both call the one copy: the rest fast path, gravity, AttemptMove's obstacle and
+ledge probes and DFU's detour (a wall across the way is run along, not pushed into), the one capsule move. A blow shoves
+it through `_knockbackStep` - KnockbackMovement's motion, likewise extracted from `_step` - with the hurt anim, and the
+run resumes when the shove is spent. `flee` drops the target - not the hostility (AUDIT WERE-FRIGHT F3: a routed foe
+is not a pacified one) - and senses nothing from then on: no
+sight, no detection, no encounter edge, so no alert is raised and no tongue roll (tryLanguagePacification) is made. The
+point it runs from rides the floating origin. The motor's `this.collider.move` census stays six (incident_ceiling_bats,
+squeeze1).
+
+**Not driven online.** The flow is each player's own; the fleers are ordinary watchmen of the owner's pool, which rides
+the cell's stream (WATCH1), and a retired fleer leaves the pool as any walk-away does - so a peer should see him run and
+go. No two-client run has looked at it.
+
+Pins: 12 in `test/werefright.test.js`, through the real flow, pool and motor on a real collider;
+`tools/mutants/werefright.json`, 29 mutants, 29 dead. The seven records in six files that the change moved under
+(auditdisc19, auditdisc28_arrest's AR1 and AR3, disc19, disc28, and the two SURVTIERS cites the cite shift moved) are
+re-aimed by content, and those six files' 356 mutants re-run: 355 dead and the one recorded equivalent.
+
+### AUDIT WERE-FRIGHT - PR #459 AUDITED IN SIX LENSES (2026-09-30)
+
+Mac: "Audit this" - PR #459 whole, WERE-FRIGHT and MW-BRIG3, in six lenses: the arrest flow and its laws, the watch
+pool, the enemy motor, the hosts' seams (online and every input path to the box), MW-BRIG3's fit, and the records.
+Four findings - the fourth met where the merge of #464 (REP1-REP6, the reputation overhaul) brought a new surrender
+in - each verified by a pin that failed on the code before its fix (`test/auditwerefright.test.js`), and six mutants,
+six dead (`tools/mutants/auditwerefright.json`).
+
+**F1 - THE EXTERIOR HOST SENT ITS STREET ALONE.** Both exterior hosts build the mode machine, and with it a watch that
+can be called into a building (ROAD-B's interiorGuards). world.js's `watchFlees` summed the street's pool and the
+building's; exterior.js's ran its street alone. A roar that worked inside a building there forgot the crime and left
+the building's watch standing - the player a beast, GUARD1's fourth clause - striking a beast with no crime left to
+halt it for, so no box and no second roar. Both hosts sum both now, held by a pin that walks every host that builds
+the mode machine.
+
+**F2 - A MAN COULD ROAR.** Online the world runs under the box (WORLD5), so the change can end while the beast's
+question stands - the mirror of the man's question answered as a beast, which WERE-FRIGHT already turned to a fight.
+The roar did not look: a man pressing F rolled it, and on a success his crime was written to None through the setter -
+outside beast form that write is real - and the watch was routed by a roar nobody heard. Mac's rule is the form's
+("human form surrenders as before"): `roarAtTheWatch` reads the form at the answer, and a man has no roar - the blow
+lands, as N lands it, the crime untouched. The question was the beast's, so it is not asked again of this watch (it
+is once a watch, DFU's law); a fatal blow still carries the man to court.
+
+**F3 - A ROUTED WATCHMAN READ AS A PACIFIED ONE.** `flee` cleared `isHostile`. IsHostile false is DFU's PASSIVE foe -
+a pacified one, a castle's guard before the castle turns - and the port reads it that way: a blow on a passive foe is
+MakeEnemiesHostile over the area (DaggerfallEntityBehaviour.cs:255-258, the pools' `makeAreaHostile`), and
+MeleeAttackFriendlyProtection spares one from a swing's box pass. So a beast striking a man it had routed turned every
+pacified creature around it hostile, and its swings passed over the men running from it. The run now takes the
+target alone - which is all that stops a foe striking - and a routed watchman stays hostile. What that changes, said
+plainly: for the five seconds of the run a fleer still in its spawn band counts as an enemy nearby (areEnemiesNearby),
+so a rest or a fast travel is refused until he is gone, as it is for any hostile foe in reach.
+
+**F4 - THE WATCH'S STOP COULD WALK A BEAST INTO COURT.** REP1 (merged in with #464) stops a known criminal on sight
+(`scenes/standingHost.js`): pay, come quietly, or refuse. It never stops a transformed one - the beast is nobody's face
+- but online the world runs under its box, so the change can come while it stands, and "S - come quietly" reached
+`arrestFlow.surrenderToChallenge`, which wrote the Conspiracy, charged it and carried the beast into court: the
+surrender WERE-FRIGHT denies a beast, by a door it had not met. `surrenderToChallenge` is never a beast's now - the
+stop lapses with nothing written, charged or tried, as if it had not begun; a man still comes quietly.
+
+**Checked and sound.** The extraction is behaviour-equivalent for every foe that is not fleeing: origin/main's
+EnemyAI and this branch's driven side by side on a real collider through nine scripted scenarios (a pursuit through a
+wall and its detour, a knockback, a paralysis, a ledge, a flyer knocked down, a levitator knocked back, the idle fast
+path, a paused one-shot's knock, uneven frame times) matched in every field at every one of 2,924 steps; and neither
+extracted method reads a name from `_step`'s old scope. `resumeLive` (the online seat's reset) needs no flight term -
+the watch never changes seat. Every input path reaches F: the keyboard through townTalk's raw codes, the Enhanced UI's
+buttons (a button per labelled option), a mouse or a finger on the box's rows, and a pad's pointer. Interiors stand at
+their building's world matrix (P8), so a roar inside sends the street's frozen watch running from the building when the
+player steps out. No other host asks a surrender (the dungeon host keeps no city watch). MW-BRIG3's fit rides the one
+binder every worn part goes through (`bindPartsInto` -> `bindSkinnedFromBody`), with `fitTo` carried on the one part
+builder (fpArm's), so the third person, the peers and the paper doll are all fitted; the wolf wears nothing. The cites:
+every one of the 182 the PR moves names by content the line it named on main, but for ten on two struck Port-Ledger
+rows (669, 719) - and those keep the text they were MEASURED on at the merge base, where main's own let them drift a
+line when LOAN-AMNESTY moved world.js: the branch's are right, and are kept. No cite was left behind by a line the
+branch moved, but for three synthetic examples in citeShift's own header and pins, which the tool keeps by design.
+
+**Said, not changed.** Since REP1 the passive levy on a hated name (WERE-LEVY's) has no caller: the watch stops a known
+criminal only by sight, and never a beast, so a fright is not undone by a levy the next minute. A man asked the question
+who turns beast afterwards does not get a roar for that watch - the question is once a watch, and it was asked.

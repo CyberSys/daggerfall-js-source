@@ -18,9 +18,13 @@
 //   WHERE IT SITS IS THE AUTHORING. Mac fitted the brigandine onto the
 //   Morrowind body in his scene (his answer, asked: "fitted in place"),
 //   so the bake keeps the scene placement - `placement: 'scene'`, see
-//   tools/fbxMesh.mjs - and the mesh lands in the skeleton's REST
-//   space, 1 Blender unit to 1 Morrowind unit. A gun is placed by the
-//   hand that grips it; a cuirass is placed by the body it was fitted to.
+//   tools/fbxMesh.mjs - 1 Blender unit to 1 Morrowind unit. A gun is
+//   placed by the hand that grips it; a cuirass is placed by the body it
+//   was fitted to. MW-BRIG3: the scene's body is NOT the skeleton at rest
+//   - it stood lower, and drawn at the scene's height the brigandine sat
+//   under the torso - so its height is measured on the wearer at bind time
+//   (ownArmorModels.js `fitTo`, formats/mwSkinTransfer.js fitLift). The
+//   bake keeps the scene's numbers; the binder puts it on the body.
 //
 //   THE TEXTURE IS PAINTED, NOT BAKED. The Thunderlock's DDS was grown
 //   from its own geometry because Mac's export carried no texture; this
@@ -29,11 +33,10 @@
 //
 //   IT IS ONE PIECE, SKINNED FROM THE BODY AT BIND TIME (MW-BRIG2,
 //   formats/mwSkinTransfer.js). MW-BRIG1 split it at the belt and hung the
-//   halves rigid on the Chest and Groin nodes, which is not how the body
-//   under it moves - the torso is skinned to the spine and pelvis - and in
-//   game the two came apart. Skinned from the chest, groin, thighs and knees,
-//   the whole garment moves with the body it covers, and the skirt bends
-//   with the legs.
+//   halves rigid on the Chest and Groin nodes. Skinned from the chest,
+//   groin, thighs and knees, the whole garment moves with the body it
+//   covers, and the skirt bends with the legs. (What moved it in game, in
+//   both builds, was the height above - MW-BRIG3.)
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { readFbx } from './fbxRead.mjs';
