@@ -576,7 +576,7 @@ test('ROAD-G G2 review: the encounter pool\'s frame seams - the tick, the draw, 
   assert.match(senses, /candidates: \(\) => exteriorFoePool\(\)\.filter\(\(f\) => !f\.dead\),/,
     'the senses walk the UNNARROWED street database, live records only');
 
-  // world.js:22895-22967's arrow shape: an enemy shaft hunts a WALKING
+  // world.js:22896-22968's arrow shape: an enemy shaft hunts a WALKING
   // player (the fly camera has no capsule), and both live pools are
   // impact candidates. `playerFeet: null` is every enemy arrow passing
   // through the player - the whole enemy arm the lane shipped.

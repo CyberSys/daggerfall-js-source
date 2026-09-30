@@ -233,6 +233,79 @@ The read that this is the `people` spike's collider half - the guards
 are the first bodies a crime puts on the collider in numbers - is a
 reading of the profile, not of a live frame.
 
+## FB0930-FRAME - EVERY RAY ASKED EVERY DOOR (2026-09-30)
+
+A player's Chrome performance trace (a save loaded into a dungeon, the
+desktop app, 4.06 s sampled): frames of ~151 ms, 841 "requestAnimationFrame
+handler took" violations. By function, over the trace: foe `update` 2,126 ms,
+of it `_obstacleCheck` 1,891 and `_findDetour` 1,660 - DFU's detour sweep, up
+to eight directions a step at one or two 27-ray capsule casts each - and under
+the casts `raycastHit` 1,698 ms total. The self times say where a ray's time
+went: `raycastHit` 837, `segmentHitsBox` 488, the default translation closure
+`() => ZERO3` 127, and `rayTriangle` - the test the rays exist for - 196. The
+per-BUCKET cost outweighed the triangles. Every action door, lever and platform
+is a collider bucket of its own (actionSystem.addDoor/addAction), and every ray
+and sphere asked every bucket its box.
+
+The trace's chunks (`world-B12a4DIS.js`, `viewSettings-BhvIvYj7.js`,
+`main-hdY2IwOH.js`) match a local build of `af8709446` byte for byte in name:
+the build BEFORE FB0930-FOE-RAYS. Both release-desktop runs after that merge
+failed - run 179's publish step on `unexpected end of JSON input` from the
+GitHub API with every installer built and staged (draft `app-v0.1.4974` left
+over), run 180 with no runner acquired - so the newest published app was
+`app-v0.1.4970` and the ray fix never reached the player.
+
+The fix (player/collider.js), every answer bit for bit the old walk's:
+- **The buckets filed by broad cell.** A bucket that stands still (no
+  translation provider, no turn) is filed on an 8-unit XZ grid by its box
+  (`buildBroad`); a query asks the ones filed under the cells its own world
+  box covers (`_near`). Movers, and buckets over 64 cells (the dungeon's own, a
+  massif) or not finite, are asked by every query. Candidates are sorted back
+  into the Map's order, so ties and the order the sphere's pushes land in are
+  the old walk's. The filing is a cache: `addMesh` and `removeBucket` drop it.
+  A query box over 256 cells walks everything, as before.
+- **The sphere resolve's centre moves while it walks** - a push lands and the
+  next bucket's box test reads the centre as it stands. Its candidates are
+  gathered with the box grown by `BROAD_PAD` (1 unit) and gathered again,
+  after the last bucket walked, when the pushes carry the centre past it -
+  asked before the list's end, which the comb pin found (the last candidate's
+  pushes can carry it to a bucket the list never held).
+- **The sphere walks take the ray's stamp and a Y reject** (`_resolveSphere`,
+  `sphereOverlaps`, `capsuleContact`): a triangle wholly more than the contact's
+  reach above or below the live centre is rejected before its closest point.
+  Marked seen first, as the Set was added to.
+- **The marks' epoch.** FB0930-FOE-RAYS' stamp zeroed only the bucket being
+  walked when the count wrapped (2^31 walks); every other bucket kept marks a
+  later stamp would meet again. A wrap now starts an epoch and each bucket is
+  zeroed the first time it is walked in it.
+- **capsuleCast with no axis casts one sample.** The clear-path probe
+  (`_clearPathToPosition`) casts from the centre to the centre with the default
+  three samples: 27 rays, 18 of them the first nine again.
+
+Measured (node, a synthetic dungeon bench in scratch: three stacked levels in
+4 m tiles, ramps, walls with doorways, 150 door buckets baked into the world as
+actionSystem registers them, 30 pursuing EnemyAI, 600 frames at 60 Hz):
+`af8709446` (the trace's build) 17.4 ms a frame, p95 31.0; main with
+FB0930-FOE-RAYS 13.9, p95 23.7; with this 2.35, p95 3.9. Every foe's final
+feet and yaw and 400 mixed probes (capsule cast, overlap, contact, move)
+identical across all three builds. With no door buckets the same bench is 6.2
+ms on main and 2.4 with this - the sphere walks' stamp and Y reject; the
+filing takes the other 7.7 ms the doors cost.
+
+Pinned: test/fb0930_frame.test.js - 1,200 probes of every query against the
+same collider with every box widened past the grid (the old walk), the work
+(27 x 63 bucket asks for one probe before, at most 27 x 12 after), the tie
+order for a filed and an unfiled bucket both ways and after a re-registration,
+the filing following a new, a grown and a removed bucket, the comb of walls
+that carries a sphere over a broad cell's edge, the skin shell against the Y
+reject, the wrap, and the nine rays. Mutants: `tools/mutants/fb0930_frame.json`,
+10, 10 dead; `perfcol1.json`'s never-cleared set re-aimed by content to the
+stamp never bumped, 9, 9 dead.
+
+**Not measured here, said plainly:** a real dungeon's door count, on the
+player's machine. The trace is the build before both fixes; the next trace
+from a build carrying them is the measurement.
+
 ## Still open
 
 PERF-COL1 above took the collider half of `people`; the rest of that
