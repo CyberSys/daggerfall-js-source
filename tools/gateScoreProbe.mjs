@@ -9,6 +9,11 @@
 //
 //     node tools/gateScoreProbe.mjs [--wav <dir>] [--seconds <n>]
 //         --wav writes each render there as 16-bit WAV, normalised to -1 dBFS, for a person to listen to
+//
+// WB10a: the songs are PRESSED (systems/songPlayer.js songPress: a compressor, its drive, a soft ceiling), so beside
+// the loudness this holds each peak under its ceiling, and plays ONE player through the whole fight - the three war
+// songs, the fall, then a song that carries no press - in one context, as the court does: the press is built once and
+// re-set song by song, and must come off again for the song after.
 import { chromium } from 'playwright';
 import http from 'node:http';
 import { readFileSync, existsSync, writeFileSync } from 'node:fs';
@@ -23,7 +28,7 @@ const out = []; const check = (n, ok, d = '') => { out.push(ok); console.log(`${
 
 const PAGE = `<!doctype html><html><body><script type=module>
 import { SongPlayer } from '/src/systems/songPlayer.js';
-import { gateScoreSongs } from '/src/systems/gateScore.js';
+import { gateScoreSongs, SCORE_PRESS } from '/src/systems/gateScore.js';
 const RATE = 44100;
 window.render = async (key, seconds) => {
   const song = gateScoreSongs()[key];
@@ -51,7 +56,29 @@ window.render = async (key, seconds) => {
   for (let i = 0; i < L.length; i++) { pcm[2 * i] = Math.max(-32767, Math.min(32767, Math.round(L[i] * k * 32767))); pcm[2 * i + 1] = Math.max(-32767, Math.min(32767, Math.round(R[i] * k * 32767))); }
   const bytes = new Uint8Array(pcm.buffer);
   let bin = ''; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  return { key, secs, peak, nan, rms, voices: [...new Set(song.events.filter((e) => e.type === 'noteOn').map((e) => e.channel))].length, pcm: btoa(bin), rate: RATE };
+  return { key, secs, peak, nan, rms, ceiling: SCORE_PRESS[key].ceiling, voices: [...new Set(song.events.filter((e) => e.type === 'noteOn').map((e) => e.channel))].length, pcm: btoa(bin), rate: RATE };
+};
+// WB10a: one player, the whole fight and the song after it, a few seconds each, in one context
+window.fight = async () => {
+  const songs = gateScoreSongs();
+  const plain = { name: 'PLAIN', beatsPerMinute: 120, secondsPerTick: 60 / (120 * 60), durationTicks: 480, events: [{ tick: 0, type: 'noteOn', channel: 0, note: 62, velocity: 100, duration: 120 }] };
+  const order = [songs.war1, songs.war2, songs.war3, songs.fell, plain], each = 3;
+  const real = new OfflineAudioContext(2, RATE * each * order.length, RATE);
+  let now = 0;
+  const ctx = new Proxy(real, { get(t, k) { if (k === 'currentTime') return now; const v = t[k]; return typeof v === 'function' ? v.bind(t) : v; } });
+  const p = new SongPlayer(ctx, real.destination);
+  const routes = [];
+  try {
+    for (const song of order) {
+      p.play(song); clearInterval(p._timer);
+      routes.push(p._levelTo === p._fader ? 'plain' : p._levelTo === p._press?.comp ? 'pressed' : 'lost');
+      for (const end = now + each; now < end - 1e-9; now += 0.1) p._pump();
+    }
+  } catch (e) { return { error: String(e?.message ?? e), routes }; }
+  p.stop();
+  const buf = await real.startRendering();
+  let bad = 0; for (let c = 0; c < 2; c++) for (const x of buf.getChannelData(c)) if (!Number.isFinite(x)) bad++;
+  return { error: null, routes, bad };
 };
 window.ready = true;
 </script></body></html>`;
@@ -94,14 +121,20 @@ try {
   for (const key of ['war1', 'war2', 'war3', 'fell']) check(`${key}: it plays - every second of it sounding, no NaN`, r[key].nan === 0 && r[key].rms.slice(0, 10).every((x) => x > 1e-4), JSON.stringify(r[key].rms.slice(0, 10).map((x) => db(x).toFixed(0))));
   // WBX9: louder - and still under the clip at the highest MusicVolume (1.0 is twice the 0.5 this renders at: +6 dB)
   for (const key of ['war1', 'war2', 'war3', 'fell']) check(`${key}: never clipping, even at the highest MusicVolume`, db(r[key].peak) <= -6.03, `peak ${db(r[key].peak).toFixed(1)} dBFS here, ${(db(r[key].peak) + 6.02).toFixed(1)} at full volume`);
+  // WB10a: and under its own ceiling (SCORE_PRESS: the dBFS it may reach at the highest MusicVolume)
+  for (const key of ['war1', 'war2', 'war3', 'fell']) check(`${key}: under its ceiling of ${r[key].ceiling} dBFS at the highest MusicVolume`, db(r[key].peak) + 6.02 <= r[key].ceiling + 0.05, `${(db(r[key].peak) + 6.02).toFixed(2)} dBFS at full volume`);
   // WBX9 (Mac: "The music needs to be louder and more intense"): over the game's own songs, which the same player renders
   // at -28.7 (GDAY___D) to -41 dBFS (the dungeon's) - measured beside them when this was written; the score read
-  // -34.5 / -29.7 / -28.4 / -30.9 then, -25.6 / -22.1 / -21.5 / -22.9 now (the drums' noise moves a peak ~0.4 dB a run)
-  for (const [key, floor] of [['war1', -26.5], ['war2', -23], ['war3', -22.5], ['fell', -24]]) check(`${key}: loud - at least ${floor} dBFS`, r[key].meanDb >= floor, `${r[key].meanDb.toFixed(1)} dBFS`);
+  // -34.5 / -29.7 / -28.4 / -30.9 then, -25.6 / -22.1 / -21.5 / -22.9 after WBX9. WB10a (Mac: "make it more loud, just
+  // feel like its too quite"): pressed, -15.8 / -15.4 / -14.2 / -15.6 now (the drums' noise moves a peak ~0.4 dB a run)
+  for (const [key, floor] of [['war1', -17], ['war2', -16.5], ['war3', -15.5], ['fell', -17]]) check(`${key}: loud - at least ${floor} dBFS`, r[key].meanDb >= floor, `${r[key].meanDb.toFixed(1)} dBFS`);
   check('the war grows with his phases', r.war2.meanDb > r.war1.meanDb && r.war3.meanDb > r.war2.meanDb - 0.5, `${r.war1.meanDb.toFixed(1)} / ${r.war2.meanDb.toFixed(1)} / ${r.war3.meanDb.toFixed(1)} dBFS`);
   // the law gives the fall SCORE_STING_MS (12.5 s): by then it has rung out
   const tail = r.fell.rms.slice(12, 20), top = Math.max(...r.fell.rms.slice(0, 8));
   check('the fall rings out inside the time the law gives it, and leaves the court quiet', tail.length === 8 && tail.every((x) => x < top * 0.05), `top ${db(top).toFixed(1)}, from 12 s ${tail.map((x) => db(x).toFixed(0)).join(' ')} dBFS`);
+  // WB10a: one player through the whole fight and the song after it
+  const f = await page.evaluate(() => window.fight());
+  check('one player through the whole fight: every song started, the press on for the court\'s four and off for the song after, nothing thrown, no NaN', f.error === null && f.bad === 0 && f.routes.join() === 'pressed,pressed,pressed,pressed,plain', `${f.error ?? ''} ${f.routes.join(' ')}${f.bad ? `, ${f.bad} bad samples` : ''}`);
   check('no page error', errs.length === 0, errs.join('; '));
 } finally {
   await browser.close();

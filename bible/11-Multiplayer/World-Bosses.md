@@ -380,13 +380,14 @@ game's own player and FM bank (`08-Audio/Audio.md` WB7), in D minor:
 
 | song | when | what |
 |---|---|---|
-| GATEWAR1 - he wakes | phase one | 132 BPM; i-VI-iv-V under a pizzicato ostinato on every eighth, the timpani on each downbeat and the kit's low end; brass stabs join, then the Warden's theme on the brass, then the choir under it |
-| GATEWAR2 - the ward breaks | phase two | 138 BPM; the choir from the first bar, the kit busier and rolling into every fourth bar, the theme dotted and high |
-| GATEWAR3 - his wrath | phase three, and the last minute before the Wrath at any phase | 150 BPM; the Neapolitan Eb against D, the kick on every beat, crashes every other bar, the tritone tolled, the theme at the top of the brass |
+| GATEWAR1 - he wakes | phase one | 132 BPM; the villain's turn - D minor to B-flat minor and back, iv, the dominant (WB10a; it was i-VI-iv-V-i-VI-VII-V) - under a low brass pedal hammered 3-3-2 with a sigh at each bar's end, the timpani and a kit of low drums in half time; brass stabs in open fifths, then the Warden's theme on the brass, then the choir under it; a bell tolled low at each section |
+| GATEWAR2 - the ward breaks | phase two | 138 BPM; the choir from the first bar, the kit in full time and rolling into every fourth bar, the theme dotted and restless, low on the brass |
+| GATEWAR3 - his wrath | phase three, and the last minute before the Wrath at any phase | 150 BPM; the Neapolitan Eb against D, the kick on every beat and the toms on every offbeat, crashes every other bar, the tritone tolled low, the theme over it all and doubled two octaves down |
 | GATEFELL - he falls | his fall, for 12.5 s from when it began on this screen (AUDIT WB D2: a kill heard late plays it whole), then faded out | a timpani roll into D major - fanfare, choir, bells - then quiet: the court is the Deadlands' air alone |
 
 Nothing plays over the Wrath once it has landed. The court holds the music while it stands and lets it go the frame it
-is gone; a music pack can replace any of the four by name.
+is gone; a music pack can replace any of the four by name. Each is PRESSED (WB10a, section 15): a compressor, its own
+drive and a soft ceiling a decibel under the clip at the highest MusicVolume.
 
 ## 6. The fall - the relay stamps the kill (WB3)
 
@@ -1132,6 +1133,59 @@ RELAY_VERSION world135 (not yet deployed) holds these; ACCOUNT_VERSION acct38 th
 (36, all dead). Re-aimed: the WB9b walkway blow, the WB9c court's feet (in his court), the WB9e shader's rim and throb,
 the WB4 telegraph's text (the strip), the WB9f spoil rung, the WB9g host's sale and its UPDATE's mutant, the WB9h bank.
 
+## 15. The score pressed and darkened (WB10a, 2026-09-30)
+
+Mac, after the gates had been out a while: *"The oblivion gates are an absolute fucking hit with the community.
+Definitely a foundation I want to build on. First off I want to improve the boss music, make it more loud, just feel
+like its too quite, and I feel like the music is too jolly"*.
+
+**Louder.** WBX9 had raised the score by level alone, and a level cannot go further than the clip: measured through the
+game's own player the war stood a decibel under it at the highest MusicVolume, its drums' peaks 15 to 19 dB over the
+song's body - the headroom was spent on a few milliseconds of every kick. So a song may now carry its own PRESS
+(`systems/songPlayer.js songPress`): the song's level drives a compressor (4:1 over a 12 dB knee from -18 dB, 3 ms in and
+250 ms out - a section's swell evened, nothing pumping), then the song's own drive (`out`), then a soft CEILING - the
+hyperbolic tangent, its top at -1 dBFS at the highest MusicVolume (`ceilingAmplitude`, over MUSIC_GAIN), so what the
+compressor lets through of a drum's first milliseconds is rounded off under it. No song can pass its ceiling however hard
+it is driven: that is the curve's shape, not a measurement. Every song MIDI.BSA holds carries no press and plays through
+the graph it always did; a context without a compressor plays a pressed song unpressed. The court's four carry
+`SCORE_PRESS` - one compressor, a drive each (5.2 / 5 / 5.8 at war, 5.6 at his fall) - and read, through the real player
+at the default MusicVolume:
+
+| song | WBX9 | WB10a | peak |
+|---|---|---|---|
+| GATEWAR1 | -25.6 dBFS | -15.8 dBFS | -7.7 (-1.7 at the highest volume) |
+| GATEWAR2 | -22.1 | -15.4 | -7.9 |
+| GATEWAR3 | -21.5 | -14.2 | -7.5 |
+| GATEFELL | -22.9 | -15.6 | -7.6 |
+
+Beside the game's own songs (-28.7 dBFS by day, -31.7 to -41 in the dungeons) the court's are now 13 dB and more over
+the music it replaces. Where that lands for a player is one number a song (`SCORE_PRESS[...].out`).
+
+**Less jolly.** What made the score bright went, each for a reason that can be named:
+
+| was | why it was jolly | now |
+|---|---|---|
+| the pizzicato ostinato (GM 45) climbing the chord on every eighth - D, D, A, D, B-flat, D, A, F | a plucked arpeggio bounces; it is the sound of a caper | a PEDAL on the chord's root on low brass (GM 57, the trombone: its FM brightness holds through a short note, so the drive snarls where the pluck plinked), accented 3-3-2, its bar's last two notes a sigh leaning into the next bar (Dm's B-flat falling to A, B-flat minor's C and D-flat creeping up to D, the dominant's F falling to E). The drive's law is WBX9's: as many notes a bar as before |
+| i-VI-iv-V-i-VI-VII-V, the VII a C major chord | the major chords outnumbered the minor, and VII-V is the heroic cadence | the villain's turn: D minor to B-flat MINOR and back (D against D-flat, A against B-flat - the flat-six minor), then iv, i and the dominant held two bars; no major chord but the dominant before his wrath, whose Neapolitan stays his own |
+| brass stabs and orchestra hits voiced as major and minor triads at the top of the stave; the organ's pads the same | a bright triad struck on the beat is a fanfare | stabs, hits and pads in OPEN FIFTHS (root, fifth, octave), low - no third to brighten them; the thirds kept where they are held (the strings, the choir), which is where the minor is heard |
+| the Warden's theme climbing the D minor chord to D5 (and to D6 in his wrath) on the brass | a rising arpeggio to the top of the brass is a hero's theme | three new themes that turn on half steps (D and C#, D-flat and C, A and B-flat, D and E-flat in his wrath) and fall where the old ones climbed, the first ending on a tritone's leap from E to B-flat over the dominant; the brass never over B-flat 4, the strings holding the line an octave over it |
+| a tubular bell rung at D5 or A4 on the one | a high bell is a festival | the bell tolled at D3 (A2 between them in the ward's breaking, D3 and A-flat 2 - the tritone - in his wrath): at that pitch the FM bell's partials are a gong's |
+| the hi-hat on every eighth or sixteenth and a tambourine on the backbeat | the pop groove; the tambourine is a dance | gone: the surdo and the floor tom on the one, the kick 3-3-2, the snare's one backbeat on the third in half time (two and four from the ward's breaking), the toms on the offbeats where the hat was |
+
+The key, the tempos, the lengths, the voices and their channels, the law of which song plays, the choir's entries, the
+drive's law and the fall's D major fanfare are as they were: his fall is the one moment the score is allowed its major.
+Heard, as far as a machine hears: the share of the war's energy under 120 Hz - where a laptop's or a phone's speakers
+give nothing back, and where the peaks were being made - was 34 to 37% in the first draft of the darker score (WBX9's:
+25 to 31%); the ostinato moved from the bass family to the brass, the bass voice was taken under the rest (nearly all
+of it is below 120 Hz) and the kit's 55 Hz bass drum dropped for the floor tom, which brought it to 23 to 30%.
+
+Pinned: `test/wb10a_gate_score.test.js` (6) - the press, its graph, the ceiling by construction, the score's presses,
+and the jolliness gone by structure (the voices and the writing); mutants `tools/mutants/wb10a.json` (18, all dead;
+WB7's Neapolitan mutant re-aimed at the new progression). `tools/gateScoreProbe.mjs` (20 checks): the loudness floors
+raised to a decibel and more under the table's, each peak under its ceiling, and one player through the whole fight - the
+three war songs, the fall, then a song without a press - in one context. Not heard by a person before it shipped: the
+probe's `--wav` writes each song for listening.
+
 ## Shipped
 
 **WB1 (2026-09-25) - the omen.** `net/gateLaw.js` (the schedule, the room's key and window, the rolls, the boss table,
@@ -1471,3 +1525,9 @@ world128 - world126 on its branch), `server/src/index.js`, `net/gateStrike.js`, 
 `render/gateTelegraph.js`, `ui/gateBossBar.js`, `systems/gateOmen.js`, `net/gateHerald.js`, `scenes/world.js`.
 Not seen in a browser or on the deployed relay: the colours and the cues are the tables' until a court under each
 aspect has been looked at and heard.
+
+**WB10a (2026-09-30) - the score pressed and darkened.** Section 15 above: `systems/songPlayer.js` (`songPress`, the
+press's graph - the compressor, its drive, the ceiling's soft clip - built once and rewired only as a song with or
+without one starts), `systems/gateScore.js` (`SCORE_PRESS`; the war songs rewritten on their old key, tempos, lengths,
+voices and law - the villain's harmony, the brass pedal, open fifths, the low bell, the kit without its hat). Measured
+through the real player by `tools/gateScoreProbe.mjs`; not heard by a person before it shipped.
