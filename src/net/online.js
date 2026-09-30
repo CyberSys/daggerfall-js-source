@@ -98,8 +98,15 @@ export const POSE_CROWD = 24;
 /** ACC1d: the whole budget a hello will wait for an identity token.
  *  Past it the connection goes ahead unsigned. Short on purpose: this
  *  sits between the socket opening and the first frame, so it is time a
- *  player spends staring at nothing. */
-export const TOKEN_WAIT_MS = 2500;
+ *  player spends staring at nothing.
+ *  FIELD BUGS 29h (TOKEN-WAIT; the Discord: "stuck in a perpetual 'World: Sign in to play online' & 'World:
+ *  Connecting'"): ACC1g put the wall at the door - a hello without a token is REFUSED ("sign in to play online", a
+ *  policy close, terminal) - so past this budget there is no connection that works any more, only that refusal, and
+ *  the World link's rejoin every thirty seconds met it again: the loop the player saw, for anyone whose token takes
+ *  longer than 2.5 s (the token route is eight D1 round trips from the player's edge and a preflighted POST to a second
+ *  host, three at once as the page starts). It covers the service's real answer now, and stays under the relay's
+ *  HELLO_WAIT_MS (net/wire.js), past which a full room closes a socket that has said nothing. */
+export const TOKEN_WAIT_MS = 8000;
 
 export const GAP_MIN_MS = 50;
 export const GAP_MAX_MS = 1000;
@@ -1106,10 +1113,14 @@ export class OnlineSession {
    *  because a second Worker is having a bad minute. */
   async _mint() {
     try {
-      return await Promise.race([
+      const late = Symbol('late');
+      const got = await Promise.race([
         Promise.resolve(this.mintToken()).catch(() => null),
-        new Promise((r) => setTimeout(() => r(null), TOKEN_WAIT_MS)),
+        new Promise((r) => setTimeout(() => r(late), TOKEN_WAIT_MS)),
       ]);
+      // TOKEN-WAIT: said, so a player's console can tell a slow service from a missing sign-in (the minter says its own)
+      if (got === late) { console.warn(`[online] no identity token within ${TOKEN_WAIT_MS} ms - the hello goes without one, and the relay refuses it`); return null; }
+      return got;
     } catch { return null; }
   }
 

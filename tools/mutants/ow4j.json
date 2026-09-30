@@ -42,7 +42,7 @@
   {
     "name": "OW4-J1-ground-no-peaks",
     "file": "src/systems/travelRoute.js",
-    "old": "    peakAt: (x, y) => climate[y * width + x] === TV_MOUNTAIN_CLIMATE,",
+    "old": "    peakAt: peak,",
     "new": "    peakAt: () => false,",
     "tests": [
       "test/tv2_click_to_move.test.js"
@@ -142,8 +142,8 @@
   {
     "name": "OW4-J3-ground-read-every-click",
     "file": "src/scenes/world.js",
-    "old": "const tvRouteGround = () => (_tvRouteGround ??= routeGround(",
-    "new": "const tvRouteGround = () => (routeGround(",
+    "old": "const tvRouteGround = () => { (_tvRouteGround ??= routeGround(",
+    "new": "const tvRouteGround = () => { (_tvRouteGround = routeGround(",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],

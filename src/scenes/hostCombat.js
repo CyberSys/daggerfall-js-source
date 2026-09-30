@@ -9,6 +9,7 @@
 // (MIT, Daggerfall Workshop).
 
 import { SKILLS, tallySkill, skillValue, SKILL_NAMES } from '../systems/skills.js';
+import { effectiveLevel } from '../systems/mentorMode.js';   // SOFTCAP2: mentor mode - the level the world is built around
 import { vampireAttackVoice } from '../systems/vampirism.js';   // V5: GetCustomRaceGenderAttackSoundData
 import { liveLycanthropy } from '../systems/lycanthropy.js';   // AUDIT 39: SuppressOptionalCombatVoices, the racial override's own gate
 import {
@@ -110,8 +111,8 @@ const HUMANOID_LOOT_ITEM_SCALE = 0.25;   // MOD: keep a quarter of the item chan
 // `lootQualityMult` scales the rarity ladder's odds. Both 1 everywhere but an elite dungeon.
 export function spawnEnemyLoot(entity, mobileType, basics, player, { rolls = Math.random, lootDropMult = 1, lootQualityMult = 1, where = null } = {}) {
   const itemChanceScale = (isHumanoid(entity) ? HUMANOID_LOOT_ITEM_SCALE : 1) * lootDropMult;
-  entity.items = generateItems(enemyLootTableKey(mobileType, basics?.lootTableKey ?? '-'), { level: player.level, gender: player.gender }, undefined, { itemChanceScale, mobileType });
-  const eq = equipEnemy(entity, mobileType, player.level, rolls, { player });
+  entity.items = generateItems(enemyLootTableKey(mobileType, basics?.lootTableKey ?? '-'), { level: effectiveLevel(player), gender: player.gender }, undefined, { itemChanceScale, mobileType });
+  const eq = equipEnemy(entity, mobileType, effectiveLevel(player), rolls, { player });   // SOFTCAP2: a mentor's foes carry the GROUP's loot and gear
   addEnemyLootExtras(entity.items, basics, rolls);
   // RRI2: EnemyEntity.OnLootSpawned (EnemyEntity.cs:399) fires here, after
   // the trio and with the kit already in Items - the mod's

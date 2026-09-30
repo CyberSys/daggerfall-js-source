@@ -30,6 +30,7 @@
 // finds it twice and believes it.
 
 import { savingThrow, rollMagnitude, EFFECT_FLAGS, careerTolerance } from './spellcast.js';
+import { mentorDamageTakenMult } from './mentorMode.js';   // SOFTCAP2: a leaf
 import { raceById, raceByKey } from './races.js';   // L2-slice (magic-10): the racial immunity arm
 import { STAT_KEYS_ORDER, FATIGUE_MULTIPLIER, maxFatigue, increaseDrainMagnitude, liveStat } from './statMods.js';
 import { dice100 } from '../combat/formulas.js';
@@ -563,6 +564,15 @@ export function cureAllOfKind(target, kind, keepInfections = false) {
   if (target?.activeEffects) target.activeEffects = target.activeEffects.filter((a) => a.kind !== kind || (keepInfections && !!a.infection));
 }
 export const cureAllDiseases = (t) => cureAllOfKind(t, 'disease');
+/** FIELD BUGS 29h (INFECTION-KEPT; Julian: "during this time i had gotten another disease from a dungeon and had to cure
+ *  it which likely wiped my lycanthropy progress"; Mac: "Dont worry abour DFU"): A CURE OF DISEASE TAKES THE PLAIN
+ *  DISEASES FIRST. DFU stores a lycanthropy or vampirism infection as a disease bundle, and CureAllDiseases ended it
+ *  with the plague caught beside it. While a plain disease runs, a cure (the temple's, a spell's, a potion's) ends the
+ *  plain ones and leaves the infection to its turn; a cure with nothing else to end ends the infection, so curing it
+ *  before the turn still saves a player who does not want it. The turn's CureAll of the old life
+ *  (lycanthropy.js endOldLifeEffects) still ends every disease there is. */
+export const plainDiseaseLive = (t) => (t?.activeEffects ?? []).some((a) => a.kind === 'disease' && !a.ended && !a.infection);
+export const cureDiseasesInfectionsLast = (t) => cureAllOfKind(t, 'disease', plainDiseaseLive(t));
 export const cureAllPoisons = (t) => cureAllOfKind(t, 'poison');
 export const cureParalyzation = (t) => cureAllOfKind(t, 'paralyze');
 const CURE_MARKER_KINDS = Object.freeze(['cureDisease', 'curePoison', 'cureParalyzation']);   // the three cure CLASSES themselves
@@ -639,8 +649,18 @@ export function healAttributeDamage(entity, stat, amount) {
 /** DROPS-AUDIT ELITE-SPELLS: an elite foe's spells land at its `damageScale`, as its blows do (combat/formulas.js
  *  calculateAttackDamage's tail, the same rounding and floor) - so a caster in an elite dungeon is as strong with
  *  a Fireball as with its sword. The player's own casts, and every caster without a scale, are untouched. */
-export const casterDamageScaled = (n, ent) => (n > 0 && ent && !ent.isPlayer && Number.isFinite(ent.damageScale) && ent.damageScale !== 1
+const casterScaledOnly = (n, ent) => (n > 0 && ent && !ent.isPlayer && Number.isFinite(ent.damageScale) && ent.damageScale !== 1
   ? Math.max(1, Math.round(n * ent.damageScale)) : n);
+/** SOFTCAP2: and a MENTORED player takes a foe's spell as it takes a foe's blow - at the mentored health pool
+ *  (mentorMode.js damageTakenMult, formulas.js's own tail for blows). `target` optional: without it, as before. */
+export const casterDamageScaled = (n, ent, target = null) => {
+  let v = casterScaledOnly(n, ent);
+  if (v > 0 && target?.isPlayer && !target.peer && !ent?.isPlayer) {
+    const m = mentorDamageTakenMult(target);
+    if (m > 1) v = Math.max(1, Math.round(v * m));
+  }
+  return v;
+};
 
 /** One magic round for one ACTIVE entry - the saving throw rolls
  *  FRESH here every round (F10), gated on the spell's range (S15).
@@ -648,7 +668,7 @@ export const casterDamageScaled = (n, ent) => (n > 0 && ent && !ent.isPlayer && 
  *  applies via liveStat / hasActiveEffect). */
 function runEffectRound(a, target, sinks, rolls) {
   if (a.kind === 'continuousDamage') {
-    const n = casterDamageScaled(effectMagnitude(a.effect, a.casterLevel, a.saveScaled ?? true, a.element, a.flag, target, rolls), a.caster);   // DROPS-AUDIT ELITE-SPELLS
+    const n = casterDamageScaled(effectMagnitude(a.effect, a.casterLevel, a.saveScaled ?? true, a.element, a.flag, target, rolls), a.caster, target);   // DROPS-AUDIT ELITE-SPELLS; SOFTCAP2: the target, for mentor mode
     // AUDIT 68 S19-round-ticks-player-provenance: the tick is DamageHealthFromSource(caster) - the player's blow only
     // when the player cast it (no caster is the player, hostMagic's `!caster` law). A round sink bills nobody else.
     // DUEL1: and the entry's duel tag rides along - a duel's damage over time (bundleDuel) stops at the duel's floor
@@ -951,7 +971,7 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
       continue;
     }
     if (isDamageHealth(e)) {
-      const n = casterDamageScaled(magnitude(e), caster?.entity);   // DROPS-AUDIT ELITE-SPELLS
+      const n = casterDamageScaled(magnitude(e), caster?.entity, target);   // DROPS-AUDIT ELITE-SPELLS; SOFTCAP2: the target, for mentor mode
       out.damage += n;
       if (n > 0 && sinks.hurt) sinks.hurt(n);
       // DamageHealthFromSource runs HandleAttackFromSource whatever the
@@ -1243,8 +1263,9 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
         continue;
       }
       // AUDIT SPELL-GIFT B6: a STRANGER's Cure Disease leaves an incubating infection be (systems/infection.js stores
-      // one as a disease) - a player choosing the curse lost it for good to anyone passing with a Cure
-      cureAllOfKind(target, CURE_KINDS[e.subType], ctx?.strangerCast === true);
+      // one as a disease) - a player choosing the curse lost it for good to anyone passing with a Cure. FIELD BUGS 29h
+      // (INFECTION-KEPT): and any cure leaves it while a plain disease is there to take (cureDiseasesInfectionsLast)
+      cureAllOfKind(target, CURE_KINDS[e.subType], ctx?.strangerCast === true || plainDiseaseLive(target));
       pushInstantMarker(target, CURE_MARKER_KINDS[e.subType], e);   // after the removal pass, as AssignBundle adds before MagicRound cures
       out.cured = (out.cured ?? 0) + 1;
       continue;
@@ -1480,7 +1501,7 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
     //
     // The "until attacked" half already exists here - every foe damage
     // door re-hostiles a pacified target (MakeEnemyHostileToAttacker),
-    // which enemyMotor.js:439 has anticipated by name since the
+    // which enemyMotor.js:441 has anticipated by name since the
     // C-slice.
     //
     // Chance-only, no magnitude, TargetFlags_Other - so it takes the

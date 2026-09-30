@@ -96,7 +96,8 @@ character's.
   (28 days) and join date;
 - the Thieves Guild's and Dark Brotherhood's letters (three days);
 - **rented rooms, loans (with their reminders and the Empire's call) and repairs**;
-- the reputation drift (112 days) and the racial override quests (the clans' 38 days, the cure's 84);
+- the reputation drift (a bad name's point back every 7 days since REP4, a good name's down every 112 -
+  `06-Systems/Standing-Arc.md`) and the racial override quests (the clans' 38 days, the cure's 84);
 - the wandering-spawn cadence (the minute a roll is asked on).
 
 ### What moves the character's clock
@@ -111,6 +112,10 @@ Everything DFU calls RaiseTime:
 - a tavern meal, a drink, a blackout night, a camp's cooking and the hunting search;
 - the exhaustion collapse (an hour);
 - the cures' minute (DFU's `RaiseTime(60)` is seconds - AUDIT LIVED1b D3).
+
+And one of the port's own, where DFU's single clock simply runs faster: while the clock is accelerated online (a
+Travel Options journey, the Overworld's walk, the helm's time scale), the frame raises the minutes past the world's
+(FIELD BUGS 2026-09-29h WALK-CLOCK, `world.js` `walkRaise`), so a journey's days are the traveller's as offline.
 
 The world's clock stands through all of them. The next tick walks the span on the character's clock,
 exactly as the offline tick walks a raised clock: the broker (capped, under the synthetic shield), the
@@ -148,7 +153,7 @@ still does is the world's:
 - the tick's world reading re-anchors, so the absence walks none of the world's arms (the standing
   rule);
 - TM-1 stands (Mac, 2026-09-28: *"Recovery only"*): over the world's minutes from the one the save
-  left at, a reputation below zero moves back one point per 112-day boundary - measured on the RELAY's
+  left at, a reputation below zero moves back one point per boundary (a week's since REP4) - measured on the RELAY's
   clock, paid when the world host hears it (AUDIT LIVED1b P4: the boot loads on this machine's clock, and
   one set months fast bought months of recovery; until the relay is heard a save keeps the minute the
   character left at);

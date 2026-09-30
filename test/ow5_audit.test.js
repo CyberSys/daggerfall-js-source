@@ -238,7 +238,7 @@ function walkRig({ sea = () => false, means = null } = {}) {
     state: { worldCoords: (p) => ({ x: p[0], y: p[1], z: p[2] }) }, maps: { getClimateIndex: () => 231 }, TV_MOUNTAIN_CLIMATE: 226,
     tvSay: (t) => said.push(t), TRAVEL_VIEW_TEXT: { mountains: 'peaks', noWay: 'no way', spot: 'spot' },
     playerTravelPixel: () => ({ x: 10, y: 5 }), terrainGen: { roads: () => null }, planRoute, tvWater: (x, y) => sea(x, y),
-    tvRouteGround: () => ({ isWater: (x, y) => sea(x, y), width: 40, height: 20 }),
+    tvRouteGround: () => ({ isWater: (x, y) => sea(x, y), width: 40, height: 20, peakAt: () => false }),   // OW-WOD-PATH: the spot's peak test is the ground's own (no peak on this map)
     tvJoinedLegs: (from, plan) => routeLegs(plan.pixels, plan.kinds), dungeonApproach: () => null, lastLegStart: () => null,
     player: { pos: [0, 0, 0] }, tvLegMid: () => [0, 0],
     travelOptions: { beginTravelAlongRoute: (r) => { begun.push(r); return true; }, route: {} }, tvCautious: () => false, tvQuiet: false,

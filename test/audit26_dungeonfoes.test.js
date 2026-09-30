@@ -266,37 +266,24 @@ test('F036: the passive watch rolls, verbatim (PlayerEntity.cs:498-511)', () => 
   assert.equal(passiveGuardSpawns({ severePunishmentFlags: 1 }, () => 0.10), 0, 'roll 10 is not');
 });
 
-test('F036: the world host runs those rolls in the catch-up loop and calls SpawnCityGuards(FALSE)', () => {
-  // The witness arm of cityGuards.spawnCityGuards had NO production
-  // caller: both hosts passed `true` only, so civilians seeing a crime,
-  // guard NPCs converting on sight and the 5-10 second arrival
-  // countdown never ran in the shipped game.
+test('F036: the world host runs those rolls in the catch-up loop and calls SpawnCityGuards(FALSE) - REP1 RETIRED THE LEVY: the loop rolls none, and the witness arm\'s eye stops a known criminal instead', () => {
+  // The witness arm of cityGuards.spawnCityGuards had NO production caller until F036 put the passive rolls in the loop.
+  // REP1 (the reputation overhaul, 2026-09-29, Mac: "Challenged on sight"): PIN MOVED - the per-minute levy is retired
+  // (in town the watch about every hundred real seconds for a bad name, no guard anywhere near), and a guard who SEES a
+  // known criminal stops them (scenes/standingHost.js, test/rep1_watchstop.test.js). The loop rolls nothing for a name;
+  // the roll's own law above is DFU's record (encounters.js keeps it, with no production caller).
   const i = WORLD.indexOf('function runEncounterTick');
   const fn = WORLD.slice(i, WORLD.indexOf('\n  }\n', i));
   assert.ok(i > 0, 'the port of PlayerEntity.Update:486-511 was found');
-  assert.ok(fn.includes('passiveGuardSpawns({'), 'the rolls ride the SAME per-minute loop DFU puts them in');
-  assert.ok(fn.includes('legalRep: legalRepOf(playerEntity, _region)'), 'off the current region\'s LegalRep');
-  assert.ok(fn.includes('severePunishmentFlags: playerEntity.regionConditions?.[_region]?.severePunishmentFlags ?? 0'),
-    'and the region record\'s SeverePunishmentFlags');
-  // V4 advanced this pin to the setter; WERE-LEVY (FB 2026-09-29g) put it back on the FIELD, as :502/:509 write it -
-  // DFU's one crime write that SuppressCrime is never asked of, so a transformed lycanthrope is levied too.
-  assert.ok(fn.includes('playerEntity.crimeCommitted = CRIMES.Criminal_Conspiracy;'),
-    'each success levies Criminal_Conspiracy first, exactly as :502/:509 - the field, not the setter');
-  assert.ok(!fn.includes('setCrimeCommitted(playerEntity, CRIMES.Criminal_Conspiracy);'), 'never through SuppressCrime');
-  assert.ok(fn.indexOf('intermittentEnemySpawn({') < fn.indexOf('passiveGuardSpawns({'),
-    'after the spawn roll, which breaks out of the loop before them (:492)');
-  // ROAD-B MOVED THIS NEEDLE. SpawnCityGuards' INDOOR arm
-  // (PlayerEntity.cs:628-642) is offered the call ahead of the street
-  // law now, so both arms route through the host's ONE entry and the
-  // literal `false` moved one frame out: `_witnessResponse` passes it
-  // to `_spawnGuards`, which passes the bool on to the pool with the
-  // live NPC list. The fact the pin guards - the witness arm HAS a
-  // production caller, over the real pool - is unchanged.
-  assert.ok(WORLD.includes('function _witnessResponse() { _spawnGuards(false); }'),
-    'the witness arm finally has a caller');
+  assert.ok(!fn.includes('passiveGuardSpawns('), 'the loop rolls no levy');
+  assert.ok(!fn.includes('CRIMES.Criminal_Conspiracy'), 'and levies no Conspiracy');
+  assert.match(fn, /REP1 \(Mac: "Challenged on sight"\): THE PASSIVE LEVY IS RETIRED\./);
+  assert.ok(!WORLD.includes('function _witnessResponse()'), 'the witness hook had one caller, the levy, and went with it');
+  assert.match(WORLD, /\n\s*standingWatch\.frame\(\);   \/\/ REP1: a guard who sees a known criminal stops them/, 'the stop is looked for in the frame');
   assert.ok(WORLD.includes("cityGuards.spawnCityGuards(!!immediate, { playerFeet: [...feet], playerFwd: fwd, pool: _guardPool() })"),
-    'and it reaches the pool with the live NPC pool');
+    'the seen crime still reaches the pool with the live NPC pool');
 });
+
 
 // =====================================================================
 // F212 - exterior corpses are loose objects and get collected

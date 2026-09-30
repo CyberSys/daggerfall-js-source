@@ -56,20 +56,22 @@
   {
     "name": "GUILD1b-a-withdrawal-credited-first",
     "file": "src/net/guildBook.js",
-    "old": "      const r = await this.door.withdraw(character, gold);\n      if (r?.ok) this.wallet().credit(gold);",
-    "new": "      this.wallet().credit(gold);\n      const r = await this.door.withdraw(character, gold);",
+    "old": "      const r = await this.door.withdraw(character, gold);\n      if (r?.ok) this.wallet().credit(gold, { letter });",
+    "new": "      this.wallet().credit(gold, { letter });\n      const r = await this.door.withdraw(character, gold);",
     "tests": [
       "test/guild1b.test.js"
-    ]
+    ],
+    "note": "GUILD-LETTER (FIELD BUGS 2026-09-30, PIN MOVED): re-aimed BY CONTENT - the old lane's credit carries the letter the wallet weighed; same law, same killer."
   },
   {
     "name": "GUILD1b-a-withdrawal-credited-unanswered",
     "file": "src/net/guildBook.js",
-    "old": "      if (r?.ok) this.wallet().credit(gold);",
-    "new": "      this.wallet().credit(gold);",
+    "old": "      if (r?.ok) this.wallet().credit(gold, { letter });",
+    "new": "      this.wallet().credit(gold, { letter });",
     "tests": [
       "test/guild1b.test.js"
-    ]
+    ],
+    "note": "GUILD-LETTER (FIELD BUGS 2026-09-30, PIN MOVED): re-aimed BY CONTENT - the old lane's credit carries the letter the wallet weighed; same law, same killer."
   },
   {
     "name": "GUILD1b-offline-read-as-a-refusal",

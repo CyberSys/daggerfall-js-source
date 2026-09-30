@@ -29,7 +29,7 @@ test('ONE-SEAT: the hello\'s claim is 1 or nothing - anything else is refused, a
   assert.equal('cl' in parseClient(JSON.stringify(base)), false, 'a reconnect says nothing');
   for (const bad of [0, true, '1', 2]) assert.deepEqual(parseClient(JSON.stringify({ ...base, cl: bad })), { error: 'bad claim' }, JSON.stringify(bad));
   assert.equal(SEAT_ELSEWHERE, 'online in another tab, window or device');
-  assert.equal(RELAY_VERSION, 'world132');   // STRIKE-SHARED moved it on last (world132: the strike spell on a hit and the trapper on a dead foe, both read by the clients alone); before it MERGE 2 moved it on (world131: the professions branch, BOUNTY1 + AUDIT 28 - `bq` and `lv` on the party pose, `k`, `a` and `t` on a bounty row - world125 on its branch, never deployed, a number VOICE1 took on main); before it REALM-DOOR moved it on (world130: the door refuses a token the account service signed as naming no realm character); before it PENITENT's badge vocabulary (world129); before it WB8 (world128: marks on the gate state, the fed word - world126 on its branch, never deployed, renumbered past OW6L at the merge) past OW6L (world127: the overworld ledger of a cell - never world125 nor world126) past TV8 (world124: the party's Overworld walk) past THE MERGE (world123: the raids, the gates and Discord), one relay past main's TV3 (world122); world119, then world120, on this branch - main's AUDIT SET took world119 and PARTY-BUFFS + REST-OPT world120 first (the merges renumbered ONE-SEAT's)
+  assert.equal(RELAY_VERSION, 'world133');   // SOFTCAP1 moved it on last (world133: the party pose `cl`, a member character level for mentor mode); before it STRIKE-SHARED moved it on (world132: the strike spell on a hit and the trapper on a dead foe, both read by the clients alone); before it MERGE 2 moved it on (world131: the professions branch, BOUNTY1 + AUDIT 28 - `bq` and `lv` on the party pose, `k`, `a` and `t` on a bounty row - world125 on its branch, never deployed, a number VOICE1 took on main); before it REALM-DOOR moved it on (world130: the door refuses a token the account service signed as naming no realm character); before it PENITENT's badge vocabulary (world129); before it WB8 (world128: marks on the gate state, the fed word - world126 on its branch, never deployed, renumbered past OW6L at the merge) past OW6L (world127: the overworld ledger of a cell - never world125 nor world126) past TV8 (world124: the party's Overworld walk) past THE MERGE (world123: the raids, the gates and Discord), one relay past main's TV3 (world122); world119, then world120, on this branch - main's AUDIT SET took world119 and PARTY-BUFFS + REST-OPT world120 first (the merges renumbered ONE-SEAT's)
 });
 
 test('ONE-SEAT at the hub: a claim closes the account\'s other tab - the reason said first, CLOSE_REPLACED - and its leave is said to the room; the newest tab stays; another account is not touched (mutants: no supersede; by the browser\'s account instead of the verified one; every room instead of the hub)', async () => {
@@ -584,9 +584,9 @@ test('AUDIT ONESEAT, the host run: a court\'s fighter is cast out on the first f
 
 test('AUDIT ONESEAT H4: the page\'s exit save is never a tab\'s the seat was taken from - it is offline, and every slot of the character would be written over what the tab that has the seat saved (mutant: the seat not asked)', () => {
   const w = rd('src/scenes/world.js');
-  const at = w.indexOf("  addEventListener('beforeunload', () => {\n    // AUDIT ONESEAT H4");
-  assert.ok(at > 0);
-  const body = w.slice(w.indexOf('{', at) + 1, w.indexOf('\n  });', at));
+  const at = w.indexOf('  const exitAutosave = () => {\n    // AUDIT ONESEAT H4');   // FIELD BUGS 29h (BOOT-HIDE): the page's exit save, named
+  assert.ok(at > 0 && w.includes("\n  addEventListener('beforeunload', exitAutosave);\n"));
+  const body = w.slice(w.indexOf('{', at) + 1, w.indexOf('\n  };', at));
   const run = (out, realmSession = null) => {
     const written = [];
     // eslint-disable-next-line no-new-func

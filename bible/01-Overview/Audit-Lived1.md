@@ -86,7 +86,9 @@ test that fails on the unfixed tree for the finding's reason, and mutation-prove
    nothing, so a deadline ignores the travel it asks for.
 2. **An accelerated walk** (Travel Options) costs the character's clock 1x online and Nx offline; fast travel now
    charges the whole trip. TO1 recorded the acceleration's online arithmetic and was asked to make no online rule, so
-   whether a walked journey should charge its compressed time is yours.
+   whether a walked journey should charge its compressed time is yours. [ANSWERED: *"Dont worry abour DFU."* (FIELD
+   BUGS 2026-09-29h, WALK-CLOCK) - online an accelerated journey's minutes past the world's are raised on the
+   character's own clock, so it charges its compressed time as offline.]
 3. **The waits a rest can shorten**: training is now limited by gold alone (a session per 20 real seconds against one
    per real hour before), and a rank's 28 days are about five minutes of resting - as offline, and as OPEN 3 (a rest
    cooldown) asks.

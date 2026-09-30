@@ -1410,6 +1410,18 @@ refusal "You cannot pack a boat you are driving!" stands), and fast
 travel packs a packable boat sailed (CSA-D's OnPreFastTravel); placing
 parts brings their cargo aboard again (CSA-C's arm).
 
+LOST-BOAT (the port's own, FIELD BUGS 2026-09-29h; Julian: "the large boats
+floating underneath the town ... very loud boat noises but no boats to be
+seen"): a boat FIELD-CSA1's four ways lost before that fix is in its owner's
+save where it stood, and the restore stands it there verbatim. Update asks
+each boat ONCE, when the ground under it is built (`recoverLostBoats`): a hull
+whose place is `LOST_UNDER_M` (2 m) under the ground or under the sea's top
+is lost, and an uncrewed one (the Rowboat, the Large Boat - their deed spent
+on placing) goes through PackBoat into its parts, with "A boat of yours was
+lost where no one could reach it". A crewed hull is left for its deed to call
+to a port; never indoors, never a boat placed inside, never the one sailed.
+Port-Ledger A.
+
 The cargo box (OpenBoatCargo, 5575-5587) opens the boat's own
 DaggerfallLoot as the inventory's loot target (OpenCargo, 6521-6525:
 LootTarget, then dfuiOpenInventoryWindow) in whichever slot the mode
@@ -1432,13 +1444,24 @@ number; a pick plays SoundClips 360, pops the picker and SetBoatVariant
 (the pool's own context, `scenes/comeSailAwayPool.js` setVariant: a
 reinitialize instances nothing).
 
-IsNearPort (1095-1117) walks the square the C#'s loops walk: from
-X - range while below X + range - 1 on each axis - range pixels west and
-north, range - 2 east and south, so the default 3 searches a 5 x 5 square
-off-centre, and a range of 1 never asks the player's own pixel (kept) -
-a location there whose Exterior.ExteriorData.PortTownAndUnknown is not
-nought answering (ContentReader.HasLocation and GetLocation: the host's
-map dictionary and its location). PortLocationSearchRange is read live.
+IsNearPort (1095-1117) walks a square centred on the player's pixel -
+range pixels every way, so the default 3 searches 7 x 7 - and a location
+there answers when it is a harbour the map draws (Travel Options' list,
+`systems/travelPorts.js`, 378) or its Exterior.ExteriorData.PortTownAndUnknown
+is not nought (ContentReader.HasLocation and GetLocation: the host's map
+dictionary and its location). PortLocationSearchRange is read live. A
+refusal of the deed or the variant box names the nearest of those
+harbours and the way to it ("There is no port nearby. The nearest port is
+Daggerfall, to the north-west"); a host that names none says the mod's
+own line.
+
+DEED-PORT (the port's own, FIELD BUGS 2026-09-29h; Swordsman: "no matter
+where I try and put it, it tells me I'm not near a port"; Mac: "Dont
+worry abour DFU."): the C#'s loops ran from X - range while below
+X + range - 1 - three pixels west and north at the default, one east and
+south, and a range of 1 never asked the player's own pixel - over the
+byte alone, which 35 of the map's 378 harbours do not carry; a refusal
+said nothing of where to go. `test/fb0929h_deedport.test.js` (3).
 
 ### The console
 
@@ -1478,8 +1501,7 @@ target is the pack's own shape now (`cargoLootTarget`, tested through
 the pack's own remoteTarget), and the picker draws over the world, as
 DaggerfallPopupWindow's clear ScreenDimColor leaves it.
 
-**Kept bug for bug**: IsNearPort's off-centre square and a range of 1
-that never asks the player's own pixel; a shelf's deed never a Rowboat or
+**Kept bug for bug**: a shelf's deed never a Rowboat or
 a Carrack, its parts always a Rowboat 'I'; giveboat's Range(0, 4) never
 a Carrack, its Large Boat's variant drawn even when a hull is given, and
 no arm for three arguments; the deed's log line the parts'; the deed
@@ -2205,7 +2227,7 @@ all dead.
 off the row with the host's UID; GetCustomItemsForGroup answering both
 after Roleplay Realism's rows while the mod is loaded, Iliac Puddle No
 More's fish while it is on, the duplicate guard; AssignVariantsToShopItems
-and the shelf's two given a UID; IsNearPort's square (range 3 and 1);
+and the shelf's two given a UID; IsNearPort's square (range 3 and 1, centred since DEED-PORT);
 PackBoat (the parts to the back, the cargo under the parts' UID, a UID
 already keyed throwing, the boat gone); the cargo box (its loot target
 read by the pack's own remoteTarget: the hold itself, live, the

@@ -40,7 +40,7 @@ import { COME_SAIL_AWAY_VENDOR, TEMPORARY_SHIP_SCENES } from '../src/systems/com
 import * as comeSailAway from '../src/systems/comeSailAway.js';
 import { assignShipToPlayer, sellShip, ownsShip, SHIP_TYPES } from '../src/systems/banking.js';
 import { createSceneCache, addPermanentScene, removePermanentScene, containsPermanentScene, takeSceneOwn } from '../src/systems/sceneCache.js';
-import { sellOnlineHome } from '../src/systems/onlineHomes.js';
+import { sellOnlineHome, HOME_SALE_OUT } from '../src/systems/onlineHomes.js';
 import { armUnloadGuard, releaseUnloadGuard } from '../src/systems/unloadGuard.js';
 import { installConsoleProbe, registerCommand } from '../src/systems/consoleCommands.js';
 import { checkpointAllowed } from '../src/systems/onlineCheckpoint.js';
@@ -245,16 +245,19 @@ test('AUDIT REALM2 C2 in the host: beforeunload gives no lease up (the unload gu
   releaseUnloadGuard();
   armUnloadGuard(() => true, win);   // world.js armUnloadGuard(() => playerSpawned), armed before the handler
   const written = [];
-  mount(W.top(WORLD, "addEventListener('beforeunload'"), {
+  // FIELD BUGS 29h (BOOT-HIDE): the exit save named at the checkpoint, handed to the page with the checkpoint's doors
+  mount(`${W.top(WORLD, 'const exitAutosave = () => {')}\n${W.top(WORLD, "addEventListener('beforeunload'")}`, {
     addEventListener: (t, f) => win.addEventListener(t, f), online: {}, playerSpawned: true, seatOut: () => false, duelLeaveNow: () => {},
     realmSession: c.session, modes: { quickSaveNow: (n) => written.push(n), deathUp: () => false }, worldQuickSave: null,
     exitAutosaveNames: () => ['QuickSave'], playerEntity: {}, townTalk: { overlay: null }, DeathScreen: class {},
   });
   let exitHook = null;
-  mount(W.top(WORLD, 'setBeforeTitleExit('), {
+  const realmHooks = {
     realmSession: c.session, setBeforeTitleExit: (f) => { exitHook = f; }, whenPageHides: realmSaves.whenPageHides, whenPageGoes: realmSaves.whenPageGoes,
     globalThis: win, online: null, onlineCheckpoint: () => false, realmCheckpoint: () => false, duelLeaveNow: () => {}, REALM_EXIT_WAIT_MS: 10,
-  });
+  };
+  mount(W.top(WORLD, 'whenPageGoes('), realmHooks);   // the page's going: the lease, at the checkpoint
+  mount(W.top(WORLD, 'setBeforeTitleExit('), realmHooks);   // the title exit and the page put away: the checkpoint's doors (BOOT-HIDE)
   assert.equal(typeof exitHook, 'function');
   const before = dev.door.log.length;
   const unload = ev('beforeunload');
@@ -490,7 +493,7 @@ test('AUDIT REALM2 C6: a realm home\'s sale gives the owner\'s own things back t
     const said = [];
     const sellHomeAt = mount(`${M.fn('sellHomeAt')}\nreturn sellHomeAt;`, {
       host: { onlineHomes: { release: async () => answer }, realmAct: (o) => realmGoldAct({ session, checkpoint: () => { checkpoints.push(snap()); }, wait: async () => {}, ...o }) },
-      sellOnlineHome, homeTownOf: () => 1, homeAccount: () => ({ get accountGold() { return state.bank; }, set accountGold(v) { state.bank = v; } }),
+      sellOnlineHome, HOME_SALE_OUT, homeTownOf: () => 1, homeAccount: () => ({ get accountGold() { return state.bank; }, set accountGold(v) { state.bank = v; } }),
       townTalk: { say: (t) => said.push(t) }, accountRefusalText: (e) => `refused: ${e}`, takeSceneOwn, sceneCache: () => cache, homeSceneName: () => 'Home',
       decorPackGive: (it) => state.pack.push(it.name), removePermanentScene, homeSoldLine: (r, d) => `sold ${r + (d ?? 0)}`, ownBackLines: (own) => `${own.length} back`, decorOwnBackLine: () => '',
     });

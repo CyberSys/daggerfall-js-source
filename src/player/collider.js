@@ -33,13 +33,10 @@ const CELL = 2;
  *  a building's walls and wrong for a MOUNTAIN: World of Daggerfall stands rocks scaled by thousands, whose faces
  *  span hundreds of cells each, and one Mountains layout carries a rock scaled by a MILLION (its object 2, 83 km
  *  under the site - inert in DFU, a collider PhysX never reaches), one face of which filed two million cells and
- *  half a gigabyte before the Map ran out. A triangle over FINE_CELLS_MAX fine cells is filed on a COARSE grid
- *  instead, and one over COARSE_CELLS_MAX coarse cells on the bucket's short `huge` list, which every query takes
- *  whole once the bucket's own box admits it. The fine walks are untouched: a bucket with no wide triangle pays
- *  nothing, and the same triangles are found either way. */
-const COARSE = 64;
+ *  half a gigabyte before the Map ran out. A triangle over FINE_CELLS_MAX fine cells is WIDE: it is filed once, in the
+ *  bucket's `wide` list, and found through the bucket's tree over them (OW-WOD-LAG, below). The fine walks are
+ *  untouched: a bucket with no wide triangle pays nothing, and the same triangles are found either way. */
 const FINE_CELLS_MAX = 64;
-const COARSE_CELLS_MAX = 1024;
 /** PERF-EXT25 (2026-09-25, the players: "fps issues in the exterior but fine in the interior", "me too my
  *  friend.. don't know why. I got a RX6600"): A CELL'S KEY IS A NUMBER. Every triangle a streamed pixel files, and
  *  every cell a query reads, minted a template string - `${gx},${gz}` - to hash, look up and drop: on a synthetic
@@ -91,34 +88,286 @@ export function sphereTouchesBox(lx, ly, lz, r, min, max) {
  *  bucket per sample, which at nine samples a capsule and up to five capsules a step was hundreds of Sets a frame
  *  per body, most of them for buckets nowhere near it. */
 const VISITED = new Set();
-/** AUDIT 68 S15-collider-closestpoint-alloc: and the ray's own, cleared per bucket - raycastHit minted one per
- *  bucket per ray. Its own because it is walked by a different query than VISITED; neither re-enters. */
-const RAY_VISITED = new Set();
+/** FB0930-FOE-RAYS (2026-09-30, player report: "requestAnimationFrame handler took <N>ms" by the hundred in a
+ *  dungeon, CPU at 100%, 500 violations in Privateer's Hold and 40 once every foe was dead): the ray's visited mark
+ *  is a STAMP per triangle, not a Set. Every foe casts rays every fixed step - its sight line, and the obstacle probe's
+ *  capsule casts (27 rays each, up to eleven of them a step for a foe wedged against a wall while it hunts a detour)
+ *  - and each ray had cleared and filled a Set, a hash and an insert per triangle met. The stamp is one integer
+ *  compare. `bucket.rayMark` grows with the bucket's triangles; RAY_STAMP is bumped once per bucket walk, and the
+ *  marks are zeroed on the (never reached in a session) wrap. Neither query re-enters, as before. */
+let RAY_STAMP = 0;
+/** FB0930-FRAME: the marks' EPOCH. The stamp wraps once in 2^31 walks, and a wrap zeroed only the bucket being walked
+ *  when it came - every other bucket kept marks a later stamp would count up to and meet again, and a triangle marked
+ *  then would read as already seen. A wrap now starts a new epoch, and a bucket's marks are zeroed the first time it is
+ *  walked in it. */
+let MARK_EPOCH = 0;
+/** FB0930-FOE-RAYS: capsuleCast's spokes - centre, the four axes, the four diagonals - as (u, v) signs, and the one
+ *  origin and result its rays write through (raycastHit does not keep either past its return). */
+const CAP_SPOKES = [0, 0, 1, 0, -1, 0, 0, 1, 0, -1, 1, 1, 1, -1, -1, 1, -1, -1];
+const CAP_ORIGIN = [0, 0, 0];
+const CAP_HIT = { dist: Infinity, key: null, normal: [0, 0, 0] };
+function rayMarks(bucket) {
+  let m = bucket.rayMark;
+  if (!m || m.length < bucket.tris.length) {
+    m = new Int32Array(Math.max(bucket.tris.length, m ? m.length * 2 : 0));
+    bucket.rayMark = m;
+    bucket.markEpoch = MARK_EPOCH;
+  }
+  if (++RAY_STAMP >= 0x7fffffff) { RAY_STAMP = 1; MARK_EPOCH++; }
+  if (bucket.markEpoch !== MARK_EPOCH) { m.fill(0); bucket.markEpoch = MARK_EPOCH; }
+  return m;
+}
+/** FB0930-FRAME: the pin's door to the stamp - test/fb0930_frame.test.js walks a bucket across the wrap. */
+export function _setRayStampForTest(n) { RAY_STAMP = n; }
+/** FB0930-FOE-RAYS: the grid is XZ only, so a cell holds the column's whole height - a dungeon's floor and ceiling,
+ *  and the floors and ceilings of every level stacked above and below it. A triangle whose Y extent misses the ray's
+ *  own Y extent across the cell cannot be hit IN this cell and is not tested there (nor marked, so the cell where the
+ *  ray does reach it still tests it: its hit point lies in that cell's column, which its box covers). The slack
+ *  covers the cell-boundary rounding. Same triangles hit, same distances - a horizontal sight ray just stops testing
+ *  the floors and ceilings it runs between. */
+const RAY_Y_SLACK = 1e-3;
+/** FB0930-FRAME: the SPHERE walks take the same Y reject - a triangle whose Y extent lies wholly more than the
+ *  contact's reach above or below the centre cannot come within it (its nearest point's y is inside that extent), so
+ *  the narrow phase's own distance test would reject it; this rejects it for two compares instead of a closest point.
+ *  The slack keeps the reject strictly inside the old one. Such a triangle IS marked seen (the sphere walks' visited
+ *  law: each triangle is asked once per bucket, at the centre as it stands when its turn comes). */
+const SPHERE_Y_SLACK = 1e-3;
 
-/** AUDIT BRANCH (WoD) B1: file a WIDE triangle - over FINE_CELLS_MAX fine cells - on the coarse grid, or on the
- *  short list when it spans more than COARSE_CELLS_MAX coarse cells too. A vertex that is not finite files nothing,
- *  as the fine loop's own bounds never did. */
-function fileWide(bucket, a, b, c, idx) {
-  const minX = Math.floor(Math.min(a[0], b[0], c[0]) / COARSE);
-  const maxX = Math.floor(Math.max(a[0], b[0], c[0]) / COARSE);
-  const minZ = Math.floor(Math.min(a[2], b[2], c[2]) / COARSE);
-  const maxZ = Math.floor(Math.max(a[2], b[2], c[2]) / COARSE);
-  if (!(Number.isFinite(minX) && Number.isFinite(maxX) && Number.isFinite(minZ) && Number.isFinite(maxZ))) return;
-  if ((maxX - minX + 1) * (maxZ - minZ + 1) > COARSE_CELLS_MAX) { bucket.huge.push(idx); return; }
-  for (let gx = minX; gx <= maxX; gx++) {
-    for (let gz = minZ; gz <= maxZ; gz++) {
-      const k = cellKey(gx, gz);   // PERF-EXT25
-      let cell = bucket.coarse.get(k);
-      if (!cell) { cell = []; bucket.coarse.set(k, cell); }
-      cell.push(idx);
+/** FB0930-FRAME (2026-09-30, a player's performance trace in a dungeon: 151 ms frames, 76% of them the foes' obstacle
+ *  probes - _findDetour's sweep, 27 rays a capsule cast): THE BUCKETS' OWN BROAD PHASE. Every action door, lever and
+ *  moving platform is a bucket of its own (actionSystem.addDoor/addAction), and every ray and every sphere walked
+ *  EVERY bucket to ask its box - a Map entry, the translation closure and a slab test per bucket per ray. In the
+ *  trace the box test alone (segmentHitsBox, 488 ms self) and the default translation closure (127 ms) outweighed the
+ *  triangle tests the rays exist for (rayTriangle, 196 ms): a 0.4 m probe paid for every door in the dungeon.
+ *
+ *  So the buckets that stand still - no translation provider, no turn: their box IS their world box - are filed on a
+ *  coarse XZ grid, and a query asks only the ones filed under the cells its own world box covers. Buckets that move
+ *  (a translation or a turn), and buckets too big to file (the dungeon's own, a massif, a box that is not finite), are
+ *  asked by every query, as before. The walk's ORDER is the Map's (insertion) order, always: candidates are sorted
+ *  back into it, so a tie between two buckets and the order the sphere's pushes land in are exactly what they were.
+ *  A bucket the query box does not reach is one whose own box test would have answered "no" - the same answers.
+ *  The index is a cache of the boxes: addMesh and removeBucket drop it, and the next query files again. */
+const BROAD_CELL = 8;
+/** A standing bucket over more broad cells than this is asked by every query rather than filed (the dungeon's). */
+const BROAD_SPAN_MAX = 64;
+/** A query box over more broad cells than this walks every bucket in order, as before (a long sight line). */
+const BROAD_QUERY_MAX = 256;
+/** _resolveSphere: how far (per axis, x or z) its pushes may carry the centre from where its candidates were
+ *  gathered before they are gathered again - the box test is asked at each bucket's turn with the centre as it
+ *  stands, so the gathered box is grown by this much and re-asked past it. */
+const BROAD_PAD = 1;
+let BROAD_STAMP = 0;
+const RAY_NEAR = [];      // raycastHit's candidates
+const SPHERE_NEAR = [];   // the sphere walks' (never nested in a ray's walk, nor a ray in theirs)
+/** File the collider's buckets: `all` in Map order (each bucket's `ord` its place in it), `always` the buckets every
+ *  query asks, `cells` the standing ones by broad cell. */
+function buildBroad(buckets) {
+  const all = [], always = [], cells = new Map();
+  for (const bucket of buckets.values()) {
+    bucket.ord = all.length;
+    all.push(bucket);
+    if (bucket.moves) { always.push(bucket); continue; }
+    const mn = bucket.min, mx = bucket.max;
+    if (!(mn[0] <= mx[0] && mn[1] <= mx[1] && mn[2] <= mx[2])) continue;   // no triangle (an inverted box): every box test answers no
+    const x0 = Math.floor((mn[0] - BOX_SKIN) / BROAD_CELL), x1 = Math.floor((mx[0] + BOX_SKIN) / BROAD_CELL);
+    const z0 = Math.floor((mn[2] - BOX_SKIN) / BROAD_CELL), z1 = Math.floor((mx[2] + BOX_SKIN) / BROAD_CELL);
+    if (!((x1 - x0 + 1) * (z1 - z0 + 1) <= BROAD_SPAN_MAX)) { always.push(bucket); continue; }   // too big - or not finite
+    for (let gx = x0; gx <= x1; gx++) {
+      for (let gz = z0; gz <= z1; gz++) {
+        const k = cellKey(gx, gz);
+        let list = cells.get(k);
+        if (!list) { list = []; cells.set(k, list); }
+        list.push(bucket);
+      }
     }
   }
+  return { all, always, cells };
 }
 
+/** OW-WOD-LAG (2026-09-29, Mac: "When near mountains from WOD, the game lags insane"): THE WIDE TRIANGLES IN A TREE.
+ *  AUDIT BRANCH (WoD) B1 filed them on a 64-unit XZ grid, so a query near a World of Daggerfall massif - rocks scaled by
+ *  hundreds and thousands, stacked over one another - took every face whose footprint covered the column it stood in,
+ *  above it and below it alike: 150 to 1,700 of them a sphere on a stand-in rock (the lag investigation's bench, the
+ *  real prefab transforms), each looked up, marked seen and tested exactly, and the player's and every nearby foe's
+ *  move() runs several spheres a 1/60 step - 1 to 5 ms a body a step where one boulder costs 0.04, and a slow frame
+ *  runs more steps. Of those faces 1.2% were within reach of the query in three dimensions. The grid could not tell
+ *  them apart because it has no height. Now each wide triangle carries its own 3-D box (tri[3] its min, tri[4] its
+ *  max) and the bucket keeps a bounding-volume tree over them, built when first asked after a mesh lands: a query
+ *  walks only the boxes it can reach and tests only the faces under them. Exact as the grid was: a point within r of a
+ *  triangle is within r of its box, and of every box above it in the tree, so nothing the grid found is missed. One
+ *  entry a triangle, however wide - the giant's faces included - where the grid filed a face under every cell it
+ *  covered (AUDIT BRANCH B1's memory law, kept). */
+const WIDE_LEAF = 4;
+/** The bins the split rule weighs a node's centres in, on each axis (binned SAH: linear work a level). */
+const WIDE_BINS = 16;
+/** The slack a sphere query's tree walk adds to its radius: the fine grid's own guarantee (a query takes the 3x3
+ *  cells about its point, so every triangle within a cell's width of it), so a contact's push inside one bucket's
+ *  walk meets the same wide faces it would have met filed on a grid. */
+const WIDE_MARGIN = CELL;
+function wideBox(tri) {
+  const a = tri[0], b = tri[1], c = tri[2];
+  tri[3] = [Math.min(a[0], b[0], c[0]), Math.min(a[1], b[1], c[1]), Math.min(a[2], b[2], c[2])];
+  tri[4] = [Math.max(a[0], b[0], c[0]), Math.max(a[1], b[1], c[1]), Math.max(a[2], b[2], c[2])];
+  return Number.isFinite(tri[3][0] + tri[3][1] + tri[3][2] + tri[4][0] + tri[4][1] + tri[4][2]);
+}
+/** The bucket's tree over its wide triangles, (re)built when the list has grown since. Nodes in flat arrays: `box`
+ *  six numbers a node (min xyz, max xyz), `left` the first child (the second is left + 1) or -1 for a leaf, whose
+ *  triangles are `order[start .. start + count)`. Split at the median of the longest axis of the centroids. */
+function wideTree(bucket) {
+  const n = bucket.wide.length;
+  if (bucket.wideTree && bucket.wideTree.n === n) return bucket.wideTree;
+  const tris = bucket.tris, order = Int32Array.from(bucket.wide);
+  // each triangle's box and centre, once, in flat arrays that move with `order` as it is partitioned
+  const tb = new Float64Array(n * 6), cen = new Float64Array(n * 3);
+  for (let k = 0; k < n; k++) {
+    const t = tris[order[k]], mn = t[3], mx = t[4];
+    for (let q = 0; q < 3; q++) { tb[k * 6 + q] = mn[q]; tb[k * 6 + 3 + q] = mx[q]; cen[k * 3 + q] = (mn[q] + mx[q]) / 2; }
+  }
+  const swap = (i, j) => {
+    const t = order[i]; order[i] = order[j]; order[j] = t;
+    for (let q = 0; q < 6; q++) { const v = tb[i * 6 + q]; tb[i * 6 + q] = tb[j * 6 + q]; tb[j * 6 + q] = v; }
+    for (let q = 0; q < 3; q++) { const v = cen[i * 3 + q]; cen[i * 3 + q] = cen[j * 3 + q]; cen[j * 3 + q] = v; }
+  };
+  const cap = Math.max(1, 2 * n);
+  const box = new Float64Array(cap * 6), left = new Int32Array(cap), start = new Int32Array(cap), count = new Int32Array(cap);
+  const binN = new Int32Array(WIDE_BINS), binB = new Float64Array(WIDE_BINS * 6), rightA = new Float64Array(WIDE_BINS);
+  const area = (B, o) => { const dx = B[o + 3] - B[o], dy = B[o + 4] - B[o + 1], dz = B[o + 5] - B[o + 2]; return dx * dy + dy * dz + dz * dx; };
+  let nodes = 1;
+  const stack = [0, n, 0];
+  while (stack.length) {
+    const node = stack.pop(), hi = stack.pop(), lo = stack.pop();
+    const o = node * 6;
+    box[o] = box[o + 1] = box[o + 2] = Infinity; box[o + 3] = box[o + 4] = box[o + 5] = -Infinity;
+    const c0 = [Infinity, Infinity, Infinity], c1 = [-Infinity, -Infinity, -Infinity];
+    for (let k = lo; k < hi; k++) {
+      for (let q = 0; q < 3; q++) {
+        if (tb[k * 6 + q] < box[o + q]) box[o + q] = tb[k * 6 + q];
+        if (tb[k * 6 + 3 + q] > box[o + 3 + q]) box[o + 3 + q] = tb[k * 6 + 3 + q];
+        const c = cen[k * 3 + q];
+        if (c < c0[q]) c0[q] = c;
+        if (c > c1[q]) c1[q] = c;
+      }
+    }
+    if (hi - lo <= WIDE_LEAF) { left[node] = -1; start[node] = lo; count[node] = hi - lo; continue; }
+    // the split: the surface-area rule over WIDE_BINS bins of centres on each axis - the cut that leaves the two sides
+    // the least box area between them, so the massif's big overlapping faces are kept apart from the small ones (a
+    // median cut stacked fat boxes over each other, and every query walked most of the tree)
+    let bestCost = Infinity, bestAx = -1, bestBin = 0;
+    for (let ax = 0; ax < 3; ax++) {
+      const ext = c1[ax] - c0[ax];
+      if (!(ext > 0)) continue;
+      binN.fill(0);
+      for (let i = 0; i < WIDE_BINS; i++) { binB[i * 6] = binB[i * 6 + 1] = binB[i * 6 + 2] = Infinity; binB[i * 6 + 3] = binB[i * 6 + 4] = binB[i * 6 + 5] = -Infinity; }
+      for (let k = lo; k < hi; k++) {
+        const bi = Math.min(WIDE_BINS - 1, Math.floor(((cen[k * 3 + ax] - c0[ax]) / ext) * WIDE_BINS));
+        binN[bi]++;
+        for (let q = 0; q < 3; q++) {
+          if (tb[k * 6 + q] < binB[bi * 6 + q]) binB[bi * 6 + q] = tb[k * 6 + q];
+          if (tb[k * 6 + 3 + q] > binB[bi * 6 + 3 + q]) binB[bi * 6 + 3 + q] = tb[k * 6 + 3 + q];
+        }
+      }
+      const acc = [Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity];
+      const grow = (i) => { for (let q = 0; q < 3; q++) { if (binB[i * 6 + q] < acc[q]) acc[q] = binB[i * 6 + q]; if (binB[i * 6 + 3 + q] > acc[q + 3]) acc[q + 3] = binB[i * 6 + 3 + q]; } };
+      let nr = 0;
+      for (let i = WIDE_BINS - 1; i >= 1; i--) { if (binN[i]) grow(i); nr += binN[i]; rightA[i] = nr ? area(acc, 0) * nr : 0; }
+      acc[0] = acc[1] = acc[2] = Infinity; acc[3] = acc[4] = acc[5] = -Infinity;
+      let nl = 0;
+      for (let i = 0; i < WIDE_BINS - 1; i++) {
+        if (binN[i]) grow(i);
+        nl += binN[i];
+        if (!nl || nl === hi - lo) continue;
+        const cost = area(acc, 0) * nl + rightA[i + 1];
+        if (cost < bestCost) { bestCost = cost; bestAx = ax; bestBin = i; }
+      }
+    }
+    let mid;
+    if (bestAx < 0) mid = (lo + hi) >> 1;   // every centre in one point: halves, in list order
+    else {
+      const ext = c1[bestAx] - c0[bestAx];
+      let i = lo, j = hi - 1;
+      while (i <= j) {
+        const bi = Math.min(WIDE_BINS - 1, Math.floor(((cen[i * 3 + bestAx] - c0[bestAx]) / ext) * WIDE_BINS));
+        if (bi <= bestBin) i++;
+        else { swap(i, j); j--; }
+      }
+      mid = i;
+      if (mid === lo || mid === hi) mid = (lo + hi) >> 1;
+    }
+    const l = nodes;
+    nodes += 2;
+    left[node] = l;
+    stack.push(lo, mid, l, mid, hi, l + 1);
+  }
+  bucket.wideTree = { n, order, box, left, start, count };
+  return bucket.wideTree;
+}
+const WIDE_STACK = new Int32Array(128);
+const WIDE_NEAR = [];   // the wide triangles a sphere query takes, one scratch (nearCells hands it on)
+/** The wide triangles whose boxes a sphere of radius `r` at the bucket-local point reaches. */
+function wideNear(bucket, lx, ly, lz, r) {
+  WIDE_NEAR.length = 0;
+  const T = wideTree(bucket), box = T.box;
+  let sp = 0;
+  WIDE_STACK[sp++] = 0;
+  while (sp) {
+    const node = WIDE_STACK[--sp], o = node * 6;
+    if (lx + r < box[o] - BOX_SKIN || lx - r > box[o + 3] + BOX_SKIN || ly + r < box[o + 1] - BOX_SKIN || ly - r > box[o + 4] + BOX_SKIN
+      || lz + r < box[o + 2] - BOX_SKIN || lz - r > box[o + 5] + BOX_SKIN) continue;
+    const l = T.left[node];
+    if (l < 0) { for (let k = T.start[node], e = k + T.count[node]; k < e; k++) WIDE_NEAR.push(T.order[k]); continue; }
+    WIDE_STACK[sp++] = l; WIDE_STACK[sp++] = l + 1;
+  }
+  return WIDE_NEAR;
+}
+/** The wide triangles whose boxes the segment `origin + dir * [0, reach]` touches (the node's slab test, exact). */
+function wideOnRay(bucket, ox, oy, oz, dir, reach) {
+  const out = [];
+  const T = wideTree(bucket), box = T.box;
+  let sp = 0;
+  WIDE_STACK[sp++] = 0;
+  while (sp) {
+    const node = WIDE_STACK[--sp], o = node * 6;
+    let tMin = 0, tMax = reach, miss = false;
+    for (let k = 0; k < 3 && !miss; k++) {
+      const lo = box[o + k] - BOX_SKIN, hi = box[o + 3 + k] + BOX_SKIN, d = dir[k], ok = k === 0 ? ox : k === 1 ? oy : oz;
+      if (d === 0) { if (ok < lo || ok > hi) miss = true; continue; }
+      let t0 = (lo - ok) / d, t1 = (hi - ok) / d;
+      if (t0 > t1) { const tt = t0; t0 = t1; t1 = tt; }
+      if (t0 > tMin) tMin = t0;
+      if (t1 < tMax) tMax = t1;
+      if (tMin > tMax) miss = true;
+    }
+    if (miss) continue;
+    const l = T.left[node];
+    if (l < 0) { for (let k = T.start[node], e = k + T.count[node]; k < e; k++) out.push(T.order[k]); continue; }
+    WIDE_STACK[sp++] = l; WIDE_STACK[sp++] = l + 1;
+  }
+  return out;
+}
+/** OW-WOD-LAG: how many wide faces the tree hands a sphere of radius `r` at a WORLD point in bucket `key` (no mover's
+ *  turn) - the query's own walk, counted: the pin that the tree culls (test/ow_wod.test.js). */
+export function wideCandidates(collider, key, p, r) {
+  const bucket = collider._buckets.get(key);
+  if (!bucket || !bucket.wide.length) return 0;
+  const t = bucket.t();
+  return wideNear(bucket, p[0] - t[0], p[1] - t[1], p[2] - t[2], r).length;
+}
+/** OW-WOD-LAG: and the ray's - how many wide faces the tree hands the segment `p + dir * [0, reach]` (world, no turn). */
+export function wideRayCandidates(collider, key, p, dir, reach) {
+  const bucket = collider._buckets.get(key);
+  if (!bucket || !bucket.wide.length) return 0;
+  const t = bucket.t();
+  return wideOnRay(bucket, p[0] - t[0], p[1] - t[1], p[2] - t[2], dir, reach).length;
+}
+/** OW-WOD-LAG: may a sphere of radius `r` at the bucket-local point touch this triangle - false only for a wide
+ *  triangle whose own box it cannot reach (a point within r of a triangle is within r of its box). */
+const triNear = (tri, lx, ly, lz, r) => tri[3] === undefined || sphereTouchesBox(lx, ly, lz, r, tri[3], tri[4]);
+
 const NEAR = [];   // AUDIT BRANCH (WoD) B1: the cell lists a point query takes, one scratch
-/** The triangle lists within a point query's reach of (lx, lz) in `bucket`: the fine 3x3 (CELL exceeds every
- *  query radius), then - only where the bucket holds wide triangles - the coarse 3x3 and the short list. */
-function nearCells(bucket, lx, lz) {
+/** The triangle lists within a sphere query's reach of (lx, ly, lz) in `bucket`: the fine 3x3 (CELL exceeds every
+ *  query radius), then - only where the bucket holds wide triangles - the ones the tree hands a sphere of `r` grown
+ *  by WIDE_MARGIN. */
+function nearCells(bucket, lx, ly, lz, r) {
   NEAR.length = 0;
   const gx = Math.floor(lx / CELL);
   const gz = Math.floor(lz / CELL);
@@ -128,45 +377,8 @@ function nearCells(bucket, lx, lz) {
       if (cell) NEAR.push(cell);
     }
   }
-  if (bucket.coarse.size) {
-    const cx = Math.floor(lx / COARSE);
-    const cz = Math.floor(lz / COARSE);
-    for (let ox = -1; ox <= 1; ox++) {
-      for (let oz = -1; oz <= 1; oz++) {
-        const cell = bucket.coarse.get(cellKey(cx + ox, cz + oz));   // PERF-EXT25
-        if (cell) NEAR.push(cell);
-      }
-    }
-  }
-  if (bucket.huge.length) NEAR.push(bucket.huge);
+  if (bucket.wide.length) NEAR.push(wideNear(bucket, lx, ly, lz, r + WIDE_MARGIN));   // OW-WOD-LAG
   return NEAR;
-}
-
-/** The wide triangles' cell lists along a ray out to `reach`: a 2-D DDA over the coarse grid, the fine walk's own
- *  shape at COARSE, and the short list. */
-function wideCellsOnRay(bucket, ox, oz, dir, reach) {
-  const out = [];
-  if (bucket.coarse.size) {
-    let cx = Math.floor(ox / COARSE);
-    let cz = Math.floor(oz / COARSE);
-    const stepX = dir[0] > 0 ? 1 : -1;
-    const stepZ = dir[2] > 0 ? 1 : -1;
-    const invX = dir[0] !== 0 ? 1 / dir[0] : Infinity;
-    const invZ = dir[2] !== 0 ? 1 / dir[2] : Infinity;
-    let tMaxX = dir[0] !== 0 ? ((cx + (stepX > 0 ? 1 : 0)) * COARSE - ox) * invX : Infinity;
-    let tMaxZ = dir[2] !== 0 ? ((cz + (stepZ > 0 ? 1 : 0)) * COARSE - oz) * invZ : Infinity;
-    const tDeltaX = Math.abs(COARSE * invX);
-    const tDeltaZ = Math.abs(COARSE * invZ);
-    let walked = 0;
-    while (walked <= reach) {
-      const cell = bucket.coarse.get(cellKey(cx, cz));   // PERF-EXT25
-      if (cell) out.push(cell);
-      if (tMaxX < tMaxZ) { walked = tMaxX; tMaxX += tDeltaX; cx += stepX; }
-      else { walked = tMaxZ; tMaxZ += tDeltaZ; cz += stepZ; }
-    }
-  }
-  if (bucket.huge.length) out.push(bucket.huge);
-  return out;
 }
 
 export function segmentHitsBox(ox, oy, oz, dir, min, max, limit) {
@@ -308,6 +520,48 @@ export class Collider {
     this.heightAt = heightAt;
     this.surfaceAt = typeof surfaceAt === 'function' ? surfaceAt : null;
     this._buckets = new Map(); // key -> {tris, grid: Map, t: () => [x,y,z], r: (() => number[]|null)|null, min: [x,y,z], max: [x,y,z]}   // AUDIT NAME1 F2: the bounds are the ray's broad phase
+    this._broad = null;   // FB0930-FRAME: the buckets filed by broad cell (buildBroad), dropped by every addMesh and removeBucket
+  }
+
+  /** FB0930-FRAME: the buckets a query whose WORLD box is [x0, x1] x [z0, z1] (y unbounded) can reach, in the walk's
+   *  order, into `out` - those after `afterOrd` alone (_resolveSphere's re-gather). Every bucket that moves and every
+   *  one too big to file is among them; a standing bucket is among them when its box's cells meet the query's. A box
+   *  too wide (or not finite) answers every bucket after `afterOrd`, the walk as it was. */
+  _near(x0, x1, z0, z1, out, afterOrd = -1) {
+    const broad = this._broad ??= buildBroad(this._buckets);
+    out.length = 0;
+    const cx0 = Math.floor(x0 / BROAD_CELL), cx1 = Math.floor(x1 / BROAD_CELL);
+    const cz0 = Math.floor(z0 / BROAD_CELL), cz1 = Math.floor(z1 / BROAD_CELL);
+    if (!((cx1 - cx0 + 1) * (cz1 - cz0 + 1) <= BROAD_QUERY_MAX)) {
+      const all = broad.all;
+      for (let i = afterOrd + 1; i < all.length; i++) out.push(all[i]);
+      return out;
+    }
+    for (const b of broad.always) if (b.ord > afterOrd) out.push(b);
+    const stamp = ++BROAD_STAMP;
+    let sorted = true;
+    for (let gx = cx0; gx <= cx1; gx++) {
+      for (let gz = cz0; gz <= cz1; gz++) {
+        const list = broad.cells.get(cellKey(gx, gz));
+        if (!list) continue;
+        for (let i = 0; i < list.length; i++) {
+          const b = list[i];
+          if (b.ord <= afterOrd || b._broadStamp === stamp) continue;
+          b._broadStamp = stamp;
+          if (out.length && out[out.length - 1].ord > b.ord) sorted = false;
+          out.push(b);
+        }
+      }
+    }
+    if (!sorted) {   // back into the walk's order - an insertion sort, the lists are a handful
+      for (let i = 1; i < out.length; i++) {
+        const b = out[i];
+        let j = i - 1;
+        while (j >= 0 && out[j].ord > b.ord) { out[j + 1] = out[j]; j--; }
+        out[j + 1] = b;
+      }
+    }
+    return out;
   }
 
   /**
@@ -368,9 +622,10 @@ export class Collider {
       // OWN space (the translation is applied to the RAY, as the DDA
       // already does), kept as the triangles go in - one compare per
       // vertex, paid once at load, against a walk paid per ray.
-      bucket = { tris: [], grid: new Map(), coarse: new Map(), huge: [], t: translation || (() => ZERO3), r: rotation, min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity] };   // AUDIT BRANCH (WoD) B1: the wide triangles' two homes
+      bucket = { key: bucketKey, moves: !!(translation || rotation), ord: -1, _broadStamp: 0, tris: [], yLo: [], yHi: [], rayMark: null, grid: new Map(), wide: [], wideTree: null, t: translation || (() => ZERO3), r: rotation, min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity] };   // AUDIT BRANCH (WoD) B1; OW-WOD-LAG: the wide triangles, and their tree (built when first asked); FB0930-FRAME: its key, whether it moves, its place in the walk
       this._buckets.set(bucketKey, bucket);
     }
+    this._broad = null;   // FB0930-FRAME: a new bucket, or a box that grows - filed again at the next query
     const m = matrix;
     const tx = (i) => {
       const x = positions[i * 3];
@@ -388,6 +643,8 @@ export class Collider {
       const c = tx(indices[i + 2]);
       const idx = bucket.tris.length;
       bucket.tris.push([a, b, c]);
+      bucket.yLo[idx] = Math.min(a[1], b[1], c[1]);   // FB0930-FOE-RAYS: the ray walk's Y reject
+      bucket.yHi[idx] = Math.max(a[1], b[1], c[1]);
       for (let j = 0; j < 3; j++) {   // PERF-EXT25: the three corners without a fourth array a triangle
         const v = j === 0 ? a : j === 1 ? b : c;
         for (let k = 0; k < 3; k++) {
@@ -399,7 +656,7 @@ export class Collider {
       const maxX = Math.floor(Math.max(a[0], b[0], c[0]) / CELL);
       const minZ = Math.floor(Math.min(a[2], b[2], c[2]) / CELL);
       const maxZ = Math.floor(Math.max(a[2], b[2], c[2]) / CELL);
-      if ((maxX - minX + 1) * (maxZ - minZ + 1) > FINE_CELLS_MAX) { fileWide(bucket, a, b, c, idx); continue; }   // AUDIT BRANCH (WoD) B1
+      if ((maxX - minX + 1) * (maxZ - minZ + 1) > FINE_CELLS_MAX) { if (wideBox(bucket.tris[idx])) bucket.wide.push(idx); continue; }   // AUDIT BRANCH (WoD) B1; OW-WOD-LAG: with its own box, for the tree (a vertex that is not finite files nothing, as the fine loop's own bounds never did)
       for (let gx = minX; gx <= maxX; gx++) {
         for (let gz = minZ; gz <= maxZ; gz++) {
           const k = cellKey(gx, gz);   // PERF-EXT25
@@ -411,8 +668,17 @@ export class Collider {
     }
   }
 
+  /** OW-WOD-LAG: build a bucket's tree over its wide triangles NOW - a host calls it once a pixel's meshes are in, inside
+   *  its own build (with its breathers), so a massif's tree (7-30 ms on a stand-in rock) is never raised by the first
+   *  query of a frame in play. A bucket with none, or whose tree stands, costs nothing; a later mesh raises it again,
+   *  lazily, on the query that needs it. */
+  settle(bucketKey) {
+    const bucket = this._buckets.get(bucketKey);
+    if (bucket && bucket.wide.length) wideTree(bucket);
+  }
+
   removeBucket(bucketKey) {
-    this._buckets.delete(bucketKey);
+    if (this._buckets.delete(bucketKey)) this._broad = null;   // FB0930-FRAME: the filing is dropped with it
   }
 
   /** DECOR-ROOMS: the box every bucket's triangles stand in, in world space (each bucket's own bounds moved by its
@@ -476,7 +742,12 @@ export class Collider {
     let bestR = null;   // AUDIT NAV1 (#12): and the turn of the bucket it stands in
     const only = filter?.only ? new Set(filter.only) : null;
     const skip = filter?.skip ? new Set(filter.skip) : null;
-    for (const [bkey, bucket] of this._buckets) {
+    // FB0930-FRAME: the buckets the ray's own world box reaches, in the walk's order - the rest would fail the box below
+    const ex = origin[0] + dirW[0] * maxDist, ez = origin[2] + dirW[2] * maxDist;
+    const near = this._near(Math.min(origin[0], ex) - BOX_SKIN, Math.max(origin[0], ex) + BOX_SKIN,
+      Math.min(origin[2], ez) - BOX_SKIN, Math.max(origin[2], ez) + BOX_SKIN, RAY_NEAR);
+    for (let bi = 0; bi < near.length; bi++) {
+      const bucket = near[bi], bkey = bucket.key;
       if (only && !only.has(bkey)) continue;
       if (skip && skip.has(bkey)) continue;
       const t = bucket.t();
@@ -515,15 +786,21 @@ export class Collider {
       let tMaxZ = dir[2] !== 0 ? ((cz + (stepZ > 0 ? 1 : 0)) * CELL - oz) * invZ : Infinity;
       const tDeltaX = Math.abs(CELL * invX);
       const tDeltaZ = Math.abs(CELL * invZ);
-      const visited = RAY_VISITED;
-      visited.clear();
+      const marks = rayMarks(bucket), stamp = RAY_STAMP;   // FB0930-FOE-RAYS
+      const yLoOf = bucket.yLo, yHiOf = bucket.yHi, dy = dir[1];
       let walked = 0;
       while (walked <= Math.min(maxDist, best)) {
         const cell = bucket.grid.get(cellKey(cx, cz));   // PERF-EXT25
         if (cell) {
-          for (const ti of cell) {
-            if (visited.has(ti)) continue;
-            visited.add(ti);
+          // FB0930-FOE-RAYS: the ray's Y span inside this cell, [walked, leaving it] clamped to the reach
+          const tOut = Math.min(tMaxX, tMaxZ, maxDist, best);
+          const y0 = oy + dy * walked, y1 = oy + dy * tOut;
+          const rLo = (y0 < y1 ? y0 : y1) - RAY_Y_SLACK, rHi = (y0 < y1 ? y1 : y0) + RAY_Y_SLACK;
+          for (let ci = 0; ci < cell.length; ci++) {
+            const ti = cell[ci];
+            if (marks[ti] === stamp) continue;
+            if (yHiOf[ti] < rLo || yLoOf[ti] > rHi) continue;   // not reachable in this cell - left unmarked
+            marks[ti] = stamp;
             const tri = bucket.tris[ti];
             const hit = rayTriangle(ox, oy, oz, dir, tri[0], tri[1], tri[2]);
             if (hit !== null && hit < best && hit <= maxDist) { best = hit; bestKey = bkey; bestTri = tri; bestR = R; }
@@ -533,15 +810,11 @@ export class Collider {
         else { walked = tMaxZ; tMaxZ += tDeltaZ; cz += stepZ; }
       }
       // AUDIT BRANCH (WoD) B1: the wide triangles, where this bucket holds any
-      if (bucket.coarse.size || bucket.huge.length) {
-        for (const cell of wideCellsOnRay(bucket, ox, oz, dir, Math.min(maxDist, best))) {
-          for (const ti of cell) {
-            if (visited.has(ti)) continue;
-            visited.add(ti);
-            const tri = bucket.tris[ti];
-            const hit = rayTriangle(ox, oy, oz, dir, tri[0], tri[1], tri[2]);
-            if (hit !== null && hit < best && hit <= maxDist) { best = hit; bestKey = bkey; bestTri = tri; bestR = R; }
-          }
+      if (bucket.wide.length) {   // OW-WOD-LAG: the tree's, each wide triangle once
+        for (const ti of wideOnRay(bucket, ox, oy, oz, dir, Math.min(maxDist, best))) {
+          const tri = bucket.tris[ti];
+          const hit = rayTriangle(ox, oy, oz, dir, tri[0], tri[1], tri[2]);
+          if (hit !== null && hit < best && hit <= maxDist) { best = hit; bestKey = bkey; bestTri = tri; bestR = R; }
         }
       }
     }
@@ -647,7 +920,10 @@ export class Collider {
    */
   sphereOverlaps(center, radius) {
     const r2 = radius * radius;
-    for (const [, bucket] of this._buckets) {
+    const g = radius + 2 * BOX_SKIN;   // FB0930-FRAME: the buckets the sphere's own box reaches, in the walk's order
+    const near = this._near(center[0] - g, center[0] + g, center[2] - g, center[2] + g, SPHERE_NEAR);
+    for (let bi = 0; bi < near.length; bi++) {
+      const bucket = near[bi];
       const t = bucket.t();
       const R = bucket.r ? bucket.r() : null;
       let lx, ly, lz;
@@ -658,13 +934,16 @@ export class Collider {
         lz = center[2] - t[2];
       }
       if (!sphereTouchesBox(lx, ly, lz, radius, bucket.min, bucket.max)) continue;   // PERF-COL1: the same broad phase (the test below is `< r2`, no skin)
-      const visited = VISITED;
-      visited.clear();
-      for (const cell of nearCells(bucket, lx, lz)) {   // AUDIT BRANCH (WoD) B1: the fine 3x3, then any wide triangles
-        for (const ti of cell) {
-          if (visited.has(ti)) continue;
-          visited.add(ti);
+      const marks = rayMarks(bucket), stamp = RAY_STAMP;   // FB0930-FRAME: the walk's stamp, not a Set
+      const yLoOf = bucket.yLo, yHiOf = bucket.yHi, yReach = radius + SPHERE_Y_SLACK;
+      for (const cell of nearCells(bucket, lx, ly, lz, radius)) {   // AUDIT BRANCH (WoD) B1: the fine 3x3, then any wide triangles
+        for (let ci = 0; ci < cell.length; ci++) {
+          const ti = cell[ci];
+          if (marks[ti] === stamp) continue;
+          marks[ti] = stamp;
+          if (yHiOf[ti] < ly - yReach || yLoOf[ti] > ly + yReach) continue;   // FB0930-FRAME: out of reach above or below
           const tri = bucket.tris[ti];
+          if (!triNear(tri, lx, ly, lz, radius)) continue;   // OW-WOD-LAG
           closestPointOnTriangle(lx, ly, lz, tri[0], tri[1], tri[2], TMP);
           const dx = lx - TMP[0];
           const dy = ly - TMP[1];
@@ -695,7 +974,10 @@ export class Collider {
     const lim2 = lim * lim;
     const only = filter?.only ? new Set(filter.only) : null;
     let best = Infinity;
-    for (const [bkey, bucket] of this._buckets) {
+    const g = lim + 2 * BOX_SKIN;   // FB0930-FRAME: the buckets the capsule's own box reaches, in the walk's order
+    const near = this._near(feet[0] - g, feet[0] + g, feet[2] - g, feet[2] + g, SPHERE_NEAR);
+    for (let bi = 0; bi < near.length; bi++) {
+      const bucket = near[bi], bkey = bucket.key;
       if (only && !only.has(bkey)) continue;
       const t = bucket.t();
       const R = bucket.r ? bucket.r() : null;   // AUDIT NAV1 (#12): a mover's - each sample turned back, the contact out
@@ -705,13 +987,16 @@ export class Collider {
         let ly = feet[1] + CAPSULE_RADIUS + (axis * i) / (n - 1) - t[1];
         if (R) { intoBucket(feet[0], feet[1] + CAPSULE_RADIUS + (axis * i) / (n - 1), feet[2], t, R, LOCAL); lx = LOCAL[0]; ly = LOCAL[1]; lz = LOCAL[2]; }
         if (!sphereTouchesBox(lx, ly, lz, lim, bucket.min, bucket.max)) continue;
-        const visited = VISITED;
-        visited.clear();
-        for (const cell of nearCells(bucket, lx, lz)) {
-          for (const ti of cell) {
-            if (visited.has(ti)) continue;
-            visited.add(ti);
+        const marks = rayMarks(bucket), stamp = RAY_STAMP;   // FB0930-FRAME: the walk's stamp, not a Set
+        const yLoOf = bucket.yLo, yHiOf = bucket.yHi, yReach = lim + SPHERE_Y_SLACK;
+        for (const cell of nearCells(bucket, lx, ly, lz, lim)) {
+          for (let ci = 0; ci < cell.length; ci++) {
+            const ti = cell[ci];
+            if (marks[ti] === stamp) continue;
+            marks[ti] = stamp;
+            if (yHiOf[ti] < ly - yReach || yLoOf[ti] > ly + yReach) continue;   // FB0930-FRAME: out of reach above or below
             const tri = bucket.tris[ti];
+            if (!triNear(tri, lx, ly, lz, lim)) continue;   // OW-WOD-LAG
             closestPointOnTriangle(lx, ly, lz, tri[0], tri[1], tri[2], TMP);
             const dx = lx - TMP[0];
             const dy = ly - TMP[1];
@@ -777,11 +1062,12 @@ export class Collider {
       if (sphereTouchesBox(lx, ly, lz, radius, bucket.min, bucket.max)) {
         const visited = VISITED;
         visited.clear();
-        for (const cell of nearCells(bucket, lx, lz)) {
+        for (const cell of nearCells(bucket, lx, ly, lz, radius)) {
           for (const ti of cell) {
             if (visited.has(ti)) continue;
             visited.add(ti);
             const tri = bucket.tris[ti];
+            if (!triNear(tri, lx, ly, lz, radius)) continue;   // OW-WOD-LAG
             closestPointOnTriangle(lx, ly, lz, tri[0], tri[1], tri[2], TMP);
             const dx = lx - TMP[0], dy = ly - TMP[1], dz = lz - TMP[2];
             if (dx * dx + dy * dy + dz * dz < r2) { overlap = true; break; }
@@ -846,7 +1132,9 @@ export class Collider {
     const reach = maxDist + radius;
     let best = Infinity;
     let bestKey = null;
-    const n = Math.max(1, axisSamples);
+    // FB0930-FRAME: an axis of no length (the clear-path probe casts from the centre to the centre) samples one point
+    // however many are asked for - the others are the same nine rays again, which can never beat the first nine's hit
+    const n = ax === 0 && ay === 0 && az === 0 ? 1 : Math.max(1, axisSamples);
     for (let i = 0; i < n; i++) {
       const t = n === 1 ? 0 : i / (n - 1);
       const bx = p1[0] + ax * t, by = p1[1] + ay * t, bz = p1[2] + az * t;
@@ -857,19 +1145,14 @@ export class Collider {
       // diagonals sit at radius/sqrt(2) on each axis, which is the same
       // circle, and cost four more DDA rays over a fifth of a metre.
       const h = radius * Math.SQRT1_2;
-      for (const [ox, oy, oz] of [
-        [0, 0, 0],
-        [ux * radius, uy * radius, uz * radius],
-        [-ux * radius, -uy * radius, -uz * radius],
-        [vx * radius, vy * radius, vz * radius],
-        [-vx * radius, -vy * radius, -vz * radius],
-        [(ux + vx) * h, (uy + vy) * h, (uz + vz) * h],
-        [(ux - vx) * h, (uy - vy) * h, (uz - vz) * h],
-        [(-ux + vx) * h, (-uy + vy) * h, (-uz + vz) * h],
-        [(-ux - vx) * h, (-uy - vy) * h, (-uz - vz) * h],
-      ]) {
-        const h = this.raycastHit([bx + ox, by + oy, bz + oz], dir, reach, filter);   // HCC: the same bucket filter the rays take (a horse stepping past its own parked wagon)
-        if (h.dist < best) { best = h.dist; bestKey = h.key; }
+      // FB0930-FOE-RAYS: the nine spokes as coefficients on (u, v) - no nine fresh arrays a sample - and each ray
+      // reaches only as far as the nearest hit so far: a farther one could never replace it (`<` below), so the
+      // answer is the same and a spoke behind a wall the centre already met walks a cell or two, not the reach.
+      for (let sp = 0; sp < 9; sp++) {
+        const su = CAP_SPOKES[sp * 2], sv = CAP_SPOKES[sp * 2 + 1], k = sp >= 5 ? h : radius;
+        CAP_ORIGIN[0] = bx + (su * ux + sv * vx) * k; CAP_ORIGIN[1] = by + (su * uy + sv * vy) * k; CAP_ORIGIN[2] = bz + (su * uz + sv * vz) * k;
+        const hit = this.raycastHit(CAP_ORIGIN, dir, Math.min(reach, best), filter, CAP_HIT);   // HCC: the same bucket filter the rays take (a horse stepping past its own parked wagon)
+        if (hit.dist < best) { best = hit.dist; bestKey = hit.key; }
       }
     }
     return { dist: Number.isFinite(best) ? Math.max(0, best - radius) : Infinity, key: bestKey };
@@ -931,7 +1214,22 @@ export class Collider {
     // note there says why; the box is asked with the centre as it stands
     // when the bucket's turn comes, which sphereTouchesBox's note shows
     // is exact.)
-    for (const [bkey, bucket] of this._buckets) {
+    // FB0930-FRAME: the buckets the sphere's box reaches from where it was gathered (grown by BROAD_PAD), in the walk's
+    // order - gathered again, after the last bucket walked, whenever the pushes carry the centre past the pad
+    const reach = radius + SKIN, g = reach + BROAD_PAD + 2 * BOX_SKIN;
+    let gx = center[0], gz = center[2], walkedOrd = -1;
+    let near = this._near(gx - g, gx + g, gz - g, gz + g, SPHERE_NEAR);
+    for (let bi = 0; ; bi++) {
+      // asked BEFORE the list's end: the last candidate's pushes may carry the centre to buckets the list never held
+      if (Math.abs(center[0] - gx) > BROAD_PAD || Math.abs(center[2] - gz) > BROAD_PAD) {
+        gx = center[0]; gz = center[2];
+        near = this._near(gx - g, gx + g, gz - g, gz + g, SPHERE_NEAR, walkedOrd);
+        bi = -1;
+        continue;
+      }
+      if (bi >= near.length) break;
+      const bucket = near[bi], bkey = bucket.key;
+      walkedOrd = bucket.ord;
       if (skip?.has(bkey)) continue;   // AUDIT DECOR-SHELL 1
       const t = bucket.t();
       // AUDIT NAV1 (the frame's cost, #12): a mover's bucket - the centre turned back into its frame for the box, the
@@ -941,19 +1239,22 @@ export class Collider {
       if (R) intoBucket(center[0], center[1], center[2], t, R, LOCAL);
       const bx = R ? LOCAL[0] : center[0] - t[0], by = R ? LOCAL[1] : center[1] - t[1], bz = R ? LOCAL[2] : center[2] - t[2];   // the centre in the bucket, as it stands at the bucket's turn
       if (!sphereTouchesBox(bx, by, bz, radius + SKIN, bucket.min, bucket.max)) continue;
-      const visited = VISITED;
-      visited.clear();
-      for (const cell of nearCells(bucket, bx, bz)) {   // AUDIT BRANCH (WoD) B1: the fine 3x3, then any wide triangles
-        for (const ti of cell) {
-          if (visited.has(ti)) continue;
-          visited.add(ti);
-          const tri = bucket.tris[ti];
+      const marks = rayMarks(bucket), stamp = RAY_STAMP;   // FB0930-FRAME: the walk's stamp, not a Set
+      const yLoOf = bucket.yLo, yHiOf = bucket.yHi, yReach = reach + SPHERE_Y_SLACK;
+      for (const cell of nearCells(bucket, bx, by, bz, radius + SKIN)) {   // AUDIT BRANCH (WoD) B1: the fine 3x3, then any wide triangles
+        for (let ci = 0; ci < cell.length; ci++) {
+          const ti = cell[ci];
+          if (marks[ti] === stamp) continue;
+          marks[ti] = stamp;
           // Live local point: pushes from earlier triangles must be
           // seen by later ones (a stale snapshot compounded pushes).
           let lx = center[0] - t[0];
           let ly = center[1] - t[1];
           let lz = center[2] - t[2];
           if (R) { intoBucket(center[0], center[1], center[2], t, R, LOCAL); lx = LOCAL[0]; ly = LOCAL[1]; lz = LOCAL[2]; }
+          if (yHiOf[ti] < ly - yReach || yLoOf[ti] > ly + yReach) continue;   // FB0930-FRAME: out of the contact's reach above or below, at the live point
+          const tri = bucket.tris[ti];
+          if (!triNear(tri, lx, ly, lz, radius + SKIN)) continue;   // OW-WOD-LAG: the contact's own reach (contactR, below), the live point
           closestPointOnTriangle(lx, ly, lz, tri[0], tri[1], tri[2], TMP);
           let dx = lx - TMP[0];
           let dy = ly - TMP[1];

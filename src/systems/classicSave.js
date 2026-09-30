@@ -46,7 +46,7 @@ import { RECORD_TYPES, ENVIRONMENTS, isWagonRecord } from '../formats/saveTreeFi
 import { readMapSaveDiscovery } from '../formats/saveGames.js';
 import { SHIP_TYPES } from './banking.js';
 import { SAVE_VERSION } from './save.js';
-import { LEVELING_CLASSIC } from './oblivionLeveling.js';   // ORL1: a classic save is a classic character
+import { LEVELING_CLASSIC, newCharacterLevelingSystem } from './oblivionLeveling.js';   // ORL1: a classic save is a classic character
 import { STAT_KEYS_ORDER } from './statMods.js';
 import { SOCIAL_GROUP_COUNT } from '../formats/factionFile.js';
 import { ITEM_GROUP_BY_ID } from './biography.js';
@@ -530,7 +530,7 @@ export function classicGuildMemberships(saveTree, factionDict, vampire = false) 
       // Temple(Arkay) / KnightlyOrder(Horn) instance and IsMember
       // answers true. The port's slot carries the guild's NAME to say
       // which temple or order fills the shared group slot
-      // (guilds.js:578-581 `membershipOf`), and that name has to be the
+      // (guilds.js:598-601 `membershipOf`), and that name has to be the
       // PORT's guild-record name - the one joinGuild writes - not the
       // FACTION.TXT record name ("The Fighters Guild", "Arkay"), which
       // no consumer matches. `createGuildForGroup` is CreateGuildObj,
@@ -657,10 +657,12 @@ export function restoreOldClassSpecials(saveTree, career, classicTransformedRace
  *   MAPSAVE discovery walk. Absent = no discovery imports (recorded).
  * @param {number[]} [deps.regionLocationCounts] - per-region location
  *   counts for the MAPSAVE walk (with resolveLocation).
+ * @param {boolean} [deps.online] - LEVEL-ONLINE: the import is on the online page - a new online character, Oblivion's bar.
  */
 export function classicSaveToSnapshot(saveGames, {
   spellsByIndex = null, factionStore = null,
   resolveLocation = null, regionLocationCounts = null,
+  online = false,   // LEVEL-ONLINE: an import on the online page is a new ONLINE character - Oblivion's bar
 } = {}) {
   const saveTree = saveGames.saveTree;
   const saveVars = saveGames.saveVars;
@@ -771,7 +773,8 @@ export function classicSaveToSnapshot(saveGames, {
     // the only law that character has ever played under. The bar is
     // zeroed rather than left undefined so the import writes a complete
     // entity, as it does for every other field here.
-    levelingSystem: LEVELING_CLASSIC, levelProgress: 0, levelRollUp: 0,
+    // LEVEL-ONLINE: ...offline. Online a new character never levels Daggerfall's way (newCharacterLevelingSystem).
+    levelingSystem: newCharacterLevelingSystem(LEVELING_CLASSIC, { online }), levelProgress: 0, levelRollUp: 0,
 
     biographyResistDiseaseMod: saveVars.biographyResistDiseaseMod,
     biographyResistMagicMod: saveVars.biographyResistMagicMod,

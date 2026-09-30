@@ -131,7 +131,12 @@ test('F98: the EXECUTION is the one exit DFU does not refill', () => {
 
 test('F99: banishment sets bit 1 and execution bit 2, on the COURT\'S region', () => {
   const banished = finishArm("if (result.outcome === 'banished')");
-  assert.match(banished, /severePunishment\(SEVERE_PUNISHMENT_BANISHED\);/);
+  // REP3 (the reputation overhaul, "Timed or pardoned"): PIN MOVED - the banished arm sets the bit through
+  // systems/standing.js banish(), which ORs the same bit 1 into the same field of the court's live region and stamps its
+  // thirty days (test/rep3_banishment.test.js); the execution arm is DFU's own write, as before
+  // AUDIT REP F2: PIN MOVED - the term reads the TRUSTED calendar (worldTick.js trustedWorldMinutes: online, nothing
+  // stamped until the relay's clock is heard; test/auditrep.test.js)
+  assert.match(banished, /banish\(playerEntity, region\(\), trustedWorldMinutes\(\)\);/);
   assert.match(finishArm("if (result.outcome === 'executed')"), /severePunishment\(SEVERE_PUNISHMENT_EXECUTED\);/);
   assert.equal(SEVERE_PUNISHMENT_BANISHED, 1);
   assert.equal(SEVERE_PUNISHMENT_EXECUTED, 2);
@@ -149,8 +154,9 @@ test('F99: banishment sets bit 1 and execution bit 2, on the COURT\'S region', (
     'DFU writes RegionData[regionIndex] - the region the court sits in, read live');
   assert.match(fn.slice(0, 420), /if \(r\) r\.severePunishmentFlags \|= bit;/,
     'an OR into the field, never an assignment - the two bits share it');
-  // the FLAGGED marker that licensed the gap is gone: the consumer
-  // (encounters.passiveGuardSpawns) has been live for slices.
+  // the FLAGGED marker that licensed the gap is gone. (AUDIT REP F6: its
+  // consumer since REP1-REP3 is systems/standing.js; DFU's reader,
+  // encounters.passiveGuardSpawns, has no production caller.)
   assert.equal(a.includes('SeverePunishmentFlags |= 1 consequences pend (FLAGGED)'), false);
 });
 
@@ -168,6 +174,7 @@ test('F99 (AUDIT-39r): the bit lands in the region the GETTER host names', () =>
     // FIRST one, which is punishmentType 0 - Banishment.
     legalRep: { 12: -50 },
     regionConditions: { 3: { severePunishmentFlags: 0 }, 12: { severePunishmentFlags: 0 } },
+    chargedCrime: CRIMES.Murder,   // AUDIT REP F1: the box charged it - the court charges only a crime not yet charged, so the rig says so
   };
   let win = null;
   const flow = createArrestFlow({

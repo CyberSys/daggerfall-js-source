@@ -30,7 +30,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { OnlineSession, TOKEN_WAIT_MS } from '../src/net/online.js';
-import { parseClient, rosterFor } from '../src/net/wire.js';
+import { parseClient, rosterFor, HELLO_WAIT_MS } from '../src/net/wire.js';
 import { ChatLog } from '../src/net/chat.js';
 import { RELAY_GRAPH } from './relayversion.test.js';
 import { accountTokenMinter, mintIdentity, SESSION_KEY, DEFAULT_ACCOUNT_SERVICE } from '../src/net/accountClient.js';
@@ -220,7 +220,9 @@ test('ACC1d: TOKEN_WAIT_MS is the WHOLE budget - an account service that never a
     assert.equal(sockets[0].sent.length, 1, 'past it, the hello goes anyway');
     assert.equal('tok' in sockets[0].sent[0], false);
   } finally { mock.timers.reset(); }
-  assert.ok(TOKEN_WAIT_MS > 0 && TOKEN_WAIT_MS <= 5000, 'a budget a player would not notice as a hang');
+  // FIELD BUGS 29h (TOKEN-WAIT): PIN MOVED - ACC1g made the unsigned hello a refusal, so the budget covers the service's
+  // real answer and stays under the relay's HELLO_WAIT_MS (test/fb0929h_tokenwait.test.js holds why)
+  assert.ok(TOKEN_WAIT_MS > 2500 && TOKEN_WAIT_MS < HELLO_WAIT_MS, 'past the old 2.5 s, under the relay\'s own wait for a hello');
 });
 
 test('ACC1d: ONE TOKEN PER CONNECTION - every socket mints its own (mutant: minted once and reused, which the relay refuses the second time)', async () => {

@@ -242,7 +242,9 @@ export const SEVERE_PUNISHMENT_EXECUTED = 2;
 
 /** How many SpawnCityGuards(false) calls this ONE catch-up minute
  *  owes: 0, 1 or - both rolls landing, which DFU permits because the
- *  two `if`s are independent - 2. */
+ *  two `if`s are independent - 2.
+ *  AUDIT REP F6: KEPT, WITH NO PRODUCTION CALLER SINCE REP1 - both street hosts retired DFU's per-minute levy for the
+ *  watch's stop (scenes/standingHost.js); this is DFU's law as ported, for its pins and a mod that wants the old watch. */
 export function passiveGuardSpawns({ legalRep = 0, severePunishmentFlags = 0 } = {}, rolls = Math.random) {
   let spawns = 0;
   if (legalRep < PASSIVE_GUARD_LEGAL_REP && dice100(PASSIVE_GUARD_LOW_REP_CHANCE, rolls())) spawns++;

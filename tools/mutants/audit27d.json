@@ -164,8 +164,8 @@
   {
     "name": "AUDIT-B6-flag-never-read",
     "file": "src/systems/effects.js",
-    "old": "cureAllOfKind(target, CURE_KINDS[e.subType], ctx?.strangerCast === true);",
-    "new": "cureAllOfKind(target, CURE_KINDS[e.subType]);",
+    "old": "cureAllOfKind(target, CURE_KINDS[e.subType], ctx?.strangerCast === true || plainDiseaseLive(target));",
+    "new": "cureAllOfKind(target, CURE_KINDS[e.subType], plainDiseaseLive(target));",
     "tests": [
       "test/spellgift.test.js",
       "test/audit27d.test.js"

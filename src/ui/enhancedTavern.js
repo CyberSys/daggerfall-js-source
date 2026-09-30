@@ -43,7 +43,7 @@ import {
   rentalDecision, rentRoom, canEat, eatOrDrink,
 } from '../systems/tavern.js';
 import { survivalOn, survivalRules } from '../systems/survival/switch.js';   // SURV-TIERS: the tier prices the drink
-import { tavernMenu, tavernEat, tavernDrink, tavernOrder, blackout } from '../systems/survival/tavernMenu.js';
+import { tavernMenu, tavernEat, tavernDrink, tavernOrder, tavernWater, blackout } from '../systems/survival/tavernMenu.js';   // INN-WATER: tavernWater, the fountain's law at the bar
 import { survivalOf } from '../systems/survival/needs.js';
 import { stiffen, REST_KIND } from '../systems/survival/rest.js';
 
@@ -233,10 +233,11 @@ function pickSurvival(row, now) {
   const rules = survivalRules();
   if (totalGoldAmount(h.entity) < row.price) { say(rows(NOT_ENOUGH_GOLD_ID)); return; }
   // SURV-TIERS: the tier refuses before the coin changes hands - the drink that would take the night, the meal that would go to waste
-  const order = tavernOrder(s, now, row, { endurance, rules });
+  const order = tavernOrder(s, now, row, { endurance, rules, items: h.entity.items });   // INN-WATER: the pack, for the skins the water asks after
   if (!order.ok) { say(line(order.text)); return; }   // the menu stays up, as it does for the gold: a lighter drink still serves
   deductGold(h.entity, row.price);
-  const r = row.kind === 'food' ? tavernEat(s, now, row.worth) : tavernDrink(s, row.strength, { endurance, rules });
+  // INN-WATER: the water row is the fountain's law (a skin filled at the bar), paid as every row is paid
+  const r = row.kind === 'food' ? tavernEat(s, now, row.worth) : row.kind === 'water' ? tavernWater(h.entity, now) : tavernDrink(s, row.strength, { endurance, rules });
   h.advanceMinutes?.(r.minutes);
   h.entity.lastTimePlayerAteOrDrankAtTavern = now;
   let b = null;

@@ -33,7 +33,9 @@ test('AUDIT SPELL-GIFT B6: a cure may leave an incubating infection be - the str
   assert.deepEqual(t.activeEffects.map((a) => a.infection ?? a.kind), ['Vampirism-Infection', 'poison']);
   cureAllOfKind(t, 'disease');
   assert.deepEqual(t.activeEffects.map((a) => a.kind), ['poison']);
-  assert.match(src('src/systems/effects.js'), /cureAllOfKind\(target, CURE_KINDS\[e\.subType\], ctx\?\.strangerCast === true\);/);
+  // FIELD BUGS 29h (INFECTION-KEPT): PIN MOVED - the stranger's flag read beside the plain disease any cure takes
+  // first (test/fb0929h_infectionkept.test.js); the host still says whose a cast is
+  assert.match(src('src/systems/effects.js'), /cureAllOfKind\(target, CURE_KINDS\[e\.subType\], ctx\?\.strangerCast === true \|\| plainDiseaseLive\(target\)\);/);
   assert.match(W, /magic\.applySpellToPlayer\(spell, d\.level, null, \{ allyCast: true, strangerCast: !mate \}\);/);
 });
 

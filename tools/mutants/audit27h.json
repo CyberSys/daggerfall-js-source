@@ -199,8 +199,9 @@
   {
     "name": "S2-dungeon-key-load-keeps-the-latch",
     "file": "src/scenes/worldModes.js",
-    "old": "const placeLoadedPlayer = (p) => { player.spawn(p[0], p[1], p[2]); player.stopAutorun(); };",
-    "new": "const placeLoadedPlayer = (p) => { player.spawn(p[0], p[1], p[2]); };",
+    "old": "const placeLoadedPlayer = (p, fall = null) => { player.spawn(p[0], p[1], p[2]); player.restoreFall(fall); player.stopAutorun(); };",
+    "new": "const placeLoadedPlayer = (p, fall = null) => { player.spawn(p[0], p[1], p[2]); player.restoreFall(fall); };",
+    "note": "FALL-KEPT (FIELD BUGS 2026-09-30, PIN MOVED): the law takes the save's fall beside the position and lands it after the spawn; the mutant is the same latch removal.",
     "tests": [
       "test/audit27h.test.js",
       "test/audit23.test.js",

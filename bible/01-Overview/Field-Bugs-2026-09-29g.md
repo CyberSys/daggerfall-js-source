@@ -149,10 +149,16 @@ short of a band's sight, not 1280; on foot 168 m, not 280. The second "too early
 1. **A townsperson in a raid.** [ANSWERED: *"Spare townspeople in raid"* - RAID-GUARDS-NPC spares every walker while a
    raid is on. Outside a raid Protect Bystanders stays DFU's box-pass rule.]
 2. **Serving time, the levy, banishment.** A refund of at least a Conspiracy's loss, a grace after release, no levy on
-   the online clock, a way to lift the banish bit - any, or DFU's?
+   the online clock, a way to lift the banish bit - any, or DFU's? [ANSWERED by the reputation overhaul (REP1-REP3,
+   2026-09-29, `06-Systems/Standing-Arc.md`; Mac: *"The charge, with a mark"*, *"Challenged on sight"*, *"Timed or
+   pardoned"*): a sentence gives the charge back (a Conspiracy's whole 2), a day's grace after the law is answered, no
+   levy at all - a guard who sees a known criminal stops them - and a banishment lifts after 30 days or with a pardon.]
 3. **A reputation reset (5).** Its reach (a region's legal reputation and People, the banish bit, a guild's standing),
    where it is sold (a temple, the court, a guild), the price and its rise per use (a count kept per character, the
-   server's online).
+   server's online). [ANSWERED by REP3/REP4 (Mac: *"Earn it + faster drift"*): a temple's penance buys five points of a
+   region's law (200 gold, a step more each time there) and its pardon lifts a banishment (2,500, a step more each
+   time), both counted per character in the save; a guild's standing mends by its quests and the weekly drift, under
+   REP6's probation. The count lives in the character's save, as every standing does - the server holds none.]
 4. **Strikes on shared foes and in duels.** Carry a strike spell's whole effect to the owner (the cast lane's
    `castSpellOf` frame), and a duel weapon's enchantments across the wire - or leave both recorded limits?
    [ANSWERED for shared foes: *"Do #1"* - STRIKE-SHARED. Duels still open.]

@@ -44,8 +44,9 @@
   {
     "name": "CUSTOMS-PASS-refusal-forgets-the-pass",
     "file": "server-account/src/realm.js",
-    "old": "    if (!(await openPassOf(db, playerId))) return 'customs-never-online';",
-    "new": "    return 'customs-never-online';",
+    "old": "    if (!(await openPassOf(db, playerId))) {\n      // CUSTOMS-ELSEWHERE",
+    "new": "    if (true) {\n      // CUSTOMS-ELSEWHERE",
+    "note": "CUSTOMS-ELSEWHERE (FIELD BUGS 2026-09-30, PIN MOVED): re-aimed by content - the no-pass arm is a block now, naming the other account's case before 'no record'.",
     "tests": ["test/customspass.test.js"]
   },
   {

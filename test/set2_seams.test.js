@@ -245,7 +245,7 @@ test('SET2 the door and the duel: the running host publishes its door every fram
   const hm = strip(read('src/scenes/hostMagic.js'));
   assert.match(hm, /function update\(dt, playerFeet[^)]*\) \{\s*_doorFeet = playerFeet \?\? null;\s*setPlayerDoor\(_door\);/, 'published first thing each frame');
   assert.match(hm, /hurtFoe: \(t, n\) => \{ if \(t && !t\.dead && n > 0\) foeSinks\(t, true\)\?\.hurt\?\.\(Math\.round\(n\), \{ fromPlayer: true \}\); \}/, 'a hurt is mine, through the foe\'s own sinks');
-  assert.match(hm, /castOnPlayer: \(bundle\) => \{ if \(bundle\) applySpellToPlayer\(bundle, playerEntity\.level \?\? 1, null, \{ bypassSavingThrows: true, bypassChance: true \}\); \}/);
+  assert.match(hm, /castOnPlayer: \(bundle\) => \{ if \(bundle\) applySpellToPlayer\(bundle, effectiveLevel\(playerEntity\) \?\? 1, null, \{ bypassSavingThrows: true, bypassChance: true \}\); \}/);
   assert.match(hm, /foes: \(\) => playerTargets\(\)\.filter/, 'the foes MY harm may reach - the defenders passed by');
   assert.match(strip(read('src/scenes/world.js')), /const duelFrame = \(\) => \{\s*duelMgr\.tick\(\);\s*const setsWere = setsDueling\(\);\s*setSetsDueling\(!!duelMgr\.live\);/);
 });

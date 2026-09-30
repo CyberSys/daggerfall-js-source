@@ -150,8 +150,8 @@
  {
   "name": "the-raise-goes-back-to-the-popup-column",
   "file": "src/scenes/shared.js",
-  "old": "    (id) => announceSkillRaise(id, skillValue(entity, id), { say })) ?? [];",
-  "new": "    (id) => say(`Your ${SKILL_NAMES[id]} skill has improved.`)) ?? [];",
+  "old": "    (id) => announceSkillRaise(id, displaySkillValue(entity, id), { say }),",
+  "new": "    (id) => say(`Your ${SKILL_NAMES[id]} skill has improved.`),",
   "tests": [
    "test/levelNotice.test.js"
   ]

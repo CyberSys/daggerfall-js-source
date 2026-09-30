@@ -26,6 +26,7 @@ import { stampWonWeapons } from '../src/systems/lootRarity.js';   // SIGIL1: the
 import { registerFoeDoor } from '../src/systems/artifactEffects.js';   // AUDIT PSCALE1 DOORS-2: `stand` registers the foe's door   // PSCALE1: the kill door's weight - who fights it - in the harness's scope
 import { validFoeRecord, FOE_HEALTH_MAX, FOE_LEVEL_MAX } from '../src/net/wire.js';   // AUDIT SET P-M3: the stream's door, and the record's bounds
 import { FOES_FULL_MS } from '../src/net/online.js';   // AUDIT FINAL F7: the full frame the name must outlive
+import { effectiveLevel } from '../src/systems/mentorMode.js';   // SOFTCAP2: the mentor's level the spawn sites read (a free name there, the module's own import)
 
 const D = readFileSync(new URL('../src/scenes/dungeonContext.js', import.meta.url), 'utf8');
 const AST = acorn.parse(D, { ecmaVersion: 'latest', sourceType: 'module' });
@@ -70,7 +71,7 @@ const memberSrc = (name, mark = '') => {
 };
 const scoped = (state) => new Proxy(state, {
   has: (t, k) => k !== '__s',
-  get: (t, k) => (k === Symbol.unscopables ? undefined : (k in t ? t[k] : globalThis[k])),
+  get: (t, k) => (k === Symbol.unscopables ? undefined : (k in t ? t[k] : k === 'effectiveLevel' ? effectiveLevel : k === 'applyProgressionScalingTo' ? () => {} : globalThis[k])),   // SOFTCAP2: the host's own import
   set: (t, k, v) => { t[k] = v; return true; },
 });
 /** Run `body` (source text ending in a `return {...}`) with `state` as its free variables. */

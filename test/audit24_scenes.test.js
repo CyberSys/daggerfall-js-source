@@ -59,7 +59,7 @@ test('audit24 scenes: lastCastCost is stamped AFTER the CasterOnly cast lands', 
   const t = rd('src/scenes/hostMagic.js');
   // ALLY-CAST: the arm before this one (a cast on a party mate) stamps its own cost; the law here is the SELF arm's
   const selfArm = t.indexOf('if (sp.rangeType === 0) {');
-  const apply = t.indexOf('const r = applySpellToPlayer(sp, playerEntity.level, playerCaster());', selfArm);
+  const apply = t.indexOf('const r = applySpellToPlayer(sp, effectiveLevel(playerEntity), playerCaster());', selfArm);
   const stamp = t.indexOf('lastCastCost = cost;', selfArm);
   assert.ok(apply > 0 && stamp > 0);
   assert.ok(stamp > apply, 'the stamp follows the self-cast, as C# orders it');

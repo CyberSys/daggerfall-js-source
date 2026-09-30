@@ -138,27 +138,28 @@ test('CSA-H: AssignVariantsToShopItems (the OnLootSpawned subscriber) - a deed t
 
 // ── the ports ────────────────────────────────────────────────────────────────
 
-test('CSA-H: IsNearPort walks the C#\'s square - from X - range while < X + range - 1 on each axis, x outer (range 3: the pixels -3..+1 round the player\'s), a port anywhere in it answers; PortLocationSearchRange is read live', () => {
+test('CSA-H: IsNearPort walks the square round the player - FIELD BUGS 29h DEED-PORT centred it (Mac: "Dont worry abour DFU"; the C#\'s ran X - range while < X + range - 1), x outer (range 3: the pixels -3..+3), a port anywhere in it answers; PortLocationSearchRange is read live', () => {
   const s = scene();
   assert.equal(s.rt.IsNearPort(3), false);
   const xs = [...new Set(s.out.portAsks.map(([x]) => x))];
   const ys = [...new Set(s.out.portAsks.map(([, y]) => y))];
-  assert.deepEqual(xs, [7, 8, 9, 10, 11]);
-  assert.deepEqual(ys, [17, 18, 19, 20, 21]);
-  assert.equal(s.out.portAsks.length, 25);
-  assert.deepEqual(s.out.portAsks.slice(0, 6), [[7, 17], [7, 18], [7, 19], [7, 20], [7, 21], [8, 17]]);
+  assert.deepEqual(xs, [7, 8, 9, 10, 11, 12, 13]);
+  assert.deepEqual(ys, [17, 18, 19, 20, 21, 22, 23]);
+  assert.equal(s.out.portAsks.length, 49);
+  assert.deepEqual(s.out.portAsks.slice(0, 8), [[7, 17], [7, 18], [7, 19], [7, 20], [7, 21], [7, 22], [7, 23], [8, 17]]);
   const east = scene({ ports: ['12,20'] });
-  assert.equal(east.rt.IsNearPort(3), false, 'two pixels east is outside the C#\'s square (kept)');
+  assert.equal(east.rt.IsNearPort(3), true, 'two pixels east is near now (the C#\'s square stopped at one)');
+  const far = scene({ ports: ['14,20'] });
+  assert.equal(far.rt.IsNearPort(3), false, 'four is not');
   const west = scene({ ports: ['7,20'] });
   assert.equal(west.rt.IsNearPort(3), true, 'three pixels west is inside');
   const one = scene({ ports: ['10,20'] });
-  assert.equal(one.rt.IsNearPort(1), false, 'range 1 never asks the player\'s own pixel (kept)');
-  assert.deepEqual(one.out.portAsks, [[9, 19]], 'range 1 walks X - 1 alone, Y - 1 alone');
-  assert.equal(scene({ ports: ['9,19'] }).rt.IsNearPort(1), true);
+  assert.equal(one.rt.IsNearPort(1), true, 'range 1 asks the player\'s own pixel');
+  assert.deepEqual(one.out.portAsks, [[9, 19], [9, 20], [9, 21], [10, 19], [10, 20]], 'range 1 walks X - 1..X + 1, and stops at the port');
   // the live setting: the variant box asks with it
   const set = scene({ settings: { 'Controls.PortLocationSearchRange': 5 } });
   set.rt.OpenBoatVariantPicker(set.place(1, 0));
-  assert.equal(set.out.portAsks.length, 81, 'range 5: nine columns of nine');
+  assert.equal(set.out.portAsks.length, 121, 'range 5: eleven columns of eleven');
 });
 
 // ── PackBoat and the cargo ───────────────────────────────────────────────────

@@ -1694,7 +1694,7 @@ async function buildTpBody({
       // partName rides along: a worn add's slot is a label carrying its
       // record id, and the binder's part rules key on the part itself.
       partBytes.push({ slot: row.slot, partName: row.partName, bones: row.bones, bytes: arc.get(path).slice(),
-        ...(row.skinFrom ? { skinFrom: bodyUnder(row).map((b) => ({ slot: b.slot, bytes: find(b.path)?.get(b.path)?.slice() })).filter((b) => b.bytes) } : {}) });   // MW-BRIG2
+        ...(row.skinFrom ? { skinFrom: bodyUnder(row).map((b) => ({ slot: b.slot, bytes: find(b.path)?.get(b.path)?.slice() })).filter((b) => b.bytes), fitTo: row.fitTo ?? null } : {}) });   // MW-BRIG2; MW-BRIG3: and the part it is fitted onto
     }
     if (!partBytes.length) {
       return { ok: false, stage: 'parts', error: werewolf ? 'no werewolf body mesh resolved - its robe, head and hair are Bloodmoon\'s' : `no third-person body mesh resolved for race "${race}"`, notes: missing, rows };
@@ -4947,7 +4947,7 @@ export function createFpArm() {
      * composite - MW-D23's law): this pass composites through the
      * WORLD's lens, which is mirrorProjectionX (dungeon.js:761 et al.),
      * and the port's world convention puts the player's RIGHT at +X at
-     * yaw 0 (motor.js:772) - a LEFT-handed convention the mirror turns
+     * yaw 0 (motor.js:783) - a LEFT-handed convention the mirror turns
      * into correct screen imagery. A right-handed NIF actor placed with
      * a pure rotation therefore reads MIRRORED on screen (measured:
      * sword ink Δleft 1701 vs Δright -127 with the motor's +X anchor

@@ -230,10 +230,12 @@ test('AUDIT LIVED1b P4: the absence is measured on the relay\'s clock - a machin
   assert.equal(snapshotPlayer(e, { classicMinutes: Math.floor(ownMinutes()) }).worldMinutes, left, '...the composer\'s stamp');
   t.offset = 0;   // the welcome: the relay's offset
   hearSharedClock();
-  assert.equal(e.legalRep[0], -79, 'the one true boundary, paid on the relay\'s clock');
+  // REP4 (the reputation overhaul): PIN MOVED - the recovery is weekly, so the true 112 days away are sixteen points
+  // (DFU's one boundary: -79); a machine clock months fast still buys nothing
+  assert.equal(e.legalRep[0], -64, 'the true span\'s sixteen weeks, paid on the relay\'s clock');
   assert.equal(worldMinutesToSave(), Math.floor(worldMinutes()), 'and the save stamps the world\'s now');
   hearSharedClock();
-  assert.equal(e.legalRep[0], -79, 'once');
+  assert.equal(e.legalRep[0], -64, 'once');
   let paid = 0;
   payAbsenceWhenHeard(left, () => { paid++; });
   assert.equal(paid, 1, 'a load after the welcome pays at once');
@@ -456,26 +458,29 @@ test('AUDIT LIVED1b P1: a party mirror\'s night walks the follower\'s own watch 
     const names = ['playerTicker', 'playerEntity', 'amGroupRollOwner', 'online', 'player', 'partyNear', 'modes', 'walkMode', 'playerSpawned',
       'intermittentEnemySpawn', 'sharedClockOn', 'worldMinutes', '_musicInLocationRect', 'maps', 'playerTravelPixel', 'SOLITARY_TYPES',
       'partyExtraFoes', 'partySize', '_standEncounterFoe', '_questRegionIndex', 'passiveGuardSpawns', 'legalRepOf', 'setCrimeCommitted', 'CRIMES',
-      '_witnessResponse', 'cityGuards', '_guardPool', 'cam'];
+      '_witnessResponse', 'cityGuards', '_guardPool', 'cam', 'effectiveLevel'];   // SOFTCAP2: the mentor's level the loop's roll reads
     const body = `let _lastEncMinutes = null;\n${fnText}\nconst mirrorHook = { ${MIRROR} };\nconst soloHook = { ${SOLO} };\n`
       + 'return { run: runEncounterTick, mirror: mirrorHook.advanceMinutes, solo: soloHook.advanceMinutes };';
     const h = new Function(...names, body)(ticker, e, () => true, { id: 'me' }, { pos: [0, 0, 0], feetAt: () => [0, 0, 0], isPlayerSwimming: false }, () => [], { mode: 'exterior' }, true, true,
       (a) => { counts.spawnAsks++; return intermittentEnemySpawn(a); }, sharedClockOn, worldMinutes, () => true, { getClimateIndex: () => 231 }, () => ({ x: 100, y: 100 }), SOLITARY_TYPES,
       partyExtraFoes, () => 2, () => {}, () => 17, passiveGuardSpawns, legalRepOf, setCrimeCommitted, CRIMES,
-      () => { counts.watch++; }, { makeNpcGuardsIntoEnemies: () => Promise.resolve() }, () => [], { pos: [0, 0, 0] });
+      () => { counts.watch++; }, { makeNpcGuardsIntoEnemies: () => Promise.resolve() }, () => [], { pos: [0, 0, 0] }, (x) => x?.level ?? 1);
     h.run([0, 0, 0]);
     e.isResting = true;
     for (let k = 0; k < 48; k++) (kind === 'solo' ? h.solo : h.mirror)(10);
     e.isResting = false;
-    const up = counts.watch;
+    const nightAsks = counts.spawnAsks;
     h.run([0, 0, 0]);
     setSharedClock(null);
-    return { ...counts, burst: counts.watch - up };
+    return { ...counts, spawnAsks: nightAsks, burst: counts.spawnAsks - nightAsks };
   };
   try {
     let watched = 0, asks = 0, burst = 0;
     for (let r = 0; r < 20; r++) { const o = night('mirror', 1000 + r); if (o.watch > 0) watched++; asks += o.spawnAsks; burst += o.burst; }
-    assert.equal(watched, 20, 'every mirrored night of a hated member is watched');
+    // REP1 (the reputation overhaul, "Challenged on sight"): PIN MOVED - the minute loop rolls no conspiracy any more, so
+    // a hated member's night is not watched, mirrored or alone (the watch stops a known criminal a guard SEES, on the
+    // street - scenes/standingHost.js); the night's other two laws stand, the burst now read off the loop's own asks
+    assert.equal(watched, 0, 'no night of a hated member draws the old levy');
     assert.equal(asks, 0, 'and no wanderer is asked for');
     assert.equal(burst, 0, 'nor is the night walked again on the first frame up (AUDIT LIVED1 H)');
     const solo = night('solo', 1000);

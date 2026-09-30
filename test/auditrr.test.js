@@ -202,7 +202,7 @@ test('AUDIT-RR F6/F23/F24/F30: the bed\'s click rests in THAT bed (ignoreAllocat
   assert.ok(intensive > 0);
   assert.ok(wm.indexOf('playerEntity.skills[skill] = permanentSkillValue(playerEntity, skill) + points;   // SetPermanentSkillValue', intensive) > intensive, 'the days pass, then the +4');
   const gw = rd('src/ui/guildServiceWindows.js');
-  assert.match(gw, /import \{ goldAmount, totalGoldAmount \} from '\.\.\/systems\/court\.js'/);
+  assert.match(gw, /import \{ goldAmount, totalGoldAmount(?:, deductGold)? \} from '\.\.\/systems\/court\.js'/);   // REP3/REP4: the temple's pardon and penance take their gold at the same counter
   assert.match(gw, /if \(totalGoldAmount\(entity\) < cost\) return \[\{ rows: macroRows\(rows, NOT_ENOUGH_GOLD_ID, ctx\) \}\];/);
   assert.match(gw, /AUDIT-RR F23: TrainSkill pushes DFU's own MessageBox\(TrainSkillId\)/);
 });

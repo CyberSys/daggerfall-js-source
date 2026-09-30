@@ -116,6 +116,16 @@ export const SLOWFALL_VELOCITY = SLOWFALL_SPEED * UNITY_FIXED_DT;   // 2.1 m/s
 export const FALL_DAMAGE_THRESHOLD = 5.0;   // AcrobatMotor fallingDamageThreshold (= PlayerHealth's threshold)
 export const FALL_HP_PER_METRE = 5;         // PlayerHealth.ApplyPlayerFallDamage HPPerMetre
 export const GRAVITY = 20.0;
+/** FALL-KEPT (FIELD BUGS 2026-09-30): the most of a fall a save carries (fallSnapshot / restoreFall) - terrainData
+ *  .size.y, MaxTerrainHeight at the game's TerrainScale (DaggerfallTerrain.cs:307), the top of any ground the world
+ *  streams. No drop that stands on the world is taller, and one begun above it (a Levitate let go over the peaks)
+ *  bills thousands of HP at 5 a metre, so the bound takes nothing a character could live through. It keeps a torn
+ *  save's number from standing a fall no world holds. */
+export const FALL_CARRY_MAX = MAX_TERRAIN_HEIGHT * STREAMING_TERRAIN_SCALE;   // 1923.75
+/** ...and the most speed: that same drop's from rest (v^2 = 2gh, 277 m/s), which a real fall reaches. A step at it
+ *  moves 4.6 m, well inside the 67.2 the collider sweeps exactly; a torn speed past it would be taken whole and could
+ *  carry the capsule through a floor. */
+export const FALL_CARRY_MAX_SPEED = Math.sqrt(2 * GRAVITY * FALL_CARRY_MAX);
 /** LevitateMotor's overEncumbered threshold (:83): CarriedWeight * 4 > 250. */
 export const OVER_ENCUMBERED_LIMIT = 250;
 /** PlayerEnterExit.Update's dungeon arm, its afloat line (:395-404): Internal_Strings.csv:18 `cannotFloat`,
@@ -247,6 +257,7 @@ import { getBool } from '../systems/settings.js';   // AUDIT 28 W5: Controls/Tog
 import { TRANSPORT_MODES, isRiding, rideBaseFor, canRunUnlessRiding } from '../systems/transport.js';   // TR1: the mount's speed, run and climb laws
 import { timeScale } from '../systems/timeScale.js';   // TO1: Unity's Time.fixedDeltaTime rides Time.timeScale (see update())
 import { clampToRing } from '../net/duelSession.js';   // AUDIT DUEL1 D4: the ring's one clamp
+import { MAX_TERRAIN_HEIGHT, STREAMING_TERRAIN_SCALE } from '../world/terrainSampler.js';   // FALL-KEPT: the world's tallest drop bounds a carried fall
 
 /** PlayerSpeedChanger.GetWalkSpeed, verbatim (audit 2026-08-16e F1):
  *  drag = 0.5 x (100 - max(30, LiveSpeed)) rides the WALK base only -
@@ -796,6 +807,28 @@ export class PlayerMotor {
     this.holdFrame();   // DISC8-G: a landing reported before the warp is not the arrival's
   }
 
+  /** FALL-KEPT (FIELD BUGS 2026-09-30; the report: "you can negate all fall damage by saving while falling right
+   *  before you hit ground. once you load your save, you will land safely"; Mac: "Dont worry abour DFU"): A SAVE
+   *  CARRIES THE FALL. DFU keeps the position, the yaw, the pitch and the crouch (SerializablePlayer.cs:204-226) and
+   *  its load cancels the movement, so a fall saved a metre from the ground loaded a metre from the ground, from rest,
+   *  and billed one metre. The fall is kept as how far above the feet it began, which rides the feet through the
+   *  floating origin and a terrain re-stand, and the speed the body had. On a jump's rise it began below them, and the
+   *  load lands the fall from the takeoff as the jump would have. A body that has touched down is still falling until
+   *  the next step bills the landing, and a save in that step keeps the bill. Null when there is no fall. */
+  fallSnapshot() {
+    return this.falling ? { above: this.fallStart - this.pos[1], velY: this.velY } : null;
+  }
+
+  /** FALL-KEPT: the load's half, AFTER the placement's spawn has cleared every motion state - the fall begins again
+   *  where it began against the feet, at the saved speed, each bounded by the world's tallest drop (FALL_CARRY_MAX).
+   *  A torn or absent record carries nothing, so a save without one lands as every save did. */
+  restoreFall(fall) {
+    if (!Number.isFinite(fall?.above)) return;
+    this.falling = true;
+    this.fallStart = this.pos[1] + Math.min(FALL_CARRY_MAX, Math.max(-FALL_CARRY_MAX, fall.above));
+    if (Number.isFinite(fall.velY)) this.velY = Math.min(FALL_CARRY_MAX_SPEED, Math.max(-FALL_CARRY_MAX_SPEED, fall.velY));
+  }
+
   /** DUEL1: THE RING'S WALL, as the body meets it. Mac: "a surrounding transparent holographic wall that keeps them
    *  from going outside of the duel space". Not a mesh in the collider - the collider is shared, and a wall there would
    *  stop arrows, foes, the camera and the activation rays, and could be climbed or levitated over - but a clamp on the
@@ -995,7 +1028,7 @@ export class PlayerMotor {
       //
       // The pass condition is `!Number.isFinite(dist)`, not a
       // comparison against the distance: collider.sphereCast
-      // (collider.js:885) returns Infinity ONLY on a clear sweep and a
+      // (collider.js:1197) returns Infinity ONLY on a clear sweep and a
       // finite dist (0 on a start-overlap) for any hit, which is
       // exactly Unity's boolean. One accepted deviation: Unity's
       // SphereCast ignores colliders overlapping the START sphere, so a

@@ -4406,7 +4406,7 @@ room exists.
 
 **The boundary that makes that safe is `_layoutFoes`** - the dungeon
 host's index of where the layout's own run ends. Every foe past it "is
-this player's own" (`dungeonContext.js:1332`, AUDIT WORLD B2): a quest
+this player's own" (`dungeonContext.js:1349`, AUDIT WORLD B2): a quest
 foe is minted above it, never streamed, never puppet-ised by the room's
 authority switch, and never touched by a joiner's stream. So a joiner's
 quest foe really does spawn and really can be killed by the player whose
@@ -4775,7 +4775,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7111` read, on one physical line:
+`src/scenes/worldModes.js:7125` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4790,7 +4790,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:5239`). With the property missing that call is a
+(`dungeonContext.js:5257`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4917,9 +4917,9 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:7505` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:7563` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
-  provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
+  provenance argument `applySpellToFoe` hands them (`hostMagic.js:336`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
   Threading it touches four hosts.
 - **A building interior streams no foes at all.** `makeInteriorFoes`
@@ -7140,7 +7140,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1098`, `src/net/online.js:2248`):**
+**Now (`src/net/wire.js:1098`, `src/net/online.js:2259`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -11669,6 +11669,30 @@ else).
   `src/net/wire.js`). An older relay carries both fields untouched, and an older client reads past them.
 - Pins: `test/strikeshared.test.js` (7). Mutants: `tools/mutants/strikeshared.json` (16, all dead).
 
+## LOAN-AMNESTY (2026-09-29, Mac: "Can we reset the loans for everyone online. The bank of the empire has decided to forgive everyone's loans") - every online loan forgiven, once
+
+- **What is forgiven** (`systems/banking.js` `forgiveLoans`): on each of the character's regional accounts, the debt
+  (`loanTotal`), its due date and the mark of a default (`hasDefaulted`). So the Empire lends again (EMPIRE-BANK's
+  `empireRefusal` refused a defaulter for good), nothing is garnished from a deposit, and no overdue sweep or join
+  settles it.
+- **What stays:** the gold borrowed (in the account, or spent); what was already repaid, garnished or drawn from other
+  branches; and the reputation a default cost (one -10 legal and -5 People a defaulted region, not recorded as such,
+  and recovering as reputation does - a refund could overshoot).
+- **Once, and for existing online characters only.** A save carries `loanAmnesty`, the amnesty it has had
+  (`LOAN_AMNESTY` 1). A save written before this build has none (0) and is forgiven as the character next boots online;
+  it is then marked, and a loan taken afterwards is owed. Every save written after it carries the mark
+  (`systems/save.js`), so a character made now is born past it. A character crossing customs is marked as it crosses
+  (`systems/realmCustoms.js` `applyCustoms`), so an offline loan walked online is called in as before, never forgiven.
+- **Where:** the realm boot (`scenes/world.js`), in the one parse of the save, after RESTORE's `reclaimFromDevice` and
+  the test room's refusal - before the save is restored and before `empireJoin` settles a due loan into a default. Offline saves are never
+  touched. The words, once the world stands: "The Bank of the Empire has forgiven your loan of N gold. Its branches will
+  lend to you again." (or "...has forgiven your debt." for a default already drawn to nothing).
+- **When:** client only - no account version, no relay. A character reaches it at its next boot; one being played as
+  this deploys, at the one after. The mark reaches the service at the next checkpoint; until then a re-boot forgives
+  the same save again, to the same end (RESTORE's own law).
+- Pins: `test/loan_amnesty.test.js` (6, red on the tree before). Mutants: `tools/mutants/loan_amnesty.json` (14, all
+  dead); `survtiers3.json`'s two cite records re-aimed. Patch notes: `PATCH-NOTES-Loan-Amnesty.md`.
+
 ## PROF7 (2026-09-29, Mac: "Do it") - Hunting, the Skinning Knife and Outfitting
 
 The record is `06-Systems/Professions-Arc.md` 3.3, 4.4, 4.5, 5.2, 6, 9.3, 9.4 and 29; this is what the slice built,
@@ -11790,3 +11814,24 @@ garments keep theirs (Spider Silk is hunted); the first is still recorded (`firs
 `acct35`; pinned in `test/audit32_law.test.js` and `test/audit32_service.test.js` (S1, each run red on the code before
 it), PROF7's Straps pin moved to the rule; eight mutants in `audit32.json`, every one dead. Professions-Arc 3.2, 13,
 29 and its appendix say it; the Outfitting patch notes tell the players.
+
+## THE PROF7 MERGE (2026-09-30, Mac: "Get ready to merge") - PROF7, VEIN-NEED and AUDIT 32 onto main
+
+The professions branch's work since MERGE 2's follow-ups - VEIN-NEED (FIELD BUGS 2026-09-29h), PROF7 (Hunting, the
+Skinning Knife and Outfitting), AUDIT 32 and its S1 - met main's 77 commits (#459, #463-#466 and #468 among them: the
+reputation overhaul, Master Skills and Mentor, the field batches of 29h and 30, FB0930-FRAME). What both sides numbered
+is one now:
+
+- **The account service is acct36,** past main's acct33 (FIELD BUGS 2026-09-30's HOME-CROSSED, GUILD-LETTER and
+  CUSTOMS-ELSEWHERE, deployed) and the branch's acct33-acct35 (PROF7, AUDIT 32, AUDIT 32 S1, never deployed). The
+  branch's one migration, `0036_hunting.sql`, already runs after main's `0035_renown_characters.sql`; none is
+  renumbered. The relay is main's world133 - the branch never moved it.
+- **Two batches under one letter.** Main's FIELD BUGS 2026-09-29h (eleven #bug-reports threads) and the branch's
+  (VEIN-NEED, one) were written under the same name on the same day. `01-Overview/Field-Bugs-2026-09-29h.md` keeps both:
+  main's eleven first, VEIN-NEED as part two, so every cite of the page stands.
+- **Cites.** The files the branch touched only to re-aim cites take main's copy, and `tools/citeMerge.mjs origin/main
+  HEAD --apply --struck` re-mapped each line from the side it came from (302 moved). The shared lines it held back as
+  AMBIGUOUS (Port-Ledger's and Port-Status' rows both sides carry verbatim) were stale on both sides already and are
+  left as they were, as MERGE 2 left its own.
+- **Records.** Systems.md counts 328 modules (main's 326 and PROF7's `traceAct.js` and `stitchAct.js`); Testing.md's
+  Suite line is the merged tree's own.
