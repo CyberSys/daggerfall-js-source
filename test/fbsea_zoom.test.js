@@ -18,7 +18,7 @@ import { readyPool } from './navalSea.mjs';
 const WORLD = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
 const EOTB = readFileSync(new URL('../src/player/eotbCamera.js', import.meta.url), 'utf8');
 
-test('FIELD BUGS 2026-09-29 (the sea) #3: THE MORROWIND CAMERA AT A HELM - past the reference\'s 800 units a notch out is a ratio, the hull\'s reach in ten; in by the ratio back to 800 and the reference\'s own ladder below it; off the helm the distance comes back to 800 and the save keeps no more; on foot the reference\'s far end stands (mutants: the ratio unapplied, the reach unclamped, the helm\'s distance kept off it, the save past the reference)', () => {
+test('FIELD BUGS 2026-09-29 (the sea) #3: THE MORROWIND CAMERA AT A HELM - a notch out is a ratio, the hull\'s reach in ten; in by the ratio (HELM-ZOOM: the whole range, from the base in a dozen notches - the reference\'s ten-unit ladder below 800 took sixty); off the helm the distance comes back to 800 and the save keeps no more; on foot the reference\'s far end stands (mutants: the ratio unapplied, the reach unclamped, the helm\'s distance kept off it, the save past the reference)', () => {
   const cam = createMwCamera();
   const settle = () => cam.eye({ fpEye: [0, 1.7, 0], feet: [0, 0, 0], yaw: 0, pitch: 0 });
   cam.wheel(-1); settle();
@@ -37,11 +37,19 @@ test('FIELD BUGS 2026-09-29 (the sea) #3: THE MORROWIND CAMERA AT A HELM - past 
   assert.equal(cam.state().baseDistance, MAX_DISTANCE, 'the save keeps the reference\'s own');
   cam.wheel(1); settle();
   assert.ok(Math.abs(cam.baseDistance() - far / SEA_ZOOM_RATIO) < 1e-6, 'in by the ratio');
-  for (let i = 0; i < 20; i++) { cam.wheel(1); settle(); }
+  for (let i = 0; i < 8; i++) { cam.wheel(1); settle(); }
   const under = cam.baseDistance();
   assert.ok(under < MAX_DISTANCE && under >= MIN_DISTANCE, `back under the far end (${under})`);
   cam.wheel(1); settle();
-  assert.ok(Math.abs(under - cam.baseDistance() - WHEEL_STEP) < 1e-9, 'the reference\'s own ladder below it');
+  assert.ok(Math.abs(cam.baseDistance() - Math.max(MIN_DISTANCE, under / SEA_ZOOM_RATIO)) < 1e-6, 'PIN MOVED (HELM-ZOOM): by the ratio below it too');
+  // HELM-ZOOM: from the base distance to the hull's reach in a dozen notches (sixty-one to the far end alone before)
+  const fresh = createMwCamera();
+  fresh.setSeaReach(66);
+  let n = 0;
+  while (fresh.baseDistance() < far - 1e-6 && n < 100) { fresh.wheel(-1); fresh.eye({ fpEye: [0, 1.7, 0], feet: [0, 0, 0], yaw: 0, pitch: 0 }); n++; }
+  assert.ok(n <= 14, `out of first person to the hull's reach in ${n} notches (seventy-seven to 800 alone before)`);
+  for (let i = 0; i < 40 && fresh.thirdPerson(); i++) { fresh.wheel(1); fresh.eye({ fpEye: [0, 1.7, 0], feet: [0, 0, 0], yaw: 0, pitch: 0 }); }
+  assert.equal(fresh.mode(), 'first', 'and in by the ratio to the nearest ring, then into the head as on foot');
   cam.wheel(-200); settle();
   cam.wheel(-3); settle();
   assert.ok(cam.baseDistance() > MAX_DISTANCE);
@@ -60,15 +68,18 @@ test('FIELD BUGS 2026-09-29 (the sea) #3: EYE OF THE BEHOLDER AT A HELM - past t
   c.setSeaReach(66);
   let n = 0;
   while (dist() < 66 - 1e-6 && n < 400) { c.wheel(-1); c.tick({}); n++; }
-  const linear = Math.round((10 - base) / c.settings().increment);
-  assert.ok(n <= linear + 12, `the hull's reach in ${n} notches (${linear} to -10, a dozen past it)`);
+  assert.ok(n <= 12, `HELM-ZOOM: the hull's reach from the base in ${n} notches (the mod's increment alone took ${Math.round((10 - base) / c.settings().increment)} to -10)`);
   assert.ok(Math.abs(dist() - 66) < 1e-6, 'pinned at the reach');
   c.wheel(-1); c.tick({});
   assert.ok(Math.abs(dist() - 66) < 1e-6, 'and no farther');
   c.wheel(1); c.tick({});
   assert.ok(Math.abs(dist() - 66 / SEA_ZOOM_RATIO) < 1e-6, 'in by the ratio');
-  for (let i = 0; i < 12; i++) { c.wheel(1); c.tick({}); }
-  assert.ok(dist() <= 10 + 1e-9 && dist() > 9, `back to the mod's own ladder (${dist()})`);
+  // PIN MOVED (HELM-ZOOM): in by the ratio to the offset's own base, the mod's own ladder below it
+  let k = 0;
+  while (dist() > base + 1e-6 && k < 60) { c.wheel(1); c.tick({}); k++; }
+  assert.ok(Math.abs(dist() - base) < 1e-6 && k <= 12, `in by the ratio to the base (${dist()} in ${k})`);
+  c.wheel(1); c.tick({});
+  assert.ok(Math.abs(base - dist() - c.settings().increment) < 1e-6, `the mod's own ladder below it (${dist()})`);
   for (let i = 0; i < 60; i++) { c.wheel(-1); c.tick({}); }
   assert.ok(dist() > 10);
   c.setSeaReach(0);

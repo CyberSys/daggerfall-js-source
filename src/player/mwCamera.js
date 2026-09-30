@@ -129,8 +129,10 @@ export function createMwCamera() {
       const obstacleDelta = preferredDistance() - cameraDistance;
       // #3: past the reference's far end, at a helm, a notch is a ratio - out from the far end, or in down to it (and
       // the reference's own ladder below it); out while pinned by more than one such notch is its no-op (camera.lua:153)
-      if (seaFar > MAX_DISTANCE && (baseDistance > MAX_DISTANCE || (delta < 0 && baseDistance === MAX_DISTANCE))) {
-        if (delta > 0 || obstacleDelta < baseDistance * (SEA_ZOOM_RATIO - 1)) baseDistance = seaZoomStep(baseDistance, delta / WHEEL_STEP, MAX_DISTANCE, seaFar);
+      // HELM-ZOOM (Mac: "increase the sensitivity ... when on the wheel"): at a helm the WHOLE range is by the ratio, the
+      // reference's nearest ring to the hull's reach - its ten-unit ladder took sixty notches from its base to its far end
+      if (seaFar > MAX_DISTANCE && !(delta > 0 && baseDistance === MIN_DISTANCE)) {
+        if (delta > 0 || obstacleDelta < baseDistance * (SEA_ZOOM_RATIO - 1)) baseDistance = seaZoomStep(baseDistance, delta / WHEEL_STEP, MIN_DISTANCE, seaFar);
         return;
       }
       if (delta > 0 && baseDistance === MIN_DISTANCE) {

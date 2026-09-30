@@ -281,3 +281,4 @@ A deep audit of everything above. The highlights:
 - **Ships steer round the coast.** They find their way round headlands and into harbours instead of running at the shore, and use their sweeps to get in or out when the wind is against them.
 - **A fight still comes first.** A navy ship at her berth will sail out to meet a pirate, and a merchant will flee. Once the fight is over, she heads back to her berth.
 - **Fixed: an empty sea online.** Sailing out while a friend was still in town could leave you with no ships at all at sea. The sea now fills around whoever is actually on the water.
+- **Faster zoom at the helm.** The mouse wheel zooms in and out at the helm much more quickly: from first person to framing your whole ship in about a dozen notches, instead of scrolling for ages before it picked up speed. On foot nothing changes.
