@@ -126,6 +126,11 @@ const realmDecorBackStatement = (db, mapId, buildingKey) => db.prepare(`SELECT C
 async function realmRelease(ctx, player, at, home) {
   const { db, bucket } = ctx;
   if (!home) return { error: 'no-home' };
+  // HOME-CROSSED (FIELD BUGS 2026-09-30, Seanobi's "Sold House for 600 K, Got Nothing Back"): A HOUSE NO RECORD PAID FOR
+  // STAYS A HOUSE. Customs carried it in (CUSTOMS-CARRY) and its deed share of nothing was paid while the house and its
+  // pieces went - RESTORE's law for a deed (Mac: "Keep all, can't sell"), a home's now: never bought back online. (Another
+  // character's house is still the batch's own refusal, `no-home`.)
+  if (home.char_id === at.id && !(Number(home.paid) > 0)) return { error: 'home-crossed' };
   const d = await realmDecorBackStatement(db, home.map_id, home.building_key).first();
   const decorCount = Number(d?.n) || 0, decorBack = Math.max(0, Number(d?.back) || 0);
   const refund = homeSaleRefund(Math.max(0, Number(home.paid) || 0));
@@ -199,13 +204,15 @@ export async function setHomeEntry({ db }, player, { mapId, buildingKey, entry }
  */
 export async function homesInTown({ db }, player, { mapId } = {}) {
   if (!homeMapIdOk(mapId)) return { error: 'bad-home' };
-  const { results = [] } = await db.prepare(`SELECT building_key, player, char_id, owner_name, entry FROM homes
+  const { results = [] } = await db.prepare(`SELECT building_key, player, char_id, owner_name, entry, paid FROM homes
     WHERE map_id = ? ORDER BY building_key LIMIT ?`).bind(mapId, HOME_TOWN_MAX).all();
   return {
     mapId,
     homes: results.map((h) => {
       const mine = h.player === player.id;
-      return { buildingKey: h.building_key, owner: h.owner_name, entry: h.entry, mine, ...(mine ? { character: h.char_id } : {}) };
+      // HOME-CROSSED: my own realm character's house no record paid for is `crossed` - its door asks no price
+      const crossed = mine && REALM_ID_RE.test(String(h.char_id)) && !(Number(h.paid) > 0);
+      return { buildingKey: h.building_key, owner: h.owner_name, entry: h.entry, mine, ...(mine ? { character: h.char_id } : {}), ...(crossed ? { crossed } : {}) };
     }),
   };
 }

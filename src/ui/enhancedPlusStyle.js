@@ -1542,6 +1542,13 @@ export const ARMOUR_CSS = `
   border-radius: 1px 1px 7px 7px; text-shadow: 1px 1px 0 #050608; }
 .pack-shell .equipped .wornrow[data-sigil] > .wornac { right: 17px; }
 .pack-shell .equipped .wornac.nil { color: #7d7460; border-color: rgba(125,116,96,0.5); }
+/* HOOD-SAID (FIELD BUGS 2026-09-30): a raised hood's chip, in the part plate's dress and its corner, round-topped like
+   the hood it names, stepping off a family's count */
+.pack-shell .equipped .wornhood { position: absolute; right: 3px; top: 3px; z-index: 2; height: 15px; padding: 0 4px;
+  display: flex; align-items: center; font-size: 10px; line-height: 1; letter-spacing: 0.08em; text-transform: uppercase;
+  color: #efe8d6; background: rgba(5,6,8,0.8); border: 1px solid rgba(192,138,62,0.8); border-radius: 7px 7px 1px 1px;
+  text-shadow: 1px 1px 0 #050608; }
+.pack-shell .equipped .worncount ~ .wornhood { right: 20px; }
 .pack-shell .wornmap .wornac-total { position: absolute; left: 4px; top: 4px; z-index: 2; display: flex; flex-direction: column;
   align-items: center; gap: 1px; padding: 2px 5px 3px; white-space: nowrap; background: rgba(5,6,8,0.8);
   border: 2px solid rgba(192,138,62,0.8); box-shadow: 0 0 0 1px #050608; text-shadow: 1px 1px 0 #050608; }

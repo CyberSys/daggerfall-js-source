@@ -166,12 +166,15 @@ test('PERF-COL1: the walks keep their laws - the live local point per triangle, 
   // AUDIT NAV1 (the frame's cost, #12): the centre as the bucket sees it - a plain bucket's less its translation, a mover's
   // turned back into its frame too (player/collider.js A MOVER'S BUCKET) - asked of the box before the cells
   assert.match(resolve, /const bx = R \? LOCAL\[0\] : center\[0\] - t\[0\], by = R \? LOCAL\[1\] : center\[1\] - t\[1\], bz = R \? LOCAL\[2\] : center\[2\] - t\[2\];/, 'a plain bucket\'s centre less its translation, a mover\'s turned back');
-  assert.match(resolve, /if \(!sphereTouchesBox\(bx, by, bz, radius \+ SKIN, bucket\.min, bucket\.max\)\) continue;\s*\n\s*const visited = VISITED;\s*\n\s*visited\.clear\(\);\s*\n\s*for \(const cell of nearCells\(bucket, bx, by, bz, radius \+ SKIN\)\)/, 'the box before the cells (AUDIT BRANCH (WoD) B1: the cells are nearCells\' - the fine 3x3, then any wide triangles - OW-WOD-LAG: the tree\'s, at the same reach), at the contact radius');
-  assert.match(resolve, /const visited = VISITED;\s*\n\s*visited\.clear\(\);/, 'the module\'s scratch, cleared per bucket');
-  assert.match(resolve, /for \(const ti of cell\) \{[\s\S]*?let lx = center\[0\] - t\[0\];\s*\n\s*let ly = center\[1\] - t\[1\];\s*\n\s*let lz = center\[2\] - t\[2\];\s*\n\s*if \(R\) \{ intoBucket\(center\[0\], center\[1\], center\[2\], t, R, LOCAL\); lx = LOCAL\[0\]; ly = LOCAL\[1\]; lz = LOCAL\[2\]; \}/, 'the local point stays LIVE per triangle - earlier pushes are seen by later triangles (a mover\'s turned back each time)');
+  // FB0930-FRAME: the per-bucket Set is the walk's stamp (rayMarks, the ray's since FB0930-FOE-RAYS), marked before the
+  // live point is taken - each triangle asked once per bucket, as the Set did
+  assert.match(resolve, /if \(!sphereTouchesBox\(bx, by, bz, radius \+ SKIN, bucket\.min, bucket\.max\)\) continue;\s*\n\s*const marks = rayMarks\(bucket\), stamp = RAY_STAMP;[^\n]*\n[^\n]*\n\s*for \(const cell of nearCells\(bucket, bx, by, bz, radius \+ SKIN\)\)/, 'the box before the cells (AUDIT BRANCH (WoD) B1: the cells are nearCells\' - the fine 3x3, then any wide triangles - OW-WOD-LAG: the tree\'s, at the same reach), at the contact radius');
+  assert.match(resolve, /if \(marks\[ti\] === stamp\) continue;\s*\n\s*marks\[ti\] = stamp;/, 'the walk\'s stamp, marked as the Set was added to');
+  assert.match(resolve, /marks\[ti\] = stamp;[\s\S]*?let lx = center\[0\] - t\[0\];\s*\n\s*let ly = center\[1\] - t\[1\];\s*\n\s*let lz = center\[2\] - t\[2\];\s*\n\s*if \(R\) \{ intoBucket\(center\[0\], center\[1\], center\[2\], t, R, LOCAL\); lx = LOCAL\[0\]; ly = LOCAL\[1\]; lz = LOCAL\[2\]; \}\s*\n\s*if \(yHiOf\[ti\] < ly - yReach \|\| yLoOf\[ti\] > ly \+ yReach\) continue;/, 'the local point stays LIVE per triangle - earlier pushes are seen by later triangles (a mover\'s turned back each time) - and FB0930-FRAME\'s Y reject reads it');
   const overlaps = src.slice(src.indexOf('  sphereOverlaps(center, radius) {'), src.indexOf('  capsuleCast('));
   assert.match(overlaps, /if \(!sphereTouchesBox\(lx, ly, lz, radius, bucket\.min, bucket\.max\)\) continue;/, 'the overlap test at its bare radius (its narrow phase is < r2, no skin)');
-  assert.match(overlaps, /const visited = VISITED;\s*\n\s*visited\.clear\(\);/);
-  // FB0930-FOE-RAYS: the ray's set is a per-triangle stamp now (rayMarks), so the module scratch is the one Set left
-  assert.equal((src.match(/new Set\(\)/g) || []).length, 1, 'the module scratch alone - the two sphere walks mint none, the ray stamps');
+  assert.match(overlaps, /const marks = rayMarks\(bucket\), stamp = RAY_STAMP;/);
+  // FB0930-FOE-RAYS: the ray's set is a per-triangle stamp now (rayMarks), and FB0930-FRAME's sphere walks share it, so
+  // the module scratch is the one Set left (sphereCastAll's, Come Sail Away's hull sweep)
+  assert.equal((src.match(/new Set\(\)/g) || []).length, 1, 'the module scratch alone - the sphere walks and the ray stamp');
 });

@@ -110,11 +110,12 @@
   {
     "name": "REALM5-withdraw-never-credits",
     "file": "server-account/src/guilds.js",
-    "old": "    : (creditSave(save, gold) ? null : 'bad-gold')));",
+    "old": "    : (creditSave(save, gold, { letter }) ? null : 'bad-gold')));",
     "new": "    : null));",
     "tests": [
       "test/realm5.test.js"
-    ]
+    ],
+    "note": "GUILD-LETTER (FIELD BUGS 2026-09-30, PIN MOVED): re-aimed BY CONTENT - the record's credit carries `letter` (a letter of credit for what the pack cannot carry); same law, same killer."
   },
   {
     "name": "REALM5-founding-unpaid",
@@ -137,11 +138,12 @@
   {
     "name": "REALM5-book-withdraw-uncredited",
     "file": "src/net/guildBook.js",
-    "old": "        apply: () => this.wallet().credit(gold),\n",
+    "old": "        apply: () => this.wallet().credit(gold, { letter }),\n",
     "new": "",
     "tests": [
       "test/realm5.test.js"
-    ]
+    ],
+    "note": "GUILD-LETTER (FIELD BUGS 2026-09-30, PIN MOVED): re-aimed BY CONTENT - the apply's credit carries the letter the book weighed before it asked; same law, same killer."
   },
   {
     "name": "REALM5-book-deposit-no-region",

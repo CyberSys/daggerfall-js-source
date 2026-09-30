@@ -83,11 +83,12 @@
   {
     "name": "FORAGE4-10-a-bonus-before-the-work",
     "file": "src/scenes/foragingWait.js",
-    "old": "    holds: () => pending() || !!_win || _held.length > 0,",
-    "new": "    holds: () => !!_win || _held.length > 0,",
+    "old": "    holds: () => !_releasing && (pending() || !!_win || _held.length > 0),",
+    "new": "    holds: () => !_releasing && (!!_win || _held.length > 0),",
     "tests": [
       "test/forage4_wait.test.js"
-    ]
+    ],
+    "note": "CHOP-WAIT (FIELD BUGS 2026-09-30, PIN MOVED): re-aimed BY CONTENT - `holds` answers false while the release is showing a box now (`!_releasing && (...)`); the pending term it drops is the same law, same killer."
   },
   {
     "name": "FORAGE4-11-offline-keeps-a-wait",

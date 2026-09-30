@@ -99,7 +99,7 @@ test('U53: encumbrance is the same expression the sheet and the classic window u
     'LIVE strength - a drained player must not be told they can carry the undrained amount');
   // ...and the OTHER half. PlayerEntity.CarriedWeight (:184) is the
   // items PLUS the gold counter's weight, and the pane composes it by
-  // hand (enhancedInventory.js:223-245) because it is handed the list
+  // hand (enhancedInventory.js:224-246) because it is handed the list
   // and not the entity - so it must still land on inventory
   // .carriedWeight's answer.
   assert.equal(m.encumbrance.now, Math.trunc(carriedWeight(e)));
@@ -540,6 +540,11 @@ test('U55: AUDIT 22 F9 - `enchanted` is a RIDER, not a replacement', () => {
 test('U55: a variant change repaints, and closesWindow travels', () => {
   assert.equal(useResultAction({ kind: 'variant' }, {}).repaint, true,
     'the slot map is drawn FROM the worn set, so a changed variant must redraw');
+  // HOOD-SAID (FIELD BUGS 2026-09-30, PIN MOVED): the flag was set and never read - the doll kept a cloak's old drawing
+  // after its Use. The use path reads it now; the flag alone pinned a promise nothing kept.
+  const src = read('src/ui/enhancedInventory.js');
+  const use = src.slice(src.indexOf('function use(item'), src.indexOf('export function inventoryQuickAct('));
+  assert.match(use, /\n {2}refresh\(\);\n {2}if \(act\.repaint\) refreshFigure\(\);/, 'the use path redraws the doll on the flag');
   assert.equal(useResultAction({ kind: 'potion', closesWindow: true }, {}).closesWindow, true);
   assert.equal(useResultAction({ kind: 'potion' }, {}).closesWindow, false);
   assert.equal(useResultAction(null, {}).kind, 'nothing', 'no result is not a crash');
