@@ -316,7 +316,7 @@ test('MAC1 I: the render eye pays a grounded step out over STEP_SMOOTH_TAU; the 
 test('AUDIT 65 XL-4: the third-person focal rides the SMOOTHED feet, and no host hands mwView player.pos', () => {
   // MAC1 I low-passed the render EYE and EV1 interpolated it, but the
   // Morrowind camera builds its third-person focal out of `feet`
-  // alone (mwCamera.js:217-252) and every host handed it the raw
+  // alone (mwCamera.js:224-259) and every host handed it the raw
   // stepped `player.pos` - so BOTH fixes were bypassed the moment the
   // player scrolled out of his own head, in all four hosts. feetAt is
   // eyeAt's positional half; the hosts pass that instead.
@@ -355,7 +355,7 @@ test('AUDIT 65 XL-4: the third-person focal rides the SMOOTHED feet, and no host
   };
   assert.ok(stepZ(1 / 144, (m) => m.feetAt()) < stepZ(1 / 144, (m) => m.pos) * 0.6,
     'at 144 Hz the render feet translate smoothly where the stepped feet quantise');
-  // The focal's own ceiling probe (mwCamera.js:226-236) casts from
+  // The focal's own ceiling probe (mwCamera.js:233-243) casts from
   // this height, so the filter may never run away from the capsule
   // the collider actually keeps under the ceiling: it is clamped to
   // STEP_OFFSET and in practice stays well inside it.

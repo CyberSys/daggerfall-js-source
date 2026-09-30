@@ -740,12 +740,18 @@ float horizonAt(vec3 p, vec3 n, vec3 v, vec2 uv, vec2 dir, float radiusPx, float
 }
 void main() {
   float d0 = depthAt(vUV);
-  if (d0 >= 0.99999) { outColor = vec4(1.0); return; }
   vec3 p = posAt(vUV);
+  // AUDIT FLICKER F3: THE DERIVATIVES BEFORE ANY RETURN. A quad on the skyline mixes sky and geometry, and a derivative
+  // taken after the sky's pixels returned is undefined (GLSL ES 3.00 8.9) - the GPU decides what the partner holds: 9
+  // of 120 rim pixels differed between three legal behaviours, NaN among them. Taken here, every quad computes them
+  // whole; a degenerate cross faces the eye.
+  vec3 pdx = dFdx(p), pdy = dFdy(p);
+  if (d0 >= 0.99999) { outColor = vec4(1.0); return; }
   // AUDIT HQ1: the quad's derivative stands. A normal from the nearer neighbour each way (the silhouette-edge
   // mitigation) was tried and read WORSE on SwiftShader (the crate's two flanks 0.71 / 0.95 against 0.95 / 0.96
   // here); the depth-aware blur keeps an edge quad's normal from smearing past its edge.
-  vec3 n = normalize(cross(dFdx(p), dFdy(p)));
+  vec3 cr = cross(pdx, pdy);
+  vec3 n = dot(cr, cr) > 1e-30 ? normalize(cr) : -normalize(p);
   if (dot(n, -p) < 0.0) n = -n;   // a normal faces the eye whatever the projection's handedness did to the derivatives
   vec3 v = normalize(-p);
   // the radius on screen, in the AO image's uv: the world radius over the view distance, through the focal term

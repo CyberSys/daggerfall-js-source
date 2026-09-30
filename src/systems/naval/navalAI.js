@@ -75,6 +75,7 @@ import { NAVAL_DEG, rangeAt, SHOT_GRAVITY } from './navalBallistics.js';
 import { BERTH_GAP } from './navalBoarding.js';
 import { wrapAngle } from '../../world/mat4.js';   // ONCRASH1: the port's one angle wrap, which cannot loop
 import { steerage, HULL_HELM, HELM_WAY } from '../helmWay.js';   // HELM-WAY: the player's own helm, the captains' too
+import { stepErrand, MOOR_EASE_S } from './shipLife.js';   // SHIP-LIFE: a ship going somewhere
 
 /** A galley's oars: its least way, as a share of its best. */
 export const OARS_FLOOR = 0.55;
@@ -322,10 +323,10 @@ export function windFactor(offRun) {
 export const windShare = (windLen) => clamp(windLen / WIND_RATED, WIND_SHARE[0], WIND_SHARE[1]);
 
 /**
- * A new ship at sea. `spec` - `{ id, seed, classId, variant, pos, yaw, names, owner, temper }`; the class decides the
- * rest - SEA-PEACE: her temper her seed's (temperOf) unless one is named.
+ * A new ship at sea. `spec` - `{ id, seed, classId, variant, pos, yaw, names, owner, temper, errand }`; the class decides
+ * the rest - SEA-PEACE: her temper her seed's (temperOf) unless one is named; SHIP-LIFE: her errand, if she has one.
  */
-export function createSeaShip({ id, seed, classId, variant = 0, pos, yaw = 0, names = null, owner = null, temper = null }) {
+export function createSeaShip({ id, seed, classId, variant = 0, pos, yaw = 0, names = null, owner = null, temper = null, errand = null }) {
   const cls = classById(classId);
   if (!cls) throw new Error(`navalAI: no ship class '${classId}'`);
   const damage = createShipDamage({ hullHp: cls.hullHp, sailHp: cls.sailHp, crew: cls.crew });
@@ -340,6 +341,9 @@ export function createSeaShip({ id, seed, classId, variant = 0, pos, yaw = 0, na
     temper: Object.values(TEMPERS).includes(temper) ? temper : temperOf(cls, seed), lashed: null, heard: null,
     /** NAV-R: a raider's own lookout (m; null: ENGAGE_RANGE) and the course it sails ([x, z]; null: a waypoint of its own) */
     sight: null, course: null,
+    /** SHIP-LIFE: what she is about when no fight is hers (shipLife.js errandFor: moored, depart, voyage, arrive, patrol,
+     *  lurk; null: her own cruise) */
+    errand,
     guns: createGunDeck(cls.hull, { crewed: true, crewShare: () => damage.crewShare() }),
     /** attacker id -> the time of its last blow */
     provoked: new Map(),
@@ -858,15 +862,23 @@ export function stepCaptain(ship, world) {
       ship.mode = 'answer';
       plan = { want: headingTo(ship.pos, ship.heard.pos), goal: [ship.heard.pos[0], 0, ship.heard.pos[2]], sails: 1 };
     } else {
+      // SHIP-LIFE: no fight of hers - her errand (shipLife.js), taken up again with a way planned anew after one; a
+      // raider's course and a ship with none keep the cruise
+      if (ship.mode !== 'cruise' && ship.errand) ship.errand.path = null;
       ship.mode = 'cruise';
-      plan = { want: cruiseCourse(ship, world.wind, isWater, world.random ?? Math.random), goal: ship.course ? [ship.course[0], 0, ship.course[1]] : ship.waypoint ? [ship.waypoint[0], 0, ship.waypoint[1]] : null, sails: 1 };
+      const life = ship.errand && !ship.course && world.life ? stepErrand(ship, dt, world.life) : null;
+      if (life?.hold) return moor(ship, life.hold, dt, out);
+      // into a harbour or out of it with the wind in her teeth: warped on her sweeps, as a boarding's pirate is pulled
+      // alongside (a coaster beat for forty minutes in the lee of a headland and never came in)
+      if (life && (ship.errand?.kind === 'arrive' || ship.errand?.kind === 'depart') && sailable(ship, life.want, world.wind) !== life.want) { life.sweeps = SWEEP_WAY; life.sailable = true; }
+      plan = life ?? { want: cruiseCourse(ship, world.wind, isWater, world.random ?? Math.random), goal: ship.course ? [ship.course[0], 0, ship.course[1]] : ship.waypoint ? [ship.waypoint[0], 0, ship.waypoint[1]] : null, sails: 1 };
     }
   }
   if (ship.mode !== 'board') { ship.approach = null; ship.route = null; }   // AUDIT NAV2 F22: a boarding's tally and way are its own
   ship.sweeps = plan.sweeps ?? 0;   // AUDIT NAV1 (online #10): her sweeps out, or in
   let want = plan.sailable ? plan.want : tackCourse(ship, plan.want, plan.goal, world.wind);
   want = trafficCourse(ship, want, world.contacts, ship.mode === 'board' ? ship.target : null);
-  want = avoidLand(ship, want, isWater, world.wind);
+  if (!plan.berthing) want = avoidLand(ship, want, isWater, world.wind);   // SHIP-LIFE: the last leg into a sounded berth
 
   // the sail, the helm and the way - boxed in by the land she shortens sail and pivots
   ship.sailsWant = ship.avoid.heading != null ? Math.min(plan.sails, BOXED_SAILS) : plan.sails;
@@ -886,6 +898,21 @@ export function stepCaptain(ship, world) {
     const close = q.hull != null && Number.isFinite(q.yaw) ? hullGap(ship.pos, ship.yaw, ship.hull, q.pos, q.yaw, q.hull) <= GRAPPLE_GAP : bearingTo(ship, q.pos).dist <= GRAPPLE_RANGE;
     if (close) out.grapple = q.id;
   }
+  return out;
+}
+
+/** SHIP-LIFE: moored - her way off, her sails stowed, eased onto her berth over MOOR_EASE_S (shipLife.js): no helm, no
+ *  way, nothing she steers round; her guns run in. */
+function moor(ship, hold, dt, out) {
+  const k = Math.min(1, dt / MOOR_EASE_S);
+  ship.pos[0] += (hold.pos[0] - ship.pos[0]) * k;
+  ship.pos[2] += (hold.pos[1] - ship.pos[2]) * k;
+  ship.yaw = wrapAngle(ship.yaw + wrapAngle(hold.yaw - ship.yaw) * k);
+  ship.speed = 0; ship.turnNow = 0; ship.yawRate = 0; ship.sweeps = 0;
+  ship.sailsWant = 0;
+  ship.sails = Math.max(0, ship.sails - dt * 0.5);
+  ship.runOut.clear();
+  ship.target = null;
   return out;
 }
 

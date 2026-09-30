@@ -146,6 +146,10 @@ export const EL_CONTACT_FADE_START = 0.6;
  *  mark's own wetness (one fresh, zero dried), so the sheen is what
  *  says "wet" and it goes as the mark dries. */
 export const EL_WET_GLOSS = 64;
+/** AUDIT FLICKER P1: how far toward a lamp a flat's lamp shadow is read from its base (world units, capped at half the
+ *  way to the lamp) - off the flat's own card, which the lamp's map holds up to three frames late: a card that far
+ *  behind a flat walking at a run stays behind the read. A caster nearer the flat than this no longer shades it. */
+export const EL_FLAT_LAMP_LIFT = 0.35;
 export const EL_WET_STRENGTH = 0.55;   // BLOOD3: Schlick carries most of the reduction (4% head-on); this is what is left at a grazing angle, a sheen and not a mirror
 /** EL4: PROPER DARK DUNGEONS. The lane scales a dungeon's ambient (DFU's
  *  flat 0.12 and Better Ambience's trilight alike; the Dungeon Brightness
@@ -348,8 +352,9 @@ uniform vec4 uClusterRect;               // LC1: the world viewport's x, y, and 
 uniform vec2 uClusterZ;                  // LC1: 1 / CLUSTER_NEAR, CLUSTER_Z / log(FAR / NEAR)
 uniform vec4 uCamFwd;                    // LC1: the view's third row negated - dot(xyz, wp) + w is a point's view depth
 uniform int uClusterOn;                  // LC1: 1 on a world frame with a grid built; 0 walks every light
-// the fragment's cell as (offset, count) into the list - or (0, uPointCount) with the grid off
-uvec2 elCluster(vec3 wp) {
+// the fragment's cell as (offset, count) into the list - or (0, uPointCount) with the grid off. AUDIT FLICKER F4: highp
+// throughout - a dense night street's offsets pass 32767, past what a fragment shader's default (mediump) int holds
+highp uvec2 elCluster(vec3 wp) {
   if (uClusterOn == 0) return uvec2(0u, uint(uPointCount));
   ivec2 t = clamp(ivec2((gl_FragCoord.xy - uClusterRect.xy) * uClusterRect.zw), ivec2(0), ivec2(${CLUSTER_X - 1}, ${CLUSTER_Y - 1}));
   float depth = dot(uCamFwd.xyz, wp) + uCamFwd.w;
@@ -357,9 +362,9 @@ uvec2 elCluster(vec3 wp) {
   return texelFetch(uClusterGrid, ivec2(t.x + t.y * ${CLUSTER_X}, z), 0).rg;
 }
 // the j-th light of a cell - the list's byte, or j itself with the grid off
-int elClusterLight(uvec2 cell, int j) {
+int elClusterLight(highp uvec2 cell, int j) {
   if (uClusterOn == 0) return j;
-  int at = int(cell.x) + j;
+  highp int at = int(cell.x) + j;
   return int(texelFetch(uClusterList, ivec2(at & ${CLUSTER_LIST_W - 1}, at >> ${Math.log2(CLUSTER_LIST_W)}), 0).r);
 }
 `;
@@ -392,7 +397,7 @@ ${powChainGlsl('elSpecLobe', EL_SPEC_GLOSS)}
 vec3 elPointLitWet(vec3 wp, vec3 n, float wet, out vec3 glint) {
   vec3 acc = vec3(0.0);
   glint = vec3(0.0);
-  uvec2 cell = elCluster(wp);   // LC1
+  highp uvec2 cell = elCluster(wp);   // LC1
   int cellCount = int(cell.y);
   // LA-COST4: the eye's direction ONCE a fragment - it was normalised again for every light in range, the same vector
   // each time - and not at all where the cell holds no light (the loop is then empty and never reads it)
@@ -429,17 +434,27 @@ vec3 elPointLitWet(vec3 wp, vec3 n, float wet, out vec3 glint) {
 vec3 elPointLit(vec3 wp, vec3 n) { vec3 g; return elPointLitWet(wp, n, 0.0, g); }
 // a flat's lantern term, attenuation only; its shadow is read at the
 // flat's base (one value for the whole sprite - a sprite in its own map
-// would shadow itself)
+// would shadow itself). AUDIT FLICKER P1: read from a point LIFTED toward the
+// lamp (EL_FLAT_LAMP_LIFT, never past half the way there), with no normal
+// offset. Each lamp's map holds a flat as a card turned to face that lamp
+// through this same upright line, drawn where the flat stood a frame to three
+// ago (the replay's records are a frame old; a lamp past the nearest two
+// redraws every third frame): a flat walking away from its lamp read its
+// own late card nearer the lamp than itself and lost that lamp's light whole
+// - the player's own sprite in third person at 60 Hz, a townsman at 20 Hz.
 vec3 elPointFlat(vec3 wp, vec3 base) {
   vec3 acc = vec3(0.0);
-  uvec2 cell = elCluster(wp);   // LC1
+  highp uvec2 cell = elCluster(wp);   // LC1
   int cellCount = int(cell.y);
   for (int j = 0; j < ${EL_MAX_LIGHTS}; j++) {
     if (j >= cellCount) break;
     int i = elClusterLight(cell, j);
     float d = length(uPointLights[i].xyz - wp);
     if (d >= uPointLights[i].w) continue;   // EL5
-    float sh = shadowOfLight(i, uPointLights[i], base, vec3(0.0, 1.0, 0.0));   // EL2; EL5: any caster's; DISC15: either tier
+    vec3 toL = uPointLights[i].xyz - base;
+    float tl = length(toL);
+    vec3 at = base + toL * (min(${glslFloat(EL_FLAT_LAMP_LIFT)}, tl * 0.5) / max(tl, 1e-4));   // AUDIT FLICKER P1: off the flat's own (late) card
+    float sh = shadowOfLight(i, uPointLights[i], at, vec3(0.0));   // EL2; EL5: any caster's; DISC15: either tier
     acc += sh * elAttenuation(d, uPointLights[i].w) * uPointColors[i];
   }
   return acc;
@@ -681,7 +696,7 @@ uniform vec3 uBBSun;
 flat out float vBBSunVis;   // LA-COST3: the sun map's word at the flat's base, one value for the whole quad
 ${SHADOW_GLSL}`,
   main: `
-  vBBSunVis = dot(uBBSun, uBBSun) > 0.0 ? sunShadowSoftAt(vBBBase + vec3(0.0, 0.5, 0.0), vec3(0.0, 1.0, 0.0)) : 1.0;   // LA-COST3: EL2's point, TREES1's kernel, PERF-SUN2's gate`,
+  vBBSunVis = dot(uBBSun, uBBSun) > 0.0 ? sunShadowSoftAt(vBBBase + vec3(0.0, 0.5, 0.0), vec3(0.0, 1.0, 0.0), uSize.y) : 1.0;   // LA-COST3: EL2's point, TREES1's kernel, PERF-SUN2's gate; AUDIT FLICKER S1: its height, off its own card`,
 });
 
 /** MAC-BUG W6 (2026-09-20, Mac: "super dark coloring instead of red") -

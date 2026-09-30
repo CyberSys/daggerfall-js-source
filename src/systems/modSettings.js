@@ -336,7 +336,11 @@ export const MOD_SETTINGS = Object.freeze({
       'SailingAssist.AutoStowSquareSails': Object.freeze({ default: true, description: 'Stow the square sails for you when you head into the wind.' }),
       'SailingAssist.AutoStowGaffSails': Object.freeze({ default: true, description: 'Shipped with the mod; its assembly never reads it.' }),
       'Compatibility.AnimatedWaterVertexWaves': Object.freeze({ default: false, description: 'With Animated Water loaded, ride its vertex waves instead of drawing the mod’s own waves. INERT here: Animated Water is not in the port, so the mod’s own waves always draw (CSA-J).' }),
-      'Compatibility.PersistentDungeonBoats': Object.freeze({ default: false, description: 'Keep a boat placed indoors or underground when you leave it (off, it is gone once you are back outside).' }),
+      // KEEP-BOATS (2026-09-30, Mac: ship ownership "less punishing" - "Keep boats & cargo"): A DEPARTURE FROM THE
+      // MOD'S SHIPPED DEFAULT. The mod ships it off, and off a boat placed in a dungeon was destroyed once the player
+      // was back outside - a packable one and its hold for good, a crewed one's hold with it (UpdateBoatVisibility).
+      // The port ships it ON; the switch stays the player's. Pinned: test/csa_registration.test.js DEPARTED.
+      'Compatibility.PersistentDungeonBoats': Object.freeze({ default: true, description: 'Keep a boat placed indoors or underground when you leave it (off, it is gone once you are back outside).' }),
       'Map.RestrictPositionReadingTime': Object.freeze({ default: true, description: 'Position can only be viewed around midday and midnight' }),
       'Map.RestrictPositionReadingWeather': Object.freeze({ default: true, description: 'Position can only be viewed in Sunny or Cloudy weather' }),
       'Map.ClickRangeThreshold': Object.freeze({ default: 5, min: 1, max: 10, description: 'How near the pointer must come to a marker on the position reading, in map pixels, to name it or pick it.' }),
