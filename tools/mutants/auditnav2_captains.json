@@ -310,11 +310,12 @@
   {
     "name": "AUDIT-NAV2-F29-the-quiet-read-by-where-I-stand",
     "file": "src/scenes/navalHost.js",
-    "old": "FIELD_QUIET_S && !hostileNearBoat(b, s)) {",
-    "new": "FIELD_QUIET_S && !hostileNearMe()) {",
+    "old": "const hostile = hostileNearBoat(b, s);\n      crewStep",
+    "new": "const hostile = hostileNearMe();\n      crewStep",
     "tests": [
       "test/auditnav2_captains.test.js"
-    ]
+    ],
+    "note": "SHIP-CREW (PIN MOVED): re-aimed at the moved line."
   },
   {
     "name": "AUDIT-NAV2-F30-a-merchant-takes-her-prize",

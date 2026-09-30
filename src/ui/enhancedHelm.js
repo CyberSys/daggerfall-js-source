@@ -99,6 +99,7 @@ export function helmButtons(h) {
   out.push({ act: 'slower', label: '−', kind: 'tap', action: A.slower, disabled: !(h.timeScaleIndex > 0) },
     { act: 'normal', label: `×${h.timeScale ?? 1}`, kind: 'tap', action: A.normal, disabled: !(h.timeScaleIndex > 0) },
     { act: 'faster', label: '+', kind: 'tap', action: A.faster, disabled: !(h.timeScaleIndex < h.timeScaleMax) });
+  if (h.orders) out.push({ act: 'orders', label: 'Orders', kind: 'hook' });   // SHIP-CREW: her captain's orders (the naval arc on)
   out.push({ act: 'position', label: 'Position', kind: 'hook' });
   out.push({ act: 'leave', label: 'Leave the helm', kind: 'tap', action: A.disembark });
   return out;
