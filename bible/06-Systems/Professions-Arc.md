@@ -447,7 +447,8 @@ else Foraging's Fish (1605). A **trophy** is the species' own Deep Waters templa
   already exports a `STORES` (the three preference stores), and one word must not name two things.
 - **The Stores tab** (section 8) is the only place a Stores material is seen. Moving to the pack is allowed (one-way, law 3);
   a pack item never moves into the Stores.
-- **Origin.** Every unit is **own** or **bought**. Own: this character's harvest (section 6), a craft whose every input
+- **Origin.** Every unit is **own** or **bought** - or, GOLD-MARKET (10.8), **gold**: bought on the market with gold,
+  which goes to the pack or back on the market for gold and to nothing else. Own: this character's harvest (section 6), a craft whose every input
   was own (section 9), Disenchanting's Essence from an own provenance item (one this character made, never sold), a
   Siege Honour's Spoils. Bought: a market purchase, a filled buy order, a counter's goods (4.5), a craft with any
   bought input, Essence from any other provenance item. A craft spends bought units first, so a character's own stay

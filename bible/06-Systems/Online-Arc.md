@@ -11967,4 +11967,4 @@ gold can now change hands the way a guild deposit or a house's price does - in t
   migration and the service before the client: an old service refuses every gold word as a bad act, and an old client
   beside a new service sees the Drakes' market as before.
 - **Pinned:** `test/goldmarket_service.test.js` (8) and `test/goldmarket_client.test.js` (9); the schema's table list
-  (accountworker ACC1b). Mutants: `tools/mutants/goldmarket.json` (34). Patch notes: `PATCH-NOTES-The-Gold-Market.md`.
+  (accountworker ACC1b). Mutants: `tools/mutants/goldmarket.json` (34, all dead). Patch notes: `PATCH-NOTES-The-Gold-Market.md`.

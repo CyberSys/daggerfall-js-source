@@ -13,6 +13,7 @@ import { standService, T0 } from './accountDb.mjs';
 import { seatRealm, layRecord } from './realmSeat.mjs';
 import { saleTax, listingFee, goldSaleOf, MARKET_GOLD_HELD_MAX, courierFee } from '../src/net/marketLaw.js';
 import { MARK_WORTH_GOLD } from '../src/net/marksLaw.js';
+import { REALM_MARKET_OPEN_SQL } from '../server-account/src/realm.js';
 
 let _now = T0;
 const realNow = Date.now;
@@ -297,11 +298,13 @@ test('GOLD-MARKET service: the seller\'s gold collected into its own record\'s a
   // the record's banks as the game keeps them: an array by region
   const banks = []; banks[DF] = { accountGold: 50 };
   layRecord(s.env, eve.character, { ...s.record(eve).save, bankAccounts: banks });
-  const { body: { listing: l } } = await s.list(eve);
+  const { body: { listing: l } } = await s.list(eve, { units: 5 });
   assert.equal((await s.buy(tom, l)).status, 200);
   const gets = goldSaleOf(0, 400).gets;
   assert.equal(s.held(eve), gets);
   assert.equal((await s.read(eve, 'mine')).body.goldHeld, gets, 'the read says what is held');
+  const open = () => Number(s.raw.prepare(REALM_MARKET_OPEN_SQL).get(eve.id, eve.character).n);
+  assert.equal(open(), 1, 'sold out: the held gold is the one business open');
   assert.deepEqual(Object.values(await s.call('/v1/realm/delete', { id: eve.character }, eve.secret)), [409, { error: 'realm-market-open' }], 'held gold keeps the character');
   const before = s.record(eve);
   const c = await s.call('/v1/market/gold', { character: eve.character, realm: eve.at(), region: DF }, eve.secret);
@@ -311,6 +314,7 @@ test('GOLD-MARKET service: the seller\'s gold collected into its own record\'s a
   assert.deepEqual([after.save.bankAccounts[DF].accountGold, after.save.goldPieces], [50 + gets, 7], 'into the board\'s account');
   assert.equal(s.held(eve), 0);
   assert.equal(s.raw.prepare('SELECT COUNT(*) AS n FROM market_gold').get().n, 0, 'the row gone');
+  assert.equal(open(), 0, 'collected: nothing keeps the character now');
   assert.deepEqual((await s.call('/v1/market/gold', { character: eve.character, realm: eve.at(), region: DF }, eve.secret)).body, { error: 'market-gold-none' });
   assert.equal(s.record(eve).seq, after.seq, 'refused before the record moved');
   // where the record keeps no account: the purse

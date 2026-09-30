@@ -483,7 +483,7 @@
     "name": "PROF5-svc-listing-unspent",
     "file": "server-account/src/market.js",
     "old": "      : spendStatements(db, { player: me, character, materialSql: '?3', qtySql: '?4', guard: mine, binds: [key, units, rid, nonce] })) : []),",
-    "new": "      : [])) : []),",
+    "new": "      : []) : []),",
     "tests": [
       "test/prof5_service.test.js"
     ]
