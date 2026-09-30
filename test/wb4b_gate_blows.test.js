@@ -82,7 +82,7 @@ function court(st) {
   const link = { st, state() { return this.st; } };
   const clock = { t: 5000 };
   const sent = [];
-  const c = createGateCourt({ link, now: () => clock.t, send: (hit) => { sent.push(hit); return true; } });
+  const c = createGateCourt({ link, now: () => clock.t, feet: () => courtToDungeon(0, 0, 2), send: (hit) => { sent.push(hit); return true; } });   // AUDIT WB9 (brain F1): standing in his court - no blow is sent from outside it
   return { c, link, clock, sent };
 }
 const fight = (over = {}) => ({ ...GATE_STATE_EMPTY, day: 700, boss: 'ruhn', hp: 900, max: 1000, x: 3, z: -4, yaw: 0.5, ...over });

@@ -1909,7 +1909,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:14359 / exterior.js:3755), set
+  // host's own townTalk sink (world.js:14366 / exterior.js:3755), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -2647,6 +2647,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // leaves through - computed here against his stand-in and sent (spellOnBoss); outside the court, nobody
     bossMark: opts.gateBoss ? () => { const b = gateBossBody(); return b ? { feet: b.ai.feet, height: b.ai.height, radius: b.ai.radius } : null; } : null,
     castAtBoss: opts.gateBoss ? (sp) => spellOnBoss(sp) : null,
+    // WB9c: the Reckoning's crystals as marks a harmful spell meets (a touch, a missile, a blast) - each by its number
+    crystalMarks: opts.gateCrystals ? () => gateCrystalBodies().map((q) => ({ c: q.crystal, feet: q.ai.feet, height: q.ai.height, radius: q.ai.radius })) : null,
+    castAtCrystal: opts.gateCrystals ? (sp, c) => spellOnCrystal(sp, c) : null,
     // A10: THE RECALL ARRIVAL, ROUTED. This used to be a stand-in line
     // saying the anchor machinery lived in the streaming host - true of
     // the machinery, false as a refusal: this context is the one the
@@ -3029,7 +3032,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1112 against :1142; worldModes.js:7765 against :7792).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1112 against :1142; worldModes.js:7784 against :7811).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -3390,6 +3393,42 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       ai: { feet: b.feet, yaw: b.yaw ?? 0, height: b.height, radius: b.radius, centreOffset: b.height / 2, isHostile: true },
     };
   }
+  // ═══ WB9c: THE CRYSTALS OF OBLIVION, MET ════════════════════════════════════════════════════════════════════════
+  // (2026-09-30, Mac: "a detailed wipe mechanic on the final phase that should require players to destroy oblivion
+  // crystaline formations"). The outer host's word of them (`opts.gateCrystals` - scenes/gateCourt.js crystalTargets():
+  // each standing crystal's number, where it stands, its body and its stand-in) as foe-shaped records, made each time
+  // asked; none outside a Reckoning. As he is, they are NEVER in `foes`: a blow of mine that meets one is computed here by
+  // the game's own law against its stand-in (world/gateBoss.js crystalStandIn - unarmoured: a crystal does not dodge)
+  // and its number goes out (`opts.onCrystalHit`), the relay's caps deciding what lands (net/gateBrain.js applyCrystalHit).
+  function gateCrystalBodies() {
+    const list = opts.gateCrystals?.() ?? null;
+    if (!Array.isArray(list) || !list.length) return [];
+    const out = [];
+    for (const q of list) {
+      if (!q?.entity || !Array.isArray(q.feet) || !(q.height > 0) || !(q.radius > 0) || !Number.isInteger(q.c)) continue;
+      out.push({ crystal: q.c, dead: false, entity: q.entity, mobileType: null, ai: { feet: q.feet, yaw: 0, height: q.height, radius: q.radius, centreOffset: q.height / 2, isHostile: true } });
+    }
+    return out;
+  }
+  /** A blow's number on a crystal, out to the relay through the court's door; answers whether it went. */
+  const landOnCrystal = (cr, damage, r) => !!opts.onCrystalHit?.({ c: cr.crystal, d: damage, r });
+  /** A swing of mine that met a crystal: the glass rings (the court voices it - scenes/gateCourt.js), the number out. */
+  function swingOnCrystal(cr, damage) {
+    if (damage > 0) landOnCrystal(cr, damage, HIT_KINDS.Melee);
+    playerWeaponHitEntity(playerEntity, cr.entity, { mobileType: null });
+  }
+  /** A harmful spell of mine that met a crystal (hostMagic's crystal seam): its harmful families on the crystal's
+   *  stand-in by the one door every spell lands through, the damage summed and sent. */
+  function spellOnCrystal(sp, c) {
+    const cr = gateCrystalBodies().find((q) => q.crystal === c), harm = duelSpellOf(sp);
+    if (!cr || !harm) return false;
+    let dealt = 0;
+    const sinks = { hurt: (n) => { dealt += Math.max(0, n); }, heal() {}, drainFatigue() {}, restoreFatigue() {}, drainMagicka() {}, restoreMagicka() {} };
+    try { applySpell(harm, playerEntity.level, cr.entity, sinks, Math.random, { entity: playerEntity }); } finally { cr.entity.activeEffects = []; }
+    if (!(dealt >= 1)) return false;
+    reportPlayerAttack({ hit: true, damage: Math.round(dealt) });   // HN1: the number pops as a blow's does
+    return landOnCrystal(cr, dealt, HIT_KINDS.Spell);
+  }
   /** How the swing sees him: the distance to his body's SURFACE (his axis is `radius` in and his middle `height/2` up - a
    *  point-centre law would ask a swing to reach 3 m into him), in view at the nearest point of him, the way to it
    *  clear. */
@@ -3486,6 +3525,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (boss) { boss._backFacing = foeDeps.isBackFacing(boss.ai.yaw, boss.ai.feet, playerFeet); live.push(boss); }
     const canSee = (f) => {
       if (f === boss) return bossSight(eye, inViewFn, boss);
+      if (f.crystal != null) return bossSight(eye, inViewFn, f);   // WB9c: a crystal of Oblivion by its surface, as he is
       const c = [f.ai.feet[0], f.ai.feet[1] + (f.ai.height ?? CAPSULE_HEIGHT) / 2, f.ai.feet[2]];   // foe center (mid-capsule) - ITS capsule (REVIEW 2026-09-05), the 0.9 was the player's
       const dx = c[0] - eye[0], dy = c[1] - eye[1], dz = c[2] - eye[2];
       const dist = Math.hypot(dx, dy, dz);
@@ -3493,6 +3533,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       const hit = collider.raycast(eye, [dx / l, dy / l, dz / l], dist);
       return { dist, inView: inViewFn(c), losClear: !Number.isFinite(hit) || hit >= dist - 1e-3 };
     };
+    for (const cr of gateCrystalBodies()) { cr._backFacing = false; live.push(cr); }   // WB9c: the Reckoning's crystals, bodies the swing meets as it meets him
     // (the module-level playerEntity import IS foeDeps.playerEntity -
     // the old shadowing destructure was the null read that crashed)
     let hitEnemy = false;
@@ -3504,6 +3545,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     for (const { foe, damage } of playerWeapon.resolveHit(live, playerEntity, canSee, Math.random, (f) => backstabChanceOf(playerEntity, !!f._backFacing), (l) => hudText.add(l),
       (f, pt) => poisonFoe(f, pt))) {   // C2-slice (combat-11): the player's poisoned blade infects its victim; WORLD6b-iii(e): through the one poison door (a puppet's rides the hit)
       if (foe === boss) { hitEnemy = true; swingOnBoss(boss, damage, lookDir); continue; }   // WB4b: his own arm - nothing of a foe's door is his
+      if (foe.crystal != null) { hitEnemy = true; swingOnCrystal(foe, damage); continue; }   // WB9c: a crystal's own - no blood, no foe's door
       // WeaponDamage returns true for a CONNECTING swing even at zero
       // damage (WeaponManager.cs:617-637 falls through to
       // DecreaseHealth/HandleAttackFromSource and returns true), so
@@ -3730,14 +3772,21 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
             retireMissile(m);
             continue;
           }
+          // WB9c: a shaft meets a crystal by its whole body - the one player-arrow law against its stand-in (no blood)
+          const cr = gateCrystalBodies().find((q) => missileHitsCapsule(m.pos, q.ai.feet, q.ai.height, q.ai.radius));
+          if (cr) {
+            playerArrowHitFoe(m, cr, { playerEntity, playerWeapon, playerFeet, audio, hitEffects: null, say: (l) => hudText.add(l), dealDamage: (t, d) => landOnCrystal(cr, d, HIT_KINDS.Shaft) });
+            retireMissile(m);
+            continue;
+          }
           for (const f of foes) {
             if (f.dead) continue;
             if (missileHitsFoe(m.pos, f)) {   // ROAD-H tail: DaggerfallMissile.cs:339's SphereCast meets the foe's CAPSULE (REVIEW 2026-09-05 had its centre as a point)
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:23835,
-              // exterior.js:5370 and worldModes.js:8467 already ran;
+              // playerArrowHitFoe is the one copy world.js:23978,
+              // exterior.js:5370 and worldModes.js:8491 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -8472,6 +8521,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       if (kind === 'loot') return lootPiles[i]?.batch ? (lootPiles[i].items ?? []) : null;
       if (kind === 'corpse') { const f = foes[i]; return lootableBody(f) ? (f.entity?.items ?? []) : null; }   // AUDIT 68 S19-removed-foe-lootable
       if (kind === 'droppedLoot') return droppedLoot.contents?.(key) ?? null;
+      if (kind === 'spoil') return opts.spoilContents?.(key) ?? null;   // WB9f: a piece of the Burning Court's spoils (the outer host's pool)
       return null;
     },
     /** U26: PlayerActivate's loot handling, verbatim in shape - the

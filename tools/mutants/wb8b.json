@@ -104,8 +104,8 @@
   {
     "name": "WB8b-unyielding-blow-whole",
     "file": "src/net/gateBrain.js",
-    "old": "  const want = d * P.hitX;",
-    "new": "  const want = d;",
+    "old": "  const want = d * P.hitX * (now < (f.stunUntil ?? 0) ? STUN_HIT_X : 1);",
+    "new": "  const want = d * (now < (f.stunUntil ?? 0) ? STUN_HIT_X : 1);",
     "tests": [
       "test/wb8b_gate_marks.test.js"
     ]
@@ -216,7 +216,9 @@
     "new": "  const who = entry.who ? bodies.find((b) => b.sub === entry.who && f.players[b.sub]) ?? null : null;",
     "tests": [
       "test/wb8b_gate_marks.test.js"
-    ]
+    ],
+    "equivalent": true,
+    "why": "Belt and braces since WB9b: stepBrain hands beginTurn the challengers standing ALIVE in his court (`here` - the dead filtered out once, there), so the turn's own `!b.dead` never turns a lookup; an echo on the dead is killed at `here` (WB3-a-dead-target-kept's line)."
   },
   {
     "name": "WB8b-favoured-unread",
@@ -239,7 +241,7 @@
   {
     "name": "WB8b-the-wrath-turned",
     "file": "src/net/gateBrain.js",
-    "old": "    const el = A.el === 'fire' && A !== ATTACKS.wrath ? aspect.el : A.el;",
+    "old": "    const el = A.el === 'fire' && !isDagons(A) ? aspect.el : A.el;",
     "new": "    const el = A.el === 'fire' ? aspect.el : A.el;",
     "tests": [
       "test/wb8b_gate_marks.test.js",
@@ -316,8 +318,8 @@
   {
     "name": "WB8b-the-old-law-let-in",
     "file": "src/net/wire.js",
-    "old": "export const GATE_BRAIN_MIN = 3;",
-    "new": "export const GATE_BRAIN_MIN = 2;",
+    "old": "export const GATE_BRAIN_MIN = 4;",
+    "new": "export const GATE_BRAIN_MIN = 3;",
     "tests": [
       "test/wb8b_gate_marks.test.js"
     ]

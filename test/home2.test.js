@@ -61,7 +61,7 @@ test('HOME2 the plaque: a door naming its verbs is an actions frame - "Go in" li
 
 test('HOME2 the door, by source: the verbs listed in every mode but Steal and only online, my home\'s or a house\'s I could buy, the price then the buy row\'s and not a line; the door\'s cache minds the mode and the arm; the click carries the lit verb, read against the door as it stands; the buy arms then buys; who may enter moves round through the service; where no verbs were listed the click offers - my home\'s menu in Info, a house\'s once a session, always in Info (mutants: verbs in Steal; the cache blind to the arm; the verb unpassed; one press buying; the fallback asking every click)', () => {
   const m = src('src/scenes/worldModes.js');
-  assert.match(m, /import \{ quickLootTake, plaqueActionFor \} from '\.\.\/systems\/quickLoot\.js';/);
+  assert.match(m, /import \{ quickLootTake, quickLootSpend, plaqueActionFor \} from '\.\.\/systems\/quickLoot\.js';/);   // AUDIT WB9 (spoils F2): the spoil's press spends the armed key
   // the namer
   assert.match(m, /const verbsSig = homeVerbsSig\(\);\n\s*if \(_doorTextKey === key && _doorTextGen === gen && _doorTextHomes === homesV && _doorTextVerbs === verbsSig\) return _doorText;/);
   assert.match(m, /const verbs = _doorText \? homeDoorVerbs\(bd, home\) : null;\n\s*const homeLine = verbs \? null : home \?/);

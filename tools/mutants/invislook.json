@@ -146,8 +146,8 @@
   {
     "name": "INVISLOOK-late-pass-no-camera",
     "file": "src/net/peerBodies.js",
-    "old": "    this._cam = { canvas, proj, view, eye, flashOf };\n",
-    "new": "    \n",
+    "old": "    const c = this._cam ?? (this._cam = { canvas: null, proj: null, view: null, eye: null, flashOf: null });\n",
+    "new": "    const c = { canvas: null, proj: null, view: null, eye: null, flashOf: null };\n",
     "tests": [
       "test/invislook.test.js"
     ]

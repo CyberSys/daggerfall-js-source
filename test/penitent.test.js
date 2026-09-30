@@ -99,7 +99,7 @@ const insidePoly = (poly) => ([x, y]) => {
 // ── THE VOCABULARY AND ITS FACE ─────────────────────────────────────
 
 test('PENITENT vocabulary: the title and the glyph join the closed lists last, with the word Diggleborf named; a gradient that starts gold and ends sky blue - CSS\'s own gold and skyblue - with a warm light between them, so no letter reads green, as a straight mix of the two ends does; edged in black, not its own gold; a classic mark of its own (mutants: the ends swapped; the light dropped; the edge its own gold; a mark another glyph has)', () => {
-  assert.equal(TITLES.at(-1), 'penitent', 'the vocabulary\'s newest, last');
+  assert.deepEqual(TITLES.slice(-2), ['penitent', 'gatebreaker'], 'the vocabulary\'s newest, last - then WB9g\'s Gatebreaker, the Broker\'s, which has no glyph');
   assert.equal(GLYPHS.at(-1), 'penitent');
   assert.equal(TITLE_TEXT.penitent, 'Penitent', 'Diggleborf: "maybe "Penitent" for the title"');
   const stops = TITLE_GRADIENT.penitent;
@@ -198,7 +198,7 @@ test('PENITENT grant: Diggleborf alone holds it, case-folded, title and glyph to
   }
   assert.equal(equipRefusal('penitent', row('Diggleborf'), env), null, 'theirs to wear');
   assert.equal(titleWorn(row('Diggleborf', { title: 'penitent' }), env), 'penitent');
-  assert.deepEqual(wardrobeOf(row('diggleborf', { title: 'penitent' }), env, nowS), { titles: ['penitent'], title: 'penitent', glyphs: ['penitent'] });
+  assert.deepEqual(wardrobeOf(row('diggleborf', { title: 'penitent' }), env, nowS), { titles: ['penitent'], title: 'penitent', glyphs: ['penitent'], auras: [], aura: null, insignia: [] });   // WB9g: and no aura, no insignia bought
   // a Founder holds both, and wears the one stored until they press the other on the account card
   const founder = row('Diggleborf', { created_at: FOUNDER_UNTIL - 86_400, title: 'founder' });
   assert.deepEqual(titlesHeld(founder, env), ['founder', 'penitent']);

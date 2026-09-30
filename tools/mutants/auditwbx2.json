@@ -95,8 +95,8 @@
   {
     "name": "AUDWBX2-M5-the-relay-lands-at-once",
     "file": "src/net/gateBrain.js",
-    "old": "  } else if (A === ATTACKS.leap) { const p = leapAt(f.atk, now); if (p) f.pos = keepInCourt(p[0], p[1]); }",
-    "new": "  } else if (A === ATTACKS.leap && now >= f.atk.at) { const p = leapAt(f.atk, now); if (p) f.pos = keepInCourt(p[0], p[1]); }",
+    "old": "  } else if (A === ATTACKS.leap || A === ATTACKS.cross) { const p = leapAt(f.atk, now); if (p) f.pos = p; }",
+    "new": "  } else if ((A === ATTACKS.leap || A === ATTACKS.cross) && now >= f.atk.at) { const p = leapAt(f.atk, now); if (p) f.pos = p; }",
     "tests": [
       "test/auditwbx2.test.js"
     ]
