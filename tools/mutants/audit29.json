@@ -294,11 +294,12 @@
   {
     "name": "AUDIT29-B2-a-forge-on-the-classic-skin",
     "file": "src/ui/profPages.js",
-    "old": "export const forgeOffered = () => profPagesShown() && isEnhanced();",
-    "new": "export const forgeOffered = () => profPagesShown();",
+    "old": "export const forgeOffered = () => profPagesShown();",
+    "new": "export const forgeOffered = () => true;",
     "tests": [
       "test/audit29_client.test.js"
-    ]
+    ],
+    "note": "CLASSIC-PAGES (LAW CHANGED, Mac: \"Enhanced pages + key\"): the classic skin is offered the Forge now - its pause opens the Stores page (ui/pauseDoor.js). Re-aimed at what B2 still holds: no Forge offered offline or for an account the switch has not opened to."
   },
   {
     "name": "AUDIT29-C1-a-quarter-of-the-view",

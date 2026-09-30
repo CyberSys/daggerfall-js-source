@@ -7,9 +7,11 @@
 // so the shell is this, and each profession is a KIND in it - PROF1's
 // patches (scenes/herbHost.js herbKind), PROF2's veins and boulders
 // (scenes/mineHost.js mineKind), PROF4's trees (scenes/treeHost.js
-// treeKind) and PROF7's bodies (scenes/huntHost.js huntKind - LOOSE nodes,
-// each its own place) now; Fishing's water later. One prompt, one act, one
-// book. (AUDIT 32 R9: this said the trees and the bodies were to come.)
+// treeKind), PROF7's bodies (scenes/huntHost.js huntKind - LOOSE nodes,
+// each its own place) and PROF8's casts (scenes/fishHost.js fishKind - a
+// loose node ahead of the look while the net stands in its water, and the
+// day's schools as flats). One prompt, one act, one book. (AUDIT 32 R9:
+// this said the trees and the bodies were to come.)
 //
 //   THE NODES. Each built wilderness pixel stands its day's nodes of every
 //   kind (net/nodeLaw.js - the clock's, the same for every client), each
@@ -79,8 +81,10 @@ export function storesLine(d) {
   const said = goods.length > 1 ? `${goods.slice(0, -1).join(', ')} and ${goods[goods.length - 1]}` : goods[0];
   return `+${said} to your Stores`;
 }
-/** GATHER-SAID: where the Stores are, said with a session's first harvest - the goods are never in the pack. */
-export const STORES_WHERE_LINE = 'Gathered goods go to your Stores, not your pack: the Enhanced pause menu\'s Stores page.';
+/** GATHER-SAID: where the Stores are, said with a session's first harvest - the goods are never in the pack.
+ *  CLASSIC-PAGES: on either skin, by the Professions key the player has it bound to (`key`, its label; none bound, the
+ *  pause menu's page). */
+export const storesWhereLine = (key) => `Gathered goods go to your Stores, not your pack: ${key ? `${key} opens your Stores page` : 'the pause menu\'s Stores page'}.`;
 /** GATHER-SAID: an act that ended before its end - let go, walked off, a window over it, the dungeon left - nothing asked. */
 export const ACT_STOPPED_LINE = 'The gathering stopped before its end - nothing was taken.';
 /** A harvest the service did not answer, kept and asked again (net/profBook.js PROF_QUEUE_MS: ten minutes). */
@@ -133,6 +137,9 @@ export function aimAt(eyePos, at, view) {
  *   or below; the start's `ask` rides the harvest (the body's foe)
  * @property {() => { n: number, cap: number }} [tally] PROF7: the day's count the chip says, where it is not the
  *   character's harvests against 60 (Hunting's: the account's hides against 30)
+ * @property {(data: any) => string} [storesLine] PROF8: the goods' one line in the kind's own words (a haul's species)
+ * @property {(data: any, toast: (text: string) => void) => void} [answered] PROF8: a harvest's answer heard - the kind's
+ *   own after-step (a trophy into the pack, once)
  */
 
 /**
@@ -159,7 +166,7 @@ export function createGatherHost(deps) {
   let target = null;          // { node, px, py, info, world }
   let act = null;             // { act, node, harvest, tool, profession, label, px, py, info, world, hand }
   let refreshAt = 0, pixelsAt = 0, targetKey = null;
-  let storesSaid = false;     // GATHER-SAID: STORES_WHERE_LINE said this session
+  let storesSaid = false;     // GATHER-SAID: storesWhereLine said this session
   let passedOn = '';          // VEIN-NEED: what the node the last press passed on needs, until the host hands it back
   let chipLeft = 0;
   let chipProfession = /** @type {string|null} */ (null);
@@ -264,7 +271,7 @@ export function createGatherHost(deps) {
   /** AUDIT 29 C4: the same, by the node's key alone (a kept harvest answered through the pump). */
   function restandNode(key) {
     const n = parseNodeKey(key);
-    if (!n || n.kind === 'body') return;   // PROF7: a body stands nothing of the host's (it is DFU's corpse)
+    if (!n || n.kind === 'body' || n.kind === 'haul') return;   // PROF7: a body stands nothing of the host's (it is DFU's corpse); PROF8: nor a haul
     if (n.kind === 'dvein') { if (dungeon?.id === n.dungeon) standDungeon(); } else restandAt(n.x, n.y);
   }
 
@@ -380,8 +387,8 @@ export function createGatherHost(deps) {
       const d = r.data;
       const profession = d.track?.profession ?? a?.profession ?? 'herbalism';
       const k = a ? kindOf(a.node) : kindOfProfession(profession);
-      hud.toast(storesLine(d), { keep: true });   // GATHER-SAID: the goods in one line, outlasting the rest; PROF4's Resin, PROF7's butchery in it
-      if (!storesSaid) { storesSaid = true; hud.toast(STORES_WHERE_LINE); }
+      hud.toast(k?.storesLine ? k.storesLine(d) : storesLine(d), { keep: true });   // GATHER-SAID: the goods in one line, outlasting the rest; PROF4's Resin, PROF7's butchery in it; PROF8's species
+      if (!storesSaid) { storesSaid = true; hud.toast(storesWhereLine(deps.keyLabel?.('Professions') ?? '')); }
       const note = a && k?.actNote ? k.actNote(a.report) : a?.clean ? (k?.cleanNote(a, d) ?? '') : '';   // AUDIT 32 P10
       hud.toast(`+${d.xp} ${professionName(profession)} XP${note}`);
       const after = d.track?.rank ?? before;
@@ -394,6 +401,7 @@ export function createGatherHost(deps) {
           if (at === 50 || at === 100) hud.toast('A specialisation may be chosen on the Professions page (the pause menu\'s Stats).');
         }
       }
+      try { k?.answered?.(d, (t) => hud.toast(t)); } catch (e) { console.warn('[gather] an answer', e); }   // PROF8: a trophy into the pack
       chipProfession = profession;
       chipLeft = CHIP_S;
       if (a && !a.loose && k?.gone(a.node)) {   // PROF7: a body stands nothing of the host's to stand again

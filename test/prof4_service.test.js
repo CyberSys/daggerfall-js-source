@@ -68,6 +68,8 @@ function treeAt(climate, region, pred, { confirmed = false, from = 300 } = {}) {
   }
   throw new Error('no such tree');
 }
+/** PINE-SHARE: a Woodlands pixel stands Pine beside its Oak now - the Oak these pins mean, asked by name. */
+const OAK = (q) => q.material === 'log:oak';
 const chop = (who, n, extra = {}) => ({
   character: who.character, node: n.key, kind: 'logs', climate: n.climate, region: n.region, act: { cuts: 0, clean: false },
   at: _now - 2, rid: rid(), ...extra,
@@ -80,7 +82,7 @@ test('PROF4 service: a tree felled - the law\'s wood\'s logs into the Stores, ow
   const s = await stand();
   const mac = await s.registered('Mac');
   s.setXp(mac, xpForRank(10), 'logging');
-  const t = treeAt(WOODS, GLENUMBRA, () => true);
+  const t = treeAt(WOODS, GLENUMBRA, OAK);
   assert.deepEqual([t.material, t.tier], ['log:oak', 2], 'an unconfirmed Woodlands pixel: tiers 1-2 - its Oak');
   const body = chop(mac, t);
   const r = await steered(0x00, () => s.call('/v1/prof/harvest', body, mac.secret));
@@ -94,10 +96,10 @@ test('PROF4 service: a tree felled - the law\'s wood\'s logs into the Stores, ow
   assert.deepEqual([again.body.repeat, again.body.qty, again.body.extra], [true, 2, 'wood:resin']);
   assert.deepEqual(s.stores(mac, 'log:oak'), [['own', 2]], 'once');
   assert.deepEqual((await s.call('/v1/prof/harvest', chop(mac, t), mac.secret)).body, { error: 'node-taken' });
-  const t2 = treeAt(WOODS, GLENUMBRA, () => true, { from: t.x + 1 });
+  const t2 = treeAt(WOODS, GLENUMBRA, OAK, { from: t.x + 1 });
   const top = await steered(0xff, () => s.call('/v1/prof/harvest', chop(mac, t2), mac.secret));
   assert.deepEqual([top.body.qty, top.body.extra], [TREE_YIELD[1], undefined], 'the top: four logs, no Resin');
-  const t3 = treeAt(WOODS, GLENUMBRA, () => true, { from: t2.x + 1 });
+  const t3 = treeAt(WOODS, GLENUMBRA, OAK, { from: t2.x + 1 });
   assert.deepEqual((await s.call('/v1/prof/harvest', chop(mac, t3, { kind: 'herbs' }), mac.secret)).body, { error: 'prof-kind' });
   clock(secondAt(today() * DAY + 60, 2));
   assert.deepEqual((await s.call('/v1/prof/harvest', chop(mac, t3, { at: _now - 2 }), mac.secret)).body, { error: 'prof-night' }, 'the wilderness keeps Foraging\'s day');
@@ -111,38 +113,38 @@ test('PROF4 service: the Wood-Axe\'s report bounded - the Clean Cuts at most the
   const mac = await s.registered('Mac');
   s.setXp(mac, xpForRank(99), 'logging');
   const most = cutsMax(2);
-  let t = treeAt(WOODS, GLENUMBRA, () => true);
+  let t = treeAt(WOODS, GLENUMBRA, OAK);
   const lied = await steered(0xff, () => s.call('/v1/prof/harvest', chop(mac, t, { act: { cuts: 99, clean: true } }), mac.secret));
   assert.equal(lied.body.xp, harvestXp(2, 99, true), 'ninety-nine cuts are the finish\'s, and clean');
-  t = treeAt(WOODS, GLENUMBRA, () => true, { from: t.x + 1 });
+  t = treeAt(WOODS, GLENUMBRA, OAK, { from: t.x + 1 });
   const half = await steered(0xff, () => s.call('/v1/prof/harvest', chop(mac, t, { act: { cuts: most - 1, clean: true } }), mac.secret));
   assert.equal(half.body.xp, harvestXp(2, 99, false), 'a chop not clean is no clean act, whatever the report says');
   // confirmed ground: a Clean Cut's Heartwood (2%); 0x08 is 3.1% - past a woodcutter's chance, inside a Forester's
-  const c = treeAt(WOODS, GLENUMBRA, () => true, { from: 500 });
+  const c = treeAt(WOODS, GLENUMBRA, OAK, { from: 500 });
   await s.confirm(c.x, c.y, WOODS, GLENUMBRA);
   const cc = tree({ x: c.x, y: c.y, day: today(), slot: c.slot, climate: WOODS, confirmed: true });
   const onConfirmed = { ...c, ...cc, key: nodeKey({ kind: 'tree', x: c.x, y: c.y, day: today(), slot: c.slot }) };
   const low = await steered(0x00, () => s.call('/v1/prof/harvest', chop(mac, onConfirmed, { act: { cuts: 1, clean: false } }), mac.secret));
   assert.equal(low.body.gem, 'wood:heartwood', 'a Clean Cut on witnessed ground');
   assert.deepEqual(s.stores(mac, 'wood:heartwood'), [['own', 1]]);
-  const d = treeAt(WOODS, GLENUMBRA, () => true, { from: c.x + 1 });
+  const d = treeAt(WOODS, GLENUMBRA, OAK, { from: c.x + 1 });
   await s.confirm(d.x, d.y, WOODS, GLENUMBRA);
   const dd = { ...d, ...tree({ x: d.x, y: d.y, day: today(), slot: d.slot, climate: WOODS, confirmed: true }) };
   const none = await steered(0x00, () => s.call('/v1/prof/harvest', chop(mac, dd, { act: { cuts: 0 } }), mac.secret));
   assert.equal(none.body.gem, undefined, 'no cut, no Heartwood');
-  const e = treeAt(WOODS, GLENUMBRA, () => true, { from: d.x + 1 });
+  const e = treeAt(WOODS, GLENUMBRA, OAK, { from: d.x + 1 });
   await s.confirm(e.x, e.y, WOODS, GLENUMBRA);
   const ee = { ...e, ...tree({ x: e.x, y: e.y, day: today(), slot: e.slot, climate: WOODS, confirmed: true }) };
   const plain = await steered(0x08, () => s.call('/v1/prof/harvest', chop(mac, ee, { act: { cuts: 1 } }), mac.secret));
   assert.equal(plain.body.gem, undefined, '3.1% misses a woodcutter\'s 2%');
   s.setXp(mac, xpForRank(99), 'logging', { spec50: 'forester' });
-  const f = treeAt(WOODS, GLENUMBRA, () => true, { from: e.x + 1 });
+  const f = treeAt(WOODS, GLENUMBRA, OAK, { from: e.x + 1 });
   await s.confirm(f.x, f.y, WOODS, GLENUMBRA);
   const ff = { ...f, ...tree({ x: f.x, y: f.y, day: today(), slot: f.slot, climate: WOODS, confirmed: true }) };
   const forester = await steered(0x08, () => s.call('/v1/prof/harvest', chop(mac, ff, { act: { cuts: 1 } }), mac.secret));
   assert.equal(forester.body.gem, 'wood:heartwood', '...and takes a Forester\'s 4%');
   // the rare wood: on a confirmed Rainforest pixel one tree in twenty is Ironwood; unconfirmed, the Rainforest stands none
-  assert.equal(trees({ x: 400, y: 210, day: today(), climate: RAINFOREST, confirmed: false }).length, 0, 'Teak and Mahogany are past tier 2');
+  assert.ok(trees({ x: 400, y: 210, day: today(), climate: RAINFOREST, confirmed: false }).every((q) => q.material === 'log:pine'), 'Teak and Mahogany are past tier 2 - only PINE-SHARE\'s Pine');
   let rare = null;
   for (let x = 300; x < 2000 && !rare; x++) {
     const hit = trees({ x, y: 210, day: today(), climate: RAINFOREST, confirmed: true }).find((q) => q.rare);

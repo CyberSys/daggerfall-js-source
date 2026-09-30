@@ -34,7 +34,7 @@
 // ═══════════════════════════════════════════════════════════════════
 import {
   PROFESSIONS, SPECIALISATIONS, SPEC_RANKS, RESPEC, xpForRank, rankName, PROF_RANK_MAX, TIER_RANKS, CRAFTS_ABOVE_JOURNEYMAN,
-  JOURNEYMAN_RANK, MATERIAL_FAMILIES, HARVESTS_PER_DAY, HIDES_PER_DAY, HIGH_HIDES_PER_DAY, WITHDRAW_MAX, professionName, SMELT_RECIPES, SMELT_MAX, FORGE_FEE,
+  JOURNEYMAN_RANK, MATERIAL_FAMILIES, HARVESTS_PER_DAY, HIDES_PER_DAY, HIGH_HIDES_PER_DAY, HAULS_PER_DAY, WITHDRAW_MAX, professionName, SMELT_RECIPES, SMELT_MAX, FORGE_FEE,
   withdrawable, stockOf, STOCK_MAX, BURN_RECIPES, SAW_RECIPES, WORKBENCH_FEE, WOODS, workPer, workSpecRank, CURE_RECIPES,
   WEAVE_RECIPES, LOOM_FEE, CLOTHS, WEAVERS_STOCK,
 } from '../net/professionLaw.js';
@@ -52,7 +52,6 @@ import { UNYIELDED } from '../net/marketLaw.js';   // AUDIT 32 P8: a cloth nothi
 import { marksText } from '../net/marksLaw.js';   // AUDIT 32 R13: "1 Drake", as the Market tab says it
 import { accountRefusalText } from '../net/accountClient.js';
 import { getPref, setPref } from '../systems/uiPrefs.js';
-import { isEnhanced } from '../systems/uiSkin.js';
 
 /**
  * @typedef {object} ProfPagesProvider
@@ -91,18 +90,18 @@ const LATER_WORDS = Object.freeze({
 });
 /** Whether the pages stand: a book, and the professions this account's. */
 export const profPagesShown = () => !!_provider && _provider.book?.state?.open === true;
-/** AUDIT 29 B2: whether a Forge works here - the professions the account's (the pages shown) and the Enhanced pause
- *  menu, the one the Stores page is on (the classic skin's pause has no pages - FLAGGED). A home's Forge station is
- *  offered, and sold, only while it does: its 50,000 gold bought a piece that did nothing offline, for an account the
- *  switch had not opened to, and on the classic skin. */
-export const forgeOffered = () => profPagesShown() && isEnhanced();
+/** AUDIT 29 B2: whether a Forge works here - the professions the account's (the pages shown). A home's Forge station is
+ *  offered, and sold, only while it does: its 50,000 gold bought a piece that did nothing offline, or for an account the
+ *  switch had not opened to. CLASSIC-PAGES: on either skin - the Stores page opens on the classic skin too
+ *  (ui/pauseDoor.js openPauseFlow), where AUDIT 29 B2 held the classic skin out because its pause had no pages. */
+export const forgeOffered = () => profPagesShown();
 /** What a Forge station says when it cannot be worked here. */
-export const FORGE_COLD_LINE = 'The forge is cold. Smelting is done online, from your Stores, on the Enhanced pause menu\'s Stores page.';
+export const FORGE_COLD_LINE = 'The forge is cold. Smelting is done online, from your Stores page.';
 /** PROF4 (bible/06-Systems/Professions-Arc.md 25): the home stations the Stores page works - the forge and the workbench -
  *  offered, sold and worked only where it is (forgeOffered's gate, AUDIT 29 B2). */
 export const PROF_STATIONS = Object.freeze(['forge', 'workbench', 'loom']);   // PROF7: the loom
-export const WORKBENCH_COLD_LINE = 'The workbench is bare. Carpentry is done online, from your Stores, on the Enhanced pause menu\'s Stores page.';
-export const LOOM_COLD_LINE = 'The loom is still. Outfitting is done online, from your Stores, on the Enhanced pause menu\'s Stores page.';
+export const WORKBENCH_COLD_LINE = 'The workbench is bare. Carpentry is done online, from your Stores page.';
+export const LOOM_COLD_LINE = 'The loom is still. Outfitting is done online, from your Stores page.';
 export const stationColdLine = (station) => (station === 'workbench' ? WORKBENCH_COLD_LINE : station === 'loom' ? LOOM_COLD_LINE : FORGE_COLD_LINE);
 /** The rail's rows the pages add. */
 export const PROF_PAGE_SECTIONS = Object.freeze([Object.freeze(['professions', 'Professions']), Object.freeze(['stores', 'Stores'])]);
@@ -224,10 +223,15 @@ const UNLOCKS = Object.freeze({
   // and Standard-bearer's Silk said for what it waits on
   outfitting: Object.freeze([['Linen clothing; the Rat\'s skins; the Fishing-Net', 1], ['Cured Leather armour; Wool clothing, rugs and tapestries; the Bat\'s and the Bear\'s skins', 2],
     ['The Tiger\'s skins', 3], ['Silk clothing', 4], ['Hardened Leather armour; Standard-bearer\'s Silk clothing (its silk comes with the sieges)', 5]]),
+  // PROF8: every haul is Raw Fish - the rank sets its XP (a haul is worked at the rank's own tier); the sea's finds need
+  // the ground the witnesses confirmed, and no rank
+  fishing: Object.freeze([['Raw Fish in any water; a school\'s extra fish; at sea on confirmed ground a Pearl or a Slaughterfish; a trophy', 1]]),
 });
 /** PROF4 (FOUND): Smithing was practised from PROF3 and the page never said so - its cards stood locked. PROF7: Hunting
  *  and Outfitting. */
-const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'logging', 'smithing', 'outfitting', 'carpentry']);
+const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'fishing', 'logging', 'smithing', 'outfitting', 'carpentry']);   // PROF8: Fishing
+/** PROF8: how a haul is made, as the page says it. */
+export const FISHING_HOW = 'With a Fishing-Net in your pack, stand in water, swim, or stand at sea, by daylight. Hold the use key to wind the net and let go to throw it; when the floats dip, press it again; then hold it to raise the band over the net\'s weight and let go to lower it - keep the weight inside to fill the net. Cast toward a rising school for an extra fish.';
 /** A craft practised in part - what raises it now (none since PROF4: Smithing's is whole). */
 const PARTLY = Object.freeze({});
 
@@ -285,6 +289,10 @@ export function drawProfessionsPage(detail, rerender, kit) {
     const h = book.state.hunt ?? { hides: 0, high: 0 };
     pane.append(el('p', 'prof-today', `Today: ${h.hides} of ${book.state.caps?.hides ?? HIDES_PER_DAY} hides, ${h.high} of ${book.state.caps?.highHides ?? HIGH_HIDES_PER_DAY} of tiers 5-6 - your account's, across your characters`));
     pane.append(el('p', 'px-note', 'A body your own blow felled, with a Skinning Knife in your pack: the act choice key searches it instead. Hold the use key on the first point of the line and draw the knife along it.'));
+  } else if (_sel === 'fishing') {
+    // PROF8: Fishing's day is the account's too (PROF0 6) - its hauls, every character's together
+    pane.append(el('p', 'prof-today', `Today: ${book.state.hauls ?? 0} of ${book.state.caps?.hauls ?? HAULS_PER_DAY} hauls - your account's, across your characters`));
+    pane.append(el('p', 'px-note', FISHING_HOW));
   } else if (PROFESSIONS.find((x) => x.id === _sel)?.kind === 'gathering' && practised) {
     pane.append(el('p', 'prof-today', `Today: ${book.state.today?.[_sel] ?? 0} of ${book.state.caps?.harvests ?? HARVESTS_PER_DAY} harvests`));
   }
@@ -342,12 +350,21 @@ export function storesRows(stores, { family = null, query = '', sort = 'tier' } 
   const q = String(query ?? '').trim().toLowerCase();
   const rows = [...stores.values()].map((s) => {
     const m = material(s.material);
-    return { ...s, name: nameOf(s.material), family: m?.family ?? null, tier: m?.tier ?? 0, value: m?.value ?? 0, total: s.own + s.bought };
+    return { ...s, name: nameOf(s.material), family: m?.family ?? null, tier: m?.tier ?? 0, value: m?.value ?? 0, total: s.own + s.bought + (s.gold | 0) };   // GOLD-MARKET: what gold bought is held too
   }).filter((r) => r.total > 0 && (!family || r.family === family) && (!q || r.name.toLowerCase().includes(q)));
   const byName = (a, b) => a.name.localeCompare(b.name);
   rows.sort(sort === 'name' ? byName : sort === 'count' ? (a, b) => (b.total - a.total) || byName(a, b) : (a, b) => (a.tier - b.tier) || byName(a, b));
   return rows;
 }
+
+/** A Stores card's split: own, bought and (GOLD-MARKET) bought with gold - "own" alone where nothing was bought. */
+export function storesSplit(r) {
+  const gold = r.gold | 0;
+  if (!gold) return r.bought ? `${r.own} own · ${r.bought} bought` : 'own';
+  return [r.own ? `${r.own} own` : null, r.bought ? `${r.bought} bought` : null, `${gold} bought with gold`].filter(Boolean).join(' · ');
+}
+/** GOLD-MARKET: what the page says of a material gold bought (Professions-Arc 10.8's wall). */
+export const GOLD_GOODS_LINE = 'Bought with gold: to your pack, or back on the market for gold. No station, craft, writ or Drakes sale takes it.';
 
 /**
  * THE STORES PAGE.
@@ -390,7 +407,7 @@ export function drawStoresPage(detail, rerender, kit) {
   for (const r of rows) {
     const card = el('button', `prof-mat${_stores.picked === r.material ? ' on' : ''}`);
     card.type = 'button';
-    card.append(el('b', null, r.name), el('span', 'prof-count', r.total.toLocaleString('en-US')), el('span', 'prof-split', r.bought ? `${r.own} own · ${r.bought} bought` : 'own'));
+    card.append(el('b', null, r.name), el('span', 'prof-count', r.total.toLocaleString('en-US')), el('span', 'prof-split', storesSplit(r)));
     card.onclick = () => { _stores.picked = r.material; _stores.qty = Math.min(_stores.qty, r.total) || 1; _stores.word = null; rerender(); };
     grid.append(card);
   }
@@ -418,6 +435,7 @@ export function drawStoresPage(detail, rerender, kit) {
     detail.append(el('p', 'px-note', withdrawable(pick.material)
       ? 'Withdrawn, a material is an item in your pack and never goes back into the Stores. Writs are delivered at a Notice Board\'s Work tab.'
       : STOCK_STAYS_LINE));
+    if ((pick.gold | 0) > 0) detail.append(el('p', 'px-note', GOLD_GOODS_LINE));
   }
   if (_stores.word) detail.append(el('p', 'prof-word', _stores.word));
   drawForge(detail, rerender, kit);

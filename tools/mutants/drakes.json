@@ -56,8 +56,8 @@
   {
     "name": "DRAKES-a-market-label-old",
     "file": "src/ui/marketTab.js",
-    "old": "'Price in Drakes', 'list-price'",
-    "new": "'Price in Marks', 'list-price'",
+    "old": "const unitWord = gold ? 'gold' : 'Drakes';",
+    "new": "const unitWord = gold ? 'gold' : 'Marks';",
     "tests": [
       "test/drakes.test.js"
     ]

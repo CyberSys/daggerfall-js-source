@@ -24,6 +24,16 @@
 // pack holds. Its row is registered with the ores and ingots
 // (profTemplates.js), so any scene the save loads in knows it.
 //
+// MEND-AIM (2026-09-30, Discord suggestion, kurkku: "Allow targeting
+// field repair kit use" - "always repairing the most worn piece of
+// equipment means fixing arrows or random loot you picked up most of
+// the time"): A KIT IS AIMED. Used from either pack with more than one
+// piece to mend, it asks which (the classic window's list picker, the
+// enhanced pack's own list); the quick keys, which have no list to
+// show, take what is WORN first, then the pack's, each the most worn
+// first. An arrow is never mended - DFU mints a quiver at condition 0,
+// so it was always the "most worn" piece a kit could find.
+//
 // PROF4 (2026-09-28, Mac: "Continue"; Professions-Arc.md 25): AND THE
 // WORKBENCH'S. A staff or a bow is DFU's weapon at its wood's material,
 // its quality the smith's weapons'; arrows are CreateWeapon's arrow arm
@@ -54,7 +64,7 @@ import { registerTabledLootHandler, registerEnemyLootExtra } from './loot.js';  
 import { itemLongName } from './itemInfo.js';
 import './profTemplates.js';   // the Repair Kit's row (692), registered with the ores and ingots
 import { applyRarity, rarityEligible, RARE_FLAVOURS } from './lootRarity.js';
-import { unitWeightInKg } from './inventory.js';
+import { unitWeightInKg, ARROW_TEMPLATE } from './inventory.js';   // MEND-AIM: the arrow, never mended
 import { seededRng } from './wind.js';
 import { createForagingItem } from './foragingInstall.js';
 
@@ -176,43 +186,72 @@ export const isCraftedFurniture = (item) => item?.group === 'Furniture';
 
 // ─── THE REPAIR KIT'S USE ────────────────────────────────────────────
 
-/** Whether a kit of metal `m` mends an item: a weapon of the metal, a plate piece of it, and Steel's the chain too. */
+/** Whether a kit of metal `m` mends an item: a weapon of the metal, a plate piece of it, and Steel's the chain too.
+ *  MEND-AIM: never an arrow - it is shot and spent, and DFU mints it at condition 0, so every kit reached for it first. */
 export function kitMends(m, item) {
+  if (item?.templateIndex === ARROW_TEMPLATE) return false;
   if (m === FIELD_KIT && item?.maxCondition > 0) return item.group === 'Weapons' || item.group === 'Armor';   // REPAIR-EASE: any metal
   if (!item || !Number.isInteger(m) || !(item.maxCondition > 0)) return false;
   if (item.group === 'Weapons') return item.material === m;
   if (item.group === 'Armor') return item.material === ARMOR_PLATE + m || (m === 1 && item.material === ARMOR_CHAIN);
   return false;
 }
+const conditionShare = (it) => it.currentCondition / it.maxCondition;
 /**
- * A KIT USED (PROF0 9.3: "repairs 25% of an item's condition, once"): the most-worn item of its metal the list holds - the
- * lowest share of its condition left, an equipped one first on a tie - mended by a quarter of its condition, never past
- * whole; the kit spent. Answers the item mended and its share before and after, or null when nothing of the metal wants
- * mending (the kit kept).
+ * MEND-AIM: THE PIECES A KIT COULD MEND in `items`, in the order it takes them unaimed - what is WORN first (the player's
+ * own gear, never a piece of loot carried to sell), then the rest, each the lowest share of its condition left first.
+ * Empty for anything but a kit, and for a kit with nothing of its metal wanting mending.
  * @param {any} kit
  * @param {any[]} items
  */
-export function useRepairKit(kit, items) {
-  if (!kit || kit.templateIndex !== REPAIR_KIT_TEMPLATE || !Array.isArray(items)) return null;
+export function repairKitTargets(kit, items) {
+  if (!kit || kit.templateIndex !== REPAIR_KIT_TEMPLATE || !Array.isArray(items)) return [];
   const metal = kit.fieldKit === true ? FIELD_KIT : kit.kitMetal;   // REPAIR-EASE: a field kit mends any metal, by less
-  const want = items.filter((it) => it !== kit && kitMends(metal, it) && it.currentCondition < it.maxCondition);
-  if (!want.length) return null;
-  const share = (it) => it.currentCondition / it.maxCondition;
-  want.sort((a, b) => share(a) - share(b) || (b.equipSlot != null ? 1 : 0) - (a.equipSlot != null ? 1 : 0));
-  const it = want[0];
-  const before = share(it);
+  const worn = (it) => (it.equipSlot != null ? 1 : 0);
+  return items.filter((it) => it !== kit && kitMends(metal, it) && it.currentCondition < it.maxCondition)
+    .sort((a, b) => worn(b) - worn(a) || conditionShare(a) - conditionShare(b));
+}
+/**
+ * A KIT USED (PROF0 9.3: "repairs 25% of an item's condition, once"): the piece it is AIMED at (MEND-AIM), or unaimed the
+ * first of repairKitTargets - mended by a quarter of its condition, never past whole; the kit spent out of `items`, the
+ * list it lives in. The pieces are `pack`'s (the list itself, unless the host hands the player's own). Answers the item
+ * mended and its share before and after, or null when nothing of the metal wants mending, or the aim is at a piece the
+ * kit cannot mend (the kit kept).
+ * @param {any} kit
+ * @param {any[]} items
+ * @param {{ target?: any, pack?: any[] }} [aim]
+ */
+export function useRepairKit(kit, items, { target = null, pack = items } = {}) {
+  if (!Array.isArray(items)) return null;
+  const want = repairKitTargets(kit, pack);
+  const it = target == null ? want[0] : want.includes(target) ? target : null;
+  if (!it) return null;
+  const before = conditionShare(it);
   it.currentCondition = Math.min(it.maxCondition, it.currentCondition + Math.ceil(it.maxCondition * (kit.fieldKit === true ? FIELD_KIT_REPAIR : KIT_REPAIR)));
   const i = items.indexOf(kit);
   if (i >= 0) items.splice(i, 1);
-  return { item: it, before, after: share(it) };
+  return { item: it, before, after: conditionShare(it) };
 }
 /** The kit's metal's word, for its refusal ("Nothing of Mithril here wants mending."). */
 export const kitMetalName = (kit) => METALS[kit?.kitMetal] ?? 'its metal';
 
-/** A kit used from the pack (useItem.js's delegate arm): the most-worn piece of its metal mended, or the kit kept and
- *  said so. Offline as online - a kit is the pack's, and mending asks no service. */
-export function repairKitUse(item, collection) {
-  const done = useRepairKit(item, collection);
+/** MEND-AIM: the chooser's heading, both packs'. */
+export const MEND_WHICH_TEXT = 'Mend which?';
+/** MEND-AIM: a piece's row in the chooser - "Iron Longsword 42% (worn)". */
+export const mendTargetLabel = (it) => `${itemLongName(it)} ${Math.round(conditionShare(it) * 100)}%${it.equipSlot != null ? ' (worn)' : ''}`;
+
+/** A kit used from the pack (useItem.js's delegate arm): the piece it is aimed at (`target`), or the first of
+ *  repairKitTargets, mended - or the kit kept and said so. MEND-AIM: a host that can ask (`chooseTarget`, both packs)
+ *  is answered `chooseTarget` with the pieces, in that order, when there is more than one to choose from, and uses the
+ *  kit again with the one chosen; the pieces are the player's own (`localItems`) whichever list the kit was used from.
+ *  Offline as online - a kit is the pack's, and mending asks no service. */
+export function repairKitUse(item, collection, { target = null, chooseTarget = false, localItems = null } = {}) {
+  const pack = Array.isArray(localItems) ? localItems : collection;
+  if (chooseTarget && target == null && Array.isArray(collection)) {
+    const targets = repairKitTargets(item, pack);
+    if (targets.length > 1) return { kind: 'chooseTarget', item, targets, title: MEND_WHICH_TEXT, labels: targets.map(mendTargetLabel) };
+  }
+  const done = useRepairKit(item, collection, { target, pack });
   if (!done) return { kind: 'repairKit', text: item?.fieldKit === true ? 'Nothing here wants mending.' : `Nothing of ${kitMetalName(item)} here wants mending.` };   // REPAIR-EASE
   // AUDIT 30 C8: a marked piece's name is its maker's - "Silverthorn's Longsword", never "The Silverthorn's"
   const long = itemLongName(done.item);

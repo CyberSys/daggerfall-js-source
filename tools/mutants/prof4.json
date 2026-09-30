@@ -732,8 +732,8 @@
   {
     "name": "PROF4-smithing-unpractised",
     "file": "src/ui/profPages.js",
-    "old": "const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'logging', 'smithing', 'outfitting', 'carpentry']);",
-    "new": "const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'logging', 'outfitting', 'carpentry']);",
+    "old": "const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'fishing', 'logging', 'smithing', 'outfitting', 'carpentry']);   // PROF8: Fishing",
+    "new": "const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'fishing', 'logging', 'outfitting', 'carpentry']);   // PROF8: Fishing",
     "tests": [
       "test/prof4_client.test.js"
     ]

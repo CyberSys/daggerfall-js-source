@@ -1,0 +1,315 @@
+[
+  {
+    "name": "PROF8-key-any-spelling",
+    "file": "src/net/nodeLaw.js",
+    "old": "    return pixelOk(x, y) && haulKey({ x, y, day, id: h[4] }) === s ? { kind: 'haul'",
+    "new": "    return pixelOk(x, y) ? { kind: 'haul'",
+    "tests": [
+      "test/prof8_law.test.js"
+    ]
+  },
+  {
+    "name": "PROF8-full-net-unstepped",
+    "file": "src/net/nodeLaw.js",
+    "old": "  let y = roll * (clean ? ACT_YIELD_MAX : 1);\n  if (march) y *= MARCH_MULT;\n  if (school)",
+    "new": "  let y = roll;\n  if (march) y *= MARCH_MULT;\n  if (school)",
+    "tests": [
+      "test/prof8_law.test.js",
+      "test/prof8_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF8-netter-plain",
+    "file": "src/net/nodeLaw.js",
+    "old": "if (school) y += netter ? SCHOOL_FISH.netter : SCHOOL_FISH.plain;",
+    "new": "if (school) y += SCHOOL_FISH.plain;",
+    "tests": [
+      "test/prof8_law.test.js"
+    ]
+  },
+  {
+    "name": "PROF8-slaughterfish-light",
+    "file": "src/net/nodeLaw.js",
+    "old": "  if (slaughterfish) y += 1;\n",
+    "new": "",
+    "tests": [
+      "test/prof8_law.test.js",
+      "test/prof8_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF8-sea-finds-unconfirmed",
+    "file": "src/net/nodeLaw.js",
+    "old": "  const open = sea && confirmed;",
+    "new": "  const open = sea;",
+    "tests": [
+      "test/prof8_law.test.js",
+      "test/prof8_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF8-pearl-diver-plain",
+    "file": "src/net/nodeLaw.js",
+    "old": "(pearlDiver ? FISH_CHANCE.pearlDiver : 1)",
+    "new": "1",
+    "tests": [
+      "test/prof8_law.test.js"
+    ]
+  },
+  {
+    "name": "PROF8-deep-sea-slaughter-plain",
+    "file": "src/net/nodeLaw.js",
+    "old": "FISH_CHANCE.slaughterfish * (deepSea ? FISH_CHANCE.deepSea : 1)",
+    "new": "FISH_CHANCE.slaughterfish",
+    "tests": [
+      "test/prof8_law.test.js"
+    ]
+  },
+  {
+    "name": "PROF8-sea-coast-inland",
+    "file": "src/net/nodeLaw.js",
+    "old": "export const haulAtSea = (climate, region) => climate === CLIMATES.Ocean || region === SEA_REGION;",
+    "new": "export const haulAtSea = (climate, region) => climate === CLIMATES.Ocean;",
+    "tests": [
+      "test/prof8_law.test.js"
+    ]
+  },
+  {
+    "name": "PROF8-xp-catch-tier",
+    "file": "src/net/professionLaw.js",
+    "old": "export const haulTier = (rank) => topTierOf(rank);",
+    "new": "export const haulTier = (rank) => 1;",
+    "tests": [
+      "test/prof8_law.test.js",
+      "test/prof8_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF8-sixty-hauls",
+    "file": "src/net/professionLaw.js",
+    "old": "export const HAULS_PER_DAY = 40;",
+    "new": "export const HAULS_PER_DAY = 60;",
+    "tests": [
+      "test/prof8_law.test.js",
+      "test/prof8_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF8-wait-no-hours",
+    "file": "src/net/professionLaw.js",
+    "old": "(hour === 7 || hour === 17 ? 0.5 : 1)",
+    "new": "1",
+    "tests": [
+      "test/prof8_law.test.js",
+      "test/prof8_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF8-angler-plain",
+    "file": "src/net/professionLaw.js",
+    "old": "FISH_ACT.tugS * (angler ? FISH_ACT.angler : 1)",
+    "new": "FISH_ACT.tugS",
+    "tests": [
+      "test/prof8_law.test.js",
+      "test/prof8_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF8-svc-forty-unasked",
+    "file": "server-account/src/professions.js",
+    "old": "        AND (?9 <> 'fishing' OR ${hauled} < ?26)   -- PROF8: the account's forty hauls\n",
+    "new": "",
+    "tests": [
+      "test/prof8_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF8-svc-cap-unsaid",
+    "file": "server-account/src/professions.js",
+    "old": "  if (isHaul && (await haulsToday(db, player.id, day)) >= HAULS_PER_DAY) return { error: 'prof-fish-cap' };   // PROF8\n",
+    "new": "",
+    "tests": [
+      "test/prof8_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF8-svc-any-school",
+    "file": "server-account/src/professions.js",
+    "old": "school: act?.school === 0 || act?.school === 1 };",
+    "new": "school: act?.school != null };",
+    "tests": [
+      "test/prof8_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF8-svc-trophy-unkept",
+    "file": "server-account/src/professions.js",
+    "old": "    trophy = finds.trophy ? 1 : 0;",
+    "new": "    trophy = 0;",
+    "tests": [
+      "test/prof8_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF8-svc-trophy-unsaid",
+    "file": "server-account/src/professions.js",
+    "old": "    ...(Number(row.trophy) === 1 ? { trophy: true } : {}),   // PROF8: a trophy the client puts in the pack\n",
+    "new": "",
+    "tests": [
+      "test/prof8_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF8-svc-night-fishing",
+    "file": "server-account/src/professions.js",
+    "old": "  if (!deep && !isBody && !isForagingDaylight(sharedHourAt(at))) return { error: 'prof-night' };",
+    "new": "  if (!deep && !isBody && !isHaul && !isForagingDaylight(sharedHourAt(at))) return { error: 'prof-night' };",
+    "tests": [
+      "test/prof8_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF8-svc-haul-unwitnessed",
+    "file": "server-account/src/professions.js",
+    "old": "    ...(isBody ? [] : [db.prepare(`INSERT OR IGNORE INTO world_witness",
+    "new": "    ...(isBody || isHaul ? [] : [db.prepare(`INSERT OR IGNORE INTO world_witness",
+    "tests": [
+      "test/prof8_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF8-svc-hauls-unsaid",
+    "file": "server-account/src/professions.js",
+    "old": "    ...(row.profession === 'fishing' ? { hauls: await haulsToday(db, row.player, Number(row.day)) } : {}),   // PROF8: the account's hauls today\n",
+    "new": "",
+    "tests": [
+      "test/prof8_service.test.js"
+    ]
+  },
+  {
+    "name": "PROF8-act-held-is-a-press",
+    "file": "src/systems/fishAct.js",
+    "old": "  const pressed = attack || (held && !st.wasHeld);",
+    "new": "  const pressed = attack || held;",
+    "tests": [
+      "test/prof8_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF8-act-never-slips",
+    "file": "src/systems/fishAct.js",
+    "old": "      else st.slip = Math.min(1, st.slip + step / FISH_ACT.slipS);\n",
+    "new": "",
+    "tests": [
+      "test/prof8_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF8-act-gentle-tugs",
+    "file": "src/systems/fishAct.js",
+    "old": "          if (gentle) { land(false); return st; }   // no moment: the net comes in plain\n",
+    "new": "",
+    "tests": [
+      "test/prof8_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF8-act-no-school",
+    "file": "src/systems/fishAct.js",
+    "old": "    st.school = schoolAt ? schoolAt(st.throwM) : null;",
+    "new": "    st.school = null;",
+    "tests": [
+      "test/prof8_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF8-kind-dry-land",
+    "file": "src/scenes/fishHost.js",
+    "old": "      if (dungeon || !foragingToolIn(entity, FT.FishingNet) || !inWater()) return [];",
+    "new": "      if (dungeon || !foragingToolIn(entity, FT.FishingNet)) return [];",
+    "tests": [
+      "test/prof8_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF8-kind-one-key",
+    "file": "src/scenes/fishHost.js",
+    "old": "cast.day !== day || book.taken(cast.key, 'fish') || book.counting(cast.key, 'fish')) {",
+    "new": "cast.day !== day) {",
+    "tests": [
+      "test/prof8_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF8-kind-school-anywhere",
+    "file": "src/scenes/fishHost.js",
+    "old": "if (Math.hypot(s.x - at[0], s.z - at[1]) <= SCHOOL_R) return",
+    "new": "if (Math.hypot(s.x - at[0], s.z - at[1]) >= 0) return",
+    "tests": [
+      "test/prof8_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF8-kind-trophy-twice",
+    "file": "src/scenes/fishHost.js",
+    "old": "      if (!d?.trophy || trophied.has(d.node)) return;",
+    "new": "      if (!d?.trophy) return;",
+    "tests": [
+      "test/prof8_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF8-schools-on-land",
+    "file": "src/scenes/fishHost.js",
+    "old": "      if (!isOutdoorWaterTile(tilemap[ty * WORLD_MAP_TILE_DIM + tx])) continue;\n",
+    "new": "",
+    "tests": [
+      "test/prof8_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF8-kind-foraging-unasked",
+    "file": "src/scenes/fishHost.js",
+    "old": "      const refusal = foragingActRefusal(FT.FishingNet);\n      if (refusal) return { refused: refusal };\n",
+    "new": "",
+    "tests": [
+      "test/prof8_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF8-book-hauls-unheard",
+    "file": "src/net/profBook.js",
+    "old": "      applyHauls(r.data?.hauls);   // PROF8: and its hauls\n",
+    "new": "",
+    "tests": [
+      "test/prof8_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF8-page-unpractised",
+    "file": "src/ui/profPages.js",
+    "old": "'hunting', 'fishing', 'logging',",
+    "new": "'hunting', 'logging',",
+    "tests": [
+      "test/prof8_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF8-act-tug-unfelt",
+    "file": "src/systems/fishAct.js",
+    "old": "          try { onTug?.(); } catch { /* the host's own */ }\n",
+    "new": "",
+    "tests": [
+      "test/prof8_client.test.js"
+    ]
+  },
+  {
+    "name": "PROF8-school-deep-waters-picture",
+    "file": "src/scenes/fishHost.js",
+    "old": "export const SCHOOL_PICTURE = Object.freeze([211, 9]);",
+    "new": "export const SCHOOL_PICTURE = Object.freeze([216, 46]);",
+    "tests": [
+      "test/prof8_client.test.js"
+    ]
+  }
+]

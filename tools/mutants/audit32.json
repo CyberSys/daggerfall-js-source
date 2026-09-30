@@ -47,8 +47,8 @@
  {
   "name": "AUDIT32-S2-body-slots-read",
   "file": "server-account/src/professions.js",
-  "old": "if (!deep && !isBody && n.slot >= (n.kind === 'vein'",
-  "new": "if (!deep && n.slot >= (n.kind === 'vein'",
+  "old": "if (!deep && !isBody && !isHaul && n.slot >= (n.kind === 'vein'",
+  "new": "if (!deep && !isHaul && n.slot >= (n.kind === 'vein'",
   "tests": [
    "test/audit32_service.test.js"
   ]

@@ -95,13 +95,13 @@ test('UXB1-S: a share across the two dicts - a key one action holds as its prima
 
 test('UXB1-S: the file - shares only where there are any (a file without is what it was), round-tripped, an unknown name carried (AUDIT UXB1 F8); and the autofill does not put a shared action\'s default back', () => {
   const plain = defaults();
-  assert.deepEqual(serializeKeyBinds(plain).sharedActionKeyBinds, { ArrowUp: ['BoatSailUp'] }, 'HELM-KEYS: the one default share (inputActions.js DEFAULT_SHARES), and no other');
+  assert.deepEqual(serializeKeyBinds(plain).sharedActionKeyBinds, { ArrowUp: ['BoatSailUp'], ArrowDown: ['Professions'] }, 'HELM-KEYS and CLASSIC-PAGES: the default shares (inputActions.js DEFAULT_SHARES), and no other');
   const b = defaults();
   const space = getBinding(b, 'Jump');
   const floatUpDefault = DEFAULT_BINDINGS.find(([, a]) => a === 'FloatUp')[0];
   shareBinding(b, space, 'FloatUp');
   const file = serializeKeyBinds(b);
-  assert.deepEqual(file.sharedActionKeyBinds, { ArrowUp: ['BoatSailUp'], [space]: ['FloatUp'] });
+  assert.deepEqual(file.sharedActionKeyBinds, { ArrowUp: ['BoatSailUp'], ArrowDown: ['Professions'], [space]: ['FloatUp'] });
   const back = createBindings();
   loadKeyBinds(back, JSON.parse(JSON.stringify(file)));
   resetDefaults(back, true);   // the startup's autofill, which fills a MISSING action on a free code
@@ -149,7 +149,7 @@ test('AUDIT UXB1 F3/F8: a newer build\'s names ride through this one - the whole
   const r = createBindings();
   loadKeyBinds(r, JSON.parse(JSON.stringify(file)));
   resetDefaults(r);
-  assert.deepEqual(serializeKeyBinds(r).sharedActionKeyBinds, { ArrowUp: ['BoatSailUp'] }, 'the carried shares gone with the primary\'s own - the default share seated again (HELM-KEYS)');
+  assert.deepEqual(serializeKeyBinds(r).sharedActionKeyBinds, { ArrowUp: ['BoatSailUp'], ArrowDown: ['Professions'] }, 'the carried shares gone with the primary\'s own - the default shares seated again (HELM-KEYS, CLASSIC-PAGES)');
   // the ONE seat: the load and the share both take it
   const src = read('src/systems/inputActions.js');
   assert.equal((src.match(/seatOnKey\(store, code, action, primary\);/g) ?? []).length, 2);
