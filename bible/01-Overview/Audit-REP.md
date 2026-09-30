@@ -8,7 +8,10 @@ legal standing, and the retired levy's readers and records.
 Every finding below was checked against the code before it was fixed and pinned by a test that fails on the code as
 REP shipped it: `test/auditrep.test.js` (7). Mutation-proven: `tools/mutants/auditrep.json` 17 records, all dead. Each
 fix carries an `AUDIT REP F<n>` comment. Two older pins moved with it, each marked PIN MOVED: `rep3_banishment`'s short
-purse (F4) and `audit39_guildstravel`'s F99, whose court now banishes on the trusted calendar (F2).
+purse (F4) and `audit39_guildstravel`'s F99, whose court now banishes on the trusted calendar (F2). Five court rigs that
+model a convict already past the surrender box now record the box's charge (`prisonrelease`, `roadb_court_backdrop`,
+`jailhit`, `audit18_systems_social`, `audit39_guildstravel`). Without it the court charged them again (F1), and in
+`prisonrelease` the lower standing let `Math.random`'s banishment roll decide two pins.
 
 ## Fixed
 

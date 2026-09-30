@@ -174,6 +174,7 @@ test('F99 (AUDIT-39r): the bit lands in the region the GETTER host names', () =>
     // FIRST one, which is punishmentType 0 - Banishment.
     legalRep: { 12: -50 },
     regionConditions: { 3: { severePunishmentFlags: 0 }, 12: { severePunishmentFlags: 0 } },
+    chargedCrime: CRIMES.Murder,   // AUDIT REP F1: the box charged it - the court charges only a crime not yet charged, so the rig says so
   };
   let win = null;
   const flow = createArrestFlow({
