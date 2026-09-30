@@ -423,8 +423,8 @@
   {
     "name": "SURVTIERS3-the-kit-cite-wizard-rots",
     "file": "src/systems/equip.js",
-    "old": "(?class= headless) and :233 (the wizard)",
-    "new": "(?class= headless) and :221 (the wizard)",
+    "old": "(?class= headless) and :235 (the wizard)",
+    "new": "(?class= headless) and :223 (the wizard)",
     "tests": [
       "test/citedrift.test.js"
     ]

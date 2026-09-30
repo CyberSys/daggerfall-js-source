@@ -657,6 +657,7 @@ export function restoreOldClassSpecials(saveTree, career, classicTransformedRace
  *   MAPSAVE discovery walk. Absent = no discovery imports (recorded).
  * @param {number[]} [deps.regionLocationCounts] - per-region location
  *   counts for the MAPSAVE walk (with resolveLocation).
+ * @param {boolean} [deps.online] - LEVEL-ONLINE: the import is on the online page - a new online character, Oblivion's bar.
  */
 export function classicSaveToSnapshot(saveGames, {
   spellsByIndex = null, factionStore = null,
