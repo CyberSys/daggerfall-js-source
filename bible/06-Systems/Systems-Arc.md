@@ -6130,9 +6130,14 @@ stays so. The enemy's failure tail replaces the crime with the room:
 `if (!IsHostile) MakeEnemiesHostile();` then
 `MakeEnemyHostileToAttacker(player)` (`:1661-1671`), the hostility read
 BEFORE the walk because the walk flips this foe too.
-`resetAllyTeamOnPlayerAttack` is NOT part of it - that belongs to
-`DaggerfallEntityBehaviour`'s damage path, and Pickpocket does not call
-it.
+AUDIT NAV2 F54 corrected this line: the ally revert
+(`resetAllyTeamOnPlayerAttack`) IS part of it - DFU's lives inside
+MakeEnemyHostileToAttacker's player arm, which the damage path reaches
+only through that same call - so a failed lift makes an ally fair game,
+his species' team again. And whoever the player's harm passes by
+(`combat/friendlyFire.js sparedByPlayer`: a shipmate, a town's defender)
+is no mark: the arm refuses him before anything is rolled - the lift
+turned him on the player while every blow back passed him by.
 
 All five ladders carry the arm - `scenes/world.js`, `scenes/exterior.js`,
 both of `scenes/worldModes.js`, and `scenes/dungeon.js`. Each calls it

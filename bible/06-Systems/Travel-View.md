@@ -1194,8 +1194,10 @@ so away from row 250 none comes within sight - recorded here for that branch; th
   the journey's start - the mod's StartSailing, "You control the boat!"), or a packable boat's PARTS in the pack (the
   route starts ashore). A boat crosses when it has sails or a crew's oars: the Rowboat's lone rower spends 11 fatigue each
   second at its oars (OAR_FATIGUE) - a character of 50 Strength and 50 Endurance holds 6,400 ((Str + End) x 64), about
-  ten minutes of rowing, little more than a kilometre at the oars' 2 m/s - and the Carrack makes no way at all - the mod divides its cargo by a Cargo
-  modifier it lacks (kept, CSA-D) - so neither is a crossing's boat. No boat: the sea is refused as it always was, and
+  ten minutes of rowing, little more than a kilometre at the oars' 2 m/s - so it is no crossing's boat; the Carrack makes no
+  way under the Classic helm - the mod divides its cargo by a Cargo modifier it lacks (kept, CSA-D) - and crosses under
+  the Responsive one, the default, which gives her a hold (AUDIT NAV2 F16: she was refused under the helm she sails
+  best under). No boat: the sea is refused as it always was, and
   a route a boat would have made is said ("There is no way there by land - a boat would carry you across the water.").
   SHIP-SAIL (2026-09-28, Mac: "Shouldn't it already function as such?"): unless the place is one the map's ship
   passage sails to from here - then the passage is OFFERED ("Sail there by ship?", its fare and days) and, on Yes,

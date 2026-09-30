@@ -226,11 +226,17 @@ the shape it points to.
 - **Online:**
   - The stander launches the ships. `standsSea` delegates to
     `amGroupRollOwner`, and the seeds are salted with the stander's id.
-  - The wire's ship record (navalAI `shipWireState`) carries position,
-    yaw, speed, sails, heel, mode and damage, and no errand.
-  - `src/net/*` is under the relay law, so an errand is never sent. The
-    client that adopts a ship re-derives it from her seed and where she
-    is.
+  - The naval word's ship record (`systems/naval/navalWire.js` `s`, not
+    navalAI's `shipWireState`, which only a test reads) carries position,
+    yaw, speed, sails, heel, damage, state, seed, fire, the run-out, the
+    handover count and the region; since AUDIT NAV2 its `k` key carries
+    each ship's temper, captain's mode and the ship she struck to. It
+    carries no errand.
+  - An errand need never be sent: the client that adopts a ship
+    re-derives it from her seed and where she is. (The relay law is not
+    what forbids one - the naval word sits outside `src/net/*`, and a new
+    field rides a key of its own, as `k` does, so an older build's door
+    passes the word whole.)
 
 ### The shape
 
