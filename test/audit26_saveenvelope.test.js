@@ -149,7 +149,7 @@ test('audit26 F102: a quest envelope without a notebook leaves the live notes st
 test('audit26 F216/F217: both exterior pools snapshot in natives and restore through their own mint', () => {
   const ef = rd('src/scenes/exteriorFoes.js');
   assert.match(ef, /function snapshotWorld\(toNative\)/);
-  assert.match(ef, /foes\.filter\(\(f\) => !f\.dead\)/, 'dead foes stay out - DFU disables, never re-mints');
+  assert.match(ef, /function snapshotWorld\(toNative\) \{\n\s*return foes\.filter\(\(f\) => !f\.dead && /, 'dead foes stay out - DFU disables, never re-mints (the snapshot\'s own filter: the pin had matched the swing pass\'s line, never this one)');
   for (const field of ['mobileType', 'gender', 'nativeX', 'nativeZ', 'yaw', 'health', 'maxHealth', 'magicka', 'fatigue', 'activeEffects', 'hostile', 'encountered']) {
     assert.ok(ef.includes(`${field}:`), `the foe record carries ${field}`);
   }

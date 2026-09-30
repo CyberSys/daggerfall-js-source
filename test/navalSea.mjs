@@ -66,7 +66,7 @@ export async function sea(o = {}) {
       leaveHelm: () => { log.left++; if (runtime) runtime.sailing = false; },
       placePlayer: (p, y) => log.placed.push([p, y]),
       deckSpots: (_b, n) => Array.from({ length: n }, (_, i) => [[i, 5, 0], 0]),
-      spawnFoe: (mobile, pos, yaw, side, opts) => { const h = { mobile, side, dead: false, pos, name: opts?.name ?? null }; log.foes.push(h); return h; },
+      spawnFoe: (mobile, pos, yaw, side, opts) => { const h = { mobile, side, dead: false, pos, name: opts?.name ?? null, team: opts?.team ?? null, boat: opts?.boat ?? null }; log.foes.push(h); return h; },   // DECK-WALK: the crew's one team, the deck it stands on
       foeDown: (h) => h.dead, removeFoe: (h) => log.removed.push(h), standDown: (h) => { h.yielded = true; },
       takeHelm: (b) => { log.helm.push(b); if (runtime && b === boat) runtime.sailing = true; },
       startRaid: (name) => { log.raids.push(name); return o.raidQuest?.(name) ?? null; },

@@ -372,8 +372,8 @@
   {
     "name": "NAVB-B10-a-held-spot-taken",
     "file": "src/scenes/navalHost.js",
-    "old": "      if (spot && (!isFree || isFree(spot))) return spot;",
-    "new": "      if (spot) return spot;",
+    "old": "      if (spot && (!isFree || isFree(spot))) return [spot[0], spot[1], b.boat];",
+    "new": "      if (spot) return [spot[0], spot[1], b.boat];",
     "tests": [
       "test/navaudit_boarding.test.js"
     ]
@@ -417,8 +417,8 @@
   {
     "name": "NAVB-B9-the-captain-unnamed",
     "file": "src/scenes/navalHost.js",
-    "old": "const named = i === 0 && entry.ship.names?.captain ? { name: `Captain ${entry.ship.names.captain}` } : undefined;",
-    "new": "const named = undefined;",
+    "old": "const named = { ...(i === 0 && entry.ship.names?.captain ? { name: `Captain ${entry.ship.names.captain}` } : {}), team: crewTeamOf(entry.ship.cls), boat: entry.boat };",
+    "new": "const named = { team: crewTeamOf(entry.ship.cls), boat: entry.boat };",
     "tests": [
       "test/navaudit_boarding.test.js"
     ]

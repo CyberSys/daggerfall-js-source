@@ -916,6 +916,63 @@ sweeps' pace, the raider's day sight, the chasers' stern chase, the fire's long 
 with their laws intact (each fixture's reason in its own line). Mutants: `tools/mutants/helmway.json` (19), all dead;
 eight records re-aimed onto the new text (the coast, the rudder's two, the radius, the brake's four), all dead.
 
+## DECK-WALK and SHIPMATES (2026-09-29) - the bodies on a deck stay on it, and the player's crew is spared
+
+Mac: "Boarding scenarios should be seamless, with crew naturally getting into position and fighting enemies. There's an
+issue where enemies/allys can navigate on the railing of ships." and "Ally crew member's should have green health bars
+above their head, and not be able to engage in friendly fire."
+
+**Why they walked the rail.** A hull's collider is its whole visual mesh, and a Come Sail Away bulwark is a ramp: the
+Small Ship's rises 43-49 degrees from her 6.77 m deck to a rail top at 7.7, the Carrack's 50-56 from her deck - every
+face under the capsule's SLOPE_LIMIT_DEG 70 (motor.js), so the collider let a body up it, and the enemy motor's own
+obstacle probe read it as climbable. Nothing told a body where the deck was: the boarding's spots were blind rays over
+the hull's box (one of the Small Ship's sixteen stood on her outer bow at 5.21 m, others on her lower deck and in the
+Carrack's hold).
+
+- **THE DECK** (`systems/naval/navalDeck.js buildDeck`, baked once a hull and variant by `comeSailAwayPool.js deckOf`,
+  while the world loads): her colliders' triangles in her mesh node's frame on a DECK_CELL grid - the floors (within
+  DECK_FLAT of level) with DECK_HEADROOM clear above and no wall through the cell rising more than a tread off them (a
+  wall's footprint marks every cell its edges cross: a 0.4 m mast between two cells' centres, a gun's side, a cabin's),
+  joined to her main level cell to cell within DECK_STEP, a cell in from every edge, and of that her open deck alone -
+  the largest piece a walk joins. Measured: the Small Ship's 651 cells at 6.77 m (her poop cabin aft of 12.8 m walled
+  off), the Large Galley's 4013 at 10.25, the Carrack's 515 at 3.64 (her rooms under the half deck walled off); every
+  cell a floor her colliders stand under a head's height clear.
+- **Her frame is her mesh node's** (`intoDeck`, `outOfDeck`): the swell rolls and pitches `Boat.MeshObject`, never her
+  root, so a body on a rolled deck is read where it stands (the root's frame read it as off her deck).
+- **THE LEASH** (`scenes/world.js navalLeash`, after the foes move): a deck body whose step carried it off her cells (up
+  the bulwark, over the side, off her end) is put on the deck's edge nearest it (`clamp` - sliding along it as it
+  presses, never snapped to a cell's centre), and one off her height by more than a tread (climbed, fallen through) is
+  set back on it. **THE CARRY** (`navalCarry`, before the foes move): every deck body where the leash last left it,
+  taken through her pose now - a ship under way no longer sails out from under her boarders (the player's own body
+  rides a deck the motor's way; a foe had nothing to).
+- **The musters stand on the deck**: `navalDeckSpots` spreads a muster across her open deck (`spots`, farthest-point
+  from her middle), each set on her live colliders; a boarding's captain and men, a repel's party and a raid's waves
+  are one crew (`navalBoarding.js crewTeamOf` - a pirate's the Criminals', a merchantman's and a navy's the Knights and
+  Mages': a pirate's Spellsword captain fought her own barbarians with infighting on) on the deck they stand on
+  (`deckBoat`), the player's hands too. A walk across her deck is `path` (A* cell to cell within a tread, no corner
+  cut past a blocked cell, the legs straightened only over cells a grid walk finds on deck) - the living crew's to use.
+- **SHIPMATES** (`combat/friendlyFire.js`): an ally of the player's on a deck - or a room's crew its owner names - is
+  passed by every door of the player's harm: the swing (`exteriorFoes.js resolvePlayerHit` - the one pool a shipmate
+  stands in never offers him, even alone in reach, where the vanilla arm strikes a lone protected ally), the shaft (`arrowFlight.js`), the spell, its area and its blast (`hostMagic.js`), the
+  thrown torch and a mount's charge (`world.js`); a crewman's own blast passes the player and the rest of the crew, his
+  missile flies past the player. A town's defender keeps his own laws (the shaft and spell spare him, the swing by the
+  setting - DISC19 W5).
+- **The crew's bars** (`ui/navalHud.js drawCrewBars`, `world.js navalCrewBars`): a green bar a shipmate - the party's
+  one green (PARTY_GREEN_CSS) - over his head within CREW_BAR_RANGE, whole to CREW_FADE_FROM, behind the land by a sight
+  cache of the crew's own, under the covers the ships' tags keep; every clear hides them.
+- **Online**: the owner's foes frame names its crew (`cw`, `exteriorFoes.js`), and a reader stands each as its own ally
+  and shipmate (`crewPuppet`), spared its harm and wearing its bar - RAID2's `al` law for a watchman.
+
+Pins: `test/deckwalk.test.js` (17): the deck on a little ship made of her faces (the ramp, the rail, a crate, a boom's
+shadow, a thin mast, a walled cabin, the stairs to a forecastle), the clamp and the ring search against every cell, the
+spots and the walk, the corner and the ledge, her frame, the real hulls (every cell under a ray from a head's height, the
+Large Boat's node 0.1 m up her root, the Carrack's rail), the leash and the carry lifted from the world host, the five
+doors of the player's harm, the crew's bars, a room's crew, and the musters' crews on their decks. Re-aimed with their
+laws intact: the spawn's stand-down (navaudit_boarding), the world's sync (navaudit_frame: one box's faces now
+`prefabColliders.js boxColliderTriangles`), the tags' clear (navaudit_presentation), the torch's defenders (auditdisc19).
+Mutants: `tools/mutants/deckwalk.json` (60), all dead; twelve records re-aimed onto the new text (DISC19's shaft, spell
+and torch, B9 and B10, the tags' scale, cover, fade and clear, RAID2's ally two), all dead.
+
 ## The tests
 
 One suite a slice - `test/nav_a_guns.test.js` (the flight, the aim, the volley, the reload, a ball's hurt, a ship's

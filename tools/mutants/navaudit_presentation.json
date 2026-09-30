@@ -1160,8 +1160,8 @@
   {
     "name": "NAVP-tags-scale-unread",
     "file": "src/ui/navalHud.js",
-    "old": "scale(${scale}) translate(-50%, -100%)",
-    "new": "scale(1) translate(-50%, -100%)",
+    "old": "Math.round(t.y)}px) scale(${scale}) translate(-50%, -100%)",
+    "new": "Math.round(t.y)}px) scale(1) translate(-50%, -100%)",
     "tests": [
       "test/navaudit_presentation.test.js"
     ]
@@ -1169,8 +1169,8 @@
   {
     "name": "NAVP-tags-never-covered",
     "file": "src/ui/navalHud.js",
-    "old": "const want = covered ? [] : points ?? [];",
-    "new": "const want = points ?? [];",
+    "old": "reach = 700 } = {}) {\n  const want = covered ? [] : points ?? [];",
+    "new": "reach = 700 } = {}) {\n  const want = points ?? [];",
     "tests": [
       "test/navaudit_presentation.test.js"
     ]
@@ -1178,8 +1178,8 @@
   {
     "name": "NAVP-tags-fade-reversed",
     "file": "src/ui/navalHud.js",
-    "old": "export const tagAlpha = (d, reach) => 1 - (1 - TAG_FADE_TO) *",
-    "new": "export const tagAlpha = (d, reach) => TAG_FADE_TO + (1 - TAG_FADE_TO) *",
+    "old": "export const tagAlpha = (d, reach, from = TAG_FADE_FROM) => 1 - (1 - TAG_FADE_TO) *",
+    "new": "export const tagAlpha = (d, reach, from = TAG_FADE_FROM) => TAG_FADE_TO + (1 - TAG_FADE_TO) *",
     "tests": [
       "test/navaudit_presentation.test.js"
     ]
@@ -1205,8 +1205,8 @@
   {
     "name": "NAVP-tags-left-on-clear",
     "file": "src/scenes/world.js",
-    "old": "drawNavalHud(null); drawNavalTags([]); };",
-    "new": "drawNavalHud(null); };",
+    "old": "drawNavalHud(null); drawNavalTags([]); drawCrewBars([]); };",
+    "new": "drawNavalHud(null); drawCrewBars([]); };",
     "tests": [
       "test/navaudit_presentation.test.js"
     ]

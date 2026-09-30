@@ -204,3 +204,12 @@
 - **Classic handling** is one switch away: Features > Naval Combat > Ship handling.
 - **The AI ships handle the same way**, turning and gathering speed at your own ship's pace.
 - **A ship with no crew left surrenders.** Kill every hand aboard and her colours come down (her fires keep burning), so empty ships no longer keep firing.
+
+## Crew and boarders (2026-09-29)
+
+- **Nobody walks the rail any more.** Boarders and your own hands stay on the deck: they no longer climb the bulwarks, stand on the rail or walk off into the sea. Musters spread across the open deck, never outside the rail, in the hold or in a closed cabin.
+- **Boarders ride the ship.** Enemies and crew on a moving or rolling deck move with it instead of sliding off the stern.
+- **Your crew wear green.** Every crewman fighting beside you has a green health bar over his head, fading with distance and hidden behind the land and under menus.
+- **No friendly fire.** Your swings, arrows, spells and their blasts, a thrown torch and a mount's charge pass your crew by, even a crewman standing alone in reach. Your crew's own arrows and blasts pass you by too.
+- **One crew each.** A ship's boarders fight as one crew, so a pirate captain no longer turns on her own men with infighting on.
+- **Online:** your crew stand as allies for everyone in your room, with green bars, and nobody's weapons hurt them.

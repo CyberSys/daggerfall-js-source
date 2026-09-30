@@ -360,12 +360,12 @@ test('AUDIT NAV1 (B4, B6) a raider\'s ship gone under her boarders: they fight o
 
 test('AUDIT NAV1 (B3) the world host\'s stand-down, run: a boarder who yields is hostile no more where he stands (the quest system\'s own restrain), one still standing up yields as he arrives, and one who is gone never comes (mutants: the late one left hostile)', async () => {
   const pick = (re) => { const m = re.exec(WORLD); assert.ok(m, `${re} lifted`); return m[1]; };
-  const spawnSrc = pick(/\n {2}const navalSpawnFoe = (\(mobile, feet, yaw, side, \{ name = null \} = \{\}\) => \{\n[\s\S]*?\n {2}\});\n/);
+  const spawnSrc = pick(/\n {2}const navalSpawnFoe = (\(mobile, feet, yaw, side, \{ name = null, team = null, boat = null \} = \{\}\) => \{\n[\s\S]*?\n {2}\});\n/);
   const downSrc = pick(/\n {2}const navalStandDown = (\(handle\) => \{\n[\s\S]*?\n {2}\});\n/);
   let arrive = null;
-  const removed = [];
-  const d = { exteriorFoes: { spawnFoe: () => new Promise((r) => { arrive = r; }), removeFoe: (f) => removed.push(f) } };
-  const h = new Function('d', `const { exteriorFoes } = d; const navalStandDown = ${downSrc}; const navalSpawnFoe = ${spawnSrc}; return { navalSpawnFoe, navalStandDown };`)(d);
+  const removed = [], decked = [], asked = [];
+  const d = { exteriorFoes: { spawnFoe: (m, feet, opts) => { asked.push(opts); return new Promise((r) => { arrive = r; }); }, removeFoe: (f) => removed.push(f) }, navalDeckBody: (f, b) => decked.push([f, b]) };
+  const h = new Function('d', `const { exteriorFoes, navalDeckBody } = d; const navalStandDown = ${downSrc}; const navalSpawnFoe = ${spawnSrc}; return { navalSpawnFoe, navalStandDown };`)(d);
   const standing = { foe: { dead: false, ai: { isHostile: true } }, yielded: false };
   h.navalStandDown(standing);
   assert.equal(standing.foe.ai.isHostile, false, 'yields where he stands');
@@ -383,6 +383,17 @@ test('AUDIT NAV1 (B3) the world host\'s stand-down, run: a boarder who yields is
   arrive(cap);
   await new Promise((r) => setTimeout(r, 0));
   assert.equal(named.foe.entity.name, 'Captain Irna Vosk');
+  // DECK-WALK: a muster stands as one crew, on the deck it stands on - an ally's crew is the player's own, no team of its own
+  const hull = { hull: 4 };
+  const crewman = h.navalSpawnFoe(9, [0, 0, 0], 0, 'enemy', { team: 'Pirates', boat: hull });
+  assert.deepEqual([asked.at(-1).team, asked.at(-1).allied], ['Pirates', false], 'the muster\'s one crew');
+  const man = { dead: false, ai: { isHostile: true }, entity: {} };
+  arrive(man);
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(crewman.foe, man);
+  assert.deepEqual(decked.at(-1), [man, hull], 'on her deck');
+  h.navalSpawnFoe(9, [0, 0, 0], 0, 'ally', { team: 'Pirates', boat: hull });
+  assert.deepEqual([asked.at(-1).team, asked.at(-1).allied], [null, true], 'my crew: the player\'s side, no crew of its own');
 });
 
 // ── the fight's flow (B9-B14, the minors) ───────────────────────────────────────────────────────────────────────

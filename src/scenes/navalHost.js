@@ -60,7 +60,7 @@ import { orientedBox, arcPoints, flatUnit, NAVAL_DEG, rangeAt, segmentBoxEntry, 
 import { lawOf, createNotoriety, crownRegion, notorietyLevel, WITNESS_RANGE, KNIGHTLY_FACTION, TEMPLE_FACTION } from '../systems/naval/navalLaw.js';
 import { drawHold, flotsamKeys, choiceEffect, choiceOffer, holdTier, CHOICES } from '../systems/naval/navalPlunder.js';
 import { yardOffer, yardAll, fieldMend, FIELD_QUIET_S, FIELD_REFLOAT, YARD_PRICE } from '../systems/naval/navalYard.js';   // AUDIT NAV1: the shipwright, the mending at sea
-import { createBoarding, berthPose, musterOf, handsOf, repelPartyOf, raidQuestOf, raidQuestWon, raidQuestRetreated, boardingWon, BOARD_RANGE, BOARD_SPEED, ABANDON_RANGE, HAND, SURRENDER_SHARE } from '../systems/naval/navalBoarding.js';
+import { createBoarding, berthPose, musterOf, crewTeamOf, handsOf, repelPartyOf, raidQuestOf, raidQuestWon, raidQuestRetreated, boardingWon, BOARD_RANGE, BOARD_SPEED, ABANDON_RANGE, HAND, SURRENDER_SHARE } from '../systems/naval/navalBoarding.js';
 import { navalWireRecord, validNavalRecord, navalHitData, validNavalHit, NAVAL_SHARE_RADIUS, NAVAL_VOLLEY_KEEP_MS, NAVAL_GEN_MAX, NAVAL_WIRE_VOLLEYS, TRAFFIC_DEFAULT } from '../systems/naval/navalWire.js';
 import { Boat, boatAnimators, boatParticleSystems, animatorOf, setLights, meshLocalBounds, HULL_NAMES } from '../systems/comeSailAwayBoat.js';
 import { stowSail } from '../systems/comeSailAway.js';
@@ -1876,7 +1876,8 @@ export function createNavalHost(deps) {
       for (let i = 0; i < all.length; i++) {
         const spot = deal() ?? first;
         // AUDIT NAV1 (B9): her captain by his name - the one the win asks for, never one more Spellsword among the rest
-        const named = i === 0 && entry.ship.names?.captain ? { name: `Captain ${entry.ship.names.captain}` } : undefined;
+        // DECK-WALK: one crew (her faction's team) on her deck
+        const named = { ...(i === 0 && entry.ship.names?.captain ? { name: `Captain ${entry.ship.names.captain}` } : {}), team: crewTeamOf(entry.ship.cls), boat: entry.boat };
         const handle = deps.board?.spawnFoe?.(all[i], spot[0], spot[1], 'enemy', named);
         if (handle) b.foes.push({ handle, captain: i === 0 });
       }
@@ -1885,7 +1886,7 @@ export function createNavalHost(deps) {
       const hands = handsOf(st?.damage.crew ?? 0, !!boat?.crewed);
       for (let i = 0; i < hands; i++) {
         const spot = deal() ?? first;
-        const handle = deps.board?.spawnFoe?.(HAND, spot[0], spot[1], 'ally');
+        const handle = deps.board?.spawnFoe?.(HAND, spot[0], spot[1], 'ally', { boat: entry.boat });   // DECK-WALK: my hands on her deck
         if (handle) b.hands.push({ handle });
       }
       deps.mid?.(`You board ${entry.ship.names?.name ?? 'her'}!`, 3);
@@ -1905,7 +1906,7 @@ export function createNavalHost(deps) {
     for (let i = 0; i < n; i++) {
       const spot = deal();
       if (!spot) break;
-      const handle = deps.board?.spawnFoe?.(musterOf(entry.ship.cls).men[i % 4], spot[0], spot[1], 'enemy');
+      const handle = deps.board?.spawnFoe?.(musterOf(entry.ship.cls).men[i % 4], spot[0], spot[1], 'enemy', { team: crewTeamOf(entry.ship.cls), boat });   // DECK-WALK: her party, one crew, on my deck
       if (handle) b.foes.push({ handle, captain: false });
     }
     // AUDIT NAV1 (B2): her crew stands to repel them - Warm Ashes' raid refused (one at a time) or the mod off, a crewed
@@ -1914,7 +1915,7 @@ export function createNavalHost(deps) {
     for (let i = 0; i < hands; i++) {
       const spot = deal();
       if (!spot) break;
-      const handle = deps.board?.spawnFoe?.(HAND, spot[0], spot[1], 'ally');
+      const handle = deps.board?.spawnFoe?.(HAND, spot[0], spot[1], 'ally', { boat });   // DECK-WALK: my hands on my own deck
       if (handle) b.hands.push({ handle });
     }
   }
@@ -2135,7 +2136,7 @@ export function createNavalHost(deps) {
     b.deal ??= dealer(deps.board?.deckSpots?.(b.boat, DECK_SPOTS) ?? []);
     for (let i = 0; i < b.deal.size; i++) {
       const spot = b.deal();
-      if (spot && (!isFree || isFree(spot))) return spot;
+      if (spot && (!isFree || isFree(spot))) return [spot[0], spot[1], b.boat];   // DECK-WALK: and the deck it is on - the wave stays on it
     }
     return false;
   }

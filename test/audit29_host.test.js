@@ -278,7 +278,7 @@ test('AUDIT 29: the hosts by source - the seams the audit moved', () => {
   // D2: the press alone gated underground; the rig swings nothing behind the tool; the street casts no spell mid-act
   assert.match(d, /if \(held && opts\.profActing\?\.\(\)\) return;/);
   assert.match(rigSrc, /const canAttack = [^\n]*&& !actTool\(\);/);
-  assert.match(w, /if \(_act\.cast && !gatherHost\?\.acting\(\)\) magic\.interceptAttack\(true\);/);
+  assert.match(w, /if \(_act\.cast && (?:!_holdFire && )?!gatherHost\?\.acting\(\)\) magic\.interceptAttack\(true\);/);
   // C2 + D3: a dungeon vein on Interact alone, before QG1
   assert.match(m, /\(mode === 'dungeon' \? tryExitDungeon : tryExit\)\(\{ pressCast: _act\.pressCast, interact: useEdge \}\)/);
   const t = m.slice(m.indexOf('function tryExitDungeon('));

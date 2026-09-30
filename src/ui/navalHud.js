@@ -36,6 +36,7 @@ import { isEnhancedPlus } from '../systems/uiSkin.js';
 import { stepGhost, chunkFrame } from './barLoss.js';   // AUDIT NAV1 (the presentation): her hull bar's loss, the foe bar's law
 import { injectEnhancedFonts } from './enhancedStyle.js';   // AUDIT NAV1 (the presentation): the kit's face on the classic skin too
 import { READY_FLASH_S } from '../systems/naval/navalGunnery.js';   // AUDIT NAV1 (the presentation): a battery's flash, the host's word
+import { PARTY_GREEN_CSS } from '../net/social.js';   // SHIPMATES: the crew's bars in the party's one green
 
 export const NAVAL_HUD_STYLE_ID = 'dagger-naval-hud-style';
 export const NAVAL_KIT_STYLE_ID = 'dagger-naval-kit-style';
@@ -71,6 +72,14 @@ export const CARD_HIT_S = 0.24;
 /** AUDIT NAV1 (the presentation, #14): a ship's tag - its hull bar's width, and its fade with her distance: whole to
  *  TAG_FADE_FROM metres, TAG_FADE_TO of it at the tags' reach (the host's NAVAL_TAG_RANGE, the world's to hand). */
 export const NAVAL_TAG_BAR_W = 44;
+/** SHIPMATES (2026-09-29, Mac: "Ally crew member's should have green health bars above their head"): the player's own
+ *  crew's health over their heads (drawCrewBars) - the party's green (net/social.js PARTY_GREEN_CSS), a bar a crewman,
+ *  whole to CREW_FADE_FROM metres, TAG_FADE_TO of it at CREW_BAR_RANGE (the tags' own fade over the crew's reach - the
+ *  ships' starts at 150 m, past every bar). */
+export const CREW_BAR_W = 30;
+export const CREW_GREEN = PARTY_GREEN_CSS;
+export const CREW_BAR_RANGE = 45;
+export const CREW_FADE_FROM = 15;
 export const TAG_FADE_FROM = 150;
 export const TAG_FADE_TO = 0.55;
 /**
@@ -312,6 +321,9 @@ body:has(.hud-foe.on.blade) .dfnaval-hud { --nc-top: ${NAVAL_CARD_TOP_BLADE}; }
 .dfnaval-tag.target .dfnaval-tag-bar { box-shadow: 0 0 0 1px #050608, 0 0 0 2px ${T.brassHi}; }
 .dfnaval-tag-state { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: ${T.brassHi}; text-shadow: ${OUTLINED}; }
 .dfnaval-tag-state:empty { display: none; }
+.dfnaval-crew { position: absolute; left: 0; top: 0; width: ${CREW_BAR_W}px; height: 4px; background: #0b1409; box-shadow: 0 0 0 1px #050608;
+  transform-origin: 0 0; will-change: transform, opacity; }
+.dfnaval-crew > i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(180deg, #b8ffb8 0 1px, ${CREW_GREEN} 1px); }
 .dfnaval-tally.miss .dfnaval-tally-hits { color: #b3a684; }
 `;
 
@@ -760,8 +772,8 @@ let tagSlots = [];
 export function tagState(t) {
   return t.state === 'afloat' && !t.boarded ? '' : cardState(t, null, '').text;
 }
-/** A tag's opacity by her distance: whole to TAG_FADE_FROM, TAG_FADE_TO at the tags' `reach`. */
-export const tagAlpha = (d, reach) => 1 - (1 - TAG_FADE_TO) * Math.max(0, Math.min(1, ((d ?? 0) - TAG_FADE_FROM) / Math.max(1, reach - TAG_FADE_FROM)));
+/** A tag's opacity by her distance: whole to `from` (TAG_FADE_FROM), TAG_FADE_TO at the tags' `reach`. */
+export const tagAlpha = (d, reach, from = TAG_FADE_FROM) => 1 - (1 - TAG_FADE_TO) * Math.max(0, Math.min(1, ((d ?? 0) - from) / Math.max(1, reach - from)));
 /**
  * The tags over the sea's ships (the host's `tags`, projected by the world onto the screen - `x`, `y` the point over
  * her highest spar in CSS px): her name in her trade's colour (a hostile ship's red), her hull, her state - the card's
@@ -800,10 +812,39 @@ export function drawNavalTags(points, { covered = false, doc = globalThis.docume
   });
 }
 
+/** SHIPMATES: the player's own crew's bars (the constants beside the ships' tags, whose sheet they share). */
+let crewSlots = [];
+export function drawCrewBars(points, { covered = false, doc = globalThis.document, scale = 1 } = {}) {
+  const want = covered ? [] : points ?? [];
+  if (!tagRoot) {
+    if (!want.length || !doc?.createElement) return;
+    injectSheets(doc);
+    tagRoot = el(doc, 'div', 'dfnaval-tags');
+    tagRoot.setAttribute?.('aria-hidden', 'true');
+    (doc.body ?? doc.documentElement)?.append(tagRoot);
+  }
+  while (crewSlots.length < want.length) {
+    const n = el(doc, 'div', 'dfnaval-crew'), fill = el(doc, 'i');
+    n.append(fill);
+    tagRoot.append(n);
+    crewSlots.push({ n, fill, k: {} });
+  }
+  crewSlots.forEach((slot, i) => {
+    const p = want[i];
+    const on = !!p;
+    if (slot.k.on !== on) { slot.k.on = on; slot.n.style.display = on ? '' : 'none'; }
+    if (!p) return;
+    const set = (key, v, write) => { if (slot.k[key] !== v) { slot.k[key] = v; write(v); } };
+    set('share', pct(p.share), (v) => { slot.fill.style.width = `${v}%`; });
+    set('at', `translate(${Math.round(p.x)}px, ${Math.round(p.y)}px) scale(${scale}) translate(-50%, -100%)`, (v) => { slot.n.style.transform = v; });
+    set('a', String(Math.round(tagAlpha(p.distance, CREW_BAR_RANGE, CREW_FADE_FROM) * 100) / 100), (v) => { slot.n.style.opacity = v; });
+  });
+}
+
 /** The page is going (a test's reset, the host's teardown): the node leaves with it. */
 export function destroyNavalHud() {
   root?.remove?.();
   root = null; parts = null; shown = {}; touchBrace = false; loss = null; hudClock = 0;
   tagRoot?.remove?.();
-  tagRoot = null; tagSlots = [];
+  tagRoot = null; tagSlots = []; crewSlots = [];
 }

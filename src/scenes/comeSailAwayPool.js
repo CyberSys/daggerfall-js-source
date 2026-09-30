@@ -48,6 +48,9 @@ import { multiply, identity } from '../world/mat4.js';
 import { spherePlanes, sphereInPlanes, transformSphere } from '../render/bounds.js';   // AUDIT NAV1 (#13): the boats culled as the world's meshes are
 import { cullDisabled } from '../render/frustum.js';
 import { mat4FromQuatPosScale } from '../world/quat.js';
+import { colliderPoses, boxColliderTriangles, invertAffine, BUILTIN_COLLIDER_MESHES } from '../world/prefabColliders.js';   // DECK-WALK: a hull's colliders at rest
+import { buildDeck } from '../systems/naval/navalDeck.js';   // DECK-WALK: her walkable deck
+import { hullBuild } from '../systems/naval/navalShips.js';
 
 /** DungeonLightHandler.CheckLight's reach: UnscaledBlockRange x MeshReader.GlobalScale. */
 export const LANTERN_HANDLER_REACH = DUNGEON_LIGHT_HANDLER.unscaledBlockRange * GLOBAL_SCALE;
@@ -210,6 +213,7 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
     preloading ??= (async () => {
       if (!(await ensureModels())) return false;
       for (let hull = 0; hull < HULL_NAMES.length; hull++) await prepare(hull);
+      for (let hull = 0; hull < HULL_NAMES.length; hull++) deckOf(hull, 0);   // DECK-WALK: baked while the world loads (10-50 ms a hull), never mid-voyage
       preloaded = true;
       return true;
     })();
@@ -565,8 +569,42 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
   }
   function destroyAll() { for (const b of [...boats, ...peerBoats, ...seaBoats]) remove(b); }
 
+  /** DECK-WALK (systems/naval/navalDeck.js): a hull's walkable deck, baked once per hull and variant off one stood at
+   *  rest in her mesh node's frame (Boat.MeshObject, which the swell rolls and pitches - the deck's frame) - her
+   *  switched-on, non-trigger colliders' triangles: a mesh's, a box's six faces, a built-in's - and kept. Null before
+   *  the models are in. */
+  const decks = new Map();
+  function deckOf(hull, variant = 0) {
+    if (!models) return null;
+    const key = `${hull}:${variant}`;
+    if (decks.has(key)) return decks.get(key);
+    const probe = new Boat(hull, variant);
+    spawnBoat(probe, { models, player: () => ({ position: [0, 0, 0], rotation: [0, 0, 0, 1] }), billboardSize: billboardSizeOf, modelBounds: modelBoundsOf });
+    const meshes = [];
+    const frame = invertAffine(probe.MeshObject.worldMatrix());
+    for (const { collider: c, world } of colliderPoses(probe.GameObject)) {
+      if (c.m_IsTrigger || c.m_Enabled === false) continue;
+      const m = frame ? multiply(frame, world, new Float32Array(16)) : world;
+      const g = c.type === 'BoxCollider' ? boxColliderTriangles(c) : c.m_Mesh?.mesh ? models.geometry(c.m_Mesh.mesh) : c.m_Mesh?.builtin ? BUILTIN_COLLIDER_MESHES[c.m_Mesh.builtin] : null;
+      if (!g) continue;
+      const p = g.positions, out = new Float64Array(p.length);
+      for (let i = 0; i < p.length; i += 3) {
+        const x = p[i], y = p[i + 1], z = p[i + 2];
+        out[i] = m[0] * x + m[4] * y + m[8] * z + m[12];
+        out[i + 1] = m[1] * x + m[5] * y + m[9] * z + m[13];
+        out[i + 2] = m[2] * x + m[6] * y + m[10] * z + m[14];
+      }
+      meshes.push({ positions: out, indices: g.indices });
+    }
+    const b = hullBuild(hull);
+    const deck = buildDeck(meshes, { minX: -b.halfWidth - 1, maxX: b.halfWidth + 1, minZ: b.aftZ - 1, maxZ: b.bowZ + 1 });
+    decks.set(key, deck);
+    return deck;
+  }
+
   return {
     ensureModels, spawn, spawnNow, preload, ready: () => preloaded, remove, setVariant, frame, batches, draw, lights, offsetAll, destroyAll,
+    deckOf,   // DECK-WALK
     hullRig,   // OWS2
     spawnPeerNow, spawnSeaNow,
     /** AUDIT PRE-MERGE 0928 R5: a boat's walk as this frame made it (its nodes and world matrices) - a probe's reading. */
