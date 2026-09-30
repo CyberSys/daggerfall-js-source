@@ -5475,7 +5475,7 @@ lesson one host over.
 **What did NOT ship:** PlayerEntity.Update's per-minute *intermittent
 spawn* roll (:486-492) still has no caller on this route. It is not
 this pool's dependency — it is a loop that carries the passive-guard
-spawns and the NPC-guard conversion with it (world.js:7418-7517) — and
+spawns and the NPC-guard conversion with it (world.js:7476-7575) — and
 it is named at the mount so the absence reads as a fact.
 
 **(c) The find-place seam's absence, narrowed to one sentence.**
@@ -5499,10 +5499,10 @@ ready-spell events (`hostMagic.js:94-95`), and those two doors are the
 (`machine.js:900`/`:883`; C# subscribes them in the action's
 constructor). Every `cast X spell do` and `cast X effect do` on this
 whole route could therefore never latch and never fire. The pair the
-other two engine-owning hosts wire (`world.js:7806-7807`,
-`dungeonContext.js:2532-2533`) is wired here now, and with it
+other two engine-owning hosts wire (`world.js:7864-7865`,
+`dungeonContext.js:2533-2534`) is wired here now, and with it
 `CastSpellDo`'s two world reads — `getClassicSpellEffects` and the
-byte-folded `spellHasMatchForClassicEffect` (`world.js:13433-13436`),
+byte-folded `spellHasMatchForClassicEffect` (`world.js:13491-13494`),
 absent which the action self-completes at *parse*
 (`actions.js:2781`/`:2788`) and the task can never arm at all.
 

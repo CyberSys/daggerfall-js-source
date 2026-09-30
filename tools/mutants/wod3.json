@@ -319,10 +319,11 @@
   {
     "name": "the-placed-foe-is-culled",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "if (!f.placed && !f.managed && _playerDist > _cullAt",
-    "new": "if (!f.managed && _playerDist > _cullAt",
+    "old": "if (!f.placed && !f.managed && f.companion == null && _playerDist > _cullAt",
+    "new": "if (!f.managed && f.companion == null && _playerDist > _cullAt",
     "tests": [
       "test/wod3_spawner.test.js"
-    ]
+    ],
+    "note": "CREW-COMPANIONS (PIN MOVED): re-aimed by content at the line the companions' change moved."
   }
 ]

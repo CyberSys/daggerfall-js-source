@@ -249,9 +249,10 @@
   {
     "name": "QP3C-save-holds-theirs",
     "file": "src/scenes/dungeonContext.js",
-    "old": "      foes: foes.filter((f) => f._ownFrom == null).map((f) => ({",
-    "new": "      foes: foes.map((f) => ({",
-    "tests": ["test/questparty3c.test.js"]
+    "old": "      foes: foes.filter((f) => f._ownFrom == null && f.companion == null).map((f) => ({",
+    "new": "      foes: foes.filter((f) => f.companion == null).map((f) => ({",
+    "tests": ["test/questparty3c.test.js"],
+    "note": "CREW-COMPANIONS (PIN MOVED): re-aimed by content at the line the companions' change moved."
   },
   {
     "name": "QP3C-marker-stand-unflagged",

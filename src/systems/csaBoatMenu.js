@@ -24,11 +24,12 @@
 export const BOAT_VERB = Object.freeze({
   helm: 'helm', board: 'board', cargo: 'cargo', pack: 'pack', variant: 'variant', status: 'status', position: 'position',
   crew: 'crew', orders: 'orders',   // SHIP-CREW: the port's own - her crew's card, her captain's orders (no box of the mod's)
+  companions: 'companions',   // CREW-COMPANIONS: her hands to take ashore, or send back aboard
 });
 /** The rows' words. */
 export const BOAT_MENU_TEXT = Object.freeze({
   helm: 'Take the helm', leave: 'Leave the helm', board: 'Board', cargo: 'Open storage', pack: 'Pick up',
-  variant: 'Change style', status: 'Status', position: 'Position', crew: 'Crew', orders: 'Give orders',
+  variant: 'Change style', status: 'Status', position: 'Position', crew: 'Crew', orders: 'Give orders', companions: 'Companions',
 });
 /** Why a row is refused - short, for the plaque's "(why)". */
 export const BOAT_MENU_WHY = Object.freeze({
@@ -85,10 +86,11 @@ export function boatMenuRows(s) {
   if (has('variant') && s.variants) rows.push(s.sailing ? { id: BOAT_VERB.variant, label: BOAT_MENU_TEXT.variant, disabled: true, why: BOAT_MENU_WHY.sailing } : { id: BOAT_VERB.variant, label: BOAT_MENU_TEXT.variant });
   if (has('status')) rows.push({ id: BOAT_VERB.status, label: BOAT_MENU_TEXT.status });
   if (has('position')) rows.push({ id: BOAT_VERB.position, label: BOAT_MENU_TEXT.position });
-  // SHIP-CREW: with the naval arc on, her crew's card (a crewed boat's) and her orders
+  // SHIP-CREW: with the naval arc on, her crew's card (a crewed boat's) and her orders - CREW-COMPANIONS: and her hands ashore
   if (s.naval) {
     if (s.crewed) rows.push({ id: BOAT_VERB.crew, label: BOAT_MENU_TEXT.crew });
     rows.push({ id: BOAT_VERB.orders, label: BOAT_MENU_TEXT.orders });
+    if (s.crewed) rows.push({ id: BOAT_VERB.companions, label: BOAT_MENU_TEXT.companions });   // CREW-COMPANIONS
   }
   return rows;
 }

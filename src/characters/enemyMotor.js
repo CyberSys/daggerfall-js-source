@@ -54,6 +54,11 @@ export const FOE_MAX_FRAME_DT = 3 * FIXED_DT;
 const FOE_KEEPS_FLOOR = true;
 /** WERE-FRIGHT: how far ahead along the way away a fleeing foe's aim point stands (EnemyAI.flee). */
 const FLEE_AIM = 10;
+/** CREW-COMPANIONS: a follower stands inside FOLLOW_STOP of its leader, sets off again past FOLLOW_STOP +
+ *  FOLLOW_SLACK, and breaks off a fight that has drawn it past FOLLOW_LEASH. */
+export const FOLLOW_STOP = 3;
+export const FOLLOW_SLACK = 1.5;
+export const FOLLOW_LEASH = 20;
 export const foeFrameDt = (dt) => Math.min(dt, FOE_MAX_FRAME_DT);
 export const GIVE_UP_TICKS = 200;   // EnemyMotor.GiveUpTimer refill (classic ticks; ~12.5s)
 import { GRAVITY, FIXED_DT, MAX_FRAME_DT, CLASSIC_TO_UNITY_RATIO, FALL_DAMAGE_THRESHOLD } from '../player/motor.js';   // the shared fall rule + the P16 fixed-timestep law; CH3: the fall threshold single-sources with the player's
@@ -493,6 +498,10 @@ export class EnemyAI {
     // WERE-FRIGHT: the run from a fright (flee, below) - seconds left, and the point it runs from. No run by default.
     this.fleeLeft = 0;
     this.fleeFrom = null;
+    /** CREW-COMPANIONS: the leader a companion keeps to (the host sets it; null for every other foe). @type {{ feet: () => (number[]|null), stop?: number, leash?: number }|null} */
+    this.follow = null;
+    this._following = false;
+    this._followWalking = false;
     // TakeAction:443-449 sets stopDistance BEFORE GetDestination, and
     // both the approach test (:487) and the search ramp (:552) read it.
     // Seeded here so a caller that drives _getDestination directly has
@@ -1584,6 +1593,41 @@ export class EnemyAI {
     this.justEncountered = false;
   }
 
+  /** CREW-COMPANIONS: whether a companion turns to its leader this step - no target, or the target has drawn it past
+   *  the leash (it drops the target then, and the target machine picks again once it is back at heel). */
+  _followWanted() {
+    if (this.target == null) return true;
+    const leader = this.follow.feet?.();
+    if (!leader) return false;
+    if (Math.hypot(leader[0] - this.feet[0], leader[2] - this.feet[2]) <= (this.follow.leash ?? FOLLOW_LEASH)) return false;
+    this.target = null;
+    return true;
+  }
+
+  /** CREW-COMPANIONS: one step of keeping to the leader - stand inside `stop`, walk once past `stop + FOLLOW_SLACK`
+   *  (the slack keeps a companion from stuttering at the edge), turning in place on the classic ticks as a pursuer
+   *  does. `_followGoal` is the seam the navmesh motor routes through. */
+  _followTicks(classicTicks, dt) {
+    const leader = this.follow.feet?.();
+    if (!leader) { this.moving = false; return; }
+    const d = Math.hypot(leader[0] - this.feet[0], leader[2] - this.feet[2]);
+    const stop = this.follow.stop ?? FOLLOW_STOP;
+    if (d <= stop || (!this._followWalking && d <= stop + FOLLOW_SLACK)) { this._followWalking = false; this.moving = false; return; }
+    this._followWalking = true;
+    const goal = this._followGoal(leader, dt);
+    this.destination = [goal[0], leader[1], goal[2]];
+    const aim = this.avoidObstaclesTimer > 0 ? this.detourDestination : this.destination;
+    const dx = aim[0] - this.feet[0];
+    const dz = aim[2] - this.feet[2];
+    for (let i = 0; i < classicTicks; i++) {
+      if (!withinYaw(this.yaw, dx, dz, MOVE_YAW_GATE_DEG)) this.yaw = turnTowards(this.yaw, dx, dz);   // classic turns in place
+    }
+    this.moving = withinYaw(this.yaw, dx, dz, MOVE_YAW_GATE_DEG);
+  }
+
+  /** CREW-COMPANIONS: where a following companion heads - straight at the leader (the navmesh motor routes). */
+  _followGoal(leader, dt) { return leader; }
+
   /** WERE-FRIGHT: one fixed step of the run (flee, above). */
   _fleeStep(dt, paralyzed) {
     this.fleeLeft -= dt;
@@ -1757,6 +1801,10 @@ export class EnemyAI {
     // tick sets, and a latch left standing would walk the Seducer on
     // for up to a classic tick after DFU's has stopped dead.
     if (paralyzed || paused || !(this.isHostile || foeTarget)) this.moving = false;
+    // CREW-COMPANIONS: a companion (the host's `follow`) with no foe to fight - or one chased too far from its
+    // leader - keeps to the leader instead: the pursuit's own turn-then-walk, aimed at the leader's feet.
+    this._following = !!this.follow && !paralyzed && !paused && !knocked && this._followWanted();
+    if (this._following) this._followTicks(classicTicks, dt);
 
     // C15 KnockbackMovement, verbatim: runs INSTEAD of pursuit (and
     // regardless of paralysis - DFU calls it before the CanAct

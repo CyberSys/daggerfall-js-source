@@ -116,7 +116,7 @@ export function createNavalCrew({ renderer, getTexture, uploadRecordFrame, rand 
       for (const [key, ship] of ships) if (ship.boat === w.boat && !want.has(key)) { ships.delete(key); ship.key = w.key; ships.set(w.key, ship); break; }
     }
     for (const [key, ship] of ships) if (!want.has(key)) { standDown(ship); ships.delete(key); }
-    for (const w of list) {
+    for (let w of list) {
       let ship = ships.get(w.key);
       // another hull under her key - F6: or her hold over, and she stands anew, whole (`held` was never let go)
       if (ship && (ship.boat !== w.boat || ship.held && !w.hold)) { standDown(ship); ships.delete(w.key); ship = null; }
@@ -137,6 +137,10 @@ export function createNavalCrew({ renderer, getTexture, uploadRecordFrame, rand 
       // toward it within CREW_MUSTER_M of her - the grapple's 2.2 s alone saw nobody reach it
       const at = w.boat.GameObject?.position;
       ship.toward = w.toward && at && Math.hypot(w.toward[0] - at[0], w.toward[2] - at[2]) <= CREW_MUSTER_M ? w.toward : null;
+      // CREW-COMPANIONS: her hands ashore with the player (`away`, roster places) stand off her deck, and her count is
+      // the rest's - the guns' trim and the mending's restore never touch a man ashore
+      const off = w.away ? ship.life.away(w.away) : 0;
+      if (off && !w.hold) w = { ...w, count: Math.max(0, w.count - off) };
       if (w.hold && !ship.held) { ship.held = true; ship.life.take(Infinity); }   // another's fight took them (a room's)
       else if (!w.hold && ship.life.standing() > w.count) ship.life.trim(w.count);
       else if (!w.hold && ship.life.standing() < w.count) {   // AUDIT NAV2 F42: mended - her crew grows back (it only ever thinned)

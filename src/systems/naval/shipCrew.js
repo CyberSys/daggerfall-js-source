@@ -31,7 +31,7 @@ import { MOBILE } from './navalBoarding.js';
 export const MORALE_START = 60;
 export const MORALE_MAX = 100;
 /** What lifts them, and what wears them (points). A hand lost costs HAND_LOST, a fight's losses at most LOSSES_CAP. */
-export const MORALE_EVENT = Object.freeze({ win: 10, prize: 6, plunder: 3, grog: 15, handLost: -3, wrecked: -15 });
+export const MORALE_EVENT = Object.freeze({ win: 10, prize: 6, plunder: 3, grog: 15, handLost: -3, wrecked: -15, knocked: -4 });   // CREW-COMPANIONS: one of theirs carried back aboard (crewCompanions.js)
 export const LOSSES_CAP = -15;
 /** The sea wears a point off every SEA_DECAY_S away from port (sea seconds); a port lifts one every PORT_RISE_S up to
  *  PORT_CAP (above it, only a win or a round lifts them). */

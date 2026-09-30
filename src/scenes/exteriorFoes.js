@@ -791,6 +791,9 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     // owner applies every blow (a SetHealth(0) and a kill are no blows, and stand as they were)
     f.entity.health -= !bypassShield && !_whole && _sharedFoe(f) ? partyFoeLoses(f, healthDamage, fightN(f)) : healthDamage;
     if (f.entity.health <= 0) {
+      // CREW-COMPANIONS: a companion is knocked out, never killed - held at 1 and marked, before every death arm (the
+      // trap, the notice, the corpse); the companion layer (crewAshore.js) carries him back aboard next frame
+      if (f.companion != null) { f.entity.health = 1; f._knockedOut = true; return; }
       // X5: the SOUL TRAP intercept, where EnemyEntity.SetHealth's
       // override sits (:157-177) - before the death, every source alike.
       // AUDIT WORLD6b B2 (AUDIT WORLD2 B9's law, the dungeon's): a PEER's killing blow reads no gem of mine and fills
@@ -1144,7 +1147,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // DW-E4: nor a MANAGED one - the deep's foes stand, as DFU's loose enemies do, until the mod's own spawner releases
       // them (their pixel's group leaving, the lane switched off, a transient reset); its cap bounds them, not this cull
       const _cullAt = f.campId != null ? CAMP_CULL_DISTANCE : ENCOUNTER_CULL_DISTANCE;
-      if (!f.placed && !f.managed && _playerDist > _cullAt && !(f.ai.detected && f.ai.targetIsLocalPlayer !== false) && !(_qTag(f) && partyNearFoe(f, _cullAt))) {   // DROPS-AUDIT CAMP-CULL; AUDIT (pre-merge) Q4: a shared quest's foe stands while a party member is near it
+      if (!f.placed && !f.managed && f.companion == null && _playerDist > _cullAt && !(f.ai.detected && f.ai.targetIsLocalPlayer !== false) && !(_qTag(f) && partyNearFoe(f, _cullAt))) {   // DROPS-AUDIT CAMP-CULL; AUDIT (pre-merge) Q4: a shared quest's foe stands while a party member is near it   // CREW-COMPANIONS: nor a companion (crewAshore.js catches him up)
         releaseFoeBatch(f);
         f.dead = true;
         f.questBehaviour?.notifyDestroyed();   // B1: Destroy(gameObject) - the resource uncouples

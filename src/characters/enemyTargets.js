@@ -178,7 +178,11 @@ export function getTargets(self, candidates, playerFeet, {
       // from nothing else, and it lapses with campId rather than outliving it.
       if (self.entity?.campId != null && targetEntity.campId === self.entity.campId) continue;
     } else {
-      if (!isPlayer && selfMobileTeam !== 'PlayerAlly') continue;
+      // CREW-COMPANIONS: with infighting off a hostile still fights the player's companions (they fight at the
+      // player's side, and are fought back), and a companion never takes another ally for its foe - neither arm is
+      // DFU's, which has no companion; every other pair keeps the chain above.
+      if (!isPlayer && selfMobileTeam !== 'PlayerAlly' && !(c.companion != null && ai.isHostile)) continue;
+      if ((self.companion != null || c.companion != null) && selfTeam === 'PlayerAlly' && targetEntity?.team === 'PlayerAlly') continue;
     }
     // Quest enemy AI only targets player unless marked attackable (:806-807)
     if (self.isQuestFoe && !self.questAttackable && !isPlayer) continue;

@@ -232,6 +232,12 @@ export class EnhancedEnemyAI extends EnemyAI {
       // pursuing: CanAct, not given up, and a position to head for -
       // the classic tick's own three gates, read after it ran. The goal
       // is the classic destination's own target, the predicted position.
+      // CREW-COMPANIONS: a follower's route is _followGoal's (repathed there, toward the leader); only the watchdog here
+      if (this._following) {
+        if (this.path && this.moving) this._stuckWatch(chf, Math.sin(this.yaw), Math.cos(this.yaw), dt);
+        else { this.stuckT = 0; this.lastX = this.feet[0]; this.lastZ = this.feet[2]; }
+        return;
+      }
       const pursuing = this.canAct && this.giveUpTimer > 0 && this.predictedTargetPos !== null;
       if (!pursuing) { this.path = null; this.stuckT = 0; this.lastX = this.feet[0]; this.lastZ = this.feet[2]; return; }
       this._repathToward(chf, this.predictedTargetPos, dt);
@@ -264,6 +270,26 @@ export class EnhancedEnemyAI extends EnemyAI {
     if (last || d <= 1e-6 || d >= reach) { this.destination = [wp[0], y, wp[2]]; return; }
     const k = reach / d;
     this.destination = [this.feet[0] + dx * k, y, this.feet[2] + dz * k];
+  }
+
+  /** CREW-COMPANIONS: a follower walks the navmesh route to its leader - the route's next corner (the pursuit's own
+   *  corner walk), the leader's live feet on the last leg, and the straight line when there is no mesh or a detour
+   *  is running. */
+  _followGoal(leader, dt) {
+    if (this.navBroken || this.avoidObstaclesTimer > 0) return leader;
+    const chf = this.nav();
+    if (!chf) { this.path = null; return leader; }
+    try {
+      this._repathToward(chf, leader, dt);
+      if (!this.path || this.pathI >= this.path.length - 1) return leader;
+      let wp = this.path[this.pathI];
+      while (this.pathI < this.path.length - 1 && Math.hypot(wp[0] - this.feet[0], wp[2] - this.feet[2]) <= WP_REACH) wp = this.path[++this.pathI];
+      return this.pathI === this.path.length - 1 ? leader : wp;
+    } catch (e) {
+      this.navBroken = true; this.path = null;
+      console.warn('[enhanced-ai] follow fell back to classic:', e?.message ?? e);
+      return leader;
+    }
   }
 
   /** WORLD2: the base resume, and the cached path with it - the next pursuit paths from where the puppet stood. */
