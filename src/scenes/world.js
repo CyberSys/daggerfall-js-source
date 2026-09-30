@@ -361,6 +361,7 @@ import { createComeSailAwayPool } from './comeSailAwayPool.js';   // CSA-B: Come
 import { createComeSailAwayPeers } from './comeSailAwayPeers.js';   // CSA-J: another player's boats, seen
 import { createComeSailAwayAboard, CSA_ABOARD_GRACE, deckPose as csaDeckPose, helmWord as csaHelmWordOf, localOf as csaLocalOf } from './comeSailAwayAboard.js';   // CSA-K: another player's boat, boarded; FIELD BUGS 2026-09-29 (the sea) #1: the deck's frame, the helmsman's place
 import { csaWireRecord, csaRecordKey } from '../systems/comeSailAwayWire.js';   // CSA-J: my boats, said
+import { boatTriggers, boatMenuRows, boatMenuStart, pressBoatVerb } from '../systems/csaBoatMenu.js';   // BOAT-MENU: a boat of mine's verbs on the plaque
 import { TRIGGER_MODEL as CSA_TRIGGER_MODEL, setLights as csaSetLights, HULL_NAMES as CSA_HULL_NAMES, nodeOf as csaNodeOf, AUDIO_CLIPS as CSA_AUDIO_CLIPS, colliderBoundsInChildren as csaColliderBoundsInChildren, animatorOf as csaAnimatorOf, meshLocalBounds as csaMeshLocalBounds } from '../systems/comeSailAwayBoat.js';   // CSA-B: the probe's lanterns; CSA-D: the plaque's word for a boat; CSA-G: the loops' objects and the five clips; CSA-J: Eye of the Beholder's Collider.bounds
 import { travelMapPicture, TRAVEL_MAP_IMG, LINE_TEXTURE as CSA_LINE_TEXTURE } from '../systems/comeSailAwayMap.js';   // CSA-I: the position reading's picture and lines
 import { createComeSailAwayRuntime, comeSailAwayCarrier, WATER_WALKING_SILENT, COME_SAIL_AWAY_VENDOR, CONSOLE as CSA_CONSOLE, NO_WATER_LEVEL, NICE_BOAT_TEXT as CSA_NICE_BOAT_TEXT, activationModelOf as csaActivationModelOf, customModelOf as csaCustomModelOf, ACTIVATION_DISTANCE as CSA_ACTIVATION_DISTANCE, windWidgetFrameCount as csaWindWidgetFrameCount, BOAT_ACTIONS as CSA_BOAT_ACTIONS, HANDLING as CSA_HANDLING, hullFromMessage as csaHullFromMessage, tileMapIndexAtPosition as csaTileMapIndexAtPosition } from '../systems/comeSailAway.js';   // NAV-H: the tile a sea ship floats on
@@ -5816,22 +5817,75 @@ export async function bootWorld(canvas, renderer, params, status) {
       default: { const owned = ownedLine(peerName(pick.owner)); townTalk.say(`This ${CSA_HULL_NAMES[pick.boat.hull] ?? 'boat'} - ${owned.charAt(0).toLowerCase()}${owned.slice(1)}.`); }
     }
   }
+  /** BOAT-MENU: a boat of mine by its plaque key (`csaBoat:<id>:<box|hull|bed>`), and the box the key names. */
+  const csaBoatOfKey = (key) => {
+    const m = typeof key === 'string' ? /^csaBoat:(\d+):([^:]+)$/.exec(key) : null;
+    if (!m) return null;
+    const boat = csa.boats.find((b) => _csaBoatIds.get(b) === Number(m[1]));
+    return boat ? { boat, part: m[2] } : null;
+  };
+  /** BOAT-MENU: whether I stand on this boat's deck - the ground under me one of its buckets (the wake's own test). */
+  const csaStandsOn = (boat) => !!player.grounded && typeof player.groundKey === 'string' && player.groundKey.startsWith(`csaBoat:${csaBoatId(boat)}:`);
+  /** BOAT-MENU: a boat of mine's boxes and its rows (systems/csaBoatMenu.js) - what the plaque lists and the picker. */
+  const _csaBoxes = new WeakMap();   // BOAT-MENU: boat -> { root, variant, boxes } - the walk once per hull and style, not each frame the plaque asks
+  const csaBoatMenu = (boat) => {
+    let c = _csaBoxes.get(boat);
+    if (!c || c.root !== boat.GameObject || c.variant !== boat.variant) _csaBoxes.set(boat, (c = { root: boat.GameObject, variant: boat.variant, boxes: boatTriggers(boat.GameObject, csaActivationModelOf, CSA_TRIGGER_MODEL) }));
+    const boxes = c.boxes;
+    const sailingThis = !!csaRuntime?.isSailing() && csaRuntime.state.CurrentBoat === boat;
+    const rows = boatMenuRows({
+      boxes, packable: !!boat.packable, sailingThis, sailing: !!csaRuntime?.isSailing(), aboard: csaStandsOn(boat),
+      passengers: csaPassengersOn(boat), variants: boat.VariantObject != null && boat.GetVariantCount >= 1,
+    });
+    return { boxes, rows };
+  };
+  /** BOAT-MENU: a verb pressed on a boat of mine - through the mod's own activation on that verb's box (its 3.2 reach
+   *  from the point aimed at, silent past it as the box's press is), a refused row saying why in the mod's words. */
+  const csaBoatVerb = (pick, verb) => {
+    if (!csaRuntime) return;
+    const { boxes, rows } = csaBoatMenu(pick.boat);
+    pressBoatVerb({
+      boxes, rows, verb, distance: pick.distance, reach: CSA_ACTIVATION_DISTANCE, at: dwPlayerObjectPosition(), posOf: (n) => n.position,
+      hit: pick.hit, mode: getInteractionMode(), models: CSA_TRIGGER_MODEL,
+      activate: (model, hit, mode) => csaCall(() => csaRuntime.activate(model, hit, mode)), say: (l) => setMidScreenText(l),
+    });
+  };
   const csaActivate = (pick) => {
     if (pick?.peer) { csaPeerActivate(pick); return; }   // CSA-K
     if (pick?.bed) {
       if (pick.distance <= DEFAULT_ACTIVATION_DISTANCE) { if ((modes?.mode ?? 'exterior') === 'exterior') { _restFromBed = true; try { toggleRest(); } finally { _restFromBed = false; } } else modes?.restFromBed?.(); }
       return;
     }
-    if (pick?.modelId != null) csaCall(() => csaRuntime.activate(pick.modelId, pick.hit, getInteractionMode()));
+    // BOAT-MENU: the verb the plaque lit on this boat (it starts on the box under the crosshair's own) ...
+    const verb = plaqueActionFor(pick?.key);
+    if (verb && pick.boat) { csaBoatVerb(pick, verb); return; }
+    if (pick?.modelId != null) { csaCall(() => csaRuntime.activate(pick.modelId, pick.hit, getInteractionMode())); return; }
+    // ... and where no plaque lists them (a phone's tap, the classic skins) a press on the hull opens them as a list
+    if (pick?.boat && !worldPlaqueOn() && pick.distance <= CSA_ACTIVATION_DISTANCE) csaOpenBoatMenu(pick);
+  };
+  /** BOAT-MENU: the verbs as a picker (ListPickerWindow: a tap, the pad or the mouse) - a refused row with its reason. */
+  const csaOpenBoatMenu = (pick) => {
+    const { rows } = csaBoatMenu(pick.boat);
+    if (!rows.length) return;
+    csaOpenListPicker(rows.map((r) => (r.disabled ? `${r.label} (${r.why})` : r.label)), (i) => {
+      if (_csaPicker) { modes?.closeWindow?.(_csaPicker); _csaPicker = null; }
+      csaBoatVerb(pick, rows[i]?.id);
+    });
   };
   /** CSA-D: the plaque's word for a boat - the port's own (DFU names nothing): the hull's name. */
   const csaHoverName = (key) => {
     const peer = typeof key === 'string' ? /^csaPeer:(.+):(\d+):[^:]+$/.exec(key) : null;   // CSA-K: another player's boat - its hull, and whose (a peer's wagon's plaque, HCC-TIP)
     if (peer) { const boat = csaPeers.boatAt(peer[1], Number(peer[2])); return boat ? { title: CSA_HULL_NAMES[boat.hull] ?? 'Boat', subs: [ownedLine(peerName(peer[1]))] } : null; }
-    if (typeof key !== 'string' || !key.startsWith('csaBoat:')) return null;
-    const id = Number(key.split(':')[1]);
-    const boat = csa.boats.find((b) => _csaBoatIds.get(b) === id);
-    return boat ? { title: CSA_HULL_NAMES[boat.hull] ?? 'Boat' } : null;
+    const mine = csaBoatOfKey(key);
+    if (!mine) return null;
+    const title = CSA_HULL_NAMES[mine.boat.hull] ?? 'Boat';
+    if (mine.part === 'bed') return { title };
+    // BOAT-MENU: my boat lists its verbs, the box under the crosshair's lit first (the hull: the top row)
+    const { rows } = csaBoatMenu(mine.boat);
+    if (!rows.length) return { title };
+    const box = Object.keys(CSA_TRIGGER_MODEL).find((k) => String(CSA_TRIGGER_MODEL[k]) === mine.part) ?? null;
+    const start = boatMenuStart(box, rows, getInteractionMode());
+    return start < 0 ? { title } : { title, actions: rows, actionsStart: start };   // a door keeps its own press
   };
   let _csaDt = 0;               // CSA-D: Time.deltaTime for the mod - zero while paused, scaled with the world
   /** CSA-L: THE HELM PANEL'S PRESSES (ui/enhancedHelm.js, and the pad's helm d-pad) - the registry actions it presses,

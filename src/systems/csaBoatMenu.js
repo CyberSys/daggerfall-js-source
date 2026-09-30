@@ -1,0 +1,147 @@
+// @ts-check
+// BOAT-MENU (2026-09-30, Mac: "make the boat interaction like the loot menu. Being able to pick up, view storage,
+// mount, all from a simple menu and button press") - THE LAW of a boat's verbs, pure.
+//
+// Come Sail Away answers a press on one of its seven boxes (systems/comeSailAway.js activate) - the helm's box takes
+// the helm, or packs the boat in Steal mode; the ladder's boards; the chest's opens the cargo; the flag's and the
+// compass's read the status and the position; the variant box picks a style - and the hull between them answers
+// nothing. The port's ACT-MENU (systems/worldHover.js) lists a namer's verbs on the plaque under the crosshair, the
+// wheel lighting one and the activate key pressing it, as a horse's and a wagon's already do (horseCartLaw.js
+// hccActionRows). Here is what a boat of mine lists: every box it carries, anywhere on it, as a row - pressed
+// through the mod's own activation (its 3.2 reach and its refusals) on that box.
+//
+//  - The rows are the boxes the boat carries (boatTriggers), so a hull without a chest lists no storage.
+//  - The lit row starts on the box under the crosshair (boatMenuStart): a press at the helm's box takes the helm and
+//    at the chest opens it, exactly as before the menu - the direct hot spots stand. On the hull, the first row.
+//    Steal mode at the helm's box lights "Pick up", as the mod's Steal press packs. A door lists nothing and turns
+//    over as it did (boatMenuStart's -1).
+//  - A row the mod would refuse is listed with its reason (the plaque's refused rows, AUDIT DISC7 A4) and the
+//    press says the mod's own words (boatMenuRefusal).
+
+/** The verbs, by row id. */
+export const BOAT_VERB = Object.freeze({
+  helm: 'helm', board: 'board', cargo: 'cargo', pack: 'pack', variant: 'variant', status: 'status', position: 'position',
+});
+/** The rows' words. */
+export const BOAT_MENU_TEXT = Object.freeze({
+  helm: 'Take the helm', leave: 'Leave the helm', board: 'Board', cargo: 'Open storage', pack: 'Pick up',
+  variant: 'Change style', status: 'Status', position: 'Position',
+});
+/** Why a row is refused - short, for the plaque's "(why)". */
+export const BOAT_MENU_WHY = Object.freeze({
+  driving: 'at her helm', passengers: 'passengers aboard', moored: 'a deed ship stays afloat', sailing: 'not at the helm',
+});
+
+/**
+ * Each verb's box and the interaction mode it is pressed in (null: the player's own mode, as the box's press was).
+ * @type {Readonly<Record<string, { box: string, mode: string|null }>>}
+ */
+export const BOAT_VERB_BOX = Object.freeze({
+  helm: { box: 'drive', mode: 'grab' }, pack: { box: 'drive', mode: 'steal' }, board: { box: 'board', mode: null },
+  cargo: { box: 'cargo', mode: null }, variant: { box: 'variant', mode: null }, status: { box: 'status', mode: null },
+  position: { box: 'position', mode: null },
+});
+
+/**
+ * The boxes a boat carries: box name -> its trigger nodes, walked off the boat's root (`modelOf` names a node's box
+ * model id, `models` is TRIGGER_MODEL).
+ * @param {any} root
+ * @param {(name: string) => number|null} modelOf
+ * @param {Readonly<Record<string, number>>} models
+ * @returns {Map<string, any[]>}
+ */
+export function boatTriggers(root, modelOf, models) {
+  const byId = new Map(Object.entries(models).map(([k, v]) => [v, k]));
+  const out = new Map();
+  const stack = root ? [root] : [];
+  while (stack.length) {
+    const n = stack.pop();
+    const id = modelOf(n?.name);
+    const box = id != null ? byId.get(id) : null;
+    if (box) { if (!out.has(box)) out.set(box, []); out.get(box).push(n); }
+    for (const c of n?.children ?? []) stack.push(c);
+  }
+  return out;
+}
+
+/**
+ * A boat of mine's rows, in the plaque's shape ({id, label, disabled, why}).
+ * @param {{ boxes: Map<string, any[]>|Set<string>, packable?: boolean, sailingThis?: boolean, sailing?: boolean,
+ *   aboard?: boolean, passengers?: number, variants?: boolean }} s
+ */
+export function boatMenuRows(s) {
+  const has = (b) => s.boxes.has(b);
+  const rows = [];
+  if (has('drive')) rows.push({ id: BOAT_VERB.helm, label: s.sailingThis ? BOAT_MENU_TEXT.leave : BOAT_MENU_TEXT.helm });
+  if (has('board') && !s.aboard && !s.sailingThis) rows.push({ id: BOAT_VERB.board, label: BOAT_MENU_TEXT.board });
+  if (has('cargo')) rows.push({ id: BOAT_VERB.cargo, label: BOAT_MENU_TEXT.cargo });
+  if (has('drive')) {
+    const why = !s.packable ? BOAT_MENU_WHY.moored : s.sailingThis ? BOAT_MENU_WHY.driving : (s.passengers ?? 0) > 0 ? BOAT_MENU_WHY.passengers : null;
+    rows.push(why ? { id: BOAT_VERB.pack, label: BOAT_MENU_TEXT.pack, disabled: true, why } : { id: BOAT_VERB.pack, label: BOAT_MENU_TEXT.pack });
+  }
+  if (has('variant') && s.variants) rows.push(s.sailing ? { id: BOAT_VERB.variant, label: BOAT_MENU_TEXT.variant, disabled: true, why: BOAT_MENU_WHY.sailing } : { id: BOAT_VERB.variant, label: BOAT_MENU_TEXT.variant });
+  if (has('status')) rows.push({ id: BOAT_VERB.status, label: BOAT_MENU_TEXT.status });
+  if (has('position')) rows.push({ id: BOAT_VERB.position, label: BOAT_MENU_TEXT.position });
+  return rows;
+}
+
+/**
+ * The row lit first: the verb of the box under the crosshair (Steal mode at the helm's box: the pack); on the hull the
+ * top row. -1 where the box keeps its own press and lists nothing: a door (it turns over where it hangs), or a box
+ * whose verb this boat does not list (a ship's variant box with no styles - the mod's own "no variants" says so).
+ * @param {string|null} box   the box aimed at (null: the hull)
+ * @param {{id: string}[]} rows
+ * @param {string} [mode]     the player's interaction mode
+ */
+export function boatMenuStart(box, rows, mode) {
+  if (box == null) return 0;
+  const verb = box === 'drive' ? (mode === 'steal' ? BOAT_VERB.pack : BOAT_VERB.helm) : box;
+  return rows.findIndex((r) => r.id === verb);
+}
+
+/** A refused row's press, in the mod's own words where it has them. */
+export const boatMenuRefusal = (why) => (why === BOAT_MENU_WHY.driving ? 'You cannot pack a boat you are driving!'
+  : why === BOAT_MENU_WHY.passengers ? 'You cannot pack a boat with passengers aboard!'
+    : why === BOAT_MENU_WHY.moored ? 'A ship from a deed cannot be packed - she stays where she floats.'
+      : why === BOAT_MENU_WHY.sailing ? 'Not while at the helm.' : null);
+
+/**
+ * The box a verb is pressed on: the nearest to `at` of the boat's boxes of that kind (a boat with two ladders boards
+ * at the nearer), or null when the boat carries none.
+ * @param {Map<string, any[]>} boxes
+ * @param {string} verb
+ * @param {number[]} at
+ * @param {(n: any) => number[]} posOf
+ */
+export function boatVerbNode(boxes, verb, at, posOf) {
+  const list = boxes.get(BOAT_VERB_BOX[verb]?.box ?? '') ?? [];
+  let best = null, bestD = Infinity;
+  for (const n of list) {
+    const p = posOf(n);
+    const d = (p[0] - at[0]) ** 2 + (p[1] - at[1]) ** 2 + (p[2] - at[2]) ** 2;
+    if (d < bestD) { bestD = d; best = n; }
+  }
+  return best;
+}
+
+/**
+ * A verb pressed on a boat of mine: past the mod's reach from the point aimed at, nothing (the box's press is silent
+ * there); a row not listed, nothing; a refused row, its words said; else the mod's own activation on the verb's box
+ * nearest `at`, in the verb's mode (the player's own where the verb has none). Returns what happened.
+ * @param {{ boxes: Map<string, any[]>, rows: {id: string, disabled?: boolean, why?: string}[], verb: string|null,
+ *   distance: number, reach: number, at: number[], posOf: (n: any) => number[], hit: object, mode: string,
+ *   models: Readonly<Record<string, number>>, activate: (model: number, hit: object, mode: string) => any,
+ *   say: (line: string) => void }} p
+ * @returns {'far'|'none'|'refused'|'pressed'}
+ */
+export function pressBoatVerb(p) {
+  if (!(p.distance <= p.reach)) return 'far';
+  const row = p.rows.find((r) => r.id === p.verb);
+  if (!row) return 'none';
+  if (row.disabled) { const line = boatMenuRefusal(row.why); if (line) p.say(line); return 'refused'; }
+  const how = BOAT_VERB_BOX[row.id];
+  const node = boatVerbNode(p.boxes, row.id, p.at, p.posOf);
+  if (!how || !node) return 'none';
+  p.activate(p.models[how.box], { ...p.hit, node, distance: p.distance }, how.mode ?? p.mode);
+  return 'pressed';
+}

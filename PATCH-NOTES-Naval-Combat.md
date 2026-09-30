@@ -282,3 +282,10 @@ A deep audit of everything above. The highlights:
 - **A fight still comes first.** A navy ship at her berth will sail out to meet a pirate, and a merchant will flee. Once the fight is over, she heads back to her berth.
 - **Fixed: an empty sea online.** Sailing out while a friend was still in town could leave you with no ships at all at sea. The sea now fills around whoever is actually on the water.
 - **Faster zoom at the helm.** The mouse wheel zooms in and out at the helm much more quickly: from first person to framing your whole ship in about a dozen notches, instead of scrolling for ages before it picked up speed. On foot nothing changes.
+
+## A boat menu (2026-09-30)
+
+- **Everything from one menu.** Look at any part of your own boat and its options appear under the crosshair, like the loot list: Take the helm, Board, Open storage, Pick up, Change style, Status and Position (whichever your boat has). Scroll the mouse wheel or the d-pad to choose, and press activate.
+- **Your old habits still work.** Looking right at the helm, the chest or the ladder lights that option first, so a single press does what it always did. In Steal mode the helm lights "Pick up".
+- **No more guessing why.** An option you can't use right now is shown with the reason, such as "Pick up (at her helm)" or "Pick up (passengers aboard)". Ships from a deed can't be picked up.
+- **On a phone, or with the classic interface,** tap the boat's hull to get the same options as a list.
