@@ -52,7 +52,7 @@ test('FT18: ten rows are four, and nothing they offered is lost - every key, def
     assert.equal(row(gone), undefined, `${gone} is condensed`);
   }
   assert.equal(FEATURES.length, 67);   // GUIDE5's quest marks, GUIDE4's quest tracker and GUIDE3's quest herald (2026-09-29); NAV's Naval Combat row the port's own (2026-09-28); FORAGE1's Foraging row (2026-09-28, MERGE 2); IIL1-T's modded lighting (2026-09-27); PERF-SCALE's render scale (2026-09-25) is the one row added since; the sea update's four mod rows (AS1, DS1, WA1, DW-D) came with its merge, OH-A's Ocean Holes row after it, and CSA-A's Come Sail Away row; EM3-3D's 3D dungeon map (2026-09-27); RAID1's World Events - Raiding Parties (2026-09-27)
-  const want = { grassDensity: 1, grassStyle: 'pixel', floraSway: true, windWisps: true, quickbarStyle: 'quickbar', quickslots: true,
+  const want = { grassDensity: 1, grassStyle: 'pixel', floraSway: true, windWisps: true, quickbarStyle: 'hotbar', quickslots: true,   // HB-LYCFREE: the hotbar by default (PIN MOVED)
     'blood-gore': 'normal', 'blood-marks': true, 'blood-overkill': true, 'blood-screen': true };
   for (const [k, v] of Object.entries(want)) assert.equal(FEATURE_PREF_DEFAULTS[k], v, `${k} keeps its default`);
   assert.deepEqual(row('grass').control.parts.map((p) => p.key), ['grassStyle']);
@@ -99,7 +99,7 @@ test('FT18: the wind\'s bar is both - Off turns both off, On both on, and either
 
 test('FT18: the quick slots are one bar of three - Off hides the diamond and keeps its keys, Hotbar wins the read (mutant: the hotbar\'s precedence, or Off writing the style)', () => {
   fresh();
-  assert.equal(quickSlotsRead(), 'diamond', 'the diamond by default, as QS and HB1 shipped');
+  assert.equal(quickSlotsRead(), 'hotbar', 'the hotbar by default since HB-LYCFREE (QS and HB1 shipped the diamond; PIN MOVED)');
   quickSlotsWrite('off');
   assert.deepEqual([getPref('quickslots'), getPref('quickbarStyle')], [false, 'quickbar']);
   assert.equal(quickSlotsRead(), 'off');

@@ -51,7 +51,7 @@ import { itemLongName, conditionPercentage } from './itemInfo.js';
 import { isEnchanted } from './inventory.js';   // UI2: an enchanted piece shows its wear (its powers spend its condition - the pack's rule)
 
 import { expandRowValues } from './quest/questMacros.js';   // MACROS1: a used item's record through its own context (%map)
-import { racialSuppressInventory } from './lycanthropy.js';   // DISC10-E L3: the pack's refusal, at the two doors that reach into it
+import { racialSuppressInventory, LYCANTHROPY_SPELL_TAG } from './lycanthropy.js';   // DISC10-E L3: the pack's refusal, at the two doors that reach into it; HB-LYCFREE: the curse's free spell
 import { hotbarInForce } from './uiSkin.js';   // AUDIT CONTRIB H1: the diamond put away while the hotbar is
 /** The slots a player fills. The two consumables are what the diamond's
  *  top and bottom cells show; `swap` is the second weapon the off-hand
@@ -587,6 +587,10 @@ const bookOf = (entity) => (Array.isArray(entity?.spells) ? entity.spells : []);
 /** A spell this slot can hold: one with the numeric index that is the
  *  port's name for it. Everything the book can contain has one. */
 const keyedSpell = (sp) => !!sp && typeof sp === 'object' && Number.isFinite(sp.index);
+/** HB-LYCFREE (2026-09-30, Mac: "Lycanthropy costs to cast from hotbar when it shouldnt"): the books' own law - the
+ *  curse's spell readies with DFU's noSpellPointCost (DaggerfallSpellBookWindow: `Tag == lycanthropySpellTag`), so
+ *  from the slot and the bar as from the book it costs nothing. */
+const freeReady = (sp) => ({ free: sp?.tag === LYCANTHROPY_SPELL_TAG });
 
 /** The slot's stored spell kind, or null. A copy, as quickslotEntry is. */
 export const spellQuickslot = () => (spellState ? { ...spellState } : null);
@@ -651,7 +655,7 @@ function spellQuickslotPressNow({ entity = null, magic = null, say = null } = {}
   if (hotbarCasting) {
     // AUDIT CONTRIB H3: a ready the engine REFUSED (silence, no spell points, the hands mid-cast) is a refusal - the
     // hotbar flashed it as a cast
-    const took = magic?.readiedIndex?.() === r.index ? true : magic?.readySpell?.(r.spell);
+    const took = magic?.readiedIndex?.() === r.index ? true : magic?.readySpell?.(r.spell, freeReady(r.spell));
     const armed = magic?.readiedIndex?.() === r.index;
     const fired = armed && magic?.interceptAttack?.(true) === true;
     return { kind: fired ? 'cast' : took === false ? 'refused' : 'pressed', name: r.name, readied: armed };
@@ -662,7 +666,7 @@ function spellQuickslotPressNow({ entity = null, magic = null, say = null } = {}
     // `readied` is the state AFTER the press, as QS4's `lit` is.
     return { kind: put ? 'unreadied' : 'pressed', name: r.name, readied: !put };
   }
-  magic?.readySpell?.(r.spell);
+  magic?.readySpell?.(r.spell, freeReady(r.spell));
   // THE KIND DOES NOT JUDGE THE ENGINE. `readied` is simply whether the
   // spell is in hand now, and a spell NOT in hand is not a refusal: a
   // CasterOnly spell readies and CASTS in the same breath (DFU's
