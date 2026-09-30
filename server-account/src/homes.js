@@ -127,6 +127,11 @@ const realmDecorBackStatement = (db, mapId, buildingKey) => db.prepare(`SELECT C
 async function realmRelease(ctx, player, at, home) {
   const { db, bucket } = ctx;
   if (!home) return { error: 'no-home' };
+  // HOME-CROSSED (FIELD BUGS 2026-09-30, Seanobi's "Sold House for 600 K, Got Nothing Back"): A HOUSE NO RECORD PAID FOR
+  // STAYS A HOUSE. Customs carried it in (CUSTOMS-CARRY) and its deed share of nothing was paid while the house and its
+  // pieces went - RESTORE's law for a deed (Mac: "Keep all, can't sell"), a home's now: never bought back online. (Another
+  // character's house is still the batch's own refusal, `no-home`.)
+  if (home.char_id === at.id && !(Number(home.paid) > 0)) return { error: 'home-crossed' };
   const d = await realmDecorBackStatement(db, home.map_id, home.building_key).first();
   const decorCount = Number(d?.n) || 0, decorBack = Math.max(0, Number(d?.back) || 0);
   const refund = homeSaleRefund(Math.max(0, Number(home.paid) || 0));
@@ -224,7 +229,7 @@ export async function homesInTown({ db, nowS = Math.floor(Date.now() / 1000) }, 
   // HOME-RENT: each home's rooms still free to rent (how many, and the cheapest a day), and - for the character the
   // caller names - the end of its own tenancy there, which opens the door to it
   const me = typeof character === 'string' && CHAR_ID_RE.test(character) ? character : '';
-  const { results = [] } = await db.prepare(`SELECT h.building_key, h.player, h.char_id, h.owner_name, h.entry, h.look,
+  const { results = [] } = await db.prepare(`SELECT h.building_key, h.player, h.char_id, h.owner_name, h.entry, h.paid, h.look,
       (SELECT COUNT(*) FROM home_rooms r WHERE r.map_id = h.map_id AND r.building_key = h.building_key AND r.listed = 1 AND (r.tenant IS NULL OR r.until <= ?1)) AS vacant,
       (SELECT MIN(r.price) FROM home_rooms r WHERE r.map_id = h.map_id AND r.building_key = h.building_key AND r.listed = 1 AND (r.tenant IS NULL OR r.until <= ?1)) AS rent_from,
       (SELECT MAX(r.until) FROM home_rooms r WHERE r.map_id = h.map_id AND r.building_key = h.building_key AND r.tenant = ?2 AND r.tenant_char = ?3 AND r.until > ?1) AS tenancy
@@ -233,8 +238,10 @@ export async function homesInTown({ db, nowS = Math.floor(Date.now() / 1000) }, 
     mapId,
     homes: results.map((h) => {
       const mine = h.player === player.id;
+      // HOME-CROSSED: my own realm character's house no record paid for is `crossed` - its door asks no price
+      const crossed = mine && REALM_ID_RE.test(String(h.char_id)) && !(Number(h.paid) > 0);
       return {
-        buildingKey: h.building_key, owner: h.owner_name, entry: h.entry, mine, ...(mine ? { character: h.char_id } : {}),
+        buildingKey: h.building_key, owner: h.owner_name, entry: h.entry, mine, ...(mine ? { character: h.char_id } : {}), ...(crossed ? { crossed } : {}),
         ...(Number(h.vacant) > 0 ? { rent: { vacant: Number(h.vacant), from: Number(h.rent_from) } } : {}),
         ...(Number.isSafeInteger(h.tenancy) && h.tenancy > nowS ? { tenant: h.tenancy } : {}),
         ...(h.look ? (() => { const look = homeLookOf(h.look); return look ? { look } : {}; })() : {}),   // HOME-LOOK: how its owner painted it

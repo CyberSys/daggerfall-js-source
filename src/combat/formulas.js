@@ -26,7 +26,9 @@ import { rand } from '../formats/dfRandom.js';
 import { enchantChanceToHitMod, doItemEnchantmentPayloads, PAYLOAD, isEnchantedItem, entityImprovedAdrenalineRush } from '../systems/enchantments.js';   // E1: the enchantment channels + the Strikes payload; AUDIT 39: ImprovesTalents' adrenaline flag lives in the fold's bag   // the monster multi-attack reflex gate (F2)
 import { entityArmorMod, entityWeightMult, weaponDamageMods, weaponBlowMods } from '../systems/entityMods.js';   // RF1: one read per channel - DFU's enchantment channel and every enhancement fold, summed there
 import { liveStat } from '../systems/statMods.js';   // S14: fortify-aware stat reads
-import { skillValue, SKILLS } from '../systems/skills.js';   // S3: real skills (enemies stay flat, verbatim)
+import { skillValue, SKILLS } from '../systems/skills.js';
+import { noteSkillChallenge } from '../systems/skillSoftcap.js';   // SOFTCAP1: the foe a blow was traded with, for the real-use law
+import { mentorArmorValue, mentorGearScale, mentorDamageTakenMult } from '../systems/mentorMode.js';   // SOFTCAP1: mentor mode's overlay   // S3: real skills (enemies stay flat, verbatim)
 import { RACES } from '../systems/races.js';   // CalculateRacialModifiers reads the DFU-numbered race id
 import { SPECIAL_ABILITY_BITS, PROFICIENCY_BITS } from '../systems/specialAdvantages.js';   // AUDIT 21 F2: the Adrenaline Rush bit; CF1: the HandToHand expertise bit
 // NOT from rest.js, which re-exports healingRateModifier FROM here - importing
@@ -400,7 +402,8 @@ export function calculateSuccessfulHit(attacker, target, chanceToHitMod, struckB
   // IncreasedArmorValueModifier + DecreasedArmorValueModifier. The
   // channels are the enchantment fold's (Strengthens/WeakensArmor,
   // BadReactionsFrom) - the audit-F5 zeros, live at last.
-  chance += (target.armorValues?.[struckBodyPart] ?? 0) + entityArmorMod(target, struckBodyPart);   // RF1: the enchantment channels and the port's points on the struck part, one read
+  // SOFTCAP1: a mentored target's armour keeps its gear-scale share of its protection (mentorMode.js)
+  chance += mentorArmorValue(target, target.armorValues?.[struckBodyPart] ?? 0) + entityArmorMod(target, struckBodyPart);   // RF1: the enchantment channels and the port's points on the struck part, one read
   // AUDIT 21 F2: the adrenaline rush is APPLIED now, in DFU's own slot
   // (FormulaHelper.cs:811, between the armour term and the stats term).
   chance += adrenalineRushToHit(attacker, target);
@@ -558,6 +561,12 @@ export function damageEquipment(attacker, target, damage, weapon, struckBodyPart
 
 export function calculateAttackDamage(attacker, target, { weapon = null, damageMod = 0, toHitMod = 0, backstabChance = 0, weaponAnimTime = 0, rolls = Math.random, dfRand = rand, onMonsterHit = null, onInflictPoison = null, say = null, enchantCtx = null, playerReflexes = null, unaware = false } = {}) {
   if (!attacker || !target) return 0;
+  // SOFTCAP1: THE FOE THIS BLOW WAS TRADED WITH, remembered on the player
+  // for the tallies that follow it (hit or miss - a swing at a tough foe is
+  // real use; skillSoftcap.js overcapTallyWeight). Both directions: my
+  // weapon skills learn from whom I strike, my Dodging from who strikes me.
+  if (attacker.isPlayer && !attacker.peer) noteSkillChallenge(attacker, target);
+  if (target.isPlayer && !target.peer) noteSkillChallenge(target, attacker);
   // HN1: THE RESOLUTION IS REPORTED, once per attack, through one seam
   // (setPlayerAttackHook - the enhanced HUD's damage numbers). Every
   // path out of this function tells the hook what happened: a miss, an
@@ -710,6 +719,18 @@ export function calculateAttackDamage(attacker, target, { weapon = null, damageM
   // whichever formula rolled the hit; the concealment break and the HUD below see the real number.
   if (!attacker.isPlayer && damage > 0 && Number.isFinite(attacker.damageScale) && attacker.damageScale !== 1) {
     damage = Math.max(1, Math.round(damage * attacker.damageScale));
+  }
+  // SOFTCAP1: MENTOR MODE at the same tail - a mentored player's weapon lands
+  // at its gear scale, and a mentored player takes blows as if carrying the
+  // mentored health pool (mentorMode.js: rawMax / mentoredMax). Both are 1
+  // outside mentor mode, so no other blow moves.
+  if (damage > 0 && attacker.isPlayer && !attacker.peer) {
+    const k = mentorGearScale(attacker);
+    if (k < 1) damage = Math.max(1, Math.round(damage * k));
+  }
+  if (damage > 0 && target?.isPlayer && !target.peer && !attacker.isPlayer) {
+    const m = mentorDamageTakenMult(target);
+    if (m > 1) damage = Math.max(1, Math.round(damage * m));
   }
   // AUDIT 24 (wave 31) - A LANDED HIT ENDS THE ATTACKER'S NORMAL-POWER
   // CONCEALMENT, and it was unported at every door.

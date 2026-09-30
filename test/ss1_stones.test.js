@@ -659,7 +659,7 @@ test('SS5 a classic box holds its rows on the screen: a row wider than fourteen 
   // the three classic doors a refusal or the dismantle's question comes through (pinned at their one line each)
   assert.match(read('src/ui/nativeInventory.js'), /const rows = box\.painting \? box\.rows : fitBoxRows\(font, box\.rows\);/, 'the pack\'s boxes - never a painting\'s, whose picture wrapping would push off the panel');
   assert.match(read('src/ui/nativeTrade.js'), /this\._boxLayout = layoutMessageBox\(font, fitBoxRows\(font, this\.box\.rows\), buttons\);/, 'the counter\'s box');
-  assert.match(read('src/ui/yesNoBox.js'), /const box = layoutMessageBox\(font, fitBoxRows\(font, this\.rows\), \[MB_BUTTONS\.Yes, MB_BUTTONS\.No\]\);/, 'the Yes/No box');
+  assert.match(read('src/ui/yesNoBox.js'), /const box = layoutMessageBox\(font, fitBoxRows\(font, this\.rows\), this\.okOnly \? \[MB_BUTTONS\.OK\] : \[MB_BUTTONS\.Yes, MB_BUTTONS\.No\]\);/, 'the Yes/No box (and SOFTCAP3\'s OK box)');
 });
 
 // ── AUDIT SS (2026-09-27, Mac: "audit this" - SS1-SS5 end to end) ──

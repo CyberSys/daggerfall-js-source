@@ -89,6 +89,6 @@ test('MAC-LVL1 (LIVED1) by source: no credit is banked, spent or saved - the gat
   assert.doesNotMatch(rd('src/systems/save.js'), /'restSimMinutes'/, 'the save carries no credit');
   const sh = rd('src/scenes/shared.js');
   assert.doesNotMatch(sh, /restSimMinutes/, 'nothing banks or spends it');
-  assert.match(sh, /return raiseSkills\(entity, Math\.floor\(ownMinutes\(\)\), rolls, onLevelUp,/, 'RaiseSkills\' gate on the character\'s clock');
+  assert.match(sh, /const raised = raiseSkills\(entity, Math\.floor\(ownMinutes\(\)\), rolls, levelUpHook,/, 'RaiseSkills\' gate on the character\'s clock');
   assert.doesNotMatch(rd('src/systems/restSession.js'), /creditSkillMinutes/);
 });

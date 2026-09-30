@@ -33,7 +33,7 @@ import { totalGoldAmount } from '../systems/court.js';   // PlayerEntity.GetGold
 import { entityMaxEncumbrance, handToHandMinDamage, handToHandMaxDamage } from '../combat/formulas.js';   // U10; AUDIT 63 F34: CalculateHandToHandMin/MaxDamage
 import { STAT_KEYS_ORDER } from '../systems/chargen.js';
 import { statDescriptionRows } from '../systems/talkMacros.js';   // ATTRMACRO1: SetTextTokens' macro pass over TEXT.RSC records 0..7
-import { SKILLS, SKILL_NAMES, skillValue, getSkillRecentlyIncreased, resetSkillsRecentlyRaised } from '../systems/skills.js';
+import { SKILLS, SKILL_NAMES, skillValue, skillValueText, getSkillRecentlyIncreased, resetSkillsRecentlyRaised } from '../systems/skills.js';
 import { applyLevelUp, bonusPoolFor, LEVELUP_SKILL_SUM_PER_LEVEL } from '../systems/advancement.js';
 import { usesVirtueLeveling, levelBarProgress, LEVELUP_TOTAL } from '../systems/oblivionLeveling.js';   // ORL1: whose law levels this character
 import { ActionTextBox } from './actionText.js';   // the mustDistributeBonusPoints refusal, ClickAnywhereToClose
@@ -54,6 +54,8 @@ import { ENTER_NEW_NAME } from './itemMakerWindow.js';          // CM4: Internal
 import { healthStatusRows } from '../systems/healthStatus.js';   // CM4: CreateHealthStatusBox's rows
 import { affiliations } from '../systems/affiliations.js';   // CM4: ShowAffiliationsDialog's book - GUILD-REP: one model, both skins
 import { firstHotkey } from '../systems/dialogShortcuts.js';   // CM4: the four buttons' DaggerfallShortcut bindings
+import { YesNoBoxWindow } from './yesNoBox.js';   // SOFTCAP3: the Master Skills switch asks in DFU's own Yes/No box
+import { masterSkillsActive, masterSkillsSwitchable, masterSkillsBlockReason, masterSkillsStatusText, setMasterSkills, MASTER_SKILLS_OFFER_ROWS, MASTER_SKILLS_INFO_ROWS, MASTERY_GROUP_NAMES, masterySlots, masteryCandidates, masteryChoiceRows, masterSkill, isMasteredSkill, careerGroupOf } from '../systems/masterSkills.js';   // SOFTCAP3/4
 import { liveRaceTemplate } from '../systems/vampirism.js';   // DISC10-D V5: the live race the sheet names
 /** AUDIT LIVED1 Q: the sheet's due column online - "in 359 days" / "due now"; null offline, where DFU's date stands. */
 const loanDueShort = (due) => { const s = ownTimeLeftShort(due); return s == null ? null : s === 'now' ? 'due now' : `in ${s}`; };
@@ -523,7 +525,7 @@ export class CharSheet {
   input(action, e = null) {
     // A pushed window owns the keyboard until it closes.
     if (this.child) { this.child.input?.(action, e); this._stepChild(); return; }
-    this.notice = null;
+    this.notice = null; this.noticeOk = false;
     // CM4: the four residual buttons' DaggerfallShortcut bindings
     // (CharacterSheetName N, CharacterSheetLevel V, CharacterSheetHealth,
     // CharacterSheetAffiliations), ahead of the page digits and the
@@ -553,6 +555,7 @@ export class CharSheet {
     const pages = { 1: 1, 2: 2, 3: 3, 4: 4, Digit1: 1, Digit2: 2, Digit3: 3, Digit4: 4 };
     const p = pages[action];
     if (p) { this.page = this.page === p ? 0 : p; return; }
+    if (this.page && (action === 'KeyM' || action === 'm')) { this._masterSkillsPrompt(); return; }   // SOFTCAP3: the skill page's Master Skills row
     if (this.page && (action === 'back' || action === 'Escape')) { this.page = 0; return; }
     // MAC-C: the toggle key is the REGISTRY's, not the literal 'F5'.
     // This window takes RAW codes (isChoiceWindow), so the code is
@@ -602,6 +605,8 @@ export class CharSheet {
     // 58 attribute-description box on top of the dialog instead. It also
     // reached the four skill buttons and the nav row under the old
     // sheet-anchored plate. One click, and the dialog is gone.
+    // SOFTCAP3: ...except its own last row, the Master Skills switch - a click there asks, as M does
+    if (this.page && this._masterRow && inRect(this._masterRow, vx, vy)) { audio.playOneShot(SOUND.ButtonClick, 1); this._masterSkillsPrompt(); return true; }
     if (this.page) { this.page = 0; return true; }
     const R = CHARSHEET_RECTS;
     // The rollout's own hit rects, while it is mounted: the eight stat
@@ -723,7 +728,7 @@ export class CharSheet {
     const label = (text, x, y, opts) => shadowText(renderer, font, String(text), m, x, y, opts);
     // U32: why a button did nothing, when it could not. Drawn over the
     // sheet's own art, cleared by the next key or click.
-    if (this.notice) label(this.notice, 8, 190, { color: [1, 0.5, 0.4, 1] });
+    if (this.notice) label(this.notice, 8, 190, { color: this.noticeOk ? [0.9, 0.9, 0.85, 1] : [1, 0.5, 0.4, 1] });   // SOFTCAP3: a switch that moved says so in white
     label(e.name ?? '', 41, 4);
     label(liveRaceTemplate(e)?.name ?? e.race ?? 'Breton', 41, 14);   // DISC10-D V5: PlayerEntity.RaceTemplate.Name (DaggerfallCharacterSheetWindow.cs:398) - the compound race
     label(e.career?.name ?? '', 46, 24);
@@ -742,7 +747,7 @@ export class CharSheet {
     // increased above, default when they agree. The port drew all
     // eight at the shadow-text default, so the at-a-glance warning DFU
     // gives after a disease or a drain spell was absent. `stats` IS
-    // the permanent map here (statMods.js:31 clamps permanent + mods).
+    // the permanent map here (statMods.js:32 clamps permanent + mods).
     STAT_KEYS_ORDER.forEach((k, i) => {
       // While levelling the sheet's own stat labels go EMPTY (:412)
       // and the mounted rollout fills the same panels with its working
@@ -820,7 +825,7 @@ export class CharSheet {
     const twoColumn = this.page === 4;   // :835 is the only caller that passes true
     const showHth = ids.includes(SKILLS.HandToHand);
     const lines = (twoColumn ? Math.ceil(ids.length / 2) : ids.length) + (showHth ? 1 : 0);
-    const h = lines * 9 + 14;
+    const h = (lines + 1) * 9 + 14;   // SOFTCAP3: + the Master Skills row under the skills
     const w = twoColumn ? 246 : 130;
     const x = twoColumn ? Math.floor((320 - w) / 2) : 8;
     const y = twoColumn ? Math.floor((200 - h) / 2) : 100;
@@ -836,15 +841,70 @@ export class CharSheet {
     // recently-raised row is pale BLUE here rather than the orange
     // DaggerfallHighlightTextColor (:54) this used to draw.
     ids.forEach((id, i) =>
-      shadowText(renderer, font, `${SKILL_NAMES[id]} ${skillValue(e, id)}%`,   // AUDIT 65 CV-1: GetSkillSummary's value token is GetLiveSkillValue (TextProvider.cs:503), not the permanent array
+      shadowText(renderer, font, `${SKILL_NAMES[id]} ${skillValueText(e, id)}%`,   // AUDIT 65 CV-1: GetSkillSummary's value token is GetLiveSkillValue (TextProvider.cs:503), not the permanent array
         m, x + 4 + (twoColumn && i % 2 ? 136 : 0), y + 13 + (twoColumn ? Math.floor(i / 2) : i) * 9,
-        { color: getSkillRecentlyIncreased(e, id) ? SKILL_DIALOG_HIGHLIGHT_COLOR : [0.9, 0.9, 0.85, 1] }));
+        { color: getSkillRecentlyIncreased(e, id) ? SKILL_DIALOG_HIGHLIGHT_COLOR : isMasteredSkill(e, id) ? [0.95, 0.84, 0.48, 1] : [0.9, 0.9, 0.85, 1] }));   // SOFTCAP4: a mastered skill in gold
     if (showHth) {
       const v = skillValue(e, SKILLS.HandToHand);
       shadowText(renderer, font,
         `${SKILL_NAMES[SKILLS.HandToHand]} dmg: ${handToHandMinDamage(v)}-${handToHandMaxDamage(v)}`,
         m, x + 4, y + 13 + (lines - 1) * 9, { color: [0.9, 0.9, 0.85, 1] });
     }
+    // SOFTCAP3: THE MASTER SKILLS ROW - its state and its key, in the dialog's highlight gold; a click on it or M
+    // asks in DFU's Yes/No box (the rest of the plate still closes on a click, as ShowSkillsDialog's box does)
+    // SOFTCAP4: on a CAREER page, with Master Skills in force, the row is that group's masteries (2/2/1)
+    const my = y + 13 + lines * 9;
+    const grp = ['primary', 'major', 'minor'][this.page - 1] ?? null;
+    const slots = grp && masterSkillsActive(e) ? masterySlots(e, grp) : null;
+    shadowText(renderer, font, slots ? `Mastered ${slots.used}/${slots.max}  (M)` : `${masterSkillsStatusText(e)}  (M)`, m, x + 4, my, { color: [0.86, 0.73, 0.35, 1] });
+    this._masterRow = [x, my - 1, w, 9];
+  }
+
+  /** SOFTCAP3: the Master Skills row, classic face. ONLINE it is always on: DFU's OK box explains it. OFFLINE it is
+   *  the switch: a refusal (a dungeon) is the sheet's own notice line; otherwise DFU's Yes/No box with the warning (on)
+   *  or what switching off keeps (off). Either box is pushed as the sheet's child. */
+  _masterSkillsPrompt() {
+    const e = this.entity;
+    // SOFTCAP4: a career page with Master Skills in force - the group's MASTERY: a skill that can be mastered now is
+    // asked about in DFU's Yes/No box (permanent, with the group's count before and after; a second M offers the
+    // group's next one), and with none the OK box says the group's count and the rule
+    const grp = ['primary', 'major', 'minor'][this.page - 1] ?? null;
+    if (grp && masterSkillsActive(e)) {
+      const pool = masteryCandidates(e).filter((id) => careerGroupOf(e, id) === grp);
+      this.page = 0;
+      if (!pool.length) {
+        const sl = masterySlots(e, grp);
+        this.child = new YesNoBoxWindow({ okOnly: true, rows: [
+          `${MASTERY_GROUP_NAMES[grp]} skills: ${sl.used} of ${sl.max} mastered.`, '',
+          'A skill can be mastered once it reaches 100.', 'A mastered skill can climb past 100,', 'up to 200. This cannot be undone.'] });
+        return;
+      }
+      const id = pool[(this._masteryPick = ((this._masteryPick ?? -1) + 1)) % pool.length];
+      const more = pool.length > 1 ? ['', `${pool.length} skills are ready - No, then M, for the next.`] : [];   // SOFTCAP6
+      this.child = new YesNoBoxWindow({
+        rows: [...masteryChoiceRows(e, id, SKILL_NAMES), ...more],
+        onYes: () => { const r = masterSkill(e, id, SKILL_NAMES); this.notice = r.text; this.noticeOk = r.ok; },
+      });
+      return;
+    }
+    if (!masterSkillsSwitchable(e)) {
+      this.page = 0;
+      this.child = new YesNoBoxWindow({ rows: MASTER_SKILLS_INFO_ROWS.slice(1), okOnly: true });
+      return;
+    }
+    const reason = masterSkillsBlockReason(e);
+    if (reason) { this.notice = reason; this.noticeOk = false; return; }
+    const on = masterSkillsActive(e);
+    const rows = on
+      ? ['Turn off Master Skills?', '', 'Skills above 100 will read as 100', 'until you turn it back on.', 'Your progress is kept.', 'Dungeons return to normal.']
+      : MASTER_SKILLS_OFFER_ROWS.slice(1);
+    const answer = (yes) => () => {
+      if (!yes) return;
+      const r = setMasterSkills(e, !on);
+      this.notice = r.text; this.noticeOk = r.ok;
+    };
+    this.page = 0;
+    this.child = new YesNoBoxWindow({ rows, onYes: answer(true), onNo: answer(false) });
   }
 
   _drawFallback(renderer, canvas, font, s) {

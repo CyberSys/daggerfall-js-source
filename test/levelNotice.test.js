@@ -341,7 +341,7 @@ test('AUDIT LV2 F2: an unspent level is announced ONCE, not once per rest', () =
   // DFU RE-OFFERS the sheet on every later pass while the level is
   // unspent - RaiseSkills' tail is outside the skill loop (:1413) and
   // `checkForLevelUp` stays true while `level` is behind the
-  // calculated one (systems/advancement.js:174, and its own comment
+  // calculated one (systems/advancement.js:208, and its own comment
   // says so). Re-opening a window is that law. Re-ANNOUNCING is not:
   // measured before the fix, three rest passes on ONE unspent level
   // played three fanfares and knocked the standing reminder back into
@@ -467,9 +467,9 @@ test('LV2: the strip is the ONE call all four hosts already make, and the fork i
   assert.match(src('src/ui/hud.js'), /drawLevelNotices\(\{ hidden: cursorActive \|\| !hudRenderEnabled\(\) \}\);/);
   // ...and the raises and the mastery go through the same module.
   const shared = src('src/scenes/shared.js');
-  assert.match(shared, /import \{ announceSkillRaise, announceMastery \} from '\.\.\/ui\/levelNotice\.js'/);
+  assert.match(shared, /import \{ announceSkillRaise, announceMastery, announceSkillMilestone \} from '\.\.\/ui\/levelNotice\.js'/);   // SOFTCAP1: and the milestones past 100
   assert.match(shared, /announceMastery\(id, \{ box, rows: \(\) => expandRowValues\(plainLines\(lines\?\.\(MASTERY_TEXT_ID\)\), null\) \}\);/);
-  assert.match(shared, /announceSkillRaise\(id, skillValue\(entity, id\), \{ say \}\)/);
+  assert.match(shared, /announceSkillRaise\(id, displaySkillValue\(entity, id\), \{ say \}\)/);   // SOFTCAP1: the printed 0..200 value
   assert.match(shared, /audio\.playOneShot\(SOUND\.ArenaFanfareLevelUp, 1\);/, 'the mastery fanfare stays in BOTH lanes');
 });
 

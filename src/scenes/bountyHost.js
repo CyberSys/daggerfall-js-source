@@ -78,6 +78,7 @@ export const BOUNTY_REFUSALS = Object.freeze({
  *   regionAt?: (px:number, py:number) => number,   // REP4: the board's region, for the law's thanks
  *   siteOk: (x:number, y:number) => boolean, // may a pack stand on this map pixel
  *   dungeonAt?: (x:number, y:number) => (string|null),   // the game's own dungeon on this pixel, by name
+ *   graveyardAt?: (x:number, y:number) => (string|null),   // GRAVEYARD-BOUNTY: the graveyard on this pixel, by name - its hunt stands outside it
  *   playerPixel: () => ({x:number, y:number} | null),     // outdoors: my pixel; elsewhere null
  *   dungeonPixel?: () => ({x:number, y:number} | null),   // in a dungeon: its entrance's pixel; elsewhere null
  *   canStand: () => boolean,                 // outdoors, awake, not on a journey, not in the water
@@ -128,7 +129,7 @@ export function createBountyHost(deps) {
   const dungeonsFor = (px, py) => {
     const k = `${px},${py}`;
     let d = dungeonsCache.get(k);
-    if (!d) dungeonsCache.set(k, d = bountyDungeons(px, py, deps.dungeonAt));
+    if (!d) dungeonsCache.set(k, d = bountyDungeons(px, py, deps.dungeonAt, deps.graveyardAt));
     return d;
   };
   const postingOf = (id) => {
@@ -175,7 +176,7 @@ export function createBountyHost(deps) {
     return ledger.held.map((h) => {
       const p = postingOf(h.id);
       if (!p) return null;
-      const where = p.kind === 'dungeon'
+      const where = p.kind === 'dungeon' && !p.graveyard
         ? `Where: ${p.place}, ${p.dir} of ${p.town.name} - marked on your map with a black circle.`
         : `Where: ${p.far} ${p.dir} of ${p.town.name} - marked on your map with a black circle.`;
       const lines = [p.tierLabel, p.story, '', `Slain: ${h.killed} of ${p.count} ${p.foes}.`, where, `Reward: ${p.gold} gold pieces and a piece of kit.`];
@@ -427,7 +428,8 @@ export function createBountyHost(deps) {
       if (pack) continue;
       // WHERE the pack stands: the open-ground hunt on its pixel in the open air, the dungeon hunt inside its dungeon
       // (a dungeon holds the player's pixel at its entrance, which is the dungeon's own pixel)
-      const underground = p.kind === 'dungeon';
+      // GRAVEYARD: the pack stands in the open air outside it (the open-ground stand), never down in the crypt
+      const underground = p.kind === 'dungeon' && !p.graveyard;
       const here = underground ? below : outside;
       if (!here || here.x !== p.target.px || here.y !== p.target.py) continue;
       if (underground ? !(deps.canStandDungeon?.() ?? false) : !deps.canStand()) continue;
@@ -516,7 +518,8 @@ export function createBountyHost(deps) {
     /** The black circles, for both maps. */
     mapMarks: () => ledger.held.map((h) => {
       const p = postingOf(h.id);
-      return p ? { cx: p.target.px + 0.5, cy: p.target.py + 0.5, r: BOUNTY_RING_R, label: p.place ? `${p.foes} - ${p.place}` : p.foes, id: h.id } : null;
+      return p ? { cx: p.target.px + 0.5, cy: p.target.py + 0.5, r: BOUNTY_RING_R, label: p.place ? `${p.foes} - ${p.place}` : p.foes, id: h.id,
+        place: p.kind === 'dungeon', farmKey: p.farm ? p.slotKey : null } : null;   // BOUNTY-SNAP: what the Overworld's click walks to
     }).filter(Boolean),
     /** The quest log's rows for my bounties (the world host folds them into questBridge.questLog). */
     questLogEntries,

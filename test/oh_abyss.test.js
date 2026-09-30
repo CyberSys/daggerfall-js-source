@@ -713,7 +713,7 @@ test('OH-E the loot events: EnemyEntity.OnLootSpawned carries the table key, the
   offT();
   assert.equal(t.length, 2);
   const ctx = readFileSync(new URL('../src/scenes/dungeonContext.js', import.meta.url), 'utf8');
-  assert.match(ctx, /addPileLootExtras\(items, lootKey, Math\.random, \{ locationIndex: dfLocation\.mapTableData\.dungeonType, luck: liveStat\(playerEntity, 'luck'\), level: playerEntity\.level, where: 'dungeon' \}\);[^\n]*\n\s*rollLootRarity\(/, 'the dungeon\'s pile: the trio and the event, then the port\'s rarity roll');
+  assert.match(ctx, /addPileLootExtras\(items, lootKey, Math\.random, \{ locationIndex: dfLocation\.mapTableData\.dungeonType, luck: liveStat\(playerEntity, 'luck'\), level: effectiveLevel\(playerEntity\), where: 'dungeon' \}\);[^\n]*\n\s*rollLootRarity\(/, 'the dungeon\'s pile: the trio and the event, then the port\'s rarity roll');
   const src = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
   const body = src.slice(src.indexOf('const ohUpgrade = '), src.indexOf('_ohLootOff = () =>'));
   assert.ok(body.includes('ohAbyss.shouldUpgradeLoot()'), 'ShouldUpgradeLoot gates both');
@@ -830,7 +830,10 @@ test('AUDIT OH-F B5 online: the Recall renames before the room is joined; a deat
   const oh = src.indexOf('oceanHoles.checkSettings(); ohAbyss?.update(); }');
   assert.ok(oh > 0 && oh < src.indexOf('onlineFrame(now, dt);'), 'the abyss\'s Update before the online frame reads the room key');
   assert.match(src, /const ohReturn = wasInDungeon \? ohAbyss\?\.returnPoint\(\) \?\? null : null;/);
-  assert.ok(src.indexOf('const ohReturn = wasInDungeon') < src.indexOf("if (mode !== 'exterior') modes?.forceExitToExterior();\n      const px = ohReturn?.pixel ?? playerTravelPixel();"), 'read before the exit clears the abyss');
+  // RESPAWN-GROUND (FIELD BUGS 2026-09-30, PIN MOVED): the pixel is read with the return point, before the rise is
+  // scheduled - so before the exit that clears the abyss, as this pin asked
+  const read = src.indexOf('\n    const px = ohReturn?.pixel ?? playerTravelPixel();');
+  assert.ok(src.indexOf('const ohReturn = wasInDungeon') < read && read < src.indexOf("if (mode !== 'exterior') modes?.forceExitToExterior();", read), 'read before the exit clears the abyss');
   assert.match(src, /if \(ohReturn\) \{ await ohTeleportToWorld\(ohReturn\.worldX, ohReturn\.worldZ\); await ohAbyss\.standAtPit\(ohReturn\); \}/);
 });
 

@@ -364,12 +364,13 @@ test('AUDIT REALM L1-F3: a realm record is paid back only what realm records pai
   const sale = await A.homes.release(1234, 5, at());
   assert.deepEqual([sale.ok, sale.error], [false, 'no-home'], 'not the realm character\'s house');
   assert.equal((await s.saveOf(A)).bankAccounts[17].accountGold, 0);
-  // (c) a house customs carried in from before the realm (no record paid for it): its sale pays nothing - and says so
+  // (c) a house customs carried in from before the realm (no record paid for it): no gold - and HOME-CROSSED (FIELD BUGS
+  // 2026-09-30, PIN MOVED): no sale at all; it was sold for nothing and taken, house and pieces
   s.env.DB._raw.prepare("INSERT INTO homes (map_id, building_key, player, char_id, owner_name, region, entry, price, bought_at) VALUES (77, 9, ?, ?, 'Arthago', 17, 'private', 10000000, 1)").run(A.id, A.char);
   s.env.DB._raw.prepare(`INSERT INTO home_decor (map_id, building_key, id, model, place, placed_at) VALUES (77, 9, 'p1', 41000, '{"pos":[0,0,0],"rot":[0,0,0],"scale":1,"paid":400}', 1)`).run();
   const old = await A.homes.release(77, 9, at());
-  assert.deepEqual([old.ok, old.data.refund, old.data.decorBack], [true, 0, 0], 'a house and a piece no record paid for: no gold');
-  A.session = createRealmSession({ io: A.io, id: A.char, lease: A.lease, seq: old.data.realm.seq });
+  assert.deepEqual([old.ok, old.error], [false, 'home-crossed'], 'a house and a piece no record paid for: kept, no gold');
+  assert.ok(s.env.DB._raw.prepare('SELECT 1 FROM home_decor WHERE map_id = 77 AND building_key = 9').get(), 'its piece stands');
   assert.equal((await s.saveOf(A)).bankAccounts[17].accountGold, 0);
   // a house the record bought pays back the deed share of what it paid
   const bought = await A.homes.claim({ mapId: 55, buildingKey: 3, region: 17, character: A.char, price: 100_000, realm: at() });
@@ -410,7 +411,8 @@ test('AUDIT REALM L1-F3: the purse takes only what the service paid the record -
   s.env.DB._raw.prepare("INSERT INTO homes (map_id, building_key, player, char_id, owner_name, region, entry, price, bought_at) VALUES (77, 9, ?, ?, 'Arthago', 17, 'private', 1000000, 1)").run(A.id, A.char);
   const credited = [];
   const sold = await sellOnlineHome(homes, { mapId: 77, buildingKey: 9, credit: (n) => credited.push(n), realm: { act } });
-  assert.deepEqual([sold.ok, sold.refund, credited], [true, 0, [0]], `nothing - never homeRefund(1,000,000) = ${homeRefund(1_000_000)}`);
+  // HOME-CROSSED (FIELD BUGS 2026-09-30, PIN MOVED): refused, where it sold for nothing
+  assert.deepEqual([sold.ok, sold.error, credited], [false, 'home-crossed', []], `nothing - never homeRefund(1,000,000) = ${homeRefund(1_000_000)}`);
   // a house the record bought pays back the deed share of what it paid
   const purse = { gold: 50_000 };
   const buy = () => buyOnlineHome(homes, {

@@ -42,7 +42,7 @@ import {
 } from '../net/homeLaw.js';
 import { RENT_VERB, rentRowLabel, rentTenantLabel } from './homeRent.js';   // HOME-RENT: the door's rows for a room to rent
 import { BUILDING_TYPES, isResidence } from '../world/buildingNames.js';
-import { DEED_SELL_MULT } from './banking.js';
+import { DEED_SELL_MULT, CROSSED_DEED_LINES } from './banking.js';
 
 /** How long a town's answer is believed before a door asks again. */
 export const HOME_TOWN_TTL_MS = 60_000;
@@ -175,6 +175,9 @@ export const homeOwnerLines = (home) => ['This is your home.', homeEntryLine(hom
 export const homeEntryLine = (entry) => `Who may enter: ${HOME_ENTRY_WORDS[entry] ?? HOME_ENTRY_WORDS[HOME_ENTRY_DEFAULT]}.`;
 export const homeSaleLines = (refund) => [`Sell your home for ${refund} gold?`, "The gold goes to this region's bank account. Anything left inside is lost.",
   'Its placed pieces go too, for half of what they cost; your own things come back to your pack.'];   // DECOR1e; DECOR2a
+/** HOME-CROSSED (FIELD BUGS 2026-09-30): a home customs carried in is never bought back online - the bank's own words for
+ *  a crossed deed (RESTORE), and that it stays a home. The door says them and asks no price. */
+export const HOME_CROSSED_LINES = Object.freeze([...CROSSED_DEED_LINES, 'It stays your home.']);
 /** The sale said: the home's share, and (DECOR1e) its pieces' half, both into the region's account. */
 export const homeSoldLine = (refund, piecesBack = 0) => `You sold your home. ${refund + piecesBack} gold went to this region's bank account`
   + (piecesBack > 0 ? `, ${piecesBack} of it for its placed pieces.` : '.');
@@ -220,6 +223,7 @@ export function createOnlineHomes({ api, character = () => null, now = () => Dat
             buildingKey: h.buildingKey, owner: h.owner,
             entry: HOME_ENTRIES.includes(h.entry) ? h.entry : HOME_ENTRY_DEFAULT,
             mine: h.mine === true, character: typeof h.character === 'string' ? h.character : null,
+            crossed: h.crossed === true,   // HOME-CROSSED: mine, carried in through customs - no sale
             // HOME-RENT: rooms free to rent (how many, from what a day), and the playing character's tenancy's end
             rent: Number.isSafeInteger(h.rent?.vacant) && h.rent.vacant > 0 && rentPriceOk(h.rent.from) ? { vacant: h.rent.vacant, from: h.rent.from } : null,
             tenant: Number.isSafeInteger(h.tenant) && h.tenant > 0 ? h.tenant : null,
@@ -381,12 +385,30 @@ export async function buyOnlineHome(homes, { mapId, buildingKey, region, price, 
 export const HOME_BUY_BUSY = 'busy';
 /** The houses whose claim is out, per registry (a page has one; a test stands several). */
 const _buying = new WeakMap();
+/** HOME-CROSSED (FIELD BUGS 2026-09-30): the word for a sale already out for the same house - the caller says nothing of
+ *  its own. A second press while the first was out reached the realm's hold (`busy`) and said "The account service had
+ *  a problem. Try again." after the first sale's line. */
+export const HOME_SALE_OUT = 'sale-out';
+/** The houses whose sale is out, per registry. */
+const _selling = new WeakMap();
 
 /**
  * SELL ONE BACK: given up first, and credited only once the service agrees it is gone - Daggerfall's share
  * (homeRefund) of what the service says was paid, never of a price this client names. `credit(n)` pays it in.
  */
 export async function sellOnlineHome(homes, { mapId, buildingKey, credit, realm = null }) {
+  const house = `${mapId}:${buildingKey}`;
+  let selling = _selling.get(homes);
+  if (!selling) _selling.set(homes, selling = new Set());
+  if (selling.has(house)) return { ok: false, error: HOME_SALE_OUT };
+  selling.add(house);
+  try {
+    return await sellOut(homes, { mapId, buildingKey, credit, realm });
+  } finally {
+    selling.delete(house);
+  }
+}
+async function sellOut(homes, { mapId, buildingKey, credit, realm }) {
   if (realm) {
     // REALM P2.2b: the house given up and the record paid back are one write on the service; the purse takes what the
     // service says it paid (an answer that landed but never came back ends the session - `needsAnswer`)

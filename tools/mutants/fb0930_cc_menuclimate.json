@@ -1,0 +1,101 @@
+[
+  {
+    "name": "MENU-CLIMATE-the-numbers-back-one-up",
+    "file": "src/systems/survival/tavernMenu.js",
+    "old": "  [CLIMATES.Ocean]: 'b', [CLIMATES.Desert]: 's', [CLIMATES.Desert2]: 's', [CLIMATES.Mountain]: 'ne', [CLIMATES.Rainforest]: 'b',\n  [CLIMATES.Swamp]: 'se', [CLIMATES.Subtropical]: 'b', [CLIMATES.MountainWoods]: 'ne', [CLIMATES.Woodlands]: 'n', [CLIMATES.HauntedWoodlands]: 'n',",
+    "new": "  224: 'b', 225: 's', 226: 's', 227: 'ne', 228: 'b', 229: 'se', 230: 'b', 231: 'ne', 232: 'n', 233: 'n',",
+    "tests": [
+      "test/fb0930_cc_menuclimate.test.js"
+    ]
+  },
+  {
+    "name": "MENU-CLIMATE-the-desert-eats-bananas",
+    "file": "src/systems/survival/tavernMenu.js",
+    "old": "[CLIMATES.Desert]: 's'",
+    "new": "[CLIMATES.Desert]: 'b'",
+    "tests": [
+      "test/fb0930_cc_menuclimate.test.js"
+    ]
+  },
+  {
+    "name": "MENU-CLIMATE-the-mountain-drinks-camel-milk",
+    "file": "src/systems/survival/tavernMenu.js",
+    "old": "[CLIMATES.Mountain]: 'ne'",
+    "new": "[CLIMATES.Mountain]: 's'",
+    "tests": [
+      "test/fb0930_cc_menuclimate.test.js"
+    ]
+  },
+  {
+    "name": "MENU-CLIMATE-the-ocean-falls-to-the-default",
+    "file": "src/systems/survival/tavernMenu.js",
+    "old": "  [CLIMATES.Ocean]: 'b', ",
+    "new": "  ",
+    "tests": [
+      "test/fb0930_cc_menuclimate.test.js"
+    ]
+  },
+  {
+    "name": "MENU-CLIMATE-the-swamp-eats-bananas",
+    "file": "src/systems/survival/tavernMenu.js",
+    "old": "[CLIMATES.Swamp]: 'se'",
+    "new": "[CLIMATES.Swamp]: 'b'",
+    "tests": [
+      "test/fb0930_cc_menuclimate.test.js"
+    ]
+  },
+  {
+    "name": "MENU-CLIMATE-the-woodlands-eat-bruma-rabbit",
+    "file": "src/systems/survival/tavernMenu.js",
+    "old": "[CLIMATES.Woodlands]: 'n'",
+    "new": "[CLIMATES.Woodlands]: 'ne'",
+    "tests": [
+      "test/fb0930_cc_menuclimate.test.js"
+    ]
+  },
+  {
+    "name": "MENU-CLIMATE-the-mountain-woods-eat-bananas",
+    "file": "src/systems/survival/tavernMenu.js",
+    "old": "[CLIMATES.MountainWoods]: 'ne'",
+    "new": "[CLIMATES.MountainWoods]: 'b'",
+    "tests": [
+      "test/fb0930_cc_menuclimate.test.js"
+    ]
+  },
+  {
+    "name": "MENU-CLIMATE-the-rainforest-eats-carrot-cake",
+    "file": "src/systems/survival/tavernMenu.js",
+    "old": "[CLIMATES.Rainforest]: 'b'",
+    "new": "[CLIMATES.Rainforest]: 'ne'",
+    "tests": [
+      "test/fb0930_cc_menuclimate.test.js"
+    ]
+  },
+  {
+    "name": "MENU-CLIMATE-the-subtropics-eat-dunmeri-horse",
+    "file": "src/systems/survival/tavernMenu.js",
+    "old": "[CLIMATES.Subtropical]: 'b'",
+    "new": "[CLIMATES.Subtropical]: 'se'",
+    "tests": [
+      "test/fb0930_cc_menuclimate.test.js"
+    ]
+  },
+  {
+    "name": "MENU-CLIMATE-the-haunted-woods-eat-bruma-rabbit",
+    "file": "src/systems/survival/tavernMenu.js",
+    "old": "[CLIMATES.HauntedWoodlands]: 'n'",
+    "new": "[CLIMATES.HauntedWoodlands]: 'ne'",
+    "tests": [
+      "test/fb0930_cc_menuclimate.test.js"
+    ]
+  },
+  {
+    "name": "MENU-CLIMATE-the-dakfron-eats-bananas",
+    "file": "src/systems/survival/tavernMenu.js",
+    "old": "[CLIMATES.Desert2]: 's'",
+    "new": "[CLIMATES.Desert2]: 'b'",
+    "tests": [
+      "test/fb0930_cc_menuclimate.test.js"
+    ]
+  }
+]

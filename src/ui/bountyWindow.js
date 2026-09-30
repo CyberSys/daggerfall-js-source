@@ -141,7 +141,7 @@ export function mountBountyBoard(host, deps) {
       li.setAttribute('tabindex', '0');
       li.setAttribute('aria-pressed', i === picked ? 'true' : 'false');
       const main = el('div', 'bounty-post-body');
-      main.append(el('span', 'bounty-post-title', p.title), el('span', 'bounty-post-meta', `Tier ${p.tier} · ${p.count} ${p.foes} · ${p.kind === 'dungeon' ? 'dungeon' : p.far} · ${p.gold} gold`));
+      main.append(el('span', 'bounty-post-title', p.title), el('span', 'bounty-post-meta', `Tier ${p.tier} · ${p.count} ${p.foes} · ${p.graveyard ? 'graveyard' : p.kind === 'dungeon' ? 'dungeon' : p.far} · ${p.gold} gold`));
       li.append(main, el('span', `bounty-state st-${r.state}`, stateWord(r)));
       const pick = () => { picked = i; word = null; render(); };
       li.onclick = pick;

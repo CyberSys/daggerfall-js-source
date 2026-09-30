@@ -116,6 +116,18 @@ export function levelingSettings(r = null) {
   });
 }
 
+/** LEVEL-ONLINE (2026-09-30, Mac: "Do not allow people to use daggerfall leveling in online. Characters currently
+ *  using it online can keep it."): THE ONE LAW for the system a NEW character is born with. Online, Daggerfall's
+ *  leveling is not offered - a character made (or imported from a classic save) on the online page levels the
+ *  Oblivion way whatever was asked for; offline the request stands. It is applied where a character is BORN
+ *  (finishChargen, the `?class=` skip, the classic-save import) and never where one is LOADED, so a character already
+ *  levelling the Daggerfall way online keeps it: the save is the law (usesVirtueLeveling). */
+export const DAGGERFALL_LEVELING_OFFLINE_ONLY = true;
+export function newCharacterLevelingSystem(requested, { online = false } = {}) {
+  const want = requested === LEVELING_VIRTUE ? LEVELING_VIRTUE : LEVELING_CLASSIC;
+  return online && DAGGERFALL_LEVELING_OFFLINE_ONLY ? LEVELING_VIRTUE : want;
+}
+
 /** THE ONE READER of the character's answer. A save written before
  *  this slice carries no field and reads as classic, which is the
  *  port's own law and the safe side of the fork. */

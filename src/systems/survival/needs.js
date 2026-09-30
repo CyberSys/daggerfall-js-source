@@ -106,6 +106,10 @@ export const SURVIVAL_TEXT = Object.freeze({
   cold: 'You shiver from the cold...',
   freezing: 'The cold is seeping into your bones...',
   deadly: 'Your teeth are chattering uncontrollably!',
+  // WARM-SAID (FIELD BUGS 2026-09-30): the way out of the red, said once (stageNote's recoveryNote)
+  cooling: 'You are cooling down.',
+  warming: 'You are warming up.',
+  dried: 'You have dried off.',
   nakedCold: 'The cold air numbs your bare skin.',
   bareFeetCold: 'Your bare feet are freezing.',
   bareFeetHot: 'Your bare feet are getting burned.',
@@ -259,9 +263,41 @@ const STAGE_SEVERITY = Object.freeze({
   sleep: Object.freeze({ tired: 1, drowsy: 2, exhausted: 3 }),
   temp: Object.freeze({ cold: -1, freezing: -2, deadly: -3, warm: 1, hot: 2, scorching: 3 }),
 });
+/**
+ * FIELD BUGS 2026-09-30 (WARM-SAID; #bug-reports, "Climates & Calories
+ * Bugs": "your temperature gets to either "Scorching" or "Freezing" or
+ * "Soaked" etc and seems to never recover"): THE WAY OUT OF THE RED IS
+ * SAID, ONCE. The rule above is right for the stages and left every
+ * recovery unsaid: the cold seeping into your bones was said and its
+ * going never was, and a drenching dried without a word. Leaving a red
+ * temperature (the strip's danger words - scorching, freezing, deadly
+ * cold) for any stage that is not red says "You are cooling down." or
+ * "You are warming up."; a soaking or a drenching dried all the way says
+ * "You have dried off." Each is said once a recovery - the temperature
+ * at its first stage out of the red, the wet at dry (its way down passes
+ * wet and damp) - and the improving stages stay silent. `s.notes` keeps
+ * the red stage last reached under '<family>:red'; stageNote asks after
+ * the replay gate, so a jump's landing says the net recovery. A declared
+ * departure (Port-Ledger A): the mod speaks no recovery.
+ */
+const RECOVERY = Object.freeze({
+  temp: Object.freeze({ from: Object.freeze({ scorching: 'cooling', freezing: 'warming', deadly: 'warming' }), atDry: false }),
+  wet: Object.freeze({ from: Object.freeze({ soaked: 'dried', drenched: 'dried' }), atDry: true }),
+});
+function recoveryNote(s, family, stage, say) {
+  const r = RECOVERY[family];
+  if (!r) return;
+  const key = `${family}:red`;
+  if (stage && r.from[stage]) { s.notes[key] = stage; return; }
+  const from = s.notes[key];
+  if (!from || (r.atDry && stage)) return;
+  delete s.notes[key];
+  say?.(SURVIVAL_TEXT[r.from[from]]);
+}
 function stageNote(s, family, stage, say, text, replay) {
   if (replay) return;
   const was = s.notes[family];
+  recoveryNote(s, family, stage, say);   // WARM-SAID: the way out of the red, said once
   if (!stage) { delete s.notes[family]; return; }
   if (stage === was) return;
   const sev = STAGE_SEVERITY[family], now = sev[stage] ?? 0, before = was ? sev[was] ?? 0 : 0;

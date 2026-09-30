@@ -264,7 +264,17 @@ export async function customsRefusal({ db }, playerId, originId) {
   const counted = await db.prepare('SELECT spent FROM realm_census WHERE player = ? AND char_id = ?').bind(playerId, originId).first();
   if (counted?.spent) return 'customs-already';
   if (!counted) {
-    if (!(await openPassOf(db, playerId))) return 'customs-never-online';
+    if (!(await openPassOf(db, playerId))) {
+      // CUSTOMS-ELSEWHERE (FIELD BUGS 2026-09-30, Dwarfblood's "I did go online with this one in an older build"): the
+      // census counts a character under the account it went online with, and one character played on two accounts (a
+      // guest in one browser, a handle in another; the desktop app beside the web) is counted on the other. "No record"
+      // sent that player to the developers for a pass they did not need: the other account is named, and a character
+      // already brought in from it is `customs-already`. What lets a character in is still customsRealm's write alone.
+      // (This account counted none of it, so any row is another's; and a customs spends every row of its character, so
+      // the rows agree on `spent`)
+      const other = await db.prepare('SELECT spent FROM realm_census WHERE char_id = ? LIMIT 1').bind(originId).first();
+      return other ? (other.spent ? 'customs-already' : 'customs-other-account') : 'customs-never-online';
+    }
     if (await originIn(db, originId)) return 'customs-already';
   }
   const held = await db.prepare('SELECT COUNT(*) AS n FROM realm_characters WHERE player = ?').bind(playerId).first();

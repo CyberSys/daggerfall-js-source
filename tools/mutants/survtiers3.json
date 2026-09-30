@@ -414,8 +414,8 @@
   {
     "name": "SURVTIERS3-the-kit-cite-headless-chargen-rots",
     "file": "src/systems/equip.js",
-    "old": "chargenSession.js:141 (?class= headless)",
-    "new": "chargenSession.js:139 (?class= headless)",
+    "old": "chargenSession.js:142 (?class= headless)",
+    "new": "chargenSession.js:140 (?class= headless)",
     "tests": [
       "test/citedrift.test.js"
     ]
@@ -423,8 +423,8 @@
   {
     "name": "SURVTIERS3-the-kit-cite-wizard-rots",
     "file": "src/systems/equip.js",
-    "old": "(?class= headless) and :233 (the wizard)",
-    "new": "(?class= headless) and :221 (the wizard)",
+    "old": "(?class= headless) and :235 (the wizard)",
+    "new": "(?class= headless) and :223 (the wizard)",
     "tests": [
       "test/citedrift.test.js"
     ]
@@ -432,11 +432,12 @@
   {
     "name": "SURVTIERS3-the-kit-cite-world-seed-rots",
     "file": "src/systems/equip.js",
-    "old": "(world.js:4918, exterior.js:1298)",
-    "new": "(world.js:4917, exterior.js:1298)",
+    "old": "(world.js:4929, exterior.js:1300)",
+    "new": "(world.js:4928, exterior.js:1300)",
     "tests": [
       "test/citedrift.test.js"
-    ]
+    ],
+    "note": "FIELD BUGS 2026-09-30 (PIN MOVED): re-aimed by content to the cite the batch's cite shift moved."
   },
   {
     "name": "SURVTIERS3-the-gear-cite-equip-seed-rots",
@@ -450,11 +451,12 @@
   {
     "name": "SURVTIERS3-the-gear-cite-world-seed-rots",
     "file": "src/systems/startingGear.js",
-    "old": "world.js:4918 and exterior.js:1298 seed it",
-    "new": "world.js:4917 and exterior.js:1298 seed it",
+    "old": "world.js:4929 and exterior.js:1300 seed it",
+    "new": "world.js:4928 and exterior.js:1300 seed it",
     "tests": [
       "test/citedrift.test.js"
-    ]
+    ],
+    "note": "FIELD BUGS 2026-09-30 (PIN MOVED): re-aimed by content to the cite the batch's cite shift moved."
   },
   {
     "name": "SURVTIERS3-the-exterior-cite-equip-guard-rots",
@@ -468,11 +470,12 @@
   {
     "name": "SURVTIERS3-the-rest-window-cite-input-rots",
     "file": "src/ui/restWindow.js",
-    "old": "exterior.js:3167, ui/input.js:918)",
-    "new": "exterior.js:3167, ui/input.js:525)",
+    "old": "exterior.js:3173, ui/input.js:918)",
+    "new": "exterior.js:3173, ui/input.js:525)",
     "tests": [
       "test/citedrift.test.js"
-    ]
+    ],
+    "note": "FIELD BUGS 2026-09-30 (PIN MOVED): re-aimed by content to the cite the batch's cite shift moved."
   },
   {
     "name": "SURVTIERS3-the-mirror-overrides-tickVitals",
