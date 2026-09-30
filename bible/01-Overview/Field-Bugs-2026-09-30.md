@@ -119,6 +119,43 @@ re-skin hold's release keeps a fall across its re-anchor. Saving in the air is n
 quiet saves (the checkpoint, the page-hide save, the exit autosave) and lose their progress. `test/fb0930_fallkept.test.js`
 (8); ten older pins re-aimed to the pose's new field.
 
+## PACK-PHONE: the stacked pack's region gives way, and the body is a choice on a phone (6)
+
+**Measured first** (Chromium, the real Enhanced Plus pack, a 440x736 figure standing in for the paperdoll's 4x art):
+a phone on its side (915x412) had a 0px list and no tile in reach; upright (412x915) the worn panels' columns were 0px
+and the list 8px; a tablet upright and a 900px mouse window read 0px too. PX31's "THE PHONE IS NOT THIS PROBLEM" was
+measured with no ARENA2 behind the page - no doll art.
+
+**Why.** Under the 1000px column layout the pack is stacked, and PX22 held its character region at its content's
+height in a window capped at `min(660px, 94dvh)`; the dock took what was left. The doll's cell is height-driven in a map
+whose rows are `auto`, a height that resolves to nothing, so the sprite stood at its bitmap size and nothing was left.
+U53's phone order rule had ordered nothing since PX19f wrapped `.charcol`.
+
+**The fix** (`ui/enhancedStyle.js`, `ui/enhancedInventory.js`, `systems/uiPrefs.js`): under 1000px the region shrinks
+and scrolls on its own, the dock grows from nothing to at least 45% (the item count never sizes it), and the doll is
+capped at `min(34dvh, 240px)`. On a touch phone the body is hidden until the header's **Body** shows it, the choice
+remembered on the player's own shelf (`packPhoneDoll`); the worn panels take the doll's column and keep every act, the
+tab strip is one row, and on its side the phone is two columns. The dead U53 rule is gone. `test/fb0930_packphone.test.js`
+(5); the layout probe (`tools/enhancedPackLayoutProbe.mjs`, rebuilt - its front door was gone) measures seven phones, a
+tablet, a narrow mouse window and the desk: 63/131 checks before, 131/131 after (a 915x412 list 0px to 237px; 412x915
+8px to 362px; the desk unchanged at 446px).
+
+## HOOD-SAID: a worn cloak's hood is raised and lowered on its card, and the pack says so (7)
+
+**Why.** VAMP-HOOD opens the day to a hooded vampire, and the door's hint named a "Raise the hood" button that did not
+exist. The Enhanced Plus card offered Use, which is DFU's NextVariant: a casual cloak stepped hood down, UP, UP, down,
+down, UP a press at a time, `useResultAction`'s `repaint` was never read (the doll kept the old drawing), and the card
+closed saying "Worn yes" whatever the hood was.
+
+**The fix** (`systems/useItem.js` `toggleHood`, `systems/survival/temperature.js` `hoodCapable`/`hoodUp`,
+`ui/enhancedInventory.js`, `systems/vampirism.js`): a worn cloak's or plain robe's card carries **Raise hood** /
+**Lower hood** in Use's place and a Hood row, as a light carries Light and Lit; a press moves the garment to the same
+drape's other drawing (`variant ^ 1` - the felt temperature's tables pair the drawings, one hooded in each), says "You
+raise your hood." / "You lower your hood.", redraws the doll and keeps the card up; a raised hood puts a chip on its
+panel; an enchanted hooded cloak keeps its Use for its Used payload. The hint names the skin's own button. The classic
+window is DFU's and unchanged - it redraws its doll at every drawing. `test/fb0930_hoodsaid.test.js` (4); three older
+pins and three records re-aimed.
+
 ## GUILD-LETTER: a withdrawal the pack cannot carry comes as a letter of credit (8)
 
 A treasury withdrawal was paid in coin whatever it weighed: the Guild book credited the purse through `addGold`, the
