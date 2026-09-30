@@ -733,7 +733,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** The playing tab's session over the realm character (systems/realmSaves.js): every save of it is the service's
    *  checkpoint (the composers' sink, scenes/shared.js realmSaveSink), and its end - another tab joined it, it was
    *  deleted, the account signed out - takes the player to the door with the reason. */
-  const realmSession = realmBoot ? createRealmSession({ io: realmIoNow(), id: params.get('realm'), lease: realmBoot.lease, seq: realmBoot.seq, onLost: (why) => realmLost(why) }) : null;
+  const realmSession = realmBoot ? createRealmSession({ io: realmIoNow(), id: params.get('realm'), lease: realmBoot.lease, seq: realmBoot.seq, gzip: realmBoot.gzip, onLost: (why) => realmLost(why) }) : null;   // REALM-GZIP: packed when the join said so
   // REALM P1.3: a realm checkpoint that LANDS is a save that lands - the gate's spoils it was composed holding are then
   // safe on the service, and their device record goes (scenes/spoilsPool.js saved, as onSlotSaved tells it for a slot).
   // Without it no realm save ever cleared them, and every boot handed the same spoils back. The hooks are the spoils
@@ -12830,7 +12830,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (modes) modes?.quickSaveNow(QUICK_SAVE_NAME, { quiet: true, sink });
     else worldQuickSave(QUICK_SAVE_NAME, { quiet: true, sink });
     if (!text) { realmLost('server'); return; }
-    const put = await realmPut(io, made.data.id, { lease: made.data.lease, seq: 1, summary: realmSummaryOf(playerEntity) }, text);
+    const put = await realmPut(io, made.data.id, { lease: made.data.lease, seq: 1, summary: realmSummaryOf(playerEntity) }, text, { gzip: made.data.gzip === true });   // REALM-GZIP
     if (!put.ok) { realmLost(put.error); return; }
     releaseUnloadGuard();
     location.replace(`${location.pathname}${realmBootSearch(location.search, made.data.id, BOOT_DOOR_KEYS)}`);
