@@ -182,7 +182,8 @@ test('AUDIT WORLD6b-iii(b) by source: the world host joins a held cell at once a
   const o = rd('src/net/online.js');
   assert.match(o, /if \(h && h\.ws && h\.status === 'open' && this\._ws && isCellRoom\(room\) && isCellRoom\(this\.room\)\) \{/, 'A1: a live halo alone');
   assert.match(o, /const want = new Set\(isCellRoom\(this\.room\) && !this\.terminal \? /, 'A5: the room\'s life');
-  assert.match(o, /if \(code === CLOSE_REPLACED \|\| code === CLOSE_POLICY\) \{ h\.ws = null; h\.status = 'terminal'; h\.retryAt = null; return; \}/, 'A2');
+  // SCALE2: a policy close is terminal unless it refused a hello whose token the service did not give in time (noToken)
+  assert.match(o, /if \(code === CLOSE_REPLACED \|\| \(code === CLOSE_POLICY && !noToken\)\) \{ h\.ws = null; h\.status = 'terminal'; h\.retryAt = null; return; \}/, 'A2');
   assert.equal((o.match(/this\._endHalo\(\);/g) ?? []).length, 3, 'A4: leave and the two terminal closes');
   assert.doesNotMatch(o, /_holder\(|_heldElsewhere\(/, 'A9: the dead code is gone');
   assert.match(rd('bible/06-Systems/Online-Arc.md'), /## AUDIT WORLD6b-iii\(b\) \(2026-09-14\)/, 'the record');

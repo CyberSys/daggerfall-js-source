@@ -72,8 +72,8 @@
   {
     "name": "ACC1d-8-the-token-is-minted-once-and-reused",
     "file": "src/net/online.js",
-    "old": "        this.token = await this._mint();",
-    "new": "        this.token = this.token ?? await this._mint();",
+    "old": "        this.token = await this._mint(room);",
+    "new": "        this.token = this.token ?? await this._mint(room);",
     "tests": [
       "test/acc1dclient.test.js"
     ],
@@ -82,8 +82,8 @@
   {
     "name": "ACC1d-9-the-mint-is-unbounded",
     "file": "src/net/online.js",
-    "old": "      const got = await Promise.race([\n        Promise.resolve(this.mintToken()).catch(() => null),\n        new Promise((r) => setTimeout(() => r(late), TOKEN_WAIT_MS)),\n      ]);",
-    "new": "      const got = await this.mintToken();",
+    "old": "      const got = await Promise.race([\n        Promise.resolve(this.mintToken(room)).catch(() => null),   // SCALE2: the room it opens - a token opens each room once\n        new Promise((r) => setTimeout(() => r(late), TOKEN_WAIT_MS)),\n      ]);",
+    "new": "      const got = await this.mintToken(room);",
     "tests": [
       "test/acc1dclient.test.js"
     ],
@@ -92,8 +92,8 @@
   {
     "name": "ACC1d-10-a-late-token-is-sent-down-a-dead-socket",
     "file": "src/net/online.js",
-    "old": "        this.token = await this._mint();\n        // the socket may have been replaced or closed while we waited\n        if (this._roomOf(ws) == null) return;",
-    "new": "        this.token = await this._mint();",
+    "old": "        this.token = await this._mint(room);\n        // the socket may have been replaced or closed while we waited\n        if (this._roomOf(ws) == null) return;",
+    "new": "        this.token = await this._mint(room);",
     "tests": [
       "test/acc1dclient.test.js"
     ],
@@ -112,8 +112,8 @@
   {
     "name": "ACC1d-12-a-signed-out-player-asks-anyway",
     "file": "src/net/accountClient.js",
-    "old": "    if (!session) { console.warn('[account] no identity token: no sign-in stored on this device'); return null; }   // TOKEN-WAIT",
-    "new": "    if (false) { console.warn('[account] no identity token: no sign-in stored on this device'); return null; }   // TOKEN-WAIT",
+    "old": "    if (!session) { minter.lastWhy = 'no-session'; console.warn('[account] no identity token: no sign-in stored on this device'); return null; }   // TOKEN-WAIT",
+    "new": "    if (false) { minter.lastWhy = 'no-session'; console.warn('[account] no identity token: no sign-in stored on this device'); return null; }   // TOKEN-WAIT",
     "tests": [
       "test/acc1dclient.test.js"
     ],
