@@ -41,9 +41,7 @@
       "preload.cjs",
       "launcherPreload.cjs",
       "launcher/**",
-      "lib/**"
-    ],
-    "extraResources": [
+      "lib/**",
       {
         "from": "../dist",
         "to": "dist"
