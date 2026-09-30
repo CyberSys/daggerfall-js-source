@@ -33,6 +33,7 @@ export function fakeDom({ w = 1280, h = 800 } = {}) {
       remove() { const i = n.parent?.children.indexOf(n) ?? -1; if (i >= 0) n.parent.children.splice(i, 1); n.parent = null; },
       setAttribute(k, v) { n.attrs[k] = String(v); },
       getAttribute(k) { return n.attrs[k] ?? null; },
+      removeAttribute(k) { delete n.attrs[k]; },   // HB-LYCFREE: the hotbar is up by default, and its icon ladder takes a picture's `src` off
       addEventListener() {}, removeEventListener() {},
       setPointerCapture() {}, releasePointerCapture() {},
       focus() {},

@@ -30,7 +30,7 @@ export function windWrite(v) { for (const k of WIND_PARTS) setPref(k, v === true
 export const QUICKBAR_STYLE_PREF = 'quickbarStyle';
 export const QUICKSLOTS_PREF = 'quickslots';
 export const QUICK_SLOTS_TIERS = Object.freeze([['off', 'Off'], ['diamond', 'Diamond'], ['hotbar', 'Hotbar']]);
-export const QUICK_SLOTS_DEFAULT = 'diamond';
+export const QUICK_SLOTS_DEFAULT = 'hotbar';   // HB-LYCFREE: the hotbar is the default (systems/features.js 'quick-slots' initial)
 /** The hotbar wins: while it is up the diamond is put away whatever its switch says (HB1). */
 export function quickSlotsRead() {
   if (getPref(QUICKBAR_STYLE_PREF) === 'hotbar') return 'hotbar';

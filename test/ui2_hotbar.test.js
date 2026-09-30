@@ -321,6 +321,8 @@ test('UI2 AUDIT UI B5: the diamond\'s cells are fitted again when the HUD\'s sca
   const { drawEnhancedHud, destroyEnhancedHud } = await import('../src/ui/enhancedHud.js');
   const { setPref, getPref } = await import('../src/systems/uiPrefs.js');
   const was = getPref('hudScale');
+  const style = getPref('quickbarStyle');
+  setPref('quickbarStyle', 'quickbar');   // HB-LYCFREE: the hotbar is the default now; these cells are the diamond's (PIN MOVED)
   try {
     HB.clearQuickslots();
     const sword = createWeapon(120, 3);
@@ -335,6 +337,7 @@ test('UI2 AUDIT UI B5: the diamond\'s cells are fitted again when the HUD\'s sca
     assert.ok(asked.some((k) => /@40x2c4$/.test(k)), `the cell asked at twice the ratio (${asked.join(', ') || 'nothing asked'})`);
   } finally {
     setPref('hudScale', was);
+    setPref('quickbarStyle', style);
     destroyEnhancedHud();
     HB.clearQuickslots();
     globalThis.document = prev;

@@ -346,3 +346,24 @@ over two weapons, a shield over a two-hander and clothing boots over iron ones, 
 
 Pinned: `test/fb0929d_accompare.test.js` (5), `tools/mutants/fb0929d_accompare.json` (35 mutants, 35 dead). Seen in
 Chromium with the real ARENA2's icons at 1366x768 and on a phone (a scratch probe, not committed).
+
+## HB-LYCFREE - the curse's spell free from the bar, and the hotbar by default (2026-09-30)
+
+> "Lycanthropy costs to cast from hotbar when it shouldnt. Also want to make the hotbar the default on option." - Mac
+
+**The spell.** DFU's spellbook readies the lycanthrope's Lycanthropy spell with `noSpellPointCost` (its tag is
+`lycanthropySpellTag`), and the port's two books pass it on as `readySpell`'s `free`. The hotbar's spell key and the
+diamond's under it (`src/systems/quickslots.js` spellQuickslotPress, both arms) readied without it: the spell's flat 5
+spell points (`minimumCastingCost`) came off the pool, and an empty pool refused it. Reproduced first through the real
+`createPlayerMagic` and the real hotbar model (100 -> 95, then "You don't have the spell points." at 0). Both arms now
+ready with `freeReady(spell)`, the books' tag test; every other spell from the bar pays as before. The spellbook's
+Recast (`recastSpell`) stays DFU's own `SetReadySpell(lastSpell)`, priced.
+
+**The default.** The Quick slots row's `initial` and its lane's default are Hotbar, so a player who never chose gets
+the ten-slot bar. Diamond and Off are still the player's, stored as choices. A shelf written before (rev 1) could not
+have stored the old 'quickbar' (PREF1 writes no default), so a player who had turned the quick slots Off held
+`quickslots: false` alone. That shelf keeps the diamond's style and stays Off, and is written as rev 2 at its next
+save. A player who had chosen Diamond left no trace and moves to the hotbar with everyone else.
+
+Pinned: `test/hb_lycfree.test.js` (8). The diamond's own suites choose the diamond now that it is not the default
+(Testing.md's row names them).
