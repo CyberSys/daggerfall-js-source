@@ -52,7 +52,8 @@ test('REP3: a banishment\'s term is thirty days of the world\'s calendar - read 
   assert.equal(old.regionConditions[4].banishedUntil, 50 + BANISHMENT_MINUTES, 'given its thirty days');
   liftBanishment(old, 4);
   assert.equal(isBanished(old, 4, 60), false);
-  assert.match(src('src/scenes/arrestFlow.js'), /banish\(playerEntity, region\(\), worldMinutes\(\)\);/, 'the court\'s banishment stamps the term, on the world\'s clock');
+  // AUDIT REP F2: PIN MOVED - on the world's TRUSTED clock (worldTick.js trustedWorldMinutes; test/auditrep.test.js)
+  assert.match(src('src/scenes/arrestFlow.js'), /banish\(playerEntity, region\(\), trustedWorldMinutes\(\)\);/, 'the court\'s banishment stamps the term, on the world\'s clock');
 });
 
 test('REP3: the term rides the save - a banishment standing carries `b`, none does not; a pre-REP save restores none (mutant: the term dropped on save)', () => {
@@ -91,7 +92,9 @@ test('REP3: a pardon bought at the temple - offered only to the banished, priced
   assert.equal(pardonPrice(p, 4), 3 * PARDON_BASE_PRICE);
 });
 
-test('REP3: a purse short of the pardon is told so and the priest goes on to the donation; a No goes on too (mutant: the short purse pardoned)', () => {
+// AUDIT REP F4: PIN MOVED - a short purse no longer goes on to DFU's donation field (auditrep.test.js F4: it is offered
+// what is left, a cheaper penance, and a Yes ends the asking); a No still goes on to it
+test('REP3: a purse short of the pardon is told so; a No goes on to the donation (mutant: the short purse pardoned)', () => {
   const p = citizen(0, 100);
   banish(p, 4, 9000);
   const win = temple(p);

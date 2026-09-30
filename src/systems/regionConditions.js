@@ -21,11 +21,12 @@
 // other two keep their homes. The three together are DFU's record.
 // PrecipitationOverride and SeverePunishmentFlags are here because
 // nothing else has them. The weather override stays inert - classic
-// never sets it - but SeverePunishmentFlags is LIVE both ways as of
-// the arrest arc: scenes/arrestFlow.js:557-560 sets bit 1 on
-// banishment (DaggerfallCourtWindow.cs:272) and encounters.js:243
-// passiveGuardSpawns reads it every catch-up minute through
-// scenes/world.js:4848-4850 (PlayerEntity.cs:507).
+// never sets it - but SeverePunishmentFlags is LIVE both ways: the
+// court's banishment sets bit 1 (DaggerfallCourtWindow.cs:272), since
+// REP3 through systems/standing.js banish with its term (banishedUntil,
+// below), and standing.js reads it - the watch's stop, the temple's
+// pardon, the Standing page. DFU's per-minute reader (PlayerEntity.cs:507,
+// encounters.js passiveGuardSpawns) has no caller since REP1 (AUDIT REP F6).
 
 /** PlayerEntity.RegionDataFlags (:1588-1619), all thirty. */
 export const REGION_FLAGS = Object.freeze({

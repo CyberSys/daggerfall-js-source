@@ -1148,6 +1148,10 @@ function rollWorldZonesAcross(from, to) {
 let _sharedClockHeard = false;
 let _absenceWaiting = null;   // { left, pay }: a loaded character's absence, waiting for the relay's clock
 export const sharedClockHeard = () => _sharedClockHeard;
+/** AUDIT REP F2: THE WORLD'S CALENDAR, WHEN IT CAN BE TRUSTED - online only once the relay's clock is heard (P4's own
+ *  law), NaN before it; offline the one clock. A banishment's term reads it (systems/standing.js): a machine clock set
+ *  months fast at the boot lifted a banishment for good on the first frame, before the relay could correct it. */
+export const trustedWorldMinutes = () => (_sharedClock && !_sharedClockHeard ? NaN : worldMinutes());
 /** AUDIT LIVED1b P4: the load's absence - `pay(nowMinutes)` runs once the relay's clock is heard (at once if it has
  *  been). Answers whether it was taken. */
 export function payAbsenceWhenHeard(left, pay) {

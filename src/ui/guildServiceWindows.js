@@ -389,7 +389,7 @@ export function buildDonationFlow(entity, store, divineFactionId, deps) {
       return [{ rows: macroRows(rows, r.textId, ctx) }];
     },
   };
-  return new ServiceFlowWindow([...standingOffers(entity, deps), donation], { onClose });
+  return new ServiceFlowWindow(standingOffers(entity, deps, [donation]), { onClose });
 }
 
 /** REP3 + REP4 (Mac: "Timed or pardoned"; "Earn it + faster drift" - temple penance, paid reparations whose price rises
@@ -398,38 +398,52 @@ export function buildDonationFlow(entity, store, divineFactionId, deps) {
  *  after it one more step), a standing below zero a PENANCE (five points back toward zero; 200, then 400, 600 ...). A No
  *  goes on to the next offer and then to DFU's own donation field, untouched. A temple is a sanctuary: the watch never
  *  comes in (SpawnCityGuards spawns nobody in a temple), so a banished criminal can reach it. The steps answer nothing
- *  without a region (a host that hands none: DFU's donation alone). */
-function standingOffers(entity, deps) {
+ *  without a region (a host that hands none: DFU's donation alone).
+ *  AUDIT REP F4: A YES ENDS THE ASKING. The offers sat in one queue with the donation behind them, so a pardon or a
+ *  penance paid went on into DFU's field pre-filled with 1000 - one more Return, and a thousand gold more was gone. A
+ *  Yes paid is the flow's last box; a Yes the purse cannot pay is told so and offered what is left (a cheaper penance),
+ *  never the field; only a No goes on to it. Answers the chain's first boxes; `tail` is what a No past the last offer
+ *  opens. */
+function standingOffers(entity, deps, tail) {
   const { regionIndex = null, regionName = 'this region', ownNow = () => 0, worldNow = ownNow } = deps;
-  if (regionIndex == null) return [];
-  const steps = [];
-  const pay = (price, then) => {
-    if (totalGoldAmount(entity) < price) return [{ rows: line('You do not have enough gold.') }];   // the queue goes on: the next offer, the donation
-    deductGold(entity, price);
-    return then();
-  };
+  if (regionIndex == null) return tail;
+  const offers = [];
   if (isBanished(entity, regionIndex, worldNow())) {
     const price = pardonPrice(entity, regionIndex);
-    const days = Math.ceil(banishmentLeft(entity, regionIndex, worldNow()) / 1440);
-    steps.push({
-      rows: [...line(`You are banished from ${regionName} for ${days} more day${days === 1 ? '' : 's'}.`),
+    const left = banishmentLeft(entity, regionIndex, worldNow());
+    const days = Math.ceil(left / 1440);
+    offers.push({
+      price,
+      // AUDIT REP F2: online before the relay's clock is heard the term is not known - the priest does not guess it
+      rows: [...line(Number.isFinite(left) ? `You are banished from ${regionName} for ${days} more day${days === 1 ? '' : 's'}.` : `You are banished from ${regionName}.`),
         ...line(`For ${price} gold the temple will plead for your pardon. Will you pay?`)],
-      buttons: 'YesNo',
-      onYes: () => pay(price, () => { grantPardon(entity, regionIndex, ownNow()); return [{ rows: line(`You are pardoned. You may walk the streets of ${regionName} again.`) }]; }),
-      onNo: () => null,   // on to the next box
+      grant: () => { grantPardon(entity, regionIndex, ownNow()); return line(`You are pardoned. You may walk the streets of ${regionName} again.`); },
     });
   }
   if (penanceHelps(entity, regionIndex)) {
     const price = penancePrice(entity, regionIndex);
-    steps.push({
+    offers.push({
+      price,
       rows: [...line(`Your name stands ill with the law of ${regionName}.`),
         ...line(`For ${price} gold the temple will do penance on your behalf. Will you pay?`)],
-      buttons: 'YesNo',
-      onYes: () => pay(price, () => { const points = doPenance(entity, regionIndex); return [{ rows: line(`Your penance is accepted (+${points}).`) }]; }),
-      onNo: () => null,
+      grant: () => { const points = doPenance(entity, regionIndex); return line(`Your penance is accepted (+${points}).`); },
     });
   }
-  return steps;
+  const ask = (i, after) => {
+    const o = offers[i];
+    if (!o) return after;
+    return [{
+      rows: o.rows,
+      buttons: 'YesNo',
+      onYes: () => {
+        if (totalGoldAmount(entity) < o.price) return [{ rows: line('You do not have enough gold.') }, ...ask(i + 1, [])];
+        deductGold(entity, o.price);
+        return [{ rows: o.grant() }];
+      },
+      onNo: () => ask(i + 1, after),
+    }];
+  };
+  return ask(0, tail);
 }
 
 // ── CURE DISEASE ──────────────────────────────────────────────────

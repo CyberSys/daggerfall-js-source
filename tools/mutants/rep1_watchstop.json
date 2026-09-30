@@ -138,8 +138,8 @@
   {
     "name": "REP1-the-raid-not-held",
     "file": "src/scenes/world.js",
-    "old": " || !!travelView?.active || !!raidDefendingHere(),   // a raid on the town",
-    "new": " || !!travelView?.active,   // a raid on the town",
+    "old": " || !!travelView?.active || !!raidDefendingHere()\n      || duelEnemyNear()",
+    "new": " || !!travelView?.active\n      || duelEnemyNear()",
     "tests": [
       "test/rep1_watchstop.test.js"
     ]

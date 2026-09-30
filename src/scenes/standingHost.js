@@ -18,6 +18,7 @@ import { challengeDue, noteChallenge, challengeFine, grantGrace, isBanished } fr
 import { totalGoldAmount, deductGold, CRIMES, CRIME_NAMES, setLegalRepNotifier } from '../systems/court.js';
 import { racialSuppressCrime } from '../systems/lycanthropy.js';
 import { legalStandingWord } from '../systems/legalBands.js';
+import { isInvisible } from '../systems/effects.js';
 
 /** How often the street is looked over for a guard who can see a known criminal: once a second, not every frame. */
 export const STANDING_LOOK_MS = 1000;
@@ -42,6 +43,9 @@ export function createStandingWatch({
     if (box || !onStreet() || blocked()) return false;
     if (playerEntity.crimeCommitted || playerEntity.arrested || arrestFlow.inCourt()) return false;
     if ((playerEntity.health ?? 0) <= 0 || racialSuppressCrime(playerEntity)) return false;
+    // AUDIT REP F7: an invisible criminal is nobody's face either - the witness arm's own gate (town.gate's isInvisible,
+    // DFU's S19); guardSeesPlayer measures a line and a cone, not a spell, and the watch stopped a player it cannot see
+    if (isInvisible(playerEntity)) return false;
     const region = regionIndex();
     const clocks = { ownNow: ownNow(), worldNow: worldNow() };
     if (!challengeDue(playerEntity, region, clocks)) return false;
@@ -105,6 +109,7 @@ export function legalNoticeLine({ name, after, delta, cause }) {
     case 'acquittal': return `The court of ${name} clears your name (${by}). You are ${word}.`;
     case 'penance': return `Your penance is accepted in ${name} (${by}). You are ${word}.`;
     case 'contract': return `${name} thanks you for your work (${by}). You are ${word}.`;
+    case 'raid': return `${name} thanks you for its defence (${by}). You are ${word}.`;   // AUDIT REP F5
     default: return `Your standing with the law of ${name} ${delta < 0 ? 'falls' : 'rises'} (${by}). You are ${word}.`;
   }
 }

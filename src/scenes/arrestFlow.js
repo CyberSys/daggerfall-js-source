@@ -41,7 +41,7 @@ import {
 } from '../systems/court.js';
 import { guildOfFaction, membershipOf, activeMemberships } from '../systems/guilds.js';   // CR1: the rescue arms' member reads
 import { resolveVariantGuild } from '../systems/guildVariants.js';
-import { advanceOwnMinutes, MINUTES_PER_DAY, ownMinutes, worldMinutes } from '../systems/worldTick.js';   // LIVED1: a sentence is served on the prisoner's own clock, online too
+import { advanceOwnMinutes, MINUTES_PER_DAY, ownMinutes, trustedWorldMinutes } from '../systems/worldTick.js';   // LIVED1: a sentence is served on the prisoner's own clock, online too
 import { banish, grantGrace } from '../systems/standing.js';   // REP3: a banishment's term; REP1: the grace an answered law gives
 import { setSyntheticTimeIncrease } from '../systems/effectBroker.js';   // AUDIT 63 F13: DaggerfallCourtWindow_OnEndPrisonTime (EntityEffectBroker.cs:841-842)
 import { fillVitalSigns } from '../systems/statMods.js';
@@ -324,6 +324,12 @@ export function createArrestFlow({
     // JAIL-HIT: one trial at a time - DFU's court is a modal window, so nothing reaches a second surrender while one
     // stands; a nested court here would replace the first's screen and drop its release
     if (playerEntity.arrested) return;
+    // AUDIT REP F1: THE COURT CHARGES THE CRIME IT TRIES. The surrender box charges the crime it asks about - but the
+    // fatal blow's surrender (and a Y read after the world moved under the box) takes the player to court for the crime
+    // held NOW, which can be a worse one committed after the box: a townsperson murdered in the chase was tried, never
+    // charged, and its sentence CREDITED (DFU +9, REP2's mark +10) - a murder that raised the name. Charged once, here,
+    // before startCourt prices the fine off the standing the charge leaves (DFU's order: the loss, then the court).
+    if (crimeId() !== 0) chargeOnce();
     // DISC28-B (Discord: "the game locks up if guards hit you the moment you fast travel"): the trial is read BEFORE
     // anything is armed. DFU's court closes itself when no crime is assigned (DaggerfallCourtWindow.cs:109-114) and its
     // OnPop (:432-438) clears Arrested - so a court over no crime is no court at all. The port set `arrested`, opened
@@ -419,7 +425,7 @@ export function createArrestFlow({
       // - being run out of the region repairs nothing.
       // REP3 (Mac: "Timed or pardoned"): the bit DFU sets, and its term - thirty days of the world's calendar, or a
       // pardon bought at a temple (systems/standing.js). DFU's bit alone was for ever.
-      banish(playerEntity, region(), worldMinutes());
+      banish(playerEntity, region(), trustedWorldMinutes());   // AUDIT REP F2: an unheard relay stamps no term - the first trusted read does
       // ":276 - Refill player vitals after banishment, otherwise player
       // left with 1HP outside city gates", DFU's own comment.
       fillVitalSigns(playerEntity);
@@ -544,9 +550,10 @@ export function createArrestFlow({
    *  (:272) and state 5 (Execution) `|= 2` (:289). Bit 1 is not a
    *  record - PlayerEntity.cs:506-511 reads it every catch-up minute
    *  and rolls a 10% Criminal_Conspiracy guard spawn in that region
-   *  for ever after, which is the whole cost of being banished. The
-   *  port's consumer (encounters.passiveGuardSpawns, fed at
-   *  world.js's minute catch-up) has been live with nothing to read.
+   *  for ever after, which is the whole cost of being banished. (REP3:
+   *  bit 1 is written by systems/standing.js banish, with its term, and
+   *  DFU's roll has no caller since REP1 - AUDIT REP F6; this writes
+   *  bit 2 alone.)
    *  A host whose region store is absent writes nothing rather than
    *  minting one - DFU's RegionData is allocated at chargen.
    *

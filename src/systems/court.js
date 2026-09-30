@@ -43,10 +43,11 @@
 // pardoned (standing.js), and a fine no longer rises with GOOD standing (REP2, startCourt). Port-Ledger A, REP1-REP6.
 //
 // BANISHMENT'S CONSEQUENCES SHIPPED: `SeverePunishmentFlags |= 1` is
-// written at scenes/arrestFlow.js:557-560 (severePunishment, off
-// OnPop) and read every catch-up minute by encounters.js:243
-// passiveGuardSpawns - PlayerEntity.cs:507's 10% banished-player
-// guard roll - fed at scenes/world.js:4848-4850. (The guild rescues -
+// written by systems/standing.js banish (the court's state 4, with its
+// term) and read there - the watch's stop, the pardon, the Standing
+// page (REP1, REP3, REP5). DFU's reader, PlayerEntity.cs:507's 10%
+// banished-player guard roll (encounters.js passiveGuardSpawns), has no
+// caller since REP1 (AUDIT REP F6). (The guild rescues -
 // Thieves/Dark Brotherhood - landed at CR1, guildRescue below.)
 
 import { rand } from '../formats/dfRandom.js';

@@ -29,7 +29,7 @@
   {
     "name": "REP3-the-term-never-stamped",
     "file": "src/systems/standing.js",
-    "old": "  r.banishedUntil = worldNow + BANISHMENT_MINUTES;\n  return true;",
+    "old": "  r.banishedUntil = Number.isFinite(worldNow) ? worldNow + BANISHMENT_MINUTES : null;\n  return true;",
     "new": "  return true;",
     "tests": [
       "test/rep3_banishment.test.js"
@@ -65,8 +65,8 @@
   {
     "name": "REP3-the-short-purse-pardoned",
     "file": "src/ui/guildServiceWindows.js",
-    "old": "    if (totalGoldAmount(entity) < price) return [{ rows: line('You do not have enough gold.') }];",
-    "new": "    if (false) return [{ rows: line('You do not have enough gold.') }];",
+    "old": "        if (totalGoldAmount(entity) < o.price) return",
+    "new": "        if (false) return",
     "tests": [
       "test/rep3_banishment.test.js"
     ]
@@ -74,7 +74,7 @@
   {
     "name": "REP3-the-court's-banishment-untimed",
     "file": "src/scenes/arrestFlow.js",
-    "old": "      banish(playerEntity, region(), worldMinutes());",
+    "old": "      banish(playerEntity, region(), trustedWorldMinutes());",
     "new": "      severePunishment(1);",
     "tests": [
       "test/rep3_banishment.test.js",

@@ -131,7 +131,7 @@ import { dateFromClassicMinutes, dateString, dateTimeString } from '../systems/g
 // PX5: the pause clock reads THE ONE CLOCK directly (AUDIT 23 C2's
 // law - every host already reads this same module), so no host seam
 // is needed and no host can drift.
-import { worldMinutes } from '../systems/worldTick.js';
+import { worldMinutes, trustedWorldMinutes } from '../systems/worldTick.js';
 import { BUILD_TAG } from '../buildTag.js';
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { repaintKeepingScroll } from './domRepaint.js';
@@ -3726,7 +3726,7 @@ function statsStanding(detail) {
 }
 
 /** REP5: THE LAW, REGION BY REGION - every region with a standing other than a common citizen's, or a banishment. */
-export function statsLaw(detail, entity, { worldNow = worldMinutes() } = {}) {
+export function statsLaw(detail, entity, { worldNow = trustedWorldMinutes() } = {}) {   // AUDIT REP F2
   const rows = lawRows(entity, worldNow);
   if (!rows.length) return;
   detail.append(pxDivider('The law'));
@@ -3744,10 +3744,13 @@ export function lawRows(entity, worldNow) {
   for (const i of regions) {
     if (!Number.isInteger(i) || i < 0) continue;
     const rep = legalRepOf(entity, i);
-    const days = Math.ceil(banishmentLeft(entity, i, worldNow) / 1440);
-    if (rep === 0 && !days) continue;
+    // AUDIT REP F2: NaN is a banishment whose term is not known yet (online, the relay's clock unheard) - still a row
+    const left = banishmentLeft(entity, i, worldNow);
+    if (rep === 0 && left === 0) continue;
+    const days = Math.ceil(left / 1440);
+    const term = Number.isFinite(left) ? `, ${days} day${days === 1 ? '' : 's'} left` : '';
     // the price of each: a pardon at the region's temple, a stop's fine on the street
-    const note = days ? `banished, ${days} day${days === 1 ? '' : 's'} left (a pardon: ${pardonPrice(entity, i)} gold)`
+    const note = left !== 0 ? `banished${term} (a pardon: ${pardonPrice(entity, i)} gold)`
       : rep < KNOWN_CRIMINAL_BELOW ? `known to the watch (a stop: ${challengeFine(entity, i, { worldNow })} gold)` : '';
     out.push({ region: REGION_NAMES[i] ?? `Region ${i}`, rep, word: legalStandingWord(rep), note });
   }

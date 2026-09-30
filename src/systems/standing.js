@@ -77,7 +77,8 @@ export function banish(player, regionIndex, worldNow) {
   const r = player.regionConditions?.[regionIndex];
   if (!r) return false;
   r.severePunishmentFlags |= SEVERE_PUNISHMENT_BANISHED;
-  r.banishedUntil = worldNow + BANISHMENT_MINUTES;
+  // AUDIT REP F2: an untrusted clock (worldTick.js trustedWorldMinutes' NaN) stamps nothing - the first trusted read does
+  r.banishedUntil = Number.isFinite(worldNow) ? worldNow + BANISHMENT_MINUTES : null;
   return true;
 }
 /** Lift a region's banishment (its term run out, or a pardon). */
@@ -93,6 +94,8 @@ export function liftBanishment(player, regionIndex) {
 export function isBanished(player, regionIndex, worldNow) {
   const r = player.regionConditions?.[regionIndex];
   if (!r || (r.severePunishmentFlags & SEVERE_PUNISHMENT_BANISHED) === 0) return false;
+  // AUDIT REP F2: the world's calendar not yet trusted (online, the relay unheard): banished, and nothing stamped or lifted
+  if (!Number.isFinite(worldNow)) return true;
   if (!Number.isFinite(r.banishedUntil)) r.banishedUntil = worldNow + BANISHMENT_MINUTES;
   if (worldNow >= r.banishedUntil) { liftBanishment(player, regionIndex); return false; }
   return true;
@@ -100,6 +103,7 @@ export function isBanished(player, regionIndex, worldNow) {
 /** The world's minutes a banishment has left, or 0. */
 export function banishmentLeft(player, regionIndex, worldNow) {
   if (!isBanished(player, regionIndex, worldNow)) return 0;
+  if (!Number.isFinite(worldNow)) return NaN;   // AUDIT REP F2: not known until the world's calendar is trusted
   return player.regionConditions[regionIndex].banishedUntil - worldNow;
 }
 export function pardonPrice(player, regionIndex) {

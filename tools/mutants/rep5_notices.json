@@ -38,7 +38,7 @@
   {
     "name": "REP5-the-zero-row-drawn",
     "file": "src/ui/enhancedMenu.js",
-    "old": "    if (rep === 0 && !days) continue;\n",
+    "old": "    if (rep === 0 && left === 0) continue;\n",
     "new": "",
     "tests": [
       "test/rep5_notices.test.js"
@@ -75,8 +75,8 @@
   {
     "name": "REP5-the-pardon's-price-not-said",
     "file": "src/ui/enhancedMenu.js",
-    "old": " left (a pardon: ${pardonPrice(entity, i)} gold)`",
-    "new": " left`",
+    "old": "`banished${term} (a pardon: ${pardonPrice(entity, i)} gold)`",
+    "new": "`banished${term}`",
     "tests": [
       "test/rep5_notices.test.js"
     ]

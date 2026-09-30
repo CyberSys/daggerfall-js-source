@@ -53,7 +53,9 @@ gold, or come with me."* (or *"You are banished from ..."*).
 
 At most one stop in two game hours per region (ten real minutes), never inside a game day's grace after the law is
 answered (a fine paid, any court exit, a pardon). Never under another window, never in the travel view or a raid on
-the town, never in a trial, never on a crime already held, never dead, never in a beast's form (DFU's SuppressCrime).
+the town, never in a fight (a foe that sees the player, a duel - AUDIT REP F3), never in a trial, never on a crime
+already held, never dead, never in a beast's form (DFU's SuppressCrime), never invisible (the town witness's own gate -
+AUDIT REP F7).
 The box has no Escape. Online and offline alike; the stop runs on the character's own clock (LIVED1: the standing is
 theirs).
 
@@ -66,7 +68,9 @@ a High Treason or a Treason** keeps half as its mark (rounded toward the player:
 started (DFU: -16).
 
 - **One charge per chase** (`arrestFlow.js chargeOnce`): the crime is charged at the first surrender box and not again
-  while it is held; a WORSE crime committed in the chase (the Murder of a watchman) is charged as itself. The chase ends
+  while it is held; a WORSE crime committed in the chase (the Murder of a watchman) is charged as itself - and the court
+  charges the crime it tries, whatever door opened it (AUDIT REP F1: the fatal blow's court tried a later Murder never
+  charged, and credited its sentence). The chase ends
   with the crime, whatever cleared it (`cityGuards.js`, each frame), and with a load (`arrestFlow.js abandon`).
 - **The surrender is honoured**: an involuntary surrender is taken at any standing, unless a watchman fell to the
   player in this chase (`watchSlain`, set by the kill, cleared with the crime). A voluntary surrender is always taken.
@@ -80,10 +84,13 @@ started (DFU: -16).
 - **Thirty days of the world's calendar** (`standing.js banish`, the court's state 4): DFU's bit (`SeverePunishmentFlags
   |= 1`) and its term, `banishedUntil`, saved with the region (`regionConditions.js`, `b`). Lifted on the first read
   past it. A banishment from before REP is given its thirty days from the first read. Online it lifts about two and a
-  half real days on, whether or not the player plays - a sentence of the realm, on its calendar.
+  half real days on, whether or not the player plays - a sentence of the realm, on its calendar. The calendar is read
+  only when it can be trusted (`worldTick.js trustedWorldMinutes`, AUDIT REP F2): online, until the relay's clock is
+  heard, a term is neither stamped nor lifted - a machine clock set fast at the boot lifted it for good.
 - **A pardon** at the region's TEMPLE (the donation's priest): 2,500 gold, each later pardon in that region one step
   more (5,000, 7,500 ...). The watch never enters a temple, so a banished criminal can reach it. A pardon gives the
-  day's grace a sentence does.
+  day's grace a sentence does. A Yes ends the priest's asking (AUDIT REP F4): a pardon or a penance paid is the last
+  box, a purse short of it is offered what is left; only a No goes on to DFU's donation field, pre-filled with 1000.
 
 ## REP4 - the road back
 
@@ -94,7 +101,8 @@ started (DFU: -16).
 - **A penance** at the region's temple (the donation's priest, before DFU's donation field): five points of the region's
   law back toward zero, never past it - 200 gold, then 400, 600, one step more each time in that region.
 - **A bounty contract** finished for a region's board: two points of its law (`bountyHost.js pay` -> `rewardContract`).
-- **Raid defence** already paid +5 (RAID1); quests and their `legal repute` actions pay as they did.
+- **Raid defence** already paid +5 (RAID1), and says so since AUDIT REP F5; quests and their `legal repute` actions pay
+  as they did.
 
 ## REP5 - the law you can see
 
@@ -103,8 +111,8 @@ started (DFU: -16).
   days left (a pardon: 2500 gold)*. A common citizen's region is not listed. The guilds' rows say *on probation*.
 - **A notice on every change** a cause moved (`court.js changeLegalRep`'s `cause`, `standingHost.js installLegalNotices`):
   *"Theft: the law of Daggerfall thinks less of you (-8). You are undependable."*, *"Your debt to Daggerfall is paid
-  (+8)."*, *"The court of Daggerfall clears your name (+20)."*, the penance's and the contract's own. The drift is
-  silent. The status box's %ltn reads the same ladder (`legalBands.js`).
+  (+8)."*, *"The court of Daggerfall clears your name (+20)."*, the penance's, the contract's and the raid's own. The
+  drift is silent. The status box's %ltn reads the same ladder (`legalBands.js`).
 - **Not built**: a HUD marker. The stop's box and the page say the price; a marker would be a third place.
 
 ## REP6 - probation before expulsion
@@ -132,7 +140,9 @@ faction's charges, Vagrancy's resting law, Roleplay Realism's squads.
 
 `test/rep1_watchstop.test.js` (7), `test/rep2_sentences.test.js` (8), `test/rep3_banishment.test.js` (5),
 `test/rep4_recovery.test.js` (5), `test/rep5_notices.test.js` (4), `test/rep6_probation.test.js` (3).
-`tools/mutants/rep{1..6}_*.json`: 64 records, 64 dead. Fifteen older pin files moved with the law (each marked PIN
+`tools/mutants/rep{1..6}_*.json`: 64 records, 64 dead. AUDIT REP (`01-Overview/Audit-REP.md`, 2026-09-30):
+`test/auditrep.test.js` (7), `tools/mutants/auditrep.json` 17/17 dead; two pins moved (REP3's short purse, F4;
+audit39_guildstravel's F99, the court's banishment on the trusted calendar, F2). Fifteen older pin files moved with the law (each marked PIN
 MOVED): court, prisonrelease, guilds, rr1_realism, guildrep, auditdisc28_time, disc28_fatigue, auditlived1b, lived1,
 audit26_dungeonfoes, exteriorfoes, beastform, audit39_guildstravel, audit39_worldlegaltalk, auditrr; seven older mutant
 records re-aimed (all dead). Not verified in a browser.
