@@ -88,9 +88,35 @@ export function sphereTouchesBox(lx, ly, lz, r, min, max) {
  *  bucket per sample, which at nine samples a capsule and up to five capsules a step was hundreds of Sets a frame
  *  per body, most of them for buckets nowhere near it. */
 const VISITED = new Set();
-/** AUDIT 68 S15-collider-closestpoint-alloc: and the ray's own, cleared per bucket - raycastHit minted one per
- *  bucket per ray. Its own because it is walked by a different query than VISITED; neither re-enters. */
-const RAY_VISITED = new Set();
+/** FB0930-FOE-RAYS (2026-09-30, player report: "requestAnimationFrame handler took <N>ms" by the hundred in a
+ *  dungeon, CPU at 100%, 500 violations in Privateer's Hold and 40 once every foe was dead): the ray's visited mark
+ *  is a STAMP per triangle, not a Set. Every foe casts rays every fixed step - its sight line, and the obstacle probe's
+ *  capsule casts (27 rays each, up to eleven of them a step for a foe wedged against a wall while it hunts a detour)
+ *  - and each ray had cleared and filled a Set, a hash and an insert per triangle met. The stamp is one integer
+ *  compare. `bucket.rayMark` grows with the bucket's triangles; RAY_STAMP is bumped once per bucket walk, and the
+ *  marks are zeroed on the (never reached in a session) wrap. Neither query re-enters, as before. */
+let RAY_STAMP = 0;
+/** FB0930-FOE-RAYS: capsuleCast's spokes - centre, the four axes, the four diagonals - as (u, v) signs, and the one
+ *  origin and result its rays write through (raycastHit does not keep either past its return). */
+const CAP_SPOKES = [0, 0, 1, 0, -1, 0, 0, 1, 0, -1, 1, 1, 1, -1, -1, 1, -1, -1];
+const CAP_ORIGIN = [0, 0, 0];
+const CAP_HIT = { dist: Infinity, key: null, normal: [0, 0, 0] };
+function rayMarks(bucket) {
+  let m = bucket.rayMark;
+  if (!m || m.length < bucket.tris.length) {
+    m = new Int32Array(Math.max(bucket.tris.length, m ? m.length * 2 : 0));
+    bucket.rayMark = m;
+  }
+  if (++RAY_STAMP >= 0x7fffffff) { RAY_STAMP = 1; m.fill(0); }
+  return m;
+}
+/** FB0930-FOE-RAYS: the grid is XZ only, so a cell holds the column's whole height - a dungeon's floor and ceiling,
+ *  and the floors and ceilings of every level stacked above and below it. A triangle whose Y extent misses the ray's
+ *  own Y extent across the cell cannot be hit IN this cell and is not tested there (nor marked, so the cell where the
+ *  ray does reach it still tests it: its hit point lies in that cell's column, which its box covers). The slack
+ *  covers the cell-boundary rounding. Same triangles hit, same distances - a horizontal sight ray just stops testing
+ *  the floors and ceilings it runs between. */
+const RAY_Y_SLACK = 1e-3;
 
 /** OW-WOD-LAG (2026-09-29, Mac: "When near mountains from WOD, the game lags insane"): THE WIDE TRIANGLES IN A TREE.
  *  AUDIT BRANCH (WoD) B1 filed them on a 64-unit XZ grid, so a query near a World of Daggerfall massif - rocks scaled by
@@ -488,7 +514,7 @@ export class Collider {
       // OWN space (the translation is applied to the RAY, as the DDA
       // already does), kept as the triangles go in - one compare per
       // vertex, paid once at load, against a walk paid per ray.
-      bucket = { tris: [], grid: new Map(), wide: [], wideTree: null, t: translation || (() => ZERO3), r: rotation, min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity] };   // AUDIT BRANCH (WoD) B1; OW-WOD-LAG: the wide triangles, and their tree (built when first asked)
+      bucket = { tris: [], yLo: [], yHi: [], rayMark: null, grid: new Map(), wide: [], wideTree: null, t: translation || (() => ZERO3), r: rotation, min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity] };   // AUDIT BRANCH (WoD) B1; OW-WOD-LAG: the wide triangles, and their tree (built when first asked)
       this._buckets.set(bucketKey, bucket);
     }
     const m = matrix;
@@ -508,6 +534,8 @@ export class Collider {
       const c = tx(indices[i + 2]);
       const idx = bucket.tris.length;
       bucket.tris.push([a, b, c]);
+      bucket.yLo[idx] = Math.min(a[1], b[1], c[1]);   // FB0930-FOE-RAYS: the ray walk's Y reject
+      bucket.yHi[idx] = Math.max(a[1], b[1], c[1]);
       for (let j = 0; j < 3; j++) {   // PERF-EXT25: the three corners without a fourth array a triangle
         const v = j === 0 ? a : j === 1 ? b : c;
         for (let k = 0; k < 3; k++) {
@@ -644,15 +672,21 @@ export class Collider {
       let tMaxZ = dir[2] !== 0 ? ((cz + (stepZ > 0 ? 1 : 0)) * CELL - oz) * invZ : Infinity;
       const tDeltaX = Math.abs(CELL * invX);
       const tDeltaZ = Math.abs(CELL * invZ);
-      const visited = RAY_VISITED;
-      visited.clear();
+      const marks = rayMarks(bucket), stamp = RAY_STAMP;   // FB0930-FOE-RAYS
+      const yLoOf = bucket.yLo, yHiOf = bucket.yHi, dy = dir[1];
       let walked = 0;
       while (walked <= Math.min(maxDist, best)) {
         const cell = bucket.grid.get(cellKey(cx, cz));   // PERF-EXT25
         if (cell) {
-          for (const ti of cell) {
-            if (visited.has(ti)) continue;
-            visited.add(ti);
+          // FB0930-FOE-RAYS: the ray's Y span inside this cell, [walked, leaving it] clamped to the reach
+          const tOut = Math.min(tMaxX, tMaxZ, maxDist, best);
+          const y0 = oy + dy * walked, y1 = oy + dy * tOut;
+          const rLo = (y0 < y1 ? y0 : y1) - RAY_Y_SLACK, rHi = (y0 < y1 ? y1 : y0) + RAY_Y_SLACK;
+          for (let ci = 0; ci < cell.length; ci++) {
+            const ti = cell[ci];
+            if (marks[ti] === stamp) continue;
+            if (yHiOf[ti] < rLo || yLoOf[ti] > rHi) continue;   // not reachable in this cell - left unmarked
+            marks[ti] = stamp;
             const tri = bucket.tris[ti];
             const hit = rayTriangle(ox, oy, oz, dir, tri[0], tri[1], tri[2]);
             if (hit !== null && hit < best && hit <= maxDist) { best = hit; bestKey = bkey; bestTri = tri; bestR = R; }
@@ -985,19 +1019,14 @@ export class Collider {
       // diagonals sit at radius/sqrt(2) on each axis, which is the same
       // circle, and cost four more DDA rays over a fifth of a metre.
       const h = radius * Math.SQRT1_2;
-      for (const [ox, oy, oz] of [
-        [0, 0, 0],
-        [ux * radius, uy * radius, uz * radius],
-        [-ux * radius, -uy * radius, -uz * radius],
-        [vx * radius, vy * radius, vz * radius],
-        [-vx * radius, -vy * radius, -vz * radius],
-        [(ux + vx) * h, (uy + vy) * h, (uz + vz) * h],
-        [(ux - vx) * h, (uy - vy) * h, (uz - vz) * h],
-        [(-ux + vx) * h, (-uy + vy) * h, (-uz + vz) * h],
-        [(-ux - vx) * h, (-uy - vy) * h, (-uz - vz) * h],
-      ]) {
-        const h = this.raycastHit([bx + ox, by + oy, bz + oz], dir, reach, filter);   // HCC: the same bucket filter the rays take (a horse stepping past its own parked wagon)
-        if (h.dist < best) { best = h.dist; bestKey = h.key; }
+      // FB0930-FOE-RAYS: the nine spokes as coefficients on (u, v) - no nine fresh arrays a sample - and each ray
+      // reaches only as far as the nearest hit so far: a farther one could never replace it (`<` below), so the
+      // answer is the same and a spoke behind a wall the centre already met walks a cell or two, not the reach.
+      for (let sp = 0; sp < 9; sp++) {
+        const su = CAP_SPOKES[sp * 2], sv = CAP_SPOKES[sp * 2 + 1], k = sp >= 5 ? h : radius;
+        CAP_ORIGIN[0] = bx + (su * ux + sv * vx) * k; CAP_ORIGIN[1] = by + (su * uy + sv * vy) * k; CAP_ORIGIN[2] = bz + (su * uz + sv * vz) * k;
+        const hit = this.raycastHit(CAP_ORIGIN, dir, Math.min(reach, best), filter, CAP_HIT);   // HCC: the same bucket filter the rays take (a horse stepping past its own parked wagon)
+        if (hit.dist < best) { best = hit.dist; bestKey = hit.key; }
       }
     }
     return { dist: Number.isFinite(best) ? Math.max(0, best - radius) : Infinity, key: bestKey };
