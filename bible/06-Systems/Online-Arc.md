@@ -4917,7 +4917,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:7495` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:7496` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -11667,3 +11667,27 @@ else).
   number moved because the bundle's bytes did (`hitSpellOf`, `hitSpellFields` and `validFoeRecord` live in
   `src/net/wire.js`). An older relay carries both fields untouched, and an older client reads past them.
 - Pins: `test/strikeshared.test.js` (7). Mutants: `tools/mutants/strikeshared.json` (16, all dead).
+
+## LOAN-AMNESTY (2026-09-29, Mac: "Can we reset the loans for everyone online. The bank of the empire has decided to forgive everyone's loans") - every online loan forgiven, once
+
+- **What is forgiven** (`systems/banking.js` `forgiveLoans`): on each of the character's regional accounts, the debt
+  (`loanTotal`), its due date and the mark of a default (`hasDefaulted`). So the Empire lends again (EMPIRE-BANK's
+  `empireRefusal` refused a defaulter for good), nothing is garnished from a deposit, and no overdue sweep or join
+  settles it.
+- **What stays:** the gold borrowed (in the account, or spent); what was already repaid, garnished or drawn from other
+  branches; and the reputation a default cost (one -10 legal and -5 People a defaulted region, not recorded as such,
+  and recovering as reputation does - a refund could overshoot).
+- **Once, and for existing online characters only.** A save carries `loanAmnesty`, the amnesty it has had
+  (`LOAN_AMNESTY` 1). A save written before this build has none (0) and is forgiven as the character next boots online;
+  it is then marked, and a loan taken afterwards is owed. Every save written after it carries the mark
+  (`systems/save.js`), so a character made now is born past it. A character crossing customs is marked as it crosses
+  (`systems/realmCustoms.js` `applyCustoms`), so an offline loan walked online is called in as before, never forgiven.
+- **Where:** the realm boot (`scenes/world.js`), in the one parse of the save, after RESTORE's `reclaimFromDevice` and
+  the test room's refusal - before the save is restored and before `empireJoin` settles a due loan into a default. Offline saves are never
+  touched. The words, once the world stands: "The Bank of the Empire has forgiven your loan of N gold. Its branches will
+  lend to you again." (or "...has forgiven your debt." for a default already drawn to nothing).
+- **When:** client only - no account version, no relay. A character reaches it at its next boot; one being played as
+  this deploys, at the one after. The mark reaches the service at the next checkpoint; until then a re-boot forgives
+  the same save again, to the same end (RESTORE's own law).
+- Pins: `test/loan_amnesty.test.js` (6, red on the tree before). Mutants: `tools/mutants/loan_amnesty.json` (14, all
+  dead); `survtiers3.json`'s two cite records re-aimed. Patch notes: `PATCH-NOTES-Loan-Amnesty.md`.
