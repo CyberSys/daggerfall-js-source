@@ -34,7 +34,7 @@ own, `claude/exciting-keller-prkcjt`: the PR's A to C, then main, then D.
 | B - HELM-WAY | 3 | on the PR, `735f0c447` |
 | C - DECK-WALK and SHIPMATES | 5 (the rail), 6 | on the PR, `304ec692d` |
 | D - LIVING CREW | 4, 5 (seamless boarding) | **landed** 2026-09-30, `7feab89ff` merged onto `claude/exciting-keller-prkcjt` (`c394e9520`) |
-| E - SHIP-LIFE | 1 | **not started** - the research and design are below |
+| E - SHIP-LIFE | 1 | **landed** 2026-09-30 (Mac: "Do it") - `systems/naval/shipLife.js`; `03-World/Naval-Combat.md` SHIP-LIFE. The design below is kept as the reading that shaped it |
 
 ## First: the PR was behind main - brought in 2026-09-30
 
@@ -166,7 +166,7 @@ next to the player. A party going over the rail is dealt rail spots
    origin/ccr-08848d60-ieuci5-living-crew <merged head> --apply` moved 169
    cites. CD4 named the same seven `world.js` cites again, re-pointed, and
    the modal-frame range's close. mutantdrift named the two survtiers3
-   records again, re-aimed at `world.js:4991` and dead. Every change the
+   records again, re-aimed at `world.js:4992` and dead. Every change the
    cites took is digits alone, checked line by line. The suite line: 16071
    tests across 1695 files.
 4. **Verified on the merged tree.**
@@ -186,10 +186,17 @@ next to the player. A party going over the rail is dealt rail spots
 Its row in the table above is closed. Its line in `Active-Arcs.md` stays
 open until slice E lands.
 
-## Slice E - SHIP-LIFE, designed, not built
+## Slice E - SHIP-LIFE, landed 2026-09-30
 
-Mac's item 1. Nothing is written yet. Below is what the reading found and
-the shape it points to.
+Mac's item 1. Built to the shape below, with what the build found on the
+way: the berth's approach stands out in open water (on the berth's own line
+the captains' lookout swung her off the shore for good), the last leg into
+a sounded berth is free of that swing, a ship warps into or out of a
+harbour on her sweeps when the wind is in her teeth, a stalled ship takes a
+detour abeam, a harbour's ships are seeded by the port and the day (never
+the stander's id) and are never the sea's density, and the director's
+traffic gets errands only while a harbour is known. The record is
+`03-World/Naval-Combat.md` SHIP-LIFE. The reading that shaped it:
 
 ### What the sea does today
 

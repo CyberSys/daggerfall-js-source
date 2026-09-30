@@ -110,7 +110,7 @@ export function factionWeights({ nearPort = false, notoriety = 0 } = {}) {
 /**
  * The director. `step(dt, ctx)` answers `{ spawn: spec | null, despawn: id[] }`:
  *   ctx = { density, player: [x, y, z], players: [x, y, z][] (every player the host places - itself included),
- *           level, ships: [{ id, pos, classId, engaged, afloat, theirs }], isOpenWater(x, z, hull), nearPort, notoriety,
+ *           level, ships: [{ id, pos, classId, engaged, afloat, theirs, berthed }], isOpenWater(x, z, hull), nearPort, notoriety,
  *           seedBase, seaY }
  * AUDIT NAV1 (online): a ship `theirs` - another player's, near me - counts against the density and is never mine to
  * despawn; with `density` 0 (a player who does not stand the sea) the director only lets its own ships go.
@@ -156,7 +156,9 @@ export function createNavalDirector({ random = Math.random } = {}) {
       wait -= Math.max(0, dt);
       if (wait > 0) return out;
       wait = SPAWN_EVERY[0] + random() * (SPAWN_EVERY[1] - SPAWN_EVERY[0]);
-      const alive = (ctx.ships ?? []).filter((s) => !out.despawn.includes(s.id) && s.afloat !== false).length;   // AUDIT NAV1 (B1): a prize, a hulk or a wreck going down fills no berth
+      // AUDIT NAV1 (B1): a prize, a hulk or a wreck going down fills no berth; SHIP-LIFE: nor a ship moored in a harbour
+      // (the harbour's own count, navalHost.js HARBOUR_ROLL)
+      const alive = (ctx.ships ?? []).filter((s) => !out.despawn.includes(s.id) && s.afloat !== false && !s.berthed).length;
       if (alive >= (ctx.density ?? 0) || random() >= SHIP_SPAWN_CHANCE) return out;
       const seed = hash32(ctx.seedBase >>> 0, count++);
       // SEA-PEACE: a pair already at it, where the density has room for two

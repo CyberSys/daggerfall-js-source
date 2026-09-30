@@ -2118,6 +2118,49 @@ row's (42).
   down - they made and struck sail against the journey's own hand, and the panel
   said "Steer" for keys the view had; the journey's own press still sets her sails.
 
+## A boat's menu (BOAT-MENU, 2026-09-30 - DECLARED)
+
+Mac: *"I want to make the boat interaction like the loot menu. Being able to pick up, view storage, mount, all from a
+simple menu and button press."* The mod answers a press on one of its seven boxes, each in its own place on the hull,
+and the hull between them answers nothing; taking the helm and packing the boat were the same box, told apart by the
+interaction mode set beforehand (Steal packs). The port's ACT-MENU already lists a namer's verbs on the plaque under
+the crosshair - a horse's and a wagon's (`systems/horseCartLaw.js hccActionRows`) - and a boat of mine now lists its
+own (`systems/csaBoatMenu.js`, pure):
+- **The rows are the boxes the boat carries** (`boatTriggers` walks the boat's nodes for the seven): Take the helm
+  (Leave the helm at her helm), Board (not while aboard her deck or at her helm), Open storage, Pick up, Change style
+  (a hull with styles), Status, Position. The Rowboat lists its helm, its ladder and the pick-up; the ships their
+  chest, the Small Ship and the Large Galley their status, the Small Ship alone its position (AUDIT PR478 F3).
+- **Anywhere on her.** The hull lists them as the boxes do. The press goes through the mod's own `activate` on the
+  verb's box (`pressBoatVerb`): its 3.2 reach from the point aimed at, silent past it; the nearer box where she has two
+  (a ship's two ladders); the pick-up pressed in Steal mode and the helm in Grab, whatever mode the player has set.
+- **The hot spots stand.** The lit row starts on the verb of the box under the crosshair (`boatMenuStart`; the
+  plaque's `actionsStart`, `systems/worldHover.js nextSelection`'s start row): a press at the helm's box takes the helm,
+  at the chest opens it, as before the menu - and Steal mode at the helm's box lights "Pick up", as the mod's press
+  packs, and a mode switched there lights its own again (the helm's box under Steal is a key of its own, AUDIT PR478
+  C2). On the hull the list starts unlit (C4: a plain click on the deck is no request); the wheel's first step lights
+  its top row. No list at a helm (C1: the pad's d-pad is the helm's there). A door lists nothing and turns over as it did, as does a box whose
+  verb the boat does not list (a ship's variant box with no styles). The wheel and the pad's d-pad move the light as
+  on any plaque list.
+- **A refused row is listed with its reason**, and its press says the mod's words: the pick-up at her helm ("You
+  cannot pack a boat you are driving!") or with another player on her deck; a deed's ship, which the mod never packs
+  ("a deed ship stays afloat"); a style at the helm.
+- **Where no plaque stands** - a phone's tap, the classic skins, a building's or a dungeon's plaque (C5) - a press on a box does what it did, and a press on
+  the hull opens the same rows as a list (`csaOpenBoatMenu`, the variant picker's `ListPickerWindow`), put away before
+  the verb runs.
+- The walk is kept per hull and style (`_csaBoxes`); whether I stand on her deck is the ground under me being one of
+  her buckets (`csaStandsOn`, the aboard word's own test). Another player's boat keeps CSA-K's press (the ladder boards
+  it, the rest say whose it is). Pins: `test/boatmenu.test.js`; `tools/mutants/boatmenu.json`.
+
+## A boat left in a dungeon is kept (KEEP-BOATS, 2026-09-30 - DECLARED)
+
+`Compatibility.PersistentDungeonBoats` ships off in the mod, and off, UpdateBoatVisibility destroys a boat placed
+indoors or underground once the player is back outside: a packable boat and its hold are gone for good, and a crewed
+one comes back from its deed with an empty hold. On Mac's ask that ship ownership be *"less punishing"* the port ships
+the key ON (`systems/modSettings.js`); the player can still turn it off. AUDIT PR478 D2 (DECLARED): the mod stands an
+`inside` boat in any interior on its pixel - a building's too, which its own default never met - so a kept boat stands in
+a dungeon alone (`UpdateBoatVisibility`'s `inDungeon`, the host's `isPlayerInsideDungeon`). `test/csa_registration.test.js` DEPARTED;
+`03-World/Naval-Combat.md` KEEP-PLUNDER is the other half.
+
 ## What was already waiting in the port
 
 - Iliac Puddle No More's swim stands down on a boat

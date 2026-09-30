@@ -272,8 +272,8 @@
   {
     "name": "SEAPEACE-the-company-unlaunched",
     "file": "src/scenes/navalHost.js",
-    "old": "if (out.spawn) { launch(out.spawn); if (out.spawn.company) launch(out.spawn.company); }",
-    "new": "if (out.spawn) { launch(out.spawn); }",
+    "old": "        if (out.spawn.company) launch(out.spawn.company);   // SEA-PEACE: two ships already at it",
+    "new": "",
     "tests": [
       "test/seapeace.test.js"
     ]

@@ -61,7 +61,7 @@ Eye of the Beholder at its -10; at the galley's wheel her own rig pins the camer
 
 **Fix.** `player/seaZoom.js` (the one home both cameras read): at a helm the zoom reaches SEA_ZOOM_REACH (3) of the
 sailed hull's largest half-extent (her mesh's own bounds - a Small Ship 66 m, the galley 140 m), each notch past the
-foot's far end a ratio (1.2), so the reach is a dozen notches; off the helm the reference's far end returns and the
+foot's far end a ratio (1.2), so the reach is a dozen notches (HELM-ZOOM, 2026-09-30, Mac: "increase the sensitivity of the scrolling for zooming out and in when on the wheel": 1.5 a notch, and at a helm the whole range by it - the Morrowind camera's from its nearest ring, Eye of the Beholder's from its own base; their foot ladders of ten units and 0.2 m had taken 77 and 40 notches before the ratio began, and from first person to a Small Ship's reach is 13 now); off the helm the reference's far end returns and the
 save keeps no more. The camera's casts pass the sailed boat's own collider buckets (`csaCameraFilter`). A departure
 from both references (Port-Ledger, the Eye of the Beholder and MAC-A camera rows).
 
