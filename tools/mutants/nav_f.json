@@ -20,8 +20,8 @@
   {
     "name": "NAV-F-the-board-hint-shadowed",
     "file": "src/ui/navalHud.js",
-    "old": "    hint: model.board ?",
-    "new": "    hint: false ?",
+    "old": "      : model.board ? (model.board.kind === 'heave'",
+    "new": "      : false ? (model.board.kind === 'heave'",
     "tests": [
       "test/nav_f_ui.test.js"
     ]

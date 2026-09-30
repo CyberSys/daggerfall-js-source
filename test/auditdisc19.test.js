@@ -469,7 +469,7 @@ test('AUDIT DISC19 W4: the player\'s spells pass the town\'s defenders by - the 
 });
 
 test('AUDIT DISC19 W4 by source: a thrown torch passes the defenders by (the world host\'s torch pool), and a monster\'s blast still lands on them', () => {
-  assert.match(rd('src/scenes/world.js'), /foes: \(\) => \[\.\.\.cityGuards\.guards\.filter\(\(g\) => !g\.defender\), \.\.\.exteriorFoes\.foes\], foeSinks: \(f\) => foeSinks\(f\), makeEnemiesHostile/);
+  assert.match(rd('src/scenes/world.js'), /foes: \(\) => \[\.\.\.cityGuards\.guards\.filter\(\(g\) => !g\.defender\), \.\.\.exteriorFoes\.foes\.filter\(\(f\) => !sparedByPlayer\(f\)\)\], foeSinks: \(f\) => foeSinks\(f\), makeEnemiesHostile/);   // SHIPMATES: and the player's crew (deckwalk.test.js)
   assert.match(rd('src/scenes/hostMagic.js'), /if \(caster\?\.entity === playerEntity && sparedFromPlayer\(t\)\) continue;/);
 });
 

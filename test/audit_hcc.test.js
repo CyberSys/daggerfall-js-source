@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { MOD_SETTINGS, isTextKey, modSetting, _resetModSettings, KEY_MIGRATIONS } from '../src/systems/modSettings.js';
-import { DEFAULT_BINDINGS, MOD_ACTIONS } from '../src/systems/inputActions.js';
+import { DEFAULT_BINDINGS, DEFAULT_SHARES, MOD_ACTIONS } from '../src/systems/inputActions.js';
 import { shortcutBinding } from '../src/systems/dialogShortcuts.js';
 import { domCodeForKeyCode } from '../src/systems/keyCodes.js';
 import { snapshotPlayer, restorePlayer } from '../src/systems/save.js';
@@ -31,7 +31,7 @@ test('AUDIT HCC K1 (re-aimed by KB1): every vendored mod\'s keys ship where noth
   const browser = new Set(['F5', 'F6', 'F7', 'F11', 'F12']);   // reload, the address bar, caret browsing, full screen, the dev tools
   for (const rows of Object.values(MOD_ACTIONS)) {
     for (const r of rows) {
-      const code = DEFAULT_BINDINGS.find(([, a]) => a === r.action)?.[0];
+      const code = DEFAULT_BINDINGS.find(([, a]) => a === r.action)?.[0] ?? DEFAULT_SHARES.find(([, a]) => a === r.action)?.[0];   // HELM-KEYS: or a default share's
       assert.ok(code, `${r.action} ships a key`);
       assert.ok(!world.has(code), `${r.action} (${code}) is a key DFU's world shortcuts answer`);
       assert.ok(!browser.has(code), `${r.action} (${code}) is a key the browser takes`);

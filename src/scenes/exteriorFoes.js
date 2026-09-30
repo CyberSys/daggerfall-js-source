@@ -70,6 +70,7 @@ import { flashPlayerDamage } from '../ui/damageFlash.js';   // AUDIT 24 (wave 39
 import { bindQuestFoeHost, isPrivateQuestFoe } from './questFoeHost.js';   // B1: quest foes ride this pool; CURSE-SYNC: a world quest's ride as the world's
 import { validSites, validSiteTags, WOD_CAMP_PUPPETS_MAX, WOD_SITES_MAX, WOD_AGE_MAX } from '../world/wodShared.js';   // WOD7: a World of Daggerfall camp's foes, shared
 import { validRaidTags, validAlliedIds, RAID_PUPPETS_MAX } from '../world/raidShared.js';   // RAID2: a town's raid, shared
+import { isShipmate } from '../combat/friendlyFire.js';   // SHIPMATES: my crew named on the wire, and never the swing's
 import { campTagsOf, validCampTags } from '../world/campShared.js';   // OW6: a camp rides tagged, and an heir takes it as a camp
 import { CAMP_SIGHT_RADIUS, CAMP_ALERT_RADIUS, PACK_ALERT_RADIUS } from '../systems/campEncounters.js';   // OW6: a camp taken over sees and wakes as it did
 import { combatVisualsOn, foeDraw, markConcealedHit } from '../systems/combatVisuals.js';   // ECV1: what the enhanced skin draws for a concealed foe
@@ -729,7 +730,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   }
 
   function damageFoe(f, damage, playerFeet, knockDir = null, { fromPlayer = true, bypassShield = false, kind = 'melee', peer = false, peerId = null, whole = false, spell = null } = {}) {
-    if (f.dead) return;   // AUDIT 68 S20-foe-dies-twice: a corpse takes no blow - a magic round after the killing one re-ran the whole death (notice, loot handlers, corpse)
+    if (f.dead || (fromPlayer && !peer && isShipmate(f))) return;   // AUDIT 68 S20-foe-dies-twice: a corpse takes no blow - a magic round after the killing one re-ran the whole death (notice, loot handlers, corpse)   // AUDIT NAV2 F55: and a shipmate none of the player's, whatever road it took here (cityGuards' damageGuard holds a raid's defender so) - the vampiric drain's reached him as the player's attack and turned him
     if (fromPlayer && !peer) renownFoeStruck(f);   // RENOWN1: MY blow - a puppet's too, before the divert sends it to the owner
     // AUDIT PSCALE1 DOORS-1: a KILL is not a blow - a Disintegrate, a stat drained to zero (the sinks' `whole`), the
     // Razor's whole-health strike (its mark on the foe) - and no fighters' toughness divides it, here or at the owner
@@ -1304,7 +1305,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     return inflictPoison(f.entity, pt, false, { rolls, currentMinute: Math.floor(currentMinute()) });   // ENGINE-PRNG RULE: the pool's uniform seam
   }
   function resolvePlayerHit(playerWeapon, eye, lookDir, playerFeet, inViewFn, onHitSound, { swing = null } = {}) {
-    const live = foes.filter((f) => !f.dead);
+    const live = foes.filter((f) => !f.dead && !isShipmate(f));   // SHIPMATES: the player's own crew is never the swing's - not even alone in reach, where the vanilla arm strikes a lone ally (combat/friendlyFire.js)
     if (!live.length) return false;
     const canSee = (f) => {
       const c = [f.ai.feet[0], f.ai.feet[1] + (f.ai.height ?? CAPSULE_HEIGHT) / 2, f.ai.feet[2]];   // REVIEW 2026-09-05: the foe's own capsule centre
@@ -1574,6 +1575,27 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       f.corpse = false;
       f.corpseMarker = null;
     }
+  }
+  /** AUDIT NAV2 F11: A BODY ON A DECK THAT MOVES - its corpse carried to `pos` (the world's navalCarry, her deck's point
+   *  where he fell): the marker's ground point (the loot seam's) and its batch, drawn there by its origin - the centres
+   *  are baked at the mint (a recenter bakes a new batch where it lies), so the origin is the way it has come since. */
+  function moveCorpse(f, pos) {
+    const c = f?.corpseMarker;
+    if (!c || !pos) return;
+    const b = c.batch;
+    b._base ??= [c.pos[0], c.pos[1], c.pos[2]];
+    c.pos[0] = pos[0]; c.pos[1] = pos[1]; c.pos[2] = pos[2];
+    const o = (b.origin ??= [0, 0, 0]);
+    o[0] = pos[0] - b._base[0]; o[1] = pos[1] - b._base[1]; o[2] = pos[2] - b._base[2];
+  }
+  /** AUDIT NAV2 F11: A BODY GONE DOWN WITH THE HULL IT LAY ON - its corpse taken off (its batch destroyed, a marker still
+   *  loading refused on arrival - `_gone`) and the record ended, as CollectLooseObjects ends one (update's tail prunes a
+   *  dead record with no body). removeFoe spares the dead; this is the dead's. */
+  function removeCorpse(f) {
+    if (!f?.dead || f.puppet) return;
+    f._gone = true;
+    if (f.corpseMarker) { const i = corpseBatches.indexOf(f.corpseMarker); if (i >= 0) { renderer.destroyBillboardBatch(corpseBatches[i].batch); corpseBatches.splice(i, 1); } }
+    f.corpse = false; f.corpseMarker = null;
   }
 
   /**
@@ -1874,7 +1896,8 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     const rz = out.filter((r) => src.get(r)?.raidKey).map((r) => [r.i, src.get(r).raidKey]);   // RAID2: a raid's raiders, by number and raid - a reader stands them under RAID_PUPPETS_MAX
     const cz = campTagsOf(out, (r) => src.get(r));   // OW6: a camp's members, by number, camp and kind - a reader marks the camp on its Overworld, an heir takes it as one
     const al = out.filter((r) => r.t === KNIGHT_CITYWATCH_ID && r.d !== 1 && src.get(r)?.defender).map((r) => r.i);   // RAID2: the watchmen who are MY allies (DISC19-F's defenders, a raid's among them) - a reader stands them as its allies, where a watch record carried no team
-    return { n: ++_foesSeq, k: _net.room?.() ?? null, full: full ? 1 : 0, f: out, ...(rz.length ? { rz } : {}), ...(cz.length ? { cz } : {}), ...(al.length ? { al } : {}), ...(st.length ? { st } : {}), ...(sp.length ? { sp } : {}), ...(dz.length ? { dz } : {}), ...(qf.length ? { qf } : {}) };
+    const cw = out.filter((r) => r.d !== 1 && isShipmate(src.get(r))).map((r) => r.i);   // SHIPMATES: my crew on a deck (combat/friendlyFire.js) - a reader stands them as its allies and its own harm passes them by
+    return { n: ++_foesSeq, k: _net.room?.() ?? null, full: full ? 1 : 0, f: out, ...(rz.length ? { rz } : {}), ...(cz.length ? { cz } : {}), ...(al.length ? { al } : {}), ...(cw.length ? { cw } : {}), ...(st.length ? { st } : {}), ...(sp.length ? { sp } : {}), ...(dz.length ? { dz } : {}), ...(qf.length ? { qf } : {}) };
   }
   /** The owner's record (AUDIT WORLD6b B4/C3), minted on its first frame. */
   function ownerOf(from) { let o = _owners.get(from); if (!o) { o = { n: -1, at: _now(), gen: ++_ownerGen, k: null }; _owners.set(from, o); } return o; }   // WORLD6b-iii(b): k the cell the owner's frames are keyed to - its own
@@ -1921,6 +1944,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     const raidTags = validRaidTags(data.rz);   // RAID2: which are a raid's raiders, and whose raid
     const campTags = validCampTags(data.cz);   // OW6: which are a camp's members, and whose camp
     const allied = validAlliedIds(data.al);   // RAID2: which watchmen are the owner's allies
+    const crew = validAlliedIds(data.cw);   // SHIPMATES: which are the owner's crew on a deck
     const stood = new Set(), refused = new Set();   // AUDIT WOD7: a site whose every record the allowance refused is not spent here
     const liveMarks = [];   // QUEST-PARTY phase 3: the owner's live marker foes of a quest the party shares
     let adopted = 0;   // AUDIT CONTRIB P1: the foes this frame hands to me
@@ -1952,7 +1976,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       if (site && (f || _pupPending.has(key))) stood.add(site);   // AUDIT WOD7: standing or building here
       if (f) {
         if ((r.t !== undefined && r.t !== f.mobileType) || (r.d === 0 && f.dead) || (r.l !== undefined && f.mobileType >= 128 && r.l !== (f.builtLevel | 0))) removePuppet(f);   // AUDIT WORLD6b-ii B2: a CLASS foe's level is its owner's word (its skills and health are built from it) - a monster's is its species' (makeEnemyEntity), whatever the record says; AUDIT FOES FOE8: against the level it was BUILT at, which a City Watch's constructor re-rolls
-        else { if (campTags.has(r.i)) f._pupCamp = campTags.get(r.i); applyPuppetRecord(f, r); f._heirElse = heirElse(r); if (heirIsMe(r)) adopted += adopt(from, f); if (f.mobileType === KNIGHT_CITYWATCH_ID) alliedWatchPuppet(f, allied.has(r.i)); continue; }   // OW6: its camp, as the owner last said it
+        else { if (campTags.has(r.i)) f._pupCamp = campTags.get(r.i); applyPuppetRecord(f, r); f._heirElse = heirElse(r); if (heirIsMe(r)) adopted += adopt(from, f); if (f.mobileType === KNIGHT_CITYWATCH_ID) alliedWatchPuppet(f, allied.has(r.i)); crewPuppet(f, crew.has(r.i)); continue; }   // OW6: its camp, as the owner last said it
       }
       // AUDIT (the pre-merge audit, D2): a foe of theirs I took, streamed ALIVE by them again (a socket back under the
       // same id, a tab that woke) - theirs again: mine goes, and their record stands it here as their puppet
@@ -1969,9 +1993,11 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       _pupPending.set(key, { ...r, _site: site, _deep: deep, _quest: qt, _raid: raidKey, _camp: campTags.get(r.i) ?? null });
       if (site) stood.add(site);
       const gen = o.gen;
-      spawnFoe(r.t, feet, { puppet: from, seq: r.i, gender: GENDER_BIT[r.x === 1 ? 1 : 0], feetGiven: true, yaw: r.y ?? null, level: r.l ?? null, site, allied: r.t === KNIGHT_CITYWATCH_ID && allied.has(r.i) })   // RAID2: a watchman the owner names its ally stands as mine
+      const shipmate = crew.has(r.i);
+      spawnFoe(r.t, feet, { puppet: from, seq: r.i, gender: GENDER_BIT[r.x === 1 ? 1 : 0], feetGiven: true, yaw: r.y ?? null, level: r.l ?? null, site, allied: (r.t === KNIGHT_CITYWATCH_ID && allied.has(r.i)) || shipmate })   // RAID2: a watchman the owner names its ally stands as mine - SHIPMATES: and a crewman
         .then((nf) => {
           if (!nf) return;
+          if (shipmate) nf.shipmate = true;
           const owner = _owners.get(from);
           const kept = _pupPending.get(key) ?? null;   // null once a room change cleared it (clearPuppets)
           // AUDIT (the pre-merge audit, F3): the owner's leave pruned it while this build was in flight, and its last
@@ -2024,6 +2050,14 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
    *  watch (WATCH1's recorded limit). */
   function alliedWatchPuppet(f, on) {
     const team = on ? 'PlayerAlly' : staticTeamOf(KNIGHT_CITYWATCH_ID);
+    if (f.entity && f.entity.team !== team) { f.entity.team = team; f.entity.mobileTeam = team; }
+  }
+  /** SHIPMATES: a puppet the owner names its crew (the frame's `cw`) is a shipmate here too - the player's ally, spared
+   *  the player's harm, wearing the crew's bar (combat/friendlyFire.js); one it names no longer is its species' again. */
+  function crewPuppet(f, on) {
+    if (!!f.shipmate === on) return;
+    f.shipmate = on;
+    const team = on ? 'PlayerAlly' : staticTeamOf(f.mobileType);
     if (f.entity && f.entity.team !== team) { f.entity.team = team; f.entity.mobileTeam = team; }
   }
   function applyPuppetRecord(f, r) {
@@ -2496,6 +2530,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
      *  is the name the world host's teleport asks for it by. */
     clearLive: destroy,
     collectPixel, arrowHitFoe, removeFoe: questPoolOps.removeFoe,
+    moveCorpse, removeCorpse,   // AUDIT NAV2 F11: a deck's dead ride her and go down with her
     // WORLD6b: the cell's stream - the net installed, my foes out, a peer's in, a peer's blow in, the puppets pruned
     setNet, foesFrame, applyFoes, applyHit, spellToOwner, pruneOwners, clearPuppets, handOverFrame, dropOwnLive,
     deepPuppetsNear,   // DEEP-SHARE: the deep's foes others stand near a point

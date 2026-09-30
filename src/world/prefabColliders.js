@@ -491,3 +491,12 @@ export const BUILTIN_COLLIDER_MESHES = Object.freeze({
     indices: Object.freeze([0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7, 0, 1, 5, 0, 5, 4, 3, 6, 2, 3, 7, 6, 0, 4, 7, 0, 7, 3, 1, 2, 6, 1, 6, 5]),
   }),
 });
+
+/** A BoxCollider's six faces as triangles in its object's frame: its centre and size (Unity's `m_Center`, `m_Size`). */
+export function boxColliderTriangles(c) {
+  const ce = c.m_Center ?? { x: 0, y: 0, z: 0 }, sz = c.m_Size ?? { x: 1, y: 1, z: 1 };
+  const hx = Math.abs(sz.x) / 2, hy = Math.abs(sz.y) / 2, hz = Math.abs(sz.z) / 2;
+  const positions = [];
+  for (let i = 0; i < 8; i++) positions.push(ce.x + (i & 1 ? hx : -hx), ce.y + (i & 2 ? hy : -hy), ce.z + (i & 4 ? hz : -hz));
+  return { positions, indices: [0, 2, 1, 1, 2, 3, 4, 5, 6, 5, 7, 6, 0, 1, 4, 1, 5, 4, 2, 6, 3, 3, 6, 7, 0, 4, 2, 2, 4, 6, 1, 3, 5, 3, 7, 5] };
+}

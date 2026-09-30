@@ -230,8 +230,8 @@
   {
     "name": "AUDIT-REALM-L1F3-another-characters-house-sold",
     "file": "server-account/src/homes.js",
-    "old": "AND char_id = ? AND paid = ?').bind(home.map_id, home.building_key, player.id, at.id, home.paid),",
-    "new": "AND paid = ?').bind(home.map_id, home.building_key, player.id, home.paid),",
+    "old": "AND char_id = ? AND paid = ? AND rent_due = ?').bind(home.map_id, home.building_key, player.id, at.id, home.paid, home.rent_due ?? 0),",
+    "new": "AND paid = ? AND rent_due = ?').bind(home.map_id, home.building_key, player.id, home.paid, home.rent_due ?? 0),",
     "tests": [
       "test/auditrealm.test.js"
     ]

@@ -297,7 +297,7 @@ test('AUDIT 32 wiring: a flyer\'s body where its corpse lies (H3); no click thro
   assert.match(d, /corpseKeyOf: \(f\) => \{ const i = foes\.indexOf\(f\); return i >= 0 && lootableBody\(f\) && f\.entity\?\.items\?\.length \? `corpse:\$\{i\}` : null; \},/, 'H8');
   const w = src('src/scenes/world.js');
   assert.match(w, /bodiesOf\(modes\?\.dungeonCtx\?\.foes, bodyStamps, \(f\) => modes\?\.dungeonCtx\?\.corpseAt\?\.\(f\), \(f\) => modes\?\.dungeonCtx\?\.corpseKeyOf\?\.\(f\)\)/);
-  assert.match(w, /if \(\(\(_act\.activate && !gatherHost\?\.acting\(\)\) \|\| \(useEdge && !nodeTook\)\) && !modes\.transitioning\) \{/, 'H5: the street');
+  assert.match(w, /if \(\(\(_act\.activate && !gatherHost\?\.acting\(\)\) \|\| \(useEdge && !nodeTook\)\) && !modes\.transitioning(?: && !_holdFire)?\) \{/, 'H5: the street');   // PIN MOVED (the merge with AUDIT NAV2 F31): the gate holds fire too
   assert.match(src('src/scenes/worldModes.js'), /if \(interact && !pressCast && host\.profPress\?\.\(\)\) return true;\n(?:\s*\/\/[^\n]*\n)*\s*if \(!interact && host\.profActing\?\.\(\)\) return true;/, 'H5: the dungeon');
   assert.match(w, /enemiesNear: exterior \? \(duelEnemyNear\(\) \|\| areEnemiesNearby\(exteriorFoePool\(\), \{ resting: true \}\)\) : areEnemiesNearby\(modes\?\.insideFoes\?\.\(\) \?\? \[\], \{ resting: true \}\),/, 'H6');
   assert.match(w, /active: \(\) => walkMode && modeNow\(\) === 'exterior' && !townTalk\.overlayActive && !modes\?\.deathUp\?\.\(\) && !modes\?\.transitioning && !travelView\?\.active,/, 'H10');

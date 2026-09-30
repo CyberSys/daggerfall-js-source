@@ -4775,7 +4775,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7142` read, on one physical line:
+`src/scenes/worldModes.js:7265` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4917,9 +4917,9 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:7572` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:7920` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
-  provenance argument `applySpellToFoe` hands them (`hostMagic.js:351`)
+  provenance argument `applySpellToFoe` hands them (`hostMagic.js:352`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
   Threading it touches four hosts.
 - **A building interior streams no foes at all.** `makeInteriorFoes`
@@ -9850,6 +9850,202 @@ the account service's online (`home_hidden`, migration 0015; `06-Systems/Account
 whole by the owner first and stood once the service has it; the room every visitor walks into is the one its owner
 cleared. A sale brings the furniture back. `01-Overview/Field-Bugs-2026-09-26.md` BASE-HIDE;
 `test/basehide.test.js`; `tools/mutants/basehide.json`.
+
+
+## HOUSING (2026-09-30, asked: four improvements to the housing system) - a door between rooms, a room rented, the outside painted, the yard
+
+The ask, in the player's words: (1) "For houses with multiple rooms attached, I want to add a door item that can attach
+to the wall that leads to another room. This needs to have an easy element where it tells you where you can place it."
+(2) "For houses with multiple rooms, the owner can choose to rent out to other players and adjust the price as needed."
+(3) "The introduction of exterior customization. The ability to choose the texture for the roof, walls, door, windows,
+etc." (4) "In addition allowing for prop placement on the outside within the limits of their house." Four slices, one
+deploy of the account service (`acct37`, migrations 0037-0039). Each is a Ledger A departure (`Port-Ledger.md` section
+A, THE HOUSING SLICES): Daggerfall Unity has no decorator, one player, and no player's house seen by another.
+
+The defaults taken where the ask named none (a later ask moves them): a door is a catalogue piece priced by size as
+any piece is; rent is priced in gold a REAL day (the service's clock - no two players' game clocks agree), one to
+thirty days at a time, held on the home until its owner collects it, and a tenant may walk in and rest; the outside is
+free to repaint; a yard holds sixty pieces on a lot six metres round the house's footprint. The door and the room
+tabs work in every decorated room (online home, offline house, ship); renting, the outside and the yard are an online
+home's alone - they are about other players.
+
+### HOME-DOORS - a door hung in a doorway, and every doorway marked
+
+- **The door** is one of Daggerfall's own: the five interior door models DaggerfallInterior hangs (AddActionDoors'
+  9000 + the record's index of five - `world/interiorLayout.js` DOOR_MODEL_BASE_ID, DOOR_MODEL_COUNT, now exported
+  once), read into the catalogue from the town blocks' own door records (`systems/decorCatalogue.js` collectDecor -
+  kind "Doors", named "Door N"), priced by size as any piece. The account service keeps it as the piece it is (a model
+  id and a place): nothing on the service knows a door from a chair.
+- **Placed, it is one of the room's own action doors** (`scenes/decorRoom.js` hands a door piece to the host's
+  `doors` hooks; `scenes/worldModes.js` decorDoorHooks calls `world/actionSystem.js` addDoor with the piece's id as its
+  position key - `act:decor:<id>`, the same key on every client and every visit). So it swings open and shut on
+  Interact, blocks while shut, is drawn and ticked with the room's doors, named as a door on the hover, saved with them
+  (a house's or a ship's) and shared through the room with whoever stands in it. Moved or removed, it is taken back out
+  (`ActionSystem.removeDoor`, new: the object, its link and its bucket). No solid bucket or eye target of the pool's
+  own - the door is both.
+- **Where one goes** (`systems/decorDoorways.js`): a DOORWAY - an opening in a wall between two floors the eye passes
+  between. The room finder (`systems/decorRooms.js`) now keeps the pairs of floors it joined (`links()`), and each is
+  looked across at waist height by rays along the way through, stepped sideways: the opening is the run that goes
+  through, each jamb the first step either side that meets the wall - the same wall, going on past both jambs, no
+  deeper than a wall is thick (1.2 m). Its middle is between the jambs and in the wall's thickness, on its floor, under
+  its lintel (1.8 m at the least), 0.6 to 2.4 m wide. A passage is none (it narrows for its whole length); the gap
+  between two cupboards is none (the finder reads the room's SHELL alone - `scenes/decorBase.js` INTERIOR_SHELL_BUCKET,
+  now named once); an opening a door already stands in is taken - one of the room's own (their hinges, open or shut) or
+  a placed one.
+- **The easy element**: while a door is placed, every free doorway is MARKED on the decal pass - a bright frame round a
+  faint fill, green, and the one the eye looks at gold - and the door is FITTED into the one looked at (turned so its
+  thickness runs through the doorway, sized to the tighter of the opening's width and height within the piece law,
+  stood on its floor); a turn swings it the other way. The bar says "Finding the doorways...", then "Look at a marked
+  doorway to hang the door (N free) - turn to swing it the other way", or "This house has no open doorway for a door";
+  the catalogue's line for a door says how many this house has free before it is chosen.
+- **The rooms follow**: a door put in parts the rooms either side (a shut door is what parts them - DECOR-ROOMS), so
+  the house's rooms are found again; a door moved or removed finds its doorways again too. A house of one room with a
+  doorway becomes two - which is how a house gets rooms to rent (HOME-RENT).
+- Known limits: doorways are found along the finder's grid axes (a wall at an angle to them is read at its skew); the
+  door is sized uniformly, so an opening much wider than a door stands with gaps at its jambs; a door left open
+  offline comes back shut (its saved swing is restored before the piece stands).
+
+### HOME-RENT - a room of a home, rented to another player
+
+- **The law** (`net/homeLaw.js` RENT_*, both ends): a home offers at most eight rooms, each by its number and a point
+  in it (the building frame's, as a piece of decor stands), at 1 to 10,000 gold a day; a tenant rents 1, 3, 7, 14 or 30
+  days, renewed from the tenancy's end and never more than thirty days ahead; a character holds at most three rooms.
+- **The service** (`server-account/src/rent.js` over `migrations/0037_home_rooms.sql` - `home_rooms`,
+  `homes.rent_due`; routes `/v1/homes/rooms`, `/rooms/offer`, `/rooms/withdraw`, `/rooms/rent`, `/rooms/collect`).
+  OFFER and WITHDRAW are the owner's character's alone (decor.js's own OWNS in every WHERE); a room withdrawn keeps a
+  running tenant until the days run out, a free one goes. RENT is another registered account's REALM character: its
+  record pays the days' price by the wallet's own order (the home's region's account last) in ONE batch with the room's
+  tenancy and the rent held on the home, the record asked first (realmActFirst), so a rent sent again after a lost
+  answer reads as landed. The price the tenant saw must be the price that stands (`rent-price`); a room another rents
+  is `rent-taken`; one's own account never rents from itself (`rent-own` - it would move gold between one's own
+  characters). COLLECT pays the held rent into the owner's record's bank account in the home's region (the purse where it
+  keeps none - a sale's own place; AUDIT: a month of rooms in coin pinned its owner), all of it, in one batch (the guild
+  treasury's pattern - an owner's record moves only with its own tab's lease). A home is not sold (`home-tenants`) nor
+  its character deleted (`home-tenants`, `home-rent-due`) while a tenancy runs or rent is held; rent nobody collected
+  comes with a sale. The town answer names each home's free rooms (`rent: { vacant, from }`) and, for the character
+  the caller names, the end of its own tenancy (`tenant`) - which opens the door (`homeMayEnter`: a tenant walks in
+  whoever else may).
+- **The door** (`systems/onlineHomes.js` homeVisitorRows, `scenes/worldModes.js` openHomeRent): a home with a room
+  free lists "Rent a room: from N gold a day" on its plaque (and "Go in" where the door opens for me); a click on a home
+  that would shut me out asks the same where no plaque is drawn. Which room, how many days (each with its cost), and the
+  price asked again before it is paid (`systems/homeRent.js` rentHomeRoom - the purse pays at once and gets it back on
+  a refusal). A tenant's plaque lists their own room to renew; walking in, they are told their days left, and may rest
+  there (the rest window's `houseOwned`). A tenant is still a visitor: the cupboards stay shut, no drops, no spells.
+- **The owner** (the decorator's "Rooms to rent" tab, `ui/decorPanel.js`, `scenes/decorTool.js` rentView/rentAct,
+  through `worldModes.js` decorRentDoor): each room the house's walls part it into, beside the offer whose point stands
+  in it (`homeRent.js` rentRoomsView - matched by place, never by number, since the room finder numbers afresh), a price
+  stepped by -100/-10/+10/+100 and offered by the room's own point, "Stop offering", and "Collect rent: N gold". A house
+  of one room says to hang a door to part it.
+- Known limits: a rented room is a right to the house (entry, rest), not a locked room inside it; the tenant cannot
+  furnish it; a day is the service's real day.
+
+### HOME-LOOK - an online home's outside, painted by its owner
+
+- **The law** (`net/homeLaw.js` homeLookOf, both ends): four parts. WALLS wear one of Daggerfall's exterior building
+  sets (Castle, City stone, City plaster, Farmhouse, Mages Guild, Manor, Merchant, Tavern, Temple, Village) in a
+  climate (Desert, Mountain, Temperate, Swamp); WINDOWS a set's window in a climate; the ROOF and the DOOR a climate
+  and a style (a record of the roofs' family 69 or the doors' 74 - the door frame's tapestry, 74 record 3, never, as
+  ClimateSwaps.ApplyClimate never swaps it). A look is refused whole; nothing changed is the town's own.
+- **What a face wears** (`world/homeLook.js`): its part is read off the texture Daggerfall gave it - the roofs' family
+  (and its winter), the doors' (the tapestry aside), a window (ClimateSwaps.IsExteriorWindow), a building set's wall -
+  at a climate's base alone (0, 100, 300, 400: TEXTURE.2xx are flats' archives, and 210 is no castle's winter wall);
+  anything else is the town's. The choice goes through Daggerfall's own ApplyClimate from the family's desert index, so
+  winter still snows on it where Daggerfall's snows; a wall keeps its record (the set's own order, as a climate swap
+  keeps it), a window is the set's record 3, a roof or a door the style chosen. A record the archive lacks is left to
+  the town's (texRemap.js's prune, for its reason).
+- **The service** (`homes.js` setHomeLook over `migrations/0038_home_look.sql` - `homes.look`; `/v1/homes/look`): the
+  owner's character's alone, free, a decorator's write against the hour; the town answer carries each home's look.
+- **Drawn** (`scenes/world.js`): a town's pixel asks its homes before its buildings are merged (a moment -
+  HOME_LOOK_BUILD_WAIT_MS), and a player's home stands OUT of the pixel's static batch with its own texture table (the
+  pixel's climate swaps and its look over them - a new table each time, since the renderer caches a sub-mesh's texture
+  against the table's identity); its shadow too. `refreshHomeLooks` repaints a home where it stands whenever the
+  registry moves or the painter tries a look (the older ask never lands over a newer); a home the build merged that is
+  painted later rebuilds its pixel once, by the season's own teardown (`_reskin.mark`).
+- **The painter** ("Exterior" in the yard's panel - HOME-YARD): the four parts, each part's climates and its sets or
+  styles, its swatch in the preview; each choice is tried on the house on the owner's own screen (`previewHomeLook`),
+  "The town's own" clears a part, "Paint it" writes the look for everyone, "Put back" and leaving the tab put a tried
+  look away.
+- Known limits: a choice of another record than Daggerfall's own for a face (a roof's or a door's style) tiles by the
+  original record's size; the painter offers six styles and an archive with fewer draws the rest as the town's own. The
+  `?exterior` bench (`scenes/exterior.js`) draws no online homes and is not painted (FLAGGED, the four hosts rule:
+  exterior.js not wired - no homes there; world.js wired; worldModes.js and dungeonContext.js draw no town exterior).
+
+### HOME-YARD - pieces outside a home, on its own lot
+
+- **The law** (`net/decorLaw.js` decorYardPieceOf, both ends): a yard's piece is a catalogue piece standing outside -
+  never one's own item, holding nothing, serving no craft, giving no light - within 48 m of its frame; sixty a yard.
+- **The frame** is the building's own place in its town (`world/rmbLayout.js` `recordAt`, the subrecord's origin -
+  not a DFU field) in the world's axes, as a room's pieces stand from the door; `scenes/world.js` records each
+  building's frame and the box round its models at the build (`homeFrames`).
+- **The lot** (`scenes/homeYards.js` yardLot, yardWhyNot): the house's footprint and six metres round it, never inside
+  the house (its roof neither) and never on another building's footprint. The client measures it - the service has no
+  town to measure in - and the decorator refuses a piece off it (`placeOk`: "Outside your lot - keep it within the
+  marked edge.", "That is inside your house...", "That is another building's ground."); the lot's edge is MARKED while
+  a piece is placed (four upright bands on the decal pass, `lot`).
+- **The service** (`decor.js` over `migrations/0039_home_yard.sql` - `home_decor.yard`): placed with `yard`, under
+  its own cap and law (a yard piece moved stays a yard's); the room's list and cap are the room's own; the town's yards
+  are read together at `/v1/homes/yards`, by any session.
+- **Standing** (`homeYards.js` createHomeYards): the town's yards read with the town (believed a minute, as its homes
+  are), each yard stood in its pixel as a room's pieces stand in its room (`scenes/decorRoom.js`, one pool a yard) - its
+  own collider buckets on the world's collider, drawn in the world's mesh and billboard passes - and stood again where
+  it stands when the world recentres; a pixel streamed out takes its yards down.
+- **The decorator outside**: the same tool (`scenes/decorTool.js`), opened by "Decorate" while the owner stands on
+  their own lot (or two metres off it) outdoors, afoot. The panel is a yard's - "Catalogue", "In this yard", "Exterior"
+  (HOME-LOOK); no doors in its catalogue; no light, holding or craft buttons. The free camera flies from the eye and
+  meets the ground (`Collider.surfaceHit`); the flight takes the stick and the eye from the body; a write goes to the
+  service with `yard`, paid from the purse and the town's region's account (or the realm record's act).
+- Four hosts: `world.js` WIRED (the yards, the frames, the passes, the eye and the stick); `worldModes.js` and
+  `dungeonContext.js` stand no street; `exterior.js` (the bench) FLAGGED - no online homes.
+- Known limits: the lot is a box round the footprint (a building turned off the grid has a wider lot); yard pieces are
+  not activation targets; the street's wandering folk are not steered round them.
+
+### THE AUDIT (2026-09-30, asked: "let's do a nice audit on this. Just want to make sure it's perfect")
+
+Four lanes read the slices adversarially (the rent and its gold, the doors, the look and the yard, the merge and the
+service's routes); every finding was checked against the code before it was fixed, and every fix carries a mutant in
+`tools/mutants/housing.json` (75 records: 72 dead, 3 recorded equivalent - the doorway's depth bound, and the rent's
+early price and offer checks, which the write's own guards repeat).
+
+- HIGH - the rent held on a home was paid into the record at its sale and never into the tab's purse; the act's
+  checkpoint then wrote the tab's save over the record, and the rent was gone. `release` carries `rent`, the sale
+  credits it and says it (`homeSoldLine`).
+- Rent: a room taken off the offer could be renewed by its tenant for ever, holding the sale and the delete - renewal
+  needs the offer (read and in the write, `listed = 1`); a rent whose room changed under it said `rent-taken` whatever
+  changed (`roomMovedOf`: the new price, the offer gone, or taken); a collection was not rated; `yours` was the
+  account's while renewal is the character's (the rooms read names its character); an offer needs a landed save (a
+  customs undone would strand held rent); the delete withdraws the character's offers once its checks pass and asks
+  again, so no rent lands between; the owner's rooms are offered under their offer's own number or the first free one
+  (a door hung renumbers the finder's rooms, and a price change overwrote another room's offer); a room off the offer
+  whose tenancy ran out says so and can be cleared; the owner's other characters are offered no room; a tenancy opens
+  the door and the bed until its end, not until the town is read again; the rent collected goes to the home's region's
+  bank, as a sale pays.
+- Doors: a placed door's swing and lock were dropped on every restore, room memory and peer frame that came before the
+  door was hung (its model is fetched) - ActionSystem keeps such records by key (`act:decor:` only, a handful) and the
+  door takes its own when added, the save writing them meanwhile; a door hung on an earlier visit could not be moved
+  (its shut bucket hid its doorway from the rooms' links) - the doorways are found from the rooms with the placed
+  doors seen through; a door is offered no station, store or light (a station's licence on a door could never be
+  used); only a doorway the eye sees is aimed at; a doorway beside a room's corner or over a step is found; a door
+  hangs only where it closes the opening (`fills` - an arch twice its width is `DECOR_DOOR_TOO_WIDE`); a piece moved
+  before the catalogue is read is kinded by its model.
+- Look and yard: the painter's first preview on a home the merge swallowed rebuilt the owner's street under the open
+  panel, and the decorator went on writing into the yard taken down - a merged home rebuilds its pixel only for a look
+  written or once it is this account's, and a yard taken down under the decorator puts it away; only painted homes or
+  the account's own leave the merge (PERF4 kept for every other); each pixel is painted from the registry version its
+  build read (an answer landing mid-build was spent before the pixel stood); a town heard before is never waited for
+  again at a rebuild; a finger's tap or swipe under the yard's flight presses and swings nothing; the lot asks the
+  ground a piece covers (its turned box), not its middle; yards stand again the frame the world recentres; far yards
+  are not drawn (`YARD_DRAW_M`); yard pieces take their pixel's climate swaps; a full yard says so (`yard-cap`); the
+  painter offers only the styles a roof's or a door's family holds.
+- Known limits kept: a town's yards are read up to DECOR_YARDS_TOWN_MAX pieces (a town of more than about 33 full
+  yards shows the first by building key); a tenancy's end is read on the client's clock; a refused rent's reserve
+  comes back to the region's account, as a refused home purchase's does.
+
+Pinned: `test/homedoors.test.js` (14), `test/homerent.test.js` (10), `test/homelook.test.js` (7),
+`test/homeyard.test.js` (7); re-aimed by content in `test/decor1.test.js` (the kinds' count, the host's pool),
+`test/basehide.test.js` (the shell's bucket named), `test/home1.test.js` (the homes' door built from `homesApi`),
+`test/home2.test.js` (HOME_VERB's rent), `test/realm6.test.js` (four realm acts in the building host),
+`test/accountworker.test.js` (the tables), `test/renown_char.test.js` (the migrations after 0035), `test/decor1e.test.js`
+and `test/decor2b.test.js` (the sale's line, the tap under a flight) and the ACCOUNT_VERSION pins (`acct37`).
 
 
 ## GUILD1 (2026-09-25, Mac: "future ownership for online guilds"; asked, founding takes "Gold and Renown", a guild is joined "Per character", its ranks are "Four, renamed by the guildmaster", and the treasury is the "Guildmaster only" to take from) - a guild the players found, and the service keeps

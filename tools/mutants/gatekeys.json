@@ -50,13 +50,13 @@
   {
     "name": "GATEKEYS-the-empty-var-back",
     "file": "server-account/wrangler.toml",
-    "old": "ACCOUNT_VERSION = \"acct37\"\n",
-    "new": "ACCOUNT_VERSION = \"acct37\"\nGATE_PUBLIC_KEY = \"\"\n",
+    "old": "ACCOUNT_VERSION = \"acct38\"\n",
+    "new": "ACCOUNT_VERSION = \"acct38\"\nGATE_PUBLIC_KEY = \"\"\n",
     "tests": [
       "test/accountdeploy.test.js",
       "test/wb5b_gate_claim.test.js"
     ],
-    "note": "A var of the name: every deploy rewrites it and Cloudflare refuses the secret its binding. FIELD BUGS 2026-09-30 (PIN MOVED): acct33. PROF7 (PIN MOVED): acct36. WB9g (PIN MOVED): acct37."
+    "note": "A var of the name: every deploy rewrites it and Cloudflare refuses the secret its binding. FIELD BUGS 2026-09-30 (PIN MOVED): acct33. PROF7 (PIN MOVED): acct36. HOUSING (PIN MOVED): acct37. WB9g (PIN MOVED): acct38."
   },
   {
     "name": "GATEKEYS-the-proof-takes-no-key-for-a-key",

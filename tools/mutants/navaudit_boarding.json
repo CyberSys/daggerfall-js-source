@@ -56,8 +56,8 @@
   {
     "name": "NAVB-B2-the-fallback-hands-never-stood",
     "file": "src/scenes/navalHost.js",
-    "old": "    const hands = handsOf(myBoatState(boat)?.damage.crew ?? 0, crewed);\n    for (let i = 0; i < hands; i++) {\n      const spot = deal();",
-    "new": "    const hands = 0;\n    for (let i = 0; i < hands; i++) {\n      const spot = deal();",
+    "old": "    const hands = handsOf(myBoatState(boat)?.damage.crew ?? 0, crewed);\n    const mine = deps.board?.crewOf?.(boat, hands) ?? [];",
+    "new": "    const hands = 0;\n    const mine = deps.board?.crewOf?.(boat, hands) ?? [];",
     "tests": [
       "test/navaudit_boarding.test.js"
     ]
@@ -290,8 +290,8 @@
   {
     "name": "NAVB-B14-the-fight-saved",
     "file": "src/scenes/navalHost.js",
-    "old": "    if (!enabled) return false;\n    if (boarding) return true;\n    const feet = deps.feet();",
-    "new": "    if (!enabled) return false;\n    const feet = deps.feet();",
+    "old": "    if (!enabled) return false;\n    if (boarding) return true;\n    return !!seaDeckUnderMe();",
+    "new": "    if (!enabled) return false;\n    return !!seaDeckUnderMe();",
     "tests": [
       "test/navaudit_boarding.test.js"
     ]
@@ -299,8 +299,8 @@
   {
     "name": "NAVB-B14-her-deck-saved",
     "file": "src/scenes/navalHost.js",
-    "old": "      if (box && insideGrown(box, feet, DECK_REACH_M)) return true;",
-    "new": "      if (false) return true;",
+    "old": "      if (box && insideGrown(box, feet, DECK_REACH_M)) return e;",
+    "new": "      if (false) return e;",
     "tests": [
       "test/navaudit_boarding.test.js"
     ]
@@ -372,8 +372,8 @@
   {
     "name": "NAVB-B10-a-held-spot-taken",
     "file": "src/scenes/navalHost.js",
-    "old": "      if (spot && (!isFree || isFree(spot))) return spot;",
-    "new": "      if (spot) return spot;",
+    "old": "      if (spot && (!isFree || isFree(spot))) return [spot[0], spot[1], b.boat];",
+    "new": "      if (spot) return [spot[0], spot[1], b.boat];",
     "tests": [
       "test/navaudit_boarding.test.js"
     ]
@@ -399,8 +399,8 @@
   {
     "name": "NAVB-B10-the-muster-stacked",
     "file": "src/scenes/navalHost.js",
-    "old": "        const spot = deal() ?? first;\n        // AUDIT NAV1 (B9)",
-    "new": "        const spot = first;\n        // AUDIT NAV1 (B9)",
+    "old": "        const spot = c && free(c.feet) ? claim([c.feet, c.yaw]) : pick(deal);\n        if (!spot) continue;\n        // AUDIT NAV1 (B9)",
+    "new": "        const spot = c && free(c.feet) ? claim([c.feet, c.yaw]) : first;\n        if (!spot) continue;\n        // AUDIT NAV1 (B9)",
     "tests": [
       "test/navaudit_boarding.test.js"
     ]
@@ -417,8 +417,8 @@
   {
     "name": "NAVB-B9-the-captain-unnamed",
     "file": "src/scenes/navalHost.js",
-    "old": "const named = i === 0 && entry.ship.names?.captain ? { name: `Captain ${entry.ship.names.captain}` } : undefined;",
-    "new": "const named = undefined;",
+    "old": "const named = { ...(i === 0 && entry.ship.names?.captain ? { name: `Captain ${entry.ship.names.captain}` } : {}), team: crewTeamOf(entry.ship.cls), boat: entry.boat, ...(c ? { gender: c.gender } : {}) };",
+    "new": "const named = { team: crewTeamOf(entry.ship.cls), boat: entry.boat, ...(c ? { gender: c.gender } : {}) };",
     "tests": [
       "test/navaudit_boarding.test.js"
     ]

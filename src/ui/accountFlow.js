@@ -304,10 +304,10 @@ export function AccountFlow({ io, storage, onChange = () => {} }) {
     }
   };
 
-  /** WB9g: the aura half of a wardrobe answer - what a service since acct37 says (its auras held, the one worn, the
+  /** WB9g: the aura half of a wardrobe answer - what a service since acct38 says (its auras held, the one worn, the
    *  Broker's insignia owned), or nothing from one before it. */
   const auraHalf = (d) => (Array.isArray(d?.auras) ? { auras: d.auras, aura: d.aura ?? null, insignia: Array.isArray(d.insignia) ? d.insignia : [] } : {});
-  /** WB9g: the aura a wardrobe answer says is worn (null for none), or undefined from a service before acct37. */
+  /** WB9g: the aura a wardrobe answer says is worn (null for none), or undefined from a service before acct38. */
   function auraStated(d) { return Array.isArray(d?.auras) ? (d.aura ?? null) : undefined; }
   /**
    * WB9g - WEAR ONE AURA, OR NONE: `equip`'s law at the feet (Mac: "an animated burning ground aura that circles the

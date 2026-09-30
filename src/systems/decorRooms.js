@@ -98,6 +98,9 @@ export function createDecorRooms({ raycastHit, box, cell = DECOR_ROOM_CELL }) {
   let found = null;
   /** @type {Map<number, number>} a kept component's root -> its room's index */
   const roomOfRoot = new Map();
+  /** HOME-DOORS: every pair of floors joined, as [a, b, dx, dz] - where the eye passes from one floor to the next, the
+   *  doorways among them (systems/decorDoorways.js) */
+  const linked = [];
 
   /** One column: every floor it passes through, top down. Answers the rays it cast. */
   function sample(c) {
@@ -138,7 +141,7 @@ export function createDecorRooms({ raycastHit, box, cell = DECOR_ROOM_CELL }) {
         const dir = [dx, 0, dz];
         const d = cast(from, dir, size);
         rays++;
-        if (d >= size - 1e-6) join(i, j);
+        if (d >= size - 1e-6) { join(i, j); linked.push([i, j, dx, dz]); }
       }
     }
     return rays;
@@ -218,6 +221,12 @@ export function createDecorRooms({ raycastHit, box, cell = DECOR_ROOM_CELL }) {
     done: () => !!found,
     rooms: () => found,
     roomOf,
+    /** HOME-DOORS: once done, every pair of neighbouring floors the eye passes between - `{ a, b, dir }`, the two floors
+     *  (a floor's point) and the step from `a` to `b` (east or south, one sample on) - else null. */
+    links: () => (found ? linked.map(([i, j, dx, dz]) => {
+      const a = nodes[i], b = nodes[j];
+      return { a: [a.x, a.y, a.z], b: [b.x, b.y, b.z], dir: [dx, 0, dz] };
+    }) : null),
     /** How far along, 0..1 - the columns, then the joins. */
     progress: () => (found ? 1 : (col + link) / Math.max(1, nx * nz + nodes.length)),
   };

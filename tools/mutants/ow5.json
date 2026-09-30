@@ -208,8 +208,8 @@
   {
     "name": "OW5-B1-patience-runs",
     "file": "src/scenes/world.js",
-    "old": "    if (playerEntity.health <= 0 || modes?.deathUp?.() || gamePaused()) return;\n    const aboard = !!csaRuntime",
-    "new": "    if (playerEntity.health <= 0 || modes?.deathUp?.() || gamePaused()) { _bandClock += dt * 1000; return; }\n    const aboard = !!csaRuntime",
+    "old": "    if (playerEntity.health <= 0 || modes?.deathUp?.() || gamePaused()) return;\n    const aboard = playerAfloat()",
+    "new": "    if (playerEntity.health <= 0 || modes?.deathUp?.() || gamePaused()) { _bandClock += dt * 1000; return; }\n    const aboard = playerAfloat()",
     "tests": [
       "test/tv7_bands.test.js"
     ],

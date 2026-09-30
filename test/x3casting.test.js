@@ -119,5 +119,5 @@ test('x3 wiring: the pool spawns casters, the decision drives the shared executo
   const arm = hm.slice(i, i + 700);
   assert.ok(arm.includes('applySpellToPlayer(m.spell, m.casterLevel'), 'the impact applies at the CASTER level');
   assert.ok(arm.includes('const mCaster = missileCaster(m);'), 'the caster wrapper carries the transfer heal-back sinks');   // AUDIT WORLD6b-iii(a) A1: through the ONE wrapper the wall arm shares
-  assert.ok(hm.includes("const missileCaster = (m) => (m.fromPlayer === false ? (m.casterFoe ? { entity: m.casterFoe.entity, sinks: foeSinks(m.casterFoe) } : null) : playerCaster());"), 'the wrapper');
+  assert.ok(hm.includes("const missileCaster = (m) => (m.fromPlayer === false ? (m.casterFoe ? { entity: m.casterFoe.entity, sinks: foeSinks(m.casterFoe), foe: m.casterFoe } : null) : playerCaster());"), 'the wrapper - SHIPMATES: and its foe, whose blast passes the player when he is a shipmate');
 });

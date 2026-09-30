@@ -1020,21 +1020,24 @@ Stones, and **Dagon's Fire**, an aura, for 50. A gate opens every two hours and 
 some thirty and fifty gates closed, where the day's dearest ware (a piece of Ruhn's Regalia) is twelve.
 
 THE SALE (`server-account/src/accounts.js buyInsignia`, POST `/v1/account/insignia`) is recorded on the row (migration
-0037: `insignia`, the ids bought in their order; `insignia_spent`; `aura`, the aura worn) and paid for TWICE-CHECKED: the
-pack's spendable stones are taken on this side as a ware's are (`spendStones` - one hand with the sale's `takeFromPack`),
+0040 - main's HOUSING took 0037-0039: `insignia`, the ids bought in their order; `insignia_spent`; `aura`, the aura worn)
+and paid for TWICE-CHECKED: the pack's spendable stones are taken on this side as a ware's are (`spendStones` - one hand
+with the sale's `takeFromPack`),
 and the service refuses a sale the account's own closed gates could not have paid for (gate_kills, one row a kill, less
 `insignia_spent`: 409 `short`, with the `purse` they can still pay and the `price`). ONE UPDATE is the sale - the id
 joins the column and the price the spend only where the row does not hold it yet and its gates still cover it - so two
 sales pressed at once never spend the same stones, and a piece is never bought twice (409 `owned`); a guest row keeps
-none (403 `guest`). The Broker asks the service first and takes the stones second, so a refused sale takes nothing; the
-account view says the purse beside the wardrobe.
+none (403 `guest`), and the id is appended in the UPDATE itself (AUDIT WB9 I3). The Broker HOLDS the stones before it
+asks the service and gives them back unless the service holds the sale - a lost answer asked after - and saves a held
+sale at once (AUDIT WB9 I1/I2: `systems/sigilBroker.js insigniaSale`), so a refused sale takes nothing and no sale goes
+unpaid; the account view says the purse beside the wardrobe.
 
 HELD, WORN, SIGNED. A title bought is held as a founder's is (`server-account/src/titles.js titlesHeld` reads it off the
 row) and worn through the title's own door. An aura is held off the row (`aurasHeld`) and worn through its own
 (`/v1/account/aura`, `equipAura` - 403 `not-held`, 400 `no-aura` for a word the vocabulary lacks), one at a time, pressed
 off as it is pressed on. The mint signs the aura worn (`au`, absent for none - `net/identityToken.js` AURAS, `claimsValid`,
 `mintToken`) and says it beside the token (`aura`); the relay reads it out of the signature (`_named`, `badged`,
-`readAura`) as it reads every badge (relay world135, account service acct37 - main's PROF7 took acct34-acct36 first). This device keeps its own on the stored
+`readAura`) as it reads every badge (relay world135, account service acct38 - main's PROF7 took acct34-acct36 first, and its HOUSING acct37 with migrations 0037-0039). This device keeps its own on the stored
 session (`net/accountClient.js adoptIdentity` - every mint's answer and every wear's, from the account card or the
 Broker), so the fire at my own feet lights the moment any door changes it (`systems/ownGlyphs.js ownAura`); a peer's is
 its newest hello's (`net/online.js _peer`, `_refresh`, `auraOf`), kept in the session's memory through a blip (SLAM9's
@@ -1124,7 +1127,7 @@ clamp on the floor); the court's GL state, its DOM put away, its crystal targets
 the sale's guards and migration, the token's `au` and the relay's stamp, the aura's GL state and its whole rates; the
 bodies' view planes (400k points against a clip-space test), their callers' lenses and the swap's bookkeeping.
 
-RELAY_VERSION world135 (not yet deployed) holds these; ACCOUNT_VERSION acct37 the sale's append. Pinned in
+RELAY_VERSION world135 (not yet deployed) holds these; ACCOUNT_VERSION acct38 the sale's append. Pinned in
 `test/audit_wb9.test.js` (16) and `test/wb9g_insignia.test.js` (three more); mutants `tools/mutants/audit_wb9.json`
 (36, all dead). Re-aimed: the WB9b walkway blow, the WB9c court's feet (in his court), the WB9e shader's rim and throb,
 the WB4 telegraph's text (the strip), the WB9f spoil rung, the WB9g host's sale and its UPDATE's mutant, the WB9h bank.

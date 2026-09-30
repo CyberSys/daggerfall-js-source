@@ -7,107 +7,21 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { comeSailAwayModels } from '../src/systems/comeSailAwayModels.js';
-import { spawnBoat, TRIGGER_MODEL, animatorOf } from '../src/systems/comeSailAwayBoat.js';
+import { TRIGGER_MODEL, animatorOf } from '../src/systems/comeSailAwayBoat.js';
 import {
-  createComeSailAwayRuntime, NO_WATER_LEVEL, BOAT_ACTIONS, WEATHER_TYPE, WIND_WIDGET, windWidgetFrameCount,
+  BOAT_ACTIONS, WEATHER_TYPE, WIND_WIDGET, windWidgetFrameCount,
   vAngle, vSignedAngle, vRotateTowards, mathfLerp, mathfLerpUnclamped, quatAngleUnity, quatRotateTowards,
 } from '../src/systems/comeSailAway.js';
 import { quatRotate, quatAngleAxis } from '../src/world/quat.js';
+import { scene } from './csaScene.mjs';   // the scripted scene, one harness (HELM-WAY's suite drives it too)
 
-const DIR = new URL('../vendor/come-sail-away/Models/', import.meta.url);
-const json = (f) => JSON.parse(readFileSync(new URL(f, DIR), 'utf8'));
-const MODELS = comeSailAwayModels({ prefabs: json('prefabs.json'), meshes: json('meshes.json'), bin: new Uint8Array(readFileSync(new URL('meshes.bin', DIR))), materials: json('materials.json'), animation: json('animation.json') });
 const f = Math.fround;
 const close = (a, b, eps = 1e-4) => Math.abs(a - b) <= eps;
 const near = (a, b, eps = 1e-4, msg = '') => assert.ok(close(a, b, eps), `${msg} ${a} vs ${b}`);
 const nearV = (a, b, eps = 1e-4, msg = '') => { assert.equal(a.length, b.length, msg); a.forEach((v, i) => near(v, b[i], eps, `${msg}[${i}]`)); };
-const ctxFor = (player) => ({ models: MODELS, player: () => player, billboardSize: () => [0.8, 1.6], modelBounds: () => ({ min: [-1, 0, -1], max: [1, 1, 1] }) });
 const forwardOf = (node) => quatRotate(node.rotation, [0, 0, 1]);
 const turnUp = (deg, v) => quatRotate(quatAngleAxis(deg, [0, 1, 0]), v);
 const flatNorm = (v) => { const l = Math.hypot(v[0], v[2]); return [v[0] / l, 0, v[2] / l]; };
-
-function terrain(x, y, { tile = 0 } = {}) {
-  return { mapPixelX: x, mapPixelY: y, position: [(x - 10) * 819.2, 0, -(y - 20) * 819.2], tileMap: new Uint8Array(128 * 128).fill(tile << 2), sampleHeight: () => 20 };
-}
-
-/** The scripted scene (csa_sailing.test.js's, with the wind's seams): Time.deltaTime a quarter second. */
-function scene(opts = {}) {
-  const out = { hud: [], mid: [], log: [], timeScales: [], wind: [], boxes: [] };
-  const held = new Set(opts.held ?? []);
-  const started = new Set();
-  const player = { position: [1, 2, 3], yaw: 0, frozen: 0, transport: 'Foot' };
-  const terrains = opts.terrains ?? [terrain(10, 20)];
-  const world = { inside: false, hour: opts.hour ?? 12, weather: opts.weather ?? WEATHER_TYPE.Sunny, pixelY: opts.pixelY ?? 20, time: 0 };
-  const rolls = { float: opts.float ?? [], int: opts.int ?? [] };
-  const input = {
-    has: (a) => held.has(a), started: (a) => started.has(a),
-    horizontal: () => (held.has('MoveRight') ? 1 : 0) - (held.has('MoveLeft') ? 1 : 0),
-    vertical: () => (held.has('MoveForwards') ? 1 : 0) - (held.has('MoveBackwards') ? 1 : 0),
-    toggleAutorun: false,
-  };
-  let timeScale = opts.timeScale ?? 1;
-  const deps = {
-    pool: { models: MODELS, ready: () => true, spawnNow: (boat, p) => { spawnBoat(boat, ctxFor(p)); return boat; }, remove: () => {} },
-    player: () => ({ position: [...player.position], rotation: [0, Math.sin((player.yaw * Math.PI / 180) / 2), 0, Math.cos((player.yaw * Math.PI / 180) / 2)] }),
-    camera: () => ({ position: [0, 50, 0], forward: [0, -1, 0] }),
-    currentMapPixel: () => ({ X: 10, Y: world.pixelY }),
-    isPlayerInside: () => world.inside,
-    blockWaterLevel: () => NO_WATER_LEVEL,
-    iliacPuddleNoMore: () => false,
-    raycast: () => null,
-    playerTerrain: () => terrains[0],
-    terrainAt: (x, y) => terrains.find((t) => t.mapPixelX === x && t.mapPixelY === y) ?? null,
-    terrains: () => terrains,
-    heightMapValue: opts.heightMapValue ?? (() => 255),   // CSA-F: WOODS.WLD all land - the waves lay nothing, and cast no ray
-    worldCompensation: () => [0, 0, 0],
-    hudText: (t) => out.hud.push(t),
-    midScreenText: (t, s) => out.mid.push([t, s]),
-    log: (t) => out.log.push(t),
-    random: {
-      range: (min, max) => (rolls.int.length ? rolls.int.shift() : min),
-      rangeFloat: (min, max) => (rolls.float.length ? rolls.float.shift() : min),
-    },
-    time: () => world.time,
-    weatherType: () => world.weather,
-    hour: () => world.hour,
-    persistentDungeonBoats: () => false,
-    packedItems: { serialize: (items) => items.map((it) => ({ ...it })), deserialize: (records) => records.map((it) => ({ ...it })) },
-    dt: () => 0.25,
-    setting: (key) => ({ 'Waves.Enable': false, ...opts.settings })[key],   // CSA-F: the helm measured with no current - FixedUpdate writes none with the waves off (csa_waves pins it)
-    input,
-    helm: {
-      setPlayerPosition: (p) => { player.position = [...p]; }, setFacing: (yaw) => { player.yaw = yaw; }, turnPlayer: (d) => { player.yaw += d; },
-      freeze: (s) => { player.frozen = s; }, frozen: () => player.frozen > 0, stopRunning: () => {}, footsteps: () => {}, alignToGround: () => {},
-    },
-    transport: { isFoot: () => true, setFoot: () => {}, hasHorse: () => false, hasCart: () => false },
-    ship: { owns: () => true, assign: () => {}, removePermanentScene: () => {} },
-    entity: { isFemale: () => false, carriedWeight: () => 10, wagonWeight: () => 0, decreaseFatigue: () => {} },
-    cargoWeight: () => 0,
-    sphereCastAll: () => [],
-    enemies: () => [],
-    timeScale: () => timeScale,
-    setTimeScale: (s) => { timeScale = s; out.timeScales.push(s); },
-    messageBox: (t) => out.boxes.push(t),
-    packBoat: () => {},
-  };
-  const rt = createComeSailAwayRuntime(deps);
-  rt.on('OnUpdateWind', (v) => out.wind.push(v));
-  const frame = ({ press = [] } = {}) => {
-    started.clear();
-    for (const a of press) started.add(a);
-    rt.endOfFrame();
-    rt.fixedUpdate();
-    rt.update();
-    rt.lateUpdate();
-    started.clear();
-    world.time += 0.25;
-  };
-  const place = (hull = 1, variant = 0, position = [100, 34, 200], direction = [0, 0, 1]) => rt.PlaceBoat(position, direction, hull, variant, terrains[0]);
-  const helm = (boat) => { rt.StartSailing(boat); return boat; };
-  return { rt, out, player, held, frame, place, helm, world, rolls, deps, terrains };
-}
 
 // ── Unity's arithmetic ────────────────────────────────────────────────────────
 
@@ -623,17 +537,20 @@ test('CSA-D x AUDIT NAV1 (the helm): the sea fight\'s seams - moveSpeed times `w
   assert.equal(asked.at(-1), true, 'told she is under sail');
 });
 
-test('CSA-D x AUDIT NAV1 (the helm): a heave-to\'s brake - moveAccel times the sea fight\'s `accelScale`, held to 0..20, the mod\'s own rate with none (mutants: the scale unread, unheld)', () => {
+test('CSA-D x AUDIT NAV1 (the helm) x HELM-WAY: a heave-to\'s brake - the sea fight\'s `brake` (m/s^2) is her way\'s rate while it says one, held to 20, whatever her own rate; the mod\'s own rate with none (mutants: the brake unread, unheld, a multiple of her rate again)', () => {
   const s = scene();
   s.helm(s.place(1, 3));
   const own = s.rt.properties.moveAccel();
   assert.ok(own > 0);
-  s.deps.accelScale = () => 10;
-  near(s.rt.properties.moveAccel(), own * 10, 1e-6, 'heaving to');
-  s.deps.accelScale = () => 1e6;
-  near(s.rt.properties.moveAccel(), own * 20, 1e-5, 'held to 20');
-  s.deps.accelScale = () => -3;
-  assert.equal(s.rt.properties.moveAccel(), 0);
-  s.deps.accelScale = () => undefined;
+  s.deps.brake = () => 2;
+  near(s.rt.properties.moveAccel(), 2, 1e-6, 'heaving to: the brake\'s own number');
+  s.deps.handling = () => 'responsive';
+  near(s.rt.properties.moveAccel(), 2, 1e-6, 'the Ship handling never moves it');
+  s.deps.brake = () => 1e6;
+  near(s.rt.properties.moveAccel(), 20, 1e-5, 'held to 20');
+  s.deps.brake = () => -3;
+  assert.ok(s.rt.properties.moveAccel() > 0, 'no brake: her own');
+  s.deps.handling = undefined;
+  s.deps.brake = () => undefined;
   near(s.rt.properties.moveAccel(), own, 1e-9, 'no word, her own');
 });

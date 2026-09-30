@@ -38,8 +38,8 @@
   {
     "name": "AUDITBLOOD3-a-pools-heart-is-its-thinnest-point",
     "file": "src/combat/bloodArt.js",
-    "old": "      return { a: 1 - smooth(edge - 0.1, edge + 0.05, r), depth: 1 - smooth(0, edge, r) };",
-    "new": "      return { a: 1 - smooth(edge - 0.1, edge + 0.05, r), depth: smooth(0, edge, r) };",
+    "old": "  FIELD.depth = sdf >= 0 ? 0 : Math.pow(Math.min(1, -sdf / reach), 0.8);",
+    "new": "  FIELD.depth = sdf >= 0 ? 0 : 1 - Math.pow(Math.min(1, -sdf / reach), 0.8);",
     "tests": [
       "test/blood1_decals.test.js"
     ]
