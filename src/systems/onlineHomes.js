@@ -38,8 +38,9 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import {
-  HOME_ENTRIES, HOME_ENTRY_DEFAULT, homeMapIdOk, homeBuildingKeyOk, homePriceOk, homeMayEnter,
+  HOME_ENTRIES, HOME_ENTRY_DEFAULT, homeMapIdOk, homeBuildingKeyOk, homePriceOk, homeMayEnter, rentPriceOk, rentDaysLeft, homeLookOf,
 } from '../net/homeLaw.js';
+import { RENT_VERB, rentRowLabel, rentTenantLabel } from './homeRent.js';   // HOME-RENT: the door's rows for a room to rent
 import { BUILDING_TYPES, isResidence } from '../world/buildingNames.js';
 import { DEED_SELL_MULT, CROSSED_DEED_LINES } from './banking.js';
 
@@ -139,7 +140,7 @@ export const homeShortLine = (price) => `You need ${price} gold, in your purse a
  * screen, World Tooltips off) the click itself offers, once a house a session (worldModes.js).
  */
 export const HOME_BUY_ARM_MS = 5_000;
-export const HOME_VERB = Object.freeze({ enter: 'home-enter', buy: 'home-buy', entry: 'home-entry', sell: 'home-sell' });
+export const HOME_VERB = Object.freeze({ enter: 'home-enter', buy: 'home-buy', entry: 'home-entry', sell: 'home-sell', rent: RENT_VERB });   // HOME-RENT: a room rented at the door
 /** The rows over a house anyone may buy, at `price`; `armed` after its first press. */
 export const homeBuyRows = (price, armed = false) => [
   { id: HOME_VERB.enter, label: 'Go in' },
@@ -152,6 +153,19 @@ export const homeOwnerRows = (entry) => [
   { id: HOME_VERB.entry, label: `Who may enter: ${HOME_ENTRY_WORDS[entry] ?? HOME_ENTRY_WORDS[HOME_ENTRY_DEFAULT]}` },
   { id: HOME_VERB.sell, label: 'Sell it' },
 ];
+/**
+ * HOME-RENT: THE ROWS OVER SOMEONE ELSE'S HOME, where they say more than "Locked": a tenant's (go in, and their own room
+ * to renew), and a home with rooms free to rent - go in where the door opens for me, and rent one. `door` is
+ * homeDoorAnswer's; `nowS` the clock the days left are counted by. Null where a plain door is all there is.
+ */
+export function homeVisitorRows(home, door, nowS = Math.floor(Date.now() / 1000)) {
+  if (!home || home.own) return null;
+  if (rentDaysLeft(home.tenant, nowS) > 0) return [{ id: HOME_VERB.enter, label: 'Go in' }, { id: HOME_VERB.rent, label: rentTenantLabel(rentDaysLeft(home.tenant, nowS)) }];
+  // AUDIT: never from one's own account (the service refuses it `rent-own`) - another character of the owner's is shown
+  // only the door
+  if (!home.rent || home.mine) return null;
+  return [...(door === 'enter' ? [{ id: HOME_VERB.enter, label: 'Go in' }] : []), { id: HOME_VERB.rent, label: rentRowLabel(home.rent.from) }];
+}
 /** Who may enter after `entry`, a press on the row: only me, my party, anyone, and round again. */
 export const homeNextEntry = (entry) => HOME_ENTRIES[(Math.max(0, HOME_ENTRIES.indexOf(entry)) + 1) % HOME_ENTRIES.length];
 /** Where the plaque draws no rows, the click's own offer: its two answers. */
@@ -167,8 +181,8 @@ export const homeSaleLines = (refund) => [`Sell your home for ${refund} gold?`, 
  *  a crossed deed (RESTORE), and that it stays a home. The door says them and asks no price. */
 export const HOME_CROSSED_LINES = Object.freeze([...CROSSED_DEED_LINES, 'It stays your home.']);
 /** The sale said: the home's share, and (DECOR1e) its pieces' half, both into the region's account. */
-export const homeSoldLine = (refund, piecesBack = 0) => `You sold your home. ${refund + piecesBack} gold went to this region's bank account`
-  + (piecesBack > 0 ? `, ${piecesBack} of it for its placed pieces.` : '.');
+export const homeSoldLine = (refund, piecesBack = 0, rent = 0) => `You sold your home. ${refund + piecesBack + rent} gold went to this region's bank account`
+  + ([piecesBack > 0 ? `${piecesBack} of it for its placed pieces` : null, rent > 0 ? `${rent} of it rent you had not collected` : null].filter(Boolean).map((t, i) => (i ? ` and ${t}` : `, ${t}`)).join('')) + '.';   // HOME-RENT: the held rent named
 /** The bank's answer to Buy House online (Mac chose the door, not the bank - its list is the offline house). */
 export const HOME_BANK_LINES = Object.freeze(['Online, a home is bought', 'at its own front door.']);
 
@@ -199,7 +213,7 @@ export function createOnlineHomes({ api, character = () => null, now = () => Dat
     if (flying) return flying;
     if (!force && now() - (failed.get(id) ?? -Infinity) < HOME_RETRY_MS) return Promise.resolve(!!had);
     const p = Promise.resolve()
-      .then(() => api.town(id))
+      .then(() => api.town(id, character()))   // HOME-RENT: the playing character's own tenancies ride the answer
       .then((r) => {
         const list = r?.ok ? r.data?.homes : null;
         // unanswered: what was known stands, nothing new is believed, and the next ask waits a little
@@ -212,6 +226,10 @@ export function createOnlineHomes({ api, character = () => null, now = () => Dat
             entry: HOME_ENTRIES.includes(h.entry) ? h.entry : HOME_ENTRY_DEFAULT,
             mine: h.mine === true, character: typeof h.character === 'string' ? h.character : null,
             crossed: h.crossed === true,   // HOME-CROSSED: mine, carried in through customs - no sale
+            // HOME-RENT: rooms free to rent (how many, from what a day), and the playing character's tenancy's end
+            rent: Number.isSafeInteger(h.rent?.vacant) && h.rent.vacant > 0 && rentPriceOk(h.rent.from) ? { vacant: h.rent.vacant, from: h.rent.from } : null,
+            tenant: Number.isSafeInteger(h.tenant) && h.tenant > 0 ? h.tenant : null,
+            look: homeLookOf(h.look ?? null),   // HOME-LOOK: how its owner painted it (null: the town's own)
           });
         }
         towns.set(id, { at: now(), homes });
@@ -280,7 +298,8 @@ export function createOnlineHomes({ api, character = () => null, now = () => Dat
       const n = (v) => (Number.isSafeInteger(v) && v > 0 ? v : 0);
       // DECOR1e: and its placed pieces, gone with it, and half of what they cost - the service's own sum; AUDIT REALM
       // L1-F3: and, for a realm character's record, the deed share the record was paid (`refund`)
-      return { ok: true, price: n(r.data?.price), decorCount: n(r.data?.decorCount), decorBack: n(r.data?.decorBack), ...(r.data?.refund != null ? { refund: n(r.data.refund) } : {}), ...realmOf(r) };
+      // HOME-RENT: and the rent held on it that its owner never collected, paid with it (`rent`)
+      return { ok: true, price: n(r.data?.price), decorCount: n(r.data?.decorCount), decorBack: n(r.data?.decorBack), ...(r.data?.refund != null ? { refund: n(r.data.refund) } : {}), ...(r.data?.rent != null ? { rent: n(r.data.rent) } : {}), ...realmOf(r) };
     }
     if (r?.error === 'no-home' || r?.error === 'seq') ensure(id, { force: true });
     return refused(r);
@@ -298,7 +317,27 @@ export function createOnlineHomes({ api, character = () => null, now = () => Dat
     return { ok: false, error: r?.error ?? 'server' };
   }
 
-  return { ensure, waitFor, known, homeAt, claim, release, setEntry, version: () => version };
+  /** HOME-LOOK: MY HOME PAINTED - shown at once (every house in the town is drawn from this registry) and read back. */
+  async function setLook(mapId, buildingKey, look) {
+    const id = idOf(mapId);
+    const next = look == null ? null : homeLookOf(look);
+    if (look != null && !next) return { ok: false, error: 'bad-look' };
+    const r = await api.look({ mapId: id, buildingKey, character: character(), look: next });
+    if (r?.ok) {
+      const row = towns.get(id)?.homes.get(buildingKey);
+      wrote(id, buildingKey, row ? { ...row, look: homeLookOf(r.data?.look ?? next) } : null);
+      return { ok: true, look: next };
+    }
+    if (r?.error === 'no-home') ensure(id, { force: true });
+    return { ok: false, error: r?.error ?? 'server' };
+  }
+  /** HOME-LOOK: every home of a town this page has heard from, by its building key - the pixel's painter reads it. */
+  function homesIn(mapId) {
+    const t = towns.get(idOf(mapId));
+    return t ? new Map([...t.homes].map(([k, row]) => [k, row])) : null;
+  }
+
+  return { ensure, waitFor, known, homeAt, claim, release, setEntry, setLook, homesIn, version: () => version };
 }
 
 /**
@@ -384,8 +423,11 @@ async function sellOut(homes, { mapId, buildingKey, credit, realm }) {
         // AUDIT REALM L1-F3: what the RECORD was paid (the service's `refund`: the deed share of what a record paid for the
         // house - nothing for one from before the realm) - never this client's share of a price, which the record may
         // never have paid, and which the next checkpoint would then write over it
-        sold = { refund: Math.max(0, Number(res.refund) || 0), decorBack: Math.max(0, Number(res.decorBack) || 0) };
-        credit(sold.refund + sold.decorBack);
+        // HOME-RENT: and the rent held on the house that was never collected - the service paid it into the record with
+        // the rest, so the purse must take it too, or the act's checkpoint writes it away
+        const rent = Math.max(0, Number(res.rent) || 0);
+        sold = { refund: Math.max(0, Number(res.refund) || 0), decorBack: Math.max(0, Number(res.decorBack) || 0), ...(rent > 0 ? { rent } : {}) };
+        credit(sold.refund + sold.decorBack + rent);
       },
       call: (/** @type {any} */ at) => homes.release(mapId, buildingKey, at),
     });
