@@ -96,6 +96,19 @@ export const BREATH_COLOR_NORMAL = [247, 239, 41];
 export const BREATH_COLOR_SHORT = [148, 12, 0];
 export const breathShortThreshold = (liveEndurance) => (liveEndurance >> 3) + 4;
 
+// CLIMB2: THE GRIP BAR (the enhanced climb's - player/motor.js gripShown, `{ amount, low }`). The breath bar's own
+// likeness and art, a slot to its left (they never draw together: the hands hold no wall in the water it counts), a
+// fixed height, bottom-anchored and rounded to whole pixels as VerticalProgress is; the short art when failing.
+export const GRIP_BAR_LEFT = BREATH_BAR_LEFT - 10;
+export const GRIP_BAR_HEIGHT = 50;
+function drawGripBar(renderer, canvas, art, grip, s) {
+  if (!grip || !art?.breathNormal) return;
+  const fill = mathfRound(GRIP_BAR_HEIGHT * s * Math.max(0, Math.min(1, grip.amount)));
+  const img = grip.low ? art.breathShort : art.breathNormal;
+  const bottom = canvas.height + HUD_BORDER - BREATH_BAR_BOTTOM * s;
+  if (fill > 0) renderer.drawScreenQuad(img.tex, { x: HUD_BORDER + GRIP_BAR_LEFT * s, y: bottom - fill, w: BREATH_BAR_WIDTH * s, h: fill });
+}
+
 // X4: the DETECT MARKER (HUDCompass.cs:219-257). The three Detect
 // effects do not draw anything themselves - each registers with the
 // compass (DetectMagic.cs:63-71 and its two twins are identical but
@@ -487,6 +500,7 @@ export function hideHudTextSurfaces(hudText = null) {
 
 export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
   { font = null, cursorActive = false, reticleHidden = false, windowCoversHud = null, hudHidden = false, detected = null, playerXZ = null, gate = null, quest = null, party = null, ships = null, veins = null, largeHud = null, hover = null,
+    grip = null,   // CLIMB2: the enhanced climb's grip, { amount, low } or null
     readied = null, weapon = null, weaponSheathed = true, quickUse = null, quickSwap = null, quickOffHand = null, quickSpell = null, quickSwitchHand = null } = {}) {   // PX30b: for the enhanced HUD's hand plaques; AUDIT 28 W2: the arrow counter's gate; AUDIT 64 F35: the host's previousWindow answer; QS3: the diamond's sheathe state and its two phone taps; QS6: the caption's spell chip press
   // AUDIT 24 (wave 39): ShowPlayerDamage's red flash, under the bars.
   // THE FOUR HOSTS RULE, applied before the fact: drawHud is the one
@@ -677,6 +691,7 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
       quickSpell: quickSpell ?? null,   // QS6: the spell chip's
       quickSwitchHand: quickSwitchHand ?? null,   // MAC-R3: the main cell's hand switch
       escortBottom: escortBottomPx(canvas),   // UI3: how far down the escort faces reach (CSS px) - the status widget keeps below them
+      grip,   // CLIMB2
     });
     // FE1 + AUDIT 39 F133: the escort column is not the classic skin's
     // - DaggerfallHUD adds it unconditionally (:183-185) and even the
@@ -731,6 +746,7 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
     // it, so the bar survives the large HUD - drawn here after the
     // crosshair, the order the components are added in (:158-160).
     drawBreathBar(renderer, canvas, art, vitals, s2);
+    drawGripBar(renderer, canvas, art, grip, s2);   // CLIMB2: beside it, surviving the large HUD as it does
     // FE1: the escort faces survive the large HUD - the force-off
     // block (DaggerfallHUD.cs:214-220) never names escortingFaces.
     drawEscortFaces(renderer, canvas);
@@ -763,6 +779,7 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
     drawVitalsBars(renderer, rig, skin, rects, indicators);
   }
   drawBreathBar(renderer, canvas, art, vitals, s);
+  drawGripBar(renderer, canvas, art, grip, s);   // CLIMB2
   // Compass, bottom-right: strip window first, frame over it.
   // DaggerfallHUD.cs:254-257 sets compass.Position to
   // (screenRect.xMax - Size.x, screenRect.yMax - Size.y) and HUDCompass

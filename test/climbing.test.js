@@ -286,5 +286,8 @@ test('AUDIT 65 XL-5: a climb writes IsStandingStill - the cached standing/half-s
   // classic climb's, carries no input vector, and mirrors the pair itself.
   const advance = motorSrc.slice(motorSrc.indexOf('  _parkourAdvance(dt) {'), motorSrc.indexOf('\n  }\n', motorSrc.indexOf('  _parkourAdvance(dt) {')));
   assert.match(advance, /this\.standing = this\.grounded;\n    this\.movingLessThanHalfSpeed = /, '_parkourAdvance writes the cached pair');
-  assert.equal((motorSrc.match(/this\.standing = this\.grounded;/g) ?? []).length, 4, 'four writers of the cached pair, no more (a fifth zeroing return needs its own)');
+  // CLIMB2: the fifth - the enhanced climb's hold on the wall owns its step too, with no input vector.
+  const wall = motorSrc.slice(motorSrc.indexOf('  _wallStep(dt, input, yaw, pk) {'), motorSrc.indexOf('\n  }\n', motorSrc.indexOf('  _wallStep(dt, input, yaw, pk) {')));
+  assert.match(wall, /this\.standing = this\.grounded;\n    this\.movingLessThanHalfSpeed = [^\n]*\n    return owned;/, '_wallStep writes the cached pair before it returns the step');
+  assert.equal((motorSrc.match(/this\.standing = this\.grounded;/g) ?? []).length, 5, 'five writers of the cached pair, no more (a sixth zeroing return needs its own)');
 });

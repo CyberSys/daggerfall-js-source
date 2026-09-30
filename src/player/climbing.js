@@ -103,6 +103,15 @@ export class ClimbingState {
     return true;
   }
 
+  /** CLIMB2: the enhanced lane's hold on a wall (player/parkour.js) - the
+   *  flag every reader of the climb reads (the fatigue band's climbing arm,
+   *  the bob, the torch, the shield), with none of this machine's rolls; the
+   *  motor does not step this machine on that lane. */
+  hold() {
+    this.isClimbing = true;
+    this.isSlipping = false;
+  }
+
   /** StopClimbing (:490-495). */
   stop() {
     this.isClimbing = false;

@@ -92,31 +92,34 @@
   {
     "name": "AUDITCLIMB1-F6-every-catch-holds",
     "file": "src/player/motor.js",
-    "old": "    if (mode === 'air' && this.falling && this.fallStart - this.pos[1] > parkourCatchHold(skill)) return false;\n",
-    "new": "",
+    "old": "    if (air && ((this.falling && this.fallStart - this.pos[1] > parkourCatchHold(skill)) || this.grip < PARKOUR_GRIP_MIN)) return false;\n",
+    "new": "    if (air && this.grip < PARKOUR_GRIP_MIN) return false;\n",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/climb2.test.js"
     ]
   },
   {
     "name": "AUDITCLIMB1-F6b-never-rests",
     "file": "src/player/motor.js",
-    "old": "    if (mode !== 'ground' && this._pkQuiet > 0) { this._pkQuiet--; return false; }\n",
+    "old": "    if (air && this._pkQuiet > 0) { this._pkQuiet--; return false; }\n",
     "new": "",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/climb2.test.js"
     ]
   },
   {
     "name": "AUDITCLIMB1-F7-jump-not-spent",
     "file": "src/player/motor.js",
-    "old": "    this._pkJumpLatch = true;\n",
-    "new": "",
+    "old": "    this._pkJumpLatch = true;\n    this.moveForward = 0;\n",
+    "new": "    this.moveForward = 0;\n",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/climb2.test.js"
     ]
   },
   {
@@ -152,11 +155,12 @@
   {
     "name": "AUDITCLIMB1-F9-walk-input-kept",
     "file": "src/player/motor.js",
-    "old": "    this.moveForward = 0;\n    this.moveStrafe = 0;\n    this.moveSpeed = 0;\n",
-    "new": "",
+    "old": "    this._pkJumpLatch = true;\n    this.moveForward = 0;\n    this.moveStrafe = 0;\n    this.moveSpeed = 0;\n",
+    "new": "    this._pkJumpLatch = true;\n",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/climb2.test.js"
     ]
   },
   {
@@ -172,11 +176,12 @@
   {
     "name": "AUDITCLIMB1-F10-gate-ignored",
     "file": "src/player/motor.js",
-    "old": "      const refusal = (ledge.mantle || over) ? parkourRefusal() : null;",
-    "new": "      const refusal = null;",
+    "old": "    const refusal = move.kind === 'vault' ? null : parkourRefusal();",
+    "new": "    const refusal = null;",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/climb2.test.js"
     ]
   },
   {
@@ -252,11 +257,12 @@
   {
     "name": "AUDITCLIMB1-G3-no-clamber",
     "file": "src/player/motor.js",
-    "old": "      const over = ledge.mantle ? null : senseOver(this.collider, this.pos, ledge, geo, PARKOUR_OVER_DROP);",
-    "new": "      const over = null;",
+    "old": "    const over = senseOver(this.collider, this.pos, ledge, geo, PARKOUR_OVER_DROP);",
+    "new": "    const over = null;",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/climb2.test.js"
     ]
   },
   {

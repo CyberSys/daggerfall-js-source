@@ -529,6 +529,15 @@ function build(doc) {
   breathTrack.append(breathFill);
   breath.append(el('span', 'hud-breathlabel', 'Breath'), breathTrack);
   bottom.append(breath);
+  // CLIMB2: THE GRIP, beside it and in its likeness - drawn while the hands
+  // hold a wall and while the grip comes back after, short when it is failing
+  // (the motor says which: player/motor.js gripShown).
+  const grip = el('div', 'hud-breath hud-grip');
+  const gripTrack = el('div', 'hud-track');
+  const gripFill = el('i', 'hud-fill');
+  gripTrack.append(gripFill);
+  grip.append(el('span', 'hud-breathlabel', 'Grip'), gripTrack);
+  bottom.append(grip);
   const bars = el('div', 'hud-bars');
   // PX30c (Mac: "for the status bars, can we use percentages and
   // organize them within the bar itself"): THE NUMBER GOES INSIDE.
@@ -763,7 +772,7 @@ function build(doc) {
   return { root, bottom, compass, marks, detectMarks: [], partyMarks: [], shipMarks: [], veinMarks: [], gateMark: null, questMark: null, foe, foeName, foeFill, foeGhost, foeChunks, foeBladeFull, magicka, health, fatigue,
     stat, quickCap: cap, quickDiamond: diamond, top,   // UI3: the status widget, the caption it stands on, the diamond it may stand beside and the top block over it (its band is measured from them)
     renown, renownBox, renownFill, renownGhost, renownNum,
-    breath, breathFill, readied, reticle, cross, centreWord, cornerWord,
+    breath, breathFill, grip, gripFill, readied, reticle, cross, centreWord, cornerWord,
     quick, quickCells: cells, quickTags: tags, hotDock,
     spellChip: { chip: spellChip, tag: spellTag, img: spellGlyph, text: spellText, name: spellName, icon: spellIcon } };
 }
@@ -983,6 +992,20 @@ export function drawEnhancedHud(vitals, heading01, dt = 0, opts = {}) {
     if (last.breathShort !== short) {
       last.breathShort = short;
       parts.breath.classList.toggle('short', short);
+    }
+  }
+
+  // CLIMB2: THE GRIP - the host's `grip` ({ amount, low } or null).
+  const gr = opts.grip ?? null;
+  if (last.gripOn !== !!gr) {
+    last.gripOn = !!gr;
+    parts.grip.classList.toggle('on', !!gr);
+  }
+  if (gr) {
+    width(parts.gripFill, 'gripW', Math.max(0, Math.min(1, gr.amount)) * 100);
+    if (last.gripShort !== !!gr.low) {
+      last.gripShort = !!gr.low;
+      parts.grip.classList.toggle('short', !!gr.low);
     }
   }
 

@@ -254,9 +254,10 @@ test('AUDIT CLIMB1 F7: Jump held through a mantle does not hop on arrival - the 
 test('AUDIT CLIMB1 F6b: a refused lip rests the air catch for a few steps - the refusal proves every try, and held Jump would ask it every step', () => {
   // a platform over a pit behind a tall railing (rails every half metre, the top one out of reach): its lip is in
   // reach, and every way onto it is refused by the path - the dearest refusal the sensor makes. Held Jump falling
-  // past it counts the collider's fit asks; resting PARKOUR_QUIET_STEPS after each refusal cuts them hard.
+  // past it counts the collider's fit asks; resting PARKOUR_QUIET_STEPS after each refusal cuts them hard. (CLIMB2:
+  // the pit is too shallow for a body to hang in under the lip - the hang is refused too, and with it every way.)
   const asks = (quiet) => {
-    const s = scene(-10);
+    const s = scene(-0.6);
     s.box(-4, -10, 1, 4, 1.0, 5);
     for (let k = 1; k <= 4; k++) s.box(-4, 1.0 + 0.5 * k - 0.1, 1, 4, 1.0 + 0.5 * k - 0.05, 1.05);
     const m = new PlayerMotor(s.col, { speed: 50, running: 30 }, { parkour: { enabled: () => true, inputs: () => ({ climbing: 0 }) } });

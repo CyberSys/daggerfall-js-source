@@ -4,7 +4,6 @@
 Climbing now knows what a ledge is. Face a ledge and press **Jump**, and you pull yourself up onto it instead of jumping.
 
 - **From the ground:** you can reach a ledge up to about chest height at Climbing 0, and a little above your head at Climbing 100.
-- **In the air:** keep **Jump** held after a jump or while falling, and you catch any ledge that comes within reach of your hands and climb up. A tap doesn't catch anything; you have to hold it.
 - **Narrow tops:** you can stand on a wall top only about a foot wide. You land in the middle of it.
 - **Tables and shelves:** thin tops count too, even with nothing but legs underneath.
 - **Pitched roofs:** you can climb onto a roof from its eave, up to a 45° pitch.
@@ -21,17 +20,49 @@ Press **Jump** while moving forward at a waist-high wall or fence with a thin to
 - A vault never throws you into a fall that would hurt. Over a railing above a long drop, the press is an ordinary jump.
 - A top deep enough to stand on is climbed onto rather than vaulted.
 
-## Catching ledges while falling
-Catching a ledge in a fall is a matter of skill. At Climbing 0 you can only hold a ledge after a fall that wouldn't have hurt you anyway. At Climbing 100 you can hold one after a fall of about 15 m. Fall further than your skill can hold and you don't catch it; you keep falling and take the fall.
+## Catch a ledge and hang from it
+Keep **Jump** held after a jump or while falling, and you grab a ledge that comes within reach of your hands. A tap doesn't catch anything; you have to hold it.
 
-## Climbing a wall ends at the top
-Holding Forward against a wall still climbs it the classic way. When the top comes within reach, you now pull yourself over the edge instead of being pushed over it.
+- **Hanging:** a ledge at chest height or higher is held. You hang under it with your eyes just below the edge.
+- **Holding Forward** as you catch it climbs you straight up, the same as before.
+- **A lower ledge** (below your chest) is stepped straight onto.
+- **Hard catches depend on skill.** At Climbing 0 you can only hold a ledge after a fall that wouldn't have hurt you anyway. At Climbing 100 you can hold one after a fall of about 15 m. Fall further than your skill can hold and you don't catch it; you keep falling and take the fall.
+
+While hanging:
+- **Forward**, or a fresh press of **Jump**, climbs up onto the top, or over it if it's thin. A ledge with no room above it, such as a window sill, just keeps you hanging.
+- **Left and Right** move you along the ledge (a shimmy). The hands follow the ledge as it rises, falls and bends. You stop where it ends or breaks.
+- **Corners:** the shimmy goes round the corners of a building, inside and out. Keep the key held and you carry on round.
+- **Back** climbs down the wall under you.
+- **Crouch** lets go. You fall from where you were hanging, so the drop is shorter than it looks from the top.
+
+## Climb any wall
+Hold **Forward** against a wall for a moment and you climb it. There's no dice roll any more and no random slipping.
+
+- **Forward** climbs up, **Back** climbs down, **Left** and **Right** move across. Let go of the keys and you stay where you are.
+- **Jump with Forward held** at a sheer wall grabs it straight from the jump.
+- Climbing down to the floor sets you back on your feet. Crouch lets go.
+- **At the top** the edge comes to your hands. Keep holding Forward and you pull yourself over; let go and you hang there.
+- Your **Climbing** skill sets how fast you climb: slower than before at Climbing 0, faster at 100.
+- You can still climb out of water onto a ledge the same way.
+
+## Your grip
+Hanging and climbing wear out your grip. When it runs out, you let go.
+
+- A fresh grip lasts about 6 seconds at Climbing 0 and 30 seconds at Climbing 100.
+- It lasts less when you're tired: at no Fatigue, about a third as long.
+- Holding still on a wall with your feet on it tires you half as fast as hanging or moving.
+- It comes back in a couple of seconds once you're standing on something.
+- A **Grip** meter shows beside the breath bar while you hold on, and while it comes back. It turns red, and you're told "Your grip is failing.", when it's nearly gone.
+- With no grip left you can't catch or grab anything until it comes back.
+
+## Heavy packs
+Carrying more than half of what you can carry shortens your reach. With a full pack, a ledge has to be about 30 cm lower to reach.
 
 ## Your skills matter
-- **Climbing** sets how high you can reach, how fast you pull yourself up, and how long a fall you can still catch. At Climbing 100 a head-high ledge takes about half a second.
-- Climbing onto or over something costs about as much fatigue as a jump and trains **Climbing**. A vault trains **Jumping**.
+- **Climbing** sets how high you can reach, how fast you pull yourself up, climb and shimmy, how long your grip lasts, and how long a fall you can still catch.
+- Climbing onto or over something, and catching a ledge or a wall, each cost about as much fatigue as a jump and train **Climbing**. A vault trains **Jumping**. Time on a wall costs fatigue as climbing always has, and trains Climbing as often as the old climb did.
 - Khajiit and the Climbing spell help here too.
-- With **Roleplay & Realism** on, you can't climb onto or over anything while holding a weapon, just as with ordinary climbing. You can still vault. Sheathe your weapon (or use bare hands) to climb.
+- With **Roleplay & Realism** on, you can't climb, catch or hang while holding a weapon, just as with ordinary climbing. Drawing one on a wall makes you let go. You can still vault. Sheathe your weapon (or use bare hands) to climb.
 
 ## Where to find it
 **Enhanced climbing** is under *The world* in Features. It's on by default. Turn it off to keep Daggerfall's own climbing.
@@ -40,4 +71,4 @@ Holding Forward against a wall still climbs it the classic way. When the top com
 - Online it's on for everyone, whichever UI they use, so every player can reach the same places.
 
 ## Coming next
-Hanging from a ledge and moving along it, a grip that tires, leaping between ledges, and the arms and camera showing it all.
+Leaping between ledges, the arms and camera showing all of this, and other players seeing you climb.

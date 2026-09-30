@@ -29,12 +29,25 @@
 // slots and lintels): every point the body passes through is a capsule the
 // collider says fits, at the height the body will have there.
 //
+// What CLIMB2 moves (the second half of this file):
+//   - HANG: a lip caught in the air at the chest or higher is HELD - the body
+//     hangs under it, the eye just below the lip - and Forward (or a fresh
+//     Jump) climbs up from there, Crouch lets go;
+//   - SHIMMY: Left and Right move the hang along the lip, following its
+//     height and a wall that curves, and stop where the lead hand finds
+//     nothing to take;
+//   - GRIP: a hold that runs out - its time the Climbing skill's and the
+//     body's Fatigue's - and gives out when spent;
+//   - FREE CLIMB: on the enhanced lane any wall is climbed without the
+//     classic roll (Mac's "Free-climb on grip") - up, down and across, until
+//     the grip gives; its top is a hang, and Forward over it a mantle.
+//
 // This module is pure - the collider is handed in - and it takes no motor
 // constant at its top level: the motor imports this file, so a top-level read
-// of a motor constant here would meet the cycle's TDZ. The two numbers it
-// shares with the motor are restated and pinned equal (test/auditclimb1).
+// of a motor constant here would meet the cycle's TDZ. The numbers it shares
+// with the motor are restated and pinned equal (test/auditclimb1, test/climb2).
 
-import { KHAJIIT_CLIMBING_BONUS } from './climbing.js';
+import { KHAJIIT_CLIMBING_BONUS, climbingSpeed } from './climbing.js';
 
 /** The lip height above the feet a standing body reaches with its hands, at
  *  Climbing 0 and at Climbing 100: a ledge at the chest, and one at the full
@@ -135,6 +148,69 @@ export const PARKOUR_OVER_EXIT = 0.8;
 export const PARKOUR_CATCH_HOLD_MIN = PARKOUR_SAFE_DROP;
 export const PARKOUR_CATCH_HOLD_MAX = 15;
 
+// ---- CLIMB2 ----------------------------------------------------------------
+/** A hanging body: the lip this far over its feet - the eye (motor.js
+ *  EYE_HEIGHT 1.7, restated for the cycle) 0.1 under it, the hands on the lip
+ *  at the head's height, the arms bent. */
+export const PARKOUR_HANG_DROP = 1.8;
+/** The body hangs this far off the face (a mantle's rise keeps the same). */
+export const PARKOUR_HANG_GAP = PARKOUR_UP_GAP;
+/** A lip is held only at the chest or higher: one lower is stepped onto (a
+ *  body cannot hang from its knees). Under the heaviest pack's reach at
+ *  Climbing 0 in the air (1.5 - 0.3 + 0.15), so a hang is always in reach. */
+export const PARKOUR_HANG_LOW = 1.2;
+/** A catch pulls the body into the hang in this long. */
+export const PARKOUR_CATCH_S = 0.15;
+/** A hand-hold is a top at least this deep past its face: a level ray over
+ *  the lip that meets a wall within this of the face is the wall running on,
+ *  not a ledge - a sill is, its wall set back (the face's lean, as CLIMB1's). */
+export const PARKOUR_GRIP_DEPTH = PARKOUR_FACE_LEAN;
+/** From one grip to the next a lip may rise or fall this much (a sloped
+ *  coping, a stepped sill); the grip is sought in this window about it. */
+export const PARKOUR_LIP_FOLLOW = 0.15;
+/** ...and the face may turn this much (a round tower's wall, the rays' own
+ *  scatter) - the dot of the two normals. */
+export const PARKOUR_FACE_FOLLOW = Math.cos((30 * Math.PI) / 180);
+/** The lead hand reaches this far along the lip past the body's middle: the
+ *  shimmy stops where it finds nothing to take. */
+export const PARKOUR_HAND_SPAN = 0.25;
+/** THE GRIP (Mac's "Skill scales it": the skill sets grip time): the seconds a
+ *  fresh hold lasts at Climbing 0 and at 100... */
+export const PARKOUR_GRIP_MIN_S = 6;
+export const PARKOUR_GRIP_MAX_S = 30;
+/** ...and the fraction of it a body at Fatigue 0 has ("grip on Fatigue"). */
+export const PARKOUR_GRIP_TIRED = 0.35;
+/** A free climber held still on the wall, the feet on it too, spends the grip
+ *  at this rate; hanging from the hands, shimmying and climbing spend it whole. */
+export const PARKOUR_GRIP_REST = 0.5;
+/** The grip comes back from nothing in this long, the feet on the ground. */
+export const PARKOUR_GRIP_REGEN_S = 2.5;
+/** Under this the grip is failing: the HUD's short colour, and the line once a
+ *  hold. */
+export const PARKOUR_GRIP_LOW = 0.25;
+export const PARKOUR_GRIP_LOW_TEXT = 'Your grip is failing.';
+/** A grip under this takes no new hold. */
+export const PARKOUR_GRIP_MIN = 0.05;
+/** The shimmy's pace, m/s, at Climbing 0 and 100. */
+export const PARKOUR_SHIMMY_MIN = 0.6;
+export const PARKOUR_SHIMMY_MAX = 1.4;
+/** The free climb's pace: the classic climb's (Speed / 3, doubled under the
+ *  Climbing spell - climbing.js climbingSpeed) times this, at 0 and 100. */
+export const PARKOUR_CLIMB_MIN = 0.7;
+export const PARKOUR_CLIMB_MAX = 1.3;
+/** Forward held against a wall starts a free climb after this long, at 0 and
+ *  100 (the classic's 14 system-timer units are 0.77 s, then a roll). */
+export const PARKOUR_START_MIN_S = 0.6;
+export const PARKOUR_START_MAX_S = 0.3;
+/** A heavy pack (the proposal's "heavy packs cut your reach"): up to this
+ *  share of what the body can carry costs nothing; a full pack costs this. */
+export const PARKOUR_LOAD_FREE = 0.5;
+export const PARKOUR_LOAD_CUT = 0.3;
+/** A free climber keeps to the wall while a level ray from the axis meets it
+ *  within the radius and this - at one of these shares of the body's height. */
+export const PARKOUR_CONTACT = 0.15;
+export const PARKOUR_CONTACT_AT = Object.freeze([0.8, 0.4, 0.2]);
+
 const clamp01 = (t) => Math.min(1, Math.max(0, t));
 const lerp = (a, b, t) => a + (b - a) * t;
 const smooth = (t) => t * t * (3 - 2 * t);
@@ -155,14 +231,40 @@ export function jumpingSkill({ jumping = 0 } = {}) {
   return Math.min(100, Math.max(0, jumping));
 }
 
-/** The lip height a standing body's hands reach at this skill. */
-export function parkourReach(skill) {
-  return lerp(PARKOUR_REACH_MIN, PARKOUR_REACH_MAX, clamp01(skill / 100));
+/** The lip height a standing body's hands reach at this skill - less under a
+ *  heavy pack (CLIMB2): `load` is the pack's weight over what the body can
+ *  carry (PlayerEntity.CarriedWeight / MaxEncumbrance), and past half of it
+ *  the reach shortens, by PARKOUR_LOAD_CUT at a full pack. */
+export function parkourReach(skill, load = 0) {
+  const cut = PARKOUR_LOAD_CUT * clamp01((load - PARKOUR_LOAD_FREE) / (1 - PARKOUR_LOAD_FREE));
+  return lerp(PARKOUR_REACH_MIN, PARKOUR_REACH_MAX, clamp01(skill / 100)) - cut;
 }
 
 /** The fall a caught lip still holds at this Climbing skill (metres). */
 export function parkourCatchHold(skill) {
   return lerp(PARKOUR_CATCH_HOLD_MIN, PARKOUR_CATCH_HOLD_MAX, clamp01(skill / 100));
+}
+
+/** CLIMB2: the seconds a fresh hold lasts at this Climbing skill and this
+ *  Fatigue (the body's current over its most, 0..1). */
+export function gripSeconds(skill, fatigue = 1) {
+  return lerp(PARKOUR_GRIP_MIN_S, PARKOUR_GRIP_MAX_S, clamp01(skill / 100)) * lerp(PARKOUR_GRIP_TIRED, 1, clamp01(fatigue));
+}
+
+/** CLIMB2: the shimmy's pace along a lip, m/s. */
+export function shimmySpeed(skill) {
+  return lerp(PARKOUR_SHIMMY_MIN, PARKOUR_SHIMMY_MAX, clamp01(skill / 100));
+}
+
+/** CLIMB2: the free climb's pace, m/s - the classic climb's over the motor's
+ *  Speed (and the Climbing spell's doubling), times the skill's share. */
+export function freeClimbSpeed(speed, skill, spell = false) {
+  return climbingSpeed(speed, spell) * lerp(PARKOUR_CLIMB_MIN, PARKOUR_CLIMB_MAX, clamp01(skill / 100));
+}
+
+/** CLIMB2: how long Forward is held against a wall before the free climb. */
+export function freeStartSeconds(skill) {
+  return lerp(PARKOUR_START_MIN_S, PARKOUR_START_MAX_S, clamp01(skill / 100));
 }
 
 /** Seconds a mantle takes: longer the higher the lip, a third quicker at
@@ -542,14 +644,177 @@ export function offsetMove(m, offset) {
  *  at `was`, out at `now` (collider.js intoBucket's convention: local =
  *  r (p - t), so world = r-transposed local + t). */
 export function carryMove(m, was, now) {
+  for (const p of [m.from, m.up, m.to]) carryPoint(p, was, now);
+}
+
+/** A point carried by a bucket's rigid motion from `was` to `now` (turned
+ *  only, with `turn` - a direction). */
+function carryPoint(p, was, now, turn = false) {
   const wr = was.r, nr = now.r;
-  for (const p of [m.from, m.up, m.to]) {
-    const x = p[0] - was.t[0], y = p[1] - was.t[1], z = p[2] - was.t[2];
-    const lx = wr ? wr[0] * x + wr[1] * y + wr[2] * z : x;
-    const ly = wr ? wr[3] * x + wr[4] * y + wr[5] * z : y;
-    const lz = wr ? wr[6] * x + wr[7] * y + wr[8] * z : z;
-    p[0] = (nr ? nr[0] * lx + nr[3] * ly + nr[6] * lz : lx) + now.t[0];
-    p[1] = (nr ? nr[1] * lx + nr[4] * ly + nr[7] * lz : ly) + now.t[1];
-    p[2] = (nr ? nr[2] * lx + nr[5] * ly + nr[8] * lz : lz) + now.t[2];
+  const x = p[0] - (turn ? 0 : was.t[0]), y = p[1] - (turn ? 0 : was.t[1]), z = p[2] - (turn ? 0 : was.t[2]);
+  const lx = wr ? wr[0] * x + wr[1] * y + wr[2] * z : x;
+  const ly = wr ? wr[3] * x + wr[4] * y + wr[5] * z : y;
+  const lz = wr ? wr[6] * x + wr[7] * y + wr[8] * z : z;
+  p[0] = (nr ? nr[0] * lx + nr[3] * ly + nr[6] * lz : lx) + (turn ? 0 : now.t[0]);
+  p[1] = (nr ? nr[1] * lx + nr[4] * ly + nr[7] * lz : ly) + (turn ? 0 : now.t[1]);
+  p[2] = (nr ? nr[2] * lx + nr[5] * ly + nr[8] * lz : lz) + (turn ? 0 : now.t[2]);
+  return p;
+}
+
+// ---------------------------------------------------------------------------
+// CLIMB2 - THE HANG, THE SHIMMY, THE GRIP AND THE FREE CLIMB (the laws; the
+// motor's _wallStep lives them).
+
+/** The hand-hold's rungs: level rays this far apart down the lip's window. */
+export const PARKOUR_GRIP_RUNG = 0.05;
+/** A face the free climber's hands and feet press: its normal's y at most
+ *  this (the classic probe took any hit; a floor or a ceiling is no wall). */
+export const PARKOUR_WALL_MAX_NY = 0.7;
+
+/**
+ * THE HAND-HOLD. A lip near `lipY` on the face through `face` (a point on the
+ * wall's face line - its y is not read) whose normal is `normal` (out of the
+ * wall, toward the body): can the hands hold it, and where does the body hang
+ * from it?
+ *   1. THE EDGE - level rays from where a hanging body's axis would be, into
+ *      the wall, down the window the lip may have moved in (PARKOUR_LIP_FOLLOW)
+ *      every PARKOUR_GRIP_RUNG: the lip is where the wall steps OUT toward the
+ *      body by the grip's depth - a rung meeting nothing, or a wall set back
+ *      (a sill's), over one meeting the face where it was expected. No such
+ *      step is no lip here: a wall that runs on through the window, or air;
+ *   2. THE TOP - a ray down just past the face from the open rung: no steeper
+ *      than 45 degrees, in the window;
+ *   3. THE FACE UNDER IT - a level ray just under the top meets the face, its
+ *      normal within PARKOUR_FACE_FOLLOW of the one expected (the hang follows
+ *      a curving wall and does not turn a corner);
+ *   4. THE HANG (with `fit`) - the body off the face by its radius and a gap,
+ *      the lip PARKOUR_HANG_DROP over its feet, fitting there standing.
+ * Answers { lipY, normal, face, feet, key } or null. `opts` = { radius, stand }.
+ */
+export function senseGrip(collider, face, normal, lipY, opts, fit = true) {
+  if (!collider?.raycastHit || !Number.isFinite(lipY)) return null;
+  const { radius, stand } = opts;
+  const dir = [-normal[0], 0, -normal[2]];
+  const back = radius + PARKOUR_HANG_GAP;
+  const ox = face[0] + normal[0] * back, oz = face[2] + normal[2] * back;
+  const far = back + PARKOUR_LIP_FOLLOW + PARKOUR_GRIP_DEPTH + 0.05;
+  const rungs = Math.round((2 * PARKOUR_LIP_FOLLOW) / PARKOUR_GRIP_RUNG);
+  let hiY = null, loY = null, prev = null;
+  for (let i = 0; i <= rungs; i++) {
+    const y = lipY + PARKOUR_LIP_FOLLOW - i * PARKOUR_GRIP_RUNG;
+    const d = collider.raycast([ox, y, oz], dir, far);
+    const dist = Number.isFinite(d) ? d : Infinity;
+    if (prev != null && Math.abs(dist - back) <= PARKOUR_LIP_FOLLOW && prev - dist >= PARKOUR_GRIP_DEPTH) {
+      hiY = y + PARKOUR_GRIP_RUNG; loY = y;
+      break;
+    }
+    prev = dist;
   }
+  if (hiY == null) return null;
+  // 2. the top, just past the face, from the open rung
+  const d0 = collider.raycast([ox, loY, oz], dir, far);
+  const ex = ox + dir[0] * (d0 + PARKOUR_EDGE_INSET), ez = oz + dir[2] * (d0 + PARKOUR_EDGE_INSET);
+  const top = collider.surfaceHit([ex, hiY + 0.01, ez], [0, -1, 0], hiY - loY + 0.06);
+  if (!Number.isFinite(top.dist) || !top.normal || top.normal[1] < PARKOUR_TOP_MIN_NY) return null;
+  const y = hiY + 0.01 - top.dist;
+  if (Math.abs(y - lipY) > PARKOUR_LIP_FOLLOW + 0.01) return null;
+  // 3. the face under it
+  const under = faceHit(collider, [ox, y - PARKOUR_UNDER, oz], dir, far);
+  if (!under || under.normal[0] * normal[0] + under.normal[2] * normal[2] < PARKOUR_FACE_FOLLOW) return null;
+  const n = under.normal;
+  const fx = ox + dir[0] * under.dist, fz = oz + dir[2] * under.dist;
+  // 4. the hang
+  const feet = [fx + n[0] * back, y - PARKOUR_HANG_DROP, fz + n[2] * back];
+  if (fit && !capsuleFits(collider, feet, stand)) return null;
+  return { lipY: y, normal: n, face: [fx, y, fz], feet, key: top.key ?? under.key ?? null };
+}
+
+/** Is the way from `feet` into the hang the grip found clear the whole way
+ *  (the catch's path, proven as a mantle's is)? */
+export function catchClear(collider, feet, grip, height) {
+  return pathClear(collider, path(feet, grip.feet, grip.feet, 1, 0), height);
+}
+
+/** A catch's move: from where the body was caught into the hang under the lip,
+ *  in PARKOUR_CATCH_S. It ends in the hang (`hang`), not on a top. */
+export function planCatch(feet, grip) {
+  return {
+    kind: 'catch',
+    from: [feet[0], feet[1], feet[2]],
+    up: [...grip.feet],
+    to: [...grip.feet],
+    split: 1, arc: 0,
+    dur: PARKOUR_CATCH_S,
+    crouch: false,
+    exit: null,
+    hang: { normal: [...grip.normal], lipY: grip.lipY },
+    key: grip.key ?? null,
+    t: 0,
+  };
+}
+
+/** A corner the shimmy turns: the other face's normal within this of square
+ *  to the lip (the dot) - a building's corner, not a bend (a bend the grip
+ *  follows on its own, PARKOUR_FACE_FOLLOW). */
+export const PARKOUR_CORNER_SQUARE = Math.cos((30 * Math.PI) / 180);
+/** Round an inner corner the body comes off the first face by this more. */
+export const PARKOUR_CORNER_OFF = 0.1;
+/** Round an outer corner the hands take the other face this far past the
+ *  edge, and the body swings round the edge this far clear of it. */
+export const PARKOUR_CORNER_IN = 0.25;
+export const PARKOUR_CORNER_CLEAR = 0.1;
+
+/** Is the whole of a move's path clear for a body this tall (pathClear)? */
+export function moveClear(collider, m, height) {
+  return pathClear(collider, m, height);
+}
+
+/** A corner's move: the hang carried round it by `mid` into the hang on the
+ *  other face, at the shimmy's pace. Unbilled: a shimmy is no new exertion. */
+export function planCorner(from, mid, grip, skill) {
+  const len = Math.hypot(mid[0] - from[0], mid[1] - from[1], mid[2] - from[2])
+    + Math.hypot(grip.feet[0] - mid[0], grip.feet[1] - mid[1], grip.feet[2] - mid[2]);
+  return {
+    kind: 'corner',
+    from: [from[0], from[1], from[2]],
+    up: [...mid],
+    to: [...grip.feet],
+    split: 0.5, arc: 0,
+    dur: Math.max(0.2, len / shimmySpeed(skill)),
+    crouch: false,
+    exit: null,
+    hang: { normal: [...grip.normal], lipY: grip.lipY },
+    bill: false,
+    key: grip.key ?? null,
+    t: 0,
+  };
+}
+
+/** The free climber's wall: level rays from the axis along `dir` (into the
+ *  wall) at PARKOUR_CONTACT_AT shares of the body's height; the nearest to
+ *  meet a wall within the radius and `reach` (PARKOUR_CONTACT; a climb down
+ *  from a hang seeks the wall under a sill as far as the grab's own reach,
+ *  PARKOUR_WALL_REACH, until the hug presses the body to it). Answers { dist,
+ *  normal, key } (the normal out of the wall, level) or null. */
+export function wallContact(collider, feet, dir, height, radius, reach = PARKOUR_CONTACT) {
+  if (!collider?.raycastHit) return null;
+  let best = null;
+  for (const k of PARKOUR_CONTACT_AT) {
+    const h = collider.raycastHit([feet[0], feet[1] + height * k, feet[2]], dir, radius + reach);
+    if (!Number.isFinite(h.dist) || !h.normal || Math.abs(h.normal[1]) > PARKOUR_WALL_MAX_NY) continue;
+    const l = Math.hypot(h.normal[0], h.normal[2]);
+    if (!best || h.dist < best.dist) best = { dist: h.dist, normal: [h.normal[0] / l, 0, h.normal[2] / l], key: h.key ?? null };
+  }
+  return best;
+}
+
+/** A hold on what moves rides it: the body carried by the bucket's rigid
+ *  motion, the wall's normal turned with it and the lip risen with the body. */
+export function carryHold(pos, hold, was, now) {
+  const y0 = pos[1];
+  carryPoint(pos, was, now);
+  const n = carryPoint([hold.normal[0], 0, hold.normal[2]], was, now, true);
+  const l = Math.hypot(n[0], n[2]) || 1;
+  hold.normal = [n[0] / l, 0, n[2] / l];
+  if (hold.lipY != null) hold.lipY += pos[1] - y0;
 }

@@ -23,6 +23,8 @@ import { isEnhanced } from '../systems/uiSkin.js';
 import { getPref } from '../systems/uiPrefs.js';   // RA1: the Enhanced pane's sky switch
 import { pageParam } from '../systems/pageQuery.js';   // CLIMB1: `?parkour=off`, the enhanced climb's kill door
 import { isOnlinePage, onlineForcedPref } from '../systems/onlineLane.js';   // CLIMB1: online the skin is not asked, and the row is the lane's
+import { carriedWeight } from '../systems/inventory.js';   // CLIMB2: a heavy pack cuts the enhanced climb's reach
+import { entityMaxEncumbrance } from '../combat/formulas.js';   // CLIMB2: ...over what the body can carry
 import { DynamicSkiesRenderer } from '../render/dynamicSkiesRenderer.js';   // DS1: Dynamic Skies' skybox, the mod's own pass
 import { DynamicSkies } from '../systems/dynamicSkiesRuntime.js';   // DS1: BLBSkybox's instance
 import { MAX_DELTA_SECONDS } from '../systems/dynamicSkies.js';   // Time.maximumDeltaTime, the mod's frame clamp
@@ -773,16 +775,25 @@ export function parkourSwitchOn(search) {
  *  skill's reads, the same the classic climb's chance takes (climbingDeps:
  *  the live skill, the Khajiit arm, the Climbing spell's doubling), plus the
  *  Jumping skill a vault's pace reads (AUDIT CLIMB1 R7). `say` is the host's
- *  HUD line, the climbingMode line's own (a refused climb's word, F10). */
+ *  HUD line, the climbingMode line's own (a refused climb's word, F10).
+ *  CLIMB2: the body's Fatigue over its most (the grip's time), the pack's
+ *  weight over what it can carry (the reach), and the Climbing tally the free
+ *  climb takes at the classic climb's cadence (climbingDeps' own). */
 export function parkourDeps(entity, say = null) {
   return {
     enabled: () => parkourSwitchOn(),
-    inputs: () => ({
-      climbing: skillValue(entity, SKILLS.Climbing),
-      jumping: skillValue(entity, SKILLS.Jumping),
-      khajiit: entity.race === 'Khajiit',
-      enhanced: !!entity?.activeEffects?.some((a) => a.kind === 'climbing'),
-    }),
+    inputs: () => {
+      const most = maxFatigue(entity), cap = entityMaxEncumbrance(entity);
+      return {
+        climbing: skillValue(entity, SKILLS.Climbing),
+        jumping: skillValue(entity, SKILLS.Jumping),
+        khajiit: entity.race === 'Khajiit',
+        enhanced: !!entity?.activeEffects?.some((a) => a.kind === 'climbing'),
+        fatigue: most > 0 && Number.isFinite(entity.fatigue) ? entity.fatigue / most : 1,
+        load: cap > 0 ? carriedWeight(entity) / cap : 0,
+      };
+    },
+    tally: () => tallyMovementSkill(entity, SKILLS.Climbing),
     say,
   };
 }

@@ -222,13 +222,18 @@ test('CLIMB1 LIVE: the Climbing skill sets the pace - the same lip is a quicker 
 });
 
 test('CLIMB1 LIVE: Jump held in the air catches a lip the jump brings into reach - and a lip past the reach is not caught', () => {
-  const held = (i) => ({ jump: i >= 10 && i < 40 });
+  // CLIMB2 (Mac's "Jump is the grab": Forward climbs up): with Forward held the catch climbs straight on over the lip,
+  // as at CLIMB1; without it the lip is HELD - test/climb2.test.js has the hang
+  const held = (i) => ({ jump: i >= 10 && i < 40, forward: i >= 5 && i < 40 ? 1 : 0 });
   const high = drive(world(2.3), { skill: 100, input: held });
   assert.equal(high.log.started.length, 1, 'caught once');
   assert.equal(high.log.started[0][1], 'mantle');
   assert.equal(high.log.airborneAtStart, true, 'the catch was in the air, not a grounded mantle');
   assert.ok(Math.abs(high.m.pos[1] - 2.3) < 0.03, 'and it ends on the top');
-  const low = drive(world(2.3), { skill: 0, input: held });
+  const hung = drive(world(2.3), { skill: 100, input: (i) => ({ jump: i >= 10 && i < 40 }) });
+  assert.deepEqual(hung.log.started.map((e) => e[1]), ['catch'], 'no Forward: the lip is caught and held');
+  assert.equal(hung.m.hanging, true);
+  const low = drive(world(2.3), { skill: 0, input: (i) => ({ jump: i >= 10 && i < 40 }) });   // (with Forward the hands would take the wall - CLIMB2's grab)
   assert.deepEqual(low.log.started, [], `out of reach at Climbing 0 (${(PARKOUR_REACH_MIN + PARKOUR_AIR_REACH).toFixed(2)} m of hands over a 0.5 m jump)`);
   assert.ok(low.log.maxY < 1, 'the jump went up and came down');
   // a tapped jump, no hold: the grounded press missed (the lip is out of the

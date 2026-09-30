@@ -12,11 +12,12 @@
   {
     "name": "CLIMB1-reach-flat",
     "file": "src/player/parkour.js",
-    "old": "  return lerp(PARKOUR_REACH_MIN, PARKOUR_REACH_MAX, clamp01(skill / 100));",
-    "new": "  return PARKOUR_REACH_MAX;",
+    "old": "  return lerp(PARKOUR_REACH_MIN, PARKOUR_REACH_MAX, clamp01(skill / 100)) - cut;",
+    "new": "  return PARKOUR_REACH_MAX - cut;",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/climb2.test.js"
     ]
   },
   {
@@ -112,31 +113,34 @@
   {
     "name": "CLIMB1-air-grab-without-jump",
     "file": "src/player/motor.js",
-    "old": "    else if (input.jump && !this.grounded) mode = 'air';",
-    "new": "    else if (!this.grounded) mode = 'air';",
+    "old": "    if (!this.swimming && !this.sunk && input.jump && !this._pkJumpLatch) {\n      if (!this.grounded) mode = 'air';",
+    "new": "    if (!this.swimming && !this.sunk && !this.grounded) mode = 'air';\n    if (!this.swimming && !this.sunk && input.jump && !this._pkJumpLatch) {\n      if (!this.grounded) mode = 'air';",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/climb2.test.js"
     ]
   },
   {
     "name": "CLIMB1-vault-without-forward",
     "file": "src/player/motor.js",
-    "old": "    if (mode === 'ground' && input.forward > 0) {",
-    "new": "    if (mode === 'ground') {",
+    "old": "      if (!air && fwd) {",
+    "new": "      if (!air) {",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/climb2.test.js"
     ]
   },
   {
-    "name": "CLIMB1-topout-keeps-climbing",
+    "name": "CLIMB1-letting-go-keeps-climbing",
     "file": "src/player/motor.js",
-    "old": "    this.climb?.stop();\n",
-    "new": "",
+    "old": "    this._pkLeftWall = true;\n    this._pkJumpLatch = true;\n    this.climb?.stop();\n",
+    "new": "    this._pkLeftWall = true;\n    this._pkJumpLatch = true;\n",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/climb2.test.js"
     ]
   },
   {
@@ -162,11 +166,12 @@
   {
     "name": "CLIMB1-eye-lags-the-move",
     "file": "src/player/motor.js",
-    "old": "    if (!this._eyeSmoothing || this.jumping || this.falling || this._pkMove || this._eyeFeetY == null) { this._eyeFeetY = raw; return; }",
-    "new": "    if (!this._eyeSmoothing || this.jumping || this.falling || this._eyeFeetY == null) { this._eyeFeetY = raw; return; }",
+    "old": "    if (!this._eyeSmoothing || this.jumping || this.falling || this._pkMove || this._wall || this._eyeFeetY == null) { this._eyeFeetY = raw; return; }",
+    "new": "    if (!this._eyeSmoothing || this.jumping || this.falling || this._wall || this._eyeFeetY == null) { this._eyeFeetY = raw; return; }",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/climb2.test.js"
     ]
   },
   {
