@@ -135,7 +135,7 @@ export function boatVerbNode(boxes, verb, at, posOf, aimed = null) {
  * @param {{ boxes: Map<string, any[]>, rows: {id: string, disabled?: boolean, why?: string}[], verb: string|null,
  *   distance: number, reach: number, at: number[], posOf: (n: any) => number[], hit: object, mode: string,
  *   models: Readonly<Record<string, number>>, activate: (model: number, hit: object, mode: string) => any,
- *   say: (line: string) => void }} p
+ *   say: (line: string) => void, aimed?: any }} p
  * @returns {'far'|'none'|'refused'|'pressed'}
  */
 export function pressBoatVerb(p) {
