@@ -716,7 +716,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   }
 
   function damageFoe(f, damage, playerFeet, knockDir = null, { fromPlayer = true, bypassShield = false, kind = 'melee', peer = false, peerId = null, whole = false, spell = null } = {}) {
-    if (f.dead) return;   // AUDIT 68 S20-foe-dies-twice: a corpse takes no blow - a magic round after the killing one re-ran the whole death (notice, loot handlers, corpse)
+    if (f.dead || (fromPlayer && !peer && isShipmate(f))) return;   // AUDIT 68 S20-foe-dies-twice: a corpse takes no blow - a magic round after the killing one re-ran the whole death (notice, loot handlers, corpse)   // AUDIT NAV2 F55: and a shipmate none of the player's, whatever road it took here (cityGuards' damageGuard holds a raid's defender so) - the vampiric drain's reached him as the player's attack and turned him
     if (fromPlayer && !peer) renownFoeStruck(f);   // RENOWN1: MY blow - a puppet's too, before the divert sends it to the owner
     // AUDIT PSCALE1 DOORS-1: a KILL is not a blow - a Disintegrate, a stat drained to zero (the sinks' `whole`), the
     // Razor's whole-health strike (its mark on the foe) - and no fighters' toughness divides it, here or at the owner

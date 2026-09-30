@@ -36,10 +36,10 @@
 //     if (!enemyMotor.IsHostile) MakeEnemiesHostile();
 //     enemyMotor.MakeEnemyHostileToAttacker(PlayerEntityBehaviour);
 // - the `IsHostile` read BEFORE the walk (the walk flips this foe
-// too), and the second call unconditional. `resetAllyTeamOnPlayerAttack`
-// does NOT belong here: it is DaggerfallEntityBehaviour's damage path
-// (dungeonContext.handleAttackFromPlayer), and Pickpocket does not
-// call it.
+// too), and the second call unconditional. AUDIT NAV2 F54: that call's
+// PLAYER ARM is the ally revert (resetAllyTeamOnPlayerAttack, the half
+// the port keeps off the motor), so it runs here too - see the tail.
+// And a shipmate is no mark at all (combat/friendlyFire.js).
 //
 // The flag is per-foe and is NOT serialized: EnemyEntity
 // .PickpocketByPlayerAttempted (EnemyEntity.cs) is read and written by
@@ -48,9 +48,10 @@
 
 import { PICKPOCKET_DISTANCE, TOO_FAR_AWAY_TEXT, pickFoeHit } from './activate.js';
 import { setMidScreenText } from '../ui/midScreenText.js';   // AUDIT 64 F34: :834 is the HUD's centred label, not the popup queue
-import { PLAYER_TARGET } from '../characters/enemyTargets.js';
+import { PLAYER_TARGET, resetAllyTeamOnPlayerAttack } from '../characters/enemyTargets.js';   // AUDIT NAV2 F54: MakeEnemyHostileToAttacker's entity-side half
 import { enemyDisplayName } from '../characters/enemyBasics.js';
 import { pickpocket } from '../systems/talk.js';
+import { isShipmate } from '../combat/friendlyFire.js';   // AUDIT NAV2 F54: the player's own hands are no mark
 
 /** Internal_Strings.csv:23-24 - `youSeeAn,You see an %s.` and
  *  `youSeeA,You see a %s.`, picked by the vowel test at :817 over the
@@ -104,6 +105,12 @@ export function activateMobileEnemy(foe, distance, mode, player, {
   // :827-828 - a monster breaks out, silently, and the activation is
   // still consumed.
   if (!entity?.isClass) return true;
+  // AUDIT NAV2 F54: A SHIPMATE IS NO MARK - the player's own hand on a
+  // deck breaks out as the monster above does: consumed, silent at any
+  // range, nothing rolled, no attempt spent. A failed lift turned him on
+  // the player (the tail below) while every door of the player's harm
+  // still passed him by - he was a shipmate yet (isShipmate's law).
+  if (isShipmate(foe)) return true;
   // :830 - the flag wraps EVERYTHING below, the distance line included.
   if (entity.pickpocketAttempted) return true;
   if (distance > PICKPOCKET_DISTANCE) { midScreen?.(TOO_FAR_AWAY_TEXT); return true; }   // :834 - the mid-screen refusal
@@ -114,6 +121,15 @@ export function activateMobileEnemy(foe, distance, mode, player, {
     // :1661-1671, in DFU's order: the IsHostile read precedes the walk.
     if (!foe.ai?.isHostile) makeEnemiesHostile?.();
     foe.ai?.makeEnemyHostileToAttacker?.(PLAYER_TARGET, playerFeet ?? null);
+    // AUDIT NAV2 F54: ...and the rest of that call. The port splits
+    // MakeEnemyHostileToAttacker in two - the motor's target bookkeeping
+    // above, and its PLAYER arm's ally revert on the entity (the motor
+    // owns no entity: enemyMotor.js, enemyTargets.js) - and every other
+    // caller runs both (each pool's handleAttackFromPlayer). This arm ran
+    // the motor's half alone, so an ally who caught the player's hand
+    // turned on him still PlayerAlly. The header once called the revert
+    // the damage path's own: that path reaches it only THROUGH this call.
+    if (foe.ai) resetAllyTeamOnPlayerAttack(foe.ai, foe.entity, foe.mobileType);
   }
   return true;
 }
