@@ -151,6 +151,13 @@ export const ACTIONS = Object.freeze([
   // mod's sail states (systems/comeSailAway.js MoreSail, LessSail), the down arrow's and the up arrow's (a DEFAULT
   // SHARE beside ActChoice, below). Appended, like every port action before them.
   'BoatSailUp', 'BoatSailDown',
+  // CLASSIC-PAGES (2026-09-30, Mac: "Enhanced pages + key"): THE PROFESSIONS KEY - the Professions and Stores pages on
+  // either skin (ui/pauseDoor.js openPauseFlow: the classic pause has no pages). A DEFAULT SHARE on the down arrow beside
+  // HELM-KEYS' less sail (DEFAULT_SHARES), as more sail shares the up arrow with the act choice: the professions' two keys
+  // on the arrows, and at a helm both arrows the sails' (ui/input.js routeAction: the key opens nothing while sailing).
+  // Every function key a player would guess is DFU's, the HUD's or the browser's (F7 caret browsing, F10 the large HUD,
+  // F12 the dev tools - HT4). Appended after main's two, like every port action before it.
+  'Professions',
 ]);
 
 /** AUDIT SOC D3: THE PORT'S OWN ROWS, NAMED SO THE CLASSIC WINDOWS CAN YIELD THEM.
@@ -167,7 +174,7 @@ export const PORT_ACTIONS = Object.freeze(['SocialInteract', 'QuickUse1', 'Quick
   'Interact', 'QuickDial', 'Hotbar5', 'Hotbar6', 'Hotbar7', 'Hotbar8', 'Hotbar9', 'Hotbar10',
   'TorchToggleLight', 'TorchDrop', 'TorchThrow', 'ShoulderSwitch', 'AutoPerspective', 'FollowPaths', 'HorseMount', 'HorseSummon', 'DebugOverlay',
   'BoatDisembark', 'BoatToggleLight', 'BoatToggleSail', 'BoatTrimRight', 'BoatTrimLeft', 'BoatTrimModifier',
-  'BoatTimeScaleUp', 'BoatTimeScaleDown', 'BoatTimeScaleReset', 'TravelView', 'WalkMode', 'TogglePerspective', 'ActChoice', 'BoatSailUp', 'BoatSailDown']);   // KB1; TV1; PADWALK; VIEW-TOGGLE; PROF1   // QUICK-LOOT B4: the plaque's two, drawn in the enhanced pane under their own heading - the classic windows cannot draw them at all
+  'BoatTimeScaleUp', 'BoatTimeScaleDown', 'BoatTimeScaleReset', 'TravelView', 'WalkMode', 'TogglePerspective', 'ActChoice', 'BoatSailUp', 'BoatSailDown', 'Professions']);   // KB1; TV1; PADWALK; VIEW-TOGGLE; PROF1   // QUICK-LOOT B4: the plaque's two, drawn in the enhanced pane under their own heading - the classic windows cannot draw them at all
 
 const ACTION_SET = new Set(ACTIONS);
 
@@ -352,11 +359,14 @@ export const DEFAULT_BINDINGS = Object.freeze([
  * KB1 law 3 keeps every OWNER once). `[code, action, partner]`: `action` answers `code` beside `partner`, the key's
  * owner in DEFAULT_BINDINGS. resetDefaults seats it only while the key's owner IS the partner - a player's own rebind
  * of the key is never shared onto - and an autofill only while the action is keyless and not force-removed, so a
- * player's own unbinding stands. The one pair: MORE SAIL on the up arrow beside PROF1's ActChoice - the helm's and an
- * herb patch's: a helm's hands are on the wheel, and the professions read no choice there (scenes/world.js).
+ * player's own unbinding stands. The pairs: MORE SAIL on the up arrow beside PROF1's ActChoice - the helm's and an
+ * herb patch's: a helm's hands are on the wheel, and the professions read no choice there (scenes/world.js); and
+ * CLASSIC-PAGES' Professions key on the down arrow beside LESS SAIL - it opens nothing while sailing (ui/input.js).
  */
 export const DEFAULT_SHARES = Object.freeze([
   Object.freeze(['ArrowUp', 'BoatSailUp', 'ActChoice']),
+  // CLASSIC-PAGES: the Professions key on the down arrow beside less sail - off the helm the pages, at it the sails'
+  Object.freeze(['ArrowDown', 'Professions', 'BoatSailDown']),
 ]);
 
 /**
@@ -483,7 +493,8 @@ export const ACTION_GROUPS = Object.freeze([
     ['SocialInteract', 'Interact with player'],
   ]),
   g('Professions', [
-    ['ActChoice', 'At an herb patch: the herbs or the Basket; at a body: skin it or search it'],   // PROF1 - Interact starts the act, attack plays the Basket's, Escape ends it; AUDIT 32 R1: PROF7's body (the knife's trace drawn with Interact held)
+    ['ActChoice', 'At an herb patch: the herbs or the Basket; at a body: skin it or search it'],
+    ['Professions', 'Open your Professions and Stores (online)'],   // CLASSIC-PAGES: the pages on either skin   // PROF1 - Interact starts the act, attack plays the Basket's, Escape ends it; AUDIT 32 R1: PROF7's body (the knife's trace drawn with Interact held)
   ]),
   g('Game', [
     ['QuickSave', 'Quick save'], ['QuickLoad', 'Quick load'], ['PrintScreen', 'Screenshot'], ['DebugOverlay', 'Diagnostics readout'],

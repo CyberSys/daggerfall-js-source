@@ -4917,7 +4917,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:7920` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:7958` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:352`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -12062,8 +12062,124 @@ What failed was what the HUD SAID of it, and the reports read that as nothing gi
   prof4 and prof7 client pins read the one line. Mutants: `tools/mutants/gathersaid.json` (13, all dead); prof4's
   Resin and prof7's butchery-count records re-aimed by content. Patch notes: `PATCH-NOTES-What-a-Harvest-Says.md`.
 - **For Mac** (found in the trace, not changed here): the classic skin's pause has no pages, so a classic player online
-  can neither see nor withdraw the Stores, nor read a rank past the toasts and the chip; Foraging's own tools, used from
+  can neither see nor withdraw the Stores, nor read a rank past the toasts and the chip (CLASSIC-PAGES, below); Foraging's own tools, used from
   the pack online, run Foraging's quest and give the pack its goods with no profession XP; a new logger in the
-  Woodlands, the Haunted Woodlands or a Swamp stands only Oak (tier 2, Logging 10) and can never chop; rank 10 is 67 tier-1
+  Woodlands, the Haunted Woodlands or a Swamp stands only Oak (tier 2, Logging 10) and can never chop (PINE-SHARE, below); rank 10 is 67 tier-1
   harvests, past a day's 60; touch and pad cannot start an act (FLAGGED already); and the account service (acct36, with
   0036) must deploy before the client, whose skinning the acct33 service refuses as "nothing here to gather".
+
+## PINE-SHARE (2026-09-30, Mac: "2 in 5 trees Pine") - Pine in every forest
+
+GATHER-SAID's For Mac, answered: Pine, the one tier-1 wood (PROF0 4.2), stood only in the Mountain and Mountain Woods.
+The Woodlands, the Haunted Woodlands and the Swamp stood Oak alone on ground nobody confirmed (Logging 10), and an
+unconfirmed Rainforest or Subtropical pixel stood nothing - a Novice logger in five of the seven forests could never
+chop. Every herb table and every vein table holds a tier 1 (the traced tables: 85-99% of pixels a Novice's herb, Iron in
+every vein table); the woods were the one gap.
+
+- **The law** (`src/net/nodeLaw.js` tree, `PINE_WOOD`, `PINE_SHARE`): a forest whose own woods hold no tier-1 wood stands
+  2 trees in 5 as Pine - section 6's tier-1 weight - on any ground, rolled on the tree's own sixth die after the rare
+  wood's roll (the rare woods keep their one in twenty). Sampled: the five forests about 40% Pine, 80-96% of their pixels
+  a day holding one; an unconfirmed Rainforest or Subtropical pixel stands its Pine and nothing past it (PROF0 25's no
+  Teak on anyone's word, kept); the Mountain and Mountain Woods byte for byte their table's draw. The Court's writ table
+  names the Pine a forest stands.
+- **The service** recomputes every felling from this law (`professions.js` harvestNode), so it is the fix's only
+  service change: **acct39** (past HOUSING's acct37 and WB9g's acct38, merged the same day), no migration, no route. A node's key names no wood, so a tree felled before the deploy
+  stays felled and one standing is read again under the new law. Deploy the account service first: an old service
+  refuses a Novice's Pine as `prof-rank` until it lands; an old client beside a new service only shows the Oak's need.
+- **The XP curve is unchanged**: rank 10 is 67 plain tier-1 harvests or 46 clean ones (22 XP), inside a day's 60.
+- **Pinned:** `test/pineshare.test.js` (5; four red on the law before with only the new names shimmed, the fifth the
+  Mountain's guard); prof4's law, service and client pins name the Oak they mean. Mutants:
+  `tools/mutants/pineshare.json` (7, all dead); prof4's twenty tree records re-run, all dead. Patch notes:
+  `PATCH-NOTES-Pine-in-Every-Forest.md`.
+
+## CLASSIC-PAGES (2026-09-30, Mac: "Enhanced pages + key") - the Professions and Stores on the classic skin
+
+GATHER-SAID's For Mac, answered: the Professions and Stores pages stood on the Enhanced pause menu's Stats rail alone,
+and the classic pause has no pages (AUDIT 29 B2's FLAGGED) - an online classic player (OVH3 lets them online) could
+neither read a rank past the toasts and the chip nor withdraw a gathered good, and a home's Forge, Workbench or Loom was
+neither offered nor sold them. The only way in was DISC22-B's Settings door and an Escape back to the Stats tab, which
+nothing said.
+
+- **The door** (`ui/pauseDoor.js` openPauseFlow): a door pressed for a professions page (`at` 'professions' or 'stores')
+  opens the enhanced pause on that page on either skin, as DISC22-B's Controls button opens its Settings; every other
+  door keeps the skin's own pause. With no pages to show (offline, the switch shut, the book unread) it says so -
+  "Your professions are kept online..." - and opens nothing.
+- **THE PROFESSIONS KEY** (`systems/inputActions.js`, appended; `ui/input.js` routeAction): the down arrow, beside the
+  act choice's up arrow - the professions' two keys together; no action read it in play (the held map's pan is its
+  window's), and the function keys a player would guess are DFU's, the HUD's or the browser's (F7 caret browsing, F10
+  the large HUD, F12 the dev tools - HT4 refused F7). It opens the pause on the Professions page, in every host (the
+  router's Escape arm's own door). In the Professions group, a port row the classic windows yield; `Controls.md`
+  generated with it. MERGED WITH HELM-KEYS (main's, the same day): less sail took the down arrow, so the Professions key
+  is a DEFAULT SHARE on it beside less sail (`DEFAULT_SHARES`), as more sail shares the act choice's up arrow - it owns
+  no key (KB1 law 3), and it opens nothing while the host sails (`routeAction` asks the host's `sailing`): at a helm the
+  down arrow is the sails' alone.
+- **The stations**: `forgeOffered` is the pages alone now - a shop's or a home's Forge, Workbench or Loom opens the
+  Stores page on either skin; their cold lines and GATHER-SAID's first-harvest line name no skin, the latter the key the
+  player has bound ("DOWN opens your Stores page"). AUDIT 29 B2's mutant, whose "mutant" is now the law, re-aimed at what
+  B2 still holds: no Forge offline.
+- **Kept as it was**: the Enhanced pages wear the base Enhanced sheet on the classic skin, as DISC22-B's Settings do;
+  the profHud lays the professions' own sheet on every skin online.
+- **Pinned:** `test/classicpages.test.js` (4, each red on the code before with only the new names shimmed); the key's
+  count pins (inputactions, qs2, viewtoggle, prof1's Professions group) and AUDIT 29 B2 flipped. Mutants:
+  `tools/mutants/classicpages.json` (9, all dead); gathersaid's two records re-aimed by content. Patch notes:
+  `PATCH-NOTES-Professions-on-the-Classic-Skin.md`.
+
+## GOLD-MARKET (2026-09-30, Mac: "Allow trading with gold or drakes on the marketplace"; "Gold listings, walled") - the market in gold or Drakes
+
+The market priced everything in Drakes (Professions-Arc law 8), because online gold was the save's and a client could
+pay in gold it never had. REALM P2 moved a realm character's gold onto its record on the service, so a realm record's
+gold can now change hands the way a guild deposit or a house's price does - in the act's own batch. Professions-Arc
+10.8 holds the decision; this is the build.
+
+- **A listing names its currency** (`src/net/marketLaw.js` MARKET_CURRENCIES; migration `0041_gold_market.sql`):
+  Drakes as ever, or GOLD - a realm character's own Stores units, or a crafted piece, listed with no fee at listing; each
+  gold sale pays the 5% tax and 1% of itself (the Drakes' listing fee) out of its price, both burnt (`goldSaleOf`). Buy
+  orders, auctions and commissions stay in Drakes. The Materials, Crafted and History views read one currency at a time
+  (gold's own price table, `market_gold_prices`; the Drakes' medians and the weekly report never read a gold price).
+- **A gold buy moves the buyer's record** (`server-account/src/market.js` buyWithGold): where the record stands asked
+  first (realmActFirst, AUDIT REALM L1-F2), the exact cost - the price and the courier, a Drake's worth of gold a Drake -
+  paid off it (purse, letters, then the board region's account: realmGoldLaw payFromSave) in the batch that decides the
+  sale, GUARDED (mustChange): a sale that does not land rolls the record back. The seller's share is held on the service
+  for its character (`market_gold`, at most 100,000,000) until its own record collects it into the bank account of the
+  board it stands at (`/v1/market/gold`, creditSave's `bank`; the purse where the record keeps no account there). A
+  realm character with gold held is not deleted (REALM_MARKET_OPEN_SQL).
+- **THE WALL** (law 8 kept: gold never becomes Drakes): what gold bought comes into the Stores as their third origin,
+  `gold`, and a piece bought on the market, at auction or by commission is marked `bought_with`. Gold's units go to the
+  pack (withdrawn first) or back on the market for gold, and nowhere else - every station, craft, Court or guild writ,
+  guild Stores deposit, buy-order fill and Drakes listing reads `spendableSql` (own and bought, never gold) and says
+  `stores-gold` or `market-gold-goods`. The other way too: what Drakes bought never lists for gold
+  (`market-drakes-goods`), so the market is never the Bank's way round its daily cap and its spread. STRICTER THAN ASKED:
+  Mac's "walled" named Drakes sales, writs and first-craft XP; gold's goods are kept from every station and craft too,
+  so no path from a gold purchase to a Drakes-earning act needs its own guard (a default closed, not a list to keep).
+- **The client** (`src/net/marketBook.js`, `src/ui/marketTab.js`): for a realm character a currency switch beside the
+  filters, gold rows priced in gold, a gold Buy through the host's realm act (`realmGoldAct`: the purse checkpointed,
+  the exact cost out of it as the service is asked, given back on the service's refusal); KEPT as a Drakes buy is, and
+  asked again by a settle when its answer is lost (a repeat pays nothing; a sale made on the settle is paid on its
+  answer); the List form's "Priced in gold"; under My listings the gold held and its Collect. The Stores page counts
+  gold's units, splits them ("bought with gold") and says where they may go. Any other character sees the Drakes'
+  market alone.
+- **The service**: **acct40** (past HOUSING's acct37, WB9g's acct38 and PINE-SHARE's acct39), migration `0041_gold_market.sql` (the Stores rebuilt for the third origin; a listing's
+  and a sale's currency; a sale's fee; a piece's `bought_with`; `market_gold`, `market_gold_prices`). Deploy the
+  migration and the service before the client: an old service refuses every gold word as a bad act, and an old client
+  beside a new service sees the Drakes' market as before.
+- **Pinned:** `test/goldmarket_service.test.js` (8) and `test/goldmarket_client.test.js` (9); the schema's table list
+  (accountworker ACC1b). Mutants: `tools/mutants/goldmarket.json` (34, all dead). Patch notes: `PATCH-NOTES-The-Gold-Market.md`.
+
+## PROF8 (2026-09-30, Mac: "Continue the arc"; "XP follows your rank") - Fishing with the net
+
+The arc's next slice (Professions-Arc 15): Fishing practised online. `06-Systems/Professions-Arc.md` 30 holds the whole
+record; in short:
+
+- **A haul** is the client's own key (`haul:<x>:<y>:<day>:<id>`) - bounded, not witnessed: forty hauls an ACCOUNT a day,
+  the daylight kept, its pixel read for the sea and the witnesses' word, and witnessed by the haul. Raw Fish into the
+  Stores (1-2; a full net x1.5, a school's fish), worked at the rank's own tier (Mac: "XP follows your rank"); at sea on
+  confirmed ground a Pearl (1 in 50) and a Slaughterfish (1 in 100); a trophy (1 in 200), the species' own Deep Waters
+  item, into the pack once.
+- **The act** (`systems/fishAct.js`): E held winds the net, let go throws it; the wait; the tug (600 ms, the phone
+  buzzing); the haul - the tension band over the net's weight. **The kind** (`scenes/fishHost.js`): the cast ahead of the
+  look with a net in the net's water; the day's two schools a pixel on water, as the Fish item's own picture and in the
+  prompt's words; the species named in the toast.
+- **The service**: **acct41**, migration `0042_fishing.sql`. Deploy the migration and the service before the client: an
+  old service refuses every haul as a bad node.
+- **Pinned:** `test/prof8_law.test.js` (7), `test/prof8_service.test.js` (3), `test/prof8_client.test.js` (12). Mutants:
+  `tools/mutants/prof8.json` (34, all dead). Patch notes: `PATCH-NOTES-Fishing.md`.

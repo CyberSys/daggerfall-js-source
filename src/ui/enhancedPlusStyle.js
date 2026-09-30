@@ -1131,6 +1131,11 @@ export const PROF_CSS = `/* ── PROF1: THE PROFESSIONS ── */
 .prof-ringbar { position: relative; height: calc(10px * var(--hud-scale, 1)); margin-bottom: 4px; background: rgba(5,6,8,0.8); box-shadow: 0 0 0 1px #050608; }
 .prof-ringband { position: absolute; top: 0; bottom: 0; background: rgba(243,207,134,0.45); }
 .prof-ringmark { position: absolute; top: -2px; bottom: -2px; width: 2px; margin-left: -1px; background: #efe0b8; }
+/* PROF8: the net's haul - the tension band on the bar, the weight on it; the tug's flash */
+.prof-haulbar { position: relative; height: calc(12px * var(--hud-scale, 1)); margin-bottom: 4px; background: rgba(5,6,8,0.8); box-shadow: 0 0 0 1px #050608; }
+.prof-haulband { position: absolute; top: 0; bottom: 0; background: rgba(120,190,220,0.45); box-shadow: inset 0 0 0 1px rgba(170,220,240,0.7); }
+.prof-haulweight { position: absolute; top: -3px; bottom: -3px; width: 4px; margin-left: -2px; background: #efe0b8; }
+.prof-meter.fish-tug .prof-hint { color: #f5dfa8; font-weight: bold; }
 .prof-toasts { position: fixed; right: 12px; top: 34%; z-index: 12; display: flex; flex-direction: column; gap: 4px; align-items: flex-end;
   pointer-events: none; font-family: ${PIXEL_STACK}; font-size: calc(12px * var(--hud-scale, 1)); }
 .prof-toast { padding: 3px 10px; color: #efe0b8; background: rgba(10,8,6,0.78); border-left: 2px solid var(--brass, #c08a3e);

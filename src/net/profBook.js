@@ -29,7 +29,7 @@
 // Pure - the door, the storage, the clock and the ids are handed in - so
 // the pins drive it without a network.
 // ═══════════════════════════════════════════════════════════════════
-import { HARVEST_LATE_S, HIDES_PER_DAY, HIGH_HIDES_PER_DAY } from './professionLaw.js';
+import { HARVEST_LATE_S, HIDES_PER_DAY, HIGH_HIDES_PER_DAY, HAULS_PER_DAY } from './professionLaw.js';   // PROF8: the day's forty hauls
 import { pixelKey } from './nodeLaw.js';
 import { accountRefusalText } from './accountClient.js';
 
@@ -102,6 +102,8 @@ export function createProfBook({ door, storage = null, character = () => null, n
     marks: /** @type {number|null} */ (null),
     /** PROF7: the account's hides today, every character's together (PROF0 6: 30, of them 3 of tiers 5-6) */
     hunt: { hides: 0, high: 0 },
+    /** PROF8: the account's hauls today (40 a day, every character's together) */
+    hauls: 0,
   };
   const account = () => { try { return door.account?.() ?? null; } catch { return null; } };
   const slot = () => `${account() ?? ''}|${character() ?? ''}`;
@@ -145,9 +147,11 @@ export function createProfBook({ door, storage = null, character = () => null, n
 
   // ─── WHAT THE SERVICE SAID ─────────────────────────────────────────
   const applyTrack = (t) => { if (t && typeof t.profession === 'string') state.tracks.set(t.profession, t); };
+  // GOLD-MARKET: and what gold bought, where there is any - to the pack or back on the market for gold, nowhere else
   const applyStore = (s) => {
     if (!s || typeof s.material !== 'string') return;
-    if ((s.own | 0) + (s.bought | 0) > 0) state.stores.set(s.material, { material: s.material, own: s.own | 0, bought: s.bought | 0 });
+    const gold = s.gold | 0;
+    if ((s.own | 0) + (s.bought | 0) + gold > 0) state.stores.set(s.material, { material: s.material, own: s.own | 0, bought: s.bought | 0, ...(gold > 0 ? { gold } : {}) });
     else state.stores.delete(s.material);
   };
   function apply(data) {
@@ -164,8 +168,11 @@ export function createProfBook({ door, storage = null, character = () => null, n
     if (data?.writs) state.writs = { today: data.writs.today | 0, max: data.writs.max | 0 };
     state.caps = data?.caps ?? null;
     applyHunt(data?.hunt);
+    applyHauls(data?.hauls);
   }
   /** PROF7: the account's hides today, as the state or a skinning answered them. */
+  /** PROF8: the account's hauls today, as the service counted them. */
+  function applyHauls(n) { if (Number.isSafeInteger(n) && n >= 0) state.hauls = n; }
   function applyHunt(h) {
     if (h && typeof h === 'object') state.hunt = { hides: Math.max(0, h.hides | 0), high: Math.max(0, h.high | 0) };
   }
@@ -231,8 +238,9 @@ export function createProfBook({ door, storage = null, character = () => null, n
     },
     /** A track as the service last said it (never null: a profession not worked yet is at nothing). */
     track(profession) { return state.tracks.get(profession) ?? { profession, xp: 0, rank: 0, specs: { 50: null, 100: null }, respec: null }; },
-    /** One material's count in the Stores, own and bought. */
+    /** One material's count in the Stores, own and bought (GOLD-MARKET: and `gold`, bought with gold, where held). */
     store(material) { return state.stores.get(material) ?? { material, own: 0, bought: 0 }; },
+    /** What a station, a craft or a writ may spend of it - never what gold bought (GOLD-MARKET's wall). */
     held(material) { const s = this.store(material); return s.own + s.bought; },
     /** AUDIT 30 U1: a material's count as another book heard it from the service (the market's answers - a listing's
      *  units out, a purchase or a cancel in, a fill, a delivery landed) - one count, whoever asked. */
@@ -532,6 +540,7 @@ export function createProfBook({ door, storage = null, character = () => null, n
       applyStore(r.data?.gemStore);   // PROF2: a gem the strikes found
       applyStore(r.data?.extraStore);   // PROF7 (FOUND): a tree's Resin and a body's butchery - PROF4 never applied it
       applyHunt(r.data?.hunt);   // PROF7: the account's hides today
+      applyHauls(r.data?.hauls);   // PROF8: and its hauls
       applyTrack(r.data?.track);
       if (r.data?.track && Number.isSafeInteger(r.data?.today)) state.today = { ...state.today, [r.data.track.profession]: r.data.today };
       return { ok: true, data: r.data };
@@ -549,6 +558,7 @@ export function createProfBook({ door, storage = null, character = () => null, n
     // AUDIT 32 B2: the account's day as the refusal says it - the book counted what this device saw, and another
     // character (or device) of the account may have taken the rest; a knife worn on every try until the next day's read
     if (r?.error === 'prof-hunt-cap') state.hunt = { ...(state.hunt ?? { hides: 0, high: 0 }), hides: Math.max(state.hunt?.hides ?? 0, state.caps?.hides ?? HIDES_PER_DAY) };
+    if (r?.error === 'prof-fish-cap') state.hauls = Math.max(state.hauls ?? 0, state.caps?.hauls ?? HAULS_PER_DAY);   // PROF8: the day's forty, as the service says
     if (r?.error === 'prof-hunt-high') state.hunt = { ...(state.hunt ?? { hides: 0, high: 0 }), high: Math.max(state.hunt?.high ?? 0, state.caps?.highHides ?? HIGH_HIDES_PER_DAY) };
     return { ok: false, error: r?.error ?? 'server' };
   }

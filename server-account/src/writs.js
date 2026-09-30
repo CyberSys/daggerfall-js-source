@@ -39,7 +39,7 @@
 import { accountKind, displayName, mintId, overRate } from './accounts.js';
 import { guildActorOf } from './guilds.js';
 import { marksOpenFor, balanceOf, guildBalanceOf } from './marks.js';
-import { profOpenFor, spendStatements, storeOf } from './professions.js';
+import { profOpenFor, spendStatements, spendableSql, storeOf } from './professions.js';
 import { CHAR_ID_RE } from './service.js';
 import { MARKS_MAX, utcDay } from '../../src/net/marksLaw.js';
 import { STORES_MAX } from '../../src/net/professionLaw.js';
@@ -228,6 +228,7 @@ export async function writBoard(ctx, player, env, { character, region } = {}) {
 async function eligibleHere(db, me, region, nowS) {
   const { results = [] } = await db.prepare(`SELECT c.id AS commission, p.provenance, p.quality FROM commissions c
       JOIN products p ON p.owner = ?1 AND p.listed = 0 AND p.recipe = c.recipe AND (c.quality IS NULL OR p.quality >= c.quality)
+        AND COALESCE(p.bought_with, '') != 'gold'   -- GOLD-MARKET: a piece bought with gold fills no Drakes commission
     WHERE c.crafter = ?1 AND c.region = ?2 AND c.state = 'open' AND c.expires_at > ?3
       AND EXISTS (SELECT 1 FROM prof_crafts WHERE player = ?1 AND (provenance = p.provenance OR provenance2 = p.provenance))
       AND NOT EXISTS (SELECT 1 FROM market_listings WHERE provenance = p.provenance AND state = 'open')
@@ -373,7 +374,7 @@ export async function supplyGuildWrit(ctx, player, env, { character, region, wri
         AND NOT EXISTS (SELECT 1 FROM marks_ledger WHERE actor = ?1 AND rid = ?2 || ':wpay')
         -- AUDIT 31 S6: no character of the account holds a rank that takes this guild's Stores out
         AND NOT EXISTS (SELECT 1 FROM guild_members WHERE player = ?1 AND guild_id = w.guild_id AND rank IN (${TAKERS_SQL}))
-        AND COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?3 AND material = w.material), 0) >= ?4
+        AND ${spendableSql('?1', '?3', 'w.material')} >= ?4   -- GOLD-MARKET: never gold's units
         AND COALESCE((SELECT SUM(qty) FROM guild_prof_stores WHERE guild_id = w.guild_id AND material = w.material), 0) + ?4 <= ?13
         AND COALESCE((SELECT balance FROM marks WHERE account = ?1), 0) + ?5 <= ?14`)
       .bind(me, rid, character, units, pay, tax, nowS, day, nonce, id, region, Number(w.left_units), GUILD_STORES_MAX, MARKS_MAX),
@@ -404,7 +405,7 @@ export async function supplyGuildWrit(ctx, player, env, { character, region, wri
   if (Number(now.left_units) !== Number(w.left_units)) return { error: 'writ-moved' };   // another delivered between
   if (!(await deliverMay(db, me, w.guild_id))) return { error: 'writ-own-guild' };   // made an Officer between
   const held = await storeOf(db, me, character, w.material);
-  if (held.own + held.bought < units) return { error: 'stores-short' };
+  if (held.own + held.bought < units) return { error: held.own + held.bought + (held.gold ?? 0) >= units ? 'stores-gold' : 'stores-short' };   // GOLD-MARKET
   if ((await balanceOf(db, me)) + pay > MARKS_MAX) return { error: 'marks-full' };
   return { error: 'guild-stores-full' };
 }
@@ -571,7 +572,8 @@ export async function fulfilCommission(ctx, player, env, { character, region, co
     db.prepare(`UPDATE commissions SET state = 'filled', closed_at = ?3, provenance = ?4, filled_char = ?5, tax = ?6, fill_rid = ?7, fn = ?8
       WHERE id = ?1 AND state = 'open' AND expires_at > ?3 AND crafter = ?2 AND region = ?9
         AND EXISTS (SELECT 1 FROM products p WHERE p.provenance = ?4 AND p.owner = ?2 AND p.listed = 0 AND p.recipe = commissions.recipe
-          AND (commissions.quality IS NULL OR p.quality >= commissions.quality))
+          AND (commissions.quality IS NULL OR p.quality >= commissions.quality)
+          AND COALESCE(p.bought_with, '') != 'gold')   -- GOLD-MARKET: a piece bought with gold (back again, even) fills no Drakes commission
         AND EXISTS (SELECT 1 FROM prof_crafts WHERE player = ?2 AND (provenance = ?4 OR provenance2 = ?4))
         AND NOT EXISTS (SELECT 1 FROM market_listings WHERE provenance = ?4 AND state = 'open')
         AND NOT EXISTS (SELECT 1 FROM market_auctions WHERE provenance = ?4 AND state = 'open')
@@ -581,8 +583,8 @@ export async function fulfilCommission(ctx, player, env, { character, region, co
         AND COALESCE((SELECT balance FROM marks WHERE account = ?2), 0) + ?10 <= ?11`)
       .bind(id, me, nowS, provenance, character, tax, rid, nonce, region, pay, MARKS_MAX),
     // the piece the poster's, on its way to them at once (a delivery, PROF5's)
-    db.prepare(`UPDATE products SET owner = (SELECT poster FROM commissions WHERE id = ?1 AND fn = ?2), listed = 0
-      WHERE provenance = (SELECT provenance FROM commissions WHERE id = ?1 AND fn = ?2)`).bind(id, nonce),
+    db.prepare(`UPDATE products SET owner = (SELECT poster FROM commissions WHERE id = ?1 AND fn = ?2), listed = 0, bought_with = 'marks'
+      WHERE provenance = (SELECT provenance FROM commissions WHERE id = ?1 AND fn = ?2)`).bind(id, nonce),   // GOLD-MARKET: bought with Drakes
     db.prepare(`INSERT OR IGNORE INTO market_deliveries (id, player, char_id, provenance, wear, why, from_region, arrives_at, at)
       SELECT id, poster, poster_char, provenance, ?3, 'bought', region, ?4, ?4 FROM commissions WHERE id = ?1 AND fn = ?2`).bind(id, nonce, WEAR_WHOLE, nowS),
     // the Marks: the pay out of the escrow to the crafter, the tax burnt from it
@@ -597,9 +599,10 @@ export async function fulfilCommission(ctx, player, env, { character, region, co
   if (await spent(db, me, rid, ':cpay')) return { error: 'prof-rid' };
   const now = await db.prepare('SELECT state FROM commissions WHERE id = ?1').bind(id).first();
   if (now?.state !== 'open') return { error: 'writ-gone' };
-  const q = await db.prepare('SELECT owner, listed FROM products WHERE provenance = ?1').bind(provenance).first();
+  const q = await db.prepare('SELECT owner, listed, bought_with FROM products WHERE provenance = ?1').bind(provenance).first();
   if (!q) return { error: 'market-no-record' };
   if (q.owner !== me) return { error: 'market-not-yours' };
+  if (q.bought_with === 'gold') return { error: 'market-gold-goods' };   // GOLD-MARKET: the wall's own word
   if (!(await db.prepare('SELECT 1 FROM prof_crafts WHERE player = ?1 AND (provenance = ?2 OR provenance2 = ?2)').bind(me, provenance).first())) {
     return { error: 'commission-not-made' };
   }
@@ -719,7 +722,7 @@ async function moveGuildStores(ctx, player, env, { character, material: key, uni
       SELECT ?1, ?2, ?3, ?4, 'deposit', ?5, ?6,
         MAX(0, ?6 - COALESCE((SELECT qty FROM prof_stores WHERE player = ?1 AND char_id = ?3 AND material = ?5 AND origin = 'bought'), 0)), ?7, ?8
       WHERE EXISTS (SELECT 1 FROM guild_members WHERE player = ?1 AND char_id = ?3 AND guild_id = ?4)
-        AND COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?3 AND material = ?5), 0) >= ?6
+        AND ${spendableSql('?1', '?3', '?5')} >= ?6   -- GOLD-MARKET: never gold's units
         AND COALESCE((SELECT SUM(qty) FROM guild_prof_stores WHERE guild_id = ?4 AND material = ?5), 0) + ?6 <= ?9`)
       .bind(me, rid, character, g, key, units, nowS, nonce, GUILD_STORES_MAX),
     ...spendStatements(db, { player: me, character, materialSql: '?3', qtySql: '?4', guard: moved, binds: [key, units, rid, nonce] }),
@@ -770,7 +773,7 @@ async function moveGuildStores(ctx, player, env, { character, material: key, uni
   if ((await rankIn(db, me, character, g)) !== rank) return { error: 'guild-rank' };
   if (kind === 'deposit') {
     const held = await storeOf(db, me, character, key);
-    return { error: held.own + held.bought < units ? 'stores-short' : 'guild-stores-full' };
+    return { error: held.own + held.bought < units ? (held.own + held.bought + (held.gold ?? 0) >= units ? 'stores-gold' : 'stores-short') : 'guild-stores-full' };   // GOLD-MARKET
   }
   if (!guildTakeMay(rank, units, await ownDeposit(db, g, key, me, character))) return { error: 'guild-stores-mine' };   // taken out between
   const t = await db.prepare('SELECT COALESCE(SUM(qty), 0) AS n FROM guild_prof_stores WHERE guild_id = ?1 AND material = ?2').bind(g, key).first();

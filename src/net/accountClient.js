@@ -47,7 +47,7 @@ import { MARKS_MAX, MARKS_BANK, MARKS_MOVE_MAX } from './marksLaw.js';   // MARK
 import { NOTES_LIVE_MAX, NOTE_DAYS, NOTICE_DAYS_MAX } from './boardLaw.js';   // NOTICE1: the bounds its refusals name
 import {
   HARVESTS_PER_DAY, HARVESTS_PER_ACCOUNT_DAY, DEEP_UNCONFIRMED_PER_DAY, STORES_MAX, WITHDRAW_MAX, COURT_WRITS_PER_DAY, RESPEC,
-  HIDES_PER_DAY, HIGH_HIDES_PER_DAY,
+  HIDES_PER_DAY, HIGH_HIDES_PER_DAY, HAULS_PER_DAY,
 } from './professionLaw.js';   // PROF1: the bounds its refusals name; PROF7: Hunting's day
 import {
   GUILD_FOUND_RENOWN, GUILD_MEMBERS_MAX, GUILD_NAME_MIN, GUILD_NAME_MAX, GUILD_RANK_NAME_MAX, GUILD_MOVE_MAX,
@@ -290,6 +290,7 @@ export const REFUSALS = Object.freeze({
   'prof-later': 'That is made when the sieges come.',   // PROF4: the Ram Kit (PROF0 25)
   // PROF7: Hunting's day - the account's, every character's together (PROF0 6)
   'prof-hunt-cap': `Your account has taken all the hides a day allows (${HIDES_PER_DAY}, across your characters).`,
+  'prof-fish-cap': `Your account has hauled all the nets a day allows (${HAULS_PER_DAY}, across your characters). The water rests until midnight UTC.`,   // PROF8
   'prof-hunt-high': `Your account has taken all the rare hides a day allows (${HIGH_HIDES_PER_DAY}, across your characters).`,
   'prof-foe': 'No knife takes a hide from that body.',
   'prof-dye': 'That cannot be dyed so.',
@@ -333,6 +334,14 @@ export const REFUSALS = Object.freeze({
   'market-standing': 'That piece stands in a home. Take it up first.',
   'market-unyielded': 'Nothing yields that yet, so no one could fill an order for it.',
   'market-busy': 'The counting-house is still settling your last business.',
+  // GOLD-MARKET: gold is a realm character's, and what gold bought stays gold's (Professions-Arc 10.8)
+  'market-gold-realm': 'Gold changes hands on the market only between characters of the online realm.',
+  'market-currency': 'That listing is priced in the other currency. Look again.',
+  'market-gold-goods': 'What you bought with gold goes to your pack or back on the market for gold - never for Drakes, to a station, a craft or a writ.',
+  'market-drakes-goods': 'What you bought with Drakes sells for Drakes. Only what you gathered, made or bought with gold sells for gold.',
+  'market-gold-none': 'Your sales hold no gold for you just now.',
+  'market-gold-full': 'The seller cannot hold any more gold from the market just now.',
+  'stores-gold': 'What you bought with gold is not used there. Withdraw it to your pack, or sell it again for gold.',
   // PROF5b: the auctions
   'auction-not-masterwork': 'Only a Masterwork is sold at auction. List it at a price instead.',
   'auction-low': 'Another bid came first. The next bid is higher now.',
@@ -1005,6 +1014,8 @@ export function accountMarket({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) 
     // PROF5b: an auction posted (a Masterwork at its opening bid), and a bid on one
     auction: (req) => post('/v1/market/auction', req),
     bid: (req) => post('/v1/market/bid', req),
+    // GOLD-MARKET: a realm character's gold its sales hold, collected into its record (`{ character, realm, region }`)
+    gold: (req) => post('/v1/market/gold', req),
   };
 }
 
