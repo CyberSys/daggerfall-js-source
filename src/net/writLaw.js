@@ -90,11 +90,12 @@ export const COMMISSIONS_MAX = 5;
 export const COMMISSIONS_FOR_MAX = 20;
 /** A commission's pay: a listing's price bounds, 1 to 1,000,000 Marks. */
 export const commissionPayOk = (n) => priceOk(n);
-/** AUDIT 31 L2: whether a recipe asks a material nothing yields yet (a Daedric or Warforged piece) - no one could make
- *  it, so no one may be asked to. */
+/** AUDIT 31 L2: whether a recipe asks a material nothing yields yet (a Daedric or Warforged piece; PROF7: a garment in
+ *  Standard-bearer's Silk) - no one could make it, so no one may be asked to. */
 export const commissionUnyielded = (recipeId) => !!recipeById(recipeId)?.inputs.some((i) => UNYIELDED.includes(i.key));
 /** Whether a recipe may be commissioned: a piece the market lists (weapons, armour, staves, bows, tools, kits,
- *  furniture) - never arrows or a siege work - that someone could make now. */
+ *  furniture; PROF7's leather armour, clothing and furnishings) - never arrows or a siege work - that someone could make
+ *  now. */
 export const commissionable = (recipeId) => pieceListable(recipeId) && !commissionUnyielded(recipeId);
 /** Whether a recipe's piece takes a quality - a kit does not, so its commission asks none. */
 export const commissionTakesQuality = (recipeId) => {

@@ -86,7 +86,8 @@ test('PROF1 service: a character\'s state - thirteen tracks at nothing, no Store
   assert.equal(r.tracks.length, 13);
   assert.deepEqual(r.tracks.find((t) => t.profession === 'herbalism'), { profession: 'herbalism', xp: 0, rank: 0, specs: { 50: null, 100: null }, respec: null });
   assert.deepEqual([r.stores, r.taken, r.today, r.writs], [[], [], {}, { today: 0, max: 3 }]);
-  assert.deepEqual(r.caps, { harvests: HARVESTS_PER_DAY, stores: STORES_MAX, withdraw: 200 });
+  assert.deepEqual(r.caps, { harvests: HARVESTS_PER_DAY, stores: STORES_MAX, withdraw: 200, hides: 30, highHides: 3 });   // PROF7 moved it: Hunting's day, the account's
+  assert.deepEqual(r.hunt, { hides: 0, high: 0 });
   assert.equal(r.day, utcDay(_now));
 });
 

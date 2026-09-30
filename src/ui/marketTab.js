@@ -381,7 +381,7 @@ export function createMarketTab(m, ui) {
       row.append(el('b', null, m.name(w.key)), el('span', 'market-price', `${marksText(w.marks)} a bolt`), inp, b);
       box.append(row);
     }
-    box.append(el('p', 'notice-tip', 'Into your Stores. A bolt stays there until its craft is practised.'));
+    box.append(el('p', 'notice-tip', 'Into your Stores, for the loom.'));   // AUDIT 32 R5: Outfitting practised since PROF7 - a bolt withdraws, and sews
     return box;
   }
 

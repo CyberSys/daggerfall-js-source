@@ -296,8 +296,7 @@ test('PROF4 host: the tree targeted, E starts the Wood-Axe\'s ring (DFU\'s War A
     assert.equal(asked.length, 1);
     assert.deepEqual([asked[0].node, asked[0].kind, asked[0].act.clean, asked[0].act.cuts, asked[0].act.chops], [n.key, 'logs', true, 3, 3], 'three Clean Cuts: a clean ring');
     assert.equal(axe.currentCondition, 49, 'the Wood-Axe worn by one');
-    assert.ok(said.includes('+3 Oak Logs to your Stores'));
-    assert.ok(said.includes('...and Resin'), 'the Resin said');
+    assert.ok(said.includes('+3 Oak Logs and Resin to your Stores'), 'the Resin said with the logs (GATHER-SAID: one line)');
     for (let i = 0; i < 4; i++) { host.tick(0.016); await tick(); }
     const fall = made.find((b) => b.tip);
     assert.ok(fall, 'the tree falls');
@@ -468,8 +467,10 @@ test('PROF4 wiring: a built pixel keeps its forest (the tree flats by World of D
   assert.match(w, /forest: \{ base: climate\.natureArchive, archive: natureArchive, trees: pixelTrees\.filter\(\(t\) => forestGroups\.has\(t\.group\)\), groups: forestGroups \},/);
   assert.equal((w.match(/if \(archive === natureArchive\) forestGroups\.set\(k, \{ batch, centers, size[^}]*\}\);/g) ?? []).length, 2, 'both the season\'s batch and the classic one');
   assert.match(w, /if \(isCraftedFurniture\(it\)\) \(playerEntity\.furnishings \?\?= \[\]\)\.push\(it\);\n\s*else addItem\(\(playerEntity\.items \?\?= \[\]\), it, 'back'\);/);
-  assert.match(w, /const bench = recipeById\(recipe\)\?\.profession === 'carpentry';\n\s*const f = \(bench \? modes\?\.workbenchHere\?\.\(\) : modes\?\.forgeHere\?\.\(\)\) \?\? null;/);
-  assert.match(w, /const bench = work\?\.station === 'workbench';/);
+  // PROF7 moved it: the station a recipe's profession names (craftStation) - the workbench Carpentry's, the loom Outfitting's
+  assert.match(w, /const st = craftStation\(recipeById\(recipe\)\?\.profession\);\n\s*const f = st\.here\(\);/);
+  assert.match(w, /const craftStation = \(profession\) => \(profession === 'carpentry'\n\s*\? \{ here: \(\) => modes\?\.workbenchHere\?\.\(\) \?\? null,/);
+  assert.match(w, /const bench = work\?\.station === 'workbench', loom = work\?\.station === 'loom';/);
   assert.match(w, /planeBand: \(\) => planeBand\(\{ agility: liveStat\(playerEntity, 'agility'\), willpower: liveStat\(playerEntity, 'willpower'\) \}\),/);
   const m = src('src/scenes/worldModes.js');
   assert.match(m, /if \(interiorBuilding\.buildingType === BUILDING_TYPES\.FurnitureStore\) return interiorBuilding\.insideOpenShop === false \? null : \{ kind: 'shop', fee: WORKBENCH_FEE \};/);

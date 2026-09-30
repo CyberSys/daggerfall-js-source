@@ -164,8 +164,8 @@
   {
     "name": "AUDIT30-L4-the-mark-unsigned",
     "file": "server-account/src/professions.js",
-    "old": "a: marked === 1 && maker !== null }",
-    "new": "a: false }",
+    "old": "a: marked === 1 && maker !== null, u }",
+    "new": "a: false, u }",
     "tests": [
       "test/audit30_service.test.js"
     ]
@@ -481,8 +481,8 @@
   {
     "name": "AUDIT30-A9-a-field-s-space-struck",
     "file": "src/ui/profPages.js",
-    "old": "    if (isTextEntryTarget(e.target) || isDomControlTarget(e.target)) return;   // AUDIT 30 A9",
-    "new": "    // AUDIT 30 A9",
+    "old": "  if (isTextEntryTarget(e.target) || (isDomControlTarget(e.target) && e.target !== ownButton)) return;   // AUDIT 30 A9",
+    "new": "  // AUDIT 30 A9",
     "tests": [
       "test/audit30_client.test.js"
     ]

@@ -44,7 +44,10 @@ import { HOME_CAP } from './homeLaw.js';   // HOME1: the cap a refusal names
 import { DECOR_CAP } from './decorLaw.js';   // DECOR1: the cap its refusal names
 import { MARKS_MAX, MARKS_BANK, MARKS_MOVE_MAX } from './marksLaw.js';   // MARKS1: the bounds its refusals name
 import { NOTES_LIVE_MAX, NOTE_DAYS, NOTICE_DAYS_MAX } from './boardLaw.js';   // NOTICE1: the bounds its refusals name
-import { HARVESTS_PER_DAY, HARVESTS_PER_ACCOUNT_DAY, DEEP_UNCONFIRMED_PER_DAY, STORES_MAX, WITHDRAW_MAX, COURT_WRITS_PER_DAY, RESPEC } from './professionLaw.js';   // PROF1: the bounds its refusals name
+import {
+  HARVESTS_PER_DAY, HARVESTS_PER_ACCOUNT_DAY, DEEP_UNCONFIRMED_PER_DAY, STORES_MAX, WITHDRAW_MAX, COURT_WRITS_PER_DAY, RESPEC,
+  HIDES_PER_DAY, HIGH_HIDES_PER_DAY,
+} from './professionLaw.js';   // PROF1: the bounds its refusals name; PROF7: Hunting's day
 import {
   GUILD_FOUND_RENOWN, GUILD_MEMBERS_MAX, GUILD_NAME_MIN, GUILD_NAME_MAX, GUILD_RANK_NAME_MAX, GUILD_MOVE_MAX,
 } from './guildLaw.js';   // GUILD1: the bounds its refusals name
@@ -262,6 +265,11 @@ export const REFUSALS = Object.freeze({
   'prof-no-pack-form': 'That stays at the bench until its own craft is practised.',   // PROF3: the smith's stock
   'prof-busy': 'The anvil is still ringing from your last work.',   // PROF3: one craft at a time
   'prof-later': 'That is made when the sieges come.',   // PROF4: the Ram Kit (PROF0 25)
+  // PROF7: Hunting's day - the account's, every character's together (PROF0 6)
+  'prof-hunt-cap': `Your account has taken all the hides a day allows (${HIDES_PER_DAY}, across your characters).`,
+  'prof-hunt-high': `Your account has taken all the rare hides a day allows (${HIGH_HIDES_PER_DAY}, across your characters).`,
+  'prof-foe': 'No knife takes a hide from that body.',
+  'prof-dye': 'That cannot be dyed so.',
   'bad-qty': `Take 1 to ${WITHDRAW_MAX} at a time.`,
   'bad-pixels': 'That land could not be read.',
   'bad-region': 'That region could not be read.',
@@ -924,7 +932,7 @@ export function accountProf({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
     spec: (character, profession, rank, spec, from, rid) => post('/v1/prof/spec', { character, profession, rank, spec, from, rid }),   // AUDIT 29 A15: `from`, the choice the client saw standing
     withdraw: (character, material, qty, rid) => post('/v1/stores/withdraw', { character, material, qty, rid }),
     smelt: (character, recipe, count, rid) => post('/v1/prof/smelt', { character, recipe, count, rid }),   // PROF2: the forge
-    craft: (character, recipe, clean, name, rid, heartwood = false) => post('/v1/prof/craft', { character, recipe, clean, name, rid, heartwood }),   // PROF3: the anvil - `clean` the act's report, `name` the maker's mark; PROF4: the workbench, `heartwood` for a plank
+    craft: (character, recipe, clean, name, rid, heartwood = false, dye = null) => post('/v1/prof/craft', { character, recipe, clean, name, rid, heartwood, ...(dye == null ? {} : { dye }) }),   // PROF3: the anvil - `clean` the act's report, `name` the maker's mark; PROF4: the workbench, `heartwood` for a plank; PROF7: the loom, a garment's `dye`
     stock: (character, material, qty, rid) => post('/v1/prof/stock', { character, material, qty, rid }),   // PROF3: the smith's stock
     writs: (character, region) => post('/v1/writs/list', { character, region }),
     deliver: (character, id, rid) => post('/v1/writs/deliver', { character, id, rid }),

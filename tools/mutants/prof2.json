@@ -183,8 +183,8 @@
   {
     "name": "PROF2-20-dungeons-keep-the-day",
     "file": "server-account/src/professions.js",
-    "old": "  if (!deep && !isForagingDaylight(sharedHourAt(at))) return { error: 'prof-night' };",
-    "new": "  if (!isForagingDaylight(sharedHourAt(at))) return { error: 'prof-night' };",
+    "old": "  if (!deep && !isBody && !isForagingDaylight(sharedHourAt(at))) return { error: 'prof-night' };",
+    "new": "  if (!isBody && !isForagingDaylight(sharedHourAt(at))) return { error: 'prof-night' };",
     "tests": [
       "test/prof2_service.test.js"
     ]
@@ -354,8 +354,8 @@
   {
     "name": "PROF2-39-a-forge-for-nothing",
     "file": "src/net/decorLaw.js",
-    "old": "enchant: 200_000, forge: 50_000, workbench: 50_000 });",
-    "new": "enchant: 200_000, forge: 0, workbench: 50_000 });",
+    "old": "enchant: 200_000, forge: 50_000, workbench: 50_000, loom: 50_000 });",
+    "new": "enchant: 200_000, forge: 0, workbench: 50_000, loom: 50_000 });",
     "tests": [
       "test/prof2_client.test.js",
       "test/homestations.test.js"
