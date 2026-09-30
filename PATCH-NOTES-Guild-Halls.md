@@ -37,7 +37,7 @@
 ---
 
 ### For the team: deploy order
-1. Apply migrations **`0043_guild_halls.sql`** and **`0044_guild_board.sql`** to production D1 and deploy the account service (**`acct42`**).
+1. Apply migrations **`0043_guild_halls.sql`** and **`0044_guild_board.sql`** to production D1 and deploy the account service (**`acct43`**).
 2. Then ship the client.
 
 An older service refuses every hall and heraldry act, so the Guild tab reports those refusals. This PR doesn't change the relay.

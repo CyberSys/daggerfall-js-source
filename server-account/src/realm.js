@@ -48,6 +48,7 @@ import { ID_RE } from '../../src/net/identityToken.js';   // CUSTOMS-PASS: an ac
 import { isGuestShaped, isHandleShaped } from '../../src/net/handleShape.js';   // CUSTOMS-PASS: a handle and a guest's name, told apart by their shape alone
 import { isDeveloper } from './titles.js';   // CUSTOMS-PASS: a developer grants one
 import { displayName } from './accounts.js';
+import { saveTextOf, REALM_TEXT_MAX_BYTES } from '../../src/net/realmSaveCodec.js';   // REALM-GZIP: a save read packed or plain
 
 /** Realm characters an ACCOUNT may hold. A new one past it is refused; nothing is ever deleted to make room. */
 export const REALM_CHARACTERS_MAX = 6;
@@ -57,7 +58,8 @@ export const REALM_NAME_MAX = 32;
 export const REALM_SUMMARY_MAX = 512;
 /** A lease renewed this recently is a character in play ("playing now" on the tile). Checkpoints come every two minutes. */
 export const REALM_PLAYING_S = 300;
-/** The largest save a checkpoint may carry - the cloud save's own bound. */
+/** The largest save a checkpoint may carry - the cloud save's own bound. REALM-GZIP: the REQUEST's bound - a tab packs
+ *  its save, and the text a checkpoint opens to is REALM_TEXT_MAX_BYTES (src/net/realmSaveCodec.js). */
 export const REALM_MAX_BYTES = SAVE_MAX_BYTES;
 /** The service's ids: `r` and twenty hex digits. Nothing a client mints looks like one. */
 export const REALM_ID_RE = /^r[0-9a-f]{20}$/;
@@ -357,6 +359,19 @@ export async function joinRealm({ db, rand, nowS }, playerId, id) {
   return { id, lease, seq: row?.seq ?? 0, bytes: row?.bytes ?? 0, origin: row?.origin_id ?? null };
 }
 
+/** REALM-GZIP: AN R2 OBJECT'S BYTES - the platform's reader when it has one (R2's own), its body when that is the bytes. */
+export async function objectBytesOf(/** @type {any} */ object) {
+  if (typeof object?.arrayBuffer === 'function') return new Uint8Array(await object.arrayBuffer());
+  if (object?.body instanceof Uint8Array) return object.body;
+  return new Uint8Array(await new Response(object?.body).arrayBuffer());
+}
+
+/** REALM-GZIP: A STORED SAVE'S TEXT - packed (a tab's checkpoint) or plain (one from before, or the service's own write),
+ *  opened within REALM_TEXT_MAX_BYTES - or null (no object, past the bound, not whole). */
+export async function realmSaveTextOf(/** @type {any} */ object) {
+  return object ? saveTextOf(await objectBytesOf(object), REALM_TEXT_MAX_BYTES) : null;
+}
+
 /**
  * AUDIT REALM2 S1: THE FIRST SAVE IS READ. The service took any bytes as a character's first checkpoint, so a character
  * "born online" could be any offline save (ten million gold, level sixty), customs' allowance was the client's alone to
@@ -366,11 +381,13 @@ export async function joinRealm({ db, rand, nowS }, playerId, id) {
  * summary, which nothing writes before the first save lands, never the first save's own word ('customs-allowance').
  * Wealth is customs' own measure (net/realmGoldLaw.js liquidWealthOf): the purse, the banks, and every gold-piece item
  * and letter of credit wherever it lies. A save that is no JSON object is neither. Answers null, or `{ error }`.
- * @param {ArrayBuffer} body @param {{ origin_id?: string | null, summary?: string | null }} row
+ * REALM-GZIP: it reads the save's TEXT, opened by the checkpoint - a packed first save is measured as a plain one, and
+ * one that will not open (null) is no JSON object.
+ * @param {string | null} text @param {{ origin_id?: string | null, summary?: string | null }} row
  */
-export function firstSaveRefusal(body, row) {
+export function firstSaveRefusal(text, row) {
   let save = null;
-  try { save = JSON.parse(new TextDecoder().decode(body)); } catch { save = null; }
+  try { save = JSON.parse(text); } catch { save = null; }
   const shaped = !!save && typeof save === 'object' && !Array.isArray(save);
   if (!row.origin_id) {
     return shaped && save.level === REALM_BIRTH_LEVEL && liquidWealthOf(save) <= REALM_BIRTH_WEALTH_MAX ? null : { error: 'realm-birth' };
@@ -399,7 +416,8 @@ export async function checkpointRealm({ db, bucket, rand, nowS }, playerId, { id
   if (row.lease !== lease) return { error: 'lease' };
   if (seq !== row.seq + 1) return { error: 'seq', seq: row.seq };   // the service's own: a client whose last answer was lost resyncs
   if (seq === 1) {
-    const refused = firstSaveRefusal(body, row);   // AUDIT REALM2 S1: a new character's, or customs' own - before a byte lands
+    // AUDIT REALM2 S1: a new character's, or customs' own - before a byte lands. REALM-GZIP: opened first, packed or not
+    const refused = firstSaveRefusal(await saveTextOf(new Uint8Array(body), REALM_TEXT_MAX_BYTES), row);
     if (refused) return refused;
   }
   const key = mintObjectKey(rand, playerId, id, /** @type {number} */ (seq));
@@ -467,13 +485,13 @@ export async function prepareRealmRecord({ db, bucket, rand, nowS }, playerId, a
   if (row.seq !== at.seq || !row.obj) return { error: 'seq', seq: row.seq };
   const object = await bucket.get(row.obj);
   let save = null;
-  try { save = object ? JSON.parse(typeof object.text === 'function' ? await object.text() : new TextDecoder().decode(object.body)) : null; } catch { save = null; }
+  try { save = JSON.parse(await realmSaveTextOf(object)); } catch { save = null; }   // REALM-GZIP: packed or plain
   if (!save || typeof save !== 'object' || Array.isArray(save)) return { error: 'no-data' };
   const refused = change(save);
   if (refused) return { error: refused };
   const text = JSON.stringify(save);
   const bytes = new TextEncoder().encode(text).byteLength;
-  if (bytes > REALM_MAX_BYTES) return { error: 'no-data' };
+  if (bytes > REALM_TEXT_MAX_BYTES) return { error: 'no-data' };   // REALM-GZIP: written plain, within the text's bound
   const key = mintObjectKey(rand, playerId, at.id, at.seq + 1);
   await bucket.put(key, text);
   const steps = [

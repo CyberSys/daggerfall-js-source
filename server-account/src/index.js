@@ -160,8 +160,9 @@ import {
 import { marketRead, marketList, marketBuy, marketCancel, marketOrder, marketFill, marketUnorder, marketCollect, marketReport, marketRemove, marketAuction, marketBid, marketGoldCollect } from './market.js';   // PROF5: the market; PROF5b: its auctions; GOLD-MARKET: gold held collected
 import {
   listRealm, createRealm, customsRealm, joinRealm, checkpointRealm, getRealmBlob, leaveRealm, deleteRealm, undoRealm,
-  realmCharacterHeld, grantCustomsPass, REALM_CHARACTERS_MAX, REALM_MAX_BYTES,
+  realmCharacterHeld, grantCustomsPass, REALM_CHARACTERS_MAX, REALM_MAX_BYTES, objectBytesOf,
 } from './realm.js';   // REALM P1: the realm's characters
+import { isGzip, gzipSizeOf, gunzipText, REALM_TEXT_MAX_BYTES } from '../../src/net/realmSaveCodec.js';   // REALM-GZIP: a save rides packed
 import { tradeRealm, REALM_TRADE_BODY_MAX } from './realmTrade.js';   // REALM P2.1: a trade, settled here
 
 // THIS MODULE EXPORTS `default` AND NOTHING ELSE, and that is a
@@ -1088,6 +1089,10 @@ export default {
             const raw = await readCapped(request, REALM_MAX_BYTES);
             if (!raw) return no('too-large', 413, origin);
             if (!raw.byteLength) return no('body', 400, origin);
+            // REALM-GZIP: a packed save is bounded twice - the request above, and the text it says it opens to (its
+            // trailer's word, unread; every opening keeps the bound itself, so a gzip that lies buys nothing)
+            const packed = new Uint8Array(raw);
+            if (isGzip(packed) && gzipSizeOf(packed) > REALM_TEXT_MAX_BYTES) return no('too-large', 413, origin);
             let summary = null;
             try { summary = JSON.parse(request.headers.get('x-realm-summary') || 'null'); } catch { summary = null; }
             const r = await checkpointRealm(rctx, me, {
@@ -1101,7 +1106,15 @@ export default {
           if (request.method === 'GET') {
             const r = await getRealmBlob(rctx, me, realmSlot.id);
             if (r.error) return no(r.error, REALM_STATUS[r.error] ?? 404, origin);
-            return new Response(r.object.body, {
+            // REALM-GZIP: the save as stored, packed or plain, to a tab that asks for it so (it opens either); to one that
+            // does not - a build from before - a packed save is opened here, and it reads the text it always read
+            let body = r.object.body;
+            if (url.searchParams.get('enc') !== 'gzip') {
+              const bytes = await objectBytesOf(r.object);
+              body = isGzip(bytes) ? await gunzipText(bytes, REALM_TEXT_MAX_BYTES) : bytes;
+              if (body == null) return no('no-data', 404, origin);
+            }
+            return new Response(body, {
               status: 200,
               headers: {
                 'content-type': 'application/octet-stream',
@@ -1115,9 +1128,12 @@ export default {
           return no('method', 405, origin);
         }
         if (request.method !== 'POST') return no('method', 405, origin);
-        if (path === '/v1/realm/create') return answer(await createRealm(rctx, me, { name: body.name, summary: body.summary }));
-        if (path === '/v1/realm/customs') return answer(await customsRealm(rctx, me, { origin: body.origin, name: body.name, summary: body.summary }));   // AUDIT REALM L3-F2/F3: one guarded batch, and resumable
-        if (path === '/v1/realm/join') return answer(await joinRealm(rctx, me, body.id));
+        // REALM-GZIP: every answer that hands a tab a lease says this service opens a packed save - a tab packs only then,
+        // so a new build before its service is deployed (or after one rolled back) sends the text it always sent
+        const leased = (/** @type {any} */ r) => answer(r.error ? r : { ...r, gzip: true });
+        if (path === '/v1/realm/create') return leased(await createRealm(rctx, me, { name: body.name, summary: body.summary }));
+        if (path === '/v1/realm/customs') return leased(await customsRealm(rctx, me, { origin: body.origin, name: body.name, summary: body.summary }));   // AUDIT REALM L3-F2/F3: one guarded batch, and resumable
+        if (path === '/v1/realm/join') return leased(await joinRealm(rctx, me, body.id));
         if (path === '/v1/realm/trade') {
           // REALM P2.1: a sequence refused says the service's own, as a checkpoint's does
           const r = await tradeRealm(rctx, me, body);

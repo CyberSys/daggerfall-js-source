@@ -10208,7 +10208,7 @@ channel lists). `tools/mutants/guild1c.json` (64, all dead).
 
 **GUILD1d - the guild hall, the `guild` entry and heraldry** (2026-09-30, Mac: "Lets do this" - the guilds before the rest
 of the professions; `11-Multiplayer/Seats-Arc.md` 8, whose decisions it builds: SEAT0 left "decisions ... binding for the
-build slices"). One deploy of the account service (`acct42`, migration 0043); no relay change - the hall's law is its
+build slices"). One deploy of the account service (`acct43` - `acct42` on its branch, renumbered past main's REALM-GZIP at the merge; migration 0043); no relay change - the hall's law is its
 own module (`src/net/hallLaw.js`), never net/guildLaw.js, which is in the relay's bundle (SLAM8).
 
 - **The law** (`src/net/hallLaw.js`, both ends): a guild owns ONE home as its hall, bought from its gold treasury at
@@ -10291,7 +10291,7 @@ them at the first); heraldry is not yet on the map ring, the guild tag's frame, 
 Pinned: `test/guild1d_service.test.js` (5), `test/guild1d_client.test.js` (12); re-aimed by content in
 `test/home1.test.js` (the entries), `test/decor1.test.js`, `test/decor1d.test.js`, `test/decorshell.test.js` (the
 room's host), `test/glstate.test.js`, `test/farring.test.js`, `test/audit18_bible_docs.test.js` (the foreign passes)
-and the ACCOUNT_VERSION pins (`acct42`). `tools/mutants/guild1d.json` (38, all dead).
+and the ACCOUNT_VERSION pins (`acct43`). `tools/mutants/guild1d.json` (38, all dead).
 
 ### AUDIT GUILD1d (2026-09-30, Mac: "let's do an audit on this")
 
@@ -10384,7 +10384,7 @@ banners change heraldry only when its town's list is next read.
 (2026-09-30, Mac: "Finish the seats" - the Seats arc's slices in order, sieges
 included; `11-Multiplayer/Seats-Arc.md` 8.2: "the hall carries the guild Stores chest and a private guild board (the
 board's Guilds tab, members only)"; PROF0 10.1's Guilds tab: "Recruitment posters (each guild's heraldry and a line); a
-guild's own notes, members only"). Rides the undeployed `acct42` with GUILD1d (migration 0044); no relay change.
+guild's own notes, members only"). Rides the undeployed `acct43` with GUILD1d (migration 0044); no relay change.
 
 - **The notes** (`server-account/src/guildBoard.js` over `migrations/0044_guild_board.sql`): a guild's notes are the
   guild's (`guild_notes`, keyed by its id), never a town's. Any member reads and pins; an author takes down their own,
