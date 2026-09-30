@@ -11868,6 +11868,30 @@ What failed was what the HUD SAID of it, and the reports read that as nothing gi
 - **For Mac** (found in the trace, not changed here): the classic skin's pause has no pages, so a classic player online
   can neither see nor withdraw the Stores, nor read a rank past the toasts and the chip; Foraging's own tools, used from
   the pack online, run Foraging's quest and give the pack its goods with no profession XP; a new logger in the
-  Woodlands, the Haunted Woodlands or a Swamp stands only Oak (tier 2, Logging 10) and can never chop; rank 10 is 67 tier-1
+  Woodlands, the Haunted Woodlands or a Swamp stands only Oak (tier 2, Logging 10) and can never chop (PINE-SHARE, below); rank 10 is 67 tier-1
   harvests, past a day's 60; touch and pad cannot start an act (FLAGGED already); and the account service (acct36, with
   0036) must deploy before the client, whose skinning the acct33 service refuses as "nothing here to gather".
+
+## PINE-SHARE (2026-09-30, Mac: "2 in 5 trees Pine") - Pine in every forest
+
+GATHER-SAID's For Mac, answered: Pine, the one tier-1 wood (PROF0 4.2), stood only in the Mountain and Mountain Woods.
+The Woodlands, the Haunted Woodlands and the Swamp stood Oak alone on ground nobody confirmed (Logging 10), and an
+unconfirmed Rainforest or Subtropical pixel stood nothing - a Novice logger in five of the seven forests could never
+chop. Every herb table and every vein table holds a tier 1 (the traced tables: 85-99% of pixels a Novice's herb, Iron in
+every vein table); the woods were the one gap.
+
+- **The law** (`src/net/nodeLaw.js` tree, `PINE_WOOD`, `PINE_SHARE`): a forest whose own woods hold no tier-1 wood stands
+  2 trees in 5 as Pine - section 6's tier-1 weight - on any ground, rolled on the tree's own sixth die after the rare
+  wood's roll (the rare woods keep their one in twenty). Sampled: the five forests about 40% Pine, 80-96% of their pixels
+  a day holding one; an unconfirmed Rainforest or Subtropical pixel stands its Pine and nothing past it (PROF0 25's no
+  Teak on anyone's word, kept); the Mountain and Mountain Woods byte for byte their table's draw. The Court's writ table
+  names the Pine a forest stands.
+- **The service** recomputes every felling from this law (`professions.js` harvestNode), so it is the fix's only
+  service change: **acct37**, no migration, no route. A node's key names no wood, so a tree felled before the deploy
+  stays felled and one standing is read again under the new law. Deploy the account service first: an old service
+  refuses a Novice's Pine as `prof-rank` until it lands; an old client beside a new service only shows the Oak's need.
+- **The XP curve is unchanged**: rank 10 is 67 plain tier-1 harvests or 46 clean ones (22 XP), inside a day's 60.
+- **Pinned:** `test/pineshare.test.js` (5; four red on the law before with only the new names shimmed, the fifth the
+  Mountain's guard); prof4's law, service and client pins name the Oak they mean. Mutants:
+  `tools/mutants/pineshare.json` (7, all dead); prof4's twenty tree records re-run, all dead. Patch notes:
+  `PATCH-NOTES-Pine-in-Every-Forest.md`.

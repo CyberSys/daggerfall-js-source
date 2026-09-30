@@ -188,7 +188,7 @@ two rarities.
 
 | Wood (log / plank, 4.8) | Tier | Climates |
 |---|---|---|
-| Pine | 1 | Mountain, MountainWoods |
+| Pine | 1 | Mountain, MountainWoods; and 2 trees in 5 of every other forest, on any ground (PINE-SHARE) |
 | Oak | 2 | Woodlands, MountainWoods, Swamp |
 | Cherry | 3 | Woodlands, Subtropical |
 | Teak | 4 | Subtropical, Rainforest |
@@ -1521,6 +1521,12 @@ Mac's instruction - "make the decisions ... This is your baby"), and what was fo
   wood's one in twenty is its own roll first, on a confirmed pixel only. **A pixel not confirmed is held to tiers 1-2**
   (section 6) - so an unconfirmed Rainforest or Subtropical pixel stands no tree at all until three witnesses vouch for
   it (a claimed Rainforest anywhere would otherwise be Teak on anyone's word); its herbs and veins bring the witnesses.
+  **PINE-SHARE** (2026-09-30, Mac: "2 in 5 trees Pine"; found tracing GATHER-SAID): Pine, the one tier-1 wood, stood only
+  in the Mountain and Mountain Woods, so a Novice logger in the other five forests could never chop - every herb and
+  vein table holds a tier 1, the woods alone did not. A forest whose woods hold no tier 1 now stands `PINE_SHARE` (2 in
+  5, section 6's tier-1 weight) of its trees as Pine, on any ground, rolled after the rare wood (`nodeLaw.js` tree,
+  `PINE_WOOD`); an unconfirmed Rainforest or Subtropical pixel stands its Pine and nothing past it - still no Teak on
+  anyone's word. The Court's writ table names that Pine. The Mountain and Mountain Woods are untouched.
 - **Where a tree stands** (section 6: "a tree flat for a tree"). FACT: the streaming world lays out Daggerfall's own
   nature flats per pixel from a seeded roll (`world/terrainNature.js` layoutNature - every client the same forest), one
   merged billboard batch per (archive, record) (`scenes/world.js`), and nothing kept which flat was a tree. FACT: World
@@ -2421,7 +2427,7 @@ At dusk the hub warns of a Motherlode in the Wrothgarian foothills in ten minute
 | The smith's stock (PROF3) | Cured Leather 4, Oak Plank 4, Pine Plank 2, Charcoal 2 Marks a unit (twice the Marks value), 100 a purchase, bought units; the planks and Charcoal withdraw since PROF4, Cured Leather since PROF7 (AUDIT 30 R3) |
 | A piece's quality (PROF3) | condition x0.75 / 1 / 1.15 / 1.30 / 1.30; weight x1 / 1 / 0.95 / 0.90 / 0.90; Superior a Magic roll, Masterwork a Rare roll and the maker's mark; a tool's life 37 / 50 / 57 / 65 / 65 |
 | The Repair Kit (PROF3) | 1 ingot + 1 Cured Leather; a quarter of the most-worn piece of its metal, once; a Quartermaster's two; 10 gold + 10 a tier |
-| The woods (PROF4) | Pine 1, Oak 2, Cherry 3, Teak 4, Mahogany 5, Ironwood 6, Ghostwood 6; Ironwood and Ghostwood one tree in 20, confirmed ground only; an unconfirmed pixel's trees tiers 1-2 |
+| The woods (PROF4) | Pine 1, Oak 2, Cherry 3, Teak 4, Mahogany 5, Ironwood 6, Ghostwood 6; Ironwood and Ghostwood one tree in 20, confirmed ground only; an unconfirmed pixel's trees tiers 1-2; PINE-SHARE: Pine 2 trees in 5 in a forest whose woods hold no tier 1 (Woodlands, Haunted Woodlands, Swamp, Rainforest, Subtropical), any ground, after the rare wood's roll |
 | A tree (PROF4) | 2-4 logs (+25% a march); Resin one tree in four; Heartwood 2% a Clean Cut on confirmed ground, a Forester's 4%, one at most; Logging XP 15 x the tier |
 | The ring (PROF4) | chops 5 (tiers 1-2), 6 (3-4), 8 (5-6), a Lumberjack's two fewer, three at least; the circle from 3x the notch to it over 0.9 s and on to 0.5x; the band 12% (novice) to 20% (Master) of the notch x (INT + STR) / 2's band; a Clean Cut two chops; a swing 0.45 s; the creak at half; the fall 1.5 s, a tip and no fade (AUDIT 30 R10) |
 | Burning and sawing (PROF4) | a log a Charcoal at a forge (a Charcoal Burner's two); a log two planks at a workbench (a Timberwright's three); no XP |

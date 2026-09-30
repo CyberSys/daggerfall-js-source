@@ -339,11 +339,19 @@ export const WOOD_TABLES = Object.freeze({
 /** The rare woods (4.2): one tree in twenty of their climate's, on a confirmed pixel only. */
 export const RARE_WOODS = Object.freeze({ [CLIMATES.Rainforest]: 'log:ironwood', [CLIMATES.HauntedWoodlands]: 'log:ghostwood' });
 export const RARE_WOOD_CHANCE = 1 / 20;
+/** PINE-SHARE (2026-09-30, Mac: "2 in 5 trees Pine"): the one tier-1 wood (4.2), and its share of a forest whose own
+ *  woods hold no tier 1 - section 6's tier-1 weight, 2 trees in 5. Woodlands, Haunted Woodlands and Swamp stood only
+ *  Oak (Logging 10) and Rainforest and Subtropical nothing unconfirmed, so a Novice logger there could never chop. */
+export const PINE_WOOD = 'log:pine';
+export const PINE_SHARE = NODE_TIER_WEIGHTS[0] / 100;
+/** Whether a climate's own woods hold no tier-1 wood (so PINE_SHARE of its trees stand as Pine). */
+const needsPine = (table) => !!table && !table.some((k) => tierOfKey(k) === 1);
 /**
  * ONE TREE of a pixel's day: its law point (`u`, `v`), its tier and wood. A rare wood's one in twenty is its own roll,
- * first, on a confirmed pixel; else the tier is drawn over the tiers the climate's woods hold by the weights, held to
- * tier 2 on a pixel not confirmed - so an unconfirmed pixel whose woods are all past tier 2 (Rainforest, Subtropical)
- * stands no tree (PROF0 25). Null past the day's count, or where no tree grows.
+ * first, on a confirmed pixel; then, in a forest whose own woods hold no tier 1, PINE_SHARE of its trees are Pine, on
+ * any ground (PINE-SHARE); else the tier is drawn over the tiers the climate's woods hold by the weights, held to
+ * tier 2 on a pixel not confirmed - so an unconfirmed Rainforest or Subtropical pixel, whose woods are all past tier 2,
+ * stands only its Pine (PROF0 25: no Teak on anyone's word). Null past the day's count, or where no tree grows.
  * @param {{ x: number, y: number, day: number, slot: number, climate: number, confirmed?: boolean }} p
  */
 export function tree({ x, y, day, slot, climate, confirmed = false }) {
@@ -353,6 +361,7 @@ export function tree({ x, y, day, slot, climate, confirmed = false }) {
   const v = 0.04 + 0.92 * unit('tree', x, y, day, slot, 2);
   const rare = RARE_WOODS[climate];
   if (confirmed && rare && unit('tree', x, y, day, slot, 5) < RARE_WOOD_CHANCE) return { slot, u, v, tier: tierOfKey(rare), material: rare, rare: true };
+  if (needsPine(table) && unit('tree', x, y, day, slot, 6) < PINE_SHARE) return { slot, u, v, tier: 1, material: PINE_WOOD, rare: false };   // PINE-SHARE
   const d = drawFromTable(table, unit('tree', x, y, day, slot, 3), unit('tree', x, y, day, slot, 4), confirmed ? 7 : 2);
   return d ? { slot, u, v, tier: d.tier, material: d.material, rare: false } : null;
 }
@@ -577,6 +586,7 @@ export function regionWritTable(region, pixels, season) {
     if (nodeCount(p.climate, 'tree') > 0) {
       for (const k of WOOD_TABLES[p.climate] ?? []) if (tierOfKey(k) <= (p.confirmed ? 7 : 2)) keys.add(k);
       if (p.confirmed && RARE_WOODS[p.climate]) keys.add(RARE_WOODS[p.climate]);
+      if (needsPine(WOOD_TABLES[p.climate])) keys.add(PINE_WOOD);   // PINE-SHARE: the Pine its forest stands
     }
   }
   return [...keys].sort().map((key) => { const m = material(key); return { material: key, tier: m.tier, value: m.value }; });
