@@ -47,7 +47,7 @@ import {
   recipeById, QUALITY_EFFECTS, TOOL_LIFE, MASTERWORK, REPAIR_KIT_TEMPLATE, KIT_REPAIR, INGOT_MATERIAL, ARMOR_PLATE,
   ARMOR_CHAIN, PROVENANCE_RE, makerName, QUALITY_NAMES,
 } from '../net/recipeLaw.js';
-import { minedMaterial, SKINNING_KNIFE } from '../net/professionLaw.js';
+import { minedMaterial } from '../net/professionLaw.js';
 import { weaponOfMaterial, armorOfMaterial, createWeapon } from '../combat/enemyEquipment.js';
 import { setItemFields, mintCondition, templateByIndex, registerItemUseHandler } from './itemTemplates.js';
 import { itemLongName } from './itemInfo.js';
@@ -65,11 +65,6 @@ const kitValue = (tier) => 10 + 10 * tier;
 
 // ─── THE PIECE ───────────────────────────────────────────────────────
 
-/** PROF7: a tool that is not Foraging's (the Skinning Knife, 603 - its row registered by profTemplates.js), or Foraging's
- *  own mint. */
-const toolItem = (templateIndex) => (templateIndex === SKINNING_KNIFE.templateIndex
-  ? mintCondition(setItemFields({ group: 'UselessItems2', templateIndex, material: 0, flags: 0, variant: 0, message: 0, stackCount: 1 }))
-  : createForagingItem(templateIndex));
 /**
  * PROF7: A GARMENT as DFU's shelf mints clothing (systems/shopStock.js) - the template in its group, then its variant (the
  * record's seed's, so every client mints the same one), then its dye (the record's, `u`; an undyed shirt none).
@@ -128,7 +123,7 @@ export function mintPiece({ recipe, quality, seed, maker = null, marked = false,
     return item;
   }
   if (r.kind === 'tool') {
-    item = toolItem(r.templateIndex);   // PROF7: the Skinning Knife the port's own
+    item = createForagingItem(r.templateIndex);   // PROF7: the Skinning Knife too - a custom row (603) Foraging's mint hands to the port's own
     if (!item) return null;
     item.maxCondition = item.currentCondition = TOOL_LIFE[q];   // FORAGE0 14.7: a tool's quality is its life
   } else {

@@ -178,13 +178,15 @@ export function createProfHud({ doc = globalThis.document } = {}) {
       if (st.kind === 'trace') {
         // PROF7: THE TRACE - the carcass's face as a box (the line's span, a margin round it), the dotted line, the points
         // the knife has passed lit, and where the crosshair is on it; a hold's bar for Gentle acts
+        // (`label` the key held - E, the use key's own binding)
+        const key = label || 'the use key';
         if (st.gentle) {
           const bar = mk('prof-bar');
           const fill = doc.createElement('i');
           fill.style.width = `${Math.round(act.progress * 100)}%`;
           bar.append(fill);
           const hint = mk('prof-hint');
-          hint.textContent = label || 'hold attack';
+          hint.textContent = `hold ${key}`;
           meter.append(bar, hint);
           return;
         }
@@ -207,7 +209,7 @@ export function createProfHud({ doc = globalThis.document } = {}) {
           face.append(a);
         }
         const hint = mk('prof-hint');
-        hint.textContent = label || (st.tracing ? 'draw the knife along the line' : 'hold attack on the first point');
+        hint.textContent = st.tracing ? 'draw the knife along the line' : `hold ${key} on the first point`;
         meter.append(face, hint);
         return;
       }

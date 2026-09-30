@@ -1320,7 +1320,11 @@ test('AUDIT-WH H3: both pools and both above-ground hosts are wired to that ladd
   // identity. The bag used to be written out at each of them; HARD2's
   // law - four copies of a law is four chances to omit a term - is why
   // it is one `corpseLens` per pool now, read three times.
-  for (const f of ['src/scenes/exteriorFoes.js', 'src/scenes/cityGuards.js']) {
+  // PROF7 (Hunting's bodies): the encounter pool publishes the lens's
+  // own `feetOf` as `corpseAt` - where a body lies, for the knife (DT1:
+  // the corpse lens's one home) - its fifth reader; the watch's pool
+  // has none, a guard's body is never skinned.
+  for (const [f, readers] of [['src/scenes/exteriorFoes.js', 6], ['src/scenes/cityGuards.js', 5]]) {
     const src = read(f);
     assert.match(src, /const corpseLens = \{/, `${f}: one identity, not three`);
     // AUDIT-WH2 L5: A COUNT IS NOT A LAW. This was `=== 4`, and four
@@ -1330,8 +1334,8 @@ test('AUDIT-WH H3: both pools and both above-ground hosts are wired to that ladd
     // them: the targets, the namer's entry lookup, and the contents' -
     // and LOOT-STACK's pile tab (corpseMarker.js pileBody), the fourth.
     // A reader that stops passing it now fails here.
-    assert.equal((src.match(/corpseLens\b/g) ?? []).length, 5,
-      `${f}: declared once, read by the targets, the namer, the contents and the pile tab`);
+    assert.equal((src.match(/corpseLens\b/g) ?? []).length, readers,
+      `${f}: declared once, read by the targets, the namer, the contents and the pile tab${readers > 5 ? ', and where a body lies' : ''}`);
     assert.match(src, /corpseLootTargets\((?:foes|guards), '(?:foe|guard)Corpse', corpseLens\)/,
       `${f}: the TARGETS walk the pool under the lens`);
     assert.equal((src.match(/corpseEntryFor\((?:foes|guards), key, '(?:foe|guard)Corpse', corpseLens\)/g) ?? []).length, 3,
@@ -1339,6 +1343,8 @@ test('AUDIT-WH H3: both pools and both above-ground hosts are wired to that ladd
     assert.match(src, /hoverContents\b/, `${f}: and the contents arm exists`);
     assert.match(src, /hoverName, hoverContents,/, `${f}: ...and is published beside the namer`);
   }
+  assert.match(read('src/scenes/exteriorFoes.js'), /corpseAt: corpseLens\.feetOf,/,
+    'PROF7: where a body lies is the lens\'s own feetOf - never a second copy of it');
   // A PUPPET's pile is its owner's - the take ASKS for it over the
   // wire and nothing here knows what is in it - so the encounter pool
   // publishes nothing for one, and the plaque falls back to the name.

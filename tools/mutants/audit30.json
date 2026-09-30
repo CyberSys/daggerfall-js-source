@@ -164,8 +164,8 @@
   {
     "name": "AUDIT30-L4-the-mark-unsigned",
     "file": "server-account/src/professions.js",
-    "old": "a: marked === 1 && maker !== null }",
-    "new": "a: false }",
+    "old": "a: marked === 1 && maker !== null, u }",
+    "new": "a: false, u }",
     "tests": [
       "test/audit30_service.test.js"
     ]

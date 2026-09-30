@@ -3,17 +3,18 @@
 // PROF7 (2026-09-29, Mac: "Do it") - HUNTING'S ACT, the Skinning Knife at
 // a body the player's own blow felled, as a machine the host feeds a
 // frame at a time (bible/06-Systems/Professions-Arc.md 5.2, 29; FORAGE0
-// 14.4). Pure: the host hands in the frame's time, whether attack is held
-// (`attackHeld` - the swing's button, which an act keeps from the weapon),
-// and where the crosshair points on the carcass - `aim`, the view's
+// 14.4). Pure: the host hands in the frame's time, whether E is held
+// (`held` - the use key, as the Sickle's steady hand holds it: attack held
+// would be the weapon's, and DFU's swing modes hold the look still under
+// it), and where the crosshair points on the carcass - `aim`, the view's
 // bearing from the body's centre in degrees ({ yaw, pitch }), as the
 // Pick-Axe's glint reads it (systems/mineAct.js); the machine answers
 // where the act stands and, at its end, the report the harvest carries.
 //
 //   THE LINE. A dotted line of professionLaw tracePoints(tier) points (5
 //   at tier 1 to 9) across the carcass, a zigzag its own each act.
-//   THE TRACE. Attack pressed with the crosshair within TRACE_ACT.startDeg
-//   of the first point starts it; held, the crosshair draws the knife
+//   THE TRACE. E held with the crosshair within TRACE_ACT.startDeg of the
+//   first point starts it; held, the crosshair draws the knife
 //   along the line, each point passed in its turn, to the last. Let go
 //   before the last and the trace starts again (a slip). The crosshair,
 //   not a cursor: the mouse, the right stick and a finger's swipe all
@@ -27,7 +28,7 @@
 //   CLEAN PELT; under TRACE_ACT.torn it is TORN. Neither fails the
 //   harvest (PROF0 5.1: a missed moment gives less, never nothing).
 //
-// GENTLE ACTS (a setting, accessibility - PROF0 5.1): attack held for
+// GENTLE ACTS (a setting, accessibility - PROF0 5.1): E held for
 // TRACE_ACT.gentleS completes it plainly - no line to draw, no clean pelt,
 // no tear.
 //
@@ -94,11 +95,10 @@ export function createTraceAct({ tier, rank = 0, band = 1, gentle = false, rng =
     /** How far the trace has come, 0 to 1 - the points passed against the line's. */
     get progress() { return st.done ? 1 : gentle ? Math.min(1, st.held / TRACE_ACT.gentleS) : st.reached / Math.max(1, points.length - 1); },
     /**
-     * One frame. `attackHeld` - attack held; `aim` - the crosshair's bearing from the body's centre, degrees.
-     * @param {number} dt @param {{ attackHeld?: boolean, aim?: { yaw: number, pitch: number }|null }} input
+     * One frame. `held` - E held; `aim` - the crosshair's bearing from the body's centre, degrees.
+     * @param {number} dt @param {{ held?: boolean, aim?: { yaw: number, pitch: number }|null }} input
      */
-    tick(dt, { attackHeld = false, aim = null } = {}) {
-      const held = attackHeld === true;
+    tick(dt, { held = false, aim = null } = {}) {
       if (st.done || st.cancelled) return;
       const step = Math.max(0, Math.min(0.25, Number(dt) || 0));
       st.t += step;

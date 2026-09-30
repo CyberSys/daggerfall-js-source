@@ -81,8 +81,11 @@ const PLURAL_SAME = Object.freeze(['Twigs', 'Green Leaves', 'Root Tendrils', 'Gr
   'Mercury', 'Tin', 'Brass', 'Lodestone', 'Sulphur', 'Lead', 'Iron', 'Copper', 'Silver', 'Gold', 'Platinum',
   'Moonstone Ore', 'Dwarven Scrap', 'Mithril Ore', 'Adamantium Ore', 'Ebony Ore', 'Orichalcum Ore', 'Rough Stone', 'Cut Stone', 'Charcoal',
   'Resin', 'Heartwood', 'Cured Leather',   // PROF4: the mass nouns a wood and a hide bring ('3 Oak Logs', '12 Oak Planks', but '2 Resin', '4 Cured Leather' - PROF3's stock said 'Cured Leathers')
-  'Jade', 'Turquoise', 'Malachite', 'Amber']);
-const PLURAL_OF = Object.freeze({ Cactus: 'Cacti', 'Pine Branch': 'Pine Branches', Ruby: 'Rubies' });
+  'Jade', 'Turquoise', 'Malachite', 'Amber',
+  // PROF7: the hides, leathers and silks a body and the loom bring, and its butchery ('2 Harpy Feathers', '3 Raw Meat')
+  'Bat Leather', 'Spider Silk', 'Scorpion Chitin', 'Slaughterfish Scales', 'Harpy Feathers', 'Hardened Leather', 'Standard-bearer\'s Silk',
+  'Spider\'s Venom', 'Dragon\'s Scales', 'Raw Meat', 'Raw Fish', 'Fish']);
+const PLURAL_OF = Object.freeze({ Cactus: 'Cacti', 'Pine Branch': 'Pine Branches', Ruby: 'Rubies', 'Big Tooth': 'Big Teeth' });
 export function materialCountLabel(key, n, cc = survivalOn()) {
   const full = materialLabel(key, cc);
   if (n === 1) return full;

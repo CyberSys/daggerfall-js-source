@@ -194,7 +194,7 @@ test('RENOWN-CHAR the migration (0035), over the real migrations: each track its
   const raw = new DatabaseSync(':memory:');
   raw.exec('PRAGMA foreign_keys = ON');
   const at = MIGRATIONS.indexOf(CHAR_MIGRATION);
-  assert.ok(at > MIGRATIONS.indexOf('0021_renown_account.sql') && at === MIGRATIONS.length - 1, '0035 after RENOWN-ACCOUNT\'s 0021 - the last migration there is');
+  assert.ok(at > MIGRATIONS.indexOf('0021_renown_account.sql') && MIGRATIONS.slice(at + 1).every((f) => f > CHAR_MIGRATION), '0035 after RENOWN-ACCOUNT\'s 0021 (PROF7\'s 0036 after it)');
   migrate(raw, MIGRATIONS.slice(0, at));
   const db = wrap(raw);
   const acct = () => ({ id: (() => { const id = mintId(rand); raw.prepare('INSERT INTO players (id, guest_name, created_at, last_seen) VALUES (?, ?, ?, ?)').run(id, 'Guest', T0, T0); return id; })() });

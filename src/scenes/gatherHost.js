@@ -116,7 +116,7 @@ export function aimAt(eyePos, at, view) {
  *   pixelInfo: (px: number, py: number) => ({ climate: number, region: number } | null),
  *   nowMs: () => number, eye: () => ({ pos: number[], dir: number[] }), view: () => ({ yaw: number, pitch: number }),
  *   feet: () => number[], entity: () => any, keyLabel: (a: string) => string,
- *   input: () => ({ held: boolean, attack: boolean, choice: boolean, attackHeld?: boolean }), active: () => boolean,
+ *   input: () => ({ held: boolean, attack: boolean, choice: boolean }), active: () => boolean,
  *   activeDungeon?: () => boolean, onSettle?: () => void, clear?: (from: number[], to: number[], underground: boolean) => boolean,
  * }} deps `active` - the streaming world's exterior, walking, nothing over it (the host's); `activeDungeon` - a dungeon
  *   entered, walking, nothing over it; `nowMs` the shared clock
@@ -295,7 +295,12 @@ export function createGatherHost(deps) {
   /** AUDIT 29 C6: the act's node where it stands NOW - the floating origin moves the scene under an act (a recentre
    *  shifted it 819 m and the act ended as "walked off"); null once its pixel is gone. */
   function actWorld(a) {
-    if (a.loose) return looseAt(a.node);   // PROF7: a body where it lies now, or null once its pool let it go
+    if (a.loose) {
+      // PROF7: a body where it lies now - found again by its key among its kind's, so one its pool let go (despawned, a
+      // load, stood up again) ends the act
+      const now = kindOf(a.node)?.looseNodesOf?.({ entity: deps.entity(), dungeon: !!a.dungeon }).find((n) => n.key === a.node.key);
+      return now ? looseAt(now) : null;
+    }
     if (a.dungeon) return [a.node.local[0], a.node.local[1] + (a.node.lift ?? 0.3), a.node.local[2]];
     const s = stood.get(pixelKey(a.px, a.py));
     return s ? worldOf(s, a.node) : null;
@@ -473,7 +478,7 @@ export function createGatherHost(deps) {
         const w = actWorld(act);
         act.world = w ?? act.world;
         const gone = act.loose ? !w : !act.dungeon && !stood.has(pixelKey(act.px, act.py));   // its pixel torn down under it; PROF7: its body let go
-        act.act.tick(dt, { held: input.held, attack: input.attack, attackHeld: !!input.attackHeld, view: v, pos: { x: feet[0], z: feet[2] }, aim: aimAt(pos, act.world, v) });
+        act.act.tick(dt, { held: input.held, attack: input.attack, view: v, pos: { x: feet[0], z: feet[2] }, aim: aimAt(pos, act.world, v) });
         const away = gone || Math.hypot(act.world[0] - pos[0], act.world[2] - pos[2]) > (act.node.reach ?? NODE_REACH) + 1;
         const here = act.dungeon ? inDungeon() : deps.active();
         if (act.act.state.cancelled || away || !here) { act = null; hud.setMeter(null); }

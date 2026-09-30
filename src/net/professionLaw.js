@@ -388,7 +388,7 @@ export const WOOD_TEMPLATES = Object.freeze([...LOGS, ...PLANKS, CHARCOAL, RESIN
  *  and "Small Tapestry" have none - DFU's furniture templates carry world texture 0/0 - so a pelt is Nymph Hair's lock
  *  (TEXTURE.254 record 55), silk Mummy Wrappings' (41), a scale, chitin or shell Fairy Dragon's Scales' (37), a feather
  *  Gryphon's (53), and leather and a bolt a dropped garment's own flat (TEXTURE.204 record 0). Unverified without the
- *  player's data - FLAGGED to Mac's eye, as PROF4's woods. */
+ *  player's data, as the woods' pictures are - the one flag above holds both (one blocker, one site). */
 export const ICON_HAIR = Object.freeze([254, 55]);
 export const ICON_WRAPPINGS = Object.freeze([254, 41]);
 export const ICON_SCALES = Object.freeze([254, 37]);
@@ -589,12 +589,12 @@ export const RESIN_CHANCE = 0.25;
 // ─── HUNTING'S ACT (PROF0 5.2, 29; FORAGE0 14.4) ─────────────────────
 
 /**
- * THE TRACE: a dotted line of `4 + tier` points over the carcass (5 to 9 - PROF0 5.2), drawn with the crosshair: attack
- * pressed within `startDeg` of the first point and held along the line to the last. The points stand across `spanYawDeg`
+ * THE TRACE: a dotted line of `4 + tier` points over the carcass (5 to 9 - PROF0 5.2), drawn with the crosshair: E held
+ * within `startDeg` of the first point and along the line to the last (the Sickle's hold - attack is the weapon's). The points stand across `spanYawDeg`
  * of the body's face, a zigzag of up to `spanPitchDeg`. The score is 1 less the mean deviation over the tolerance -
  * `tolDeg` at Novice, half again at Master (`masterWiden`), x the knife's band - measured along the line the crosshair
  * drew every `stepDeg` (AUDIT 30 A1: a jump between two frames is its chord, never a free leap). A trace that took `minS`
- * to `maxS` and scored `clean` or more is a clean pelt; one under `torn` is torn. Gentle acts hold attack `gentleS`.
+ * to `maxS` and scored `clean` or more is a clean pelt; one under `torn` is torn. Gentle acts hold E `gentleS`.
  */
 export const TRACE_ACT = Object.freeze({
   minPoints: 5, maxPoints: 9, spanYawDeg: 14, spanPitchDeg: 3, startDeg: 2.5, tolDeg: 3, masterWiden: 0.5,

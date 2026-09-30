@@ -357,7 +357,7 @@
   {
     "name": "AUDIT29-C6-the-act-where-it-began",
     "file": "src/scenes/gatherHost.js",
-    "old": "        act.world = actWorld(act) ?? act.world;\n",
+    "old": "        act.world = w ?? act.world;\n",
     "new": "",
     "tests": [
       "test/audit29_host.test.js"

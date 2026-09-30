@@ -232,7 +232,7 @@ export function drawProfessionsPage(detail, rerender, kit) {
     // PROF7: Hunting's day is the account's (PROF0 6) - its hides, every character's together, and the rare ones
     const h = book.state.hunt ?? { hides: 0, high: 0 };
     pane.append(el('p', 'prof-today', `Today: ${h.hides} of ${book.state.caps?.hides ?? HIDES_PER_DAY} hides, ${h.high} of ${book.state.caps?.highHides ?? HIGH_HIDES_PER_DAY} of tiers 5-6 - your account's, across your characters`));
-    pane.append(el('p', 'px-note', 'A body your own blow felled, with a Skinning Knife in your pack: the act choice key searches it instead. Hold attack on the first point of the line and draw the knife along it.'));
+    pane.append(el('p', 'px-note', 'A body your own blow felled, with a Skinning Knife in your pack: the act choice key searches it instead. Hold the use key on the first point of the line and draw the knife along it.'));
   } else if (PROFESSIONS.find((x) => x.id === _sel)?.kind === 'gathering' && practised) {
     pane.append(el('p', 'prof-today', `Today: ${book.state.today?.[_sel] ?? 0} of ${book.state.caps?.harvests ?? HARVESTS_PER_DAY} harvests`));
   }
@@ -900,6 +900,8 @@ export const loomRecipes = (family, cloth, clothing) => RECIPES.filter((r) => r.
 /** A dye's name as the loom says it ("Dark Brown"). */
 export const dyeWord = (dye) => String(DYE_NAMES[dye] ?? dye).replace(/([a-z])([A-Z])/g, '$1 $2');
 
+/** Tests: the loom's state - its stitch ticked by hand, as a frame would. */
+export const _loomForTests = () => _loom;
 /** The stitch let go: its loop and its keys. */
 function endStitch() {
   _loom.off?.();

@@ -661,13 +661,19 @@ DECIDED (Mac: "its tools become the professions' tools").
 
 The Morrowind arms take the same place on that lane, as PROF0 5.1 says. **The Skinning Knife** (603): 0.5 kg, 50 HP,
 100 gold, rarity 10, group 9; it stocks as Foraging's tools do, **online only**, since nothing offline uses it.
+PROF7 (2026-09-30, `06-Systems/Professions-Arc.md` 29) BUILT it so: registered with the professions' rows
+(`systems/profTemplates.js`), shelved by DFU's own custom-item loop at General Stores and Pawn Shops online alone,
+made at the anvil, worn one an act as Foraging's six, broken by its own name ("Your Skinning Knife broke." - Foraging's
+line had named only its own twelve), DFU's Dagger (113) in the hand; the trace drawn with E held (PROF0 29: attack
+held would be the weapon's, whose swing modes hold the look still).
 
 ### 14.3 The checks the act borrows
 
 Every act runs Foraging's checks first, **with Foraging's own refusal for that tool**, except where the node answers
 the check itself. The Skinning Knife, not Foraging's, gets lines in Foraging's voice: "You cannot skin in a
 settlement!", "You cannot skin out here!", "You cannot skin with enemies nearby!", "You cannot skin when fully
-encumbered!".
+encumbered!". PROF7 BUILT them in that order - settlement, sea, enemies, load - through Foraging's one check law
+(`foragingLaw.js` checksRefusal, the knife's order and lines `professionLaw.js` KNIFE_CHECKS and KNIFE_REFUSALS).
 
 | Check | Applies to |
 |---|---|

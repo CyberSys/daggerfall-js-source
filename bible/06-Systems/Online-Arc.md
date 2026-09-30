@@ -4917,7 +4917,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:7467` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:7495` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -11668,3 +11668,28 @@ else).
   number moved because the bundle's bytes did (`hitSpellOf`, `hitSpellFields` and `validFoeRecord` live in
   `src/net/wire.js`). An older relay carries both fields untouched, and an older client reads past them.
 - Pins: `test/strikeshared.test.js` (7). Mutants: `tools/mutants/strikeshared.json` (16, all dead).
+
+## PROF7 (2026-09-29, Mac: "Do it") - Hunting, the Skinning Knife and Outfitting
+
+The record is `06-Systems/Professions-Arc.md` 3.3, 4.4, 4.5, 5.2, 6, 9.3, 9.4 and 29; this is what the slice built,
+online's alone. A Ledger A departure (`Port-Ledger.md` section A, HUNTING, THE SKINNING KNIFE AND OUTFITTING). Live
+since SWITCH-ON - no switch of its own.
+
+- **The service** is `acct33`, its table changes `0036_hunting.sql`: the day's harvests rebuilt for a body's `hide`, the
+  `tier` the harvest was decided at and the second find's count (`extra_qty`), every row before it carried (tier 0,
+  one); the crafts and the pieces their `dye`. `/v1/prof/harvest` takes a body - `body:<day>:<id>` and the `foe` the
+  client names - and decides Hunting's day, **30 hides an account and 3 of tiers 5-6**, in the harvest's own INSERT
+  beside the character's and the account's caps; a body names no ground, keeps no hours and writes no witness.
+  `/v1/prof/smelt` does the loom's cures and weave (a Tanner's 1:1 - a choice at 50, read at its own rank);
+  `/v1/prof/craft` Outfitting's recipes and a garment's dye, signed into the piece's record (`u`); the market's pieces
+  answer their dye. Refusals `prof-foe`, `prof-dye` (400), `prof-hunt-cap`, `prof-hunt-high` (409); the Worker imports
+  `src/characters/dyes.js` now, listed in the deploy's path filter.
+- **Bounded, not witnessed** (PROF0 6): a body's id is the client's word, stamped at the one "my blow killed it" signal
+  (`systems/playerKills.js`); the account's day is the defence, and the tier its high count reads is the one the harvest
+  was decided at.
+- **FOUND and fixed:** a body's harvest bound its absent region into the witness statement - D1 binds no `undefined`
+  (the service pin's 500, before it shipped); the book never applied a harvest's `extraStore` (PROF4's Resin); the
+  Professions page's Smithing unlocks lost three rows to a comment.
+- **Pinned:** `test/prof7_law.test.js`, `test/prof7_service.test.js`, `test/prof7_client.test.js` (the done-when
+  through the real Worker); `tools/mutants/prof7.json` (119: 118 dead, one recorded equivalent). Patch notes:
+  `PATCH-NOTES-Professions-Hunting-Outfitting.md`.

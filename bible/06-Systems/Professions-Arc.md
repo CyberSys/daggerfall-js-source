@@ -939,7 +939,7 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 | **PROF5b** - SHIPPED 2026-09-29 (at `dev`, section 27) | Timed auctions for Masterworks: the Auctions view, bids escrowed, the last two minutes' two, settled on read | A Masterwork posted in Daggerfall is bid on from Wayrest and Daggerfall, the outbid escrow returned, and at its end the winner's piece is theirs, the seller paid less the tax. Needs PROF5 (shipped) |
 | **PROF6** - SHIPPED 2026-09-29 (at `dev`, section 28) | Writs: guild writs and the guild Stores, commissions and the note's button (built); seat writs with SEAT1b, bounties with SEAT1d's Edicts | A Guildmaster's writ delivered by an outsider and a member into the guild Stores, an Officer's posted within the week's budget and refused past it (AUDIT 31 R12: this row said an Officer's writ was delivered); a commission through a crafter's note filled with a piece of their make and in the poster's pack. Seat writs need SEAT1b |
 | **PROF6b** | Found and writ-only recipes (9.1): the Recipe Scroll (695), the found recipes named, a guild's posted recipe reward | Needs a witnessed roll for loot's 1 in 500, and PROF2b's Motherlode for its 1 in 20 |
-| **PROF7** | Hunting (the trace), the Skinning Knife (603: its template, its online shelves - law 6's exception, for 603); Outfitting | Needs FORAGE1-2 (shipped: the shelves' registry) |
+| **PROF7** - SHIPPED 2026-09-30 (live, section 29) | Hunting (the trace), the Skinning Knife (603: its template, its online shelves - law 6's exception, for 603); Outfitting | A bear felled by the player's own blow skinned online, its hides cured and sewn into a Leather Helm in the pack; a shirt in the dye its sewer chose. Needs FORAGE1-2 (shipped: the shelves' registry) |
 | **PROF8** | Fishing with the net (the throw, the tug, the haul) | Needs FORAGE1-2 (shipped: the net, and the three-valued water state in both exterior hosts) |
 | **PROF9** | Cooking | - |
 | **PROF10** | Jewelcrafting | - |
@@ -2158,6 +2158,181 @@ As built:
   `test/audit31_law.test.js`, `test/audit31_service.test.js`, `test/audit31_client.test.js` and
   `test/audit31_tabs.test.js`, its mutants `tools/mutants/audit31.json`.
 
+## 29. PROF7 - Hunting, the Skinning Knife and Outfitting, as built (SHIPPED 2026-09-30, live since SWITCH-ON)
+
+Mac: **"Do it"** (2026-09-29, PROF7 after the VEIN-NEED fix: "What was next on the list for the arc"). What sections
+3.3, 4.4, 4.5, 5.2, 6, 9.3 and 9.4 left open for PROF7, DECIDED here, and what was found (FACT):
+
+- **What PROF7 is.** 15's row - "Hunting (the trace), the Skinning Knife (603: its template, its online shelves - law
+  6's exception, for 603); Outfitting" - whole: a body skinned where it lies, its hide, part and butchery into the
+  Stores; the knife made, shelved online and worn; the tanning rack's cures and the loom's weave; Outfitting's
+  recipes (9.3) with the stitch (9.4) and a garment's dye; and the pieces they wait on elsewhere - the Bear Hide the
+  Ram Kit names (25), the Harpy Feathers 9.3's arrows name, the Fishing-Net 9.3 names Outfitting's. Not here, named:
+  **Trophy Hunter** ("a trophy decor piece from a tier 5+ kill"), **Couturier** ("two-colour dyes") and **Saddler**
+  ("a wagon upgrade of +100 kg") are named and never chosen (`later`, as the Motherlode Sense and the Siegewright are) -
+  FACT: DFU gives each nothing to stand as - no trophy piece exists among its templates; a DFU garment takes ONE dye (its
+  `dye` field, `systems/itemDye.js`); DFU's wagon has one limit, the Horse Cart's. Each waits on Mac's word for what it
+  should be.
+- **The switches**: none of its own - the professions', live for everyone since SWITCH-ON (`PROFESSIONS_OPEN = "on"`).
+- **"A body your own blow felled"** (5.2). FACT: no body records its killer - the loot handlers hear a death with no
+  killer (`systems/playerKills.js`), and the one "my blow killed it" signal is `reportPlayerKill` (the street's, the
+  dungeon's and the watch's damage doors, and a puppet's owner's `slain` word). DECIDED: a foe 4.4 skins is **stamped
+  at that signal** (`scenes/huntHost.js` createBodyStamps) with the UTC day on the shared clock and twelve hex digits
+  from the crypto source - its node key `body:<day>:<id>` (`net/nodeLaw.js` bodyKey, read in its one spelling). A body
+  another's blow felled is DFU's corpse alone.
+- **Bounded, not witnessed** (6): the id is the client's word and the tier the foe's the client names (`foe`, its
+  MobileTypes value); the account's day - **30 hides, 3 of tiers 5-6** - is the whole defence, **decided in the
+  harvest's own INSERT** (the day's rows of `profession = 'hunting'` an account, its high ones by a new `tier` column).
+  A body names no ground, keeps no hours (FORAGE0 14.3: "not Hunting (the knife is not Foraging's, and foes die at
+  night)") and writes no witness. The character's 60 and the account's 120 bound it too, and never bite first.
+- **Where a body is a node**: the street's pool and a dungeon's, in the one gathering host (22's law: the host stands
+  in the streaming world and its dungeons) - a body felled in a building's interior is DFU's corpse alone. A body is a
+  **LOOSE node** (`GatherKind.looseNodesOf`): it carries its own place - the corpse marker's ground on the street
+  (`exteriorFoes.corpseAt`, the corpse lens's one home - DT1's law), the feet in a dungeon - which the floating origin
+  moves under it; an act finds its body again by its key every frame and ends when its pool lets it go.
+- **A node only for the one who can skin it** (DECIDED): a body stands as a node while the pack holds a Skinning Knife -
+  DFU's corpse first, so a player with no knife meets no prompt in the way of the loot. **E skins; the act choice key
+  searches the body instead** (DECIDED: 4.4, "DFU's own corpse loot is untouched: skinning adds, never replaces") - the
+  press handed on to the loot's own door, nothing said.
+- **The trace** (5.2: "a dotted line of 5-9 points over the carcass; draw the knife along it (mouse; the right stick
+  moves a cursor; a finger on the touch layer)"). DECIDED: **the crosshair**, as the Pick-Axe's glint reads it - the
+  mouse, the right stick and a finger's swipe all turn the view, so one trace serves the three. **E held** draws it, as
+  the Sickle's steady hand holds E - FOUND: attack held would be the weapon's: DFU's swing modes hold the look still
+  under a held attack (`player/lookFilter.js` swingSuppressesLook), and the swing reads its raw button, never the
+  binding (ROAD-Ar R10's pin). `4 + tier` points (5 at tier 1, 9 at 5 and past) across 14 degrees of the body's face,
+  a zigzag of up to 3; begun within 2.5 degrees of the first point, each point passed in its turn; the tolerance **3
+  degrees at Novice, half again at Master, x the knife's band** ((INT + AGI) / 2, FORAGE0 14.4), measured every quarter
+  degree along the line the crosshair drew (AUDIT 30 A1's chord law: a jump between two frames is scored, never a free
+  leap). A trace scoring **0.8** or more in **0.6-6 s** is a clean pelt; under **0.4** it is torn; let go before the last
+  point, a slip, and the trace starts again. Gentle acts: E held 1.2 s, plain. The hand: DFU's Dagger (FORAGE0 14.2).
+- **What the act buys** (5.1's bound). FOUND: 5.2 says a clean pelt is "one quality step up" and a torn one "yields 1
+  less" - a hide is a Stores material and carries no quality, and one less than a yield of one is nothing (5.1: "a
+  missed moment gives less, never nothing"). DECIDED: the act's other bound, the yield's - **a clean pelt x1.5**, the
+  half a unit the service's dice (FORAGE0 14.4's fraction law: 1 x 1.5 is one and a 50% chance of a second); **a torn
+  pelt loses its DFU part**. The service reads `{ clean, torn }` and nothing else; a report claiming both is neither.
+- **The part** (4.4's "a chance of the DFU ingredient"): DECIDED **one body in four**, the service's dice, carried as a
+  gem is (the day's harvests' `gem`): Big Tooth (the Bear, the Tiger), Spider's Venom, Giant Scorpion Stinger, Dragon's
+  Scales - DFU's own ingredients in their own groups, at their price's tier (the gems' bands, 23).
+- **The butchery** (4.4: "Butchery gives C&C's Raw Meat either way"): DECIDED **one Raw Meat** into the Stores
+  (`food:meat`, a food as the Basket's; **a Butcher's two**, 3.3) of C&C's own animals - FACT, `survival/loot.js`
+  MEAT_BY_TYPE: the Rat, the Giant Bat, the Grizzly Bear, the Sabretooth Tiger, the Spider, the Giant Scorpion; its
+  FISH_BY_TYPE's Slaughterfish gives **Raw Fish** (`food:fish`, withdrawn as 5.2's Fishing will be: C&C's Raw Fish
+  while C&C is on, else Foraging's Fish); the Harpy, the Dreugh and the Dragonling none, as C&C gives their bodies none.
+  Raw Meat withdraws as C&C's either way. The butchery rides the day's harvests' `extra` with its count (`extra_qty`).
+- **A Butcher's meat "spoils half as fast"** (3.3). DECIDED: the Stores keep no unit's maker, so **meat a Butcher
+  withdraws is a Butcher's** - marked `slowRot` (a declared item field, riding the save), which C&C's day of rot rolls
+  every other day at half its days (`survival/food.js` rotFoodDay): the same spoiling at half the pace.
+- **The Tracker** (3.3: "Animals within 100 m are marked"): the living foes 4.4 skins within 100 m of the player, on
+  the street, on the compass beside a Prospector's veins - one mark, the veins' copper (the compass keeps one mark for
+  the professions).
+- **The knife's checks** (FORAGE0 14.3): the settlement, the sea, a foe near, the load - Foraging's order - in its own
+  lines in Foraging's voice ("You cannot skin in a settlement!", "... out here!", "... with enemies nearby!", "... when
+  fully encumbered!"); never inside and never the daylight. Foraging's check law is one home (`foragingLaw.js`
+  checksRefusal): the knife names its order and its lines (`professionLaw.js` KNIFE_CHECKS, KNIFE_REFUSALS).
+- **The Skinning Knife** (603, 4.8; FORAGE0 14.2): registered with the professions' rows (`systems/profTemplates.js`) -
+  UselessItems2, rarity 10, one to a slot, **0.5 kg, 50 uses, 100 gold**, DFU's Dagger's picture (TEXTURE.207 record
+  5); **shelved online only** by DFU's own custom-item loop - General Stores and Pawn Shops, as Foraging's six are
+  (law 6's exception, for 603); **made at the anvil** (9.3: 1 Iron Ingot, 1 Pine Plank, rank 0), its quality its life;
+  worn one an act, as Foraging's tools. FOUND: Foraging's break line named only its own twelve - a tool not Foraging's
+  now breaks by its own name ("Your Skinning Knife broke.").
+- **The hides, the leathers and the cloth as items** (4.8): 655-664, 665-666, 668-671 registered, stacking, never
+  shelved; withdrawn as their templates. FOUND: 4.8's "DFU Small Skins", "Large Skins" and "Small Tapestry" have no
+  picture (DFU's furniture carries world texture 0/0), so a pelt borrows Nymph Hair's lock (TEXTURE.254 record 55),
+  silk Mummy Wrappings' (41), a scale, chitin or shell Fairy Dragon's Scales' (37), a feather Gryphon's (53), and a
+  leather and a bolt a dropped garment's own flat (TEXTURE.204 record 0) - unverified without the player's data, the
+  woods' open flag holding both (Home.md). A hide 1 kg (Spider Silk and Harpy Feathers a quarter), a bolt half; 8 x
+  the tier's Marks value in gold, a leather's and a Silk Bolt's half again. **Every Stores material has a pack form
+  now**: Cured Leather, the Bear Hide, Linen and Wool withdraw (NO_PACK_FORM empty; PROF3-PROF5's "stays at the bench"
+  retired, its gate kept for a material to come). Standard-bearer's Silk (671) is registered and **unyielded** - a
+  siege's Spoils (4.7) - so the market refuses an order for it and a commission of its garments; the Bear Hide leaves
+  that list.
+- **The loom and the tanning rack** (9.3: "a tanning rack or loom: a home station, or any Clothing store for 50 gold"):
+  ONE station (DECIDED: 9.3 names them one place) - **a Clothing Store's, open for trade, 50 gold** a craft, a cure or a
+  weave (the tailor's), or **a home's `loom` station** (50,000 gold, DECOR_STATIONS' sixth, as the workbench); the
+  Stores page's **Loom** beside the Anvil and the Workbench. The Weavers' Linen and Wool (4.5) are bought at a
+  Clothing Store's loom where the Stores are short, the Weavers' counter named.
+- **The cures** (4.4): **two hides a leather** - tiers 1-3 Cured Leather, 4-6 Hardened; **a Tanner's two a unit**
+  (1:1). FOUND: a work's raising choice was read at 100 alone (PROF4's `workPer` over the choices at 100) - the Tanner is
+  a choice at 50; a work names the rank its choice is made at now (`more.rank`, `workSpecRank`). **Spider Silk is woven**
+  (4.5: three to a Silk Bolt), never cured; **Harpy Feathers fletch** (9.3's arrows), never cured. No XP - a hide's was
+  its skinning's, as a log's was its fall's (25).
+- **Outfitting's recipes** (9.3), the anvil's law at the loom (`net/recipeLaw.js` OUTFITTING_RECIPES, 334):
+  - **Leather armour**: DFU's seven body pieces at **Leather** (ArmorMaterialTypes 0 - FACT: DFU has every one in
+    leather) - Cuirass 6, Greaves 4, Helm, Pauldrons, Gauntlets and Boots 2 - in **Cured Leather** (tier 2, rank 10) or
+    **Hardened Leather** (tier 5, rank 55), whose step (9.3: "the tier 4-6 leathers' step") is a quality step, one with
+    a Warforged ingot's or a Heartwood's, never two.
+  - **Clothing**: **DFU's 76 garments** (the men's 141-181, the women's 182-216) **in each cloth** - Linen, Wool, Silk,
+    Standard-bearer's Silk, the cloth's tier the recipe's; **a small garment a bolt, a middle two, a large three, boots a
+    bolt and a Cured Leather** (DECIDED for the four 9.3 does not name: the Loincloth small, the Wrap and the Peasant
+    Blouse middle, the Toga large); DFU's look-alike shirts told apart by their own enum names. The loom shows the
+    player's own clothing first, as DFU's Clothing Store shelves it, and both.
+  - **Rugs 3 Wool, tapestries 4 Wool** (DFU's 237-243) - FOUND: 9.3's "+ a dye" has nothing to colour, DFU's furniture
+    takes no dye; **Large Skins 2 and Small Skins 1 of a pelt** (244-245; a fur's hide - the Rat's, the Bat's, the
+    Bear's, the Tiger's; never silk, chitin, scales, feathers or shell). Among the home's things, as PROF4's furniture.
+  - **The Fishing-Net** (FORAGE0 14.7): 2 Linen Bolt, rank 0 - Foraging's own 1603, its quality its life.
+  - The steps (9.2): **a Tailor's clothing, a Leatherworker's leather armour**; Outfitting XP 20 x the tier, +500 the
+    first, under the crafter's limit.
+- **A garment's dye** (9.3: "Dyes: itemDye.js's colours"): **DFU's ten clothing dyes** (DyeColors 0-9), chosen at the
+  loom, asked with the craft, **signed into the piece's record** (`u`, `net/productRecord.js`), kept on the craft and
+  the piece (`dye`), answered, and carried by the market's pieces - a garment is the colour it was sewn in wherever it
+  goes. Undyed, it reads DFU's Unchanged; DFU's four unchangeable shirts (178, 179, 214, 215) take none; a dye asked of
+  anything else is refused (`prof-dye`). DFU's shelf mints clothing its variant then its dye, and so does the loom: the
+  variant the record's seed's.
+- **The stitch** (9.4: "presses on a beat, eight in a row"): the needle's beat every **0.75 s**; a press within **0.2 of
+  the beat, centred on it, x (AGI + SPD) / 2's band** (DECIDED: a quick, sure hand) is on the beat; **eight presses**,
+  each 0.25 s at least after the last; all eight on the beat a clean act - a step. Space, Enter or the Stitch button;
+  Quick craft and Gentle acts as the heat's. The stitch makes the recipe, and the dye, it began on (AUDIT 30 A3's law).
+- **The Harpy-feathered arrows** (9.3's own fletching, waiting since 25): 1 Pine Plank, 1 Iron Ingot, 1 Harpy Feathers
+  - twenty. FOUND: "4 Twigs, one step lower" has no step to be lower by - arrows take no quality (25) - so both
+  fletchings make the same quiver.
+- **The market**: the loom's three families list - **Leather Armour, Clothing, Furnishings** - and a commission may
+  name them (its piece's dye any the crafter sews).
+- **The service** is `acct33`; `0036_hunting.sql` rebuilds the day's harvests for the kind `hide`, the tier the harvest
+  was decided at and its second find's count (every row before it carried, tier 0, one), and gives the crafts and the
+  pieces their dye (`CHECK 0-9`). Refusals: `prof-foe` (400: no knife skins that body), `prof-hunt-cap`,
+  `prof-hunt-high` (409: the account's day), `prof-dye` (400). The state answers the account's day (`hunt`) and its
+  bounds (`caps.hides`, `caps.highHides`).
+- **Done when**: a bear felled by the player's own blow is skinned online with the knife - its line traced, DFU's Dagger
+  in the hand - its hides cured at a Clothing Store's rack (a Tanner's 1:1) and sewn into a Leather Helm in the pack,
+  and a shirt in the dye its sewer chose, of the Weavers' Linen; the butchery withdrawn as C&C's Raw Meat - through the
+  real Worker.
+
+As built:
+
+- **Live**, the professions' switch - no switch of its own. The service is `acct33`, its table changes
+  `0036_hunting.sql`; `/v1/prof/harvest` takes a body (its `foe`), `/v1/prof/smelt` the loom's cures and weave,
+  `/v1/prof/craft` Outfitting's recipes and a garment's `dye` (`server-account/src/professions.js`); the market's pieces
+  answer their dye (`market.js`). The harvest's one statement decides Hunting's day beside the character's and the
+  account's caps; a body's hide, part and butchery go in by its nonce.
+- **The law**: `net/professionLaw.js` (the hides, parts, leathers and cloth; Hunting's numbers; the trace's; the knife's
+  checks; the loom's works), `net/nodeLaw.js` (a body's key, its yield and its finds), `net/recipeLaw.js` (Outfitting's
+  recipes, the steps, a garment's dye, the stitch), `net/productRecord.js` (`u`). The acts are `systems/traceAct.js`
+  and `systems/stitchAct.js`, pure.
+- **The client**: `scenes/huntHost.js` (the stamps, a pool's bodies, the plan, the kind, a Tracker's marks) in
+  `scenes/gatherHost.js` (loose nodes: a kind's own places, the act following its body, the harvest's `ask`, the chip's
+  tally); the trace's meter on the HUD (`ui/profHud.js`); the Loom on the Stores page and Hunting and Outfitting
+  practised on the Professions page, Hunting's day the account's (`ui/profPages.js`); the knife's row, shelves and mint
+  (`systems/profTemplates.js`, `systems/smithItems.js`); the hides, parts and butchery withdrawn (`systems/profItems.js`);
+  the wiring in `scenes/world.js` (the kill listener, the street's and the dungeon's bodies, the loom's provider, a
+  craft's station by its profession, the Weavers' counter by name, a Butcher's meat, the Tracker's marks) and
+  `scenes/worldModes.js` (`loomHere`).
+- **FOUND and fixed in the build**: the Professions page's Smithing unlocks lost Silver, Elven and Dwarven, and Mithril
+  to AUDIT 30 U19's note, a comment run over the rows (no pin read the list); the book never applied a harvest's
+  `extraStore` (PROF4's Resin stood unseen in the Stores tab until the next read); a body's harvest bound its absent
+  region into the witness statement - D1 binds no `undefined` (caught by the service pin before it shipped). A craft's
+  station, its keeper, its words and its kept line are one table now (`world.js` craftStation), where the anvil's and
+  the workbench's were two branches of every sentence.
+- **Pinned**: `test/prof7_law.test.js` (11), `test/prof7_service.test.js` (7), `test/prof7_client.test.js` (9);
+  `tools/mutants/prof7.json`, 119 mutants, 118 dead and one recorded equivalent (the witness's `!isBody`, which the
+  witness table's NOT NULL key also holds). The earlier lists re-aimed by content where PROF7 moved their code (twenty),
+  and two of PROF3's recorded equivalent: its "the stock is never withdrawn" gate has nothing left to refuse. The
+  done-when is `prof7_client`'s DONE WHEN, through the real Worker.
+- **The four hosts** (17.1): the streaming world wires it all - the street's bodies and a dungeon's, the loom, the
+  Tracker; the fixed city, the standalone dungeon and the interiors' own pools stand no professions (22's law), and a
+  body felled there is DFU's corpse.
+- **For Mac**: what Trophy Hunter, Couturier and Saddler should stand as; whether the borrowed pictures read right
+  (the woods' open flag); whether a body felled in a building's interior should be a node.
+
 ## Appendix A - a day of a gatherer
 
 Ilsa, a Journeyman herbalist and Apprentice miner in Anticlere (a march), sets out at seven, when the wilderness opens. The board's Work tab has a
@@ -2197,15 +2372,21 @@ At dusk the hub warns of a Motherlode in the Wrothgarian foothills in ten minute
 | Logging | chops 5 / 6 / 8, ring 900 ms, band 12-20%, Heartwood 2% |
 | Mining | strikes 4 / 5 / 7, glint 1.2-2 s, gem 3% |
 | Herbalism | common 0.8 s, steady 2.5 s, 3 degrees |
-| Hunting | trace 5-9 points, clean 0.8, torn 0.4 |
+| Hunting | trace 5-9 points, clean 0.8, torn 0.4 (as built, PROF7 - E held: 4 + tier points across 14 degrees, a zigzag of 3; begun within 2.5 degrees; the tolerance 3 degrees, x1.5 at Master, x (INT + AGI) / 2's band, sampled every 0.25 degree; clean 0.6-6 s; Gentle 1.2 s) |
+| A body (PROF7) | `body:<day>:<12 hex>`, stamped at the player's own kill; a node while the pack holds a Skinning Knife; a hide 1, a clean pelt x1.5, a torn one its part lost; the part one body in four (Big Tooth, Spider's Venom, Giant Scorpion Stinger, Dragon's Scales); the butchery one Raw Meat (the Slaughterfish's Raw Fish), a Butcher's two, a Butcher's meat withdrawn spoiling at half the pace; 30 hides an account a day, 3 of tiers 5-6; no ground, no hours, no witness; Hunting XP 15 x tier |
+| The hides (PROF7) | Rat Pelt 1, Bat Leather 2, Bear Hide 2, Tiger Pelt 3, Spider Silk 3, Scorpion Chitin 4, Slaughterfish Scales 4, Harpy Feathers 5, Dreugh Shell 5, Dragonling Scale 6 (655-664); Cured Leather tier 2, Hardened 5 (665-666); Linen 1, Wool 2, Silk 4, Standard-bearer's Silk 5 (668-671, the last unyielded); a hide 1 kg (Spider Silk and Harpy Feathers 0.25), a bolt 0.5; 8 x the tier's Marks value in gold, a leather and a Silk Bolt x1.5 |
+| The loom (PROF7) | a Clothing Store's, 50 gold a craft, a cure or a weave; a home's `loom` station, 50,000 gold; two hides a leather (tiers 1-3 Cured, 4-6 Hardened), a Tanner's two a unit (a choice at 50); three Spider Silk a Silk Bolt; no XP |
+| Outfitting's recipes (PROF7) | leather armour at Leather - Cuirass 6, Greaves 4, the rest 2 - Cured (rank 10) or Hardened (rank 55, a step); DFU's 76 garments in each cloth - a bolt, two, three, boots a bolt and a Cured Leather; rugs 3 Wool, tapestries 4 Wool, skins 2 and 1 of a pelt; the Fishing-Net 2 Linen; the steps a Tailor's clothing, a Leatherworker's leather armour; XP 20 x tier, +500 the first |
+| A garment's dye (PROF7) | DFU's ten clothing dyes (0-9), chosen at the loom, signed into the record (`u`); the four unchangeable shirts none |
+| The stitch (PROF7) | eight presses, the beat every 0.75 s, the band 0.2 of it x (AGI + SPD) / 2's band, 0.25 s between presses; all eight on the beat a step |
 | Fishing | throw 0.3-1.5 s / 3-12 m, wait 5-30 s (first and last daylight hour x0.5, storm x2), tug 600 ms, band 20-30%, 20 s, slip 2 s; pearl 1/50, slaughterfish 1/100, trophy 1/200; Raw Fish tier 1, 1 Mark |
 | The Basket's food | tier 1, 1 Mark; 15 XP, 22 with all three found (the clean act) |
 | The Basket | three glints of 1.0-1.4 s; clean +50%, two +25% |
 | Stores cap | 5,000 a material |
-| Board's counters | Linen 2, Wool 3 Marks a bolt (the Weavers', PROF5 - 100 a purchase, bought units, no pack form); the Apothecaries' sixteen at a fifth of DFU's price in Marks, rounded up (4.5; with PROF12) |
+| Board's counters | Linen 2, Wool 3 Marks a bolt (the Weavers', PROF5 - 100 a purchase, bought units; withdrawn since PROF7, and bought at a Clothing Store's loom too); the Apothecaries' sixteen at a fifth of DFU's price in Marks, rounded up (4.5; with PROF12) |
 | Quality | the margin table (9.2); a step each, at most, for a clean heat, the family's specialisation and a Warforged ingot; Masterwright +5 Masterwork off the row's lowest (PROF3) |
 | The heat (PROF3) | three strikes; the glow's breath 2.0 s; the band from 0.62, 0.2 wide x (STR + AGI) / 2's band; 0.35 s between strikes |
-| The smith's stock (PROF3) | Cured Leather 4, Oak Plank 4, Pine Plank 2, Charcoal 2 Marks a unit (twice the Marks value), 100 a purchase, bought units; the planks and Charcoal withdraw since PROF4, Cured Leather not (AUDIT 30 R3) |
+| The smith's stock (PROF3) | Cured Leather 4, Oak Plank 4, Pine Plank 2, Charcoal 2 Marks a unit (twice the Marks value), 100 a purchase, bought units; the planks and Charcoal withdraw since PROF4, Cured Leather since PROF7 (AUDIT 30 R3) |
 | A piece's quality (PROF3) | condition x0.75 / 1 / 1.15 / 1.30 / 1.30; weight x1 / 1 / 0.95 / 0.90 / 0.90; Superior a Magic roll, Masterwork a Rare roll and the maker's mark; a tool's life 37 / 50 / 57 / 65 / 65 |
 | The Repair Kit (PROF3) | 1 ingot + 1 Cured Leather; a quarter of the most-worn piece of its metal, once; a Quartermaster's two; 10 gold + 10 a tier |
 | The woods (PROF4) | Pine 1, Oak 2, Cherry 3, Teak 4, Mahogany 5, Ironwood 6, Ghostwood 6; Ironwood and Ghostwood one tree in 20, confirmed ground only; an unconfirmed pixel's trees tiers 1-2 |
@@ -2217,7 +2398,7 @@ At dusk the hub warns of a Motherlode in the Wrothgarian foothills in ten minute
 | Carpentry's choices (PROF4) | Joiner: furniture at half the planks, rounded up; Bowyer: a step on the bows; a Heartwood: one plank and a step (one step with a Warforged ingot, never two); Master Joiner: every piece of furniture marked |
 | The plane (PROF4) | tolerance 18% of the board's half-height x (AGI + WIL) / 2's band, x1.5 at Master; a pass 1.2-4 s, from the head (x <= 0.08) to the foot (x >= 0.98) |
 | Furniture's quality (PROF4) | its value x its condition multiplier; no Loot Rarity roll; a Masterwork or a Master Joiner's piece marked |
-| The furnisher's stock (PROF4) | Linen 2 Marks a unit, 100 a purchase, bought units; Linen, Cured Leather and Bear Hide have no pack form |
+| The furnisher's stock (PROF4) | Linen 2 Marks a unit, 100 a purchase, bought units; Linen, Cured Leather and Bear Hide had no pack form until PROF7 registered their templates |
 | Station use fee in town | 50 gold |
 | Alchemy | 2 / 3 potions; Potent +25%, 10% / 20%, +5% an unbruised herb |
 | Enchanting | -10% / -20%; 1 Essence per 100 points |

@@ -147,14 +147,19 @@ test('PROF7 service: Hunting\'s day is the account\'s - 30 hides across its char
   const last = await s.call('/v1/prof/harvest', skin(mac, MOB.Rat), mac.secret);
   assert.deepEqual([last.status, last.body.hunt.hides], [200, HIDES_PER_DAY]);
   const n = s.rows(mac);
-  assert.deepEqual((await s.call('/v1/prof/harvest', skin(mac, MOB.Rat), mac.secret)).body, { error: 'prof-hunt-cap' });
+  const capped = await s.call('/v1/prof/harvest', skin(mac, MOB.Rat), mac.secret);
+  assert.deepEqual([capped.status, capped.body], [409, { error: 'prof-hunt-cap' }]);
   assert.equal(s.rows(mac), n, 'the cap decided in the INSERT');
   const st = (await s.call('/v1/prof/state', { character: mac.character }, mac.secret)).body;
   assert.deepEqual([st.hunt, st.caps.hides, st.caps.highHides], [{ hides: HIDES_PER_DAY, high: HIGH_HIDES_PER_DAY }, 30, 3]);
-  // another account's day is its own
+  // another account's day is its own - and its rare hides are counted as the service writes them (the tier kept)
   const ann = await s.registered('Ann');
-  s.setXp(ann, xpForRank(10), 'hunting');
-  assert.equal((await s.call('/v1/prof/harvest', skin(ann, MOB.Rat), ann.secret)).status, 200);
+  s.setXp(ann, xpForRank(100), 'hunting');
+  for (let i = 0; i < HIGH_HIDES_PER_DAY; i++) assert.equal((await s.call('/v1/prof/harvest', skin(ann, i ? MOB.Harpy : MOB.Dragonling), ann.secret)).status, 200);
+  const fourth = await s.call('/v1/prof/harvest', skin(ann, MOB.Harpy), ann.secret);
+  assert.deepEqual([fourth.status, fourth.body], [409, { error: 'prof-hunt-high' }]);
+  const rat2 = await s.call('/v1/prof/harvest', skin(ann, MOB.Rat), ann.secret);
+  assert.deepEqual([rat2.status, rat2.body.hunt], [200, { hides: HIGH_HIDES_PER_DAY + 1, high: HIGH_HIDES_PER_DAY }]);
 });
 
 // ─── THE LOOM'S WORK (PROF0 4.4, 4.5) ────────────────────────────────

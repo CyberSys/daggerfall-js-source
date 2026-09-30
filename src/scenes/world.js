@@ -7319,7 +7319,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       registerPlayerKillListener('hunting', (entity) => { bodyStamps.stamp(entity); });
       huntBodies = () => (modeNow() === 'dungeon'
         ? bodiesOf(modes?.dungeonCtx?.foes, bodyStamps, (f) => f.ai?.feet)
-        : bodiesOf(exteriorFoes.foes, bodyStamps, (f) => f.corpseMarker?.pos ?? f.ai?.feet));
+        : bodiesOf(exteriorFoes.foes, bodyStamps, exteriorFoes.corpseAt));
       gatherHost = createGatherHost({
         book: profBook, hud, kinds: [herbKind({ book: profBook }), mineKind({ book: profBook }),
           treeKind({ book: profBook, renderer, flatBatchAabb, getTexture, billboardSize, uploadRecord }),   // PROF4: Logging's trees
@@ -7342,7 +7342,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         feet: () => (walkMode ? player.pos : cam.pos),
         entity: () => playerEntity,
         keyLabel: (a) => { const c = getBinding(bindings(), a); return c ? tagText(c) : '?'; },
-        input: () => ({ held: held(keys, 'Interact'), attack: pressed(latch.edge, keys, 'SwingWeapon'), choice: pressed(latch.edge, keys, 'ActChoice'), attackHeld: held(keys, 'SwingWeapon') }),   // PROF7: the knife drawn while attack is held
+        input: () => ({ held: held(keys, 'Interact'), attack: pressed(latch.edge, keys, 'SwingWeapon'), choice: pressed(latch.edge, keys, 'ActChoice') }),
         active: () => walkMode && modeNow() === 'exterior' && !townTalk.overlayActive && !modes?.deathUp?.() && !modes?.transitioning,
         activeDungeon: () => walkMode && modeNow() === 'dungeon' && !modes?.dungeonCtx?.uiOverlayActive && !modes?.deathUp?.() && !modes?.transitioning,   // PROF2: a dungeon's veins
         onSettle: () => { profBook.settle(profMint, profMintCraft).catch(() => {}); },

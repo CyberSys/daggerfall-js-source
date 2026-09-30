@@ -156,7 +156,7 @@
   {
     "name": "PROF4-work-per-any-spec",
     "file": "src/net/professionLaw.js",
-    "old": "(r.more && specs100?.[r.more.profession] === r.more.spec ? r.more.per : r.per)",
+    "old": "(r.more && specsAt?.[r.more.profession] === r.more.spec ? r.more.per : r.per)",
     "new": "(r.more ? r.more.per : r.per)",
     "tests": [
       "test/prof4_law.test.js",
@@ -173,10 +173,10 @@
     ]
   },
   {
-    "name": "PROF4-linen-withdrawn",
+    "name": "PROF4-linen-held-back",
     "file": "src/net/professionLaw.js",
-    "old": "export const NO_PACK_FORM = Object.freeze(['leather:cured', 'hide:bear', 'cloth:linen', 'cloth:wool']);",
-    "new": "export const NO_PACK_FORM = Object.freeze(['leather:cured', 'hide:bear', 'cloth:wool']);",
+    "old": "export const NO_PACK_FORM = Object.freeze([]);",
+    "new": "export const NO_PACK_FORM = Object.freeze(['cloth:linen']);",
     "tests": [
       "test/prof4_law.test.js",
       "test/prof4_service.test.js"
@@ -319,8 +319,8 @@
   {
     "name": "PROF4-bowyer-staves",
     "file": "src/net/recipeLaw.js",
-    "old": "|| (spec50 === 'bowyer' && r.family === 'bows')) steps++;",
-    "new": "|| (spec50 === 'bowyer' && r.family === 'staves')) steps++;",
+    "old": "(spec50 === 'bowyer' && r.family === 'bows') || (spec50 === 'tailor'",
+    "new": "(spec50 === 'bowyer' && r.family === 'staves') || (spec50 === 'tailor'",
     "tests": [
       "test/prof4_law.test.js"
     ]
@@ -328,8 +328,8 @@
   {
     "name": "PROF4-heartwood-two-steps",
     "file": "src/net/recipeLaw.js",
-    "old": "  if (r.metal === WARFORGED || (heartwood && takesHeartwood(r))) steps++;",
-    "new": "  if (r.metal === WARFORGED) steps++;\n  if (heartwood && takesHeartwood(r)) steps++;",
+    "old": "  if (r.metal === WARFORGED || r.leather === HARDENED_LEATHER.key || (heartwood && takesHeartwood(r))) steps++;",
+    "new": "  if (r.metal === WARFORGED || r.leather === HARDENED_LEATHER.key) steps++;\n  if (heartwood && takesHeartwood(r)) steps++;",
     "tests": [
       "test/prof4_law.test.js",
       "test/prof4_service.test.js"
@@ -442,8 +442,8 @@
   {
     "name": "PROF4-resin-unstored",
     "file": "server-account/src/professions.js",
-    "old": "      SELECT player, char_id, extra, 'own', 1 FROM node_harvests WHERE ${mine} AND extra IS NOT NULL",
-    "new": "      SELECT player, char_id, extra, 'own', 1 FROM node_harvests WHERE ${mine} AND 0",
+    "old": "      SELECT player, char_id, extra, 'own', extra_qty FROM node_harvests WHERE ${mine} AND extra IS NOT NULL",
+    "new": "      SELECT player, char_id, extra, 'own', extra_qty FROM node_harvests WHERE ${mine} AND 0",
     "tests": [
       "test/prof4_service.test.js"
     ]
@@ -668,7 +668,7 @@
   {
     "name": "PROF4-host-resin-unsaid",
     "file": "src/scenes/gatherHost.js",
-    "old": "      if (d.extra) hud.toast(`...and ${materialCountLabel(d.extra, 1)}`);   // PROF4: a tree's Resin\n",
+    "old": "      if (d.extra) hud.toast(`...and ${Number(d.extraQty) > 1 ? `${d.extraQty} ` : ''}${materialCountLabel(d.extra, Number(d.extraQty) || 1)}`);   // PROF4: a tree's Resin; PROF7: a body's butchery (a Butcher's two)\n",
     "new": "",
     "tests": [
       "test/prof4_client.test.js"
@@ -731,8 +731,8 @@
   {
     "name": "PROF4-smithing-unpractised",
     "file": "src/ui/profPages.js",
-    "old": "const PRACTISED = Object.freeze(['herbalism', 'mining', 'logging', 'smithing', 'carpentry']);",
-    "new": "const PRACTISED = Object.freeze(['herbalism', 'mining', 'logging', 'carpentry']);",
+    "old": "const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'logging', 'smithing', 'outfitting', 'carpentry']);",
+    "new": "const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'logging', 'outfitting', 'carpentry']);",
     "tests": [
       "test/prof4_client.test.js"
     ]
@@ -803,8 +803,8 @@
   {
     "name": "PROF4-no-workbench-station",
     "file": "src/net/decorLaw.js",
-    "old": "export const DECOR_STATIONS = Object.freeze(['alchemy', 'spells', 'enchant', 'forge', 'workbench']);",
-    "new": "export const DECOR_STATIONS = Object.freeze(['alchemy', 'spells', 'enchant', 'forge']);",
+    "old": "export const DECOR_STATIONS = Object.freeze(['alchemy', 'spells', 'enchant', 'forge', 'workbench', 'loom']);",
+    "new": "export const DECOR_STATIONS = Object.freeze(['alchemy', 'spells', 'enchant', 'forge', 'loom']);",
     "tests": [
       "test/homestations.test.js",
       "test/prof2_client.test.js",

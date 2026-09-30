@@ -284,7 +284,7 @@
   {
     "name": "PROF1-31-gathering-by-night",
     "file": "server-account/src/professions.js",
-    "old": "  if (!deep && !isForagingDaylight(sharedHourAt(at))) return { error: 'prof-night' };",
+    "old": "  if (!deep && !isBody && !isForagingDaylight(sharedHourAt(at))) return { error: 'prof-night' };",
     "new": "",
     "tests": [
       "test/prof1_service.test.js"
@@ -338,7 +338,7 @@
   {
     "name": "PROF1-37-a-new-account-witnesses",
     "file": "server-account/src/professions.js",
-    "old": "  const witness = Number.isSafeInteger(player.registered_at) && player.registered_at <= nowS - WITNESS.ageS ? 1 : 0;",
+    "old": "  const witness = !isBody && Number.isSafeInteger(player.registered_at) && player.registered_at <= nowS - WITNESS.ageS ? 1 : 0;",
     "new": "  const witness = 1;",
     "tests": [
       "test/prof1_service.test.js"
@@ -410,8 +410,8 @@
   {
     "name": "PROF1-45-a-kept-harvest-a-new-id",
     "file": "src/net/profBook.js",
-    "old": "    const body = { character: h.character, node: h.node, kind: h.kind, climate: h.climate, region: h.region, act: h.act, at: h.at, rid: h.rid };",
-    "new": "    const body = { character: h.character, node: h.node, kind: h.kind, climate: h.climate, region: h.region, act: h.act, at: h.at, rid: `${h.rid}x${Date.now()}` };",
+    "old": "      character: h.character, node: h.node, kind: h.kind, climate: h.climate, region: h.region, act: h.act, at: h.at, rid: h.rid,",
+    "new": "      character: h.character, node: h.node, kind: h.kind, climate: h.climate, region: h.region, act: h.act, at: h.at, rid: `${h.rid}x${Date.now()}`,",
     "tests": [
       "test/prof1_client.test.js"
     ]

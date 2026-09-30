@@ -22,8 +22,10 @@
 //   hands the press on to the loot.
 //   THE ACT. The knife's checks in Foraging's voice (KNIFE_CHECKS: never
 //   inside nor daylight - the body lies where it fell, and foes die at
-//   night); the machine is systems/traceAct.js; the hand draws DFU's
-//   Dagger (FORAGE0 14.2).
+//   night); the machine is systems/traceAct.js - E held, the crosshair
+//   drawn along the line (attack is the weapon's, and DFU's swing modes
+//   hold the look still under it); the hand draws DFU's Dagger (FORAGE0
+//   14.2).
 // ═══════════════════════════════════════════════════════════════════
 import { bodyKey, utcDayOfMs } from '../net/nodeLaw.js';
 import {
@@ -154,7 +156,7 @@ export function huntKind({ book, bodies }) {
       });
       return { ...plan, profession: 'hunting', alt: `[${keyLabel('ActChoice')}] ${lootChoice ? 'skin it' : 'search the body'}` };
     },
-    start(b, plan, { entity, rank }) {
+    start(b, plan, { entity, rank, keyLabel }) {
       const refusal = actChecksRefusal(KNIFE_CHECKS, KNIFE_REFUSALS);
       if (refusal) return { refused: refusal };
       return {
@@ -163,7 +165,7 @@ export function huntKind({ book, bodies }) {
           band: knifeBand({ intelligence: liveStat(entity, 'intelligence'), agility: liveStat(entity, 'agility') }),
           gentle: getPref('gentleActs') === true,
         }),
-        harvest: plan.harvest, tool: foragingToolIn(entity, SKINNING_KNIFE.templateIndex), profession: 'hunting', label: '',
+        harvest: plan.harvest, tool: foragingToolIn(entity, SKINNING_KNIFE.templateIndex), profession: 'hunting', label: keyLabel('Interact'),   // the key the meter says to hold
         ask: { foe: b.foe },   // the harvest names the foe the body is (PROF0 6: the tier is the client's claim)
         hand: (a) => (a.tool ? KNIFE_HAND : null),
       };

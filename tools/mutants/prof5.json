@@ -330,10 +330,10 @@
     ]
   },
   {
-    "name": "PROF5-law-wool-withdrawn",
+    "name": "PROF5-law-wool-held-back",
     "file": "src/net/professionLaw.js",
-    "old": "export const NO_PACK_FORM = Object.freeze(['leather:cured', 'hide:bear', 'cloth:linen', 'cloth:wool']);",
-    "new": "export const NO_PACK_FORM = Object.freeze(['leather:cured', 'hide:bear', 'cloth:linen']);",
+    "old": "export const NO_PACK_FORM = Object.freeze([]);",
+    "new": "export const NO_PACK_FORM = Object.freeze(['cloth:wool']);",
     "tests": [
       "test/prof5_law.test.js",
       "test/prof5_service.test.js"
