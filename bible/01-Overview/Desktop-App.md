@@ -92,6 +92,9 @@ npm start              # the app; first run asks for ARENA2
 npm run dist           # electron-builder installers into app/release/
 ```
 
+Packaged, the built site rides inside `app.asar` (DA11) - never as
+loose files beside it.
+
 `DAGGER_DEV_URL=http://localhost:5173/play/` points the shell at a
 running vite dev server (file saves still live; arena2 comes from the
 dev middleware). `DAGGER_USER_DATA` relocates saves/config (the
@@ -565,6 +568,53 @@ its root and pinned (`test/audit_install2.test.js`,
 `tools/mutants/auditinstall2.json`: 123, all dead); the record is
 Audit-Install.md's [Round 2](Audit-Install.md#round-2-2026-09-29), and
 where it found a claim on this page untrue, the claim is struck here.
+
+## The install is one archive (DA11, 2026-09-30)
+
+Mac: *"Everytime DFO updates, even with the launcher, it deletes
+itself."*
+
+The built site shipped BESIDE the app, as `extraResources`: 18,354
+loose files under `resources/dist`, 18,430 in the Windows install (read
+out of the published app-v0.1.5024 setup's `app-64.7z`). A Windows update is
+electron-builder 25.1.8's silent NSIS, and it replaces the install one
+file at a time: the OLD version's uninstaller moves every installed
+file out to `%TEMP%` (`un.atomicRMDir`, a Rename each), then the NEW
+installer unpacks every file to `%TEMP%` and copies each one in
+(`extractUsing7za`) - no window, the antivirus reading every new file.
+The install folder stood EMPTY for as long as that took, while the
+launcher said "closes and reopens by itself in a few seconds". The
+player found the app gone; a shortcut clicked in that window is a dead
+one Windows offers to delete, and the update (keeping shortcuts) never
+makes it again; a setup run by hand quits on the silent installer's
+one-instance lock; and a restart or a logoff in that window leaves no
+app at all.
+
+The site rides INSIDE `app.asar` now (`app/package.json` `files`: `{
+"from": "../dist", "to": "dist" }`), and packaged, `DIST` is
+`<app.asar>/dist`. The Linux build's install is 74 files where it was
+18,428 (measured: `electron-builder --linux dir`, before and after), and
+every one of the 18,354 site files is in the archive byte for byte. Electron's fs and its
+`file://` fetch both read inside an asar - measured on Electron 42
+(stat, readFile, `net.fetch` of a 3 MB file whole) - so `handleDagger`
+is unchanged. `tools/appShellProbe.mjs` with `DAGGER_SHELL_EXE` at the
+PACKAGED build: 61 ok, all green, the same 61 as the old packaging;
+with software GL the packaged game boots to its intro out of the
+archive, no page errors. The portable exe gains too - it unpacked all
+18,430 files into `%TEMP%` at every launch.
+
+**The first update onto DA11 is the last slow one**: the uninstaller
+that runs is the OLD version's, and it still moves the 18,354 files
+out. The installer side is already the new one's.
+
+**Not seen on a machine**, said plainly: a real Windows NSIS update,
+before or after. The mechanism is read in electron-builder 25.1.8's
+own NSIS templates (`uninstaller.nsh`, `include/installUtil.nsh`,
+`include/extractAppPackage.nsh`) and the published installer's
+contents; the fix is measured on the Linux package.
+
+**Pinned** in `test/da11_install_whole.test.js` (2): the site in the
+archive and nowhere beside it, and the shell reading it there.
 
 ## Finding the game files (DA9, 2026-09-29)
 

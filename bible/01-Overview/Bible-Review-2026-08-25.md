@@ -106,7 +106,7 @@ direction). The real staleness is where the sweep cannot see:
   row's own title records the previous three.
 - `:340` residue "a static NPC currently answers with the
   no-response line" - contradicts the same row's own head and row
-  `:446` (B7); `worldModes.js:1584-1595` opens the real talk window.
+  `:446` (B7); `worldModes.js:1585-1596` opens the real talk window.
 - `:339` "house/ship PURCHASE popups... still out" - contradicts row
   `:441` ("this row is now CLOSED", H1-H3) and
   `ui/bankPurchaseWindow.js`.
@@ -127,7 +127,7 @@ per arc:
   (`mysticism.test.js:225-239`). The doc, the pin's design, and
   `mysticism.js:53`'s header are all wrong the same way. Also stale:
   S24 "the port has neither the [Spell Absorption] effect nor the
-  state" (`effects.js:1165-1188` + `absorption.js:77-91` land it
+  state" (`effects.js:1173-1196` + `absorption.js:93-109` land it
   first-arm); S40's "house ledger is unported" flag
   (`banking.js:173 isHouseOwned` feeds the rest seam); S16's
   "monsters 0-42 still spawn as billboards" (C11 pivoted them to real
@@ -163,7 +163,7 @@ per arc:
   `:3368`); `:4722` is now flatly false ("the interior host's
   char-sheet and inventory panels swallow their click and do
   nothing") and contradicts U43 in the same file
-  (`worldModes.js:5927-5928` routes them). UI-Arc carries no records
+  (`worldModes.js:5928-5929` routes them). UI-Arc carries no records
   at all for H1-H3 - the banking windows exist only in the Ledger.
 - *Combat.md*: the status head (first 51 lines) is the stale part -
   DrainMagicka "INTERIM no-op" (`:19`, real since S4a and
@@ -216,7 +216,7 @@ own AUDIT-18 correction.
 Doc review only, nothing fixed - but four code comments assert the
 opposite of their own code and deserve a slice's attention:
 - `src/ui/deathScreen.js:89-90` claims "`drop` is read by each host's
-  frame" - no host reads it (the Ledger row `:529` is right, the
+  frame" - no host reads it (the Ledger row `:530` is right, the
   comment is wrong).
 - `src/systems/mysticism.js:53` header "OPEN AND LOCK ARE NOT WIRED" -
   they are (X1, `actionSystem.js:1022-1023`).
@@ -233,9 +233,9 @@ opposite of their own code and deserve a slice's attention:
 
 ## Line-citation drift (low, batched)
 
-`Port-Ledger.md:626` (save.js:36/:586/:605 → :28/:676/:708), `:636`
-(world.js:4952 → :2412); `Quest-Arc.md:724`/`:2911`
-(worldModes.js:643 → :903); `Player-Arc.md:979` (worldModes.js:971 →
+`Port-Ledger.md:627` (save.js:36/:586/:605 → :28/:676/:708), `:636`
+(world.js:4972 → :2412); `Quest-Arc.md:724`/`:2911`
+(worldModes.js:644 → :903); `Player-Arc.md:979` (worldModes.js:972 →
 :2764), `:304` (world.js "531 lines" → 3,564); `Characters-Arc.md:190`
 (CHAR_PIXEL "7" - `renderer.js:644` ships 9, and the doc missed two
 later revisions recorded in `paperdollViewer.js:138`), `:2114`

@@ -9,6 +9,8 @@
 //         i issued, epoch seconds - a record is history, and carries no expiry
 //         a AUDIT 30 L4: 1 where the piece bears its maker's mark (a Masterwork, or a Master Joiner's furniture - the
 //           service's `products.marked`), absent otherwise - so the name is the service's word too
+//         u PROF7: a garment's dye, DFU's DyeColors (0-9, recipeLaw GARMENT_DYES) - the colour the crafter chose, so a
+//           garment bought at the market is the colour it was sewn in; absent for an undyed garment and every other piece
 //
 // ONE KEY, SEVERAL THINGS, NEVER CONFUSED: the identity key signs tokens (`v1`) and orders; this is `p1`, the version
 // inside the signed bytes and read before a byte of the body is, and the claim shapes are disjoint besides - a record
@@ -20,7 +22,7 @@
 //
 // PURE; the account service mints, the client reads. Not a DFU member. Ledger A (the professions' row).
 import { _b64url, SIG_BYTES, ID_RE } from './identityToken.js';
-import { PROVENANCE_RE, MAKER_MAX, recipeById, MASTERWORK, takesQuality } from './recipeLaw.js';
+import { PROVENANCE_RE, MAKER_MAX, recipeById, MASTERWORK, takesQuality, dyeOk } from './recipeLaw.js';
 
 /** The only version this file reads or writes. */
 export const PRODUCT_RECORD_V = 'p1';
@@ -46,18 +48,19 @@ export function productRecordValid(c) {
   if (!Number.isSafeInteger(c.c) || c.c < 0 || c.c > 0xffffffff) return false;
   if (!Number.isSafeInteger(c.i) || c.i < 0) return false;
   if (c.a !== undefined && (c.a !== 1 || c.m === null || !(c.q === MASTERWORK || r.family === 'furniture'))) return false;
+  if (c.u !== undefined && (c.u === null || !dyeOk(r, c.u))) return false;   // PROF7: a garment's dye, of its ten
   return true;
 }
 
 /**
  * MINT - the account service's half. With no key the record goes out unsigned (`p1.<body>.`).
- * @param {{p: string, s: string, h: string, r: string, q: number, m: string|null, c: number, a?: boolean}} what
+ * @param {{p: string, s: string, h: string, r: string, q: number, m: string|null, c: number, a?: boolean, u?: number|null}} what
  * @param {CryptoKey|null} privateKey the service's Ed25519 identity key (server-account/src/signing.js), or null
  * @param {{subtle: SubtleCrypto, nowS: number}} env
  * @returns {Promise<string>}
  */
-export async function mintProductRecord({ p, s, h, r, q, m, c, a = false }, privateKey, { subtle, nowS }) {
-  const claims = { p, s, h, r, q, m, c, i: nowS, ...(a ? { a: 1 } : {}) };
+export async function mintProductRecord({ p, s, h, r, q, m, c, a = false, u = null }, privateKey, { subtle, nowS }) {
+  const claims = { p, s, h, r, q, m, c, i: nowS, ...(a ? { a: 1 } : {}), ...(u == null ? {} : { u }) };
   if (!productRecordValid(claims)) throw new TypeError('mintProductRecord refused a claim set it could not verify');
   const body = _b64url.encode(enc.encode(JSON.stringify(claims)));
   if (!privateKey) return `${PRODUCT_RECORD_V}.${body}.`;

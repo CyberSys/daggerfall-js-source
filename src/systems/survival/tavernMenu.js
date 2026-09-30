@@ -42,6 +42,7 @@ import { HARD_RULES } from './difficulty.js';
 import { isWaterskin, waterIn, WATERSKIN_CAPACITY_KG } from './food.js';
 import { drinkAtSource } from './items.js';   // INN-WATER: the fountain's own law, filled at the bar
 import { CLIMATES } from '../../formats/mapsFile.js';   // MENU-CLIMATE: the menus keyed by the enum's names
+import { essentialPrice } from '../shopStock.js';   // ESSENTIALS-HALF: online, the menu costs half
 
 /** The mod's six keys, by the port's climate.
  *  FIELD BUGS 2026-09-30 (MENU-CLIMATE; the #bug-reports "Climates & Calories Bugs" thread's Sentinel inn): KEYED BY
@@ -184,17 +185,20 @@ export function innWaterPrice(drinks) {
  * the tier's list otherwise), a header, the drinks. `hour` 0-23.
  * Returns { rows: [{ text, kind: 'food'|'drink'|'header'|'water', name, price, worth, strength }], closed, closedText }.
  */
-export function tavernMenu({ climateIndex = 232, quality = 5, hour = 12 } = {}) {
+export function tavernMenu({ climateIndex = 232, quality = 5, hour = 12, online = undefined } = {}) {
+  // ESSENTIALS-HALF (2026-09-30, Discord: "cut the cost of most essential items by half"): online each row's gold is
+  // the half it costs (shopStock.js essentialPrice) - the text and the price the window charges alike
+  const cost = (p) => essentialPrice(p, { online });
   const key = menuKeyFor(climateIndex), tier = menuTier(quality);
   const closed = kitchenClosed(hour);
   const closedText = closed ? (hour === KITCHEN_CLOSED_HOUR ? TAVERN_MENU_TEXT.closed : TAVERN_MENU_TEXT.closedNight) : null;
   const list = breakfastHours(hour) ? 'breakfast' : tier;
   const rows = [];
-  if (!closed) for (const f of FOOD_MENUS[key][list]) rows.push({ text: `${String(f.price).padStart(2)} gold   ${f.name}`, kind: 'food', name: f.name, price: f.price, worth: MEAL_WORTH[list] });
+  if (!closed) for (const f of FOOD_MENUS[key][list]) rows.push({ text: `${String(cost(f.price)).padStart(2)} gold   ${f.name}`, kind: 'food', name: f.name, price: cost(f.price), worth: MEAL_WORTH[list] });
   rows.push({ text: TAVERN_MENU_TEXT.drinksHeader, kind: 'header', name: null, price: 0 });
   const water = innWaterPrice(drinkMenuFor(key)[tier]);   // INN-WATER: first under the header, the kitchen shut or open
-  rows.push({ text: `${String(water).padStart(2)} gold   ${TAVERN_MENU_TEXT.water}`, kind: 'water', name: TAVERN_MENU_TEXT.water, price: water });
-  for (const k of drinkMenuFor(key)[tier]) rows.push({ text: `${String(k.price).padStart(2)} gold   ${k.name}`, kind: 'drink', name: k.name, price: k.price, strength: DRINK_STRENGTH[drinkKind(k.name)] });
+  rows.push({ text: `${String(cost(water)).padStart(2)} gold   ${TAVERN_MENU_TEXT.water}`, kind: 'water', name: TAVERN_MENU_TEXT.water, price: cost(water) });   // ESSENTIALS-HALF: the water too
+  for (const k of drinkMenuFor(key)[tier]) rows.push({ text: `${String(cost(k.price)).padStart(2)} gold   ${k.name}`, kind: 'drink', name: k.name, price: cost(k.price), strength: DRINK_STRENGTH[drinkKind(k.name)] });
   return { rows, closed, closedText, key, tier, list };
 }
 

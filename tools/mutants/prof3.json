@@ -115,8 +115,8 @@
   {
     "name": "PROF3-law-warforged-no-step",
     "file": "src/net/recipeLaw.js",
-    "old": "  if (r.metal === WARFORGED || (heartwood && takesHeartwood(r))) steps++;\n",
-    "new": "  if (heartwood && takesHeartwood(r)) steps++;\n",
+    "old": "  if (r.metal === WARFORGED || r.leather === HARDENED_LEATHER.key || (heartwood && takesHeartwood(r))) steps++;\n",
+    "new": "  if (r.leather === HARDENED_LEATHER.key || (heartwood && takesHeartwood(r))) steps++;\n",
     "tests": [
       "test/prof3_law.test.js",
       "test/prof3_service.test.js"
@@ -205,7 +205,9 @@
     "tests": [
       "test/prof3_law.test.js",
       "test/prof3_service.test.js"
-    ]
+    ],
+    "equivalent": true,
+    "why": "PROF7: every material the Stores hold has its template now (655-671 the last) - NO_PACK_FORM is empty, so withdrawable() already answers true for every key. The gate is kept as the door a future material with no pack form would need; PROF7-a-hide-held-back (prof7.json) pins the list itself."
   },
   {
     "name": "PROF3-record-other-shapes",
@@ -292,8 +294,8 @@
   {
     "name": "PROF3-svc-unsigned",
     "file": "server-account/src/professions.js",
-    "old": "  const key = await signingKey(env, subtle);\n  const records",
-    "new": "  const key = null;\n  const records",
+    "old": "  const key = await signingKey(env, subtle);\n  const u = dye ?? null;",
+    "new": "  const key = null;\n  const u = dye ?? null;",
     "tests": [
       "test/prof3_service.test.js"
     ]
@@ -301,8 +303,8 @@
   {
     "name": "PROF3-svc-product-owner",
     "file": "server-account/src/professions.js",
-    "old": "      SELECT ?4, ?1, ?2, ?6, ?7, ?8, ?9, quality, seed, ?10, at, ?11 FROM prof_crafts",
-    "new": "      SELECT ?4, ?2, ?2, ?6, ?7, ?8, ?9, quality, seed, ?10, at, ?11 FROM prof_crafts",
+    "old": "      SELECT ?4, ?1, ?2, ?6, ?7, ?8, ?9, quality, seed, ?10, at, ?11, dye FROM prof_crafts",
+    "new": "      SELECT ?4, ?2, ?2, ?6, ?7, ?8, ?9, quality, seed, ?10, at, ?11, dye FROM prof_crafts",
     "tests": [
       "test/prof3_service.test.js"
     ]
@@ -341,7 +343,9 @@
     "new": "",
     "tests": [
       "test/prof3_service.test.js"
-    ]
+    ],
+    "equivalent": true,
+    "why": "PROF7: NO_PACK_FORM is empty, so the service's `prof-no-pack-form` refusal cannot be reached - kept as the door a future material with no pack form would need. PROF7-a-hide-held-back pins the list it reads."
   },
   {
     "name": "PROF3-svc-quartermaster-any",
@@ -436,8 +440,8 @@
   {
     "name": "PROF3-kit-past-whole",
     "file": "src/systems/smithItems.js",
-    "old": "  it.currentCondition = Math.min(it.maxCondition, it.currentCondition + Math.ceil(it.maxCondition * KIT_REPAIR));",
-    "new": "  it.currentCondition = it.currentCondition + Math.ceil(it.maxCondition * KIT_REPAIR);",
+    "old": "  it.currentCondition = Math.min(it.maxCondition, it.currentCondition + Math.ceil(it.maxCondition * (kit.fieldKit === true ? FIELD_KIT_REPAIR : KIT_REPAIR)));",
+    "new": "  it.currentCondition = it.currentCondition + Math.ceil(it.maxCondition * (kit.fieldKit === true ? FIELD_KIT_REPAIR : KIT_REPAIR));",
     "tests": [
       "test/prof3_client.test.js"
     ]
@@ -472,7 +476,7 @@
   {
     "name": "PROF3-heat-no-gap",
     "file": "src/systems/heatAct.js",
-    "old": "      if (st.done || st.t - st.lastAt < HEAT_ACT.gapS) return null;",
+    "old": "      if (st.done || at - st.lastAt < HEAT_ACT.gapS) return null;",
     "new": "      if (st.done) return null;",
     "tests": [
       "test/prof3_client.test.js"
@@ -481,8 +485,8 @@
   {
     "name": "PROF3-heat-gentle-clean",
     "file": "src/systems/heatAct.js",
-    "old": "      const hit = !gentle && this.inBand;",
-    "new": "      const hit = this.inBand;",
+    "old": "      const hit = !gentle && g >= st.lo && g <= st.hi;",
+    "new": "      const hit = g >= st.lo && g <= st.hi;",
     "tests": [
       "test/prof3_client.test.js"
     ]

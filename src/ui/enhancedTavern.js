@@ -39,7 +39,7 @@ import {
   TOO_MANY_DAYS_ID, OFFER_PRICE_ID, NOT_ENOUGH_GOLD_ID,
   HOW_MANY_DAYS_ID, HOW_MANY_ADDITIONAL_DAYS_ID,
   ROOM_FREE_FOR_KNIGHT, ROOM_FREE_HEARTS_DAY, YOU_ARE_NOT_HUNGRY,
-  TAVERN_MENU, TAVERN_PRICES, removeExpiredRooms, findRentedRoom, roomRemainingHours,
+  TAVERN_MENU, tavernMenuPrice, removeExpiredRooms, findRentedRoom, roomRemainingHours,
   rentalDecision, rentRoom, canEat, eatOrDrink,
 } from '../systems/tavern.js';
 import { survivalOn, survivalRules } from '../systems/survival/switch.js';   // SURV-TIERS: the tier prices the drink
@@ -193,7 +193,7 @@ function openFood() {
   const now = h.now();
   if (!canEat(h.entity.lastTimePlayerAteOrDrankAtTavern, now)) { say(line(YOU_ARE_NOT_HUNGRY)); return; }
   menu = {
-    rows: TAVERN_MENU.map((text, i) => ({ name: text.replace(/\s*\([^)]*\)\s*$/, ''), price: TAVERN_PRICES[i] })),
+    rows: TAVERN_MENU.map((text, i) => ({ name: text.replace(/\s*\([^)]*\)\s*$/, ''), price: tavernMenuPrice(i) })),   // ESSENTIALS-HALF: online, the half it costs
     pick: (i) => pickClassic(i, now),
   };
   render();

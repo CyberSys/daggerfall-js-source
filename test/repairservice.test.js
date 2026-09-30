@@ -8,7 +8,7 @@ import './modsOff.js';   // RRI2: DFU's own numbers - the mod's condition prices
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  calculateItemRepairCost, calculateItemRepairTime, updateRepairTimes,
+  dfuItemRepairCost as calculateItemRepairCost, calculateItemRepairTime, updateRepairTimes,   // REPAIR-EASE: DFU's own formula, unscaled (test/repair_ease.test.js holds the two-thirds)
   isBeingRepaired, isBeingRepairedAt, isRepairFinished, leaveForRepair,
   collectRepaired, repairJobsAt, repairRefusal, repairStatusLabel, daysUntil,
   CANNOT_BE_REPAIRED_TEXT,

@@ -191,7 +191,9 @@ test('E1 fold: the channels reach their formulas - armour, chance-to-hit, skills
     magnitudeBaseLow: 20, magnitudeBaseHigh: 20, magnitudeLevelBase: 0, magnitudeLevelHigh: 0, magnitudePerLevel: 1,
     durationBase: 0, durationMod: 0, durationPerLevel: 1, chanceBase: 0, chanceMod: 0, chancePerLevel: 1,
   };
-  assert.ok(tryAbsorption(effect, 1, abs, { absorbing: entityAbsorbsSpells(abs) }) > 0, 'the AbsorbsSpells fold absorbs');
+  // ABSORB-NERF (2026-09-30): the enchantment is a 50% roll now (absorption.js ABSORB_ENCHANT_CHANCE)
+  assert.ok(tryAbsorption(effect, 1, abs, { absorbing: entityAbsorbsSpells(abs), rolls: () => 0.49 }) > 0, 'the AbsorbsSpells fold absorbs on a roll under 50');
+  assert.equal(tryAbsorption(effect, 1, abs, { absorbing: entityAbsorbsSpells(abs), rolls: () => 0.5 }), 0, 'and not on 50 or over');
   assert.equal(tryAbsorption(effect, 1, abs, { absorbing: false }), 0, 'no ring, no absorption');
   // ExtraSpellPts: the season arm + liveMaxMagicka
   const esp = wearer([item(T.ExtraSpellPts, 0)], { maxMagicka: 25 });   // DuringWinter

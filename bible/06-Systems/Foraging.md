@@ -644,7 +644,10 @@ DECIDED (Mac: "its tools become the professions' tools").
 - **Which tool**: the first of its kind in the pack's order (as `ItemCollection` finds it).
 - **Wear**: a completed act lowers the tool's condition by **1**, as a Foraging use does, and a break is Foraging's two
   notices ("Your Pick-Axe broke." after DFU's popup). A tool lasts 50 harvests, whichever gesture wore it.
-- **No tool**: the node's prompt says what it needs - "[E] Chop Oak - needs a Wood-Axe".
+- **No tool**: the node's prompt says what it needs - "[E] Chop Oak - needs a Wood-Axe" - and E says it too when
+  nothing else under the ray takes the press (VEIN-NEED, `01-Overview/Field-Bugs-2026-09-29h.md`). Hunting excepted
+  (AUDIT 32 R10): a body is a node only while the pack holds a Skinning Knife - with none it is DFU's corpse alone, and
+  no prompt stands in the way of its loot (PROF0 29).
 
 ### 14.2 The tools and their professions
 
@@ -660,17 +663,23 @@ DECIDED (Mac: "its tools become the professions' tools").
 
 The Morrowind arms take the same place on that lane, as PROF0 5.1 says. **The Skinning Knife** (603): 0.5 kg, 50 HP,
 100 gold, rarity 10, group 9; it stocks as Foraging's tools do, **online only**, since nothing offline uses it.
+PROF7 (2026-09-30, `06-Systems/Professions-Arc.md` 29) BUILT it so: registered with the professions' rows
+(`systems/profTemplates.js`), shelved by DFU's own custom-item loop at General Stores and Pawn Shops online alone,
+made at the anvil, worn one an act as Foraging's six, broken by its own name ("Your Skinning Knife broke." - Foraging's
+line had named only its own twelve), DFU's Dagger (113) in the hand; the trace drawn with E held (PROF0 29: attack
+held would be the weapon's, whose swing modes hold the look still).
 
 ### 14.3 The checks the act borrows
 
 Every act runs Foraging's checks first, **with Foraging's own refusal for that tool**, except where the node answers
 the check itself. The Skinning Knife, not Foraging's, gets lines in Foraging's voice: "You cannot skin in a
 settlement!", "You cannot skin out here!", "You cannot skin with enemies nearby!", "You cannot skin when fully
-encumbered!".
+encumbered!". PROF7 BUILT them in that order - settlement, sea, enemies, load - through Foraging's one check law
+(`foragingLaw.js` checksRefusal, the knife's order and lines `professionLaw.js` KNIFE_CHECKS and KNIFE_REFUSALS).
 
 | Check | Applies to |
 |---|---|
-| Not inside | every act **except a dungeon vein** - the Pick-Axe's one place indoors (PROF0 6) - **and Hunting**, whose body lies where it fell (PROF0 17.1); the inventory's "You cannot mine in here!" is unchanged |
+| Not inside | every act **except a dungeon vein** - the Pick-Axe's one place indoors (PROF0 6) - **and Hunting**, whose body lies where it fell (PROF0 17.1); the inventory's "You cannot mine in here!" is unchanged (FIELD BUGS 2026-09-29h: a player read it beside a dungeon vein as the vein's refusal - the Pick-Axe used at a node is its For Mac 1) |
 | Not in a settlement | every act (no node stands in a rect, PROF0 6) |
 | **Daylight, 07:00-17:59** | Logging, Herbalism, the Basket, surface Mining and Quarrying, Fishing. **Not** a dungeon vein, a Motherlode or a gate-touched vein (the contested ones keep no hours, PROF0 6); not Hunting (the knife is not Foraging's, and foes die at night). **The service checks it too**, on the shared clock, from the act's end time (PROF0 6) - a modified client cannot gather by night |
 | Not at sea | every act but Fishing |
@@ -758,7 +767,8 @@ Tools break every 50 harvests, so the crafts keep them coming - a steady use for
 | Fishing-Net 1603 | Outfitting | 2 Linen Bolt | 0 |
 | Basket 1607 | Carpentry | 2 Pine Plank | 0 |
 
-- A crafted tool is **Foraging's own template** with PROF0 9.2's quality on its condition: **Crude 37 uses, Standard
+- A crafted tool is **its own template** - Foraging's (1600-1607), or the Skinning Knife's (603, the port's own row;
+  AUDIT 32 R10: this said Foraging's alone) - with PROF0 9.2's quality on its condition: **Crude 37 uses, Standard
   50, Fine 57, Superior 65, Masterwork 65** and the maker's mark ("Silverthorn's Pick-Axe"). No Loot Rarity roll - a
   tool is not a weapon.
 - Offline a crafted tool is simply the tool; its condition rides the save. Foraging's code reads only

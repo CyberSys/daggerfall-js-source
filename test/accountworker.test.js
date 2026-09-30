@@ -134,7 +134,7 @@ test('ACC1b: the migration is the real schema, and applying it twice changes not
   // PROF3 added three (0030): `prof_crafts` (one row a craft at the anvil), `products` (every crafted piece - its
   // provenance id, owner and signed record) and `prof_stock` (one row a purchase from the smith's stock)
   // PROF5 (0032_market.sql): the market's seven - listings, sales, deliveries, orders, fills, prices, reports
-  // HOME-RENT (0036_home_rooms.sql): `home_rooms` (one row a room offered to rent, and its tenancy)
+  // HOME-RENT (0037_home_rooms.sql): `home_rooms` (one row a room offered to rent, and its tenancy)
   assert.deepEqual(tables, ['board_notes', 'board_notices', 'board_reports', 'commissions', 'duel_results', 'gate_kills', 'guild_invites', 'guild_ledger', 'guild_marks', 'guild_members', 'guild_prof_stores', 'guild_store_ledger', 'guild_store_moves', 'guild_writ_budgets', 'guild_writ_fills', 'guild_writs', 'guilds', 'home_decor', 'home_hidden', 'home_rooms', 'homes', 'letters', 'market_auction_reports', 'market_auctions', 'market_bids', 'market_deliveries', 'market_fills', 'market_listings', 'market_orders', 'market_prices', 'market_reports', 'market_sales', 'marks', 'marks_ledger', 'node_harvests', 'players', 'products', 'prof_choices', 'prof_crafts', 'prof_smelts', 'prof_stock', 'prof_stores', 'prof_tracks', 'prof_withdrawals', 'raid_cleanses', 'raid_spoils', 'rate_limits', 'realm_census', 'realm_characters', 'realm_passes', 'realm_trades', 'realm_tx_guard', 'renown_accounts', 'renown_tracks', 'saves', 'sessions', 'world_witness', 'writ_days', 'writs']);
   // ACC1b IS IDENTITY ALONE, and the PLAYERS row still is: the save
   // arrived beside it, never inside it.

@@ -74,8 +74,8 @@
   {
     "name": "TOAST-SPLIT-market-hint-the-toasts",
     "file": "src/ui/marketTab.js",
-    "old": "box.append(el('p', 'notice-tip', 'Into your Stores.",
-    "new": "box.append(el('p', 'notice-hint', 'Into your Stores.",
+    "old": "box.append(el('p', 'notice-tip', 'Into your Stores,",
+    "new": "box.append(el('p', 'notice-hint', 'Into your Stores,",
     "tests": [
       "test/toast_split.test.js"
     ]

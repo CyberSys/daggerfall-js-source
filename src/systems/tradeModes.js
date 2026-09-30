@@ -53,10 +53,11 @@
 //    one home here. The only difference is the +3 that moves the SELL
 //    modes onto their own three records.
 
-import { calculateCost, calculateTradePrice } from './shopStock.js';
+import { calculateCost, calculateTradePrice, essentialPrice } from './shopStock.js';   // ESSENTIALS-HALF: online, a potion costs half
 import { GOLD_PIECE_WEIGHT_KG, isEnchanted } from './inventory.js';
 import { calculateItemRepairCost, repairRefusal } from './repairService.js';
-import { itemValueOf, conditionPercentage } from './itemTemplates.js';   // JAN1: the one value read; RRI2: ConditionPercentage, the Sell arm's third argument
+import { itemValueOf, conditionPercentage } from './itemTemplates.js';
+import { isPotion } from './useItem.js';   // ESSENTIALS-HALF: the potion, by DFU's own IsPotion   // JAN1: the one value read; RRI2: ConditionPercentage, the Sell arm's third argument
 import { HOLIDAYS } from './holidays.js';
 import { GUILDS } from './guilds.js';
 import {
@@ -127,7 +128,7 @@ export const IDENTIFY_COST_MULTIPLIER = 25;
  *  no magic in it at all. It was never seen because the Identify
  *  destination was a null and the mode could not be opened; X7 opened
  *  it, so the derivation had to be right first. Both paths run at
- *  worldModes.js:2560 now (commitTrade) - the paid service and the spell. */
+ *  worldModes.js:2561 now (commitTrade) - the paid service and the spell. */
 export const itemIsIdentified = (item) => !isEnchanted(item) || item?.isIdentified === true;
 
 /** FormulaHelper.CalculateItemIdentifyCost (:1935-1955). FREE on the
@@ -205,10 +206,15 @@ export function buyHolidayHalvesPrice(item, { holidayId = HOLIDAYS.None, guildFa
 /** One basket item's Buy price (:443-450). The halving is C# integer
  *  division on an int, so it TRUNCATES, and it lands AFTER the stack
  *  multiply rather than per unit. */
-export function buyItemPrice(item, { quality = 0, priceAdjustment = 1000, holidayId = HOLIDAYS.None, guildFactionId = null } = {}) {
+export function buyItemPrice(item, { quality = 0, priceAdjustment = 1000, holidayId = HOLIDAYS.None, guildFactionId = null, online = undefined } = {}) {
   const price = calculateCost(itemValueOf(item), quality, priceAdjustment) * (item.stackCount ?? 1);   // JAN1: the one value read
-  return buyHolidayHalvesPrice(item, { holidayId, guildFactionId })
-    ? Math.trunc(price / 2) : price;
+  const holiday = buyHolidayHalvesPrice(item, { holidayId, guildFactionId });
+  const held = holiday ? Math.trunc(price / 2) : price;
+  // ESSENTIALS-HALF (2026-09-30, Discord: "cut the cost of most essential items by half"): online a POTION costs half
+  // (shopStock.js essentialPrice, rounded up - its law against buying to sell back), at every counter's Buy. AUDIT
+  // ESSENTIALS F1: never on top of a holiday's own half - the sale cap reads the full price, so a quarter bought on
+  // Merchants Festival sold back for half; the two halves do not stack
+  return isPotion(item) && !holiday ? essentialPrice(held, { online }) : held;
 }
 
 /**
@@ -439,10 +445,10 @@ export const DOESNT_NEED_IDENTIFY = 'This does not need to be identified.';
 
 // The three clauses that stood here are all closed:
 //  - the IDENTIFY SPELL arm (:956-996) is live. identifySpellPass
-//    (:161) feeds worldModes.js:2330-2350, which spends the magicka
+//    (:161) feeds worldModes.js:2331-2351, which spends the magicka
 //    ONCE for the whole list whatever the outcome and tells the player
 //    "N of M identified"; the window opens from openIdentifyWindow
-//    (worldModes.js:9542), the entry point the magic arc owed.
+//    (worldModes.js:9546), the entry point the magic arc owed.
 //  - the LETTER OF CREDIT is tender and bankable: minted at systems/
 //    inventory.js:69, summed by creditAmount at systems/court.js:244,
 //    spent letters-before-coins by deductGold at court.js:286, and

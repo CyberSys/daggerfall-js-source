@@ -165,14 +165,16 @@ test('PROF3 service: the smith\'s stock - the fittings into the Stores as bought
   s.give(mac, 'plank:oak', 'own', STORES_MAX);
   assert.deepEqual((await s.call('/v1/prof/stock', { ...body, rid: rid(), material: 'plank:oak', qty: 1 }, mac.secret)).body, { error: 'stores-full' });
   assert.equal(s.balance(mac), 80, 'nothing burnt for a refusal');
-  assert.deepEqual((await s.call('/v1/stores/withdraw', { character: mac.character, material: 'leather:cured', qty: 1, rid: rid() }, mac.secret)).body, { error: 'prof-no-pack-form' });
+  // PROF7 moved it: Cured Leather has its template (665) - the Stores give it to the pack, bought units first
+  const out = (await s.call('/v1/stores/withdraw', { character: mac.character, material: 'leather:cured', qty: 1, rid: rid() }, mac.secret)).body;
+  assert.deepEqual([out.ok, out.qty, out.store], [true, 1, { material: 'leather:cured', own: 0, bought: 4 }]);
   // bought, and spent first: a Longsword of it is made
   s.setXp(mac, xpForRank(55));
   s.give(mac, 'ingot:mithril', 'own', 3);
   s.give(mac, 'metal:copper', 'own', 1);
   const sword = await s.call('/v1/prof/craft', craft(mac, 'longsword:mithril'), mac.secret);
   assert.equal(sword.status, 200, JSON.stringify(sword.body));
-  assert.deepEqual(s.stores(mac, 'leather:cured'), [['bought', 4]]);
+  assert.deepEqual(s.stores(mac, 'leather:cured'), [['bought', 3]]);
   s.env.MARKS_OPEN = 'off';
   assert.deepEqual((await s.call('/v1/prof/stock', { ...body, rid: rid(), qty: 1 }, mac.secret)).body, { error: 'marks-closed' });
 });

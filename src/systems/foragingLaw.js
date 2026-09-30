@@ -172,6 +172,12 @@ export function foragingRefusal(templateIndex, w, skip = null) {
   }
   return null;
 }
+/** PROF7 (FORAGE0 14.3): the same checks for a tool that is not Foraging's - the Skinning Knife's `order` and its own
+ *  `lines` (net/professionLaw.js KNIFE_CHECKS, KNIFE_REFUSALS), in Foraging's voice. Null where every check passes. */
+export function checksRefusal(order, lines, w) {
+  for (const check of order) if (checkFails(check, w)) return lines[check] ?? null;
+  return null;
+}
 
 // ---- the Wood-Axe (IL_0f28-IL_110c) ------------------------------------
 
@@ -262,7 +268,7 @@ export function basketFind({ count, food, block }, cc) {
 export const TOOL_QUESTS = Object.freeze({ [FT.WoodAxe]: 'ChopWoodQuest', [FT.FishingNet]: 'FishingQuest', [FT.Basket]: 'ForageFoodQuest' });
 
 /** "Your <Tool> broke." - the tool's own name, as the template names it. */
-export const brokeMessage = (templateIndex) => `Your ${FORAGING_TEMPLATES.find((t) => t.index === templateIndex)?.name ?? 'tool'} broke.`;
+export const brokeMessage = (templateIndex, name = null) => `Your ${FORAGING_TEMPLATES.find((t) => t.index === templateIndex)?.name ?? name ?? 'tool'} broke.`;   // PROF7: a tool not Foraging's by its own name (the Skinning Knife)
 
 // ---- the foods (IL_4a63-IL_4c2a) --------------------------------------
 

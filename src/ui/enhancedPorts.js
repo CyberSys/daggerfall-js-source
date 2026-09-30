@@ -31,7 +31,7 @@ import {
   SPELL_MAKER_RECTS, SPELL_MAKER_TIPS, EFFECT_NAME_PANELS, TARGET_BUTTONS, ELEMENT_BUTTONS,
   EDITOR_RECTS, SPINNER_UP, SPINNER_DOWN, spinnerPart,
 } from './spellMakerWindow.js';
-import { flagOfIndex, SPINNER_RANGES } from '../systems/spellMaker.js';   // HOLD-STEP: a typed value's range, said on its field
+import { flagOfIndex, spinnerRange } from '../systems/spellMaker.js';   // HOLD-STEP: a typed value's range, said on its field
 import { SPELLBOOK_RECTS, spellPointCost, spellEffects } from './spellbookWindow.js';   // SHOP-PLUS: the spell shop is the book in buy mode
 import { effectWords, spellFrame } from './enhancedSpellbook.js';        // ...and says a spell in the enhanced book's own words
 import { totalGoldAmount } from '../systems/court.js';
@@ -275,7 +275,7 @@ function spellEditorView(w) {
   const spin = (field, label) => ({ type: 'spinner', label, value: slot?.settings?.[field] ?? 0, disabled: !ed.enabled(field),
     down: live(at(w, spinnerPart(EDITOR_RECTS[field], SPINNER_DOWN))), up: live(at(w, spinnerPart(EDITOR_RECTS[field], SPINNER_UP))),
     // HOLD-STEP (Tabitha on Discord: "add a field to type in the value"): the value typed, by the step's own law
-    set: live((v) => ed.setValue(field, v)), min: SPINNER_RANGES[field]?.[0], max: SPINNER_RANGES[field]?.[1] });
+    set: live((v) => ed.setValue(field, v)), min: spinnerRange(field, slot?.key)?.[0], max: spinnerRange(field, slot?.key)?.[1] });   // ABSORB-NERF: the effect's own range
   return {
     title: ed.deps.effect?.name ?? 'Effect', sub: 'Effect settings', size: 'medium',
     blocks: [

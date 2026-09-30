@@ -183,7 +183,7 @@ export class PauseOptionsWindow {
     // GameManager.cs:515-518, and ActionComplete is the RELEASE edge
     // (InputManager.cs:634-637) - so its opening release is spent before
     // the window exists and :186's bare `GetKeyUp` is safe there. Every
-    // host here opens on the key DOWN (world.js:12125, exterior.js:3181,
+    // host here opens on the key DOWN (world.js:12166, exterior.js:3182,
     // ui/input.js:598) and then routes that same key's release into the
     // window it just mounted, so the release door closes only a window
     // whose own press it saw.

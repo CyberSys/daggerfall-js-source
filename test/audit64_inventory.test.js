@@ -47,6 +47,9 @@ import { templateByIndex } from '../src/systems/itemTemplates.js';
 import { EQUIP_SLOTS, equipOf } from '../src/systems/equip.js';
 import { audio } from '../src/systems/audio.js';
 import { SOUND } from '../src/systems/soundClips.js';
+import { setValue } from '../src/systems/settings.js';
+// REPAIR-EASE: InstantRepairs is the port's default now - F53's tint is a booked repair's, so these pins run with it off
+setValue('Controls', 'InstantRepairs', 'False');
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(root, p), 'utf8');
