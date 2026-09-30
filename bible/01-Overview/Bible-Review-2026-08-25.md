@@ -127,7 +127,7 @@ per arc:
   (`mysticism.test.js:225-239`). The doc, the pin's design, and
   `mysticism.js:53`'s header are all wrong the same way. Also stale:
   S24 "the port has neither the [Spell Absorption] effect nor the
-  state" (`effects.js:1165-1188` + `absorption.js:77-91` land it
+  state" (`effects.js:1165-1188` + `absorption.js:93-109` land it
   first-arm); S40's "house ledger is unported" flag
   (`banking.js:173 isHouseOwned` feeds the rest seam); S16's
   "monsters 0-42 still spawn as billboards" (C11 pivoted them to real

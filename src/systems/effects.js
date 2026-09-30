@@ -34,7 +34,7 @@ import { mentorDamageTakenMult } from './mentorMode.js';   // SOFTCAP2: a leaf
 import { raceById, raceByKey } from './races.js';   // L2-slice (magic-10): the racial immunity arm
 import { STAT_KEYS_ORDER, FATIGUE_MULTIPLIER, maxFatigue, increaseDrainMagnitude, liveStat } from './statMods.js';
 import { dice100 } from '../combat/formulas.js';
-import { tryAbsorption, effectCastingCost } from './absorption.js';
+import { tryAbsorption, effectCastingCost, absorbRefund } from './absorption.js';
 import { enemyGroupOf, NEARBY } from './nearbyObjects.js';   // X8: Pacify matches on DFU's EnemyGroups, the same table X4 ported   // S24; X7: the Identify refund reads the same per-effect cost
 // AUDIT 24 (wave 31): the concealment BREAK lives in its own leaf so that
 // combat/formulas.js can reach it without the effects -> spellcast ->
@@ -1790,8 +1790,10 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
     // to the raw target entity never matched, so the cap was dead.
     if (caster?.entity === target && selfCastCost > 0 && totalAbsorbed > selfCastCost) totalAbsorbed = selfCastCost;
     out.absorbed = totalAbsorbed;
+    // ABSORB-NERF (2026-09-30, Discord: "Nerf spell absorption, it breaks the game"): the refund is HALF the points
+    // absorbed, floored - every source, the Sorcerer's Always included (absorption.js absorbRefund)
     if (target.maxMagicka != null) {
-      target.magicka = Math.min(target.maxMagicka, (target.magicka ?? 0) + totalAbsorbed);
+      target.magicka = Math.min(target.maxMagicka, (target.magicka ?? 0) + absorbRefund(totalAbsorbed));
     }
     sinks?.say?.(SPELL_ABSORBED_TEXT);
   }

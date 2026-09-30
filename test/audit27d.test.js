@@ -20,8 +20,10 @@ const W = src('src/scenes/world.js');
 
 test('AUDIT SPELL-GIFT B4: the live Spell Absorption is the BEST of its entries - a gift never merges with my own (ALLY-CAST C2), and a stranger\'s 0% one, first in the list, made my own 100% read 0 for as long as it ran (mutants: the first entry\'s)', () => {
   const entry = (chanceBase, over = {}) => ({ kind: 'spellAbsorption', chanceBase, chanceMod: 0, chancePerLevel: 1, ...over });
-  assert.equal(spellAbsorptionChance({ level: 10, activeEffects: [entry(0), entry(100)] }), 100, 'the gift ahead of my own');
-  assert.equal(spellAbsorptionChance({ level: 10, activeEffects: [entry(60), entry(20)] }), 60);
+  // ABSORB-NERF (2026-09-30): the chance caps at 50 (absorption.js SPELL_ABSORPTION_CHANCE_CAP) - the best is read under it
+  assert.equal(spellAbsorptionChance({ level: 10, activeEffects: [entry(0), entry(40)] }), 40, 'the gift ahead of my own');
+  assert.equal(spellAbsorptionChance({ level: 10, activeEffects: [entry(45), entry(20)] }), 45);
+  assert.equal(spellAbsorptionChance({ level: 10, activeEffects: [entry(0), entry(100)] }), 50, 'my own 100% reads the cap');
   assert.equal(spellAbsorptionChance({ level: 10, activeEffects: [entry(90, { ended: true }), entry(20)] }), 20, 'an ended one is none');
   assert.equal(spellAbsorptionChance({ level: 10, activeEffects: [{ kind: 'spellAbsorption', chance: 35 }, entry(10)] }), 35, 'a pre-X2 entry\'s frozen chance still counts');
   assert.equal(spellAbsorptionChance({ level: 10, activeEffects: [] }), 0);
