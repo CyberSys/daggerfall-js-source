@@ -274,7 +274,9 @@ import {
   homeSoldLine, homeRefund, HOME_ENTRY_WORDS, HOME_BANK_LINES, buyOnlineHome, sellOnlineHome, HOME_BUY_BUSY, homeDoorPrompt,
   HOME_BUY_ARM_MS, HOME_VERB, homeBuyRows, homeOwnerRows, homeNextEntry, HOME_OFFER_BUY, HOME_OFFER_PASS,   // HOME2
   homeVisitorRows,   // HOME-RENT: a tenant's rows, and a home's with a room to rent
+  homeHallBuyRow, homeHallRows, hallNextEntry, hallBoughtLine, hallShortLine, HALL_CHEST_SHUT,   // GUILD1d: a guild's hall
 } from '../systems/onlineHomes.js';
+import { guildHallPrice, GUILD_HALL_ENTRY_WORDS } from '../net/hallLaw.js';   // GUILD1d: what a hall costs, in its refusal's words; who may walk in
 import { HOME_ENTRIES, homePriceOk, rentCost, rentDaysLeft } from '../net/homeLaw.js';
 // HOME-RENT: a home's rooms, rented at its door and offered, priced and collected in its owner's decorator
 import {
@@ -3451,7 +3453,8 @@ export function createWorldModes(host) {
   let _keptHidden = [];
 
   /** DECOR1c: WHO OWNS THE ROOM'S PLACED PIECES - the character whose online home it is; else (offline, or a building
-   *  no online home names) the owner of Daggerfall's own house, or of the ship. */
+   *  no online home names) the owner of Daggerfall's own house, or of the ship. GUILD1d: a guild's hall is nobody's own -
+   *  its keepers furnish it (decorKeeperHere). */
   function decorOwnerHere() {
     if (interiorHome) return interiorHome.own;
     const b = interiorBuilding;
@@ -3466,6 +3469,7 @@ export function createWorldModes(host) {
     const piece = interiorDecor.pieceOf(id);
     if (piece?.station) { useDecorStation(piece); return; }   // HOME-STATIONS
     if (!piece?.storage) return;
+    if (interiorHome?.hall && interiorHome.member) { openHallChest(); return; }   // GUILD1d: the guild's chest, as its cupboards
     if (!decorOwnerHere()) {
       if (interiorHome) say(homeBelongsLine(interiorHome));
       return;
@@ -3480,7 +3484,8 @@ export function createWorldModes(host) {
    *  potion maker's ingredients, the spell maker's spellbook, what each charges). No guild is asked: the licence was
    *  paid when the piece was made a station. */
   function useDecorStation(piece) {
-    if (!decorOwnerHere()) {
+    // GUILD1d: a hall's stations are its members' - the licence its keeper paid serves the guild
+    if (!decorOwnerHere() && !(interiorHome?.hall && interiorHome.member)) {
       if (interiorHome) say(homeBelongsLine(interiorHome));
       return;
     }
@@ -3498,16 +3503,25 @@ export function createWorldModes(host) {
     if (!flow && !interiorOverlay) say(DECOR_STATION_NOT_READY);
   }
 
+  /** GUILD1d (Seats-Arc 8.2: "decor in the hall by Officers"): a guild's hall this character keeps - its Officers and its
+   *  guildmaster (the service's `keeper`, net/hallLaw.js HALL_POWERS.decorate). */
+  const decorKeeperHere = () => !!(interiorHome?.hall && interiorHome.keeper);
+  /** GUILD1d: THE GUILD'S CHEST - the guild Stores, on the Guild tab (the host's social panel); said where it cannot open. */
+  function openHallChest() {
+    if (!host.guildHall?.openStores?.()) say(HALL_CHEST_SHUT);
+  }
   /** DECOR1d: WHERE THE PLAYER MAY DECORATE - a room whose placed pieces are theirs (decorOwnerHere), and what kind of
-   *  room it is: their online home (the account service's), their house or their ship (the save's). */
+   *  room it is: their online home (the account service's), their house or their ship (the save's). GUILD1d: and a
+   *  guild's hall its keeper stands in. */
   function decorRoomHere() {
     const b = interiorBuilding;
-    if (mode !== 'interior' || !b || !decorOwnerHere()) return null;
+    if (mode !== 'interior' || !b || !(decorOwnerHere() || decorKeeperHere())) return null;
     // DECOR-SHELL: an online home is decorated once its list has stood - the list stands the room WHOLE
     // (interiorDecor.set), so a piece placed before it landed was taken down again, its item sent back to the pack;
     // AUDIT DECOR-SHELL 2: and a list that did not stand leaves the room without the service's pieces and without its
     // owner's taken-out furniture, whose whole list the first piece taken out would write over the service's
     if (interiorHome && _decorListed !== _decorVisit) return null;
+    if (interiorHome?.hall) return { kind: 'home', hall: true, where: "Your guild's hall", mapId: homeTownOf(b), buildingKey: b.buildingKey };   // GUILD1d
     if (interiorHome) return { kind: 'home', where: 'Your home', mapId: homeTownOf(b), buildingKey: b.buildingKey };
     if (b.buildingType === BUILDING_TYPES.Ship) return { kind: 'ship', where: 'Your ship' };
     return { kind: 'house', where: 'Your house' };
@@ -5595,14 +5609,49 @@ export function createWorldModes(host) {
   const homeArmed = (bd) => !!_homeArm && _homeArm.id === homeIdOf(bd) && performance.now() - _homeArm.at <= HOME_BUY_ARM_MS;
   /** What the door's cached text depends on beyond the door: whether verbs are listed at all (Steal lists none) and the
    *  arm that is live - its lapse repaints the row back to "Buy it". */
-  const homeVerbsSig = () => `${host.onlineHomes && getInteractionMode() !== 'steal' ? 'v' : ''}|${_homeArm && performance.now() - _homeArm.at <= HOME_BUY_ARM_MS ? _homeArm.id : ''}`;
+  const homeVerbsSig = () => `${host.onlineHomes && getInteractionMode() !== 'steal' ? 'v' : ''}|${_homeArm && performance.now() - _homeArm.at <= HOME_BUY_ARM_MS ? _homeArm.id : ''}`
+    + `|${_hallArm && performance.now() - _hallArm.at <= HOME_BUY_ARM_MS ? _hallArm.id : ''}|${(() => { const g = hallGuild(); return g ? `${g.name}:${g.rank}:${g.hall ? 1 : 0}` : ''; })()}`;   // GUILD1d: the hall's arm, and whether this character may buy one
   /** The door's verbs, or null: my own home's, or a house's I could buy (homeOfferPrice), in any mode but Steal. */
   function homeDoorVerbs(bd, home) {
     if (!host.onlineHomes || getInteractionMode() === 'steal') return null;
     if (home?.own) return homeOwnerRows(home.entry);
+    if (home?.hall) return homeHallRows(home, homeDoorFor(bd, home));   // GUILD1d: a hall's members go in; its keepers say who may
     if (home) return homeVisitorRows(home, homeDoorFor(bd, home));   // HOME-RENT: a tenant's own room, or a room to rent
     const price = homeOfferPrice(bd);
-    return price ? homeBuyRows(price, homeArmed(bd)) : null;
+    if (!price) return null;
+    // GUILD1d: and, to a guildmaster whose guild holds no hall, the house bought as the guild's hall from its treasury
+    const hall = homeHallBuyRow(price, hallGuild(), hallArmed(bd));
+    return hall ? [...homeBuyRows(price, homeArmed(bd)), hall] : homeBuyRows(price, homeArmed(bd));
+  }
+  /** GUILD1d: the playing character's guild as the guild book last read it (`{ name, rank, hall, treasury }`), or null -
+   *  asking it again, without waiting, when that read is old. */
+  const hallGuild = () => host.guildHall?.info?.() ?? null;
+  /** GUILD1d: the hall's buy armed by its first press - a second on the same house within HOME_BUY_ARM_MS buys. */
+  let _hallArm = null;
+  const hallArmed = (bd) => !!_hallArm && _hallArm.id === homeIdOf(bd) && performance.now() - _hallArm.at <= HOME_BUY_ARM_MS;
+  /** GUILD1d: THE HALL'S ROW PRESSED - armed, then bought from the treasury (net/guildBook.js buyHall; no purse moves). */
+  function pressHallBuy(bd, price) {
+    if (!hallArmed(bd)) { _hallArm = { id: homeIdOf(bd), at: performance.now() }; return; }
+    _hallArm = null;
+    const g = hallGuild();
+    const mapId = homeTownOf(bd);
+    Promise.resolve(host.guildHall?.buy?.({ mapId, buildingKey: bd.buildingKey, region: bd.regionIndex ?? 0, price }))
+      .then((r) => {
+        if (r?.ok) { host.onlineHomes?.ensure?.(mapId, { force: true }); townTalk?.say?.(hallBoughtLine(g?.name ?? 'your guild')); return; }
+        townTalk?.say?.(r?.error === 'guild-treasury-short' || r?.error === 'guild-treasury-old' ? hallShortLine(guildHallPrice(price)) : accountRefusalText(r?.error ?? 'server'));
+        if (r?.error === 'home-taken') host.onlineHomes?.ensure?.(mapId, { force: true });
+      })
+      .catch((e) => console.error(e));
+  }
+  /** GUILD1d: THE HALL'S ENTRY ROW PRESSED - members, anyone, and round again; said when the service has it. */
+  function turnHallEntry(bd, home) {
+    const next = hallNextEntry(home.entry);
+    Promise.resolve(host.guildHall?.setEntry?.(next))
+      .then((r) => {
+        if (r?.ok) host.onlineHomes?.ensure?.(homeTownOf(bd), { force: true });
+        townTalk?.say?.(r?.ok ? `Who may enter the hall: ${GUILD_HALL_ENTRY_WORDS[next]}.` : accountRefusalText(r?.error ?? 'server'));
+      })
+      .catch((e) => console.error(e));
   }
 
   /** BuildingIsUnlocked's ONE evaluation (PlayerActivate.cs:358): DFU
@@ -5785,6 +5834,8 @@ export function createWorldModes(host) {
           const price = door === 'none' ? homeOfferPrice(bd) : 0;
           if (!isBash && !homeAsked && mode !== 'steal') {
             if (verb === HOME_VERB.buy && price) { pressHomeBuy(bd, price); return true; }
+            if (verb === HOME_VERB.hall && price) { pressHallBuy(bd, price); return true; }   // GUILD1d
+            if (verb === HOME_VERB.hallEntry && home?.hall && home.keeper) { turnHallEntry(bd, home); return true; }   // GUILD1d
             if (verb === HOME_VERB.entry && door === 'own') { turnHomeEntry(bd, home); return true; }
             if (verb === HOME_VERB.sell && door === 'own') { openHomeSale(bd); return true; }
           }
@@ -6751,6 +6802,9 @@ export function createWorldModes(host) {
         const c = interiorCtx.containers[Number(key.split(':')[1])];
         // HOME1: in someone else's home the cupboards are theirs - not a stranger's to restock, not a theft to roll,
         // not the room's. Shut, and said so (what they keep is in their own save, never in mine).
+        // GUILD1d (Seats-Arc 8.2: "the hall carries the guild Stores chest"): in a guild's hall every cupboard is the
+        // guild's chest - to its members the guild Stores, on the Guild tab; to anyone else, the guild's
+        if (c && interiorHome?.hall && interiorHome.member) { openHallChest(); return true; }
         if (c && interiorHome && !interiorHome.own) { say(homeBelongsLine(interiorHome)); return true; }
         if (c) {
           const b = interiorBuilding;
@@ -8466,7 +8520,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:14195's own wave-46 note); the interior
+          // a blow (world.js:14214's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -9495,7 +9549,7 @@ export function createWorldModes(host) {
       // that lets you sleep in it" - and that moment arrived in the
       // same merge: DaggerfallBankManager.IsHouseOwned is live over
       // the region's own registry slot.
-      houseOwned: interiorHome ? (interiorHome.own || rentDaysLeft(interiorHome.tenant, Math.floor(Date.now() / 1000)) > 0) : isHouseOwned(playerEntity.houses ?? [], b?.regionIndex ?? 0, b?.buildingKey ?? 0),   // HOME1: my online home's bed is mine; HOME-RENT: and a tenant rests in the home they rent in
+      houseOwned: interiorHome ? (interiorHome.own || (interiorHome.hall && interiorHome.member) || rentDaysLeft(interiorHome.tenant, Math.floor(Date.now() / 1000)) > 0) : isHouseOwned(playerEntity.houses ?? [], b?.regionIndex ?? 0, b?.buildingKey ?? 0),   // HOME1: my online home's bed is mine; HOME-RENT: and a tenant rests in the home they rent in; GUILD1d: and a member in their guild's hall
       // GetRentedRoom(mapId, buildingKey), through the SAME finder the
       // tavern window rents with - so the bed this answers is the bed
       // that was sold (tavern.js's own flag, retired here).
@@ -11101,7 +11155,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3470-3492), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:10643). So an F9 pressed in a shop
+     *  unconditionally (world.js:10662). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -11140,7 +11194,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:10758)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:10777)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -11150,7 +11204,7 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:9637`
+     *  HARD2c: this used to spell them out, and named `world.js:9656`
      *  and `dungeonContext.js:7633` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */

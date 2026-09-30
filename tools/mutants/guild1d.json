@@ -1,0 +1,348 @@
+[
+  {
+    "name": "GUILD1d-hall-no-half-again",
+    "file": "server-account/src/halls.js",
+    "old": "  const cost = guildHallPrice(price);\n",
+    "new": "  const cost = price;\n",
+    "tests": [
+      "test/guild1d_service.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-price-rounded-down",
+    "file": "src/net/hallLaw.js",
+    "old": "price + Math.ceil(price / 2)",
+    "new": "price + Math.floor(price / 2)",
+    "tests": [
+      "test/guild1d_client.test.js",
+      "test/guild1d_service.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-realm-gold-unguarded",
+    "file": "server-account/src/halls.js",
+    "old": "AND treasury >= ?1 AND realm_gold >= ?1 AND NOT EXISTS",
+    "new": "AND treasury >= ?1 AND NOT EXISTS",
+    "tests": [
+      "test/guild1d_service.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-buy-rank-unasked",
+    "file": "server-account/src/halls.js",
+    "old": "  if (!hallMay(a.me.rank, 'hall')) return { error: 'guild-rank' };\n  if (!homeMapIdOk(mapId)",
+    "new": "  if (!homeMapIdOk(mapId)",
+    "tests": [
+      "test/guild1d_service.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-mark-a-character-id",
+    "file": "server-account/src/halls.js",
+    "old": "player.id, guildHallOwner(gid), g?.name",
+    "new": "player.id, gid, g?.name",
+    "tests": [
+      "test/guild1d_service.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-ledger-kind-unsaid",
+    "file": "server-account/src/halls.js",
+    "old": "moved_by = ?2, moved_at = ?3, moved_kind = 'hall'\n",
+    "new": "moved_by = ?2, moved_at = ?3\n",
+    "tests": [
+      "test/guild1d_service.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-old-lane-sells-a-hall",
+    "file": "server-account/src/homes.js",
+    "old": "AND player = ? AND guild_id IS NULL RETURNING price",
+    "new": "AND player = ? RETURNING price",
+    "tests": [
+      "test/guild1d_service.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-anchor-opens-a-hall",
+    "file": "server-account/src/homes.js",
+    "old": "WHERE map_id = ? AND building_key = ? AND player = ? AND guild_id IS NULL')\n    .bind(entry,",
+    "new": "WHERE map_id = ? AND building_key = ? AND player = ?')\n    .bind(entry,",
+    "tests": [
+      "test/guild1d_service.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-anchor-lists-a-hall",
+    "file": "server-account/src/homes.js",
+    "old": "WHERE player = ? AND guild_id IS NULL ORDER BY bought_at",
+    "new": "WHERE player = ? ORDER BY bought_at",
+    "tests": [
+      "test/guild1d_service.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-keeps-no-hall",
+    "file": "server-account/src/guilds.js",
+    "old": "\n  OR EXISTS (SELECT 1 FROM homes WHERE guild_id = ${p}))`;",
+    "new": "\n  OR 0)`;",
+    "tests": [
+      "test/guild1d_service.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-sale-no-deed-share",
+    "file": "server-account/src/halls.js",
+    "old": "  const back = refund + piecesBack;\n",
+    "new": "  const back = piecesBack;\n",
+    "tests": [
+      "test/guild1d_service.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-sale-outside-realm-gold",
+    "file": "server-account/src/halls.js",
+    "old": "treasury = treasury + ?1, realm_gold = realm_gold + ?1, moved_by = ?2, moved_at = ?3, moved_kind = 'hall-sale'",
+    "new": "treasury = treasury + ?1, moved_by = ?2, moved_at = ?3, moved_kind = 'hall-sale'",
+    "tests": [
+      "test/guild1d_service.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-entry-rank-unasked",
+    "file": "server-account/src/halls.js",
+    "old": "  if (!hallMay(a.me.rank, 'hallEntry')) return { error: 'guild-rank' };\n",
+    "new": "",
+    "tests": [
+      "test/guild1d_service.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-entry-unchecked",
+    "file": "server-account/src/halls.js",
+    "old": "  if (!guildHallEntryOk(entry)) return { error: 'bad-entry' };\n",
+    "new": "",
+    "tests": [
+      "test/guild1d_service.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-first-heraldry-charged",
+    "file": "server-account/src/halls.js",
+    "old": "  if (!was) {\n",
+    "new": "  if (false) {\n",
+    "tests": [
+      "test/guild1d_service.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-heraldry-rank-unasked",
+    "file": "server-account/src/halls.js",
+    "old": "  if (!hallMay(a.me.rank, 'heraldry')) return { error: 'guild-rank' };\n",
+    "new": "",
+    "tests": [
+      "test/guild1d_service.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-heraldry-change-without-line",
+    "file": "server-account/src/halls.js",
+    "old": "        .bind(gid, HERALDRY_CHANGE_DRAKES, utcDay(nowS), nowS, player.id, displayName(player), rid),\n      mustChange(db),\n",
+    "new": "        .bind(gid, HERALDRY_CHANGE_DRAKES, utcDay(nowS), nowS, player.id, displayName(player), rid),\n",
+    "tests": [
+      "test/guild1d_service.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-ash-a-field",
+    "file": "src/net/heraldryLaw.js",
+    "old": "if (field === HERALDRY_UNHELD || field === border) return null;",
+    "new": "if (field === border) return null;",
+    "tests": [
+      "test/guild1d_client.test.js",
+      "test/guild1d_service.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-hall-rule-gone",
+    "file": "src/net/homeLaw.js",
+    "old": "  if (home.hall) return home.member === true || home.entry === 'public';\n",
+    "new": "",
+    "tests": [
+      "test/guild1d_client.test.js",
+      "test/guild1d_service.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-guildmate-unread",
+    "file": "src/net/homeLaw.js",
+    "old": "  if (home.entry === 'guild') return home.guildmate === true;",
+    "new": "  if (home.entry === 'guild') return false;",
+    "tests": [
+      "test/guild1d_client.test.js",
+      "test/guild1d_service.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-every-member-a-keeper",
+    "file": "server-account/src/homes.js",
+    "old": "...(hallMay(rank, 'decorate') ? { keeper: true } : {})",
+    "new": "...({ keeper: true })",
+    "tests": [
+      "test/guild1d_service.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-guildmate-for-a-stranger",
+    "file": "server-account/src/homes.js",
+    "old": "WHERE a.player = h.player AND a.char_id = h.char_id AND b.player = ?2 AND b.char_id = ?3)) AS guildmate",
+    "new": "WHERE a.player = h.player AND a.char_id = h.char_id)) AS guildmate",
+    "tests": [
+      "test/guild1d_service.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-owns-any-member",
+    "file": "server-account/src/decor.js",
+    "old": "AND g.char_id = k.c\n      AND g.rank IN (${HALL_POWERS.decorate.join(', ')}))))`;",
+    "new": "AND g.char_id = k.c)))`;",
+    "tests": [
+      "test/guild1d_service.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-hall-takes-an-item",
+    "file": "server-account/src/decor.js",
+    "old": "    if (sent.item) return { error: 'hall-item' };\n",
+    "new": "",
+    "tests": [
+      "test/guild1d_service.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-hall-stands-a-yard",
+    "file": "server-account/src/decor.js",
+    "old": "    if (yard === true) return { error: 'hall-yard' };\n",
+    "new": "",
+    "tests": [
+      "test/guild1d_service.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-piece-half-to-the-keeper",
+    "file": "server-account/src/decor.js",
+    "old": "    const hall = delta > 0 ? await hallGuildOf(db, mapId, buildingKey) : null;\n    if (hall) {\n      // GUILD1d: a hall's piece taken out",
+    "new": "    const hall = null;\n    if (hall) {\n      // GUILD1d: a hall's piece taken out",
+    "tests": [
+      "test/guild1d_service.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-shrink-half-to-the-keeper",
+    "file": "server-account/src/decor.js",
+    "old": "  const hall = delta > 0 ? await hallGuildOf(db, mapId, buildingKey) : null;\n  if (hall) {\n    // GUILD1d: a hall's piece shrunk",
+    "new": "  const hall = null;\n  if (hall) {\n    // GUILD1d: a hall's piece shrunk",
+    "tests": [
+      "test/guild1d_service.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-officer-offered-the-buy",
+    "file": "src/systems/onlineHomes.js",
+    "old": "if (!guild || guild.rank !== 0 || guild.hall) return null;",
+    "new": "if (!guild || guild.hall) return null;",
+    "tests": [
+      "test/guild1d_client.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-entry-row-to-a-member",
+    "file": "src/systems/onlineHomes.js",
+    "old": "...(home.keeper ? [{ id: HOME_VERB.hallEntry,",
+    "new": "...(true ? [{ id: HOME_VERB.hallEntry,",
+    "tests": [
+      "test/guild1d_client.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-hall-town-untold",
+    "file": "src/net/guildBook.js",
+    "old": "    if (r?.ok && Number.isSafeInteger(mapId)) { try { this.onHall?.(mapId);",
+    "new": "    if (false) { try { this.onHall?.(mapId);",
+    "tests": [
+      "test/guild1d_client.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-rid-minted-each-ask",
+    "file": "src/net/guildBook.js",
+    "old": "    if (this._heraldryAsk?.key !== key) this._heraldryAsk = { key, rid: mintMarksRid() };",
+    "new": "    this._heraldryAsk = { key, rid: mintMarksRid() };",
+    "tests": [
+      "test/guild1d_client.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-sale-one-press",
+    "file": "src/ui/socialPanel.js",
+    "old": "acts.append(armed('hall-sell') ? btn(",
+    "new": "acts.append(true ? btn(",
+    "tests": [
+      "test/guild1d_client.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-banner-faces-the-building",
+    "file": "src/scenes/hallBanners.js",
+    "old": "  if ((cx - mx) * ox + (cz - mz) * oz < 0) { ox = -ox; oz = -oz; }\n",
+    "new": "",
+    "tests": [
+      "test/guild1d_client.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-swallowtail-uncut",
+    "file": "src/render/bannerPass.js",
+    "old": "  if (t.a < 0.5) discard;   // the swallowtail's cut\n",
+    "new": "",
+    "tests": [
+      "test/guild1d_client.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-banners-version-unread",
+    "file": "src/scenes/hallBanners.js",
+    "old": "      if (v !== seen || now() - at >= BANNER_REFRESH_MS)",
+    "new": "      if (now() - at >= BANNER_REFRESH_MS)",
+    "tests": [
+      "test/guild1d_client.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-door-unmeasured",
+    "file": "src/scenes/world.js",
+    "old": "            if (hf && !hf.door) hf.door = doorCornersOf(cpu.doors[0], local);\n",
+    "new": "",
+    "tests": [
+      "test/guild1d_client.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-chest-shut-to-members",
+    "file": "src/scenes/worldModes.js",
+    "old": "        if (c && interiorHome?.hall && interiorHome.member) { openHallChest(); return true; }\n",
+    "new": "",
+    "tests": [
+      "test/guild1d_client.test.js"
+    ]
+  },
+  {
+    "name": "GUILD1d-hole-in-the-device-colour",
+    "file": "src/ui/heraldryArt.js",
+    "old": "else { ctx.fillStyle = p.bg ? field : border; ctx.fill(path); }",
+    "new": "else { ctx.fillStyle = border; ctx.fill(path); }",
+    "tests": [
+      "test/guild1d_client.test.js"
+    ]
+  }
+]

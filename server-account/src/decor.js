@@ -27,12 +27,14 @@
 // flat - is written once, at the placement, into columns no later
 // statement touches: a move rewrites `place` alone.
 // ═══════════════════════════════════════════════════════════════════
-import { accountKind, overRate } from './accounts.js';
+import { accountKind, displayName, overRate } from './accounts.js';
 import { CHAR_ID_RE } from './service.js';
 import { homeMapIdOk, homeBuildingKeyOk } from '../../src/net/homeLaw.js';
 import { DECOR_CAP, DECOR_ID_RE, DECOR_OPS_MAX, DECOR_OPS_WINDOW_S, DECOR_STATION_FEES, decorPieceOf, decorPlaceOf, decorHiddenOf, decorRefund, DECOR_YARD_CAP, DECOR_YARDS_TOWN_MAX, decorYardPieceOf, decorYardPlaceOf } from '../../src/net/decorLaw.js';   // HOME-YARD: and a yard's
 import { prepareRealmRecord, realmSideOf, realmActFirst, recordMovedOf, mustChange, dropObjects, dropIfUnnamed, REALM_ID_RE } from './realm.js';   // REALM P2.2b; AUDIT REALM L1-F2: the record asked first; AUDIT REALM2 S2/S3
 import { payFromSave, creditSave } from '../../src/net/realmGoldLaw.js';   // REALM P2.2b: the wallet's own order, over the record
+import { GUILD_TREASURY_MAX } from '../../src/net/guildLaw.js';   // GUILD1d: a hall's treasury's cap
+import { HALL_POWERS } from '../../src/net/hallLaw.js';   // GUILD1d: a hall's keepers
 
 /**
  * REALM P2.2b: WHAT A PIECE'S CHANGE COSTS, as the client's wallet pays it - placed: what it cost (`paid`); grown: the
@@ -98,8 +100,40 @@ async function realmDecorWrite(ctx, player, at, { mapId, buildingKey, delta, wri
   return piece ? { ok: true, piece, gold: delta, realm: { seq: prep.seq } } : { error: 'no-decor' };   // AUDIT REALM L1-F3: the gold the record moved - the client takes it, never its own sum
 }
 
-/** The home is the caller's character's: map, key, account, character. */
-const OWNS = 'EXISTS (SELECT 1 FROM homes WHERE map_id = ? AND building_key = ? AND player = ? AND char_id = ?)';
+/** The home is the caller's character's: map, key, account, character. GUILD1d (Seats-Arc 8.2: "decor in the hall by
+ *  Officers"): or it is a guild's hall and the character is one of its keepers (hallLaw.js HALL_POWERS.decorate) - the
+ *  same four places bound, in the same order, read once through `k`. */
+const OWNS = `EXISTS (SELECT 1 FROM (SELECT ? AS m, ? AS b, ? AS p, ? AS c) k JOIN homes h ON h.map_id = k.m AND h.building_key = k.b
+  WHERE (h.guild_id IS NULL AND h.player = k.p AND h.char_id = k.c)
+    OR (h.guild_id IS NOT NULL AND EXISTS (SELECT 1 FROM guild_members g WHERE g.guild_id = h.guild_id AND g.player = k.p AND g.char_id = k.c
+      AND g.rank IN (${HALL_POWERS.decorate.join(', ')}))))`;
+/** GUILD1d: the guild whose hall a building is, or null (a home, or nobody's). */
+const hallGuildOf = async (db, mapId, buildingKey) => (await db.prepare('SELECT guild_id FROM homes WHERE map_id = ? AND building_key = ?').bind(mapId, buildingKey).first())?.guild_id ?? null;
+
+/**
+ * GUILD1d: WHAT COMES BACK FROM A HALL'S PIECE GOES TO ITS GUILD. A piece in a hall is the guild's once it stands - its
+ * keeper paid for it off their own record (a placement, a growth, a station's licence, as in any home), but half of
+ * what records paid for it, given back when it is shrunk or taken out, goes into the guild's treasury (into what records
+ * paid in - `realm_gold`), never to whichever Officer takes it down: one keeper's piece is never another's purse. The
+ * piece's write and the treasury's move in ONE batch, both or neither; the ledger names it `hall-piece`. The record is
+ * not touched, so the answer carries no sequence (`gold` 0 - nothing to the purse).
+ */
+async function hallPieceBack(ctx, player, guildId, { delta, write, after, refusal }) {
+  const { db, nowS } = ctx;
+  try {
+    await db.batch([
+      write, mustChange(db),
+      db.prepare(`UPDATE guilds SET treasury = treasury + ?1, realm_gold = realm_gold + ?1, moved_by = ?2, moved_at = ?3, moved_kind = 'hall-piece'
+        WHERE id = ?4 AND treasury + ?1 <= ?5`).bind(delta, displayName(player), nowS, guildId, GUILD_TREASURY_MAX),
+      mustChange(db),
+    ]);
+  } catch {
+    const g = await db.prepare('SELECT treasury FROM guilds WHERE id = ?').bind(guildId).first();
+    return { error: g && g.treasury + delta > GUILD_TREASURY_MAX ? 'guild-treasury-full' : await refusal() };
+  }
+  const piece = await after();
+  return piece ? { ok: true, piece, gold: 0, treasury: delta } : { error: 'no-decor' };
+}
 const placeJson = ({ pos, rot, scale, light, storage, paid, station }) => JSON.stringify({ pos, rot, scale, light, storage, paid, ...(station ? { station } : {}) });   // HOME-STATIONS: the craft, when it serves one
 
 /** A stored row as a piece - projected again on the way out, so a row the law would refuse is never handed out.
@@ -225,6 +259,12 @@ export async function placeDecor(ctx, player, { mapId, buildingKey, character, p
   if (shut) return { error: shut };
   const sent = yard === true ? decorYardPieceOf(piece) : decorPieceOf(piece);   // HOME-YARD: outside, the yard's own law
   if (!sent) return { error: 'bad-decor' };
+  // GUILD1d: a hall holds the catalogue's pieces alone - never a keeper's own thing (whose would it be at the sale?) - and
+  // stands no yard yet
+  if (await hallGuildOf(db, mapId, buildingKey)) {
+    if (yard === true) return { error: 'hall-yard' };
+    if (sent.item) return { error: 'hall-item' };
+  }
   const out = yard === true ? 1 : 0;
   const p = sent.item?.pv ? await provenOf(db, player, sent, mapId, buildingKey) : sent;   // PROF4: a crafted piece's mark off its own record
   if (!p) return { error: 'bad-decor' };
@@ -284,6 +324,17 @@ export async function moveDecor(ctx, player, { mapId, buildingKey, character, id
   if (!was || !decorPieceOf({ ...was, ...pl })) return { error: 'bad-decor' };
   if (row.yard === 1 && !decorYardPlaceOf(pl)) return { error: 'bad-decor' };   // HOME-YARD: a yard's piece stays a yard's
   const { delta, ledger } = decorGoldMove(was, pl, row.paid);   // AUDIT REALM L1-F3: half back of what records paid
+  const hall = delta > 0 ? await hallGuildOf(db, mapId, buildingKey) : null;
+  if (hall) {
+    // GUILD1d: a hall's piece shrunk - its half back to the guild's treasury, never to the keeper who shrank it
+    return hallPieceBack(ctx, player, hall, {
+      delta,
+      write: db.prepare(`UPDATE home_decor SET place = ?, paid = ? WHERE map_id = ? AND building_key = ? AND id = ? AND place = ? AND paid = ? AND ${OWNS}`)
+        .bind(placeJson(pl), ledger, mapId, buildingKey, id, row.place, row.paid, mapId, buildingKey, player.id, character),
+      after: async () => pieceOfRow(await db.prepare('SELECT * FROM home_decor WHERE map_id = ? AND building_key = ? AND id = ?').bind(mapId, buildingKey, id).first()),
+      refusal: async () => 'no-decor',
+    });
+  }
   const side = decorSideOf(character, realm, delta);
   if (side.error) return side;
   if (side.at && delta !== 0) {
@@ -322,6 +373,17 @@ export async function removeDecor(ctx, player, { mapId, buildingKey, character, 
       .bind(mapId, buildingKey, id, mapId, buildingKey, player.id, character).first();
     const was = row ? pieceOfRow(row) : null;
     const delta = was ? decorGoldMove(was, null, row.paid).delta : 0;   // AUDIT REALM L1-F3: half of what records paid
+    const hall = delta > 0 ? await hallGuildOf(db, mapId, buildingKey) : null;
+    if (hall) {
+      // GUILD1d: a hall's piece taken out - its half back to the guild's treasury, never to the keeper who took it out
+      return hallPieceBack(ctx, player, hall, {
+        delta,
+        write: db.prepare(`DELETE FROM home_decor WHERE map_id = ? AND building_key = ? AND id = ? AND place = ? AND paid = ? AND ${OWNS}`)
+          .bind(mapId, buildingKey, id, row.place, row.paid, mapId, buildingKey, player.id, character),
+        after: async () => was,
+        refusal: async () => 'no-decor',
+      });
+    }
     const side = decorSideOf(character, realm, delta);
     if (side.error) return side;
     if (side.at && delta > 0) {

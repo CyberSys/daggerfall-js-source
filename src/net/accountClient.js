@@ -55,6 +55,7 @@ import {
 import { MARKET_PRICE_MAX, MARKET_UNITS_MAX, MARKET_LISTINGS_MAX, MARKET_ORDERS_MAX, AUCTION_BID_MAX } from './marketLaw.js';   // PROF5: the bounds its refusals name
 import { GUILD_WRITS_MAX, GUILD_STORES_MAX, COMMISSIONS_MAX, COMMISSIONS_FOR_MAX, WRIT_POSTS_MAX, WRIT_OPS_MAX } from './writLaw.js';   // PROF6: the bounds its refusals name
 import { RENOWN_TRACKS_MAX } from './renown.js';   // RENOWN1: the tracks' bound, in its refusal's own sentence (RENOWN-CHAR: back with the tracks)
+import { HERALDRY_CHANGE_DRAKES } from './heraldryLaw.js';   // GUILD1d: a change's cost, in its refusal's own sentence
 
 /** WHERE THE SERVICE IS. Its own constant beside the relay's
  *  DEFAULT_SERVER (net/online.js), because they are two Workers and
@@ -370,6 +371,17 @@ export const REFUSALS = Object.freeze({
   'guild-stores': 'Empty the guild Stores first.',
   'guild-writs': 'Withdraw the guild\'s writs first.',
   'guild-writ-escrow': 'A withdrawn writ\'s pay is still waiting to go back to the Drake treasury, which is full. Take Drakes out of the treasury first.',   // AUDIT 31 A15
+  // GUILD1d (Seats-Arc 8): the guild hall and the heraldry (server-account/src/halls.js)
+  'guild-hall-have': 'Your guild already has a hall. Sell it first to buy another.',
+  'guild-hall-none': 'Your guild has no hall.',
+  'guild-hall-moved': 'The hall changed while you were selling it - a piece placed or moved, or the guild handed on. Look again.',
+  'guild-hall': 'Sell the guild\'s hall first.',
+  'hall-item': 'A guild hall holds furniture from the catalogue alone - your own things stay yours.',
+  'hall-yard': 'A guild hall\'s yard cannot be furnished yet.',
+  'bad-heraldry': 'Choose two different colours - Ash only as the border - and one device.',
+  'heraldry-same': 'That is already your guild\'s heraldry.',
+  'heraldry-moved': 'The guild\'s heraldry changed meanwhile. Look again.',
+  'heraldry-drakes': `Changing the heraldry costs ${HERALDRY_CHANGE_DRAKES} Drakes from the guild's Drake treasury, and it holds less.`,
   'writ-own-guild': 'Your guild\'s Officers and Guildmaster take its Stores out, so they do not deliver to its writs.',   // AUDIT 31 S6
   'guild-stores-mine': 'A member takes out only what they put in of their own. The Officers and the Guildmaster take the rest.',   // AUDIT 31 R1
   'bad-budget': `A writ budget is 0 to ${MARKS_MAX.toLocaleString('en-US')} Drakes.`,
@@ -920,6 +932,12 @@ export function accountGuilds({ fetch, storage }) {
     withdraw: (character, gold, realm = null, letter = false) => post('/v1/guilds/withdraw', { character, gold, ...(realm ? { realm, letter: letter === true } : {}) }),
     handOver: (character, member) => post('/v1/guilds/handover', { character, member }),
     disband: (character) => post('/v1/guilds/disband', { character }),
+    // GUILD1d (Seats-Arc 8): the hall bought and sold from the treasury, who may walk in, and the heraldry (`rid`: a change
+    // after the first burns Drakes, and a change asked twice is one line)
+    hallBuy: ({ character, mapId, buildingKey, region, price }) => post('/v1/guilds/hall/buy', { character, mapId, buildingKey, region, price }),
+    hallSell: (character) => post('/v1/guilds/hall/sell', { character }),
+    hallEntry: (character, entry) => post('/v1/guilds/hall/entry', { character, entry }),
+    heraldry: (character, heraldry, rid = null) => post('/v1/guilds/heraldry', { character, heraldry, ...(rid ? { rid } : {}) }),
   };
 }
 

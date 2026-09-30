@@ -42,6 +42,8 @@ import {
   homeMapIdOk, homeBuildingKeyOk, homeRegionOk, homePriceOk, homeEntryOk, homeSaleRefund, homeLookOf,
 } from '../../src/net/homeLaw.js';
 import { DECOR_OPS_MAX, DECOR_OPS_WINDOW_S } from '../../src/net/decorLaw.js';   // HOME-LOOK: a repaint counts as a decorator's write
+import { hallMay } from '../../src/net/hallLaw.js';   // GUILD1d: a hall's keepers
+import { heraldryOfRow } from './halls.js';   // GUILD1d: a hall's heraldry, on its door
 
 const homeOf = (row) => ({
   mapId: row.map_id, buildingKey: row.building_key, region: row.region, character: row.char_id,
@@ -168,7 +170,8 @@ export async function releaseHome(ctx, player, { mapId, buildingKey, realm = nul
     const moved = await recordMovedOf(db, player.id, at);   // AUDIT REALM L1-F2: where the record stands, before the house is looked for
     if (moved) return moved;
   }
-  const home = await db.prepare('SELECT * FROM homes WHERE map_id = ? AND building_key = ? AND player = ?').bind(mapId, buildingKey, player.id).first();
+  // GUILD1d: a guild's hall is no account's to sell - its row's `player` is only its anchor (halls.js sellHall sells it)
+  const home = await db.prepare('SELECT * FROM homes WHERE map_id = ? AND building_key = ? AND player = ? AND guild_id IS NULL').bind(mapId, buildingKey, player.id).first();
   // HOME-RENT: a home another player is renting a room in is not sold from under them - their days were paid for
   if (home && Number((await db.prepare(`SELECT COUNT(*) AS n FROM home_rooms WHERE map_id = ? AND building_key = ? AND tenant IS NOT NULL AND until > ?`)
     .bind(mapId, buildingKey, ctx.nowS ?? Math.floor(Date.now() / 1000)).first())?.n ?? 0) > 0) return { error: 'home-tenants' };
@@ -181,7 +184,7 @@ export async function releaseHome(ctx, player, { mapId, buildingKey, realm = nul
   // caller's; a record that is not JSON is no piece and counts nothing.
   const [pieces, gone] = await db.batch([
     decorBackStatement(db, mapId, buildingKey),
-    db.prepare('DELETE FROM homes WHERE map_id = ? AND building_key = ? AND player = ? RETURNING price')
+    db.prepare('DELETE FROM homes WHERE map_id = ? AND building_key = ? AND player = ? AND guild_id IS NULL RETURNING price')
       .bind(mapId, buildingKey, player.id),
   ]);
   const row = gone?.results?.[0];
@@ -197,8 +200,8 @@ export async function releaseHome(ctx, player, { mapId, buildingKey, realm = nul
 export async function setHomeEntry({ db }, player, { mapId, buildingKey, entry } = {}) {
   if (!homeEntryOk(entry)) return { error: 'bad-entry' };
   if (!homeMapIdOk(mapId) || !homeBuildingKeyOk(buildingKey)) return { error: 'no-home' };
-  const r = await db.prepare('UPDATE homes SET entry = ? WHERE map_id = ? AND building_key = ? AND player = ?')
-    .bind(entry, mapId, buildingKey, player.id).run();
+  const r = await db.prepare('UPDATE homes SET entry = ? WHERE map_id = ? AND building_key = ? AND player = ? AND guild_id IS NULL')
+    .bind(entry, mapId, buildingKey, player.id).run();   // GUILD1d: a hall's entry is its guild's (halls.js setHallEntry)
   return r?.meta?.changes ? { ok: true, entry } : { error: 'no-home' };
 }
 
@@ -229,14 +232,29 @@ export async function homesInTown({ db, nowS = Math.floor(Date.now() / 1000) }, 
   // HOME-RENT: each home's rooms still free to rent (how many, and the cheapest a day), and - for the character the
   // caller names - the end of its own tenancy there, which opens the door to it
   const me = typeof character === 'string' && CHAR_ID_RE.test(character) ? character : '';
-  const { results = [] } = await db.prepare(`SELECT h.building_key, h.player, h.char_id, h.owner_name, h.entry, h.paid, h.look,
+  // GUILD1d: a hall's guild (its name, tag and heraldry) and the named character's rank in it; a home whose owner opened
+  // it to their guild, whether the named character is in that guild with them
+  const { results = [] } = await db.prepare(`SELECT h.building_key, h.player, h.char_id, h.owner_name, h.entry, h.paid, h.look, h.guild_id,
+      g.name AS guild_name, g.tag AS guild_tag, g.heraldry AS guild_heraldry,
       (SELECT COUNT(*) FROM home_rooms r WHERE r.map_id = h.map_id AND r.building_key = h.building_key AND r.listed = 1 AND (r.tenant IS NULL OR r.until <= ?1)) AS vacant,
       (SELECT MIN(r.price) FROM home_rooms r WHERE r.map_id = h.map_id AND r.building_key = h.building_key AND r.listed = 1 AND (r.tenant IS NULL OR r.until <= ?1)) AS rent_from,
-      (SELECT MAX(r.until) FROM home_rooms r WHERE r.map_id = h.map_id AND r.building_key = h.building_key AND r.tenant = ?2 AND r.tenant_char = ?3 AND r.until > ?1) AS tenancy
-    FROM homes h WHERE h.map_id = ?4 ORDER BY h.building_key LIMIT ?5`).bind(nowS, player.id, me, mapId, HOME_TOWN_MAX).all();
+      (SELECT MAX(r.until) FROM home_rooms r WHERE r.map_id = h.map_id AND r.building_key = h.building_key AND r.tenant = ?2 AND r.tenant_char = ?3 AND r.until > ?1) AS tenancy,
+      (SELECT m.rank FROM guild_members m WHERE m.guild_id = h.guild_id AND m.player = ?2 AND m.char_id = ?3) AS my_rank,
+      (h.guild_id IS NULL AND h.entry = 'guild' AND EXISTS (SELECT 1 FROM guild_members a JOIN guild_members b ON b.guild_id = a.guild_id
+        WHERE a.player = h.player AND a.char_id = h.char_id AND b.player = ?2 AND b.char_id = ?3)) AS guildmate
+    FROM homes h LEFT JOIN guilds g ON g.id = h.guild_id WHERE h.map_id = ?4 ORDER BY h.building_key LIMIT ?5`).bind(nowS, player.id, me, mapId, HOME_TOWN_MAX).all();
   return {
     mapId,
     homes: results.map((h) => {
+      if (h.guild_id != null) {
+        // GUILD1d: A GUILD'S HALL - named by its guild, whose members walk in and whose Officers furnish it; nobody's home
+        const rank = Number.isSafeInteger(h.my_rank) ? h.my_rank : null;
+        return {
+          buildingKey: h.building_key, owner: h.guild_name ?? h.owner_name, entry: h.entry, mine: false,
+          hall: { name: h.guild_name ?? h.owner_name, tag: h.guild_tag ?? '', heraldry: heraldryOfRow(h.guild_heraldry) },
+          ...(rank != null ? { member: true, ...(hallMay(rank, 'decorate') ? { keeper: true } : {}) } : {}),
+        };
+      }
       const mine = h.player === player.id;
       // HOME-CROSSED: my own realm character's house no record paid for is `crossed` - its door asks no price
       const crossed = mine && REALM_ID_RE.test(String(h.char_id)) && !(Number(h.paid) > 0);
@@ -245,6 +263,7 @@ export async function homesInTown({ db, nowS = Math.floor(Date.now() / 1000) }, 
         ...(Number(h.vacant) > 0 ? { rent: { vacant: Number(h.vacant), from: Number(h.rent_from) } } : {}),
         ...(Number.isSafeInteger(h.tenancy) && h.tenancy > nowS ? { tenant: h.tenancy } : {}),
         ...(h.look ? (() => { const look = homeLookOf(h.look); return look ? { look } : {}; })() : {}),   // HOME-LOOK: how its owner painted it
+        ...(h.guildmate === 1 ? { guildmate: true } : {}),   // GUILD1d: the named character is in the owner's character's guild
       };
     }),
   };
@@ -255,7 +274,7 @@ export async function homesInTown({ db, nowS = Math.floor(Date.now() / 1000) }, 
  * @param {{db: any}} ctx
  */
 export async function homesOf({ db }, player) {
-  const { results = [] } = await db.prepare('SELECT * FROM homes WHERE player = ? ORDER BY bought_at, map_id, building_key')
-    .bind(player.id).all();
+  const { results = [] } = await db.prepare('SELECT * FROM homes WHERE player = ? AND guild_id IS NULL ORDER BY bought_at, map_id, building_key')
+    .bind(player.id).all();   // GUILD1d: a hall is its guild's, never the account's that bought it
   return { homes: results.map(homeOf), cap: HOME_CAP };
 }

@@ -75,6 +75,7 @@ import { renownTrackOf } from './renownTracks.js';
 import { HANDLE_RE } from '../../src/net/handleShape.js';
 import { MARKS_LEDGER_SHOWN } from '../../src/net/marksLaw.js';   // MARKS1: the guild's Marks lines shown
 import { marksOpenFor, guildMarksSweep } from './marks.js';   // AUDIT 28 M5: the Marks shown only where they are the viewer's; M3: a guild that goes sweeps them
+import { hallViewOf, heraldryOfRow } from './halls.js';   // GUILD1d: the guild's hall and heraldry, in its view
 import {
   GUILD_FOUND_GOLD, GUILD_FOUND_RENOWN, GUILD_MEMBERS_MAX, GUILD_RANK_NAMES, GUILD_RANK_MASTER, GUILD_RANK_OFFICER, GUILD_RANK_RECRUIT,
   GUILD_TREASURY_MAX, GUILD_LEDGER_SHOWN, GUILD_OPS_MAX, GUILD_OPS_WINDOW_S, GUILD_INVITE_TTL_S, GUILD_ID_RE, GUILD_MEMBER_RE,
@@ -147,6 +148,8 @@ async function viewOf(db, guildId, me, nowS, marksOpen = false) {
   try { ranks = guildRankNamesOf(JSON.parse(g.ranks)) ?? GUILD_RANK_NAMES; } catch { /* the defaults */ }
   return {
     id: g.id, name: g.name, tag: g.tag, ranks: [...ranks], treasury: g.treasury, foundedAt: g.founded_at, rank: me.rank,
+    // GUILD1d (Seats-Arc 8): the hall (null for none) and the heraldry (null until chosen), every member's to read
+    hall: await hallViewOf(db, guildId), heraldry: heraldryOfRow(g.heraldry),
     members: (members?.results ?? []).map((m) => ({
       member: `m${m.rid}`, name: m.name, rank: m.rank, joinedAt: m.joined_at, you: m.player === me.player && m.char_id === me.char_id,
     })),
@@ -301,7 +304,8 @@ export async function answerInvite({ db, nowS, env }, player, { character, guild
  * going leaves the Marks where they were.
  */
 export const guildKeepsSql = (p) => `(EXISTS (SELECT 1 FROM guild_prof_stores WHERE guild_id = ${p} AND qty > 0)
-  OR EXISTS (SELECT 1 FROM guild_writs WHERE guild_id = ${p} AND (state = 'open' OR (returned = 0 AND escrow > 0))))`;
+  OR EXISTS (SELECT 1 FROM guild_writs WHERE guild_id = ${p} AND (state = 'open' OR (returned = 0 AND escrow > 0)))
+  OR EXISTS (SELECT 1 FROM homes WHERE guild_id = ${p}))`;   // GUILD1d: and its hall - sold first, its deed share into the treasury
 
 /** The guild going: its Marks swept to the guildmaster (marks.js guildMarksSweep) and the row deleted, IN ONE BATCH -
  *  the delete only once the guild's gold treasury is empty and its Marks treasury has been emptied into the
@@ -316,8 +320,8 @@ async function endGuild(db, guildId, player, nowS, { alone = false } = {}) {
   ]);
   return gone;
 }
-/** Why a guild did not go: its members, its gold, its guild Stores or writs (PROF6), or Marks its guildmaster's balance has
- *  no room for. */
+/** Why a guild did not go: its members, its gold, its guild Stores or writs (PROF6), its hall (GUILD1d), or Marks its
+ *  guildmaster's balance has no room for. */
 async function whyNotGone(db, guildId, { alone = false } = {}) {
   if (alone) {
     const n = await db.prepare('SELECT COUNT(*) AS n FROM guild_members WHERE guild_id = ?').bind(guildId).first();
@@ -330,6 +334,7 @@ async function whyNotGone(db, guildId, { alone = false } = {}) {
   if (g && await db.prepare(`SELECT 1 FROM guild_writs WHERE guild_id = ?1 AND state = 'open'`).bind(guildId).first()) return 'guild-writs';
   // AUDIT 31 A15: a closed writ's pay still on its way home - the treasury full, not a writ standing
   if (g && await db.prepare('SELECT 1 FROM guild_writs WHERE guild_id = ?1 AND returned = 0 AND escrow > 0').bind(guildId).first()) return 'guild-writ-escrow';
+  if (g && await db.prepare('SELECT 1 FROM homes WHERE guild_id = ?1').bind(guildId).first()) return 'guild-hall';   // GUILD1d: its hall, sold first
   return g ? 'marks-full' : 'no-guild';
 }
 

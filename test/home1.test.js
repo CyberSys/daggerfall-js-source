@@ -87,14 +87,14 @@ const RICH = (name) => ({ name, level: 9, goldPieces: 10_000_000, items: [], ban
 
 test('HOME1 the law: a home is a town\'s unsigned map id and a building key inside the key\'s widest value, a region 0..61, a whole price up to ten million; three a character; private until the owner says party or public; the owner always walks in, anyone when public, the owner\'s party when party (matched on the relay\'s handle, any case), nobody else (mutants: the cap, a bound, the party matched on nothing, private open)', () => {
   assert.equal(HOME_CAP, 3);
-  assert.deepEqual(HOME_ENTRIES, ['private', 'party', 'public']);
+  assert.deepEqual(HOME_ENTRIES, ['private', 'party', 'public', 'guild']);   // GUILD1d (re-aimed by content): the owner's guild
   assert.equal(HOME_ENTRY_DEFAULT, 'private');
   assert.deepEqual([homeMapIdOk(1), homeMapIdOk(0xffffffff), homeMapIdOk(0), homeMapIdOk(-5), homeMapIdOk(2 ** 32), homeMapIdOk(1.5), homeMapIdOk('1')], [true, true, false, false, false, false, false]);
   assert.deepEqual([homeBuildingKeyOk(1), homeBuildingKeyOk(HOME_KEY_MAX), homeBuildingKeyOk(0), homeBuildingKeyOk(HOME_KEY_MAX + 1)], [true, true, false, false]);
   assert.equal(HOME_KEY_MAX, 1 << 24, 'talkTopics makeBuildingKey spells key 0 as 1<<24');
   assert.deepEqual([homeRegionOk(0), homeRegionOk(61), homeRegionOk(62), homeRegionOk(-1)], [true, true, false, false]);
   assert.deepEqual([homePriceOk(1), homePriceOk(HOME_PRICE_MAX), homePriceOk(0), homePriceOk(HOME_PRICE_MAX + 1), homePriceOk(2.5)], [true, true, false, false, false]);
-  assert.deepEqual([homeEntryOk('party'), homeEntryOk('guild'), homeEntryOk(null)], [true, false, false], 'a guild\'s entry waits for guilds');
+  assert.deepEqual([homeEntryOk('party'), homeEntryOk('friends'), homeEntryOk(null)], [true, false, false], 'an entry the law does not know');   // GUILD1d (re-aimed by content): `guild` is an entry now
   const row = (entry, mine = false) => ({ owner: 'Aldric', entry, mine });
   assert.equal(homeMayEnter(null), true, 'a building nobody owns: its own law stands');
   assert.equal(homeMayEnter(row('private', true)), true, 'the owner');
@@ -171,7 +171,7 @@ test('HOME1 the service: a town\'s homes are any session\'s to read (a guest\'s 
   const e2 = await call('POST', '/v1/homes/entry', { mapId: home().mapId, buildingKey: home().buildingKey, entry: 'public' }, aldric);
   assert.deepEqual(e2.body, { ok: true, entry: 'public' });
   assert.equal((await call('POST', '/v1/homes/town', { mapId: home().mapId }, mara)).body.homes.find((h) => h.buildingKey === home().buildingKey).entry, 'public', 'the town reads it');
-  const e3 = await call('POST', '/v1/homes/entry', { mapId: home().mapId, buildingKey: home().buildingKey, entry: 'guild' }, aldric);
+  const e3 = await call('POST', '/v1/homes/entry', { mapId: home().mapId, buildingKey: home().buildingKey, entry: 'friends' }, aldric);   // GUILD1d (re-aimed by content): `guild` is an entry now
   assert.deepEqual([e3.status, e3.body.error], [400, 'bad-entry']);
   // release: the owner's; the price back; the building free
   const r1 = await call('POST', '/v1/homes/release', { mapId: home().mapId, buildingKey: home().buildingKey }, mara);
@@ -263,8 +263,8 @@ test('HOME1 the client\'s law: a home can be Daggerfall\'s for-sale house or an 
   assert.equal(homeDoorTitle(row('private', { mine: true })), 'Aldric\'s home', 'your OTHER character\'s home is not this one\'s');
   assert.equal(homeLockedLine(row('private')), 'This is Aldric\'s home. The door is locked.');
   assert.equal(homeBelongsLine(row('public')), 'This belongs to Aldric.');
-  assert.deepEqual(HOME_ENTRY_WORDS, { private: 'Only me', party: 'My party', public: 'Anyone' });
-  assert.deepEqual([homeEntryLine('party'), homeEntryLine('guild')], ['Who may enter: My party.', 'Who may enter: Only me.']);
+  assert.deepEqual(HOME_ENTRY_WORDS, { private: 'Only me', party: 'My party', public: 'Anyone', guild: 'My guild' });   // GUILD1d: and the owner's guild
+  assert.deepEqual([homeEntryLine('party'), homeEntryLine('friends')], ['Who may enter: My party.', 'Who may enter: Only me.']);   // GUILD1d (re-aimed by content): `guild` is an entry now
   assert.equal(homeForSaleLine(12800), 'Can be your home: 12800 gold');
 });
 
@@ -301,7 +301,7 @@ test('HOME1 the client\'s registry: a town is asked once while its answer is out
     { buildingKey: 6, owner: 'Aldric', entry: 'public', mine: true, character: 'char-other' },
     { buildingKey: 7, owner: 'Mara', entry: 'party', mine: false },
     { buildingKey: 0, owner: 'Bad', entry: 'public', mine: false },
-    { buildingKey: 8, owner: 'Odd', entry: 'guild', mine: false },
+    { buildingKey: 8, owner: 'Odd', entry: 'friends', mine: false },   // GUILD1d (re-aimed by content): `guild` is an entry now
   ]]]));
   const homes = createOnlineHomes({ api, character: () => me, now: () => now });
   assert.equal(homes.known(T), false);

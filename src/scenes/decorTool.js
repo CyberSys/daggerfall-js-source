@@ -308,7 +308,8 @@ export const eyePoint = (collider, eye, dir, skip = null) => eyeHit(collider, ey
  *   renderer         - drawMesh, panelFrame, createBillboardBatch, destroyBillboardBatch
  *   pool             - the room's placed pieces (scenes/decorRoom.js)
  *   names            - the host's Map of hover names by piece key, filled once the catalogue is read
- *   room()           - where the player may decorate now: { kind: 'home'|'house'|'ship', where, mapId?, buildingKey? },
+ *   room()           - where the player may decorate now: { kind: 'home'|'house'|'ship', where, mapId?, buildingKey?, hall? }
+ *                      (GUILD1d: `hall` - a guild's hall, an online home its keepers furnish),
  *                      or null
  *   base()           - BASE-HIDE: the room's own furniture, piece by piece (scenes/decorBase.js), or null
  *   scanDeps()       - systems/decorScan.js's deps (the blocks, the two measures)
@@ -598,8 +599,9 @@ export function createDecorTool(deps) {
       // DECOR-ROOMS: a house of two rooms or more - each one's name, and the one chosen (the panel's tabs, and its lists)
       rooms: list ? list.map((room) => ({ id: room.id, name: room.name })) : null,
       roomId: list ? roomChosen(list).id : null,
-      // DECOR2a: what in the pack can stand here - free, and back to the pack when taken down
-      own: ownEntries(),
+      // DECOR2a: what in the pack can stand here - free, and back to the pack when taken down; GUILD1d: never in a guild's
+      // hall, which holds the catalogue's pieces alone (a keeper's own thing would be whose at its sale?)
+      own: r?.hall ? [] : ownEntries(),
       base: baseRows(),   // BASE-HIDE: the room's own furniture
       where: r?.where ?? '',
       entries: r?.yard ? s.entries()?.filter((e) => e.kind !== 'door') ?? null : s.entries(),   // HOME-YARD: a door hangs in a doorway, never in a yard
@@ -1003,6 +1005,7 @@ export function createDecorTool(deps) {
     let paid = piece.paid;
     const act = r.kind === 'home' && decorRefund(paid) > 0 ? deps.realm?.() : null;
     let back = 0;
+    let toGuild = 0;   // GUILD1d: a hall's piece gives its half to the guild's treasury, never to the purse
     if (act) {
       // REALM P2.2b: the piece's going and its half back are one write on the service; the purse takes the service's half
       const res = await act({
@@ -1012,6 +1015,7 @@ export function createDecorTool(deps) {
         needsAnswer: true,
         apply: (/** @type {any} */ a) => {
           back = Math.max(0, Number(a.data?.gold) || 0);
+          toGuild = Math.max(0, Number(a.data?.treasury) || 0);
           if (back > 0) deps.wallet?.().credit?.(back);
         },
         call: (/** @type {any} */ at) => deps.homeDecor.remove({ mapId: r.mapId, buildingKey: r.buildingKey, character: deps.character?.(), id: piece.id, realm: at }),
@@ -1028,7 +1032,7 @@ export function createDecorTool(deps) {
     }
     if (deps.visit?.() === visit) pool.remove(piece.id);
     if (decorIsDoor(piece)) forgetRooms();   // HOME-DOORS: its doorway open again, the rooms either side one
-    deps.say?.(`${entryOf(piece).name} removed - ${back} gold back.`);
+    deps.say?.(toGuild > 0 ? `${entryOf(piece).name} removed - ${toGuild} gold back to the guild's treasury.` : `${entryOf(piece).name} removed - ${back} gold back.`);
     return true;
   }
 

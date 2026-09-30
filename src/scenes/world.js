@@ -531,6 +531,9 @@ import { createDuelManager, DUEL_RADIUS_M, DUEL_RANGE_M, DUEL_COUNTDOWN_MS, ring
 import { createDuelRecords, duelUncountedText } from '../net/duelRecord.js';   // DUEL1: the Inspect card's duelling record, asked and kept
 import { createDuelPrompt } from '../ui/duelPrompt.js';   // DUEL1: the challenge, as the challenged player sees it
 import { DuelWallRenderer } from '../render/duelWall.js';   // DUEL1: the ring's holographic wall
+import { BannerRenderer, BANNER_TEX_W } from '../render/bannerPass.js';   // GUILD1d: a guild's banners, the cloth
+import { createHallBanners, doorCornersOf } from './hallBanners.js';   // GUILD1d: ...hung beside its hall's door
+import { drawBanner } from '../ui/heraldryArt.js';   // GUILD1d: ...its heraldry painted on it
 import { AuraRingRenderer, auraWearers, AURA_KINDLE_S } from '../render/auraRing.js';   // WB9g: Dagon's Fire at a wearer's feet
 import { duelAttackerOf, duelWeaponOf, duelSwingOf, resolveDuelStrike, duelBlowPlausible, duelSpellOf, duelSpellFromWire, duelWearDamage, DUEL_TRAIL_MS } from '../combat/duelCombat.js';   // DUEL1: the blow between two duellists, both halves
 import { createPageWindow, pageView } from '../ui/pageWindow.js';   // JOURNAL1: a page another player holds out, read and kept
@@ -1621,6 +1624,15 @@ export async function bootWorld(canvas, renderer, params, status) {
   // DUEL1: the duel ring's wall - in EVERY skin (the players must see the ring whatever they play in); a shader that
   // will not build costs the wall, never the game (the duel's clamp holds the body either way)
   const duelWall = (() => { try { return new DuelWallRenderer(renderer.gl); } catch (e) { console.warn('[duel] the ring wall could not be built', e); return null; } })();
+  // GUILD1d: a guild's banners beside its hall's door - in EVERY skin, a guild's banner being the guild's; a shader that
+  // will not build costs the banners, never the game. Each heraldry painted once on a canvas (ui/heraldryArt.js).
+  const bannerPass = (() => {
+    try {
+      return new BannerRenderer(renderer.gl, {
+        paint: (h) => { const c = document.createElement('canvas'); c.width = BANNER_TEX_W; c.height = BANNER_TEX_W * 3; const g = c.getContext('2d'); if (!g) return null; drawBanner(g, h, BANNER_TEX_W); return c; },
+      });
+    } catch (e) { console.warn('[guild] the banners could not be built', e); return null; }
+  })();
   // TV4: the curtains from above - the enhanced lane's (the clouds and their cells are), built once, drawn only under the travel view
   const rainCurtains = isEnhanced() ? (() => { try { return new RainCurtainsRenderer(renderer.gl); } catch (e) { console.warn('[tv] the curtains could not be built', e); return null; } })() : null;
   let boltFrame = { bolts: [], flash: null };   // BOLT: this frame's burning channels and the light a near ground strike throws
@@ -3517,6 +3529,9 @@ export async function bootWorld(canvas, renderer, params, status) {
             // keys the 31000-overlap repair on EntryDoor.blockIndex, and a
             // hardcoded 0 made it unreachable from this host.
             const staticDoors = getStaticDoors(cpu, b.dfBlock.index, placed.recordIndex, local);
+            // GUILD1d: the building's first door, measured where it stands - its hall's banners hang beside it
+            const hf = homeKey != null ? pixelHomeFrames.get(homeKey) : null;
+            if (hf && !hf.door) hf.door = doorCornersOf(cpu.doors[0], local);
             for (const door of staticDoors) {
               doorGeneration += 1;   // WORLD-HOVER: a pixel's doors arriving
               buildingDoors.push({
@@ -8063,7 +8078,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2753 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6565
+  // that context through modes.dungeonCtx - so worldModes.js:6616
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -8384,6 +8399,10 @@ export async function bootWorld(canvas, renderer, params, status) {
       credit: (n) => { addGold(playerEntity, n); },
     };
   };
+  // GUILD1d: the halls' banners on the streets built (scenes/hallBanners.js), drawn in the frame after the duel walls
+  const hallBanners = onlineHomes && bannerPass ? createHallBanners({
+    built: () => built, homes: onlineHomes, translation: (px, py) => state.pixelTranslation(px, py), eye: () => cam.pos,
+  }) : null;
   const yards = homeDecor && onlineHomes ? createHomeYards({
     api: homeDecor, homes: onlineHomes, built: () => built, translation: (px, py) => state.pixelTranslation(px, py),
     feet: () => (walkMode && playerSpawned ? player.feetAt() : null),
@@ -13292,7 +13311,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10051-10115 -
+  // worldModes answers it in BOTH modes (worldModes.js:10105-10169 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -15727,6 +15746,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // REALM P2.2: a realm character's founding, deposit and withdrawal move its record's gold on the service, in the
       // guild's own batch - the purse checkpointed first, the hold standing until the answer (realmSaves.js realmGoldAct)
       realm: realmSession ? { act: (o) => realmGoldAct({ session: realmSession, checkpoint: () => onlineCheckpoint(), ...o }) } : null,
+      onHall: (mapId) => { onlineHomes?.ensure?.(mapId, { force: true }); },   // GUILD1d: the hall's town read again - its door and banners
     });
     socialPanel = createSocialPanel({
       social,
@@ -19518,6 +19538,21 @@ export async function bootWorld(canvas, renderer, params, status) {
     // opened to their party opens to a player whose party holds the owner (net/homeLaw.js homeMayEnter)
     onlineHomes,
     homesApi,   // HOME-RENT: a home's rooms, through the service's own door (null offline)
+    // GUILD1d: the playing character's guild, for its hall - whether a guildmaster may buy one at a house's door (asked
+    // again, without waiting, when the guild book's look is old), the hall bought and opened through the book, and the
+    // hall's chest: the guild Stores on the Guild tab
+    guildHall: {
+      info: () => {
+        const g = guildBook;
+        if (!g) return null;
+        if (g.stale()) g.refresh().catch(() => {});
+        const v = g.guild;
+        return v ? { name: v.name, rank: v.rank, hall: !!v.hall, treasury: v.treasury } : null;
+      },
+      buy: (o) => (guildBook ? guildBook.buyHall(o) : Promise.resolve({ ok: false, error: 'no-guild' })),
+      setEntry: (e) => (guildBook ? guildBook.setHallEntry(e) : Promise.resolve({ ok: false, error: 'no-guild' })),
+      openStores: () => socialPanel?.openGuild?.() === true,
+    },
     marks: marksBook,   // MARKS1: the Bank of the Empire's Marks, online
     saveSoon: () => saveSoon.changed(),   // PROF-SAVE: a Marks sale's gold in the Bank's account saved soon
     homeDecor,   // DECOR1c: an online home's placed pieces (null offline - the house's and the ship's are the save's)
@@ -23950,6 +23985,16 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, color: renderer._fogColor, camPos: renderer._camPos, dw: renderer._dwFog, focus: renderer._focus });   // DW-C: the sea's fog with the frame's; AUDIT DEEP R-1: and the travel view's focus
         renderer.markForeignPass();
       }
+    }
+    // GUILD1d: THE HALLS' BANNERS - opaque cloth after the grass, from the view's own eye, lit by the frame's sun and
+    // fogged as the ground is, swaying on the weather's wind (render/bannerPass.js)
+    if (hallBanners) {
+      const hung = hallBanners.list();
+      if (hung.length && bannerPass.draw(hung, proj, view, new Float32Array(mwv.eye), now / 1000, {
+        light: { sunDir: renderer._lightDir, amb: renderer._ambient, sunCol: renderer._sunColor, sunScale: renderer._sunScale },
+        wind: Math.min(1, wd.slider * wd.gust),
+        fog: { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, color: renderer._fogColor, camPos: renderer._camPos, dw: renderer._dwFog, focus: renderer._focus },
+      })) renderer.markForeignPass();
     }
     // WB2: THE GATE'S FIRE AND BEACON - after the duel wall, the same eye and fog; the stone went in the world pass, so
     // the horns in front of the fire hide it

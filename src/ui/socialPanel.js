@@ -58,6 +58,11 @@ import { writMay, guildMoveOk, writBudgetOk, GUILD_STORES_MAX, WRIT_BUDGET_MAX }
 import { STORES_MAX } from '../net/professionLaw.js';   // AUDIT 31 U8: a character's Stores' most of a material
 import { marksText } from '../net/marksLaw.js';   // MARKS1: the Marks treasury's words   // MAIL1: the form's caps are the service's
 import { glyphBadges, glyphSvgNode, titleBadge } from './playerBadge.js';   // MAIL1: a sender's glyphs, in the one drawing every DOM face uses
+import { HERALDRY_COLOURS, HERALDRY_DEVICES, HERALDRY_UNHELD, HERALDRY_CHANGE_DRAKES, heraldryOf, heraldrySame, heraldryText, heraldryDeviceName } from '../net/heraldryLaw.js';   // GUILD1d
+import { bannerSvg } from './heraldryArt.js';   // GUILD1d: the guild's banner, drawn
+import { GUILD_HALL_PRICE_MULT, GUILD_HALL_ENTRIES, GUILD_HALL_ENTRY_WORDS, hallMay } from '../net/hallLaw.js';   // GUILD1d: the hall
+import { homeSaleRefund } from '../net/homeLaw.js';   // GUILD1d: what the hall sells back for
+import { REGION_NAMES } from '../formats/mapsTables.js';   // GUILD1d: where the hall stands
 
 export const SOCIAL_STYLE_ID = 'dagger-social-style';
 
@@ -97,6 +102,13 @@ export const GUILD_LOOKING_TEXT = 'Looking for your guild...';
 export const GUILD_NONE_TEXT = 'This character belongs to no guild. Accept an invitation, or found one.';
 export const GUILD_FOUND_COST_TEXT = `Founding a guild costs ${GUILD_FOUND_GOLD.toLocaleString('en-US')} gold - from your purse, then this region's bank account - and Renown ${GUILD_FOUND_RENOWN}.`;
 export const GUILD_GOLD_SHORT_TEXT = 'You do not have that much gold, even with this region\'s bank account.';
+/** GUILD1d (Seats-Arc 8): the Hall and Heraldry sections' words. */
+export const GUILD_HALL_NONE_TEXT = `Your guild has no hall. The guildmaster buys one at any house's door, from the treasury - its price and ${Math.round((GUILD_HALL_PRICE_MULT - 1) * 100)}% more.`;
+export const GUILD_HERALDRY_NONE_TEXT = 'Your guild has no heraldry yet.';
+/** GUILD1d: a treasury ledger line's verb - a deposit and a withdrawal, and the hall's own moves (0043's `moved_kind`). */
+export const GUILD_LEDGER_WORDS = Object.freeze({ deposit: 'put in', withdraw: 'took out', hall: 'bought the hall for', 'hall-sale': 'sold the hall for', 'hall-piece': 'took down a hall piece - back into the treasury:' });
+/** GUILD1d: where a hall stands, in words. */
+export const guildHallWhereText = (hall) => `Your hall stands in ${REGION_NAMES[hall?.region] ?? 'the Iliac Bay'}.`;
 /** GUILD1b: a guild act's answer in words - the service's sentence (REFUSALS), or the tab's own for the purse. */
 export function guildWordText(error) {
   if (error === 'gold') return GUILD_GOLD_SHORT_TEXT;
@@ -158,6 +170,8 @@ ${PIXELIFY_FIVE_FACE}
 .dfsocial-err:empty { display: none; }
 .dfsocial-note { flex: none; padding: 4px 8px; font-size: 12px; color: #e0b070; }
 .dfsocial-note:empty { display: none; }
+.dfsocial-banner { flex: none; display: flex; gap: 10px; align-items: flex-start; padding: 4px 0; }
+.dfsocial-banner svg { flex: none; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
 .dfsocial-tabs { flex: none; display: flex; gap: 2px; padding: 4px 4px 0; border-bottom: 1px solid var(--iron, #2b323b); }
 .dfsocial-tab { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--dim, #8b8578); font: inherit; font-size: 13px;
   letter-spacing: .05em; text-transform: uppercase; padding: 6px 10px; cursor: pointer; }
@@ -964,6 +978,66 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
     return out;
   };
 
+  /** GUILD1d (Seats-Arc 8.2): THE HALL - where it stands and who may walk in, an Officer's to change; its sale the
+   *  guildmaster's, pressed twice, the deed share and its pieces' half into the treasury. With none, how one is bought. */
+  const guildHallNodes = (g, v, me) => {
+    const out = [el('div', 'dfsocial-sec', 'Hall')];
+    const hall = v.hall;
+    if (!hall) { out.push(el('div', 'dfsocial-note', GUILD_HALL_NONE_TEXT)); return out; }
+    out.push(personRow({ name: guildHallWhereText(hall), sub: `Who may enter: ${GUILD_HALL_ENTRY_WORDS[hall.entry] ?? GUILD_HALL_ENTRY_WORDS.guild} - bought for ${Number(hall.paid).toLocaleString('en-US')} gold` }));
+    const acts = el('div', 'dfsocial-acts');
+    if (hallMay(me, 'hallEntry')) {
+      const next = GUILD_HALL_ENTRIES[(Math.max(0, GUILD_HALL_ENTRIES.indexOf(hall.entry)) + 1) % GUILD_HALL_ENTRIES.length];
+      acts.append(btn(next === 'public' ? 'Open it to anyone' : 'Members only', { enabled: !g.busy, why: 'a moment', run: () => guildDo(g.setHallEntry(next), `Who may enter the hall: ${GUILD_HALL_ENTRY_WORDS[next]}.`) }));
+    }
+    if (hallMay(me, 'hall')) {
+      const back = homeSaleRefund(Number(hall.paid) || 0);
+      acts.append(armed('hall-sell') ? btn(`Sure? ${back.toLocaleString('en-US')} gold back`, { warn: true, enabled: !g.busy, why: 'a moment', run: () => guildDo(g.sellHall(), 'The hall is sold; its price is back in the treasury.') })
+        : btn('Sell the hall', { enabled: !g.busy, why: 'a moment', run: () => arm('hall-sell') }));
+    }
+    if (acts.children.length) out.push(acts);
+    return out;
+  };
+  /** GUILD1d (Seats-Arc 8.1): THE HERALDRY - the banner, every member's to see; the guildmaster's to choose: two colours
+   *  (Ash never the field) and a device, the first free and each change after it paid from the Drake treasury. The banner
+   *  drawn is the draft while one is being chosen. */
+  const guildHeraldryNodes = (g, v, me) => {
+    const out = [el('div', 'dfsocial-sec', 'Heraldry')];
+    const d = guildUi.draft;
+    const may = hallMay(me, 'heraldry');
+    if (may && !d.heraldry) d.heraldry = { ...(v.heraldry ?? { field: 'azure', border: 'gold', device: 'wolf' }) };
+    const shown = may ? heraldryOf(d.heraldry) ?? v.heraldry : v.heraldry;
+    const pic = el('div', 'dfsocial-banner');
+    pic.innerHTML = bannerSvg(shown, { width: 44 });   // our own drawing, from the law's colours and paths alone
+    pic.append(el('div', 'dfsocial-note', v.heraldry ? heraldryText(v.heraldry) : GUILD_HERALDRY_NONE_TEXT));
+    out.push(pic);
+    if (!may) return out;
+    const pick = (label, options, value, onPick) => {
+      const sel = doc.createElement('select');
+      sel.className = 'dfsocial-field';
+      sel.setAttribute('aria-label', label);
+      for (const [k, text] of options) { const o = doc.createElement('option'); o.value = k; o.textContent = text; if (k === value) o.selected = true; sel.append(o); }
+      sel.addEventListener('change', () => { onPick(sel.value); ui++; if (open) repaint(); });
+      return sel;
+    };
+    const form = el('div', 'dfsocial-form');
+    form.append(el('div', 'dfsocial-label', 'Field'), pick('The field', HERALDRY_COLOURS.filter((c) => c.key !== HERALDRY_UNHELD).map((c) => [c.key, c.name]), d.heraldry.field, (k) => { d.heraldry.field = k; }));
+    form.append(el('div', 'dfsocial-label', 'Border'), pick('The border', HERALDRY_COLOURS.map((c) => [c.key, c.name]), d.heraldry.border, (k) => { d.heraldry.border = k; }));
+    form.append(el('div', 'dfsocial-label', 'Device'), pick('The device', HERALDRY_DEVICES.map((k) => [k, heraldryDeviceName(k)]), d.heraldry.device, (k) => { d.heraldry.device = k; }));
+    form.append(el('div', 'dfsocial-empty', v.heraldry ? `A change costs ${marksText(HERALDRY_CHANGE_DRAKES)} from the Drake treasury.` : 'The first choice is free.'));
+    out.push(form);
+    const acts = el('div', 'dfsocial-acts');
+    acts.append(liveBtn(v.heraldry ? 'Change it' : 'Raise it', () => {
+      const h = heraldryOf(d.heraldry);
+      const why = g.busy ? 'a moment' : !h ? 'two different colours - Ash only as the border'
+        : heraldrySame(h, v.heraldry) ? 'already your heraldry'
+          : v.heraldry && Number(v.marks ?? 0) < HERALDRY_CHANGE_DRAKES ? `${marksText(HERALDRY_CHANGE_DRAKES)} in the Drake treasury` : '';
+      return { enabled: !why, why };
+    }, { run: () => guildDo(g.setHeraldry(d.heraldry), 'The guild\'s banner is raised.', () => { d.heraldry = null; }) }));
+    out.push(acts);
+    return out;
+  };
+
   /** In a guild: its header, its roster with what my rank may do to each, its invitations out, its treasury and
    *  ledger, its rank names, and leaving or disbanding. */
   const guildMemberBody = (g, v) => {
@@ -1027,7 +1101,7 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
       { run: () => { const n = goldTyped(); if (n > 0) guildDo(g.withdraw(n), `${n.toLocaleString('en-US')} gold taken out.`, () => { d.gold = ''; }); } }));
     out.push(tacts);
     for (const l of v.ledger ?? []) {
-      out.push(personRow({ name: `${l.who} ${l.kind === 'withdraw' ? 'took out' : 'put in'} ${Number(l.amount).toLocaleString('en-US')}`, sub: `balance ${Number(l.balance).toLocaleString('en-US')}` }));
+      out.push(personRow({ name: `${l.who} ${GUILD_LEDGER_WORDS[l.kind] ?? GUILD_LEDGER_WORDS.deposit} ${Number(l.amount).toLocaleString('en-US')}`, sub: `balance ${Number(l.balance).toLocaleString('en-US')}` }));   // GUILD1d: the hall's lines say so
     }
     // MARKS1 (PROF0 10.5): THE MARKS TREASURY beside the gold one - any member puts Marks in from the account's balance,
     // the guildmaster alone takes them out; shown where Marks are this account's (the service's switch)
@@ -1046,6 +1120,8 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
       out.push(macts);
       for (const l of v.marksLedger ?? []) out.push(personRow({ name: `${l.who} ${l.kind === 'withdraw' ? 'took out' : 'put in'} ${marksText(Number(l.amount))}` }));
     }
+    // GUILD1d (Seats-Arc 8): THE HALL AND THE HERALDRY
+    out.push(...guildHallNodes(g, v, me), ...guildHeraldryNodes(g, v, me));
     // PROF6 (Professions-Arc 7, 28): THE GUILD STORES - any member deposits from the character's Stores (bought first;
     // their own kept theirs), Officers and the Guildmaster withdraw (the withdrawer's own first); every move on the
     // ledger. Beside them the Officers' writ budget a week, the Guildmaster's to set.
@@ -1067,15 +1143,15 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
     const acts = el('div', 'dfsocial-acts');
     const alone = v.members.length === 1;
     const master = guildMay(me, 'disband');
-    const leaveWhy = master && !alone ? 'hand the guild on first' : master && v.treasury > 0 ? 'take the gold out first' : 'a moment';
-    const canLeave = !busy && (!master || (alone && v.treasury === 0));
+    const leaveWhy = master && !alone ? 'hand the guild on first' : master && v.treasury > 0 ? 'take the gold out first' : master && v.hall ? 'sell the hall first' : 'a moment';
+    const canLeave = !busy && (!master || (alone && v.treasury === 0 && !v.hall));   // GUILD1d: a guild holding a hall never goes
     // AUDIT 28 M3: the Marks treasury never holds a guild back - a guild that goes gives what it holds to its guildmaster
     if (master && (v.marks ?? 0) > 0) out.push(el('div', 'dfsocial-note', `If the guild is disbanded, its ${marksText(Number(v.marks))} go to you.`));
     acts.append(armed('leave') ? btn('Sure?', { warn: true, enabled: canLeave, why: leaveWhy, run: () => guildDo(g.leave(), 'You left the guild.') })
       : btn('Leave', { enabled: canLeave, why: leaveWhy, run: () => arm('leave') }));
     if (master) {
-      const why = v.treasury > 0 ? 'take the gold out first' : 'a moment';
-      const can = !busy && v.treasury === 0;
+      const why = v.treasury > 0 ? 'take the gold out first' : v.hall ? 'sell the hall first' : 'a moment';
+      const can = !busy && v.treasury === 0 && !v.hall;
       acts.append(armed('disband') ? btn('Sure?', { warn: true, enabled: can, why, run: () => guildDo(g.disband(), 'The guild is disbanded.') })
         : btn('Disband', { warn: true, enabled: can, why, run: () => arm('disband') }));
     }
