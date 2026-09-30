@@ -245,7 +245,7 @@ test('NOTICE1 a recruitment note names its guild: only a rank that may invite pi
   assert.deepEqual([(await pin(lone, TOWN, { button: 'guild', character: lone.character })).body.error], ['note-no-guild']);
   assert.deepEqual([(await pin(recruit, TOWN, { button: 'guild', character: recruit.character })).body.error], ['guild-rank'], 'a Recruit cannot invite, so cannot recruit');
   const n = (await pin(gm, TOWN, { button: 'guild', character: gm.character })).body.note;
-  assert.deepEqual([n.button, n.guild], ['guild', { name: 'The Hound', tag: 'HND' }]);
+  assert.deepEqual([n.button, n.guild], ['guild', { name: 'The Hound', tag: 'HND', heraldry: null }]);   // GUILD1e: and its banner, none chosen yet
   await call('/v1/guilds/leave', { character: recruit.character }, recruit.secret);
   assert.equal((await call('/v1/guilds/disband', { character: gm.character }, gm.secret)).status, 200, 'the guild disbands');
   const after = (await read(lone, TOWN)).body.notes[0];

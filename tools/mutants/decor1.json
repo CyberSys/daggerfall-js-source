@@ -461,8 +461,8 @@
   {
     "name": "DECOR1c-a-visitor-opens-a-piece",
     "file": "src/scenes/worldModes.js",
-    "old": "  function activateDecor(id) {\n    const piece = interiorDecor.pieceOf(id);\n    if (piece?.station) { useDecorStation(piece); return; }   // HOME-STATIONS\n    if (!piece?.storage) return;\n    if (interiorHome?.hall && interiorHome.member) { openHallChest(); return; }   // GUILD1d: the guild's chest, as its cupboards\n    if (!decorOwnerHere()) {\n",
-    "new": "  function activateDecor(id) {\n    const piece = interiorDecor.pieceOf(id);\n    if (piece?.station) { useDecorStation(piece); return; }   // HOME-STATIONS\n    if (!piece?.storage) return;\n    if (interiorHome?.hall && interiorHome.member) { openHallChest(); return; }   // GUILD1d: the guild's chest, as its cupboards\n    if (false) {\n",
+    "old": "    if (isHallBoard(piece)) { openHallBoard(); return; }   // GUILD1e: the board in a guild's hall\n    if (!piece?.storage) return;\n    if (interiorHome?.hall && interiorHome.member) { openHallChest(); return; }   // GUILD1d: the guild's chest, as its cupboards\n    if (!decorOwnerHere()) {\n",
+    "new": "    if (isHallBoard(piece)) { openHallBoard(); return; }   // GUILD1e: the board in a guild's hall\n    if (!piece?.storage) return;\n    if (interiorHome?.hall && interiorHome.member) { openHallChest(); return; }   // GUILD1d: the guild's chest, as its cupboards\n    if (false) {\n",
     "tests": [
       "test/decor1.test.js"
     ]

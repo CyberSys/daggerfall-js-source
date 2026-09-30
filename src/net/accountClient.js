@@ -986,6 +986,10 @@ export function accountBoard({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
     modRestore: (id) => post('/v1/board/mod/restore', { id }),
     notice: ({ subject, body, days }, rid) => post('/v1/board/notice', { subject, body, days, rid }),
     noticeRemove: (id) => post('/v1/board/notice/remove', { id }),
+    // GUILD1e: the guild's own board - its members', named by the character (server-account/src/guildBoard.js)
+    guildRead: (character) => post('/v1/guilds/board', { character }),
+    guildPin: ({ character, subject, body, days }, rid) => post('/v1/guilds/board/pin', { character, subject, body, days, rid }),
+    guildTakeDown: (character, id) => post('/v1/guilds/board/take-down', { character, id }),
   };
 }
 

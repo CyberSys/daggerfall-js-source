@@ -17934,16 +17934,28 @@ export async function bootWorld(canvas, renderer, params, status) {
         return r?.ok ? { ok: true, text: `Bought ${r.data.qty} ${materialCountLabel(key, r.data.qty)} at the Weavers' counter for ${r.data.marks} Drakes.` } : { ok: false, text: accountRefusalText(r?.error) };
       },
     } : null;
-    const ov = createNoticeOverlay({
+    return showNoticeWindow({
       town: { name: town.name, mapId: town.mapId }, rumour: rumour ?? [], bountyLine: !!town.bountyLine,
-      gate: () => noticeGateCard(), book: noticeBook, answer: (note) => answerNote(note),
-      character: () => characterIdOf(playerEntity), work, market,
+      gate: () => noticeGateCard(), answer: (note) => answerNote(note), work, market,
+      guilds: true,   // GUILD1e: the Guilds tab - the town's recruitment posters, and the reader's own guild's board
+    });
+  };
+  /** THE ONE CONSTRUCTION SEAM (PROF0 17.2): every Notice Board window this host opens - a town's, and (GUILD1e) the
+   *  board in a guild's hall - is built here, with the book, the character and the shared clock the service keeps. */
+  const showNoticeWindow = (deps) => {
+    const ov = createNoticeOverlay({
+      book: noticeBook, character: () => characterIdOf(playerEntity),
       nowS: () => Math.floor((Date.now() + _sharedOffsetMs) / 1000),   // AUDIT 30 U21: the shared clock the service keeps
+      ...deps,
     });
     if (!ov) return false;
     townTalk.showOverlay(ov);
     return true;
   };
+  /** GUILD1e (Seats-Arc 8.2): THE BOARD IN A GUILD'S HALL PRESSED - the Notice Board's window on the guild's own notes
+   *  alone (`guildOnly`), under the guild's name; no town's board is read. The service asks whether this character is a
+   *  member (a visitor's press never reaches here - worldModes.js says the board is the guild's). */
+  const openGuildBoard = (name) => (noticeBook ? showNoticeWindow({ town: { name: name || 'the guild', mapId: 0 }, guildOnly: { name: name || 'the guild' } }) : false);
   /** PROF1: A COURT WRIT TAKEN (the Work tab's Take): the pay struck to the balance the Bank shows, the Renown credited
    *  in the same shape a report's answer has - its plan net/renownTracker.js renownAnswer's, so a rise is said once and
    *  carried to the rooms - and the line the board's word says. */
@@ -19648,6 +19660,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       buy: (o) => (guildBook ? guildBook.buyHall(o) : Promise.resolve({ ok: false, error: 'no-guild' })),
       setEntry: (e) => (guildBook ? guildBook.setHallEntry(e) : Promise.resolve({ ok: false, error: 'no-guild' })),
       openStores: () => socialPanel?.openGuild?.() === true,
+      // GUILD1e: the board standing in the hall - the guild's own notes, its members' (the Notice Board's window, its
+      // Guilds tab alone); false where it cannot open (offline, no board book, another window up)
+      openBoard: (name) => openGuildBoard(name),
     },
     marks: marksBook,   // MARKS1: the Bank of the Empire's Marks, online
     saveSoon: () => saveSoon.changed(),   // PROF-SAVE: a Marks sale's gold in the Bank's account saved soon

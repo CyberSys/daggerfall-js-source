@@ -66,7 +66,7 @@ test('GUILD1d the hall\'s law: half again, rounded up; its entries its members\'
   assert.equal(guildHallEntryOk('private'), false);
   assert.equal(guildHallOwner('g0123456789'), 'guild:g0123456789');
   assert.ok(!/^[A-Za-z0-9_-]{4,64}$/.test(guildHallOwner('g0123456789')), 'outside CHAR_ID_RE');
-  assert.deepEqual(Object.fromEntries(Object.entries(HALL_POWERS).map(([k, v]) => [k, [...v]])), { hall: [0], heraldry: [0], hallEntry: [0, 1], decorate: [0, 1] });
+  assert.deepEqual(Object.fromEntries(Object.entries(HALL_POWERS).map(([k, v]) => [k, [...v]])), { hall: [0], heraldry: [0], hallEntry: [0, 1], decorate: [0, 1], notes: [0, 1] });   // GUILD1e: the guild's board kept by its Officers
   assert.deepEqual([hallMay(0, 'hall'), hallMay(1, 'hall'), hallMay(1, 'hallEntry'), hallMay(2, 'decorate'), hallMay(0, 'nonsense')], [true, false, true, false, false]);
   assert.equal(GUILD_POWERS.hall, undefined, 'the hall\'s law is its own module - the guild law is the relay\'s, every byte a deploy');
   assert.deepEqual(HOME_ENTRIES, ['private', 'party', 'public', 'guild']);

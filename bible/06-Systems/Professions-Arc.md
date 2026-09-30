@@ -659,6 +659,10 @@ etc".
 | **Makers** | The Hall of Makers: this Season's most Masterworks and most writs filled, per profession |
 
 - **Capacity**: 30 player notes a board (newest shown), the last 20 server notices, every live writ of the region.
+- **The Guilds tab - BUILT (GUILD1e, 2026-09-30; `06-Systems/Online-Arc.md` GUILD1e):** the town's recruitment notes
+  hung as their guilds' posters (each with its banner), and the reader's own guild's notes - its members' alone, 3 live
+  a member and the newest 30 shown, taken down by their author or an Officer. The same notes open at the board placed
+  in the guild's hall (`SEAT0` 8.2).
 
 ### 10.2 The market - the auction house
 

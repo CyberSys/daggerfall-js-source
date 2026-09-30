@@ -984,6 +984,12 @@ export const NOTICE_CSS = `/* ── NOTICE1: THE NOTICE BOARD ── */
 .notice-days { width: 6em; }
 .notice-count { align-self: flex-end; font-size: 11px; color: #5a4630; }
 .notice-tip { margin: 0; font-size: 12px; color: #5a4630; font-style: italic; }
+/* GUILD1e: the Guilds tab - a guild's own notes under its banner, and the town's recruitment posters */
+.notice-section { margin: 4px 4px 12px; display: flex; align-items: center; gap: 10px; font-size: 13px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: #f3cf86; text-shadow: 1px 1px 0 #050608; }
+.notice-section + .notice-grid { margin-bottom: 18px; }
+.notice-banner { flex: none; width: 30px; height: auto; filter: drop-shadow(2px 3px 0 rgba(5,6,8,0.45)); }
+.notice-poster .notice-banner { width: 38px; align-self: center; }
 @media (max-width: 720px) {
   .notice-shell { padding: 8px; }
   .notice-cork { padding: 10px; }

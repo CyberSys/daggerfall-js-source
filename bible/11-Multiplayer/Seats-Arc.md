@@ -655,8 +655,13 @@ the part of the treasury realm records paid in (`realm_gold`), and the sale pays
 pieces' cost back there; a hall's entries are `guild` (the default) and `public` (a party is not a guild's), and
 `guild` joined private/party/public for every home; decor by Officers - off their own records, a piece's half back to
 the treasury, the catalogue's pieces alone; the guild Stores chest is every cupboard of the hall (the Guild tab's guild
-Stores to a member). NOT YET: the private guild board (the board's Guilds tab) - GUILD1e; a hall's outside and yard
-(HOME-LOOK and HOME-YARD name a character); a seat's palace as a second hall is SEAT1c's.
+Stores to a member). NOT YET: a hall's outside and yard (HOME-LOOK and HOME-YARD name a character); a seat's palace as
+a second hall is SEAT1c's.
+
+BUILT (GUILD1e, 2026-09-30; `06-Systems/Online-Arc.md` GUILD1e): the private guild board - a guild's own notes, its
+members' alone, read and pinned on the Guilds tab of every Notice Board and at the board in its hall: Daggerfall's own
+board model, which the decorator offers in a hall alone. Any member pins; the Officers and the guildmaster take down
+anyone's note. The Guilds tab also hangs the town's recruitment notes as their guilds' posters, each with its banner.
 
 ## 9. Seasons, the Chronicle, the Tides
 
@@ -790,7 +795,7 @@ bible updated in the same change, mutants recorded.
 | **MARKS1** | PROF0's currency - **SHIPPED** (PROF0 10.5, `06-Systems/Online-Arc.md`) | PROF0 15 |
 | **NOTICE1** | PROF0's board - **SHIPPED** (PROF0 10.7) | PROF0 15 |
 | **GUILD1d** | Guild halls, the guild entry, heraldry (8) - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` GUILD1d; the hall's board is GUILD1e) | A guild buys a hall, members enter, the banner draws on a test layout |
-| **GUILD1e** | The hall's private guild board (8.2: the board's Guilds tab, members only) | A member posts a note only its guild reads, at a board in its hall |
+| **GUILD1e** | The hall's private guild board (8.2: the board's Guilds tab, members only) - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` GUILD1e) | A member posts a note only its guild reads, at a board in its hall |
 | **SEAT1a** | The derivation; the registry; the map rings; arrival lines; banners (unheld: the kingdom's) | Pins over a fixture MAPS set: every Palace record is a seat, capitals are crowns, mod rows never count; three witnesses confirm |
 | **SEAT1b** | Influence: pledges, the Watch, gate kills, homes, Renown's region, Tribute; the standings on the board | Each source's cap pinned; per-account war and the 7-day wait pinned |
 | **SEAT1c** | The Turning; claims; Contested; the Charter; titles and glyphs (relay first); the Seat tab | `settleWeek` idempotent under two racing readers; a held seat's banners in the guild's colours |

@@ -87,7 +87,7 @@ import { rentRoomsView, rentAnchorOfRoom } from '../systems/homeRent.js';   // H
 import { createDecorPlacer, DECOR_TURN_STEP, DECOR_TURN_FINE, DECOR_RAISE_STEP, DECOR_RAISE_FINE } from '../systems/decorPlacer.js';
 import { createDecorButton, createDecorPanel, createDecorBar, decorWhyNot } from '../ui/decorPanel.js';
 import { DECOR_CAP, DECOR_PRICE_PER_METRE, DECOR_HIDDEN_CAP, decorPrice, decorPieceOf, decorRefund, decorRescale, mintDecorId, DECOR_STATIONS, DECOR_STATION_FEES, DECOR_STATION_NAMES } from '../net/decorLaw.js';
-import { decorKey, DECOR_KINDS, decorFlatLight, modelKind, flatKind } from '../systems/decorCatalogue.js';
+import { decorKey, DECOR_KINDS, decorFlatLight, modelKind, flatKind, decorRoomEntries } from '../systems/decorCatalogue.js';
 import { decorOwnEntry, decorItemName, decorMountDye, decorMountDyeTarget } from '../systems/decorItems.js';
 import { decorFurnishingEntry, isFurnishing } from '../systems/decorFurnish.js';
 import { itemLongName } from '../systems/itemInfo.js';
@@ -605,7 +605,7 @@ export function createDecorTool(deps) {
       base: baseRows(),   // BASE-HIDE: the room's own furniture
       where: r?.where ?? '',
       hall: !!r?.hall,   // AUDIT GUILD1d A9: a hall's piece gives its half to the guild's treasury (the panel says so)
-      entries: r?.yard ? s.entries()?.filter((e) => e.kind !== 'door') ?? null : s.entries(),   // HOME-YARD: a door hangs in a doorway, never in a yard
+      entries: decorRoomEntries(s.entries(), r),   // HOME-YARD: a door hangs in a doorway, never in a yard; GUILD1e: a hall's board in a hall alone
       yard: !!r?.yard,
       progress: s.progress(),
       ready: s.phase() === 'done',

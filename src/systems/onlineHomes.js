@@ -202,6 +202,10 @@ export const hallShortLine = (cost) => `The treasury needs ${cost} gold put in b
 export const HALL_CHEST_TITLE = "The Guild's Chest";
 export const HALL_DROP_TEXT = "Nothing dropped in a guild's hall stays - put it in the guild's chest.";
 export const HALL_VISITOR_MAGIC_TEXT = "You cannot cast spells in another guild's hall.";
+/** GUILD1e: THE BOARD IN A HALL - its name to a member, what it says to anyone else, and where it cannot open. */
+export const HALL_BOARD_TITLE = "The Guild's Board";
+export const hallBoardShutLine = (name) => `This board is ${name ?? 'the guild'}'s. Its notes are for its members.`;
+export const HALL_BOARD_COLD = "The guild's board cannot be read now.";
 /** GUILD1d: a hall's chest pressed where the Guild tab cannot open. */
 export const HALL_CHEST_SHUT = "The guild's chest holds the guild Stores - open the Guild tab of the Social panel to reach them.";
 

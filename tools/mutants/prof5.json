@@ -926,8 +926,8 @@
   {
     "name": "PROF5-window-market-hidden",
     "file": "src/ui/noticeWindow.js",
-    "old": "    const shown = [['notices', 'Notices'], ...(workShown() ? [['work', 'Work']] : []), ...(marketShown() ? [['market', 'Market']] : [])];",
-    "new": "    const shown = [['notices', 'Notices'], ...(workShown() ? [['work', 'Work']] : [])];",
+    "old": "...(workShown() ? [['work', 'Work']] : []), ...(marketShown() ? [['market', 'Market']] : []), ...(guildsShown() ? [['guilds', 'Guilds']] : [])];",
+    "new": "...(workShown() ? [['work', 'Work']] : []), ...(guildsShown() ? [['guilds', 'Guilds']] : [])];",
     "tests": [
       "test/prof5_client.test.js"
     ]
@@ -953,8 +953,8 @@
   {
     "name": "PROF5-host-no-market",
     "file": "src/scenes/world.js",
-    "old": "      character: () => characterIdOf(playerEntity), work, market,\n",
-    "new": "      character: () => characterIdOf(playerEntity), work,\n",
+    "old": "      gate: () => noticeGateCard(), answer: (note) => answerNote(note), work, market,\n",
+    "new": "      gate: () => noticeGateCard(), answer: (note) => answerNote(note), work,\n",
     "tests": [
       "test/prof5_client.test.js"
     ]

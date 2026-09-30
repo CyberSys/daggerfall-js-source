@@ -10379,6 +10379,44 @@ carries a mutant in `tools/mutants/auditguild1d.json` (44 records, all dead).
 Left as known limits: the banner pass allocates the eye's small array each frame it draws, and another client's
 banners change heraldry only when its town's list is next read.
 
+### GUILD1e - a guild's own board
+
+(2026-09-30, Mac: "Finish the seats" - the Seats arc's slices in order, sieges
+included; `11-Multiplayer/Seats-Arc.md` 8.2: "the hall carries the guild Stores chest and a private guild board (the
+board's Guilds tab, members only)"; PROF0 10.1's Guilds tab: "Recruitment posters (each guild's heraldry and a line); a
+guild's own notes, members only"). Rides the undeployed `acct42` with GUILD1d (migration 0044); no relay change.
+
+- **The notes** (`server-account/src/guildBoard.js` over `migrations/0044_guild_board.sql`): a guild's notes are the
+  guild's (`guild_notes`, keyed by its id), never a town's. Any member reads and pins; an author takes down their own,
+  and the Officers and the guildmaster anyone's (`net/hallLaw.js` HALL_POWERS.notes). A note is `noteWords`' letter
+  with no button (the members answer one another in the guild's chat), 1, 3 or 7 days; each member's live notes
+  (`GUILD_NOTES_LIVE_MAX`, 3) are bounded apart from the town boards' so a guild's word never takes a town's place,
+  inside the INSERT, which also asks that the author is still in the guild. The board shows the newest 30
+  (`GUILD_NOTES_SHOWN`). The DELETE asks the rank itself, so an Officer demoted between the read and the write takes
+  down only their own. The author is the member's roster name; no account id leaves the service. The Notice Board's
+  switch (`BOARD_OPEN`) and its mute stand here: it is a tab of that board. A guild gone takes its notes.
+  Routes `/v1/guilds/board`, `/board/pin`, `/board/take-down`.
+- **The Guilds tab** (`ui/noticeWindow.js`, every town board online): the reader's own guild's notes under its banner
+  (`ui/heraldryArt.js`, as a picture), "Pin a note for the guild", and the town's recruitment notes hung as their
+  guilds' posters - a recruitment note now carries its guild's heraldry (`board.js`). A reader in no guild is told so.
+  The book (`net/noticeBook.js`) keeps the guild board's minute cache and a pin's request id as a town's, and speaks
+  the guild board's own words for its refusals.
+- **The board in the hall** (Seats-Arc 8.2's "private guild board"): Daggerfall's own board model
+  (`rmbLayout.js` BULLETIN_BOARD_MODEL_ID), offered by the decorator in a guild's hall alone (`systems/decorCatalogue.js`
+  HALL_BOARD_ENTRY, `decorRoomEntries` - never a home or a yard; appended to the scan, measured and priced as every
+  piece). Placed in a hall, a member's press opens the Notice Board window on the guild's notes alone (`guildOnly` - no
+  town read); its plaque reads "The Guild's Board"; anyone else is told "This board is <Guild>'s. Its notes are for its
+  members." Anywhere else the model is furniture. No service rule is needed: a board placed elsewhere does nothing.
+- **THE ONE CONSTRUCTION SEAM**: both of the world host's board windows - a town's and a hall's - are built by one
+  builder (`world.js` showNoticeWindow), so `createNoticeOverlay(` still stands once.
+- **Four hosts**: `worldModes.js` WIRED (the hall's board pressed and hovered); `world.js` WIRED (the Guilds tab on
+  town boards, the hall's board opened); `dungeonContext.js` and `exterior.js` FLAGGED - no online hall stands there.
+
+Pinned: `test/guild1e_service.test.js` (5), `test/guild1e_client.test.js` (5); re-aimed by content in
+`test/notice1.test.js` (a recruitment note's guild carries its heraldry) and `test/guild1d_client.test.js` (the hall's
+powers). `tools/mutants/guild1e.json` (30, all dead); four older records re-aimed (DECOR1c's visitor, PROF5's hidden
+market twice, NOTICE1's cache aimed at the town read alone).
+
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 
 Mac, asked how quest enemies should work online (each player's quests are their own, so two party members on the

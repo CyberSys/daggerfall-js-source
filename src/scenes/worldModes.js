@@ -276,6 +276,7 @@ import {
   homeVisitorRows,   // HOME-RENT: a tenant's rows, and a home's with a room to rent
   HALL_VERB, homeHallBuyRow, hallNextEntry, hallBoughtLine, hallShortLine, HALL_CHEST_SHUT,   // GUILD1d: a guild's hall
   HALL_CHEST_TITLE, HALL_DROP_TEXT, HALL_VISITOR_MAGIC_TEXT, hallOfferLabel,   // AUDIT GUILD1d: the chest's name, a hall's floor and magic, the offer's hall
+  HALL_BOARD_TITLE, hallBoardShutLine, HALL_BOARD_COLD,   // GUILD1e: the board in a hall
 } from '../systems/onlineHomes.js';
 import { guildHallPrice, GUILD_HALL_ENTRY_WORDS } from '../net/hallLaw.js';   // GUILD1d: what a hall costs, in its refusal's words; who may walk in
 import { HOME_ENTRIES, homePriceOk, rentCost, rentDaysLeft } from '../net/homeLaw.js';
@@ -301,6 +302,7 @@ import { loadIcon } from '../ui/textureCanvas.js';
 import { isTouchDevice } from '../ui/touchDevice.js';
 import { setCursorActive } from '../player/pointerLock.js';
 import { decorKey } from '../systems/decorCatalogue.js';
+import { BULLETIN_BOARD_MODEL_ID } from '../world/rmbLayout.js';   // GUILD1e: Daggerfall's own board, placed in a guild's hall
 import { accountRefusalText } from '../net/accountClient.js';
 // P1: the scene cache - what an interior remembers across a visit.
 import {
@@ -2221,6 +2223,7 @@ export function createWorldModes(host) {
           const n = (kept ? itemLongName(kept) : null) || decorItemName(piece.item);
           return n ? { title: n } : null;
         }
+        if (isHallBoard(piece) && hallMemberHere()) return { title: HALL_BOARD_TITLE };   // GUILD1e: the hall's board, its members'
         const t = decorNames.get(decorKey(piece)) ?? (piece.storage && piece.model != null ? houseContainerName(piece.model) : null);
         const craft = piece.station ? DECOR_STATION_NAMES[piece.station] : null;   // AUDIT HOME-STATIONS S8: a station says so
         return t ? { title: craft ? `${t} (${craft})` : t } : craft ? { title: craft } : null;
@@ -3472,6 +3475,7 @@ export function createWorldModes(host) {
   function activateDecor(id) {
     const piece = interiorDecor.pieceOf(id);
     if (piece?.station) { useDecorStation(piece); return; }   // HOME-STATIONS
+    if (isHallBoard(piece)) { openHallBoard(); return; }   // GUILD1e: the board in a guild's hall
     if (!piece?.storage) return;
     if (interiorHome?.hall && interiorHome.member) { openHallChest(); return; }   // GUILD1d: the guild's chest, as its cupboards
     if (!decorOwnerHere()) {
@@ -3514,6 +3518,15 @@ export function createWorldModes(host) {
   /** GUILD1d: a guild's hall this character is a member of - its chest, its stations (AUDIT GUILD1d A2: the forge, the
    *  workbench and the loom too), its beds and its magic are the member's. */
   const hallMemberHere = () => !!(interiorHome?.hall && interiorHome.member);
+  /** GUILD1e (Seats-Arc 8.2: "a private guild board"): a placed piece that is Daggerfall's own board, in a guild's hall -
+   *  the hall's board (systems/decorCatalogue.js HALL_BOARD_ENTRY). Anywhere else the same model is furniture. */
+  const isHallBoard = (piece) => !!interiorHome?.hall && piece?.model === BULLETIN_BOARD_MODEL_ID && !piece.item;
+  /** GUILD1e: THE HALL'S BOARD PRESSED - the guild's own notes for a member (the Notice Board's window, its Guilds tab
+   *  alone); to anyone else it says whose it is. */
+  function openHallBoard() {
+    if (!hallMemberHere()) { say(hallBoardShutLine(interiorHome?.hall?.name)); return; }
+    if (!host.guildHall?.openBoard?.(interiorHome.hall.name)) say(HALL_BOARD_COLD);
+  }
   /** GUILD1d: THE GUILD'S CHEST - the guild Stores, on the Guild tab (the host's social panel); said where it cannot open. */
   function openHallChest() {
     if (!host.guildHall?.openStores?.()) say(HALL_CHEST_SHUT);
