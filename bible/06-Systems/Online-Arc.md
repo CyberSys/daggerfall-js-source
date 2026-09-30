@@ -10198,13 +10198,100 @@ Pinned: `test/guild1b.test.js` (10). `tools/mutants/guild1b.json` (31).
   peers wearing the tag, with my own row. A relay before world115 is told in words (GUILD_OLD_RELAY_TEXT). The service
   is acct13 (acct12 on its branch; main's BASE-HIDE took acct12 first).
 
-Not yet: the guild hall (GUILD1d). Known and left: after a change, the hub's World roster shows the new tag to its
+Not yet: the guild hall (GUILD1d - built, below). Known and left: after a change, the hub's World roster shows the new tag to its
 carrier alone - the others read it off their next roster (the hub fans no tag to two thousand sockets); the Guild tab's
 list names only the members the hub introduced (CHAT_ROSTER_MAX), though every member's lines arrive; and the main
 menu's profile badge does not draw the tag.
 
 Pinned: `test/guild1c.test.js` (14), and the pins the new fields moved (the badge, the attachment, the tabs, the chat
 channel lists). `tools/mutants/guild1c.json` (64, all dead).
+
+**GUILD1d - the guild hall, the `guild` entry and heraldry** (2026-09-30, Mac: "Lets do this" - the guilds before the rest
+of the professions; `11-Multiplayer/Seats-Arc.md` 8, whose decisions it builds: SEAT0 left "decisions ... binding for the
+build slices"). One deploy of the account service (`acct42`, migration 0043); no relay change - the hall's law is its
+own module (`src/net/hallLaw.js`), never net/guildLaw.js, which is in the relay's bundle (SLAM8).
+
+- **The law** (`src/net/hallLaw.js`, both ends): a guild owns ONE home as its hall, bought from its gold treasury at
+  the home's own price and half again (`guildHallPrice`, rounded up); its entries `guild` (its members, the default)
+  and `public`; the powers (HALL_POWERS, GUILD_POWERS's shape) - the hall bought and sold and the heraldry chosen the
+  guildmaster's, who may walk in and the decor the Officers' too. A home's own entries gain `guild`
+  (`net/homeLaw.js` HOME_ENTRIES): the owner's character's guildmates walk in (`homeMayEnter` reads the service's
+  `guildmate`); a hall's rule comes first - its members (`member`), and anyone when public, never an account's `mine`.
+- **The store** (`server-account/src/halls.js` over `migrations/0043_guild_halls.sql`): a hall is a row of the homes
+  table (HOME1's one owner a building) naming its guild (`homes.guild_id`, a partial unique index - one hall a guild)
+  and carrying the guild's own mark where a home names its character (`guild:<id>`, outside CHAR_ID_RE) - so no
+  character's path reaches it: a home's sale, its entry, its rooms and its outside each name a character, and the
+  homes.js paths that named only the account (the sale, the entry, the account's list) now say `guild_id IS NULL`.
+  `player` is the account of the guildmaster that bought it, the row's anchor (no route deletes an account).
+- **Bought** (`/v1/guilds/hall/buy`, the guildmaster's): out of what realm records paid into the treasury
+  (`realm_gold`, AUDIT REALM L1-F3's part) in ONE batch with the row - the treasury's UPDATE guarded by what it holds,
+  the guild holding no hall and the buyer still its guildmaster, then the INSERT (a building somebody owns is the
+  primary key's refusal, and the batch goes back); a claim asked again finds the building already this guild's hall
+  (`repeat`). The price is the client's word, as a home's claim takes it. **Sold** (`/v1/guilds/hall/sell`): the
+  deed share of what the treasury paid (`homeSaleRefund`) and half of what records paid for its pieces, back into the
+  treasury and its realm part, in one batch with the row's DELETE - held to the pieces as they were read (their count
+  and their sum), so none is sold unpaid. **Who may walk in** (`/v1/guilds/hall/entry`, an Officer's too).
+- **The ledger names why the gold moved**: 0043 gives the guild row `moved_kind` and replaces the ledger's trigger -
+  the line takes `COALESCE(moved_kind, deposit/withdraw)` and the trigger forgets it in the same breath, so the next
+  plain move is never written as the hall's: `hall`, `hall-sale`, `hall-piece`. A guild never goes while it holds a
+  hall (`guildKeepsSql`, `guild-hall` - sell it first), its disbanding, its last leave and a memberless guild's
+  reclaim alike.
+- **Decor by Officers** (`decor.js` OWNS): the home's own character, or a guild's hall and a keeper of its guild - the
+  same four places bound in the same order, read once through `k`. A hall holds the catalogue's pieces alone - never
+  a keeper's own thing (`hall-item`: whose would it be at the sale?) - and stands no yard yet (`hall-yard`). Its keeper
+  pays for a piece off their own record, as in any home; half of what records paid, given back when a piece is taken
+  out or shrunk, goes into the guild's treasury (`hall-piece`), never to whichever Officer took it down.
+- **The town answer** (`homes.js homesInTown`): a hall is `{ owner: its guild's name, entry, mine: false, hall: { name,
+  tag, heraldry } }`, and to the character named `member` and (a keeper) `keeper`; a home whose owner opened it to
+  their guild says `guildmate` to a guildmate of the owner's character.
+- **Heraldry** (`src/net/heraldryLaw.js`, `/v1/guilds/heraldry`, Seats-Arc 8.1): two colours of the record's sixteen
+  (Ash never the field - the unheld ring's) and one of its twenty-four devices, the guildmaster's. The first is free
+  (every guild before GUILD1d has none); each change after it burns 500 Drakes from the guild's Drake treasury (a
+  `guild` -> `burn` line of kind `heraldry`) in ONE batch with the change, taken only from the heraldry the
+  guildmaster saw; a change asked again under its request id is answered as made. "Refused in a siege week" waits on
+  SEAT2 - no siege stands yet.
+- **The drawing** (`src/ui/heraldryArt.js`): each device a few SVG path parts in a 100 box - the device's colour, the
+  field's for a hole, a stroke where a line is wanted - the port's own art; the banner the record's cloth, 1 by 3, the
+  field the first colour, a border the second, the device centred in the second, its foot a swallowtail. One drawing,
+  two faces: an SVG string for the Guild tab, a canvas for the world's cloth (Path2D reads the same path text).
+- **The door** (`systems/onlineHomes.js`, `scenes/worldModes.js`): a hall's door is "Your guild's hall" to its
+  members and "<Guild>'s hall <TAG>" to everyone else ("This is the hall of <Guild>. Its doors open to its members.");
+  its plaque lists "Go in" to its members and "Who may enter: Members / Anyone" to its keepers. Under a house anyone
+  may buy, a guildmaster whose guild holds no hall reads a third row, "Buy it for <Guild>: N gold from the treasury",
+  armed by its first press as a home's buy is (`HOME_BUY_ARM_MS`); the guild is the guild book's last look, asked
+  again (without waiting) when it is old.
+- **The visit**: members walk in, rest in its beds, and use its stations (the licence its keeper paid serves the
+  guild); every cupboard, and every placed storage piece, is the guild's CHEST - to a member the guild Stores, on the
+  Guild tab (the Social panel opened there), to anyone else "This belongs to <Guild>." A hall is nobody's own: nothing
+  in it is anyone's storage, nothing dropped in it stays (a visitor's rule, HOUSE-DROP), and its keepers decorate it
+  as an online home (`{ kind: 'home', hall: true }` - no rooms to rent, no personal things in the catalogue, a piece's
+  half said to go to the treasury).
+- **The Guild tab** (`ui/socialPanel.js`): **Hall** - how one is bought, or where it stands (its region), who may
+  walk in (an Officer's button) and its sale (the guildmaster's, pressed twice, the deed share said); **Heraldry** -
+  the banner, every member's to see, its words ("Azure bordered Gold, a Wolf"), and the guildmaster's choice: field,
+  border and device, drawn as it is chosen, the first free and a change costing Drakes (disabled, and saying why, when
+  the Drake treasury holds fewer). The ledger names the hall's lines; Leave and Disband say "sell the hall first".
+- **The banners** (`scenes/hallBanners.js`, `render/bannerPass.js`; Seats-Arc 3.4's anchor 2, the hall's first): a
+  hall whose guild has chosen its heraldry hangs two banners, one each side of its door - the building's first door
+  record measured where the pixel is built (`homeFrames[key].door`, its two corners through the model's matrix), its
+  span the wall's direction and its face the side away from the building's middle; each cloth 0.9 by 2.7 m, its top
+  3.5 m over the door's foot, 0.35 m past the jamb, 0.15 m off the wall. The cloth is its own foreign pass after the
+  duel walls (the world host's twentieth seam): a strip of quads hung from its top edge, swinging out along its face
+  on the weather's wind (the grass's own strength) with a ripple across it, every rate whole over a 120 s clock, the
+  swallowtail cut, lit by the frame's ambient and sun and fogged as the ground is; each heraldry painted once.
+  Four hosts: `world.js` WIRED (the streets); `worldModes.js` and `dungeonContext.js` stand no street; `exterior.js`
+  (the bench) FLAGGED - it draws no online homes.
+
+Known limits (a later slice's): a hall's board (Seats-Arc 8.2's "private guild board", the board's Guilds tab) is
+GUILD1e's - the hall has no board yet; a hall's outside is not painted and its yard not furnished (HOME-LOOK and
+HOME-YARD name a character); the banner at the door is the building's FIRST door record (a house with two doors hangs
+them at the first); heraldry is not yet on the map ring, the guild tag's frame, the siege HUD or the Chronicle
+(SEAT1a-SEASON1); a hall's price is the client's word, as a home's.
+
+Pinned: `test/guild1d_service.test.js` (5), `test/guild1d_client.test.js` (12); re-aimed by content in
+`test/home1.test.js` (the entries), `test/decor1.test.js`, `test/decor1d.test.js`, `test/decorshell.test.js` (the
+room's host), `test/glstate.test.js`, `test/farring.test.js`, `test/audit18_bible_docs.test.js` (the foreign passes)
+and the ACCOUNT_VERSION pins (`acct42`). `tools/mutants/guild1d.json` (38, all dead).
 
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 

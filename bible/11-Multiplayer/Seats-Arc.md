@@ -628,6 +628,15 @@ A seat is run from its town's board, in person. That is the point of a physical 
 - Chosen by the Guildmaster on the Guild tab; changing either costs **500 Marks** and is refused in a siege week.
 - It is drawn on banners (3.4), the map ring, the frame of the guild tag, the siege HUD, the board and the Chronicle.
 
+BUILT (GUILD1d, 2026-09-30; `06-Systems/Online-Arc.md` GUILD1d): the palette and devices are `src/net/heraldryLaw.js`
+(the service keeps `{ field, border, device }` - the field the first colour, never Ash; the border the second), the
+drawing `src/ui/heraldryArt.js` (each device a few SVG path parts, the port's own art), set at `/v1/guilds/heraldry`.
+Two readings the record left open, decided as built: the FIRST choice is free (every guild founded before GUILD1d had
+none) and each change after it is the 500 - in Drakes, the Marks' name since DRAKES - burnt from the guild's Drake
+treasury; "refused in a siege week" waits on SEAT2 (no siege stands). Drawn so far on the Guild tab and on the hall's
+two banners (3.4's anchor 2 at the hall's door - `render/bannerPass.js`, `scenes/hallBanners.js`); the map ring, the
+tag's frame, the siege HUD, the board and the Chronicle come with SEAT1a-SEASON1.
+
 ### 8.2 The guild hall (GUILD1d)
 
 FACT: planned as "a guild-owned home" and not built; `HOME_ENTRIES` has no `guild` entry. DECIDED:
@@ -638,6 +647,16 @@ FACT: planned as "a guild-owned home" and not built; `HOME_ENTRIES` has no `guil
 - the hall carries the guild Stores chest and a private guild board (the board's Guilds tab, members only);
 - decor in the hall by Officers; `DECOR_CAP` as any home;
 - a guild holding a seat keeps its own hall and gains the palace (or castle) as well.
+
+BUILT (GUILD1d, 2026-09-30; `06-Systems/Online-Arc.md` GUILD1d), as the record says, with what the build decided:
+the homes table gains `guild_id` (one hall a guild - a partial unique index), and a hall's row carries the guild's own
+mark where a home names its character (`guild:<id>`), so no character's path reaches it; the price x 1.5 is paid from
+the part of the treasury realm records paid in (`realm_gold`), and the sale pays the deed share of it and half of its
+pieces' cost back there; a hall's entries are `guild` (the default) and `public` (a party is not a guild's), and
+`guild` joined private/party/public for every home; decor by Officers - off their own records, a piece's half back to
+the treasury, the catalogue's pieces alone; the guild Stores chest is every cupboard of the hall (the Guild tab's guild
+Stores to a member). NOT YET: the private guild board (the board's Guilds tab) - GUILD1e; a hall's outside and yard
+(HOME-LOOK and HOME-YARD name a character); a seat's palace as a second hall is SEAT1c's.
 
 ## 9. Seasons, the Chronicle, the Tides
 
@@ -770,7 +789,8 @@ bible updated in the same change, mutants recorded.
 | **SEAT-COUNT** | The count tool (3.1) | Mac has run it; the count is recorded here |
 | **MARKS1** | PROF0's currency - **SHIPPED** (PROF0 10.5, `06-Systems/Online-Arc.md`) | PROF0 15 |
 | **NOTICE1** | PROF0's board - **SHIPPED** (PROF0 10.7) | PROF0 15 |
-| **GUILD1d** | Guild halls, the guild entry, heraldry (8) | A guild buys a hall, members enter, the banner draws on a test layout |
+| **GUILD1d** | Guild halls, the guild entry, heraldry (8) - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` GUILD1d; the hall's board is GUILD1e) | A guild buys a hall, members enter, the banner draws on a test layout |
+| **GUILD1e** | The hall's private guild board (8.2: the board's Guilds tab, members only) | A member posts a note only its guild reads, at a board in its hall |
 | **SEAT1a** | The derivation; the registry; the map rings; arrival lines; banners (unheld: the kingdom's) | Pins over a fixture MAPS set: every Palace record is a seat, capitals are crowns, mod rows never count; three witnesses confirm |
 | **SEAT1b** | Influence: pledges, the Watch, gate kills, homes, Renown's region, Tribute; the standings on the board | Each source's cap pinned; per-account war and the 7-day wait pinned |
 | **SEAT1c** | The Turning; claims; Contested; the Charter; titles and glyphs (relay first); the Seat tab | `settleWeek` idempotent under two racing readers; a held seat's banners in the guild's colours |
