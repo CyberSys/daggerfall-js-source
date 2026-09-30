@@ -41,7 +41,7 @@ import { guildActorOf } from './guilds.js';
 import { marksOpenFor } from './marks.js';
 import { mustChange } from './realm.js';
 import { GUILD_TREASURY_MAX, GUILD_OPS_MAX, GUILD_OPS_WINDOW_S } from '../../src/net/guildLaw.js';
-import { GUILD_HALL_ENTRY_DEFAULT, hallMay, guildHallPrice, guildHallEntryOk, guildHallOwner } from '../../src/net/hallLaw.js';
+import { GUILD_HALL_ENTRY_DEFAULT, HALL_POWERS, hallMay, guildHallPrice, guildHallEntryOk, guildHallOwner } from '../../src/net/hallLaw.js';
 import { HOME_CLAIMS_MAX, HOME_CLAIMS_WINDOW_S, homeMapIdOk, homeBuildingKeyOk, homeRegionOk, homePriceOk, homeSaleRefund } from '../../src/net/homeLaw.js';
 import { HERALDRY_CHANGE_DRAKES, heraldryOf, heraldrySame } from '../../src/net/heraldryLaw.js';
 import { MARKS_RID_RE, utcDay } from '../../src/net/marksLaw.js';
@@ -95,8 +95,9 @@ export async function buyHall(ctx, player, { character, mapId, buildingKey, regi
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(mapId, buildingKey, player.id, guildHallOwner(gid), g?.name ?? '', region, GUILD_HALL_ENTRY_DEFAULT, price, nowS, cost, gid),
     ]);
   } catch {
-    // say which guard held
-    if (await db.prepare('SELECT 1 FROM homes WHERE map_id = ? AND building_key = ?').bind(mapId, buildingKey).first()) return { error: 'home-taken' };
+    // say which guard held - AUDIT GUILD1d S5: the same claim, raced by itself, is the claim that landed
+    const now = await db.prepare('SELECT guild_id FROM homes WHERE map_id = ? AND building_key = ?').bind(mapId, buildingKey).first();
+    if (now) return now.guild_id === gid ? { ok: true, repeat: true, hall: await hallViewOf(db, gid) } : { error: 'home-taken' };
     if (await db.prepare('SELECT 1 FROM homes WHERE guild_id = ?').bind(gid).first()) return { error: 'guild-hall-have' };
     const t = await db.prepare('SELECT treasury, realm_gold FROM guilds WHERE id = ?').bind(gid).first();
     if (!t) return { error: 'no-guild' };
@@ -163,8 +164,11 @@ export async function setHallEntry(ctx, player, { character, entry } = {}) {
   if (!hallMay(a.me.rank, 'hallEntry')) return { error: 'guild-rank' };
   if (!guildHallEntryOk(entry)) return { error: 'bad-entry' };
   if (await overRate({ db, nowS }, `guild:${player.id}`, GUILD_OPS_MAX, GUILD_OPS_WINDOW_S)) return { error: 'guild-rate' };
-  const r = await db.prepare('UPDATE homes SET entry = ? WHERE guild_id = ?').bind(entry, a.me.guild_id).run();
-  return r?.meta?.changes ? { ok: true, entry } : { error: 'guild-hall-none' };
+  // AUDIT GUILD1d S7: the rank asked in the write too - an Officer demoted since the read turns nothing
+  const r = await db.prepare(`UPDATE homes SET entry = ?1 WHERE guild_id = ?2
+    AND EXISTS (SELECT 1 FROM guild_members WHERE rowid = ?3 AND guild_id = ?2 AND rank IN (${HALL_POWERS.hallEntry.join(', ')}))`).bind(entry, a.me.guild_id, a.me.rid).run();
+  if (r?.meta?.changes) return { ok: true, entry };
+  return { error: (await db.prepare('SELECT 1 FROM homes WHERE guild_id = ?').bind(a.me.guild_id).first()) ? 'guild-rank' : 'guild-hall-none' };
 }
 
 /**
@@ -186,14 +190,18 @@ export async function setHeraldry(ctx, player, { character, heraldry, rid } = {}
     ? await db.prepare("SELECT kind FROM marks_ledger WHERE actor = ? AND rid = ?").bind(player.id, rid).first() : null;
   const row = await db.prepare('SELECT heraldry FROM guilds WHERE id = ?').bind(gid).first();
   const was = heraldryOfRow(row?.heraldry);
-  if (paidLine) return paidLine.kind === 'heraldry' && heraldrySame(was, next) ? { ok: true, repeat: true, heraldry: was } : { error: 'marks-rid' };   // asked again: the line it made
+  // asked again: the line it made - AUDIT GUILD1d S4: whatever the heraldry is now (a later change may stand over it)
+  if (paidLine) return paidLine.kind === 'heraldry' ? { ok: true, repeat: true, heraldry: was } : { error: 'marks-rid' };
   if (heraldrySame(was, next)) return { error: 'heraldry-same' };
   if (await overRate({ db, nowS }, `guild:${player.id}`, GUILD_OPS_MAX, GUILD_OPS_WINDOW_S)) return { error: 'guild-rate' };
   const json = JSON.stringify(next);
+  // AUDIT GUILD1d S7: the guildmaster's still, in the write - one handed the guild on since the read changes nothing
+  const stillMaster = `EXISTS (SELECT 1 FROM guild_members WHERE rowid = ${Number(a.me.rid)} AND guild_id = guilds.id AND rank IN (${HALL_POWERS.heraldry.join(', ')}))`;
+  const whyNot = async () => ((await db.prepare(`SELECT ${stillMaster.replace('guilds.id', '?')} AS m`).bind(gid).first())?.m ? 'heraldry-moved' : 'guild-rank');
   if (!was) {
     // the first: free, and only while the guild still has none
-    const r = await db.prepare('UPDATE guilds SET heraldry = ? WHERE id = ? AND heraldry IS NULL').bind(json, gid).run();
-    return r?.meta?.changes ? { ok: true, heraldry: next, cost: 0 } : { error: 'heraldry-moved' };
+    const r = await db.prepare(`UPDATE guilds SET heraldry = ? WHERE id = ? AND heraldry IS NULL AND ${stillMaster}`).bind(json, gid).run();
+    return r?.meta?.changes ? { ok: true, heraldry: next, cost: 0 } : { error: await whyNot() };
   }
   if (typeof rid !== 'string' || !MARKS_RID_RE.test(rid)) return { error: 'marks-rid' };
   if (!marksOpenFor(player, env)) return { error: 'marks-closed' };
@@ -205,12 +213,15 @@ export async function setHeraldry(ctx, player, { character, heraldry, rid } = {}
           AND NOT EXISTS (SELECT 1 FROM marks_ledger WHERE actor = ?5 AND rid = ?7)`)
         .bind(gid, HERALDRY_CHANGE_DRAKES, utcDay(nowS), nowS, player.id, displayName(player), rid),
       mustChange(db),
-      db.prepare('UPDATE guilds SET heraldry = ? WHERE id = ? AND heraldry = ?').bind(json, gid, row.heraldry),
+      db.prepare(`UPDATE guilds SET heraldry = ? WHERE id = ? AND heraldry = ? AND ${stillMaster}`).bind(json, gid, row.heraldry),
       mustChange(db),
     ]);
   } catch {
+    // AUDIT GUILD1d S4: the same change raced by itself - its line is the one that landed
+    const landed = await db.prepare('SELECT kind FROM marks_ledger WHERE actor = ? AND rid = ?').bind(player.id, rid).first();
+    if (landed?.kind === 'heraldry') return { ok: true, repeat: true, heraldry: heraldryOfRow((await db.prepare('SELECT heraldry FROM guilds WHERE id = ?').bind(gid).first())?.heraldry) };
     const bal = await db.prepare('SELECT balance FROM guild_marks WHERE guild_id = ?').bind(gid).first();
-    return { error: Number(bal?.balance ?? 0) < HERALDRY_CHANGE_DRAKES ? 'heraldry-drakes' : 'heraldry-moved' };
+    return { error: Number(bal?.balance ?? 0) < HERALDRY_CHANGE_DRAKES ? 'heraldry-drakes' : await whyNot() };
   }
   return { ok: true, heraldry: next, cost: HERALDRY_CHANGE_DRAKES };
 }

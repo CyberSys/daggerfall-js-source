@@ -190,11 +190,18 @@ export function homeHallRows(home, door) {
   if (!home?.hall || door !== 'enter') return null;
   return [{ id: HOME_VERB.enter, label: 'Go in' }, ...(home.keeper ? [{ id: HALL_VERB.entry, label: `Who may enter: ${GUILD_HALL_ENTRY_WORDS[home.entry] ?? GUILD_HALL_ENTRY_WORDS.guild}` }] : [])];
 }
+/** AUDIT GUILD1d A3: the offer box's hall choice (the plaque-less click's), for a guildmaster whose guild holds no hall. */
+export const hallOfferLabel = (price, guild) => `G - buy it for ${guild?.name ?? 'your guild'}: ${guildHallPrice(price)} gold from the treasury`;
 /** GUILD1d: who may walk into a hall after `entry`, a press on the row: members, anyone, and round again. */
 export const hallNextEntry = (entry) => GUILD_HALL_ENTRIES[(Math.max(0, GUILD_HALL_ENTRIES.indexOf(entry)) + 1) % GUILD_HALL_ENTRIES.length];
 /** GUILD1d: the hall bought and refused at its door, in words. */
 export const hallBoughtLine = (name) => `This house is the hall of ${name} now. Its members may walk in; its Officers may furnish it.`;
 export const hallShortLine = (cost) => `The treasury needs ${cost} gold put in by realm characters to buy this hall.`;
+/** AUDIT GUILD1d A6/A7: a hall's cupboard to its members, and a hall's own words for a drop (anyone's) and a spell (a
+ *  visitor's - its members cast in it). */
+export const HALL_CHEST_TITLE = "The Guild's Chest";
+export const HALL_DROP_TEXT = "Nothing dropped in a guild's hall stays - put it in the guild's chest.";
+export const HALL_VISITOR_MAGIC_TEXT = "You cannot cast spells in another guild's hall.";
 /** GUILD1d: a hall's chest pressed where the Guild tab cannot open. */
 export const HALL_CHEST_SHUT = "The guild's chest holds the guild Stores - open the Guild tab of the Social panel to reach them.";
 
@@ -374,7 +381,10 @@ export function createOnlineHomes({ api, character = () => null, now = () => Dat
     return t ? new Map([...t.homes].map(([k, row]) => [k, row])) : null;
   }
 
-  return { ensure, waitFor, known, homeAt, claim, release, setEntry, setLook, homesIn, version: () => version };
+  /** AUDIT GUILD1d A5: something a door shows moved outside the registry (the guild book's look - whether this character
+   *  may buy a hall): the doors are read again. */
+  const bump = () => { version++; };
+  return { ensure, waitFor, known, homeAt, claim, release, setEntry, setLook, homesIn, bump, version: () => version };
 }
 
 /**

@@ -106,7 +106,8 @@ async function realmDecorWrite(ctx, player, at, { mapId, buildingKey, delta, wri
 const OWNS = `EXISTS (SELECT 1 FROM (SELECT ? AS m, ? AS b, ? AS p, ? AS c) k JOIN homes h ON h.map_id = k.m AND h.building_key = k.b
   WHERE (h.guild_id IS NULL AND h.player = k.p AND h.char_id = k.c)
     OR (h.guild_id IS NOT NULL AND EXISTS (SELECT 1 FROM guild_members g WHERE g.guild_id = h.guild_id AND g.player = k.p AND g.char_id = k.c
-      AND g.rank IN (${HALL_POWERS.decorate.join(', ')}))))`;
+      AND g.rank IN (${HALL_POWERS.decorate.join(', ')})
+      AND EXISTS (SELECT 1 FROM realm_characters rc WHERE rc.id = g.char_id AND rc.player = k.p))))`;   // AUDIT GUILD1d S2: a realm character's - its moves and stations are paid on its record, never on a client's word
 /** GUILD1d: the guild whose hall a building is, or null (a home, or nobody's). */
 const hallGuildOf = async (db, mapId, buildingKey) => (await db.prepare('SELECT guild_id FROM homes WHERE map_id = ? AND building_key = ?').bind(mapId, buildingKey).first())?.guild_id ?? null;
 
@@ -273,10 +274,16 @@ export async function placeDecor(ctx, player, { mapId, buildingKey, character, p
   if (side.error) return side;
   // AUDIT REALM L1-F3: `paid`, what a record paid for it - the price, when a realm character's record pays it; nothing else
   // HOME-YARD: a yard's pieces and a room's are counted apart, each against its own cap
+  // AUDIT GUILD1d S3: the hall's own rule (no keeper's own thing, no yard) inside the write too - a hall bought between the
+  // rule's read and this INSERT took them
   const insert = db.prepare(`INSERT OR IGNORE INTO home_decor (map_id, building_key, id, model, flat_archive, flat_record, place, placed_at, item, paid, yard)
-    SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE ${OWNS} AND (SELECT COUNT(*) FROM home_decor WHERE map_id = ? AND building_key = ? AND yard = ?) < ?`)
+    SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE ${OWNS} AND (SELECT COUNT(*) FROM home_decor WHERE map_id = ? AND building_key = ? AND yard = ?) < ?
+      AND (? = 0 OR NOT EXISTS (SELECT 1 FROM homes WHERE map_id = ? AND building_key = ? AND guild_id IS NOT NULL))`)
     .bind(mapId, buildingKey, p.id, p.model, p.flat?.[0] ?? null, p.flat?.[1] ?? null, placeJson(p), nowS, p.item ? JSON.stringify(p.item) : null,
-      side.at ? ledger : 0, out, mapId, buildingKey, player.id, character, mapId, buildingKey, out, out ? DECOR_YARD_CAP : DECOR_CAP);
+      side.at ? ledger : 0, out, mapId, buildingKey, player.id, character, mapId, buildingKey, out, out ? DECOR_YARD_CAP : DECOR_CAP,
+      p.item || out ? 1 : 0, mapId, buildingKey);
+  /** AUDIT GUILD1d S3: a placement the hall's rule refused, in its own word - or null. */
+  const hallWord = async () => ((p.item || out) && await hallGuildOf(db, mapId, buildingKey) ? (out ? 'hall-yard' : 'hall-item') : null);
   if (side.at && delta !== 0) {
     // REALM P2.2b: the piece and what it cost, together - a placement sent again found the record one on above
     const had = await db.prepare('SELECT * FROM home_decor WHERE map_id = ? AND building_key = ? AND id = ?').bind(mapId, buildingKey, p.id).first();
@@ -284,11 +291,13 @@ export async function placeDecor(ctx, player, { mapId, buildingKey, character, p
     return realmDecorWrite(ctx, player, side.at, {
       mapId, buildingKey, delta, write: insert,
       after: async () => pieceOfRow(await db.prepare('SELECT * FROM home_decor WHERE map_id = ? AND building_key = ? AND id = ?').bind(mapId, buildingKey, p.id).first()),
-      refusal: async () => ((await db.prepare(`SELECT ${OWNS} AS owns`).bind(mapId, buildingKey, player.id, character).first())?.owns ? (out ? 'yard-cap' : 'decor-cap') : 'no-home'),
+      refusal: async () => (await hallWord()) ?? ((await db.prepare(`SELECT ${OWNS} AS owns`).bind(mapId, buildingKey, player.id, character).first())?.owns ? (out ? 'yard-cap' : 'decor-cap') : 'no-home'),
     });
   }
   const r = await insert.run();
   if (r?.meta?.changes) return { ok: true, piece: p };
+  const hallSaid = await hallWord();
+  if (hallSaid) return { error: hallSaid };
   const owns = await db.prepare(`SELECT ${OWNS} AS owns`).bind(mapId, buildingKey, player.id, character).first();
   if (!owns?.owns) return { error: 'no-home' };
   const row = await db.prepare('SELECT * FROM home_decor WHERE map_id = ? AND building_key = ? AND id = ?').bind(mapId, buildingKey, p.id).first();

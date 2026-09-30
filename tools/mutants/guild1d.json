@@ -114,7 +114,8 @@
     "old": "  if (!hallMay(a.me.rank, 'hallEntry')) return { error: 'guild-rank' };\n",
     "new": "",
     "tests": [
-      "test/guild1d_service.test.js"
+      "test/guild1d_service.test.js",
+      "test/auditguild1d.test.js"
     ]
   },
   {
@@ -141,7 +142,8 @@
     "old": "  if (!hallMay(a.me.rank, 'heraldry')) return { error: 'guild-rank' };\n",
     "new": "",
     "tests": [
-      "test/guild1d_service.test.js"
+      "test/guild1d_service.test.js",
+      "test/auditguild1d.test.js"
     ]
   },
   {
@@ -204,8 +206,8 @@
   {
     "name": "GUILD1d-owns-any-member",
     "file": "server-account/src/decor.js",
-    "old": "AND g.char_id = k.c\n      AND g.rank IN (${HALL_POWERS.decorate.join(', ')}))))`;",
-    "new": "AND g.char_id = k.c)))`;",
+    "old": "AND g.char_id = k.c\n      AND g.rank IN (${HALL_POWERS.decorate.join(', ')})\n      AND EXISTS (SELECT 1 FROM realm_characters rc",
+    "new": "AND g.char_id = k.c\n      AND EXISTS (SELECT 1 FROM realm_characters rc",
     "tests": [
       "test/guild1d_service.test.js"
     ]
@@ -217,7 +219,9 @@
     "new": "",
     "tests": [
       "test/guild1d_service.test.js"
-    ]
+    ],
+    "equivalent": true,
+    "why": "AUDIT GUILD1d S3: the hall's rule is in the placement's INSERT too (its own mutant, AUDIT-GUILD1d-S3-insert-takes-a-hall-item) - the read before it only names the refusal sooner"
   },
   {
     "name": "GUILD1d-hall-stands-a-yard",
@@ -226,7 +230,9 @@
     "new": "",
     "tests": [
       "test/guild1d_service.test.js"
-    ]
+    ],
+    "equivalent": true,
+    "why": "AUDIT GUILD1d S3: the hall's rule is in the placement's INSERT too (its own mutant, AUDIT-GUILD1d-S3-insert-takes-a-hall-item) - the read before it only names the refusal sooner"
   },
   {
     "name": "GUILD1d-piece-half-to-the-keeper",

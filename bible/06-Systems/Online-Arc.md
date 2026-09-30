@@ -4775,7 +4775,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7319` read, on one physical line:
+`src/scenes/worldModes.js:7341` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -10292,6 +10292,92 @@ Pinned: `test/guild1d_service.test.js` (5), `test/guild1d_client.test.js` (12); 
 `test/home1.test.js` (the entries), `test/decor1.test.js`, `test/decor1d.test.js`, `test/decorshell.test.js` (the
 room's host), `test/glstate.test.js`, `test/farring.test.js`, `test/audit18_bible_docs.test.js` (the foreign passes)
 and the ACCOUNT_VERSION pins (`acct42`). `tools/mutants/guild1d.json` (38, all dead).
+
+### AUDIT GUILD1d (2026-09-30, Mac: "let's do an audit on this")
+
+Three lanes read the slice adversarially: the service's gold, state and races; who reaches a hall and what a visit
+does; the client's book, the Guild tab, the drawing and the banner pass. Every finding was checked against the code
+before it was fixed. None made gold or Drakes. Each fix is pinned in `test/auditguild1d.test.js` (11 tests: the
+service's through the real Worker, a race by landing the other request, whole, between a read and its write) and
+carries a mutant in `tools/mutants/auditguild1d.json` (44 records, all dead).
+
+- **S1 (HIGH) - a lone guildmaster's delete stranded the hall.** Deleting the last member's realm character left the
+  guild memberless, holding the hall, and the memberless reclaim refuses a guild that holds one (`guildKeepsSql`). The
+  building, the name and the deed share were gone for good. `deleteRealm` now refuses `guild-hall` (409): sell it
+  first.
+- **S2 - a keeper on its client's word.** OWNS took any membership row of rank for a keeper, so an Officer seated
+  under a character id that is no realm record (its gold its client's word) could move a piece into a paid station.
+  The hall's branch now asks that the keeper be a realm character of the account.
+- **S3 - the hall's rule was a read before the write.** A hall bought between the placement's read and its INSERT
+  took a keeper's own thing or a yard piece. The INSERT carries the rule, and says it in its own word (`hall-item`,
+  `hall-yard`). The read before it only names the refusal sooner (GUILD1d's two records for it are now recorded
+  equivalent).
+- **S4, S5 - a request raced by itself.** The same heraldry change asked twice under one request id charged once,
+  but the loser read `heraldry-drakes`; the same hall claim raced read `home-taken`. Both now answer as made
+  (`repeat`): a paid line under the rid is the change whatever the heraldry now is, and a failed claim that finds the
+  building already this guild's is the claim that landed.
+- **S6 - the rooms' read took a hall for the buyer's home.** `roomsOf` answered `mine` (and the home's `due`) to the
+  account that bought a hall. A hall is no account's: `mine` asks `guild_id IS NULL`.
+- **S7 - the rank read, not held.** Who may walk in, and the heraldry, checked the rank before the write. An Officer
+  demoted, or a guildmaster who handed the guild on, between the read and the write still changed it. Each write
+  now holds the rank itself (HALL_POWERS), and the refusal says which guard held (`guild-rank`). The rank is still
+  asked first, so a member is told the rank, never "no hall" or "too few Drakes" (GUILD1d's two records for those
+  reads, silenced by the writes' guards, are pinned by that word).
+- **S8 - the restore read a hall as a home bought again** (`tools/realmRestore.mjs`): a building now the guild's hall,
+  bought by the same account, was written back to the character. The guild's mark (`guild:`) is a taken building.
+- **S9 - guards no pin held.** GUILD1d's own mutants had left these clauses alive, and each now has a pin and a
+  mutant: the buy takes `realm_gold` with the treasury; the sale holds the pieces (count and sum), what the treasury
+  paid and the rank as they were read; a piece's half and a sale stop at the treasury's cap and take nothing (the
+  piece's half no longer lost silently when the cap refuses it); a piece's half is realm gold; the trigger forgets
+  the kind, so the next plain move is no hall's line; the heraldry changes only from what was read.
+- **A1 - members couldn't sleep in the hall.** `canRest` asks the house's ownership only inside a permanent scene,
+  and a hall's scene never is one. A member was told "You have not rented a room here." HOME-RENT's tenants had the
+  same defect. An online bed is now the service's word: the owner's own home, a hall's member, and a running tenancy
+  each sleep there.
+- **A2 - a hall's forge, workbench and loom were cold** to its members (only the decor's own stations served them).
+  They serve members now, as the owner's do at home.
+- **A3 - no hall on the offer box.** The touch screen, and a click with no plaque drawn, reached a house's buy through
+  the offer box, which had no hall row. It now carries "Buy it for <Guild>" to a guildmaster whose guild holds none;
+  the box is its own confirmation.
+- **A4, A9 - a hall's half paid to the purse.** The decorator credited the keeper's own purse with a hall piece's
+  half, which the service pays into the treasury, and the panel said "back". The purse is untouched, and the panel
+  says "to the guild's treasury".
+- **A5 - the doors never read again.** A hall's door titles and rows were built before the guild book knew the guild,
+  and stayed so. The registry is bumped when the guild's look changes.
+- **A6 - the chest named private property.** A hall's cupboard, hovered by a member, read as somebody else's. It is
+  "The Guild's Chest", as the press opens it.
+- **A7 - a hall's floor and magic (decided).** Nothing dropped in a hall stays, anyone's, in the hall's own words. A
+  hall's MEMBER casts in it, as an owner casts at home; anyone else is its visitor, in the hall's words.
+- **A8 - two buys out at once.** A second press while the first buy was out sent a second. One buy is out a house at
+  a time; the first answer speaks for both.
+- **R1 - the banners took the lab's slider** (0..200) for the wind. They take the wind's own 0..1 (`strength01`).
+- **R2 - the swing went through the wall.** A two-way sine swung the cloth into the building. It swings out along
+  its face alone; the ripple likewise.
+- **R3 - drawn over every glow.** The opaque cloth, which writes depth, was drawn after the veiled bodies, the duel
+  walls and the gate's fire. It is drawn before them.
+- **R4 - the width off the vertex order.** The door record's vertex order set the cloth's span, so under the port's
+  mirrored projection one of the two orders drew the device mirror-imaged. The span now runs from the chosen face
+  (never a signed zero).
+- **R5 - a heraldry change read as a deposit** on the guild's Drakes ledger. It is its own line, `heraldry`, in the
+  tab's words.
+- **R6 - a failed picture left the seam unmarked.** The pass answered whether it drew, so a frame whose banner had
+  no picture changed the GL program and went unmarked. It answers true whenever there is a banner to hang.
+- **R7 - textures kept for ever.** A failed picture was cached (never asked again) and every heraldry seen stayed on
+  the GPU. A failure is asked again, and a texture idle for `BANNER_TEXTURE_IDLE_S` (120 s) is given back.
+- **R8 - a dark rim on the cut.** Straight alpha mipmapped the swallowtail's edge dark. The upload is premultiplied and
+  the shader divides it back.
+- **R9 - moonless.** The grass takes the moon, and the banners did not. They are lit by it too.
+- **R10 - a draft of another guild's.** The heraldry draft outlived its guild and its heraldry. It is keyed to both.
+- **R11 - the repaint under the keyboard.** Choosing a colour or device rebuilt the tab, and the select with it. The
+  picture and the button are repainted in place.
+- **R12 - the Drakes shut, unsaid.** With the Drake treasury closed, the change button was disabled with no reason.
+  It says so.
+- **R13 - the sale in its own words.** The sale said a fixed line; it now says the service's own sum.
+- **R14 - an older answer cleared a newer choice's id.** The book clears the heraldry's request id only when the
+  answer is that request's.
+
+Left as known limits: the banner pass allocates the eye's small array each frame it draws, and another client's
+banners change heraldry only when its town's list is next read.
 
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 

@@ -107,6 +107,10 @@ export const GUILD_HALL_NONE_TEXT = `Your guild has no hall. The guildmaster buy
 export const GUILD_HERALDRY_NONE_TEXT = 'Your guild has no heraldry yet.';
 /** GUILD1d: a treasury ledger line's verb - a deposit and a withdrawal, and the hall's own moves (0043's `moved_kind`). */
 export const GUILD_LEDGER_WORDS = Object.freeze({ deposit: 'put in', withdraw: 'took out', hall: 'bought the hall for', 'hall-sale': 'sold the hall for', 'hall-piece': 'took down a hall piece - back into the treasury:' });
+/** AUDIT GUILD1d R5: a Drakes ledger line's verb - a heraldry changed is the treasury paying, never a deposit. */
+export const GUILD_MARKS_LEDGER_WORDS = Object.freeze({ deposit: 'put in', withdraw: 'took out', heraldry: 'changed the heraldry for' });
+/** AUDIT GUILD1d R13: the hall's sale in words - the service's own sum (the deed share and its pieces' half). */
+export const guildHallSoldText = (r) => `The hall is sold. ${Number(r?.data?.back ?? 0).toLocaleString('en-US')} gold went back into the treasury.`;
 /** GUILD1d: where a hall stands, in words. */
 export const guildHallWhereText = (hall) => `Your hall stands in ${REGION_NAMES[hall?.region] ?? 'the Iliac Bay'}.`;
 /** GUILD1b: a guild act's answer in words - the service's sentence (REFUSALS), or the tab's own for the purse. */
@@ -828,7 +832,7 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
     guildUi.word = ''; guildUi.arm = null; ui++;
     Promise.resolve(promise).then((r) => {
       guildUi.bad = !r?.ok;
-      guildUi.word = r?.ok ? guildDoneText(okWord, r) : guildWordText(r?.error);
+      guildUi.word = r?.ok ? guildDoneText(typeof okWord === 'function' ? okWord(r) : okWord, r) : guildWordText(r?.error);   // AUDIT GUILD1d R13: or the answer's own words
       if (r?.ok) after?.(r);
       ui++;
     });
@@ -992,7 +996,7 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
     }
     if (hallMay(me, 'hall')) {
       const back = homeSaleRefund(Number(hall.paid) || 0);
-      acts.append(armed('hall-sell') ? btn(`Sure? ${back.toLocaleString('en-US')} gold back`, { warn: true, enabled: !g.busy, why: 'a moment', run: () => guildDo(g.sellHall(), 'The hall is sold; its price is back in the treasury.') })
+      acts.append(armed('hall-sell') ? btn(`Sure? ${back.toLocaleString('en-US')} gold back, plus half its pieces' cost`, { warn: true, enabled: !g.busy, why: 'a moment', run: () => guildDo(g.sellHall(), guildHallSoldText) })
         : btn('Sell the hall', { enabled: !g.busy, why: 'a moment', run: () => arm('hall-sell') }));
     }
     if (acts.children.length) out.push(acts);
@@ -1005,13 +1009,20 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
     const out = [el('div', 'dfsocial-sec', 'Heraldry')];
     const d = guildUi.draft;
     const may = hallMay(me, 'heraldry');
+    // AUDIT GUILD1d R10: a draft is one guild's, from one heraldry - another guild's tab (another character playing), or a
+    // heraldry changed under it, starts it again from what stands
+    const from = `${v.id}|${JSON.stringify(v.heraldry ?? null)}`;
+    if (d.heraldryFrom !== from) { d.heraldry = null; d.heraldryFrom = from; }
     if (may && !d.heraldry) d.heraldry = { ...(v.heraldry ?? { field: 'azure', border: 'gold', device: 'wolf' }) };
     const shown = may ? heraldryOf(d.heraldry) ?? v.heraldry : v.heraldry;
     const pic = el('div', 'dfsocial-banner');
     const img = doc.createElement('img');   // our own drawing as a picture - never markup (SOC3)
-    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(bannerSvg(shown, { width: 44 }))}`;
+    const drawDraft = (h) => {
+      img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(bannerSvg(h, { width: 44 }))}`;
+      img.setAttribute('alt', h ? heraldryText(h) : 'An undrawn banner');
+    };
+    drawDraft(shown);
     img.setAttribute('width', '44'); img.setAttribute('height', '132');
-    img.setAttribute('alt', shown ? heraldryText(shown) : 'An undrawn banner');
     pic.append(img, el('div', 'dfsocial-note', v.heraldry ? heraldryText(v.heraldry) : GUILD_HERALDRY_NONE_TEXT));
     out.push(pic);
     if (!may) return out;
@@ -1020,7 +1031,9 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
       sel.className = 'dfsocial-field';
       sel.setAttribute('aria-label', label);
       for (const [k, text] of options) { const o = doc.createElement('option'); o.value = k; o.textContent = text; if (k === value) o.selected = true; sel.append(o); }
-      sel.addEventListener('change', () => { onPick(sel.value); ui++; if (open) repaint(); });
+      // AUDIT GUILD1d R11: the picture and the button drawn again in place - a repaint took the focused select away from a
+      // keyboard at every step
+      sel.addEventListener('change', () => { onPick(sel.value); drawDraft(heraldryOf(d.heraldry) ?? v.heraldry); paintLiveBtns(); });
       return sel;
     };
     const form = el('div', 'dfsocial-form');
@@ -1034,7 +1047,8 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
       const h = heraldryOf(d.heraldry);
       const why = g.busy ? 'a moment' : !h ? 'two different colours - Ash only as the border'
         : heraldrySame(h, v.heraldry) ? 'already your heraldry'
-          : v.heraldry && Number(v.marks ?? 0) < HERALDRY_CHANGE_DRAKES ? `${marksText(HERALDRY_CHANGE_DRAKES)} in the Drake treasury` : '';
+          : v.heraldry && !('marks' in v) ? accountRefusalText('marks-closed')   // AUDIT GUILD1d R12: Drakes not this account's
+            : v.heraldry && Number(v.marks ?? 0) < HERALDRY_CHANGE_DRAKES ? `${marksText(HERALDRY_CHANGE_DRAKES)} in the Drake treasury` : '';
       return { enabled: !why, why };
     }, { run: () => guildDo(g.setHeraldry(d.heraldry), 'The guild\'s banner is raised.', () => { d.heraldry = null; }) }));
     out.push(acts);
@@ -1121,7 +1135,7 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
       macts.append(liveBtn('Take out', () => ({ enabled: !g.busy && marksTyped() > 0 && guildMay(me, 'withdraw'), why: guildMay(me, 'withdraw') ? (g.busy ? 'a moment' : 'an amount') : 'the guildmaster\'s alone' }),
         { run: () => { const n = marksTyped(); if (n > 0) guildDo(g.moveMarks(n, true), `${marksText(n)} taken out.`, () => { d.marks = ''; }); } }));
       out.push(macts);
-      for (const l of v.marksLedger ?? []) out.push(personRow({ name: `${l.who} ${l.kind === 'withdraw' ? 'took out' : 'put in'} ${marksText(Number(l.amount))}` }));
+      for (const l of v.marksLedger ?? []) out.push(personRow({ name: `${l.who} ${GUILD_MARKS_LEDGER_WORDS[l.kind] ?? GUILD_MARKS_LEDGER_WORDS.deposit} ${marksText(Number(l.amount))}` }));   // AUDIT GUILD1d R5
     }
     // GUILD1d (Seats-Arc 8): THE HALL AND THE HERALDRY
     out.push(...guildHallNodes(g, v, me), ...guildHeraldryNodes(g, v, me));

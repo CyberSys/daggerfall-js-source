@@ -584,7 +584,7 @@ export function createDecorPanel({
     }
     const main = el('span', '');
     main.append(el('div', 'dfdecor-row-name', it.name), el('div', 'dfdecor-row-sub', decorPlacedSub(it)));
-    r.append(thumb, main, el('span', 'dfdecor-row-price', it.piece.item ? 'yours' : `${decorRefundText(it.piece.paid)} back`));
+    r.append(thumb, main, el('span', 'dfdecor-row-price', it.piece.item ? 'yours' : `${decorRefundText(it.piece.paid)} back${view?.hall ? ' to the guild' : ''}`));   // AUDIT GUILD1d A9: a hall's half is the guild's
     r.addEventListener('click', () => { placedId = it.piece.id; redraw(); });
     return r;
   }
@@ -871,7 +871,7 @@ export function createDecorPanel({
     } else {
       pickName.textContent = it.name;
       pickLine.textContent = decorPlacedSub(it);
-      pickPrice.textContent = it.piece.item ? `Take down: back to ${decorBackTo(it.piece)}` : `Remove: ${decorRefundText(it.piece.paid)} back${it.piece.station ? ' (the station licence is not)' : ''}`;   // AUDIT HOME-STATIONS S6
+      pickPrice.textContent = it.piece.item ? `Take down: back to ${decorBackTo(it.piece)}` : `Remove: ${decorRefundText(it.piece.paid)} back${view?.hall ? " to the guild's treasury" : ''}${it.piece.station ? ' (the station licence is not)' : ''}`;   // AUDIT HOME-STATIONS S6
     }
     lightBtn.textContent = it?.piece.light ? 'Light: on' : 'Light: off';
     storeBtn.textContent = it?.piece.storage ? 'Holds things: yes' : 'Holds things: no';

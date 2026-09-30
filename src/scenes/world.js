@@ -8078,7 +8078,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2753 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6616
+  // that context through modes.dungeonCtx - so worldModes.js:6638
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -13311,7 +13311,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10105-10169 -
+  // worldModes answers it in BOTH modes (worldModes.js:10132-10196 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -19545,7 +19545,10 @@ export async function bootWorld(canvas, renderer, params, status) {
       info: () => {
         const g = guildBook;
         if (!g) return null;
-        if (g.stale()) g.refresh().catch(() => {});
+        // AUDIT GUILD1d A5: a look that moves what a door may offer (the hall's buy) reads the doors again - the plaque's
+        // text is kept by the registry's version, and the first hover after boot asked before the guild was known
+        const sig = (v) => (v ? `${v.id}|${v.rank}|${v.hall ? 1 : 0}` : '');
+        if (g.stale()) { const was = sig(g.guild); g.refresh().then(() => { if (sig(g.guild) !== was) onlineHomes?.bump?.(); }).catch(() => {}); }
         const v = g.guild;
         return v ? { name: v.name, rank: v.rank, hall: !!v.hall, treasury: v.treasury } : null;
       },
@@ -23974,6 +23977,18 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       meterFor(renderer.gl)?.mark('world');
       renderer.markForeignPass();   // EV6: the grass changed programs behind the shadows' back
     }
+    // GUILD1d: THE HALLS' BANNERS - opaque cloth after the grass, from the view's own eye, lit by the frame's sun and
+    // fogged as the ground is, swaying on the weather's wind (render/bannerPass.js). AUDIT GUILD1d R3: BEFORE the veiled
+    // bodies, the duel walls and the gate's fire - an opaque pass that writes depth drawn after them painted over every
+    // glow in front of it. AUDIT GUILD1d R1: the wind's own 0..1 (`strength01`), never the lab's 0..200 slider
+    if (hallBanners) {
+      const hung = hallBanners.list();
+      if (hung.length && bannerPass.draw(hung, proj, view, new Float32Array(mwv.eye), now / 1000, {
+        light: { sunDir: renderer._lightDir, amb: renderer._ambient, sunCol: renderer._sunColor, sunScale: renderer._sunScale, moonDir: renderer._moonDir, moonScale: renderer._moonScale, moonCol: renderer._moonColor },   // AUDIT GUILD1d R9: and the moon, as the grass takes it
+        wind: Math.min(1, wd.strength01 * wd.gust),
+        fog: { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, color: renderer._fogColor, camPos: renderer._camPos, dw: renderer._dwFog, focus: renderer._focus },
+      })) renderer.markForeignPass();
+    }
     drawVeiledPeerBodies();   // INVIS-LOOK: the concealed peers' bodies, translucent - after the opaque world, the flats and the grass
     // DUEL1: THE RINGS' WALLS - my own duel's, rising in and dying away, and every duel the cells around me say stands
     // (each once: both duellists say it). After the grass, from the view's own eye (mwv.eye, the bolts' law), fogged as
@@ -23985,16 +24000,6 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, color: renderer._fogColor, camPos: renderer._camPos, dw: renderer._dwFog, focus: renderer._focus });   // DW-C: the sea's fog with the frame's; AUDIT DEEP R-1: and the travel view's focus
         renderer.markForeignPass();
       }
-    }
-    // GUILD1d: THE HALLS' BANNERS - opaque cloth after the grass, from the view's own eye, lit by the frame's sun and
-    // fogged as the ground is, swaying on the weather's wind (render/bannerPass.js)
-    if (hallBanners) {
-      const hung = hallBanners.list();
-      if (hung.length && bannerPass.draw(hung, proj, view, new Float32Array(mwv.eye), now / 1000, {
-        light: { sunDir: renderer._lightDir, amb: renderer._ambient, sunCol: renderer._sunColor, sunScale: renderer._sunScale },
-        wind: Math.min(1, wd.slider * wd.gust),
-        fog: { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, color: renderer._fogColor, camPos: renderer._camPos, dw: renderer._dwFog, focus: renderer._focus },
-      })) renderer.markForeignPass();
     }
     // WB2: THE GATE'S FIRE AND BEACON - after the duel wall, the same eye and fog; the stone went in the world pass, so
     // the horns in front of the fire hide it

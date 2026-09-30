@@ -339,7 +339,7 @@ test('GUILD1d the streets\' banners: a hall wearing its heraldry hangs two in it
   assert.equal(hb.list().length, BANNERS_MAX);
 });
 
-test('GUILD1d the cloth: rows of two triangles; the clock wrapped and every rate whole over it; the shader cuts the swallowtail and swings on the wind below its nailed top; nothing to draw touches nothing (mutants: the discard; the swing at the top; a rate off the period)', () => {
+test('GUILD1d the cloth: rows of two triangles; the clock wrapped and every rate whole over it; the shader cuts the swallowtail and swings on the wind below its nailed top; nothing to draw touches nothing, and a frame that drew none still marks its seam (mutants: the discard; the swing at the top; a rate off the period)', () => {
   assert.equal(clothVertices().length, BANNER_ROWS * 12);
   assert.deepEqual([...clothVertices(1)], [0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1]);
   assert.equal(bannerClock(BANNER_CLOCK_PERIOD + 3), 3);
@@ -351,8 +351,8 @@ test('GUILD1d the cloth: rows of two triangles; the clock wrapped and every rate
   gl.getProgramParameter = () => true; gl.getShaderParameter = () => true;
   const r = new BannerRenderer(/** @type {any} */ (gl), { paint: () => null });
   assert.equal(r.draw([], new Float32Array(16), new Float32Array(16), [0, 0, 0], 1), false);
-  assert.equal(r.draw([{ key: 'k', heraldry: WOLF, top: [0, 0, 0], right: [1, 0, 0], out: [0, 0, 1] }], new Float32Array(16), new Float32Array(16), [0, 0, 0], 1), false, 'a heraldry that cannot be painted draws nothing');
-  assert.equal(r.drawn, 0);
+  assert.equal(r.draw([{ key: 'k', heraldry: WOLF, top: [0, 0, 0], right: [1, 0, 0], out: [0, 0, 1] }], new Float32Array(16), new Float32Array(16), [0, 0, 0], 1), true, 'the program changed - the host marks the seam (AUDIT GUILD1d R6)');
+  assert.equal(r.drawn, 0, 'a heraldry that cannot be painted draws nothing');
 });
 
 test('GUILD1d wired: the building host - the hall\'s rows and its buy, the chest, stations and rest for members, the keepers\' decor as a hall; the world host - the door measured at the build, the banners built and drawn after the duel walls, the guild\'s hall handed down; the decorator offers a hall no personal things (by source)', () => {
@@ -361,14 +361,14 @@ test('GUILD1d wired: the building host - the hall\'s rows and its buy, the chest
   assert.match(wm, /const hall = homeHallBuyRow\(price, hallGuild\(\), hallArmed\(bd\)\);/);
   assert.match(wm, /if \(verb === HALL_VERB\.buy && price\) \{ pressHallBuy\(bd, price\); return true; \}/);
   assert.match(wm, /if \(c && interiorHome\?\.hall && interiorHome\.member\) \{ openHallChest\(\); return true; \}/);
-  assert.match(wm, /if \(!decorOwnerHere\(\)\) \{\n\s*if \(!interiorHome\?\.member\) \{   \/\/ GUILD1d: a hall's stations are its members'/);
+  assert.match(wm, /if \(!decorOwnerHere\(\)\) \{\n\s*if \(!hallMemberHere\(\)\) \{   \/\/ GUILD1d: a hall's stations are its members'/);
   assert.match(wm, /if \(interiorHome\?\.hall\) return \{ kind: 'home', hall: true, where: "Your guild's hall"/);
   assert.match(wm, /\(interiorHome\.hall && interiorHome\.member\) \|\| rentDaysLeft/);
   assert.match(wm, /if \(mode !== 'interior' \|\| !b \|\| !\(decorOwnerHere\(\) \|\| decorKeeperHere\(\)\)\) return null;/);
   const w = src('src/scenes/world.js');
   assert.match(w, /if \(hf && !hf\.door\) hf\.door = doorCornersOf\(cpu\.doors\[0\], local\);/);
   assert.match(w, /const hallBanners = onlineHomes && bannerPass \? createHallBanners\(\{/);
-  assert.ok(w.indexOf('const hung = hallBanners.list();') > w.indexOf('duelWall.draw(rings'), 'after the duel walls');
+  assert.ok(w.indexOf('const hung = hallBanners.list();') < w.indexOf('    drawVeiledPeerBodies();   // INVIS-LOOK'), 'before every glow (AUDIT GUILD1d R3)');
   assert.match(w, /openStores: \(\) => socialPanel\?\.openGuild\?\.\(\) === true,/);
   assert.match(w, /onHall: \(mapId\) => \{ onlineHomes\?\.ensure\?\.\(mapId, \{ force: true \}\); \},/);
   const dt = src('src/scenes/decorTool.js');

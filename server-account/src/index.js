@@ -198,6 +198,7 @@ const REALM_STATUS = Object.freeze({
   'trade-spent': 409,   // REALM P2.1: a trade's sid another pair settled
   'guild-master-leaves': 409,   // AUDIT REALM L1-F7: a guildmaster deleted hands the guild over first
   'guild-treasury': 409,   // AUDIT REALM2 S8: and a lone one empties the treasury first
+  'guild-hall': 409,   // AUDIT GUILD1d S1: and sells its guild's hall first
   'realm-market-open': 409,   // PROF-DELETE: and one with market business open settles it first
   'home-tenants': 409, 'home-rent-due': 409,   // HOME-RENT: and one renting rooms out waits for its tenants and collects its rent
   'realm-birth': 403, 'customs-allowance': 403,   // AUDIT REALM2 S1: a first save the realm's law refuses

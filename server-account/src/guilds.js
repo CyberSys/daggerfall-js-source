@@ -157,7 +157,8 @@ async function viewOf(db, guildId, me, nowS, marksOpen = false) {
     ledger: (ledger?.results ?? []).map((l) => ({ at: l.at, who: l.who, kind: l.kind, amount: l.amount, balance: l.balance })),
     ...(marksOpen ? {
       marks: Number(marks?.balance ?? 0),
-      marksLedger: (marksLines?.results ?? []).map((l) => ({ at: l.at, who: l.who, kind: l.kind === 'guild-withdraw' ? 'withdraw' : 'deposit', amount: l.amount })),
+      // AUDIT GUILD1d R5: a heraldry changed is its own line (the treasury paid it), never a deposit
+      marksLedger: (marksLines?.results ?? []).map((l) => ({ at: l.at, who: l.who, kind: l.kind === 'guild-withdraw' ? 'withdraw' : l.kind === 'heraldry' ? 'heraldry' : 'deposit', amount: l.amount })),
     } : {}),
   };
 }

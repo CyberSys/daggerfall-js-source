@@ -357,8 +357,8 @@
   {
     "name": "HOME-YARD-one-cap-for-both",
     "file": "server-account/src/decor.js",
-    "old": "mapId, buildingKey, out, out ? DECOR_YARD_CAP : DECOR_CAP);",
-    "new": "mapId, buildingKey, out, DECOR_CAP);",
+    "old": "out, out ? DECOR_YARD_CAP : DECOR_CAP,",
+    "new": "out, DECOR_CAP,",
     "tests": [
       "test/homeyard.test.js"
     ]

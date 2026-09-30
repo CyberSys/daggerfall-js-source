@@ -200,7 +200,7 @@
   {
     "name": "DECOR1e-the-shrink-not-given-back",
     "file": "src/scenes/decorTool.js",
-    "old": "      if (price.refund > 0) deps.wallet().credit?.(price.refund);",
+    "old": "      if (price.refund > 0 && !r.hall) deps.wallet().credit?.(price.refund);",
     "new": "      if (false) deps.wallet().credit?.(price.refund);",
     "tests": [
       "test/decor1e.test.js"
@@ -290,8 +290,8 @@
   {
     "name": "DECOR1e-the-removal-refund-whole",
     "file": "src/scenes/decorTool.js",
-    "old": "      back = decorRefund(paid);\n      if (back > 0) deps.wallet?.().credit?.(back);\n    }",
-    "new": "      back = paid;\n      if (back > 0) deps.wallet?.().credit?.(back);\n    }",
+    "old": "      back = r.hall ? 0 : decorRefund(paid);   // AUDIT GUILD1d A4: a hall's half is the treasury's, never the purse's\n      if (back > 0) deps.wallet?.().credit?.(back);\n    }",
+    "new": "      back = r.hall ? 0 : paid;   // AUDIT GUILD1d A4: a hall's half is the treasury's, never the purse's\n      if (back > 0) deps.wallet?.().credit?.(back);\n    }",
     "tests": [
       "test/decor1e.test.js"
     ]
@@ -353,8 +353,8 @@
   {
     "name": "DECOR1e-a-late-move-standing",
     "file": "src/scenes/decorTool.js",
-    "old": "        if (price.refund > 0) deps.wallet().credit?.(price.refund);\n      }\n      if (deps.visit?.() === visit) pool.put(stood);",
-    "new": "        if (price.refund > 0) deps.wallet().credit?.(price.refund);\n      }\n      pool.put(stood);",
+    "old": "        if (price.refund > 0 && !r.hall) deps.wallet().credit?.(price.refund);   // AUDIT GUILD1d A4: a hall's half is the treasury's, the service's\n      }\n      if (deps.visit?.() === visit) pool.put(stood);",
+    "new": "        if (price.refund > 0 && !r.hall) deps.wallet().credit?.(price.refund);   // AUDIT GUILD1d A4: a hall's half is the treasury's, the service's\n      }\n      pool.put(stood);",
     "tests": [
       "test/decor1e.test.js"
     ]

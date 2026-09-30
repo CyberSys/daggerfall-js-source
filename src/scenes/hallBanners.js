@@ -59,6 +59,9 @@ export function hallBannerAnchors(frame) {
   let ox = -rz, oz = rx;
   const mx = (box[0] + box[3]) / 2, mz = (box[2] + box[5]) / 2;
   if ((cx - mx) * ox + (cz - mz) * oz < 0) { ox = -ox; oz = -oz; }
+  // AUDIT GUILD1d R4: the cloth's width runs from its face, never from the door record's own vertex order - under the
+  // port's mirrored projection one of the two orders drew the device mirror-imaged
+  rx = 0 - oz; rz = ox + 0;   // (+0: never a signed zero)
   const side = w / 2 + BANNER_SIDE_GAP_M + BANNER_W_M / 2;
   return [-1, 1].map((s) => ({
     top: [cx + rx * side * s + ox * BANNER_OUT_M, foot + BANNER_TOP_M, cz + rz * side * s + oz * BANNER_OUT_M],

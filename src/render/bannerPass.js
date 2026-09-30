@@ -26,6 +26,8 @@ export const BANNER_H_M = 2.7;
 export const BANNER_ROWS = 8;
 /** The most banners a frame draws. */
 export const BANNERS_MAX = 16;
+/** AUDIT GUILD1d R7: how long a heraldry's texture is kept undrawn, seconds, before it is given back. */
+export const BANNER_TEXTURE_IDLE_S = 120;
 /** The canvas a heraldry is drawn on, pixels wide (three times as tall). */
 export const BANNER_TEX_W = 64;
 /** Every rate is a whole number of cycles over this many seconds. */
@@ -52,8 +54,9 @@ out vec3 vWorld;
 void main() {
   float d = aUV.y;
   vec3 p = uTop + uRight * (aUV.x - 0.5) * uSize.x - vec3(0.0, d * uSize.y, 0.0);
-  float swing = sin(uTime * 6.283185307179586 * ${BANNER_SWING_HZ.toFixed(2)} + uPhase + d * 1.6);
-  float ripple = sin(uTime * 6.283185307179586 * ${BANNER_RIPPLE_HZ.toFixed(2)} + uPhase * 2.0 + aUV.x * 5.0 + d * 3.0);
+  // AUDIT GUILD1d R2: OUT ALONG ITS FACE ALONE - a swing both ways took the cloth's foot through the wall it hangs 0.15 m off
+  float swing = 0.5 + 0.5 * sin(uTime * 6.283185307179586 * ${BANNER_SWING_HZ.toFixed(2)} + uPhase + d * 1.6);
+  float ripple = 0.5 + 0.5 * sin(uTime * 6.283185307179586 * ${BANNER_RIPPLE_HZ.toFixed(2)} + uPhase * 2.0 + aUV.x * 5.0 + d * 3.0);
   p += uOut * d * d * uSize.y * (0.04 + 0.16 * uWind) * swing;
   p += uOut * d * (0.015 + 0.05 * uWind) * ripple;
   vUV = aUV;
@@ -68,6 +71,9 @@ uniform vec3 uSunDir;
 uniform vec3 uAmb;
 uniform vec3 uSunCol;
 uniform float uSunScale;
+uniform vec3 uMoonDir;     // AUDIT GUILD1d R9: the moon, as the world's meshes take it
+uniform vec3 uMoonCol;
+uniform float uMoonScale;
 uniform vec3 uFogColor;
 uniform int uFogMode;
 uniform float uFogDensity;
@@ -78,8 +84,10 @@ ${FOG_FACTOR_GLSL}
 void main() {
   vec4 t = texture(uTex, vUV);
   if (t.a < 0.5) discard;   // the swallowtail's cut
+  t.rgb /= t.a;   // AUDIT GUILD1d R8: uploaded premultiplied, so the cut's edge mips average to its colour, never to black
   float face = abs(dot(normalize(uOut), normalize(uSunDir)));
-  vec3 lit = t.rgb * min(vec3(1.0), uAmb + uSunCol * uSunScale * (0.35 + 0.65 * face));
+  float moon = abs(dot(normalize(uOut), normalize(uMoonDir)));
+  vec3 lit = t.rgb * min(vec3(1.0), uAmb + uSunCol * uSunScale * (0.35 + 0.65 * face) + uMoonCol * uMoonScale * (0.35 + 0.65 * moon));
   vec3 c = mix(uFogColor, lit, fogFactorAt(vWorld));
   o = vec4(dwWaterFog(c, vWorld), 1.0);
 }`;
@@ -118,7 +126,7 @@ export class BannerRenderer {
     const prog = buildProgram(gl, BANNER_VS, BANNER_FS);
     this.program = prog;
     this.u = {};
-    for (const n of ['uVP', 'uTop', 'uRight', 'uOut', 'uSize', 'uTime', 'uWind', 'uPhase', 'uTex', 'uSunDir', 'uAmb', 'uSunCol', 'uSunScale',
+    for (const n of ['uVP', 'uTop', 'uRight', 'uOut', 'uSize', 'uTime', 'uWind', 'uPhase', 'uTex', 'uSunDir', 'uAmb', 'uSunCol', 'uSunScale', 'uMoonDir', 'uMoonCol', 'uMoonScale',
       'uFogColor', 'uFogMode', 'uFogDensity', 'uFogRange', 'uCamPos', 'uDwFog', 'uFocus']) this.u[n] = gl.getUniformLocation(prog, n);
     const verts = clothVertices();
     this.count = verts.length / 2;
@@ -131,14 +139,16 @@ export class BannerRenderer {
     gl.bindVertexArray(null);
     this.vao = vao;
     this._vp = new Float32Array(16);
-    /** @type {Map<string, WebGLTexture|null>} a heraldry's texture, by its key */
+    /** @type {Map<string, {tex: WebGLTexture, seen: number}>} a heraldry's texture, by its key, and when it was last drawn */
     this.textures = new Map();
     this.drawn = 0;
   }
 
-  /** A heraldry's texture: painted and uploaded the first time, kept after (null where it cannot be painted). */
-  textureOf(key, heraldry) {
-    if (this.textures.has(key)) return this.textures.get(key) ?? null;
+  /** A heraldry's texture: painted and uploaded the first time, kept while it is drawn (null where it cannot be painted -
+   *  AUDIT GUILD1d R7: asked again next time, never remembered as none). `seconds` stamps its use. */
+  textureOf(key, heraldry, seconds = 0) {
+    const had = this.textures.get(key);
+    if (had) { had.seen = seconds; return had.tex; }
     const gl = this.gl;
     const canvas = this.paint?.(heraldry) ?? null;
     let tex = null;
@@ -146,7 +156,9 @@ export class BannerRenderer {
       tex = gl.createTexture();
       gl.bindTexture(gl.TEXTURE_2D, tex);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);   // AUDIT GUILD1d R8: the cut's edge mipmaps without a dark rim
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, /** @type {any} */ (canvas));
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
       gl.generateMipmap(gl.TEXTURE_2D);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
@@ -154,8 +166,16 @@ export class BannerRenderer {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
       gl.bindTexture(gl.TEXTURE_2D, null);
     }
-    this.textures.set(key, tex);
+    if (tex) this.textures.set(key, { tex, seen: seconds });
     return tex;
+  }
+
+  /** AUDIT GUILD1d R7: a heraldry not drawn for BANNER_TEXTURE_IDLE_S (a changed banner's old picture, a town left) gives
+   *  its texture back. */
+  prune(seconds) {
+    for (const [key, t] of this.textures) {
+      if (seconds - t.seen > BANNER_TEXTURE_IDLE_S) { this.gl.deleteTexture(t.tex); this.textures.delete(key); }
+    }
   }
 
   /**
@@ -165,6 +185,7 @@ export class BannerRenderer {
    */
   draw(banners, proj, view, eye, seconds, { light = null, wind = 0, fog = null } = {}) {
     this.drawn = 0;
+    this.prune(seconds);
     const list = (Array.isArray(banners) ? banners : []).filter((b) => b && Array.isArray(b.top) && b.top.every(Number.isFinite)).slice(0, BANNERS_MAX);
     if (!list.length) return false;
     const gl = this.gl, U = this.u;
@@ -178,6 +199,9 @@ export class BannerRenderer {
     gl.uniform3fv(U.uAmb, light?.amb ?? GREY);
     gl.uniform3fv(U.uSunCol, light?.sunCol ?? GREY);
     gl.uniform1f(U.uSunScale, light?.sunScale ?? 0.5);
+    gl.uniform3fv(U.uMoonDir, light?.moonDir ?? UP);
+    gl.uniform3fv(U.uMoonCol, light?.moonCol ?? GREY);
+    gl.uniform1f(U.uMoonScale, light?.moonScale ?? 0);
     gl.uniform3fv(U.uFogColor, fog?.color ?? GREY);
     gl.uniform1i(U.uFogMode, fog ? fog.mode : 0);
     gl.uniform1f(U.uFogDensity, fog?.density ?? 0);
@@ -190,7 +214,7 @@ export class BannerRenderer {
     gl.bindVertexArray(this.vao);
     gl.disable(gl.CULL_FACE);
     for (const b of list) {
-      const tex = this.textureOf(b.key, b.heraldry);
+      const tex = this.textureOf(b.key, b.heraldry, seconds);
       if (!tex) continue;
       gl.bindTexture(gl.TEXTURE_2D, tex);
       gl.uniform3f(U.uTop, b.top[0], b.top[1], b.top[2]);
@@ -203,6 +227,8 @@ export class BannerRenderer {
     gl.bindTexture(gl.TEXTURE_2D, null);
     gl.bindVertexArray(null);
     gl.enable(gl.CULL_FACE);
-    return this.drawn > 0;
+    // AUDIT GUILD1d R6: the program was changed whatever was drawn - the host marks the seam on this answer, and a frame
+    // whose every picture failed left the renderer believing its own program still bound
+    return true;
   }
 }

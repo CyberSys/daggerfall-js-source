@@ -324,7 +324,8 @@ export class GuildBook {
     const mapId = this.guild?.hall?.mapId ?? null;
     return this._act(async (c) => {
       const r = await this.door.heraldry(c, h, rid);
-      if (r?.ok || guildRefused(r?.error) || HERALDRY_REFUSED.has(r?.error)) this._heraldryAsk = null;
+      // AUDIT GUILD1d R14: only this ask's own id - an older answer landing after a newer choice leaves the newer's
+      if ((r?.ok || guildRefused(r?.error) || HERALDRY_REFUSED.has(r?.error)) && this._heraldryAsk?.rid === rid) this._heraldryAsk = null;
       return r;
     }).then((r) => this._hallTold(mapId, r));   // the hall's door and banners wear it
   }

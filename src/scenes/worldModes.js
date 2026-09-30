@@ -275,6 +275,7 @@ import {
   HOME_BUY_ARM_MS, HOME_VERB, homeBuyRows, homeOwnerRows, homeNextEntry, HOME_OFFER_BUY, HOME_OFFER_PASS,   // HOME2
   homeVisitorRows,   // HOME-RENT: a tenant's rows, and a home's with a room to rent
   HALL_VERB, homeHallBuyRow, hallNextEntry, hallBoughtLine, hallShortLine, HALL_CHEST_SHUT,   // GUILD1d: a guild's hall
+  HALL_CHEST_TITLE, HALL_DROP_TEXT, HALL_VISITOR_MAGIC_TEXT, hallOfferLabel,   // AUDIT GUILD1d: the chest's name, a hall's floor and magic, the offer's hall
 } from '../systems/onlineHomes.js';
 import { guildHallPrice, GUILD_HALL_ENTRY_WORDS } from '../net/hallLaw.js';   // GUILD1d: what a hall costs, in its refusal's words; who may walk in
 import { HOME_ENTRIES, homePriceOk, rentCost, rentDaysLeft } from '../net/homeLaw.js';
@@ -799,13 +800,15 @@ export function createWorldModes(host) {
    *  it. A visitor drops nothing in someone else's online home: the window says so, and so does a light dropped or
    *  thrown. The owner's own floor, an offline house and every other building are as they were. */
   const HOME_VISITOR_DROP_TEXT = 'You cannot drop items in another\'s home.';
-  const visitorDropRefusal = () => (interiorHome && !interiorHome.own && mode === 'interior' ? HOME_VISITOR_DROP_TEXT : null);
+  const visitorDropRefusal = () => (interiorHome && !interiorHome.own && mode === 'interior' ? (interiorHome.hall ? HALL_DROP_TEXT : HOME_VISITOR_DROP_TEXT) : null);   // AUDIT GUILD1d A7: a hall's floor keeps nothing, anyone's
   /** HOME-MAGIC (2026-09-27, Discord: "Players can use magic in player non owned houses"): a VISITOR casts nothing in
    *  someone else's online home - no spell readied or fired, no item's spell - HOUSE-DROP's own test of who is a
    *  visitor (a character of the same account included: a home is one character's). The owner's own home, an offline
    *  house and every other building are as they were. Asked by the cast engine through the host (`castRefusal`). */
   const HOME_VISITOR_MAGIC_TEXT = 'You cannot cast spells in another\'s home.';
-  const visitorMagicRefusal = () => (visitorDropRefusal() ? HOME_VISITOR_MAGIC_TEXT : null);   // the drop's own visitor
+  // AUDIT GUILD1d A7 (decided): a hall's MEMBER casts in it - the hall is the guild's, as a home is its owner's; anyone
+  // else is its visitor, in the hall's own words
+  const visitorMagicRefusal = () => (visitorDropRefusal() && !hallMemberHere() ? (interiorHome?.hall ? HALL_VISITOR_MAGIC_TEXT : HOME_VISITOR_MAGIC_TEXT) : null);   // the drop's own visitor
   /** ID1: EVERY inventory window this host opens, through one door,
    *  so a drop cannot fall back into the world pool from whichever
    *  call site the next slice adds. Two laws ride it: the drop mints
@@ -2197,6 +2200,7 @@ export function createWorldModes(host) {
         const c = interiorCtx.containers[Number(key.split(':')[1])];
         const t = c && houseContainerName(c.modelIdNum);   // AUDIT-WH M3: the knob guards the ACTION arm's <Interact> and only that one (.cs:465-466); the container default has no guard
         // UXB1-N/O: somebody else's is private property, in its own colour, and says when this character has searched it
+        if (t && hallMemberHere()) return { title: HALL_CHEST_TITLE };   // AUDIT GUILD1d A6: a hall's cupboard is its members' chest, as the press opens it
         return houseContainerHover(t, { owned: ownsThisInterior(b), searched: stockSearched(c, stockedToday()) });
       }
       // .cs:549-551 vs :476-480 - one model, two things, and the port
@@ -3485,7 +3489,7 @@ export function createWorldModes(host) {
    *  paid when the piece was made a station. */
   function useDecorStation(piece) {
     if (!decorOwnerHere()) {
-      if (!interiorHome?.member) {   // GUILD1d: a hall's stations are its members'
+      if (!hallMemberHere()) {   // GUILD1d: a hall's stations are its members'
         if (interiorHome) say(homeBelongsLine(interiorHome));
         return;
       }
@@ -3507,6 +3511,9 @@ export function createWorldModes(host) {
   /** GUILD1d (Seats-Arc 8.2: "decor in the hall by Officers"): a guild's hall this character keeps - its Officers and its
    *  guildmaster (the service's `keeper`, net/hallLaw.js HALL_POWERS.decorate). */
   const decorKeeperHere = () => !!(interiorHome?.hall && interiorHome.keeper);
+  /** GUILD1d: a guild's hall this character is a member of - its chest, its stations (AUDIT GUILD1d A2: the forge, the
+   *  workbench and the loom too), its beds and its magic are the member's. */
+  const hallMemberHere = () => !!(interiorHome?.hall && interiorHome.member);
   /** GUILD1d: THE GUILD'S CHEST - the guild Stores, on the Guild tab (the host's social panel); said where it cannot open. */
   function openHallChest() {
     if (!host.guildHall?.openStores?.()) say(HALL_CHEST_SHUT);
@@ -5633,6 +5640,17 @@ export function createWorldModes(host) {
   function pressHallBuy(bd, price) {
     if (!hallArmed(bd)) { _homeArm = { id: hallArmId(bd), at: performance.now() }; return; }
     _homeArm = null;
+    buyHallAt(bd, price);
+  }
+  /** AUDIT GUILD1d A8: the halls whose buy is out - one at a time a house, as a home's (HOME_BUY_BUSY); the first answer
+   *  speaks for a second press. */
+  const _hallBuying = new Set();
+  /** GUILD1d: BUY IT AS THE GUILD'S HALL - the plaque's armed row, or (AUDIT GUILD1d A3) the offer box's own choice where
+   *  no plaque rows are drawn. No purse moves: the treasury pays on the service. */
+  function buyHallAt(bd, price) {
+    const id = homeIdOf(bd);
+    if (_hallBuying.has(id)) return;
+    _hallBuying.add(id);
     const g = hallGuild();
     const mapId = homeTownOf(bd);
     Promise.resolve(host.guildHall?.buy?.({ mapId, buildingKey: bd.buildingKey, region: bd.regionIndex ?? 0, price }))
@@ -5641,7 +5659,8 @@ export function createWorldModes(host) {
         townTalk?.say?.(r?.error === 'guild-treasury-short' || r?.error === 'guild-treasury-old' ? hallShortLine(guildHallPrice(price)) : accountRefusalText(r?.error ?? 'server'));
         if (r?.error === 'home-taken') host.onlineHomes?.ensure?.(mapId, { force: true });
       })
-      .catch((e) => console.error(e));
+      .catch((e) => console.error(e))
+      .finally(() => { _hallBuying.delete(id); });
   }
   /** GUILD1d: THE HALL'S ENTRY ROW PRESSED - members, anyone, and round again; said when the service has it. */
   function turnHallEntry(bd, home) {
@@ -6037,6 +6056,9 @@ export function createWorldModes(host) {
       options: [
         { code: 'KeyY', label: HOME_OFFER_BUY, action: () => { buyHomeAt(bd, price).catch((e) => console.error(e)); } },
         { code: 'KeyN', label: HOME_OFFER_PASS, action: () => { _homeDeclined.add(homeIdOf(bd)); homeOnward(hit, entries)(); } },   // HOME-OFFER: asked once
+        // AUDIT GUILD1d A3: and, to a guildmaster whose guild holds no hall, the house bought as its hall - the touch
+        // screen's and the plaque-less click's way to the plaque's third row (the box is its own confirmation)
+        ...(homeHallBuyRow(price, hallGuild()) ? [{ code: 'KeyG', label: hallOfferLabel(price, hallGuild()), action: () => { buyHallAt(bd, price); } }] : []),
       ],
     }));
   }
@@ -9534,6 +9556,11 @@ export function createWorldModes(host) {
     // built in a closure can only be pinned by a regex over its own
     // source, and proved that hollow); this reads the live values.
     const scene = currentInteriorScene();
+    // AUDIT GUILD1d A1: AN ONLINE BED IS THE SERVICE'S WORD, NOT A SCENE'S. canRest asks `houseOwned` only inside a
+    // permanent scene, and a hall's scene (the building's own - nobody keeps things there) or a rented room's never is: a
+    // member, and a tenant (HOME-RENT's, the same defect), was told "You have not rented a room here." The owner's own
+    // home, a hall's member and a running tenancy each sleep there.
+    const onlineBed = !!interiorHome && (interiorHome.own || !!(interiorHome.hall && interiorHome.member) || rentDaysLeft(interiorHome.tenant, Math.floor(Date.now() / 1000)) > 0);
     return interiorRestPlace({
       inTownLocation: host.inTownLocation?.() ?? false,
       building: b,
@@ -9543,7 +9570,7 @@ export function createWorldModes(host) {
       // the list it indexes. canRest wants the COUNT and answers an
       // index; the marker itself is resolved at MoveToBed.
       restMarkers: interiorRestMarkers().length,
-      permanentScene: !!scene && containsPermanentScene(sceneCache(), scene),
+      permanentScene: !!scene && containsPermanentScene(sceneCache(), scene) || onlineBed,
       // H1 CLOSED THIS. Both rest lanes left it false with a note
       // saying "the moment a house can be bought, this is the line
       // that lets you sleep in it" - and that moment arrived in the
@@ -11066,6 +11093,7 @@ export function createWorldModes(host) {
       // AUDIT 29 D4: a smith's open for trade - not one broken into by night (its insideOpenShop latch false)
       if (t === BUILDING_TYPES.WeaponSmith || t === BUILDING_TYPES.Armorer) return interiorBuilding.insideOpenShop === false ? null : { kind: 'shop', fee: FORGE_FEE };
       if (decorOwnerHere() && interiorDecor.list().some((p) => p?.station === 'forge')) return { kind: 'home', fee: 0 };
+      if (hallMemberHere() && interiorDecor.list().some((p) => p?.station === 'forge')) return { kind: 'home', fee: 0 };   // AUDIT GUILD1d A2: a hall's, its members'
       return null;
     },
     /** PROF4 (bible/06-Systems/Professions-Arc.md 25): THE WORKBENCH THE PLAYER STANDS AT - a Furniture Store's, open for
@@ -11074,6 +11102,7 @@ export function createWorldModes(host) {
       if (mode !== 'interior' || !interiorBuilding) return null;
       if (interiorBuilding.buildingType === BUILDING_TYPES.FurnitureStore) return interiorBuilding.insideOpenShop === false ? null : { kind: 'shop', fee: WORKBENCH_FEE };
       if (decorOwnerHere() && interiorDecor.list().some((p) => p?.station === 'workbench')) return { kind: 'home', fee: 0 };
+      if (hallMemberHere() && interiorDecor.list().some((p) => p?.station === 'workbench')) return { kind: 'home', fee: 0 };   // AUDIT GUILD1d A2
       return null;
     },
     /** PROF7 (bible/06-Systems/Professions-Arc.md 29): THE LOOM AND TANNING RACK THE PLAYER STANDS AT - a Clothing Store's,
@@ -11082,6 +11111,7 @@ export function createWorldModes(host) {
       if (mode !== 'interior' || !interiorBuilding) return null;
       if (interiorBuilding.buildingType === BUILDING_TYPES.ClothingStore) return interiorBuilding.insideOpenShop === false ? null : { kind: 'shop', fee: LOOM_FEE };
       if (decorOwnerHere() && interiorDecor.list().some((p) => p?.station === 'loom')) return { kind: 'home', fee: 0 };
+      if (hallMemberHere() && interiorDecor.list().some((p) => p?.station === 'loom')) return { kind: 'home', fee: 0 };   // AUDIT GUILD1d A2
       return null;
     },
     // Q4-v: the world seam's playerInside half + the machine's

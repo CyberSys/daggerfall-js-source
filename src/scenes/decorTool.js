@@ -604,6 +604,7 @@ export function createDecorTool(deps) {
       own: r?.hall ? [] : ownEntries(),
       base: baseRows(),   // BASE-HIDE: the room's own furniture
       where: r?.where ?? '',
+      hall: !!r?.hall,   // AUDIT GUILD1d A9: a hall's piece gives its half to the guild's treasury (the panel says so)
       entries: r?.yard ? s.entries()?.filter((e) => e.kind !== 'door') ?? null : s.entries(),   // HOME-YARD: a door hangs in a doorway, never in a yard
       yard: !!r?.yard,
       progress: s.progress(),
@@ -984,7 +985,7 @@ export function createDecorTool(deps) {
           return false;
         }
         if (price.pay > 0) deps.wallet().pay(price.pay);
-        if (price.refund > 0) deps.wallet().credit?.(price.refund);
+        if (price.refund > 0 && !r.hall) deps.wallet().credit?.(price.refund);   // AUDIT GUILD1d A4: a hall's half is the treasury's, the service's
       }
       if (deps.visit?.() === visit) pool.put(stood);
       if (decorIsDoor(stood)) forgetRooms();   // HOME-DOORS: a door moved frees one doorway and takes another
@@ -1026,8 +1027,9 @@ export function createDecorTool(deps) {
         const res = await deps.homeDecor?.remove?.({ mapId: r.mapId, buildingKey: r.buildingKey, character: deps.character?.(), id: piece.id });
         if (!res?.ok) { deps.say?.(deps.refusal?.(res?.error) ?? 'The piece could not be removed.'); return false; }
         paid = decorPieceOf(res.data?.piece)?.paid ?? paid;   // the service's own record of what it cost
+        toGuild = r.hall ? Math.max(0, Number(res.data?.treasury) || 0) : 0;
       }
-      back = decorRefund(paid);
+      back = r.hall ? 0 : decorRefund(paid);   // AUDIT GUILD1d A4: a hall's half is the treasury's, never the purse's
       if (back > 0) deps.wallet?.().credit?.(back);
     }
     if (deps.visit?.() === visit) pool.remove(piece.id);
