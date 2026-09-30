@@ -52,7 +52,8 @@ Four read-only audits covered the relay (`server/src/index.js`), the account ser
 | Slice | What | Drops players? | State |
 |---|---|---|---|
 | SCALE1 | The account service's half: fewer writes per request, metrics, indexes, the 100-parameter fix, gated deploys, D1 bookmark before migrations, client retry discipline | No | **Shipped in this PR** |
-| SCALE2 | The relay batch, ONE relay deploy: token reused across rooms, a tokenless refusal made retryable, full-jitter reconnects up to 30-60 s with a relay-announced delay, chat rejoin jitter, the O(1) socket index, the hello path in memory, bounded caches, cross-room timeouts, relay metrics, idle rooms allowed to sleep (foes and memory only when someone else is there), checkpoints skipped when unchanged | Yes, once, in an announced window | Next |
+| SCALE2 | The reconnect wave, from the client - NO relay deploy: one token for a connect's rooms (reused within a minute, never twice into one room, one mint on the wire), a tokenless refusal asked again while signed in, the channels' rejoin jittered | No | **Shipped** (after SCALE1) |
+| SCALE2b | The relay's own, ONE announced relay deploy: the O(1) socket index, the hello path in memory, bounded caches, cross-room timeouts, relay metrics, idle rooms allowed to sleep (foes and memory only when someone else is there) | Yes, once | Next |
 | SCALE3 | The load harness: a Node bot fleet (guest → token → hello → poses, chat and checkpoints at real rates) against local workerd, then a staging pair; the deploy-storm scenario | No | After SCALE2 |
 | SCALE4 | D1 discipline: sweeps moved to a `scheduled()` cron, retention for the tables that only grow, the witness tables redesigned, reads made write-free and served from read replicas (Sessions API), one heartbeat replacing the mail, beat and board polls, 304s | No | After SCALE3's numbers |
 | SCALE5 | Past about 1-2k players: the hub split (presence and social state per account, world chat over shard rooms), slimmer or binary poses, pose-only halo frames | Yes | When the metrics say |
@@ -90,3 +91,30 @@ No player is named, and a metric never costs a request. The module's header carr
 **Retries.** `src/net/backoff.js` holds `jittered` (a wait anywhere from half to one and a half times itself) and `ASK_AGAIN_NOW` (only `offline` and `server` are asked again within one press). The professions', market's and writs' books send `rate` and `maintenance` straight back, kept for their slower pumps. The Drakes' book waits between its asks.
 
 **Pins.** `test/scale1.test.js` (10). `tools/mutants/scale1.json`: 35 mutants, 35 dead. `npm run account`: 46/46 in workerd, with `METRICS` bound locally, so the counting proxy ran over a real D1. The service is `acct43`.
+
+## SCALE2: shipped (client only, no relay deploy)
+
+The relay was split out of SCALE2 on reading: every piece of the reconnect storm the client causes, it can stop causing without a relay deploy.
+
+**One mint per connect** (`net/accountClient.js` `accountTokenMinter`, `TOKEN_REUSE_MS`)
+- The relay spends a token once *in a room* (`_spent`, one set per room, in memory), so the one token may open the cell, its halos, the hub and the region channel of a single connect.
+- The minter now takes the room each socket opens, and hands a token minted within `TOKEN_REUSE_MS` (60 s) to every other room asked under the same sign-in and character.
+- A room the token has already opened always gets a fresh one. That is the reconnect ACC1d's "never cached" protected.
+- Sockets opening together share the one mint on the wire.
+- A call that names no room is minted fresh, as before.
+- Effect: mints per connect drop from 3-6 to 1, and so do mints per deploy wave.
+- The minute bounds how stale a level, title or guild signed in the token can be when it opens another room.
+
+**A missing-token refusal is asked again** (`net/online.js` `tokenRetryable`)
+- The minter now says why it answered null (`lastWhy`), and a session remembers why each hello went without a token.
+- The relay refuses such a hello (`CLOSE_POLICY`). If the device is signed in (the service was slow, rate-limited or down), the primary retries backed off hard, as for a busy room, and a halo is retried rather than remembered terminal.
+- Only no sign-in (`no-session`) or a sign-in the service refused (`auth`) stays final. Signing in is the way back from those.
+
+**The channels' rejoin is jittered** (`OnlineSession.rejoin`)
+- After a terminal close, the wait is drawn once, anywhere in [half, one and a half) of `CHAT_REJOIN_MS`.
+- Before, every tab's channels came back on the same thirtieth second.
+
+**Pins.** `test/scale2.test.js` (8). `tools/mutants/scale2.json`: 19 mutants, 19 dead. Re-aimed, still dead:
+- ACC1d-8 / 9 / 10 / 12
+- the three TOKEN-WAIT mutants
+- RENOWN1's character mutant
