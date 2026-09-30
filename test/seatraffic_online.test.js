@@ -21,10 +21,12 @@ test('SEA-TRAFFIC a player sailing near a lower id ashore meets the sea\'s traff
   assert.ok(all(B).length >= 1, `b meets the sea's traffic: ${all(B).length}`);
   assert.equal(all(A).filter((e) => !e.owner).length, 0, 'a, ashore, launched none');
   assert.ok(all(B).every((e) => !e.owner), 'b launched them');
-  // and a player on the water with a lower id near still launches for both - one launcher, never two
+  // and a player on the water with a lower id near launches for both - one launcher, never two. AUDIT SHIP-LIFE F1
+  // (PIN MOVED): the director's count is a running total that never falls, and b's already stood above nought - the
+  // pin read it and passed whatever a did. Now: from a's swim on, b launches none, and the shared sea keeps its traffic
   A.s.view.feet = [0, 0, -300];   // a swims out
+  const bBefore = B.s.host.directorState.count;
   r.run(150);
-  assert.ok(all(A).some((e) => !e.owner) || all(B).some((e) => !e.owner), 'the sea keeps its traffic');
-  const launchers = [A, B].filter((c) => c.s.host.directorState.count > 0);
-  assert.ok(launchers.length >= 1);
+  assert.equal(B.s.host.directorState.count, bBefore, 'b, the higher id, launches none once a is on the water');
+  assert.ok(all(A).length + all(B).length > 0, 'the sea keeps its traffic');
 });

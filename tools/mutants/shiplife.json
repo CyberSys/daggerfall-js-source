@@ -200,11 +200,12 @@
   {
     "name": "SHIPLIFE-HOST-every-client-rolls",
     "file": "src/scenes/navalHost.js",
-    "old": "      if (h.rolled || d > HARBOUR_STAND || !standsSea()) continue;",
+    "old": "      if (h.rolled || d > HARBOUR_STAND || !rollsHarbour(h.harbour.mouth)) continue;",
     "new": "      if (h.rolled || d > HARBOUR_STAND) continue;",
     "tests": [
       "test/shiplife.test.js"
-    ]
+    ],
+    "note": "AUDIT PR478 (PIN MOVED): re-aimed at the audited line."
   },
   {
     "name": "SHIPLIFE-HOST-moored-kept-far",
@@ -218,11 +219,12 @@
   {
     "name": "SHIPLIFE-HOST-sailed-stood-again",
     "file": "src/scenes/navalHost.js",
-    "old": "      if (e.fromHarbour && s.errand?.kind !== 'moored') { harbours.get(e.fromHarbour)?.departed.add(s.seed); e.fromHarbour = null; }",
+    "old": "      if (e.fromHarbour && s.errand?.kind !== 'moored') { departedOf(e.fromHarbour, where().day ?? 0).add(s.seed); e.fromHarbour = null; }",
     "new": "      if (e.fromHarbour && s.errand?.kind !== 'moored') { e.fromHarbour = null; }",
     "tests": [
       "test/shiplife.test.js"
-    ]
+    ],
+    "note": "AUDIT PR478 (PIN MOVED): re-aimed at the audited line."
   },
   {
     "name": "SHIPLIFE-HOST-no-errand-at-launch",
@@ -245,11 +247,12 @@
   {
     "name": "SHIPLIFE-HOST-adopted-errandless",
     "file": "src/scenes/navalHost.js",
-    "old": "    e.ship.errand = errandHere(e.ship);\n    return e;",
-    "new": "    return e;",
+    "old": "    e.ship.errand = errandHere(e.ship);\n    if (e.ship.errand?.kind === 'moored')",
+    "new": "    if (e.ship.errand?.kind === 'moored')",
     "tests": [
       "test/shiplife.test.js"
-    ]
+    ],
+    "note": "AUDIT PR478 (PIN MOVED): re-aimed at the audited line."
   },
   {
     "name": "SHIPLIFE-HOST-harbour-left-behind",

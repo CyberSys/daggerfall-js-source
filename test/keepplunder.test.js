@@ -11,6 +11,8 @@ import { STRUCK_GRACE_S } from '../src/scenes/navalHost.js';
 import { SHIP_STATES } from '../src/systems/naval/navalDamage.js';
 import { navalHitData } from '../src/systems/naval/navalWire.js';
 import { MOD_SETTINGS } from '../src/systems/modSettings.js';
+import { scene } from './csaScene.mjs';
+import { Boat } from '../src/systems/comeSailAwayBoat.js';
 
 const WORLD = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
 const blow = (h, e, from, o) => h.host.applyPeerHit(from, navalHitData('local', { n: e.n, ...o }));
@@ -24,6 +26,7 @@ function place(h, classId, pos, yaw = 0) {
 /** A merchant struck alongside, boarded from my helm and taken: her hold drawn, not yet emptied. */
 async function prize() {
   const h = await sea({ hull: 2 });
+  const { deps } = h;
   const e = place(h, 'merchantGalleon', [7.4 + 7.4 + 12, 0, 0], 0);
   e.ship.damage.apply({ hull: Math.ceil(e.ship.damage.maxHull * 0.8), sail: 0, crew: 0 });
   h.host.frame(0.1);
@@ -33,7 +36,7 @@ async function prize() {
   h.run(0.3);
   assert.equal(h.host.boarding, null, 'taken');
   assert.ok(e.prize?.hold?.length > 0, 'her hold drawn');
-  return { h, e };
+  return { h, e, deps };
 }
 /** A ship sunk by `by` ('local': me) - struck, then her hull broken past it. */
 function sink(h, e, by) {
@@ -55,6 +58,14 @@ test('KEEP-PLUNDER: A PRIZE\'S HOLD NOT YET EMPTIED IS STOWED IN THE BOAT THAT T
   assert.equal(e.prize.hold.length, 0);
   assert.ok(h.log.say.includes(`Your crew stows the plunder left at sea (${n} ${n === 1 ? 'thing' : 'things'}).`));
   assert.equal(h.host.stowPlunder().items, 0, 'nothing left to stow');
+  // her captor another boat of mine than the helm's: hers, not the helm's
+  const c = await prize();
+  const other = c.h.pool.spawnNow(Object.assign(new Boat(1, 0), { uid: 43 }), { position: [60, 0, 0], rotation: [0, 0, 0, 1] });
+  c.h.runtime.state.AllBoats.push(other);
+  c.e.prize.boat = other;
+  c.h.log.given.length = 0;
+  c.h.host.stowPlunder();
+  assert.deepEqual(c.h.log.given.map(([, b]) => b), [other], 'into her captor, the helm\'s boat notwithstanding');
   const s = await prize();
   s.e.prize.fate = 'scuttle';
   s.h.log.given.length = 0;
@@ -90,4 +101,45 @@ test('KEEP-PLUNDER / KEEP-BOATS: THE WORLD\'S WIRING - the crew stows before eve
   assert.match(WORLD, /navalStow\(\);[^\n]*\n\s+if \(csaRuntime\) csaCall\(\(\) => csaRuntime\.OnPreFastTravel\(\)\);/);
   assert.equal(MOD_SETTINGS['come-sail-away'].keys['Compatibility.PersistentDungeonBoats'].default, true);
   assert.match(WORLD, /persistentDungeonBoats: \(\) => \{ try \{ return modSetting\('come-sail-away', 'Compatibility\.PersistentDungeonBoats'\) === true;/);
+});
+
+test('AUDIT KEEP-PLUNDER D1 / D3: OFF THE HELM THE PLUNDER GOES INTO MY BOAT NEAREST ME, WHAT WILL NOT FIT IS SAID, AND THE SWITCH OFF STOWS FIRST - a door taken off the deck (no helm, the captor packed) stows into the boat of mine nearest me before the pack; a hold that will not all go says how much was left; naval combat turned off stows before it takes the sea (mutants: the pack before my boat, the leftovers unsaid, the switch unstowed)', async () => {
+  const { h, e } = await prize();
+  h.runtime.sailing = false;   // off the helm - through a door
+  e.prize.boat = null;   // her captor packed
+  h.log.given.length = 0;
+  const n = e.prize.hold.length;
+  h.host.stowPlunder();
+  assert.deepEqual(h.log.given, [[n, h.boat]], 'into my boat nearest me, not the pack');
+  // a full hold: what will not fit is said
+  const s = await prize();
+  s.deps.board.giveItems = (items) => ({ left: items });   // nothing fits
+  const m = s.e.prize.hold.length;
+  s.h.host.stowPlunder();
+  assert.ok(s.h.log.say.includes(`${m} ${m === 1 ? 'thing' : 'things'} would not fit and ${m === 1 ? 'was' : 'were'} left behind.`), 'the leftovers said');
+  // the switch off
+  const t = await prize();
+  t.h.log.given.length = 0;
+  t.h.host.setEnabled(false);
+  assert.equal(t.h.log.given.length, 1, 'stowed as the switch went off');
+  assert.equal(t.e.prize.hold.length, 0);
+});
+
+test('AUDIT KEEP-BOATS D2: A BOAT KEPT IN A DUNGEON STANDS IN THE DUNGEON ALONE - inside a building on the same map pixel she is not stood (the mod shows an inside boat in any interior on its pixel, which its own default never met); in the dungeon she is (mutants: the dungeon unasked)', () => {
+  const s = scene();
+  const boat = s.place(1);
+  boat.inside = true;
+  const cur = s.deps.currentMapPixel();
+  boat.MapPixel = { X: cur.X, Y: cur.Y };
+  s.world.inside = true;
+  let dungeon = false;
+  s.deps.isPlayerInsideDungeon = () => dungeon;
+  s.rt.UpdateBoatVisibility();
+  assert.equal(boat.GameObject.activeSelf, false, 'a building: not stood');
+  dungeon = true;
+  s.rt.UpdateBoatVisibility();
+  assert.equal(boat.GameObject.activeSelf, true, 'the dungeon: stood');
+  dungeon = false;
+  s.rt.UpdateBoatVisibilityOf(boat);
+  assert.equal(boat.GameObject.activeSelf, false, 'the one boat\'s arm too');
 });

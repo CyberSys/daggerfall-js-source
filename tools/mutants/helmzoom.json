@@ -29,11 +29,12 @@
   {
     "name": "HELMZOOM-eotb-the-ladder-below-ten",
     "file": "src/player/eotbCamera.js",
-    "old": "      if (far < MAX_Z && clicks && (-z > baseDist + 1e-6 || clicks < 0)) {",
+    "old": "      if (far < MAX_Z && clicks && (-z > baseDist + 1e-6 || (clicks < 0 && -z >= baseDist - 1e-6))) {",
     "new": "      if (far < MAX_Z && clicks && (z < MAX_Z || (clicks < 0 && z <= MAX_Z))) {",
     "tests": [
       "test/fbsea_zoom.test.js"
-    ]
+    ],
+    "note": "AUDIT PR478 (PIN MOVED): re-aimed at the audited line."
   },
   {
     "name": "HELMZOOM-eotb-the-base-passed",

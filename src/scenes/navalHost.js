@@ -56,7 +56,7 @@ import { wrapAngle } from '../world/mat4.js';   // ONCRASH1: the port's one angl
 import { createShipDamage, shotDamage, SHIP_STATES, SINK_SECONDS, SINK_CLEAR, sinkAngles, sinkDepth, BRACE_TAKEN, FIRE_CHANCE, WRECKED_OARS, repairCost, STRUCK_AT } from '../systems/naval/navalDamage.js';
 import { createGunDeck, aimSolution, volleyLaunches, bearingOf, sideForBearing, toWorld, RIPPLE_S, READY_FLASH_S } from '../systems/naval/navalGunnery.js';
 import { hullBuild, batteryOf, batteriesOf, GUNS, classById, classFor, shipNames, crownOf, classLine, SIDES, SIDE_DIR, BARREL, NAVAL_FACTIONS, HULL } from '../systems/naval/navalShips.js';
-import { findHarbour, createWaterGrid, errandFor, errandRng, dwellOf, offsetErrand, offsetHarbour } from '../systems/naval/shipLife.js';   // SHIP-LIFE
+import { findHarbour, createWaterGrid, errandFor, errandRng, dwellOf, offsetErrand, offsetHarbour, BERTH_SNAP_M, BERTH_WAY } from '../systems/naval/shipLife.js';   // SHIP-LIFE
 import { hash32 } from '../world/spawnedDungeons.js';
 import { mulberry32 } from '../combat/bloodArt.js';
 import { orientedBox, arcPoints, flatUnit, NAVAL_DEG, rangeAt, segmentBoxEntry, shotPosition, landing } from '../systems/naval/navalBallistics.js';
@@ -88,6 +88,12 @@ export const HARBOUR_LEAVE = 2600;
 export const HARBOUR_ROLL = Object.freeze([2, 4]);
 export const HARBOUR_NAVY = 0.25;
 export const HARBOUR_SALT = 0x4a7b;
+/** AUDIT SHIP-LIFE B3: the level a harbour's ships are drawn at - the port's, never a player's (two players' levels
+ *  drew two fleets into one port's berths). */
+export const HARBOUR_LEVEL = 10;
+/** AUDIT SHIP-LIFE B7: a port whose shore gave no harbour is sounded again after this (s) - the terrain streams in
+ *  nearest-first, and a harbour sounded on arrival met unbuilt water. */
+export const HARBOUR_RETRY_S = 10;
 /** The port's key folded into a seed - a string's own hash (FNV-1a). */
 const keyHash = (k) => { let h = 0x811c9dc5; for (let i = 0; i < k.length; i++) h = Math.imul(h ^ k.charCodeAt(i), 0x01000193); return h >>> 0; };
 /** A ball's report heard as the near boom within this (m); past it the far one. */
@@ -404,10 +410,18 @@ export function createNavalHost(deps) {
   const sea = new Map();
   let seq = 0;
   /** SHIP-LIFE: the harbours found near the player - key -> { key, harbour (shipLife.js findHarbour, or null: a port
-   *  with no shore to berth at), rolled (its moored ships stood), departed (the seeds that sailed from it today),
-   *  day } - and the water grids a hull's ways are planned on (the scene's; made again when the origin moves). */
+   *  with no shore to berth at - sounded again after HARBOUR_RETRY_S), rolled (its moored ships stood), at (when it
+   *  was sounded) } - and the water grids a hull's ways are planned on (the scene's; made again when the origin moves). */
   const harbours = new Map();
   let grids = new Map();
+  /** AUDIT SHIP-LIFE B6: the seeds that sailed from each port today - port key -> { day, seeds } - kept across the sea's
+   *  clear (a door's visit found the harbour again and stood a ship that had sailed at her berth once more). */
+  const departedByPort = new Map();
+  const departedOf = (key, day) => {
+    let d = departedByPort.get(key);
+    if (!d || d.day !== day) departedByPort.set(key, (d = { day, seeds: new Set() }));
+    return d.seeds;
+  };
   /** AUDIT NAV1 (the presentation): each hull and rig's spars, measured once (sparsOf) - `${hull}:${variant}` -> them. */
   const spars = new Map();
   const myId = () => deps.online?.id?.() ?? 'local';
@@ -1030,6 +1044,7 @@ export function createNavalHost(deps) {
     e.ship.boarded = false;
     // SHIP-LIFE: her errand never rode the word - drawn again where she is, as her stander drew it
     e.ship.errand = errandHere(e.ship);
+    if (e.ship.errand?.kind === 'moored') e.fromHarbour = e.ship.errand.harbour;   // AUDIT SHIP-LIFE B5: the harbour's still - dropped past HARBOUR_LEAVE, her sailing noted
     return e;
   }
   /** AUDIT NAV1 (online): a ship of mine a stronger claim holds now - hers to sail from here, mine to draw. A boarding of
@@ -1265,12 +1280,14 @@ export function createNavalHost(deps) {
     launching = amGroupRollOwner(id, deps.feet(), afloat, launching ? NAVAL_SHARE_RADIUS : NAVAL_SHARE_RADIUS * SHARE_HYSTERESIS);
     return launching;
   }
-  function standsSea() {
+  /** AUDIT SHIP-LIFE B4: whether I roll a harbour's moored ships - the lowest id among the players within HARBOUR_STAND
+   *  of its mouth (the election over the players near me barred a player in the port for one too far off to roll). */
+  function rollsHarbour(mouth) {
     const on = deps.online;
     const id = on?.id?.();
-    if (!on || !id) return true;
-    const peers = on.peers?.() ?? [];
-    standing = amGroupRollOwner(id, deps.feet(), peers, standing ? NAVAL_SHARE_RADIUS : NAVAL_SHARE_RADIUS * SHARE_HYSTERESIS);
+    if (!on || !id) return (standing = true);
+    const near = (on.peers?.() ?? []).filter((p) => Array.isArray(p.feet) && Math.hypot(p.feet[0] - mouth[0], p.feet[2] - mouth[1]) <= HARBOUR_STAND);
+    standing = amGroupRollOwner(id, deps.feet(), near, HARBOUR_STAND * 2);
     return standing;
   }
 
@@ -2105,24 +2122,33 @@ export function createNavalHost(deps) {
    * own hold stands). Answers the tally, said once.
    */
   function stowPlunder() {
-    if (!enabled) return { items: 0, prizes: 0, casks: 0 };
-    let items = 0, prizes = 0, casks = 0;
+    if (!enabled) return { items: 0, prizes: 0, casks: 0, lost: 0 };
+    let items = 0, prizes = 0, casks = 0, lost = 0;
     const standing = myBoats();
+    // AUDIT KEEP-PLUNDER D1: off the helm (a door, a jump) into my boat nearest me before the pack - the pack carries
+    // what it can, and what it cannot is said, never let go unsaid
+    const feet = deps.feet();
+    const nearMe = () => standing.reduce((best, b) => (!best || dist2d(b.GameObject.position, feet) < dist2d(best.GameObject.position, feet) ? b : best), null);
+    const into = myBoat() ?? nearMe();
     for (const e of sea.values()) {
       const pz = e.prize;
       if (!pz?.hold?.length || pz.fate === 'scuttle') continue;
-      const r = takeInto(pz.hold, standing.includes(pz.boat) ? pz.boat : myBoat());
+      const r = takeInto(pz.hold, standing.includes(pz.boat) ? pz.boat : into);
       if (r.taken) { items += r.taken; prizes++; }
+      lost += r.left;
     }
     for (const f of shots.floaters().filter((o) => o.kind === 'flotsam' && !o.owner && myCasks.has(o.id))) {
       const got = deps.hold?.(f.lot, holdTier(classById(f.from))) ?? [];
-      const r = got.length ? deps.board?.giveItems?.(got, myBoat() ?? nearestBoat(f.pos)) ?? { left: got } : { left: [] };
+      const r = got.length ? deps.board?.giveItems?.(got, into) ?? { left: got } : { left: [] };
       shots.removeFloater(f.id);
       casks++;
-      items += got.length - (Array.isArray(r.left) ? r.left.length : 0);
+      const left = Array.isArray(r.left) ? r.left.length : 0;
+      items += got.length - left;
+      lost += left;
     }
     if (items) deps.say?.(`Your crew stows the plunder left at sea (${items} ${items === 1 ? 'thing' : 'things'}).`, 3);
-    return { items, prizes, casks };
+    if (lost) deps.say?.(`${lost} ${lost === 1 ? 'thing' : 'things'} would not fit and ${lost === 1 ? 'was' : 'were'} left behind.`, 3);
+    return { items, prizes, casks, lost };
   }
   /** The boat of mine nearest a place, within COLLIDE_RANGE - the one a prize taken on foot answers to. */
   function nearestBoat(pos) {
@@ -2459,6 +2485,13 @@ export function createNavalHost(deps) {
     for (const e of sea.values()) { const r = e.ship.errand; if (r && r.harbour === key && r.berth === i && (r.kind === 'moored' || r.kind === 'arrive')) return false; }
     return true;
   }
+  /** AUDIT SHIP-LIFE B1: a ship lying still at a berth of a harbour I know - another player's moored ship (her errand
+   *  never rides the word), read off where she lies. */
+  function atBerth(ship) {
+    if ((ship.speed ?? 0) >= BERTH_WAY) return false;
+    for (const h of harbours.values()) if (h.harbour?.berths.some((b) => Math.hypot(b.pos[0] - ship.pos[0], b.pos[1] - ship.pos[2]) <= BERTH_SNAP_M)) return true;
+    return false;
+  }
   /** A hull's water grid, made once for the scene as it stands. */
   function gridOf(hull) {
     let g = grids.get(hull);
@@ -2478,28 +2511,31 @@ export function createNavalHost(deps) {
    *  player's return (those that sailed today not again). */
   function harbourFrame(seaY) {
     const near = deps.harbourNear?.() ?? null;
-    if (near && !harbours.has(near.key)) harbours.set(near.key, { key: near.key, harbour: findHarbour({ rect: near.rect, isWater: (x, z, h) => deps.isWater(x, z, h) }), rolled: false, departed: new Set(), day: null });
+    const sound = () => findHarbour({ rect: near.rect, isWater: (x, z, h) => deps.isWater(x, z, h) });
+    if (near && !harbours.has(near.key)) harbours.set(near.key, { key: near.key, harbour: sound(), rolled: false, at: clock });
+    else if (near) { const h = harbours.get(near.key); if (!h.harbour && clock - h.at >= HARBOUR_RETRY_S) { h.harbour = sound(); h.at = clock; } }   // AUDIT SHIP-LIFE B7
     const feet = deps.feet();
     const day = where().day ?? 0;
     for (const h of harbours.values()) {
       if (!h.harbour) continue;
-      if (h.day !== day) { h.day = day; h.departed.clear(); }
+      const departed = departedOf(h.key, day);
       const d = Math.hypot(h.harbour.mouth[0] - feet[0], h.harbour.mouth[1] - feet[2]);
       if (d > HARBOUR_LEAVE) {
         if (h.rolled) for (const e of [...sea.values()]) if (!e.owner && e.fromHarbour === h.key && e.ship.errand?.kind === 'moored') drop(e);
         h.rolled = false;
         continue;
       }
-      if (h.rolled || d > HARBOUR_STAND || !standsSea()) continue;
+      if (h.rolled || d > HARBOUR_STAND || !rollsHarbour(h.harbour.mouth)) continue;
       h.rolled = true;
       const r = mulberry32(hash32(keyHash(h.key), day >>> 0, HARBOUR_SALT));
       const n = Math.min(h.harbour.berths.length, HARBOUR_ROLL[0] + Math.floor(r() * (HARBOUR_ROLL[1] - HARBOUR_ROLL[0] + 1)));
       for (let i = 0; i < n; i++) {
         const seed = hash32(keyHash(h.key), day >>> 0, i, HARBOUR_SALT);
         const faction = r() < HARBOUR_NAVY ? 'navy' : 'merchant';
-        let cls = classFor(faction, deps.level?.() ?? 1, r());
+        let cls = classFor(faction, HARBOUR_LEVEL, r());   // AUDIT SHIP-LIFE B3: the port's level, never a player's
         if (cls?.hull === HULL.LargeGalley) cls = classFor(faction, 1, r());   // a galley rows in and out, never moors
-        if (!cls || h.departed.has(seed) || bySeed(seed, cls.id, null) || !berthFree(h.key, i)) continue;
+        // AUDIT SHIP-LIFE B3: her seed anyone's already (another's copy of her, whatever class it drew) - not stood again
+        if (!cls || departed.has(seed) || [...sea.values()].some((x) => x.ship.seed === seed && x.ship.damage.state !== SHIP_STATES.sunk) || !berthFree(h.key, i)) continue;
         const b = h.harbour.berths[i];
         const e = launch({ seed, classId: cls.id, variant: 0, pos: [b.pos[0], seaY, b.pos[1]], yaw: b.yaw, errand: { kind: 'moored', harbour: h.key, berth: i, until: dwellOf(errandRng(seed)), path: null, i: 0 } });
         if (e) { e.fromHarbour = h.key; e.ship.sails = 0; e.ship.sailsWant = 0; }
@@ -2547,8 +2583,8 @@ export function createNavalHost(deps) {
         // given up is let go once out of sight - and only a ship afloat counts against the density; NAV-R: a raider is
         // its own law's to despawn (raiders()), and counts in the density. AUDIT NAV2 F23: she fights only AFLOAT - two
         // struck to each other kept each other for ever, each the other's taker by a stale target
-        if (!e.owner) ships.push({ id: e.id, pos: e.ship.pos, classId: e.ship.cls.id, engaged: (afloat && (e.ship.mode === 'engage' || e.ship.mode === 'board')) || boarding?.shipId === e.id || !!e.raider || !!e.takenBy || !!e.ship.lashed, afloat, berthed: e.ship.errand?.kind === 'moored' });   // SHIP-LIFE: a harbour's own, apart from the sea's density
-        else if (e.orphan == null && dist2d(e.ship.pos, feet) <= DESPAWN_BEYOND) ships.push({ id: e.id, pos: e.ship.pos, classId: e.ship.cls.id, theirs: true, afloat });
+        if (!e.owner) ships.push({ id: e.id, pos: e.ship.pos, classId: e.ship.cls.id, engaged: (afloat && (e.ship.mode === 'engage' || e.ship.mode === 'board')) || boarding?.shipId === e.id || !!e.raider || !!e.takenBy || !!e.ship.lashed || (!!e.fromHarbour && e.ship.errand?.kind === 'moored'), afloat, berthed: e.ship.errand?.kind === 'moored' });   // AUDIT SHIP-LIFE B2: a harbour's moored ship is the harbour's to drop (past HARBOUR_LEAVE), never the director's   // SHIP-LIFE: a harbour's own, apart from the sea's density
+        else if (e.orphan == null && dist2d(e.ship.pos, feet) <= DESPAWN_BEYOND) ships.push({ id: e.id, pos: e.ship.pos, classId: e.ship.cls.id, theirs: true, afloat, berthed: atBerth(e.ship) });   // AUDIT SHIP-LIFE B1: another's moored ship is no more the sea's traffic than mine
       }
       // AUDIT NAV2 F27: and a ship is in a fight while an engaged ship of mine targets her - SEA-PEACE's prize her taker
       // comes for or takes, and a quarry running (let go from under the pursuer kept for her)
@@ -2583,7 +2619,7 @@ export function createNavalHost(deps) {
       const was = s.damage.state;
       if (boarding?.shipId === e.id) { const change = s.damage.step(d, clock); if (change) stateChanged(e, was, change, e.fireBy ?? null); continue; }
       const out = stepCaptain(s, world);
-      if (e.fromHarbour && s.errand?.kind !== 'moored') { harbours.get(e.fromHarbour)?.departed.add(s.seed); e.fromHarbour = null; }   // SHIP-LIFE: sailed - not stood at her berth again today
+      if (e.fromHarbour && s.errand?.kind !== 'moored') { departedOf(e.fromHarbour, where().day ?? 0).add(s.seed); e.fromHarbour = null; }   // SHIP-LIFE: sailed - not stood at her berth again today
       const change = s.damage.step(d, clock);
       if (change) stateChanged(e, was, change, e.fireBy ?? null);   // AUDIT NAV1 (B4): her fires' own, announced and charged
       for (const side of out.runOuts) runOutTell(e, side);
@@ -3273,7 +3309,7 @@ export function createNavalHost(deps) {
     collidable() { const f = deps.feet(); return [...sea.values()].filter((e) => e.boat && dist2d(e.ship.pos, f) < COLLIDE_RANGE).map((e) => e.boat); },
     /** Every sea ship's boat (their particles ride Come Sail Away's lists). */
     boats: () => [...sea.values()].map((e) => e.boat).filter(Boolean),
-    setEnabled(v) { enabled = !!v; if (!enabled) clear(); },
+    setEnabled(v) { if (enabled && !v) stowPlunder(); enabled = !!v; if (!enabled) clear(); },   // AUDIT KEEP-PLUNDER D3: stowed before the switch takes the sea
     get enabled() { return enabled; },
     get aiming() { return aiming; },
     /** Whether the attack is the broadside's: at the helm of a boat with guns. The world's doors read it - the drag and

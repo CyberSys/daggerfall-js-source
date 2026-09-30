@@ -5751,7 +5751,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     const modelId = csaActivationModelOf(best.hit.node?.name);
     const bed = modelId == null && bedSleepingOn() && csaCustomModelOf(best.hit.node?.name, BED_MODELS) != null;   // CSA-G
     return {
-      key: `csaBoat:${csaBoatId(best.boat)}:${modelId ?? (bed ? 'bed' : 'hull')}`, distance: best.hit.distance,
+      // AUDIT BOAT-MENU C2: the helm's box under Steal is a key of its own - the mode switched there lights its own verb
+      // again (the helm, or the pack), as the mod's press follows the mode it is pressed in
+      key: `csaBoat:${csaBoatId(best.boat)}:${modelId ?? (bed ? 'bed' : 'hull')}${modelId === CSA_TRIGGER_MODEL.drive && getInteractionMode() === 'steal' ? ':steal' : ''}`, distance: best.hit.distance,
       reach: bed ? DEFAULT_ACTIVATION_DISTANCE : CSA_ACTIVATION_DISTANCE,
       modelId, bed, boat: best.boat, hit: { ...best.hit, root: best.boat.GameObject },
     };
@@ -5817,9 +5819,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       default: { const owned = ownedLine(peerName(pick.owner)); townTalk.say(`This ${CSA_HULL_NAMES[pick.boat.hull] ?? 'boat'} - ${owned.charAt(0).toLowerCase()}${owned.slice(1)}.`); }
     }
   }
-  /** BOAT-MENU: a boat of mine by its plaque key (`csaBoat:<id>:<box|hull|bed>`), and the box the key names. */
+  /** BOAT-MENU: a boat of mine by its plaque key (`csaBoat:<id>:<box|hull|bed>[:steal]`), and the box the key names. */
   const csaBoatOfKey = (key) => {
-    const m = typeof key === 'string' ? /^csaBoat:(\d+):([^:]+)$/.exec(key) : null;
+    const m = typeof key === 'string' ? /^csaBoat:(\d+):([^:]+)(?::steal)?$/.exec(key) : null;
     if (!m) return null;
     const boat = csa.boats.find((b) => _csaBoatIds.get(b) === Number(m[1]));
     return boat ? { boat, part: m[2] } : null;
@@ -5845,7 +5847,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!csaRuntime) return;
     const { boxes, rows } = csaBoatMenu(pick.boat);
     pressBoatVerb({
-      boxes, rows, verb, distance: pick.distance, reach: CSA_ACTIVATION_DISTANCE, at: dwPlayerObjectPosition(), posOf: (n) => n.position,
+      boxes, rows, verb, distance: pick.distance, reach: CSA_ACTIVATION_DISTANCE, at: dwPlayerObjectPosition(), posOf: (n) => n.position, aimed: pick.hit?.node ?? null,
       hit: pick.hit, mode: getInteractionMode(), models: CSA_TRIGGER_MODEL,
       activate: (model, hit, mode) => csaCall(() => csaRuntime.activate(model, hit, mode)), say: (l) => setMidScreenText(l),
     });
@@ -5860,8 +5862,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     const verb = plaqueActionFor(pick?.key);
     if (verb && pick.boat) { csaBoatVerb(pick, verb); return; }
     if (pick?.modelId != null) { csaCall(() => csaRuntime.activate(pick.modelId, pick.hit, getInteractionMode())); return; }
-    // ... and where no plaque lists them (a phone's tap, the classic skins) a press on the hull opens them as a list
-    if (pick?.boat && !worldPlaqueOn() && pick.distance <= CSA_ACTIVATION_DISTANCE) csaOpenBoatMenu(pick);
+    // ... and where no plaque lists them (a phone's tap, the classic skins; AUDIT BOAT-MENU C5: a building's or a
+    // dungeon's, whose plaque races no boat) a press on the hull opens them as a list - never at a helm (C1)
+    if (pick?.boat && (!worldPlaqueOn() || (modes?.mode ?? 'exterior') !== 'exterior') && !csaRuntime?.isSailing() && pick.distance <= CSA_ACTIVATION_DISTANCE) csaOpenBoatMenu(pick);
   };
   /** BOAT-MENU: the verbs as a picker (ListPickerWindow: a tap, the pad or the mouse) - a refused row with its reason. */
   const csaOpenBoatMenu = (pick) => {
@@ -5879,11 +5882,16 @@ export async function bootWorld(canvas, renderer, params, status) {
     const mine = csaBoatOfKey(key);
     if (!mine) return null;
     const title = CSA_HULL_NAMES[mine.boat.hull] ?? 'Boat';
-    if (mine.part === 'bed') return { title };
-    // BOAT-MENU: my boat lists its verbs, the box under the crosshair's lit first (the hull: the top row)
+    // AUDIT BOAT-MENU C1: none at a helm - the pad's d-pad is the helm's there, and a list under a crosshair looking
+    // down at her own deck took it (and any other boat of mine's helm was a press away, unleft)
+    if (mine.part === 'bed' || csaRuntime?.isSailing()) return { title };
+    // BOAT-MENU: my boat lists its verbs, the box under the crosshair's lit first
     const { rows } = csaBoatMenu(mine.boat);
     if (!rows.length) return { title };
     const box = Object.keys(CSA_TRIGGER_MODEL).find((k) => String(CSA_TRIGGER_MODEL[k]) === mine.part) ?? null;
+    // AUDIT BOAT-MENU C4: the hull's list starts unlit (a player's does) - a plain click on the deck took the helm; the
+    // wheel's or the d-pad's first step lights its top row
+    if (box == null) return { title, actions: rows, actionsUnlit: true };
     const start = boatMenuStart(box, rows, getInteractionMode());
     return start < 0 ? { title } : { title, actions: rows, actionsStart: start };   // a door keeps its own press
   };
@@ -6010,6 +6018,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     camera: () => ({ position: [...cam.pos], forward: [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)] }),   // the activation's own ray (cam.pos, the look) - the F key's law in third person too
     currentMapPixel: () => { const px = playerTravelPixel(); return { X: px.x, Y: px.y }; },   // PlayerGPS.CurrentMapPixel, a new one each read
     isPlayerInside: () => (modes?.mode ?? 'exterior') !== 'exterior',
+    isPlayerInsideDungeon: () => (modes?.mode ?? 'exterior') === 'dungeon',   // AUDIT KEEP-BOATS D2: a boat kept in a dungeon stands in the dungeon, never a building on its pixel
     blockWaterLevel: () => {
       const mode = modes?.mode ?? 'exterior';
       if (mode === 'dungeon') return modes?.dungeonCtx?.blockWaterLevelAt?.(player.pos[0], player.pos[2]) ?? NO_WATER_LEVEL;   // the block the player stands in; off every block, 10000

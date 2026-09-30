@@ -2,20 +2,22 @@
   {
     "name": "KEEPPLUNDER-prize-unstowed",
     "file": "src/scenes/navalHost.js",
-    "old": "      const r = takeInto(pz.hold, standing.includes(pz.boat) ? pz.boat : myBoat());\n      if (r.taken)",
-    "new": "      const r = { taken: 0 };\n      if (r.taken)",
+    "old": "      const r = takeInto(pz.hold, standing.includes(pz.boat) ? pz.boat : into);\n      if (r.taken)",
+    "new": "      const r = { taken: 0, left: 0 };\n      if (r.taken)",
     "tests": [
       "test/keepplunder.test.js"
-    ]
+    ],
+    "note": "AUDIT PR478 (PIN MOVED): re-aimed at the audited line."
   },
   {
     "name": "KEEPPLUNDER-captor-not-asked",
     "file": "src/scenes/navalHost.js",
-    "old": "standing.includes(pz.boat) ? pz.boat : myBoat());",
-    "new": "null);",
+    "old": "standing.includes(pz.boat) ? pz.boat : into);",
+    "new": "into);",
     "tests": [
       "test/keepplunder.test.js"
-    ]
+    ],
+    "note": "AUDIT PR478 (PIN MOVED): re-aimed at the audited line."
   },
   {
     "name": "KEEPPLUNDER-scuttled-stowed",

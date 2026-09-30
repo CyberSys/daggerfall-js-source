@@ -12,7 +12,9 @@
 //
 //  - The rows are the boxes the boat carries (boatTriggers), so a hull without a chest lists no storage.
 //  - The lit row starts on the box under the crosshair (boatMenuStart): a press at the helm's box takes the helm and
-//    at the chest opens it, exactly as before the menu - the direct hot spots stand. On the hull, the first row.
+//    at the chest opens it, exactly as before the menu - the direct hot spots stand. On the hull the list starts unlit
+//    (AUDIT BOAT-MENU C4: a plain click on the deck is no request), the wheel's first step lighting its top row. None
+//    at a helm (C1).
 //    Steal mode at the helm's box lights "Pick up", as the mod's Steal press packs. A door lists nothing and turns
 //    over as it did (boatMenuStart's -1).
 //  - A row the mod would refuse is listed with its reason (the plaque's refused rows, AUDIT DISC7 A4) and the
@@ -106,15 +108,17 @@ export const boatMenuRefusal = (why) => (why === BOAT_MENU_WHY.driving ? 'You ca
       : why === BOAT_MENU_WHY.sailing ? 'Not while at the helm.' : null);
 
 /**
- * The box a verb is pressed on: the nearest to `at` of the boat's boxes of that kind (a boat with two ladders boards
- * at the nearer), or null when the boat carries none.
+ * The box a verb is pressed on: the one aimed at when it is that verb's (AUDIT BOAT-MENU C6: the far ladder aimed at
+ * boards there), else the nearest to `at` of the boat's boxes of that kind (the hull aimed at: a boat with two ladders
+ * boards at the nearer), or null when the boat carries none.
  * @param {Map<string, any[]>} boxes
  * @param {string} verb
  * @param {number[]} at
  * @param {(n: any) => number[]} posOf
  */
-export function boatVerbNode(boxes, verb, at, posOf) {
+export function boatVerbNode(boxes, verb, at, posOf, aimed = null) {
   const list = boxes.get(BOAT_VERB_BOX[verb]?.box ?? '') ?? [];
+  if (aimed && list.includes(aimed)) return aimed;   // AUDIT BOAT-MENU C6: the box aimed at, where it is the verb's
   let best = null, bestD = Infinity;
   for (const n of list) {
     const p = posOf(n);
@@ -140,7 +144,7 @@ export function pressBoatVerb(p) {
   if (!row) return 'none';
   if (row.disabled) { const line = boatMenuRefusal(row.why); if (line) p.say(line); return 'refused'; }
   const how = BOAT_VERB_BOX[row.id];
-  const node = boatVerbNode(p.boxes, row.id, p.at, p.posOf);
+  const node = boatVerbNode(p.boxes, row.id, p.at, p.posOf, p.aimed ?? null);
   if (!how || !node) return 'none';
   p.activate(p.models[how.box], { ...p.hit, node, distance: p.distance }, how.mode ?? p.mode);
   return 'pressed';

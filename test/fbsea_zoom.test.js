@@ -50,8 +50,8 @@ test('FIELD BUGS 2026-09-29 (the sea) #3: THE MORROWIND CAMERA AT A HELM - a not
   assert.ok(n <= 14, `out of first person to the hull's reach in ${n} notches (seventy-seven to 800 alone before)`);
   for (let i = 0; i < 40 && fresh.thirdPerson(); i++) { fresh.wheel(1); fresh.eye({ fpEye: [0, 1.7, 0], feet: [0, 0, 0], yaw: 0, pitch: 0 }); }
   assert.equal(fresh.mode(), 'first', 'and in by the ratio to the nearest ring, then into the head as on foot');
-  cam.wheel(-200); settle();
-  cam.wheel(-3); settle();
+  // PIN MOVED (AUDIT HELM-ZOOM E2): one notch a frame at a helm - out notch by notch, as a wheel's clicks come
+  for (let i = 0; i < 12; i++) { cam.wheel(-1); settle(); }
   assert.ok(cam.baseDistance() > MAX_DISTANCE);
   cam.setSeaReach(0);
   assert.equal(cam.baseDistance(), MAX_DISTANCE, 'off the helm: the reference\'s far end');
@@ -132,4 +132,37 @@ test('FIELD BUGS 2026-09-29 (the sea) #3: THE HELM\'S REACH AND HER OWN HULL - t
   assert.match(WORLD, /raycast: \(o, d, m\) => collider\.raycast\(o, d, m, camFilter\),\n\s+spherecast: \(o, r, d, m\) => \{ const h = collider\.sphereCast\(o, r, d, m, camFilter\)\.dist;/);
   assert.match(WORLD, /seaReach: csaHelm \? csaSeaReach\(csaHelm\) : 0,/);
   assert.match(WORLD, /for \(const \[key, b\] of _csaBuckets\) if \(b\.boat === boat\) skip\.push\(key\);/, 'her own buckets, and no other boat\'s');
+});
+
+test('AUDIT HELM-ZOOM (E1, E2, E3): IN FROM WHERE THE CAMERA STANDS WHEN PINNED, ONE NOTCH A FRAME, AND THE MOD\'S LADDER BELOW ITS BASE BOTH WAYS - a Morrowind camera pinned at 105 units moves on the first wheel-in (it spent four notches unseen); a burst of twenty clicks in one frame is one notch (a trackpad\'s swipe crossed the whole range); Eye of the Beholder out from below its base steps the mod\'s 0.2 (it leapt to the base) (mutants: in from the wanted distance, the burst summed, the ratio below the base)', () => {
+  const cam = createMwCamera();
+  cam.setSeaReach(66);
+  const pinned = (d) => cam.eye({ fpEye: [0, 1.7, 0], feet: [0, 0, 0], yaw: 0, pitch: 0, spherecast: () => d });
+  cam.wheel(-1); pinned(null);
+  for (let i = 0; i < 8; i++) { cam.wheel(-1); pinned(null); }
+  assert.ok(cam.baseDistance() > 600, `out (${cam.baseDistance()})`);
+  pinned(1.5);   // pinned at 1.5 m
+  const at = cam.baseDistance();
+  cam.wheel(1); pinned(1.5);
+  assert.ok(cam.baseDistance() < 1.5 * MW_UNITS_PER_METER, `the first notch in moves the camera it pinned (${at} -> ${cam.baseDistance()})`);
+  // the burst: one notch
+  const b = createMwCamera();
+  b.setSeaReach(66);
+  const s = () => b.eye({ fpEye: [0, 1.7, 0], feet: [0, 0, 0], yaw: 0, pitch: 0 });
+  b.wheel(-1); s();
+  b.wheel(-1); s();
+  const one = b.baseDistance();
+  b.wheel(-20); s();
+  assert.ok(Math.abs(b.baseDistance() - one * SEA_ZOOM_RATIO) < 1e-6, `twenty in one frame: one notch (${one} -> ${b.baseDistance()})`);
+  // Eye of the Beholder below its base: the mod's own step out
+  const c = createEotbCamera();
+  c.loadSettings(null);
+  c.toggleOffset(true);
+  c.setSeaReach(66);
+  const base = -c.settings().z;
+  for (let i = 0; i < 3; i++) { c.wheel(1); c.tick({}); }
+  const low = base + c.scroll();
+  assert.ok(low < base - 1e-6, 'below the base');
+  c.wheel(-1); c.tick({});
+  assert.ok(Math.abs(base + c.scroll() - (low + c.settings().increment)) < 1e-6, `out by the mod's increment (${low} -> ${base + c.scroll()})`);
 });

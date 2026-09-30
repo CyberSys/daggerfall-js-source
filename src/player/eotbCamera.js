@@ -645,7 +645,9 @@ export function createEotbCamera() {
       // ladder takes her in to first person
       const far = seaReach > -MAX_Z && !(cfg.overrides.Boat.enabled && isSailing) ? -seaReach : MAX_Z;
       const baseDist = -(z + offsetScroll);   // the offset at no scroll
-      if (far < MAX_Z && clicks && (-z > baseDist + 1e-6 || clicks < 0)) {
+      // AUDIT HELM-ZOOM E3: out by the ratio from the base up - below it the mod's own ladder both ways (out from there
+      // leapt to the base in one notch, in stepped it by 0.2)
+      if (far < MAX_Z && clicks && (-z > baseDist + 1e-6 || (clicks < 0 && -z >= baseDist - 1e-6))) {
         offsetScroll += z + seaZoomStep(-z, clicks > 0 ? 1 : -1, Math.min(baseDist, -MAX_Z), -far);
         return offset;
       }

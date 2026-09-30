@@ -1206,6 +1206,11 @@ won went with it: a prize's hold not yet emptied, and the casks of the ships the
   was back outside, a packable one and its hold for good, and a crewed one's hold with it. The port ships the key ON; it
   stays the player's switch. `test/csa_registration.test.js` names it among the DEPARTED defaults.
 
+AUDIT PR478 (`01-Overview/Audit-PR478.md`): off the helm the stow goes into the player's boat nearest them before the
+pack, and what will not fit is said (D1); naval combat switched off stows before it takes the sea (D3); a boat kept in a
+dungeon stands in that dungeon alone, never a building on its pixel (D2). SHIP-LIFE's own findings (A1-A5, B1-B7) are
+recorded there too.
+
 Pins: `test/keepplunder.test.js` (the real host's prize and sinkings, the world's wiring, the default).
 `tools/mutants/keepplunder.json`: 12 mutants, all dead.
 
