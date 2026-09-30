@@ -31,9 +31,9 @@ import { haulKey, parseNodeKey, schoolSpots, SCHOOLS_PER_PIXEL, SCHOOL_R, pixelK
 import { HAULS_PER_DAY, FISH_KEY, actBand, PEARL } from '../net/professionLaw.js';
 import { createFishAct } from '../systems/fishAct.js';
 import { FT, attributeAverage } from '../systems/foragingLaw.js';
-import { foragingActRefusal, actChecksRefusal, foragingToolIn } from '../systems/foragingInstall.js';
+import { foragingActRefusal, actChecksRefusal, foragingToolIn, foragingHost } from '../systems/foragingInstall.js';
 import { materialCountLabel } from '../systems/profItems.js';
-import { liveStat } from '../systems/statMods.js';
+import { liveStat, maxFatigue } from '../systems/statMods.js';
 import { getPref } from '../systems/uiPrefs.js';
 import { PASSIVE_FISH_SPECIES, pickSpecies } from '../world/passiveFish.js';
 import { templateByIndex } from '../systems/itemTemplates.js';
@@ -58,6 +58,20 @@ const schoolPicture = () => { const t = templateByIndex(FT.Fish); return t?.worl
 /** The net's own words where the cast stands but the ground refuses it (the prompt's; the act says Foraging's lines). */
 export const NET_WHERE = Object.freeze(['inside', 'town', 'daylight']);
 export const NET_WHERE_WORDS = Object.freeze({ inside: 'not in here', town: 'not in a settlement', daylight: 'the fish bite by daylight (07:00-17:59)' });
+/** FISH-TIRED (FIELD BUGS 2026-09-30b: "you can get instakilled when fishing"). In the water a collapse is death, whatever
+ *  the health - DFU's PlayerEntity.OnExhausted SetHealth(0)s a swimmer (systems/rest.js exhaustionOutcome, scenes/world.js
+ *  onExhaustedExterior) and says nothing before it - and the minute's band charges an angler treading water the swim's
+ *  price, 8 or 33 fatigue every five real seconds (systems/worldTick.js; FATIGUE-IDLE spares dry ground only). So no net
+ *  is cast in the water on the last quarter of the fatigue bar, and an act there ends when the bar falls into it: the
+ *  prompt says why, with minutes left to swim out and rest. The collapse itself is DFU's, untouched. */
+export const NET_TIRED_SHARE = 0.25;
+export const NET_TIRED_WORDS = 'too tired to fish in the water - get out and rest';
+/** Whether the angler swims (the collapse's own test, PlayerEnterExit.IsPlayerSwimming, as Foraging's world answers it)
+ *  on the last quarter of the fatigue pool. */
+export function tooTiredForTheWater(entity) {
+  if (!entity || !foragingHost()?.world?.()?.swimming) return false;
+  return (entity.fatigue ?? 0) < maxFatigue(entity) * NET_TIRED_SHARE;
+}
 
 /** Twelve hex digits for a haul's key (the service reads them as the haul's name, nothing more). */
 export function haulId(rand = Math.random) {
@@ -161,6 +175,8 @@ export function fishKind({ book, host }) {
   const trophied = new Set();
   /** the climate each cast was made on, by key - its species' water */
   const climates = new Map();
+  /** FISH-TIRED: the act this kind started and its angler - ended when the pool falls under the line in the water */
+  let live = /** @type {{ act: any, entity: any }|null} */ (null);
 
   function castNow() {
     const px = host.pixel();
@@ -225,11 +241,14 @@ export function fishKind({ book, host }) {
     },
     /** A school is never a target; the cast is gone once its haul is asked (a new one stands). */
     gone: (n) => !!n.school || book.taken(n.key, 'fish'),
-    frame(_dt, { translation: t }) { translation = t; },
-    plan(n, { rank }) {
+    frame(_dt, { translation: t }) {
+      translation = t;
+      if (live && !live.act.state.done && tooTiredForTheWater(live.entity)) { live.act.cancel(); live = null; }   // FISH-TIRED
+    },
+    plan(n, { rank, entity }) {
       const plan = fishPlan({
         taken: book.taken(n.key, 'fish'), counting: book.counting(n.key, 'fish'), hauls: book.state.hauls ?? 0, cap: book.state.caps?.hauls ?? HAULS_PER_DAY,
-        rank: rank('fishing'), storesFull: book.held(FISH_KEY) >= (book.state.caps?.stores ?? 5000), where: actChecksRefusal(NET_WHERE, NET_WHERE_WORDS), school: schoolWords(),
+        rank: rank('fishing'), storesFull: book.held(FISH_KEY) >= (book.state.caps?.stores ?? 5000), where: actChecksRefusal(NET_WHERE, NET_WHERE_WORDS) ?? (tooTiredForTheWater(entity) ? NET_TIRED_WORDS : null), school: schoolWords(),
       });
       return { ...plan, profession: 'fishing' };
     },
@@ -240,12 +259,14 @@ export function fishKind({ book, host }) {
       const parsed = parseNodeKey(n.key);
       if (!g || parsed?.kind !== 'haul') return { refused: 'There is no water here to fish.' };
       climates.set(n.key, g.climate);
+      const act = createFishAct({
+        rank: rank('fishing'), angler: specs('fishing')[50] === 'angler', hour: host.hour(), storm: host.storm(),
+        band: actBand(attributeAverage(liveStat(entity, 'intelligence'), liveStat(entity, 'agility'))),   // FORAGE0 14.4: the net's pair (fishingCount's)
+        gentle: getPref('gentleActs') === true, schoolAt, onTug: host.tug ?? null,
+      });
+      live = { act, entity };   // FISH-TIRED
       return {
-        act: createFishAct({
-          rank: rank('fishing'), angler: specs('fishing')[50] === 'angler', hour: host.hour(), storm: host.storm(),
-          band: actBand(attributeAverage(liveStat(entity, 'intelligence'), liveStat(entity, 'agility'))),   // FORAGE0 14.4: the net's pair (fishingCount's)
-          gentle: getPref('gentleActs') === true, schoolAt, onTug: host.tug ?? null,
-        }),
+        act,
         harvest: plan.harvest, tool: foragingToolIn(entity, FT.FishingNet), profession: 'fishing', label: keyLabel('Interact'),
         ask: { climate: g.climate, region: g.region },   // the cast's own ground: a loose node names none (AUDIT 32 H9)
         hand: () => null,
