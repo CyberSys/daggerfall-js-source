@@ -13,7 +13,8 @@
 //   A new key after each haul. Fishing is bounded, not witnessed: forty
 //   hauls an account a day.
 //   THE SCHOOLS. Two a pixel a day where the first water their spots find
-//   is (nodeLaw schoolSpots), stood as the fish's own flats on the water -
+//   is (nodeLaw schoolSpots), stood as the Fish item's own world picture
+//   on the water (Foraging's Fish, 1605 - DFU's TEXTURE.211) -
 //   never a target: a cast that lands within SCHOOL_R of one is a school's
 //   haul (the act's report says which), and the prompt says where one
 //   rises near.
@@ -34,7 +35,8 @@ import { foragingActRefusal, actChecksRefusal, foragingToolIn } from '../systems
 import { materialCountLabel } from '../systems/profItems.js';
 import { liveStat } from '../systems/statMods.js';
 import { getPref } from '../systems/uiPrefs.js';
-import { PASSIVE_FISH_SPECIES, pickSpecies, FISH_TEXTURE_ARCHIVE } from '../world/passiveFish.js';
+import { PASSIVE_FISH_SPECIES, pickSpecies } from '../world/passiveFish.js';
+import { templateByIndex } from '../systems/itemTemplates.js';
 import { groundAt } from '../world/terrainNature.js';
 import { isOutdoorWaterTile } from '../world/terrainSurface.js';
 import { WORLD_MAP_TILE_DIM } from '../world/terrainTiles.js';
@@ -48,8 +50,11 @@ export const SCHOOL_SAID_M = 40;
 /** A school's flats: three of its species' fish, small, a metre apart on the water. */
 export const SCHOOL_FLATS = 3;
 export const SCHOOL_SCALE = 0.5;
-/** The Mackerel's picture (its record in the fish's archive) - the one species every water holds (Deep Waters' Any). */
-export const SCHOOL_RECORD = PASSIVE_FISH_SPECIES.find((s) => s.templateIndex === 9005)?.textureRecord ?? 46;
+/** A school's picture: Foraging's Fish item's own world picture (1605's template - DFU's TEXTURE.211, record 9), as an
+ *  herb patch stands its plant's. FOUND: not Deep Waters' fish - the port draws those from the mod's own pictures, and
+ *  their records in DFU's TEXTURE.216 are other things. */
+export const SCHOOL_PICTURE = Object.freeze([211, 9]);
+const schoolPicture = () => { const t = templateByIndex(FT.Fish); return t?.worldTextureArchive ? [t.worldTextureArchive, t.worldTextureRecord ?? 0] : SCHOOL_PICTURE; };
 /** The net's own words where the cast stands but the ground refuses it (the prompt's; the act says Foraging's lines). */
 export const NET_WHERE = Object.freeze(['inside', 'town', 'daylight']);
 export const NET_WHERE_WORDS = Object.freeze({ inside: 'not in here', town: 'not in a settlement', daylight: 'the fish bite by daylight (07:00-17:59)' });
@@ -208,7 +213,7 @@ export function fishKind({ book, host }) {
     stood(entry, nodes) { schools.set(pixelKey(entry.px, entry.py), { entry, nodes }); },
     flatsOf: () => [],
     goneFlatsOf: (n) => (n.school ? [{
-      archive: FISH_TEXTURE_ARCHIVE, record: SCHOOL_RECORD, scale: SCHOOL_SCALE,
+      archive: schoolPicture()[0], record: schoolPicture()[1], scale: SCHOOL_SCALE,
       centers: Array.from({ length: SCHOOL_FLATS }, (_, i) => [n.local[0] + Math.cos(i * 2.1 + n.k) * i, n.local[1] + 0.3, n.local[2] + Math.sin(i * 2.1 + n.k) * i]),
     }] : []),
     /** The cast: one, just ahead of the look, while the pack holds a net and the player stands in the net's water. */

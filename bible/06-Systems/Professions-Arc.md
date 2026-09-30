@@ -2429,9 +2429,9 @@ asked). What sections 5.2, 6 and 3.3 left open for PROF8, DECIDED here, and what
   client puts the species' own Deep Waters item in the pack (`deepWatersFishItems.js` createFishItem) - once a haul,
   however many answers say it. It is an item the game already lets a player take from the water.
 - **The schools** (6): two a pixel a day, each at the first of 24 spots the clock draws (`schoolSpots`) that falls on a
-  water tile - a pixel with no water stands none; stood as three of the Mackerel's own flats on the water (Deep Waters'
-  archive; where its records are not there, none stand and the prompt's words carry the school: "a school rises 14 m
-  north"). Never a target: a cast that lands within 10 m of one is a school's haul - the act's report names it (0 or 1),
+  water tile - a pixel with no water stands none; stood as three of Foraging's Fish item's own world picture on the water
+  (1605's template, DFU's TEXTURE.211 - as an herb patch stands its plant's; FOUND: not Deep Waters' fish, which the port
+  draws from the mod's own pictures), and said in the prompt's words ("a school rises 14 m north"). Never a target: a cast that lands within 10 m of one is a school's haul - the act's report names it (0 or 1),
   the service reads nothing else of it (`netOf`), and the day's forty bound it.
 - **The act** (5.2; `systems/fishAct.js`): E starts it and, held, winds the net (0.3-1.5 s, 3-12 m); let go, it flies;
   the wait (5-30 s, halved at 07:00 and 17:00 on the game clock, doubled in thunder); the tug - a new press of E, or
@@ -2451,7 +2451,7 @@ asked). What sections 5.2, 6 and 3.3 left open for PROF8, DECIDED here, and what
   lane - the act's `hand` is none, as the Basket's); no splash is played at the tug (no splash clip is wired for an act);
   peers do not see the throw (5.1's pose activity field is none of the acts' yet).
 - **Pinned**: `test/prof8_law.test.js` (7), `test/prof8_service.test.js` (3, through the real Worker), `test/prof8_client
-  .test.js` (12). Mutants: `tools/mutants/prof8.json` (33, all dead). Patch notes: `PATCH-NOTES-Fishing.md`.
+  .test.js` (12). Mutants: `tools/mutants/prof8.json` (34, all dead). Patch notes: `PATCH-NOTES-Fishing.md`.
 
 ## Appendix A - a day of a gatherer
 

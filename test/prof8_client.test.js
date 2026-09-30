@@ -10,12 +10,12 @@ import { readFileSync } from 'node:fs';
 
 import { createFishAct, FLY_S, WIND_HOLD_S } from '../src/systems/fishAct.js';
 import {
-  fishKind, fishPlan, haulLine, speciesOfHaul, keyRng, bearingWord, haulId, standSchools, NET_WHERE_WORDS, CAST_AHEAD_M, SCHOOL_RECORD,
+  fishKind, fishPlan, haulLine, speciesOfHaul, keyRng, bearingWord, haulId, standSchools, NET_WHERE_WORDS, CAST_AHEAD_M, SCHOOL_PICTURE,
 } from '../src/scenes/fishHost.js';
 import { parseNodeKey, haulKey, utcDayOfMs, SCHOOL_R } from '../src/net/nodeLaw.js';
 import { FISH_ACT, tugWindow, HAULS_PER_DAY, PEARL, fishBand } from '../src/net/professionLaw.js';
 import { setForagingHost } from '../src/systems/foragingInstall.js';
-import { PASSIVE_FISH_SPECIES, FISH_TEXTURE_ARCHIVE } from '../src/world/passiveFish.js';
+import { PASSIVE_FISH_SPECIES } from '../src/world/passiveFish.js';
 import { climateToBiome } from '../src/world/underwaterDecorations.js';
 import { createProfHud } from '../src/ui/profHud.js';
 import { accountRefusalText } from '../src/net/accountClient.js';
@@ -274,7 +274,9 @@ test('PROF8 schools: the day\'s two stood on water (none on dry ground), their f
     k.frame(0, { feet: eye.pos, translation: (e) => (e === entry ? [0, 0, 0] : null) });
     assert.ok(nodes.every((n) => k.gone(n)), 'never a target');
     const [flat] = k.goneFlatsOf(nodes[0], entry);
-    assert.deepEqual([flat.archive, flat.record, flat.centers.length], [FISH_TEXTURE_ARCHIVE, SCHOOL_RECORD, 3], 'the fish\'s own picture, three on the water');
+    assert.deepEqual([flat.archive, flat.record, flat.centers.length], [...SCHOOL_PICTURE, 3], 'the Fish item\'s own picture, three on the water');
+    const fish = JSON.parse(src('vendor/foraging/ItemTemplates.json')).find((t) => t.index === 1605);
+    assert.deepEqual([fish.worldTextureArchive, fish.worldTextureRecord], [...SCHOOL_PICTURE], 'Foraging\'s Fish, DFU\'s own picture');
     const [cast] = k.looseNodesOf({ entity: { items: [NET] }, dungeon: false });
     assert.match(k.plan(cast, { rank: () => 0, keyLabel: () => 'E' }).rest, /^Fishing 0 - a school rises 8 m east$/);
     const start = () => k.start(cast, { harvest: 'fish' }, { entity: { items: [NET] }, rank: () => 0, specs: () => ({ 50: null, 100: null }), keyLabel: () => 'E' });

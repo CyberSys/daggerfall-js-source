@@ -302,5 +302,14 @@
     "tests": [
       "test/prof8_client.test.js"
     ]
+  },
+  {
+    "name": "PROF8-school-deep-waters-picture",
+    "file": "src/scenes/fishHost.js",
+    "old": "export const SCHOOL_PICTURE = Object.freeze([211, 9]);",
+    "new": "export const SCHOOL_PICTURE = Object.freeze([216, 46]);",
+    "tests": [
+      "test/prof8_client.test.js"
+    ]
   }
 ]

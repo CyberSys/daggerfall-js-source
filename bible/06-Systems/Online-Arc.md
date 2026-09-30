@@ -12177,9 +12177,9 @@ record; in short:
   item, into the pack once.
 - **The act** (`systems/fishAct.js`): E held winds the net, let go throws it; the wait; the tug (600 ms, the phone
   buzzing); the haul - the tension band over the net's weight. **The kind** (`scenes/fishHost.js`): the cast ahead of the
-  look with a net in the net's water; the day's two schools a pixel on water, as the fish's own flats and in the prompt's
-  words; the species named in the toast.
+  look with a net in the net's water; the day's two schools a pixel on water, as the Fish item's own picture and in the
+  prompt's words; the species named in the toast.
 - **The service**: **acct41**, migration `0042_fishing.sql`. Deploy the migration and the service before the client: an
   old service refuses every haul as a bad node.
 - **Pinned:** `test/prof8_law.test.js` (7), `test/prof8_service.test.js` (3), `test/prof8_client.test.js` (12). Mutants:
-  `tools/mutants/prof8.json` (33, all dead). Patch notes: `PATCH-NOTES-Fishing.md`.
+  `tools/mutants/prof8.json` (34, all dead). Patch notes: `PATCH-NOTES-Fishing.md`.
