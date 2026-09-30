@@ -1087,6 +1087,11 @@ export async function bootWorld(canvas, renderer, params, status) {
   // game's own (a mod's rows never count), so every client derives the same seats (systems/townSeats.js). Online alone.
   const townSeats = deriveTownSeats(_hubRows, { regionNameOf: (r) => maps.getRegionName(r), isHub: (k) => regionHubs.byMapId.has(k) });
   _hubRows.length = 0;
+  /** AUDIT 28 H8: which of a built pixel's boards are bounty boards (systems/bountyBoard.js questBoardIndices), worked out
+   *  once a pixel - the count over the boards and the press's targets asked it every frame, a sort each time. A pixel's
+   *  boards are laid once, when it is built. (SEAT1a: declared above the boot's first build, which asks it for a seat
+   *  town's banners - BOOT-TDZ2.) */
+  const boardSplitOf = (p) => (p._boardSplit ??= questBoardIndices(p.boards ?? []));
   // HOME1 (Mac: "allowing online players to purchase housing in any location"): the online homes - the account
   // service's registry as this page knows it, one town at a time (systems/onlineHomes.js). The mode machine's doors
   // read it and the quest's residence filter asks it; offline it does not exist and every door is Daggerfall's. Read
@@ -3952,7 +3957,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     const dwResult = dwNear ? await dwNear.catch(() => null) : undefined;   // DW-B: before the carry, which nothing may await past (AUDIT BRANCH (WoD) m4)
     // SEAT1a (Seats-Arc 3.4): a seat town's banner anchors - its palace's door, its gates, its rumour boards - measured
     // where it is built (scenes/seatBanners.js); hung while the seats are open to this account
-    // (BOUNTY1's split of the boards through its one memo, AUDIT 28 H8 - and kept on the pixel, so it is never worked out again)
+    // (BOUNTY1's split of the boards through its one memo, AUDIT 28 H8 - and kept on the pixel as `_boardSplit`, so it is
+    // never worked out again; null off a seat, and the memo asks it then)
     const pixelBoardSplit = dfLocation && locBlocks && seatAtMapId(townSeats, dfLocation.mapTableData?.mapId) ? boardSplitOf({ boards: pixelBoards }) : null;
     const seatAnchors = pixelBoardSplit ? seatBannerAnchors({
       frames: pixelHomeFrames, palaceKeys: palaceKeysOf(locBlocks, makeBuildingKey),
@@ -3974,8 +3980,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       homeTown, homeKeys: pixelHomeKeys, buildingKeys: pixelBuildingKeys,   // HOME-LOOK: the homes drawn on their own, and every building's key
       _lookV: homeLookRead,   // HOME-LOOK (AUDIT)
       homeFrames: pixelHomeFrames, homeRegion: dfLocation?.regionIndex ?? 0,   // HOME-YARD: each building's frame, and the town's region (a yard's pieces are paid there)
-      seatAnchors,   // SEAT1a: where a seat town's banners hang (null for a town that is no seat)
-      ...(pixelBoardSplit ? { _boardSplit: pixelBoardSplit } : {}),   // SEAT1a: BOUNTY1's split, worked out once at the build
+      seatAnchors, _boardSplit: pixelBoardSplit,   // SEAT1a (above)
       px, py, terrain, water, tilemapTex, tilemap, groundArchive, models, windmills, batches, flatAnims, texRemap, lights: pixelLights, hearths: pixelHearths, animals: pixelAnimals, springs: pixelSprings, skyBase: climate.skyBase, samples, natureCount: nature.length,
       tilemapBytes, season,   // GR1: the placer reads the tiles and the season
       paths,   // GRASS-PATH1: which tiles the road painter wrote; null on a pixel built before the network arrived
@@ -15638,7 +15643,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         }   // CHAT-CHAN: from any tab, on the World channel - the one room every player online is in
         // NOTICE1 (PROF0 20): `/note remove <id>` - a moderator's remove of a note from anywhere. NOT GUARDED HERE:
         // whether this player may is the account service's question, and its refusal comes back as a line.
-        // SEAT1a (Seats-Arc 3.2): `/seat strike <key>` - a developer's strike of a seat from the registry. NOT GUARDED HERE.
+        // SEAT1a (Seats-Arc 3.2): `/seat strike <key>` - a false seat struck from the registry. NOT GUARDED HERE (RED1's law).
         const seatCmd = parseSeatCommand(text);
         if (seatCmd) {
           const say = (line) => chatLog.push(tabId, { text: line, system: true });
@@ -17948,10 +17953,6 @@ export async function bootWorld(canvas, renderer, params, status) {
   // board's). Online, a town's rumour board opens the Notice Board once the service has said it is open to this account
   // (BOARD_OPEN); until it has, and whenever it is not, the board is DFU's own - the rumour box - and the read that
   // settles it is asked (the town's board is read on arrival anyway, for the count over it).
-  /** AUDIT 28 H8: which of a built pixel's boards are bounty boards (systems/bountyBoard.js questBoardIndices), worked out
-   *  once a pixel - the count over the boards and the press's targets asked it every frame, a sort each time. A pixel's
-   *  boards are laid once, when it is built. */
-  const boardSplitOf = (p) => (p._boardSplit ??= questBoardIndices(p.boards ?? []));
   const openNoticeBoard = (town, rumour) => {
     if (!noticeBook || !town) return false;
     if (noticeBook.open !== true) { noticeBook.read(town.mapId); return false; }
