@@ -2,8 +2,8 @@
   {
     "name": "AUDIT-REALM2-S1-the-first-save-unread",
     "file": "server-account/src/realm.js",
-    "old": "  if (seq === 1) {\n    const refused = firstSaveRefusal(body, row);",
-    "new": "  if (false) {\n    const refused = firstSaveRefusal(body, row);",
+    "old": "  if (seq === 1) {\n    // AUDIT REALM2 S1: a new character's",
+    "new": "  if (false) {\n    // AUDIT REALM2 S1: a new character's",
     "tests": [
       "test/auditrealm2_service.test.js"
     ]
