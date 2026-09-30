@@ -4917,7 +4917,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:7928` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:7949` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:337`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -12164,3 +12164,22 @@ gold can now change hands the way a guild deposit or a house's price does - in t
   beside a new service sees the Drakes' market as before.
 - **Pinned:** `test/goldmarket_service.test.js` (8) and `test/goldmarket_client.test.js` (9); the schema's table list
   (accountworker ACC1b). Mutants: `tools/mutants/goldmarket.json` (34, all dead). Patch notes: `PATCH-NOTES-The-Gold-Market.md`.
+
+## PROF8 (2026-09-30, Mac: "Continue the arc"; "XP follows your rank") - Fishing with the net
+
+The arc's next slice (Professions-Arc 15): Fishing practised online. `06-Systems/Professions-Arc.md` 30 holds the whole
+record; in short:
+
+- **A haul** is the client's own key (`haul:<x>:<y>:<day>:<id>`) - bounded, not witnessed: forty hauls an ACCOUNT a day,
+  the daylight kept, its pixel read for the sea and the witnesses' word, and witnessed by the haul. Raw Fish into the
+  Stores (1-2; a full net x1.5, a school's fish), worked at the rank's own tier (Mac: "XP follows your rank"); at sea on
+  confirmed ground a Pearl (1 in 50) and a Slaughterfish (1 in 100); a trophy (1 in 200), the species' own Deep Waters
+  item, into the pack once.
+- **The act** (`systems/fishAct.js`): E held winds the net, let go throws it; the wait; the tug (600 ms, the phone
+  buzzing); the haul - the tension band over the net's weight. **The kind** (`scenes/fishHost.js`): the cast ahead of the
+  look with a net in the net's water; the day's two schools a pixel on water, as the fish's own flats and in the prompt's
+  words; the species named in the toast.
+- **The service**: **acct40**, migration `0041_fishing.sql`. Deploy the migration and the service before the client: an
+  old service refuses every haul as a bad node.
+- **Pinned:** `test/prof8_law.test.js` (7), `test/prof8_service.test.js` (3), `test/prof8_client.test.js` (12). Mutants:
+  `tools/mutants/prof8.json` (33, all dead). Patch notes: `PATCH-NOTES-Fishing.md`.

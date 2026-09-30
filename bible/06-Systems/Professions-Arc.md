@@ -966,7 +966,7 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 | **PROF6** - SHIPPED 2026-09-29 (at `dev`, section 28) | Writs: guild writs and the guild Stores, commissions and the note's button (built); seat writs with SEAT1b, bounties with SEAT1d's Edicts | A Guildmaster's writ delivered by an outsider and a member into the guild Stores, an Officer's posted within the week's budget and refused past it (AUDIT 31 R12: this row said an Officer's writ was delivered); a commission through a crafter's note filled with a piece of their make and in the poster's pack. Seat writs need SEAT1b |
 | **PROF6b** | Found and writ-only recipes (9.1): the Recipe Scroll (695), the found recipes named, a guild's posted recipe reward | Needs a witnessed roll for loot's 1 in 500, and PROF2b's Motherlode for its 1 in 20 |
 | **PROF7** - SHIPPED 2026-09-30 (live, section 29) | Hunting (the trace), the Skinning Knife (603: its template, its online shelves - law 6's exception, for 603); Outfitting | A bear felled by the player's own blow skinned online, its hides cured and sewn into a Leather Helm in the pack; a shirt in the dye its sewer chose. Needs FORAGE1-2 (shipped: the shelves' registry) |
-| **PROF8** | Fishing with the net (the throw, the tug, the haul) | Needs FORAGE1-2 (shipped: the net, and the three-valued water state in both exterior hosts) |
+| **PROF8** - BUILT 2026-09-30 (section 30) | Fishing with the net (the throw, the tug, the haul) | A haul of Raw Fish from a river, its species named; a Pearl at sea on confirmed ground; forty hauls an account a day. Needs FORAGE1-2 (shipped: the net, and the three-valued water state in both exterior hosts) |
 | **PROF9** | Cooking | - |
 | **PROF10** | Jewelcrafting | - |
 | **PROF11** | Masonry | Needs PROF2 (quarrying); SEAT2b and PLOT1 consume what it makes |
@@ -1359,7 +1359,7 @@ instruction), and what was found (FACT):
 - **One gathering host.** FACT: the streaming world's Herbalism was one host (`scenes/herbHost.js`), and every
   gathering profession needs the same shell - a pixel's nodes stood, the nearest target, one prompt, one act, the book.
   DECIDED: the shell is `scenes/gatherHost.js`, each profession a kind in it (Herbalism's patches and Mining's veins and
-  boulders now; Logging's trees, Hunting's bodies and Fishing's water later), one prompt and one act at a time.
+  boulders now; Logging's trees, Hunting's bodies and - PROF8, section 30 - Fishing's water since), one prompt and one act at a time.
 
 As built:
 
@@ -2395,6 +2395,64 @@ As built:
 - **For Mac**: what Trophy Hunter, Couturier and Saddler should stand as; whether the borrowed pictures read right
   (the woods' open flag); whether a body felled in a building's interior should be a node.
 
+## 30. PROF8 - Fishing with the net, as built (BUILT 2026-09-30)
+
+Mac: **"Continue the arc"** (2026-09-30, after GOLD-MARKET), and **"XP follows your rank"** (the one call this section
+asked). What sections 5.2, 6 and 3.3 left open for PROF8, DECIDED here, and what was found (FACT):
+
+- **What PROF8 is.** 15's row - "Fishing with the net (the throw, the tug, the haul)" - whole: a haul of Raw Fish from any
+  water the net works in, its species named, the sea's Pearl and Slaughterfish, the day's schools, a trophy; the Fishing
+  track and its four specialisations practised; the page's day and how.
+- **XP FOLLOWS THE RANK** (Mac). FACT: every haul is Raw Fish, tier 1, and `harvestXp` quarters a tier more than two below
+  the rank's own - worked at its catch's tier, a rank 55 haul earned 3 XP, and Fishing would never have climbed. DECIDED:
+  a haul is worked at the highest tier the rank opens (`professionLaw.js` haulTier, `topTierOf`): 15 XP a Novice's, 75 a
+  rank 55's, 105 a Master's; a full net x1.5.
+- **Bounded, not witnessed** (6). A haul names no node: its key is the client's own, `haul:<x>:<y>:<day>:<id>` - the map
+  pixel cast from, the UTC day, twelve hex digits drawn at the cast (`nodeLaw.js` haulKey, read in its one spelling). The
+  service reads the pixel's ground (the witnesses' confirmation for the sea's finds), the day, the daylight (every haul,
+  07:00-17:59 on the shared clock - `prof-night`), and **forty hauls an ACCOUNT a day**, decided in the harvest's own
+  INSERT (`prof-fish-cap`). A haul from an account a week old witnesses its pixel, as any harvest's does - so the sea's
+  pixels come to be confirmed by those who fish them.
+- **The catch** (5.2). Raw Fish (`food:fish`) into the Stores as own, 1-2 a haul; in 6's order: the roll, a full net's
+  x1.5 (the act's bound), a march's +25%, a school's fish (a Netter's two), a Slaughterfish's weight; the fraction a
+  chance (`haulYield`). The finds (`haulFinds`): **at sea** - the Ocean's climate, or the sea coast's region, as the
+  net reads it (`haulAtSea`; Foraging's `SEA_REGION` now the law's one home) - **on confirmed ground**, a **Pearl** 1 in
+  50 (a Pearl Diver x3, a Deep-Sea x2) and a **Slaughterfish** 1 in 100 (a Deep-Sea x2) - its Scales (PROF7's hide) and a
+  fish more; a **trophy** 1 in 200 anywhere. FACT: DFU's Pearl is template 77 (MiscellaneousIngredients2, 150 gold) -
+  a Stores material now (`PEARL`, tier 5 by its price's band), withdrawn as DFU's own and listed on the market.
+- **The species** (5.2): Deep Waters' own for the pixel's water - `pickSpecies` over `PASSIVE_FISH_SPECIES`, the climate
+  by `climateToBiome`, half-way down the water column - drawn from the haul's KEY on the client (`fishHost.js`
+  speciesOfHaul), so every answer to a haul names the same fish ("+2 Largemouth Bass, as Raw Fish"). FACT: the species
+  module imports the scenes' draw and the loot tables, which the Worker must not bundle - so the species is the client's
+  word, as its toast and its trophy are; the Stores keep Raw Fish whatever it was.
+- **A trophy**: the service says it (`trophy`, a column of `node_harvests`, said again to an answer asked twice); the
+  client puts the species' own Deep Waters item in the pack (`deepWatersFishItems.js` createFishItem) - once a haul,
+  however many answers say it. It is an item the game already lets a player take from the water.
+- **The schools** (6): two a pixel a day, each at the first of 24 spots the clock draws (`schoolSpots`) that falls on a
+  water tile - a pixel with no water stands none; stood as three of the Mackerel's own flats on the water (Deep Waters'
+  archive; where its records are not there, none stand and the prompt's words carry the school: "a school rises 14 m
+  north"). Never a target: a cast that lands within 10 m of one is a school's haul - the act's report names it (0 or 1),
+  the service reads nothing else of it (`netOf`), and the day's forty bound it.
+- **The act** (5.2; `systems/fishAct.js`): E starts it and, held, winds the net (0.3-1.5 s, 3-12 m); let go, it flies;
+  the wait (5-30 s, halved at 07:00 and 17:00 on the game clock, doubled in thunder); the tug - a new press of E, or
+  attack, inside 600 ms (an Angler's 840), the phone buzzing where the touch layer's haptics are on; the haul - the net's
+  weight wanders the bar, E held raises the tension band (20% of the bar at Novice to 30% at Master, the net's
+  attribute pair - Intelligence and Agility, Foraging's own - widening it), let go it falls; the weight kept inside for 6 s
+  (OPEN) fills a full net; 2 s outside in all, or 20 s unfilled, and it comes in plain. A missed tug is a plain net,
+  never nothing. Gentle acts: a plain net after the wait. DECIDED: E, not attack, is the act's key throughout - the
+  gathering host hands an act E's level and attack's edge alone, and every other act's hold is E's.
+- **Where** (5.1): the cast stands just ahead of the look while the pack holds an unbroken Fishing-Net and the player
+  stands in the net's water (Foraging's own `netHasWater`: in water, swimming, at sea); never underground. Its prompt
+  says the ground's refusal first (in here, a settlement, the dark), the account's forty, the Stores' room; the start asks
+  Foraging's full checks for the net, with its own lines ("You cannot fish with enemies nearby!").
+- **The service**: **acct40**, migration `0041_fishing.sql` (`node_harvests` rebuilt: the kind `fish`, and `trophy`). The
+  state and every haul's answer say the account's hauls today.
+- **Found and FLAGGED, not built here**: the net is not drawn in the hand (5.1's "the item's own picture" on the classic
+  lane - the act's `hand` is none, as the Basket's); no splash is played at the tug (no splash clip is wired for an act);
+  peers do not see the throw (5.1's pose activity field is none of the acts' yet).
+- **Pinned**: `test/prof8_law.test.js` (7), `test/prof8_service.test.js` (3, through the real Worker), `test/prof8_client
+  .test.js` (12). Mutants: `tools/mutants/prof8.json` (33, all dead). Patch notes: `PATCH-NOTES-Fishing.md`.
+
 ## Appendix A - a day of a gatherer
 
 Ilsa, a Journeyman herbalist and Apprentice miner in Anticlere (a march), sets out at seven, when the wilderness opens. The board's Work tab has a
@@ -2441,7 +2499,7 @@ At dusk the hub warns of a Motherlode in the Wrothgarian foothills in ten minute
 | Outfitting's recipes (PROF7) | leather armour at Leather - Cuirass 6, Greaves 4, the rest 2 - Cured (rank 10) or Hardened (rank 55, a step); DFU's 76 garments in each cloth - a bolt, two, three, boots a bolt and a Cured Leather; rugs 3 Wool, tapestries 4 Wool, skins 2 and 1 of a pelt; the Fishing-Net 2 Linen; the steps a Tailor's clothing, a Leatherworker's leather armour; XP 20 x tier, +500 the first (AUDIT 32 S1: not the 152 made wholly of Linen and Wool) |
 | A garment's dye (PROF7) | DFU's ten clothing dyes (0-9), chosen at the loom, signed into the record (`u`); every garment (AUDIT 32 L3: the four unchangeable shirts too) |
 | The stitch (PROF7) | eight presses, the beat every 0.75 s, the band 0.2 of it x (AGI + SPD) / 2's band, 0.25 s between presses; all eight on the beat a step |
-| Fishing | throw 0.3-1.5 s / 3-12 m, wait 5-30 s (first and last daylight hour x0.5, storm x2), tug 600 ms, band 20-30%, 20 s, slip 2 s; pearl 1/50, slaughterfish 1/100, trophy 1/200; Raw Fish tier 1, 1 Mark |
+| Fishing | throw 0.3-1.5 s / 3-12 m, wait 5-30 s (first and last daylight hour x0.5, storm x2), tug 600 ms (Angler 840), band 20-30%, fill 6 s inside, 20 s, slip 2 s; pearl 1/50 (Pearl Diver x3, Deep-Sea x2), slaughterfish 1/100 (Deep-Sea x2) - at sea on confirmed ground - trophy 1/200; 1-2 fish, a school +1 (Netter +2); schools 2 a pixel a day, 24 spots, 10 m; 40 hauls an account a day; XP at the rank's own tier (PROF8); Raw Fish tier 1, 1 Mark; Pearl tier 5 |
 | The Basket's food | tier 1, 1 Mark; 15 XP, 22 with all three found (the clean act) |
 | The Basket | three glints of 1.0-1.4 s; clean +50%, two +25% |
 | Stores cap | 5,000 a material |

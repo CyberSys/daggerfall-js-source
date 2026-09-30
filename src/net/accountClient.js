@@ -46,7 +46,7 @@ import { MARKS_MAX, MARKS_BANK, MARKS_MOVE_MAX } from './marksLaw.js';   // MARK
 import { NOTES_LIVE_MAX, NOTE_DAYS, NOTICE_DAYS_MAX } from './boardLaw.js';   // NOTICE1: the bounds its refusals name
 import {
   HARVESTS_PER_DAY, HARVESTS_PER_ACCOUNT_DAY, DEEP_UNCONFIRMED_PER_DAY, STORES_MAX, WITHDRAW_MAX, COURT_WRITS_PER_DAY, RESPEC,
-  HIDES_PER_DAY, HIGH_HIDES_PER_DAY,
+  HIDES_PER_DAY, HIGH_HIDES_PER_DAY, HAULS_PER_DAY,
 } from './professionLaw.js';   // PROF1: the bounds its refusals name; PROF7: Hunting's day
 import {
   GUILD_FOUND_RENOWN, GUILD_MEMBERS_MAX, GUILD_NAME_MIN, GUILD_NAME_MAX, GUILD_RANK_NAME_MAX, GUILD_MOVE_MAX,
@@ -283,6 +283,7 @@ export const REFUSALS = Object.freeze({
   'prof-later': 'That is made when the sieges come.',   // PROF4: the Ram Kit (PROF0 25)
   // PROF7: Hunting's day - the account's, every character's together (PROF0 6)
   'prof-hunt-cap': `Your account has taken all the hides a day allows (${HIDES_PER_DAY}, across your characters).`,
+  'prof-fish-cap': `Your account has hauled all the nets a day allows (${HAULS_PER_DAY}, across your characters). The water rests until midnight UTC.`,   // PROF8
   'prof-hunt-high': `Your account has taken all the rare hides a day allows (${HIGH_HIDES_PER_DAY}, across your characters).`,
   'prof-foe': 'No knife takes a hide from that body.',
   'prof-dye': 'That cannot be dyed so.',

@@ -188,6 +188,8 @@ import { herbKind } from './herbHost.js';   // PROF1: Herbalism's patches, a kin
 import { mineKind, PROSPECT_M } from './mineHost.js';   // PROF2: Mining's veins and Quarrying's boulders, a kind in it; the Prospector's reach
 import { treeKind, isTreeRecord } from './treeHost.js';   // PROF4: Logging's trees - the forest's own - a kind in it
 import { huntKind, createBodyStamps, bodiesOf, trackerMarks } from './huntHost.js';   // PROF7: Hunting's bodies - a kind in it, the kills that stamp them, a Tracker's marks
+import { fishKind } from './fishHost.js';   // PROF8: Fishing's casts and schools - a kind in it
+import { utcDayOfMs } from '../net/nodeLaw.js';   // PROF8: a haul's UTC day
 import { registerPlayerKillListener } from '../systems/playerKills.js';   // PROF7: the player's own kill stamps a body
 import { setProfessionsPages } from '../ui/profPages.js';   // PROF1: the Professions and Stores pages on the character sheet's rail
 import { withdrawIntoPack, materialLabel, materialCountLabel } from '../systems/profItems.js';   // PROF1: a Stores material as DFU's own item
@@ -7754,7 +7756,28 @@ export async function bootWorld(canvas, renderer, params, status) {
       gatherHost = createGatherHost({
         book: profBook, hud, kinds: [herbKind({ book: profBook }), mineKind({ book: profBook }),
           treeKind({ book: profBook, renderer, flatBatchAabb, getTexture, billboardSize, uploadRecord }),   // PROF4: Logging's trees
-          huntKind({ book: profBook, bodies: () => huntBodies(), openLoot: openHuntLoot })],   // PROF7: Hunting's bodies
+          huntKind({ book: profBook, bodies: () => huntBodies(), openLoot: openHuntLoot }),   // PROF7: Hunting's bodies
+          // PROF8: Fishing's casts - the net in its water, the pixel and its ground the player stands in, the game clock's
+          // hour and a storm for the wait, a trophy into the pack (the species' own Deep Waters item)
+          fishKind({ book: profBook, host: {
+            pixel: () => playerTravelPixel(),
+            ground: () => { try { const px = playerTravelPixel(); return { climate: maps.getClimateIndex(px.x, px.y), region: maps.getRegionIndexAt(px.x, px.y) }; } catch { return null; } },
+            eye: () => ({ pos: cam.pos, dir: [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)] }),
+            feet: () => (walkMode ? player.pos : cam.pos),
+            hour: () => Math.floor((((worldMinutes() % 1440) + 1440) % 1440) / 60),
+            storm: () => currentWeather() === 'thunder',
+            climateAt: (x, y) => { try { return maps.getClimateIndex(x, y); } catch { return null; } },
+            day: () => utcDayOfMs(Date.now() + _sharedOffsetMs),
+            // the tug's buzz (5.2: "the pad and phone buzz") - the touch layer's own pulse, under its own pref (TI2)
+            tug: () => { if (!getPref('touchHaptics')) return; try { navigator.vibrate?.(120); } catch { /* a platform without it */ } },
+            trophy: (species) => {
+              const item = createFishItem(species);
+              if (!item) return false;
+              addItem((playerEntity.items ??= []), item);
+              saveSoon.changed();
+              return true;
+            },
+          } })],
         renderer, getTexture, uploadRecord, billboardSize, flatBatchAabb,
         built: () => built, pixelTranslation: (x, y, out) => state.pixelTranslation(x, y, out),
         pixelInfo: (x, y) => { try { return { climate: maps.getClimateIndex(x, y), region: maps.getRegionIndexAt(x, y) }; } catch { return null; } },

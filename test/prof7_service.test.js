@@ -259,7 +259,8 @@ test('PROF7 service: the day\'s harvests rebuilt for a body\'s hide keep every r
   assert.deepEqual({ ...db.prepare('SELECT node, extra, tier, extra_qty FROM node_harvests').get() }, { node: 'tree:1:2:20000:0', extra: 'wood:resin', tier: 0, extra_qty: 1 });
   db.exec(`INSERT INTO node_harvests (day, node, kind, player, char_id, profession, material, qty, xp, gem, at, rid, n, deep_unconfirmed, extra, tier, extra_qty)
     VALUES (20000, 'body:20000:0123456789ab', 'hide', 'p1', 'c1', 'hunting', 'hide:bear', 1, 30, NULL, 5, 'rid00002', 'n2', 0, 'food:meat', 2, 2)`);
-  assert.throws(() => db.exec(`INSERT INTO node_harvests (day, node, kind, player, char_id, profession, material, qty, xp, at, rid, n) VALUES (1, 'x', 'fish', 'p1', 'c1', 'fishing', 'm', 1, 0, 1, 'rid00003', 'n')`), /CHECK/);
+  // PROF8 (0041_fishing.sql) took `fish` since: a kind no profession gathers is still refused
+  assert.throws(() => db.exec(`INSERT INTO node_harvests (day, node, kind, player, char_id, profession, material, qty, xp, at, rid, n) VALUES (1, 'x', 'net', 'p1', 'c1', 'fishing', 'm', 1, 0, 1, 'rid00003', 'n')`), /CHECK/);
   assert.throws(() => db.exec(`UPDATE node_harvests SET tier = 8 WHERE rid = 'rid00002'`), /CHECK/);
   assert.throws(() => db.exec(`UPDATE node_harvests SET extra_qty = 0 WHERE rid = 'rid00002'`), /CHECK/);
   assert.deepEqual(db.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'node_harvests' AND name LIKE 'idx_%' ORDER BY name").all().map((r) => r.name),

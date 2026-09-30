@@ -25,7 +25,7 @@
 // ═══════════════════════════════════════════════════════════════════
 import { BASKET_SPOTS } from '../systems/herbAct.js';
 import { MINE_POINTS } from '../systems/mineAct.js';   // PROF2: the vein's face
-import { MINE_ACT, CHOP_ACT, TRACE_ACT } from '../net/professionLaw.js';
+import { MINE_ACT, CHOP_ACT, TRACE_ACT, throwM } from '../net/professionLaw.js';
 import { PROF_CSS } from './enhancedPlusStyle.js';
 
 /** The toasts: four at most, three seconds each (PROF0 8). */
@@ -251,6 +251,40 @@ export function createProfHud({ doc = globalThis.document } = {}) {
         const hint = mk('prof-hint');
         hint.textContent = label || 'tap the glint';
         meter.append(hint);
+        return;
+      }
+      if (st.kind === 'fish') {
+        // PROF8: THE NET - the wind's bar and the throw it makes; the wait; the tug, flashed; the haul: the bar with the
+        // tension band and the net's weight on it, the meter's fill under it and the slip said (a still bar either way -
+        // nothing here moves but by the act's own numbers)
+        const key = label || 'E';
+        const pc = (v) => `${Math.round(Math.max(0, Math.min(1, v)) * 1000) / 10}%`;
+        meter.classList.toggle('fish-tug', st.phase === 'tug');
+        const hint = mk('prof-hint');
+        if (st.phase === 'haul') {
+          const haul = mk('prof-haulbar');
+          const band = mk('prof-haulband');
+          band.style.left = pc(st.bandAt); band.style.width = pc(st.bandW);
+          const weight = mk('prof-haulweight');
+          weight.style.left = pc(st.weight);
+          haul.append(band, weight);
+          const bar = mk('prof-bar');
+          const fill = doc.createElement('i');
+          fill.style.width = pc(st.fill);
+          bar.append(fill);
+          hint.textContent = `hold ${key} to raise the band, let go to lower it - keep the weight inside${st.slip > 0 ? ` (slipping, ${Math.round(st.slip * 100)}%)` : ''}`;
+          meter.append(haul, bar, hint);
+          return;
+        }
+        const bar = mk('prof-bar');
+        const fill = doc.createElement('i');
+        fill.style.width = pc(act.progress);
+        bar.append(fill);
+        hint.textContent = st.phase === 'wind' ? `hold ${key} to wind the net, let go to throw it (${Math.round(throwM(st.windS))} m)`
+          : st.phase === 'fly' ? 'the net flies...'
+            : st.phase === 'wait' ? `waiting for a bite${st.school !== null ? ' - over a school' : ''}...`
+              : `a tug! press ${key} now`;
+        meter.append(bar, hint);
         return;
       }
       const bar = mk('prof-bar');

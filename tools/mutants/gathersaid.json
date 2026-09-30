@@ -21,8 +21,8 @@
   {
     "name": "GATHERSAID-goods-unkept",
     "file": "src/scenes/gatherHost.js",
-    "old": "      hud.toast(storesLine(d), { keep: true });",
-    "new": "      hud.toast(storesLine(d));",
+    "old": "      hud.toast(k?.storesLine ? k.storesLine(d) : storesLine(d), { keep: true });",
+    "new": "      hud.toast(k?.storesLine ? k.storesLine(d) : storesLine(d));",
     "tests": [
       "test/gathersaid.test.js"
     ]

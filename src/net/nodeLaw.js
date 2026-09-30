@@ -33,6 +33,7 @@ import {
   herbKey, materialOf, foodKey, WRIT_UNITS, WRIT_TIER_WEIGHTS, writPay, writRenown, minedMaterial, CUT_RATIO,
   DEEP_DELVER_MULT, GEM_CHANCE, PROSPECTOR_GEM, HEARTWOOD_CHANCE, FORESTER_MULT, RESIN_CHANCE, RESIN, HEARTWOOD,
   HIDE_YIELD, ACT_YIELD_MAX, PART_CHANCE, BUTCHERY,
+  PEARL, SLAUGHTERFISH_SCALES, SCHOOL_FISH, FISH_CHANCE,   // PROF8
 } from './professionLaw.js';
 import { kingdomOf, FREE_LANDS, MARCH_REGIONS, isMarch } from './kingdomLaw.js';   // SEAT0 4.3's map, one home (PROF2)
 
@@ -140,6 +141,12 @@ export const BODY_ID_RE = /^[0-9a-f]{12}$/;
 const NODE_KEY_RE = /^(tree|herb|vein|boulder):(\d{1,3}):(\d{1,3}):(\d{1,6}):(\d{1,2})$/;
 const DVEIN_KEY_RE = /^dvein:(\d{1,7}):(\d{1,6}):(\d{1,2})$/;
 const BODY_KEY_RE = /^body:(\d{1,6}):([0-9a-f]{12})$/;
+/** PROF8: a haul's id - `haul:<x>:<y>:<day>:<id>`, the map pixel the net was cast from, its UTC day and twelve hex
+ *  digits the angler's client drew at the cast (scenes/fishHost.js). Fishing is bounded, not witnessed (PROF0 6): the
+ *  pixel is the client's word, read for its ground (the sea's finds are a confirmed pixel's) and its day - the day's
+ *  forty hauls the bound. */
+export const haulKey = ({ x, y, day, id }) => `haul:${x}:${y}:${day}:${id}`;
+const HAUL_KEY_RE = /^haul:(\d{1,3}):(\d{1,3}):(\d{1,6}):([0-9a-f]{12})$/;
 /** A dungeon's identity, DFU's own: `MapTableData.MapId & 0xfffff` (formats/mapsFile.js). */
 export const DUNGEON_ID_MAX = 0xfffff;
 export const dungeonOk = (id) => Number.isSafeInteger(id) && id >= 0 && id <= DUNGEON_ID_MAX;
@@ -150,6 +157,11 @@ export function parseNodeKey(s) {
   if (typeof s !== 'string') return null;
   const b = BODY_KEY_RE.exec(s);
   if (b) return bodyKey({ day: Number(b[1]), id: b[2] }) === s ? { kind: 'body', day: Number(b[1]), id: b[2] } : null;
+  const h = HAUL_KEY_RE.exec(s);
+  if (h) {
+    const [x, y, day] = [Number(h[1]), Number(h[2]), Number(h[3])];
+    return pixelOk(x, y) && haulKey({ x, y, day, id: h[4] }) === s ? { kind: 'haul', x, y, day, id: h[4] } : null;
+  }
   const d = DVEIN_KEY_RE.exec(s);
   if (d) {
     const [dungeon, day, slot] = [Number(d[1]), Number(d[2]), Number(d[3])];
@@ -449,6 +461,49 @@ export const hideYield = ({ clean = false }, chance) => Math.max(1, wholeYield(H
 export function bodyFinds({ hide, torn = false, butcher = false }, dice) {
   const part = hide.part && !torn && dice() < PART_CHANCE ? hide.part : null;
   return { part, meat: hide.meat, meatQty: hide.meat ? (butcher ? BUTCHERY.butcher : BUTCHERY.meat) : 0 };
+}
+/**
+ * PROF8 - A HAUL'S FISH, in PROF0 6's order: the base roll (1-2), the act's step (a full net x1.5, the act's bound), a
+ * march's +25% on confirmed ground, a school's fish (a Netter's two), a Slaughterfish's weight (a fish more); the fraction
+ * a chance. At least one.
+ */
+export function haulYield({ roll, clean = false, march = false, school = false, netter = false, slaughterfish = false }, chance) {
+  let y = roll * (clean ? ACT_YIELD_MAX : 1);
+  if (march) y *= MARCH_MULT;
+  if (school) y += netter ? SCHOOL_FISH.netter : SCHOOL_FISH.plain;
+  if (slaughterfish) y += 1;
+  return Math.max(1, wholeYield(y, chance));
+}
+/** PROF8: the sea, as Foraging's net reads it (systems/foragingLaw.js netHasWater): the Ocean's climate, or the sea
+ *  coast's region. */
+export const SEA_REGION = 31;
+export const haulAtSea = (climate, region) => climate === CLIMATES.Ocean || region === SEA_REGION;
+/**
+ * PROF8 - A HAUL'S FINDS (5.2): at sea on ground the witnesses confirmed, a Pearl (a Pearl Diver's x3, a Deep-Sea's x2)
+ * and a Slaughterfish - its scales; a trophy anywhere. `dice()` the service's.
+ * @returns {{ pearl: string|null, scales: string|null, trophy: boolean }}
+ */
+export function haulFinds({ sea = false, confirmed = false, pearlDiver = false, deepSea = false }, dice) {
+  const open = sea && confirmed;
+  const pearl = open && dice() < FISH_CHANCE.pearl * (pearlDiver ? FISH_CHANCE.pearlDiver : 1) * (deepSea ? FISH_CHANCE.deepSea : 1);
+  const slaughterfish = open && dice() < FISH_CHANCE.slaughterfish * (deepSea ? FISH_CHANCE.deepSea : 1);
+  const trophy = dice() < FISH_CHANCE.trophy;
+  return { pearl: pearl ? PEARL.key : null, scales: slaughterfish ? SLAUGHTERFISH_SCALES : null, trophy };
+}
+/** PROF8 - THE DAY'S SCHOOLS (PROF0 6): two a pixel a day, each rising where the first water its spots find is - each
+ *  school SCHOOL_SPOTS candidate places (u, v in [0, 1) of the pixel), the clock's, the same for every client; a pixel
+ *  with no water under any stands none. A cast that lands within SCHOOL_R of one is a school's haul - the client's word,
+ *  bounded by the day's forty. */
+export const SCHOOLS_PER_PIXEL = 2;
+export const SCHOOL_SPOTS = 24;
+export const SCHOOL_R = 10;
+const SCHOOL_KIND = 6;
+export function schoolSpots(x, y, day, k) {
+  const out = [];
+  for (let j = 0; j < SCHOOL_SPOTS; j++) {
+    out.push({ u: gateHash(NODE_SALT, x, y, day, SCHOOL_KIND, k, 2 * j) / 4294967296, v: gateHash(NODE_SALT, x, y, day, SCHOOL_KIND, k, 2 * j + 1) / 4294967296 });
+  }
+  return out;
 }
 /**
  * AN HERB'S YIELD, in PROF0 6's order: the base roll (+1 a common herb for a Gardener); the season (spring's blooms,

@@ -34,7 +34,7 @@
 // ═══════════════════════════════════════════════════════════════════
 import {
   PROFESSIONS, SPECIALISATIONS, SPEC_RANKS, RESPEC, xpForRank, rankName, PROF_RANK_MAX, TIER_RANKS, CRAFTS_ABOVE_JOURNEYMAN,
-  JOURNEYMAN_RANK, MATERIAL_FAMILIES, HARVESTS_PER_DAY, HIDES_PER_DAY, HIGH_HIDES_PER_DAY, WITHDRAW_MAX, professionName, SMELT_RECIPES, SMELT_MAX, FORGE_FEE,
+  JOURNEYMAN_RANK, MATERIAL_FAMILIES, HARVESTS_PER_DAY, HIDES_PER_DAY, HIGH_HIDES_PER_DAY, HAULS_PER_DAY, WITHDRAW_MAX, professionName, SMELT_RECIPES, SMELT_MAX, FORGE_FEE,
   withdrawable, stockOf, STOCK_MAX, BURN_RECIPES, SAW_RECIPES, WORKBENCH_FEE, WOODS, workPer, workSpecRank, CURE_RECIPES,
   WEAVE_RECIPES, LOOM_FEE, CLOTHS, WEAVERS_STOCK,
 } from '../net/professionLaw.js';
@@ -223,10 +223,15 @@ const UNLOCKS = Object.freeze({
   // and Standard-bearer's Silk said for what it waits on
   outfitting: Object.freeze([['Linen clothing; the Rat\'s skins; the Fishing-Net', 1], ['Cured Leather armour; Wool clothing, rugs and tapestries; the Bat\'s and the Bear\'s skins', 2],
     ['The Tiger\'s skins', 3], ['Silk clothing', 4], ['Hardened Leather armour; Standard-bearer\'s Silk clothing (its silk comes with the sieges)', 5]]),
+  // PROF8: every haul is Raw Fish - the rank sets its XP (a haul is worked at the rank's own tier); the sea's finds need
+  // the ground the witnesses confirmed, and no rank
+  fishing: Object.freeze([['Raw Fish in any water; a school\'s extra fish; at sea on confirmed ground a Pearl or a Slaughterfish; a trophy', 1]]),
 });
 /** PROF4 (FOUND): Smithing was practised from PROF3 and the page never said so - its cards stood locked. PROF7: Hunting
  *  and Outfitting. */
-const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'logging', 'smithing', 'outfitting', 'carpentry']);
+const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'fishing', 'logging', 'smithing', 'outfitting', 'carpentry']);   // PROF8: Fishing
+/** PROF8: how a haul is made, as the page says it. */
+export const FISHING_HOW = 'With a Fishing-Net in your pack, stand in water, swim, or stand at sea, by daylight. Hold the use key to wind the net and let go to throw it; when the floats dip, press it again; then hold it to raise the band over the net\'s weight and let go to lower it - keep the weight inside to fill the net. Cast toward a rising school for an extra fish.';
 /** A craft practised in part - what raises it now (none since PROF4: Smithing's is whole). */
 const PARTLY = Object.freeze({});
 
@@ -284,6 +289,10 @@ export function drawProfessionsPage(detail, rerender, kit) {
     const h = book.state.hunt ?? { hides: 0, high: 0 };
     pane.append(el('p', 'prof-today', `Today: ${h.hides} of ${book.state.caps?.hides ?? HIDES_PER_DAY} hides, ${h.high} of ${book.state.caps?.highHides ?? HIGH_HIDES_PER_DAY} of tiers 5-6 - your account's, across your characters`));
     pane.append(el('p', 'px-note', 'A body your own blow felled, with a Skinning Knife in your pack: the act choice key searches it instead. Hold the use key on the first point of the line and draw the knife along it.'));
+  } else if (_sel === 'fishing') {
+    // PROF8: Fishing's day is the account's too (PROF0 6) - its hauls, every character's together
+    pane.append(el('p', 'prof-today', `Today: ${book.state.hauls ?? 0} of ${book.state.caps?.hauls ?? HAULS_PER_DAY} hauls - your account's, across your characters`));
+    pane.append(el('p', 'px-note', FISHING_HOW));
   } else if (PROFESSIONS.find((x) => x.id === _sel)?.kind === 'gathering' && practised) {
     pane.append(el('p', 'prof-today', `Today: ${book.state.today?.[_sel] ?? 0} of ${book.state.caps?.harvests ?? HARVESTS_PER_DAY} harvests`));
   }

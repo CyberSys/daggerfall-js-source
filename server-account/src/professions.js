@@ -52,6 +52,7 @@ import {
   PROF_RID_RE, PROF_XP_MAX, profSwitchOf, basketStep, herbKey, professionOfFamily, courtWritCount, COURT_WRITS_PER_DAY,
   glintsMax, smeltRecipe, SMELT_MAX, smeltXp, craftXpCap, HARVESTS_PER_ACCOUNT_DAY, DEEP_UNCONFIRMED_PER_DAY,
   stockOf, STOCK_MAX, withdrawable, cutsMax, workPer, workSpecRank, hideOfFoe, HIDES_PER_DAY, HIGH_HIDES_PER_DAY, HIGH_HIDE_TIER,
+  HAULS_PER_DAY, HAUL_YIELD, FISH_KEY, haulTier,   // PROF8
 } from '../../src/net/professionLaw.js';
 import {
   recipeById, recipeOpen, qualityOdds, rollQuality, qualitySteps, craftQuality, takesQuality, craftXp, craftCount,
@@ -64,6 +65,7 @@ import {
   basketFood, isMarch, regionOk, pixelOk, pixelKey, pixelReport, witnessedFact, factConfirmed, WITNESS, material,
   regionWritTable, courtWrits, VEIN_TABLES, vein, boulder, dungeonVein, dungeonOk, veinYield, boulderYield, VEIN_YIELD,
   BOULDER_YIELD, veinGem, veinSlots, WOOD_TABLES, tree, TREE_YIELD, treeYield, treeFinds, hideYield, bodyFinds,
+  haulYield, haulFinds, haulAtSea,   // PROF8
 } from '../../src/net/nodeLaw.js';
 import { CLIMATES } from '../../src/formats/mapsTables.js';
 
@@ -169,7 +171,8 @@ export async function profState({ db, nowS }, player, env, { character } = {}) {
     stores: [...held.values()].map(withGold),
     writs: { today: await writsToday(db, player.id, day), max: COURT_WRITS_PER_DAY },
     hunt: await huntToday(db, player.id, day),   // PROF7: the account's hides today (PROF0 6)
-    caps: { harvests: HARVESTS_PER_DAY, stores: STORES_MAX, withdraw: WITHDRAW_MAX, hides: HIDES_PER_DAY, highHides: HIGH_HIDES_PER_DAY },
+    hauls: await haulsToday(db, player.id, day),   // PROF8: the account's hauls today (PROF0 6)
+    caps: { harvests: HARVESTS_PER_DAY, stores: STORES_MAX, withdraw: WITHDRAW_MAX, hides: HIDES_PER_DAY, highHides: HIGH_HIDES_PER_DAY, hauls: HAULS_PER_DAY },
   };
 }
 
@@ -227,6 +230,8 @@ async function harvestAnswer(db, row, nowS, extra, rankBefore = null) {
     ...(row.gem ? { gem: row.gem, gemStore: await storeOf(db, row.player, row.char_id, row.gem) } : {}),
     ...(row.extra ? { extra: row.extra, extraQty: Number(row.extra_qty ?? 1), extraStore: await storeOf(db, row.player, row.char_id, row.extra) } : {}),   // PROF4: a tree's Resin; PROF7: a body's butchery
     ...(row.profession === 'hunting' ? { hunt: await huntToday(db, row.player, Number(row.day)) } : {}),   // PROF7: the account's hides today
+    ...(row.profession === 'fishing' ? { hauls: await haulsToday(db, row.player, Number(row.day)) } : {}),   // PROF8: the account's hauls today
+    ...(Number(row.trophy) === 1 ? { trophy: true } : {}),   // PROF8: a trophy the client puts in the pack
   };
 }
 
@@ -239,6 +244,7 @@ const NODE_HARVESTS = Object.freeze({
   vein: Object.freeze({ kinds: Object.freeze(['ore']), profession: 'mining' }),
   boulder: Object.freeze({ kinds: Object.freeze(['stone']), profession: 'mining' }),
   dvein: Object.freeze({ kinds: Object.freeze(['ore']), profession: 'mining' }),
+  haul: Object.freeze({ kinds: Object.freeze(['fish']), profession: 'fishing' }),   // PROF8: a haul's Raw Fish
 });
 /** Whether a climate may hold the node kind: a patch where herbs grow, a vein where veins run, a boulder where the
  *  climate has boulders, a dungeon vein in any climate a location has. */
@@ -270,6 +276,16 @@ async function huntToday(db, player, day) {
   const r = await db.prepare(`SELECT COALESCE(SUM(qty), 0) AS n, COALESCE(SUM(CASE WHEN tier >= ?3 THEN qty ELSE 0 END), 0) AS high
     FROM node_harvests WHERE player = ?1 AND profession = 'hunting' AND day = ?2`).bind(player, day, HIGH_HIDE_TIER).first();
   return { hides: Number(r?.n ?? 0), high: Number(r?.high ?? 0) };
+}
+/** PROF8 - the account's hauls today (PROF0 6: 40), every character's together - the rows, a haul each. */
+async function haulsToday(db, player, day) {
+  const r = await db.prepare("SELECT COUNT(*) AS n FROM node_harvests WHERE player = ?1 AND profession = 'fishing' AND day = ?2").bind(player, day).first();
+  return Number(r?.n ?? 0);
+}
+/** PROF8 - a net's report, bounded (PROF0 5.1): a full net is the clean act; a school, the cast's landing within one of
+ *  the day's two (nodeLaw schoolSpots) - the client's word, its one or none. */
+function netOf(act) {
+  return { clean: act?.clean === true, school: act?.school === 0 || act?.school === 1 };
 }
 
 /** A Wood-Axe's report, bounded (PROF0 25): the Clean Cuts at most the finish's (every chop clean); a clean act only with
@@ -310,6 +326,7 @@ export async function harvestNode(ctx, player, env, body = {}) {
   if (!law) return { error: 'bad-node' };
   if (!law.kinds.includes(kind)) return { error: 'prof-kind' };
   const isBody = n.kind === 'body';   // PROF7: a body names no ground (PROF0 6)
+  const isHaul = n.kind === 'haul';   // PROF8: a haul names its pixel, and no slot
   if (!isBody && (!climateHolds(n.kind, climate) || !regionOk(region))) return { error: 'prof-pixel' };
   const day = utcDay(nowS);
   if (n.day !== day) return { error: 'prof-day' };   // PROF0 19: a node whose UTC day has ended lapses
@@ -339,7 +356,7 @@ export async function harvestNode(ctx, player, env, body = {}) {
   }
   // a vein's slots are its climate's and, on confirmed ground, its region's signature beside them (AUDIT 29 A6); a body
   // has none (AUDIT 32 S2: its unchecked ground is never read)
-  if (!deep && !isBody && n.slot >= (n.kind === 'vein' ? veinSlots({ climate, region, confirmed }) : nodeCount(climate, n.kind))) return { error: 'bad-node' };
+  if (!deep && !isBody && !isHaul && n.slot >= (n.kind === 'vein' ? veinSlots({ climate, region, confirmed }) : nodeCount(climate, n.kind))) return { error: 'bad-node' };
 
   // THE TRACK it is worked under
   const profession = law.profession;
@@ -348,8 +365,20 @@ export async function harvestNode(ctx, player, env, body = {}) {
   const specs = specsAt(row, nowS);
   const march = !deep && !isBody && confirmed && isMarch(region);
   const roll = (lo, hi) => lo + Math.floor(dice(rand) * (hi - lo + 1));
-  let tier, key2, qty, clean, gem = null, extra = null, extraQty = 1;
-  if (isBody) {
+  let tier, key2, qty, clean, gem = null, extra = null, extraQty = 1, trophy = 0;
+  if (isHaul) {
+    // PROF8: THE NET - a haul's Raw Fish, worked at the rank's own tier (Mac: "XP follows your rank"); a full net x1.5
+    // (the act's bound); a school's fish; at sea on confirmed ground a Pearl and a Slaughterfish; a trophy anywhere
+    tier = haulTier(rank);
+    const net = netOf(act);
+    clean = net.clean;
+    key2 = FISH_KEY;
+    const finds = haulFinds({ sea: haulAtSea(climate, region), confirmed, pearlDiver: specs[100] === 'pearl-diver', deepSea: specs[100] === 'deep-sea' }, () => dice(rand));
+    gem = finds.pearl;
+    extra = finds.scales;
+    trophy = finds.trophy ? 1 : 0;
+    qty = haulYield({ roll: roll(HAUL_YIELD[0], HAUL_YIELD[1]), clean, march, school: net.school, netter: specs[50] === 'netter', slaughterfish: !!finds.scales }, dice(rand));
+  } else if (isBody) {
     // PROF7: THE SKINNING KNIFE - the hide of the foe the client names; a clean pelt x1.5 (the act's bound), a torn one's
     // DFU part lost; the part one body in four; the butchery beside it, a Butcher's two (PROF0 4.4, 29)
     const h = /** @type {NonNullable<typeof hide>} */ (hide);
@@ -433,26 +462,29 @@ export async function harvestNode(ctx, player, env, body = {}) {
   // PROF7: Hunting's day, in hides (AUDIT 32 L2) - the account's, and its tiers 5-6
   const hunted = "COALESCE((SELECT SUM(qty) FROM node_harvests WHERE player = ?1 AND profession = 'hunting' AND day = ?6), 0)";
   const huntedHigh = "COALESCE((SELECT SUM(qty) FROM node_harvests WHERE player = ?1 AND profession = 'hunting' AND day = ?6 AND tier >= ?23), 0)";
+  // PROF8: Fishing's day - the account's hauls, a row each (PROF0 6: 40)
+  const hauled = "(SELECT COUNT(*) FROM node_harvests WHERE player = ?1 AND profession = 'fishing' AND day = ?6)";
   await db.batch([
     // THE DECISION: today's cap for the profession (the character's, and the account's - AUDIT 29 A3), a dungeon nobody
     // vouched for within its four (A5), PROF7: Hunting's day for the account - 30 hides, 3 of tiers 5-6 (PROF0 6), the
     // hide cut to the day's room as to the Stores' (AUDIT 32 L2) - the node not yet taken (the key), room in the Stores -
     // the yield cut to it, the XP to what the track can take (A14: the answer says what was credited); the second find
     // kept where one of it fits, its count cut to its room (AUDIT 32 S3: a Butcher's two at 4,999 were both lost)
-    db.prepare(`INSERT OR IGNORE INTO node_harvests (day, node, kind, player, char_id, profession, material, qty, xp, gem, at, rid, n, deep_unconfirmed, extra, tier, extra_qty)
+    db.prepare(`INSERT OR IGNORE INTO node_harvests (day, node, kind, player, char_id, profession, material, qty, xp, gem, at, rid, n, deep_unconfirmed, extra, tier, extra_qty, trophy)
       SELECT ?6, ?7, ?8, ?1, ?4, ?9, ?5, MIN(?10, ?11 - ${stored},
           CASE WHEN ?9 = 'hunting' THEN ?21 - ${hunted} ELSE ?10 END, CASE WHEN ?9 = 'hunting' AND ?22 >= ?23 THEN ?24 - ${huntedHigh} ELSE ?10 END),
         MAX(0, MIN(?12, ?19 - COALESCE((SELECT xp FROM prof_tracks WHERE player = ?1 AND char_id = ?4 AND profession = ?9), 0))),
         CASE WHEN COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?4 AND material = ?15), 0) < ?11 THEN ?15 END, ?13, ?2, ?3, ?17,
-        CASE WHEN ${storedExtra} < ?11 THEN ?20 END, ?22, CASE WHEN ${storedExtra} < ?11 THEN MIN(?25, ?11 - ${storedExtra}) ELSE 1 END
+        CASE WHEN ${storedExtra} < ?11 THEN ?20 END, ?22, CASE WHEN ${storedExtra} < ?11 THEN MIN(?25, ?11 - ${storedExtra}) ELSE 1 END, ?27
       WHERE (SELECT COUNT(*) FROM node_harvests WHERE player = ?1 AND char_id = ?4 AND profession = ?9 AND day = ?6) < ?14
         AND (SELECT COUNT(*) FROM node_harvests WHERE player = ?1 AND profession = ?9 AND day = ?6) < ?16
         AND (?17 = 0 OR (SELECT COUNT(*) FROM node_harvests WHERE player = ?1 AND day = ?6 AND deep_unconfirmed = 1) < ?18)
         AND (?9 <> 'hunting' OR (${hunted} < ?21 AND (?22 < ?23 OR ${huntedHigh} < ?24)))
+        AND (?9 <> 'fishing' OR ${hauled} < ?26)   -- PROF8: the account's forty hauls
         AND ?11 - ${stored} >= 1`)
       .bind(player.id, rid, nonce, character, key2, day, node, kind, profession, qty, STORES_MAX, xp, at, HARVESTS_PER_DAY, gem,
         HARVESTS_PER_ACCOUNT_DAY, deepUnconfirmed, DEEP_UNCONFIRMED_PER_DAY, PROF_XP_MAX, extra,
-        HIDES_PER_DAY, tier, HIGH_HIDE_TIER, HIGH_HIDES_PER_DAY, extraQty),
+        HIDES_PER_DAY, tier, HIGH_HIDE_TIER, HIGH_HIDES_PER_DAY, extraQty, HAULS_PER_DAY, trophy),
     db.prepare(`INSERT INTO prof_stores (player, char_id, material, origin, qty)
       SELECT player, char_id, material, 'own', qty FROM node_harvests WHERE ${mine}
       ON CONFLICT (player, char_id, material, origin) DO UPDATE SET qty = prof_stores.qty + excluded.qty`).bind(player.id, rid, nonce),
@@ -487,6 +519,7 @@ export async function harvestNode(ctx, player, env, body = {}) {
     if (hunt.hides >= HIDES_PER_DAY) return { error: 'prof-hunt-cap' };
     if (tier >= HIGH_HIDE_TIER && hunt.high >= HIGH_HIDES_PER_DAY) return { error: 'prof-hunt-high' };
   }
+  if (isHaul && (await haulsToday(db, player.id, day)) >= HAULS_PER_DAY) return { error: 'prof-fish-cap' };   // PROF8
   if (deepUnconfirmed) {
     const d = await db.prepare('SELECT COUNT(*) AS n FROM node_harvests WHERE player = ?1 AND day = ?2 AND deep_unconfirmed = 1').bind(player.id, day).first();
     if (Number(d?.n ?? 0) >= DEEP_UNCONFIRMED_PER_DAY) return { error: 'prof-deep-cap' };
