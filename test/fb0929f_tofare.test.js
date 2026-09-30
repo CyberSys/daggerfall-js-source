@@ -45,8 +45,11 @@ test('TO-FARE x MERC-CAP: online the fare reads the haggle\'s own range - past 1
     for (const m of [101, 233, 346]) assert.deepEqual(scaleTripCost(TRIP, TO, traveller(m)), scaleTripCost(TRIP, TO, traveller(100)), `Mercantile ${m}`);
     assert.ok(scaleTripCost(TRIP, TO, traveller(100)).totalCost > 0);
   });
-  // offline the mod's own call over DFU's unbounded read - under nothing past 233, as a room is (For Mac, 29f)
+  // SOFTCAP1 (skills past 100): offline the traveller's Mercantile is the LIVE read, and a point past 100 is worth a
+  // quarter of one below it (effectiveSkill) - 346 reads as about 161, so the mod's call over DFU's read no longer runs
+  // under nothing: the fare is dearer than at 100's best haggle and still a price. The raw formula stays unbounded.
   const far = scaleTripCost(TRIP, TO, traveller(346));
-  assert.deepEqual(far, { piecesCost: haggled(1200, 346), totalCost: 2 * haggled(1200, 346) });
-  assert.ok(far.totalCost < 0, `${far.totalCost}`);
+  assert.ok(far.totalCost > 0, `${far.totalCost}`);
+  assert.ok(far.totalCost < scaleTripCost(TRIP, TO, traveller(100)).totalCost, 'a better haggler than 100, softened');
+  assert.ok(haggled(1200, 346) < 0, 'the formula past 233 is still under nothing - a raw read there would still pay the buyer');
 });

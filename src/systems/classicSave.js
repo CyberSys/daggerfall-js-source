@@ -46,7 +46,7 @@ import { RECORD_TYPES, ENVIRONMENTS, isWagonRecord } from '../formats/saveTreeFi
 import { readMapSaveDiscovery } from '../formats/saveGames.js';
 import { SHIP_TYPES } from './banking.js';
 import { SAVE_VERSION } from './save.js';
-import { LEVELING_CLASSIC } from './oblivionLeveling.js';   // ORL1: a classic save is a classic character
+import { LEVELING_CLASSIC, newCharacterLevelingSystem } from './oblivionLeveling.js';   // ORL1: a classic save is a classic character
 import { STAT_KEYS_ORDER } from './statMods.js';
 import { SOCIAL_GROUP_COUNT } from '../formats/factionFile.js';
 import { ITEM_GROUP_BY_ID } from './biography.js';
@@ -661,6 +661,7 @@ export function restoreOldClassSpecials(saveTree, career, classicTransformedRace
 export function classicSaveToSnapshot(saveGames, {
   spellsByIndex = null, factionStore = null,
   resolveLocation = null, regionLocationCounts = null,
+  online = false,   // LEVEL-ONLINE: an import on the online page is a new ONLINE character - Oblivion's bar
 } = {}) {
   const saveTree = saveGames.saveTree;
   const saveVars = saveGames.saveVars;
@@ -771,7 +772,8 @@ export function classicSaveToSnapshot(saveGames, {
     // the only law that character has ever played under. The bar is
     // zeroed rather than left undefined so the import writes a complete
     // entity, as it does for every other field here.
-    levelingSystem: LEVELING_CLASSIC, levelProgress: 0, levelRollUp: 0,
+    // LEVEL-ONLINE: ...offline. Online a new character never levels Daggerfall's way (newCharacterLevelingSystem).
+    levelingSystem: newCharacterLevelingSystem(LEVELING_CLASSIC, { online }), levelProgress: 0, levelRollUp: 0,
 
     biographyResistDiseaseMod: saveVars.biographyResistDiseaseMod,
     biographyResistMagicMod: saveVars.biographyResistMagicMod,

@@ -82,5 +82,5 @@ This project is in active development. Skill caps, progression speed and enemy s
 - `src/systems/mentorMode.js`: automatic (no switch, no save field); the mentored level now also drives which monsters spawn, rest/camp encounters, enemy attack speed, loot/gear/treasure piles and the mentor's own spell level; incoming spells are scaled like blows.
 - SOFTCAP4 masteries (`masterSkills.js`): `MASTERY_SLOTS` {primary 2, major 2, minor 1}; `entity.masteredSkills` is permanent; only a mastered skill reads, tallies, raises or counts for the combat edge past 100 (`skillCanPassCap`, `masterCappedSkill(entity, raw, id)`). The choice is asked once per skill on a quiet pass (`nextMasteryChoice`, `entity.masteryPrompted`) and offered any time on the skill screens (classic: M / the row on a career page; Enhanced Plus: a button per candidate).
 - Save: `skillUseFrac`, `skillProgress`, `masterSkills`, `masterSkillsAsked`, `masterSkillsInfoSeen`, `masteredSkills`, `masteryPrompted` (all optional).
-- Wire: party pose `cl`, **RELAY_VERSION world131** (the relay must be redeployed for mentoring online; an old relay strips `cl` and nobody mentors).
-- Pinned-source tests updated for the changed lines; the relay-version law has the world131 hash.
+- Wire: party pose `cl`, **RELAY_VERSION world133** (the relay must be redeployed for mentoring online; an old relay strips `cl` and nobody mentors).
+- Pinned-source tests updated for the changed lines; the relay-version law has the world133 hash.

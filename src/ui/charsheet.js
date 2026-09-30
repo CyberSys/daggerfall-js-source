@@ -747,7 +747,7 @@ export class CharSheet {
     // increased above, default when they agree. The port drew all
     // eight at the shadow-text default, so the at-a-glance warning DFU
     // gives after a disease or a drain spell was absent. `stats` IS
-    // the permanent map here (statMods.js:31 clamps permanent + mods).
+    // the permanent map here (statMods.js:32 clamps permanent + mods).
     STAT_KEYS_ORDER.forEach((k, i) => {
       // While levelling the sheet's own stat labels go EMPTY (:412)
       // and the mounted rollout fills the same panels with its working

@@ -112,7 +112,7 @@ import { sharedClassicMinutes } from '../net/wire.js';   // AUDIT LIVED1 G: the 
 import {
   realmIo, realmList, realmCustoms, realmPut, realmDelete, realmUndo, realmFetch, realmRowAsSave, realmSummaryOf, realmRefusalText, takeRealmNotice,
 } from '../systems/realmSaves.js';   // REALM P1.3: the Online door lists the realm's characters, the service's
-import { applyCustoms, customsLines } from '../systems/realmCustoms.js';   // REALM P1.5: an offline character comes in once, through customs
+import { applyCustoms, customsLines, crossLeveling, LEVELING_CROSS_LINE } from '../systems/realmCustoms.js';   // REALM P1.5: an offline character comes in once, through customs
 import { mintCharacterId } from '../systems/characterId.js';   // REALM P1.4: a copy to offline is a new offline character
 import { exportSavesZip, collectSlots, importSlots, entriesFromFiles, slotPathOf, TRANSFER_ZIP_NAME } from '../systems/saveTransfer.js';   // SP1: saves move between the website and the app
 import { appStorage } from '../systems/appStorage.js';   // SP1: the store under this build - the browser's on the site, the file store in the app   // SAV4: the slot store; SLOTS1: every slot
@@ -1123,7 +1123,9 @@ function realmAct(run, words) {
 function bringOnline(save) {
   const snap = realmIoNow() ? loadSlot(save.key) : null;
   if (!snap || typeof snap.characterId !== 'string' || !snap.characterId || snap.testRoom === true) return customsNow(save);
-  const preview = customsLines(applyCustoms(JSON.parse(JSON.stringify(snap))), { before: true });
+  const trial = JSON.parse(JSON.stringify(snap));
+  const leveling = crossLeveling(trial);   // LEVEL-ONLINE: a Daggerfall-levelling character comes in on Oblivion's bar - said first
+  const preview = [...(leveling ? [LEVELING_CROSS_LINE.before] : []), ...customsLines(applyCustoms(trial), { before: true })];
   return ask(`Bring ${save.name} online?`, preview.join(' '), 'Bring online', () => { customsNow(save); });
 }
 /** REALM P1.5: CUSTOMS - the local save read, customs applied to a COPY (the offline character is untouched), the realm
@@ -1137,12 +1139,13 @@ function customsNow(save) {
     if (typeof snap.characterId !== 'string' || !snap.characterId) return { ok: false, error: 'customs-load-once' };
     if (snap.testRoom === true) return { ok: false, error: 'test-room' };   // AUDIT SET D4's law: the room's characters play offline
     const copy = onlineCopyOf(snap, sharedClassicMinutes(Date.now()));   // AUDIT LIVED1 G: the world's stamps onto the shared clock, and the world's minute it joins at
+    const leveling = crossLeveling(copy);   // LEVEL-ONLINE: a new online character levels the Oblivion way (the offline one keeps its own)
     const report = applyCustoms(copy);
     const made = await realmCustoms(io, snap.characterId, copy.name || save.name, realmSummaryOf(copy));
     if (!made.ok) return made;
     copy.characterId = made.data.id;
     const put = await realmPut(io, made.data.id, { lease: made.data.lease, seq: 1, summary: realmSummaryOf(copy) }, JSON.stringify(copy));
-    return put.ok ? { ok: true, lines: customsLines(report) } : put;
+    return put.ok ? { ok: true, lines: [...(leveling ? [LEVELING_CROSS_LINE.after] : []), ...customsLines(report)] } : put;
   }, (r) => [...r.lines, `${save.name} is in the realm now. Play them from above.`]);
 }
 /** REALM P1.4: COPY TO OFFLINE - the realm's save read and written as a NEW offline character (a new id), a slot like

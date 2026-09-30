@@ -133,8 +133,8 @@
   {
     "name": "PERF-TV-every-mark-takes-a-click",
     "file": "src/ui/travelViewHud.js",
-    "old": "  for (const q of placed) if (q.m.pick) nextHits.push({ key: q.m.key, ...markBox(q, vw) });",
-    "new": "  for (const q of placed) nextHits.push({ key: q.m.key, ...markBox(q, vw) });",
+    "old": "  for (const q of placed) if (q.m.pick) nextHits.push({ key: q.m.key, ...pickBox(q, vw) });",
+    "new": "  for (const q of placed) nextHits.push({ key: q.m.key, ...pickBox(q, vw) });",
     "tests": [
       "test/tv5_far_places.test.js"
     ],
