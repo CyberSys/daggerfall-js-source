@@ -1,0 +1,74 @@
+[
+  {
+    "name": "DEATH-KEPT-the-check-gone-from-the-frame",
+    "file": "src/scenes/world.js",
+    "old": "    if (playerSpawned && playerEntity.health <= 0 && !worldMoveBusy() && !(townTalk.overlay instanceof DeathScreen) && !modes?.deathUp?.()) presentPlayerDeath(playerEntity);",
+    "new": "",
+    "tests": [
+      "test/fb0930b_deathkept.test.js"
+    ]
+  },
+  {
+    "name": "DEATH-KEPT-the-living-asked",
+    "file": "src/scenes/world.js",
+    "old": "    if (playerSpawned && playerEntity.health <= 0 && !worldMoveBusy()",
+    "new": "    if (playerSpawned && !worldMoveBusy()",
+    "tests": [
+      "test/fb0930b_deathkept.test.js"
+    ]
+  },
+  {
+    "name": "DEATH-KEPT-asked-before-the-world-stands",
+    "file": "src/scenes/world.js",
+    "old": "    if (playerSpawned && playerEntity.health <= 0 && !worldMoveBusy()",
+    "new": "    if (playerEntity.health <= 0 && !worldMoveBusy()",
+    "tests": [
+      "test/fb0930b_deathkept.test.js"
+    ]
+  },
+  {
+    "name": "DEATH-KEPT-asked-while-the-world-moves",
+    "file": "src/scenes/world.js",
+    "old": "playerEntity.health <= 0 && !worldMoveBusy() && !(townTalk.overlay instanceof DeathScreen)",
+    "new": "playerEntity.health <= 0 && !(townTalk.overlay instanceof DeathScreen)",
+    "tests": [
+      "test/fb0930b_deathkept.test.js"
+    ]
+  },
+  {
+    "name": "DEATH-KEPT-townTalk-screen-unread",
+    "file": "src/scenes/world.js",
+    "old": "!worldMoveBusy() && !(townTalk.overlay instanceof DeathScreen) && !modes?.deathUp?.()) presentPlayerDeath(playerEntity);",
+    "new": "!worldMoveBusy() && !modes?.deathUp?.()) presentPlayerDeath(playerEntity);",
+    "tests": [
+      "test/fb0930b_deathkept.test.js"
+    ]
+  },
+  {
+    "name": "DEATH-KEPT-the-mode-screen-unread",
+    "file": "src/scenes/world.js",
+    "old": "!(townTalk.overlay instanceof DeathScreen) && !modes?.deathUp?.()) presentPlayerDeath(playerEntity);",
+    "new": "!(townTalk.overlay instanceof DeathScreen)) presentPlayerDeath(playerEntity);",
+    "tests": [
+      "test/fb0930b_deathkept.test.js"
+    ]
+  },
+  {
+    "name": "DEATH-KEPT-the-living-asked-directly",
+    "file": "src/characters/playerEntity.js",
+    "old": "  if (!(entity.health <= 0)) return false;\n  _deathPresenter?.(entity);",
+    "new": "  _deathPresenter?.(entity);",
+    "tests": [
+      "test/fb0930b_deathkept.test.js"
+    ]
+  },
+  {
+    "name": "DEATH-KEPT-the-presenter-never-asked",
+    "file": "src/characters/playerEntity.js",
+    "old": "  if (!(entity.health <= 0)) return false;\n  _deathPresenter?.(entity);",
+    "new": "  if (!(entity.health <= 0)) return false;",
+    "tests": [
+      "test/fb0930b_deathkept.test.js"
+    ]
+  }
+]

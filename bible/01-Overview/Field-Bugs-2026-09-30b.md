@@ -6,7 +6,45 @@ before it.
 
 | | Report | Reporter | What it was | Done |
 |---|---|---|---|---|
+| 1 | "If you cure a disease and die at the same time you will became immortal" (the HUD at HEALTH 0%, MAGICKA 0%, FATIGUE 3%) | Niwy | not the cure: the death was lost. The damage door raises a death once, on the blow that crosses to zero, and the death lives in its screen; a temple priest's Talk indoors closes into his service window by a raw write over the building's slot, and a player killed under the talk had their death screen replaced by it - the cure was bought at zero, and nothing ever raised the death again | fixed (DEATH-KEPT) |
 | 2 | "Spawned in the air after dying. One time I died in a dungeon, and for some reason I respawned high enough in the air to kill me with fall damage." | BrixBlox | most likely the morning's RESPAWN-GROUND on a build from before it (the report is undated, and a tab left open keeps its code); but one road stood after it: the teleport's awaited build stepped the motor for a dungeon death, and a body stood over the new pixel at the dungeon's own height fell onto the models' colliders as each went in | fixed (RESPAWN-HELD) |
+
+## DEATH-KEPT: a player at zero is dying, whatever took the screen (1)
+
+**Reproduced first** (the real `hurtPlayer`, the plague, `statMods`, townTalk, the window stack, `DeathScreen` and
+`buildCureDiseaseFlow`; the building's slot rules transcribed from `worldModes.js`, which needs ARENA2 to construct): a
+plague-weakened player at the temple (HEALTH 16%, live STR/END 11/6), the priest's popup up, Talk pressed. Indoors the
+popup comes down and the talk opens in townTalk's slot with a close that mounts the popup again. A blow lands under the
+talk - a building's foes keep their clock under a window (WINFOE1) - and the building's presenter puts its `DeathScreen`
+into its own slot, beneath the talk. The talk closed: its callback's `mountServiceWindow` writes the popup over the
+screen, and the next reconcile replaces the stack's top with it. Cure Disease, Yes, "You are cured": the dialogs close
+and play resumes at HEALTH 0%, MAGICKA 0% (the plague's drain), FATIGUE 9% (the cure lifted the STR/END drains, so the
+maximum grew under the same fatigue - the screenshot's 3%). Ten 50-point blows, five more plague days to live STR/END 0
+and six seconds of the stat-zero kill: no death.
+
+**Why.** `hurtPlayer` raises a death on the TRANSITION (AUDIT 21 - a still-ticking effect re-presenting the screen
+once per round was the fault it closed): once at zero, `wasAlive` is false for every later blow, and the stat-zero kill
+and the exhaustion collapse both stand down at zero. So the death lived in its screen alone, and a screen is a window:
+the popup's Talk callback writes the building's slot raw, and the stack's `reconcile` swaps its top in place without
+asking `holdsTop` (RISE-STUCK's rule is the push's alone). Online the D12 gate reads the screen, not the health, so the
+player at zero rejoined the room alive and no respawn ever came. DFU cannot be here: `PlayerDeath.deathInProgress` is no
+window, and nothing but the reset clears it.
+
+**The fix** (`scenes/world.js`, the frame; `characters/playerEntity.js` `presentPlayerDeath`): every frame, after the
+video hold and above every mode gate, a player at zero with no death screen up - townTalk's or the mode's - and the
+world not moving is presented again. The presenters already refuse a second screen over their own, so a death on
+screen is untouched; a load restores the save's health under its latch and a respawn heals first, so neither is caught
+mid-way. It covers every door that can take the screen, not only the priest's: the stack's replace, the surrender box
+("O1 - the replace door", `Field-Bugs-2026-09-27c.md`), a journey's level-up box over a death on the road. `presentPlayerDeath`
+is no blow - the saves, the shield and AvoidDeath were asked on the transition, once. `test/fb0930b_deathkept.test.js` (3).
+`tools/mutants/fb0930b_deathkept.json` (8, all dead).
+
+Found on the way, not changed: the doors themselves still take the screen for a frame, and the death presented again
+starts its fall and (online) its minute over; closing them one by one - `mountServiceWindow` over a death, `reconcile`
+honouring `holdsTop`, `townTalk.showOverlay` over a screen that holds the top - is the tidier half and touches every
+host's slot, so it is left for its own slice. Stendarr's AvoidDeath restores `trunc(MaxHealth * 0.1)`, which is zero
+below ten maximum (a werewolf's unsated urge floors it at 4): DFU leaves that player at zero until the next blow re-asks;
+here the next frame presents the death.
 
 ## RESPAWN-HELD: an arrival holds the motor while its destination builds (2)
 
