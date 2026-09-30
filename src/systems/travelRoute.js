@@ -92,13 +92,19 @@ export function openStepBlocked(climateAt, heightAt, ax, ay, bx, by, leaving = f
  */
 export function routeGround(climateAt, heightAt, waterByte, width = MAP_W, height = MAP_H) {
   const climate = new Uint8Array(width * height), heights = new Uint8Array(width * height);
+  // OW-WOD-PATH: the World of Daggerfall massifs (WodWorld mountainPixels), one byte a pixel - set by the host when the
+  // mod's list is read or grows (setRocks), null while it stands none
+  let rocks = null;
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) { climate[y * width + x] = climateAt(x, y); heights[y * width + x] = heightAt(x, y); }
   }
   const climateOf = (x, y) => climate[y * width + x];
   const heightOf = (x, y) => heights[y * width + x];
   const isWater = (x, y) => x < 0 || y < 0 || x >= width || y >= height || heights[y * width + x] <= waterByte;
-  const openBlocked = (ax, ay, bx, by, leaving = false) => openStepBlocked(climateOf, heightOf, ax, ay, bx, by, leaving);
+  // OW-WOD-PATH: an open step into a massif's pixel is refused as one into the Mountain climate is - and the start's own
+  // massif is left freely, as its own peaks are (AUDIT OW4 J1: `leaving`, the flood fill over peakAt)
+  const openBlocked = (ax, ay, bx, by, leaving = false) => !leaving && ((rocks !== null && rocks[by * width + bx] === 1) || openStepBlocked(climateOf, heightOf, ax, ay, bx, by, leaving));
+  const peak = (x, y) => climate[y * width + x] === TV_MOUNTAIN_CLIMATE || (rocks !== null && rocks[y * width + x] === 1);
   // THE PIECES: two neighbours joined where the step law (an ordinary step - no goal's exemption, no start's peaks, roads
   // and tracks included) walks from one that can be ENTERED to the other. A pixel no ordinary step enters - the sea, a
   // peak no road reaches - is only ever a route's start, so its steps out join nothing (a one-pixel ridge is left down
@@ -140,12 +146,14 @@ export function routeGround(climateAt, heightAt, waterByte, width = MAP_W, heigh
   };
   return {
     isWater,
-    peakAt: (x, y) => climate[y * width + x] === TV_MOUNTAIN_CLIMATE,
+    peakAt: peak,
     openBlocked,
+    /** OW-WOD-PATH: the massifs' table (width x height bytes, 1 a massif's pixel) or null - the land's pieces folded again. */
+    setRocks(table) { if (table === rocks) return; rocks = table; land = null; },
     /** No way by land: no piece beside (or under) the start is one beside (or under) the goal. Never said from among the
      *  peaks (the start's own range is walked freely - the search answers). */
     apart: (from, to, { roads = null, tracks = null } = {}) => {
-      if (climate[from.y * width + from.x] === TV_MOUNTAIN_CLIMATE) return false;
+      if (peak(from.x, from.y)) return false;
       const root = pieces(roads, tracks);
       const about = (p) => {
         const set = new Set();
@@ -409,17 +417,33 @@ function search(from, to, { roads, tracks, isWater, width, height, margin, maxEx
  * THE LEGS a journey walks: the route's pixels after the first, a straight run of same-direction steps on the same
  * kind of ground folded into its last pixel. The last leg is always the route's last pixel. Each leg carries the kind
  * it walks on (the host's speed: a road leg reckless, the rest cautious - Travel Options' own two multipliers).
+ * OW-TOWN-RING: `ringAt(x, y, from, to)` - the host's - answers the points of a town's border ring a route through
+ * pixel (x, y) walks (from the side toward the pixel before to the side toward the pixel after), or null for none.
  * @param {{x:number,y:number}[]} pixels
  * @param {string[]} kinds - kinds[i] is the step from pixels[i] to pixels[i + 1]
- * @returns {{ x:number, y:number, kind:string }[]}
+ * @param {{ ringAt?: ((x:number, y:number, from:number[], to:number[]) => ({x:number, z:number}[]|null))|null }} [opts]
+ * @returns {{ x:number, y:number, kind:string, at?:{x:number,z:number}, ring?:boolean }[]}
  */
-export function routeLegs(pixels, kinds = []) {
+export function routeLegs(pixels, kinds = [], { ringAt = null } = {}) {
   const legs = [];
+  // OW-TOWN-RING: a pixel the route passes THROUGH (never its last - the place itself is arrived at) that holds a town
+  // is walked round its border ring - the ring's points (`ringAt`: the town's own rects, travelOptions.js
+  // ringPassPoints) each a leg of the incoming step's kind, aimed at its own point (`at`) and marked `ring`; the run
+  // before it ends at the pixel before, so no straight leg is aimed across the town
+  const ring = (i) => (ringAt && i < pixels.length - 1
+    ? ringAt(pixels[i].x, pixels[i].y, [pixels[i - 1].x - pixels[i].x, pixels[i - 1].y - pixels[i].y], [pixels[i + 1].x - pixels[i].x, pixels[i + 1].y - pixels[i].y])
+    : null);
+  const rings = pixels.map((_, i) => (i > 0 ? ring(i) : null));
   for (let i = 1; i < pixels.length; i++) {
     const dx = pixels[i].x - pixels[i - 1].x, dy = pixels[i].y - pixels[i - 1].y;
     const kind = kinds[i - 1] ?? 'open';
+    const pts = rings[i];
+    if (pts && pts.length) {
+      for (const at of pts) legs.push({ x: pixels[i].x, y: pixels[i].y, kind, at: { x: at.x, z: at.z }, ring: true });
+      continue;
+    }
     const next = pixels[i + 1];
-    const same = next && next.x - pixels[i].x === dx && next.y - pixels[i].y === dy && (kinds[i] ?? 'open') === kind;
+    const same = next && !(rings[i + 1]?.length) && next.x - pixels[i].x === dx && next.y - pixels[i].y === dy && (kinds[i] ?? 'open') === kind;
     if (!same) legs.push({ x: pixels[i].x, y: pixels[i].y, kind });
   }
   return legs;

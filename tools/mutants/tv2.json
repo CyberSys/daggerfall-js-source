@@ -62,8 +62,8 @@
   {
     "name": "TV2-legs-ignore-the-ground",
     "file": "src/systems/travelRoute.js",
-    "old": "    const same = next && next.x - pixels[i].x === dx && next.y - pixels[i].y === dy && (kinds[i] ?? 'open') === kind;",
-    "new": "    const same = next && next.x - pixels[i].x === dx && next.y - pixels[i].y === dy;",
+    "old": "    const same = next && !(rings[i + 1]?.length) && next.x - pixels[i].x === dx && next.y - pixels[i].y === dy && (kinds[i] ?? 'open') === kind;",
+    "new": "    const same = next && !(rings[i + 1]?.length) && next.x - pixels[i].x === dx && next.y - pixels[i].y === dy;",
     "tests": [
       "test/tv2_click_to_move.test.js"
     ],

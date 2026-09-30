@@ -31,7 +31,7 @@
 // the rule, and reclaimCustomsDeeds gives back what it once took.
 // ═══════════════════════════════════════════════════════════════════
 
-import { callInEmpireDebt, SHIP_TYPES, SHIP_INTERIOR_MAP_IDS } from './banking.js';
+import { callInEmpireDebt, SHIP_TYPES, SHIP_INTERIOR_MAP_IDS, LOAN_AMNESTY } from './banking.js';
 import { interiorSceneName } from './sceneCache.js';   // RESTORE: a deed's room, by its own name
 import { BUILDING_KEY_0 } from './talkTopics.js';   // RESTORE: the no-key key a ship's room is filed under
 import { firstRestorable } from './saveSlots.js';   // RESTORE: the offline character a realm one came from, on this device
@@ -65,6 +65,7 @@ const lists = (/** @type {any[]} */ ...ls) => ls.filter(Array.isArray);
  * @param {any} snap
  */
 export function applyCustoms(snap) {
+  snap.loanAmnesty = LOAN_AMNESTY;   // LOAN-AMNESTY: a character crossing now is past every amnesty - its offline loans are called in below, never forgiven
   const accounts = Array.isArray(snap.bankAccounts) ? snap.bankAccounts : [];
   const call = callInEmpireDebt(accounts, { deductGold: (/** @type {number} */ n) => deductGold(snap, n) }, { cap: 0, nowMinutes: Math.floor(snap.classicMinutes ?? 0) });
   const crossed = crossDeeds(snap);
