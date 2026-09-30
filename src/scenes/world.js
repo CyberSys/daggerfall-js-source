@@ -490,6 +490,8 @@ import { makeVideoQueue } from '../systems/quest/videoQueue.js';   // CRUX1: the
 import { createPartyPanel } from '../ui/partyPanel.js';   // SOC4: the party HUD - my party's portraits and their health / stamina / magicka
 import { MailBox, mailNoticeText } from '../net/mail.js';   // MAIL1: the letterbox the Letters tab draws and the frame polls
 import { GuildBook } from '../net/guildBook.js';   // GUILD1b: the guild the Guild tab draws
+import { sellProceeds } from '../systems/tradeModes.js';   // GUILD-LETTER: a withdrawal weighed as the trade window weighs a sale
+import { realmLetterOfCredit } from '../net/realmGoldLaw.js';   // GUILD-LETTER: the letter the service writes on a realm record, one maker
 import { createSocialPanel, TRY_AGAIN_TEXT, NO_PARTY_TEXT, LETTERS_SIGNED_OUT_TEXT } from '../ui/socialPanel.js';   // SOC3: the friends + party panel the Social button opens; AUDIT SOC B17: and its word for a refused act, so the F-menu's line and the panel's note agree
 import { glyphMarks } from '../ui/playerBadge.js';   // PEER-PLAQUE1: a badge's plain-text marks, for the plaque's title
 import { pickPeerInFront, SOCIAL_REACH, peerRayPick, peerIdOfKey, peerRelationText } from '../player/socialPick.js';   // SOC5: which body the ray struck, and how far "on their body" reaches; PEER-PLAQUE1: and the plaque's half of the same pick
@@ -15177,7 +15179,11 @@ export async function bootWorld(canvas, renderer, params, status) {
         return {
           gold: () => totalGoldAmount(playerEntity) + (account?.accountGold ?? 0),
           pay: (n) => { const short = deductGold(playerEntity, n); if (account && short > 0) account.accountGold -= short; },
-          credit: (n) => { addGold(playerEntity, n); },
+          // GUILD-LETTER (FIELD BUGS 2026-09-30): a withdrawal the pack cannot carry as coin is paid as a letter of credit -
+          // the trade window's test on the live pack and ceiling (sellProceeds; the bank's weight gate reads the same two),
+          // and the letter the service writes on a realm record, at the front of the pack as the game puts one
+          credit: (n, { letter = false } = {}) => { if (letter) (playerEntity.items ??= []).unshift(realmLetterOfCredit(n)); else addGold(playerEntity, n); },
+          paper: (n) => sellProceeds(n, { carriedWeightKg: carriedWeight(playerEntity), maxEncumbranceKg: entityMaxEncumbrance(playerEntity) }).kind === 'letterOfCredit',
           region: () => _questRegionIndex() ?? 0,   // REALM P2.2: the account the record pays from is this one
         };
       },

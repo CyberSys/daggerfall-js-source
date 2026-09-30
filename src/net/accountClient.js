@@ -199,7 +199,10 @@ export const REFUSALS = Object.freeze({
   'bad-gold': `Gold goes in or out 1 to ${GUILD_MOVE_MAX} at a time.`,
   'guild-treasury-full': 'The treasury can hold no more.',
   'guild-treasury-short': 'The treasury does not hold that much.',
-  'guild-treasury-old': 'That much of the treasury came in before the realm - it stays in the treasury.',   // AUDIT REALM L1-F3
+  // AUDIT REALM L1-F3: a realm withdrawal takes from what realm records paid in alone (guilds.js `realm_gold`). GUILD-LETTER
+  // (FIELD BUGS 2026-09-30): the words say that rule. They named only "before the realm" - but the old lane's deposits
+  // made since are held the same - and never said what a realm character may still take out
+  'guild-treasury-old': 'A realm character takes out only the gold realm characters put in, and not that much of theirs is left. The rest came in before the realm or from a character outside it - it stays in the treasury.',
   // WB5b: a gate's kill receipt carried to the service. net/gateClaims.js says nothing of these to the player - it keeps
   // what they do not settle and lets go of what they do - but a word the service can say is a word with a sentence.
   'no-gate-key': 'The account service cannot check a gate\'s receipt right now. It is kept and tried again.',
@@ -847,7 +850,8 @@ export function accountGuilds({ fetch, storage }) {
     rank: (character, member, rank) => post('/v1/guilds/rank', { character, member, rank }),
     ranks: (character, ranks) => post('/v1/guilds/ranks', { character, ranks }),
     deposit: (character, gold, realm = null, region = null) => post('/v1/guilds/deposit', { character, gold, ...(realm ? { realm, region } : {}) }),   // REALM P2.2
-    withdraw: (character, gold, realm = null) => post('/v1/guilds/withdraw', { character, gold, ...(realm ? { realm } : {}) }),
+    // GUILD-LETTER (FIELD BUGS 2026-09-30): `letter`, the record takes it as a letter of credit - the pack cannot carry it
+    withdraw: (character, gold, realm = null, letter = false) => post('/v1/guilds/withdraw', { character, gold, ...(realm ? { realm, letter: letter === true } : {}) }),
     handOver: (character, member) => post('/v1/guilds/handover', { character, member }),
     disband: (character) => post('/v1/guilds/disband', { character }),
   };
