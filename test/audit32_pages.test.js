@@ -2,7 +2,7 @@
 // profHud.js, domRepaint.js, enhancedMenu.js, enhancedPlusStyle.js; src/systems/stitchAct.js, heatAct.js): a press
 // judged at its own moment, the act's button pressed on the pointer's down and its Space and Enter the act's (P1); one
 // act a page (P2); a held key's repeats no presses (P4); the loom's cures held while it sews, a craft's own flag in
-// flight (P5); the Weavers' purchase said before the press where the Drakes cannot meet it (P6); the work rows and the
+// flight (P5); the Weavers' purchase said before the press where the Marks cannot meet it, "1 Drake" (P6, R13); the work rows and the
 // body's prompt inside a phone (P7, P9 - measured in Chromium, their rules pinned here); Standard-bearer's Silk said for
 // what it waits on, the skins at their pelts' ranks (P8, R4); the trace's line drawn, its first point marked, a degree
 // the same across as up (P11); Escape sets an act down before the window (P12); the pause window keeps the focus and
@@ -163,15 +163,15 @@ test('AUDIT 32 P5: the loom\'s cures held while it sews; a craft in flight keeps
 
 // ─── P6: THE WEAVERS' PURCHASE SAID FIRST ────────────────────────────
 
-test('AUDIT 32 P6: at a Clothing Store the Weavers\' purchase the Drakes cannot meet is held and said; with no Drakes struck, not offered', () => {
-  for (const [drakes, open, want] of [[3, true, 'held'], [99, true, 'offered'], [99, false, 'none']]) {
-    const p = pages({ loom: () => ({ kind: 'shop', fee: 0 }), drakes: () => drakes, drakesOpen: () => open }, { 'cloth:linen': 0 });
+test('AUDIT 32 P6: at a Clothing Store the Weavers\' purchase the Marks cannot meet is held and said (R13: "1 Drake", as the Market tab says it); with no Marks struck, not offered', () => {
+  for (const [marks, open, want] of [[3, true, 'held'], [1, true, 'held'], [99, true, 'offered'], [99, false, 'none']]) {
+    const p = pages({ loom: () => ({ kind: 'shop', fee: 0 }), marks: () => marks, marksOpen: () => open }, { 'cloth:linen': 0 });
     try {
       pickShirt(p);
       const buy = p.btn('Buy 2 from the Weavers');
       if (want === 'none') assert.equal(buy, undefined);
-      else assert.equal(buy.disabled, want === 'held', `${drakes} Drakes`);
-      if (want === 'held') assert.match(p.text(), /you hold 3 Drakes/);
+      else assert.equal(buy.disabled, want === 'held', `${marks} Marks`);
+      if (want === 'held') assert.match(p.text(), marks === 1 ? /you hold 1 Drake(?!s)/ : /you hold 3 Drakes/);
     } finally { resetProfPages(); setProfessionsPages(null); }
   }
 });

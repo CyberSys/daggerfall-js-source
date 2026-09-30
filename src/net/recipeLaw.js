@@ -15,7 +15,7 @@
 // laid on it after. Not a DFU member: DFU crafts nothing. Ledger A (the professions' row).
 import {
   INGOTS, TIER_RANKS, topTierOf, actBand, minedMaterial, WOODS, PINE_PLANK, RESIN, HEARTWOOD, LINEN, WOOL, BEAR_HIDE, CLOTHS, HIDES,
-  CURED_LEATHER, HARDENED_LEATHER, SKINNING_KNIFE,
+  CURED_LEATHER, HARDENED_LEATHER, SKINNING_KNIFE, COUNTER_ONLY,
 } from './professionLaw.js';
 import { CLOTHING_DYES } from '../characters/dyes.js';   // DFU's ten clothing dyes (DyeColors 0-9), one home
 
@@ -352,12 +352,21 @@ export const carriesMark = (r, quality, spec100 = null) => quality === MASTERWOR
 
 export const CRAFT_XP_PER_TIER = 20;
 export const FIRST_CRAFT_XP = 500;
-/** A craft's XP (Smithing's or Carpentry's): 20 x its tier - a quarter for a recipe more than two tiers below the rank's top - and 500 the
- *  first time the character makes it. */
+/** A craft's XP (Smithing's, Carpentry's or Outfitting's): 20 x its tier - a quarter for a recipe more than two tiers below the rank's top - and 500 the
+ *  first time the character makes it (where firstCraftPays). */
 export function craftXp(tier, rank, first) {
   const xp = CRAFT_XP_PER_TIER * tier;
   return (tier < topTierOf(rank) - 2 ? Math.floor(xp / 4) : xp) + (first ? FIRST_CRAFT_XP : 0);
 }
+/**
+ * AUDIT 32 S1 (Mac: "Whatever you think is best"): whether a recipe's first craft lays on FIRST_CRAFT_XP - not for a
+ * recipe made wholly of goods only a counter sells (professionLaw COUNTER_ONLY, the Weavers' Linen and Wool). 3.2's +500
+ * rewards a recipe learnt from the world's goods; the counter's supply has no end, and its 152 recipes (144 garments,
+ * the rugs and tapestries, the Fishing-Net) bought a fresh character Outfitting 87 for 811 Marks and no hide. A boot (a bolt and a
+ * Cured Leather) and every other recipe keep it - a gatherer's own leather and planks earn what 3.2 promised them.
+ * @param {Recipe|null} r
+ */
+export const firstCraftPays = (r) => !!r && !(r.inputs.length > 0 && r.inputs.every((i) => COUNTER_ONLY.includes(i.key)));
 /** The pieces a craft makes: one, a Quartermaster's kit two (3.3). */
 export const craftCount = (r, spec100) => (r.kind === 'kit' && spec100 === 'quartermaster' ? 2 : 1);
 

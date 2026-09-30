@@ -7394,8 +7394,8 @@ export async function bootWorld(canvas, renderer, params, status) {
         loom: () => modes?.loomHere?.() ?? null,
         stitchBand: () => stitchBand({ agility: liveStat(playerEntity, 'agility'), speed: liveStat(playerEntity, 'speed') }),
         clothing: () => (playerEntity?.gender === 'female' ? 'WomensClothing' : 'MensClothing'),
-        drakes: () => marksBook?.state?.balance ?? null,   // AUDIT 32 P6: a counter's purchase the Drakes cannot meet, said first
-        drakesOpen: () => marksBook?.state?.open !== false,
+        marks: () => marksBook?.state?.balance ?? null,   // AUDIT 32 P6: a counter's purchase the Marks cannot meet, said first
+        marksOpen: () => marksBook?.state?.open !== false,
         smelt: async (recipe, count) => {
           // PROF4: the station is the work's - a smelt's and a burn's the forge, a saw's the workbench; PROF7: a cure's and
           // a weave's the loom

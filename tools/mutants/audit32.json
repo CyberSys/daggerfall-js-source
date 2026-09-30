@@ -435,7 +435,7 @@
  {
   "name": "AUDIT32-P6-weavers-when-shut",
   "file": "src/ui/profPages.js",
-  "old": " && p.stock && p.drakesOpen?.() !== false) {",
+  "old": " && p.stock && p.marksOpen?.() !== false) {",
   "new": " && p.stock) {",
   "tests": [
    "test/audit32_pages.test.js"
@@ -554,6 +554,93 @@
   "file": "src/ui/enhancedPlusStyle.js",
   "old": "width: max-content; max-width: calc(100vw - 24px); box-sizing: border-box; white-space: normal; text-align: center;",
   "new": "white-space: nowrap;",
+  "tests": [
+   "test/audit32_pages.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-S1-service-always-pays",
+  "file": "server-account/src/professions.js",
+  "old": "nonce, firstCraftPays(r) ? FIRST_CRAFT_XP : 0, prof,",
+  "new": "nonce, FIRST_CRAFT_XP, prof,",
+  "tests": [
+   "test/audit32_service.test.js",
+   "test/prof7_service.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-S1-service-pays-inverted",
+  "file": "server-account/src/professions.js",
+  "old": "nonce, firstCraftPays(r) ? FIRST_CRAFT_XP : 0, prof,",
+  "new": "nonce, firstCraftPays(r) ? 0 : FIRST_CRAFT_XP, prof,",
+  "tests": [
+   "test/audit32_service.test.js",
+   "test/prof7_service.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-S1-law-any-counter-input",
+  "file": "src/net/recipeLaw.js",
+  "old": "r.inputs.every((i) => COUNTER_ONLY.includes(i.key))",
+  "new": "r.inputs.some((i) => COUNTER_ONLY.includes(i.key))",
+  "tests": [
+   "test/audit32_law.test.js",
+   "test/audit32_service.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-S1-law-empty-guard-lost",
+  "file": "src/net/recipeLaw.js",
+  "old": "!(r.inputs.length > 0 && r.inputs.every(",
+  "new": "!(r.inputs.every(",
+  "tests": [
+   "test/audit32_law.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-S1-law-null-guard-lost",
+  "file": "src/net/recipeLaw.js",
+  "old": "export const firstCraftPays = (r) => !!r && !(",
+  "new": "export const firstCraftPays = (r) => !(",
+  "tests": [
+   "test/audit32_law.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-S1-law-pays-all",
+  "file": "src/net/recipeLaw.js",
+  "old": "export const firstCraftPays = (r) => !!r && !(",
+  "new": "export const firstCraftPays = (r) => !!r || !(",
+  "tests": [
+   "test/audit32_law.test.js",
+   "test/audit32_service.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-S1-wool-not-counter-only",
+  "file": "src/net/professionLaw.js",
+  "old": "export const COUNTER_ONLY = Object.freeze([LINEN.key, WOOL.key]);",
+  "new": "export const COUNTER_ONLY = Object.freeze([LINEN.key]);",
+  "tests": [
+   "test/audit32_law.test.js",
+   "test/audit32_service.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-S1-cured-leather-counter-only",
+  "file": "src/net/professionLaw.js",
+  "old": "export const COUNTER_ONLY = Object.freeze([LINEN.key, WOOL.key]);",
+  "new": "export const COUNTER_ONLY = Object.freeze([LINEN.key, WOOL.key, CURED_LEATHER.key]);",
+  "tests": [
+   "test/audit32_law.test.js",
+   "test/audit32_service.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT32-R13-one-drakes",
+  "file": "src/ui/profPages.js",
+  "old": "`you hold ${marksText(balance)}`",
+  "new": "`you hold ${balance} Drakes`",
   "tests": [
    "test/audit32_pages.test.js"
   ]

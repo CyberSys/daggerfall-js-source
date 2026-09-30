@@ -55,7 +55,7 @@ import {
 } from '../../src/net/professionLaw.js';
 import {
   recipeById, recipeOpen, qualityOdds, rollQuality, qualitySteps, craftQuality, takesQuality, craftXp, craftCount,
-  makerName, FIRST_CRAFT_XP, recipeInputs, takesHeartwood, carriesMark, dyeOk,
+  makerName, FIRST_CRAFT_XP, firstCraftPays, recipeInputs, takesHeartwood, carriesMark, dyeOk,
 } from '../../src/net/recipeLaw.js';
 import { mintProductRecord } from '../../src/net/productRecord.js';
 import { signingKey } from './signing.js';
@@ -743,8 +743,8 @@ async function craftAnswer(db, player, row, nowS, extra = {}) {
  * is two. A Heartwood asked stands in for one plank (PROF0 25); a Joiner's furniture takes half the planks. Decided by
  * the craft's own INSERT: every input held. Then the inputs out, bought first; the pieces written, each its provenance
  * id, its signed record (net/productRecord.js) and whether its name carries the maker's mark (a Masterwork's, a Master
- * Joiner's furniture); and the XP - 20 x the recipe's tier, +500 the character's first of it, under the crafter's limit
- * (3.2), answered as credited.
+ * Joiner's furniture); and the XP - 20 x the recipe's tier, +500 the character's first of it (none for a recipe made
+ * wholly of goods only a counter sells - AUDIT 32 S1), under the crafter's limit (3.2), answered as credited.
  */
 export async function craftAtAnvil(ctx, player, env, { character, recipe: id, clean, name, heartwood = false, dye = null, rid } = {}) {
   const { db, nowS, rand, subtle } = ctx;
@@ -781,8 +781,9 @@ export async function craftAtAnvil(ctx, player, env, { character, recipe: id, cl
   const records = await Promise.all(provs.map((p) => mintProductRecord({ p, s: player.id, h: character, r: r.id, q: quality, m: maker, c: seed, a: marked === 1 && maker !== null, u }, key, { subtle, nowS })));   // AUDIT 30 L4: the mark signed; PROF7: the dye
   const nonce = mintId(rand);
   // ?1 player ?2 character ?3 rid ?4 recipe ?5 quality ?6 count ?7 provenance ?8 provenance2 ?9 seed ?10 the XP before the
-  // first craft's ?13 ?11 now ?12 nonce ?14 the profession ?15 heartwood ?16 the dye; the inputs ?17 on, two a one
-  const binds = [player.id, character, rid, r.id, quality, count, provs[0], provs[1] ?? null, seed, craftXp(r.tier, rank, false), nowS, nonce, FIRST_CRAFT_XP, prof, wood ? 1 : 0, u];
+  // first craft's ?13 (AUDIT 32 S1: none for a recipe wholly of goods only a counter sells) ?11 now ?12 nonce ?14 the
+  // profession ?15 heartwood ?16 the dye; the inputs ?17 on, two a one
+  const binds = [player.id, character, rid, r.id, quality, count, provs[0], provs[1] ?? null, seed, craftXp(r.tier, rank, false), nowS, nonce, firstCraftPays(r) ? FIRST_CRAFT_XP : 0, prof, wood ? 1 : 0, u];
   const held = [];
   inputs.forEach((inp, i) => {
     binds.push(inp.key, inp.n);
@@ -791,7 +792,7 @@ export async function craftAtAnvil(ctx, player, env, { character, recipe: id, cl
   const decided = 'EXISTS (SELECT 1 FROM prof_crafts WHERE player = ?1 AND rid = ?5 AND n = ?6)';
   await db.batch([
     // THE DECISION: every input held - and the XP what the track can take under the crafter's limit, the first craft's
-    // 500 laid on when the character has made none of the recipe
+    // 500 laid on when the character has made none of the recipe (and the recipe pays it - AUDIT 32 S1)
     db.prepare(`INSERT OR IGNORE INTO prof_crafts (player, rid, char_id, recipe, quality, count, provenance, provenance2, seed, xp, first, at, n, heartwood, dye)
       SELECT ?1, ?3, ?2, ?4, ?5, ?6, ?7, ?8, ?9,
         MAX(0, MIN(?10 + f * ?13, ${Number(cap)} - COALESCE((SELECT xp FROM prof_tracks WHERE player = ?1 AND char_id = ?2 AND profession = ?14), 0))),

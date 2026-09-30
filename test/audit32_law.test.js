@@ -2,14 +2,15 @@
 // src/net/recipeLaw.js): the trace measured every quarter degree of its PROGRESS, its clock from its first move along the
 // line - a press held still on the first point and one flick to the last was a clean pelt, and a hand's score hung on
 // its frame rate (L1); a bearing that is not a number is none, and a chord across the world walks no further than the
-// line (L5); every garment takes a dye - DFU's "unchangeable" shirts are its variant's word (L3).
+// line (L5); every garment takes a dye - DFU's "unchangeable" shirts are its variant's word (L3). S1 (Mac: "Whatever
+// you think is best"): a recipe made wholly of goods only a counter sells pays no first-craft bonus.
 // bible/06-Systems/Online-Arc.md "AUDIT 32"; bible/06-Systems/Professions-Arc.md 29.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { createTraceAct } from '../src/systems/traceAct.js';
-import { TRACE_ACT } from '../src/net/professionLaw.js';
-import { OUTFITTING_RECIPES, recipeById, dyeOk, GARMENT_DYES } from '../src/net/recipeLaw.js';
+import { TRACE_ACT, COUNTER_ONLY, STOCKS, stockOf } from '../src/net/professionLaw.js';
+import { OUTFITTING_RECIPES, RECIPES, recipeById, dyeOk, GARMENT_DYES, firstCraftPays, FIRST_CRAFT_XP } from '../src/net/recipeLaw.js';
 
 /** The line's own pitch at `yaw` (the zigzag's segment under it). */
 function lineAt(points, yaw) {
@@ -106,4 +107,22 @@ test('AUDIT 32 L3: every garment takes a dye - DFU\'s "unchangeable" shirts (178
     assert.match(r.name, /unchangeable$/);
   }
   assert.equal(dyeOk(recipeById('rug-237:wool'), 2), false, 'furniture takes none');
+});
+
+test('AUDIT 32 S1 (Mac: "Whatever you think is best"): a recipe made wholly of goods only a counter sells - the Weavers\' Linen and Wool, never gathered - pays no first-craft bonus; a boot\'s Cured Leather, Silk, the planks and every gathered good keep 3.2\'s 500', () => {
+  assert.deepEqual([...COUNTER_ONLY], ['cloth:linen', 'cloth:wool']);
+  // the smith's stock is gathered too (PROF4, PROF7): no counter good but the Weavers' is counter-only
+  assert.deepEqual(STOCKS.map((s) => s.key).filter((k) => COUNTER_ONLY.includes(k)).sort(), ['cloth:linen', 'cloth:linen', 'cloth:wool'], 'the furnisher\'s Linen and the Weavers\' two');
+  const unpaid = RECIPES.filter((r) => !firstCraftPays(r));
+  assert.deepEqual([unpaid.length, unpaid.filter((r) => r.kind === 'garment').length], [152, 144]);
+  assert.ok(unpaid.every((r) => r.profession === 'outfitting' && r.inputs.length > 0 && r.inputs.every((i) => COUNTER_ONLY.includes(i.key))));
+  for (const id of ['garment-141:linen', 'garment-141:wool', 'rug-237:wool', 'fishingnet:linen']) assert.equal(firstCraftPays(recipeById(id)), false, id);
+  for (const id of ['garment-149:linen', 'garment-141:silk', 'leather-helm:cured', 'staff:pine', 'table-small:oak', 'bed-plain-single:pine', 'knife:iron']) {
+    assert.equal(firstCraftPays(recipeById(id)), true, id);
+  }
+  assert.equal(firstCraftPays(null), false, 'no recipe, no bonus');
+  assert.equal(firstCraftPays({ inputs: [] }), true, 'a recipe of nothing is no counter\'s');
+  // what the counter could buy is what it no longer pays: 152 first crafts, 76,000 XP (Outfitting 87), all bought
+  const marks = unpaid.reduce((sum, r) => sum + r.inputs.reduce((m, i) => m + i.n * stockOf(i.key).marks, 0), 0);
+  assert.deepEqual([unpaid.length * FIRST_CRAFT_XP, Math.floor(Math.sqrt((unpaid.length * FIRST_CRAFT_XP) / 10)), marks], [76_000, 87, 811]);
 });

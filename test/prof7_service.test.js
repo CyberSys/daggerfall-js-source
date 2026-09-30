@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import { standService, T0 } from './accountDb.mjs';
 import { bodyKey } from '../src/net/nodeLaw.js';
 import { xpForRank, harvestXp, HIDES_PER_DAY, HIGH_HIDES_PER_DAY } from '../src/net/professionLaw.js';
-import { craftXp, FIRST_CRAFT_XP } from '../src/net/recipeLaw.js';
+import { craftXp } from '../src/net/recipeLaw.js';
 import { readProductRecord, verifyProductRecord } from '../src/net/productRecord.js';
 import { sharedClassicMinutes } from '../src/net/wire.js';
 import { utcDay } from '../src/net/marksLaw.js';
@@ -193,8 +193,10 @@ test('PROF7 service: a garment sewn in the dye the crafter chose - signed into i
   const ask = craft(mac, 'garment-141:linen', { dye: 3 });
   const g = await s.call('/v1/prof/craft', ask, mac.secret);
   assert.equal(g.status, 200, JSON.stringify(g.body));
-  assert.deepEqual([g.body.dye, g.body.xp, g.body.track.profession], [3, craftXp(1, 0, true), 'outfitting']);
-  assert.equal(g.body.xp, 20 + FIRST_CRAFT_XP);
+  // AUDIT 32 S1 (Mac: "Whatever you think is best"): Straps are wholly the Weavers' Linen - the craft's XP, its first
+  // recorded, and no first-craft bonus (a boot's Cured Leather keeps it, test/audit32_service.test.js)
+  assert.deepEqual([g.body.dye, g.body.xp, g.body.first, g.body.track.profession], [3, craftXp(1, 0, false), true, 'outfitting']);
+  assert.equal(g.body.xp, 20);
   const v = await verifyProductRecord(g.body.pieces[0].record, s.identityPublic, { subtle: globalThis.crypto.subtle });
   assert.deepEqual([v.ok, v.claims?.u, v.claims?.r], [true, 3, 'garment-141:linen'], 'the dye signed into the record');
   assert.deepEqual([s.raw.prepare('SELECT dye FROM prof_crafts WHERE rid = ?').get(ask.rid).dye,

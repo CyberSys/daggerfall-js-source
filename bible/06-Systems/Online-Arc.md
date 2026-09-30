@@ -11701,17 +11701,17 @@ account service, the laws, the client's books, the acts and their hosts, the pag
 the code. 52 findings, 46 once the lenses' overlaps are folded (the day's turn found by two, the hides' unit by two, the
 dungeon's foes by two, the choice key's words by two, a held key's repeats by two, the Professions page's unlocks by
 two). Every one was verified - the service's by a probe over the real Worker, the pages and the HUD in Chromium at 360
-and 800 pixels - and 45 fixed; one is Mac's to decide (below). Each fix with a behaviour is pinned by a test that fails
-on the code before it (every one run red on the pre-audit tree with only the new names shimmed):
-`test/audit32_law.test.js` (4), `test/audit32_service.test.js` (5), `test/audit32_client.test.js` (9),
-`test/audit32_pages.test.js` (9); `acct34` (no migration: no table changed); `tools/mutants/audit32.json` (62, every one
-dead - the one that first survived, the reach measured per axis, killed by a body inside the reach across the ground
-and past it from the eye). The 21 records whose code the fixes moved (prof7 ten, audit29 three, prof3 two, audit30,
-prof1, prof5, forage1, fieldbugs_x, toast_split one each) were re-aimed by content, as were survtiers3's two cite-rot
-records, whose quoted cites the cite shift moved, and the neighbours re-run - the
-professions' lists whole and every other mutant within reach of an edit or judged by a pin the audit changed.
-Three earlier pins that read the moved code by its words were widened to it, their claims kept: fieldbugs_x X1 (the
-menu's repaint carries the focus now), audit68 S19 (the loot targets read the corpse's own place) and audit0928 D2
+and 800 pixels - and every one fixed, S1 by the rule Mac left to the audit (below). Each fix with a behaviour is pinned
+by a test that fails on the code before it (every one run red on the pre-audit tree with only the new names shimmed):
+`test/audit32_law.test.js` (5), `test/audit32_service.test.js` (6), `test/audit32_client.test.js` (9),
+`test/audit32_pages.test.js` (9); `acct34`, and `acct35` for S1 (no migration: no table changed);
+`tools/mutants/audit32.json` (71, every one dead - the one that first survived, the reach measured per axis, killed by a
+body inside the reach across the ground and past it from the eye). The 21 records whose code the fixes moved (prof7 ten,
+audit29 three, prof3 two, audit30, prof1, prof5, forage1, fieldbugs_x, toast_split one each) were re-aimed by content,
+as were survtiers3's two cite-rot records, whose quoted cites the cite shift moved, and the neighbours re-run - the
+professions' lists whole and every other mutant within reach of an edit or judged by a pin the audit changed. Three
+earlier pins that read the moved code by its words were widened to it, their claims kept: fieldbugs_x X1 (the menu's
+repaint carries the focus now), audit68 S19 (the loot targets read the corpse's own place) and audit0928 D2
 (Controls.md's table, which is the registry's).
 
 **Hunting's day and the service** (L2, S2-S6). "30 hides a day, 3 of tiers 5-6" counted the day's ROWS - the bodies - so
@@ -11759,22 +11759,34 @@ on the pointer's down (P1). One Space struck the anvil's heat and stitched the l
 a page (P2). The pause window emptied itself and never gave the focus or the caret back - AUDIT 31 U1's law, never
 carried to it (P3), and the Stores search threw its caret to the end at every key (P13). A held key's repeats sewed the
 act (P4). The loom's one busy flag let a cure's answer re-offer Craft mid-craft, and its cures stayed live under the
-stitch (P5). The Weavers' Buy was offered whatever the Drakes (P6). The work rows spilled 30px past a phone's pane and
+stitch (P5). The Weavers' Buy was offered whatever the Marks (P6). The work rows spilled 30px past a phone's pane and
 drew a 220px button in a 0px track at 800 (P7). Standard-bearer's Silk listed 76 garments with no word of the sieges,
 and the unlocks put the Rat's skins at rank 10 (P8, R4). A body's prompt ran off both edges of a phone - 0 of 40 fit at
 360, 40 of 40 now (P9). A torn pelt, a mistimed one and a slip went unsaid (P10). The meter drew the points and not the
 line, marked no first point, and drew a degree a third smaller up than across (P11). Escape mid-stitch closed the whole
 window and dropped the act silently (P12).
 
-**The records** (R1-R12). The patch notes named `;` for the choice key - the Up arrow's, `;` Come Sail Away's lantern -
+**The records** (R1-R13). The patch notes named `;` for the choice key - the Up arrow's, `;` Come Sail Away's lantern -
 and PROF1's Herbalism notes the same; "30 hides" was the bodies (now true); Professions-Arc, Online-Arc, Port-Ledger,
 Testing and Foraging lines PROF7 made false - Cured Leather and Linen that "stay", the smith's 307 and Carpentry's 41,
 the arrows' "one step lower" waiting, the unyielded and commission lists, the "later" trees and bodies, a tool always
 Foraging's template, the prof3 mutants "every one dead", the catalogue's 94 - corrected in place, each marked; "DFU"
-where a player reads it.
+where a player reads it. And the audit's own (R13): P6's page named the balance "drakes", where DRAKES' law keeps
+"Marks" the code's and these records' name, and wrote "you hold 1 Drakes" - `marksText`'s "1 Drake" now, as the
+Market tab's.
 
-**For Mac** (S1): Outfitting's first-craft XP can be bought. 3.2's "+500 the first time a recipe is made" meets 9.3's
-garments in each cloth, and 4.5's Weavers sell Linen and Wool without end - 167 recipes of counter goods alone take a
-fresh character to Outfitting 92 for 943 Drakes and no hide. The service does what the record says; which rule bends
-is Mac's (no first-craft bonus for a recipe made wholly of counter goods; the bonus once a garment, not once a cloth;
-a day's bound on first crafts). Left as it stands until then.
+**S1, decided** (2026-09-30, Mac: "Whatever you think is best"). Outfitting's first-craft XP could be bought: 3.2's
+"+500 the first time a recipe is made" met 9.3's garments in each cloth, and 4.5's Weavers sell Linen and Wool without
+end - 167 recipes of counter goods alone took a fresh character to Outfitting 92 for 943 Marks and no hide. Of the three
+rules offered, the first: **a recipe made wholly of goods only a counter sells earns its craft's XP and no first-craft
+bonus** (`recipeLaw.firstCraftPays`, over `professionLaw.COUNTER_ONLY` - Linen and Wool, never gathered). It is
+section 13's law already (Marks buy no influence, "counter goods never"; 28's guild writs pay no XP, "a guild's Marks
+buying XP would make the treasury a trainer"), and it takes 152 of the 167 - 76,000 of the 83,500 XP - where "once a
+garment" left 45,500 buyable (Outfitting 67) and a day's bound only slowed the same purchase and held back every
+honest crafter's first crafts. The fifteen left - Cured Leather's armour and boots, a gathered good the smith's
+counter also sells at twice its worth (7,500 XP, Outfitting 27, 132 Marks) - keep 3.2's 500, as the planks do: a hunter's own leather and a logger's own
+planks earn what 3.2 promised them, and the counter's price is a gatherer's ceiling, not an endless faucet. Silk's
+garments keep theirs (Spider Silk is hunted); the first is still recorded (`first`), the XP answered as credited.
+`acct35`; pinned in `test/audit32_law.test.js` and `test/audit32_service.test.js` (S1, each run red on the code before
+it), PROF7's Straps pin moved to the rule; eight mutants in `audit32.json`, every one dead. Professions-Arc 3.2, 13,
+29 and its appendix say it; the Outfitting patch notes tell the players.

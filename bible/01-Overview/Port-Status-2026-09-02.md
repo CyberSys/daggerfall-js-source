@@ -653,7 +653,7 @@ are the **narrowed remainders** Wave D recorded rather than shipped
 
 **Added after this page was measured.**
 
-- **`src/ui/profPages.js:94`** - the professions' pages on the classic skin
+- **`src/ui/profPages.js:95`** - the professions' pages on the classic skin
   (AUDIT 29, 2026-09-28). *The Professions and Stores pages, and the Forge on the Stores page, are the Enhanced pause
   menu's Stats rail; the classic skin's pause (DFU's own) has no pages, so a classic player reaches them only through
   its Controls button's settings screen, and a home's Forge station is not offered there. The professions are a Ledger

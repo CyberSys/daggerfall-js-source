@@ -49,6 +49,7 @@ import { createHeatAct } from '../systems/heatAct.js';
 import { createPlaneAct } from '../systems/planeAct.js';
 import { material } from '../net/nodeLaw.js';
 import { UNYIELDED } from '../net/marketLaw.js';   // AUDIT 32 P8: a cloth nothing yields yet
+import { marksText } from '../net/marksLaw.js';   // AUDIT 32 R13: "1 Drake", as the Market tab says it
 import { accountRefusalText } from '../net/accountClient.js';
 import { getPref, setPref } from '../systems/uiPrefs.js';
 import { isEnhanced } from '../systems/uiSkin.js';
@@ -75,9 +76,9 @@ import { isEnhanced } from '../systems/uiSkin.js';
  * @property {() => number} [stitchBand]   PROF7: the stitch's attribute band (recipeLaw stitchBand)
  * @property {() => 'MensClothing'|'WomensClothing'} [clothing]   PROF7: the clothing the loom shows first - the player's own,
  *   as DFU's Clothing Store shelves it
- * @property {() => (number|null)} [drakes]   AUDIT 32 P6: the Drakes held (the Bank's book), or null unknown - a counter's
+ * @property {() => (number|null)} [marks]   AUDIT 32 P6: the Marks held (the Bank's book), or null unknown - a counter's
  *   purchase the balance cannot meet is held and said
- * @property {() => boolean} [drakesOpen]   AUDIT 32 P6: whether Drakes are struck at all - a counter is offered only then
+ * @property {() => boolean} [marksOpen]   AUDIT 32 P6: whether Marks are struck at all - a counter is offered only then
  */
 let _provider = /** @type {ProfPagesProvider|null} */ (null);
 /** The host's book, or null to take the pages down (offline, a closed switch, the host gone). */
@@ -1082,16 +1083,16 @@ function drawLoom(detail, rerender, { el, divider }) {
       const line = el('div', `prof-input${have >= inp.n ? '' : ' prof-short'}`);
       line.append(el('span', null, `${p.name(inp.key)} ${Math.min(have, inp.n)} / ${inp.n} (${have} stored)`));
       const sale = WEAVERS_STOCK.find((x) => x.key === inp.key);   // the Weavers' Linen and Wool (4.5), at the tailor's
-      if (sale && have < inp.n && loom.kind === 'shop' && p.stock && p.drakesOpen?.() !== false) {
+      if (sale && have < inp.n && loom.kind === 'shop' && p.stock && p.marksOpen?.() !== false) {
         const need = inp.n - have;
-        // AUDIT 32 P6: the Drakes the purchase asks, held or said before the press (the Market tab's counter's law, AUDIT
+        // AUDIT 32 P6: the Marks the purchase asks, held or said before the press (the Market tab's counter's law, AUDIT
         // 30 U12/U13) - it was offered whatever the balance, and refused after
-        const drakes = p.drakes?.() ?? null;
-        const shortOf = Number.isSafeInteger(drakes) && drakes < sale.marks * need;
+        const balance = p.marks?.() ?? null;
+        const shortOf = Number.isSafeInteger(balance) && balance < sale.marks * need;
         const buy = el('button', 'act', `Buy ${need} from the Weavers - ${sale.marks * need} Drakes`);
         buy.type = 'button';
         buy.disabled = _loom.busy || shortOf;
-        if (shortOf) line.append(el('span', 'prof-split', `you hold ${drakes} Drakes`));
+        if (shortOf) line.append(el('span', 'prof-split', `you hold ${marksText(balance)}`));   // AUDIT 32 R13: "1 Drake"
         buy.onclick = async () => {
           if (_loom.busy) return;
           _loom.busy = true; rerender();

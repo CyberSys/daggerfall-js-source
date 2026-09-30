@@ -505,6 +505,11 @@ export const FURNISHER_STOCK = Object.freeze([LINEN].map(stock('furnisher')));
 export const WEAVERS_STOCK = Object.freeze([
   Object.freeze({ key: LINEN.key, marks: 2, counter: 'weavers' }), Object.freeze({ key: WOOL.key, marks: 3, counter: 'weavers' }),
 ]);
+/** AUDIT 32 S1 (Mac, 2026-09-30: "Whatever you think is best"): the goods ONLY a counter sells - 4.5's Linen and Wool,
+ *  never gathered. A recipe made wholly of them earns its craft's XP and no first-craft bonus (recipeLaw firstCraftPays).
+ *  The smith's stock is not among them: every one of its goods is gathered too. A counter that sells what nothing
+ *  gathers adds its goods here. */
+export const COUNTER_ONLY = Object.freeze([LINEN.key, WOOL.key]);
 /** Every counter's goods. The service cannot see a counter (as it cannot see the forge): it sells any of them wherever
  *  it is asked, and the client asks at the counter's shop - a lie buys the same goods at the same price. */
 export const STOCKS = Object.freeze([...SMITH_STOCK, ...FURNISHER_STOCK, ...WEAVERS_STOCK]);

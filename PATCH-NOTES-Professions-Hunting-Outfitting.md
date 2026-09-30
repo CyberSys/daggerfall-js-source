@@ -39,6 +39,7 @@
 - **Dye**: choose one of Daggerfall's **ten clothing colours** before you sew, or leave it undyed. Every garment takes a dye. The colour is sewn in: the piece keeps it wherever it goes, including on the market.
 - **Rugs** (3 Wool Bolts), **tapestries** (4 Wool Bolts), **Large Skins** (2 pelts) and **Small Skins** (1 pelt), from a rat, bat, bear or tiger. These go among your things, to set down in your home.
 - A **Fishing-Net** (2 Linen Bolts), Foraging's own.
+- A craft gives 20 Outfitting XP a tier of its cloth or leather, and 500 more the first time you make that recipe - except a piece made only of **Linen and Wool Bolts**. The Weavers sell those without end, so it gives the craft's XP but no first-time bonus. Boots, with their Cured Leather, and everything in Silk or leather still give it.
 - **The stitch**: the needle keeps a beat. Press **Space**, **Enter** or **Stitch** in time with it, eight times. All eight on the beat is a clean craft: one quality step up. A tap on **Stitch** counts the moment your finger goes down, and a key held down counts once. **Escape** sets the needle down (nothing is spent). **Quick craft** and **Gentle acts** work as they do at the anvil.
 - Specialisations: a **Tailor** (50) sews clothing a quality step better and a **Leatherworker** (50) leather armour. **Couturier** and **Saddler** (100) are listed but can't be chosen yet.
 

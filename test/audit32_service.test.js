@@ -2,7 +2,8 @@
 // clean pelt's second among them - and the last skinning of the day is cut to its room, the rare hides' the same (L2);
 // a body's ground is never read nor witnessed, so a hand-built one is no 500 (S2); a second find is kept where one of it
 // fits, its count cut to its room - a Butcher's two at 4,999 Raw Meat were both lost (S3); a body's foe is refused before
-// the hour's acts are spent (S4); a weave answers no track, where it answered Smithing's (S5). Driven through the real
+// the hour's acts are spent (S4); a weave answers no track, where it answered Smithing's (S5); the Weavers' cloth alone
+// lays on no first-craft XP (S1, Mac: "Whatever you think is best"). Driven through the real
 // Worker over node:sqlite with every migration applied (test/accountDb.mjs).
 // bible/06-Systems/Online-Arc.md "AUDIT 32"; bible/06-Systems/Professions-Arc.md 29.
 import { test } from 'node:test';
@@ -146,4 +147,30 @@ test('AUDIT 32 S5: a weave answers no track (no XP, no raising choice) - never S
   assert.deepEqual([weave.status, weave.body.track], [200, null]);
   const cure = await s.call('/v1/prof/smelt', { character: mac.character, recipe: 'cure:rat', count: 1, rid: rid() }, mac.secret);
   assert.deepEqual([cure.status, cure.body.track?.profession], [200, 'hunting']);
+});
+
+// ─── S1: THE COUNTER'S CLOTH TEACHES NO FIRST CRAFT ──────────────────
+
+test('AUDIT 32 S1 (Mac: "Whatever you think is best"): a Linen garment, a Wool rug and the Fishing-Net - wholly the Weavers\' cloth - answer their craft\'s XP and no first-craft bonus, the first recorded; a boot\'s Cured Leather keeps the 500; the recipe decides, not the units\' origin', async () => {
+  const s = await stand();
+  const mac = await s.registered('Mac');
+  const xp = () => Number(s.raw.prepare('SELECT xp FROM prof_tracks WHERE player = ? AND char_id = ? AND profession = ?').get(mac.id, mac.character, 'outfitting')?.xp ?? 0);
+  const craft = (recipe) => s.call('/v1/prof/craft', { character: mac.character, recipe, clean: false, name: 'Mac', rid: rid() }, mac.secret);
+  s.give(mac, 'cloth:linen', 'bought', 10);
+  s.give(mac, 'cloth:linen', 'own', 10);   // no hand gathers it; were one to, the recipe is still the counter's
+  s.give(mac, 'leather:cured', 'own', 5);
+  const straps = await craft('garment-141:linen');
+  assert.equal(straps.status, 200, JSON.stringify(straps.body));
+  assert.deepEqual([straps.body.xp, straps.body.first, xp()], [20, true, 20], 'the craft\'s 20, its first recorded - no 500');
+  assert.equal(Number(s.raw.prepare('SELECT first FROM prof_crafts WHERE player = ? AND recipe = ?').get(mac.id, 'garment-141:linen').first), 1);
+  const net = await craft('fishingnet:linen');
+  assert.deepEqual([net.status, net.body.xp, net.body.first], [200, 20, true]);
+  const boots = await craft('garment-149:linen');
+  assert.deepEqual([boots.status, boots.body.xp, boots.body.first, xp()], [200, 20 + 500, true, 560], 'a bolt and a Cured Leather: the 500 laid on');
+  const again = await craft('garment-149:linen');
+  assert.deepEqual([again.body.xp, again.body.first], [20, false], 'and once');
+  s.setXp(mac, xpForRank(10), 'outfitting');
+  s.give(mac, 'cloth:wool', 'bought', 3);
+  const rug = await craft('rug-237:wool');
+  assert.deepEqual([rug.status, rug.body.xp, rug.body.first, xp()], [200, 40, true, xpForRank(10) + 40], 'Wool at tier 2: 40, no 500');
 });
