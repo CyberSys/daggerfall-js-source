@@ -27,6 +27,7 @@ import {
   REALM_UNSENT_PREFIX, REALM_UNSENT_GRACE_MS, REALM_HELD_FIELD, REALM_RESTORED_TEXT,
 } from '../src/systems/realmSaves.js';
 import { offlineCopyOf } from '../src/systems/offlineCopy.js';
+import { REALM_TEXT_MAX_BYTES } from '../src/net/realmSaveCodec.js';
 import { createSpoilsPool, spoilsStore, recoverSpoils, SPOILS_STORE_KEY, SPOILS_TEXT } from '../src/scenes/spoilsPool.js';
 import { raidSpoilsList, raidSpoilsDay, RAID_SPOILS_KEYS, RAID_SPOILS_TEXT, RAID_SPOILS_RECORDS_MAX } from '../src/systems/raidSpoils.js';
 import { r2, freshSave, layRecord } from './realmSeat.mjs';
@@ -109,7 +110,7 @@ function clock() {
 const sessionOf = (dev, id, boot, { hidden = () => false, onLost = () => {} } = {}) => {
   const time = clock();
   const hides = [];
-  const s = createRealmSession({ io: dev.io, id, lease: boot.lease, seq: boot.seq, onLost, later: time.later, hidden, watchHidden: (fn) => { hides.push(fn); } });
+  const s = createRealmSession({ io: dev.io, id, lease: boot.lease, seq: boot.seq, gzip: boot.gzip === true, onLost, later: time.later, hidden, watchHidden: (fn) => { hides.push(fn); } });
   return Object.assign(s, { time, hide: () => { for (const fn of hides) fn(); } });
 };
 /** A realm character saved at 1 and joined as a boot joins it, on `dev`: its session, and the service's row and save. */
@@ -253,7 +254,8 @@ test('RESCUE-SAVE: a copy no join may play is dropped - the record moved (`seq`)
   const dev2 = acct.device();
   const d = await joined(acct, dev2);
   d.session.time.fire();
-  assert.equal((await d.session.checkpoint('x'.repeat(REALM_MAX_BYTES + 1))).error, 'too-large');
+  // past the text's own bound (REALM-GZIP): no packing brings it under - the service will never take it
+  assert.equal((await d.session.checkpoint('x'.repeat(REALM_TEXT_MAX_BYTES + 1))).error, 'too-large');
   assert.equal(readUnsent(dev2.storage, d.id), null);
   assert.equal(d.session.time.waiting, 0, 'and nothing waits to write it');
 });
@@ -426,7 +428,7 @@ test('AUDIT RESCUE-SAVE A1: the records a save names are bounded, and never ride
   const text = realmSaveWithHeld({ v: 1 }, ['a', 7, null, 'x'.repeat(129), ...Array.from({ length: 80 }, (_, i) => `k${i}`)]);
   const held = JSON.parse(text)[REALM_HELD_FIELD];
   assert.equal(held.length, 64);
-  assert.equal(held[0], 'a');
+  assert.deepEqual([held[0], held[63]], ['k16', 'k79'], 'the NEWEST sixty-four - the device keeps the newest records (AUDIT 2 B4)');
   assert.ok(held.every((x) => typeof x === 'string' && x.length <= 128));
   assert.equal(realmSaveWithHeld({ v: 1 }, []), '{"v":1}', 'none: the save as it stands');
   assert.equal(realmSaveWithHeld({ v: 1 }, null), '{"v":1}');
@@ -538,11 +540,13 @@ test('AUDIT RESCUE-SAVE A7: the Online door drops a copy of the account\'s own c
   assert.ok(readUnsent(dev.storage, c.id));
   const other = acct.device();
   const theirs = await openRealmBoot({ io: other.io, id: c.id });
-  await sessionOf(other, c.id, theirs).checkpoint(JSON.stringify(save(20, 1)));
+  const os = sessionOf(other, c.id, theirs);
+  await os.checkpoint(JSON.stringify(save(20, 1)));
+  await os.leave({ keepalive: true });   // played there, and left (a row still playing is its tab's - AUDIT 2 B6)
   assert.equal(sweepUnsent(dev.storage, (await realmList(dev.io)).characters), 1);
   assert.equal(readUnsent(dev.storage, c.id), null);
   assert.ok(readUnsent(dev.storage, stranger), 'not listed: not the door\'s to drop');
-  assert.match(src('src/ui/enhancedMenu.js'), /realmRows = r\.ok \? r\.characters : \[\];\n\s*if \(r\.ok\) sweepUnsent\(appStorage\(\), r\.characters\);/);
+  assert.match(src('src/ui/enhancedMenu.js'), /realmRows = r\.ok \? r\.characters : \[\];\n\s*if \(r\.ok\) sweepUnsent\(appStorage\(\), r\.characters, storedSession\(appStorage\(\)\)\?\.id \?\? null\);/);
   claimUnsent(dev.storage, stranger, 'a'.repeat(32));
   assert.equal(keepUnsent(dev.storage, stranger, 4, '{"v":2}', { lease: 'b'.repeat(32) }), false, 'A4 by the letter: another lease writes nothing');
 });
@@ -580,4 +584,122 @@ test('AUDIT RESCUE-SAVE 2 B2: the page put away writes the save that waits out i
   c.session.hide();   // no checkpoint of its own: world.js's refused one
   assert.equal(JSON.parse(readUnsent(dev.storage, c.id).text).level, 22);
   assert.equal(c.session.time.waiting, 0, 'and the grace stands down');
+});
+
+test('AUDIT RESCUE-SAVE 2 B3: a put that lands with a newer save waiting never relabels an older copy - one written before the grace let the newer out - over the save that landed', async () => {
+  const acct = await account();
+  const dev = acct.device();
+  const c = await joined(acct, dev);
+  dev.door.plan = ['offline'];
+  await c.session.checkpoint(JSON.stringify(save(20, 1)));   // T0: refused, on the device at 1
+  // the service back: T1 leaves and is slow, T2 waits behind it - both inside the grace, neither on the device yet
+  dev.door.plan = ['wait', 'hang'];
+  const t1 = c.session.checkpoint(JSON.stringify(save(21, 1)));
+  void c.session.checkpoint(JSON.stringify(save(22, 1)));
+  dev.door.open();
+  assert.deepEqual(await t1, { ok: true, seq: 2 });
+  // the tab crashes before the grace runs out: the device holds T2 at 2, never T0 relabelled 2
+  assert.deepEqual([JSON.parse(readUnsent(dev.storage, c.id).text).level, readUnsent(dev.storage, c.id).seq], [22, 2]);
+  const boot = await openRealmBoot({ io: dev.io, id: c.id });
+  assert.equal(boot.snap.level, 22, 'the newest - never level 20 over the 21 the service took');
+});
+
+test('AUDIT RESCUE-SAVE 2 B3: a device with no room for the newer save plays the service\'s at the next join - never the older copy it kept, relabelled', async () => {
+  const acct = await account();
+  const storage = fakeStorage();
+  const dev = acct.device(storage);
+  const c = await joined(acct, dev);
+  dev.door.plan = ['offline'];
+  await c.session.checkpoint(JSON.stringify(save(20, 1)));   // T0 fits: on the device at 1
+  const set = storage.setItem;
+  storage.setItem = (k, v) => { if (String(k) === `${REALM_UNSENT_PREFIX}${c.id}` && String(v).includes('"pad"')) throw new Error('QuotaExceededError'); set(k, v); };
+  const big = (level) => JSON.stringify({ ...save(level, 1), pad: 'x' });
+  dev.door.plan = ['wait', 'hang'];
+  const t1 = c.session.checkpoint(big(21));
+  c.session.time.fire();   // T1's grace runs out and it will not fit: T0 stays
+  void c.session.checkpoint(big(22));
+  dev.door.open();
+  assert.equal((await t1).ok, true);
+  assert.equal(readUnsent(storage, c.id), null, 'T0 gone, T2 would not fit - nothing, never T0 at 2');
+  const boot = await openRealmBoot({ io: dev.io, id: c.id });
+  assert.equal(boot.restored, undefined);
+  assert.equal(boot.snap.level, 21, 'the service\'s save');
+});
+
+test('AUDIT RESCUE-SAVE 2 B3: a put that landed with its answer lost, resynced or found at a rejoin, never relabels the older copy either', async () => {
+  const acct = await account();
+  // the resync: T1 landed unanswered, T2's put is told `seq` one on - adopted
+  const dev = acct.device();
+  const c = await joined(acct, dev);
+  dev.door.plan = ['offline'];
+  await c.session.checkpoint(JSON.stringify(save(20, 1)));   // T0 on the device at 1
+  dev.door.plan = ['lose-answer'];
+  await c.session.checkpoint(JSON.stringify(save(21, 1)));   // T1 landed at 2, its answer lost
+  assert.equal(c.row().seq, 2);
+  dev.door.plan = ['ok', 'hang'];   // T2 at 2: `seq`, adopted; T2 again at 3: out, never answered
+  void c.session.checkpoint(JSON.stringify(save(22, 1)));
+  await settle();
+  assert.deepEqual([JSON.parse(readUnsent(dev.storage, c.id).text).level, readUnsent(dev.storage, c.id).seq], [22, 2]);
+  assert.equal((await openRealmBoot({ io: dev.io, id: c.id })).snap.level, 22);
+  // the rejoin: T1 landed unanswered and would not fit on the device (T0 kept, A5); the page went and came back from the
+  // back-forward cache, joined one on - T0 is older than what landed, and never relabelled there
+  const storage2 = fakeStorage();
+  const dev2 = acct.device(storage2);
+  const d = await joined(acct, dev2);
+  dev2.door.plan = ['offline'];
+  await d.session.checkpoint(JSON.stringify(save(30, 1)));   // T0 on the device at 1
+  const set = storage2.setItem;
+  storage2.setItem = (k, v) => { if (String(k) === `${REALM_UNSENT_PREFIX}${d.id}` && String(v).includes('"pad"')) throw new Error('QuotaExceededError'); set(k, v); };
+  dev2.door.plan = ['lose-answer'];
+  await d.session.checkpoint(JSON.stringify({ ...save(31, 1), pad: 'x' }));   // T1 at 2, unanswered, and no room for it
+  assert.equal(JSON.parse(readUnsent(storage2, d.id).text).level, 30, 'T0 kept (A5)');
+  await d.session.leave({ keepalive: true });
+  assert.deepEqual(await d.session.rejoin(), { ok: true, seq: 2 });
+  assert.equal(readUnsent(storage2, d.id), null, 'T0 gone, T1 would not fit - nothing, never T0 at 2');
+  await d.session.leave({ keepalive: true });
+  assert.equal((await openRealmBoot({ io: dev2.io, id: d.id })).snap.level, 31, 'the service\'s save');
+});
+
+test('AUDIT RESCUE-SAVE 2 B5/B6: the door drops the account\'s own copies of characters it no longer holds, leaves another account\'s, and leaves a character a tab is playing', async () => {
+  const acct = await account();
+  const dev = acct.device();
+  const player = dev.io.player;
+  assert.equal(typeof player, 'string');
+  const gone = 'r' + 'ab'.repeat(10), theirs = 'r' + 'cd'.repeat(10);
+  keepUnsent(dev.storage, gone, 3, '{"v":1}', { player });
+  keepUnsent(dev.storage, theirs, 3, '{"v":1}', { player: 'another-account' });
+  assert.equal(sweepUnsent(dev.storage, [], player), 1);
+  assert.equal(readUnsent(dev.storage, gone), null, 'deleted elsewhere, never joined here again: gone');
+  assert.ok(readUnsent(dev.storage, theirs), 'another account\'s: not this door\'s');
+  // a row a tab is playing (its put may have landed unanswered): left to that tab
+  const c = await joined(acct, dev);
+  dev.door.plan = ['offline'];
+  await c.session.checkpoint(JSON.stringify(save(13, 1)));
+  const row = (await realmList(dev.io)).characters.find((r) => r.id === c.id);
+  assert.equal(row.playing, true);
+  assert.equal(sweepUnsent(dev.storage, [{ ...row, seq: row.seq + 1 }], player), 0);
+  assert.ok(readUnsent(dev.storage, c.id));
+});
+
+test('AUDIT RESCUE-SAVE 2 B7: a join whose claim will not fit takes the older join\'s off - the check stands down, never guards the tab the character was taken from', () => {
+  const storage = fakeStorage();
+  const id = 'r' + 'ef'.repeat(10);
+  claimUnsent(storage, id, 'a'.repeat(32));
+  const set = storage.setItem;
+  storage.setItem = (k, v) => { if (String(k).endsWith('.lease')) throw new Error('QuotaExceededError'); set(k, v); };
+  claimUnsent(storage, id, 'b'.repeat(32));
+  storage.setItem = set;
+  assert.equal(storage.getItem(`${REALM_UNSENT_PREFIX}${id}.lease`), null);
+  assert.equal(keepUnsent(storage, id, 2, '{"v":1}', { lease: 'b'.repeat(32) }), true, 'the newer join writes');
+});
+
+test('AUDIT RESCUE-SAVE 2 (REALM-GZIP): a save past the request\'s bound rides packed and lands - its copy dropped as any landed save\'s, never refused too-large', async () => {
+  const acct = await account();
+  const dev = acct.device();
+  const c = await joined(acct, dev);
+  const long = JSON.stringify({ ...save(40, 1), log: 'the long life '.repeat(400_000) });
+  assert.ok(long.length > REALM_MAX_BYTES);
+  assert.deepEqual(await c.session.checkpoint(long), { ok: true, seq: 2 });
+  assert.equal(readUnsent(dev.storage, c.id), null);
+  assert.equal((await c.served()).level, 40);
 });

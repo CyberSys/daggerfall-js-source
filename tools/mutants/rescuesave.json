@@ -56,8 +56,8 @@
   {
     "name": "RESCUE-SAVE-landed-keeps-the-copy",
     "file": "src/systems/realmSaves.js",
-    "old": "if (pending) revise({ seq: current, missed: false }); else dropCopy();",
-    "new": "if (pending) revise({ seq: current, missed: false });",
+    "old": "if (pending) rebaseCopy(); else dropCopy();",
+    "new": "if (pending) rebaseCopy();",
     "tests": [
       "test/rescuesave.test.js"
     ]
@@ -65,7 +65,7 @@
   {
     "name": "RESCUE-SAVE-never-rebased",
     "file": "src/systems/realmSaves.js",
-    "old": "if (pending) revise({ seq: current, missed: false }); else dropCopy();",
+    "old": "if (pending) rebaseCopy(); else dropCopy();",
     "new": "if (!pending) dropCopy();",
     "tests": [
       "test/rescuesave.test.js"
@@ -164,7 +164,7 @@
   {
     "name": "AUDIT-RESCUE-SAVE-A1-held-unbounded",
     "file": "src/systems/realmSaves.js",
-    "old": ".slice(0, REALM_HELD_MAX)",
+    "old": ".slice(-REALM_HELD_MAX)",
     "new": "",
     "tests": [
       "test/rescuesave.test.js"
@@ -254,7 +254,7 @@
   {
     "name": "AUDIT-RESCUE-SAVE-A7-the-door-never-sweeps",
     "file": "src/ui/enhancedMenu.js",
-    "old": "      if (r.ok) sweepUnsent(appStorage(), r.characters);",
+    "old": "      if (r.ok) sweepUnsent(appStorage(), r.characters, storedSession(appStorage())?.id ?? null);",
     "new": "",
     "tests": [
       "test/rescuesave.test.js"
@@ -319,6 +319,105 @@
     "file": "src/systems/realmSaves.js",
     "old": "  watchHidden(() => { keepNow(); });\n",
     "new": "",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-RESCUE-SAVE-2-B3-the-landing-relabels",
+    "file": "src/systems/realmSaves.js",
+    "old": "if (pending) rebaseCopy(); else dropCopy();",
+    "new": "if (pending) reviseUnsent(storage, id, { seq: current, missed: false }); else dropCopy();",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-RESCUE-SAVE-2-B3-the-older-copy-stays",
+    "file": "src/systems/realmSaves.js",
+    "old": "    if (ownsUnsent(storage, id, lease)) forgetUnsent(storage, id);\n    unkept = latest;\n",
+    "new": "    unkept = latest;\n",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-RESCUE-SAVE-2-B3-the-resync-relabels",
+    "file": "src/systems/realmSaves.js",
+    "old": "          rebaseCopy();\n          r = await realmPut(",
+    "new": "          reviseUnsent(storage, id, { seq: current });\n          r = await realmPut(",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-RESCUE-SAVE-2-B3-the-rejoin-relabels",
+    "file": "src/systems/realmSaves.js",
+    "old": "      if (moved) rebaseCopy();",
+    "new": "      if (moved) reviseUnsent(storage, id, { seq: current });",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-RESCUE-SAVE-2-B3-the-newest-never-known",
+    "file": "src/systems/realmSaves.js",
+    "old": "      latest = text;\n",
+    "new": "",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-RESCUE-SAVE-2-B4-the-oldest-kept",
+    "file": "src/systems/realmSaves.js",
+    "old": ".slice(-REALM_HELD_MAX)",
+    "new": ".slice(0, REALM_HELD_MAX)",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-RESCUE-SAVE-2-B5-orphans-kept",
+    "file": "src/systems/realmSaves.js",
+    "old": "  for (const cid of orphans) { dropUnsent(storage, cid); n++; }\n",
+    "new": "",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-RESCUE-SAVE-2-B5-another-accounts-dropped",
+    "file": "src/systems/realmSaves.js",
+    "old": "      if (at?.player === player) orphans.push(cid);",
+    "new": "      orphans.push(cid);",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-RESCUE-SAVE-2-B5-the-copy-names-no-account",
+    "file": "src/systems/realmSaves.js",
+    "old": ", ...(player ? { player } : {}) }));",
+    "new": " }));",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-RESCUE-SAVE-2-B6-a-played-row-swept",
+    "file": "src/systems/realmSaves.js",
+    "old": "    if (row.playing) continue;",
+    "new": "",
+    "tests": [
+      "test/rescuesave.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-RESCUE-SAVE-2-B7-the-older-claim-stands",
+    "file": "src/systems/realmSaves.js",
+    "old": "    try { storage?.removeItem?.(unsentOwnerKey(id)); } catch { /* storage away */ }\n  }",
+    "new": "  }",
     "tests": [
       "test/rescuesave.test.js"
     ]
