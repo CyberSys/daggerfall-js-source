@@ -22,6 +22,7 @@ import { yardText, yardNote, mountNavalYardWindow } from '../src/ui/navalYardWin
 import { createNavalYardOverlay, navalYardOpen, closeNavalYard } from '../src/ui/navalPlunderDoor.js';
 import { WARM_CHUNKS } from '../src/ui/enhancedChunk.js';
 import { sea } from './navalSea.mjs';
+import { mendScaleOf, MORALE_START } from '../src/systems/naval/shipCrew.js';   // SHIP-CREW: the mending by her crew's spirits
 
 // the suite's DOM, a step nearer a browser for a window that greys its presses (test/nav_f_ui.test.js's own)
 {
@@ -621,7 +622,8 @@ test('AUDIT NAV1 H13 the shipwright: a port\'s yard sells hull, canvas, hands an
   assert.equal(r.ok, true);
   assert.equal(r.whole, true);
   assert.deepEqual([h.at.paid.length, h.at.paid.at(-1)], [3, r.cost], 'one payment for the whole of it');
-  assert.deepEqual(model.ship(), { hull: 420, maxHull: 420, sail: 160, maxSail: 160, crew: 24, maxCrew: 24, barrels: 4, wrecked: false });
+  // PIN MOVED (SEA-REPAIR, SHIP-CREW): her stores in the hold and her crew's spirits beside her hurts
+  assert.deepEqual(model.ship(), { hull: 420, maxHull: 420, sail: 160, maxSail: 160, crew: 24, maxCrew: 24, barrels: 4, wrecked: false, stores: 0, morale: MORALE_START });
   assert.equal(yardOffer(model.ship(), 4, 99999).whole, 0);
   assert.equal(model.hasBarrels, true, 'a Small Ship rolls barrels off her stern');
   // not at a port, under way, or with a hostile near: no yard
@@ -662,8 +664,9 @@ test('AUDIT NAV1 H14 her hands mend her at sea: no hostile ship near and nothing
   const d0 = h.host.hudModel().ship;
   frames(h, [[h.e, { pos: [0, 0, 1500], yaw: 0 }]], 100);
   const d1 = h.host.hudModel().ship;
-  near((d1.hull - d0.hull) * 420, 420 * FIELD_MEND_PER_S * 10, 0.2, 'ten seconds of mending');
-  near((d1.sail - d0.sail) * 160, 160 * FIELD_MEND_PER_S * 10, 0.1);
+  // PIN MOVED (SHIP-CREW): a crewed boat's mending by her crew's spirits (a new crew's, MORALE_START)
+  near((d1.hull - d0.hull) * 420, 420 * FIELD_MEND_PER_S * 10 * mendScaleOf(MORALE_START), 0.2, 'ten seconds of mending');
+  near((d1.sail - d0.sail) * 160, 160 * FIELD_MEND_PER_S * 10 * mendScaleOf(MORALE_START), 0.1);
   assert.equal(d1.crew, 1, 'hands are hired, not mended');
   assert.equal(d1.mending, true);
   assert.ok(navalHudText(h.host.hudModel(), {}).plate.chips.includes('mend'), 'MENDING on the plate');
@@ -696,7 +699,7 @@ test('AUDIT NAV1 H14 her hands mend her at sea: no hostile ship near and nothing
   const w = await atPort({ save: SAVE({ hull: 0, sail: 160, crew: 24, state: 'wrecked' }) });
   w.at.port = false;
   w.boat.crewed = true;
-  const secs = (FIELD_REFLOAT * 420) / (420 * FIELD_MEND_PER_S);
+  const secs = (FIELD_REFLOAT * 420) / (420 * FIELD_MEND_PER_S * mendScaleOf(MORALE_START));   // PIN MOVED (SHIP-CREW): her crew's spirits
   frames(w, [[w.e, { pos: [0, 0, 1500], yaw: 0 }]], Math.floor(secs * 10) - 10);
   assert.equal(w.host.hudModel().ship.wrecked, true, 'a wreck, mending');
   frames(w, [[w.e, { pos: [0, 0, 1500], yaw: 0 }]], 20);

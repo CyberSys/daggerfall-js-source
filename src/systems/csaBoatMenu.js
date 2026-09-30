@@ -23,11 +23,12 @@
 /** The verbs, by row id. */
 export const BOAT_VERB = Object.freeze({
   helm: 'helm', board: 'board', cargo: 'cargo', pack: 'pack', variant: 'variant', status: 'status', position: 'position',
+  crew: 'crew', orders: 'orders',   // SHIP-CREW: the port's own - her crew's card, her captain's orders (no box of the mod's)
 });
 /** The rows' words. */
 export const BOAT_MENU_TEXT = Object.freeze({
   helm: 'Take the helm', leave: 'Leave the helm', board: 'Board', cargo: 'Open storage', pack: 'Pick up',
-  variant: 'Change style', status: 'Status', position: 'Position',
+  variant: 'Change style', status: 'Status', position: 'Position', crew: 'Crew', orders: 'Give orders',
 });
 /** Why a row is refused - short, for the plaque's "(why)". */
 export const BOAT_MENU_WHY = Object.freeze({
@@ -69,7 +70,7 @@ export function boatTriggers(root, modelOf, models) {
 /**
  * A boat of mine's rows, in the plaque's shape ({id, label, disabled, why}).
  * @param {{ boxes: Map<string, any[]>|Set<string>, packable?: boolean, sailingThis?: boolean, sailing?: boolean,
- *   aboard?: boolean, passengers?: number, variants?: boolean }} s
+ *   aboard?: boolean, passengers?: number, variants?: boolean, naval?: boolean, crewed?: boolean }} s
  */
 export function boatMenuRows(s) {
   const has = (b) => s.boxes.has(b);
@@ -84,6 +85,11 @@ export function boatMenuRows(s) {
   if (has('variant') && s.variants) rows.push(s.sailing ? { id: BOAT_VERB.variant, label: BOAT_MENU_TEXT.variant, disabled: true, why: BOAT_MENU_WHY.sailing } : { id: BOAT_VERB.variant, label: BOAT_MENU_TEXT.variant });
   if (has('status')) rows.push({ id: BOAT_VERB.status, label: BOAT_MENU_TEXT.status });
   if (has('position')) rows.push({ id: BOAT_VERB.position, label: BOAT_MENU_TEXT.position });
+  // SHIP-CREW: with the naval arc on, her crew's card (a crewed boat's) and her orders
+  if (s.naval) {
+    if (s.crewed) rows.push({ id: BOAT_VERB.crew, label: BOAT_MENU_TEXT.crew });
+    rows.push({ id: BOAT_VERB.orders, label: BOAT_MENU_TEXT.orders });
+  }
   return rows;
 }
 
