@@ -472,8 +472,8 @@
   {
     "name": "SS5-back-closing-the-pack-under-the-question",
     "file": "src/ui/enhancedInventory.js",
-    "old": "(infoEl || menuEl || dismantleEl)",
-    "new": "(infoEl || menuEl)",
+    "old": "(infoEl || menuEl || dismantleEl || targetEl)",
+    "new": "(infoEl || menuEl || targetEl)",
     "tests": [
       "test/ss1_stones.test.js"
     ]
