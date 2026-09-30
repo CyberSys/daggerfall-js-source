@@ -284,7 +284,9 @@ test('AUDIT SURV C: what the player is told - a vampire\'s strip has no hunger o
   const invSrc = read('src/ui/enhancedInventory.js');
   assert.match(invSrc, /if \(getEquipSlot\(entity \?\? \{\}, item\) === EQUIP_SLOTS\.None\) return null;/, 'the card asks the equip table');
   assert.match(invSrc, /if \(act\) \{   \/\/ null: nothing would wear it/, 'no button without an act');
-  assert.match(invSrc, /if \(usableItem\(picked\)\) \{\n\s+u\.onclick/, 'Use only where the law has an arm');
+  // HOOD-SAID (FIELD BUGS 2026-09-30, PIN MOVED): and not on a worn hooded piece, whose hood has its own button - unless
+  // it is enchanted, when Use still fires its Used payload
+  assert.match(invSrc, /if \(usableItem\(picked\) && \(!hooded \|\| isEnchanted\(picked\)\)\) \{\n\s+u\.onclick/, 'Use only where the law has an arm');
 });
 
 test('AUDIT SURV B: the camps - the sweep spares them and the scene cache carries none, an empty word reaches the cell, a restore merges by id, Off keeps them, sees only another player\'s and uses none; the dungeon rest pays its night asleep; the clock correction re-aligns', async () => {

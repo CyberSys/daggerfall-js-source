@@ -39,7 +39,7 @@
 //
 // The three clauses that stood here are all closed (D1):
 // - the TALK button routes to TalkManager.TalkToStaticNPC (:263):
-//   worldModes.js:3188 supplies `onTalk: () => openStaticNpc(pn,
+//   worldModes.js:3190 supplies `onTalk: () => openStaticNpc(pn,
 //   { forceTalk: true })`, which this file consumes at :256 and :265.
 // - AddPermanentScene (:246) shipped at P1 - systems/tavern.js:150
 //   addPermanentScene / :93 removePermanentScene, with this window
@@ -64,7 +64,7 @@ import { audio } from '../systems/audio.js';   // F145: the ButtonClick roster
 import { SOUND } from '../systems/soundClips.js';
 import { firstHotkey } from '../systems/dialogShortcuts.js';   // A8: the DaggerfallShortcut table
 import { survivalOn, survivalRules } from '../systems/survival/switch.js';   // SURV5: the mod's menu stands in for DFU's while the arc is on; SURV-TIERS: the tier prices the drink
-import { tavernMenu, tavernEat, tavernDrink, tavernOrder, blackout, TAVERN_MENU_TEXT } from '../systems/survival/tavernMenu.js';
+import { tavernMenu, tavernEat, tavernDrink, tavernOrder, tavernWater, blackout, TAVERN_MENU_TEXT } from '../systems/survival/tavernMenu.js';   // INN-WATER: tavernWater, the fountain's law at the bar
 import { survivalOf } from '../systems/survival/needs.js';
 import { stiffen, REST_KIND } from '../systems/survival/rest.js';
 import {
@@ -299,10 +299,11 @@ export class TavernWindow {
         const rules = survivalRules();
         if (totalGoldAmount(h.entity) < row.price) return [{ rows: this._rows(NOT_ENOUGH_GOLD_ID) }];
         // SURV-TIERS: the tier refuses before the coin changes hands - the drink that would take the night, the meal that would go to waste
-        const order = tavernOrder(s, now, row, { endurance, rules });
+        const order = tavernOrder(s, now, row, { endurance, rules, items: h.entity.items });   // INN-WATER: the pack, for the skins the water asks after
         if (!order.ok) return [{ rows: line(order.text) }];
         deductGold(h.entity, row.price);
-        const r = row.kind === 'food' ? tavernEat(s, now, row.worth) : tavernDrink(s, row.strength, { endurance, rules });
+        // INN-WATER: the water row is the fountain's law (a skin filled at the bar), paid as every row is paid
+        const r = row.kind === 'food' ? tavernEat(s, now, row.worth) : row.kind === 'water' ? tavernWater(h.entity, now) : tavernDrink(s, row.strength, { endurance, rules });
         h.advanceMinutes?.(r.minutes);
         h.entity.lastTimePlayerAteOrDrankAtTavern = now;
         let b = null;

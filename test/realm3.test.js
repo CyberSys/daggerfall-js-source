@@ -167,7 +167,7 @@ test('REALM P1.5 end to end: customs on a copy, the realm character made once fr
   assert.match(door, /snap\.characterId = mintCharacterId\(\);\s*\n\s*const r = saveSlot\(snap\.name \|\| row\.name, 'Copied from the realm', snap, \{ storage: appStorage\(\) \}\);/);
 });
 
-test('REALM P1.3: a notice crosses the reload once; the boot\'s address carries the online lane, the load door and the id alone; every word has its sentence', () => {
+test('REALM P1.3: a notice crosses the reload once; the boot\'s address carries the online lane, the load door, the id, the classic start and the world host\'s door alone; every word has its sentence', () => {
   const s = fakeStorage();
   setRealmNotice(s, 'Why you are back');
   assert.equal(s.getItem(REALM_NOTICE_KEY), 'Why you are back');
@@ -175,7 +175,9 @@ test('REALM P1.3: a notice crosses the reload once; the boot\'s address carries 
   assert.equal(takeRealmNotice(s), null, 'once');
   assert.equal(takeRealmNotice(null), null);
   const q = new URLSearchParams(realmBootSearch('?online=1&loadkey=4&test=x&classic=1&keep=1', 'r' + 'b'.repeat(20), BOOT_DOOR_KEYS));
-  assert.deepEqual(Object.fromEntries(q), { keep: '1', online: '1', load: '1', realm: 'r' + 'b'.repeat(20) }, 'no stale door key rides in');
+  // REALM-BIRTH (FIELD BUGS 2026-09-30, PIN MOVED): the address is the Online door's Play - its classic start set again, and
+  // `world`, the scene door main.js boots the world host on; without one a born character's reload was the front door's
+  assert.deepEqual(Object.fromEntries(q), { keep: '1', online: '1', load: '1', realm: 'r' + 'b'.repeat(20), classic: '1', world: '1' }, 'no stale door key rides in');
   assert.ok(BOOT_DOOR_KEYS.includes('realm') && BOOT_DOOR_KEYS.includes('realmnew'));
   for (const w of ['signed-out', 'no-data', 'lease', 'no-realm-character', 'customs-never-online', 'customs-already', 'customs-load-once', 'test-room', 'no-room', 'left']) {
     assert.ok(realmRefusalText(w) && realmRefusalText(w) !== realmRefusalText('utterly-unknown'), w);

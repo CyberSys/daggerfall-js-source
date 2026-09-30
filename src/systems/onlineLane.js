@@ -150,6 +150,7 @@ export const ONLINE_PLAYERS_OWN_PREFS = [
   'nightCrickets', 'distantHowl',        // SNDREP1: whether THIS player hears the night's crickets and the far howl - an ear, nothing the room agrees on
   'heldMap',          // MAP-TOGGLE: whether THIS player's maps are the held sheet or DFU's windows - a look, nothing the room agrees on
   'plusCursor', 'plusItemHover',   // PLUS6/7: the Plus dress's gauntlet cursor and its hover card - what THIS screen draws (OVH3's law: the skin is the player's; PLUS-ONLY retired `enhancedPlus`)
+  'packPhoneDoll',    // PACK-PHONE: whether THIS phone's pack draws the body - what this screen draws
   'plusToggleRun',    // PADPLUS1: whether THIS player's Run button latches - how this pad is held, nothing the room agrees on
   'proceduralSky',    // EE1's legacy key, read only by the migration
   'restWithParty',   // REST-OPT: whether I rest with my party or alone - my own say

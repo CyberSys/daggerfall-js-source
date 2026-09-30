@@ -629,7 +629,8 @@ test('SURV-TIERS: the tavern - the house asks after the gold and before the coin
   for (const [file, fn] of [['src/ui/tavernWindow.js', '_survivalFood()'], ['src/ui/enhancedTavern.js', 'function pickSurvival(']]) {
     const src = read(file); const at = src.indexOf(fn);
     const part = src.slice(at, src.indexOf('deductGold(h.entity, row.price);', at));
-    const gold = part.indexOf('totalGoldAmount(h.entity) < row.price'), order = part.indexOf('tavernOrder(s, now, row, { endurance, rules })');
+    // INN-WATER (FIELD BUGS 2026-09-30, PIN MOVED): the order's bag names the pack now (`items`, the skins the water asks after) - the call, read to its opening brace
+    const gold = part.indexOf('totalGoldAmount(h.entity) < row.price'), order = part.indexOf('tavernOrder(s, now, row, { endurance, rules');
     assert.ok(at > 0 && gold > 0 && order > gold, `${file}: the gold, then the house, then the coin`);
   }
 });

@@ -129,7 +129,8 @@ test('AUDIT 39 #97: presence is per COLUMN - a pre-fix save leaves FACTION.TXT s
 // ── #24: the transport mode ───────────────────────────────────────
 test('AUDIT 39 #24: the pose bag carries the mount and the ONE builder puts you back on it', () => {
   const w = read('src/scenes/world.js');
-  assert.match(w, /camera: mwViewSaveCamera\(\), transport: player\.transportMode \}/,
+  // FALL-KEPT (FIELD BUGS 2026-09-30, PIN MOVED): the fall follows the mode now, so the mode is no longer the tail.
+  assert.match(w, /camera: mwViewSaveCamera\(\), transport: player\.transportMode, fall: player\.fallSnapshot\(\) \}/,
     'SerializablePlayer.cs:179 beside the weapon and the camera');
   // The restore goes through setTransportModeHere, not player.setTransportMode:
   // the mount's sprite, hoof loop and ride bob re-arm only there (U53).

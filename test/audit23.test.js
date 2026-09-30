@@ -136,7 +136,8 @@ test('AUDIT 23: both dungeon-mounting hosts pass the spawn applier; the snapshot
   // player.spawn - a quickload kept velY/falling across the teleport.
   const root = join(dirname(fileURLToPath(import.meta.url)), '..');
   const wm = readFileSync(join(root, 'src/scenes/worldModes.js'), 'utf8');
-  assert.ok(wm.includes('const placeLoadedPlayer = (p) => { player.spawn(p[0], p[1], p[2]); player.stopAutorun(); };'),
+  // FALL-KEPT (FIELD BUGS 2026-09-30, PIN MOVED): the law lands a saved fall after the spawn (fb0930_fallkept.test.js).
+  assert.ok(wm.includes('const placeLoadedPlayer = (p, fall = null) => { player.spawn(p[0], p[1], p[2]); player.restoreFall(fall); player.stopAutorun(); };'),
     'worldModes\' load law calls player.spawn (AUDIT 27h S2: and drops the autorun latch - a load is no run; DIAL-LOAD: named once, handed everywhere)');
   assert.equal(wm.includes('player.pos[0] = p[0]'), false,
     'the raw-pos applier is gone');

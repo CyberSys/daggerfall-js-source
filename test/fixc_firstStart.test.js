@@ -32,7 +32,8 @@ test('FIX-C: the roads sweep RE-QUEUES what it tears down, nearest-first, and ho
   assert.match(world, /function rebuildRoadless\(\) \{ roadsSweepDue = true; \}/, 'the network\u2019s arrival marks the sweep');
   assert.match(world, /tickSeason\(\);\s*\n\s*if \(roadsSweepDue && !building\) \{ roadsSweepDue = false; sweepRoadless\(\); \}/, 'the frame runs it beside the season tick, never over a build in flight');
   // the release already exists: the hold lifts the moment the pixel stands again, or when nothing is coming
-  assert.match(world, /if \(_seasonHoldKey !== null && \(built\.has\(_seasonHoldKey\) \|\| \(!building && !queue\.length\)\)\) \{\s*\n\s*player\.spawn\(player\.pos\[0\], player\.pos\[1\], player\.pos\[2\]\);\s*\n\s*_seasonHoldKey = null;/, 'the dead-man\u2019s release, shared with the season');
+  // FALL-KEPT (FIELD BUGS 2026-09-30, PIN MOVED): the release keeps a fall under way across its re-anchor.
+  assert.match(world, /if \(_seasonHoldKey !== null && \(built\.has\(_seasonHoldKey\) \|\| \(!building && !queue\.length\)\)\) \{\s*\n\s*const fall = player\.fallSnapshot\(\);\s*\n\s*player\.spawn\(player\.pos\[0\], player\.pos\[1\], player\.pos\[2\]\);\s*\n\s*player\.restoreFall\(fall\);\s*\n\s*_seasonHoldKey = null;/, 'the dead-man\u2019s release, shared with the season');
 });
 
 test('FIX-C: the first exterior stand is DFU\u2019s Origin reposition - the terrain\u2019s corner, not the pixel\u2019s centre', () => {

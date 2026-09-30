@@ -13,8 +13,9 @@
 // meal's worth ("You are too full to finish your meal. The rest goes
 // to waste." - charged, the mod's own quirk kept), otherwise the
 // marker moves by the worth, never more than four hours ahead.
-// THE DRINK (TavernDrink): a quarter hour passes; a soft drink quenches
-// the thirst, an ale adds ten to the drunk counter, a wine twenty, a
+// THE DRINK (TavernDrink): a quarter hour passes; every drink quenches
+// the thirst whole (TAVERN-DRINK, below), a soft one counts nothing,
+// an ale adds ten to the drunk counter, a wine twenty, a
 // spirit thirty-five; past half the endurance "You are getting
 // drunk...", past the endurance you BLACK OUT (ShitFaced) - the host
 // passes the night (the clock to six in the morning offline), the
@@ -31,13 +32,28 @@
 // it will not sell a meal to a stomach too full for it. Both are asked
 // in one place, `tavernOrder`, after the gold and BEFORE the coin
 // changes hands, so a refusal never costs a coin or a minute.
+//
+// FIELD BUGS 2026-09-30 (INN-WATER): and the house fills a skin - one
+// row under the drinks header, the fountain's own law at the price of
+// the list's cheapest soft drink (`innWaterPrice`, `tavernWater`),
+// refused in `tavernOrder` with the rest.
 import { NEED } from './needs.js';
 import { HARD_RULES } from './difficulty.js';
+import { isWaterskin, waterIn, WATERSKIN_CAPACITY_KG } from './food.js';
+import { drinkAtSource } from './items.js';   // INN-WATER: the fountain's own law, filled at the bar
+import { CLIMATES } from '../../formats/mapsFile.js';   // MENU-CLIMATE: the menus keyed by the enum's names
 import { essentialPrice } from '../shopStock.js';   // ESSENTIALS-HALF: online, the menu costs half
 
-/** The mod's six keys, by the port's climate (temperature.js's indices 224-233). */
+/** The mod's six keys, by the port's climate.
+ *  FIELD BUGS 2026-09-30 (MENU-CLIMATE; the #bug-reports "Climates & Calories Bugs" thread's Sentinel inn): KEYED BY
+ *  THE CLIMATES ENUM'S NAMES, NOT BY NUMBERS. The table was written as 224 to 233, and the climates run 223 (Ocean) to
+ *  232 (Haunted Woodlands) - every climate served the menu meant for the one before it. The Desert, Sentinel's, served
+ *  the bay's bananas; the Mountain the desert's camel milk; the Ocean fell to the default; and 233 is no climate. Each
+ *  name keys the menu its number was written for. A declared departure (Port-Ledger A): the mod's region switch is not
+ *  recoverable whole from the IL, and the port keys the dishes by climate. */
 export const MENU_KEY_BY_CLIMATE = Object.freeze({
-  224: 'b', 225: 's', 226: 's', 227: 'ne', 228: 'b', 229: 'se', 230: 'b', 231: 'ne', 232: 'n', 233: 'n',
+  [CLIMATES.Ocean]: 'b', [CLIMATES.Desert]: 's', [CLIMATES.Desert2]: 's', [CLIMATES.Mountain]: 'ne', [CLIMATES.Rainforest]: 'b',
+  [CLIMATES.Swamp]: 'se', [CLIMATES.Subtropical]: 'b', [CLIMATES.MountainWoods]: 'ne', [CLIMATES.Woodlands]: 'n', [CLIMATES.HauntedWoodlands]: 'n',
 });
 export const menuKeyFor = (climateIndex) => MENU_KEY_BY_CLIMATE[climateIndex] ?? 'n';
 /** The tier by the tavern's quality (1-20): the mod's three tables a key. */
@@ -53,8 +69,6 @@ export const MEAL_WORTH = Object.freeze({ breakfast: 120, low: 120, mid: 200, hi
 /** The drinks' kinds and what each does to the counter. */
 export const DRINK_STRENGTH = Object.freeze({ soft: 0, ale: 10, wine: 20, spirit: 35 });
 export const MEAL_MINUTES = 30, DRINK_MINUTES = 15;
-/** A drink quenches this much thirst (a skin's drink is 40, food.js). */
-export const DRINK_THIRST_RELIEF = 40;
 
 const d = (name, price) => Object.freeze({ name, price });
 export const FOOD_MENUS = Object.freeze({
@@ -143,12 +157,33 @@ export const TAVERN_MENU_TEXT = Object.freeze({
   fullForMeal: 'You are too full to eat a meal yet.',   // AUDIT SURV-TIERS: the tier without the wasted meal
   noGold: 'You do not have enough gold.',
   drinksHeader: '--- Drinks ---',
+  // INN-WATER: the row, and the house's two refusals before the coin
+  water: 'Fill your waterskins',
+  noSkin: 'You carry no waterskin.',
+  skinsFull: 'Your waterskins are full.',
 });
+
+/**
+ * FIELD BUGS 2026-09-30 (INN-WATER; #bug-reports, "Climates & Calories
+ * Bugs": "Waterskins should be refillable at an inn/tavern. ... since
+ * water is rare in some regions like Sentinel, but inns are plentiful,
+ * this should be added"): THE HOUSE FILLS A SKIN. A skin filled only at
+ * a fountain, a well or a trough, and a desert town may stand none in
+ * reach while every street has an inn. Every menu carries a row now,
+ * under the drinks header, priced at the list's cheapest soft drink -
+ * water costs what the milk or the tea costs - and at its cheapest drink
+ * when it pours no soft one. A declared departure (Port-Ledger A): the
+ * mod's menus sell no water.
+ */
+export function innWaterPrice(drinks) {
+  const soft = drinks.filter((k) => DRINK_STRENGTH[drinkKind(k.name)] === 0);
+  return Math.min(...(soft.length ? soft : drinks).map((k) => k.price));
+}
 
 /**
  * The menu as the picker shows it: the food (breakfast in the morning,
  * the tier's list otherwise), a header, the drinks. `hour` 0-23.
- * Returns { rows: [{ text, kind: 'food'|'drink'|'header', name, price, worth, strength }], closed, closedText }.
+ * Returns { rows: [{ text, kind: 'food'|'drink'|'header'|'water', name, price, worth, strength }], closed, closedText }.
  */
 export function tavernMenu({ climateIndex = 232, quality = 5, hour = 12, online = undefined } = {}) {
   // ESSENTIALS-HALF (2026-09-30, Discord: "cut the cost of most essential items by half"): online each row's gold is
@@ -161,6 +196,8 @@ export function tavernMenu({ climateIndex = 232, quality = 5, hour = 12, online 
   const rows = [];
   if (!closed) for (const f of FOOD_MENUS[key][list]) rows.push({ text: `${String(cost(f.price)).padStart(2)} gold   ${f.name}`, kind: 'food', name: f.name, price: cost(f.price), worth: MEAL_WORTH[list] });
   rows.push({ text: TAVERN_MENU_TEXT.drinksHeader, kind: 'header', name: null, price: 0 });
+  const water = innWaterPrice(drinkMenuFor(key)[tier]);   // INN-WATER: first under the header, the kitchen shut or open
+  rows.push({ text: `${String(cost(water)).padStart(2)} gold   ${TAVERN_MENU_TEXT.water}`, kind: 'water', name: TAVERN_MENU_TEXT.water, price: cost(water) });   // ESSENTIALS-HALF: the water too
   for (const k of drinkMenuFor(key)[tier]) rows.push({ text: `${String(cost(k.price)).padStart(2)} gold   ${k.name}`, kind: 'drink', name: k.name, price: cost(k.price), strength: DRINK_STRENGTH[drinkKind(k.name)] });
   return { rows, closed, closedText, key, tier, list };
 }
@@ -184,17 +221,40 @@ export function tavernPour(s, strength, { endurance = 50, rules = HARD_RULES } =
 /** AUDIT SURV-TIERS: whether the house serves this row at all - both windows ask it after the gold and BEFORE the
  *  coin changes hands. A drink is the pour's question (tavernPour). A meal on a stomach too full for it (the
  *  hunger under the meal's worth - tavernEat's own test) is Hard's to sell: TavernFood charges it, passes the half
- *  hour and wastes it, the mod's quirk kept (`wastedMeal`). A tier without the waste will not sell it. Never
- *  touches the record. */
-export function tavernOrder(s, now, row, { endurance = 50, rules = HARD_RULES } = {}) {
+ *  hour and wastes it, the mod's quirk kept (`wastedMeal`). A tier without the waste will not sell it. INN-WATER:
+ *  the water is the skins' question (innWaterOrder), off `items`, the player's pack. Never touches the record. */
+export function tavernOrder(s, now, row, { endurance = 50, rules = HARD_RULES, items = null } = {}) {
   if (row?.kind === 'drink') return tavernPour(s, row.strength, { endurance, rules });
+  if (row?.kind === 'water') return innWaterOrder(items);
   if (row?.kind === 'food' && !(rules ?? HARD_RULES).wastedMeal && now - (s?.lastAte ?? now) < (row.worth ?? 0)) return { ok: false, text: TAVERN_MENU_TEXT.fullForMeal };
   return { ok: true };
 }
+/** INN-WATER: whether the barkeep has a skin to fill - asked in `tavernOrder` with the drink and the meal, so it is
+ *  refused before the coin. `items` is the player's pack; a skin is full as food.js reads one (refillSkins: no room
+ *  left under the capacity), and every skin full is nothing to fill. Every tier refuses alike. */
+function innWaterOrder(items) {
+  const skins = (items ?? []).filter(isWaterskin);
+  if (!skins.length) return { ok: false, text: TAVERN_MENU_TEXT.noSkin };
+  if (skins.every((i) => WATERSKIN_CAPACITY_KG - waterIn(i) <= 0)) return { ok: false, text: TAVERN_MENU_TEXT.skinsFull };
+  return { ok: true };
+}
+/** INN-WATER: the fill is the fountain's own law (items.js drinkAtSource) - every skin the player carries filled, the
+ *  thirst quenched, the fountain's own words - and, as at the fountain, no time passes. */
+export function tavernWater(entity, now) {
+  return { text: drinkAtSource(entity, now).text, minutes: 0 };
+}
 /** TavernDrink: the thirst quenched, the counter up by the strength; the word by the endurance bands; past it, the
- *  blackout - in a tier that has one (`rules.blackout`; Hard's when no rules). */
+ *  blackout - in a tier that has one (`rules.blackout`; Hard's when no rules).
+ *  FIELD BUGS 2026-09-30 (TAVERN-DRINK; #bug-reports, "Climates & Calories Bugs": "Drinking beverages at an inn/tavern
+ *  does not fill your hydration. It is supposed to, and food works properly, it's only beverages."): A TAVERN DRINK
+ *  QUENCHES THE THIRST WHOLE, whatever its kind, as a meal fills the stomach whole (tavernEat). It took forty off a
+ *  thirst that runs to a hundred and fifty, and its quarter hour climbed again while it was drunk: a desert inn's juice
+ *  read 150, 127, 103, 80 and 57, four paid cups to leave the red. A Casual thirst loan (needs.js `borrowed`) is repaid
+ *  when the thirst leaves red, so it stayed owed through three of them. The quarter hour the host passes after the pour
+ *  is the minute law's first sight of the met thirst, and the loan comes back in the same pick. The drunk counter by
+ *  kind and the quarter hour stand. A declared departure (Port-Ledger A): SURV5 restated TavernDrink as forty. */
 export function tavernDrink(s, strength, { endurance = 50, rules = HARD_RULES } = {}) {
-  s.thirst = Math.max(0, (s.thirst ?? 0) - DRINK_THIRST_RELIEF);
+  s.thirst = 0;
   s.drunk = (s.drunk ?? 0) + (strength | 0);
   if (s.drunk > endurance && (rules ?? HARD_RULES).blackout) return { text: TAVERN_MENU_TEXT.blackout, blackout: true, minutes: DRINK_MINUTES };
   if (s.drunk > endurance / 2) return { text: s.drunk > endurance - 10 ? TAVERN_MENU_TEXT.veryDrunk : TAVERN_MENU_TEXT.gettingDrunk, blackout: false, minutes: DRINK_MINUTES };

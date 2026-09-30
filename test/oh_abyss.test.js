@@ -830,7 +830,10 @@ test('AUDIT OH-F B5 online: the Recall renames before the room is joined; a deat
   const oh = src.indexOf('oceanHoles.checkSettings(); ohAbyss?.update(); }');
   assert.ok(oh > 0 && oh < src.indexOf('onlineFrame(now, dt);'), 'the abyss\'s Update before the online frame reads the room key');
   assert.match(src, /const ohReturn = wasInDungeon \? ohAbyss\?\.returnPoint\(\) \?\? null : null;/);
-  assert.ok(src.indexOf('const ohReturn = wasInDungeon') < src.indexOf("if (mode !== 'exterior') modes?.forceExitToExterior();\n      const px = ohReturn?.pixel ?? playerTravelPixel();"), 'read before the exit clears the abyss');
+  // RESPAWN-GROUND (FIELD BUGS 2026-09-30, PIN MOVED): the pixel is read with the return point, before the rise is
+  // scheduled - so before the exit that clears the abyss, as this pin asked
+  const read = src.indexOf('\n    const px = ohReturn?.pixel ?? playerTravelPixel();');
+  assert.ok(src.indexOf('const ohReturn = wasInDungeon') < read && read < src.indexOf("if (mode !== 'exterior') modes?.forceExitToExterior();", read), 'read before the exit clears the abyss');
   assert.match(src, /if \(ohReturn\) \{ await ohTeleportToWorld\(ohReturn\.worldX, ohReturn\.worldZ\); await ohAbyss\.standAtPit\(ohReturn\); \}/);
 });
 

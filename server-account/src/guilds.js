@@ -407,17 +407,18 @@ async function moveTreasury(db, me, who, kind, gold, nowS) {
 }
 
 /** REALM P2.2: THE TREASURY AND A REALM CHARACTER'S RECORD MOVE TOGETHER - one batch: the record pays (a deposit, by the
- *  wallet's own order, `region`'s account last) or is paid (a withdrawal, to the purse), and the treasury moves by what
- *  it holds, each guarded; both or neither. Answers the balance and the record's new sequence.
+ *  wallet's own order, `region`'s account last) or is paid (a withdrawal, to the purse - GUILD-LETTER: or, `letter`, as
+ *  a letter of credit), and the treasury moves by what it holds, each guarded; both or neither. Answers the balance and
+ *  the record's new sequence.
  *  AUDIT REALM L1-F3: A RECORD IS PAID ONLY WHAT RECORDS PAID IN. `realm_gold` (migration 0020) is the part of the
  *  treasury realm records deposited, and a realm withdrawal takes from it alone: the rest came in on a client's word -
  *  before the realm, or through the old lane any other character still has (a million deposited by a character no
  *  record stands behind, then taken out by the guildmaster's record, was a million made). */
-async function realmTreasury(ctx, player, me, at, kind, gold, region) {
+async function realmTreasury(ctx, player, me, at, kind, gold, region, letter = false) {
   const { db, bucket, nowS } = ctx;
   const prep = await prepareRealmRecord(ctx, player.id, at, (save) => (kind === 'deposit'
     ? (payFromSave(save, gold, region) ? null : 'realm-gold')
-    : (creditSave(save, gold) ? null : 'bad-gold')));
+    : (creditSave(save, gold, { letter }) ? null : 'bad-gold')));
   if (prep.error) return prep;
   const move = kind === 'deposit'
     ? db.prepare('UPDATE guilds SET treasury = treasury + ?1, realm_gold = realm_gold + ?1, moved_by = ?4, moved_at = ?5 WHERE id = ?2 AND treasury + ?1 <= ?3').bind(gold, me.guild_id, GUILD_TREASURY_MAX, displayName(player), nowS)
@@ -454,8 +455,11 @@ export async function depositToGuild(ctx, player, { character, gold, realm = nul
 }
 
 /** TAKE GOLD OUT - the guildmaster's alone (Mac: "Guildmaster only"), never more than the treasury holds. A realm
- *  character's record takes it here, with the treasury (REALM P2.2). */
-export async function withdrawFromGuild(ctx, player, { character, gold, realm = null } = {}) {
+ *  character's record takes it here, with the treasury (REALM P2.2).
+ *  GUILD-LETTER (FIELD BUGS 2026-09-30): `letter` true, the record takes it as a letter of credit, not as coin - the
+ *  client weighed the coin against what its pack can carry (net/guildBook.js withdraw) and writes the same letter
+ *  (net/realmGoldLaw.js creditSave, which reads nothing but `true`). A million gold weighs 2,500 kg. */
+export async function withdrawFromGuild(ctx, player, { character, gold, realm = null, letter = false } = {}) {
   const { db, nowS } = ctx;
   const side = await realmActFirst(db, player.id, character, realm);   // AUDIT REALM L1-F2: where the record stands, before any other word
   if (side.error) return side;
@@ -464,7 +468,7 @@ export async function withdrawFromGuild(ctx, player, { character, gold, realm = 
   if (!guildMay(a.me.rank, 'withdraw')) return { error: 'guild-rank' };
   if (!guildGoldOk(gold)) return { error: 'bad-gold' };
   if (await spend(ctx, player)) return { error: 'guild-rate' };
-  if (side.at) return realmTreasury(ctx, player, a.me, side.at, 'withdraw', gold, null);
+  if (side.at) return realmTreasury(ctx, player, a.me, side.at, 'withdraw', gold, null, letter);
   const treasury = await moveTreasury(db, a.me, displayName(player), 'withdraw', gold, nowS);
   return treasury == null ? { error: 'guild-treasury-short' } : { ok: true, treasury };
 }

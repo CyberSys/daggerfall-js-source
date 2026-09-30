@@ -269,7 +269,7 @@ import { createBankAccounts, createHouses, BANK_REGION_COUNT, TRANSACTION_RESULT
 // HOME1: the online homes - the door's one answer, the offer, the owner's menu, and an owned home's own scene
 import {
   homeCandidate, homePurchasable, homeSceneName, homeDoorAnswer, homeDoorTitle, homeLockedLine, homeBelongsLine,
-  homeForSaleLine, homeOfferLines, HOME_BOUGHT_LINE, homeShortLine, homeOwnerLines, homeEntryLine, homeSaleLines,
+  homeForSaleLine, homeOfferLines, HOME_BOUGHT_LINE, homeShortLine, homeOwnerLines, homeEntryLine, homeSaleLines, HOME_CROSSED_LINES, HOME_SALE_OUT,
   homeSoldLine, homeRefund, HOME_ENTRY_WORDS, HOME_BANK_LINES, buyOnlineHome, sellOnlineHome, HOME_BUY_BUSY, homeDoorPrompt,
   HOME_BUY_ARM_MS, HOME_VERB, homeBuyRows, homeOwnerRows, homeNextEntry, HOME_OFFER_BUY, HOME_OFFER_PASS,   // HOME2
 } from '../systems/onlineHomes.js';
@@ -494,14 +494,16 @@ export function createWorldModes(host) {
   /** DIAL-LOAD: THE ONE LAW A LOAD PLACES THE PLAYER BY in this host's dungeons - P14's spawn (a load clears motion
    *  state: DFU CancelMovement + ClearFallingDamage) and AUDIT 27h S2's autorun latch. The dungeon context is handed it
    *  at build, so every load it runs lands by it, whichever door opened the Load; the key route, the world's
-   *  dungeon-save restore and the CASTLE1 probe take the same one (S2 edited three copies, and the probe's kept its latch). */
-  const placeLoadedPlayer = (p) => { player.spawn(p[0], p[1], p[2]); player.stopAutorun(); };
+   *  dungeon-save restore and the CASTLE1 probe take the same one (S2 edited three copies, and the probe's kept its latch).
+   *  FALL-KEPT (FIELD BUGS 2026-09-30): the context hands the save's fall beside the saved position, and it lands after
+   *  the spawn has cleared the rest; the start-marker warp hands none. */
+  const placeLoadedPlayer = (p, fall = null) => { player.spawn(p[0], p[1], p[2]); player.restoreFall(fall); player.stopAutorun(); };
   /**
    * PlayerGPS.CurrentLocation.Name, in the PORT's spelling, once.
    *
    * AUDIT-WH H5. Three hover arms wrote `.Name` - the C# property, as
    * the mod's own source spells it (.cs:764, :725, :777) - and the
-   * record these hosts mint spells it `name` (exterior.js:3833 hands
+   * record these hosts mint spells it `name` (exterior.js:3836 hands
    * `dfLocation`, world.js hands `_questLoc()`; both are the port's
    * location record). `.Name` on it is `undefined`, so all three arms
    * fell to `''`, and `staticDoorName` answers NULL on an empty
@@ -1250,7 +1252,7 @@ export function createWorldModes(host) {
    *  runMagicRoundsFor, so no tickActiveEffects and no updatePoisons
    *  (worldTick.js:391-392), and no killIfAnyLiveStatZero. Both pools
    *  READ the effect list every frame (exteriorFoes.js:1091-1095 and
-   *  cityGuards.js:1038-1048 each take `entityIsParalyzed` +
+   *  cityGuards.js:1039-1049 each take `entityIsParalyzed` +
    *  `applyEnemyMotorEffectFlags`), and nothing ever ended one: a
    *  Continuous Damage bundle on a foe in a shop never took a round,
    *  a poison inflicted at this host's own onInflictPoison never
@@ -6015,6 +6017,10 @@ export function createWorldModes(host) {
   }
   /** Sell it back - asked first, at the share Daggerfall pays for a deed of what this house costs. */
   function openHomeSale(bd) {
+    // HOME-CROSSED (FIELD BUGS 2026-09-30): a home customs carried in is never bought back online - the door says so
+    // and asks no price (it asked 600,100 of Seanobi's, and the service paid its deed share of nothing and took it)
+    const home = homeOf(bd);
+    if (home?.crossed && host.realmAct) { townTalk?.showOverlay?.(new ChoiceWindow({ lines: HOME_CROSSED_LINES, options: [{ code: 'Escape', label: 'Esc - close', action: () => {} }] })); return; }
     const refund = homeRefund(housePrice(houseMeshRadius(bd)));
     townTalk?.showOverlay?.(new ChoiceWindow({
       lines: homeSaleLines(refund),
@@ -6046,6 +6052,7 @@ export function createWorldModes(host) {
       },
       realm: host.realmAct ? { act: host.realmAct } : null,   // REALM P2.2b: the record paid back in the release's own batch
     });
+    if (r.error === HOME_SALE_OUT) return;   // HOME-CROSSED: a second press while the first sale is out - its answer speaks
     if (!r.ok) { townTalk?.say?.(accountRefusalText(r.error)); return; }
     townTalk?.say?.(homeSoldLine(r.refund, r.decorBack) + (own.length ? ` ${ownBackLines(own, decorOwnBackLine)}` : ''));   // DECOR1e: and its placed pieces' half
   }
@@ -7149,7 +7156,7 @@ export function createWorldModes(host) {
           // this mode machine owns the modal player and camera; the
           // context owns the weapon and folds weaponDrawn in itself.
           pose: {
-            read: () => ({ yaw: cam.yaw, pitch: cam.pitch, crouching: !!player.crouching }),
+            read: () => ({ yaw: cam.yaw, pitch: cam.pitch, crouching: !!player.crouching, fall: player.fallSnapshot() }),   // FALL-KEPT: and the fall (motor.js fallSnapshot), which the load lands with the position
             apply: (p) => {
               cam.yaw = p.yaw ?? cam.yaw;
               cam.pitch = p.pitch ?? cam.pitch;
@@ -8308,7 +8315,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:13691's own wave-46 note); the interior
+          // a blow (world.js:13720's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -8343,10 +8350,10 @@ export function createWorldModes(host) {
         // AUDIT 58: WeaponManager.cs:630 after the damage fork - a
         // zero-damage shaft still enrages its mark and the room.
         // ROAD-G G1 (review): the interior WATCH carries the pair now
-        // (cityGuards.js:776-781), so this seam splits by pool exactly
+        // (cityGuards.js:777-782), so this seam splits by pool exactly
         // as `dealDamage` above it does rather than dropping the
         // non-encounter half - the zero-damage SWING already reaches
-        // that door (cityGuards.js:1338) and the shaft owes the same.
+        // that door (cityGuards.js:1346) and the shaft owes the same.
         onAttackFromPlayer: (f) => (f._encounter
           ? interiorFoes?.attackFromPlayer(f, player.pos, 'arrow')   // AUDIT WORLD6b-iii(e) A2: the pool's one door, the shaft's kind on it
           : interiorGuards?.handleAttackFromPlayer(f, player.pos)),
@@ -9237,7 +9244,7 @@ export function createWorldModes(host) {
   addEventListener('mousedown', (e) => {
     // AUDIT-MACK F2: THIS HOST DOES NOT FEED THE HELD SET, and MAC-K1
     // briefly made it. `keys` is not this host's - it arrives on the
-    // host bag (`exterior.js:3895`, `world.js`'s twin), and the OUTER
+    // host bag (`exterior.js:3898`, `world.js`'s twin), and the OUTER
     // host's own mousedown writes `keys.add(mouseCode(e.button))`
     // UNGATED, before any mode test, on a listener that is never
     // removed. So the three button codes were already in the Set while
@@ -10933,9 +10940,9 @@ export function createWorldModes(host) {
      *  .cs:175-176 writes `weaponDrawn`/`usingLeftHand` off it,
      *  :420-421 restores them onto it. The port has FOUR PlayerWeapons
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
-     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3467-3489), and IS1 routed the inside-a-building save to
+     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3470-3492), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:10150). So an F9 pressed in a shop
+     *  unconditionally (world.js:10171). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -10974,7 +10981,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:10261)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:10286)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -10984,7 +10991,7 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:9149`
+     *  HARD2c: this used to spell them out, and named `world.js:9165`
      *  and `dungeonContext.js:7573` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */

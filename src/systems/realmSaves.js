@@ -334,6 +334,12 @@ export function takeRealmNotice(/** @type {any} */ storage) {
 /**
  * THE URL THAT BOOTS A REALM CHARACTER: the online lane, the load door and the character's id - the one online boot
  * there is. Every other door key off it (onlineLane.js BOOT_DOOR_KEYS), so a stale load key never rides in.
+ * REALM-BIRTH (FIELD BUGS 2026-09-30, "crashed to the main menu" after online character creation): IT IS THE ONLINE
+ * DOOR'S PLAY, KEY FOR KEY, AND IT NAMES ITS HOST. The door boots the world host in its own page with the classic start
+ * beside these three (main.js's front door). A born character reaches that host by a reload (scenes/world.js
+ * realmBirth), and main.js boots a game only on a scene door: this address had none, so it was the front door's, which
+ * clears every door key, the realm id with them, and shows the menu. The make and the save had landed, so the Online
+ * door played the character fine. test/fb0930_realmbirth.test.js holds the two boots to each other.
  * @param {string} search @param {string} id @param {readonly string[]} doorKeys
  */
 export function realmBootSearch(search, id, doorKeys) {
@@ -342,6 +348,8 @@ export function realmBootSearch(search, id, doorKeys) {
   p.set('online', '1');
   p.set('load', '1');
   p.set('realm', id);
+  p.set('classic', '1');   // REALM-BIRTH: the Online door's classic start - the start cell the load lands over
+  p.set('world', '1');   // REALM-BIRTH: the world host's scene door (main.js) - the host the Online door boots
   return `?${p.toString()}`;
 }
 
