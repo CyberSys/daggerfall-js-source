@@ -52,7 +52,6 @@ import { UNYIELDED } from '../net/marketLaw.js';   // AUDIT 32 P8: a cloth nothi
 import { marksText } from '../net/marksLaw.js';   // AUDIT 32 R13: "1 Drake", as the Market tab says it
 import { accountRefusalText } from '../net/accountClient.js';
 import { getPref, setPref } from '../systems/uiPrefs.js';
-import { isEnhanced } from '../systems/uiSkin.js';
 
 /**
  * @typedef {object} ProfPagesProvider
@@ -91,18 +90,18 @@ const LATER_WORDS = Object.freeze({
 });
 /** Whether the pages stand: a book, and the professions this account's. */
 export const profPagesShown = () => !!_provider && _provider.book?.state?.open === true;
-/** AUDIT 29 B2: whether a Forge works here - the professions the account's (the pages shown) and the Enhanced pause
- *  menu, the one the Stores page is on (the classic skin's pause has no pages - FLAGGED). A home's Forge station is
- *  offered, and sold, only while it does: its 50,000 gold bought a piece that did nothing offline, for an account the
- *  switch had not opened to, and on the classic skin. */
-export const forgeOffered = () => profPagesShown() && isEnhanced();
+/** AUDIT 29 B2: whether a Forge works here - the professions the account's (the pages shown). A home's Forge station is
+ *  offered, and sold, only while it does: its 50,000 gold bought a piece that did nothing offline, or for an account the
+ *  switch had not opened to. CLASSIC-PAGES: on either skin - the Stores page opens on the classic skin too
+ *  (ui/pauseDoor.js openPauseFlow), where AUDIT 29 B2 held the classic skin out because its pause had no pages. */
+export const forgeOffered = () => profPagesShown();
 /** What a Forge station says when it cannot be worked here. */
-export const FORGE_COLD_LINE = 'The forge is cold. Smelting is done online, from your Stores, on the Enhanced pause menu\'s Stores page.';
+export const FORGE_COLD_LINE = 'The forge is cold. Smelting is done online, from your Stores page.';
 /** PROF4 (bible/06-Systems/Professions-Arc.md 25): the home stations the Stores page works - the forge and the workbench -
  *  offered, sold and worked only where it is (forgeOffered's gate, AUDIT 29 B2). */
 export const PROF_STATIONS = Object.freeze(['forge', 'workbench', 'loom']);   // PROF7: the loom
-export const WORKBENCH_COLD_LINE = 'The workbench is bare. Carpentry is done online, from your Stores, on the Enhanced pause menu\'s Stores page.';
-export const LOOM_COLD_LINE = 'The loom is still. Outfitting is done online, from your Stores, on the Enhanced pause menu\'s Stores page.';
+export const WORKBENCH_COLD_LINE = 'The workbench is bare. Carpentry is done online, from your Stores page.';
+export const LOOM_COLD_LINE = 'The loom is still. Outfitting is done online, from your Stores page.';
 export const stationColdLine = (station) => (station === 'workbench' ? WORKBENCH_COLD_LINE : station === 'loom' ? LOOM_COLD_LINE : FORGE_COLD_LINE);
 /** The rail's rows the pages add. */
 export const PROF_PAGE_SECTIONS = Object.freeze([Object.freeze(['professions', 'Professions']), Object.freeze(['stores', 'Stores'])]);

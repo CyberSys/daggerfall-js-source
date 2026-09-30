@@ -1,0 +1,85 @@
+[
+  {
+    "name": "CLASSICPAGES-no-prof-arm",
+    "file": "src/ui/pauseDoor.js",
+    "old": "  if (profPageAt(hooks.at)) {\n",
+    "new": "  if (false) {\n",
+    "tests": [
+      "test/classicpages.test.js"
+    ]
+  },
+  {
+    "name": "CLASSICPAGES-closed-opens-anyway",
+    "file": "src/ui/pauseDoor.js",
+    "old": "    if (!profPagesShown()) { hudText(PROF_PAGES_CLOSED_LINE); return null; }\n",
+    "new": "",
+    "tests": [
+      "test/classicpages.test.js"
+    ]
+  },
+  {
+    "name": "CLASSICPAGES-closed-unsaid",
+    "file": "src/ui/pauseDoor.js",
+    "old": "    if (!profPagesShown()) { hudText(PROF_PAGES_CLOSED_LINE); return null; }",
+    "new": "    if (!profPagesShown()) { return null; }",
+    "tests": [
+      "test/classicpages.test.js"
+    ]
+  },
+  {
+    "name": "CLASSICPAGES-prof-at-any-page",
+    "file": "src/ui/pauseDoor.js",
+    "old": "export const profPageAt = (at) => PROF_PAGE_SECTIONS.some(([id]) => id === at);",
+    "new": "export const profPageAt = (at) => !!at;",
+    "tests": [
+      "test/classicpages.test.js"
+    ]
+  },
+  {
+    "name": "CLASSICPAGES-forge-never-offered",
+    "file": "src/ui/profPages.js",
+    "old": "export const forgeOffered = () => profPagesShown();",
+    "new": "export const forgeOffered = () => profPagesShown() && false;",
+    "tests": [
+      "test/classicpages.test.js",
+      "test/audit29_client.test.js"
+    ]
+  },
+  {
+    "name": "CLASSICPAGES-key-unrouted",
+    "file": "src/ui/input.js",
+    "old": "    case 'Professions': return ctx.togglePause ? (ctx.togglePause({ at: 'professions', setPlayerPos }), true) : false;\n",
+    "new": "",
+    "tests": [
+      "test/classicpages.test.js"
+    ]
+  },
+  {
+    "name": "CLASSICPAGES-key-lands-on-stats",
+    "file": "src/ui/input.js",
+    "old": "ctx.togglePause({ at: 'professions', setPlayerPos })",
+    "new": "ctx.togglePause({ at: 'stats', setPlayerPos })",
+    "tests": [
+      "test/classicpages.test.js"
+    ]
+  },
+  {
+    "name": "CLASSICPAGES-key-unbound",
+    "file": "src/systems/inputActions.js",
+    "old": "  ['ArrowDown', 'Professions'],   // CLASSIC-PAGES: the professions' two keys on the arrows - the act choice up, the pages down\n",
+    "new": "",
+    "tests": [
+      "test/classicpages.test.js",
+      "test/inputactions.test.js"
+    ]
+  },
+  {
+    "name": "CLASSICPAGES-where-line-no-key",
+    "file": "src/scenes/gatherHost.js",
+    "old": "${key ? `${key} opens your Stores page` : 'the pause menu\\'s Stores page'}",
+    "new": "the pause menu\\'s Stores page",
+    "tests": [
+      "test/classicpages.test.js"
+    ]
+  }
+]

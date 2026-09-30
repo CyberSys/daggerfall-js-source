@@ -904,6 +904,9 @@ export function routeAction(action, ctx, setPlayerPos = null) {
     case 'Escape': return ctx.togglePause ? (ctx.togglePause({ setPlayerPos }), true) : false;
     case 'CharacterSheet': ctx.toggleCharSheet({ setPlayerPos }); return true;   // F5-QUESTS: the enhanced sheet IS the pause window, and its Load wants the applier Escape's gets
     case 'Inventory': ctx.toggleInventory(); return true;
+    // CLASSIC-PAGES: the Professions key opens the pause on the Professions page - on either skin (ui/pauseDoor.js
+    // openPauseFlow opens the enhanced pages for it), or says why not
+    case 'Professions': return ctx.togglePause ? (ctx.togglePause({ at: 'professions', setPlayerPos }), true) : false;
     // GameManager.cs:550-553 - the CastSpell ACTION opens the
     // spellbook window; the cast itself is the attack click.
     case 'CastSpell': ctx.toggleSpellbook(); return true;

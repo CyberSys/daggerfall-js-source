@@ -1318,9 +1318,10 @@ instruction), and what was found (FACT):
   at rank 50). An ingot is **own** only when every unit that made it was (bought units are spent first, section 7).
   Up to 100 a smelt. **The forge**: a Weaponsmith's or an Armorer's (50 gold a smelt, the use fee, paid from the purse)
   or a home's **forge** station - HOME-STATIONS grows a fourth craft (`DECOR_STATIONS`, its licence 50,000 gold as the
-  alchemy station's - offered, sold and worked only where the Stores page is: online, the professions the account's, on
-  the Enhanced skin, AUDIT 29). The Forge is a section of the Stores page (`ui/profPages.js`, the Enhanced pause menu;
-  the classic skin's has no pages - **FLAGGED**), live while
+  alchemy station's - offered, sold and worked only where the Stores page is: online, the professions the account's,
+  AUDIT 29; on either skin since CLASSIC-PAGES). The Forge is a section of the Stores page (`ui/profPages.js`, the
+  Enhanced pause menu; CLASSIC-PAGES, 2026-09-30: a door pressed for a professions page - the Professions key, the down arrow, or
+  a station - opens that page on the classic skin too, `ui/pauseDoor.js` openPauseFlow), live while
   the player stands inside a Weaponsmith's or an Armorer's (`scenes/worldModes.js` forgeHere; the fee paid on the
   first answer the press hears, a `repeat` included - AUDIT 29 C3; AUDIT 30: "never on a repeat" stood here since) or
   their own home with a forge station, whose press opens the pause menu at

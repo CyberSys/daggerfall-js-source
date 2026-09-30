@@ -15,7 +15,7 @@ the method and the old one is named as corrected.*
 superseded page was written as an audit's evidence file and carried its
 166 confirmed defects inline; this one carries none, because they are
 closed and their record is `Audit-44.md`. What this page is for is the
-three lists at the bottom: the **19 open flags** (8 stand after Wave E,
+three lists at the bottom: the **19 open flags** (7 stand after Wave E,
 the ship landing, ROAD-F, QX1/TP2 and SUMMON-SYNC, two of them AUDIT 29's and PROF4's, added since - list 1 strikes the rest, and
 `node tools/regenOpenFlags.mjs --check` is the arbiter) with the blocker the
 closeout triage assigned each, the **Port-Ledger section C rows still
@@ -34,8 +34,8 @@ class AUDIT 44 named - and what remains is no longer a list of defects
 but a list of **nineteen sites with a named blocker, fourteen ledger
 rows that still owe work - six of them stale under the campaign that
 ran past them - and a set of departures that were never on the road.**
-Wave E and the closures after it worked that list down to **eight sites
-and six rows** (six, and AUDIT 29's and PROF4's added since) (five, since OT1 struck `:680`),
+Wave E and the closures after it worked that list down to **seven sites
+and six rows** (six, and AUDIT 29's and PROF4's added since, AUDIT 29's struck by CLASSIC-PAGES) (five, since OT1 struck `:680`),
 which is what lists 1 and 2 now record; the paragraph above is the
 measurement as taken, kept because the two lists are read against it.
 
@@ -49,7 +49,7 @@ measurement as taken, kept because the two lists are read against it.
 | `src/` lines | 164,220 | **186,438** | same list, concatenated through `wc -l` |
 | test files | 529 | **588** | `git ls-tree -r <sha> --name-only \| grep -c '^test/.*\.test\.js$'` |
 | suite | 5,110 tests | **6,050 tests, 5,841 pass, 0 fail, 208 data-gated skips** | `node --test` at the close |
-| open flags | 151 | **8** | `node tools/regenOpenFlags.mjs --check` answers 8 ("8 entries, up to date" - ONLINE-DUNGEON-FOES came and, at SUMMON-SYNC, went; AUDIT 29 added the seventh, the classic skin's pause with no professions pages, `ui/profPages.js`; PROF4 the eighth, the woods' pictures untinted, `net/professionLaw.js`). It answered 19 when this table was taken - 17 at `c3c12ee`, plus the two the closeout tail's spell-hand port added - Wave E then retired six, named in list 1, the ship landing a seventh, ROAD-F three more (GS1 `scenes/worldModes.js`, GS2 `systems/skills.js`, DR1 `scenes/dungeonContext.js`), and QX1 the next (`scenes/exterior.js`'s PX3, struck in list 1); the same grep over `git show 6881171:bible/Home.md` returns 151 |
+| open flags | 151 | **7** | `node tools/regenOpenFlags.mjs --check` answers 7 ("7 entries, up to date" - ONLINE-DUNGEON-FOES came and, at SUMMON-SYNC, went; AUDIT 29 added the seventh, the classic skin's pause with no professions pages, `ui/profPages.js`, and CLASSIC-PAGES retired it; PROF4 the eighth, the woods' pictures untinted, `net/professionLaw.js`). It answered 19 when this table was taken - 17 at `c3c12ee`, plus the two the closeout tail's spell-hand port added - Wave E then retired six, named in list 1, the ship landing a seventh, ROAD-F three more (GS1 `scenes/worldModes.js`, GS2 `systems/skills.js`, DR1 `scenes/dungeonContext.js`), and QX1 the next (`scenes/exterior.js`'s PX3, struck in list 1); the same grep over `git show 6881171:bible/Home.md` returns 151 |
 | ARENA2-gated tests | 199 | **207** | the runner's own `# skipped` line |
 
 Both volume figures reproduce the superseded page exactly at its own
@@ -373,7 +373,7 @@ became Wave D's 42 slices.
 
 # What remains
 
-## 1. The nineteen open flags this was measured over - EIGHT STAND
+## 1. The nineteen open flags this was measured over - SEVEN STAND
 
 The list is `bible/Home.md`'s "Open flags", regenerated from `src/` by
 `tools/regenOpenFlags.mjs` and pinned both ways by
@@ -500,7 +500,7 @@ are the **narrowed remainders** Wave D recorded rather than shipped
   `%`), `talkMacros.js` carries none - it is the MCP: TalkManagerMCP's
   thirteen overrides over the one GameManager the host hands in - and
   all four sentinels are reachable and pinned.*
-- ~~**`src/systems/inputActions.js:1131`** - STILL FLAGGED, NARROWED (GP1,
+- ~~**`src/systems/inputActions.js:1139`** - STILL FLAGGED, NARROWED (GP1,
   2026-09-11)~~ **RETIRED (GP3, 2026-09-11): the pad plays, its window is built, its cursor works a window - the note stands where the flag stood.** ~~axes and joystick. *The port has no gamepad input
   layer, so `AxisActions` and `JoystickUIActions` have no source to
   bind and `loadKeyBinds` deliberately ignores those blocks in a
@@ -653,11 +653,14 @@ are the **narrowed remainders** Wave D recorded rather than shipped
 
 **Added after this page was measured.**
 
-- **`src/ui/profPages.js:95`** - the professions' pages on the classic skin
+- ~~**`src/ui/profPages.js:95`** - the professions' pages on the classic skin
   (AUDIT 29, 2026-09-28). *The Professions and Stores pages, and the Forge on the Stores page, are the Enhanced pause
   menu's Stats rail; the classic skin's pause (DFU's own) has no pages, so a classic player reaches them only through
   its Controls button's settings screen, and a home's Forge station is not offered there. The professions are a Ledger
-  A departure, so no C# line is owed; closing it is a classic page for them - an owner decision.*
+  A departure, so no C# line is owed; closing it is a classic page for them - an owner decision.*~~ CLOSED by
+  CLASSIC-PAGES (2026-09-30, Mac: "Enhanced pages + key"): a door pressed for a professions page - the Professions key
+  (the down arrow) or a station - opens them on either skin (`ui/pauseDoor.js` openPauseFlow), and the stations are
+  offered on both; the flag is gone from the site (`06-Systems/Online-Arc.md` CLASSIC-PAGES).
 - **`src/net/professionLaw.js:361`** - the woods' pictures, untinted (PROF4, 2026-09-28). *A log and Heartwood
   borrow DFU's Twigs picture and a plank the Staff's, dyed Iron; the seven woods are not tinted apart, because DFU's two
   dye swatches are clothing's and metal's and a twig's picture is neither's. Whether they read apart in the Stores and
@@ -668,8 +671,8 @@ are the **narrowed remainders** Wave D recorded rather than shipped
 when this was measured, over the 19 the list then held. Every bullet the
 tree has closed since is struck at its own entry above, and the sites
 still standing there are the six `bible/Home.md` listed then (GP3 retired the seventh); the one added above after
-this page was measured is struck too (SUMMON-SYNC), and AUDIT 29 and PROF4 added one each, listed last - eight in all, which is what the tool answers. **As of Wave E, the ship
-landing, ROAD-F (GS1, GS2, DR1), QX1/TP2, SUMMON-SYNC, AUDIT 29 and PROF4, `node tools/regenOpenFlags.mjs --check` answers 8**,
+this page was measured is struck too (SUMMON-SYNC), and AUDIT 29 and PROF4 added one each, listed last (CLASSIC-PAGES struck AUDIT 29's) - seven in all, which is what the tool answers. **As of Wave E, the ship
+landing, ROAD-F (GS1, GS2, DR1), QX1/TP2, SUMMON-SYNC, AUDIT 29, PROF4 and CLASSIC-PAGES, `node tools/regenOpenFlags.mjs --check` answers 7**,
 and no count in
 this file or in `Road-To-1-1.md` may state another figure: the tool is
 the measurement, and `test/citedrift.test.js` holds both documents to
@@ -1080,7 +1083,7 @@ into a module-and-host one costs.
 
 What is genuinely left is small, and it is now named to the line.
 
-**eight sites carry a blocker** - the eight `node
+**seven sites carry a blocker** - the seven `node
 tools/regenOpenFlags.mjs --check` answers and `bible/Home.md` lists.
 Three cannot move at all while the surrounding decisions stand: there
 is no `PlayerTorch.prefab` anywhere in the reference tree (twice), and

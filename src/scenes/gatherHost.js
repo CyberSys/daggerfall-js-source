@@ -79,8 +79,10 @@ export function storesLine(d) {
   const said = goods.length > 1 ? `${goods.slice(0, -1).join(', ')} and ${goods[goods.length - 1]}` : goods[0];
   return `+${said} to your Stores`;
 }
-/** GATHER-SAID: where the Stores are, said with a session's first harvest - the goods are never in the pack. */
-export const STORES_WHERE_LINE = 'Gathered goods go to your Stores, not your pack: the Enhanced pause menu\'s Stores page.';
+/** GATHER-SAID: where the Stores are, said with a session's first harvest - the goods are never in the pack.
+ *  CLASSIC-PAGES: on either skin, by the Professions key the player has it bound to (`key`, its label; none bound, the
+ *  pause menu's page). */
+export const storesWhereLine = (key) => `Gathered goods go to your Stores, not your pack: ${key ? `${key} opens your Stores page` : 'the pause menu\'s Stores page'}.`;
 /** GATHER-SAID: an act that ended before its end - let go, walked off, a window over it, the dungeon left - nothing asked. */
 export const ACT_STOPPED_LINE = 'The gathering stopped before its end - nothing was taken.';
 /** A harvest the service did not answer, kept and asked again (net/profBook.js PROF_QUEUE_MS: ten minutes). */
@@ -159,7 +161,7 @@ export function createGatherHost(deps) {
   let target = null;          // { node, px, py, info, world }
   let act = null;             // { act, node, harvest, tool, profession, label, px, py, info, world, hand }
   let refreshAt = 0, pixelsAt = 0, targetKey = null;
-  let storesSaid = false;     // GATHER-SAID: STORES_WHERE_LINE said this session
+  let storesSaid = false;     // GATHER-SAID: storesWhereLine said this session
   let passedOn = '';          // VEIN-NEED: what the node the last press passed on needs, until the host hands it back
   let chipLeft = 0;
   let chipProfession = /** @type {string|null} */ (null);
@@ -381,7 +383,7 @@ export function createGatherHost(deps) {
       const profession = d.track?.profession ?? a?.profession ?? 'herbalism';
       const k = a ? kindOf(a.node) : kindOfProfession(profession);
       hud.toast(storesLine(d), { keep: true });   // GATHER-SAID: the goods in one line, outlasting the rest; PROF4's Resin, PROF7's butchery in it
-      if (!storesSaid) { storesSaid = true; hud.toast(STORES_WHERE_LINE); }
+      if (!storesSaid) { storesSaid = true; hud.toast(storesWhereLine(deps.keyLabel?.('Professions') ?? '')); }
       const note = a && k?.actNote ? k.actNote(a.report) : a?.clean ? (k?.cleanNote(a, d) ?? '') : '';   // AUDIT 32 P10
       hud.toast(`+${d.xp} ${professionName(profession)} XP${note}`);
       const after = d.track?.rank ?? before;

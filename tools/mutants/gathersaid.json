@@ -60,21 +60,23 @@
   {
     "name": "GATHERSAID-stores-where-unsaid",
     "file": "src/scenes/gatherHost.js",
-    "old": "      if (!storesSaid) { storesSaid = true; hud.toast(STORES_WHERE_LINE); }\n",
+    "old": "      if (!storesSaid) { storesSaid = true; hud.toast(storesWhereLine(deps.keyLabel?.('Professions') ?? '')); }\n",
     "new": "",
     "tests": [
       "test/gathersaid.test.js",
       "test/prof7_client.test.js"
-    ]
+    ],
+    "note": "CLASSIC-PAGES (PIN MOVED): the line names the Professions key now, re-aimed by content."
   },
   {
     "name": "GATHERSAID-stores-where-every-time",
     "file": "src/scenes/gatherHost.js",
-    "old": "      if (!storesSaid) { storesSaid = true; hud.toast(STORES_WHERE_LINE); }",
-    "new": "      hud.toast(STORES_WHERE_LINE);",
+    "old": "      if (!storesSaid) { storesSaid = true; hud.toast(storesWhereLine(deps.keyLabel?.('Professions') ?? '')); }",
+    "new": "      hud.toast(storesWhereLine(deps.keyLabel?.('Professions') ?? ''));",
     "tests": [
       "test/gathersaid.test.js"
-    ]
+    ],
+    "note": "CLASSIC-PAGES (PIN MOVED): the line names the Professions key now, re-aimed by content."
   },
   {
     "name": "GATHERSAID-kept-signed-out-unsaid",

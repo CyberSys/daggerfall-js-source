@@ -11866,7 +11866,7 @@ What failed was what the HUD SAID of it, and the reports read that as nothing gi
   prof4 and prof7 client pins read the one line. Mutants: `tools/mutants/gathersaid.json` (13, all dead); prof4's
   Resin and prof7's butchery-count records re-aimed by content. Patch notes: `PATCH-NOTES-What-a-Harvest-Says.md`.
 - **For Mac** (found in the trace, not changed here): the classic skin's pause has no pages, so a classic player online
-  can neither see nor withdraw the Stores, nor read a rank past the toasts and the chip; Foraging's own tools, used from
+  can neither see nor withdraw the Stores, nor read a rank past the toasts and the chip (CLASSIC-PAGES, below); Foraging's own tools, used from
   the pack online, run Foraging's quest and give the pack its goods with no profession XP; a new logger in the
   Woodlands, the Haunted Woodlands or a Swamp stands only Oak (tier 2, Logging 10) and can never chop (PINE-SHARE, below); rank 10 is 67 tier-1
   harvests, past a day's 60; touch and pad cannot start an act (FLAGGED already); and the account service (acct36, with
@@ -11895,3 +11895,32 @@ every vein table); the woods were the one gap.
   Mountain's guard); prof4's law, service and client pins name the Oak they mean. Mutants:
   `tools/mutants/pineshare.json` (7, all dead); prof4's twenty tree records re-run, all dead. Patch notes:
   `PATCH-NOTES-Pine-in-Every-Forest.md`.
+
+## CLASSIC-PAGES (2026-09-30, Mac: "Enhanced pages + key") - the Professions and Stores on the classic skin
+
+GATHER-SAID's For Mac, answered: the Professions and Stores pages stood on the Enhanced pause menu's Stats rail alone,
+and the classic pause has no pages (AUDIT 29 B2's FLAGGED) - an online classic player (OVH3 lets them online) could
+neither read a rank past the toasts and the chip nor withdraw a gathered good, and a home's Forge, Workbench or Loom was
+neither offered nor sold them. The only way in was DISC22-B's Settings door and an Escape back to the Stats tab, which
+nothing said.
+
+- **The door** (`ui/pauseDoor.js` openPauseFlow): a door pressed for a professions page (`at` 'professions' or 'stores')
+  opens the enhanced pause on that page on either skin, as DISC22-B's Controls button opens its Settings; every other
+  door keeps the skin's own pause. With no pages to show (offline, the switch shut, the book unread) it says so -
+  "Your professions are kept online..." - and opens nothing.
+- **THE PROFESSIONS KEY** (`systems/inputActions.js`, appended; `ui/input.js` routeAction): the down arrow, beside the
+  act choice's up arrow - the professions' two keys together; no action read it in play (the held map's pan is its
+  window's), and the function keys a player would guess are DFU's, the HUD's or the browser's (F7 caret browsing, F10
+  the large HUD, F12 the dev tools - HT4 refused F7). It opens the pause on the Professions page, in every host (the
+  router's Escape arm's own door). In the Professions group, a port row the classic windows yield; `Controls.md`
+  generated with it.
+- **The stations**: `forgeOffered` is the pages alone now - a shop's or a home's Forge, Workbench or Loom opens the
+  Stores page on either skin; their cold lines and GATHER-SAID's first-harvest line name no skin, the latter the key the
+  player has bound ("DOWN opens your Stores page"). AUDIT 29 B2's mutant, whose "mutant" is now the law, re-aimed at what
+  B2 still holds: no Forge offline.
+- **Kept as it was**: the Enhanced pages wear the base Enhanced sheet on the classic skin, as DISC22-B's Settings do;
+  the profHud lays the professions' own sheet on every skin online.
+- **Pinned:** `test/classicpages.test.js` (4, each red on the code before with only the new names shimmed); the key's
+  count pins (inputactions, qs2, viewtoggle, prof1's Professions group) and AUDIT 29 B2 flipped. Mutants:
+  `tools/mutants/classicpages.json` (9, all dead); gathersaid's two records re-aimed by content. Patch notes:
+  `PATCH-NOTES-Professions-on-the-Classic-Skin.md`.
