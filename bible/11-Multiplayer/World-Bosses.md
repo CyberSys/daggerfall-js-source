@@ -1074,11 +1074,11 @@ where there were five (`tools/peerCrowdProbe.mjs`).
 
 Pinned: `test/wb9a_gate_marks_seen.test.js` (7), `test/wb9b_gate_courts.test.js` (12), `test/wb9c_gate_reckoning.test.js`
 (16), `test/wb9d_gate_ground.test.js` (5), `test/wb9e_gate_blows.test.js` (6), `test/wb9f_gate_spoils.test.js` (10),
-`test/wb9g_insignia.test.js` (14), `test/wb9h_crowd_bodies.test.js` (7);
+`test/wb9g_insignia.test.js` (17), `test/wb9h_crowd_bodies.test.js` (7), and the audit's `test/audit_wb9.test.js` (16);
 mutants `tools/mutants/wb9b.json` (19, all dead), `tools/mutants/wb9c.json` (31: 30 dead, the dead counted at the
 crystals' growth equivalent as recorded - the court's living are filtered once), `tools/mutants/wb9d.json` (9, all
-dead), `tools/mutants/wb9e.json` (9, all dead), `tools/mutants/wb9f.json` (24, all dead), `tools/mutants/wb9g.json` (65,
-all dead), `tools/mutants/wb9h.json` (25, all dead). The older suites re-aimed
+dead), `tools/mutants/wb9e.json` (9, all dead), `tools/mutants/wb9f.json` (24, all dead), `tools/mutants/wb9g.json` (64,
+all dead), `tools/mutants/wb9h.json` (25, all dead), `tools/mutants/audit_wb9.json` (36, all dead). The older suites re-aimed
 where WB9 moved their law: the phase's turn (WB3, WBX5, WB8b - the bound and the wait for the leap), the court's
 geometry (WB3b, WB6b - three courts, the braziers and shards clear of the walkways), the damage numbers (WB4, WB8c),
 the telegraph's text (WB4), the motor's clamp (AUDIT DUEL1), the relay's version pins (world135); and for WB9f the
@@ -1088,6 +1088,46 @@ itemised keys and the court's fourth target family (WORLD-HOVER), the pool's key
 Worker's columns and migrations (ACC-WORKER, RENOWN-CHAR) and its version pins (acct34), the foreign passes (AUDIT 18)
 and R-1's fogged programs (TV4), the Broker's rows (SET7's U10 - one `pressable`) and its stone-taking (SS1 - one
 `takeFromPack`), the session writer's mutants (NAME-ADOPT, SFSKIN), and the relay's version (world135).
+
+### AUDIT WB9 (2026-09-30, Mac: "Audit this before we merge")
+
+The branch audited in five parts before the merge - the relay's brain (WB9b/c), the court's client and its drawing
+(WB9a/c/d/e), the spoils (WB9f), the Broker's insignia (WB9g) and the bodies in a crowd (WB9h) - each finding reproduced
+by a script against the real modules before anything changed, and shots of the aura and the title taken in a real
+browser (the court's own floor, `render/auraRing.js`, `ui/nameLayer.js`, `ui/brokerWindow.js`, `ui/enhancedAccount.js`).
+Nineteen were real.
+
+| # | found | now |
+|---|---|---|
+| B1 | **blows landed from outside his court**: the relay judged a blow on the laid floor, but he chooses, aims at and waits for only those in his court - three casters at the first court's rim took him from 66% to 33% in a minute while he answered with nothing but his turn; one archer 49 m off broke a Reckoning's three crystals | no blow on him or on a crystal from outside the court he fights in (POSE_SLACK past its rim - `applyHit`, `applyCrystalHit`), and no screen sends one or offers a crystal from there (`gateCourt.js` fromHisCourt) |
+| B2 | **a crystal broken after the Reckoning landed still broke it**: the relay judged a break 120 ms after the landing and stunned him - a court every screen had just wiped was told "strike now", and a screen that heard the stun before its own landing spared itself | a crystal takes no blow in the Reckoning's last RECKON_CLOSE_MS (500 ms) nor after it (`reckonOpen`), and the screens stop offering them then |
+| B3 | the Wrath ended a stun on the relay alone - every screen knelt him through its wind-up | the Wrath's word ends a stun on every screen (`foldGate`) |
+| B4 | a kill mid-Reckoning left its crystals in the fight - every later state carried them | the kill spends them |
+| B5 | a fight woken from a pre-WB9 checkpoint laid only the last walkway on the screens (the relay laid both) | a bound's word lays every walkway up to its court (`crossLaid`) |
+| C1 | **every Cleave drew a full ring at its reach behind him**, and its sides on to the floor's edge: WB9e's rim width was the edge's own derivative, and the cone's edge jumps | the rim's width is the pixel's footprint on the floor (`fwidth(vCourt)`) |
+| C2 | the stun's "The Reckoning breaks!" was never read - said before the last crystal's line on the one label | said after it |
+| C3 | the urgency throb beat 12-16 a second, not 1.5-6.5 (its phase is `hz * uSince`, and `uT` grows with `uSince`) | a third of the quickening: 6.5 at the landing |
+| C4 | a strike or a pool at the rim reached the walkway past it - floor a fighter stands and is struck on - undrawn | his shapes and his ground go on over the laid walkways their court joins (`walks`, the strip pass), never his mark |
+| S1 | **about one kill in fifty let a piece fall through the court** (the collider takes no hit nearer than 0.1 mm, and a flight step begun that close missed the floor) | a kept throw flies over the floor it was kept to as well (`flyRay`) |
+| S2 | P or J pressed over a spoil stayed armed - the next E on a pile took all of it | the spoil's press spends it (`quickLootSpend`) |
+| I1 | **the pack's half of an insignia sale was never saved** - the service's half written at once, a page closed within the two-minute checkpoint kept the stones | a held sale is saved at once (PROF-SAVE's `saveSoon`) |
+| I2 | **the pack's half could be skipped**: the stones were taken after the service's answer, so a ware bought meanwhile (or a stack dropped or locked) left it untaken - 35 stones bought the title and a Regalia; a lost answer kept the stones and the piece | the price is held first and given back unless the service holds the sale; a lost answer (unreached, a 5xx) is asked after (`insigniaSale`); nothing else is sold while a piece is |
+| I3 | two sales of two pieces at once, each reading the row first, wrote the column from that read - both paid, one held | the id is appended in the UPDATE itself |
+| I4 | the Broker row's title sign read "tebreak" (36 px, the word ~55) | the word's first letter, in its fire; the card keeps the word |
+| H1 | a body out of view banked its particles' time without end - a minute behind the eye threw a lantern's flame out of its sprite | at most EFFECTS_BANK_MAX_S a step |
+| H2 | a hand-over allowed on a spare pushed that spare out of a full pool, and built behind another build | the spare a hand-over is for is never the one pushed out |
+| H3 | a rig was built from the look its peer wore when its build was reached, keyed on the one asked for - a spare worn in the wrong armour | built from the look its key names |
+| H4 | a concealed peer who took a spare was drawn open on that frame | its veil is set as it stands |
+
+Checked and sound: the relay's fights fuzzed (300, checkpoints round-tripped - no NaN, nothing the wire refuses, every
+clamp on the floor); the court's GL state, its DOM put away, its crystal targets; the spoils' keys, takes and gather;
+the sale's guards and migration, the token's `au` and the relay's stamp, the aura's GL state and its whole rates; the
+bodies' view planes (400k points against a clip-space test), their callers' lenses and the swap's bookkeeping.
+
+RELAY_VERSION world135 (not yet deployed) holds these; ACCOUNT_VERSION acct37 the sale's append. Pinned in
+`test/audit_wb9.test.js` (16) and `test/wb9g_insignia.test.js` (three more); mutants `tools/mutants/audit_wb9.json`
+(36, all dead). Re-aimed: the WB9b walkway blow, the WB9c court's feet (in his court), the WB9e shader's rim and throb,
+the WB4 telegraph's text (the strip), the WB9f spoil rung, the WB9g host's sale and its UPDATE's mutant, the WB9h bank.
 
 ## Shipped
 

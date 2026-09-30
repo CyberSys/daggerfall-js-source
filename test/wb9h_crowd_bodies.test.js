@@ -10,7 +10,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  PeerBodies, BODIES_MAX, BODY_LINGER_MS, SKIN_BUDGET, poseCadenceFor, SWAP_DWELL_MS, SWAP_EVERY_MS, SPARE_MS, SPARE_MAX, BODY_SPHERE_SHARE, CULL_MARGIN_M,
+  PeerBodies, BODIES_MAX, BODY_LINGER_MS, SKIN_BUDGET, poseCadenceFor, SWAP_DWELL_MS, SWAP_EVERY_MS, SPARE_MS, SPARE_MAX, BODY_SPHERE_SHARE, CULL_MARGIN_M, EFFECTS_BANK_MAX_S,
   viewPlanes, sphereInView, peerCamera,
 } from '../src/net/peerBodies.js';
 import { CAPSULE_HEIGHT } from '../src/player/motor.js';
@@ -111,7 +111,8 @@ test('WB9h the view: a body out of the view is neither drawn nor skinned - its c
   let lastPose = b1 - 1;
   while (lastPose >= 0 && !rb.steps[lastPose].pose) lastPose--;
   const banked = rb.steps.slice(lastPose + 1, b1).reduce((n, st) => n + st.dt, 0);
-  assert.ok(banked >= 6 / 60 - 1e-9 && Math.abs(catchUp.effectsDt - banked) < 1e-9, 'its particles handed every frame it banked since its last skin');
+  assert.ok(banked >= 6 / 60 - 1e-9 && Math.abs(catchUp.effectsDt - Math.min(EFFECTS_BANK_MAX_S, banked)) < 1e-9, 'its particles handed every frame it banked since its last skin - AUDIT WB9 (bodies F1): at most EFFECTS_BANK_MAX_S of them');
+  assert.ok(catchUp.effectsDt > 0, 'the bank never dropped');
   assert.equal(rb.draws.length, 1, 'then drawn');
   // and the next frame it is an ordinary seen body
   pb.sync([ahead, behind, edgy], toScene, 1 / 60, [0, 0, 0]);

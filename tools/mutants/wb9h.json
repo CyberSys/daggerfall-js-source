@@ -167,8 +167,8 @@
   {
     "name": "WB9h-the-pool-unbounded",
     "file": "src/net/peerBodies.js",
-    "old": "    while (this._spares.length > SPARE_MAX) this._unloadSpare(this._spares.shift());\n",
-    "new": "",
+    "old": "    while (this._spares.length > SPARE_MAX) {",
+    "new": "    while (false) {",
     "tests": [
       "test/wb9h_crowd_bodies.test.js"
     ]
@@ -185,8 +185,8 @@
   {
     "name": "WB9h-the-linger-spared",
     "file": "src/net/peerBodies.js",
-    "old": "    this._release(victim.id, victim.goneAt == null);",
-    "new": "    this._release(victim.id, true);",
+    "old": "    this._release(victim.id, victim.goneAt == null, key);",
+    "new": "    this._release(victim.id, true, key);",
     "tests": [
       "test/wb9h_crowd_bodies.test.js"
     ]

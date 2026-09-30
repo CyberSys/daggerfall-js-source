@@ -192,17 +192,24 @@ test('WB9b the wait: in his new court his ward holds until a living challenger s
   assert.ok(CROSS_WARD_MAX_MS >= windupOf(ATTACKS.cross, 2) + ATTACKS.cross.active + ATTACKS.cross.recover + TURN_BREATH_MS + CROSS_WAIT_MAX_MS, 'the turn\'s ward outlasts the longest wait');
 });
 
-test('WB9b a blow from the floor as it is laid: from a walkway not yet laid, or a court not yet reached, nothing lands; from the laid walkway and the reached court it does (mutants: the old ring - the first court\'s alone)', () => {
+test('WB9b a blow from the floor as it is laid: from a walkway not yet laid, or a court not yet reached, nothing lands; from the reached court it does, and from the laid walkway\'s mouth within POSE_SLACK of his court - AUDIT WB9 (brain F1): never from further along it, nor from a court he has left (mutants: the old ring - the first court\'s alone)', () => {
   const f = fightOf([10]);
   f.court = 1; f.pos = [...COURTS[1]]; f.xa = [T0];
   const w = WALKS[0], near = { x: COURTS[1][0], z: COURTS[1][1] + 3 };
   assert.equal(applyHit(f, 's1', 5, HIT_KINDS.Spell, near, T0 + 1000), 0, 'the court not reached yet');
   assert.ok(applyHit(f, 's1', 5, HIT_KINDS.Spell, near, T0 + WALK_LEAD_MS + WALK_FORM_MS + 1) > 0, 'reached');
-  const onWalk = { x: w.ax + w.ux * 10, z: w.az + w.uz * 10 };
+  // the walkway's mouth: past his court's rim, within the pose's slack of it
+  let a = 0;
+  while (Math.hypot(w.ax + w.ux * a - COURTS[0][0], w.az + w.uz * a - COURTS[0][1]) < COURT_R + POSE_SLACK / 2) a += 0.05;
+  const mouth = { x: w.ax + w.ux * a, z: w.az + w.uz * a }, onWalk = { x: w.ax + w.ux * 10, z: w.az + w.uz * 10 };
+  assert.ok(!inCourt(mouth.x, mouth.z, 0) && inCourt(mouth.x, mouth.z, 0, POSE_SLACK) && !inCourt(onWalk.x, onWalk.z, 0, POSE_SLACK));
   const g = fightOf([10]);
   g.xa = [T0];
   assert.equal(applyHit(g, 's1', 5, HIT_KINDS.Spell, onWalk, T0 + WALK_LEAD_MS), 0, 'not laid there yet');
-  assert.ok(applyHit(g, 's1', 5, HIT_KINDS.Spell, onWalk, T0 + WALK_LEAD_MS + WALK_FORM_MS) > 0, 'laid');
+  assert.ok(applyHit(g, 's1', 5, HIT_KINDS.Spell, mouth, T0 + WALK_LEAD_MS + WALK_FORM_MS) > 0, 'at his court\'s edge, within the slack');
+  assert.equal(applyHit(g, 's1', 5, HIT_KINDS.Spell, onWalk, T0 + WALK_LEAD_MS + WALK_FORM_MS + 1000), 0, 'AUDIT WB9 (brain F1): laid, but outside his court - nothing lands');
+  f.court = 1;
+  assert.equal(applyHit(f, 's1', 5, HIT_KINDS.Spell, { x: COURTS[0][0], z: COURTS[0][1] }, T0 + WALK_LEAD_MS + WALK_FORM_MS + 2000), 0, 'AUDIT WB9 (brain F1): nor from the court he has left');
   assert.deepEqual(keepInCourt(COURTS[1][0] + 40, COURTS[1][1], BOSS_REACH_R, COURTS[1]), [COURTS[1][0] + BOSS_REACH_R, COURTS[1][1]], 'the ring he keeps to is his court\'s');
 });
 

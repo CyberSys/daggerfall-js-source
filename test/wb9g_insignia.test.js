@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 import { INSIGNIA, INSIGNIA_COLUMN_MAX, insigniaById, insigniaVocabularyOk, insigniaHeld, insigniaWith, insigniaKeys, insigniaRefusal } from '../src/net/insignia.js';
 import { TITLES, GLYPHS, AURAS, claimsValid, mintToken, verifyToken } from '../src/net/identityToken.js';
 import { badged, readAura } from '../src/net/wire.js';
-import { BROKER_PRICES, spendStones, spendableStonesIn, stoneCount } from '../src/systems/sigilBroker.js';
+import { BROKER_PRICES, spendStones, spendableStonesIn, stoneCount, insigniaSale, insigniaUnheard, makeBrokerSale, brokerStock } from '../src/systems/sigilBroker.js';
 import { sigilStone } from '../src/systems/gateSpoils.js';
 import { setLocked } from '../src/systems/itemLock.js';
 import { TITLE_TEXT, AURA_TEXT, TITLE_GRADIENT, TITLE_EDGE, badgeCss } from '../src/ui/playerBadge.js';
@@ -33,6 +33,7 @@ import { AccountFlow } from '../src/ui/accountFlow.js';
 import { accountCard } from '../src/ui/enhancedAccount.js';
 import { standService, T0 } from './accountDb.mjs';
 import { aurasHeld, auraWorn, auraRefusal, titlesHeld, wardrobeOf } from '../server-account/src/titles.js';
+import { buyInsignia as serviceBuyInsignia } from '../server-account/src/accounts.js';   // AUDIT WB9 (insignia F3): the sale itself, under the interleaving real D1 allows
 
 const rd = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const { subtle } = globalThis.crypto;
@@ -644,7 +645,7 @@ test('WB9g the account card and its flow: an Aura row beside the titles when the
 
 // ── THE WORLD HOST ──────────────────────────────────────────────────
 
-test('WB9g the world host, by source: the auras gathered with the peers each frame (mine off the stored session, a concealed peer\'s concealed, none under the travel view) and drawn after each mode\'s opaque world through the veiled bodies\' hook under the frame\'s own camera - a foreign pass; the Broker\'s sale the service\'s first and the pack\'s second; a wear the service\'s, told to my own name and feet at once; the window handed its doors (mutants: the auras never gathered; never drawn; the pack paid before the service agreed)', () => {
+test('WB9g the world host, by source: the auras gathered with the peers each frame (mine off the stored session, a concealed peer\'s concealed, none under the travel view) and drawn after each mode\'s opaque world through the veiled bodies\' hook under the frame\'s own camera - a foreign pass; the Broker\'s sale both halves through the sale\'s one law (AUDIT WB9); a wear the service\'s, told to my own name and feet at once; the window handed its doors (mutants: the auras never gathered; never drawn)', () => {
   const w = rd('src/scenes/world.js');
   assert.match(w, /auraFrame\(seen\);   \/\/ WB9g/);
   assert.match(w, /const drawVeiledPeerBodies = \(\) => \{ peerBodies\?\.drawVeiled\(\); drawAuras\(\); \};/);
@@ -657,9 +658,13 @@ test('WB9g the world host, by source: the auras gathered with the peers each fra
   assert.match(w, /peerRiders\.settle\([^\n]*\n    auraFrame\(seen\);   \/\/ WB9g/, 'gathered once the bodies and the riders have stood');
   assert.match(w, /try \{ _auraPass = new AuraRingRenderer\(renderer\.gl\); \} catch \(e\) \{ console\.warn\('\[online\] the aura would not build'/, 'a fire that will not build costs the fire, never the game');
   const buy = w.slice(w.indexOf('async function insigniaBuy(offer) {'), w.indexOf('async function insigniaWear(offer) {'));
-  const sale = buy.indexOf('await buyInsignia(io, offer.id)'), pay = buy.indexOf('spendStones(playerEntity.items, offer.price)');
-  assert.ok(sale > 0 && pay > sale, 'the service first, the pack second');
-  assert.ok(buy.indexOf('if (!r.ok) return') > sale && buy.indexOf('if (!r.ok) return') < pay, 'a refused sale takes nothing');
+  // AUDIT WB9 (insignia F1, F2): both halves through the sale's one law (systems/sigilBroker.js insigniaSale, driven in
+  // the audit's pins below) - the pack's price held first, given back unless the service holds the sale, a lost answer
+  // asked after, a held sale saved at once
+  assert.match(buy, /const r = await insigniaSale\(offer, \{\n        items: playerEntity\.items, buy: \(id\) => buyInsignia\(io, id\), save: \(\) => saveSoon\.changed\(\),/);
+  assert.match(buy, /held: async \(id\) => \{ const a = await readAccount\(io\); const w = a\.ok \? a\.data\?\.wardrobe : null; return Array\.isArray\(w\?\.insignia\) && w\.insignia\.includes\(id\) \? w : null; \},/);
+  assert.ok(!/spendStones/.test(buy), 'the pack paid through the sale alone, never beside it');
+  assert.ok(buy.indexOf('if (!r.ok) return') > buy.indexOf('await insigniaSale('), 'a refused sale adopts nothing');
   const wear = w.slice(w.indexOf('async function insigniaWear(offer) {'), w.indexOf('const openBroker = () => {'));
   assert.match(wear, /offer\.kind === 'title' \? await equipTitle\(io, want\) : await equipAura\(io, want\)/);
   assert.match(wear, /insigniaSelf\(r\.data, io\.secret\);/);
@@ -671,4 +676,106 @@ test('WB9g the world host, by source: the auras gathered with the peers each fra
   assert.match(svc, /'\/v1\/account\/insignia', '\/v1\/account\/aura',/);
   assert.match(rd('.github/workflows/account-deploy.yml'), /- "src\/net\/insignia\.js"/, 'the Worker bundles the law - a change to it deploys');
   assert.match(rd('server-account/migrations/0037_insignia.sql'), /ALTER TABLE players ADD COLUMN insignia TEXT;\nALTER TABLE players ADD COLUMN insignia_spent INTEGER NOT NULL DEFAULT 0;\nALTER TABLE players ADD COLUMN aura TEXT;/);
+});
+
+// ── AUDIT WB9 (2026-09-30, before the merge): the insignia's findings ──
+
+test('AUDIT WB9 insignia F1/F2 - the sale\'s two halves (systems/sigilBroker.js insigniaSale): the pack\'s price taken BEFORE the service is asked, so a ware bought meanwhile cannot leave it untaken (35 stones bought the title AND a 12-stone Regalia); a sale the service holds saved at once (a page closed before the next checkpoint kept the stones as well); the service\'s refusal gives the stones back; a lost answer (unreached, a 5xx) asked after - held, it is the sale; not held, or not heard either, the stones back; a short pack asks nothing (mutants: the stones never given back; a lost answer taken for a refusal; a 5xx taken for a refusal; the sale never saved; the price never held)', async () => {
+  const OFFER = INSIGNIA[0];
+  const count = (pack) => stoneCount(spendableStonesIn(pack));
+  let saved = 0;
+  const save = () => { saved++; };
+  // held: the price gone before the service answers, and saved once it holds the sale
+  let pack = [stack(20), stack(15)], seen = null;
+  let r = await insigniaSale(OFFER, { items: pack, save, held: async () => null, buy: async (id) => { seen = count(pack); return { ok: true, data: { insignia: [id] } }; } });
+  assert.deepEqual([r.ok, r.data.insignia, seen, count(pack), saved], [true, ['title:gatebreaker'], 5, 5, 1]);
+  // F2: a Regalia bought while the service is asked - the title's price is already out of the pack
+  const day = 20_000, regalia = brokerStock(day).find((o) => o.price === 12);
+  assert.ok(regalia, 'the day\'s stock sells a piece at 12');
+  pack = [stack(35)];
+  let ware = null;
+  r = await insigniaSale(OFFER, { items: pack, save, held: async () => null, buy: async (id) => { ware = makeBrokerSale(regalia, { items: pack, day }); return { ok: true, data: { insignia: [id] } }; } });
+  assert.deepEqual([r.ok, ware.ok, ware.reason, count(pack)], [true, false, 'stones', 5], 'thirty-five stones do not buy the title and the Regalia');
+  // the service's own refusal (a 4xx): the stones back, nothing saved, the lost answer's question never asked
+  for (const refused of [{ ok: false, error: 'short', status: 409 }, { ok: false, error: 'owned', status: 409 }, { ok: false, error: 'guest', status: 403 }]) {
+    pack = [stack(20), stack(15)]; saved = 0;
+    r = await insigniaSale(OFFER, { items: pack, save, held: async () => { throw new Error('asked'); }, buy: async () => refused });
+    assert.deepEqual([r, count(pack), saved], [{ ok: false, error: refused.error }, 35, 0], refused.error);
+  }
+  // the answer lost, the sale written all the same: asked after, held - the sale, saved
+  for (const lost of [{ ok: false, error: 'offline' }, { ok: false, error: 'server', status: 502 }, { ok: false, error: 'internal', status: 500 }]) {
+    pack = [stack(35)]; saved = 0;
+    r = await insigniaSale(OFFER, { items: pack, save, held: async (id) => ({ insignia: [id] }), buy: async () => lost });
+    assert.deepEqual([r.ok, r.data?.insignia, count(pack), saved], [true, ['title:gatebreaker'], 5, 1], `${lost.error}: held - the sale`);
+  }
+  // lost and not held, or not heard either (and a throw is a lost answer): the stones back
+  for (const held of [async () => null, async () => { throw new Error('offline'); }]) {
+    pack = [stack(35)]; saved = 0;
+    r = await insigniaSale(OFFER, { items: pack, save, held, buy: async () => { throw new Error('reset'); } });
+    assert.deepEqual([r, count(pack), saved], [{ ok: false, error: 'offline' }, 35, 0]);
+  }
+  // a pack short of the price: the service never asked
+  pack = [stack(29)];
+  let asked = 0;
+  r = await insigniaSale(OFFER, { items: pack, save, held: async () => null, buy: async () => { asked++; return { ok: true }; } });
+  assert.deepEqual([r, asked, count(pack)], [{ ok: false, error: 'stones' }, 0, 29]);
+  assert.deepEqual([{ ok: false, error: 'offline' }, { ok: false, status: 500 }, { ok: false, status: 503 }, { ok: false, error: 'short', status: 409 }, { ok: false, status: 429 }, { ok: true, status: 200 }].map(insigniaUnheard), [true, true, true, false, false, false]);
+});
+
+test('AUDIT WB9 insignia F2 - the Broker\'s window: a ware\'s Buy is not pressable while a piece of the insignia is being bought, and pressable again once the account answers (mutants: the wares pressable mid-sale)', async () => {
+  await withDomAsync(async () => {
+    const day = 20_000, stock = brokerStock(day);
+    const rows = [{ id: 'title:gatebreaker', kind: 'title', key: 'gatebreaker', price: 30, name: 'Gatebreaker', owned: false, worn: false }];
+    const purse = [stack(64)];
+    let answer = null, sold = 0;
+    const host = document.createElement('div');
+    document.body.append(host);
+    const view = mountBrokerWindow(host, {
+      stock: () => stock, day: () => day, now: () => 0, items: () => purse, bought: () => [], picture: () => null, wearer: null, nameOf: (it) => it.name,
+      buy: () => { sold++; return { ok: true }; }, insignia: () => rows, insigniaBusy: () => false,
+      buyInsignia: () => new Promise((res) => { answer = res; }), wearInsignia: async () => ({ ok: true }),
+    });
+    try {
+      await settle();
+      const shell = one(host, 'broker-shell');
+      const wares = () => kids(shell, 'broker-offer').filter((r) => !r.classList.contains('broker-insig'));
+      const buyOf = (r) => one(r, 'broker-buy');
+      assert.ok(wares().length > 0 && wares().every((r) => buyOf(r).attrs.disabled === undefined), 'sixty-four stones: every ware pressable');
+      buyOf(kids(shell, 'broker-insig')[0]).onclick({ stopPropagation() {} });
+      await settle();
+      assert.ok(wares().every((r) => buyOf(r).attrs.disabled === ''), 'the title in flight: no ware pressable');
+      buyOf(wares()[0]).onclick({ stopPropagation() {} });
+      assert.equal(sold, 0, 'nor sold by a press that reaches it');
+      answer({ ok: true, text: 'Bought.' });
+      await settle(); await settle();
+      assert.ok(wares().every((r) => buyOf(r).attrs.disabled === undefined), 'answered: the wares pressable again');
+    } finally { view.unmount(); }
+  });
+});
+
+test('AUDIT WB9 insignia F3 - the service\'s sale of two pieces at once, each request having read the row before either wrote (the interleaving real D1 allows): both sales held - the id APPENDED to the column the UPDATE matched, never the column read before written over it - and each price spent once; a third refused owned; the same piece twice from rows read before either wrote, the second refused by the UPDATE\'s own test (mutants: the column written from the row read before; the update sells an owned piece)', async () => {
+  const { env, registered } = await standService();
+  const me = await registered('Racer');
+  closeGates(env, me, 100);
+  const ctx = { db: env.DB, nowS: T0 };
+  const readRow = () => env.DB.prepare('SELECT * FROM players WHERE id = ?').bind(me.id).first();
+  const [pA, pB] = [await readRow(), await readRow()];
+  const a = await serviceBuyInsignia(ctx, pA, env, 'title:gatebreaker');
+  const b = await serviceBuyInsignia(ctx, pB, env, 'aura:dagonfire');
+  assert.deepEqual([a.ok, b.ok], [true, true]);
+  assert.deepEqual(b.insignia, ['title:gatebreaker', 'aura:dagonfire'], 'the second sale\'s answer holds both');
+  const row = env.DB._raw.prepare('SELECT insignia, insignia_spent FROM players WHERE id = ?').get(me.id);
+  assert.deepEqual({ ...row }, { insignia: 'title:gatebreaker aura:dagonfire', insignia_spent: 80 }, 'both held, each paid for once - the column the law\'s own shape (insigniaWith)');
+  assert.equal(row.insignia, insigniaWith(insigniaWith(null, 'title:gatebreaker'), 'aura:dagonfire'));
+  const c = await serviceBuyInsignia(ctx, await readRow(), env, 'title:gatebreaker');
+  assert.equal(c.error, 'owned');
+  assert.equal(env.DB._raw.prepare('SELECT insignia_spent AS s FROM players WHERE id = ?').get(me.id).s, 80);
+  // the SAME piece twice, each request having read the row before either wrote: the UPDATE's own test refuses the second
+  const you = await registered('Twin');
+  closeGates(env, you, 100);
+  const youRow = () => env.DB.prepare('SELECT * FROM players WHERE id = ?').bind(you.id).first();
+  const [qA, qB] = [await youRow(), await youRow()];
+  assert.equal((await serviceBuyInsignia(ctx, qA, env, 'title:gatebreaker')).ok, true);
+  assert.equal((await serviceBuyInsignia(ctx, qB, env, 'title:gatebreaker')).error, 'owned', 'the second refused by the UPDATE itself - its row read before the first wrote');
+  assert.deepEqual({ ...env.DB._raw.prepare('SELECT insignia, insignia_spent FROM players WHERE id = ?').get(you.id) }, { insignia: 'title:gatebreaker', insignia_spent: 30 }, 'held once, paid once');
 });

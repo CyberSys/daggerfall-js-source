@@ -68,7 +68,7 @@
 // Not a DFU member. Ledger A (WB).
 import { rollSpoils } from '../systems/gateSpoils.js';
 import { seededRng } from '../systems/wind.js';
-import { spewLaunches, spewPiece, flySpew, keepLaunch } from '../world/gateSpew.js';
+import { spewLaunches, spewPiece, flySpew, keepLaunch, floorRayAt } from '../world/gateSpew.js';
 import { SpoilsGlowRenderer, tierColour } from '../render/spoilsGlow.js';   // WBX3: the loot line
 import { RARITIES } from '../systems/lootRarity.js';
 import { RANDOM_TREASURE_ARCHIVE, RANDOM_TREASURE_ICONS, validLootItem } from '../systems/loot.js';
@@ -251,6 +251,11 @@ export function createSpoilsPool({
   try { if (gl) glow = new SpoilsGlowRenderer(gl); } catch (e) { console.warn('[gate] the spoils\' glow would not build', e?.message ?? e); glow = null; }
   /** the spew under way: its day, when it began, where it left from; each piece's flight, rest and batch */
   let rec = null, t0 = 0, from = null, launches = [];
+  /** AUDIT WB9 (spoils F1): what the pieces fly over - the world's ray, and under a kept throw the floor it was kept to
+   *  besides: the collider takes no hit nearer than a tenth of a millimetre (player/collider.js rayTriangle), so a step
+   *  begun that close above the floor missed it and the next began under it - about one kill in fifty let a piece fall
+   *  through the court, where keepLaunch had flown it to a rest over the plane */
+  let flyRay = ray;
   /** WBX3: `sprite` the piece's own picture once it has loaded ({record, w, h} under SPOILS_ICON_ARCHIVE), 'none' when it
    *  has none (gold, a picture that would not load) - then the treasure pile stands; `batchIcon` what its batch wears.
    *  WB9f: `target` its activation target, made at its rest.
@@ -377,6 +382,8 @@ export function createSpoilsPool({
       const list = spoilsList(seed >>> 0, Math.max(1, level | 0));
       launches = spewLaunches(seededRng(((seed >>> 0) ^ 0x5a5a) >>> 0), list.length, bearing);
       if (keep) launches = launches.map((l) => keepLaunch(from, l, keep));   // WB9f: every piece rests on the court's floor
+      const plane = keep && Number.isFinite(keep.floorY) ? floorRayAt(keep.floorY) : null;
+      flyRay = plane ? (a, d, l) => ray?.(a, d, l) ?? plane(a, d, l) : ray;   // AUDIT WB9 (spoils F1): flown over the floor they were kept to
       floor = list.map((piece, i) => ({ piece, fly: spewPiece(from, launches[i]), left: false, restAt: 0, taken: false, batch: null, sprite: null, batchIcon: false, h: 0, target: null }));
       spewId = spend(day, acct, list);
       loadTex();
@@ -448,7 +455,7 @@ export function createSpoilsPool({
         if (f.taken) return;
         if (!f.left) { if (t - t0 < launches[i].at) return; f.left = true; }
         if (!f.fly.rest) {
-          const what = flySpew(f.fly, dt, ray);
+          const what = flySpew(f.fly, dt, flyRay);
           if (what === 'bounce' || what === 'rest') audio?.play3d?.(CLIPS.drop, [...f.fly.pos], 1, { maxDistance: 24 });
           if (f.fly.rest) {
             f.restAt = t;

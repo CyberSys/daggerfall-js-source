@@ -111,8 +111,8 @@
   {
     "name": "WB9b-the-walkway-left-to-the-next-state",
     "file": "src/net/gateLink.js",
-    "old": "yaw: g.yw, heardAt: now, cx: s.cx && s.cx.i === g.i ? s.cx : null, ...crossLaid(s, g) };",
-    "new": "yaw: g.yw, heardAt: now, cx: s.cx && s.cx.i === g.i ? s.cx : null };",
+    "old": "...(g.a === ATTACKS.wrath.id ? { stunUntil: 0 } : {}), ...crossLaid(s, g) };",
+    "new": "...(g.a === ATTACKS.wrath.id ? { stunUntil: 0 } : {}) };",
     "tests": [
       "test/wb9b_gate_courts.test.js"
     ]

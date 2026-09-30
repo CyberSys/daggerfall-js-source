@@ -244,14 +244,14 @@ test('WB4 the shader\'s text says what the reading says: each shape\'s inside, t
     /for \(int i = 0; i < 10; i\+\+\) \{ if \(i >= uCount\) break; m = min\(m, length\(vCourt - uPts\[i\]\)\);[^\n]*\}\n\s*inside = m <= uR;/,   // WB9e: and the nearest's own centre, for the fuse's course
     /float ld = length\(vCourt - \(uOrigin \+ v \* h\)\);\n\s*inside = ld <= uHalfW;/,
     /inside = d >= uR0 && d <= uR1;/,
-    /if \(c > uFloorR\) discard;/,
+    /if \(uOnWalk == 0\) \{ if \(c > uFloorR\) discard; \}/,   // AUDIT WB9 (court F4): the court's own disc - a laid walkway's strip is its own
     /float filled = fin \* step\(s, uT\);/,
     /light = mix\(light, 1\.1 \* fin \+ 0\.6 \* rim, uFlash\);/,
     /vec3 col = uColor;/,
     /o = vec4\(col \* light \* uAlpha \* fogFactorAt\(vWorld\), 1\.0\);/,
   ]) assert.match(TELEGRAPH_FS, re);
   // WB9b: over the court it lies over - the quad's corner about that court's own centre
-  assert.match(TELEGRAPH_VS, /vCourt = uCourt \+ aCourt;\n\s*vWorld = uCentre \+ vec3\(vCourt\.x, uLift, vCourt\.y\);/);
+  assert.match(TELEGRAPH_VS, /vCourt = uOnWalk == 1 \? [^\n]* : uCourt \+ aCourt;\n\s*vWorld = uCentre \+ vec3\(vCourt\.x, uLift, vCourt\.y\);/);   // AUDIT WB9 (court F4): or along a laid walkway
   assert.match(TELEGRAPH_FS, /uniform vec2 uPts\[10\];/);
 });
 

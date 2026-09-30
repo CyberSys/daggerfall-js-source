@@ -16,7 +16,7 @@
 // has already cued, landed and judged, and the host's doors.
 //
 // Not a DFU member. Ledger A (WB).
-import { ATTACK_BY_ID, ATTACKS, COURT_CENTRE, COURTS, COURT_R, HIT_KINDS, POOL_TICK_MS, PHASE_NAMES, profileOf, nearestCourt, windupOf, CRYSTAL_R, CRYSTAL_H } from '../net/gateBrain.js';
+import { ATTACK_BY_ID, ATTACKS, COURT_CENTRE, COURTS, COURT_R, HIT_KINDS, POOL_TICK_MS, PHASE_NAMES, profileOf, nearestCourt, windupOf, CRYSTAL_R, CRYSTAL_H, inCourt, POSE_SLACK, RECKON_CLOSE_MS, WALKS, walkFormed } from '../net/gateBrain.js';
 import { strikeVerdict, blowOf, strikeDamage, savedShare, landingPools, poolUnder } from '../net/gateStrike.js';
 import { GATE_BOSSES, gateBossOf } from '../net/gateLaw.js';
 import { bossAct, bossFrame, bossGlow, bossPlace, bossHop, bossLookOf, bossStandIn, bossCue, BOSS_CUES, BOSS_STRIDE_M, GROWL_EVERY_MS, HURT_GAP_MS, HURT_SHARE, QUAKE_ON, THUD_AT_MS, WARD_COLOR, EMBER_COLOR, poolColor, emberColor, attackColor, crystalStandIn, crystalColor, groundStepCue } from '../world/gateBoss.js';
@@ -203,6 +203,8 @@ export function createGateCourt({
    *  the stun last heard, the stand-in every crystal shares (made once a fight), and the pass. */
   let rk = null, rkDone = null, stunHeard = 0, crystalIn = null, crystalPass = null, crystalTried = false;
   const _targets = [], _crystalDraw = [], _crystalSlots = [], _crystalLights = [], _chest = [0, 0, 0];
+  /** AUDIT WB9 (court F4): how far each walkway is laid this frame (net/gateBrain.js walkFormed) - refilled, never made */
+  const _walked = WALKS.map(() => 0);
   /** WB9d: his ground and his element, felt - the ground I stand in (its name and colour) and the last bite or elemental
    *  blow that landed on me (when, and its colour) */
   let groundName = '', groundColor = null, biteAt = -Infinity, biteColor = null;
@@ -425,6 +427,15 @@ export function createGateCourt({
     } else meteorNow = null;
   }
 
+  /** AUDIT WB9 (brain F1): do my feet stand in the court he fights in (the relay's POSE_SLACK past its rim)? The relay takes
+   *  a blow - on him, on a crystal - from nowhere else. */
+  const fromHisCourt = (s, t) => {
+    const f = feet();
+    if (!f) return false;
+    const [bx, bz] = bossPlace(s, t);
+    return inCourt(f[0] - COURT_CENTRE[0], f[2] - COURT_CENTRE[2], nearestCourt(bx, bz), POSE_SLACK);
+  };
+
   /** WB9c: is `X` (the state's crystals) the Reckoning `r` this screen holds (or ended) - its number and its first spot? */
   const sameCx = (r, X) => !!r && !!X && r.i === X.i && r.x0 === X.c[0][0] && r.z0 === X.c[0][1];
 
@@ -483,15 +494,9 @@ export function createGateCourt({
       if (rk.landAt !== null && t < rk.landAt && left > 0 && !s.fell && s.wrath == null) say(COURT_RECKON_TEXT.call(left));
       if (t - rk.grewAt <= RECKON_LATE_MS && !s.fell && s.wrath == null) for (let k = 0; k < rk.n; k++) sound(BOSS_CUES.crystalRise, s, t, null, rk.feet[k]);
     }
-    // THE STUN, said once as it comes (the Reckoning broken - the last crystal's word said just before it)
-    if (s.stunAt && s.stunAt !== stunHeard && t < s.stunUntil) {
-      stunHeard = s.stunAt;
-      if (t - s.stunAt <= RECKON_LATE_MS) { say(COURT_RECKON_TEXT.broken(bossOf(s).name)); sound(BOSS_CUES.stunned, s, t, null); }
-    }
     _targets.length = 0;
     _crystalDraw.length = 0;
-    if (!rk) return;
-    if (!rk.ended) {
+    if (rk && !rk.ended) {
       const live = sameCx(rk, X);
       if (live) {
         for (let k = 0; k < rk.n; k++) {
@@ -510,10 +515,18 @@ export function createGateCourt({
         for (let k = 0; k < rk.n; k++) if (rk.brokeAt[k] === null) breakCrystal(s, k, t, t, null, true);
       }
     }
+    // THE STUN, said once as it comes (the Reckoning broken) - AUDIT WB9 (court F2): AFTER the last crystal's word, which
+    // the same beat carries (the relay's cxb and stun, folded before this frame): said before it, the shatter's line took
+    // the screen's one label and the stun's was never read
+    if (s.stunAt && s.stunAt !== stunHeard && t < s.stunUntil) {
+      stunHeard = s.stunAt;
+      if (t - s.stunAt <= RECKON_LATE_MS) { say(COURT_RECKON_TEXT.broken(bossOf(s).name)); sound(BOSS_CUES.stunned, s, t, null); }
+    }
+    if (!rk) return;
     if (rk.ended && t - rk.endAt > CRYSTAL_SHATTER_MS + 250) { rk = null; return; }
     const grow = crystalGrowth(t - rk.grewAt);
     // the targets my blows meet: the crystals standing, grown far enough out of the stone
-    if (!rk.ended && grow >= CRYSTAL_STRIKE_GROWN) for (let k = 0; k < rk.n; k++) if (rk.brokeAt[k] === null) _targets.push(rk.targets[k]);
+    if (!rk.ended && grow >= CRYSTAL_STRIKE_GROWN && !(rk.landAt !== null && t >= rk.landAt - RECKON_CLOSE_MS) && fromHisCourt(s, t)) for (let k = 0; k < rk.n; k++) if (rk.brokeAt[k] === null) _targets.push(rk.targets[k]);   // AUDIT WB9 (brain F1, F2): from his court, and never in the Reckoning's last breath - the relay takes no blow then
     // the draw: each crystal's slot refilled - growing, standing, cracking as its health goes, flashing as I strike it,
     // flying apart once broken; a beam from each one standing into his chest while the Reckoning winds up
     const atk = s.atk, winding = !!atk && ATTACK_BY_ID[atk.a] === ATTACKS.reckon && t < atk.at;
@@ -590,6 +603,7 @@ export function createGateCourt({
       if (s.fell || s.wrath != null || bossAct(s, t, hurtAt).act === 'gone') mark = null;
       else { const [mx, mz] = bossPlace(s, t); _mark.origin[0] = mx; _mark.origin[1] = mz; _mark.yaw = s.yaw; _mark.color = t < s.shieldUntil ? WARD_COLOR : markEmber; _mark.court = nearestCourt(mx, mz); mark = _mark; }   // AUDIT WB D10's law: one shape, refilled; WB9b: over the court he stands in
       poolDraw = pools.length ? poolShapes(pools, t, poolColor(P), TELEGRAPH_STYLE[P.el] ?? TELEGRAPH_STYLE.fire) : NONE;   // WB9e: his ground in its own grain
+      for (const w of WALKS) _walked[w.k] = walkFormed(s.xa, w.k, t);   // AUDIT WB9 (court F4): how far each walkway is laid - his shapes go on over it
       drawGateBossBar(bossBarModel(s, t, bossOf(s)), { hidden: hudHidden() });
       // WB9a (Mac: "Allow people to see the modifers/trial as a popup before it starts"): THE MARKS' CARD as I step in -
       // his aspect and his trials, each with its sign, its line and how to meet it, while he stands to be read
@@ -622,6 +636,7 @@ export function createGateCourt({
       const s = link.state(), t = now();
       if (!s || s.day === null || s.fell || s.wrath != null || !Object.values(HIT_KINDS).includes(r)) return false;   // AUDIT WB B6
       if (t < s.shieldUntil) return false;
+      if (!fromHisCourt(s, t)) return false;   // AUDIT WB9 (brain F1): the relay takes no blow from outside the court he fights in
       const dmg = Math.round(d);
       if (!(dmg >= 1)) return false;
       hurtAt = t;
@@ -649,6 +664,7 @@ export function createGateCourt({
       const s = link.state(), t = now();
       if (!s || s.day === null || s.fell || s.wrath != null || !rk || rk.ended || !Object.values(HIT_KINDS).includes(r)) return false;
       if (!Number.isInteger(c) || c < 0 || c >= rk.n || rk.brokeAt[c] !== null) return false;
+      if ((rk.landAt !== null && t >= rk.landAt - RECKON_CLOSE_MS) || !fromHisCourt(s, t)) return false;   // AUDIT WB9 (brain F1, F2)
       const dmg = Math.round(d);
       if (!(dmg >= 1)) return false;
       rk.flashAt[c] = t;
@@ -706,9 +722,9 @@ export function createGateCourt({
         if (crystalPass) { crystalPass.draw(_crystalDraw, proj, view, eye, seconds, fog); drew = drew || crystalPass.drawn > 0; }
       }
       if (pass) {
-        for (const ps of poolDraw) { pass.draw(ps, proj, view, eye, seconds, fog); drew = true; }   // WBX5: the burning ground under all
+        for (const ps of poolDraw) { pass.draw(ps, proj, view, eye, seconds, fog, COURT_CENTRE, _walked); drew = true; }   // WBX5: the burning ground under all
         if (mark) { pass.draw(mark, proj, view, eye, seconds, fog); drew = true; }   // WBX4: where he stands and faces
-        if (shape) { pass.draw(shape, proj, view, eye, seconds, fog); drew = true; }
+        if (shape) { pass.draw(shape, proj, view, eye, seconds, fog, COURT_CENTRE, _walked); drew = true; }   // AUDIT WB9 (court F4): and over the laid walkways
       }
       if (_fxLive.length || meteorNow) {   // WB9e: his blows landing - the sparks and the meteor's fall, over the telegraph
         if (!fxTried && gl) { fxTried = true; try { fxPass = new GateFxRenderer(gl); } catch (e) { console.warn('[gate] his effects would not build', e?.message ?? e); fxPass = null; } }

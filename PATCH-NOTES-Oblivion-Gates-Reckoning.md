@@ -9,12 +9,12 @@ The Warden's fight now crosses three courts and ends in a wipe you have to break
 ## Three courts
 - **Two new courts, the same size as the first.** At each phase change he bounds across the sea of fire to the next one.
 - **A walkway rises out of the fire behind him**, stone by stone, so you can follow. He waits under his ward until someone crosses, then opens the new phase.
-- He only targets fighters in his court. Don't get left behind.
+- He only targets fighters in his court, and **he can only be struck from his court** too: blows and spells from a walkway or a court he has left don't land. Don't get left behind.
 
 ## Dagon's Reckoning (final phase)
 - In the last court he calls **Dagon's Reckoning** from its centre every minute or so. It lands on the whole arena, and nothing resists it.
 - **Crystals of Oblivion grow across the floor** while he calls it: 3 to 8, depending on how many of you are there. **Break every one** before it lands.
-- Break them all and the Reckoning fails. **He is stunned for 8 seconds, and every hit on him deals 50% more.**
+- Break them all and the Reckoning fails. **He is stunned for 8 seconds, and every hit on him deals 50% more.** The crystals must break before its last half second: a crystal struck later doesn't count.
 - The boss bar counts the crystals left and the seconds remaining. The chat names whoever breaks each one.
 
 ## His ground and his blows

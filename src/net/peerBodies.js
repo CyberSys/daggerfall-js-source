@@ -119,6 +119,10 @@ export const SPARE_MAX = 4;
  *  SKIN's test adds (metres), so a body the view is swinging onto is posed before it comes into sight. */
 export const BODY_SPHERE_SHARE = 0.75;
 export const CULL_MARGIN_M = 2;
+/** AUDIT WB9 (bodies F1): the most of the frames a body went unposed its particles are stepped by at once, seconds - a
+ *  body out of the view steps its clocks unposed, and its whole bank (a minute behind the eye: sixty seconds) as one
+ *  particle step threw every flame out of its sprite, blinking it out as it came back into sight. */
+export const EFFECTS_BANK_MAX_S = 0.1;
 /** Frames between poses for a body at squared distance d2 - the first POSE_CADENCE row within which it stands. */
 export function poseCadenceFor(d2) {
   for (const [within, every] of POSE_CADENCE) if (d2 <= within * within) return every;
@@ -388,18 +392,22 @@ export class PeerBodies {
     for (const [id, b] of this._bodies) b.pri = priority ? !!priority(id) : false;
     for (const w of want) {
       if (this._bodies.size >= BODIES_MAX) {
-        if (!this._maySwap(w, now) || !this._yield(w.d2, w.pri)) break;
+        if (!this._maySwap(w, now) || !this._yield(w.d2, w.pri, w.key)) break;
       }
       const peer = w.peer;
       const spare = this._takeSpare(w.key);   // WB9h: a body given up for this one's, built - no build
-      const b = { id: peer.id, key: w.key, wolf: peerIsWolf(peer.shown), rig: spare ? spare.rig : this._createRig(), state: spare ? 'ok' : 'building', cam: null, feet: null, yaw: peer.shown.yaw, speed: 0, goneAt: null, far: false, d2: w.d2, pri: w.pri, builtAt: now, born: now, byForm: this._flipped.delete(peer.id), swing: null, cast: null, pending: null, held: false, ammo: spare ? spare.ammo : null, weapon: spare ? spare.weapon : null,
+      // AUDIT WB9 (bodies F3): the look its key names, read NOW - the queue reaches its build later, and a look changed
+      // meanwhile was built under the old key (a spare the next wearer of the old look stood in, in the wrong armour)
+      const look = peer.look, shown = peer.shown, glyphs = peer.glyphs;
+      const b = { id: peer.id, key: w.key, wolf: peerIsWolf(shown), rig: spare ? spare.rig : this._createRig(), state: spare ? 'ok' : 'building', cam: null, feet: null, yaw: shown.yaw, speed: 0, goneAt: null, far: false, d2: w.d2, pri: w.pri, builtAt: now, born: now, byForm: this._flipped.delete(peer.id), swing: null, cast: null, pending: null, held: false, ammo: spare ? spare.ammo : null, weapon: spare ? spare.weapon : null,
         posed: false, phase: this._phase++, bank: 0,   // PEER-CADENCE
-        posedAt: 0, rank: 0, inView: true, stale: false, owed: false, peer: null };   // WB9h
+        posedAt: 0, rank: 0, inView: true, stale: false, owed: false, peer: null,   // WB9h
+        veil: conceal ? (conceal(peer.id) ?? null) : null };   // AUDIT WB9 (bodies F4): a spare stands the frame it is taken - concealed from that frame, never drawn open once
       this._bodies.set(peer.id, b);
       this._wantSince.delete(peer.id);
       b.rig.attach(this.renderer, () => b.cam);
       this._place(b, peer, toScene, dt, near);
-      if (!spare) this._queue = this._queue.then(() => this._build(b, peer.look, peer.shown, peer.glyphs)).catch(() => null);
+      if (!spare) this._queue = this._queue.then(() => this._build(b, look, shown, glyphs)).catch(() => null);
       else {
         // WB9h: a spare stands at once, its skin the last wearer's - stale, so it is posed for its new peer on its first
         // frame when seen, and otherwise the moment it is (as any body out of the view)
@@ -430,8 +438,10 @@ export class PeerBodies {
     return true;
   }
 
-  /** The farthest body - a lingering one first - gives its slot to a peer nearer by SWAP_MARGIN; true when a slot was freed. */
-  _yield(d2, pri = false) {
+  /** The farthest body - a lingering one first - gives its slot to a peer nearer by SWAP_MARGIN; true when a slot was freed.
+   *  AUDIT WB9 (bodies F2): `key` the body the slot is freed for - a spare of it is never the one the body given up pushes
+   *  out of a full pool (_maySwap allowed the hand-over on it; lost, the newcomer built behind another build). */
+  _yield(d2, pri = false, key = null) {
     let victim = null, stranger = null;
     for (const b of this._bodies.values()) {
       if (b.goneAt != null) { victim = b; break; }
@@ -441,12 +451,12 @@ export class PeerBodies {
     }
     if (!victim) return false;
     // AUDIT PARTY8: a party mate takes the farthest stranger's slot outright, margin or none
-    if (pri && stranger && victim.goneAt == null) { this._release(stranger.id, true); this._swappedAt = this._now(); return true; }
+    if (pri && stranger && victim.goneAt == null) { this._release(stranger.id, true, key); this._swappedAt = this._now(); return true; }
     if (victim.goneAt == null && !(victim.d2 > d2 * SWAP_MARGIN * SWAP_MARGIN)) return false;
     // WB9h: a standing body given up is kept for its body's next wearer, and the hand-over is timed (a lingering one's
     // peer is gone - nothing is seen to go)
     if (victim.goneAt == null) this._swappedAt = this._now();
-    this._release(victim.id, victim.goneAt == null);
+    this._release(victim.id, victim.goneAt == null, key);
     return true;
   }
 
@@ -518,7 +528,7 @@ export class PeerBodies {
     // AUDIT MWBODY A1: a throw from one peer's rig is that peer's doll, never the frame's end
     try {
       this._arm(b, peer.shown, peer.look);
-      b.bank += dt;
+      b.bank = Math.min(EFFECTS_BANK_MAX_S, b.bank + dt);   // AUDIT WB9 (bodies F1)
       if (pose) { b.rig.update(dt, { pose: true, effectsDt: b.bank }); b.bank = 0; b.posed = true; b.owed = false; b.stale = false; b.posedAt = this._frame; }
       else b.rig.update(dt, { pose: false });
     } catch (e) { this._fail(b, `update threw: ${e?.message ?? e}`); }
@@ -651,20 +661,24 @@ export class PeerBodies {
     }
   }
 
-  _release(id, spare = false) {
+  _release(id, spare = false, keep = null) {
     const b = this._bodies.get(id);
     if (!b) return;
     this._bodies.delete(id);
     // WB9h: a body given up in a swap - built, skinned - is kept for the next peer who wears it
-    if (spare && b.state === 'ok' && (b.rig.thirdActive?.() ?? false)) { this._keepSpare(b); return; }
+    if (spare && b.state === 'ok' && (b.rig.thirdActive?.() ?? false)) { this._keepSpare(b, keep); return; }
     try { b.rig.unload(); } catch { /* a rig mid-build unloads when the build lands */ }
   }
 
-  /** WB9h: a spare kept - nobody's camera while it waits; the oldest past SPARE_MAX unloaded. */
-  _keepSpare(b) {
+  /** WB9h: a spare kept - nobody's camera while it waits; the oldest past SPARE_MAX unloaded - AUDIT WB9 (bodies F2): the
+   *  oldest not of `keep` (the body a hand-over is for), while another stands. */
+  _keepSpare(b, keep = null) {
     b.rig.attach(this.renderer, null);
     this._spares.push({ key: b.key, rig: b.rig, weapon: b.weapon, ammo: b.ammo, at: this._now() });
-    while (this._spares.length > SPARE_MAX) this._unloadSpare(this._spares.shift());
+    while (this._spares.length > SPARE_MAX) {
+      const i = this._spares.findIndex((x) => x.key !== keep);
+      this._unloadSpare(this._spares.splice(Math.max(0, i), 1)[0]);
+    }
   }
   /** WB9h: the newest spare of this body, taken, or null. */
   _takeSpare(key) {

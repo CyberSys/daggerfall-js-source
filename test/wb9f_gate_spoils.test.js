@@ -246,7 +246,7 @@ test('WB9f the seams, by source: the court stands the spoils and their words whe
   const wm = read('src/scenes/worldModes.js');
   assert.match(wm, /ctx\.addActivationTargets\(\(\) => host\.spoilTargets\?\.\(\) \?\? NO_TARGETS\);/);
   assert.match(wm, /ctx\.addActivationNamer\(\(key\) => \(typeof key === 'string' && key\.startsWith\('spoil'\) \? host\.spoilName\?\.\(key\) \?\? null : null\)\);/);
-  const press = wm.indexOf("if (key.startsWith('spoil')) { host.takeSpoil?.(key); return true; }");
+  const press = wm.indexOf("if (key.startsWith('spoil')) { quickLootSpend(); host.takeSpoil?.(key); return true; }");   // AUDIT WB9 (spoils F2): the armed key spent on it
   assert.ok(press > 0, 'the press rung');
   assert.ok(press > wm.indexOf('if (_pick.distance > _pick.reach) { setMidScreenText(TOO_FAR_AWAY_TEXT); return true; }', press - 2000), 'after the reach is judged');
   assert.ok(press < wm.indexOf("if (key.startsWith('loot:') || key.startsWith('corpse:')", press), 'before the loot rung');

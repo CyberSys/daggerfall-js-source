@@ -231,8 +231,10 @@ export function mountBrokerWindow(host, deps) {
       buy.setAttribute('type', 'button');
       buy.setAttribute('aria-label', s.ok ? `Buy ${nameOf(o.item)} for ${stonesText(o.price)}` : `${nameOf(o.item)}: ${BROKER_REFUSALS[s.reason] ?? ''}`);   // U14: the button says whose
       if (!s.ok) { buy.setAttribute('disabled', ''); buy.setAttribute('title', BROKER_REFUSALS[s.reason] ?? ''); }
+      else if (pendingInsig || deps.insigniaBusy?.()) buy.setAttribute('disabled', '');   // AUDIT WB9 (insignia F2): nothing else sold while a piece of the insignia is
       buy.onclick = (e) => {
         e.stopPropagation();
+        if (pendingInsig || deps.insigniaBusy?.()) return;
         const done = deps.buy(o);
         note = done?.ok ? { ok: true, text: BROKER_SOLD(nameOf(o.item), o.price) } : { ok: false, text: done?.text ?? BROKER_REFUSALS[done?.reason] ?? 'The Broker will not sell that.' };
         pickedSlot = o.slot;

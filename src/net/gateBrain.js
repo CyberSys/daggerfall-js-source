@@ -565,6 +565,9 @@ export function applyHit(f, sub, d, r, pose, now) {
   p.rate -= 1;
   if (!pose || !Number.isFinite(pose.x) || !Number.isFinite(pose.z)) return 0;
   if (!onFloor(pose.x, pose.z, f.xa, now, POSE_SLACK)) return 0;   // nobody strikes the court from off it - WB9b: its floor as far as it is laid
+  // AUDIT WB9 (brain F1): nor from outside the court he fights in - he chooses, aims at and waits for only those in it
+  // (`here`), so a fighter on a walkway or in a court he has left struck him from where no blow of his could answer
+  if (!inCourt(pose.x, pose.z, f.court, POSE_SLACK)) return 0;
   const P = profileOf(f);
   const gap = dist(pose.x, pose.z, f.pos[0], f.pos[1]) - P.bossR;   // WB8b: his body's own size (Colossal's is larger)
   if (r === HIT_KINDS.Melee && gap > MELEE_REACH + POSE_SLACK) return 0;
@@ -585,6 +588,7 @@ export function applyHit(f, sub, d, r, pose, now) {
     f.fell = { at: now, top: topDealers(f, 3), n: Object.keys(f.players).length };
     f.move = null;
     f.atk = null;
+    f.cx = null;   // AUDIT WB9 (brain F4): a kill mid-Reckoning spends its crystals - no beat after the fall clears them
   }
   return got;
 }
@@ -943,6 +947,12 @@ function cxFrame(f, now, out) {
   out.push({ k: 'cxh', i: f.cx.i, h: f.cx.c.map((q) => Math.ceil(q.h)) });
 }
 
+/** AUDIT WB9 (brain F2): THE CRYSTALS TAKE NO BLOW in the Reckoning's last RECKON_CLOSE_MS - a break judged later reached
+ *  a screen after its own clock had landed the Reckoning (a court wiped, then told he was stunned, and a screen that heard
+ *  the stun first spared) - nor once it has landed, nor with no Reckoning in flight. The screens stop offering them then. */
+export const RECKON_CLOSE_MS = 500;
+export const reckonOpen = (f, now) => !!f.atk && f.atk.a === ATTACKS.reckon.id && now < f.atk.at - RECKON_CLOSE_MS;
+
 /**
  * WB9c: A BLOW ON A CRYSTAL from `sub`, standing at `pose` ({x, z}, the court's frame), of kind `r`, claiming `d` on
  * crystal `c` of the Reckoning in flight. The same caps as a blow on him - his blow rate and his damage bucket (one hand,
@@ -954,11 +964,13 @@ export function applyCrystalHit(f, sub, c, d, r, pose, now) {
   const out = [];
   const p = f.players[sub], X = f.cx, q = X && Number.isInteger(c) ? X.c[c] : null;
   if (!p || f.fell || f.wrath || !q || !(q.h > 0) || !Number.isFinite(d) || !(d > 0) || now >= f.wrathAt) return out;
+  if (!reckonOpen(f, now)) return out;   // AUDIT WB9 (brain F2): only while the Reckoning still winds up, and not in its last breath
   p.rate = Math.min(GATE_HIT_HZ_MAX, p.rate + (Math.max(0, now - p.rateAt) / 1000) * GATE_HIT_HZ_MAX);
   p.rateAt = now;
   if (p.rate < 1) return out;
   p.rate -= 1;
   if (!pose || !Number.isFinite(pose.x) || !Number.isFinite(pose.z) || !onFloor(pose.x, pose.z, f.xa, now, POSE_SLACK)) return out;
+  if (!inCourt(pose.x, pose.z, f.court, POSE_SLACK)) return out;   // AUDIT WB9 (brain F1): from his court, as a blow on him
   if (r === HIT_KINDS.Melee && dist(pose.x, pose.z, q.x, q.z) - CRYSTAL_R > MELEE_REACH + POSE_SLACK) return out;
   const ref = dpsRef(p.lv);
   p.bucket = Math.min(BUCKET_DEPTH_X * ref, p.bucket + (Math.max(0, now - p.bucketAt) / 1000) * BUCKET_RATE_X * ref);

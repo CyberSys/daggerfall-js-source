@@ -303,7 +303,7 @@ test('WB9c the link: the crystals grown whole at their word, their health as it 
 
 // ═══ THE COURT ═══════════════════════════════════════════════════════════════════════════════════════════════════
 
-function court({ feet = [0, 0, 0] } = {}) {
+function court({ feet = [C3[0], 0, C3[1]] } = {}) {   // AUDIT WB9 (brain F1): standing in the court he fights in - the relay takes a blow from nowhere else
   const link = { st: GATE_STATE_EMPTY, state() { return this.st; } };
   const clock = { t: 0 };
   const said = [], sounds = [], sent = [], xsent = [];

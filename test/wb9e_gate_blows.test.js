@@ -67,12 +67,12 @@ test('WB9e the telegraph\'s grain: each landing in the grain of what it is - his
 
 test('WB9e the shader reads: the edge at least two pixels wide however far off, a soft halo outside it; the fuse burning down its rim as the wind-up runs, a spark where it burns; the throb quickening toward the landing on its own clock; the last moment at a landing\'s brightness; a shockwave run out past the edge at TELEGRAPH_WAVE_MPS for TELEGRAPH_WAVE_MS - never for the ground nor the whole arena\'s (mutants: the fuse lit whole; the throb steady)', () => {
   for (const re of [
-    /float px = max\(fwidth\(edge\), 1e-4\);/,
+    /float px = max\(length\(fwidth\(vCourt\)\), 1e-4\);/,   // AUDIT WB9 (court F1): the pixel's footprint, never the jumping edge's
     /float rim = 1\.0 - smoothstep\(max\(0\.06, 1\.2 \* px\), max\(0\.35, 4\.0 \* px\), edge\);/,
     /float halo = \(1\.0 - fin\) \* \(1\.0 - smoothstep\(0\.0, 1\.4, edge\)\) \* 0\.3;/,
     /float left = 1\.0 - uT;\n\s*float fuseLit = step\(course, left\);/,
     /float spark = exp\(-pow\(\(course - left\) \* 40\.0, 2\.0\)\) \* \(1\.0 - uFlash\);/,
-    /float hz = 1\.5 \+ 5\.0 \* uT \* uT;/,
+    /float hz = 1\.5 \+ \(5\.0 \/ 3\.0\) \* uT \* uT;/,   // AUDIT WB9 (court F3)
     /float urgent = 0\.5 \+ 0\.5 \* cos\(6\.283185307179586 \* hz \* uSince\);/,
     /float now = step\(uSpan - uSince, 0\.350\) \* \(1\.0 - uFlash\);/,
     /if \(uAfter >= 0\.0 && uPool == 0 && uKind != 5\) \{ float rw = uAfter \* 22\.0;/,

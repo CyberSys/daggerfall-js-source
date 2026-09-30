@@ -184,8 +184,8 @@
   {
     "name": "WB9c-a-target-still-in-the-stone",
     "file": "src/scenes/gateCourt.js",
-    "old": "    if (!rk.ended && grow >= CRYSTAL_STRIKE_GROWN) for",
-    "new": "    if (!rk.ended) for",
+    "old": "    if (!rk.ended && grow >= CRYSTAL_STRIKE_GROWN && !(rk.landAt",
+    "new": "    if (!rk.ended && !(rk.landAt",
     "tests": [
       "test/wb9c_gate_reckoning.test.js"
     ]
@@ -193,8 +193,8 @@
   {
     "name": "WB9c-the-number-unrounded",
     "file": "src/scenes/gateCourt.js",
-    "old": "      if (!Number.isInteger(c) || c < 0 || c >= rk.n || rk.brokeAt[c] !== null) return false;\n      const dmg = Math.round(d);",
-    "new": "      if (!Number.isInteger(c) || c < 0 || c >= rk.n || rk.brokeAt[c] !== null) return false;\n      const dmg = d;",
+    "old": "      if ((rk.landAt !== null && t >= rk.landAt - RECKON_CLOSE_MS) || !fromHisCourt(s, t)) return false;   // AUDIT WB9 (brain F1, F2)\n      const dmg = Math.round(d);",
+    "new": "      if ((rk.landAt !== null && t >= rk.landAt - RECKON_CLOSE_MS) || !fromHisCourt(s, t)) return false;   // AUDIT WB9 (brain F1, F2)\n      const dmg = d;",
     "tests": [
       "test/wb9c_gate_reckoning.test.js"
     ]

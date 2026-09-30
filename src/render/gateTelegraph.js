@@ -19,7 +19,7 @@
 import { FOG_FACTOR_GLSL } from './labGrass.js';
 import { buildProgram } from './glProgram.js';
 import { duelClock } from './duelWall.js';
-import { ATTACK_BY_ID, BOSS_R, COURT_CENTRE, COURT_R, COURTS, BASE_PROFILE, windupOf, nearestCourt, isDagons } from '../net/gateBrain.js';
+import { ATTACK_BY_ID, BOSS_R, COURT_CENTRE, COURT_R, COURTS, BASE_PROFILE, windupOf, nearestCourt, isDagons, WALKS, WALK_HALF_W } from '../net/gateBrain.js';
 import { telegraphAt } from '../net/gateStrike.js';
 import { attackColor } from '../world/gateBoss.js';
 
@@ -187,10 +187,14 @@ uniform mat4 uVP;
 uniform vec3 uCentre;    // the first court's centre in the scene - the court frame's origin
 uniform vec2 uCourt;     // WB9b: the court it lies over, in the court frame
 uniform float uLift;
+uniform highp int uOnWalk;   // AUDIT WB9 (court F4): 1 - the quad is a laid walkway's strip (aCourt: 0..1 along it, -1..1 across); highp both stages (a uniform's precision must match)
+uniform vec2 uWalkA;     // its start, in the court frame
+uniform vec2 uWalkU;     // its direction
+uniform float uWalkLen;  // as far as it is laid
 out vec2 vCourt;
 out vec3 vWorld;
 void main() {
-  vCourt = uCourt + aCourt;
+  vCourt = uOnWalk == 1 ? uWalkA + uWalkU * (aCourt.x * uWalkLen) + vec2(uWalkU.y, -uWalkU.x) * (aCourt.y * ${WALK_HALF_W.toFixed(3)}) : uCourt + aCourt;
   vWorld = uCentre + vec3(vCourt.x, uLift, vCourt.y);
   gl_Position = uVP * vec4(vWorld, 1.0);
 }`;
@@ -215,6 +219,9 @@ uniform vec3 uColor;
 uniform float uTime;     // duelClock's seconds
 uniform vec2 uCourt;     // WB9b: the court it lies over
 uniform float uFloorR;
+uniform highp int uOnWalk;   // AUDIT WB9 (court F4): drawn over a laid walkway's strip - the ground past the rim a blow still reaches
+uniform vec2 uWalkC0;    // the courts it joins - their discs are their own passes'
+uniform vec2 uWalkC1;
 uniform int uStyle;      // WB9e: 0 his weight, 1 fire, 2 frost, 3 shock, 4 venom, 5 Dagon's (TELEGRAPH_STYLE)
 uniform float uSince;    // WB9e: seconds since the word - the urgency's own clock (never the wrapped one)
 uniform float uSpan;     // WB9e: the wind-up, seconds
@@ -245,7 +252,8 @@ float grain(vec2 p, float t) {
 }
 void main() {
   float c = length(vCourt - uCourt);
-  if (c > uFloorR) discard;
+  if (uOnWalk == 0) { if (c > uFloorR) discard; }
+  else if (length(vCourt - uWalkC0) <= uFloorR || length(vCourt - uWalkC1) <= uFloorR) discard;
   vec2 rel = vCourt - uOrigin;
   float d = length(rel);
   bool inside = false;
@@ -308,8 +316,10 @@ void main() {
   }
   float fin = inside ? 1.0 : 0.0;
   // WB9e: THE EDGE READS FROM ANYWHERE - a hard line at least two pixels wide however far off (its width in screen space),
-  // a soft glow just outside it
-  float px = max(fwidth(edge), 1e-4);
+  // a soft glow just outside it. AUDIT WB9 (court F1): the pixel's own footprint on the floor, in metres - the edge itself
+  // jumps (the cone's 1e3 past its arc, its sides and its body), and a quad across the jump read a thousand-metre pixel:
+  // every Cleave drew a full ring at its reach behind him and its sides on to the floor's edge
+  float px = max(length(fwidth(vCourt)), 1e-4);
   float rim = 1.0 - smoothstep(max(0.06, 1.2 * px), max(0.35, 4.0 * px), edge);
   float halo = (1.0 - fin) * (1.0 - smoothstep(0.0, 1.4, edge)) * 0.3;
   // WB9e: THE SHOCKWAVE - a landing throws a ring out past its edge (outside the shape, fading as it runs)
@@ -329,8 +339,10 @@ void main() {
   float front = fin * exp(-pow((s - uT) * 18.0, 2.0)) * (1.0 - step(0.999, uT));
   float pulse = 0.8 + 0.2 * sin(uTime * 6.283185307179586 * ${TELEGRAPH_PULSE_HZ}.0);
   // WB9e: URGENCY - the fill throbs faster as the landing nears (its own clock: 1.5 beats a second at the word, 6.5 at the
-  // landing), the grain of what lands runs through it, and the last ${TELEGRAPH_NOW_MS} ms burn at a landing's brightness
-  float hz = 1.5 + 5.0 * uT * uT;
+  // landing), the grain of what lands runs through it, and the last ${TELEGRAPH_NOW_MS} ms burn at a landing's brightness.
+  // AUDIT WB9 (court F3): the phase is hz * uSince, and uT grows with uSince - its rate is 1.5 + 3 * (hz - 1.5): a third of
+  // the quickening here makes the beat the one said (it was 16.5 a second at the landing)
+  float hz = 1.5 + (5.0 / 3.0) * uT * uT;
   float urgent = 0.5 + 0.5 * cos(6.283185307179586 * hz * uSince);
   float g = grain(vCourt, uSince);
   float now = step(uSpan - uSince, ${(TELEGRAPH_NOW_MS / 1000).toFixed(3)}) * (1.0 - uFlash);
@@ -354,6 +366,9 @@ function mat4Multiply(out, a, b) {
   return out;
 }
 
+/** AUDIT WB9 (court F4): a walkway's strip - 0..1 along it, -1..1 across (the vertex stage lays it where it is laid). */
+export const TELEGRAPH_WALK_QUAD = Object.freeze([0, -1, 0, 1, 1, 1, 0, -1, 1, 1, 1, -1]);
+
 /** The quad over the floor's disc, two triangles facing up, in the court's frame. Pure. */
 export function telegraphQuad(half = COURT_R + TELEGRAPH_MARGIN) {
   return new Float32Array([-half, -half, -half, half, half, half, -half, -half, half, half, half, -half]);
@@ -368,7 +383,8 @@ export class GateTelegraphRenderer {
     this.program = prog;
     this.u = {};
     for (const n of ['uVP', 'uCentre', 'uCourt', 'uLift', 'uKind', 'uOrigin', 'uYaw', 'uR', 'uHalfArc', 'uBody', 'uEnd', 'uHalfW', 'uR0', 'uR1', 'uPts', 'uCount',
-      'uT', 'uFlash', 'uAlpha', 'uColor', 'uTime', 'uFloorR', 'uStyle', 'uSince', 'uSpan', 'uAfter', 'uPool', 'uFogMode', 'uFogDensity', 'uFogRange', 'uCamPos']) this.u[n] = gl.getUniformLocation(prog, n);
+      'uT', 'uFlash', 'uAlpha', 'uColor', 'uTime', 'uFloorR', 'uStyle', 'uSince', 'uSpan', 'uAfter', 'uPool', 'uFogMode', 'uFogDensity', 'uFogRange', 'uCamPos',
+      'uOnWalk', 'uWalkA', 'uWalkU', 'uWalkLen', 'uWalkC0', 'uWalkC1']) this.u[n] = gl.getUniformLocation(prog, n);
     const verts = telegraphQuad();
     this.count = verts.length / 2;
     const vao = gl.createVertexArray();
@@ -379,6 +395,17 @@ export class GateTelegraphRenderer {
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 8, 0);
     gl.bindVertexArray(null);
     this.vao = vao;
+    // AUDIT WB9 (court F4): the walkways' strip, one quad for all of them
+    const walkVao = gl.createVertexArray();
+    gl.bindVertexArray(walkVao);
+    this.walkVbo = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.walkVbo);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(TELEGRAPH_WALK_QUAD), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 8, 0);
+    gl.bindVertexArray(null);
+    this.walkVao = walkVao;
+    /** how many walkway strips the last draw laid it over, for the tests */
+    this.walked = 0;
     this._vp = new Float32Array(16);
     this._pts = new Float32Array(TELEGRAPH_POINTS_MAX * 2);
     /** whether the last draw put a shape down, for the stats and the tests */
@@ -389,10 +416,13 @@ export class GateTelegraphRenderer {
    * Draw one attack's shape (`telegraphShape`'s answer; null draws nothing and touches nothing) over the court it names
    * (WB9b: `shape.court`; -1 - the whole arena's - over each court in turn), the first court's centre standing at
    * `centre` in the scene, `seconds` any clock (wrapped here), `fog` the frame's fog as the renderer set it ({ mode,
-   * density, range, color, camPos }; none draws unfogged).
+   * density, range, color, camPos }; none draws unfogged). AUDIT WB9 (court F4): `walks` - how far each walkway is laid
+   * (0..1, net/gateBrain.js walkFormed; none, none drawn) - and the shape goes on over the laid stretch of each walkway
+   * its court joins (the whole arena's, of every one): a blow at the rim reaches the walkway past it, and strikes there.
    */
-  draw(shape, proj, view, eye, seconds, fog = null, centre = COURT_CENTRE) {
+  draw(shape, proj, view, eye, seconds, fog = null, centre = COURT_CENTRE, walks = null) {
     this.drawn = 0;
+    this.walked = 0;
     if (!shape || !(shape.alpha > 0.001)) return;
     const gl = this.gl, U = this.u;
     mat4Multiply(this._vp, proj, view);
@@ -436,11 +466,29 @@ export class GateTelegraphRenderer {
     gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(-2, -4);
     // WB9b: over its court - or, the whole arena's, over each of them
     const one = Number.isInteger(shape.court) && shape.court >= 0, k0 = one ? (COURTS[shape.court] ? shape.court : 0) : 0, k1 = one ? k0 + 1 : COURTS.length;
+    gl.uniform1i(U.uOnWalk, 0);
     for (let k = k0; k < k1; k++) {
       gl.uniform2f(U.uCourt, COURTS[k][0], COURTS[k][1]);
       gl.drawArrays(gl.TRIANGLES, 0, this.count);
     }
     this.drawn = k1 - k0;
+    // AUDIT WB9 (court F4): on over the walkways its courts join, as far as each is laid - never his mark (he stands in his court)
+    if (Array.isArray(walks) && shape.kind !== TELEGRAPH_KIND.mark) {
+      let on = false;
+      for (const w of WALKS) {
+        const f = walks[w.k];
+        if (!(f > 0) || (one && w.k !== k0 && w.k !== k0 - 1)) continue;
+        if (!on) { on = true; gl.bindVertexArray(this.walkVao); gl.uniform1i(U.uOnWalk, 1); gl.uniform2f(U.uCourt, COURTS[k0][0], COURTS[k0][1]); }
+        gl.uniform2f(U.uWalkA, w.ax, w.az);
+        gl.uniform2f(U.uWalkU, w.ux, w.uz);
+        gl.uniform1f(U.uWalkLen, w.len * Math.min(1, f));
+        gl.uniform2f(U.uWalkC0, COURTS[w.k][0], COURTS[w.k][1]);
+        gl.uniform2f(U.uWalkC1, COURTS[w.k + 1][0], COURTS[w.k + 1][1]);
+        gl.drawArrays(gl.TRIANGLES, 0, TELEGRAPH_WALK_QUAD.length / 2);
+        this.walked++;
+      }
+      if (on) gl.uniform1i(U.uOnWalk, 0);
+    }
     gl.disable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(0, 0);
     gl.bindVertexArray(null);
     gl.enable(gl.CULL_FACE);

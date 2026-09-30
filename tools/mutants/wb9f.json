@@ -183,7 +183,7 @@
   {
     "name": "WB9f-the-press-falls-through",
     "file": "src/scenes/worldModes.js",
-    "old": "    if (key.startsWith('spoil')) { host.takeSpoil?.(key); return true; }",
+    "old": "    if (key.startsWith('spoil')) { quickLootSpend(); host.takeSpoil?.(key); return true; }",
     "new": "",
     "tests": [
       "test/wb9f_gate_spoils.test.js"

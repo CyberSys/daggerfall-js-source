@@ -37,7 +37,7 @@
 
 import { guestName, isHandleShaped, isGuestShaped } from './guestName.js';
 import { wardrobeOf, equipRefusal, canModerate, auraRefusal } from './titles.js';   // ACC3: what a player holds, wears and is true of - all four derived; WB9g: and the aura worn
-import { insigniaById, insigniaHeld, insigniaWith } from '../../src/net/insignia.js';   // WB9g: the Broker's insignia - one law both ends
+import { insigniaById, insigniaHeld } from '../../src/net/insignia.js';   // WB9g: the Broker's insignia - one law both ends
 import { ID_RE, nameIsIssuable } from '../../src/net/identityToken.js';
 import { PLAY_GRACE_S } from '../../src/net/playClock.js';   // ACC4: the widest gap one beat may credit - one home both ends
 import { MUTE_MAX_MIN } from '../../src/net/moderation.js';   // MOD1: the longest mute - the command and the service agree in one place
@@ -405,14 +405,17 @@ export async function buyInsignia({ db, nowS }, player, env, id) {
   if (!offer) return { error: 'no-insignia' };
   if (!player?.handle) return { error: 'guest' };
   if (insigniaHeld(player.insignia).includes(offer.id)) return { error: 'owned' };
-  const next = insigniaWith(player.insignia, offer.id);
+  // AUDIT WB9 (insignia F3): the id APPENDED to the column the UPDATE matches, not written over it from the row read
+  // before - two sales of two pieces at once each read the column empty, and the second wrote its id alone over the
+  // first's: both paid for, one held (the id's shape is the law's own, insigniaWith's: space-separated, in sale order)
   const row = await db.prepare(
-    `UPDATE players SET insignia = ?2, insignia_spent = insignia_spent + ?3, last_seen = ?4
+    `UPDATE players SET insignia = CASE WHEN COALESCE(insignia, '') = '' THEN ?2 ELSE insignia || ' ' || ?2 END,
+       insignia_spent = insignia_spent + ?3, last_seen = ?4
      WHERE id = ?1
-       AND (' ' || COALESCE(insignia, '') || ' ') NOT LIKE ('% ' || ?5 || ' %')
+       AND (' ' || COALESCE(insignia, '') || ' ') NOT LIKE ('% ' || ?2 || ' %')
        AND (SELECT COUNT(*) FROM gate_kills WHERE account = ?1) - insignia_spent >= ?3
      RETURNING insignia, insignia_spent`,
-  ).bind(player.id, next, offer.price, nowS, offer.id).first();
+  ).bind(player.id, offer.id, offer.price, nowS).first();
   if (!row) {
     const now = await db.prepare('SELECT * FROM players WHERE id = ?').bind(player.id).first();
     if (insigniaHeld(now?.insignia).includes(offer.id)) return { error: 'owned' };

@@ -209,7 +209,7 @@ import { gateScanner, findGateSite, gateSeaPixel, politicClaimed } from '../syst
 import { createGatePool, GATE_TEXT } from './gatePool.js';   // WB2: the gate the world stands - its stone, its fire and beacon, its collider and its door
 import { createSigilBroker } from './sigilBrokerPool.js';   // SET7: the Sigil Broker beside the gate - her body, her box and name, her press
 import { createBrokerOverlay, closeBrokerDoor } from '../ui/brokerDoor.js';   // SET7: her window, a lazy chunk behind its door
-import { brokerStock, brokerDay, brokerBought, makeBrokerSale, spendableStonesIn, lockedStonesIn, stoneCount, spendStones, stonesText } from '../systems/sigilBroker.js';   // SET7: the day's stock, the record, the sale   // SS1: the stones counted over their stacks
+import { brokerStock, brokerDay, brokerBought, makeBrokerSale, spendableStonesIn, lockedStonesIn, stoneCount, insigniaSale, stonesText } from '../systems/sigilBroker.js';   // SET7: the day's stock, the record, the sale   // SS1: the stones counted over their stacks
 import { drawGateBanner } from '../ui/gateBanner.js';
 import { drawGateGround } from '../ui/gateGroundView.js';   // WB9d: his ground's rim and warning - hidden with a held frame (the court draws it)
 import { drawGateMarksCard } from '../ui/gateMarksView.js';   // WB9a: tonight's marks over the screen - by the gate before it is entered (and in the court as a fighter steps in: scenes/gateCourt.js)
@@ -16066,8 +16066,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** WB9g (2026-09-30, Mac: "Add a brand new title to the broker and a new addition (the aura) ... These items should be
    *  expensive and sought after"): THE BROKER'S INSIGNIA (net/insignia.js) - the Gatebreaker title and Dagon's Fire aura,
    *  bought once for Sigil Stones and kept by the ACCOUNT. What the account owns and wears is the service's (asked each
-   *  time her window opens - `insigniaLoad`); a sale is the service's first (it records it, the account's closed gates
-   *  paying - server-account/src/accounts.js buyInsignia) and the pack's second (the stones taken - spendStones); wearing
+   *  time her window opens - `insigniaLoad`); a sale is two halves, the service's (it records it, the account's closed
+   *  gates paying - server-account/src/accounts.js buyInsignia) and the pack's (its stones held before the service is
+   *  asked, and given back unless it holds the sale - AUDIT WB9: systems/sigilBroker.js insigniaSale); wearing
    *  one is the account card's own door (equipTitle, equipAura), and my own name and feet show it at once - the room
    *  sees it from the next hello the token signs. */
   let _insignia = { loaded: false, busy: false, held: [], title: null, aura: null };
@@ -16100,11 +16101,15 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (why) return { ok: false, text: 'The Broker will not sell that.' };
     _insignia.busy = true;
     try {
-      const r = await buyInsignia(io, offer.id);
-      if (!r.ok) return { ok: false, text: r.error === 'short' ? `${accountRefusalText('short')} It asks ${stonesText(offer.price)}.` : accountRefusalText(r.error) };
-      insigniaAdopt(r.data);
       playerEntity.items = playerEntity.items || [];
-      spendStones(playerEntity.items, offer.price);   // the pack's half, after the service's
+      // AUDIT WB9 (insignia F1, F2): the pack's price held FIRST and given back unless the service holds the sale (a lost
+      // answer asked after), and a held sale saved at once - PROF-SAVE's door (systems/sigilBroker.js insigniaSale)
+      const r = await insigniaSale(offer, {
+        items: playerEntity.items, buy: (id) => buyInsignia(io, id), save: () => saveSoon.changed(),
+        held: async (id) => { const a = await readAccount(io); const w = a.ok ? a.data?.wardrobe : null; return Array.isArray(w?.insignia) && w.insignia.includes(id) ? w : null; },
+      });
+      if (!r.ok) return { ok: false, text: r.error === 'stones' ? `Not enough Sigil Stones - it asks ${stonesText(offer.price)}.` : r.error === 'short' ? `${accountRefusalText('short')} It asks ${stonesText(offer.price)}.` : accountRefusalText(r.error) };
+      insigniaAdopt(r.data);
       audio.playOneShot(SOUND.GoldPieces, 1);
       surfacePlayer();
       const name = insigniaRows().find((x) => x.id === offer.id)?.name ?? offer.key;

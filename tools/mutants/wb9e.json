@@ -29,7 +29,7 @@
   {
     "name": "WB9e-the-throb-steady",
     "file": "src/render/gateTelegraph.js",
-    "old": "  float hz = 1.5 + 5.0 * uT * uT;",
+    "old": "  float hz = 1.5 + (5.0 / 3.0) * uT * uT;",
     "new": "  float hz = 1.5;",
     "tests": [
       "test/wb9e_gate_blows.test.js"

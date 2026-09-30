@@ -144,7 +144,7 @@ import { dungeonStartDoorFor } from '../systems/save.js';   // CASTLE1: the load
 import { composeNamer, composeContents } from '../systems/worldHover.js';   // INTERIOR-BODIES: the interior stands itemised bodies now, so its contents reader is a LADDER like the other three hosts' rather than one prefix
 import { raceWinner } from '../player/activationRace.js';   // WORLD-HOVER: the race's WINNER, so the plaque names what the press would open
 import { worldHoverFrame, hideWorldPlaque, destroyWorldPlaque } from '../ui/worldPlaque.js';   // WORLD-HOVER: the one seam each host calls, and the hide door for the branches that return above it
-import { quickLootTake, plaqueActionFor } from '../systems/quickLoot.js';   // QUICK-LOOT B4: the take, through the window's own door; HOME2: the verb the plaque lit over a door
+import { quickLootTake, quickLootSpend, plaqueActionFor } from '../systems/quickLoot.js';   // QUICK-LOOT B4: the take, through the window's own door; HOME2: the verb the plaque lit over a door
 import { lootPile } from '../player/lootStack.js';   // LOOT-STACK: the pile under the reticle, as the loot window's tabs
 import { staticDoorName, npcHoverName, questResourceName, worldTooltipsOn, hideInteractTooltip,
   houseContainerName, houseContainerHover, actionName, actionDoorName, lootPileName,
@@ -7488,7 +7488,7 @@ export function createWorldModes(host) {
     if (_pick.distance > _pick.reach) { setMidScreenText(TOO_FAR_AWAY_TEXT); return true; }
     // WB9f: A PIECE OF HIS SPOILS, pressed - into the pack, said as a walk-over says it (the court's own rung: the court
     // alone stands these keys)
-    if (key.startsWith('spoil')) { host.takeSpoil?.(key); return true; }
+    if (key.startsWith('spoil')) { quickLootSpend(); host.takeSpoil?.(key); return true; }   // AUDIT WB9 (spoils F2): a P or J that armed this press is spent on it
     // U26: droppedLoot: is the player's own pile - the same three-way
     // arm the standalone dungeon scene carries, kept in step here.
     if (key.startsWith('loot:') || key.startsWith('corpse:') || key.startsWith('droppedLoot:') || key.startsWith('droppedTorch:') || key.startsWith('camp:') || key.startsWith('hearth:')) {   // AUDIT-WH2 L2-F1: hearth: - HEARTH1's fourth host, stood and named down here since it shipped and never answered

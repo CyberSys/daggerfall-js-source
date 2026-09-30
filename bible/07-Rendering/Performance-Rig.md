@@ -425,6 +425,19 @@ onto the kept camera, AUDIT PARTY8's stranger and MWBODY1's cap onto the
 swap's dwell (the cap's newcomer now standing in the rig given up - one
 look, one body).
 
+**AUDIT WB9 (2026-09-30, before the merge; World-Bosses.md section 14's
+audit table, H1-H4).** Four minors, each reproduced: a body out of the view
+banked its particles' time without end (a minute behind the eye was one
+sixty-second particle step - a lantern's flame thrown out of its sprite), so
+the bank holds at most `EFFECTS_BANK_MAX_S` (0.1 s); a hand-over allowed on
+a spare could push that very spare out of a full pool as the body it freed
+was kept (`_keepSpare` now keeps the spare a hand-over is for); a queued
+build read its peer's look when the queue reached it, keyed on the look
+asked for (it is built from the look its key names); and a concealed peer
+who took a spare was drawn open for its first frame (its veil is set as it
+stands). Pinned in `test/audit_wb9.test.js`; mutants in
+`tools/mutants/audit_wb9.json`.
+
 **Still open.** The sprite render is still one a SEEN body a frame (the
 shared target); a per-body target kept across frames - re-rendered on a
 pose or a camera move - is the next slice, and it needs a GPU to measure.

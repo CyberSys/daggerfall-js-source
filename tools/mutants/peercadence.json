@@ -56,8 +56,8 @@
   {
     "name": "PEERCADENCE-the-bank-is-never-filled",
     "file": "src/net/peerBodies.js",
-    "old": "      b.bank += dt;\n",
-    "new": "      b.bank = dt;\n",
+    "old": "      b.bank = Math.min(EFFECTS_BANK_MAX_S, b.bank + dt);   // AUDIT WB9 (bodies F1)",
+    "new": "      b.bank = dt;   // AUDIT WB9 (bodies F1)",
     "tests": [
       "test/peercadence.test.js"
     ]

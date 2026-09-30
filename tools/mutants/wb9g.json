@@ -129,7 +129,7 @@
   {
     "name": "WB9g-the-update-sells-an-owned-piece",
     "file": "server-account/src/accounts.js",
-    "old": "       AND (' ' || COALESCE(insignia, '') || ' ') NOT LIKE ('% ' || ?5 || ' %')\n",
+    "old": "       AND (' ' || COALESCE(insignia, '') || ' ') NOT LIKE ('% ' || ?2 || ' %')\n",
     "new": "",
     "tests": [
       "test/wb9g_insignia.test.js"
@@ -572,15 +572,6 @@
     "file": "src/scenes/world.js",
     "old": "      if (_veils.has(d.id) || !d.shown) continue;",
     "new": "      if (!d.shown) continue;",
-    "tests": [
-      "test/wb9g_insignia.test.js"
-    ]
-  },
-  {
-    "name": "WB9g-the-pack-paid-before-the-service",
-    "file": "src/scenes/world.js",
-    "old": "      const r = await buyInsignia(io, offer.id);\n",
-    "new": "      spendStones(playerEntity.items, offer.price);\n      const r = await buyInsignia(io, offer.id);\n",
     "tests": [
       "test/wb9g_insignia.test.js"
     ]

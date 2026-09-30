@@ -61,7 +61,9 @@ export function foldGate(s, g, now, place = bossAt) {
     // WB9c: a walk, or another attack's word, and the Reckoning's crystals are done with (the relay grows them only with
     // its word, and spends them at its landing or its breaking - no word of their own says so)
     case 'mv': return { ...s, atk: null, move: { x: g.x, z: g.z, tx: g.tx, tz: g.tz, v: g.v, at: g.at }, x: g.x, z: g.z, yaw: g.v > 0 ? Math.atan2(g.tx - g.x, g.tz - g.z) : s.yaw, heardAt: now, cx: null };
-    case 'atk': return { ...s, atk: { i: g.i, a: g.a, at: g.at, x: g.x, z: g.z, yw: g.yw, tg: g.tg }, move: null, x: g.x, z: g.z, yaw: g.yw, heardAt: now, cx: s.cx && s.cx.i === g.i ? s.cx : null, ...crossLaid(s, g) };
+    // AUDIT WB9 (brain F3): the Wrath's word ends a stun as the relay ends it (net/gateBrain.js - "the midnight overtakes a
+    // Reckoning and a stun alike"); no other attack begins under one
+    case 'atk': return { ...s, atk: { i: g.i, a: g.a, at: g.at, x: g.x, z: g.z, yw: g.yw, tg: g.tg }, move: null, x: g.x, z: g.z, yaw: g.yw, heardAt: now, cx: s.cx && s.cx.i === g.i ? s.cx : null, ...(g.a === ATTACKS.wrath.id ? { stunUntil: 0 } : {}), ...crossLaid(s, g) };
     case 'hp': return { ...s, hp: g.h, max: g.m, heardAt: now };
     case 'ph': return { ...s, phase: g.n, shieldUntil: g.until, heardAt: now };
     case 'wrath': return { ...s, wrath: g.at, atk: null, heardAt: now };
@@ -91,7 +93,9 @@ export function crossLaid(s, g) {
   const k = nearestCourt(g.tg[0][0], g.tg[0][1]) - 1;
   if (!(k >= 0) || Number.isFinite(s.xa?.[k])) return {};
   const xa = [...(s.xa ?? [])];
-  xa[k] = g.at - ATTACKS.cross.windup;
+  // AUDIT WB9 (brain F5): every walkway up to the court he bounds to, as the relay lays them (net/gateBrain.js beginTurn)
+  // - a fight woken from a checkpoint older than WB9 bounds from the first court straight to the third
+  for (let j = 0; j <= k; j++) if (!Number.isFinite(xa[j])) xa[j] = g.at - ATTACKS.cross.windup;
   return { xa };
 }
 
