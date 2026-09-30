@@ -4790,7 +4790,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:5233`). With the property missing that call is a
+(`dungeonContext.js:5239`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4917,7 +4917,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:7495` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:7505` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:335`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -11163,7 +11163,7 @@ departure (`Port-Ledger.md` section A, SMITHING: THE ANVIL, QUALITY AND PROVENAN
 - **The smith's stock** burns Marks (a `stock` line in the one ledger - MARKS_KINDS - under `<rid>:stock`, AUDIT 30)
   for the fittings Hunting and Logging do not yet yield, into the Stores as bought units, which the Stores do not
   withdraw until those professions register their templates - PROF4 registered the planks' and Charcoal's, so of the
-  stock only Cured Leather stays (AUDIT 30 R3).
+  stock only Cured Leather stays (AUDIT 30 R3); PROF7 registered Cured Leather's, and none stays (AUDIT 32 R5).
 - **A craft asked is kept** on the device before it is asked (`net/profBook.js`), its pieces minted once on the answer by
   the tab that lets it go, and never twice into one pack (the host's provenance check).
 - **FOUND and fixed:** a Quartermaster's smelt yielded one ingot a unit - PROF2 offered the choice and built no doubling.
@@ -11693,3 +11693,88 @@ since SWITCH-ON - no switch of its own.
 - **Pinned:** `test/prof7_law.test.js`, `test/prof7_service.test.js`, `test/prof7_client.test.js` (the done-when
   through the real Worker); `tools/mutants/prof7.json` (119: 118 dead, one recorded equivalent). Patch notes:
   `PATCH-NOTES-Professions-Hunting-Outfitting.md`.
+
+## AUDIT 32 (2026-09-30, Mac: "Audit this") - PROF7 audited
+
+PROF7 - Hunting, the Skinning Knife and Outfitting - and the seams it touches, audited in AUDIT 29's six lenses: the
+account service, the laws, the client's books, the acts and their hosts, the pages and the HUD, and the records against
+the code. 52 findings, 46 once the lenses' overlaps are folded (the day's turn found by two, the hides' unit by two, the
+dungeon's foes by two, the choice key's words by two, a held key's repeats by two, the Professions page's unlocks by
+two). Every one was verified - the service's by a probe over the real Worker, the pages and the HUD in Chromium at 360
+and 800 pixels - and 45 fixed; one is Mac's to decide (below). Each fix with a behaviour is pinned by a test that fails
+on the code before it (every one run red on the pre-audit tree with only the new names shimmed):
+`test/audit32_law.test.js` (4), `test/audit32_service.test.js` (5), `test/audit32_client.test.js` (9),
+`test/audit32_pages.test.js` (9); `acct34` (no migration: no table changed); `tools/mutants/audit32.json` (62, every one
+dead - the one that first survived, the reach measured per axis, killed by a body inside the reach across the ground
+and past it from the eye). The 21 records whose code the fixes moved (prof7 ten, audit29 three, prof3 two, audit30,
+prof1, prof5, forage1, fieldbugs_x, toast_split one each) were re-aimed by content, as were survtiers3's two cite-rot
+records, whose quoted cites the cite shift moved, and the neighbours re-run - the
+professions' lists whole and every other mutant within reach of an edit or judged by a pin the audit changed.
+Three earlier pins that read the moved code by its words were widened to it, their claims kept: fieldbugs_x X1 (the
+menu's repaint carries the focus now), audit68 S19 (the loot targets read the corpse's own place) and audit0928 D2
+(Controls.md's table, which is the registry's).
+
+**Hunting's day and the service** (L2, S2-S6). "30 hides a day, 3 of tiers 5-6" counted the day's ROWS - the bodies - so
+a clean pelt's second hide was free and a day ran to 60 hides and its rare three to six: the decision and the state
+count the rows' units now, and the day's last skinning is cut to its room as the Stores' is. A body's ground is never
+read nor witnessed - a hand-built climate or region was bound into the witness statement and answered a 500 (S2). A
+Butcher at 4,999 Raw Meat lost both units of the butchery where a plain hunter kept one: the second find is kept where
+one of it fits, its count cut to its room (S3). A foe no knife skins is refused before the hour's acts are spent, as a
+craft's dye is (S4). A weave answered Smithing's track (S5). The Worker's route table said nothing of `hunt`, `foe` or
+the craft route (S6).
+
+**The laws** (L1, L3, L5). THE TRACE COUNTED STILL FRAMES: a sample every frame and a clock from the press, so a press
+held still on the first point and one flick to the last was a clean pelt (97% of lines after a second's rest) and a
+hand's score hung on its frame rate - AUDIT 30 A1's law for the plane, never carried to the knife. It is measured every
+quarter degree of the trace's progress (its yaw: the line runs left to right), a wiggle over drawn ground adds nothing,
+and the clock starts at the first move along the line. A bearing that is not a number is none (an infinite one hung the
+chord's walk), and a chord walks no further than the line. DFU's "unchangeable" shirts are the four whose VARIANT never
+changes (`useItem.js` VARIANT_CHANGEABLE) - DFU's shelf and loot dye them: the loom refused them a dye and sewed them in
+Blue's table; every garment takes one.
+
+**The books** (B1-B5). A body's key carries its day, and nothing lapsed it: after midnight UTC every body felled before
+it stood as a node, each trace wore the knife for a `prof-day`, and a body skinned before midnight stood ready again - a
+stamp is none once its day has ended (B1). A refusal saying the account's day was full left the book's count where this
+device had seen it, so a body read ready and every try wore the knife: the refusal raises it to the cap (B2). The Stores
+page's counters told the Bank their balance and never the market (B3); the loom and the workbench said the anvil's busy
+word (B4). An answer heard after a character switch was applied to the other character's book, and a craft's pieces
+minted into its pack: it is its own character's (B5; unreachable online today - AUDIT 31 B2's law kept).
+
+**The acts and their hosts** (H2-H11). A spawned dungeon answers no identity and the host was never told of it - no body
+there was a node: it stands no veins but its bodies (H2). A flyer's body in a dungeon stood as a node, and its loot's box,
+in the air it died in, a metre over its corpse: the dungeon keeps the corpse's landing (`corpseAt`, its one corpse lens)
+(H3). A body in a settlement or at sea read ready and took E for a refusal, so its loot was never E's: the knife's checks
+of the ground are the plan's (H4). A click mid-trace opened the body's loot and ended the act (H5). Underground the
+knife's (and PROF2's dungeon Pick-Axe's) "enemies nearby" never refused - the host answered none below ground (H6). A
+body's reach was 2.5 against the eye's height - a metre downhill or under a rider, none; stood over, its line below the
+look's floor - it is DFU's corpse distance, 3.75 from the eye, and one stood over asks a step back (H7). The choice
+key's search passed the press to the ray, which missed the corpse's box at the look's edge, and was offered on bodies
+with nothing to search: it opens the body's loot by its pool key (H8). A dungeon body named the dungeon's ground (H9).
+The gathering host targeted from under the travel view (H10, since PROF1). The Controls pane's line for the choice key
+named only the herbs (H11; the Controls page's table, which is the registry's, with it).
+
+**The pages and the HUD** (P1-P13). The Stitch button (and the anvil's Strike) stitched on the click - the release - so a
+tap on the beat was scored 90-150 ms late, and a phone has no Space: a press is judged at its own moment and the button
+on the pointer's down (P1). One Space struck the anvil's heat and stitched the loom at once in a home with both: one act
+a page (P2). The pause window emptied itself and never gave the focus or the caret back - AUDIT 31 U1's law, never
+carried to it (P3), and the Stores search threw its caret to the end at every key (P13). A held key's repeats sewed the
+act (P4). The loom's one busy flag let a cure's answer re-offer Craft mid-craft, and its cures stayed live under the
+stitch (P5). The Weavers' Buy was offered whatever the Drakes (P6). The work rows spilled 30px past a phone's pane and
+drew a 220px button in a 0px track at 800 (P7). Standard-bearer's Silk listed 76 garments with no word of the sieges,
+and the unlocks put the Rat's skins at rank 10 (P8, R4). A body's prompt ran off both edges of a phone - 0 of 40 fit at
+360, 40 of 40 now (P9). A torn pelt, a mistimed one and a slip went unsaid (P10). The meter drew the points and not the
+line, marked no first point, and drew a degree a third smaller up than across (P11). Escape mid-stitch closed the whole
+window and dropped the act silently (P12).
+
+**The records** (R1-R12). The patch notes named `;` for the choice key - the Up arrow's, `;` Come Sail Away's lantern -
+and PROF1's Herbalism notes the same; "30 hides" was the bodies (now true); Professions-Arc, Online-Arc, Port-Ledger,
+Testing and Foraging lines PROF7 made false - Cured Leather and Linen that "stay", the smith's 307 and Carpentry's 41,
+the arrows' "one step lower" waiting, the unyielded and commission lists, the "later" trees and bodies, a tool always
+Foraging's template, the prof3 mutants "every one dead", the catalogue's 94 - corrected in place, each marked; "DFU"
+where a player reads it.
+
+**For Mac** (S1): Outfitting's first-craft XP can be bought. 3.2's "+500 the first time a recipe is made" meets 9.3's
+garments in each cloth, and 4.5's Weavers sell Linen and Wool without end - 167 recipes of counter goods alone take a
+fresh character to Outfitting 92 for 943 Drakes and no hide. The service does what the record says; which rule bends
+is Mac's (no first-craft bonus for a recipe made wholly of counter goods; the bonus once a garment, not once a cloth;
+a day's bound on first crafts). Left as it stands until then.

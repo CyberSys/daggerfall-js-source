@@ -976,10 +976,16 @@ export const PROF_CSS = `/* ── PROF1: THE PROFESSIONS ── */
 .prof-count { color: #f3cf86; font-variant-numeric: tabular-nums; }
 .prof-split { grid-column: 1 / -1; font-size: 10px; color: #9d917d; }
 .prof-matbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0 4px; font-size: 12px; color: #d9cfbd; }
-.prof-smelt { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(160px, 2fr) 64px auto; align-items: center; gap: 8px;
+.prof-smelt { display: grid; grid-template-columns: minmax(0, 1fr) 64px auto; align-items: center; gap: 4px 8px;
   padding: 4px 0; border-bottom: 1px solid rgba(192,138,62,0.18); font-size: 12px; color: #d9cfbd; }
 .prof-smelt b { color: #efe0b8; font-weight: normal; }
-@media (max-width: 560px) { .prof-smelt { grid-template-columns: 1fr 64px auto; } .prof-smelt .prof-split { grid-column: 1 / -1; } }
+/* AUDIT 32 P7: the name, the count and the button one row, the inputs under them - placed, never flowed: the inputs line
+   spanned its row and pushed the count and the button into the name's and the count's tracks (a 220px button, a 0px
+   fourth track; on a phone the button in the 64px track, 30px past the pane). The pause window's pane is 428px at 800,
+   so the rows are the phone's everywhere, as they always drew. */
+.prof-smelt b { grid-column: 1; grid-row: 1; } .prof-smelt .prof-qty { grid-column: 2; grid-row: 1; }
+.prof-smelt .act { grid-column: 3; grid-row: 1; } .prof-smelt .prof-split { grid-column: 1 / -1; grid-row: 2; }
+@media (max-width: 560px) { .prof-smelt .act { min-width: 0; } }
 /* PROF3: the anvil - its recipes, a recipe's inputs, and the heat (a bar the glow's marker runs along, the band on it) */
 .prof-metals { margin-top: 4px; }
 .prof-recipe { display: grid; grid-template-columns: 1fr auto; width: 100%; gap: 2px 8px; padding: 4px 8px; margin: 2px 0; text-align: left; font: inherit;
@@ -1010,8 +1016,12 @@ export const PROF_CSS = `/* ── PROF1: THE PROFESSIONS ── */
 @media (pointer: coarse) { .prof-row, .prof-mat, .prof-spec, .prof-family { min-height: 40px; } }
 /* in the world */
 .prof-prompt { position: fixed; left: 50%; bottom: calc(96px * var(--hud-scale, 1)); transform: translateX(-50%); z-index: 12; pointer-events: none;
-  padding: 4px 12px; font-family: ${PIXEL_STACK}; font-size: calc(14px * var(--hud-scale, 1)); color: #efe0b8; white-space: nowrap;
+  padding: 4px 12px; font-family: ${PIXEL_STACK}; font-size: calc(14px * var(--hud-scale, 1)); color: #efe0b8;
+  width: max-content; max-width: calc(100vw - 24px); box-sizing: border-box; white-space: normal; text-align: center;
   background: rgba(10,8,6,0.72); border: 1px solid rgba(192,138,62,0.5); text-shadow: 1px 1px 0 #050608; }
+/* AUDIT 32 P9: a body's prompt ran off both edges of a phone (490-742px, nowrap) - it wraps inside the screen now, and the
+   choice key's line stands on its own under the verb */
+@media (max-width: 560px) { .prof-prompt .prof-alt { display: block; } }
 .prof-prompt:empty { display: none; }
 .prof-prompt kbd { font: inherit; color: #f3cf86; }
 .prof-prompt .dim { color: #b9ab93; }
@@ -1033,6 +1043,11 @@ export const PROF_CSS = `/* ── PROF1: THE PROFESSIONS ── */
 .prof-face { position: relative; height: calc(64px * var(--hud-scale, 1)); margin-bottom: 4px;
   background: radial-gradient(circle at 40% 35%, rgba(112,104,94,0.92), rgba(58,54,50,0.94) 65%), #3a3632; box-shadow: 0 0 0 2px #050608; }
 .prof-point { position: absolute; width: 4%; aspect-ratio: 1; margin: -2% 0 0 -2%; border-radius: 50%; background: rgba(239,224,184,0.45); }
+/* AUDIT 32 P11: the trace's line through its points, and its first point marked */
+.prof-line { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.prof-line polyline { fill: none; stroke: rgba(239,224,184,0.35); stroke-width: 1px; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.prof-point.first { width: 6%; margin: -3% 0 0 -3%; background: #f3cf86; box-shadow: 0 0 0 1px #050608; }
+.prof-face.prof-traceface .prof-glint { width: 9%; margin: -4.5% 0 0 -4.5%; }   /* a passed point lit, each its own at nine to a line */
 .prof-face .prof-glint { width: 22%; margin: -11% 0 0 -11%; }
 .prof-aim { position: absolute; width: 10%; aspect-ratio: 1; margin: -5% 0 0 -5%; border: 1px solid #efe0b8; box-sizing: border-box;
   box-shadow: 0 0 0 1px #050608; }

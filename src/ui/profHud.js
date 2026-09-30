@@ -107,7 +107,7 @@ export function createProfHud({ doc = globalThis.document } = {}) {
       k.textContent = `[${p.key}]`;
       prompt.append(k, doc.createTextNode(` ${p.verb}`));
       if (p.rest) { const d = doc.createElement('span'); d.className = 'dim'; d.textContent = ` - ${p.rest}`; prompt.append(d); }
-      if (p.alt) { const d = doc.createElement('span'); d.className = 'dim'; d.textContent = `   ${p.alt}`; prompt.append(d); }
+      if (p.alt) { const d = doc.createElement('span'); d.className = 'dim prof-alt'; d.textContent = `   ${p.alt}`; prompt.append(d); }   // AUDIT 32 P9: its own line on a phone
     },
     /** The meter for an act (systems/herbAct.js), or null to take it down. `label` the act's words. */
     setMeter(act, label = '') {
@@ -192,11 +192,27 @@ export function createProfHud({ doc = globalThis.document } = {}) {
         }
         const face = mk('prof-face');
         const w = TRACE_ACT.spanYawDeg + 2 * TRACE_ACT.startDeg, h = 2 * (TRACE_ACT.spanPitchDeg + TRACE_ACT.startDeg);
+        // AUDIT 32 P11: a degree the same across as up (the face was 8.4px a degree across and 5.8 up, so a stray up read a
+        // third smaller than it was), the line the points are scored against drawn through them, and the first marked
+        face.classList.add('prof-traceface');
+        face.style.height = 'auto';
+        face.style.aspectRatio = `${w} / ${h}`;
         /** @param {readonly number[]} p [yaw, pitch] degrees */
         const at = (p) => [50 + (p[0] / w) * 100, 50 - (p[1] / h) * 100];
+        if (typeof doc.createElementNS === 'function') {
+          const NS = 'http://www.w3.org/2000/svg';
+          const svg = doc.createElementNS(NS, 'svg');
+          svg.setAttribute('class', 'prof-line');
+          svg.setAttribute('viewBox', '0 0 100 100');
+          svg.setAttribute('preserveAspectRatio', 'none');
+          const line = doc.createElementNS(NS, 'polyline');
+          line.setAttribute('points', st.points.map((p) => at(p).map((v) => v.toFixed(2)).join(',')).join(' '));
+          svg.append(line);
+          face.append(svg);
+        }
         st.points.forEach((p, i) => {
           const passed = st.tracing && i <= st.reached;
-          const n = mk(passed ? 'prof-glint' : 'prof-point');
+          const n = mk(passed ? 'prof-glint' : i === 0 ? 'prof-point first' : 'prof-point');
           const [x, y] = at(p);
           n.style.left = `${x}%`; n.style.top = `${y}%`;
           if (passed && reduced()) n.style.animation = 'none';
@@ -209,7 +225,8 @@ export function createProfHud({ doc = globalThis.document } = {}) {
           face.append(a);
         }
         const hint = mk('prof-hint');
-        hint.textContent = st.tracing ? 'draw the knife along the line' : `hold ${key} on the first point`;
+        // AUDIT 32 P10: a slip said - the trace let go before the last point starts again, and the meter said only its start
+        hint.textContent = st.tracing ? 'draw the knife along the line' : st.slips > 0 ? `let go - hold ${key} on the first point again` : `hold ${key} on the first point`;
         meter.append(face, hint);
         return;
       }

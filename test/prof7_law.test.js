@@ -141,9 +141,10 @@ test('PROF7 law: the trace - 4 + tier points (5 to 9) across the carcass; the to
   assert.deepEqual([good.clean, good.torn, good.score, good.slips], [true, false, 1, 0]);
   // too quick: a flick is never clean, however true
   assert.equal(draw(createTraceAct({ tier: 1, rng: () => 0.5 }), along(4), 0.05).clean, false);
-  // a hand 2.4 degrees off the line the whole way reaches each point (within 2.5) and scores a quarter: torn
+  // a hand 2.4 degrees off the line the whole way reaches each point (within 2.5) and scores about a fifth: torn
+  // (AUDIT 32 L1: measured every quarter degree of the trace's progress - the climb off the line's start counts once)
   const off = draw(createTraceAct({ tier: 1, rng: () => 0.5 }), [[-7, 0], ...along(40, 2.4).slice(1)], 0.05);
-  assert.deepEqual([off.clean, off.torn, off.score], [false, true, 0.25]);
+  assert.deepEqual([off.clean, off.torn, off.score], [false, true, 0.22]);
   // one 2.6 off never reaches the next point: no end, no report
   assert.equal(draw(createTraceAct({ tier: 1, rng: () => 0.5 }), [[-7, 0], ...along(40, 2.6).slice(1)], 0.05), null);
   const wobbly = createTraceAct({ tier: 1, rng: () => 0.5 });
@@ -212,7 +213,9 @@ test('PROF7 law: Outfitting\'s recipes (9.3) - the leather armour in Cured and H
   // 9.3 names the most; PROF0 29 decided the rest - the Loincloth small, the Wrap and the Peasant Blouse middle, the Toga large
   const size = Object.fromEntries(GARMENTS.map(([t, , s]) => [t, s]));
   assert.deepEqual([size[162], size[199], size[174], size[211], size[184], size[160]], ['s', 's', 'm', 'm', 'm', 'l']);
-  assert.deepEqual(GARMENTS.filter((g) => g[3] === false).map((g) => g[0]), [178, 179, 214, 215], 'DFU\'s unchangeable shirts take no dye');
+  // AUDIT 32 L3: every garment takes a dye - DFU's "unchangeable" shirts are its variant's word, and its shelf dyes them
+  assert.deepEqual(OUTFITTING_RECIPES.filter((r) => r.kind === 'garment' && r.dyes !== true).map((r) => r.id), []);
+  assert.deepEqual([178, 179, 214, 215].map((t) => GARMENTS.find((g) => g[0] === t)[1]), ['Short Shirt, unchangeable', 'Long Shirt, unchangeable', 'Short Shirt, unchangeable', 'Long Shirt, unchangeable']);
   assert.deepEqual([...RUGS.map(([t]) => ins(`rug-${t}:wool`)), ...TAPESTRIES.map(([t]) => ins(`tapestry-${t}:wool`))], ['3 cloth:wool', '3 cloth:wool', '3 cloth:wool', '3 cloth:wool', '4 cloth:wool', '4 cloth:wool', '4 cloth:wool']);
   assert.deepEqual([...PELTS], ['hide:rat', 'hide:bat', 'hide:bear', 'hide:tiger']);
   assert.deepEqual(['skins-244:bear', 'skins-245:tiger'].map((id) => [recipeById(id).name, recipeById(id).tier, ins(id), recipeById(id).kind]), [['Large Skins (Bear Hide)', 2, '2 hide:bear', 'furniture'], ['Small Skins (Tiger Pelt)', 3, '1 hide:tiger', 'furniture']]);
@@ -237,12 +240,12 @@ test('PROF7 law: the steps (9.2) - a Tailor\'s clothing, a Leatherworker\'s leat
   assert.deepEqual([...GARMENT_DYES], [...CLOTHING_DYES]);
   assert.deepEqual([...GARMENT_DYES], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
   assert.deepEqual([dyeOk(r('garment-141:linen'), 3), dyeOk(r('garment-141:linen'), null), dyeOk(r('garment-141:linen'), undefined), dyeOk(r('longsword:iron'), null)], [true, true, true, true]);
-  for (const [id, dye] of [['garment-141:linen', 10], ['garment-141:linen', -1], ['garment-141:linen', 2.5], ['garment-141:linen', '2'], ['garment-178:linen', 2], ['leather-helm:cured', 1], ['rug-237:wool', 1], ['longsword:iron', 0]]) {
+  for (const [id, dye] of [['garment-141:linen', 10], ['garment-141:linen', -1], ['garment-141:linen', 2.5], ['garment-141:linen', '2'], ['leather-helm:cured', 1], ['rug-237:wool', 1], ['longsword:iron', 0]]) {
     assert.equal(dyeOk(r(id), dye), false, `${id} ${dye}`);
   }
   assert.equal(dyeOk(null, 1), false);
   const claims = { p: 'f'.repeat(16), s: 'S'.repeat(40), h: 'H'.repeat(40), r: 'garment-141:linen', q: 1, m: null, c: 7, i: 1 };
-  assert.deepEqual([productRecordValid({ ...claims, u: 4 }), productRecordValid(claims), productRecordValid({ ...claims, u: null }), productRecordValid({ ...claims, u: 10 }), productRecordValid({ ...claims, r: 'garment-178:linen', u: 4 }), productRecordValid({ ...claims, r: 'longsword:iron', u: 4 })],
+  assert.deepEqual([productRecordValid({ ...claims, u: 4 }), productRecordValid(claims), productRecordValid({ ...claims, u: null }), productRecordValid({ ...claims, u: 10 }), productRecordValid({ ...claims, r: 'rug-237:wool', u: 4 }), productRecordValid({ ...claims, r: 'longsword:iron', u: 4 })],
     [true, true, false, false, false, false]);
 });
 

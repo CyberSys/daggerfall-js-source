@@ -30,7 +30,7 @@
 import { bodyKey, utcDayOfMs } from '../net/nodeLaw.js';
 import {
   hideOfFoe, tierOpen, TIER_RANKS, knifeBand, SKINNING_KNIFE, KNIFE_CHECKS, KNIFE_REFUSALS, HIDES_PER_DAY, HIGH_HIDES_PER_DAY,
-  HIGH_HIDE_TIER, TRACKER_M,
+  HIGH_HIDE_TIER, TRACKER_M, KNIFE_WHERE, KNIFE_WHERE_WORDS, TRACE_ACT,
 } from '../net/professionLaw.js';
 import { enemyDisplayName } from '../characters/enemyBasics.js';
 import { createTraceAct } from '../systems/traceAct.js';
@@ -38,13 +38,20 @@ import { actChecksRefusal, foragingToolIn } from '../systems/foragingInstall.js'
 import { materialLabel } from '../systems/profItems.js';
 import { liveStat } from '../systems/statMods.js';
 import { getPref } from '../systems/uiPrefs.js';
+import { CORPSE_ACTIVATION_DISTANCE } from '../player/activate.js';
+import { PITCH_FLOOR } from '../player/lookFilter.js';
 
 /** The Skinning Knife in the hand (FORAGE0 14.2): DFU's own Dagger. */
 export const KNIFE_HAND = Object.freeze({ group: 'Weapons', templateIndex: 113, material: 0 });
-/** A body answers E within this many metres (a carcass lies low - DFU's activation distance less the reach up to a
- *  door), and stands this far above its ground for the look. */
-export const BODY_REACH = 2.5;
+/** A body answers E within this many metres of the eye - DFU's own reach for a corpse (CorpseActivationDistance, 3.75:
+ *  AUDIT 32 H7 - the knife reaches the body the loot does; it was 2.5 against the eye's height, and a body a metre
+ *  downhill or under a rider was none) - and stands this far above its ground for the look. */
+export const BODY_REACH = CORPSE_ACTIVATION_DISTANCE;
 export const BODY_LIFT = 0.2;
+/** AUDIT 32 H7: the steepest bearing below the eye a body's line can be drawn at - the look stops at PITCH_FLOOR, and the
+ *  line's lowest point lies TRACE_ACT.spanPitchDeg under the body's centre (a degree's margin). Steeper, the player is
+ *  standing over it: the plan asks them to step back. */
+export const BODY_STEEPEST_DEG = -((PITCH_FLOOR * 180) / Math.PI - TRACE_ACT.spanPitchDeg - 1);
 
 /** A body's id: twelve hex digits from `rand` (the crypto source's fill). @param {(b: Uint8Array<ArrayBuffer>) => void} rand */
 export function bodyId(rand) {
@@ -70,25 +77,32 @@ export function createBodyStamps({ nowMs, rand = (b) => { globalThis.crypto.getR
       stamps.set(entity, s);
       return s;
     },
-    /** A body's stamp, or null. */
-    of: (entity) => (entity && typeof entity === 'object' ? stamps.get(entity) ?? null : null),
+    /** A body's stamp, or null - AUDIT 32 B1: null once its UTC day has ended, as the service lets its key lapse (PROF0
+     *  19: `prof-day`): the body DFU's corpse alone, E its loot's. It stood as a node after midnight, every trace wearing
+     *  the knife for a refusal, and a body skinned before it stood ready again (the day's read forgets yesterday's). */
+    of: (entity) => {
+      const s = entity && typeof entity === 'object' ? stamps.get(entity) ?? null : null;
+      return s && s.key.startsWith(`body:${utcDayOfMs(nowMs())}:`) ? s : null;
+    },
     /** A new character: no body is theirs. */
     clear() { stamps = new WeakMap(); },
   };
 }
 
 /**
- * A POOL'S STAMPED BODIES - `{ key, foe, tier, hide, at, lift, reach }` for each dead foe with a body and a stamp;
- * `at()` its place now (the pool's own: the corpse marker's ground on the street, the feet in a dungeon), or null.
+ * A POOL'S STAMPED BODIES - `{ key, foe, tier, hide, at, lift, reach, lootKey }` for each dead foe with a body and a
+ * stamp; `at()` its place now (the pool's own: the corpse marker's ground on the street, its corpse's in a dungeon), or
+ * null; `lootKey()` its loot's key in its pool while it may be searched (AUDIT 32 H8), or null.
  * @param {readonly any[]|null|undefined} foes @param {{ of: (e: any) => any }} stamps @param {(f: any) => number[]|null|undefined} placeOf
+ * @param {(f: any) => string|null|undefined} [keyOf]
  */
-export function bodiesOf(foes, stamps, placeOf) {
+export function bodiesOf(foes, stamps, placeOf, keyOf = () => null) {
   const out = [];
   for (const f of foes ?? []) {
     if (!f?.dead || !f.corpse) continue;
     const s = stamps.of(f.entity);
     if (!s) continue;
-    out.push({ key: s.key, foe: s.foe, tier: s.tier, hide: s.hide, at: () => placeOf(f) ?? null, lift: BODY_LIFT, reach: BODY_REACH });
+    out.push({ key: s.key, foe: s.foe, tier: s.tier, hide: s.hide, at: () => placeOf(f) ?? null, lift: BODY_LIFT, reach: BODY_REACH, lootKey: () => keyOf(f) ?? null });
   }
   return out;
 }
@@ -110,12 +124,14 @@ const foeName = (mobileType) => enemyDisplayName(mobileType) ?? 'body';
 
 /**
  * WHAT E DOES AT A BODY, and the prompt that says it: `{ harvest, verb, rest, ready }` - `ready` false with `rest`
- * naming what is missing (skinned, being counted, the account's day, its rare hides, the rank, the Stores' room); a rank
- * short carries the rank it needs (VEIN-NEED). `loot` - the choice key's pick: the body's loot, the press handed on.
+ * naming what is missing (skinned, being counted, the ground the knife never works - AUDIT 32 H4, the account's day, its
+ * rare hides, the rank, the Stores' room); a rank short carries the rank it needs (VEIN-NEED). `loot` - the choice key's
+ * pick: the body's loot, the press handed on. `where` - the knife's ground refusal (KNIFE_WHERE_WORDS), or null;
+ * `steep` - the body lies under the player's feet, its line below the look's reach (AUDIT 32 H7).
  * @param {{ body: any, taken: boolean, counting: boolean, rank: number, storesFull: (key: string) => boolean,
- *   hides: number, high: number, loot?: boolean }} o
+ *   hides: number, high: number, loot?: boolean, where?: string|null, steep?: boolean }} o
  */
-export function huntPlan({ body, taken, counting, rank, storesFull, hides, high, loot = false }) {
+export function huntPlan({ body, taken, counting, rank, storesFull, hides, high, loot = false, where = null, steep = false }) {
   const name = foeName(body.foe);
   const harvest = 'hide';
   const verb = `Skin the ${name}`;
@@ -123,6 +139,8 @@ export function huntPlan({ body, taken, counting, rank, storesFull, hides, high,
   if (loot) return { harvest, verb: `Search the ${name}`, rest: '', ready: false, loot: true };
   if (taken) return { harvest, verb: `The ${name} - skinned`, rest: '', ready: false };
   if (counting) return { harvest, verb, rest: 'being counted', ready: false };
+  if (where) return { harvest, verb, rest: where, ready: false };
+  if (steep) return { harvest, verb, rest: 'step back', ready: false };
   if (hides >= HIDES_PER_DAY) return { harvest, verb, rest: `${rankWord} - ${hides} of ${HIDES_PER_DAY} hides today`, ready: false, full: true };
   if (body.tier >= HIGH_HIDE_TIER && high >= HIGH_HIDES_PER_DAY) return { harvest, verb, rest: `${high} of ${HIGH_HIDES_PER_DAY} rare hides today`, ready: false, full: true };
   if (!tierOpen(rank, body.tier)) return { harvest, verb, rest: `needs Hunting ${TIER_RANKS[body.tier - 1]}`, ready: false, needsRank: TIER_RANKS[body.tier - 1] };
@@ -132,12 +150,16 @@ export function huntPlan({ body, taken, counting, rank, storesFull, hides, high,
 
 /**
  * HUNTING'S KIND in the gathering host (scenes/gatherHost.js): the stamped bodies as loose nodes, the plan, the act.
- * @param {{ book: any, bodies: () => any[] }} deps `bodies` the stamped bodies where the player is (bodiesOf over the
- *   street's pool or the dungeon's)
+ * @param {{ book: any, bodies: () => any[], openLoot?: ((key: string) => void)|null }} deps `bodies` the stamped bodies where
+ *   the player is (bodiesOf over the street's pool or the dungeon's); `openLoot(key)` - AUDIT 32 H8: the pool's own door to
+ *   a body's loot by its key, which the choice key's search opens (never the ray's: at the edge of the look it missed the
+ *   corpse's box, and E opened nothing); without it the press is passed on, AUDIT 29 C1's way
  * @returns {import('./gatherHost.js').GatherKind}
  */
-export function huntKind({ book, bodies }) {
+export function huntKind({ book, bodies, openLoot = null }) {
   let lootChoice = false;   // the choice key's pick at the targeted body
+  /** Whether a body may be searched: its loot's key, where the world opens loot by key (an emptied body none). */
+  const searchable = (b) => !openLoot || !!b?.lootKey?.();
   return {
     id: 'body',
     professions: Object.freeze(['hunting']),
@@ -146,15 +168,22 @@ export function huntKind({ book, bodies }) {
     looseNodesOf: ({ entity }) => (foragingToolIn(entity, SKINNING_KNIFE.templateIndex) ? bodies() : []),
     flatsOf: () => [],   // the body is its own picture (DFU's corpse)
     gone: (b) => book.taken(b.key, 'hide'),
-    choose() { lootChoice = !lootChoice; },
+    choose(b) { if (lootChoice || searchable(b)) lootChoice = !lootChoice; },   // AUDIT 32 H8: never a search of nothing
     retarget() { lootChoice = false; },
-    plan(b, { rank, keyLabel }) {
+    plan(b, { rank, keyLabel, pitch = null }) {
+      if (lootChoice && !searchable(b)) lootChoice = false;   // emptied under the search: the knife's again
       const hunt = book.state.hunt ?? { hides: 0, high: 0 };
       const plan = huntPlan({
         body: b, taken: book.taken(b.key, 'hide'), counting: book.counting(b.key, 'hide'), rank: rank('hunting'),
         storesFull: (key) => book.held(key) >= (book.state.caps?.stores ?? 5000), hides: hunt.hides ?? 0, high: hunt.high ?? 0, loot: lootChoice,
+        where: actChecksRefusal(KNIFE_WHERE, KNIFE_WHERE_WORDS),   // AUDIT 32 H4: a settlement or the sea - E the loot's
+        steep: Number.isFinite(pitch) && pitch < BODY_STEEPEST_DEG,   // AUDIT 32 H7: stood over, its line out of the look's reach
       });
-      return { ...plan, profession: 'hunting', alt: `[${keyLabel('ActChoice')}] ${lootChoice ? 'skin it' : 'search the body'}` };
+      const key = openLoot && lootChoice ? b.lootKey() : null;
+      return {
+        ...plan, profession: 'hunting', alt: searchable(b) ? `[${keyLabel('ActChoice')}] ${lootChoice ? 'skin it' : 'search the body'}` : '',
+        ...(key ? { open: () => openLoot?.(key) } : {}),   // AUDIT 32 H8: the search opens the body's own loot by its key
+      };
     },
     start(b, plan, { entity, rank, keyLabel }) {
       const refusal = actChecksRefusal(KNIFE_CHECKS, KNIFE_REFUSALS);
@@ -173,6 +202,15 @@ export function huntKind({ book, bodies }) {
     /** The account's day, as the chip says it: its hides against the day's 30. */
     tally: () => ({ n: book.state.hunt?.hides ?? 0, cap: book.state.caps?.hides ?? HIDES_PER_DAY }),
     cleanNote: () => ' (a clean pelt)',
+    /** AUDIT 32 P10: the trace's end said - a clean pelt, a torn one (its part lost), or a true line drawn too quick or
+     *  too slow to be clean; a torn pelt and a mistimed one went unsaid. */
+    actNote: (rep) => {
+      if (!rep) return '';
+      if (rep.clean) return ' (a clean pelt)';
+      if (rep.torn) return ' (a torn pelt - its part lost)';
+      if (rep.score >= TRACE_ACT.clean) return rep.seconds < TRACE_ACT.minS ? ' (a true line, too quick for a clean pelt)' : ' (a true line, too slow for a clean pelt)';
+      return '';
+    },
     title: () => 'Hunter',
   };
 }

@@ -148,7 +148,7 @@ test('PROF7 DONE WHEN: a bear felled by the player\'s own blow, skinned online w
     assert.ok(h.said.some((x) => / Hunting XP \(a clean pelt\)$/.test(x)), 'a line traced true: a clean pelt');
     assert.ok(h.said.includes('...and Raw Meat'), 'the butchery said');
     assert.equal(h.entity.items[0].currentCondition, 48, 'the knife worn by one a body');
-    assert.deepEqual([book.state.hunt.hides, book.state.today.hunting], [2, 2]);
+    assert.deepEqual([book.state.hunt.hides, book.state.today.hunting], [book.held('hide:bear'), 2], 'the day in hides (AUDIT 32 L2), the harvests two');
   } finally { h.done(); setForagingHost(null); }
   // at a Clothing Store's rack: a Tanner cures two hides to two leathers
   const cure = await book.smelt('cure:bear', 1);
@@ -231,7 +231,7 @@ test('PROF7 plan: what E does at a body - the knife skins; the act choice key se
   assert.match(plan({ storesFull: (k) => k === 'hide:bear' }).rest, /^Stores full - /);
 });
 
-test('PROF7 host: a body is a node only while the pack holds a knife; targeted where it lies, E starts the trace (the knife\'s checks first, in Foraging\'s voice); the choice key hands the press on to the loot; the act follows the body as the scene moves and ends when its pool lets it go; the harvest names the foe and no ground; a body skinned is no target', async () => {
+test('PROF7 host: a body is a node only while the pack holds a knife; targeted where it lies, E starts the trace (the knife\'s checks first, in Foraging\'s voice - a settlement\'s and the sea\'s the plan\'s, E the loot\'s there, AUDIT 32 H4); the choice key hands the press on to the loot; the act follows the body as the scene moves and ends when its pool lets it go; the harvest names the foe and no ground; a body skinned is no target', async () => {
   const asked = [];
   let taken = [];
   const door = {
@@ -266,10 +266,17 @@ test('PROF7 host: a body is a node only while the pack holds a knife; targeted w
     h.input = { choice: true };
     h.host.tick(0.016);
     h.input = {};
-    assert.equal(h.said.prompt.verb, 'Skin the Grizzly Bear');
-    // the knife's checks in Foraging's voice: a settlement refuses - the press the body's, its refusal said
+    // AUDIT 32 H4: a settlement is ground the knife never works - no ready node, and E goes on to the body's loot
+    // (AUDIT 29 C1); what it needs said only when nothing else opened (VEIN-NEED)
+    assert.deepEqual([h.said.prompt.verb, h.said.prompt.rest], ['Skin the Grizzly Bear', 'not in a settlement']);
+    assert.deepEqual([h.host.press(), h.host.acting()], [false, false]);
+    assert.equal(h.host.sayNeed(), true);
+    assert.equal(h.said.at(-1), 'Skin the Grizzly Bear: not in a settlement');
+    // the knife's own checks in Foraging's voice: a foe near refuses - the press the body's, its refusal said
+    world = { ...WILDS, enemiesNear: true };
+    h.host.tick(0.016);
     assert.equal(h.host.press(), true);
-    assert.deepEqual([h.said.at(-1), h.host.acting()], [KNIFE_REFUSALS.town, false]);
+    assert.deepEqual([h.said.at(-1), h.host.acting()], [KNIFE_REFUSALS.enemies, false]);
     world = WILDS;
     assert.equal(h.host.press(), true);
     h.host.tick(0.001);
@@ -356,13 +363,13 @@ test('PROF7 items: the Skinning Knife is 603 (0.5 kg, 50 uses, 100 gold, DFU\'s 
   assert.deepEqual(['hide:harpy', 'food:meat', 'part:tooth', 'hide:bear', 'leather:cured'].map((k) => materialCountLabel(k, 2, true)), ['Harpy Feathers', 'Raw Meat', 'Big Teeth', 'Bear Hides', 'Cured Leather']);
 });
 
-test('PROF7 pieces: the loom\'s - leather armour DFU\'s at Leather with the quality laid on; a garment DFU\'s clothing in its group, its variant the record\'s seed\'s and its dye the record\'s (an unchangeable shirt none); rugs and skins among the home\'s things; the Fishing-Net Foraging\'s and the Skinning Knife the port\'s, each its life its quality', () => {
+test('PROF7 pieces: the loom\'s - leather armour DFU\'s at Leather with the quality laid on; a garment DFU\'s clothing in its group, its variant the record\'s seed\'s and its dye the record\'s (an unchangeable shirt\'s too - AUDIT 32 L3); rugs and skins among the home\'s things; the Fishing-Net Foraging\'s and the Skinning Knife the port\'s, each its life its quality', () => {
   const helm = mintPiece({ recipe: 'leather-helm:hardened', quality: 2, seed: 7, maker: 'Silverthorn' }, PROV);
   assert.deepEqual([helm.group, helm.templateIndex, helm.material, helm.quality, helm.recipe, helm.maker], ['Armor', 107, 0, 2, 'leather-helm:hardened', 'Silverthorn']);
   const gown = mintPiece({ recipe: 'garment-195:silk', quality: 1, seed: 5, dye: 4 }, PROV);
   assert.deepEqual([gown.group, gown.templateIndex, gown.variant, gown.dye, gown.name], ['WomensClothing', 195, 5 % templateByIndex(195).variants, 4, 'Evening Gown']);
   assert.deepEqual(mintPiece({ recipe: 'garment-195:silk', quality: 1, seed: 5, dye: 4 }, PROV), gown, 'the record\'s, on every client');
-  assert.equal(mintPiece({ recipe: 'garment-178:linen', quality: 1, seed: 1, dye: 4 }, PROV).dye, undefined, 'an unchangeable shirt keeps DFU\'s own colour');
+  assert.equal(mintPiece({ recipe: 'garment-178:linen', quality: 1, seed: 1, dye: 4 }, PROV).dye, 4, 'AUDIT 32 L3: an unchangeable shirt is dyed, as DFU\'s shelf dyes it');
   assert.equal(garmentItem(recipeById('garment-141:linen'), 3, null).dye, undefined, 'undyed');
   const skins = mintPiece({ recipe: 'skins-244:bear', quality: 1, seed: 0 }, PROV);
   assert.deepEqual([skins.group, skins.templateIndex, skins.name, isCraftedFurniture(skins)], ['Furniture', 244, 'Large Skins', true]);
@@ -451,9 +458,10 @@ test('PROF7 pages: the Loom at a Clothing Store - the cures for the hides held a
   held.set('cloth:linen', 2);
   draw();
   press('Clothing'); press('Men\'s'); press('Linen');
-  buttons().find((b) => b.textContent.startsWith('Linen Short Shirt, undyed')).onclick();
-  assert.equal(buttons().some((b) => b.textContent === 'Undyed' || b.textContent === 'Aquamarine'), false, 'an unchangeable shirt offers no dye');
-  assert.match(text(), /This shirt takes no dye/);
+  buttons().find((b) => b.textContent.startsWith('Linen Short Shirt, unchangeable')).onclick();
+  assert.equal(buttons().some((b) => b.textContent === 'Aquamarine'), true, 'AUDIT 32 L3: an unchangeable shirt offers the ten');
+  assert.doesNotMatch(text(), /takes no dye/);
+  press('Undyed');
   await press('Quick craft');
   assert.deepEqual(crafted.at(-1), ['garment-178:linen', false, null]);
   loom = { kind: 'home', fee: 0 };
@@ -482,7 +490,7 @@ test('PROF7 pages: the Loom at a Clothing Store - the cures for the hides held a
   assert.match(hunting, /Harpy Feathers, Dreugh Shell/);
   const outfitting = page('Outfitting');
   assert.doesNotMatch(outfitting, /not practised/);
-  assert.match(outfitting, /Waits on a second dye DFU's cloth takes/);
+  assert.match(outfitting, /Waits on a second dye Daggerfall's cloth can take/);
   assert.match(outfitting, /Waits on a wagon upgrade to hold/);
   const smithing = page('Smithing');
   assert.match(smithing, /Silver.*rank 25.*Elven, Dwarven.*rank 40.*Mithril.*rank 55/s, 'PROF7 (FOUND): the three AUDIT 30\'s note swallowed');
@@ -500,14 +508,14 @@ const GARMENT_WORDS = (buttons) => {
 test('PROF7 wiring: the street and the dungeon stamp and list their bodies for Hunting\'s kind, the knife drawn while E is held; the loom a Clothing Store\'s or a home\'s station, its crafts and works at it, the Weavers\' counter by name, the stitch\'s band off AGI and SPD, the player\'s own clothing first; a Butcher\'s meat withdrawn slow to rot; a Tracker\'s animals on the compass; the service\'s routes, statuses, refusals and deploy', () => {
   const w = src('src/scenes/world.js');
   assert.match(w, /registerPlayerKillListener\('hunting', \(entity\) => \{ bodyStamps\.stamp\(entity\); \}\);/);
-  assert.match(w, /\? bodiesOf\(modes\?\.dungeonCtx\?\.foes, bodyStamps, \(f\) => f\.ai\?\.feet\)\n\s*: bodiesOf\(exteriorFoes\.foes, bodyStamps, exteriorFoes\.corpseAt\)\);/);
+  assert.match(w, /\? bodiesOf\(modes\?\.dungeonCtx\?\.foes, bodyStamps, \(f\) => modes\?\.dungeonCtx\?\.corpseAt\?\.\(f\), \(f\) => modes\?\.dungeonCtx\?\.corpseKeyOf\?\.\(f\)\)[^\n]*\n\s*: bodiesOf\(exteriorFoes\.foes, bodyStamps, exteriorFoes\.corpseAt, exteriorFoes\.corpseKeyOf\)\);/);
   assert.match(src('src/scenes/exteriorFoes.js'), /corpseAt: corpseLens\.feetOf,/, 'where a body lies has one home (DT1)');
   assert.doesNotMatch(w, /held\(keys, 'SwingWeapon'\)/, 'the knife is drawn with E held - attack is the weapon\'s, and its swing modes hold the look');
   assert.match(src('src/scenes/huntHost.js'), /profession: 'hunting', label: keyLabel\('Interact'\),/);
   assert.match(w, /loom: \(\) => modes\?\.loomHere\?\.\(\) \?\? null,/);
   assert.match(w, /stitchBand: \(\) => stitchBand\(\{ agility: liveStat\(playerEntity, 'agility'\), speed: liveStat\(playerEntity, 'speed'\) \}\),/);
   assert.match(w, /clothing: \(\) => \(playerEntity\?\.gender === 'female' \? 'WomensClothing' : 'MensClothing'\),/);
-  assert.match(w, /: profession === 'outfitting'\n\s*\? \{ here: \(\) => modes\?\.loomHere\?\.\(\) \?\? null, a: 'a loom', who: 'tailor', noun: 'loom', kept: LOOM_KEPT_TEXT, xp: 'Outfitting' \}/);
+  assert.match(w, /: profession === 'outfitting'\n\s*\? \{ here: \(\) => modes\?\.loomHere\?\.\(\) \?\? null, a: 'a loom', who: 'tailor', noun: 'loom', kept: LOOM_KEPT_TEXT, xp: 'Outfitting', busy: 'Your last work is still on the loom\.' \}/);
   assert.match(w, /const f = \(loom \? modes\?\.loomHere\?\.\(\) : bench \? modes\?\.workbenchHere\?\.\(\) : modes\?\.forgeHere\?\.\(\)\) \?\? null;/);
   assert.match(w, /const who = counter === 'furnisher' \? 'furnisher' : counter === 'weavers' \? 'Weavers' : 'smith';/);
   assert.match(w, /withdrawIntoPack\(playerEntity, key, n, undefined, \{ slowRot: key === 'food:meat' && profBook\?\.track\('hunting'\)\?\.specs\?\.\[100\] === 'butcher' \}\)/);

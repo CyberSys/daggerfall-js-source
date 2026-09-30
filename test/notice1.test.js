@@ -135,9 +135,9 @@ test('NOTICE1 the schema and the routes: a note\'s button and its hiding are CHE
   for (const r of ['/v1/board/read', '/v1/board/pin', '/v1/board/take-down', '/v1/board/report', '/v1/board/mod/remove', '/v1/board/mod/restore', '/v1/board/notice', '/v1/board/notice/remove']) {
     assert.ok(ROUTES.has(r), r);
   }
-  assert.equal(ACCOUNT_VERSION, 'acct33');   // PROF7 moved it on last (acct33); PROF-DELETE before it (acct32); RENOWN-CHAR before it (acct31); MERGE 2 before it moved it on past main's realm (acct23); the merge of main moved it on past RAID4 and AUDIT RAID; PROF3 after it, PROF4 after that, PROF5 after that, AUDIT 30 after that, PROF5b after that, PROF6 after that, AUDIT 31 after that
+  assert.equal(ACCOUNT_VERSION, 'acct34');   // AUDIT 32 moved it on last (acct34); PROF7 before it (acct33); PROF-DELETE before it (acct32); RENOWN-CHAR before it (acct31); MERGE 2 before it moved it on past main's realm (acct23); the merge of main moved it on past RAID4 and AUDIT RAID; PROF3 after it, PROF4 after that, PROF5 after that, AUDIT 30 after that, PROF5b after that, PROF6 after that, AUDIT 31 after that
   const toml = src('server-account/wrangler.toml');
-  assert.match(toml, /^ACCOUNT_VERSION = "acct33"$/m);
+  assert.match(toml, /^ACCOUNT_VERSION = "acct34"$/m);
   assert.match(toml, /^BOARD_OPEN = "on"$/m, 'BOARD-ON: shipped at dev, opened to everyone (Mac: "Board now, rest after fixes")');
   assert.deepEqual(['MARKS_OPEN', 'PROFESSIONS_OPEN'].map((k) => toml.match(new RegExp(`^${k} = "(\\w+)"$`, 'm'))?.[1]), ['on', 'on'], 'SWITCH-ON (Mac: "Fuck it lets switch everything on"): the Marks and the professions too, after PROF-SAVE and PROF-DELETE');
   assert.match(src('.github/workflows/account-deploy.yml'), /- "src\/net\/boardLaw\.js"/, 'the law the Worker bundles deploys it');

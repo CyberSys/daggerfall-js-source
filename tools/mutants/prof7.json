@@ -282,26 +282,30 @@
   {
     "name": "PROF7-svc-hunt-cap-undecided",
     "file": "server-account/src/professions.js",
-    "old": "        AND (?9 <> 'hunting' OR ((SELECT COUNT(*) FROM node_harvests WHERE player = ?1 AND profession = 'hunting' AND day = ?6) < ?21",
-    "new": "        AND (?9 <> 'hunting' OR ((SELECT COUNT(*) FROM node_harvests WHERE player = ?1 AND profession = 'hunting' AND day = ?6) < ?21 + 1",
+    "old": "OR (${hunted} < ?21 AND",
+    "new": "OR (${hunted} < ?21 + 1 AND",
     "tests": [
       "test/prof7_service.test.js"
-    ]
+    ],
+    "equivalent": true,
+    "why": "AUDIT 32 L2: the day's thirty is kept by the hide's own cut to the day's room - at the cap the decision's qty is 0, and node_harvests' CHECK (qty >= 1) refuses the row under the INSERT OR IGNORE, so the WHERE's bound is belt-and-braces (kept: it says the law in the statement that decides it)"
   },
   {
     "name": "PROF7-svc-high-undecided",
     "file": "server-account/src/professions.js",
-    "old": "          AND (?22 < ?23 OR",
-    "new": "          AND (1 OR",
+    "old": "AND (?22 < ?23 OR ${huntedHigh} < ?24)",
+    "new": "AND (1 OR ${huntedHigh} < ?24)",
     "tests": [
       "test/prof7_service.test.js"
-    ]
+    ],
+    "equivalent": true,
+    "why": "AUDIT 32 L2: the rare three the same - the qty cut to the rare hides' room is 0 at their cap, and the CHECK (qty >= 1) refuses the row under the OR IGNORE; the WHERE's bound is belt-and-braces"
   },
   {
     "name": "PROF7-svc-tier-unwritten",
     "file": "server-account/src/professions.js",
-    "old": "THEN ?20 END, ?22, ?25",
-    "new": "THEN ?20 END, 0, ?25",
+    "old": "THEN ?20 END, ?22, CASE",
+    "new": "THEN ?20 END, 0, CASE",
     "tests": [
       "test/prof7_service.test.js"
     ]
@@ -327,7 +331,7 @@
   {
     "name": "PROF7-svc-no-foe-asked",
     "file": "server-account/src/professions.js",
-    "old": "    if (!h) return { error: 'prof-foe' };\n",
+    "old": "  if (isBody && !hide) return { error: 'prof-foe' };\n",
     "new": "",
     "tests": [
       "test/prof7_service.test.js"
@@ -383,10 +387,11 @@
   {
     "name": "PROF7-svc-region-unbound",
     "file": "server-account/src/professions.js",
-    "old": "pixelReport(climate, region), region ?? null, nowS, witness, wkind)",
-    "new": "pixelReport(climate, region), region, nowS, witness, wkind)",
+    "old": "...(isBody ? [] : [db.prepare(`INSERT OR IGNORE INTO world_witness",
+    "new": "...(false ? [] : [db.prepare(`INSERT OR IGNORE INTO world_witness",
     "tests": [
-      "test/prof7_service.test.js"
+      "test/prof7_service.test.js",
+      "test/audit32_service.test.js"
     ]
   },
   {
@@ -456,8 +461,8 @@
   {
     "name": "PROF7-svc-high-counts-all",
     "file": "server-account/src/professions.js",
-    "old": "COALESCE(SUM(CASE WHEN tier >= ?3 THEN 1 ELSE 0 END), 0) AS high",
-    "new": "COUNT(*) AS high",
+    "old": "COALESCE(SUM(CASE WHEN tier >= ?3 THEN qty ELSE 0 END), 0) AS high",
+    "new": "COALESCE(SUM(qty), 0) AS high",
     "tests": [
       "test/prof7_service.test.js"
     ]
@@ -533,7 +538,9 @@
     "tests": [
       "test/prof7_law.test.js",
       "test/prof7_service.test.js"
-    ]
+    ],
+    "equivalent": true,
+    "why": "AUDIT 32 L3: every garment takes a dye (DFU's \"unchangeable\" shirts too), so `dyes` is true of every garment and the kind test decides alone - kept for a garment that may one day take none"
   },
   {
     "name": "PROF7-dye-eleven",
@@ -668,8 +675,8 @@
   {
     "name": "PROF7-trace-no-chord",
     "file": "src/systems/traceAct.js",
-    "old": "    const n = Math.max(1, Math.ceil(off(a, [b.yaw, b.pitch]) / TRACE_ACT.stepDeg - 1e-9));",
-    "new": "    const n = 1;",
+    "old": "const lo = st.far, n = Math.ceil((hi - lo) / TRACE_ACT.stepDeg - 1e-9);",
+    "new": "const lo = st.far, n = 1;",
     "tests": [
       "test/prof7_law.test.js"
     ]
@@ -713,7 +720,7 @@
   {
     "name": "PROF7-stitch-no-gap",
     "file": "src/systems/stitchAct.js",
-    "old": "      if (st.done || st.t - st.lastAt < STITCH_ACT.gapS) return null;",
+    "old": "      if (st.done || at - st.lastAt < STITCH_ACT.gapS) return null;",
     "new": "      if (st.done) return null;",
     "tests": [
       "test/prof7_law.test.js"
@@ -821,7 +828,7 @@
   {
     "name": "PROF7-gather-loose-unstood",
     "file": "src/scenes/gatherHost.js",
-    "old": "      if (nodes.length) places.push({ nodes, entry: null, info: under ? dungeon.info : null, loose: true, at: looseAt });",
+    "old": "      if (nodes.length) places.push({ nodes, entry: null, info: null, loose: true, at: looseAt });",
     "new": "",
     "tests": [
       "test/prof7_client.test.js"
@@ -987,7 +994,9 @@
     "new": "  if (Number.isInteger(dye)) item.dye = dye;",
     "tests": [
       "test/prof7_client.test.js"
-    ]
+    ],
+    "equivalent": true,
+    "why": "AUDIT 32 L3: garmentItem mints garments alone, and every garment takes a dye - the flag's test is belt-and-braces"
   },
   {
     "name": "PROF7-garment-variant-zero",
@@ -1041,7 +1050,9 @@
     "new": "    if (r.kind === 'garment') {",
     "tests": [
       "test/prof7_client.test.js"
-    ]
+    ],
+    "equivalent": true,
+    "why": "AUDIT 32 L3: every garment takes a dye, so the dye row stands for every garment whether the flag is asked or not"
   },
   {
     "name": "PROF7-pages-hunt-day-characters",
@@ -1093,8 +1104,8 @@
   {
     "name": "PROF7-world-dungeon-bodies-street",
     "file": "src/scenes/world.js",
-    "old": "? bodiesOf(modes?.dungeonCtx?.foes, bodyStamps, (f) => f.ai?.feet)",
-    "new": "? bodiesOf(exteriorFoes.foes, bodyStamps, (f) => f.ai?.feet)",
+    "old": "? bodiesOf(modes?.dungeonCtx?.foes, bodyStamps, (f) => modes?.dungeonCtx?.corpseAt?.(f),",
+    "new": "? bodiesOf(exteriorFoes.foes, bodyStamps, (f) => modes?.dungeonCtx?.corpseAt?.(f),",
     "tests": [
       "test/prof7_client.test.js"
     ]

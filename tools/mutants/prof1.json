@@ -329,8 +329,8 @@
   {
     "name": "PROF1-36-the-stores-overflow",
     "file": "server-account/src/professions.js",
-    "old": "      SELECT ?6, ?7, ?8, ?1, ?4, ?9, ?5, MIN(?10, ?11 - ${stored}),\n",
-    "new": "      SELECT ?6, ?7, ?8, ?1, ?4, ?9, ?5, ?10,\n",
+    "old": "SELECT ?6, ?7, ?8, ?1, ?4, ?9, ?5, MIN(?10, ?11 - ${stored},\n",
+    "new": "SELECT ?6, ?7, ?8, ?1, ?4, ?9, ?5, MIN(?10, ?10,\n",
     "tests": [
       "test/prof1_service.test.js"
     ]

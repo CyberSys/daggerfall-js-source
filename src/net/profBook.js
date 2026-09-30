@@ -29,7 +29,7 @@
 // Pure - the door, the storage, the clock and the ids are handed in - so
 // the pins drive it without a network.
 // ═══════════════════════════════════════════════════════════════════
-import { HARVEST_LATE_S } from './professionLaw.js';
+import { HARVEST_LATE_S, HIDES_PER_DAY, HIGH_HIDES_PER_DAY } from './professionLaw.js';
 import { pixelKey } from './nodeLaw.js';
 import { accountRefusalText } from './accountClient.js';
 
@@ -324,7 +324,7 @@ export function createProfBook({ door, storage = null, character = () => null, n
           // rise read after it was no rise (no toast, no banner)
           const ranks = new Map([...state.tracks].map(([p, t]) => [p, t.rank]));
           const r = await send(h, key);
-          if (!r.kept) onAnswer(h, r, ranks.get(r?.data?.track?.profession) ?? 0);
+          if (!r.kept && !r.elsewhere) onAnswer(h, r, ranks.get(r?.data?.track?.profession) ?? 0);   // AUDIT 32 B5: another character's, unsaid
         }
       })().finally(() => { _pump = null; });
       return _pump;
@@ -520,6 +520,10 @@ export function createProfBook({ door, storage = null, character = () => null, n
     let r;
     sending.add(h.rid);
     try { r = await door.harvest(body); } catch { r = { ok: false, error: 'offline' }; } finally { sending.delete(h.rid); }
+    // AUDIT 32 B5: the answer is its press's character's - heard after a switch, it is let go and the book (the other
+    // character's now) is left as it stands; that character's next read says it (AUDIT 31 B2's law, the market's)
+    const here = key === slot();
+    if (r?.ok && !here) { drop(h.rid, key); return { ok: true, data: r.data, elsewhere: true }; }
     if (r?.ok) {
       drop(h.rid, key);
       state.taken.add(`${h.node}|${h.kind}`);
@@ -538,8 +542,13 @@ export function createProfBook({ door, storage = null, character = () => null, n
       return { ok: false, error: r?.error ?? 'offline', kept: true };
     }
     drop(h.rid, key);
+    if (!here) return { ok: false, error: r?.error ?? 'server', elsewhere: true };
     shutBy(r);
     if (r?.error === 'node-taken') state.taken.add(`${h.node}|${h.kind}`);
+    // AUDIT 32 B2: the account's day as the refusal says it - the book counted what this device saw, and another
+    // character (or device) of the account may have taken the rest; a knife worn on every try until the next day's read
+    if (r?.error === 'prof-hunt-cap') state.hunt = { ...(state.hunt ?? { hides: 0, high: 0 }), hides: Math.max(state.hunt?.hides ?? 0, state.caps?.hides ?? HIDES_PER_DAY) };
+    if (r?.error === 'prof-hunt-high') state.hunt = { ...(state.hunt ?? { hides: 0, high: 0 }), high: Math.max(state.hunt?.high ?? 0, state.caps?.highHides ?? HIGH_HIDES_PER_DAY) };
     return { ok: false, error: r?.error ?? 'server' };
   }
   function drop(id, key) {
@@ -551,6 +560,9 @@ export function createProfBook({ door, storage = null, character = () => null, n
    *  silence - the service's row answers the same id with the same pieces whenever it is asked again. */
   async function craftOne(w, key, mint) {
     const r = await ask(() => door.craft(w.character, w.recipe, w.clean, w.name, w.rid, w.heartwood === true, Number.isInteger(w.dye) ? w.dye : null));
+    // AUDIT 32 B5: heard after a switch, the craft waits kept for its own character's settle - asked again there, the
+    // service's row answers the same pieces into the right pack
+    if (key !== slot()) return { ok: false, error: 'elsewhere', kept: true };
     const kept = keptOf(key);
     if (r?.ok) {
       const had = kept.crafts.some((x) => x.rid === w.rid);
@@ -571,6 +583,7 @@ export function createProfBook({ door, storage = null, character = () => null, n
   /** A kept withdrawal's ask: minted and let go on an answer, let go on a refusal, kept on silence. */
   async function settleOne(w, key, mint) {
     const r = await ask(() => door.withdraw(w.character, w.material, w.qty, w.rid));
+    if (key !== slot()) return { ok: false, kept: true, text: '' };   // AUDIT 32 B5: its own character's settle mints it
     const kept = keptOf(key);
     if (r?.ok) {
       // AUDIT 29 C5: minted by the tab that lets it go - read and removed in one turn, so a second tab settling the same

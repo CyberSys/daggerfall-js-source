@@ -186,8 +186,8 @@
   {
     "name": "AUDIT29-A6-the-service-s-slots-the-climate-s",
     "file": "server-account/src/professions.js",
-    "old": "const slots = n.kind === 'vein' ? veinSlots({ climate, region, confirmed }) : nodeCount(climate, n.kind);",
-    "new": "const slots = nodeCount(climate, n.kind);",
+    "old": "(n.kind === 'vein' ? veinSlots({ climate, region, confirmed }) : nodeCount(climate, n.kind))",
+    "new": "nodeCount(climate, n.kind)",
     "tests": [
       "test/audit29_service.test.js"
     ]
@@ -267,8 +267,8 @@
   {
     "name": "AUDIT29-C4-the-pump-s-rise-unsaid",
     "file": "src/net/profBook.js",
-    "old": "          if (!r.kept) onAnswer(h, r, ranks.get(r?.data?.track?.profession) ?? 0);",
-    "new": "          if (!r.kept) onAnswer(h, r);",
+    "old": "if (!r.kept && !r.elsewhere) onAnswer(h, r, ranks.get(r?.data?.track?.profession) ?? 0);",
+    "new": "if (!r.kept && !r.elsewhere) onAnswer(h, r);",
     "tests": [
       "test/audit29_host.test.js"
     ]
@@ -321,8 +321,8 @@
   {
     "name": "AUDIT29-C1-the-floor-above",
     "file": "src/scenes/gatherHost.js",
-    "old": "(n.reach ?? NODE_REACH) || Math.abs(dy) > (n.reach ?? NODE_REACH)) continue;",
-    "new": "(n.reach ?? NODE_REACH)) continue;",
+    "old": "Math.hypot(dx, dz) > reach || Math.abs(dy) > reach) continue;",
+    "new": "Math.hypot(dx, dz) > reach) continue;",
     "tests": [
       "test/audit29_host.test.js"
     ]

@@ -10,7 +10,7 @@
 //         a AUDIT 30 L4: 1 where the piece bears its maker's mark (a Masterwork, or a Master Joiner's furniture - the
 //           service's `products.marked`), absent otherwise - so the name is the service's word too
 //         u PROF7: a garment's dye, DFU's DyeColors (0-9, recipeLaw GARMENT_DYES) - the colour the crafter chose, so a
-//           garment bought at the market is the colour it was sewn in; absent for every other piece and an undyed shirt
+//           garment bought at the market is the colour it was sewn in; absent for an undyed garment and every other piece
 //
 // ONE KEY, SEVERAL THINGS, NEVER CONFUSED: the identity key signs tokens (`v1`) and orders; this is `p1`, the version
 // inside the signed bytes and read before a byte of the body is, and the claim shapes are disjoint besides - a record

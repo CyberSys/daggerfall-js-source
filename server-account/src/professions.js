@@ -251,9 +251,10 @@ function traceOf(act) {
   const clean = act?.clean === true, torn = act?.torn === true;
   return { clean: clean && !torn, torn: torn && !clean };
 }
-/** PROF7 - the account's hides today (PROF0 6: 30, of them 3 of tiers 5-6), every character's together. */
+/** PROF7 - the account's hides today (PROF0 6: 30, of them 3 of tiers 5-6), every character's together. AUDIT 32 L2: the
+ *  hides - the rows' units, a clean pelt's second among them - where it counted the bodies, so a day ran to 60. */
 async function huntToday(db, player, day) {
-  const r = await db.prepare(`SELECT COUNT(*) AS n, COALESCE(SUM(CASE WHEN tier >= ?3 THEN 1 ELSE 0 END), 0) AS high
+  const r = await db.prepare(`SELECT COALESCE(SUM(qty), 0) AS n, COALESCE(SUM(CASE WHEN tier >= ?3 THEN qty ELSE 0 END), 0) AS high
     FROM node_harvests WHERE player = ?1 AND profession = 'hunting' AND day = ?2`).bind(player, day, HIGH_HIDE_TIER).first();
   return { hides: Number(r?.n ?? 0), high: Number(r?.high ?? 0) };
 }
@@ -303,6 +304,9 @@ export async function harvestNode(ctx, player, env, body = {}) {
   const deep = n.kind === 'dvein';
   // the wilderness keeps Foraging's day (FORAGE0 14.3); a dungeon vein keeps no hours (PROF0 5.1), nor Hunting (14.3)
   if (!deep && !isBody && !isForagingDaylight(sharedHourAt(at))) return { error: 'prof-night' };
+  // AUDIT 32 S4: a body's foe is the request's shape, refused before the hour's acts are spent (as a craft's dye is)
+  const hide = isBody ? hideOfFoe(foe) : null;
+  if (isBody && !hide) return { error: 'prof-foe' };
   if (await overRate(ctx, `prof:${player.id}`, PROF_OPS_MAX, PROF_OPS_WINDOW_S)) return { error: 'prof-rate' };
 
   // THE GROUND, as the witnesses say it is - a pixel's, or a dungeon's; a body's none
@@ -320,9 +324,9 @@ export async function harvestNode(ctx, player, env, body = {}) {
     }
     return { error: 'prof-pixel' };
   }
-  // a vein's slots are its climate's and, on confirmed ground, its region's signature beside them (AUDIT 29 A6)
-  const slots = n.kind === 'vein' ? veinSlots({ climate, region, confirmed }) : nodeCount(climate, n.kind);
-  if (!deep && !isBody && n.slot >= slots) return { error: 'bad-node' };
+  // a vein's slots are its climate's and, on confirmed ground, its region's signature beside them (AUDIT 29 A6); a body
+  // has none (AUDIT 32 S2: its unchecked ground is never read)
+  if (!deep && !isBody && n.slot >= (n.kind === 'vein' ? veinSlots({ climate, region, confirmed }) : nodeCount(climate, n.kind))) return { error: 'bad-node' };
 
   // THE TRACK it is worked under
   const profession = law.profession;
@@ -335,8 +339,7 @@ export async function harvestNode(ctx, player, env, body = {}) {
   if (isBody) {
     // PROF7: THE SKINNING KNIFE - the hide of the foe the client names; a clean pelt x1.5 (the act's bound), a torn one's
     // DFU part lost; the part one body in four; the butchery beside it, a Butcher's two (PROF0 4.4, 29)
-    const h = hideOfFoe(foe);
-    if (!h) return { error: 'prof-foe' };
+    const h = /** @type {NonNullable<typeof hide>} */ (hide);
     tier = h.tier;
     if (!tierOpen(rank, tier)) return { error: 'prof-rank' };
     const t = traceOf(act);
@@ -413,21 +416,26 @@ export async function harvestNode(ctx, player, env, body = {}) {
   const deepUnconfirmed = deep && !confirmed ? 1 : 0;
   const mine = 'player = ?1 AND rid = ?2 AND n = ?3';
   const stored = 'COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?4 AND material = ?5), 0)';
+  const storedExtra = 'COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?4 AND material = ?20), 0)';
+  // PROF7: Hunting's day, in hides (AUDIT 32 L2) - the account's, and its tiers 5-6
+  const hunted = "COALESCE((SELECT SUM(qty) FROM node_harvests WHERE player = ?1 AND profession = 'hunting' AND day = ?6), 0)";
+  const huntedHigh = "COALESCE((SELECT SUM(qty) FROM node_harvests WHERE player = ?1 AND profession = 'hunting' AND day = ?6 AND tier >= ?23), 0)";
   await db.batch([
     // THE DECISION: today's cap for the profession (the character's, and the account's - AUDIT 29 A3), a dungeon nobody
-    // vouched for within its four (A5), PROF7: Hunting's day for the account - 30 hides, 3 of tiers 5-6 (PROF0 6) - the
-    // node not yet taken (the key), room in the Stores - the yield cut to it, the XP to what the track can take (A14: the
-    // answer says what was credited)
+    // vouched for within its four (A5), PROF7: Hunting's day for the account - 30 hides, 3 of tiers 5-6 (PROF0 6), the
+    // hide cut to the day's room as to the Stores' (AUDIT 32 L2) - the node not yet taken (the key), room in the Stores -
+    // the yield cut to it, the XP to what the track can take (A14: the answer says what was credited); the second find
+    // kept where one of it fits, its count cut to its room (AUDIT 32 S3: a Butcher's two at 4,999 were both lost)
     db.prepare(`INSERT OR IGNORE INTO node_harvests (day, node, kind, player, char_id, profession, material, qty, xp, gem, at, rid, n, deep_unconfirmed, extra, tier, extra_qty)
-      SELECT ?6, ?7, ?8, ?1, ?4, ?9, ?5, MIN(?10, ?11 - ${stored}),
+      SELECT ?6, ?7, ?8, ?1, ?4, ?9, ?5, MIN(?10, ?11 - ${stored},
+          CASE WHEN ?9 = 'hunting' THEN ?21 - ${hunted} ELSE ?10 END, CASE WHEN ?9 = 'hunting' AND ?22 >= ?23 THEN ?24 - ${huntedHigh} ELSE ?10 END),
         MAX(0, MIN(?12, ?19 - COALESCE((SELECT xp FROM prof_tracks WHERE player = ?1 AND char_id = ?4 AND profession = ?9), 0))),
         CASE WHEN COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?4 AND material = ?15), 0) < ?11 THEN ?15 END, ?13, ?2, ?3, ?17,
-        CASE WHEN COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?4 AND material = ?20), 0) + ?25 <= ?11 THEN ?20 END, ?22, ?25
+        CASE WHEN ${storedExtra} < ?11 THEN ?20 END, ?22, CASE WHEN ${storedExtra} < ?11 THEN MIN(?25, ?11 - ${storedExtra}) ELSE 1 END
       WHERE (SELECT COUNT(*) FROM node_harvests WHERE player = ?1 AND char_id = ?4 AND profession = ?9 AND day = ?6) < ?14
         AND (SELECT COUNT(*) FROM node_harvests WHERE player = ?1 AND profession = ?9 AND day = ?6) < ?16
         AND (?17 = 0 OR (SELECT COUNT(*) FROM node_harvests WHERE player = ?1 AND day = ?6 AND deep_unconfirmed = 1) < ?18)
-        AND (?9 <> 'hunting' OR ((SELECT COUNT(*) FROM node_harvests WHERE player = ?1 AND profession = 'hunting' AND day = ?6) < ?21
-          AND (?22 < ?23 OR (SELECT COUNT(*) FROM node_harvests WHERE player = ?1 AND profession = 'hunting' AND day = ?6 AND tier >= ?23) < ?24)))
+        AND (?9 <> 'hunting' OR (${hunted} < ?21 AND (?22 < ?23 OR ${huntedHigh} < ?24)))
         AND ?11 - ${stored} >= 1`)
       .bind(player.id, rid, nonce, character, key2, day, node, kind, profession, qty, STORES_MAX, xp, at, HARVESTS_PER_DAY, gem,
         HARVESTS_PER_ACCOUNT_DAY, deepUnconfirmed, DEEP_UNCONFIRMED_PER_DAY, PROF_XP_MAX, extra,
@@ -447,10 +455,11 @@ export async function harvestNode(ctx, player, env, body = {}) {
       SELECT player, char_id, profession, MIN(?4, xp), ?5 FROM node_harvests WHERE ${mine}
       ON CONFLICT (player, char_id, profession) DO UPDATE SET xp = MIN(?4, prof_tracks.xp + excluded.xp), updated_at = excluded.updated_at`)
       .bind(player.id, rid, nonce, PROF_XP_MAX, nowS),
-    // THE WITNESS: the ground as this client derived it, once an account - an account a week registered
-    db.prepare(`INSERT OR IGNORE INTO world_witness (kind, key, account, report, region, at)
+    // THE WITNESS: the ground as this client derived it, once an account - an account a week registered; a body none
+    // (AUDIT 32 S2: its ground is never checked, and a hand-built one was bound here - a 500 and an hour's act spent)
+    ...(isBody ? [] : [db.prepare(`INSERT OR IGNORE INTO world_witness (kind, key, account, report, region, at)
       SELECT ?9, ?4, ?1, ?5, ?6, ?7 WHERE ?8 = 1 AND EXISTS (SELECT 1 FROM node_harvests WHERE ${mine})`)
-      .bind(player.id, rid, nonce, key, pixelReport(climate, region), region ?? null, nowS, witness, wkind),   // PROF7: a body names no region - D1 binds no undefined
+      .bind(player.id, rid, nonce, key, pixelReport(climate, region), region, nowS, witness, wkind)]),
   ]);
   const made = await db.prepare('SELECT * FROM node_harvests WHERE player = ?1 AND rid = ?2').bind(player.id, rid).first();
   if (made?.n === nonce) return harvestAnswer(db, made, nowS, {}, rank);
@@ -621,10 +630,12 @@ export async function smeltAtForge(ctx, player, env, { character, recipe: id, co
   if (refused) return refused;
   const answer = async (row, extra = {}) => {
     const r = smeltRecipe(row.recipe);
-    const prof = r.xp ?? r.more?.profession ?? 'smithing';
+    // the track the work is the profession of - AUDIT 32 S5: the weave names none (no XP, no raising choice), and was
+    // answered Smithing's
+    const prof = r.xp ?? r.more?.profession ?? null;
     return {
       ok: true, ...extra, recipe: row.recipe, count: Number(row.count), own: Number(row.own), bought: Number(row.bought), xp: Number(row.xp),
-      track: trackView(await trackRow(db, player.id, row.char_id, prof), prof, nowS),
+      track: prof ? trackView(await trackRow(db, player.id, row.char_id, prof), prof, nowS) : null,
       stores: await Promise.all([r.out, ...r.inputs.map((inp) => inp.key)].map((k) => storeOf(db, player.id, row.char_id, k))),
     };
   };

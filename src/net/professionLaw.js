@@ -478,6 +478,11 @@ export const KNIFE_REFUSALS = Object.freeze({
   town: 'You cannot skin in a settlement!', sea: 'You cannot skin out here!',
   enemies: 'You cannot skin with enemies nearby!', encumbered: 'You cannot skin when fully encumbered!',
 });
+/** AUDIT 32 H4: the knife's checks of the ground - no act of the player's changes them while the body lies there - asked
+ *  by the plan, so a body in a settlement or at sea is no ready node and E goes on to its loot (AUDIT 29 C1's law); the
+ *  words the prompt says them in. The foe and the load stay the act's own checks. */
+export const KNIFE_WHERE = Object.freeze(['town', 'sea']);
+export const KNIFE_WHERE_WORDS = Object.freeze({ town: 'not in a settlement', sea: 'not out here' });
 
 // ─── THE SMITH'S STOCK (PROF0 24) ────────────────────────────────────
 

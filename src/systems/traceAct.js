@@ -22,11 +22,18 @@
 //   THE SCORE. 1 less the mean deviation from the line over the
 //   tolerance (professionLaw traceTolerance: TRACE_ACT.tolDeg at Novice,
 //   half again at Master, x the knife's band) - the deviation measured
-//   along the line the crosshair drew, every TRACE_ACT.stepDeg (AUDIT 30
-//   A1's law: a jump between two frames is scored along its chord). A
-//   trace scoring TRACE_ACT.clean or more, drawn in minS to maxS, is a
-//   CLEAN PELT; under TRACE_ACT.torn it is TORN. Neither fails the
-//   harvest (PROF0 5.1: a missed moment gives less, never nothing).
+//   along the line the crosshair drew, every TRACE_ACT.stepDeg of the
+//   trace's PROGRESS (AUDIT 30 A1's law, the plane's: a jump between two
+//   frames is scored along its chord). The line runs left to right, so
+//   the progress is the yaw: AUDIT 32 L1 - a frame held still, a jitter or
+//   a wiggle back over ground already drawn adds nothing, and the clock
+//   starts at the first move along the line, not at the press. It counted
+//   every frame as a sample and started at the press, so a press held
+//   still on the first point and one flick to the last was a clean pelt
+//   (97% of lines after a second's rest), and a hand's score hung on its
+//   frame rate. A trace scoring TRACE_ACT.clean or more, drawn in minS to
+//   maxS, is a CLEAN PELT; under TRACE_ACT.torn it is TORN. Neither fails
+//   the harvest (PROF0 5.1: a missed moment gives less, never nothing).
 //
 // GENTLE ACTS (a setting, accessibility - PROF0 5.1): E held for
 // TRACE_ACT.gentleS completes it plainly - no line to draw, no clean pelt,
@@ -68,27 +75,39 @@ export function traceLine(n, rng = Math.random) {
  */
 export function createTraceAct({ tier, rank = 0, band = 1, gentle = false, rng = Math.random }) {
   const points = traceLine(tracePoints(tier), rng);
+  const endYaw = points[points.length - 1][0];
   const st = {
     kind: 'trace', points, tol: traceTolerance(rank, band), gentle, t: 0, done: false, cancelled: false,
-    /** the trace under way: started at the first point, the points passed (the index of the last), the deviations */
-    tracing: false, t0: 0, reached: 0, devs: /** @type {number[]} */ ([]),
+    /** the trace under way: started at the first point, its clock (its first move along the line - AUDIT 32 L1), the
+     *  points passed (the index of the last), the furthest yaw the deviations have measured, the deviations */
+    tracing: false, t0: /** @type {number|null} */ (null), reached: 0, far: 0, devs: /** @type {number[]} */ ([]),
     /** where the crosshair was last frame, and the path drawn this trace (the meter's) */
     last: /** @type {{ yaw: number, pitch: number }|null} */ (null), path: /** @type {number[][]} */ ([]),
     aim: /** @type {{ yaw: number, pitch: number }|null} */ (null),
     /** traces let go before the last point; Gentle acts' hold; the finished trace's measure */
     slips: 0, held: 0, score: 0, seconds: 0,
   };
-  const reset = () => { st.tracing = false; st.devs = []; st.reached = 0; st.last = null; st.path = []; };
-  /** The crosshair drawn from `a` to `b`: the deviation every stepDeg along the chord, the points passed in turn. */
-  function draw(a, b) {
-    const n = Math.max(1, Math.ceil(off(a, [b.yaw, b.pitch]) / TRACE_ACT.stepDeg - 1e-9));
-    for (let i = 1; i <= n; i++) {
-      const x = a.yaw + ((b.yaw - a.yaw) * i) / n, y = a.pitch + ((b.pitch - a.pitch) * i) / n;
-      st.devs.push(toLine(x, y, points));
-      const next = points[st.reached + 1];
-      if (next && Math.hypot(x - next[0], y - next[1]) <= TRACE_ACT.startDeg) st.reached++;
+  const reset = () => { st.tracing = false; st.t0 = null; st.devs = []; st.reached = 0; st.last = null; st.path = []; };
+  /**
+   * The crosshair drawn from `a` to `b`: the points passed in turn (the chord's nearest approach to each next point), and
+   * the deviation every stepDeg of NEW progress along the chord - the yaw past the furthest measured, to the line's end
+   * (AUDIT 32 L1, the plane's law; and L5: a chord across the world walks no further than the line).
+   */
+  function draw(a, b, step) {
+    const pa = [a.yaw, a.pitch], pb = [b.yaw, b.pitch];
+    for (let next = points[st.reached + 1]; next && toSegment(next[0], next[1], pa, pb) <= TRACE_ACT.startDeg; next = points[st.reached + 1]) st.reached++;
+    const hi = Math.min(b.yaw, endYaw);
+    if (hi > st.far) {
+      if (st.t0 == null) st.t0 = st.t - step;   // the first move along the line starts the clock: the frame it began in
+      const lo = st.far, n = Math.ceil((hi - lo) / TRACE_ACT.stepDeg - 1e-9);
+      for (let i = 1; i <= n; i++) {
+        const x = lo + ((hi - lo) * i) / n;
+        const y = b.yaw === a.yaw ? b.pitch : a.pitch + ((b.pitch - a.pitch) * (x - a.yaw)) / (b.yaw - a.yaw);
+        st.devs.push(toLine(x, y, points));
+      }
+      st.far = hi;
     }
-    st.path.push([b.yaw, b.pitch]);
+    if (b.yaw !== a.yaw || b.pitch !== a.pitch) st.path.push(pb);
   }
   return {
     state: st,
@@ -98,10 +117,12 @@ export function createTraceAct({ tier, rank = 0, band = 1, gentle = false, rng =
      * One frame. `held` - E held; `aim` - the crosshair's bearing from the body's centre, degrees.
      * @param {number} dt @param {{ held?: boolean, aim?: { yaw: number, pitch: number }|null }} input
      */
-    tick(dt, { held = false, aim = null } = {}) {
+    tick(dt, { held = false, aim: given = null } = {}) {
       if (st.done || st.cancelled) return;
       const step = Math.max(0, Math.min(0.25, Number(dt) || 0));
       st.t += step;
+      // AUDIT 32 L5: a bearing that is not a number is no bearing (it hung the chord's walk, or dropped its samples)
+      const aim = given && Number.isFinite(given.yaw) && Number.isFinite(given.pitch) ? given : null;
       st.aim = aim;
       if (gentle) {
         st.held = held ? st.held + step : 0;
@@ -110,16 +131,16 @@ export function createTraceAct({ tier, rank = 0, band = 1, gentle = false, rng =
       }
       if (!st.tracing) {
         if (held && aim && off(aim, points[0]) <= TRACE_ACT.startDeg) {
-          st.tracing = true; st.t0 = st.t; st.devs = [toLine(aim.yaw, aim.pitch, points)]; st.reached = 0; st.last = aim; st.path = [[aim.yaw, aim.pitch]];
+          st.tracing = true; st.t0 = null; st.far = aim.yaw; st.devs = [toLine(aim.yaw, aim.pitch, points)]; st.reached = 0; st.last = aim; st.path = [[aim.yaw, aim.pitch]];
         }
         return;
       }
       if (!held || !aim) { reset(); st.slips++; return; }   // let go before the last point: start again
-      draw(/** @type {{ yaw: number, pitch: number }} */ (st.last), aim);
+      draw(/** @type {{ yaw: number, pitch: number }} */ (st.last), aim, step);
       st.last = aim;
       if (st.reached >= points.length - 1) {
         st.done = true; st.tracing = false;
-        st.seconds = st.t - st.t0;
+        st.seconds = st.t - (st.t0 ?? st.t);
         const dev = st.devs.reduce((s, d) => s + d, 0) / st.devs.length;
         st.score = Math.max(0, 1 - dev / st.tol);
       }

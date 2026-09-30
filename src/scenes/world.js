@@ -1095,11 +1095,16 @@ export async function bootWorld(canvas, renderer, params, status) {
   let huntBodies = () => [];
   /** PROF7: the station a recipe's profession is crafted at - the anvil (Smithing's), the workbench (Carpentry's, PROF4),
    *  the loom (Outfitting's) - its place, its keeper and its words. */
+  // AUDIT 32 B4: and each its own busy word - the anvil's rang at the workbench and the loom
   const craftStation = (profession) => (profession === 'carpentry'
-    ? { here: () => modes?.workbenchHere?.() ?? null, a: 'a workbench', who: 'furnisher', noun: 'workbench', kept: BENCH_KEPT_TEXT, xp: 'Carpentry' }
+    ? { here: () => modes?.workbenchHere?.() ?? null, a: 'a workbench', who: 'furnisher', noun: 'workbench', kept: BENCH_KEPT_TEXT, xp: 'Carpentry', busy: 'Your last work is still on the workbench.' }
     : profession === 'outfitting'
-      ? { here: () => modes?.loomHere?.() ?? null, a: 'a loom', who: 'tailor', noun: 'loom', kept: LOOM_KEPT_TEXT, xp: 'Outfitting' }
-      : { here: () => modes?.forgeHere?.() ?? null, a: 'an anvil', who: 'smith', noun: 'anvil', kept: CRAFT_KEPT_TEXT, xp: 'Smithing' });
+      ? { here: () => modes?.loomHere?.() ?? null, a: 'a loom', who: 'tailor', noun: 'loom', kept: LOOM_KEPT_TEXT, xp: 'Outfitting', busy: 'Your last work is still on the loom.' }
+      : { here: () => modes?.forgeHere?.() ?? null, a: 'an anvil', who: 'smith', noun: 'anvil', kept: CRAFT_KEPT_TEXT, xp: 'Smithing', busy: accountRefusalText('prof-busy') });
+  /** AUDIT 32 B3: a balance a counter's purchase answered, told to every book that shows one - the Bank's and the
+   *  market's (AUDIT 30 U6's law, which the Stores page's counters never kept: the Market tab read the old one for its
+   *  minute's cache). One door for the Stores page's counters and the Market tab's Weavers'. */
+  const toldBalance = (balance) => { if (Number.isSafeInteger(balance)) { marksBook?.set(balance); marketBook?.told(balance); } };
   /** PROF-SAVE (systems/onlineCheckpoint.js createSaveSoon): every professions act below that changes the save - the
    *  pack, the home's things, the purse or the Bank's accounts, on the service's answer - asks ONE checkpoint on the next
    *  task, as a trade saves at once; the checkpoint (onlineCheckpoint) is handed in once it is built (REALM P0.5). */
@@ -7318,12 +7323,15 @@ export async function bootWorld(canvas, renderer, params, status) {
       const bodyStamps = createBodyStamps({ nowMs: () => Date.now() + _sharedOffsetMs });
       registerPlayerKillListener('hunting', (entity) => { bodyStamps.stamp(entity); });
       huntBodies = () => (modeNow() === 'dungeon'
-        ? bodiesOf(modes?.dungeonCtx?.foes, bodyStamps, (f) => f.ai?.feet)
-        : bodiesOf(exteriorFoes.foes, bodyStamps, exteriorFoes.corpseAt));
+        ? bodiesOf(modes?.dungeonCtx?.foes, bodyStamps, (f) => modes?.dungeonCtx?.corpseAt?.(f), (f) => modes?.dungeonCtx?.corpseKeyOf?.(f))   // AUDIT 32 H3: where it lies, not where it flew
+        : bodiesOf(exteriorFoes.foes, bodyStamps, exteriorFoes.corpseAt, exteriorFoes.corpseKeyOf));
+      // AUDIT 32 H8: a body's search opens its loot through its pool's own door, by its key - the street's body window, the
+      // dungeon's take
+      const openHuntLoot = (key) => (key.startsWith('foeCorpse:') ? openBodyLoot(key) : modes?.dungeonCtx?.takeLoot(key, getInteractionMode()));
       gatherHost = createGatherHost({
         book: profBook, hud, kinds: [herbKind({ book: profBook }), mineKind({ book: profBook }),
           treeKind({ book: profBook, renderer, flatBatchAabb, getTexture, billboardSize, uploadRecord }),   // PROF4: Logging's trees
-          huntKind({ book: profBook, bodies: () => huntBodies() })],   // PROF7: Hunting's bodies
+          huntKind({ book: profBook, bodies: () => huntBodies(), openLoot: openHuntLoot })],   // PROF7: Hunting's bodies
         renderer, getTexture, uploadRecord, billboardSize, flatBatchAabb,
         built: () => built, pixelTranslation: (x, y, out) => state.pixelTranslation(x, y, out),
         pixelInfo: (x, y) => { try { return { climate: maps.getClimateIndex(x, y), region: maps.getRegionIndexAt(x, y) }; } catch { return null; } },
@@ -7343,7 +7351,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         entity: () => playerEntity,
         keyLabel: (a) => { const c = getBinding(bindings(), a); return c ? tagText(c) : '?'; },
         input: () => ({ held: held(keys, 'Interact'), attack: pressed(latch.edge, keys, 'SwingWeapon'), choice: pressed(latch.edge, keys, 'ActChoice') }),
-        active: () => walkMode && modeNow() === 'exterior' && !townTalk.overlayActive && !modes?.deathUp?.() && !modes?.transitioning,
+        active: () => walkMode && modeNow() === 'exterior' && !townTalk.overlayActive && !modes?.deathUp?.() && !modes?.transitioning && !travelView?.active,   // AUDIT 32 H10: never from under the travel view (its ray is the hidden head's - AUDIT OW5 V2's law for E)
         activeDungeon: () => walkMode && modeNow() === 'dungeon' && !modes?.dungeonCtx?.uiOverlayActive && !modes?.deathUp?.() && !modes?.transitioning,   // PROF2: a dungeon's veins
         onSettle: () => { profBook.settle(profMint, profMintCraft).catch(() => {}); },
       });
@@ -7366,13 +7374,13 @@ export async function bootWorld(canvas, renderer, params, status) {
           // AUDIT 30 C4: the fee rides the kept craft and is paid as its pieces are minted (profMintCraft) - by this press's
           // answer, or a settle's later; A4: the workbench's kept word its own
           const r = await profBook.craft(recipe, { clean, heartwood, dye, fee: f.fee > 0 ? f.fee : 0, name: typeof playerEntity?.name === 'string' ? playerEntity.name : null }, profMintCraft);
-          if (!r?.ok) return { ok: false, text: r?.kept ? st.kept : accountRefusalText(r?.error) };
+          if (!r?.ok) return { ok: false, text: r?.kept ? st.kept : r?.error === 'prof-busy' ? st.busy : accountRefusalText(r?.error) };
           const paid = f.fee > 0 && !r.elsewhere;
           return { ok: true, text: `${craftedText(mintPieces(r.data))} (+${r.data.xp} ${st.xp} XP)${paid ? `, and paid the ${st.who} ${f.fee} gold` : ''}.` };
         },
         stock: async (material, qty, counter = stockOf(material)?.counter) => {
           const r = await profBook.stock(material, qty);
-          if (Number.isSafeInteger(r?.data?.balance)) marksBook?.set(r.data.balance);   // PROF5 (FOUND): the Bank's balance told too
+          toldBalance(r?.data?.balance);   // PROF5 (FOUND): the Bank's balance told too; AUDIT 32 B3: and the market's
           const who = counter === 'furnisher' ? 'furnisher' : counter === 'weavers' ? 'Weavers' : 'smith';   // PROF4: the furnisher's Linen; PROF7: the Weavers' at the tailor's
           return r?.ok ? { ok: true, text: `Bought ${r.data.qty} ${materialCountLabel(material, r.data.qty)} from the ${who} for ${r.data.marks} Drakes.` } : { ok: false, text: accountRefusalText(r?.error) };
         },
@@ -7386,6 +7394,8 @@ export async function bootWorld(canvas, renderer, params, status) {
         loom: () => modes?.loomHere?.() ?? null,
         stitchBand: () => stitchBand({ agility: liveStat(playerEntity, 'agility'), speed: liveStat(playerEntity, 'speed') }),
         clothing: () => (playerEntity?.gender === 'female' ? 'WomensClothing' : 'MensClothing'),
+        drakes: () => marksBook?.state?.balance ?? null,   // AUDIT 32 P6: a counter's purchase the Drakes cannot meet, said first
+        drakesOpen: () => marksBook?.state?.open !== false,
         smelt: async (recipe, count) => {
           // PROF4: the station is the work's - a smelt's and a burn's the forge, a saw's the workbench; PROF7: a cure's and
           // a weave's the loom
@@ -10103,7 +10113,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7518), so exterior mode and a
+    // composer, dungeonContext.js:7528), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -12747,7 +12757,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:9884-9948 -
+  // worldModes answers it in BOTH modes (worldModes.js:9886-9950 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -13925,7 +13935,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   for (const t of questActionsExtensionTemplates()) questBridge.machine.registerAction(t);
   // FORAGE1: what Foraging's six checks ask (PlayerEnterExit, PlayerGPS, WorldTime, AreEnemiesNearby, PlayerMotor,
   // the load) and the quest a tool starts - this host's answers, in every mode it runs (an interior or a dungeon is
-  // `inside`, which every tool refuses first).
+  // `inside`, which every Foraging tool refuses first - but the professions' Pick-Axe and Skinning Knife work
+  // underground, so a dungeon's foes are answered too: AUDIT 32 H6).
   setForagingHost({
     world: () => {
       const m = _mode();
@@ -13937,7 +13948,9 @@ export async function bootWorld(canvas, renderer, params, status) {
         locationType: _musicLocationType(), inLocationRect: !!_musicInLocationRect(),
         hour: Math.floor((((wm % 1440) + 1440) % 1440) / 60),
         climate: maps.getClimateIndex(px.x, px.y), region: _questRegionIndex(),
-        enemiesNear: exterior ? (duelEnemyNear() || areEnemiesNearby(exteriorFoePool(), { resting: true })) : false,   // DUEL1: no foraging through a duel, as no rest
+        // DUEL1: no foraging through a duel, as no rest; AUDIT 32 H6: underground, the dungeon's own foes - it answered
+        // false, and the knife (and PROF2's dungeon Pick-Axe) never refused a foe beside the body
+        enemiesNear: exterior ? (duelEnemyNear() || areEnemiesNearby(exteriorFoePool(), { resting: true })) : areEnemiesNearby(modes?.insideFoes?.() ?? [], { resting: true }),
         carriedWeight: carriedWeight(playerEntity), maxEncumbrance: entityMaxEncumbrance(playerEntity),
         swimming: exterior && !!(player.isPlayerSwimming || player.swimming),
         exteriorWater: exterior ? (player.onExteriorWaterMethod ?? 'None') : 'None',
@@ -17151,7 +17164,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       weavers: WEAVERS_STOCK,
       stock: async (key, n) => {
         const r = await profBook.stock(key, n);
-        if (Number.isSafeInteger(r?.data?.balance)) { marksBook?.set(r.data.balance); marketBook.told(r.data.balance); }   // AUDIT 30 U6
+        toldBalance(r?.data?.balance);   // AUDIT 30 U6
         return r?.ok ? { ok: true, text: `Bought ${r.data.qty} ${materialCountLabel(key, r.data.qty)} at the Weavers' counter for ${r.data.marks} Drakes.` } : { ok: false, text: accountRefusalText(r?.error) };
       },
     } : null;
@@ -18622,12 +18635,13 @@ export async function bootWorld(canvas, renderer, params, status) {
     activateLockOnly: () => _tapLockOnly,   // TS1: the stick-half tap - the modal ladders stop after the lock pick
     // PROF2 (bible/06-Systems/Professions-Arc.md 23): THE DUNGEON VEINS - the gathering host told of the dungeon entered
     // (its identity, its walls, its own flats' doors), the press offered to a vein first, the Pick-Axe in the dungeon
-    // rig's hand, and no swing while an act plays. A dungeon a client's hash made answers no identity and grows none.
+    // rig's hand, and no swing while an act plays. A dungeon a client's hash made answers no identity and grows none -
+    // AUDIT 32 H2: but the host is told of it, its bodies nodes (Hunting's: a body names no ground)
     profDungeonEntered: (ctx) => {
+      if (!gatherHost) return;
       const id = ctx?.profIdentity?.();
-      if (!gatherHost || !id || !Number.isSafeInteger(id.climate) || !Number.isSafeInteger(id.region)) return;
       gatherHost.enterDungeon({
-        id: id.id, climate: id.climate, region: id.region, wall: (m, b) => ctx.veinWall(m, b),
+        id: id?.id ?? null, climate: id?.climate ?? null, region: id?.region ?? null, wall: (m, b) => ctx.veinWall(m, b),
         stand: (a, r, s, c) => ctx.standProfFlats(a, r, s, c), drop: (b) => ctx.dropProfFlats(b),
       });
     },
@@ -21653,7 +21667,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         const useEdge = !travelView?.active && pressed(latch.edge, keys, 'Interact');   // AUDIT OW5 V2: never from under the travel view - its ray is the hidden head's (a door took the traveller inside, a townsperson opened talk); KB1: the Interact ACTION (E by default, Mac's call) - it was a raw `KeyE` beside DFU's E-AbortSpell, and one press did both
         // PROF1: E at an herb patch is the patch's - an act started, or what it needs said - spent before the ladder
         const nodeTook = useEdge && !modes.transitioning && (gatherHost?.press() ?? false);   // PROF2: a patch's, a vein's or a boulder's
-        if ((_act.activate || (useEdge && !nodeTook)) && !modes.transitioning) {
+        // AUDIT 32 H5: a click mid-act is the act's too (AUDIT 29 D3's law for E) - it opened the body's loot under the
+        // knife and ended the trace
+        if (((_act.activate && !gatherHost?.acting()) || (useEdge && !nodeTook)) && !modes.transitioning) {
           // T3b: a townsperson under the ray wins the activation (the
           // PlayerActivate nearest-hit order); G3: a guard corpse next
           // (loot pickup on the dungeon's S2 shape); doors otherwise.

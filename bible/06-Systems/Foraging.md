@@ -645,7 +645,9 @@ DECIDED (Mac: "its tools become the professions' tools").
 - **Wear**: a completed act lowers the tool's condition by **1**, as a Foraging use does, and a break is Foraging's two
   notices ("Your Pick-Axe broke." after DFU's popup). A tool lasts 50 harvests, whichever gesture wore it.
 - **No tool**: the node's prompt says what it needs - "[E] Chop Oak - needs a Wood-Axe" - and E says it too when
-  nothing else under the ray takes the press (VEIN-NEED, `01-Overview/Field-Bugs-2026-09-29h.md`).
+  nothing else under the ray takes the press (VEIN-NEED, `01-Overview/Field-Bugs-2026-09-29h.md`). Hunting excepted
+  (AUDIT 32 R10): a body is a node only while the pack holds a Skinning Knife - with none it is DFU's corpse alone, and
+  no prompt stands in the way of its loot (PROF0 29).
 
 ### 14.2 The tools and their professions
 
@@ -765,7 +767,8 @@ Tools break every 50 harvests, so the crafts keep them coming - a steady use for
 | Fishing-Net 1603 | Outfitting | 2 Linen Bolt | 0 |
 | Basket 1607 | Carpentry | 2 Pine Plank | 0 |
 
-- A crafted tool is **Foraging's own template** with PROF0 9.2's quality on its condition: **Crude 37 uses, Standard
+- A crafted tool is **its own template** - Foraging's (1600-1607), or the Skinning Knife's (603, the port's own row;
+  AUDIT 32 R10: this said Foraging's alone) - with PROF0 9.2's quality on its condition: **Crude 37 uses, Standard
   50, Fine 57, Superior 65, Masterwork 65** and the maker's mark ("Silverthorn's Pick-Axe"). No Loot Rarity roll - a
   tool is not a weapon.
 - Offline a crafted tool is simply the tool; its condition rides the save. Foraging's code reads only

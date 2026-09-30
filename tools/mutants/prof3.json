@@ -476,7 +476,7 @@
   {
     "name": "PROF3-heat-no-gap",
     "file": "src/systems/heatAct.js",
-    "old": "      if (st.done || st.t - st.lastAt < HEAT_ACT.gapS) return null;",
+    "old": "      if (st.done || at - st.lastAt < HEAT_ACT.gapS) return null;",
     "new": "      if (st.done) return null;",
     "tests": [
       "test/prof3_client.test.js"
@@ -485,8 +485,8 @@
   {
     "name": "PROF3-heat-gentle-clean",
     "file": "src/systems/heatAct.js",
-    "old": "      const hit = !gentle && this.inBand;",
-    "new": "      const hit = this.inBand;",
+    "old": "      const hit = !gentle && g >= st.lo && g <= st.hi;",
+    "new": "      const hit = g >= st.lo && g <= st.hi;",
     "tests": [
       "test/prof3_client.test.js"
     ]

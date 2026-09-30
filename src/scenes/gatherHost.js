@@ -5,10 +5,11 @@
 // Professions-Arc.md 5, 6, 8, 22, 23; FORAGE0 14). PROF1 built it as
 // Herbalism's own host; every gathering profession needs the same shell,
 // so the shell is this, and each profession is a KIND in it - PROF1's
-// patches (scenes/herbHost.js herbKind) and PROF2's veins and boulders
-// (scenes/mineHost.js mineKind) now; Logging's trees, PROF7's bodies
-// (scenes/huntHost.js huntKind - LOOSE nodes, each its own place) and
-// Fishing's water later. One prompt, one act, one book.
+// patches (scenes/herbHost.js herbKind), PROF2's veins and boulders
+// (scenes/mineHost.js mineKind), PROF4's trees (scenes/treeHost.js
+// treeKind) and PROF7's bodies (scenes/huntHost.js huntKind - LOOSE nodes,
+// each its own place) now; Fishing's water later. One prompt, one act, one
+// book. (AUDIT 32 R9: this said the trees and the bodies were to come.)
 //
 //   THE NODES. Each built wilderness pixel stands its day's nodes of every
 //   kind (net/nodeLaw.js - the clock's, the same for every client), each
@@ -92,6 +93,8 @@ export function aimAt(eyePos, at, view) {
  * @property {(node: any) => void} [choose] the act choice key at this node
  * @property {() => void} [retarget] a new node is targeted
  * @property {(a: any, data: any) => string} cleanNote what a clean act is called in the XP toast
+ * @property {(report: any) => string} [actNote] AUDIT 32 P10: what the act's report says in the XP toast, clean or not (a
+ *   torn pelt, a true line drawn too quick) - the kind's own word, where cleanNote says only a clean act
  * @property {(profession: string) => string} title a rank's banner word ('Herbalist', 'Miner')
  * @property {(node: any, entry: any) => Array<{ archive: number, record: number, scale: number, centers: number[][] }>} [goneFlatsOf]
  *   PROF4: what a node gone for the day leaves standing (a felled tree's stump)
@@ -205,7 +208,7 @@ export function createGatherHost(deps) {
    *  stands nothing. */
   async function standDungeon() {
     const d = dungeon;
-    if (!d) return;
+    if (!d || d.id === null) return;   // AUDIT 32 H2: a dungeon with no identity stands no veins
     const gen = d.gen = (d.gen | 0) + 1;   // AUDIT 29 C7: the newest stand alone keeps its flats (two in flight drew twice)
     for (const b of d.batches) d.drop(b);
     d.batches = [];
@@ -258,7 +261,7 @@ export function createGatherHost(deps) {
     for (const k of kinds) {
       if (!k.looseNodesOf) continue;
       const nodes = k.looseNodesOf({ entity: deps.entity(), dungeon: under }).map((n) => ({ ...n, kind: k.id }));
-      if (nodes.length) places.push({ nodes, entry: null, info: under ? dungeon.info : null, loose: true, at: looseAt });
+      if (nodes.length) places.push({ nodes, entry: null, info: null, loose: true, at: looseAt });   // AUDIT 32 H9: its own place names no ground
     }
     for (const s of places) {
       if (!s.nodes.length) continue;
@@ -268,12 +271,19 @@ export function createGatherHost(deps) {
         const w = s.at(n);
         if (!w) continue;
         const dx = w[0] - pos[0], dy = w[1] - pos[1], dz = w[2] - pos[2];
-        // AUDIT 29 C1: in reach in three dimensions too (a floor above, a pit below), not the ground plane alone
-        if (Math.hypot(dx, dz) > (n.reach ?? NODE_REACH) || Math.abs(dy) > (n.reach ?? NODE_REACH)) continue;
+        // AUDIT 29 C1: in reach in three dimensions too (a floor above, a pit below), not the ground plane alone; AUDIT 32
+        // H7: a loose node (a body on the ground) by its straight distance from the eye, as DFU's corpse is reached - the
+        // eye's height below it read against its reach dropped a body a metre downhill, or under a rider
+        const reach = n.reach ?? NODE_REACH;
+        if (s.loose ? Math.hypot(dx, dy, dz) > reach : Math.hypot(dx, dz) > reach || Math.abs(dy) > reach) continue;
         const d = Math.hypot(dx, dy, dz) || 1;
         const cos = (dx * dir[0] + dy * dir[1] + dz * dir[2]) / (d * dl);
         const ang = Math.acos(Math.max(-1, Math.min(1, cos))) * (180 / Math.PI);
-        if (ang < bestAng) { bestAng = ang; best = { node: n, px: s.entry?.px ?? null, py: s.entry?.py ?? null, dungeon: s.loose ? under : !s.entry, loose: !!s.loose, info: s.info, world: w }; }
+        if (ang < bestAng) {
+          bestAng = ang;
+          // the node's bearing below the eye (AUDIT 32 H7: a body under the player's feet asks them to step back)
+          best = { node: n, px: s.entry?.px ?? null, py: s.entry?.py ?? null, dungeon: s.loose ? under : !s.entry, loose: !!s.loose, info: s.info, world: w, pitch: Math.atan2(dy, Math.hypot(dx, dz)) * (180 / Math.PI) };
+        }
       }
     }
     // AUDIT 29 C1: and seen - one ray to the chosen node through the place's collider (a vein through a dungeon's wall, a
@@ -310,7 +320,7 @@ export function createGatherHost(deps) {
     const w = n.at?.();
     return Array.isArray(w) ? [w[0], w[1] + (n.lift ?? 0.3), w[2]] : null;
   }
-  const ctxFor = (t) => ({ entity: deps.entity(), info: t.info, book, rank, specs, keyLabel: deps.keyLabel });
+  const ctxFor = (t) => ({ entity: deps.entity(), info: t.info, book, rank, specs, keyLabel: deps.keyLabel, pitch: t.pitch ?? null });
   const planFor = (t) => kindOf(t.node)?.plan(t.node, ctxFor(t)) ?? null;
 
   // ─── THE ACT ───────────────────────────────────────────────────────
@@ -328,6 +338,7 @@ export function createGatherHost(deps) {
     act = null;
     hud.setMeter(null);
     if (!report) return;
+    a.report = report;   // AUDIT 32 P10: the act's own words, said with its answer
     a.clean = report.clean === true || report.finds >= 3;
     if (a.tool) wearForagingTool(a.tool, deps.entity());   // FORAGE0 14.1: a completed act wears its tool by one
     const before = rank(a.profession);
@@ -338,6 +349,7 @@ export function createGatherHost(deps) {
   }
   /** A harvest's answer said: the Stores, the XP, a gem, a rank's rise; a refusal in words; a kept one once. */
   function answered(a, r, before, nodeKeyOf = null) {
+    if (r?.elsewhere) return;   // AUDIT 32 B5: another character's answer, heard after a switch - theirs, unsaid here
     if (r?.ok) {
       const d = r.data;
       const profession = d.track?.profession ?? a?.profession ?? 'herbalism';
@@ -345,7 +357,8 @@ export function createGatherHost(deps) {
       hud.toast(`+${d.qty} ${materialCountLabel(d.material, d.qty)} to your Stores`);
       if (d.gem) hud.toast(`...and a ${materialCountLabel(d.gem, 1)}!`);
       if (d.extra) hud.toast(`...and ${Number(d.extraQty) > 1 ? `${d.extraQty} ` : ''}${materialCountLabel(d.extra, Number(d.extraQty) || 1)}`);   // PROF4: a tree's Resin; PROF7: a body's butchery (a Butcher's two)
-      hud.toast(`+${d.xp} ${professionName(profession)} XP${a?.clean ? (k?.cleanNote(a, d) ?? '') : ''}`);
+      const note = a && k?.actNote ? k.actNote(a.report) : a?.clean ? (k?.cleanNote(a, d) ?? '') : '';   // AUDIT 32 P10
+      hud.toast(`+${d.xp} ${professionName(profession)} XP${note}`);
       const after = d.track?.rank ?? before;
       if (after > before) {
         hud.toast(`${professionName(profession)} ${before} -> ${after}`);
@@ -396,8 +409,11 @@ export function createGatherHost(deps) {
      */
     enterDungeon(d) {
       if (dungeon) this.leaveDungeon();
-      if (!d || !Number.isSafeInteger(d.id)) return;
-      dungeon = { id: d.id, info: { climate: d.climate, region: d.region }, wall: d.wall, stand: d.stand, drop: d.drop, nodes: [], batches: [] };
+      if (!d) return;
+      // AUDIT 32 H2: a dungeon with no identity (a client's hash - every spawned dungeon) is still one the host stands in:
+      // no veins, and its loose nodes found (a body names no ground); it told the host nothing, and no body was a node
+      const known = Number.isSafeInteger(d.id) && Number.isSafeInteger(d.climate) && Number.isSafeInteger(d.region);
+      dungeon = { id: known ? d.id : null, info: known ? { climate: d.climate, region: d.region } : null, wall: d.wall, stand: d.stand, drop: d.drop, nodes: [], batches: [] };
       standDungeon();
     },
     /** The dungeon left: its flats dropped (before the dungeon's own teardown frees the rest), an act in it ended. */
@@ -419,6 +435,8 @@ export function createGatherHost(deps) {
       if (act) return true;   // AUDIT 29 D3: a press during an act is the act's - never a door's or a loot's behind it
       if (!target || !(deps.active() || inDungeon()) || book.state.open !== true) return false;
       const plan = planFor(target);
+      // AUDIT 32 H8: a plan that opens something of its own (a body's search, by its loot's key) takes the press
+      if (plan?.open) { plan.open(); return true; }
       // AUDIT 29 C1: a node that cannot be worked takes no press - the press goes on to the door, the chest or the foe it
       // was meant for. VEIN-NEED: what it needs is kept, for the host to hand back if the press opened nothing else
       if (!plan || !plan.ready) { passedOn = needLine(plan, rank); return false; }
@@ -459,7 +477,7 @@ export function createGatherHost(deps) {
       const want = now >= pixelsAt ? [...stood.values()].map((s) => [s.entry.px, s.entry.py]).filter(([x, y]) => !book.pixel(x, y)) : [];
       if (want.length) pixelsAt = now + 5_000;
       if (want.length) book.askPixels(want).then((changed) => { for (const c of changed ?? []) restandAt(c.x, c.y); }, () => {});
-      else if (dungeon && now >= pixelsAt && !book.dungeon(dungeon.id)) {   // PROF2: the dungeon's witnessed state
+      else if (dungeon && dungeon.id !== null && now >= pixelsAt && !book.dungeon(dungeon.id)) {   // PROF2: the dungeon's witnessed state
         pixelsAt = now + 5_000;
         const d = dungeon;
         book.askDungeon(d.id).then((changed) => { if (changed && dungeon === d) standDungeon(); }, () => {});

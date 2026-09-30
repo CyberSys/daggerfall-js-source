@@ -185,7 +185,7 @@ test('PROF7 service: the tanning rack cures two hides to a leather (a Tanner\'s 
 
 // ─── OUTFITTING AND A GARMENT'S DYE (PROF0 9.3) ──────────────────────
 
-test('PROF7 service: a garment sewn in the dye the crafter chose - signed into its record (`u`), kept on the craft and the piece, answered; a dye asked of anything else, of an undyed shirt, or past the ten refused; Outfitting\'s rank and XP; boots a bolt and a Cured Leather', async () => {
+test('PROF7 service: a garment sewn in the dye the crafter chose - signed into its record (`u`), kept on the craft and the piece, answered; a dye asked of anything else or past the ten refused (AUDIT 32 L3: DFU\'s unchangeable shirts take one); Outfitting\'s rank and XP; boots a bolt and a Cured Leather', async () => {
   const s = await stand();
   const mac = await s.registered('Mac');
   s.give(mac, 'cloth:linen', 'own', 10);
@@ -205,7 +205,7 @@ test('PROF7 service: a garment sewn in the dye the crafter chose - signed into i
   const plain = await s.call('/v1/prof/craft', craft(mac, 'garment-165:linen'), mac.secret);
   assert.deepEqual([plain.status, plain.body.dye], [200, null], 'undyed');
   assert.equal(readProductRecord(plain.body.pieces[0].record).u, undefined, 'no dye, no claim');
-  for (const [recipe, dye] of [['leather-helm:cured', 3], ['garment-178:linen', 2], ['garment-141:linen', 10], ['garment-141:linen', -1], ['garment-141:linen', '3']]) {
+  for (const [recipe, dye] of [['leather-helm:cured', 3], ['rug-237:wool', 2], ['garment-141:linen', 10], ['garment-141:linen', -1], ['garment-141:linen', '3']]) {
     assert.deepEqual((await s.call('/v1/prof/craft', craft(mac, recipe, { dye }), mac.secret)).body, { error: 'prof-dye' }, `${recipe} ${dye}`);
   }
   assert.deepEqual((await s.call('/v1/prof/craft', craft(mac, 'garment-141:silk'), mac.secret)).body, { error: 'prof-rank' }, 'Silk is tier 4');

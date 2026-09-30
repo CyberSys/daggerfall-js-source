@@ -158,7 +158,8 @@ const BEDS = Object.freeze([
   ['bed-fancy-single', 'Fancy Single Bed', 218, 'cherry'], ['bed-fancy-double', 'Fancy Double Bed', 220, 'teak'],
 ]);
 /** EVERY RECIPE the workbench knows, in its window's order: the staves and bows at every wood; the arrows (the northern
- *  Twigs' and the southern's); the furniture; the Basket; the Ram Kit (named, never made in PROF4 - PROF0 25). */
+ *  Twigs', the southern's and - PROF7 - the Harpy's feathers'); the furniture; the Basket; the Ram Kit (named, never made
+ *  - PROF0 25). */
 export const CARPENTRY_RECIPES = Object.freeze([
   ...WOODS.map((w) => carpentry({ id: `staff:${w.id}`, name: `${w.name} Staff`, kind: 'staff', family: 'staves', templateIndex: STAFF_TEMPLATE, wood: w.id, material: WOOD_MATERIAL[w.id], inputs: [[plank(w.id), 3]] })),
   ...WOODS.map((w) => carpentry({ id: `shortbow:${w.id}`, name: `${w.name} Short Bow`, kind: 'bow', family: 'bows', templateIndex: SHORT_BOW_TEMPLATE, wood: w.id, material: WOOD_MATERIAL[w.id], inputs: [[plank(w.id), 3], [RESIN.key, 1]] })),
@@ -185,9 +186,11 @@ export const LEATHER_PIECES = Object.freeze([
 ].map((a) => Object.freeze(a)));
 /**
  * DFU's CLOTHING (MensClothing 141-181, WomensClothing 182-216), each its 9.3 size - small a bolt, middle two, large
- * three, boots a bolt and a Cured Leather - and whether it takes a dye (the "unchangeable" shirts do not). 9.3 names
- * most; DECIDED for the rest: the Loincloth small, the Wrap and the Peasant Blouse middle, the Toga large (PROF0 29).
- * DFU's look-alike shirts are told apart by their own enum names (ItemEnums.cs), as the startingGear port quotes them.
+ * three, boots a bolt and a Cured Leather. Every one takes a dye: AUDIT 32 L3 - DFU's "unchangeable" shirts (178, 179,
+ * 214, 215) are the ones whose VARIANT Use never changes (systems/useItem.js VARIANT_CHANGEABLE), and DFU's shelf and
+ * loot dye them as any other garment (systems/shopStock.js); the loom refused them a dye, sewing them in Blue's table. 9.3
+ * names most; DECIDED for the rest: the Loincloth small, the Wrap and the Peasant Blouse middle, the Toga large (PROF0
+ * 29). DFU's look-alike shirts are told apart by their own enum names (ItemEnums.cs), as the startingGear port quotes them.
  */
 export const GARMENTS = Object.freeze([
   [141, 'Straps', 's'], [142, 'Armbands', 's'], [143, 'Kimono', 'l'], [144, 'Fancy Armbands', 's'], [145, 'Sash', 's'],
@@ -199,7 +202,7 @@ export const GARMENTS = Object.freeze([
   [167, 'Long Shirt', 'm'], [168, 'Long Shirt, belted', 'm'], [169, 'Short Shirt, closed', 'm'],
   [170, 'Short Shirt, closed (second cut)', 'm'], [171, 'Long Shirt, closed', 'm'], [172, 'Long Shirt, closed (second cut)', 'm'],
   [173, 'Open Tunic', 'm'], [174, 'Wrap', 'm'], [175, 'Long Skirt', 'm'], [176, 'Anticlere Surcoat', 'l'],
-  [177, 'Challenger Straps', 's'], [178, 'Short Shirt, undyed', 'm', false], [179, 'Long Shirt, undyed', 'm', false],
+  [177, 'Challenger Straps', 's'], [178, 'Short Shirt, unchangeable', 'm'], [179, 'Long Shirt, unchangeable', 'm'],
   [180, 'Vest', 'm'], [181, 'Champion Straps', 's'],
   [182, 'Brassiere', 's'], [183, 'Formal Brassiere', 's'], [184, 'Peasant Blouse', 'm'], [185, 'Eodoric', 'm'],
   [186, 'Shoes', 's'], [187, 'Tall Boots', 'b'], [188, 'Boots', 'b'], [189, 'Sandals', 's'], [190, 'Casual Pants', 'm'],
@@ -209,7 +212,7 @@ export const GARMENTS = Object.freeze([
   [203, 'Short Shirt, belted', 'm'], [204, 'Long Shirt', 'm'], [205, 'Long Shirt, belted', 'm'], [206, 'Short Shirt, closed', 'm'],
   [207, 'Short Shirt, closed and belted', 'm'], [208, 'Long Shirt, closed', 'm'], [209, 'Long Shirt, closed and belted', 'm'],
   [210, 'Open Tunic', 'm'], [211, 'Wrap', 'm'], [212, 'Long Skirt', 'm'], [213, 'Tights', 's'],
-  [214, 'Short Shirt, undyed', 'm', false], [215, 'Long Shirt, undyed', 'm', false], [216, 'Vest', 'm'],
+  [214, 'Short Shirt, unchangeable', 'm'], [215, 'Long Shirt, unchangeable', 'm'], [216, 'Vest', 'm'],
 ].map((a) => Object.freeze(a)));
 /** The bolts a garment's size asks (9.3). */
 export const GARMENT_BOLTS = Object.freeze({ s: 1, m: 2, l: 3, b: 1 });
@@ -239,9 +242,9 @@ export const OUTFITTING_RECIPES = Object.freeze([
     kind: 'leather', family: 'leather', templateIndex: /** @type {number} */ (t), tier: l.tier, material: ARMOR_LEATHER,
     leather: l.key, inputs: [[l.key, /** @type {number} */ (n)]],
   }))),
-  ...GARMENTS.flatMap(([t, name, size, dyes = true]) => CLOTHS.map((c) => outfitting({
+  ...GARMENTS.flatMap(([t, name, size]) => CLOTHS.map((c) => outfitting({
     id: `garment-${t}:${c.key.slice('cloth:'.length)}`, name: `${c.name.replace(/ Bolt$/, '')} ${name}`, kind: 'garment', family: 'clothing',
-    templateIndex: /** @type {number} */ (t), tier: c.tier, group: garmentGroup(t), cloth: c.key, dyes: dyes !== false,
+    templateIndex: /** @type {number} */ (t), tier: c.tier, group: garmentGroup(t), cloth: c.key, dyes: true,
     inputs: [[c.key, GARMENT_BOLTS[/** @type {string} */ (size)]], ...(size === 'b' ? [[CURED_LEATHER.key, 1]] : [])],
   }))),
   ...RUGS.map(([t, name]) => outfitting({ id: `rug-${t}:wool`, name: /** @type {string} */ (name), kind: 'furniture', family: 'furnishings', templateIndex: /** @type {number} */ (t), tier: WOOL.tier, inputs: [[WOOL.key, 3]] })),
@@ -253,7 +256,7 @@ export const OUTFITTING_RECIPES = Object.freeze([
   outfitting({ id: 'fishingnet:linen', name: 'Fishing-Net', kind: 'tool', family: 'tools', templateIndex: FISHING_NET_TEMPLATE, tier: LINEN.tier, inputs: [[LINEN.key, 2]] }),
 ]);
 /** A garment's dyes (9.3: "itemDye.js's colours"): DFU's ten clothing dyes; a crafted garment is sewn in the one the
- *  crafter chose, an undyed shirt in none. */
+ *  crafter chose, or none (DFU's Unchanged). */
 export const GARMENT_DYES = CLOTHING_DYES;
 /** Whether `dye` may be asked of recipe `r`: a garment that takes one, and one of DFU's ten - or none asked at all. */
 export const dyeOk = (r, dye) => (dye == null ? true : !!r && r.kind === 'garment' && r.dyes === true && Number.isInteger(dye) && GARMENT_DYES.includes(dye));

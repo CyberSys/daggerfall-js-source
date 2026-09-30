@@ -67,7 +67,7 @@ const kitValue = (tier) => 10 + 10 * tier;
 
 /**
  * PROF7: A GARMENT as DFU's shelf mints clothing (systems/shopStock.js) - the template in its group, then its variant (the
- * record's seed's, so every client mints the same one), then its dye (the record's, `u`; an undyed shirt none).
+ * record's seed's, so every client mints the same one), then its dye (the record's, `u`; an undyed garment none).
  * @param {import('../net/recipeLaw.js').Recipe} r @param {number} seed @param {number|null} dye
  */
 export function garmentItem(r, seed, dye = null) {

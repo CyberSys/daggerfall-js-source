@@ -48,6 +48,7 @@ import { isTextEntryTarget, isDomControlTarget } from './input.js';   // AUDIT 3
 import { createHeatAct } from '../systems/heatAct.js';
 import { createPlaneAct } from '../systems/planeAct.js';
 import { material } from '../net/nodeLaw.js';
+import { UNYIELDED } from '../net/marketLaw.js';   // AUDIT 32 P8: a cloth nothing yields yet
 import { accountRefusalText } from '../net/accountClient.js';
 import { getPref, setPref } from '../systems/uiPrefs.js';
 import { isEnhanced } from '../systems/uiSkin.js';
@@ -74,6 +75,9 @@ import { isEnhanced } from '../systems/uiSkin.js';
  * @property {() => number} [stitchBand]   PROF7: the stitch's attribute band (recipeLaw stitchBand)
  * @property {() => 'MensClothing'|'WomensClothing'} [clothing]   PROF7: the clothing the loom shows first - the player's own,
  *   as DFU's Clothing Store shelves it
+ * @property {() => (number|null)} [drakes]   AUDIT 32 P6: the Drakes held (the Bank's book), or null unknown - a counter's
+ *   purchase the balance cannot meet is held and said
+ * @property {() => boolean} [drakesOpen]   AUDIT 32 P6: whether Drakes are struck at all - a counter is offered only then
  */
 let _provider = /** @type {ProfPagesProvider|null} */ (null);
 /** The host's book, or null to take the pages down (offline, a closed switch, the host gone). */
@@ -82,7 +86,7 @@ export function setProfessionsPages(p) { _provider = p ?? null; }
 const LATER_WORDS = Object.freeze({
   PROF2b: 'Comes with the Motherlodes', SEAT2: 'Comes with the sieges',
   // PROF7 (Professions-Arc.md 29): what DFU gives these nothing to stand as - for Mac
-  trophy: 'Waits on a trophy to stand as', 'two-colour': 'Waits on a second dye DFU\'s cloth takes', wagon: 'Waits on a wagon upgrade to hold',
+  trophy: 'Waits on a trophy to stand as', 'two-colour': 'Waits on a second dye Daggerfall\'s cloth can take', wagon: 'Waits on a wagon upgrade to hold',   // AUDIT 32 R11: Daggerfall, never "DFU", where a player reads it
 });
 /** Whether the pages stand: a book, and the professions this account's. */
 export const profPagesShown = () => !!_provider && _provider.book?.state?.open === true;
@@ -114,8 +118,8 @@ const _forge = { counts: /** @type {Record<string, number>} */ ({}), busy: false
 /** PROF3: the anvil's family and metal shown, the recipe chosen, the heat being struck, a craft in flight and its word. */
 const _anvil = {
   family: 'weapons', metal: 'ingot:iron', picked: /** @type {string|null} */ (null), act: /** @type {any} */ (null),
-  busy: false, word: /** @type {string|null} */ (null), els: /** @type {any} */ (null), off: /** @type {(() => void)|null} */ (null),
-  strike: /** @type {(() => void)|null} */ (null), heartwood: false,
+  busy: false, crafting: false, word: /** @type {string|null} */ (null), els: /** @type {any} */ (null), off: /** @type {(() => void)|null} */ (null),
+  strike: /** @type {((e?: any) => void)|null} */ (null), heartwood: false,   // AUDIT 32 P1: strike takes the press's event, its moment
   /** AUDIT 30 A3: the recipe the heat under way makes, and its Heartwood - what the page shows may not be */
   actRecipe: /** @type {string|null} */ (null), actWood: false,
 };
@@ -123,20 +127,52 @@ const _anvil = {
  *  the saws' counts and whether a Heartwood stands in for a plank. */
 const _bench = {
   family: 'staves', wood: 'plank:pine', picked: /** @type {string|null} */ (null), act: /** @type {any} */ (null),
-  busy: false, word: /** @type {string|null} */ (null), counts: /** @type {Record<string, number>} */ ({}), heartwood: false,
+  busy: false, crafting: false, word: /** @type {string|null} */ (null), counts: /** @type {Record<string, number>} */ ({}), heartwood: false,
   actRecipe: /** @type {string|null} */ (null), actWood: false,   // AUDIT 30 A3: the plane's own recipe
 };
 /** PROF7: the loom's family, cloth and clothing shown, the recipe chosen, the dye, the stitch being sewn, a craft in
  *  flight and its word, the cures' and the weave's counts. */
 const _loom = {
   family: 'leather', cloth: 'cloth:linen', clothing: /** @type {string|null} */ (null), picked: /** @type {string|null} */ (null),
-  dye: /** @type {number|null} */ (null), act: /** @type {any} */ (null), busy: false, word: /** @type {string|null} */ (null),
+  dye: /** @type {number|null} */ (null), act: /** @type {any} */ (null), busy: false, crafting: false, word: /** @type {string|null} */ (null),
   counts: /** @type {Record<string, number>} */ ({}), els: /** @type {any} */ (null), off: /** @type {(() => void)|null} */ (null),
-  stitch: /** @type {(() => void)|null} */ (null),
+  stitch: /** @type {((e?: any) => void)|null} */ (null),   // AUDIT 32 P1: the press's event, its moment
   actRecipe: /** @type {string|null} */ (null), actDye: /** @type {number|null} */ (null),   // AUDIT 30 A3's law: the stitch's own recipe and dye
 };
 /** AUDIT 30 U20: the one row a smelt, burn or saw is under way on - its button alone says so. */
 let _workingOn = /** @type {string|null} */ (null);
+/**
+ * AUDIT 32 P2: ONE ACT A PAGE - the station whose act is under way, other than `me`'s, or null. A home with a forge and a
+ * loom showed both, and one Space struck the heat AND stitched (two capture listeners on the one document): a craft the
+ * player never finished spent its ingot. Every station's Craft waits on the others'.
+ * @param {object} me
+ */
+const handsAt = (me) => (me !== _anvil && _anvil.act ? 'the anvil' : me !== _bench && _bench.act ? 'the workbench' : me !== _loom && _loom.act ? 'the loom' : null);
+/**
+ * AUDIT 32 P1: AN ACT'S PRESS BUTTON (the heat's Strike, the stitch's Stitch) - pressed on the pointer's DOWN, the focus
+ * left where it was (the click comes on the release: a tap on the beat was scored 90-150 ms late, and a phone has no
+ * Space), and a click nobody pointed at (a screen reader's) pressed once; its Space and Enter are the act's key loop's.
+ * @param {Function} el @param {string} word @param {(e?: any) => void} press
+ */
+function actButton(el, word, press) {
+  const b = el('button', 'act primary', word);
+  b.type = 'button';
+  let pointed = false;
+  b.onpointerdown = (e) => { e?.preventDefault?.(); pointed = true; press(e); };
+  b.onclick = (e) => { if (pointed) { pointed = false; return; } press(e); };
+  return b;
+}
+/** AUDIT 32 P1: how long after the act's last frame a press came, seconds - its event's own time (the loops' clock is
+ *  the event's, performance.now's), or none. */
+const pressLead = (e, frameAt) => (e && Number.isFinite(e.timeStamp) && Number.isFinite(frameAt) ? (e.timeStamp - frameAt) / 1000 : 0);
+/** AUDIT 32 P1/P2/P4: an act's keys - Space and Enter anywhere but a field or another control (the act's own button is
+ *  its), one act a press (no second capture listener hears it), a held key's repeats no presses. */
+function actKey(e, ownButton, press) {
+  if (isTextEntryTarget(e.target) || (isDomControlTarget(e.target) && e.target !== ownButton)) return;   // AUDIT 30 A9: a field's Space, a button's Enter
+  if (e.code !== 'Space' && e.code !== 'Enter' && e.code !== 'NumpadEnter') return;
+  e.preventDefault?.(); e.stopImmediatePropagation?.(); e.stopPropagation?.();
+  if (!e.repeat) press(e);
+}
 /** AUDIT 30 U13: a station's fee the purse cannot meet - its words, or null. */
 function purseShort(station, who, per) {
   const p = _provider;
@@ -145,7 +181,20 @@ function purseShort(station, who, per) {
   return have < station.fee ? `The ${who} asks ${station.fee} gold ${per}; you carry ${have}.` : null;
 }
 /** What a Stores material of the smith's stock says in place of a withdrawal. */
-export const STOCK_STAYS_LINE = 'It stays at the bench: the anvil and the workbench spend it, and it comes to the pack once its own craft is practised.';   // PROF4: Cured Leather and Linen, the counters' goods with no pack form yet
+export const STOCK_STAYS_LINE = 'It stays at the bench: the anvil and the workbench spend it, and it comes to the pack once its own craft is practised.';   // PROF4: a counter's good with no pack form - none since PROF7 registered them all (NO_PACK_FORM empty), kept for a material to come
+/**
+ * AUDIT 32 P12: ESCAPE SETS AN ACT DOWN before it closes the window (AUDIT 31's law: Escape closes a form before the
+ * window) - the heat, the plane or the stitch under way let go, nothing spent, and said. It closed the pause window, and
+ * the act was dropped silently with the page. True when there was one.
+ */
+export function setDownProfAct() {
+  if (_anvil.act) { _anvil.act.cancel(); endHeat(); _anvil.word = 'You let the ingot cool; nothing is spent.'; return true; }
+  if (_bench.act) { _bench.act.cancel?.(); _bench.act = null; _bench.actRecipe = null; _bench.word = 'You set the plane down; nothing is spent.'; return true; }
+  if (_loom.act) { _loom.act.cancel(); endStitch(); _loom.word = 'You set the needle down; nothing is spent.'; return true; }
+  return false;
+}
+/** Whether an act is under way on the Stores page (the back stack's question). */
+export const profActUnderWay = () => !!(_anvil.act || _bench.act || _loom.act);
 /** A fresh visit starts plain (the menu calls it with its own reset). */
 export function resetProfPages() {
   _armed = null; _profWord = null; _stores.word = null; _stores.picked = null; _stores.qty = 1; _forge.word = null; _forge.counts = {};
@@ -170,8 +219,10 @@ const UNLOCKS = Object.freeze({
   // PROF7: the hides by their tiers (PROF0 4.4); Outfitting's leathers and cloths by theirs (9.3)
   hunting: Object.freeze([['Rat Pelt', 1], ['Bat Leather, Bear Hide', 2], ['Tiger Pelt, Spider Silk', 3], ['Scorpion Chitin, Slaughterfish Scales', 4],
     ['Harpy Feathers, Dreugh Shell', 5], ['Dragonling Scale', 6]]),
-  outfitting: Object.freeze([['Linen clothing; the Fishing-Net', 1], ['Cured Leather armour; Wool clothing, rugs and tapestries; the skins', 2],
-    ['Tiger skins', 3], ['Silk clothing', 4], ['Hardened Leather armour; Standard-bearer\'s Silk', 5]]),
+  // AUDIT 32 R4: the skins by their pelt's tier (the Rat's open at 0, the Bat's and the Bear's at 10, the Tiger's at 25),
+  // and Standard-bearer's Silk said for what it waits on
+  outfitting: Object.freeze([['Linen clothing; the Rat\'s skins; the Fishing-Net', 1], ['Cured Leather armour; Wool clothing, rugs and tapestries; the Bat\'s and the Bear\'s skins', 2],
+    ['The Tiger\'s skins', 3], ['Silk clothing', 4], ['Hardened Leather armour; Standard-bearer\'s Silk clothing (its silk comes with the sieges)', 5]]),
 });
 /** PROF4 (FOUND): Smithing was practised from PROF3 and the page never said so - its cards stood locked. PROF7: Hunting
  *  and Outfitting. */
@@ -315,14 +366,10 @@ export function drawStoresPage(detail, rerender, kit) {
   const head = el('div', 'prof-storehead');
   const search = el('input', 'prof-search');
   search.type = 'search'; search.placeholder = 'Search'; search.value = _stores.query;
+  search.setAttribute?.('data-focus', 'stores-search');
   search.oninput = () => {
     _stores.query = search.value;
-    rerender();
-    // the page is drawn anew: the search keeps the caret where the typing left it
-    setTimeout(() => {
-      const s = /** @type {HTMLInputElement|null} */ (detail.ownerDocument?.querySelector?.('.prof-search') ?? null);
-      s?.focus?.(); s?.setSelectionRange?.(s.value.length, s.value.length);
-    }, 0);
+    rerender();   // AUDIT 32 P13: the window keeps the caret where the typing left it (P3) - this put it at the end every key
   };
   const sort = el('select', 'prof-sort');
   for (const [v, w] of [['tier', 'Sort by tier'], ['name', 'Sort by name'], ['count', 'Sort by count']]) { const o = el('option', null, w); o.value = v; if (v === _stores.sort) o.selected = true; sort.append(o); }
@@ -389,7 +436,7 @@ export function smeltable(r, held) {
  * A forge's or a workbench's rows of no-act work (PROF2's smelts; PROF4's burns and saws): each recipe's inputs as the
  * Stores hold them, how many it can make, a count and its button - its yield a unit said where it is more than one.
  */
-function workRows(detail, rerender, el, recipes, state, verb, busyVerb, go, short = null) {
+function workRows(detail, rerender, el, recipes, state, verb, busyVerb, go, short = null, hold = false) {
   const p = /** @type {ProfPagesProvider} */ (_provider);
   const book = p.book;
   const held = (k) => book.held(k);
@@ -406,9 +453,9 @@ function workRows(detail, rerender, el, recipes, state, verb, busyVerb, go, shor
     qty.oninput = () => { state.counts[r.id] = Math.max(1, Math.min(SMELT_MAX, Math.floor(Number(qty.value) || 1))); };
     const b = el('button', 'act', state.busy && _workingOn === r.id ? busyVerb : verb);
     b.type = 'button';
-    b.disabled = state.busy || most < 1 || !!short;
+    b.disabled = state.busy || hold || most < 1 || !!short;   // AUDIT 32 P5: `hold` - an act under way at the station
     b.onclick = async () => {
-      if (state.busy) return;
+      if (state.busy || hold) return;
       state.busy = true; _workingOn = r.id; rerender();
       const res = await go(r.id, Math.max(1, Math.min(state.counts[r.id] ?? 1, smeltable(r, held))));
       state.busy = false; _workingOn = null;
@@ -501,18 +548,15 @@ function heatLoop(rerender, finish) {
       next();
     } finally { inStep = false; }
   };
-  const strike = () => {
+  const strike = (e) => {
     const a = _anvil.act;
     if (!a) return;
-    const hit = a.strike();
+    const hit = a.strike(pressLead(e, last));   // AUDIT 32 P1: at the press's own moment
     if (hit == null) return;
     _anvil.els?.marks?.[a.state.strikes.length - 1]?.classList.add(hit ? 'hit' : 'miss');
     if (a.state.done) { const clean = a.report().clean; endHeat(); finish(clean); }
   };
-  const key = (e) => {
-    if (isTextEntryTarget(e.target) || isDomControlTarget(e.target)) return;   // AUDIT 30 A9: a field's Space, a button's Enter
-    if (e.code === 'Space' || e.code === 'Enter' || e.code === 'NumpadEnter') { e.preventDefault?.(); e.stopPropagation?.(); strike(); }
-  };
+  const key = (e) => actKey(e, _anvil.els?.hit, strike);
   globalThis.document?.addEventListener?.('keydown', key, true);
   // AUDIT 31: the first frame once the page that drew the heat is in the document - a frame source that answers at once
   // (a test's) ran it inside the draw, and a bar not yet attached read as "the page shut under the act"
@@ -611,12 +655,15 @@ function drawAnvil(detail, rerender, { el, divider }) {
     } else if (!takesQuality(r)) box.append(el('p', 'px-note', 'A Repair Kit mends a quarter of a piece\'s condition, once - a weapon or armour of its metal.'));
     heartwoodToggle(box, el, r, book, _anvil, rerender, striking);   // PROF4: a Heartwood for a plank - the axes, hammers, shields, the Spade
     const gentle = getPref('gentleActs') === true;
-    const ready = recipeOpen(r, rank) && craftable(r, held, spends) && !_anvil.busy && !_anvil.act && !short;
-    // AUDIT 30 A3: a craft bound to its recipe and its Heartwood when the heat began, never to the page's pick at its end
+    const elsewhere = handsAt(_anvil);   // AUDIT 32 P2
+    if (elsewhere && !_anvil.act) box.append(el('p', 'px-note', `Your hands are at ${elsewhere} - finish there first.`));
+    const ready = recipeOpen(r, rank) && craftable(r, held, spends) && !_anvil.busy && !_anvil.crafting && !_anvil.act && !elsewhere && !short;
+    // AUDIT 30 A3: a craft bound to its recipe and its Heartwood when the heat began, never to the page's pick at its end;
+    // AUDIT 32 P5: its own flag in flight - a stock purchase answered under it re-offered Craft mid-craft
     const craftOf = (id, wood) => async (clean) => {
-      _anvil.busy = true; rerender();
+      _anvil.crafting = true; rerender();
       const res = await p.craft(id, { clean: clean && getPref('gentleActs') !== true, heartwood: wood });
-      _anvil.busy = false; _anvil.word = res?.text ?? null; rerender();
+      _anvil.crafting = false; _anvil.word = res?.text ?? null; rerender();
     };
     const finish = craftOf(r.id, _anvil.heartwood && takesHeartwood(r));
     if (_anvil.act) {
@@ -631,18 +678,16 @@ function drawAnvil(detail, rerender, { el, divider }) {
       const marks = el('div', 'prof-strikes');
       const dots = [];
       for (let i = 0; i < HEAT_ACT.strikes; i++) { const d = el('span', `prof-strike${i < _anvil.act.state.strikes.length ? (_anvil.act.state.strikes[i] ? ' hit' : ' miss') : ''}`, 'o'); dots.push(d); marks.append(d); }
-      const hit = el('button', 'act primary', 'Strike');
-      hit.type = 'button';
+      const hit = actButton(el, 'Strike', (e) => _anvil.strike?.(e));   // AUDIT 32 P1
       const cancel = el('button', 'act', 'Let it cool');
       cancel.type = 'button';
       cancel.onclick = () => { _anvil.act?.cancel(); endHeat(); _anvil.word = 'You let the ingot cool; nothing is spent.'; rerender(); };
       panel.append(el('span', 'prof-heatword', 'The heat - strike while the glow is in the band (Space)'), bar, marks, hit, cancel);
       box.append(panel);
-      _anvil.els = { bar, marker, marks: dots };
+      _anvil.els = { bar, marker, marks: dots, hit };
       if (!_anvil.off) _anvil.strike = heatLoop(rerender, craftOf(_anvil.actRecipe ?? r.id, _anvil.actRecipe ? _anvil.actWood : _anvil.heartwood && takesHeartwood(r)));
-      hit.onclick = () => _anvil.strike?.();
     } else {
-      const go = el('button', 'act primary', _anvil.busy ? 'At the anvil...' : 'Craft');
+      const go = el('button', 'act primary', _anvil.crafting ? 'At the anvil...' : 'Craft');
       go.type = 'button';
       go.disabled = !ready;
       go.onclick = () => {
@@ -776,7 +821,7 @@ function drawWorkbench(detail, rerender, { el, divider }) {
   const planing = !!_bench.act;   // AUDIT 30 A3: nothing else picked while the plane is drawn
   // THE SAW: the logs the Stores hold, to planks (a Timberwright's three)
   const saws = SAW_RECIPES.filter((r) => book.held(r.inputs[0].key) > 0);
-  if (saws.length) workRows(detail, rerender, el, saws, _bench, 'Saw', 'Sawing...', (id, n) => p.smelt(id, n), short);
+  if (saws.length) workRows(detail, rerender, el, saws, _bench, 'Saw', 'Sawing...', (id, n) => p.smelt(id, n), short, !!_bench.act);   // AUDIT 32 P5: held while planing
   else detail.append(el('p', 'px-note', 'A log saws to two planks here. Logs come from the woods (Logging).'));
   const held = (k) => book.held(k);
   const fams = el('div', 'prof-families');
@@ -836,7 +881,7 @@ function drawWorkbench(detail, rerender, { el, divider }) {
       }
       box.append(line);
     }
-    if (r.later) box.append(el('p', 'px-note', 'The Ram Kit is made when the sieges come - its Bear Hides with Hunting.'));
+    if (r.later) box.append(el('p', 'px-note', 'The Ram Kit is made when the sieges come.'));   // AUDIT 32 R8: its Bear Hides are Hunting's now
     else if (r.kind === 'arrows') box.append(el('p', 'px-note', `Twenty arrows, one quiver - an arrow takes no quality.`));
     else if (r.family === 'furniture') box.append(el('p', 'px-note', 'Furniture goes among your things, to set down in a room of your own (Decorate).'));
     if (takesQuality(r) && recipeOpen(r, rank)) {
@@ -845,13 +890,16 @@ function drawWorkbench(detail, rerender, { el, divider }) {
     }
     heartwoodToggle(box, el, r, book, _bench, rerender, planing);
     const gentle = getPref('gentleActs') === true;
-    const ready = !r.later && recipeOpen(r, rank) && craftable(r, held, spends) && !_bench.busy && !_bench.act && !short;
-    // AUDIT 30 A3: the pass makes the recipe it began on, with its Heartwood - never the page's pick when it lands
+    const elsewhere = handsAt(_bench);   // AUDIT 32 P2
+    if (elsewhere && !_bench.act) box.append(el('p', 'px-note', `Your hands are at ${elsewhere} - finish there first.`));
+    const ready = !r.later && recipeOpen(r, rank) && craftable(r, held, spends) && !_bench.busy && !_bench.crafting && !_bench.act && !elsewhere && !short;
+    // AUDIT 30 A3: the pass makes the recipe it began on, with its Heartwood - never the page's pick when it lands; AUDIT 32
+    // P5: its own flag in flight, as the loom's
     const craftOf = (id, wood) => async (clean, rep = null) => {
       _bench.act = null; _bench.actRecipe = null;
-      _bench.busy = true; rerender();
+      _bench.crafting = true; rerender();
       const res = await p.craft(id, { clean: clean && getPref('gentleActs') !== true, heartwood: wood });
-      _bench.busy = false; _bench.word = [planeWord(rep), res?.text ?? ''].filter(Boolean).join(' ') || null; rerender();
+      _bench.crafting = false; _bench.word = [planeWord(rep), res?.text ?? ''].filter(Boolean).join(' ') || null; rerender();
     };
     const finish = craftOf(r.id, _bench.heartwood && takesHeartwood(r));
     if (_bench.act) {
@@ -867,7 +915,7 @@ function drawWorkbench(detail, rerender, { el, divider }) {
       panel.append(cancel);
       box.append(panel);
     } else {
-      const go = el('button', 'act primary', _bench.busy ? 'At the workbench...' : 'Craft');
+      const go = el('button', 'act primary', _bench.crafting ? 'At the workbench...' : 'Craft');
       go.type = 'button';
       go.disabled = !ready;
       go.onclick = () => {
@@ -934,18 +982,15 @@ function stitchLoop(finish) {
       next();
     } finally { inStep = false; }
   };
-  const stitch = () => {
+  const stitch = (e) => {
     const a = _loom.act;
     if (!a) return;
-    const hit = a.stitch();
+    const hit = a.stitch(pressLead(e, last));   // AUDIT 32 P1: at the press's own moment
     if (hit == null) return;
     _loom.els?.marks?.[a.state.stitches.length - 1]?.classList.add(hit ? 'hit' : 'miss');
     if (a.state.done) { const clean = a.report().clean; endStitch(); finish(clean); }
   };
-  const key = (e) => {
-    if (isTextEntryTarget(e.target) || isDomControlTarget(e.target)) return;
-    if (e.code === 'Space' || e.code === 'Enter' || e.code === 'NumpadEnter') { e.preventDefault?.(); e.stopPropagation?.(); stitch(); }
-  };
+  const key = (e) => actKey(e, _loom.els?.hit, stitch);
   globalThis.document?.addEventListener?.('keydown', key, true);
   Promise.resolve().then(() => { if (live) next(); });
   _loom.off = () => { live = false; caf(id); globalThis.document?.removeEventListener?.('keydown', key, true); };
@@ -981,10 +1026,10 @@ function drawLoom(detail, rerender, { el, divider }) {
   const sewing = !!_loom.act;
   // THE TANNING RACK AND THE LOOM'S OWN WORK: the hides the Stores hold, cured; Spider Silk, woven
   const cures = CURE_RECIPES.filter((r) => book.held(r.inputs[0].key) > 0);
-  if (cures.length) workRows(detail, rerender, el, cures, _loom, 'Cure', 'Curing...', (id, n) => p.smelt(id, n), short);
+  if (cures.length) workRows(detail, rerender, el, cures, _loom, 'Cure', 'Curing...', (id, n) => p.smelt(id, n), short, sewing);   // AUDIT 32 P5: held while sewing
   else detail.append(el('p', 'px-note', 'Two hides cure to a leather here (a Tanner\'s one). Hides come from the bodies your own blow fells (Hunting).'));
   const weaves = WEAVE_RECIPES.filter((r) => book.held(r.inputs[0].key) > 0);
-  if (weaves.length) workRows(detail, rerender, el, weaves, _loom, 'Weave', 'Weaving...', (id, n) => p.smelt(id, n), short);
+  if (weaves.length) workRows(detail, rerender, el, weaves, _loom, 'Weave', 'Weaving...', (id, n) => p.smelt(id, n), short, sewing);
   const held = (k) => book.held(k);
   const fams = el('div', 'prof-families');
   for (const [id, word] of LOOM_FAMILIES) {
@@ -1015,6 +1060,9 @@ function drawLoom(detail, rerender, { el, divider }) {
     detail.append(row);
   }
   const list = loomRecipes(_loom.family, _loom.cloth, clothing);
+  // AUDIT 32 P8: a cloth nothing yields yet says so - Standard-bearer's Silk is a siege's Spoils (PROF0 4.7); its 76
+  // garments stood wanting their inputs for ever
+  if (_loom.family === 'clothing' && UNYIELDED.includes(_loom.cloth)) detail.append(el('p', 'px-note', `${p.name(_loom.cloth)} comes with the sieges - a Siege Honour's Spoils. Nothing yields it yet.`));
   for (const r of list) {
     const open = recipeOpen(r, rank);
     const can = open && craftable(r, held);
@@ -1034,11 +1082,16 @@ function drawLoom(detail, rerender, { el, divider }) {
       const line = el('div', `prof-input${have >= inp.n ? '' : ' prof-short'}`);
       line.append(el('span', null, `${p.name(inp.key)} ${Math.min(have, inp.n)} / ${inp.n} (${have} stored)`));
       const sale = WEAVERS_STOCK.find((x) => x.key === inp.key);   // the Weavers' Linen and Wool (4.5), at the tailor's
-      if (sale && have < inp.n && loom.kind === 'shop' && p.stock) {
+      if (sale && have < inp.n && loom.kind === 'shop' && p.stock && p.drakesOpen?.() !== false) {
         const need = inp.n - have;
+        // AUDIT 32 P6: the Drakes the purchase asks, held or said before the press (the Market tab's counter's law, AUDIT
+        // 30 U12/U13) - it was offered whatever the balance, and refused after
+        const drakes = p.drakes?.() ?? null;
+        const shortOf = Number.isSafeInteger(drakes) && drakes < sale.marks * need;
         const buy = el('button', 'act', `Buy ${need} from the Weavers - ${sale.marks * need} Drakes`);
         buy.type = 'button';
-        buy.disabled = _loom.busy;
+        buy.disabled = _loom.busy || shortOf;
+        if (shortOf) line.append(el('span', 'prof-split', `you hold ${drakes} Drakes`));
         buy.onclick = async () => {
           if (_loom.busy) return;
           _loom.busy = true; rerender();
@@ -1050,7 +1103,8 @@ function drawLoom(detail, rerender, { el, divider }) {
       box.append(line);
     }
     if (r.family === 'furnishings') box.append(el('p', 'px-note', 'Furnishings go among your things, to set down in a room of your own (Decorate).'));
-    // A GARMENT'S DYE (9.3: "itemDye.js's colours"): one of DFU's ten, chosen here and sewn in - an undyed shirt none
+    // A GARMENT'S DYE (9.3: "itemDye.js's colours"): one of DFU's ten, chosen here and sewn in, or none (AUDIT 32 L3:
+    // every garment takes one, DFU's "unchangeable" shirts too - the word is their variant's)
     if (r.kind === 'garment' && r.dyes === true) {
       const dyes = el('div', 'prof-families prof-metals');
       const none = el('button', `prof-family${_loom.dye == null ? ' on' : ''}`, 'Undyed');
@@ -1066,19 +1120,22 @@ function drawLoom(detail, rerender, { el, divider }) {
         dyes.append(b);
       }
       box.append(dyes);
-    } else if (r.kind === 'garment') box.append(el('p', 'px-note', 'This shirt takes no dye - DFU keeps it its own colour.'));
+    }
     if (takesQuality(r) && recipeOpen(r, rank)) {
       const odds = qualityOdds(rank - r.rank, { masterwright: false });
       box.append(el('p', 'px-note', `Your rank ${rank}, margin ${rank - r.rank}: ${odds.map((o, q) => (o ? `${QUALITY_NAMES[q]} ${o}` : null)).filter(Boolean).join(' | ')}. A clean stitch is a step better${specs[50] === 'tailor' && r.family === 'clothing' ? ', and a Tailor\'s clothing another' : specs[50] === 'leatherworker' && r.family === 'leather' ? ', and a Leatherworker\'s leather another' : ''}.`));
     }
     const gentle = getPref('gentleActs') === true;
     const dye = r.kind === 'garment' && r.dyes === true ? _loom.dye : null;
-    const ready = recipeOpen(r, rank) && craftable(r, held) && !_loom.busy && !_loom.act && !short;
-    // AUDIT 30 A3's law: the stitch makes the recipe it began on, in the dye it began in
+    const elsewhere = handsAt(_loom);   // AUDIT 32 P2
+    if (elsewhere && !_loom.act) box.append(el('p', 'px-note', `Your hands are at ${elsewhere} - finish there first.`));
+    const ready = recipeOpen(r, rank) && craftable(r, held) && !_loom.busy && !_loom.crafting && !_loom.act && !elsewhere && !short;
+    // AUDIT 30 A3's law: the stitch makes the recipe it began on, in the dye it began in; AUDIT 32 P5: a craft's own flag
+    // in flight - a cure answered under it cleared the loom's one flag, and Craft was offered again mid-craft
     const craftOf = (id, d) => async (clean) => {
-      _loom.busy = true; rerender();
+      _loom.crafting = true; rerender();
       const res = await p.craft(id, { clean: clean && getPref('gentleActs') !== true, dye: d });
-      _loom.busy = false; _loom.word = res?.text ?? null; rerender();
+      _loom.crafting = false; _loom.word = res?.text ?? null; rerender();
     };
     const finish = craftOf(r.id, dye);
     if (_loom.act) {
@@ -1097,18 +1154,16 @@ function drawLoom(detail, rerender, { el, divider }) {
       const marks = el('div', 'prof-strikes');
       const dots = [];
       for (let i = 0; i < STITCH_ACT.stitches; i++) { const d = el('span', `prof-strike${i < _loom.act.state.stitches.length ? (_loom.act.state.stitches[i] ? ' hit' : ' miss') : ''}`, 'o'); dots.push(d); marks.append(d); }
-      const hit = el('button', 'act primary', 'Stitch');
-      hit.type = 'button';
+      const hit = actButton(el, 'Stitch', (e) => _loom.stitch?.(e));   // AUDIT 32 P1
       const cancel = el('button', 'act', 'Set the needle down');
       cancel.type = 'button';
       cancel.onclick = () => { _loom.act?.cancel(); endStitch(); _loom.word = 'You set the needle down; nothing is spent.'; rerender(); };
       panel.append(el('span', 'prof-heatword', `The stitch - press on the beat, ${STITCH_ACT.stitches} in a row (Space)`), bar, marks, hit, cancel);
       box.append(panel);
-      _loom.els = { bar, marker, marks: dots };
+      _loom.els = { bar, marker, marks: dots, hit };
       if (!_loom.off) _loom.stitch = stitchLoop(craftOf(_loom.actRecipe ?? r.id, _loom.actRecipe ? _loom.actDye : dye));
-      hit.onclick = () => _loom.stitch?.();
     } else {
-      const go = el('button', 'act primary', _loom.busy ? 'At the loom...' : 'Craft');
+      const go = el('button', 'act primary', _loom.crafting ? 'At the loom...' : 'Craft');
       go.type = 'button';
       go.disabled = !ready;
       go.onclick = () => {

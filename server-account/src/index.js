@@ -72,11 +72,13 @@
 //   POST /v1/board/mod/remove { id } | /v1/board/mod/restore { id } -> { ok, id, act }   (a moderator's)
 //   POST /v1/board/notice { subject, body, days } | /v1/board/notice/remove { id }       (a developer's)
 // PROF1, the professions - a registered account's character's, behind PROFESSIONS_OPEN (professions.js); `rid` the act's id:
-//   POST /v1/prof/state { character }                                  -> { tracks, today, taken, stores, writs, caps }
+//   POST /v1/prof/state { character }                                  -> { tracks, today, taken, stores, writs, caps, hunt }   (PROF7: the account's hides today)
 //   POST /v1/prof/pixels { character, pixels: [[x, y]...] }            -> { pixels: [{ x, y, state, climate?, region? }] }
-//   POST /v1/prof/harvest { character, node, kind, climate, region, act, at, rid } -> { ok, material, qty, xp, track, today, store } | { repeat, ... }
+//   POST /v1/prof/harvest { character, node, kind, climate, region, act, at, rid, foe? } -> { ok, material, qty, xp, track, today, store, gem?, extra?, extraQty?, hunt? } | { repeat, ... }   (PROF7: a body's `foe`, no ground)
 //   POST /v1/prof/spec { character, profession, rank, spec, rid }      -> { ok, track, marks?, balance? }
-//   POST /v1/prof/smelt { character, recipe, count, rid }              -> { ok, recipe, count, own, bought, xp, track, stores } | { repeat, ... }   (PROF2)
+//   POST /v1/prof/smelt { character, recipe, count, rid }              -> { ok, recipe, count, own, bought, xp, track, stores } | { repeat, ... }   (PROF2; PROF4 the burns and saws; PROF7 the loom's cures and weave - a weave's `track` null)
+//   POST /v1/prof/craft { character, recipe, clean, name?, heartwood?, dye?, rid } -> { ok, recipe, quality, count, seed, maker, marked, xp, first, heartwood, dye, pieces, track, stores } | { repeat, ... }   (PROF3 the anvil; PROF4 the workbench; PROF7 the loom and a garment's `dye`)
+//   POST /v1/prof/stock { character, material, qty, rid }             -> { ok, ... } | { repeat, ... }   (PROF3 the smith's stock; PROF4 the furnisher's; PROF5 the Weavers')
 //   POST /v1/stores/withdraw { character, material, qty, rid }         -> { ok, material, qty, store } | { repeat, ... }
 //   POST /v1/writs/list { character, region }                          -> { region, day, endsAt, writs, today }
 //   POST /v1/writs/deliver { character, id, rid }                      -> { ok, writ, pay, balance, track, store, today, renown, order } | { repeat, ... }

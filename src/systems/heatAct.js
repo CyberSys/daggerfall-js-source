@@ -7,6 +7,7 @@
 // (5.1's honest bound - the service reads `clean` and nothing else). Gentle acts (the setting) strike plain: every
 // strike counts, none is a hit, and no act is clean.
 import { HEAT_ACT, heatWindow, glowAt } from '../net/recipeLaw.js';
+import { PRESS_LEAD_MAX_S } from './stitchAct.js';
 
 /**
  * @param {{ band?: number, gentle?: boolean }} [opts] `band` the attribute band's widening (recipeLaw heatBand)
@@ -22,12 +23,15 @@ export function createHeatAct({ band = 1, gentle = false } = {}) {
     get inBand() { const g = glowAt(st.t); return g >= st.lo && g <= st.hi; },
     tick(dt) { if (!st.done && Number.isFinite(dt) && dt > 0) st.t += dt; },
     /** A strike: true on the band, false off it, null when it is too soon after the last (a hammer's fall) or the act is
-     *  over. The third strike ends the act. */
-    strike() {
-      if (st.done || st.t - st.lastAt < HEAT_ACT.gapS) return null;
-      const hit = !gentle && this.inBand;
+     *  over. The third strike ends the act. `lead` - AUDIT 32 P1: the press's own moment past the act's last frame, as
+     *  the stitch's (systems/stitchAct.js PRESS_LEAD_MAX_S). */
+    strike(lead = 0) {
+      const at = st.t + Math.max(0, Math.min(PRESS_LEAD_MAX_S, Number(lead) || 0));
+      if (st.done || at - st.lastAt < HEAT_ACT.gapS) return null;
+      const g = glowAt(at);
+      const hit = !gentle && g >= st.lo && g <= st.hi;
       st.strikes.push(hit);
-      st.lastAt = st.t;
+      st.lastAt = at;
       if (st.strikes.length >= HEAT_ACT.strikes) st.done = true;
       return hit;
     },

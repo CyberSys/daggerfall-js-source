@@ -5,7 +5,7 @@
 - Walk up to a patch and the prompt at the bottom of the screen tells you what it is and what **E** will do.
 - A **common herb** comes up by hand in under a second.
 - An **uncommon or rare herb** needs a **Sickle** (Foraging's) and enough Herbalism: uncommon at 10, rare at 25. Rare herbs grow only where players have confirmed the land. Hold **E** for two and a half seconds and keep your hand steady. Turn your view more than a few degrees, or step away, and the herb is **bruised**: one fewer comes up. If it is not bruised, it is a **clean** pick, worth half as much XP again. Let go of E early, or press Escape, and nothing is lost.
-- A patch also holds food. Press **;** at a patch to switch to searching with a **Basket**: three glints show one after another, and attacking while each one shows finds it. The more you find, the more you gather.
+- A patch also holds food. Press the **act choice key** (the **Up arrow** by default; the prompt names it) at a patch to switch to searching with a **Basket**: three glints show one after another, and attacking while each one shows finds it. The more you find, the more you gather.
 - Each patch gives its herbs once and its food once a day. You can gather **60** times a day, and only in daylight (7:00 to 17:59).
 - The herbs follow the seasons: winter bares the flowers, roses, poppies and berries. Spring's blooms and autumn's berries give half as much again.
 - A completed act wears its tool by 1, as Foraging's own uses do.

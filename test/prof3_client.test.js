@@ -259,7 +259,7 @@ test('PROF3 wiring: the host mints a craft\'s pieces once each by provenance, pa
   assert.match(w, /onSettle: \(\) => \{ profBook\.settle\(profMint, profMintCraft\)\.catch\(\(\) => \{\}\); \},/);
   // PROF4: a Heartwood for a plank; AUDIT 30 C4: the fee rides the kept craft and is paid where its pieces are minted
   // PROF7 moved it: the station's own kept word (craftStation), and a garment's dye beside the Heartwood
-  assert.match(w, /const r = await profBook\.craft\(recipe, \{ clean, heartwood, dye, fee: f\.fee > 0 \? f\.fee : 0, name: [^\n]*\n\s*if \(!r\?\.ok\) return \{ ok: false, text: r\?\.kept \? st\.kept : accountRefusalText\(r\?\.error\) \};/);
+  assert.match(w, /const r = await profBook\.craft\(recipe, \{ clean, heartwood, dye, fee: f\.fee > 0 \? f\.fee : 0, name: [^\n]*\n\s*if \(!r\?\.ok\) return \{ ok: false, text: r\?\.kept \? st\.kept : r\?\.error === 'prof-busy' \? st\.busy : accountRefusalText\(r\?\.error\) \};/);
   assert.match(w, /const profMintCraft = \(data, kept = null\) => \{\n\s*if \(kept\?\.fee > 0\) \{ deductGold\(playerEntity, Math\.min\(kept\.fee, totalGoldAmount\(playerEntity\)\)\); saveSoon\.changed\(\); \}/);
   assert.match(w, /heatBand: \(\) => heatBand\(\{ strength: liveStat\(playerEntity, 'strength'\), agility: liveStat\(playerEntity, 'agility'\) \}\),/);
   assert.match(src('src/scenes/shared.js'), /installSmithing\(\);/);

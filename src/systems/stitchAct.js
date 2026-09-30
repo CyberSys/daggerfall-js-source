@@ -9,6 +9,9 @@
 // is on the beat, and no act is clean.
 import { STITCH_ACT, beatAt, onBeat } from '../net/recipeLaw.js';
 
+/** AUDIT 32 P1: the most a press is judged past the act's last frame - a frame and a half at the slowest the loops run. */
+export const PRESS_LEAD_MAX_S = 0.1;
+
 /**
  * @param {{ band?: number, gentle?: boolean }} [opts] `band` the attribute band's widening (recipeLaw stitchBand)
  */
@@ -22,12 +25,14 @@ export function createStitchAct({ band = 1, gentle = false } = {}) {
     get onBeat() { return onBeat(beatAt(st.t), st.w); },
     tick(dt) { if (!st.done && Number.isFinite(dt) && dt > 0) st.t += dt; },
     /** A stitch: true on the beat, false off it, null when it is too soon after the last or the act is over. The
-     *  eighth stitch ends the act. */
-    stitch() {
-      if (st.done || st.t - st.lastAt < STITCH_ACT.gapS) return null;
-      const hit = !gentle && this.onBeat;
+     *  eighth stitch ends the act. `lead` - AUDIT 32 P1: the press's own moment, seconds past the act's last frame (the
+     *  event's time; a tenth of a second at most) - a press was judged at the frame before it. */
+    stitch(lead = 0) {
+      const at = st.t + Math.max(0, Math.min(PRESS_LEAD_MAX_S, Number(lead) || 0));
+      if (st.done || at - st.lastAt < STITCH_ACT.gapS) return null;
+      const hit = !gentle && onBeat(beatAt(at), st.w);
       st.stitches.push(hit);
-      st.lastAt = st.t;
+      st.lastAt = at;
       if (st.stitches.length >= STITCH_ACT.stitches) st.done = true;
       return hit;
     },

@@ -270,7 +270,7 @@ combat line numbers below are refreshed with it.
 - `src/systems/playerTorch.js:51` - FLAGGED (blocked on data this reference tree does not carry): the
 - `src/ui/enhancedMenu.js:4122` - FLAGGED: the rest of the keyboard. The wizard walks to `done` with
 - `src/ui/pauseWindow.js:65` - FLAGGED: PauseOptionsDropdown (:83-84) - DFU's own quick-settings
-- `src/ui/profPages.js:90` - *  menu, the one the Stores page is on (the classic skin's pause has no pages - FLAGGED). A home's Forge station is
+- `src/ui/profPages.js:94` - *  menu, the one the Stores page is on (the classic skin's pause has no pages - FLAGGED). A home's Forge station is
 
 ## Audits
 
