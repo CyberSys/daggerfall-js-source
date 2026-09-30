@@ -182,11 +182,12 @@
   {
     "name": "AUDIT-REALM2-C4-landed-told-the-next-ones-failure",
     "file": "src/systems/realmSaves.js",
-    "old": "last = { ok: true, seq: current }; answer(job, last); continue; }",
-    "new": "last = { ok: true, seq: current }; if (pending) pending.waiters.push(...job.waiters.splice(0)); else answer(job, last); continue; }",
+    "old": "last = { ok: true, seq: current }; answer(job, last);",
+    "new": "last = { ok: true, seq: current }; if (pending) pending.waiters.push(...job.waiters.splice(0)); else answer(job, last);",
     "tests": [
       "test/auditrealm2_client.test.js"
-    ]
+    ],
+    "note": "RESCUE-SAVE (PIN MOVED): re-aimed by content - the landed put now also drops or re-bases the device's copy, on its own lines."
   },
   {
     "name": "AUDIT-REALM2-C4-the-waiting-never-answered",
@@ -254,11 +255,12 @@
   {
     "name": "AUDIT-REALM2-C8-every-refusal-retried",
     "file": "src/systems/realmSaves.js",
-    "old": " || !putMayClear(r)) { lose(r.error);",
-    "new": ") { lose(r.error);",
+    "old": " || !putMayClear(r)) {",
+    "new": ") {",
     "tests": [
       "test/auditrealm2_client.test.js"
-    ]
+    ],
+    "note": "RESCUE-SAVE (PIN MOVED): re-aimed by content - the refusal that ends the session is a block now (the device's copy dropped first)."
   },
   {
     "name": "AUDIT-REALM2-C8-the-service-away-ends-it",
