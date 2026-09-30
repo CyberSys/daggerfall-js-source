@@ -16,6 +16,7 @@ import { telegraphAt } from '../net/gateStrike.js';
 import { countdownText } from '../net/gateLaw.js';
 import { attackColor } from '../world/gateBoss.js';
 import { GATE_RING_CSS } from './gateMapMark.js';
+import { marksViewOf, markIconSvg, MARKS_CARD_TEXT } from './gateMarksView.js';   // WB9a: the night's marks under his health, each its sign, name and line
 
 /** Where it stands: under the compass strip, centred (the gate banner's place - the two never show together: the
  *  banner is the street's, the bar the court's). */
@@ -44,7 +45,12 @@ export const BOSS_BAR_CSS = `
   pointer-events: none; z-index: 30; font: 600 13px 'Cormorant', Georgia, serif; letter-spacing: 0.08em; color: #f3d9c4;
   text-shadow: 0 0 3px #000, 0 0 8px rgba(0,0,0,0.9); text-align: center; }
 .wb-boss-name { font-size: 15px; text-transform: uppercase; color: ${GATE_RING_CSS}; text-shadow: 0 0 3px #000, 0 0 10px rgba(255,70,30,0.5); }
-.wb-boss-trials { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.9; min-height: 13px; }
+.wb-boss-marks { display: flex; justify-content: center; gap: 12px; margin: 1px 0 3px; }
+.wb-boss-chip { flex: 0 1 33%; min-width: 0; text-align: left; line-height: 1.15; }
+.wb-boss-chip-head { display: flex; align-items: center; gap: 4px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; white-space: nowrap; }
+.wb-boss-chip-icon { flex: 0 0 13px; height: 13px; display: flex; align-items: center; }
+.wb-boss-chip-name { overflow: hidden; text-overflow: ellipsis; }
+.wb-boss-chip-text { font-size: 10.5px; letter-spacing: 0.03em; opacity: 0.85; font-weight: 500; }
 .wb-boss-track { position: relative; height: 12px; margin: 4px 0 3px; border: 1px solid rgba(255,120,60,0.55);
   background: rgba(20,4,2,0.72); box-shadow: 0 0 10px rgba(0,0,0,0.8), inset 0 0 6px rgba(0,0,0,0.9); }
 .wb-boss-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 100%;
@@ -59,8 +65,10 @@ export const BOSS_BAR_CSS = `
  * What the bar says now, or null (no fight heard). `frac` his health's share, `marks` the phase marks, `warded` while
  * the ward stands, `callout` the attack being wound up ({ text, color } - its name in its colour), `wrath` the
  * countdown (null until WRATH_WARN_MS before the midnight), `fighters` how many the fight holds. WB8b: his marks - the
- * aspect's epithet after his name (`epithet`, none unmarked), the trials under it (`trials`), and each attack by the
- * name and in the colour his aspect gives it.
+ * aspect's epithet after his name (`epithet`, none unmarked), the trials joined (`trials`), and each attack by the
+ * name and in the colour his aspect gives it. WB9a: `marksView` - the night's marks as the row under his health draws
+ * them (ui/gateMarksView.js marksViewOf: his aspect's sign, name and element in its colour, then each trial's sign,
+ * name and line), null for the Warden unmarked.
  * @param {any} s the court's state (net/gateLink.js GateState) @param {number} now the relay's clock
  * @param {{ name: string, title: string }} boss net/gateLaw.js gateBossOf
  */
@@ -75,6 +83,7 @@ export function bossBarModel(s, now, boss) {
   return {
     name: boss.name, title: boss.title, frac, marks: [...PHASE_AT], phase: s.phase,
     epithet: P.md ? P.aspect.epithet : '', trials: P.trialsLine,   // AUDIT PRE-MERGE 0929 W2-2: joined once, on the profile
+    marksView: P.md ? marksViewOf(P.md) : null,   // WB9a: the row under his health - made once a marks array
     warded: !s.fell && now < s.shieldUntil, fallen: !!s.fell, callout,
     wrath: !s.fell && s.wrath == null && toWrath <= WRATH_WARN_MS ? BOSS_BAR_TEXT.wrathIn(countdownText(toWrath)) : null,
     fighters: s.fighters | 0,
@@ -83,7 +92,7 @@ export function bossBarModel(s, now, boss) {
 }
 
 let root = null, parts = null;
-let shown = { vis: '', name: '', trials: null, frac: -1, warded: null, callout: '', calloutColor: '', foot: '' };
+let shown = { vis: '', name: '', marks: null, frac: -1, warded: null, callout: '', calloutColor: '', foot: '' };
 
 function build(doc) {
   if (doc.getElementById && !doc.getElementById(BOSS_BAR_STYLE_ID)) {
@@ -95,7 +104,6 @@ function build(doc) {
   const part = (cls) => { const n = doc.createElement('div'); n.className = cls; return n; };
   root = part('wb-boss-bar');
   const name = part('wb-boss-name');
-  const trials = part('wb-boss-trials');   // WB8b: his trials, under his name
   const track = part('wb-boss-track');
   const fill = part('wb-boss-fill');
   const ward = part('wb-boss-ward');
@@ -107,11 +115,34 @@ function build(doc) {
     track.append(tick);
   }
   track.append(ward);
+  // WB9a (Mac: "Can we add the modifers below his health bar?"): THE NIGHT'S MARKS UNDER HIS HEALTH - a chip a mark
+  // (his aspect, then his two trials), each its sign and name over its one line; the row hidden for the Warden unmarked
+  const marks = part('wb-boss-marks');
+  const chips = [0, 1, 2].map(() => {
+    const chip = part('wb-boss-chip'), head = part('wb-boss-chip-head'), icon = part('wb-boss-chip-icon'), label = part('wb-boss-chip-name'), text = part('wb-boss-chip-text');
+    head.append(icon, label);
+    chip.append(head, text);
+    marks.append(chip);
+    return { chip, icon, label, text };
+  });
+  marks.style.display = 'none';
   const callout = part('wb-boss-callout');
   const foot = part('wb-boss-foot');
-  root.append(name, trials, track, callout, foot);
+  root.append(name, track, marks, callout, foot);
   (doc.body ?? doc.documentElement)?.append(root);
-  parts = { name, trials, fill, ward, callout, foot };
+  parts = { name, marks, chips, fill, ward, callout, foot };
+}
+
+/** WB9a: one chip of the marks' row - a mark's sign, name and line (the aspect's name and element in its colour) - or
+ *  hidden (no mark for it). */
+function writeChip(c, m) {
+  if (!m) { c.chip.style.display = 'none'; return; }
+  c.chip.style.display = '';
+  c.icon.innerHTML = markIconSvg(m.id, 12);
+  c.icon.style.color = m.kind === 'aspect' ? m.color : '#ffb27a';
+  c.label.textContent = m.name;
+  c.label.style.color = m.kind === 'aspect' ? m.color : '';
+  c.text.textContent = m.kind === 'aspect' ? MARKS_CARD_TEXT.element(m.element) : m.text;
 }
 
 /** Draw the bar for a model (null hides it); `hidden` is the HUD's own hide. */
@@ -126,8 +157,13 @@ export function drawGateBossBar(model, { hidden = false, doc = globalThis.docume
   if (!want || !model) return;
   const name = `${model.name}${model.epithet ? ` ${model.epithet}` : ''} - ${model.title}`;   // WB8b: "Valkynaz Ruhn the Rime-Wrought"
   if (name !== shown.name) { shown.name = name; parts.name.textContent = name; }
-  const trials = model.trials ?? '';
-  if (trials !== shown.trials) { shown.trials = trials; parts.trials.textContent = trials; parts.trials.style.display = trials ? '' : 'none'; }
+  const view = model.marksView ?? null, marksKey = view?.key ?? '';
+  if (marksKey !== shown.marks) {   // WB9a: written when the night's marks change - never a frame
+    shown.marks = marksKey;
+    parts.marks.style.display = view ? '' : 'none';
+    const all = view ? [view.aspect, ...view.trials] : [];
+    parts.chips.forEach((c, i) => writeChip(c, all[i] ?? null));
+  }
   const frac = Math.round(model.frac * 1000) / 1000;
   if (frac !== shown.frac) { shown.frac = frac; parts.fill.style.width = `${(frac * 100).toFixed(1)}%`; }
   if (model.warded !== shown.warded) { shown.warded = model.warded; parts.ward.style.display = model.warded ? '' : 'none'; }
@@ -146,5 +182,5 @@ export function drawGateBossBar(model, { hidden = false, doc = globalThis.docume
 export function destroyGateBossBar() {
   root?.remove?.();
   root = null; parts = null;
-  shown = { vis: '', name: '', trials: null, frac: -1, warded: null, callout: '', calloutColor: '', foot: '' };
+  shown = { vis: '', name: '', marks: null, frac: -1, warded: null, callout: '', calloutColor: '', foot: '' };
 }

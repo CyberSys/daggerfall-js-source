@@ -1428,7 +1428,13 @@ body .dfparty-vital.magicka .dfparty-fill { background: linear-gradient(180deg, 
    face, outlined. The fire's own colours stay his. */
 body .wb-boss-bar { ${PIXEL_FONT_CSS} font-weight: 400; letter-spacing: 0.06em; color: #efe8d6; text-shadow: 1px 1px 0 #050608, 2px 2px 0 rgba(0,0,0,0.7); }
 body .wb-boss-name { font-size: 14px; letter-spacing: 0.14em; text-shadow: ${OUTLINED}; }
-body .wb-boss-trials { font-size: 11px; letter-spacing: 0.12em; color: #d8cfae; text-shadow: ${OUTLINED}; }   /* WB8b: his trials, under his name */
+/* WB9a: the night's marks under his health - each chip its sign and name over its line, in the HUD's pixel face */
+body .wb-boss-marks { gap: 14px; margin: 3px 0 4px; }
+body .wb-boss-chip { text-shadow: ${OUTLINED}; }
+body .wb-boss-chip-head { font-size: 11px; letter-spacing: 0.12em; color: #efe8d6; }
+body .wb-boss-chip-icon { filter: drop-shadow(1px 1px 0 #050608); }
+body .wb-boss-chip-name { font-size: 11px; }
+body .wb-boss-chip-text { font-size: 10px; letter-spacing: 0.04em; color: #d8cfae; opacity: 1; }
 body .wb-boss-track { border: 2px solid; border-color: #9a9079 #3a352a #25221b #6e6755; isolation: isolate;
   background: linear-gradient(180deg, rgba(0,0,0,0.6) 0 2px, transparent 2px), #1e0906;
   box-shadow: 0 0 0 1px #050608, 3px 3px 0 1px rgba(0,0,0,0.45); }
@@ -1444,6 +1450,16 @@ body .wb-boss-track::after { right: -6px; }
 body .wb-boss-callout { font-size: 15px; letter-spacing: 0.12em; text-shadow: ${OUTLINED}; }
 body .wb-boss-foot { font-size: 11px; opacity: 1; color: #d8cfae; }
 body .wb-gate-banner { ${PIXEL_FONT_CSS} font-weight: 400; font-size: 14px; letter-spacing: 0.14em; text-shadow: ${OUTLINED}; }
+/* WB9a: the marks' card - a stone panel in the brass frame, the pixel face outlined; each aspect keeps its own colour */
+body .wb-marks-card { ${PIXEL_FONT_CSS} font-weight: 400; letter-spacing: 0.05em; color: #efe8d6; text-shadow: ${OUTLINED};
+  background: linear-gradient(180deg, rgba(0,0,0,0.5) 0 2px, transparent 2px), rgba(20,14,10,0.92);
+  border: 2px solid; border-color: ${FRAME_TONES.brassHi} ${FRAME_TONES.brassLo} #5c3f1a ${FRAME_TONES.brass};
+  box-shadow: 0 0 0 1px #050608, 3px 3px 0 1px rgba(0,0,0,0.45); }
+body .wb-marks-title { font-size: 11px; letter-spacing: 0.2em; color: ${FRAME_TONES.brassHi}; }
+body .wb-marks-sub { font-size: 14px; color: #efe8d6; }
+body .wb-marks-name { font-size: 12px; letter-spacing: 0.12em; }
+body .wb-marks-text { font-size: 11px; color: #d8cfae; opacity: 1; }
+body .wb-marks-tip { font-size: 11px; font-style: normal; color: #b9ab86; opacity: 1; }
 /* AUDIT MERGE-PLUS D3: STONE'S LIGHT GROUND. The lane's newer surfaces joined the window and panel roles above, and
    Stone paints those a light grey their words were never chosen for - they had kept their own dark ground on every
    theme until then (the F-menu's Cancel read at 2.3:1, a refused row's reason at 4.1:1). On Stone the lane's dim

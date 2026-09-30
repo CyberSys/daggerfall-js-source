@@ -27,6 +27,7 @@ import { gateArchProfile } from '../world/gateModel.js';
 import { ONLINE_MINUTES_PER_MS } from '../net/wire.js';   // WBX7: a soul trap's rounds on the shared world's clock
 import { spoilsLevel } from './spoilsPool.js';   // AUDIT WBX S2: the spoils never rolled past the level the fight admitted
 import { bossBarModel, drawGateBossBar } from '../ui/gateBossBar.js';
+import { marksCardModel, drawGateMarksCard } from '../ui/gateMarksView.js';   // WB9a: the night's marks over the screen as a fighter steps in
 import { readReceipt } from '../net/gateReceipt.js';
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { mobileBillboardSize } from '../world/rmbFlats.js';
@@ -107,11 +108,13 @@ export const bossOf = (s) => GATE_BOSSES.find((b) => b.id === s?.boss) ?? gateBo
  *   strike?: (dmg: number, how: { fire: boolean, el?: string|null, name: string }) => void,
  *   say?: (text: string) => void,
  *   hudHidden?: () => boolean,
+ *   veiled?: () => boolean,
  *   send?: (hit: { q: number, d: number, r: number }) => boolean,
  *   rng?: () => number,
  *   portalDoor?: (door: any) => void,
  *   soulTrap?: (trap: { chance: number, mobile: number, name: string }) => void,
  * }} deps
+ *   WB9a: `veiled` - the step's fire is over the screen (ui/gateVeil.js): the marks' card waits under it.
  *   WB8b: `save` answers the saving throw against `el` (his aspect's element - fire, frost, shock, poison) and `strike`
  *   is told the element it landed with. WBX2: `portalDoor` lays the risen portal's door into the court's exit doors, once, so the exit's own ray, name and
  *   press take it - the way home, the bridge membrane's own (SS3: the court no longer takes a way home of its own - the
@@ -122,7 +125,7 @@ export const bossOf = (s) => GATE_BOSSES.find((b) => b.id === s?.boss) ?? gateBo
 export function createGateCourt({
   renderer = null, gl = null, getTexture = null, uploadRecordFrame = null, audio = null,
   link, spoils = null, now, cam = () => null, feet = () => null, player = () => null, save = () => 100,
-  strike = () => {}, say = () => {}, hudHidden = () => false, send = () => false, rng = Math.random,
+  strike = () => {}, say = () => {}, hudHidden = () => false, veiled = () => false, send = () => false, rng = Math.random,
   portalDoor: layPortalDoor = () => {}, soulTrap = () => {},
 }) {
   let pass = null;
@@ -147,8 +150,9 @@ export function createGateCourt({
   /** @type {ReadonlyArray<any>} */
   let poolDraw = NONE;
   let _mark = markShape([0, 0], 0, MARK_COLOR), _markOf = null, markEmber = MARK_COLOR;   // WB8b: his mark and its ember, remade when his profile is another
-  /** WB8c: whether his marks have been said to me on this entry, and the last feeding heard */
-  let marksSaid = false, fedHeard = null;
+  /** WB8c: whether his marks have been said to me on this entry, and the last feeding heard; WB9a: when they were (the
+   *  marks' card stands from then - ui/gateMarksView.js MARKS_CARD_ARRIVE_MS) */
+  let marksSaid = false, fedHeard = null, marksAt = null;
   /** WBX2: the portal home once he has fallen - where it stands (the court's frame) and how far it has risen, its fire's
    *  pass and the arch's opening (made the first time one stands), its fire's turn, and whether its door is laid and its
    *  rising said */
@@ -164,7 +168,7 @@ export function createGateCourt({
     prevT = -Infinity; hurtAt = -Infinity; shape = null; standIn = null; spewed = false; spoilsSaid = false;
     stepFrom = null; strideRun = 0; growlAt = null; hpHeard = null; gruntAt = -Infinity; quaked = noMark(); thunderPhase = 0; thudCued = false;
     pools = []; pooled = noMark(); burnAt = -Infinity; inFire = false; outAt = -Infinity; mark = null; poolDraw = [];
-    marksSaid = false; fedHeard = null;
+    marksSaid = false; fedHeard = null; marksAt = null;
     portal = null; spin = 0; portalLaid = false; portalSaid = false;
     if (d !== null && trapMark?.day !== d) trapMark = null;   // AUDIT WBX F6: a trap of this day's fight outlives a cast-out and a walk back in
   }
@@ -266,7 +270,7 @@ export function createGateCourt({
     if (s.phase > thunderPhase) { if (thunderPhase > 0) sound(BOSS_CUES.thunder, s, t, null); thunderPhase = s.phase; }   // WB7: thunder over his roar as a phase turns
     if (s.phase > phaseHeard) { if (phaseHeard > 0) { sound(BOSS_CUES.roar, s, t, null); const line = courtPhaseText(s.phase, P.aspect); if (line) say(line); } phaseHeard = s.phase; }   // WBX5: and the turn said, by its name; WB8b: in his aspect's words
     // WB8c: his marks said as I step into his court (never to a court whose Warden has already gone), and a feeding said
-    if (!marksSaid) { marksSaid = true; if (P.md && !s.fell && s.wrath == null) say(COURT_MARKS_TEXT.arrive(P)); }   // an unmarked Warden (an older relay's) says nothing new
+    if (!marksSaid) { marksSaid = true; if (P.md && !s.fell && s.wrath == null) { say(COURT_MARKS_TEXT.arrive(P)); marksAt = t; } }   // an unmarked Warden (an older relay's) says nothing new; WB9a: and the card stands from now
     // AUDIT PRE-MERGE 0929 W2-3: a feeding is said while it is news, judged by its age alone - "the first of this
     // entry" stood in for "stale", and a tab hidden through a second feeding said it, and growled, a minute late
     if (s.fed && s.fed.at !== fedHeard) { fedHeard = s.fed.at; if (t - s.fed.at <= FED_LATE_MS) { say(COURT_MARKS_TEXT.fed(bossOf(s).name, s.fed.ns)); sound(BOSS_CUES.growl, s, t, null); } }
@@ -377,6 +381,11 @@ export function createGateCourt({
       else { const [mx, mz] = bossPlace(s, t); _mark.origin[0] = mx; _mark.origin[1] = mz; _mark.yaw = s.yaw; _mark.color = t < s.shieldUntil ? WARD_COLOR : markEmber; mark = _mark; }   // AUDIT WB D10's law: one shape, refilled
       poolDraw = pools.length ? poolShapes(pools, t, poolColor(P)) : NONE;
       drawGateBossBar(bossBarModel(s, t, bossOf(s)), { hidden: hudHidden() });
+      // WB9a (Mac: "Allow people to see the modifers/trial as a popup before it starts"): THE MARKS' CARD as I step in -
+      // his aspect and his trials, each with its sign, its line and how to meet it, while he stands to be read
+      // (net/gateBrain.js OPENING_MS); gone once he has fallen, and never over the step's fire
+      if (marksAt !== null && s.fell) marksAt = null;
+      drawGateMarksCard(marksAt !== null ? marksCardModel(s.md, bossOf(s), { mode: 'arrive', since: marksAt, now: t }) : null, { hidden: hudHidden() || veiled() });
       prevT = t;
     },
     /**
@@ -465,6 +474,7 @@ export function createGateCourt({
       spoils?.gather();   // WB5: whatever is still on the floor goes into the pack - never lost to a door, a death or the day's end
       if (batch) { renderer?.destroyBillboardBatch?.(batch); batch = null; batchShown = false; }
       drawGateBossBar(null);
+      drawGateMarksCard(null);   // WB9a
       reset(null);
     },
   };

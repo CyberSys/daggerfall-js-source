@@ -219,7 +219,7 @@ test('WB8c the ground drawn and the bar: the telegraph shows Colossal\'s slam at
   assert.deepEqual(m.callout, { text: 'Thunderbolt of Oblivion', color: `rgb(${ASPECT_COLORS.storm.meteor.map((c) => Math.round(c * 255)).join(', ')})` });
   const u = bossBarModel(state({ atk: W('meteor', { at: 12000 }), phase: 2 }), 10000, boss);
   assert.equal(u.epithet, ''); assert.equal(u.trials, ''); assert.equal(u.callout.text, 'Meteor of Oblivion');
-  // the node: his name with his epithet, his trials on their own line (hidden when he bears none)
+  // the node: his name with his epithet; WB9a: his marks under his health, a chip each (the row hidden when he bears none)
   const made = [];
   const node = (tag) => { const n = { tag, style: {}, className: '', textContent: '', children: [], append(...c) { this.children.push(...c); }, remove() {} }; made.push(n); return n; };
   const doc = { createElement: node, body: node('body'), head: { append() {} }, getElementById: () => null };
@@ -227,10 +227,12 @@ test('WB8c the ground drawn and the bar: the telegraph shows Colossal\'s slam at
   drawGateBossBar(m, { doc });
   const root = doc.body.children[0];
   assert.equal(root.children[0].textContent, 'Valkynaz Ruhn the Storm-Crowned - Warden of the Burning Gate');
-  assert.equal(root.children[1].className, 'wb-boss-trials'); assert.equal(root.children[1].textContent, 'Colossal - Grudge-Bearer');
+  const row = root.children[2];
+  assert.equal(row.className, 'wb-boss-marks');
+  assert.deepEqual(row.children.map((c) => c.children[0].children[1].textContent), ['Storm-Crowned', 'Colossal', 'Grudge-Bearer']);
   drawGateBossBar(u, { doc });
   assert.equal(root.children[0].textContent, 'Valkynaz Ruhn - Warden of the Burning Gate');
-  assert.equal(root.children[1].style.display, 'none');
+  assert.equal(row.style.display, 'none');
   destroyGateBossBar();
 });
 
@@ -278,6 +280,6 @@ test('WB8c the seams, by source: the relay births each fight on the day\'s marks
   assert.match(gc, /shape = s\.fell \? null : telegraphShape\(s\.atk, s\.phase, t, P\);/);
   assert.match(gc, /poolDraw = pools\.length \? poolShapes\(pools, t, poolColor\(P\)\) : NONE;/);
   assert.match(gc, /const w = sz\.w \* body\.scale \* P\.size, h = sz\.h \* body\.scale \* P\.size;/);
-  assert.match(read('src/ui/enhancedPlusStyle.js'), /body \.wb-boss-trials \{/);
+  assert.match(read('src/ui/enhancedPlusStyle.js'), /body \.wb-boss-marks \{/);   // WB9a: the marks' row under his health, dressed where the trials' line was
   assert.ok(windupOf(ATTACKS.meteor, 2) > 0 && COURT_CENTRE.length === 3);
 });
