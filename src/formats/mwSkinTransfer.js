@@ -20,6 +20,16 @@
 // A body part that is RIGID (some mods' are) is a skin of one bone: its attach bone, with the mirror and BoneOffset
 // the rigid path applies (rules 13 and 14) as the inverse bind, so a garment over it rides that bone exactly as the
 // part does.
+//
+// MW-BRIG3 (2026-09-29, Mac on MW-BRIG2: "completely broke the morrowind torso" - "it's placed lower where the torso
+// should be", worn only, on a male body): THE DEFECT WAS WHERE IT SAT, BOTH TIMES. The skinning above holds the
+// garment to the body in every pose, and it holds it exactly as far from the body as it started - so a garment that
+// starts too LOW stays too low, and it hides the chest skin it was meant to cover (the cuirass slot shadows it), which
+// leaves the upper torso empty under the neck. Both MW-BRIG1 and MW-BRIG2 took the height from the modeller's scene
+// on faith (tools/bakeBrigandine.mjs: that scene's body "is" the skeleton at rest), and nobody measured the result on a
+// real body. The brigandine itself says the scene's body was not this one: its collar peaks at z 94.8 and its belt at
+// z ~67, well under a Morrowind man's neck and waist. So the height is now MEASURED ON THE WEARER (fitLift below): the
+// garment's top meets the top of the body part it hides, in the same rest pose the skin is solved in.
 
 import { GRAPH_ROOT } from './mwSkin.js';
 
@@ -43,6 +53,34 @@ export function sourceSkin(batch, { attachRef = null, mirrored = false, boneOffs
       bones: [{ ref: attachRef, name: '', invBind: { a, t }, indices: Array.from({ length: n }, (_, i) => i), weights: new Array(n).fill(1) }],
     },
   };
+}
+
+/**
+ * MW-BRIG3: THE LIFT that puts a garment on the wearer. Morrowind is Z-up; this answers how far along +Z the garment
+ * must move so that its highest point meets the highest point of `anchors` - the body part it hides, SKINNED in
+ * `ctx`'s pose (the rest pose the transfer is solved in). Skinned, never read raw: a retail part's authored vertices
+ * are part-local, "a torso on the ground" (Morrowind-Rules.md MW-D21). A pure translation, so the garment's shape is
+ * the modeller's to the last vertex. Null with no garment or no anchor vertex: nothing to measure against.
+ * `ctx` is { skeleton, pose, mats, skinBatch }; the anchors are skins (sourceSkin).
+ */
+export function fitLift(garments, anchors, ctx) {
+  let top = -Infinity;
+  for (const g of garments) for (let i = 2; i < g.positions.length; i += 3) top = Math.max(top, g.positions[i]);
+  let anchorTop = -Infinity;
+  for (const a of anchors) {
+    const p = new Float32Array(a.positions.length);
+    ctx.skinBatch(a, ctx.skeleton, ctx.pose, ctx.mats, p, null);
+    for (let i = 2; i < p.length; i += 3) anchorTop = Math.max(anchorTop, p[i]);
+  }
+  if (!Number.isFinite(top) || !Number.isFinite(anchorTop)) return null;
+  return { lift: anchorTop - top, top, anchorTop };
+}
+
+/** The garment batch moved `lift` along +Z, on a copy: the bound batch is never written. */
+export function liftBatch(batch, lift) {
+  const positions = Float32Array.from(batch.positions);
+  for (let i = 2; i < positions.length; i += 3) positions[i] += lift;
+  return { ...batch, positions };
 }
 
 /** Every vertex's influences, as [boneIndex, weight] pairs, read off the skin's per-bone lists. */

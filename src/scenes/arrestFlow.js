@@ -37,8 +37,9 @@ import {
   TEXT_FREE_TO_GO, TEXT_BANISHED, TEXT_HOW_CONVINCE,
   lowerRepForCrime, surrenderToCityGuards, startCourt, pleaGuilty,
   pleaNotGuilty, resolveGuiltyVerdict, raiseRepForSentence, TEXT_EXECUTED,
-  guildRescue,
+  guildRescue, setCrimeCommitted,
 } from '../systems/court.js';
+import { isTransformedLycanthrope, frightenChance, frightenRoar } from '../systems/lycanthropy.js';   // WERE-FRIGHT: the beast cannot surrender
 import { guildOfFaction, membershipOf, activeMemberships } from '../systems/guilds.js';   // CR1: the rescue arms' member reads
 import { resolveVariantGuild } from '../systems/guildVariants.js';
 import { advanceOwnMinutes, MINUTES_PER_DAY, ownMinutes, trustedWorldMinutes } from '../systems/worldTick.js';   // LIVED1: a sentence is served on the prisoner's own clock, online too
@@ -54,6 +55,11 @@ import { PrisonScreenWindow, CourtScreenWindow } from '../ui/prisonScreen.js';  
  *  - four hours, on EVERY release. It is the mechanism by which the guards
  *  are gone and the day has moved when you step back outside. */
 export const RELEASE_MINUTES = 240;
+
+/** WERE-FRIGHT: the beast's halt box and its two outcomes, the port's own words (DFU has no such box). */
+export const BEAST_HALT_LINES = Object.freeze(['Halt! The watch has you cornered.', 'You cannot surrender in this form.']);
+export const BEAST_FRIGHTENED_TEXT = 'The watch flees in terror. Your crime is forgotten.';
+export const BEAST_STOOD_TEXT = 'The watch stands its ground.';
 
 // AUDIT 21 F8: `advanceDays` used to default to `() => {}` AND BOTH HOSTS
 // CONSTRUCTED THE FLOW WITHOUT IT, so a thirty-day sentence advanced the
@@ -109,6 +115,12 @@ export function createArrestFlow({
     const m = g ? membershipOf(activeMemberships(playerEntity), g) : null;
     return m ? (m.rank ?? 0) : null;
   },
+  // WERE-FRIGHT: the host's three doors for the beast's roar - the HUD line, the roar itself, and every watchman
+  // it commands to run (each of the host's guard pools; answers how many ran). A host that hands none still gets
+  // the box, the roll and the crime; nothing is said, heard or run from.
+  say = () => {},
+  playSound = () => {},
+  watchFlees = () => 0,
 }) {
   /** AUDIT 39 (#21): every DFU consumer of this number reads
    *  PlayerGPS.CurrentRegionIndex AT THE MOMENT it acts - the crime,
@@ -247,9 +259,13 @@ export function createArrestFlow({
     lowerRepForCrime(playerEntity, region(), crimeId());
   }
 
-  function onGuardHit(dmg, applyDamage) {
+  function onGuardHit(dmg, applyDamage, { guardLevel = null } = {}) {
     if (crimeId() === 0) return false;
     if (inCourt()) return true;
+    // WERE-FRIGHT: a transformed lycanthrope is halted like anyone - the same one moment, the same reputation lost
+    // for the crime - but it is never asked to surrender; it may roar instead (beastHaltBox, below). `guardLevel` is
+    // the striking watchman's, for the roll.
+    const beast = isTransformedLycanthrope(playerEntity);
     if (!playerEntity.haveShownSurrenderDialogue) {
       playerEntity.haveShownSurrenderDialogue = true;
       chargeOnce();
@@ -263,10 +279,18 @@ export function createArrestFlow({
       // cleared crime, or a load) by being marked done, and it drains on the next frame - a key, or the enhanced
       // dialog's button, that reaches it before then must not surrender a character the box never asked (a load's,
       // wanted for a crime of its own) nor land the departed guard's blow on them.
-      const box = new ChoiceWindow({
+      const box = beast ? beastHaltBox(() => box, applyDamage, guardLevel) : new ChoiceWindow({
         lines: text(TEXT_SURRENDER, 'Halt! You are under arrest. Do you surrender?'),
         options: [
-          { code: 'KeyY', label: 'Y - surrender', action: () => { if (surrenderBox !== box) return; awaitingSurrenderAnswer = false; if (crimeId() === 0) return; if (surrenderToCityGuards(playerEntity, region(), true, { setHealth1: () => { playerEntity.health = 1; } })) startCourtFlow(); } },
+          { code: 'KeyY', label: 'Y - surrender', action: () => {
+            if (surrenderBox !== box) return;
+            awaitingSurrenderAnswer = false;
+            if (crimeId() === 0) return;
+            // WERE-FRIGHT: the question was a man's, and the answer is the beast's - a change while it stood (online
+            // the moon's round runs under it) cannot walk into court; it fights, as a beast must
+            if (isTransformedLycanthrope(playerEntity)) { applyDamage(); return; }
+            if (surrenderToCityGuards(playerEntity, region(), true, { setHealth1: () => { playerEntity.health = 1; } })) startCourtFlow();
+          } },
           { code: 'KeyN', label: 'N - fight on', action: () => { if (surrenderBox !== box) return; awaitingSurrenderAnswer = false; if (crimeId() !== 0) applyDamage(); } },
         ],
       });
@@ -278,11 +302,56 @@ export function createArrestFlow({
       townTalk.showOverlay(box);
       return true;
     }
-    // Shown before: a fatal blow forces the surrender attempt
-    if (playerEntity.health <= dmg) {
+    // Shown before: a fatal blow forces the surrender attempt - a man's. WERE-FRIGHT: a beast cannot surrender, so
+    // the blow that would kill it lands.
+    if (!beast && playerEntity.health <= dmg) {
       const accepted = surrenderToCityGuards(playerEntity, region(), false, { setHealth1: () => { playerEntity.health = 1; } });
       if (accepted) { startCourtFlow(); return true; }
     }
+    return false;
+  }
+
+  /**
+   * WERE-FRIGHT (2026-09-29, Mac: "being a werewolf has a different interaction with guards ... you cannot
+   * surrender, but instead a chance to frighten"): THE BEAST'S HALT. The surrender question's own box in every way
+   * but its answers - it withholds the blow while it stands, a load or a cleared crime withdraws it, and it is shown
+   * once a watch - and its answers are the beast's: F roars at the watch, N fights on.
+   *
+   * The roar (Mac's picks, of the options offered): the strain's bark is heard, and `frightenChance` is rolled on the
+   * beast's level against the striking guard's. Frightened, the watch gives the beast up entirely - the crime is
+   * forgotten and every watchman the host has runs (`watchFlees`). Unafraid, it stands its ground and the blow the
+   * question withheld lands, exactly as N lands it. `box` is read through a getter because the window must exist
+   * before its answers can ask whether it is still the question standing.
+   */
+  function beastHaltBox(boxOf, applyDamage, guardLevel) {
+    return new ChoiceWindow({
+      lines: [...BEAST_HALT_LINES],
+      options: [
+        { code: 'KeyF', label: 'F - frighten', action: () => { if (surrenderBox !== boxOf()) return; awaitingSurrenderAnswer = false; if (crimeId() !== 0) roarAtTheWatch(applyDamage, guardLevel); } },
+        { code: 'KeyN', label: 'N - fight on', action: () => { if (surrenderBox !== boxOf()) return; awaitingSurrenderAnswer = false; if (crimeId() !== 0) applyDamage(); } },
+      ],
+    });
+  }
+
+  /** WERE-FRIGHT: the roar and its roll. Answers whether the watch fled. AUDIT WERE-FRIGHT F2: the roar is the FORM's,
+   *  read at the answer as the man's Y reads it - online the change can end under the box, and a man has no roar: he
+   *  fights (the blow lands, as N lands it), his crime untouched and the watch unrouted. */
+  function roarAtTheWatch(applyDamage, guardLevel) {
+    if (!isTransformedLycanthrope(playerEntity)) { applyDamage(); return false; }
+    const roar = frightenRoar(playerEntity);
+    if (roar != null) playSound(roar);
+    const chance = frightenChance(playerEntity.level, guardLevel ?? playerEntity.level);
+    if (rolls() * 100 < chance) {
+      // The crime is forgotten through the one setter (V4) - transformed, it writes None whatever it is handed. The
+      // watch does NOT walk away on that alone: GUARD1's fourth clause keeps it standing while the player is a beast
+      // (cityGuards update), so the host sends it running.
+      setCrimeCommitted(playerEntity, 0);
+      watchFlees();
+      say(BEAST_FRIGHTENED_TEXT);
+      return true;
+    }
+    say(BEAST_STOOD_TEXT);
+    applyDamage();
     return false;
   }
 
@@ -692,9 +761,11 @@ export function createArrestFlow({
   }
   /** REP1: "come quietly" at the watch's stop - the known criminal surrenders to a Criminal Conspiracy (DFU's own charge
    *  for the levy this stop replaces), charged once, and goes to court as a voluntary surrender does. A crime already
-   *  held is the one answered. Answers whether a court opened. */
+   *  held is the one answered. Answers whether a court opened. AUDIT WERE-FRIGHT F4: never a beast's - the stop is never
+   *  made of one (standingHost: nobody's face), and a change under its box (online) leaves the surrender WERE-FRIGHT
+   *  denies a beast; the stop lapses with nothing written, charged or tried, as if it had not begun. */
   function surrenderToChallenge() {
-    if (inCourt()) return false;
+    if (inCourt() || isTransformedLycanthrope(playerEntity)) return false;
     if (crimeId() === 0) playerEntity.crimeCommitted = CRIMES.Criminal_Conspiracy;   // the levy's own write (WERE-LEVY: the field)
     playerEntity.haveShownSurrenderDialogue = true;
     chargeOnce();

@@ -165,7 +165,7 @@ test('ROAD-B: both mode-machine hosts offer the indoor arm the call before the s
     assert.ok(fn.indexOf('if (modes?.spawnCityGuardsInside?.(immediate)) return;') >= 0
       && fn.indexOf('spawnCityGuardsInside') < fn.indexOf('cityGuards.spawnCityGuards('),
       `${host}: the indoor arm first, the street pool second`);
-    assert.match(s, /onGuardHit: \(dmg, apply\) => arrestFlow\.onGuardHit\(dmg, apply\)/,
+    assert.match(s, /onGuardHit: \(dmg, apply, hit\) => arrestFlow\.onGuardHit\(dmg, apply, hit\)/,   // WERE-FRIGHT: with the striker's level
       `${host}: and the indoor watch reaches the host's arrest interception`);
   }
   // the FLAG this closes
