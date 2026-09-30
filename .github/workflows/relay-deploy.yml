@@ -57,7 +57,35 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # SCALE1 (2026-09-30, the scaling audit): THE SUITE BEFORE A DEPLOY THAT
+  # DROPS EVERY PLAYER - and only then. Most pushes deploy nothing here
+  # (the relay is already current), so the suite runs only when the
+  # version in source differs from the live one; the deploy job below
+  # asks the same question again and decides as it always did.
+  drift:
+    runs-on: ubuntu-latest
+    outputs:
+      deploying: ${{ steps.d.outputs.deploying }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: d
+        run: |
+          v=$(grep -oP "^export const RELAY_VERSION = '\\K[^']+" src/net/wire.js || true)
+          got=$(curl -fsS --max-time 15 'https://daggerfall-online.mackcothran.workers.dev/health' | sed -n 's/.*"version":"\([^"]*\)".*/\1/p' || true)
+          if [ -n "$v" ] && [ "$v" != "$got" ]; then echo "deploying=true" >> "$GITHUB_OUTPUT"; else echo "deploying=false" >> "$GITHUB_OUTPUT"; fi
+          echo "source says '${v}', live says '${got:-unreachable}'"
+
+  verify:
+    needs: drift
+    if: needs.drift.outputs.deploying == 'true'
+    uses: ./.github/workflows/verify.yml
+    with:
+      build: false
+
   deploy:
+    needs: [drift, verify]
+    # the suite passed, or had nothing to pass because nothing deploys (skipped)
+    if: ${{ !cancelled() && needs.drift.result == 'success' && (needs.verify.result == 'success' || needs.verify.result == 'skipped') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
