@@ -1704,6 +1704,56 @@ CAMP-SIGHT, CAMP-TRAVEL, CAMP-NOTIMER, TTL1, WORLD1's "True persistance"); the d
   step added, the view-down word's record AUDIT OW5 G1's), `ow6c.json` (19), `ow6r.json` (10), `ow6l.json` (33), `ow6h.json`
   (12) - all dead; 19 older records re-aimed by content, every list naming an edited test re-run on a passing baseline.
 
+## OW-WOD - the massifs' lag, the massifs on the route, the towns' ring (2026-09-29, Mac)
+
+Mac: *"There's an issue with the overworld. 1. When near mountains from WOD, the game lags insane 2. Pathing doesnt go
+around mountains 3. Pathing doesnt follow the road around cities"*. Three root causes, each measured before it was
+fixed. "Mountains from WOD" are World of Daggerfall's nine `WOD_Mountain_*` layouts, not the terrain: 8 to 36 of model
+60711-60720's rocks each, scaled by hundreds and thousands, reaching over a kilometre from the site - and object 2,
+the rock scaled by a million 83 km under it (`03-World/World-Of-Daggerfall.md`, AUDIT BRANCH B1).
+
+- **OW-WOD-LAG, the lag (1).** The collider filed a WIDE triangle (over 64 fine cells) on a 64-unit XZ grid (AUDIT
+  BRANCH B1's memory fix), so a sphere query near a massif took every face over its 192-unit column, above and below
+  alike, and tested each exactly: 150 to 1,700 faces a query on a stand-in rock over the real prefab transforms, 1.2%
+  of them within reach in three dimensions. The player's and every nearby foe's `move()` runs several spheres a 1/60
+  step: 1.5 to 5.7 ms a body a step, against 0.04 for one boulder, and a slow frame runs more steps. Now each wide face
+  carries its own 3-D box and each bucket a bounding-volume tree over its wide faces (binned surface-area splits;
+  `player/collider.js` wideTree), which a sphere or a ray walks for the faces it can reach: 0.1 to 0.37 ms a `move()` on
+  the same bench. Exact as the grid was - 0 mismatches against brute force over spheres, rays and a body standing on
+  the faces, the giant's included (`test/audit_wod_branch.test.js`, `test/colliderkeys.test.js`, `test/ow_wod.test.js`).
+  One entry a face however wide, so B1's memory law holds. The tree is built inside the pixel's build
+  (`collider.settle`, 7 to 32 ms warm on the stand-in's 2,880 and 11,497 faces), never by a frame in play; a later mesh
+  raises it again on the query that needs it. And the road-clearance walk (`world/roadClearance.js boxNearPath`) asks
+  only the map's own pixels: the giant's box spans thousands of pixels each way, mostly off the map, and the walk took
+  46 to 121 ms of main thread a mountain pixel's build.
+- **OW-WOD-PATH, the route through the massif (2).** The Overworld's planner (`systems/travelRoute.js`) knew only the
+  MAPS climate's peaks (OW-MOUNTAINS: Mountain, 226, and a steep step), so a route walked straight into a WOD massif and
+  the walker ground against its rocks - where the lag was. `WodWorld.mountainPixels` marks the pixels a Mountains
+  instance names (2,492 on the shipped list; three more lie off the map), the host drops those a road or a track crosses
+  (the mod never stands a site on a path's pixel, LocationLoader.cs:146-151), and `routeGround.setRocks` makes them
+  peaks: an open step into one is refused, the start's own is walked out of, a spot inside one is refused as among the
+  peaks. The rock fields are not massifs (their pieces within ~350 m; a tenth of the map) - the traveller's steering
+  rounds them. A massif's rocks reach past its pixel; the pixel is what the planner refuses, the steering the rest.
+- **OW-TOWN-RING, the road round the town (3).** Basic Roads' bytes meet at the hub of a location's pixel - Daggerfall
+  (207,213) and Wayrest (859,244) are N|SE|W - while the painter stops the arms at the town and paves its border ring.
+  The route's legs were aimed at pixel middles, so a route through a town pixel aimed a leg at the town's heart.
+  Travel Options itself never does: a followed leg into a location pixel is aimed at its border rect (BeginPathTravel
+  :700) and the follow key walks the ring corner to corner (CircumnavigateLocation :753-797). A route through a
+  location's pixel now walks its ring (`routeLegs` `ringAt`; `travelOptions.js ringPassPoints`): in on the side it
+  arrives from, round the shorter way through the mod's corners, out on the side it leaves by; the run before it ends
+  at the pixel before. The rects are the mod's own (`locationRectsOf`) over the tile rect the pixel's build stamps
+  (`setLocationTiles`, from the location's blocks when the pixel is not built yet). A resume in the town's pixel skips
+  no ring point, and no ring point is taken for a road join.
+
+**Left as it is, recorded.** The planner still prices no climb on open ground: its terrain law is OW-MOUNTAINS' - the
+Mountain climate and a steep step (TV_STEEP_RISE 16) between two pixels' small-heightmap bytes. MountainWoods (230),
+a rise under 16 a pixel however long, and the large heightmap's relief inside a pixel pass it. The heightmaps are the
+player's own (WOODS.WLD); none is in this workspace, so no threshold was tuned blind. A journey that starts inside a
+town joins its first road from the pixel's middle, as before.
+
+**Proof.** `test/ow_wod.test.js` (10), `tools/mutants/owwod.json` (18, all dead); the collider's own pins moved to the
+tree (`test/audit_wod_branch.test.js`, `test/colliderkeys.test.js`), the hosts' lifted code and pins to the new lines.
+
 ## Open, for Mac
 
 All three were DECIDED AS LEAD on 2026-09-28 (Mac: "Your the lead and this is your baby"),

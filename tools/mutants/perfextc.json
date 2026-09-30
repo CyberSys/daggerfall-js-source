@@ -604,8 +604,8 @@
  {
   "name": "PERF-EXT25-a-wide-triangle-is-filed-under-the-transposed-coarse-cell",
   "file": "src/player/collider.js",
-  "old": "      const k = cellKey(gx, gz);   // PERF-EXT25\n      let cell = bucket.coarse.get(k);",
-  "new": "      const k = cellKey(gz, gx);   // PERF-EXT25\n      let cell = bucket.coarse.get(k);",
+  "old": "  tri[3] = [Math.min(a[0], b[0], c[0]), Math.min(a[1], b[1], c[1]), Math.min(a[2], b[2], c[2])];",
+  "new": "  tri[3] = [Math.min(a[2], b[2], c[2]), Math.min(a[1], b[1], c[1]), Math.min(a[0], b[0], c[0])];",
   "tests": [
    "test/colliderkeys.test.js"
   ]
@@ -649,8 +649,8 @@
  {
   "name": "PERF-EXT25-the-point-query-reads-one-coarse-column",
   "file": "src/player/collider.js",
-  "old": "        const cell = bucket.coarse.get(cellKey(cx + ox, cz + oz));   // PERF-EXT25",
-  "new": "        const cell = bucket.coarse.get(cellKey(cx, cz + oz));   // PERF-EXT25",
+  "old": "|| ly + r < box[o + 1] - BOX_SKIN ||",
+  "new": "|| ly + r < box[o + 2] - BOX_SKIN ||",
   "tests": [
    "test/colliderkeys.test.js",
    "test/perfcol1.test.js",
@@ -667,8 +667,8 @@
  {
   "name": "PERF-EXT25-the-rays-coarse-walk-reads-transposed-cells",
   "file": "src/player/collider.js",
-  "old": "      const cell = bucket.coarse.get(cellKey(cx, cz));   // PERF-EXT25",
-  "new": "      const cell = bucket.coarse.get(cellKey(cz, cx));   // PERF-EXT25",
+  "old": "d = dir[k], ok = k === 0 ? ox : k === 1 ? oy : oz;",
+  "new": "d = dir[k], ok = k === 0 ? oz : k === 1 ? oy : ox;",
   "tests": [
    "test/colliderkeys.test.js",
    "test/perfcol1.test.js",

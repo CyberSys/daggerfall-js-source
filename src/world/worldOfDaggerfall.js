@@ -139,6 +139,11 @@ export const browserWodSources = Object.freeze({
 export const WOD_RETRY_MAX = 12;
 const FAILED = Symbol('failed');   // a fetch that failed, as against `null`: a region the mod ships no folder for
 
+/** OW-WOD-PATH: the map's pixels, and the prefabs that are a massif - never the Rocks fields, on a tenth of the map:
+ *  a boulder field is walked through (its pieces within ~350 m of the site, the traveller's steering rounds them). */
+const WOD_MAP_W = 1000, WOD_MAP_H = 500;
+export const WOD_MOUNTAIN_PREFAB = /^WOD_Mountain_/;
+
 export class WodWorld {
   /**
    * @param {{regions:() => number[], pack:(r:number) => Promise<?Uint8Array>,
@@ -300,6 +305,27 @@ export class WodWorld {
    * @param {Array<object>} picks - picksFor's answer
    * @param {number[]} averages - the kernel's, one per pick
    */
+  /** OW-WOD-PATH (2026-09-29, Mac: "Pathing doesnt go around mountains"): THE PIXELS A MOUNTAINS LAYOUT NAMES - one
+   *  byte a map pixel (1000 x 500, x + y * 1000), 1 where any instance the session holds is a WOD_Mountain_ prefab. Those
+   *  layouts stand eight to thirty-six rocks scaled by hundreds and thousands, reaching over a kilometre from the site -
+   *  wider than the pixel - and the Overworld's route planner knew nothing of them: its peaks are the MAPS climate's
+   *  alone, so a route walked straight into the massif. The planner refuses an open step into one now, as into the
+   *  Mountain climate (systems/travelRoute.js routeGround `rocks`). Every instance the list holds, whether or not its
+   *  pixel's pick stands it (a road's byte refuses it there, and a road is walked wherever it goes anyway). Kept for
+   *  the list it was read from, and read again when a region lands. */
+  mountainPixels() {
+    const s = this.session;
+    if (this._mountains && this._mountains.session === s && this._mountains.count === s.count) return this._mountains.table;
+    const table = new Uint8Array(WOD_MAP_W * WOD_MAP_H);
+    for (let i = 0; i < s.count; i++) {
+      if (!WOD_MOUNTAIN_PREFAB.test(s.prefab[i] ?? '')) continue;
+      const x = s.worldX[i], y = s.worldY[i];
+      if (x >= 0 && y >= 0 && x < WOD_MAP_W && y < WOD_MAP_H) table[x + y * WOD_MAP_W] = 1;
+    }
+    this._mountains = { session: s, count: s.count, table };
+    return table;
+  }
+
   placements(picks, averages) {
     const out = { models: [], flats: [], lights: [], animals: [], spawners: [], stopped: false };
     picks.forEach((pick, i) => {

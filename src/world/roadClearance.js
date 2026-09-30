@@ -16,6 +16,7 @@
 // travelPaths.js, so a pin can drive it on a table.
 
 import { pathsDataPoint, MP_WORLD_UNITS, HALF_MP_WORLD_UNITS, P_SIZE, N, NE, E, SE, S, SW, W, NW } from '../systems/travelPaths.js';
+import { MAP_W, MAP_H } from './roadNetwork.js';   // OW-WOD-LAG: the map's own edges - no road lies past them
 
 /** Half a path's painted width - the band either side of a segment's centre line. */
 export const PATH_HALF_WIDTH = P_SIZE / 2;
@@ -55,8 +56,12 @@ export function boxNearPath(net, px, py, x0, z0, x1, z1, clearance = 0) {
   if (!net) return false;
   const g = PATH_HALF_WIDTH + clearance;
   const gx0 = x0 - g, gz0 = z0 - g, gx1 = x1 + g, gz1 = z1 + g;
-  const ix0 = Math.floor(gx0 / MP_WORLD_UNITS), ix1 = Math.floor(gx1 / MP_WORLD_UNITS);
-  const iz0 = Math.floor(gz0 / MP_WORLD_UNITS), iz1 = Math.floor(gz1 / MP_WORLD_UNITS);
+  // OW-WOD-LAG (2026-09-29, Mac: "When near mountains from WOD, the game lags insane"): ONLY THE MAP'S PIXELS ARE ASKED.
+  // Every World of Daggerfall Mountains layout carries a rock scaled by a million 83 km under its site (object 2), whose
+  // box spans thousands of pixels each way - most of them off the map - and this walk asked every one for a byte that
+  // is never there: 46-121 ms of main thread a mountain pixel's build, measured. A pixel off the map has no road.
+  const ix0 = Math.max(-px, Math.floor(gx0 / MP_WORLD_UNITS)), ix1 = Math.min(MAP_W - 1 - px, Math.floor(gx1 / MP_WORLD_UNITS));
+  const iz0 = Math.max(py - (MAP_H - 1), Math.floor(gz0 / MP_WORLD_UNITS)), iz1 = Math.min(py, Math.floor(gz1 / MP_WORLD_UNITS));
   for (let iz = iz0; iz <= iz1; iz++) {
     for (let ix = ix0; ix <= ix1; ix++) {
       const bits = pathsDataPoint(net, px + ix, py - iz);   // north (+z) is the row above: py - 1
