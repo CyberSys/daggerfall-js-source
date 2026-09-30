@@ -392,8 +392,10 @@ test('RR1 underworldExpulsion: the two guild classes - expulsion allowed, the jo
   // the expulsion: the squad through the host's seam, the lines on the outcome
   const spawned = [];
   setRrHostSeams({ spawnFoe: (mt, opts) => spawned.push([mt, opts.minDistance, opts.maxDistance]) });
-  const store3 = createFactionRep(new Map([[tg.factionId, { id: tg.factionId, rep: -3 }]]));
-  const m = { [tg.guildGroup]: { guild: tg.name, rank: 0, lastRankChange: -100 } };
+  // REP6 (the reputation overhaul: "probation below 0, and expulsion only below -10, with a warning first"): PIN MOVED -
+  // the expulsion is a review that finds the member already on probation and below -10 (DFU's: any review below zero)
+  const store3 = createFactionRep(new Map([[tg.factionId, { id: tg.factionId, rep: -11 }]]));
+  const m = { [tg.guildGroup]: { guild: tg.name, rank: 0, lastRankChange: -100, probation: true } };
   const moved = updateRank(m, tg, entity, store3, 0);
   assert.equal(moved.outcome, 'expulsion');
   assert.deepEqual(moved.lines, RR_UNDERWORLD.ThievesGuild.expulsion, 'TokensExpulsion');

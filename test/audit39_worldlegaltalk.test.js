@@ -68,6 +68,9 @@ test('AUDIT 39 (#21): the arrest flow reads its region live when the host hands 
   // fast travel, then commit the same crime again
   region = 9;
   player.haveShownSurrenderDialogue = false;
+  // REP2 (the reputation overhaul): the fast travel cleared the crime, and the chase's one charge with it (cityGuards.js
+  // clears `chargedCrime` the frame the crime is gone) - the crime at the destination is a new one, charged as itself
+  player.chargedCrime = 0;
   flow.onGuardHit(1, () => {});
   assert.equal(player.legalRep[9], -loss, 'the second province takes the second crime');
   assert.equal(player.legalRep[3], -loss, 'and the first is not charged twice');
@@ -91,12 +94,10 @@ test('AUDIT 39 (#21): the FATAL-BLOW surrender reads the live region too', () =>
   // on PlayerGPS.CurrentRegionIndex (PlayerEntity.cs:2313), the same
   // live read as LowerRepForCrime (:2286).
   //
-  // The discriminator is the arrest DECISION: an involuntary surrender
-  // is refused outright below -20 legal rep and taken outright above 0,
-  // and only the 0..-20 band rolls the classic RNG. Region 12 stands at
-  // +30, so under the live read the guards take the player in without a
-  // draw; keyed by the getter object instead, the standing reads 0 and
-  // the seeded odd draw refuses - the blow kills and no court opens.
+  // REP2 (the reputation overhaul, "Surrender is always honoured, unless you killed a watchman during that chase"): PIN
+  // MOVED - the arrest DECISION no longer reads the standing (DFU refused an involuntary surrender below -20 and rolled
+  // the classic RNG in 0..-20), so the region cannot be told apart by it: the arm is pinned by the arrest it makes and
+  // the region's live read by source (the count below), as the voluntary site always was.
   setSeed(3);
   let region = 3;
   const player = {
@@ -128,8 +129,8 @@ test('AUDIT 39 (#21): the FATAL-BLOW surrender reads the live region too', () =>
   // !voluntary), so its region argument has no behavioural tell. Hold
   // it at source with the other three.
   const a = read('src/scenes/arrestFlow.js');
-  assert.equal((a.match(/surrenderToCityGuards\(playerEntity, region\(\)/g) ?? []).length, 2,
-    'both surrender calls read the region live');
+  assert.equal((a.match(/surrenderToCityGuards\(playerEntity, region\(\)/g) ?? []).length, 3,
+    'every surrender call reads the region live - the box\'s, the fatal blow\'s and the watch\'s stop (REP1)');
   assert.doesNotMatch(a, /\(playerEntity, regionIndex[,)]/,
     'no consumer keeps the raw parameter - under the streaming host it is a Function');
 });

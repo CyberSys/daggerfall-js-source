@@ -131,7 +131,7 @@ import { dateFromClassicMinutes, dateString, dateTimeString } from '../systems/g
 // PX5: the pause clock reads THE ONE CLOCK directly (AUDIT 23 C2's
 // law - every host already reads this same module), so no host seam
 // is needed and no host can drift.
-import { worldMinutes } from '../systems/worldTick.js';
+import { worldMinutes, trustedWorldMinutes } from '../systems/worldTick.js';
 import { BUILD_TAG } from '../buildTag.js';
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { repaintKeepingScroll } from './domRepaint.js';
@@ -142,7 +142,11 @@ import { drawPixelGround } from './pixelGround.js';
 // renders the tab, so the front door still reads no game state.
 import { sheetModel } from './enhancedCharSheet.js';
 import { profPagesShown, PROF_PAGE_SECTIONS, drawProfessionsPage, drawStoresPage, resetProfPages } from './profPages.js';   // PROF1: the Professions and Stores pages, online
-import { affiliations } from '../systems/affiliations.js';   // GUILD-REP: the sheet's Affiliations box, on the Standing page
+import { affiliations } from '../systems/affiliations.js';
+import { legalRepOf } from '../systems/court.js';   // REP5: the law, region by region
+import { banishmentLeft, KNOWN_CRIMINAL_BELOW, pardonPrice, challengeFine } from '../systems/standing.js';
+import { legalStandingWord } from '../systems/legalBands.js';
+import { REGION_NAMES } from '../formats/mapsTables.js';   // GUILD-REP: the sheet's Affiliations box, on the Standing page
 import { enhancedHudScale as hudScaleNow, HUD_SCALE_MIN, HUD_SCALE_MAX } from './enhancedHud.js';   // PX30c
 import { playerEntity } from '../characters/playerEntity.js';
 // PX6: the Stats page's skill labels - the one home (systems/skills.js).
@@ -3702,11 +3706,11 @@ function statsSpecials(detail, m) {
   }
 }
 
-/** STANDING: the three reputation stores the game actually reads -
- *  the five named social groups (getReactionToPlayer's own inputs).
- *  Legal standing is PER REGION and the window does not know where
- *  you stand, so it stays with the court until a host hands a region
- *  seam - drawing a number without its region would be a lying row. */
+/** STANDING: the reputation stores the game actually reads - the five named social groups (getReactionToPlayer's own
+ *  inputs), the law of every region that knows the player's name, and the guilds. REP5 (the reputation overhaul): the
+ *  law was left out because "the window does not know where you stand" - so every row names its own region, which is
+ *  never a lying row: its band's word, its number, and what it costs (a banishment's days left, the watch knowing the
+ *  face). A region the law has never heard of is not listed. */
 const signedRep = (v) => el('span', `v${v > 0 ? ' won' : v < 0 ? ' bad' : ''}`, v > 0 ? `+${v}` : String(v));
 
 function statsStanding(detail) {
@@ -3717,7 +3721,40 @@ function statsStanding(detail) {
     r.append(el('span', 'k', SOCIAL_GROUP_NAMES[i]), signedRep(reps[i] ?? 0));
     detail.append(r);
   }
+  statsLaw(detail, playerEntity);
   statsGuilds(detail, playerEntity);
+}
+
+/** REP5: THE LAW, REGION BY REGION - every region with a standing other than a common citizen's, or a banishment. */
+export function statsLaw(detail, entity, { worldNow = trustedWorldMinutes() } = {}) {   // AUDIT REP F2
+  const rows = lawRows(entity, worldNow);
+  if (!rows.length) return;
+  detail.append(pxDivider('The law'));
+  for (const w of rows) {
+    const r = el('div', 'px-stat px-law');
+    r.append(el('span', 'k', w.region), el('span', 'v px-rank', w.note ? `${w.word} - ${w.note}` : w.word), signedRep(w.rep));
+    detail.append(r);
+  }
+}
+/** The law's rows, worst first: { region, rep, word, note }. */
+export function lawRows(entity, worldNow) {
+  const out = [];
+  const regions = new Set([...Object.keys(entity?.legalRep ?? {}).map(Number),
+    ...(entity?.regionConditions ?? []).map((r, i) => ((r?.severePunishmentFlags ?? 0) & 1 ? i : -1)).filter((i) => i >= 0)]);
+  for (const i of regions) {
+    if (!Number.isInteger(i) || i < 0) continue;
+    const rep = legalRepOf(entity, i);
+    // AUDIT REP F2: NaN is a banishment whose term is not known yet (online, the relay's clock unheard) - still a row
+    const left = banishmentLeft(entity, i, worldNow);
+    if (rep === 0 && left === 0) continue;
+    const days = Math.ceil(left / 1440);
+    const term = Number.isFinite(left) ? `, ${days} day${days === 1 ? '' : 's'} left` : '';
+    // the price of each: a pardon at the region's temple, a stop's fine on the street
+    const note = left !== 0 ? `banished${term} (a pardon: ${pardonPrice(entity, i)} gold)`
+      : rep < KNOWN_CRIMINAL_BELOW ? `known to the watch (a stop: ${challengeFine(entity, i, { worldNow })} gold)` : '';
+    out.push({ region: REGION_NAMES[i] ?? `Region ${i}`, rep, word: legalStandingWord(rep), note });
+  }
+  return out.sort((a, b) => a.rep - b.rep);
 }
 
 /** GUILD-REP (Mac: "we need to add guild reputation to our enhanced
@@ -3736,7 +3773,7 @@ export function statsGuilds(detail, entity) {
   }
   for (const a of book) {
     const r = el('div', 'px-stat px-guild');
-    r.append(el('span', 'k', a.affiliation), el('span', 'v px-rank', a.title), signedRep(a.rep));
+    r.append(el('span', 'k', a.affiliation), el('span', 'v px-rank', a.probation ? `${a.title} - on probation` : a.title), signedRep(a.rep));   // REP6
     detail.append(r);
   }
 }

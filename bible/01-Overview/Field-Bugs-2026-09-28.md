@@ -255,7 +255,9 @@ own map name and the lockpick record kept, a house the player owns never renamed
   sentence gives back nothing. DISC28-F restores the only recovery DFU has (the 112-day normalise) to online players -
   over an absence its recovery half alone (AUDIT TM-1, Mac: "Recovery only").
   Whether to soften the roll itself (the threshold, the chance, or a grace after release) is a design change and is
-  yours to call.
+  yours to call. [ANSWERED by REP1 (2026-09-29, Mac: *"Challenged on sight"*; `06-Systems/Standing-Arc.md`): the roll
+  is retired - a guard who sees a known criminal stops them, two game hours between stops, a day's grace after release,
+  and a served Conspiracy gives its charge back.]
 - **An online collapse charges no hour.** With the survival arc on Hard, an exhausted sleeper collapses every few game
   minutes until they rest, each collapse a death with foes about. The revival no longer causes this (DISC28-E); whether
   a collapse should ease the sleep need online is a design question.
@@ -469,4 +471,4 @@ killer a fix touched re-run.
 - Citations: `tools/citeMerge.mjs origin/main 408877576 --apply --struck` for the merge (224 moved); then
   `tools/citeShift.mjs --base 2a8b70b2a --apply --struck` once over the audit's fixes (318 moved); by hand, by
   content: chargenSession.js's overlayHover continuation (twice - a bare `(:N)` on its own line, which neither
-  mapper can pair) and audit58_pins' `court.js:206-207`; `discovery.js:83` still names the re-discover it means.
+  mapper can pair) and audit58_pins' `court.js:228-229`; `discovery.js:83` still names the re-discover it means.

@@ -556,6 +556,25 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     return Math.acos(Math.max(-1, Math.min(1, cos))) * 180 / Math.PI;
   }
 
+  /** REP1: THE GUARD WHO SEES YOU. The witness arm's own eye (range GUARD_NPC_SPAWN_RANGE, facing within
+   *  GUARD_SEEN_ANGLE, the ray from the NPC's eye to the player's chest) asked of the town's GUARD NPCs alone, with the
+   *  line CLEAR - the watch stops a known criminal it can actually see, never through a wall. Answers the pool entry, or
+   *  null. The pool is the host's live persons in the player's frame (spawnCityGuards's own). */
+  function guardSeesPlayer({ playerFeet, pool = [] }) {
+    for (const p of pool) {
+      if (!p?.guard) continue;
+      const toPlayer = [playerFeet[0] - p.pos[0], playerFeet[1] - p.pos[1], playerFeet[2] - p.pos[2]];
+      const dist = Math.hypot(...toPlayer);
+      if (dist > GUARD_NPC_SPAWN_RANGE) continue;
+      if (angleDeg(toPlayer, [Math.sin(p.fwdYaw), 0, Math.cos(p.fwdYaw)]) > GUARD_SEEN_ANGLE) continue;
+      const eye = [p.pos[0], p.pos[1] + 0.7, p.pos[2]];
+      const dir = [toPlayer[0] / (dist || 1), (toPlayer[1] + 0.6) / (dist || 1), toPlayer[2] / (dist || 1)];
+      const hit = collider.raycast(eye, dir, dist);
+      if (!Number.isFinite(hit) || hit >= dist - 1e-3) return p;
+    }
+    return null;
+  }
+
   /** DISC19-F: THE WATCH DEFENDS THE TOWN (systems/townWatch.js
    *  decides when; this is the arrival). The crime response's own two
    *  arms, with the defenders minted as the player's allies and sent at
@@ -820,6 +839,9 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
       if (fromPlayer) {
         setCrimeCommitted(playerEntity, CRIME_MURDER);   // V4: through the one setter (SuppressCrime)
         tallyCrimeGuildRequirements(playerEntity, false, 1);
+        // REP2: a watchman fell to the player in this chase - the one case the watch no longer takes a beaten
+        // criminal alive (court.js surrenderToCityGuards). Cleared with the crime (update, below).
+        playerEntity.watchSlain = true;
       }
       // AUDIT 24 (wave 38): EnemyDeath.CompleteDeath, through the one
       // home (this was the second copy of exteriorFoes' mint, to the
@@ -964,6 +986,9 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     if (playerEntity.haveShownSurrenderDialogue && !anyWatchStanding()) {
       playerEntity.haveShownSurrenderDialogue = false;
     }
+    // REP2: THE CHASE ENDS WITH THE CRIME. Whatever cleared it - a court's release, the town's edge, a fast travel, a
+    // load - the crime's one charge (arrestFlow.js chargeOnce) and a slain watchman's refusal (court.js) end with it.
+    if (!playerEntity.crimeCommitted) { playerEntity.chargedCrime = 0; playerEntity.watchSlain = false; }
     if (countdown > 0) {
       countdown -= dt;
       // PlayerEntity.cs:355-359 verbatim: the arrival is gated on
@@ -1566,7 +1591,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     releaseGuardBatch(g);
     g.dead = true;   // no `corpse` - a removed guard is destroyed, not killed
   }
-  return { guards, spawnCityGuards, makeNpcGuardsIntoEnemies, anyWatchStanding, update, offsetAll, collectPixel, clearLive, resolvePlayerHit, resolveCivilianHit, playerSpares, playerSparesPerson, activeCount, summonDefenders, standDefender, dismissDefenders, defenderCount, lootTargets, hoverName, hoverContents, liveTargets, liveHoverName, takeLoot, pileBody: (key) => pileBody(corpseEntryFor(guards, key, 'guardCorpse', corpseLens)), snapshotWorld, restoreWorld, removeGuard, handleAttackFromPlayer,   // LOOT-STACK: a body as the loot window's tab
+  return { guards, spawnCityGuards, makeNpcGuardsIntoEnemies, anyWatchStanding, guardSeesPlayer, update, offsetAll, collectPixel, clearLive, resolvePlayerHit, resolveCivilianHit, playerSpares, playerSparesPerson, activeCount, summonDefenders, standDefender, dismissDefenders, defenderCount, lootTargets, hoverName, hoverContents, liveTargets, liveHoverName, takeLoot, pileBody: (key) => pileBody(corpseEntryFor(guards, key, 'guardCorpse', corpseLens)), snapshotWorld, restoreWorld, removeGuard, handleAttackFromPlayer,   // LOOT-STACK: a body as the loot window's tab
     /** RR2: PlayerEntity.SpawnCityGuard(position, direction) (PlayerEntity.cs:678-694) for a caller
      *  outside the watch's own call - the ONE watchman minted where a walker stood, facing their
      *  way, hostile to the player. Resolves to the guard record (or null when the world moved on). */
