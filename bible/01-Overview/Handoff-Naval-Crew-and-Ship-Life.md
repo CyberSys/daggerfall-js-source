@@ -31,6 +31,25 @@ log it for another session". This page is that log.
 | D - LIVING CREW | 4, 5 (seamless boarding) | **parked**, `7feab89ff` on `ccr-08848d60-ieuci5-living-crew` |
 | E - SHIP-LIFE | 1 | **not started** - the research and design are below |
 
+## First: the PR is behind main
+
+When this page was written, `main` (`066fe8a5c`) was 31 commits ahead of
+the PR: #444, #457, #458, #460, #461 and #462. A trial merge conflicted in
+72 files:
+- the bible's citations;
+- citation comments in `src/`;
+- the pins and mutant records that quote them.
+
+It was left alone because of Mac's pause. Bring it in before anything
+else. Follow the recipe this branch's earlier merges used:
+1. Merge `origin/main`.
+2. Resolve each hunk by content, not by number.
+3. On the conflict-free tree, run `node tools/citeMerge.mjs origin/main
+   <our-head> --apply` once, before the merge commit.
+4. Fix whatever CD4 names.
+5. Recount the Testing page's suite line.
+6. Run the full suite.
+
 ## Slice D - LIVING CREW, parked
 
 **Where it is.** The single commit `7feab89ff` on the branch
