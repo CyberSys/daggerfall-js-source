@@ -656,7 +656,7 @@ export class PlayerMotor {
    *
    *  `pos` stays the simulation truth everywhere else - the collider,
    *  the rays, activation - exactly as `eye` stays it for first
-   *  person. The focal's ceiling probe (mwCamera.js:226-236) rides
+   *  person. The focal's ceiling probe (mwCamera.js:228-238) rides
    *  this too and still clears: the filter is never more than
    *  STEP_OFFSET off the raw height and only ever trails heights the
    *  capsule itself just occupied. */
