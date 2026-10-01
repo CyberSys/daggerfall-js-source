@@ -82,7 +82,7 @@ test('WX2 arrival gate: the rain holds off until the front is mostly in, then fi
   assert.equal(s.intensity, 0, 'dry until the window opens');
   // three quarters in: some rain, not all
   s = run(f, 'rain', 0.75, SETTLE);
-  assert.ok(s.intensity > 0.05 && s.intensity < s.peak, `part way in, part of the peak (${s.intensity.toFixed(3)} of ${s.peak.toFixed(3)})`);
+  assert.ok(s.intensity > s.peak * 0.2 && s.intensity < s.peak, `part way in, part of the peak (${s.intensity.toFixed(3)} of ${s.peak.toFixed(3)})`);   // PIN MOVED (RAIN-SPRINKLE): of its own peak - a seed may roll a sprinkle
   assert.equal(s.shown, 'rain'); assert.equal(s.kind, 'rain');
   // landed: the peak, under the wander
   s = run(f, 'rain', 1, SETTLE);
@@ -97,7 +97,7 @@ test('WX2 arrival gate: the rain holds off until the front is mostly in, then fi
 test('WX2 first tick: a boot into rain is rain - the first sample snaps, every later one eases', () => {
   const f = createWeatherFront({ seed: 5 });
   const s = f.tick({ weather: 'rain', arrival: 1, tsec: 0 });
-  assert.ok(s.intensity > 0.1, 'the first tick lands on its target whole');
+  assert.ok(s.intensity > 0 && Math.abs(s.intensity - s.peak * wander(0, f.state().episode.phase)) < 1e-9, 'the first tick lands on its target whole');   // PIN MOVED (RAIN-SPRINKLE): its target, not 0.1 - a seed may roll a sprinkle
   assert.equal(s.changed, false, 'the first word is not a cut');
   assert.equal(s.from, 'rain', 'and the terms have nothing to cross from');
   assert.equal(s.shown, 'rain');
@@ -144,7 +144,7 @@ test('WX2 a change of kind: the old kind thins out before the new fills in, and 
   assert.ok(at.intensity < 0.02, `the switch of kind starts the new count from nothing (${at.intensity})`);
   const late = run(f, 'snow', 1, SETTLE);
   assert.equal(late.shown, 'snow'); assert.equal(late.kind, 'snow');
-  assert.ok(late.intensity > 0.1);
+  assert.ok(late.intensity >= late.peak * WANDER_FLOOR - 0.02, 'the snow\u2019s own peak under its wander');   // PIN MOVED (RAIN-SPRINKLE): was > 0.1 - a seed may roll a light snow
   assert.ok(late.intensity <= PRECIP_PEAK.snow[1] + 1e-9, 'a snow peak, not a rain one');
 });
 
@@ -251,7 +251,7 @@ test('WX2 the hosts: both read the front under the enhanced sky only, and the cl
     const h = read(host);
     assert.match(h, /const enhancedFront = !!sky\?\.cloudShadow && params\.get\('front'\) !== 'off';/, `${host}: the front rides the enhanced sky, and ?front=off is its kill switch`);
     assert.match(h, /weatherFront\.tick\(\{ dt, weather, arrival: enhancedFront \? sky\.frontArrival\(\) : 1, nowMinutes: playerTicker\.classicMinutes, tsec: now \/ 1000, jump, peak: weatherOverride \? null : currentWeatherIntensity\(\) \}\)/, `${host}: the arrival is the wind's under the enhanced sky and 1 under the classic, and the jump rides along (WEATHER3b: and the map's intensity as the peak, none under a ?weather pin)`);
-    assert.match(h, /if \(fx\.changed\) wxFrom = wxNow;\s*\n\s*wxNow = enhancedFront \? blendTerms\(wxFrom, weatherTerms\(\), fx\.t\) : weatherTerms\(\);/, `${host}: the terms cross from what was ON SCREEN, and classic takes the row whole`);
+    assert.match(h, /if \(fx\.changed\) wxFrom = wxNow;\s*\n\s*wxNow = enhancedFront \? blendTerms\(wxFrom, fallTerms\(weatherTerms\(\), fx\.intensity, weather, FALL_LIGHT\), fx\.t\) : weatherTerms\(\);/, `${host}: the terms cross from what was ON SCREEN, and classic takes the row whole`);   // PIN MOVED (RAIN-SPRINKLE): the row under what falls (test/fb1001_rainsprinkle.test.js)
     assert.match(h, /ambientWord = enhancedFront \? soundWeather\(fx, weather\) : weather;[^\n]*\n\s*setHeardWeather\(ambientWord, enhancedFront \? fx\.intensity : 1\);[^\n]*\n\s*ambience\.setPreset\(presetForExterior\(ambientWord, isNight\(minute\)\)\);\s*\n\s*ambience\.rainGain = enhancedFront \? fx\.intensity : 1;/, `${host}: the ear follows the front, the gain too, classic verbatim (AUDIT 61: the word is named once, for the mod's lightning listener too)`);
     assert.match(h, /const precipShown = enhancedFront \? fx\.shown : precipMode;\s*\n\s*if \(precipShown === 'sand'\) \{[\s\S]{0,600}?\} else if \(precipShown && precip\) \{/, `${host}: what falls is what the front shows`);
     assert.match(h, /if \(precip\.enhanced\) \{\s*\n\s*precip\.intensity = fx\.intensity;/, `${host}: the intensity is set inside the enhanced branch only`);
@@ -349,7 +349,7 @@ test('AUDIT 57 F3 (front): a jumped change lands whole - no crossing, no taper, 
   assert.equal(s.changed, false, 'nothing to cross');
   assert.equal(s.from, 'rain'); assert.equal(s.to, 'rain');
   assert.equal(s.t, 1, 'the arrival is 1 by contract, whatever the model\u2019s last frame said');
-  assert.ok(s.intensity > 0.1 && Math.abs(s.intensity - s.peak * wander(0, f.state().episode.phase)) < 1e-9, 'the drops land whole on the frame');
+  assert.ok(s.intensity > 0 && Math.abs(s.intensity - s.peak * wander(0, f.state().episode.phase)) < 1e-9, 'the drops land whole on the frame');   // PIN MOVED (RAIN-SPRINKLE): was > 0.1 - a seed may roll a sprinkle
   assert.equal(s.shown, 'rain');
   assert.equal(f.state().outgoing, null, 'no episode tapers');
   // a jump with the SAME word changes nothing

@@ -293,9 +293,7 @@ test('G6: an arm may answer a BOX, and a box is not a window', () => {
   // the overlay slot and the next frame asked a plain object to draw
   // itself. The live probe found it; this is the pin.
   const src = readFileSync(new URL('../src/scenes/worldModes.js', import.meta.url), 'utf8');
-  // PIN MOVED (FIELD BUGS 2026-10-01 MANA-SHOP): the destination is the Mages Guild's Restore Power shelf where the counter
-  // sells only that, else the service's own
-  const i = src.indexOf("const flow = openServiceFlow(manaOnly ? 'guildServiceBuyRestorePower' : serviceDestination(service)");
+  const i = src.indexOf('const flow = openServiceFlow(serviceDestination(service)');
   assert.ok(i > 0, 'the caller exists');
   const call = src.slice(i, src.indexOf('return { dispatched: true };', i) + 30);
   // STATION-ROWS (2026-09-27g) respelled the test: a box is an answer

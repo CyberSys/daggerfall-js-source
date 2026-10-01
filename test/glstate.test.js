@@ -147,7 +147,8 @@ test('EV6: the skies neither query CURRENT_PROGRAM nor restore - the hosts mark 
     // OH-C: and There's a Hole in the Bottom of the Ocean's core and miasma, one more in the world host (its pits are the carved sea's)
     // WB9g: and Dagon's Fire at the wearers' feet, one more in the world host (drawn through the veiled bodies' hook in every mode)
     // GUILD1d: and the guild halls' banners, one more in the world host (the streets online)
-    const want = host === 'src/scenes/world.js' ? 15 : 5;
+    // UNDER-LOOK (FIELD BUGS 2026-10-01): and the water body and the sun's shafts under the sea, one more in the world host
+    const want = host === 'src/scenes/world.js' ? 16 : 5;
     assert.equal((s.match(/renderer\.markForeignPass\(\);/g) || []).length, want,
       `${host} marks its foreign seams (the sky, the rain, the sand, the wisps, the bolts${want === 6 ? ', and the grass' : ''})`);
   }

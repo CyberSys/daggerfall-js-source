@@ -71,6 +71,17 @@ pixels; see the Port-Ledger row. It is on while the presentation is under
 the water (`UnderwaterDistanceFog.TryGetUnderwaterPresentation`), which is
 also what the surfaces' `_DeepWatersUnderwater` reads.
 
+UNDER-LOOK and UNDER-RAYS (FIELD BUGS 2026-10-01 #4, #5, a departure - the
+Port-Ledger row): the port's look over the mod's. The fog's vision distance
+is the mod's times `UNDERWATER_MURK` (0.55), and while the presentation is
+under, one full-screen pass after the last world pass lays the water body
+over the frame (red taken first, darker with depth and by night) and the
+sun's shafts - refracted at the surface, lit through a drifting pattern of
+its focus (`world/underwaterLook.js`, `render/deepWatersRender.js`
+`drawUnderwaterLook`). And what falls is hidden by the water over the eye,
+not by a swim (PUDDLE-RAIN: DW-D's UpdateWeatherParticles hid it from a
+body sunk in a puddle with its eye in the air).
+
 ## The swimmer (DW-D)
 
 OutdoorSwimDriver runs FIRST in DFU's frame (execution order -32000) and

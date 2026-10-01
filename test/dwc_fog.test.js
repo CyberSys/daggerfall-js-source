@@ -277,5 +277,7 @@ test('DW-C: the world host - the fog\'s presentation drives the surfaces\' _Deep
   assert.ok(skyFog > ring && skyFog < w.indexOf('const wu = waterUniforms({'), 'after the ring, before the first blend');
   assert.match(w, /if \(wisps && wd\.on && wispsOn\(\) && !_dwAirOff\) \{/);
   assert.match(w, /if \(boltsGl && boltFrame\.bolts\.length && !_dwAirOff\) \{/);
-  assert.match(w, /const _dwPrecipOff = _dwAirOff \|\| \(!!dwPlayer && walkMode && !!player\.isPlayerSwimming && !player\.waterWalking\);/);
+  // PIN MOVED (PUDDLE-RAIN, FIELD BUGS 2026-10-01 #1): DW-D's swimmer arm is gone - the water over the eye alone hides
+  // what falls (test/fb1001_puddlerain.test.js)
+  assert.match(w, /const _dwPrecipOff = _dwAirOff;/);
 });
