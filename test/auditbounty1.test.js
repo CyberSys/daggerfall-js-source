@@ -89,8 +89,8 @@ test('AUDIT BOUNTY1 B3: the archive\'s words that no longer said the law - the r
 test('AUDIT BOUNTY1 B4: the relay pins say who moved it - BOUNTY1 + AUDIT 28 (world131 since MERGE 2; world125 at the merge of main; world122 and world123 on the branch), then REALM-DOOR (world130); STRIKE-SHARED moved it on after (world132), SOFTCAP1 after it (world133), PARTY-MAP after SOFTCAP1 (world134), WB9 after PARTY-MAP (world135), SEAT1b after WB9 (world136), and SEAT1c after SEAT1b (world137)', () => {
   for (const f of ['test/soc1_hub.test.js', 'test/allycast.test.js', 'test/guild1c.test.js', 'test/renown1.test.js']) {
     const t = read(f);
-    assert.ok(t.includes("RELAY_VERSION, 'world137'"), `${f}: the pin is on world137`);
-    assert.ok(/SEAT1c moved it on last \(world137[^\n]*SEAT1b moved it on \(world136[^\n]*WB9 moved it on \(world135[^\n]*PARTY-MAP moved it on \(world134[^\n]*SOFTCAP1 moved it on \(world133[^\n]*STRIKE-SHARED moved it on \(world132[^\n]*MERGE 2 moved it on \(world131: the professions branch, BOUNTY1 \+ AUDIT 28[^\n]*REALM-DOOR moved it on \(world130/.test(t), `${f}: crediting BOUNTY1 + AUDIT 28, then REALM-DOOR`);
+    assert.ok(t.includes("RELAY_VERSION, 'world138'"), `${f}: the pin is on world138`);
+    assert.ok(/PVP-REF moved it on last \(world138[^\n]*SEAT1c moved it on \(world137[^\n]*SEAT1b moved it on \(world136[^\n]*WB9 moved it on \(world135[^\n]*PARTY-MAP moved it on \(world134[^\n]*SOFTCAP1 moved it on \(world133[^\n]*STRIKE-SHARED moved it on \(world132[^\n]*MERGE 2 moved it on \(world131: the professions branch, BOUNTY1 \+ AUDIT 28[^\n]*REALM-DOOR moved it on \(world130/.test(t), `${f}: crediting BOUNTY1 + AUDIT 28, then REALM-DOOR`);
     assert.ok(!/world13[01][^\n]*REALM-DOOR moved it on last/.test(t), `${f}: and does not still credit REALM-DOOR with the move`);
   }
 });

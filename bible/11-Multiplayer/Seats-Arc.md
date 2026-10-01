@@ -383,17 +383,34 @@ referees up to 256 fighters against one foe.
   bows 60 m) plus `POSE_SLACK`; the
   striker is under **4 blows a second** (the gate's `GATE_HIT_HZ_MAX` shape); and the damage is within the weapon
   kind's bucket - DFU's own damage range for that weapon at that material, doubled for a critical, never more
-  (the table lives in src/net/siegeRef.js (to be written), generated from `WEAPON_MATERIALS` and the weapon templates). Excess is
+  (the table lives in src/net/siegeRef.js - PVP-REF: copied from `WEAPON_MATERIALS` and the weapon templates, and
+  pinned equal to them, since the relay bundles what it imports). Excess is
   clipped, as the gate clips it.
 - **Spells** - at most **3 damaging casts in 5 seconds**, each clamped to **60** damage; Teleport, Recall and
   Levitate do nothing in a siege room; healing a side-mate is allowed (ALLY-CAST's frame), clamped to **40** a cast.
 - **Speed** - the relay refuses a pose further from the last than **12.5 m/s** plus 0.5 m, and pulls the fighter
   back to the last good pose. MEASURED: 12.5 is the starting ceiling; PVP-REF measures the fastest legal run the
   motor allows with every Speed buff and sets the ceiling 25% above it. Horses are dismounted on entry.
+  MEASURED (PVP-REF, 2026-10-01): the motor's fastest legal run - live Speed at its cap 100, Running at the softcap's
+  top (140) with the lycanthrope's +30 and an Enhances Skill item's +15 - is 14.4 m/s, so the ceiling is **18 m/s**
+  and 0.5 m (the starting 12.5 pulled back every mastered runner, 13.0 m/s). DECIDED there: judged across the ground
+  alone - a fall is gravity's.
 - **Measurement gate** - MEASURED: PVP-REF's slice must run **a full room** - 40 fighters, 60 spectators and 6
   relay-run guards (a crown siege at its largest; a revolt's 13 rebels stand in the guards' place) - with headless
   clients, the SLAM probes' way, at or under 60% of every room budget (`FOES_ROOM_BYTES_PER_S`, `HIT_ROOM_BYTES_PER_S`, the pose fan).
   If it cannot, siege sizes drop to 8 against 8 and 16 against 16 until it can.
+  MEASURED (PVP-REF, 2026-10-01, `test/pvpref_measure.test.js` - the real Room on the fake object, 106 headless
+  sockets all moving at 4 Hz, every fighter striking at four a second and casting at the window's): the pose fan 36% of
+  its design point (21,293 sends a second against SLAM6's 59,000), the siege's fanned frames 26% of
+  `FOES_ROOM_BYTES_PER_S`, the busiest socket's 4% of `HIT_ROOM_BYTES_PER_S`. **The sizes stand.**
+
+BUILT (PVP-REF, 2026-10-01; `06-Systems/Online-Arc.md` PVP-REF): `src/net/siegeRef.js` (the law, its DFU tables
+pinned equal to `characters/weapons.js` and `combat/formulas.js`), the relay's siege room (`world138` - the
+developers alone until SEAT2a). The bucket's bonuses DECIDED there: Strength 100's stock modifier, the heaviest swing,
+an expert's proficiency and a racial bonus at level 30 (a fighter's character level is not on the wire) - a Daedric
+Dai-Katana 124, an Iron Dagger 80, a fist 112. A heal is bounded on a window of its own, three a 5 s (DECIDED there:
+this section named no rate, and an unbounded heal at the frame gate's eight a second is a fighter nobody can fell);
+a spell's reach 60 m.
 
 
 ### 6.2 The battlefield
@@ -844,7 +861,7 @@ Season with titles at the end; a Chronicle that remembers; and the Professions e
   carries, as a gate's and a raid's are; `src/net/watchReceipt.js`); `s1.` siege receipts;
   the Rebel Captain's brain; `{t:'tseat'}` frames for banner state, the Throne, the Gatehouse, the Ram.
 - **Law modules, pure, shared by client, relay and service**: src/net/townSeatLaw.js (to be written) (Appendix B, the week, the
-  phases, the windows, the Chronicle's templates, `KINGDOM_OF`), src/net/siegeRef.js (to be written) (6.1's buckets),
+  phases, the windows, the Chronicle's templates, `KINGDOM_OF`), src/net/siegeRef.js (PVP-REF) (6.1's buckets),
   src/systems/townSeats.js (to be written) (the client's derivation).
 - **Versions**: each relay change a new `RELAY_VERSION` with its LAW row; every token vocabulary change relay-first.
 
@@ -865,7 +882,7 @@ bible updated in the same change, mutants recorded.
 | **SEAT1b** | Influence: pledges, the Watch, gate kills, homes, Renown's region, Tribute; the standings on the board - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` SEAT1b; the stockpile's deliveries ride SEAT1c) | Each source's cap pinned; per-account war and the 7-day wait pinned |
 | **SEAT1c** | The Turning; claims; Contested; the Charter; titles and glyphs (relay first); the Seat tab - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` SEAT1c; the titles' vocabulary at `world137`, the Season's and the champion's minted by SEASON1 and CROWN1) | `settleWeek` idempotent under two racing readers; a held seat's banners in the guild's colours |
 | **SEAT1d** | Upkeep, Overreach, Tithe, discounts, Standing, Edicts, Neglect; the economy model as a tool reading townSeatLaw.js and professionLaw.js (PROF0 Appendix C) - **SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` SEAT1d; `tools/seatEconomy.mjs`, its re-run in Appendix C) | Every Standing row pinned; the Tithe routes only Marks; the model re-runs Appendix C's table. The Tithe needs PROF5 (the market) |
-| **PVP-REF** | The refereed blow and step; the 40-fighter measurement | 6.1's buckets pinned against DFU's damage ranges; the measurement recorded |
+| **PVP-REF** | The refereed blow and step; the 40-fighter measurement - **SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` PVP-REF; relay `world138`, the developers alone until SEAT2a; the step's ceiling MEASURED to 18 m/s) | 6.1's buckets pinned against DFU's damage ranges; the measurement recorded (every budget under 60% - the sizes stand) |
 | **SEAT2a** | Siege rooms, banners, the Throne, windows, forfeits, spectators, the Tourney, Honours | A headless 10v10 siege runs to both endings |
 | **SEAT2b** | Fortifications, the Barracks' guards, the Gatehouse, the Ram, revolts | Needs PROF11 (Masonry), PROF4 (Carpentry), PROF3 (Smithing's ingots for the Ram) and PROF8 (the Pearls tier-2 Shrine and Apothecary ask) |
 | **CROWN1** | The crown tier: reach, the Marches, the Free Lands, crown glyphs, the Saturday slots, Royal Tourney, Conscription | - |
@@ -875,7 +892,9 @@ bible updated in the same change, mutants recorded.
 ## 14. What remains to measure
 
 1. **The seat count** (3.1) - SEAT-COUNT, run by Mac.
-2. **Forty fighters in a room** (6.1) - PVP-REF's measurement; its failure drops the sizes to 8/16.
+2. **Forty fighters in a room** (6.1) - PVP-REF's measurement; its failure drops the sizes to 8/16. MEASURED
+   (PVP-REF, 2026-10-01): every budget under 60% (6.1's record) - the sizes stand. A deployed isolate's CPU is not
+   measured by it; a live siege's own numbers are the next word.
 3. **The economy after Season 1** - the Marks report (PROF0 10.5): if claims are never made, thresholds fall by a
    quarter; if every seat changes hands every week, defence's Standing term doubles. Recorded here when done.
 
@@ -901,7 +920,7 @@ Every law in Home.md's Process section, and what it demands of this arc:
 |---|---|
 | **THE MODAL CONTRACT** | The board's window and the siege's result card gate a host frame: each returns the same type from every exit, asserted in a test, not a comment |
 | **THE SLOT IS EMPTIED BEFORE THE OCCUPANT IS TOLD** | The board's window lives in the host's overlay slot: the slot is nulled before the window is disposed, and its close dispatches its callback once however many doors call it |
-| **ONE DFU MEMBER, ONE EXPORT** | Nothing DFU owns is re-typed: `REGION_NAMES`, `BUILDING_TYPES.Palace`, `BULLETIN_BOARD_MODEL_ID`, `DEFAULT_WEAPON_REACH`, `WEAPON_MATERIALS` are imported; the kingdom map is the one new table, and it lives in townSeatLaw.js alone |
+| **ONE DFU MEMBER, ONE EXPORT** | Nothing DFU owns is re-typed: `REGION_NAMES`, `BUILDING_TYPES.Palace`, `BULLETIN_BOARD_MODEL_ID`, `DEFAULT_WEAPON_REACH`, `WEAPON_MATERIALS` are imported; the kingdom map is the one new table, and it lives in townSeatLaw.js alone. PVP-REF, recorded: the relay's referee (`siegeRef.js`) is a leaf the relay bundles, so it COPIES DFU's damage tables and the reach, pinned equal to their homes by test (`test/pvpref_law.test.js` - the gate's way, `test/wb4b_gate_blows.test.js`) |
 | **A PIN MUST FAIL** | Every number in Appendix B is pinned by `deepEqual` against the law module's table, and each slice's mutants (`tools/mutants/seat*.json`) prove a one-character change of any rule reddens a test |
 | **TEST THE SHAPE THE PRODUCER MINTS** | Seats in tests come from the derivation run over a fixture MAPS set, never hand-built rows; receipts come from the relay's own signer; a settled week from `settleWeek` itself |
 | **ASYNC NEVER DROPS** | Every service call (pledge, tribute, window, edict, sign) carries a request id; a second press while one is in flight coalesces; a lost answer is re-asked with the same id (Renown's `last_rid` pattern) |

@@ -68,6 +68,7 @@ The first part of guild town control is in. It is open to the developers first, 
 
 ## Behind the scenes
 - **The registry.** Each client works out the seats from its own game files. When you stand in a seat town, your game reports it to the server once a day. The server trusts a seat once three players whose accounts are at least a week old agree on it exactly.
+- **Fair sieges.** In a siege the server keeps every fighter's health and checks every blow, spell and step: a blow lands only if the weapon you carry can reach and deal it, nobody heals or strikes faster than the game allows, and nobody runs faster than the fastest legal runner. A siege's health is its own (300, more with your Renown) and never touches your character's health, items or gold. Only the developers can enter a siege room yet.
 - Sieges and Tourneys come in the next updates: until then a Right of Siege is written in the Chronicle and a Contested seat stays unheld. Fortifications, deliveries to a seat's stockpile and the Siege Camp come with them. The Royal Tourney and Conscription come with the crowns' update.
 
 ---
@@ -75,7 +76,7 @@ The first part of guild town control is in. It is open to the developers first, 
 ### For the team
 - Apply migrations **`0046_town_seats.sql`**, **`0047_seat_influence.sql`**, **`0048_seat_turning.sql`** and **`0049_seat_holding.sql`** (with 0044 and 0045, after main's 0043) to production D1 and deploy the account service (**`acct45`**).
 - **The economy model**: `node tools/seatEconomy.mjs` re-runs the guild-week table from the live law files (`--runs`, `--seed`, `--json`).
-- **Deploy the relay (`world137`).** It sends the Watch's ticks (world136) and carries the seats' titles (world137). Deploy it before the account service: an older relay refuses a token with a seat title in it.
+- **Deploy the relay (`world138`).** It sends the Watch's ticks (world136), carries the seats' titles (world137) and referees a siege's room (world138, the developers alone). Deploy it before the account service: an older relay refuses a token with a seat title in it.
 - Seats are behind **`SEATS_OPEN = "dev"`** in `server-account/wrangler.toml`. Change it to `"on"` to open them to everyone.
 - **SEAT-COUNT**: run `ARENA2_PATH=/path/to/arena2 node tools/seatCount.mjs` to list every seat and the totals.
 - A developer can strike a false seat from the registry in chat: `/seat strike <map id>`.

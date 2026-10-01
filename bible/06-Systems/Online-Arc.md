@@ -7140,7 +7140,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1100`, `src/net/online.js:2316`):**
+**Now (`src/net/wire.js:1101`, `src/net/online.js:2316`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -10685,6 +10685,71 @@ Tithe that moves nothing), `test/audit31_law.test.js` (the Tithe's nought the de
 was recorded EQUIVALENT and dropped: the Tithe's high row asked at three quarters inclusive (no whole-percent Tithe sits
 on three quarters of either cap, 7.5 or 11.25); GOLDMARKET, PROF5, SEAT1c, SIGIL1, SURVTIERS3 and AUDIT ALL A6 records
 re-aimed by content (PIN MOVED), all dead.
+
+### PVP-REF - the refereed blow and step: a siege's room, its referee, and the forty-fighter measurement
+
+2026-10-01, Mac: "Finish the seats"; "Or we could go ahead and do sieges"; "Continue". Rides a new undeployed relay,
+`world138` - no account change. The room admits the developers alone (a verified token carrying the `dev` glyph) until
+SEAT2a schedules its battles and signs its sides. Seats-Arc 6.1.
+
+- **The law** (`src/net/siegeRef.js`, a LEAF - the relay bundles every byte it imports, so DFU's tables are COPIED and
+  pinned equal by test, the gate's way): `siege:<seat key>:<seat week>` rooms; **vitality** 300 + 2 x the Renown level
+  the token carries, the level held to the token's own 1-50 (302-400); a **blow** `{ to, w, m, d, r }` accepted while
+  both stand, the striker's bucket spent first (four a second, one second deep - the gate's), the target untouched for
+  3 s after a rise, the weapon one the striker's LOOK carries (a `Weapons` item of that template and material - the
+  paperdoll every other player draws; a fist always), its kind its own (a bow's blow a shaft's, a sword's never), the
+  target's last good pose within reach (2.5 m melee - `WEAPON_REACH` - or 60 m a shaft, and 3 m of slack, measured in
+  all three axes) - and its damage CLIPPED to the weapon's **bucket**: (the template's top + its material's modifier +
+  the attacker's bonuses at the game's caps) x 2 for a critical. The bonuses: Strength 100's stock modifier (10 - PCAAO's
+  and Roleplay Realism's halve it, never raise it), the heaviest swing (+4), and DECIDED here an expert's proficiency and
+  a racial bonus at level 30 (+11, +10) - a fighter's character level is not on the wire, so the bucket takes the game's
+  level 30 for the two that grow with it. A Daedric Dai-Katana 124, an Iron Dagger 80, a fist 112, the Thunderlock 134;
+  a template the table does not name, none. A **cast**: three damaging a 5 s, each to 60; a heal to 40, never past the
+  target's whole - and DECIDED here, three a 5 s on a window of its own (6.1 clamped a heal's size and named no rate; at
+  the frame gate's eight a second an unbounded heal is 320 a second, a fighter nobody can fell); a spell's reach 60 m
+  (DECIDED: a shaft's). A **fall** at none left; the fallen rise whole at the next wave (20 s at a palace - SEAT2a reads
+  the seat's tier for a crown's 30), 3 s untouched.
+- **The step** - MEASURED, and the design's number moved: 6.1 asked the fastest legal run the motor allows with every
+  Speed buff, and the ceiling 25% above it. `player/motor.js` runSpeed at live Speed's cap (100 - `statMods.js`
+  MAX_STAT_VALUE; a Fortify past it reads 100), Running at the softcap's top (`skillSoftcap.js` EFFECTIVE_SKILL_MAX 140,
+  a mastered 200) with the lycanthrope's +30 and an Enhances Skill item's +15: 14.4 m/s, so **18 m/s** and half a metre.
+  The starting 12.5 would have pulled back every mastered runner (13.0 m/s); 18 still holds a stack of eight Running
+  items and refuses any teleport or doubled run. DECIDED: the step is judged ACROSS THE GROUND - a fall from a wall is
+  gravity's and outruns any run, and a climb buys no reach (a blow's reach is measured in all three). A step past it is
+  neither kept nor relayed, and the fighter is told its last good pose (`back`).
+- **The wire** (`net/wire.js`): the client's `siege` frame - `in` (become a fighter), `blow`, `cast` (`h` 1 a heal) -
+  projected and bounded (`validSiegeIn`: a peer id, a template 0-65535 or -1, a material 0-9, damage above nought to 10,000, a
+  melee or a shaft - a spell is a cast's), on its own bucket (`siegeGate`, 8 a second) and strikes; the relay's - `st` (every
+  fighter's `[id, hp, max, down]`), `hp`, `fell`, `up`, `back`, `no`. `relaySupportsSiege` reads `world138`.
+- **The room** (`server/src/index.js`): the Worker mints no object for a `siege:` key the law does not shape; the
+  hello refuses an account without the developer's glyph ("the siege is not open"); one fighter an account (a second
+  socket replaces the first, the gate's AUDIT WB A1 law widened); the fighters kept BY ACCOUNT and checkpointed
+  (storage's `siege` - at once on a new fighter and a fall, every CHECKPOINT_MS otherwise), so a hibernation loses at
+  most that much and never the field; the look read back from storage on a woken object; the room's alarm raises the
+  fallen at their wave. A spectator (any socket that never said `in`) is no target, strikes nothing, and its camera is
+  its own. At most 48 fighters (6.4's crown: 20 a side and 4 sellswords a side).
+- **The measurement** (6.1's gate, `test/pvpref_measure.test.js`): the real Room on the fake object, 106 headless
+  sockets for ten seconds of the room's clock - 40 fighters, 60 spectators and 6 sockets standing for SEAT2b's
+  relay-run guards (their poses will be the relay's own fan), every one moving at the client's crowded rate (4 Hz at
+  105 peers), each fighter striking at the referee's ceiling (every blow landing and fanned) and casting at the
+  window's. 21,293 pose sends a second (36% of the bound's design point, SLAM6's 59,000 at 200 in one block; 3,407 KiB/s,
+  the town's own per-send cost); 160 blows and 24 casts a second, fanned as 1,045 KiB/s (26% of `FOES_ROOM_BYTES_PER_S`);
+  the busiest socket 10 KiB/s of siege frames (4% of `HIT_ROOM_BYTES_PER_S`). Every budget under 60%: **the sizes stand**
+  and the fall to 8/16 is not taken. What it cannot measure is a deployed isolate's CPU (AUDIT SLAM FINAL C1's caveat,
+  kept).
+
+Left for SEAT2a, recorded: the client - its blows and casts sent to the referee from the player's own combat (and its
+own health untouched in a siege room), the HUD of every fighter's vitality, the spectator's camera, a horse dismounted
+on entry, Teleport, Recall and Levitate doing nothing; the room's window and its two signed sides (a heal a
+side-mate's alone, a blow never a side-mate's); the wave by the seat's tier; the Throne. The refereed duel ring the Royal
+Tourney stands on is CROWN1's.
+
+Pinned: `test/pvpref_law.test.js` (5), `test/pvpref_relay.test.js` (4), `test/pvpref_measure.test.js` (1); the relay
+version pins and `test/relayversion.test.js`'s world138 LAW row (its graph adds `src/net/siegeRef.js`).
+`tools/mutants/pvpref.json` (108, all dead) - two survived the first run and were killed by a sharper pin, recorded:
+the vitality's floor of one (a level of nought reads one through `|| 1`, so only a negative level tells the floor apart),
+and a new fighter's write at once (the fake's storage keeps the object itself, so a skipped write read as kept - the
+test now counts the writes); AUDIT WB A1's two one-seat records re-aimed (PIN MOVED), dead.
 
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 
