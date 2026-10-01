@@ -106,8 +106,8 @@ test('CURE-ALL: the turn cures the old life whole - the pools full, the poison a
   assert.equal(q.health, 100);
 });
 
-// AREA-SELF: GOD MODE's own burst - the real cast engine (scenes/hostMagic.js createPlayerMagic), test/roadh_missiles's
-// rig, a Breton (Resist Magic) caught two metres from where her missile burst.
+// AREA-SELF and AREA-CASTER: GOD MODE through the real cast engine (scenes/hostMagic.js createPlayerMagic, its ready and
+// its cast - test/allycast's rig), a Breton (Resist Magic) casting her own.
 const GOD_MODE = {
   name: 'GOD MODE', index: -1, custom: true, element: 4, rangeType: 4, icon: 7,
   effects: [
@@ -115,13 +115,16 @@ const GOD_MODE = {
     { type: 9, subType: 0, magnitudeBaseLow: 10, magnitudeBaseHigh: 10, magnitudeLevelBase: 0, magnitudeLevelHigh: 0, magnitudePerLevel: 1, durationBase: 60, durationMod: 0, durationPerLevel: 1, chanceBase: 0, chanceMod: 0, chancePerLevel: 1 },
   ],
 };
+const HARM = { type: 4, subType: 0, magnitudeBaseLow: 1, magnitudeBaseHigh: 1, magnitudeLevelBase: 0, magnitudeLevelHigh: 0, magnitudePerLevel: 1, durationBase: 0, durationMod: 0, durationPerLevel: 1, chanceBase: 0, chanceMod: 0, chancePerLevel: 1 };
+const EYE = [0, 0.9, 0], LOOK = [0, 0, 1];
 function godModeRig(rolls) {
-  const healed = [];
+  const healed = [], said = [];
   const player = {
-    isPlayer: true, name: 'Opaldes', level: 10, raceId: RACES.Breton, health: 10, maxHealth: 5000, magicka: 500, maxMagicka: 500,
+    isPlayer: true, name: 'Opaldes', level: 10, raceId: RACES.Breton, health: 10, maxHealth: 5000, magicka: 5000, maxMagicka: 5000,
     skills: new Array(40).fill(50), skillUses: new Array(40).fill(0),
     stats: { strength: 50, intelligence: 50, willpower: 50, endurance: 50, agility: 50, speed: 50, personality: 50, luck: 50 }, career: {}, activeEffects: [],
   };
+  const heal = (n) => { healed.push(n); player.health = Math.min(player.maxHealth, player.health + n); };
   const magic = createPlayerMagic({
     renderer: { createBillboardBatch: () => ({}), destroyBillboardBatch: () => {} },
     audio: { playOneShot() {}, play3d() {}, playOneShotId() {}, play3dId() {} },
@@ -129,37 +132,65 @@ function godModeRig(rolls) {
     uploadRecord() {}, uploadRecordFrame() {},
     collider: { raycast: () => Infinity },
     playerEntity: player,
-    playerSinks: { hurt() {}, heal: (n) => { healed.push(n); player.health = Math.min(player.maxHealth, player.health + n); }, drainMagicka() {}, restoreMagicka() {}, drainFatigue() {}, restoreFatigue() {}, say: () => {} },
-    say: () => {}, surfacePlayer() {}, foes: () => [], foeSinks: () => ({}),
+    playerSinks: { hurt() {}, heal, drainMagicka() {}, restoreMagicka() {}, drainFatigue() {}, restoreFatigue() {}, say: () => {} },
+    say: (l) => said.push(l), surfacePlayer() {}, foes: () => [], foeSinks: () => ({}),
     absorbCtx: () => ({ inside: false, day: true }),
-    rolls,
+    rolls, startCastAnim: null,
   });
-  return { magic, player, healed, sinks: { heal: (n) => { healed.push(n); player.health = Math.min(player.maxHealth, player.health + n); } } };
+  magic.firePending(EYE, LOOK);
+  const cast = (sp) => { magic.readySpell(sp); return magic.castInput(EYE, LOOK); };
+  return { magic, player, healed, said, cast, sinks: { heal } };
 }
 
-test('AREA-SELF: the report - GOD MODE bursting beside its own caster lands whole: her Regenerate heals its full magnitude every round and her Fortify its full magnitude, whatever her own resistance rolls; a blast that is not all gifts is saved against as before, and so is a foe\'s (mutants: the self-cast never made; made for a blast with harm in it; made for a foe\'s blast)', () => {
-  for (const r of [0.01, 0.5, 0.99]) {
-    const g = godModeRig(() => r);
-    g.magic.explodeAt([2, 0.9, 0], GOD_MODE, 10, [0, 0, 0], { entity: g.player }, { playerHeight: 1.8 });
-    const reg = regen(g.player);
-    assert.ok(reg, `rolls ${r}: the Regenerate lands`);
-    assert.equal(reg.saveScaled, false, `rolls ${r}: as a self-cast - no save against her own gift`);
-    const fort = g.player.activeEffects.find((a) => a.kind === 'fortifyAttribute');
-    assert.ok(fort && fort.magnitude > 0, `rolls ${r}: the Fortify lands whole (${fort?.magnitude})`);
-    const first = g.healed.slice();
-    g.healed.length = 0;
-    for (let i = 0; i < 5; i++) tickActiveEffects(g.player, g.sinks, () => r);
-    assert.equal(g.healed.length, 5, `rolls ${r}: every round heals`);
-    assert.ok(g.healed.every((n) => n === g.healed[0] && n > 0), `rolls ${r}: the same full magnitude (${g.healed}; landing ${first})`);
+test('AREA-CASTER and AREA-SELF: the report - GOD MODE lands on its caster at the cast, whole: Area at Range wherever its missile goes, Area Around Caster where DFU passed its caster by; her Regenerate heals its full magnitude every round and her Fortify its full magnitude whatever her resistance rolls; the burst that catches her lands nothing twice (mutants: the caster never given it; given it saved; the burst lands it again)', () => {
+  for (const rangeType of [4, 3]) {
+    for (const r of [0.01, 0.5, 0.99]) {
+      const g = godModeRig(() => r);
+      const sp = { ...GOD_MODE, rangeType };
+      assert.equal(g.cast(sp), true, `${rangeType}/${r}: cast`);
+      const reg = regen(g.player);
+      assert.ok(reg, `${rangeType}/${r}: the Regenerate is hers at once`);
+      assert.equal(reg.saveScaled, false, `${rangeType}/${r}: a self-cast - no save against her own gift`);
+      const fort = g.player.activeEffects.find((a) => a.kind === 'fortifyAttribute');
+      assert.ok(fort && fort.magnitude > 0, `${rangeType}/${r}: the Fortify lands whole (${fort?.magnitude})`);
+      g.healed.length = 0;
+      for (let i = 0; i < 5; i++) tickActiveEffects(g.player, g.sinks, () => r);
+      assert.equal(g.healed.length, 5, `${rangeType}/${r}: every round heals`);
+      assert.ok(g.healed.every((n) => n === g.healed[0] && n > 0), `${rangeType}/${r}: the same full magnitude (${g.healed})`);
+      if (rangeType === 4) {
+        assert.equal(g.magic.missileCount(), 1, 'the missile still flies, for whoever it reaches');
+        const rounds = reg.roundsRemaining, mag = fort.magnitude, n = g.player.activeEffects.length;
+        g.magic.explodeAt([2, 0.9, 0], sp, 10, [0, 0, 0], { entity: g.player }, { playerHeight: 1.8 });
+        assert.equal(reg.roundsRemaining, rounds, 'its burst beside her stacks no second Regenerate');
+        assert.equal(fort.magnitude, mag);
+        assert.equal(g.player.activeEffects.length, n, 'nothing landed twice');
+      }
+    }
   }
-  // a blast with harm in it (Regenerate + Damage Health) is no gift: its caster saves against it, as DFU does
-  const mixed = { ...GOD_MODE, name: 'Mixed', effects: [GOD_MODE.effects[0], { type: 4, subType: 0, magnitudeBaseLow: 1, magnitudeBaseHigh: 1, magnitudeLevelBase: 0, magnitudeLevelHigh: 0, magnitudePerLevel: 1, durationBase: 0, durationMod: 0, durationPerLevel: 1, chanceBase: 0, chanceMod: 0, chancePerLevel: 1 }] };
-  const m = godModeRig(() => 0.01);
-  m.magic.explodeAt([2, 0.9, 0], mixed, 10, [0, 0, 0], { entity: m.player }, { playerHeight: 1.8 });
-  assert.equal(regen(m.player)?.saveScaled, true, 'a harmful blast keeps its save');
-  // a foe's blast of gifts on the player (a healer's Regenerate meant for its own kind): not hers - saved against
+});
+
+test('AREA-CASTER: a spell with harm in it is DFU\'s - an Area Around Caster passes its caster by, an Area at Range lands nothing on her at the cast and is saved against where its burst reaches her; a foe\'s blast of gifts is saved against (mutants: the caster given a blast with harm in it; a foe\'s gift taken as her own)', () => {
+  const mixed = { ...GOD_MODE, name: 'Mixed', effects: [GOD_MODE.effects[0], HARM] };
+  const around = godModeRig(() => 0.01);
+  around.cast({ ...mixed, rangeType: 3 });
+  assert.equal(regen(around.player), undefined, 'Around Caster with harm in it: not her');
+  const at = godModeRig(() => 0.01);
+  at.cast(mixed);
+  assert.equal(regen(at.player), undefined, 'At Range with harm in it: nothing at the cast');
+  at.magic.explodeAt([2, 0.9, 0], mixed, 10, [0, 0, 0], { entity: at.player }, { playerHeight: 1.8 });
+  assert.equal(regen(at.player)?.saveScaled, true, 'its burst beside her: saved against, as DFU does');
   const f = godModeRig(() => 0.01);
   const healer = { entity: { level: 10, health: 40, maxHealth: 40, magicka: 50, maxMagicka: 50, skills: new Array(40).fill(30), stats: { willpower: 30 }, career: {}, activeEffects: [] } };
   f.magic.explodeAt([2, 0.9, 0], GOD_MODE, 10, [0, 0, 0], healer, { playerHeight: 1.8 });
   assert.equal(regen(f.player)?.saveScaled, true, 'a foe\'s blast keeps its save');
+});
+
+test('AREA-CASTER: an area Heal lands on its caster as a self-cast\'s does - healed, and said so (mutants: no healed line)', () => {
+  const HEAL_HEALTH = { type: 10, subType: 8, magnitudeBaseLow: 25, magnitudeBaseHigh: 25, magnitudeLevelBase: 0, magnitudeLevelHigh: 0, magnitudePerLevel: 1, durationBase: 0, durationMod: 0, durationPerLevel: 1, chanceBase: 0, chanceMod: 0, chancePerLevel: 1 };
+  for (const rangeType of [3, 4]) {
+    const g = godModeRig(() => 0.5);
+    g.cast({ name: 'Healing Wave', index: -1, custom: true, element: 4, rangeType, icon: 3, effects: [HEAL_HEALTH] });
+    assert.equal(g.player.health, 10 + 25, `${rangeType}: healed its whole 25`);
+    assert.ok(g.said.includes('You are healed 25 points.'), `${rangeType}: and told: ${g.said}`);
+  }
 });

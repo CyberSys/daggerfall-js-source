@@ -677,24 +677,25 @@ Seven screenshots through Mac - six #bug-reports threads and one #suggestions po
 our own thing now"*): every report root-caused on the real modules before anything changed, each fix pinned red on the
 code before it and mutation-checked. Five search lanes ran at once, one a report each; the mining lane walked E to the
 ore end to end on the real modules and ranked what could make it do nothing. One report did not reproduce, and is
-answered with a guard pin; the suggestion is a design ask, asked and not built.
+answered with a guard pin. Three calls were Mac's, asked after the first push: the shrine (*"Not now"*), the climb at a
+vein (*"Hold it at nodes"* - CLIMB-NODE) and an area spell's caster (*"Include the caster"* - AREA-CASTER).
 
 | | Report | Reporter | What it was | Done |
 |---|---|---|---|---|
-| 1 | "minig is broken doesnt work"; Mac: "Also mining, the life skill, is broken" | OG; Mac | nothing in the laws (every mining suite green): four faults between E and the ore. Mid-act only the right button struck - a left click was the act's and nothing else, and the meter's "strike the glint" named no key; a finger's or a pad's Attack never reached the act, street or dungeon; a boulder was found only by aiming a metre up its rock, and the node nearest the look was hidden-tested alone, so one behind its rock hid every other; a vein with no rock left could stand inside a rock piece | fixed (ACT-CLICK, ACT-TOUCH, NODE-AIM, VEIN-CLEAR) |
+| 1 | "minig is broken doesnt work"; Mac: "Also mining, the life skill, is broken" | OG; Mac | nothing in the laws (every mining suite green): four faults between E and the ore. Mid-act only the right button struck - a left click was the act's and nothing else, and the meter's "strike the glint" named no key; a finger's or a pad's Attack never reached the act, street or dungeon; a boulder was found only by aiming a metre up its rock, and the node nearest the look was hidden-tested alone, so one behind its rock hid every other; a vein with no rock left could stand inside a rock piece; and walking into a vein's rock to reach it climbed the rock (CLIMB2's free climb) | fixed (ACT-CLICK, ACT-TOUCH, NODE-AIM, VEIN-CLEAR); asked, built (CLIMB-NODE) |
 | 2 | "Regen spell stopped providing healing after vampire transformation" | Skaadi | the turn's CureAll ended every live entry: a running Regenerate ticked on hidden from the HUD, the party cards and the dispel list, and every recast merged into the hidden one; CureAll never cured the poisons nor filled the pools it should | fixed (CURE-ALL) |
-| 3 | "Big Regen Spell doesnt do anything" - GOD MODE: Area at Range, Magic Based, Regenerate and Fortify Attribute (Strength) | Opaldes; Skaadi: "Yeah that's precisely what my spell is as well. Same issue." | an Area at Range spell reaches its caster only where it bursts within 4.35 m of them (DFU's law, kept); and where it did, its caster saved against their own gift - the Regenerate every round, the Fortify at its landing, two rounds in three zeroed for a Breton, silently | fixed (AREA-SELF); the reach answered |
+| 3 | "Big Regen Spell doesnt do anything" - GOD MODE: Area at Range, Magic Based, Regenerate and Fortify Attribute (Strength) | Opaldes; Skaadi: "Yeah that's precisely what my spell is as well. Same issue." | an Area at Range spell reached its caster only where it burst within 4.35 m of them, an Area Around Caster never (DFU's ignoreCaster); and where it did, its caster saved against their own gift - the Regenerate every round, the Fortify at its landing, two rounds in three zeroed for a Breton, silently | fixed (AREA-SELF); asked, built (AREA-CASTER) |
 | 4 | King's Mark: "If these items spawn as wands, they cannot be equipped as wands are not an equippable effectively being useless. Solution: Make these items not roll as wands" | Cruor | a Legendary record names the piece a maker minted; the Gate's spoils and a town's thanks drew a jewel over all eight Jewellery templates, and the eighth is the Wand, which no slot takes - one jewel in eight, every tier on it read by nothing | fixed (RARITY-WEAR) |
 | 5 | "With the last patch it removed the 'Use' button for cloaks and replaced it with 'Raise Hood' and I can no longer change how the cloak is worn, eg; Over shoulder, behind, etc" | SlipperyPeasant | HOOD-SAID (PR #468) put the hood's button in Use's place on a worn cloak's card, and the hood keeps the drape: a worn casual cloak's other two drapes were out of reach on the Enhanced Plus pack | fixed (CLOAK-DRAPE) |
 | 6 | "If you trade someone unidentified items and they identify them, They will not be identified when traded back to the original player." | Masta_Fu | did not reproduce: the flag rides every door a traded piece passes, hand to hand and through the realm | answered; guard pin (TRADE-KNOWN) |
-| 7 | "Fully restore magicka by donating to wilderness shrines" - "Make an offering of (x amount gold) and meditate for an hour?" (#suggestions) | QuinsmQuansm | a design ask - World of Daggerfall's shrines stand in the wild (`WOD_Shrine_Dibella_01`, the regions' Shrines and Roadside Shrines lists), and nothing in them is worked | asked of Mac, not built |
+| 7 | "Fully restore magicka by donating to wilderness shrines" - "Make an offering of (x amount gold) and meditate for an hour?" (#suggestions) | QuinsmQuansm | a design ask - World of Daggerfall's shrines stand in the wild (`WOD_Shrine_Dibella_01`, the regions' Shrines and Roadside Shrines lists), and nothing in them is worked | asked: Mac, "Not now" - recorded, not built |
 
-Pins: `test/fb1001_{mining,regen,wand,drape,identify}.test.js` (8, 3, 3, 2, 2), each red on the code before but the
-guard pin (it passes on the code before, and its mutants are the claim). Mutants: `tools/mutants/fb1001_mining.json`
-(15), `fb1001_regen.json` (8), `fb1001_wand.json` (11), `fb1001_drape.json` (10), `fb1001_identify.json` (5) - all
-dead. PIN MOVED, each by content: `prof1_client` (the world host's `gatherHost?.acting()` reads, seven to eight - the
+Pins: `test/fb1001_{mining,regen,wand,drape,identify,climbnode}.test.js` (8, 5, 3, 2, 2, 4), each red on the code before
+but the guard pin (it passes on the code before, and its mutants are the claim) and the guards beside the reds (a jump
+not held, a blast with harm in it). Mutants: `tools/mutants/fb1001_mining.json` (15), `fb1001_regen.json` (14),
+`fb1001_wand.json` (11), `fb1001_drape.json` (10), `fb1001_identify.json` (5), `fb1001_climbnode.json` (6) - all dead. PIN MOVED, each by content: `prof1_client` (the world host's `gatherHost?.acting()` reads, seven to eight - the
 tap's), `audit0928_input` U2 (the tap hook it lifts asks the gathering host's act, after the decorator's flight -
-`gatherHost: null` in its scope), `lycanthropy` V2a (the old life's fortify runs on), `curse_persist` CURSE-REPAIR1 (what the onset cures is a
+`gatherHost: null` in its scope), `parkour` CLIMB1 (the world host's motor hands the parkour deps its hold), `lycanthropy` V2a (the old life's fortify runs on), `curse_persist` CURSE-REPAIR1 (what the onset cures is a
 drain, not a buff; a curse given back cures neither). Mutant records re-aimed by content, each dead: `audit29.json`
 AUDIT29-C1-through-the-wall (the seen test is the loop's now), `fb0929h_infectionkept.json`'s turn mutant (CureAll's
 import), `prof2.json` PROF2-33-no-stone-tile and `wb5.json` WB5-a-piece-without-its-row (the guards they cut grew a
@@ -784,10 +785,10 @@ caster by two rounds in three.
 
 **The fix** (`scenes/hostMagic.js` explodeAt): where the player's own blast catches the player and every effect in it is
 a gift (`allyCastable`, the ally law's one test), it lands as a self-cast. A blast with harm in it, and a foe's, are
-saved against as before. A departure (Port-Ledger). The reach is DFU's and stays: an Area at Range spell is a missile,
-and its caster is in its blast only where it bursts within 4.35 m (`spellcast.js` EXPLOSION_RADIUS and the player's
-0.35 body) - a self-buff is Caster Only, and an Area Around Caster spell reaches the party, never its caster.
-`test/fb1001_regen.test.js` (AREA-SELF 1).
+saved against as before. A departure (Port-Ledger). The reach was DFU's - an Area at Range spell's caster in its blast
+only where it bursts within 4.35 m (`spellcast.js` EXPLOSION_RADIUS and the player's 0.35 body), an Area Around
+Caster's never - and Mac, asked, took it away for a spell of gifts: AREA-CASTER, below, lands it on its caster at the
+cast, so the burst passes them by. `test/fb1001_regen.test.js` (AREA-SELF with AREA-CASTER 3).
 
 ## RARITY-WEAR: no slot, no tier (4)
 
@@ -835,11 +836,39 @@ page hidden, a trade's hold - which checkpoints first). A tab that joins again b
 first trade wrote, the piece unknown in it. For the reporter: did the piece show its known name in the trade window's
 offer before the trade back, and is it known in the holder's pack after a relog?
 
+## AREA-CASTER: an area spell of gifts lands on its caster (3; asked)
+
+**Asked** after the first push - Area Around Caster never reaches its caster (DFU), and Area at Range only within about
+4 m of its burst: should an area spell made only of buffs always land on its caster too? Mac: *"Include the caster"*.
+
+**Built** (`scenes/hostMagic.js` giveAreaToCaster): an area spell every effect of which is a gift (`allyCastable`, the
+ally law's one test) lands on its caster at the cast, as a self-cast (never saved against - AREA-SELF's law): an Area
+Around Caster's beside the foes, mates, duel opponent and boss its sweep reaches; an Area at Range's as its missile
+leaves, wherever it bursts and if it bursts nowhere. Once: the burst that catches its caster passes them by (AREA-SELF's
+arm in explodeAt now lands nothing on them), or a second Regenerate's rounds would stack onto the first. The landing
+says a Heal's "You are healed N points.", as a Caster Only cast does. A spell with harm in it is DFU's still: its caster
+only where its blast reaches them, and saved against; a foe's blast of gifts is saved against. In the ledger with
+AREA-SELF. `test/fb1001_regen.test.js` (AREA-CASTER 3).
+
+## CLIMB-NODE: the free climb holds at a node (1; asked)
+
+**Found** walking E to the ore: CLIMB2's free climb starts after Forward is held against any face for its start time
+(0.6 s, 0.3 s at Climbing 100; online always - `player/motor.js` _freeStart, `player/parkour.js`), and a vein stands at
+its rock's foot, so a player who walked into the rock to reach the ore climbed it and lost the target and the act.
+**Asked**: Mac, *"Hold it at nodes"*.
+
+**Built** (`player/motor.js` _freeStart, `scenes/shared.js` parkourDeps' `hold`, `scenes/world.js`): while a
+profession's node is under the look - its prompt up (`gatherHost.target`) - or an act plays, the walk-in start is held,
+and its count begins again when it lets go (pressed into the rock most of the start time, a node, then none: a whole
+start time again, never the rest of it). A jump's grab and a mantle are a jump's and are not held; the hang, the
+shimmy and climbing anywhere else are CLIMB2's. THE FOUR HOSTS: the streaming world's one motor (its dungeon and its
+buildings drive the same `player`) is handed the hold; the fixed city (`scenes/exterior.js`) and the standalone
+dungeon (`scenes/dungeon.js`) stand no nodes and hand none; the interiors (`scenes/worldModes.js`) and the dungeon
+mode (`scenes/dungeonContext.js`) are the world host's motor. `test/fb1001_climbnode.test.js` (4).
+
 ## Found on the way, not changed
 
-1. **Climbing at a vein** (For Mac). CLIMB2's free climb starts after 0.6 s of Forward against any face (0.3 s at
-   Climbing 100), online always (`player/motor.js`, `player/parkour.js`), and a vein stands at its rock's foot: a
-   player who walks into the rock to reach the ore climbs it, and loses the target and the act.
+1. **Climbing at a vein** - asked, and built: CLIMB-NODE, below.
 2. **Starting an act by touch or pad.** The touch corner carries no Interact, nor the pad's defaults; a tap and the
    pad's A are ActivateCenterObject, which AUDIT 29 C2/H3 kept off the nodes. With ACT-TOUCH an act can be played by
    touch; the start is still E or the tool's hotbar Use (TOOL-USE).
@@ -849,8 +878,8 @@ offer before the trade back, and is it known in the holder's pack after a relog?
    marker refuses the start, said ("You cannot mine with enemies nearby!").
 5. **A partial save is silent.** "Save versus spell made." is said for a full save and a failed chance; a magnitude a
    save zeroed says nothing (DFU says it, EntityEffect.cs:810) - a harmful own blast's, a foe's.
-6. **Area Around Caster never reaches its caster** (DFU's ignoreCaster, DaggerfallMissile.cs:282) - a party buff that
-   includes its caster is two spells, or an Area at Range burst at one's feet. For Mac.
+6. **Area Around Caster never reached its caster** (DFU's ignoreCaster, DaggerfallMissile.cs:282) - asked, and built for
+   a spell of gifts: AREA-CASTER, below.
 7. **The Jewellery Legendaries name no templates**: a King's Mark lands on any wearable jewel, and Archmage's Loop -
    "one of the rings" - on any.
 8. **Deep Waters' FillRandomItem** mints plain wands; none reaches the ladder today, and `rarityEligible` refuses one

@@ -1407,6 +1407,8 @@ As built:
   hooks had refused every such press mid-act, so no vein was ever mined on a phone or a pad); a node is found anywhere up
   its upright, base to aim point - a boulder by its stones - and of the nodes in the cone the first SEEN nearest the look
   is the target (NODE-AIM); a vein's stone tile is never inside a rock piece (VEIN-CLEAR). The meter names the press.
+  And, asked (Mac: "Hold it at nodes"), a node under the look or an act playing holds the free climb's walk-in start
+  (CLIMB-NODE, `player/motor.js` _freeStart) - walking into a vein's rock to reach it had climbed the rock.
 
 ## 24. PROF3 - Smithing: the anvil, quality and provenance, as built (SHIPPED 2026-09-28, at `dev`)
 

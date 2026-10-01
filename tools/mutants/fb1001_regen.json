@@ -45,7 +45,7 @@
     ]
   },
   {
-    "name": "AREA-SELF-the-self-cast-never-made",
+    "name": "AREA-SELF-the-burst-lands-it-again-saved",
     "file": "src/scenes/hostMagic.js",
     "old": "      const gift = caster?.entity === playerEntity && allyCastable(spell);",
     "new": "      const gift = false;",
@@ -54,7 +54,7 @@
     ]
   },
   {
-    "name": "AREA-SELF-made-for-a-blast-with-harm",
+    "name": "AREA-SELF-a-blast-with-harm-passes-her-by",
     "file": "src/scenes/hostMagic.js",
     "old": "      const gift = caster?.entity === playerEntity && allyCastable(spell);",
     "new": "      const gift = caster?.entity === playerEntity;",
@@ -63,10 +63,64 @@
     ]
   },
   {
-    "name": "AREA-SELF-made-for-a-foes-blast",
+    "name": "AREA-SELF-a-foes-gift-taken-as-her-own",
     "file": "src/scenes/hostMagic.js",
     "old": "      const gift = caster?.entity === playerEntity && allyCastable(spell);",
     "new": "      const gift = allyCastable(spell);",
+    "tests": [
+      "test/fb1001_regen.test.js"
+    ]
+  },
+  {
+    "name": "AREA-CASTER-the-caster-never-given-it",
+    "file": "src/scenes/hostMagic.js",
+    "old": "    if (!allyCastable(sp)) return;\n    const r = applySpellToPlayer({ ...sp, rangeType: 0 }",
+    "new": "    return;\n    const r = applySpellToPlayer({ ...sp, rangeType: 0 }",
+    "tests": [
+      "test/fb1001_regen.test.js"
+    ]
+  },
+  {
+    "name": "AREA-CASTER-given-it-saved",
+    "file": "src/scenes/hostMagic.js",
+    "old": "    const r = applySpellToPlayer({ ...sp, rangeType: 0 }, effectiveLevel(playerEntity), playerCaster());",
+    "new": "    const r = applySpellToPlayer(sp, effectiveLevel(playerEntity), playerCaster());",
+    "tests": [
+      "test/fb1001_regen.test.js"
+    ]
+  },
+  {
+    "name": "AREA-CASTER-given-a-blast-with-harm",
+    "file": "src/scenes/hostMagic.js",
+    "old": "    if (!allyCastable(sp)) return;\n    const r = applySpellToPlayer({ ...sp, rangeType: 0 }",
+    "new": "    if (false) return;\n    const r = applySpellToPlayer({ ...sp, rangeType: 0 }",
+    "tests": [
+      "test/fb1001_regen.test.js"
+    ]
+  },
+  {
+    "name": "AREA-CASTER-around-caster-passes-her-by",
+    "file": "src/scenes/hostMagic.js",
+    "old": "      giveAreaToCaster(sp);   // AREA-CASTER: and me, when it is all gifts",
+    "new": "      // gone   // AREA-CASTER: and me, when it is all gifts",
+    "tests": [
+      "test/fb1001_regen.test.js"
+    ]
+  },
+  {
+    "name": "AREA-CASTER-at-range-only-at-its-burst",
+    "file": "src/scenes/hostMagic.js",
+    "old": "    if (sp.rangeType === 4) giveAreaToCaster(sp);",
+    "new": "    if (false) giveAreaToCaster(sp);",
+    "tests": [
+      "test/fb1001_regen.test.js"
+    ]
+  },
+  {
+    "name": "AREA-CASTER-no-healed-line",
+    "file": "src/scenes/hostMagic.js",
+    "old": "    if (r.healed > 0) say(`You are healed ${r.healed} points.`);\n  }\n  function explodeAt",
+    "new": "  }\n  function explodeAt",
     "tests": [
       "test/fb1001_regen.test.js"
     ]

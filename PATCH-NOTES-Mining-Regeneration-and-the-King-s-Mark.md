@@ -6,9 +6,10 @@
 - **Boulders can be targeted by looking at their stones.** You had to aim about a metre up the rock's face to get the prompt. Looking at the glowing stones at its foot now works.
 - **A hidden vein no longer blocks the one you can see.** A vein hidden behind its rock but nearest your crosshair stopped any other vein in view from being targeted.
 - **No more veins inside rocks.** A vein could stand inside a rock, glowing and on the compass, but impossible to reach. Veins now always stand outside the rocks.
+- **Walking up to a vein no longer climbs its rock.** Pressing forward against a rock started a climb after a moment, and the vein was lost. While a vein, boulder, herb patch or tree is under your crosshair, or while you're gathering, pressing forward against a wall no longer starts a climb. Jumping still grabs the wall and climbs.
 
 ## Spells
-- **Your own area buffs no longer resist you.** An Area at Range spell of buffs (for example Regenerate with Fortify Attribute) that bursts close enough to catch you now lands on you in full. Before, your own magic resistance rolled against it, so many of its Regenerate rounds healed nothing. Spells that also do harm still allow a save, as before. An Area at Range spell is a missile and only reaches you if it bursts within about 4 metres of you. For a buff on yourself, use Caster Only.
+- **Area buffs now include you.** An Area Around Caster or Area at Range spell made only of buffs (for example Regenerate with Fortify Attribute) now lands on you as well as everyone it reaches, wherever it bursts. It lands in full: before, your own magic resistance rolled against it when it caught you, so many of its Regenerate rounds healed nothing. Area spells that also do harm work as before: they reach you only if you're inside the blast, and you can resist them.
 - **Becoming a vampire or a werewolf no longer hides your running spells.** The transformation marked every spell effect on you as ended. A running Regenerate kept healing but vanished from the HUD, your party's cards and the dispel list, and recasting it never brought the icon back. Your buffs now keep running and stay shown. The transformation also cures your poisons and fully restores your health, fatigue and magicka, as Daggerfall's does.
 
 ## Items
