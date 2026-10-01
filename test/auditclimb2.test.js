@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PlayerMotor, CAPSULE_RADIUS, CAPSULE_HEIGHT, SYSTEM_TIMER_UPDATES_DIVISOR, HOLD_CARRY_MAX } from '../src/player/motor.js';
 import { Collider } from '../src/player/collider.js';
-import { senseGrip, capsuleFits, PARKOUR_GRIP_LOW_TEXT, PARKOUR_BODY_RADIUS } from '../src/player/parkour.js';
+import { senseGrip, capsuleFits, registerParkourGate, PARKOUR_GRIP_LOW_TEXT, PARKOUR_BODY_RADIUS } from '../src/player/parkour.js';
 import { CONTINUE_CLIMBING_SKILL_CHECK_FREQUENCY } from '../src/player/climbing.js';
 
 const I = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
@@ -614,12 +614,90 @@ test('AUDIT CLIMB2 M1: Crouch with Jump held lets go and stays let go - the Jump
   assert.equal(m.grounded, true, 'down on the ground');
 });
 
-test('AUDIT CLIMB2 M2: the fit\'s headroom ray still answers what the collider and the bands cannot - a body pinned between a slab at its feet and one at its head reads clear to both', () => {
+test('AUDIT CLIMB2 M2: the fit\'s headroom ray still answers what the collider and the bands cannot - a body pinned between a slab at its feet and one at its head', () => {
   assert.equal(PARKOUR_BODY_RADIUS, CAPSULE_RADIUS, 'the body\'s radius restated for the cycle');
-  for (const [y1, y2] of [[0.02, 1.5], [0.1, 1.56], [0.2, 1.62]]) {
-    const s = scene(); s.box(-2, y1, -2, 2, y1 + 0.1, 2); s.box(-2, y2, -2, 2, y2 + 0.1, 2);
+  for (const [y1, y2, th] of [[0.02, 1.5, 0.1], [0.1, 1.56, 0.1], [0.2, 1.62, 0.1], [0.06, 1.78, 0.02], [0.04, 1.78, 0.1]]) {
+    const s = scene(); s.box(-2, y1, -2, 2, y1 + th, 2); s.box(-2, y2, -2, 2, y2 + 0.1, 2);
     assert.equal(capsuleFits(s.col, [0, 0, 0], CAPSULE_HEIGHT), false, `slabs at ${y1} and ${y2}`);
   }
+  // (the last two - a plate through the shins under a ceiling at the head - only the ray sees: the collider's
+  // spheres can be pushed neither way, and the bands, since AFTER AUDIT CLIMB2 fine enough to see the others, stand
+  // above the plate)
   const s = scene();
   assert.equal(capsuleFits(s.col, [0, 0, 0], CAPSULE_HEIGHT), true, 'and the open fits');
+});
+
+test('TAP CATCH (Mac, 2026-10-01: "Take care of what is left including a jump catching a ledge"): a tapped Jump catches - the press arms the catch for the jump it makes, until the body is down again', () => {
+  const s = scene(); s.box(-3, 0, 1, 3, 2.3, 4);
+  // a tap at the wall: the grounded press finds the lip out of the standing reach, the jump carries it into the hands
+  const m = motor(s.col, { skill: 100 });
+  let armedUp = false;
+  for (let i = 0; i < 60; i++) { step(m, { jump: i === 10 }); armedUp ||= !m.grounded && !!m._pkArm; }
+  assert.ok(armedUp, 'armed through the jump with the key let go');
+  assert.equal(m.hanging, true, 'a tapped jump caught the lip and hangs');
+  // a tap in the air, falling past the lip (no jump made): the press arms the catch just the same
+  const f = motor(s.col, { skill: 100, y: 1.0 });
+  for (let i = 0; i < 40; i++) step(f, { jump: i === 1 });
+  assert.equal(f.hanging, true, 'a tap while falling past it caught it');
+  // a tap far from any lip arms nothing past the landing: the jump comes down and the arm is gone
+  const far = scene();
+  const g = motor(far.col, { skill: 100 });
+  let up = false, down = null;
+  for (let i = 0; i < 90; i++) { step(g, { jump: i === 10 }); up ||= !g.grounded; if (up && g.grounded && down == null) down = i; }
+  assert.ok(up && down != null, 'jumped and landed');
+  assert.equal(g._pkArm, null, 'the landing ends the arm');
+  // and no press, no catch: falling past the lip with no key is still a fall
+  const n = motor(s.col, { skill: 100, y: 1.0 });
+  for (let i = 0; i < 40; i++) step(n, {});
+  assert.equal(n.hanging, false, 'no press, no catch');
+  // a tap catches what the hands can hang from; a sheer wall (no lip in reach) is grabbed only with the key held, as
+  // CLIMB2 has it - a tapped jump at a wall with Forward is a jump
+  const w = scene(); w.box(-3, 0, 1, 3, 8, 4);
+  const t = motor(w.col, { skill: 100 });
+  let grabbed = false;
+  for (let i = 0; i < 60; i++) { step(t, { forward: i < 30 ? 1 : 0, jump: i === 12 }); grabbed ||= t.onWall; }
+  assert.equal(grabbed, false, 'a tap is no grab of a sheer wall');
+  const h = motor(w.col, { skill: 100 });
+  for (let i = 0; i < 30; i++) step(h, { forward: 1, jump: i >= 12 && i < 30 });
+  assert.equal(h.onWall, true, 'held, it is (CLIMB2)');
+  // (nor is a low lip stepped onto in the air from a tap - AUDIT CLIMB1 G5's staircase, tapped all the way up, pins it)
+  // a press the ground's own gate refuses a jump (fresh off a landing) arms nothing for long: no jump, no catch to come
+  const z = motor(far.col, { skill: 100 });
+  step(z, {}); step(z, {});   // down on the floor, under the gate's 0.1 s
+  assert.equal(z.grounded, true);
+  step(z, { jump: true });
+  assert.equal(z.grounded, true, 'the gate refused the jump');
+  for (let i = 0; i < 6; i++) step(z, {});
+  assert.ok(z.grounded && z._pkArm === null, 'a press that never left the ground lapses');
+  // a press spent on a move arms nothing past it: a tap at a waist-high box mantles onto it, the press gone with it
+  const k = scene(); k.box(-3, 0, 1, 3, 0.9, 4);
+  const q = motor(k.col, { skill: 100 });
+  for (let i = 0; i < 40 && !q._pkMove; i++) step(q, { jump: i === 20 });
+  assert.ok(q._pkMove && q._pkArm === null, 'the mantle spent the press');
+  // a fresh press at the let-go, let go of at once: the fall is a fall, not a catch of the lip just let go of - a hang
+  // high on a wall (a slab over its top: the free climb ends hanging from it), so the fall is long enough to catch in
+  const hi = scene(); hi.box(-3, 0, 1, 3, 6, 4); hi.box(-4, 6.6, -1, 4, 6.8, 4);
+  const d = motor(hi.col, { skill: 100, z: 0.6 });
+  for (let i = 0; i < 900 && !d.hanging; i++) step(d, { forward: 1 });
+  assert.ok(d.hanging && d.pos[1] > 4, `hanging high on the wall (feet ${d.pos[1].toFixed(2)})`);
+  for (let i = 0; i < 5; i++) step(d, {});
+  step(d, { jump: true, crouch: true });
+  let again = false;
+  for (let i = 0; i < 60; i++) { step(d, {}); again ||= d.onWall || !!d._pkMove; }
+  assert.equal(again, false, 'the let-go spent the press');
+  // a refused climb's line is said once a jump, armed or held (Roleplay & Realism's weapon drawn)
+  const said = [];
+  registerParkourGate(() => 'no weapon');
+  try {
+    const r = motor(s.col, { skill: 100, said });
+    for (let i = 0; i < 60; i++) step(r, { jump: i === 10 });
+    assert.equal(said.filter((l) => l === 'no weapon').length, 1, 'said once for the tapped jump');
+  } finally { registerParkourGate(null); }
+});
+
+test('AUDIT CLIMB2 CLIP: the fit asks the body finely enough that a thin rod between its samples sits no deeper than a contact - 3.3 cm in is refused where the first sampling missed it, 1.5 cm in is a touch', () => {
+  const at = (y, d) => { const s = scene(); s.box(-2, y, d, 2, y + 0.01, 3); return capsuleFits(s.col, [0, 0, 0], CAPSULE_HEIGHT); };
+  assert.equal(at(0.7575, 0.317), false, 'a rod 3.3 cm in at 0.76 m - midway between the first cut\'s samples');
+  assert.equal(at(0.689, 0.317), false, 'a rod 3.3 cm in at 0.69 m - midway between two of the samples now');
+  assert.equal(at(0.7575, 0.335), true, 'a rod 1.5 cm in is a touch');
 });

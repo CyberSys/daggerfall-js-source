@@ -237,9 +237,12 @@ test('CLIMB1 LIVE: Jump held in the air catches a lip the jump brings into reach
   assert.deepEqual(low.log.started, [], `out of reach at Climbing 0 (${(PARKOUR_REACH_MIN + PARKOUR_AIR_REACH).toFixed(2)} m of hands over a 0.5 m jump)`);
   assert.ok(low.log.maxY < 1, 'the jump went up and came down');
   // a tapped jump, no hold: the grounded press missed (the lip is out of the
-  // standing reach) and nothing catches in the air
+  // standing reach), and the tap arms the catch for the jump it makes (Mac,
+  // 2026-10-01: "Take care of what is left including a jump catching a ledge" -
+  // the first cut asked the key held, and a tap caught nothing)
   const tapped = drive(world(2.3), { skill: 100, input: tap() });
-  assert.deepEqual(tapped.log.started, [], 'Jump is the grab: no key held, no catch');
+  assert.deepEqual(tapped.log.started.map((e) => e[1]), ['catch'], 'Jump is the grab: a tap catches');
+  assert.equal(tapped.m.hanging, true);
 });
 
 test('CLIMB1 LIVE: Jump at a run vaults a fence - over it, onward, and down; without Forward it is climbed over; a deep top is climbed onto', () => {

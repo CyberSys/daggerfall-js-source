@@ -218,8 +218,8 @@
   {
     "name": "CLIMB2-grab-without-forward",
     "file": "src/player/motor.js",
-    "old": "    if (!move && air && fwd && this._pkGrab(look, pk)) return true;",
-    "new": "    if (!move && air && this._pkGrab(look, pk)) return true;",
+    "old": "    if (!move && air && fwd && !tapOnly && this._pkGrab(look, pk)) return true;",
+    "new": "    if (!move && air && !tapOnly && this._pkGrab(look, pk)) return true;",
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",

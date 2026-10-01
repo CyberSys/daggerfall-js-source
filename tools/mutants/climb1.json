@@ -124,8 +124,8 @@
   {
     "name": "CLIMB1-air-grab-without-jump",
     "file": "src/player/motor.js",
-    "old": "    if (!this.swimming && !this.sunk && input.jump && !this._pkJumpLatch) {\n      if (!this.grounded) mode = 'air';",
-    "new": "    if (!this.swimming && !this.sunk && !this.grounded) mode = 'air';\n    if (!this.swimming && !this.sunk && input.jump && !this._pkJumpLatch) {\n      if (!this.grounded) mode = 'air';",
+    "old": "    if (!this.swimming && !this.sunk && (input.jump || this._pkArm) && !this._pkJumpLatch) {\n      if (!this.grounded) mode = 'air';",
+    "new": "    if (!this.swimming && !this.sunk && !this.grounded) mode = 'air';\n    if (!this.swimming && !this.sunk && (input.jump || this._pkArm) && !this._pkJumpLatch) {\n      if (!this.grounded) mode = 'air';",
     "tests": [
       "test/auditclimb1.test.js",
       "test/parkour.test.js",

@@ -21,7 +21,9 @@ Press **Jump** while moving forward at a wall or fence with a thin top, no highe
 - A top deep enough to stand on is climbed onto rather than vaulted.
 
 ## Catch a ledge and hang from it
-Keep **Jump** held after a jump or while falling, and you grab a ledge that comes within reach of your hands. A tap doesn't catch anything; you have to hold it.
+Jump at a ledge that's out of reach from the ground, or press **Jump** while falling past one, and you grab it as it comes within reach of your hands. A tap is enough: the press lasts until you land.
+
+- Holding Jump through the jump does more: it also steps you onto a low ledge in mid-air, and with Forward held it grabs a bare wall. A tap only catches ledges at chest height or higher, so jumping up stairs or about a room still just jumps.
 
 - **Hanging:** a ledge at chest height or higher (about 1.2 m above your feet) is held. You hang under it with your eyes just below the edge. A roof's eave counts, up to a 45° pitch.
 - **Holding Forward** as you catch it climbs you straight up, the same as before.

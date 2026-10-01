@@ -295,7 +295,8 @@ hanging, follows the lip and stops at gaps", "Climb up / drop: W or Jump / Crouc
   height, the nearest face within the radius and 0.15 (a face with |ny| over 0.7 is a floor or a ceiling, no wall).
 
 **In the motor** (`_parkourStep` and `_wallStep`):
-- **The catch in the air** (Jump held, the fall one the skill holds, the grip not spent): Forward held climbs onto or over
+- **The catch in the air** (Jump held - or since AFTER AUDIT CLIMB2 a tapped Jump's press, armed for its jump - the fall
+  one the skill holds, the grip not spent): Forward held climbs onto or over
   the lip (CLIMB1); a lip at the chest or higher is otherwise HELD - `planCatch`, 0.15 s into the hang, the way proven;
   a lower one is stepped onto (CLIMB1); where no hang fits, the lip is climbed onto as at CLIMB1. A crouched jump holds
   nothing (the hang is the standing body's). With Forward held and no lip to take, the hands take the wall itself - a
@@ -439,7 +440,7 @@ survivors; each was a finding too (the last table).
 |---|---|---|---|
 | Latch, mantle | the ask | Done - and a roof's eave is a hold now (C1), round any tower or room (G5) | - |
 | Jump from one location to another ledge | the ask | Not built | CLIMB3 |
-| Jump near a ledge catches or mantles; Jump held keeps catching | "Jump is the grab" | Done - see the open question below | - |
+| Jump near a ledge catches or mantles; Jump held keeps catching | "Jump is the grab" | Done - and since Mac's answer to the question below, a tapped Jump catches too (AFTER AUDIT CLIMB2) | - |
 | W climbs up, Crouch drops | "Jump is the grab" | Done - over deep water too (C2), and Jump held through the drop catches nothing (M1) | - |
 | Everyone can vault, mantle and hang; skill sets reach, speed, grip time, hard catches | "Skill scales it" | Done; a catch and a corner spend the grip as the hang does (H4) | - |
 | Any wall climbable on Fatigue, skill sets speed and grip, the climb ends in a mantle | "Free-climb on grip" | Done: the top-out at reach (H5), under a cornice by a reach (G4), outdoors on terrain (C6), never stepping into what it climbs (G1, G2) | - |
@@ -448,7 +449,8 @@ survivors; each was a finding too (the last table).
 
 **Open question, put to Mac**: a *tapped* Jump at a ledge above standing reach does not catch it - the catch asks for
 Jump held (the patch notes say so). "Jump near a ledge catches" could be read to mean a tap arms a catch for that
-jump. Not changed without his word.
+jump. Not changed without his word. **Answered** (*"Take care of the what is left including a jump catching a
+ledge"*): it does now - AFTER AUDIT CLIMB2, below.
 
 ### Findings (each pinned red, each fixed)
 
@@ -505,7 +507,7 @@ AUDIT CLIMB1 and CLIMB2 record again, the lines the audit moved re-aimed. Each s
 | C1: the step's inset | Equivalent: the scan is top-down, and the rung above is asked first | Recorded |
 | G1: the climb's `noStep`, and the ladder's own check | Behind G2's whole-body proof, a rung landed in the eave is refused anyway; beside a block the collider's resolve gives the same path (measured on 0.8-1.0 m plinths) | Recorded equivalent: a climber never steps |
 | G2: the free start's own check | A climb taken inside a rail leans out on its first move | Recorded equivalent |
-| G2: the rail (found pinning the start) | A climber under a rail sat stuck, every move pressed back into it, and the collider's sphere turned a move up into one down | The climb leans out past it (`PARKOUR_LEAN`, the hug let go of, then 2, 5, 10 cm out); a move the collider turns back is no move; pinned at 8 and 12 cm |
+| G2: the rail (found pinning the start) | A climber under a rail sat stuck, every move pressed back into it, and the collider's sphere turned a move up into one down | The climb leans out past it (`PARKOUR_LEAN`, the hug let go of, then 2, 5, 10 cm out); pinned at 8 and 12 cm. (A move the collider turned back was refused too, until the finer bands below caught the rail first and made that check dead - AFTER AUDIT CLIMB2) |
 | G4: the reach's path proven | Equivalent: a straight 10-16 cm between two bodies each proven to fit | Recorded |
 | G5: the lead hand from the next hold | The new corners took a 20-gon round anyway - by swinging eight corners | The lead hand felt in two halves; a round tower is followed with no corner swung (pinned) |
 | G5: the 30 degrees | A small 12-sided room (R 1.5) still stopped: its 30-degree bends fell between the follow and the corner, and the corner's ray passed the next wall's end | The follow takes its 30 degrees with the rays' scatter; pinned |
@@ -517,9 +519,9 @@ battery (44 scenes, 11 scripts, 3 spawns, 2 skills) has no failing run (126 befo
 and room it was tried on, and 6,000 random scenes leave overlaps of 4.6 cm at most (16 cm before) - the fit's own
 resolution between its samples, recorded below.
 
-**Recorded limits**: between the fit's samples (every 0.275 m up the axis, a contact's 3 cm inside the body) a thin
-feature can still sit up to about 5 cm in; finer sampling costs every path proof several times its spheres. A tapped
-Jump does not catch (the open question above).
+**Recorded limits** (both closed AFTER AUDIT CLIMB2, below): between the fit's samples (every 0.275 m up the axis, a
+contact's 3 cm inside the body) a thin feature could still sit up to about 5 cm in. A tapped Jump did not catch (the
+open question above).
 
 Found on the way and NOT this PR's (reported, not fixed): standing up from a crouch under a low eave sinks the body
 0.29 m into the floor with the enhanced climb off too - the stand-up's own (DFU's CanStand clears the camera's rise
@@ -527,3 +529,55 @@ and lets the head clip, AUDIT 64 F5), not the climb's. And on a dense mesh (one 
 free climb's top-out step costs about 13.5 ms (39 `penetrationAt` calls inside the ledge's proof) and a corner's up to
 7.3 ms, once each; a steady climb's 2.0-2.4 ms a step is the collider's own move (walking along the same wall costs
 the same). Daggerfall's models are a few hundred triangles; plain geometry stays under 0.5 ms a step in every state.
+
+## AFTER AUDIT CLIMB2 (2026-10-01): what was left
+
+Mac, on the audit's report (its open question, its two recorded limits): *"Take care of the what is left including a
+jump catching a ledge."*
+
+**THE TAP CATCH** (`motor.js _parkourStep`, `PARKOUR_ARM_GRACE_S`). A fresh press of Jump arms the air catch for the
+jump it makes, as if the key were still held, until the body is down again. A press on the ground that leaves it no
+jump (the grounded gate's) lapses after 0.05 s, since the jump it would have made takes off on the press's own step.
+A move spends it (a tapped mantle or vault), and so does a let-go: only a fresh press catches the lip let go of. A
+press in the air while falling past a lip arms it just the same. What a tap catches is a CATCH: a lip at the chest or
+higher, held, or climbed onto with Forward. It never steps the body onto a low lip in the air, which would make a
+staircase tapped all the way up a string of mantles (AUDIT CLIMB1 G5's "Jump on a staircase is a jump"; the first cut
+of the tap broke that pin at once). Nor does it grab a sheer wall: a tapped jump at a wall with Forward held is a
+jump. Both of those still ask the key held, as they always have. A refused climb's line (Roleplay & Realism) is said
+once a jump, armed or held.
+- **Moved pins**: CLIMB1 LIVE's tapped jump at the 2.3 m lip (`test/parkour.test.js`) now catches and hangs; the
+  Features note says "Jump at a high ledge to catch it" (-3 characters, inside the budget).
+
+**THE FIT, FINER** (`parkour.js bandsClear`). The bands are asked every 0.1375 m (`PARKOUR_FIT_BAND`, half the first
+cut's), by spheres 2 cm inside the body (`PARKOUR_BAND_SLACK`, a centimetre less than the first cut's 3). A thin
+feature between two samples now sits no further in than a contact's 3 cm (2.7 cm at the worst point between them). A
+wall the body leans on stays 2 cm clear of the sphere, and a 45-degree roof it stands on 1.5 cm.
+- **Measured** with the hostile-geometry audit's own instruments:
+  - The same 6,000 random scenes flag 2 seeds, down from 54. One is a mantle 3.1 cm in, a millimetre over the line and
+    seen by the collider's own measure. The other is a ground/air flicker after the climb had ended, which is the walk's.
+  - The hand-built battery still has no failing run.
+- **The price**: plain geometry is unchanged (every state under 0.3 ms a step). On a 1,700-box brick wall the free
+  climb's one top-out step costs 18.9 ms where it cost 13.9, and the steady climb about 0.8 ms more a step. Daggerfall's
+  models are a few hundred triangles.
+- **Pinned**: two rods 3.3 cm into the body, one midway between the first cut's samples and one midway between today's,
+  are refused; a rod 1.5 cm in is a touch.
+
+**REAL GEOMETRY** (`test/climbreal.test.js`). Still no session has had the game data. The measure for one that does
+climbs every side of the first 24 building-sized ARCH3D models (5-25 m across, 3-15 m tall). On each side it runs the
+free climb from the foot of the wall, its top-out or its hang, and the hang's shimmy. It measures the body's depth in
+the model's own triangles EXACTLY: the capsule's axis against every triangle near it, never through the collider. The
+harness is proven on every run against three synthetic buildings: a house under a 30-degree roof and an octagonal
+tower, every side topped out, and a house under a slab, every side hung from and shimmied along. Its measure agrees
+with the box measure to a millimetre. The real models run where `ARENA2_PATH` names the game's data, as every
+real-data test in the suite does.
+
+**Mutants**: `tools/mutants/auditclimb2.json` grows to 56: the tap (its arming, the held-only mode, the landing, the grace,
+the low lips, the grab, the line said, the move and the let-go spending it) and the fit's spacing and slack. Every
+climbing list re-run: 165 dead, 5 recorded equivalent, none surviving. The survivors on the way were findings:
+- the grace's pin pressed on the spawn's own step, still in the air;
+- the let-go's pin dropped half a metre to the floor, which ended the arm before a catch could;
+- the free climb's "turned back is no move" check was dead behind the finer bands, and is removed;
+- the finer bands also took the headroom ray's pin, so M2 now pins the case only the ray sees: a plate through the
+  shins under a ceiling at the head.
+
+Still open: `test/climbreal.test.js`'s real half has never run, because no session has had the game data.

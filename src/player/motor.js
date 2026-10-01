@@ -272,7 +272,7 @@ import {
   bandsClear, capsuleFits, PARKOUR_LEAN,
   PARKOUR_HANG_DROP, PARKOUR_HANG_GAP, PARKOUR_HANG_LOW, PARKOUR_HAND_SPAN, PARKOUR_GRIP_MIN, PARKOUR_GRIP_LOW,
   PARKOUR_GRIP_LOW_TEXT, PARKOUR_GRIP_REST, PARKOUR_GRIP_REGEN_S,
-  PARKOUR_CORNER_PROBE, PARKOUR_FACE_FOLLOW, PARKOUR_CORNER_OFF, PARKOUR_CORNER_IN, PARKOUR_CORNER_CLEAR, PARKOUR_WALL_REACH, PARKOUR_CONTACT,
+  PARKOUR_CORNER_PROBE, PARKOUR_FACE_FOLLOW, PARKOUR_ARM_GRACE_S, PARKOUR_CORNER_OFF, PARKOUR_CORNER_IN, PARKOUR_CORNER_CLEAR, PARKOUR_WALL_REACH, PARKOUR_CONTACT,
 } from './parkour.js';
 // A6: PlayerMoveScanner is a component on the player object in DFU
 // (PlayerMotor.Start :265 GetComponent), so the motor owns one. Same
@@ -420,6 +420,8 @@ export class PlayerMotor {
     this._pkMove = null;         // the move in flight (player/parkour.js planMantle/planVault), null between moves
     this.parkoured = null;       // 'mantle' | 'vault' for the frame a move starts (the fatigue/tally consumer, as `jumped`)
     this._pkJumpLatch = false;   // AUDIT CLIMB1 F7: Jump held through a move is spent on it - the next jump is a fresh press
+    this._pkArm = null;          // the tap catch: a fresh Jump's catch armed for its jump ({ t, air }) - PARKOUR_ARM_GRACE_S
+    this._pkJumpWas = false;     // ...the key's last step, for the press's edge
     this._pkSaid = false;        // AUDIT CLIMB1 F10: a refused climb's line said once a press
     this._pkQuiet = 0;           // steps the air catch and the top-out rest after a refused lip (PARKOUR_QUIET_STEPS)
     this._wall = null;           // CLIMB2: on the wall - { mode: 'hang' | 'climb', normal, lipY, key, carrier, warned }
@@ -1600,7 +1602,18 @@ export class PlayerMotor {
     const pk = this.parkour;
     this._pkOn = false;
     if (!pk) return false;
-    if (!input.jump) { this._pkJumpLatch = false; this._pkSaid = false; }
+    // THE TAP CATCH (PARKOUR_ARM_GRACE_S): a fresh press arms the air catch for the jump it makes - the body down
+    // again (or never off the ground), a move or a let-go ends it (the water asks no catch: mode, below)
+    const pressed = !!input.jump && !this._pkJumpWas;
+    this._pkJumpWas = !!input.jump;
+    if (pressed) this._pkArm = { t: 0, air: !this.grounded };
+    else if (this._pkArm) {
+      const a = this._pkArm;
+      a.t += dt;
+      if (!this.grounded) a.air = true;
+      else if (a.air || a.t > PARKOUR_ARM_GRACE_S) this._pkArm = null;
+    }
+    if (!input.jump) { this._pkJumpLatch = false; if (!this._pkArm) this._pkSaid = false; }   // said once a jump, armed or held
     if (this._pkMove) { this._pkOn = true; this._parkourAdvance(dt); return true; }
     const on = this._pkOn = !!pk.enabled?.();
     const unheld = this.levitating || this.riding || this.paralyzed;   // nothing holds a wall from these
@@ -1625,9 +1638,9 @@ export class PlayerMotor {
     if (this.climb?.isClimbing) this.climb.stop();
     if (unheld) { this._fcStart = null; return false; }
     let mode = null;
-    if (!this.swimming && !this.sunk && input.jump && !this._pkJumpLatch) {
+    if (!this.swimming && !this.sunk && (input.jump || this._pkArm) && !this._pkJumpLatch) {
       if (!this.grounded) mode = 'air';
-      else if (this.climb?.wasClimbing || this.groundedTime >= GROUNDED_JUMP_GATE_S) mode = 'ground';
+      else if (input.jump && (this.climb?.wasClimbing || this.groundedTime >= GROUNDED_JUMP_GATE_S)) mode = 'ground';
     }
     if (!mode) return this._freeStart(dt, input, yaw, pk);
     this._fcStart = null;
@@ -1640,8 +1653,12 @@ export class PlayerMotor {
     const look = [Math.sin(yaw), 0, Math.cos(yaw)];
     const fwd = input.forward > 0;
     const ledge = senseLedge(this.collider, this.pos, look, geo);
+    // the tap catch catches (the press armed, the key let go): a lip at the chest or higher, held or with Forward
+    // climbed onto - never a low lip stepped onto in the air (a staircase's next tread: AUDIT CLIMB1 G5's "Jump on a
+    // staircase is a jump") nor a sheer wall grabbed; those ask the key held, as they always have
+    const tapOnly = air && !input.jump;
     let move = null;
-    if (ledge.ok) {
+    if (ledge.ok && !(tapOnly && ledge.rise < PARKOUR_HANG_LOW)) {
       if (!air && fwd) {
         const vault = senseVault(this.collider, this.pos, ledge, geo);
         if (vault) move = planVault(this.pos, ledge, vault, jumpingSkill(inputs), this.speed);
@@ -1651,7 +1668,7 @@ export class PlayerMotor {
       if (!move && high) move = this._pkCatch(ledge);
       if (!move && high && !fwd) move = this._pkOnto(ledge, geo, skill);   // no hang fits there: climbed onto, as at CLIMB1
     }
-    if (!move && air && fwd && this._pkGrab(look, pk)) return true;
+    if (!move && air && fwd && !tapOnly && this._pkGrab(look, pk)) return true;
     if (!move) {
       if (ledge.ok && air) this._pkQuiet = PARKOUR_QUIET_STEPS;
       return false;
@@ -1791,6 +1808,7 @@ export class PlayerMotor {
    *  pressed afresh - it would take back the lip just dropped from. */
   _wallEnd() {
     this._wall = null;
+    this._pkArm = null;   // ...and a let-go arms nothing: only a fresh press catches again
     this._pkDropReq = false;
     this._pkLeftWall = true;
     this._pkJumpLatch = true;
@@ -2068,8 +2086,7 @@ export class PlayerMotor {
     // face as far as the wall is still at the hands); AUDIT CLIMB2 G6: the way across ending (the wall's side edge) is
     // no end of the way up, which is asked alone before the step is refused. (The floor is A1's, above: the move's own
     // ground was the step ladder's top - gone with G1 - or a sill under the feet's rim, which is no floor, C3.)
-    // (A move the collider turned back - the rail's edge pushing a body asked up down - is no move either.)
-    const held = () => this._fcHeld(n, w) && (this.pos[1] - was[1]) * Math.sign(vert) >= -1e-4;
+    const held = () => this._fcHeld(n, w);
     for (const out of PARKOUR_LEAN) if (!held()) this._fcMove(was, side, vert, v, n, dt, out);
     if (!held() && side && vert) this._fcMove(was, 0, vert, v, n, dt);
     if (!held()) { this.pos[0] = was[0]; this.pos[1] = was[1]; this.pos[2] = was[2]; }
@@ -2113,6 +2130,7 @@ export class PlayerMotor {
    *  own clock, so it is down before the body passes under anything. */
   _parkourBegin(move) {
     this._pkUnsink();
+    this._pkArm = null;   // the tap catch: the press is spent on the move
     this._pkMove = move;
     if (move.bill !== false) this.parkoured = move.kind;   // CLIMB2: a corner the shimmy turns is no new exertion
     this._pkJumpLatch = true;

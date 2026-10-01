@@ -153,18 +153,6 @@
     ]
   },
   {
-    "name": "AUDITCLIMB2-G2-turned-back-is-a-move",
-    "file": "src/player/motor.js",
-    "old": " && (this.pos[1] - was[1]) * Math.sign(vert) >= -1e-4;",
-    "new": ";",
-    "tests": [
-      "test/auditclimb2.test.js",
-      "test/climb2.test.js",
-      "test/parkour.test.js",
-      "test/auditclimb1.test.js"
-    ]
-  },
-  {
     "name": "AUDITCLIMB2-C1-face-rung-on-roof",
     "file": "src/player/parkour.js",
     "old": "    if (dist - at(i + 1) > PARKOUR_EDGE_INSET) continue;",
@@ -401,8 +389,140 @@
   {
     "name": "AUDITCLIMB2-G2-bands-thin",
     "file": "src/player/parkour.js",
-    "old": "PARKOUR_BODY_RADIUS - PARKOUR_FIT_EPS)) return false;",
+    "old": "PARKOUR_BODY_RADIUS - PARKOUR_BAND_SLACK)) return false;",
     "new": "PARKOUR_BODY_RADIUS - 0.2)) return false;",
+    "tests": [
+      "test/auditclimb2.test.js",
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js"
+    ]
+  },
+  {
+    "name": "AUDITCLIMB2-CLIP-first-spacing",
+    "file": "src/player/parkour.js",
+    "old": "export const PARKOUR_FIT_BAND = 0.1375;",
+    "new": "export const PARKOUR_FIT_BAND = 0.275;",
+    "tests": [
+      "test/auditclimb2.test.js",
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js"
+    ]
+  },
+  {
+    "name": "AUDITCLIMB2-CLIP-contact-slack",
+    "file": "src/player/parkour.js",
+    "old": "export const PARKOUR_BAND_SLACK = 0.02;",
+    "new": "export const PARKOUR_BAND_SLACK = 0.03;",
+    "tests": [
+      "test/auditclimb2.test.js",
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js"
+    ]
+  },
+  {
+    "name": "AUDITCLIMB2-TAP-unarmed",
+    "file": "src/player/motor.js",
+    "old": "    if (pressed) this._pkArm = { t: 0, air: !this.grounded };",
+    "new": "    if (false) this._pkArm = { t: 0, air: !this.grounded };",
+    "tests": [
+      "test/auditclimb2.test.js",
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js"
+    ]
+  },
+  {
+    "name": "AUDITCLIMB2-TAP-held-only",
+    "file": "src/player/motor.js",
+    "old": "(input.jump || this._pkArm) && !this._pkJumpLatch",
+    "new": "input.jump && !this._pkJumpLatch",
+    "tests": [
+      "test/auditclimb2.test.js",
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js"
+    ]
+  },
+  {
+    "name": "AUDITCLIMB2-TAP-landing-keeps-it",
+    "file": "src/player/motor.js",
+    "old": "else if (a.air || a.t > PARKOUR_ARM_GRACE_S) this._pkArm = null;",
+    "new": "else if (!a.air && a.t > PARKOUR_ARM_GRACE_S) this._pkArm = null;",
+    "tests": [
+      "test/auditclimb2.test.js",
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js"
+    ]
+  },
+  {
+    "name": "AUDITCLIMB2-TAP-no-grace",
+    "file": "src/player/motor.js",
+    "old": "else if (a.air || a.t > PARKOUR_ARM_GRACE_S) this._pkArm = null;",
+    "new": "else if (a.air) this._pkArm = null;",
+    "tests": [
+      "test/auditclimb2.test.js",
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js"
+    ]
+  },
+  {
+    "name": "AUDITCLIMB2-TAP-low-lips",
+    "file": "src/player/motor.js",
+    "old": "if (ledge.ok && !(tapOnly && ledge.rise < PARKOUR_HANG_LOW)) {",
+    "new": "if (ledge.ok) {",
+    "tests": [
+      "test/auditclimb2.test.js",
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js"
+    ]
+  },
+  {
+    "name": "AUDITCLIMB2-TAP-grabs",
+    "file": "src/player/motor.js",
+    "old": " && !tapOnly && this._pkGrab(",
+    "new": " && this._pkGrab(",
+    "tests": [
+      "test/auditclimb2.test.js",
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js"
+    ]
+  },
+  {
+    "name": "AUDITCLIMB2-TAP-said-every-rest",
+    "file": "src/player/motor.js",
+    "old": "if (!this._pkArm) this._pkSaid = false; }",
+    "new": "this._pkSaid = false; }",
+    "tests": [
+      "test/auditclimb2.test.js",
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js"
+    ]
+  },
+  {
+    "name": "AUDITCLIMB2-TAP-move-keeps-it",
+    "file": "src/player/motor.js",
+    "old": "    this._pkArm = null;   // the tap catch: the press is spent on the move\n",
+    "new": "",
+    "tests": [
+      "test/auditclimb2.test.js",
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js"
+    ]
+  },
+  {
+    "name": "AUDITCLIMB2-TAP-letgo-keeps-it",
+    "file": "src/player/motor.js",
+    "old": "    this._pkArm = null;   // ...and a let-go arms nothing: only a fresh press catches again\n",
+    "new": "",
     "tests": [
       "test/auditclimb2.test.js",
       "test/climb2.test.js",

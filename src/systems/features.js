@@ -360,8 +360,8 @@ export const FEATURES = Object.freeze([
     id: 'enhanced-climbing',
     group: 'world',
     title: 'Enhanced climbing',
-    note: 'Press Jump at a ledge to climb onto or over it, or moving forward to vault a low wall. Hold Jump in the '
-      + 'air to catch a ledge and hang: Forward climbs up, Left and Right move along it, Crouch lets go. Hold '
+    note: 'Press Jump at a ledge to climb onto or over it, or moving forward to vault a low wall. Jump at a high '
+      + 'ledge to catch it and hang: Forward climbs up, Left and Right move along it, Crouch lets go. Hold '
       + 'Forward against any wall to climb it. Holding on wears out your grip; your Climbing skill sets how long it '
       + 'lasts, how high you reach and how fast you climb. Off keeps Daggerfall\u2019s climbing.',
     effect: 'Takes effect at once.',

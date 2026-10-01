@@ -118,8 +118,14 @@ export const PARKOUR_FIT_EPS = 0.03;
  *  pinned equal). */
 export const PARKOUR_BODY_RADIUS = 0.35;
 /** The body asked between the collider's spheres at least this often up its
- *  axis (bandsClear) - half the standing chain's 0.55 spacing. */
-export const PARKOUR_FIT_BAND = 0.275;
+ *  axis (bandsClear), by spheres this far inside the body's radius - so a
+ *  thin feature between two samples sits no further in than a contact's
+ *  PARKOUR_FIT_EPS (0.33 - sqrt(0.33^2 - 0.069^2) = 0.007 more than the 2 cm
+ *  slack), and a wall the body leans on (at its radius, 2 cm clear of the
+ *  sphere) or a 45-degree roof it stands on (1.5 cm) is no feature. The first
+ *  cut sampled half as often a centimetre further in, and left 4.6 cm. */
+export const PARKOUR_FIT_BAND = 0.1375;
+export const PARKOUR_BAND_SLACK = 0.02;
 /** AUDIT CLIMB2 G2: a free climber's move that would take the body into a
  *  moulding or a rail across the wall leans out past it instead - the hug let
  *  go of, then these far out from the face: the nearest that clears, within
@@ -132,6 +138,13 @@ export const PARKOUR_PATH_STEP = 0.08;
  *  proves the whole path at up to ten tries (1.4 ms on a railing), and held
  *  Jump would otherwise ask it every step. 50 ms is a few centimetres of fall. */
 export const PARKOUR_QUIET_STEPS = 3;
+/** THE TAP CATCH (Mac, 2026-10-01: "Take care of what is left including a
+ *  jump catching a ledge" - his "Jump near a ledge catches"): a fresh press of
+ *  Jump arms the air catch for the jump it makes, as if the key were still
+ *  held, until the body is down again. A press on the ground that leaves it
+ *  no jump (the grounded gate's) lapses after this long - the jump it would
+ *  have made takes off on the press's own step. */
+export const PARKOUR_ARM_GRACE_S = 0.05;
 /** A vault: the lip at the waist or under, the top ending within a stride. */
 export const PARKOUR_VAULT_MAX = 1.2;
 export const PARKOUR_VAULT_DEPTH = 0.9;
@@ -316,14 +329,14 @@ export function capsuleFits(collider, p, height) {
  *  between two of them it reaches only 0.22 m from the axis (standing: feet +
  *  0.625 and + 1.175) - a moulding, a rail or a cornice there sits up to
  *  0.16 m inside the 0.35 body and penetrationAt reads it clear. The bands are
- *  asked too: spheres a contact's slack (PARKOUR_FIT_EPS) inside the body,
- *  every PARKOUR_FIT_BAND or less up the axis between its ends. */
+ *  asked too: spheres PARKOUR_BAND_SLACK inside the body, every
+ *  PARKOUR_FIT_BAND or less up the axis between its ends. */
 export function bandsClear(collider, p, height) {
   if (!collider.sphereOverlaps) return true;
   const axis = Math.max(0, height - 2 * PARKOUR_BODY_RADIUS);
   const n = Math.ceil(axis / PARKOUR_FIT_BAND - 1e-9);
   for (let i = 1; i < n; i++) {
-    if (collider.sphereOverlaps([p[0], p[1] + PARKOUR_BODY_RADIUS + (axis * i) / n, p[2]], PARKOUR_BODY_RADIUS - PARKOUR_FIT_EPS)) return false;
+    if (collider.sphereOverlaps([p[0], p[1] + PARKOUR_BODY_RADIUS + (axis * i) / n, p[2]], PARKOUR_BODY_RADIUS - PARKOUR_BAND_SLACK)) return false;
   }
   return true;
 }
