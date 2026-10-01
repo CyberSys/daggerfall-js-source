@@ -71,7 +71,7 @@ requests would be churn for nothing.
 
 **Nothing walks the sky.** The sky holds no state; it is read, never walked. Every law that walks minutes
 (the day block, the calendar arms, the broker's magic rounds, the per-minute loop, the weather's rolls and
-evolution) walks the event clock or yours, exactly as it does today. That is what makes the sky's rate a
+evolution, the drawn weather's ease and drift) walks the event clock or yours, exactly as it does today. That is what makes the sky's rate a
 dial: changing it changes what players see and how long a wait on the sky lasts, and nothing else. A
 census test holds every reader to its clock (section 5).
 
@@ -153,8 +153,9 @@ export const wallMsForSkyMinutes = (m) => (m < SKY_CUTOVER_MINUTES ? wallMsForCl
   `server-account` bundles) takes its season and month from the sky, so a herb blooms in the spring the
   player sees (section 5.1). `nodeLaw.js` imports `skyLaw.js`, `account-deploy.yml`'s path list gains it
   (`accountdeploy.test.js` holds the list to the Worker's import graph), and the service redeploys with
-  the merge. That Worker holds no sockets, so the deploy drops nobody; until it lands, a herb's season can
-  lag the sky's by one deploy.
+  the merge. That Worker holds no sockets, so the deploy drops nobody. A node's season is the sky's at its
+  UTC day's first instant and holds all day (nodes are per UTC day by design), so a herb's season can trail
+  the sky's by up to a day.
 - **Saves do not change.** `classicMinutes` stays the character's clock, and an online save's
   `worldMinutes` stays the event clock's minute it left at. No stamp changes clock (section 5's rule), so
   no envelope needs a migration and the offline copy's rebase (`offlineCopy.js`) is untouched.
@@ -166,10 +167,12 @@ export const wallMsForSkyMinutes = (m) => (m < SKY_CUTOVER_MINUTES ? wallMsForCl
 ## 5. Every reader, by clock
 
 The census (section 8) makes every line choose. This is the map it starts from, read off the tree on
-2026-10-01. It lists the kinds of reader, not every line; TIME1 classifies every line.
+2026-10-01 and checked against a sweep of every world-clock reader in `src/`, `server/src/` and `tools/`.
+It lists the kinds of reader, not every line; TIME1 classifies every line.
 
-**No stamp is taken on the sky.** A reading that is saved, sent, or compared with a later reading is an
-event stamp or an own stamp. The sky is only ever read for "now". That keeps every save, every wire frame
+**No stamp is taken on the sky.** A reading that is saved or sent is an event stamp or an own stamp. A sky
+reading is read for "now", or held for the session to notice the sky's day turn (the season's refresh)
+and compared only with another sky reading. That keeps every save, every wire frame
 and every server check on a clock whose rate never changes, and it is why a sky reader can move without a
 migration.
 
@@ -178,15 +181,17 @@ migration.
 | What | Where it reads today |
 |---|---|
 | The frame's sky: sun, moons, stars, light, colour | `world.js` and `exterior.js` `minuteNow` (`worldMinutes() % 1440`) |
+| The drawn sky's hour and moons, through the frame's `classicMinutes` carrier | `shared.js`' sky feed, `render/enhancedSky.js`, `systems/dynamicSkies.js`, `systems/dynamicSkiesRuntime.js`. The same feed's weather ease and cloud drift stay on the event clock (5.5): the feed takes two minutes where it takes one today |
 | Interior light and its night ambient | `interior.js`, `worldModes.js` (`isNight(worldMinutes() % 1440)`) |
 | The season's ground, the climate season, the herbs' and the writs' season | `world.js` and `exterior.js` (`refreshSeason`, `climateSeasonFromMinutes`, `seasonValue`); `net/nodeLaw.js dayDate` (with the account service, section 4) |
-| The calendar: holidays and Suns Rest, Heart's Day, the kitchen's hours, the temple's cure days, a Daedra prince's summoning day | `worldModes.js` (`getHolidayId`, `worldNow`, `dayOfYearFromMinutes`) |
+| The air's month and hour for survival, the forager's month, the hunter's winter | `world.js`, `exterior.js`, `dungeonContext.js` (the air); `monthValue` into `foragingInstall.js`; `world.js` (`winter`) |
+| The calendar: holidays and Suns Rest, Heart's Day, the kitchen's hours, the temple's cure days, the Witches Festival's spell price, the holiday's words on entering a town, a Daedra prince's summoning day | `worldModes.js` (`getHolidayId`, `worldNow`, `dayOfYearFromMinutes`, the spellbook's `classicMinutes`), `world.js`. The coven's once-a-day re-roll is a stamp and stays on the event clock |
 | Opening hours, locks by the hour, who is inside | `worldModes.js` (`_hour`, `resolveBuildingUnlocked`), `characters/interiorPeople.js` |
 | The curses' and the careers' sun and moon | the rounds' `skyMinutes` (`worldTick.js`, the four hosts), `world.js`' sun rungs and party-travel refusal, `dungeonContext.js`' sunlight seam |
 | Night's spawns, and the overworld's bands at night | `encounters.js`, `campEncounters.js` (`skyMinutes`); `world.js` `bandNight` |
 | Enchantments and loot powers that read the season or the moon | `hostEnchant.js`, `lootPowers.js` |
 | A torch doused by day on leaving a dungeon | `worldModes.js` (`rrDouseOnDungeonExit`) |
-| The date and time the menus show, and the rest windows' world time | `ui/enhancedMenu.js`, `ui/restWindow.js`, `ui/enhancedRest.js`, `shared.js` (`sharedMinutes`) |
+| The date and time the menus show, the rest windows' world time, the sea map's date marks | `ui/enhancedMenu.js`, `ui/restWindow.js`, `ui/enhancedRest.js`, `shared.js` (`sharedMinutes`), `world.js` (the sea map's `date`) |
 | The vampire's nightfall words | `worldTick.js worldNightfallText` (reading, rate and inverse) |
 | A quest's hour window and date | `quest/actions.js DailyFrom` (TIME3) |
 
@@ -210,18 +215,26 @@ Nothing in this table changes. It is listed so the census has its other half.
 | Dropped torches burning | `scenes/droppedTorches.js` |
 | A respawn's due time, through the event clock's inverse | `dungeonContext.js` (`_wallNow`) |
 | The day a loot find is dated | `lootCodex.js` |
-| The naval day | `world.js` (the naval `where`) |
+| Bounty boards: the day's postings, a taken bounty's lapse | `systems/bountyBoard.js`, `scenes/bountyHost.js` |
+| Rumours' lifetimes | `systems/rumorMill.js`, swept from `regionPower.js` |
+| Spawned dungeons' lifetimes, the shared interiors' loot day | `world/spawnedDungeons.js`, `world/interiorShared.js` |
+| The gates' income: receipts, spoils, the Sigil Broker's prices, the account service's `gate_kills` | `net/gateLink.js`, `net/gateClaims.js`, `scenes/spoilsPool.js`, `systems/sigilBroker.js`, `server-account` |
+| The day's generators, and the music's daily playlist seed | `worldTick.js` (`DAY_SALT`), the hosts' `gameDaysNow` |
+| The naval day: notoriety's decay, the port's grog, today's departures, the traffic seed | `world.js` (the naval `where`), `scenes/navalHost.js`, `systems/naval/` |
 | The minute a character joins online at | `ui/enhancedMenu.js` (`onlineCopyOf`) |
 
 ### 5.3 Your clock
 
-Unchanged: everything `Lived-Time.md` lists under "Reads the character's clock". Added by TIME3: a quest's
-countdowns, its spawn intervals and its tombstones (6.3).
+Unchanged: everything `Lived-Time.md` lists under "Reads the character's clock", and the camp encounter
+window (`campEncounters.js`: 180 game minutes, which is the "15 real minutes" Mac asked for only because
+your clock keeps TimeScale 12). Added by TIME3: a quest's countdowns, its spawn and sound intervals and
+its tombstones (6.3).
 
 ### 5.4 Real time
 
-Unchanged: respawns (WORLD8, one real hour), the camp encounter window (`CAMP_WINDOW_REAL_MINUTES`), the
-gate's rise and collapse, the Seats' weeks, the Sigil stock's UTC days, a held torch's burn.
+Unchanged: respawns (WORLD8, one real hour), the gate's rise and collapse, the gate boss's own beats, the
+Seats' weeks, the Sigil stock's and the Marks' UTC days, the renown cap's real hour, a home's rent, the
+bands' and the sea raiders' lives, a held torch's burn.
 
 ### 5.5 Every conversion names its rate
 
@@ -233,8 +246,17 @@ its clock:
 - **`gateCourt.js COURT_ROUND_MS`:** a magic round, your clock's; unchanged;
 - **`overworldLaw.js OW_ROW_KEEP_MIN`:** the event clock's; unchanged;
 - **the gate panel's local times** (`sharedWallMs`): the event clock's inverse; unchanged;
-- **anything the render times in game minutes off the sky** (the weather's ease, `WEATHER_EASE_MINUTES`,
-  CLK1, and its kin): moved to real seconds at today's values, so a front still takes as long to arrive.
+- **the drawn weather's step:** the sky feed measures `dt` in game minutes for the weather's ease
+  (`WEATHER_EASE_MINUTES`), the cloud drift (`WIND_SECONDS_PER_MINUTE`, written as 60 / 12), the wind
+  model's leads, the volumetric clouds' churn and the distant storms' strikes. That `dt` stays the event
+  clock's, so every one of those TimeScale 12 constants stays true and a front takes as long as it does
+  today. Only the dome's hour and moons take the sky's minute;
+- **`walkRaise` and `CLASSIC_MINUTES_PER_SECOND`:** your clock's and the event clock's TimeScale 12;
+  unchanged, and never the sky's;
+- **a stamp and its reading on one clock:** `dungeonContext.js`' `_wallNow` turns the event clock's minute
+  into real ms for a foe's death and a looted chest, and the respawn compares it against real time. Both
+  directions stay the event clock's; a sky minute through the event clock's inverse would mis-time every
+  respawn.
 
 ## 6. The rules that change online
 
@@ -304,8 +326,13 @@ counts years, before the years run faster.
 - **The vampire's nightfall words:** the sky's rate (6.2).
 - **A character's deadlines** ("7 days of your time (14h of play)"): unchanged. They are on the
   character's clock, whose rate does not change.
-- **The gate panel:** real local times only, as today. `World-Bosses.md`'s game-time column retires: the
-  gate keeps its real schedule, and its game times stop matching the sky.
+- **The gates' and raids' words: real local times only.** The gate's chat lines say the event clock's game
+  time beside the local one ("opens there at 20:00 (14:32 your time)", `gateLaw.js omenLine`), and a raid's
+  map tip says "Withdraws at" a game time (`ui/eventMapMarks.js`). Once the sky turns on its own, those game
+  times contradict the clock the player sees, so they go in TIME1, not later. `gateLaw.js` is in the relay's
+  bundle, so the client stops calling its word functions and says the lines from a client-side module;
+  the old functions retire with the next relay deploy that happens anyway. `World-Bosses.md`'s game-time
+  column retires with them. The gate panel already shows real local times.
 - **The patch notes,** in the pull request's description: "A day online is now 30 minutes. Nights, full
   moons and quest hours come round four times as often."
 
@@ -330,19 +357,22 @@ counts years, before the years run faster.
   `setSharedClock(() => sharedClassicMinutes(Date.now() + _sharedOffsetMs), (m) => wallMsForClassicMinutes(m) - _sharedOffsetMs, { sky: () => skyClassicMinutes(Date.now() + _sharedOffsetMs), skyWall: (m) => wallMsForSkyMinutes(m) - _sharedOffsetMs })`.
 - **THE FOUR HOSTS RULE:** `world.js`, `exterior.js`, `worldModes.js` and `dungeonContext.js` each move
   their sky reads (section 5) and leave their event reads; every slice names all four.
-- **The census:** `time1_census.test.js` (new). Every line in `src/` that calls `worldMinutes()`,
+- **The census:** `time1_census.test.js` (new), over a table of reader sites (file, a snippet that names
+  the site once, its clock). The test finds every line in `src/` that calls `worldMinutes()`,
   `skyMinutes()`, `trustedWorldMinutes()`, `sharedClassicMinutes(` or `wallMsForClassicMinutes(`, or reads
-  a ticker's or a context's `classicMinutes` getter (`shared.js`, `dungeonContext.js`: the spawned
-  dungeons' clocks and the weather's application read the event clock that way), carries its clock in a
-  `TIME1: sky` / `TIME1: event` / `TIME1: own` note. The test fails on any line that does not, so a new
-  reader has to say which clock it means.
+  a ticker's or a context's `classicMinutes` getter (`shared.js`, `dungeonContext.js`: the sky feed, the
+  spawned dungeons' clocks and the weather's application read the event clock that way). It fails on a
+  line the table does not name and on a row whose snippet is gone, so a new reader has to say which clock
+  it means. A table and not a note on each line: the mutant campaigns pin these lines' text
+  (`tools/mutants/`, LIVED1's and its audits' above all), and an event reader that does not move should
+  not change a byte.
 - **The relay:** nothing, and a test that its import graph never reaches `skyLaw.js`.
 
 ## 9. Slices
 
 1. **TIME1 - the sky.** The law and its install, `skyMinutes()`, the census, every sky reader moved
-   (section 5), the weather's season, the real-second eases (section 5), the nightfall words. It ships
-   alone: the sky turns, and every wait on it shrinks fourfold.
+   (section 5), the sky feed's two minutes, the weather's season, the nightfall words, and the gates' and
+   raids' words in real local times. It ships alone: the sky turns, and every wait on it shrinks fourfold.
 2. **TIME2 - the full moon's night** (6.1).
 3. **TIME3 - quests on two clocks** (6.3). Supersedes WORLD7's world-clock charge.
 4. **TIME4 - the words** (section 7) and the bible: `Lived-Time.md`, `Online-Arc.md` WORLD5,
@@ -368,9 +398,12 @@ each other once TIME1 has landed.
 
 ## 10. Alternatives weighed
 
-- **Speed up the one shared clock** (sky, events and characters together). Every spell, poison and
-  hunger tick quarters in real time unless the broker is re-cut; deadlines and inn nights tighten against
-  walking; gates, raids, stock, prices and daily resets come four times as often; the relay changes.
+- **Speed up the one shared clock** (sky, events and characters together). The character's clock runs
+  with it (`tickPlayerMinutes`), so every spell, poison and hunger tick quarters in real time. A gate would
+  open every 30 minutes for 2.5; a raid would last 2.5 minutes against a target of 15 to 25 kills, with
+  raiders arriving one every 1 to 10 real seconds; a taken bounty would lapse in 30 minutes; a banishment would lift in
+  15 hours; shelves would restock every half hour. Changed in place on 2026-10-01, the calendar would
+  jump about 612 days and every stored world stamp would expire at once. The relay would change too.
   Rejected: it changes everything to fix the sky.
 - **A sky per player** (each character's own time of day, as offline). Two players side by side would
   stand in day and night at once; shared weather, light and a party's night spawns stop agreeing.
@@ -401,3 +434,8 @@ each other once TIME1 has landed.
 ## Record
 
 - 2026-10-01: proposed, this page. Nothing built.
+- 2026-10-01: checked against a sweep of every world-clock reader. Added to section 5: the sky feed's two
+  minutes, the survival air, the forager and the hunter, the Witches Festival, the bounty boards, the
+  rumours, the spawned dungeons, the gates' income, the naval day's laws; the camp window corrected to the
+  character's clock. Added to section 7 and TIME1: the gates' and raids' words. The census became a table.
+  No reader found saves a sky minute.
