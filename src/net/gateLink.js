@@ -19,6 +19,7 @@ import { ATTACKS, nearestCourt } from './gateBrain.js';   // WB9b: the bound's w
  *   md: ReadonlyArray<string>|null, fed: {ns: ReadonlyArray<string>, at: number}|null,
  *   xa: ReadonlyArray<number>, cx: {i: number, m: number, c: number[][], broke: ReadonlyArray<{c: number, n: string, at: number}>}|null,
  *   stunUntil: number, stunAt: number, rk: number}} GateState
+ *   GATE-UX: `fell` carries `dm`, the kill's damage chart (net/gateBrain.js damageChart), from a relay that makes one.
  *   WB8b: `md` his marks (net/gateMods.js - the fight's profile is made from them, net/gateBrain.js fightProfile), `fed`
  *   the last fallen challenger a Soul-Hungry Warden fed on (their name, the relay's moment). WB9b: `xa` the crossings'
  *   words (the walkways laid - net/gateBrain.js walkFormed). WB9c: `cx` the Reckoning's crystals ({i, m, c: [[x, z, h]]}
@@ -77,9 +78,11 @@ export function foldGate(s, g, now, place = bossAt) {
     case 'stun': return { ...s, stunUntil: g.until, stunAt: g.at, atk: null, move: null, cx: s.cx ? { ...s.cx, c: s.cx.c.map((q) => [q[0], q[1], 0]) } : null, heardAt: now };
     case 'fell': {
       if (g.d !== undefined && g.d !== s.day) return s;
-      if (s.fell) return { ...s, heardAt: now };   // said again (the hub's echo): he has already fallen where he fell
+      // said again (the hub's echo): he has already fallen where he fell - GATE-UX: the court's word may bring the damage
+      // chart the hub's never carries, whichever came first
+      if (s.fell) return g.dm && !s.fell.dm ? { ...s, fell: { ...s.fell, dm: g.dm }, heardAt: now } : { ...s, heardAt: now };
       const [x, z] = place(s, g.at);
-      return { ...s, fell: { at: g.at, top: g.top, n: g.n }, x, z, hp: 0, atk: null, move: null, heardAt: now };
+      return { ...s, fell: { at: g.at, top: g.top, n: g.n, ...(g.dm ? { dm: g.dm } : {}) }, x, z, hp: 0, atk: null, move: null, heardAt: now };
     }
     default: return s;
   }

@@ -1548,6 +1548,23 @@ body .wb-marks-sub { font-size: 14px; color: #efe8d6; }
 body .wb-marks-name { font-size: 12px; letter-spacing: 0.12em; }
 body .wb-marks-text { font-size: 11px; color: #d8cfae; opacity: 1; }
 body .wb-marks-tip { font-size: 11px; font-style: normal; color: #b9ab86; opacity: 1; }
+/* GATE-UX: the damage chart - the marks' card's stone panel and brass frame, the pixel face outlined, the bars the
+   fire's one hue banded from a lit top; my row a brass ring and its words */
+body .wb-dmg-chart { ${PIXEL_FONT_CSS} font-weight: 400; letter-spacing: 0.04em; color: #efe8d6; text-shadow: ${OUTLINED};
+  background: linear-gradient(180deg, rgba(0,0,0,0.5) 0 2px, transparent 2px), rgba(20,14,10,0.92);
+  border: 2px solid; border-color: ${FRAME_TONES.brassHi} ${FRAME_TONES.brassLo} #5c3f1a ${FRAME_TONES.brass};
+  box-shadow: 0 0 0 1px #050608, 3px 3px 0 1px rgba(0,0,0,0.45); }
+body .wb-dmg-title { font-size: 11px; letter-spacing: 0.2em; color: ${FRAME_TONES.brassHi}; }
+body .wb-dmg-sub { font-size: 13px; color: #efe8d6; }
+body .wb-dmg-head { font-size: 9px; letter-spacing: 0.1em; color: #b9ab86; border-bottom-color: rgba(154,144,121,0.45); }
+body .wb-dmg-name { font-size: 12px; }
+body .wb-dmg-lv { font-size: 10px; color: #d8cfae; opacity: 1; }
+body .wb-dmg-you { font-size: 10px; color: ${FRAME_TONES.brassHi}; }
+body .wb-dmg-num { font-size: 11px; }
+body .wb-dmg-track { background: rgba(5,6,8,0.72); box-shadow: 0 0 0 1px #050608; border-radius: 0; }
+body .wb-dmg-fill { background: linear-gradient(180deg, #ffc08a 0 1px, #ff7a3a 1px 2px, #d8341a 2px); border-radius: 0; }
+body .wb-dmg-mine { outline: 1px solid ${FRAME_TONES.brassHi}; background: rgba(192,138,62,0.14); }
+body .wb-dmg-more { font-size: 10px; font-style: normal; color: #b9ab86; opacity: 1; }
 /* AUDIT MERGE-PLUS D3: STONE'S LIGHT GROUND. The lane's newer surfaces joined the window and panel roles above, and
    Stone paints those a light grey their words were never chosen for - they had kept their own dark ground on every
    theme until then (the F-menu's Cancel read at 2.3:1, a refused row's reason at 4.1:1). On Stone the lane's dim

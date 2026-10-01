@@ -165,7 +165,7 @@ import { WindWispsRenderer, wispsOn, SAND_LOOK } from '../render/windWisps.js'; 
 import { createWindAudio, windSoundOn } from '../systems/windAudio.js';   // WIND3: the wind, heard
 import { placeFoeFreely, PLACE_FOE_DEFAULTS } from '../systems/quest/sceneMount.js';   // B1: CreateFoe's raycast ring
 import { PLAYED_STEP_MAX_SECONDS } from '../systems/quest/clock.js';   // WORLD7: the quest clocks' played step online
-import { mintQuestFoeWave, placeFoeEnv, entityOccupancy, questFoeGender, reviveQuestBehaviour, heldSpots, holdSpotWhile, questBoxHoldsFoes, questShareTag, sharedQuestFoe, partnerStandsQuestFoes, questBehaviourFor, adoptsOrphanQuestFoe, isPrivateQuestFoe } from './questFoeHost.js';   // B1   // AUDIT 63r F24: SerializableEnemy.cs:206-217's quest-link arm, the one home both hosts use
+import { mintQuestFoeWave, placeFoeEnv, entityOccupancy, questFoeGender, reviveQuestBehaviour, heldSpots, holdSpotWhile, questBoxHoldsFoes, questShareTag, sharedQuestFoe, partnerStandsQuestFoes, questBehaviourFor, adoptsOrphanQuestFoe, isPrivateQuestFoe, KeptKillLedger, creditKeptKills } from './questFoeHost.js';   // B1   // AUDIT 63r F24: SerializableEnemy.cs:206-217's quest-link arm, the one home both hosts use
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';   // MERGE: FinalizeFoe's Flying lift reads the behaviour flag
 import { intermittentEnemySpawn, setEnemyAlert, areEnemiesNearby, foeHostile } from '../systems/encounters.js';   // OW6: foeHostile, the one hostility gate
 import { createStandingWatch, installLegalNotices } from './standingHost.js';   // REP1: the watch's stop; REP5: the law's notices
@@ -214,6 +214,7 @@ import { createBrokerOverlay, closeBrokerDoor } from '../ui/brokerDoor.js';   //
 import { brokerStock, brokerDay, brokerBought, makeBrokerSale, spendableStonesIn, lockedStonesIn, stoneCount, insigniaSale, stonesText } from '../systems/sigilBroker.js';   // SET7: the day's stock, the record, the sale   // SS1: the stones counted over their stacks
 import { drawGateBanner } from '../ui/gateBanner.js';
 import { drawGateGround } from '../ui/gateGroundView.js';   // WB9d: his ground's rim and warning - hidden with a held frame (the court draws it)
+import { drawGateDamageChart } from '../ui/gateDamageChart.js';   // GATE-UX: the kill's damage chart (the court draws it - scenes/gateCourt.js); a held frame hides it with the rest
 import { drawGateMarksCard } from '../ui/gateMarksView.js';   // WB9a: tonight's marks over the screen - by the gate before it is entered (and in the court as a fighter steps in: scenes/gateCourt.js)
 import { createGateLink, GATE_NO_TEXT, gateRefusalText } from '../net/gateLink.js'; import { readReceipt } from '../net/gateReceipt.js';   // AUDIT WB A2: a receipt's day, seed and account, for its spoils outside the court   // WB3b: what the client holds of a gate's fight - the relay's words, folded
 import { createGateClaims } from '../net/gateClaims.js';   // WB5b: the kill receipts, carried to the account service until counted
@@ -10780,7 +10781,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7617), so exterior mode and a
+    // composer, dungeonContext.js:7628), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -15247,6 +15248,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  with the party streams its foes to the party, a member stands a party peer's, a peer's blow and a quest foe's hunt
    *  reach only the party (a quest's own allies take no blow), and my copy of the quest counts the injury and the kill it
    *  sees on a partner's foe. */
+  const keptKills = new KeptKillLedger();   // KEPT-KILL: the kills of foes I kept on a partner's word, and the kills my copies counted
   const questShareSeam = {
     tagOf: (f) => questShareTag(questBridge?.machine, f, !!social?.party),
     // DISC28-J (Discord: Atronach Hunting's kill "not credited"): a party peer's quest foe stands here only for MY LINKED
@@ -15262,7 +15264,18 @@ export async function bootWorld(canvas, renderer, params, status) {
     partyPeer: (id) => !!social?.isPartyPeer(id),
     peerMayHit: (peerId, f) => !!social?.isPartyPeer(peerId) && f.entity?.team !== 'PlayerAlly' && !!questShareTag(questBridge?.machine, f, !!social?.party),
     onPuppetHurt: (tag) => sharedQuestFoe(questBridge?.machine, tag)?.setInjured?.(),
-    onPuppetDied: (tag) => sharedQuestFoe(questBridge?.machine, tag)?.incrementKills?.(),
+    // KEPT-KILL: a partner's foe I saw fall counts once - its holder's pose may say the same kill (a foe it kept on its
+    // partner's word), and whichever of the two lands first is the one that counts (keptKills.credit)
+    onPuppetDied: (tag, from, i) => {
+      const foe = sharedQuestFoe(questBridge?.machine, tag);
+      if (!foe) return;
+      const owner = from != null ? (social?.accountOfPeer?.(from) ?? null) : null;
+      if (owner && Number.isInteger(i) && !keptKills.credit(owner, tag.q, tag.s, i, Date.now())) return;
+      foe.incrementKills?.();
+    },
+    // KEPT-KILL (2026-10-01): a foe I kept on a partner's word fell here - my copy holds no such quest, so my party pose
+    // says it (`qk`) and every copy that holds the quest counts it, wherever its member stands
+    onKeptDied: (tag, i) => { keptKills.said(tag, i, Date.now()); },
     // QUEST-PARTY phase 2: a partner's quest foe I take over (the host named me, or it left without a word and I am
     // the one the law names) is bound to my own copy of the quest
     behaviourFor: (tag) => questBehaviourFor(questBridge?.machine, tag),
@@ -15767,7 +15780,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     }
     social = new SocialState({ acct: link.acct });
     link.onSocial = (f) => { social.apply(f); };
-    link.onParty = (acct, p) => { social.applyParty(acct, p); };
+    link.onParty = (acct, p) => {
+      social.applyParty(acct, p);
+      // KEPT-KILL: a member's kills of foes they kept on a partner's word - my copy of that quest counts each, once
+      if (p?.qk && social.inMyParty(acct)) creditKeptKills(questBridge?.machine, keptKills, acct, p.qk, Date.now());
+    };
     // PARTY-MAP: a mate's Shared Cartography rows - a seat in my party alone (applyParty's own rule), merged only when I
     // stand in that same dungeon, as revealed and nothing more (automap.js mergePartyAutomap)
     link.onAmap = (acct, _name, k, r) => { if (social.inMyParty(acct)) mergePartyAutomap(k, r); };
@@ -16373,7 +16390,6 @@ export async function bootWorld(canvas, renderer, params, status) {
   const spoilsPool = createSpoilsPool({
     renderer, gl: renderer.gl, getTexture, uploadRecordFrame, audio,
     ray: (from, dir, len) => { const c = modes?.dungeonCtx?.collider; const h = c?.raycastHit ? c.raycastHit(from, dir, len) : { dist: c?.raycast?.(from, dir, len) ?? Infinity, normal: null }; return Number.isFinite(h?.dist) ? h : null; },
-    feet: () => (playerSpawned ? player.feetAt() : null),
     now: () => Date.now() + _sharedOffsetMs,
     take: takeSpoil,
     say: (text) => setMidScreenText(text),
@@ -16491,6 +16507,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (r.alert && SOUL_TRAP_TEXT[r.alert]) setMidScreenText(SOUL_TRAP_TEXT[r.alert]);
       if (r.filled) surfacePlayer();
     },
+    me: () => online?.name ?? null,   // GATE-UX: my row of the damage chart - the relay's name for me (ACC1g: the issued one)
   }) : null;
   let _omenClockAt = null;   // AUDIT WB C4: when the relay's clock was first read this session (the omen's fallback wait)
   const gateOmen = params.has('online') ? createGateOmen({
@@ -16920,8 +16937,12 @@ export async function bootWorld(canvas, renderer, params, status) {
       lv: Math.max(1, Math.min(99, playerEntity.level | 0 || 1)),   // BOUNTY-TIER: my level, so a sharer knows whose tier a bounty shuts out
       ...(!restsWithParty() || (_restAloneNight && playerEntity.isResting) ? { nr: 1 } : {}),   // REST-OPT: I rest alone - no voter, nobody to gather, no rest to mirror (AUDIT C3: and a night granted as my own stays mine to its end)
       ...(playerEntity.isResting ? { rs: 1 } : {}),   // PARTY-BUFFS: resting, mine or followed - what I gain is the night's, no heal to float
+      ...keptKillField(),   // KEPT-KILL: the foes I kept on a partner's word that fell here lately (validPartyPose `qk`)
     };
   };
+  /** KEPT-KILL (2026-10-01): the kills of foes I kept on a partner's word, held KEPT_KILL_HOLD_MS (scenes/questFoeHost.js
+   *  KeptKillLedger) - omitted with none. */
+  const keptKillField = () => { const qk = keptKills.rows(Date.now()); return qk ? { qk } : {}; };
   /** PARTY-BUFFS (2026-09-27, Tabitha: "Allow us to see buff timers or SOME sort of indicator that we have placed a buff
    *  on a party teammate [preferably on their party portrait]"): my effects as my HUD rows them, omitted with none. */
   const partyFxField = () => { const fx = composePartyFx(playerEntity); return fx.length ? { fx } : {}; };
@@ -21883,7 +21904,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // AUDIT WB C5: and the gate's countdown goes down with it - a DOM line over the video would stand frozen on it.
     // AUDIT DEEP X-1: and the travel view is CUT - its readout stood over the film, its listeners on the canvas, until
     // its heartbeat noticed the frames had stopped
-    if (frameHeld()) { frameAbort(); hideWorldPlaque(); last = now; requestAnimationFrame(frame); drawGateBanner(null); drawGateMarksCard(null); drawGateGround(null); travelView?.exit('video', true); return; }
+    if (frameHeld()) { frameAbort(); hideWorldPlaque(); last = now; requestAnimationFrame(frame); drawGateBanner(null); drawGateMarksCard(null); drawGateDamageChart(null); drawGateGround(null); travelView?.exit('video', true); return; }
     const dt = Math.min(0.1, (now - last) / 1000);
     // AUDIT 28 W7 + F-C1/F-C2 (self-audit 3): PlayerMouseLook.Update's
     // three answers - paused (:241-244) returns before ApplyLook and the
