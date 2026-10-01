@@ -74,9 +74,9 @@ The first part of guild town control is in. It is open to the developers first, 
 ---
 
 ### For the team
-- Apply migrations **`0046_town_seats.sql`**, **`0047_seat_influence.sql`**, **`0048_seat_turning.sql`** and **`0049_seat_holding.sql`** (with 0044 and 0045, after main's 0043) to production D1 and deploy the account service (**`acct45`**).
+- Apply migrations **`0047_town_seats.sql`**, **`0048_seat_influence.sql`**, **`0049_seat_turning.sql`** and **`0050_seat_holding.sql`** (with the guild halls' 0045 and 0046, after main's 0044) to production D1 and deploy the account service (**`acct46`**).
 - **The economy model**: `node tools/seatEconomy.mjs` re-runs the guild-week table from the live law files (`--runs`, `--seed`, `--json`).
-- **Deploy the relay (`world138`).** It sends the Watch's ticks (world136), carries the seats' titles (world137) and referees a siege's room (world138, the developers alone). Deploy it before the account service: an older relay refuses a token with a seat title in it.
+- **Deploy the relay (`world140`).** It sends the Watch's ticks (world138), carries the seats' titles (world139) and referees a siege's room (world140, the developers alone). Deploy it before the account service: an older relay refuses a token with a seat title in it.
 - Seats are behind **`SEATS_OPEN = "dev"`** in `server-account/wrangler.toml`. Change it to `"on"` to open them to everyone.
 - **SEAT-COUNT**: run `ARENA2_PATH=/path/to/arena2 node tools/seatCount.mjs` to list every seat and the totals.
 - A developer can strike a false seat from the registry in chat: `/seat strike <map id>`.

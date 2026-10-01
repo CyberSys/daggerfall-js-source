@@ -230,7 +230,7 @@
   },
   {
     "name": "SEAT1a-kind-unadmitted",
-    "file": "server-account/migrations/0046_town_seats.sql",
+    "file": "server-account/migrations/0047_town_seats.sql",
     "old": "CHECK (kind IN ('pixel', 'dungeon', 'hub', 'seat'))",
     "new": "CHECK (kind IN ('pixel', 'dungeon', 'hub'))",
     "tests": [

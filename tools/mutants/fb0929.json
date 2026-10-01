@@ -16,15 +16,15 @@
   {
     "name": "FB0929-the-basket-counts-no-pieces",
     "file": "src/systems/tradeModes.js",
-    "old": "        cost += buyItemPrice(item, { quality, priceAdjustment, holidayId, guildFactionId });\n        pieces += stack;",
-    "new": "        cost += buyItemPrice(item, { quality, priceAdjustment, holidayId, guildFactionId });",
+    "old": "        cost += buyItemPrice(item, { quality, priceAdjustment, holidayId, guildFactionId, buyerLevel });\n        pieces += stack;",
+    "new": "        cost += buyItemPrice(item, { quality, priceAdjustment, holidayId, guildFactionId, buyerLevel });",
     "tests": ["test/fb0929_min_price.test.js"]
   },
   {
     "name": "FB0929-a-stack-counts-as-one",
     "file": "src/systems/tradeModes.js",
-    "old": "        cost += buyItemPrice(item, { quality, priceAdjustment, holidayId, guildFactionId });\n        pieces += stack;",
-    "new": "        cost += buyItemPrice(item, { quality, priceAdjustment, holidayId, guildFactionId });\n        pieces += 1;",
+    "old": "        cost += buyItemPrice(item, { quality, priceAdjustment, holidayId, guildFactionId, buyerLevel });\n        pieces += stack;",
+    "new": "        cost += buyItemPrice(item, { quality, priceAdjustment, holidayId, guildFactionId, buyerLevel });\n        pieces += 1;",
     "tests": ["test/fb0929_min_price.test.js"]
   },
   {
@@ -51,8 +51,8 @@
   {
     "name": "FB0929-the-sale-counts-pieces",
     "file": "src/systems/tradeModes.js",
-    "old": "        cost += calculateCost(itemValueOf(item), quality, priceAdjustment, conditionPercentage(item)) * stack;   // JAN1: an item with no finite value is priced at its base, never NaN",
-    "new": "        cost += calculateCost(itemValueOf(item), quality, priceAdjustment, conditionPercentage(item)) * stack;   // JAN1: an item with no finite value is priced at its base, never NaN\n        pieces += stack;",
+    "old": "        cost += (restorePowerCost(item, buyerLevel) ?? calculateCost(itemValueOf(item), quality, priceAdjustment, conditionPercentage(item))) * stack;   // JAN1: an item with no finite value is priced at its base, never NaN",
+    "new": "        cost += (restorePowerCost(item, buyerLevel) ?? calculateCost(itemValueOf(item), quality, priceAdjustment, conditionPercentage(item))) * stack;   // JAN1: an item with no finite value is priced at its base, never NaN\n        pieces += stack;",
     "tests": ["test/fb0929_min_price.test.js"]
   },
   {

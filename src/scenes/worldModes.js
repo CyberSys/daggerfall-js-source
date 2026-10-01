@@ -153,6 +153,8 @@ import { staticDoorName, npcHoverName, questResourceName, worldTooltipsOn, hideI
 import { LOCATION_TYPES, REGION_NAMES } from '../formats/mapsFile.js';   // WORLD-HOVER: .cs:777-782 - a dungeon exit names its town, or the region   // WORLD-HOVER: the texture record is DERIVED at its one reader, off the stored model id
 import { isShop, isRepairShop, stockShopShelf, stockHouseContainer, PRIVATE_PROPERTY_TEXT_ID, privatePropertyRows, calculateCost, calculateTradePrice, regionPriceAdjustment, SHOP_BUYS_GROUPS, shopBuysItem, stockSoulGems, stockGuildMagicItems, stockGuildPotions, dayShelf, createStockedDate, needsRestock, stockSearched } from '../systems/shopStock.js';   // X6: the soul-gem shelf; G4: the two guild shelves; A2: the daily restock
 import { identifySpellPass, identifiedTallyText, NOT_ENOUGH_SPELL_POINTS_TEXT, tradeCost, getTradePrice } from '../systems/tradeModes.js';   // X7: the Identify SPELL's per-item roll; F067: its magicka refusal; FB0929: the keyed rows' prices are the counter's
+import { restorePowerCost, restorePowerStack, RESTORE_POWER_SHELF, magesSellRestorePower } from '../systems/restorePower.js';   // MANA-SHOP: Restore Power's price and the Mages Guild's counter
+import { effectiveLevel } from '../systems/mentorMode.js';   // MANA-SHOP: the level a bottle is priced by is the level it is drunk at
 import { liveBundles, dispelBundle, dispellableBundles, DISPEL_MAGIC_TEXT } from '../systems/mysticism.js';   // X10: the Dispel Magic picker
 import { ListPickerWindow, listPickerArtLoaded } from '../ui/listPicker.js';   // X10
 import { createItemLabels, grantCreatedItem, lastCreateItemIndex, setLastCreateItemIndex } from '../systems/createItem.js';   // X11b
@@ -266,7 +268,7 @@ import { freeTavernRooms } from '../systems/guildServices.js';
 // B2: the bank - the window, the per-region accounts and the purse seam.
 import { BankWindow, preloadBankArt, bankArtLoaded, BANK_RECTS, BANK_PANEL_X, BANK_PANEL_Y } from '../ui/bankWindow.js';
 import { BankPurchaseWindow, preloadPurchaseArt, purchaseArtLoaded } from '../ui/bankPurchaseWindow.js';   // H2
-import { createBankAccounts, createHouses, BANK_REGION_COUNT, TRANSACTION_RESULT, ownsHouse, isHouseOwned, ownedHouseKey, houseSellPrice, housesForSale, allocateHouseToPlayer, purchaseHouse, ownsShip, ownedShipType, purchaseShip, sellShip, sellHouse, SHIP_COORDS, SHIP_INTERIOR_MAP_IDS, housePrice, creditMarksSale, marksSaleCredit, crossedDeedLines } from '../systems/banking.js';   // H1/H2   // H3: the two leaves - the sell price and the ship
+import { createBankAccounts, createHouses, BANK_REGION_COUNT, TRANSACTION_RESULT, ownsHouse, isHouseOwned, ownedHouseKey, houseSellPrice, housesForSale, allocateHouseToPlayer, purchaseHouse, ownsShip, ownedShipType, purchaseShip, sellShip, sellHouse, SHIP_COORDS, SHIP_INTERIOR_MAP_IDS, housePrice, creditMarksSale, marksSaleCredit, crossedDeedLines, goldRegion } from '../systems/banking.js';   // H1/H2   // H3: the two leaves - the sell price and the ship
 // HOME1: the online homes - the door's one answer, the offer, the owner's menu, and an owned home's own scene
 import {
   homeCandidate, homePurchasable, homeSceneName, homeDoorAnswer, homeDoorTitle, homeLockedLine, homeBelongsLine,
@@ -284,7 +286,7 @@ import { HOME_ENTRIES, homePriceOk, rentCost, rentDaysLeft } from '../net/homeLa
 // HOME-RENT: a home's rooms, rented at its door and offered, priced and collected in its owner's decorator
 import {
   homeRooms, rentable, rentHomeRoom, collectHomeRent, rentPickLines, rentDaysLines, rentConfirmLines, rentDoneLine, rentShortLine,
-  RENT_NONE_FREE, RENT_REALM_ONLY, RENT_DAY_ROWS, rentWelcomeLine,
+  RENT_NONE_FREE, RENT_REALM_ONLY, rentWelcomeLine, homeBedIsMine, rentDayRows, rentNoneLine, RENT_FULL_LINE,   // FIELD BUGS 2026-10-01: RENT-REST, RENT-RENEW
 } from '../systems/homeRent.js';
 // DECOR1c: the pieces a room's owner placed (their law, and the pool that stands them in the room)
 import { decorPieceOf, decorSaleBack, DECOR_STATION_SERVICES, DECOR_STATION_NAMES } from '../net/decorLaw.js';
@@ -1293,8 +1295,8 @@ export function createWorldModes(host) {
    *
    *  This host owned two pools and ran NO fan-out at all - no
    *  runMagicRoundsFor, so no tickActiveEffects and no updatePoisons
-   *  (worldTick.js:391-392), and no killIfAnyLiveStatZero. Both pools
-   *  READ the effect list every frame (exteriorFoes.js:1092-1096 and
+   *  (worldTick.js:392-393), and no killIfAnyLiveStatZero. Both pools
+   *  READ the effect list every frame (exteriorFoes.js:1104-1108 and
    *  cityGuards.js:1040-1050 each take `entityIsParalyzed` +
    *  `applyEnemyMotorEffectFlags`), and nothing ever ended one: a
    *  Continuous Damage bundle on a foe in a shop never took a round,
@@ -2514,6 +2516,7 @@ export function createWorldModes(host) {
         // Repair window needs for the same reason the keyed list did.
         reducedRepairCost: repairDiscount,
         skills: skills(),
+        buyerLevel: effectiveLevel(playerEntity),   // MANA-SHOP: online, Restore Power is priced by what it restores at my level
       }),
       // AUDIT 58: the trade window asks about money TWICE and both
       // readings are GetGoldAmount - the cost strip's gold label
@@ -2581,7 +2584,7 @@ export function createWorldModes(host) {
       // The proceeds were weighed before they were paid: a purse that
       // would push the player past MaxEncumbrance becomes a letter of
       // credit instead. B2 gave it its destination - DepositAll_LOC
-      // (banking.js:673, DaggerfallBankingWindow :377-389) takes EVERY
+      // (banking.js:726, DaggerfallBankingWindow :377-389) takes EVERY
       // letter in the pack at face value - so the note that once stood
       // here saying there was nowhere to cash one is retired.
       if (proceeds?.kind === 'letterOfCredit') {
@@ -2735,7 +2738,7 @@ export function createWorldModes(host) {
     const b = interiorBuilding;
     // FB0929: the counter's own law, not a second copy of it - the walk's cost and pieces, and GetTradePrice's floor
     // of a gold a piece, so the keyed row's price is the price it charges and the trade window's
-    const lot = tradeCost('Buy', [it], { quality: b.quality, priceAdjustment: shopAdjustment(b, 'Buy') });
+    const lot = tradeCost('Buy', [it], { quality: b.quality, priceAdjustment: shopAdjustment(b, 'Buy'), buyerLevel: effectiveLevel(playerEntity) });   // MANA-SHOP: the level Restore Power is priced by
     return getTradePrice('Buy', lot.cost, b.quality, {
       mercantile: skillValue(playerEntity, SKILLS.Mercantile),
       personality: playerEntity.stats?.personality == null ? 50 : liveStat(playerEntity, 'personality'),
@@ -2746,7 +2749,8 @@ export function createWorldModes(host) {
   // GetTradePrice; DFU's condition parameter is declared-but-unused).
   function sellPrice(it) {
     const b = interiorBuilding;
-    const cost = calculateCost(itemValue(it), b.quality, regionPriceAdjustment(playerEntity, b.regionIndex ?? 0)) * (it.stackCount ?? 1);
+    // MANA-SHOP: online a bottle of Restore Power is costed as the counter sells it (tradeModes.js's Sell arm)
+    const cost = (restorePowerCost(it, effectiveLevel(playerEntity)) ?? calculateCost(itemValue(it), b.quality, regionPriceAdjustment(playerEntity, b.regionIndex ?? 0))) * (it.stackCount ?? 1);
     return calculateTradePrice(cost, b.quality, {
       mercantile: skillValue(playerEntity, SKILLS.Mercantile),
       personality: playerEntity.stats?.personality == null ? 50 : liveStat(playerEntity, 'personality'),
@@ -4306,13 +4310,16 @@ export function createWorldModes(host) {
       onTalk: () => talkToStaticNpcHere({ isSpyMaster: false, returnTo: win }),
       onService: () => {
         const access = serviceAccess(guild, membershipOf(memberships, guild), service);
-        if (!access.allowed) {
+        // MANA-SHOP (systems/restorePower.js): online the Mages Guild's magic-items merchant sells Restore Power to
+        // anyone its magic shelf is closed to
+        const manaOnly = !access.allowed && magesSellRestorePower(guild, service);
+        if (!access.allowed && !manaOnly) {
           return { rows: access.textId ? rows(access.textId) : [access.text] };
         }
         // U24 could perform three of these. DR2 closed the last of
         // the twenty, so guildServiceFlow.SERVICE_DESTINATION maps
         // every arm and there is no null left to name.
-        const flow = openServiceFlow(serviceDestination(service), {
+        const flow = openServiceFlow(manaOnly ? 'guildServiceBuyRestorePower' : serviceDestination(service), {
           guild, memberships, store, rows, route,
           // G6: the greeting's dismissal IS the service - the same
           // talk door the popup's own Talk button opens, with
@@ -4454,6 +4461,12 @@ export function createWorldModes(host) {
       flow = openTradeWindow(shelf, b ?? {}, 'Buy', { guildFactionId: guild?.factionId ?? null });
       return flow ?? DOOR_REFUSED;   // DISC10-E L3
     }
+    if (destination === 'guildServiceBuyRestorePower' && tradeDoorReady()) {
+      // MANA-SHOP: the Mages Guild's potions alone, for one its magic shelf is closed to - the day's, as every guild shelf
+      const shelf = guildShelf('BuyRestorePower', () => [restorePowerStack(RESTORE_POWER_SHELF)]);
+      flow = openTradeWindow(shelf, b ?? {}, 'Buy', { guildFactionId: guild?.factionId ?? null });
+      return flow ?? DOOR_REFUSED;   // DISC10-E L3
+    }
     if (destination === 'guildServiceBuyMagicItems' && tradeDoorReady()) {
       // The soul-gem arm rides ALONG when this guild also sells them
       // (:248) - one shelf, two services' stock - and it walks the
@@ -4472,7 +4485,7 @@ export function createWorldModes(host) {
         playerLevel,
         gender,
         soulPointsOf: (t) => ENEMY_BASICS[t]?.soulPts ?? 0,
-      }));
+      }).concat(magesSellRestorePower(guild, 'BuyMagicItems') ? [restorePowerStack(RESTORE_POWER_SHELF)] : []));   // MANA-SHOP: online the Mages Guild's magic shelf carries Restore Power too, after the day's draws
       flow = openTradeWindow(shelf, b ?? {}, 'Buy', { guildFactionId: guild?.factionId ?? null });
       return flow ?? DOOR_REFUSED;   // DISC10-E L3
     }
@@ -6071,7 +6084,7 @@ export function createWorldModes(host) {
    *  building's own region's bank account, minted on first use as the bank window mints it. */
   function homeAccount(region) {
     playerEntity.bankAccounts ??= createBankAccounts(BANK_REGION_COUNT);
-    return playerEntity.bankAccounts[region] ?? null;
+    return playerEntity.bankAccounts[goldRegion(playerEntity.bankAccounts, region)] ?? null;   // EMPIRE-ACCOUNT: online, the Empire's account
   }
   /** THE OFFER at a house anyone may buy, where the plaque lists no verbs (HOME2). Yes buys it; "just go in" goes on
    *  to the door, and this house does not ask again this session. */
@@ -6143,25 +6156,25 @@ export function createWorldModes(host) {
     if (!api) return;
     const got = await homeRooms(api, homeTownOf(bd), bd.buildingKey, host.decorCharacter?.() ?? null);
     if (!got.ok) { townTalk?.say?.(got.error === 'no-home' ? RENT_NONE_FREE : accountRefusalText(got.error)); return; }   // AUDIT: a home gone from under the door has no rooms - never "not yours any more"
-    const list = rentable(got.rooms).slice(0, 9);
-    if (!list.length) { townTalk?.say?.(RENT_NONE_FREE); return; }
+    const list = rentable(got.rooms).slice(0, 9), nowS = got.now || Math.floor(Date.now() / 1000);   // RENT-RENEW: and the service's clock, which a tenancy's end is on
+    if (!list.length) { townTalk?.say?.(rentNoneLine(got.rooms, nowS)); return; }   // RENT-RENEW: my own room off the offer says so
     townTalk?.showOverlay?.(new ChoiceWindow({
       lines: rentPickLines(got.owner || home.owner),
       options: [
         ...list.map((r, i) => ({
           code: `Digit${i + 1}`, label: `${i + 1} - Room ${r.room}: ${r.price} gold a day${r.yours ? ' (yours - renew it)' : ''}`,
-          action: () => openHomeRentDays(bd, r),
+          action: () => { const days = rentDayRows(r, nowS); if (days.length) openHomeRentDays(bd, r, days); else townTalk?.say?.(RENT_FULL_LINE); },   // RENT-RENEW: only the days the service takes - none left, said
         })),
         { code: 'Escape', label: 'Esc - close', action: () => {} },
       ],
     }));
   }
-  /** For how many days - each with what it costs. */
-  function openHomeRentDays(bd, room) {
+  /** For how many days - each with what it costs. RENT-RENEW (FIELD BUGS 2026-10-01): `days`, only those the service takes - my own room renews from its end, never past thirty days ahead (the window offered all five, and a renewal past it was paid from the purse and refused, `rent-long`). */
+  function openHomeRentDays(bd, room, days) {
     townTalk?.showOverlay?.(new ChoiceWindow({
       lines: rentDaysLines(room.room, room.price),
       options: [
-        ...RENT_DAY_ROWS.map((d, i) => ({
+        ...days.map((d, i) => ({
           code: `Digit${i + 1}`, label: `${i + 1} - ${d} day${d === 1 ? '' : 's'}: ${rentCost(room.price, d)} gold`,
           action: () => openHomeRentConfirm(bd, room, d),
         })),
@@ -7371,7 +7384,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:7624), so the OUTER host's one rides in.
+          // (dungeonContext.js:7635), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:847 -> the
@@ -8567,7 +8580,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:14423's own wave-46 note); the interior
+          // a blow (world.js:14427's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -9227,7 +9240,7 @@ export function createWorldModes(host) {
         ownsShip: !!interiorOverlay.hooks.ownsShip?.(),
         ownedShip: interiorOverlay.hooks.ownedShip?.() ?? -1,
         isPortTown: !!interiorOverlay.hooks.isPortTown?.(),
-        accountGold: playerEntity.bankAccounts?.[interiorOverlay.region]?.accountGold ?? 0,
+        accountGold: playerEntity.bankAccounts?.[goldRegion(playerEntity.bankAccounts, interiorOverlay.region)]?.accountGold ?? 0,   // EMPIRE-ACCOUNT
       },
     } : null);
     // H3: the window's own keyboard. `__bankClick` drives the panel's
@@ -9581,11 +9594,6 @@ export function createWorldModes(host) {
     // built in a closure can only be pinned by a regex over its own
     // source, and proved that hollow); this reads the live values.
     const scene = currentInteriorScene();
-    // AUDIT GUILD1d A1: AN ONLINE BED IS THE SERVICE'S WORD, NOT A SCENE'S. canRest asks `houseOwned` only inside a
-    // permanent scene, and a hall's scene (the building's own - nobody keeps things there) or a rented room's never is: a
-    // member, and a tenant (HOME-RENT's, the same defect), was told "You have not rented a room here." The owner's own
-    // home, a hall's member and a running tenancy each sleep there.
-    const onlineBed = !!interiorHome && (interiorHome.own || !!(interiorHome.hall && interiorHome.member) || rentDaysLeft(interiorHome.tenant, Math.floor(Date.now() / 1000)) > 0);
     return interiorRestPlace({
       inTownLocation: host.inTownLocation?.() ?? false,
       building: b,
@@ -9595,13 +9603,13 @@ export function createWorldModes(host) {
       // the list it indexes. canRest wants the COUNT and answers an
       // index; the marker itself is resolved at MoveToBed.
       restMarkers: interiorRestMarkers().length,
-      permanentScene: !!scene && containsPermanentScene(sceneCache(), scene) || onlineBed,
+      permanentScene: !!scene && containsPermanentScene(sceneCache(), scene),   // AUDIT GUILD1d A1 (merged into RENT-REST's rule): an online bed - the owner's, a running tenancy's, a hall's member's - rides as `homeBed` (homeRent.js homeBedIsMine), its own permanence
       // H1 CLOSED THIS. Both rest lanes left it false with a note
       // saying "the moment a house can be bought, this is the line
       // that lets you sleep in it" - and that moment arrived in the
       // same merge: DaggerfallBankManager.IsHouseOwned is live over
       // the region's own registry slot.
-      houseOwned: interiorHome ? (interiorHome.own || (interiorHome.hall && interiorHome.member) || rentDaysLeft(interiorHome.tenant, Math.floor(Date.now() / 1000)) > 0) : isHouseOwned(playerEntity.houses ?? [], b?.regionIndex ?? 0, b?.buildingKey ?? 0),   // HOME1: my online home's bed is mine; HOME-RENT: and a tenant rests in the home they rent in; GUILD1d: and a member in their guild's hall
+      houseOwned: !interiorHome && isHouseOwned(playerEntity.houses ?? [], b?.regionIndex ?? 0, b?.buildingKey ?? 0), homeBed: homeBedIsMine(interiorHome, Math.floor(Date.now() / 1000)),   // HOME1: my online home's bed is mine; HOME-RENT: and a tenant rests in the home they rent in - RENT-REST (FIELD BUGS 2026-10-01): handed as the home's BED (homeBed), which the bag stands where a bought house stands (a tenant's visit is no permanent scene, and houseOwned alone was asked inside that test - refused); an online home never asks the offline bank's houses; GUILD1d: and a member's bed in their guild's hall (homeRent.js homeBedIsMine)
       // GetRentedRoom(mapId, buildingKey), through the SAME finder the
       // tavern window rents with - so the bed this answers is the bed
       // that was sold (tavern.js's own flag, retired here).
@@ -11210,7 +11218,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3472-3494), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:10869). So an F9 pressed in a shop
+     *  unconditionally (world.js:10873). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -11249,7 +11257,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:10984)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:10988)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -11259,8 +11267,8 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:9862`
-     *  and `dungeonContext.js:7635` for its two sibling copies - lines
+     *  HARD2c: this used to spell them out, and named `world.js:9864`
+     *  and `dungeonContext.js:7646` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {

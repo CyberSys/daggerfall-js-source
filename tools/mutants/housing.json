@@ -330,7 +330,7 @@
   {
     "name": "HOME-YARD-the-house-let-in",
     "file": "src/scenes/homeYards.js",
-    "old": "  if (points.some(([px, pz]) => inRect(px, pz, lot.house, -0.05))) return YARD_IN_HOUSE;",
+    "old": "  if (yardFootMeets(ground, lot.house, YARD_EDGE_PAD)) return YARD_IN_HOUSE;",
     "new": "  if (false) return YARD_IN_HOUSE;",
     "tests": [
       "test/homeyard.test.js"
@@ -339,7 +339,7 @@
   {
     "name": "HOME-YARD-another-building-s-ground-let-in",
     "file": "src/scenes/homeYards.js",
-    "old": "  if ((others ?? []).some((r) => points.some(([px, pz]) => inRect(px, pz, r, -0.05)))) return YARD_ON_OTHER;",
+    "old": "  if ((others ?? []).some((r) => yardFootMeets(ground, r, YARD_EDGE_PAD))) return YARD_ON_OTHER;",
     "new": "  if (false) return YARD_ON_OTHER;",
     "tests": [
       "test/homeyard.test.js"
@@ -458,7 +458,7 @@
   {
     "name": "HOME-RENT-the-orphans-number-taken",
     "file": "src/systems/homeRent.js",
-    "old": "    const number = o ? o.room : next;",
+    "old": "    const number = o ? o.room : rentRoomOk(f.id) && !held.has(f.id) ? f.id : next;",
     "new": "    const number = o ? o.room : f.id;",
     "tests": [
       "test/homerent.test.js"
@@ -620,7 +620,7 @@
   {
     "name": "HOME-YARD-the-lot-by-its-middle",
     "file": "src/scenes/homeYards.js",
-    "old": "  const points = [[x, z], ...(foot ?? []).map(([dx, dz]) => [x + dx, z + dz])];",
+    "old": "  const points = [[x, z], ...corners];",
     "new": "  const points = [[x, z]];",
     "tests": [
       "test/homeyard.test.js"

@@ -669,7 +669,12 @@ etc".
 - **What sells**: Stores materials (escrowed by the service - safe by construction) and crafted goods with a
   provenance id (the listing takes the item out of the save; the service holds the record; only the id's **owner**
   may list it, and an id has one live listing at a time - so a duplicated copy can never be sold beside its original,
-  section 18). **Loot does not list**: it has no provenance. TRADE1 stays how loot changes hands.
+  section 18). A piece from the pack lists **for gold alone** (MARKET-ANY, FIELD BUGS 2026-10-01 #2 -
+  `01-Overview/Field-Bugs-2026-10-01.md`): a realm character's record is the service's (REALM P1), so the listing takes
+  the record's own piece out of the seller's record in its batch and a delivery puts it into the buyer's - the realm
+  trade's move, no new trust; never for Drakes (Marks), since the service never inspects a checkpoint after the first save and a
+  save-edited piece would buy them (law 3). Bound, worn, locked, quest and summoned pieces, gold and letters, boat deeds
+  and parts, arrows and Stores materials stay off it, each said.
 - **Priced in Marks.**
 - **Regional markets** - DECIDED: a listing stands on the boards of the region it was listed in. A buyer in that
   region takes it at once; a buyer anywhere else pays the **courier fee** and the goods reach their Stores after the

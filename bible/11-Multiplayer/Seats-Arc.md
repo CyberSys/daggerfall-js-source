@@ -405,7 +405,7 @@ referees up to 256 fighters against one foe.
   `FOES_ROOM_BYTES_PER_S`, the busiest socket's 4% of `HIT_ROOM_BYTES_PER_S`. **The sizes stand.**
 
 BUILT (PVP-REF, 2026-10-01; `06-Systems/Online-Arc.md` PVP-REF): `src/net/siegeRef.js` (the law, its DFU tables
-pinned equal to `characters/weapons.js` and `combat/formulas.js`), the relay's siege room (`world138` - the
+pinned equal to `characters/weapons.js` and `combat/formulas.js`), the relay's siege room (`world140` - the
 developers alone until SEAT2a). The bucket's bonuses DECIDED there: Strength 100's stock modifier, the heaviest swing,
 an expert's proficiency and a racial bonus at level 30 (a fighter's character level is not on the wire) - a Daedric
 Dai-Katana 124, an Iron Dagger 80, a fist 112. A heal is bounded on a window of its own, three a 5 s (DECIDED there:
@@ -609,7 +609,7 @@ Season number, both integers), from which the client words the title ("Warden of
 order: the five ids and the claim reach the relay (a new `RELAY_VERSION` and LAW row) before the account service
 mints them - once, never per town or per Season.
 
-BUILT (SEAT1c, 2026-09-30; `06-Systems/Online-Arc.md` SEAT1c): the five ids and `ts` in the token at `world137`; the
+BUILT (SEAT1c, 2026-09-30; `06-Systems/Online-Arc.md` SEAT1c): the five ids and `ts` in the token at `world139`; the
 Warden's and the Protector's minted now, the tower and the crowns on every member; the Season's titles (SEASON1) and
 the champion's (CROWN1) wait only on their slices. The tower wears the Warden's bronze - the token carries no guild
 colours.
@@ -850,7 +850,7 @@ Season with titles at the end; a Chronicle that remembers; and the Professions e
   - `guild_fealty` (vassal, liege, since); `guild_pacts` (a, b, season)
   - `guilds` gains `colour1`, `colour2`, `device`; the Marks treasury is PROF0's
   - the Renown report gains `region`; `renown_region_week` (player, char_id, region, week, xp)
-  - BUILT (SEAT1b, migration 0047): `town_seat_pledges`, `town_seat_binds` (the account's war-guild a week),
+  - BUILT (SEAT1b, migration 0048): `town_seat_pledges`, `town_seat_binds` (the account's war-guild a week),
     `town_seat_influence` (week, key, guild_id, account, char_id, source, amount, region, day, ref - one row an event,
     `UNIQUE (source, ref)`), `town_seat_renown` (the name this page drew as `renown_region_week`), `gate_kills.region`
 - **Endpoints** (`/v1/seats/...`): `witness`, `list`, `standings`, `pledge`, `tribute`, `window`, `edict`,
@@ -880,9 +880,9 @@ bible updated in the same change, mutants recorded.
 | **GUILD1e** | The hall's private guild board (8.2: the board's Guilds tab, members only) - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` GUILD1e) | A member posts a note only its guild reads, at a board in its hall |
 | **SEAT1a** | The derivation; the registry; the map rings; arrival lines; banners (unheld: the kingdom's) - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` SEAT1a; behind SEATS_OPEN at `dev`) | Pins over a fixture MAPS set: every Palace record is a seat, capitals are crowns, mod rows never count; three witnesses confirm |
 | **SEAT1b** | Influence: pledges, the Watch, gate kills, homes, Renown's region, Tribute; the standings on the board - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` SEAT1b; the stockpile's deliveries ride SEAT1c) | Each source's cap pinned; per-account war and the 7-day wait pinned |
-| **SEAT1c** | The Turning; claims; Contested; the Charter; titles and glyphs (relay first); the Seat tab - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` SEAT1c; the titles' vocabulary at `world137`, the Season's and the champion's minted by SEASON1 and CROWN1) | `settleWeek` idempotent under two racing readers; a held seat's banners in the guild's colours |
+| **SEAT1c** | The Turning; claims; Contested; the Charter; titles and glyphs (relay first); the Seat tab - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` SEAT1c; the titles' vocabulary at `world139`, the Season's and the champion's minted by SEASON1 and CROWN1) | `settleWeek` idempotent under two racing readers; a held seat's banners in the guild's colours |
 | **SEAT1d** | Upkeep, Overreach, Tithe, discounts, Standing, Edicts, Neglect; the economy model as a tool reading townSeatLaw.js and professionLaw.js (PROF0 Appendix C) - **SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` SEAT1d; `tools/seatEconomy.mjs`, its re-run in Appendix C) | Every Standing row pinned; the Tithe routes only Marks; the model re-runs Appendix C's table. The Tithe needs PROF5 (the market) |
-| **PVP-REF** | The refereed blow and step; the 40-fighter measurement - **SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` PVP-REF; relay `world138`, the developers alone until SEAT2a; the step's ceiling MEASURED to 18 m/s) | 6.1's buckets pinned against DFU's damage ranges; the measurement recorded (every budget under 60% - the sizes stand) |
+| **PVP-REF** | The refereed blow and step; the 40-fighter measurement - **SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` PVP-REF; relay `world140`, the developers alone until SEAT2a; the step's ceiling MEASURED to 18 m/s) | 6.1's buckets pinned against DFU's damage ranges; the measurement recorded (every budget under 60% - the sizes stand) |
 | **SEAT2a** | Siege rooms, banners, the Throne, windows, forfeits, spectators, the Tourney, Honours | A headless 10v10 siege runs to both endings |
 | **SEAT2b** | Fortifications, the Barracks' guards, the Gatehouse, the Ram, revolts | Needs PROF11 (Masonry), PROF4 (Carpentry), PROF3 (Smithing's ingots for the Ram) and PROF8 (the Pearls tier-2 Shrine and Apothecary ask) |
 | **CROWN1** | The crown tier: reach, the Marches, the Free Lands, crown glyphs, the Saturday slots, Royal Tourney, Conscription | - |

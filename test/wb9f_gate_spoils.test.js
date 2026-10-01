@@ -13,7 +13,7 @@ import {
 } from '../src/world/gateSpew.js';
 import { PROJECTILE_FIXED_DT } from '../src/scenes/droppedTorches.js';
 import { seededRng } from '../src/systems/wind.js';
-import { createSpoilsPool, spoilsList, SPOILS_TEXT, SPOILS_TAKE_M, SPOILS_TAKE_AFTER_MS, SPOIL_KEY, SPOIL_GOLD_KEY, SPOIL_BOX_HALF_M, SPOIL_BOX_MIN_H } from '../src/scenes/spoilsPool.js';
+import { createSpoilsPool, spoilsList, SPOILS_TEXT, SPOIL_KEY, SPOIL_GOLD_KEY, SPOIL_BOX_HALF_M, SPOIL_BOX_MIN_H } from '../src/scenes/spoilsPool.js';
 import { RAY_DISTANCE, TREASURE_ACTIVATION_DISTANCE } from '../src/player/activate.js';
 import { RARITIES } from '../src/systems/lootRarity.js';
 import { ITEMISED_KEYS, keyItemises, resolveHover } from '../src/systems/worldHover.js';
@@ -149,7 +149,7 @@ test('WB9f the floor in the ray: each resting piece a target in the loot piles\'
   assert.deepEqual(h.p.targets().map((x) => x.key), [t[0].key, t[2].key, t[3].key, t[4].key], 'a taken piece is no target');
 });
 
-test('WB9f inspected and pressed: a piece\'s word is its own name and its tier, the gold its sum; the plaque lists the one item; the press takes it into the pack and says so as a walk-over does - once; a key for a piece in the air, a taken one or another kind answers nothing (mutants: the name without its tier; the press that never takes; the press taking twice)', () => {
+test('WB9f inspected and pressed: a piece\'s word is its own name and its tier, the gold its sum; the plaque lists the one item; the press takes it into the pack and says so - once (GATE-UX: and nothing else does); a key for a piece in the air, a taken one or another kind answers nothing (mutants: the name without its tier; the press that never takes; the press taking twice; the walk-over back)', () => {
   const h = pool();
   h.p.spew({ day: 701, seed: 42, level: 12, at: [0, 3.1, 0], bearing: 1 });
   const list = spoilsList(42, 12);
@@ -170,19 +170,18 @@ test('WB9f inspected and pressed: a piece\'s word is its own name and its tier, 
   assert.equal(frame.kind, 'items'); assert.equal(frame.title, `Named ${item.item.name}`); assert.equal(frame.rows.length, 1);
   assert.equal(h.p.pick(`${SPOIL_KEY}0`), true, 'pressed: taken');
   assert.equal(h.pack.length, 1); assert.equal(h.pack[0].item.name, item.item.name);
-  assert.equal(h.said.at(-1), SPOILS_TEXT.item(item.item.name, item.tier), 'said as a walk-over says it');
+  assert.equal(h.said.at(-1), SPOILS_TEXT.item(item.item.name, item.tier), 'its name said, with its tier');
   assert.equal(h.p.pick(`${SPOIL_KEY}0`), false, 'once');
   assert.equal(h.pack.length, 1);
   assert.equal(h.p.pick(`${SPOIL_GOLD_KEY}${g}`), true);
   assert.equal(h.said.at(-1), SPOILS_TEXT.gold(list[g].gold));
-  // walking over still takes, once it has rested a while
+  // GATE-UX (Mac: "Loot at the end can still be walked over and picked up"): walking over takes nothing, however long
   const me = { at: null }, w = pool({ feet: () => me.at });
   w.p.spew({ day: 702, seed: 7, level: 3, at: [0, 3.1, 0], bearing: 0 });
   w.run(4000);
-  const q = w.p.state().pieces[2];
-  me.at = [q.pos[0] + SPOILS_TAKE_M - 0.3, 0, q.pos[2]];
-  w.run(SPOILS_TAKE_AFTER_MS);
-  assert.ok(w.pack.length >= 1, 'walked over, taken as before');
+  for (const q of w.p.state().pieces) { me.at = [q.pos[0], q.pos[1], q.pos[2]]; w.run(2000); }
+  assert.equal(w.pack.length, 0, 'every piece stood on, none taken');
+  assert.ok(w.p.state().pieces.every((q) => !q.taken), 'all still on the floor');
 });
 
 test('WB9f each landing told: the floor says each piece\'s rest once, where it lies, its tier and kind - the court\'s sparks (mutant: the rest never told)', () => {

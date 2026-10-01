@@ -620,8 +620,8 @@
   {
     "name": "PROF5-svc-cancel-still-listed",
     "file": "server-account/src/market.js",
-    "old": "    ...backToStores(db, id, nonce),\n    db.prepare(`UPDATE products SET listed = 0 WHERE provenance = (SELECT provenance FROM market_listings WHERE id = ?1 AND rn = ?2)`).bind(id, nonce),\n  ]);",
-    "new": "    ...backToStores(db, id, nonce),\n  ]);",
+    "old": "    ...backToStores(db, id, nonce),\n    db.prepare(`UPDATE products SET listed = 0 WHERE provenance = (SELECT provenance FROM market_listings WHERE id = ?1 AND rn = ?2)`).bind(id, nonce),\n    // MARKET-ANY: a piece from a pack back",
+    "new": "    ...backToStores(db, id, nonce),\n    // MARKET-ANY: a piece from a pack back",
     "tests": [
       "test/prof5_service.test.js"
     ]
@@ -710,8 +710,8 @@
   {
     "name": "PROF5-svc-collect-early",
     "file": "server-account/src/market.js",
-    "old": "  if (Number(d.arrives_at) > nowS) return { error: 'market-on-road' };",
-    "new": "",
+    "old": "  if (Number(d.arrives_at) > nowS) return { error: 'market-on-road' };\n  if (d.item != null)",
+    "new": "\n  if (d.item != null)",
     "tests": [
       "test/prof5_service.test.js"
     ]
@@ -719,8 +719,8 @@
   {
     "name": "PROF5-svc-collect-any-character",
     "file": "server-account/src/market.js",
-    "old": "  if (d.char_id !== character) return { error: 'market-other-character' };",
-    "new": "",
+    "old": "  if (d.char_id !== character) return { error: 'market-other-character' };\n  if (Number(d.arrives_at) > nowS) return { error: 'market-on-road' };\n  if (d.item != null)",
+    "new": "  if (Number(d.arrives_at) > nowS) return { error: 'market-on-road' };\n  if (d.item != null)",
     "tests": [
       "test/prof5_service.test.js"
     ]

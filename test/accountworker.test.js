@@ -137,14 +137,14 @@ test('ACC1b: the migration is the real schema, and applying it twice changes not
   // HOME-RENT (0037_home_rooms.sql): `home_rooms` (one row a room offered to rent, and its tenancy)
   // GOLD-MARKET added two (0041): `market_gold` (the gold a character's sales hold for it) and `market_gold_prices`
   // (gold's own price table)
-  // GUILD1e added one (0045, 0044 before SCALE1): `guild_notes` (a guild's own board - its notes, its members' alone)
-  // SEAT1a added one (0046 - 0045 until main's SCALE1 took 0043): `town_seat_history` (the Chronicle - its first rows a
-  // developer's strike); and rebuilt `world_witness` to admit the kind `seat`. SEAT1b added four (0047):
+  // GUILD1e added one (0046 - 0045 until main's MARKET-ANY took 0044, 0044 before SCALE1): `guild_notes` (a guild's own board - its notes, its members' alone)
+  // SEAT1a added one (0047 - 0046 until main's MARKET-ANY took 0044, 0045 until main's SCALE1 took 0043): `town_seat_history` (the Chronicle - its first rows a
+  // developer's strike); and rebuilt `world_witness` to admit the kind `seat`. SEAT1b added four (0048):
   // `town_seat_pledges` (a guild's seat a region a week), `town_seat_binds` (an account's war-guild for the week),
   // `town_seat_influence` (the week's sources, one row an event) and `town_seat_renown` (Renown earned in a region); and
-  // gave `gate_kills` a region. SEAT1c added four (0048): `town_seat_weeks` (the Turning's key, one row a settled week),
+  // gave `gate_kills` a region. SEAT1c added four (0049): `town_seat_weeks` (the Turning's key, one row a settled week),
   // `town_seat_holds` (the Charters held), `town_seat_legacy` (what a guild carries into a week) and `town_seat_rights`
-  // (the week's battles the Turning named). SEAT1d added four (0049): `town_seat_edicts` (a seat's Edict a week),
+  // (the week's battles the Turning named). SEAT1d added four (0050): `town_seat_edicts` (a seat's Edict a week),
   // `town_seat_stockpile` (the Levy's units, the seat's), `town_seat_levies` (one row a harvest that paid it) and
   // `town_seat_bounties` (a camp paid, once a day); and gave the holds their Tithe and debt, the listings and auctions
   // their board

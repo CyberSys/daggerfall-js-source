@@ -252,6 +252,14 @@ export function createOnlineHomes({ api, character = () => null, now = () => Dat
   const asking = new Map();
   /** @type {Map<number, number>} */
   const failed = new Map();
+  /** @type {Map<number, number>} FB1001 LOOK-STALE: my answered writes to each town, counted - and the count each town's
+   *  ask in flight set out under. An answer that set out before a write of mine landed is older than the row I wrote. */
+  const writes = new Map();
+  /** @type {Map<number, number>} */
+  const askedAt = new Map();
+  const writesTo = (id) => writes.get(id) ?? 0;
+  /** @type {Set<number>} FB1001 (LOOK-STALE, HOMES-FORCE): the towns whose ask in flight was itself a forced one */
+  const forcedFlight = new Set();
   let version = 0;
   const idOf = (mapId) => (Number.isFinite(Number(mapId)) ? Number(mapId) >>> 0 : 0);
 
@@ -262,14 +270,22 @@ export function createOnlineHomes({ api, character = () => null, now = () => Dat
     const had = towns.get(id);
     if (!force && had && now() - had.at < ttlMs) return Promise.resolve(true);
     const flying = asking.get(id);
-    if (flying) return flying;
+    // FB1001 (LOOK-STALE, HOMES-FORCE): a forced ask is asked AFTER the flight it finds - never answered by it (ASYNC
+    // NEVER DROPS): that flight set out before whatever forced this one (a look painted, a room rented), and its answer
+    // does not hold it. The one exception is a forced flight that set out after my last write: its answer is the one asked
+    if (flying) return !force || (forcedFlight.has(id) && askedAt.get(id) === writesTo(id)) ? flying : afterFlight(id, flying);
     if (!force && now() - (failed.get(id) ?? -Infinity) < HOME_RETRY_MS) return Promise.resolve(!!had);
+    const gen = writesTo(id);
     const p = Promise.resolve()
       .then(() => api.town(id, character()))   // HOME-RENT: the playing character's own tenancies ride the answer
       .then((r) => {
         const list = r?.ok ? r.data?.homes : null;
         // unanswered: what was known stands, nothing new is believed, and the next ask waits a little
         if (!Array.isArray(list)) { failed.set(id, now()); return towns.has(id); }
+        // FB1001 LOOK-STALE: the service answered before a write of mine landed - a painted look, a door's entry, a claim
+        // - so the town as it stood then is never believed over it (it put a painted house back for a minute); the
+        // write's own ask follows this one
+        if (writesTo(id) !== gen) return towns.has(id);
         const homes = new Map();
         for (const h of list) {
           if (!homeBuildingKeyOk(h?.buildingKey) || typeof h.owner !== 'string') continue;
@@ -294,10 +310,21 @@ export function createOnlineHomes({ api, character = () => null, now = () => Dat
         version++;
         return true;
       }, () => { failed.set(id, now()); return towns.has(id); })
-      .finally(() => { asking.delete(id); });
+      .finally(() => { asking.delete(id); askedAt.delete(id); forcedFlight.delete(id); });
     asking.set(id, p);
+    askedAt.set(id, gen);
+    if (force) forcedFlight.add(id);
     return p;
   }
+
+  /**
+   * HOMES-FORCE (FIELD BUGS 2026-10-01, "Room renting is buggy"): A FORCED READ ASKED WHILE ANOTHER IS IN FLIGHT IS ASKED
+   * AFTER IT, never answered by it - the one in flight left before the change that forced this one (a room rented, a
+   * home bought or sold), and its answer does not hold it: a rent that landed under a plaque's read kept the door shut on
+   * its tenant for the town's whole minute. ASYNC NEVER DROPS: and one such read a town, however many ask for it - the
+   * first to land sets out as a forced flight under the same writes, and `ensure` hands the rest that flight.
+   */
+  const afterFlight = (id, flying) => flying.then(() => ensure(id, { force: true }));
 
   /** `ensure`, but a door does not wait on it longer than `ms`: resolves whether the town is known by then. */
   function waitFor(mapId, ms = HOME_ASK_WAIT_MS) {
@@ -320,6 +347,7 @@ export function createOnlineHomes({ api, character = () => null, now = () => Dat
 
   /** A change I made, shown now and read back from the service after (the owner's name, the others' doors). */
   function wrote(id, buildingKey, row) {
+    writes.set(id, writesTo(id) + 1);   // FB1001 LOOK-STALE: an ask already out answers the town from before this
     const t = towns.get(id);
     if (t) {
       if (row) t.homes.set(buildingKey, row);

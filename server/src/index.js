@@ -2444,7 +2444,7 @@ export class Room {
     // tab of theirs the same receipt first (it keeps it for their next hello all the same)
     f.here = [...new Set([...this._all()].filter(([, b]) => b.id && b.sub && f.rc[b.sub]).map(([, b]) => b.sub))].slice(0, GATE_FIGHTERS_MAX);
     await this._gateSave(f, now, true);
-    this._gateFan([{ k: 'fell', at: f.fell.at, top: f.fell.top, n: f.fell.n }]);
+    this._gateFan([{ k: 'fell', at: f.fell.at, top: f.fell.top, n: f.fell.n, ...(f.fell.dm ? { dm: f.fell.dm } : {}) }]);   // GATE-UX: the damage chart to the court alone (the hub's word stays the names)
     for (const [ws, b] of [...this._all()]) { const r = b.id && b.sub ? f.rc[b.sub] : null; if (r) this._send(ws, JSON.stringify({ t: 'gate', k: 'rcpt', r })); }
     await this._gateTellHubOnce(f, now);
   }

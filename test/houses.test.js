@@ -203,7 +203,7 @@ test('H1: the four consumers are wired, and each goes through the law', () => {
   // The point of the lane. A rule per consumer, because three of the
   // four are host code with no node coverage.
   const modes = code('scenes/worldModes.js');
-  assert.match(modes, /houseOwned: interiorHome \? \(interiorHome\.own \|\| \(interiorHome\.hall && interiorHome\.member\) \|\| rentDaysLeft\(interiorHome\.tenant, Math\.floor\(Date\.now\(\) \/ 1000\)\) > 0\) : isHouseOwned\(/, 'CanRest sleeps in a house you own (V5 left this false)');   // HOME1 re-aim: online, in my online home too; HOME-RENT re-aim: and a room I rent in one; GUILD1d re-aim: and a member in their guild's hall
+  assert.match(modes, /houseOwned: !interiorHome && isHouseOwned\(playerEntity\.houses \?\? \[\], b\?\.regionIndex \?\? 0, b\?\.buildingKey \?\? 0\), homeBed: homeBedIsMine\(interiorHome, /, 'CanRest sleeps in a house you own (V5 left this false)');   // HOME1 re-aim: online, in my online home too; HOME-RENT re-aim: and a room I rent in one; PIN MOVED (FIELD BUGS 2026-10-01 RENT-REST): an online home's bed rides as `homeBed`, the offline house as ever
   assert.match(modes, /isHouseOwned: \(key\) => isHouseOwned\(/, 'the lock ladder knows your own front door');
   assert.match(modes, /ownsHouse: \(\) => ownsHouse\(/, 'the bank window asks the registry');
   assert.match(code('scenes/world.js'), /isHouseOwned: \(buildingKey\) => isHouseOwned\(/,

@@ -22,7 +22,7 @@
 // (systems/tavern.js), never a player's own. Ledger A.
 // ═══════════════════════════════════════════════════════════════════
 import {
-  RENT_DAYS, RENT_ROOMS_MAX, rentCost, rentPriceOk, rentRoomOk, rentAnchorOf, rentDaysLeft, RENT_PRICE_MIN, RENT_PRICE_MAX,
+  RENT_DAYS, RENT_DAYS_MAX, RENT_ROOMS_MAX, rentCost, rentPriceOk, rentRoomOk, rentAnchorOf, rentDaysLeft, rentUntil, RENT_PRICE_MIN, RENT_PRICE_MAX,
 } from '../net/homeLaw.js';
 
 /** The door's verb for a home with a room free to rent (onlineHomes.js HOME_VERB's own row). */
@@ -52,6 +52,35 @@ export const rentShortLine = (cost) => `You need ${cost} gold, in your purse and
 export const RENT_NONE_FREE = 'No room here is free to rent right now.';
 /** Renting asks an online character of the realm - said where there is none. */
 export const RENT_REALM_ONLY = 'Only an online character of the realm can rent a room.';
+
+/**
+ * RENT-REST (FIELD BUGS 2026-10-01, "Room renting is buggy"): WHETHER AN ONLINE HOME'S BED IS THE PLAYER'S - its owner's,
+ * or its tenant's while the tenancy runs (`home` the town answer's row, as onlineHomes.js homeAt gives it; `nowS` the
+ * clock the tenancy's end is read on). The interior host hands it to the rest's bag (systems/restSession.js
+ * interiorRestPlace `homeBed`), where a tenant's bed was asked as DFU asks a house it sold - inside a permanent scene,
+ * which a tenant's visit never is - and refused ("You have not rented a room here.").
+ */
+export const homeBedIsMine = (home, nowS) => !!home && (home.own === true || !!(home.hall && home.member) || rentDaysLeft(home.tenant, nowS) > 0);   // GUILD1d (merged past RENT-REST): a member rests in their guild's hall as in their own home
+
+/**
+ * RENT-RENEW (FIELD BUGS 2026-10-01): THE DAYS THE DOOR OFFERS for a room at the service's clock `nowS` - those whose
+ * tenancy ends within RENT_DAYS_MAX days of now. One's own room renews from its end (homeLaw.js rentUntil), so a tenancy
+ * with days left is offered fewer: the window offered all five, and the service refuses every renewal past thirty days
+ * (`rent-long`) - after the purse had paid it, and its reserve came back to the bank.
+ */
+export const rentDayRows = (room, nowS) => RENT_DAYS.filter((d) => rentUntil(nowS, room?.yours ? room.until : 0, d) != null);
+/** RENT-RENEW: one's own room paid as far ahead as a tenancy may run - no day is left to add. */
+export const RENT_FULL_LINE = `Your room is paid for ${RENT_DAYS_MAX} days ahead, the most a room can be. Renew it once some of them have passed.`;
+/**
+ * RENT-RENEW: WHAT THE DOOR SAYS WITH NO ROOM TO RENT - the tenant's own room taken off the offer (their row says "renew
+ * it"; a room off the offer runs out and is never renewed - rent.js), else none free.
+ */
+export function rentNoneLine(rooms, nowS) {
+  const mine = (rooms ?? []).find((r) => r.yours && !r.listed);   // `yours` the service says only while the tenancy runs (rent.js roomsOf)
+  if (!mine) return RENT_NONE_FREE;
+  const left = rentDaysLeft(mine.until, nowS);
+  return `Room ${mine.room} is no longer offered to rent. It is yours for ${left} more day${left === 1 ? '' : 's'}, and cannot be renewed.`;
+}
 
 /**
  * A HOME'S ROOMS, read: `{ ok, rooms, due, owner, mine, now }` - each room `{ room, anchor, price, listed, taken, yours,
@@ -133,7 +162,10 @@ export function rentRoomsView(found, offers, roomOf, origin) {
   const rows = (found ?? []).map((f) => {
     const o = (offers ?? []).find((x) => !used.has(x.room) && roomOf([origin[0] + x.anchor[0], origin[1] + x.anchor[1], origin[2] + x.anchor[2]])?.id === f.id) ?? null;
     if (o) used.add(o.room);
-    const number = o ? o.room : next;
+    // RENT-NUMBER (FIELD BUGS 2026-10-01): a room not offered takes its OWN number where no offer holds it - so the room
+    // the owner's panel calls "Room 2" is room 2 at the door too (the first free number named the owner's Room 2 "room
+    // 1" to every tenant) - and the first free one only where another offer holds its own
+    const number = o ? o.room : rentRoomOk(f.id) && !held.has(f.id) ? f.id : next;
     return { id: f.id, name: f.name, eye: f.eye, offer: o, number, offerable: number != null };
   });
   for (const o of offers ?? []) if (!used.has(o.room)) rows.push({ id: null, name: `Room ${o.room} (its walls have changed)`, eye: null, offer: o, number: o.room, offerable: false });

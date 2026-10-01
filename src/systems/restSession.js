@@ -392,8 +392,14 @@ export const illegalRestWarning = () => getBool('GUI', 'IllegalRestWarning');
 export function interiorRestPlace({
   inTownLocation = false, building = null, nowMinutes = 0,
   restMarkers = 0, permanentScene = false, houseOwned = false,
-  room = null, guildCanRest = false,
+  room = null, guildCanRest = false, homeBed = false,
 } = {}) {
+  // RENT-REST (FIELD BUGS 2026-10-01, "Room renting is buggy"; online, Ledger A - HOME1, HOME-RENT): `homeBed`, the
+  // visit's online home is the player's to sleep in - its owner's, or a tenant's while the tenancy runs
+  // (systems/homeRent.js homeBedIsMine). DFU asks IsHouseOwned only INSIDE its permanent-scene test (CanRest, the ship's arm at :580),
+  // since a house it sells is a permanent scene from the purchase on - as the owner's online home is (worldModes.js
+  // keeps its scene) and a tenant's visit never is: the tenant was asked the tavern's question and refused ("You have
+  // not rented a room here."). The home's bed stands where a bought house stands, in both halves of that arm.
   const buildingType = building?.buildingType ?? BUILDING_NONE;
   return {
     inTownOutside: false,
@@ -401,11 +407,11 @@ export function interiorRestPlace({
     insideBuilding: true,
     buildingType,
     isShip: buildingType === BUILDING_SHIP,
-    permanentScene,
+    permanentScene: permanentScene || homeBed,   // RENT-REST
     // DaggerfallBankManager.IsHouseOwned - live since H1; a host
     // without a bank passes DFU's own default for a player who has
     // bought nothing.
-    houseOwned,
+    houseOwned: houseOwned || homeBed,   // RENT-REST
     room,
     nowMinutes,
     restMarkers,

@@ -71,8 +71,10 @@ import {
   hubPixel, roadPixels, courierFee, courierSeconds, medianOf, medianLine, marketCatalogue,
   AUCTION_S, AUCTION_LATE_S, AUCTION_ADD_S, AUCTION_GRACE_S, bidOk, auctionNext, auctionable,
   currencyOk, goldSaleOf, MARKET_GOLD_HELD_MAX,
+  goodRefusal, goodFamily, MARKET_HELD_MAX,   // MARKET-ANY
 } from '../../src/net/marketLaw.js';
-import { MASTERWORK } from '../../src/net/recipeLaw.js';
+import { MASTERWORK, PROVENANCE_RE } from '../../src/net/recipeLaw.js';
+import { takeTradeGoods, giveTradeGoods } from '../../src/net/realmTradeLaw.js';   // MARKET-ANY: a piece out of one record and into another, as a trade moves it
 
 const DAY_S = 86_400;
 /** GOLD-MARKET: the Stores origin of units bought in the row's own currency (a listing's or a sale's `currency`). */
@@ -156,9 +158,16 @@ const pieceOf = (p, wear) => (p ? {
   marked: Number(p.marked) === 1, template: Number(p.template), material: Number(p.material), wear: Number(wear),
   ...(p.dye == null ? {} : { dye: Number(p.dye) }),   // PROF7: a garment is the colour it was sewn in
 } : null);
+/** MARKET-ANY: a piece from a pack, as its listing or its delivery carries it - its record, or null. */
+const goodOf = (text) => {
+  let v = null;
+  try { v = typeof text === 'string' ? JSON.parse(text) : null; } catch { v = null; }
+  return v && typeof v === 'object' && !Array.isArray(v) ? v : null;
+};
 function listingView(l, me, extra = {}) {
   return {
     id: l.id, kind: l.kind, region: Number(l.region), ...(l.material ? { material: l.material } : {}),
+    ...(l.kind === 'item' ? { item: goodOf(l.item) } : {}),   // MARKET-ANY: the piece's record
     units: Number(l.own) + Number(l.bought), listed: Number(l.units), price: Number(l.price), fee: Number(l.fee),
     ...(l.wear != null ? { wear: Number(l.wear) } : {}), at: Number(l.at), expiresAt: Number(l.expires_at), state: l.state,
     currency: l.currency === 'gold' ? 'gold' : 'marks',   // GOLD-MARKET: what its price is in
@@ -217,11 +226,20 @@ async function settle(ctx, player) {
   // the listings' goods back
   // AUDIT 30 S7: only what can settle now - a return a full Stores cannot take waits without holding back the rest
   const { results: back = [] } = await db.prepare(`SELECT * FROM market_listings WHERE seller = ?1 AND state IN ('expired', 'removed') AND returned = 0
-      AND (kind = 'piece' OR COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = market_listings.seller AND char_id = market_listings.char_id
+      AND (kind IN ('piece', 'item') OR COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = market_listings.seller AND char_id = market_listings.char_id
         AND material = market_listings.material), 0) + own + bought <= ?2)
     ORDER BY closed_at LIMIT ${SETTLE_MAX}`).bind(me, STORES_MAX).all();
   for (const l of back) {
     const nonce = mintId(rand);
+    if (l.kind === 'item') {
+      // MARKET-ANY: a piece from a pack back to its seller - a delivery its character's record collects (collectGood)
+      await db.batch([
+        db.prepare(`UPDATE market_listings SET returned = 1, rn = ?2 WHERE id = ?1 AND returned = 0`).bind(l.id, nonce),
+        db.prepare(`INSERT OR IGNORE INTO market_deliveries (id, player, char_id, item, why, from_region, arrives_at, at)
+          SELECT id, seller, char_id, item, 'returned', region, ?2, ?2 FROM market_listings WHERE id = ?1 AND rn = ?3 AND kind = 'item'`).bind(l.id, nowS, nonce),
+      ]);
+      continue;
+    }
     if (l.kind === 'piece') {
       await db.batch([
         db.prepare(`UPDATE market_listings SET returned = 1, rn = ?2 WHERE id = ?1 AND returned = 0`).bind(l.id, nonce),
@@ -389,15 +407,40 @@ async function roadOf(db, me, nowS) {
   const { results: pieces = [] } = await db.prepare(`SELECT d.id, d.char_id, d.wear, d.why, d.from_region, d.arrives_at, p.recipe, p.quality, p.seed, p.maker, p.marked, p.dye,
     p.template, p.material, p.provenance FROM market_deliveries d JOIN products p ON p.provenance = d.provenance
     WHERE d.player = ?1 AND d.collected = 0 ORDER BY d.arrives_at LIMIT 50`).bind(me).all();
+  // MARKET-ANY: and pieces from packs, bought or come back - each its record
+  const { results: goods = [] } = await db.prepare(`SELECT id, char_id, why, from_region, arrives_at, item FROM market_deliveries
+    WHERE player = ?1 AND collected = 0 AND item IS NOT NULL ORDER BY arrives_at LIMIT 50`).bind(me).all();
   return [
     ...loads.map((s) => ({ kind: 'material', id: s.rid, character: s.char_id, material: s.material, units: Number(s.units), from: Number(s.from_region),
       arrivesAt: Number(s.arrives_at), waiting: Number(s.arrives_at) <= nowS })),
     ...pieces.map((d) => ({ kind: 'piece', id: d.id, character: d.char_id, why: d.why, from: d.from_region == null ? null : Number(d.from_region),
       arrivesAt: Number(d.arrives_at), ready: Number(d.arrives_at) <= nowS, piece: pieceOf(d, d.wear) })),
+    ...goods.map((d) => ({ kind: 'item', id: d.id, character: d.char_id, why: d.why, from: d.from_region == null ? null : Number(d.from_region),
+      arrivesAt: Number(d.arrives_at), ready: Number(d.arrives_at) <= nowS, item: goodOf(d.item) })),
   ];
 }
 
 // ─── THE READ ────────────────────────────────────────────────────────
+
+/**
+ * MARKET-ANY: THE CRAFTED PIECES A TAB HOLDS (`pieces`, their provenance ids - at most MARKET_HELD_MAX, the rest unsaid),
+ * each as the counting-house sees it, so the List form offers each its own way (AUDIT 30 U13: what must fail is not
+ * offered): `yours` - its record names this account and it stands nowhere else: it lists as a crafted piece; `other` -
+ * its record names another (a trade, a shelf, a room's container or a looted body moved the piece, never its record):
+ * only that owner sells it as a crafted piece, and it lists from the pack, for gold; `elsewhere` - this account's, but on
+ * the market, on the road or standing in a home: the save's is a copy and lists neither way; `none` - no record at all.
+ */
+async function pieceWays(db, me, pieces) {
+  const ids = Array.isArray(pieces) ? [...new Set(pieces.filter((p) => typeof p === 'string' && PROVENANCE_RE.test(p)))].slice(0, MARKET_HELD_MAX) : [];
+  if (!ids.length) return {};
+  const { results: rows = [] } = await db.prepare(`SELECT p.provenance, p.owner, p.listed,
+      EXISTS (SELECT 1 FROM market_deliveries d WHERE d.provenance = p.provenance AND d.collected = 0) AS road,
+      EXISTS (SELECT 1 FROM home_decor h WHERE json_extract(h.item, '$.pv') = p.provenance) AS standing
+    FROM products p WHERE p.provenance IN (SELECT value FROM json_each(?1))`).bind(JSON.stringify(ids)).all();   // SCALE1: one bound array
+  const out = Object.fromEntries(ids.map((p) => [p, 'none']));
+  for (const r of rows) out[r.provenance] = r.owner !== me ? 'other' : (Number(r.listed) || Number(r.road) || Number(r.standing)) ? 'elsewhere' : 'yours';
+  return out;
+}
 
 /** The medians and lines of `keys` over the last MARKET_MEDIAN_DAYS UTC days (10.2): a Map of key to { median, line }. */
 async function mediansOf(db, keys, today, currency = 'marks') {
@@ -420,7 +463,7 @@ async function mediansOf(db, keys, today, currency = 'marks') {
  * views (marketLaw MARKET_VIEWS), after the account's own market is settled. Every answer carries what is on its way
  * to the account, its balance and its live counts.
  */
-export async function marketRead(ctx, player, env, { character, region, view, family = null, tier = null, material: key = null, materials = null, hubs, currency = 'marks' } = {}) {
+export async function marketRead(ctx, player, env, { character, region, view, family = null, tier = null, material: key = null, materials = null, hubs, currency = 'marks', pieces = null } = {}) {
   const { db, nowS } = ctx;
   const refused = asks(player, { character, needRid: false });
   if (refused) return refused;
@@ -505,6 +548,15 @@ export async function marketRead(ctx, player, env, { character, region, view, fa
       })),
     };
   }
+  if (view === 'goods') {
+    // MARKET-ANY: every piece listed from a pack, cheapest first, each with its courier to this board - for gold alone
+    const { results = [] } = await db.prepare(`SELECT * FROM market_listings WHERE state = 'open' AND kind = 'item' AND expires_at > ?1
+      ORDER BY price, at LIMIT 500`).bind(nowS).all();
+    const rows = results.filter((l) => { const it = goodOf(l.item); return !!it && (!family || goodFamily(it) === family); }).slice(0, MARKET_SHOWN);
+    const quotes = await quote(rows, () => 1);
+    const reports = await reportsOf(rows.map((l) => l.id));
+    return { ...(await base()), rows: rows.map((l, i) => listingView(l, me, { road: quotes[i], ...(moderator ? { reports: reports.get(l.id) ?? 0 } : {}) })) };
+  }
   if (view === 'auctions') {
     // PROF5b: every open auction, ending soonest first, each with its courier to this board (one piece)
     const { results = [] } = await db.prepare(`SELECT a.*, p.recipe, p.quality, p.seed, p.maker, p.marked, p.dye, p.template, p.material AS dfu_material,
@@ -547,6 +599,7 @@ export async function marketRead(ctx, player, env, { character, region, view, fa
     return {
       ...(await base()),
       rows: listings.map((l) => listingView(l, me, l.kind === 'piece' ? { piece: pieceOf({ ...l, material: l.dfu_material }, l.wear) } : {})),
+      ways: await pieceWays(db, me, pieces),   // MARKET-ANY: the List form's crafted pieces, each its own way
       orders: orders.map((o) => orderView(o, me)),
       auctions: auctions.map((a) => auctionView(a, me, { piece: pieceOf({ ...a, material: a.dfu_material }, a.wear) })),
       bids: bids.map((b) => ({
@@ -586,20 +639,23 @@ export async function marketRead(ctx, player, env, { character, region, view, fa
   // AUDIT 30 U15: the Marks each side moved - a buyer the price and the courier, a seller the price less the tax and the
   // Tithe, a filler the pay, an orderer the price
   // GOLD-MARKET: each trade in its own currency - a gold seller's the price less the tax and the fee its sale paid
-  const { results: sales = [] } = await db.prepare(`SELECT 'bought' AS side, kind, material, provenance, units, price, total + courier AS total, at, currency FROM market_sales WHERE buyer = ?1 AND at > ?2
-    UNION ALL SELECT 'sold', kind, material, provenance, units, price, total - tax - tithe - fee, at, currency FROM market_sales WHERE seller = ?1 AND at > ?2
-    UNION ALL SELECT 'filled', 'material', material, NULL, units, price, pay, at, 'marks' FROM market_fills WHERE filler = ?1 AND at > ?2
-    UNION ALL SELECT 'ordered', 'material', material, NULL, units, price, units * price, at, 'marks' FROM market_fills WHERE poster = ?1 AND at > ?2
-    UNION ALL SELECT 'won', 'piece', NULL, a.provenance, 1, a.high, a.high + b.courier, a.closed_at, 'marks' FROM market_auctions a JOIN market_bids b ON b.id = a.high_bid
+  // MARKET-ANY: a piece from a pack named by its listing's record (`good`)
+  const goodSql = "CASE WHEN kind = 'item' THEN (SELECT item FROM market_listings l WHERE l.id = market_sales.listing) END";
+  const { results: sales = [] } = await db.prepare(`SELECT 'bought' AS side, kind, material, provenance, units, price, total + courier AS total, at, currency, ${goodSql} AS good FROM market_sales WHERE buyer = ?1 AND at > ?2
+    UNION ALL SELECT 'sold', kind, material, provenance, units, price, total - tax - tithe - fee, at, currency, ${goodSql} FROM market_sales WHERE seller = ?1 AND at > ?2
+    UNION ALL SELECT 'filled', 'material', material, NULL, units, price, pay, at, 'marks', NULL FROM market_fills WHERE filler = ?1 AND at > ?2
+    UNION ALL SELECT 'ordered', 'material', material, NULL, units, price, units * price, at, 'marks', NULL FROM market_fills WHERE poster = ?1 AND at > ?2
+    UNION ALL SELECT 'won', 'piece', NULL, a.provenance, 1, a.high, a.high + b.courier, a.closed_at, 'marks', NULL FROM market_auctions a JOIN market_bids b ON b.id = a.high_bid
       WHERE a.state = 'sold' AND b.bidder = ?1 AND a.closed_at > ?2
-    UNION ALL SELECT 'auctioned', 'piece', NULL, provenance, 1, high, ${netSql('high')} - tithe, closed_at, 'marks' FROM market_auctions
+    UNION ALL SELECT 'auctioned', 'piece', NULL, provenance, 1, high, ${netSql('high')} - tithe, closed_at, 'marks', NULL FROM market_auctions
       WHERE state = 'sold' AND seller = ?1 AND closed_at > ?2
     ORDER BY at DESC LIMIT ${MARKET_TRADES_SHOWN}`).bind(me, nowS - MARKET_KEEP_DAYS * DAY_S).all();
   return {
     ...(await base()),
     history: top.map((t) => ({ material: t.material, units: Number(t.units), ...(medians.get(t.material) ?? { median: null, line: [] }) })),
     trades: sales.map((s) => ({ side: s.side, kind: s.kind, material: s.material ?? null, provenance: s.provenance ?? null, units: Number(s.units),
-      price: Number(s.price), total: Number(s.total), at: Number(s.at), currency: s.currency === 'gold' ? 'gold' : 'marks' })),
+      price: Number(s.price), total: Number(s.total), at: Number(s.at), currency: s.currency === 'gold' ? 'gold' : 'marks',
+      ...(s.kind === 'item' ? { item: goodOf(s.good) } : {}) })),
   };
 }
 
@@ -614,8 +670,11 @@ export async function marketRead(ctx, player, env, { character, region, view, fa
  * record); its units its own and those bought with gold (gold's first), never those bought with Drakes; a piece never
  * bought, or bought with gold; its fee taken out of each sale (goldSaleOf), none now. A Drakes listing never takes gold's
  * units, nor a piece bought with gold (the wall).
+ * MARKET-ANY: `kind` 'item' - a piece from the pack, with `item`, `pick` and `realm` (listGood).
  */
-export async function marketList(ctx, player, env, { character, region, kind, material: key = null, units = 1, provenance = null, wear = null, price, hubs, rid, currency = 'marks', board = null } = {}) {
+export async function marketList(ctx, player, env, { character, region, kind, material: key = null, units = 1, provenance = null, wear = null, price, hubs, rid, currency = 'marks', board = null, item = null, pick = null, realm = null } = {}) {
+  // MARKET-ANY: a piece from the pack moves its seller's realm record - its own door, where the record stands asked first
+  if (kind === 'item') return listGood(ctx, player, env, { character, region, item, pick, price, hubs, rid, currency, realm });
   const { db, nowS, rand } = ctx;
   const refused = asks(player, { character, rid });
   if (refused) return refused;
@@ -716,6 +775,76 @@ export async function marketList(ctx, player, env, { character, region, kind, ma
   return { error: 'market-listed' };
 }
 
+/**
+ * MARKET-ANY: LIST A PIECE FROM THE PACK - `{ character, region, item, pick, price, hubs?, rid, currency: 'gold', realm }`.
+ * The piece is the RECORD at index `pick` of the realm record the seller's tab last checkpointed (`realm`, where it
+ * stands - asked before any other word, AUDIT REALM L1-F2), which must be `item` as the wire projects it (realmTradeLaw
+ * recordIsOffered - every field but the volatile ones, both ways) and which the law lets go (marketLaw goodRefusal): it
+ * leaves that record in the listing's own batch (prepareRealmRecord's steps, GUARDED - no listing, no piece out of the
+ * record) and rides the listing, for gold alone, 72 hours on the boards of `region`, among the thirty. No fee now: each
+ * sale pays its 1% and the tax, as every gold listing's. A crafted piece whose maker's record names this account lists
+ * as a crafted piece ('market-piece-route' - its record's owner then moves with its sale); one whose record names
+ * another lists from the pack like any piece. Answers the listing and the record's new sequence (`realm.seq`).
+ */
+async function listGood(ctx, player, env, { character, region, item, pick, price, hubs, rid, currency, realm }) {
+  const { db, bucket, nowS, rand } = ctx;
+  const refused = asks(player, { character, rid });
+  if (refused) return refused;
+  const me = player.id;
+  const side = await realmActFirst(db, me, character, realm);
+  if (side.error) return side;
+  if (!side.at) return { error: 'market-gold-realm' };   // a piece from the pack is a realm record's
+  const answer = (row, extra = {}) => ({ ok: true, ...extra, listing: listingView(row, me) });
+  const prior = await db.prepare('SELECT * FROM market_listings WHERE seller = ?1 AND rid = ?2').bind(me, rid).first();
+  if (prior) return answer(prior, { repeat: true });
+  const closed = shut(player, env);
+  if (closed) return closed;
+  if (!regionOk(region)) return { error: 'bad-region' };
+  if (!priceOk(price)) return { error: 'bad-price' };
+  if (currency !== 'gold') return { error: 'market-goods-gold' };   // law 3: what a save holds never becomes Drakes
+  if (!Number.isSafeInteger(pick) || pick < 0) return { error: 'bad-act' };
+  if (goodRefusal(item)) return { error: 'market-not-good' };
+  if (typeof item.provenance === 'string') {
+    const p = await db.prepare('SELECT owner FROM products WHERE provenance = ?1').bind(item.provenance).first();
+    if (p?.owner === me) return { error: 'market-piece-route' };
+  }
+  if (await overRate(ctx, `market-post:${me}`, MARKET_POSTS_MAX, MARKET_WINDOW_S)) return { error: 'market-rate' };
+  await settle(ctx, player);
+  const open = await db.prepare(`SELECT ${openSalesSql('?2')} AS n`).bind(me, nowS).first();
+  if (Number(open?.n ?? 0) >= MARKET_LISTINGS_MAX) return { error: 'market-listings-max' };
+  // THE RECORD'S OWN PIECE: the very record at `pick`, as offered, out of it - never what the tab says it holds
+  let moved = null;
+  const prep = await prepareRealmRecord(ctx, me, side.at, (save) => {
+    if (goodRefusal(Array.isArray(save.items) ? save.items[pick] : null)) return 'market-not-good';
+    const out = takeTradeGoods(save, { items: [item], gold: 0 }, [pick]);
+    if (!out) return 'market-good-gone';
+    moved = out[0];
+    return null;
+  });
+  if (prep.error) return prep;
+  const id = mintId(rand);
+  const nonce = mintId(rand);
+  try {
+    await db.batch([
+      ...prep.steps,
+      // THE DECISION: a place among the thirty, the id not spent - the record's piece on the listing, for gold
+      db.prepare(`INSERT OR IGNORE INTO market_listings (id, seller, char_id, region, kind, units, own, bought, price, fee, at, expires_at, rid, n, currency, item)
+        SELECT ?3, ?1, ?2, ?4, 'item', 1, 1, 0, ?5, ?6, ?7, ?8, ?9, ?10, 'gold', ?11 WHERE ${openSalesSql('?7')} < ?12`)
+        .bind(me, character, id, region, price, listingFee(price), nowS, nowS + MARKET_LISTING_S, rid, nonce, JSON.stringify(moved), MARKET_LISTINGS_MAX),
+      mustChange(db),   // no listing, no piece out of the record: the record's step rolls back with it
+      ...witnessStatements(db, player, nowS, [region], hubsOf(hubs), 'EXISTS (SELECT 1 FROM market_listings WHERE seller = ?6 AND rid = ?7 AND n = ?8)', [me, rid, nonce]),
+    ]);
+  } catch {
+    await dropIfUnnamed(db, bucket, me, side.at.id, prep.key);   // AUDIT REALM2 S3
+    const moved2 = await recordMovedOf(db, me, side.at);
+    if (moved2) return moved2;
+    return { error: 'market-listings-max' };   // another listing took the last place between
+  }
+  await dropObjects(bucket, [prep.prev]);
+  const made = await db.prepare('SELECT * FROM market_listings WHERE seller = ?1 AND rid = ?2').bind(me, rid).first();
+  return answer(made, { realm: { seq: prep.seq } });
+}
+
 // ─── BUYING (10.4) ───────────────────────────────────────────────────
 
 /**
@@ -749,6 +878,12 @@ export async function marketBuy(ctx, player, env, { character, region, listing: 
       balance: await balanceOf(db, me),
     };
     if (row.kind === 'material') out.store = await storeOf(db, me, row.char_id, row.material);
+    if (row.kind === 'item') {
+      // MARKET-ANY: a piece from a pack always comes as a delivery (here, arrived at once) - its record's collect is the
+      // act that puts it into the buyer's record; the sale names it (`dn`)
+      const d = row.dn ? await db.prepare('SELECT id, arrives_at FROM market_deliveries WHERE id = ?1 AND player = ?2').bind(row.dn, me).first() : null;
+      if (d) out.delivery = { id: d.id, arrivesAt: Number(d.arrives_at) };
+    }
     if (row.kind === 'piece') {
       const d = await db.prepare(`SELECT id, arrives_at FROM market_deliveries WHERE player = ?1 AND provenance = ?2 AND why = 'bought' AND at = ?3`).bind(me, row.provenance, row.at).first();
       if (d) out.delivery = { id: d.id, arrivesAt: Number(d.arrives_at) };
@@ -773,7 +908,7 @@ export async function marketBuy(ctx, player, env, { character, region, listing: 
   if (l.seller === me) return { error: 'market-own' };
   // GOLD-MARKET: a gold listing is bought with a realm record's gold, a Drakes listing with the account's Drakes
   if ((l.currency === 'gold') !== (at != null)) return { error: at ? 'market-currency' : 'market-gold-realm' };
-  if (l.kind === 'piece') units = 1;
+  if (l.kind === 'piece' || l.kind === 'item') units = 1;   // MARKET-ANY: a piece from a pack, whole
   else if (!unitsOk(units)) return { error: 'bad-units' };
   if (units > Number(l.own) + Number(l.bought)) return { error: 'market-short' };
   const from = Number(l.region);
@@ -887,7 +1022,7 @@ async function buyWithGold(ctx, player, { character, region, l, units, max, rid,
   if (total + courier !== max) return { error: 'market-price-moved' };
   const from = Number(l.region);
   const here = from === region;
-  const delivered = l.kind === 'piece' || here ? 1 : 0;
+  const delivered = l.kind === 'piece' || l.kind === 'item' || here ? 1 : 0;   // MARKET-ANY: a pack's piece's delivery written at once
   const prep = await prepareRealmRecord(ctx, me, at, (save) => (payFromSave(save, total + courier, region) ? null : 'realm-gold'));
   if (prep.error) return prep;
   const nonce = mintId(rand);
@@ -899,16 +1034,17 @@ async function buyWithGold(ctx, player, { character, region, l, units, max, rid,
       // THE DECISION: the gold listing open with the units at the running total the tax was taken on, the seller's held
       // gold with room, and here the Stores' room
       db.prepare(`INSERT OR IGNORE INTO market_sales (buyer, rid, char_id, listing, seller, kind, material, provenance, units, price, total, tax, tithe,
-          courier, road, from_region, to_region, arrives_at, delivered, at, day, n, currency, fee)
-        SELECT ?1, ?2, ?3, l.id, l.seller, l.kind, l.material, l.provenance, ?4, l.price, ?5, ?6, ?7, ?8, ?9, l.region, ?10, ?11, ?12, ?13, ?14, ?15, 'gold', ?21
+          courier, road, from_region, to_region, arrives_at, delivered, at, day, n, currency, fee, dn)
+        SELECT ?1, ?2, ?3, l.id, l.seller, l.kind, l.material, l.provenance, ?4, l.price, ?5, ?6, ?7, ?8, ?9, l.region, ?10, ?11, ?12, ?13, ?14, ?15, 'gold', ?21,
+          CASE WHEN l.kind = 'item' THEN ?22 END   -- MARKET-ANY: the delivery a pack's piece comes by
         FROM market_listings l WHERE l.id = ?16 AND l.state = 'open' AND l.currency = 'gold' AND l.expires_at > ?13 AND l.seller != ?1 AND l.own + l.bought >= ?4
           AND l.price * ?4 = ?5
           AND l.own + l.bought = ?20
           AND COALESCE((SELECT gold FROM market_gold WHERE player = l.seller AND char_id = l.char_id), 0) + ?17 <= ?18
-          AND (?12 = 0 OR l.kind = 'piece'
+          AND (?12 = 0 OR l.kind IN ('piece', 'item')
             OR COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?3 AND material = l.material), 0) + ?4 <= ?19)`)
         .bind(me, rid, character, units, total, tax, tithe, courier, road.road, region, nowS + road.seconds, delivered, nowS, day, nonce,
-          l.id, gets, MARKET_GOLD_HELD_MAX, STORES_MAX, left, fee),
+          l.id, gets, MARKET_GOLD_HELD_MAX, STORES_MAX, left, fee, mintId(rand)),
       mustChange(db),   // no sale, no gold moved: the record's step rolls back with it
       db.prepare(`UPDATE market_listings SET own = own - MAX(0, ?4 - bought), bought = MAX(0, bought - ?4),
           state = CASE WHEN own + bought = ?4 THEN 'sold' ELSE state END, closed_at = CASE WHEN own + bought = ?4 THEN ?5 ELSE closed_at END
@@ -928,6 +1064,12 @@ async function buyWithGold(ctx, player, { character, region, l, units, max, rid,
         SELECT ?4, s.buyer, s.char_id, s.provenance, l.wear, 'bought', s.from_region, s.arrives_at, s.at
         FROM market_sales s JOIN market_listings l ON l.id = s.listing
         WHERE s.buyer = ?1 AND s.rid = ?2 AND s.n = ?3 AND s.kind = 'piece' AND s.from_region != s.to_region`).bind(me, rid, nonce, mintId(rand)),
+      // MARKET-ANY: a piece from a pack on its way - here arrived at once, else after the courier's time - its record the
+      // listing's, collected into the buyer's realm record by its own act (collectGood)
+      db.prepare(`INSERT OR IGNORE INTO market_deliveries (id, player, char_id, item, why, from_region, arrives_at, at)
+        SELECT s.dn, s.buyer, s.char_id, l.item, 'bought', s.from_region, s.arrives_at, s.at
+        FROM market_sales s JOIN market_listings l ON l.id = s.listing
+        WHERE s.buyer = ?1 AND s.rid = ?2 AND s.n = ?3 AND s.kind = 'item'`).bind(me, rid, nonce),
       // gold's own price table
       db.prepare(`INSERT INTO market_gold_prices (day, material, price, units)
         SELECT day, material, price, units FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3 AND kind = 'material'
@@ -963,6 +1105,7 @@ export async function marketCancel(ctx, player, env, { character, listing: id, r
   const answer = async (row, extra = {}) => {
     const out = { ok: true, ...extra, listing: listingView(row, me), balance: await balanceOf(db, me) };
     if (row.kind === 'material') out.store = await storeOf(db, me, row.char_id, row.material);
+    else if (row.kind === 'item') out.delivery = { id: row.id };   // MARKET-ANY: back by a delivery its record collects
     else out.piece = pieceOf(await db.prepare('SELECT * FROM products WHERE provenance = ?1').bind(row.provenance).first(), row.wear);
     return out;
   };
@@ -981,11 +1124,15 @@ export async function marketCancel(ctx, player, env, { character, listing: id, r
   const nonce = mintId(rand);
   await db.batch([
     db.prepare(`UPDATE market_listings SET state = 'cancelled', closed_at = ?3, returned = 1, cancel_rid = ?4, rn = ?5
-      WHERE id = ?1 AND seller = ?2 AND state = 'open' AND (kind = 'piece'
+      WHERE id = ?1 AND seller = ?2 AND state = 'open' AND (kind IN ('piece', 'item')
         OR COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?2 AND char_id = market_listings.char_id AND material = market_listings.material), 0)
           + own + bought <= ?6)`).bind(id, me, nowS, rid, nonce, STORES_MAX),
     ...backToStores(db, id, nonce),
     db.prepare(`UPDATE products SET listed = 0 WHERE provenance = (SELECT provenance FROM market_listings WHERE id = ?1 AND rn = ?2)`).bind(id, nonce),
+    // MARKET-ANY: a piece from a pack back to the character that listed it - a delivery arrived at once, which its record
+    // collects (collectGood): the cancel moves no record, so it asks none
+    db.prepare(`INSERT OR IGNORE INTO market_deliveries (id, player, char_id, item, why, from_region, arrives_at, at)
+      SELECT id, seller, char_id, item, 'returned', region, ?2, ?2 FROM market_listings WHERE id = ?1 AND rn = ?3 AND kind = 'item'`).bind(id, nowS, nonce),
   ]);
   const made = await db.prepare('SELECT * FROM market_listings WHERE seller = ?1 AND cancel_rid = ?2').bind(me, rid).first();
   if (made?.rn === nonce) return answer(made);
@@ -1149,7 +1296,9 @@ export async function marketUnorder(ctx, player, env, { order: id, rid } = {}) {
 
 /** COLLECT: `{ character, delivery, rid }` - a piece whose courier has arrived, or whose listing expired or was
  *  removed, answered to this character's pack once; asked again with the same id, answered again. */
-export async function marketCollect(ctx, player, env, { character, delivery: id, rid } = {}) {
+export async function marketCollect(ctx, player, env, { character, delivery: id, rid, realm = null } = {}) {
+  // MARKET-ANY: a piece from a pack goes into the collecting character's realm record - its own door, the record first
+  if (realm != null) return collectGood(ctx, player, env, { character, delivery: id, rid, realm });
   const { db, nowS } = ctx;
   const refused = asks(player, { character, rid });
   if (refused) return refused;
@@ -1168,12 +1317,61 @@ export async function marketCollect(ctx, player, env, { character, delivery: id,
   if (!d || Number(d.collected) === 1) return { error: 'market-gone' };
   if (d.char_id !== character) return { error: 'market-other-character' };
   if (Number(d.arrives_at) > nowS) return { error: 'market-on-road' };
+  if (d.item != null) return { error: 'realm-needed' };   // MARKET-ANY: a pack's piece goes into a record, never minted
   // AUDIT 30 S5: only a piece still this account's - never one id handed out twice
   await db.prepare(`UPDATE market_deliveries SET collected = 1, rid = ?3 WHERE id = ?1 AND player = ?2 AND char_id = ?4 AND collected = 0 AND arrives_at <= ?5
       AND EXISTS (SELECT 1 FROM products WHERE provenance = market_deliveries.provenance AND owner = ?2)`)
     .bind(id, me, rid, character, nowS).run();
   const made = await db.prepare('SELECT * FROM market_deliveries WHERE player = ?1 AND rid = ?2').bind(me, rid).first();
   return made ? answer(made) : { error: 'market-gone' };
+}
+
+/**
+ * MARKET-ANY: COLLECT A PIECE FROM A PACK - `{ character, delivery, rid, realm }`: one bought, or come back to its seller
+ * (cancelled, expired, removed), whose courier has arrived - its record put into this character's realm record (`realm`,
+ * where it stands, asked before any other word) in the collect's own batch, the delivery marked collected and GUARDED
+ * (mustChange: a delivery another collect took first rolls the record back). Answers the piece's record and the record's
+ * new sequence (`realm.seq`); asked again with the same id, the delivery again.
+ */
+async function collectGood(ctx, player, env, { character, delivery: id, rid, realm }) {
+  const { db, bucket, nowS } = ctx;
+  const refused = asks(player, { character, rid });
+  if (refused) return refused;
+  const me = player.id;
+  const side = await realmActFirst(db, me, character, realm);
+  if (side.error) return side;
+  if (!side.at) return { error: 'market-gold-realm' };
+  const answer = (d, extra = {}) => ({ ok: true, ...extra, delivery: { id: d.id, why: d.why }, item: goodOf(d.item) });
+  const prior = await db.prepare('SELECT * FROM market_deliveries WHERE player = ?1 AND rid = ?2').bind(me, rid).first();
+  if (prior) return answer(prior, { repeat: true });
+  const closed = shut(player, env);
+  if (closed) return closed;
+  if (!idOk(id)) return { error: 'bad-delivery' };
+  if (await overRate(ctx, `market:${me}`, MARKET_OPS_MAX, MARKET_WINDOW_S)) return { error: 'market-rate' };
+  const d = await db.prepare('SELECT * FROM market_deliveries WHERE id = ?1 AND player = ?2').bind(id, me).first();
+  if (!d || Number(d.collected) === 1) return { error: 'market-gone' };
+  if (d.char_id !== character) return { error: 'market-other-character' };
+  if (Number(d.arrives_at) > nowS) return { error: 'market-on-road' };
+  const item = goodOf(d.item);
+  if (!item) return { error: 'bad-delivery' };   // a crafted piece's delivery is minted at the pack, no record moved
+  const prep = await prepareRealmRecord(ctx, me, side.at, (save) => { giveTradeGoods(save, [item], 0); return null; });
+  if (prep.error) return prep;
+  try {
+    await db.batch([
+      ...prep.steps,
+      db.prepare(`UPDATE market_deliveries SET collected = 1, rid = ?3 WHERE id = ?1 AND player = ?2 AND char_id = ?4 AND collected = 0 AND arrives_at <= ?5
+        AND item IS NOT NULL`).bind(id, me, rid, character, nowS),
+      mustChange(db),   // no delivery collected, no piece into the record
+    ]);
+  } catch {
+    await dropIfUnnamed(db, bucket, me, side.at.id, prep.key);   // AUDIT REALM2 S3
+    const moved = await recordMovedOf(db, me, side.at);
+    if (moved) return moved;
+    return { error: 'market-gone' };   // another collect took it first
+  }
+  await dropObjects(bucket, [prep.prev]);
+  const made = await db.prepare('SELECT * FROM market_deliveries WHERE player = ?1 AND rid = ?2').bind(me, rid).first();
+  return answer(made, { realm: { seq: prep.seq } });
 }
 
 /**

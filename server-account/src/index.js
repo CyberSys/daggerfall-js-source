@@ -310,6 +310,8 @@ const MARKET_STATUS = Object.freeze({
   // GOLD-MARKET: gold is a realm record's; what gold bought stays gold's (the wall); a record's own refusals
   'market-gold-realm': 409, 'market-currency': 409, 'market-gold-goods': 409, 'market-drakes-goods': 409, 'market-gold-none': 409, 'market-gold-full': 409,
   'stores-gold': 409, 'realm-gold': 409, lease: 409, 'realm-needed': 400, 'no-realm-character': 404, 'no-data': 404, 'no-storage': 503,
+  // MARKET-ANY: a piece from the pack - the record's own piece, a crafted piece's own way
+  'market-not-good': 409, 'market-good-gone': 409, 'market-piece-route': 409, 'market-goods-gold': 409,
   'market-rate': 429,
 });
 /** GUILD1c: A GUILD ACT'S ANSWER WITH ITS ORDERS SIGNED in place of what they say (guilds.js). `badge` - the actor's
@@ -925,13 +927,13 @@ const service = {
         const mctx = { ...ctx, bucket: env.SAVES };   // GOLD-MARKET: a gold buy or collect moves a realm record, in R2
         const act = {
           '/v1/market/read': () => marketRead(ctx, who.player, env, body),
-          '/v1/market/list': () => marketList(ctx, who.player, env, body),
+          '/v1/market/list': () => marketList(mctx, who.player, env, body),   // MARKET-ANY: a pack's piece moves its seller's record
           '/v1/market/buy': () => marketBuy(mctx, who.player, env, body),
           '/v1/market/cancel': () => marketCancel(ctx, who.player, env, body),
           '/v1/market/order': () => marketOrder(ctx, who.player, env, body),
           '/v1/market/fill': () => marketFill(ctx, who.player, env, body),
           '/v1/market/unorder': () => marketUnorder(ctx, who.player, env, body),
-          '/v1/market/collect': () => marketCollect(ctx, who.player, env, body),
+          '/v1/market/collect': () => marketCollect(mctx, who.player, env, body),   // MARKET-ANY: ...and its collector's
           '/v1/market/report': () => marketReport(ctx, who.player, env, body),
           '/v1/market/remove': () => marketRemove(ctx, who.player, env, body),
           '/v1/market/auction': () => marketAuction(ctx, who.player, env, body),   // PROF5b

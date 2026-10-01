@@ -56,10 +56,15 @@ const SHUT = Object.freeze(['market-closed', 'prof-need-account']);
 export const MARKET_MOVED = Object.freeze(['market-gone', 'market-short', 'market-price-moved', 'auction-low', 'auction-leading', 'auction-bid-standing',
   'auction-moved']);
 const MOVED = MARKET_MOVED;
-/** AUDIT 31 H1: the answers that say a piece taken out of the save is ELSEWHERE on the service - another's, listed,
- *  on its way to the account, standing in a home. The save's piece was a copy (a save restored past the act that moved
- *  it): it is never put back, and a settle takes it out of the save. */
-export const PIECE_GONE = Object.freeze(['market-not-yours', 'market-listed', 'market-uncollected', 'market-standing']);
+/** AUDIT 31 H1: the answers that say a piece taken out of the save is ELSEWHERE on the service - listed, on its way to
+ *  the account, standing in a home. The save's piece was a copy (a save restored past the act that moved it): it is
+ *  never put back, and a settle takes it out of the save.
+ *  MARKET-KEEP (FIELD BUGS 2026-10-01, "also it's bugged"): NEVER `market-not-yours`. A record that names another owner
+ *  says nothing of where the piece is: a realm trade moves the piece between the two saves and never the product's
+ *  owner (Professions-Arc 18's hand-over is unbuilt), and a shop's shelf, a room's container and a looted body hand a
+ *  crafted piece on without the service at all. The piece a player pressed List (or Fill) on was then their only one,
+ *  taken out of the pack and never put back - gone, with "not yours to sell". It goes back, as any refusal's. */
+export const PIECE_GONE = Object.freeze(['market-listed', 'market-uncollected', 'market-standing']);
 /** AUDIT 31 H1: a piece another act of the counting-house holds (this book's kept listing, or the writs' kept fill). */
 export const PIECE_KEPT_ERROR = 'piece-kept';
 /** What the Market tab says while a kept act waits for its answer. */
@@ -79,15 +84,18 @@ export function mintMarketRid() {
  * @param {{ door: any, storage?: Storage|null, character: () => (string|null), now?: () => number,
  *   marks?: { set?: (n: number) => void } | null, stores?: { apply?: (s: any) => void } | null,
  *   holds?: ((provenance: string) => boolean) | null, sleep?: (ms: number) => Promise<void>,
- *   realm?: { act: (o: any) => Promise<any> } | null,
- *   wallet?: ((region: number) => { gold: () => number, pay: (n: number) => void, credit: (n: number) => void, bank: (n: number) => void }) | null }} o
+ *   realm?: { act: (o: any) => Promise<any>, abandon?: (why: string) => void } | null,
+ *   wallet?: ((region: number) => { gold: () => number, pay: (n: number) => void, credit: (n: number) => void, bank: (n: number) => void }) | null,
+ *   goods?: { receive: (item: any) => boolean } | null }} o
  *   `stores` - the professions' book (AUDIT 30 U1: what an answer says of the Stores is its count too); `holds` - AUDIT 31
  *   H1: whether another book keeps an act on a piece (the writs' kept fill), so it is not taken twice; GOLD-MARKET:
  *   `realm` - a realm character's act on its record (systems/realmSaves.js realmGoldAct over the playing session), null
  *   for any other character (no gold trade); `wallet` - the save's gold as it pays at a board's region (the purse, its
- *   letters, then that region's account - realmGoldLaw payFromSave's order) and `bank`, gold into that region's account
+ *   letters, then that region's account - realmGoldLaw payFromSave's order) and `bank`, gold into that region's account;
+ *   MARKET-ANY: `goods.receive(item)` - a piece from a pack, as the service put it into the record, into the save's pack
+ *   (false: this game will not hold it - the session is abandoned, and a join reads the record)
  */
-export function createMarketBook({ door, storage = null, character, now = () => Date.now(), marks = null, stores = null, holds = null, sleep = wait, realm = null, wallet = null }) {
+export function createMarketBook({ door, storage = null, character, now = () => Date.now(), marks = null, stores = null, holds = null, sleep = wait, realm = null, wallet = null, goods = null }) {
   let _shut = /** @type {number|null} */ (null);
   const state = {
     /** null until the service has answered; false while the market is shut to this account - asked again after
@@ -176,7 +184,8 @@ export function createMarketBook({ door, storage = null, character, now = () => 
 
   // ─── THE READS ─────────────────────────────────────────────────────
   const cache = new Map();
-  const keyOf = (view, q) => [view, q.region, q.family ?? '', q.tier ?? '', q.material ?? '', (q.materials ?? []).join(','), q.currency ?? 'marks'].join('|');
+  // MARKET-ANY: and the crafted pieces a "My listings" read names (the service says how each may list)
+  const keyOf = (view, q) => [view, q.region, q.family ?? '', q.tier ?? '', q.material ?? '', (q.materials ?? []).join(','), q.currency ?? 'marks', (q.pieces ?? []).join(',')].join('|');
   const pending = new Map();
   /** AUDIT 30 C6: the acts answered so far - a read begun before an act's answer is overtaken by it, and asked again. */
   let gen = 0;
@@ -286,6 +295,50 @@ export function createMarketBook({ door, storage = null, character, now = () => 
     return { ok: false, error: r?.error ?? 'server' };
   }
 
+  /**
+   * MARKET-ANY: A PIECE FROM THE PACK, LISTED THROUGH THE REALM ACT (systems/realmSaves.js realmGoldAct) - `body` names
+   * the piece (`item`, its wire record) and where it stands in the save (`pick`); `good.take()` takes it out of the pack
+   * and answers its undo (null: the pack will not give it up). The act checkpoints the save first - the record the
+   * service takes the piece out of, the piece at `pick` - and holds; the piece leaves the pack only inside the hold, as
+   * the service is first asked, so no checkpoint ever carries the pack without it while the record still holds it, and
+   * nothing is asked for a piece the pack would not give up. A refusal puts it back; silence ends the session (a join
+   * reads the record: the piece is listed, or in the pack). Nothing is kept: the record is the truth.
+   */
+  async function postGood(body, good) {
+    if (!signedIn()) return { ok: false, error: 'no-session' };
+    if (!realm) return { ok: false, error: 'market-gold-realm' };
+    let undo = null, asked = false;
+    const r = heard(await realm.act({
+      reserve: () => () => { const u = undo; undo = null; u?.(); },
+      call: (/** @type {any} */ at) => {
+        if (!asked) { asked = true; undo = good?.take?.() ?? null; }
+        if (!undo) return Promise.resolve({ ok: false, error: 'piece-held', status: 409 });
+        return door.list({ ...body, realm: at });
+      },
+    }));
+    if (r?.ok) forget();
+    return r ?? { ok: false, error: 'server' };
+  }
+  /** MARKET-ANY: A PIECE FROM A PACK COLLECTED - bought, or come back - into this character's record by the service and
+   *  into the save's pack on its answer (`goods.receive`). The answer IS the piece, so a lost one ends the session
+   *  (realmGoldAct's `needsAnswer`): a join reads the record, which holds it or not. A repeat, or a piece this game will
+   *  not hold, abandons the session the same way - never a second piece, never a record the tab does not match. */
+  async function collectGood(delivery) {
+    if (!realm || !goods) return { ok: false, error: 'market-gold-realm' };
+    const me = character(), rid = mintMarketRid();
+    const r = heard(await realm.act({
+      needsAnswer: true,
+      apply: (/** @type {any} */ a) => {
+        let held = false;
+        try { held = !a?.data?.repeat && goods.receive(a?.data?.item ?? null) === true; } catch (e) { console.warn('[market] receive', e); }
+        if (!held) realm.abandon?.('unknown');
+      },
+      call: (/** @type {any} */ at) => door.collect(me, delivery, rid, at),
+    }));
+    if (r?.ok) forget();
+    return r ?? { ok: false, error: 'server' };
+  }
+
   const book = {
     state,
     read,
@@ -300,14 +353,17 @@ export function createMarketBook({ door, storage = null, character, now = () => 
 
     /**
      * LIST a material (`req.kind` 'material') or a piece: the piece taken out of the save first (`take`), kept with the
-     * request, put back (`putBack`) if the service refuses it.
+     * request, put back (`putBack`) if the service refuses it. MARKET-ANY: `req.kind` 'item' - a piece from the pack, for
+     * gold, through the realm act (postGood) - `good.take()` its taking, answering the undo.
      * @param {any} req @param {{ item: any, where: string, take: () => boolean, putBack: (item: any, where: string) => void }|null} [piece]
+     * @param {{ take: () => ((() => void) | null) }|null} [good]
      */
-    list(req, piece = null) {
+    list(req, piece = null, good = null) {
       return once(`list|${JSON.stringify(req)}`, async () => {
         const rid = mintMarketRid();
         const body = { character: character(), ...req, rid };
         if (req.kind === 'piece') return postPiece('list', body, piece);
+        if (req.kind === 'item') return postGood(body, good);   // MARKET-ANY
         const k = `list|${JSON.stringify(req)}`;
         const r = answered(heard(await ask(() => door.list({ ...body, rid: idFor(k) }))));
         if (r?.ok || !kept(r)) done(k);
@@ -433,6 +489,11 @@ export function createMarketBook({ door, storage = null, character, now = () => 
           const rid = mintMarketRid();
           keep('collects', { rid, delivery: d.id }, key);
           if ((await keptAct('collects', { rid }, () => door.collect(me, d.id, rid), mint, key)).ok) settled++;
+        }
+        // MARKET-ANY: and every piece from a pack that has arrived for this character, into its record and its pack
+        for (const d of state.road.filter((x) => x.kind === 'item' && x.ready && x.character === me)) {
+          if (!here()) break;
+          if ((await collectGood(d.id)).ok) settled++;
         }
         if (settled) forget();
         return { ok: true, settled };

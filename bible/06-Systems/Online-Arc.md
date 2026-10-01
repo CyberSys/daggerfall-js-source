@@ -4775,7 +4775,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7366` read, on one physical line:
+`src/scenes/worldModes.js:7379` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4790,7 +4790,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:5308`). With the property missing that call is a
+(`dungeonContext.js:5319`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4917,7 +4917,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:8165` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:8167` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:352`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -10208,7 +10208,7 @@ channel lists). `tools/mutants/guild1c.json` (64, all dead).
 
 **GUILD1d - the guild hall, the `guild` entry and heraldry** (2026-09-30, Mac: "Lets do this" - the guilds before the rest
 of the professions; `11-Multiplayer/Seats-Arc.md` 8, whose decisions it builds: SEAT0 left "decisions ... binding for the
-build slices"). One deploy of the account service (`acct43` - `acct42` on its branch, renumbered past main's REALM-GZIP at the merge, and `acct44` past main's SCALE1 at the next; migration 0044, 0043 until SCALE1 took it); no relay change - the hall's law is its
+build slices"). One deploy of the account service (`acct43` - `acct42` on its branch, renumbered past main's REALM-GZIP at the merge, and `acct44` past main's SCALE1 at the next; migration 0045 now - 0044 until main's MARKET-ANY took it with `acct44` (the seats' `acct46` carries it), 0043 until SCALE1 took it); no relay change - the hall's law is its
 own module (`src/net/hallLaw.js`), never net/guildLaw.js, which is in the relay's bundle (SLAM8).
 
 - **The law** (`src/net/hallLaw.js`, both ends): a guild owns ONE home as its hall, bought from its gold treasury at
@@ -10217,7 +10217,7 @@ own module (`src/net/hallLaw.js`), never net/guildLaw.js, which is in the relay'
   guildmaster's, who may walk in and the decor the Officers' too. A home's own entries gain `guild`
   (`net/homeLaw.js` HOME_ENTRIES): the owner's character's guildmates walk in (`homeMayEnter` reads the service's
   `guildmate`); a hall's rule comes first - its members (`member`), and anyone when public, never an account's `mine`.
-- **The store** (`server-account/src/halls.js` over `migrations/0044_guild_halls.sql`): a hall is a row of the homes
+- **The store** (`server-account/src/halls.js` over `migrations/0045_guild_halls.sql`): a hall is a row of the homes
   table (HOME1's one owner a building) naming its guild (`homes.guild_id`, a partial unique index - one hall a guild)
   and carrying the guild's own mark where a home names its character (`guild:<id>`, outside CHAR_ID_RE) - so no
   character's path reaches it: a home's sale, its entry, its rooms and its outside each name a character, and the
@@ -10291,7 +10291,7 @@ them at the first); heraldry is not yet on the map ring, the guild tag's frame, 
 Pinned: `test/guild1d_service.test.js` (5), `test/guild1d_client.test.js` (12); re-aimed by content in
 `test/home1.test.js` (the entries), `test/decor1.test.js`, `test/decor1d.test.js`, `test/decorshell.test.js` (the
 room's host), `test/glstate.test.js`, `test/farring.test.js`, `test/audit18_bible_docs.test.js` (the foreign passes)
-and the ACCOUNT_VERSION pins (`acct43`, now `acct44`). `tools/mutants/guild1d.json` (38, all dead).
+and the ACCOUNT_VERSION pins (`acct43`, then `acct44`, now `acct46` with the seats). `tools/mutants/guild1d.json` (38, all dead).
 
 ### AUDIT GUILD1d (2026-09-30, Mac: "let's do an audit on this")
 
@@ -10384,9 +10384,9 @@ banners change heraldry only when its town's list is next read.
 (2026-09-30, Mac: "Finish the seats" - the Seats arc's slices in order, sieges
 included; `11-Multiplayer/Seats-Arc.md` 8.2: "the hall carries the guild Stores chest and a private guild board (the
 board's Guilds tab, members only)"; PROF0 10.1's Guilds tab: "Recruitment posters (each guild's heraldry and a line); a
-guild's own notes, members only"). Rides the undeployed `acct44` with GUILD1d (migration 0045); no relay change.
+guild's own notes, members only"). Rides the undeployed `acct45` with GUILD1d (migration 0046 - `acct44` and 0045 until main's MARKET-ANY took both); no relay change.
 
-- **The notes** (`server-account/src/guildBoard.js` over `migrations/0045_guild_board.sql`): a guild's notes are the
+- **The notes** (`server-account/src/guildBoard.js` over `migrations/0046_guild_board.sql`): a guild's notes are the
   guild's (`guild_notes`, keyed by its id), never a town's. Any member reads and pins; an author takes down their own,
   and the Officers and the guildmaster anyone's (`net/hallLaw.js` HALL_POWERS.notes). A note is `noteWords`' letter
   with no button (the members answer one another in the guild's chat), 1, 3 or 7 days; each member's live notes
@@ -10421,7 +10421,7 @@ market twice, NOTICE1's cache aimed at the town read alone).
 
 ### SEAT1a - every palace a seat: the derivation, the witnessed registry, the rings, the arrival lines, the banners
 
-Rides the undeployed `acct44` (migration 0046); no relay change. Behind `SEATS_OPEN`, shipped at `dev` (Seats-Arc 18:
+Rides the undeployed `acct45` (migration 0047 - `acct44` and 0046 until main's MARKET-ANY); no relay change. Behind `SEATS_OPEN`, shipped at `dev` (Seats-Arc 18:
 the developers see the seats first).
 
 - **The derivation** (`src/systems/townSeats.js`, Seats-Arc 3.1): in the boot pass, over the rows `pickRegionHubs`
@@ -10437,7 +10437,7 @@ the developers see the seats first).
   dispute) read through `parseSeatReport`; the ignored accounts (three disagreements nobody shares, inside a week); the
   Charter's, the arrival's and the map box's words; the map's marks; the kingdom's plain banner; the seat week (the
   first Turning Sunday 2026-09-20 18:00 UTC, the Reckoning the week's last 48 hours).
-- **The registry** (`server-account/src/townSeats.js` over `migrations/0046_town_seats.sql`, 3.2): `world_witness`
+- **The registry** (`server-account/src/townSeats.js` over `migrations/0047_town_seats.sql`, 3.2): `world_witness`
   admits the kind `seat`; `/v1/seats/witness` records a registered account a week old's first answer on a seat (anyone
   else is answered, `counted: false`); `/v1/seats/list` answers the confirmed seats - disputed ones too, which keep
   every effect - and a developer's reading names the unconfirmed and the audit (a confirmation still resting on its
@@ -10472,7 +10472,7 @@ Pinned: `test/seat1a_service.test.js` (4), `test/seat1a_client.test.js` (8); re-
 
 ### SEAT1b - influence: the pledge, the Watch, gate kills, homes, Renown's region, Tribute, the standings
 
-Rides the undeployed `acct44` (migration 0047) and a relay deploy, `world136` (the Watch's tick). Behind `SEATS_OPEN`
+Rides the undeployed `acct45` (migration 0048 - `acct44` and 0047 until main's MARKET-ANY) and a relay deploy, `world138` (the Watch's tick - `world136` until main's GATE-UX and KEPT-KILL took 136 and 137). Behind `SEATS_OPEN`
 with the rest of the seats. Influence is counted per guild, per seat, per seat week, summed on read from one row an
 event (Seats-Arc 4.1-4.2, 12: "summed on read, capped on write"); every number is Appendix B's, in
 `src/net/townSeatLaw.js`.
@@ -10528,12 +10528,12 @@ and the Turning that spends it; the sources' table admits their rows already, an
 
 Pinned: `test/seat1b_service.test.js` (7), `test/seat1b_client.test.js` (9); re-aimed by content in
 `test/wb5b_gate_claim.test.js` and `test/seat1a_client.test.js` (the claim's region, the book's door), the relay
-version pins (`world136`) and `test/accountworker.test.js` (the schema). `tools/mutants/seat1b.json` (55, all dead); six
+version pins (`world138`) and `test/accountworker.test.js` (the schema). `tools/mutants/seat1b.json` (55, all dead); six
 RENOWN1, AUDIT RENOWN1 and WB5b records re-aimed by content, all dead.
 
 ### SEAT1c - the Turning: the Charters claimed, Contested, the Rights of Siege, the Legacy, the Charter on the map
 
-Rides the undeployed `acct44` (migration 0048) and a relay deploy, `world137` (the titles' vocabulary). Behind
+Rides the undeployed `acct45` (migration 0049 - `acct44` and 0048 until main's MARKET-ANY) and a relay deploy, `world139` (the titles' vocabulary - `world137` until that merge). Behind
 `SEATS_OPEN` with the rest of the seats.
 
 - **The settle** (`server-account/src/seatTurning.js`, Seats-Arc 5.2): never a job that runs - any seat request from an
@@ -10575,7 +10575,7 @@ Rides the undeployed `acct44` (migration 0048) and a relay deploy, `world137` (t
   bounded claim beside them (`ts`: [the seat key, the Season], required beside a seat title and refused beside any
   other), and four glyphs (`tower`, `crownDF`, `crownWR`, `crownSN`); the relay carries `ts` from the signature to the
   socket's row (`_named`, the hello's attachment) and `badged` stamps it beside a seat title, `readBadge` reads it back
-  (`world137`). The service derives both at a mint (`seatTurning.js` seatBadgeOf - `townSeatLaw.js` seatGlyphsOf and
+  (`world139`). The service derives both at a mint (`seatTurning.js` seatBadgeOf - `townSeatLaw.js` seatGlyphsOf and
   seatTitleOf): every member of a guild holding a palace seat wears the tower, a crown's member its kingdom's crown; a
   guildmaster account may choose "Warden" (a palace seat) or "Protector" (a crown) in the wardrobe (`seatTitlesOf`,
   `titles.js` titlesHeld's `seatTitles`), and a token wears it, with its claim, only when minted for that guildmaster
@@ -10590,7 +10590,7 @@ Tourney names are fought in SEAT2a (until then they are the Chronicle's, and a C
 stockpile's deliveries (the Writs source) and the Siege Camp ride SEAT2b with the fortifications that spend them.
 
 Pinned: `test/seat1c_service.test.js` (5), `test/seat1c_client.test.js` (5), `test/seat1c_titles.test.js` (4); re-aimed
-by content in the relay version pins (`world137`), the vocabulary's (`test/acc3titles.test.js`, `test/penitent.test.js`),
+by content in the relay version pins (`world139`), the vocabulary's (`test/acc3titles.test.js`, `test/penitent.test.js`),
 the badge's paths (`test/acc3badge.test.js`, `test/nameadopt.test.js`, `test/wb9g_insignia.test.js`), and in
 `test/seat1a_service.test.js` (the list's holder and battle), `test/seat1a_client.test.js` (the mark's new fields, the
 dressed seat, the arrival), `test/seat1b_service.test.js` (the standings' shape) and `test/accountworker.test.js` (the
@@ -10601,8 +10601,8 @@ SEAT1b, ACC1d, ACC3a, ACC3b, NAME-ADOPT, PENITENT, SHADOW-FANG and WB9g records 
 
 ### SEAT1d - holding a seat: the upkeep and Neglect, Overreach, the Tithe, the members' discount, Standing, the Edicts
 
-2026-10-01, Mac: "Finish the seats"; "Continue". Rides a new undeployed `acct45` (migration 0049_seat_holding.sql) - no
-relay change. Behind `SEATS_OPEN` with the rest of the seats. Seats-Arc 7.1-7.3, 7.6; Appendix C.
+2026-10-01, Mac: "Finish the seats"; "Continue". Rides a new undeployed `acct46` (migration 0050_seat_holding.sql - `acct45` and 0049 until main's MARKET-ANY
+took `acct44` and 0044) - no relay change. Behind `SEATS_OPEN` with the rest of the seats. Seats-Arc 7.1-7.3, 7.6; Appendix C.
 
 - **The upkeep** (Seats-Arc 7.1, 5.2 step 5): the Turning pays each Charter's week from its holder's Drake treasury,
   burnt (a `seat-upkeep` line): 2,500 a palace, 15,000 a crown x the server's scale - min(1.5, max(0.4, active / 100)),
@@ -10689,7 +10689,7 @@ re-aimed by content (PIN MOVED), all dead.
 ### PVP-REF - the refereed blow and step: a siege's room, its referee, and the forty-fighter measurement
 
 2026-10-01, Mac: "Finish the seats"; "Or we could go ahead and do sieges"; "Continue". Rides a new undeployed relay,
-`world138` - no account change. The room admits the developers alone (a verified token carrying the `dev` glyph) until
+`world140` (`world138` until main's GATE-UX and KEPT-KILL took 136 and 137) - no account change. The room admits the developers alone (a verified token carrying the `dev` glyph) until
 SEAT2a schedules its battles and signs its sides. Seats-Arc 6.1.
 
 - **The law** (`src/net/siegeRef.js`, a LEAF - the relay bundles every byte it imports, so DFU's tables are COPIED and
@@ -10720,7 +10720,7 @@ SEAT2a schedules its battles and signs its sides. Seats-Arc 6.1.
 - **The wire** (`net/wire.js`): the client's `siege` frame - `in` (become a fighter), `blow`, `cast` (`h` 1 a heal) -
   projected and bounded (`validSiegeIn`: a peer id, a template 0-65535 or -1, a material 0-9, damage above nought to 10,000, a
   melee or a shaft - a spell is a cast's), on its own bucket (`siegeGate`, 8 a second) and strikes; the relay's - `st` (every
-  fighter's `[id, hp, max, down]`), `hp`, `fell`, `up`, `back`, `no`. `relaySupportsSiege` reads `world138`.
+  fighter's `[id, hp, max, down]`), `hp`, `fell`, `up`, `back`, `no`. `relaySupportsSiege` reads `world140`.
 - **The room** (`server/src/index.js`): the Worker mints no object for a `siege:` key the law does not shape; the
   hello refuses an account without the developer's glyph ("the siege is not open"); one fighter an account (a second
   socket replaces the first, the gate's AUDIT WB A1 law widened); the fighters kept BY ACCOUNT and checkpointed
@@ -10745,7 +10745,7 @@ side-mate's alone, a blow never a side-mate's); the wave by the seat's tier; the
 Tourney stands on is CROWN1's.
 
 Pinned: `test/pvpref_law.test.js` (5), `test/pvpref_relay.test.js` (4), `test/pvpref_measure.test.js` (1); the relay
-version pins and `test/relayversion.test.js`'s world138 LAW row (its graph adds `src/net/siegeRef.js`). The suite's two
+version pins and `test/relayversion.test.js`'s world140 LAW row (its graph adds `src/net/siegeRef.js`). The suite's two
 catches: the account Worker bundles `wire.js`, so `siegeRef.js` joins `.github/workflows/account-deploy.yml`'s paths
 (`test/accountdeploy.test.js` walks the graph); and `test/chat1.test.js`'s AUDIT CHAT A3 pin, which read the pose arm
 straight from `still` to the meter, names the siege step between them (PIN MOVED - a channel is never a siege's room).
@@ -10931,6 +10931,19 @@ flats and before the water (`opts.lateWorldDraw`, WATER-D1's law), the building 
 over a concealed peer; a concealed walker's lantern is not drawn; no hit reveal (a blow on a peer lands on their own
 screen). F and the plaque still skip a concealed peer, and its foes still read its flags (INVIS-NET).
 `01-Overview/Field-Bugs-2026-09-27b.md`. Pinned: `test/invislook.test.js` (7). `tools/mutants/invislook.json` (31 dead).
+
+## KEPT-KILL (2026-10-01, Mac: "If someone kills a quest target regardless of relation then it should ping the quest for the players involved regardless") - a kept quest foe's fall reaches every copy
+
+QUEST-PARTY counts on each copy only the deaths it sees. A shared quest's foe its owner hands to a party member whose copy
+holds no such quest (AUDIT DISC28 QS-J keeps it on the partner's word, `_keptTag`) has no copy to count it in the heir's
+world, so a kill there with no linked copy in the room counted nowhere, and the owner's copy stood a fresh foe at the
+marker. Now the heir says it: a kept foe at zero health says its fall once (`keptKillTick`, both pools), the heir's party
+pose carries it for five minutes (`qk` - quest, Foe symbol, the foe's stream number; net/wire.js validPartyPose,
+RELAY_VERSION world137), and every member's linked copy counts the injury and the kill, wherever that member stands
+(`scenes/questFoeHost.js creditKeptKills`). A linked member in the room who saw the puppet fall counted it already: the
+puppet's death names its owner and number, and both doors ask one ledger (`KeptKillLedger`), so the kill counts once.
+A relay before world136 strips the field and nothing changes. The record and the report it answered:
+`01-Overview/Field-Bugs-2026-10-01.md`. Pinned: `test/keptkill.test.js` (7).
 
 ## PSCALE-OWN (2026-09-27, Mac: "Finish the 2 gaps") - a shared quest's foe underground weighs the party
 
@@ -12731,3 +12744,41 @@ record; in short:
   old service refuses every haul as a bad node.
 - **Pinned:** `test/prof8_law.test.js` (7), `test/prof8_service.test.js` (3), `test/prof8_client.test.js` (12). Mutants:
   `tools/mutants/prof8.json` (34, all dead). Patch notes: `PATCH-NOTES-Fishing.md`.
+
+## EMPIRE-ACCOUNT (2026-10-01, the field - maya: "i deposited alot of letters of credit in a random bank somewhere but theyre gone in the daggerfall bank"; Regi: "irs taken money again"; Mac chose "2": online, every region one Empire-wide account) - one bank account online
+
+- **Why.** Online, every bank reads "The Bank of the Empire", but each region still kept its own account
+  (Daggerfall's law: sixty-two accounts, each blind to the rest). Gold paid in at one branch was missing at every other,
+  and only the classic character sheet's Gold button listed them all - so players read money deposited elsewhere as
+  money gone. And a default's draw on every branch (REALM P0.3) took the gold without a word.
+- **One account** (`systems/banking.js` `EMPIRE_ACCOUNT_REGION`, `goldRegion`): online, every branch's gold moves in the
+  Empire's account, held at Daggerfall's index (EMPIRE-BANK: the bank of Daggerfall became the bank of the Empire).
+  Deposits, letters of credit, withdrawals, a letter drawn, a ship or house bought or sold, the Marks sold, and the
+  online wallets (the market, a home, its yard, decor, a guild) all pay from it and into it; the bank window shows it
+  at every branch, and BANK-REGION's report (`ui/enhancedPorts.js`, merged beside it from #488) reads online as the
+  one account - "Empire account" - with only a branch not yet folded beneath it. Offline, Daggerfall's sixty-two accounts stand; a short table with no Empire account keeps its own.
+- **A loan still stands where it was taken.** Its due date, its default and the reputation a default costs are that
+  region's; the gold it lends and the gold that repays it are the Empire account's. The overdue sweep and the join's
+  call pay from the Empire's account first and then every other branch (`drawEmpireAccounts` skips only the account
+  already paid from), so a branch not yet folded still pays.
+- **The fold** (`foldEmpireAccounts`): as an online character boots (`scenes/world.js`, after LOAN-AMNESTY, in the one
+  parse, before the save is restored and before the join settles a loan), every other branch's gold moves into the
+  Empire's account - whatever its sign, so the total never changes - and every loan and default stays where it stands.
+  Said once the world stands: "The Bank of the Empire keeps one account now, open at every branch. N gold came in from
+  other regions." Once: a folded table moves nothing again.
+- **The service** (`net/realmGoldLaw.js` `REALM_EMPIRE_ACCOUNT`, pinned equal - the Worker does not bundle banking.js):
+  a realm record pays from the Empire's account whatever region the wallet names, then from any branch a record not yet
+  folded still keeps (one written before its character's first boot since this); a credit (a home sold, rent
+  collected, a Mark's gold, the market's gold) lands in the Empire's account. A folded record and the client's wallet
+  agree to the gold.
+- **What a default draws is said** (`systems/worldTick.js` `settleSaid`, `empireDrawLines`): online, at the join and on
+  the day's sweep, "The Empire takes N gold from your account for your loan in <region>." - nothing when nothing was
+  taken. Offline, Daggerfall's sweep stays silent.
+- **When:** the client and the account service together (the account deploy's path filter carries `realmGoldLaw.js`).
+  A client older than this pays at a branch while the service pays the Empire's account first; the total is the same
+  and the client's next checkpoint is the record.
+- Pins: `test/empireaccount.test.js` (10); `test/realm5.test.js`, `test/goldmarket_service.test.js` and
+  `test/guild1b.test.js` re-aimed at the one account, and `test/fb0930b_bankregion.test.js`'s online half. Mutants:
+  `tools/mutants/empireaccount.json` (41, all dead); `realm0.json` (4), `realm5.json` (1), `auditrealm.json` (1),
+  `fb0930b_bankregion.json` (3) and `survtiers3.json` (2) re-aimed by content. Patch notes:
+  `PATCH-NOTES-One-Bank-Account-Online.md`.

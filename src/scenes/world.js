@@ -94,7 +94,7 @@ import { tallySwingSkills, SWING_FATIGUE_COST, playerPainVoice, playPlayerVoice,
 import { flashPlayerDamage } from '../ui/damageFlash.js';
 import { resetVitalsDetector } from '../ui/hudVitals.js';   // BLOOD AUDIT 5: the load's detector reset   // AUDIT 24 (wave 46): the arrow owes the flash too   // AUDIT 23 (C14)
 import { hudFade } from '../ui/fadeLayer.js';   // D4: performFastTravel's and TeleportAway's fade from black
-import { exhaustionOutcome } from '../systems/rest.js';   // AUDIT 23 (C5); SWIM-SPENT: the water's line is the outcome's
+import { exhaustionOutcome, restMagickaCap } from '../systems/rest.js';   // AUDIT 23 (C5); SWIM-SPENT: the water's line is the outcome's
 import { bloodDecalDeps } from '../combat/bloodSwitch.js';
 import { createBloodMarks } from '../combat/bloodMarks.js';   // BLOOD1a: the ring, owned by this host and ended by its own name
 import { preloadRestArt } from '../ui/restWindow.js';   // S40: rest above ground   // D3: REST00I0/01I0/02I0
@@ -107,7 +107,7 @@ import { maxFatigue, FATIGUE_MULTIPLIER, liveStat, STAT_KEYS_ORDER } from '../sy
 // finished since U7; what was missing was a host outside the dungeon
 // that opens one, and CanRest's whole town half.
 import { restDecision, getPreventedRestMessage, REST_TEXT } from '../systems/restSession.js';   // U48: the DISPATCH (DaggerfallUI.cs:651-688) above the rest window   // ROAD-B B5: GetPreventedRestMessage   // PARTY-REST5: enemiesNearby's own textId, for a follower's own relayed break
-import { isHouseOwned, shipCoords, ownsShip, assignShipToPlayer, resetShip, SHIP_COORDS, SHIP_INTERIOR_MAP_IDS, SHIP_TYPES, createBankAccounts, BANK_REGION_COUNT, forgiveLoans, loanAmnestyLines } from '../systems/banking.js';   // H1: the quest residence filter; GetShipCoords for the map-pixel scene clear; OwnsShip for the travel popup   // AUDIT 58: AssignShipToPlayer's permanent half, which the classic import owed
+import { isHouseOwned, shipCoords, ownsShip, assignShipToPlayer, resetShip, SHIP_COORDS, SHIP_INTERIOR_MAP_IDS, SHIP_TYPES, createBankAccounts, BANK_REGION_COUNT, forgiveLoans, loanAmnestyLines, foldEmpireAccounts, empireAccountLines, goldRegion } from '../systems/banking.js';   // H1: the quest residence filter; GetShipCoords for the map-pixel scene clear; OwnsShip for the travel popup   // AUDIT 58: AssignShipToPlayer's permanent half, which the classic import owed
 import {
   clearSceneCache,           // P1: SaveLoadManager.ClearSceneCache, at PlayerGPS's map-pixel seam
   createSceneCache, cacheScene, restoreCachedScene, worldSceneName, LOOT_CONTAINER_TYPES,   // A10: the ship arm's Cache/RestoreCachedScene pair (TransportManager.cs:382-398)
@@ -165,7 +165,7 @@ import { WindWispsRenderer, wispsOn, SAND_LOOK } from '../render/windWisps.js'; 
 import { createWindAudio, windSoundOn } from '../systems/windAudio.js';   // WIND3: the wind, heard
 import { placeFoeFreely, PLACE_FOE_DEFAULTS } from '../systems/quest/sceneMount.js';   // B1: CreateFoe's raycast ring
 import { PLAYED_STEP_MAX_SECONDS } from '../systems/quest/clock.js';   // WORLD7: the quest clocks' played step online
-import { mintQuestFoeWave, placeFoeEnv, entityOccupancy, questFoeGender, reviveQuestBehaviour, heldSpots, holdSpotWhile, questBoxHoldsFoes, questShareTag, sharedQuestFoe, partnerStandsQuestFoes, questBehaviourFor, adoptsOrphanQuestFoe, isPrivateQuestFoe } from './questFoeHost.js';   // B1   // AUDIT 63r F24: SerializableEnemy.cs:206-217's quest-link arm, the one home both hosts use
+import { mintQuestFoeWave, placeFoeEnv, entityOccupancy, questFoeGender, reviveQuestBehaviour, heldSpots, holdSpotWhile, questBoxHoldsFoes, questShareTag, sharedQuestFoe, partnerStandsQuestFoes, questBehaviourFor, adoptsOrphanQuestFoe, isPrivateQuestFoe, KeptKillLedger, creditKeptKills } from './questFoeHost.js';   // B1   // AUDIT 63r F24: SerializableEnemy.cs:206-217's quest-link arm, the one home both hosts use
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';   // MERGE: FinalizeFoe's Flying lift reads the behaviour flag
 import { intermittentEnemySpawn, setEnemyAlert, areEnemiesNearby, foeHostile } from '../systems/encounters.js';   // OW6: foeHostile, the one hostility gate
 import { createStandingWatch, installLegalNotices } from './standingHost.js';   // REP1: the watch's stop; REP5: the law's notices
@@ -214,6 +214,7 @@ import { createBrokerOverlay, closeBrokerDoor } from '../ui/brokerDoor.js';   //
 import { brokerStock, brokerDay, brokerBought, makeBrokerSale, spendableStonesIn, lockedStonesIn, stoneCount, insigniaSale, stonesText } from '../systems/sigilBroker.js';   // SET7: the day's stock, the record, the sale   // SS1: the stones counted over their stacks
 import { drawGateBanner } from '../ui/gateBanner.js';
 import { drawGateGround } from '../ui/gateGroundView.js';   // WB9d: his ground's rim and warning - hidden with a held frame (the court draws it)
+import { drawGateDamageChart } from '../ui/gateDamageChart.js';   // GATE-UX: the kill's damage chart (the court draws it - scenes/gateCourt.js); a held frame hides it with the rest
 import { drawGateMarksCard } from '../ui/gateMarksView.js';   // WB9a: tonight's marks over the screen - by the gate before it is entered (and in the court as a fighter steps in: scenes/gateCourt.js)
 import { createGateLink, GATE_NO_TEXT, gateRefusalText } from '../net/gateLink.js'; import { readReceipt } from '../net/gateReceipt.js';   // AUDIT WB A2: a receipt's day, seed and account, for its spoils outside the court   // WB3b: what the client holds of a gate's fight - the relay's words, folded
 import { createGateClaims } from '../net/gateClaims.js';   // WB5b: the kill receipts, carried to the account service until counted
@@ -529,7 +530,7 @@ import { allyCastSpell, allyCastable, strangerCastable, allyReachFor, allyCastTa
 import { composePartyFx } from '../net/partyBuffs.js';   // PARTY-BUFFS: my effects on the party pose   // ALLY-CAST: a beneficial spell at a party mate; SPELL-GIFT: and the stranger's list
 import { checkpointAllowed, checkpointDue, checkpointedTradePack, createSaveSoon } from '../systems/onlineCheckpoint.js';   // REALM P0.5: the character saved as it plays online; PROF-SAVE: and at once after a professions act
 import { createTradeManager, TRADE_RANGE_M, inTradeRange, tradeDistance } from '../net/tradeSession.js';   // TRADE1: the player-to-player trade's state machine (pure)
-import { createTradePack, tradeRefusal } from '../systems/tradePack.js';   // TRADE1: the trade's door into the real pack; PROF5: what may not be sold
+import { createTradePack, tradeRefusal, createMarketGoods } from '../systems/tradePack.js';   // TRADE1: the trade's door into the real pack; PROF5: what may not be sold; MARKET-ANY: the pack's side of a piece from the pack
 import { isLocked } from '../systems/itemLock.js';   // PROF5: a locked piece is not listed
 import { createPlayerTradeWindow, playerTradeReady } from '../ui/playerTradeDoor.js';   // TRADE1: the enhanced window two players share
 import { createPeerMenuReader } from '../systems/peerMenuBind.js';   // PEERMENU1: the player menu opens on a bind (hold E / hold A)
@@ -773,6 +774,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   if (testRoomOffline) { params.delete('online'); publishBootParams(params); }
   if (testRoomOffline && realmSession) { setRealmNotice(globalThis.sessionStorage, realmRefusalText('test-room')); exitToTitleMenu(); return; }   // REALM P1.3: never the realm's
   const loansForgiven = realmBoot ? forgiveLoans(bootSnapRead) : null;   // LOAN-AMNESTY: the Empire's amnesty, into the one parse before it is restored and before the join settles a loan (systems/banking.js)
+  const empireFolded = realmBoot ? foldEmpireAccounts(bootSnapRead) : null;   // EMPIRE-ACCOUNT: every branch's gold into the Empire's one account, before it is restored and before the join settles a loan (systems/banking.js)
   if (refuseOnlinePowerFlags(params).length) publishBootParams(params);   // REALM P0.1: ?shot, ?fly, ?nofoes and the rest - dropped online before anything below reads them
   const regionName = params.get('region') || 'Daggerfall';
   const locationName = params.get('loc') || 'Daggerfall';
@@ -1172,12 +1174,12 @@ export async function bootWorld(canvas, renderer, params, status) {
       stores: { apply: (st) => profBook?.applyStore(st) },   // AUDIT 30 U1: what the market moves in the Stores, the Stores' count
       holds: (pv) => !!writBook?.holdsPiece(pv),   // AUDIT 31 H1: a piece the writs' book keeps a fill of is not listed too
       // GOLD-MARKET: a realm character's gold trade moves its record on the service, in the sale's own batch - the purse
-      // checkpointed first (realmSaves.js realmGoldAct) - and the save's gold as the record's pays at the BOARD's region:
-      // the purse, its letters, then that region's account (realmGoldLaw payFromSave; court.js deductGold, the same order)
-      realm: realmSession ? { act: (o) => realmGoldAct({ ...o, session: realmSession, checkpoint: () => onlineCheckpoint() }) } : null,
+      // checkpointed first (realmSaves.js realmGoldAct) - and the save's gold as the record's pays at the BOARD's region: the purse, its letters,
+      // then that region's account (realmGoldLaw payFromSave; court.js deductGold). MARKET-ANY: a pack's piece moves it too; one this game will not hold ends the session
+      realm: realmSession ? { act: (o) => realmGoldAct({ ...o, session: realmSession, checkpoint: () => onlineCheckpoint() }), abandon: (why) => realmSession.abandon(why) } : null, goods: realmSession ? { receive: (rec) => marketGoods.receive(rec) } : null,
       wallet: realmSession ? (region) => {
         playerEntity.bankAccounts ??= createBankAccounts(BANK_REGION_COUNT);
-        const account = playerEntity.bankAccounts[region] ?? null;
+        const account = playerEntity.bankAccounts[goldRegion(playerEntity.bankAccounts, region)] ?? null;   // EMPIRE-ACCOUNT: the Empire's account
         return {
           gold: () => totalGoldAmount(playerEntity) + Math.max(0, account?.accountGold ?? 0),
           pay: (n) => { const owed = deductGold(playerEntity, n); if (account && owed > 0) account.accountGold -= owed; },
@@ -1273,8 +1275,8 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  the home's crafted furniture not set down. AUDIT 30 C2: none enchanted since its craft - the market mints a piece
    *  again from its record, and the item maker's work would be lost on the way (smithItems asMinted). */
   /** AUDIT 31 H1: a piece either book keeps an act on (a listing, an auction or a fill whose answer is still to come) - it
-   *  is offered to neither again until that answer comes. */
-  const pieceKept = (pv) => !!marketBook?.holdsPiece(pv) || !!writBook?.holdsPiece(pv);
+   *  is offered to neither again until that answer comes. MARKET-ANY: and the pack's side of a piece from the pack (systems/tradePack.js createMarketGoods). */
+  const pieceKept = (pv) => !!marketBook?.holdsPiece(pv) || !!writBook?.holdsPiece(pv); const marketGoods = createMarketGoods(playerEntity, { kept: (pv) => pieceKept(pv), say: (t) => townTalk.say(t) });
   const marketPieces = () => [
     ...(playerEntity.items ?? []).filter((it) => it?.provenance && asMinted(it) && !tradeRefusal(it) && !isLocked(it) && !pieceKept(it.provenance))
       .map((item) => ({ item, where: 'pack', name: itemLongName(item) })),
@@ -3140,7 +3142,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  streamer is behind. A horse at the shipped default limit of sixty
    *  covers ~65 units in a 10 fps frame and ~120 at the mod's ceiling of
    *  a hundred - past a 64-unit probe, off the built world, and once the
-   *  motor is airborne `airControl` is false (motor.js:1805) so zeroing
+   *  motor is airborne `airControl` is false (motor.js:1806) so zeroing
    *  the drive on the NEXT frame no longer steers: the fall is already
    *  paid for. `travelLookahead` measures the frame that is about to
    *  run instead, and keeps 64 as its floor. */
@@ -8270,7 +8272,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2755 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6663
+  // that context through modes.dungeonCtx - so worldModes.js:6676
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -8584,7 +8586,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // it refused). HOME-LOOK rides its panel: "Exterior", the house's outside painted. Online alone.
   const homeYardWallet = (region) => {
     playerEntity.bankAccounts ??= createBankAccounts(BANK_REGION_COUNT);
-    const a = playerEntity.bankAccounts[region] ?? null;
+    const a = playerEntity.bankAccounts[goldRegion(playerEntity.bankAccounts, region)] ?? null;   // EMPIRE-ACCOUNT: the Empire's account
     return {
       gold: totalGoldAmount(playerEntity) + (a?.accountGold ?? 0),
       pay: (n) => { const short = deductGold(playerEntity, n); if (a) a.accountGold -= short; },
@@ -10705,7 +10707,9 @@ export async function bootWorld(canvas, renderer, params, status) {
         playerEntity.health = playerEntity.maxHealth;
         playerEntity.fatigue = maxFatigue(playerEntity);
         if (!hasSpecialAbility(playerEntity.career, SPECIAL_ABILITY.NoRegenSpellPoints)) {
-          playerEntity.magicka = playerEntity.maxMagicka;
+          // MANA-HALF (systems/rest.js): the nights' rest fills magicka as far as rest does - online, half the pool,
+          // never taking back what stands above it
+          playerEntity.magicka = Math.max(playerEntity.magicka ?? 0, restMagickaCap(playerEntity));
         }
       }
       // RaiseTime through the ONE clock: the U24 advance runs the same
@@ -10869,7 +10873,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7608), so exterior mode and a
+    // composer, dungeonContext.js:7619), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -13520,7 +13524,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10157-10221 -
+  // worldModes answers it in BOTH modes (worldModes.js:10165-10229 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -15337,6 +15341,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  with the party streams its foes to the party, a member stands a party peer's, a peer's blow and a quest foe's hunt
    *  reach only the party (a quest's own allies take no blow), and my copy of the quest counts the injury and the kill it
    *  sees on a partner's foe. */
+  const keptKills = new KeptKillLedger();   // KEPT-KILL: the kills of foes I kept on a partner's word, and the kills my copies counted
   const questShareSeam = {
     tagOf: (f) => questShareTag(questBridge?.machine, f, !!social?.party),
     // DISC28-J (Discord: Atronach Hunting's kill "not credited"): a party peer's quest foe stands here only for MY LINKED
@@ -15352,7 +15357,18 @@ export async function bootWorld(canvas, renderer, params, status) {
     partyPeer: (id) => !!social?.isPartyPeer(id),
     peerMayHit: (peerId, f) => !!social?.isPartyPeer(peerId) && f.entity?.team !== 'PlayerAlly' && !!questShareTag(questBridge?.machine, f, !!social?.party),
     onPuppetHurt: (tag) => sharedQuestFoe(questBridge?.machine, tag)?.setInjured?.(),
-    onPuppetDied: (tag) => sharedQuestFoe(questBridge?.machine, tag)?.incrementKills?.(),
+    // KEPT-KILL: a partner's foe I saw fall counts once - its holder's pose may say the same kill (a foe it kept on its
+    // partner's word), and whichever of the two lands first is the one that counts (keptKills.credit)
+    onPuppetDied: (tag, from, i) => {
+      const foe = sharedQuestFoe(questBridge?.machine, tag);
+      if (!foe) return;
+      const owner = from != null ? (social?.accountOfPeer?.(from) ?? null) : null;
+      if (owner && Number.isInteger(i) && !keptKills.credit(owner, tag.q, tag.s, i, Date.now())) return;
+      foe.incrementKills?.();
+    },
+    // KEPT-KILL (2026-10-01): a foe I kept on a partner's word fell here - my copy holds no such quest, so my party pose
+    // says it (`qk`) and every copy that holds the quest counts it, wherever its member stands
+    onKeptDied: (tag, i) => { keptKills.said(tag, i, Date.now()); },
     // QUEST-PARTY phase 2: a partner's quest foe I take over (the host named me, or it left without a word and I am
     // the one the law names) is bound to my own copy of the quest
     behaviourFor: (tag) => questBehaviourFor(questBridge?.machine, tag),
@@ -15867,7 +15883,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     }
     social = new SocialState({ acct: link.acct });
     link.onSocial = (f) => { social.apply(f); };
-    link.onParty = (acct, p) => { social.applyParty(acct, p); };
+    link.onParty = (acct, p) => {
+      social.applyParty(acct, p);
+      // KEPT-KILL: a member's kills of foes they kept on a partner's word - my copy of that quest counts each, once
+      if (p?.qk && social.inMyParty(acct)) creditKeptKills(questBridge?.machine, keptKills, acct, p.qk, Date.now());
+    };
     // PARTY-MAP: a mate's Shared Cartography rows - a seat in my party alone (applyParty's own rule), merged only when I
     // stand in that same dungeon, as revealed and nothing more (automap.js mergePartyAutomap)
     link.onAmap = (acct, _name, k, r) => { if (social.inMyParty(acct)) mergePartyAutomap(k, r); };
@@ -15955,7 +15975,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       },
       wallet: () => {
         playerEntity.bankAccounts ??= createBankAccounts(BANK_REGION_COUNT);
-        const account = playerEntity.bankAccounts[_questRegionIndex() ?? 0] ?? null;
+        const account = playerEntity.bankAccounts[goldRegion(playerEntity.bankAccounts, _questRegionIndex() ?? 0)] ?? null;   // EMPIRE-ACCOUNT: the Empire's account
         return {
           gold: () => totalGoldAmount(playerEntity) + (account?.accountGold ?? 0),
           pay: (n) => { const short = deductGold(playerEntity, n); if (account && short > 0) account.accountGold -= short; },
@@ -16483,7 +16503,6 @@ export async function bootWorld(canvas, renderer, params, status) {
   const spoilsPool = createSpoilsPool({
     renderer, gl: renderer.gl, getTexture, uploadRecordFrame, audio,
     ray: (from, dir, len) => { const c = modes?.dungeonCtx?.collider; const h = c?.raycastHit ? c.raycastHit(from, dir, len) : { dist: c?.raycast?.(from, dir, len) ?? Infinity, normal: null }; return Number.isFinite(h?.dist) ? h : null; },
-    feet: () => (playerSpawned ? player.feetAt() : null),
     now: () => Date.now() + _sharedOffsetMs,
     take: takeSpoil,
     say: (text) => setMidScreenText(text),
@@ -16601,6 +16620,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (r.alert && SOUL_TRAP_TEXT[r.alert]) setMidScreenText(SOUL_TRAP_TEXT[r.alert]);
       if (r.filled) surfacePlayer();
     },
+    me: () => online?.name ?? null,   // GATE-UX: my row of the damage chart - the relay's name for me (ACC1g: the issued one)
   }) : null;
   let _omenClockAt = null;   // AUDIT WB C4: when the relay's clock was first read this session (the omen's fallback wait)
   const gateOmen = params.has('online') ? createGateOmen({
@@ -17031,8 +17051,12 @@ export async function bootWorld(canvas, renderer, params, status) {
       lv: Math.max(1, Math.min(99, playerEntity.level | 0 || 1)),   // BOUNTY-TIER: my level, so a sharer knows whose tier a bounty shuts out
       ...(!restsWithParty() || (_restAloneNight && playerEntity.isResting) ? { nr: 1 } : {}),   // REST-OPT: I rest alone - no voter, nobody to gather, no rest to mirror (AUDIT C3: and a night granted as my own stays mine to its end)
       ...(playerEntity.isResting ? { rs: 1 } : {}),   // PARTY-BUFFS: resting, mine or followed - what I gain is the night's, no heal to float
+      ...keptKillField(),   // KEPT-KILL: the foes I kept on a partner's word that fell here lately (validPartyPose `qk`)
     };
   };
+  /** KEPT-KILL (2026-10-01): the kills of foes I kept on a partner's word, held KEPT_KILL_HOLD_MS (scenes/questFoeHost.js
+   *  KeptKillLedger) - omitted with none. */
+  const keptKillField = () => { const qk = keptKills.rows(Date.now()); return qk ? { qk } : {}; };
   /** PARTY-BUFFS (2026-09-27, Tabitha: "Allow us to see buff timers or SOME sort of indicator that we have placed a buff
    *  on a party teammate [preferably on their party portrait]"): my effects as my HUD rows them, omitted with none. */
   const partyFxField = () => { const fx = composePartyFx(playerEntity); return fx.length ? { fx } : {}; };
@@ -18070,7 +18094,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       book: marketBook, stores: () => profBook.state.stores, region, regionName: REGION_NAMES[region] ?? 'the region',
       regionNameOf: (r) => REGION_NAMES[r] ?? 'another region', hubs: marketHubs, name: (k) => materialLabel(k), countName: materialCountLabel,
       board: [town.px, town.py],   // SEAT1d (Seats-Arc 7.2): the board's town - the seat whose bailiwick takes the Tithe
-      pieces: marketPieces, take: marketTake, putBack: marketPutBack, mint: marketMint, pieceName: marketPieceName, drop: marketDrop,
+      pieces: marketPieces, take: marketTake, putBack: marketPutBack, mint: marketMint, pieceName: marketPieceName, drop: marketDrop, goods: () => marketGoods.goods(), good: (it) => marketGoods.good(it), goodName: (rec) => marketGoods.goodName(rec),   // MARKET-ANY: a piece from the pack, for gold
       weavers: WEAVERS_STOCK,
       stock: async (key, n) => {
         const r = await profBook.stock(key, n);
@@ -20174,6 +20198,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   if (realmBoot?.restored && realmBoot.missed) townTalk.say(REALM_RESTORED_TEXT);   // RESCUE-SAVE: the device's copy of a save the realm refused or never answered, played on (AUDIT A8: an ordinary close's, silently)
   for (const line of reclaimLines(realmGiven)) townTalk.say(line);   // RESTORE: what came back, said once the world stands
   for (const line of loanAmnestyLines(loansForgiven)) townTalk.say(line);   // LOAN-AMNESTY: said once the world stands
+  for (const line of empireAccountLines(empireFolded)) townTalk.say(line);   // EMPIRE-ACCOUNT: said once the world stands
   // EOTB-IL: StartGameBehaviour.OnNewGame (the mod's handler, IL_0930) -
   // a boot that loaded nothing is a new game, wherever it starts
   if (!_loadedGame) mwViewNewGame((modes?.mode ?? 'exterior') !== 'exterior');
@@ -22026,7 +22051,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // AUDIT WB C5: and the gate's countdown goes down with it - a DOM line over the video would stand frozen on it.
     // AUDIT DEEP X-1: and the travel view is CUT - its readout stood over the film, its listeners on the canvas, until
     // its heartbeat noticed the frames had stopped
-    if (frameHeld()) { frameAbort(); hideWorldPlaque(); last = now; requestAnimationFrame(frame); drawGateBanner(null); drawGateMarksCard(null); drawGateGround(null); travelView?.exit('video', true); return; }
+    if (frameHeld()) { frameAbort(); hideWorldPlaque(); last = now; requestAnimationFrame(frame); drawGateBanner(null); drawGateMarksCard(null); drawGateDamageChart(null); drawGateGround(null); travelView?.exit('video', true); return; }
     const dt = Math.min(0.1, (now - last) / 1000);
     // AUDIT 28 W7 + F-C1/F-C2 (self-audit 3): PlayerMouseLook.Update's
     // three answers - paused (:241-244) returns before ApplyLook and the
@@ -23117,7 +23142,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       if (csaRuntime) csaCall(() => csaRuntime.OnPositionUpdate(r.offset)); else csa.offsetAll(r.offset);
       csaPeers.rebase(r.offset);   // CSA-J: the peers' eased places with the world
       naval?.offsetAll(r.offset); navalFlames.offsetAll(r.offset);   // NAV-H: the sea's ships, their shots, smoke and fires - before their buckets stand again below
-      csaSyncColliders();   // CSA-D: the boats' buckets stand where the shift put them before any motor step meets them   // CSA-C: the mod's own FloatingOrigin.OnPositionUpdate (its kept bug: a boat out of sight stays behind)
+      csaSyncColliders(); yards?.rebase();   // CSA-D: the boats' buckets stand where the shift put them before any motor step meets them   // CSA-C: the mod's own FloatingOrigin.OnPositionUpdate (its kept bug: a boat out of sight stays behind)   // FB1001 YARD-RECENTRE: and the yards' pieces with their buckets, in place - their frame ran above the shift, and the draw is below (one line, so no line cite moves)
       hitEffects.offsetAll(r.offset);   // AUDIT 24 (wave 39): a splash mid-animation follows the origin too
       for (const q of [_wodArrival.origin, _wodArrival.loadAt]) if (q) { q[0] += r.offset[0]; q[1] += r.offset[1]; q[2] += r.offset[2]; }   // WOD6
       // AUDIT 18: this line used to be an optional call to a method

@@ -16,6 +16,7 @@ import { hallBannerAnchors } from '../src/scenes/hallBanners.js';
 import { BannerRenderer, BANNER_TEXTURE_IDLE_S, BANNER_VS, BANNER_FS } from '../src/render/bannerPass.js';
 import { createOnlineHomes, hallOfferLabel, HALL_DROP_TEXT, HALL_VISITOR_MAGIC_TEXT, HALL_CHEST_TITLE } from '../src/systems/onlineHomes.js';
 import { GuildBook } from '../src/net/guildBook.js';
+import { homeBedIsMine } from '../src/systems/homeRent.js';
 import { createSocialPanel, GUILD_MARKS_LEDGER_WORDS, guildHallSoldText } from '../src/ui/socialPanel.js';
 import { SocialState } from '../src/net/social.js';
 import { REFUSALS } from '../src/net/accountClient.js';
@@ -239,8 +240,11 @@ test('AUDIT GUILD1d S8 + R5: the restore reads a hall as its guild\'s, never a h
 
 test('AUDIT GUILD1d A1-A9: members rest (the online bed its own permanence), use the forge, workbench and loom, see their chest and cast in their hall; a visitor\'s drop and spell in a hall\'s own words; the plaque-less offer carries the hall; one buy out a house; the doors read again when the guild is known; the decorator neither pays a hall\'s half to the purse nor says it does (mutants: each by source; the offer\'s label; the bump)', () => {
   const wm = src('src/scenes/worldModes.js');
-  assert.match(wm, /const onlineBed = !!interiorHome && \(interiorHome\.own \|\| !!\(interiorHome\.hall && interiorHome\.member\) \|\| rentDaysLeft/);
-  assert.match(wm, /permanentScene: !!scene && containsPermanentScene\(sceneCache\(\), scene\) \|\| onlineBed,/, 'A1');
+  // PIN MOVED (the merge of main's RENT-REST, FIELD BUGS 2026-10-01): A1's online bed is RENT-REST's one rule now - the
+  // home's bed (homeRent.js homeBedIsMine) rides the rest's bag as `homeBed`, its own permanence and its own ownership
+  // (restSession.js interiorRestPlace) - and a hall's member is one of its sleepers
+  assert.deepEqual([homeBedIsMine({ hall: { name: 'H' }, member: true }, 0), homeBedIsMine({ hall: { name: 'H' }, member: false }, 0), homeBedIsMine({ own: false }, 0)], [true, false, false], 'A1');
+  assert.match(wm, /homeBed: homeBedIsMine\(interiorHome, Math\.floor\(Date\.now\(\) \/ 1000\)\),/, 'A1: the host hands it');
   for (const s of ['forge', 'workbench', 'loom']) assert.match(wm, new RegExp(`if \\(hallMemberHere\\(\\) && interiorDecor\\.list\\(\\)\\.some\\(\\(p\\) => p\\?\\.station === '${s}'\\)\\) return \\{ kind: 'home', fee: 0 \\};`), `A2 ${s}`);
   assert.match(wm, /if \(t && hallMemberHere\(\)\) return \{ title: HALL_CHEST_TITLE \};/, 'A6');
   assert.equal(HALL_CHEST_TITLE, "The Guild's Chest");

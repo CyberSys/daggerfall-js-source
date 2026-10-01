@@ -326,8 +326,8 @@
   {
     "name": "DECOR1c-the-flame-at-the-floor",
     "file": "src/scenes/decorRoom.js",
-    "old": "        mountLight(entry, o, decorLightLift(piece, entry.size));",
-    "new": "        mountLight(entry, o, 0);",
+    "old": "        mountLight(entry, at, decorLightLift(piece, entry.size));",
+    "new": "        mountLight(entry, at, 0);",
     "tests": [
       "test/decor1.test.js"
     ]
@@ -335,8 +335,8 @@
   {
     "name": "DECOR1c-a-flat-sunk-to-its-middle",
     "file": "src/scenes/decorRoom.js",
-    "old": "entry.batch = renderer.createBillboardBatch(da, dr, drawn, [[o[0] + piece.pos[0], o[1] + piece.pos[1], o[2] + piece.pos[2]]]);",
-    "new": "entry.batch = renderer.createBillboardBatch(da, dr, drawn, [[o[0] + piece.pos[0], o[1] + piece.pos[1] - entry.size.h / 2, o[2] + piece.pos[2]]]);",
+    "old": "entry.batch = renderer.createBillboardBatch(da, dr, drawn, [[at[0] + piece.pos[0], at[1] + piece.pos[1], at[2] + piece.pos[2]]]);",
+    "new": "entry.batch = renderer.createBillboardBatch(da, dr, drawn, [[at[0] + piece.pos[0], at[1] + piece.pos[1] - entry.size.h / 2, at[2] + piece.pos[2]]]);",
     "tests": [
       "test/decor1.test.js"
     ]

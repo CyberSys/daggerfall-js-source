@@ -254,8 +254,8 @@
   {
     "name": "DECOR-FLIP-room-unflipped",
     "file": "src/scenes/decorRoom.js",
-    "old": "entry.batch = renderer.createBillboardBatch(da, dr, drawn, [[o[0] + piece.pos[0], o[1] + piece.pos[1], o[2] + piece.pos[2]]]);",
-    "new": "entry.batch = renderer.createBillboardBatch(da, dr, entry.size, [[o[0] + piece.pos[0], o[1] + piece.pos[1], o[2] + piece.pos[2]]]);",
+    "old": "entry.batch = renderer.createBillboardBatch(da, dr, drawn, [[at[0] + piece.pos[0], at[1] + piece.pos[1], at[2] + piece.pos[2]]]);",
+    "new": "entry.batch = renderer.createBillboardBatch(da, dr, entry.size, [[at[0] + piece.pos[0], at[1] + piece.pos[1], at[2] + piece.pos[2]]]);",
     "tests": [
       "test/decorflip.test.js"
     ]

@@ -363,7 +363,7 @@ test('GUILD1d wired: the building host - the hall\'s rows and its buy, the chest
   assert.match(wm, /if \(c && interiorHome\?\.hall && interiorHome\.member\) \{ openHallChest\(\); return true; \}/);
   assert.match(wm, /if \(!decorOwnerHere\(\)\) \{\n\s*if \(!hallMemberHere\(\)\) \{   \/\/ GUILD1d: a hall's stations are its members'/);
   assert.match(wm, /if \(interiorHome\?\.hall\) return \{ kind: 'home', hall: true, where: "Your guild's hall"/);
-  assert.match(wm, /\(interiorHome\.hall && interiorHome\.member\) \|\| rentDaysLeft/);
+  assert.match(src('src/systems/homeRent.js'), /home\.own === true \|\| !!\(home\.hall && home\.member\) \|\| rentDaysLeft/);   // PIN MOVED (the merge of main's RENT-REST): a member's bed is the home's bed rule's, homeBedIsMine
   assert.match(wm, /if \(mode !== 'interior' \|\| !b \|\| !\(decorOwnerHere\(\) \|\| decorKeeperHere\(\)\)\) return null;/);
   const w = src('src/scenes/world.js');
   assert.match(w, /if \(hf && !hf\.door\) hf\.door = doorCornersOf\(cpu\.doors\[0\], local\);/);

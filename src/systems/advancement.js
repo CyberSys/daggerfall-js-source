@@ -106,8 +106,8 @@ export { getSkillRecentlyIncreased as skillRecentlyIncreased, setSkillRecentlyIn
  * NOT A GAP (closeout): `onLevelUp` IS DFU's char-sheet route.
  * RaiseSkills' tail is `if (CheckForLevelUp()) DaggerfallUI.PostMessage(
  * dfuiOpenCharacterSheetWindow)` (PlayerEntity.cs:1413-1414), and every
- * live host supplies that message as the hook - world.js:4785/:9343,
- * exterior.js:1140/:2064, worldModes.js:573/:9803,
+ * live host supplies that message as the hook - world.js:4787/:9345,
+ * exterior.js:1140/:2064, worldModes.js:575/:9811,
  * dungeonContext.js:2079. The immediate arm below is taken only when
  * onLevelUp is null: a headless/test path (and the ?class= skip) that
  * DFU has no counterpart for, so there is nothing to diverge from.
@@ -144,15 +144,22 @@ export function raiseSkills(entity, classicTimeMinutes, rolls = Math.random, onL
     // that keeps DFU's shift inside int32, so a raise there is bought as
     // PROGRESS: each pass banks calcUses / (needed * ladder) of a point on
     // entity.skillProgress and the point lands when it reaches 1 (one point
-    // a pass, the carry capped below 1, as DFU raises one a pass).
+    // a pass, as DFU raises one a pass; MOVE-BANK keeps the rest whole).
     const master = masterSkillsActive(entity);
     if (entity.skills[i] >= SKILL_SOFT_CAP && skillCanPassCap(entity, i)) {   // SOFTCAP4: a MASTERED skill only (2/2/1)
-      if (entity.skills[i] >= SKILL_HARD_CAP || calcUses <= 0) continue;
+      if (entity.skills[i] >= SKILL_HARD_CAP) continue;
+      // MOVE-BANK (FIELD BUGS 2026-10-01 #7): the count past 100 has no 20000 bucket (skills.js tallySkill), so the
+      // shift's float twin - the same number to 20000 - and what a pass does not land is KEPT WHOLE for the next one,
+      // re-priced at the next point's cost (it was capped at 0.99, so a long run's second point was thrown away, and a
+      // pass with no new uses never landed a banked one). Still one point a pass.
+      const uses = Math.floor((entity.skillUses[i] * reflexesMod) / 0x10000);
+      const cost = needed * softcapCostMultiplier(entity.skills[i]);
       const prog = (entity.skillProgress ??= new Array(entity.skillUses.length).fill(0));
-      prog[i] = (prog[i] ?? 0) + calcUses / (needed * softcapCostMultiplier(entity.skills[i]));
+      prog[i] = (prog[i] ?? 0) + uses / cost;
       entity.skillUses[i] = 0;
-      if (prog[i] < 1) continue;
-      prog[i] = Math.min(0.99, prog[i] - 1);
+      if (!(prog[i] >= 1)) continue;
+      const nextCost = softcapUsesForAdvancement(entity.skills[i] + 1, SKILL_ADVANCEMENT_MULTIPLIER[i], entity.career.advancementMultiplier, entity.level);
+      prog[i] = (prog[i] - 1) * cost / nextCost;   // 0 at the hard cap (the next point costs Infinity)
       entity.skills[i] += 1;
       setSkillRecentlyIncreased(entity, i);
       raised.push(i);
