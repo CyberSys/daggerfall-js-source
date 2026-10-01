@@ -380,7 +380,7 @@
   {
     "name": "RENOWN1-character-unnamed",
     "file": "src/net/accountClient.js",
-    "old": "secret: session.secret }, typeof named === 'string' && named ? named : null);",
+    "old": "secret: session.secret }, named);",
     "new": "secret: session.secret }, null);",
     "tests": [
       "test/renown1.test.js"

@@ -715,11 +715,12 @@
   {
     "name": "NAV1H-the-lone-hand-rate",
     "file": "src/systems/naval/navalYard.js",
-    "old": ": FIELD_MEND_ALONE) * Math.max(0, dt);",
-    "new": ": 1) * Math.max(0, dt);",
+    "old": ": FIELD_MEND_ALONE) * Math.max(0, scale) * Math.max(0, dt);",
+    "new": ": 1) * Math.max(0, scale) * Math.max(0, dt);",
     "tests": [
       "test/navaudit_helm.test.js"
-    ]
+    ],
+    "note": "SHIP-CREW (PIN MOVED): re-aimed at the moved line."
   },
   {
     "name": "NAV1H-the-port-unread",
@@ -760,11 +761,12 @@
   {
     "name": "NAV1H-the-quiet-unread",
     "file": "src/scenes/navalHost.js",
-    "old": "      if (clock - s.damage.lastHitAt >= FIELD_QUIET_S && !hostileNearBoat(b, s)) {",
-    "new": "      if (!hostileNearBoat(b, s)) {",
+    "old": "      if (clock - s.damage.lastHitAt >= FIELD_QUIET_S && !hostile) {",
+    "new": "      if (!hostile) {",
     "tests": [
       "test/navaudit_helm.test.js"
-    ]
+    ],
+    "note": "SHIP-CREW (PIN MOVED): re-aimed at the moved line."
   },
   {
     "name": "NAV1H-mending-while-she-burns",
@@ -778,11 +780,12 @@
   {
     "name": "NAV1H-a-hostile-unread-at-sea",
     "file": "src/scenes/navalHost.js",
-    "old": "FIELD_QUIET_S && !hostileNearBoat(b, s)) {",
+    "old": "FIELD_QUIET_S && !hostile) {",
     "new": "FIELD_QUIET_S) {",
     "tests": [
       "test/navaudit_helm.test.js"
-    ]
+    ],
+    "note": "SHIP-CREW (PIN MOVED): re-aimed at the moved line."
   },
   {
     "name": "NAV1H-the-refloat-at-once",
@@ -805,11 +808,12 @@
   {
     "name": "NAV1H-buy-pays-nothing",
     "file": "src/scenes/navalHost.js",
-    "old": "      deps.pay?.(r.cost);\n",
-    "new": "",
+    "old": "      deps.pay?.(r.cost);\n      give(id, r.afford);",
+    "new": "      give(id, r.afford);",
     "tests": [
       "test/navaudit_helm.test.js"
-    ]
+    ],
+    "note": "SHIP-CREW (PIN MOVED): re-aimed at the moved line."
   },
   {
     "name": "NAV1H-buy-all-pays-nothing",
@@ -832,20 +836,22 @@
   {
     "name": "NAV1H-the-mend-chip-unsaid",
     "file": "src/ui/navalHud.js",
-    "old": "ship.braced ? 'brace' : null, ship.mending ? 'mend' : null]",
-    "new": "ship.braced ? 'brace' : null]",
+    "old": "ship.repairing ? 'repair' : ship.mending ? 'mend' : null]",
+    "new": "ship.repairing ? 'repair' : null]",
     "tests": [
       "test/navaudit_helm.test.js"
-    ]
+    ],
+    "note": "SHIP-CREW (PIN MOVED): re-aimed at the moved line."
   },
   {
     "name": "NAV1H-the-wreck-hint-unsaid",
     "file": "src/ui/navalHud.js",
-    "old": "      : ship.wrecked ? 'Crippled - make port for a shipwright'   // AUDIT NAV1: the way out of a wreck, said\n",
+    "old": "      : ship.wrecked ? (ship.repairing ? 'Crippled - her crew at the repairs' : ship.stores > 0 ? 'Crippled - order repairs, or make port' : 'Crippled - make port for a shipwright')   // AUDIT NAV1: the way out of a wreck, said - SEA-REPAIR: her stores the other\n",
     "new": "",
     "tests": [
       "test/navaudit_helm.test.js"
-    ]
+    ],
+    "note": "SHIP-CREW (PIN MOVED): re-aimed at the moved line."
   },
   {
     "name": "NAV1H-the-yard-a-ship-to-board",
@@ -895,11 +901,12 @@
   {
     "name": "NAV1H-never-greyed",
     "file": "src/ui/navalYardWindow.js",
-    "old": "      able(press, r.can);",
-    "new": "      able(press, true);",
+    "old": "      able(press, r.can);\n      li.append(el('b', null, r.label), el('span', null, r.state), press);\n      list.append(li);",
+    "new": "      able(press, true);\n      li.append(el('b', null, r.label), el('span', null, r.state), press);\n      list.append(li);",
     "tests": [
       "test/navaudit_helm.test.js"
-    ]
+    ],
+    "note": "SHIP-CREW (PIN MOVED): re-aimed at the moved line."
   },
   {
     "name": "NAV1H-the-yard-back-key-deaf",

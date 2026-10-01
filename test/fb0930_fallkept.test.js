@@ -137,8 +137,9 @@ test('FALL-KEPT the report: a 50 m fall saved in the air two metres above the gr
   loadWorld(m, extras);   // F11 over the same live motor
   assert.equal(hp(land(m).d), 225);
   // the realm's checkpoint is the envelope whole, so the online save (the 2-min checkpoint, the page-hide save, the
-  // exit autosave) carries what the slot carries
-  assert.match(W, /realmSession\.checkpoint\(JSON\.stringify\(snap\), realmSummaryOf\(playerEntity\)\)/);
+  // exit autosave) carries what the slot carries (AUDIT RESCUE-SAVE A1: the envelope spread whole, the spoils records its
+  // pack holds named beside it - systems/realmSaves.js realmSaveWithHeld)
+  assert.match(W, /realmSession\.checkpoint\(realmSaveWithHeld\(snap, holding\), realmSummaryOf\(playerEntity\)\)/);
 });
 
 test('FALL-KEPT the building: a save inside re-entered lands the fall; the door\'s reposition, no saved place, lands none (mutants: the building drops the fall; the reposition keeps the fall)', () => {

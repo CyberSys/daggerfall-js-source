@@ -527,7 +527,7 @@ test('RAID4b the host: world.js rolls a town\'s thanks off each raid receipt - A
   assert.match(w, /const raidSpoils = createSpoilsPool\(\{\s*ray: \(\) => null, now: [^\n]+\n\s*store: _spoilsStore, who: \(\) => characterIdOf\(playerEntity\), keys: RAID_SPOILS_KEYS, recordsMax: RAID_SPOILS_RECORDS_MAX,/);
   assert.doesNotMatch(w.slice(w.indexOf('const raidSpoils = createSpoilsPool('), w.indexOf('const raidSpoils = createSpoilsPool(') + 400), /onSpent/, 'the hub never kept a raid\'s receipt');
   assert.match(w, /onSlotSaved\(\(characterId\) => \{ try \{ raidSpoils\.saved\(characterId\); \}/);
-  assert.match(w, /recoverSpoils\(_spoilsStore, takeSpoil, \{ who, saves: enumerateSaves\(\)\.info\.values\(\), onHanded: \(rec\) => raidSpoils\.adopt\(rec\), key: RAID_SPOILS_KEYS\.store \}\)\) setMidScreenText\(RAID_SPOILS_TEXT\.recovered\);/);
+  assert.match(w, /recoverSpoils\(_spoilsStore, takeSpoil, \{ who, saves: enumerateSaves\(\)\.info\.values\(\), onHanded: \(rec\) => raidSpoils\.adopt\(rec\), key: RAID_SPOILS_KEYS\.store, inSave: _spoilsInSave \}\)\) setMidScreenText\(RAID_SPOILS_TEXT\.recovered\);/);   // AUDIT RESCUE-SAVE A1: and the kept save's records adopted, never handed twice
   assert.match(w, /else if \(name === 'mark'\) audio\.playOneShot\(SOUND\.DrawWeapon, 1\);\s*else if \(name === 'ward'\) audio\.playOneShot\(SOUND\.EquipMaceOrHammer, 1\);/);
   assert.match(strip(read('src/systems/raidingParties.js')), /host\(\)\.onRaidReceipt\?\.\(f\.r, c\);/, 'the raid module hands the host each receipt');
 });

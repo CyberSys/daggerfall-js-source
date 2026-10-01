@@ -26,7 +26,7 @@ import { _resetKeyForTests } from '../server-account/src/signing.js';
 import {
   createGuest, openSession, resolveSession, closeSession, closeAllSessions,
   devicesOf, accountView, displayName, accountKind, hashSecret, mintId, handleRefusal, LOGIN_MAX, LOGIN_WINDOW_S,
-  SESSION_IDLE_S, ACCOUNT_MAX,
+  SESSION_IDLE_S, SESSION_TOUCH_S, ACCOUNT_MAX,
 } from '../server-account/src/accounts.js';
 import { guestName, GUEST_BANKS, pick, isGuestShaped, isHandleShaped } from '../server-account/src/guestName.js';
 // AUDIT-ACC F7 enumerates the WHOLE name space, so it needs the bank data
@@ -345,7 +345,8 @@ test('AUDIT-ACC F10: a failed freshness write does not fail the request it rode 
   const db = d1();
   const made = await createGuest(ctx(db), {});
 
-  // a database that answers reads and refuses every UPDATE
+  // a database that answers reads and refuses every UPDATE - alone or in a batch (SCALE1: the touch is one batch, and
+  // only once the session has gone SESSION_TOUCH_S stale, so this asks past it)
   const brittle = {
     _raw: db._raw,
     prepare(sql) {
@@ -354,8 +355,9 @@ test('AUDIT-ACC F10: a failed freshness write does not fail the request it rode 
       }
       return db.prepare(sql);
     },
+    async batch() { throw new Error('D1_ERROR: storage is having a day'); },
   };
-  const who = await resolveSession({ db: brittle, subtle, rand, nowS: NOW + 60 }, made.secret);
+  const who = await resolveSession({ db: brittle, subtle, rand, nowS: NOW + SESSION_TOUCH_S + 60 }, made.secret);
   assert.ok(who, 'a failed cosmetic write threw away a valid session');
   assert.equal(who.player.id, made.id);
 });

@@ -1360,8 +1360,8 @@ the step, and the dip only ever makes `|dir|` larger.
 `onAttackFromPlayer` the sentence is about is `:215`, which is where the
 sibling comment in `cityGuards.js` was pointed in the same round). The
 dungeon's three-host sentence had its `exterior.js` number re-resolved
-and its `world.js:22104` left naming a `WorldTime`/`PauseWhileOpen` note
-800 lines from the host's `onPlayerArrowHitFoe` (`world.js:24003`); all
+and its `world.js:22160` left naming a `WorldTime`/`PauseWhileOpen` note
+800 lines from the host's `onPlayerArrowHitFoe` (`world.js:24067`); all
 three halves are read in `citedrift.test.js` now, the shape AUDIT 62's
 review had to apply to `pauseWindow`/`restWindow`. And `listPicker.js`'s
 "three routers that mount a bare picker" named three lines, none of

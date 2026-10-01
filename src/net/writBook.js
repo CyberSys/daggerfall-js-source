@@ -19,6 +19,7 @@
 
 import { WRIT_RID_RE } from './writLaw.js';
 import { PIECE_GONE, PIECE_KEPT_ERROR } from './marketBook.js';
+import { ASK_AGAIN_NOW, jittered } from './backoff.js';   // SCALE1: asks again spread out, and never at once into a minute's refusal
 
 export const WRIT_KEPT_KEY = 'prof6.kept';
 export const WRIT_TRIES = 3;
@@ -93,9 +94,9 @@ export function createWritBook({ door, storage = null, character, now = () => Da
   async function ask(fn) {
     let r = null;
     for (let i = 0; i < WRIT_TRIES; i++) {
-      if (i > 0) await sleep(WRIT_RETRY_MS[Math.min(i - 1, WRIT_RETRY_MS.length - 1)]);
+      if (i > 0) await sleep(jittered(WRIT_RETRY_MS[Math.min(i - 1, WRIT_RETRY_MS.length - 1)]));
       try { r = await fn(); } catch { r = { ok: false, error: 'offline' }; }
-      if (r?.ok || !RETRY.includes(r?.error)) return r;
+      if (r?.ok || !ASK_AGAIN_NOW.includes(r?.error)) return r;   // SCALE1: `rate` goes back kept, to the pump
     }
     return r;
   }

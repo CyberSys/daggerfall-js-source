@@ -55,6 +55,11 @@ export const SECRET_BYTES = 32;
  *  year, because a player who opens the game twice a year is still that
  *  player and their friends list is still theirs. */
 export const SESSION_IDLE_S = 365 * 24 * 60 * 60;
+/** SCALE1 (2026-09-30, the scaling audit - Mac: "set the stage for a larger player base"): HOW STALE `last_seen` MAY
+ *  GROW before a request writes it again. Every authenticated call wrote both rows, two of its three D1 writes, and
+ *  D1 has one writer for the whole service. Nothing reads the column finer than this: the idle bound is a year, and
+ *  the device list orders by it. */
+export const SESSION_TOUCH_S = 10 * 60;
 
 const b64url = (bytes) => {
   let bin = '';
@@ -219,10 +224,18 @@ export async function resolveSession({ db, subtle, nowS }, secret) {
   // derivable. It is still written because a column that silently stops
   // being maintained is worse than one that costs a write, and dropping
   // it is a migration rather than an audit's business.
-  if (Number.isSafeInteger(nowS)) {
+  //
+  // SCALE1: ONLY WHEN IT HAS GONE STALE (SESSION_TOUCH_S), and both rows
+  // in one round trip. It was written on every call - two of the three
+  // writes every authenticated request paid before its own work, on a
+  // database with one writer.
+  const stale = !Number.isSafeInteger(session.last_seen) || nowS - session.last_seen >= SESSION_TOUCH_S;
+  if (Number.isSafeInteger(nowS) && stale) {
     try {
-      await db.prepare('UPDATE sessions SET last_seen = ? WHERE id = ?').bind(nowS, session.id).run();
-      await db.prepare('UPDATE players SET last_seen = ? WHERE id = ?').bind(nowS, player.id).run();
+      await db.batch([
+        db.prepare('UPDATE sessions SET last_seen = ? WHERE id = ?').bind(nowS, session.id),
+        db.prepare('UPDATE players SET last_seen = ? WHERE id = ?').bind(nowS, player.id),
+      ]);
     } catch { /* cosmetic: the caller is authorised either way */ }
   }
   return { player, session };

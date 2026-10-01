@@ -184,12 +184,13 @@
   {
     "name": "ACC1b-19-a-failed-touch-fails-the-request",
     "file": "server-account/src/accounts.js",
-    "old": "    try {\n      await db.prepare('UPDATE sessions SET last_seen = ? WHERE id = ?').bind(nowS, session.id).run();\n      await db.prepare('UPDATE players SET last_seen = ? WHERE id = ?').bind(nowS, player.id).run();\n    } catch { /* cosmetic: the caller is authorised either way */ }",
-    "new": "    await db.prepare('UPDATE sessions SET last_seen = ? WHERE id = ?').bind(nowS, session.id).run();\n    await db.prepare('UPDATE players SET last_seen = ? WHERE id = ?').bind(nowS, player.id).run();",
+    "old": "    try {\n      await db.batch([\n        db.prepare('UPDATE sessions SET last_seen = ? WHERE id = ?').bind(nowS, session.id),\n        db.prepare('UPDATE players SET last_seen = ? WHERE id = ?').bind(nowS, player.id),\n      ]);\n    } catch { /* cosmetic: the caller is authorised either way */ }",
+    "new": "    await db.batch([\n      db.prepare('UPDATE sessions SET last_seen = ? WHERE id = ?').bind(nowS, session.id),\n      db.prepare('UPDATE players SET last_seen = ? WHERE id = ?').bind(nowS, player.id),\n    ]);",
     "tests": [
-      "test/accountworker.test.js"
+      "test/accountworker.test.js",
+      "test/scale1.test.js"
     ],
-    "note": "AUDIT-ACC F10 put back, verbatim - the unguarded shape that shipped. A D1 hiccup on a cosmetic freshness write turns an ALREADY AUTHORISED request into a 500."
+    "note": "AUDIT-ACC F10 put back, verbatim - the unguarded shape that shipped. A D1 hiccup on a cosmetic freshness write turns an ALREADY AUTHORISED request into a 500. SCALE1: re-aimed at the touch as it stands - one batch, and only once stale."
   },
   {
     "name": "ACC1b-20-an-authenticated-caller-is-unbounded",

@@ -56,11 +56,12 @@
   {
     "name": "NAVB-B2-the-fallback-hands-never-stood",
     "file": "src/scenes/navalHost.js",
-    "old": "    const hands = handsOf(myBoatState(boat)?.damage.crew ?? 0, crewed);\n    const mine = deps.board?.crewOf?.(boat, hands) ?? [];",
+    "old": "    const hands = myHands(boat, myBoatState(boat));   // SHIP-CREW: her spirits and the rail's order\n    const mine = deps.board?.crewOf?.(boat, hands) ?? [];",
     "new": "    const hands = 0;\n    const mine = deps.board?.crewOf?.(boat, hands) ?? [];",
     "tests": [
       "test/navaudit_boarding.test.js"
-    ]
+    ],
+    "note": "SHIP-CREW (PIN MOVED): re-aimed at the moved line."
   },
   {
     "name": "NAVB-B5-the-flagship-by-its-file",
