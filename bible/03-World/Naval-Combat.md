@@ -1323,6 +1323,55 @@ Pins: `test/crewcompanions.test.js` and `test/auditcrew.test.js` (AUDIT CREW, `0
 the targets, the layer through doors, sweeps, knocks and catch-ups, the deck, the menu, the wiring by source).
 `tools/mutants/crewcompanions.json`: 47 mutants, all dead.
 
+## SHIP-WATCH (2026-10-01) - life aboard between fights, and the sea by night - DECLARED
+
+Mac: *"Do #3"* - the list's *"Life aboard between fights. Crew sleep below at night, and a lookout up the mast calls
+'Sail ho!'. The crew swab decks, haul lines and patch damage after a fight"* - with *"If not already, ships at night
+should use their lanterns (AI)"* and *"I also want to keep improving the AI"*. Neither Daggerfall nor Come Sail Away has
+any of it; all of this is the port's own (`systems/naval/shipWatch.js`, pure, and the crews', captains' and host's
+arms below).
+
+- **The night watch** (`crewLife.js`, `ctx.asleep` - the world's hour through `shipWatch.js asleepHour`,
+  `SLEEP_FROM_HOUR` to `SLEEP_TO_HOUR`). Every crew turns in but its watch (`watchCount`, a third, one at least): her
+  stations, her lookout, then the roster's first. The rest walk to her HATCH (her main deck's middle) and go below -
+  `below`, never `gone`: the count stands whole, the guns' trim and the mending's restore read them as they were, a
+  man taken off her deck while below comes up out of her hatch and one going ashore comes home on her deck. Below is
+  not drawn (`navalCrew.js`). No song in the night watch; the watch talks low (`CREW_BLURBS.night`). The guns, a muster
+  or her colours struck bring every hand up at once to `ALL_HANDS` ("All hands on deck!"); the morning brings them up
+  quietly.
+- **The lookout** - one walker (never her Bard, who leads the song, nor her station; her first man only if none else),
+  at her BOW (`LOOKOUT_BACK` from her stem on her centre line, off her deck's own cells), facing out over her stem and
+  talking to nobody; at the guns he is a gunner like the rest. AUDIT NAV1's SAIL HO! (`navalHost.js hailSails`) is
+  cried by him from the bow now - handed over once through the host's `myCrew` `call` and shouted over his head beside
+  the HUD's line. Not up the mast, as the list put it: Come Sail Away's masts carry no top to stand him on.
+- **At work** (`ctx.work`, 0..1 - `navalHost.js workOf`: her hull's loss and half her canvas's; all hands under a
+  repair order). An idle man takes up a job at a free spot of her deck - `WORK_SHARE` of his choices at the most, plus
+  a `CHORE_SHARE` chore at peace - for `WORK_S`, swinging at it every `WORK_SWING_S` (his class's attack, `swing` ->
+  the mobile unit's `striking`), saying the work's words (`CREW_BLURBS.work`, `chore`); the guns end it. The sea's ships
+  as well as mine.
+- **The lanterns by night.** Every sea ship lights hers at the city lights' hour (as Come Sail Away's boats do) - but
+  `runsDark`: a pirate afloat keeps hers out, and a merchantman running (`flee`) douses hers (`navalHost.js shipLit`).
+  A lit ship past `LAMP_NEAR_M` of the eye is drawn as up to `LAMP_MAX` added points of light at her lanterns
+  (`lampsInto`, on the naval pass - `lampSize`: `LAMP_ANGLE` of the view, never under `LAMP_MIN_M`; `lampAlpha` fading
+  in over `LAMP_FADE_M`): her lantern flats are a pixel at range and the light list holds the nearest eight, so a
+  ship at night was her black hull against the black water. Mine too, as their switch has them.
+- **The captains by night** (`navalAI.js`, `world.night`; AUDIT NAV1's lookout reach otherwise unchanged). A contact
+  is seen by night only as far as its lanterns show it (`nightSight`: a lit one `NIGHT_LIT_SIGHT`, a dark one
+  `NIGHT_DARK_SIGHT`, never farther than by day - `c.lit`: a sea ship's `shipLit`, my boat's lantern switch, a peer's
+  as their word lights her); a ship that fired within `GUNS_SEEN_S` is seen by her flashes; and a threat to run from
+  no farther. A pirate running dark comes up on a merchantman unseen; a player who douses their lanterns slips past a
+  pirate at a cable's length. The guns are heard as ever (`HEAR_GUNS_M`). My lookout's SAIL HO! keeps the same law.
+- **The errands by night** (`shipLife.js`, `ctx.night`). A merchantman whose dwell is spent after dark keeps her berth
+  till the morning; a navy does not wait. A pirate's lurk closes on the mouth to `NIGHT_LURK_K` of her day's reach,
+  her ring laid afresh at the turn and back out by day.
+
+Said: a player's boat stands dark until its lanterns are lit (Come Sail Away's own switch, off when she is built), so
+by night a pirate sees her only close aboard unless they are.
+
+Pins: `test/shipwatch.test.js` (the laws, the watch below and every hand up, the lookout, the work and its swing, the
+host drawing none below, the captains and the errands by night, the lanterns, the cry and the lamps on the real host,
+the world's wiring). `tools/mutants/shipwatch.json`: MUTANTS_LINE.
+
 ## The tests
 
 One suite a slice - `test/nav_a_guns.test.js` (the flight, the aim, the volley, the reload, a ball's hurt, a ship's

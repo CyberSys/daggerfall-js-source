@@ -18,6 +18,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
+import { asleepHour } from '../src/systems/naval/shipWatch.js';   // SHIP-WATCH: the crews' night
+import { hourOf } from '../src/world/worldClock.js';
 import * as crewLife from '../src/systems/naval/crewLife.js';
 import * as navalCrewMod from '../src/scenes/navalCrew.js';
 import { buildDeck, intoDeck, DECK_STEP } from '../src/systems/naval/navalDeck.js';
@@ -73,11 +75,12 @@ function liftCrewFrame(s) {
   const at = WORLD.indexOf('\n  function navalCrewFrame(dt) {', from);
   assert.ok(from > 0 && at > from, 'the crews\' frame in the world');
   const end = WORLD.indexOf('\n  }\n', at) + 5;
-  const names = ['csa', 'modes', 'naval', 'navalCrew', 'cam', 'walkMode', 'playerSpawned', 'player', 'hullBuild', 'crewCount', 'crewRoster', 'intoDeck', 'CREW_KEEP', 'CREW_RANGE', 'navalOn', 'online', 'csaRuntime'];
+  // PIN MOVED (SHIP-WATCH): the crews' night - the world's hour (noon unless a test says), read through the watch's law
+  const names = ['csa', 'modes', 'naval', 'navalCrew', 'cam', 'walkMode', 'playerSpawned', 'player', 'hullBuild', 'crewCount', 'crewRoster', 'intoDeck', 'CREW_KEEP', 'CREW_RANGE', 'navalOn', 'online', 'csaRuntime', 'asleepHour', 'hourOf', 'minuteNow'];
   // eslint-disable-next-line no-new-func
   return new Function('s', `const { ${names.join(', ')} } = s;\n${WORLD.slice(from, end)}\nreturn { navalCrewFrame };`)({
     modes: null, walkMode: false, playerSpawned: false, player: null, cam: { pos: [0, 5, 0] }, online: null, csaRuntime: null, navalOn: () => true,
-    hullBuild, crewCount, crewRoster, intoDeck, CREW_KEEP, CREW_RANGE, ...s,
+    hullBuild, crewCount, crewRoster, intoDeck, CREW_KEEP, CREW_RANGE, asleepHour, hourOf, minuteNow: () => 12 * 60, ...s,
   });
 }
 /** The world's crews over a sea (navalSea.mjs): my crewed boat, the real crew host fed by the lifted frame, and the

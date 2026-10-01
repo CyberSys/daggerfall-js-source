@@ -28,6 +28,11 @@
 //   lurk    - a pirate off a harbour's approaches, LURK_R from the mouth, where merchantmen pass: a slow ring there.
 // A fight comes first (navalAI.js stepCaptain: an enemy, a threat, a prize, the guns heard) - a navy at her berth
 // answers a pirate, a merchantman flees one - and the errand is taken up again after it with a way planned anew.
+//
+// SHIP-WATCH (2026-10-01, Mac: "I also want to keep improving the AI") - THE NIGHT (`ctx.night`, the lanterns' hours):
+// a merchantman's dwell spent after dark keeps her at her berth till morning (no master puts out into a night sea
+// with a hold to lose), and a pirate's lurk closes on the harbour's mouth to NIGHT_LURK_K of its reach - under cover
+// of the dark, where the last ships in of the evening pass.
 
 import { hash32 } from '../../world/spawnedDungeons.js';
 import { mulberry32 } from '../../combat/bloodArt.js';
@@ -76,6 +81,8 @@ export const PATROL_S = 420;
 export const LURK_R = 650;
 export const LURK_RING = 140;
 export const LURK_SAILS = 0.5;
+/** SHIP-WATCH: by night a pirate's lurking place this share of the way out from the mouth to her day's. */
+export const NIGHT_LURK_K = 0.5;
 /** A ship making under STALL_WAY (m/s) for STALL_S under sail - a hull dead in her way, a struck sister alongside - takes a
  *  DETOUR_M detour abeam, whichever side the water is open, and plans her way anew past it. */
 export const STALL_WAY = 0.5;
@@ -425,7 +432,7 @@ export function stepErrand(ship, dt, ctx) {
       const b = hb?.berths[e.berth];
       if (!b) { ship.errand = null; return null; }
       if (dist2(here, b.pos) > BERTH_SNAP_M * 2) { ship.errand = { kind: 'arrive', harbour: e.harbour, berth: e.berth, path: null, i: 0 }; return stepErrand(ship, dt, ctx); }   // moved off her berth (a fight): back to it
-      if (ship.clock >= e.until) {
+      if (ship.clock >= e.until && !(ctx.night && ship.cls?.faction === 'merchant')) {   // SHIP-WATCH: a merchantman waits for the morning
         ship.errand = { kind: 'depart', harbour: e.harbour, berth: e.berth, path: null, i: 0 };
         return stepErrand(ship, dt, ctx);
       }
@@ -491,16 +498,20 @@ export function stepErrand(ship, dt, ctx) {
       return plan(e.path[e.i], 0.7);
     }
     case 'lurk': {
+      // SHIP-WATCH: by night her lurking place closer in on the mouth (NIGHT_LURK_K) - her ring laid afresh at the turn
+      const night = !!ctx.night && !!hb;
+      if (e.night !== night) { e.night = night; e.path = null; }
+      const at = night ? [hb.mouth[0] + (e.at[0] - hb.mouth[0]) * NIGHT_LURK_K, hb.mouth[1] + (e.at[1] - hb.mouth[1]) * NIGHT_LURK_K] : e.at;
       if (!e.path) {
         const clear = ctx.grid(ship.hull).clear, ring = [];
         for (let k = 0; k < 4; k++) {
-          const a = (e.spin ?? 0) * TAU + (k / 4) * TAU, q = [e.at[0] + Math.sin(a) * LURK_RING, e.at[1] + Math.cos(a) * LURK_RING];
-          if (clear(e.at, q)) ring.push(q);   // AUDIT SHIP-LIFE A4: as the patrol's
+          const a = (e.spin ?? 0) * TAU + (k / 4) * TAU, q = [at[0] + Math.sin(a) * LURK_RING, at[1] + Math.cos(a) * LURK_RING];
+          if (clear(at, q)) ring.push(q);   // AUDIT SHIP-LIFE A4: as the patrol's
         }
-        e.path = ringOver(ring, [e.at[0], e.at[1]], clear); e.i = 0;
+        e.path = ringOver(ring, [at[0], at[1]], clear); e.i = 0;
       }
       if (dist2(here, e.path[e.i]) <= REACH_M) e.i = (e.i + 1) % e.path.length;
-      return plan(e.path[e.i], dist2(here, e.at) > LURK_R * 0.5 ? 1 : LURK_SAILS);
+      return plan(e.path[e.i], dist2(here, at) > LURK_R * 0.5 ? 1 : LURK_SAILS);
     }
     default:
       ship.errand = null;

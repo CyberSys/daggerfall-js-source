@@ -66,6 +66,12 @@
 // by her - alongside on the board course, grappled across GRAPPLE_GAP, and held there (`lashed`) while the host takes
 // her (navalHost.js takePrize). THE GUNS ARE HEARD: a navy with no enemy in sight answers gunfire within HEAR_GUNS_M
 // of her fired in the last HEAR_S (`world.gunfire`), and sails for it until its fight is in her own lookout.
+//
+// SHIP-WATCH (2026-10-01, Mac: "I also want to keep improving the AI") - BY NIGHT (`world.night`) her lookout sees a
+// contact only as far as its lanterns show it (shipWatch.js nightSight: a lit one NIGHT_LIT_SIGHT, a dark one
+// NIGHT_DARK_SIGHT - `c.lit`), and a threat to run from no farther: a pirate running dark comes up on a merchantman
+// unseen, and a player who douses their lanterns slips past a pirate at a cable's length. The guns are heard as ever,
+// and a ship that fired in the last GUNS_SEEN_S is seen by her flashes as a lit one is.
 
 import { classById, batteryOf, hullBuild, GUNS, HULL, SHIP_CLASSES } from './navalShips.js';
 import { mulberry32 } from '../../combat/bloodArt.js';   // SEA-PEACE: the temper's draw (navalShips.js names on the same stream kind)
@@ -76,6 +82,7 @@ import { BERTH_GAP } from './navalBoarding.js';
 import { wrapAngle } from '../../world/mat4.js';   // ONCRASH1: the port's one angle wrap, which cannot loop
 import { steerage, HULL_HELM, HELM_WAY } from '../helmWay.js';   // HELM-WAY: the player's own helm, the captains' too
 import { stepErrand, MOOR_EASE_S } from './shipLife.js';   // SHIP-LIFE: a ship going somewhere
+import { nightSight } from './shipWatch.js';   // SHIP-WATCH: by night a lit ship is seen far, a dark one close
 
 /** A galley's oars: its least way, as a share of its best. */
 export const OARS_FLOOR = 0.55;
@@ -218,6 +225,8 @@ export const DUEL_RANGE = 110;
 export const TURN_PER_VOLLEY = 90;
 export const HEAR_GUNS_M = 1600;
 export const HEAR_S = 40;
+/** SHIP-WATCH: a ship that fired within this (s) is seen by night as a lit one - her guns' flashes. */
+export const GUNS_SEEN_S = 20;
 /** The temper's own salt on her seed (never the name's stream, navalShips.js shipNames). */
 const TEMPER_SALT = 0x7e3a9e1d;
 /** The wind the classes' speeds are rated at - Come Sail Away's Random.Range(1, 2), its middle - and the bounds of the
@@ -802,6 +811,8 @@ export function stepCaptain(ship, world) {
   // who is out there, and who is an enemy - the one she fights kept until it is past DISENGAGE of its reach
   const sight = lookoutOf(ship);
   let enemy = null, enemyD = Infinity, threat = null, threatD = Infinity, prize = null, prizeD = Infinity;
+  // SHIP-WATCH: who showed themselves by their guns' flashes lately (by night, seen as a lit ship is)
+  const flashed = world.night ? new Set((world.gunfire ?? []).filter((g) => world.now - g.at <= GUNS_SEEN_S).map((g) => g.by)) : null;
   for (const c of world.contacts ?? []) {
     if (c.id === ship.id || c.gone) continue;
     const { dist } = bearingTo(ship, c.pos);
@@ -809,13 +820,15 @@ export function stepCaptain(ship, world) {
     // gave up, left be)
     if (c.struck) { if (c.struckTo === ship.id && dist < prizeD && !((ship.spare.get(c.id) ?? -Infinity) > ship.clock)) { prize = c; prizeD = dist; } continue; }
     const held = c.id === ship.target && (ship.mode === 'engage' || ship.mode === 'board');
+    const lit = !!c.lit || !!flashed?.has(c.id);
+    const see = nightSight(sight, { night: !!world.night, lit });   // SHIP-WATCH: by night, by her lanterns (or her guns)
     if (hostile(ship, c, world) && !((ship.spare.get(c.id) ?? -Infinity) > ship.clock)) {
-      if (dist < (held ? sight * DISENGAGE : sight) && (held ? dist * 0.8 : dist) < enemyD) { enemy = c; enemyD = held ? dist * 0.8 : dist; }
+      if (dist < (held ? see * DISENGAGE : see) && (held ? dist * 0.8 : dist) < enemyD) { enemy = c; enemyD = held ? dist * 0.8 : dist; }
     }
     // a threat is anything hostile that would take US - SEA-PEACE: sized up by her own power, and a player who fired on
     // her a threat to a pirate too (a wary one runs from a stronger one; a bold one fights it out, as she did)
     const theyTakeUs = c.kind === 'ship' ? c.ship && hostile(c.ship, { kind: 'ship', faction: ship.cls.faction, id: ship.id, ship }, world) : (ship.provoked.get(c.id) ?? -Infinity) > world.now - PROVOKED_S;
-    if (theyTakeUs && dist < FLEE_RANGE && dist < threatD) { threat = c; threatD = dist; }
+    if (theyTakeUs && dist < nightSight(FLEE_RANGE, { night: !!world.night, lit }) && dist < threatD) { threat = c; threatD = dist; }   // SHIP-WATCH: a threat seen
   }
   if (enemy) enemyD = bearingTo(ship, enemy.pos).dist;
   for (const c of world.contacts ?? []) {
