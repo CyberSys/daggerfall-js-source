@@ -10528,7 +10528,7 @@ and the Turning that spends it; the sources' table admits their rows already, an
 
 Pinned: `test/seat1b_service.test.js` (7), `test/seat1b_client.test.js` (9); re-aimed by content in
 `test/wb5b_gate_claim.test.js` and `test/seat1a_client.test.js` (the claim's region, the book's door), the relay
-version pins (`world136`) and `test/accountworker.test.js` (the schema). `tools/mutants/seat1b.json` (56, all dead); six
+version pins (`world136`) and `test/accountworker.test.js` (the schema). `tools/mutants/seat1b.json` (55, all dead); six
 RENOWN1, AUDIT RENOWN1 and WB5b records re-aimed by content, all dead.
 
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
