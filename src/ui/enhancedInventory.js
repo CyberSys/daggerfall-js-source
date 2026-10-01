@@ -133,6 +133,7 @@ import { overlayAction, eventActions } from './input.js';   // MAC-C: and the RE
 import { audio } from '../systems/audio.js';   // MAC-O6: the pack's own transfer cue - this window carried none at all
 import { dismantleStones, dismantleRefusal, dismantleWare, dismantleAsk, DISMANTLED, DISMANTLE_WORN } from '../systems/sigilBroker.js';   // SS5: a Broker ware back into stones
 import { salvageShards, salvageRefusal, salvagePiece, shardsText } from '../systems/reforge.js';   // LOOT9: a laddered piece broken into Welkynd Shards
+import { createReforgeOverlay } from './reforgeDoor.js';   // LOOT10: the Codex, from the pack
 import { SOUND } from '../systems/soundClips.js';
 
 import { expandRowValues } from '../systems/quest/questMacros.js';   // MACROS1: a used item's record through its own context (%map)
@@ -3224,6 +3225,14 @@ function render() {
     // PACK-PHONE (FIELD BUGS 2026-09-30, "we dont really need paperdoll on phone or at least if it could be hidden"):
     // THE BODY IS A CHOICE ON A PHONE. The sheet hides the figure on a touch phone unless the shell carries `showdoll`,
     // and draws this button there alone; the choice is the player's own shelf, so the pack opens as it was left.
+    // LOOT10 (the Loot arc): THE CODEX, from the pack - every Legendary and Aetheric piece found, and where the rest are
+    // said to be (the Reforge's window, its Codex page alone); before the Body switch, which stands beside Close
+    if (lootRarityOn()) {
+      const codex = el('button', 'act codexbtn', 'Codex');
+      codex.type = 'button';
+      codex.onclick = () => { createReforgeOverlay({ pages: ['codex'], page: 'codex', items: () => deps.items?.() ?? [], payer: () => deps.entity ?? {}, gold: () => 0, reforge: () => ({ ok: false }), salvage: () => ({ ok: false }), nameOf: (it) => itemLongName(it) }); };
+      head.append(codex);
+    }
     const showDoll = getPref('packPhoneDoll') === true;
     if (showDoll) shell.classList.add('showdoll');
     const dollBtn = el('button', 'act dolltoggle', showDoll ? 'Hide body' : 'Body');

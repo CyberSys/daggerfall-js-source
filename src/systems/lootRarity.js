@@ -819,6 +819,19 @@ export const LEGENDARY_POWERS = Object.freeze({
 export const powerOf = (id) => (typeof id === 'string' ? (LEGENDARY_POWERS[id] ?? legendaryById(id)?.power ?? null) : null);
 /** The power's line on a card and a tooltip: its name and its brief. */
 export const powerLine = (p) => (p?.name && p?.brief ? `${p.name}: ${p.brief}` : '');
+/** LOOT10 (bible/06-Systems/Loot-Arc.md section 12): A RARE'S IMPRINT - the power of a Legendary of its own group,
+ *  taken at the Reforge (systems/lootCodex.js imprintPiece; lootPowers.js wornPowers reads it as the Legendary's own).
+ *  Its card's line: "Imprint: Silent Death (of Nightwhisper) - ..."; '' for none. */
+export function imprintLine(item) {
+  if (item?.rarity !== 'rare' || typeof item.imprint !== 'string') return '';
+  const rec = legendaryById(item.imprint);
+  const p = powerOf(item.imprint);
+  return rec && p?.name ? `Imprint: ${p.name} (of ${rec.name})${p.brief ? ` - ${p.brief}` : ''}` : '';
+}
+/** LOOT10: an imprint only as the Reforge makes one - on a Rare, a Legendary record of the piece's own group, with a
+ *  power - or none at all. The wire's cross-check (systems/loot.js validLootItem): a forged one is no item. */
+export const validImprint = (item) => item?.imprint === undefined
+  || (item.rarity === 'rare' && typeof item.imprint === 'string' && legendaryById(item.imprint)?.group === item.group && !!powerOf(item.imprint));
 
 /** DFU-shaped, but not DFU's - the pool is the port's own, so it is
  *  allowed to grow (registerLegendary, below). */
@@ -1252,6 +1265,7 @@ export function rarityLines(item, { sigil = true, set = true, lore = true } = {}
     }
   }
   { const p = item.legendary ? powerOf(item.legendary) : null; if (p) out.push(powerLine(p)); }   // LOOT5: its power, by name and brief
+  { const im = imprintLine(item); if (im) out.push(im); }   // LOOT10: a Rare's imprinted power
   if (sigil) out.push(...setSigilLines(item));   // SIGIL1: what the sigil gives in my hand, and how far it has grown (AUDIT SET U11: a set piece's, asleep in a duel)
   if (set) out.push(...setLines(item));   // SET5: its set - what is worn of it, and its three tiers (a card that draws the set's block asks without)
   const words = !lore ? null : item.legendary ? legendaryById(item.legendary)?.lore : item.aetheric ? (_aethericLore?.(item) ?? null) : null;   // SET6: an Aetheric piece's own; CARD-FIT: the card's list asks without (the Info box says it)

@@ -613,3 +613,48 @@ price, the same kind back and another), the price and the press (refused with no
 letter of credit paying, once reforged only that line), the window (both pages, an unknown piece's card, a press, the
 ask), the guild's fourth row (classic click and key, no hook no row, the Plus face, the host's hook), and the pack
 card's Salvage; `tools/mutants/loot9.json` (52, all dead).
+
+### LOOT10 - the codex, and the imprint (2026-10-01)
+
+**`systems/lootCodex.js`** (new): the character's CODEX - every Legendary record and every Aetheric piece taken, with
+the world's day it was first found (`worldTick.js` `worldMinutes`, a shared realm's clock online). `codexKey` names
+what a piece is to it (a Legendary's record, an Aetheric piece's - never a Rare, never an id the tables do not hold).
+`noteFind` puts a piece in it once: the first find is said on the HUD's line - *"Wyrmbane - a Legendary! It joins your
+codex."* - and heard (the level-up's fanfare, `SOUND.LevelUp`).
+
+**How a find is seen.** A piece taken from a body or a pile is told at the take (LOOT8's seam in `inventory.js`);
+everything else that reaches the pack - a gate's spoils, a town's thanks, the Broker's wares, a trade - is swept up at
+the next magic round (`worldTick.js` `registerMagicRoundHook`: the player's own pack and what it wears). A save that
+carries no codex is handed NewSaveData (modSaveData.js - SaveLoadManager's law), which the codex marks `fill`, so the
+first sweep takes in what the character already carries WITHOUT a word; a new game has its own door and is empty.
+
+**The record**: a mod record (`LootCodex`) - each kind a map of ids the tables hold to whole days; an unknown id, a
+negative day or a fraction is dropped, and junk is none.
+
+**The page.** The Reforge's window gains its third and fourth pages (`ui/reforgeWindow.js`): IMPRINT (below) and CODEX -
+the thirty in the table's order, a found record whole (its lines, its power, its lore, the day), an unfound one by its
+group and where it is said to be (`FAMILY_HINT`, by LOOT6's family - *"Said to be carried by the undead"*), then the
+Aetheric sets piece by piece. The pack opens the Codex alone (`ui/enhancedInventory.js`: a Codex button in its header
+while the row is on - the same window, its one page, no tabs).
+
+**The imprint.** At the Reforge, a Rare (known, not worn, not imprinted already) takes the POWER of a found Legendary of
+its own group (`imprintChoices`) for 20 Welkynd Shards and 5,000 gold (`IMPRINT_PRICE`; `imprintRefusal` - 'off',
+'not', 'unknown', 'worn', 'imprinted', 'unfound', 'shards', 'gold'; `imprintPiece` paid then made, nothing taken when
+refused). It stays Rare (law 3). `imprint`, a declared item field, is the record's id; LOOT5's `wornPowers` already
+read it, so the power works as the Legendary's does (one of each power, whatever carries it). Its card says so
+(`lootRarity.js` `imprintLine`, in `rarityLines`): *"Imprint: Silent Death (of Nightwhisper) - +100% to a foe
+unaware"*. The wire refuses a forged one (`validImprint`, in `loot.js` validLootItem): an imprint only on a Rare, of a
+record of its own group, with a power.
+
+**What moved from the design.** "The Codex window" is the Reforge's window's Codex page - one window, opened from the
+pack anywhere and from the Mages Guild beside the Reforge.
+
+**Along the way.** PACK-PHONE's header pin reads the Codex before Body (Body still beside Close); nine struck-row cites
+moved by hand, the rest by tools/citeShift.mjs.
+
+Pinned: `test/loot10_codex.test.js` (7) - a find (its key, said and heard once, the day, off nothing), how a find is
+seen (the take, the round's sweep of the pack and the table, an old save filled silently and the next find said, the
+game's import), the record (saved, restored, cleaned, junk, a new game), the page (the thirty, a found one whole and an
+unfound one's hint, the sets, the count), the imprint (choices of its group, every refusal with nothing taken, paid,
+once, its card, its power worn), the wire (a forged imprint refused), and both pages in the window with the pack's
+button and the guild's hook; `tools/mutants/loot10.json` (40, all dead).

@@ -14,7 +14,9 @@
 // dress it as they dress his (the classic skin lays the Broker's own sheet, `brokerSkinCss`). Everything the window does
 // to the world is handed in: the pack, the payer, the reforge and the salvage (systems/reforge.js, which the host
 // calls) - this file draws and asks, and never touches a pack.
-import { rarityAttr, affixLine, reforgeableLines, RARITIES, tierLabel } from '../systems/lootRarity.js';
+import { rarityAttr, affixLine, reforgeableLines, RARITIES, tierLabel, imprintLine, powerLine, powerOf, legendaryById } from '../systems/lootRarity.js';
+import { codexRows, codexSets, codexCount, imprintChoices, imprintRefusal, IMPRINT_PRICE } from '../systems/lootCodex.js';   // LOOT10: the codex's page and the imprint's
+import { setById } from '../systems/sigilSets.js';
 import { itemIsIdentified } from '../systems/tradeModes.js';
 import { reforgePrice, reforgeRefusal, salvageShards, salvageRefusal, shardsHeld, shardsText } from '../systems/reforge.js';
 import { inventoryItemImage } from '../systems/itemTemplates.js';
@@ -37,7 +39,13 @@ const el = (tag, cls = null, text = null) => {
 /** The window's words. */
 export const REFORGE_TITLE = 'The Reforge';
 export const REFORGE_SUB = 'Welkynd Shards and gold roll one line again · a piece salvaged breaks into shards';
-export const REFORGE_PAGES = Object.freeze({ reforge: 'Reforge', salvage: 'Salvage' });
+export const REFORGE_PAGES = Object.freeze({ reforge: 'Reforge', salvage: 'Salvage', imprint: 'Imprint', codex: 'Codex' });   // LOOT10: the imprint and the codex
+export const CODEX_TITLE = 'The Codex';
+export const CODEX_SUB = 'Every Legendary and every Aetheric piece you have found - and where the rest are said to be';
+/** LOOT10: the imprint's words. */
+export const IMPRINTED = (name, rec, power) => `Imprinted: ${name} - ${power} (of ${rec}).`;
+export const IMPRINT_NONE = 'Your codex holds no Legendary of its kind yet - find one, and its power may be taken.';
+export const IMPRINT_ONCE = 'A Rare takes one power, once.';
 /** The purse: the shards a press may spend, and the gold. */
 export const reforgePurseText = (shards, gold) => `${shardsText(shards)} · ${Math.max(0, gold | 0)} gold`;
 /** A price, said: "4 Welkynd Shards and 400 gold". */
@@ -46,6 +54,7 @@ export const reforgePriceText = (p) => (p ? `${shardsText(p.shards)} and ${p.gol
 export const REFORGE_REFUSALS = Object.freeze({
   off: 'Loot rarity is off', not: 'Nothing the Reforge can roll', unknown: 'Not yet identified - the guild identifies it first',
   worn: 'Take it off first', line: 'Only the line it was reforged on', shards: 'Not enough Welkynd Shards', gold: 'Not enough gold',
+  imprinted: 'It has taken a power already', unfound: 'Not a power your codex holds for it',
   gone: 'No longer in your pack', aetheric: 'An Aetheric piece is the Broker\'s to dismantle', artifact: 'An artifact will not break',
   quest: 'A quest\'s item will not break', bound: 'Bound - it will not break', locked: 'Locked - unlock it first',
 });
@@ -56,6 +65,7 @@ export function reforgeLabel(why, price, have) {
   if (why === 'gold') return `Need ${price.gold - have.gold} more gold`;
   if (why === 'unknown') return 'Not identified';
   if (why === 'worn') return 'Worn';
+  if (why === 'imprinted') return 'Imprinted';
   return 'Cannot';
 }
 /** The last word of a press. */
@@ -87,8 +97,11 @@ function injectSkinStyle(doc = document) {
  *   reforge: (item: any, line: number) => { ok: boolean, reason?: string|null, line?: any },
  *   salvage: (item: any) => { ok: boolean, reason?: string|null, shards?: number },
  *   picture?: ((item: any) => any) | null, wearer?: any, nameOf?: (item: any) => string, onExit?: (() => void) | null,
- *   page?: 'reforge'|'salvage',
+ *   page?: 'reforge'|'salvage'|'imprint'|'codex', pages?: string[] | null,
+ *   imprint?: ((item: any, recordId: string) => { ok: boolean, reason?: string|null }) | null,
  * }} deps
+ *   LOOT10: `pages` the pages this window shows (the guild's all four; the pack's Codex its one), `imprint` the host's
+ *   imprint (systems/lootCodex.js imprintPiece).
  * @returns {{ repaint: () => void, unmount: () => void }}
  */
 export function mountReforgeWindow(host, deps) {
@@ -97,7 +110,9 @@ export function mountReforgeWindow(host, deps) {
   injectSkinStyle();
   const nameOf = deps.nameOf ?? ((it) => String(it?.name ?? ''));
   const exit = () => deps.onExit?.();
-  let page = deps.page === 'salvage' ? 'salvage' : 'reforge';
+  const pages = (deps.pages ?? Object.keys(REFORGE_PAGES)).filter((id) => REFORGE_PAGES[id]);
+  let page = pages.includes(deps.page ?? '') ? deps.page : pages[0] ?? 'reforge';
+  const codexOnly = pages.length === 1 && pages[0] === 'codex';
   let picked = null;
   let asking = null;
   /** The last press's word, and whether it was done (a refusal is read in the refusal's colour). */
@@ -105,15 +120,15 @@ export function mountReforgeWindow(host, deps) {
   const shell = el('div', 'broker-shell reforge-shell');
   shell.id = 'reforge';
   shell.setAttribute('role', 'dialog');
-  shell.setAttribute('aria-label', REFORGE_TITLE);
+  shell.setAttribute('aria-label', codexOnly ? CODEX_TITLE : REFORGE_TITLE);
   const win = el('div', 'broker-win');
   shell.append(win);
   const head = el('header', 'broker-head');
   const title = el('div', 'broker-title');
-  const sub = el('p', 'broker-sub', REFORGE_SUB);
+  const sub = el('p', 'broker-sub', codexOnly ? CODEX_SUB : REFORGE_SUB);
   const noteLine = el('p', 'broker-note');
   noteLine.setAttribute('aria-live', 'polite');
-  title.append(el('h2', null, REFORGE_TITLE), sub, noteLine);
+  title.append(el('h2', null, codexOnly ? CODEX_TITLE : REFORGE_TITLE), sub, noteLine);
   const purse = el('span', 'broker-purse');
   const close = el('button', 'act broker-close', 'Close');
   close.setAttribute('type', 'button');
@@ -122,8 +137,9 @@ export function mountReforgeWindow(host, deps) {
   const tabs = el('nav', 'reforge-tabs');
   tabs.setAttribute('role', 'tablist');
   const tabOf = {};
-  for (const [id, word] of Object.entries(REFORGE_PAGES)) {
-    const t = el('button', 'act reforge-tab', word);
+  if (pages.length < 2) tabs.setAttribute('hidden', '');
+  for (const id of pages) {
+    const t = el('button', 'act reforge-tab', REFORGE_PAGES[id]);
     t.setAttribute('type', 'button');
     t.setAttribute('role', 'tab');
     t.dataset.page = id;
@@ -170,6 +186,8 @@ export function mountReforgeWindow(host, deps) {
     for (const c of [...list.children]) c.remove();
     card?.remove();
     card = null;
+    if (page === 'codex') { renderCodex(); return; }   // LOOT10
+    if (page === 'imprint') { renderImprint(items, payer, have, picture); return; }
     const rows = page === 'reforge'
       ? items.filter((it) => reforgePrice(it) && reforgeableLines(it).length)
       : items.filter((it) => salvageShards(it) > 0 && !['aetheric', 'artifact', 'quest', 'off'].includes(salvageRefusal(it) ?? ''));
@@ -257,6 +275,96 @@ export function mountReforgeWindow(host, deps) {
     else if (price) card.append(el('p', 'boundline', `A reforge costs ${reforgePriceText(price)}. Once a line is reforged, only it may be again.`));
     body.append(card);
   };
+  /** LOOT10: THE CODEX - the thirty, found and not, then the Aetheric sets; a row pressed shows it whole. */
+  let pickedRec = null;
+  const head2 = (text) => { const h = el('li', 'broker-insignia-head codex-head', text); h.setAttribute('role', 'presentation'); return h; };
+  function renderCodex() {
+    const n = codexCount();
+    purse.textContent = `${n.legendary} of ${n.legendaries} Legendaries · ${n.aetheric} of ${n.aetherics} Aetheric`;
+    list.append(head2(`Legendaries - ${n.legendary} of ${n.legendaries} found`));
+    const rows = codexRows();
+    for (const r of rows) {
+      const row = el('li', `broker-offer codex-row${r.found ? ' found' : ''}${pickedRec === r.id ? ' on' : ''}`);
+      row.dataset.record = r.id;
+      if (r.found) row.dataset.rarity = 'legendary';
+      const text = el('div', 'broker-offer-body');
+      text.append(el('span', 'broker-name', r.found ? r.name : 'Unfound'), el('span', 'broker-set', r.found ? `${r.group} · found on day ${r.day}` : `${r.group} · ${r.hint}`));
+      row.append(text);
+      pressable(row, () => { pickedRec = r.id; render(); });
+      list.append(row);
+    }
+    for (const s of codexSets()) {
+      const got = s.pieces.filter((p) => p.found).length;
+      list.append(head2(`${setById(s.set)?.name ?? s.set} - ${got} of ${s.pieces.length}`));
+      const row = el('li', 'broker-offer codex-set');
+      row.dataset.set = s.set;
+      const text = el('div', 'broker-offer-body');
+      text.append(el('span', 'broker-set', s.pieces.map((p) => (p.found ? p.name : '?')).join(' · ')));
+      row.append(text);
+      list.append(row);
+    }
+    const r = rows.find((x) => x.id === pickedRec);
+    if (!r) return;
+    card = el('div', 'card broker-card codex-card');
+    if (r.found) card.dataset.rarity = 'legendary';
+    card.append(el('h3', null, r.found ? r.name : 'Unfound'));
+    const ul = el('ul', 'rarity');
+    ul.append(el('li', null, `Legendary · ${r.group}`));
+    if (r.found) {
+      const rec = legendaryById(r.id);
+      for (const a of rec?.affixes ?? []) { const line = affixLine({ rarity: 'legendary', affixes: [a] }, 0); if (line) ul.append(el('li', null, line)); }
+      if (r.power) ul.append(el('li', null, powerLine(r.power)));
+      if (r.lore) ul.append(el('li', null, r.lore));
+      ul.append(el('li', null, `First found on day ${r.day}`));
+    } else ul.append(el('li', null, 'Not yet found'));
+    card.append(ul, el('p', 'boundline', r.hint));
+    body.append(card);
+  }
+  /** LOOT10: THE IMPRINT - a Rare of the pack takes the power of a found Legendary of its group. */
+  function renderImprint(items, payer, have, picture) {
+    const rows = items.filter((it) => it?.rarity === 'rare');
+    if (!rows.includes(picked)) picked = rows[0] ?? null;
+    if (!rows.length) list.append(head2('Nothing in your pack to imprint - a Rare piece takes a Legendary\'s power.'));
+    for (const it of rows) {
+      const row = el('li', `broker-offer${it === picked ? ' on' : ''}`);
+      row.dataset.rarity = 'rare';
+      const text = el('div', 'broker-offer-body');
+      text.append(el('span', 'broker-name', nameOf(it)), el('span', 'broker-set', imprintLine(it) ? 'Imprinted' : tierLabel(it)));
+      row.append(frameOf(it, picture), text, el('span', 'broker-price', reforgePriceText(IMPRINT_PRICE)));
+      pressable(row, () => { picked = it; render(); });
+      list.append(row);
+    }
+    if (!picked) return;
+    const it = picked;
+    card = el('div', 'card broker-card imprint-card');
+    card.dataset.rarity = 'rare';
+    card.append(el('h3', null, nameOf(it)));
+    const now = imprintLine(it);
+    if (now) { card.append(el('p', null, now), el('p', 'boundline', IMPRINT_ONCE)); body.append(card); return; }
+    const choices = imprintChoices(it);
+    const ul = el('ul', 'rarity');
+    if (!choices.length) ul.append(el('li', null, IMPRINT_NONE));
+    for (const rec of choices) {
+      const p = powerOf(rec.id);
+      const li = el('li', 'imprint-choice', `${p?.name ?? ''} (of ${rec.name})${p?.brief ? ` - ${p.brief}` : ''}`);
+      li.dataset.record = rec.id;
+      const why = imprintRefusal(it, rec.id, payer);
+      const btn = el('button', 'act broker-buy imprint-press', reforgeLabel(why, IMPRINT_PRICE, have));
+      btn.setAttribute('type', 'button');
+      if (why) { btn.setAttribute('disabled', ''); btn.setAttribute('title', REFORGE_REFUSALS[why] ?? ''); }
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        if (why) return;
+        const done = deps.imprint?.(it, rec.id) ?? { ok: false, reason: 'not' };
+        if (done.ok) say(true, IMPRINTED(nameOf(it), rec.name, p?.name ?? '')); else say(false, REFORGE_REFUSALS[done.reason ?? ''] ?? 'The Reforge will not take that.');
+        render();
+      };
+      li.append(btn);
+      ul.append(li);
+    }
+    card.append(ul, el('p', 'boundline', `An imprint costs ${reforgePriceText(IMPRINT_PRICE)}. ${IMPRINT_ONCE}`));
+    body.append(card);
+  }
   render();
   host.append(shell);
   const onKey = (e) => {
