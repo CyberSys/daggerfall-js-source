@@ -60,7 +60,11 @@ export function roomSigner(env, now = () => Date.now()) {
   // minted `nowS - 1` and then `(nowS + 1) - 2` - the same instant, the
   // same claims, the same Ed25519 bytes, and the room refused the
   // second as a replay. So each identity's `i` is kept and only ever
-  // goes DOWN, and it jumps forward to follow a clock that has moved.
+  // goes DOWN - a token minted again a moment later is a moment OLDER,
+  // which pins lean on (GUILD1c: "a token minted a moment before the
+  // removal") - and only when that walk would leave MAX_TTL_S behind a
+  // clock that has moved does it start again from the clock, at the
+  // newest second it has not signed (FRIENDS-SYNC, below).
   const lastI = new Map();
   const signer = async () => {
     if (!signing) {
@@ -77,8 +81,10 @@ export function roomSigner(env, now = () => Date.now()) {
    *  BYTES TWICE - the room spends a signature once (ACC1d F8) and
    *  Ed25519 is deterministic, so the same claims signed twice would be
    *  refused as a replay. The issued-at walks one second further into
-   *  the past per mint, which stays inside MAX_TTL_S; past that the
-   *  harness says so out loud rather than failing as something else. */
+   *  the past per mint, which stays inside MAX_TTL_S; a clock that has
+   *  moved far enough starts it again from the clock, and only past
+   *  that the harness says so out loud rather than failing as
+   *  something else. */
   const token = async (id, who = {}) => {
     const kp = await signer();
     const claims = { s: who.s ?? `acct-${id}`, n: who.n ?? String(id), k: who.k ?? 'guest' };
@@ -94,10 +100,16 @@ export function roomSigner(env, now = () => Date.now()) {
     if (who.rc !== undefined) claims.rc = who.rc;   // REALM-DOOR: whether the service found the named character the realm's
     const key = `${claims.s}|${claims.n}|${claims.k}|${claims.t ?? ''}|${(claims.g ?? []).join('+')}|${claims.mu ?? ''}|${claims.lv ?? ''}|${claims.gi ?? ''}|${claims.gm ?? ''}|${claims.rc ?? ''}`;
     const nowS = Math.floor(now() / 1000);
-    const prev = lastI.get(key);
+    const kept = lastI.get(key) ?? { last: undefined, used: new Set() };
     let i = nowS - 1;
-    if (prev !== undefined && i >= prev) i = prev - 1;
-    lastI.set(key, i);
+    if (kept.last !== undefined && i >= kept.last) i = kept.last - 1;
+    // FRIENDS-SYNC (FIELD BUGS 2026-10-01 part five): a social hello's token now names the hub account itself
+    // (`s: over.acct`), so one account's hellos either side of a PARTY_OFFLINE_MS wait walked out of MAX_TTL_S here.
+    // The walk down stands while it fits; past the window it starts again from the clock, never on a second it signed.
+    if (i <= nowS - MAX_TTL_S) i = nowS - 1;
+    while (kept.used.has(i)) i--;
+    kept.last = i; kept.used.add(i);
+    lastI.set(key, kept);
     if (i <= nowS - MAX_TTL_S) throw new Error(`roomSigner: ${key} has run out of issued-at room inside MAX_TTL_S - this harness has minted for one identity too many times on one clock`);
     return mintToken(claims, kp.privateKey, { subtle: globalThis.crypto.subtle, nowS: i });
   };
@@ -165,7 +177,7 @@ export function fakeRoom(key, { now = () => Date.now(), ROOMS = null } = {}) {
     // never laid on the frame - the relay ignores what a client says
     // about its own badge, and a harness that could set one on the
     // frame would be testing the wrong half forever.
-    const tok = 'tok' in over ? over.tok : await token(id, { s: over.tokenSub, n: over.name ?? String(id), t: over.title, g: over.glyphs, mu: over.mu, lv: over.lv, gi: over.gi, gt: over.gt, gm: over.gm, rc: over.rc });   // AUDIT HCC-PARK: `tokenSub` names the verified account the token carries (default acct-<id>; never a frame field - a social hello's own `acct` is the hub's) - one player in a second tab is one account under two ids
+    const tok = 'tok' in over ? over.tok : await token(id, { s: over.tokenSub ?? over.acct, n: over.name ?? String(id), t: over.title, g: over.glyphs, mu: over.mu, lv: over.lv, gi: over.gi, gt: over.gt, gm: over.gm, rc: over.rc });   // AUDIT HCC-PARK: `tokenSub` names the verified account the token carries (default acct-<id>; never a frame field - a social hello's own `acct` is the hub's) - one player in a second tab is one account under two ids
     const frame = { t: 'hello', id, secret: 'secret-of-' + id, name: id, look, pose, ...over };
     delete frame.title; delete frame.glyphs; delete frame.mu; delete frame.lv; delete frame.tokenSub; delete frame.gi; delete frame.gt; delete frame.gm; delete frame.rc;   // ACC3/MOD1/RENOWN1/GUILD1c/REALM-DOOR: they went into the token above; the wire has no such hello field
     if (tok == null) delete frame.tok; else frame.tok = tok;

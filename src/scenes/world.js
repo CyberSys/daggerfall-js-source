@@ -3092,7 +3092,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  streamer is behind. A horse at the shipped default limit of sixty
    *  covers ~65 units in a 10 fps frame and ~120 at the mod's ceiling of
    *  a hundred - past a 64-unit probe, off the built world, and once the
-   *  motor is airborne `airControl` is false (motor.js:2951) so zeroing
+   *  motor is airborne `airControl` is false (motor.js:2956) so zeroing
    *  the drive on the NEXT frame no longer steers: the fall is already
    *  paid for. `travelLookahead` measures the frame that is about to
    *  run instead, and keeps 64 as its floor. */
@@ -9369,7 +9369,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   // the last canceller's, and a reload of my own tab (the mark back at zero) let a follower's old request end
   // my next rest on its first tick. The baseline is the snapshot markPartyRestSpent takes as my rest begins.
   const checkCanceledByFollower = () => {
-    const me = accountId();
+    const me = social?.acct;   // FRIENDS-SYNC: the id the hub seats me by (a member's restCancelFor names it), not this profile's
+    if (!me) return false;   // no picture yet: nobody can be asking ME (a null would match every pose's null restCancelFor)
     // AUDIT PARTY8: the name test first - this runs every tick of a rest, and the nearness scan walks every peer in the room per member
     const asking = social ? social.others().filter((m) => m.p?.restCancelFor === me && memberPresent(m) && nearAccount(m.acct, m.p)) : [];
     return !!cancelRequestFor(asking, me, _cancelSeen);
@@ -10958,7 +10959,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7780), so exterior mode and a
+    // composer, dungeonContext.js:7781), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -15960,7 +15961,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (!_noAccountSaid) { _noAccountSaid = true; chatLog.push(tab.id, { text: NO_ACCOUNT_TEXT, system: true }); }
       return;
     }
-    social = new SocialState({ acct: link.acct });
+    social = new SocialState({ acct: [storedSession(appStorage())?.id, link.acct].filter(Boolean) });   // FRIENDS-SYNC: the hub keys the picture by the signed-in player (the token's subject), the profile id before it
     link.onSocial = (f) => { social.apply(f); };
     link.onParty = (acct, p) => {
       social.applyParty(acct, p);

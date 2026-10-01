@@ -1183,7 +1183,7 @@ export class Room {
         // AUDIT SOC A7: a replaced socket loses its id BEFORE it closes, so its `_leave` says nothing - which is right for
         // the room (the id lives on) and wrong for its ACCOUNT when the replacing hello names another or none: no
         // last-seen, no presence, no `away` stamp, a seat that could never lapse. Its account leaves here.
-        if (isSocialRoom(a.key) && b.acct && b.acct !== m.acct) { try { await this._leaveAccount(other, b, now); } catch (e) { console.warn('[hub] replaced leave failed', e?.message ?? e); } }
+        if (isSocialRoom(a.key) && b.acct && b.acct !== (m.acct ? (who.subject || m.acct) : null)) { try { await this._leaveAccount(other, b, now); } catch (e) { console.warn('[hub] replaced leave failed', e?.message ?? e); } }
       }
       // AUDIT WB A1: ONE SEAT AN ACCOUNT in a gate's court. The fight is the account's (net/gateBrain.js - its players by
       // account, the newest socket speaking for it), so a second socket is never a second fighter, only a seat the court
@@ -3081,9 +3081,18 @@ export class Room {
    *  socket; then the friends and the party told - on EVERY hello, a second tab's too, since the peer ids my tabs
    *  stand as are what a friend's client marks me by in the world. */
   async _helloAccount(ws, m, now) {
-    const held = await this.state.storage.get(acctSecretKey(m.acct));
-    if (held && held !== m.asecret) { this._sayError(ws, 'account taken'); return; }
-    if (!held) await this.state.storage.put(acctSecretKey(m.acct), m.asecret);
+    // FRIENDS-SYNC (field bug: "My friend list is different between devices"): THE SOCIAL ACCOUNT IS THE VERIFIED
+    // PLAYER - the token's subject, the same on every device signed in to it - never the browser profile's id
+    // (net/social.js accountId, minted per appStorage), which made a laptop and a desktop two hub accounts with two
+    // lists, and two players sharing one browser profile one account with one list. The profile pair is now a LEGACY
+    // credential alone: proved by its secret, its list is merged into the player's once and the old record retired
+    // (the merge ACC1b said belongs here, the one place that holds both credentials at once).
+    const me = this._attach(ws).sub || m.acct;
+    if (me === m.acct) {   // no verified subject (a build before ACC1g's wall): the profile's own law, as it was
+      const held = await this.state.storage.get(acctSecretKey(m.acct));
+      if (held && held !== m.asecret) { this._sayError(ws, 'account taken'); return; }
+      if (!held) await this.state.storage.put(acctSecretKey(m.acct), m.asecret);
+    } else await this._mergeLegacy(me, m, this._attach(ws).name, now);
     if (!this._alarmArmed) {   // AUDIT SOC A3: the room is marked a hub (its alarm is the sweep's, whoever is in it) and the sweep armed - once per instance life, and never over an alarm already set
       this._alarmArmed = true;
       await this.state.storage.put('hub', 1);
@@ -3096,19 +3105,50 @@ export class Room {
     // the frame asked for - `_named` has already run and `a.name` is
     // its answer. A durable record keyed on an unchecked claim is the
     // shape this slice exists to close.
-    let rec = { ...((await this._acct(m.acct)) ?? newAcct(a.name, now)), name: a.name, seen: now };
+    let rec = { ...((await this._acct(me)) ?? newAcct(a.name, now)), name: a.name, seen: now };
     let party = null;
     if (rec.party) {
       party = await this._livingParty(rec.party, now);
-      if (!party || !party.members.includes(m.acct)) { rec.party = null; party = null; }
-      else if (party.away?.[m.acct] != null) { const away = { ...party.away }; delete away[m.acct]; party = { ...party, away }; await this._putParty(party); }
+      if (!party || !party.members.includes(me)) { rec.party = null; party = null; }
+      else if (party.away?.[me] != null) { const away = { ...party.away }; delete away[me]; party = { ...party, away }; await this._putParty(party); }
     }
-    await this._putAcct(m.acct, rec);
+    await this._putAcct(me, rec);
     a = this._attach(ws);
-    if (a.id !== m.id || !this._setAttach(ws, { ...a, acct: m.acct, party: rec.party })) return;
-    await this._sayState(m.acct, rec, now, ws);
-    this._sayPresence(m.acct, rec, now);
+    if (a.id !== m.id || !this._setAttach(ws, { ...a, acct: me, party: rec.party })) return;
+    await this._sayState(me, rec, now, ws);
+    this._sayPresence(me, rec, now);
     if (party) await this._sayParty(party, now);
+  }
+  /** FRIENDS-SYNC: a profile account's list brought into the player's - once, proved by the profile's secret, by the
+   *  first player to say hello with it after this deploy. A UNION: every friend and request either side held (the
+   *  bounds kept, a request both ways already a friend dropped), every record naming the old id renamed to the
+   *  player's, the old record and secret retired. Its party seat is not carried: it lapses as any seat whose tabs went
+   *  (PARTY_OFFLINE_MS). */
+  async _mergeLegacy(me, m, name, now) {
+    const old = m.acct;
+    const held = await this.state.storage.get(acctSecretKey(old));
+    if (!held || held !== m.asecret) return;   // never minted here, or not this device's to bring
+    const legacy = await this._acct(old);
+    const swap = (id) => (id === old ? me : id);
+    const ids = (l, drop) => [...new Set((l ?? []).map(swap))].filter((id) => id !== drop);
+    const rows = (l, drop, cap) => { const seen = new Set(); const out = []; for (const e of l ?? []) { const id = swap(e?.acct); if (id === drop || seen.has(id)) continue; seen.add(id); out.push({ ...e, acct: id }); } return out.slice(-cap); };
+    const puts = {};
+    if (legacy) {
+      const mine = (await this._acct(me)) ?? newAcct(name, now);
+      const friends = ids([...mine.friends, ...legacy.friends], me).slice(0, FRIENDS_MAX);
+      const fr = new Set(friends);
+      puts[me] = { ...mine, friends,
+        in: rows([...mine.in, ...legacy.in], me, PENDING_MAX).filter((e) => !fr.has(e.acct)),
+        out: rows([...mine.out, ...legacy.out], me, PENDING_MAX).filter((e) => !fr.has(e.acct)) };
+      // every record that names the old id names the player now (a friend of both is one friend)
+      const named = await this._accts([...legacy.friends, ...legacy.in.map((e) => e.acct), ...legacy.out.map((e) => e.acct)]);
+      for (const [id, r] of named) if (id !== me) { const f = ids(r.friends, id), rf = new Set(f); puts[id] = { ...r, friends: f, in: rows(r.in, id, PENDING_MAX).filter((e) => !rf.has(e.acct)), out: rows(r.out, id, PENDING_MAX).filter((e) => !rf.has(e.acct)) }; }
+      const all = Object.entries(puts);
+      for (let i = 0; i < all.length; i += 128) await this._putAccts(Object.fromEntries(all.slice(i, i + 128)));   // SLAM5's wall: 1 + 64 friends + 2 x 32 requests is 129 records
+    }
+    this._recs.set(old, null);
+    await this.state.storage.delete([acctKey(old), acctSecretKey(old)]);
+    for (const [id, r] of Object.entries(puts)) if (id !== me) await this._sayState(id, r, now);   // the others' pictures name the player now (no socket, no frame)
   }
   /** The account behind a closing socket: last seen stamped when its last tab went, the friends and the party told (a
    *  seat is kept `away` for PARTY_OFFLINE_MS - a refresh brings it straight back). */

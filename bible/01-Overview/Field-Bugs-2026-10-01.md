@@ -1063,11 +1063,11 @@ already fixed on main.
 |---|---|---|---|---|
 | 1 | "Big Regen Spell doesnt do anything" - GOD MODE: Area at Range, Magic Based, Regenerate and Fortify Attribute (Strength) | Opaldes | part four's #3, the same screenshot: fixed there (AREA-SELF, AREA-CASTER - PR #509, on main) | answered |
 | 2 | "'Cast when used' items don't work in dungeons" - "I enchanted a bracer to cast Ice Storm when used, it works fine in the overworld, but as soon as I enter a dungeon, the spell doesn't activate"; "only a fireball enchantment on the scarab"; "they work in other interiors like shops and guilds" | Skibbster; kurkku | the session's one enchant ctx readied an item's spell on the host's engine, which fires above ground and indoors only; underground the dungeon context builds and drives its own. The click swung the weapon, the item still wore, and the spell sat stranded until the first click back outside | fixed (CAST-USE) |
-| 3 | "My friend list is different between devices. On my laptop and desktop." | Shanewerewolf5 | see FRIENDS-SYNC below | - |
+| 3 | "My friend list is different between devices. On my laptop and desktop." | Shanewerewolf5 | the hub keyed every social record by the BROWSER PROFILE's id (`net/social.js` accountId, minted once per app storage), never the signed-in player: a laptop and a desktop were two hub accounts with two lists, and two players on one browser one account with one list - the merge ACC1b said belonged at the hub, recorded as not built | asked, built (FRIENDS-SYNC) |
 | 4 | "MASSIVE buggy mountain at 823, 399" | maya | see WOD-ROCK below | - |
 | 5 | "When the Slowfall effect is active, falls drift to the side and catch on the wall, getting the player stuck before they touch the ground"; "then your speed weirdly accumulates and you pummel to ground HARD" | DoubleDutchess; Skeptikali | three things around the spell never heard of it: the classic climb's slip integrated plain gravity and billed the whole slip; the classic airborne grasp fired all the way down a fall five times as long; the frozen liftoff momentum kept pressing into whatever face the glide reached, and past the slope limit the collider's push-out lifted the body more than the spell lowered it | fixed (SLOW-SLIP, SLOW-GRASP, SLOW-PRESS) |
 | 6 | "Holding the right-mouse button to rotate the 3D map only works on one axis (X or Y) at a time. The rotation should work for both vertical and horizontal simultaneously." | lumin | TURN-STEADY (Mac: "its a bit hard to control") let a drag's first 8 px pick turn-only, tilt-only or both for the WHOLE drag | asked, built (ORBIT-FREE) |
-| 7 | "I left the Oblivion Gate with 6% health and logging in chunks my heath back down to 6% from full"; "IIRC I saved right after leaving the oblivion gate w/ 6% health" | Leafen | see below | - |
+| 7 | "I left the Oblivion Gate with 6% health and logging in chunks my heath back down to 6% from full"; "IIRC I saved right after leaving the oblivion gate w/ 6% health" | Leafen | did not reproduce: nothing the Gate keeps holds a vital, and no wire, ledger or effect writes the player's own health back; an exact old health returns only through the save a login loads - see GATE-HP below for what can leave a heal out of it, and the questions | asked (Leafen, through Mac) |
 | 8 | "Menu scrollbars change the custom cursor back to the default cursor when hovered over" - "This also happens when you move your cursor far enough to the right of the screen." | Skibbster | two Chromium laws: a native scrollbar always shows the platform arrow, and `scrollbar-color` (inherited) made every menu's scrollbar native; a custom cursor over 32 DIP a side is dropped for the arrow wherever it would not lie wholly in the viewport, and the gauntlet was 31x34 | fixed (CURSOR-EDGE) |
 
 ## CAST-USE: an item's spell is readied on the engine that fires it (2)
@@ -1139,3 +1139,63 @@ selector(::-webkit-scrollbar)` (Firefox), the pack card's thin bar the same; the
 the hand dropped, 2x the exact double), the pad's drawn box with it (`ui/gamepadInput.js`); the classic arrow cropped
 to what it draws and scaled only as far as 32 DIP allows (`ui/cursor.js`). Menus' scrollbars in Chromium are now the
 10 px stone slider the skin always meant. `test/fb1001_cursoredge.test.js`.
+
+## FRIENDS-SYNC: a friend is a player, on every device (3; asked)
+
+**Reproduced first** (the real Room over `test/fakeRoom.mjs`): one player - one token subject - friended Bob from a
+laptop's profile; from a desktop's the picture came back `acct: 'aDesktop001'`, `friends: []`, and the hub held three
+records. A second player signed in on the laptop's profile saw the first's Bob. The client keeps no copy of the list
+(no stale cache): the hub's `acct:<id>` and `asecret:<id>` were keyed by the hello's `acct`, the profile's id
+(`scenes/world.js` hands the hub's link `accountId()`), while the verified subject sat on the same socket's attachment
+(`sub`) and ONE-SEAT already seated by it. `06-Systems/Accounts-And-Cloud-Saves-Arc.md` had named the fix ("THE MERGE
+BELONGS AT THE HUB") and recorded it as a later slice.
+
+**Asked** - a relay deploy and a migration of the hub's own storage. Mac: *"Build it"*. **Built** (`server/src/index.js`
+`_helloAccount`, `_mergeLegacy`): the hub's account IS the token's subject. The profile pair is a legacy credential: on
+a device's first hello after the deploy, proved by its secret, the profile's record is merged into the player's - a
+UNION of friends and requests, the bounds kept, a request already a friend dropped - every friend's and requester's
+record renamed from the profile's id to the player's (a friend of both is one friend), and the profile's record and
+secret retired; the friends online are sent their picture again. A party seat under the old id is not carried; it
+lapses as any seat whose tabs went (PARTY_OFFLINE_MS). The client accepts its picture under the signed-in player's id
+or the profile's, from a relay before this (`net/social.js` AUDIT SOC B19), and a follower's cancel of a shared rest
+reads the id the hub seats me by (`social.acct`), not the profile's. **world142**; no frame changes shape, no account
+service change. Ship the client with the relay: a page loaded before it refuses the new picture until it reloads (the
+relay-version notice tells it to).
+
+The older hub pins modelled one account as several tabs of several subjects; under ONE-SEAT one subject holds one hub
+tab, and a second is a claim that closes the first. Rewritten, each saying so: `soc1_hub` (the thief its own account;
+a second tab a claim; two-device presence and the party pose by claims; a new pin - the picture is the claiming
+socket's alone, a closed tab the runtime still lists never tried), `auditsoc` A10/B9 (ACCOUNT_TABS_MAX over a burst of
+claims), `chatchan` (the party line by claims; the room's party budget over three full parties), and the source pins
+in `auditsoc` B5/B18/B10 and `soc3_socialpanel`. The harness signs a social hello's token for its account
+(`fakeRoom.mjs`), and its issued-at walk restarts from the clock past MAX_TTL_S. Mutant records re-aimed by content:
+`auditsoc.json` A7-replaced-socket-never-leaves, `soc1.json` S11-state-to-every-tab, and `soc1.json`
+S38-version-not-bumped (it still said world140 - missed at world141's bump - now world142); 157 dead, 2 equivalent as
+recorded. `test/fb1001_friendsync.test.js`.
+
+**Main's red, ported.** `test/herald.test.js` still pinned world140 (CLIMB5's bump missed it), and five relay pins did
+not parse (the bump's message carried an unescaped quote); 22 line cites into world.js, exterior.js, worldModes.js,
+dungeon.js and dungeonContext.js stood where #504's merge moved the code from - struck Ledger rows, the Settings
+spec's viewport row and chargenSession's overlayHover cite (citedrift CD4, CD8) - re-aimed by content.
+
+## GATE-HP: the report did not reproduce (7)
+
+**Traced** on the real modules, every candidate: the Gate keeps no snapshot of a vital (its only device keys are
+`wb5.gateClaims` and `wb5.spoils`, and no gate module lays an effect on the player); a court blow lands only while the
+court's `feet()` stands (null outside it); GATE-HEAL (#507) adds to a figure owed the relay, after the heal has landed;
+the relay's damage chart and heal bucket are figures, and no frame writes the local player's health (the duel
+opponent's alone); the account service lands a checkpoint only under the tab's lease at the next sequence and restores
+no older copy, and RESCUE-SAVE's device copy loses to any newer record (`test/rescuesave.test.js`); the renown layer
+keeps health's fraction both ways. An EXACT old health returns only through `restorePlayer` (`systems/save.js`) from the
+save the login loads, so if the 6% is the gate's, that save never held the heal. What can leave a heal out of it, none
+confirmed as Leafen's: a page closed rather than Exited, then a login elsewhere (the final checkpoint usually lands
+after the lease is let go - `test/rescuesave.test.js` pins that the device keeps it); a tab that lost its seat
+(ONE-SEAT) plays on and saves nothing; a save past 512K characters on a full device's hidden page; a composer that
+throws on every checkpoint (`[online] checkpoint failed` on the console). And "in chunks from full" argues against a
+stale save - the HUD's first frame is drawn after the boot's load, so a load at 6% shows 6% at once. The two floors near
+6% - the lycanthrope's urge (`NEED_TO_KILL_HEALTH_LIMIT_MINIMUM`, 4) and the survival harms' last points (`HEALTH_FLOOR`,
+5) - were walked through a login and did not take a full bar down.
+
+**Asked**, for Leafen through Mac: one device or several (a browser, the desktop app, a guest)? Was "Online in another
+tab or device" or "Your last save had not reached the realm" said? At the login, does the bar start at 6%, or at 100%
+and fall? A werewolf or wereboar? Any `[online] checkpoint failed` on the console? No code changed.

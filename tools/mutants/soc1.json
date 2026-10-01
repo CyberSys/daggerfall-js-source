@@ -92,8 +92,8 @@
   {
     "name": "S11-state-to-every-tab",
     "file": "server/src/index.js",
-    "old": "await this._sayState(m.acct, rec, now, ws);\n    this._sayPresence(m.acct, rec, now);",
-    "new": "await this._sayState(m.acct, rec, now);\n    this._sayPresence(m.acct, rec, now);",
+    "old": "await this._sayState(me, rec, now, ws);\n    this._sayPresence(me, rec, now);",
+    "new": "await this._sayState(me, rec, now);\n    this._sayPresence(me, rec, now);",
     "tests": [
       "test/soc1_hub.test.js"
     ]
@@ -338,12 +338,12 @@
   {
     "name": "S38-version-not-bumped",
     "file": "src/net/wire.js",
-    "old": "export const RELAY_VERSION = 'world140';",
+    "old": "export const RELAY_VERSION = 'world142';",
     "new": "export const RELAY_VERSION = 'world131';",
     "tests": [
       "test/soc1_hub.test.js",
       "test/relayversion.test.js"
     ],
-    "note": "HERALD (PIN MOVED): world138."
+    "note": "HERALD (PIN MOVED): world138. FRIENDS-SYNC (re-aimed by content): world141 - CLIMB5/CLIMB6 moved it on without this record; then world142, FRIENDS-SYNC's own."
   }
 ]
