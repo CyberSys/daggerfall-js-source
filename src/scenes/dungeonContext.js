@@ -239,8 +239,8 @@ import { raiseEnemyDeath, playRareDrop, pileBody } from './corpseMarker.js';   /
 import { FOE_LEVEL_MAX, CELL_LOOSE_PUPPETS } from '../net/wire.js';   // AUDIT RENOWN1 GAME-3: the stream's bound on a class foe's level; SUMMON-SYNC: an owner's loose stands a reader stands, the cell's allowance
 import { partyFoeLoses, partyFoeHits, partyFoeHeals, noteFighter, foeFighters, takeWholeBlow, PARTY_ME } from '../systems/partyScale.js';   // PSCALE1: a shared foe weighs whoever fights it
 import { renownFoeStruck, renownFoeDied, renownFoeCarry, renownFoeRevived } from '../net/renownTracker.js';   // RENOWN1: a foe the player fought pays its Renown XP when it dies, by any hand   // AUDIT RENOWN1 GAME-10: a rebuilt foe keeps my blows, a revived one forgets them
-import { reportPlayerKill } from '../systems/playerKills.js';
-import { sparedByPlayer } from '../combat/friendlyFire.js';   // AUDIT CC-B6: the thrown torch's pass   // SET2: my own kills, told
+import { reportPlayerKill } from '../systems/playerKills.js';   // SET2: my own kills, told
+import { sparedByPlayer } from '../combat/friendlyFire.js';   // AUDIT CC-B6: the thrown torch's pass
 /** AUDIT SET P-M3: a kill the host's record names me for - its kind, as the exterior owner's `slain` word says it. */
 const REMOTE_KILL = Object.freeze({ kind: 'remote' });
 /** WB8b: a gate Warden's frost, lightning and venom, heard as they land on me - each element's own cast
@@ -277,7 +277,7 @@ const q3 = (v) => Math.round(v * 1000) / 1000; const GENDER_BIT = ['male', 'fema
 const HIT_POS_MAX = 1e6;
 // AUDIT FOES FOE5: the most damage one peer's blow may claim. The host TRUSTS the number (it never recomputes - the
 // striker's own calc is the game's), so without a bound any joiner could one-shot every foe in the room and empty it
-// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2370); the dungeon
+// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2416); the dungeon
 // had none. Past anything a legal swing, shaft or blast can roll.
 const HIT_DMG_MAX = 10000;
 /** REST-SYNC: a joiner's ask is answered - or given up on - inside this long: its rest breaks once, at the next hour. */
@@ -1094,7 +1094,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // the cross-pool damage door another enemy's blow lands through.
     // `fromPlayer: false` - a monster's blow is not the player's
     // (DaggerfallEntityBehaviour.cs:203).
-    rec.hurtFromFoe = (dmg, dir) => damageFoe(rec, dmg, null, dir ?? null, { fromPlayer: false });
+    rec.hurtFromFoe = (dmg, dir, striker = null) => damageFoe(rec, dmg, null, dir ?? null, { fromPlayer: false, striker });   // AUDIT CC-E1: and whose blow
     // A5 - SetupDemoEnemy.cs:191-195: "Add special behaviour for Daedra
     // Seducer mobiles", gated on the mobile ID and nothing else. The
     // component is added at SETUP, so every seducer carries its
@@ -1910,7 +1910,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:14612 / exterior.js:3757), set
+  // host's own townTalk sink (world.js:14613 / exterior.js:3757), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -3788,7 +3788,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:24268,
+              // playerArrowHitFoe is the one copy world.js:24269,
               // exterior.js:5372 and worldModes.js:8497 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
@@ -3861,7 +3861,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               applyDamageToNonPlayer(m.shooterFoe, af, {
                 weapon: m.weapon, direction: m.dir, bowAttack: true, rolls: Math.random,
                 calculateAttackDamage: foeDeps.calculateAttackDamage,
-                dealDamage: (tt, d) => tt.hurtFromFoe?.(d, m.dir),
+                dealDamage: (tt, d) => tt.hurtFromFoe?.(d, m.dir, m.shooterFoe ?? null),
                 audio, hitEffects,
                 // AUDIT 58: FormulaHelper.cs:691-696 has NO player gate -
                 // a poisoned foe blade doses the foe it strikes, on DFU's
@@ -4284,14 +4284,15 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     let whole = full || !!heirOf;
     if (out.length > CELL_FRAME_RECORDS_MAX) { for (const [f] of src.slice(CELL_FRAME_RECORDS_MAX)) { f._sentKey = null; f._heir = null; f._maxSent = undefined; } out.length = src.length = CELL_FRAME_RECORDS_MAX; whole = false; }   // the relay's bound: the rest go next frame (AUDIT SETS M1: a maximum with them), and this one lists no whole
     if (!out.length && !whole) return null;
-    const qf = [], lf = [];
+    const qf = [], lf = [], cp = [];
     src.forEach(([f, qt], k) => {
       const i = out[k].i;
+      if (!qt && f.companion != null && !f.dead) cp.push(i);   // AUDIT CC-E1: my companions - the room stands them as my allies
       if (!qt) { lf.push(i); return; }   // SUMMON-SYNC: a loose stand's number
       const fl = (f._questMarker ? 1 : 0) | (!f.dead && questTouched(f) ? 2 : 0);
       qf.push(fl ? [i, qt.q, qt.s, fl] : [i, qt.q, qt.s]);
     });
-    const frame = { n: ++_ownFrameSeq, k: _locationKey, full: whole ? 1 : 0, f: out, ...(qf.length ? { qf } : {}), ...(lf.length ? { lf } : {}) };
+    const frame = { n: ++_ownFrameSeq, k: _locationKey, full: whole ? 1 : 0, f: out, ...(qf.length ? { qf } : {}), ...(lf.length ? { lf } : {}), ...(cp.length ? { cp } : {}) };
     if (full || heirOf) fitMaxima(frame, src.map(([f], k) => [out[k], f]));
     return frame;
   }
@@ -4307,7 +4308,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (!o) { o = { n: -1, at: 0, gen: ++_ownGen }; _ownOwners.set(from, o); }
     if (Number.isFinite(data.n)) { if (data.n <= o.n) return false; o.n = data.n; }
     o.at = performance.now();
-    const tags = validQuestTags(data.qf), loose = validLooseSeqs(data.lf);
+    const tags = validQuestTags(data.qf), loose = validLooseSeqs(data.lf), comp = validLooseSeqs(data.cp);   // AUDIT CC-E1: `cp` the owner's companions (the loose numbers' own law)
     const seen = new Set(), marks = [], named = new Set();
     for (const raw of data.f.slice(0, CELL_FRAME_RECORDS_MAX)) {
       const r = validFoeRecord(raw);
@@ -4340,10 +4341,10 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // same id, a tab that woke) - theirs again: mine goes, and their record stands it here as their puppet
       const took = f ? null : _ownAdopted.get(key);
       if (took) { _ownAdopted.delete(key); if (r.d !== 1 && !took.dead && !took._gone) letGoOwn(took); }
-      if (f) { applyOwnRecord(f, r, share); f._heirElse = ownHeirElse(r); if (ownHeirIsMe(r)) adoptOwn(from, f, share); continue; }
+      if (f) { applyOwnRecord(f, r, share); if ((lo && comp.has(r.i)) || f.companion != null) companionPuppet(f, lo && comp.has(r.i)); f._heirElse = ownHeirElse(r); if (ownHeirIsMe(r) && f.companion == null) adoptOwn(from, f, share); continue; }
       if (_ownPending.has(key)) { _ownPending.set(key, r); continue; }
       if (r.d === 1 || r.t == null || !r.f || !canStandFoe(r.t) || ownPuppetsOf(from, lo) >= (lo ? CELL_LOOSE_PUPPETS : QUEST_PUPPETS_MAX)) continue;
-      _ownPending.set(key, r);
+      _ownPending.set(key, { ...r, _comp: lo && comp.has(r.i) });
       if (lo) _ownPendLoose.add(key);
       standOwnPuppet(from, r, qt, o.gen, lo).catch((e) => { _ownPending.delete(key); _ownPendLoose.delete(key); console.error('[online] another player\'s foe could not stand here:', e); });
     }
@@ -4378,9 +4379,18 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     _ownPups.set(key, f);
     const share = ownShare();
     applyOwnRecord(f, newest, share);
+    if (newest._comp ?? r._comp) companionPuppet(f, true);   // AUDIT CC-E1
     f._heirElse = ownHeirElse(newest);
-    if ((ownHeirIsMe(newest) || !!newest._orphanMine) && !adoptOwn(from, f, share) && heirOrphan) dropOwnPuppet(key, f);
+    if (f.companion == null && (ownHeirIsMe(newest) || !!newest._orphanMine) && !adoptOwn(from, f, share) && heirOrphan) dropOwnPuppet(key, f);   // AUDIT CC-E1: a companion is never anyone's heir's
     return f;
+  }
+  /** AUDIT CC-E1: another's companion stood here as the owner's word says - an ally of every player in the room (team
+   *  PlayerAlly, a shipmate no blow of mine reaches, a `companion` my foes may fight), or back to what it was. */
+  function companionPuppet(f, on) {
+    if (on) {
+      f.companion = `peer:${f._ownFrom}:${f._ownI}`; f.shipmate = true;
+      if (f.entity) { f.entity.team = 'PlayerAlly'; f.entity.mobileTeam = 'PlayerAlly'; }
+    } else if (f.companion != null) { f.companion = null; f.shipmate = false; }
   }
   /** AUDIT DISC28 QS-J: a party member's quest-foe record my unlinked copy refuses to stand, kept for the orphan law - a
    *  living one, from my party, naming no heir (a handover's heir takes its foe itself), merged over the last word (a
@@ -4548,8 +4558,21 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (!data || typeof data !== 'object' || (data.k != null && data.k !== _locationKey)) return false;
     const i = data.i | 0, dmg = Number(data.dmg);
     const f = foes.find((x) => x._ownFrom == null && x._ownSeq === i) ?? null;
+    // AUDIT CC-E1: a foe on another client mauled MY companion - the blow lands here, where he is real: the foe's, not a
+    // player's (the knock-out arm his death); he turns on the striker when the striker rides the lane to me
+    if (data.fb === 1) {
+      if (!f || f.dead || f.companion == null || !Number.isFinite(dmg) || dmg < 0 || dmg > HIT_DMG_MAX) return false;
+      const fd = Array.isArray(data.d) && data.d.length === 3 && data.d.every(Number.isFinite) ? data.d : null;
+      const fl = fd ? Math.hypot(fd[0], fd[1], fd[2]) : 0;
+      damageFoe(f, dmg, null, fl > 1e-6 && fl < 1e6 ? [fd[0] / fl, fd[1] / fl, fd[2] / fl] : null, { fromPlayer: false, kind: data.kind === 'arrow' ? 'arrow' : 'melee' });
+      const by = data.sf != null ? _ownPups.get(ownPupKey(id, data.sf | 0)) : null;
+      if (by && !by.dead && f.ai && !f.dead) f.ai.target = by;
+      return true;
+    }
     if (!f || f.dead || f.entity?.team === 'PlayerAlly' || !(ownLoose(f) || (!!ownQuestTag(f) && ownPeerMayHit(id, f))) || !Number.isFinite(dmg) || dmg < 0 || dmg > HIT_DMG_MAX) return false;   // AUDIT (pre-merge) D6: my summoned ally rides the loose lane with no side - the others stand it as a foe, and their blows landed on it
-    return landPeerBlow(f, id, data, dmg);
+    const landed = landPeerBlow(f, id, data, dmg);
+    if (data.al === 1) allyTurn(f, id, data);
+    return landed;
   }
 
   /** WORLD2/WORLD3: ONE streamed record onto its puppet - the target pose, the target it hunts and the cast it made,
@@ -4631,11 +4654,19 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const i = data.i | 0, dmg = Number(data.dmg);
     const xs = data.xs === 1;   // REST-SYNC: a shared encounter, by the room's number - not a layout index
     const f = xs ? (_sharedById.get(i) ?? null) : foes[i];
-    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2370). The number is a peer's
+    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2416). The number is a peer's
     // word and the host trusts it without recomputing, so an unbounded one let any joiner one-shot every foe in the
     // room - and, through the kill door, empty it. 10000 is past anything a legal swing, shaft or blast can roll.
     if (!f || (!xs && i >= _layoutFoes) || f.dead || !Number.isFinite(dmg) || dmg < 0 || dmg > HIT_DMG_MAX) return false;
-    return landPeerBlow(f, id, data, dmg);
+    const landed = landPeerBlow(f, id, data, dmg);
+    if (data.al === 1) allyTurn(f, id, data);
+    return landed;
+  }
+  /** AUDIT CC-E1: an ALLY's blow (a peer's companion struck it): the foe turns on that companion, never on its owner. */
+  function allyTurn(f, id, data) {
+    if (data.al !== 1 || f.dead || !f.ai || data.ac == null) return;
+    const by = _ownPups.get(ownPupKey(id, data.ac | 0));
+    if (by && !by.dead && by.companion != null) f.ai.target = by;
   }
   /** WORLD2's door for a peer's blow, one home - the host's on a layout foe (applyHit) and, QUEST-PARTY phase 3c, a
    *  party member's on my own shared quest foe (applyOwnHit): the striker's feet and the blow's direction, bounded; the
@@ -5197,7 +5228,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // InstantiatePrefab's a fresh GameObject per saved record, so
     // EnemyEntity's `PickpocketByPlayerAttempted` default is the loaded
     // truth for every enemy. The re-minting pools match that by
-    // construction (exteriorFoes.js:1781's restoreWorld goes through
+    // construction (exteriorFoes.js:1796's restoreWorld goes through
     // spawnFoe), but this host patches the LIVE foes in place, so a
     // same-dungeon reload kept a raised latch and a failed pickpocket
     // could never be retried - falsifying the law
@@ -5375,7 +5406,23 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     f.entity.health = Math.min(f.entity.maxHealth ?? Infinity, f.entity.health + h);
   }
 
-  function damageFoe(foe, damage, playerFeet = null, knockDir = null, { fromPlayer = true, bypassShield = false, kind = 'melee', peer = false, peerId = null, whole = false, spell = null } = {}) {
+  /** AUDIT CC-E1 (Mac: "Full co-op combat now"): a blow on another client's body that a COMPANION's fight is - my
+   *  companion's on another's foe (`al`, `ac` his own-lane number - the owner's foe turns on him), or a foe of mine on
+   *  another's companion (`fb`, `sf` the striker's number when it has one) - as the hit's payload, or null (anything
+   *  else stays dropped: a puppet's harm is its owner's simulation). */
+  function coopHit(foe, damage, knockDir, kind, striker) {
+    if (!striker || striker.dead || striker._ownFrom != null || isPuppetFoe(striker)) return null;
+    const base = { dmg: Math.max(0, Math.round(Number(damage) || 0)), kind, ...(knockDir ? { d: [q3(knockDir[0]), q3(knockDir[1]), q3(knockDir[2])] } : {}) };
+    if (foe.companion != null) return { ...base, fb: 1, ...(striker._ownSeq != null ? { sf: striker._ownSeq } : {}) };
+    if (striker.companion != null) return { ...base, al: 1, ...(striker._ownSeq != null ? { ac: striker._ownSeq } : {}) };
+    return null;
+  }
+  /** AUDIT CC-E1: my companion's blow on the room's foe while another hosts it - to the host as an ally's (its foe turns on him). */
+  function roomCoop(foe, pi, damage, knockDir, kind, striker) {
+    const coop = coopHit(foe, damage, knockDir, kind, striker);
+    if (coop?.al === 1) opts.onFoeHit?.({ ...(foe._encId != null ? { i: foe._encId, xs: 1 } : { i: pi }), ...coop });
+  }
+  function damageFoe(foe, damage, playerFeet = null, knockDir = null, { fromPlayer = true, bypassShield = false, kind = 'melee', peer = false, peerId = null, whole = false, spell = null, striker = null } = {}) {   // AUDIT CC-E1: `striker` the foe whose blow it is (hurtFromFoe's)
     // AUDIT 68 S19-damagefoe-dead-reentry: a corpse takes no blow. EnemyDeath runs once; the round sinks tick on
     // after the killing tick inside one window, and each re-ran the whole death arm (trap, chime, OnEnemyDeath).
     if (foe.dead || (fromPlayer && !peer && foe.companion != null)) return;   // CREW-COMPANIONS: and my companion takes no blow of mine (exteriorFoes' AUDIT NAV2 F55 gate) - it turned him
@@ -5405,6 +5452,11 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
           ...(kind === 'arrow' ? { ar: 1 } : {}),
           ...(spell ?? {}),   // STRIKE-SHARED: a strike spell's record and level (`sp`, `lv`) - the owner lands the whole spell
           ...(_whole ? { z: 1 } : {}) });
+      } else {
+        // AUDIT CC-E1: a companion's fight across the room's clients - a foe of mine mauling another's companion (`fb`),
+        // or my companion's blow on another's loose stand (`al`) - goes to the puppet's owner, where it is real
+        const coop = striker ? coopHit(foe, damage, knockDir, kind, striker) : null;
+        if (coop) opts.onFoeHit?.({ own: 1, to: foe._ownFrom, k: _locationKey, i: foe._ownI, ...coop });
       }
       return;
     }
@@ -5454,6 +5506,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
           ...(kind === 'arrow' ? { ar: 1 } : {}),
           ...(spell ?? {}),   // STRIKE-SHARED: a strike spell's record and level (`sp`, `lv`) - the host lands the whole spell
           ...(_whole ? { z: 1 } : {}) });
+        else if (striker) roomCoop(foe, pi, damage, knockDir, kind, striker);   // AUDIT CC-E1: my companion's blow on the room's foe - out to the host as an ally's
         return;
       }
     }
@@ -5608,7 +5661,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       applyDamageToNonPlayer(f, t, {
         weapon: wpn, direction: fwd, rolls: Math.random,
         calculateAttackDamage: foeDeps.calculateAttackDamage,
-        dealDamage: (tt, d) => tt.hurtFromFoe?.(d, fwd),
+        dealDamage: (tt, d) => tt.hurtFromFoe?.(d, fwd, f),
         audio, hitEffects,
         // AUDIT 58: FormulaHelper.cs:691-696 has NO player gate - a
         // poisoned foe blade doses the foe it strikes, on DFU's own

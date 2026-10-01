@@ -47,11 +47,12 @@
   {
     "name": "AQP-D2-dungeon-mark-dropped",
     "file": "src/scenes/dungeonContext.js",
-    "old": "      if (f) { applyOwnRecord(f, r, share); f._heirElse = ownHeirElse(r); if (ownHeirIsMe(r))",
-    "new": "      if (f) { applyOwnRecord(f, r, share); if (ownHeirIsMe(r))",
+    "old": "companionPuppet(f, lo && comp.has(r.i)); f._heirElse = ownHeirElse(r); if (ownHeirIsMe(r)",
+    "new": "companionPuppet(f, lo && comp.has(r.i)); if (ownHeirIsMe(r)",
     "tests": [
       "test/questparty3c.test.js"
-    ]
+    ],
+    "note": "AUDIT CREW (PIN MOVED): re-aimed by content at the line the co-op change extended."
   },
   {
     "name": "AQP-D2-dungeon-never-given-back",

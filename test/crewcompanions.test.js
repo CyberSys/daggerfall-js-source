@@ -392,7 +392,7 @@ test('CREW-COMPANIONS by source: the world stands the party in every place and e
   const w = rd('src/scenes/world.js');
   assert.match(w, /if \(mode === 'exterior'\) return \{ key: exteriorFoes, spawn: standIn\(exteriorFoes\)/);
   assert.match(w, /if \(mode === 'interior'\) \{\n\s*const pool = modes\?\.interiorPool\?\.\(\);/);
-  assert.match(w, /spawn: \(mobile, feet, o\) => d\.spawnLooseFoe\(mobile, feet, \{ yawRad: o\.yaw, allied: true, gender: o\.gender \}\)\.then\(\(f\) => \{ if \(f\) f\._loose = false; return f; \}\)/, 'a companion rides no room lane');
+  assert.match(w, /spawn: \(mobile, feet, o\) => d\.spawnLooseFoe\(mobile, feet, \{ yawRad: o\.yaw, allied: true, gender: o\.gender \}\),/, 'PIN MOVED (AUDIT CC-E1): a companion rides the room\'s own lane, named in its `cp`');
   assert.match(w, /allied: true, loose: true, transient: true \}\)/);
   assert.match(w, /crewAshoreTick\(\);   \/\/ CREW-COMPANIONS: the party stood indoors and underground too/);
   assert.match(w, /crewAshoreTick\(\);   \/\/ CREW-COMPANIONS: the party stood on the street/);

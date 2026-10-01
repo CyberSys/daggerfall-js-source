@@ -369,3 +369,103 @@ test('AUDIT CC-D8: the plate says her repairs while the order stands; the card m
   assert.ok(lines.some((l) => /^Aldric, First Mate.*ashore with you/.test(l)));
   assert.match(rd('src/scenes/navalHost.js'), /const mateOf = \(boat, st\) =>/);
 });
+
+// ── CC-E: co-op - the companions' fights across the clients ──────────────────────────────────────────────────────
+
+import { createExteriorFoes } from '../src/scenes/exteriorFoes.js';
+
+function craftCfg({ hpPerLevel = 4, speed = 90, str = 40, agi = 85, luck = 55, atkFlags = 0x08 } = {}) {
+  const b = new Uint8Array(74); const v = new DataView(b.buffer);
+  b[10] = atkFlags; v.setUint16(52, hpPerLevel, true);
+  const attrs = [str, 50, 50, agi, 50, 50, speed, luck];
+  for (let i = 0; i < 8; i++) v.setUint16(58 + i * 2, attrs[i], true);
+  return b;
+}
+function craftMonsterBsa(records) {
+  const NAME_FIELD = 14, ENTRY = 18;
+  const dataLen = records.reduce((a, [, b]) => a + b.length, 0);
+  const out = new Uint8Array(4 + dataLen + ENTRY * records.length); const v = new DataView(out.buffer);
+  v.setInt16(0, records.length, true); v.setUint16(2, 0x0100, true);
+  let pos = 4;
+  for (const [, bytes] of records) { out.set(bytes, pos); pos += bytes.length; }
+  for (const [name, bytes] of records) { for (let i = 0; i < name.length; i++) out[pos + i] = name.charCodeAt(i); v.setInt32(pos + NAME_FIELD, bytes.length, true); pos += ENTRY; }
+  return out;
+}
+const bsa = craftMonsterBsa([['ENEMY000.CFG', craftCfg()], ['ENEMY003.CFG', craftCfg({ speed: 60 })]]);
+const stubTex = { getSize: () => ({ width: 64, height: 100 }), getScale: () => ({ width: 0, height: 0 }), recordCount: 8, getFrameCount: () => 1 };
+const poolRig = () => ({
+  renderer: { createBillboardBatch: () => ({}), destroyBillboardBatch: () => {}, textures: new Map() },
+  collider: { raycast: () => Infinity, heightAt: () => 0, raycastHit: () => ({ dist: Infinity, normal: null }), sphereOverlaps: () => false },
+  fetchBytes: async (n) => { if (n === 'MONSTER.BSA') return bsa; throw new Error(`no ${n} in this pin`); },
+  getTexture: async () => stubTex, uploadRecordFrame: () => {}, currentMinute: () => 0, currentPixelKey: () => '3,12',
+  playerEntity: { level: 1, reflexes: 2, skills: new Array(40).fill(20), skillUses: new Array(40).fill(0), items: [], activeEffects: [], stats: { strength: 50, agility: 50, luck: 50, speed: 50 } },
+  audio: null, onPlayerHurt: () => {}, rolls: () => 0.5, rand: () => 0.5,
+});
+const netAs = (id, hits) => ({ selfId: () => id, room: () => 'world:3,12', onPeerHit: (h, fate) => { hits.push(h); fate?.sent?.(); return true; }, toWire: (f) => [f[0], f[1], f[2]], toScene: (p) => [p[0], p[1], p[2]] });
+
+test('AUDIT CC-E1 (major, Mac: "Full co-op combat now"): on the street my companion fights another player\'s foe and its foes fight him - each blow to the body\'s owner, where it is real', async () => {
+  const hitsA = [], hitsB = [];
+  const A = createExteriorFoes(poolRig()), B = createExteriorFoes(poolRig());   // me (mac), and bob
+  A.setNet(netAs('mac-0001', hitsA)); B.setNet(netAs('bob-0002', hitsB));
+  const mate = await A.spawnFoe(0, [10, 0, 10], { feetGiven: true, allied: true, loose: true, transient: true });
+  mate.companion = '42:Aldric'; mate.shipmate = true;
+  const orc = await B.spawnFoe(3, [12, 0, 12], { feetGiven: true });
+  // the frames cross: bob stands my companion as MY ally and a companion his foes may fight; I stand his orc
+  const fa = A.foesFrame(true);
+  assert.deepEqual(fa.cp, [mate.seq], 'my frame names my companion');
+  B.applyFoes('mac-0001', fa); A.applyFoes('bob-0002', B.foesFrame(true));
+  await new Promise((r) => setTimeout(r, 0));
+  const mateThere = B.foes.find((f) => f.puppet === 'mac-0001');
+  const orcHere = A.foes.find((f) => f.puppet === 'bob-0002');
+  assert.ok(mateThere && orcHere, 'each stood on the other client');
+  assert.equal(mateThere.companion, `peer:mac-0001:${mate.seq}`);
+  assert.equal(mateThere.entity.team, 'PlayerAlly');
+  // bob's orc mauls my companion's puppet: the blow comes to ME, and lands on my companion
+  mateThere.hurtFromFoe(5, [1, 0, 0], orc);
+  const fb = hitsB.find((h) => h.fb === 1);
+  assert.ok(fb, 'bob sends the foe\'s blow to me');
+  assert.deepEqual([fb.to, fb.i, fb.sf], ['mac-0001', mate.seq, orc.seq]);
+  const h0 = mate.entity.health;
+  assert.equal(A.applyHit('bob-0002', fb), true);
+  assert.equal(mate.entity.health, h0 - 5, 'it lands on my companion');
+  assert.equal(mate.ai.target, orcHere, 'and he turns on the orc');
+  // my companion strikes bob's orc: the blow goes to bob as an ally's, the orc turns on my companion
+  orcHere.hurtFromFoe(7, [0, 0, 1], mate);
+  const al = hitsA.find((h) => h.al === 1);
+  assert.ok(al, 'I send my companion\'s blow to bob');
+  assert.deepEqual([al.to, al.i, al.ac], ['bob-0002', orc.seq, mate.seq]);
+  const o0 = orc.entity.health;
+  assert.equal(B.applyHit('mac-0001', al), true);
+  assert.equal(orc.entity.health, o0 - 7, 'it lands on his orc');
+  assert.equal(orc.ai.target, mateThere, 'which turns on my companion, not on me');
+  // and nothing else of a puppet's harm goes anywhere (a foe's blow on another's foe is that owner's simulation)
+  const n = hitsA.length;
+  orcHere.hurtFromFoe(3, [0, 0, 1], await A.spawnFoe(3, [11, 0, 11], { feetGiven: true }));
+  assert.equal(hitsA.length, n);
+});
+
+test('AUDIT CC-E2 (major): underground my companion rides the room\'s own lane (`cp`), stood as my ally by everyone; his blows on the room\'s foes and theirs on him reach the body\'s owner', () => {
+  const d = rd('src/scenes/dungeonContext.js');
+  assert.doesNotMatch(rd('src/scenes/world.js'), /if \(f\) f\._loose = false; return f;/, 'no longer kept off the lane');
+  assert.match(d, /if \(!qt && f\.companion != null && !f\.dead\) cp\.push\(i\);/);
+  assert.match(d, /comp = validLooseSeqs\(data\.cp\);/);
+  assert.match(d, /companionPuppet\(f, lo && comp\.has\(r\.i\)\); f\._heirElse/);
+  assert.match(d, /if \(coop\) opts\.onFoeHit\?\.\(\{ own: 1, to: foe\._ownFrom, k: _locationKey, i: foe\._ownI, \.\.\.coop \}\);/, 'own-lane bodies');
+  assert.match(d, /if \(coop\?\.al === 1\) opts\.onFoeHit\?\.\(\{ \.\.\.\(foe\._encId != null \? \{ i: foe\._encId, xs: 1 \} : \{ i: pi \}\), \.\.\.coop \}\);/, 'the room\'s foes, as a joiner');
+  assert.match(d, /if \(data\.fb === 1\) \{\n\s*if \(!f \|\| f\.dead \|\| f\.companion == null/, 'the foe\'s blow lands on my companion');
+  assert.match(d, /rec\.hurtFromFoe = \(dmg, dir, striker = null\) => damageFoe\(rec, dmg, null, dir \?\? null, \{ fromPlayer: false, striker \}\);/);
+  assert.match(d, /dealDamage: \(tt, d\) => tt\.hurtFromFoe\?\.\(d, fwd, f\),/);
+});
+
+test('AUDIT CC-E3/E4: a companion lifted on the street makes the next frame whole (the room lets him go at once); a ship another stands that strikes to my guns cheers my crew', async () => {
+  const hits = [];
+  const A = createExteriorFoes(poolRig());
+  A.setNet(netAs('mac-0001', hits));
+  const mate = await A.spawnFoe(0, [10, 0, 10], { feetGiven: true, allied: true, loose: true, transient: true });
+  mate.companion = '42:Aldric'; mate.shipmate = true;
+  A.foesFrame(true);
+  assert.equal(A.foesFrame(false), null, 'nothing changed');
+  A.removeFoe(mate);
+  assert.equal(A.foesFrame(false)?.full, 1, 'whole');
+  assert.match(rd('src/scenes/navalHost.js'), /if \(was === SHIP_STATES\.afloat && dmg\.state === SHIP_STATES\.struck && clock - \(e\.myBlowAt \?\? -Infinity\) <= SINK_CREDIT_S\) crewEvent\(boatInPlay\(\) \?\? myBoat\(\), 'win'\);/);
+});

@@ -2958,6 +2958,9 @@ export function createNavalHost(deps) {
       // she went down in their word: if my blows were on her, the sinking is mine to answer for too (the law, a reward)
       const down = (st) => st === SHIP_STATES.sinking || st === SHIP_STATES.sunk;
       if (!down(was) && down(dmg.state) && clock - (e.myBlowAt ?? -Infinity) <= SINK_CREDIT_S) chargePlayer('sink', e);
+      // AUDIT CC-E4: a ship another stands struck to MY guns - her stander's strike is the one that runs, and it pays the
+      // win to nobody's crew but the shooter's, so my crew heard of it never
+      if (was === SHIP_STATES.afloat && dmg.state === SHIP_STATES.struck && clock - (e.myBlowAt ?? -Infinity) <= SINK_CREDIT_S) crewEvent(boatInPlay() ?? myBoat(), 'win');
       e.ship.boarded = w.state === 'boarded' && boarding?.shipId !== id;
       if (w.fire) igniteShip(e);
       // AUDIT NAV2 F1/F3/F5: her captain as her stander sails her - an older build's word says none, and she keeps her

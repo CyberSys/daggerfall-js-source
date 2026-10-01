@@ -7238,8 +7238,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!d?.spawnLooseFoe || !d.removeLooseFoe) return null;
     return {
       key: d,
-      // a companion rides no room lane (`_loose` off: the room's stream would stand him as everyone's foe) - he is mine
-      spawn: (mobile, feet, o) => d.spawnLooseFoe(mobile, feet, { yawRad: o.yaw, allied: true, gender: o.gender }).then((f) => { if (f) f._loose = false; return f; }),
+      // AUDIT CC-E1: a companion rides the room's own lane as a loose stand - the frame's `cp` names him, and everyone in
+      // the room stands him as my ally (dungeonContext.js companionPuppet); off the lane he was nobody's to see
+      spawn: (mobile, feet, o) => d.spawnLooseFoe(mobile, feet, { yawRad: o.yaw, allied: true, gender: o.gender }),
       remove: (f) => d.removeLooseFoe(f), has: (f) => d.foes.includes(f), spot: spotOf(d.collider),
     };
   }
@@ -8362,7 +8363,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // through the one that owns the billboard - `exteriorFoePool` is
     // the watch AND the encounter foes, and this arm reached the
     // encounter pool's remover for both. That was not a leak: removeFoe
-    // (exteriorFoes.js:512-517) never looks the record up in `foes`, and
+    // (exteriorFoes.js:514-519) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
     // got exactly what removeGuard (cityGuards.js:1627-1645) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
@@ -10849,7 +10850,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7620), so exterior mode and a
+    // composer, dungeonContext.js:7673), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
