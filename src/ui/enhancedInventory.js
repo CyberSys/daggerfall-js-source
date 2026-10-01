@@ -3446,13 +3446,14 @@ function onKey(e) {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const t = e.target;
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
-  // AUDIT LOOT F7: THE CODEX OVER THE PACK HAS THE KEYS. Its window's own capture listener was laid after this one, so
-  // Back closed the pack under it (and its Inventory key left the Codex standing over the world): Back puts the Codex
-  // away and keeps the pack, as the Info box's does, and no other key reaches the pack while it stands
-  if (reforgeDoorOpen()) { if (overlayAction(e) === 'back') { e.preventDefault(); e.stopPropagation(); closeReforgeDoor(); } return; }
   // DROPS-AUDIT F5: Escape with the PLUS7 menu open puts the MENU away, not the pack - this handler hears the key
   // first (window capture runs before the menu's own document listener), so it answers for the menu here
   if (menuEl && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeMenu(); return; }
+  // AUDIT LOOT F7: THE CODEX OVER THE PACK HAS THE KEYS (after the menu's own Escape - the two never stand together:
+  // the Codex's press puts the menu away). Its window's capture listener was laid after this one, so Back closed the
+  // pack under it, and the pack's Inventory key left the Codex standing over the world: Back puts the Codex away and
+  // keeps the pack, as the Info box's does, and no other key reaches the pack while it stands
+  if (reforgeDoorOpen()) { if (overlayAction(e) === 'back') { e.preventDefault(); e.stopPropagation(); closeReforgeDoor(); } return; }
   // AUDIT INV2 A-F7: A DRAG HAS AN ABORT, and it is the key every other
   // gesture aborts with. There was none: the only release that changed
   // nothing was one inside the windows, so a player who had picked up
