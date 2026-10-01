@@ -7263,6 +7263,8 @@ export function createWorldModes(host) {
           bossTrapNow: () => host.bossTrapNow?.() ?? null,   // AUDIT WBX F6: the trap running on him, so a recast stacks onto it
           gateCrystals: () => host.gateCrystals?.() ?? null,   // WB9c: the Reckoning's crystals as bodies my blows meet (none but in a Reckoning)
           onCrystalHit: (hit) => !!host.onCrystalHit?.(hit),   // WB9c: and the door a blow's number on one leaves through
+          gateHost: () => host.gateHost?.() ?? null,   // WB11c: the Legion-Lord's host as bodies my blows meet (none but under the trial)
+          onHostHit: (hit) => !!host.onHostHit?.(hit),   // WB11c: and the door a blow's number on one leaves through
           spoilContents: (key) => host.spoilContents?.(key) ?? null,   // WB9f: a piece of his spoils, listed on the plaque
           onActions: (data) => host.onActions?.(data), peers: () => host.peers?.() ?? null, selfId: () => host.selfId?.() ?? null, party: () => host.partyNear?.() ?? [], nodeMarks: (feet) => host.professionMarks?.(feet) ?? null,   // NODE-MARKS: the dungeon's nodes on its compass, at its own feet; WORLD3: a door moved goes out; the peers the foes see; whose blow a puppet's is
           postItem: (text) => host.postItem?.(text) ?? false, canPostItem: () => host.canPostItem?.() ?? false,   // CHAT-POST: the dungeon's pack posts through the outer host
@@ -7316,7 +7318,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:7719), so the OUTER host's one rides in.
+          // (dungeonContext.js:7791), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:847 -> the
@@ -11210,7 +11212,7 @@ export function createWorldModes(host) {
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
      *  HARD2c: this used to spell them out, and named `world.js:9940`
-     *  and `dungeonContext.js:7730` for its two sibling copies - lines
+     *  and `dungeonContext.js:7802` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {

@@ -11,26 +11,90 @@
 //
 // Not a DFU member. Ledger A (WB).
 import { readReceipt } from './gateReceipt.js';
-import { ATTACKS, nearestCourt } from './gateBrain.js';   // WB9b: the bound's word and the court it lands in
+import { ATTACKS, nearestCourt, COURTS, hostAt } from './gateBrain.js';   // WB9b: the bound's word and the court it lands in; WB11b: where one of his host stands
 
 /**
  * @typedef {{day: number|null, boss: string|null, phase: number, hp: number, max: number, x: number, z: number, yaw: number,
  *   move: any, atk: any, shieldUntil: number, wrathAt: number|null, fighters: number, fell: any, wrath: number|null, heardAt: number,
  *   md: ReadonlyArray<string>|null, fed: {ns: ReadonlyArray<string>, at: number}|null,
  *   xa: ReadonlyArray<number>, cx: {i: number, m: number, c: number[][], broke: ReadonlyArray<{c: number, n: string, at: number}>}|null,
- *   stunUntil: number, stunAt: number, rk: number}} GateState
+ *   stunUntil: number, stunAt: number, rk: number, lg: GateHost|null}} GateState
+ * @typedef {{ads: ReadonlyArray<{i: number, k: number, h: number, m: number, x: number, z: number, mv: any, atk: {at: number, x: number, z: number}|null, rose: number, yaw: number}>,
+ *   gone: ReadonlyArray<{i: number, k: number, x: number, z: number, w: number, n: string|null, at: number}>, ward?: {n: number, at: number, is?: ReadonlyArray<number>}}} GateHost
  *   GATE-UX: `fell` carries `dm`, the kill's damage chart (net/gateBrain.js damageChart), from a relay that makes one.
  *   WB8b: `md` his marks (net/gateMods.js - the fight's profile is made from them, net/gateBrain.js fightProfile), `fed`
  *   the last fallen challenger a Soul-Hungry Warden fed on (their name, the relay's moment). WB9b: `xa` the crossings'
  *   words (the walkways laid - net/gateBrain.js walkFormed). WB9c: `cx` the Reckoning's crystals ({i, m, c: [[x, z, h]]}
- *   and who broke which), `stunUntil`/`stunAt` a broken Reckoning's stun, `rk` when the next Reckoning comes.
+ *   and who broke which), `stunUntil`/`stunAt` a broken Reckoning's stun, `rk` when the next Reckoning comes. WB11b:
+ *   `lg` his host under the Legion-Lord (null in any other fight) - each one standing (`ads`: its number, kind, health
+ *   and whole, spot and walk - net/gateBrain.js hostAt carries it - its blow in flight, when it rose - -Infinity for
+ *   one already risen when this screen came - and its facing) and the last few gone (`gone`: where, how - net/gateBrain.js
+ *   HOST_GONE - by whom, when), kept for the court to play out.
  */
 /** The empty state: nothing heard yet. @type {Readonly<GateState>} */
 export const GATE_STATE_EMPTY = Object.freeze({
   day: null, boss: null, phase: 1, hp: 0, max: 0, x: 0, z: 0, yaw: 0, move: null, atk: null, shieldUntil: 0,
   wrathAt: null, fighters: 0, fell: null, wrath: null, heardAt: 0, md: null, fed: null,
-  xa: Object.freeze([]), cx: null, stunUntil: 0, stunAt: 0, rk: 0,
+  xa: Object.freeze([]), cx: null, stunUntil: 0, stunAt: 0, rk: 0, lg: null,
 });
+
+/** WB11b: how many of his host gone the fold keeps for the court to play out (their fall, their crumbling). */
+export const HOST_GONE_KEPT = 16;
+/** WB11b: a host body's facing as it rises - into the court it stands in, from the rim the wave rises at. */
+const facingIn = (x, z) => { const c = COURTS[nearestCourt(x, z)]; return Math.atan2(c[0] - x, c[1] - z); };
+/** WB11b: HIS HOST AS A STATE SAYS IT (net/gateBrain.js hostStateOf - every one standing) folded over what this screen
+ *  held of the same fight: each one's rising and facing kept, its gone kept. Pure. */
+function hostOfState(lg, prev) {
+  if (!lg) return null;
+  const ads = lg.map((t) => {
+    const had = prev?.ads.find((a) => a.i === t[0]);
+    const mv = t[8] > 0 ? { x: t[4], z: t[5], tx: t[6], tz: t[7], v: t[8], at: t[9] } : null;
+    return { i: t[0], k: t[1], h: t[2], m: t[3], x: t[4], z: t[5], mv, atk: t[10] ? { at: t[10], x: t[11], z: t[12] } : null,
+      rose: had ? had.rose : -Infinity, yaw: mv ? Math.atan2(mv.tx - mv.x, mv.tz - mv.z) : had ? had.yaw : facingIn(t[4], t[5]) };
+  });
+  // AUDIT WB11 C5/U3: the count of a wave of Ward-Bearers kept only while one of THAT wave stands - a state after a lost
+  // socket kept the last court's ("3 of 4 stand" where three rose); without it the bar says how many stand
+  const ward = prev?.ward && ads.some((a) => a.k === 2 && prev.ward.is?.includes(a.i)) ? prev.ward : null;
+  return { ads, gone: prev?.gone ?? [], ...(ward ? { ward } : {}) };
+}
+/** WB11b: ONE WORD OF HIS HOST folded into the state's `lg` (its health, for a Sapper he drank) - its rising, its
+ *  walks, its blows, its health, its gone. A word of a host this screen holds none of starts one (the relay says the
+ *  rest in its next whole state). Pure. */
+function foldHost(s, g, now) {
+  const H = s.lg ?? { ads: [], gone: [] };
+  switch (g.k) {
+    case 'ad': return { ...s, lg: { ...H, ads: [...H.ads.filter((a) => !g.a.some((q) => q[0] === a.i)), ...g.a.map(([i, x, z]) => ({ i, k: g.w, h: g.m, m: g.m, x, z, mv: null, atk: null, rose: g.at, yaw: facingIn(x, z) }))],
+      ...(g.w === 2 ? { ward: { n: g.a.length, at: g.at, is: g.a.map((q) => q[0]) } } : {}) }, heardAt: now };   // a Ward-Bearers' rising: how many hold his ward (and which - AUDIT WB11 C5)
+    case 'amv': {
+      const by = new Map(g.m.map((t) => [t[0], t]));
+      return { ...s, lg: { ...H, ads: H.ads.map((a) => {
+        const t = by.get(a.i);
+        if (!t) return a;
+        const mv = t[5] > 0 ? { x: t[1], z: t[2], tx: t[3], tz: t[4], v: t[5], at: t[6] } : null;
+        return { ...a, x: t[1], z: t[2], mv, yaw: mv ? Math.atan2(mv.tx - mv.x, mv.tz - mv.z) : a.yaw };
+      }) }, heardAt: now };
+    }
+    case 'aatk': {
+      const by = new Map(g.a.map((t) => [t[0], t]));
+      return { ...s, lg: { ...H, ads: H.ads.map((a) => { const t = by.get(a.i); return t ? { ...a, atk: { at: t[1], x: t[2], z: t[3] } } : a; }) }, heardAt: now };
+    }
+    case 'ah': {
+      const by = new Map(g.h.map((t) => [t[0], t[1]]));
+      return { ...s, lg: { ...H, ads: H.ads.map((a) => (by.has(a.i) ? { ...a, h: by.get(a.i) } : a)) }, heardAt: now };
+    }
+    case 'adie': {
+      const out = [], ads = [];
+      for (const a of H.ads) {
+        if (!g.is.includes(a.i)) { ads.push(a); continue; }
+        const [x, z] = hostAt(a, g.at);
+        out.push({ i: a.i, k: a.k, x, z, w: g.w, n: g.n ?? null, at: g.at });
+      }
+      const gone = [...H.gone, ...out].slice(-HOST_GONE_KEPT);
+      return { ...s, lg: { ...H, ads, gone }, ...(g.h != null ? { hp: g.h, max: g.m } : {}), heardAt: now };
+    }
+    default: return s;
+  }
+}
 
 /**
  * One word folded into the court's state. `st` replaces everything it names; the rest move their own fields; an
@@ -55,6 +119,7 @@ export function foldGate(s, g, now, place = bossAt) {
     return {
       day: g.d, boss: g.b, phase: g.ph, hp: g.h, max: g.m, x: g.x, z: g.z, yaw: g.yw, move: g.mv, atk: g.atk, shieldUntil: g.sh, wrathAt: g.wr, fighters: g.n, fell: g.fell, wrath: g.wrath, heardAt: now, md: g.md ?? null, fed: same ? s.fed ?? null : null,
       xa: g.xa ?? [], cx, stunUntil: g.su ?? 0, stunAt: same && s.stunUntil === (g.su ?? 0) ? s.stunAt : (g.su ? now : 0), rk: g.rk ?? 0,
+      lg: hostOfState(g.lg, same ? s.lg : null),   // WB11b: his host standing - none said, none held (any other fight's)
     };
   }
   if (s.day === null) return s;   // nothing but a whole state starts a fight
@@ -67,7 +132,7 @@ export function foldGate(s, g, now, place = bossAt) {
     case 'atk': return { ...s, atk: { i: g.i, a: g.a, at: g.at, x: g.x, z: g.z, yw: g.yw, tg: g.tg }, move: null, x: g.x, z: g.z, yaw: g.yw, heardAt: now, cx: s.cx && s.cx.i === g.i ? s.cx : null, ...(g.a === ATTACKS.wrath.id ? { stunUntil: 0 } : {}), ...crossLaid(s, g) };
     case 'hp': return { ...s, hp: g.h, max: g.m, heardAt: now };
     case 'ph': return { ...s, phase: g.n, shieldUntil: g.until, heardAt: now };
-    case 'wrath': return { ...s, wrath: g.at, atk: null, heardAt: now };
+    case 'wrath': return { ...s, wrath: g.at, atk: null, heardAt: now, lg: s.lg ? { ...s.lg, ads: [] } : null };   // WB11b: his host is gone with the court
     case 'fed': return { ...s, hp: g.h, max: g.m, fed: { ns: g.ns, at: g.at }, heardAt: now };   // WB8b: the health his feeding left, and who fed him (AUDIT PRE-MERGE 0929 W1-3: every one of the beat's)
     // WB9c: THE CRYSTALS - grown whole at the Reckoning's word, their health as it falls, each one broken (and by whom),
     // and the Reckoning broken: he is stunned and the crystals are gone. A word of another Reckoning's crystals is not these.
@@ -76,13 +141,15 @@ export function foldGate(s, g, now, place = bossAt) {
     case 'cxb': return s.cx && s.cx.i === g.i && s.cx.c[g.c] ? { ...s, cx: { ...s.cx, c: s.cx.c.map((q, k) => (k === g.c ? [q[0], q[1], 0] : q)), broke: [...s.cx.broke, { c: g.c, n: g.n, at: g.at }] }, heardAt: now } : s;
     // (the stun keeps the crystals, every one broken - who broke the last is said with it; the next word clears them)
     case 'stun': return { ...s, stunUntil: g.until, stunAt: g.at, atk: null, move: null, cx: s.cx ? { ...s.cx, c: s.cx.c.map((q) => [q[0], q[1], 0]) } : null, heardAt: now };
+    // WB11b: HIS HOST - risen, walking, striking, its health, gone
+    case 'ad': case 'amv': case 'aatk': case 'ah': case 'adie': return foldHost(s, g, now);
     case 'fell': {
       if (g.d !== undefined && g.d !== s.day) return s;
       // said again (the hub's echo): he has already fallen where he fell - GATE-UX: the court's word may bring the damage
       // chart the hub's never carries, whichever came first
       if (s.fell) return g.dm && !s.fell.dm ? { ...s, fell: { ...s.fell, dm: g.dm }, heardAt: now } : { ...s, heardAt: now };
       const [x, z] = place(s, g.at);
-      return { ...s, fell: { at: g.at, top: g.top, n: g.n, ...(g.dm ? { dm: g.dm } : {}) }, x, z, hp: 0, atk: null, move: null, heardAt: now };
+      return { ...s, fell: { at: g.at, top: g.top, n: g.n, ...(g.dm ? { dm: g.dm } : {}) }, x, z, hp: 0, atk: null, move: null, heardAt: now, lg: s.lg ? { ...s.lg, ads: [] } : null };   // WB11b: his host goes with him
     }
     default: return s;
   }

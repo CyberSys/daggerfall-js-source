@@ -65,8 +65,8 @@
   {
     "name": "AUDWBX-R6-a-blow-never-waking-him",
     "file": "server/src/index.js",
-    "old": "    else if (!f.fell && !f.wrath && !(this._beatArmedTo > now)) { this._beatArmedTo = now + BRAIN_TICK_MS; await this._gateArm(now); }",
-    "new": "    else void this._beatArmedTo;",
+    "old": "    if (!f.fell && !f.wrath && !(this._beatArmedTo > now)) { this._beatArmedTo = now + BRAIN_TICK_MS; await this._gateArm(now); }",
+    "new": "    void this._beatArmedTo;",
     "tests": [
       "test/auditwbx.test.js"
     ]

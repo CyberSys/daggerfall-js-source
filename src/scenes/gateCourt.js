@@ -19,7 +19,7 @@
 import { ATTACK_BY_ID, ATTACKS, COURT_CENTRE, COURTS, COURT_R, HIT_KINDS, POOL_TICK_MS, PHASE_NAMES, profileOf, nearestCourt, windupOf, CRYSTAL_R, CRYSTAL_H, inCourt, POSE_SLACK, RECKON_CLOSE_MS, WALKS, walkFormed } from '../net/gateBrain.js';
 import { strikeVerdict, blowOf, strikeDamage, savedShare, landingPools, poolUnder } from '../net/gateStrike.js';
 import { GATE_BOSSES, gateBossOf } from '../net/gateLaw.js';
-import { bossAct, bossFrame, bossGlow, bossPlace, bossHop, bossLookOf, bossStandIn, bossCue, BOSS_CUES, BOSS_STRIDE_M, GROWL_EVERY_MS, HURT_GAP_MS, HURT_SHARE, QUAKE_ON, THUD_AT_MS, WARD_COLOR, EMBER_COLOR, poolColor, emberColor, attackColor, crystalStandIn, crystalColor, groundStepCue } from '../world/gateBoss.js';
+import { bossAct, bossFrame, bossGlow, bossPlace, bossHop, bossLookOf, bossStandIn, bossCue, BOSS_CUES, BOSS_STRIDE_M, GROWL_EVERY_MS, HURT_GAP_MS, HURT_SHARE, QUAKE_ON, THUD_AT_MS, WARD_COLOR, EMBER_COLOR, poolColor, emberColor, attackColor, crystalStandIn, crystalColor, groundStepCue, hostPulseColor } from '../world/gateBoss.js';
 import { courtToDungeon, portalDoor, PORTAL_AFTER_MS, PORTAL_RISE_MS, PORTAL_DROP, COURT_TEXT } from '../world/gateArena.js';
 import { GateTelegraphRenderer, telegraphShape, markShape, poolShapes, TELEGRAPH_STYLE } from '../render/gateTelegraph.js';
 import { CourtCrystalRenderer, crystalGrowth, CRYSTAL_GROW_MS, CRYSTAL_SHATTER_MS, CRYSTAL_FLASH_MS, CRYSTALS_DRAW_MAX } from '../render/courtCrystals.js';   // WB9c: the crystals of Oblivion, drawn
@@ -28,13 +28,14 @@ import { tierColour } from '../render/spoilsGlow.js';   // WB9f: a piece's landi
 import { RARITIES } from '../systems/lootRarity.js';
 import { GatePassRenderer, gateSpinRate } from '../render/gatePass.js';   // WBX2: the portal's fire is the gate's own
 import { gateArchProfile } from '../world/gateModel.js';
-import { ONLINE_MINUTES_PER_MS } from '../net/wire.js';   // WBX7: a soul trap's rounds on the shared world's clock
+import { ONLINE_MINUTES_PER_MS, GATE_HEAL_ROWS_MAX, GATE_HEAL_WIRE_MAX } from '../net/wire.js';   // WBX7: a soul trap's rounds on the shared world's clock; GATE-HEAL: the heal word's bounds
 import { spoilsLevel } from './spoilsPool.js';   // AUDIT WBX S2: the spoils never rolled past the level the fight admitted
 import { bossBarModel, drawGateBossBar } from '../ui/gateBossBar.js';
 import { marksCardModel, drawGateMarksCard } from '../ui/gateMarksView.js';   // WB9a: the night's marks over the screen as a fighter steps in
 import { groundViewModel, drawGateGround } from '../ui/gateGroundView.js';   // WB9d: his ground and his element, felt
 import { damageChartModel, drawGateDamageChart } from '../ui/gateDamageChart.js';   // GATE-UX: every challenger's damage, ranked, once he has fallen
 import { readReceipt } from '../net/gateReceipt.js';
+import { createGateHost } from './gateHost.js';   // WB11c: the Legion-Lord's host - its bodies, blows, words and sounds
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { mobileBillboardSize } from '../world/rmbFlats.js';
 
@@ -124,6 +125,11 @@ const NONE = Object.freeze([]);
 /** The boss by his id (the relay's word), or the day's (net/gateLaw.js). */
 export const bossOf = (s) => GATE_BOSSES.find((b) => b.id === s?.boss) ?? gateBossOf(s?.day ?? 0);
 
+/** GATE-HEAL (2026-10-01, Mac: "Can we add a line on the damage round up showing the amount healed?" - each challenger's;
+ *  "Like for healers" - allies only): what my mates' spells healed in me goes to the relay at most this often (a word for
+ *  every caster since the last). */
+export const HEAL_SEND_MS = 1000;
+
 /**
  * @param {{
  *   renderer?: any, gl?: any,
@@ -143,13 +149,17 @@ export const bossOf = (s) => GATE_BOSSES.find((b) => b.id === s?.boss) ?? gateBo
  *   veiled?: () => boolean,
  *   send?: (hit: { q: number, d: number, r: number }) => boolean,
  *   sendCrystal?: (hit: { c: number, q: number, d: number, r: number }) => boolean,
+ *   sendHost?: (hit: { i: number, q: number, d: number, r: number }) => boolean,
+ *   sendHeal?: (heal: { h: Array<[string, number]> }) => boolean,
  *   rng?: () => number,
  *   portalDoor?: (door: any) => void,
  *   soulTrap?: (trap: { chance: number, mobile: number, name: string }) => void,
  *   me?: () => (string|null),
  * }} deps
  *   WB9a: `veiled` - the step's fire is over the screen (ui/gateVeil.js): the marks' card waits under it. WB9c:
- *   `sendCrystal` - a blow of mine on a crystal of Oblivion, to the court's room (the wire's `xhit`).
+ *   `sendCrystal` - a blow of mine on a crystal of Oblivion, to the court's room (the wire's `xhit`). WB11c: `sendHost` -
+ *   a blow of mine on one of his host, to the court's room (the wire's `ahit`). GATE-HEAL: `sendHeal` - what my mates'
+ *   spells healed in me, and whose, to the court's room (the wire's `heal`).
  *   WB8b: `save` answers the saving throw against `el` (his aspect's element - fire, frost, shock, poison) and `strike`
  *   is told the element it landed with. WBX2: `portalDoor` lays the risen portal's door into the court's exit doors, once, so the exit's own ray, name and
  *   press take it - the way home, the bridge membrane's own (SS3: the court no longer takes a way home of its own - the
@@ -160,11 +170,17 @@ export const bossOf = (s) => GATE_BOSSES.find((b) => b.id === s?.boss) ?? gateBo
 export function createGateCourt({
   renderer = null, gl = null, getTexture = null, uploadRecordFrame = null, audio = null,
   link, spoils = null, now, cam = () => null, feet = () => null, player = () => null, save = () => 100,
-  strike = () => {}, say = () => {}, hudHidden = () => false, veiled = () => false, send = () => false, sendCrystal = () => false, rng = Math.random,
+  strike = () => {}, say = () => {}, hudHidden = () => false, veiled = () => false, send = () => false, sendCrystal = () => false, sendHost = () => false, sendHeal = () => false, rng = Math.random,
   portalDoor: layPortalDoor = () => {}, soulTrap = () => {}, me = () => null,
 }) {
   let pass = null;
   try { if (gl) pass = new GateTelegraphRenderer(gl); } catch (e) { console.warn('[gate] the telegraph would not build', e?.message ?? e); pass = null; }
+  /** WB11c: HIS HOST (scenes/gateHost.js) - its blows land on me through the door his own do (`land`), each its share,
+   *  its base and its element through my saving throw; a Ward-Bearer's Pulse flares the rim in his element's colour */
+  const host = createGateHost({
+    renderer, getTexture, uploadRecordFrame, audio, cam, feet, player, say, send: sendHost, blowQ: (who) => blowQ(who),   // AUDIT WB11 W3: my blows' one sequence
+    land: (B) => { const P = profileOf(link.state()); land(null, P, { pct: B.pct, base: B.base, el: B.el, name: B.name, saved: B.el != null }, B.el ? hostPulseColor(P) : null); },
+  });
   /** the sprite: its texture once loaded (or the promise, or a failure), its batch while drawn */
   let body = null, loading = null, batch = null;
   let batchShown = false;   // PERF-EXT10: the body's shown-or-not is the court's own, never a field the batch was not born with
@@ -173,6 +189,29 @@ export function createGateCourt({
   let prevT = -Infinity, hurtAt = -Infinity, shape = null;
   /** WB4b: his stand-in for the formulas (made once a fight), and my blows' sequence (the wire's `q`) */
   let standIn = null, blowSeq = 0;
+  /** AUDIT WB11 W3: ONE SEQUENCE A BLOW - every frame one swing, shaft or blast of mine sends between two of my frames
+   *  carries the same `q` (the relay's hand charges a blow once, whatever it met: him, a crystal, his host - a token a body
+   *  met starved my blows); a second frame on a body already met is a blow of its own. `who` the body: 'b' him, `x<c>`
+   *  a crystal, `a<i>` one of his host. */
+  const blowMet = new Set();
+  // GATE-HEAL: WHAT MY MATES HEALED IN ME - allies only (Mac: "Like for healers"): owed to each caster, by peer id, since
+  // my last word to the relay, and when that word went. My own spells, potions and items are no one's.
+  let healSentAt = -Infinity;
+  const healOwed = new Map();
+  const healLive = (s) => !!s && s.day !== null && !s.fell && s.wrath == null;
+  /** What my mates healed in me, out as the wire's `heal`: whole points (the fractions kept for the next), each caster once. */
+  function sendOwed(t) {
+    healSentAt = t;
+    const h = [];
+    for (const [by, n] of healOwed) if (n >= 1 && h.length < GATE_HEAL_ROWS_MAX) h.push([by, Math.min(Math.floor(n), GATE_HEAL_WIRE_MAX)]);
+    if (!h.length || !sendHeal({ h })) return;
+    for (const [by, n] of h) { const left = healOwed.get(by) - n; if (left > 0) healOwed.set(by, left); else healOwed.delete(by); }
+  }
+  function blowQ(who) {
+    if (!blowMet.size || blowMet.has(who)) { blowSeq++; blowMet.clear(); }
+    blowMet.add(who);
+    return blowSeq;
+  }
   /** WB5: whether this fight's spoils have left him, and whether their absence has been said */
   let spewed = false, spoilsSaid = false;
   /** WB7: his body's sounds - where he stood last frame and how far he has come since his last step, when he growls
@@ -205,7 +244,9 @@ export function createGateCourt({
    *  (null standing) and when I last struck it, its turn and seed, when its Reckoning lands; `ended` once the relay has
    *  done with it (broken or landed) - kept until the last shard has flown. The last one ended (never seen again as new),
    *  the stun last heard, the stand-in every crystal shares (made once a fight), and the pass. */
-  let rk = null, rkDone = null, stunHeard = 0, crystalIn = null, crystalPass = null, crystalTried = false;
+  let rk = null, rkDone = null, stunHeard = 0, crystalPass = null, crystalTried = false;
+  /** AUDIT WB11 W1: the crystals' stand-ins, one a crystal, each naming its own (world/gateBoss.js crystalStandIn) */
+  const crystalIns = [];
   const _targets = [], _crystalDraw = [], _crystalSlots = [], _crystalLights = [], _chest = [0, 0, 0];
   /** AUDIT WB9 (court F4): how far each walkway is laid this frame (net/gateBrain.js walkFormed) - refilled, never made */
   const _walked = WALKS.map(() => 0);
@@ -223,8 +264,9 @@ export function createGateCourt({
     stepFrom = null; strideRun = 0; growlAt = null; hpHeard = null; gruntAt = -Infinity; quaked = noMark(); thunderPhase = 0; thudCued = false;
     pools = []; pooled = noMark(); burnAt = -Infinity; inFire = false; outAt = -Infinity; mark = null; poolDraw = [];
     marksSaid = false; fedHeard = null; marksAt = null; chartAt = null;   // GATE-UX
+    healOwed.clear();   // GATE-HEAL
     portal = null; spin = 0; portalLaid = false; portalSaid = false;
-    rk = null; rkDone = null; stunHeard = 0; crystalIn = null; _targets.length = 0; _crystalDraw.length = 0;   // WB9c
+    rk = null; rkDone = null; stunHeard = 0; crystalIns.length = 0; _targets.length = 0; _crystalDraw.length = 0;   // WB9c
     _bursts.length = 0; _fxLive.length = 0; meteorNow = null;   // WB9e
     groundName = ''; groundColor = null; biteAt = -Infinity; biteColor = null;   // WB9d
     if (d !== null && trapMark?.day !== d) trapMark = null;   // AUDIT WBX F6: a trap of this day's fight outlives a cast-out and a walk back in
@@ -270,15 +312,16 @@ export function createGateCourt({
   }
 
   /** A strike on me: its share of my own health and its base (WBX4), an element through my saving throw against it (the
-   *  Wrath through nothing) - WB8b: all under his profile (his aspect's element and names, Vengeful's weight). */
-  function land(atk, P) {
-    const e = player(), so = blowOf(atk, P);
+   *  Wrath through nothing) - WB8b: all under his profile (his aspect's element and names, Vengeful's weight). WB11c: or
+   *  one of his host's blows (`so` - its own, `color` the rim's flare for an element). */
+  function land(atk, P, so = blowOf(atk, P), color = null) {
+    const e = player();
     if (!e || !so || !(e.health > 0)) return;
     let dmg = strikeDamage(so.pct, e.maxHealth, so.base);
     if (so.saved) dmg = savedShare(dmg, save(e, so.el));
     if (dmg <= 0) { say(COURT_STRIKE_TEXT.resisted(so.name, so.el)); return; }
     strike(dmg, { fire: so.el === 'fire', el: so.el, name: so.name });
-    if (so.el) { biteAt = now(); biteColor = attackColor(ATTACK_BY_ID[atk.a], P); }   // WB9d: an elemental blow flares the screen's rim in its colour (DFU's red flash is a blow's alone)
+    if (so.el) { biteAt = now(); biteColor = color ?? attackColor(ATTACK_BY_ID[atk.a], P); }   // WB9d: an elemental blow flares the screen's rim in its colour (DFU's red flash is a blow's alone)
   }
 
   /** WBX5: THE BURNING GROUND - a landing that leaves fire lays its pools the frame this screen sees it land (never one
@@ -489,8 +532,7 @@ export function createGateCourt({
     const X = s.cx;
     if (X && X.c.length && !sameCx(rk, X) && !(rkDone && rkDone.i === X.i && rkDone.x0 === X.c[0][0] && rkDone.z0 === X.c[0][1])) {
       rk = crystalsOf(X, s, t);
-      crystalIn ??= crystalStandIn(bossLookOf(s.boss));
-      for (const q of rk.targets) q.entity = crystalIn;
+      for (const q of rk.targets) q.entity = (crystalIns[q.c] ??= crystalStandIn(bossLookOf(s.boss), q.c));
       // its call said while it is still to land (news to a fighter come in late through the wind-up too); each crystal
       // heard grinding up out of the stone as it grows, never long after
       let left = 0;
@@ -587,6 +629,7 @@ export function createGateCourt({
   return {
     /** One frame of the court: the verdicts, the voice, the body, the ground's shape and the bar. */
     frame() {
+      blowMet.clear();   // AUDIT WB11 W3: a frame ends my blow
       const s = link.state(), t = now();
       if (!s || s.day === null) { if (day !== null) this.leave(); return; }
       if (s.day !== day) reset(s.day);
@@ -596,6 +639,7 @@ export function createGateCourt({
       burn(s, t, P);   // WBX5: the ground his landings left burning
       cue(s, t, P);
       crystals(s, t, P);   // WB9c: the Reckoning's crystals - seen, struck, broken, drawn
+      host.frame(s, t, P, bossOf(s).name);   // WB11c: his host - seen, heard, struck, its blows judged on me
       fxFrame(s, t, P);   // WB9e: the sparks of his landings and the meteor's fall
       drawBody(s, t, P);
       burst(s, t);
@@ -620,7 +664,17 @@ export function createGateCourt({
       drawGateDamageChart(chartAt !== null ? damageChartModel(s.fell, { boss: bossOf(s).name, me: me(), since: chartAt, now: t }) : null, { hidden: hudHidden() || veiled() });
       // WB9d: his ground under me and his element on me, felt - the screen's rim in its colour, the warning while I stand in it
       drawGateGround(groundViewModel({ inside: inFire, ground: groundName, color: groundColor, biteAt, biteColor, now: t }), { hidden: hudHidden() });
+      if (healOwed.size && t - healSentAt >= HEAL_SEND_MS) sendOwed(t);   // GATE-HEAL: what my mates healed in me, out
       prevT = t;
+    },
+    /**
+     * GATE-HEAL: ANOTHER'S SPELL HEALED ME `n` points (scenes/world.js onCast - the health that moved; the door turns the
+     * fallen away and never hears my own), `id` the caster's peer id in the room: owed to them. False outside a live fight.
+     */
+    healedBy(id, n) {
+      if (!healLive(link.state()) || !(n > 0) || typeof id !== 'string' || !id) return false;
+      healOwed.set(id, (healOwed.get(id) ?? 0) + n);
+      return true;
     },
     /**
      * WB4b: HIM AS A BODY MY BLOWS MEET, or null (no fight, or he has fallen): his feet in the dungeon's frame, his
@@ -637,7 +691,7 @@ export function createGateCourt({
     },
     /**
      * WB4b: A BLOW OF MINE MET HIM - `d` the formula's number on this machine, `r` its kind (net/gateBrain.js
-     * HIT_KINDS). Out to the relay as the wire's hit (whole points, a sequence of its own), and he flinches. The ward
+     * HIT_KINDS). Out to the relay as the wire's hit (whole points, my blow's sequence - blowQ), and he flinches. The ward
      * turns it (nothing sent - the relay would refuse it); a blow under one point is none. Answers whether it went.
      */
     hit({ d, r }) {
@@ -648,7 +702,7 @@ export function createGateCourt({
       const dmg = Math.round(d);
       if (!(dmg >= 1)) return false;
       hurtAt = t;
-      return !!send({ q: ++blowSeq, d: dmg, r });
+      return !!send({ q: blowQ('b'), d: dmg, r });
     },
     /** A blow of mine landed on him: he flinches. */
     struck() { hurtAt = now(); },
@@ -664,8 +718,8 @@ export function createGateCourt({
     },
     /**
      * WB9c: A BLOW OF MINE MET A CRYSTAL - `c` its number, `d` the formula's number on this machine, `r` its kind. It
-     * flashes and rings here at once, and the number goes out as the wire's `xhit` (whole points, my blows' own
-     * sequence); the relay's caps decide what lands and say its health back. A blow under one point is none. Answers
+     * flashes and rings here at once, and the number goes out as the wire's `xhit` (whole points, my blow's
+     * sequence - blowQ); the relay's caps decide what lands and say its health back. A blow under one point is none. Answers
      * whether it went.
      */
     crystalHit({ c, d, r } = /** @type {any} */ ({})) {
@@ -677,7 +731,7 @@ export function createGateCourt({
       if (!(dmg >= 1)) return false;
       rk.flashAt[c] = t;
       sound(BOSS_CUES.crystalHit, s, t, null, rk.feet[c]);
-      return !!sendCrystal({ c, q: ++blowSeq, d: dmg, r });
+      return !!sendCrystal({ c, q: blowQ(`x${c}`), d: dmg, r });
     },
     /**
      * WBX7: A SOUL TRAP OF MINE LAID ON HIM (the dungeon context's spell door - scenes/dungeonContext.js spellOnBoss): its
@@ -693,6 +747,26 @@ export function createGateCourt({
       else trapMark = { chance, until: t + rounds * COURT_ROUND_MS, day: s.day };
       return true;
     },
+    /**
+     * WB11c: HIS HOST AS BODIES MY BLOWS MEET - each one standing: its number (the wire's `i`), its feet in the dungeon's
+     * frame, its body (net/gateBrain.js HOST_KINDS - the relay measures a melee blow to the same), its stand-in and its
+     * name (world/gateBoss.js hostStandIn); none but from the court he fights in (the relay takes no blow from elsewhere).
+     * One list, refilled each frame - read, never written.
+     */
+    hostTargets() {
+      const s = link.state(), t = now();
+      return !s || s.day === null || s.fell || s.wrath != null || !s.lg || !fromHisCourt(s, t) ? NONE : host.targets();
+    },
+    /**
+     * WB11c: A BLOW OF MINE MET ONE OF HIS HOST - `i` its number, `d` the formula's number on this machine, `r` its kind:
+     * it flinches here at once and the number goes out as the wire's `ahit` (scenes/gateHost.js hit). Answers whether it
+     * went.
+     */
+    hostHit({ i, d, r } = /** @type {any} */ ({})) {
+      const s = link.state(), t = now();
+      if (!s || s.day === null || s.fell || s.wrath != null || !s.lg || !Object.values(HIT_KINDS).includes(r) || !fromHisCourt(s, t)) return false;
+      return host.hit({ i, d, r }, t);
+    },
     /** AUDIT WBX F6: my soul trap on him while it runs (`{chance}`), or null - a recast stacks onto it as it would on any
      *  foe (effects.js AddState: its rounds, no new save), where his stand-in forgets every trap between casts. */
     trapNow() { const t = now(); return trapMark && t < trapMark.until ? { chance: trapMark.chance } : null; },
@@ -700,6 +774,7 @@ export function createGateCourt({
     batches() {
       _batches.length = 0;
       if (batch && batchShown) _batches.push(batch);
+      for (const b of host.batches()) _batches.push(b);   // WB11c: his host
       for (const b of spoils?.batches() ?? NONE) _batches.push(b);
       return _batches;
     },
@@ -718,6 +793,7 @@ export function createGateCourt({
         L.color[0] = d.color[0] * kk; L.color[1] = d.color[1] * kk; L.color[2] = d.color[2] * kk;
         _lights.push(L);
       }
+      for (const l of host.lights()) _lights.push(l);   // WB11c: a Ward-Bearer holding his ward glows in its gold
       for (const l of spoils?.lights() ?? NONE) _lights.push(l);
       return _lights;
     },
@@ -733,6 +809,7 @@ export function createGateCourt({
         for (const ps of poolDraw) { pass.draw(ps, proj, view, eye, seconds, fog, COURT_CENTRE, _walked); drew = true; }   // WBX5: the burning ground under all
         if (mark) { pass.draw(mark, proj, view, eye, seconds, fog); drew = true; }   // WBX4: where he stands and faces
         if (shape) { pass.draw(shape, proj, view, eye, seconds, fog, COURT_CENTRE, _walked); drew = true; }   // AUDIT WB9 (court F4): and over the laid walkways
+        for (const hs of host.shapes()) { pass.draw(hs, proj, view, eye, seconds, fog, COURT_CENTRE, _walked); drew = true; }   // WB11c: his host's blows, its paths and its tethers
       }
       if (_fxLive.length || meteorNow) {   // WB9e: his blows landing - the sparks and the meteor's fall, over the telegraph
         if (!fxTried && gl) { fxTried = true; try { fxPass = new GateFxRenderer(gl); } catch (e) { console.warn('[gate] his effects would not build', e?.message ?? e); fxPass = null; } }
@@ -752,17 +829,20 @@ export function createGateCourt({
       crystals: rk ? { i: rk.i, n: rk.n, ended: rk.ended, brokeAt: [...rk.brokeAt], hp: [...rk.hp], grewAt: rk.grewAt } : null, drawn: _crystalDraw.map((d) => ({ ...d })), inFire, biteAt,
       // WB9e: the sparks flying and the meteor falling
       bursts: _fxLive.map((b) => ({ at: [...b.at], t: b.t, kind: b.kind, color: b.color })), meteor: meteorNow ? { at: [...meteorNow.at] } : null,
+      host: host.state(),   // WB11c: his host as this screen holds it
     }),
     /** WBX2: the portal home, while it stands - where (the court's frame) and how far it has risen - or null. */
     portal: () => (portal ? { at: [...portal.at], rise: portal.rise } : null),
     /** Out of the court: the body put away, the bar hidden, the fight forgotten (the texture is kept - the next court wears it). */
     leave() {
+      if (healOwed.size) sendOwed(now());   // GATE-HEAL: what my mates healed in me goes before the court is put away
       spoils?.gather();   // WB5: whatever is still on the floor goes into the pack - never lost to a door, a death or the day's end
       if (batch) { renderer?.destroyBillboardBatch?.(batch); batch = null; batchShown = false; }
       drawGateBossBar(null);
       drawGateMarksCard(null);   // WB9a
       drawGateDamageChart(null);   // GATE-UX
       drawGateGround(null);   // WB9d
+      host.leave();   // WB11c: his host's bodies put away
       reset(null);
     },
   };

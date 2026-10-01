@@ -8362,7 +8362,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2758 mounts the same one, gated on
+  // and dungeonContext.js:2761 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
   // that context through modes.dungeonCtx - so worldModes.js:6609
@@ -8887,7 +8887,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       foeSinks: (f) => enchantFoeSinks(f),
       feet: () => enchantFeet(),
       standLooseFoe: _standLooseFoe,
-      bossSpell: (record) => { modes?.dungeonCtx?.spellOnBoss?.(record); },   // WARDEN-STRIKE: a Cast When Strikes spell on the Gate's Warden, by the court's own spell door (AUDIT WBX F2's, hosted)
+      bossSpell: (record, target) => { modes?.dungeonCtx?.spellOnBoss?.(record, target); },   // WARDEN-STRIKE: a Cast When Strikes spell on the Gate's Warden, by the court's own spell door (AUDIT WBX F2's, hosted; AUDIT WB11 W1: the stand-in it met with it)
       spellToOwner: (f, record, level) => enchantSpellToOwner(f, record, level),   // STRIKE-SHARED: routed by membership, below
       // V3: Azura's TEXT.RSC popup.
       // ENH-NOTICE3: through the one door, and the ROUTING CHANGES -
@@ -10947,7 +10947,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7703), so exterior mode and a
+    // composer, dungeonContext.js:7775), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -13599,7 +13599,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10107-10171 -
+  // worldModes answers it in BOTH modes (worldModes.js:10109-10173 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -15581,6 +15581,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       magic.applySpellToPlayer(spell, d.level, null, { allyCast: true, strangerCast: !mate });   // AUDIT SPELL-GIFT B6: a stranger's Cure leaves an infection be
       const healed = Math.max(0, Math.trunc(playerEntity.health - before));
       if (healed > 0 && loud) townTalk.say(`You are healed ${healed} points.`);
+      if (healed > 0) gateCourt?.healedBy?.(id, healed);   // GATE-HEAL: in a gate's court, the caster's healing (the round-up's)
       surfacePlayer();
     };
     // INSPECT1: A CARD FRAME AT ME. An ASK is answered with my card - what my own sheet shows and what I wear now
@@ -16667,6 +16668,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     veiled: () => !!gateVeil?.busy,   // WB9a: the marks' card waits under the step's fire (the veil is made just below - read at a frame, never at the build)
     send: (hit) => !!online?.sendGate?.({ k: 'hit', ...hit }),   // WB4b: a blow of mine on him, to the court's room
     sendCrystal: (hit) => !!online?.sendGate?.({ k: 'xhit', ...hit }),   // WB9c: a blow of mine on a crystal of Oblivion
+    sendHost: (hit) => !!online?.sendGate?.({ k: 'ahit', ...hit }),   // WB11c: a blow of mine on one of his host
+    sendHeal: (heal) => !!online?.sendGate?.({ k: 'heal', ...heal }),   // GATE-HEAL: what my mates' spells healed in me, and whose
     portalDoor: (door) => { modes?.dungeonCtx?.exitDoors?.push?.(door); },   // WBX2: its door, for the exit's ray and name - and (SS3) its press, the one way through it
     // WBX7: a soul trap of mine still on him as he fell - the port's own kill roll (EnemyEntity.AttemptSoulTrap), his soul
     // into an empty gem of my pack, its words; the tether's arm is not his (the relay has already killed him)
@@ -19601,6 +19604,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     bossTrapNow: () => gateCourt?.trapNow?.() ?? null,   // AUDIT WBX F6: my trap running on him, for a recast to stack onto
     gateCrystals: () => gateCourt?.crystalTargets() ?? null,   // WB9c: the Reckoning's crystals as bodies my blows meet
     onCrystalHit: (hit) => !!gateCourt?.crystalHit(hit),   // WB9c: a blow's number on one, out to the room
+    gateHost: () => gateCourt?.hostTargets() ?? null,   // WB11c: his host as bodies my blows meet
+    onHostHit: (hit) => !!gateCourt?.hostHit(hit),   // WB11c: a blow's number on one, out to the room
     // WB9f: HIS SPOILS ON THE FLOOR, pressed - the pool's resting pieces as targets, their words and their items for the
     // plaque, and the press that takes one into the pack (the court's dungeon arm, worldModes.js standCourt)
     spoilTargets: () => spoilsPool?.targets() ?? null,

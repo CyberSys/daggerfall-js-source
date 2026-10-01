@@ -15,7 +15,7 @@
 // size, each attack's reach, element, name, ground and weight), the Warden unmarked when none is given.
 //
 // Not a DFU member. Ledger A (WB).
-import { ATTACK_BY_ID, ATTACKS, BASE_PROFILE, windupOf, isDagons } from './gateBrain.js';
+import { ATTACK_BY_ID, ATTACKS, BASE_PROFILE, windupOf, isDagons, HOST_BLOWS } from './gateBrain.js';
 
 /** A landing is decided at the first frame at or past it - and a frame that comes later than this past its span (a
  *  stalled or hidden screen) lets it pass: nobody is struck by what their screen never showed land. */
@@ -162,4 +162,28 @@ export function telegraphAt(atk, phase, now) {
   const w = windupOf(A, phase), span = Math.max(A.active, 1);
   const t = w > 0 ? Math.max(0, Math.min(1, (now - (atk.at - w)) / w)) : 1;
   return { t, landing: now >= atk.at && now < atk.at + span, over: now >= atk.at + span, key: A.key, since: now - atk.at };
+}
+
+/**
+ * WB11b: A BLOW OF HIS HOST'S, judged on the struck player's machine at the frame `now` - co-op's law, as his own blows
+ * are: its disc (net/gateBrain.js HOST_BLOWS - a Harrier's Bite, a Ward-Bearer's Pulse, by the kind `k` that strikes it)
+ * about where it was laid (`atk` - the wire's `aatk`: when it lands, the disc's centre), decided at the first frame at or
+ * past its landing - 'hit', 'miss', or 'wait'; met later than STRIKE_LATE_MS past its span, a 'miss'. Pure.
+ * @param {{at: number, x: number, z: number}|null} atk @param {number} k @param {number} px @param {number} pz @param {number} now
+ * @returns {'hit'|'miss'|'wait'}
+ */
+export function hostVerdict(atk, k, px, pz, now) {
+  const B = HOST_BLOWS[k];
+  if (!B || !atk || !Number.isFinite(atk.at)) return 'miss';
+  if (!(now >= atk.at)) return 'wait';   // (spelled apart from strikeVerdict's - a mutant record aims at that one alone)
+  if (now > atk.at + Math.max(B.active, 1) + STRIKE_LATE_MS) return 'miss';
+  return Number.isFinite(px) && Number.isFinite(pz) && Math.hypot(px - atk.x, pz - atk.z) <= B.r ? 'hit' : 'miss';
+}
+/** WB11b: a host blow's clock at `now` (the relay's): its wind-up's share (0 at its word, 1 at its landing), whether it is
+ *  landing, whether it is over, and how long since it landed - the telegraph's and the body's. Null for no blow. Pure. */
+export function hostTelegraphAt(atk, k, now) {
+  const B = HOST_BLOWS[k];
+  if (!B || !atk || !Number.isFinite(atk.at)) return null;
+  const span = Math.max(B.active, 1);
+  return { t: Math.max(0, Math.min(1, (now - (atk.at - B.windup)) / B.windup)), landing: now >= atk.at && now < atk.at + span, over: now >= atk.at + span, since: now - atk.at, key: B.key };
 }

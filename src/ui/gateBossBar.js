@@ -11,10 +11,10 @@
 // `bossBarModel` is pure - the court's state and the clock in, what the bar says out; the pins read it.
 //
 // Not a DFU member. Ledger A (WB).
-import { ATTACK_BY_ID, ATTACKS, PHASE_AT, profileOf } from '../net/gateBrain.js';
+import { ATTACK_BY_ID, ATTACKS, PHASE_AT, profileOf, HOST } from '../net/gateBrain.js';
 import { telegraphAt } from '../net/gateStrike.js';
 import { countdownText } from '../net/gateLaw.js';
-import { attackColor, crystalColor, STUN_COLOR } from '../world/gateBoss.js';
+import { attackColor, crystalColor, STUN_COLOR, WARD_COLOR } from '../world/gateBoss.js';
 import { GATE_RING_CSS } from './gateMapMark.js';
 import { marksViewOf, markIconSvg, MARKS_CARD_TEXT } from './gateMarksView.js';   // WB9a: the night's marks under his health, each its sign, name and line
 
@@ -38,6 +38,10 @@ export const BOSS_BAR_TEXT = Object.freeze({
   reckon: (name, left, n, secs) => `${name} - ${left} of ${n} ${n === 1 ? 'crystal' : 'crystals'} - ${secs}s`,
   stunned: (secs) => `Stunned - ${secs}s`,
   reckonIn: (left) => `Reckoning in ${left}`,
+  // WB11c: HIS HOST on the bar - while his Ward-Bearers hold his ward, how many stand (of how many rose, where this screen
+  // saw them rise); the rest of his host standing, in the foot
+  bearers: (left, n) => `Ward-Bearers - ${n > left ? `${left} of ${n}` : left} ${left === 1 ? 'stands' : 'stand'}`,
+  host: (n) => `His host: ${n}`,
 });
 
 const css = (c) => `rgb(${Math.round(c[0] * 255)}, ${Math.round(c[1] * 255)}, ${Math.round(c[2] * 255)})`;
@@ -91,6 +95,10 @@ export function bossBarModel(s, now, boss) {
     for (const q of s.cx.c) if (q[2] > 0) left++;
     callout = { text: BOSS_BAR_TEXT.reckon(P.atk.reckon.name, left, s.cx.c.length, Math.ceil((atk.at - now) / 1000)), color: css(crystalColor(P)) };
   } else if (!s.fell && s.wrath == null && now < (s.stunUntil ?? 0)) callout = { text: BOSS_BAR_TEXT.stunned(Math.ceil((s.stunUntil - now) / 1000)), color: css(STUN_COLOR) };
+  // WB11c: his Ward-Bearers holding his ward say themselves where nothing of his is being wound up
+  let bearers = 0, others = 0;
+  for (const a of s.lg?.ads ?? []) { if (a.k === HOST.bearer) bearers++; else others++; }
+  if (!s.fell && s.wrath == null && bearers > 0 && now < s.shieldUntil && !callout) callout = { text: BOSS_BAR_TEXT.bearers(bearers, s.lg?.ward?.n ?? bearers), color: css(WARD_COLOR) };
   const toWrath = Number.isFinite(s.wrathAt) ? s.wrathAt - now : Infinity;
   const toReckon = !s.fell && s.wrath == null && s.phase >= 3 && s.rk > now ? s.rk - now : null;
   return {
@@ -101,6 +109,7 @@ export function bossBarModel(s, now, boss) {
     wrath: !s.fell && s.wrath == null && toWrath <= WRATH_WARN_MS ? BOSS_BAR_TEXT.wrathIn(countdownText(toWrath)) : null,
     fighters: s.fighters | 0,
     reckonIn: toReckon !== null ? BOSS_BAR_TEXT.reckonIn(countdownText(toReckon)) : null,   // WB9c
+    host: !s.fell && s.wrath == null && others > 0 ? BOSS_BAR_TEXT.host(others) : null,   // WB11c: the rest of his host standing
   };
 }
 
@@ -187,7 +196,7 @@ export function drawGateBossBar(model, { hidden = false, doc = globalThis.docume
     parts.callout.textContent = callout;
     parts.callout.style.color = color;
   }
-  const foot = [BOSS_BAR_TEXT.fighters(model.fighters), model.fallen ? null : model.reckonIn, model.wrath].filter(Boolean).join('  -  ');   // WB9c: the next Reckoning; GATE-UX: no phase line
+  const foot = [BOSS_BAR_TEXT.fighters(model.fighters), model.fallen ? null : model.host ?? null, model.fallen ? null : model.reckonIn, model.wrath].filter(Boolean).join('  -  ');   // WB9c: the next Reckoning; GATE-UX: no phase line; WB11c: his host standing
   if (foot !== shown.foot) { shown.foot = foot; parts.foot.textContent = foot; }
 }
 
