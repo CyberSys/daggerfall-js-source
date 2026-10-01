@@ -2655,6 +2655,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // WB9c: the Reckoning's crystals as marks a harmful spell meets (a touch, a missile, a blast) - each by its number
     crystalMarks: opts.gateCrystals ? () => gateCrystalBodies().map((q) => ({ c: q.crystal, feet: q.ai.feet, height: q.ai.height, radius: q.ai.radius })) : null,
     castAtCrystal: opts.gateCrystals ? (sp, c) => spellOnCrystal(sp, c) : null,
+    // WB11c: the Legion-Lord's host as marks a harmful spell meets - each by its number and name
+    hostMarks: opts.gateHost ? () => gateHostBodies().map((q) => ({ i: q.host, name: q.entity?.name ?? '', feet: q.ai.feet, height: q.ai.height, radius: q.ai.radius })) : null,
+    castAtHost: opts.gateHost ? (sp, i) => spellOnHost(sp, i) : null,
     // A10: THE RECALL ARRIVAL, ROUTED. This used to be a stand-in line
     // saying the anchor machinery lived in the streaming host - true of
     // the machinery, false as a refusal: this context is the one the
@@ -2807,7 +2810,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       foes: () => foes,
       foeSinks,
       feet: () => lastPlayerFeet ?? [0, 0, 0],
-      bossSpell: opts.gateBoss ? (record) => { spellOnBoss(record); } : null,   // AUDIT WBX F2: a Cast When Strikes spell on the court's boss, by his own spell door
+      bossSpell: opts.gateBoss ? (record, target) => { spellOnStandIn(record, target); } : null,   // AUDIT WBX F2: a Cast When Strikes spell on the court's boss, by his own spell door (AUDIT WB11 W1: or the host body or crystal its stand-in names)
       spellToOwner: (f, record, level) => spellToOwner(f, record, level),   // STRIKE-SHARED: a strike on a foe another player runs, to that player
       // SD1's placement, over THIS host's collider and pool - the same
       // body world.js stands its loose foes through.
@@ -3037,7 +3040,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1112 against :1142; worldModes.js:7807 against :7834).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1112 against :1142; worldModes.js:7809 against :7836).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -3434,6 +3437,55 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     reportPlayerAttack({ hit: true, damage: Math.round(dealt) });   // HN1: the number pops as a blow's does
     return landOnCrystal(cr, dealt, HIT_KINDS.Spell);
   }
+  // ═══ WB11c: HIS HOST, MET ═════════════════════════════════════════════════════════════════════════════════════════
+  // (2026-10-01, Mac: "1. All three ... 4. Trial rotation" - the Legion-Lord's Harriers, Sappers and Ward-Bearers). The
+  // outer host's word of them (`opts.gateHost` - scenes/gateCourt.js hostTargets(): each one standing, its number, where
+  // it stands, its body, its stand-in and its mobile) as foe-shaped records, made each time asked; none but under the
+  // trial. As he and his crystals are, they are NEVER in `foes`: a blow of mine that meets one is computed here by the
+  // game's own law against its stand-in (world/gateBoss.js hostStandIn) and its number goes out (`opts.onHostHit`), the
+  // relay's caps deciding what lands (net/gateBrain.js applyHostHit). They bleed and sound as their own mobile does - their
+  // blood laddered against their own whole (`bloodOf`: AUDIT WB11 W5 - the stand-in's health nothing can empty threw the
+  // lowest rung at every blow).
+  function gateHostBodies() {
+    const list = opts.gateHost?.() ?? null;
+    if (!Array.isArray(list) || !list.length) return [];
+    const out = [];
+    for (const q of list) {
+      if (!q?.entity || !Array.isArray(q.feet) || !(q.height > 0) || !(q.radius > 0) || !Number.isInteger(q.i)) continue;
+      out.push({ host: q.i, m: q.m ?? 0, bloodOf: { maxHealth: q.m > 0 ? q.m : 0 }, dead: false, entity: q.entity, mobileType: q.mobile ?? null, ai: { feet: q.feet, yaw: 0, height: q.height, radius: q.radius, centreOffset: q.height / 2, isHostile: true } });
+    }
+    return out;
+  }
+  /** A blow's number on one of his host, out to the relay through the court's door; answers whether it went. */
+  const landOnHost = (hb, damage, r) => !!opts.onHostHit?.({ i: hb.host, d: damage, r });
+  /** Its middle, where a blow on it sounds and splashes. */
+  const hostChest = (hb) => [hb.ai.feet[0], hb.ai.feet[1] + hb.ai.centreOffset, hb.ai.feet[2]];
+  /** A swing of mine that met one of his host (resolveHit's own verdict and number): a zero blow's parry as its mobile
+   *  parries, else the hit's sound and its own blood at it and the number out; OnWeaponHitEntity either way. */
+  function swingOnHost(hb, damage, lookDir) {
+    if (damage <= 0) {
+      const snd = zeroDamageHitSound({ weapon: playerWeapon.strikingWeapon, arrowHit: false, parrySounds: !!ENEMY_BASICS[hb.mobileType]?.parrySounds, roll: Math.random() });
+      if (snd?.at === 'enemy') audio.play3d(snd.sound, hostChest(hb), 1.1, { maxDistance: 24 });
+      else if (snd) audio.playOneShot(snd.sound, 1.1);
+    } else {
+      audio.play3d(hitSoundFor(playerWeapon.strikingWeapon), hostChest(hb), ENEMY_HIT_VOLUME, { maxDistance: 24 });
+      hitEffects?.showBloodSplash(ENEMY_BASICS[hb.mobileType]?.bloodIndex ?? 0, hostChest(hb), null, bloodHit(damage, hb.bloodOf, { fromPlayer: true, weapon: playerWeapon.strikingWeapon, swing: playerWeapon.machine?.state, forward: lookDir }));
+      landOnHost(hb, damage, HIT_KINDS.Melee);
+    }
+    playerWeaponHitEntity(playerEntity, hb.entity, { mobileType: hb.mobileType });
+  }
+  /** A harmful spell of mine that met one of his host (hostMagic's host seam): its harmful families on the body's
+   *  stand-in by the one door every spell lands through, the damage summed and sent. */
+  function spellOnHost(sp, i) {
+    const hb = gateHostBodies().find((q) => q.host === i), harm = duelSpellOf(sp);
+    if (!hb || !harm) return false;
+    let dealt = 0;
+    const sinks = { hurt: (n) => { dealt += Math.max(0, n); }, heal() {}, drainFatigue() {}, restoreFatigue() {}, drainMagicka() {}, restoreMagicka() {} };
+    try { applySpell(harm, playerEntity.level, hb.entity, sinks, Math.random, { entity: playerEntity }); } finally { hb.entity.activeEffects = []; }
+    if (!(dealt >= 1)) return false;
+    reportPlayerAttack({ hit: true, damage: Math.round(dealt) });   // HN1: the number pops as a blow's does
+    return landOnHost(hb, dealt, HIT_KINDS.Spell);
+  }
   /** How the swing sees him: the distance to his body's SURFACE (his axis is `radius` in and his middle `height/2` up - a
    *  point-centre law would ask a swing to reach 3 m into him), in view at the nearest point of him, the way to it
    *  clear. */
@@ -3507,6 +3559,13 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     reportPlayerAttack({ hit: true, damage: Math.round(dealt) });   // HN1: the number pops as a blow's does
     return landOnBoss(boss, dealt, HIT_KINDS.Spell);
   }
+  /** AUDIT WB11 W1: A CAST WHEN STRIKES SPELL ON A STAND-IN OF THE COURT - the one it names: one of his host (`hostI`),
+   *  a crystal (`crystalC`), else him. Every one went to his door, wherever he stood: a blade that cut an Imp cast on him. */
+  function spellOnStandIn(record, target = null) {
+    if (target?.hostI != null) return spellOnHost(record, target.hostI);
+    if (target?.crystalC != null) return spellOnCrystal(record, target.crystalC);
+    return spellOnBoss(record);
+  }
   function resolvePlayerHit(eye, inViewFn, playerFeet, lookDir) {
     // AUDIT 23 (combat-14): entity colliders resolve FIRST
     // (WeaponManager.cs:1048-1056 foreach over hitColliders);
@@ -3531,6 +3590,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const canSee = (f) => {
       if (f === boss) return bossSight(eye, inViewFn, boss);
       if (f.crystal != null) return bossSight(eye, inViewFn, f);   // WB9c: a crystal of Oblivion by its surface, as he is
+      if (f.host != null) return bossSight(eye, inViewFn, f);   // WB11c: one of his host by its surface
       const c = [f.ai.feet[0], f.ai.feet[1] + (f.ai.height ?? CAPSULE_HEIGHT) / 2, f.ai.feet[2]];   // foe center (mid-capsule) - ITS capsule (REVIEW 2026-09-05), the 0.9 was the player's
       const dx = c[0] - eye[0], dy = c[1] - eye[1], dz = c[2] - eye[2];
       const dist = Math.hypot(dx, dy, dz);
@@ -3539,6 +3599,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       return { dist, inView: inViewFn(c), losClear: !Number.isFinite(hit) || hit >= dist - 1e-3 };
     };
     for (const cr of gateCrystalBodies()) { cr._backFacing = false; live.push(cr); }   // WB9c: the Reckoning's crystals, bodies the swing meets as it meets him
+    for (const hb of gateHostBodies()) { hb._backFacing = false; live.push(hb); }   // WB11c: his host, bodies the swing meets (its facing is the relay's walk, not a body's - no backstab)
     // (the module-level playerEntity import IS foeDeps.playerEntity -
     // the old shadowing destructure was the null read that crashed)
     let hitEnemy = false;
@@ -3551,6 +3612,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       (f, pt) => poisonFoe(f, pt))) {   // C2-slice (combat-11): the player's poisoned blade infects its victim; WORLD6b-iii(e): through the one poison door (a puppet's rides the hit)
       if (foe === boss) { hitEnemy = true; swingOnBoss(boss, damage, lookDir); continue; }   // WB4b: his own arm - nothing of a foe's door is his
       if (foe.crystal != null) { hitEnemy = true; swingOnCrystal(foe, damage); continue; }   // WB9c: a crystal's own - no blood, no foe's door
+      if (foe.host != null) { hitEnemy = true; swingOnHost(foe, damage, lookDir); continue; }   // WB11c: one of his host's own - its blood, no foe's door
       // WeaponDamage returns true for a CONNECTING swing even at zero
       // damage (WeaponManager.cs:617-637 falls through to
       // DecreaseHealth/HandleAttackFromSource and returns true), so
@@ -3780,7 +3842,17 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
           // WB9c: a shaft meets a crystal by its whole body - the one player-arrow law against its stand-in (no blood)
           const cr = gateCrystalBodies().find((q) => missileHitsCapsule(m.pos, q.ai.feet, q.ai.height, q.ai.radius));
           if (cr) {
-            playerArrowHitFoe(m, cr, { playerEntity, playerWeapon, playerFeet, audio, hitEffects: null, say: (l) => hudText.add(l), dealDamage: (t, d) => landOnCrystal(cr, d, HIT_KINDS.Shaft) });
+            // AUDIT WB11 W2: no backstab - a crystal faces nowhere (its `yaw` 0 made every shaft from its -z side one)
+            playerArrowHitFoe(m, cr, { playerEntity, playerWeapon, playerFeet: null, audio, hitEffects: null, say: (l) => hudText.add(l), dealDamage: (t, d) => landOnCrystal(cr, d, HIT_KINDS.Shaft) });
+            retireMissile(m);
+            continue;
+          }
+          // WB11c: a shaft meets one of his host by its whole body - the one player-arrow law against its stand-in
+          const hb = gateHostBodies().find((q) => missileHitsCapsule(m.pos, q.ai.feet, q.ai.height, q.ai.radius));
+          if (hb) {
+            // AUDIT WB11 W2: no backstab, as no swing on one has (its `yaw` 0 is no facing - every shaft from its -z side was
+            // a backstab, x3 and a Backstabbing use); W5: its blood laddered against its own whole (`bloodOf`)
+            playerArrowHitFoe(m, hb, { playerEntity, playerWeapon, playerFeet: null, audio, hitEffects, say: (l) => hudText.add(l), dealDamage: (t, d) => landOnHost(hb, d, HIT_KINDS.Shaft) });
             retireMissile(m);
             continue;
           }
@@ -3790,8 +3862,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:24433,
-              // exterior.js:5374 and worldModes.js:8520 already ran;
+              // playerArrowHitFoe is the one copy world.js:24438,
+              // exterior.js:5374 and worldModes.js:8522 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -7039,7 +7111,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // WARDEN-STRIKE (FB 2026-09-29g): the court's boss's spell door, for the OUTER host's enchant ctx - hosted, this
     // context mounts none (`enchantCtx: false`), so its own `bossSpell` never ran and a Cast When Strikes spell on the
     // Warden went nowhere in the real game. Outside a court, nobody: false.
-    spellOnBoss: (record) => (opts.gateBoss ? spellOnBoss(record) : false),
+    spellOnBoss: (record, target = null) => (opts.gateBoss ? spellOnStandIn(record, target) : false),   // AUDIT WB11 W1: by the stand-in it met
     // LOOT11 (the Loot arc): the finds a line of light may stand over - a searchable body (the room's on every client: its
     // list is the room's record) and a treasure pile, each its crown and its list read live (scenes/lootLines.js picks)
     lootFinds: () => [

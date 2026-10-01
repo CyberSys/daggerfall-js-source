@@ -3,9 +3,10 @@
 //
 // Every gate (a game day, two real hours online) the Warden comes under ONE ASPECT - the element his elemental blows and
 // his ground carry (Burning, Rime-Wrought, Storm-Crowned, Venom-Blooded) - and TWO TRIALS (Colossal, Unyielding,
-// Vengeful, Scarring, Grudge-Bearer, Soul-Hungry, Dagon's Favoured, Echoing). The day's draw is a cycle: every aspect
-// with every pair of trials ONCE each in 112 gates, no two gates running sharing a mark, each round of four gates all of
-// them (AUDIT PRE-MERGE 0929 W1-4: a round - gates 4k to 4k+3 - not any four running)
+// Vengeful, Scarring, Grudge-Bearer, Soul-Hungry, Dagon's Favoured, Echoing - and WB11a's ninth, Legion-Lord). The day's
+// draw is a cycle: every aspect with every pair of trials ONCE each in 144 gates (112 for WB8b's eight), no two gates
+// running sharing a mark, each round of four gates every aspect and eight of the nine trials, the ninth resting (AUDIT
+// PRE-MERGE 0929 W1-4: a round - gates 4k to 4k+3 - not any four running)
 // (net/gateLaw.js gateModsOf). The relay's brain fights under the fight's own marks (net/gateBrain.js fightProfile), says
 // them in its state (`md`), and every screen resolves and draws the same law from them.
 //
@@ -56,17 +57,20 @@ test('WB8b the tables: four aspects, each an element, an epithet, a name for eac
   assert.deepEqual(gateAspectOf('burning').names, { hellfire: 'Hellfire', nova: 'Flame Nova', meteor: 'Meteor of Oblivion', spokes: 'Spokes of Dagon' }, 'the Burning Warden\'s are the attacks\' own');
   for (const [k, A] of Object.entries(gateAspectOf('burning').names)) assert.equal(A, ATTACKS[k].name);
   assert.deepEqual(gateAspectOf('rime').names, { hellfire: 'Rimefall', nova: 'Frost Nova', meteor: 'Hailstone of Oblivion', spokes: 'Spokes of Rime' });
-  assert.deepEqual(GATE_TRIALS.map((t) => t.id), ['colossal', 'unyielding', 'vengeful', 'scarring', 'grudge', 'soulhungry', 'favoured', 'echoing']);
-  assert.deepEqual(GATE_TRIALS.map((t) => t.name), ['Colossal', 'Unyielding', 'Vengeful', 'Scarring', 'Grudge-Bearer', 'Soul-Hungry', 'Dagon\'s Favoured', 'Echoing']);
+  assert.deepEqual(GATE_TRIALS.map((t) => t.id), ['colossal', 'unyielding', 'vengeful', 'scarring', 'grudge', 'soulhungry', 'favoured', 'echoing', 'legion']);   // WB11a: the ninth
+  assert.deepEqual(GATE_TRIALS.map((t) => t.name), ['Colossal', 'Unyielding', 'Vengeful', 'Scarring', 'Grudge-Bearer', 'Soul-Hungry', 'Dagon\'s Favoured', 'Echoing', 'Legion-Lord']);
   const T = (id) => gateTrialOf(id);
   assert.deepEqual([T('colossal').size, T('colossal').hp, T('colossal').slamR], [1.25, 1.25, 8.5]);
   assert.deepEqual([T('unyielding').shieldMs, T('unyielding').hit], [6000, 0.85]);
   assert.equal(T('vengeful').dmg, 1.25); assert.equal(T('scarring').groundMs, 1.5);
   assert.deepEqual([T('grudge').threatPick, T('grudge').threatDecay], [0.85, 0]);
   assert.equal(T('soulhungry').heal, 0.03);
+  assert.equal(T('legion').legion, true, 'WB11a: Legion-Lord brings his host');
   for (const t of GATE_TRIALS) assert.ok(t.text.length > 10 && !t.text.endsWith('.'), `${t.id}: one line, said with its own stop`);
   assert.equal(GATE_TRIALS_A_DAY, 2);
-  assert.equal(GATE_TRIALS.length, GATE_ASPECTS.length * GATE_TRIALS_A_DAY, 'the cycle\'s shape: a round of four gates holds every trial once');
+  // WB11a: the cycle's shape - a round of four gates holds a pair of trials for every aspect, and one trial over at most
+  // rests (the round-robin's bye); eight trials or nine for four aspects
+  assert.equal(Math.floor(GATE_TRIALS.length / GATE_TRIALS_A_DAY), GATE_ASPECTS.length, 'the cycle\'s shape: a pair of trials for every aspect in a round, one over at most');
   // reading
   assert.deepEqual(readGateMods(null), { aspect: GATE_ASPECTS[0], trials: [] }, 'none: the Warden unmarked');
   assert.deepEqual(readGateMods(['rime', 'echoing', 'nope', 7, 'echoing']), { aspect: gateAspectOf('rime'), trials: [T('echoing')] }, 'unknown words dropped, a trial counted once');
@@ -84,9 +88,10 @@ test('WB8b the tables: four aspects, each an element, an epithet, a name for eac
 
 // ═══ THE DRAW ═════════════════════════════════════════════════════════════════════════════════════════════════════
 
-test('WB8b the draw: a CYCLE of 112 gates - every aspect with every pair of trials exactly once - where no two gates running share an aspect or a trial (the cycle\'s wrap too), each round of four gates (4k to 4k+3) brings all four aspects and all eight trials, a pair comes back no sooner than 25 gates on and a whole set only after 112; a pure function of the day (mutants: the seam unchecked; a round\'s turn of the aspects dropped; the wrap unchecked)', () => {
+test('WB8b the draw: a CYCLE of 144 gates (WB11a - nine trials; 112 for WB8b\'s eight) - every aspect with every pair of trials exactly once - where no two gates running share an aspect or a trial (the cycle\'s wrap too), each round of four gates (4k to 4k+3) brings all four aspects and eight of the nine trials (the ninth resting, never one two rounds running), every trial as often, a pair comes back no sooner than 33 gates on and a whole set only after 144; a pure function of the day (mutants: the seam unchecked; a round\'s turn of the aspects dropped; the wrap unchecked; the bye\'s pair made a gate)', () => {
   const N = gateMarksCycleLength();
-  assert.equal(N, GATE_ASPECTS.length * (GATE_TRIALS.length * (GATE_TRIALS.length - 1)) / 2, '4 x 28');
+  assert.equal(N, GATE_ASPECTS.length * (GATE_TRIALS.length * (GATE_TRIALS.length - 1)) / 2, '4 x 36');
+  assert.equal(N, 144);
   const seen = new Set();
   for (let d = 0; d < N; d++) {
     const md = gateModsOf(d);
@@ -96,14 +101,22 @@ test('WB8b the draw: a CYCLE of 112 gates - every aspect with every pair of tria
     seen.add([md[0], ...md.slice(1).sort()].join(','));
   }
   assert.equal(seen.size, N, 'every set once');
-  let lastAt = new Map(), pairAt = new Map(), minSet = Infinity, minPair = Infinity;
+  let lastAt = new Map(), pairAt = new Map(), minSet = Infinity, minPair = Infinity, rested = null;
+  const each = new Map();
+  for (let d = 0; d < N; d++) for (const k of gateModsOf(d).slice(1)) each.set(k, (each.get(k) ?? 0) + 1);
+  assert.deepEqual([...new Set(each.values())], [N * GATE_TRIALS_A_DAY / GATE_TRIALS.length], 'every trial as often - 32 of the 144');
   for (let d = 0; d < 3 * N + 5; d++) {
     const md = gateModsOf(d);
     if (d > 0) assert.ok(apart(md, gateModsOf(d - 1)), `gates ${d - 1} and ${d} share nothing (${gateModsOf(d - 1)} / ${md})`);
     if (d % 4 === 3) {
       const r = [0, 1, 2, 3].map((k) => gateModsOf(d - 3 + k));
       assert.equal(new Set(r.map((m) => m[0])).size, 4, `the round ending at ${d}: every aspect`);
-      assert.equal(new Set(r.flatMap((m) => m.slice(1))).size, 8, `the round ending at ${d}: every trial`);
+      const trials = new Set(r.flatMap((m) => m.slice(1)));
+      assert.equal(trials.size, 8, `the round ending at ${d}: eight trials, none twice`);
+      const rest = GATE_TRIALS.filter((t) => !trials.has(t.id)).map((t) => t.id);
+      assert.equal(rest.length, 1, `the round ending at ${d}: one trial rests`);
+      assert.notEqual(rest[0], rested, `the round ending at ${d}: never the same one two rounds running`);
+      rested = rest[0];
     }
     const k = md.join(','), pk = md.slice(1).join(',');
     if (lastAt.has(k)) minSet = Math.min(minSet, d - lastAt.get(k));
@@ -111,15 +124,17 @@ test('WB8b the draw: a CYCLE of 112 gates - every aspect with every pair of tria
     lastAt.set(k, d); pairAt.set(pk, d);
   }
   assert.equal(minSet, N, 'a set of marks comes back once the cycle does, and not before');
-  assert.ok(minPair >= 25, `a pair of trials rests ${minPair} gates at least`);
+  assert.ok(minPair >= 33, `a pair of trials rests ${minPair} gates at least`);
   assert.ok(apart(gateModsOf(N - 1), gateModsOf(N)), 'the wrap: the cycle\'s last gate and its first share nothing');
   assert.equal(gateModsOf(5), gateModsOf(5), 'made once - the same frozen answer');
   assert.ok(Object.isFrozen(gateModsOf(5)));
   assert.deepEqual(gateModsOf(5 + N), gateModsOf(5));
   assert.equal(gateIndex(40), 40 / GATE_EVERY_DAYS);
   // the salt's own cycle, pinned where the field will meet it: the herald's day and the field's first nights
-  assert.deepEqual([0, 1, 2, 3].map((d) => gateModsOf(d)), [['burning', 'grudge', 'echoing'], ['venom', 'scarring', 'soulhungry'], ['storm', 'vengeful', 'favoured'], ['rime', 'colossal', 'unyielding']]);
-  assert.deepEqual(gateModsOf(538), ['burning', 'soulhungry', 'echoing']);
+  // (WB11a moved every one: the cycle is nine trials' now - the first nights were burning, grudge, echoing; venom,
+  // scarring, soul-hungry; storm, vengeful, favoured; rime, colossal, unyielding; and 538 burning, soul-hungry, echoing)
+  assert.deepEqual([0, 1, 2, 3].map((d) => gateModsOf(d)), [['burning', 'echoing', 'legion'], ['venom', 'vengeful', 'grudge'], ['storm', 'colossal', 'soulhungry'], ['rime', 'scarring', 'favoured']]);
+  assert.deepEqual(gateModsOf(538), ['storm', 'unyielding', 'soulhungry']);
 });
 
 // ═══ THE PROFILE ══════════════════════════════════════════════════════════════════════════════════════════════════
@@ -367,9 +382,9 @@ test('WB8b Echoing in the brain: a meteor falls again a breath after the first -
 
 // ═══ THE WIRE AND THE RELAY ═══════════════════════════════════════════════════════════════════════════════════════
 
-test('WB8b the wire: the brain\'s law is 3 - a game that does not know the marks is refused and told to reload; the room says `fed`, projected field by field; the relay was world128 - world126 on its branch, one relay past main\'s OW6L (world127) at the merge - and PENITENT\'s badge vocabulary moved it on (world129) (mutants: the law not raised; a `fed` taken raw)', () => {
-  assert.equal(GATE_BRAIN_V, 4); assert.equal(GATE_BRAIN_MIN, 4);   // WB9b/c: 4 - the three courts, the bound and the Reckoning
-  assert.equal(RELAY_VERSION, 'world139');   // LOOT7 moved it on last (world139: the street foe record field `cp`, a champion trait - HERALD took world138 first); before it HERALD moved it on (world138: `herald` joins the titles and glyphs a token carries, the Patreon tier between Disciple and Hierophant); before it KEPT-KILL moved it on (world137: the party pose field `qk`, the kills of quest foes a member held for a partner, counted by every copy of the quest); before it GATE-UX moved it on (world136: the damage chart made at the kill - every challenger and their part, ranked, on the `fell` word of the court and on the fall in the state (`dm`)); before it WB9 moved it on (world135: the three courts of the Warden and the Reckoning of Dagon - his court and the walkways laid in the state (`ct`, `xa`), the crystals, their breaking and the stun (`cx`, `cxh`, `cxb`, `stun`, `su`, `rk`) and a blow on a crystal (`xhit`), judged and fanned by the relay - main's PARTY-MAP took world134 first); before it PARTY-MAP moved it on (world134: the `amap` frame, the automap rows a Shared Cartography caster reveals, to the party alone); before it SOFTCAP1 moved it on (world133: the party pose `cl`, a member character level for mentor mode); before it STRIKE-SHARED moved it on (world132: the strike spell on a hit and the trapper on a dead foe, both read by the clients alone); before it MERGE 2 moved it on (world131: the professions branch, BOUNTY1 + AUDIT 28 - `bq` and `lv` on the party pose, `k`, `a` and `t` on a bounty row - world125 on its branch, never deployed, a number VOICE1 took on main); before it REALM-DOOR moved it on (world130: the door refuses a token the account service signed as naming no realm character), past PENITENT's badge vocabulary (world129); WB8's marks were world128
+test('WB8b the wire: the brain\'s law (3 at WB8b; 5 since WB11) - a game that does not know the marks is refused and told to reload; the room says `fed`, projected field by field; the relay was world128 - world126 on its branch, one relay past main\'s OW6L (world127) at the merge - and PENITENT\'s badge vocabulary moved it on (world129) (mutants: the law not raised; a `fed` taken raw)', () => {
+  assert.equal(GATE_BRAIN_V, 5); assert.equal(GATE_BRAIN_MIN, 5);   // WB9b/c: 4 - the three courts, the bound and the Reckoning; WB11: 5 - his host and the nine-trial rotation
+  assert.equal(RELAY_VERSION, 'world140');   // WB11 moved it on last (world140: the host of the Legion-Lord - the `ahit` blow on one of it, the words `ad`, `amv`, `aatk`, `ah` and `adie` of the room, `lg` in the state, `a` in a chart row, the brain law 5; GATE-HEAL's `heal` and a chart row's `hl` with it - main's HERALD and LOOT7 took world138 and world139 first); before it LOOT7 moved it on (world139: the street foe record field `cp`, a champion trait - HERALD took world138 first); before it HERALD moved it on (world138: `herald` joins the titles and glyphs a token carries, the Patreon tier between Disciple and Hierophant); before it KEPT-KILL moved it on (world137: the party pose field `qk`, the kills of quest foes a member held for a partner, counted by every copy of the quest); before it GATE-UX moved it on (world136: the damage chart made at the kill - every challenger and their part, ranked, on the `fell` word of the court and on the fall in the state (`dm`)); before it WB9 moved it on (world135: the three courts of the Warden and the Reckoning of Dagon - his court and the walkways laid in the state (`ct`, `xa`), the crystals, their breaking and the stun (`cx`, `cxh`, `cxb`, `stun`, `su`, `rk`) and a blow on a crystal (`xhit`), judged and fanned by the relay - main's PARTY-MAP took world134 first); before it PARTY-MAP moved it on (world134: the `amap` frame, the automap rows a Shared Cartography caster reveals, to the party alone); before it SOFTCAP1 moved it on (world133: the party pose `cl`, a member character level for mentor mode); before it STRIKE-SHARED moved it on (world132: the strike spell on a hit and the trapper on a dead foe, both read by the clients alone); before it MERGE 2 moved it on (world131: the professions branch, BOUNTY1 + AUDIT 28 - `bq` and `lv` on the party pose, `k`, `a` and `t` on a bounty row - world125 on its branch, never deployed, a number VOICE1 took on main); before it REALM-DOOR moved it on (world130: the door refuses a token the account service signed as naming no realm character), past PENITENT's badge vocabulary (world129); WB8's marks were world128
   assert.ok(GATE_OUT_KINDS.includes('fed'));
   assert.deepEqual(validGateOut({ k: 'fed', ns: ['Ann'], h: 5, m: 10, at: 99, x: 1 }), { k: 'fed', ns: ['Ann'], h: 5, m: 10, at: 99 });
   assert.deepEqual(validGateOut({ k: 'fed', ns: ['  Ann\u0007\u202e ', 'Bran'], h: 5, m: 10, at: 99 }).ns, ['Ann', 'Bran'], 'each name as the wire says every name');

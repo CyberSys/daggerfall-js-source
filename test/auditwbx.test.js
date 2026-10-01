@@ -203,8 +203,8 @@ test('AUDIT WBX F1/F2 no weapon is worn or destroyed on him: the Razor\'s whole-
   assert.ok(foe === null || foe.durabilityLoss === 40, 'a foe as the artifact has it');
   const e = read('src/systems/enchantments.js');
   assert.match(e, /applyResults\(target\?\.spareGear && r\?\.durabilityLoss \? \{ \.\.\.r, durabilityLoss: 0 \} : r, env\);/, 'the Strikes payloads\' bill spared on him');
-  assert.match(read('src/scenes/hostEnchant.js'), /if \(target\?\.spareGear\) \{ bossSpell\?\.\(record\); return; \}/, 'a Cast When Strikes spell goes by his own spell door');
-  assert.match(read('src/scenes/dungeonContext.js'), /bossSpell: opts\.gateBoss \? \(record\) => \{ spellOnBoss\(record\); \} : null,/);
+  assert.match(read('src/scenes/hostEnchant.js'), /if \(target\?\.spareGear\) \{ bossSpell\?\.\(record, target\); return; \}/, 'a Cast When Strikes spell goes by his own spell door (AUDIT WB11 W1: the stand-in it met with it)');
+  assert.match(read('src/scenes/dungeonContext.js'), /bossSpell: opts\.gateBoss \? \(record, target\) => \{ spellOnStandIn\(record, target\); \} : null,/);   // AUDIT WB11 W1: by the stand-in it met
 });
 
 test('AUDIT WBX F3/F4 where he stands: his fall frozen where he fell (a charge\'s head, a leap\'s flight, a walk\'s step) on every screen and in the relay\'s state; a walk\'s word ends the attack before it, so he is never drawn frozen at a charge\'s end while he walks (mutants: the fall at the last word\'s start; the charge kept through the walk)', () => {

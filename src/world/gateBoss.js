@@ -15,12 +15,14 @@
 // The charge is run on the walk's frames at a run's pace, his body carried down the lane as the brain carries it.
 //
 // Not a DFU member. Ledger A (WB).
-import { ATTACK_BY_ID, ATTACKS, BOSS_H, LEAP_AIR_MS, CROSS_AIR_MS, airOf, leapAt, profileOf, isDagons } from '../net/gateBrain.js';
+import { ATTACK_BY_ID, ATTACKS, BOSS_H, LEAP_AIR_MS, CROSS_AIR_MS, airOf, leapAt, profileOf, isDagons, HOST, HOST_KINDS, HOST_RISE_MS, hostAt } from '../net/gateBrain.js';
 import { bossAt } from '../net/gateLink.js';
-import { telegraphAt, chargeHead } from '../net/gateStrike.js';
+import { telegraphAt, chargeHead, hostTelegraphAt } from '../net/gateStrike.js';
 import {
   MOVE_ANIMS, PRIMARY_ATTACK_ANIMS, HURT_ANIMS, IDLE_ANIMS, mobileOrientation,
   MOVE_ANIM_SPEED, IDLE_ANIM_SPEED, PRIMARY_ATTACK_ANIM_SPEED,
+  FLY_ANIM_SPEED, HURT_ANIM_SPEED, SEDUCER_IDLE_MOVE_ANIMS, SEDUCER_ATTACK_ANIMS,   // WB11c: his host's flight, its hurt, and the Seducer's winged form
+  stateAnims,   // AUDIT WB11 C1: his host's tables by the port's own law
 } from '../characters/mobileUnit.js';
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { makeEnemyEntity } from '../characters/enemyEntity.js';
@@ -67,12 +69,15 @@ export function bossStandIn(look, name) {
  */
 export const CRYSTAL_ARMOR = 100;
 export const CRYSTAL_NAME = 'Crystal of Oblivion';
-export function crystalStandIn(look) {
+export function crystalStandIn(look, c = null) {
   const e = bossStandIn(look, CRYSTAL_NAME);
   e.armor = CRYSTAL_ARMOR;
   e.armorValues = new Array(7).fill(CRYSTAL_ARMOR);
   e.skills = 0;
   e.crystal = true;
+  // AUDIT WB11 W1: which crystal it stands in for - a Cast When Strikes spell on it is that crystal's (the enchant door
+  // asks; one stand-in for them all sent it to HIM)
+  if (c !== null) e.crystalC = c;
   return e;
 }
 /** WB8a: what a Pacify or a Charm aimed at him says. */
@@ -370,3 +375,105 @@ export const HURT_GAP_MS = 1400;
 export const HURT_SHARE = 0.004;
 export const QUAKE_ON = Object.freeze(['slam', 'charge', 'nova', 'wrath', 'leap', 'meteor', 'cross', 'reckon']);   // WBX5: his leap's landing and a meteor's fall shake it too; WB9: the bound's and the Reckoning's
 export const THUD_AT_MS = 1500;
+
+// ═══ WB11c: HIS HOST, SEEN AND HEARD ═══════════════════════════════════════════════════════════════════════════
+//
+// (2026-10-01, Mac: "1. All three ... 4. Trial rotation" - the Legion-Lord's host; bible World-Bosses.md section 17.)
+// The relay knows bodies (net/gateBrain.js HOST_KINDS); WHO each one is, by his aspect, is the screen's: Daggerfall's
+// own sprites at their own size, on their own tables - an Imp for every Harrier; the Atronach of his element for a
+// Sapper; for a Ward-Bearer the Daedra nearest it (the Seducer in her winged form for the storm - her change is not
+// played). PURE: a host body (net/gateLink.js GateHost's) and a clock in; a look, an act, a frame and a cue out.
+
+/** Who each kind is under each aspect: its mobile (its sprite, its sounds - enemyBasics.js), its name and its plural for
+ *  the words; an Imp HOVERS this high over the floor (its behaviour is Flying); the Seducer is drawn WINGED. */
+export const HOST_LOOKS = Object.freeze({
+  harrier: Object.freeze({ burning: 1, rime: 1, storm: 1, venom: 1 }),
+  sapper: Object.freeze({ burning: 35, rime: 38, storm: 36, venom: 37 }),
+  bearer: Object.freeze({ burning: 26, rime: 25, storm: 29, venom: 27 }),
+});
+export const HOST_NAMES = Object.freeze({
+  1: Object.freeze(['Imp', 'Imps']), 35: Object.freeze(['Fire Atronach', 'Fire Atronachs']), 38: Object.freeze(['Ice Atronach', 'Ice Atronachs']),
+  36: Object.freeze(['Iron Atronach', 'Iron Atronachs']), 37: Object.freeze(['Flesh Atronach', 'Flesh Atronachs']),
+  26: Object.freeze(['Fire Daedra', 'Fire Daedra']), 25: Object.freeze(['Frost Daedra', 'Frost Daedra']), 29: Object.freeze(['Daedra Seducer', 'Daedra Seducers']), 27: Object.freeze(['Daedroth', 'Daedroths']),
+});
+export const HOST_HOVER_M = 0.9;
+/** A host body's look - its mobile, its names, how high it hovers, whether it is drawn winged - for kind `k` under the
+ *  aspect `aspectId` (the Burning's for one it does not know). Pure. */
+export function hostLookOf(k, aspectId) {
+  const key = HOST_KINDS[k]?.key ?? 'harrier', table = HOST_LOOKS[key];
+  const mobile = table[aspectId] ?? table.burning;
+  const [name, plural] = HOST_NAMES[mobile] ?? ['Daedra', 'Daedra'];
+  return { mobile, name, plural, hover: ENEMY_BASICS[mobile]?.behaviour === 'Flying' ? HOST_HOVER_M : 0, winged: mobile === 29 };
+}
+/** WB11c: THE ENTITY A BLOW ON ONE OF HIS HOST IS COMPUTED AGAINST - his stand-in's law over its own mobile (every metal
+ *  bites, a knight's plate for armour, a health nothing here can empty - the relay holds its real one, never swayed),
+ *  named for the lines a blow says. AUDIT WB11 W1: one a BODY, naming it (`hostI`) - a Cast When Strikes spell on it is
+ *  that body's (scenes/hostEnchant.js asks the stand-in it met), where one shared by a look sent it to HIM. */
+export function hostStandIn(look, i = null) {
+  const e = bossStandIn({ mobile: look.mobile }, look.name);
+  if (i !== null) e.hostI = i;
+  return e;
+}
+
+/** WB11c: a host body's fall - its hurt frames played out over HOST_FALL_MS, and gone; a crumbling one sinks into the
+ *  floor over the same span (the court's driver draws it so). A Sapper he drank is gone at once, into him. */
+export const HOST_FALL_MS = 900;
+/** How long a blow of mine flinches one (only while it does nothing else). */
+export const HOST_FLINCH_MS = 350;
+/**
+ * WHAT ONE OF HIS HOST IS DOING at `now`: `act` one of rise, windup, strike, walk, flinch, idle; `anims` the table that
+ * shows it (the Seducer's winged ones where its look says); `frame` and `loop` as bossAct's; `sink` metres under the floor
+ * it still stands (rising - every screen sees it come up out of the stone). Pure.
+ * @param {any} a a host body (net/gateLink.js GateHost's `ads`) @param {number} now @param {{mobile?: number, winged?: boolean, hover?: number}} look
+ * @param {number} [hurtAt] when a blow of mine last met it
+ */
+export function hostAct(a, now, look, hurtAt = -Infinity) {
+  const winged = !!look?.winged;
+  // AUDIT WB11 C1/C7: its tables and its clock by the port's own law for its mobile (characters/mobileUnit.js stateAnims,
+  // and MobileUnit's flyer clock - DFU's GetStateAnims): an Imp has no idle frames (HasIdle false) and idles and rises
+  // on its move loop - it rose and idled on records it does not have; a flyer (the Imp, the winged Seducer) moves and
+  // idles at FLY_ANIM_SPEED, every other table at its own pace
+  const tab = (state) => stateAnims(state, look?.mobile, !!ENEMY_BASICS[look?.mobile]?.hasIdle, false, false, true, false, winged);
+  const moveT = tab('move'), idleT = tab('idle'), hurtT = tab('hurt'), atkT = tab('attack');
+  const flyer = winged || (look?.hover ?? 0) > 0;
+  const pace = flyer ? FLY_ANIM_SPEED : moveT[0].fps, idlePace = flyer ? FLY_ANIM_SPEED : idleT[0].fps;
+  const riseMs = HOST_RISE_MS[a?.k] ?? 0, since = now - (a?.rose ?? -Infinity);
+  if (since < riseMs) return { act: 'rise', anims: idleT, frame: Math.floor((Math.max(0, since) / 1000) * idlePace), loop: true, sink: HOST_KINDS[a.k].h * (1 - Math.max(0, since) / riseMs) };
+  const tel = a?.atk ? hostTelegraphAt(a.atk, a.k, now) : null;
+  if (tel && !tel.landing && !tel.over) return { act: 'windup', anims: atkT, frame: winged ? 0 : tel.t >= 0.5 ? 1 : 0, loop: false, sink: 0 };
+  if (tel && tel.since < 600) return { act: 'strike', anims: atkT, frame: winged ? Math.floor((tel.since / 1000) * PRIMARY_ATTACK_ANIM_SPEED) : 2 + Math.floor((tel.since / 1000) * PRIMARY_ATTACK_ANIM_SPEED), loop: winged, sink: 0 };
+  if (now - hurtAt >= 0 && now - hurtAt < HOST_FLINCH_MS) return { act: 'flinch', anims: hurtT, frame: Math.floor(((now - hurtAt) / 1000) * HURT_ANIM_SPEED), loop: winged, sink: 0 };
+  const m = a?.mv;
+  if (m && m.v > 0) {
+    const [x, z] = hostAt(a, now);
+    if (Math.hypot(m.tx - x, m.tz - z) > 0.05) return { act: 'walk', anims: moveT, frame: Math.floor((now / 1000) * pace), loop: true, sink: 0 };
+  }
+  return { act: 'idle', anims: idleT, frame: Math.floor((now / 1000) * idlePace), loop: true, sink: 0 };
+}
+/** WB11c: a gone body's last act at `now` - slain or crumbled, its hurt frames over HOST_FALL_MS (crumbling, it sinks the
+ *  while); drunk, nothing (it went into him); and past its span, gone. */
+export function hostFallAct(g, now, look) {
+  const since = now - g.at, winged = !!look?.winged;
+  if (g.w === 1 || since >= HOST_FALL_MS || since < 0) return { act: 'gone', anims: HURT_ANIMS, frame: 0, loop: false, sink: 0 };
+  return { act: 'fall', anims: winged ? SEDUCER_IDLE_MOVE_ANIMS : HURT_ANIMS, frame: Math.floor((since / HOST_FALL_MS) * 4), loop: winged, sink: g.w === 2 ? HOST_KINDS[g.k].h * (since / HOST_FALL_MS) : 0 };
+}
+/** WB11c: HIS HOST, HEARD - each one's own clips (enemyBasics.js: its bark and its attack; its fall the body's thud) at its own place: rising
+ *  out of the fire, winding a blow, landing it, hurt, falling; and a Sapper drunk - his growl over the fire's roar. */
+export function hostCue(kind, mobile) {
+  const E = ENEMY_BASICS[mobile] ?? ENEMY_BASICS[1];
+  switch (kind) {
+    case 'rise': return { clip: E.barkSound, pitch: 0.92, volume: 1.15, reach: 55, at: 'point' };
+    case 'windup': return { clip: E.barkSound, pitch: 1, volume: 1, reach: 40, at: 'point' };
+    case 'land': return { clip: E.attackSound, pitch: 1, volume: 1.1, reach: 40, at: 'point' };
+    case 'hurt': return { clip: E.barkSound, pitch: 1.2, volume: 0.8, reach: 30, at: 'point' };
+    case 'fall': return { clip: BODY_FALL, pitch: 1.1, volume: 1, reach: 40, at: 'point' };
+    case 'drunk': return { clip: BURNING, pitch: 0.6, volume: 1.6, reach: 70, at: 'point' };
+    default: return null;
+  }
+}
+/** WB11c: his host's colours - a Bite's (his weight's, a little hotter), a Pulse's (his element's: the Nova's under his
+ *  aspect, the fire's orange under the Burning - HOST_PULSE_FIRE), a Sapper's path to him (his ember, faint), a
+ *  Ward-Bearer's tether (the ward's gold). Display-encoded. */
+export const HOST_BITE_COLOR = Object.freeze([1.0, 0.4, 0.16]);
+export const HOST_PULSE_FIRE = Object.freeze([1.0, 0.5, 0.12]);
+export const hostPulseColor = (P) => ASPECT_COLORS[P?.aspect?.id]?.nova ?? HOST_PULSE_FIRE;   // AUDIT WB11 U2: the Burning's Nova gold was the ward's own - the disc that hurts read as the tether beside it
