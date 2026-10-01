@@ -30,6 +30,7 @@ The first part of guild town control is in. It is open to the developers first, 
 - **A held seat.** The holder's **defence** is its own week of influence, raised or lowered by the town's **Standing**, plus what it carried over. A guild past the line and the defence wins a **Right of Siege**. A guild wins at most one a week, at its strongest seat. A new Charter can't be challenged at its first Turning.
 - **Holding a Charter.** The town's banners fly your guild's heraldry, its ring on the map is filled in your colours, and the gate names your guild. Your guild counts at its seat without pledging, and can't pledge elsewhere in that region. A seat held without a challenge gains Standing.
 - **Legacy.** A tenth of each guild's influence at a seat carries into the next week.
+- **Titles and glyphs.** Every member of a guild holding a town's Charter wears a **tower** beside their name; a crown's members wear their kingdom's **crown**. The guildmaster can wear the title **Warden of <Town>** (a crown: **Protector of <Kingdom>**) from their account card.
 - **The Seat tab** now shows the holder, this week's siege or Tourney, what it takes to claim or challenge, and the town's **Chronicle**. The guildmaster can give the Charter up there. A guild holding a Charter can't disband until it does.
 
 ## Behind the scenes
@@ -40,7 +41,7 @@ The first part of guild town control is in. It is open to the developers first, 
 
 ### For the team
 - Apply migrations **`0046_town_seats.sql`**, **`0047_seat_influence.sql`** and **`0048_seat_turning.sql`** (with 0044 and 0045, after main's 0043) to production D1 and deploy the account service (**`acct44`**).
-- **Deploy the relay (`world136`).** It sends the Watch's ticks. An older relay sends none, and nothing else changes.
+- **Deploy the relay (`world137`).** It sends the Watch's ticks (world136) and carries the seats' titles (world137). Deploy it before the account service: an older relay refuses a token with a seat title in it.
 - Seats are behind **`SEATS_OPEN = "dev"`** in `server-account/wrangler.toml`. Change it to `"on"` to open them to everyone.
 - **SEAT-COUNT**: run `ARENA2_PATH=/path/to/arena2 node tools/seatCount.mjs` to list every seat and the totals.
 - A developer can strike a false seat from the registry in chat: `/seat strike <map id>`.

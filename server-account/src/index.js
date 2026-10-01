@@ -133,7 +133,7 @@ import {
   duelRecordOf, reportDuelLoss, gateRecordOf, claimGate, legalRefusal,
   ACCOUNT_MAX, ACCOUNT_WINDOW_S,
 } from './accounts.js';
-import { mintToken, mintOrder, mintRenownOrder, mintGuildOrder, mintGuildOutOrder, MAX_TTL_S, TOKEN_V, ID_RE } from '../../src/net/identityToken.js';
+import { mintToken, mintOrder, mintRenownOrder, mintGuildOrder, mintGuildOutOrder, MAX_TTL_S, TOKEN_V, ID_RE, SEAT_TITLES } from '../../src/net/identityToken.js';
 import { ACCOUNT_VERSION, MAX_BODY_BYTES, ROUTES, OPEN_ROUTES, savePathOf, realmPathOf, SAVE_MAX_BYTES, SHOT_MAX_BYTES, maintaining } from './service.js';
 import { listSaves, putCard, putBlob, getBlob, deleteSave, saveCardOf } from './saves.js';
 import { signingKey, gatePublicKey } from './signing.js';
@@ -151,7 +151,11 @@ import { buyHall, sellHall, setHallEntry, setHeraldry } from './halls.js';   // 
 import { readGuildBoard, pinGuildNote, takeDownGuildNote } from './guildBoard.js';   // GUILD1e: a guild's own board
 import { listSeats, witnessSeat, strikeSeat, seatsOpenFor } from './townSeats.js';   // SEAT1a: the seats' witnessed registry
 import { pledgeSeat, claimWatch, creditGate, creditRenown, readStandings, payTribute } from './seatInfluence.js';   // SEAT1b: influence
-import { settleDue, seatsWithHolders, relinquishSeat } from './seatTurning.js';   // SEAT1c: the Turning, the Charters
+import { settleDue, seatsWithHolders, relinquishSeat, seatBadgeOf, seatTitlesOf } from './seatTurning.js';   // SEAT1c: the Turning, the Charters, their titles and glyphs
+
+/** SEAT1c: the account's row with the Charter titles it may wear laid on it (`seatTitles`, titles.js titlesHeld), while the
+ *  seats are open to it - for the wardrobe's read and its write. */
+const withSeatTitles = async (ctx, player, env) => (seatsOpenFor(player, env) ? { ...player, seatTitles: await seatTitlesOf(ctx.db, player.id) } : player);
 import { decorOf, placeDecor, moveDecor, removeDecor, hideDecorBase, yardsOf } from './decor.js';   // DECOR1: an online home's decor; BASE-HIDE: what its owner took out
 import { gateStrikeStatement, gateStrikeAnswer, marksOf, marksCardOf, exchangeMarks, depositGuildMarks, withdrawGuildMarks, marksReport } from './marks.js';   // MARKS1: the server's currency
 import { readBoard, pinNote, takeDownNote, reportNote, moderateNote, postNotice, removeNotice } from './board.js';   // NOTICE1: the Notice Board
@@ -518,9 +522,16 @@ const service = {
         // two weeks, stops being signed for on the next token - with
         // no cron and no column to clear. A token lives MAX_TTL_S, so
         // the badge is at most five minutes stale.
+        // SEAT1c (Seats-Arc 7.4): AND A CHARTER'S - its glyphs on every member of the named character's guild, and a seat
+        // title worn only by the guildmaster character this token is minted for, with its claim (`ts`) beside it
+        const seats = seatsOpenFor(who.player, env);
+        const worn = seats ? { ...who.player, seatTitles: await seatTitlesOf(ctx.db, who.player.id) } : who.player;
+        const seatBadge = seats && renownCharacterOk(body.character) ? await seatBadgeOf(ctx.db, who.player.id, body.character) : null;
+        const wornT = titleWorn(worn, env);
+        const seatT = SEAT_TITLES.includes(wornT) ? (seatBadge?.title === wornT ? { t: wornT, ts: seatBadge.ts } : {}) : (wornT ? { t: wornT } : {});
         const wardrobe = {
-          t: titleWorn(who.player, env),
-          g: glyphsOf(who.player, env, nowS),
+          ...seatT,
+          g: [...glyphsOf(who.player, env, nowS), ...(seatBadge?.glyphs ?? [])],
           au: auraWorn(who.player),   // WB9g: the aura worn, the title's law - absent for none
         };
         // MOD1: A MUTE RIDES THE TOKEN, so a reconnect cannot shed one -
@@ -559,6 +570,7 @@ const service = {
           name: displayName(who.player),
           kind: accountKind(who.player),
           title: wardrobe.t ?? null,
+          ...(wardrobe.ts ? { ts: wardrobe.ts } : {}),   // SEAT1c: a seat title's claim, the client's to word
           glyphs: wardrobe.g,
           mutedUntil: mu ?? 0,
           level: lv ?? null,
@@ -588,7 +600,7 @@ const service = {
           // list of the characters' tracks again (RENOWN-ACCOUNT sent the account's one, `{ xp, level }`)
           // MARKS1: and the Marks balance, where Marks are this account's (null where not - a guest, the switch)
           account: { ...accountView(who.player, nowS), duels: await duelRecordOf(ctx, who.player.id), gates: await gateRecordOf(ctx, who.player.id), raids: await raidRecordOf(ctx, who.player.id), renown: await renownTracksOf(ctx, who.player.id), marks: await marksCardOf(ctx, who.player, env) },
-          wardrobe: { ...accountWardrobe(who.player, env, nowS), purse: await insigniaPurse(ctx, who.player) },   // WB9g: and what the account's closed gates could still pay the Broker's insignia
+          wardrobe: { ...accountWardrobe(await withSeatTitles(ctx, who.player, env), env, nowS), purse: await insigniaPurse(ctx, who.player) },   // SEAT1c: and a Charter's titles   // WB9g: and what the account's closed gates could still pay the Broker's insignia
           devices: await devicesOf(ctx, who.player.id),
         }, 200, origin);
       }
@@ -933,7 +945,7 @@ const service = {
         //
         // 403 AND NOT 401 for `not-held`: the credential is good, the
         // title is simply not theirs. Same reading as the save wall.
-        const r = await equipTitle(ctx, who.player, env, body.title ?? null);
+        const r = await equipTitle(ctx, await withSeatTitles(ctx, who.player, env), env, body.title ?? null);   // SEAT1c: a Charter's titles held too
         return r.error ? no(r.error, r.error === 'not-held' ? 403 : 400, origin) : json(r, 200, origin);
       }
 

@@ -314,6 +314,7 @@ export class OnlineSession {
     this._lastQuestShareAt = -Infinity;   // QUEST1: the client's own floor beside the hub's cooldown (QUEST_SEND_MS)
     this.name = name;
     this.title = null;         // NAME-ADOPT: my own badge, as the service issued it - never asserted by this side
+    this.ts = null;            // SEAT1c: my own seat title's claim, beside the title it fits
     this.glyphs = [];
     this.au = null;            // WB9g: my own aura worn, as the service issued it
     this.lv = null;            // RENOWN1: my own Renown, as the service signed it (the token's `lv`, or a renown order since)
@@ -1345,15 +1346,17 @@ export class OnlineSession {
    *  RENOWN1: and the Renown level the token was signed with (`level`), read through the wire's own bound.
    *  GUILD1c: and my guild's tag (`guild`), through the wire's own reader - a mint's answer that names none takes it off.
    *  WB9g: and my aura worn (`aura`), through the wire's own reader - an answer from a service before it says nothing.
-   *  @param {{ name?: string, title?: string|null, glyphs?: string[], level?: number|null, guild?: string|null, aura?: string|null }} [who] */
-  adoptIdentity({ name, title, glyphs, level, guild, aura } = {}) {
+   *  SEAT1c: and my seat title's claim (`ts`), read back beside the title it fits.
+   *  @param {{ name?: string, title?: string|null, glyphs?: string[], level?: number|null, guild?: string|null, aura?: string|null, ts?: number[]|null }} [who] */
+  adoptIdentity({ name, title, glyphs, level, guild, aura, ts } = {}) {
     let changed = false;
     if (typeof name === 'string' && name) {
       const n = sanitizeName(name);
       if (n !== this.name) { this.name = n; changed = true; }
     }
-    const b = readBadge({ title, glyphs });
+    const b = readBadge({ title, glyphs, ts });
     if (b.title !== (this.title ?? null)) { this.title = b.title; changed = true; }
+    if ((b.ts ?? null)?.join('/') !== (this.ts ?? null)?.join('/')) { this.ts = b.ts ?? null; changed = true; }   // SEAT1c: my own seat title's claim
     if (b.glyphs.join('+') !== (this.glyphs ?? []).join('+')) { this.glyphs = b.glyphs; changed = true; }
     const lv = readRenown({ lv: level });
     if (lv !== (this.lv ?? null)) { this.lv = lv; changed = true; }
@@ -2264,8 +2267,8 @@ export class OnlineSession {
     // is checked in ONE place rather than spelled again here. It always
     // answers a title or null and a list or empty, so nothing below
     // ever has to tell "absent" from "none".
-    const { title, glyphs } = readBadge(p);
-    return { id: p.id, name: sanitizeName(p.name), title, glyphs, au: readAura(p), lv: readRenown(p), gt: readGuildTag(p), sub: subOf(p), look: validLook(p.look), told: true, pose, from: pose, at: now, seenAt: now, shown: pose ? { ...pose } : null };   // GUILD1c: `gt` the guild tag the relay stamped   // MOD1: `sub` the relay-verified account, what /mute names   // RENOWN1: `lv` the level the relay stamped
+    const { title, glyphs, ts = null } = readBadge(p);   // SEAT1c: and a seat title's claim
+    return { id: p.id, name: sanitizeName(p.name), title, ts, glyphs, au: readAura(p), lv: readRenown(p), gt: readGuildTag(p), sub: subOf(p), look: validLook(p.look), told: true, pose, from: pose, at: now, seenAt: now, shown: pose ? { ...pose } : null };   // GUILD1c: `gt` the guild tag the relay stamped   // MOD1: `sub` the relay-verified account, what /mute names   // RENOWN1: `lv` the level the relay stamped
   }
 
   /** A known peer said hello again: its name and look are the new ones, its pose arrives as any other. */
@@ -2275,7 +2278,7 @@ export class OnlineSession {
     // A player who takes a title off and reconnects must lose it here
     // too, and a peer that kept the FIRST badge it was ever seen with
     // would be wearing a grant the relay has stopped vouching for.
-    ({ title: p.title, glyphs: p.glyphs } = readBadge(m));
+    ({ title: p.title, glyphs: p.glyphs, ts: p.ts = null } = readBadge(m));   // SEAT1c: and a seat title's claim, including none
     p.lv = readRenown(m);   // RENOWN1: the newest hello's level, whatever it is - including none
     p.gt = readGuildTag(m);   // GUILD1c: and the newest hello's guild tag, including none
     p.au = readAura(m);   // WB9g: and the newest hello's aura, including none - one taken off is gone at the next hello

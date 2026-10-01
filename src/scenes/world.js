@@ -520,7 +520,7 @@ import { GuildBook } from '../net/guildBook.js';   // GUILD1b: the guild the Gui
 import { sellProceeds } from '../systems/tradeModes.js';   // GUILD-LETTER: a withdrawal weighed as the trade window weighs a sale
 import { realmLetterOfCredit } from '../net/realmGoldLaw.js';   // GUILD-LETTER: the letter the service writes on a realm record, one maker
 import { createSocialPanel, TRY_AGAIN_TEXT, NO_PARTY_TEXT, LETTERS_SIGNED_OUT_TEXT } from '../ui/socialPanel.js';   // SOC3: the friends + party panel the Social button opens; AUDIT SOC B17: and its word for a refused act, so the F-menu's line and the panel's note agree
-import { glyphMarks } from '../ui/playerBadge.js';   // PEER-PLAQUE1: a badge's plain-text marks, for the plaque's title
+import { glyphMarks, setSeatTitlePlaces } from '../ui/playerBadge.js';   // PEER-PLAQUE1: a badge's plain-text marks, for the plaque's title
 import { TITLE_TEXT, AURA_TEXT } from '../ui/playerBadge.js';   // WB9g: the Broker's insignia, named in its rows
 import { pickPeerInFront, SOCIAL_REACH, peerRayPick, peerIdOfKey, peerRelationText } from '../player/socialPick.js';   // SOC5: which body the ray struck, and how far "on their body" reaches; PEER-PLAQUE1: and the plaque's half of the same pick
 import { allyCastSpell, allyCastable, strangerCastable, allyReachFor, allyCastTargetLine, allyCastPlaqueLine } from '../systems/allyCast.js';
@@ -1089,6 +1089,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // game's own (a mod's rows never count), so every client derives the same seats (systems/townSeats.js). Online alone.
   const townSeats = deriveTownSeats(_hubRows, { regionNameOf: (r) => maps.getRegionName(r), isHub: (k) => regionHubs.byMapId.has(k) });
   _hubRows.length = 0;
+  setSeatTitlePlaces((key) => seatAtMapId(townSeats, key));   // SEAT1c: a seat title worded off the seats this client derived
   /** AUDIT 28 H8: which of a built pixel's boards are bounty boards (systems/bountyBoard.js questBoardIndices), worked out
    *  once a pixel - the count over the boards and the press's targets asked it every frame, a sort each time. A pixel's
    *  boards are laid once, when it is built. (SEAT1a: declared above the boot's first build, which asks it for a seat
@@ -23867,7 +23868,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           seatBook?.read();
           const seat = seatHere(mapId);
           const hub = hubAtMapId(regionHubs, mapId);
-          if (seat) { townTalk.say(seatArrivalLine(seat, seat.holder?.guild ?? null), 5); seatBook.witness(seat); }
+          if (seat) { townTalk.say(seatArrivalLine(seat), 5); seatBook.witness(seat); }
           else if (hub) townTalk.say(hubArrivalLine(hub), 5);
         }
         onlineHomes?.ensure(_musicLoc?.mapTableData?.mapId);   // HOME1: the town's homes asked for as I walk in - its doors' names and prices are ready before I reach one

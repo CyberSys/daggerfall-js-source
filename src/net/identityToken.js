@@ -189,7 +189,17 @@ export const ACCOUNT_KINDS = Object.freeze(['guest', 'linked']);
 /** The titles that exist. A title is WORN one at a time, so a token
  *  carries at most one. Grants are the service's business (who HOLDS
  *  one); this list is the vocabulary both ends share. */
-export const TITLES = Object.freeze(['founder', 'developer', 'dungeonmaster', 'disciple', 'apostle', 'hierophant', 'shadowfang', 'penitent', 'gatebreaker']);   // TITLE-N (2026-09-24, Mac): the Dungeon Master, and the three Patreon tiers in their order; SHADOW-FANG (2026-09-26, Mac): SirMcMobdon's own; PENITENT (2026-09-29, Mac): Diggleborf's own; WB9g (2026-09-30, Mac: "a brand new title to the broker"): the Gatebreaker, bought with Sigil Stones (net/insignia.js)
+export const TITLES = Object.freeze(['founder', 'developer', 'dungeonmaster', 'disciple', 'apostle', 'hierophant', 'shadowfang', 'penitent', 'gatebreaker', 'warden', 'protector', 'crowned', 'keeper', 'champion']);   // TITLE-N (2026-09-24, Mac): the Dungeon Master, and the three Patreon tiers in their order; SHADOW-FANG (2026-09-26, Mac): SirMcMobdon's own; PENITENT (2026-09-29, Mac): Diggleborf's own; WB9g (2026-09-30, Mac: "a brand new title to the broker"): the Gatebreaker, bought with Sigil Stones (net/insignia.js)
+
+/** SEAT1c (2026-09-30, Mac: "Finish the seats"; Seats-Arc 7.4): THE SEATS' TITLES - five GENERIC ids, because a town's
+ *  or a Season's name cannot be a closed list's word: "Warden of <Town>" (a palace seat's guildmaster), "Protector of
+ *  <Kingdom>" (a crown's), "Crowned in Season N", "Keeper of <Town>, Season N" (kept for good, SEASON1) and the Royal
+ *  Tourney's champion (CROWN1). Each rides with a bounded claim beside it - `ts`: [the seat key, the Season] - from
+ *  which the client words it. Reaching the relay once, here, before the service mints any (the SHADOW-FANG order). */
+export const SEAT_TITLES = Object.freeze(['warden', 'protector', 'crowned', 'keeper', 'champion']);
+/** SEAT1c: whether `ts` is a seat title's claim - [seat key (a map id, unsigned 32), Season (0-9999)]. */
+export const seatTitleClaimOk = (ts) => Array.isArray(ts) && ts.length === 2 && Number.isSafeInteger(ts[0]) && ts[0] >= 0 && ts[0] <= 0xffffffff
+  && Number.isSafeInteger(ts[1]) && ts[1] >= 0 && ts[1] <= 9999;
 
 /** WB9g (2026-09-30, Mac: "a new addition (the aura), an animated burning ground aura that circles the ground where
  *  your character stands. These items should be expensive and sought after"): THE AURAS THAT EXIST. An aura is WORN,
@@ -202,7 +212,7 @@ export const AURAS = Object.freeze(['dagonfire']);
  *  sprout is "this account is new", dev is "this is a developer", mod is
  *  "this is a moderator" (MOD1, Mac: "a moderator glyph") - so a token
  *  may carry several and a player chooses none of them. */
-export const GLYPHS = Object.freeze(['sprout', 'dev', 'mod', 'dm', 'disciple', 'apostle', 'hierophant', 'shadowfang', 'penitent']);   // TITLE-N: each new title has its own glyph (Mac), true of whoever holds the title; SHADOW-FANG: the wolf's head, and the werewolf's skin rides it; PENITENT: the sword in its lozenge
+export const GLYPHS = Object.freeze(['sprout', 'dev', 'mod', 'dm', 'disciple', 'apostle', 'hierophant', 'shadowfang', 'penitent', 'tower', 'crownDF', 'crownWR', 'crownSN']);   // SEAT1c (Seats-Arc 7.4): a seat's - `tower` every member of a guild holding a palace seat, a crown in its kingdom's metal every member of a crown's   // TITLE-N: each new title has its own glyph (Mac), true of whoever holds the title; SHADOW-FANG: the wolf's head, and the werewolf's skin rides it; PENITENT: the sword in its lozenge
 
 /** The bound on `g`, and it is the vocabulary's own size rather than a
  *  number somebody picked: a token carrying more glyph slots than there
@@ -308,6 +318,8 @@ export function claimsValid(c, { maxTtlS = MAX_TTL_S } = {}) {
   // neither, and a player who wears no title has no `t`. Present and
   // wrong is refused; present and right is the only other answer.
   if (c.t !== undefined && !TITLES.includes(c.t)) return false;
+  // SEAT1c: a seat's title rides with its claim, and the claim with nothing else - absent for every other title
+  if (SEAT_TITLES.includes(c.t) ? !seatTitleClaimOk(c.ts) : c.ts !== undefined) return false;
   if (c.au !== undefined && !AURAS.includes(c.au)) return false;   // WB9g: the aura worn, the title's law - absent for none, one of the known or refused
   if (c.g !== undefined) {
     if (!Array.isArray(c.g) || c.g.length > GLYPHS_MAX) return false;
@@ -338,7 +350,7 @@ export function claimsValid(c, { maxTtlS = MAX_TTL_S } = {}) {
  * MINT. The account service's half - it holds the private key and
  * nothing else does.
  *
- * @param {{s:string, n:string, k:'guest'|'linked', t?:string, g?:string[], mu?:number, lv?:number, gi?:string, gt?:string, gm?:string, rc?:0|1, au?:string}} who
+ * @param {{s:string, n:string, k:'guest'|'linked', t?:string, ts?:number[], g?:string[], mu?:number, lv?:number, gi?:string, gt?:string, gm?:string, rc?:0|1, au?:string}} who
  * @param {CryptoKey} privateKey  an Ed25519 private key
  * @param {{subtle: SubtleCrypto, nowS: number, ttlS?: number}} env
  * @returns {Promise<string>}
@@ -350,6 +362,7 @@ export async function mintToken(who, privateKey, { subtle, nowS, ttlS = MAX_TTL_
   // minter has always minted.
   const claims = { s: who?.s, n: who?.n, k: who?.k, i: nowS, e: nowS + ttlS };
   if (who?.t !== undefined) claims.t = who.t;
+  if (who?.ts !== undefined) claims.ts = who.ts;   // SEAT1c: a seat title's claim - beside its title alone (claimsValid)
   if (who?.g !== undefined && who.g.length) claims.g = who.g;
   if (who?.mu !== undefined) claims.mu = who.mu;   // MOD1: only while muted - an unmuted player mints the bytes they always did
   if (who?.lv !== undefined) claims.lv = who.lv;   // RENOWN1: only when the client named its character

@@ -59,6 +59,10 @@ export const GLYPH_LABEL = Object.freeze({
   hierophant: 'Hierophant',
   shadowfang: 'Shadow Fang',   // SHADOW-FANG: the wolf's head beside SirMcMobdon's name
   penitent: 'Penitent',   // PENITENT: the sword in its lozenge beside Diggleborf's name
+  tower: 'A seat\'s Charter',   // SEAT1c: the tower of a guild holding a palace seat
+  crownDF: 'The Crown of Daggerfall',   // SEAT1c: a crown seat's crown, its kingdom's
+  crownWR: 'The Crown of Wayrest',
+  crownSN: 'The Crown of Sentinel',
 });
 
 /** ACC4: THE TWO FACTS MAC ASKED FOR, as words. Pure, so node pins

@@ -257,7 +257,7 @@ test('SEAT1a the hosts by source: the boot pass derives the seats over the hubs\
   // SEAT1b (PIN MOVED): the book's door is named once, for the Watch's account beside it
   assert.match(w, /const _seatDoor = params\.has\('online'\) \? accountSeats\(\{ fetch: \(u, i\) => globalThis\.fetch\(u, i\), storage: appStorage\(\) \}\) : null;\n\s*const seatBook = _seatDoor\n\s*\? createTownSeatBook\(\{\n\s*door: _seatDoor,/);
   assert.match(w, /const seatHere = \(mapId\) => \(seatBook\?\.open === true \? seatBook\.dressed\(seatAtMapId\(townSeats, mapId\)\) : null\);/);   // SEAT1c (PIN MOVED): dressed in its holder
-  assert.match(w, /if \(seat\) \{ townTalk\.say\(seatArrivalLine\(seat, seat\.holder\?\.guild \?\? null\), 5\); seatBook\.witness\(seat\); \}\n\s*else if \(hub\) townTalk\.say\(hubArrivalLine\(hub\), 5\);/);
+  assert.match(w, /if \(seat\) \{ townTalk\.say\(seatArrivalLine\(seat\), 5\); seatBook\.witness\(seat\); \}\n\s*else if \(hub\) townTalk\.say\(hubArrivalLine\(hub\), 5\);/);
   assert.match(w, /seatAt: seatBook \? \(summary\) => seatHere\(summary\?\.mapID \?\? summary\?\.mapId\) : null,/);
   assert.match(w, /const seatAnchors = pixelBoardSplit \? seatBannerAnchors\(\{/);
   assert.match(w, /boards: pixelBoards, bounty: pixelBoardSplit,/);

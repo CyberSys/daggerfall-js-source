@@ -49,7 +49,13 @@
 // SOC4's party green already crosses that seam.
 // ═══════════════════════════════════════════════════════════════════
 
-import { TITLES, GLYPHS } from '../net/identityToken.js';
+import { TITLES, GLYPHS, SEAT_TITLES } from '../net/identityToken.js';
+import { seatTitleText } from '../net/townSeatLaw.js';   // SEAT1c: a seat title in words, off its claim
+
+/** SEAT1c: THE PLACE A SEAT TITLE NAMES - the client's own seat by key (`{ name, region }`), or null. The host sets it
+ *  once its seats are derived (scenes/world.js); until then, and offline, a seat title reads its plain word. */
+let _seatPlace = () => null;
+export function setSeatTitlePlaces(fn) { _seatPlace = typeof fn === 'function' ? fn : () => null; }
 
 /** An RGBA 0..1 array as CSS. ONE HOME, and it is here rather than in
  *  ui/nameLayer.js (which re-exports it, so SOC4's pin that the party
@@ -76,6 +82,13 @@ export const TITLE_TEXT = Object.freeze({
   shadowfang: 'Shadow Fang',         // SHADOW-FANG (2026-09-26, Mac): SirMcMobdon's own
   penitent: 'Penitent',              // PENITENT (2026-09-29, Mac): Diggleborf's own
   gatebreaker: 'Gatebreaker',        // WB9g (2026-09-30, Mac): the Sigil Broker's, bought
+  // SEAT1c (Seats-Arc 7.4): the seats' five - each worded off its claim where this client knows the place
+  // (townSeatLaw.js seatTitleText: "Warden of Anticlere"), and these words alone where it does not
+  warden: 'Warden',
+  protector: 'Protector',
+  crowned: 'Crowned',
+  keeper: 'Keeper',
+  champion: 'Champion',
 });
 
 /** WB9g (2026-09-30, Mac: "an animated burning ground aura that circles the ground where your character stands"): AN
@@ -135,6 +148,13 @@ export const TITLE_RGBA = Object.freeze({
   penitent: PENITENT_GOLD,
   // WB9g: the fire at the gradient's middle - the colour a face that cannot draw a gradient uses
   gatebreaker: GATEBREAKER_FIRE,
+  // SEAT1c: the seats' - a Warden's bronze, a Protector's royal purple, the Crowned's pale gold, a Keeper's
+  // weathered green, a Champion's silver; none another title's
+  warden: Object.freeze([0.769, 0.549, 0.290, 1]),    // #c48c4a
+  protector: Object.freeze([0.580, 0.365, 0.851, 1]), // #945dd9
+  crowned: Object.freeze([1, 0.886, 0.541, 1]),       // #ffe28a
+  keeper: Object.freeze([0.471, 0.706, 0.443, 1]),    // #78b471
+  champion: Object.freeze([0.851, 0.867, 0.890, 1]),  // #d9dde3
 });
 
 /** SHADOW-FANG: A TITLE DRAWN AS A GRADIENT - its stops, RGBA 0..1, left
@@ -176,6 +196,12 @@ export const GLYPH_RGBA = Object.freeze({
   hierophant: TITLE_RGBA.hierophant,
   shadowfang: TITLE_RGBA.shadowfang,   // SHADOW-FANG: the outline's crimson - the fill is the gradient below
   penitent: TITLE_RGBA.penitent,       // PENITENT: the lozenge in the title's gold - the sword in it is its detail, below
+  // SEAT1c: a palace seat's tower in the Warden's bronze (the token carries no guild's colours - Seats-Arc 7.4 asked
+  // the guild's first colour), and each crown in its kingdom's metal (townSeatLaw.js KINGDOM_METALS)
+  tower: TITLE_RGBA.warden,
+  crownDF: Object.freeze([0.231, 0.435, 0.847, 1]),   // #3b6fd8
+  crownWR: Object.freeze([0.702, 0.149, 0.180, 1]),   // #b3262e
+  crownSN: Object.freeze([0.831, 0.627, 0.090, 1]),   // #d4a017
 });
 
 /** SHADOW-FANG: A GLYPH FILLED WITH A GRADIENT - its title's two stops,
@@ -215,6 +241,10 @@ export const GLYPH_MARK = Object.freeze({
   hierophant: '!',
   shadowfang: '>',    // SHADOW-FANG: the wolf's muzzle, facing the way the glyph's does
   penitent: '|',      // PENITENT: the sword's blade, one upright stroke
+  tower: '=',         // SEAT1c: a tower's battlement
+  crownDF: 'D',       // SEAT1c: each crown its kingdom's initial
+  crownWR: 'W',
+  crownSN: 'S',
 });
 
 /** The printable range the classic font covers. ACC1d-MARK's own bound,
@@ -248,12 +278,18 @@ export const GLYPH_PATH = Object.freeze({
   // PENITENT: Diggleborf's sketch - a tall lozenge, point up and point down, the widest a little below the middle (its
   // sword is GLYPH_DETAIL's)
   penitent: 'M8 .8L13 8.2L8 15.2L3 8.2Z',
+  // SEAT1c: a palace seat's tower - three merlons over a shaft, a door at its foot
+  tower: 'M3.5 15V6.5H2.5V2.5h2.2v1.8h1.6V2.5h3.4v1.8h1.6V2.5h2.2v4h-1V15h-3.2v-3.2a1.3 1.3 0 0 0-2.6 0V15z',
+  // SEAT1c: a crown seat's crown - a jewelled band and five points, its kingdom's metal
+  crownDF: 'M1.5 12.5h13V14h-13zM1.5 11.5L1 4.5l3.2 3L5.6 2.8 8 6.6l2.4-3.8 1.4 4.7 3.2-3-.5 7z',
+  crownWR: 'M1.5 12.5h13V14h-13zM1.5 11.5L1 4.5l3.2 3L5.6 2.8 8 6.6l2.4-3.8 1.4 4.7 3.2-3-.5 7z',
+  crownSN: 'M1.5 12.5h13V14h-13zM1.5 11.5L1 4.5l3.2 3L5.6 2.8 8 6.6l2.4-3.8 1.4 4.7 3.2-3-.5 7z',
 });
 
 /** Is this glyph DRAWN as an outline rather than filled? The sprout is
  *  a shape and the brackets are strokes; said here so the layer does
  *  not have to know which is which by name. */
-export const GLYPH_STROKE = Object.freeze({ sprout: true, dev: true, mod: true, dm: true, disciple: true, apostle: true, hierophant: true, shadowfang: false, penitent: true });
+export const GLYPH_STROKE = Object.freeze({ sprout: true, dev: true, mod: true, dm: true, disciple: true, apostle: true, hierophant: true, shadowfang: false, penitent: true, tower: false, crownDF: false, crownWR: false, crownSN: false });   // SEAT1c: the seats' four filled
 
 /**
  * The title a peer wears, ready to draw: `{ key, text, rgba }`, or
@@ -267,7 +303,8 @@ export const GLYPH_STROKE = Object.freeze({ sprout: true, dev: true, mod: true, 
 export function titleBadge(peer) {
   const key = peer?.title;
   if (typeof key !== 'string' || !TITLES.includes(key)) return null;
-  const text = TITLE_TEXT[key];
+  // SEAT1c: a seat title worded off its claim where this client knows the place, else its plain word
+  const text = (SEAT_TITLES.includes(key) ? seatTitleText(key, peer?.ts, _seatPlace) : null) ?? TITLE_TEXT[key];
   if (!text) return null;
   return { key, text, rgba: TITLE_RGBA[key] ?? null, gradient: TITLE_GRADIENT[key] ?? null, edge: TITLE_EDGE[key] ?? null };   // PENITENT: `edge`
 }

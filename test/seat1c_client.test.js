@@ -181,6 +181,7 @@ test('SEAT1c THE HOSTS BY SOURCE: the service settles the Turning before any sea
   assert.match(st, /try \{ await db\.batch\(stmts\); \} catch \{ return \{ settled: false \}; \}/);
   const w = rd('src/scenes/world.js');
   assert.match(w, /const seatHere = \(mapId\) => \(seatBook\?\.open === true \? seatBook\.dressed\(seatAtMapId\(townSeats, mapId\)\) : null\);/);
-  assert.match(w, /townTalk\.say\(seatArrivalLine\(seat, seat\.holder\?\.guild \?\? null\), 5\)/);
+  assert.match(w, /townTalk\.say\(seatArrivalLine\(seat\), 5\)/);
+  assert.equal(seatArrivalLine({ ...ANTICLERE, holder: { guild: SH } }), 'Anticlere, held by the Silver Hand <SH>.', 'a dressed seat names its own holder');
   assert.match(rd('src/scenes/seatBanners.js'), /const h = seat \? seatBannerOf\(seat\) : null;/);
 });

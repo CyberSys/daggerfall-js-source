@@ -4917,7 +4917,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:8142` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:8143` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:352`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -7140,7 +7140,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1100`, `src/net/online.js:2313`):**
+**Now (`src/net/wire.js:1100`, `src/net/online.js:2316`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -10533,7 +10533,8 @@ RENOWN1, AUDIT RENOWN1 and WB5b records re-aimed by content, all dead.
 
 ### SEAT1c - the Turning: the Charters claimed, Contested, the Rights of Siege, the Legacy, the Charter on the map
 
-Rides the undeployed `acct44` (migration 0048); no relay change. Behind `SEATS_OPEN` with the rest of the seats.
+Rides the undeployed `acct44` (migration 0048) and a relay deploy, `world137` (the titles' vocabulary). Behind
+`SEATS_OPEN` with the rest of the seats.
 
 - **The settle** (`server-account/src/seatTurning.js`, Seats-Arc 5.2): never a job that runs - any seat request from an
   account the seats are open to first settles every week before this one not yet settled (`settleDue`: from the week
@@ -10569,15 +10570,34 @@ Rides the undeployed `acct44` (migration 0048); no relay change. Behind `SEATS_O
   battle, the claim or defence line and the Chronicle, and offers the holder's guildmaster its Charter's relinquish,
   armed by a first press.
 
-Left for their slices, recorded: the titles and glyphs a Charter gives (SEAT0 7.4 - token vocabulary, relay first) are
-SEAT1c's second half; upkeep, Neglect, Overreach and the rest of Standing's changes SEAT1d; the battles a Right or a
+- **The titles and glyphs** (Seats-Arc 7.4, relay first): `identityToken.js` gains five generic title ids (`warden`,
+  `protector`, `crowned`, `keeper`, `champion` - a town's or a Season's name cannot be a closed list's word) with a
+  bounded claim beside them (`ts`: [the seat key, the Season], required beside a seat title and refused beside any
+  other), and four glyphs (`tower`, `crownDF`, `crownWR`, `crownSN`); the relay carries `ts` from the signature to the
+  socket's row (`_named`, the hello's attachment) and `badged` stamps it beside a seat title, `readBadge` reads it back
+  (`world137`). The service derives both at a mint (`seatTurning.js` seatBadgeOf - `townSeatLaw.js` seatGlyphsOf and
+  seatTitleOf): every member of a guild holding a palace seat wears the tower, a crown's member its kingdom's crown; a
+  guildmaster account may choose "Warden" (a palace seat) or "Protector" (a crown) in the wardrobe (`seatTitlesOf`,
+  `titles.js` titlesHeld's `seatTitles`), and a token wears it, with its claim, only when minted for that guildmaster
+  character. The client words it off its own seats (`ui/playerBadge.js` titleBadge, `seatTitleText`: "Warden of
+  Anticlere", "Protector of Wayrest"), its plain word where the place is not this client's to name; each new title and
+  glyph has its word, colour, shape and classic mark. Departure recorded: Seats-Arc 7.4 drew the tower "in the guild's
+  first colour" - the token carries no guild colours, so the tower wears the Warden's bronze.
+
+Left for their slices, recorded: the Season's titles (`crowned`, `keeper`) are minted by SEASON1 and the champion's by
+CROWN1 (the vocabulary is in place now, so neither moves the relay again); upkeep, Neglect, Overreach and the rest of Standing's changes SEAT1d; the battles a Right or a
 Tourney names are fought in SEAT2a (until then they are the Chronicle's, and a Contested seat stays unheld); the
 stockpile's deliveries (the Writs source) and the Siege Camp ride SEAT2b with the fortifications that spend them.
 
-Pinned: `test/seat1c_service.test.js` (5), `test/seat1c_client.test.js` (5); re-aimed by content in
+Pinned: `test/seat1c_service.test.js` (5), `test/seat1c_client.test.js` (5), `test/seat1c_titles.test.js` (4); re-aimed
+by content in the relay version pins (`world137`), the vocabulary's (`test/acc3titles.test.js`, `test/penitent.test.js`),
+the badge's paths (`test/acc3badge.test.js`, `test/nameadopt.test.js`, `test/wb9g_insignia.test.js`), and in
 `test/seat1a_service.test.js` (the list's holder and battle), `test/seat1a_client.test.js` (the mark's new fields, the
 dressed seat, the arrival), `test/seat1b_service.test.js` (the standings' shape) and `test/accountworker.test.js` (the
-schema). `tools/mutants/seat1c.json` (45, all dead); four GUILD1d, SEAT1a and SEAT1b records re-aimed, all dead.
+schema). `tools/mutants/seat1c.json` (57, all dead) - two more were recorded EQUIVALENT and dropped: the settle's early
+read of its key (an optimisation - the key's own INSERT refuses a second settle whatever it reads) and the claim fee's
+balance guard (the treasury's own CHECK refuses an overdraft, so the batch rolls back either way); GUILD1d, SEAT1a,
+SEAT1b, ACC1d, ACC3a, ACC3b, NAME-ADOPT, PENITENT, SHADOW-FANG and WB9g records re-aimed by content, all dead.
 
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 

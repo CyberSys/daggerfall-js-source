@@ -30,7 +30,7 @@ import { guildActorOf } from './guilds.js';
 import { mustChange } from './realm.js';
 import { utcDay } from '../../src/net/marksLaw.js';
 import { GUILD_RANK_MASTER } from '../../src/net/guildLaw.js';
-import { seatWeekOf, seatWeekStartMs, seatKeyOk, turningPlan, SEAT_WEEK_MS, STANDING_START } from '../../src/net/townSeatLaw.js';
+import { seatWeekOf, seatWeekStartMs, seatKeyOk, turningPlan, seatGlyphsOf, seatTitleOf, SEAT_WEEK_MS, STANDING_START } from '../../src/net/townSeatLaw.js';
 
 /** The most weeks one read settles - a service asleep for longer starts its count again from there. */
 export const SETTLE_WEEKS_MAX = 8;
@@ -91,8 +91,8 @@ export async function settleWeek(db, week, nowS) {
       SELECT 'guild', ?1, 'burn', NULL, 'seat-claim', ?2, ?3, ?4, 'seats', 'The Turning', ?5
       WHERE COALESCE((SELECT balance FROM guild_marks WHERE guild_id = ?1), 0) >= ?2 AND NOT EXISTS (SELECT 1 FROM town_seat_holds WHERE key = ?6)`)
       .bind(c.guild, c.fee, utcDay(nowS), nowS, `claim-${week}-${c.key}`, c.key), mustChange(db));
-    stmts.push(db.prepare('INSERT INTO town_seat_holds (key, guild_id, region, since_week, standing, truce_week, at) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .bind(c.key, c.guild, registry.get(c.key).region, next, STANDING_START, next, nowS));
+    stmts.push(db.prepare('INSERT INTO town_seat_holds (key, guild_id, region, tier, since_week, standing, truce_week, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      .bind(c.key, c.guild, registry.get(c.key).region, registry.get(c.key).tier, next, STANDING_START, next, nowS));
     stmts.push(history(c.key, 'claim', { guild: names.get(c.guild), total: c.total, fee: c.fee }));
   }
   for (const c of plan.contested) {
@@ -160,4 +160,27 @@ export async function relinquishSeat({ db, nowS }, player, env, { character, key
       .bind(key, weekAt(nowS), JSON.stringify({ guild: names.get(a.me.guild_id) }), nowS),
   ]);
   return gone?.meta?.changes ? { ok: true } : { error: 'seat-not-held' };
+}
+
+/**
+ * SEAT1c (SEAT0 7.4): WHAT A CHARACTER'S GUILD'S CHARTERS GIVE IT at a token's mint - every member the glyphs
+ * (seatGlyphsOf), its guildmaster the title (seatTitleOf). `{ glyphs, title, ts }` - empty and null for a character in no
+ * guild, or one holding none.
+ */
+export async function seatBadgeOf(db, playerId, character) {
+  const m = typeof character === 'string'
+    ? await db.prepare('SELECT guild_id, rank FROM guild_members WHERE player = ? AND char_id = ?').bind(playerId, character).first() : null;
+  if (!m) return { glyphs: [], title: null, ts: null };
+  const { results = [] } = await db.prepare('SELECT key, tier, region FROM town_seat_holds WHERE guild_id = ? ORDER BY key').bind(m.guild_id).all();
+  const holds = results.map((h) => ({ key: Number(h.key), tier: h.tier, region: Number(h.region) }));
+  const t = Number(m.rank) === GUILD_RANK_MASTER ? seatTitleOf(holds) : null;
+  return { glyphs: seatGlyphsOf(holds), title: t?.title ?? null, ts: t?.ts ?? null };
+}
+/** SEAT1c: the seat titles an ACCOUNT may choose to wear - those its guildmaster characters' guilds' Charters give. The
+ *  wardrobe offers them; a token wears one only for the guildmaster character it is minted for. */
+export async function seatTitlesOf(db, playerId) {
+  const { results = [] } = await db.prepare(`SELECT h.key, h.tier, h.region FROM town_seat_holds h
+    JOIN guild_members m ON m.guild_id = h.guild_id WHERE m.player = ? AND m.rank = ?`).bind(playerId, GUILD_RANK_MASTER).all();
+  const out = new Set(results.map((h) => (h.tier === 'crown' ? 'protector' : 'warden')));
+  return ['warden', 'protector'].filter((t) => out.has(t));
 }

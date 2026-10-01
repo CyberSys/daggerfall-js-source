@@ -94,12 +94,12 @@
   {
     "name": "ACC3b-10-the-peer-keeps-the-first-badge-it-was-seen-with",
     "file": "src/net/online.js",
-    "old": "    ({ title: p.title, glyphs: p.glyphs } = readBadge(m));",
+    "old": "    ({ title: p.title, glyphs: p.glyphs, ts: p.ts = null } = readBadge(m));",
     "new": "",
     "tests": [
       "test/acc3badge.test.js"
     ],
-    "note": "A hello is an introduction and the NEWEST one is the true one - the same line already replaces the name and the look. Left out, a player who takes a title off and reconnects goes on wearing it in everybody else's client until they quit, which is the stored-fact trap ACC3a took out of the service reappearing in the client."
+    "note": "A hello is an introduction and the NEWEST one is the true one - the same line already replaces the name and the look. Left out, a player who takes a title off and reconnects goes on wearing it in everybody else's client until they quit, which is the stored-fact trap ACC3a took out of the service reappearing in the client. SEAT1c (PIN MOVED): re-aimed by content - a seat title's claim rides beside the title."
   },
   {
     "name": "ACC3b-11-the-remembered-introduction-loses-the-badge",

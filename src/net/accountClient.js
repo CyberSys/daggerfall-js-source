@@ -795,7 +795,7 @@ export function accountTokenMinter({ fetch, storage, onIssued = null, character 
     if (answer.ok) {
       const token = typeof answer.data?.token === 'string' ? answer.data.token : null;
       if (token) {
-        const who = { name: answer.data.name, kind: answer.data.kind, title: answer.data.title ?? null, glyphs: Array.isArray(answer.data.glyphs) ? answer.data.glyphs : [], level: Number.isSafeInteger(answer.data.level) ? answer.data.level : null,
+        const who = { name: answer.data.name, kind: answer.data.kind, title: answer.data.title ?? null, ts: Array.isArray(answer.data.ts) ? answer.data.ts : null, glyphs: Array.isArray(answer.data.glyphs) ? answer.data.glyphs : [], level: Number.isSafeInteger(answer.data.level) ? answer.data.level : null,   // SEAT1c: `ts` a seat title's claim
           xp: Number.isSafeInteger(answer.data.xp) && answer.data.xp >= 0 ? answer.data.xp : null,   // RENOWN4: the track's total, for the page's own bar - none from a service before acct13
           // GUILD1c: the tag my character's guild wears (null for none) - absent from a service before acct13, which says nothing
           ...('guild' in answer.data ? { guild: typeof answer.data.guild === 'string' ? answer.data.guild : null } : {}),

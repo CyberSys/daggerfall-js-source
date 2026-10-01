@@ -201,11 +201,12 @@
   {
     "name": "WB9g-the-view-says-no-purse",
     "file": "server-account/src/index.js",
-    "old": "wardrobe: { ...accountWardrobe(who.player, env, nowS), purse: await insigniaPurse(ctx, who.player) },",
-    "new": "wardrobe: { ...accountWardrobe(who.player, env, nowS) },",
+    "old": "purse: await insigniaPurse(ctx, who.player) },   // SEAT1c: and a Charter's titles",
+    "new": "},   // SEAT1c: and a Charter's titles",
     "tests": [
       "test/wb9g_insignia.test.js"
-    ]
+    ],
+    "note": "SEAT1c (PIN MOVED): re-aimed by content."
   },
   {
     "name": "WB9g-an-unheld-aura-a-400",
@@ -264,11 +265,12 @@
   {
     "name": "WB9g-the-peers-aura-never-read",
     "file": "src/net/online.js",
-    "old": "title, glyphs, au: readAura(p), lv: readRenown(p),",
-    "new": "title, glyphs, lv: readRenown(p),",
+    "old": "title, ts, glyphs, au: readAura(p), lv: readRenown(p),",
+    "new": "title, ts, glyphs, lv: readRenown(p),",
     "tests": [
       "test/wb9g_insignia.test.js"
-    ]
+    ],
+    "note": "SEAT1c (PIN MOVED): re-aimed by content - a seat title's claim rides beside the title."
   },
   {
     "name": "WB9g-the-refresh-keeps-the-first",

@@ -376,8 +376,8 @@
   {
     "name": "SEAT1a-arrival-no-report",
     "file": "src/scenes/world.js",
-    "old": "if (seat) { townTalk.say(seatArrivalLine(seat, seat.holder?.guild ?? null), 5); seatBook.witness(seat); }",
-    "new": "if (seat) { townTalk.say(seatArrivalLine(seat, seat.holder?.guild ?? null), 5); }",
+    "old": "if (seat) { townTalk.say(seatArrivalLine(seat), 5); seatBook.witness(seat); }",
+    "new": "if (seat) { townTalk.say(seatArrivalLine(seat), 5); }",
     "tests": [
       "test/seat1a_client.test.js"
     ],

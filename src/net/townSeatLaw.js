@@ -126,10 +126,10 @@ const guildWords = (g) => `${/^the /i.test(g.name) ? `the ${g.name.slice(4)}` : 
  * THE ARRIVAL LINE (SEAT0 3.3 - HUB1's five-second line, extended to every seat): "Anticlere. Its Charter is unheld."; a
  * held one "Anticlere, held by the Silver Hand <SH>."; a crown "Wayrest, capital of the Kingdom of Wayrest, held by the
  * Ebon Oath <EO>." (unheld: "... Its Crown Charter is unheld.").
- * @param {{ name: string, tier: string, region: number }} seat
+ * @param {{ name: string, tier: string, region: number, holder?: any }} seat
  * @param {{ name: string, tag: string }|null} [holder]
  */
-export function seatArrivalLine(seat, holder = null) {
+export function seatArrivalLine(seat, holder = seat?.holder?.guild ?? null) {   // SEAT1c: a dressed seat names its own holder
   if (seat.tier === 'crown') {
     const k = kingdomName(CROWN_SEAT_REGIONS[seat.region]) ?? seat.name;
     return holder ? `${seat.name}, capital of the Kingdom of ${k}, held by ${guildWords(holder)}.` : `${seat.name}, capital of the Kingdom of ${k}. Its Crown Charter is unheld.`;
@@ -482,3 +482,44 @@ export const SEAT_RELINQUISH_WORDS = Object.freeze({ arm: 'Give up the Charter',
 export const seatClaimLine = (seat, defence = null) => (defence == null
   ? `To claim it at the Turning: ${CLAIM_THRESHOLD[seat.tier].toLocaleString('en-US')} influence, and ${CLAIM_FEE[seat.tier].toLocaleString('en-US')} Drakes from the guild's treasury.`
   : `To win a Right of Siege: more than the holder's defence of ${defence.toLocaleString('en-US')}, and at least ${CLAIM_THRESHOLD[seat.tier].toLocaleString('en-US')} influence.`);
+
+// ─── SEAT1c: THE TITLES AND GLYPHS A CHARTER GIVES (SEAT0 7.4) ─────
+// Derived, as every title is: held while the Charter is, gone from the next token when it is not. The token carries a
+// generic id and a claim (net/identityToken.js SEAT_TITLES, `ts`: [the seat key, the Season]); the client words it.
+
+/** A crown seat's glyph, by its kingdom - a crown in the kingdom's metal. */
+export const SEAT_CROWN_GLYPHS = Object.freeze({ daggerfall: 'crownDF', wayrest: 'crownWR', sentinel: 'crownSN' });
+/** The glyphs a guild's Charters give every member: `tower` for any palace seat it holds, and each crown's own -
+ *  `holds` `[{ key, tier, region }]`, in the vocabulary's order. */
+export function seatGlyphsOf(holds) {
+  const out = new Set();
+  for (const h of holds ?? []) {
+    if (h.tier === 'crown') { const g = SEAT_CROWN_GLYPHS[CROWN_SEAT_REGIONS[h.region]]; if (g) out.add(g); } else out.add('tower');
+  }
+  return ['tower', 'crownDF', 'crownWR', 'crownSN'].filter((g) => out.has(g));
+}
+/** The title a guild's Charters give its guildmaster - "Protector of <Kingdom>" for a crown it holds (the lowest key),
+ *  else "Warden of <Town>" for a palace seat (the lowest key) - `{ title, ts }`, or null for none. The Season is SEASON1's
+ *  (0 until then). */
+export function seatTitleOf(holds) {
+  const by = (tier) => (holds ?? []).filter((h) => h.tier === tier).sort((a, b) => a.key - b.key)[0] ?? null;
+  const crown = by('crown');
+  if (crown) return { title: 'protector', ts: [crown.key, 0] };
+  const palace = by('palace');
+  return palace ? { title: 'warden', ts: [palace.key, 0] } : null;
+}
+/** A seat title in words, off its claim - `place(key)` the client's own seat by key (its name and region), or null:
+ *  "Warden of Anticlere", "Protector of Wayrest"; null where the place is not this client's to name. */
+export function seatTitleText(title, ts, place) {
+  if (!Array.isArray(ts)) return null;
+  const seat = place?.(ts[0]) ?? null;
+  const kingdom = seat ? kingdomName(CROWN_SEAT_REGIONS[seat.region] ?? kingdomOf(seat.region)) : null;
+  switch (title) {
+    case 'warden': return seat ? `Warden of ${seat.name}` : null;
+    case 'protector': return kingdom ? `Protector of ${kingdom}` : null;
+    case 'crowned': return `Crowned in Season ${ts[1]}`;
+    case 'keeper': return seat ? `Keeper of ${seat.name}, Season ${ts[1]}` : null;
+    case 'champion': return kingdom ? `Champion of ${kingdom}` : null;
+    default: return null;
+  }
+}

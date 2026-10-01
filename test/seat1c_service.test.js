@@ -7,7 +7,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { standService, T0 } from './accountDb.mjs';
+import { webcrypto } from 'node:crypto';
 import { settleWeek } from '../server-account/src/seatTurning.js';
+import { mintWatchReceipt } from '../src/net/watchReceipt.js';
 import {
   seatReportText, seatWeekOf, seatWeekStartMs, SEAT_MEMBER_WAIT_S, CLAIM_FEE, STANDING_START, STANDING_UNCHALLENGED,
 } from '../src/net/townSeatLaw.js';
@@ -55,7 +57,7 @@ async function stood() {
 test('SEAT1c THE TURNING CLAIMS A CHARTER: the first read after the boundary settles the week - 6,000 at an unheld palace seat and 8,000 Drakes take it, the fee burnt, the Charter held from the next week at Standing 50 and in truce, a Chronicle row; a second read settles nothing (mutants: the threshold; the fee; the burn; the hold\'s week; the truce; the key)', async (t) => {
   let now = T0;
   t.mock.method(Date, 'now', () => now * 1000);
-  const { raw, guild, treasury, pledge, earn, list, standings, hold } = await stood();
+  const { svc, raw, guild, treasury, pledge, earn, list, standings, hold } = await stood();
   const sh = await guild('Gamal', 'The Silver Hand', 'SH');
   pledge(sh.gid, ANTICLERE);
   treasury(sh.gid, 10000);
@@ -75,8 +77,10 @@ test('SEAT1c THE TURNING CLAIMS A CHARTER: the first read after the boundary set
   assert.equal(s.holder.guild.id, sh.gid);
   assert.match(JSON.stringify(s.chronicle[0]), /"kind":"claim"/);
   assert.equal(s.chronicle[0].data.total, 6000);
-  // and the next week the holder counts at its seat with no pledge of its own (SEAT0 4.1)
+  // and the next week the holder counts at its seat with no pledge of its own (SEAT0 4.1) - its guildmaster's Watch
   assert.equal(raw.prepare('SELECT COUNT(*) AS n FROM town_seat_pledges WHERE week = ?').get(W + 1).n, 0);
+  const tick = await mintWatchReceipt({ s: sh.gm.id, x: ANTICLERE.pixel[0], y: ANTICLERE.pixel[1], c: 7 }, svc.gateKey, { subtle: webcrypto.subtle, nowS: now });
+  assert.equal((await svc.call('/v1/seats/watch', { character: sh.gm.character, receipts: [tick] }, sh.gm.secret)).body.counted, 1, 'counted at its own seat, pledged by holding it');
   assert.deepEqual(s.standings.map((x) => [x.guild.id, x.holder]), [[sh.gid, true]], 'the holder stands at its seat, pledged by holding it');
 });
 
@@ -94,6 +98,9 @@ test('SEAT1c TWO READERS RACE THE TURNING: settleWeek keyed on the week - one se
   assert.equal(raw.prepare("SELECT COUNT(*) AS n FROM town_seat_history WHERE kind = 'claim'").get().n, 1);
   // and a third, later: the key already there, nothing more
   assert.equal((await settleWeek(db, W, NEXT_WEEK + 60)).settled, false);
+  // a week with nothing in it: the key alone decides - one of two racing readers settles it
+  const [c, d] = await Promise.all([settleWeek(db, W - 3, NEXT_WEEK), settleWeek(db, W - 3, NEXT_WEEK)]);
+  assert.deepEqual([c.settled, d.settled].sort(), [false, true], 'an empty week settled once too');
 });
 
 test('SEAT1c CONTESTED, AND THE FEE: two claimants within 10% - nobody takes it, a Tourney is named; a first claimant short of the fee passes the Charter to the next who passed; none who can pay, unheld; a guild below the threshold never contests (mutants: the margin; the fee\'s pass; the threshold)', async (t) => {
@@ -133,10 +140,10 @@ test('SEAT1c THE HOLDER\'S DEFENCE AND THE RIGHTS OF SIEGE: a new Charter\'s tru
   const ch2 = await guild('Dinah', 'Grey Host', 'GH');
   raw.prepare('INSERT INTO town_seat_weeks (week, settled_at) VALUES (?, ?)').run(W - 1, T0);   // the week before is settled already
   // both seats held since week W (claimed at the Turning before) - the Hand's in truce this Turning, the Oath's not
-  raw.prepare('INSERT INTO town_seat_holds (key, guild_id, region, since_week, standing, truce_week, at) VALUES (?, ?, ?, ?, 50, ?, ?)').run(ANTICLERE.key, h1.gid, 21, W, W, T0 - 7 * DAY);
-  raw.prepare('INSERT INTO town_seat_holds (key, guild_id, region, since_week, standing, truce_week, at) VALUES (?, ?, ?, ?, 50, ?, ?)').run(ALCAIRE.key, h2.gid, 34, W - 1, W - 1, T0 - 14 * DAY);
+  raw.prepare("INSERT INTO town_seat_holds (key, guild_id, region, tier, since_week, standing, truce_week, at) VALUES (?, ?, ?, 'palace', ?, 50, ?, ?)").run(ANTICLERE.key, h1.gid, 21, W, W, T0 - 7 * DAY);
+  raw.prepare("INSERT INTO town_seat_holds (key, guild_id, region, tier, since_week, standing, truce_week, at) VALUES (?, ?, ?, 'palace', ?, 50, ?, ?)").run(ALCAIRE.key, h2.gid, 34, W - 1, W - 1, T0 - 14 * DAY);
   // the holder pledges nowhere else in its region
-  raw.prepare('INSERT INTO town_seat_holds (key, guild_id, region, since_week, standing, truce_week, at) VALUES (?, ?, ?, ?, 50, NULL, ?)').run(9999, h2.gid, 21, W, T0);
+  raw.prepare("INSERT INTO town_seat_holds (key, guild_id, region, tier, since_week, standing, truce_week, at) VALUES (?, ?, ?, 'palace', ?, 50, NULL, ?)").run(9999, h2.gid, 21, W, T0);
   assert.equal((await svc.call('/v1/seats/pledge', { character: h2.gm.character, key: ANTICLERE.key }, h2.gm.secret)).body.error, 'seat-held-here');
   raw.prepare('DELETE FROM town_seat_holds WHERE key = 9999').run();
   // the Circle beats both holders; the Host beats the Oath alone

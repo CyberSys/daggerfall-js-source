@@ -13,14 +13,16 @@ CREATE TABLE IF NOT EXISTS town_seat_weeks (
   settled_at  INTEGER NOT NULL
 );
 
--- THE CHARTERS HELD: a seat's holder, the week it took the Charter, its Standing (SEAT0 7.3), and the week it is in
--- truce (SEAT0 5.2 step 6: a seat that changed hands cannot be challenged at the next Turning). `region` the seat's, so
+-- THE CHARTERS HELD: a seat's holder, its tier (the titles and glyphs it gives, 7.4), the week it took the Charter, its
+-- Standing (SEAT0 7.3), and the week it is in truce (SEAT0 5.2 step 6: a seat that changed hands cannot be challenged
+-- at the next Turning). `region` the seat's, so
 -- the holder's influence counts there as a pledge's would (SEAT0 4.1: "pledged to it automatically"). A guild that goes
 -- by a path the refusals do not cover takes its Charters with it (SEAT0 16) - the seat is unheld.
 CREATE TABLE IF NOT EXISTS town_seat_holds (
   key         INTEGER PRIMARY KEY,
   guild_id    TEXT NOT NULL,
   region      INTEGER NOT NULL,
+  tier        TEXT NOT NULL CHECK (tier IN ('palace', 'crown')),
   since_week  INTEGER NOT NULL,
   standing    INTEGER NOT NULL DEFAULT 50 CHECK (standing >= 0 AND standing <= 100),
   truce_week  INTEGER,

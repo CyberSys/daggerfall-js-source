@@ -478,8 +478,8 @@
   {
     "name": "SEAT1b-tab-member-pledges",
     "file": "src/ui/seatTab.js",
-    "old": "    if (seatMay(mine.rank, 'pledge') && data.phase === 'muster') {",
-    "new": "    if (data.phase === 'muster') {",
+    "old": "    if (seatMay(mine.rank, 'pledge') && data.phase === 'muster' && !here?.held) {",
+    "new": "    if (data.phase === 'muster' && !here?.held) {",
     "tests": [
       "test/seat1b_client.test.js"
     ]
@@ -487,8 +487,8 @@
   {
     "name": "SEAT1b-tab-pledge-in-the-reckoning",
     "file": "src/ui/seatTab.js",
-    "old": "    if (seatMay(mine.rank, 'pledge') && data.phase === 'muster') {",
-    "new": "    if (seatMay(mine.rank, 'pledge')) {",
+    "old": "    if (seatMay(mine.rank, 'pledge') && data.phase === 'muster' && !here?.held) {",
+    "new": "    if (seatMay(mine.rank, 'pledge') && !here?.held) {",
     "tests": [
       "test/seat1b_client.test.js"
     ]

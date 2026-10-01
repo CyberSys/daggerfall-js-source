@@ -65,11 +65,12 @@
   {
     "name": "SHADOWFANG-vocabulary-without-the-glyph",
     "file": "src/net/identityToken.js",
-    "old": "'apostle', 'hierophant', 'shadowfang', 'penitent']);   // TITLE-N: each new title has its own glyph",
-    "new": "'apostle', 'hierophant', 'penitent']);   // TITLE-N: each new title has its own glyph",
+    "old": "'apostle', 'hierophant', 'shadowfang', 'penitent', 'tower',",
+    "new": "'apostle', 'hierophant', 'penitent', 'tower',",
     "tests": [
       "test/shadowfang.test.js"
-    ]
+    ],
+    "note": "SEAT1c (PIN MOVED): re-aimed by content."
   },
   {
     "name": "SHADOWFANG-paint-shadow-left-on",

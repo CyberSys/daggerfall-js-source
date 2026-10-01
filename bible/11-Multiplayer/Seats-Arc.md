@@ -574,6 +574,11 @@ Season number, both integers), from which the client words the title ("Warden of
 order: the five ids and the claim reach the relay (a new `RELAY_VERSION` and LAW row) before the account service
 mints them - once, never per town or per Season.
 
+BUILT (SEAT1c, 2026-09-30; `06-Systems/Online-Arc.md` SEAT1c): the five ids and `ts` in the token at `world137`; the
+Warden's and the Protector's minted now, the tower and the crowns on every member; the Season's titles (SEASON1) and
+the champion's (CROWN1) wait only on their slices. The tower wears the Warden's bronze - the token carries no guild
+colours.
+
 ### 7.5 Fortifications - a seat's memory
 
 Fortifications belong to the SEAT, not the guild. When the seat changes hands each drops **one tier**; at a Season's
@@ -834,7 +839,7 @@ bible updated in the same change, mutants recorded.
 | **GUILD1e** | The hall's private guild board (8.2: the board's Guilds tab, members only) - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` GUILD1e) | A member posts a note only its guild reads, at a board in its hall |
 | **SEAT1a** | The derivation; the registry; the map rings; arrival lines; banners (unheld: the kingdom's) - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` SEAT1a; behind SEATS_OPEN at `dev`) | Pins over a fixture MAPS set: every Palace record is a seat, capitals are crowns, mod rows never count; three witnesses confirm |
 | **SEAT1b** | Influence: pledges, the Watch, gate kills, homes, Renown's region, Tribute; the standings on the board - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` SEAT1b; the stockpile's deliveries ride SEAT1c) | Each source's cap pinned; per-account war and the 7-day wait pinned |
-| **SEAT1c** | The Turning; claims; Contested; the Charter; titles and glyphs (relay first); the Seat tab - the Turning, claims, Contested, the Charter and the Seat tab **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` SEAT1c); titles and glyphs its second half | `settleWeek` idempotent under two racing readers; a held seat's banners in the guild's colours |
+| **SEAT1c** | The Turning; claims; Contested; the Charter; titles and glyphs (relay first); the Seat tab - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` SEAT1c; the titles' vocabulary at `world137`, the Season's and the champion's minted by SEASON1 and CROWN1) | `settleWeek` idempotent under two racing readers; a held seat's banners in the guild's colours |
 | **SEAT1d** | Upkeep, Overreach, Tithe, discounts, Standing, Edicts, Neglect; the economy model as a tool reading townSeatLaw.js and professionLaw.js (PROF0 Appendix C) | Every Standing row pinned; the Tithe routes only Marks; the model re-runs Appendix C's table. The Tithe needs PROF5 (the market) |
 | **PVP-REF** | The refereed blow and step; the 40-fighter measurement | 6.1's buckets pinned against DFU's damage ranges; the measurement recorded |
 | **SEAT2a** | Siege rooms, banners, the Throne, windows, forfeits, spectators, the Tourney, Honours | A headless 10v10 siege runs to both endings |

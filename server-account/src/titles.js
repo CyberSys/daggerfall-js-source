@@ -55,7 +55,7 @@
 // worn by a row nobody has looked at since.
 // ═══════════════════════════════════════════════════════════════════
 
-import { TITLES, GLYPHS, AURAS } from '../../src/net/identityToken.js';
+import { TITLES, GLYPHS, AURAS, SEAT_TITLES } from '../../src/net/identityToken.js';
 import { insigniaHeld, insigniaKeys } from '../../src/net/insignia.js';   // WB9g: the Broker's insignia - a title and an aura bought
 
 /** THE FOUNDER CUTOFF, and it is a date rather than a count because
@@ -194,6 +194,10 @@ export function titlesHeld(player, env) {
   // WB9g: AND THE BROKER'S - a title bought with Sigil Stones, held because the sale is recorded on the row (0037). A
   // guest row cannot buy one (accounts.js buyInsignia refuses it), so none is ever read off one.
   for (const t of insigniaKeys(player?.insignia, 'title')) if (!held.includes(t)) held.push(t);
+  // SEAT1c (Seats-Arc 7.4): AND A CHARTER'S - "Warden of <Town>", "Protector of <Kingdom>" - derived from the seats the
+  // account's guildmaster characters' guilds hold (seatTurning.js seatTitlesOf), read by the caller and laid on the row
+  // as `seatTitles` for this request alone
+  if (Array.isArray(player?.seatTitles)) for (const t of player.seatTitles) if (SEAT_TITLES.includes(t) && !held.includes(t)) held.push(t);
   return held;
 }
 

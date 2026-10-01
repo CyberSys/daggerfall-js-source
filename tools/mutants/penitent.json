@@ -137,11 +137,12 @@
   {
     "name": "PENITENT-lozenge-filled",
     "file": "src/ui/playerBadge.js",
-    "old": "hierophant: true, shadowfang: false, penitent: true });",
-    "new": "hierophant: true, shadowfang: false, penitent: false });",
+    "old": "hierophant: true, shadowfang: false, penitent: true, tower: false,",
+    "new": "hierophant: true, shadowfang: false, penitent: false, tower: false,",
     "tests": [
       "test/penitent.test.js"
-    ]
+    ],
+    "note": "SEAT1c (PIN MOVED): re-aimed by content."
   },
   {
     "name": "PENITENT-mark-another-glyphs",
@@ -191,20 +192,22 @@
   {
     "name": "PENITENT-title-not-in-the-vocabulary",
     "file": "src/net/identityToken.js",
-    "old": "'shadowfang', 'penitent', 'gatebreaker']);   // TITLE-N (2026-09-24, Mac)",
-    "new": "'shadowfang', 'gatebreaker']);   // TITLE-N (2026-09-24, Mac)",
+    "old": "'shadowfang', 'penitent', 'gatebreaker', 'warden',",
+    "new": "'shadowfang', 'gatebreaker', 'warden',",
     "tests": [
       "test/penitent.test.js"
-    ]
+    ],
+    "note": "SEAT1c (PIN MOVED): re-aimed by content."
   },
   {
     "name": "PENITENT-glyph-not-in-the-vocabulary",
     "file": "src/net/identityToken.js",
-    "old": "'hierophant', 'shadowfang', 'penitent']);   // TITLE-N: each new title has its own glyph",
-    "new": "'hierophant', 'shadowfang']);   // TITLE-N: each new title has its own glyph",
+    "old": "'hierophant', 'shadowfang', 'penitent', 'tower',",
+    "new": "'hierophant', 'shadowfang', 'tower',",
     "tests": [
       "test/penitent.test.js"
-    ]
+    ],
+    "note": "SEAT1c (PIN MOVED): re-aimed by content."
   },
   {
     "name": "PENITENT-staff",
