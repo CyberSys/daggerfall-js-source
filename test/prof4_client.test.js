@@ -352,7 +352,7 @@ test('PROF4 pieces: the woods withdraw as their templates (a log on Twigs\' pict
   assert.deepEqual([basket.templateIndex, basket.maxCondition], [1607, TOOL_LIFE[2]]);
   assert.equal(mintPiece({ recipe: 'ramkit:oak', quality: -1, seed: 7 }, PROV), null, 'the Ram Kit is the Stores\'');
   assert.deepEqual(ITEM_FIELDS.marked !== undefined, true, 'marked rides the save');
-  assert.equal(accountRefusalText('prof-later'), 'That is made when the sieges come.');
+  assert.equal(accountRefusalText('prof-later'), 'That is not made in the Bay yet.');   // PIN MOVED (SEAT2b part two): the Ram Kit is made - no word waits on the sieges
   assert.equal(recipeById('bed-fancy-double:teak').templateIndex, 220);
 });
 

@@ -51,9 +51,10 @@ test('SEAT2b THE WORKS PANEL: the works a palace may raise (no Gatehouse below t
   assert.equal(buttons.walls.textContent, 'Raise the Walls to tier 2 (3,000 Drakes)');
   buttons.forge.click();
   assert.deepEqual(begun, ['forge']);
-  // a port and tier-3 Walls: the Harbour and a gate of its own
+  // a coastal town and tier-3 Walls: the Harbour and a gate of its own - PIN MOVED (SEAT2b part two): `coastal`, the town
+  // touching the sea, in the place of DFU's port flag
   const h2 = document.createElement('div');
-  const b2 = drawSeatWorks(h2, { forts: { works: { walls: { tier: 3, building: null } }, stockpile: [] }, seat: { tier: 'palace' }, port: true, lever: true, nameOf });
+  const b2 = drawSeatWorks(h2, { forts: { works: { walls: { tier: 3, building: null } }, stockpile: [] }, seat: { tier: 'palace' }, coastal: true, lever: true, nameOf });
   assert.ok(b2.gatehouse && b2.harbour && !b2.walls);
   assert.equal(byClass(h2, 'notice-seat-works-stock')[0].textContent, SEAT_WORKS_WORDS.emptyStock);
   // no rank: the lines, no lever; reading: the words
@@ -89,10 +90,14 @@ test('SEAT2b SEAT WRITS ON THE WORK TAB: the guild\'s seats of the region offere
   const where = find(node, "Where the writ's units go");
   assert.deepEqual(where.children.map((o) => [o.value, o.textContent]), [['', 'The guild Stores'], ['3021', "Anticlere's stockpile"], ['3022', 'The Siege Camp at Ashfield']]);
   assert.ok(find(node, 'The material the writ asks').children.length > FORT_MATERIALS.length, 'the guild Stores: the whole catalogue');
+  // PIN MOVED (SEAT2b part two): a held seat's stockpile asks what a work asks; a Siege Camp's a Ram Kit too
+  where.value = '3021'; where.onchange();
+  node = tab.node(data);
+  assert.deepEqual(find(node, 'The material the writ asks').children.map((o) => o.value).sort(), [...FORT_MATERIALS].sort(), 'a stockpile writ asks what a work asks');
   where.value = '3022'; where.onchange();
   node = tab.node(data);
   const mats = find(node, 'The material the writ asks').children.map((o) => o.value);
-  assert.deepEqual(mats.sort(), [...FORT_MATERIALS].sort(), 'a seat writ asks what a work asks');
+  assert.deepEqual(mats.sort(), [...FORT_MATERIALS, 'work:ram'].sort(), 'a Siege Camp\'s writ asks what a work asks, and a Ram Kit');
   node.querySelectorAll('*').find((n) => n.className?.includes?.('work-post')).click();
   await new Promise((r) => setTimeout(r, 0));
   assert.equal(posted.at(-1).seat, 3022);
@@ -113,7 +118,8 @@ test('SEAT2b THE WORKS ON THE SEAT TAB: read with the standings and drawn under 
   const SH = { id: 'g1', name: 'The Silver Hand', tag: 'SH', heraldry: null };
   const settle = async (n = 8) => { for (let i = 0; i < n; i++) await Promise.resolve(); };
   const FORTS = { works: { walls: { tier: 1, building: null } }, stockpile: [['stone:cut', 40]] };
-  const rig = ({ holder = SH, guild = 'g1', rank = GUILD_RANK_MASTER, port = false } = {}) => {
+  // PIN MOVED (SEAT2b part two): the host's `coastal` (the town touching the sea) in the place of `port`
+  const rig = ({ holder = SH, guild = 'g1', rank = GUILD_RANK_MASTER, coastal = false } = {}) => {
     const t = { reads: 0, forced: 0, funded: [] };
     const data = { seat: SEAT, week: 6, phase: 'muster', reckoningAt: 1_800_003_600, turningAt: 1_800_086_400, defence: 4500, holder: holder ? { guild: holder, since: 3, standing: 55, tithe: 6, edict: null } : null,
       battle: null, standings: [], chronicle: [], mine: { guild, rank, seasoned: true, bound: guild, pledges: [], influence: 0, tributeRoom: 0 } };
@@ -124,20 +130,20 @@ test('SEAT2b THE WORKS ON THE SEAT TAB: read with the standings and drawn under 
       fortFund: async (seat, work, p) => { t.funded.push([seat.key, work, p]); return { ok: true, text: 'begun' }; },
     };
     const ui = { busy: () => false, run: (start) => start(), rerender: () => {}, nowS: () => 1_800_000_000, alive: () => true };
-    t.tab = createSeatTab({ seat: SEAT, book, port, countName: (k, n) => (k === 'stone:cut' ? 'Cut Stone' : k) }, ui);
+    t.tab = createSeatTab({ seat: SEAT, book, coastal, countName: (k, n) => (k === 'stone:cut' ? 'Cut Stone' : k) }, ui);
     return t;
   };
-  const t = rig({ port: true });
+  const t = rig({ coastal: true });
   await t.tab.open(); await settle();
   let body = t.tab.body();
   assert.equal(byClass(body, 'notice-seat-works').length, 1, 'the panel, under a held seat');
   assert.ok(body.textContent.includes('The stockpile: 40 Cut Stone.'), 'the stockpile in the host\'s words');
   const lever = byClass(body, 'notice-seat-fort-walls')[0];
   assert.equal(lever?.textContent, fortLeverText('walls', 2));
-  assert.equal(byClass(body, 'notice-seat-fort-harbour').length, 1, 'a port\'s Harbour offered');
+  assert.equal(byClass(body, 'notice-seat-fort-harbour').length, 1, 'a coastal town\'s Harbour offered');
   const before = t.forced;
   await lever.onclick({}); await settle();
-  assert.deepEqual(t.funded, [[3021, 'walls', true]], 'the book asked for that work, with the town\'s port');
+  assert.deepEqual(t.funded, [[3021, 'walls', true]], 'the book asked for that work, with the town\'s coast');
   assert.equal(t.forced, before + 1, 'and the board read afresh after');
   // a reader of another guild: the works, no lever
   const o = rig({ guild: 'g2' });

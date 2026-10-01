@@ -36,7 +36,7 @@ import { questTracker } from '../ui/questTracker.js';   // GUIDE5: the quest the
 import { marksOn, questMapMarks } from '../ui/questMarks.js'; import { boatCompassPoints } from '../ui/boatMarks.js';   // GUIDE5: where the quests point, on the held map and the compass; BOAT-MARK: where my boats lie, on the compass
 import { settlementsOf, loadModRoads, basicRoadsPathsPoint, WATER_BYTE } from '../world/roadsProducer.js';   // ROADS 3 / AUDIT ROADS F2 / ROADS 22; WOD2: Basic Roads' getPathsPoint, the question World of Daggerfall's loader asks
 import { modSetting, modSettingsOf, modSettingsGeneration, MOD_SETTINGS, latchModLoaded } from '../systems/modSettings.js';   // ROADS 24; HCC: the mod's eight switches; CSA-D: a mod's title for the load's failure line; AUDIT PRE-MERGE 0928 S4: the next-load mods latched at mount
-import { hasPort, PORT_LOCATION_IDS } from '../systems/travelPorts.js';   // AUDIT-RR2 G22: Travel Options' port list for RR's ship gate
+import { hasPort, PORT_LOCATION_IDS, setMemberPorts, memberPortsVersion, coastOf } from '../systems/travelPorts.js';   // AUDIT-RR2 G22: Travel Options' port list for RR's ship gate; SEAT2b part two: a member's harbours, the Harbour's coast
 import { WoodsFile, MAP_WIDTH, MAP_HEIGHT } from '../formats/woodsFile.js';
 import { buildTerrainIndices, isOutdoorWaterTile, TERRAIN_TILE_DIM, TERRAIN_SKIRT_DEPTH, surfaceHeightAt, groundOffPlane, terrainSampleHeightAt } from '../world/terrainSurface.js';
 import { waterUniforms, buildWaterIndices, waterSwitchOn } from '../render/waterSurface.js';   // WATER1: the enhanced water surface over the pixel's own grid; WATER-AUDIT: its own index set
@@ -191,7 +191,7 @@ import { huntKind, createBodyStamps, bodiesOf, trackerMarks } from './huntHost.j
 import { fishKind } from './fishHost.js';   // PROF8: Fishing's casts and schools - a kind in it
 import { utcDayOfMs } from '../net/nodeLaw.js';   // PROF8: a haul's UTC day
 import { registerPlayerKillListener } from '../systems/playerKills.js';   // PROF7: the player's own kill stamps a body
-import { setProfessionsPages } from '../ui/profPages.js';   // PROF1: the Professions and Stores pages on the character sheet's rail
+import { setProfessionsPages, storedWorkText } from '../ui/profPages.js';   // PROF1: the Professions and Stores pages on the character sheet's rail; SEAT2b part two: a siege work's word
 import { withdrawIntoPack, materialLabel, materialCountLabel } from '../systems/profItems.js';   // PROF1: a Stores material as DFU's own item
 import { smeltRecipe, stockOf, WEAVERS_STOCK, professionName } from '../net/professionLaw.js';   // PROF2: a smelt's product, for its word; PROF4: a counter's; PROF5: the Weavers'
 import { createMarketBook } from '../net/marketBook.js';   // PROF5: the market's book
@@ -906,6 +906,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // dilation hides the raised square coastline by pushing land climate
   // into the ocean pixels beside it, the smoothing flattens a steep
   // location's 3x3 neighbourhood. Classic-lane law, no gate.
+  // SEAT2b part two (Seats-Arc 7.5's Harbour, "coastal seats only" - a town whose map pixel touches the sea): THE COAST AS
+  // THE CLIMATE MAP DRAWS IT, kept BEFORE the dilation relabels a coast's first two rings of sea as land (after it no town
+  // touches the sea) - the Seat tab's Harbour asks it (systems/travelPorts.js coastOf)
+  const seatCoastal = coastOf(maps);
   const dilated = dilateCoastalClimate(maps, 2);
   const smoothedLocations = smoothLocationNeighbourhood(mapDict, woods);
   // ...and the worker builds its OWN reader from the raw bytes, so the
@@ -1153,6 +1157,11 @@ export async function bootWorld(canvas, renderer, params, status) {
       relayNowS: () => (_sharedClockHeard ? Math.floor((Date.now() + _sharedOffsetMs) / 1000) : null),   // a receipt's life is the relay's
       // CROWN2: a Pact broken early, said in red on every tab as the server's own line (RED1) - offered again while there is no chat yet
       onRed: (line) => (redChat ? redChat(line) : false),
+      // SEAT2b part two (Seats-Arc 7.5): the playing character's guild (its Harbours its ports, its halls its steps, its
+      // Watchtowers its word), a seat's name in this client's own derivation, and the Watchtowers' word said on every tab as
+      // the game's own line - offered again while there is no chat yet (redChat is set as the chat is made)
+      guildId: () => guildBook?.guild?.id ?? null, nameOf: (k) => seatAtMapId(townSeats, k)?.name ?? null,
+      onWord: (line) => { if (!redChat || !chatLog) return false; chatLog.pushAll({ text: line.text, at: line.at }); return true; },
     })
     : null;
   /** CROWN2: where the seats' red lines are said - set once the chat is (it is made later in the scene). */
@@ -1222,6 +1231,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   });
   // SEASON1 part two: a Storm Season's slow sea, on every voyage this client reckons (systems/travel.js) - online alone
   setSeaTide(seatBook ? (end) => (seatBook.tideAt(maps.getRegionIndexAt(end.x, end.y)) === 'storms' ? TIDE_EFFECTS.stormsSea : 1) : null);
+  // SEAT2b part two (Seats-Arc 7.5's Harbour: "the town is a Travel Options port for members"): the harbours of the seats
+  // this character's guild holds are ports, wherever HasPort is asked (systems/travelPorts.js) - online alone
+  setMemberPorts(seatBook ? () => seatBook.memberPorts() : null);
   registerEntityFold(FESTIVE_FOLD, (e) => (e === playerEntity && seatEdicts.festive() ? festiveMods(STAT_KEYS_ORDER) : EMPTY_MODS));
   setCrimeRepFactor(() => seatEdicts.crimeFactor());   // SEAT1d: a Curfew's crimes cost twice the legal reputation
   // PROF1 (bible/06-Systems/Professions-Arc.md 22): this character's professions - its tracks, Stores and day as the
@@ -1312,6 +1324,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       else addItem((playerEntity.items ??= []), it, 'back');
     }
     if (pieces.length) { townTalk.say(craftedText(pieces)); saveSoon.changed(); }
+    else if (storedWorkText(data)) townTalk.say(`${storedWorkText(data)}.`);   // SEAT2b part two: a Ram Kit is the Stores' - no piece, its word (a kept one's replay too)
   };
   /** AUDIT 31 H5: every list of the save a crafted piece can be in - the pack, the home's things, the wagon, and a
    *  repairer's hands (DFU's OtherItems) - so a piece is minted, put back and dropped once wherever it lies. */
@@ -6819,7 +6832,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   let _navalPortAt = null;   // { key, near } - the answer for the pixel it was asked at
   const navalNearPort = () => {
     const p = playerTravelPixel();
-    const key = `${p.x},${p.y}`;
+    const key = `${p.x},${p.y},${memberPortsVersion()}`;   // SEAT2b part two: asked again as a member's harbours move
     if (_navalPortAt?.key !== key) {
       let near = false;
       for (let dy = -1; dy <= 1 && !near; dy++) for (let dx = -1; dx <= 1 && !near; dx++) near = csaIsPortTown(p.x + dx, p.y + dy);
@@ -6833,7 +6846,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   let _navalHarbourAt = null;   // { key, town: { id, loc, x, y } | null }
   const navalHarbourNear = () => {
     const p = playerTravelPixel();
-    const key = `${p.x},${p.y}`;
+    const key = `${p.x},${p.y},${memberPortsVersion()}`;   // SEAT2b part two: a member's harbour is one ships dock at
     if (_navalHarbourAt?.key !== key) {
       let town = null;
       for (let dy = -1; dy <= 1 && !town; dy++) for (let dx = -1; dx <= 1 && !town; dx++) {
@@ -8205,11 +8218,13 @@ export async function bootWorld(canvas, renderer, params, status) {
           if (!f) return { ok: false, text: `You are not at ${st.a}.` };
           if (f.fee > 0 && totalGoldAmount(playerEntity) < f.fee) return { ok: false, text: `The ${st.who} asks ${f.fee} gold for the use of the ${st.noun}.` };
           // AUDIT 30 C4: the fee rides the kept craft and is paid as its pieces are minted (profMintCraft) - by this press's
-          // answer, or a settle's later; A4: the workbench's kept word its own
-          const r = await profBook.craft(recipe, { clean, heartwood, dye, fee: f.fee > 0 ? f.fee : 0, name: typeof playerEntity?.name === 'string' ? playerEntity.name : null }, profMintCraft);
+          // answer, or a settle's later; A4: the workbench's kept word its own. SEAT2b part two (Seats-Arc 7.5): `at` the
+          // town the station stands in (scenes/worldModes.js stationTown) - a held seat's halls' steps there, kept with the craft
+          const r = await profBook.craft(recipe, { clean, heartwood, dye, fee: f.fee > 0 ? f.fee : 0, name: typeof playerEntity?.name === 'string' ? playerEntity.name : null, at: modes?.stationTown?.() ?? null }, profMintCraft);
           if (!r?.ok) return { ok: false, text: r?.kept ? st.kept : r?.error === 'prof-busy' ? st.busy : accountRefusalText(r?.error) };
           const paid = f.fee > 0 && !r.elsewhere;
-          return { ok: true, text: `${craftedText(mintPieces(r.data))} (+${r.data.xp} ${st.xp} XP)${paid ? `, and paid the ${st.who} ${f.fee} gold` : ''}.` };
+          // SEAT2b part two: a siege work (the Ram Kit) mints no piece - it is in the Stores, and the word says so
+          return { ok: true, text: `${storedWorkText(r.data) ?? craftedText(mintPieces(r.data))} (+${r.data.xp} ${st.xp} XP)${paid ? `, and paid the ${st.who} ${f.fee} gold` : ''}.` };
         },
         stock: async (material, qty, counter = stockOf(material)?.counter) => {
           const r = await profBook.stock(material, qty);
@@ -8229,6 +8244,9 @@ export async function bootWorld(canvas, renderer, params, status) {
         // PROF11 (bible/06-Systems/Professions-Arc.md 9.3, 9.4): THE MASON'S BENCH the player stands at, and the chisel's band
         mason: () => modes?.masonHere?.() ?? null,
         chiselBand: () => chiselBand({ strength: liveStat(playerEntity, 'strength'), endurance: liveStat(playerEntity, 'endurance') }),
+        // SEAT2b part two (Seats-Arc 7.5's Forge, Workshop, Apothecary): the works of the seat of the town the stations here
+        // stand in, where this character's guild holds it - each station's step line (ui/profPages.js hallLine)
+        halls: () => seatBook?.memberWorks(seatHere(modes?.stationTown?.() ?? null)) ?? null,
         clothing: () => (playerEntity?.gender === 'female' ? 'WomensClothing' : 'MensClothing'),
         marks: () => marksBook?.state?.balance ?? null,   // AUDIT 32 P6: a counter's purchase the Marks cannot meet, said first
         marksOpen: () => marksBook?.state?.open !== false,
@@ -18435,7 +18453,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       town: { name: town.name, mapId: town.mapId }, rumour: rumour ?? [], bountyLine: !!town.bountyLine,
       gate: () => noticeGateCard(), answer: (note) => answerNote(note), work, market,
       guilds: true,   // GUILD1e: the Guilds tab - the town's recruitment posters, and the reader's own guild's board
-      seatBattle: (st, f) => siegeEnter(st, f), seatRoyal: (st, r, w) => royalEnter(st, r, w), seatRecords: (st) => openRecordsFromBoard(st), seat: seatAt ? { seat: seatAt, book: seatBook, nameOf: (k) => seatAtMapId(townSeats, k)?.name ?? null, port: csaIsPortTown(town.px, town.py), countName: materialCountLabel } : null,   // SEAT1b: a seat town's standings   // SEAT2a part four: the battle's door
+      seatBattle: (st, f) => siegeEnter(st, f), seatRoyal: (st, r, w) => royalEnter(st, r, w), seatRecords: (st) => openRecordsFromBoard(st), seat: seatAt ? { seat: seatAt, book: seatBook, nameOf: (k) => seatAtMapId(townSeats, k)?.name ?? null, coastal: seatCoastal(town.px, town.py), countName: materialCountLabel } : null,   // SEAT1b: a seat town's standings   // SEAT2a part four: the battle's door   // SEAT2b part two: a Harbour where the town touches the sea
     });
   };
   /** AUDIT-SEATS (Seats-Arc 9.2): A SEAT'S HALL OF RECORDS FROM ITS BOARD - its Chronicle read as a book, in place of the

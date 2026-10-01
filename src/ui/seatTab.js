@@ -14,6 +14,11 @@
 // A seat is run from its town's board, in person - that is the point of a physical board: the war has a place.
 //
 // Every act goes through the window's one-at-a-time door (`ui.run`), and the standings are read again after each.
+//
+// SEAT2b part two (2026-10-01, Mac: "I want to finish the inprogress"; Seats-Arc 7.5, 7.7): the holder's block says its
+// Watchtowers' word (a challenger past the share, as the seats' list last said it - net/townSeatBook.js watchLines); the
+// week's battle may be a REVOLT - the town against its holder, the holder's side alone signing (as a siege's defenders,
+// Sellswords allowed); and the works' Harbour is offered where the town is COASTAL (the host's `coastal`).
 import { HALL_OF_RECORDS_SHUT } from '../systems/onlineHomes.js';   // AUDIT-SEATS: the Hall of Records' words where it cannot be read
 import { accountRefusalText } from '../net/accountClient.js';
 import {
@@ -54,13 +59,20 @@ export const SEAT_TAB_WORDS = Object.freeze({
 });
 /** The refusals that say the seats are shut to this account (no retry offered). */
 const SHUT = new Set(['seats-closed', 'no-session', 'auth', 'seat-unconfirmed']);
+/** SEAT2b part two (7.7): a revolt's one roster - the holder's side, the town's rebels being the relay's - and what the
+ *  board says to a reader not on it. */
+export const SEAT_REVOLT_SIDE = 'The holder\'s side';
+export const SEAT_REVOLT_WORDS = Object.freeze({ others: 'Only the holder\'s side signs against a revolt - the rebels are the town\'s own.' });
+/** SEAT2b part two: whether the reader may sign a revolt's roster - a member of the holder's side, or a Sellsword hired to
+ *  it (a revolt's attackers are no guild's: nobody else signs). */
+const holdersSide = (mine) => mine?.side === 'defend' || mine?.hire?.side === 'defend';
 
 /**
  * @param {{ seat: { key: number, name: string, region: number, tier: string },
  *   book: ReturnType<typeof import('../net/townSeatBook.js').createTownSeatBook>,
  *   nameOf?: (key: number) => (string|null), banner?: (heraldry: any, width: number) => (Node|null),
  *   enterBattle?: (seat: any, fight: any) => boolean, enterRoyal?: (seat: any, royal: any, watch: boolean) => boolean,
- *   readRecords?: (seat: any) => Promise<boolean>, port?: boolean, countName?: (key: string, n: number) => string }} host   AUDIT-SEATS: the Hall of Records, opened from the board   SEAT2a part four: the world's door into the battle   CROWN1 part two: and into a Royal Tourney
+ *   readRecords?: (seat: any) => Promise<boolean>, coastal?: boolean, countName?: (key: string, n: number) => string }} host   AUDIT-SEATS: the Hall of Records, opened from the board   SEAT2a part four: the world's door into the battle   CROWN1 part two: and into a Royal Tourney
  * @param {{ busy: () => boolean, run: (start: () => Promise<any>) => any, rerender: () => void, nowS: () => number,
  *   alive?: () => boolean }} ui
  */
@@ -291,21 +303,28 @@ export function createSeatTab(host, ui) {
   }
 
   /** SEAT2a: THE WEEK'S BATTLE (SEAT0 6.3-6.4) - its announcement, each side's roster, the reader's place on it (signed,
-   *  or a button to sign while the rosters are open), and a side's Guildmaster's Sellswords. */
+   *  or a button to sign while the rosters are open), and a side's Guildmaster's Sellswords. SEAT2b part two (7.7): A
+   *  REVOLT - the town's rebels against its holder, the announcement's revolt arm (net/townSeatLaw.js battleAnnouncement);
+   *  one roster, the holder's side, signed as a siege's defenders (Sellswords allowed) - nobody signs against the town's
+   *  own (the relay stands the rebels). */
   function fightNode(f) {
     const out = el('div', 'notice-seat-fight');
     const busy = ui.busy();
+    const revolt = f.kind === 'revolt';
     out.append(el('p', 'notice-seat-battle', fightAnnouncement(f, seat.name)));   // AUDIT-SEATS G1: its start is the service's seconds (the law reads ms)
     const label = f.kind === 'tourney' ? ['The first contender', 'The second contender'] : ['Attackers', 'Defenders'];
-    out.append(el('p', 'notice-seat-mine', sideLine(label[0], f.sides.attack.n, f.max, f.sides.attack.swords)));
-    out.append(el('p', 'notice-seat-mine', sideLine(label[1], f.sides.defend.n, f.max, f.sides.defend.swords)));
+    if (!revolt) out.append(el('p', 'notice-seat-mine', sideLine(label[0], f.sides.attack.n, f.max, f.sides.attack.swords)));   // SEAT2b part two: a revolt's attackers are the relay's rebels
+    out.append(el('p', 'notice-seat-mine', sideLine(revolt ? SEAT_REVOLT_SIDE : label[1], f.sides.defend.n, f.max, f.sides.defend.swords)));
     const mine = f.mine ?? null;
     if (!f.open) out.append(el('p', 'notice-seat-mine', 'The rosters are closed.'));
     if (mine?.signed) {
       // AUDIT-SEATS C8: the side in its own words - "for the the first contender" built off the roster's label
       const sideWords = f.kind === 'tourney' ? ['first contender', 'second contender'] : ['attackers', 'defenders'];
-      out.append(el('p', 'notice-seat-mine', `You are signed for the ${mine.side === 'attack' ? sideWords[0] : sideWords[1]}${mine.sellsword ? ' as a Sellsword' : ''}.`));
+      const signedFor = revolt ? SEAT_REVOLT_SIDE.toLowerCase() : `the ${mine.side === 'attack' ? sideWords[0] : sideWords[1]}`;   // SEAT2b part two: a revolt's one side
+      out.append(el('p', 'notice-seat-mine', `You are signed for ${signedFor}${mine.sellsword ? ' as a Sellsword' : ''}.`));
       if (f.open) { const b = button('notice-seat-unsign', 'Give back your place', () => act(() => book.unsign(seat))); b.disabled = busy; out.append(b); }
+    } else if (revolt && !holdersSide(mine)) {
+      if (f.open) out.append(el('p', 'notice-seat-mine', SEAT_REVOLT_WORDS.others));   // SEAT2b part two: the holder's side alone signs
     } else if (f.open && (mine?.side || mine?.hire)) {
       const words = mine.hire ? `Sign as a Sellsword${mine.hire.fee ? ` (${mine.hire.fee} Drakes)` : ''}` : 'Sign for your side';
       const b = button('notice-seat-sign', words, () => act(() => book.sign(seat)));
@@ -374,21 +393,25 @@ export function createSeatTab(host, ui) {
       if (rule) body.append(el('p', 'notice-seat-mine', rule));
       if (data.holding) {
         for (const line of seatHoldingLines(seat, data.holding)) body.append(el('p', 'notice-seat-mine', line));
+        // SEAT2b part two (7.5): the Watchtowers' word - each challenger past the share, as the seats' list last said it
+        for (const line of book.watchLines?.(seat) ?? []) body.append(el('p', 'notice-seat-mine notice-seat-watch', line));
         if (SEAT_LEVER_RANKS.includes(data.mine?.rank)) body.append(holdingNode(data.holding));
       }
       // SEAT2b (Seats-Arc 7.9): the works and the stockpile - a holder's Officers and guildmaster begin a project here
       if (holder && forts) {
         drawSeatWorks(body, {
-          forts, seat, port: host.port === true, busy: ui.busy(),
+          forts, seat, coastal: host.coastal === true, busy: ui.busy(),   // SEAT2b part two: a Harbour where the town touches the sea
           lever: data.mine?.guild === holder.guild.id && SEAT_LEVER_RANKS.includes(data.mine?.rank),
           nameOf: host.countName ?? ((k) => k),
-          onBegin: (work) => act(() => book.fortFund(seat, work, host.port === true)),
+          onBegin: (work) => act(() => book.fortFund(seat, work, host.coastal === true)),
         });
       }
       // SEAT2a: the battle placed in the week, with its sides - or the Turning's line where none is placed (an older week)
       if (data.fight?.kind) body.append(fightNode(data.fight));
       else {
-        const battle = seatBattleLine(data.battle ?? null);
+        // SEAT2b part two (7.7): a revolt has no challenger - its line the announcement's own revolt arm, where it is placed
+        const b = data.battle ?? null;
+        const battle = b?.kind === 'revolt' ? (b.against ? fightAnnouncement({ kind: 'revolt', startsAt: b.startsAt, moved: b.moved, defenderGuild: b.against }, seat.name) : null) : seatBattleLine(b);
         if (battle) body.append(el('p', 'notice-seat-battle', battle));
       }
       if (data.royal) body.append(royalNode(data.royal));   // CROWN1 part two: the Royal Tourney ruling here

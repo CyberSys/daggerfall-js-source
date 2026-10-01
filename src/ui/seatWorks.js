@@ -8,6 +8,11 @@
 // by seat writs, posted from the Work tab.
 //
 // Drawn into a host the Seat tab hands it (ui/seatTab.js), its acts through the tab's own one-at-a-time door.
+//
+// SEAT2b part two (2026-10-01, Mac: "I want to finish the inprogress"): every work's line says what its tier does as
+// fortLaw.js FORT_EFFECT_WORDS says it - each of the ten has its effect now (the Shrine's, the Watchtowers', the halls'
+// and the Harbour's with them) - and the Harbour is offered where the town is COASTAL (its map pixel touching the sea,
+// systems/travelPorts.js coastalPixel - the contract's DECIDED, correcting part one's DFU port flag).
 import { FORT_WORKS, fortMayRaise, fortMaxTier, fortTierRow, fortWorkLine } from '../net/fortLaw.js';
 
 /** @param {string} tag @param {string|null} [cls] @param {string|null} [text] */
@@ -33,14 +38,14 @@ export const fortLeverText = (id, t) => {
 
 /**
  * THE PANEL into `host`: `forts` the service's read (`{ works, stockpile }`, or null while it is read), `seat`
- * `{ tier }`, `port` whether DFU names its town a port (a Harbour's ask), `lever` whether this reader may begin a
- * project, `nameOf(key, n)` a material's name for a count, `whenOf(ms)` a moment's words, `onBegin(work)` the lever's act.
- * Returns the buttons drawn, by work (a test reads them).
+ * `{ tier }`, `coastal` whether its town touches the sea (a Harbour's ask - SEAT2b part two), `lever` whether this reader
+ * may begin a project, `nameOf(key, n)` a material's name for a count, `whenOf(ms)` a moment's words, `onBegin(work)` the
+ * lever's act. Returns the buttons drawn, by work (a test reads them).
  * @param {HTMLElement} host
- * @param {{ forts: any, seat: { tier: string }, port?: boolean, lever?: boolean, nameOf?: (k: string, n: number) => string,
+ * @param {{ forts: any, seat: { tier: string }, coastal?: boolean, lever?: boolean, nameOf?: (k: string, n: number) => string,
  *   whenOf?: (ms: number) => string, onBegin?: (work: string) => any, busy?: boolean }} o
  */
-export function drawSeatWorks(host, { forts, seat, port = false, lever = false, nameOf = (k) => k, whenOf, onBegin = () => {}, busy = false }) {
+export function drawSeatWorks(host, { forts, seat, coastal = false, lever = false, nameOf = (k) => k, whenOf, onBegin = () => {}, busy = false }) {
   const box = el('div', 'notice-seat-works');
   box.append(el('h4', 'notice-seat-head', SEAT_WORKS_WORDS.head));
   /** @type {Record<string, HTMLButtonElement>} */
@@ -54,11 +59,11 @@ export function drawSeatWorks(host, { forts, seat, port = false, lever = false, 
   const walls = Number(works.walls?.tier ?? 0);
   for (const w of FORT_WORKS) {
     const row = works[w.id] ?? { tier: 0, building: null };
-    if (!row.tier && row.building == null && !fortMayRaise(w.id, { tier: seat.tier, coastal: port, walls })) continue;
+    if (!row.tier && row.building == null && !fortMayRaise(w.id, { tier: seat.tier, coastal, walls })) continue;
     const li = el('p', 'notice-seat-works-line', fortWorkLine(w.id, row, { nameOf, ...(whenOf ? { whenOf } : {}) }));
     box.append(li);
     const next = Number(row.tier ?? 0) + 1;
-    if (lever && row.building == null && next <= fortMaxTier(w.id) && fortMayRaise(w.id, { tier: seat.tier, coastal: port, walls })) {
+    if (lever && row.building == null && next <= fortMaxTier(w.id) && fortMayRaise(w.id, { tier: seat.tier, coastal, walls })) {
       const b = /** @type {HTMLButtonElement} */ (el('button', `act notice-seat-fort-${w.id}`, fortLeverText(w.id, next)));
       b.setAttribute('type', 'button');
       b.disabled = busy;

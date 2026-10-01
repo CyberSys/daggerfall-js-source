@@ -609,8 +609,8 @@
   {
     "name": "SEAT2b-works-inland-port",
     "file": "src/ui/seatTab.js",
-    "old": "          forts, seat, port: host.port === true, busy: ui.busy(),",
-    "new": "          forts, seat, port: true, busy: ui.busy(),",
+    "old": "          forts, seat, coastal: host.coastal === true, busy: ui.busy(),",
+    "new": "          forts, seat, coastal: true, busy: ui.busy(),",
     "tests": [
       "test/seat2b_client.test.js"
     ]
@@ -627,8 +627,8 @@
   {
     "name": "SEAT2b-works-no-reload",
     "file": "src/ui/seatTab.js",
-    "old": "          onBegin: (work) => act(() => book.fortFund(seat, work, host.port === true)),",
-    "new": "          onBegin: (work) => ui.run(() => book.fortFund(seat, work, host.port === true)),",
+    "old": "          onBegin: (work) => act(() => book.fortFund(seat, work, host.coastal === true)),",
+    "new": "          onBegin: (work) => ui.run(() => book.fortFund(seat, work, host.coastal === true)),",
     "tests": [
       "test/seat2b_client.test.js"
     ]
@@ -690,7 +690,7 @@
   {
     "name": "SEAT2b-panel-every-work",
     "file": "src/ui/seatWorks.js",
-    "old": "    if (!row.tier && row.building == null && !fortMayRaise(w.id, { tier: seat.tier, coastal: port, walls })) continue;\n",
+    "old": "    if (!row.tier && row.building == null && !fortMayRaise(w.id, { tier: seat.tier, coastal, walls })) continue;\n",
     "new": "",
     "tests": [
       "test/seat2b_client.test.js"

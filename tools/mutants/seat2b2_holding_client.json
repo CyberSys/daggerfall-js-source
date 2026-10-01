@@ -1,0 +1,969 @@
+[
+  {
+    "name": "SEAT2b2C-works-tier-0",
+    "file": "src/net/memberWorks.js",
+    "old": "t >= 1 && t <= fortMaxTier(w.id)) out[w.id] = t;",
+    "new": "t >= 0 && t <= fortMaxTier(w.id)) out[w.id] = t;",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-works-past-last",
+    "file": "src/net/memberWorks.js",
+    "old": "t <= fortMaxTier(w.id)) out[w.id] = t;",
+    "new": "t <= fortMaxTier(w.id) + 1) out[w.id] = t;",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-works-fraction",
+    "file": "src/net/memberWorks.js",
+    "old": "if (Number.isSafeInteger(t) && t >= 1",
+    "new": "if (Number.isFinite(t) && t >= 1",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-held-any-guild",
+    "file": "src/net/memberWorks.js",
+    "old": "seat?.holder?.guild?.id === guildId;",
+    "new": "seat?.holder?.guild?.id !== guildId;",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-held-no-guild",
+    "file": "src/net/memberWorks.js",
+    "old": "export const heldBy = (seat, guildId) => guildId != null && seat",
+    "new": "export const heldBy = (seat, guildId) => seat",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-halls-anyones",
+    "file": "src/net/memberWorks.js",
+    "old": "(heldBy(seat, guildId) ? seat.works ?? NO_WORKS : null)",
+    "new": "(seat ? seat.works ?? NO_WORKS : null)",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-ports-no-harbour",
+    "file": "src/net/memberWorks.js",
+    "old": "heldBy(s, guildId) && harbourPort(s.works?.harbour ?? 0) && seatKeyOk",
+    "new": "heldBy(s, guildId) && seatKeyOk",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-ports-underived",
+    "file": "src/net/memberWorks.js",
+    "old": "&& seatKeyOk(s.key) && known(s.key)).map",
+    "new": "&& seatKeyOk(s.key)).map",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-ports-no-key",
+    "file": "src/net/memberWorks.js",
+    "old": "&& seatKeyOk(s.key) && known(s.key)).map",
+    "new": "&& known(s.key)).map",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-towers-inverted",
+    "file": "src/net/memberWorks.js",
+    "old": "watchtowerShare(Number(s.works?.watchtowers ?? 0)) != null);",
+    "new": "watchtowerShare(Number(s.works?.watchtowers ?? 0)) == null);",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-hall-no-quality-guard",
+    "file": "src/net/memberWorks.js",
+    "old": "if (!r || !works || !takesQuality(r)) return null;",
+    "new": "if (!r || !works) return null;",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-hall-unclamped",
+    "file": "src/net/memberWorks.js",
+    "old": "const steps = qualitySteps(r, { station: stationSteps(r.profession, works) }) - qualitySteps(r, {});",
+    "new": "const steps = stationSteps(r.profession, works);",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-hall-wrong-craft",
+    "file": "src/net/memberWorks.js",
+    "old": "qualitySteps(r, { station: stationSteps(r.profession, works) })",
+    "new": "qualitySteps(r, { station: stationSteps(r.family, works) })",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-hall-zero-said",
+    "file": "src/net/memberWorks.js",
+    "old": "if (!(steps >= 1) || !id) return null;",
+    "new": "if (!(steps >= 0) || !id) return null;",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-hall-name",
+    "file": "src/net/memberWorks.js",
+    "old": ".find((k) => STATION_PROFESSIONS[k].includes(r.profession));",
+    "new": ".find((k) => !STATION_PROFESSIONS[k].includes(r.profession));",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-hall-plural",
+    "file": "src/net/memberWorks.js",
+    "old": "quality step${steps === 1 ? '' : 's'} here.",
+    "new": "quality step${steps === 2 ? '' : 's'} here.",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-watch-quarter-words",
+    "file": "src/net/memberWorks.js",
+    "old": "[String(watchtowerShare(2))]: 'a quarter of'",
+    "new": "[String(watchtowerShare(2))]: 'a quarter'",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-watch-half-words",
+    "file": "src/net/memberWorks.js",
+    "old": "[String(watchtowerShare(1))]: 'half'",
+    "new": "[String(watchtowerShare(1))]: 'half of'",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-watch-share-string",
+    "file": "src/net/memberWorks.js",
+    "old": "if (typeof r.share !== 'number' || !Object",
+    "new": "if (!Object",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-watch-share-any",
+    "file": "src/net/memberWorks.js",
+    "old": "|| !Object.hasOwn(WATCH_SHARE_WORDS, String(r.share))) return null;",
+    "new": ") return null;",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-watch-tag-empty",
+    "file": "src/net/memberWorks.js",
+    "old": "|| !r.guild.tag) return null;",
+    "new": ") return null;",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-watch-key-any",
+    "file": "src/net/memberWorks.js",
+    "old": "if (!r || !seatKeyOk(r.key) || typeof",
+    "new": "if (!r || typeof",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-watch-the-kept",
+    "file": "src/net/memberWorks.js",
+    "old": "/^the /i.test(g.name) ? `the ${g.name.slice(4)}` : g.name",
+    "new": "g.name",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-watch-line",
+    "file": "src/net/memberWorks.js",
+    "old": "has passed ${WATCH_SHARE_WORDS[String(row.share)]} your defence.",
+    "new": "has passed ${WATCH_SHARE_WORDS[String(row.share)]} the defence.",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-word-id-no-share",
+    "file": "src/net/memberWorks.js",
+    "old": "`${week}|${row.key}|${row.guild.tag}|${row.share}`",
+    "new": "`${week}|${row.key}|${row.guild.tag}`",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-word-id-no-week",
+    "file": "src/net/memberWorks.js",
+    "old": "`${week}|${row.key}|${row.guild.tag}|${row.share}`",
+    "new": "`${row.key}|${row.guild.tag}|${row.share}`",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-book-list-no-character",
+    "file": "src/net/townSeatBook.js",
+    "old": "try { r = await door.list(who); }",
+    "new": "try { r = await door.list(); }",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-book-another-character-cached",
+    "file": "src/net/townSeatBook.js",
+    "old": "    if (readFor !== who) force = true;   // SEAT2b part two: another character's list is not this one's (its guild's `watch`)\n",
+    "new": "",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-book-read-for-unkept",
+    "file": "src/net/townSeatBook.js",
+    "old": "      readFor = who;\n",
+    "new": "",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-book-undressed-works",
+    "file": "src/net/townSeatBook.js",
+    "old": "works: seatWorksOf(s.works) }",
+    "new": "works: NO_WORKS }",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-book-word-any-character",
+    "file": "src/net/townSeatBook.js",
+    "old": "if (who === character()) sayWatch(data?.watch);",
+    "new": "sayWatch(data?.watch);",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-book-word-unnamed",
+    "file": "src/net/townSeatBook.js",
+    "old": "if (!name || seen.has(id)) continue;",
+    "new": "if (seen.has(id)) continue;",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-book-word-twice",
+    "file": "src/net/townSeatBook.js",
+    "old": "if (!name || seen.has(id)) continue;",
+    "new": "if (!name) continue;",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-book-word-unsaid-kept",
+    "file": "src/net/townSeatBook.js",
+    "old": "if (sayWord({ text: watchtowerLine(row, name), at: nowMs() })) said.push(id);",
+    "new": "sayWord({ text: watchtowerLine(row, name), at: nowMs() }); said.push(id);",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-book-word-weekless",
+    "file": "src/net/townSeatBook.js",
+    "old": "const week = seatWeekOf(nowMs());\n    const seen = new Set(wordSeenList());",
+    "new": "const week = 0;\n    const seen = new Set(wordSeenList());",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-book-word-unstored",
+    "file": "src/net/townSeatBook.js",
+    "old": "    try { storage?.setItem?.(SEAT_WORD_SEEN_KEY, JSON.stringify(wordSeen)); } catch { /* this page keeps them */ }\n",
+    "new": "",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-book-word-unbounded",
+    "file": "src/net/townSeatBook.js",
+    "old": "wordSeen = [...wordSeenList(), ...said].slice(-SEAT_WORD_SEEN_MAX);",
+    "new": "wordSeen = [...wordSeenList(), ...said].slice(-SEAT_WORD_SEEN_MAX - 1);",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-book-word-throws",
+    "file": "src/net/townSeatBook.js",
+    "old": "const sayWord = (line) => { try { return onWord(line) !== false; } catch { return false; } };",
+    "new": "const sayWord = (line) => onWord(line) !== false;",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-book-tower-wait",
+    "file": "src/net/townSeatBook.js",
+    "old": "export const SEAT_WATCHTOWER_READ_MS = SEAT_LIST_CACHE_MS;",
+    "new": "export const SEAT_WATCHTOWER_READ_MS = SEAT_RED_READ_MS;",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-book-tower-anyone",
+    "file": "src/net/townSeatBook.js",
+    "old": "nowMs() - at >= SEAT_WATCHTOWER_READ_MS && heldNow().towers) read({ force: true });",
+    "new": "nowMs() - at >= SEAT_WATCHTOWER_READ_MS) read({ force: true });",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-book-tower-never",
+    "file": "src/net/townSeatBook.js",
+    "old": "      else if (open === true && !pending && nowMs() - at >= SEAT_WATCHTOWER_READ_MS && heldNow().towers) read({ force: true });\n",
+    "new": "",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-book-held-while-shut",
+    "file": "src/net/townSeatBook.js",
+    "old": "const from = open === true ? dress : null;",
+    "new": "const from = dress;",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-book-halls-while-shut",
+    "file": "src/net/townSeatBook.js",
+    "old": "memberWorks: (seat) => (open === true ? memberWorksOf(seat, guildNow()) : null),",
+    "new": "memberWorks: (seat) => memberWorksOf(seat, guildNow()),",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-book-ports-underived",
+    "file": "src/net/townSeatBook.js",
+    "old": "memberPortsOf(seats, gid, (k) => nameOf(k) != null)",
+    "new": "memberPortsOf(seats, gid)",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-book-guild-throws",
+    "file": "src/net/townSeatBook.js",
+    "old": "const guildNow = () => { try { return guildId() ?? null; } catch { return null; } };",
+    "new": "const guildNow = () => guildId() ?? null;",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-book-lines-any-character",
+    "file": "src/net/townSeatBook.js",
+    "old": "seat && open === true && readFor === character()",
+    "new": "seat && open === true",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-book-lines-every-seat",
+    "file": "src/net/townSeatBook.js",
+    "old": ".filter((r) => r.key === seat.key).map((r) => watchtowerLine(r, seat.name))",
+    "new": ".map((r) => watchtowerLine(r, seat.name))",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-book-fund-inland",
+    "file": "src/net/townSeatBook.js",
+    "old": "door.fortFund(character(), seat.key, work, id, coastal === true)",
+    "new": "door.fortFund(character(), seat.key, work, id, false)",
+    "tests": [
+      "test/seat2b2_holding_client.test.js",
+      "test/seat2b_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-door-list-bare",
+    "file": "src/net/accountClient.js",
+    "old": "post('/v1/seats/list', typeof character === 'string' && character ? { character } : {})",
+    "new": "post('/v1/seats/list', {})",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-door-fund-port",
+    "file": "src/net/accountClient.js",
+    "old": "...(coastal === true ? { coastal: true } : {})",
+    "new": "...(coastal === true ? { port: true } : {})",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-door-craft-no-at",
+    "file": "src/net/accountClient.js",
+    "old": "heartwood, at: seatKeyOk(at) ? at : null, ...(dye",
+    "new": "heartwood, at: null, ...(dye",
+    "tests": [
+      "test/seat2b2_holding_client.test.js",
+      "test/prof7_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-door-craft-any-at",
+    "file": "src/net/accountClient.js",
+    "old": "heartwood, at: seatKeyOk(at) ? at : null, ...(dye",
+    "new": "heartwood, at, ...(dye",
+    "tests": [
+      "test/seat2b2_holding_client.test.js",
+      "test/prof7_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-door-later-words",
+    "file": "src/net/accountClient.js",
+    "old": "'prof-later': 'That is not made in the Bay yet.',",
+    "new": "'prof-later': 'That is made when the sieges come.',",
+    "tests": [
+      "test/seat2b2_holding_client.test.js",
+      "test/prof4_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-prof-at-unkept",
+    "file": "src/net/profBook.js",
+    "old": "at: seatKeyOk(at) ? at : null };",
+    "new": "at: null };",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-prof-at-unreplayed",
+    "file": "src/net/profBook.js",
+    "old": "Number.isInteger(w.dye) ? w.dye : null, seatKeyOk(w.at) ? w.at : null));",
+    "new": "Number.isInteger(w.dye) ? w.dye : null, null));",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-ports-no-members",
+    "file": "src/systems/travelPorts.js",
+    "old": "return PORT_SET.has(m) || memberSet().has(m);",
+    "new": "return PORT_SET.has(m);",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-ports-unmasked",
+    "file": "src/systems/travelPorts.js",
+    "old": ".filter((id) => Number.isFinite(id)).map(maskMapId));",
+    "new": ".filter((id) => Number.isFinite(id)));",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-ports-version-still",
+    "file": "src/systems/travelPorts.js",
+    "old": ".some((id) => !_memberSet.has(id))) _memberVersion++;",
+    "new": ".some((id) => !_memberSet.has(id))) _memberVersion += 0;",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-ports-version-size-alone",
+    "file": "src/systems/travelPorts.js",
+    "old": "if (next.size !== _memberSet.size || [...next].some((id) => !_memberSet.has(id))) _memberVersion++;",
+    "new": "if (next.size !== _memberSet.size) _memberVersion++;",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-ports-reset-kept",
+    "file": "src/systems/travelPorts.js",
+    "old": "  if (_memberSet.size) { _memberSet = new Set(); _memberVersion++; }\n",
+    "new": "",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-ports-source-throws",
+    "file": "src/systems/travelPorts.js",
+    "old": "try { ids = _memberSource ? _memberSource() : null; } catch { ids = null; }",
+    "new": "ids = _memberSource ? _memberSource() : null;",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-coast-any-land",
+    "file": "src/systems/travelPorts.js",
+    "old": "climate[ny * PAK_WIDTH + nx + 1] === OCEAN_CLIMATE) return true;",
+    "new": "climate[ny * PAK_WIDTH + nx + 1] !== OCEAN_CLIMATE) return true;",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-coast-centre",
+    "file": "src/systems/travelPorts.js",
+    "old": "if ((dx || dy) && nx >= 0",
+    "new": "if (nx >= 0",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-coast-west-edge",
+    "file": "src/systems/travelPorts.js",
+    "old": "&& nx >= 0 && ny >= 0",
+    "new": "&& ny >= 0",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-coast-east-edge",
+    "file": "src/systems/travelPorts.js",
+    "old": "&& nx < MAP_WIDTH && ny < MAP_HEIGHT",
+    "new": "&& ny < MAP_HEIGHT",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-coast-column",
+    "file": "src/systems/travelPorts.js",
+    "old": "climate[ny * PAK_WIDTH + nx + 1]",
+    "new": "climate[ny * PAK_WIDTH + nx]",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-coast-live",
+    "file": "src/systems/travelPorts.js",
+    "old": "const climate = maps?.climatePak?.buffer?.slice?.() ?? null;",
+    "new": "const climate = maps?.climatePak?.buffer ?? null;",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-held-marks-stale",
+    "file": "src/ui/heldMap.js",
+    "old": "if (this._portsVersion !== ports) { this._portsVersion = ports; this._marksDirty = true; }",
+    "new": "if (this._portsVersion !== ports) { this._portsVersion = ports; }",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-tab-no-watch",
+    "file": "src/ui/seatTab.js",
+    "old": "        for (const line of book.watchLines?.(seat) ?? []) body.append(el('p', 'notice-seat-mine notice-seat-watch', line));\n",
+    "new": "",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-tab-revolt-attackers",
+    "file": "src/ui/seatTab.js",
+    "old": "if (!revolt) out.append(el('p', 'notice-seat-mine', sideLine(label[0],",
+    "new": "if (true) out.append(el('p', 'notice-seat-mine', sideLine(label[0],",
+    "tests": [
+      "test/seat2b2_holding_client.test.js",
+      "test/seat2a_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-tab-revolt-defenders-label",
+    "file": "src/ui/seatTab.js",
+    "old": "sideLine(revolt ? SEAT_REVOLT_SIDE : label[1],",
+    "new": "sideLine(label[1],",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-tab-revolt-holder-barred",
+    "file": "src/ui/seatTab.js",
+    "old": "} else if (revolt && !holdersSide(mine)) {",
+    "new": "} else if (revolt && holdersSide(mine)) {",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-tab-revolt-anyone-signs",
+    "file": "src/ui/seatTab.js",
+    "old": "} else if (revolt && !holdersSide(mine)) {",
+    "new": "} else if (false && !holdersSide(mine)) {",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-tab-revolt-hire-side",
+    "file": "src/ui/seatTab.js",
+    "old": "|| mine?.hire?.side === 'defend';",
+    "new": "|| mine?.hire?.side === 'attack';",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-tab-revolt-member-side",
+    "file": "src/ui/seatTab.js",
+    "old": "const holdersSide = (mine) => mine?.side === 'defend' ||",
+    "new": "const holdersSide = (mine) => mine?.side === 'attack' ||",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-tab-revolt-told-closed",
+    "file": "src/ui/seatTab.js",
+    "old": "      if (f.open) out.append(el('p', 'notice-seat-mine', SEAT_REVOLT_WORDS.others));",
+    "new": "      out.append(el('p', 'notice-seat-mine', SEAT_REVOLT_WORDS.others));",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-tab-revolt-signed-words",
+    "file": "src/ui/seatTab.js",
+    "old": "const signedFor = revolt ? SEAT_REVOLT_SIDE.toLowerCase() :",
+    "new": "const signedFor = false ? SEAT_REVOLT_SIDE.toLowerCase() :",
+    "tests": [
+      "test/seat2b2_holding_client.test.js",
+      "test/audit_seats_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-tab-revolt-fallback",
+    "file": "src/ui/seatTab.js",
+    "old": "const battle = b?.kind === 'revolt' ? (b.against ?",
+    "new": "const battle = b?.kind === 'never' ? (b.against ?",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-tab-fund-inland",
+    "file": "src/ui/seatTab.js",
+    "old": "onBegin: (work) => act(() => book.fortFund(seat, work, host.coastal === true)),",
+    "new": "onBegin: (work) => act(() => book.fortFund(seat, work, false)),",
+    "tests": [
+      "test/seat2b2_holding_client.test.js",
+      "test/seat2b_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-works-coastal-default",
+    "file": "src/ui/seatWorks.js",
+    "old": "export function drawSeatWorks(host, { forts, seat, coastal = false,",
+    "new": "export function drawSeatWorks(host, { forts, seat, coastal = true,",
+    "tests": [
+      "test/seat2b2_holding_client.test.js",
+      "test/seat2b_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-writ-camp-no-kit",
+    "file": "src/ui/workTab.js",
+    "old": "m.key !== RAM_KIT_KEY), material(RAM_KIT_KEY)].filter(Boolean);",
+    "new": "m.key !== RAM_KIT_KEY)].filter(Boolean);",
+    "tests": [
+      "test/seat2b2_holding_client.test.js",
+      "test/seat2b_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-writ-camp-stockpile-swapped",
+    "file": "src/ui/workTab.js",
+    "old": "forSeat.camp ? campGoods :",
+    "new": "!forSeat.camp ? campGoods :",
+    "tests": [
+      "test/seat2b2_holding_client.test.js",
+      "test/seat2b_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-writ-stockpile-everything",
+    "file": "src/ui/workTab.js",
+    "old": ": catalogue.filter((m) => fortMaterialOk(m.key));",
+    "new": ": catalogue;",
+    "tests": [
+      "test/seat2b2_holding_client.test.js",
+      "test/seat2b_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-writ-stores-kit",
+    "file": "src/ui/workTab.js",
+    "old": "const choices = !forSeat ? catalogue :",
+    "new": "const choices = !forSeat ? campGoods :",
+    "tests": [
+      "test/seat2b2_holding_client.test.js",
+      "test/seat2b_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-pages-anvil-no-hall",
+    "file": "src/ui/profPages.js",
+    "old": "      hallLine(box, el, r);   // SEAT2b part two: the seat's Forge\n",
+    "new": "",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-pages-bench-no-hall",
+    "file": "src/ui/profPages.js",
+    "old": "      hallLine(box, el, r);   // SEAT2b part two: the seat's Workshop\n    }\n    heartwoodToggle(box, el, r, book, _bench, rerender, planing);",
+    "new": "    }\n    heartwoodToggle(box, el, r, book, _bench, rerender, planing);",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-pages-loom-no-hall",
+    "file": "src/ui/profPages.js",
+    "old": "      hallLine(box, el, r);   // SEAT2b part two: the seat's Workshop\n    }\n    const gentle = getPref('gentleActs') === true;\n    const dye",
+    "new": "    }\n    const gentle = getPref('gentleActs') === true;\n    const dye",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-pages-mason-no-hall",
+    "file": "src/ui/profPages.js",
+    "old": "      hallLine(box, el, r);   // SEAT2b part two: the seat's Workshop (Masonry's)\n",
+    "new": "",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-pages-hall-unasked",
+    "file": "src/ui/profPages.js",
+    "old": "hallStepsLine(r, _provider?.halls?.() ?? null)",
+    "new": "hallStepsLine(r, null)",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-pages-kit-withdrawn",
+    "file": "src/ui/profPages.js",
+    "old": "if (pick?.family === 'works') {",
+    "new": "if (pick?.family === 'none') {",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-pages-bench-unsaid",
+    "file": "src/ui/profPages.js",
+    "old": "    if (r.kind === 'siege') box.append(el('p', 'px-note', RAM_KIT_BENCH_LINE));",
+    "new": "    if (false) box.append(el('p', 'px-note', RAM_KIT_BENCH_LINE));",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-pages-stored-any",
+    "file": "src/ui/profPages.js",
+    "old": "if (r?.kind !== 'siege') return null;",
+    "new": "if (r?.kind === 'siege') return null;",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-pages-stored-count",
+    "file": "src/ui/profPages.js",
+    "old": "n === 1 ? `a ${r.name}`",
+    "new": "n === 2 ? `a ${r.name}`",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-label-key",
+    "file": "src/systems/profItems.js",
+    "old": "  if (m.family === 'works') return RECIPES.find((r) => r.kind === 'siege' && r.templateIndex === m.templateIndex)?.name ?? String(key);   // SEAT2b part two: \"Ram Kit\"\n",
+    "new": "",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-world-coast-after-dilation",
+    "file": "src/scenes/world.js",
+    "old": "  const seatCoastal = coastOf(maps);\n  const dilated = dilateCoastalClimate(maps, 2);",
+    "new": "  const dilated = dilateCoastalClimate(maps, 2);\n  const seatCoastal = coastOf(maps);",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-world-host-port",
+    "file": "src/scenes/world.js",
+    "old": "coastal: seatCoastal(town.px, town.py)",
+    "new": "coastal: csaIsPortTown(town.px, town.py)",
+    "tests": [
+      "test/seat2b2_holding_client.test.js",
+      "test/seat1b_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-world-no-member-ports",
+    "file": "src/scenes/world.js",
+    "old": "setMemberPorts(seatBook ? () => seatBook.memberPorts() : null);",
+    "new": "setMemberPorts(null);",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-world-guildless-book",
+    "file": "src/scenes/world.js",
+    "old": "guildId: () => guildBook?.guild?.id ?? null, nameOf:",
+    "new": "guildId: () => null, nameOf:",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-world-word-unsaid",
+    "file": "src/scenes/world.js",
+    "old": "chatLog.pushAll({ text: line.text, at: line.at }); return true; },",
+    "new": "return true; },",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-world-naval-near-stale",
+    "file": "src/scenes/world.js",
+    "old": "const key = `${p.x},${p.y},${memberPortsVersion()}`;   // SEAT2b part two: asked again as a member's harbours move",
+    "new": "const key = `${p.x},${p.y}`;   // SEAT2b part two: asked again as a member's harbours move",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-world-naval-harbour-stale",
+    "file": "src/scenes/world.js",
+    "old": "const key = `${p.x},${p.y},${memberPortsVersion()}`;   // SEAT2b part two: a member's harbour is one ships dock at",
+    "new": "const key = `${p.x},${p.y}`;   // SEAT2b part two: a member's harbour is one ships dock at",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-world-craft-no-at",
+    "file": "src/scenes/world.js",
+    "old": "at: modes?.stationTown?.() ?? null }, profMintCraft);",
+    "new": "at: null }, profMintCraft);",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-world-kit-made-nothing",
+    "file": "src/scenes/world.js",
+    "old": "${storedWorkText(r.data) ?? craftedText(mintPieces(r.data))}",
+    "new": "${craftedText(mintPieces(r.data))}",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-world-kit-replay-unsaid",
+    "file": "src/scenes/world.js",
+    "old": "    else if (storedWorkText(data)) townTalk.say(`${storedWorkText(data)}.`);",
+    "new": "",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-world-halls-none",
+    "file": "src/scenes/world.js",
+    "old": "halls: () => seatBook?.memberWorks(seatHere(modes?.stationTown?.() ?? null)) ?? null,",
+    "new": "halls: () => null,",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b2C-modes-no-town",
+    "file": "src/scenes/worldModes.js",
+    "old": "return (homeTownOf(interiorBuilding) >>> 0) || null;",
+    "new": "return null;",
+    "tests": [
+      "test/seat2b2_holding_client.test.js"
+    ]
+  }
+]

@@ -45,7 +45,7 @@ import { HOME_CAP, RENT_ROOMS_MAX, RENT_HELD_MAX, RENT_DAYS_MAX } from './homeLa
 import { DECOR_CAP, DECOR_YARD_CAP } from './decorLaw.js';   // DECOR1: the cap its refusal names; HOME-YARD: a yard's
 import { MARKS_MAX, MARKS_BANK, MARKS_MOVE_MAX } from './marksLaw.js';   // MARKS1: the bounds its refusals name
 import { NOTES_LIVE_MAX, NOTE_DAYS, NOTICE_DAYS_MAX } from './boardLaw.js';   // NOTICE1: the bounds its refusals name
-import { SIGN_WHY, SIEGE_WHY, ROYAL_WHY, FEALTY_WHY, SELLSWORD_FEE_MAX } from './townSeatLaw.js';   // SEAT2a: the rosters' refusals in the board's own words; the fee's bound
+import { SIGN_WHY, SIEGE_WHY, ROYAL_WHY, FEALTY_WHY, SELLSWORD_FEE_MAX, seatKeyOk } from './townSeatLaw.js';   // SEAT2a: the rosters' refusals in the board's own words; the fee's bound; SEAT2b part two: a craft's `at`, a seat key
 import {
   HARVESTS_PER_DAY, HARVESTS_PER_ACCOUNT_DAY, DEEP_UNCONFIRMED_PER_DAY, STORES_MAX, WITHDRAW_MAX, COURT_WRITS_PER_DAY, RESPEC,
   HIDES_PER_DAY, HIGH_HIDES_PER_DAY, HAULS_PER_DAY,
@@ -326,7 +326,7 @@ export const REFUSALS = Object.freeze({
   'bad-recipe': 'The forge knows no such work.',   // PROF2
   'prof-no-pack-form': 'That stays at the bench until its own craft is practised.',   // PROF3: the smith's stock
   'prof-busy': 'The anvil is still ringing from your last work.',   // PROF3: one craft at a time
-  'prof-later': 'That is made when the sieges come.',   // PROF4: the Ram Kit (PROF0 25)
+  'prof-later': 'That is not made in the Bay yet.',   // PROF4: a recipe named before its slice - SEAT2b part two: the Ram Kit is made now, so the sieges' words went with it
   // PROF7: Hunting's day - the account's, every character's together (PROF0 6)
   'prof-hunt-cap': `Your account has taken all the hides a day allows (${HIDES_PER_DAY}, across your characters).`,
   'prof-fish-cap': `Your account has hauled all the nets a day allows (${HAULS_PER_DAY}, across your characters). The water rests until midnight UTC.`,   // PROF8
@@ -1110,7 +1110,8 @@ export function accountSeats({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
   return {
     /** SEAT1b: the account this device is signed in as - the Watch's receipts it may claim are its alone. */
     me: () => storedSession(storage)?.id ?? null,
-    list: () => post('/v1/seats/list', {}),
+    // SEAT2b part two: with the reader's character, the list carries `watch` - its guild's Watchtowers' word (Seats-Arc 7.5)
+    list: (character = null) => post('/v1/seats/list', typeof character === 'string' && character ? { character } : {}),
     witness: (seat) => post('/v1/seats/witness', { seat }),
     strike: (key) => post('/v1/seats/strike', { key }),
     // SEAT1b: influence - the standings at a seat (with the reader's own guild), a pledge set or taken down, the Watch's
@@ -1138,9 +1139,10 @@ export function accountSeats({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
     royalPass: (key, field, watch) => post('/v1/seats/royal/pass', { key, ...(field ? { field } : {}), ...(watch ? { watch: true } : {}) }),
     claimRoyal: (receipt) => post('/v1/seats/royal/claim', { receipt }),
     // CROWN2: fealty offered (`as` 'vassal' or 'liege'), accepted, broken or withdrawn; a Pact offered or signed, broken
-    // SEAT2b: a seat's works read; a project begun (`port`: DFU names the town a port - a Harbour's ask)
+    // SEAT2b: a seat's works read; a project begun (SEAT2b part two: `coastal` - the town touches the sea, a Harbour's ask;
+    // part one's `port`, DFU's flag, is what an older client sent)
     forts: (key) => post('/v1/seats/forts', { key }),
-    fortFund: (character, key, work, rid, port = false) => post('/v1/seats/fort/fund', { character, key, work, rid, ...(port ? { port: true } : {}) }),
+    fortFund: (character, key, work, rid, coastal = false) => post('/v1/seats/fort/fund', { character, key, work, rid, ...(coastal === true ? { coastal: true } : {}) }),
     fealty: (character, tag, as) => post('/v1/seats/fealty', { character, tag, as }),
     fealtyAccept: (character, tag) => post('/v1/seats/fealty/accept', { character, tag }),
     fealtyBreak: (character, tag) => post('/v1/seats/fealty/break', { character, ...(tag ? { tag } : {}) }),
@@ -1168,7 +1170,7 @@ export function accountProf({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
     spec: (character, profession, rank, spec, from, rid) => post('/v1/prof/spec', { character, profession, rank, spec, from, rid }),   // AUDIT 29 A15: `from`, the choice the client saw standing
     withdraw: (character, material, qty, rid) => post('/v1/stores/withdraw', { character, material, qty, rid }),
     smelt: (character, recipe, count, rid, clean = false) => post('/v1/prof/smelt', { character, recipe, count, rid, ...(clean === true ? { clean: true } : {}) }),   // PROF2: the forge; PROF11: the mason's bench, `clean` the chisel's report
-    craft: (character, recipe, clean, name, rid, heartwood = false, dye = null) => post('/v1/prof/craft', { character, recipe, clean, name, rid, heartwood, ...(dye == null ? {} : { dye }) }),   // PROF3: the anvil - `clean` the act's report, `name` the maker's mark; PROF4: the workbench, `heartwood` for a plank; PROF7: the loom, a garment's `dye`
+    craft: (character, recipe, clean, name, rid, heartwood = false, dye = null, at = null) => post('/v1/prof/craft', { character, recipe, clean, name, rid, heartwood, at: seatKeyOk(at) ? at : null, ...(dye == null ? {} : { dye }) }),   // PROF3: the anvil - `clean` the act's report, `name` the maker's mark; PROF4: the workbench, `heartwood` for a plank; PROF7: the loom, a garment's `dye`; SEAT2b part two: `at` the station's town (a seat key, or null) - a held seat's halls' steps there
     stock: (character, material, qty, rid) => post('/v1/prof/stock', { character, material, qty, rid }),   // PROF3: the smith's stock
     writs: (character, region) => post('/v1/writs/list', { character, region }),
     deliver: (character, id, rid) => post('/v1/writs/deliver', { character, id, rid }),

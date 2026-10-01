@@ -97,7 +97,7 @@ import { isPlayerControlledTravel, enforceShipRestriction, shipTravelRefusal, sc
 // MAP2: the mod's map additions, through the SAME functions the classic
 // window calls (ui/travelMapOptions.js), so the two skins cannot drift.
 import { teleportCost, teleportCostPrompt, portsFilterAllows, locationInfoRows, resumePrompt } from './travelMapOptions.js';
-import { hasPort } from '../systems/travelPorts.js';
+import { hasPort, memberPortsVersion } from '../systems/travelPorts.js';   // SEAT2b part two: the marks made again as a member's harbours move
 import { noticeHold, noticeRelease } from './enhancedNotice.js';   // ENH-NOTICE3: this window's own click-anywhere boxes, as the enhanced panel
 import { TRAVEL_OPTIONS_TEXT as TO_TEXT, format as toFormat } from '../systems/travelOptionsText.js';
 import { getDaggerfallDistance, MatchesCutOff } from '../systems/editDistance.js';
@@ -1416,6 +1416,10 @@ export class HeldMapWindow {
       this._marksDirty = true;
     }
     if (this._model?.coast !== rec.chains.coast) this._model = { ...rec.chains, marks: [] };
+    // SEAT2b part two (Seats-Arc 7.5's Harbour): the marks ask HasPort, and a member's harbours are ports - the marks made
+    // again when they move (systems/travelPorts.js memberPortsVersion), as a filter's press makes them again
+    const ports = memberPortsVersion();
+    if (this._portsVersion !== ports) { this._portsVersion = ports; this._marksDirty = true; }
     if (this._marksDirty) {
       this._marksDirty = false;
       this._marksVersion = (this._marksVersion ?? 0) + 1;
