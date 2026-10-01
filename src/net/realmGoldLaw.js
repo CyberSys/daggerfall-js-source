@@ -33,15 +33,31 @@ export const REALM_LETTER_TEMPLATE = 275;
 export const realmLetterOfCredit = (/** @type {number} */ value) => ({ group: 'MiscItems', templateIndex: REALM_LETTER_TEMPLATE, name: 'Letter of Credit', value, stackCount: 1 });
 
 const whole = (/** @type {unknown} */ v) => (Number.isSafeInteger(v) && /** @type {number} */ (v) > 0 ? /** @type {number} */ (v) : 0);
-/** The bank account of `region` in a save, or null. */
+/** EMPIRE-ACCOUNT (2026-10-01, Mac: "2" - online, every region one Empire-wide account): A REALM CHARACTER KEEPS ONE
+ *  BANK ACCOUNT, the Empire's, at Daggerfall's index (systems/banking.js EMPIRE_ACCOUNT_REGION, pinned equal - the
+ *  Worker does not bundle banking.js). Whatever region a wallet names, its gold is that account's. */
+export const REALM_EMPIRE_ACCOUNT = 17;
+/** The bank account `region`'s gold moves in, in a save - the Empire's (EMPIRE-ACCOUNT; the region's own where a short
+ *  table has none) - or null. */
 export const accountOfSave = (/** @type {any} */ save, /** @type {unknown} */ region) =>
-  (Number.isSafeInteger(region) && /** @type {number} */ (region) >= 0 && Array.isArray(save?.bankAccounts) ? save.bankAccounts[/** @type {number} */ (region)] ?? null : null);
+  (Number.isSafeInteger(region) && /** @type {number} */ (region) >= 0 && Array.isArray(save?.bankAccounts)
+    ? save.bankAccounts[REALM_EMPIRE_ACCOUNT] ?? save.bankAccounts[/** @type {number} */ (region)] ?? null : null);
+/** The accounts a realm save pays from when `region` names one, in the order they pay: the Empire's (the region's own
+ *  where a short table has none), then every other branch still holding gold - a record written before its character
+ *  booted since EMPIRE-ACCOUNT, whose client folds them into the Empire's at that boot (banking.js foldEmpireAccounts).
+ *  None when `region` names none. */
+const accountsOfSave = (/** @type {any} */ save, /** @type {unknown} */ region) => {
+  const empire = accountOfSave(save, region);
+  if (!empire) return [];
+  return [empire, ...save.bankAccounts.filter((/** @type {any} */ a) => a !== empire && !!a && typeof a === 'object')];
+};
 
-/** What a save can pay with: its coins, its letters of credit and, when `region` names one, that region's account. */
+/** What a save can pay with: its coins, its letters of credit and, when `region` names one, the Empire's account (and
+ *  any branch a record not yet folded still holds gold in). */
 export function payableOf(/** @type {any} */ save, /** @type {unknown} */ region = null) {
   const coins = whole(save?.goldPieces);
   const letters = (Array.isArray(save?.items) ? save.items : []).filter((it) => it?.templateIndex === REALM_LETTER_TEMPLATE).reduce((s, it) => s + whole(it.value), 0);
-  const bank = Math.max(0, Number(accountOfSave(save, region)?.accountGold) || 0);
+  const bank = accountsOfSave(save, region).reduce((s, a) => s + Math.max(0, Number(a.accountGold) || 0), 0);
   return coins + letters + bank;
 }
 
@@ -68,7 +84,13 @@ export function payFromSave(save, amount, region = null) {
   if (owed > 0) {
     if (owed <= purse) { save.goldPieces = purse - owed; owed = 0; } else { owed -= purse; save.goldPieces = 0; }
   }
-  if (owed > 0) accountOfSave(save, region).accountGold -= owed;   // payableOf counted it: the account is there and covers it
+  // payableOf counted it: the accounts are there and cover it - the Empire's first (EMPIRE-ACCOUNT)
+  for (const a of accountsOfSave(save, region)) {
+    if (!(owed > 0)) break;
+    const take = Math.min(owed, Math.max(0, Number(a.accountGold) || 0));
+    a.accountGold -= take;
+    owed -= take;
+  }
   return true;
 }
 

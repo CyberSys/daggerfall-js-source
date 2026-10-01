@@ -21,7 +21,7 @@ import { GUILD_RECTS, PANEL_X as GUILD_X, PANEL_Y as GUILD_Y } from './guildServ
 import { COVEN_RECTS, COVEN_PANEL_X, COVEN_PANEL_Y } from './covenWindow.js';
 import { BANK_RECTS, BANK_PANEL_X, BANK_PANEL_Y, MARKS_ENTRY } from './bankWindow.js';
 import { MARKS_BANK, marksText } from '../net/marksLaw.js';   // MARKS1: the Bank's Marks, online
-import { TRANSACTION_TYPE } from '../systems/banking.js';
+import { TRANSACTION_TYPE, goldRegion, EMPIRE_ACCOUNT_REGION } from '../systems/banking.js';   // EMPIRE-ACCOUNT: online, the one account
 import { REGION_NAMES } from '../formats/mapsFile.js';   // BANK-REGION: the account's region, by the index its row reads
 import { PURCHASE_RECTS, PURCHASE_PANEL_X, PURCHASE_PANEL_Y } from './bankPurchaseWindow.js';
 import { TRANSPORT_MODES } from '../systems/transport.js';
@@ -100,13 +100,16 @@ const bank = {
     // banking.js, THE STORE IS PER REGION), and nothing online said so - the teller in another region read "Account
     // balance 0" under "Bank of the Empire". The row names the region whose account it is, and each other region that
     // holds gold stands beneath it (CreateBankingStatusBox's list, which only the classic sheet's gold button opens).
+    // EMPIRE-ACCOUNT (2026-10-01): online every branch keeps ONE account, the Empire's - the row is that account, and
+    // beneath it only a branch a character has not yet folded into it (banking.js foldEmpireAccounts, at its next boot)
     const here = REGION_NAMES[w.region];
-    const elsewhere = (w.accounts ?? []).flatMap((a, i) => (i !== w.region && a?.accountGold > 0 ? [[`Banked in ${REGION_NAMES[i] ?? 'another region'}`, String(a.accountGold)]] : []));
+    const gold = goldRegion(w.accounts ?? [], w.region), one = empire && gold === EMPIRE_ACCOUNT_REGION;
+    const elsewhere = (w.accounts ?? []).flatMap((a, i) => (i !== gold && a?.accountGold > 0 ? [[`Banked in ${REGION_NAMES[i] ?? 'another region'}`, String(a.accountGold)]] : []));
     return {
       title: empire ? `Bank of ${EMPIRE_BANK_OF}` : city ? `Bank of ${city}` : 'The Bank', sub: (empire ? city || w.hooks.regionName?.() : w.hooks.regionName?.()) ?? '', size: 'medium',
       blocks: [
         { type: 'stats', items: [
-          [here ? `Account in ${here}` : 'Account balance', L.account], ...elsewhere, ['Gold carried', L.inventory],
+          [one ? 'Empire account' : here ? `Account in ${here}` : 'Account balance', L.account], ...elsewhere, ['Gold carried', L.inventory],
           ['Loan owed', L.loanDue, Number(L.loanDue) > 0 ? 'warn' : ''], [empire ? 'Loan due' : 'Loan due by', L.loanByFull ?? L.loanBy],   // AUDIT LIVED1b U4 (O1): AUDIT LIVED1 S's "Loan due" is the online row's (a time left, not a date) - offline the row reads a date, as it always did
         ] },
         { type: 'cols', cols: [

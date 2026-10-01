@@ -33,6 +33,7 @@ import { spoilsLevel } from './spoilsPool.js';   // AUDIT WBX S2: the spoils nev
 import { bossBarModel, drawGateBossBar } from '../ui/gateBossBar.js';
 import { marksCardModel, drawGateMarksCard } from '../ui/gateMarksView.js';   // WB9a: the night's marks over the screen as a fighter steps in
 import { groundViewModel, drawGateGround } from '../ui/gateGroundView.js';   // WB9d: his ground and his element, felt
+import { damageChartModel, drawGateDamageChart } from '../ui/gateDamageChart.js';   // GATE-UX: every challenger's damage, ranked, once he has fallen
 import { readReceipt } from '../net/gateReceipt.js';
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { mobileBillboardSize } from '../world/rmbFlats.js';
@@ -145,6 +146,7 @@ export const bossOf = (s) => GATE_BOSSES.find((b) => b.id === s?.boss) ?? gateBo
  *   rng?: () => number,
  *   portalDoor?: (door: any) => void,
  *   soulTrap?: (trap: { chance: number, mobile: number, name: string }) => void,
+ *   me?: () => (string|null),
  * }} deps
  *   WB9a: `veiled` - the step's fire is over the screen (ui/gateVeil.js): the marks' card waits under it. WB9c:
  *   `sendCrystal` - a blow of mine on a crystal of Oblivion, to the court's room (the wire's `xhit`).
@@ -153,13 +155,13 @@ export const bossOf = (s) => GATE_BOSSES.find((b) => b.id === s?.boss) ?? gateBo
  *   press take it - the way home, the bridge membrane's own (SS3: the court no longer takes a way home of its own - the
  *   portal is never walked through). WBX7:
  *   `soulTrap` rolls a soul trap of mine still on him at his fall (the host's attemptSoulTrap - a gem filled with his soul,
- *   and its words).
+ *   and its words). GATE-UX: `me` my name on the relay (net/online.js `name`) - my row of the damage chart is marked.
  */
 export function createGateCourt({
   renderer = null, gl = null, getTexture = null, uploadRecordFrame = null, audio = null,
   link, spoils = null, now, cam = () => null, feet = () => null, player = () => null, save = () => 100,
   strike = () => {}, say = () => {}, hudHidden = () => false, veiled = () => false, send = () => false, sendCrystal = () => false, rng = Math.random,
-  portalDoor: layPortalDoor = () => {}, soulTrap = () => {},
+  portalDoor: layPortalDoor = () => {}, soulTrap = () => {}, me = () => null,
 }) {
   let pass = null;
   try { if (gl) pass = new GateTelegraphRenderer(gl); } catch (e) { console.warn('[gate] the telegraph would not build', e?.message ?? e); pass = null; }
@@ -186,6 +188,8 @@ export function createGateCourt({
   /** WB8c: whether his marks have been said to me on this entry, and the last feeding heard; WB9a: when they were (the
    *  marks' card stands from then - ui/gateMarksView.js MARKS_CARD_ARRIVE_MS) */
   let marksSaid = false, fedHeard = null, marksAt = null;
+  /** GATE-UX: when this screen first saw his fall (the relay's clock) - the damage chart stands from then */
+  let chartAt = null;
   /** WBX2: the portal home once he has fallen - where it stands (the court's frame) and how far it has risen, its fire's
    *  pass and the arch's opening (made the first time one stands), its fire's turn, and whether its door is laid and its
    *  rising said */
@@ -218,7 +222,7 @@ export function createGateCourt({
     prevT = -Infinity; hurtAt = -Infinity; shape = null; standIn = null; spewed = false; spoilsSaid = false;
     stepFrom = null; strideRun = 0; growlAt = null; hpHeard = null; gruntAt = -Infinity; quaked = noMark(); thunderPhase = 0; thudCued = false;
     pools = []; pooled = noMark(); burnAt = -Infinity; inFire = false; outAt = -Infinity; mark = null; poolDraw = [];
-    marksSaid = false; fedHeard = null; marksAt = null;
+    marksSaid = false; fedHeard = null; marksAt = null; chartAt = null;   // GATE-UX
     portal = null; spin = 0; portalLaid = false; portalSaid = false;
     rk = null; rkDone = null; stunHeard = 0; crystalIn = null; _targets.length = 0; _crystalDraw.length = 0;   // WB9c
     _bursts.length = 0; _fxLive.length = 0; meteorNow = null;   // WB9e
@@ -610,6 +614,10 @@ export function createGateCourt({
       // (net/gateBrain.js OPENING_MS); gone once he has fallen, and never over the step's fire
       if (marksAt !== null && s.fell) marksAt = null;
       drawGateMarksCard(marksAt !== null ? marksCardModel(s.md, bossOf(s), { mode: 'arrive', since: marksAt, now: t }) : null, { hidden: hudHidden() || veiled() });
+      // GATE-UX (Mac: "a detailed damage chart after the boss kill, showing and ranking everyone's damage"): THE DAMAGE
+      // CHART once he has fallen - the relay's own count of every challenger's part, to the side, never over the step's fire
+      if (s.fell && chartAt === null) chartAt = t;
+      drawGateDamageChart(chartAt !== null ? damageChartModel(s.fell, { boss: bossOf(s).name, me: me(), since: chartAt, now: t }) : null, { hidden: hudHidden() || veiled() });
       // WB9d: his ground under me and his element on me, felt - the screen's rim in its colour, the warning while I stand in it
       drawGateGround(groundViewModel({ inside: inFire, ground: groundName, color: groundColor, biteAt, biteColor, now: t }), { hidden: hudHidden() });
       prevT = t;
@@ -753,6 +761,7 @@ export function createGateCourt({
       if (batch) { renderer?.destroyBillboardBatch?.(batch); batch = null; batchShown = false; }
       drawGateBossBar(null);
       drawGateMarksCard(null);   // WB9a
+      drawGateDamageChart(null);   // GATE-UX
       drawGateGround(null);   // WB9d
       reset(null);
     },
