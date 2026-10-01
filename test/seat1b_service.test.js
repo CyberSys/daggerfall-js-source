@@ -186,7 +186,10 @@ test('SEAT1b GATE KILLS: a claim names its region; a kill counts 300 for the war
   await kill(others[1], days[0], 21);
   assert.equal((await standings(gm)).standings[0].influence, 300, 'three agree: 300');
   // a day whose claims tie at the top - three for 21, three for 30 - agrees on neither
-  await kill(gm, days[1], 21);
+  // PIN MOVED (AUDIT-SEATS): another account's claim stands in the tie where the guildmaster's stood - the week's cap is now
+  // three gate claims an account, every seat together, asked in the write (S7, 4.2: "(three receipts)"), so the
+  // guildmaster's unagreed claim here would spend one of its three and the four agreed below would not reach 900
+  await kill(await svc.registered('Fenna'), days[1], 21);
   await kill(others[0], days[1], 21); await kill(others[1], days[1], 21);
   for (const o of others.slice(2, 5)) await kill(o, days[1], 30);
   assert.equal((await standings(gm)).standings[0].influence, 300, 'a level top agrees on nothing');

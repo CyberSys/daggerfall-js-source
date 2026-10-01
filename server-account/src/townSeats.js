@@ -32,7 +32,10 @@
 // witnessed again. The developers' reading of the list names every
 // unconfirmed seat with its witnesses' count, and the AUDIT - each seat
 // whose confirmation still rests on exactly three witnesses, whom nobody
-// else has joined.
+// else has joined, and (AUDIT-SEATS T2) every disputed seat, at once.
+// AUDIT-SEATS S4: a held seat's strike voids its Charter in the strike's
+// own batch - the hold gone, its proclaimed Edict void, the week's battle
+// there void, the claim fee refunded within the Season.
 //
 // Behind SEATS_OPEN (off, dev, on - SEAT0 18). EVERY CLOCK IS AN
 // ARGUMENT, as in accounts.js.
@@ -42,8 +45,9 @@ import { isDeveloper } from './titles.js';
 import { witnessedFact, factConfirmed, WITNESS } from '../../src/net/nodeLaw.js';
 import {
   seatsSwitchOf, seatReportOf, seatReportText, parseSeatReport, seatIgnoredAccounts, seatKeyOk, seatWeekOf,
-  SEAT_WITNESS_REPORTS_HOUR, SEAT_WITNESSES_AUDIT,
+  SEAT_WITNESS_REPORTS_HOUR, SEAT_WITNESSES_AUDIT, seasonFloor, seasonZeroOf,
 } from '../../src/net/townSeatLaw.js';
+import { utcDay, MARKS_MAX } from '../../src/net/marksLaw.js';   // AUDIT-SEATS S4: a struck Charter's fee refunded
 
 /** Whether the seats are open to this account: the switch, and at `dev` the developers alone. */
 export function seatsOpenFor(player, env) {
@@ -87,8 +91,9 @@ export function seatFacts(rows, nowS) {
     out.push({ key: Number(k), fact: f, witnesses: new Set(kept.map((r) => r.account)).size, agreeing: agreeing.map((r) => r.account) });
   }
   // THE AUDIT (SEAT0 3.2): "a seat confirmed by exactly three witnesses whom nobody else ever joins" - its confirmation
-  // still resting on the bare three, no fourth ever agreeing
-  for (const s of out) s.audit = factConfirmed(s.fact) && s.agreeing.length === SEAT_WITNESSES_AUDIT;
+  // still resting on the bare three, no fourth ever agreeing; AUDIT-SEATS T2 (3.2: a disputed row "goes on the audit list
+  // at once"): and every disputed seat, however many agree on what it stands as
+  for (const s of out) s.audit = (factConfirmed(s.fact) && s.agreeing.length === SEAT_WITNESSES_AUDIT) || s.fact.state === 'disputed';
   return { seats: out, ignored };
 }
 
@@ -160,10 +165,31 @@ export async function witnessSeat({ db, nowS }, player, env, { seat } = {}) {
 export async function strikeSeat({ db, nowS }, dev, env, { key } = {}) {
   if (!isDeveloper(dev, env)) return { error: 'not-developer' };
   if (!seatKeyOk(key)) return { error: 'bad-seat' };
-  const [gone] = await db.batch([
+  const week = seatWeekOf(nowS * 1000);
+  // AUDIT-SEATS S4 (16: "A seat is struck by a developer (3.2) while held: the Charter voids, the claim fee is refunded to
+  // the holder's Marks treasury if struck within the Season, and the history keeps the row"): in the strike's own batch -
+  // the fee its Charter paid (the Turning's claim line, or the Tourney's) minted back where the Charter began this Season
+  // (townSeatLaw.js seasonFloor), what the treasury has room for; its proclaimed Edict void; a battle there void (its
+  // Sellswords' escrow goes home at the Turning, seatTurning.js); the hold gone - so no token wears it, no pledge counts
+  // through it, and the guild may pledge in the region again
+  const h = await db.prepare('SELECT h.guild_id, g.name, g.tag FROM town_seat_holds h LEFT JOIN guilds g ON g.id = h.guild_id WHERE h.key = ?').bind(key).first();
+  const rid = `strike-${key}`;
+  const [, , , , gone] = await db.batch([
+    db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
+      SELECT 'mint', NULL, 'guild', h.guild_id, 'seat-strike-refund', MIN(l.amount, ${MARKS_MAX} - COALESCE((SELECT balance FROM guild_marks WHERE guild_id = h.guild_id), 0)),
+        ?2, ?3, 'seats', 'The registry', ?4
+      FROM town_seat_holds h JOIN marks_ledger l ON l.actor = 'seats' AND l.kind = 'seat-claim' AND l.src_id = h.guild_id
+        AND l.rid IN ('claim-' || (h.since_week - 1) || '-' || h.key, 'tourney-' || h.since_week || '-' || h.key)
+      WHERE h.key = ?1 AND h.since_week >= ?5 AND EXISTS (SELECT 1 FROM guilds WHERE id = h.guild_id)
+        AND COALESCE((SELECT balance FROM guild_marks WHERE guild_id = h.guild_id), 0) < ${MARKS_MAX}
+      LIMIT 1`).bind(key, utcDay(nowS), nowS, rid, seasonFloor(week, seasonZeroOf(env?.SEASON_ZERO_WEEK))),
+    db.prepare("UPDATE town_seat_edicts SET state = 'void' WHERE key = ? AND state = 'proclaimed'").bind(key),
+    db.prepare("UPDATE town_seat_battles SET state = 'void' WHERE key = ? AND week >= ? AND state = 'scheduled'").bind(key, week),
+    db.prepare('DELETE FROM town_seat_holds WHERE key = ?').bind(key),
     db.prepare("DELETE FROM world_witness WHERE kind = 'seat' AND key = ?").bind(String(key)),
-    db.prepare("INSERT INTO town_seat_history (key, week, kind, data, at) VALUES (?, ?, 'strike', ?, ?)")
-      .bind(key, seatWeekOf(nowS * 1000), JSON.stringify({ by: dev.handle ?? null }), nowS),
+    db.prepare(`INSERT INTO town_seat_history (key, week, kind, data, at)
+      SELECT ?1, ?2, 'strike', json_set(?3, '$.refund', COALESCE((SELECT amount FROM marks_ledger WHERE actor = 'seats' AND rid = ?5), 0)), ?4`)
+      .bind(key, week, JSON.stringify({ by: dev.handle ?? null, ...(h ? { guild: { name: h.name ?? '', tag: h.tag ?? '' } } : {}) }), nowS, rid),
   ]);
   return { ok: true, key, reports: Number(gone?.meta?.changes ?? 0) };
 }

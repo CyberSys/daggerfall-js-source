@@ -39,6 +39,7 @@ import { gatherStandings, seatGuildsOf, holdsOf, battlesOf, agreedGateRegions } 
 import { activeIn, edictsOf } from './seatHolding.js';
 import { windowOf } from './seatBattles.js';   // SEAT2a: the holder's window, frozen into its battle
 import { royalTurning } from './seatRoyal.js';   // CROWN1 part two: a Royal Tourney's champion named
+import { swordsSettled } from './seatSiege.js';   // AUDIT-SEATS S3: a void battle's Sellsword escrow home
 import { gameDayAt, gateTimes } from '../../src/net/gateLaw.js';
 import { guildActorOf } from './guilds.js';
 import { mustChange } from './realm.js';
@@ -56,9 +57,17 @@ import { MARKS_MAX } from '../../src/net/marksLaw.js';
 export const SEASON_ZERO_WIPED = Object.freeze(['town_seat_holds', 'town_seat_legacy', 'town_seat_pledges', 'town_seat_binds', 'town_seat_influence',
   'town_seat_renown', 'town_seat_rights', 'town_seat_aftermath', 'town_seat_windows', 'town_seat_stockpile', 'town_seat_levies', 'town_seat_history',
   'guild_fealty', 'guild_pacts']);
+/** AUDIT-SEATS S5 (3.2: "a struck key is never witnessed again" - the strike's own history row says so, townSeats.js
+ *  struck): what the wipe keeps of a table it clears - every strike, so a seat struck in Season 0 stays struck. */
+export const SEASON_ZERO_KEPT = Object.freeze({ town_seat_history: "kind = 'strike'" });
 
 /** The most weeks one read settles - a service asleep for longer starts its count again from there. */
 export const SETTLE_WEEKS_MAX = 8;
+/** AUDIT-SEATS S11 (18: "Influence rows are summed into weekly totals at the Turning and pruned after 4 weeks"): the weeks
+ *  of influence and Renown rows a Turning keeps - its own and the three before. Nothing reads them older: the standings,
+ *  the caps and a Tourney's dead heat read their own week or the one before it; the totals live on in the Legacy and the
+ *  Chronicle (a claim's, a Right's); the Hall of Records reads the history. */
+export const INFLUENCE_KEPT_WEEKS = 4;
 
 const weekAt = (nowS) => seatWeekOf(nowS * 1000);
 const turningOf = (week) => Math.floor((seatWeekStartMs(week) + SEAT_WEEK_MS) / 1000);
@@ -91,6 +100,7 @@ export async function settleWeek(db, week, nowS, zero = null) {
   const { results: holdRows = [] } = await db.prepare('SELECT key, guild_id, region, tier, standing, truce_week, tithe, owed, since_week FROM town_seat_holds').all();
   const holds = new Map(holdRows.map((h) => [Number(h.key), h]));
   const keys = [...new Set([...pledgedKeys.map((p) => Number(p.key)), ...holds.keys()])].filter((k) => registry.has(k)).sort((a, b) => a - b);
+  const unregistered = holdRows.filter((h) => !registry.has(Number(h.key)));   // AUDIT-SEATS S4: lapsed at this Turning
   const { results: legacyRows = [] } = await db.prepare('SELECT key, guild_id, amount FROM town_seat_legacy WHERE week = ?').bind(week).all();
   const legacyOf = new Map(legacyRows.map((l) => [`${l.key}\n${l.guild_id}`, Number(l.amount)]));
   const next = week + 1;
@@ -105,6 +115,17 @@ export async function settleWeek(db, week, nowS, zero = null) {
   // challenger barred from the seat at this Turning
   const { results: afterRows = [] } = await db.prepare('SELECT key, guild_id, what FROM town_seat_aftermath WHERE week = ?').bind(week).all();
   const aftermath = (key, what) => afterRows.filter((r) => Number(r.key) === key && r.what === what).map((r) => r.guild_id);
+  // AUDIT-SEATS S3 (17: "A room lost ... voids the siege: the holder keeps the seat for now, and the challenger's Right
+  // carries to the holder's window the next week"): THE WEEK'S BATTLES NO RESULT REACHED by its Turning - void now (a
+  // result that comes later is refused, seatSiege.js), their Sellswords' escrow home; a siege's Right carried where its
+  // holder still holds the seat against a challenger still standing. DECIDED: a void Tourney carries nothing - the seat
+  // stays unheld and this Turning's standings decide it afresh, as any unheld seat's. A battle a strike voided (townSeats.js)
+  // is void already: its escrow alone.
+  const { results: unfought = [] } = await db.prepare(`SELECT b.key, b.kind, b.attacker, b.defender, b.state, r.total, r.defence, EXISTS (SELECT 1 FROM guilds g WHERE g.id = b.attacker) AS standing
+    FROM town_seat_battles b LEFT JOIN town_seat_rights r ON r.week = b.week AND r.key = b.key AND r.kind = b.kind
+    WHERE b.week = ? AND b.state IN ('scheduled', 'void') AND NOT EXISTS (SELECT 1 FROM town_seat_results x WHERE x.week = b.week AND x.key = b.key) ORDER BY b.key`).bind(week).all();
+  const carriedAt = new Map(unfought.filter((u) => u.state === 'scheduled' && u.kind === 'siege' && Number(u.standing) && holds.get(Number(u.key))?.guild_id === u.defender)
+    .map((u) => [Number(u.key), { guild: u.attacker, total: Number(u.total ?? 0), defence: Number(u.defence ?? 0) }]));
   // CROWN2 (7.8): THE FEALTIES standing - each pair's Charters as they stand now; one that no longer fits lapses (no
   // Standing), one broken ends (its breaker's Standing -10 at every seat), the rest give the liege's half-reach on the
   // vassal's defence; each sworn the week through pays its tribute
@@ -119,8 +140,10 @@ export async function settleWeek(db, week, nowS, zero = null) {
   const ruling = [...(await edictsOf(db, week))].filter(([key, e]) => e.edict === 'conscription' && holds.get(key)?.guild_id === e.guild && holds.get(key)?.tier === 'crown');
   let tithes = new Map();
   if (ruling.length || fealties.length) {
-    const { results: titheRows = [] } = await db.prepare("SELECT dst_id, SUM(amount) AS n FROM marks_ledger WHERE dst_kind = 'guild' AND kind = 'tithe' AND at >= ? AND at < ? GROUP BY dst_id")
-      .bind(fromS, atS).all();
+    // AUDIT-SEATS S11: the week's days bound the walk (idx_marks_day) - `at` alone has no index, and the ledger is every Mark
+    const { results: titheRows = [] } = await db.prepare(`SELECT dst_id, SUM(amount) AS n FROM marks_ledger
+      WHERE day BETWEEN ? AND ? AND dst_kind = 'guild' AND kind = 'tithe' AND at >= ? AND at < ? GROUP BY dst_id`)
+      .bind(utcDay(fromS), utcDay(atS), fromS, atS).all();
     tithes = new Map(titheRows.map((t) => [t.dst_id, Number(t.n)]));
   }
   for (const [key, e] of ruling) {
@@ -157,7 +180,7 @@ export async function settleWeek(db, week, nowS, zero = null) {
       };
     }
     seats.push({
-      key, tier: seat.tier, holder, barred: aftermath(key, 'barred'),
+      key, tier: seat.tier, holder, barred: aftermath(key, 'barred'), carried: carriedAt.get(key) ?? null,   // AUDIT-SEATS S3
       guilds: list.map((s) => ({ guild: s.guild, influence: s.total, legacy: legacyOf.get(`${key}\n${s.guild}`) ?? 0, pledgedAt: at.get(s.guild) ?? atS })),
     });
   }
@@ -172,7 +195,7 @@ export async function settleWeek(db, week, nowS, zero = null) {
   const ending = seasonEndingAt(week, zero);
   const wipe = ending?.n === 0;
   const plan = wipe ? { ...reckonedPlan, claims: [], contested: [], rights: [], edicts: [], standings: [], held: [], legacy: [] } : reckonedPlan;
-  const names = await namesOf(db, [...purseIds, ...fealties.flatMap((f) => [f.vassal, f.liege])]);   // CROWN2: a lapsed liege may hold nothing now
+  const names = await namesOf(db, [...purseIds, ...fealties.flatMap((f) => [f.vassal, f.liege]), ...unfought.flatMap((u) => [u.attacker, u.defender])]);   // CROWN2: a lapsed liege may hold nothing now; AUDIT-SEATS S3: a void battle's two
   const history = (key, kind, data) => db.prepare('INSERT INTO town_seat_history (key, week, kind, data, at) VALUES (?, ?, ?, ?, ?)')
     .bind(key, week, kind, JSON.stringify(data), nowS);
   /** AUDIT-SEATS: a Chronicle row naming what a payment PAID - the amount of ledger row `rid`, which this batch wrote just
@@ -199,7 +222,8 @@ export async function settleWeek(db, week, nowS, zero = null) {
     const holder = holds.get(r.key).guild_id;
     stmts.push(db.prepare("INSERT INTO town_seat_rights (week, key, kind, guild_id, against, total, defence, at) VALUES (?, ?, 'siege', ?, ?, ?, ?, ?)")
       .bind(next, r.key, r.guild, holder, r.total, r.defence, nowS));
-    stmts.push(history(r.key, 'right', { guild: names.get(r.guild), holder: names.get(holder), total: r.total, defence: r.defence }));
+    // AUDIT-SEATS S3: a carried Right's row is its void siege's (below), which says it carries
+    if (!r.carried) stmts.push(history(r.key, 'right', { guild: names.get(r.guild), holder: names.get(holder), total: r.total, defence: r.defence }));
   }
   // SEAT2a (5.2 step 8, 6.3): THE SCHEDULE - every battle the Turning names placed in the coming week, in key order, a
   // siege at the holder's window frozen now (a crown's at its slot, a Tourney's Wednesday 20:00), moved where it would
@@ -256,12 +280,15 @@ export async function settleWeek(db, week, nowS, zero = null) {
       stmts.push(history(e.key, 'edict-unpaid', { guild: names.get(e.guild), edict: e.edict }));
     }
   }
-  // the week's Bounties done: what their escrow did not pay goes home
+  // the week's Bounties done: what their escrow did not pay goes home - AUDIT-SEATS S1: burnt where the treasury is full
+  // (MARKS_MAX, the guild_marks CHECK) or the guild gone, as the Conscription's CASE below; never a statement that fails,
+  // so a guild topping its treasury to the cap can never hold the whole Turning back
   for (const [key, b] of await edictsOf(db, week)) {
     if (b.edict !== 'bounty') continue;
+    const home = `EXISTS (SELECT 1 FROM guilds WHERE id = e.guild_id) AND COALESCE((SELECT balance FROM guild_marks WHERE guild_id = e.guild_id), 0) + e.set_aside - e.spent <= ${MARKS_MAX}`;
     stmts.push(db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
-      SELECT 'escrow', ?1, 'guild', guild_id, 'bounty-return', set_aside - spent, ?2, ?3, 'seats', 'The Turning', ?1 || ':return'
-      FROM town_seat_edicts WHERE key = ?4 AND week = ?5 AND state = 'law' AND set_aside > spent AND EXISTS (SELECT 1 FROM guilds WHERE id = guild_id)`)
+      SELECT 'escrow', ?1, CASE WHEN ${home} THEN 'guild' ELSE 'burn' END, CASE WHEN ${home} THEN e.guild_id END, 'bounty-return', e.set_aside - e.spent, ?2, ?3, 'seats', 'The Turning', ?1 || ':return'
+      FROM town_seat_edicts e WHERE e.key = ?4 AND e.week = ?5 AND e.state = 'law' AND e.set_aside > e.spent`)
       .bind(`bounty:${key}:${week}`, utcDay(nowS), nowS, key, week));
     stmts.push(db.prepare("UPDATE town_seat_edicts SET state = 'returned' WHERE key = ? AND week = ? AND state = 'law'").bind(key, week));
   }
@@ -310,11 +337,37 @@ export async function settleWeek(db, week, nowS, zero = null) {
   for (const l of ending ? [] : plan.legacy) {   // SEASON1 (9.1): "Legacy is cleared"
     stmts.push(db.prepare('INSERT INTO town_seat_legacy (week, key, guild_id, amount) VALUES (?, ?, ?, ?)').bind(next, l.key, l.guild, l.amount));
   }
+  // AUDIT-SEATS S4 (16: a struck seat's "Charter voids"): A CHARTER THE REGISTRY NO LONGER CONFIRMS - its seat struck, or
+  // its witnesses fallen below three - lapsed (the Turning reckoned nothing of it: no upkeep, no Standing), its coming
+  // Edict void; no fee refunded (a strike's own batch refunds it, townSeats.js strikeSeat)
+  for (const h of unregistered) {
+    stmts.push(db.prepare('DELETE FROM town_seat_holds WHERE key = ? AND guild_id = ?').bind(Number(h.key), h.guild_id));
+    stmts.push(db.prepare("UPDATE town_seat_edicts SET state = 'void' WHERE key = ? AND week = ? AND state = 'proclaimed'").bind(Number(h.key), next));
+    stmts.push(history(Number(h.key), 'unregistered', { guild: names.get(h.guild_id) ?? { name: '', tag: '' } }));
+  }
+  // AUDIT-SEATS S3 (17): THE BATTLES NO RESULT REACHED, void - after every payment the plan reckoned, so the escrow coming
+  // home moves none of them; the void asked in its own write (a result that landed since the read rolls the settle back
+  // whole, and the next read settles it again with the result in hand), each Sellsword's escrow home
+  const nameOr = (g) => names.get(g) ?? { name: '', tag: '' };
+  for (const u of unfought) {
+    const key = Number(u.key);
+    if (u.state === 'scheduled') {
+      stmts.push(db.prepare(`UPDATE town_seat_battles SET state = 'void' WHERE week = ?1 AND key = ?2 AND state = 'scheduled'
+        AND NOT EXISTS (SELECT 1 FROM town_seat_results WHERE week = ?1 AND key = ?2)`).bind(week, key), mustChange(db));
+      const carried = plan.rights.some((r) => r.key === key && r.carried);
+      stmts.push(history(key, 'siege-void', { battle: u.kind, guild: nameOr(u.attacker), holder: nameOr(u.defender), carried }));
+    }
+    stmts.push(...(await swordsSettled(db, week, key, nowS, { voided: true })));
+  }
+  // AUDIT-SEATS S11 (18): the influence and Renown rows older than INFLUENCE_KEPT_WEEKS pruned (oldest week settled first,
+  // so a service catching up keeps every week it has yet to settle)
+  stmts.push(db.prepare('DELETE FROM town_seat_influence WHERE week <= ?').bind(week - INFLUENCE_KEPT_WEEKS));
+  stmts.push(db.prepare('DELETE FROM town_seat_renown WHERE week <= ?').bind(week - INFLUENCE_KEPT_WEEKS));
   // SEASON1 (9.1): A SEASON'S END - its titles, each its guild's guildmaster's for good ("Crowned in Season N" for every
   // crown's, "Keeper of <Town>, Season N" for a seat held the whole Season), over the Charters that stood its last week
   // through (none lapsed now); and the Chronicle's line at every one of them (Season 0's titles none, its lines wiped below)
   if (ending) {
-    const lapsed = new Set(plan.upkeep.filter((u) => u.state === 'lapse').map((u) => u.key));
+    const lapsed = new Set([...plan.upkeep.filter((u) => u.state === 'lapse').map((u) => u.key), ...unregistered.map((h) => Number(h.key))]);   // AUDIT-SEATS S4
     const stood = holdRows.filter((h) => !lapsed.has(Number(h.key))).map((h) => ({ key: Number(h.key), guild: h.guild_id, tier: h.tier, since: Number(h.since_week) }));
     const titles = seasonTitles(ending, stood);
     const masters = await guildmastersOf(db, [...new Set(titles.map((t) => t.guild))]);
@@ -328,9 +381,11 @@ export async function settleWeek(db, week, nowS, zero = null) {
   // SEASON1 (18): SEASON 0'S END - the Edicts proclaimed for the next week void (none was paid), then the seats wiped
   if (wipe) {
     stmts.push(db.prepare("UPDATE town_seat_edicts SET state = 'void' WHERE week = ? AND state = 'proclaimed'").bind(next));
-    for (const t of SEASON_ZERO_WIPED) stmts.push(db.prepare(`DELETE FROM ${t}`));
+    for (const t of SEASON_ZERO_WIPED) stmts.push(db.prepare(`DELETE FROM ${t}${SEASON_ZERO_KEPT[t] ? ` WHERE NOT (${SEASON_ZERO_KEPT[t]})` : ''}`));   // AUDIT-SEATS S5: the strikes kept
   }
-  try { await db.batch(stmts); } catch { return { settled: false }; }
+  // AUDIT-SEATS S1: `failed` - the batch rolled back for a reason of its own (not a racing reader's key), so settleDue
+  // stops there rather than settle a later week over it
+  try { await db.batch(stmts); } catch { return { settled: false, failed: !(await db.prepare('SELECT 1 FROM town_seat_weeks WHERE week = ?').bind(week).first()) }; }
   return { settled: true, plan, season: ending };
 }
 
@@ -368,7 +423,13 @@ export async function settleDue(db, nowS, zero = null) {
   const last = (await db.prepare('SELECT MAX(week) AS w FROM town_seat_weeks').first())?.w;
   const from = Math.max(last == null ? current - 1 : Number(last) + 1, current - SETTLE_WEEKS_MAX);
   let n = 0;
-  for (let w = from; w < current; w++) if ((await settleWeek(db, w, nowS, zero)).settled) n++;
+  for (let w = from; w < current; w++) {
+    const r = await settleWeek(db, w, nowS, zero);
+    if (r.settled) n++;
+    // AUDIT-SEATS S1: a week that failed is the first the next read settles - never one left behind under a later week
+    // (the next read starts after the last settled, so a week past a failure would be skipped for good)
+    else if (r.failed) break;
+  }
   return n;
 }
 

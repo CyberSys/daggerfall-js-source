@@ -236,12 +236,19 @@ export const WATCH_DAY_CAP = 60;
 export const GATE_INFLUENCE = 300;
 export const GATE_WEEK_CAP = 900;
 export const GATE_REGION_AGREE = 3;
+/** AUDIT-SEATS S7 (4.2: "at most 900 an account a week (three receipts)"; "the Watch and Renown caps above are per account
+ *  too"): the gate rows an ACCOUNT may write in a week, every seat together - asked in the write (seatInfluence.js
+ *  creditGate), where the read's cap (accountSeatInfluence) sees one seat only. */
+export const GATE_WEEK_RECEIPTS = GATE_WEEK_CAP / GATE_INFLUENCE;
 /** A member's home in the seat's town: 25 a day, at most 5 homes a guild a seat. */
 export const HOME_INFLUENCE_DAY = 25;
 export const HOMES_SEAT_MAX = 5;
 /** Renown earned in the seat's region: 1 per 20 XP, at most 400 an account a week. */
 export const RENOWN_XP_PER_INFLUENCE = 20;
 export const RENOWN_WEEK_CAP = 400;
+/** AUDIT-SEATS S7 (4.2: "capped 400 an account a week"): the Renown XP an ACCOUNT may bank in a week, every region together
+ *  (400 influence at 1 per 20) - asked in the write (seatInfluence.js creditRenown). */
+export const RENOWN_WEEK_XP = RENOWN_WEEK_CAP * RENOWN_XP_PER_INFLUENCE;
 /** A delivery to the seat's stockpile: 1 per Mark of the materials' own value (PROF0 4.8) - the deliverer's own units;
  *  bought units count at Tribute's rate, inside Tribute's cap. */
 export const WRIT_INFLUENCE_PER_MARK = 1;
@@ -405,7 +412,8 @@ export const seatDefence = (own, standing, extra = 0, held = false, liegeReach =
  *               the week in Neglect's arrears; 'neglect', its first short week; 'lapse', its second), in key order out
  *               of what the claims left - reckoned before the Rights, so a Charter that lapses is no siege's;
  *   rights      a Right of Siege granted (`{ key, guild, total, defence }`) - one a guild and one a seat a week, the
- *               strongest first, a seat in truce (changed hands at the last Turning) never challenged;
+ *               strongest first, a seat in truce (changed hands at the last Turning) never challenged; AUDIT-SEATS S3:
+ *               a seat's `carried` Right (its siege void this week, 17) granted before any, `carried: true`;
  *   edicts      SEAT1d: the coming week's Edict at each held seat that keeps its Charter (`{ key, guild, edict, cost,
  *               state }` - 'law', its cost paid (a Bounty's the `setAside` its holder named, escrowed), or 'unpaid');
  *   standings   SEAT1d: every held seat's Standing after its week (`{ key, guild, standing, changes }`, standingWeek);
@@ -453,6 +461,15 @@ export function turningPlan({ week, seats, treasuries, active = CROWN_SCALE.per 
     upkeep.push({ key: s.key, guild: g, amount, paid: state === 'paid' || state === 'late' ? due : 0, owed: state === 'neglect' ? amount : 0, state });
   }
   const keeps = (s) => s.holder && stateOf.get(s.key) !== 'lapse';
+  // AUDIT-SEATS S3 (17: "At that Turning the carried Right is the challenger's one Right of Siege (5.2 step 4 grants it no
+  // other), and the seat is granted no other challenge"): `carried` a Right whose siege was void this week (`{ guild,
+  // total, defence }` - the Right as it was granted), granted again first where the holder keeps its Charter
+  const seatTaken = new Set(), guildTaken = new Set();
+  for (const s of sorted) {
+    if (!keeps(s) || !s.carried) continue;
+    seatTaken.add(s.key); guildTaken.add(s.carried.guild);
+    rights.push({ key: s.key, guild: s.carried.guild, total: s.carried.total, defence: s.carried.defence, carried: true });
+  }
   // 3-4. HELD SEATS: the defence, every candidate, one pass - a challenger's influence at a seat in Unrest risen
   const candidates = [];
   for (const s of sorted) {
@@ -465,7 +482,6 @@ export function turningPlan({ week, seats, treasuries, active = CROWN_SCALE.per 
     }
   }
   candidates.sort((a, b) => bySeatStanding(a, b) || a.key - b.key);
-  const seatTaken = new Set(), guildTaken = new Set();
   for (const c of candidates) {
     if (seatTaken.has(c.key) || guildTaken.has(c.guild)) continue;
     seatTaken.add(c.key); guildTaken.add(c.guild);
@@ -516,7 +532,13 @@ export function chronicleLine(row, seat, zero = null) {
     // SEASON1 (9.1): a Season's end at every seat held through it
     case 'season-end': return `At the end of ${seatSeasonName(Number(d.season)) ?? 'the Season'}, ${guildWords(d.guild)} held ${seat.name}${d.kept ? ', as it had the whole Season through' : ''}.`;
     case 'relinquish': return `${when}, ${guildWords(d.guild)} gave up ${c}.`;
-    case 'strike': return `${when}, ${seat.name} was struck from the registry.`;
+    // AUDIT-SEATS S4 (16: "the Charter voids, the claim fee is refunded ... if struck within the Season"): a held seat's
+    // strike names the Charter it voided and the fee it refunded
+    case 'strike': return d.guild
+      ? `${when}, ${seat.name} was struck from the registry, and ${guildWords(d.guild)}'s Charter with it${Number(d.refund) > 0 ? ` - its claim fee of ${Number(d.refund).toLocaleString('en-US')} Marks refunded` : ''}.`
+      : `${when}, ${seat.name} was struck from the registry.`;
+    // AUDIT-SEATS S4: a Charter whose seat the registry no longer confirms, lapsed at the Turning
+    case 'unregistered': return `${when}, ${c} lapsed - ${seat.name} is no longer confirmed in the registry.`;
     // SEAT1d: the upkeep's and the Edicts' rows
     case 'neglect': return `${when}, ${guildWords(d.guild)} could not pay the upkeep of ${c}. ${seat.name} is in Neglect.`;
     case 'late': return `${when}, ${guildWords(d.guild)} paid the upkeep it owed for ${c}.`;
@@ -532,11 +554,20 @@ export function chronicleLine(row, seat, zero = null) {
     case 'siege-taken': return Number.isSafeInteger(d.minutes) && d.minutes > 0
       ? `${when}, ${guildWords(d.guild)} stormed the gates of ${seat.name} and took its Charter from ${guildWords(d.from)} after ${countWords(d.minutes)} ${d.minutes === 1 ? 'minute' : 'minutes'}.`
       : `${when}, ${guildWords(d.guild)} took ${c} by siege from ${guildWords(d.from)}.`;
-    case 'siege-held': return `${when}, ${guildWords(d.guild)} held ${seat.name} against the siege of ${guildWords(d.against)}.`;
+    // AUDIT-SEATS T1 (9.2: "The Ebon Oath held Wayrest against the Iron Circle. The Throne was never reached."): the Throne's
+    // line where the row keeps it (a row written before T1 keeps none, and says neither)
+    case 'siege-held': return `${when}, ${guildWords(d.guild)} held ${seat.name} against the siege of ${guildWords(d.against)}${d.throne === 1 ? ', though its Throne was reached' : ''}.${d.throne === 0 ? ' The Throne was never reached.' : ''}`;
     case 'siege-forfeit': return `${when}, ${guildWords(d.against)} never came to the siege of ${seat.name}; ${guildWords(d.guild)} holds it by forfeit.`;
     case 'siege-absent': return `${when}, neither side came to the siege of ${seat.name}; ${guildWords(d.guild)} keeps it.`;
     case 'tourney-won': return `${when}, ${guildWords(d.guild)} won the Tourney for ${c}.`;
     case 'tourney-unheld': return `${when}, the Tourney for ${seat.name} was fought, but neither guild could pay for ${c}.`;
+    // AUDIT-SEATS S3 (17: "voids the siege: the holder keeps the seat for now, and the challenger's Right carries to the
+    // holder's window the next week"): a battle no result reached by its week's Turning
+    case 'siege-void': return d.battle === 'tourney'
+      ? `${when}, no result of the Tourney for ${seat.name} came; it is void, and ${c} stays unheld.`
+      : d.carried
+        ? `${when}, no result of the siege of ${seat.name} came; it is void, ${guildWords(d.holder)} keeps it for now, and ${guildWords(d.guild)}'s Right of Siege carries to the next week.`
+        : `${when}, no result of the siege of ${seat.name} came; it is void, and ${guildWords(d.holder)} keeps it.`;
     // CROWN1: Conscription paid (7.6) - at the crown, and at each seat that paid it
     case 'conscription': return `${when}, the crown's Conscription brought ${guildWords(d.guild)} ${Number(d.marks ?? 0).toLocaleString('en-US')} Marks of its kingdom's Tithe.`;
     case 'conscripted': return `${when}, ${guildWords(d.guild)} paid ${Number(d.marks ?? 0).toLocaleString('en-US')} Marks of its Tithe to ${guildWords(d.crown)}'s Conscription.`;
@@ -1002,6 +1033,8 @@ export const SIGN_WHY = Object.freeze({
   'sellsword-member': 'A Sellsword may belong to neither guild.',
   'sellsword-cooling': 'This Sellsword fought for the other side in the last four weeks.',
   'sign-twice': 'You are signed already.',
+  // AUDIT-SEATS S10 (5.1: "Muster ... windows may move (6.3)"): the holder's window is the Muster's to move
+  'window-reckoning': 'The window is locked from the Reckoning until the Turning, Sunday 18:00 UTC.',
 });
 
 // ─── SEAT2a (part three): THE PASS, THE FIELD, THE RESULT AND HONOURS (SEAT0 6.2, 6.5-6.8) ───
@@ -1060,11 +1093,13 @@ export function siegeWinner(result, higher = null) {
 }
 /** What the Turning remembers of a siege (6.5, 6.8): `bonus` the holder defends at x1.2 at the next Turning, `barred` the
  *  challenger may not challenge the seat then, `standing` the holder's change, `taken` the seat changes hands. A
- *  Tourney's result is its winner's Charter alone. */
-export function siegeAftermath(kind, result, raised, { forfeitPaid = false } = {}) {
+ *  Tourney's result is its winner's Charter alone. AUDIT-SEATS T1 (7.3: "A siege held only after the Throne was reached:
+ *  -5"; Appendix B): `throne` the attackers reached the Throne (the receipt's `th`) - a held siege's +15 less 5, and only
+ *  where a banner was raised, as the +15 is (a Throne reached with no banner raised is no receipt the relay signs). */
+export function siegeAftermath(kind, result, raised, { forfeitPaid = false, throne = false } = {}) {
   if (kind !== 'siege') return { bonus: false, barred: false, standing: 0, taken: false };
   if (result === 'attack') return { bonus: false, barred: false, standing: 0, taken: true };
-  if (result === 'defend') return { bonus: !!raised, barred: true, standing: raised ? SIEGE_STANDING.held : 0, taken: false };
+  if (result === 'defend') return { bonus: !!raised, barred: true, standing: raised ? SIEGE_STANDING.held + (throne ? STANDING_CHANGES.throneReached : 0) : 0, taken: false };
   if (result === 'forfeit') return { bonus: true, barred: true, standing: forfeitPaid ? 0 : SIEGE_STANDING.forfeit, taken: false };
   return { bonus: false, barred: false, standing: 0, taken: false };
 }
@@ -1082,6 +1117,10 @@ export const SIEGE_WHY = Object.freeze({
   'field-unsettled': 'Waiting for the other side\'s scouts to agree on the field - try again in a moment.',
   'honours-character': 'Honours are claimed for a character.',
   'honours-twice': 'Your Honours from this battle are claimed already.',
+  // AUDIT-SEATS S3 (17: a void siege): a receipt that reached the service after its week's Turning, which voided the battle
+  'battle-void': 'That battle was void at the Turning - its result came too late to count.',
+  // AUDIT-SEATS S10 (8.1: "changing either ... is refused in a siege week")
+  'heraldry-siege': 'Your guild fights a battle for a seat this week. Its heraldry may change after the Turning.',
 });
 
 // ─── CROWN1: THE CROWN TIER - REACH, THE MARCHES, THE FREE LANDS, CONSCRIPTION (SEAT0 4.3, 7.6) ───

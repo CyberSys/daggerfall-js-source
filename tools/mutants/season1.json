@@ -340,7 +340,7 @@
  {
   "name": "SEASON1-tu-wipe-tables",
   "file": "server-account/src/seatTurning.js",
-  "old": "    for (const t of SEASON_ZERO_WIPED) stmts.push(db.prepare(`DELETE FROM ${t}`));\n",
+  "old": "    for (const t of SEASON_ZERO_WIPED) stmts.push(db.prepare(`DELETE FROM ${t}${SEASON_ZERO_KEPT[t] ? ` WHERE NOT (${SEASON_ZERO_KEPT[t]})` : ''}`));   // AUDIT-SEATS S5: the strikes kept\n",
   "new": "",
   "tests": [
    "test/season1_service.test.js"
@@ -421,8 +421,8 @@
  {
   "name": "SEASON1-tu-due-zero",
   "file": "server-account/src/seatTurning.js",
-  "old": "if ((await settleWeek(db, w, nowS, zero)).settled) n++;",
-  "new": "if ((await settleWeek(db, w, nowS)).settled) n++;",
+  "old": "const r = await settleWeek(db, w, nowS, zero);",
+  "new": "const r = await settleWeek(db, w, nowS);",
   "tests": [
    "test/season1_service.test.js"
   ]

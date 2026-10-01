@@ -339,8 +339,8 @@
  {
   "name": "CROWN1-tur-week",
   "file": "server-account/src/seatTurning.js",
-  "old": "kind = 'tithe' AND at >= ? AND at < ? GROUP BY dst_id\")\n      .bind(fromS, atS)",
-  "new": "kind = 'tithe' AND at < ? GROUP BY dst_id\")\n      .bind(atS)",
+  "old": "      WHERE day BETWEEN ? AND ? AND dst_kind = 'guild' AND kind = 'tithe' AND at >= ? AND at < ? GROUP BY dst_id`)\n      .bind(utcDay(fromS), utcDay(atS), fromS, atS)",
+  "new": "      WHERE day <= ? AND dst_kind = 'guild' AND kind = 'tithe' AND at < ? GROUP BY dst_id`)\n      .bind(utcDay(atS), atS)",
   "tests": [
    "test/crown1_service.test.js"
   ]
@@ -348,8 +348,8 @@
  {
   "name": "CROWN1-tur-dst",
   "file": "server-account/src/seatTurning.js",
-  "old": "WHERE dst_kind = 'guild' AND kind = 'tithe' AND",
-  "new": "WHERE dst_kind = 'guild' AND",
+  "old": "AND dst_kind = 'guild' AND kind = 'tithe' AND at >= ?",
+  "new": "AND dst_kind = 'guild' AND at >= ?",
   "tests": [
    "test/crown1_service.test.js"
   ],
@@ -395,8 +395,8 @@
  {
   "name": "CROWN1-tur-history-crown",
   "file": "server-account/src/seatTurning.js",
-  "old": "    stmts.push(history(c.crownKey, 'conscription',",
-  "new": "    if (0) stmts.push(history(c.crownKey, 'conscription',",
+  "old": "    stmts.push(paidHistory(c.crownKey, 'conscription',",
+  "new": "    if (0) stmts.push(paidHistory(c.crownKey, 'conscription',",
   "tests": [
    "test/crown1_service.test.js"
   ]
@@ -404,8 +404,8 @@
  {
   "name": "CROWN1-tur-history-seat",
   "file": "server-account/src/seatTurning.js",
-  "old": "    for (const k of c.keys) stmts.push(history(k, 'conscripted',",
-  "new": "    for (const k of c.keys.slice(1)) stmts.push(history(k, 'conscripted',",
+  "old": "    for (const k of c.keys) stmts.push(paidHistory(k, 'conscripted',",
+  "new": "    for (const k of c.keys.slice(1)) stmts.push(paidHistory(k, 'conscripted',",
   "tests": [
    "test/crown1_service.test.js"
   ]

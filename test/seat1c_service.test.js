@@ -164,6 +164,10 @@ test('SEAT1c THE HOLDER\'S DEFENCE AND THE RIGHTS OF SIEGE: a new Charter\'s tru
   assert.equal(raw.prepare('SELECT standing FROM town_seat_holds WHERE key = ?').get(ANTICLERE.key).standing, STANDING_START + STANDING_UNCHALLENGED, 'held unchallenged: +5');
   assert.equal(raw.prepare('SELECT standing FROM town_seat_holds WHERE key = ?').get(ALCAIRE.key).standing, STANDING_START, 'challenged: no rise');
   // the next week: the Circle at both, the Host at the Oath's - the Circle's strongest is Anticlere now; the Host takes Alcaire's
+  // PIN MOVED (AUDIT-SEATS): the week's siege at Alcaire comes to an end before its Turning (neither side came) - a siege no
+  // result reached is void at its Turning now and its Right carries (S3, 17), which would hold the Circle to Alcaire
+  raw.prepare("INSERT INTO town_seat_results (week, key, result, raised, winner, rid, at) VALUES (?, ?, 'absent', 0, 'defend', 'r', ?)").run(W + 1, ALCAIRE.key, NEXT_WEEK);
+  raw.prepare("UPDATE town_seat_battles SET state = 'fought' WHERE week = ? AND key = ?").run(W + 1, ALCAIRE.key);
   pledge(ch.gid, ANTICLERE, W + 1); pledge(ch.gid, ALCAIRE, W + 1); pledge(ch2.gid, ALCAIRE, W + 1);
   await earn(h1.gid, ANTICLERE, 4000, W + 1); await earn(h2.gid, ALCAIRE, 5000, W + 1);
   await earn(ch.gid, ANTICLERE, 9500, W + 1); await earn(ch.gid, ALCAIRE, 9000, W + 1); await earn(ch2.gid, ALCAIRE, 7000, W + 1);

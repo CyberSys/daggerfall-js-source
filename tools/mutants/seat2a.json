@@ -351,8 +351,8 @@
  {
   "name": "SEAT2a-svc-window-anyone",
   "file": "server-account/src/seatBattles.js",
-  "old": "  if (!SEAT_LEVER_RANKS.includes(Number(a.me.rank))) return { error: 'guild-rank' };\n  if (await overRate({ db, nowS }, `seat-lever:${player.id}`, SEAT_EDICTS_HOUR, 3600)) return { error: 'seats-rate' };\n  const r = await db.prepare(`INSERT INTO town_seat_windows",
-  "new": "  if (await overRate({ db, nowS }, `seat-lever:${player.id}`, SEAT_EDICTS_HOUR, 3600)) return { error: 'seats-rate' };\n  const r = await db.prepare(`INSERT INTO town_seat_windows",
+  "old": "  if (!SEAT_LEVER_RANKS.includes(Number(a.me.rank))) return { error: 'guild-rank' };\n  // AUDIT-SEATS S10",
+  "new": "  // AUDIT-SEATS S10",
   "tests": [
    "test/seat2a_service.test.js"
   ]

@@ -25,7 +25,7 @@ import { mustChange } from './realm.js';
 import { utcDay } from '../../src/net/marksLaw.js';
 import { GUILD_RANK_MASTER } from '../../src/net/guildLaw.js';
 import {
-  seatWeekOf, seatWeekStartMs, seatKeyOk, siegeWindowOk, SEAT_LEVER_RANKS, SEAT_EDICTS_HOUR, SEAT_MEMBER_WAIT_S,
+  seatWeekOf, seatWeekStartMs, seatPhaseOf, seatKeyOk, siegeWindowOk, SEAT_LEVER_RANKS, SEAT_EDICTS_HOUR, SEAT_MEMBER_WAIT_S,
   SIEGE_SIDE_MAX, SELLSWORDS_MAX, SIGN_CLOSES_MS, SELLSWORD_COOL_WEEKS, sellswordFeeOk, sideOf,
 } from '../../src/net/townSeatLaw.js';
 
@@ -38,8 +38,9 @@ const seatOpen = (player, env) => (accountKind(player) !== 'linked' ? { error: '
 
 /**
  * THE HOLDER'S WINDOW (SEAT0 6.3) - the Guildmaster's or an Officer's of the guild holding `key`, at its board: a day
- * (0 Wednesday to 3 Saturday) and a start hour (16-23, 0-2). The rank and the Charter asked in the write. The window in
- * force at the Turning is the one its battle keeps (the Turning freezes it into the battle's row).
+ * (0 Wednesday to 3 Saturday) and a start hour (16-23, 0-2), in the Muster (AUDIT-SEATS S10). The rank and the Charter
+ * asked in the write. The window in force at the Turning is the one its battle keeps (the Turning freezes it into the
+ * battle's row).
  * @param {{db: any, nowS: number}} ctx
  */
 export async function setWindow({ db, nowS }, player, env, { character, key, day, hour } = {}) {
@@ -50,6 +51,10 @@ export async function setWindow({ db, nowS }, player, env, { character, key, day
   const a = await guildActorOf(db, player, character);
   if ('error' in a) return a;
   if (!SEAT_LEVER_RANKS.includes(Number(a.me.rank))) return { error: 'guild-rank' };
+  // AUDIT-SEATS S10 (5.1: "Muster ... windows may move (6.3)"; 6.3: "a change made in the Muster applies from the next
+  // Turning"): the Reckoning locks the window as it locks the pledges, so the window the Turning freezes is the one the
+  // challengers saw standing all through it
+  if (seatPhaseOf(nowS * 1000) !== 'muster') return { error: 'window-reckoning' };
   if (await overRate({ db, nowS }, `seat-lever:${player.id}`, SEAT_EDICTS_HOUR, 3600)) return { error: 'seats-rate' };
   const r = await db.prepare(`INSERT INTO town_seat_windows (key, guild_id, day, hour, set_by, at)
     SELECT ?1, ?2, ?3, ?4, ?5, ?6 WHERE EXISTS (SELECT 1 FROM town_seat_holds WHERE key = ?1 AND guild_id = ?2)

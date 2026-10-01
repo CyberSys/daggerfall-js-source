@@ -66,6 +66,7 @@ import { RENOWN_XP_REPORT_MAX } from '../../src/net/renown.js';
 import {
   seatWeekOf, seatWeekStartMs, seatPhaseOf, seatRegionOk, seatKeyOk, seatMay, SEAT_POWERS, SEAT_PLEDGE_REGIONS_MAX, SEAT_MEMBER_WAIT_S,
   SEAT_PLEDGES_HOUR, SEAT_WATCH_CLAIM_MAX, WATCH_DAY_CAP, GATE_INFLUENCE, GATE_REGION_AGREE, HOMES_SEAT_MAX, TRIBUTE_MARKS_PER_INFLUENCE,
+  GATE_WEEK_RECEIPTS, RENOWN_WEEK_XP,   // AUDIT-SEATS S7: the account's week, every seat together
   SEAT_WEEK_MS, SEAT_RECKONING_MS,
   accountSeatInfluence, guildSeatInfluence, tributeRoom, homeDaysIn, seatDefence, SEAT_CHRONICLE_SHOWN,
   overreachOf, unrestInfluence, crownsHeld, seatReach, withReach, FREE_LAND_WATCH_BONUS, pledgeBarred, fealtyKingdom, seasonOf, seasonZeroOf, bountySitePixel, HALL_OF_RECORDS_ROWS,
@@ -263,13 +264,18 @@ export async function creditGate({ db, nowS }, player, env, { character, day, re
   if (weekAt(Math.floor(gateTimes(day).riseAt / 1000)) !== weekAt(nowS)) return { counted: false, why: 'old-week' };
   const at = await countsAt(db, player, character, region, nowS, { anyCharacter: true });
   if ('counted' in at) return at;
+  // AUDIT-SEATS S7 (4.2: "at most 900 an account a week (three receipts)"): the account's gate rows this week, every seat
+  // together, fewer than GATE_WEEK_RECEIPTS - asked in the write (the read's cap sees one seat; a voided row counts, S9)
   const [, ins] = await db.batch([
     bindStatement(db, at, player.id, nowS),
     db.prepare(`INSERT OR IGNORE INTO town_seat_influence (week, key, guild_id, account, char_id, source, amount, region, day, ref, at)
-      SELECT ?1, ?2, ?3, ?4, ?5, 'gate', ?6, ?7, ?8, ?9, ?10 WHERE ${STILL_COUNTS}`)
-      .bind(at.week, at.key, at.guild, player.id, at.char, GATE_INFLUENCE, region, day, `${day}:${player.id}`, nowS),
+      SELECT ?1, ?2, ?3, ?4, ?5, 'gate', ?6, ?7, ?8, ?9, ?10 WHERE ${STILL_COUNTS}
+        AND (SELECT COUNT(*) FROM town_seat_influence WHERE account = ?4 AND source = 'gate' AND week = ?1) < ?11`)
+      .bind(at.week, at.key, at.guild, player.id, at.char, GATE_INFLUENCE, region, day, `${day}:${player.id}`, nowS, GATE_WEEK_RECEIPTS),
   ]);
-  return ins?.meta?.changes ? { counted: true, key: at.key } : { counted: false, why: 'bound-elsewhere' };
+  if (ins?.meta?.changes) return { counted: true, key: at.key };
+  const n = await db.prepare("SELECT COUNT(*) AS n FROM town_seat_influence WHERE account = ? AND source = 'gate' AND week = ?").bind(player.id, at.week).first();
+  return { counted: false, why: Number(n?.n ?? 0) >= GATE_WEEK_RECEIPTS ? 'capped' : 'bound-elsewhere' };
 }
 
 /**
@@ -331,15 +337,21 @@ export async function creditRenown({ db, nowS }, player, env, { character, regio
   if (!seatRegionOk(region) || !Number.isSafeInteger(xp) || xp < 1 || xp > RENOWN_XP_REPORT_MAX) return { counted: false, why: 'no-region' };
   const at = await countsAt(db, player, character, region, nowS);
   if ('counted' in at) return at;
+  // AUDIT-SEATS S7 (4.2: "capped 400 an account a week"; "the Watch and Renown caps above are per account too"): the
+  // account's Renown XP this week, every region together, at most RENOWN_WEEK_XP - what is left of it banked, asked in the
+  // write (the read's cap sees one seat's region)
+  const banked = '(SELECT COALESCE(SUM(xp), 0) FROM town_seat_renown WHERE week = ?1 AND account = ?4)';
   const [, ins] = await db.batch([
     bindStatement(db, at, player.id, nowS),
-    db.prepare(`INSERT INTO town_seat_renown (week, account, char_id, region, xp) SELECT ?1, ?4, ?5, ?6, ?7
+    db.prepare(`INSERT INTO town_seat_renown (week, account, char_id, region, xp) SELECT ?1, ?4, ?5, ?6, MIN(?7, ?8 - ${banked})
       WHERE (SELECT guild_id FROM town_seat_binds WHERE week = ?1 AND account = ?4) = ?3
-        AND ${pledgedOrHeldSql('?1', '?2', '?3')}
+        AND ${pledgedOrHeldSql('?1', '?2', '?3')} AND ${banked} < ?8
       ON CONFLICT (week, account, char_id, region) DO UPDATE SET xp = xp + excluded.xp`)
-      .bind(at.week, at.key, at.guild, player.id, at.char, region, xp),
+      .bind(at.week, at.key, at.guild, player.id, at.char, region, xp, RENOWN_WEEK_XP),
   ]);
-  return ins?.meta?.changes ? { counted: true, key: at.key } : { counted: false, why: 'bound-elsewhere' };
+  if (ins?.meta?.changes) return { counted: true, key: at.key };
+  const n = await db.prepare('SELECT COALESCE(SUM(xp), 0) AS n FROM town_seat_renown WHERE week = ? AND account = ?').bind(at.week, player.id).first();
+  return { counted: false, why: Number(n?.n ?? 0) >= RENOWN_WEEK_XP ? 'capped' : 'bound-elsewhere' };
 }
 
 // ─── THE STANDINGS ───────────────────────────────────────────────────
@@ -366,7 +378,7 @@ export function standingsOf({ guilds, rows, renown, homes, binds, agreed, weekSt
       if (r.source === 'tribute' || r.source === 'bought') { tributeMarks += Number(r.amount); continue; }
       if (binds.get(r.account) !== g) continue;
       if (r.source === 'watch') a(r.account).watch += Number(r.amount);
-      else if (r.source === 'gate') { if (agreed.get(Number(r.day)) === Number(r.region)) a(r.account).gates += 1; }
+      else if (r.source === 'gate') { if (agreed.get(Number(r.day)) === Number(r.region)) a(r.account).gates += Number(r.n ?? 1); }   // AUDIT-SEATS S11: a row the read grouped counts its receipts
       else if (r.source === 'writ') a(r.account).writ += Number(r.amount);
       else if (r.source === 'raid') a(r.account).raid += Number(r.amount);   // SEASON1 part two: an Orc Raid's camps
     }
@@ -397,7 +409,11 @@ export async function gatherStandings(db, seat, week, nowS, counted = false) {
   const guilds = [...(await seatGuildsOf(db, seat.key, week)).keys()];
   if (!guilds.length) return [];
   const qs = guilds.map(() => '?').join(', ');
-  const { results: rows = [] } = await db.prepare('SELECT guild_id, account, source, amount, region, day FROM town_seat_influence WHERE week = ? AND key = ?').bind(week, seat.key).all();
+  // AUDIT-SEATS S11: summed in SQL - one row a guild, account, source, region and game or UTC day (its amount the sum, `n`
+  // its rows), never one a Watch tick (some 210,000 a read at 500 accounts); everything standingsOf asks of a row is in
+  // its group's key, so the caps read the same. S9: a barred challenger's rows voided, kept for the caps, never counted.
+  const { results: rows = [] } = await db.prepare(`SELECT guild_id, account, source, region, day, SUM(amount) AS amount, COUNT(*) AS n FROM town_seat_influence
+    WHERE week = ? AND key = ? AND voided = 0 GROUP BY guild_id, account, source, region, day`).bind(week, seat.key).all();
   const { results: bindRows = [] } = await db.prepare(`SELECT account, guild_id FROM town_seat_binds WHERE week = ? AND guild_id IN (${qs})`).bind(week, ...guilds).all();
   const binds = new Map(bindRows.map((b) => [b.account, b.guild_id]));
   const { results: renown = [] } = await db.prepare('SELECT account, xp FROM town_seat_renown WHERE week = ? AND region = ?').bind(week, seat.region).all();

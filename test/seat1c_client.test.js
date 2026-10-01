@@ -183,7 +183,9 @@ test('SEAT1c THE HOSTS BY SOURCE: the service settles the Turning before any sea
   assert.match(si, /if \(await db\.prepare\('SELECT 1 FROM town_seat_holds WHERE guild_id = \? AND region = \?'\)\.bind\(gid, seat\.region\)\.first\(\)\) return \{ error: 'seat-held-here' \};/);
   const st = rd('server-account/src/seatTurning.js');
   assert.match(st, /const stmts = \[db\.prepare\('INSERT INTO town_seat_weeks \(week, settled_at\) VALUES \(\?, \?\)'\)\.bind\(week, nowS\)\];/, 'the key first, a plain INSERT');
-  assert.match(st, /try \{ await db\.batch\(stmts\); \} catch \{ return \{ settled: false \}; \}/);
+  // PIN MOVED (AUDIT-SEATS): a batch that rolls back says whether it FAILED (S1) - not a racing reader's key - so settleDue
+  // stops at it rather than settle a later week over it
+  assert.match(st, /try \{ await db\.batch\(stmts\); \} catch \{ return \{ settled: false, failed: !\(await db\.prepare\('SELECT 1 FROM town_seat_weeks WHERE week = \?'\)\.bind\(week\)\.first\(\)\) \}; \}/);
   const w = rd('src/scenes/world.js');
   assert.match(w, /const seatHere = \(mapId\) => \(seatBook\?\.open === true \? seatBook\.dressed\(seatAtMapId\(townSeats, mapId\)\) : null\);/);
   assert.match(w, /townTalk\.say\(seatArrivalLine\(seat\), 5\)/);

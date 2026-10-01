@@ -185,8 +185,8 @@
   {
     "name": "AUDIT-GUILD1d-S9-heraldry-change-unheld",
     "file": "server-account/src/halls.js",
-    "old": "SET heraldry = ? WHERE id = ? AND heraldry = ? AND ${stillMaster}`)",
-    "new": "SET heraldry = ? WHERE id = ? AND ? IS NOT NULL AND ${stillMaster}`)",
+    "old": "SET heraldry = ? WHERE id = ? AND heraldry = ? AND ${stillMaster} AND ${noBattle}`)",
+    "new": "SET heraldry = ? WHERE id = ? AND ? IS NOT NULL AND ${stillMaster} AND ${noBattle}`)",
     "tests": [
       "test/auditguild1d.test.js"
     ]

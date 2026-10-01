@@ -746,7 +746,7 @@
  {
   "name": "CROWN2-tu-chron-tribute",
   "file": "server-account/src/seatTurning.js",
-  "old": "      if (k != null) stmts.push(history(k, 'fealty-tribute', { vassal: names.get(f.vassal), liege: names.get(f.liege), marks: owed }));\n",
+  "old": "      if (k != null) stmts.push(paidHistory(k, 'fealty-tribute', { vassal: names.get(f.vassal), liege: names.get(f.liege) }, `fealty-${week}-${f.vassal}`));   // AUDIT-SEATS: what was paid\n",
   "new": "",
   "tests": [
    "test/crown2_service.test.js"
