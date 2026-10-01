@@ -625,7 +625,11 @@ free climb of its inner face that could only stand up again: walled in for good.
   asked the meshes only, and outdoors CLIMB2's catch at a 1.6-1.75 m wall at Climbing 0 hung the feet 5-20 cm in the
   ground - `capsuleFits` refuses a body under the terrain (`collider.restFloor`); "up to 45 degrees" refused exactly 45
   - every top test takes the rays' scatter, as the grip's other comparisons do.
-- **Pinned**: `test/climbdown.test.js` (10), each red on the code before its fix.
+- **Pinned**: `test/climbdown.test.js` (15), the first ten red on the code before their fixes, T10-T14 the mutation run's own.
+- **Mutants**: `tools/mutants/climbdown.json` (40) - 39 dead, 1 recorded equivalent (`faceUnder`'s facing test reads what `faceHit`
+  has already refused: belt and braces). The run's first pass left 16 alive, every one a law no pin held - where the lower
+  begins, its pace and the stand it ends in, the exactly-45-degree ledge, landing and slab, each way down's proof, a deck's
+  chained part - and T10-T14 pin them.
 
 ## CLIMB3 (2026-10-01): LEAPS - SHIPPED
 
@@ -647,7 +651,11 @@ arc scaled by Jumping; the plain jump is unchanged.
 - **The bill**: a leap is a jump's fatigue and trains Jumping; a wall run trains Climbing (`worldTick.js`).
 - **Moved pins**: CLIMB2 LIVE's sill now sits under a soffit (a sill on a wall that goes on up is climbed past); AUDIT
   CLIMB2 G4's sill is taken and the climb goes on past it, never stalling under it, never into it.
-- **Pinned**: `test/climb3.test.js` (10).
+- **Pinned**: `test/climb3.test.js` (17), L11-L17 the mutation run's own.
+- **Mutants**: `tools/mutants/climb3.json` (59) - 58 dead, 1 recorded equivalent (the launch's fall anchor, re-set by the airborne
+  branch in the same step). The run's first pass left 20 alive - the reach and pace by Jumping, a leap's proof and its way out
+  from the wall, the wall run's proof, the late press's gates, the grip's spends, the magnetism, the flight's look, quiet and end,
+  the held Jump, the sill passed for good - and L11-L17 pin them.
 
 ## CLIMB4 (2026-10-01): THE FEEL - SHIPPED
 
@@ -685,7 +693,10 @@ Mac: *"I reallty want go to go all in with the detai. Liike proer feel to climbi
 - **Not done, and why**: the Morrowind arms keep their idle under the lowering rather than reaching for the lip - a
   per-bone pose (`heldPose`'s deltas) tuned blind, with no game data in any session to look at, would ship arms bent
   wrong; the lowering reads right on every lane today.
-- **Pinned**: `test/climb4.test.js` (17).
+- **Pinned**: `test/climb4.test.js` (19), F17-F18 and the grown F11, F15, F16 the mutation run's own.
+- **Mutants**: `tools/mutants/climb4.json` (75), all dead. The run's first pass left 11 alive - the handle's turn, view and voice,
+  the wall run's look, the view half's order, the motor's catch speed, launch and grip warning, the touch button's swing, the
+  frame's own load, the strain's chance - each pinned now.
 
 ## CLIMB5 (2026-10-01): THE CLIMB, SEEN AND HEARD BY THE OTHERS - SHIPPED
 
@@ -707,6 +718,8 @@ and silent.
   after (`motor.bodyYawFor`, `BODY_TURN_TAU` 0.08 s) - then is the view's yaw exactly, as for a player who never
   climbs; all five body draws read it.
 - **Pinned**: `test/climb5.test.js` (7), end to end through the relay's door included.
+- **Mutants**: `tools/mutants/climb5.json` (50), all dead; the run's first pass left 3 alive (a move's facing on the hold it ends
+  on, the peers' rhythm across a change, the host's earshot), each pinned now.
 
 ## PERF-CLIMB (2026-10-01): A RESOLVE THAT MOVED NOTHING STOPS - SHIPPED
 
@@ -728,6 +741,7 @@ flags. It stops there now; a pass the low-head-low round trip's rounding moved b
   it, top to bottom. A finer or a three-dimensional broad phase changes the ORDER contacts are met in, and the pushes
   are order-dependent - a slice of its own, with its own proof. Daggerfall's models are a few hundred triangles.
 - **Pinned**: `test/climbperf.test.js` (3).
+- **Mutants**: `tools/mutants/climbperf.json` (3), all dead - the stop gone, taken after every first pass, blind to y.
 
 ## Still open
 
