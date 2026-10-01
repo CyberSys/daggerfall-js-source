@@ -1121,3 +1121,22 @@ height for a level look), and the nine account-version pins (acct47). Mutant rec
 `audit29.json` AUDIT29-C11 (its pins with the rock-foot suite), `prof2.json` PROF2-32 (the spacing at nothing).
 FOUND, not changed (the audit's "plausible"): a specialisation that changes what stands, taken mid-session, waits for
 the next state read (SEASONAL-EYE handles Herbalism 100's own); fishing from a deck may find the hull in the cast's ray.
+
+## AUDIT of the life skills' fixes (Mac: "audit this")
+
+**CAST-E (found, fixed).** The world's E reaches the gathering host before the door, the crew, the chest or the foe under
+the look (`scenes/world.js` nodeTook, PROF1's order), and CAST-LOOK made the cast the target at almost any look in the
+net's water - a sea's deck and a pier among it (the Ocean's climate is the net's water). With a net in the pack, E at a
+door or a crewman looked at level or up cast the net instead; a level look did so before CAST-LOOK too (the old point's
+cone held 0 degrees), so NAVAL-E guarded only boarding. Now the cast passes the press on as a node with a need does
+(VEIN-NEED's hand-back): `press` is false, the ladder tries what is under the look, and the host's `sayNeed` - called at
+the ladder's foot when nothing opened - casts it. A press the ladder took is never cast by a later hand-back
+(CAST_HANDBACK_MS). The net's Use casts at once, as before. Pins: `test/fb1001_lifeskills.test.js` CAST-LOOK and CAST-E;
+`fb0930b_fishtired`'s angler presses as the world does (the press, then the hand-back) - PIN MOVED; mutants
+`fb1001_boulders.json` CAST-E 3, dead; `fb0929h_veinneed.json` VEIN-NEED-said-twice re-aimed by content, dead.
+
+**Checked and sound.** The client keeps no service-version gate (acct47 is the deploy marker alone); the raised counts
+reach only the boulder law, the service's slot bound and two "any boulders" tests (`climateHolds`, the writs' Rough
+Stone) whose answers are unchanged; a slot's law point is its own hash, so slot 0 stands where it stood. The settlement
+test reads the location index filled at boot, before any pixel builds. `rockFootprint` reads the build's own `samples`
+(the entry's), costs some 0.15 ms a piece for a thousand-vertex mesh, warm, and the build yields between pieces.

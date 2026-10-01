@@ -218,5 +218,33 @@
     "tests": [
       "test/fb1001_lifeskills.test.js"
     ]
+  },
+  {
+    "name": "CAST-E-the-cast-takes-the-press",
+    "file": "src/scenes/gatherHost.js",
+    "old": "      if (target.node.yields === true) { passedCast = target; passedCastAt = deps.nowMs(); return false; }\n",
+    "new": "",
+    "tests": [
+      "test/fb1001_lifeskills.test.js"
+    ]
+  },
+  {
+    "name": "CAST-E-the-hand-back-unbounded",
+    "file": "src/scenes/gatherHost.js",
+    "old": "cast = deps.nowMs() - passedCastAt <= CAST_HANDBACK_MS ? passedCast : null;",
+    "new": "cast = passedCast;",
+    "tests": [
+      "test/fb1001_lifeskills.test.js"
+    ]
+  },
+  {
+    "name": "CAST-E-never-handed-back",
+    "file": "src/scenes/gatherHost.js",
+    "old": "        if (plan?.ready) return start(cast, plan) || true;\n",
+    "new": "",
+    "tests": [
+      "test/fb1001_lifeskills.test.js",
+      "test/fb0930b_fishtired.test.js"
+    ]
   }
 ]

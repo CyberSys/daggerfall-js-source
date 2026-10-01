@@ -26,10 +26,10 @@
   {
     "name": "VEIN-NEED-said-twice",
     "file": "src/scenes/gatherHost.js",
-    "old": "      const line = passedOn;\n      passedOn = '';\n",
-    "new": "      const line = passedOn;\n",
+    "old": "      passedOn = '';\n      passedCast = null;\n      if (cast) {",
+    "new": "      passedCast = null;\n      if (cast) {",
     "tests": ["test/fb0929h_veinneed.test.js"],
-    "note": "One press, a line every time the host asks."
+    "note": "One press, a line every time the host asks. CAST-E (re-aimed by content): the line's reset beside the cast's."
   },
   {
     "name": "VEIN-NEED-the-rank-unsaid",

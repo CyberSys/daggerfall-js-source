@@ -20,7 +20,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { createGatherHost, aimAt, NODE_AIM_DEG } from '../src/scenes/gatherHost.js';
+import { createGatherHost, aimAt, NODE_AIM_DEG, CAST_HANDBACK_MS } from '../src/scenes/gatherHost.js';
 import { fishKind, castAt, CAST_AHEAD_M, CAST_RISE_M } from '../src/scenes/fishHost.js';
 import { herbKind } from '../src/scenes/herbHost.js';
 import { mineKind } from '../src/scenes/mineHost.js';
@@ -62,7 +62,7 @@ function pixelEntry() {
 
 /** The gathering host over the pixel with the ground's kinds and the net's, the player holding every tool, in the water;
  *  `settled` the world's settlement test, none by default. */
-async function stage({ settled = undefined, more = [] } = {}) {
+async function stage({ settled = undefined, more = [], nowMs = () => NOON_MS } = {}) {
   const S = { prompt: null, said: [] };
   S.e = { stats: { intelligence: 60, agility: 60, strength: 55, endurance: 50, luck: 50 }, fatigue: 1e9, items: [FT.Sickle, FT.Basket, FT.PickAxe, FT.WoodAxe, FT.FishingNet].map((t) => createForagingItem(t)), wagonItems: [] };   // rested (FISH-TIRED)
   const book = {
@@ -83,7 +83,7 @@ async function stage({ settled = undefined, more = [] } = {}) {
     hud: { setPrompt: (p) => { S.prompt = p; }, setMeter: () => {}, toast: (t) => S.said.push(t), banner: () => {}, setChip: () => {}, frame: () => {}, dispose: () => {} },
     renderer, getTexture: async () => ({ recordCount: 999 }), uploadRecord: () => {}, billboardSize: () => ({ w: 0.3, h: 0.3 }), flatBatchAabb: () => [0, 0, 0, 0, 0, 0],
     built: () => built, pixelTranslation: (x, y, out) => { out[0] = 0; out[1] = 0; out[2] = 0; return out; },
-    pixelInfo: () => ({ climate: WOODS, region: GLENUMBRA }), nowMs: () => NOON_MS,
+    pixelInfo: () => ({ climate: WOODS, region: GLENUMBRA }), nowMs,
     eye, view: () => S.view, feet: () => S.feet, entity: () => S.e,
     keyLabel: () => 'E', input: () => ({ held: false, attack: false, choice: false }),
     active: () => true, activeDungeon: () => false, settled,
@@ -118,8 +118,17 @@ test('CAST-LOOK: in the water with a net the cast is the target at any look from
       assert.equal(s.prompt?.verb, 'Cast the net', JSON.stringify(s.prompt));
     }
     s.look(37, 15);
-    assert.equal(s.host.press(), true, 'E casts, looking out over the water: ' + JSON.stringify(s.prompt) + s.said.join('|'));
-    assert.equal(s.host.acting(), true);
+    // CAST-E: the cast passes E on to the ladder (a door, the crew, a chest under the look take it first) - and is cast
+    // when nothing did
+    assert.equal(s.host.press(), false, 'E is passed on: ' + JSON.stringify(s.prompt) + s.said.join('|'));
+    assert.equal(s.host.acting(), false, 'nothing cast while the ladder may take it');
+    assert.equal(s.host.sayNeed(), true, 'handed back: the cast');
+    assert.equal(s.host.acting(), true, 'E casts, looking out over the water');
+    s.host.cancel();
+    assert.equal(s.host.press(), false);
+    s.host.press();   // a second press before the hand-back forgets the first
+    assert.equal(s.host.sayNeed(), true);
+    assert.equal(s.host.acting(), true, 'one cast');
     s.host.cancel();
     s.look(37, 15);
     s.said.length = 0;
@@ -192,4 +201,23 @@ test('SETTLE-STAND the world\'s test: the very closure the streaming world hands
   assert.equal(settled(scene(mid[0], mid[1])), false, 'nor a dungeon');
   index.delete(`${PX},${PY}`);
   assert.equal(settled(scene(mid[0], mid[1])), false, 'nor a pixel with no location');
+});
+
+test('CAST-E: a press the cast passed on that the ladder took (a door opened) is never cast by a later hand-back - a second later, nothing (mutant: the hand-back unbounded)', async () => {
+  let now = NOON_MS;
+  const t = await stage({ nowMs: () => now });
+  try {
+    t.feet[0] = 2; t.feet[2] = 2;
+    assert.equal(t.look(37, 10)?.node.kind, 'haul');
+    assert.equal(t.host.press(), false, 'passed on');
+    // the ladder opened a door: no hand-back. A second and more later a press the sea took (no `press`) finds nothing
+    now += CAST_HANDBACK_MS + 1;
+    assert.equal(t.host.sayNeed(), false, 'no stale cast');
+    assert.equal(t.host.acting(), false);
+    // within the bound, handed back: cast
+    assert.equal(t.host.press(), false);
+    now += CAST_HANDBACK_MS - 1;
+    assert.equal(t.host.sayNeed(), true);
+    assert.equal(t.host.acting(), true);
+  } finally { t.done(); }
 });

@@ -57,6 +57,9 @@ export const NODE_REACH = DEFAULT_ACTIVATION_DISTANCE;
 export const NODE_AIM_DEG = 12;
 /** The ranks a banner marks (PROF0 8). */
 export const BANNER_RANKS = Object.freeze([25, 50, 75, 100]);
+/** CAST-E: a press the cast passed on is handed back within this long (ms) - the ladder's door check, a frame or two -
+ *  or never: a press a door, the crew or a chest took leaves no cast for a later E. */
+export const CAST_HANDBACK_MS = 1000;
 /** The day's chip stays this long after an act or a look (s). */
 const CHIP_S = 6;
 /** NODE-MARKS: the compass marks every standing node within this many metres of the player (a kind's `reach` past it -
@@ -201,6 +204,8 @@ export function createGatherHost(deps) {
   let refreshAt = 0, pixelsAt = 0, targetKey = null;
   let storesSaid = false;     // GATHER-SAID: storesWhereLine said this session
   let passedOn = '';          // VEIN-NEED: what the node the last press passed on needs, until the host hands it back
+  let passedCast = null;      // CAST-E: the cast the last press passed on - played when the host hands the press back
+  let passedCastAt = 0;       // CAST-E: when (the shared clock's ms) - a press the ladder took is never handed back
   let struck = null, strikeHeld = false;   // ACT-TOUCH: the act a finger's or a pad's press struck, for the next frame
   let clickHeld = false;      // CLICK-LIFT: the activation's button went down while an act played, and is not yet up
   let standSpecs = undefined; // SEASONAL-EYE: the specs that change what stands, as the pixels were last stood
@@ -573,6 +578,7 @@ export function createGatherHost(deps) {
     /** E pressed: a node in reach takes it - an act started. True when the press was the node's. */
     press() {
       passedOn = '';
+      passedCast = null;
       if (act) return true;   // AUDIT 29 D3: a press during an act is the act's - never a door's or a loot's behind it
       if (!target || !(deps.active() || inDungeon()) || book.state.open !== true) return false;
       const plan = planFor(target);
@@ -581,17 +587,33 @@ export function createGatherHost(deps) {
       // AUDIT 29 C1: a node that cannot be worked takes no press - the press goes on to the door, the chest or the foe it
       // was meant for. VEIN-NEED: what it needs is kept, for the host to hand back if the press opened nothing else
       if (!plan || !plan.ready) { passedOn = needLine(plan, rank); return false; }
+      // CAST-E (AUDIT of CAST-LOOK): a node the look itself stands (Fishing's cast - `yields`) is the target at any look in
+      // the net's water, a sea's deck and a pier among it: E there was the net's before the door, the crew or the chest
+      // under the look. It passes the press on like a node with a need, and is cast when the host hands it back
+      if (target.node.yields === true) { passedCast = target; passedCastAt = deps.nowMs(); return false; }
       start(target, plan);
       return true;
     },
     /**
      * VEIN-NEED (FIELD BUGS 2026-09-29h): the press a node passed on opened nothing else - no door, no chest, no foe -
      * so the node says what it needs: the host calls this at the foot of its activation ladder, for the E press that
-     * asked `press` first. PROF1's "an act started, or what it needs said", C1's order kept. True when it said a line.
+     * asked `press` first. PROF1's "an act started, or what it needs said", C1's order kept. True when it said a line - or,
+     * CAST-E, when it played the cast the press passed on (nothing else under the look took it).
      */
     sayNeed() {
-      const line = passedOn;
+      const line = passedOn, cast = deps.nowMs() - passedCastAt <= CAST_HANDBACK_MS ? passedCast : null;
       passedOn = '';
+      passedCast = null;
+      if (cast) {
+        // CAST-E: nothing else took the press - the cast it passed on, if it may still be cast (else what it needs)
+        if (act) return true;
+        if (!(deps.active() || inDungeon()) || book.state.open !== true) return false;
+        const plan = planFor(cast);
+        if (plan?.ready) return start(cast, plan) || true;
+        const need = needLine(plan, rank);
+        if (need) hud.toast(need);
+        return !!need;
+      }
       if (!line) return false;
       hud.toast(line);
       return true;
