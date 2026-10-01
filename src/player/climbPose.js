@@ -57,8 +57,10 @@ export const POSE = Object.freeze({
   FACE_CURL: 0.75,        // ...and round a hold on a face
   SHRUG_HANG: 0.4,        // the clavicles' share toward a hand over the head
   SHRUG_CLIMB: 0.25,
-  // the shimmy: a hand's reach along the lip is the camera's (FEEL.SHIMMY_SPAN), a cycle is both hands
-  SHIMMY_DUTY: 0.6,       // the share of a cycle a hand holds the stone (both hold a little of it)
+  // the shimmy: a hand takes the lip every FEEL.SHIMMY_SPAN of travel (the camera's bob and the ear's grip), the
+  // two in turn - a cycle is both hands, each reaching twice the span; square over the hold at its start
+  SHIMMY_REACH: 0.8,      // the share of a hand's turn (a span of travel) it is off the stone - both hold the rest of it
+  SHIMMY_FOOT_REACH: 0.6, // ...and a foot's
   HAND_LIFT: 0.06,        // a hand off the stone lifts this high...
   HAND_AWAY: 0.05,        // ...and this far out from the wall
   // the hang's body
@@ -136,8 +138,22 @@ export function gait(travel, stride, phase, duty) {
   const u = travel / stride - phase;
   const k = Math.floor(u), f = u - k;
   const centre = (k + duty / 2 + phase) * stride;
-  if (f < duty) return { anchor: centre, next: centre, swing: 0 };
-  return { anchor: centre, next: centre + stride, swing: (f - duty) / (1 - duty) };
+  if (f < duty) return { anchor: centre, next: centre, swing: 0, cycle: k };
+  return { anchor: centre, next: centre + stride, swing: (f - duty) / (1 - duty), cycle: k };
+}
+
+/**
+ * THE SHIMMY'S GAIT: a limb's stones on a grid, `stride` apart along the lip, with the body square over stone 0 at
+ * travel 0 (the hold just taken). The limb reaches from stone j to stone j+1 while the travel runs over
+ * [j * stride + centre - width / 2, j * stride + centre + width / 2], and holds its stone the rest of the way - so the
+ * limbs' bands, set apart, take them in turn, the one leading the way the body goes first (run backward, the same
+ * stones in the other order, the other limb leading). Answers gait()'s { anchor, next, swing, cycle }. Pure.
+ */
+export function shimmyGait(travel, stride, centre, width) {
+  const v = (travel - (centre - width / 2)) / stride;
+  const j = Math.floor(v), f = (v - j) * stride;
+  if (f < width) return { anchor: j * stride, next: (j + 1) * stride, swing: f / width, cycle: j };
+  return { anchor: (j + 1) * stride, next: (j + 1) * stride, swing: 0, cycle: j };
 }
 
 /** A limb's slot in the frame's answer. */
@@ -164,7 +180,9 @@ export class ClimbPose {
     this.moveRef = null;       // the move in flight, as first seen (a new one - a new object - restarts its anchors)
     this.moveStart = null;     // { L, R, normal } - the hands' points and the wall held when the move began
     this.lastNormal = null;    // the wall the last frame posed on (a corner's first face)
-    this.settle = { L: 0, R: 0, FL: 0, FR: 0 };
+    this.settle = { L: { v: 0, prev: 0, cycle: null }, R: { v: 0, prev: 0, cycle: null }, FL: { v: 0, prev: 0, cycle: null }, FR: { v: 0, prev: 0, cycle: null } };
+    this.hangLip = null;       // the lip the shimmy's travel counts from (a new hold starts it square)
+    this.prevMode = null;      // last frame's: 'hang', 'climb', 'move', 'flight'
     this.cur = { L: null, R: null, FL: null, FR: null };   // the limbs' eased targets
     this.out = {
       w: 0, offset: [0, 0, 0], fit: { up: 0, down: 0 }, swing: { pitch: 0, roll: 0 }, lean: { pitch: 0, roll: 0 },
@@ -194,6 +212,7 @@ export class ClimbPose {
     // the catch's pendulum, ringing down whatever the body does next
     this.swingT += dt;
     const ring = this.swingAmp * Math.exp(-POSE.SWING_DAMP * this.swingT) * Math.cos(2 * Math.PI * POSE.SWING_HZ * this.swingT);
+    const mode = c.move ? 'move' : c.mode ?? (c.flight ? 'flight' : null);
     if (c.move) this._move(dt, c, d);
     else if (c.mode === 'hang') this._hang(dt, c, d);
     else if (c.mode === 'climb') this._climb(dt, c, d);
@@ -206,6 +225,7 @@ export class ClimbPose {
     this._ease(dt);
     if (!c.move) { this.moveRef = null; this.moveStart = null; }
     if (out.frame) this.lastNormal = out.frame.n;
+    this.prevMode = mode;
     return out;
   }
 
@@ -234,24 +254,32 @@ export class ClimbPose {
   _hang(dt, c, d) {
     const out = this.out, fr = wallFrame(c.normal);
     out.frame = fr;
-    const along = d[0] * fr.right[0] + d[2] * fr.right[2];
+    let along = d[0] * fr.right[0] + d[2] * fr.right[2];
+    // a hold newly taken (off a move, a leap, another lip) is the shimmy's stone 0: the hands square over it
+    if (this.prevMode !== 'hang' || this.hangLip !== c.lipY) {
+      this.travel = 0; along = 0;
+      for (const k of ['L', 'R', 'FL', 'FR']) this.settle[k] = { v: 0, prev: 0, cycle: null };
+    }
+    this.hangLip = c.lipY;
     this.travel += along;
     const moving = Math.abs(along) > 1e-5;
     this.still = moving ? 0 : this.still + dt;
-    const stride = 2 * FEEL.SHIMMY_SPAN;
+    const span = FEEL.SHIMMY_SPAN, stride = 2 * span;
     const half = POSE.HANDS_APART / 2;
+    // the hands' turns centred in their spans - the right's first going right, the left's going left - so a grip lands a
+    // span apart either way (the ear's, climbSounds)
     for (const s of ['L', 'R']) {
       const lat = s === 'R' ? 1 : -1;
-      const g = gait(this.travel, stride, s === 'R' ? 0 : 0.5, POSE.SHIMMY_DUTY);
-      const sw = this._settled(s, g.swing, moving, dt);
+      const g = shimmyGait(this.travel, stride, s === 'R' ? span / 2 : 1.5 * span, POSE.SHIMMY_REACH * span);
+      const sw = this._settled(s, g, moving, dt);
       const at = lerp(g.anchor, g.next, smooth(sw)) - this.travel;   // where along the lip, to the body's right
       this._handOnLip(out.hands[s], c, fr, c.lipY, at + lat * half, s, bump(sw, 0, 1));
     }
-    // the feet on the wall below, shuffling after the hands
+    // the feet on the wall below, shuffling with the hands (each foot after its hand going right, before it going left)
     for (const s of ['L', 'R']) {
       const lat = s === 'R' ? 1 : -1;
-      const g = gait(this.travel, stride, s === 'R' ? 0.25 : 0.75, 0.7);
-      const sw = this._settled('F' + s, g.swing, moving, dt);
+      const g = shimmyGait(this.travel, stride, s === 'R' ? 0.65 * span : 1.65 * span, POSE.SHIMMY_FOOT_REACH * span);
+      const sw = this._settled('F' + s, g, moving, dt);
       const at = lerp(g.anchor, g.next, smooth(sw)) - this.travel + lat * POSE.FEET_APART / 2;
       this._footOnFace(out.feet[s], c, fr, at, c.feet[1] + POSE.HANG_FOOT_UP + 0.05 * bump(sw, 0, 1), POSE.HANG_FOOT_OFF + 0.06 * bump(sw, 0, 1), lat);
       out.feet[s].hang = POSE.HANG_LEG - 0.06 * bump(sw, 0, 1);
@@ -277,10 +305,21 @@ export class ClimbPose {
   }
 
   /** A limb's reach finishing on the clock when the body stops mid-reach (the travel would leave it in the air). */
-  _settled(key, swing, moving, dt) {
-    if (moving || swing <= 0) { this.settle[key] = swing; return swing; }
-    this.settle[key] = Math.min(1, Math.max(this.settle[key], swing) + dt / POSE.SETTLE_S);
-    return this.settle[key] >= 1 ? 0 : this.settle[key];
+  /** A limb's reach finishing on the clock when the body stops mid-reach (the travel would leave it in the air) - and
+   *  once finished, on its new stone until the gait's reach is behind it (going on, it never swings back to finish
+   *  again; going back, the gait's own stone takes it). `g` is the gait's answer. */
+  _settled(key, g, moving, dt) {
+    const st = this.settle[key], sw = g.swing;
+    if (sw <= 0) { st.v = 0; st.cycle = null; return 0; }
+    if (st.cycle !== g.cycle) { st.cycle = g.cycle; st.v = sw; st.prev = sw; }
+    // stopped, the hand finishes onto the nearer stone: most of the way there it lands, barely off it takes it back
+    if (!moving) st.v = st.v >= 0.5 ? Math.min(1, st.v + dt / POSE.SETTLE_S) : Math.max(0, st.v - dt / POSE.SETTLE_S);
+    // going on (or back), a limb ahead of its gait (or behind it) closes on it by the band's end - never a jump:
+    // the share left of the reach scales with the share of the band left
+    else if (sw >= st.prev) st.v = st.prev < 1 ? st.v + (1 - st.v) * (sw - st.prev) / (1 - st.prev) : sw;
+    else st.v = st.prev > 0 ? st.v * sw / st.prev : sw;
+    st.prev = sw;
+    return st.v;
   }
 
   /** A foot on the face: the ankle `off` metres off it, at height `y`, `along` metres to the body's right; the toes
@@ -313,7 +352,7 @@ export class ClimbPose {
     // the stones: each limb's held point is the body's centre when it took it, plus the limb's rest, plus the lead
     const place = (key, phase, duty, restA, restY) => {
       const g = gait(this.travel, stride, phase, duty);
-      const sw = this._settled(key, g.swing, moving, dt);
+      const sw = this._settled(key, g, moving, dt);
       const from = g.anchor - this.travel, to = g.next - this.travel;   // the stone's travel, relative to the body now
       const k = smooth(sw);
       const rel = lerp(from, to, k);
