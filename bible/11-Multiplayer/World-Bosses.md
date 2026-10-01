@@ -1737,6 +1737,140 @@ Broker's wares and prices; every id, key and column. The court is the Burning Co
 > closed, it pays each of them an ember more. What the faithful keep in their circle is yours as well. Do not go alone.
 > Do not stand where the ground glows. And when the Covenant closes the door, do not be on the wrong side of it.
 
+## 20. The polish (WB13, 2026-10-01)
+
+Mac: *"Let's forgoe the monthly raid. Instead, as we progress through this integration, I just want to continue to
+improve the boss, hone in telegraphs, and just overall bring more AAA grade polish to what is already developed. Also
+clean up text to be less explanatory and less AI."*
+
+Four lanes looked at what ships, in Chromium, before anything was changed:
+- **The telegraphs:** every shape at a player's eye and from above, at each moment of its wind-up, under every aspect,
+  overlapping, at a distance and on a phone.
+- **The fight's feel:** beat by beat, with the screen coverage of each shape measured from where a fighter stands and
+  the brain's choices simulated.
+- **The HUD:** both skins at 1280x720, 390x844 and 844x390, filmed in motion.
+- **The words:** 330 strings, each traced to the tests that hold it.
+
+Six slices follow. The rule for all of them: nothing gets faster (Mac, WBX: *"I dont think making mechanics faster is
+the play"*), and what a player must do is shown before it is said.
+
+### WB13a. The telegraphs
+
+| # | found | now |
+|---|---|---|
+| T1 | **burning ground drawn ten marks a group, the newest dropped** - two phase-three Hellfires on five fighters left ten live pools invisible, and they still bit | a full group starts another: every live pool is drawn |
+| T2 | **the Flame Nova could not be escaped from the outer floor**: its ring ran 4-30 m on a 24 m floor, so with him at the heart (every phase turn puts him there) 26% of the floor in phase two and 47% in phase three was out of reach at 7.6 m/s. The escape law measured from the ring's middle | the ring runs **4-16 m**: safe at his feet, or past 16 m - from anywhere inside it, the nearer edge is 6 m off at most (0.8 s). The escape law walks every point of the floor |
+| T3 | the fill reached the floor's edge early (the Nova and the Spokes ran 30 m on a 24 m floor; the near spoke filled at half its wind-up) | the fill runs to where the shape meets the rim, so it reaches the edge at the landing |
+| T4 | **the outline dimmed as danger neared** (the fuse burned 90% of it down by 90% of the wind-up), a brighter false edge moved inside it, and it faded in over 150 ms | one outline, the brightest line of the shape, full from the first frame with a short pop; the fill eases in behind it |
+| T5 | **no landing**: the last 350 ms flooded the shape at the landing's own brightness, and the Cleave, the Charge and the Spokes threw no burst | the last 180 ms brightens the rim alone; the landing flashes white-hot and decays to a scorch in about 300 ms; the Charge's flash follows his head down the lane |
+| T6 | burning ground looked like a pending attack and outshone it; the Sappers' paths and the Ward-Bearers' tethers looked like fire | ground is terrain - darker, a dashed rim, a slow seethe, no halo; paths and tethers are dashes flowing toward him |
+| T7 | his mark was the brightest thing on the floor, and inside a shape centred on him it read as a safe heart | a dashed, dimmer ring; the chevron kept |
+| T8 | **the element replaced the danger colour**: Rime, Storm and Venom outlines went grey, mauve and olive on the red floor, and blue reads as safe | every pending outline wears one danger edge (Dagon's crimson for his own blows); the element lives in the fill and the grain |
+| T9 | at the Nova's word the brightest line was the edge of its safe heart - it read as a Slam and sent fighters outward | the safe edge is cool, the danger field fills from the first frame |
+| T10 | the outline was a 41 px band at the sides and thin near and far | anti-aliased by the edge's own derivative, with a dark keyline outside it |
+| T11 | flashing over 3 Hz (the throb's last 45%, Storm's crackle at 12 Hz) and the frost lattice shimmering | the throb on the rim only, at 3 Hz at most; the crackle at 4 Hz; the grain fades with distance |
+| T12 | every shockwave ran 9.9 m - a Bite's swept five times its size, the Nova's ran through its safe heart | the wave is sized to its shape, and never enters a safe heart |
+| T13 | **in first person at sword reach the Cleave's shape is 0% of the frame** and the Slam's 8% | **in it**: while your feet stand in a pending shape, the screen's rim pulses in the danger colour and the attack's name and MOVE stand under the crosshair, with an arrow to the nearest way out |
+| T14 | every pass drew the whole 49 m court - 1.65M fragments a Legion-Lord frame on a phone | a quad per shape, sized to it |
+
+The hit law does not move except T2's ring: what lands is what the ground shows.
+
+### WB13b. The words
+
+Every line the feature says, traced to the tests that hold it and rewritten to say one thing and stop:
+1. The event, then where, when or what to do. No second sentence that explains or comments.
+2. Colons only in label rows ("Breaches closed: 4"), never "Name: explanation".
+3. No "X, not Y". No dash asides; " - " only between a label and its value.
+4. Lists only where there is a list. No rhythm of three for its own sake.
+5. Nothing the screen already shows: the ring, the bar, the card and the countdowns carry state.
+6. Orders are short imperatives, one exclamation at most.
+7. The effect, not the sensation.
+8. Numbers as numerals; game time with the player's own beside it.
+9. The lore nouns exact: Dagon's Breach, the Covenant, Dagon's faithful, the Deadlands, the Burning Court, Deadlands
+   Embers, Valkynaz Ruhn.
+
+What changes beyond the wording:
+- Chat names the marks ("Valkynaz Ruhn comes the Rime-Wrought tonight, Colossal and Unyielding."); the card and the bar
+  say what each does.
+- The line on stepping into the court is cut: the card shows the marks at that moment.
+- The card has one subtitle near the gate and inside.
+- A phase turn is a title and one order (WB13e).
+- A screen that never found the site says "in the wilds", as Discord does, not "near the wilds".
+
+### WB13c. The HUD
+
+**Broken, fixed first:**
+- On a landscape phone the marks card and the damage chart covered his bar and ran off the top of the screen, and the
+  bar's callout sat on the crosshair.
+- The card near the gate and the chart covered the party frames.
+- A phone could never open the map's card for the breach.
+- His bar stood over the step-through fire.
+
+**The bar:**
+- A trailing damage segment (`ui/barLoss.js`, the vitals' and the foes' own), and a smooth drain in place of 180 ms
+  steps.
+- The ward as a state: it fades in, a gold cage, the fill dimmed under it, and a flash when it fails.
+- Callouts enter and leave, with a line that fills to the landing. Dagon's Wrath and the Reckoning get a red plate, and
+  MOVE shows when a blow is aimed at you.
+- The phase ticks show which phases are spent.
+- His name on one line, the epithet beneath it.
+- The marks row is a sign and a name each.
+- The foot is chips, with the Wrath's timer pulsing under a minute.
+- FELLED, then the bar fades.
+
+**The rest:**
+- The Plus skin dresses the ground warning.
+- Numbers are tabular.
+- The classic face is loaded by the gate's own screens.
+- Small classic text is larger.
+- The bar sits lower on a portrait phone.
+- The chart drops two columns on narrow screens and enters row by row.
+
+### WB13d. The blows
+
+- **His body:**
+  - He flashes when struck, fully for your blows and lightly for the court's.
+  - So does his host.
+  - A blow into his ward says *Warded*, not a number.
+- **Your body:** his heavy elemental blows shake the camera as his physical ones do, and so do landings near you, by
+  how near. The player's own shake setting caps it.
+- **Light:** each landing lights the floor where it lands, not his chest.
+- **Sound:** a release sound 350 ms before each landing, and the wind-up barks spread at least four semitones apart.
+- **His fire:** his cast pose for his fire, not his sword's.
+- **The meteor:** seen falling, longer and lower.
+- **No hit-stop:** the port has none, and a frozen frame online reads as lag.
+
+### WB13e. The beats
+
+- **His wake:** the opening's end is said in the state, and a roar, a flare and his name come as he moves.
+- **A phase turn:** a title card ("II - The Burning Court"), its one order kept until he lands, and the roar after
+  the bark instead of over it.
+- **His fall is an event:**
+  - a burst, a flash and a shake;
+  - he sinks into a column of embers and leaves his body;
+  - the spoils come after his body meets the floor, under a banner.
+- **The Wrath:** a line a minute out and another at its wind-up, the court reddening over the six seconds, then white.
+- **Under 10%:** his ember sputters and the bar pulses.
+- **Aimed at you:** a Meteor or a Leap aimed where you stand says so with a sting.
+- **Lines that stay readable:** a line on the middle of the screen stays for its length (WB13b keeps them short).
+
+### WB13f. The rhythm
+
+- **No attack more than twice running.** With the fighters spread out, phase one was the Charge in 36 of 50 attacks,
+  28 of them back to back.
+- **Heavy blows recover longer, in a spent pose you can punish:**
+  - Slam 1.1 to 1.7 s
+  - Leap 0.9 to 1.5 s
+  - Nova 1.3 to 1.9 s
+
+  Slower, never faster.
+
+### Versions
+
+The relay stays **world141**, never deployed, re-hashed in place for T2's ring, the words in its bundle, the
+opening's end and the rhythm. The brain's law stays 5: each screen judges its own feet, so an older game fights the
+older ring until it reloads. Nothing changes in the account service.
+
 ## Shipped
 
 **WB1 (2026-09-25) - the omen.** `net/gateLaw.js` (the schedule, the room's key and window, the rolls, the boss table,
