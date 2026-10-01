@@ -1946,10 +1946,13 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
       // module's slide is the sprite's own sheathe and stays with it.
       fpArm.setScreenTransform(widgetOn() ? (base) => widget.armsTransform(base) : null);
       // CLIMB4: and the climb's lowering over it - the arms leave the screen downward while the hands are on the wall.
-      if (_climbLower > 0) { const armsBase = fpArm.screenTransform(); fpArm.setScreenTransform((base) => climbLowerRect(armsBase ? armsBase(base) : base, _climbLower)); }
+      // CLIMB6: unless the Morrowind arms are posed on the climb - the hands reach the stone they hold (combat/climbRig.js),
+      // and stay on the screen where the stone is.
+      const armsClimb = fpArm.active() && !!fpArm.climbPosed?.();
+      if (_climbLower > 0 && !armsClimb) { const armsBase = fpArm.screenTransform(); fpArm.setScreenTransform((base) => climbLowerRect(armsBase ? armsBase(base) : base, _climbLower)); }
       // Lowered out of sight, no lane draws (the arm's record stays the top's false); the gun and the clone have no slide
       // of their own to lend, so halfway down they are gone - the arms and the classic sprite slide the whole way.
-      if (_climbLower >= CLIMB_LOWER_GONE || (_climbLower >= 0.5 && !fpArm.active() && (widgetOn() || thunderlockHeld()))) return;
+      if (!armsClimb && (_climbLower >= CLIMB_LOWER_GONE || (_climbLower >= 0.5 && !fpArm.active() && (widgetOn() || thunderlockHeld())))) return;
       // WW1: THE CLONE DRAWS IN THE SPRITE'S PLACE. DFU's clone hides the
       // original every frame and draws itself in OnGUI; here the one
       // draw seam picks the clone while its switch is on - after the arm

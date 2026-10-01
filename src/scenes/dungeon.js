@@ -41,6 +41,7 @@ import { playerTorchLight } from '../systems/playerTorch.js';   // T1
 import { thunderlockMuzzleLight } from '../systems/thunderlock.js';   // FIELD-GUN13: the muzzle flash is a light the player carries, the torch's own shape
 import { lookAt, perspective, mirrorProjectionX, identity, UP_Y } from '../world/mat4.js';   // HANDEDNESS: the one mirror (mat4's law)
 const BATCH_IDENTITY = identity();   // PERF5: the merged level is in world space already
+import { climbRigInput } from '../player/climbPose.js';   // CLIMB6: the body's limbs on the climb
 import { PlayerMotor, TELEPORT_FREEZE_S, motionBagOf, afloatMessageStep, CANNOT_FLOAT_HUD_SECONDS } from '../player/motor.js';   // A6: DaggerfallAction.Teleport's physics settle; WW2: the one motion bag; DW-D: the dungeon arm's afloat line
 import { mwViewFrame, mwViewWheel, mwViewDrawBody, mwViewFootstep } from '../player/mwView.js';   // MW-D25: the Morrowind camera; AUDIT-EOTB2: the sprite's stride
 import { PITCH_LIMIT } from '../player/mwCamera.js';   // MW-D30: camera.cpp:323-331's own clamp
@@ -1141,7 +1142,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
       requestAnimationFrame(frame);
       return;   // U2b/U3: hold gameplay, keep the loop (AUDIT 18 F5: the overlay's own clock still runs - DFU's RestWindow.Update ticks on realtime under timeScale 0)
     }
-    ctx.drawFoes(dt, canvas, proj, view, cam.pos, player.pos, anyMove(moveHeld(keys)), player.height, !!player.isSneaking, motionBagOf(player), player.bobOffset ? player.bobOffset[1] : 0, !!player.crouching, player.feetAt());   // DISC13-A: the render feet, the candle's   // ROAD-H H1b: PlayerMotor.IsCrouching rides in beside the live height - the archer's 0.05 dip (DaggerfallMissile.cs:583-585) is the latched STATE, not a 0.9 capsule   // moveHeld: the collision-trigger input gate (verbatim)   // internally gated (S4b: missiles fire without foes)   // C8 E1+E2: rigged class enemies, classic senses + pursuit
+    ctx.drawFoes(dt, canvas, proj, view, cam.pos, player.pos, anyMove(moveHeld(keys)), player.height, !!player.isSneaking, motionBagOf(player), player.bobOffset ? player.bobOffset[1] : 0, !!player.crouching, player.feetAt(), climbRigInput(player, cam.yaw));   // DISC13-A: the render feet, the candle's   // CLIMB6: the climb's snapshot   // ROAD-H H1b: PlayerMotor.IsCrouching rides in beside the live height - the archer's 0.05 dip (DaggerfallMissile.cs:583-585) is the latched STATE, not a 0.9 capsule   // moveHeld: the collision-trigger input gate (verbatim)   // internally gated (S4b: missiles fire without foes)   // C8 E1+E2: rigged class enemies, classic senses + pursuit
     // WATER-D1: the water plane is drawn INSIDE drawFoes now, before the
     // weapon overlay - a draw here landed after the lane's resolve and
     // showed through every wall (dungeonContext.js's note at the draw).

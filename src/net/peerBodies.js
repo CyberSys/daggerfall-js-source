@@ -74,7 +74,7 @@ import { CAPSULE_HEIGHT } from '../player/motor.js';
 import { peerStubEntity, lookKey } from './remotePlayers.js';
 import { POSE_STRIKES } from './wire.js';   // MAC7 #1: the swing's kind, by the wire's index
 import { wrapAngle } from '../world/mat4.js';   // ONCRASH1: the port's one angle wrap, which cannot loop
-import { JUMP_UNITS, stepPeerPace } from './peerPace.js'; import { peerBodyYaw, peerClimbing, peerMoving } from './peerClimb.js';   // HT-WAIST-BACK: the pace law, lifted - the walkers' lanterns swing off it too; CLIMB5: the climb's facing and pose
+import { JUMP_UNITS, stepPeerPace } from './peerPace.js'; import { peerBodyYaw, peerClimbing, peerMoving, PeerClimbTrack } from './peerClimb.js';   // HT-WAIST-BACK: the pace law, lifted - the walkers' lanterns swing off it too; CLIMB5: the climb's facing and pose
 
 
 /** The most peers in a Morrowind body at once; the rest keep the paperdoll. */
@@ -282,8 +282,9 @@ export class PeerBodies {
    * @param {() => number} [p.generation] HARD3: the Morrowind data's generation. Destructured since MWBODY1 and never documented, which is how a caller finds out a parameter exists - by reading the destructuring.
    * @param {(m: string) => void} [p.warn] HARD3: likewise - the injected warn a test reads instead of the console.
    */
-  constructor({ renderer, enabled = () => true, createRig = createFpArm, buildOpts = peerBuildOpts, now = () => Date.now(), generation = () => 0, warn = (m) => console.warn(m) }) {
+  constructor({ renderer, enabled = () => true, createRig = createFpArm, buildOpts = peerBuildOpts, now = () => Date.now(), generation = () => 0, warn = (m) => console.warn(m), collider = () => null }) {
     this.renderer = renderer;
+    this._collider = collider;   // CLIMB6: the host's, for the floor under a hanging peer's feet
     this.enabled = enabled;
     this._generation = generation;   // the Morrowind data's generation: a re-attach releases every body built from the last (weaponRig's fpRecheck, for the peers)
     this._gen = generation();
@@ -510,6 +511,8 @@ export class PeerBodies {
     b.d2 = near ? dist2(f, near) : 0;
     b.far = !!near && b.d2 > BODY_RANGE * BODY_RANGE;
     b.cam = peerCamera(peer.shown, f, b.speed, b.cam, b.yaw);
+    // CLIMB6: the climb the body's limbs take - the hold rebuilt from the pose, a move from its kind, lip and time
+    b.cam.climb = (b.climbTrack ??= new PeerClimbTrack()).input(peer.shown, f, b.yaw, this._now(), this._collider());
     b.inView = !this._planesOk || this._sees(b, turnLeadMargin(Math.sqrt(b.d2), this._turn));   // WB9h: in the last pass's view, with the margin a turning eye needs - MW-CROWD: led by the turn
   }
 

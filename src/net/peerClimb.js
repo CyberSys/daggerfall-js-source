@@ -17,6 +17,9 @@
 //     local climb's.
 
 import { CLIMB_SOUND, climbClip, installClimbSounds } from '../player/climbSounds.js';
+import { POSE, peerLipY, floorGapAt } from '../player/climbPose.js';   // CLIMB6: a peer's limbs on the climb, the own body's law
+import { CLIMB_MOVE_KINDS } from './wire.js';
+import { PARKOUR_UP_GAP } from '../player/parkour.js';
 import { FEEL } from '../player/climbFeel.js';
 import { enhancedSoundsOn } from '../systems/enhancedSounds.js';
 
@@ -108,4 +111,69 @@ export class PeerClimbSounds {
     this.last.set(sound, c.key);
     this.audio.play3d(c.key, at, Math.min(1, vol), { ...(this.profile ?? {}), pitch: c.pitch });
   }
+}
+
+// ---- CLIMB6: A PEER'S BODY ON THE WALL ---------------------------------------------------------------------------------
+
+/** CLIMB6: the time a move without its `cd` is taken to last (s) - a mantle's at middling skill. */
+export const PEER_MOVE_DUR = 0.9;
+/** CLIMB6: a mantle's rise, a vault's, as a share of its time - the planners' own (parkour.js planMantle's split grows
+ *  with the rise; a vault's is planVault's 0.4). */
+const PEER_SPLIT = Object.freeze({ mantle: 0.6, vault: 0.4 });
+
+/**
+ * CLIMB6: A PEER'S CLIMB, AS THE BODY'S LAW READS IT (player/climbPose.js ClimbPose - the own body's law, the same
+ * limbs on the same kind of stone). The wire carries the climb's state, the way the body faces and, a move in flight,
+ * its kind, its lip and its time (wire.js climbOf) - not the frame's geometry - and every hold the motor takes stands
+ * the body the same way to its stone (parkour.js senseGrip: the face POSE.FACE_BACK ahead of the feet, a hang's lip
+ * PARKOUR_HANG_DROP over them), so the hold is rebuilt exactly from the pose; a move is rebuilt once, as it begins - its
+ * start the feet then, its lip `cy` over them, its clock the local one from then over its `cd`. One per body.
+ */
+export class PeerClimbTrack {
+  constructor() { this.move = null; this.moveKey = null; this.moveStart = 0; }
+
+  /** The snapshot for this frame (null off the wall): `shown` the drawn pose, `feet` and `yaw` where the body is drawn
+   *  (PeerBodies' b.feet, b.yaw), `now` ms, `collider` the host's (the floor under a hang's feet) or null. */
+  input(shown, feet, yaw, now, collider = null) {
+    const cl = (shown?.cl | 0);
+    if (!cl || !feet) { this.move = null; this.moveKey = null; return null; }
+    const cw = Number.isFinite(shown.cw) ? shown.cw : yaw;
+    const fwd = [Math.sin(cw), 0, Math.cos(cw)], normal = [-fwd[0], 0, -fwd[2]];
+    const base = { feet: [feet[0], feet[1], feet[2]], yaw, grip: 1, floorGap: floorGapAt(collider, feet), flight: null };
+    if (cl !== 3) {
+      this.move = null; this.moveKey = null;
+      return cl === 1 ? { ...base, mode: 'hang', normal, lipY: peerLipY(feet[1]), move: null } : { ...base, mode: 'climb', normal, lipY: null, move: null };
+    }
+    const kind = CLIMB_MOVE_KINDS[(shown.ck | 0) - 1] ?? null;
+    if (!kind) return { ...base, mode: null, normal: null, lipY: null, move: null };   // a move the pose does not name: the in-air pose
+    const key = `${kind}:${shown.cy ?? ''}:${shown.cd ?? ''}`;
+    if (key !== this.moveKey || !this.move) {
+      this.moveKey = key;
+      this.moveStart = now;
+      this.move = peerMove(kind, base.feet, fwd, Number.isFinite(shown.cy) ? shown.cy / 100 : null, shown.cd ? shown.cd / 100 : PEER_MOVE_DUR);
+    }
+    this.move.t = Math.min(1, Math.max(0, (now - this.moveStart) / 1000 / this.move.dur));
+    return { ...base, mode: null, normal: null, lipY: null, move: this.move };
+  }
+}
+
+/** CLIMB6: a move rebuilt from its start (`from`, facing `fwd`), its lip `rise` metres over it (a hang's when unknown)
+ *  and its time - the planners' shape (parkour.js plan*): a mantle's or a vault's edge POSE.FACE_BACK ahead with the rise
+ *  keeping the gap over it, the move's hang on that lip facing the way the body does. The end is left to the body's
+ *  own place as the poses carry it (the law reads the feet where `to` is unknown). */
+export function peerMove(kind, from, fwd, rise, dur) {
+  const lip = from[1] + (Number.isFinite(rise) ? rise : 1.8);
+  const back = POSE.FACE_BACK;
+  const m = { kind, from: [...from], up: null, to: null, split: 1, arc: 0, dur: Math.max(0.05, dur), exit: null, t: 0, hang: null, wall: null };
+  if (kind === 'mantle' || kind === 'vault') {
+    m.up = [from[0], lip + PARKOUR_UP_GAP, from[2]];
+    m.to = [from[0] + fwd[0] * (back + 0.4), lip, from[2] + fwd[2] * (back + 0.4)];
+    m.split = PEER_SPLIT[kind];
+  } else if (kind === 'wallrun' && !Number.isFinite(rise)) {
+    m.wall = { normal: [-fwd[0], 0, -fwd[2]] };
+  } else {
+    m.hang = { normal: [-fwd[0], 0, -fwd[2]], lipY: lip };
+    if (kind === 'lower') m.to = [from[0], lip - 1.8, from[2]];
+  }
+  return m;
 }

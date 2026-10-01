@@ -1211,13 +1211,14 @@ export function poseChanged(a, b, eps = 0.01) {
     || (a.hl | 0) !== (b.hl | 0)   // HT-WAIST-NET: a lantern lit at the waist, or put out, goes out at once, as a draw does
     || (a.hk | 0) !== (b.hk | 0) || (a.hu | 0) !== (b.hu | 0)   // PEERFX1: a blow landed or taken goes out at once, as a swing does
     || (a.cv | 0) !== (b.cv | 0)   // INVIS-NET: a player vanishing (or coming back) is news at once, as a draw is
-    || (a.cl | 0) !== (b.cl | 0) || ((a.cl | 0) > 0 && Math.abs(wrapAngle((a.cw ?? 0) - (b.cw ?? 0))) > eps);   // CLIMB5: a hold taken or let go, a move begun, goes out at once - and the body turning on the wall, as a turn does
+    || (a.cl | 0) !== (b.cl | 0) || ((a.cl | 0) > 0 && Math.abs(wrapAngle((a.cw ?? 0) - (b.cw ?? 0))) > eps)   // CLIMB5: a hold taken or let go, a move begun, goes out at once - and the body turning on the wall, as a turn does
+    || (a.ck | 0) !== (b.ck | 0) || (a.cy | 0) !== (b.cy | 0);   // CLIMB6: a move of another kind, or on another lip, is another move - at once
 }
 
 /** A pose the room will relay, or null. */
 export function validPose(p) {
   if (!p || typeof p !== 'object') return null;
-  const { x, y, z, yaw, pitch, mv, wd, an, as, am, sr, cn, cr, ce, ar, fk, rd, rv, hs, lh, wb, dd, hl, lt, lc, hk, hp, hb, hq, hu, uq, cv, cl, cw } = p;
+  const { x, y, z, yaw, pitch, mv, wd, an, as, am, sr, cn, cr, ce, ar, fk, rd, rv, hs, lh, wb, dd, hl, lt, lc, hk, hp, hb, hq, hu, uq, cv, cl, cw, ck, cy, cd } = p;
   if (![x, y, z, yaw, pitch].every(finite)) return null;
   if (Math.abs(x) > POSE_BOUND || Math.abs(z) > POSE_BOUND || Math.abs(y) > POSE_Y_BOUND) return null;
   // ONCRASH1 (2026-09-15, Mac: "reports of player browser crashing when
@@ -1295,14 +1296,31 @@ export function validPose(p) {
     // the body faces on it (the wall, or the move's way; player/motor.js climbPoseOf), an angle wrapped as the yaw is,
     // so the others turn the body to the wall, pose it off the ground, and hear the climb (net/peerClimb.js). OMITTED
     // off the wall (validLook's `class` law): a pose on the ground keeps the bytes it always had.
-    ...climbOf(cl, cw),
+    // CLIMB6: and, a move in flight (cl 3), WHICH move (`ck`, CLIMB_MOVE_KINDS' index), the lip it is on (`cy`, its
+    // height over the feet the move began at, cm) and how long it takes (`cd`, cs) - so the others' bodies climb it
+    // (net/peerClimb.js peerClimbInput: the hands on that lip, the move's own phases on its own clock). Omitted
+    // otherwise: a hold, and the ground, keep their bytes.
+    ...climbOf(cl, cw, ck, cy, cd),
   };
 }
-/** CLIMB5: the pose's climb fields, bounded - absent off the wall; the facing only with a climb, and only a number. */
-function climbOf(cl, cw) {
+/** CLIMB6: the moves a pose can name (`ck` is the index + 1 - player/motor.js climbPoseOf mints it). */
+export const CLIMB_MOVE_KINDS = Object.freeze(['catch', 'reach', 'mantle', 'vault', 'lower', 'corner', 'leap', 'wallrun']);
+/** CLIMB6: a move's lip, in cm over its start, is no further than this either way; its time no longer than this, cs. */
+export const CLIMB_MOVE_RISE_MAX = 600;
+export const CLIMB_MOVE_TIME_MAX = 600;
+/** CLIMB5: the pose's climb fields, bounded - absent off the wall; the facing only with a climb, and only a number.
+ *  CLIMB6: the move's kind, lip and time only with a move (cl 3), each bounded, each alone omitted when it is not one. */
+function climbOf(cl, cw, ck, cy, cd) {
   const c = uint(cl, 3) ?? 0;
   if (!c) return {};
-  return finite(cw) ? { cl: c, cw: wrapAngle(cw) } : { cl: c };
+  const out = finite(cw) ? { cl: c, cw: wrapAngle(cw) } : { cl: c };
+  if (c !== 3) return out;
+  // a kind no move has is no move (never clamped into one); a lip or a time out of bounds is dropped, the move kept
+  if (!(Number.isInteger(ck) && ck >= 1 && ck <= CLIMB_MOVE_KINDS.length)) return out;
+  out.ck = ck;
+  if (Number.isInteger(cy) && Math.abs(cy) <= CLIMB_MOVE_RISE_MAX) out.cy = cy;
+  if (Number.isInteger(cd) && cd >= 1 && cd <= CLIMB_MOVE_TIME_MAX) out.cd = cd;
+  return out;
 }
 /** PEERFX1: the pose's blow and hurt fields, bounded - absent when their counts are 0 or the point is not a place. */
 function peerFxOf(hk, hp, hb, hq, hu, uq) {

@@ -433,6 +433,7 @@ import { createWeatherFront, blendTerms, soundWeather, fallTerms } from '../syst
 import { fetchBytes, loadMagicRegistries, seasonOverride, createSkyController, createPlayerTicker, createRestDeps, plainLines, wireInfectionVideos, createMusicDirector, motorStats, climbingDeps, parkourDeps, createDetectFeed, foeNearbyRecord, nearbyLootRecords, claimFrame, frameAlive, frameHeld, applyFallLanding, ensureAudio, applyMotorEffectFlags, adjustFallStart, offsetArrows, populatesWanderingNpcs, endRunToTitleMenu, exitToTitleMenu, subscribeFoePools, sensesContext, routeMouseDrag , raisePlayerSkills, liveEnchantFoes, liveEnchantFoeSinks, enchantFoeHost, realmSaveSink, setRealmSaveSink, setBeforeTitleExit } from './shared.js';   // TP1: PlayerEntity.RaiseSkills   // EC1: the live enchant pool + its sinks router; AUDIT 58: the membership question the Wabbajack door asks too
 import { getNearbyObjects } from '../systems/nearbyObjects.js';   // X9: the dispel sweep filters the same scan
 import { dispelNearby, liveBundles, attemptSoulTrap, SOUL_TRAP_TEXT } from '../systems/mysticism.js';   // X9: the destroy law (destroyed, not killed); WBX7: the kill's soul trap roll, for the court's boss
+import { climbRigInput } from '../player/climbPose.js';   // CLIMB6: the body's limbs on the climb
 import { PlayerMotor, startRestGroundedCheck, motionBagOf, climbPoseOf, MAX_FRAME_DT, CAPSULE_HEIGHT, CAPSULE_RADIUS, RIDE_EYE_HEIGHT, afloatMessageStep, CANNOT_FLOAT_HUD_SECONDS } from '../player/motor.js';   // SPELLFX1: a peer's eye when its body has not said its height
 import { travelDriveForward, travelLookaheadFor } from '../systems/travelAutopilot.js';   // TO-FIELD / AUDIT-FIELD F8: the journey's ground gate, pure so the pins can drive it   // StartRestGroundedCheck's ONE home; WW2: the one motion bag
 import { createTravelSteer, createColliderProbe, steerDrive } from '../systems/travelSteer.js';   // TRAVEL-NAV1: the journey goes round what is in its way, and stops short of what it cannot
@@ -7954,7 +7955,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       // reference's head_bobbing.lua drives setFirstPersonOffset's z
       // only); bobOffset[1] is the raw vertical, un-rotated.
       bob: [0, player.bobOffset ? player.bobOffset[1] : 0],
-      move: motionBagOf(player) }),   // MW-D26: the movement-settings vector, the reference's own selection source; MW-D39 added the jump-state inputs; WW2: the one bag (a partial copy left the bob's idle gate unsent)
+      move: motionBagOf(player),   // MW-D26: the movement-settings vector, the reference's own selection source; MW-D39 added the jump-state inputs; WW2: the one bag (a partial copy left the bob's idle gate unsent)
+      climb: climbRigInput(player, cam.yaw) }),   // CLIMB6: the climb's snapshot - the body's limbs on the stone (player/climbPose.js)
     spellArmed: () => magic.spellArmed(), abortSpell: () => magic.abortReadySpell(),   // M2; MAC-O1: WeaponManager.Update:251 - the ReadyWeapon key puts a readied spell away and draws
     // MAP-WEAPON: the enhanced map is a SPRITE with alpha around it,
     // not a full-screen window, so the weapon the classic body keeps
@@ -15558,7 +15560,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     remotePlayers = new RemotePlayers({ renderer, deps: { fetchBytes, palette, getTexture, uploadRecordFrame, audio } });   // 2026-09-17: uploadRecordFrame added for the class-enemy billboard path (net/remotePlayers.js _buildMobile/_syncMobilePeer) - the doll path never touches it
     // MWBODY1: the enhanced skin with Morrowind data attached puts every peer in a body of its own; otherwise the doll
     const enhanced = isEnhanced();   // the skin cannot change without a reload (switchSkin), so it is read once, not per frame
-    peerBodies = new PeerBodies({ renderer, enabled: () => enhanced && morrowindDataCount() > 0, generation: morrowindDataGeneration });   // MWA4: attached is on
+    peerBodies = new PeerBodies({ renderer, enabled: () => enhanced && morrowindDataCount() > 0, generation: morrowindDataGeneration, collider: () => collider });   // MWA4: attached is on   // CLIMB6: the floor under a hanging peer
     const eotbArt = createEotbArt({ renderer });   // DISC23-B: one store for the riders' and the walkers' art
     peerRiders = createPeerRiders({ renderer, art: eotbArt });   // RIDE: the others in the saddle
     peerWalkers = createPeerWalkers({ renderer, art: eotbArt, enabled: () => getPref('peerClassSprites') !== false });   // DISC23-B: the others on foot, as the set they chose - the 'Other players' card's sprite side

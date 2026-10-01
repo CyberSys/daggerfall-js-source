@@ -111,7 +111,22 @@ export function climbPoseOf(player) {
   const cl = player.mantling ? 3 : player.hanging ? 1 : player.onWall || player.climb?.isClimbing ? 2 : 0;
   if (!cl) return {};
   const cw = player.climbFacing;
-  return Number.isFinite(cw) ? { cl, cw: Math.round(cw * 1000) / 1000 || 0 } : { cl };   // || 0: no negative zero on the wire
+  const out = Number.isFinite(cw) ? { cl, cw: Math.round(cw * 1000) / 1000 || 0 } : { cl };   // || 0: no negative zero on the wire
+  if (cl === 3) Object.assign(out, climbMoveOf(player.climbMove));
+  return out;
+}
+/** CLIMB6: a move in flight on the wire (net/wire.js climbOf): its kind (`ck`, CLIMB_MOVE_KINDS' index + 1), the lip it
+ *  climbs (`cy`, cm over the feet it began at - the hang's lip, or a mantle's or a vault's edge, the top less the gap
+ *  the rise keeps) and its time (`cd`, cs) - so the others' bodies climb it as the climber's does. */
+export function climbMoveOf(m) {
+  if (!m || !m.from) return {};
+  const k = CLIMB_MOVE_KINDS.indexOf(m.kind) + 1;
+  if (!k) return {};
+  const lip = m.hang?.lipY ?? (m.up ? m.up[1] - PARKOUR_UP_GAP : null);
+  const out = { ck: k };
+  if (Number.isFinite(lip)) out.cy = Math.max(-CLIMB_MOVE_RISE_MAX, Math.min(CLIMB_MOVE_RISE_MAX, Math.round((lip - m.from[1]) * 100)));
+  if (Number.isFinite(m.dur) && m.dur > 0) out.cd = Math.max(1, Math.min(CLIMB_MOVE_TIME_MAX, Math.round(m.dur * 100)));
+  return out;
 }
 /** CLIMB5: the time constant (s) the body turns to the wall on - and back to the view off it. */
 export const BODY_TURN_TAU = 0.08;
@@ -292,6 +307,7 @@ import {
   // CLIMB3: leaps
   senseLeapHold, planLeap, senseWallRun, planWallRun, senseDrop, ejectLaunch, runLeapLaunch, wallRunHeight,
   leapSideReach, leapUpReach, PARKOUR_LEAP_GRIP, PARKOUR_LEAP_REACH, PARKOUR_COYOTE_S, PARKOUR_RUNLEAP_EDGE, PARKOUR_LIP_FOLLOW, PARKOUR_UP_GAP,
+  PARKOUR_RUN_SHARE,   // AUDIT CLIMB-ARC L10: running at pace
 } from './parkour.js';
 // A6: PlayerMoveScanner is a component on the player object in DFU
 // (PlayerMotor.Start :265 GetComponent), so the motor owns one. Same
@@ -301,6 +317,7 @@ import { PlayerMoveScanner } from './moveScanner.js';
 import { getBool } from '../systems/settings.js';   // AUDIT 28 W5: Controls/ToggleSneak (StartGameBehaviour :277)
 import { TRANSPORT_MODES, isRiding, rideBaseFor, canRunUnlessRiding } from '../systems/transport.js';   // TR1: the mount's speed, run and climb laws
 import { timeScale } from '../systems/timeScale.js';   // TO1: Unity's Time.fixedDeltaTime rides Time.timeScale (see update())
+import { CLIMB_MOVE_KINDS, CLIMB_MOVE_RISE_MAX, CLIMB_MOVE_TIME_MAX } from '../net/wire.js';   // CLIMB6: a move on the wire, its kinds and bounds the wire's
 import { clampToRing } from '../net/duelSession.js';   // AUDIT DUEL1 D4: the ring's one clamp
 import { MAX_TERRAIN_HEIGHT, STREAMING_TERRAIN_SCALE } from '../world/terrainSampler.js';   // FALL-KEPT: the world's tallest drop bounds a carried fall
 
@@ -777,6 +794,7 @@ export class PlayerMotor {
   pinFeet(x, y, z) {
     this._pkMove = null;   // AUDIT CLIMB1 F4: a pin is a placement - the move it interrupts is over, never resumed
     if (this._wall) this._wallEnd();   // CLIMB2: and the hold it takes the body off
+    this._pkOffEdge = null; this._pkLeap = null;   // AUDIT CLIMB-ARC L6: and the late press and the flight with it
     this._pkRestore = null;
     this.pos[0] = x; this.pos[1] = y; this.pos[2] = z;
     this._prevPos[0] = x; this._prevPos[1] = y; this._prevPos[2] = z;
@@ -910,6 +928,8 @@ export class PlayerMotor {
     this.arena = null;   // DUEL1: a placement is never a walk out of the ring - the host's duel law decides what it meant
     this._pkMove = null;   // CLIMB1: a placement is never the end of a mantle
     if (this._wall) this._wallEnd();   // CLIMB2: nor a hold
+    this._pkOffEdge = null;   // AUDIT CLIMB-ARC L6: nor a run off an edge (a press after it is no late leap)...
+    this._pkLeap = null;      // ...nor a leap's flight (the catch looks no old way)
     this._pkRestore = null;   // AUDIT CLIMB2 H1: a placement's own record follows it (restoreFall), never an older one
     this._heightReset();   // a pending height action does not ride a teleport/load
     this.holdFrame();   // DISC8-G: a landing reported before the warp is not the arrival's
@@ -933,7 +953,8 @@ export class PlayerMotor {
     const w = this._wall;
     if (m || w) {
       const end = m ? m.to : this.pos;
-      const hold = m ? (m.hang ? { mode: 'hang', normal: m.hang.normal, lipY: m.hang.lipY } : null) : w;
+      const hold = m ? (m.hang ? { mode: 'hang', normal: m.hang.normal, lipY: m.hang.lipY }
+        : m.wall ? { mode: 'climb', normal: m.wall.normal, lipY: null } : null) : w;   // AUDIT CLIMB-ARC L12: a wall run's face
       return {
         to: [end[0] - this.pos[0], end[1] - this.pos[1], end[2] - this.pos[2]],
         hold: hold ? { mode: hold.mode, normal: [hold.normal[0], 0, hold.normal[2]], lipAbove: hold.lipY != null ? hold.lipY - end[1] : null } : null,
@@ -1016,6 +1037,9 @@ export class PlayerMotor {
     this.jumped = false;
     this.parkoured = null;
     this.landedFallDistance = 0;
+    // AUDIT CLIMB-ARC F2: and the climb's events - the feel and the sounds read them every frame, and a frame the host
+    // held on replayed the last step's catch, launch and turn once a frame for as long as the window stood
+    if (this.climbEvents.length) this.climbEvents = [];
   }
 
   /**
@@ -1426,12 +1450,17 @@ export class PlayerMotor {
   _stepBodyYaw(dt, viewYaw) {
     const face = this.climbFacing;
     if (face == null && this._bodyYaw == null) return;
-    const target = face ?? viewYaw;
-    const from = this._bodyYaw ?? viewYaw;
-    const d = Math.atan2(Math.sin(target - from), Math.cos(target - from));
-    const next = from + d * (1 - Math.exp(-Math.max(0, dt) / BODY_TURN_TAU));
-    const left = viewYaw - next;
-    this._bodyYaw = face == null && Math.abs(Math.atan2(Math.sin(left), Math.cos(left))) < 1e-3 ? null : next;
+    const k = 1 - Math.exp(-Math.max(0, dt) / BODY_TURN_TAU);
+    const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+    if (face != null) {
+      const from = this._bodyYaw ?? viewYaw;
+      this._bodyYaw = from + wrap(face - from) * k;
+      return;
+    }
+    // AUDIT CLIMB-ARC N4: off the wall the body's offset FROM THE VIEW decays - a view still turning was chased, the
+    // body trailing it for as long as it turned; now it is the view's yaw exactly within a few time constants
+    const off = wrap(this._bodyYaw - viewYaw) * (1 - k);
+    this._bodyYaw = Math.abs(off) < 1e-3 ? null : viewYaw + off;
   }
 
   /** MAC1 (Mac, 2026-09-10: "Fix Jittery hills and stairs"). The step
@@ -1615,13 +1644,21 @@ export class PlayerMotor {
   get climbMove() { return this._pkMove; }
   /** CLIMB4: the held wall's normal (out of it, level), or null. */
   get wallNormal() { return this._wall?.normal ?? null; }
+  /** CLIMB6: the hold the hands have ({ mode, lipY } - a free climb's lipY null), or null: the body's hands go on it. */
+  get climbHold() { return this._wall ? { mode: this._wall.mode, lipY: this._wall.lipY } : null; }
+  /** CLIMB6: a leap's flight ({ dir } - the eject's, the running leap's), or null: the body's arms reach for the catch. */
+  get climbFlight() { return this._pkLeap; }
   /** CLIMB5: the way the body faces on the climb, in the view's yaw (forward = [sin, 0, cos]) - into the wall held, or
    *  the wall a move ends on, else the move's own way (a mantle, a vault); null off the wall and out of a move. */
   get climbFacing() {
     const m = this._pkMove;
     const n = this._wall?.normal ?? m?.hang?.normal ?? m?.wall?.normal ?? null;
     if (n) return Math.atan2(-n[0], -n[2]);
-    if (!m) return null;
+    if (!m) {
+      // AUDIT CLIMB-ARC N3: the classic climb faces its wall too (myLedgeDirection, latched into the wall)
+      const d = this.climb?.isClimbing ? this._climbWallDir : null;
+      return d ? Math.atan2(d[0], d[2]) : null;
+    }
     const dx = m.to[0] - m.from[0], dz = m.to[2] - m.from[2];
     return dx * dx + dz * dz > 1e-6 ? Math.atan2(dx, dz) : null;
   }
@@ -1663,6 +1700,11 @@ export class PlayerMotor {
     if (!pk) return false;
     // THE TAP CATCH (PARKOUR_ARM_GRACE_S): a fresh press arms the air catch for the jump it makes - the body down
     // again (or never off the ground), a move or a let-go ends it (the water asks no catch: mode, below)
+    // AUDIT CLIMB-ARC L10: the pace the body really went last step (the applied speed is the input's - a run held into a
+    // wall applies the run's speed and goes nowhere)
+    const was = this._pkLastPos;
+    this._pkPace = was && dt > 0 ? Math.hypot(this.pos[0] - was[0], this.pos[2] - was[2]) / dt : 0;
+    this._pkLastPos = [this.pos[0], this.pos[1], this.pos[2]];
     const pressed = !!input.jump && !this._pkJumpWas;
     this._pkJumpWas = !!input.jump;
     if (pressed) this._pkArm = { t: 0, air: !this.grounded };
@@ -1676,8 +1718,17 @@ export class PlayerMotor {
     if (this._pkMove) { this._pkOn = true; this._parkourAdvance(dt); return true; }
     // CLIMB3: the late press's clock - running on the ground, then off it without a jump - and a leap's flight, over
     // once the body is down (or held, or in the water)
-    if (this.grounded) this._pkOffEdge = this.isRunning && input.forward > 0 ? 0 : null;
-    else if (this._pkOffEdge != null && (this.jumping || (this._pkOffEdge += dt) > PARKOUR_COYOTE_S)) this._pkOffEdge = null;
+    // AUDIT CLIMB-ARC L4/L5: the clock keeps the RUN's way and the spot it left the floor from, and is kept only where a
+    // Jump at the edge would have leapt - running at pace, standing, off a real drop (senseDrop from the last floor) - so
+    // a late press is the at-edge leap, never a turn in the air nor a leap off a step or a crouch
+    if (this.grounded) {
+      this._pkOffEdge = this.isRunning && input.forward > 0 && !this.crouching && this._pkAtPace()
+        ? { t: 0, dir: [Math.sin(yaw), 0, Math.cos(yaw)], at: [this.pos[0], this.pos[1], this.pos[2]], ok: null } : null;
+    } else if (this._pkOffEdge != null) {
+      const o = this._pkOffEdge;
+      if (o.ok == null) o.ok = !this.jumping && senseDrop(this.collider, o.at, o.dir, CAPSULE_RADIUS, PARKOUR_RUNLEAP_EDGE);
+      if (!o.ok || this.jumping || (o.t += dt) > PARKOUR_COYOTE_S) this._pkOffEdge = null;
+    }
     if (this.grounded || this.swimming || this.sunk || this._wall) this._pkLeap = null;
     const on = this._pkOn = !!pk.enabled?.();
     const unheld = this.levitating || this.riding || this.paralyzed;   // nothing holds a wall from these
@@ -1710,8 +1761,9 @@ export class PlayerMotor {
     this._fcStart = null;
     const air = mode === 'air';
     // CLIMB3: THE LATE PRESS - a fresh Jump a beat after running off an edge leaps as at the edge (PARKOUR_COYOTE_S)
-    if (air && pressed && this._pkOffEdge != null) {
-      this._pkLaunch([Math.sin(yaw), 0, Math.cos(yaw)], ...this._pkRunLeapSpeeds(pk));
+    if (air && pressed && this._pkOffEdge != null && this._pkMayLeap()) {
+      const dir = this._pkOffEdge.dir;
+      this._pkLaunch(dir, ...this._pkRunLeapSpeeds(pk, dir));
       return false;
     }
     if (air && this._pkQuiet > 0) { this._pkQuiet--; return false; }
@@ -1746,11 +1798,13 @@ export class PlayerMotor {
     }
     if (!move && air && fwd && !tapOnly && this._pkGrab(look, pk)) return true;
     // CLIMB3: running, Jump at a wall runs up it; at an edge, leaps (the plain jump goes on everywhere else)
-    if (!move && !air && fwd && this.isRunning && !this.crouching) {
-      const run = senseWallRun(this.collider, this.pos, look, wallRunHeight(inputs.climbing ?? 0, inputs.jumping ?? 0), geo.high + PARKOUR_AIR_REACH, geo);
+    // AUDIT CLIMB-ARC L10: running is running at pace (PARKOUR_RUN_SHARE of the run's speed), not the toggle held
+    // against a wall; L15: the wall run's height reads the climb's skill as every move does (the Khajiit's, the spell's)
+    if (!move && !air && fwd && this.isRunning && !this.crouching && this._pkAtPace()) {
+      const run = senseWallRun(this.collider, this.pos, look, wallRunHeight(skill, inputs.jumping ?? 0), geo.high + PARKOUR_AIR_REACH, geo);
       if (run) move = planWallRun(this.pos, run);
-      else if (senseDrop(this.collider, this.pos, look, CAPSULE_RADIUS, PARKOUR_RUNLEAP_EDGE)) {
-        this._pkLaunch(look, ...this._pkRunLeapSpeeds(pk));
+      else if (this._pkMayLeap() && senseDrop(this.collider, this.pos, look, CAPSULE_RADIUS, PARKOUR_RUNLEAP_EDGE)) {
+        this._pkLaunch(look, ...this._pkRunLeapSpeeds(pk, look));
         return false;
       }
     }
@@ -1825,7 +1879,7 @@ export class PlayerMotor {
       return false;
     }
     this._pkJumpLatch = true;
-    this.parkoured = 'catch';
+    this.parkoured = this.parkoured ? [].concat(this.parkoured, 'catch') : 'catch';   // AUDIT CLIMB-ARC L13
     this._wallBegin('climb', c.normal, null, c.key);
     return true;
   }
@@ -1887,6 +1941,9 @@ export class PlayerMotor {
       return false;
     }
     this._wallBegin('climb', c.normal, null, c.key);
+    // AUDIT CLIMB-ARC L7: a Jump held as the hands take the wall (out of the water, where Jump is the swim up) is not
+    // pressed afresh - it leaps from the climb only once let go and pressed again, as off every other hold
+    if (input.jump) this._pkJumpLatch = true;
     return true;
   }
 
@@ -1901,6 +1958,7 @@ export class PlayerMotor {
     if (key != null) this._wall.carrier = this.collider.bucketPose?.(key) ?? null;
     this._wallTally = 0;
     this._fcStart = null;
+    this._pkOffEdge = null;   // AUDIT CLIMB-ARC L6
     this.climb?.hold();
     this._pkHold();
     this._pkEmit('hold', { mode, normal: [normal[0], 0, normal[2]] });
@@ -2096,7 +2154,7 @@ export class PlayerMotor {
     if (!g) return false;
     this.grip -= PARKOUR_LEAP_GRIP;
     this._parkourBegin(planLeap(this.pos, g, j));
-    this._parkourAdvance(dt);
+    this._parkourAdvance(dt, true);   // AUDIT CLIMB-ARC L16: this step's grip and wall time are the hold's, spent already
     return true;
   }
 
@@ -2117,11 +2175,22 @@ export class PlayerMotor {
   }
 
 
-  /** CLIMB3: the running leap's launch [along, up] for the Jumping skill the deps read. */
-  _pkRunLeapSpeeds(pk) {
+  /** CLIMB3: the running leap's launch [along, up] for the Jumping skill the deps read. AUDIT CLIMB-ARC L2: never short
+   *  of the plain jump it takes the place of - its run carried on along `dir` and its rise the boosted jump's (a fast
+   *  runner, a skill past 100, a Jump spell): the leap is at least the jump, with the catch's magnetism. */
+  _pkRunLeapSpeeds(pk, dir) {
     const { along, up } = runLeapLaunch(jumpingSkill(pk.inputs?.() ?? {}), GRAVITY);
-    return [along, up];
+    const run = dir ? this._airVelX * dir[0] + this._airVelZ * dir[2] : 0;
+    const boost = this.jumpBoost ? this.jumpBoost() : 1;
+    return [Math.max(along, run + JUMP_SPEED * JUMP_FWD_BOOST), Math.max(up, JUMP_SPEED * boost)];
   }
+
+  /** AUDIT CLIMB-ARC L10: running at pace - the way the body really went last step, PARKOUR_RUN_SHARE of the run's speed or more. */
+  _pkAtPace() { return (this._pkPace ?? 0) > 1e-3 && this._pkPace >= PARKOUR_RUN_SHARE * this.speed - 1e-6; }
+
+  /** AUDIT CLIMB-ARC L8: a leap where the plain jump would go - never under slowfall (HandleJumpInput's cancel, which
+   *  the leaps had bypassed: a jump on the spot billed, a late press 117 m out) nor wading outdoor water (its other). */
+  _pkMayLeap() { return !this.slowFalling && !this.onExteriorWater; }
 
   /** CLIMB3 - THE EJECT: Jump with Back held pushes off the wall - out along its normal and up, the Jumping skill's
    *  launch (ejectLaunch) - into a flight with the catch armed (a ledge across the way, a wall to grab with Forward and
@@ -2150,7 +2219,7 @@ export class PlayerMotor {
     this.jumping = true;
     this.falling = false;
     this.fallStart = this.pos[1];
-    this.parkoured = 'leap';
+    this.parkoured = this.parkoured ? [].concat(this.parkoured, 'leap') : 'leap';   // AUDIT CLIMB-ARC L13
     this._pkLeap = { dir: [dir[0], 0, dir[2]] };
     this._pkArm = { t: 0, air: true };
     this._pkJumpLatch = false;
@@ -2235,7 +2304,10 @@ export class PlayerMotor {
     }
     if (!grip) return null;
     const move = planCorner(this.pos, mid, grip, skill, live);
-    move.turn = Math.atan2(n[0] * grip.normal[2] - n[2] * grip.normal[0], n[0] * grip.normal[0] + n[2] * grip.normal[2]);   // CLIMB4: the view's turn round it
+    // CLIMB4: the view's turn round it - AUDIT CLIMB-ARC F1: from facing the wall held to facing the next, in the view's
+    // own yaw (forward [sin, 0, cos]: facing -n is atan2(-nx, -nz)); the sign was the mirror's, and every corner turned
+    // the view away from its wall by twice the turn
+    move.turn = Math.atan2(n[2] * grip.normal[0] - n[0] * grip.normal[2], n[0] * grip.normal[0] + n[2] * grip.normal[2]);
     return moveClear(this.collider, move, CAPSULE_HEIGHT) ? move : null;
   }
 
@@ -2372,8 +2444,11 @@ export class PlayerMotor {
     this._pkUnsink();
     this._pkArm = null;   // the tap catch: the press is spent on the move
     this._pkLeap = null;  // CLIMB3: a leap's flight ends in what it caught
+    this._pkOffEdge = null;   // AUDIT CLIMB-ARC L6: a move is no run off an edge (a wall run let go is no late leap)
     this._pkMove = move;
-    if (move.bill !== false) this.parkoured = move.kind;   // CLIMB2: a corner the shimmy turns is no new exertion
+    // CLIMB2: a corner the shimmy turns is no new exertion. AUDIT CLIMB-ARC L13: a frame of several steps can begin two
+    // moves (an eject and its catch at 10 fps) - both are billed: the second makes the frame's flag a list
+    if (move.bill !== false) this.parkoured = this.parkoured ? [].concat(this.parkoured, move.kind) : move.kind;
     this._pkJumpLatch = true;
     this.moveForward = 0;
     this.moveStrafe = 0;
@@ -2395,13 +2470,13 @@ export class PlayerMotor {
    *  A mantle ends settled on the top; a vault or a clamber ends in the air
    *  past the far edge and is handed back to the ballistic arm - a vault with
    *  its momentum and a small rise, a clamber at a step's pace. */
-  _parkourAdvance(dt) {
+  _parkourAdvance(dt, spent = false) {
     const m = this._pkMove;
-    if (m.hang && this.parkour) {   // AUDIT CLIMB2 H4: a catch and a corner spend the grip as the hang does
+    if (m.hang && this.parkour && !spent) {   // AUDIT CLIMB2 H4: a catch and a corner spend the grip as the hang does
       const i = this.parkour.inputs?.() ?? {};
       this.grip = Math.max(0, this.grip - dt / gripSeconds(parkourSkill(i), i.fatigue ?? 1));
     }
-    if (this._wall) this._wallTick(dt);   // AUDIT CLIMB2 C7: time round a corner (or reaching round a cornice) is time on the wall
+    if (this._wall && !spent) this._wallTick(dt);   // AUDIT CLIMB2 C7: time round a corner (or reaching round a cornice) is time on the wall
     if (m.carrier) {
       const now = this.collider.bucketPose(m.key);
       if (now) { carryMove(m, m.carrier, now); m.carrier = now; }
@@ -2450,6 +2525,9 @@ export class PlayerMotor {
         this._pkHold();
       } else if (m.hang) {
         this._wallBegin('hang', m.hang.normal, m.hang.lipY, m.key);   // CLIMB2: a catch ends held, under the lip
+        // AUDIT CLIMB-ARC D1: the lower was walked into with Forward held, and Forward in the hang climbs up - held on, it
+        // mantled the body straight back onto the roof, stood, and walked it off the edge. The hang asks a fresh Forward.
+        if (m.kind === 'lower' && this._wall) this._wall.upRefused = true;
       } else if (m.wall) {
         this._wallBegin('climb', m.wall.normal, null, m.key);   // CLIMB3: a wall run with no lip ends on the wall
       } else if (m.exit) {
@@ -2538,6 +2616,7 @@ export class PlayerMotor {
     if (this.freezeMotor > 0) {
       this._pkMove = null;   // AUDIT CLIMB1 F4: a freeze follows a placement (the helm's, a teleport's) - the move is over
       if (this._wall) this._wallEnd();   // CLIMB2: and the hold
+      this._pkOffEdge = null; this._pkLeap = null;   // AUDIT CLIMB-ARC L6: a Jump pressed under the freeze is no late leap after it
       this.freezeMotor -= dt;
       if (this.freezeMotor <= 0) {
         this.freezeMotor = 0;
@@ -2813,7 +2892,7 @@ export class PlayerMotor {
       // above it needs slideWhenOverSlopeLimit or slideOnTaggedObjects
       // and BOTH ship false (:15-18).
       if (!this.paralyzed) this._headDipHandling(sin, cos);
-    } else if (this.enhancedJumping?.()) {
+    } else if (this.enhancedJumping?.() && !this._pkLeap) {   // AUDIT CLIMB-ARC L3: a leap's flight keeps its launch
       // AUDIT 64 F2 - AcrobatMotor.CheckAirControl (:130-151), the
       // IsEnhancedJumping disjunct of :145. Its one caller is
       // PlayerMotor.cs:349-353, the airborne arm, with the `speed`

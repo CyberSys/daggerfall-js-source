@@ -34,6 +34,7 @@ import { giveOffer } from '../ui/pendingOffer.js';   // AUDIT 58: DaggerfallUI.G
 import { convertTilemap, isOutdoorWaterTile } from '../world/terrainSurface.js';   // FD1: PlayerTileMapIndex == 0
 import { waterUniforms, tilemapRectHasWater, waterSwitchOn } from '../render/waterSurface.js';   // WATER1: the enhanced water surface over the town's ground; WATER-AUDIT: asked over the real extent
 import { GROUND_OFFSET, GROUND_TILE_DIM } from '../world/rmbLayout.js';
+import { climbRigInput } from '../player/climbPose.js';   // CLIMB6: the body's limbs on the climb
 import { PlayerMotor, startRestGroundedCheck, motionBagOf } from '../player/motor.js';   // the rest gate's grounded input, one home; WW2: the one motion bag
 import { exteriorSurfaces, downProbe, rayDistanceFor, ON_EXTERIOR_WATER, exteriorSwimming } from '../player/exteriorSurface.js';   // ROAD-B (b3): PlayerMotor's three exterior surface methods; OT1: IsPlayerSwimming above ground
 import { isOnFoot, TRANSPORT_MODES, hasHorse, hasCart } from '../systems/transport.js';   // HCC: TransportManager.HasHorse / HasCart   // TransportManager.IsOnFoot - the raycast's reach and the mounted footstep gate
@@ -2180,7 +2181,8 @@ export async function bootExterior(canvas, renderer, params, status) {
     // MW-D10: rule 54's neck pitch; MW-D15: rule 32(a)'s sneak sink.
     camera: () => ({ pos: player.eyeAt(), yaw: cam.yaw, pitch: cam.pitch, sneaking: !!player.isSneaking, feet: player.pos, climbing: !!(player.climb?.isClimbing || player.mantling || player.onWall),   // HT1
       bob: [0, player.bobOffset ? player.bobOffset[1] : 0],   // IG1: the bob's vertical feeds the first-person offset
-      move: motionBagOf(player) }),   // MW-D26: the movement-settings vector, the reference's own selection source; MW-D39 added the jump-state inputs; WW2: the one bag (a partial copy left the bob's idle gate unsent)
+      move: motionBagOf(player),   // MW-D26: the movement-settings vector, the reference's own selection source; MW-D39 added the jump-state inputs; WW2: the one bag (a partial copy left the bob's idle gate unsent)
+      climb: climbRigInput(player, cam.yaw) }),   // CLIMB6: the climb's snapshot - the body's limbs on the stone (player/climbPose.js)
     spellArmed: () => magic.spellArmed(), abortSpell: () => magic.abortReadySpell(),   // M2: HasReadySpell hides the weapon; MAC-O1: WeaponManager.Update:251 - the key puts a readied spell away and draws
   });
   autoBuildArms(playerEntity);   // MWA1: the arms at boot, when the switch is on and the archives are attached

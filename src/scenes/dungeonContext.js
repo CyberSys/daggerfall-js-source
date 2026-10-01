@@ -3248,6 +3248,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   let _fpBobY = 0;   // IG1: the head bob's vertical, latched with the rest
   let _fpSneaking = false;
   let _fpMove = null;   // MW-D26: the frame's movement report
+  let _fpClimb = null;  // CLIMB6: the frame's climb snapshot (player/climbPose.js climbRigInput) - the host's, as the move is
   // HT1: the dungeon's dropped-torch pool - doused under the block water, aged by the world clock, saved with the room
   const droppedTorches = createDroppedTorches({
     renderer, audio, getTexture, uploadRecordFrame, collider: () => collider, foes: () => foes.filter((f) => !sparedByPlayer(f)), foeSinks: (f) => foeSinks(f), makeEnemiesHostile: () => makeAreaHostile(),   // AUDIT CC-B6: a thrown torch passes a companion by
@@ -3307,7 +3308,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     actionDown: (action) => !!opts.actionDown?.(action), torches: () => droppedTorches,   // HT1; KB1: registry actions
     activateHeld: () => !!opts.activateHeld?.(),   // AUDIT 28 W12: the host's ActivateCenterObject, for the drawn bow's un-draw
     // MW-D10: rule 54's neck pitch; MW-D15: rule 32(a)'s sneak sink.
-    camera: () => (_fpEye ? { pos: _fpEye, yaw: _fpYaw, pitch: _fpPitch, feet: _fpFeet, climbing: !!_fpMove?.climbing, sneaking: _fpSneaking, move: _fpMove, bob: [0, _fpBobY] } : null),   // HT1: feet and the climb   // MW-D26; IG1: the bob rides too
+    camera: () => (_fpEye ? { pos: _fpEye, yaw: _fpYaw, pitch: _fpPitch, feet: _fpFeet, climbing: !!_fpMove?.climbing, sneaking: _fpSneaking, move: _fpMove, bob: [0, _fpBobY], climb: _fpClimb } : null),   // HT1: feet and the climb   // MW-D26; IG1: the bob rides too   // CLIMB6: the climb's snapshot, the host's
     bindWorn: opts.playerWeapon !== 'bow',   // AUDIT 17e F17: the ?weapon=bow debug flag keeps its scripted weapon
     say: (l) => hudText.add(l),
     spellArmed: () => magic.spellArmed(), abortSpell: () => magic.abortReadySpell(),   // MAC-O1: WeaponManager.Update:251 - the ReadyWeapon key puts a readied spell away and draws
@@ -5968,7 +5969,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // water sounds. Castle-block detection (doNotPlayInCastle) pends.
   const sceneAmbience = new AmbientEffects(DUNGEON_AMBIENT_WAITS);
   sceneAmbience.setPreset('dungeon');
-  function drawFoes(dt, canvas, proj, view, eye, playerFeet, moveHeld = false, playerHeight = CAPSULE_HEIGHT, playerSneaking = false, playerMove = null, playerBobY = 0, playerCrouching = false, playerRenderFeet = null) {
+  function drawFoes(dt, canvas, proj, view, eye, playerFeet, moveHeld = false, playerHeight = CAPSULE_HEIGHT, playerSneaking = false, playerMove = null, playerBobY = 0, playerCrouching = false, playerRenderFeet = null, playerClimb = null) {
     if (_staleChunkNotice) { _staleChunkNotice = false; setMidScreenText(STALE_CHUNK_IN_PLAY_TEXT, STALE_CHUNK_IN_PLAY_SECONDS); }
     _ecvT += dt;
     respawnSweep(_ecvT);   // WORLD8: the hour's respawn, once a second
@@ -5988,6 +5989,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // must see the stance the player is in THIS frame.
     _fpSneaking = !!playerSneaking;
     _fpMove = playerMove;   // MW-D26: same latch, same reason
+    _fpClimb = playerClimb;   // CLIMB6: ...and the climb's, the body's limbs on the stone
     _fpBobY = playerBobY;   // IG1: same latch - the arm's bob channel
     // THE FOUR HOSTS RULE (2026-08-27, Mac: "blood texture stays static
     // in the air when attacking them in dungeons"). The splash pool's

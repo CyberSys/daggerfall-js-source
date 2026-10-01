@@ -31,6 +31,7 @@ import { createBloodMarks } from '../combat/bloodMarks.js';   // BLOOD1a
 import { doorWorldAabb, doorWorldPosition, doorWorldNormal, interiorLanding, exteriorLanding, dungeonEntranceLanding, climbLadder, floorLanding, repositionFeetY } from '../player/enterExit.js';
 import { WORLD_FRAME } from '../render/renderer.js';   // AUDIT-EL F5
 import { STREAMING_TERRAIN_SCALE, DEFAULT_TERRAIN_SCALE } from '../world/terrainSampler.js';   // TERRAIN-SCALE1: the interior cache's frame and the ground its legacy heights stood on
+import { climbRigInput } from '../player/climbPose.js';   // CLIMB6: the body's limbs on the climb
 import { startRestGroundedCheck, TELEPORT_FREEZE_S, motionBagOf, afloatMessageStep, CANNOT_FLOAT_HUD_SECONDS } from '../player/motor.js';   // S40: the rest gate's grounded input; A6: DaggerfallAction.Teleport's physics settle; WW2: the one motion bag; DW-D: the dungeon arm's afloat line
 import { signalAutomapReset } from '../ui/automapWindow.js';   // ROAD-C c2/S9: the M window inside a building
 import { createAutomapWindow, preloadAutomapArt, automapDoorReady } from '../ui/automapDoor.js';   // EM3: the skin fork
@@ -878,7 +879,8 @@ export function createWorldModes(host) {
     // MW-D10: rule 54's neck pitch; MW-D15: rule 32(a)'s sneak sink.
     camera: () => ({ pos: player.eyeAt(), yaw: cam.yaw, pitch: cam.pitch, sneaking: !!player.isSneaking, feet: player.pos, climbing: !!(player.climb?.isClimbing || player.mantling || player.onWall),   // HT1
       bob: [0, player.bobOffset ? player.bobOffset[1] : 0],   // IG1: the bob's vertical feeds the first-person offset
-      move: motionBagOf(player) }),   // MW-D26: the movement-settings vector, the reference's own selection source; MW-D39 added the jump-state inputs; WW2: the one bag (a partial copy left the bob's idle gate unsent)
+      move: motionBagOf(player),   // MW-D26: the movement-settings vector, the reference's own selection source; MW-D39 added the jump-state inputs; WW2: the one bag (a partial copy left the bob's idle gate unsent)
+      climb: climbRigInput(player, cam.yaw) }),   // CLIMB6: the climb's snapshot - the body's limbs on the stone (player/climbPose.js)
     say,
   });
   // C13: the interior arrow flights (collider late-resolved - each
@@ -8354,7 +8356,7 @@ export function createWorldModes(host) {
       // (AUDIT 64 F37's law). A refusal spoken as a window opened stood
       // over that window until it closed.
       if (dungeonCtx.uiOverlayActive) { dungeonCtx.hideHudText?.(); hideWorldPlaque(); dungeonCtx.tickOverlay(dt); host.drawPeerNames?.({ proj, view, eye: mwv.eye }); host.drawCompanionBars?.({ proj, view, eye: mwv.eye }); dungeonCtx.drawOverlay(canvas); return true; }   // U2b/U3: overlays gate the dungeon (AUDIT 18 F5: the overlay's own clock still runs)   // AUDIT-WH H4: and the plaque comes down on this line too - this return is ABOVE drawFoes, where the hover lives, so it hung frozen over every dungeon window showing a container's PRE-TAKE contents
-      dungeonCtx.drawFoes(dt, canvas, proj, view, cam.pos, player.pos, anyMove(moveHeld(keys)), player.height, !!player.isSneaking, motionBagOf(player), player.bobOffset ? player.bobOffset[1] : 0, !!player.crouching, player.feetAt());   // DISC13-A: the render feet, the candle's   // ROAD-H H1b: PlayerMotor.IsCrouching rides in beside the live height - the archer's 0.05 dip (DaggerfallMissile.cs:583-585) is the latched STATE, not a 0.9 capsule   // PX26 F4: the jump-state inputs the interior lane never sent - without them `grounded` read undefined, the rig thought the player was permanently airborne, and BOTH the movement selection and the jump play died in every interior   // moveHeld: the collision-trigger input gate (verbatim)   // C8 foes + S3b clock + S4b missiles - internally gated, must run foes or not (trap spells fire in empty dungeons)
+      dungeonCtx.drawFoes(dt, canvas, proj, view, cam.pos, player.pos, anyMove(moveHeld(keys)), player.height, !!player.isSneaking, motionBagOf(player), player.bobOffset ? player.bobOffset[1] : 0, !!player.crouching, player.feetAt(), climbRigInput(player, cam.yaw));   // DISC13-A: the render feet, the candle's   // CLIMB6: the climb's snapshot   // ROAD-H H1b: PlayerMotor.IsCrouching rides in beside the live height - the archer's 0.05 dip (DaggerfallMissile.cs:583-585) is the latched STATE, not a 0.9 capsule   // PX26 F4: the jump-state inputs the interior lane never sent - without them `grounded` read undefined, the rig thought the player was permanently airborne, and BOTH the movement selection and the jump play died in every interior   // moveHeld: the collision-trigger input gate (verbatim)   // C8 foes + S3b clock + S4b missiles - internally gated, must run foes or not (trap spells fire in empty dungeons)
       // WATER-D1: the water plane is drawn INSIDE drawFoes now, before the
       // weapon overlay - a draw here landed after the lane's resolve and
       // showed through every wall (dungeonContext.js's note at the draw).

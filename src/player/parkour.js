@@ -1285,9 +1285,14 @@ export function planWallRun(feet, run) {
  *  (PARKOUR_EDGE_DROP), asked every PARKOUR_LEAP_SCAN? The running leap's edge (a gap between roofs, a wall top's end). */
 export function senseDrop(collider, feet, dir, radius, ahead) {
   if (!collider?.surfaceHit) return false;
-  const top = feet[1] + PARKOUR_TOP_PROBE, reach = PARKOUR_TOP_PROBE + PARKOUR_EDGE_DROP;
+  // AUDIT CLIMB-ARC L1: each sample asked from the floor the last one found - a BREAK in the floor, not depth under the
+  // feet: a staircase falls a riser a tread and never reads as an edge (the running Jump down it was a 7-38 m leap)
+  const reach = PARKOUR_TOP_PROBE + PARKOUR_EDGE_DROP;
+  let prev = feet[1];
   for (let s = radius; s <= radius + ahead + 1e-9; s += PARKOUR_LEAP_SCAN) {
-    if (floorAt(collider, feet[0] + dir[0] * s, top, feet[2] + dir[2] * s, reach) == null) return true;
+    const y = floorAt(collider, feet[0] + dir[0] * s, prev + PARKOUR_TOP_PROBE, feet[2] + dir[2] * s, reach);
+    if (y == null) return true;
+    prev = y;
   }
   return false;
 }
