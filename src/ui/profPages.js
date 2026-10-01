@@ -242,7 +242,7 @@ export const GATHER_HOW = Object.freeze({
 });
 /** TOOL-SAID: the empty Stores say where their goods come from - a node's act (TOOL-USE: the key's, or the tool's Use
  *  there), never a tool used from the pack. */
-export const STORES_EMPTY_LINE = 'Your Stores are empty. What you gather online is kept here: press the use key at an herb patch, a tree, an ore vein or a boulder, a body you felled, or in water with a net - or use the Sickle, Basket, Pick-Axe, Wood-Axe or Fishing-Net from your hotbar or quick slot there. A tool used from your pack gathers nothing: it only points the way.';
+export const STORES_EMPTY_LINE = 'Your Stores are empty. What you gather online is kept here: press the use key at an herb patch, a tree, an ore vein or a boulder, a body you felled, or in water with a net - or use the Sickle, Basket, Pick-Axe, Wood-Axe, Skinning Knife or Fishing-Net from your hotbar or quick slot there. A tool used from your pack gathers nothing: it only points the way.';   // TOUCH-HOLD: the knife's Use
 /** A craft practised in part - what raises it now (none since PROF4: Smithing's is whole). */
 const PARTLY = Object.freeze({});
 
@@ -299,7 +299,8 @@ export function drawProfessionsPage(detail, rerender, kit) {
     // PROF7: Hunting's day is the account's (PROF0 6) - its hides, every character's together, and the rare ones
     const h = book.state.hunt ?? { hides: 0, high: 0 };
     pane.append(el('p', 'prof-today', `Today: ${h.hides} of ${book.state.caps?.hides ?? HIDES_PER_DAY} hides, ${h.high} of ${book.state.caps?.highHides ?? HIGH_HIDES_PER_DAY} of tiers 5-6 - your account's, across your characters`));
-    pane.append(el('p', 'px-note', 'A body your own blow felled, with a Skinning Knife in your pack: the act choice key searches it instead. Hold the use key on the first point of the line and draw the knife along it.'));
+    // TOUCH-HOLD: the knife's Use, as the Sickle's - it holds the knife, so the line is drawn with no key held
+    pane.append(el('p', 'px-note', 'A body your own blow felled, with a Skinning Knife in your pack: the act choice key searches it instead. Hold the use key on the first point of the line and draw the knife along it - or use the Skinning Knife from your hotbar or quick slot at the body: it holds the knife for you, and you draw the line by looking.'));
   } else if (_sel === 'fishing') {
     // PROF8: Fishing's day is the account's too (PROF0 6) - its hauls, every character's together
     pane.append(el('p', 'prof-today', `Today: ${book.state.hauls ?? 0} of ${book.state.caps?.hauls ?? HAULS_PER_DAY} hauls - your account's, across your characters`));

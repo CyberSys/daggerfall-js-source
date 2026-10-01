@@ -113,8 +113,9 @@ test('RENOWN4b the sheet: every number the model reads is the sheet\'s - the col
   // TOUCH-BUTTONS: the corner is laid by touchButtons.js - TI1's default at the 16..280 px it always held (Jump at 16,
   // F at 232), every control 48 tall on the 16 px bottom edge, and the model above takes the WIDEST corner a player
   // can choose (TOUCH_CORNER_MAX), so a third button cannot walk under the row
+  // PIN MOVED (2026-10-01 part four, TOUCH-HOLD): Interact in the third slot - F at 296, the corner ending at 344
   const def = layoutTouchCorner(touchButtonSlots(() => undefined), { mode: true, social: true });
-  assert.deepEqual([def.slots[0].right, def.social, def.extent], [16, 232, 280]);
+  assert.deepEqual([def.slots[0].right, def.social, def.extent], [16, 296, 344]);
   assert.ok(TOUCH_CORNER_MAX >= def.extent && TOUCH_CORNER_MAX === layoutTouchCorner([...Array(3)].map(() => TOUCH_BUTTON_ACTIONS.reduce((a, b) => ((b.w ?? 0) > (a.w ?? 0) ? b : a))), { mode: true, social: true }).extent);
   assert.match(T, /const at = \[edge\('right', right\), edge\('bottom', 16\), action\.w \?\? 60\];/);
   assert.match(T, /if \(hooks\.socialInteract\) socialBtn = button\('☺', edge\('right', hooks\.cycleMode \? 232 : 160\), edge\('bottom', 16\), 48,/);

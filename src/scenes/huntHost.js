@@ -25,7 +25,9 @@
 //   night); the machine is systems/traceAct.js - E held, the crosshair
 //   drawn along the line (attack is the weapon's, and DFU's swing modes
 //   hold the look still under it); the hand draws DFU's Dagger (FORAGE0
-//   14.2).
+//   14.2). TOUCH-HOLD: the Skinning Knife's Use from the hotbar or a
+//   quick slot is E at the body, and holds the knife itself - the line
+//   drawn with no key held (a phone's swipe, a pad's right stick).
 // ═══════════════════════════════════════════════════════════════════
 import { bodyKey, utcDayOfMs } from '../net/nodeLaw.js';
 import {
@@ -174,22 +176,26 @@ export function huntKind({ book, bodies, openLoot = null }) {
     marksLoose: true,
     choose(b) { if (lootChoice || searchable(b)) lootChoice = !lootChoice; },   // AUDIT 32 H8: never a search of nothing
     retarget() { lootChoice = false; },
-    plan(b, { rank, keyLabel, pitch = null }) {
+    /** TOUCH-HOLD (2026-10-01 part four - Mac: "Interact button + knife Use"): the Skinning Knife's Use at a body is E
+     *  there (TOOL-USE) - a phone and a pad had no E to start Hunting with, nor to hold while the line was drawn. */
+    tools: Object.freeze([SKINNING_KNIFE.templateIndex]),
+    plan(b, { rank, keyLabel, pitch = null, tool = null }) {
       if (lootChoice && !searchable(b)) lootChoice = false;   // emptied under the search: the knife's again
+      const byKnife = tool === SKINNING_KNIFE.templateIndex;   // TOUCH-HOLD: the knife's Use skins, whatever the choice key picked - the pick unmoved
       const hunt = book.state.hunt ?? { hides: 0, high: 0 };
       const plan = huntPlan({
         body: b, taken: book.taken(b.key, 'hide'), counting: book.counting(b.key, 'hide'), rank: rank('hunting'),
-        storesFull: (key) => storesFullIn(book, key), hides: hunt.hides ?? 0, high: hunt.high ?? 0, loot: lootChoice,   // STORES-ROOM: every origin, as the service counts
+        storesFull: (key) => storesFullIn(book, key), hides: hunt.hides ?? 0, high: hunt.high ?? 0, loot: lootChoice && !byKnife,   // STORES-ROOM: every origin, as the service counts
         where: actChecksRefusal(KNIFE_WHERE, KNIFE_WHERE_WORDS),   // AUDIT 32 H4: a settlement or the sea - E the loot's
         steep: Number.isFinite(pitch) && pitch < BODY_STEEPEST_DEG,   // AUDIT 32 H7: stood over, its line out of the look's reach
       });
-      const key = openLoot && lootChoice ? b.lootKey() : null;
+      const key = openLoot && lootChoice && !byKnife ? b.lootKey() : null;
       return {
         ...plan, profession: 'hunting', alt: searchable(b) ? `[${keyLabel('ActChoice')}] ${lootChoice ? 'skin it' : 'search the body'}` : '',
         ...(key ? { open: () => openLoot?.(key) } : {}),   // AUDIT 32 H8: the search opens the body's own loot by its key
       };
     },
-    start(b, plan, { entity, rank, keyLabel }) {
+    start(b, plan, { entity, rank, keyLabel, tool: used = null }) {
       const refusal = actChecksRefusal(KNIFE_CHECKS, KNIFE_REFUSALS);
       if (refusal) return { refused: refusal };
       return {
@@ -198,7 +204,10 @@ export function huntKind({ book, bodies, openLoot = null }) {
           band: knifeBand({ intelligence: liveStat(entity, 'intelligence'), agility: liveStat(entity, 'agility') }),
           gentle: getPref('gentleActs') === true,
         }),
-        harvest: plan.harvest, tool: foragingToolIn(entity, SKINNING_KNIFE.templateIndex), profession: 'hunting', label: keyLabel('Interact'),   // the key the meter says to hold
+        // the key the meter says to hold - TOUCH-HOLD: none when the knife's Use holds it, as the Sickle's holds the steady
+        // hand (the crosshair drawn by the mouse, the right stick or a finger's swipe, no key held)
+        harvest: plan.harvest, tool: foragingToolIn(entity, SKINNING_KNIFE.templateIndex), profession: 'hunting', label: used ? '' : keyLabel('Interact'),
+        heldByUse: !!used,
         ask: { foe: b.foe },   // the harvest names the foe the body is (PROF0 6: the tier is the client's claim)
         hand: (a) => (a.tool ? KNIFE_HAND : null),
       };

@@ -656,7 +656,7 @@ export function createGatherHost(deps) {
         const here = act.dungeon ? inDungeon() : deps.active();
         if (act.act.state.cancelled || away || !here) { act = null; hud.setMeter(null); hud.toast(ACT_STOPPED_LINE); }   // GATHER-SAID: said, never only the meter gone (Escape ends it in `cancel`, unsaid)
         else if (act.act.state.done) finish(act);
-        else hud.setMeter(act.act, act.label ?? '');
+        else hud.setMeter(act.act, act.label ?? '', { byUse: act.heldByUse === true });   // TOUCH-HOLD: a Use's hold says no key
         hud.setPrompt(null);
       } else {
         target = deps.active() || inDungeon() ? findTarget() : null;

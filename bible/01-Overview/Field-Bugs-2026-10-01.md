@@ -965,7 +965,7 @@ records, the fill now last), and those the new code moved: `audit32.json` P6 (tw
 the Weavers' door, `touch_buttons.json` A1's window gate; `auditnav2_helm.json` F31 aims at `activate`'s guard alone
 (`takesActivate` words its own). Part four's one stray space (`lootRarity.js` affixesWorth) is put back (lane 1).
 
-**Asked** (design, Mac's to call):
+**Asked** (design, Mac's to call - and called: the next section):
 
 1. **TOUCH-HOLD** (lanes 2, 3, 4). No Interact exists on a phone or in the pad's shipped layouts, and E is the
    professions' start and their hold. On those devices a common herb (no tool picks it) cannot be started, Hunting
@@ -994,3 +994,59 @@ the Weavers' door, `touch_buttons.json` A1's window gate; `auditnav2_helm.json` 
    `bad-qty` words name the withdrawal's 200 where a smelt and a stock stop at 100 - unreachable through the pages
    (lane 5 L5).
 
+## TOUCH-HOLD and HERB-XP: Mac's calls
+
+Asked as the audit closed, each with its options: TOUCH-HOLD - Mac: **"Interact button + knife Use"**; HERB-XP - Mac:
+**"XP follows your rank"**. Both built.
+
+**TOUCH-HOLD.** A phone and a pad could not play a common herb, Hunting or the net's haul: E is the professions' start
+and their hold, and neither had an E.
+
+- **The touch corner.** Its third slot - empty by default - is Interact (`ui/touchButtons.js`: glyph E, a HOLD slot,
+  so the Interact action's live key is down while the finger is; `systems/uiPrefs.js`). A choice on the Touch card like
+  any other. The default corner runs 16..344 px (the mode cycle and F a slot further in), inside the widest corner the
+  HUD keeps clear of (`TOUCH_CORNER_MAX`, 392).
+- **The pad, classic layer.** B is Interact in the world (`systems/inputActions.js` `DEFAULT_SECONDARY_BINDINGS` - a
+  PAD1 row, filled into an old file at the next load). B did nothing in the world: DFU's Back answers only while a
+  window is up, and a window's press never reaches the world's edge ring (`ui/input.js`); in a window it is Back still.
+- **The pad, Enhanced Plus.** Every button held a row, so LT is Interact (`ui/plusPad.js`, layout 2): a trigger holds
+  while the right thumb draws the knife's line. Recast, which LT held, is the d-pad's right held (`PLUS_DPAD_DEFAULTS`
+  - so right's tap, Rest, fires on its release, as up's, down's and left's do). A store on layout 1 moves once, taking
+  back layout 1's Recast on LT where it still stands (`PLUS_PAD_RETIRED`); a row the player set themselves stands. The
+  Controller bindings window has an Interact row (`ui/plusPadBinds.js`).
+- **The prompts.** With a pad in hand the professions' prompts, meters and tool lines name its button - "[LT] Pick Red
+  Rose", "hold B and keep still" - as the sea's readout names its own (AUDIT NAV1); else the key (`scenes/world.js`
+  `actKeyWord`). They said "[E]" to a hand holding no keyboard.
+- **The Skinning Knife's Use.** From the hotbar or a quick slot at a body it is E there (TOOL-USE - `scenes/huntHost.js`
+  `tools`, `systems/foragingInstall.js` the knife's use handler and its line), and it HOLDS the knife, as the Sickle's
+  Use holds the steady hand: the line is drawn by the look alone - a swipe, the right stick, the mouse - with no key held
+  (`heldByUse`); the meter says "aim the knife at the first point", never a key (`ui/profHud.js` `byUse`). It skins
+  whatever the choice key picked, the pick unmoved; away from a body it says where Hunting is done; offline, or with the
+  professions shut, it has no Use (the knife is the professions' alone). The Hunting card and the empty Stores say so.
+
+So on a phone: a common herb is a press of the E button; an uncommon or rare herb the Sickle's Use (or E held); Hunting
+the knife's Use, the line drawn with a swipe; the net's haul E held to raise the band; the sea's E the same button. On a
+pad the same through B (classic) or LT (Plus).
+
+**HERB-XP.** A herb is picked at the highest tier the rank opens, as a haul is worked (`src/net/professionLaw.js`
+`herbXpTier`, the service's harvest): every herb a rank may pick is worth 15 x the rank's tier, x1.5 picked clean, never a
+quarter. At rank 70 a common herb is 90 and an uncommon one picked clean 135 (they were 3 and 11); 70 to 100 is some nine
+days of sixty plain herbs, where it was 107 on confirmed ground. Below rank 10 nothing changes; from it a common herb is
+worth the rank's tier too (30 at rank 10, where it was 15) - Fishing's law exactly. The herb's own tier still opens it
+and is the harvest's row. **The Basket's food keeps its tier** (not asked: at rank 70 a full search is 5) - it is
+Foraging's food search, not a herb.
+
+**The service's version.** HERB-XP is the account service's law, and so was ANY-HOUR - which shipped in part four's
+first audit commit without moving `ACCOUNT_VERSION` (its law says every change to the Worker's moves it, or a deploy
+that did not happen looks like one that did). Both ride **acct45** (`server-account/src/service.js`, `wrangler.toml`);
+no migration, no route changed.
+
+Pins: `test/fb1001_touchhold.test.js` (7), `test/fb1001_herbxp.test.js` (3); mutants
+`tools/mutants/fb1001_touchhold.json` (21), `fb1001_herbxp.json` (6) - all dead. PIN MOVED, each by content: `prof1_service`
+(a common herb at rank 10: 30), `pad1` PAD1-C (B's UI action is Back, a window's alone - A, X and Y keep DFU's clicks),
+`padplus1` PADPLUS3 (right's tap on its release), `touchbuttons` (the law; the default corner), `renown4b` (the corner
+16..344), `touchinput` TI1 (the defaults), `fb0930b_toolsaid` (the knife's line among the tools'; the empty Stores' words),
+`prof7_client` (the key named unless the knife's Use holds it), `audit0928_input` (Controls.md's Interact row - its Pad
+cell, from the registry), and the nine account-version pins (acct45). Mutant record re-aimed by content, dead:
+`fb0930b_toolsaid.json` TOOL-SAID-the-world-never-says-the-professions-are-open. `actKeyWord`'s pad line is worded its
+own so `navaudit_presentation.json` NAVP-pad-keys-named-as-keys names one site still (MUT-AIM).

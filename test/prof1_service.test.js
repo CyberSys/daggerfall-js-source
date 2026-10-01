@@ -164,7 +164,8 @@ test('PROF1 service: the rank - an uncommon herb wants Herbalism 10; unbruised i
   assert.equal(bruised.body.xp, 30, 'a bruise is never clean, whatever the report says');
   const c = patchOfTier(1);
   const common = await s.call('/v1/prof/harvest', harvestBody(mac, c, { act: { clean: true, bruised: true } }), mac.secret);
-  assert.equal(common.body.xp, 15, 'a common herb comes up by hand: no moment, no bruise');
+  // PIN MOVED (2026-10-01 part four, HERB-XP - Mac: "XP follows your rank"): picked at the rank's tier, 2 at rank 10
+  assert.equal(common.body.xp, 30, 'a common herb comes up by hand: no moment, no bruise - 15 x 2, never the clean act\'s +50%');
 });
 
 test('PROF1 service: the day\'s cap - sixty harvests a character, the sixty-first refused; the Stores\' room - full refuses, nearly full cuts the yield to fit', async (t) => {

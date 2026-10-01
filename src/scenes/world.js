@@ -6638,6 +6638,16 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  words the Controls page shows it (AUDIT DEEP T1-12's reading, the travel view's hint); a pad's button is no key
    *  to print, so the hint names the action instead (CSA-L's helm panel, csaKeyLabel's law). */
   const navalKeyName = (action) => { const c = codeForAction(bindings(), action); return c && !/^Joystick/.test(c) ? buttonText(c, true) : null; };
+  /** TOUCH-HOLD (2026-10-01 part four - Mac: "Interact button + knife Use"): an action's key as the professions' prompts
+   *  and lines name it - with a pad in hand the pad button it is on (B, LT, Circle), as the sea's readout names its own
+   *  (AUDIT NAV1); else the key; null for none. The prompt said "[E]" to a hand holding no keyboard. */
+  const actKeyWord = (action) => {
+    const padHeld = controllerLook() ? padFamily() : null;   // the pad's family, while it is the hand on the game
+    const pad = padHeld ? getBinding(bindings(), action, false) : null;
+    if (pad && /^Joystick/.test(pad)) return hdGlyphName(padHeld, pad);
+    const c = getBinding(bindings(), action);
+    return c ? tagText(c) : null;
+  };
   /** Open water deep enough for a hull at a scene point: a water tile of a built pixel - and, where Iliac Puddle No
    *  More carved the sea, a floor at least that hull's draft under the surface (-1: the surface alone). */
   const navalIsWater = (x, z, hull = 0) => {
@@ -8025,7 +8035,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         view: () => ({ yaw: (cam.yaw * 180) / Math.PI, pitch: (cam.pitch * 180) / Math.PI }),
         feet: () => (walkMode ? player.pos : cam.pos),
         entity: () => playerEntity,
-        keyLabel: (a) => { const c = getBinding(bindings(), a); return c ? tagText(c) : '?'; },
+        keyLabel: (a) => actKeyWord(a) ?? '?',   // TOUCH-HOLD: a pad in hand, its button
         // ACT-CLICK (FIELD BUGS 2026-10-01, "minig is broken doesnt work"): the act's strike is the swing's button OR the
         // activation's - mid-act a click was the act's and nothing else (AUDIT 32 H5), so a player who clicked struck nothing
         input: () => ({ held: held(keys, 'Interact'), attack: pressed(latch.edge, keys, 'SwingWeapon') || pressed(latch.edge, keys, 'ActivateCenterObject'), choice: !csaRuntime?.isSailing() && pressed(latch.edge, keys, 'ActChoice') }),   // HELM-KEYS: a helm's hands are on the wheel - the up arrow there is More sail's (inputActions.js DEFAULT_SHARES)
@@ -14733,7 +14743,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     },
     // FIELD BUGS 2026-09-30b (TOOL-SAID, TOOL-USE): the professions this account's, the keys the prompt names, and a tool's Use at its own node E there
     professionsOpen: () => profBook?.state.open === true,
-    keyLabel: (a) => { const c = getBinding(bindings(), a); return c ? tagText(c) : null; },
+    keyLabel: (a) => actKeyWord(a),   // TOUCH-HOLD: a pad in hand, its button
     professionUse: (t) => gatherHost?.useTool(t) ?? false,   // the gathering host's act, or what the node needs
   });
   // WA1: the mod's reaches into GameManager and DaggerfallBankManager, answered by this host (systems/warmAshesShips.js)

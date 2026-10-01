@@ -115,8 +115,9 @@ export function createProfHud({ doc = globalThis.document } = {}) {
       if (p.rest) { const d = doc.createElement('span'); d.className = 'dim'; d.textContent = ` - ${p.rest}`; prompt.append(d); }
       if (p.alt) { const d = doc.createElement('span'); d.className = 'dim prof-alt'; d.textContent = `   ${p.alt}`; prompt.append(d); }   // AUDIT 32 P9: its own line on a phone
     },
-    /** The meter for an act (systems/herbAct.js), or null to take it down. `label` the act's words. */
-    setMeter(act, label = '') {
+    /** The meter for an act (systems/herbAct.js), or null to take it down. `label` the act's words; `byUse` - TOUCH-HOLD:
+     *  a tool's Use holds the act (no key to hold). */
+    setMeter(act, label = '', { byUse = false } = {}) {
       if (!act) { meter.hidden = true; meter.replaceChildren(); return; }
       meter.hidden = false;
       const st = act.state;
@@ -192,7 +193,7 @@ export function createProfHud({ doc = globalThis.document } = {}) {
           fill.style.width = `${Math.round(act.progress * 100)}%`;
           bar.append(fill);
           const hint = mk('prof-hint');
-          hint.textContent = `hold ${key}`;
+          hint.textContent = byUse ? 'skinning...' : `hold ${key}`;   // TOUCH-HOLD: the knife's Use holds it
           meter.append(bar, hint);
           return;
         }
@@ -232,7 +233,8 @@ export function createProfHud({ doc = globalThis.document } = {}) {
         }
         const hint = mk('prof-hint');
         // AUDIT 32 P10: a slip said - the trace let go before the last point starts again, and the meter said only its start
-        hint.textContent = st.tracing ? 'draw the knife along the line' : st.slips > 0 ? `let go - hold ${key} on the first point again` : `hold ${key} on the first point`;
+        // TOUCH-HOLD: the knife's Use holds it - no key to hold, the knife only aimed (a held Use never slips)
+        hint.textContent = st.tracing ? 'draw the knife along the line' : byUse ? 'aim the knife at the first point' : st.slips > 0 ? `let go - hold ${key} on the first point again` : `hold ${key} on the first point`;
         meter.append(face, hint);
         return;
       }

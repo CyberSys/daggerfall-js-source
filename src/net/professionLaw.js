@@ -91,6 +91,11 @@ export function harvestXp(tier, rank, clean) {
   if (tier < topTierOf(rank) - 2) xp = Math.floor(xp / 4);
   return xp;
 }
+/** HERB-XP (2026-10-01 part four - Mac: "XP follows your rank"): a herb is picked at the highest tier the rank opens, as
+ *  a haul is worked (haulTier). Herbs stop at tier 3, and harvestXp quarters a tier more than two below the rank's, so
+ *  past rank 70 every herb was worth a quarter (3, 11 and 16 XP) and 70 to 100 took 107 full days. The herb's own tier
+ *  still opens it (tierOpen) and is the harvest's; the Basket's food keeps its tier. */
+export const herbXpTier = (rank) => topTierOf(rank);
 /** A writ's XP: twice its Mark value - its pay (PROF0 3.2), to the profession its material is gathered by. */
 export const writXp = (pay) => 2 * pay;
 /** The crafter's limit (PROF0 3.2): two crafts above Journeyman. The crafts come with PROF3; the tab says it now. */

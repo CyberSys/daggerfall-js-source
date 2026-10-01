@@ -282,7 +282,7 @@
   {
     "name": "TOOL-SAID-the-world-never-says-the-professions-are-open",
     "file": "src/scenes/world.js",
-    "old": "    professionsOpen: () => profBook?.state.open === true,\n    keyLabel: (a) => { const c = getBinding(bindings(), a); return c ? tagText(c) : null; },",
+    "old": "    professionsOpen: () => profBook?.state.open === true,\n    keyLabel: (a) => actKeyWord(a),   // TOUCH-HOLD: a pad in hand, its button",
     "new": "",
     "tests": ["test/fb0930b_toolsaid.test.js"]
   },

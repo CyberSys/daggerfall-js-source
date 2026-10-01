@@ -51,6 +51,7 @@ import {
   glintsMax, smeltRecipe, SMELT_MAX, smeltXp, craftXpCap, HARVESTS_PER_ACCOUNT_DAY, DEEP_UNCONFIRMED_PER_DAY,
   stockOf, STOCK_MAX, withdrawable, cutsMax, workPer, workSpecRank, hideOfFoe, HIDES_PER_DAY, HIGH_HIDES_PER_DAY, HIGH_HIDE_TIER,
   HAULS_PER_DAY, HAUL_YIELD, FISH_KEY, haulTier,   // PROF8
+  herbXpTier,   // HERB-XP
 } from '../../src/net/professionLaw.js';
 import {
   recipeById, recipeOpen, qualityOdds, rollQuality, qualitySteps, craftQuality, takesQuality, craftXp, craftCount,
@@ -363,6 +364,7 @@ export async function harvestNode(ctx, player, env, body = {}) {
   const march = !deep && !isBody && confirmed && isMarch(region);
   const roll = (lo, hi) => lo + Math.floor(dice(rand) * (hi - lo + 1));
   let tier, key2, qty, clean, gem = null, extra = null, extraQty = 1, trophy = 0;
+  let xpTier = /** @type {number|null} */ (null);   // HERB-XP: the tier the XP is reckoned at, where it is not the node's
   if (isHaul) {
     // PROF8: THE NET - a haul's Raw Fish, worked at the rank's own tier (Mac: "XP follows your rank"); a full net x1.5
     // (the act's bound); a school's fish; at sea on confirmed ground a Pearl and a Slaughterfish; a trophy anywhere
@@ -408,6 +410,7 @@ export async function harvestNode(ctx, player, env, body = {}) {
     if (kind === 'herbs') {
       tier = patch.tier;
       if (!tierOpen(rank, tier)) return { error: 'prof-rank' };
+      xpTier = herbXpTier(rank);   // HERB-XP (Mac: "XP follows your rank"): picked at the rank's own tier, as a haul is worked
       key2 = herbKey(patch.herb, region);
       const common = tier === 1;
       // the steady hand's report, bounded: an uncommon or rare herb unbruised is the clean act; a bruised one yields one
@@ -450,7 +453,7 @@ export async function harvestNode(ctx, player, env, body = {}) {
     }
   }
   if (!key2) return { error: 'bad-node' };
-  const xp = harvestXp(tier, rank, clean);
+  const xp = harvestXp(xpTier ?? tier, rank, clean);
   const nonce = mintId(rand);
   const deepUnconfirmed = deep && !confirmed ? 1 : 0;
   const mine = 'player = ?1 AND rid = ?2 AND n = ?3';

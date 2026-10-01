@@ -109,7 +109,9 @@ the corpses - FORAGE3), and online the quests' time as a wait (FORAGE4). Foragin
 - XP to reach rank n: **10 x n^2** (Apprentice 6,250; Journeyman 25,000; Expert 56,250; Master 100,000).
 - XP earned: a harvest **15 x tier** (+50% for a clean act); a craft **20 x tier x units**, **+500** the first time
   a recipe is made; a writ **2 x its Mark value**. A node or recipe more than two tiers below your rank gives a
-  quarter. DECIDED, AUDIT 32 S1 - Mac: "Whatever you think is best": **no +500 for a recipe made wholly of goods
+  quarter. DECIDED, Mac: "XP follows your rank" - **a haul (PROF8) and a herb (HERB-XP, 2026-10-01 part four) are worked
+  at the highest tier the rank opens**: every haul is tier 1 and herbs stop at tier 3, so their own tiers would have
+  held Fishing at a Novice's pace and quartered every herb past rank 70 (the Basket's food keeps its tier). DECIDED, AUDIT 32 S1 - Mac: "Whatever you think is best": **no +500 for a recipe made wholly of goods
   only a counter sells** (4.5's Linen and Wool, never gathered) - the counter's supply has no end, and 152 recipes of
   it bought Outfitting 87 for 811 Marks.
 - All XP is service-witnessed: the service performed the harvest, the craft, the delivery.
@@ -2600,16 +2602,20 @@ four (its last section). What the arc's laws now say, by section:
   32 P6's Marks gates (COUNTER-GATES); the pad presses the pages on every skin (PAD-CLASSIC).
 - **At sea**: E is the sea's first - a struck ship's rail, a prize, the grapples - and the net's cast only when the sea
   has nothing (NAVAL-E).
-- **Asked**: TOUCH-HOLD (no Interact on a phone or in the pad's shipped layouts: a common herb, Hunting and the net's
-  haul cannot be played there) and HERB-XP (past rank 70 every herb is worth a quarter).
+- **Asked, and called** (the record's last section): **TOUCH-HOLD** - Mac: "Interact button + knife Use": the touch
+  corner's third slot is Interact by default; on a pad B is Interact in the world (classic) and LT under Enhanced Plus
+  (layout 2 - Recast the d-pad's right held); the professions' prompts name the pad's button while it is in hand; the
+  Skinning Knife's Use from the hotbar or a quick slot is E at a body and holds the knife - the line drawn by the look
+  alone (5's acts, as the Sickle's Use holds the steady hand). **HERB-XP** - Mac: "XP follows your rank": a herb is
+  picked at the highest tier the rank opens, as a haul is worked (3.2). Both, with ANY-HOUR, are the service's acct45.
 
 ## Appendix A - a day of a gatherer
 
-Ilsa, a Journeyman herbalist and Apprentice miner in Anticlere (a march), sets out at seven, when the wilderness opens. The board's Work tab has a
+Ilsa, a Journeyman herbalist and Apprentice miner in Anticlere (a march), sets out at seven (ANY-HOUR: the wilderness keeps no hours now - seven is her habit). The board's Work tab has a
 Court writ for 30 Red Poppies (uncommon, tier 2: 30 x 2 x 1.2 = 72 Marks) and the Market's poppy median is 3. She walks
 the woods east of town: Woodlands pixels, four herb patches each. Kneeling at a Red Rose she holds the sickle steady -
-the meter fills, unbruised. By noon she has 34 Red Poppies (the march's +25%), 60 of 60 of today's herbs, and some 1,800
-Herbalism XP. She delivers 30 poppies at Anticlere's board (72 Marks and 112 Renown XP - MERGE 2: 150 at the full rate, before RENOWN-ACCOUNT's three quarters; a Court writ gives no
+the meter fills, unbruised. By noon she has 34 Red Poppies (the march's +25%), 60 of 60 of today's herbs, and some 4,000
+Herbalism XP (HERB-XP: every herb at her rank's tier 4 - 60 a herb, 90 unbruised; it was some 1,800). She delivers 30 poppies at Anticlere's board (72 Marks and 112 Renown XP - MERGE 2: 150 at the full rate, before RENOWN-ACCOUNT's three quarters; a Court writ gives no
 influence - only a seat's own writs do), lists 4 Golden Poppies at 12 Marks each, and spends the afternoon at the vein
 on the hill: an Iron vein, the march's +25% on it - two strikes, both on the glint (a clean finish), and an Amber (Woodlands' gem).
 At dusk the hub warns of a Motherlode in the Wrothgarian foothills in ten minutes; she is too far. Tomorrow.
@@ -2621,7 +2627,7 @@ At dusk the hub warns of a Motherlode in the Wrothgarian foothills in ten minute
 | Template range | 600-699 (the Skinning Knife 603; the other tools are Foraging's 1600-1603, 1607) |
 | Ranks | Novice 0, Apprentice 25, Journeyman 50, Expert 75, Master 100 |
 | XP to rank n | 10 x n^2 |
-| XP a harvest / a craft / a first craft / a writ | 15 x tier (+50% clean; a quarter for a node or recipe more than two tiers below the rank's top) / 20 x tier a craft (AUDIT 30 R4: this row said x units) / +500 (AUDIT 32 S1: none for a recipe made wholly of goods only a counter sells) / 2 x Marks value; answered as credited (AUDIT 29) |
+| XP a harvest / a craft / a first craft / a writ | 15 x tier (+50% clean; a quarter for a node or recipe more than two tiers below the rank's top; a haul and a herb at the rank's own tier - PROF8, HERB-XP) / 20 x tier a craft (AUDIT 30 R4: this row said x units) / +500 (AUDIT 32 S1: none for a recipe made wholly of goods only a counter sells) / 2 x Marks value; answered as credited (AUDIT 29) |
 | Tier ranks | 0, 10, 25, 40, 55, 70, 90 |
 | Crafts above Journeyman | 2 |
 | Respecialisation | 1,000 Marks, 7 days |

@@ -417,7 +417,8 @@ test('TOOL-USE keeps the lanes: offline, and online with the professions closed 
     assert.match(s.started[0] ?? '', /^GraveRobbingQuest/, 'the Spade robs the grave (FORAGE0 14.2, 14.8)');
     assert.equal(r?.text ?? null, null);
     assert.deepEqual([professionToolLine(FT.Spade), s.used], [null, 0]);
-    assert.deepEqual(Object.keys(PROFESSION_TOOL_HOW).map(Number).sort((a, b) => a - b), [...PROFESSION_TOOLS].sort((a, b) => a - b));
+    // PIN MOVED (2026-10-01 part four, TOUCH-HOLD - Mac: "Interact button + knife Use"): and the Skinning Knife's, 603
+    assert.deepEqual(Object.keys(PROFESSION_TOOL_HOW).map(Number).sort((a, b) => a - b), [...PROFESSION_TOOLS, 603].sort((a, b) => a - b));
   } finally { s.done(); }
 });
 
@@ -455,7 +456,8 @@ test('TOOL-USE: the Professions page says a tool\'s Use at the node is the key\'
   assert.match(GATHER_HOW.mining, /Using the Pick-Axe from your hotbar or quick slot there is the same as the key\. Used from your pack, it only points the way\.$/);
   assert.match(GATHER_HOW.logging, /Using the Wood-Axe from your hotbar or quick slot there is the same as the key\. Used from your pack, it only points the way\.$/);
   for (const k of ['herbalism', 'mining', 'logging']) assert.doesNotMatch(GATHER_HOW[k], /Foraging|earns no XP/);
-  assert.match(STORES_EMPTY_LINE, /or use the Sickle, Basket, Pick-Axe, Wood-Axe or Fishing-Net from your hotbar or quick slot there\. A tool used from your pack gathers nothing: it only points the way\.$/);
+  // PIN MOVED (2026-10-01 part four, TOUCH-HOLD): and the Skinning Knife's Use
+  assert.match(STORES_EMPTY_LINE, /or use the Sickle, Basket, Pick-Axe, Wood-Axe, Skinning Knife or Fishing-Net from your hotbar or quick slot there\. A tool used from your pack gathers nothing: it only points the way\.$/);
   const src = readFileSync(new URL('../src/ui/profPages.js', import.meta.url), 'utf8');
   assert.match(src, /if \(GATHER_HOW\[_sel\]\) pane\.append\(el\('p', 'px-note', GATHER_HOW\[_sel\]\)\);/);
   assert.match(src, /: STORES_EMPTY_LINE\)\);/);

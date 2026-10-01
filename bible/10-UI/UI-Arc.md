@@ -957,7 +957,7 @@ does the pack's USE arm.
                         close-then-hand-over ordering U55 got
                         backwards. No law needs extracting first.
     THE LOGBOOK         THREE sites: charSheetNav.js:53,
-    / NOTEBOOK          world.js:12158, dungeonContext.js:8257. A seam
+    / NOTEBOOK          world.js:12168, dungeonContext.js:8257. A seam
                         wants making, as U52's and U53's did.
     HISTORY             ONE site (charSheetNav.js:61), and it reads
                         only the entity's backStory. The small one.
@@ -10129,7 +10129,7 @@ than because the screen agrees with a narrower port.
 stays unbuilt - an owner call, unchanged: the port has no gamepad layer
 at all, the serialized joystick blocks are simply absent from
 `KeyBindData_v1`, and the flag that says so is
-`src/systems/inputActions.js:1485`. The JOYSTICK tab still answers with
+`src/systems/inputActions.js:1493`. The JOYSTICK tab still answers with
 its note, and Ledger `:593`'s live clause now names that window alone.
 `weaponSensitivitySlider` is commented out in DFU itself (:42, :355) -
 nine controls are built, the tenth is a stub - and
@@ -10674,9 +10674,9 @@ re-resolved the `exterior.js` half of a three-file sentence and left the
 `ExteriorAutomapWindow` construction, `:4101` on a `locationName:`
 field). Both halves are now read by `test/citedrift.test.js` - the
 existing entries only ever captured the exterior number, which is how
-the other half went stale unnoticed. (The rest cite named `world.js:12578`,
+the other half went stale unnoticed. (The rest cite named `world.js:12588`,
 the first of the host's TWO identical `act === 'Rest'` arms; ROAD-H H5
-deleted the second and the cite is `world.js:12584` now.)
+deleted the second and the cite is `world.js:12594` now.)
 
 ## AUDIT 62 F24/F25 - THE SENTINEL SWEEP WAS TWO WINDOWS SHORT (2026-09-07)
 
@@ -10850,7 +10850,7 @@ if (alt.ContainsKey(code)) alt.Remove(code);        // InputManager.cs:729-734
 - and for a SECONDARY write the "other" dict IS the primary, so a
 secondary Jump written onto `ShiftLeft` deletes Run's primary row, and
 the reverse order deletes Jump's secondary row by the same line. The
-port carries it at `inputActions.js:937-938`. Either order collapses the
+port carries it at `inputActions.js:945-946`. Either order collapses the
 pair.
 
 The route that DOES produce it is the LOAD path. `LoadActionKeybinds`
@@ -10861,7 +10861,7 @@ if (!dict.ContainsKey(key) && actionVal != Actions.Unknown)
     dict.Add(key, actionVal);                       // InputManager.cs:1950-1969
 ```
 
-- ported at `inputActions.js:1173-1183`, whose own comment already said
+- ported at `inputActions.js:1181-1191`, whose own comment already said
 "Raw map-set, NOT setBinding". So a hand-edited `KeyBindings.txt` that
 puts Jump on the run key as a SECONDARY, with the primary `Space` spent
 on something else, loads exactly as written; and it SURVIVES the
@@ -15575,9 +15575,9 @@ whether an entry MATCHES and asserts nothing.
 Following it out was worse than the symptom. Five Ledger rows cite a
 PAIR - `` `world.js:N`, `exterior.js:M` `` - and the table captured `M`
 alone. So `M` was re-resolved at every wave for a year and `N` was never
-read: `world.js:10132` named a line that is 8950, `:1620` one that is
+read: `world.js:10142` named a line that is 8950, `:1620` one that is
 1215, `:1094` one that is 2194, `:3903` one that is 3066, `:3920` one
-that is 8907. `world.js:9866-9898` and `dungeonContext.js:1675` were
+that is 8907. `world.js:9876-9908` and `dungeonContext.js:1675` were
 stale the same way. Seven numbers re-resolved BY CONTENT, every
 uncaptured half de-baked to `\d+`, and eight new entries added so every
 number in a pair is captured. The half nobody reads cannot rot in

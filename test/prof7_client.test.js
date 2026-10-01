@@ -511,7 +511,8 @@ test('PROF7 wiring: the street and the dungeon stamp and list their bodies for H
   assert.match(w, /\? bodiesOf\(modes\?\.dungeonCtx\?\.foes, bodyStamps, \(f\) => modes\?\.dungeonCtx\?\.corpseAt\?\.\(f\), \(f\) => modes\?\.dungeonCtx\?\.corpseKeyOf\?\.\(f\)\)[^\n]*\n\s*: bodiesOf\(exteriorFoes\.foes, bodyStamps, exteriorFoes\.corpseAt, exteriorFoes\.corpseKeyOf\)\);/);
   assert.match(src('src/scenes/exteriorFoes.js'), /corpseAt: corpseLens\.feetOf,/, 'where a body lies has one home (DT1)');
   assert.doesNotMatch(w, /held\(keys, 'SwingWeapon'\)/, 'the knife is drawn with E held - attack is the weapon\'s, and its swing modes hold the look');
-  assert.match(src('src/scenes/huntHost.js'), /profession: 'hunting', label: keyLabel\('Interact'\),/);
+  // PIN MOVED (2026-10-01 part four, TOUCH-HOLD): the key named unless the knife's Use holds it
+  assert.match(src('src/scenes/huntHost.js'), /profession: 'hunting', label: used \? '' : keyLabel\('Interact'\),/);
   assert.match(w, /loom: \(\) => modes\?\.loomHere\?\.\(\) \?\? null,/);
   assert.match(w, /stitchBand: \(\) => stitchBand\(\{ agility: liveStat\(playerEntity, 'agility'\), speed: liveStat\(playerEntity, 'speed'\) \}\),/);
   assert.match(w, /clothing: \(\) => \(playerEntity\?\.gender === 'female' \? 'WomensClothing' : 'MensClothing'\),/);
