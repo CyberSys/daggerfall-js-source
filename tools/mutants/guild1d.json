@@ -84,11 +84,12 @@
   {
     "name": "GUILD1d-keeps-no-hall",
     "file": "server-account/src/guilds.js",
-    "old": "\n  OR EXISTS (SELECT 1 FROM homes WHERE guild_id = ${p}))`;",
-    "new": "\n  OR 0)`;",
+    "old": "\n  OR EXISTS (SELECT 1 FROM homes WHERE guild_id = ${p})   -- GUILD1d",
+    "new": "\n  OR 0   -- GUILD1d",
     "tests": [
       "test/guild1d_service.test.js"
-    ]
+    ],
+    "note": "SEAT1c (PIN MOVED): re-aimed by content."
   },
   {
     "name": "GUILD1d-sale-no-deed-share",

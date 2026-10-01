@@ -1137,7 +1137,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     : null;
   /** SEAT1a: the seat a location IS, while the seats are open to this account - off the client's own derivation (a seat
    *  it lacks is never drawn, listed or honoured). */
-  const seatHere = (mapId) => (seatBook?.open === true ? seatAtMapId(townSeats, mapId) : null);
+  const seatHere = (mapId) => (seatBook?.open === true ? seatBook.dressed(seatAtMapId(townSeats, mapId)) : null);   // SEAT1c: dressed in its holder
   // PROF1 (bible/06-Systems/Professions-Arc.md 22): this character's professions - its tracks, Stores and day as the
   // account service last said them, its harvests kept until answered, its withdrawals, its Court writs
   // (net/profBook.js). Online only: offline nothing earns a profession (PROF0 law 1). The clock is the shared one.
@@ -23867,7 +23867,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           seatBook?.read();
           const seat = seatHere(mapId);
           const hub = hubAtMapId(regionHubs, mapId);
-          if (seat) { townTalk.say(seatArrivalLine(seat), 5); seatBook.witness(seat); }
+          if (seat) { townTalk.say(seatArrivalLine(seat, seat.holder?.guild ?? null), 5); seatBook.witness(seat); }
           else if (hub) townTalk.say(hubArrivalLine(hub), 5);
         }
         onlineHomes?.ensure(_musicLoc?.mapTableData?.mapId);   // HOME1: the town's homes asked for as I walk in - its doors' names and prices are ready before I reach one

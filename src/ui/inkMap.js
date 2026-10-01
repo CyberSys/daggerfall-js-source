@@ -43,7 +43,7 @@ import { GATE_RING_CSS, GATE_FILL_CSS } from './gateMapMark.js';   // WB1: the O
 import { BOUNTY_RING_CSS, BOUNTY_FILL_CSS } from './bountyMapMark.js';   // BOUNTY1: a held bounty's black circle
 import { RAID_MARK_CSS } from './eventMapMarks.js';   // EVENT-TIP: a town under attack
 import { QUEST_MARK_CSS, QUEST_MARK_LIFT } from './questMarks.js';   // GUIDE5: where a quest points
-import { seatMapMark } from '../net/townSeatLaw.js';   // SEAT1a: how a seat is marked - its ring, a crown, a second ring
+import { seatMapMark, SEAT_RING_SIEGE } from '../net/townSeatLaw.js';   // SEAT1a: how a seat is marked - its ring, a crown, a second ring; SEAT1c: held, Contested, a siege week
 
 // ── THE INK (skin): the pen and its washes ───────────────────────────────────────────────
 /** THE TWO GROUNDS EVERY COLOUR ON THIS SHEET IS MIXED FROM. The pen
@@ -1272,13 +1272,34 @@ export const markReach = (m) => (GLYPH_R[m.kind] ?? 4) + (m.hub ? HUB_CIRCLE_PAD
 /**
  * SEAT1a (Seats-Arc 3.3): ONE SEAT'S MARKS at paper (x, y), `r` its ring's radius - the ring, hollow, in `mark.ring`
  * (stone grey while unheld); a March's thin second ring half in each claiming crown's metal, a Free Land's green; and
- * over a crown seat a small crown in its kingdom's metal. Skin.
+ * over a crown seat a small crown in its kingdom's metal. SEAT1c: a held seat's ring filled with its holder's first colour
+ * (`mark.fill`) and edged in its second (`mark.ring`); a Contested seat's split in its two contenders' colours
+ * (`mark.split`); a siege week's edge burning (`mark.siege`). Skin.
  */
 export function paintSeatRing(ctx, x, y, r, mark) {
+  if (mark.split?.length === 2) {
+    mark.split.forEach((c, i) => {
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.arc(x, y, r, Math.PI / 2 + i * Math.PI, Math.PI / 2 + (i + 1) * Math.PI);
+      ctx.closePath();
+      ctx.fillStyle = c;
+      ctx.globalAlpha = 0.55;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    });
+  } else if (mark.fill) {
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = mark.fill;
+    ctx.globalAlpha = 0.55;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
-  ctx.strokeStyle = mark.ring;
-  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = mark.siege ? SEAT_RING_SIEGE : mark.ring;
+  ctx.lineWidth = mark.siege ? 2.2 : 1.5;
   ctx.stroke();
   if (mark.second?.length) {
     const n = mark.second.length;

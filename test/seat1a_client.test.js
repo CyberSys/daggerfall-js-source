@@ -122,10 +122,11 @@ test('SEAT1a the words and the marks: the Charter, the arrival line, the map\'s 
   assert.equal(SEAT_RING_UNHELD, '#8a8a8a');
   assert.deepEqual(KINGDOM_METALS, { daggerfall: '#3b6fd8', wayrest: '#b3262e', sentinel: '#d4a017' });
   assert.equal(FREE_LAND_RING, '#2f8f4e');
-  assert.deepEqual(seatMapMark(crown), { ring: '#8a8a8a', crown: '#b3262e', second: null });
-  assert.deepEqual(seatMapMark(pal), { ring: '#8a8a8a', crown: null, second: ['#3b6fd8', '#b3262e'] }, 'Anticlere: Daggerfall and Wayrest');
-  assert.deepEqual(seatMapMark({ region: 26, tier: 'palace' }), { ring: '#8a8a8a', crown: null, second: ['#2f8f4e'] });
-  assert.deepEqual(seatMapMark({ region: 59, tier: 'palace' }), { ring: '#8a8a8a', crown: null, second: null });
+  // SEAT1c (PIN MOVED): an unheld, quiet seat's mark names no fill, no split and no siege
+  assert.deepEqual(seatMapMark(crown), { ring: '#8a8a8a', crown: '#b3262e', second: null, fill: null, split: null, siege: false });
+  assert.deepEqual(seatMapMark(pal), { ring: '#8a8a8a', crown: null, second: ['#3b6fd8', '#b3262e'], fill: null, split: null, siege: false }, 'Anticlere: Daggerfall and Wayrest');
+  assert.deepEqual(seatMapMark({ region: 26, tier: 'palace' }), { ring: '#8a8a8a', crown: null, second: ['#2f8f4e'], fill: null, split: null, siege: false });
+  assert.deepEqual(seatMapMark({ region: 59, tier: 'palace' }), { ring: '#8a8a8a', crown: null, second: null, fill: null, split: null, siege: false });
   assert.deepEqual(seatPlainBanner({ region: 59 }), { field: 'azure', border: 'azure', device: null });
   assert.deepEqual(seatPlainBanner({ region: 21 }), { field: 'azure', border: 'crimson', device: null });
   assert.equal(seatPlainBanner({ region: 26 }), null, 'a Free Land hangs nothing');
@@ -255,8 +256,8 @@ test('SEAT1a the hosts by source: the boot pass derives the seats over the hubs\
   assert.match(w, /const townSeats = deriveTownSeats\(_hubRows, \{ regionNameOf: \(r\) => maps\.getRegionName\(r\), isHub: \(k\) => regionHubs\.byMapId\.has\(k\) \}\);\n\s*_hubRows\.length = 0;/, 'the game\'s own rows, before they are let go');
   // SEAT1b (PIN MOVED): the book's door is named once, for the Watch's account beside it
   assert.match(w, /const _seatDoor = params\.has\('online'\) \? accountSeats\(\{ fetch: \(u, i\) => globalThis\.fetch\(u, i\), storage: appStorage\(\) \}\) : null;\n\s*const seatBook = _seatDoor\n\s*\? createTownSeatBook\(\{\n\s*door: _seatDoor,/);
-  assert.match(w, /const seatHere = \(mapId\) => \(seatBook\?\.open === true \? seatAtMapId\(townSeats, mapId\) : null\);/);
-  assert.match(w, /if \(seat\) \{ townTalk\.say\(seatArrivalLine\(seat\), 5\); seatBook\.witness\(seat\); \}\n\s*else if \(hub\) townTalk\.say\(hubArrivalLine\(hub\), 5\);/);
+  assert.match(w, /const seatHere = \(mapId\) => \(seatBook\?\.open === true \? seatBook\.dressed\(seatAtMapId\(townSeats, mapId\)\) : null\);/);   // SEAT1c (PIN MOVED): dressed in its holder
+  assert.match(w, /if \(seat\) \{ townTalk\.say\(seatArrivalLine\(seat, seat\.holder\?\.guild \?\? null\), 5\); seatBook\.witness\(seat\); \}\n\s*else if \(hub\) townTalk\.say\(hubArrivalLine\(hub\), 5\);/);
   assert.match(w, /seatAt: seatBook \? \(summary\) => seatHere\(summary\?\.mapID \?\? summary\?\.mapId\) : null,/);
   assert.match(w, /const seatAnchors = pixelBoardSplit \? seatBannerAnchors\(\{/);
   assert.match(w, /boards: pixelBoards, bounty: pixelBoardSplit,/);

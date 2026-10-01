@@ -11,8 +11,8 @@
   {
     "name": "SEAT1b-pledge-unconfirmed-seat",
     "file": "server-account/src/seatInfluence.js",
-    "old": "  if (!seat) return { error: 'seat-unconfirmed' };\n  const r = await db.prepare(`INSERT INTO town_seat_pledges",
-    "new": "  const r = await db.prepare(`INSERT INTO town_seat_pledges",
+    "old": "  if (!seat) return { error: 'seat-unconfirmed' };\n  // SEAT1c: a guild holding a seat",
+    "new": "  // SEAT1c: a guild holding a seat",
     "tests": [
       "test/seat1b_service.test.js"
     ]

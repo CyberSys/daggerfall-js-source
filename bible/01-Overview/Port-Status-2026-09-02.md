@@ -814,7 +814,7 @@ that was a claim once and is a pointer at a stranger now.
 
 **Recorded by SEAT1a (2026-09-30).**
 
-- **`src/scenes/seatBanners.js:29`** - the fixed city's seat banners.
+- **`src/scenes/seatBanners.js:30`** - the fixed city's seat banners.
   *`11-Multiplayer/Seats-Arc.md` 15.1 names the fixed city (`?exterior`)
   FLAGGED by name: it runs no account service, so no seat is open there
   and it hangs none; the day a seat is read there, the sentence goes.*

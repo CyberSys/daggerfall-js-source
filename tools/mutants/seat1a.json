@@ -366,29 +366,32 @@
   {
     "name": "SEAT1a-banners-while-shut",
     "file": "src/scenes/seatBanners.js",
-    "old": "      const h = seat ? seatPlainBanner(seat) : null;",
-    "new": "      const h = seatPlainBanner(seat ?? { region: 21 });",
+    "old": "      const h = seat ? seatBannerOf(seat) : null;",
+    "new": "      const h = seatBannerOf(seat ?? { region: 21 });",
     "tests": [
       "test/seat1a_client.test.js"
-    ]
+    ],
+    "note": "SEAT1c (PIN MOVED): re-aimed by content."
   },
   {
     "name": "SEAT1a-arrival-no-report",
     "file": "src/scenes/world.js",
-    "old": "if (seat) { townTalk.say(seatArrivalLine(seat), 5); seatBook.witness(seat); }",
-    "new": "if (seat) { townTalk.say(seatArrivalLine(seat), 5); }",
+    "old": "if (seat) { townTalk.say(seatArrivalLine(seat, seat.holder?.guild ?? null), 5); seatBook.witness(seat); }",
+    "new": "if (seat) { townTalk.say(seatArrivalLine(seat, seat.holder?.guild ?? null), 5); }",
     "tests": [
       "test/seat1a_client.test.js"
-    ]
+    ],
+    "note": "SEAT1c (PIN MOVED): re-aimed by content - the arrival names its holder."
   },
   {
     "name": "SEAT1a-seat-drawn-shut",
     "file": "src/scenes/world.js",
-    "old": "const seatHere = (mapId) => (seatBook?.open === true ? seatAtMapId(townSeats, mapId) : null);",
-    "new": "const seatHere = (mapId) => (seatBook ? seatAtMapId(townSeats, mapId) : null);",
+    "old": "const seatHere = (mapId) => (seatBook?.open === true ? seatBook.dressed(seatAtMapId(townSeats, mapId)) : null);",
+    "new": "const seatHere = (mapId) => (seatBook ? seatBook.dressed(seatAtMapId(townSeats, mapId)) : null);",
     "tests": [
       "test/seat1a_client.test.js"
-    ]
+    ],
+    "note": "SEAT1c (PIN MOVED): re-aimed by content."
   },
   {
     "name": "SEAT1a-seat-banners-dropped",

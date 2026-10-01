@@ -21,8 +21,9 @@
 //
 // THE BANNER: while a seat is unheld, the kingdom's plain banner - the
 // crown's metal, no device; a March's its two claimants' metals; a Free
-// Land's nothing (net/townSeatLaw.js seatPlainBanner). SEAT1c hangs the
-// holder's heraldry in its place. The cloth is GUILD1d's own pass
+// Land's nothing (net/townSeatLaw.js seatPlainBanner). SEAT1c: a held
+// seat hangs its holder's own heraldry in its place (seatBannerOf). The
+// cloth is GUILD1d's own pass
 // (render/bannerPass.js).
 //
 // Online alone. Four hosts: world.js WIRED (the streets); worldModes.js
@@ -32,7 +33,7 @@
 import { BANNER_W_M, BANNERS_MAX } from '../render/bannerPass.js';
 import { BUILDING_TYPES } from '../world/buildingNames.js';
 import { hallBannerAnchors, bannerKeyOf, BANNER_REFRESH_MS } from './hallBanners.js';
-import { SEAT_BANNERS_MAX, seatPlainBanner } from '../net/townSeatLaw.js';
+import { SEAT_BANNERS_MAX, seatBannerOf } from '../net/townSeatLaw.js';
 
 /** A gate banner's top below the gate model's own top, and a board's pennant's top above the board's - metres. */
 export const GATE_BANNER_DROP_M = 0.6;
@@ -129,7 +130,7 @@ export function createSeatBanners({ built, seatAt, translation, eye = () => null
     for (const [, p] of built?.() ?? []) {
       if (!p?.homeTown || !p.seatAnchors?.length) continue;
       const seat = seatAt(p.homeTown);
-      const h = seat ? seatPlainBanner(seat) : null;
+      const h = seat ? seatBannerOf(seat) : null;   // SEAT1c: a held seat's in its holder's own colours
       if (!h) continue;
       p.seatAnchors.forEach((a, i) => out.push({ px: p.px, py: p.py, a, key: bannerKeyOf(h), heraldry: h, phase: ((p.homeTown % 11) * 0.9) + i * 1.7 }));
     }

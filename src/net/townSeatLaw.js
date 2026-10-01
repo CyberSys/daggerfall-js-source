@@ -18,6 +18,10 @@
 // ═══════════════════════════════════════════════════════════════════
 import { ONLINE_EPOCH_MS } from './wire.js';
 import { KINGDOMS, MARCHES, kingdomOf, isMarch, isFreeLand } from './kingdomLaw.js';
+import { HERALDRY_COLOURS } from './heraldryLaw.js';
+
+/** A heraldry colour key's hex (heraldryLaw.js's palette), or null. */
+const heraldryHex = (key) => HERALDRY_COLOURS.find((c) => c.key === key)?.hex ?? null;
 
 /** A seat's tier: a crown (the three capitals) or a palace (every other location with a Palace) - SEAT0 3.1. */
 export const SEAT_TIERS = Object.freeze(['palace', 'crown']);
@@ -146,17 +150,33 @@ export const FREE_LAND_RING = '#2f8f4e';
 /** The same metals as heraldry colours (net/heraldryLaw.js keys) - the kingdom's plain banner at an unheld seat. */
 export const KINGDOM_BANNER_COLOURS = Object.freeze({ daggerfall: 'azure', wayrest: 'crimson', sentinel: 'gold' });
 /**
- * How a seat is marked on the map - `{ ring, crown, second }`: the ring's colour (unheld stone grey; SEAT1c's holders
- * fill it), the crown's metal over a crown seat (or null), and a thin second ring - a March's in both claiming crowns'
- * metals, a Free Land's green - or null.
- * @param {{ tier: string, region: number }} seat
+ * How a seat is marked on the map - `{ ring, crown, second, fill, split, siege }`: the ring's colour (unheld stone grey;
+ * a holder's border), the crown's metal over a crown seat (or null), and a thin second ring - a March's in both claiming
+ * crowns' metals, a Free Land's green - or null; SEAT1c: the holder's field filling it, a Contested seat's two
+ * contenders' fields splitting it, and whether a siege is called there this week.
+ * @param {{ tier: string, region: number, holder?: any, battle?: any }} seat
  */
 export function seatMapMark(seat) {
   const crown = seat.tier === 'crown' ? KINGDOM_METALS[CROWN_SEAT_REGIONS[seat.region]] ?? null : null;
   const second = isMarch(seat.region) ? MARCHES[seat.region].map((k) => KINGDOM_METALS[k])
     : isFreeLand(seat.region) ? [FREE_LAND_RING] : null;
-  return { ring: SEAT_RING_UNHELD, crown, second };
+  // SEAT1c (3.3): a held seat's ring filled with its holder's first colour and edged in its second; a Contested seat's
+  // split in the two contenders' first colours; a siege week's edge burning
+  const h = seat.holder?.guild?.heraldry ?? null;
+  const fill = h ? heraldryHex(h.field) : null;
+  const ring = h ? heraldryHex(h.border) ?? SEAT_RING_UNHELD : SEAT_RING_UNHELD;
+  const b = seat.battle ?? null;
+  const split = !seat.holder && b?.kind === 'tourney' ? [heraldryHex(b.guild?.heraldry?.field) ?? SEAT_RING_UNHELD, heraldryHex(b.against?.heraldry?.field) ?? SEAT_RING_UNHELD] : null;
+  return { ring, crown, second, fill, split, siege: b?.kind === 'siege' };
 }
+/** A siege week's burning edge (SEAT0 3.3: "a slow orange-to-red pulse") - the paper map's, held at its orange. */
+export const SEAT_RING_SIEGE = '#d9532b';
+/**
+ * THE BANNER A SEAT HANGS (SEAT0 3.4) - SEAT1c: a held seat's its holder's own heraldry; an unheld one's, or a holder
+ * that has chosen none, the kingdom's plain banner (seatPlainBanner).
+ * @param {{ region: number, holder?: any }} seat
+ */
+export const seatBannerOf = (seat) => seat?.holder?.guild?.heraldry ?? seatPlainBanner(seat);
 /**
  * THE BANNER AN UNHELD SEAT HANGS (SEAT0 3.4: "An unheld seat's anchors carry the kingdom's plain banner (the crown's
  * metal, no device); a free land's carry nothing") - a heraldry `{ field, border, device: null }` in heraldryLaw.js's
@@ -313,6 +333,8 @@ export function seatMineLines(seat, mine, nameOf = () => null) {
   const out = [];
   const here = mine.pledges.find((p) => p.region === seat.region);
   if (!here) out.push('Your guild has not pledged in this region this week.');
+  else if (here.held && here.key === seat.key) out.push('Your guild holds this Charter, and is pledged to it.');   // SEAT1c
+  else if (here.held) out.push(`Your guild holds ${nameOf(here.key) ?? 'another seat'} in this region, and is pledged to it.`);
   else if (here.key === seat.key) out.push(`Your guild is pledged to ${seat.name}.`);
   else out.push(`Your guild is pledged to ${nameOf(here.key) ?? 'another seat'} in this region.`);
   if (!mine.seasoned) out.push('You count for your guild\'s seats after 7 days in it.');
@@ -331,3 +353,132 @@ export const SEAT_PLEDGE_WORDS = Object.freeze({
 export const seatTributeLine = (room) => (room > 0
   ? `Tribute: up to ${room.toLocaleString('en-US')} Drakes more this week (1 influence per ${TRIBUTE_MARKS_PER_INFLUENCE}, burnt).`
   : 'Tribute: your guild has no room for more this week. Tribute is at most a fifth of a guild\'s week at a seat.');
+
+// ═══ SEAT1c: THE TURNING (SEAT0 5.2, Appendix B) ════════════════════
+// The week settles the first time anything asks about any seat after its boundary - never a job that runs - in one
+// transaction the service keys on the week (town_seat_weeks). The plan below is the whole decision, pure, in the order
+// SEAT0 5.2 writes it, so nothing depends on which seat is read first.
+
+/** The influence a guild needs at a seat to claim it, or to challenge its holder. */
+export const CLAIM_THRESHOLD = Object.freeze({ palace: 6000, crown: 30000 });
+/** What a Charter costs its first holder, in Drakes from the guild's treasury - burnt. */
+export const CLAIM_FEE = Object.freeze({ palace: 8000, crown: 80000 });
+/** The second claimant within this share of the first: nobody takes it - the seat is Contested. */
+export const CONTESTED_MARGIN = 0.1;
+/** A new Charter's Standing, its bounds, and what a Turning held unchallenged gives it. */
+export const STANDING_START = 50;
+export const STANDING_MAX = 100;
+export const STANDING_UNCHALLENGED = 5;
+/** What Standing does to the defence (SEAT0 7.3): +0.5% a point above 50, -1% a point below (100: +25%, 0: -50%). */
+export const standingModifier = (s) => (s >= STANDING_START ? (s - STANDING_START) * 0.005 : (s - STANDING_START) * 0.01);
+/** A guild's whole claim at a seat: this week's influence and the Legacy it carried in. */
+export const claimTotal = (g) => Math.max(0, g.influence) + Math.max(0, g.legacy ?? 0);
+/** THE TIE ORDER (SEAT0 5.2 step 1): the greater total, then the higher Legacy, then the earlier pledge, then the lower
+ *  guild id. */
+export const bySeatStanding = (a, b) => claimTotal(b) - claimTotal(a) || (b.legacy ?? 0) - (a.legacy ?? 0)
+  || (a.pledgedAt ?? Infinity) - (b.pledgedAt ?? Infinity) || (a.guild < b.guild ? -1 : a.guild > b.guild ? 1 : 0);
+/** THE HOLDER'S DEFENCE (SEAT0 5.2 step 3): its own influence at the seat x (1 + Standing's modifier), and its Legacy.
+ *  Overreach's cut, a held siege's x1.2 and a liege's reach come with their slices (SEAT1d, SEAT2a, CROWN2). */
+export const seatDefence = (own, standing) => Math.floor(Math.max(0, own?.influence ?? 0) * (1 + standingModifier(standing)) + 1e-9) + Math.max(0, own?.legacy ?? 0);
+
+/**
+ * THE TURNING'S PLAN (SEAT0 5.2) - pure. `seats` every confirmed seat with anything at it this week: its tier, its
+ * holder (`{ guild, standing, truceWeek }` or null) and each guild's week there (`{ guild, influence, legacy,
+ * pledgedAt }`, influence after its caps); `treasuries` each guild's Drake treasury. Answers what the settle writes:
+ *   claims      an unheld seat's Charter taken (`{ key, guild, fee, total }`), in key order, each fee paid in turn;
+ *   contested   an unheld seat whose two first claimants stand within 10% (`{ key, a, b }`) - a Tourney decides it;
+ *   rights      a Right of Siege granted (`{ key, guild, total, defence }`) - one a guild and one a seat a week, the
+ *               strongest first, a seat in truce (changed hands at the last Turning) never challenged;
+ *   held        a held seat no Right was granted against, its Standing raised (`{ key, guild, standing }`);
+ *   legacy      what each guild carries into the next week at each seat (`{ key, guild, amount }`), 10% of its week.
+ * @param {{ week: number, seats: any[], treasuries: Map<string, number> }} o
+ */
+export function turningPlan({ week, seats, treasuries }) {
+  const purse = new Map(treasuries);
+  const claims = [], contested = [], rights = [], held = [], legacy = [];
+  const sorted = [...seats].sort((a, b) => a.key - b.key);
+  for (const s of sorted) {
+    for (const g of s.guilds) {
+      const amount = Math.floor(Math.max(0, g.influence) * SEAT_LEGACY_SHARE);
+      if (amount > 0) legacy.push({ key: s.key, guild: g.guild, amount });
+    }
+  }
+  // 2. UNHELD SEATS, in key order
+  for (const s of sorted) {
+    if (s.holder) continue;
+    const passed = s.guilds.filter((g) => claimTotal(g) >= CLAIM_THRESHOLD[s.tier]).sort(bySeatStanding);
+    if (!passed.length) continue;
+    if (passed.length > 1 && claimTotal(passed[1]) >= claimTotal(passed[0]) * (1 - CONTESTED_MARGIN)) {
+      contested.push({ key: s.key, a: passed[0].guild, b: passed[1].guild });
+      continue;
+    }
+    const fee = CLAIM_FEE[s.tier];
+    const taker = passed.find((g) => (purse.get(g.guild) ?? 0) >= fee);
+    if (!taker) continue;
+    purse.set(taker.guild, (purse.get(taker.guild) ?? 0) - fee);
+    claims.push({ key: s.key, guild: taker.guild, fee, total: claimTotal(taker) });
+  }
+  // 3-4. HELD SEATS: the defence, every candidate, one pass
+  const candidates = [];
+  for (const s of sorted) {
+    if (!s.holder || s.holder.truceWeek === week) continue;
+    const defence = seatDefence(s.guilds.find((g) => g.guild === s.holder.guild), s.holder.standing);
+    for (const g of s.guilds) {
+      if (g.guild === s.holder.guild) continue;
+      const total = claimTotal(g);
+      if (total >= CLAIM_THRESHOLD[s.tier] && total > defence) candidates.push({ ...g, key: s.key, total, defence });
+    }
+  }
+  candidates.sort((a, b) => bySeatStanding(a, b) || a.key - b.key);
+  const seatTaken = new Set(), guildTaken = new Set();
+  for (const c of candidates) {
+    if (seatTaken.has(c.key) || guildTaken.has(c.guild)) continue;
+    seatTaken.add(c.key); guildTaken.add(c.guild);
+    rights.push({ key: c.key, guild: c.guild, total: c.total, defence: c.defence });
+  }
+  for (const s of sorted) {
+    if (s.holder && !seatTaken.has(s.key)) held.push({ key: s.key, guild: s.holder.guild, standing: Math.min(STANDING_MAX, s.holder.standing + STANDING_UNCHALLENGED) });
+  }
+  return { claims, contested, rights, held, legacy };
+}
+
+// ─── THE CHRONICLE'S WORDS (SEAT0 9.2) ─────────────────────────────
+
+/** The Chronicle's rows the Seat tab shows, newest first. */
+export const SEAT_CHRONICLE_SHOWN = 8;
+/** A seat week as the Chronicle names it. */
+export const seatWeekName = (n) => `week ${n}`;
+/**
+ * A HISTORY ROW AS PROSE - `row` a `town_seat_history` row (`kind`, `week`, `data` parsed), `seat` the seat it is of.
+ * The names in `data` are the guilds' as they were that day. Null for a kind with no words.
+ */
+export function chronicleLine(row, seat) {
+  const d = row?.data ?? {};
+  const c = charterName(seat);
+  const when = `In ${seatWeekName(row?.week ?? 0)}`;
+  switch (row?.kind) {
+    case 'claim': return `${when}, ${guildWords(d.guild)} took ${c} with ${Number(d.total ?? 0).toLocaleString('en-US')} influence.`;
+    case 'contested': return `${when}, ${c} was Contested between ${guildWords(d.a)} and ${guildWords(d.b)}. A Tourney decides it.`;
+    case 'right': return `${when}, ${guildWords(d.guild)} won a Right of Siege against ${guildWords(d.holder)} at ${seat.name}.`;
+    case 'held': return `${when}, ${guildWords(d.guild)} held ${seat.name} unchallenged.`;
+    case 'relinquish': return `${when}, ${guildWords(d.guild)} gave up ${c}.`;
+    case 'strike': return `${when}, ${seat.name} was struck from the registry.`;
+    default: return null;
+  }
+}
+/** The Seat tab's holder line: "Held by the Silver Hand <SH> since week 3. Standing 55." */
+export const seatHolderLine = (holder) => (holder
+  ? `Held by ${guildWords(holder.guild)} since ${seatWeekName(holder.since)}. Standing ${holder.standing}.`
+  : 'No guild holds this Charter.');
+/** This week's battle at a seat, in words - a Contested seat's Tourney, or a Right of Siege - or null. */
+export function seatBattleLine(battle) {
+  if (!battle) return null;
+  if (battle.kind === 'tourney') return `${guildWords(battle.guild)} and ${guildWords(battle.against)} meet in a Tourney for the Charter this week.`;
+  return `${guildWords(battle.guild)} has won a Right of Siege against ${guildWords(battle.against)} this week.`;
+}
+/** What the relinquish button says - pressed once to arm, again to give the Charter up. */
+export const SEAT_RELINQUISH_WORDS = Object.freeze({ arm: 'Give up the Charter', sure: 'Press again to give up the Charter' });
+/** The claim line under the standings: the threshold an unheld seat's claimant must pass, or the holder's defence. */
+export const seatClaimLine = (seat, defence = null) => (defence == null
+  ? `To claim it at the Turning: ${CLAIM_THRESHOLD[seat.tier].toLocaleString('en-US')} influence, and ${CLAIM_FEE[seat.tier].toLocaleString('en-US')} Drakes from the guild's treasury.`
+  : `To win a Right of Siege: more than the holder's defence of ${defence.toLocaleString('en-US')}, and at least ${CLAIM_THRESHOLD[seat.tier].toLocaleString('en-US')} influence.`);

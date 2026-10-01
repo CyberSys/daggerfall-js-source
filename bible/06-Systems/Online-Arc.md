@@ -10531,6 +10531,54 @@ Pinned: `test/seat1b_service.test.js` (7), `test/seat1b_client.test.js` (9); re-
 version pins (`world136`) and `test/accountworker.test.js` (the schema). `tools/mutants/seat1b.json` (55, all dead); six
 RENOWN1, AUDIT RENOWN1 and WB5b records re-aimed by content, all dead.
 
+### SEAT1c - the Turning: the Charters claimed, Contested, the Rights of Siege, the Legacy, the Charter on the map
+
+Rides the undeployed `acct44` (migration 0048); no relay change. Behind `SEATS_OPEN` with the rest of the seats.
+
+- **The settle** (`server-account/src/seatTurning.js`, Seats-Arc 5.2): never a job that runs - any seat request from an
+  account the seats are open to first settles every week before this one not yet settled (`settleDue`: from the week
+  after the last settled, or on a service that has settled none the last week alone, at most 8 back). `settleWeek(N)`
+  reads the week's standings as they stood at its Turning, decides with `townSeatLaw.js turningPlan` (pure) and writes
+  everything in ONE batch whose first statement is the week's own key in `town_seat_weeks` - a plain INSERT, so a
+  second reader racing the first fails on it and rolls back whole; a batch that fails for any other reason (a treasury
+  emptied between the read and the write) rolls back too and the next read settles it again.
+- **The plan**, in SEAT0 5.2's order: (2) each unheld seat, in key order - the guilds past the claim line (6,000 a
+  palace, 30,000 a crown; this week's influence and the Legacy carried in), ranked by the tie order (the total, then
+  the Legacy, then the earlier pledge, then the lower id); the second within 10% of the first makes it Contested (a
+  Tourney named, `town_seat_rights` kind `tourney`); otherwise the first whose Drake treasury can pay the fee (8,000 or
+  80,000, burnt - a `seat-claim` line; one purse spent in key order) takes the Charter (`town_seat_holds`, from the next
+  week, Standing 50, in truce at the next Turning). (3) A held seat's defence: the holder's own week x (1 + Standing's
+  modifier - +0.5% a point above 50, -1% below) and its Legacy. (4) Every challenger past the line and the defence a
+  candidate, strongest first: one Right of Siege a guild and one a seat (`kind` `siege`), a seat in truce never. A
+  held seat no Right was granted against: Standing +5, at most 100. (7) 10% of every guild's week at each seat carries
+  into the next (`town_seat_legacy`). (9) Every result a Chronicle row (`town_seat_history`).
+- **The holder**: pledged to its seat by holding it (`pledgeIn`, `pledgedOrHeldSql` - its members' influence counts
+  there with no pledge row) and nowhere else in the region (`seat-held-here`); the guildmaster relinquishes a Charter
+  at its board (`/v1/seats/relinquish`, the rank asked in the DELETE, a Chronicle row); a guild holding one, or named
+  in a battle still to come (a Right or a Tourney in the week after the last settled), does not go (`guild-seat`,
+  `guild-battle` - `guildKeepsSql`, as its hall).
+- **What the client is told**: `/v1/seats/list` each seat's holder (its guild and heraldry, since, Standing) and this
+  week's battle; `/v1/seats/standings` the holder, its defence, the battle, each guild's Legacy within its influence,
+  and the Chronicle (8 rows, newest first).
+- **The client** (`net/townSeatBook.js` dressed, `scenes/world.js` seatHere): a seat this client derived is dressed in
+  what the service says of it. The arrival names the holder ("Anticlere, held by the Silver Hand <SH>."); the map's ring
+  is filled with the holder's field and edged in its border, split in a Contested seat's two contenders' fields, its
+  edge burning in a siege week (`ui/inkMap.js` paintSeatRing); the seat's banners fly the holder's own heraldry, the
+  kingdom's plain banner while unheld or for a holder with none (`seatBannerOf` - Seats-Arc 13's "a held seat's banners
+  in the guild's colours"); the Seat tab (`ui/seatTab.js`) stands under the holder's banner with the holder, the
+  battle, the claim or defence line and the Chronicle, and offers the holder's guildmaster its Charter's relinquish,
+  armed by a first press.
+
+Left for their slices, recorded: the titles and glyphs a Charter gives (SEAT0 7.4 - token vocabulary, relay first) are
+SEAT1c's second half; upkeep, Neglect, Overreach and the rest of Standing's changes SEAT1d; the battles a Right or a
+Tourney names are fought in SEAT2a (until then they are the Chronicle's, and a Contested seat stays unheld); the
+stockpile's deliveries (the Writs source) and the Siege Camp ride SEAT2b with the fortifications that spend them.
+
+Pinned: `test/seat1c_service.test.js` (5), `test/seat1c_client.test.js` (5); re-aimed by content in
+`test/seat1a_service.test.js` (the list's holder and battle), `test/seat1a_client.test.js` (the mark's new fields, the
+dressed seat, the arrival), `test/seat1b_service.test.js` (the standings' shape) and `test/accountworker.test.js` (the
+schema). `tools/mutants/seat1c.json` (45, all dead); four GUILD1d, SEAT1a and SEAT1b records re-aimed, all dead.
+
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 
 Mac, asked how quest enemies should work online (each player's quests are their own, so two party members on the

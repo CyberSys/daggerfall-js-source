@@ -261,6 +261,9 @@ export const REFUSALS = Object.freeze({
   'seat-tribute-cap': 'Tribute is at most a fifth of your guild\'s week at a seat. Earn more influence there first.',
   'bad-tribute': 'Tribute is paid in tens of Drakes.',
   'bad-watch': 'Those watch receipts could not be read.',
+  // SEAT1c: the Charters
+  'seat-not-held': 'Your guild does not hold that Charter.',
+  'seat-held-here': 'Your guild holds a Charter in this region, and is pledged to it.',
   // NOTICE1: the Notice Board (server-account/src/board.js)
   'board-need-account': 'Notes are pinned by registered accounts. Add a username to pin one.',
   'board-closed': 'The notice board is not open yet.',
@@ -390,6 +393,8 @@ export const REFUSALS = Object.freeze({
   'guild-hall-none': 'Your guild has no hall.',
   'guild-hall-moved': 'The hall changed while you were selling it - a piece placed or moved, or the guild handed on. Look again.',
   'guild-hall': 'Sell the guild\'s hall first.',
+  'guild-seat': 'Give up the guild\'s Charters first, at each seat\'s Notice Board.',   // SEAT1c
+  'guild-battle': 'The guild is named in a siege or a Tourney this week. It cannot go until the battle is over.',   // SEAT1c
   'hall-item': 'A guild hall holds furniture from the catalogue alone - your own things stay yours.',
   'hall-yard': 'A guild hall\'s yard cannot be furnished yet.',
   'bad-heraldry': 'Choose two different colours - Ash only as the border - and one device.',
@@ -1076,6 +1081,7 @@ export function accountSeats({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
     pledge: (character, key, region = null) => post('/v1/seats/pledge', { character, key, ...(region != null ? { region } : {}) }),
     watch: (character, receipts) => post('/v1/seats/watch', { character, receipts }),
     tribute: (character, key, marks, rid) => post('/v1/seats/tribute', { character, key, marks, rid }),
+    relinquish: (character, key) => post('/v1/seats/relinquish', { character, key }),   // SEAT1c
   };
 }
 

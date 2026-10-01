@@ -298,6 +298,10 @@ export async function answerInvite({ db, nowS, env }, player, { character, guild
   return { ok: true, guild: view, badge: view ? badgeOfRow(me, view.tag) : {} };   // GUILD1c: the joiner wears the tag now
 }
 
+/** SEAT1c: a battle the last Turning named (a Right of Siege or a Tourney, in `town_seat_rights`) is still to come - in
+ *  the week after the last one settled. No clock: the next settle moves it into the past. */
+const SEAT_BATTLE_PENDING = 'week > COALESCE((SELECT MAX(week) FROM town_seat_weeks), -1)';
+
 /**
  * PROF6: whether a guild still keeps something of the professions' - goods in its guild Stores, or a writ standing (or a
  * closed one's escrow not yet home) - in SQL, the guild's id at `p`. A guild that keeps one does not go (Professions-Arc
@@ -306,7 +310,9 @@ export async function answerInvite({ db, nowS, env }, player, { character, guild
  */
 export const guildKeepsSql = (p) => `(EXISTS (SELECT 1 FROM guild_prof_stores WHERE guild_id = ${p} AND qty > 0)
   OR EXISTS (SELECT 1 FROM guild_writs WHERE guild_id = ${p} AND (state = 'open' OR (returned = 0 AND escrow > 0)))
-  OR EXISTS (SELECT 1 FROM homes WHERE guild_id = ${p}))`;   // GUILD1d: and its hall - sold first, its deed share into the treasury
+  OR EXISTS (SELECT 1 FROM homes WHERE guild_id = ${p})   -- GUILD1d: and its hall - sold first, its deed share into the treasury
+  OR EXISTS (SELECT 1 FROM town_seat_holds WHERE guild_id = ${p})   -- SEAT1c: a Charter it holds - relinquished first (SEAT0 16)
+  OR EXISTS (SELECT 1 FROM town_seat_rights WHERE (guild_id = ${p} OR against = ${p}) AND ${SEAT_BATTLE_PENDING}))`;   // SEAT1c: a battle it is named in, still to come
 
 /** The guild going: its Marks swept to the guildmaster (marks.js guildMarksSweep) and the row deleted, IN ONE BATCH -
  *  the delete only once the guild's gold treasury is empty and its Marks treasury has been emptied into the
@@ -336,6 +342,8 @@ async function whyNotGone(db, guildId, { alone = false } = {}) {
   // AUDIT 31 A15: a closed writ's pay still on its way home - the treasury full, not a writ standing
   if (g && await db.prepare('SELECT 1 FROM guild_writs WHERE guild_id = ?1 AND returned = 0 AND escrow > 0').bind(guildId).first()) return 'guild-writ-escrow';
   if (g && await db.prepare('SELECT 1 FROM homes WHERE guild_id = ?1').bind(guildId).first()) return 'guild-hall';   // GUILD1d: its hall, sold first
+  if (g && await db.prepare('SELECT 1 FROM town_seat_holds WHERE guild_id = ?1').bind(guildId).first()) return 'guild-seat';   // SEAT1c: a Charter, relinquished first
+  if (g && await db.prepare(`SELECT 1 FROM town_seat_rights WHERE (guild_id = ?1 OR against = ?1) AND ${SEAT_BATTLE_PENDING}`).bind(guildId).first()) return 'guild-battle';   // SEAT1c: a battle the Turning named it in
   return g ? 'marks-full' : 'no-guild';
 }
 

@@ -79,6 +79,8 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
   let data = null, at = -Infinity, pending = null;
   /** @type {Map<number, string>} the confirmed seats' states, by key */
   let states = new Map();
+  /** SEAT1c: each confirmed seat's holder and this week's battle at it, by key */
+  let dress = new Map();
   let reported = null;
   const reportedTable = () => {
     if (reported) return reported;
@@ -129,9 +131,10 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
       if (r?.ok) {
         open = true; data = r.data;
         states = new Map((data?.seats ?? []).map((s) => [s.key, s.state]));
+        dress = new Map((data?.seats ?? []).map((s) => [s.key, { holder: s.holder ?? null, battle: s.battle ?? null }]));
         return { data, error: null };
       }
-      if (SHUT.includes(r?.error)) { open = false; data = null; states = new Map(); }
+      if (SHUT.includes(r?.error)) { open = false; data = null; states = new Map(); dress = new Map(); }
       return { data, error: r?.error ?? 'server' };
     })();
     return pending;
@@ -145,6 +148,17 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
     stateOf: (key) => states.get(key) ?? null,
     /** The last list read, or null. */
     get data() { return data; },
+    /** SEAT1c: a seat this client derived, dressed in what the service last said of it - its holder and this week's battle
+     *  there (both null for an unheld, quiet one, or a seat not read yet). */
+    dressed: (seat) => (seat ? { ...seat, holder: dress.get(seat.key)?.holder ?? null, battle: dress.get(seat.key)?.battle ?? null } : null),
+    /** SEAT1c: the guildmaster gives up a Charter at its board - `{ ok, text }`, the list and standings read afresh after. */
+    async relinquish(seat) {
+      let r;
+      try { r = await door.relinquish(character(), seat.key); } catch { r = { ok: false, error: 'offline' }; }
+      standingsAt.clear();
+      if (r?.ok) at = -Infinity;
+      return r?.ok ? { ok: true, text: `Your guild has given up the Charter of ${seat.name}.` } : { ok: false, text: accountRefusalText(r?.error) };
+    },
     /**
      * THE SEAT THIS CLIENT STANDS IN, REPORTED - once a UTC day a seat (this device's), only while the seats are open to
      * this account. Answers whether a report was sent. A refusal is quiet: the town is the same town either way.

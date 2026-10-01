@@ -67,7 +67,7 @@ import {
   seatWeekOf, seatWeekStartMs, seatPhaseOf, seatRegionOk, seatKeyOk, seatMay, SEAT_POWERS, SEAT_PLEDGE_REGIONS_MAX, SEAT_MEMBER_WAIT_S,
   SEAT_PLEDGES_HOUR, SEAT_WATCH_CLAIM_MAX, WATCH_DAY_CAP, GATE_INFLUENCE, GATE_REGION_AGREE, HOMES_SEAT_MAX, TRIBUTE_MARKS_PER_INFLUENCE,
   SEAT_WEEK_MS, SEAT_RECKONING_MS,
-  accountSeatInfluence, guildSeatInfluence, tributeRoom, homeDaysIn,
+  accountSeatInfluence, guildSeatInfluence, tributeRoom, homeDaysIn, seatDefence, SEAT_CHRONICLE_SHOWN,
 } from '../../src/net/townSeatLaw.js';
 
 const weekAt = (nowS) => seatWeekOf(nowS * 1000);
@@ -79,14 +79,27 @@ const ranksSql = (power) => SEAT_POWERS[power].join(', ');
 async function boundTo(db, week, account) {
   return (await db.prepare('SELECT guild_id FROM town_seat_binds WHERE week = ? AND account = ?').bind(week, account).first())?.guild_id ?? null;
 }
-/** The guild's pledged seat in a region this week, or null. */
+/** The guild's pledged seat in a region this week, or null - SEAT1c: a seat it HOLDS there first (SEAT0 4.1: "A guild
+ *  holding a seat is pledged to it automatically and cannot pledge elsewhere in that region"). */
 async function pledgeIn(db, week, guildId, region) {
+  const held = await db.prepare('SELECT key FROM town_seat_holds WHERE guild_id = ? AND region = ? ORDER BY key LIMIT 1').bind(guildId, region).first();
+  if (held) return Number(held.key);
   const r = await db.prepare('SELECT key FROM town_seat_pledges WHERE week = ? AND guild_id = ? AND region = ?').bind(week, guildId, region).first();
   return r ? Number(r.key) : null;
 }
+/** SEAT1c: a guild's standing at a seat in SQL - pledged there this week, or holding it (`w` the week, `k` the key, `g`
+ *  the guild, as parameters). */
+const pledgedOrHeldSql = (w, k, g) => `(EXISTS (SELECT 1 FROM town_seat_pledges WHERE week = ${w} AND guild_id = ${g} AND key = ${k})
+  OR EXISTS (SELECT 1 FROM town_seat_holds WHERE key = ${k} AND guild_id = ${g}))`;
+/** A guild's pledges this week, region by region - SEAT1c: a region where it holds a Charter answers that seat, `held`
+ *  (pledged to it by holding it). */
 async function pledgesOf(db, week, guildId) {
   const { results = [] } = await db.prepare('SELECT region, key, set_by, at FROM town_seat_pledges WHERE week = ? AND guild_id = ? ORDER BY region').bind(week, guildId).all();
-  return results.map((p) => ({ region: Number(p.region), key: Number(p.key), by: p.set_by, at: Number(p.at) }));
+  const { results: holds = [] } = await db.prepare('SELECT region, key, at FROM town_seat_holds WHERE guild_id = ? ORDER BY region, key').bind(guildId).all();
+  const heldIn = new Map();
+  for (const h of holds) if (!heldIn.has(Number(h.region))) heldIn.set(Number(h.region), { region: Number(h.region), key: Number(h.key), by: null, at: Number(h.at), held: true });
+  const out = results.filter((p) => !heldIn.has(Number(p.region))).map((p) => ({ region: Number(p.region), key: Number(p.key), by: p.set_by, at: Number(p.at) }));
+  return [...out, ...heldIn.values()].sort((a, b) => a.region - b.region);
 }
 
 /**
@@ -132,7 +145,7 @@ const bindStatement = (db, at, account, nowS) => db.prepare(
   'INSERT OR IGNORE INTO town_seat_binds (week, account, guild_id, char_id, at) VALUES (?, ?, ?, ?, ?)',
 ).bind(at.week, account, at.guild, at.char, nowS);
 const STILL_COUNTS = `(SELECT guild_id FROM town_seat_binds WHERE week = ?1 AND account = ?4) = ?3
-  AND EXISTS (SELECT 1 FROM town_seat_pledges WHERE week = ?1 AND guild_id = ?3 AND key = ?2)`;
+  AND ${pledgedOrHeldSql('?1', '?2', '?3')}`;
 
 // ─── THE PLEDGE ──────────────────────────────────────────────────────
 
@@ -162,6 +175,8 @@ export async function pledgeSeat({ db, nowS }, player, env, { character, key = n
   if (!seatKeyOk(key)) return { error: 'bad-seat' };
   const seat = (await confirmedSeats(db, nowS)).get(key);
   if (!seat) return { error: 'seat-unconfirmed' };
+  // SEAT1c: a guild holding a seat in the region is pledged to it, and nowhere else there
+  if (await db.prepare('SELECT 1 FROM town_seat_holds WHERE guild_id = ? AND region = ?').bind(gid, seat.region).first()) return { error: 'seat-held-here' };
   const r = await db.prepare(`INSERT INTO town_seat_pledges (week, guild_id, region, key, set_by, at)
     SELECT ?1, ?2, ?3, ?4, ?5, ?6 WHERE ${rankHeld}
       AND (SELECT COUNT(*) FROM town_seat_pledges WHERE week = ?1 AND guild_id = ?2 AND region <> ?3) < ?7
@@ -278,7 +293,7 @@ export async function creditRenown({ db, nowS }, player, env, { character, regio
     bindStatement(db, at, player.id, nowS),
     db.prepare(`INSERT INTO town_seat_renown (week, account, char_id, region, xp) SELECT ?1, ?4, ?5, ?6, ?7
       WHERE (SELECT guild_id FROM town_seat_binds WHERE week = ?1 AND account = ?4) = ?3
-        AND EXISTS (SELECT 1 FROM town_seat_pledges WHERE week = ?1 AND guild_id = ?3 AND region = ?6 AND key = ?2)
+        AND ${pledgedOrHeldSql('?1', '?2', '?3')}
       ON CONFLICT (week, account, char_id, region) DO UPDATE SET xp = xp + excluded.xp`)
       .bind(at.week, at.key, at.guild, player.id, at.char, region, xp),
   ]);
@@ -322,9 +337,18 @@ export function standingsOf({ guilds, rows, renown, homes, binds, agreed, weekSt
   return out.sort((x, y) => y.total - x.total || (x.guild < y.guild ? -1 : 1));
 }
 
-async function gatherStandings(db, seat, week, nowS) {
-  const { results: pledged = [] } = await db.prepare('SELECT guild_id FROM town_seat_pledges WHERE week = ? AND key = ?').bind(week, seat.key).all();
-  const guilds = pledged.map((p) => p.guild_id);
+/** SEAT1c: every guild at a seat this week - its pledges, and its holder (pledged there by holding it) - each with when it
+ *  pledged (a holder at its Charter's week). */
+export async function seatGuildsOf(db, key, week) {
+  const { results: pledged = [] } = await db.prepare('SELECT guild_id, at FROM town_seat_pledges WHERE week = ? AND key = ?').bind(week, key).all();
+  const out = new Map(pledged.map((p) => [p.guild_id, Number(p.at)]));
+  const held = await db.prepare('SELECT guild_id, at FROM town_seat_holds WHERE key = ?').bind(key).first();
+  if (held && !out.has(held.guild_id)) out.set(held.guild_id, Number(held.at));
+  return out;
+}
+/** Each pledged guild's week at a seat (standingsOf), the rows gathered. Exported for the Turning (seatTurning.js). */
+export async function gatherStandings(db, seat, week, nowS) {
+  const guilds = [...(await seatGuildsOf(db, seat.key, week)).keys()];
   if (!guilds.length) return [];
   const qs = guilds.map(() => '?').join(', ');
   const { results: rows = [] } = await db.prepare('SELECT guild_id, account, source, amount, region, day FROM town_seat_influence WHERE week = ? AND key = ?').bind(week, seat.key).all();
@@ -352,6 +376,12 @@ export async function readStandings({ db, nowS }, player, env, { key, character 
   if (!seat) return { error: 'seat-unconfirmed' };
   const week = weekAt(nowS);
   const list = await gatherStandings(db, seat, week, nowS);
+  // SEAT1c: the Legacy each guild carried in, the holder and its defence, the week's battle here, the Chronicle
+  const { results: legacyRows = [] } = await db.prepare('SELECT guild_id, amount FROM town_seat_legacy WHERE week = ? AND key = ?').bind(week, key).all();
+  const legacy = new Map(legacyRows.map((l) => [l.guild_id, Number(l.amount)]));
+  const holder = (await holdsOf(db)).get(key) ?? null;
+  const own = holder ? list.find((s) => s.guild === holder.guild.id) : null;
+  const defence = holder ? seatDefence({ influence: own?.total ?? 0, legacy: legacy.get(holder.guild.id) ?? 0 }, holder.standing) : null;
   const ids = list.map((s) => s.guild);
   const { results: gs = [] } = ids.length
     ? await db.prepare(`SELECT id, name, tag, heraldry FROM guilds WHERE id IN (${ids.map(() => '?').join(', ')})`).bind(...ids).all() : { results: [] };
@@ -374,10 +404,37 @@ export async function readStandings({ db, nowS }, player, env, { key, character 
     reckoningAt: Math.floor((start + SEAT_WEEK_MS - SEAT_RECKONING_MS) / 1000), turningAt: Math.floor((start + SEAT_WEEK_MS) / 1000),
     standings: list.map((s) => {
       const g = byId.get(s.guild);
-      return { guild: { id: s.guild, name: g?.name ?? '', tag: g?.tag ?? '', heraldry: heraldryOfRow(g?.heraldry) }, influence: s.total, tribute: s.tribute, accounts: s.accounts };
-    }),
+      const carried = legacy.get(s.guild) ?? 0;
+      return { guild: { id: s.guild, name: g?.name ?? '', tag: g?.tag ?? '', heraldry: heraldryOfRow(g?.heraldry) }, influence: s.total + carried, legacy: carried, tribute: s.tribute, accounts: s.accounts, holder: s.guild === holder?.guild.id };
+    }).sort((x, y) => y.influence - x.influence),
+    holder, defence, battle: (await battlesOf(db, week)).get(key) ?? null, chronicle: await chronicleOf(db, key),
     ...(mine ? { mine } : {}),
   };
+}
+
+// ─── SEAT1c: THE HOLDERS, THE WEEK'S BATTLES, THE CHRONICLE ─────────
+
+const guildView = (id, name, tag, heraldry) => ({ id, name: name ?? '', tag: tag ?? '', heraldry: heraldryOfRow(heraldry) });
+/** EVERY CHARTER HELD, by key: `{ guild: { id, name, tag, heraldry }, since, standing }`. */
+export async function holdsOf(db) {
+  const { results = [] } = await db.prepare(`SELECT h.key, h.guild_id, h.since_week, h.standing, g.name, g.tag, g.heraldry FROM town_seat_holds h
+    JOIN guilds g ON g.id = h.guild_id`).all();
+  return new Map(results.map((h) => [Number(h.key), { guild: guildView(h.guild_id, h.name, h.tag, h.heraldry), since: Number(h.since_week), standing: Number(h.standing) }]));
+}
+/** THE WEEK'S BATTLES the last Turning named, by key: `{ kind, guild, against }` - a Right of Siege's challenger and
+ *  holder, or a Contested seat's two contenders. */
+export async function battlesOf(db, week) {
+  const { results = [] } = await db.prepare(`SELECT r.key, r.kind, r.guild_id, r.against, a.name AS an, a.tag AS at, a.heraldry AS ah,
+      b.name AS bn, b.tag AS bt, b.heraldry AS bh FROM town_seat_rights r JOIN guilds a ON a.id = r.guild_id LEFT JOIN guilds b ON b.id = r.against
+    WHERE r.week = ?`).bind(week).all();
+  return new Map(results.map((r) => [Number(r.key), {
+    kind: r.kind, guild: guildView(r.guild_id, r.an, r.at, r.ah), against: r.against ? guildView(r.against, r.bn, r.bt, r.bh) : null,
+  }]));
+}
+/** A seat's Chronicle, newest first - `{ kind, week, data }`, at most SEAT_CHRONICLE_SHOWN. */
+async function chronicleOf(db, key) {
+  const { results = [] } = await db.prepare('SELECT kind, week, data FROM town_seat_history WHERE key = ? ORDER BY seq DESC LIMIT ?').bind(key, SEAT_CHRONICLE_SHOWN).all();
+  return results.map((r) => { let data = {}; try { data = JSON.parse(r.data); } catch { /* none */ } return { kind: r.kind, week: Number(r.week), data }; });
 }
 
 // ─── TRIBUTE ─────────────────────────────────────────────────────────
@@ -417,7 +474,7 @@ export async function payTribute({ db, nowS }, player, env, { character, key, ma
         WHERE COALESCE((SELECT balance FROM guild_marks WHERE guild_id = ?1), 0) >= ?2
           AND NOT EXISTS (SELECT 1 FROM marks_ledger WHERE actor = ?5 AND rid = ?7)
           AND EXISTS (SELECT 1 FROM guild_members WHERE rowid = ?8 AND guild_id = ?1 AND rank IN (${ranksSql('tribute')}))
-          AND EXISTS (SELECT 1 FROM town_seat_pledges WHERE week = ?9 AND guild_id = ?1 AND key = ?10)`)
+          AND ${pledgedOrHeldSql('?9', '?10', '?1')}`)
         .bind(gid, marks, utcDay(nowS), nowS, player.id, displayName(player), rid, Number(a.me.rid), week, key),
       mustChange(db),
       db.prepare(`INSERT INTO town_seat_influence (week, key, guild_id, account, char_id, source, amount, region, ref, at)

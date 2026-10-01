@@ -18,7 +18,12 @@ import { accountRefusalText } from '../net/accountClient.js';
 import {
   seatInfoLine, seatWeekLine, seatStandingLine, seatNoStandingsLine, seatMineLines, seatTributeLine, seatMay,
   SEAT_PLEDGE_WORDS, SEAT_PLEDGE_REGIONS_MAX, TRIBUTE_MARKS_PER_INFLUENCE,
+  seatHolderLine, seatBattleLine, seatClaimLine, chronicleLine, SEAT_RELINQUISH_WORDS,
 } from '../net/townSeatLaw.js';
+import { GUILD_RANK_MASTER } from '../net/guildLaw.js';
+
+/** SEAT1c: how long the relinquish button stays armed after its first press, ms. */
+export const SEAT_RELINQUISH_ARM_MS = 4000;
 
 /** @param {string} tag @param {string|null} [cls] @param {string|null} [text] */
 const el = (tag, cls = null, text = null) => {
@@ -56,6 +61,7 @@ export function createSeatTab(host, ui) {
   const banner = host.banner ?? (() => null);
   let data = null, error = null, loading = false;
   let tributeDrakes = 0;
+  let armedAt = -Infinity;   // SEAT1c: the relinquish button's first press
 
   async function load(force) {
     if (loading) return;
@@ -89,7 +95,7 @@ export function createSeatTab(host, ui) {
     const out = el('div', 'notice-seat-levers');
     const here = mine.pledges.find((p) => p.region === seat.region) ?? null;
     const busy = ui.busy();
-    if (seatMay(mine.rank, 'pledge') && data.phase === 'muster') {
+    if (seatMay(mine.rank, 'pledge') && data.phase === 'muster' && !here?.held) {   // SEAT1c: a held region is pledged by its Charter
       let b = null;
       if (here?.key === seat.key) b = button('notice-seat-drop', SEAT_PLEDGE_WORDS.drop, () => act(() => book.unpledge(seat.region)));
       else if (here) b = button('notice-seat-pledge', SEAT_PLEDGE_WORDS.move(seat), () => act(() => book.pledge(seat)));
@@ -127,8 +133,13 @@ export function createSeatTab(host, ui) {
     reload: () => load(true),
     body() {
       const body = el('div', 'notice-cork notice-seat');
-      const c = seatInfoLine(seat);
-      body.append(el('p', 'notice-section', c));
+      // SEAT1c: the Charter under its holder's banner, the holder, this week's battle
+      const holder = data?.holder ?? null;
+      const head = el('p', 'notice-section');
+      const img = holder ? banner(holder.guild.heraldry, 30) : null;
+      if (img) head.append(img);
+      head.append(el('span', null, seatInfoLine(seat, holder?.guild ?? null)));
+      body.append(head);
       if (!data) {
         const shut = SHUT.has(error ?? '');
         const p = el('p', 'notice-empty', loading || !error ? SEAT_TAB_WORDS.reading : shut ? (error === 'seat-unconfirmed' ? accountRefusalText(error) : SEAT_TAB_WORDS.shut) : SEAT_TAB_WORDS.slow);
@@ -136,11 +147,34 @@ export function createSeatTab(host, ui) {
         body.append(p);
         return body;
       }
+      body.append(el('p', 'notice-seat-mine', seatHolderLine(holder)));
+      const battle = seatBattleLine(data.battle ?? null);
+      if (battle) body.append(el('p', 'notice-seat-battle', battle));
       body.append(el('p', 'notice-seat-week', seatWeekLine(data, ui.nowS())));
       body.append(el('p', 'notice-section', 'This week\'s standings'));
       body.append(standingsNode());
+      body.append(el('p', 'notice-seat-mine', seatClaimLine(seat, data.defence ?? null)));
       for (const line of seatMineLines(seat, data.mine ?? null, nameOf)) body.append(el('p', 'notice-seat-mine', line));
       if (data.mine) body.append(leversNode(data.mine));
+      // SEAT1c: the guildmaster of the holder gives the Charter up here, at its board - armed by a first press
+      if (holder && data.mine?.guild === holder.guild.id && data.mine.rank === GUILD_RANK_MASTER) {
+        const armed = () => ui.nowS() * 1000 - armedAt < SEAT_RELINQUISH_ARM_MS;   // asked at the press, not at the draw
+        const b = button('notice-seat-relinquish', armed() ? SEAT_RELINQUISH_WORDS.sure : SEAT_RELINQUISH_WORDS.arm, () => {
+          if (!armed()) { armedAt = ui.nowS() * 1000; ui.rerender(); return null; }
+          armedAt = -Infinity;
+          return act(() => book.relinquish(seat));
+        });
+        b.disabled = ui.busy();
+        body.append(b);
+      }
+      // SEAT1c: the Chronicle (SEAT0 9.2), newest first
+      const lines = (data.chronicle ?? []).map((r) => chronicleLine(r, seat)).filter(Boolean);
+      if (lines.length) {
+        body.append(el('p', 'notice-section', 'The Chronicle'));
+        const ol = el('ol', 'notice-chronicle');
+        for (const l of lines) ol.append(el('li', null, l));
+        body.append(ol);
+      }
       return body;
     },
   };
