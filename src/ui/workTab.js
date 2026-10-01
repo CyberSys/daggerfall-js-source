@@ -27,6 +27,8 @@ import {
 import { GUILD_RANK_MASTER } from '../net/guildLaw.js';
 import { HANDLE_RE } from '../net/handleShape.js';
 import { WRIT_MOVED } from '../net/writBook.js';
+import { FORT_MATERIALS } from '../net/fortLaw.js';   // SEAT2b: what a seat writ may ask
+import { bannerSvg } from './heraldryArt.js';   // AUDIT-SEATS G11: a guild writ's card under its guild's banner
 
 /** AUDIT 31 U11: how long a Decline stays armed after its first press - the Guild tab's confirm's kind. */
 export const WORK_ARM_MS = 4000;
@@ -71,6 +73,20 @@ const labelled = (text, field, cls = '') => {
   const l = el('label', `work-label${cls ? ` ${cls}` : ''}`);
   l.append(el('span', 'work-label-text', text), field);
   return l;
+};
+/** SEAT2b: where a seat writ's units go, as the card and the form say it. */
+export function seatWritPlace(x) {
+  const name = x?.name || 'the seat';
+  return x?.camp ? `the Siege Camp at ${name}` : `${whose(name)} stockpile`;
+}
+export const seatWritFor = (x) => `for ${seatWritPlace(x)}`;
+/** AUDIT-SEATS G11: a guild writ's banner - the port's own drawing of its guild's heraldry - or null for none. */
+const writBanner = (heraldry) => {
+  if (!heraldry) return null;
+  const img = /** @type {HTMLImageElement} */ (el('img', 'notice-banner writ-banner'));
+  img.alt = '';
+  img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(bannerSvg(heraldry, { width: 26 }))}`;
+  return img;
 };
 const intOf = (s, lo, hi) => { const n = Math.floor(Number(s)); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : lo; };
 const count = (n) => Number(n).toLocaleString('en-US');
@@ -160,8 +176,10 @@ export function createWorkTab(w, ui) {
   function guildWritCard(x, i, data) {
     const li = el('li', `notice-card notice-writ seal-guild${x.state !== 'open' ? ' done' : ''}`);
     li.style.setProperty('--tilt', `${((i * 41) % 5) - 2}deg`);
-    li.append(el('span', 'notice-pin'), el('span', 'writ-kind', 'Guild writ'));
-    li.append(el('p', 'writ-need', `${guildName(x.guild)} needs ${count(x.left)} more ${w.countName(x.material, x.left)}`));
+    li.append(el('span', 'notice-pin'), el('span', 'writ-kind', x.seat != null ? 'Seat writ' : 'Guild writ'));
+    const flag = writBanner(x.guild?.heraldry);   // AUDIT-SEATS G11: its guild's banner
+    if (flag) li.append(flag);
+    li.append(el('p', 'writ-need', `${guildName(x.guild)} needs ${count(x.left)} more ${w.countName(x.material, x.left)}${x.seat != null ? ` ${seatWritFor({ name: x.seatName, camp: x.camp })}` : ''}`));
     li.append(el('p', 'writ-pay', `Pays ${marksText(x.pay)} each - ${count(x.units - x.left)} / ${count(x.units)} delivered`));
     li.append(el('p', 'writ-left', writLeftText(x.expiresAt, ui.nowS())));
     const held = w.held(x.material);
@@ -273,14 +291,22 @@ export function createWorkTab(w, ui) {
     const max = () => writPayMax(st.writ.material);
     const f = st.writ;
     f.pay = intOf(f.pay, 1, Math.max(1, max()));
-    const mat = select(catalogue.map((m) => [m.key, w.countName(m.key, 2)]), f.material, (v) => { f.material = v; f.pay = Math.min(f.pay, writPayMax(v)); ui.rerender(); }, 'The material the writ asks');
+    // SEAT2b (Professions-Arc 11): a seat writ - for a seat of this region the guild holds (its stockpile) or is pledged to
+    // this week (its Siege Camp) - asks only what a work asks
+    const seats = Array.isArray(g.seats) ? g.seats : [];
+    if (!seats.some((x) => x.key === f.seat)) f.seat = null;
+    const choices = f.seat != null ? catalogue.filter((m) => FORT_MATERIALS.includes(m.key)) : catalogue;
+    if (!choices.some((m) => m.key === f.material)) f.material = choices[0]?.key ?? f.material;
+    const forSel = seats.length ? select([['', 'The guild Stores'], ...seats.map((x) => [String(x.key), seatWritPlace(x).replace(/^t/, 'T')])], f.seat == null ? '' : String(f.seat),
+      (v) => { f.seat = v === '' ? null : Number(v); ui.rerender(); }, "Where the writ's units go") : null;
+    const mat = select(choices.map((m) => [m.key, w.countName(m.key, 2)]), f.material, (v) => { f.material = v; f.pay = Math.min(f.pay, writPayMax(v)); ui.rerender(); }, 'The material the writ asks');
     const units = input('number', f.units, 'Units the writ asks', 'writ|units');
     units.min = '1'; units.max = String(WRIT_UNITS_MAX);
     const pay = input('number', f.pay, 'Drakes each', 'writ|pay');
     pay.min = '1'; pay.max = String(max());
     const said = el('p', 'work-hint');
     said.setAttribute('aria-live', 'polite');
-    const go = button('primary work-post', 'Post', () => act(() => w.writs.post({ region: w.region, material: f.material, units: f.units, pay: f.pay }),
+    const go = button('primary work-post', 'Post', () => act(() => w.writs.post({ region: w.region, material: f.material, units: f.units, pay: f.pay, ...(f.seat != null ? { seat: f.seat } : {}) }),
       () => { st.form = null; return `Posted on the boards of ${w.regionName} for seven days.`; }));
     const standing = (data?.yours?.guildWrits ?? []).length;
     const refresh = () => {
@@ -301,6 +327,7 @@ export function createWorkTab(w, ui) {
     pay.oninput = () => { f.pay = intOf(pay.value, 1, Math.max(1, max())); refresh(); };
     refresh();
     const row = el('div', 'work-fields');
+    if (forSel) row.append(labelled('For', forSel, 'work-label-wide'));
     row.append(labelled('Material', mat, 'work-label-wide'), labelled('Units', units), labelled('Drakes each', pay), go);
     box.append(row, said);
     return box;

@@ -65,3 +65,43 @@ test('SEAT2b THE WORKS PANEL: the works a palace may raise (no Gatehouse below t
   assert.equal(h4.textContent, `${SEAT_WORKS_WORDS.head}${SEAT_WORKS_WORDS.reading}`);
   assert.equal(fortLeverText('shrine', 3), '', 'no such tier');
 });
+
+test('SEAT2b SEAT WRITS ON THE WORK TAB: the guild\'s seats of the region offered as where a writ\'s units go - the stockpile it holds, the Siege Camp it is pledged to - a seat\'s writ asking only what a work asks, posted with its seat; a seat writ\'s card says so, under its guild\'s banner (mutants: the choice; the materials; the post; the card\'s words; the banner)', async () => {
+  const { createWorkTab, seatWritFor, seatWritPlace } = await import('../src/ui/workTab.js');
+  const { FORT_MATERIALS } = await import('../src/net/fortLaw.js');
+  const T = 1_800_000_000;
+  const posted = [];
+  const w = { writs: { state: { workDrafts: null }, post: async (req) => { posted.push(req); return { ok: true }; } }, held: () => 0, region: 21, regionName: 'Anticlere', regionNameOf: () => 'Elsewhere', countName: (k) => k, pieces: () => [], reload() {} };
+  const ui = { busy: () => false, run: async (f) => { await f(); }, rerender() {}, nowS: () => T };
+  const tab = createWorkTab(w, ui);
+  tab._state.form = 'writ';
+  const heraldry = { field: 'azure', border: 'gold', device: 'eagle' };
+  const data = {
+    writs: [], today: { filled: 0, max: 3 }, commissions: [], balance: 0, writsOpen: true, me: 'Me',
+    guildWrits: [{ id: 'S1', kind: 'guild', guild: { id: 'g1', name: 'The Silver Hand', tag: 'SH', heraldry }, region: 21, material: 'stone:cut', units: 300, left: 280, pay: 3, escrow: 840, at: 0, expiresAt: T + 5 * 86400, state: 'open', mine: false, may: false, room: null, seat: 3021, camp: false, seatName: 'Anticlere' },
+      { id: 'S2', kind: 'guild', guild: { id: 'g2', name: 'Ebon Oath', tag: 'EO', heraldry: null }, region: 21, material: 'plank:oak', units: 100, left: 100, pay: 1, escrow: 100, at: 0, expiresAt: T + 5 * 86400, state: 'open', mine: false, may: false, room: null, seat: 3021, camp: true, seatName: 'Anticlere' }],
+    yours: { commissions: [], guildWrits: [] },
+    guild: { id: 'g1', name: 'The Silver Hand', tag: 'SH', rank: 0, mayPost: true, marks: 100_000, budget: 0, spent: 0, left: 0,
+      seats: [{ key: 3021, name: 'Anticlere', camp: false }, { key: 3022, name: 'Ashfield', camp: true }] },
+  };
+  const find = (root, label) => root.querySelectorAll('*').find((n) => n.getAttribute?.('aria-label') === label);
+  let node = tab.node(data);
+  const where = find(node, "Where the writ's units go");
+  assert.deepEqual(where.children.map((o) => [o.value, o.textContent]), [['', 'The guild Stores'], ['3021', "Anticlere's stockpile"], ['3022', 'The Siege Camp at Ashfield']]);
+  assert.ok(find(node, 'The material the writ asks').children.length > FORT_MATERIALS.length, 'the guild Stores: the whole catalogue');
+  where.value = '3022'; where.onchange();
+  node = tab.node(data);
+  const mats = find(node, 'The material the writ asks').children.map((o) => o.value);
+  assert.deepEqual(mats.sort(), [...FORT_MATERIALS].sort(), 'a seat writ asks what a work asks');
+  node.querySelectorAll('*').find((n) => n.className?.includes?.('work-post')).click();
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(posted.at(-1).seat, 3022);
+  // the cards
+  const cards = tab.cards(data);
+  assert.match(cards[0].textContent, /^Seat writ/);
+  assert.match(cards[0].textContent, /The Silver Hand \[SH\] needs 280 more stone:cut for Anticlere's stockpile/);
+  assert.match(cards[1].textContent, /Ebon Oath \[EO\] needs 100 more plank:oak for the Siege Camp at Anticlere/);
+  assert.equal(cards[0].querySelectorAll('*').filter((n) => n.className?.includes?.('writ-banner')).length, 1, 'its guild\'s banner');
+  assert.equal(cards[1].querySelectorAll('*').filter((n) => n.className?.includes?.('writ-banner')).length, 0, 'none without heraldry');
+  assert.deepEqual([seatWritPlace({ name: 'Silas', camp: false }), seatWritFor({ camp: true })], ["Silas' stockpile", 'for the Siege Camp at the seat']);
+});

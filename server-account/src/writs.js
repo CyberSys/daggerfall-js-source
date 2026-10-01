@@ -50,6 +50,7 @@ import { fortMaterialOk } from '../../src/net/fortLaw.js';   // SEAT2b: what a s
 import { seatKeyOk } from '../../src/net/townSeatLaw.js';
 import { confirmedSeats } from './townSeats.js';
 import { supplyForts } from './seatForts.js';   // SEAT2b: a stockpile's delivery moved into its projects
+import { heraldryOfRow } from './halls.js';   // AUDIT-SEATS G11: a writ's guild's banner
 import { saleTax, saleTaxOn, provenanceOk, pieceListable, UNYIELDED, WEAR_WHOLE } from '../../src/net/marketLaw.js';
 import {
   WRIT_S, GUILD_WRITS_MAX, WRIT_POSTS_MAX, WRIT_OPS_MAX, WRIT_WINDOW_S, WRIT_SETTLE_MAX, WRIT_SHOWN, WRIT_RECENT_S, WRIT_RID_RE,
@@ -95,16 +96,16 @@ async function rankIn(db, me, character, guildId) {
 
 // ─── WHAT A ROW LOOKS LIKE TO THE CLIENT ─────────────────────────────
 
-const WRIT_ROW = `SELECT w.*, g.name AS guild_name, g.tag AS guild_tag, ${guildHeldSql('w.guild_id', 'w.material')} AS guild_held
+const WRIT_ROW = `SELECT w.*, g.name AS guild_name, g.tag AS guild_tag, g.heraldry AS guild_heraldry, ${guildHeldSql('w.guild_id', 'w.material')} AS guild_held
   FROM guild_writs w JOIN guilds g ON g.id = w.guild_id`;
 const guildWritView = (w, me, may = false) => ({
-  id: w.id, kind: 'guild', guild: { id: w.guild_id, name: w.guild_name ?? null, tag: w.guild_tag ?? null }, region: Number(w.region),
+  id: w.id, kind: 'guild', guild: { id: w.guild_id, name: w.guild_name ?? null, tag: w.guild_tag ?? null, heraldry: heraldryOfRow(w.guild_heraldry) }, region: Number(w.region),   // AUDIT-SEATS G11: its banner on the card
   material: w.material, units: Number(w.units), left: Number(w.left_units), pay: Number(w.pay), escrow: Number(w.escrow),
   at: Number(w.at), expiresAt: Number(w.expires_at), state: w.state, mine: w.poster === me, may,
   // AUDIT 31 U10: what the guild Stores can still take of its material - a delivery past it is refused
   room: w.seat == null ? Math.max(0, GUILD_STORES_MAX - Number(w.guild_held ?? 0)) : null,
   // SEAT2b: a seat writ's seat, and whether it fills a Siege Camp (else the seat's stockpile)
-  seat: w.seat == null ? null : Number(w.seat), camp: Number(w.camp ?? 0) === 1,
+  seat: w.seat == null ? null : Number(w.seat), camp: Number(w.camp ?? 0) === 1, seatName: w.seat_name ?? null,
 });
 const COMMISSION_ROW = `SELECT c.*, pp.handle AS poster_handle, cp.handle AS crafter_handle FROM commissions c
   JOIN players pp ON pp.id = c.poster LEFT JOIN players cp ON cp.id = c.crafter`;
@@ -212,6 +213,11 @@ export async function writBoard(ctx, player, env, { character, region } = {}) {
       OR (c.crafter = ?1 AND (c.state = 'open' OR c.closed_at > ?2))   -- AUDIT 31 L1: a week of those closed, as the poster's
     ORDER BY c.at DESC LIMIT ${WRIT_SHOWN}`).bind(me, nowS - WRIT_RECENT_S).all();
   const ourGuild = member ? { guild: await guildOfMember(db, member, rank, nowS) } : { guild: null };
+  // SEAT2b: each seat writ's seat by name; the member's guild's seats of this region a writ may fill - those it holds (the
+  // stockpile) and those it is pledged to this week (its Siege Camp)
+  const seats = [...here, ...ours].some((x) => x.seat != null) || member ? await confirmedSeats(db, nowS) : null;
+  for (const x of [...here, ...ours]) if (x.seat != null) x.seat_name = seats?.get(Number(x.seat))?.name ?? null;
+  if (member && ourGuild.guild) ourGuild.guild.seats = await writSeatsOf(db, member.guild_id, region, nowS, seats);
   const own = member?.guild_id ?? null;
   const fits = await eligibleHere(db, me, region, nowS);
   const view = (c) => commissionView(c, me, c.crafter === me && Number(c.region) === region && c.state === 'open' ? fits.get(c.id) ?? [] : null);
@@ -249,6 +255,14 @@ async function eligibleHere(db, me, region, nowS) {
     out.set(r.commission, list);
   }
   return out;
+}
+/** SEAT2b: the seats of `region` a writ of guild `g` may fill - `[{ key, name, camp }]`, held first. */
+async function writSeatsOf(db, g, region, nowS, seats) {
+  const { results: held = [] } = await db.prepare('SELECT key FROM town_seat_holds WHERE guild_id = ? AND region = ?').bind(g, region).all();
+  const { results: pledged = [] } = await db.prepare('SELECT key FROM town_seat_pledges WHERE week = ? AND guild_id = ? AND region = ?').bind(seatWeek(nowS), g, region).all();
+  const out = held.map((h) => ({ key: Number(h.key), name: seats?.get(Number(h.key))?.name ?? null, camp: false }));
+  for (const p of pledged) if (!out.some((x) => x.key === Number(p.key))) out.push({ key: Number(p.key), name: seats?.get(Number(p.key))?.name ?? null, camp: true });
+  return out.filter((x) => x.name);
 }
 /** A member's guild as the Work tab reads it: its name and tag, the reader's rank, whether it may post, the treasury,
  *  and the Officers' budget this seat week - set, spent, left. */
