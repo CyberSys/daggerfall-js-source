@@ -11319,7 +11319,8 @@ dead, 1 recorded equivalent - the mint's character gate, which a member row's ow
 survived the first run, the re-stood peer's memory, now pinned; the token's bound held from both sides). PIN MOVED: the relay and account version pins
 (`world143`, `acct56`); the relay's law row and bundle graph (`heraldryLaw.js`); identityToken.js's imports;
 WB9g's two relay source pins; the account schema's tables (`town_seat_ribbons`); AUDIT B8's widest token; ACC1d's
-token shape (a body of 641 the malformed one - the full suite's one failure on the merged head, now moved). Ten older
+token shape (a body of 641 the malformed one) and SOC4's name point (the ribbon's own line before the scale) - the
+full suite's two failures on the merged head (17252 tests), both now moved. Ten older
 mutant records re-aimed by content, still dead (ACC1d's and ACC3a's vouched name, ACC3b's and SLAM9's memory, SOC1's
 version line, WB9g's five).
 
