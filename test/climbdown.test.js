@@ -8,9 +8,9 @@
 // code before its fix.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PlayerMotor } from '../src/player/motor.js';
+import { PlayerMotor, SLOPE_LIMIT_DEG } from '../src/player/motor.js';
 import { Collider } from '../src/player/collider.js';
-import { registerParkourGate, offsetMove } from '../src/player/parkour.js';
+import { registerParkourGate, offsetMove, carryMove, PARKOUR_EDGE_FLOOR_NY } from '../src/player/parkour.js';
 
 const I = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 const BOX_IDX = [0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7, 0, 1, 5, 0, 5, 4, 3, 7, 6, 3, 6, 2, 0, 4, 7, 0, 7, 3, 1, 2, 6, 1, 6, 5];
@@ -74,14 +74,23 @@ function overlap(boxes, feet, height, r = 0.35) {
   }
   return worst;
 }
-/** A tower `H` tall on the terrain, 6 m square, a parapet `ph` tall and `pw` thick round its flat top (none at 0). */
+/** A tower `H` tall on the terrain, 6 m square, a parapet `ph` tall and `pw` thick round its flat top (none at 0);
+ *  `box` adds to the scene. */
 function tower(H, ph = 0, pw = 0) {
   const col = new Collider(() => 0), boxes = [];
   let n = 0;
   const box = (...b) => { boxes.push(b); col.addMesh(`b${n++}`, new Float32Array([b[0], b[1], b[2], b[3], b[1], b[2], b[3], b[4], b[2], b[0], b[4], b[2], b[0], b[1], b[5], b[3], b[1], b[5], b[3], b[4], b[5], b[0], b[4], b[5]]), BOX_IDX, I); };
   box(-3, 0, -3, 3, H, 3);
   if (ph > 0) { box(-3, H, -3, 3, H + ph, -3 + pw); box(-3, H, 3 - pw, 3, H + ph, 3); box(-3, H, -3, -3 + pw, H + ph, 3); box(3 - pw, H, -3, 3, H + ph, 3); }
-  return { col, boxes };
+  return { col, boxes, box };
+}
+/** A house 6 m across, its eaves 8 m up at z -2 and 2 and its roof pitched `pitch` degrees to a ridge along z 0. */
+function gable(pitch) {
+  const col = new Collider(() => 0);
+  col.addMesh('walls', new Float32Array([-3, 0, -2, 3, 0, -2, 3, 8, -2, -3, 8, -2, -3, 0, 2, 3, 0, 2, 3, 8, 2, -3, 8, 2]), BOX_IDX, I);
+  const t = Math.tan((pitch * Math.PI) / 180), ridge = 8 + 2 * t;
+  col.addMesh('roof', new Float32Array([-3, 8, -2, 3, 8, -2, 3, ridge, 0, -3, ridge, 0, -3, 8, 2, 3, 8, 2]), [0, 2, 1, 0, 3, 2, 4, 5, 2, 4, 2, 3], I);
+  return { col, ridge };
 }
 const state = (m) => (m._pkMove ? `move:${m._pkMove.kind}` : m._wall ? m._wall.mode : m.grounded ? 'ground' : 'air');
 function climber(col, { skill = 50, said = [] } = {}) {
@@ -118,6 +127,8 @@ const crouchToTheEdge = (i, m, c) => {
   if (!c.hung) { if (m.hanging) { c.hung = true; return {}; } return { forward: 1 }; }
   return { forward: -1 };
 };
+/** `script`, with `see(m)` shown the body as each step finds it (as the step before left it). */
+const watching = (script, see) => (i, m, c) => { see(m); return script(i, m, c); };
 
 test('CLIMB-DOWN T2: walled in on a roof - Jump at a thin parapet over a drop climbs over it into a hang on the far side, and Back climbs down to the street', () => {
   for (const [ph, pw] of [[1.0, 0.25], [1.1, 0.15], [0.8, 0.12]]) {
@@ -158,10 +169,7 @@ test('CLIMB-DOWN T3: crouch walked to a roof\'s edge lowers the body over it int
 
 test('CLIMB-DOWN T4: crouched down a pitched roof, the eave is a hand-hold - 20 to 45 degrees', () => {
   for (const pitch of [20, 30, 40, 45]) {
-    const col = new Collider(() => 0);
-    col.addMesh('walls', new Float32Array([-3, 0, -2, 3, 0, -2, 3, 8, -2, -3, 8, -2, -3, 0, 2, 3, 0, 2, 3, 8, 2, -3, 8, 2]), BOX_IDX, I);
-    const t = Math.tan((pitch * Math.PI) / 180), ridge = 8 + 2 * t;
-    col.addMesh('roof', new Float32Array([-3, 8, -2, 3, 8, -2, 3, ridge, 0, -3, ridge, 0, -3, 8, 2, 3, 8, 2]), [0, 2, 1, 0, 3, 2, 4, 5, 2, 4, 2, 3], I);
+    const { col, ridge } = gable(pitch);
     const m = climber(col);
     m.spawn(0, ridge + 0.05, -0.3);
     const r = drive(m, [], Math.PI, crouchToTheEdge, 1500);
@@ -248,4 +256,133 @@ test('CLIMB-DOWN T9: a recentre or a deck carrying a chained move carries the pa
   offsetMove(m._pkMove, [100, -5, 50]);
   assert.deepEqual(next.to, [to[0] + 100, to[1] - 5, to[2] + 50], 'the drop into the hang shifted with the world');
   assert.equal(next.hang.lipY, lip - 5, 'and the lip it hangs from');
+  // a deck turning a quarter about the vertical as it rises a metre - (x, y, z) to (z, y + 1, -x) - carries it too
+  const near = (a, b) => a.every((v, k) => Math.abs(v - b[k]) < 1e-9);
+  const was = [...next.to], wasLip = next.hang.lipY;
+  carryMove(m._pkMove, { t: [0, 0, 0], r: null }, { t: [0, 1, 0], r: [0, 0, -1, 0, 1, 0, 1, 0, 0] });
+  assert.ok(near(next.to, [was[2], was[1] + 1, -was[0]]), `the drop into the hang carried with the deck (${next.to.map((v) => v.toFixed(2))})`);
+  assert.equal(next.hang.lipY, wasLip + 1, 'its lip risen with it');
+  assert.ok(near(next.hang.normal, [-1, 0, 0]), `and its wall turned with it (${next.hang.normal})`);
+});
+
+test('CLIMB-DOWN T10: the lower begins the step the body\'s front passes the edge - a flat roof\'s or a pitched one\'s eave, walked to or strafed to; a walk glancing along the edge goes off it as ever', () => {
+  // the edge's floor is the walk's own: the motor's slope limit, restated in parkour.js for the import cycle
+  assert.equal(PARKOUR_EDGE_FLOOR_NY, Math.cos((SLOPE_LIMIT_DEG * Math.PI) / 180), 'the edge reads floor as the walk does');
+  const front = 0.35 + 0.1;   // the radius, and PARKOUR_EDGE_AHEAD past it
+  for (const pitch of [0, 20, 30]) {
+    // down a pitched roof the lip is the eave's, under the feet on the slope - the edge bisected to it, not read under the axis
+    const { col, ridge = 8 } = pitch ? gable(pitch) : tower(8), eave = pitch ? -2 : -3;
+    const m = climber(col);
+    m.spawn(0, ridge + (pitch ? 0.05 : 0.02), pitch ? -0.3 : 0);
+    let prev = null, step = 0, began = null;
+    const r = drive(m, [], Math.PI, watching(crouchToTheEdge, (b) => {
+      if (b._pkMove?.kind === 'lower') began ??= b._pkMove.from[2] - eave;
+      else if (prev && began == null) step = Math.hypot(b.pos[0] - prev[0], b.pos[2] - prev[2]);   // the walk's last step
+      prev = [...b.pos];
+    }), 200);
+    const at = pitch ? `${pitch} degrees` : 'flat';
+    assert.ok(r.seen.includes('move:lower') && began != null, `${at}: lowered (${r.seen.join(' > ')})`);
+    assert.ok(began <= front + 1e-6 && began + step > front, `${at}: begun the step the front passed the edge - the axis ${began.toFixed(3)} m from it, a step of ${step.toFixed(3)} m`);
+  }
+  // crouched, Strafe to the edge lowers too - the way the body moves, not the way it faces (facing -z, Right is -x)
+  const { col } = tower(8);
+  const s = climber(col);
+  s.spawn(0, 8.02, 0);
+  const rs = drive(s, [], Math.PI, (i, b) => (i === 0 ? { crouch: true } : b.hanging ? {} : { strafe: 1 }), 200);
+  assert.deepEqual(rs.seen.slice(0, 3), ['ground', 'move:lower', 'hang'], `strafed: lowered into a hang (${rs.seen.join(' > ')})`);
+  assert.ok(s.pos[0] < -3 && s._wall.normal[0] === -1, `...off the side it moved to (at x ${s.pos[0].toFixed(2)})`);
+  // a crouched walk 55 or 65 degrees off the face (PARKOUR_FACING_DOT: 50) is no way down that wall: off it, the fall
+  for (const off of [55, 65]) {
+    const g = climber(col);
+    const a = (off * Math.PI) / 180;
+    g.spawn(-2.6, 8.02, -3 + 4.5 / Math.tan(a));   // the -z edge met 4.5 m along x, short of the corner
+    const rg = drive(g, [], Math.PI - a, (i) => (i === 0 ? { crouch: true } : { forward: 1 }), 400);
+    assert.ok(!rg.seen.includes('move:lower') && rg.fell > 7, `${off} degrees off the face: walked off (${rg.seen.join(' > ')}, ${rg.fell.toFixed(2)})`);
+  }
+});
+
+test('CLIMB-DOWN T11: the lower goes out over the edge at a walk\'s pace, stands as it drops into the hang it ends in, and takes the time Climbing gives it', () => {
+  const { col } = tower(8);
+  const steps = [];
+  for (const [skill, secs] of [[0, 1.0], [50, 0.8], [100, 0.6]]) {
+    const m = climber(col, { skill });
+    m.spawn(0, 8.02, 0);
+    let prev = null, n = 0, out = 0, hung = null;
+    drive(m, [], Math.PI, watching(crouchToTheEdge, (b) => {
+      if (b._pkMove?.kind === 'lower') { n++; out = Math.max(out, Math.hypot(b.pos[0] - prev[0], b.pos[2] - prev[2])); }
+      if (b.hanging) hung ??= { crouching: b.crouching, height: b.height };
+      prev = [...b.pos];
+    }), 200);
+    assert.ok(out > 0 && out < 0.12, `Climbing ${skill}: out over the edge a step at a time, never put there at once (${out.toFixed(3)} m the most in a step)`);
+    assert.ok(hung && !hung.crouching && hung.height === 1.8, `Climbing ${skill}: the hang begins standing (${JSON.stringify(hung)})`);
+    assert.ok(Math.abs(n + 1 - secs * 60) <= 1, `Climbing ${skill}: the lower takes ${secs} s (${n + 1} steps)`);
+    steps.push(n);
+  }
+  assert.ok(steps[0] > steps[1] && steps[1] > steps[2], `quicker with Climbing (${steps.join(', ')} steps)`);
+});
+
+test('CLIMB-DOWN T12: a top at exactly 45 degrees is a top - a wall\'s rising from its face, and a board\'s tilted across the way (its edge thinner than a rung, found from above), are climbed onto as T4\'s eave is hung from', () => {
+  // a wall 1.25 m tall, its top rising 45 degrees from the face to 3.25 m two metres back
+  const wall = new Collider(() => 0);
+  wall.addMesh('wall', new Float32Array([-3, 0, 0, 3, 0, 0, 3, 1.25, 0, -3, 1.25, 0, -3, 0, 2, 3, 0, 2, 3, 3.25, 2, -3, 3.25, 2]), BOX_IDX, I);
+  // a board 1/16 m thick, 2 m across and 1.5 m deep, its top 1.078125 m up where the body meets it and rising a metre
+  // every metre to its right (heights a float holds exactly: the slope is 45 degrees to the bit, as the eave's is)
+  const board = new Collider(() => 0);
+  board.addMesh('board', new Float32Array([-1, 0.015625, 0, 1, 2.015625, 0, 1, 2.078125, 0, -1, 0.078125, 0, -1, 0.015625, 1.5, 1, 2.015625, 1.5, 1, 2.078125, 1.5, -1, 0.078125, 1.5]), BOX_IDX, I);
+  for (const [what, col, top] of [['the wall', wall, 1.5], ['the board', board, 1.1]]) {
+    const m = climber(col);
+    m.spawn(0, 0.02, -0.5);
+    const r = drive(m, [], 0, (i) => ({ jump: i === 30 }), 150);
+    assert.deepEqual(r.seen, ['ground', 'move:mantle', 'ground'], `${what}: Jump climbed onto it (${r.seen.join(' > ')})`);
+    assert.ok(m.grounded && m.pos[1] > top, `${what}: standing on its top (at ${m.pos[1].toFixed(2)})`);
+  }
+});
+
+test('CLIMB-DOWN T13: a way down goes only where it was proven - a beam over a roof\'s edge refuses the lower, a pole under a parapet\'s far edge the drop into the hang, and over a clear parapet the feet pass a vault\'s clearance over its top', () => {
+  {
+    // a beam a metre over the roof, out over the street from its edge: the body stood over the edge would be in it
+    const { col, boxes, box } = tower(8);
+    box(-3, 9, -3.8, 3, 9.15, -3);
+    const m = climber(col);
+    m.spawn(0, 8.02, 0);
+    const r = drive(m, boxes, Math.PI, crouchToTheEdge, 400);
+    assert.ok(!r.seen.includes('move:lower') && r.fell > 7, `no lower into the beam: the walk off the edge, as ever (${r.seen.join(' > ')})`);
+  }
+  {
+    // a pole along the street side of the parapet, at its top and a little out from the hang: clear of the hang and of
+    // the body over the far edge, in the way of the drop between them
+    const { col, boxes, box } = tower(8, 1.0, 0.25);
+    box(-4, 8.92, -3.7, 4, 9.16, -3.62);
+    const m = climber(col);
+    m.spawn(0, 8.02, 0);
+    const r = drive(m, boxes, Math.PI, overTheParapet(-2.75), 300);
+    assert.ok(!r.seen.includes('move:lower') && !r.seen.includes('hang'), `no drop through the pole (${r.seen.join(' > ')})`);
+    assert.ok(m.grounded && m.pos[1] < 8.1 && m.pos[2] > -2.75, `the jump came down on the roof (${m.pos.map((v) => v.toFixed(2))})`);
+  }
+  {
+    const { col, boxes } = tower(8, 1.0, 0.25);
+    const m = climber(col);
+    m.spawn(0, 8.02, 0);
+    let low = Infinity;
+    const r = drive(m, boxes, Math.PI, watching(overTheParapet(-2.75), (b) => {
+      // the axis within a radius of the parapet's 9 m top, on the way over it
+      if (b._pkMove?.next && b.pos[2] < -2.75 + 0.35 && b.pos[2] > -3 - 0.35) low = Math.min(low, b.pos[1] - 9);
+    }), 300);
+    assert.ok(r.seen.includes('hang'), `over the parapet into a hang (${r.seen.join(' > ')})`);
+    assert.ok(low > 0.075, `the feet over its top the whole way over, by ${low.toFixed(3)} m at the least`);
+  }
+});
+
+test('CLIMB-DOWN T14: a top deeper than a vault\'s is no parapet to climb over - one the mantle cannot land on (a gutter across it where the feet would go) is a plain jump, never a drop into a hang on its far side', () => {
+  // a parapet 1 m tall and 0.93 m deep, a gutter 4 cm wide and 40 cm deep across its top 0.455 m in from the roof
+  // side (between the top's profile rays, under the landing's)
+  const { col, boxes, box } = tower(8);
+  box(-3, 8, -2.525, 3, 9, -2.07);
+  box(-3, 8, -3, 3, 9, -2.565);
+  box(-3, 8, -2.565, 3, 8.6, -2.525);
+  const m = climber(col);
+  m.spawn(0, 8.02, 0);
+  const r = drive(m, boxes, Math.PI, overTheParapet(-2.07), 300);
+  assert.ok(!r.seen.includes('move:mantle') && !r.seen.includes('hang'), `a plain jump (${r.seen.join(' > ')})`);
+  assert.ok(m.grounded && m.pos[1] < 8.1 && m.pos[2] > -2.07, `back on the roof inside it (${m.pos.map((v) => v.toFixed(2))})`);
 });
