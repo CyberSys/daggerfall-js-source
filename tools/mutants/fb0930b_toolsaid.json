@@ -163,15 +163,15 @@
   {
     "name": "TOOL-USE-the-use-plans-as-e",
     "file": "src/scenes/gatherHost.js",
-    "old": "    const plan = kindOf(t.node)?.plan(t.node, ctxFor(t, tool)) ?? null;",
-    "new": "    const plan = kindOf(t.node)?.plan(t.node, ctxFor(t)) ?? null;",
+    "old": "    return learned(t, kindOf(t.node)?.plan(t.node, ctxFor(t, tool)) ?? null);",
+    "new": "    return learned(t, kindOf(t.node)?.plan(t.node, ctxFor(t)) ?? null);",
     "tests": ["test/fb0930b_toolsaid.test.js"]
   },
   {
     "name": "TOOL-USE-the-start-forgets-the-use",
     "file": "src/scenes/gatherHost.js",
-    "old": "    const a = k?.start(t.node, plan, ctxFor(t, tool));",
-    "new": "    const a = k?.start(t.node, plan, ctxFor(t));",
+    "old": "    const a = k?.start(t.node, plan, ctxFor(t, tool, byPress));",
+    "new": "    const a = k?.start(t.node, plan, ctxFor(t, null, byPress));",
     "tests": ["test/fb0930b_toolsaid.test.js"]
   },
   {
@@ -226,15 +226,15 @@
   {
     "name": "TOOL-USE-the-choice-decides",
     "file": "src/scenes/herbHost.js",
-    "old": "basket: only ? only === 'food' : basketChoice, only: !!only,",
-    "new": "basket: basketChoice, only: !!only,",
+    "old": "return planOf(p, { entity, info, rank }, only ? only === 'food' : false, !!only);",
+    "new": "return planOf(p, { entity, info, rank }, false, !!only);",
     "tests": ["test/fb0930b_toolsaid.test.js"]
   },
   {
     "name": "TOOL-USE-the-other-harvest-taken-over",
     "file": "src/scenes/herbHost.js",
-    "old": "basket: only ? only === 'food' : basketChoice, only: !!only,",
-    "new": "basket: only ? only === 'food' : basketChoice, only: false,",
+    "old": "return planOf(p, { entity, info, rank }, only ? only === 'food' : false, !!only);",
+    "new": "return planOf(p, { entity, info, rank }, only ? only === 'food' : false, false);",
     "tests": ["test/fb0930b_toolsaid.test.js"]
   },
   {

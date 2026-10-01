@@ -7142,6 +7142,8 @@ export function createWorldModes(host) {
           shareQuest: (uid, questName, displayName) => host.shareQuest?.(uid, questName, displayName),
           // PEER-PLAQUE1: the plaque's peer pick, delegated the same way - the dungeon's own eye, the outer host's peers
           peerHoverPick: () => host.peerHoverPick?.() ?? null,   // AUDIT DROPS E3: the F key's own ray, not the dungeon's eye
+          profHoverPick: (ray) => host.profHoverPick?.(ray) ?? null,   // PROF-MENU: a dungeon vein or body as the plaque's pick, over the race's winner
+          profHoverName: (key) => host.profHoverName?.(key) ?? null,   // ...and its acts as the plaque's rows
           pageShare: () => host.pageShare?.() ?? null,   // JOURNAL1: a note's Share, the outer host's word, delegated the same way
           // GUIDE2: the journal's two world questions, the outer host's, delegated the same way - the dungeon's journal
           // says where a quest points (the dungeon owns no map, so it offers no way there)
@@ -7559,6 +7561,9 @@ export function createWorldModes(host) {
     // alone, as on the street (C2/H3: a click or a finger's tap started an act a swipe could not play, and every swing
     // was held off until the player walked away); and first, so one press never clicks a quest foe AND starts an act (D3)
     if (interact && !pressCast && host.profPress?.()) return true;
+    // PROF-MENU: and the click on a node's lit row (the plaque's) is the node's, as a loot row's click takes it - never
+    // mid-act (that click is the act's, below)
+    if (!interact && !pressCast && !actClick && !host.profActing?.() && host.profClick?.()) return true;
     // AUDIT 32 H5: and a click mid-act is the act's (D3's law for E) - it opened the body's loot under the knife.
     // CLICK-LIFT (AUDIT 2026-10-01 part four): to its release - the click that struck a dungeon vein's last blow lifts
     // after the act has ended, onto the door, the chest, the body or the lever under the look

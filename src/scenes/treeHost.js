@@ -179,6 +179,8 @@ export function treeKind({ book, renderer = null, flatBatchAabb = null, getTextu
     gone: (n) => book.taken(n.key, 'logs'),
     mark: (n) => (book.taken(n.key, 'logs') ? null : TREE_MARK),   // NODE-MARKS: a standing tree; a felled one's stump none
     tools: Object.freeze([FT.WoodAxe]),   // TOOL-USE: the Wood-Axe's Use at a tree is E there
+    /** PROF-MENU: the menu's title - the tree its wood is. */
+    nodeName: (n) => `${materialLabel(n.material).replace(/ Log$/, '')} Tree`,
     plan(n, { entity, rank, specs }) {
       const plan = treePlan({
         node: n, taken: book.taken(n.key, 'logs'), counting: book.counting(n.key, 'logs'), rank: rank('logging'),

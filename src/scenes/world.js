@@ -287,7 +287,7 @@ import { groupCamps } from '../world/campShared.js';   // OW6: the camps on the 
 import { travellerMarkOf, travellerWorldOf, travellerDue, createTravellerBook, isShipMark } from '../systems/travellerMarks.js';   // TV3: the region's travellers; OWS1: at sea, a ship
 import { RainCurtainsRenderer, curtainsOf, CURTAIN_FOOT_MARGIN_M } from '../render/rainCurtains.js';   // TV4: the weather's curtains, stood in the world for the view
 import { RANGE_PIXELS as TV_BODY_RANGE } from '../net/wire.js';   // TV3: within the pose range a traveller is their body, not a mark
-import { quickLootWheel, quickLootTake, quickLootArm, plaqueActionFor, plaqueActionSelection, plaqueLightFirst } from '../systems/quickLoot.js';   // QUICK-LOOT B4: the wheel, the take, and the two keys that arm what the next activate means
+import { quickLootWheel, quickLootTake, quickLootArm, plaqueActionFor, plaqueActionSelection, plaqueLightFirst, plaqueStep } from '../systems/quickLoot.js';   // QUICK-LOOT B4: the wheel, the take, and the two keys that arm what the next activate means
 import { lootPile } from '../player/lootStack.js';   // LOOT-STACK: the pile under the reticle, as the loot window's tabs
 import { composeContents } from '../systems/worldHover.js';   // WORLD-HOVER: the contents ladder's one law (AUDIT-WH H3)
 import { mobilePersonName, lootPileName } from '../systems/worldTooltips.js';   // WORLD-HOVER H2: MobilePersonNPC.NameNPC (.cs:299-302); M5: a dropped pile's word (.cs:534-548), outdoors too
@@ -6292,6 +6292,27 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!modes?.mountWindow?.(w)) { (w.dispose?.bind(w) ?? w._closeSilently?.bind(w))?.(); return false; }
     return true;
   };
+  /** PROF-MENU: a profession node's acts as a list (ListPickerWindow: a tap, the pad or the mouse), where no plaque lists
+   *  them - the boat menu's way; the window is closed before the act starts, so the act begins on an open world. True
+   *  when it opened. */
+  let _profPicker = null;
+  const profChoose = (rows, pick) => {
+    if (!listPickerArtLoaded() || _profPicker) return false;
+    const close = () => { if (_profPicker) { modes?.closeWindow?.(_profPicker); _profPicker = null; } };
+    const win = new ListPickerWindow({ backdrop: 'none', items: rows, onPick: (i) => { close(); pick(i); }, onCancel: close });
+    if (!modes?.mountWindow?.(win)) return false;
+    _profPicker = win;
+    return true;
+  };
+  /** PROF-MENU: the race's winner, or the profession node over it (gatherHost.hoverHit - a node with nothing to press
+   *  yields to a winner in reach, as its press does). */
+  const profHoverOver = (ray) => gatherHost?.hoverHit?.(ray) ?? ray;
+  /** PROF-MENU: the activation's click on the plaque's lit row of a node - pressed, as a loot row is taken. True when
+   *  the node took it. */
+  const profClickPress = () => {
+    const lit = plaqueActionSelection();
+    return typeof lit?.key === 'string' && lit.key.startsWith('prof:') && lit.id != null && (gatherHost?.press({ click: true }) ?? false);
+  };
   /** A DaggerfallListPickerWindow over the top window, one row each; the pick handed back by index. Its backdrop is
    *  DaggerfallPopupWindow.Draw's: the window it was pushed over drawn, then ScreenDimColor, which is Color.clear. */
   const csaOpenListPicker = (rows, onPick) => {
@@ -7485,6 +7506,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // Insertion order is priority, and it is the ACTIVATION ladder's own
   // order, so the plaque reads a tie the way the press resolves one.
   const _hoverNamers = [
+    (key) => gatherHost?.hoverName?.(key) ?? null,   // PROF-MENU: a profession node, its acts the plaque's rows
     (key) => gatePool?.hoverName(key) ?? null,   // WB2: the Oblivion Gate, and its countdown
     (key) => sigilBroker?.hoverName(key) ?? null,   // SET7: the Sigil Broker beside it
     (key) => camps.hoverName?.(key) ?? null,
@@ -8124,7 +8146,14 @@ export async function bootWorld(canvas, renderer, params, status) {
         keyLabel: (a) => actKeyWord(a) ?? '?',   // TOUCH-HOLD: a pad in hand, its button
         // ACT-CLICK (FIELD BUGS 2026-10-01, "minig is broken doesnt work"): the act's strike is the swing's button OR the
         // activation's - mid-act a click was the act's and nothing else (AUDIT 32 H5), so a player who clicked struck nothing
-        input: () => ({ held: held(keys, 'Interact'), attack: pressed(latch.edge, keys, 'SwingWeapon') || pressed(latch.edge, keys, 'ActivateCenterObject'), choice: !csaRuntime?.isSailing() && pressed(latch.edge, keys, 'ActChoice') }),   // HELM-KEYS: a helm's hands are on the wheel - the up arrow there is More sail's (inputActions.js DEFAULT_SHARES)
+        input: () => ({ held: held(keys, 'Interact'), attack: pressed(latch.edge, keys, 'SwingWeapon') || pressed(latch.edge, keys, 'ActivateCenterObject'), choice: !csaRuntime?.isSailing() && pressed(latch.edge, keys, 'ActChoice') }),   // HELM-KEYS: a helm's hands are on the wheel - the up arrow there is More sail's (inputActions.js DEFAULT_SHARES); PROF-MENU: the key steps a node's list
+        // PROF-MENU (2026-10-01, Mac: "They should use the same menu the loot menu uses and not an interaction button"): the
+        // node is the loot plaque's list where the plaque stands - it names the node, so no prompt does - and the row it
+        // has lit is the one a press presses; where none stands (a phone, the classic skins) the node's acts are a list
+        plaque: () => worldPlaqueOn(),
+        lit: (key) => plaqueActionFor(key),
+        choose: (rows, pick) => profChoose(rows, pick),
+        step: (n) => plaqueStep(n),
         active: () => walkMode && modeNow() === 'exterior' && !townTalk.overlayActive && !modes?.deathUp?.() && !modes?.transitioning && !travelView?.active,   // AUDIT 32 H10: never from under the travel view (its ray is the hidden head's - AUDIT OW5 V2's law for E)
         activeDungeon: () => walkMode && modeNow() === 'dungeon' && !modes?.dungeonCtx?.uiOverlayActive && !modes?.deathUp?.() && !modes?.transitioning,   // PROF2: a dungeon's veins
         onSettle: () => { profBook.settle(profMint, profMintCraft).catch(() => {}); },
@@ -19762,6 +19791,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       });
     },
     profPress: () => gatherHost?.press() ?? false,
+    profClick: () => profClickPress(),   // PROF-MENU: the activation's click on a node's lit row (the dungeon's ladder)
+    profHoverPick: (ray) => gatherHost?.hoverHit?.(ray) ?? null,   // PROF-MENU: a dungeon vein or body as the plaque's pick
+    profHoverName: (key) => gatherHost?.hoverName?.(key) ?? null,   // ...and its list
     profNeed: () => gatherHost?.sayNeed() ?? false,   // VEIN-NEED: E opened nothing underground - the vein it passed on says what it needs
     profActTool: () => gatherHost?.handTool() ?? null,
     profActing: () => gatherHost?.acting() ?? false,
@@ -22957,12 +22989,15 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         const _holdFire = (_act.activate || _act.cast || useEdge) && !!naval?.aiming && naval.holdFire();
         if (_act.cast && !_holdFire && !gatherHost?.acting()) magic.interceptAttack(true);   // the frame's firePending sends it down the live look; AUDIT 29 D2: never a readied spell mid-act (the dungeon held it off already)
         // PROF1: E at an herb patch is the patch's - an act started, or what it needs said - spent before the ladder
-        const nodeTook = useEdge && !_holdFire && !modes.transitioning && !naval?.takesActivate?.() && (gatherHost?.press() ?? false);   // PROF2: a patch's, a vein's or a boulder's; NAVAL-E (AUDIT 2026-10-01 part four): never a press the sea takes - the net's cast stood in the look while the readout said "E: board her"
+        const nodeTook = useEdge && !_holdFire && !modes.transitioning && !naval?.takesActivate?.() && (gatherHost?.press() ?? false);
+        // PROF-MENU: and the click on a node's lit row is the node's, as a loot row's click takes it (never mid-act: that
+        // click is the act's, below)
+        const nodeClicked = !useEdge && _act.activate && !_holdFire && !modes.transitioning && !gatherHost?.acting() && !naval?.takesActivate?.() && profClickPress();   // PROF2: a patch's, a vein's or a boulder's; NAVAL-E (AUDIT 2026-10-01 part four): never a press the sea takes - the net's cast stood in the look while the readout said "E: board her"
         // AUDIT 32 H5: a click mid-act is the act's too (AUDIT 29 D3's law for E) - it opened the body's loot under the
         // knife and ended the trace. CLICK-LIFT (AUDIT 2026-10-01 part four): to its release - the click that struck the
         // act's last blow lifts after the act has ended
         const _actClick = gatherHost?.clickTaken(_activateDown) ?? false;
-        if (((_act.activate && !gatherHost?.acting() && !_actClick) || (useEdge && !nodeTook)) && !modes.transitioning && !_holdFire) {
+        if (((_act.activate && !gatherHost?.acting() && !_actClick && !nodeClicked) || (useEdge && !nodeTook)) && !modes.transitioning && !_holdFire) {
           // T3b: a townsperson under the ray wins the activation (the
           // PlayerActivate nearest-hit order); G3: a guard corpse next
           // (loot pickup on the dungeon's S2 shape); doors otherwise.
@@ -24686,7 +24721,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           // can never do that. `pointer-events: none` keeps the clicks
           // working; it does not keep the panel readable.
           cursorActive: gamePaused() || pointerSurfaces.size > 0 || !!tvf,   // TV1: the travel view frees the cursor - no crosshair, nothing named under it
-          pick: () => modes.exteriorHoverPick(cam.pos, _hd, {
+          // PROF-MENU: the profession node the press would take, over the race's own winner (gatherHost.hoverHit)
+          pick: () => profHoverOver(modes.exteriorHoverPick(cam.pos, _hd, {
             corpse: pickActivatableHit(cam.pos, _hd, [...cityGuards.lootTargets(), ...exteriorFoes.lootTargets()], collider),
             pile: pickActivatableHit(cam.pos, _hd, dwLootTargets(), collider),
             torch: pickActivatableHit(cam.pos, _hd, droppedTorches.targets(), collider),
@@ -24704,7 +24740,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
             foe: pickActivatableHit(cam.pos, _hd, [...exteriorFoes.liveTargets(), ...cityGuards.liveTargets()], collider),
             person: _hoverPersonPick(cam.pos, _hd),
             peer: _hoverPeerPick(cam.pos, _hd),   // PEER-PLAQUE1: another player, raced as the F key picks them
-          }),
+          })),
           name: (key) => modes.exteriorHoverName(key, { eye: cam.pos, dir: _hd, names: _hoverNamers, modNames: _hoverModNamers }),
           contents: _hoverContents,
         });

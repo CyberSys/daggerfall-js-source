@@ -6148,11 +6148,12 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       pick: () => {
         const d = eye ? [-aimed[2], -aimed[6], -aimed[10]] : null;
         if (!d) return null;
-        return raceWinner({
+        const ray = raceWinner({
           ground: pickActivatableHit(eye, d, api.dungeonActivationTargets(), collider),
           foe: pickActivatableHit(eye, d, liveFoeTargets(foes, 'mobileFoe'), collider),
           peer: opts.peerHoverPick?.() ?? null,   // PEER-PLAQUE1: another player underground, raced as the F key picks them - off the key's own ray (AUDIT DROPS E3)
         });
+        return opts.profHoverPick?.(ray) ?? ray;   // PROF-MENU: a vein or a body the press would take, over the race's winner
       },
       collider,
       canvas,
@@ -8648,7 +8649,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
      * `droppedLoot:` still answer with the switch off. That split is
      * recorded on the mod's Features row in as many words.
      */
-    hoverName(key, hit) { return _namer(key, hit); },
+    hoverName(key, hit) { return opts.profHoverName?.(key) ?? _namer(key, hit); },   // PROF-MENU: a profession node's acts first
     /** PROF2 (bible/06-Systems/Professions-Arc.md 23): this dungeon as the professions name it - DFU's own identity
      *  (MapTableData.MapId & 0xfffff), its climate and region - or null for one a client's hash made, which grows no
      *  vein (nothing any other client, or the witnesses, could stand behind). */

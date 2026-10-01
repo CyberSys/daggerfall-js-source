@@ -204,6 +204,14 @@ export function plaqueActionFor(key) {
   return _actionIds[_sel.row] ?? null;
 }
 
+/** PROF-MENU: the act choice key's step over a list of verbs - `n` rows down (negative up), folded on the next frame
+ *  as the wheel's nudge is (clamped there; the caller wraps). True when a list of verbs stands to step. */
+export function plaqueStep(n) {
+  if (!_actionIds || !_sel || !Number.isFinite(n) || !n) return false;
+  _nudge += Math.trunc(n);
+  return true;
+}
+
 /** AUDIT DISC7 A2: F on a player whose list is unlit lights its first row - the keyboard's way onto the list, as the
  *  wheel's first notch is. True when it lit something. */
 export function plaqueLightFirst(key) {

@@ -161,7 +161,6 @@ export function huntPlan({ body, taken, counting, rank, storesFull, hides, high,
  * @returns {import('./gatherHost.js').GatherKind}
  */
 export function huntKind({ book, bodies, openLoot = null }) {
-  let lootChoice = false;   // the choice key's pick at the targeted body
   /** Whether a body may be searched: its loot's key, where the world opens loot by key (an emptied body none). */
   const searchable = (b) => !openLoot || !!b?.lootKey?.();
   return {
@@ -174,28 +173,33 @@ export function huntKind({ book, bodies, openLoot = null }) {
     gone: (b) => book.taken(b.key, 'hide'),
     mark: (b) => (book.taken(b.key, 'hide') ? null : BODY_MARK),   // NODE-MARKS: a body the knife may still skin
     marksLoose: true,
-    choose(b) { if (lootChoice || searchable(b)) lootChoice = !lootChoice; },   // AUDIT 32 H8: never a search of nothing
-    retarget() { lootChoice = false; },
     /** TOUCH-HOLD (2026-10-01 part four - Mac: "Interact button + knife Use"): the Skinning Knife's Use at a body is E
      *  there (TOOL-USE) - a phone and a pad had no E to start Hunting with, nor to hold while the line was drawn. */
     tools: Object.freeze([SKINNING_KNIFE.templateIndex]),
-    plan(b, { rank, keyLabel, pitch = null, tool = null }) {
-      if (lootChoice && !searchable(b)) lootChoice = false;   // emptied under the search: the knife's again
-      const byKnife = tool === SKINNING_KNIFE.templateIndex;   // TOUCH-HOLD: the knife's Use skins, whatever the choice key picked - the pick unmoved
+    /** PROF-MENU: the menu's title - the foe the body is. */
+    nodeName: (b) => foeName(b.foe),
+    plan(b, { rank, pitch = null }) {
       const hunt = book.state.hunt ?? { hides: 0, high: 0 };
       const plan = huntPlan({
         body: b, taken: book.taken(b.key, 'hide'), counting: book.counting(b.key, 'hide'), rank: rank('hunting'),
-        storesFull: (key) => storesFullIn(book, key), hides: hunt.hides ?? 0, high: hunt.high ?? 0, loot: lootChoice && !byKnife,   // STORES-ROOM: every origin, as the service counts
+        storesFull: (key) => storesFullIn(book, key), hides: hunt.hides ?? 0, high: hunt.high ?? 0,   // STORES-ROOM: every origin, as the service counts
         where: actChecksRefusal(KNIFE_WHERE, KNIFE_WHERE_WORDS),   // AUDIT 32 H4: a settlement or the sea - E the loot's
         steep: Number.isFinite(pitch) && pitch < BODY_STEEPEST_DEG,   // AUDIT 32 H7: stood over, its line out of the look's reach
       });
-      const key = openLoot && lootChoice && !byKnife ? b.lootKey() : null;
-      return {
-        ...plan, profession: 'hunting', alt: searchable(b) ? `[${keyLabel('ActChoice')}] ${lootChoice ? 'skin it' : 'search the body'}` : '',
-        ...(key ? { open: () => openLoot?.(key) } : {}),   // AUDIT 32 H8: the search opens the body's own loot by its key
-      };
+      return { ...plan, profession: 'hunting' };
     },
-    start(b, plan, { entity, rank, keyLabel, tool: used = null }) {
+    /** PROF-MENU (2026-10-01, Mac: "use the same menu the loot menu uses"): THE BODY'S TWO ACTS AS THE MENU'S ROWS - the
+     *  knife and the search (the act choice key's toggle, retired). The search opens the body's own loot by its key (AUDIT
+     *  32 H8), or - with no door by key - hands the press on to the ray's corpse (AUDIT 29 C1); an emptied body has none. */
+    rows(b, ctx) {
+      const skin = { ...this.plan(b, ctx), id: 'hide' };
+      if (!searchable(b)) return [skin];
+      const key = openLoot ? b.lootKey() : null;
+      const search = huntPlan({ body: b, taken: false, counting: false, rank: 0, storesFull: () => false, hides: 0, high: 0, loot: true });
+      return [skin, { ...search, profession: 'hunting', id: 'search', ...(key ? { open: () => openLoot?.(key) } : {}) }];
+    },
+    start(b, plan, { entity, rank, keyLabel, tool = null, byPress = false }) {
+      const used = tool ?? (byPress || null);   // PROF-MENU: a click's or a list's press holds the knife as its Use does
       const refusal = actChecksRefusal(KNIFE_CHECKS, KNIFE_REFUSALS);
       if (refusal) return { refused: refusal };
       return {

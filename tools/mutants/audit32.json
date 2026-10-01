@@ -209,7 +209,7 @@
  {
   "name": "AUDIT32-H5-click-through-the-act",
   "file": "src/scenes/world.js",
-  "old": "if (((_act.activate && !gatherHost?.acting() && !_actClick) || (useEdge && !nodeTook)) && !modes.transitioning && !_holdFire) {",
+  "old": "if (((_act.activate && !gatherHost?.acting() && !_actClick && !nodeClicked) || (useEdge && !nodeTook)) && !modes.transitioning && !_holdFire) {",
   "new": "if ((_act.activate || (useEdge && !nodeTook)) && !modes.transitioning && !_holdFire) {",
   "tests": [
    "test/audit32_client.test.js"
@@ -254,7 +254,7 @@
  {
   "name": "AUDIT32-H8-search-by-the-ray",
   "file": "src/scenes/gatherHost.js",
-  "old": "      if (plan?.open) { plan.open(); return true; }\n",
+  "old": "    if (plan?.open) { plan.open(); return true; }\n",
   "new": "",
   "tests": [
    "test/audit32_client.test.js"
@@ -299,8 +299,8 @@
  {
   "name": "AUDIT32-R1-label-herbs-alone",
   "file": "src/systems/inputActions.js",
-  "old": "'At an herb patch: the herbs or the Basket; at a body: skin it or search it'",
-  "new": "'At an herb patch: the herbs or the Basket'",
+  "old": "'At a profession node: the next of its acts on the list'",
+  "new": "'At a profession node'",
   "tests": [
    "test/audit32_client.test.js"
   ]

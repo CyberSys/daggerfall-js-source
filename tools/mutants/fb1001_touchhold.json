@@ -146,8 +146,8 @@
   {
     "name": "TOUCH-HOLD-the-use-searches",
     "file": "src/scenes/huntHost.js",
-    "old": "loot: lootChoice && !byKnife,",
-    "new": "loot: lootChoice,",
+    "old": "      return { ...plan, profession: 'hunting' };\n    },\n    /** PROF-MENU (2026-10-01",
+    "new": "      return { ...huntPlan({ body: b, taken: false, counting: false, rank: 0, storesFull: () => false, hides: 0, high: 0, loot: true }), profession: 'hunting' };\n    },\n    /** PROF-MENU (2026-10-01",
     "tests": [
       "test/fb1001_touchhold.test.js"
     ]
