@@ -1097,7 +1097,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
     renderer.everyLightCasts();   // LA-SHADOW3: the level is drawn whole below - every torch keeps a shadow map (worldModes.js's dungeon arm)
     renderer.setWorldViewport(worldViewportRect(canvas.clientWidth, canvas.clientHeight));   // E5: ViewportChanger.Update, every frame
     renderer.beginFrame(proj, view, INTERIOR_LIGHT_DIR, WORLD_FRAME);   // AUDIT-EL F5: a WORLD frame - the lane replays its records for this one
-    if (walkMode) mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.bodyFeetAt(), yaw: cam.yaw });   // MW-D24; DISC18: the body at the capsule's own feet, not the camera's smoothed ones
+    if (walkMode) mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.bodyFeetAt(), yaw: player.bodyYawFor(cam.yaw) });   // MW-D24; DISC18: the body at the capsule's own feet, not the camera's smoothed ones
     if (ctx.staticBatch) renderer.drawMesh(ctx.staticBatch, BATCH_IDENTITY, null);   // PERF5: the level's static models, one call per texture (keys resolved in the merge)
     for (const d of ctx.drawList) if (!d._batched) renderer.drawMesh(d.mesh, d.matrix, ctx.texRemap);
     for (const d of ctx.dynamicDraws) renderer.drawMesh(d.gpu, d.object.matrix, ctx.texRemap);

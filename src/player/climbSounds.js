@@ -101,6 +101,16 @@ export function installClimbSounds(audio, { fetchBytes = null } = {}) {
 /** Test seam. */
 export function _resetClimbSounds() { _install = null; }
 
+/** One of `sound`'s clips - never `prev` while it has another - and `pitch` moved by up to the jitter either way:
+ *  { key, pitch }, or null for a sound with no clips. The local climb's and the peers' one choice (net/peerClimb.js). */
+export function climbClip(sound, prev, rand, pitch = 1) {
+  const keys = CLIMB_SFX[/** @type {keyof typeof CLIMB_SFX} */ (sound)];
+  if (!keys) return null;
+  let key = keys[Math.floor(rand() * keys.length) % keys.length];
+  if (keys.length > 1 && key === prev) key = keys[(keys.indexOf(key) + 1) % keys.length];
+  return { key, pitch: pitch * (1 + CLIMB_SOUND.PITCH_JITTER * (2 * rand() - 1)) };
+}
+
 // ---- the moves' cues: what each move sounds, at which share of its time ---------------------------------------------
 
 /**
@@ -302,14 +312,11 @@ export class ClimbSounds {
 
   /** One of `sound`'s clips - never the one just heard - at `vol`, its pitch moved a little. */
   _play(sound, vol, pitch = 1) {
-    const keys = CLIMB_SFX[/** @type {keyof typeof CLIMB_SFX} */ (sound)];
-    if (!keys || !this.audio?.playOneShot) return;
-    const prev = this.last.get(sound);
-    let key = keys[Math.floor(this.rand() * keys.length) % keys.length];
-    if (keys.length > 1 && key === prev) key = keys[(keys.indexOf(key) + 1) % keys.length];
-    this.last.set(sound, key);
-    const jitter = 1 + CLIMB_SOUND.PITCH_JITTER * (2 * this.rand() - 1);
-    this.audio.playOneShot(key, Math.min(1, vol), pitch * jitter);
+    if (!this.audio?.playOneShot) return;
+    const c = climbClip(sound, this.last.get(sound), this.rand, pitch);
+    if (!c) return;
+    this.last.set(sound, c.key);
+    this.audio.playOneShot(c.key, Math.min(1, vol), c.pitch);
   }
 
   /** The climber's effort: the player's own voice, at `chance` (more as the grip runs out), never within STRAIN_GAP_S. */

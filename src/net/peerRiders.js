@@ -37,6 +37,7 @@ import {
 } from '../player/eotbLantern.js';   // HT-WAIST-BACK: the lantern on every EOTB sprite, one home - the local body's and these
 import { quadHalfDiagonal } from '../render/bounds.js';   // AUDIT FLICKER R1: a sprite's reach, as the batch was made with
 import { stepPeerPace } from './peerPace.js';   // HT-WAIST-BACK: the pace off the drawn pose, MWBODY1's law
+import { peerBodyYaw, peerMoving } from './peerClimb.js';   // CLIMB5: a walker on the wall faces it and takes no stride
 
 /** The table a riding pose shows: standing, walking, galloping (EOTB's three mounted tables). */
 export const rideTable = (mv) => (mv === 2 ? 'GallopHorse' : mv === 1 ? 'MoveHorse' : 'IdleHorse');
@@ -321,7 +322,7 @@ export function createPeerWalkers({ renderer = null, urlFor = eotbSpriteUrl, dec
   const lit = [];
 
   /** The pose's own standing table (EOTB chooseTable, the mod's default ReadyStance - the sender's is not on the wire). */
-  const standing = (pose) => chooseTable({ stopped: !pose.mv, sheathed: !pose.wd, spellcasting: !!pose.sr, usingBow: pose.wd === 2 });
+  const standing = (pose) => chooseTable({ stopped: !peerMoving(pose), sheathed: !pose.wd, spellcasting: !!pose.sr, usingBow: pose.wd === 2 });   // CLIMB5: on the wall, standing - a shimmy is no walk
 
   /**
    * One frame: `peers`, `toScene`, `eye`, `right` and `dt` as the riders' sync; `skip(id)` a peer another layer
@@ -367,7 +368,7 @@ export function createPeerWalkers({ renderer = null, urlFor = eotbSpriteUrl, dec
         if (n > 1) { r.clock += step; while (r.clock >= ft) { r.clock -= ft; r.frame = (r.frame + 1) % n; } }
       }
       const feet = toScene(pose);
-      const view = viewOf(pose.yaw, feet, eye);
+      const view = viewOf(peerBodyYaw(pose), feet, eye);   // CLIMB5: facing the wall it climbs
       // PEERFX3: A CLASS SKIN STRUCK SHOWS ITS HURT POSE for a moment - Daggerfall's own one-frame flinch (records
       // 10-14, the table class skins read for Death, player/classSkins.js). Eye Of The Beholder's sets carry no hurt
       // table (their Death is the fall), so they flinch by the red flash alone.
@@ -399,8 +400,9 @@ export function createPeerWalkers({ renderer = null, urlFor = eotbSpriteUrl, dec
     const pf = r.paceFeet ?? (r.paceFeet = [0, 0, 0]);
     pf[0] = at[0]; pf[1] = at[1]; pf[2] = at[2];
     r.paceKey = on;
-    const fx = Math.sin(pose.yaw), fz = Math.cos(pose.yaw);   // the facing viewOf turns the sprite by
-    const stride = spriteStride(!!pose.mv && !r.shot, r.pace, r.frame, r.clock, ft, frameCount(r.table));
+    const face = peerBodyYaw(pose);   // CLIMB5
+    const fx = Math.sin(face), fz = Math.cos(face);   // the facing viewOf turns the sprite by
+    const stride = spriteStride(peerMoving(pose) && !r.shot, r.pace, r.frame, r.clock, ft, frameCount(r.table));
     stepSpriteLantern(l, dt, fx, fz, r.pace, stride);
     const art = store.lantern?.ensure();
     if (!art || !r.batch || !r.size || !eye) return;

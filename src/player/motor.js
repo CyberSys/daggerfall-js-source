@@ -103,6 +103,18 @@ export function motionBagOf(player) {
     yaw: Number.isFinite(player.moveYaw) ? player.moveYaw : NaN,
   };
 }
+/** CLIMB5 (the Enhanced Climbing arc - bible/03-World/Parkour-Arc.md): THE CLIMB ON THE WIRE - `cl` 1 hanging from a
+ *  lip, 2 climbing a face (the classic climb too), 3 a move in flight (a mantle, a vault, a lower, a leap, a corner);
+ *  `cw` the way the body faces on it (climbFacing - the wall, or the move's way), radians to the millirad. Empty off the
+ *  wall: the wire omits both, and a pose on the ground keeps the bytes it always had. */
+export function climbPoseOf(player) {
+  const cl = player.mantling ? 3 : player.hanging ? 1 : player.onWall || player.climb?.isClimbing ? 2 : 0;
+  if (!cl) return {};
+  const cw = player.climbFacing;
+  return Number.isFinite(cw) ? { cl, cw: Math.round(cw * 1000) / 1000 || 0 } : { cl };   // || 0: no negative zero on the wire
+}
+/** CLIMB5: the time constant (s) the body turns to the wall on - and back to the view off it. */
+export const BODY_TURN_TAU = 0.08;
 export const CROUCH_JUMP_DELTA = 0.8;
 export const JUMP_FWD_BOOST = 0.05;
 /** AcrobatMotor.HandleJumpInput (:82-86): a mounted jump takes a FLAT
@@ -427,6 +439,7 @@ export class PlayerMotor {
     this._pkMove = null;         // the move in flight (player/parkour.js planMantle/planVault), null between moves
     this.parkoured = null;       // 'mantle' | 'vault' for the frame a move starts (the fatigue/tally consumer, as `jumped`)
     this.climbEvents = [];       // CLIMB4: the frame's climb events ({ type, ... }) - the feel's and the sounds' (climbFeel.js, climbSounds.js)
+    this._bodyYaw = null;        // CLIMB5: the body's own yaw while it is not the view's (bodyYawFor) - null when it is
     this._pkJumpLatch = false;   // AUDIT CLIMB1 F7: Jump held through a move is spent on it - the next jump is a fresh press
     this._pkArm = null;          // the tap catch: a fresh Jump's catch armed for its jump ({ t, air }) - PARKOUR_ARM_GRACE_S
     this._pkJumpWas = false;     // ...the key's last step, for the press's edge
@@ -1405,6 +1418,20 @@ export class PlayerMotor {
     }
     this._alpha = Math.min(1, this._acc / step);
     this._smoothEyeFeet(frameDt);   // MAC1: once per RENDER frame, like the bob and the look
+    this._stepBodyYaw(frameDt, yaw);   // CLIMB5: the body turns to the wall it holds, and back
+  }
+
+  /** CLIMB5: ease the body's yaw toward the climb's facing (on the wall, in a move), and back to the view's after -
+   *  then let go of it (null), so off the wall the body is the view's yaw exactly, as it always was. */
+  _stepBodyYaw(dt, viewYaw) {
+    const face = this.climbFacing;
+    if (face == null && this._bodyYaw == null) return;
+    const target = face ?? viewYaw;
+    const from = this._bodyYaw ?? viewYaw;
+    const d = Math.atan2(Math.sin(target - from), Math.cos(target - from));
+    const next = from + d * (1 - Math.exp(-Math.max(0, dt) / BODY_TURN_TAU));
+    const left = viewYaw - next;
+    this._bodyYaw = face == null && Math.abs(Math.atan2(Math.sin(left), Math.cos(left))) < 1e-3 ? null : next;
   }
 
   /** MAC1 (Mac, 2026-09-10: "Fix Jittery hills and stairs"). The step
@@ -1588,6 +1615,19 @@ export class PlayerMotor {
   get climbMove() { return this._pkMove; }
   /** CLIMB4: the held wall's normal (out of it, level), or null. */
   get wallNormal() { return this._wall?.normal ?? null; }
+  /** CLIMB5: the way the body faces on the climb, in the view's yaw (forward = [sin, 0, cos]) - into the wall held, or
+   *  the wall a move ends on, else the move's own way (a mantle, a vault); null off the wall and out of a move. */
+  get climbFacing() {
+    const m = this._pkMove;
+    const n = this._wall?.normal ?? m?.hang?.normal ?? m?.wall?.normal ?? null;
+    if (n) return Math.atan2(-n[0], -n[2]);
+    if (!m) return null;
+    const dx = m.to[0] - m.from[0], dz = m.to[2] - m.from[2];
+    return dx * dx + dz * dz > 1e-6 ? Math.atan2(dx, dz) : null;
+  }
+  /** CLIMB5: the yaw the body is drawn at (third person) for a view at `viewYaw` - the view's own, except on the climb
+   *  and the moment after it, when it turns to the wall and back (BODY_TURN_TAU). */
+  bodyYawFor(viewYaw) { return this._bodyYaw ?? viewYaw; }
   /** CLIMB2: hanging from a lip. */
   get hanging() { return this._wall?.mode === 'hang'; }
   /** CLIMB2: the grip the HUD shows ({ amount, low }) - on the wall, and while it comes back after; null otherwise. */

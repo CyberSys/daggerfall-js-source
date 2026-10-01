@@ -74,7 +74,7 @@ import { CAPSULE_HEIGHT } from '../player/motor.js';
 import { peerStubEntity, lookKey } from './remotePlayers.js';
 import { POSE_STRIKES } from './wire.js';   // MAC7 #1: the swing's kind, by the wire's index
 import { wrapAngle } from '../world/mat4.js';   // ONCRASH1: the port's one angle wrap, which cannot loop
-import { JUMP_UNITS, stepPeerPace } from './peerPace.js';   // HT-WAIST-BACK: the pace law, lifted - the walkers' lanterns swing off it too
+import { JUMP_UNITS, stepPeerPace } from './peerPace.js'; import { peerBodyYaw, peerClimbing, peerMoving } from './peerClimb.js';   // HT-WAIST-BACK: the pace law, lifted - the walkers' lanterns swing off it too; CLIMB5: the climb's facing and pose
 
 
 /** The most peers in a Morrowind body at once; the rest keep the paperdoll. */
@@ -222,9 +222,10 @@ export function peerBuildOpts(look, shown = null, glyphs = null) {
  * written in place each frame. WB9h: `yaw` the body's own eased yaw
  * (the pose's when none), so no copy of the pose is made a frame.
  */
-export function peerCamera(shown, feet, speed = 0, cam = null, yaw = shown.yaw) {
+export function peerCamera(shown, feet, speed = 0, cam = null, yaw = peerBodyYaw(shown)) {
   const c = cam ?? { pos: [0, 0, 0], yaw: 0, pitch: 0, sneaking: false, bob: [0, 0], move: { forward: 0, strafe: 0, running: false, speed: 0, grounded: true, jumping: false, swimming: false, levitating: false } };
-  const moving = !!shown.mv;
+  const moving = peerMoving(shown);   // CLIMB5: a shimmy along a lip is no walk
+  c.move.grounded = !peerClimbing(shown);   // CLIMB5: on the wall the body is off the ground - the in-air pose the local third person takes there
   c.pos[0] = feet[0]; c.pos[1] = feet[1]; c.pos[2] = feet[2];
   c.yaw = yaw; c.pitch = 0;
   c.move.forward = moving ? 1 : 0;
@@ -430,7 +431,7 @@ export class PeerBodies {
       // AUDIT WB9 (bodies F3): the look its key names, read NOW - the queue reaches its build later, and a look changed
       // meanwhile was built under the old key (a spare the next wearer of the old look stood in, in the wrong armour)
       const look = peer.look, shown = peer.shown, glyphs = peer.glyphs;
-      const b = { id: peer.id, key: w.key, wolf: peerIsWolf(shown), rig: spare ? spare.rig : this._createRig(), state: spare ? 'ok' : 'building', cam: null, feet: null, yaw: shown.yaw, speed: 0, goneAt: null, far: false, d2: w.d2, pri: w.pri, builtAt: now, born: now, byForm: this._flipped.delete(peer.id), swing: null, cast: null, pending: null, held: false, ammo: spare ? spare.ammo : null, weapon: spare ? spare.weapon : null,
+      const b = { id: peer.id, key: w.key, wolf: peerIsWolf(shown), rig: spare ? spare.rig : this._createRig(), state: spare ? 'ok' : 'building', cam: null, feet: null, yaw: peerBodyYaw(shown), speed: 0, goneAt: null, far: false, d2: w.d2, pri: w.pri, builtAt: now, born: now, byForm: this._flipped.delete(peer.id), swing: null, cast: null, pending: null, held: false, ammo: spare ? spare.ammo : null, weapon: spare ? spare.weapon : null,
         posed: false, phase: this._phase++, bank: 0,   // PEER-CADENCE
         posedAt: 0, rank: 0, inView: true, stale: false, owed: false, peer: null,   // WB9h
         veil: conceal ? (conceal(peer.id) ?? null) : null };   // AUDIT WB9 (bodies F4): a spare stands the frame it is taken - concealed from that frame, never drawn open once
@@ -505,7 +506,7 @@ export class PeerBodies {
     // and a pose eased over one send interval stops between arrivals, so the turn clip stuttered
     // ONCRASH1: one step, not a loop - the yaw eased here is the WIRE's
     // (see online.js lerpAngle), and a loop over a large one never falls.
-    b.yaw += wrapAngle(peer.shown.yaw - b.yaw) * (dt > 0 ? Math.min(1, dt * YAW_EASE) : 1);
+    b.yaw += wrapAngle(peerBodyYaw(peer.shown) - b.yaw) * (dt > 0 ? Math.min(1, dt * YAW_EASE) : 1);   // CLIMB5: to the wall, on the climb
     b.d2 = near ? dist2(f, near) : 0;
     b.far = !!near && b.d2 > BODY_RANGE * BODY_RANGE;
     b.cam = peerCamera(peer.shown, f, b.speed, b.cam, b.yaw);
