@@ -21,6 +21,10 @@ import { VolumetricClouds, QUALITY as CLOUD_QUALITY } from '../render/volumetric
 import { cloudsStateUnderMod, dynamicMoonState, dynamicMoonlight } from '../render/dynamicSkiesBridge.js';   // DS1/DS2: the mod's state in the port's shapes - the moons, the clouds, and the moons' own term (AUDIT 65 MC-3: the bridge's third export had no caller and this file carried its body inline)
 import { isEnhanced } from '../systems/uiSkin.js';
 import { getPref } from '../systems/uiPrefs.js';   // RA1: the Enhanced pane's sky switch
+import { pageParam } from '../systems/pageQuery.js';   // CLIMB1: `?parkour=off`, the enhanced climb's kill door
+import { isOnlinePage, onlineForcedPref } from '../systems/onlineLane.js';   // CLIMB1: online the skin is not asked, and the row is the lane's
+import { carriedWeight } from '../systems/inventory.js';   // CLIMB2: a heavy pack cuts the enhanced climb's reach
+import { entityMaxEncumbrance } from '../combat/formulas.js';   // CLIMB2: ...over what the body can carry
 import { DynamicSkiesRenderer } from '../render/dynamicSkiesRenderer.js';   // DS1: Dynamic Skies' skybox, the mod's own pass
 import { DynamicSkies } from '../systems/dynamicSkiesRuntime.js';   // DS1: BLBSkybox's instance
 import { MAX_DELTA_SECONDS } from '../systems/dynamicSkies.js';   // Time.maximumDeltaTime, the mod's frame clamp
@@ -748,6 +752,48 @@ export function climbingDeps(entity, say = null) {
       enhanced: !!entity?.activeEffects?.some((a) => a.kind === 'climbing'),
     }),
     tally: () => tallyMovementSkill(entity, SKILLS.Climbing),   // MOVE-REAL: past 100 only a climb that went up or down counts
+    say,
+  };
+}
+
+/** CLIMB1: THE ENHANCED CLIMB'S SWITCH - the Features row (`enhancedClimbing`)
+ *  and `?parkour=off`, the kill door. Offline the classic skin keeps DFU's
+ *  classic climb whatever the row says, as every enhanced lane does. Online
+ *  the skin is not asked: it is the player's own (OVH3 - "nothing the room
+ *  agrees on reads the skin"), and a way over a rooftop is something the
+ *  room agrees on, so the row - forced on there - is the whole answer. */
+export function parkourSwitchOn(search) {
+  if (pageParam('parkour', search) === 'off') return false;
+  // AUDIT CLIMB1 F11: the lane asked with the page this is handed - getPref reads the tab's own, so a caller that
+  // names a page (a probe, a pin) got the shelf's value where the online lane forces the row
+  const row = onlineForcedPref('enhancedClimbing', search) ?? getPref('enhancedClimbing');
+  return (isOnlinePage(search) || isEnhanced(search)) && !!row;
+}
+
+/** CLIMB1: the enhanced climb's deps every host wires the same way - the
+ *  switch, read live (the row takes effect at once), and the Climbing
+ *  skill's reads, the same the classic climb's chance takes (climbingDeps:
+ *  the live skill, the Khajiit arm, the Climbing spell's doubling), plus the
+ *  Jumping skill a vault's pace reads (AUDIT CLIMB1 R7). `say` is the host's
+ *  HUD line, the climbingMode line's own (a refused climb's word, F10).
+ *  CLIMB2: the body's Fatigue over its most (the grip's time), the pack's
+ *  weight over what it can carry (the reach), and the Climbing tally the free
+ *  climb takes at the classic climb's cadence (climbingDeps' own). */
+export function parkourDeps(entity, say = null) {
+  return {
+    enabled: () => parkourSwitchOn(),
+    inputs: () => {
+      const most = maxFatigue(entity), cap = entityMaxEncumbrance(entity);
+      return {
+        climbing: skillValue(entity, SKILLS.Climbing),
+        jumping: skillValue(entity, SKILLS.Jumping),
+        khajiit: entity.race === 'Khajiit',
+        enhanced: !!entity?.activeEffects?.some((a) => a.kind === 'climbing'),
+        fatigue: most > 0 && Number.isFinite(entity.fatigue) ? entity.fatigue / most : 1,
+        load: cap > 0 ? carriedWeight(entity) / cap : 0,
+      };
+    },
+    tally: () => tallyMovementSkill(entity, SKILLS.Climbing),
     say,
   };
 }

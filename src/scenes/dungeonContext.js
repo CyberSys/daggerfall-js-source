@@ -1909,7 +1909,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:14559 / exterior.js:3758), set
+  // host's own townTalk sink (world.js:14561 / exterior.js:3758), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -2064,7 +2064,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   let _motorYaw = 0;   // A1: the automap window's player-arrow heading
   let _mouseState = 'no events';
   let _inputState = '';
-  const _activity = { running: false, runningTally: false, swimming: false, climbing: false, standing: false, jumped: false, movingLessThanHalfSpeed: true, odometer: null };   // MOVE-REAL: + the motor's odometer   // AUDIT 64 F7: the tally's gate is PlayerEntity.cs:311, the fatigue band's is :408   // AUDIT 26 F083: + climbing   // P11 fatigue state; P13 sneak state; C6 jump edge
+  const _activity = { running: false, runningTally: false, swimming: false, climbing: false, standing: false, jumped: false, parkoured: null, movingLessThanHalfSpeed: true, odometer: null, grip: null };   // CLIMB2: + the grip (a state, not an edge)   // MOVE-REAL: + the motor's odometer   // AUDIT 64 F7: the tally's gate is PlayerEntity.cs:311, the fatigue band's is :408   // AUDIT 26 F083: + climbing   // P11 fatigue state; P13 sneak state; C6 jump edge
   let _grounded = true;   // U7: the rest gate reads the motor's live grounded flag
   // U7: the rest session's scene seams. tickVitals = one rested hour
   // (the S20 rates + the Medical tally, clamped); enemiesNearby is
@@ -3787,8 +3787,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:24271,
-              // exterior.js:5373 and worldModes.js:8495 already ran;
+              // playerArrowHitFoe is the one copy world.js:24274,
+              // exterior.js:5374 and worldModes.js:8499 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -6121,6 +6121,12 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       survival: survivalFeed(playerEntity, survivalEnvNow(), { say: (msg) => hudText.add(msg) }),   // SURV7: the needs' minute
     });
     classicMinutesRef.value = _tick.classicMinutes;
+    // AUDIT CLIMB1 F8: the frame's EDGES are spent by the tick that billed them. The bag's one writer is
+    // reportActivity, which a street-slot window over a world-hosted dungeon holds (worldModes' overlayHeld) while
+    // this tick runs on - so a jump's or a move's edge was billed again every held frame (a mantle's fatigue and
+    // Climbing tally sixty times a second: the `jumped` edge had carried the same fault since C6).
+    _activity.jumped = false;
+    _activity.parkoured = null;
     // AUDIT 24 (wave 32): the FOE half of the same broker event, on the
     // window the tick CLAIMED - one raise, every manager. This loop used to
     // run [floor(clock at frame start), floor(clock now)) off its own
@@ -6675,6 +6681,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         // and a door the host never handed over is a control that
         // platform does not have - which is the whole of AUDIT SOC C9.
         quickUse: (n) => quickUse(n), quickSwap: () => quickSwap(), quickOffHand: () => quickOffHand(), quickSpell: () => quickSpell(), quickSwitchHand: () => quickSwitchHand(),   // QS6   // MAC-R3
+        grip: _activity.grip ?? null,   // CLIMB2: the host's report carries the enhanced climb's grip
         weaponSheathed: !!playerWeapon.sheathed });   // AUDIT 28 W2: the arrow counter's drawn-bow gate   // U38 + X4 + U43
     opts.csaDrawWindWidget?.();   // CSA-E: Come Sail Away's wind widget over the HUD (the outer host's)
     hudText.tick(dt);
@@ -7601,7 +7608,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // jump fatigue/tally (PlayerEntity: 11 x multiplier + Jumping
     // tally once per jump), and the state the per-minute fatigue
     // drain reads.
-    reportActivity({ running = false, runningTally = false, swimming = false, climbing = false, standing = false, jumped = false, movingLessThanHalfSpeed = true, fell = 0, odometer = null } = {}) {
+    reportActivity({ running = false, runningTally = false, swimming = false, climbing = false, standing = false, jumped = false, parkoured = null, movingLessThanHalfSpeed = true, grip = null, fell = 0, odometer = null } = {}) {
       // AUDIT 58: PlayLargeSplash is PlayOneShot(SplashLargeSound, 0,
       // FootstepVolumeScale) - PlayerFootsteps.cs:323-326.
       if (swimming && !_activity.swimming && !immersiveFootsteps.playLargeSplash()) audio.playOneShot(SOUND.SplashLarge, FOOTSTEP_VOLUME);   // PlayLargeSplash on entry; IF1: the mod's Water_Landing when it owns the stride
@@ -7614,7 +7621,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // (PlayerEntity.cs:425-430 is the entity update) - the edge rides
       // the activity so every host shares the one law.
       _activity.jumped = jumped;
+      _activity.parkoured = parkoured;   // CLIMB1: a mantle or a vault's edge, billed beside the jump's
       _activity.odometer = odometer;   // MOVE-REAL: the motor's live odometer - the movement skills past 100 count it
+      _activity.grip = grip;   // CLIMB2: the enhanced climb's grip, for this context's HUD
       // P14 fall landing (CheckFallingDamage + PlayerHealth verbatim):
       // damage = trunc(5 * (distance - 5)) past the threshold with the
       // fall-damage sound; a 2.5..5 drop is the hard-fall alert only.

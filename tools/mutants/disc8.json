@@ -2,7 +2,7 @@
   {
     "name": "DISC8G-held-frame-keeps-the-report",
     "file": "src/player/motor.js",
-    "old": "  holdFrame() {\n    this.jumped = false;\n    this.landedFallDistance = 0;\n  }",
+    "old": "  holdFrame() {\n    this.jumped = false;\n    this.parkoured = null;\n    this.landedFallDistance = 0;\n  }",
     "new": "  holdFrame() {\n  }",
     "tests": [
       "test/disc8.test.js"

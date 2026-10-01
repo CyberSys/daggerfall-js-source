@@ -460,7 +460,7 @@ test('A6 freeze: the freeze block sits BELOW the cancel block and ABOVE the prob
   const cancel = body.indexOf('if (this.cancelMovement) {');
   const freeze = body.indexOf('if (this.freezeMotor > 0) {');
   const probeNote = body.indexOf("A6 - PlayerMoveScanner's OTHER TWO probes belong HERE");
-  const climb = body.indexOf('if (this._climbStep(dt, input, yaw)) return;');
+  const climb = body.indexOf('this._climbStep(dt, input, yaw)) return;');   // CLIMB2: the classic climb's call, off the enhanced lane
   assert.ok(cancel > 0 && freeze > cancel, 'PlayerMotor.FixedUpdate :286-307');
   assert.ok(probeNote > freeze && probeNote < climb, ':308-309 sits between the freeze and the climb return');
 });
