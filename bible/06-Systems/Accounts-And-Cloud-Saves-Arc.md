@@ -4264,9 +4264,9 @@ title they hold: upgraded, downgraded and lapsed by Patreon's own webhook, with 
   `.github/workflows/account-deploy.yml` 4c), and its summary names the redirect URI and the webhook URL read off the
   deploy. Unset is a legal state: the card offers nothing and the webhook answers `patreon-closed`.
 - **Mac's tiers** (2026-10-01: "some titles dont have titles/glyphs ingame. Heriophant is custom and Herald doesnt
-  exist ingame yet. Supporter doesnt recieve a title/glyph"): `PATREON_TIERS = "29666211:disciple"` - Disciple is the
-  one mapped. Supporter (29701293) holds none, Herald (29666234) waits for its title in the game, and Hierophant
-  (29666221) is custom, granted by name. Apostle has no tier now.
+  exist ingame yet. Supporter doesnt recieve a title/glyph"): `PATREON_TIERS = "29666211:disciple,29666234:herald"` -
+  Disciple, and Herald since HERALD (below) gave it its title in the game. Supporter (29701293) holds none and
+  Hierophant (29666221) is custom, granted by name. Apostle has no tier now.
 - **The handle lists stand.** A list still grants on its own, for the titles Mac grants by name (a comp, a patron who
   will not link); the two never hold one title twice.
 
@@ -4291,3 +4291,30 @@ title they hold: upgraded, downgraded and lapsed by Patreon's own webhook, with 
   shapes, the Worker end to end with Patreon's two OAuth endpoints stood in for (the yes's own read among them), the
   card and its flow, the config and the deploy. `tools/mutants/patreonlink.json` (47, all dead). `test/accountworker.test.js` holds the four columns; the
   version pins moved to acct45 (and `gatekeys.json`'s record with them).
+
+## HERALD — the Patreon tier between Disciple and Hierophant (2026-10-01, world138, acct45)
+
+Mac, sending his Patreon tiers for PATREON-LINK: "Herald doesnt exist ingame yet", then "you'll need to develop the
+herald title/glyph". No colour or shape was named, so it is the tiers' kind - TITLE-N's law, one flat colour and a
+stroked glyph in it.
+
+- **The vocabulary** (`src/net/identityToken.js`, in the relay bundle): `herald` joins TITLES and GLYPHS, last. A relay
+  from before it refuses a token carrying it (`claimsValid`), so the relay is **world138**; the account service rides
+  acct45 with PATREON-LINK (both undeployed), and its deploy waits for the relay's `/health` to serve world138
+  (SHADOW-FANG's AUDIT B1).
+- **The grant** (`server-account/src/titles.js`): `TIER_LISTS.herald = 'HERALD_HANDLES'` (empty - nobody by name yet)
+  and `TIER_GLYPH.herald`, so the list and the pledge each grant the title and its glyph together. `herald` is a
+  Patreon title (`patreon.js PATREON_TITLES`), and Mac's Herald tier (29666234) is mapped to it in `PATREON_TIERS`.
+- **The face** (`src/ui/playerBadge.js`): the word "Herald" in AZURE (#4f7dff), heraldry's own blue - a herald wears
+  the arms he cries - between the Disciple's teal and the Apostle's violet on the tiers' rise. The glyph is the herald's
+  trumpet, level, its bell flaring right, with a swallowtail banner hanging from the tube, stroked in the title's azure;
+  `<` (the bell's flare) for the classic face; "Herald" on the account card.
+- **Seen** before it was chosen: the real name sheet in Chromium over a night sky, a day sky, stone, grass and snow,
+  at 13, 15, 20 and 40 px, beside the Disciple's, the Apostle's and the Hierophant's and the moderator's shield. A
+  periwinkle was lost on the day sky, a silver read as a bare name, and a purple as the Apostle's; a raised trumpet
+  read as a pick and a trumpet alone as a megaphone - the banner is what makes it a herald's.
+- Pins: `test/herald.test.js` (6); the vocabulary's exact lists in `acc3titles.test.js`, `titlen.test.js` and
+  `penitent.test.js`, and PATREON-LINK's tier map, moved with it; the relay's pins moved to world138, crediting HERALD
+  (`auditbounty1.test.js` holds the credit). `tools/mutants/herald.json` (12, all dead); seven older records re-aimed
+  by content (`penitent.json` 4, `shadowfang.json` 2, `soc1.json`'s version record) and PATREON-LINK's two config
+  records, all dead.

@@ -80,9 +80,9 @@
 import { _b64url } from '../../src/net/identityToken.js';
 import { timingSafeEqual } from './password.js';
 
-/** The titles a Patreon tier may grant - TITLE-N's three, lowest first. A mapping in PATREON_TIERS to anything else
- *  (the Dungeon Master, a one-player title) is not read: those are granted by name, never by a pledge. */
-export const PATREON_TITLES = Object.freeze(['disciple', 'apostle', 'hierophant']);
+/** The titles a Patreon tier may grant - TITLE-N's three and HERALD's, lowest first. A mapping in PATREON_TIERS to
+ *  anything else (the Dungeon Master, a one-player title) is not read: those are granted by name, never by a pledge. */
+export const PATREON_TITLES = Object.freeze(['disciple', 'apostle', 'herald', 'hierophant']);
 /** Patreon's word for a member whose pledge is paid up (its `patron_status`). Anything else holds nothing. */
 export const PATREON_ACTIVE = 'active_patron';
 /** How long the link the account card carries may be followed: an hour, the card being open that long at most. */
@@ -432,7 +432,7 @@ export async function patreonCardOf(/** @type {any} */ player, /** @type {any} *
 const esc = (/** @type {any} */ s) => String(s).replace(/[&<>"']/g, (ch) => (/** @type {Record<string,string>} */ ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }))[ch]);
 
 /** The words a title is called on these pages - the account card's own (ui/playerBadge.js TITLE_TEXT says the same). */
-export const PATREON_TITLE_TEXT = Object.freeze({ disciple: 'Disciple', apostle: 'Apostle', hierophant: 'Hierophant' });
+export const PATREON_TITLE_TEXT = Object.freeze({ disciple: 'Disciple', apostle: 'Apostle', herald: 'Herald', hierophant: 'Hierophant' });
 const titlesText = (/** @type {string[]} */ ts) => ts.map((t) => /** @type {any} */ (PATREON_TITLE_TEXT)[t] ?? t).join(', ');
 
 /**

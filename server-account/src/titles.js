@@ -27,6 +27,7 @@
 //             sale is, and read against the config at every ask.
 //   SHADOW FANG (SHADOW-FANG, 2026-09-26) the same, one player's own.
 //   PENITENT (PENITENT, 2026-09-29) the same, Diggleborf's own.
+//   HERALD (HERALD, 2026-10-01) the same, and the Patreon tier's.
 //   GATEBREAKER (WB9g, 2026-09-30) - the ONE grant that is not derived
 //             but recorded: the title the Sigil Broker sells, held because
 //             the account bought it (the row's `insignia`, 0036). A sale is
@@ -141,9 +142,13 @@ export const TIER_LISTS = Object.freeze({
   // PENITENT (2026-09-29, Mac): "This new custom title/glyph is for the user Diggleborf" - a second title made for one
   // player, granted the same way.
   penitent: 'PENITENT_HANDLES',
+  // HERALD (2026-10-01, Mac: "Herald doesnt exist ingame yet" - "you'll need to develop the herald title/glyph"): the
+  // Patreon tier between Disciple and Hierophant. Held by its pledge (PATREON_TIERS) like the tiers before it, and by
+  // this list for a Herald Mac names.
+  herald: 'HERALD_HANDLES',
 });
 /** The glyph each of those titles carries, in the vocabulary's words. */
-export const TIER_GLYPH = Object.freeze({ dungeonmaster: 'dm', disciple: 'disciple', apostle: 'apostle', hierophant: 'hierophant', shadowfang: 'shadowfang', penitent: 'penitent' });
+export const TIER_GLYPH = Object.freeze({ dungeonmaster: 'dm', disciple: 'disciple', apostle: 'apostle', hierophant: 'hierophant', shadowfang: 'shadowfang', penitent: 'penitent', herald: 'herald' });
 
 /** Does this player hold that list's title? A guest holds none, for the developer's reason. PATREON-LINK (2026-10-01,
  *  Mac: "having to manually hand out titles ... its really hard to keep up with it"): AND a Patreon tier's title is held

@@ -53,10 +53,10 @@ test('PATREON-LINK: a tier\'s title is held while Patreon says the pledge is act
   assert.deepEqual(titlesHeld({ ...pat, patreon_tiers: '1003' }, { ...ON, HIEROPHANT_HANDLES: 'pat' }), ['hierophant'], 'and the two never hold one title twice');
 });
 
-test('PATREON-LINK: PATREON_TIERS maps a tier id to one of the three Patreon titles and nothing else (mutants: a title outside the three read; a malformed entry read)', () => {
-  const map = patreonTierMap({ PATREON_TIERS: ' 1001:disciple , 1002:apostle,abc:hierophant,1004:dungeonmaster,1005:penitent,1006:apostle:x,,1003:hierophant' });
-  assert.deepEqual([...map], [['1001', 'disciple'], ['1002', 'apostle'], ['1003', 'hierophant']]);
-  assert.deepEqual(PATREON_TITLES, ['disciple', 'apostle', 'hierophant']);
+test('PATREON-LINK: PATREON_TIERS maps a tier id to one of the Patreon titles and nothing else (mutants: a title outside the four read; a malformed entry read)', () => {
+  const map = patreonTierMap({ PATREON_TIERS: ' 1001:disciple , 1002:apostle,abc:hierophant,1004:dungeonmaster,1005:penitent,1006:apostle:x,,1003:hierophant,1007:herald' });
+  assert.deepEqual([...map], [['1001', 'disciple'], ['1002', 'apostle'], ['1003', 'hierophant'], ['1007', 'herald']]);
+  assert.deepEqual(PATREON_TITLES, ['disciple', 'apostle', 'herald', 'hierophant'], 'TITLE-N\'s three and HERALD\'s, lowest first');
   assert.equal(patreonTierMap({}).size, 0);
   assert.deepEqual(pledgeTitles(['1002', '1001'], 'active_patron', ON), ['disciple', 'apostle']);
   assert.deepEqual(pledgeTitles(['1002'], 'declined_patron', ON), []);
@@ -542,16 +542,16 @@ test('PATREON-LINK: back from the browser, the card reads the account again - an
 
 // ── THE CONFIG AND THE DEPLOY ───────────────────────────────────────
 
-test('PATREON-LINK: its secrets never touch a file - the toml carries Mac\'s client id and his tier map (Disciple alone: Supporter holds none, Herald is not in the game yet, Hierophant is custom) and no secret, linking waits for the deploy\'s secret, and the deploy puts both from the repository through one pipe after the Worker is up; every word the service says has a sentence (mutants: a secret written as a var; the secrets echoed; a tier mapped Mac did not name)', () => {
+test('PATREON-LINK: its secrets never touch a file - the toml carries Mac\'s client id and his tier map (Disciple and Herald: Supporter holds none, Hierophant is custom) and no secret, linking waits for the deploy\'s secret, and the deploy puts both from the repository through one pipe after the Worker is up; every word the service says has a sentence (mutants: a secret written as a var; the secrets echoed; a tier mapped Mac did not name)', () => {
   const toml = src('server-account/wrangler.toml');
   const id = /^PATREON_CLIENT_ID = "([^"]*)"$/m.exec(toml)?.[1];
   assert.match(id ?? '', /^[A-Za-z0-9_-]{32,128}$/, 'the client\'s id - public, it rides every authorize URL');
   assert.equal(patreonLinkOn({ PATREON_CLIENT_ID: id }), false, 'and linking waits for the secret the deploy puts beside it');
   const tiers = /^PATREON_TIERS = "([^"]*)"$/m.exec(toml)?.[1];
-  assert.equal(tiers, '29666211:disciple', 'Mac\'s Disciple tier, and nothing else');
+  assert.equal(tiers, '29666211:disciple,29666234:herald', 'Mac\'s Disciple tier, and his Herald since HERALD gave it its title');
   const map = patreonTierMap({ PATREON_TIERS: tiers });
-  assert.deepEqual([...map], [['29666211', 'disciple']]);
-  for (const [tier, name] of [['29701293', 'Supporter'], ['29666234', 'Herald'], ['29666221', 'Hierophant']]) {
+  assert.deepEqual([...map], [['29666211', 'disciple'], ['29666234', 'herald']]);
+  for (const [tier, name] of [['29701293', 'Supporter'], ['29666221', 'Hierophant']]) {
     assert.equal(map.get(tier), undefined, `${name} grants nothing by its pledge`);
   }
   assert.doesNotMatch(toml, /^PATREON_(CLIENT|WEBHOOK)_SECRET\s*=/m, 'Cloudflare refuses a secret the name of a bound var');

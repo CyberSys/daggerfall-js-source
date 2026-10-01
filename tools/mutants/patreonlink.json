@@ -442,8 +442,8 @@
   {
     "name": "PL-secret-as-var",
     "file": "server-account/wrangler.toml",
-    "old": "PATREON_TIERS = \"29666211:disciple\"\n",
-    "new": "PATREON_TIERS = \"29666211:disciple\"\nPATREON_CLIENT_SECRET = \"\"\n",
+    "old": "PATREON_TIERS = \"29666211:disciple,29666234:herald\"\n",
+    "new": "PATREON_TIERS = \"29666211:disciple,29666234:herald\"\nPATREON_CLIENT_SECRET = \"\"\n",
     "tests": [
       "test/patreon_link.test.js"
     ],
@@ -452,8 +452,8 @@
   {
     "name": "PL-a-tier-mapped-mac-did-not-name",
     "file": "server-account/wrangler.toml",
-    "old": "PATREON_TIERS = \"29666211:disciple\"\n",
-    "new": "PATREON_TIERS = \"29666211:disciple,29666221:hierophant\"\n",
+    "old": "PATREON_TIERS = \"29666211:disciple,29666234:herald\"\n",
+    "new": "PATREON_TIERS = \"29666211:disciple,29666234:herald,29666221:hierophant\"\n",
     "tests": [
       "test/patreon_link.test.js"
     ],
