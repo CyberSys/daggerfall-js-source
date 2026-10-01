@@ -55,7 +55,7 @@ import { tryMobileEnemyActivate } from '../player/mobileEnemyActivate.js';
 import { FOUND_NOTHING_VALUABLE_TEXT_ID } from '../systems/talk.js';   // GetRandomText(8999)
 import { hideWorldPlaque, destroyWorldPlaque } from '../ui/worldPlaque.js';   // AUDIT-WH H4: the plaque's hide door, for the overlay branch that returns above drawFoes
 import { quickLootWheel, quickLootArm } from '../systems/quickLoot.js';   // QUICK-LOOT B4: the plaque owns the wheel while it lists, and the two keys arm what the next activate means
-import { createMusicDirector, fetchBytes, motorStats, climbingDeps, ridePlatform, doorSpellFor, wireDoorSpells, claimFrame, frameAlive, frameHeld } from './shared.js';
+import { createMusicDirector, fetchBytes, motorStats, climbingDeps, parkourDeps, ridePlatform, doorSpellFor, wireDoorSpells, claimFrame, frameAlive, frameHeld } from './shared.js';
 import { isTextEntryTarget, keyEdges, noteKeyDown, noteKeyUp, beginInputFrame, pressed, released, routeKey, routeKeyUp, held, moveHeld, anyMove, actionsOf, swallowBrowserKey, mouseCode, isSwingButton, swingHeld, keyboardLook, installContextMenuGuard, swingKeyHeld } from '../ui/input.js';
 import { armUnloadGuard } from '../systems/unloadGuard.js';   // MAC-L3: one door in front of every way out of a running game   // AUDIT 39r: the mouse half of the held set
 import { createActivateGate, activateFrame, setClickDelay } from '../systems/activateGate.js';   // A8: PlayerActivate's ActivateCenterObject frame
@@ -146,7 +146,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
       motorState: () => (_motorRef ? { eyeLevel: _motorRef.eye[1] - _motorRef.pos[1], capsule: _motorRef.height } : null),
       placePlayer: placeLoadedPlayer,   // DIAL-LOAD: the host's load law, for every load the context runs - not routeKey's alone
       // MAC1 J: this host's canvas, for the pause door's relock. The
-      // context owns none of its own (dungeonContext.js:7704), so each
+      // context owns none of its own (dungeonContext.js:7713), so each
       // dungeon host hands its own in and the resume gesture carries
       // the pointer back with it (ui/pauseDoor.js:143-167).
       relock: () => requestLook(canvas) });
@@ -209,7 +209,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
   // P2: grounded walking is the default (?fly restores the fly cam);
   // spawn drops onto the start-marker floor.
   const walkMode = params.has('play') || (!params.has('fly') && !shotMode);
-  const player = new PlayerMotor(ctx.collider, motorStats(playerEntity), { jumpBoost: () => jumpSpeedMultiplier(playerEntity), enhancedJumping: () => isEnhancedJumping(playerEntity), carriedWeight: () => carriedWeight(playerEntity), climbing: climbingDeps(playerEntity) });   // AcrobatMotor skill jump (P14) + M3 climbing (no HUD seam in the standalone host); motorStats = the LIVE entity
+  const player = new PlayerMotor(ctx.collider, motorStats(playerEntity), { jumpBoost: () => jumpSpeedMultiplier(playerEntity), enhancedJumping: () => isEnhancedJumping(playerEntity), carriedWeight: () => carriedWeight(playerEntity), climbing: climbingDeps(playerEntity), parkour: parkourDeps(playerEntity, (l) => ctx.hudSay?.(l)) });   // AcrobatMotor skill jump (P14) + M3 climbing (no HUD seam in the standalone host); motorStats = the LIVE entity
   _motorRef = player;   // DC1: the motorState seam binds here
     const _footsteps = new FootstepMachine();   // FS-slice
     immersiveFootsteps.onTransitionDungeonInterior();   // IF1: the standalone dungeon boot IS the dungeon transition (UpdateFootsteps_OnTransitionDungeonInterior)
@@ -1006,7 +1006,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
       // grounded-gated and false in the air, so `player.standing` is
       // the faithful term (and the footstep gate above now reads it
       // too - AUDIT 64 F3 review).
-      ctx.reportActivity?.({ running: player.isRunning && !player.standing, runningTally: player.isRunning && !player.riding, standing: !!player.standing, swimming: player.swimming, climbing: !!player.climb?.isClimbing, jumped: player.jumped, movingLessThanHalfSpeed: player.movingLessThanHalfSpeed, fell: player.landedFallDistance, odometer: player.odometer });   // P13 sneak state + P14 fall landing (AUDIT 26 F083; MOVE-REAL: + the odometer)
+      ctx.reportActivity?.({ running: player.isRunning && !player.standing, runningTally: player.isRunning && !player.riding, standing: !!player.standing, swimming: player.swimming, climbing: !!player.climb?.isClimbing, jumped: player.jumped, parkoured: player.parkoured, movingLessThanHalfSpeed: player.movingLessThanHalfSpeed, grip: player.gripShown, fell: player.landedFallDistance, odometer: player.odometer });   // P13 sneak state + P14 fall landing (AUDIT 26 F083; MOVE-REAL: + the odometer; CLIMB2: + the grip the context's HUD draws)
       ctx.reportMotor(player.grounded, player.velY, cam.yaw);
       ctx.reportInput?.([...keys].join('+') || 'none', cam.pitch);
 // ROAD-Ar: the gate itself ran at :459, above the overlay guard.

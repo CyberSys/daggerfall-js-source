@@ -105,5 +105,8 @@ test('AUDIT pre-merge S2: every FOE keeps its floor by its motor\'s word, whatev
   for (const site of sites) assert.match(site, /, this\.height, true, FOE_KEEPS_FLOOR\);$/, site);
   assert.match(m, /const FOE_KEEPS_FLOOR = true;/);
   const c = readFileSync(new URL('../src/player/collider.js', import.meta.url), 'utf8');
-  assert.match(c, /move\(feet, dx, dy, dz, height = CAPSULE_HEIGHT, snap = true, keepFloor = false\) \{\n\s*const was = this\._keepFloor;\n\s*this\._keepFloor = !!keepFloor;\n\s*try \{ return this\._move\(feet, dx, dy, dz, height, snap\); \} finally \{ this\._keepFloor = was; \}/, 'the player never passes it: its stances resolve as they did');
+  // (AUDIT CLIMB2 G1 added `noStep` after it - the free climber's, which passes keepFloor false in so many words)
+  assert.match(c, /move\(feet, dx, dy, dz, height = CAPSULE_HEIGHT, snap = true, keepFloor = false, noStep = false\) \{\n\s*const was = this\._keepFloor, stepped = this\._noStep;\n\s*this\._keepFloor = !!keepFloor;\n\s*this\._noStep = !!noStep;\n\s*try \{ return this\._move\(feet, dx, dy, dz, height, snap\); \} finally \{ this\._keepFloor = was; this\._noStep = stepped; \}/, 'the player never passes it: its stances resolve as they did');
+  const pm = readFileSync(new URL('../src/player/motor.js', import.meta.url), 'utf8');
+  assert.match(pm, /this\.height, false, false, true\);   \/\/ AUDIT CLIMB2 G1: no step ladder/, 'the climb keeps no floor - it never steps, either');
 });

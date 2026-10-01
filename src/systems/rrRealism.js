@@ -74,6 +74,12 @@ export function rrAdjustWeaponAttackDamage(damage, weaponAnimTime, weapon) {
  *  a Khajiit, x2 under the Climbing effect, clamped 5..95; Lerp(base,
  *  100, skill%) + Lerp(0, 10, luck%), the C# int cast). */
 export const NO_CLIMB_HOLDING_WEAPON = "You can't climb whilst holding your weapon.";   // RoleplayRealismModData.csv noClimbHoldingWeapon
+/** AUDIT CLIMB1 F10: the same rule for the port's enhanced climb (player/parkour.js registerParkourGate) - a mantle
+ *  or a clamber over a thin top is a climb, and the mod's own row promises "no climbing with a weapon out": a drawn
+ *  weapon that is not bare hands answers the mod's line, anything else null. (A vault is a leap and is not asked.) */
+export function rrParkourRefusal({ weaponDrawn = false, weaponMelee = true } = {}) {
+  return weaponDrawn && !weaponMelee ? NO_CLIMB_HOLDING_WEAPON : null;
+}
 export function rrClimbingChance(base, { climbing = 0, luck = 0, khajiit = false, enhanced = false, weaponDrawn = false, weaponMelee = true, say = null } = {}) {
   if (weaponDrawn && !weaponMelee) { say?.(NO_CLIMB_HOLDING_WEAPON); return 0; }
   let skill = climbing + (khajiit ? 30 : 0);
