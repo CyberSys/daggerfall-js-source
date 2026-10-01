@@ -612,8 +612,8 @@
   {
     "name": "AUDIT-DEEP-R2-the-seam-drops-it",
     "file": "src/player/mwView.js",
-    "old": "if (eotbLane()) return drawEotbBody(canvas, { proj, view, eye, feet, yaw, face });",
-    "new": "if (eotbLane()) return drawEotbBody(canvas, { proj, view, eye, feet, yaw });",
+    "old": "drawEotbBody(canvas, { proj, view, eye, feet, yaw: viewYaw, face });",
+    "new": "drawEotbBody(canvas, { proj, view, eye, feet, yaw: viewYaw });",
     "tests": [
       "test/tv1_travel_view.test.js"
     ],

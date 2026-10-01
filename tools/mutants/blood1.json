@@ -2607,8 +2607,8 @@
   {
     "name": "AUDIT5-the-world-s-load-is-a-blow",
     "file": "src/scenes/world.js",
-    "old": "      cameraRecoiler.reset();\n      resetVitalsDetector();",
-    "new": "      cameraRecoiler.reset();",
+    "old": "      resetVitalsDetector();   // BLOOD AUDIT 5",
+    "new": "      // BLOOD AUDIT 5",
     "tests": [
       "test/blood1_decals.test.js"
     ]

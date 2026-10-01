@@ -20,8 +20,8 @@
   {
     "name": "DISC18-the-world-draws-the-body-on-the-camera-s-feet",
     "file": "src/scenes/world.js",
-    "old": "mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.bodyFeetAt(), yaw: player.bodyYawFor(cam.yaw), face:",
-    "new": "mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.feetAt(), yaw: player.bodyYawFor(cam.yaw), face:",
+    "old": "mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.bodyFeetAt(), yaw: player.bodyYawFor(cam.yaw), viewYaw: cam.yaw, face:",
+    "new": "mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.feetAt(), yaw: player.bodyYawFor(cam.yaw), viewYaw: cam.yaw, face:",
     "tests": [
       "test/disc18.test.js",
       "test/mac1_playreport.test.js",
@@ -31,8 +31,8 @@
   {
     "name": "DISC18-the-town-draws-the-body-on-the-camera-s-feet",
     "file": "src/scenes/exterior.js",
-    "old": "mwViewDrawBody(canvas, { proj, view, eye, feet: player.bodyFeetAt(), yaw: player.bodyYawFor(cam.yaw) });",
-    "new": "mwViewDrawBody(canvas, { proj, view, eye, feet: player.feetAt(), yaw: player.bodyYawFor(cam.yaw) });",
+    "old": "mwViewDrawBody(canvas, { proj, view, eye, feet: player.bodyFeetAt(), yaw: player.bodyYawFor(cam.yaw), viewYaw: cam.yaw });",
+    "new": "mwViewDrawBody(canvas, { proj, view, eye, feet: player.feetAt(), yaw: player.bodyYawFor(cam.yaw), viewYaw: cam.yaw });",
     "tests": [
       "test/disc18.test.js",
       "test/mac1_playreport.test.js"
@@ -41,8 +41,8 @@
   {
     "name": "DISC18-the-dungeon-draws-the-body-on-the-camera-s-feet",
     "file": "src/scenes/dungeon.js",
-    "old": "if (walkMode) mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.bodyFeetAt(), yaw: player.bodyYawFor(cam.yaw) });",
-    "new": "if (walkMode) mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.feetAt(), yaw: player.bodyYawFor(cam.yaw) });",
+    "old": "if (walkMode) mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.bodyFeetAt(), yaw: player.bodyYawFor(cam.yaw), viewYaw: cam.yaw });",
+    "new": "if (walkMode) mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.feetAt(), yaw: player.bodyYawFor(cam.yaw), viewYaw: cam.yaw });",
     "tests": [
       "test/disc18.test.js",
       "test/mac1_playreport.test.js"
@@ -51,8 +51,8 @@
   {
     "name": "DISC18-the-modal-dungeon-draws-the-body-on-the-camera-s-feet",
     "file": "src/scenes/worldModes.js",
-    "old": "\n      mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.bodyFeetAt(), yaw: player.bodyYawFor(cam.yaw) });",
-    "new": "\n      mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.feetAt(), yaw: player.bodyYawFor(cam.yaw) });",
+    "old": "\n      mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.bodyFeetAt(), yaw: player.bodyYawFor(cam.yaw), viewYaw: cam.yaw });",
+    "new": "\n      mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.feetAt(), yaw: player.bodyYawFor(cam.yaw), viewYaw: cam.yaw });",
     "tests": [
       "test/disc18.test.js",
       "test/mac1_playreport.test.js",
@@ -62,8 +62,8 @@
   {
     "name": "DISC18-the-interior-draws-the-body-on-the-camera-s-feet",
     "file": "src/scenes/worldModes.js",
-    "old": "\n    mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.bodyFeetAt(), yaw: player.bodyYawFor(cam.yaw) });",
-    "new": "\n    mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.feetAt(), yaw: player.bodyYawFor(cam.yaw) });",
+    "old": "\n    mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.bodyFeetAt(), yaw: player.bodyYawFor(cam.yaw), viewYaw: cam.yaw });",
+    "new": "\n    mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.feetAt(), yaw: player.bodyYawFor(cam.yaw), viewYaw: cam.yaw });",
     "tests": [
       "test/disc18.test.js",
       "test/mac1_playreport.test.js",

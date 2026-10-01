@@ -314,8 +314,8 @@
   {
     "name": "CLIMB2-wall-not-a-climb",
     "file": "src/player/motor.js",
-    "old": "    this._fcStart = null;\n    this.climb?.hold();\n",
-    "new": "    this._fcStart = null;\n",
+    "old": "    this._pkOffEdge = null;   // AUDIT CLIMB-ARC L6\n    this.climb?.hold();\n",
+    "new": "    this._pkOffEdge = null;   // AUDIT CLIMB-ARC L6\n",
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
@@ -542,8 +542,8 @@
   {
     "name": "CLIMB2-corner-billed",
     "file": "src/player/motor.js",
-    "old": "    if (move.bill !== false) this.parkoured = move.kind;",
-    "new": "    this.parkoured = move.kind;",
+    "old": "if (move.bill !== false) this.parkoured = this.parkoured ? [].concat(this.parkoured, move.kind) : move.kind;",
+    "new": "this.parkoured = this.parkoured ? [].concat(this.parkoured, move.kind) : move.kind;",
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",

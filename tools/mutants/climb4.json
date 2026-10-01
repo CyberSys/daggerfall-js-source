@@ -2,7 +2,7 @@
   {
     "name": "CLIMB4-catch-dip-ignores-speed",
     "file": "src/player/climbFeel.js",
-    "old": "const v = Math.min(FEEL.DIP_MAX, FEEL.DIP_BASE + FEEL.DIP_PER_SPEED * (e.speed ?? 0));",
+    "old": "const v = Math.min(FEEL.DIP_MAX, FEEL.DIP_BASE + FEEL.DIP_PER_SPEED * speed);",
     "new": "const v = Math.min(FEEL.DIP_MAX, FEEL.DIP_BASE);",
     "tests": [
       "test/climb4.test.js"
@@ -137,8 +137,8 @@
   {
     "name": "CLIMB4-turn-latched-as-mouse-look",
     "file": "src/player/lookFilter.js",
-    "old": "  turn(dyaw, dpitch = 0) {\n    this.residualYaw += dyaw;\n    this.residualPitch += dpitch;\n  }",
-    "new": "  turn(dyaw, dpitch = 0) {\n    this.add(dyaw, dpitch);\n  }",
+    "old": "    this.turnYaw += dyaw;\n    this.residualPitch += dpitch;\n  }",
+    "new": "    this.add(dyaw, dpitch);\n  }",
     "tests": [
       "test/climb4.test.js"
     ]
@@ -155,8 +155,8 @@
   {
     "name": "CLIMB4-events-never-cleared",
     "file": "src/player/motor.js",
-    "old": "if (this.climbEvents.length) this.climbEvents = [];",
-    "new": "",
+    "old": "    this.parkoured = null;\n    if (this.climbEvents.length) this.climbEvents = [];",
+    "new": "    this.parkoured = null;",
     "tests": [
       "test/climb4.test.js"
     ]
@@ -490,8 +490,8 @@
   {
     "name": "CLIMB4-lowered-still-drawn",
     "file": "src/combat/weaponRig.js",
-    "old": "if (_climbLower >= CLIMB_LOWER_GONE || (_climbLower >= 0.5",
-    "new": "if ((_climbLower >= 0.5",
+    "old": "if (!armsClimb && (_climbLower >= CLIMB_LOWER_GONE || (_climbLower >= 0.5",
+    "new": "if (!armsClimb && ((_climbLower >= 0.5",
     "tests": [
       "test/climb4.test.js"
     ]
@@ -545,8 +545,8 @@
   {
     "name": "CLIMB4-world-never-framed",
     "file": "src/scenes/world.js",
-    "old": "climbFeel.frame(dt);   // CLIMB4: the climb's camera, off the frame's motor",
-    "new": "// CLIMB4: the climb's camera, off the frame's motor",
+    "old": "climbFeel.frame(dt, _overlayHeld || _seasonHeld);   // CLIMB4",
+    "new": "// CLIMB4",
     "tests": [
       "test/climb4.test.js"
     ]
@@ -554,7 +554,7 @@
   {
     "name": "CLIMB4-worldModes-never-framed",
     "file": "src/scenes/worldModes.js",
-    "old": "host.climbFeel?.frame(dt);",
+    "old": "host.climbFeel?.frame(dt, overlayHeld);",
     "new": "",
     "tests": [
       "test/climb4.test.js"

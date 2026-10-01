@@ -205,8 +205,8 @@
   {
     "name": "CLIMB1-vault-tallies-climbing",
     "file": "src/systems/worldTick.js",
-    "old": "    tallyMovementSkill(entity, activity.parkoured === 'vault' || activity.parkoured === 'leap' ? SKILLS.Jumping : SKILLS.Climbing);",
-    "new": "    tallyMovementSkill(entity, activity.parkoured === 'leap' ? SKILLS.Jumping : SKILLS.Climbing);",
+    "old": "kind === 'vault' || kind === 'leap' ? SKILLS.Jumping",
+    "new": "kind === 'leap' ? SKILLS.Jumping",
     "tests": [
       "test/auditclimb1.test.js",
       "test/parkour.test.js",
