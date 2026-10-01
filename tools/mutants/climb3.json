@@ -712,7 +712,9 @@
       "test/auditclimb1.test.js",
       "test/auditclimb2.test.js",
       "test/climb4.test.js"
-    ]
+    ],
+    "equivalent": true,
+    "why": "AUDIT CLIMB-ARC L4/L5 made the late press the at-edge leap: it is armed only when running at pace, standing, and over a drop proven from the last floor (o.ok). A plain jump that is not itself a leap therefore never leaves an armed press to clear, and the open-ground second press that L14 pins is refused by o.ok already. The two `this.jumping` checks are kept as belts."
   },
   {
     "name": "CLIMB3-running-leap-crouched",

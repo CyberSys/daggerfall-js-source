@@ -341,7 +341,7 @@ test('PR-BOW1b: the wiring, by source - poseAssembly folds through foldPieceBoun
   assert.ok(flags > 0 && frame > flags, 'the portrait is framed AFTER it decides what it shows');
   assert.ok(!/meshBounds\(t\.arm\.pieces\)/.test(fig), 'and never over every piece');
   for (const host of ['src/scenes/world.js', 'src/scenes/exterior.js', 'src/scenes/worldModes.js', 'src/scenes/dungeon.js']) {
-    assert.match(rd(host), /mwViewDrawBody\(canvas, \{ proj, view, eye(: mwv\.eye)?, feet: player\.bodyFeetAt\(\), yaw: player\.bodyYawFor\(cam\.yaw\)(, face: tvFace)? \}\)/, `${host} draws the body through mwView`);
+    assert.match(rd(host), /mwViewDrawBody\(canvas, \{ proj, view, eye(: mwv\.eye)?, feet: player\.bodyFeetAt\(\), yaw: player\.bodyYawFor\(cam\.yaw\), viewYaw: cam\.yaw(, face: tvFace)? \}\)/, `${host} draws the body through mwView`);
   }
   assert.match(rd('src/player/mwView.js'), /return fpArm\.drawThird\(canvas, \{ proj, view, eye, feet, yaw, grow: face\?\.grow > 1 \? face\.grow : 1, up: face\?\.up \?\? null \}\);/);   // AUDIT OW3 J6: grown under the travel view; AUDIT OW4 J6: leaned by its up
   assert.match(rd('src/net/peerBodies.js'), /b\.rig\.drawThird\(canvas, \{ proj, view, eye, feet: b\.feet, yaw: b\.yaw, hitFlash: flashOf \? flashOf\(b\.id\) : 0, conceal: b\.veil \?\? null(?:, grow: g, up: this\._cam\?\.up \?\? null)? \}\)/);   // PIN MOVED (OW-PEERS, FIELD BUGS 2026-10-01 #11): grown and leaned under the Overworld

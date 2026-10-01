@@ -619,16 +619,16 @@ test('CLIMB4 F16: the hands on the wall - WeaponManager\'s climbing return (no s
   assert.equal(r.climbLower(), 1);
   assert.equal(frame().q, undefined, 'lowered: no weapon drawn');
   // no swing on the wall
+  // (watched every frame: the climbing return empties a swing's events (AUDIT CLIMB-ARC F7), so the machine is the witness)
   r.attackInput(0, 0, true);
-  const evs = [];
-  for (let i = 0; i < 60; i++) evs.push(...frame().evs);
+  const states = [];
+  for (let i = 0; i < 60; i++) { frame(); states.push(r.playerWeapon.machine.state); }
   r.attackInput(0, 0, false);
-  assert.equal(r.playerWeapon.machine.state, 'Idle', 'no swing while climbing');
-  assert.ok(!evs.includes('hit'));
+  assert.deepEqual([...new Set(states)], ['Idle'], 'no swing while climbing');
   r.clickAttack();   // the touch button's door, too
-  for (let i = 0; i < 60; i++) evs.push(...frame().evs);
-  assert.equal(r.playerWeapon.machine.state, 'Idle', 'no swing off the touch button either');
-  assert.ok(!evs.includes('hit'));
+  states.length = 0;
+  for (let i = 0; i < 60; i++) { frame(); states.push(r.playerWeapon.machine.state); }
+  assert.deepEqual([...new Set(states)], ['Idle'], 'no swing off the touch button either');
   // off the wall: back up, to exactly where it was
   climbing = false;
   for (let i = 0; i < 90; i++) frame();
