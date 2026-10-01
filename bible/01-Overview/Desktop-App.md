@@ -408,7 +408,7 @@ dagger://launcher, its own origin; SANDBOXED, with a two-word bridge
 files; a CSP with nothing remote and nothing inline; every word, the
 patch notes from GitHub included, reaching the page as text; the brand's
 own night, wordmark, rule and gem, every colour one the Enhanced skin
-uses (U63's law), and the two faces on disk (`fonts/README.md` - it runs
+uses (U63's law), and the two faces on disk (`app/launcher/fonts/README.md` - it runs
 before anything is known about the network). In order:
 
 1. **The update**, inside DA6's two gates. On the updater transport the
