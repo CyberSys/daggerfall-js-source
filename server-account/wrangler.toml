@@ -76,7 +76,7 @@ mode = "smart"
 [vars]
 # Answered by /health so a deploy that did not happen cannot look like
 # one that did. Kept in step with ACCOUNT_VERSION in src/service.js.
-ACCOUNT_VERSION = "acct44"
+ACCOUNT_VERSION = "acct45"
 # WB5b: THE RELAY'S PUBLIC HALF, GATE_PUBLIC_KEY - the key an Oblivion
 # Gate's kill receipts verify with (src/net/gateReceipt.js) - is NOT a
 # var here. GATE-KEYS (2026-09-26): the account deploy mints the pair
@@ -126,6 +126,10 @@ DUNGEON_MASTER_HANDLES = "SquidKamer"
 # TITLE-N: the three Patreon tiers, lowest first - each list grants its
 # title and its glyph. Dutchess and Satranath are the first Disciples (Mac); a tier that
 # lapses is a handle taken off, gone from that player's next token.
+# PATREON-LINK (2026-10-01): a patron no longer needs a line here - they
+# link their own Patreon from the account card, and PATREON_TIERS below
+# grants the tier their pledge pays for. These lists stay for the titles
+# Mac grants by name (a comp, a patron who will not link).
 # 2026-09-26, Mac: "Grant Flylighter the disciple title/glyph".
 # 2026-09-29, Mac: "Add valenvalarys as a disciple ingame".
 DISCIPLE_HANDLES = "Dutchess,Satranath,Skibbster,Flylighter,valenvalarys"
@@ -162,6 +166,26 @@ PROFESSIONS_OPEN = "on"
 # handle here grants the title and the glyph, and taking it off takes both
 # on the next token.
 PENITENT_HANDLES = "Diggleborf"
+# PATREON-LINK (2026-10-01, Mac: "With patron and having to manually hand
+# out titles. Im running into a workflow where its really hard to keep up
+# with it"; asked, "Patreon auto-link"): A PATRON'S TITLE FOLLOWS THEIR
+# PLEDGE. A registered player presses Link Patreon on the account card,
+# and the tier their pledge pays for is a title they hold - upgraded,
+# downgraded and lapsed by Patreon's webhook (server-account/src/patreon.js).
+#
+# PATREON_CLIENT_ID is the Patreon API client's id - not a secret (it is in
+# every authorize URL). EMPTY IS OFF, and is what this ships as: the card
+# offers no link until it is set and the deploy has put the client's
+# secret. The two secrets are NOT here and must never be: the deploy puts
+# PATREON_CLIENT_SECRET and PATREON_WEBHOOK_SECRET from the repository's
+# own secrets (.github/workflows/account-deploy.yml), as it puts the keys.
+PATREON_CLIENT_ID = ""
+# Which Patreon tier grants which title: "<tier id>:<title>", comma-
+# separated, the titles disciple, apostle and hierophant. A tier's id is
+# the number in its Join link on the Patreon page (`rid=`). A tier not
+# listed grants nothing; changing a line here moves every patron of that
+# tier on their next token, with nothing walked.
+PATREON_TIERS = ""
 
 [[d1_databases]]
 binding = "DB"
