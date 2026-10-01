@@ -758,10 +758,11 @@ function tickPlayerMinutesOnce({
   // and trains the skill it used: a vault is a leap (Jumping), a mantle a
   // climb (Climbing). The motor never raises `jumped` for either, so neither
   // is billed twice. MOVE-REAL's odometer still weighs the tally past 100.
-  if (activity.parkoured) {
+  // AUDIT CLIMB-ARC L13: a frame that began two moves (the motor's flag a list then) bills each
+  for (const kind of [].concat(activity.parkoured || [])) {
     const exertion = FATIGUE_LOSS.Jumping;   // priced as the jump it takes the place of
     sinks.drainFatigue?.(Math.trunc(exertion * fatigueMultiplier * FATIGUE_DRAIN_SCALE));
-    tallyMovementSkill(entity, activity.parkoured === 'vault' ? SKILLS.Jumping : SKILLS.Climbing);
+    tallyMovementSkill(entity, kind === 'vault' || kind === 'leap' ? SKILLS.Jumping : SKILLS.Climbing);   // CLIMB3: a leap is the Jumping skill's
   }
 
   // AUDIT 23 (entity-5) - PlayerEntity.cs:309-320: TallySkill(Running, 1)

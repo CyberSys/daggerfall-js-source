@@ -40,6 +40,9 @@
 // takes the player's pitch through the neck the reference rotates.
 
 import { lookAt, multiply, ortho, perspective, transformPoint, trs, wrapAngle } from '../world/mat4.js';
+import { ClimbPose } from '../player/climbPose.js';   // CLIMB6: the climb's limbs, in the world
+import { climbRequestToRig, climbRequestToFirstPerson } from './climbRig.js';   // CLIMB6: ...and in each rig's space
+import { fieldOfView } from '../ui/viewSettings.js';   // CLIMB6: the world lens the arm's hands are matched to
 import { MW_ARM_PIXEL, CHAR_SPRITE_RT_SIZE } from '../render/renderer.js';
 import {
   sampleTrack, resetClip, advanceClip, getTextKeyTime,
@@ -2737,6 +2740,13 @@ export function createFpArm() {
   // overlayMemo does: one merged map and one sampler per (base, spec,
   // inner sampler), rebuilt only when one of them changes.
   let held = null;               // { spec, piece, aspect, eye, built, reach0 }
+  // CLIMB6: THE CLIMB'S POSE. One law per rig instance (the own player's arm and body share it - the same hands on the
+  // same stone in either view; a peer's has its own), stepped every update; `climbLast` the body's last request in the
+  // rig's space, kept so the pose fades with the body as the hands let go; `climbHands` the hands on the stone this
+  // frame (WeaponManager's climbing return: no weapon, no torch in them).
+  const climbLaw = new ClimbPose();
+  let climbLast = null;
+  let climbHands = false;
   let heldMemo = null;           // { base, spec, inner, tracks, sampler }
   let lastFrame = null;          // { model, view, proj, rect } - what draw() last composed with
   let lastThirdModel = null;   // AUDIT FIELD-GUN-MW F2: drawThird's model matrix, for the muzzle in the world
@@ -3163,6 +3173,29 @@ export function createFpArm() {
    *  light hides while the drawn type carries the TwoHanded bit -
    *  carriedLeftVisible below. Sheathed, the drawn type is None and the
    *  torch is up. */
+  /** CLIMB6: the climb's request in the THIRD-PERSON body's space - the snapshot's body feet and yaw are the ones the
+   *  hosts draw it at (drawThird: bodyFeetAt, bodyYawFor), the race's scales its own. Off the wall the last request
+   *  fades with the law's weight, held where it was on the body (the hands leave the stone with it). */
+  function thirdClimb(cw, cam) {
+    if (!(cw && cw.w > 0)) { climbLast = null; return null; }
+    const snap = cam && cam.climb;
+    if (snap && snap.feet) {
+      const rs = (built && built.raceScale) || { weight: 1, height: 1 };
+      climbLast = climbRequestToRig(cw, { feet: snap.feet, yaw: snap.yaw, unitsPerMetre: MW_UNITS_PER_METER, weight: rs.weight, height: rs.height });
+      return climbLast;
+    }
+    return climbLast ? { ...climbLast, w: cw.w } : null;
+  }
+  /** CLIMB6: ...and the FIRST-PERSON arms' - the hands only, each reaching along the line from the rig's eye through
+   *  where its hold stands on screen (the arms are laid over the world: the grip covers the stone in the picture). The
+   *  rig's eye is its camera node, as the lens stands it (last frame's pose; the sneak's and the bob's offset with it). */
+  function firstClimb(cw, cam) {
+    if (!(cw && cw.w > 0) || !cam || !cam.pos || !built.arm.mats) return null;
+    const node = built.arm.mats.get(built.cameraRef);
+    if (!node) return null;
+    const rigEye = [node.t[0] + fpOffset[0], node.t[1] + fpOffset[1], node.t[2] + fpOffset[2]];
+    return climbRequestToFirstPerson(cw, { eye: cam.pos, yaw: cam.yaw || 0, pitch: cam.pitch || 0, fov: fieldOfView(), lensFov: FP_FIELD_OF_VIEW, lensPitch: followCam ? 0 : (cam.pitch || 0), rigEye });
+  }
   function torchVisible() {
     if (!torchLit || !built || !built.ok) return false;
     // AUDIT MW-TORCH F2: a light that resolved to NOTHING on this rig
@@ -4195,6 +4228,10 @@ export function createFpArm() {
      * path from then on. Returns the slow path's promise, true on the
      * fast path, false when nothing changed or nothing stands.
      */
+    /** CLIMB6: are the hands on the stone - the climb's pose holding them (its weight at least half), the first-person
+     *  arms posed on the lip or the face this frame. The weapon rig keeps the arms ON the screen then (CLIMB4 lowered
+     *  them out of it: an arm with no pose for the climb had nothing better to show). */
+    climbPosed() { return climbHands && viewMode === 'first' && !held; },
     /** MAP3: HOLD THE SHEET. The travel map's holder calls this when it
      *  opens on a drawn Morrowind arm: the pose deltas go over the idle,
      *  the weapon/arrow/torch hide, and a parchment piece of `aspect`
@@ -4509,6 +4546,9 @@ export function createFpArm() {
       if (!built || !built.ok || !renderer) return;
       const cam = camera && camera();
       sneaking = !!(cam && cam.sneaking);
+      // CLIMB6: the climb's limbs, every frame (a frame that does not pose still walks the gait: a peer's travel)
+      const climbWorld = climbLaw.update(dt, (cam && cam.climb) || null);
+      climbHands = climbWorld.w >= 0.5 && !!(cam && cam.climb);
       // refreshCurrentAnims' order, and it is not arbitrary: the weapon
       // state is stepped FIRST because the idle refresh below depends on
       // it - "idle handled last as it can depend on the other states"
@@ -4594,6 +4634,7 @@ export function createFpArm() {
             sampleTrack: tOverlay ? overlaySample : sampleTrack,
             time: poseTime(state),   // MS1: a backhand's window runs backwards
             accumRoot: t.accumRoot,
+            climb: thirdClimb(climbWorld, cam),   // CLIMB6
           });
           uploadThirdMesh(t);
           // MAC-Q: the body's particle systems, on the clock its parts ride
@@ -4604,7 +4645,7 @@ export function createFpArm() {
         // Rule 57 hides on the SAME flags: sheathed vanilla shows no
         // weapon on the body, and the arrow follows the shoot keys.
         for (const r of thirdMesh.ranges) {
-          if (r.slot === 'weapon') r.hidden = !weaponShown;
+          if (r.slot === 'weapon') r.hidden = !weaponShown || climbHands;   // CLIMB6: no weapon in hands on the stone
           else if (r.slot === 'arrow') r.hidden = !arrowShown;
           else if (r.slot === 'torch') r.hidden = !torchVisible();   // MW-D51
           else if (r.slot === HIP_LIGHT_SLOT) r.hidden = !hipVisible();   // HT-WAIST: lit, and never the carried-left rule
@@ -4644,6 +4685,7 @@ export function createFpArm() {
         tracks: fTracks,
         sampleTrack: fSampler,
         time: poseTime(state),   // MS1: a backhand's window runs backwards
+        climb: held ? null : firstClimb(climbWorld, cam),   // CLIMB6: the hands reach the stone they hold (the sheet's hands are the sheet's)
         // Rule 56's accum root is STICKY and rig-wide, so it does not
         // follow the source the way the tracks do.
         accumRoot: built.accumRoot,
@@ -4717,6 +4759,8 @@ export function createFpArm() {
         else if (r.slot === 'paper') r.hidden = !held;
         // MAP3: the hands hold the sheet and nothing else while it is up
         if (held && (r.slot === 'weapon' || r.slot === 'arrow' || r.slot === 'torch')) r.hidden = true;
+        // CLIMB6: ...and the stone while they climb (WeaponManager's climbing return, ShowWeapons(false))
+        if (climbHands && (r.slot === 'weapon' || r.slot === 'arrow' || r.slot === 'torch')) r.hidden = true;
       }
       frames++;
     },
@@ -4945,9 +4989,9 @@ export function createFpArm() {
      *
      * MW-D34, THE MEASURED CHIRALITY (mwArmProbe L5b, through the REAL
      * composite - MW-D23's law): this pass composites through the
-     * WORLD's lens, which is mirrorProjectionX (dungeon.js:761 et al.),
+     * WORLD's lens, which is mirrorProjectionX (dungeon.js:764 et al.),
      * and the port's world convention puts the player's RIGHT at +X at
-     * yaw 0 (motor.js:864) - a LEFT-handed convention the mirror turns
+     * yaw 0 (motor.js:910) - a LEFT-handed convention the mirror turns
      * into correct screen imagery. A right-handed NIF actor placed with
      * a pure rotation therefore reads MIRRORED on screen (measured:
      * sword ink Δleft 1701 vs Δright -127 with the motor's +X anchor

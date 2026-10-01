@@ -93,3 +93,6 @@ tools/shots/
 # the kind of file a signing key gets pasted into by accident.
 .dev.vars
 .dev.vars.*
+
+# tools/mutate.mjs: a source file's backup while a mutant is applied in place
+*.mutbak

@@ -443,7 +443,7 @@ export function mwViewHides() {
 
 /** The third-person body composite, after the host's world draw. A
  *  no-op in first person or when the body cannot draw. */
-export function mwViewDrawBody(canvas, { proj, view, eye, feet, yaw, face = null }) {
+export function mwViewDrawBody(canvas, { proj, view, eye, feet, yaw, viewYaw = yaw, face = null }) {
   // EOTB4: the sprite lane draws its own body. `eotbLane()` already
   // requires `eotbBodyReady()`, so this arm cannot be reached with
   // nothing to draw - the gate and the draw are the same question
@@ -451,7 +451,10 @@ export function mwViewDrawBody(canvas, { proj, view, eye, feet, yaw, face = null
   // EOTB-IL: the BODY decides - it is active in third person, and in
   // first person while `Graphics.FirstPersonBillboard` is not None
   // (ToggleOffset, IL_2307-IL_2353), where it draws behind the eye
-  if (eotbLane()) return drawEotbBody(canvas, { proj, view, eye, feet, yaw, face });   // AUDIT DEEP R-2: `face` - the travel view's basis for the quad
+  // AUDIT CLIMB-ARC N1: the sprite lane's `yaw` is its QUAD's plane and its camera's (eotbBody.js) - the view's - never
+  // the body's on the wall (CLIMB5 handed it the body's, and a hanging player looking along the wall saw the sprite
+  // edge-on); the Morrowind body below turns to the wall (`yaw`, the body's)
+  if (eotbLane()) return drawEotbBody(canvas, { proj, view, eye, feet, yaw: viewYaw, face });   // AUDIT DEEP R-2: `face` - the travel view's basis for the quad
   if (!mwCamera.thirdPerson()) return false;
   // AUDIT OW3 J6: OW-BIG's grown traveller is the Morrowind body's too - `face.grow` (player/travelCamera.js tvOwnGrow)
   // reached the sprite body alone, and under the travel view the Morrowind body stood a speck at its own size.

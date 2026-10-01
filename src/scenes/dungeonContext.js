@@ -1911,7 +1911,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:14718 / exterior.js:3758), set
+  // host's own townTalk sink (world.js:14726 / exterior.js:3762), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -2498,7 +2498,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // copied mount would have diverged the first time an arm grew.
   /** DR1: THE TWO SPELL WINDOWS THIS HOST MOUNTS NOW, and the one door
    *  they go through. `mountSpellWindow` is worldModes'
-   *  mountSpellWindow DUNGEON ARM (worldModes.js:1380,
+   *  mountSpellWindow DUNGEON ARM (worldModes.js:1384,
    *  `dungeonCtx?.showOverlay(win)`) resolved to what it actually
    *  calls here - this file's own pushDungeonWindow, which IS
    *  UserInterfaceManager.PushWindow. So a spell window raised over an
@@ -3040,7 +3040,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1112 against :1142; worldModes.js:7811 against :7838).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1118 against :1148; worldModes.js:7813 against :7840).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -3253,6 +3253,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   let _fpBobY = 0;   // IG1: the head bob's vertical, latched with the rest
   let _fpSneaking = false;
   let _fpMove = null;   // MW-D26: the frame's movement report
+  let _fpClimb = null;  // CLIMB6: the frame's climb snapshot (player/climbPose.js climbRigInput) - the host's, as the move is
   // HT1: the dungeon's dropped-torch pool - doused under the block water, aged by the world clock, saved with the room
   const droppedTorches = createDroppedTorches({
     renderer, audio, getTexture, uploadRecordFrame, collider: () => collider, foes: () => foes.filter((f) => !sparedByPlayer(f)), foeSinks: (f) => foeSinks(f), makeEnemiesHostile: () => makeAreaHostile(),   // AUDIT CC-B6: a thrown torch passes a companion by
@@ -3312,7 +3313,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     actionDown: (action) => !!opts.actionDown?.(action), torches: () => droppedTorches,   // HT1; KB1: registry actions
     activateHeld: () => !!opts.activateHeld?.(),   // AUDIT 28 W12: the host's ActivateCenterObject, for the drawn bow's un-draw
     // MW-D10: rule 54's neck pitch; MW-D15: rule 32(a)'s sneak sink.
-    camera: () => (_fpEye ? { pos: _fpEye, yaw: _fpYaw, pitch: _fpPitch, feet: _fpFeet, climbing: !!_fpMove?.climbing, sneaking: _fpSneaking, move: _fpMove, bob: [0, _fpBobY] } : null),   // HT1: feet and the climb   // MW-D26; IG1: the bob rides too
+    camera: () => (_fpEye ? { pos: _fpEye, yaw: _fpYaw, pitch: _fpPitch, feet: _fpFeet, climbing: !!_fpMove?.climbing, sneaking: _fpSneaking, move: _fpMove, bob: [0, _fpBobY], climb: _fpClimb } : null),   // HT1: feet and the climb   // MW-D26; IG1: the bob rides too   // CLIMB6: the climb's snapshot, the host's
     bindWorn: opts.playerWeapon !== 'bow',   // AUDIT 17e F17: the ?weapon=bow debug flag keeps its scripted weapon
     say: (l) => hudText.add(l),
     spellArmed: () => magic.spellArmed(), abortSpell: () => magic.abortReadySpell(),   // MAC-O1: WeaponManager.Update:251 - the ReadyWeapon key puts a readied spell away and draws
@@ -3862,8 +3863,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:24456,
-              // exterior.js:5374 and worldModes.js:8526 already ran;
+              // playerArrowHitFoe is the one copy world.js:24468,
+              // exterior.js:5381 and worldModes.js:8531 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -6043,8 +6044,11 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // water sounds. Castle-block detection (doNotPlayInCastle) pends.
   const sceneAmbience = new AmbientEffects(DUNGEON_AMBIENT_WAITS);
   sceneAmbience.setPreset('dungeon');
-  function drawFoes(dt, canvas, proj, view, eye, playerFeet, moveHeld = false, playerHeight = CAPSULE_HEIGHT, playerSneaking = false, playerMove = null, playerBobY = 0, playerCrouching = false, playerRenderFeet = null) {
+  function drawFoes(dt, canvas, proj, view, eye, playerFeet, moveHeld = false, playerHeight = CAPSULE_HEIGHT, playerSneaking = false, playerMove = null, playerBobY = 0, playerCrouching = false, playerRenderFeet = null, playerClimb = null, aimView = null) {
     if (_staleChunkNotice) { _staleChunkNotice = false; setMidScreenText(STALE_CHUNK_IN_PLAY_TEXT, STALE_CHUNK_IN_PLAY_SECONDS); }
+    // AUDIT CLIMB-ARC F10: what the player AIMS with - the look, the ears, the spell's line, the blow's, the activation's -
+    // is the view before the climb's feel laid its pitch and roll on the picture (the world and exterior hosts read cam)
+    const aimed = aimView ?? view;
     _ecvT += dt;
     respawnSweep(_ecvT);   // WORLD8: the hour's respawn, once a second
     const ecvOn = combatVisualsOn();   // ECV1: once per frame
@@ -6055,14 +6059,15 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // most of what a first-person arm does.
     _fpEye = eye;
     _fpFeet = playerFeet;   // HT1
-    _fpYaw = Math.atan2(-view[2], -view[10]);
+    _fpYaw = Math.atan2(-aimed[2], -aimed[10]);
     // The view matrix's third row is the camera's BACKWARD axis, so the
     // look direction is its negation and the pitch is that vector's y.
-    _fpPitch = Math.asin(Math.max(-1, Math.min(1, -view[6])));
+    _fpPitch = Math.asin(Math.max(-1, Math.min(1, -aimed[6])));
     // MW-D15 / rule 32(a): the same latch, for the same reason - the arm
     // must see the stance the player is in THIS frame.
     _fpSneaking = !!playerSneaking;
     _fpMove = playerMove;   // MW-D26: same latch, same reason
+    _fpClimb = playerClimb;   // CLIMB6: ...and the climb's, the body's limbs on the stone
     _fpBobY = playerBobY;   // IG1: same latch - the arm's bob channel
     // THE FOUR HOSTS RULE (2026-08-27, Mac: "blood texture stays static
     // in the air when attacking them in dungeons"). The splash pool's
@@ -6130,7 +6135,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // holding anyway.)
     worldHoverFrame({
       eye,
-      dir: eye ? [-view[2], -view[6], -view[10]] : null,
+      dir: eye ? [-aimed[2], -aimed[6], -aimed[10]] : null,
       // the SAME list the press races - one seam, so the plaque cannot
       // name what the button ignores...
       // WORLD-HOVER H2: ...and the LIVE BODIES beside it, which are in
@@ -6141,7 +6146,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // So it is raced here, through the one precedence `raceWinner`
       // spells, where the list wins a tie as the strict `<` does.
       pick: () => {
-        const d = eye ? [-view[2], -view[6], -view[10]] : null;
+        const d = eye ? [-aimed[2], -aimed[6], -aimed[10]] : null;
         if (!d) return null;
         return raceWinner({
           ground: pickActivatableHit(eye, d, api.dungeonActivationTargets(), collider),
@@ -6204,7 +6209,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         inCastle: castleBlockAt(playerFeet[0], playerFeet[2]),
       });
     }
-    magic.firePending(eye, [-view[2], -view[6], -view[10]]);   // classic: the readied spell fires on the click
+    magic.firePending(eye, [-aimed[2], -aimed[6], -aimed[10]]);   // classic: the readied spell fires on the click
     // P13: the shared stealth senses context (EnemySenses' player-
     // side reads). S21: all three illusion branches are LIVE -
     // invisible always blocks (the 13 seers exempt), blending 8%
@@ -6286,7 +6291,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // the engine hangs the Light effect's magic candle 1.4 units in
     // FRONT of the player, and `-view[2..10]` is the same forward the
     // cast above fires down.
-    magic.update(dt, playerFeet, [-view[2], -view[6], -view[10]], playerHeight, playerRenderFeet);   // M3: player spell missiles fly in the engine; DISC13-A the candle off the render feet
+    magic.update(dt, playerFeet, [-aimed[2], -aimed[6], -aimed[10]], playerHeight, playerRenderFeet);   // M3: player spell missiles fly in the engine; DISC13-A the candle off the render feet
     { const mv = lycanthropeMoveSound(playerEntity, dt); if (mv != null) audio.playOneShot(mv, 1); }   // LM1: the beast's own noise while transformed (real time)
     // S19: WeaponManager's paralysis gate - weapons hide and the
     // machine holds while paralyzed (casting is NOT gated, verbatim:
@@ -6303,7 +6308,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         const ny = (pv[1] * x + pv[5] * y + pv[9] * z + pv[13]) / w;
         return nx >= -1 && nx <= 1 && ny >= -1 && ny <= 1;
       };
-      audio.setListener(eye, [-view[2], -view[6], -view[10]]);   // A1: the camera is the ears
+      audio.setListener(eye, [-aimed[2], -aimed[6], -aimed[10]]);   // A1: the camera is the ears
       // A2 ambient pass. Torches: LoopIfPlayerNear - the looping
       // Burning source exists only while the player is within 5
       // (linear rolloff, volume 0.7); out of range it stops and
@@ -6334,7 +6339,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
           // Combat bows: the strike frame LOOSES an arrow along the
           // look instead of the melee arc (WeaponManager verbatim
           // shape).
-          const lookDir = [-view[2], -view[6], -view[10]];   // the view-matrix forward this file already uses for the viewmodel
+          const lookDir = [-aimed[2], -aimed[6], -aimed[10]];   // the view-matrix forward this file already uses for the viewmodel
           // one round per loose, verbatim (the ammo guard normally
           // pre-sheathes at zero). WHICH round is the weapon's answer:
           // a bow spends an Arrow, the Thunderlock a Dwemer Pellet.
@@ -6348,7 +6353,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
           tallySwingSkills(playerEntity, playerWeapon.weapon);
           continue;
         }
-        const hitEnemy = resolvePlayerHit(eye, inView, playerFeet, [-view[2], -view[6], -view[10]]);
+        const hitEnemy = resolvePlayerHit(eye, inView, playerFeet, [-aimed[2], -aimed[6], -aimed[10]]);
         // "// Fatigue loss" - unconditional, then the tally arm only
         // when the swing connected. swingWeaponFatigueLoss (11) was
         // ported as a constant and applied by nobody, and

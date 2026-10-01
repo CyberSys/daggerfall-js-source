@@ -285,7 +285,7 @@ test('PERF-ZONE2 the world frame\'s CPU zones tile in order, and each new mark s
   // renderer's own 'world' mark used to swallow may sit between them
   { const j = frame.indexOf('renderer.beginFrame(proj, view, sunDirection(minute), WORLD_FRAME);'); const lineEnd = frame.indexOf('\n', j); const nextLine = frame.slice(lineEnd + 1, frame.indexOf('\n', lineEnd + 1)); assert.match(nextLine, /markCpu\('bodies'\)/, 'the bodies mark is the line after beginFrame'); }
   after('bodies', 'mwViewDrawBody(canvas,');
-  before('sky.draw(tvf ? tvf.yaw : cam.yaw, tvf ? tvf.pitch : cam.pitch, fieldOfView(), worldAspect,', 'ring');   // TV1: the sky turns to the travel view's eye
+  before('sky.draw(tvf ? tvf.yaw : cam.yaw, tvf ? tvf.pitch : cam.pitch + climbFeel.pitch(), fieldOfView() + climbFeel.fovRad(), worldAspect,', 'ring');   // CLIMB4: the climb's pitch and kick   // TV1: the sky turns to the travel view's eye
   after('arrows', 'arrows.update(foeDt, {');
   after('rig', 'if (walkMode && playerSpawned) {');
   { const i = frame.indexOf("markCpu('rig')"); const j = frame.indexOf('weaponRig.frame(dt, { paralyzed })', i); const k = frame.indexOf("markCpu('hud')", i); assert.ok(j > i && j < k, 'the rig\'s frame is inside the rig span'); }
