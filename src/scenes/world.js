@@ -697,6 +697,7 @@ import { RACES } from '../systems/races.js';   // DW-D: ArgonianInfiniteBreath
 import { stationSteps, harbourPortFor, coastalAt } from '../net/fortLaw.js';   // SEAT2b part two: a seat's crafting halls, its members' Harbour, a coast
 import { isWaterPixel } from '../ui/overworldModel.js';   // SEAT2b part two: a coast is the sea beside the town (the port's one water law)
 import { createSiegeSession, isBattleLeaveCommand, BATTLE_NONE_TEXT } from '../net/siegeSession.js';   // SEAT2a part four: a siege as this client fights it   // AUDIT-SEATS C1: the chat's `/leave`
+import { SIEGE_UNITS_PER_M, SIEGE_REACH, SIEGE_WORK_IDS, SIEGE_GATEHOUSE, SIEGE_RAM } from '../net/siegeRef.js';   // SEAT2b part two (b): a swing at the Gatehouse or the Ram
 import { createSiegeClaims } from '../net/siegeClaims.js';   // SEAT2a part four: its receipts carried to the service
 import { createSiegeHud } from '../ui/siegeHud.js';   // SEAT2a part four: the bar, the sides, the result card
 import { siegeFieldOf, siegeFieldWire, buildingKeysOfType, royalRingWire } from '../systems/siegeField.js';   // SEAT2a part four: the battlefield the town's records give   // CROWN1 part two: and a crown's ring
@@ -16603,7 +16604,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const siegeMeleeHit = (eye, inViewFn) => {
     const battle = royalSession?.active() ? royalSession : siegeSession;   // CROWN1 part two: a Royal Tourney's bout, the same arm
     const foes = battle?.foes() ?? [];
-    if (!foes.length) return false;
+    if (!foes.length) return battle === siegeSession && siegeWorkHit();   // SEAT2b part two (b): no foe - the work in reach
     let best = null, bestD = Infinity;
     for (const id of foes) {
       const b = duelBody(id);
@@ -16615,8 +16616,29 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (!playerMeleeCanHit(dist, !!inViewFn?.(c), !Number.isFinite(wall) || wall >= dist - 1e-3)) continue;
       if (dist < bestD) { bestD = dist; best = id; }
     }
-    if (!best) return false;
+    if (!best) return battle === siegeSession && siegeWorkHit();   // SEAT2b part two (b): no foe in reach - the work in reach
     siegeStrikeOut(best, 'melee', weaponRig.playerWeapon.strikingWeapon, weaponRig.playerWeapon.machine?.state);
+    return true;
+  };
+  /** SEAT2b part two (b) (Seats-Arc 6.2): MY SWING AT A WORK - an attacker's at the Gatehouse, a defender's at the Ram
+   *  before it (siegeSession.workTarget), where my feet stand within a weapon's reach of its body (the Throne's point and
+   *  the work's size - the referee allows its slack beyond); rolled on my own sheet as a blow on a foe is, sent to the
+   *  relay, which takes a tenth of it into a Gatehouse and the whole into a Ram (net/siegeRef.js refereeWorkBlow - a bow's
+   *  shaft batters nothing; the melee arm is a swing's alone). True when the swing was the work's. */
+  const siegeWorkHit = () => {
+    const to = siegeSession?.workTarget?.() ?? null;
+    const at = to ? siegeSession.workPoint() : null;
+    if (!at) return false;
+    const me = campToWire(player.feetAt());
+    const size = to === SIEGE_WORK_IDS.gate ? SIEGE_GATEHOUSE.sizeM : SIEGE_RAM.sizeM;
+    if (Math.hypot(me[0] - at[0], me[2] - at[1]) / SIEGE_UNITS_PER_M > SIEGE_REACH.melee + size) return false;
+    const weapon = weaponRig.playerWeapon.strikingWeapon;
+    const a = duelAttackerOf(playerEntity, weapon), w = duelWeaponOf(weapon), sw = duelSwingOf(weaponRig.playerWeapon.machine?.state);
+    const r = resolveDuelStrike({ by: 'melee', a, ...(w ? { w } : {}), ...(sw ? { sw } : {}) }, duelStub(a).stub);
+    if (r.dmg > 0) {
+      const held = weapon ? (composeLook(playerEntity)?.items ?? []).find((i) => i?.group === 'Weapons' && i.templateIndex === weapon.templateIndex) ?? null : null;
+      siegeSession.workBlow(to, { w: weapon ? weapon.templateIndex : -1, m: held?.material ?? 0, d: r.dmg, r: siegeBlowKind('melee') });
+    }
     return true;
   };
   /** AUDIT-SEATS G5: MY BLOW ON A BATTLE'S FOE `to` - a swing or a shaft (`by` 'melee' or 'arrow': its kind on the wire,

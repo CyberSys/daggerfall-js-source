@@ -10,18 +10,21 @@
 // (net/siegeClaims.js).
 //
 // Not a DFU member. Ledger A (EVERY PALACE A SEAT's row).
-import { SIEGE_THRONE, SIEGE_BANNER_NAMES, SIEGE_SPECTATORS_MAX, SIEGE_WAVE_MS, siegeNextWave } from './siegeRef.js';
+import { SIEGE_THRONE, SIEGE_BANNER_NAMES, SIEGE_SPECTATORS_MAX, siegeNextWave, siegeWaveMs } from './siegeRef.js';
 
 /**
  * @typedef {{ hp: number, max: number, down: boolean, side: 'attack'|'defend'|null }} SiegeFighter
  * @typedef {{ banners: ReadonlyArray<ReadonlyArray<number>>, throne: number, startMs: number, endMs: number,
  *   counts: ReadonlyArray<number>, roll: Readonly<Record<string, SiegeFighter>>, end: { r: string, a: number }|null,
- *   receipt: string|null, no: string|null, heardAt: number, fellAt: Readonly<Record<string, number>> }} SiegeState
+ *   receipt: string|null, no: string|null, heardAt: number, fellAt: Readonly<Record<string, number>>,
+ *   gate: ReadonlyArray<number>|null, ram: ReadonlyArray<number>|null, walls: number }} SiegeState
+ * SEAT2b part two (b): `gate` the Gatehouse `[vitality, whole]` where one stands, `ram` the Ram `[vitality, whole, its
+ * charge's seconds, Rams left in the camp]` while one stands or waits, `walls` the Walls' tier (the defenders' wave).
  */
 /** Nothing heard yet. @type {Readonly<SiegeState>} */
 export const SIEGE_STATE_EMPTY = Object.freeze({
   banners: Object.freeze([]), throne: 0, startMs: 0, endMs: 0, counts: Object.freeze([0, 0, 0]), roll: Object.freeze({}),
-  end: null, receipt: null, no: null, heardAt: 0, fellAt: Object.freeze({}),
+  end: null, receipt: null, no: null, heardAt: 0, fellAt: Object.freeze({}), gate: null, ram: null, walls: 0,
 });
 /** @type {ReadonlyArray<'attack'|'defend'|null>} */
 const SIDE = [null, 'attack', 'defend'];
@@ -53,7 +56,7 @@ export function foldSiege(s, g, now) {
       const was = s.roll[g.id];
       return { ...s, roll: { ...s.roll, [g.id]: { hp: was?.max ?? 0, max: was?.max ?? 0, down: false, side: was?.side ?? null } }, heardAt: now };
     }
-    case 'f': return { ...s, banners: g.b, throne: g.th, startMs: g.s, endMs: g.e, counts: g.n, heardAt: now };
+    case 'f': return { ...s, banners: g.b, throne: g.th, startMs: g.s, endMs: g.e, counts: g.n, gate: g.g ?? null, ram: g.r ?? null, walls: g.w ?? 0, heardAt: now };   // SEAT2b part two (b): the works
     case 'end': return { ...s, end: { r: g.r, a: g.a }, receipt: g.rc ?? s.receipt, heardAt: now };
     case 'no': return { ...s, no: g.m, heardAt: now };
     default: return s;
@@ -88,9 +91,24 @@ export function siegeBarLines(s, battle, now) {
     const rule = SIEGE_THRONE[battle.tier] ?? SIEGE_THRONE.palace;
     const held = s.banners.filter((b) => b[0] === 1).length;
     const pct = Math.min(100, Math.floor((100 * s.throne) / rule.holdS));
-    throne = `THRONE ${held >= rule.banners ? 'OPEN ' : ''}${pct}% (${rule.banners} of ${s.banners.length})`;
+    // SEAT2b part two (b) (6.2): where a Gatehouse stands, the Throne opens on the banners AND its breach
+    const barred = !!s.gate && s.gate[0] > 0;
+    throne = `THRONE ${held >= rule.banners && !barred ? 'OPEN ' : ''}${pct}% (${rule.banners} of ${s.banners.length}${s.gate ? ' + the Gatehouse' : ''})`;
   }
   return [`${head}   ${clock}`.trimEnd(), `${marks}${throne ? `    ${throne}` : ''}`];
+}
+/** SEAT2b part two (b): THE WORKS' LINE (6.2) - the Gatehouse's vitality or its breach, the Ram's (crewed time toward
+ *  its next stroke, the camp's Rams behind it), the Walls' tier - or '' where the battle has none. */
+export function siegeWorksLine(s) {
+  const out = [];
+  if (s.gate) out.push(s.gate[0] > 0 ? `GATEHOUSE ${s.gate[0].toLocaleString('en-US')} / ${s.gate[1].toLocaleString('en-US')}` : 'GATEHOUSE BREACHED');
+  if (s.gate && s.gate[0] > 0 && s.ram) {
+    const [hp, max, charge, left] = s.ram;
+    const behind = left > 0 ? ` - ${left} more in the camp` : '';
+    out.push(max > 0 ? `RAM ${hp.toLocaleString('en-US')} / ${max.toLocaleString('en-US')}  ${charge}/10 s${behind}` : `RAM coming at the next wave${behind}`);
+  }
+  if (s.walls > 0) out.push(`WALLS ${s.walls}`);
+  return out.join('    ');
 }
 /** Each side's fighters up and down, off the roll call: `SH  8 up / 2 down`. */
 export function siegeSidesLine(s, battle) {
@@ -98,14 +116,15 @@ export function siegeSidesLine(s, battle) {
   for (const f of Object.values(s.roll)) if (f.side) n[f.side][f.down ? 1 : 0]++;
   return `${tagOf(battle.defender)}  ${n.defend[0]} up / ${n.defend[1]} down      ${tagOf(battle.attacker)}  ${n.attack[0]} up / ${n.attack[1]} down`;
 }
-/** This fighter's own lines - its vitality, and when it has fallen, its wave (`waveMs` the tier's) - or the spectator's. */
+/** This fighter's own lines - its vitality, and when it has fallen, its wave (`waveMs` the tier's - SEAT2b part two (b): a
+ *  defender's the Walls' quicker, net/siegeRef.js siegeWaveMs) - or the spectator's. */
 export function siegeSelfLines(s, me, now, { tier = 'palace', watching = false } = {}) {
   if (watching) return [`Spectating - ${s.counts[2] ?? 0} of ${SIEGE_SPECTATORS_MAX}`];
   const f = s.roll[me];
   if (!f) return [];
   const bars = f.max > 0 ? Math.round((10 * f.hp) / f.max) : 0;
   const out = [`vitality  ${'|'.repeat(bars)}${'.'.repeat(10 - bars)}  ${f.hp} / ${f.max}`];
-  if (f.down) out.push(`next wave in ${Math.max(0, Math.ceil((siegeNextWave(s.fellAt[me] ?? now, SIEGE_WAVE_MS[tier] ?? SIEGE_WAVE_MS.palace) - now) / 1000))} s`);
+  if (f.down) out.push(`next wave in ${Math.max(0, Math.ceil((siegeNextWave(s.fellAt[me] ?? now, siegeWaveMs({ tier, works: { walls: s.walls } }, f.side)) - now) / 1000))} s`);
   return out;
 }
 /** THE RESULT CARD's title (19), in capitals: who holds or takes the Throne, the forfeit, the absence, a Tourney's
@@ -150,7 +169,8 @@ export function siegeHonourLine(honours) {
 }
 
 /**
- * WHAT THE HUD SAYS: `{ bar: [title, banners], sides, self: [...], card: { title, line, honour, claim } | null }`.
+ * WHAT THE HUD SAYS: `{ bar: [title, banners], works, sides, self: [...], card: { title, line, honour, claim } | null }`
+ * (SEAT2b part two (b): `works` the Gatehouse's, the Ram's and the Walls' line, '' for none).
  * `battle` `{ seat, kind, tier, attacker, defender }`; `me` this player's peer id; `watching` a spectator; `honours` the
  * service's answer to the claim (undefined: not yet asked), `claimable` a receipt is kept to claim.
  */
@@ -163,6 +183,7 @@ export function siegeHudModel(s, battle, me, now, { watching = false, honours = 
   } : null;
   return {
     bar: siegeBarLines(s, battle, now),
+    works: siegeWorksLine(s),   // SEAT2b part two (b)
     sides: siegeSidesLine(s, battle),
     self: siegeSelfLines(s, me, now, { tier: battle.tier, watching }),
     card,

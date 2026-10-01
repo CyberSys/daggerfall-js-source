@@ -482,7 +482,7 @@
  {
   "name": "AUDIT-SEATS-T3-return-wave-flat",
   "file": "src/net/siegeRef.js",
-  "old": "  f.upAt = siegeNextWave(now, SIEGE_WAVE_MS[b.tier] ?? SIEGE_WAVE_MS.palace);\n  return true;",
+  "old": "  f.upAt = siegeNextWave(now, siegeWaveMs(b, f.side));   // SEAT2b part two (b): a defender's wave the Walls' quicker\n  return true;",
   "new": "  f.upAt = now + SIEGE_WAVE_MS.palace;\n  return true;",
   "tests": [
    "test/audit_seats_relay.test.js",

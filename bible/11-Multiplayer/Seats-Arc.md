@@ -451,6 +451,14 @@ the start (DECIDED there: the door opens as the signing closes); the banners, th
 camp as written (`net/siegeRef.js` battleStep, a beat a second). DECIDED there: until SEAT2b raises the Gatehouse, a
 crown's Throne opens on its 3 of 4 banners alone.
 
+BUILT (SEAT2b part two (b), 2026-10-01, `world148`, migration 0063; `06-Systems/Online-Arc.md` SEAT2b part two (b)): the
+Gatehouse, the Rams and the Walls in the battle - the works frozen at the battle's first pass and carried on every pass
+(`sx`); the Gatehouse at the Throne's point (DECIDED: the castle's entrance is the Throne's), struck by attackers' melee
+blows at a tenth and by a crewed Ram's 500 every ten seconds; the Throne barred until the breach (the crown's 3 of 4 AND
+the breach as written; a palace with a gate of its own the same); the Rams one at a time at the gate (DECIDED: brought
+to it), the next at the attackers' wave; a defender's wave the Walls' quicker. The DECIDED above (the banners alone)
+moved.
+
 ### 6.3 Scheduling
 
 - **The holder's window** - DECIDED (Mac: "Yes"): the holder sets a standing window on the board - a day from
@@ -695,7 +703,8 @@ the Watchtowers' word to the holder's members; the Forge's and the Workshop's st
 its town (the Apothecary's wait on Alchemy's, Cooking's and Jewelcrafting's stations); the Harbour a Travel Options port
 for the holder's members, raised at a coastal town (DECIDED: the sea beside it, or a harbour already drawn there); the
 Ram Kit made into the Stores and carried to a Siege Camp by its writs. NOT YET: the works in battle (part two (b)) and
-the Barracks' guards and the revolt (part two (c)).
+the Barracks' guards and the revolt (part two (c)). BUILT since (SEAT2b part two (b), `world148`): the Walls' wave, the
+Gatehouse and its Rams in battle (6.2's note).
 
 ### 7.6 Edicts
 

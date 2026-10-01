@@ -4917,7 +4917,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:8450` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:8451` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:472`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -11561,6 +11561,54 @@ the day the JS check spares). Patch notes: `PATCH-NOTES-Seats.md` (Fortification
 Pinned: `test/seat2b_peace_law.test.js` (5), `test/seat2b_peace_service.test.js` (7, through the real Worker),
 `test/seat2b_peace_client.test.js` (5); twelve older tests' pins moved (PIN MOVED). Mutants: `tools/mutants/seat2b_peace.json`
 (63, all dead); sixteen older records re-aimed by content. Patch notes: `PATCH-NOTES-Seats.md` (The works at peace).
+
+### SEAT2b part two (b) - the works in battle: the Walls' wave, the Gatehouse, the Rams
+
+2026-10-01, Mac: "Finish the seats"; "Let's pick up 482". Seats-Arc 6.2, 7.5; Professions-Arc 3.3. Law
+(`src/net/siegeRef.js` - its numbers net/fortLaw.js's, copied into the relay's leaf and pinned equal), the pass
+(`src/net/identityToken.js` `sx`), the relay (`server/src/index.js` `_siegeWorkBlow`, the room's beat), the service
+(`server-account/src/seatSiege.js` siegePass; migration `0063_seat_works_battle.sql`) and the client
+(`src/net/siegeLink.js`, `siegeSession.js`, `ui/siegeHud.js`, the host's melee arm). `world148`; `acct61` (the account
+service's own unbumped - one deploy with part (a)).
+
+- **The works frozen at the door** (`town_seat_battles.works`): at the battle's first pass the service reads each work's
+  tier standing then (a project whose day has come counted), a palace's own Gatehouse or none (a crown's stands at tier
+  0), the Rams the challenger's camp sent at the Turning (none without a gate), whether a Siegewright stands on the
+  attacking roster (signing closed as the door opened), and the Barracks' tier - `[walls, gatehouse, rams, siegewright,
+  barracks]` - and every pass of the battle carries the same (`sx`). DECIDED: frozen once, as the field is - the relay's
+  room holds the first pass's battle and refuses a pass that says otherwise, so a work standing mid-battle must move no
+  pass. A Tourney carries none (no holder's works to fight behind).
+- **The Gatehouse** (6.2): vitality 20,000, half again a tier (7.5); it stands at the Throne's point - DECIDED: 6.2's
+  crown Gatehouse "at the castle's entrance" and its Throne "the castle entrance" are one place, and a palace's own gate
+  stands at its palace door, its Throne - a body 3 m about the point. An attacker's melee blow takes a tenth of its
+  clipped damage into it (at least 1); at nought it is BREACHED. While a Gatehouse stands unbreached the Throne is barred
+  - a crown's opens on 3 of 4 banners AND the breach, a palace's with a gate of its own on 2 of 3 and the breach
+  (SEAT2a's DECIDED - the banners alone, until the Gatehouse was raised - moved).
+- **The Rams** (6.2): the camp's first stands at the Gatehouse from the start (DECIDED: brought to the gate - nobody
+  wheels it across the town), 3,000 vitality (4,500 with a Siegewright on the attacking roster - the Siegewright's
+  other half, Professions-Arc 3.3); while two attackers stand within 3 m it strikes the gate for 500 every ten crewed
+  seconds, its charge falling back a second a second uncrewed (DECIDED: a banner's raise is the model). A defender's
+  melee blow takes its whole clipped damage into the Ram; destroyed, the camp's next is fielded at the attackers' next
+  wave - one at a time, none past the camp's.
+- **A blow on a work** (`refereeWorkBlow`): the striker's bucket spent first, a melee blow alone (DECIDED: a gate is
+  battered and a Ram hacked at close quarters - a shaft does neither, and a spell's harm is a fighter's), from the
+  weapon the striker's look holds, within its reach of the work's edge and on the field's ground. On the wire a blow's
+  `to` names the work - `gh` the Gatehouse, `rm` the Ram (two letters, never a peer's id); the room takes the
+  Gatehouse's from an attacker and the Ram's from a defender alone, and a work named outside a siege is junk.
+- **The Walls** (7.5): a defender rises on its side's wave three seconds quicker a tier of Walls (never under five) - at
+  a fall in battle and back from a drop alike.
+- **What the room says**: the field's frame carries `g` (the Gatehouse `[vitality, whole]`), `r` (the Ram `[vitality,
+  whole, its charge, Rams left]`) and `w` (the Walls' tier); a breach or a Ram's end is fanned at once.
+- **The client**: the HUD's bar gains the works' line ("GATEHOUSE 18,500 / 30,000    RAM 2,400 / 4,500  6/10 s - 1
+  more in the camp    WALLS 2"), the Throne's rule names the Gatehouse and is OPEN only past the breach; a fallen
+  defender's wave the Walls' quicker; the chat says the breach and a Ram's end once. A swing that finds no foe falls to
+  the work in reach - an attacker's at the Gatehouse, a defender's at the Ram - rolled as a blow on a foe is.
+
+Pinned: `test/seat2b_battle_law.test.js` (7), `test/seat2b_battle_relay.test.js` (3, over the real Room),
+`test/seat2b_battle_service.test.js` (2, through the real Worker), `test/seat2b_battle_client.test.js` (4); SEAT2a's
+crown Throne, the pass's claims and identityToken.js's imports moved (PIN MOVED); the relay's version pins moved on to
+world148. Mutants: `tools/mutants/seat2b_battle.json` (64, all dead); fourteen older records re-aimed by content. Patch
+notes: `PATCH-NOTES-Seats.md` (Fortifications in battle).
 
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 

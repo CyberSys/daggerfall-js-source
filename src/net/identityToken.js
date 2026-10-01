@@ -123,6 +123,7 @@
 import { sanitizeName, NAME_MAX } from './wire.js';
 import { GUILD_ID_RE, GUILD_TAG_RE, GUILD_MEMBER_RE } from './guildLaw.js';   // GUILD1c: a guild rides the token - the law's own three shapes
 import { ribbonClaimOk } from './heraldryLaw.js';   // SEASON1 part two: a Season's banner ribbon - heraldryLaw.js imports nothing, so the worker's graph stays flat
+import { worksOf } from './siegeRef.js';   // SEAT2b part two (b): a siege's works on its pass - siegeRef.js imports nothing
 
 /** The only version this file will read or write. It names the
  *  algorithm, so the payload cannot. */
@@ -521,8 +522,10 @@ export function orderValid(c) {
  * CROWN1 part two: a Royal Tourney's pass is the same order - `sn` 'royal' at a crown, its side a contender's `duel` or a
  * spectator's `watch`, its window the week the Edict rules (to ROYAL_PASS_SPAN_S), its field the ring's centre alone.
  */
-/** A pass's fields - never on another kind. */
-export const SIEGE_PASS_FIELDS = Object.freeze(['sk', 'sw', 'sd', 'st', 'sn', 'sb', 'se', 'sf']);
+/** A pass's fields - never on another kind. SEAT2b part two (b): `sx` a siege's works, as the service froze them at the
+ *  battle's first pass - `[walls, gatehouse (-1 none), rams, siegewright (0|1), barracks]` (net/siegeRef.js worksOf);
+ *  optional (a battle whose works were never frozen carries none), a siege's alone. */
+export const SIEGE_PASS_FIELDS = Object.freeze(['sk', 'sw', 'sd', 'st', 'sn', 'sb', 'se', 'sf', 'sx']);
 /** The sides a pass may name: the two sides' fighters, and a spectator's - CROWN1 part two: and a Royal Tourney's
  *  contender. */
 export const SIEGE_PASS_SIDES = Object.freeze(['attack', 'defend', 'watch', 'duel']);
@@ -543,6 +546,7 @@ export function siegePassValid(c) {
   if (!SIEGE_PASS_SIDES.includes(c.sd) || (c.st !== 'palace' && c.st !== 'crown') || (c.sn !== 'siege' && c.sn !== 'tourney' && !royal)) return false;
   if (royal ? c.st !== 'crown' || (c.sd !== 'duel' && c.sd !== 'watch') : c.sd === 'duel') return false;   // a contender is a Royal Tourney's alone
   if (!Number.isSafeInteger(c.sb) || c.sb <= 0 || !Number.isSafeInteger(c.se) || c.se <= c.sb || c.se - c.sb > (royal ? ROYAL_PASS_SPAN_S : SIEGE_PASS_SPAN_S)) return false;
+  if (c.sx !== undefined && (c.sn !== 'siege' || !worksOf(c.sx, c.st, c.sn))) return false;   // SEAT2b part two (b): a siege's works, well made
   return siegeFieldValid(c.sf, c.st, c.sn);
 }
 /** A battle's field as a pass carries it (`sf`): a palace's six points or a crown's seven, each `[x, z]` whole room units
@@ -552,10 +556,11 @@ export function siegeFieldValid(sf, tier, kind = 'siege') {
   return sf.every((p) => Array.isArray(p) && p.length === 2 && coordOk(p[0]) && coordOk(p[1]));
 }
 
-/** SEAT2a: MINT A SIEGE PASS - the service's word that account `s` may enter seat `sk`'s battle of week `sw` on side `sd`. */
-export async function mintSiegeOrder({ s, sk, sw, sd, st, sn, sb, se, sf }, privateKey, { subtle, nowS, ttlS = ORDER_TTL_S }) {
+/** SEAT2a: MINT A SIEGE PASS - the service's word that account `s` may enter seat `sk`'s battle of week `sw` on side `sd`.
+ *  SEAT2b part two (b): `sx` the siege's frozen works, where it has them. */
+export async function mintSiegeOrder({ s, sk, sw, sd, st, sn, sb, se, sf, sx }, privateKey, { subtle, nowS, ttlS = ORDER_TTL_S }) {
   if (!Number.isSafeInteger(nowS)) throw new TypeError('mintSiegeOrder needs an integer epoch-seconds clock');
-  const claims = { o: 'siege', s, sk, sw, sd, st, sn, sb, se, sf, i: nowS, e: nowS + ttlS };
+  const claims = { o: 'siege', s, sk, sw, sd, st, sn, sb, se, sf, ...(sx === undefined || sx === null ? {} : { sx }), i: nowS, e: nowS + ttlS };
   if (!orderValid(claims)) throw new TypeError('mintSiegeOrder refused an order it could not verify');
   return sealClaims(claims, privateKey, subtle);
 }

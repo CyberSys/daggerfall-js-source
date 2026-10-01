@@ -24,11 +24,12 @@
 // ═════════════════════════════════════════════════════════════════════
 import { accountKind, displayName, overRate } from './accounts.js';
 import { seatsOpenFor, confirmedSeats } from './townSeats.js';
-import { fortifierAt, fortsCaptureWithSave } from './seatForts.js';   // SEAT2b: a capture's drop, a Fortifier's save
+import { fortifierAt, fortsCaptureWithSave, fortTierAt, siegewrightAt } from './seatForts.js';   // SEAT2b: a capture's drop, a Fortifier's save; part two (b): the works a siege fights behind
 import { mustChange } from './realm.js';
 import { gatherStandings } from './seatInfluence.js';   // AUDIT-SEATS S8: a Tourney's dead heat as the Turning counted it
 import { utcDay, MARKS_MAX } from '../../src/net/marksLaw.js';
 import { mintSiegeOrder, siegeFieldValid } from '../../src/net/identityToken.js';
+import { SIEGE_RAMS_MAX } from '../../src/net/siegeRef.js';   // SEAT2b part two (b): the most Rams a pass carries
 import { verifySiegeReceipt, SIEGE_RECEIPT_TTL_S } from '../../src/net/siegeReceipt.js';   // AUDIT-SEATS R6: a late pass lives the receipt's week
 import { RENOWN_XP_MAX, RENOWN_TRACKS_MAX } from '../../src/net/renown.js';
 import {
@@ -100,8 +101,32 @@ export async function siegePass({ db, nowS, subtle }, player, env, { key, field,
   const out = { side, week, key, startsAt: b.starts_at, endsAt: b.ends_at, window: se, ...(late ? { late: true } : {}) };   // AUDIT-SEATS R6: a late pass says so
   if (!signingKey) return { ...out, pass: null };
   const sf = JSON.parse(String(settled));
-  const pass = await mintSiegeOrder({ s: player.id, sk: key, sw: week, sd: side, st: b.tier, sn: b.kind, sb: b.starts_at, se, sf }, signingKey, { subtle, nowS });
+  const sx = await siegeWorks(db, b, nowS);   // SEAT2b part two (b): the works it is fought behind, frozen at its first pass
+  const pass = await mintSiegeOrder({ s: player.id, sk: key, sw: week, sd: side, st: b.tier, sn: b.kind, sb: b.starts_at, se, sf, sx }, signingKey, { subtle, nowS });
   return { ...out, pass };
+}
+
+/**
+ * SEAT2b part two (b) (Seats-Arc 6.2, 7.5): A SIEGE'S WORKS, FROZEN AT ITS FIRST PASS - `[walls, gatehouse, rams,
+ * siegewright, barracks]` (net/siegeRef.js worksOf): each work's tier standing then (a project whose day has come
+ * counted - fortTierAt, read without a write); the Gatehouse -1 at a palace that raised none (a crown's stands at 0);
+ * the Rams the challenger's camp sent at the Turning (`town_seat_battles.rams`), none without a gate; 1 where a
+ * Siegewright stands on the attacking roster (signing closed at the door's opening, so the roster is the battle's).
+ * DECIDED: frozen once, as the field is - the relay's room holds the first pass's battle and refuses a pass that says
+ * otherwise, so a work standing mid-battle must not move the next pass; the works fought behind are those at the door.
+ * A Tourney's none (null).
+ */
+async function siegeWorks(db, b, nowS) {
+  if (b.kind !== 'siege') return null;
+  if (b.works) return JSON.parse(String(b.works));
+  const walls = await fortTierAt(db, b.key, 'walls', nowS), gatehouse = await fortTierAt(db, b.key, 'gatehouse', nowS), barracks = await fortTierAt(db, b.key, 'barracks', nowS);
+  const gate = b.tier === 'crown' ? gatehouse : gatehouse >= 1 ? gatehouse : -1;
+  const rams = gate >= 0 ? Math.max(0, Math.min(SIEGE_RAMS_MAX, Number(b.rams ?? 0) || 0)) : 0;
+  const sx = [walls, gate, rams, (await siegewrightAt(db, b.week, b.key, nowS)) ? 1 : 0, barracks];
+  // frozen once: a second pass racing this one keeps the first's
+  await db.prepare('UPDATE town_seat_battles SET works = ? WHERE week = ? AND key = ? AND works IS NULL').bind(JSON.stringify(sx), b.week, b.key).run();
+  const row = await db.prepare('SELECT works FROM town_seat_battles WHERE week = ? AND key = ?').bind(b.week, b.key).first();
+  return row?.works ? JSON.parse(String(row.works)) : sx;
 }
 
 /** Each contender's influence at the seat - a Tourney's dead heat goes to the higher (6.7). AUDIT-SEATS S8: as the Turning

@@ -218,8 +218,8 @@
  {
   "name": "SEAT2a4-bar-open",
   "file": "src/net/siegeLink.js",
-  "old": "    throne = `THRONE ${held >= rule.banners ? 'OPEN ' : ''}${pct}% (${rule.banners} of ${s.banners.length})`;",
-  "new": "    throne = `THRONE ${pct}% (${rule.banners} of ${s.banners.length})`;",
+  "old": "    throne = `THRONE ${held >= rule.banners && !barred ? 'OPEN ' : ''}${pct}% (${rule.banners} of ${s.banners.length}${s.gate ? ' + the Gatehouse' : ''})`;",
+  "new": "    throne = `THRONE ${pct}% (${rule.banners} of ${s.banners.length}${s.gate ? ' + the Gatehouse' : ''})`;",
   "tests": [
    "test/seat2a_siege_play.test.js"
   ]
@@ -281,8 +281,8 @@
  {
   "name": "SEAT2a4-self-tier",
   "file": "src/net/siegeLink.js",
-  "old": "SIEGE_WAVE_MS[tier] ?? SIEGE_WAVE_MS.palace",
-  "new": "SIEGE_WAVE_MS.palace",
+  "old": "siegeWaveMs({ tier, works: { walls: s.walls } }, f.side)",
+  "new": "siegeWaveMs({ tier: 'palace', works: { walls: s.walls } }, f.side)",
   "tests": [
    "test/seat2a_siege_play.test.js"
   ]

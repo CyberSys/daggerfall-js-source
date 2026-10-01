@@ -148,7 +148,8 @@ Marks** and a week's wait.
 
 BUILT (SEAT2b part two (a), 2026-10-01): the **Siegewright** is chosen (no longer `later`). DECIDED: "siege works a day
 sooner" is a seat's work (Seats-Arc 7.5) - a project begun by a Siegewright stands a day sooner (1, 3 or 6 days); a Ram
-Kit is made at once. Its Rams' +50% is the battle's (SEAT2b part two (b)).
+Kit is made at once. Its Rams' +50% is the battle's: BUILT (SEAT2b part two (b)) - a Siegewright on the attacking roster
+when the battle's door opens fields every Ram of the camp at 4,500 vitality, not 3,000.
 
 ## 4. Materials
 

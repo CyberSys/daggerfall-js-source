@@ -222,8 +222,8 @@
  {
   "name": "SEAT2a2-law-throne-open",
   "file": "src/net/siegeRef.js",
-  "old": "    const open = b.banners.filter((bn) => bn.side === 'attack').length >= rule.banners;",
-  "new": "    const open = b.banners.filter((bn) => bn.side === 'attack').length > rule.banners;",
+  "old": "    const open = b.banners.filter((bn) => bn.side === 'attack').length >= rule.banners && !siegeThroneBarred(b);",
+  "new": "    const open = b.banners.filter((bn) => bn.side === 'attack').length > rule.banners && !siegeThroneBarred(b);",
   "tests": [
    "test/seat2a_battle.test.js",
    "test/seat2a_relay.test.js"
@@ -252,8 +252,8 @@
  {
   "name": "SEAT2a2-law-throne-tourney",
   "file": "src/net/siegeRef.js",
-  "old": "  if (b.kind === 'siege') {\n    const rule",
-  "new": "  if (b.kind !== 'nothing') {\n    const rule",
+  "old": "  if (b.kind === 'siege') {\n    worksStep(b, fighters, nowMs, dt, ground, out);",
+  "new": "  if (b.kind !== 'nothing') {\n    worksStep(b, fighters, nowMs, dt, ground, out);",
   "tests": [
    "test/seat2a_battle.test.js",
    "test/seat2a_relay.test.js"
@@ -742,7 +742,7 @@
  {
   "name": "SEAT2a2-relay-wave-tier",
   "file": "server/src/index.js",
-  "old": "      to.upAt = siegeNextWave(now, SIEGE_WAVE_MS[b?.tier] ?? SIEGE_WAVE_MS.palace);",
+  "old": "      to.upAt = siegeNextWave(now, b ? siegeWaveMs(b, to.side) : SIEGE_WAVE_MS.palace);",
   "new": "      to.upAt = siegeNextWave(now, SIEGE_WAVE_MS.palace);",
   "tests": [
    "test/seat2a_battle.test.js",
@@ -772,8 +772,8 @@
  {
   "name": "SEAT2a2-relay-fan",
   "file": "server/src/index.js",
-  "old": "      this._siegeFan([siegeFieldFrame(b, this._siegeCounts(s))]);",
-  "new": "      if (false) this._siegeFan([siegeFieldFrame(b, this._siegeCounts(s))]);",
+  "old": "      this._siegeFan([siegeFieldFrame(b, this._siegeCounts(s))]);\n      if (events.some((e) => e.k === 'end'))",
+  "new": "      if (false) this._siegeFan([siegeFieldFrame(b, this._siegeCounts(s))]);\n      if (events.some((e) => e.k === 'end'))",
   "tests": [
    "test/seat2a_battle.test.js",
    "test/seat2a_relay.test.js"

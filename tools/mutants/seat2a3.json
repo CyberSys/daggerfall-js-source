@@ -384,8 +384,8 @@
  {
   "name": "SEAT2a3-pass-se",
   "file": "server-account/src/seatSiege.js",
-  "old": "  const pass = await mintSiegeOrder({ s: player.id, sk: key, sw: week, sd: side, st: b.tier, sn: b.kind, sb: b.starts_at, se, sf }",
-  "new": "  const pass = await mintSiegeOrder({ s: player.id, sk: key, sw: week, sd: side, st: b.tier, sn: b.kind, sb: b.starts_at, se: b.ends_at, sf }",
+  "old": "  const pass = await mintSiegeOrder({ s: player.id, sk: key, sw: week, sd: side, st: b.tier, sn: b.kind, sb: b.starts_at, se, sf, sx }",
+  "new": "  const pass = await mintSiegeOrder({ s: player.id, sk: key, sw: week, sd: side, st: b.tier, sn: b.kind, sb: b.starts_at, se: b.ends_at, sf, sx }",
   "tests": [
    "test/seat2a_siege_service.test.js",
    "test/seat2a_siege_client.test.js"

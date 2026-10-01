@@ -251,6 +251,21 @@ export async function fortifierAt(db, week, key, nowS, seasonWeek) {
   }
   return null;
 }
+/**
+ * SEAT2b part two (b): A SIEGEWRIGHT ON THE ATTACKING ROSTER (Carpentry 100, Professions-Arc 3.3: "Rams +50% vitality") -
+ * the Rams are the attackers' (the camp's), so the craft is an attacker's: any character the attacking side signed who
+ * stands as a Siegewright now. Answers its account, or null.
+ */
+export async function siegewrightAt(db, week, key, nowS) {
+  const { results = [] } = await db.prepare(`SELECT r.account, t.spec50, t.spec100, t.respec_rank, t.respec_to, t.respec_at FROM town_seat_rosters r
+    JOIN prof_tracks t ON t.player = r.account AND t.char_id = r.char_id AND t.profession = 'carpentry'
+    WHERE r.week = ? AND r.key = ? AND r.side = 'attack' ORDER BY r.at, r.account`).bind(week, key).all();
+  for (const row of results) {
+    const specs = specsAt({ ...row, respec_rank: row.respec_rank == null ? null : Number(row.respec_rank), respec_at: row.respec_at == null ? null : Number(row.respec_at) }, nowS);
+    if (isSiegewrightSpec(specs)) return row.account;
+  }
+  return null;
+}
 /** The capture's statements with the Fortifier's save written beside them (its Season's one), and the Chronicle's word. */
 export function fortsCaptureWithSave(db, key, { nowS, seasonWeek, fortifier = null, history }) {
   return [
