@@ -806,7 +806,8 @@ Mac: **"Go"**. What the design above left open, DECIDED here (the record's, at M
 - **Boards stood for a hub - NOTICE1b.** 10.1 gives a hub whose blocks place no board one of its own, at the open block
   nearest the centre or beside the palace door. This lane holds no ARENA2, and a board stood blind through a building
   is worse than none. MEASURED next: `tools/boardCount.mjs` - Mac runs it over his own ARENA2 - lists every hub's
-  boards, bounty and rumour; NOTICE1b builds only if it names a hub with none. A seat's boards come with SEAT1.
+  boards, bounty and rumour; NOTICE1b builds only if it names a hub with none. A seat's boards come with SEAT1 (AUDIT-SEATS: no SEAT slice built a board of its own - a seat's Seat tab is at its
+  town's rumour boards, and a seat town with none waits on NOTICE1b's own boards).
 - **The four hosts** (17.1): the streaming world (`scenes/world.js`) wires the boards, the press, the count and the
   window in the overlay slot; the fixed city (`scenes/exterior.js`) keeps DFU's board (FLAGGED by name: it hands the
   shared mode machine no `openNoticeBoard`); the building interiors and the dungeons have no boards.
@@ -972,7 +973,7 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 | **PROF4** - SHIPPED 2026-09-28 (at `dev`, section 25) | Logging with its act (the falling tree); Carpentry; furniture; the Ram Kit | DECOR places a crafted table. Needs FORAGE1-2 (shipped: the Wood-Axe) |
 | **PROF5** - SHIPPED 2026-09-29 (at `dev`, section 26) | The Market tab: listings, regional markets, couriers, buy orders, history; the Weavers' counter | A crafted Mithril Longsword listed in one region is bought from another by courier and reaches its buyer's pack, its owner moved. Needs MARKS1, NOTICE1, PROF3 (all shipped) |
 | **PROF5b** - SHIPPED 2026-09-29 (at `dev`, section 27) | Timed auctions for Masterworks: the Auctions view, bids escrowed, the last two minutes' two, settled on read | A Masterwork posted in Daggerfall is bid on from Wayrest and Daggerfall, the outbid escrow returned, and at its end the winner's piece is theirs, the seller paid less the tax. Needs PROF5 (shipped) |
-| **PROF6** - SHIPPED 2026-09-29 (at `dev`, section 28) | Writs: guild writs and the guild Stores, commissions and the note's button (built); seat writs with SEAT1b, bounties with SEAT1d's Edicts | A Guildmaster's writ delivered by an outsider and a member into the guild Stores, an Officer's posted within the week's budget and refused past it (AUDIT 31 R12: this row said an Officer's writ was delivered); a commission through a crafter's note filled with a piece of their make and in the poster's pack. Seat writs need SEAT1b |
+| **PROF6** - SHIPPED 2026-09-29 (at `dev`, section 28) | Writs: guild writs and the guild Stores, commissions and the note's button (built); seat writs with SEAT2b (AUDIT-SEATS: it said SEAT1b), bounties with SEAT1d's Edicts | A Guildmaster's writ delivered by an outsider and a member into the guild Stores, an Officer's posted within the week's budget and refused past it (AUDIT 31 R12: this row said an Officer's writ was delivered); a commission through a crafter's note filled with a piece of their make and in the poster's pack. Seat writs need SEAT1b |
 | **PROF6b** | Found and writ-only recipes (9.1): the Recipe Scroll (695), the found recipes named, a guild's posted recipe reward | Needs a witnessed roll for loot's 1 in 500, and PROF2b's Motherlode for its 1 in 20 |
 | **PROF7** - SHIPPED 2026-09-30 (live, section 29) | Hunting (the trace), the Skinning Knife (603: its template, its online shelves - law 6's exception, for 603); Outfitting | A bear felled by the player's own blow skinned online, its hides cured and sewn into a Leather Helm in the pack; a shirt in the dye its sewer chose. Needs FORAGE1-2 (shipped: the shelves' registry) |
 | **PROF8** - BUILT 2026-09-30 (section 30) | Fishing with the net (the throw, the tug, the haul) | A haul of Raw Fish from a river, its species named; a Pearl at sea on confirmed ground; forty hauls an account a day. Needs FORAGE1-2 (shipped: the net, and the three-valued water state in both exterior hosts) |
@@ -1234,7 +1235,8 @@ what was found (FACT):
   nothing else yet; units 10 to 50 in tens (so the pay and the Renown are whole), fewer at higher tiers; the day's first
   writ the table's highest tier. **Take** fills it - a Court writ is filled whole by the first to deliver (11), so taking
   one is delivering it, at a board of its region, from the Stores, bought units first. The service does not see the
-  board: its in-person check comes where a delivery raises influence - SEAT1b's seat writs (PROF6, section 28: this line
+  board: its in-person check comes where a delivery raises influence - SEAT2b's seat writs (AUDIT-SEATS: it said SEAT1b's;
+  PROF6, section 28: this line
   said PROF6, whose writs raise none); a Court writ's pay is bounded by its
   three a day wherever it is asked from.
 - **Withdraw to pack**: bought units first; the items the law names, minted as DFU mints them; a withdrawal whose answer
@@ -1416,7 +1418,7 @@ Mac: **"Lets keep moving"** (PROF3 after the merge of main). What the design abo
   Repair Kit - made at **the anvil**, each with **the heat** (9.4) or a quick craft; 9.2's **quality**, rolled by the
   service; a **provenance id** and a **signed product record** for every piece (9.1); the recipe law
   (`src/net/recipeLaw.js`, section 14's name for it). Not here, named: found and writ-only recipes (the Recipe Scroll
-  695 is PROF6b's - AUDIT 31 R8: PROF6 gave it its own slice, 28 - and the Motherlode's, PROF2b), a seat's Forge step (SEAT1b), listing and trading a provenance
+  695 is PROF6b's - AUDIT 31 R8: PROF6 gave it its own slice, 28 - and the Motherlode's, PROF2b), a seat's Forge step (SEAT2b - AUDIT-SEATS: it said SEAT1b), listing and trading a provenance
   item (PROF5, and TRADE1's hand-over, section 18), Disenchanting and enchanting a provenance item (PROF12).
 - **The anvil is the forge's other half.** FACT: "the forge stands since PROF2" (section 15) - a Weaponsmith's or an
   Armorer's, or a home's forge station, the Stores page's Forge section (`ui/profPages.js`). DECIDED: the anvil stands
@@ -2029,14 +2031,14 @@ Mac's instruction - "make the decisions ... This is your baby"), and what was fo
   a player's writ naming a crafter and a piece; with them **the guild Stores** (7), where a guild writ's units go -
   FACT: `guild_prof_stores` is not built (14), and a guild writ with nowhere to put its units is a door painted on a
   wall; and the note's **commission button** (10.6: "Commissions come with PROF6"). Not here, named: **seat writs**
-  (SEAT1b - influence, the stockpiles and the Siege Camps, and the board's in-person check, which only influence
+  (SEAT2b - AUDIT-SEATS: it said SEAT1b - influence, the stockpiles and the Siege Camps, and the board's in-person check, which only influence
   needs: FACT, section 22 - "its in-person check comes with PROF6, where a delivery raises influence"; no delivery
   raises influence until SEAT1b); **bounties** (SEAT0 7.6's Bounty Edict - SEAT1d's Edicts); **found and writ-only
   recipes and the Recipe Scroll** (9.1, 695) - DECIDED: their own slice, **PROF6b** (15), because no record yet names
   which recipes are found, and a scroll "1 in 500 from loot" needs a roll the service witnesses (FACT: the loot is the
   client's; law 8's witness is for the ground) - every recipe stays unlocked by rank until then; **a guild's colours**
-  (FACT: no colour or device is stored - Seats-Arc 90, its heraldry SEAT1c's) - a guild writ's seal is NOTICE1's guild
-  blue with the guild's tag until the heraldry stands.
+  (FACT: no colour or device is stored - Seats-Arc 90, its heraldry SEAT1c's; AUDIT-SEATS: GUILD1d stored it) - a guild
+  writ's seal is NOTICE1's guild blue with the guild's tag until the heraldry stands.
 - **The switches**: PROF5's three. The guild Stores are the professions' (`PROFESSIONS_OPEN`); a guild writ and a
   commission move Marks, so they are open where the professions and the Marks both are; the note's button where the
   board also is. No switch of its own.

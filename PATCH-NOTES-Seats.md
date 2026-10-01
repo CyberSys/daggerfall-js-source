@@ -4,7 +4,7 @@ The first part of guild town control is in. It is open to the developers first, 
 
 ## Every palace is a seat (online)
 - **Seats.** Every town with a palace is a **seat**: a town a guild will one day hold. Daggerfall, Wayrest and Sentinel are the three **crown seats**, the largest prizes.
-- **Arriving.** Walking into a seat town tells you whose it is. For now every seat is unheld: "Anticlere. Its Charter is unheld."
+- **Arriving.** Walking into a seat town tells you whose it is: "Anticlere, held by the Silver Hand <SH>." or "Anticlere. Its Charter is unheld." In a week with a siege called there, the line says when: "A siege is called for Wednesday at 20:00 UTC."
 - **The map.** Seats are marked on the online map:
   - a grey ring around the town;
   - a crown above the three capitals, in their kingdom's colour (Daggerfall blue, Wayrest crimson, Sentinel gold);
@@ -107,7 +107,7 @@ The first part of guild town control is in. It is open to the developers first, 
   - **The liege** adds **half its reach** to the vassal's defence: an eighth of the vassal's own influence at a seat in the crown's kingdom, a sixteenth at a March.
   - **Never against each other.** A liege and its vassal can't pledge against each other's seats, and Conscription never takes from a vassal.
   - **Breaking it.** Either side can break it at any time. It ends at the next Turning, and the side that broke it loses **10 Standing** at every seat it holds. If the two no longer fit (the liege loses its crown, say), the fealty simply ends at the Turning, at no cost.
-- **Pacts.** Any two guilds can sign a **Pact of non-aggression**. One side offers it on the Seat tab, and the other offers it back to sign it. It lasts to the end of the Season (every 8 weeks for now). Neither guild can pledge against a seat the other holds. A Pact can be broken early, but the whole server is told in red.
+- **Pacts.** Any two guilds can sign a **Pact of non-aggression**. One side offers it on the Seat tab, and the other offers it back to sign it. It lasts to the end of the Season. Neither guild can pledge against a seat the other holds. A Pact can be broken early, but the whole server is told in red.
 - None of this can be sworn or signed while either guild is pledged against the other's seat that week.
 
 ## Seasons (online)
@@ -118,7 +118,7 @@ The first part of guild town control is in. It is open to the developers first, 
   - Legacy is cleared, and every seat's Standing moves **halfway back toward 50**.
   - The Charters stand, and every seat's Chronicle records who held it at the Season's end.
 - **Season 0's end** wipes the seats, influence, Chronicles, fealty and Pacts. Your Marks, Stores, profession tracks, titles and Honours are kept.
-- **The Hall of Records.** Every seat's palace keeps its whole Chronicle as a book: press a shelf in the palace to read it, one chapter a Season. The Chronicle now dates each line by its Season - "In the third week of the Season of Morning Star..." - on the Seat tab too. (The three castles' copies come later; a crown's Chronicle is on its board meanwhile.)
+- **The Hall of Records.** Every seat's palace keeps its whole Chronicle as a book: press a shelf in the palace to read it, one chapter a Season. The Chronicle now dates each line by its Season - "In the third week of the Season of Morning Star..." - on the Seat tab too. The three castles keep theirs on their shelves, and every seat's board has a "Read the Hall of Records" button.
 - **Once a Season** now means the Season itself. A Pact lasts to the Season's end, and the same two guilds earn Honours from each other once a Season.
 
 ## Tides (online)

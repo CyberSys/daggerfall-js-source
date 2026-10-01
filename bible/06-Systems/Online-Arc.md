@@ -10283,7 +10283,7 @@ own module (`src/net/hallLaw.js`), never net/guildLaw.js, which is in the relay'
   (the bench) FLAGGED - it draws no online homes.
 
 Known limits (a later slice's): a hall's board (Seats-Arc 8.2's "private guild board", the board's Guilds tab) is
-GUILD1e's - the hall has no board yet; a hall's outside is not painted and its yard not furnished (HOME-LOOK and
+GUILD1e's - the hall had no board yet (AUDIT-SEATS: GUILD1e built it); a hall's outside is not painted and its yard not furnished (HOME-LOOK and
 HOME-YARD name a character); the banner at the door is the building's FIRST door record (a house with two doors hangs
 them at the first); heraldry is not yet on the map ring, the guild tag's frame, the siege HUD or the Chronicle
 (SEAT1a-SEASON1); a hall's price is the client's word, as a home's.
@@ -11211,10 +11211,11 @@ Seats-Arc 9.3. New: `src/net/tideLaw.js`.
 - **The Seat tab**: "The Tide in the Marches this week: Daedric Incursion - gate kills give double influence. Next
   week: Plague." under the Season's line (the standings' `tides`, null where none is counted), and the Edict form's
   Festival priced at next week's Tide.
-- **Not yet**: the economy's Tides (a Harvest's and a Blight's yields, a Storm Season's fishing, a Bandit Summer's
-  couriers) and the client's (the Orc Raids' camps and their influence, a Storm Season's sea); a Daedric Incursion's
-  doubled Marks - DECIDED: not paid, because a kill's region is the client's word until three claims agree, and doubling
-  a faucet on one account's word is not done.
+- **Not yet** (AUDIT-SEATS: all three since BUILT - the economy's at `acct54`, the client's at `acct55`, below, and the
+  Incursion's Marks with AUDIT-SEATS): the economy's Tides (a Harvest's and a Blight's yields, a Storm Season's fishing, a
+  Bandit Summer's couriers) and the client's (the Orc Raids' camps and their influence, a Storm Season's sea); a Daedric
+  Incursion's doubled Marks - DECIDED here: not paid on one account's word, because a kill's region is the client's word
+  until three claims agree; AUDIT-SEATS pays it at the Turning, once they do.
 
 Pinned: `test/tide_law.test.js` (3), `test/tide_service.test.js` (2 - each against a twin service counting no Season,
 on the Marches' Incursion and Plague around T0), `test/tide_client.test.js` (1); `test/season1_service.test.js` now meets
@@ -11321,6 +11322,8 @@ survived the first run, the re-stood peer's memory, now pinned; the token's boun
 WB9g's two relay source pins; the account schema's tables (`town_seat_ribbons`); AUDIT B8's widest token; ACC1d's
 token shape (a body of 641 the malformed one) and SOC4's name point (the ribbon's own line before the scale) - the
 full suite's two failures on the merged head (17252 tests), both now moved. Ten older
+mutant records re-aimed by content, still dead (ACC1d's and ACC3a's vouched name, ACC3b's and SLAM9's memory, SOC1's
+version line, WB9g's five). (AUDIT-SEATS: this sentence's tail had strayed below part three's Pinned paragraph.)
 
 ### SEASON1 (part three) - the Hall of Records
 
@@ -11344,7 +11347,8 @@ Seats-Arc 9.2. New: `src/ui/hallOfRecords.js`.
   interior's own reader slot ("The Hall of Records cannot be read now." where it cannot), a book that arrives after the
   player has left not opened. The client's book keeps a read five minutes (`townSeatBook.js` `records`).
 - NOT YET: the three castles - each is a dungeon, whose shelves take no press; a crown's Chronicle is read on its board
-  meanwhile. A palace with no shelf-set model has no book.
+  meanwhile. A palace with no shelf-set model has no book. (AUDIT-SEATS built both: the castles' shelves, and the book
+  from every seat's board.)
 
 Pinned: `test/season1_records.test.js` (4 - the law; the book through the reader's door; through the real Worker the
 read, its bound and order, the standings' own eight; the page and the wiring by source). `tools/mutants/records.json`
@@ -11352,8 +11356,6 @@ read, its bound and order, the standings' own eight; the page and the wiring by 
 eight, which no seat test had more than eight rows to tell). PIN MOVED: the account version pins; SEAT1c's Chronicle
 record and SURVTIERS3's two cites of world.js's seed (the cite shift moved them) re-aimed by content (still dead). The reader's one door held: the palace's window is opened in
 `ui/hallOfRecords.js`, never in the modes host.
-mutant records re-aimed by content, still dead (ACC1d's and ACC3a's vouched name, ACC3b's and SLAM9's memory, SOC1's
-version line, WB9g's five).
 
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 

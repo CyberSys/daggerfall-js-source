@@ -920,7 +920,10 @@ the write. DECIDED: bounded, not witnessed, as the Bounty's camps are - a modifi
 fought, and no more than five a day and 250 a week. A Storm Season's sea: each ocean pixel of a voyage bound into the
 land half again slower, on every reckoning this client makes (the travel window, the maps, the quest clock, the fare),
 online alone. The client reads every land's Tide itself, off the week and the Season 0 week the seats' list names
-(`zero`). NOT YET: a Daedric Incursion's Marks (a kill's region is the client's word until three agree). DECIDED: the
+(`zero`). BUILT (AUDIT-SEATS): a Daedric Incursion's Marks - paid at the Turning that settles the week, once three
+claims agree on the gate day's region (a kill's region is the client's word until they do): each claim that named it,
+whose gate Marks were struck, minted the same again, once, where the purse has room
+(`server-account/src/seatIncursion.js`, the ledger's `gate-incursion`). DECIDED: the
 sea (region 31) is no land, so a haul at sea meets no Storm Season.
 
 ### 9.4 Why a guild comes back
