@@ -356,7 +356,7 @@ const pick = (list, rolls) => list[Math.floor(rolls() * list.length)];
  *  Strike, Backstabbing, Dodging); a piece of armour's to the body (the seven ways of fighting and the five of moving);
  *  jewellery's to the mind (the six schools and the skills of talk and the shadows) - in all, 85 times in a hundred.
  *  The rest of the time any skill at all, the languages among them (a skill affix was a language 9 times in 35; now
- *  about 1 in 25) - a weighting, never a fence: an amulet of tongues is still a find. */
+ *  about 1 in 30) - a weighting, never a fence: an amulet of tongues is still a find. */
 export const SKILL_OWN_SHARE = 0.5;
 export const SKILL_KIN_SHARE = 0.85;
 const S = SKILLS;
@@ -542,6 +542,91 @@ export const LEGENDARIES = Object.freeze([
     affixes: [{ id: 'stat', param: 'intelligence', value: 15 }, { id: 'stat', param: 'willpower', value: 12 }, { id: 'resist', param: 'shock', value: 40 }],
     enchantment: { type: T.ExtraSpellPts, param: 8 },   // Near Daedra
     lore: 'One of the rings the Mages Guild does not admit to having made.' },
+  // ── LOOT3 (the Loot arc, bible/06-Systems/Loot-Arc.md section 5): TWENTY MORE - every weapon family, every armour
+  // place and every kind of jewellery a record of its own, named in the lore of the Bay and never an artifact's name.
+  // Each keeps LR2's law: three or more lines in the Legendary band of kinds its group may carry, ONE DFU catalogue
+  // enchantment priced by DFU's own table (never an item-maker-only payload; a held spell a cheap one, since DFU bills
+  // its casting cost in condition at the first equip - LR4's watch item 9), a base it can land on, a line of lore.
+  { id: 'anseis-edge', name: "Ansei's Edge", group: 'Weapons', templates: [118, 119, 120, 121, 122, 123],   // the long blades
+    affixes: [{ id: 'damage', value: 30 }, { id: 'stat', param: 'agility', value: 12 }, { id: 'skill', param: 29, value: 25 }],
+    enchantment: { type: T.PotentVs, param: 2 },   // Humanoid
+    lore: 'Carried out of drowned Yokuda by a sword-singer who never sang again.' },
+  { id: 'tsaesci-fang', name: 'Tsaesci Fang', group: 'Weapons', templates: [114, 117, 121, 123],   // Tanto, Wakizashi, Katana, Dai-katana
+    affixes: [{ id: 'damage', value: 28 }, { id: 'stat', param: 'speed', value: 12 }, { id: 'skill', param: 34, value: 25 }],
+    enchantment: { type: T.CastWhenStrikes, param: 56 },   // Hand of Decay
+    lore: 'Akaviri steel, folded by the serpent-folk who came to take Tamriel and stayed to serve it.' },
+  { id: 'orsiniums-anvil', name: "Orsinium's Anvil", group: 'Weapons', templates: [124, 125, 126],   // Mace, Flail, Warhammer
+    affixes: [{ id: 'damage', value: 32 }, { id: 'stat', param: 'strength', value: 12 }, { id: 'skill', param: 32, value: 25 }],
+    enchantment: { type: T.PotentVs, param: 1 },   // Daedra
+    lore: 'Beaten on the anvil that raised Orsinium again, and every bit as hard to put down.' },
+  { id: 'glenmoril-bow', name: 'The Glenmoril Bow', group: 'Weapons', templates: [129, 130],   // Short Bow, Long Bow
+    affixes: [{ id: 'damage', value: 28 }, { id: 'stat', param: 'agility', value: 10 }, { id: 'skill', param: 33, value: 22 }],
+    enchantment: { type: T.PotentVs, param: 3 },   // Animals
+    lore: 'Strung by the witches of Glenmoril for a hunt that Hircine himself had called.' },
+  { id: 'direnni-staff', name: 'The Direnni Staff', group: 'Weapons', templates: [115],   // Staff
+    affixes: [{ id: 'damage', value: 20 }, { id: 'stat', param: 'intelligence', value: 15 }, { id: 'skill', param: 22, value: 25 }, { id: 'stat', param: 'willpower', value: 10 }],
+    enchantment: { type: T.CastWhenStrikes, param: 54 },   // Magicka Leech
+    lore: 'From the Adamantine Tower, when the Direnni still ruled High Rock and thought they always would.' },
+  { id: 'gortwogs-cleaver', name: "Gortwog's Cleaver", group: 'Weapons', templates: [127, 128],   // Battle Axe, War Axe
+    affixes: [{ id: 'damage', value: 36 }, { id: 'stat', param: 'strength', value: 10 }, { id: 'skill', param: 31, value: 25 }],
+    enchantment: { type: T.VampiricEffect, param: 1 },   // when strikes
+    lore: 'King Gortwog\'s own, before the crown made him sit down; he still asks after it.' },
+  { id: 'worms-tooth', name: "Worm's Tooth", group: 'Weapons', templates: [113, 114],   // Dagger, Tanto
+    affixes: [{ id: 'damage', value: 24 }, { id: 'stat', param: 'intelligence', value: 12 }, { id: 'skill', param: 27, value: 22 }, { id: 'skill', param: 19, value: 20 }],
+    enchantment: { type: T.CastWhenStrikes, param: 67 },   // Energy Leech
+    lore: 'A necromancer\'s knife, cut from the King of Worms\' own tooth - or so his acolytes swear.' },
+  { id: 'warp-edge', name: 'Warp-Edge', group: 'Weapons', templates: [118, 122, 123],   // Broadsword, Claymore, Dai-katana
+    affixes: [{ id: 'damage', value: 38 }, { id: 'stat', param: 'luck', value: 12 }, { id: 'skill', param: 34, value: 22 }],
+    enchantment: { type: T.CastWhenStrikes, param: 55 },   // Sphere of Negation
+    lore: 'Forged in the hour the West warped and every ending happened at once. It remembers all of them.' },
+  { id: 'lysandus-visor', name: 'The Visor of King Lysandus', group: 'Armor', templates: [107],   // Helm
+    affixes: [{ id: 'armor', value: 16 }, { id: 'stat', param: 'willpower', value: 12 }, { id: 'resist', param: 'magic', value: 40 }, { id: 'stat', param: 'personality', value: 10 }],
+    enchantment: { type: T.RegensHealth, param: 2 },   // in darkness
+    lore: 'The ghost-king\'s own. It still sees Cryngaine Field, and the arrow that ended him.' },
+  { id: 'wayrest-treads', name: "The Wayrest Courier's Treads", group: 'Armor', templates: [108],   // Boots
+    affixes: [{ id: 'armor', value: 12 }, { id: 'stat', param: 'speed', value: 15 }, { id: 'skill', param: 21, value: 25 }],
+    enchantment: { type: T.ImprovesTalents, param: 1 },   // Athleticism
+    lore: 'Worn thin on the road between Wayrest and Daggerfall by a courier who was never once late.' },
+  { id: 'gauntlets-of-the-rose', name: 'Gauntlets of the Rose', group: 'Armor', templates: [103],   // Gauntlets
+    affixes: [{ id: 'armor', value: 14 }, { id: 'stat', param: 'strength', value: 12 }, { id: 'skill', param: 30, value: 25 }],
+    enchantment: { type: T.StrengthensArmor, param: -1 },
+    lore: 'Of Wayrest\'s Knights of the Rose, sworn to strike with an open hand - and then with a closed one.' },
+  { id: 'mountains-root', name: "The Mountain's Root", group: 'Armor', templates: [104],   // Greaves
+    affixes: [{ id: 'armor', value: 16 }, { id: 'stat', param: 'endurance', value: 12 }, { id: 'weight', value: 40 }],
+    enchantment: { type: T.IncreasedWeightAllowance, param: 1 },   // 50% additional
+    lore: 'Dwemer-wrought for a foreman of the deep halls who never once lost his footing.' },
+  { id: 'ravens-wings', name: "The Raven's Wings", group: 'Armor', templates: [105, 106],   // the Pauldrons
+    affixes: [{ id: 'armor', value: 14 }, { id: 'stat', param: 'agility', value: 12 }, { id: 'skill', param: 20, value: 25 }],
+    enchantment: { type: T.CastWhenHeld, param: 37 },   // Slowfalling
+    lore: 'Of Camlorn\'s Order of the Raven, whose knights drop from the walls and land standing.' },
+  { id: 'night-mothers-embrace', name: "The Night Mother's Embrace", group: 'Armor', templates: [102],   // Cuirass
+    affixes: [{ id: 'armor', value: 14 }, { id: 'stat', param: 'agility', value: 10 }, { id: 'skill', param: 19, value: 25 }, { id: 'skill', param: 16, value: 20 }],
+    enchantment: { type: T.CastWhenHeld, param: 45 },   // Shadow Form
+    lore: 'Sweet Mother, sweet Mother, send your child unto me - and she sent this instead.' },
+  { id: 'wall-of-daggerfall', name: 'The Wall of Daggerfall', group: 'Armor', templates: [111, 112],   // Kite Shield, Tower Shield
+    affixes: [{ id: 'armor', value: 18 }, { id: 'stat', param: 'endurance', value: 12 }, { id: 'resist', param: 'shock', value: 40 }],
+    enchantment: { type: T.RepairsObjects, param: -1 },
+    lore: 'Hewn from the gate the city was named for. The gate fell; this did not.' },
+  { id: 'amulet-of-the-nine', name: 'The Amulet of the Nine', group: 'Jewellery', templates: [133, 139],   // Amulet, Cloth Amulet
+    affixes: [{ id: 'stat', param: 'willpower', value: 12 }, { id: 'skill', param: 23, value: 25 }, { id: 'resist', param: 'magic', value: 40 }],
+    enchantment: { type: T.RegensHealth, param: 1 },   // in sunlight
+    lore: 'Blessed at each of the Nine\'s altars in turn, and a tenth time by someone who would not give a name.' },
+  { id: 'witch-sisters-ring', name: "The Witch-Sisters' Ring", group: 'Jewellery', templates: [135],   // Ring
+    affixes: [{ id: 'stat', param: 'intelligence', value: 12 }, { id: 'skill', param: 24, value: 25 }, { id: 'resist', param: 'frost', value: 40 }],
+    enchantment: { type: T.ExtraSpellPts, param: 6 },   // During New Moon
+    lore: 'Passed hand to hand through a Glenmoril coven; each sister added a curse, and none took one off.' },
+  { id: 'duelists-vambrace', name: "The Duelist's Vambrace", group: 'Jewellery', templates: [134, 136],   // Bracer, Bracelet
+    affixes: [{ id: 'stat', param: 'agility', value: 12 }, { id: 'stat', param: 'speed', value: 10 }, { id: 'skill', param: 34, value: 25 }],
+    enchantment: { type: T.ImprovesTalents, param: 2 },   // Adrenaline Rush
+    lore: 'Worn through a hundred Sentinel duels. Its owner lost one, and has not been seen since.' },
+  { id: 'mark-of-the-hist', name: 'The Mark of the Hist', group: 'Jewellery', templates: [137],   // Mark
+    affixes: [{ id: 'stat', param: 'endurance', value: 12 }, { id: 'resist', param: 'poison', value: 45 }, { id: 'skill', param: 17, value: 25 }],
+    enchantment: { type: T.CastWhenHeld, param: 42 },   // Water Breathing
+    lore: 'Hist-sap hardened in the shape of a hand. The Argonians call it a gift; the Hist does not say.' },
+  { id: 'reachmans-torc', name: "The Reachman's Torc", group: 'Jewellery', templates: [138],   // Torc
+    affixes: [{ id: 'stat', param: 'strength', value: 12 }, { id: 'stat', param: 'willpower', value: 10 }, { id: 'resist', param: 'shock', value: 40 }],
+    enchantment: { type: T.ExtraSpellPts, param: 9 },   // Near Humanoids
+    lore: 'Briar-bound and hagraven-blessed, taken off a Reach chieftain who had no more use for it.' },
 ]);
 export const legendaryById = (id) => allLegendaries().find((l) => l.id === id) ?? null;
 /** DFU-shaped, but not DFU's - the pool is the port's own, so it is

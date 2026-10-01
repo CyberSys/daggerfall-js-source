@@ -6,7 +6,7 @@
 //     a bow's Archery, a staff's Blunt Weapon), then the strike's kin (Critical Strike, Backstabbing, Dodging) - 85
 //     times in a hundred in all.
 //   - ARMOUR'S TO THE BODY, JEWELLERY'S TO THE MIND, 85 times in a hundred.
-//   - A WEIGHTING, NEVER A FENCE: the rest of the time any skill, a language among them (9 in 35 before; about 1 in 25).
+//   - A WEIGHTING, NEVER A FENCE: the rest of the time any skill, a language among them (9 in 35 before; about 1 in 30).
 //   - NEVER EMPTY, NEVER A REPEAT: a step with no free skill gives way to the next.
 //   - THE LEGENDARIES' SKILLS ARE THEIR RECORDS' - no roll moves them.
 
@@ -58,7 +58,7 @@ test('LOOT1: the kin - a weapon\'s own skill and the strike\'s three, the body\'
   assert.deepEqual(LR.skillKin({ group: 'Books' }), { own: null, kin: [] }, 'nothing else leans');
 });
 
-test('LOOT1: a weapon\'s skill affix is its own half the time and the hand\'s 85 in a hundred; a language about one in 25', () => {
+test('LOOT1: a weapon\'s skill affix is its own half the time and the hand\'s 85 in a hundred; a language about one in 30', () => {
   on();
   const draws = skillDraws(() => createWeapon(126, 1), 'rare', 1500, 11);   // a warhammer - AUDIT-LR's own example
   assert.ok(draws.length > 400, `enough draws (${draws.length})`);

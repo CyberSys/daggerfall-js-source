@@ -261,9 +261,11 @@ test('the find adds to a list rather than promoting one, and claims its own lege
   // a dragon hunt, and the classic pairings are untouched.
   assert.deepEqual(legendariesFor({ group: 'Weapons', templateIndex: THUNDERLOCK_TEMPLATE }).map((l) => l.name),
     ['The Last Lock']);
+  // LOOT3 (bible/06-Systems/Loot-Arc.md section 5): the pool grew to thirty - a dagger's and a longsword's own records
+  // came with it, and the classic pairings stand beside them, the gun claimed from none
   assert.deepEqual(legendariesFor({ group: 'Weapons', templateIndex: 113 }).map((l) => l.name),
-    ['Wyrmbane', 'Nightwhisper'], 'a dagger is still both of its own');
-  assert.deepEqual(legendariesFor({ group: 'Weapons', templateIndex: 120 }).map((l) => l.name), ['Wyrmbane']);
+    ['Wyrmbane', 'Nightwhisper', "Worm's Tooth"], 'a dagger is still both of its own, and the King of Worms\' knife beside them');
+  assert.deepEqual(legendariesFor({ group: 'Weapons', templateIndex: 120 }).map((l) => l.name), ['Wyrmbane', "Ansei's Edge"]);
 });
 
 // ── THE AUDIT'S OWN PINS (2026-09-19) ───────────────────────────────

@@ -61,7 +61,7 @@ own combat skills would be a tuning slice, not a fix". A skill affix's skill is 
 | armour | - | the body's twelve: the seven ways of fighting (the six weapon skills, Critical Strike) and Dodging, Running, Jumping, Climbing, Swimming | any skill |
 | jewellery | - | the mind's thirteen: the six schools, Etiquette, Streetwise, Mercantile, Lockpicking, Pickpocket, Stealth, Medical | any skill |
 
-A WEIGHTING, NEVER A FENCE: a language was a skill affix 9 times in 35; now about 1 in 25. A step with no free skill
+A WEIGHTING, NEVER A FENCE: a language was a skill affix 9 times in 35; now about 1 in 30. A step with no free skill
 (a kind with a param never repeats one on a piece) gives way to the next, so the draw never comes back empty. The
 Legendaries' skills are their records', untouched.
 
@@ -280,3 +280,53 @@ line is appended after every draw) - the law it pins, every earlier draw the see
 against the same seeds with the chance at zero, for the gate and a town alike.
 
 Pinned: `test/loot2_exalted.test.js` (6); `tools/mutants/loot2.json` (20, all dead).
+
+### LOOT3 - thirty Legendaries (2026-10-01)
+
+`systems/lootRarity.js` `LEGENDARIES`: the first ten stand as LR2 shipped them, and twenty more follow them - twelve
+weapons, ten pieces of armour, eight of jewellery in all. Every weapon template but the arrow, every armour place and
+every kind of jewellery but the wand is NAMED by a record (a wand, as before, takes the three that name none:
+Foxglove, King's Mark, the Archmage's Loop); every weapon family - by the skill that swings it - has two or more.
+
+| record | lands on | its lines | its enchantment |
+|---|---|---|---|
+| Ansei's Edge | Broadsword, Saber, Longsword, Katana, Claymore, Dai-katana | +30% damage, +12 Agility, +25 Long Blade | Potent Vs: Humanoid |
+| Tsaesci Fang | Tanto, Wakizashi, Katana, Dai-katana | +28% damage, +12 Speed, +25 Critical Strike | Cast When Strikes: Hand of Decay |
+| Orsinium's Anvil | Mace, Flail, Warhammer | +32% damage, +12 Strength, +25 Blunt Weapon | Potent Vs: Daedra |
+| The Glenmoril Bow | Short Bow, Long Bow | +28% damage, +10 Agility, +22 Archery | Potent Vs: Animals |
+| The Direnni Staff | Staff | +20% damage, +15 Intelligence, +25 Destruction, +10 Willpower | Cast When Strikes: Magicka Leech |
+| Gortwog's Cleaver | Battle Axe, War Axe | +36% damage, +10 Strength, +25 Axe | Vampiric Effect: when strikes |
+| Worm's Tooth | Dagger, Tanto | +24% damage, +12 Intelligence, +22 Mysticism, +20 Backstabbing | Cast When Strikes: Energy Leech |
+| Warp-Edge | Broadsword, Claymore, Dai-katana | +38% damage, +12 Luck, +22 Critical Strike | Cast When Strikes: Sphere of Negation |
+| The Visor of King Lysandus | Helm | +16 armor, +12 Willpower, +40% Magic resistance, +10 Personality | Regens Health: in darkness |
+| The Wayrest Courier's Treads | Boots | +12 armor, +15 Speed, +25 Running | Improves Talents: Athleticism |
+| Gauntlets of the Rose | Gauntlets | +14 armor, +12 Strength, +25 Hand-to-Hand | Strengthens Armor |
+| The Mountain's Root | Greaves | +16 armor, +12 Endurance, +40% carrying capacity | Increased Weight Allowance: 50% additional |
+| The Raven's Wings | Left Pauldron, Right Pauldron | +14 armor, +12 Agility, +25 Dodging | Cast When Held: Slowfalling |
+| The Night Mother's Embrace | Cuirass | +14 armor, +10 Agility, +25 Backstabbing, +20 Stealth | Cast When Held: Shadow Form |
+| The Wall of Daggerfall | Kite Shield, Tower Shield | +18 armor, +12 Endurance, +40% Shock resistance | Repairs Objects |
+| The Amulet of the Nine | Amulet, Cloth Amulet | +12 Willpower, +25 Restoration, +40% Magic resistance | Regens Health: in sunlight |
+| The Witch-Sisters' Ring | Ring | +12 Intelligence, +25 Illusion, +40% Frost resistance | Extra Spell Pts: During New Moon |
+| The Duelist's Vambrace | Bracer, Bracelet | +12 Agility, +10 Speed, +25 Critical Strike | Improves Talents: Adrenaline Rush |
+| The Mark of the Hist | Mark | +12 Endurance, +45% Poison resistance, +25 Swimming | Cast When Held: Water Breathing |
+| The Reachman's Torc | Torc | +12 Strength, +10 Willpower, +40% Shock resistance | Extra Spell Pts: Near Humanoids |
+
+Their lore names the Bay's own: the Ansei sword-singers of drowned Yokuda, the Tsaesci, Orsinium's anvil and King
+Gortwog, the Glenmoril witches and Hircine's hunt, the Direnni of the Adamantine Tower, the King of Worms, the Warp in
+the West, King Lysandus and Cryngaine Field, Wayrest's couriers and its Knights of the Rose, the Dwemer's deep halls,
+Camlorn's Order of the Raven, the Night Mother, the gate Daggerfall was named for, the Nine, a Glenmoril coven, Sentinel's
+duels, the Hist, the Reach. No name takes one of DFU's 23 artifacts' (`loot.js` ARTIFACT_SUB_TYPE_NAMES).
+
+Every record keeps LR2's law (`test/lr1_lootrarity.test.js` reads them all - its bases are every jewellery template
+now, not the amulet and the ring it was written with, so a bracer's, a mark's and a torc's record are each shown to
+land). A held spell is a cheap one - Slowfalling (240), Shadow Form (150), Water Breathing (170) - since DFU bills a
+CastWhenHeld's casting cost in condition at the first equip (LR4's watch item 9); the first ten's Aegis of Dawn keeps
+its Spell Resistance as LR2 shipped it.
+
+What moved with the pool: the Sigil Broker's Legendaries are drawn from the thirty (`baseLegendaries` - the port's
+own records, the same on every machine, so the stock is still the day's alone), and the gate's spoils and a town's
+thanks pick from the thirty - one roll a pick, as before, so no seed draws more. The Thunderlock's own pin read a
+dagger's pool as Wyrmbane and Nightwhisper alone; it reads Worm's Tooth beside them now (and a longsword's Ansei's
+Edge), the gun's exclusive claim unmoved.
+
+Pinned: `test/loot3_legendaries.test.js` (4); `tools/mutants/loot3.json` (10, all dead).

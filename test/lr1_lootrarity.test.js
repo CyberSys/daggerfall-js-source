@@ -278,7 +278,7 @@ test('LR2: every flavour and every Legendary is priced by DFU\'s own catalogue a
     const cost = enchantmentCost(key, rec.enchantment.param);
     assert.ok(cost !== null && cost > 0, `${rec.id}: ${key}/${rec.enchantment.param} priced (${cost})`);
     // every record can be reached by a roll on some base
-    const bases = [...Array(18).keys()].map((i) => ({ group: 'Weapons', templateIndex: 113 + i })).concat([...Array(11).keys()].map((i) => ({ group: 'Armor', templateIndex: 102 + i })), [133, 135].map((t) => ({ group: 'Jewellery', templateIndex: t })));
+    const bases = [...Array(18).keys()].map((i) => ({ group: 'Weapons', templateIndex: 113 + i })).concat([...Array(11).keys()].map((i) => ({ group: 'Armor', templateIndex: 102 + i })), GROUP_TEMPLATE_INDICES.Jewellery.map((t) => ({ group: 'Jewellery', templateIndex: t })));   // LOOT3: every kind of jewellery - a bracer's, a mark's, a torc's record lands on its own
     assert.ok(bases.some((b) => LR.legendariesFor(b).includes(rec)), `${rec.id} lands on some base`);
   }
 });
