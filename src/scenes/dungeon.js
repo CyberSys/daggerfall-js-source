@@ -75,6 +75,7 @@ import { getInt } from '../systems/settings.js';   // MAC-O4: Controls/WeaponSwi
 import { MoveAxes } from '../player/moveAxes.js';   // AUDIT 28 W8: MovementAcceleration
 import { CameraRecoiler } from '../player/cameraRecoiler.js';   // AUDIT 28 W9: CameraRecoilStrength
 import { HeadBobber } from '../player/headBobber.js';   // AUDIT 28 W10: HeadBobbing
+import { createClimbFeelHost } from '../player/climbFeel.js';   // CLIMB4: the climb's camera
 import { lastHealthLost, lastHealthLostPercent } from '../ui/hudVitals.js';   // AUDIT 28 W9: the detector's loss
 import { fieldOfView } from '../ui/viewSettings.js';   // MENU: Video/FieldOfView, one home for five hosts
 import { carriedWeight } from '../systems/inventory.js';   // F027 / E4: PlayerEntity.CarriedWeight, the gold counter's term and all
@@ -191,6 +192,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
     ctx.quickLoad = (...args) => { cameraRecoiler.reset(); return _ctxQuickLoad.apply(ctx, args); };
   }
   const headBobber = new HeadBobber();   // AUDIT 28 W10: HeadBobbing
+  const climbFeel = createClimbFeelHost(() => player, cam, lookFilter);   // CLIMB4: the climb's camera (world.js's law)
   let rightHeld = false;   // AUDIT 28 F-C2: HasAction(SwingWeapon) - the raw button, ungated
   let swingKeyLatch = false;   // MAC-SWING1: the same action, bound to a key or pad code
   // TI1: the touch layer's state. swipeHeld is the swipe's SwingWeapon
@@ -993,6 +995,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
         });
       }
       cam.pos = player.eyeAt();   // EV1: the interpolated render eye
+      climbFeel.frame(dt);   // CLIMB4: the climb's camera, off the frame's motor
       // AUDIT 64 F7: the two dungeon hosts fed the RAW Run key
       // (`held(keys,'Run') && moving`) where their three siblings feed
       // the motor's latch. PlayerMotor.IsRunning (:108-111) is
@@ -1050,7 +1053,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
     // camera's aspect from its viewport - so the lens takes the bar's
     // height out of its denominator. This host draws the bar through
     // dungeonContext's own drawHud, so it carries the law too.
-    const proj = mirrorProjectionX(perspective(fieldOfView(), largeHudWorldAspect(canvas.clientWidth, canvas.clientHeight), 0.05, 800));   // HANDEDNESS (mat4's law)
+    const proj = mirrorProjectionX(perspective(fieldOfView() + climbFeel.fovRad(), largeHudWorldAspect(canvas.clientWidth, canvas.clientHeight), 0.05, 800));   // HANDEDNESS (mat4's law)   // CLIMB4: a leap's kick
     // MW-D25: the walk camera rides the Morrowind machine; the free-fly
     // scout keeps its own eye (it has no player body to orbit).
     const mwv = walkMode
@@ -1061,6 +1064,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
       : { eye: cam.pos, thirdPerson: false };
     const target = [mwv.eye[0] + fwd[0], mwv.eye[1] + fwd[1], mwv.eye[2] + fwd[2]];
     const view = betterAmbience.view(lookAt(mwv.eye, target, [0, 1, 0]));   // BA1: the shaker sits between the follower and the camera
+    climbFeel.view(view, walkMode && !mwv.thirdPerson);   // CLIMB4: the climb's pitch, roll and eye - first person, never the fly-cam
     _lastProj = proj; _lastView = view;   // TI1: the tap ray unprojects through the frame the finger saw
     if (touch) {   // TI1: the lock-on dot over the foe's chest, hidden behind the camera
       const _dp = _lockChest ? projectToScreen(_lockChest, canvas.clientWidth, canvas.clientHeight, proj, view, worldViewportRect(canvas.clientWidth, canvas.clientHeight)) : null;

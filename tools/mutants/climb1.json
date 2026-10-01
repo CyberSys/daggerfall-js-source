@@ -69,7 +69,7 @@
   {
     "name": "CLIMB1-steep-top-taken",
     "file": "src/player/parkour.js",
-    "old": "  if (!down.normal || down.normal[1] < PARKOUR_TOP_MIN_NY) return { ok: false, why: 'steep-top' };",
+    "old": "  if (!down.normal || down.normal[1] < PARKOUR_TOP_MIN_NY - PARKOUR_RAY_SCATTER) return { ok: false, why: 'steep-top' };",
     "new": "  if (!down.normal) return { ok: false, why: 'steep-top' };",
     "tests": [
       "test/auditclimb1.test.js",
@@ -205,8 +205,8 @@
   {
     "name": "CLIMB1-vault-tallies-climbing",
     "file": "src/systems/worldTick.js",
-    "old": "    tallyMovementSkill(entity, activity.parkoured === 'vault' ? SKILLS.Jumping : SKILLS.Climbing);",
-    "new": "    tallyMovementSkill(entity, SKILLS.Climbing);",
+    "old": "    tallyMovementSkill(entity, activity.parkoured === 'vault' || activity.parkoured === 'leap' ? SKILLS.Jumping : SKILLS.Climbing);",
+    "new": "    tallyMovementSkill(entity, activity.parkoured === 'leap' ? SKILLS.Jumping : SKILLS.Climbing);",
     "tests": [
       "test/auditclimb1.test.js",
       "test/parkour.test.js",

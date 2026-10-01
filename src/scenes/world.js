@@ -622,6 +622,7 @@ import { controllerLook } from '../player/lookFilter.js';   // AUDIT NAV1 (the p
 import { MoveAxes } from '../player/moveAxes.js';   // AUDIT 28 W8: MovementAcceleration
 import { CameraRecoiler } from '../player/cameraRecoiler.js';   // AUDIT 28 W9: CameraRecoilStrength
 import { HeadBobber } from '../player/headBobber.js';   // AUDIT 28 W10: HeadBobbing
+import { createClimbFeelHost } from '../player/climbFeel.js';   // CLIMB4: the climb's camera
 import { lastHealthLost, lastHealthLostPercent } from '../ui/hudVitals.js';   // AUDIT 28 W9: the detector's loss
 import { fieldOfView } from '../ui/viewSettings.js';   // MENU: Video/FieldOfView, one home for five hosts
 import { keyEdges, noteKeyDown, noteKeyUp, beginInputFrame, pressed, released, actionsOf, actionOf, held, moveHeld, swallowBrowserKey, mouseCode, isSwingButton, keyboardLook, isTextEntryTarget, bindings, routeAction, installContextMenuGuard, POLLED_ACTIONS, QUICKSLOT_ACTIONS, swingKeyHeld } from '../ui/input.js';
@@ -3084,12 +3085,12 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  AUDIT-FIELD F7: A FLOOR, NOT THE WHOLE DISTANCE. The first cut
    *  called 64 "more than the fastest accelerated step", which is true
    *  of a fixed physics STEP and false of a FRAME: the motor moves
-   *  `speed * min(dt, MAX_FRAME_DT) * scale` in one go (motor.js:1359),
+   *  `speed * min(dt, MAX_FRAME_DT) * scale` in one go (motor.js:1361),
    *  and the frame that hitches is exactly the frame in which the
    *  streamer is behind. A horse at the shipped default limit of sixty
    *  covers ~65 units in a 10 fps frame and ~120 at the mod's ceiling of
    *  a hundred - past a 64-unit probe, off the built world, and once the
-   *  motor is airborne `airControl` is false (motor.js:2768) so zeroing
+   *  motor is airborne `airControl` is false (motor.js:2792) so zeroing
    *  the drive on the NEXT frame no longer steers: the fall is already
    *  paid for. `travelLookahead` measures the frame that is about to
    *  run instead, and keeps 64 as its floor. */
@@ -4509,6 +4510,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   const moveAxes = new MoveAxes();   // AUDIT 28 W8: MovementAcceleration
   const cameraRecoiler = new CameraRecoiler();   // AUDIT 28 W9: CameraRecoilStrength
   const headBobber = new HeadBobber();   // AUDIT 28 W10: HeadBobbing
+  // CLIMB4: THE FEEL - the climb's camera, one per body as the bobber is: framed after the motor moved (its turn owed to
+  // the look filter), its view half laid on the view in first person, its kick and pitch on every lens of the frame
+  const climbFeel = createClimbFeelHost(() => player, cam, lookFilter);
 
   /** U53's one-builder law: ONE place changes the mode, and both the
    *  T-key pick and the interior hosts' dismount take it. TR5. */
@@ -13000,7 +13004,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     lookFilter.add(e.movementX * lookScale(), -e.movementY * lookScale() * lookInvert());
   });
   // U41: `!townTalk.overlayActive` is the dungeon host's own gate
-  // (dungeon.js:244, "a right-click on a window is the window's...
+  // (dungeon.js:246, "a right-click on a window is the window's...
   // never a swing"), which these two hosts never got. It matters now
   // that the travel map makes RMB a ROUTINE gesture - its zoom - and
   // an ungated one fires a readied spell or looses an arrow at the
@@ -13520,7 +13524,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10063-10127 -
+  // worldModes answers it in BOTH modes (worldModes.js:10065-10129 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -19464,6 +19468,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // reference BEFORE this line must therefore be `modes?.` - which is
   // what test/audit24_wave37.test.js asserts, both ways.
   var modes = createWorldModes({
+    climbFeel,   // CLIMB4: the one body's climb camera - the modal frames take it after their own motor step
     // WEATHER3b / AUDIT WEATHER3 R3: the world weather map over the place the player is inside - the building's pixel,
     // or the dungeon's own (playerTravelPixel answers both) - every indoor frame; nothing under a ?weather pin
     weatherIndoors: () => {
@@ -20106,7 +20111,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // main.js sets ?load when the menu resolves it, and its comment says
   // "Load Game rides the dungeon host's OWN quickLoad" - true when the
   // classic start booted scenes/dungeon.js, and U31 moved it HERE. The
-  // only reader of `load` in the whole tree is dungeon.js:117, so the
+  // only reader of `load` in the whole tree is dungeon.js:118, so the
   // flag arrived in this host and was discarded: the player got a
   // brand-new character in Privateer's Hold and the only way to reach
   // their save was to start a new game and press F11. A load is not a
@@ -22800,6 +22805,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // cumulative). The player does not move; only the camera dies.
         if (townTalk.overlay instanceof DeathScreen) cam.pos[1] -= townTalk.overlay.drop;
         if (townTalk.overlay instanceof DeathScreen) townTalk.overlay.tiltView(cam);   // DEATH3: the enhanced fall looks up at the sky
+        climbFeel.frame(dt);   // CLIMB4: the climb's camera, off the frame's motor
         // A8 - POINTER PARITY, THE FLAG AT THIS LINE RETIRED. Mouse0 is
         // DFU's ActivateCenterObject: the readied spell fires on its
         // PRESS (EntityEffectManager.cs:250) and the world activation
@@ -23259,7 +23265,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // height out of its denominator here, and the sky, which draws
     // into the same rect, takes the same number.
     const worldAspect = largeHudWorldAspect(canvas.clientWidth, canvas.clientHeight);
-    const proj = mirrorProjectionX(perspective(fieldOfView(), worldAspect, 0.2, 6000));   // HANDEDNESS (mat4's law)
+    const proj = mirrorProjectionX(perspective(fieldOfView() + climbFeel.fovRad(), worldAspect, 0.2, 6000));   // HANDEDNESS (mat4's law)   // CLIMB4: a leap's kick
     // MW-D25: the eye goes through the Morrowind camera machine - in
     // first person it comes back untouched (camera.cpp:165-169), in
     // third it is the reference's focal-and-pull-back with this host's
@@ -23304,6 +23310,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (naval && !tvf) mwv.eye = naval.aimEye(mwv.eye, dt);
     tvBandSpritesStep(dt, tvf, mwv.eye);   // OW-FOES: the bands near, as their monsters
     const view = betterAmbience.view(lookAt(mwv.eye, [mwv.eye[0] + viewFwd[0], mwv.eye[1] + viewFwd[1], mwv.eye[2] + viewFwd[2]], [0, 1, 0]));   // BA1: the shaker sits between the follower and the camera
+    climbFeel.view(view, !tvf && !mwv.thirdPerson);   // CLIMB4: the climb's pitch, roll and eye - first person, never the travel view's
     // DW-E5 x TV1: under the travel view `mwv.eye` is the raised eye - the view never opens in the sea (travelViewAllowed)
     for (let i = 0; i < 3; i++) _dwEyeOffset[i] = mwv.eye[i] - cam.pos[i];   // DW-E5: the spawners' camera, as this frame placed it
     _lastProj = proj; _lastView = view;   // TI1: the tap ray unprojects through the frame the finger saw
@@ -23806,7 +23813,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // world repaints everything nearer" law by gl_FragDepth = 1.0
     // instead of by order. Same picture, a third to a half fewer sky
     // fragments on an open road.
-    sky.draw(tvf ? tvf.yaw : cam.yaw, tvf ? tvf.pitch : cam.pitch, fieldOfView(), worldAspect, renderer.worldViewportPx ?? [0, 0, renderer.gl.drawingBufferWidth, renderer.gl.drawingBufferHeight]);   // VC3: the clouds' map restores this rect
+    sky.draw(tvf ? tvf.yaw : cam.yaw, tvf ? tvf.pitch : cam.pitch + climbFeel.pitch(), fieldOfView() + climbFeel.fovRad(), worldAspect, renderer.worldViewportPx ?? [0, 0, renderer.gl.drawingBufferWidth, renderer.gl.drawingBufferHeight]);   // VC3: the clouds' map restores this rect
     meterFor(renderer.gl)?.markCpu('ring');   // PERF-ZONE2: the far province ring (its rebuild and its hole) and the water, after the sky hands the frame back
     // EV8: the far province ring - the horizon's actual mountains,
     // drawn while the depth buffer is still the sky's (the streamed
@@ -23836,7 +23843,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // E5: the ring draws INTO the world pass's rect, so it takes
         // that pass's aspect - a horizon built on the full-canvas ratio
         // would step against the terrain in front of it under a docked bar.
-        fovY: fieldOfView(), aspect: worldAspect,
+        fovY: fieldOfView() + climbFeel.fovRad(), aspect: worldAspect,   // CLIMB4: the lens the world took
       });
     }
     if (deepWaters) dwRender.drawSkyFog();   // DW-C: the distance fog over the sky's pixels (and the ring's), before anything blends over them - a no-op while it is off

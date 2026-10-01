@@ -424,6 +424,7 @@ export class PlayerMotor {
     this.parkour = parkour;
     this._pkMove = null;         // the move in flight (player/parkour.js planMantle/planVault), null between moves
     this.parkoured = null;       // 'mantle' | 'vault' for the frame a move starts (the fatigue/tally consumer, as `jumped`)
+    this.climbEvents = [];       // CLIMB4: the frame's climb events ({ type, ... }) - the feel's and the sounds' (climbFeel.js, climbSounds.js)
     this._pkJumpLatch = false;   // AUDIT CLIMB1 F7: Jump held through a move is spent on it - the next jump is a fresh press
     this._pkArm = null;          // the tap catch: a fresh Jump's catch armed for its jump ({ t, air }) - PARKOUR_ARM_GRACE_S
     this._pkJumpWas = false;     // ...the key's last step, for the press's edge
@@ -1337,6 +1338,7 @@ export class PlayerMotor {
   update(dt, input, yaw, pitch = 0) {
     this.jumped = false;
     this.parkoured = null;
+    if (this.climbEvents.length) this.climbEvents = [];
     this.landedFallDistance = 0;
     // TO1: MAX_FRAME_DT IS UNITY'S `Time.maximumDeltaTime`, WHICH IS AN
     // UNSCALED BOUND. Unity clamps the REAL frame first and applies the
@@ -1580,6 +1582,10 @@ export class PlayerMotor {
 
   /** CLIMB2: on the wall - hanging from a lip, or free-climbing a face. */
   get onWall() { return !!this._wall; }
+  /** CLIMB4: the move in flight (read-only: its kind, its clock `t`), or null - the feel's and the sounds'. */
+  get climbMove() { return this._pkMove; }
+  /** CLIMB4: the held wall's normal (out of it, level), or null. */
+  get wallNormal() { return this._wall?.normal ?? null; }
   /** CLIMB2: hanging from a lip. */
   get hanging() { return this._wall?.mode === 'hang'; }
   /** CLIMB2: the grip the HUD shows ({ amount, low }) - on the wall, and while it comes back after; null otherwise. */
@@ -1855,6 +1861,7 @@ export class PlayerMotor {
     this._fcStart = null;
     this.climb?.hold();
     this._pkHold();
+    this._pkEmit('hold', { mode, normal: [normal[0], 0, normal[2]] });
   }
 
   /** CLIMB2: the body held on the wall - no velocity and no fall: a fall after
@@ -1877,6 +1884,7 @@ export class PlayerMotor {
   /** CLIMB2: the hands let go. A Jump still held catches nothing until it is
    *  pressed afresh - it would take back the lip just dropped from. */
   _wallEnd() {
+    if (this._wall) this._pkEmit('release', { normal: [...this._wall.normal] });
     this._wall = null;
     this._pkArm = null;   // ...and a let-go arms nothing: only a fresh press catches again
     this._pkDropReq = false;
@@ -1921,7 +1929,7 @@ export class PlayerMotor {
     const rate = w.mode === 'climb' && !side && !vert ? PARKOUR_GRIP_REST : 1;
     this.grip -= (rate * dt) / gripSeconds(skill, inputs.fatigue ?? 1);
     if (this.grip <= 0) { this.grip = 0; this._wallEnd(); return false; }
-    if (!w.warned && this.grip <= PARKOUR_GRIP_LOW) { w.warned = true; pk.say?.(PARKOUR_GRIP_LOW_TEXT); }
+    if (!w.warned && this.grip <= PARKOUR_GRIP_LOW) { w.warned = true; pk.say?.(PARKOUR_GRIP_LOW_TEXT); this._pkEmit('gripLow'); }
     this._wallTick(dt);
     const owned = w.mode === 'hang' ? this._hangStep(dt, input, side, vert, skill, inputs.climbing ?? 0)
       : this._freeClimbStep(dt, side, vert, skill, { ...inputs, jumpPressed: !!input.jump && !this._pkJumpLatch });
@@ -2050,6 +2058,14 @@ export class PlayerMotor {
     return true;
   }
 
+  /** CLIMB4: a climb event for the frame - what the feel (the camera) and the sounds read: 'hold' (the hands take the
+   *  wall), 'release' (they let go), 'move' (a move begins: its kind, time and rise), 'impact' (a catch's: the speed the
+   *  body came to the lip at), 'corner' (the turn round it, radians), 'launch' (a leap's flight: its way), 'gripLow'.
+   *  Cleared each update: a host reads the frame's after it. */
+  _pkEmit(type, data = null) {
+    this.climbEvents.push(data ? { type, ...data } : { type });
+  }
+
   /** CLIMB3: the running leap's launch [along, up] for the Jumping skill the deps read. */
   _pkRunLeapSpeeds(pk) {
     const { along, up } = runLeapLaunch(jumpingSkill(pk.inputs?.() ?? {}), GRAVITY);
@@ -2073,6 +2089,7 @@ export class PlayerMotor {
    *  leap's: billed as a leap (a jump's fatigue, the Jumping tally), the catch armed for it (the press is the leap's
    *  and catches as a held Jump would, held or not: PARKOUR_LEAP_REACH, magnetism), the plain jump not fired. */
   _pkLaunch(dir, along, up) {
+    this._pkEmit('launch', { dir: [dir[0], 0, dir[2]], along, up });
     this.velY = up;
     this._airVelX = dir[0] * along;
     this._airVelZ = dir[2] * along;
@@ -2167,6 +2184,7 @@ export class PlayerMotor {
     }
     if (!grip) return null;
     const move = planCorner(this.pos, mid, grip, skill, live);
+    move.turn = Math.atan2(n[0] * grip.normal[2] - n[2] * grip.normal[0], n[0] * grip.normal[0] + n[2] * grip.normal[2]);   // CLIMB4: the view's turn round it
     return moveClear(this.collider, move, CAPSULE_HEIGHT) ? move : null;
   }
 
@@ -2298,6 +2316,12 @@ export class PlayerMotor {
    *  the ceiling over the top. The eye sinks across the rise on the crouch's
    *  own clock, so it is down before the body passes under anything. */
   _parkourBegin(move) {
+    // CLIMB4: the move begins - and the speed the body came to it at (a catch's impact: the feel's dip, the sound's weight)
+    const speed = Math.hypot(this.velY, this._airVelX, this._airVelZ);
+    this._pkEmit('move', {
+      kind: move.kind, dur: move.dur, rise: move.to[1] - move.from[1], speed, turn: move.turn ?? 0,
+      way: [move.to[0] - move.from[0], move.to[2] - move.from[2]], normal: move.hang ? [...move.hang.normal] : move.wall ? [...move.wall.normal] : null,
+    });
     this._pkUnsink();
     this._pkArm = null;   // the tap catch: the press is spent on the move
     this._pkLeap = null;  // CLIMB3: a leap's flight ends in what it caught

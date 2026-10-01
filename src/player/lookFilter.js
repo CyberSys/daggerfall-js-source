@@ -157,6 +157,14 @@ export class LookFilter {
     this.residualPitch = -(cam?.pitch ?? 0);
   }
 
+  /** CLIMB4: a TURN the game asks of the view (the climb's - facing the wall it lowers onto, turning with a corner, the
+   *  eject's way): owed and paid out like any look, under the same pitch clamp, but never latched as the frame's look -
+   *  the weapon widget sways to a hand on the mouse, not to the body turning on the wall (centerPitch's way). */
+  turn(dyaw, dpitch = 0) {
+    this.residualYaw += dyaw;
+    this.residualPitch += dpitch;
+  }
+
   /** ApplyLook's `lookTarget += delta` (:126): the scaled deltas, in
    *  the camera's own units (radians; pitch already inverted). */
   add(dyaw, dpitch) {
