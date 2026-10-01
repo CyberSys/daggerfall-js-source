@@ -50,7 +50,8 @@ import { buildProgram } from './glProgram.js';
 import { FOG_GLSL } from './fogGlsl.js';
 import { BAYER_8X8, WAVE_MATERIAL, wavePaintLevels, wavePictureMean } from '../systems/comeSailAwayWaves.js';
 import { WATER_LAYER_UNITS } from './waterSurface.js';   // FIELD BUGS 2026-09-29 (the sea) #4: the breakers' place in the sea's stack
-import { quatRotate } from '../world/quat.js';
+import { quatRotateInto } from '../world/quat.js';   // SHIP-FLAGS: quatRotate's answer, written in place
+const _flagP = [0, 0, 0], _flagN = [0, 0, 0];   // SHIP-FLAGS: the flag cubes' two scratch turns
 
 const WAVE_VS = `#version 300 es
 layout(location = 0) in vec3 aPos;
@@ -459,10 +460,11 @@ export class ComeSailAwayRenderer {
         const first = o / 6;
         for (const q of run.list) {
           const rot = rotate(q.systemRotation, q.rotation);
-          const turn = (v) => quatRotate(rot, v);
+          // SHIP-FLAGS (FIELD BUGS 2026-10-01 #7): the corner and the normal turned into two scratch triples - quatRotate's
+          // products to the bit, without the five arrays each turn made (two turns a triangle, 36 a cube, ~25 cubes a flag)
           for (const t of CUBE_TRIANGLES) {
-            const p = turn([t.p[0] * q.size[0], t.p[1] * q.size[1], t.p[2] * q.size[2]]);
-            const nn = turn([t.n[0] / (q.size[0] || 1), t.n[1] / (q.size[1] || 1), t.n[2] / (q.size[2] || 1)]);
+            const p = quatRotateInto(rot, t.p[0] * q.size[0], t.p[1] * q.size[1], t.p[2] * q.size[2], _flagP);
+            const nn = quatRotateInto(rot, t.n[0] / (q.size[0] || 1), t.n[1] / (q.size[1] || 1), t.n[2] / (q.size[2] || 1), _flagN);
             d[o++] = q.position[0] + p[0]; d[o++] = q.position[1] + p[1]; d[o++] = q.position[2] + p[2];
             d[o++] = nn[0]; d[o++] = nn[1]; d[o++] = nn[2];
           }

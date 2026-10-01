@@ -261,6 +261,14 @@ leaves.
   storm as a flat lid, as they did before VC7. That is the slab at high
   cover and the sky map's texel (about five screen pixels at a 65-degree
   view), not the life; it is recorded for Mac as its own question.
+  CLOUD-SQUARE (FIELD BUGS 2026-10-01 #3, "Clouds in the distance
+  sometimes look square") answered the texel's half: the composite read
+  that texel with ONE bilinear tap, each texel marched from its own
+  jittered start, so a far cloud a few texels across was a cluster of soft
+  squares and diamonds (6 to 23 screen pixels a texel, the low tier the
+  worst). It reads the map through a cubic B-spline now (`mapBicubic`,
+  four bilinear taps): no crease at a texel, the jitter smoothed with it.
+  `test/fb1001_cloudsquare.test.js`.
 
 ### VC7b - light shafts
 

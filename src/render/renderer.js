@@ -2734,7 +2734,10 @@ export class Renderer {
       gl.vertexAttribPointer(4, 3, gl.FLOAT, false, stride, 44);
     }
     this._bindVao(null);
-    return { vao, count: packed.length / floats, buffers: [vbo], vbo, floats, bounds: boundsOf(packed, null, 0, -1, floats) };   // EL7: the rig's sphere, for the shadow replays' cull
+    // EL7: the rig's sphere, for the shadow replays' cull. MW-CROWD (FIELD BUGS 2026-10-01 #8): `bounds: false` for a mesh
+    // drawn only through the sprite target, which never casts (drawCharacter records none under _spriteDepth) - its
+    // sphere was walked over every corner at every pose (updateCharacterMesh below), twice, for nothing
+    return { vao, count: packed.length / floats, buffers: [vbo], vbo, floats, bounds: opts.bounds === false ? null : boundsOf(packed, null, 0, -1, floats) };
   }
 
   /**

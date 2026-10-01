@@ -9,7 +9,8 @@
 //
 // THIS IS A RENDER EYE, NOT A PLAYER. `cam.pos` stays on the traveller's
 // head, because the streaming grid, its vertical re-centre, the weather
-// sample, the rain box, the grass and the wind all follow `cam.pos` - a
+// sample and the grass all follow `cam.pos` (what falls and the wind's
+// wisps wrap round the view's own eye - OW-WEATHER, world.js `wxEye`) - a
 // camera that moved it would drag the whole world behind it (the dev
 // fly-cam does exactly that). This file answers only where the picture
 // is taken FROM and which way it looks, over a focus the host hands it
@@ -184,6 +185,20 @@ export function turnHeading(yaw, target, dt) {
   const d = angleDelta(yaw, target);
   const step = TV_TURN_RATE * Math.max(0, dt);
   return Math.abs(d) <= step ? target : yaw + Math.sign(d) * step;
+}
+
+/** OW-FACE (FIELD BUGS 2026-10-01 #10, "Your sprite doesnt rotate based on direction"): the heading the movement keys
+ *  point under the view - the CAMERA's yaw turned by the axes, as the motor turns a body's (its right is
+ *  (cos, 0, -sin)) - or null when no key moves. */
+export function keysHeading(cameraYaw, forward, strafe) {
+  return forward || strafe ? cameraYaw + Math.atan2(strafe, forward) : null;
+}
+
+/** OW-FACE: the motor's axes that carry a body facing `yaw` along the heading `way` - the keys' own vector turned onto
+ *  the body, its length kept (the diagonal's speed is the motor's own, as it was). */
+export function axesToward(yaw, way, forward, strafe) {
+  const m = Math.hypot(forward, strafe), d = way - yaw;
+  return { forward: m * Math.cos(d), strafe: m * Math.sin(d) };
 }
 
 /** A fresh camera over a traveller facing `yaw`: behind them, at the default height and tilt. */

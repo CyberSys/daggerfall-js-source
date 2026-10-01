@@ -350,6 +350,61 @@ void main() {
   else outColor = vec4((1.0 - exp(-d * uDwFog[1].w)) * uDwFog[2].xyz * k + uDwFog[3].xyz * f, 0.0);
 }`;
 
+// UNDER-LOOK and UNDER-RAYS (FIELD BUGS 2026-10-01 #4, #5; world/underwaterLook.js): the port's look over the sea
+// while the eye is under it - over every pixel the world drew, before the weapon and the HUD. The water body is
+// affine in the colour under it, c * keep + body, so it is the sky fog's two blends again (the first draw multiplies,
+// the second adds); the second also adds the shafts. A shaft is the sun let through where the moving surface focuses
+// it: each point along the view (out to the reach, or to the surface) is lit by the surface point its light came in
+// at - the point itself carried up the refracted sun to the sea's height - through a drifting two-octave pattern,
+// fainter with distance and depth. No depth is read (no program of every lane can), so the reach is short: the near
+// water, where a shaft reads.
+export const UNDER_LOOK_FS = `#version 300 es
+precision highp float;
+in vec3 vRay;
+uniform vec3 uCamPos;
+uniform float uSeaY;
+uniform vec3 uKeep;
+uniform vec3 uBody;
+uniform vec3 uSunW;    // toward the light, under the water
+uniform vec3 uShaft;   // the shafts' colour, 0 when none
+uniform float uReach;
+uniform float uTime;
+uniform float uPass;   // 0 the multiplier, 1 the added colour
+out vec4 outColor;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float vnoise(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+// the surface's focus at (x, z): bright ridges that drift and change shape as the waves pass
+float shaftAt(vec2 g, float t) {
+  float n = vnoise(g * 0.42 + vec2(t * 0.09, t * 0.06)) * 0.62 + vnoise(g * 1.07 - vec2(t * 0.14, -t * 0.11)) * 0.38;
+  return smoothstep(0.56, 0.8, n);
+}
+void main() {
+  if (uPass < 0.5) { outColor = vec4(uKeep, 1.0); return; }
+  vec3 add = uBody;
+  if (uShaft.r + uShaft.g + uShaft.b > 0.0) {
+    vec3 dir = normalize(vRay);
+    float reach = uReach;
+    if (dir.y > 1e-4) reach = min(reach, max(0.0, uSeaY - uCamPos.y) / dir.y);
+    // a white-noise jitter on the start, so ten steps band nowhere (a patterned dither hatches the whole frame)
+    float j = hash(gl_FragCoord.xy);
+    float acc = 0.0;
+    for (int i = 0; i < 10; i++) {
+      float s = (float(i) + j) / 10.0 * reach;
+      vec3 p = uCamPos + dir * s;
+      float h = uSeaY - p.y;
+      if (h < 0.0) continue;
+      vec2 g = p.xz + uSunW.xz * (h / max(uSunW.y, 0.2));
+      acc += shaftAt(g, uTime) * exp(-s * 0.07 - h * 0.035);
+    }
+    add += uShaft * (acc / 10.0) * (reach / max(uReach, 1e-3) * 0.5 + 0.5);
+  }
+  outColor = vec4(add, 0.0);
+}`;
+
 const locs = (gl, p, names) => Object.fromEntries(names.map((n) => [n, gl.getUniformLocation(p, n)]));
 
 /** The pass: one per renderer, built on first use. */
@@ -371,6 +426,7 @@ export class DeepWatersRenderer {
     const under = buildProgram(gl, SURFACE_VS, UNDERSIDE_FS, 'deep waters surface underside');
     const skyFog = buildProgram(gl, SKY_FOG_VS, SKY_FOG_FS, 'deep waters distance fog (sky)');
     const decor = buildProgram(gl, DECOR_VS, DECOR_FS, 'deep waters decorations');
+    const look = buildProgram(gl, SKY_FOG_VS, UNDER_LOOK_FS, 'under the sea: the water body and the shafts');   // UNDER-LOOK
     this._programs = {
       floor: { p: floor, u: locs(gl, floor, ['uProj', 'uView', 'uModel', 'uMainTex', 'uSurfaceTex', 'uSandColor', 'uMidColor', 'uDeepColor', 'uSwampColor',
         'uTextureWorldScale', 'uTextureStrength', 'uShelfMix', 'uDepthGamma', 'uAmbientBoost', 'uSceneTint',
@@ -382,6 +438,7 @@ export class DeepWatersRenderer {
       under: { p: under, u: locs(gl, under, ['uProj', 'uView', 'uModel', 'uLiftY', 'uSurfaceScroll', 'uMainTex', 'uColor', 'uUnderwaterFogColor', 'uUndersideAlpha',
         'uHorizonColor', 'uFadeStart', 'uFadeEnd', 'uColumnFogStrength', 'uUnderwater', 'uCamPos', 'uDwFog', 'uFocus']) },
       skyFog: { p: skyFog, u: locs(gl, skyFog, ['uRayC', 'uRayX', 'uRayY', 'uCamPos', 'uPass', 'uDwFog', 'uFocus']) },
+      look: { p: look, u: locs(gl, look, ['uRayC', 'uRayX', 'uRayY', 'uCamPos', 'uSeaY', 'uKeep', 'uBody', 'uSunW', 'uShaft', 'uReach', 'uTime', 'uPass']) },
       decor: { p: decor, u: locs(gl, decor, ['uProj', 'uView', 'uModel', 'uViewCol2', 'uUpVector', 'uMainTex', 'uColor', 'uCutoff', 'uSceneTint',
         'uTick', 'uFrames', 'uCamPos', 'uFogColor', 'uFogMode', 'uFogDensity', 'uFogRange', 'uDwFog', 'uFocus',
         'uSurfaceTex', 'uDwCamFwd', 'uColumnOn', 'uSeaY', 'uTopColor', 'uTopVision', 'uSurfaceScroll', 'uPixelOrigin', 'uFacing', 'uCamRight', 'uCamUp']) },
@@ -810,6 +867,54 @@ export class DeepWatersRenderer {
     gl.disable(gl.BLEND);
     gl.depthMask(true);
     gl.enable(gl.CULL_FACE);
+    gl.depthFunc(gl.LESS);
+  }
+
+  /**
+   * UNDER-LOOK and UNDER-RAYS: the water over every pixel the world drew, while the eye is under the sea - after the
+   * last world pass and before the weapon and the HUD (the host's), into whatever target the world draws into. The
+   * rays are drawSkyFog's; no depth test, no depth write, alpha kept.
+   * @param {{keep: number[], body: number[], sunW: number[], shaft: number[]}} u - world/underwaterLook.js underwaterLookUniforms
+   * @param {number} seaY - the sea's height in the scene
+   * @param {number} reach - the shafts' march (m)
+   * @param {number} timeSeconds
+   */
+  drawUnderwaterLook(u, seaY, reach, timeSeconds) {
+    const r = this.renderer;
+    const gl = this.gl;
+    const { look, empty } = this._ensure();
+    const L = look.u, v = r._view, P = r._proj;
+    const right = [v[0], v[4], v[8]], up = [v[1], v[5], v[9]], fwd = [-v[2], -v[6], -v[10]];
+    const cx = P[8] / P[0], cy = P[9] / P[5];
+    gl.useProgram(look.p);
+    gl.uniform3f(L.uRayC, fwd[0] + right[0] * cx + up[0] * cy, fwd[1] + right[1] * cx + up[1] * cy, fwd[2] + right[2] * cx + up[2] * cy);
+    gl.uniform3f(L.uRayX, right[0] / P[0], right[1] / P[0], right[2] / P[0]);
+    gl.uniform3f(L.uRayY, up[0] / P[5], up[1] / P[5], up[2] / P[5]);
+    gl.uniform3fv(L.uCamPos, r._camPos);
+    gl.uniform1f(L.uSeaY, seaY);
+    gl.uniform3f(L.uKeep, u.keep[0], u.keep[1], u.keep[2]);
+    gl.uniform3f(L.uBody, u.body[0], u.body[1], u.body[2]);
+    gl.uniform3f(L.uSunW, u.sunW[0], u.sunW[1], u.sunW[2]);
+    gl.uniform3f(L.uShaft, u.shaft[0], u.shaft[1], u.shaft[2]);
+    gl.uniform1f(L.uReach, reach);
+    gl.uniform1f(L.uTime, timeSeconds);
+    gl.disable(gl.DEPTH_TEST);
+    gl.depthMask(false);
+    gl.disable(gl.CULL_FACE);
+    gl.enable(gl.BLEND);
+    gl.bindVertexArray(empty);
+    gl.blendFuncSeparate(gl.ZERO, gl.SRC_COLOR, gl.ZERO, gl.ONE);
+    gl.uniform1f(L.uPass, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.blendFuncSeparate(gl.ONE, gl.ONE, gl.ZERO, gl.ONE);
+    gl.uniform1f(L.uPass, 1);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindVertexArray(null);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.disable(gl.BLEND);
+    gl.depthMask(true);
+    gl.enable(gl.CULL_FACE);
+    gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LESS);
   }
 
