@@ -445,7 +445,14 @@ function landingAt(collider, fx, fz, into, lipY, s, radius) {
     const ny = h.normal[1];
     const y = oy - h.dist;
     const tan = ny > 0 ? Math.sqrt(Math.max(0, 1 - ny * ny)) / ny : Infinity;
-    if (ny >= PARKOUR_TOP_MIN_NY - PARKOUR_RAY_SCATTER && y - lipY <= s * tan + PARKOUR_SLOPE_SLACK) return { y: y + radius / ny - radius, key: h.key ?? null };
+    if (ny >= PARKOUR_TOP_MIN_NY - PARKOUR_RAY_SCATTER && y - lipY <= s * tan + PARKOUR_SLOPE_SLACK) {
+      let top = y + radius / ny - radius;
+      // AUDIT CLIMB-ARC D2: a top that is the GROUND is stood on at the capsule's floor (restFloor - capsuleFits' own,
+      // since CLIMB-DOWN), which on a real grade lies up to 8 cm over the drawn ground surfaceHit read: the fit refused
+      // the landing it was asked about, and a bank's retaining wall could not be climbed onto
+      if (h.key == null && collider.restFloor) { const rf = collider.restFloor(px, pz); if (Number.isFinite(rf)) top = Math.max(top, rf); }
+      return { y: top, key: h.key ?? null };
+    }
     oy = y - 0.02;
     if (oy <= floor) return null;
   }
@@ -1057,9 +1064,9 @@ export function planOverHang(feet, ledge, oh, skill) {
     split: 0, arc: 0,
     dur: lowerDuration(skill) * (1 - PARKOUR_LOWER_SPLIT),
     crouch: false,
+    stand: true,   // AUDIT CLIMB-ARC D4: a crouched Jump over the parapet hangs standing (the lower's own law), never crouched
     exit: null,
     hang: { normal: [...oh.grip.normal], lipY: oh.grip.lipY },
-    bill: false,
     key: oh.grip.key ?? null,
     t: 0,
   };
@@ -1199,15 +1206,28 @@ export function senseLeapHold(collider, feet, held, way, reach, opts, side = 0) 
   }
   // the lip held runs on this far that way unbroken - the shimmy's, not a leap's: a leap at its own height is to a hold
   // past where it ends (across a gap, a pillar, a window's frame)
+  // AUDIT CLIMB-ARC L9: FOLLOWED as the shimmy follows it - each probe a span on from the last grip, along ITS face and
+  // at ITS lip's height (a sloped coping, a round tower's ring) - not along the held face's line at the held height,
+  // which left a curving or rising lip early and leapt along the very lip the hands could shimmy. Every grip the run
+  // passes is kept: a candidate on one of them is the same lip.
   let runs = 0;
-  while (runs + PARKOUR_HAND_SPAN <= reach && senseGrip(collider, [held.face[0] + t[0] * (runs + PARKOUR_HAND_SPAN), held.lipY, held.face[2] + t[2] * (runs + PARKOUR_HAND_SPAN)], n, held.lipY, opts, false)) runs += PARKOUR_HAND_SPAN;
+  const run = [];
+  for (let at = { face: held.face, normal: n, lipY: held.lipY }; runs + PARKOUR_HAND_SPAN <= reach;) {
+    const tt = [-at.normal[2] * side, 0, at.normal[0] * side];
+    const g = senseGrip(collider, [at.face[0] + tt[0] * PARKOUR_HAND_SPAN, at.lipY, at.face[2] + tt[2] * PARKOUR_HAND_SPAN], at.normal, at.lipY, opts, false);
+    if (!g || g.normal[0] * at.normal[0] + g.normal[2] * at.normal[2] < PARKOUR_FACE_FOLLOW - PARKOUR_RAY_SCATTER) break;
+    run.push(g);
+    at = { face: g.face, normal: g.normal, lipY: g.lipY };
+    runs += PARKOUR_HAND_SPAN;
+  }
+  const onRun = (g) => run.some((r) => Math.hypot(r.face[0] - g.face[0], r.face[2] - g.face[2]) < PARKOUR_HAND_SPAN && Math.abs(r.lipY - g.lipY) < PARKOUR_LIP_FOLLOW);
   for (let s = 2 * PARKOUR_HAND_SPAN; s <= reach + 1e-9; s += PARKOUR_LEAP_SCAN) {
     const face = [held.face[0] + t[0] * s, held.lipY, held.face[2] + t[2] * s];
     for (const dy of PARKOUR_LEAP_HEIGHTS) {
       if (Math.abs(dy) > reach - s + 0.3) continue;   // the reach is the leap's whole way, along and up or down
       if (Math.abs(dy) < PARKOUR_LIP_FOLLOW && s <= runs + PARKOUR_HAND_SPAN) continue;
       const g = tryGrip(face, held.lipY + dy, PARKOUR_LEAP_ARC);
-      if (g && !(Math.abs(g.lipY - held.lipY) < PARKOUR_LIP_FOLLOW && s <= runs + PARKOUR_HAND_SPAN)) return g;
+      if (g && !(Math.abs(g.lipY - held.lipY) < PARKOUR_LIP_FOLLOW && s <= runs + PARKOUR_HAND_SPAN) && !onRun(g)) return g;
     }
   }
   return null;
@@ -1258,7 +1278,7 @@ export function senseWallRun(collider, feet, dir, height, reach, opts) {
   }
   const to = grip ? [...grip.feet] : [up[0], top, up[2]];
   if (to[1] <= feet[1] + 0.2) return null;
-  return pathClear(collider, path(feet, up, to, 0.25, 0), stand) ? { up, to, grip, normal: n } : null;
+  return pathClear(collider, path(feet, up, to, 0.25, 0), stand) ? { up, to, grip, normal: n, key: hit.key ?? null } : null;   // AUDIT CLIMB-ARC L11: the face's own key - a run with no lip rides its hull too
 }
 
 /** CLIMB3: the wall run's move - in to the wall and up it at PARKOUR_WALLRUN_SPEED; it ends in the hang at the lip it
@@ -1276,7 +1296,7 @@ export function planWallRun(feet, run) {
     exit: null,
     hang: run.grip ? { normal: [...run.grip.normal], lipY: run.grip.lipY } : null,
     wall: run.grip ? null : { normal: [...run.normal] },
-    key: run.grip?.key ?? null,
+    key: run.grip?.key ?? run.key ?? null,
     t: 0,
   };
 }

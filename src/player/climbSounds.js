@@ -126,7 +126,8 @@ export function moveCues(e, from) {
   /** @type {Array<[number, string|null, number, number, number]>} */
   const cues = [];
   switch (e.kind) {
-    case 'catch': {
+    case 'catch':
+    case 'reach': {   // AUDIT CLIMB-ARC nit: a reach round a cornice takes its lip as a catch does - and dips the eye as one, so it sounds as one
       const speed = e.speed ?? 0;
       cues.push([0, 'catch', Math.min(C.CATCH_MAX, C.CATCH_BASE + C.CATCH_PER_SPEED * speed), 1, speed > C.HARD_CATCH_SPEED ? 0.5 : 0]);
       break;
@@ -259,7 +260,7 @@ export class ClimbSounds {
       else this._flush(1, m);
     }
     // the hold's rhythm: hands and boots as the body moves on the wall
-    const p = m.pos;
+    const p = m.climbTrackPos?.() ?? m.pos;   // AUDIT CLIMB-ARC F3/F8: the frame's own way, never a carry's
     let dx = 0, dy = 0, dz = 0;
     if (this.prev && p && m.onWall && !live) { dx = p[0] - this.prev[0]; dy = p[1] - this.prev[1]; dz = p[2] - this.prev[2]; }
     this.prev = p && (m.onWall || live) ? [p[0], p[1], p[2]] : null;

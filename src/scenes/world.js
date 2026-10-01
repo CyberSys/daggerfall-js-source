@@ -9691,6 +9691,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // the sway does not ride a fast travel, a teleport or a load's
     // landing to the new place.
     cameraRecoiler.reset();
+    climbFeel.reset();   // AUDIT CLIMB-ARC F6: no climb's turn or cue rides a teleport
     dwTeleported(performance.now() / 1000);   // DW-D: OnTeleportToCoordinates' grace
     if (modEvent !== 'load') navalStow();   // KEEP-PLUNDER: a jump's sea stowed first - never a load's
     csaOnTeleport();   // CSA-F: OnTeleportToCoordinates - the waves, a tenth of a second on
@@ -11046,6 +11047,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // CameraRecoiler's SaveLoadManager_OnStartLoad (:185-191): the
       // incoming character does not inherit the old one's reel.
       cameraRecoiler.reset();
+      climbFeel.reset();   // AUDIT CLIMB-ARC F6: nor the old climb's turn and cues a load
       resetVitalsDetector();   // BLOOD AUDIT 5: nor the difference between the two healths as a blow (VitalsChangeDetector.cs:139-158)
       player.stopAutorun();   // AUDIT 27h S2: nor the old one's autorun latch - F11 off a death screen came back running at the sea
       dwLoadStarted();   // DW-D: DeepWaterRuntime.OnStartLoad (SaveLoadManager raises it once a load is under way) - no swim hand until OnLoad
@@ -22808,7 +22810,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // cumulative). The player does not move; only the camera dies.
         if (townTalk.overlay instanceof DeathScreen) cam.pos[1] -= townTalk.overlay.drop;
         if (townTalk.overlay instanceof DeathScreen) townTalk.overlay.tiltView(cam);   // DEATH3: the enhanced fall looks up at the sky
-        climbFeel.frame(dt);   // CLIMB4: the climb's camera, off the frame's motor
+        climbFeel.frame(dt, _overlayHeld || _seasonHeld);   // CLIMB4: the climb's camera, off the frame's motor - AUDIT CLIMB-ARC F2/F4: held while the motor is
         // A8 - POINTER PARITY, THE FLAG AT THIS LINE RETIRED. Mouse0 is
         // DFU's ActivateCenterObject: the readied spell fires on its
         // PRESS (EntityEffectManager.cs:250) and the world activation
@@ -23577,7 +23579,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (deepWaters) { _dwNowMs = now; beginDeepWatersFrame(minute); }   // DW-C: the look and the distance fog - a frame's, so after the clear of both
     // MW-D24: the player's own body, in third person only.
     renderer.setCloudShadow(sky?.cloudShadow ?? null);   // VC4: the frame's deck, for the body and everything before the pixel loop
-    mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.bodyFeetAt(), yaw: player.bodyYawFor(cam.yaw), face: tvFace });   // DISC18: the body at the capsule's own feet, not the camera's smoothed ones
+    mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.bodyFeetAt(), yaw: player.bodyYawFor(cam.yaw), viewYaw: cam.yaw, face: tvFace });   // DISC18: the body at the capsule's own feet, not the camera's smoothed ones
     drawPeerBodies(proj, view, mwv.eye, tvf ? tvFace : null);   // MWBODY1: the others' bodies, the same pass; OW-PEERS: grown under the Overworld
     mwViewDrawWagon(renderer);   // EOTB-IL: the cart, when the transport is the cart
     gatePool?.draw(renderer);   // WB2: the Oblivion Gate's stone

@@ -53,14 +53,19 @@ export function peerClimbCues(was, now) {
   return [['grab', C.GRAB * 0.75]];   // a hang to a face, or back
 }
 
+/** AUDIT CLIMB-ARC N6: the least time (ms) between one peer's climb cues, and between its hands' and boots' sounds. */
+export const PEER_CUE_MS = 150;
+export const PEER_RHYTHM_MS = 100;
+
 export class PeerClimbSounds {
   /**
    * @param {{ audio?: any, profile?: any, on?: () => boolean, rand?: () => number, install?: boolean }} [opts]
    *   `audio` the bus (play3d); `profile` the peers' falloff (remotePlayers.js PEER_SOUND_PROFILE); `on` the port's own
    *   sounds' switch; `rand` the variety's dice (the pins' seam); `install` false keeps the clips unloaded.
    */
-  constructor({ audio = null, profile = null, on = enhancedSoundsOn, rand = Math.random, install = true } = {}) {
+  constructor({ audio = null, profile = null, on = enhancedSoundsOn, rand = Math.random, install = true, now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now()) } = {}) {
     this.audio = audio;
+    this.now = now;   // AUDIT CLIMB-ARC N6: the floors' clock (ms)
     this.profile = profile;
     this.on = on;
     this.rand = rand;
@@ -77,7 +82,18 @@ export class PeerClimbSounds {
     if (!s) { this.peers.set(id, { cl, at: at ? [at[0], at[1], at[2]] : null, climb: 0, shimmy: 0 }); return; }   // first seen: an old climb is not replayed
     const on = this.on() && !!this.audio?.play3d;
     if (on && this.install) installClimbSounds(this.audio);
-    if (on && heard && at) for (const [sound, vol] of peerClimbCues(s.cl, cl)) this._play(sound, vol, 1, at);
+    // AUDIT CLIMB-ARC N6: A FLOOR UNDER EVERY PEER'S SOUNDS. The wire carries the climb's state, and a pose stream that
+    // flips it every pose (or swings a metre along a lip each one) asked a one-shot of every drawn frame - 120 a second
+    // from one hostile peer, each a source, a gain and a panner. A cue waits PEER_CUE_MS after the last, a hand or a boot
+    // PEER_RHYTHM_MS: an honest climber's is far slower (a reach every 0.45 m, a cue a move)
+    const t = this.now();
+    const cueOk = t - (s.cueAt ?? -Infinity) >= PEER_CUE_MS;
+    if (on && heard && at && cueOk) {
+      const cues = peerClimbCues(s.cl, cl);
+      for (const [sound, vol] of cues) this._play(sound, vol, 1, at);
+      if (cues.length) s.cueAt = t;
+    }
+    const rhythmOk = () => { if (t - (s.rhythmAt ?? -Infinity) < PEER_RHYTHM_MS) return false; s.rhythmAt = t; return true; };
     // the rhythm: a hand at every reach up a face (a boot half a reach on), a hand every span along a lip
     if (cl !== s.cl) { s.climb = 0; s.shimmy = 0; }
     if (at && s.at && cl === s.cl && (cl === PEER_CLIMB.FACE || cl === PEER_CLIMB.HANG)) {
@@ -87,12 +103,12 @@ export class PeerClimbSounds {
         if (cl === PEER_CLIMB.FACE) {
           const was = s.climb;
           s.climb += d / FEEL.REACH;
-          if (on && heard && Math.floor(s.climb) > Math.floor(was)) this._play('step', CLIMB_SOUND.STEP, 1, at);
-          if (on && heard && Math.floor(s.climb - 0.5) > Math.floor(was - 0.5)) this._play('step', CLIMB_SOUND.FOOT, CLIMB_SOUND.FOOT_PITCH, at);
+          if (on && heard && Math.floor(s.climb) > Math.floor(was) && rhythmOk()) this._play('step', CLIMB_SOUND.STEP, 1, at);
+          if (on && heard && Math.floor(s.climb - 0.5) > Math.floor(was - 0.5) && rhythmOk()) this._play('step', CLIMB_SOUND.FOOT, CLIMB_SOUND.FOOT_PITCH, at);
         } else {
           const was = s.shimmy;
           s.shimmy += d / FEEL.SHIMMY_SPAN;
-          if (on && heard && Math.floor(s.shimmy) > Math.floor(was)) this._play('step', CLIMB_SOUND.SHIMMY, CLIMB_SOUND.SHIMMY_PITCH, at);
+          if (on && heard && Math.floor(s.shimmy) > Math.floor(was) && rhythmOk()) this._play('step', CLIMB_SOUND.SHIMMY, CLIMB_SOUND.SHIMMY_PITCH, at);
         }
       }
     }

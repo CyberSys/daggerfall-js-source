@@ -1597,7 +1597,9 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
       // a bow, and only while the arm is actually animating the shot.
       // The rule's own reason was the hit frame - it never argued the
       // arrow should leave before the string does.
-      const evs = playerWeapon.update(dt);
+      // AUDIT CLIMB-ARC F7: WeaponManager.Update's climbing return (:236-240) skips the hit frame too - a swing begun before
+      // the hands took the wall steps on (the picture is lowered with it) but lands nothing and sounds nothing
+      const evs = _climbing ? (playerWeapon.update(dt), []) : playerWeapon.update(dt);
       if (playerWeapon.machine.isBow && evs.includes('done')) _bowReleaseHidden = true;   // ARROW2: FPSWeapon.cs:529-531
       // AUDIT-THUNDERLOCK F8: THE WEAPON'S OWN VOICE, in the one place
       // all four hosts share. The machine emits `bowSound` for a bow

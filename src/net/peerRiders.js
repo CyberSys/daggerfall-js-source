@@ -43,7 +43,7 @@ import { peerBodyYaw, peerMoving } from './peerClimb.js';   // CLIMB5: a walker 
 export const rideTable = (mv) => (mv === 2 ? 'GallopHorse' : mv === 1 ? 'MoveHorse' : 'IdleHorse');
 /** PR-WW1: the loop table a pose in beast form shows - EOTB's own chooseTable, transformed first, off the pose's move
  *  bit and drawn flag (the claws up at a stand are IdleMeleeLycan; a beast that moves is MoveLycan either way). */
-export const beastTable = (pose) => chooseTable({ transformed: true, riding: !!pose?.rd, stopped: !pose?.mv, sheathed: !pose?.wd });
+export const beastTable = (pose) => chooseTable({ transformed: true, riding: !!pose?.rd, stopped: !peerMoving(pose), sheathed: !pose?.wd });   // AUDIT CLIMB-ARC N2: a beast on the wall walks no stride
 /** PR-WW1: the claw a beast's swing plays (eotbBody playLycanAttack's clip: its frames forward at LYCAN_TICK). */
 export const CLAW_TABLE = 'AttackMeleeLycan';
 /** AUDIT RIDE: a sprite whose fetch or decode failed is asked for again after this long (a long-open tab across a
@@ -246,11 +246,12 @@ export function createPeerRiders({ renderer = null, urlFor = eotbSpriteUrl, deco
     if (r.claw) r.frame = r.claw.i;
     // EOTB's frame time: the saddle's clock for a rider (a beast in the saddle too, as LoopIdleBillboard's
     // `riding` reads it), and PR-WW1: a beast running on foot at half the frame (speedMod, the local body's term)
-    else if (n > 1) { r.clock += Math.max(0, dt); const ft = frameTime(riding) * (beast && !riding ? speedMod({ running: pose.mv === 2 }) : 1); while (r.clock >= ft) { r.clock -= ft; r.frame = (r.frame + 1) % n; } }
+    else if (n > 1) { r.clock += Math.max(0, dt); const ft = frameTime(riding) * (beast && !riding ? speedMod({ running: pose.mv === 2 && peerMoving(pose) }) : 1); while (r.clock >= ft) { r.clock -= ft; r.frame = (r.frame + 1) % n; } }
     const feet = toScene(pose);
     // PR-WW1: the form picks the lycan archive (tableArchive: 112380, or 112381 for the wereboar); a mounted table
     // still reads the rider's own set
-    const s = spriteFor(table, viewOf(pose.yaw, feet, eye), r.frame, { onHorse: pose.rv | 0, lycanthropyType: beast });
+    const s = spriteFor(table, viewOf(peerBodyYaw(pose), feet, eye), r.frame,   // AUDIT CLIMB-ARC N2: a beast on the wall faces it
+      { onHorse: pose.rv | 0, lycanthropyType: beast });
     if (!s) return;
     // PR-WW1: the transformed forms take the saddle's size (sizeMod - one constant serves both)
     layer.place(r, s, feet, right, beast ? { transformed: true } : { riding: true }, hGrow ? hGrow(feet) : 1);   // OW-PEERS

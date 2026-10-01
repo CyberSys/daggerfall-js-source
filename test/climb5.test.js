@@ -162,7 +162,8 @@ test('CLIMB5 C4: the others draw a climber facing the wall, off the ground, neve
 function peerEar({ on = () => true, rand = () => 0.5 } = {}) {
   const shots = [];
   const audio = { play3d: (k, at, v, opts) => shots.push([String(k).replace(/^climb:/, '').replace(/-\d$/, ''), v, opts.pitch, at, opts]) };
-  return { shots, law: new PeerClimbSounds({ audio, profile: PEER_SOUND_PROFILE, on, rand, install: false }) };
+  let t = 0;   // PIN MOVED (AUDIT CLIMB-ARC N6): a clock a second on per frame - the floors never bite an honest climb here
+  return { shots, law: new PeerClimbSounds({ audio, profile: PEER_SOUND_PROFILE, on, rand, install: false, now: () => (t += 1000) }) };
 }
 
 test('CLIMB5 C5: the others HEAR the climb, at the climber - a catch, the hands onto a face, the haul over a lip, the hands taking a hold, letting go; a hand at every reach up a face (a boot half a reach on) and every span along a lip; nothing for an old climb first seen, a snap, a peer out of earshot, or with the port\'s own sounds off (mutants: the cue table, the rhythm, the first-sight replay)', () => {
@@ -252,8 +253,9 @@ test('CLIMB5 C6: every host says the climb and draws its own body at the climb\'
   assert.equal(n, 5, 'all five body draws');
   const rp = rd('src/net/remotePlayers.js');
   assert.match(rp, /this\._syncFootsteps\(peer, toScene, eye\);\s*\n\s*this\._syncClimbSound\(peer, toScene, eye\);/, 'heard beside the stride');
-  assert.match(rp, /_syncClimbSound\(peer, toScene, eye\) \{\s*\n\s*if \(!this\.deps\?\.audio\?\.play3d \|\| getPref\('peerFootsteps'\) === false\) return;/, 'behind the peers\' sounds\' own switch');
-  assert.match(rp, /this\._climbSounds\.update\(peer\.id, peer\.shown, f, peerInEarshot\(f, eye\)\);/, 'past the peers\' far edge nothing is made (the earshot, as the stride\'s)');
+  // PIN MOVED (AUDIT CLIMB-ARC N5): the switch silences the sound, never the law's knowing - off, the law is still told
+  assert.match(rp, /_syncClimbSound\(peer, toScene, eye\) \{\s*\n\s*if \(!this\.deps\?\.audio\?\.play3d\) return;[\s\S]{0,400}?this\._climbSounds\.update\(peer\.id, peer\.shown, f, getPref\('peerFootsteps'\) !== false && peerInEarshot\(f, eye\)\);/, 'behind the peers\' sounds\' own switch');
+  assert.match(rp, /this\._climbSounds\.update\(peer\.id, peer\.shown, f, [^\n]*&& peerInEarshot\(f, eye\)\);/, 'past the peers\' far edge nothing is made (the earshot, as the stride\'s)');
   assert.match(rp, /if \(!seen\.has\(id\)\) this\._climbSounds\.forget\(id\);/, 'a peer gone is forgotten');
   assert.match(rp, /this\._climbSounds\.rebase\(\);/, 'and the recentre is no climb');
 });

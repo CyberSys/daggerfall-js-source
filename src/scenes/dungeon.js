@@ -190,7 +190,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
   // menu and the boot ?load arm all reach it), so the hook rides it.
   const _ctxQuickLoad = ctx.quickLoad;
   if (typeof _ctxQuickLoad === 'function') {
-    ctx.quickLoad = (...args) => { cameraRecoiler.reset(); return _ctxQuickLoad.apply(ctx, args); };
+    ctx.quickLoad = (...args) => { cameraRecoiler.reset(); climbFeel.reset(); return _ctxQuickLoad.apply(ctx, args); };   // AUDIT CLIMB-ARC F6: and the climb feel
   }
   const headBobber = new HeadBobber();   // AUDIT 28 W10: HeadBobbing
   const climbFeel = createClimbFeelHost(() => player, cam, lookFilter, { audio, strain: (r) => playerClimbStrain(playerEntity, r) });   // CLIMB4: the climb's camera and sounds (world.js's law)
@@ -1065,6 +1065,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
       : { eye: cam.pos, thirdPerson: false };
     const target = [mwv.eye[0] + fwd[0], mwv.eye[1] + fwd[1], mwv.eye[2] + fwd[2]];
     const view = betterAmbience.view(lookAt(mwv.eye, target, [0, 1, 0]));   // BA1: the shaker sits between the follower and the camera
+    const aimView = view.slice();   // AUDIT CLIMB-ARC F10: the view the player aims with, before the climb's feel
     climbFeel.view(view, walkMode && !mwv.thirdPerson);   // CLIMB4: the climb's pitch, roll and eye - first person, never the fly-cam
     _lastProj = proj; _lastView = view;   // TI1: the tap ray unprojects through the frame the finger saw
     if (touch) {   // TI1: the lock-on dot over the foe's chest, hidden behind the camera
@@ -1098,7 +1099,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
     renderer.everyLightCasts();   // LA-SHADOW3: the level is drawn whole below - every torch keeps a shadow map (worldModes.js's dungeon arm)
     renderer.setWorldViewport(worldViewportRect(canvas.clientWidth, canvas.clientHeight));   // E5: ViewportChanger.Update, every frame
     renderer.beginFrame(proj, view, INTERIOR_LIGHT_DIR, WORLD_FRAME);   // AUDIT-EL F5: a WORLD frame - the lane replays its records for this one
-    if (walkMode) mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.bodyFeetAt(), yaw: player.bodyYawFor(cam.yaw) });   // MW-D24; DISC18: the body at the capsule's own feet, not the camera's smoothed ones
+    if (walkMode) mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.bodyFeetAt(), yaw: player.bodyYawFor(cam.yaw), viewYaw: cam.yaw });   // MW-D24; DISC18: the body at the capsule's own feet, not the camera's smoothed ones
     if (ctx.staticBatch) renderer.drawMesh(ctx.staticBatch, BATCH_IDENTITY, null);   // PERF5: the level's static models, one call per texture (keys resolved in the merge)
     for (const d of ctx.drawList) if (!d._batched) renderer.drawMesh(d.mesh, d.matrix, ctx.texRemap);
     for (const d of ctx.dynamicDraws) renderer.drawMesh(d.gpu, d.object.matrix, ctx.texRemap);
@@ -1142,7 +1143,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
       requestAnimationFrame(frame);
       return;   // U2b/U3: hold gameplay, keep the loop (AUDIT 18 F5: the overlay's own clock still runs - DFU's RestWindow.Update ticks on realtime under timeScale 0)
     }
-    ctx.drawFoes(dt, canvas, proj, view, cam.pos, player.pos, anyMove(moveHeld(keys)), player.height, !!player.isSneaking, motionBagOf(player), player.bobOffset ? player.bobOffset[1] : 0, !!player.crouching, player.feetAt(), climbRigInput(player, cam.yaw));   // DISC13-A: the render feet, the candle's   // CLIMB6: the climb's snapshot   // ROAD-H H1b: PlayerMotor.IsCrouching rides in beside the live height - the archer's 0.05 dip (DaggerfallMissile.cs:583-585) is the latched STATE, not a 0.9 capsule   // moveHeld: the collision-trigger input gate (verbatim)   // internally gated (S4b: missiles fire without foes)   // C8 E1+E2: rigged class enemies, classic senses + pursuit
+    ctx.drawFoes(dt, canvas, proj, view, cam.pos, player.pos, anyMove(moveHeld(keys)), player.height, !!player.isSneaking, motionBagOf(player), player.bobOffset ? player.bobOffset[1] : 0, !!player.crouching, player.feetAt(), climbRigInput(player, cam.yaw), aimView);   // DISC13-A: the render feet, the candle's   // CLIMB6: the climb's snapshot   // ROAD-H H1b: PlayerMotor.IsCrouching rides in beside the live height - the archer's 0.05 dip (DaggerfallMissile.cs:583-585) is the latched STATE, not a 0.9 capsule   // moveHeld: the collision-trigger input gate (verbatim)   // internally gated (S4b: missiles fire without foes)   // C8 E1+E2: rigged class enemies, classic senses + pursuit
     // WATER-D1: the water plane is drawn INSIDE drawFoes now, before the
     // weapon overlay - a draw here landed after the lane's resolve and
     // showed through every wall (dungeonContext.js's note at the draw).

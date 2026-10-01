@@ -900,9 +900,11 @@ export class RemotePlayers {
   /** CLIMB5: a peer's climb, heard at them (net/peerClimb.js) - its changes and its rhythm, within earshot, behind the
    *  peers' own sounds' switch as their stride is. */
   _syncClimbSound(peer, toScene, eye) {
-    if (!this.deps?.audio?.play3d || getPref('peerFootsteps') === false) return;
+    if (!this.deps?.audio?.play3d) return;
     const f = toScene(peer.shown);
-    this._climbSounds.update(peer.id, peer.shown, f, peerInEarshot(f, eye));
+    // AUDIT CLIMB-ARC N5: the switch silences, it does not blind - the law is told every change with the sound off, so
+    // switching it back on plays no catch nor let-go that happened while it was off
+    this._climbSounds.update(peer.id, peer.shown, f, getPref('peerFootsteps') !== false && peerInEarshot(f, eye));
   }
 
   /** PEER-BUZZ: the floating origin moved - every peer's stride anchor re-seeds on its next frame, as the local

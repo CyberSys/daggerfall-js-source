@@ -200,16 +200,16 @@ test('CLIMB4 F8: every host that draws a first-person view frames the feel after
   const read = (f) => readFileSync(new URL(`../src/scenes/${f}.js`, import.meta.url), 'utf8');
   const w = read('world');
   assert.match(w, /const climbFeel = createClimbFeelHost\(\(\) => player, cam, lookFilter[,)]/, 'world: one per body, the look filter its turn\'s');
-  assert.ok(w.indexOf('climbFeel.frame(dt);') > w.lastIndexOf('cam.pos = player.eyeAt();', w.indexOf('climbFeel.frame(dt);')), 'world: framed after the eye');
+  assert.ok(w.indexOf('climbFeel.frame(dt') > w.lastIndexOf('cam.pos = player.eyeAt();', w.indexOf('climbFeel.frame(dt')), 'world: framed after the eye');
   assert.match(w, /const view = betterAmbience\.view\(lookAt\(mwv\.eye[^\n]*\n\s*climbFeel\.view\(view, !tvf && !mwv\.thirdPerson\);/, 'world: the view half, first person, never the travel view');
   assert.match(w, /perspective\(fieldOfView\(\) \+ climbFeel\.fovRad\(\), worldAspect/, 'world: the kick on the lens');
   assert.match(w, /sky\.draw\([^;]*cam\.pitch \+ climbFeel\.pitch\(\), fieldOfView\(\) \+ climbFeel\.fovRad\(\)/, 'world: the sky takes the pitch and the kick');
   assert.match(w, /fovY: fieldOfView\(\) \+ climbFeel\.fovRad\(\)/, 'world: so does the far ring');
   assert.match(w, /createWorldModes\(\{\n\s*climbFeel,/, 'world: the modal frames take the one handle');
   const wm = read('worldModes');
-  assert.match(wm, /host\.climbFeel\?\.frame\(dt\);/, 'worldModes: framed');
-  assert.ok(wm.indexOf('host.climbFeel?.frame(dt);') > wm.indexOf('cam.pos = player.eyeAt();   // EV1: the interpolated render eye\n    // DC1'), 'worldModes: after its eye');
-  assert.match(wm, /const view = betterAmbience\.view\(lookAt\(mwv\.eye[^\n]*\n\s*host\.climbFeel\?\.view\(view, !decorTool\.flying\(\) && !mwv\.thirdPerson\);/, 'worldModes: the view half, never the decorator\'s free camera');
+  assert.match(wm, /host\.climbFeel\?\.frame\(dt, overlayHeld\);/, 'worldModes: framed (PIN MOVED, AUDIT CLIMB-ARC F2: held while the motor is)');
+  assert.ok(wm.indexOf('host.climbFeel?.frame(dt') > wm.indexOf('cam.pos = player.eyeAt();   // EV1: the interpolated render eye\n    // DC1'), 'worldModes: after its eye');
+  assert.match(wm, /const view = betterAmbience\.view\(lookAt\(mwv\.eye[^\n]*\n\s*const aimView = view\.slice\(\);[^\n]*\n\s*host\.climbFeel\?\.view\(view, !decorTool\.flying\(\) && !mwv\.thirdPerson\);/, 'worldModes: the view half (PIN MOVED, AUDIT CLIMB-ARC F10: the aim kept before it), never the decorator\'s free camera');
   assert.match(wm, /perspective\(fieldOfView\(\) \+ \(host\.climbFeel\?\.fovRad\(\) \?\? 0\)/, 'worldModes: the kick');
   const ex = read('exterior');
   assert.match(ex, /const climbFeel = createClimbFeelHost\(\(\) => player, cam, lookFilter[,)]/);
@@ -221,7 +221,7 @@ test('CLIMB4 F8: every host that draws a first-person view frames the feel after
   assert.match(dg, /climbFeel\.view\(view, walkMode && !mwv\.thirdPerson\);/, 'dungeon: first person, never the fly-cam');
   assert.match(dg, /perspective\(fieldOfView\(\) \+ climbFeel\.fovRad\(\)/);
   for (const [f, s] of [['world', w], ['exterior', ex], ['dungeon', dg]]) {
-    assert.ok(s.indexOf('climbFeel.frame(dt);') > s.lastIndexOf('cam.pos = player.eyeAt();', s.indexOf('climbFeel.frame(dt);')), `${f}: framed after the eye`);
+    assert.ok(s.indexOf('climbFeel.frame(dt') > s.lastIndexOf('cam.pos = player.eyeAt();', s.indexOf('climbFeel.frame(dt')), `${f}: framed after the eye`);
   }
 });
 

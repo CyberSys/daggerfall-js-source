@@ -308,6 +308,7 @@ import {
   senseLeapHold, planLeap, senseWallRun, planWallRun, senseDrop, ejectLaunch, runLeapLaunch, wallRunHeight,
   leapSideReach, leapUpReach, PARKOUR_LEAP_GRIP, PARKOUR_LEAP_REACH, PARKOUR_COYOTE_S, PARKOUR_RUNLEAP_EDGE, PARKOUR_LIP_FOLLOW, PARKOUR_UP_GAP,
   PARKOUR_RUN_SHARE,   // AUDIT CLIMB-ARC L10: running at pace
+  PARKOUR_VAULT_MAX, PARKOUR_VAULT_CLEAR,   // AUDIT CLIMB-ARC D3: the parapet too tall to vault
 } from './parkour.js';
 // A6: PlayerMoveScanner is a component on the player object in DFU
 // (PlayerMotor.Start :265 GetComponent), so the motor owns one. Same
@@ -463,6 +464,7 @@ export class PlayerMotor {
     this._pkSaid = false;        // AUDIT CLIMB1 F10: a refused climb's line said once a press
     this._pkEdgeSaid = false;    // CLIMB-DOWN: a refused lower's, once a walk to the edge
     this._pkLeap = null;         // CLIMB3: a leap's flight ({ dir }) - its catch looks that way and reaches further
+    this._climbCarried = [0, 0, 0];   // AUDIT CLIMB-ARC F8: what a moving hold (a deck, a lift) carried the body, summed
     this._pkOffEdge = null;      // CLIMB3: seconds since running off an edge without a jump (the late press), or null
     this._pkQuiet = 0;           // steps the air catch and the top-out rest after a refused lip (PARKOUR_QUIET_STEPS)
     this._wall = null;           // CLIMB2: on the wall - { mode: 'hang' | 'climb', normal, lipY, key, carrier, warned }
@@ -806,6 +808,7 @@ export class PlayerMotor {
    *  eye with it, and a fall's start too, so a deck's rise is no fall. No motion state is touched: the carry is the
    *  deck's, and the body's own walk goes on in the world from where it stands. */
   carryBy(dx, dy, dz) {
+    this._climbCarried[0] += dx; this._climbCarried[1] += dy; this._climbCarried[2] += dz;   // AUDIT CLIMB-ARC F8
     if (this._pkMove) offsetMove(this._pkMove, [dx, dy, dz]);   // AUDIT CLIMB1 F5: a move on the deck is carried with it
     if (this._wall?.lipY != null) this._wall.lipY += dy;   // CLIMB2: and a hold on it
     this._reanchor();   // CLIMB2: the deck's motion is carried here - the step's own carry must not take it again
@@ -1642,6 +1645,13 @@ export class PlayerMotor {
   get onWall() { return !!this._wall; }
   /** CLIMB4: the move in flight (read-only: its kind, its clock `t`), or null - the feel's and the sounds'. */
   get climbMove() { return this._pkMove; }
+  /** AUDIT CLIMB-ARC F3/F8: the body's OWN way on the wall, a frame at a time: the render-frame feet (bodyFeetAt - the
+   *  60 Hz physics point stood still on every other frame of a fast screen, and the rhythm jittered) less what a moving
+   *  hold carried it (a lift's rise is no climb). The feel's, the sounds' and the body's rhythm read its change. */
+  climbTrackPos() {
+    const f = this.bodyFeetAt();
+    return [f[0] - this._climbCarried[0], f[1] - this._climbCarried[1], f[2] - this._climbCarried[2]];
+  }
   /** CLIMB4: the held wall's normal (out of it, level), or null. */
   get wallNormal() { return this._wall?.normal ?? null; }
   /** CLIMB6: the hold the hands have ({ mode, lipY } - a free climb's lipY null), or null: the body's hands go on it. */
@@ -1794,6 +1804,13 @@ export class PlayerMotor {
       if (!move && !air) {
         const oh = senseOverHang(this.collider, this.pos, ledge, geo);
         if (oh) move = planOverHang(this.pos, ledge, oh, skill);
+        // AUDIT CLIMB-ARC D3 (Forward and Jump at it): a parapet too tall to vault over a drop too far for the clamber's step (1.5 m) and too
+        // short for a hang (a floor under the hang's feet) walled the body in: over it, then, as a clamber onto the floor
+        // past it - a drop no worse than a hang's let-go (PARKOUR_HANG_DROP and its clearance), never one that hurts
+        if (!move && fwd && ledge.rise > PARKOUR_VAULT_MAX) {
+          const over = senseOver(this.collider, this.pos, ledge, geo, PARKOUR_HANG_DROP + PARKOUR_VAULT_CLEAR);
+          if (over && over.floorY < ledge.lipY - PARKOUR_OVER_DROP) move = planClamber(this.pos, ledge, over, skill);
+        }
       }
     }
     if (!move && air && fwd && !tapOnly && this._pkGrab(look, pk)) return true;
@@ -2005,7 +2022,11 @@ export class PlayerMotor {
     if (this.climb) this.climb.wasClimbing = true;
     if (w.carrier) {
       const now = this.collider.bucketPose(w.key);
-      if (now) { carryHold(this.pos, w, w.carrier, now); w.carrier = now; }
+      if (now) {
+        const x0 = this.pos[0], y0 = this.pos[1], z0 = this.pos[2];
+        carryHold(this.pos, w, w.carrier, now); w.carrier = now;
+        this._climbCarried[0] += this.pos[0] - x0; this._climbCarried[1] += this.pos[1] - y0; this._climbCarried[2] += this.pos[2] - z0;
+      }
     }
     const refusal = parkourRefusal();
     if (refusal || this._pkDropReq) {
@@ -2159,8 +2180,8 @@ export class PlayerMotor {
   }
 
   /** CLIMB4: a climb event for the frame - what the feel (the camera) and the sounds read: 'hold' (the hands take the
-   *  wall), 'release' (they let go), 'move' (a move begins: its kind, time and rise), 'impact' (a catch's: the speed the
-   *  body came to the lip at), 'corner' (the turn round it, radians), 'launch' (a leap's flight: its way), 'gripLow'.
+   *  wall), 'release' (they let go), 'move' (a move begins: its kind, time, rise, split, the speed the body came at and
+   *  a corner's turn), 'launch' (a leap's flight: its way), 'gripLow' (AUDIT CLIMB-ARC nit: the five there are).
    *  Cleared each update: a host reads the frame's after it. */
   _pkEmit(type, data = null) {
     this.climbEvents.push(data ? { type, ...data } : { type });

@@ -8137,7 +8137,7 @@ export function createWorldModes(host) {
     if (interiorOverlay instanceof DeathScreen) interiorOverlay.tiltView(cam);
     if (mode === 'dungeon') dungeonCtx?.deathTilt?.(cam);
     if (mode === 'interior') decorTool.cameraOverride(cam);   // DECOR1d: the free camera's eye, while a piece is placed
-    host.climbFeel?.frame(dt);   // CLIMB4: the climb's camera, off this frame's motor (the world host's handle - one body)
+    host.climbFeel?.frame(dt, overlayHeld);   // CLIMB4: the climb's camera, off this frame's motor (the world host's handle - one body) - AUDIT CLIMB-ARC F2/F4: held while the motor is
     // A8 - POINTER PARITY, THE FLAG AT THIS LINE RETIRED. Mouse0 is
     // DFU's ActivateCenterObject: the readied spell fires on its
     // PRESS (EntityEffectManager.cs:250) and the world activation
@@ -8236,6 +8236,7 @@ export function createWorldModes(host) {
     });
     if (decorTool.flying()) mwv.eye = cam.pos;   // DECOR1d: the free camera looks from its own eye, never over the body's shoulder
     const view = betterAmbience.view(lookAt(mwv.eye, [mwv.eye[0] + fwd[0], mwv.eye[1] + fwd[1], mwv.eye[2] + fwd[2]], [0, 1, 0]));   // BA1: the shaker sits between the follower and the camera
+    const aimView = view.slice();   // AUDIT CLIMB-ARC F10: the view the player aims with, before the climb's feel
     host.climbFeel?.view(view, !decorTool.flying() && !mwv.thirdPerson);   // CLIMB4: the climb's pitch, roll and eye - first person, never the decorator's free camera
     host.reportFrame?.(proj, view);   // AUDIT 62 F16/F28: TI1's tap ray and lock dot ride the host's last frame, and only its EXTERIOR render wrote one
     const camRight = new Float32Array([Math.cos(cam.yaw), 0, -Math.sin(cam.yaw)]);
@@ -8325,7 +8326,7 @@ export function createWorldModes(host) {
       renderer.setClearColor(INTERIOR_CLEAR);   // REVIEW 2026-09-05 (PR #55 review): the world-hosted dungeon/interior frame is THIS one - the host's own setClearColor sits after its `modes.frame` return
       renderer.setWorldViewport(worldViewportRect(canvas.clientWidth, canvas.clientHeight));   // E5: ViewportChanger.Update, every frame
       renderer.beginFrame(proj, view, INTERIOR_LIGHT_DIR, WORLD_FRAME);   // AUDIT-EL F5: a WORLD frame - the lane replays its records for this one
-      mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.bodyFeetAt(), yaw: player.bodyYawFor(cam.yaw) });   // MW-D24; DISC18: the body at the capsule's own feet, not the camera's smoothed ones
+      mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.bodyFeetAt(), yaw: player.bodyYawFor(cam.yaw), viewYaw: cam.yaw });   // MW-D24; DISC18: the body at the capsule's own feet, not the camera's smoothed ones
       host.drawPeerBodies?.({ proj, view, eye: mwv.eye });   // MWBODY1: the others' bodies, after the player's own
       if (dungeonCtx.staticBatch) renderer.drawMesh(dungeonCtx.staticBatch, BATCH_IDENTITY, null);   // PERF5: the level's static models, one call per texture
       for (const d of dungeonCtx.drawList) if (!d._batched) renderer.drawMesh(d.mesh, d.matrix, dungeonCtx.texRemap);
@@ -8356,7 +8357,7 @@ export function createWorldModes(host) {
       // (AUDIT 64 F37's law). A refusal spoken as a window opened stood
       // over that window until it closed.
       if (dungeonCtx.uiOverlayActive) { dungeonCtx.hideHudText?.(); hideWorldPlaque(); dungeonCtx.tickOverlay(dt); host.drawPeerNames?.({ proj, view, eye: mwv.eye }); host.drawCompanionBars?.({ proj, view, eye: mwv.eye }); dungeonCtx.drawOverlay(canvas); return true; }   // U2b/U3: overlays gate the dungeon (AUDIT 18 F5: the overlay's own clock still runs)   // AUDIT-WH H4: and the plaque comes down on this line too - this return is ABOVE drawFoes, where the hover lives, so it hung frozen over every dungeon window showing a container's PRE-TAKE contents
-      dungeonCtx.drawFoes(dt, canvas, proj, view, cam.pos, player.pos, anyMove(moveHeld(keys)), player.height, !!player.isSneaking, motionBagOf(player), player.bobOffset ? player.bobOffset[1] : 0, !!player.crouching, player.feetAt(), climbRigInput(player, cam.yaw));   // DISC13-A: the render feet, the candle's   // CLIMB6: the climb's snapshot   // ROAD-H H1b: PlayerMotor.IsCrouching rides in beside the live height - the archer's 0.05 dip (DaggerfallMissile.cs:583-585) is the latched STATE, not a 0.9 capsule   // PX26 F4: the jump-state inputs the interior lane never sent - without them `grounded` read undefined, the rig thought the player was permanently airborne, and BOTH the movement selection and the jump play died in every interior   // moveHeld: the collision-trigger input gate (verbatim)   // C8 foes + S3b clock + S4b missiles - internally gated, must run foes or not (trap spells fire in empty dungeons)
+      dungeonCtx.drawFoes(dt, canvas, proj, view, cam.pos, player.pos, anyMove(moveHeld(keys)), player.height, !!player.isSneaking, motionBagOf(player), player.bobOffset ? player.bobOffset[1] : 0, !!player.crouching, player.feetAt(), climbRigInput(player, cam.yaw), aimView);   // DISC13-A: the render feet, the candle's   // CLIMB6: the climb's snapshot   // ROAD-H H1b: PlayerMotor.IsCrouching rides in beside the live height - the archer's 0.05 dip (DaggerfallMissile.cs:583-585) is the latched STATE, not a 0.9 capsule   // PX26 F4: the jump-state inputs the interior lane never sent - without them `grounded` read undefined, the rig thought the player was permanently airborne, and BOTH the movement selection and the jump play died in every interior   // moveHeld: the collision-trigger input gate (verbatim)   // C8 foes + S3b clock + S4b missiles - internally gated, must run foes or not (trap spells fire in empty dungeons)
       // WATER-D1: the water plane is drawn INSIDE drawFoes now, before the
       // weapon overlay - a draw here landed after the lane's resolve and
       // showed through every wall (dungeonContext.js's note at the draw).
@@ -8433,7 +8434,7 @@ export function createWorldModes(host) {
     renderer.setClearColor(INTERIOR_CLEAR);   // REVIEW 2026-09-05 (PR #55 review): the world-hosted dungeon/interior frame is THIS one - the host's own setClearColor sits after its `modes.frame` return
     renderer.setWorldViewport(worldViewportRect(canvas.clientWidth, canvas.clientHeight));   // E5: ViewportChanger.Update, every frame
     renderer.beginFrame(proj, view, INTERIOR_LIGHT_DIR, WORLD_FRAME);   // AUDIT-EL F5: a WORLD frame - the lane replays its records for this one
-    mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.bodyFeetAt(), yaw: player.bodyYawFor(cam.yaw) });   // MW-D24; DISC18: the body at the capsule's own feet, not the camera's smoothed ones
+    mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.bodyFeetAt(), yaw: player.bodyYawFor(cam.yaw), viewYaw: cam.yaw });   // MW-D24; DISC18: the body at the capsule's own feet, not the camera's smoothed ones
     host.drawPeerBodies?.({ proj, view, eye: mwv.eye });   // MWBODY1: the others' bodies, after the player's own
     if (interiorCtx.staticBatch) renderer.drawMesh(interiorCtx.staticBatch, BATCH_IDENTITY, null);   // PERF6: the room's static models, one call per texture
     for (const d of interiorCtx.drawList) if (!d._batched) renderer.drawMesh(d.mesh, d.matrix, interiorCtx.texRemap);

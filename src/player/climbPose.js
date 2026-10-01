@@ -182,7 +182,7 @@ export class ClimbPose {
     out.w = this.w;
     if (!on) return out;   // easing out: the last frame's targets, fading
     // the body's travel on the wall since the last frame (a teleport is none)
-    const feet = c.feet;
+    const feet = c.track ?? c.feet;   // the gait reads the body's own way, never a moving hold's carry
     let d = [0, 0, 0];
     if (this.prevFeet) d = sub(feet, this.prevFeet);
     if (Math.hypot(d[0], d[1], d[2]) > 1) d = [0, 0, 0];
@@ -695,6 +695,7 @@ export function climbRigInput(player, viewYaw) {
   const normal = player.wallNormal ?? (classic ? [-Math.sin(yaw), 0, -Math.cos(yaw)] : null);
   return {
     feet: [feet[0], feet[1], feet[2]], yaw,
+    track: typeof player.climbTrackPos === 'function' ? player.climbTrackPos() : null,   // the body's own way (not a carry's)
     floorGap: floorGapAt(player.collider, feet),
     mode: onWall ? (player.hanging ? 'hang' : 'climb') : (classic ? 'climb' : null),
     normal, lipY: player.climbHold?.lipY ?? null,

@@ -25,7 +25,7 @@
 //   - LEAPS: the launch kicks the field of view and the eject turns the view to face the way it flew; a side leap rolls
 //     toward its side, an up leap looks up; the WALL RUN looks up the wall.
 
-import { PARKOUR_GRIP_LOW } from './parkour.js';
+import { PARKOUR_GRIP_LOW, PARKOUR_HAND_SPAN } from './parkour.js';
 import { ClimbSounds } from './climbSounds.js';   // the ear's half, framed with the eye's
 
 /** The constants of the feel. Angles in degrees where named _DEG, distances in metres, rates per second. */
@@ -48,7 +48,7 @@ export const FEEL = Object.freeze({
   TREMBLE_Y: 0.004,
   TREMBLE_HZ: 9,
   // the shimmy
-  SHIMMY_SPAN: 0.25,      // a hand's reach along the lip (PARKOUR_HAND_SPAN)
+  SHIMMY_SPAN: PARKOUR_HAND_SPAN,   // a hand's reach along the lip (AUDIT CLIMB-ARC nit: the parkour law's own, not a copy)
   SHIMMY_ROLL_DEG: 1.6,
   SHIMMY_BOB: 0.012,
   // the free climb
@@ -79,16 +79,20 @@ const clamp01 = (t) => Math.min(1, Math.max(0, t));
 export const bump = (t, a, b) => (t <= a || t >= b ? 0 : Math.sin((Math.PI * (t - a)) / (b - a)));
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 
-/** One critically damped spring step toward `target`: [x, v]. */
-function spring(x, v, target, k, dt) {
-  const c = 2 * Math.sqrt(k);
-  v += (-k * (x - target) - c * v) * dt;
-  x += v * dt;
-  return [x, v];
+/** One critically damped spring step toward `target`: [x, v]. AUDIT CLIMB-ARC F5: the EXACT step (the closed form of
+ *  x'' = -k (x - t) - 2 sqrt(k) x'), so a catch dips the eye and a launch kicks the lens the same at 20 Hz and 240 - the
+ *  semi-implicit step it replaces dipped nothing at 20 Hz and 63 % of this at 60. */
+export function spring(x, v, target, k, dt) {
+  const w = Math.sqrt(k), y = x - target, e = Math.exp(-w * dt), c = v + w * y;
+  return [target + (y + c * dt) * e, (v - w * c * dt) * e];
 }
 
 /** A tremble's noise: three incommensurate sines, -1..1. Deterministic - a pin can read it. */
 export const tremble = (t) => (Math.sin(t * 6.283) * 0.5 + Math.sin(t * 15.71 + 1.3) * 0.3 + Math.sin(t * 27.3 + 2.1) * 0.2);
+
+/** A leap's speed at its arrival (m/s): the way it flies over the time it takes - its path's length (the rise and the
+ *  way across) over its time. */
+const leapArrival = (e) => (e.dur > 0 ? Math.hypot(e.rise ?? 0, ...(e.way ?? [0, 0])) / e.dur : 0);
 
 export class ClimbFeel {
   constructor() { this.reset(); }
@@ -102,6 +106,7 @@ export class ClimbFeel {
     this.fovS = 0; this.fovV = 0;
     this.turnLeft = 0; this.turnTau = FEEL.TURN_TAU;
     this.climbPhase = 0; this.shimmyPhase = 0; this.shimmySide = 0;
+    this.bobS = 0; this.bobV = 0;
     this.prev = null;
     this.move = null;   // { kind, dur, rise, turn, way, normal, t } - the move in flight, as its event told it
     this.out = { pitch: 0, roll: 0, eye: [0, 0, 0], fov: 0, yaw: 0 };
@@ -113,7 +118,7 @@ export class ClimbFeel {
    * Answers this.out.
    */
   update(dt, m, yaw) {
-    dt = Math.min(Math.max(dt, 0), 1 / 20);   // a long frame steps the springs no further than a stable one
+    dt = Math.min(Math.max(dt, 0), 0.25);   // AUDIT CLIMB-ARC nit: the exact springs are stable at any step - only a stall is cut
     this.t += dt;
     const out = this.out;
     out.yaw = 0;
@@ -123,7 +128,7 @@ export class ClimbFeel {
     if (!live) this.move = null;
     const mv = this.move && live ? { ...this.move, t: live.t } : null;
     // the travel since the last frame, on the wall
-    const p = m.pos;
+    const p = m.climbTrackPos?.() ?? m.pos;   // AUDIT CLIMB-ARC F3/F8: the frame's own way, never a carry's
     let dx = 0, dy = 0, dz = 0;
     if (this.prev && (m.onWall || mv)) { dx = p[0] - this.prev[0]; dy = p[1] - this.prev[1]; dz = p[2] - this.prev[2]; }
     this.prev = [p[0], p[1], p[2]];
@@ -191,7 +196,9 @@ export class ClimbFeel {
     }
     out.pitch = this.pitchS;
     out.roll = this.rollS + shake;
-    out.eye[0] = 0; out.eye[1] = this.eyeY + bob; out.eye[2] = 0;
+    // AUDIT CLIMB-ARC nit: the rhythm's bob eased as every effect is - a let-go mid-reach no longer snaps the eye
+    [this.bobS, this.bobV] = spring(this.bobS, this.bobV, bob, FEEL.K_EYE, dt);
+    out.eye[0] = 0; out.eye[1] = this.eyeY + this.bobS; out.eye[2] = 0;
     out.fov = this.fovS;
     return out;
   }
@@ -208,12 +215,10 @@ export class ClimbFeel {
         const way = e.way ?? [0, 0], n = e.normal;
         // a leap's side, facing the wall (+ to its right): the roll's way
         const side = n ? Math.sign(-n[2] * way[0] + n[0] * way[1]) : 0;
-        this.move = { kind: e.kind, dur: e.dur, rise: e.rise ?? 0, turn: e.turn ?? 0, side };
-        if (e.kind === 'catch' || e.kind === 'reach' || e.kind === 'leap') {
-          // the hands land on a lip with the body's weight: the dip, harder the faster it came
-          const v = Math.min(FEEL.DIP_MAX, FEEL.DIP_BASE + FEEL.DIP_PER_SPEED * (e.speed ?? 0));
-          this.eyeV -= v;
-          this.pitchV -= FEEL.CATCH_PITCH_DEG * DEG * 8 * (v / FEEL.DIP_MAX);
+        this.move = { kind: e.kind, dur: e.dur, rise: e.rise ?? 0, turn: e.turn ?? 0, side, speed: e.kind === 'leap' ? leapArrival(e) : 0 };
+        // AUDIT CLIMB-ARC F9: a leap's dip is its ARRIVAL's (the hold it ends in - 'hold' below), never its push-off's
+        if (e.kind === 'catch' || e.kind === 'reach') {
+          this._dip(e.speed ?? 0);   // the hands land on a lip with the body's weight: the dip, harder the faster it came
         }
         // the turns finish with the move (a fifth of its time the turn's constant: 99 % in)
         if (e.kind === 'lower' && n) this._turnTo(Math.atan2(-n[0], -n[2]), yaw, Math.max(0.05, e.dur / 5));
@@ -229,15 +234,25 @@ export class ClimbFeel {
         break;
       }
       case 'hold':
-        if (e.mode === 'climb') this.climbPhase = 0;
+        this.climbPhase = 0; this.shimmyPhase = 0;   // AUDIT CLIMB-ARC nit: every hold restarts the rhythm, as the sounds' does - eye and ear in step
+        if (this.move?.kind === 'leap') this._dip(this.move.speed ?? 0);   // AUDIT CLIMB-ARC F9: the leap lands on its hold
         break;
       default: break;
     }
   }
 
-  /** Owe the turn from the view's heading to `target` (the shortest way), paid out on `tau`. */
+  /** The catch's dip: the eye down and the view pitched, harder the faster the body came to the lip. */
+  _dip(speed) {
+    const v = Math.min(FEEL.DIP_MAX, FEEL.DIP_BASE + FEEL.DIP_PER_SPEED * speed);
+    this.eyeV -= v;
+    this.pitchV -= FEEL.CATCH_PITCH_DEG * DEG * 8 * (v / FEEL.DIP_MAX);
+  }
+
+  /** Owe the turn from the view's heading to `target` (the shortest way), paid out on `tau`. AUDIT CLIMB-ARC nit: the
+   *  heading the view will have once what is still owed is paid is `yaw + turnLeft`, so the owed turn becomes the whole
+   *  way from there - landing on the target, never short by what was owed before. */
   _turnTo(target, yaw, tau) {
-    this.turnLeft = wrap(target - (yaw + this.turnLeft));
+    this.turnLeft += wrap(target - (yaw + this.turnLeft));
     this.turnTau = tau;
   }
 }
@@ -285,9 +300,11 @@ export function createClimbFeelHost(player, cam, lookFilter, { audio = null, str
     sounds,
     fx: null,
     applied: null,
-    frame(dt) {
+    /** AUDIT CLIMB-ARC F2/F4: `held` - the host holds the motor this frame (a window, the death screen, the season):
+     *  the feel stands as it was - no event re-read, no clock, no sound - as a paused game runs no Update. */
+    frame(dt, held = false) {
       const m = player();
-      if (!m) return;
+      if (!m || held) return;
       this.fx = law.update(dt, m, cam.yaw);
       if (this.fx.yaw) lookFilter?.turn?.(this.fx.yaw);
       sounds?.update(dt, m);

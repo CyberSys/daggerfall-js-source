@@ -3811,6 +3811,7 @@ export async function bootExterior(canvas, renderer, params, status) {
   // V2c: createWorldModes also registers setPassiveSpecialsHost (the
   // sunlight/holy-place seam) for THIS page - THE FOUR HOSTS RULE.
   var modes = createWorldModes({
+    climbFeel,   // AUDIT CLIMB-ARC F11 (THE FOUR HOSTS RULE): the interiors and dungeons of ?exterior take the climb's camera as the world host's do
     // DISC29-F: TransportManager.HandleTransition's dismount at a door (TR5) reaches the mount through this seam, as
     // the world host's does - without it the fixed city walked a rider into a building still on horseback
     setTransportMode: (mode) => mountRig.setMode(mode),
@@ -4853,7 +4854,7 @@ export async function bootExterior(canvas, renderer, params, status) {
       // DC1: PlayerDeath.Update's camera sink (per-frame off the fresh eye array).
       if (townTalk.overlay instanceof DeathScreen) cam.pos[1] -= townTalk.overlay.drop;
       if (townTalk.overlay instanceof DeathScreen) townTalk.overlay.tiltView(cam);   // DEATH3
-      climbFeel.frame(dt);   // CLIMB4: the climb's camera, off the frame's motor
+      climbFeel.frame(dt, _overlayHeld);   // CLIMB4: the climb's camera, off the frame's motor - AUDIT CLIMB-ARC F2/F4: held while the motor is
       // A8 - POINTER PARITY, THE FLAG AT THIS LINE RETIRED. Mouse0 is
       // DFU's ActivateCenterObject: the readied spell fires on its
       // PRESS (EntityEffectManager.cs:250) and the world activation
@@ -5236,7 +5237,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     renderer.setWorldViewport(worldViewportRect(canvas.clientWidth, canvas.clientHeight));   // E5: ViewportChanger.Update, every frame
     renderer.beginFrame(proj, view, sunDirection(minute), WORLD_FRAME);   // AUDIT-EL F5: a WORLD frame - the lane replays its records for this one
     renderer.setCloudShadow(sky?.cloudShadow ?? null);   // VC4: the frame's deck, for the body and everything before the terrain
-    mwViewDrawBody(canvas, { proj, view, eye, feet: player.bodyFeetAt(), yaw: player.bodyYawFor(cam.yaw) });   // MW-D24; DISC18: the body at the capsule's own feet, not the camera's smoothed ones
+    mwViewDrawBody(canvas, { proj, view, eye, feet: player.bodyFeetAt(), yaw: player.bodyYawFor(cam.yaw), viewYaw: cam.yaw });   // MW-D24; DISC18: the body at the capsule's own feet, not the camera's smoothed ones
     mwViewDrawWagon(renderer, texRemap);   // EOTB-IL: the cart, when the transport is the cart
     camps.draw(renderer, texRemap);   // SURV3: the tents
     hcc.draw(renderer, texRemap);   // HCC: the wagon and its cargo
