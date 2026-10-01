@@ -229,7 +229,7 @@ async function applyResult(db, b, c, nowS, zero) {
     // SEAT2b (6.8, 7.5): the seat's works a tier down with the Charter - a Fortifier's save keeping the Walls once a Season
     const seasonWeek = seasonFloor(W, zero);
     const fortifier = await fortifierAt(db, W, K, nowS, seasonWeek);
-    stmts.push(...fortsCaptureWithSave(db, K, { week: W, nowS, seasonWeek, fortifier, history }));
+    stmts.push(...fortsCaptureWithSave(db, K, { week: W, nowS, fortifier, history }));
     stmts.push(
       db.prepare(`INSERT INTO town_seat_holds (key, guild_id, region, tier, since_week, standing, truce_week, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (key) DO UPDATE SET guild_id = excluded.guild_id, since_week = excluded.since_week, standing = excluded.standing,

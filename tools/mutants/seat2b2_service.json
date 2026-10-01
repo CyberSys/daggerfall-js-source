@@ -427,5 +427,32 @@
    "test/seat2b2_service.test.js",
    "test/seat2b2_law.test.js"
   ]
+ },
+ {
+  "name": "SEAT2b2-kit-always-own",
+  "file": "server-account/src/professions.js",
+  "old": "THEN 'bought' ELSE 'own' END, count FROM prof_crafts",
+  "new": "THEN 'own' ELSE 'own' END, count FROM prof_crafts",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-kit-bought-unread",
+  "file": "server-account/src/professions.js",
+  "old": "char_id = ?2 AND origin = 'bought' AND qty > 0\n        AND material IN",
+  "new": "char_id = ?2 AND origin = 'own' AND qty > 0\n        AND material IN",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-kit-inputs-unbound",
+  "file": "server-account/src/professions.js",
+  "old": ".bind(player.id, character, rid, RAM_KIT_KEY, nonce, ...inputs.map((inp) => inp.key))",
+  "new": ".bind(player.id, character, rid, RAM_KIT_KEY, nonce, ...inputs.map(() => 'none'))",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
  }
 ]

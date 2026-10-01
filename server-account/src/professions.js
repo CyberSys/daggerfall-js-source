@@ -917,15 +917,21 @@ export async function craftAtAnvil(ctx, player, env, { character, recipe: id, cl
         f, ?11, ?12, ?15, ?16
       FROM (SELECT CASE WHEN EXISTS (SELECT 1 FROM prof_crafts WHERE player = ?1 AND char_id = ?2 AND recipe = ?4) THEN 0 ELSE 1 END AS f)
       WHERE ${held.join(' AND ')}`).bind(...binds),
+    // SEAT2b part two: a siege work has no piece - its units go into the crafter's Stores, BOUGHT where any input it spends
+    // is bought (PROF0 7: "a craft with any bought input"; the spends below take the bought first, so any bought unit held
+    // of an input is one this craft spends), own otherwise - read here, before a unit moves, as a smelt's split is
+    // (AUDIT-SEATS II L1: it was own whatever it was made of, and a camp writ took its whole value as influence - Marks
+    // buying influence past Tribute's rate)
+    ...(siege ? [db.prepare(`INSERT INTO prof_stores (player, char_id, material, origin, qty)
+      SELECT ?1, ?2, ?4, CASE WHEN EXISTS (SELECT 1 FROM prof_stores WHERE player = ?1 AND char_id = ?2 AND origin = 'bought' AND qty > 0
+        AND material IN (${inputs.map((_, i) => `?${6 + i}`).join(', ')})) THEN 'bought' ELSE 'own' END, count FROM prof_crafts WHERE player = ?1 AND rid = ?3 AND n = ?5
+      ON CONFLICT (player, char_id, material, origin) DO UPDATE SET qty = prof_stores.qty + excluded.qty`).bind(player.id, character, rid, RAM_KIT_KEY, nonce, ...inputs.map((inp) => inp.key))] : []),
     // the inputs out, each bought first
     ...inputs.flatMap((inp) => spendStatements(db, {
       player: player.id, character, materialSql: '?3', qtySql: '?4', guard: decided, binds: [inp.key, inp.n, rid, nonce],
     })),
-    // the pieces, each its provenance id, its owner (this account), its signed record, its mark and (PROF7) its dye -
-    // SEAT2b part two: a siege work none, its units into the crafter's Stores (own, as a smelt's are)
-    ...(siege ? [db.prepare(`INSERT INTO prof_stores (player, char_id, material, origin, qty)
-      SELECT ?1, ?2, ?4, 'own', count FROM prof_crafts WHERE player = ?1 AND rid = ?3 AND n = ?5
-      ON CONFLICT (player, char_id, material, origin) DO UPDATE SET qty = prof_stores.qty + excluded.qty`).bind(player.id, character, rid, RAM_KIT_KEY, nonce)]
+    // the pieces, each its provenance id, its owner (this account), its signed record, its mark and (PROF7) its dye
+    ...(siege ? []
       : provs.map((p, i) => db.prepare(`INSERT INTO products (provenance, owner, char_id, maker, recipe, template, material, quality, seed, record, made_at, marked, dye)
         SELECT ?4, ?1, ?2, ?6, ?7, ?8, ?9, quality, seed, ?10, at, ?11, dye FROM prof_crafts WHERE player = ?1 AND rid = ?3 AND n = ?5`)
         .bind(player.id, character, rid, p, nonce, maker, r.id, r.templateIndex, r.material, records[i], marked))),

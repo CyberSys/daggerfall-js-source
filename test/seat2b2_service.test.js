@@ -15,7 +15,7 @@ import { verifyOrder } from '../src/net/identityToken.js';
 import { mintSiegeReceipt } from '../src/net/siegeReceipt.js';
 import { SIEGE_UNITS_PER_M } from '../src/net/siegeRef.js';
 import { gameDayAt, gateTimes } from '../src/net/gateLaw.js';
-import { xpForRank, STORES_MAX } from '../src/net/professionLaw.js';
+import { xpForRank, STORES_MAX, RAM_KIT_VALUE } from '../src/net/professionLaw.js';
 
 const { subtle } = globalThis.crypto;
 const ANTICLERE = { key: 3021, name: 'Anticlere', region: 21, tier: 'palace', pixel: [402, 151] };
@@ -391,6 +391,34 @@ test('SEAT2b2 THE RAM KIT TO A CAMP: a challenger pledged at a seat posts a writ
   const d = await s.call('/v1/writs/supply', { character: maker.character, writ: w.body.writ.id, region: 21, units: 1, rid: rid() }, maker);
   assert.equal(d.status, 200, JSON.stringify(d.body));
   assert.deepEqual(s.raw.prepare('SELECT material, qty FROM town_seat_camps WHERE week = ? AND key = ? AND guild_id = ?').all(W, ANTICLERE.key, eo.gid).map((r) => [r.material, Number(r.qty)]), [['work:ram', 1]]);
+});
+
+test('SEAT2b2 THE RAM KIT\'S ORIGIN (AUDIT-SEATS II L1): a kit made with any bought input is bought (PROF0 7: "a craft with any bought input"), one of own inputs own - and delivered to the camp, a member\'s bought kit raises its war as bought units do (Tribute\'s rate, its cap), never as the writ\'s own value (mutants: the kit always own; the bought input unread)', async (t) => {
+  const s = await stood(t);
+  const sh = await s.guild('Gamal', 'The Silver Hand', 'SH');
+  const eo = await s.guild('Horst', 'Ebon Oath', 'EO');
+  s.hold(ANTICLERE, sh.gid);
+  s.pledge(eo.gid, ANTICLERE);
+  s.treasury(eo.gid, 5000);
+  const maker = await s.member(eo, 'Wright');
+  s.setXp(maker, xpForRank(60), 'carpentry');
+  const kits = () => s.raw.prepare("SELECT origin, qty FROM prof_stores WHERE player = ? AND char_id = ? AND material = 'work:ram'").all(maker.id, maker.character).map((r) => [r.origin, Number(r.qty)]);
+  const craft = async () => (await s.call('/v1/prof/craft', { character: maker.character, recipe: 'ramkit:oak', clean: false, name: 'W', rid: rid() }, maker)).status;
+  // one bought Bear Hide among the own: the craft spends it first - the kit is bought
+  s.give(maker, 'plank:oak', 40); s.give(maker, 'ingot:iron', 20); s.give(maker, 'hide:bear', 3); s.give(maker, 'hide:bear', 1, 'bought');
+  assert.equal(await craft(), 200);
+  assert.deepEqual(kits(), [['bought', 1]]);
+  // every input own: an own kit
+  s.give(maker, 'plank:oak', 40); s.give(maker, 'ingot:iron', 20); s.give(maker, 'hide:bear', 4);
+  assert.equal(await craft(), 200);
+  assert.deepEqual(kits().sort(), [['bought', 1], ['own', 1]]);
+  // the bought kit to the camp first (a delivery spends the bought first, as every spend does): bought influence, not the writ's
+  const w = await s.call('/v1/writs/post', { character: eo.gm.character, region: 21, material: 'work:ram', units: 1, pay: 1, rid: rid(), seat: ANTICLERE.key }, eo.gm);
+  assert.equal(w.status, 200, JSON.stringify(w.body));
+  const d = await s.call('/v1/writs/supply', { character: maker.character, writ: w.body.writ.id, region: 21, units: 1, rid: rid() }, maker);
+  assert.equal(d.status, 200, JSON.stringify(d.body));
+  assert.deepEqual(s.raw.prepare('SELECT source, amount FROM town_seat_influence WHERE week = ? AND key = ? AND guild_id = ?').all(W, ANTICLERE.key, eo.gid).map((r) => [r.source, Number(r.amount)]),
+    [['bought', RAM_KIT_VALUE]], 'counted as bought units are - never the writ\'s own value');
 });
 
 test('SEAT2b2 THE LIST\'S WORKS: each seat on the seats\' list carries its works as they stand - a project whose day has come counted at its tier, nothing below one (mutants: the works; the risen project)', async (t) => {

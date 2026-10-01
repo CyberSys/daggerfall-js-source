@@ -267,8 +267,8 @@
   {
     "name": "PROF3-svc-inputs-unheld",
     "file": "server-account/src/professions.js",
-    "old": "      WHERE ${held.join(' AND ')}`).bind(...binds),\n    // the inputs out, each bought first\n    ...inputs.flatMap((inp) => spendStatements(db, {",
-    "new": "      WHERE 1`).bind(...binds),\n    // the inputs out, each bought first\n    ...inputs.flatMap((inp) => spendStatements(db, {",
+    "old": "      WHERE ${held.join(' AND ')}`).bind(...binds),\n    // SEAT2b part two: a siege work has no piece",
+    "new": "      WHERE 1`).bind(...binds),\n    // SEAT2b part two: a siege work has no piece",
     "tests": [
       "test/prof3_service.test.js"
     ]

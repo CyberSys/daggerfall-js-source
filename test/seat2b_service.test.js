@@ -6,8 +6,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { standService, T0 } from './accountDb.mjs';
-import { seatReportText, seatWeekOf, SEAT_MEMBER_WAIT_S, chronicleLine } from '../src/net/townSeatLaw.js';
-import { fortsCapturedStatements, fortsSeasonStatements, fortifierAt, campsSpent } from '../server-account/src/seatForts.js';
+import { seatReportText, seatWeekOf, SEAT_MEMBER_WAIT_S, chronicleLine, seasonFloor } from '../src/net/townSeatLaw.js';
+import { fortsCapturedStatements, fortsSeasonStatements, fortifierAt, campsSpent, fortsCaptureWithSave } from '../server-account/src/seatForts.js';
 import { readFileSync } from 'node:fs';
 
 const ANTICLERE = { key: 3021, name: 'Anticlere', region: 21, tier: 'palace', pixel: [402, 151] };
@@ -249,7 +249,7 @@ test('SEAT2b ASKED AGAIN: a work already building is refused before the hour\'s 
   assert.equal((await s.fund(sh.gm, ANTICLERE.key, 'shrine')).status, 200, 'the rate untouched by the refusals');
 });
 
-test('SEAT2b THE FORTIFIER\'S SAVE: a Fortifier on the defending roster saves standing Walls, once a Season a seat - not one on the attackers\' roster, not Walls at nought, not twice in a Season; the capture\'s hook asks it, and the Turning spends the camps and wears the works (mutants: the side; the Season; the bare Walls; the hooks)', async (t) => {
+test('SEAT2b THE FORTIFIER\'S SAVE: a Fortifier on the defending roster saves standing Walls, once a Season a seat - not one on the attackers\' roster, not Walls at nought, not twice in a Season (any eight weeks while none is counted - AUDIT-SEATS II L2); the capture\'s hook asks it, and the Turning spends the camps and wears the works (mutants: the side; the Season; the bare Walls; the hooks)', async (t) => {
   const s = await stood(t);
   const db = s.svc.env.DB;
   const sh = await s.guild('Gamal', 'The Silver Hand', 'SH');
@@ -263,13 +263,21 @@ test('SEAT2b THE FORTIFIER\'S SAVE: a Fortifier on the defending roster saves st
   fortifier(sh.gm);
   roster(sh.gm, sh.gid, 'defend');
   assert.equal(await fortifierAt(db, W, ANTICLERE.key, T0, W), sh.gm.id, 'the defenders\' Fortifier');
-  s.raw.prepare('INSERT INTO town_seat_fortifier (season, key, account, at) VALUES (?, ?, ?, ?)').run(W, ANTICLERE.key, sh.gm.id, T0);
+  // the save as the capture writes it (fortsCaptureWithSave - the producer's own row, its week)
+  await db.batch(fortsCaptureWithSave(db, ANTICLERE.key, { week: W, nowS: T0, fortifier: sh.gm.id, history: () => db.prepare('SELECT 1') }));
+  assert.equal(s.raw.prepare("SELECT tier FROM town_seat_forts WHERE key = ? AND work = 'walls'").get(ANTICLERE.key).tier, 2, 'the Walls kept by the save');
   assert.equal(await fortifierAt(db, W, ANTICLERE.key, T0, W), null, 'once a Season');
   assert.equal(await fortifierAt(db, W, ANTICLERE.key, T0, W + 13), sh.gm.id, 'the next Season\'s own');
+  // PIN MOVED (AUDIT-SEATS II L2): with no Season counted, "once a Season" is any eight weeks (seasonFloor's window) - a
+  // capture two weeks on finds the save and keeps nothing; eight weeks on, the window has passed. Keyed by the floor
+  // itself, the save had slid a week a week and saved at every capture.
+  assert.equal(await fortifierAt(db, W, ANTICLERE.key, T0, seasonFloor(W + 2, null)), null, 'two weeks on, no Season counted: the save stands');
+  assert.equal(await fortifierAt(db, W, ANTICLERE.key, T0, seasonFloor(W + 7, null)), null, 'seven weeks on: still inside the eight');
+  assert.equal(await fortifierAt(db, W, ANTICLERE.key, T0, seasonFloor(W + 8, null)), sh.gm.id, 'eight weeks on: a new window');
   s.raw.prepare("UPDATE town_seat_forts SET tier = 0 WHERE work = 'walls'").run();
   assert.equal(await fortifierAt(db, W, ANTICLERE.key, T0, W + 13), null, 'no Walls standing, nothing to save');
   const src = (f) => readFileSync(new URL(`../server-account/src/${f}`, import.meta.url), 'utf8');
-  assert.match(src('seatSiege.js'), /const fortifier = await fortifierAt\(db, W, K, nowS, seasonWeek\);\n\s*stmts\.push\(\.\.\.fortsCaptureWithSave\(db, K, \{ week: W, nowS, seasonWeek, fortifier, history \}\)\);/, 'the capture asks it');
+  assert.match(src('seatSiege.js'), /const fortifier = await fortifierAt\(db, W, K, nowS, seasonWeek\);\n\s*stmts\.push\(\.\.\.fortsCaptureWithSave\(db, K, \{ week: W, nowS, fortifier, history \}\)\);/, 'the capture asks it');
   assert.match(src('seatTurning.js'), /stmts\.push\(\.\.\.\(await campsSpent\(db, week, next, plan\.rights, \(k\) => registry\.get\(k\)\?\.tier \?\? 'palace'\)\)\);/, 'the Turning spends the camps');
   assert.match(src('seatTurning.js'), /if \(!wipe\) stmts\.push\(\.\.\.fortsSeasonStatements\(db\)\);/, 'a Season\'s end wears the works');
 });

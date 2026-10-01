@@ -248,14 +248,14 @@ export function fortsCapturedStatements(db, key, { fortifier = false } = {}) {
 /**
  * THE FORTIFIER'S SAVE AT A CAPTURE (Masonry 100, Professions-Arc 3.3: "once a Season a seat's Walls skip their drop on
  * capture") - DECIDED: a Fortifier who stood on the losing side's roster of that siege (the fortifications are the seat's,
- * so the save is a defender's craft at the walls it defended), once a Season a seat (`town_seat_fortifier`, keyed by the
- * Season's first week - seasonFloor's stand-in where none is counted), and only Walls that stand. Answers the account
- * whose save it is, or null.
+ * so the save is a defender's craft at the walls it defended), once a Season a seat (`town_seat_fortifier`, the save's
+ * week: none while a save stands since `seasonWeek`, the Season's first week - seasonFloor, any eight weeks while no
+ * Season is counted), and only Walls that stand. Answers the account whose save it is, or null.
  */
 export async function fortifierAt(db, week, key, nowS, seasonWeek) {
   const walls = Number((await db.prepare("SELECT tier FROM town_seat_forts WHERE key = ? AND work = 'walls'").bind(key).first())?.tier ?? 0);
   if (walls <= 0) return null;
-  if (await db.prepare('SELECT 1 FROM town_seat_fortifier WHERE season = ? AND key = ?').bind(seasonWeek, key).first()) return null;
+  if (await db.prepare('SELECT 1 FROM town_seat_fortifier WHERE key = ? AND week >= ?').bind(key, seasonWeek).first()) return null;
   const { results = [] } = await db.prepare(`SELECT r.account, t.spec50, t.spec100, t.respec_rank, t.respec_to, t.respec_at FROM town_seat_rosters r
     JOIN prof_tracks t ON t.player = r.account AND t.char_id = r.char_id AND t.profession = 'masonry'
     WHERE r.week = ? AND r.key = ? AND r.side = 'defend' ORDER BY r.at, r.account`).bind(week, key).all();
@@ -292,11 +292,11 @@ export async function battleWorks(db, b, nowS) {
   return kept != null ? JSON.parse(String(kept)) : sx;
 }
 /** The capture's statements with the Fortifier's save written beside them (its Season's one), and the Chronicle's word. */
-export function fortsCaptureWithSave(db, key, { nowS, seasonWeek, fortifier = null, history }) {
+export function fortsCaptureWithSave(db, key, { week, nowS, fortifier = null, history }) {
   return [
     ...fortsCapturedStatements(db, key, { fortifier: !!fortifier }),
     ...(fortifier ? [
-      db.prepare('INSERT OR IGNORE INTO town_seat_fortifier (season, key, account, at) VALUES (?, ?, ?, ?)').bind(seasonWeek, key, fortifier, nowS),
+      db.prepare('INSERT OR IGNORE INTO town_seat_fortifier (week, key, account, at) VALUES (?, ?, ?, ?)').bind(week, key, fortifier, nowS),
       history('walls-kept', {}),
     ] : []),
   ];

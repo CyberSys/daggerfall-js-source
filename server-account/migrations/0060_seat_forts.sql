@@ -27,13 +27,15 @@ CREATE TABLE IF NOT EXISTS town_seat_fort_held (
   qty       INTEGER NOT NULL DEFAULT 0 CHECK (qty >= 0),
   PRIMARY KEY (key, work, material)
 );
--- a Fortifier's save (Masonry 100: "once a Season a seat's Walls skip their drop on capture"), one a seat a Season
+-- a Fortifier's save (Masonry 100: "once a Season a seat's Walls skip their drop on capture"), one a seat a Season: the
+-- week of the save, refused while one stands since the Season's first week (seasonFloor - any eight weeks while no Season
+-- is counted; AUDIT-SEATS II L2: keyed by that floor itself, it slid a week a week and saved at every capture)
 CREATE TABLE IF NOT EXISTS town_seat_fortifier (
-  season  INTEGER NOT NULL,
+  week    INTEGER NOT NULL,
   key     INTEGER NOT NULL,
   account TEXT NOT NULL,
   at      INTEGER NOT NULL,
-  PRIMARY KEY (season, key)
+  PRIMARY KEY (week, key)
 );
 -- a challenger's Siege Camp (4.2): what its seat writs delivered at a seat it pledged, a week - spent at that week's
 -- Turning (its Ram Kits to the siege it won, the rest burnt) and never withdrawn

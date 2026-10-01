@@ -438,7 +438,7 @@
   {
     "name": "SEAT2b-fortifier-every-capture",
     "file": "server-account/src/seatForts.js",
-    "old": "  if (await db.prepare('SELECT 1 FROM town_seat_fortifier WHERE season = ? AND key = ?').bind(seasonWeek, key).first()) return null;\n",
+    "old": "  if (await db.prepare('SELECT 1 FROM town_seat_fortifier WHERE key = ? AND week >= ?').bind(key, seasonWeek).first()) return null;\n",
     "new": "",
     "tests": [
       "test/seat2b_service.test.js"
@@ -776,6 +776,24 @@
     "new": "",
     "tests": [
       "test/audit_seats_law.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b-fortifier-window-slides",
+    "file": "server-account/src/seatForts.js",
+    "old": "WHERE key = ? AND week >= ?').bind(key, seasonWeek)",
+    "new": "WHERE key = ? AND week = ?').bind(key, seasonWeek)",
+    "tests": [
+      "test/seat2b_service.test.js"
+    ]
+  },
+  {
+    "name": "SEAT2b-fortifier-week-unwritten",
+    "file": "server-account/src/seatForts.js",
+    "old": "VALUES (?, ?, ?, ?)').bind(week, key, fortifier, nowS)",
+    "new": "VALUES (?, ?, ?, ?)').bind(0, key, fortifier, nowS)",
+    "tests": [
+      "test/seat2b_service.test.js"
     ]
   }
 ]
