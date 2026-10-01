@@ -11314,11 +11314,12 @@ part two is whole.
   yet.
 
 Pinned: `test/season1_ribbon.test.js` (4 - the law; through the real Worker a Season's end writing it and the mint
-wearing it against a twin counting no Season; the token and the relay; the page). `tools/mutants/ribbon.json` (47: 46
+wearing it against a twin counting no Season; the token and the relay; the page). `tools/mutants/ribbon.json` (48: 47
 dead, 1 recorded equivalent - the mint's character gate, which a member row's own id shape already answers; one
-survived the first run, the re-stood peer's memory, now pinned). PIN MOVED: the relay and account version pins
+survived the first run, the re-stood peer's memory, now pinned; the token's bound held from both sides). PIN MOVED: the relay and account version pins
 (`world143`, `acct56`); the relay's law row and bundle graph (`heraldryLaw.js`); identityToken.js's imports;
-WB9g's two relay source pins; the account schema's tables (`town_seat_ribbons`); AUDIT B8's widest token. Ten older
+WB9g's two relay source pins; the account schema's tables (`town_seat_ribbons`); AUDIT B8's widest token; ACC1d's
+token shape (a body of 641 the malformed one - the full suite's one failure on the merged head, now moved). Ten older
 mutant records re-aimed by content, still dead (ACC1d's and ACC3a's vouched name, ACC3b's and SLAM9's memory, SOC1's
 version line, WB9g's five).
 
