@@ -4206,3 +4206,115 @@ Renown was the account's.
   AUDIT RENOWN1, RAID4, AUDIT RAID, the guild pins, realm5 and auditrealm. Mutants: `tools/mutants/renown_char.json`
   (18: 17 dead, 1 recorded equivalent - the migration's cap, which no row can reach); `renown_account.json` keeps its
   8 that still apply (the rate, 0021), all dead; the records RENOWN-ACCOUNT had re-aimed were re-aimed back by content.
+
+## PATREON-LINK — a patron's title follows their pledge (2026-10-01, acct45)
+
+Mac: "With patron and having to manually hand out titles. Im running into a workflow where its really hard to keep up
+with it." Asked whether patrons should link their own Patreon or he should press a grant button per patron: "Patreon
+auto-link".
+
+TITLE-N granted the three Patreon tiers by handle lists in `server-account/wrangler.toml`, so every new patron was a
+message to Mac, an edit, a review and a deploy - DEV3, PENITENT and the four Disciples after Dutchess were exactly that -
+and a lapsed pledge was the same again, or nothing at all. Now a registered player presses **Link Patreon** on the
+account card, says yes on Patreon and once more on a page of the service's, and the tier their pledge pays for is a
+title they hold: upgraded, downgraded and lapsed by Patreon's own webhook, with nobody in the loop.
+
+- **Still derived.** ACC3's law holds: what a player HOLDS is read at every ask, never a column that grants. What is
+  stored is the one thing this service cannot derive - Patreon's last word on the membership, as WB9g stores a sale.
+  Migration 0045 adds `players.patreon_user` (UNIQUE), `patreon_tiers`, `patreon_status` and `patreon_at`.
+  `titles.js holdsTier` reads the tiers against `PATREON_TIERS` (`"<tier id>:<title>,..."`, the three Patreon titles
+  only) beside the handle list, so a tier holds its title AND its glyph, as a list does. Held only while Patreon says
+  `active_patron` and the tier is in `currently_entitled_tiers`: a declined card lapses the title until the payment goes
+  through, and a deleted pledge lapses it at once. A worn title that lapses stops being worn on the next token, with
+  nothing cleared (`titleWorn`).
+- **The link is a link.** `/v1/account` answers `patreon: { on, linked, titles, link }` - `link` the authorize URL with
+  the one scope a title needs (`identity`) and a STATE the service SEALED for that account (an hour; AES-GCM under a key
+  HKDF derives from the client secret, one key a kind, so it names nobody to Patreon or a browser's history and opens
+  as nothing but a state). The card's press opens it at once - a new tab, the system browser
+  from the desktop app - as TERMS1's document links do; a window opened after an await is a popup a phone blocks. The
+  redirect is `<the origin that served the read>/v1/patreon/callback`, read off the request, never typed.
+- **It asks before it links.** A state is a bearer: whoever opens the URL finishes the link for the account it names, so
+  a player could send a patron their own link and take the patron's title. There is no cookie to bind it to (the app
+  finishes in the system browser), so `/v1/patreon/callback` spends Patreon's code, asks Patreon who the player is, and
+  WRITES NOTHING: it answers a page naming the Patreon account, the GAME account the state named, and what the pledge
+  holds, with one button. The button posts a TICKET (fifteen minutes, sealed at the callback, carrying the patron's own
+  access token) to `/v1/patreon/confirm`, the one write of a link - and THE YES ASKS PATREON AGAIN and writes what it
+  says NOW. A ticket that carried the page's word was a hole: pledge, open the page, cancel, press - and the row said
+  `active_patron` with no webhook left to lapse it. Now a pledge cancelled between the page and the press holds
+  nothing, a yes pressed twice is Patreon asked twice, and a token that answers for another Patreon account links
+  nothing.
+- **One pledge, one account.** Linking a Patreon account another game account holds MOVES it, in one batch guarded on
+  the account being registered, and the page says from where - a patron who made a new account takes their title along.
+- **The webhook** (`/v1/patreon/webhook`) is Patreon's word on a member: the HMAC-MD5 of the exact bytes under
+  `PATREON_WEBHOOK_SECRET` (`X-Patreon-Signature`). WebCrypto has no MD5, so `patreon.js` computes it (RFC 1321/2104),
+  pinned against node's own at every block boundary. Then one UPDATE keyed on the Patreon user: the tiers and the status
+  as stated, a field the payload leaves out left standing, and `members:delete` / `members:pledge:delete` holding
+  nothing whatever the payload's figures say. A member nobody linked is acknowledged and changes nothing - the link
+  reads Patreon afresh when it is made.
+- **Unlink** (`/v1/patreon/unlink`, behind a session) clears all four columns, and answers the wardrobe after it, as an
+  equip does.
+- **The pages** are HTML a person reads, in the game's dark and brass: every word of a player's escaped, no script, a
+  policy that lets the one form post here and nothing frame it, never cached, no Referer.
+- **The card** (`ui/enhancedAccount.js`, `ui/accountFlow.js`): a Patreon row for a registered account while linking is
+  on - Link Patreon, or "Linked - Disciple" with Refresh (the same link: Patreon asked again) and Unlink. When the window
+  has the focus again the card reads the account again (`flow.refresh`), so the player comes back to the link that
+  landed. Nothing for a guest, nothing while linking is off, nothing from a service before acct45.
+- **Off until the secrets are in.** The toml carries the client's id (public - it rides every authorize URL) and the
+  tier map; the two secrets are repository secrets the deploy puts on every run through one pipe (`secret bulk`,
+  `.github/workflows/account-deploy.yml` 4c), and its summary names the redirect URI and the webhook URL read off the
+  deploy. Unset is a legal state: the card offers nothing and the webhook answers `patreon-closed`.
+- **Mac's tiers** (2026-10-01: "some titles dont have titles/glyphs ingame. Heriophant is custom and Herald doesnt
+  exist ingame yet. Supporter doesnt recieve a title/glyph"): `PATREON_TIERS = "29666211:disciple,29666234:herald"` -
+  Disciple, and Herald since HERALD (below) gave it its title in the game. Supporter (29701293) holds none and
+  Hierophant (29666221) is custom, granted by name. Apostle has no tier now.
+- **The handle lists stand.** A list still grants on its own, for the titles Mac grants by name (a comp, a patron who
+  will not link); the two never hold one title twice.
+
+### What Mac does, once
+
+1. **Patreon's client.** On https://www.patreon.com/portal/registration/register-clients, create a client (API version
+   2) with the redirect URI the deploy summary names:
+   `https://daggerfall-accounts.mackcothran.workers.dev/v1/patreon/callback`. Keep its Client ID and Client Secret.
+2. **Patreon's webhook.** On https://www.patreon.com/portal/registration/register-webhooks, add
+   `https://daggerfall-accounts.mackcothran.workers.dev/v1/patreon/webhook` with the member triggers
+   (`members:create`, `members:update`, `members:delete`, `members:pledge:create`, `members:pledge:update`,
+   `members:pledge:delete`). Keep its secret.
+3. **The repository's secrets** (Settings, Secrets and variables, Actions): `PATREON_CLIENT_SECRET` and
+   `PATREON_WEBHOOK_SECRET`.
+4. **The two lines** in `server-account/wrangler.toml`: `PATREON_CLIENT_ID` (the Client ID) and `PATREON_TIERS` - each
+   tier's id is the number after `rid=` in its Join link on the Patreon page. Done 2026-10-01 from Mac's client id and
+   tiers (above). The push deploys it; from then on a patron links themselves.
+
+- The account service is `acct45`, and none of it touches the relay: no claim is new (the tiers' titles and glyphs are
+  TITLE-N's), so no relay deploy.
+- Pins: `test/patreon_link.test.js` (17) - the law, the MD5 and the signature, the sealed state and ticket, Patreon's
+  shapes, the Worker end to end with Patreon's two OAuth endpoints stood in for (the yes's own read among them), the
+  card and its flow, the config and the deploy. `tools/mutants/patreonlink.json` (47, all dead). `test/accountworker.test.js` holds the four columns; the
+  version pins moved to acct45 (and `gatekeys.json`'s record with them).
+
+## HERALD — the Patreon tier between Disciple and Hierophant (2026-10-01, world138, acct45)
+
+Mac, sending his Patreon tiers for PATREON-LINK: "Herald doesnt exist ingame yet", then "you'll need to develop the
+herald title/glyph". No colour or shape was named, so it is the tiers' kind - TITLE-N's law, one flat colour and a
+stroked glyph in it.
+
+- **The vocabulary** (`src/net/identityToken.js`, in the relay bundle): `herald` joins TITLES and GLYPHS, last. A relay
+  from before it refuses a token carrying it (`claimsValid`), so the relay is **world138**; the account service rides
+  acct45 with PATREON-LINK (both undeployed), and its deploy waits for the relay's `/health` to serve world138
+  (SHADOW-FANG's AUDIT B1).
+- **The grant** (`server-account/src/titles.js`): `TIER_LISTS.herald = 'HERALD_HANDLES'` (empty - nobody by name yet)
+  and `TIER_GLYPH.herald`, so the list and the pledge each grant the title and its glyph together. `herald` is a
+  Patreon title (`patreon.js PATREON_TITLES`), and Mac's Herald tier (29666234) is mapped to it in `PATREON_TIERS`.
+- **The face** (`src/ui/playerBadge.js`): the word "Herald" in AZURE (#4f7dff), heraldry's own blue - a herald wears
+  the arms he cries - between the Disciple's teal and the Apostle's violet on the tiers' rise. The glyph is the herald's
+  trumpet, level, its bell flaring right, with a swallowtail banner hanging from the tube, stroked in the title's azure;
+  `<` (the bell's flare) for the classic face; "Herald" on the account card.
+- **Seen** before it was chosen: the real name sheet in Chromium over a night sky, a day sky, stone, grass and snow,
+  at 13, 15, 20 and 40 px, beside the Disciple's, the Apostle's and the Hierophant's and the moderator's shield. A
+  periwinkle was lost on the day sky, a silver read as a bare name, and a purple as the Apostle's; a raised trumpet
+  read as a pick and a trumpet alone as a megaphone - the banner is what makes it a herald's.
+- Pins: `test/herald.test.js` (6); the vocabulary's exact lists in `acc3titles.test.js`, `titlen.test.js` and
+  `penitent.test.js`, and PATREON-LINK's tier map, moved with it; the relay's pins moved to world138, crediting HERALD
+  (`auditbounty1.test.js` holds the credit). `tools/mutants/herald.json` (12, all dead); seven older records re-aimed
+  by content (`penitent.json` 4, `shadowfang.json` 2, `soc1.json`'s version record) and PATREON-LINK's two config
+  records, all dead.

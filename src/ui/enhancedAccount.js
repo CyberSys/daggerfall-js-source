@@ -59,6 +59,7 @@ export const GLYPH_LABEL = Object.freeze({
   hierophant: 'Hierophant',
   shadowfang: 'Shadow Fang',   // SHADOW-FANG: the wolf's head beside SirMcMobdon's name
   penitent: 'Penitent',   // PENITENT: the sword in its lozenge beside Diggleborf's name
+  herald: 'Herald',   // HERALD: the herald's trumpet and its banner
 });
 
 /** ACC4: THE TWO FACTS MAC ASKED FOR, as words. Pure, so node pins
@@ -346,6 +347,47 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
     wanted = null;
   }
 
+  /**
+   * PATREON-LINK — THE PATRON'S OWN LINK (Mac: "having to manually hand out titles ... its really hard to keep up with
+   * it"). A registered account, on a service with linking on, gets one row: Link Patreon, or Linked with what the
+   * pledge holds, a Refresh (the same link - Patreon asked again) and an Unlink.
+   *
+   * THE LINK IS A LINK, not a button that asks for one: the service put it in the account read, so the press opens it
+   * at once - a new tab on the web, the system browser from the desktop app (app/main.cjs hands http(s) there), exactly
+   * as TERMS1's document links do. A window opened after an await is a popup a phone's browser blocks.
+   */
+  function patreonRow() {
+    const p = flow.patreon;
+    if (!p?.on || !flow.account?.handle) return;
+    const titles = Array.isArray(p.titles) ? p.titles : [];
+    const box = el('div', 'acctwear acctpatreon');
+    box.append(el('span', 'fieldlabel', 'Patreon'));
+    const row = el('div', 'acctwearrow');
+    if (p.linked) row.append(el('span', 'acctpatreonstate', titles.length ? `Linked - ${titles.map((t) => TITLE_TEXT[t] ?? t).join(', ')}` : 'Linked - no tier yet'));
+    if (typeof p.link === 'string' && p.link.startsWith('https://')) {
+      const a = keyedAs(el('a', 'act', p.linked ? 'Refresh' : 'Link Patreon'), 'patreon:link');
+      a.href = p.link;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.onclick = () => flow.patreonOpened();
+      row.append(a);
+    }
+    if (p.linked) row.append(act('Unlink', () => flow.unlinkPatreon(), { disabled: !!flow.busy, key: 'patreon:unlink' }));
+    box.append(row);
+    root.append(box);
+  }
+
+  /** PATREON-LINK: BACK FROM THE BROWSER, the account is read again - a link that landed, or a pledge that moved, is on
+   *  the card the player comes back to. One listener a card, gone on the first focus after the card is. */
+  const win = doc.defaultView;
+  if (win && typeof win.addEventListener === 'function') {
+    const onFocus = () => {
+      if (!root.isConnected) { win.removeEventListener('focus', onFocus); return; }
+      if (flow.stage === 'in' && flow.patreon?.on && typeof flow.refresh === 'function') Promise.resolve(flow.refresh()).catch(() => {});
+    };
+    win.addEventListener('focus', onFocus);
+  }
+
   function build(stage) {
     const copy = STAGE_COPY[stage];
 
@@ -416,6 +458,7 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
       }
       root.append(rows);
       wardrobe();
+      patreonRow();   // PATREON-LINK
       if (!flow.account.handle) {
         root.append(el('p', 'meta', 'Adding a username keeps everything this account already has.'));
       }

@@ -56,20 +56,22 @@
   {
     "name": "SHADOWFANG-glyph-without-the-title",
     "file": "server-account/src/titles.js",
-    "old": "hierophant: 'hierophant', shadowfang: 'shadowfang', penitent: 'penitent' });",
-    "new": "hierophant: 'hierophant', shadowfang: 'apostle', penitent: 'penitent' });",
+    "old": "hierophant: 'hierophant', shadowfang: 'shadowfang', penitent: 'penitent', herald: 'herald' });",
+    "new": "hierophant: 'hierophant', shadowfang: 'apostle', penitent: 'penitent', herald: 'herald' });",
     "tests": [
       "test/shadowfang.test.js"
-    ]
+    ],
+    "note": "HERALD (RE-AIMED by content: the lists end with herald now)."
   },
   {
     "name": "SHADOWFANG-vocabulary-without-the-glyph",
     "file": "src/net/identityToken.js",
-    "old": "'apostle', 'hierophant', 'shadowfang', 'penitent']);   // TITLE-N: each new title has its own glyph",
-    "new": "'apostle', 'hierophant', 'penitent']);   // TITLE-N: each new title has its own glyph",
+    "old": "'apostle', 'hierophant', 'shadowfang', 'penitent', 'herald']);",
+    "new": "'apostle', 'hierophant', 'penitent', 'herald']);",
     "tests": [
       "test/shadowfang.test.js"
-    ]
+    ],
+    "note": "HERALD (RE-AIMED by content: the lists end with herald now)."
   },
   {
     "name": "SHADOWFANG-paint-shadow-left-on",
