@@ -182,7 +182,7 @@
   {
     "name": "AUDITCLIMB1-F9-bag-says-nothing",
     "file": "src/player/motor.js",
-    "old": "    climbing: !!(player.climb?.isClimbing || player.mantling),\n",
+    "old": "    climbing: !!(player.climb?.isClimbing || player.mantling || player.onWall),\n",
     "new": "",
     "tests": [
       "test/auditclimb1.test.js",
