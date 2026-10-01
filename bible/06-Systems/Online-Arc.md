@@ -10231,7 +10231,7 @@ own module (`src/net/hallLaw.js`), never net/guildLaw.js, which is in the relay'
   deed share of what the treasury paid (`homeSaleRefund`) and half of what records paid for its pieces, back into the
   treasury and its realm part, in one batch with the row's DELETE - held to the pieces as they were read (their count
   and their sum), so none is sold unpaid. **Who may walk in** (`/v1/guilds/hall/entry`, an Officer's too).
-- **The ledger names why the gold moved**: 0043 gives the guild row `moved_kind` and replaces the ledger's trigger -
+- **The ledger names why the gold moved**: 0045 (`0045_guild_halls.sql` - AUDIT-SEATS II: this said 0043, main's scale indexes) gives the guild row `moved_kind` and replaces the ledger's trigger -
   the line takes `COALESCE(moved_kind, deposit/withdraw)` and the trigger forgets it in the same breath, so the next
   plain move is never written as the hall's: `hall`, `hall-sale`, `hall-piece`. A guild never goes while it holds a
   hall (`guildKeepsSql`, `guild-hall` - sell it first), its disbanding, its last leave and a memberless guild's
@@ -10248,8 +10248,8 @@ own module (`src/net/hallLaw.js`), never net/guildLaw.js, which is in the relay'
   (Ash never the field - the unheld ring's) and one of its twenty-four devices, the guildmaster's. The first is free
   (every guild before GUILD1d has none); each change after it burns 500 Drakes from the guild's Drake treasury (a
   `guild` -> `burn` line of kind `heraldry`) in ONE batch with the change, taken only from the heraldry the
-  guildmaster saw; a change asked again under its request id is answered as made. "Refused in a siege week" waits on
-  SEAT2 - no siege stands yet.
+  guildmaster saw; a change asked again under its request id is answered as made. "Refused in a siege week" - built
+  by AUDIT-SEATS S10 (`heraldry-siege`).
 - **The drawing** (`src/ui/heraldryArt.js`): each device a few SVG path parts in a 100 box - the device's colour, the
   field's for a hole, a stroke where a line is wanted - the port's own art; the banner the record's cloth, 1 by 3, the
   field the first colour, a border the second, the device centred in the second, its foot a swallowtail. One drawing,
@@ -10285,13 +10285,14 @@ own module (`src/net/hallLaw.js`), never net/guildLaw.js, which is in the relay'
 Known limits (a later slice's): a hall's board (Seats-Arc 8.2's "private guild board", the board's Guilds tab) is
 GUILD1e's - the hall had no board yet (AUDIT-SEATS: GUILD1e built it); a hall's outside is not painted and its yard not furnished (HOME-LOOK and
 HOME-YARD name a character); the banner at the door is the building's FIRST door record (a house with two doors hangs
-them at the first); heraldry is not yet on the map ring, the guild tag's frame, the siege HUD or the Chronicle
-(SEAT1a-SEASON1); a hall's price is the client's word, as a home's.
+them at the first); heraldry is on the map ring since SEAT1c (the holder's colours) - not on the guild tag's frame, the
+siege HUD or the Chronicle, which the slices named here shipped without (AUDIT-SEATS II: NOT YET, open for Mac); a hall's
+price is the client's word, as a home's.
 
 Pinned: `test/guild1d_service.test.js` (5), `test/guild1d_client.test.js` (12); re-aimed by content in
 `test/home1.test.js` (the entries), `test/decor1.test.js`, `test/decor1d.test.js`, `test/decorshell.test.js` (the
 room's host), `test/glstate.test.js`, `test/farring.test.js`, `test/audit18_bible_docs.test.js` (the foreign passes)
-and the ACCOUNT_VERSION pins (`acct43`, then `acct44`, now `acct46` with the seats). `tools/mutants/guild1d.json` (38, all dead).
+and the ACCOUNT_VERSION pins (`acct43`, then `acct44`, now `acct46` with the seats). `tools/mutants/guild1d.json` (38: 36 dead, 2 recorded equivalent since AUDIT GUILD1d's S3 - the hall's rule in its INSERT).
 
 ### AUDIT GUILD1d (2026-09-30, Mac: "let's do an audit on this")
 
@@ -10310,8 +10311,7 @@ carries a mutant in `tools/mutants/auditguild1d.json` (44 records, all dead).
   The hall's branch now asks that the keeper be a realm character of the account.
 - **S3 - the hall's rule was a read before the write.** A hall bought between the placement's read and its INSERT
   took a keeper's own thing or a yard piece. The INSERT carries the rule, and says it in its own word (`hall-item`,
-  `hall-yard`). The read before it only names the refusal sooner (GUILD1d's two records for it are now recorded
-  equivalent).
+  `hall-yard`). The read before it only names the refusal sooner.
 - **S4, S5 - a request raced by itself.** The same heraldry change asked twice under one request id charged once,
   but the loser read `heraldry-drakes`; the same hall claim raced read `home-taken`. Both now answer as made
   (`repeat`): a paid line under the rid is the change whatever the heraldry now is, and a failed claim that finds the
@@ -10523,8 +10523,8 @@ event (Seats-Arc 4.1-4.2, 12: "summed on read, capped on write"); every number i
 
 Departures, recorded: Seats-Arc 12 drew the Watch as "presence minutes ... in signed batches" from the relay to the
 service; the relay has no door to the account service, so each tick is a receipt the account's own client carries, as
-the gate's and the raid's are. The stockpile's deliveries (the Writs source) ride SEAT1c with the Siege Camp they fill
-and the Turning that spends it; the sources' table admits their rows already, and the law reads them.
+the gate's and the raid's are. The stockpile's deliveries (the Writs source) came with SEAT2b part one (seat writs and the
+Siege Camp - AUDIT-SEATS II: this said SEAT1c); the sources' table admitted their rows already, and the law read them.
 
 Pinned: `test/seat1b_service.test.js` (7), `test/seat1b_client.test.js` (9); re-aimed by content in
 `test/wb5b_gate_claim.test.js` and `test/seat1a_client.test.js` (the claim's region, the book's door), the relay
@@ -10742,7 +10742,8 @@ Left for SEAT2a, recorded: the client - its blows and casts sent to the referee 
 own health untouched in a siege room), the HUD of every fighter's vitality, the spectator's camera, a horse dismounted
 on entry, Teleport, Recall and Levitate doing nothing; the room's window and its two signed sides (a heal a
 side-mate's alone, a blow never a side-mate's); the wave by the seat's tier; the Throne. The refereed duel ring the Royal
-Tourney stands on is CROWN1's.
+Tourney stands on is CROWN1's. (All built: SEAT2a parts two to four; the wards and the horse dismounted on entry by
+AUDIT-SEATS G5 - AUDIT-SEATS II closed this list.)
 
 Pinned: `test/pvpref_law.test.js` (5), `test/pvpref_relay.test.js` (4), `test/pvpref_measure.test.js` (1); the relay
 version pins and `test/relayversion.test.js`'s world140 LAW row (its graph adds `src/net/siegeRef.js`). The suite's two
@@ -10883,8 +10884,8 @@ drawn out as `siegeFieldValid`, the same law - never shipped under the first has
 - **Honours** (6.8, `town_seat_honours`): once a battle an account, for a receipt that earned them and the character it
   names - 50 Marks and 2,000 Renown XP on the winning side, 25 and 1,000 on the losing (into that character's track), and
   a roll on the Spoils of War into its Stores. DECIDED here: the roll is the fighter's own (FNV-1a over the battle and
-  the account), between the Warforged Steel Ingot and the Standard-bearer's Silk - the Siege-cracked Gem waits for its
-  template (FLAGGED below); "once a Season" (the pair's Honours, a forfeit's Standing) is any 8 weeks until SEASON1 counts
+  the account), among the Warforged Steel Ingot, the Standard-bearer's Silk and (since AUDIT-SEATS, its template 678) the
+  Siege-cracked Gem, a third each; "once a Season" (the pair's Honours, a forfeit's Standing) is any 8 weeks until SEASON1 counts
   Seasons.
 - **The blackout** (17): `/v1/seats/sieges/live`, public (a GET, naming no guild); `.github/workflows/relay-deploy.yml`
   waits on it five minutes at a time before a deploy (a dispatch's `force` deploys at once; an unanswered question is not
@@ -10892,9 +10893,6 @@ drawn out as `siegeFieldValid`, the same law - never shipped under the first has
   `.github/workflows/account-deploy.yml`'s wait on the relay lengthened from twenty minutes to five and a half hours.
 - **The client's calls** (`accountClient.js` seats `pass`, `claimSiege`; `townSeatBook.js` siegePass, claimSiege) and the
   refusals in the board's words (`SIEGE_WHY`). The siege's session that uses them is part four.
-
-FLAGGED: the Siege-cracked Gem (PROF0 4.7) has no template; Lapidary's specialisation names it. Until it has one the
-Spoils roll between the other two.
 
 Pinned: `test/seat2a_siege_service.test.js` (4, through the real Worker), `test/seat2a_siege_client.test.js` (4); the
 account version pins (`acct48`), the schema (`test/accountworker.test.js`, PIN MOVED), the account deploy's paths
@@ -11037,7 +11035,7 @@ kinds (`test/pvpref_law.test.js`), the step's source pin (`test/chat1.test.js`),
   ACCOUNT's Marks (burnt where that purse is full; the receipts name accounts, so the prize and the title are the
   account's, not a character's), the title kept for good (`town_seat_titles`), the Chronicle's row; no bout won, the
   prize home to the crown's treasury. The edict row's state ends `returned` either way.
-- **The title** (`championOf`, `seatTitlesOf`, the token's mint): "Champion of <Kingdom>, Season N" for good - the
+- **The title** (`championOf` - SEASON1 part one renamed it `keptTitleOf`, every kept title's - `seatTitlesOf`, the token's mint): "Champion of <Kingdom>, Season N" for good - the
   account's newest, worn with its crown's key and the Season (`ts` `[key, 0]` - 0 until SEASON1 counts Seasons, as
   every seat title's), whatever character the account brings; `seatTitleText` now says the Season.
 
@@ -11176,7 +11174,7 @@ records re-aimed by content (SEAT1c's list and its defence's two, SEAT2a part th
 - **The Seat tab**: the Season's week above the week's clock ("Week 3 of 8 of the Season of First Seed.", the standings'
   `season`), none where none is counted.
 - **Not yet**: the banner ribbon a Keeper's guild wears (the token and the name tag - BUILT in part two, the banner
-  ribbon, below); the fortifications' wear (SEAT2b has none); the Chronicle as a Hall of Records book (part three).
+  ribbon, below); the fortifications' wear (built with SEAT2b part one - `fortsSeasonStatements`); the Chronicle as a Hall of Records book (part three).
 
 Pinned: `test/season1_law.test.js` (4), `test/season1_service.test.js` (3 - a Season's end set against a twin service
 counting none), `test/season1_client.test.js` (1). `tools/mutants/season1.json` (61, all dead - two survived the first run, each a vacuous pin: a
@@ -11311,8 +11309,8 @@ part two is whole.
   hello, kept in the session's memory so a re-stood peer wears it at once; `accountClient.js` the mint's answer):
   `remotePlayers.js` namePoints carries it; the bitmap face draws a band the run's width under the name in the field
   colour, edged beneath in the border colour (two solid quads); the DOM face a band under the name row
-  (`.dfname-ribbon`), its colours written when they change, off for none. The Overworld travel view's badge draws none
-  yet.
+  (`.dfname-ribbon`), its colours written when they change, off for none. The Overworld travel view's badge draws it
+  since AUDIT-SEATS (`ui/travelViewHud.js` TRAVEL_VIEW_RIBBON).
 
 Pinned: `test/season1_ribbon.test.js` (4 - the law; through the real Worker a Season's end writing it and the mint
 wearing it against a twin counting no Season; the token and the relay; the page). `tools/mutants/ribbon.json` (48: 47
@@ -11431,7 +11429,7 @@ per-frame Promise for the Watch's claim; C13 the relinquish button disarms itsel
 announced in red at the Turning, 24 h, 1 h and 5 min before; G5 arrows and harmful spells on a battle's foe go to the
 referee, Teleport, Recall and Levitate refused in a siege's room; G4 a spectator's free camera; G21 a crown's Throne,
 camp and Palace square placed before its castle's entrance where the town stands one (`siegeField.js` `castle` - the
-world's door to it is NOT YET wired: SEAT2b's relay part).
+world's door to it wired by SEAT2b part two, `castleFrameOf`).
 
 DECIDED: G14 (the Turning's notice on the boards and the hub) is the client's red line at the Turning (G1); G17 (a
 pledge from the Guild tab) stays the board's - 7.9: "A seat is run from its town's board, in person"; G19 the levers'

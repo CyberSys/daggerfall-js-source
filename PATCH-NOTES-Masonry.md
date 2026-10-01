@@ -20,4 +20,4 @@
 ---
 
 ### For the team
-- Apply migration **`0059_masonry.sql`** to production D1 and deploy the account service (**`acct58`**), with the Seats' migrations (`PATCH-NOTES-Seats.md`). Then ship the client.
+- Apply migration **`0059_masonry.sql`** to production D1 and deploy the account service (**`acct59`**), with the Seats' migrations (`PATCH-NOTES-Seats.md`). Then ship the client.

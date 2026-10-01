@@ -118,7 +118,7 @@ The first part of guild town control is in. It is open to the developers first, 
   - Legacy is cleared, and every seat's Standing moves **halfway back toward 50**.
   - The Charters stand, and every seat's Chronicle records who held it at the Season's end.
 - **Season 0's end** wipes the seats, influence, Chronicles, fealty and Pacts. Your Marks, Stores, profession tracks, titles and Honours are kept.
-- **The Hall of Records.** Every seat's palace keeps its whole Chronicle as a book: press a shelf in the palace to read it, one chapter a Season. The Chronicle now dates each line by its Season - "In the third week of the Season of Morning Star..." - on the Seat tab too. The three castles keep theirs on their shelves, and every seat's board has a "Read the Hall of Records" button.
+- **The Hall of Records.** Every seat keeps its whole Chronicle as a book, one chapter a Season: read it from the seat's board, or press a shelf in a palace that has one. The Chronicle now dates each line by its Season - "In the third week of the Season of Morning Star..." - on the Seat tab too. The three castles keep theirs on their shelves, and every seat's board has a "Read the Hall of Records" button.
 - **Once a Season** now means the Season itself. A Pact lasts to the Season's end, and the same two guilds earn Honours from each other once a Season.
 
 ## Tides (online)
@@ -166,7 +166,7 @@ The first part of guild town control is in. It is open to the developers first, 
 ## Fixes (online)
 - **Leaving a battle.** You can now leave a siege or a Royal Tourney: the bar's **Leave** button, the result card's **Close**, `/leave` in chat, walking out of the seat's town, or dying.
 - **Battle announcements.** Each battle at a seat is announced in red at the Turning, a day before, an hour before and five minutes before.
-- **Arrows and spells in a siege** now count: an arrow or a harmful spell on a foe goes to the referee, and a heal on your own side. Teleport, Recall and Levitate don't work in a siege.
+- **Arrows and spells in a siege** now count: an arrow or a harmful spell on a foe goes to the referee, and a heal on your own side. Teleport, Recall and Levitate don't work in a siege, and a rider is set on foot on entering one.
 - **Spectators** get a free camera while they watch, and no longer stand on the field.
 - **A dropped fighter's place** is held for five minutes. Back in time, you return at your side's camp.
 - **Declining an offer.** An offer of fealty or a Pact made to your guild can now be declined from the Seat tab.

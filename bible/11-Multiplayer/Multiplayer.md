@@ -153,11 +153,13 @@ is no anti-cheat in v1 and no plan for one; the room code is the access
 control. This is recorded so nobody later mistakes its absence for an
 oversight.
 
-PVP-REF (2026-10-01, `06-Systems/Online-Arc.md` PVP-REF): the one room
-where that stops being true is a SIEGE's (`siege:<seat>:<week>`), where a
-town's Charter changes hands - there the relay holds every fighter's
-vitality and judges every blow, cast and step (`src/net/siegeRef.js`,
-`11-Multiplayer/Seats-Arc.md` 6.1). Everywhere else this section stands.
+PVP-REF (2026-10-01, `06-Systems/Online-Arc.md` PVP-REF): the rooms
+where that stops being true are a SIEGE's (`siege:<seat>:<week>`), where a
+town's Charter changes hands, and (CROWN1 part two) a Royal Tourney's
+(`royal:<seat>:<week>`), where a crown's champion is decided - there the
+relay holds every fighter's vitality and judges every blow, cast and step
+(`src/net/siegeRef.js`, `11-Multiplayer/Seats-Arc.md` 6.1, 7.6).
+Everywhere else this section stands.
 
 ### The state model is the save
 

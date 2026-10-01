@@ -298,7 +298,7 @@ The Basket's foods are Foraging's and C&C's own templates, not new ones (FORAGE0
 | 665, 666 | Cured Leather, Hardened Leather | Stores | DFU Large Skins, tinted |
 | 668-671 | Linen, Wool, Silk Bolt, Standard-bearer's Silk | Stores | DFU Small Tapestry, tinted |
 | 673-675 | Rough Stone, Cut Stone, Mortar | Stores | DFU Lodestone, greyed |
-| 678 | Siege-cracked Gem | Stores | DFU Diamond, cracked overlay |
+| 678 | Siege-cracked Gem | Stores | DFU Diamond, undyed and without an overlay (AUDIT-SEATS DECIDED: the icon's one door is a dye) |
 | 680 | Arcane Essence | Stores | DFU Ectoplasm, tinted |
 | 685-688 | Hunter's Stew, Fisherman's Supper, Orchard Tart, Feast of the Hearth | pack (food) | C&C's Meat / Cooked Fish / Bread, tinted |
 | 690 | Ram Kit | Stores (a siege work) | DFU Battle Axe, tinted |
@@ -975,7 +975,7 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 | **PROF4** - SHIPPED 2026-09-28 (at `dev`, section 25) | Logging with its act (the falling tree); Carpentry; furniture; the Ram Kit | DECOR places a crafted table. Needs FORAGE1-2 (shipped: the Wood-Axe) |
 | **PROF5** - SHIPPED 2026-09-29 (at `dev`, section 26) | The Market tab: listings, regional markets, couriers, buy orders, history; the Weavers' counter | A crafted Mithril Longsword listed in one region is bought from another by courier and reaches its buyer's pack, its owner moved. Needs MARKS1, NOTICE1, PROF3 (all shipped) |
 | **PROF5b** - SHIPPED 2026-09-29 (at `dev`, section 27) | Timed auctions for Masterworks: the Auctions view, bids escrowed, the last two minutes' two, settled on read | A Masterwork posted in Daggerfall is bid on from Wayrest and Daggerfall, the outbid escrow returned, and at its end the winner's piece is theirs, the seller paid less the tax. Needs PROF5 (shipped) |
-| **PROF6** - SHIPPED 2026-09-29 (at `dev`, section 28) | Writs: guild writs and the guild Stores, commissions and the note's button (built); seat writs with SEAT2b (AUDIT-SEATS: it said SEAT1b), bounties with SEAT1d's Edicts | A Guildmaster's writ delivered by an outsider and a member into the guild Stores, an Officer's posted within the week's budget and refused past it (AUDIT 31 R12: this row said an Officer's writ was delivered); a commission through a crafter's note filled with a piece of their make and in the poster's pack. Seat writs need SEAT1b |
+| **PROF6** - SHIPPED 2026-09-29 (at `dev`, section 28) | Writs: guild writs and the guild Stores, commissions and the note's button (built); seat writs with SEAT2b (AUDIT-SEATS: it said SEAT1b), bounties with SEAT1d's Edicts | A Guildmaster's writ delivered by an outsider and a member into the guild Stores, an Officer's posted within the week's budget and refused past it (AUDIT 31 R12: this row said an Officer's writ was delivered); a commission through a crafter's note filled with a piece of their make and in the poster's pack. Seat writs: built with SEAT2b part one (AUDIT-SEATS II: this said they needed SEAT1b) |
 | **PROF6b** | Found and writ-only recipes (9.1): the Recipe Scroll (695), the found recipes named, a guild's posted recipe reward | Needs a witnessed roll for loot's 1 in 500, and PROF2b's Motherlode for its 1 in 20 |
 | **PROF7** - SHIPPED 2026-09-30 (live, section 29) | Hunting (the trace), the Skinning Knife (603: its template, its online shelves - law 6's exception, for 603); Outfitting | A bear felled by the player's own blow skinned online, its hides cured and sewn into a Leather Helm in the pack; a shirt in the dye its sewer chose. Needs FORAGE1-2 (shipped: the shelves' registry) |
 | **PROF8** - BUILT 2026-09-30 (section 30) | Fishing with the net (the throw, the tug, the haul) | A haul of Raw Fish from a river, its species named; a Pearl at sea on confirmed ground; forty hauls an account a day. Needs FORAGE1-2 (shipped: the net, and the three-valued water state in both exterior hosts) |
@@ -1001,7 +1001,7 @@ Every PROF slice's record names all four (Home.md, THE FOUR HOSTS RULE, 17e), ea
 |---|---|
 | `scenes/world.js` - the streaming world | The wilderness nodes (trees, herb patches, veins, boulders, fishing spots and schools), placed as each terrain tile streams in and freed as it streams out; Motherlodes; gate-touched ground; the Notice Boards; every gathering act; Hunting's skinning outdoors |
 | `scenes/exterior.js` - the fixed city | DFU's own board of its one city - never the Notice Board, which is online's (10.7; AUDIT 28 corrected "the board"). **FLAGGED by name**: no nodes - a fixed city has no wilderness around it and no streamer to place them |
-| `scenes/worldModes.js` - building interiors | The stations (a home's, a guild hall's, a shop's for its use fee); the crafting acts; the Stores chest at a home, a hall or a seat's palace; a station's window in the host's overlay slot |
+| `scenes/worldModes.js` - building interiors | The stations (a home's, a guild hall's, a shop's for its use fee); the crafting acts; the Stores chest at a home or a hall (a seat's palace's is SEAT3's, NOT YET - Seats-Arc 13; AUDIT-SEATS II: this said it stood); a station's window in the host's overlay slot |
 | `scenes/dungeonContext.js` - dungeons | Dungeon veins on the RDB walls (Dwarven Scrap, Adamantium, Diamonds); Hunting's skinning of a dungeon's foes; the act rig as outdoors |
 
 ### 17.2 The process laws, applied
@@ -2607,6 +2607,10 @@ PROF11, DECIDED here, and what was found (FACT):
   fortifierAt).
 - **The pages**: the Stores page's Mason's Bench; Masonry practised on the Professions page; a work's XP said as its own
   profession's (FOUND: it said Smithing's).
+- **The four hosts** (Home.md; 17.1 - AUDIT-SEATS II: this record named none): `scenes/worldModes.js` wired (the
+  mason's bench a General Store's or a home's - `masonHere`); `scenes/world.js` wired (the craft's path, the chisel's
+  band); `scenes/dungeonContext.js` - no station, no bench; `scenes/exterior.js` FLAGGED by name - the fixed city has no
+  stations (17.1's).
 - **Pinned**: `test/prof11_law.test.js` (11), `test/prof11_service.test.js` (7, through the real Worker),
   `test/prof11_client.test.js` (7). Mutants: `tools/mutants/prof11.json` (137, all dead - one retired with SEAT2b part two). Patch notes:
   `PATCH-NOTES-Masonry.md`.
