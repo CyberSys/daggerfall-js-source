@@ -14,7 +14,7 @@ import { createGateOmen, gateTip } from '../src/systems/gateOmen.js';
 import { readGateMark, GATE_RING_CSS } from '../src/ui/gateMapMark.js';
 import { gateTimes, gatePhase, gateCountdown, countdownText, gateModsOf, GATE_COLLAPSE_MS } from '../src/net/gateLaw.js';
 import { gateModsWords } from '../src/net/gateMods.js';   // WB8c: tonight's marks on the card
-import { HeldMapWindow } from '../src/ui/heldMap.js';
+import { HeldMapWindow, TAP_TIP_S } from '../src/ui/heldMap.js';
 import { toPaper, paintRaidMark } from '../src/ui/inkMap.js';
 import { CLIMATES, LOCATION_TYPES, getMapPixelID } from '../src/formats/mapsFile.js';
 import { _resetForTests } from '../src/systems/uiPrefs.js';
@@ -254,11 +254,43 @@ test('EVENT-TIP by source: the host hands the map the raids running now, the poi
     'beside the gate, on the raids\' own clock, none while the mod is off');
   const h = read('src/ui/heldMap.js');
   assert.match(h, /this\._hoverAt = tab \? null : \{ sx: hx, sy: hy, cx: e\.clientX, cy: e\.clientY \};\n\s*this\._showTip\(tab \? null : hit\?\.tip \?\? null, e\.clientX, e\.clientY\);/);
-  assert.match(h, /stage\.addEventListener\('pointerleave', \(\) => \{ this\._hoverAt = null; this\._showTip\(null\); \}\);/);
-  assert.match(h, /stage\.addEventListener\('pointerdown', \(\) => \{ this\._hoverAt = null; this\._showTip\(null\); \}\);/);
+  assert.match(h, /stage\.addEventListener\('pointerleave', \(e\) => \{ if \(e\.pointerType !== 'mouse' && this\._tipUntil !== null\) return; this\._hoverAt = null; this\._showTip\(null\); \}\);/, 'WB13c: a tap\'s card outlives the finger\'s leaving');
+  assert.match(h, /stage\.addEventListener\('pointerdown', \(\) => \{ this\._hoverAt = null; this\._tipUntil = null; this\._showTip\(null\); \}\);/);
   assert.match(h, /if \(gateMoved\) this\._refreshTip\(\);/, 'a poll that moved the marks refreshes the card under a still pointer');
   assert.match(read('src/ui/enhancedStyle.js'), /\.hmtip \{ position: absolute; z-index: 3; display: none; pointer-events: none;/, 'the card never takes the pointer');
   // the classic page is DFU's window: it draws the gate's ring, and no raids and no card
   const classic = read('src/ui/travelMapWindow.js');
   assert.doesNotMatch(classic, /deps\.raids|hmtip|eventMapMarks/);
+});
+
+test('WB13c a finger has no hover: a tap on the breach\'s ring shows its card and its label for TAP_TIP_S, then the card goes; a tap on bare ground shows none; only a finger\'s tap asks (mutants: never shown on a tap; held for ever; a mouse\'s click shows it too)', () => {
+  skin('enhanced');
+  withDocument(() => {
+    const t = gateTimes(741);
+    const clock = { now: t.openAt + 1000 };
+    const omen = createGateOmen({ now: () => clock.now, site: () => ({ place: 'Copperham, Daggerfall', near: 'Copperham', px: 6, py: 4, spot: [409.6, 409.6], ring: { cx: 6.5, cy: 4.5, r: 2 } }), say: () => {}, fellAt: () => null });
+    omen.frame();
+    const win = mkWin({ gate: () => omen.mapMark(), maps: { regionCount: 18, getRegion: () => ({ mapNames: [] }), getPoliticIndex: () => 128 + 17 } });
+    win.tick(0);
+    aimView(win, 0, 0, 20);
+    win._phase = 'map';
+    globalThis.innerWidth = 390; globalThis.innerHeight = 844;   // a phone held upright
+    const [gx, gy] = toPaper(win._view, 5.2, 3.4);
+    win._tapTip(gx, gy, 120, 300);
+    assert.equal(win._chrome.tip.style.display, 'block');
+    assert.equal(cardText(win)[0], 'Dagon\'s Breach');
+    assert.match(win._chrome.label.textContent, /^Dagon's Breach - seals in /, 'and its label');
+    win.tick(TAP_TIP_S - 0.1);
+    assert.equal(win._chrome.tip.style.display, 'block', 'held while it is read');
+    win.tick(0.2);
+    assert.equal(win._chrome.tip.style.display, 'none', 'then gone');
+    assert.equal(win._tipUntil, null);
+    const [ox, oy] = toPaper(win._view, 9.5, 9.5);
+    win._tapTip(ox, oy, 120, 300);
+    assert.deepEqual([win._chrome.tip.style.display, win._tipUntil], ['none', null], 'past the ring: no card to hold');
+    delete globalThis.innerWidth; delete globalThis.innerHeight;
+    win.dispose();
+  });
+  assert.equal(TAP_TIP_S, 4);
+  assert.match(read('src/ui/heldMap.js'), /this\._sheet\?\.pickAt\?\.\(px, py\);\n\s*if \(e\.pointerType !== 'mouse'\) this\._tapTip\(px, py, e\.clientX, e\.clientY\);/, 'the press still picks; a finger\'s also shows the card');
 });

@@ -123,7 +123,7 @@ test('WB9a the card\'s node: made once, written when its marks change (never its
   assert.ok(root.gone);
 });
 
-test('WB9a the bar\'s row: the night\'s marks under his health, a chip a mark - his aspect\'s sign and name in its colour over his element, each trial\'s over its line - written when the marks change and never a frame, the row hidden for the Warden unmarked (mutants: the row rewritten every frame; the aspect\'s colour lost)', () => {
+test('WB9a the bar\'s row: the night\'s marks under his health, a chip a mark - his aspect\'s sign and name in its colour, each trial\'s (WB13c: no line under each) - written when the marks change and never a frame, the row hidden for the Warden unmarked (mutants: the row rewritten every frame; the aspect\'s colour lost)', () => {
   const md = ['burning', 'vengeful', 'soulhungry'];
   const state = (over = {}) => ({ ...GATE_STATE_EMPTY, day: 5, boss: 'ruhn', hp: 800, max: 1000, wrathAt: 1e12, fighters: 3, ...over });
   const m = bossBarModel(state({ md }), 1000, BOSS);
@@ -134,12 +134,11 @@ test('WB9a the bar\'s row: the night\'s marks under his health, a chip a mark - 
   destroyGateBossBar();
   drawGateBossBar(m, { doc });
   const root = doc.body.children[0];
-  const row = root.children[2];
+  const row = root.children[3];
   assert.equal(row.className, 'wb-boss-marks'); assert.equal(row.style.display, '');
   const head = (i) => row.children[i].children[0];
   assert.deepEqual(row.children.map((c, i) => head(i).children[1].textContent), ['Burning', 'Vengeful', 'Soul-Hungry']);
-  assert.equal(row.children[0].children[1].textContent, 'His blows carry fire');
-  assert.equal(row.children[1].children[1].textContent, 'His blows and his ground deal 25% more');
+  assert.deepEqual(row.children.map((c) => c.children.length), [1, 1, 1], 'WB13c: a sign and a name each - the card says what each does');
   assert.equal(head(0).children[1].style.color, aspectCss('burning'));
   assert.match(head(0).children[0].innerHTML, /<svg/);
   const writes = made.reduce((n, x) => n + x.writes, 0);

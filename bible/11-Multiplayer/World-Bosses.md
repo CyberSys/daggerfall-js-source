@@ -1865,6 +1865,47 @@ What changes beyond the wording:
 - The bar sits lower on a portrait phone.
 - The chart drops two columns on narrow screens and enters row by row.
 
+**As built:**
+- The bar (`ui/gateBossBar.js`):
+  - A trailing segment behind the fill, held 0.55 s and drained at 70% a second (`ui/barLoss.js`). The fill eases over
+    250 ms.
+  - The ward is a class. The cage fades in over 160 ms, the fill dims under it, and its failing flashes the track for
+    250 ms. "Warded" is in the ward's gold.
+  - Callouts come in over 140 ms and fade over 160 ms, keeping their words, plate and line until they are gone. The
+    line under each fills with the wind-up and is full at the landing.
+  - Dagon's Wrath and the Reckoning stand on a red plate pulsing at 2 Hz.
+  - MOVE stands beside his blow's name while it is aimed at your feet (`scenes/gateCourt.js` perilAt, the ground
+    warning's own).
+  - A phase mark flashes for 400 ms as he crosses it, then stays dim. A mark crossed before you came never flashes.
+  - His name stands alone; his epithet is beneath it, in his aspect's colour. The Warden unmarked has his title there.
+  - Each mark is a sign and a name. The row wraps on a narrow phone.
+  - The foot is a chip each: the fighters, his host, the next Reckoning, and the Wrath's countdown, red and pulsing in
+    its last minute.
+  - FELLED holds for 1.2 s, then the bar fades over 0.5 s as the damage chart comes in.
+  - His name and health come up on the bar's first showing in a fight. A fight that ends resets the bar.
+  - Each one-shot flash is timed by the fight's clock and then removed, so showing the HUD again never replays it.
+- The layouts:
+  - The bar sits at 72 px on a portrait phone. On a landscape phone it sits at 44 px and drops its marks row.
+  - On a landscape phone the card stands at the foot on the left without its tips. The chart stands on the left under
+    the menu button, in the narrow grid.
+  - The bar is hidden under the step-through fire.
+  - With the party frames up, the card and the chart stand beside them on screens 900 px or wider. On a portrait phone
+    the card moves under the bar and the chart to where the bar was.
+  - The chart drops Blows and Best under 1000 px.
+  - The chart's rows come in 40 ms apart, each bar growing over 600 ms.
+- The map: tapping a mark that has a card shows the card and its label for 4 s (`ui/heldMap.js`).
+- Type:
+  - Every gate screen loads the classic face itself.
+  - Figures are lining and tabular.
+  - The card's lines and tips are 13 px and upright.
+  - The Plus skin dresses the ground warning, the new parts and a lit ward cage.
+- Not done from the audit: the falling chunks, a flash on my own hit before the relay's word, the gate card collapsing
+  to a strip, and shorter callout words.
+- Pinned: `test/wb13c_hud.test.js` (10) and the map's tap in `test/eventtip.test.js`. Seven older test files
+  re-pinned.
+- Mutants: `tools/mutants/wb13c.json` (29). Five older records re-aimed.
+- Seen in Chromium at 1280x720, 390x844 and 844x390 in both skins.
+
 ### WB13d. The blows
 
 - **His body:**
@@ -2335,4 +2376,16 @@ Mehrunes Dagon's day (WB12b) was dropped before it shipped (Mac: *"Let's forgoe 
 - world141 re-hashed in place.
 - Pins `test/wb13b_words.test.js` (5), with 30 older pins re-aimed; mutants `tools/mutants/wb13b.json` (11), with eight
   older records re-aimed.
+
+**WB13c (2026-10-01) - the HUD.** Section 20 above (Mac: *"just overall bring more AAA grade polish to what is already
+developed"*):
+- His bar has a trailing segment, a ward that comes and goes, callouts with a line to the landing, Dagon's plate and
+  MOVE, spent phase marks, his epithet on its own line, chips in the foot, and FELLED before the fade.
+- Phone layouts: nothing runs off the screen or covers the crosshair while he fights, and nothing covers the party
+  frames on a wide screen.
+- The bar is hidden under the step-through fire. A finger's tap shows the breach's card on the map.
+- The classic face is loaded by the gate's own screens.
+- No relay or account change.
+- Pins `test/wb13c_hud.test.js` (10) and `test/eventtip.test.js`, with seven older files re-pinned; mutants
+  `tools/mutants/wb13c.json` (29), with five older records re-aimed.
 

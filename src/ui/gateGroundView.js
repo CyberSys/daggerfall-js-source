@@ -20,6 +20,7 @@
 // pure - the pins read it.
 //
 // Not a DFU member. Ledger A (WB).
+import { injectEnhancedFonts } from './enhancedStyle.js';   // WB13c: the classic face, loaded by the gate's own screens
 
 /** A bite's flare fades over this (ms); the rim breathes this fast while I stand in it (cycles a second). */
 export const GROUND_BITE_MS = 650;
@@ -91,6 +92,7 @@ function build(doc) {
     st.id = GROUND_VIEW_STYLE_ID;
     st.textContent = GROUND_VIEW_CSS;
     (doc.head ?? doc.body)?.append(st);
+    if (doc.head) injectEnhancedFonts(doc);   // WB13c: Cormorant on the classic skin too (it came only if another window had asked)
   }
   edgeNode = doc.createElement('div');
   edgeNode.className = 'wb-ground-edge';

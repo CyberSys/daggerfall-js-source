@@ -123,16 +123,16 @@ test('PLUS-DRESS the gate: the boss\'s bar and the countdown paint from CLASSES 
   drawGateBossBar(model, { doc });
   drawGateBossBar({ ...model, frac: 0.4 }, { doc });
   const root = doc.body.children[0];
-  assert.equal(root.className, 'wb-boss-bar');
-  assert.deepEqual(root.children.map((c) => c.className), ['wb-boss-name', 'wb-boss-track', 'wb-boss-marks', 'wb-boss-callout', 'wb-boss-foot']);   // WB9a: the night's marks under his health (WB8b's trials line under his name, moved and drawn whole)
-  const track = root.children[1];
-  assert.deepEqual(track.children.map((c) => c.className), ['wb-boss-fill', 'wb-boss-mark', 'wb-boss-mark', 'wb-boss-ward']);
-  assert.equal(track.children[0].style.width, '40.0%');
-  assert.equal(track.children[3].style.display, 'none');
+  assert.deepEqual(root.children.map((c) => c.className), ['wb-boss-name', 'wb-boss-sub', 'wb-boss-track', 'wb-boss-marks', 'wb-boss-callout', 'wb-boss-foot']);   // WB9a: the night's marks under his health (WB8b's trials line under his name, moved and drawn whole); WB13c: his epithet's line
+  const track = root.children[2];
+  assert.deepEqual(track.children.map((c) => c.className), ['wb-boss-ghost', 'wb-boss-fill', 'wb-boss-mark', 'wb-boss-mark', 'wb-boss-ward']);   // WB13c: the trailing segment under the fill
+  assert.equal(track.children[1].style.width, '40.0%');
+  assert.equal(track.children[0].style.width, '50.0%', 'WB13c: where he was, held');
+  assert.equal(root.className, 'wb-boss-bar intro', 'WB13c: his first showing; no ward - a class, never a node shown and hidden');
   assert.ok(made.every((n) => n.style.cssText === undefined), 'no part carries its paint inline');
   assert.equal(styles.filter((s) => s.id === BOSS_BAR_STYLE_ID).length, 1, 'the sheet, once');
   assert.equal(styles[0].textContent, BOSS_BAR_CSS);
-  for (const c of ['wb-boss-bar', 'wb-boss-name', 'wb-boss-track', 'wb-boss-fill', 'wb-boss-mark', 'wb-boss-ward', 'wb-boss-marks', 'wb-boss-chip', 'wb-boss-chip-head', 'wb-boss-chip-icon', 'wb-boss-chip-name', 'wb-boss-chip-text', 'wb-boss-callout', 'wb-boss-foot']) {
+  for (const c of ['wb-boss-bar', 'wb-boss-name', 'wb-boss-sub', 'wb-boss-track', 'wb-boss-ghost', 'wb-boss-fill', 'wb-boss-mark', 'wb-boss-ward', 'wb-boss-marks', 'wb-boss-chip', 'wb-boss-chip-head', 'wb-boss-chip-icon', 'wb-boss-chip-name', 'wb-boss-callout', 'wb-boss-callout-line', 'wb-boss-move', 'wb-boss-foot', 'wb-boss-tag', 'wb-boss-wrath']) {
     assert.match(BOSS_BAR_CSS, new RegExp(`\\.${c} \\{`), c);
     assert.match(ONLINE_DRESS_CSS, new RegExp(`body \\.${c}\\b`), `${c} is dressed under Plus`);
   }

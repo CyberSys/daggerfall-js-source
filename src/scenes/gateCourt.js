@@ -710,7 +710,10 @@ export function createGateCourt({
       else { const [mx, mz] = bossPlace(s, t); _mark.origin[0] = mx; _mark.origin[1] = mz; _mark.yaw = s.yaw; _mark.color = t < s.shieldUntil ? WARD_COLOR : markEmber; _mark.court = nearestCourt(mx, mz); mark = _mark; }   // AUDIT WB D10's law: one shape, refilled; WB9b: over the court he stands in
       poolDraw = pools.length ? poolShapes(pools, t, poolColor(P), TELEGRAPH_STYLE[P.el] ?? TELEGRAPH_STYLE.fire) : NONE;   // WB9e: his ground in its own grain
       for (const w of WALKS) _walked[w.k] = walkFormed(s.xa, w.k, t);   // AUDIT WB9 (court F4): how far each walkway is laid - his shapes go on over it
-      drawGateBossBar(bossBarModel(s, t, bossOf(s)), { hidden: hudHidden() });
+      // WB13a: a blow still to come on my feet (WB13c: the bar says MOVE by its name; never over the step's fire)
+      const fp = feet(), alive = !!fp && (player()?.health ?? 0) > 0;
+      const peril = alive ? perilAt(s, t, P, fp[0] - COURT_CENTRE[0], fp[2] - COURT_CENTRE[2], yaw()) : null;
+      drawGateBossBar(bossBarModel(s, t, bossOf(s), peril?.name ?? null), { hidden: hudHidden() || veiled() });
       // WB9a (Mac: "Allow people to see the modifers/trial as a popup before it starts"): THE MARKS' CARD as I step in -
       // his aspect and his trials, each with its sign, its line and how to meet it, while he stands to be read
       // (net/gateBrain.js OPENING_MS); gone once he has fallen, and never over the step's fire
@@ -722,8 +725,6 @@ export function createGateCourt({
       drawGateDamageChart(chartAt !== null ? damageChartModel(s.fell, { boss: bossOf(s).name, me: me(), since: chartAt, now: t }) : null, { hidden: hudHidden() || veiled() });
       // WB9d: his ground under me and his element on me, felt - the screen's rim in its colour, the warning while I stand in
       // it; WB13a: and a blow still to come on my feet, over all of it, with the way out
-      const fp = feet(), alive = !!fp && (player()?.health ?? 0) > 0;
-      const peril = alive ? perilAt(s, t, P, fp[0] - COURT_CENTRE[0], fp[2] - COURT_CENTRE[2], yaw()) : null;
       drawGateGround(groundViewModel({ inside: inFire, ground: groundName, color: groundColor, biteAt, biteColor, now: t, peril }), { hidden: hudHidden() });
       if (healOwed.size && t - healSentAt >= HEAL_SEND_MS) sendOwed(t);   // GATE-HEAL: what my mates healed in me, out
       prevT = t;

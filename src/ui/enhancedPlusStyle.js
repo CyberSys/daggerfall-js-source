@@ -1539,28 +1539,44 @@ body .dfparty-vital.magicka .dfparty-fill { background: linear-gradient(180deg, 
    face, outlined. The fire's own colours stay his. */
 body .wb-boss-bar { ${PIXEL_FONT_CSS} font-weight: 400; letter-spacing: 0.06em; color: #efe8d6; text-shadow: 1px 1px 0 #050608, 2px 2px 0 rgba(0,0,0,0.7); }
 body .wb-boss-name { font-size: 14px; letter-spacing: 0.14em; text-shadow: ${OUTLINED}; }
-/* WB9a: the night's marks under his health - each chip its sign and name over its line, in the HUD's pixel face */
-body .wb-boss-marks { gap: 14px; margin: 3px 0 4px; }
+/* WB13c: his epithet under his name; the trailing segment the foe bar's own */
+body .wb-boss-sub { font-size: 11px; letter-spacing: 0.08em; color: #d8cfae; text-shadow: ${OUTLINED}; }
+body .wb-boss-ghost { background: linear-gradient(180deg, #fff6e4 0 2px, #ffc08a 2px); opacity: 0.6; }
+/* WB9a: the night's marks under his health - each chip its sign and name, in the HUD's pixel face */
+body .wb-boss-marks { column-gap: 14px; margin: 3px 0 4px; }
 body .wb-boss-chip { text-shadow: ${OUTLINED}; }
 body .wb-boss-chip-head { font-size: 11px; letter-spacing: 0.12em; color: #efe8d6; }
 body .wb-boss-chip-icon { filter: drop-shadow(1px 1px 0 #050608); }
 body .wb-boss-chip-name { font-size: 11px; }
-body .wb-boss-chip-text { font-size: 10px; letter-spacing: 0.04em; color: #d8cfae; opacity: 1; }
-body .wb-boss-track { border: 2px solid; border-color: #9a9079 #3a352a #25221b #6e6755; isolation: isolate;
+body .wb-boss-track { margin: 7px 0 6px; border: 2px solid; border-color: #9a9079 #3a352a #25221b #6e6755; isolation: isolate;
   background: linear-gradient(180deg, rgba(0,0,0,0.6) 0 2px, transparent 2px), #1e0906;
   box-shadow: 0 0 0 1px #050608, 3px 3px 0 1px rgba(0,0,0,0.45); }
 body .wb-boss-fill { background: linear-gradient(180deg, #ffc08a 0 2px, #ff7a3a 2px 4px, #d8341a 4px 8px, #9a1a0a 8px 10px, #5c0a04 10px); }
 body .wb-boss-fill::after { content: ''; position: absolute; top: 0; bottom: 0; right: 0; width: min(2px, 100%); background: #ffd9a8; opacity: 0.85; }
 body .wb-boss-mark { top: 0; bottom: 0; z-index: 1; background: linear-gradient(90deg, #050608 0 1px, rgba(255,230,200,0.55) 1px); }
-body .wb-boss-ward { inset: -5px; border-color: ${FRAME_TONES.brassHi} ${FRAME_TONES.brassLo} #5c3f1a ${FRAME_TONES.brass};
-  box-shadow: 0 0 0 1px #050608, inset 0 0 0 1px #050608; }
+/* WB13c: the ward a lit cage, apart from the frame's brass */
+body .wb-boss-ward { inset: -5px; border-color: #ffe9a8; box-shadow: 0 0 0 1px #050608, 0 0 0 3px rgba(255,210,122,0.45), inset 0 0 0 1px #050608; }
 body .wb-boss-track::before, body .wb-boss-track::after { content: ''; position: absolute; top: -2px; bottom: -2px; width: 6px; z-index: 2;
   box-shadow: 0 0 0 1px #050608; background: ${CLASP}; }
 body .wb-boss-track::before { left: -6px; }
 body .wb-boss-track::after { right: -6px; }
 body .wb-boss-callout { font-size: 15px; letter-spacing: 0.12em; text-shadow: ${OUTLINED}; }
+body .wb-boss-callout.cin { animation-timing-function: steps(3); }
+/* WB13c: the line to the landing a hard pixel; Dagon's plate and MOVE in a black ring, no glow */
+body .wb-boss-callout-line { height: 2px; box-shadow: 0 1px 0 #050608; opacity: 1; }
+body .wb-boss-callout.dagon .wb-boss-callout-text { font-size: 15px; color: #efe8d6; box-shadow: 0 0 0 1px #050608, 2px 2px 0 1px rgba(0,0,0,0.45); }
+body .wb-boss-move { font-size: 12px; color: #fff6e4; background: #b8320c; box-shadow: 0 0 0 1px #050608, 2px 2px 0 1px rgba(0,0,0,0.45); }
 body .wb-boss-foot { font-size: 11px; opacity: 1; color: #d8cfae; }
+body .wb-boss-tag { background: rgba(5,6,8,0.6); border-color: #3a352a; box-shadow: 1px 1px 0 rgba(0,0,0,0.45); text-shadow: ${OUTLINED}; }
+body .wb-boss-wrath { color: #ff9a7a; border-color: #8a2820; }
+body .wb-boss-wrath.near { color: #fff6e4; }
+@media (max-width: 640px) { body .wb-boss-chip-head, body .wb-boss-chip-name { font-size: 9px; letter-spacing: 0.06em; } }
 body .wb-gate-banner { ${PIXEL_FONT_CSS} font-weight: 400; font-size: 14px; letter-spacing: 0.14em; text-shadow: ${OUTLINED}; }
+/* WB13c: the ground's warning in the HUD's face, outlined on a dark band (it stood in the serif among pixel words, orange
+   on the orange rim); the way out's arrow in a hard black edge */
+body .wb-ground-warn { ${PIXEL_FONT_CSS} font-weight: 400; font-size: 16px; letter-spacing: 0.1em; text-shadow: ${OUTLINED};
+  background: rgba(5,6,8,0.55); padding: 2px 8px; box-shadow: 0 0 0 1px rgba(5,6,8,0.8); }
+body .wb-ground-arrow svg { filter: drop-shadow(1px 0 0 #050608) drop-shadow(-1px 0 0 #050608) drop-shadow(0 1px 0 #050608) drop-shadow(0 -1px 0 #050608); }
 /* WB9a: the marks' card - a stone panel in the brass frame, the pixel face outlined; each aspect keeps its own colour */
 body .wb-marks-card { ${PIXEL_FONT_CSS} font-weight: 400; letter-spacing: 0.05em; color: #efe8d6; text-shadow: ${OUTLINED};
   background: linear-gradient(180deg, rgba(0,0,0,0.5) 0 2px, transparent 2px), rgba(20,14,10,0.92);

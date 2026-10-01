@@ -20,6 +20,7 @@ import {
 } from '../src/world/gateBoss.js';
 import { telegraphShape, markShape, BOSS_MARK_R } from '../src/render/gateTelegraph.js';
 import { bossBarModel, drawGateBossBar, destroyGateBossBar } from '../src/ui/gateBossBar.js';
+import { aspectCss } from '../src/ui/gateMarksView.js';   // WB13c: his epithet's colour on the bar
 import { createGateCourt, COURT_STRIKE_TEXT, COURT_PHASE_TEXT, COURT_MARKS_TEXT, courtPhaseText, MARK_COLOR, FED_LATE_MS } from '../src/scenes/gateCourt.js';
 import { courtToDungeon } from '../src/world/gateArena.js';
 import { gateTip } from '../src/systems/gateOmen.js';
@@ -204,7 +205,7 @@ test('WB8c the look and the voice: his elemental blows, his ground and his ember
   assert.deepEqual(w.color, ASPECT_COLORS.rime.nova.map((c) => c * 2.4), 'a landing flares in his aspect\'s colour');
 });
 
-test('WB8c the ground drawn and the bar: the telegraph shows Colossal\'s slam at its reach and his body, in his aspect\'s colour; his mark about his own body; the bar says his epithet after his name, his trials under it, and each attack by his aspect\'s name in its colour (mutants: the old reach drawn; the Burning name under the storm)', () => {
+test('WB8c the ground drawn and the bar: the telegraph shows Colossal\'s slam at its reach and his body, in his aspect\'s colour; his mark about his own body; the bar says his epithet under his name (WB13c), his trials under it, and each attack by his aspect\'s name in its colour (mutants: the old reach drawn; the Burning name under the storm)', () => {
   const C = fightProfile(['storm', 'colossal', 'grudge']);
   const sh = telegraphShape(W('slam', { at: 11000 }), 1, 10000, C);
   assert.equal(sh.r, 8.5); assert.equal(sh.body, BOSS_R * 1.25);
@@ -215,7 +216,7 @@ test('WB8c the ground drawn and the bar: the telegraph shows Colossal\'s slam at
   const boss = { name: 'Valkynaz Ruhn', title: 'Warden of the Burning Gate' };
   const m = bossBarModel(state({ md: ['storm', 'colossal', 'grudge'], atk: W('meteor', { at: 12000 }), phase: 2 }), 10000, boss);
   assert.equal(m.epithet, 'the Storm-Crowned'); assert.equal(m.trials, 'Colossal - Grudge-Bearer');
-  assert.deepEqual(m.callout, { text: 'Thunderbolt of Oblivion', color: `rgb(${ASPECT_COLORS.storm.meteor.map((c) => Math.round(c * 255)).join(', ')})` });
+  assert.deepEqual({ text: m.callout.text, color: m.callout.color }, { text: 'Thunderbolt of Oblivion', color: `rgb(${ASPECT_COLORS.storm.meteor.map((c) => Math.round(c * 255)).join(', ')})` });
   const u = bossBarModel(state({ atk: W('meteor', { at: 12000 }), phase: 2 }), 10000, boss);
   assert.equal(u.epithet, ''); assert.equal(u.trials, ''); assert.equal(u.callout.text, 'Meteor of Oblivion');
   // the node: his name with his epithet; WB9a: his marks under his health, a chip each (the row hidden when he bears none)
@@ -225,12 +226,14 @@ test('WB8c the ground drawn and the bar: the telegraph shows Colossal\'s slam at
   destroyGateBossBar();
   drawGateBossBar(m, { doc });
   const root = doc.body.children[0];
-  assert.equal(root.children[0].textContent, 'Valkynaz Ruhn the Storm-Crowned - Warden of the Burning Gate');
-  const row = root.children[2];
+  assert.equal(root.children[0].textContent, 'Valkynaz Ruhn', 'WB13c: his name on its own line');
+  const sub = root.children[1];
+  assert.deepEqual([sub.textContent, sub.style.color], ['The Storm-Crowned', aspectCss('storm')], 'WB13c: his epithet beneath it, in his aspect\'s colour');
+  const row = root.children[3];
   assert.equal(row.className, 'wb-boss-marks');
   assert.deepEqual(row.children.map((c) => c.children[0].children[1].textContent), ['Storm-Crowned', 'Colossal', 'Grudge-Bearer']);
   drawGateBossBar(u, { doc });
-  assert.equal(root.children[0].textContent, 'Valkynaz Ruhn - Warden of the Burning Gate');
+  assert.deepEqual([root.children[0].textContent, sub.textContent, sub.style.color], ['Valkynaz Ruhn', 'Warden of the Burning Gate', ''], 'unmarked, his title there');
   assert.equal(row.style.display, 'none');
   destroyGateBossBar();
 });

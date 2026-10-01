@@ -284,8 +284,8 @@
   {
     "name": "WB8c-the-callout-the-table-s-name",
     "file": "src/ui/gateBossBar.js",
-    "old": "{ text: P.atk[A.key].name, color: css(attackColor(A, P)) }",
-    "new": "{ text: A.name, color: css(attackColor(A, P)) }",
+    "old": "{ text: P.atk[A.key].name, color: css(attackColor(A, P)), t:",
+    "new": "{ text: A.name, color: css(attackColor(A, P)), t:",
     "tests": [
       "test/wb8c_gate_detail.test.js"
     ]

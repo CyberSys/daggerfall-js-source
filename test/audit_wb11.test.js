@@ -390,7 +390,7 @@ test('AUDIT WB11 C8 his host\'s shapes are refilled into their slots, never made
 // ═══ U: THE BROWSER'S ══════════════════════════════════════════════════════════════════════════════════════════════
 
 test('AUDIT WB11 C9/U5 a Legion-Lord night\'s chart keeps its Host column on a narrow screen, in the place of the falls (it folded away whole; the patch said a Host column on those nights) (mutant: the column folded)', () => {
-  const narrow = /@media \(max-width: 640px\) \{([\s\S]*?)\n\}/.exec(DAMAGE_CHART_CSS)?.[1] ?? '';
+  const narrow = /@media \(max-width: 640px\), \(max-height: 480px\) \{([\s\S]*?)\n\}/.exec(DAMAGE_CHART_CSS)?.[1] ?? '';   // WB13c: a phone held sideways is narrow too
   assert.match(narrow, /\.wb-dmg-hosted \.wb-dmg-row > \.wb-dmg-host \{ display: block; \}/, 'the Host column shown');
   assert.match(narrow, /\.wb-dmg-hosted \.wb-dmg-row > \.wb-dmg-falls \{ display: none; \}/, 'in the falls\' place');
   assert.match(narrow, /\.wb-dmg-hosted \.wb-dmg-row \{ grid-template-columns: 18px minmax\(0, 1fr\) 58px 44px 50px; \}/, 'the narrow grid\'s five columns, the last wide enough for a host\'s five figures');

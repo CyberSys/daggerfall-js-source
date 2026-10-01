@@ -74,11 +74,12 @@ test('GATE-UX 2 under his health no phase is said - the foot says the court\'s f
   drawGateBossBar(m, { doc });
   const root = doc.body.children[0];
   const foot = root.children.find((c) => c.className === 'wb-boss-foot');
-  assert.equal(foot.textContent, BOSS_BAR_TEXT.fighters(3), 'the fighters alone');
-  for (const n of PHASE_NAMES) assert.equal(foot.textContent.includes(n), false, `"${n}" not said under his health`);
+  const said = () => foot.children.filter((c) => c.style.display !== 'none').map((c) => c.textContent);   // WB13c: a chip each
+  assert.deepEqual(said(), [BOSS_BAR_TEXT.fighters(3)], 'the fighters alone');
+  for (const n of PHASE_NAMES) assert.equal(foot.children.some((c) => c.textContent.includes(n)), false, `"${n}" not said under his health`);
   const late = bossBarModel({ ...s, phase: 3, rk: T0 + 42_000, wrathAt: T0 + 61_000 }, T0, BOSS);
   drawGateBossBar(late, { doc });
-  assert.equal(foot.textContent, [BOSS_BAR_TEXT.fighters(3), BOSS_BAR_TEXT.reckonIn('0:42'), BOSS_BAR_TEXT.wrathIn('1:01')].join('  -  '), 'the countdowns kept');
+  assert.deepEqual(said(), [BOSS_BAR_TEXT.fighters(3), BOSS_BAR_TEXT.reckonIn('0:42'), BOSS_BAR_TEXT.wrathIn('1:01')], 'the countdowns kept');
   destroyGateBossBar();
   assert.match(read('src/scenes/gateCourt.js'), /const line = courtPhaseText\(s\.phase, P\.aspect\); if \(line\) say\(line\);/, 'the turn is said as it comes');
   assert.equal(BOSS_BAR_TOP, '58px');
