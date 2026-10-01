@@ -374,7 +374,7 @@
   {
     "name": "SEAT1c-tab-no-chronicle",
     "file": "src/ui/seatTab.js",
-    "old": "      const lines = (data.chronicle ?? []).map((r) => chronicleLine(r, seat)).filter(Boolean);",
+    "old": "      const lines = (data.chronicle ?? []).map((r) => chronicleLine(r, seat, book.zero ?? null)).filter(Boolean);",
     "new": "      const lines = [];",
     "tests": [
       "test/seat1c_client.test.js"

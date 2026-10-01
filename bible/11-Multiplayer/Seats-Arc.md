@@ -863,6 +863,17 @@ from templates in the law module:
 
 The book is read through the enhanced book window the port already has (`src/ui/enhancedBook.js`).
 
+BUILT (SEASON1 part three, 2026-10-01, `acct57`; `06-Systems/Online-Arc.md` SEASON1 part three): the Chronicle in its
+Season's words (`townSeatLaw.js` `chronicleWhen` - "In the third week of the Season of Morning Star", the week's number
+with none counted), on the Seat tab and in the book; the Hall of Records (`/v1/seats/records` - a seat's newest 400 rows,
+oldest first, beside the week Season 0 began; `townSeatLaw.js` `hallOfRecordsChapters`, one chapter a Season;
+`ui/hallOfRecords.js`, through the reader's one door, so both skins read it). DECIDED: the book is a seat's palace's
+shelves - its shelf-set models, geometry in DFU's palace (no shop, no bookshelf), read as "Hall of Records" while the
+seats are open to the reader; offline they are DFU's. NOT YET: the three castles (a castle is a dungeon, whose shelves
+take no press - a crown's Chronicle is read on its board's Seat tab meanwhile), and a palace with no shelf-set model
+has no book to open. The templates are the Chronicle's own lines (9.2's four examples are close kin, not verbatim:
+"stormed the gates ... after thirty-one minutes" wants the siege's length, which no history row keeps).
+
 ### 9.3 Tides - the world moves under the war
 
 Each week the shared clock rolls one **Tide** per kingdom, one for the Marches (all three regions share it) and one
@@ -1001,7 +1012,7 @@ bible updated in the same change, mutants recorded.
 | **SEAT2b** | Fortifications, the Barracks' guards, the Gatehouse, the Ram, revolts | Needs PROF11 (Masonry), PROF4 (Carpentry), PROF3 (Smithing's ingots for the Ram) and PROF8 (the Pearls tier-2 Shrine and Apothecary ask) |
 | **CROWN1** | The crown tier: reach, the Marches, the Free Lands, crown glyphs, the Saturday slots, Royal Tourney, Conscription - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` CROWN1: reach, the Marches' share, the Free Lands' Watch, Conscription; `acct49`; the crown glyphs were SEAT1c's, the Saturday slots SEAT2a's); **PART TWO (the Royal Tourney) SHIPPED** - the relay (`world142`), the service (`acct50`) and the client; CROWN1 is whole. Built before SEAT2b, which waits on PROF11 (Masonry) and which CROWN1 does not read | 4.4's worked example pinned to the unit; every Conscription share pinned |
 | **CROWN2** | Fealty and Pacts - **SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` CROWN2; `acct51`, migration `0055`) | The tribute, the half-reach and the break's Standing pinned at the Turning; the pledges barred; a Pact broken early in red |
-| **SEASON1** | Seasons, the Chronicle, the Hall of Records, Tides - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` SEASON1: the calendar from `SEASON_ZERO_WEEK`, the names, a Season's end - its titles, the soft reset, the Chronicle's line - Season 0's wipe, the Season on the rules and the titles; `acct52`); **PART TWO SHIPPED** - the roll and the seat's own effects, on the Seat tab (`acct53`); the economy's Tides (`acct54`); the Orc Raids and the stormy sea (`acct55`); the banner ribbon (`acct56`, `world143`); the Hall of Records is part three | A Season's end set against a twin counting none; Season 0's wipe |
+| **SEASON1** | Seasons, the Chronicle, the Hall of Records, Tides - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` SEASON1: the calendar from `SEASON_ZERO_WEEK`, the names, a Season's end - its titles, the soft reset, the Chronicle's line - Season 0's wipe, the Season on the rules and the titles; `acct52`); **PART TWO SHIPPED** - the roll and the seat's own effects, on the Seat tab (`acct53`); the economy's Tides (`acct54`); the Orc Raids and the stormy sea (`acct55`); the banner ribbon (`acct56`, `world143`); **PART THREE SHIPPED** - the Hall of Records (`acct57`), the castles' copies NOT YET | A Season's end set against a twin counting none; Season 0's wipe |
 
 ## 14. What remains to measure
 

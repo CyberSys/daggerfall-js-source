@@ -278,6 +278,7 @@ import {
   HALL_VERB, homeHallBuyRow, hallNextEntry, hallBoughtLine, hallShortLine, HALL_CHEST_SHUT,   // GUILD1d: a guild's hall
   HALL_CHEST_TITLE, HALL_DROP_TEXT, HALL_VISITOR_MAGIC_TEXT, hallOfferLabel,   // AUDIT GUILD1d: the chest's name, a hall's floor and magic, the offer's hall
   HALL_BOARD_TITLE, hallBoardShutLine, HALL_BOARD_COLD,   // GUILD1e: the board in a hall
+  HALL_OF_RECORDS_TEXT, HALL_OF_RECORDS_SHUT,   // SEASON1 part three: a seat's Hall of Records
   homeDoorName,   // FIELD BUGS 2026-09-30b HOME-PLAQUE: a nameless house with verbs is a Residence
 } from '../systems/onlineHomes.js';
 import { guildHallPrice, GUILD_HALL_ENTRY_WORDS } from '../net/hallLaw.js';   // GUILD1d: what a hall costs, in its refusal's words; who may walk in
@@ -2211,6 +2212,7 @@ export function createWorldModes(host) {
       // already had the law that tells them apart (DaggerfallInterior
       // .cs:808-814). The plaque reads it rather than guessing.
       if (key.startsWith('shelf:')) {
+        if (hallOfRecordsHere(b)) return { title: HALL_OF_RECORDS_TEXT };   // SEASON1 part three: a seat's palace shelves are its Hall of Records
         if (isBookshelfBuilding(b?.buildingType)) return { title: BOOKSHELF_TEXT };
         return isShop(b?.buildingType) ? { title: SHOP_SHELF_TEXT } : null;
       }
@@ -2318,6 +2320,7 @@ export function createWorldModes(host) {
     const b = interiorBuilding;
     const shelf = interiorCtx?.shelves[i];
     if (!b || !shelf) return;
+    if (hallOfRecordsHere(b)) { openHallOfRecords(b); return; }   // SEASON1 part three: a seat's palace shelves (DFU leaves them geometry)
     if (!isShop(b.buildingType)) {
       // BS1: a shelf model inside a LIBRARY, GUILDHALL or TEMPLE is a
       // BOOKSHELF (DaggerfallInterior.cs:808-814) - the same model a
@@ -3531,6 +3534,20 @@ export function createWorldModes(host) {
   /** GUILD1e (Seats-Arc 8.2: "a private guild board"): a placed piece that is Daggerfall's own board, in a guild's hall -
    *  the hall's board (systems/decorCatalogue.js HALL_BOARD_ENTRY). Anywhere else the same model is furniture. */
   const isHallBoard = (piece) => !!interiorHome?.hall && piece?.model === BULLETIN_BOARD_MODEL_ID && !piece.item;
+  /** SEASON1 part three (Seats-Arc 9.2: "A Hall of Records book in every seat's palace"): whether building `b` is a seat
+   *  town's Palace while the seats are open to this account - its shelves (geometry in DFU's palace: no shop, no
+   *  bookshelf) are then its Hall of Records. */
+  const hallOfRecordsHere = (b) => b?.buildingType === BUILDING_TYPES.Palace && !!host.hallOfRecords?.here?.(homeTownOf(b));
+  /** SEASON1 part three: THE HALL OF RECORDS OPENED - the seat's Chronicle, read by the host as a book's window (through the
+   *  reader's one door, ui/hallOfRecords.js), in this host's own reader slot; said where it cannot be read. A window that
+   *  arrives after the player has left the palace is not shown. */
+  function openHallOfRecords(b) {
+    Promise.resolve(host.hallOfRecords.read(homeTownOf(b))).then((w) => {
+      if (interiorBuilding !== b) return;
+      if (w) interiorOverlay = w;
+      else say(HALL_OF_RECORDS_SHUT);
+    }).catch(() => say(HALL_OF_RECORDS_SHUT));
+  }
   /** GUILD1e: THE HALL'S BOARD PRESSED - the guild's own notes for a member (the Notice Board's window, its Guilds tab
    *  alone); to anyone else it says whose it is. */
   function openHallBoard() {
@@ -8573,7 +8590,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:14571's own wave-46 note); the interior
+          // a blow (world.js:14572's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -11216,7 +11233,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3473-3495), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:11014). So an F9 pressed in a shop
+     *  unconditionally (world.js:11015). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -11255,7 +11272,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:11129)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:11130)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -11265,7 +11282,7 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:10007`
+     *  HARD2c: this used to spell them out, and named `world.js:10008`
      *  and `dungeonContext.js:7720` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */

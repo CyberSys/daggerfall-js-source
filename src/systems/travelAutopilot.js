@@ -11,7 +11,7 @@
 // why an accelerated trip is a REAL walk across real terrain rather
 // than a fade to black: the port does the same through
 // `player.update(dt, { forward, ... }, cam.yaw, cam.pitch)`
-// (scenes/world.js:22333-22367).
+// (scenes/world.js:22345-22379).
 //
 // PURE: it holds its own state and takes the player's position as
 // numbers. No DOM, no renderer, no world reads - which is what lets

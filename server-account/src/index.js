@@ -150,7 +150,7 @@ import {
 import { buyHall, sellHall, setHallEntry, setHeraldry } from './halls.js';   // GUILD1d: the guild hall and heraldry
 import { readGuildBoard, pinGuildNote, takeDownGuildNote } from './guildBoard.js';   // GUILD1e: a guild's own board
 import { listSeats, witnessSeat, strikeSeat, seatsOpenFor } from './townSeats.js';   // SEAT1a: the seats' witnessed registry
-import { pledgeSeat, claimWatch, creditGate, creditRenown, readStandings, payTribute, claimOrcCamp } from './seatInfluence.js';   // SEAT1b: influence   // SEASON1 part two: an Orc Raid's camp
+import { pledgeSeat, claimWatch, creditGate, creditRenown, readStandings, payTribute, claimOrcCamp, readRecords } from './seatInfluence.js';   // SEAT1b: influence   // SEASON1 part two: an Orc Raid's camp
 import { settleDue, seatsWithHolders, relinquishSeat, seatBadgeOf, seatTitlesOf } from './seatTurning.js';   // SEAT1c: the Turning, the Charters, their titles and glyphs
 import { setTithe, proclaimEdict, claimBounty } from './seatHolding.js';   // SEAT1d: the holder's levers, a Bounty's camp
 import { setWindow, signBattle, unsignBattle, hireSellsword, withdrawHire, siegesLive } from './seatBattles.js';   // SEAT2a: the battles' week
@@ -898,6 +898,7 @@ const service = {
           // SEAT1b: influence - a guild's pledge, the standings at a seat, the Watch's ticks claimed, Tribute paid
           '/v1/seats/pledge': () => pledgeSeat(ctx, who.player, env, body),
           '/v1/seats/standings': () => readStandings(ctx, who.player, env, body),
+          '/v1/seats/records': () => readRecords(ctx, who.player, env, body),   // SEASON1 part three (9.2): the Hall of Records
           '/v1/seats/watch': async () => claimWatch(ctx, who.player, env, body, await gatePublicKey(env, subtle)),
           '/v1/seats/tribute': () => payTribute(ctx, who.player, env, body),
           // SEAT1d: the holder's levers at its board - the Tithe, the coming week's Edict; a Bounty's camp paid

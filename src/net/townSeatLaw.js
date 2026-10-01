@@ -504,10 +504,10 @@ export const seatWeekName = (n) => `week ${n}`;
  * A HISTORY ROW AS PROSE - `row` a `town_seat_history` row (`kind`, `week`, `data` parsed), `seat` the seat it is of.
  * The names in `data` are the guilds' as they were that day. Null for a kind with no words.
  */
-export function chronicleLine(row, seat) {
+export function chronicleLine(row, seat, zero = null) {
   const d = row?.data ?? {};
   const c = charterName(seat);
-  const when = `In ${seatWeekName(row?.week ?? 0)}`;
+  const when = chronicleWhen(row?.week ?? 0, zero);   // SEASON1 part three: the Season's own words, where one is counted
   switch (row?.kind) {
     case 'claim': return `${when}, ${guildWords(d.guild)} took ${c} with ${Number(d.total ?? 0).toLocaleString('en-US')} influence.`;
     case 'contested': return `${when}, ${c} was Contested between ${guildWords(d.a)} and ${guildWords(d.b)}. A Tourney decides it.`;
@@ -547,6 +547,39 @@ export function chronicleLine(row, seat) {
     default: return null;
   }
 }
+// ─── SEASON1 part three (2026-10-01, Mac: "Finish the seats"; "Continue"; "Hurry up"): THE HALL OF RECORDS (9.2) ───
+/** The weeks of a Season in words, as the Hall of Records reads them - "the third week". */
+const WEEK_ORDINALS = Object.freeze(['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth']);
+/** WHEN A CHRONICLE ROW HAPPENED (9.2: "In the third week of the Season of Hearthfire, ..."): the week of its Season while
+ *  one is counted (`zero` the week Season 0 began - seasonZeroOf's), else the seat week's number ("In week 12"). */
+export function chronicleWhen(week, zero = null) {
+  const s = seasonOf(week, zero);
+  const nth = s ? WEEK_ORDINALS[week - s.start] : null;
+  return nth ? `In the ${nth} week of ${seatSeasonName(s.n)}` : `In ${seatWeekName(week)}`;
+}
+/** The most of a seat's Chronicle the Hall of Records reads - its newest rows, the book's oldest first. */
+export const HALL_OF_RECORDS_ROWS = 400;
+/** The Hall of Records' title: "The Hall of Records of Anticlere". */
+export const hallOfRecordsTitle = (seat) => `The Hall of Records of ${seat?.name ?? 'the seat'}`;
+/** What an empty Hall of Records says. */
+export const HALL_OF_RECORDS_EMPTY = 'Nothing is written here yet.';
+/** THE HALL OF RECORDS' CHAPTERS (9.2): a seat's Chronicle rows (oldest first) as chronicleLine reads them, one chapter a
+ *  Season - `{ heading, lines }`, the heading the Season's name (seatSeasonName's), or null for rows from no counted
+ *  Season; a row the Chronicle has no words for is left out. */
+export function hallOfRecordsChapters(rows, seat, zero = null) {
+  const out = [];
+  for (const r of rows ?? []) {
+    const line = chronicleLine(r, seat, zero);
+    if (!line) continue;
+    const s = seasonOf(Number(r?.week), zero);
+    const heading = s ? seatSeasonName(s.n) : null;
+    const last = out.at(-1);
+    if (last && last.heading === heading) last.lines.push(line);
+    else out.push({ heading, lines: [line] });
+  }
+  return out;
+}
+
 /** The Seat tab's holder line: "Held by the Silver Hand <SH> since week 3. Standing 55." */
 export const seatHolderLine = (holder) => (holder
   ? `Held by ${guildWords(holder.guild)} since ${seatWeekName(holder.since)}. Standing ${holder.standing}.`

@@ -215,6 +215,10 @@ export const HALL_VISITOR_MAGIC_TEXT = "You cannot cast spells in another guild'
 export const HALL_BOARD_TITLE = "The Guild's Board";
 export const hallBoardShutLine = (name) => `This board is ${name ?? 'the guild'}'s. Its notes are for its members.`;
 export const HALL_BOARD_COLD = "The guild's board cannot be read now.";
+/** SEASON1 part three (Seats-Arc 9.2): a seat's palace shelves, over the cursor - and what they say where the Chronicle
+ *  cannot be read (offline, the seats shut). */
+export const HALL_OF_RECORDS_TEXT = 'Hall of Records';
+export const HALL_OF_RECORDS_SHUT = 'The Hall of Records cannot be read now.';
 /** GUILD1d: a hall's chest pressed where the Guild tab cannot open. */
 export const HALL_CHEST_SHUT = "The guild's chest holds the guild Stores - open the Guild tab of the Social panel to reach them.";
 

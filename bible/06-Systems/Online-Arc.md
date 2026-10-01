@@ -4775,7 +4775,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7367` read, on one physical line:
+`src/scenes/worldModes.js:7384` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4917,7 +4917,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:8310` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:8311` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:352`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -11321,6 +11321,37 @@ survived the first run, the re-stood peer's memory, now pinned; the token's boun
 WB9g's two relay source pins; the account schema's tables (`town_seat_ribbons`); AUDIT B8's widest token; ACC1d's
 token shape (a body of 641 the malformed one) and SOC4's name point (the ribbon's own line before the scale) - the
 full suite's two failures on the merged head (17252 tests), both now moved. Ten older
+
+### SEASON1 (part three) - the Hall of Records
+
+2026-10-01, Mac: "Finish the seats"; "Continue"; "Hurry up". Law, service and client; `acct57`, no migration.
+Seats-Arc 9.2. New: `src/ui/hallOfRecords.js`.
+
+- **The Chronicle in its Season's words** (`townSeatLaw.js` `chronicleWhen`, `chronicleLine`'s `zero`): a row's week as
+  the week of its Season - "In the third week of the Season of Morning Star", "In the second week of Season 0" - while
+  one is counted; the week's number otherwise, and before Season 0. The Seat tab's Chronicle reads it too (the book's
+  `zero`, the seats' list's).
+- **The service's read** (`seatInfluence.js` `readRecords`, `/v1/seats/records`): a seat's newest HALL_OF_RECORDS_ROWS
+  (400) Chronicle rows, oldest first, each one's data read back (none where unread), beside the week Season 0 began.
+  Anyone the seats are open to may read it, as the standings; the standings keep their own eight.
+- **The book** (`townSeatLaw.js` `hallOfRecordsChapters`, `hallOfRecordsTitle`; `ui/hallOfRecords.js`): "The Hall of
+  Records of Anticlere", centred in the title face; one chapter a Season under its name, centred; each line a paragraph;
+  "Nothing is written here yet." for an empty Hall. Opened through the reader's one door (`ui/bookDoor.js`), so the
+  enhanced skin reads it in its book window and the classic in its scroll.
+- **Where it is read** (`worldModes.js` `hallOfRecordsHere`, `openHallOfRecords`; the host's `hallOfRecords` in
+  `scenes/world.js`): DECIDED, a seat's palace's shelf-set models - geometry in DFU's palace, no shop and no bookshelf -
+  are its Hall of Records while the seats are open: "Hall of Records" over the cursor, the book on a press in the
+  interior's own reader slot ("The Hall of Records cannot be read now." where it cannot), a book that arrives after the
+  player has left not opened. The client's book keeps a read five minutes (`townSeatBook.js` `records`).
+- NOT YET: the three castles - each is a dungeon, whose shelves take no press; a crown's Chronicle is read on its board
+  meanwhile. A palace with no shelf-set model has no book.
+
+Pinned: `test/season1_records.test.js` (4 - the law; the book through the reader's door; through the real Worker the
+read, its bound and order, the standings' own eight; the page and the wiring by source). `tools/mutants/records.json`
+(39, all dead - two survived the first run: the book's author, pinned by its constant alone, and the standings' own
+eight, which no seat test had more than eight rows to tell). PIN MOVED: the account version pins; SEAT1c's Chronicle
+record and SURVTIERS3's two cites of world.js's seed (the cite shift moved them) re-aimed by content (still dead). The reader's one door held: the palace's window is opened in
+`ui/hallOfRecords.js`, never in the modes host.
 mutant records re-aimed by content, still dead (ACC1d's and ACC3a's vouched name, ACC3b's and SLAM9's memory, SOC1's
 version line, WB9g's five).
 

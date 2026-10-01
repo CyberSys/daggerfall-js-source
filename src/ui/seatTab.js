@@ -385,7 +385,7 @@ export function createSeatTab(host, ui) {
         body.append(b);
       }
       // SEAT1c: the Chronicle (SEAT0 9.2), newest first
-      const lines = (data.chronicle ?? []).map((r) => chronicleLine(r, seat)).filter(Boolean);
+      const lines = (data.chronicle ?? []).map((r) => chronicleLine(r, seat, book.zero ?? null)).filter(Boolean);   // SEASON1 part three: in its Season's words
       if (lines.length) {
         body.append(el('p', 'notice-section', 'The Chronicle'));
         const ol = el('ol', 'notice-chronicle');

@@ -1107,6 +1107,7 @@ export function accountSeats({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
     // SEAT1b: influence - the standings at a seat (with the reader's own guild), a pledge set or taken down, the Watch's
     // receipts claimed, Tribute paid under its own request id
     standings: (key, character) => post('/v1/seats/standings', { key, character }),
+    records: (key) => post('/v1/seats/records', { key }),   // SEASON1 part three: a seat's Hall of Records
     pledge: (character, key, region = null) => post('/v1/seats/pledge', { character, key, ...(region != null ? { region } : {}) }),
     watch: (character, receipts) => post('/v1/seats/watch', { character, receipts }),
     tribute: (character, key, marks, rid) => post('/v1/seats/tribute', { character, key, marks, rid }),

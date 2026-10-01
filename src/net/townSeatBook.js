@@ -40,6 +40,8 @@ export const SEAT_REPORTED_MAX = 200;
 const SHUT = Object.freeze(['seats-closed', 'no-session', 'auth']);
 /** SEAT1b: how long a seat's standings are kept before they are asked again, ms. */
 export const SEAT_STANDINGS_CACHE_MS = 30_000;
+/** SEASON1 part three: how long a Hall of Records read is kept before the next is asked, ms - its rows change at a Turning. */
+export const SEAT_RECORDS_CACHE_MS = 5 * 60_000;
 /** SEAT1b: where this device keeps the Watch's receipts not yet counted - `[{ r, s, i, e }]`, each its receipt, its
  *  account, and when it was issued and expires (the relay's clock). */
 export const SEAT_WATCH_KEY = 'seat1.watch';
@@ -128,6 +130,8 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
   const dayNow = () => Math.floor(nowMs() / 1000 / SEAT_REPORT_EVERY_S);
   /** SEAT1b: each seat's standings as last read, `{ at, data }` by key; the Tribute asked and its one request id */
   const standingsAt = new Map();
+  /** SEASON1 part three: each seat's Hall of Records as last read, `{ at, data }` by key */
+  const recordsAt = new Map();
   /** @type {{ ask: string, rid: string }|null} */
   let tributeAsk = null;
   /** SEAT1b: the Watch's receipts held - read from the device once, kept in memory where the store refuses writes */
@@ -357,6 +361,22 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
       if (r?.ok) { standingsAt.set(key, { at: nowMs(), data: r.data }); return { data: r.data, error: null }; }
       if (SHUT.includes(r?.error)) open = false;
       return { data: kept?.data ?? null, error: r?.error ?? 'server' };
+    },
+    /** SEASON1 part three (Seats-Arc 9.2): A SEAT'S HALL OF RECORDS (`/v1/seats/records`) - its Chronicle oldest first and
+     *  the week Season 0 began, `{ data: { rows, zero }, error }`; the last answer inside SEAT_RECORDS_CACHE_MS. */
+    async records(key) {
+      const kept = recordsAt.get(key);
+      if (kept && nowMs() - kept.at < SEAT_RECORDS_CACHE_MS) return { data: kept.data, error: null };
+      if (open !== true) return { data: null, error: 'seats-closed' };
+      let r;
+      try { r = await door.records(key); } catch { r = { ok: false, error: 'offline' }; }
+      if (r?.ok) {
+        const data = { rows: Array.isArray(r.data?.rows) ? r.data.rows : [], zero: Number.isSafeInteger(r.data?.zero) ? r.data.zero : null };
+        recordsAt.set(key, { at: nowMs(), data });
+        return { data, error: null };
+      }
+      if (SHUT.includes(r?.error)) open = false;
+      return { data: null, error: r?.error ?? 'server' };
     },
     /** A pledge to `seat` for this week (an Officer's or the guildmaster's) - `{ ok, text }`, the standings read afresh after. */
     async pledge(seat) {

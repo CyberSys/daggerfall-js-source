@@ -118,6 +118,7 @@ The first part of guild town control is in. It is open to the developers first, 
   - Legacy is cleared, and every seat's Standing moves **halfway back toward 50**.
   - The Charters stand, and every seat's Chronicle records who held it at the Season's end.
 - **Season 0's end** wipes the seats, influence, Chronicles, fealty and Pacts. Your Marks, Stores, profession tracks, titles and Honours are kept.
+- **The Hall of Records.** Every seat's palace keeps its whole Chronicle as a book: press a shelf in the palace to read it, one chapter a Season. The Chronicle now dates each line by its Season - "In the third week of the Season of Morning Star..." - on the Seat tab too. (The three castles' copies come later; a crown's Chronicle is on its board meanwhile.)
 - **Once a Season** now means the Season itself. A Pact lasts to the Season's end, and the same two guilds earn Honours from each other once a Season.
 
 ## Tides (online)
@@ -145,7 +146,7 @@ The first part of guild town control is in. It is open to the developers first, 
 ---
 
 ### For the team
-- Apply migrations **`0047_town_seats.sql`**, **`0048_seat_influence.sql`**, **`0049_seat_turning.sql`**, **`0050_seat_holding.sql`**, **`0051_seat_battles.sql`**, **`0052_seat_siege_results.sql`**, **`0053_crown_edicts.sql`**, **`0054_royal_tourney.sql`**, **`0055_fealty_pacts.sql`**, **`0056_orc_raids.sql`** and **`0057_season_ribbons.sql`** (with the guild halls' 0045 and 0046, after main's 0044) to production D1 and deploy the account service (**`acct56`**).
+- Apply migrations **`0047_town_seats.sql`**, **`0048_seat_influence.sql`**, **`0049_seat_turning.sql`**, **`0050_seat_holding.sql`**, **`0051_seat_battles.sql`**, **`0052_seat_siege_results.sql`**, **`0053_crown_edicts.sql`**, **`0054_royal_tourney.sql`**, **`0055_fealty_pacts.sql`**, **`0056_orc_raids.sql`** and **`0057_season_ribbons.sql`** (with the guild halls' 0045 and 0046, after main's 0044) to production D1 and deploy the account service (**`acct57`**).
 - **The siege blackout.** The relay's deploy now waits while a siege is live or starts within 30 minutes (it asks the account service's public `/v1/seats/sieges/live`). Dispatch it with **force** to deploy at once - a forced deploy during a siege voids it. The account deploy now waits up to five and a half hours for the relay.
 - **The economy model**: `node tools/seatEconomy.mjs` re-runs the guild-week table from the live law files (`--runs`, `--seed`, `--json`).
 - **Deploy the relay (`world143`).** It sends the Watch's ticks (world138), carries the seats' titles (world139), referees a siege's room (world140), fights its battle by the service's pass (world141), keeps a Royal Tourney's room (world142) and carries a Season's banner ribbon, with a wider token bound (world143). Deploy it before the account service: an older relay refuses a token with a seat title in it.

@@ -241,6 +241,7 @@ import { frameCapSkip } from '../systems/frameCap.js';   // FPS-CAP1: DFU's Targ
 import { frameInterval, lastBusy, lendFrame, framesBegun } from '../systems/frameClock.js';   // PERF-EXT24: the frame's period and its own script, and the stream's slices lent back - those no frame ran inside
 import { arrivalClampMinutes, playerTravelPosition, travelDays, setSeaTide } from '../systems/travel.js';   // F-slice; F114: the ship-aware travel origin; SHIP-SAIL: the passage's days, as the map counts them
 import { TIDE_EFFECTS } from '../net/tideLaw.js';   // SEASON1 part two: a Storm Season's sea (Seats-Arc 9.3)
+import { hallOfRecordsWindow } from '../ui/hallOfRecords.js';   // SEASON1 part three: a seat's Chronicle as a book (Seats-Arc 9.2)
 import { hasSpecialAbility, SPECIAL_ABILITY } from '../systems/rest.js';   // F-slice: the NoRegen restore gate
 import { locationCompassDirection, buildingCompassDirection, findFactionByTypeAndRegion, directionHintString } from '../systems/talk.js';   // wave 26: %di's remote arm + the region-faction search; the LOCAL arm beside it; SPAWNED-DUNGEONS2b: the same eight-word compass
 import { seasonValue, SEASONS, MINUTES_PER_DAY, dateFromClassicMinutes, dateTimeString, midDateTimeString, isDayFromMinutes } from '../systems/gameDate.js';   // AUDIT 23 (wts-1); Q4-v: the notebook's header shapes
@@ -8415,7 +8416,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2756 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6664
+  // that context through modes.dungeonCtx - so worldModes.js:6681
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -13668,7 +13669,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10160-10224 -
+  // worldModes answers it in BOTH modes (worldModes.js:10177-10241 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -20022,6 +20023,17 @@ export async function bootWorld(canvas, renderer, params, status) {
     // again, without waiting, when the guild book's look is old), the hall bought and opened through the book, and the
     // hall's chest: the guild Stores on the Guild tab
     seatShopFactor: (b) => seatEdicts.shopFactor(b),   // SEAT1d (Seats-Arc 7.2, 7.6): a seat town's shops - its holder's members, Market Day
+    // SEASON1 part three (Seats-Arc 9.2): a seat's Hall of Records - whether a town is a seat while the seats are open, and
+    // its Chronicle read as a book's window (null where it cannot be read)
+    hallOfRecords: {
+      here: (mapId) => !!seatHere(mapId),
+      read: async (mapId) => {
+        const seat = seatHere(mapId);
+        if (!seat || !seatBook) return null;
+        const r = await seatBook.records(seat.key);
+        return r.data ? hallOfRecordsWindow(seat, r.data.rows, r.data.zero) : null;
+      },
+    },
     guildHall: {
       info: () => {
         const g = guildBook;

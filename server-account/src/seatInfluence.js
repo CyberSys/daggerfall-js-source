@@ -68,7 +68,7 @@ import {
   SEAT_PLEDGES_HOUR, SEAT_WATCH_CLAIM_MAX, WATCH_DAY_CAP, GATE_INFLUENCE, GATE_REGION_AGREE, HOMES_SEAT_MAX, TRIBUTE_MARKS_PER_INFLUENCE,
   SEAT_WEEK_MS, SEAT_RECKONING_MS,
   accountSeatInfluence, guildSeatInfluence, tributeRoom, homeDaysIn, seatDefence, SEAT_CHRONICLE_SHOWN,
-  overreachOf, unrestInfluence, crownsHeld, seatReach, withReach, FREE_LAND_WATCH_BONUS, pledgeBarred, fealtyKingdom, seasonOf, seasonZeroOf, bountySitePixel,
+  overreachOf, unrestInfluence, crownsHeld, seatReach, withReach, FREE_LAND_WATCH_BONUS, pledgeBarred, fealtyKingdom, seasonOf, seasonZeroOf, bountySitePixel, HALL_OF_RECORDS_ROWS,
 } from '../../src/net/townSeatLaw.js';
 import { isFreeLand } from '../../src/net/kingdomLaw.js';
 import { holdingOf } from './seatHolding.js';   // SEAT1d: the holder's own view of its Charter
@@ -504,10 +504,23 @@ export async function battlesOf(db, week) {
     kind: r.kind, guild: guildView(r.guild_id, r.an, r.at, r.ah), against: r.against ? guildView(r.against, r.bn, r.bt, r.bh) : null,
   }]));
 }
-/** A seat's Chronicle, newest first - `{ kind, week, data }`, at most SEAT_CHRONICLE_SHOWN. */
-async function chronicleOf(db, key) {
-  const { results = [] } = await db.prepare('SELECT kind, week, data FROM town_seat_history WHERE key = ? ORDER BY seq DESC LIMIT ?').bind(key, SEAT_CHRONICLE_SHOWN).all();
+/** A seat's Chronicle, newest first - `{ kind, week, data }`, at most `max` (SEAT_CHRONICLE_SHOWN, the Seat tab's). */
+async function chronicleOf(db, key, max = SEAT_CHRONICLE_SHOWN) {
+  const { results = [] } = await db.prepare('SELECT kind, week, data FROM town_seat_history WHERE key = ? ORDER BY seq DESC LIMIT ?').bind(key, max).all();
   return results.map((r) => { let data = {}; try { data = JSON.parse(r.data); } catch { /* none */ } return { kind: r.kind, week: Number(r.week), data }; });
+}
+
+/**
+ * SEASON1 part three (9.2): THE HALL OF RECORDS - a seat's Chronicle for its book, oldest first (its newest
+ * HALL_OF_RECORDS_ROWS), and the week Season 0 began so the book reads each row in its Season's words. Anyone the seats
+ * are open to may read it, as the standings; a seat the registry has struck reads its rows all the same.
+ * @param {{db: any}} ctx
+ */
+export async function readRecords({ db }, player, env, { key } = {}) {
+  if (!seatsOpenFor(player, env)) return { error: 'seats-closed' };
+  if (!seatKeyOk(key)) return { error: 'bad-seat' };
+  const rows = (await chronicleOf(db, key, HALL_OF_RECORDS_ROWS)).reverse();
+  return { ok: true, key, rows, zero: seasonZeroOf(env?.SEASON_ZERO_WEEK) };
 }
 
 // ─── TRIBUTE ─────────────────────────────────────────────────────────
