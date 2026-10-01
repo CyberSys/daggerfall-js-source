@@ -68,14 +68,15 @@ import {
   SEAT_PLEDGES_HOUR, SEAT_WATCH_CLAIM_MAX, WATCH_DAY_CAP, GATE_INFLUENCE, GATE_REGION_AGREE, HOMES_SEAT_MAX, TRIBUTE_MARKS_PER_INFLUENCE,
   SEAT_WEEK_MS, SEAT_RECKONING_MS,
   accountSeatInfluence, guildSeatInfluence, tributeRoom, homeDaysIn, seatDefence, SEAT_CHRONICLE_SHOWN,
-  overreachOf, unrestInfluence, crownsHeld, seatReach, withReach, FREE_LAND_WATCH_BONUS, pledgeBarred, fealtyKingdom, seasonOf, seasonZeroOf,
+  overreachOf, unrestInfluence, crownsHeld, seatReach, withReach, FREE_LAND_WATCH_BONUS, pledgeBarred, fealtyKingdom, seasonOf, seasonZeroOf, bountySitePixel,
 } from '../../src/net/townSeatLaw.js';
 import { isFreeLand } from '../../src/net/kingdomLaw.js';
 import { holdingOf } from './seatHolding.js';   // SEAT1d: the holder's own view of its Charter
 import { fightOf } from './seatBattles.js';   // SEAT2a: the battle as the Seat tab shows it
 import { royalView } from './seatRoyal.js';   // CROWN1 part two: a Royal Tourney's ladder
 import { bansOf, politicsOf } from './seatPolitics.js';   // CROWN2: the pledges fealty and Pacts forbid; a guild's politics
-import { tideAt } from '../../src/net/tideLaw.js';   // SEASON1 part two: the Tides
+import { tideAt, TIDE_EFFECTS } from '../../src/net/tideLaw.js';   // SEASON1 part two: the Tides
+import { tideNow } from './tides.js';   // SEASON1 part two: an Orc Raid's camps
 
 const weekAt = (nowS) => seatWeekOf(nowS * 1000);
 /** Whether a member row has stood its 7 days (SEAT0 4.2: "A new member waits"). */
@@ -271,6 +272,36 @@ export async function creditGate({ db, nowS }, player, env, { character, day, re
   return ins?.meta?.changes ? { counted: true, key: at.key } : { counted: false, why: 'bound-elsewhere' };
 }
 
+/**
+ * SEASON1 part two (9.3): AN ORC RAID'S CAMP - a World of Daggerfall camp the character cleared (`site` its id, naming its
+ * pixel - townSeatLaw.js bountySitePixel) in `region` (the client's) while that land's Tide is Orc Raids: 50 influence for
+ * the account's war-guild at its pledged seat there - at most 5 camps an account a UTC day and 250 influence an account a
+ * week, a camp once a day an account (all asked in the write). Bounded, not witnessed, as the Bounty's camps are: a
+ * modified client can claim camps it never fought, five a day and 250 a week. Answers `{ ok, counted, why? }`.
+ * @param {{db: any, nowS: number}} ctx
+ */
+export async function claimOrcCamp({ db, nowS }, player, env, { character, site, region } = {}) {
+  if (accountKind(player) !== 'linked') return { error: 'seats-need-account' };
+  if (!seatsOpenFor(player, env)) return { error: 'seats-closed' };
+  if (!bountySitePixel(site) || !seatRegionOk(region)) return { error: 'bad-orc-camp' };
+  if (tideNow(env, nowS, region) !== 'orcs') return { ok: true, counted: false, why: 'no-raid' };
+  const at = await countsAt(db, player, character, region, nowS, { anyCharacter: true });
+  if ('counted' in at) return { ok: true, counted: false, why: at.why };
+  const day = utcDay(nowS);
+  const ref = `${day}:${site}:${player.id}`;
+  const [, ins] = await db.batch([
+    bindStatement(db, at, player.id, nowS),
+    db.prepare(`INSERT OR IGNORE INTO town_seat_influence (week, key, guild_id, account, char_id, source, amount, region, day, ref, at)
+      SELECT ?1, ?2, ?3, ?4, ?5, 'raid', ?6, ?7, ?8, ?9, ?10 WHERE ${STILL_COUNTS}
+        AND (SELECT COUNT(*) FROM town_seat_influence WHERE account = ?4 AND source = 'raid' AND day = ?8) < ?11
+        AND COALESCE((SELECT SUM(amount) FROM town_seat_influence WHERE account = ?4 AND source = 'raid' AND week = ?1), 0) + ?6 <= ?12`)
+      .bind(at.week, at.key, at.guild, player.id, at.char, TIDE_EFFECTS.orcsCampInfluence, region, day, ref, nowS, TIDE_EFFECTS.orcsCampsDay, TIDE_EFFECTS.orcsInfluenceWeek),
+  ]);
+  if (ins?.meta?.changes) return { ok: true, counted: true, key: at.key };
+  if (await db.prepare("SELECT 1 FROM town_seat_influence WHERE source = 'raid' AND ref = ?").bind(ref).first()) return { ok: true, counted: false, why: 'claimed' };
+  return { ok: true, counted: false, why: 'capped' };
+}
+
 /** Each gate day's region, where GATE_REGION_AGREE of its claims agree on it - the most agreeing; two regions level at
  *  the top agree on neither. */
 export async function agreedGateRegions(db, days) {
@@ -326,9 +357,9 @@ export async function creditRenown({ db, nowS }, player, env, { character, regio
 export function standingsOf({ guilds, rows, renown, homes, binds, agreed, weekStartS, nowS, reach = new Map(), freeLand = false, tide = 'calm' }) {
   const out = [];
   for (const g of guilds) {
-    /** @type {Map<string, { watch: number, gates: number, renownXp: number, writ: number, homeDays: number }>} */
+    /** @type {Map<string, { watch: number, gates: number, renownXp: number, writ: number, homeDays: number, raid: number }>} */
     const acc = new Map();
-    const a = (id) => { let v = acc.get(id); if (!v) acc.set(id, v = { watch: 0, gates: 0, renownXp: 0, writ: 0, homeDays: 0 }); return v; };
+    const a = (id) => { let v = acc.get(id); if (!v) acc.set(id, v = { watch: 0, gates: 0, renownXp: 0, writ: 0, homeDays: 0, raid: 0 }); return v; };
     let tributeMarks = 0;
     for (const r of rows) {
       if (r.guild_id !== g) continue;
@@ -337,6 +368,7 @@ export function standingsOf({ guilds, rows, renown, homes, binds, agreed, weekSt
       if (r.source === 'watch') a(r.account).watch += Number(r.amount);
       else if (r.source === 'gate') { if (agreed.get(Number(r.day)) === Number(r.region)) a(r.account).gates += 1; }
       else if (r.source === 'writ') a(r.account).writ += Number(r.amount);
+      else if (r.source === 'raid') a(r.account).raid += Number(r.amount);   // SEASON1 part two: an Orc Raid's camps
     }
     for (const r of renown) if (binds.get(r.account) === g) a(r.account).renownXp += Number(r.xp);
     // HOMES: a 7-day member's, its account bound to this guild - the guild's HOMES_SEAT_MAX that stood longest this week

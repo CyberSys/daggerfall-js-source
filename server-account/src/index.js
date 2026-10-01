@@ -150,7 +150,7 @@ import {
 import { buyHall, sellHall, setHallEntry, setHeraldry } from './halls.js';   // GUILD1d: the guild hall and heraldry
 import { readGuildBoard, pinGuildNote, takeDownGuildNote } from './guildBoard.js';   // GUILD1e: a guild's own board
 import { listSeats, witnessSeat, strikeSeat, seatsOpenFor } from './townSeats.js';   // SEAT1a: the seats' witnessed registry
-import { pledgeSeat, claimWatch, creditGate, creditRenown, readStandings, payTribute } from './seatInfluence.js';   // SEAT1b: influence
+import { pledgeSeat, claimWatch, creditGate, creditRenown, readStandings, payTribute, claimOrcCamp } from './seatInfluence.js';   // SEAT1b: influence   // SEASON1 part two: an Orc Raid's camp
 import { settleDue, seatsWithHolders, relinquishSeat, seatBadgeOf, seatTitlesOf } from './seatTurning.js';   // SEAT1c: the Turning, the Charters, their titles and glyphs
 import { setTithe, proclaimEdict, claimBounty } from './seatHolding.js';   // SEAT1d: the holder's levers, a Bounty's camp
 import { setWindow, signBattle, unsignBattle, hireSellsword, withdrawHire, siegesLive } from './seatBattles.js';   // SEAT2a: the battles' week
@@ -884,7 +884,7 @@ const service = {
         const act = {
           '/v1/seats/list': async () => {
             const r = await listSeats(ctx, who.player, env);
-            return 'error' in r ? r : { ...r, seats: await seatsWithHolders(ctx.db, r.seats, nowS), red: await redOf(ctx.db, nowS) };   // SEAT1c: each seat's holder and battle   // CROWN2: the server's red lines
+            return 'error' in r ? r : { ...r, seats: await seatsWithHolders(ctx.db, r.seats, nowS), red: await redOf(ctx.db, nowS), zero: seasonZeroOf(env.SEASON_ZERO_WEEK) };   // SEAT1c: each seat's holder and battle   // CROWN2: the server's red lines   // SEASON1 part two: the week Season 0 began, for the client's Tides
           },
           '/v1/seats/relinquish': () => relinquishSeat(ctx, who.player, env, body),   // SEAT1c: a Charter given up at its board
           '/v1/seats/witness': () => witnessSeat(ctx, who.player, env, body),
@@ -898,6 +898,7 @@ const service = {
           '/v1/seats/tithe': () => setTithe(ctx, who.player, env, body),
           '/v1/seats/edict': () => proclaimEdict(ctx, who.player, env, body),
           '/v1/seats/bounty': () => claimBounty(ctx, who.player, env, body),
+          '/v1/seats/orc-camp': () => claimOrcCamp(ctx, who.player, env, body),   // SEASON1 part two (9.3): an Orc Raid's camp cleared
           // SEAT2a: the battles' week - the holder's window; a side signed, unsigned; a Sellsword hired, withdrawn
           '/v1/seats/window': () => setWindow(ctx, who.player, env, body),
           '/v1/seats/siege/sign': () => signBattle(ctx, who.player, env, body),

@@ -239,7 +239,8 @@ import { saveSlot, loadSlot, quickLoadSlot, mostRecentRestorable, QUICK_SAVE_NAM
 import { frameBegin, frameEnd, frameAbort } from '../systems/frameClock.js';   // PERF1: the frame's script time; AUDIT-WH2 L1-F4: and the door an early return takes
 import { frameCapSkip } from '../systems/frameCap.js';   // FPS-CAP1: DFU's TargetFrameRate - a held frame re-arms before the clock and the input frame
 import { frameInterval, lastBusy, lendFrame, framesBegun } from '../systems/frameClock.js';   // PERF-EXT24: the frame's period and its own script, and the stream's slices lent back - those no frame ran inside
-import { arrivalClampMinutes, playerTravelPosition, travelDays } from '../systems/travel.js';   // F-slice; F114: the ship-aware travel origin; SHIP-SAIL: the passage's days, as the map counts them
+import { arrivalClampMinutes, playerTravelPosition, travelDays, setSeaTide } from '../systems/travel.js';   // F-slice; F114: the ship-aware travel origin; SHIP-SAIL: the passage's days, as the map counts them
+import { TIDE_EFFECTS } from '../net/tideLaw.js';   // SEASON1 part two: a Storm Season's sea (Seats-Arc 9.3)
 import { hasSpecialAbility, SPECIAL_ABILITY } from '../systems/rest.js';   // F-slice: the NoRegen restore gate
 import { locationCompassDirection, buildingCompassDirection, findFactionByTypeAndRegion, directionHintString } from '../systems/talk.js';   // wave 26: %di's remote arm + the region-faction search; the LOCAL arm beside it; SPAWNED-DUNGEONS2b: the same eight-word compass
 import { seasonValue, SEASONS, MINUTES_PER_DAY, dateFromClassicMinutes, dateTimeString, midDateTimeString, isDayFromMinutes } from '../systems/gameDate.js';   // AUDIT 23 (wts-1); Q4-v: the notebook's header shapes
@@ -1192,7 +1193,12 @@ export async function bootWorld(canvas, renderer, params, status) {
     say: (line, s) => townTalk.say(line, s),
     claim: (site, region) => seatBook?.bounty(site, region) ?? Promise.resolve({ paid: 0 }),
     onFestive: () => computeEntityMods(playerEntity),
+    // SEASON1 part two (Seats-Arc 9.3): the land's Tide here; an Orc Raid's camp cleared
+    tideAt: (region) => seatBook?.tideAt(region) ?? 'calm',
+    orcCamp: (site, region) => seatBook?.orcCamp(site, region) ?? Promise.resolve({ counted: false }),
   });
+  // SEASON1 part two: a Storm Season's slow sea, on every voyage this client reckons (systems/travel.js) - online alone
+  setSeaTide(seatBook ? (end) => (seatBook.tideAt(maps.getRegionIndexAt(end.x, end.y)) === 'storms' ? TIDE_EFFECTS.stormsSea : 1) : null);
   registerEntityFold(FESTIVE_FOLD, (e) => (e === playerEntity && seatEdicts.festive() ? festiveMods(STAT_KEYS_ORDER) : EMPTY_MODS));
   setCrimeRepFactor(() => seatEdicts.crimeFactor());   // SEAT1d: a Curfew's crimes cost twice the legal reputation
   // PROF1 (bible/06-Systems/Professions-Arc.md 22): this character's professions - its tracks, Stores and day as the
@@ -2111,6 +2117,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     }
   };
   const hitDistance = (hit) => (hit && Number.isFinite(hit.dist) ? hit.dist : null);
+  /** SEASON1 part two (Seats-Arc 9.3): how far from its marker an Orc Raid's second foe stands, metres. */
+  const ORC_RAID_PACE = 1.5;
   function standWodAction(p, w, act, x, y, z) {
     const key = `${p.px},${p.py}`;
     if (act.kind === 'foe') {
@@ -2118,6 +2126,10 @@ export async function bootWorld(canvas, renderer, params, status) {
       exteriorFoes.spawnFoe(act.mobileType, [x, y, z], { yaw: act.yawDeg * Math.PI / 180, gender: act.gender, allied: act.allied, placed: true, groundAlign: { hitDist: hitDistance(hit) }, site: wodSiteOf(p, w) })   // WOD7: tagged with its marker
         .then((f) => { if (f && !act.hostile && f.ai) f.ai.isHostile = false; })   // MobileReactions.Passive
         .catch(() => {});
+      // SEASON1 part two (Seats-Arc 9.3): an Orc Raid's camp stands its foes twice - the second a pace beside the first
+      if (act.hostile && seatEdicts.orcsAt(p.px, p.py)) {
+        exteriorFoes.spawnFoe(act.mobileType, [x + ORC_RAID_PACE, y, z + ORC_RAID_PACE], { yaw: act.yawDeg * Math.PI / 180, gender: act.gender, allied: act.allied, placed: true, groundAlign: { hitDist: hitDistance(hit) }, site: wodSiteOf(p, w) }).catch(() => {});
+      }
       return;
     }
     if (act.kind === 'loot') {

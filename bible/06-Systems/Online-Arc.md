@@ -4917,7 +4917,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:8298` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:8310` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:352`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -11247,6 +11247,38 @@ Daggerfall's Harvest and Blight weeks, unconfirmed ground, and a courier into Da
 against a twin service counting no Season). `tools/mutants/tide2.json` (26, all dead - one survived the first run: the net's Tide before a
 school's fish was pinned at the dice's top, where the order rounds alike; now at their foot). PIN MOVED: the account version
 pins; two older mutant records (PROF4's tree, PROF8's net) re-aimed by content, still dead.
+
+### SEASON1 (part two, the client's) - the Orc Raids and the stormy sea
+
+2026-10-01, Mac: "Finish the seats"; "Continue"; "Hurry up". Service and client; `acct55`, migration
+`0056_orc_raids.sql` (`town_seat_influence` rebuilt, its source CHECK widened by `raid`). Seats-Arc 9.3.
+
+- **The client's own Tides** (`townSeatBook.js` `zero`, `tideAt`): the seats' list names the week Season 0 began
+  (`zero`, the service's `SEASON_ZERO_WEEK`); the book rolls a land's Tide off the week and it, as every other reader
+  does - Calm while the seats are shut to this account or no Season is counted.
+- **An Orc Raid's camps** (`seatEdicts.js` `orcsAt`, `scenes/world.js` `standWodAction`): where the Tide is Orc Raids each
+  hostile foe of a World of Daggerfall camp stands a second a pace beside it (`ORC_RAID_PACE`), tagged with the same
+  camp and counted against the cap as every placed foe is.
+- **Its influence** (`seatInfluence.js` `claimOrcCamp`, `/v1/seats/orc-camp`): a camp cleared there is claimed, quiet, as
+  the Bounty's are; while the land's Tide is Orc Raids it is 50 influence for the account's war-guild at its pledged
+  seat in the region - five camps an account a UTC day (counted across the Turning, whatever week a camp fell in), 250
+  an account a week, a camp once a day an account, each asked in the write. `townSeatLaw.js` `accountSeatInfluence`
+  takes `raid` beside the rest, at most 250. DECIDED: bounded, not witnessed - a modified client can claim camps it
+  never fought, five a day and 250 a week, as with the Bounty. The line said: "The Orc Raids: your guild gains 50
+  influence at its seat in the region."
+- **A Storm Season's sea** (`travel.js` `setSeaTide`, `calculateTravelTime`'s `seaMult`): each ocean pixel of a voyage
+  bound into a land in its Storm Season takes half again as long, rounded down. The host is set by the online world
+  alone (the destination's land's Tide); offline every voyage is DFU's own. Every reckoning reads it - the travel
+  window, the maps, the quest clock, the fare - so the time shown is the time taken.
+
+Pinned: `test/tide_orcs.test.js` (4 - the law; through the real Worker a camp in the Marches' Orc Raids against a twin
+counting no Season, its caps and its standings; the day's cap across the Turning and the refusals; the client's book,
+Edicts and sea, and the wiring by source). `tools/mutants/tide3.json` (39, all dead - four survived the first run: the
+Tide's gate and the Edicts' `orcsAt` wanted a land with a Tide neither Calm nor Orc Raids, the week's cap a stronger
+mutant (a sixth camp at 250, its first equivalent over fifty-influence camps), the week's sum the Watch beside it).
+PIN MOVED: the account version pins; SEAT1c's list pin (`zero`); six older mutant records re-aimed by content, still
+dead (CROWN2's red lines, SEAT1b's account cap, SEAT1c's undressed list, WOD3's placed foe - now two sites - and
+SURVTIERS3's two cites of world.js's seed, which the cite shift moved).
 
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 

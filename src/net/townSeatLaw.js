@@ -271,18 +271,20 @@ export function tributeRoom(others, tributeSoFar = 0) {
  * ticks (each day's already at WATCH_DAY_CAP), `gates` the receipts that count, `renownXp` the XP earned in the seat's
  * region, `writ` the own units' value delivered, `homeDays` the days its counting homes stood this week (the guild's
  * HOMES_SEAT_MAX already chosen). CROWN1: `watchBonus` the Watch's share more (a Free Land's FREE_LAND_WATCH_BONUS, 4.3),
- * rounded down, before the account's cap.
- * @param {{ watch?: number, gates?: number, renownXp?: number, writ?: number, homeDays?: number }} a
+ * rounded down, before the account's cap. SEASON1 part two: `raid` an Orc Raid's camps' influence, at most 250 a week;
+ * `tide` the week's Tide at the seat (a Plague's Watch, an Incursion's gates).
+ * @param {{ watch?: number, gates?: number, renownXp?: number, writ?: number, homeDays?: number, raid?: number }} a
  * @param {number} [watchBonus]
  */
-export function accountSeatInfluence({ watch = 0, gates = 0, renownXp = 0, writ = 0, homeDays = 0 } = {}, watchBonus = 0, tide = 'calm') {
+export function accountSeatInfluence({ watch = 0, gates = 0, renownXp = 0, writ = 0, homeDays = 0, raid = 0 } = {}, watchBonus = 0, tide = 'calm') {
   // CROWN1: a Free Land's tenth more; SEASON1 part two (9.3): a Plague's half
   const w = Math.floor(Math.max(0, watch) * WATCH_INFLUENCE * (1 + Math.max(0, watchBonus)) * (tide === 'plague' ? TIDE_EFFECTS.plagueWatch : 1) + 1e-9);
   const g = Math.min(GATE_WEEK_CAP, Math.max(0, gates) * GATE_INFLUENCE) * (tide === 'daedra' ? TIDE_EFFECTS.daedraGates : 1);   // SEASON1 part two: a Daedric Incursion's double, past the cap
   const r = Math.min(RENOWN_WEEK_CAP, Math.floor(Math.max(0, renownXp) / RENOWN_XP_PER_INFLUENCE));
   const h = Math.max(0, homeDays) * HOME_INFLUENCE_DAY;
   const m = Math.max(0, writ) * WRIT_INFLUENCE_PER_MARK;
-  return Math.min(ACCOUNT_SEAT_WEEK_CAP, w + g + r + h + m);
+  const o = Math.min(TIDE_EFFECTS.orcsInfluenceWeek, Math.max(0, raid));   // SEASON1 part two (9.3): an Orc Raid's camps, a week's 250
+  return Math.min(ACCOUNT_SEAT_WEEK_CAP, w + g + r + h + m + o);
 }
 
 /**

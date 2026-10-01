@@ -885,9 +885,16 @@ a Festival's price; both Tides on the Seat tab. DECIDED: a Tide rolls only while
 gathering (herbs, the basket, wood, ore, stone - DECIDED: not the net), a Blight's quarter less on herbs and wood, a
 Storm Season's half again on the net - each on confirmed ground alone, after the March's, as the March is (DECIDED: a
 region named falsely earns no Harvest and dodges no Blight); a Bandit Summer's courier twice as long into its land,
-fixed when it is sent. NOT YET: the Orc Raids' camps and the sea's slowness (the client's), and a Daedric Incursion's
-Marks (a kill's region is the client's word until three agree). DECIDED: the sea (region 31) is no land, so a haul at sea
-meets no Storm Season.
+fixed when it is sent. BUILT (SEASON1 part two, the client's, `acct55`, migration 0056): an Orc Raid's camps doubled - each
+hostile foe of a World of Daggerfall camp in the land stands a second beside it, on this client; each camp cleared there
+claimed (`/v1/seats/orc-camp`, source `raid`) for 50 influence at the war-guild's pledged seat in the region - five
+camps an account a UTC day (the day counted across the Turning), 250 an account a week, a camp once a day, all asked in
+the write. DECIDED: bounded, not witnessed, as the Bounty's camps are - a modified client can claim camps it never
+fought, and no more than five a day and 250 a week. A Storm Season's sea: each ocean pixel of a voyage bound into the
+land half again slower, on every reckoning this client makes (the travel window, the maps, the quest clock, the fare),
+online alone. The client reads every land's Tide itself, off the week and the Season 0 week the seats' list names
+(`zero`). NOT YET: a Daedric Incursion's Marks (a kill's region is the client's word until three agree). DECIDED: the
+sea (region 31) is no land, so a haul at sea meets no Storm Season.
 
 ### 9.4 Why a guild comes back
 

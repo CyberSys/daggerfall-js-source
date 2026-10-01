@@ -273,6 +273,7 @@ export const REFUSALS = Object.freeze({
   'edict-tier': 'Only a crown may proclaim that Edict.',
   'seat-no-edict': 'No Edict is proclaimed for next week.',
   'bad-bounty': 'A Bounty sets aside at least 20 Drakes, and at most 100,000.',
+  'bad-orc-camp': 'That camp is not one the Orc Raids count.',   // SEASON1 part two
   // SEAT2a: the battles' week - the window, the rosters, the Sellswords (the board's own words: townSeatLaw.js SIGN_WHY)
   'bad-window': 'A window is a day from Wednesday to Saturday and a start from 16:00 to 02:00 UTC.',
   'bad-fee': `A Sellsword's fee is a whole number of Drakes, at most ${SELLSWORD_FEE_MAX.toLocaleString('en-US')}.`,
@@ -1130,6 +1131,8 @@ export function accountSeats({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
     fealtyBreak: (character, tag) => post('/v1/seats/fealty/break', { character, ...(tag ? { tag } : {}) }),
     pact: (character, tag) => post('/v1/seats/pact', { character, tag }),
     pactBreak: (character, tag) => post('/v1/seats/pact/break', { character, tag }),
+    // SEASON1 part two: an Orc Raid's camp cleared
+    orcCamp: (character, site, region) => post('/v1/seats/orc-camp', { character, site, region }),
   };
 }
 

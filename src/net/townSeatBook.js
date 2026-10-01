@@ -24,10 +24,11 @@
 //
 // Pure - the door, the storage and the clock are handed in.
 // ═══════════════════════════════════════════════════════════════════
-import { SEAT_REPORT_EVERY_S, SEAT_WATCH_CLAIM_MAX, seatReportOf, seatKeyOk, EDICTS, siegeWindowText } from './townSeatLaw.js';
+import { SEAT_REPORT_EVERY_S, SEAT_WATCH_CLAIM_MAX, seatReportOf, seatKeyOk, EDICTS, siegeWindowText, seatWeekOf, seasonOf } from './townSeatLaw.js';
 import { accountRefusalText } from './accountClient.js';
 import { readWatchReceipt } from './watchReceipt.js';
 import { mintMarksRid } from './marksBook.js';
+import { tideAt } from './tideLaw.js';   // SEASON1 part two: the Tides
 
 /** How long a list read is kept before the next is asked, ms. */
 export const SEAT_LIST_CACHE_MS = 5 * 60_000;
@@ -319,6 +320,24 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
     /** CROWN2: the seats' list read again for the server's red lines, while the seats are open, every SEAT_RED_READ_MS. */
     redTick() {
       if (open === true && !pending && nowMs() - at >= SEAT_RED_READ_MS) read({ force: true });
+    },
+    // ─── SEASON1 part two: THE TIDES AS THIS CLIENT READS THEM ───────
+    /** The week Season 0 began, as the seats' list last said - or null (no Season counted: every land is Calm). */
+    get zero() { return Number.isSafeInteger(data?.zero) ? data.zero : null; },
+    /** The Tide at `region` this seat week, while the seats are open to this account and a Season is counted - else Calm. */
+    tideAt(region) {
+      if (open !== true) return 'calm';
+      const week = seatWeekOf(nowMs());
+      return tideAt(week, region, !!seasonOf(week, this.zero));
+    },
+    /** An Orc Raid's camp cleared in `region` - its influence for this character's guild where the Tide is Orc Raids.
+     *  Quiet: `{ counted }`. */
+    async orcCamp(site, region) {
+      if (open !== true) return { counted: false };
+      let r;
+      try { r = await door.orcCamp(character(), site, region); } catch { r = { ok: false, error: 'offline' }; }
+      if (r?.ok) standingsAt.clear();
+      return { counted: !!(r?.ok && r.data?.counted) };
     },
     /** A World of Daggerfall camp cleared in `region` - the Bounty's twenty Drakes where one rules there. Quiet: `{ paid }`. */
     async bounty(site, region) {

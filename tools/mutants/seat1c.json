@@ -329,7 +329,7 @@
   {
     "name": "SEAT1c-list-undressed",
     "file": "server-account/src/index.js",
-    "old": "            return 'error' in r ? r : { ...r, seats: await seatsWithHolders(ctx.db, r.seats, nowS), red: await redOf(ctx.db, nowS) };   // SEAT1c: each seat's holder and battle   // CROWN2: the server's red lines",
+    "old": "            return 'error' in r ? r : { ...r, seats: await seatsWithHolders(ctx.db, r.seats, nowS), red: await redOf(ctx.db, nowS), zero: seasonZeroOf(env.SEASON_ZERO_WEEK) };   // SEAT1c: each seat's holder and battle   // CROWN2: the server's red lines   // SEASON1 part two: the week Season 0 began, for the client's Tides",
     "new": "            return r;",
     "tests": [
       "test/seat1c_service.test.js"
