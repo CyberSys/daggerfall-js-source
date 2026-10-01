@@ -23,8 +23,17 @@
 // frame: natives on x and z). Two clients that agree on the town agree on the field to the unit.
 //
 // Pure. Not a DFU member. Ledger A (EVERY PALACE A SEAT's row).
+//
+// SEAT2b part two (2026-10-01, Mac: "I want to finish the inprogress"; the contract's item 13): G21'S DOOR WIRED - the
+// city block's castle entrance is the first DUNGEON_ENTRANCE door a placed model of the town carries (world/meshReader.js
+// DOOR_TYPE, the door archive DFU's LoadVertices reads as one), measured where it stands (`castleFrameOf` - its corners
+// through the model's matrix, scenes/hallBanners.js doorCornersOf, and the model's box), handed by scenes/world.js's
+// build to `siegeFieldOf` as `castle`; so a crown's Throne - where its Gatehouse stands - its defenders' camp and its
+// Palace square stand before its castle's entrance.
 import { PIXEL_UNITS } from '../net/wire.js';
 import { SIEGE_UNITS_PER_M } from '../net/siegeRef.js';
+import { DOOR_TYPE } from '../world/meshReader.js';   // SEAT2b part two: a castle's door is a dungeon's entrance
+import { doorCornersOf } from '../scenes/hallBanners.js';   // SEAT2b part two: a door record measured where it stands
 
 /** The building keys of a laid-out town's records of one type (world/buildingNames.js BUILDING_TYPES) - its blocks' own
  *  building data, the key every building of the pixel carries (scenes/seatBanners.js palaceKeysOf's walk). Pure. */
@@ -52,6 +61,14 @@ export function doorFace(frame) {
   const mx = (box[0] + box[3]) / 2, mz = (box[2] + box[5]) / 2;
   if ((cx - mx) * ox + (cz - mz) * oz < 0) { ox = -ox; oz = -oz; }
   return { at: [cx, cz], out: [ox, oz] };
+}
+/** SEAT2b part two: A TOWN'S CASTLE ENTRANCE as `siegeFieldOf` takes it - `{ door: { a, b }, box }`, pixel-local: the first
+ *  of a placed model's door records (world/meshReader.js dfMeshToModel's `doors`) that is a DUNGEON_ENTRANCE, its corners
+ *  through the model's column-major `matrix`, and the model's own `box`; null for a model with none. */
+export function castleFrameOf(doors, matrix, box) {
+  const d = (doors ?? []).find((x) => x?.type === DOOR_TYPE.DUNGEON_ENTRANCE);
+  const door = d ? doorCornersOf(d, matrix) : null;
+  return door && Array.isArray(box) && box.length >= 6 ? { door, box: [...box] } : null;
 }
 const boxMid = (box) => [(box[0] + box[3]) / 2, (box[2] + box[5]) / 2];
 const unit = (x, z) => { const l = Math.hypot(x, z); return l > 1e-9 ? [x / l, z / l] : [1, 0]; };

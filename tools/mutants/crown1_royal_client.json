@@ -453,8 +453,8 @@
  {
   "name": "CROWN1C-online-floor",
   "file": "src/net/online.js",
-  "old": "this.royalOk = relayRunsRoyal(relayV); }",
-  "new": "this.royalOk = relayFightsBattles(relayV); }",
+  "old": "this.royalOk = relayRunsRoyal(relayV);",
+  "new": "this.royalOk = relayFightsBattles(relayV);",
   "tests": [
    "test/crown1_royal_client.test.js"
   ]

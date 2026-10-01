@@ -16,6 +16,10 @@
 //
 // Pure - the call, the store and the clocks are handed in.
 //
+// SEAT2b part two (2026-10-01; Seats-Arc 7.7): A REVOLT'S RECEIPT is carried the same way - an `s1` on the holder's side
+// (`defend`), its result the revolt's (put down, or the rebels holding), the revolt's end reaching the Charter by whichever
+// fighter carries it first; the service grants no Honours for it, and its card says so (net/siegeLink.js REVOLT_CARD_WORDS).
+//
 // Not a DFU member. Ledger A (EVERY PALACE A SEAT's row).
 import { readSiegeReceipt, readRoyalReceipt } from './siegeReceipt.js';
 

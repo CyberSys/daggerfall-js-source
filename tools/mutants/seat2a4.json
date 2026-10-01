@@ -209,8 +209,8 @@
  {
   "name": "SEAT2a4-bar-joined",
   "file": "src/net/siegeLink.js",
-  "old": "now < s.startMs ? `joined in ${siegeClockText(s.startMs - now)}` : siegeClockText(s.endMs - now);",
-  "new": "siegeClockText(s.endMs - now);",
+  "old": "now < s.startMs ? `joined in ${siegeClockText(s.startMs - now)}` : siegeClockText(s.endMs - now))",
+  "new": "siegeClockText(s.endMs - now))",
   "tests": [
    "test/seat2a_siege_play.test.js"
   ]
@@ -218,8 +218,8 @@
  {
   "name": "SEAT2a4-bar-open",
   "file": "src/net/siegeLink.js",
-  "old": "    throne = `THRONE ${held >= rule.banners ? 'OPEN ' : ''}${pct}% (${rule.banners} of ${s.banners.length})`;",
-  "new": "    throne = `THRONE ${pct}% (${rule.banners} of ${s.banners.length})`;",
+  "old": "    throne = `THRONE ${open ? 'OPEN ' : ''}${pct}% (${rule.banners} of ${s.banners.length}${gate ? ' and the Gatehouse breached' : ''})`;",
+  "new": "    throne = `THRONE ${pct}% (${rule.banners} of ${s.banners.length}${gate ? ' and the Gatehouse breached' : ''})`;",
   "tests": [
    "test/seat2a_siege_play.test.js"
   ]

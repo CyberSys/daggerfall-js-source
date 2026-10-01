@@ -15,6 +15,12 @@
 // leaves whichever is entered), and the result card's Close, which dismisses the card by leaving the battle it ended.
 // The two buttons and the card's Claim are the readout's only clicks.
 //
+// SEAT2b part two (2026-10-01, Mac: "I want to finish the inprogress"; Seats-Arc 6.2, 7.5, 7.7, 19): THE WORKS' LINE -
+// the bar's third, under the banners (the Gatehouse, the standing Ram, the kits to come, the guards; net/siegeLink.js
+// siegeWorksLine), shown only while it says something; a revolt's bar, side and card through the same parts; the card's
+// button in the model's words (a siege's Claim, a revolt's Carry - a revolt promises no Honours). Still a readout: the
+// same nodes updated, the same three clicks, owned by the session that draws it.
+//
 // Not a DFU member. Ledger A (EVERY PALACE A SEAT's row).
 import { siegeHudModel } from '../net/siegeLink.js';   // the lines (pure, beside the fold - net/siegeSession.js draws through it)
 export { siegeHudModel };
@@ -25,6 +31,7 @@ export const SIEGE_HUD_CSS = `
   z-index: 30; font: 600 13px 'Cormorant', Georgia, serif; letter-spacing: 0.06em; color: #efe2c8; text-align: center;
   text-shadow: 0 0 3px #000, 0 0 8px rgba(0,0,0,0.9); white-space: pre; }
 .sg-bar { border: 1px solid rgba(220,190,120,0.55); background: rgba(10,8,6,0.55); padding: 3px 8px; }
+.sg-works { font-size: 12px; opacity: 0.92; }
 .sg-sides { margin-top: 3px; font-size: 12px; opacity: 0.9; }
 .sg-self { position: fixed; right: 24px; bottom: 120px; text-align: right; font-size: 13px; }
 .sg-card { margin: 18px auto 0; width: 520px; max-width: 90vw; border: 1px solid rgba(240,210,140,0.8); background: rgba(14,10,6,0.85);
@@ -50,7 +57,8 @@ export function createSiegeHud(doc, { onClaim = null, onLeave = null } = {}) {
     root = doc.createElement('div'); root.className = 'sg-hud';
     const bar = doc.createElement('div'); bar.className = 'sg-bar';
     parts.title = doc.createElement('div'); parts.banners = doc.createElement('div');
-    bar.appendChild(parts.title); bar.appendChild(parts.banners);
+    parts.works = doc.createElement('div'); parts.works.className = 'sg-works'; parts.works.style.display = 'none';   // SEAT2b part two
+    bar.appendChild(parts.title); bar.appendChild(parts.banners); bar.appendChild(parts.works);
     parts.sides = doc.createElement('div'); parts.sides.className = 'sg-sides';
     parts.self = doc.createElement('div'); parts.self.className = 'sg-self';
     parts.card = doc.createElement('div'); parts.card.className = 'sg-card'; parts.card.style.display = 'none';
@@ -73,10 +81,12 @@ export function createSiegeHud(doc, { onClaim = null, onLeave = null } = {}) {
       if (!root) make();
       root.style.display = '';
       put('title', m.bar[0]); put('banners', m.bar[1]); put('sides', m.sides); put('self', m.self.join('\n'));
+      put('works', m.works ?? ''); parts.works.style.display = m.works ? '' : 'none';   // SEAT2b part two: the works' line, while it says something
       parts.card.style.display = m.card ? '' : 'none';
       parts.leave.style.display = m.card ? 'none' : '';   // AUDIT-SEATS C1: the card's Close stands for it once the battle has ended
       if (m.card) {
         put('cardTitle', m.card.title); put('cardLine', m.card.line); put('cardHonour', m.card.honour);
+        put('claim', m.card.button ?? 'Claim');   // SEAT2b part two: a revolt's receipt is carried, not claimed
         parts.claim.style.display = m.card.claim ? '' : 'none';
       }
     },

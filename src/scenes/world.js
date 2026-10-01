@@ -694,11 +694,12 @@ import { RACES } from '../systems/races.js';   // DW-D: ArgonianInfiniteBreath
 import { createSiegeSession, isBattleLeaveCommand, BATTLE_NONE_TEXT } from '../net/siegeSession.js';   // SEAT2a part four: a siege as this client fights it   // AUDIT-SEATS C1: the chat's `/leave`
 import { createSiegeClaims } from '../net/siegeClaims.js';   // SEAT2a part four: its receipts carried to the service
 import { createSiegeHud } from '../ui/siegeHud.js';   // SEAT2a part four: the bar, the sides, the result card
-import { siegeFieldOf, siegeFieldWire, buildingKeysOfType, royalRingWire } from '../systems/siegeField.js';   // SEAT2a part four: the battlefield the town's records give   // CROWN1 part two: and a crown's ring
+import { siegeFieldOf, siegeFieldWire, buildingKeysOfType, royalRingWire, castleFrameOf } from '../systems/siegeField.js';   // SEAT2a part four: the battlefield the town's records give   // CROWN1 part two: and a crown's ring   // SEAT2b part two: G21's castle door
+import { createSiegeFigures, siegeFigureName } from './siegeFigures.js';   // SEAT2b part two: a battle's relay-run figures and its works, stood in the town
 import { createRoyalSession } from '../net/royalSession.js';   // CROWN1 part two: a Royal Tourney as this client fights it
 import { createRoyalClaims } from '../net/siegeClaims.js';   // CROWN1 part two: its bouts' receipts carried to the service
 import { createSiegeHerald } from '../net/siegeHerald.js';   // AUDIT-SEATS G1: the battles announced in the server's voice
-import { siegeBlowKind, siegeCastClamp, siegeSpellNumbers, siegeSpellBarred, SIEGE_SPELL_BARRED_TEXT, SIEGE_DISMOUNT_TEXT } from '../combat/siegeCombat.js';   // AUDIT-SEATS G5: a battle's shafts, spells and saddle
+import { siegeBlowKind, siegeCastClamp, siegeSpellNumbers, siegeSpellBarred, SIEGE_SPELL_BARRED_TEXT, SIEGE_DISMOUNT_TEXT, siegeSwingTarget } from '../combat/siegeCombat.js';   // AUDIT-SEATS G5: a battle's shafts, spells and saddle   // SEAT2b part two: the body a swing meets
 
 /** Internal_Strings_en 654 / 655, the two guild map-reveal notes
  *  (ThievesGuild.cs:115, DarkBrotherhood.cs:108). %map is the
@@ -1171,6 +1172,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** AUDIT-SEATS C5: the battles' receipt carriers (net/siegeClaims.js) and the one HUD both draw through, kept here so the
    *  gate's frame can offer what they hold on their own clock - null offline. */
   let siegeClaims = null, royalClaims = null, siegeHud = null;
+  /** SEAT2b part two: a battle's relay-run figures and its works as the town draws them (scenes/siegeFigures.js) - owned by
+   *  the siege's session, which clears them whenever this player is out of the battle's room; null offline. */
+  let siegeFigures = null;
   /** AUDIT-SEATS G1: the battles announced in the server's voice (net/siegeHerald.js) - null offline. */
   let siegeHerald = null;
   /** AUDIT-SEATS C6: the battles' clock - the relay's, as every relay-stamped time this scene reads (a pass's window, a
@@ -3506,6 +3510,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const pixelBuildingKeys = new Set();   // HOME-LOOK: every building of the pixel, by its key
     /** @type {Map<number, {at: number[], box: number[]}>} HOME-YARD: each building's own place and the box round its models, pixel-local */
     const pixelHomeFrames = new Map();
+    let pixelCastle = null;   // SEAT2b part two (G21): the city's castle entrance - its dungeon-entrance door's frame (systems/siegeField.js castleFrameOf), pixel-local
     if (dfLocation) {
       // AUDIT 39 (#18): the skin reaches the layout, because the mill's
       // subrecord widens the block's building count and must not exist
@@ -3673,6 +3678,7 @@ export async function bootWorld(canvas, renderer, params, status) {
             // GUILD1d: the building's first door, measured where it stands - its hall's banners hang beside it
             const hf = homeKey != null ? pixelHomeFrames.get(homeKey) : null;
             if (hf && !hf.door) hf.door = doorCornersOf(cpu.doors[0], local);
+            if (!pixelCastle) pixelCastle = castleFrameOf(cpu.doors, local, box);   // SEAT2b part two (G21): the first dungeon-entrance door the town's models stand - a crown's field stands before it
             for (const door of staticDoors) {
               doorGeneration += 1;   // WORLD-HOVER: a pixel's doors arriving
               buildingDoors.push({
@@ -4093,6 +4099,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       templeKeys: buildingKeysOfType(locBlocks, makeBuildingKey, TALK_BUILDING_TYPES.Temple), hallKeys: buildingKeysOfType(locBlocks, makeBuildingKey, TALK_BUILDING_TYPES.GuildHall),
       gates: pixelGates.map((g) => ({ box: g.entry?._box })), boards: pixelBoards, bounty: pixelBoardSplit, centre: townCentreOf(pixelHomeFrames),
       tier: seatAtMapId(townSeats, dfLocation.mapTableData?.mapId)?.tier ?? 'palace',
+      castle: pixelCastle,   // SEAT2b part two (G21): a crown's Throne, camp and Palace square before its castle's entrance
     }) : null;
     if (siegeField) siegeFieldsByTown.set(dfLocation.mapTableData?.mapId, { key, px, py, field: siegeField });
     const wodKept = adoptWodCarry(key, wodSpawners, privateersHold);
@@ -15739,7 +15746,11 @@ export async function bootWorld(canvas, renderer, params, status) {
       // the receipt it answers, to the card; C1: the HUD's Leave and the card's Close leave whichever is entered
       siegeClaims = createSiegeClaims({ claim: (r) => seatBook.claimSiege(r), me: () => accountId(), storage: appStorage(), nowMs: battleNowMs, onClaimed: (a, r) => siegeSession?.claimed(a, r) });
       siegeHud = createSiegeHud(document, { onClaim: () => siegeClaims.offer({ force: true }), onLeave: () => leaveBattle() });
-      siegeSession = createSiegeSession({ online, pass: (seat, field) => seatBook.siegePass(seat, field), claims: siegeClaims, hud: siegeHud, movePlayer: siegeMoveTo, say: (t) => { if (t) townTalk.say(t); }, relayOk: () => online.siegeOk,
+      // SEAT2b part two: the battle's relay-run figures and its works, stood in the town on its own ground (the room's
+      // natives through the floating origin; the terrain's height), owned by the session; struck only at a relay that knows
+      // them (net/wire.js relayKnowsWorks, the battle socket's - net/online.js `worksOk`)
+      siegeFigures = createSiegeFigures({ renderer, getTexture, uploadRecordFrame, toScene: (x, z) => state.localFromWorld(x, z), groundAt: (x, z) => heightAt(x, z), eye: () => cam.pos });
+      siegeSession = createSiegeSession({ online, pass: (seat, field) => seatBook.siegePass(seat, field), claims: siegeClaims, hud: siegeHud, movePlayer: siegeMoveTo, say: (t) => { if (t) townTalk.say(t); }, worksOk: () => online.worksOk === true, figures: siegeFigures, relayOk: () => online.siegeOk,
         nowMs: battleNowMs, here: (seat) => atSeat(seat) });
       // CROWN1 part two: A ROYAL TOURNEY - the same room's words, the same HUD; the bouts won carried to the service
       royalClaims = createRoyalClaims({ claim: (r) => seatBook.claimRoyal(r), me: () => accountId(), storage: appStorage(), nowMs: battleNowMs });
@@ -16511,19 +16522,14 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  relay, which clips it to DFU's range for the weapon my look holds (net/siegeRef.js). True when the swing was theirs. */
   const siegeMeleeHit = (eye, inViewFn) => {
     const battle = royalSession?.active() ? royalSession : siegeSession;   // CROWN1 part two: a Royal Tourney's bout, the same arm
-    const foes = battle?.foes() ?? [];
-    if (!foes.length) return false;
-    let best = null, bestD = Infinity;
-    for (const id of foes) {
-      const b = duelBody(id);
-      if (!b) continue;
-      const c = [b.feet[0], b.feet[1] + (b.height ?? CAPSULE_HEIGHT) / 2, b.feet[2]];
-      const dx = c[0] - eye[0], dy = c[1] - eye[1], dz = c[2] - eye[2];
-      const dist = Math.hypot(dx, dy, dz), l = dist || 1;
-      const wall = collider.raycast(eye, [dx / l, dy / l, dz / l], dist);
-      if (!playerMeleeCanHit(dist, !!inViewFn?.(c), !Number.isFinite(wall) || wall >= dist - 1e-3)) continue;
-      if (dist < bestD) { bestD = dist; best = id; }
-    }
+    // SEAT2b part two: the bodies its swing may meet - the foes', and a siege's figures and works this fighter may strike
+    // (combat/siegeCombat.js siegeSwingTarget: the nearest the duel's test admits)
+    const bodies = battleFoeBodies(battle);
+    if (!bodies.length) return false;
+    const best = siegeSwingTarget(eye, bodies, (dist, c) => {
+      const l = dist || 1, wall = collider.raycast(eye, [(c[0] - eye[0]) / l, (c[1] - eye[1]) / l, (c[2] - eye[2]) / l], dist);
+      return playerMeleeCanHit(dist, !!inViewFn?.(c), !Number.isFinite(wall) || wall >= dist - 1e-3);
+    }, CAPSULE_HEIGHT);
     if (!best) return false;
     siegeStrikeOut(best, 'melee', weaponRig.playerWeapon.strikingWeapon, weaponRig.playerWeapon.machine?.state);
     return true;
@@ -16534,7 +16540,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  which clips it to DFU's range for the weapon my look holds (net/siegeRef.js). True when it was the battle's. */
   const siegeStrikeOut = (to, by, weapon, swing, drawMs = 0) => {
     const battle = royalSession?.active() ? royalSession : siegeSession;
-    if (!to || !battle?.active() || !battle.foes().includes(to)) return false;
+    if (!to || !battle?.active() || !(battle.canStrike ? battle.canStrike(to) : battle.foes().includes(to))) return false;   // SEAT2b part two: a siege's figure or work too (net/siegeSession.js canStrike - only at a relay that knows them)
     const a = duelAttackerOf(playerEntity, weapon), w = duelWeaponOf(weapon), sw = duelSwingOf(swing);
     const r = resolveDuelStrike({ by, a, ...(w ? { w } : {}), ...(sw ? { sw } : {}), ...(drawMs > 0 ? { at: Math.min(60000, Math.trunc(drawMs)) } : {}) }, duelStub(a).stub);
     if (r.dmg > 0) {
@@ -16544,12 +16550,18 @@ export async function bootWorld(canvas, renderer, params, status) {
     return true;
   };
   /** AUDIT-SEATS G5: a battle's foes' bodies (the Royal Tourney's bout's one, or a siege's other side), named - [] outside
-   *  a battle (one kept empty list: asked every frame by the arrows). */
+   *  a battle (one kept empty list: asked every frame by the arrows). SEAT2b part two: and a siege's relay-run figures and
+   *  works this fighter may strike (scenes/siegeFigures.js's bodies, net/siegeSession.js canStrike) - its works never for a
+   *  spell (`spell`: a spell harms no stone or timber). */
   const NO_BODIES = Object.freeze([]);
-  const battleFoeBodies = (battle) => {
+  const battleFoeBodies = (battle, spell = false) => {
     if (!battle?.active()) return NO_BODIES;
     const out = [];
     for (const id of battle.foes()) { const b = duelBody(id); if (b) out.push(b); }
+    if (battle === siegeSession && siegeFigures) {
+      for (const b of siegeFigures.targets()) if (siegeSession.canStrike(b.id)) out.push(b);
+      if (!spell) for (const b of siegeFigures.works()) if (siegeSession.canStrike(b.id)) out.push(b);
+    }
     return out;
   };
   /** My opponent's body as the arrows' target list takes one (arrowFlight.js foeTargets) - [] outside a fight.
@@ -16566,13 +16578,14 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** AUDIT-SEATS G5: a siege's foes as the cast engine's marks (hostMagic.js duelMarksFor) - my harmful spells reach them,
    *  outside a duel. A Royal Tourney's bout is blows alone (its referee takes no cast). */
   const siegeSpellMarks = () => {
-    const bodies = battleFoeBodies(siegeSession);
-    return bodies.length ? bodies.map((b) => ({ ...b, name: peerName(b.id) ?? 'a foe' })) : null;
+    const bodies = battleFoeBodies(siegeSession, true);   // SEAT2b part two: its figures too, never its works
+    return bodies.length ? bodies.map((b) => ({ ...b, name: peerName(b.id) ?? siegeFigureName(b.id) ?? 'a foe' })) : null;
   };
   /** AUDIT-SEATS G5: A SPELL OF MINE MET A SIEGE'S FOE - its harm, counted on a stand-in of my own sheet
-   *  (combat/siegeCombat.js siegeSpellNumbers), to the referee as a cast (it clips, and bounds the rate). */
+   *  (combat/siegeCombat.js siegeSpellNumbers), to the referee as a cast (it clips, and bounds the rate). SEAT2b part two:
+   *  or a relay-run figure this fighter may strike - never a work (net/siegeSession.js canCast). */
   const siegeSpellOut = (peerId, sp) => {
-    if (!siegeSession?.isFoe(peerId)) return false;
+    if (!siegeSession?.canCast(peerId)) return false;
     const { harm } = siegeSpellNumbers(sp, Math.max(1, Math.trunc(playerEntity.level || 1)), duelStub(duelAttackerOf(playerEntity)).stub, playerEntity);
     return harm > 0 && siegeSession.cast(peerId, siegeCastClamp(harm, false));
   };
@@ -24464,6 +24477,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // HT1: the dropped torches burn, the thrown one flies, a burning foe's flame follows it (the transition sweep is at the mode branch above, AUDIT 66 F11)
     if (_mode() === 'exterior') { droppedTorches.tick(dt); livePersonBatches.push(...droppedTorches.batches()); camps.tick(dt); livePersonBatches.push(...camps.batches()); livePersonBatches.push(...navalFlames.batches()); }   // SURV3: the fires burn on the same axis; NAV-B: and a burning ship's
     if (sigilBroker && _mode() === 'exterior') livePersonBatches.push(...sigilBroker.batches());   // SET7: the Broker on the flats' axis, as a foe stands
+    if (siegeFigures && _mode() === 'exterior') livePersonBatches.push(...siegeFigures.batches());   // SEAT2b part two: a battle's figures and works, as its session drew them this frame (none when it did not)
     // HCC: the horse billboards on the flats' axis (the runtime ticked above, hccTick - AUDIT HCC H1)
     if (hcc.enabled && _mode() === 'exterior') livePersonBatches.push(...hcc.batches());
     if (csaOn() && _mode() === 'exterior') pushSeenShipFlats(csa.batches(), livePersonBatches);   // CSA-B: the boats' crews and lanterns; SHIP-FLATS: none under a pixel

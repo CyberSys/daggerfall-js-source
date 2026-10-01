@@ -1,0 +1,1334 @@
+[
+ {
+  "name": "SEAT2B2C-fold-w",
+  "file": "src/net/siegeLink.js",
+  "old": "    case 'w': return { ...s, works: { g: g.g, br: g.br, r: g.r, rl: g.rl } };",
+  "new": "    case 'w': return s;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-fold-n-down",
+  "file": "src/net/siegeLink.js",
+  "old": "down: down === 1, act })), figuresAt: now };",
+  "new": "down: false, act })), figuresAt: now };",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-fold-n-clock",
+  "file": "src/net/siegeLink.js",
+  "old": "act })), figuresAt: now };",
+  "new": "act })) };",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-fold-fell-figure",
+  "file": "src/net/siegeLink.js",
+  "old": "    case 'fell': {\n      if (isSiegeFigure(g.id)) return",
+  "new": "    case 'fell': {\n      if (false) return",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-fold-fell-figure-down",
+  "file": "src/net/siegeLink.js",
+  "old": "{ ...f, hp: 0, down: true, act: 0 }",
+  "new": "{ ...f, hp: 0, down: false, act: 0 }",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-pass-kind",
+  "file": "src/net/siegeLink.js",
+  "old": "  return c?.o === 'siege' && orderValid(c) ? c : null;",
+  "new": "  return orderValid(c) ? c : null;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-pass-valid",
+  "file": "src/net/siegeLink.js",
+  "old": "  return c?.o === 'siege' && orderValid(c) ? c : null;",
+  "new": "  return c?.o === 'siege' ? c : null;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-pass-parts",
+  "file": "src/net/siegeLink.js",
+  "old": "  if (parts.length !== 3) return null;",
+  "new": "  if (parts.length < 2) return null;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-pass-string",
+  "file": "src/net/siegeLink.js",
+  "old": "  if (typeof pass !== 'string') return null;\n  const parts",
+  "new": "  const parts",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-points-units",
+  "file": "src/net/siegeLink.js",
+  "old": "(RAM_OFFSET_M * SIEGE_UNITS_PER_M) / l",
+  "new": "RAM_OFFSET_M / l",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-points-line",
+  "file": "src/net/siegeLink.js",
+  "old": "ram: [gx + dx * k, gz + dz * k] };",
+  "new": "ram: [gx - dx * k, gz - dz * k] };",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-points-degenerate",
+  "file": "src/net/siegeLink.js",
+  "old": "const k = l > 1e-9 ?",
+  "new": "const k = l >= 0 ?",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-side-attack-gate",
+  "file": "src/net/siegeLink.js",
+  "old": "if (side === 'attack') return id === '~gate' ||",
+  "new": "if (side === 'attack') return id === '~ram' ||",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-side-attack-guards",
+  "file": "src/net/siegeLink.js",
+  "old": "siegeFigureKind(id) === 0);",
+  "new": "siegeFigureKind(id) >= 0);",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-side-defend-ram",
+  "file": "src/net/siegeLink.js",
+  "old": "if (side === 'defend') return id === '~ram' ||",
+  "new": "if (side === 'defend') return id === '~gate' ||",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-side-defend-figures",
+  "file": "src/net/siegeLink.js",
+  "old": "siegeFigureKind(id) > 0);\n  return false;",
+  "new": "siegeFigureKind(id) >= 0);\n  return false;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-side-watch",
+  "file": "src/net/siegeLink.js",
+  "old": "siegeFigureKind(id) > 0);\n  return false;",
+  "new": "siegeFigureKind(id) > 0);\n  return true;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-clock-hours",
+  "file": "src/net/siegeLink.js",
+  "old": "return h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`; };",
+  "new": "return `${h * 60 + m}:${ss}`; };",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-clock-minutes",
+  "file": "src/net/siegeLink.js",
+  "old": "m = Math.floor((t % 3600) / 60)",
+  "new": "m = Math.floor(t / 60)",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-bar-gate",
+  "file": "src/net/siegeLink.js",
+  "old": "    const gate = !!s.works?.g;",
+  "new": "    const gate = false;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-bar-gate-rule",
+  "file": "src/net/siegeLink.js",
+  "old": "${gate ? ' and the Gatehouse breached' : ''}",
+  "new": "",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-bar-breach",
+  "file": "src/net/siegeLink.js",
+  "old": "    const open = held >= rule.banners && (!gate || s.works?.br === 1);",
+  "new": "    const open = held >= rule.banners;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-bar-breach-banners",
+  "file": "src/net/siegeLink.js",
+  "old": "    const open = held >= rule.banners && (!gate || s.works?.br === 1);",
+  "new": "    const open = !gate || s.works?.br === 1;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-works-breached",
+  "file": "src/net/siegeLink.js",
+  "old": "out.push(w.br === 1 ? 'GATEHOUSE BREACHED' :",
+  "new": "out.push(false ? 'GATEHOUSE BREACHED' :",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-works-gate-vitality",
+  "file": "src/net/siegeLink.js",
+  "old": "`GATEHOUSE ${num(w.g[0])} / ${num(w.g[1])}`",
+  "new": "`GATEHOUSE ${num(w.g[1])} / ${num(w.g[1])}`",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-works-ram-crew",
+  "file": "src/net/siegeLink.js",
+  "old": "${crew >= RAM.crew ?",
+  "new": "${crew >= 1 ?",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-works-ram-stroke",
+  "file": "src/net/siegeLink.js",
+  "old": "a stroke in ${Math.max(0, RAM.everyMs / 1000 - swing)} s",
+  "new": "a stroke in ${swing} s",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-works-ram-vitality",
+  "file": "src/net/siegeLink.js",
+  "old": "`RAM ${num(hp)} / ${num(max)}",
+  "new": "`RAM ${num(max)} / ${num(max)}",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-works-kits",
+  "file": "src/net/siegeLink.js",
+  "old": "  if (w?.rl) out.push(",
+  "new": "  if (false) out.push(",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-works-kits-plural",
+  "file": "src/net/siegeLink.js",
+  "old": "Ram Kit${w.rl === 1 ? '' : 's'} to come",
+  "new": "Ram Kits to come",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-works-guards-kind",
+  "file": "src/net/siegeLink.js",
+  "old": "  const guards = s.figures.filter((f) => f.kind === 0);",
+  "new": "  const guards = s.figures;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-works-guards-down",
+  "file": "src/net/siegeLink.js",
+  "old": "out.push(`GUARDS ${guards.length - down} up",
+  "new": "out.push(`GUARDS ${guards.length} up",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-self-wave-side",
+  "file": "src/net/siegeLink.js",
+  "old": "(side === 'defend' ? defendersWaveMs(base, walls) : base)",
+  "new": "(defendersWaveMs(base, walls))",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-self-wave-walls",
+  "file": "src/net/siegeLink.js",
+  "old": "SIEGE_WAVE_MS.palace, walls)) - now)",
+  "new": "SIEGE_WAVE_MS.palace, 0)) - now)",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-revolt-head",
+  "file": "src/net/siegeLink.js",
+  "old": "   against the rebels`;",
+  "new": "   vs   the rebels`;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-revolt-captain",
+  "file": "src/net/siegeLink.js",
+  "old": "`REBEL CAPTAIN ${cap.hp} / ${cap.max}`",
+  "new": "`REBEL CAPTAIN ${cap.max} / ${cap.max}`",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-revolt-fallen",
+  "file": "src/net/siegeLink.js",
+  "old": "${cap.down ? 'THE REBEL CAPTAIN HAS FALLEN' :",
+  "new": "${false ? 'THE REBEL CAPTAIN HAS FALLEN' :",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-revolt-count-down",
+  "file": "src/net/siegeLink.js",
+  "old": "(f.kind === 1 && !f.down ? 1 : 0)",
+  "new": "(f.kind === 1 ? 1 : 0)",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-revolt-count-kind",
+  "file": "src/net/siegeLink.js",
+  "old": "(f.kind === 1 && !f.down ? 1 : 0)",
+  "new": "(!f.down ? 1 : 0)",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-revolt-waiting",
+  "file": "src/net/siegeLink.js",
+  "old": "const line = !cap ? 'THE REBELS HOLD THE PALACE DOOR'",
+  "new": "const line = false ? 'THE REBELS HOLD THE PALACE DOOR'",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-revolt-side",
+  "file": "src/net/siegeLink.js",
+  "old": "if (f.side === 'defend') { if (f.down) down++; else up++; }",
+  "new": "if (f.side) { if (f.down) down++; else up++; }",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-revolt-title",
+  "file": "src/net/siegeLink.js",
+  "old": "return end.r === 'defend' ? `THE REVOLT AT",
+  "new": "return end.r === 'attack' ? `THE REVOLT AT",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-revolt-line-kind",
+  "file": "src/net/siegeLink.js",
+  "old": "kind: end.r === 'defend' ? 'revolt-down' : 'revolt-lapsed'",
+  "new": "kind: 'revolt-down'",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-revolt-line-when",
+  "file": "src/net/siegeLink.js",
+  "old": "  return line.startsWith(when) ? line.slice(when.length) : line;",
+  "new": "  return line;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-revolt-honour-kept",
+  "file": "src/net/siegeLink.js",
+  "old": "(claimable ? REVOLT_CARD_WORDS.kept : '')",
+  "new": "REVOLT_CARD_WORDS.kept",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-revolt-honour-refused",
+  "file": "src/net/siegeLink.js",
+  "old": "typeof honours === 'string' ? honours : REVOLT_CARD_WORDS.carried",
+  "new": "REVOLT_CARD_WORDS.carried",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-revolt-refusal-void",
+  "file": "src/net/siegeLink.js",
+  "old": "  'battle-void': 'The revolt was void - there is nothing to carry.',\n",
+  "new": "",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-revolt-refusal-fallback",
+  "file": "src/net/siegeLink.js",
+  "old": "?? REVOLT_CLAIM_REFUSED.receipt;",
+  "new": "?? null;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-siege-refusal-void",
+  "file": "src/net/siegeLink.js",
+  "old": "  'battle-void': 'No Honours this battle: the battle was void.',\n",
+  "new": "",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-model-revolt",
+  "file": "src/net/siegeLink.js",
+  "old": "  const revolt = battle.kind === 'revolt';",
+  "new": "  const revolt = false;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-model-button",
+  "file": "src/net/siegeLink.js",
+  "old": "    button: revolt ? SIEGE_CARD_WORDS.carry : SIEGE_CARD_WORDS.claim,",
+  "new": "    button: SIEGE_CARD_WORDS.claim,",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-model-works",
+  "file": "src/net/siegeLink.js",
+  "old": "    works: revolt ? '' : siegeWorksLine(s),",
+  "new": "    works: '',",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-model-sides",
+  "file": "src/net/siegeLink.js",
+  "old": "    sides: revolt ? revoltSidesLine(s, battle) : siegeSidesLine(s, battle),",
+  "new": "    sides: siegeSidesLine(s, battle),",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-model-walls",
+  "file": "src/net/siegeLink.js",
+  "old": "{ tier: battle.tier, watching, walls }",
+  "new": "{ tier: battle.tier, watching }",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-ses-kind",
+  "file": "src/net/siegeSession.js",
+  "old": "    s.kind = p?.sn ?? s.kind;",
+  "new": "    s.kind = s.kind;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-ses-walls",
+  "file": "src/net/siegeSession.js",
+  "old": "    s.walls = Array.isArray(p?.sx) ? p.sx[0] : 0;",
+  "new": "    s.walls = 0;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-ses-points",
+  "file": "src/net/siegeSession.js",
+  "old": "    s.points = siegeWorksPoints(fieldOf(p?.sf ?? s.field, p?.st ?? s.battle?.tier, s.kind));",
+  "new": "    s.points = null;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-ses-points-settled",
+  "file": "src/net/siegeSession.js",
+  "old": "fieldOf(p?.sf ?? s.field,",
+  "new": "fieldOf(s.field,",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-ses-revolt-words",
+  "file": "src/net/siegeSession.js",
+  "old": "say(s.kind === 'revolt' ? SIEGE_SESSION_TEXT.revolt(r.side) : SIEGE_SESSION_TEXT.entered(r.side));",
+  "new": "say(SIEGE_SESSION_TEXT.entered(r.side));",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-ses-relay-gate",
+  "file": "src/net/siegeSession.js",
+  "old": "    if (!s || !worksOk() || !siegeStrikesAt(s.side, id)) return false;",
+  "new": "    if (!s || !siegeStrikesAt(s.side, id)) return false;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-ses-side-rule",
+  "file": "src/net/siegeSession.js",
+  "old": "    if (!s || !worksOk() || !siegeStrikesAt(s.side, id)) return false;",
+  "new": "    if (!s || !worksOk()) return false;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-ses-gate-vitality",
+  "file": "src/net/siegeSession.js",
+  "old": "if (id === '~gate') return !!w?.g && w.g[0] > 0;",
+  "new": "if (id === '~gate') return !!w?.g && w.g[0] >= 0;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-ses-ram-vitality",
+  "file": "src/net/siegeSession.js",
+  "old": "if (id === '~ram') return !!w?.r && w.r[0] > 0;",
+  "new": "if (id === '~ram') return !!w?.r && w.r[0] >= 0;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-ses-figure-down",
+  "file": "src/net/siegeSession.js",
+  "old": "    return !!f && !f.down;",
+  "new": "    return !!f;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-ses-can-strike",
+  "file": "src/net/siegeSession.js",
+  "old": "canStrike: (id) => (isSiegeFigure(id) || isSiegeWork(id) ? strikesWork(id) : api.isFoe(id)),",
+  "new": "canStrike: (id) => api.isFoe(id),",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-ses-can-cast",
+  "file": "src/net/siegeSession.js",
+  "old": "canCast: (id) => !isSiegeWork(id) && api.canStrike(id),",
+  "new": "canCast: (id) => api.canStrike(id),",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-ses-targets",
+  "file": "src/net/siegeSession.js",
+  "old": ".filter((id) => strikesWork(id)) : []; },",
+  "new": ".filter(() => true) : []; },",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-ses-blow",
+  "file": "src/net/siegeSession.js",
+  "old": "return !!s && api.canStrike(to) && online.sendSiege({ k: 'blow'",
+  "new": "return !!s && api.isFoe(to) && online.sendSiege({ k: 'blow'",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-ses-cast-heal",
+  "file": "src/net/siegeSession.js",
+  "old": "if (isSiegeFigure(to)) return !heal && api.canCast(to) &&",
+  "new": "if (isSiegeFigure(to)) return api.canCast(to) &&",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-ses-cast-figure",
+  "file": "src/net/siegeSession.js",
+  "old": "      if (isSiegeFigure(to)) return !heal && api.canCast(to) && online.sendSiege({ k: 'cast', to, d, h: 0 });\n",
+  "new": "",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-ses-draw",
+  "file": "src/net/siegeSession.js",
+  "old": "      figures?.frame(s.state, { points: s.points, now });",
+  "new": "",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-ses-clear-room",
+  "file": "src/net/siegeSession.js",
+  "old": "hud?.hide(); figures?.clear(); return; }",
+  "new": "hud?.hide(); return; }",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-ses-clear-leave",
+  "file": "src/net/siegeSession.js",
+  "old": "      figures?.clear();   // SEAT2b part two: every figure and work drawn, freed\n",
+  "new": "",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-ses-clear-enter",
+  "file": "src/net/siegeSession.js",
+  "old": "      figures?.clear();   // SEAT2b part two: another battle's figures go with it\n",
+  "new": "",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-ses-revolt-refusal",
+  "file": "src/net/siegeSession.js",
+  "old": "(s.kind === 'revolt' ? revoltClaimRefusal : siegeClaimRefusal)(answer)",
+  "new": "siegeClaimRefusal(answer)",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-ses-hud-kind",
+  "file": "src/net/siegeSession.js",
+  "old": "{ seat: s.seat?.name, kind: s.kind,",
+  "new": "{ seat: s.seat?.name, kind: s.battle?.kind,",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-ses-hud-walls",
+  "file": "src/net/siegeSession.js",
+  "old": "claimable: !!s.state.receipt && s.honours === undefined, walls: s.walls }",
+  "new": "claimable: !!s.state.receipt && s.honours === undefined }",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-hud-works-text",
+  "file": "src/ui/siegeHud.js",
+  "old": "put('works', m.works ?? '');",
+  "new": "put('works', '');",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-hud-works-hidden",
+  "file": "src/ui/siegeHud.js",
+  "old": "parts.works.style.display = m.works ? '' : 'none';   // SEAT2b part two",
+  "new": "parts.works.style.display = '';   // SEAT2b part two",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-hud-works-bar",
+  "file": "src/ui/siegeHud.js",
+  "old": "bar.appendChild(parts.banners); bar.appendChild(parts.works);",
+  "new": "bar.appendChild(parts.banners);",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-hud-button",
+  "file": "src/ui/siegeHud.js",
+  "old": "put('claim', m.card.button ?? 'Claim');",
+  "new": "put('claim', 'Claim');",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-castle-type",
+  "file": "src/systems/siegeField.js",
+  "old": "(x) => x?.type === DOOR_TYPE.DUNGEON_ENTRANCE",
+  "new": "(x) => x?.type === DOOR_TYPE.BUILDING",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-castle-first",
+  "file": "src/systems/siegeField.js",
+  "old": "(doors ?? []).find((x) => x?.type",
+  "new": "(doors ?? []).findLast((x) => x?.type",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-castle-corners",
+  "file": "src/systems/siegeField.js",
+  "old": "const door = d ? doorCornersOf(d, matrix) : null;",
+  "new": "const door = d ? doorCornersOf(d, null) : null;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-castle-box-copy",
+  "file": "src/systems/siegeField.js",
+  "old": "{ door, box: [...box] } : null;",
+  "new": "{ door, box } : null;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-castle-box-shape",
+  "file": "src/systems/siegeField.js",
+  "old": "Array.isArray(box) && box.length >= 6 ?",
+  "new": "Array.isArray(box) ?",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-swing-nearest",
+  "file": "src/combat/siegeCombat.js",
+  "old": "if (dist < bestD && reaches(dist, c)) {",
+  "new": "if (reaches(dist, c)) {",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-swing-middle",
+  "file": "src/combat/siegeCombat.js",
+  "old": "b.feet[1] + (b.height ?? fallbackH) / 2",
+  "new": "b.feet[1] + (b.height ?? fallbackH)",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-swing-fallback",
+  "file": "src/combat/siegeCombat.js",
+  "old": "(b.height ?? fallbackH) / 2",
+  "new": "(b.height ?? 1.8) / 2",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-work-bodies",
+  "file": "src/combat/siegeCombat.js",
+  "old": "Object.freeze({ gate: 3, ram: 2.2 })",
+  "new": "Object.freeze({ gate: 3, ram: 2 })",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-look-guard",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "if (k === 0) return MOBILE_TYPES.Knight_CityWatch;",
+  "new": "if (k === 0) return MOBILE_TYPES.Knight;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-look-captain",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "if (k === 2) return MOBILE_TYPES.Warrior;",
+  "new": "if (k === 2) return MOBILE_TYPES.Knight;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-look-rebels",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "% 2 === 1 ? MOBILE_TYPES.Rogue : MOBILE_TYPES.Thief",
+  "new": "% 2 === 0 ? MOBILE_TYPES.Rogue : MOBILE_TYPES.Thief",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-look-figures-only",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "  if (!isSiegeFigure(id)) return null;\n",
+  "new": "",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-name-figures-only",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "(isSiegeFigure(id) ? SIEGE_FIGURE_NAMES[siegeFigureKind(id)] : null)",
+  "new": "(SIEGE_FIGURE_NAMES[siegeFigureKind(id)] ?? null)",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-place-walkers",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "  if (f.down || f.act !== 1) return [f.x, f.z];",
+  "new": "  if (f.down) return [f.x, f.z];",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-place-down",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "  if (f.down || f.act !== 1) return [f.x, f.z];",
+  "new": "  if (f.act !== 1) return [f.x, f.z];",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-place-speed",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "(k.speedMps * SIEGE_UNITS_PER_M *",
+  "new": "(5 * SIEGE_UNITS_PER_M *",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-place-lead",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "Math.min(FIGURE_LEAD_MS, now - heardAt)",
+  "new": "(now - heardAt)",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-place-reach",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "Math.min(d - k.reachM * SIEGE_UNITS_PER_M,",
+  "new": "Math.min(d,",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-lead-ms",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "export const FIGURE_LEAD_MS = 1000;",
+  "new": "export const FIGURE_LEAD_MS = 2000;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-facing",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "? Math.atan2(dx, dz) : was;",
+  "new": "? Math.atan2(dz, dx) : was;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-facing-down",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "return !f.down && Math.hypot(dx, dz) > 1e-6",
+  "new": "return Math.hypot(dx, dz) > 1e-6",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-ease",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "const k = 1 - Math.exp(-dt / FIGURE_EASE_MS);",
+  "new": "const k = 1;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-snap",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "> FIGURE_SNAP_M * SIEGE_UNITS_PER_M)",
+  "new": "> FIGURE_SNAP_M * SIEGE_UNITS_PER_M * 100)",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-strike",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "const striking = f.act === 2 && now - r.swingAt >=",
+  "new": "const striking = false && now - r.swingAt >=",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-flinch",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "    const hurt = f.hp < r.hp;",
+  "new": "    const hurt = false;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-corpse",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "    if (f.down) {   // its corpse",
+  "new": "    if (false) {   // its corpse",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-corpse-record",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "const rkey = `${c.record}#0`;",
+  "new": "const rkey = `${c.record}#1`;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-drop",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "      for (const [id, r] of [...units]) if (r.stamp !== stamp) drop(id);",
+  "new": "",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-ground-free",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "    if (!feet) { unstand(r, 'batch'); return; }",
+  "new": "    if (!feet) return;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-ground",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "return sc && Number.isFinite(y) ? [sc[0], y, sc[1]] : null;",
+  "new": "return sc ? [sc[0], y, sc[1]] : null;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-latch",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "batches() { const out = fresh ? drawn : NONE; fresh = false; return out; },",
+  "new": "batches() { return drawn; },",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-bodies",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "    bodies.push(r.body);\n",
+  "new": "",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-clear-figures",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "      for (const id of [...units.keys()]) drop(id);\n",
+  "new": "",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-clear-works",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "      unstand(works, 'gate'); unstand(works, 'ram'); unstand(works, 'ramBar');\n      for",
+  "new": "      for",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-clear-art",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "      for (const [archive, record] of art.values()) renderer?.releaseTexture?.(archive, record);\n",
+  "new": "",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-works-gate-step",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "barStep(w.g[1] > 0 ? w.g[0] / w.g[1] : 0)",
+  "new": "barStep(1)",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-works-broken",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "      const broken = w.br === 1;",
+  "new": "      const broken = false;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-works-gate-rise",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "gp[1] + D.gateBar.rise",
+  "new": "gp[1]",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-works-gate-body",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "      if (w.g[0] > 0) { gateBody",
+  "new": "      if (w.g[0] >= 0) { gateBody",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-works-ram-flip",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "ramSize.w = MOVE_ANIMS[o].flip ? -D.ram.w : D.ram.w;",
+  "new": "ramSize.w = D.ram.w;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-works-ram-facing",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "Math.atan2(points.gate[0] - points.ram[0], points.gate[1] - points.ram[1])",
+  "new": "Math.atan2(points.ram[0] - points.gate[0], points.ram[1] - points.gate[1])",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-works-ram-body",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "      if (w.r[0] > 0) { ramBody",
+  "new": "      if (w.r[0] >= 0) { ramBody",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-works-ram-bar-rise",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "rp[1] + D.ramBar.rise",
+  "new": "rp[1]",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-bounds",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "    if (b.bounds) b.bounds[3] = quadHalfDiagonal(size);",
+  "new": "",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-paint-once",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "    if (art.has(key) || !renderer?.uploadTexture) return;",
+  "new": "    if (!renderer?.uploadTexture) return;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-bar-step",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "Math.ceil(Math.max(0, Math.min(1, Number(share) || 0)) * BAR_STEPS)",
+  "new": "Math.round(Math.max(0, Math.min(1, Number(share) || 0)) * BAR_STEPS)",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-bar-fill",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "Math.round(((BAR_W - 2) * Math.max(0, Math.min(BAR_STEPS, step))) / BAR_STEPS)",
+  "new": "Math.round(((BAR_W - 1) * Math.max(0, Math.min(BAR_STEPS, step))) / BAR_STEPS)",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-bar-crack",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "(y % 2 ? 1 : -1))) <= 1) continue;",
+  "new": "(y % 2 ? 1 : -1))) <= 0) continue;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-bar-lit",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "(y <= 2 ? C.fillHi : C.fill)",
+  "new": "C.fill",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-ram-head",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "rect(0, 15, 6, 22, C.iron);",
+  "new": "rect(57, 15, 63, 22, C.iron);",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-ram-hub",
+  "file": "src/scenes/siegeFigures.js",
+  "old": "disc(cx, 33, 1, C.hub);",
+  "new": "disc(cx, 33, 1, C.wheelIn);",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-world-castle-build",
+  "file": "src/scenes/world.js",
+  "old": "if (!pixelCastle) pixelCastle = castleFrameOf(cpu.doors, local, box);",
+  "new": "if (!pixelCastle) pixelCastle = null;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-world-castle-field",
+  "file": "src/scenes/world.js",
+  "old": "      castle: pixelCastle,   // SEAT2b part two (G21)",
+  "new": "      castle: null,   // SEAT2b part two (G21)",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-world-figures-scene",
+  "file": "src/scenes/world.js",
+  "old": "toScene: (x, z) => state.localFromWorld(x, z),",
+  "new": "toScene: (x, z) => [x, z],",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-world-works-ok",
+  "file": "src/scenes/world.js",
+  "old": "worksOk: () => online.worksOk === true,",
+  "new": "worksOk: () => true,",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-world-figures-passed",
+  "file": "src/scenes/world.js",
+  "old": "figures: siegeFigures, relayOk: () => online.siegeOk,",
+  "new": "figures: null, relayOk: () => online.siegeOk,",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-world-bodies-side",
+  "file": "src/scenes/world.js",
+  "old": "for (const b of siegeFigures.targets()) if (siegeSession.canStrike(b.id)) out.push(b);",
+  "new": "for (const b of siegeFigures.targets()) out.push(b);",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-world-bodies-spell",
+  "file": "src/scenes/world.js",
+  "old": "if (!spell) for (const b of siegeFigures.works())",
+  "new": "for (const b of siegeFigures.works())",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-world-spell-marks",
+  "file": "src/scenes/world.js",
+  "old": "const bodies = battleFoeBodies(siegeSession, true);",
+  "new": "const bodies = battleFoeBodies(siegeSession);",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-world-spell-names",
+  "file": "src/scenes/world.js",
+  "old": "name: peerName(b.id) ?? siegeFigureName(b.id) ?? 'a foe'",
+  "new": "name: peerName(b.id) ?? 'a foe'",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-world-spell-out",
+  "file": "src/scenes/world.js",
+  "old": "if (!siegeSession?.canCast(peerId)) return false;",
+  "new": "if (!siegeSession?.isFoe(peerId)) return false;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-world-strike-out",
+  "file": "src/scenes/world.js",
+  "old": "!(battle.canStrike ? battle.canStrike(to) : battle.foes().includes(to))",
+  "new": "!battle.foes().includes(to)",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-world-swing-height",
+  "file": "src/scenes/world.js",
+  "old": "}, CAPSULE_HEIGHT);\n    if (!best) return false;",
+  "new": "}, 0);\n    if (!best) return false;",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-world-draw",
+  "file": "src/scenes/world.js",
+  "old": "if (siegeFigures && _mode() === 'exterior') livePersonBatches.push(...siegeFigures.batches());",
+  "new": "if (false) livePersonBatches.push(...siegeFigures.batches());",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-socket-works-never-asked",
+  "file": "src/net/online.js",
+  "old": " this.worksOk = relayKnowsWorks(relayV); }",
+  "new": " }",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2B2C-socket-works-floor",
+  "file": "src/net/online.js",
+  "old": "this.worksOk = relayKnowsWorks(relayV);",
+  "new": "this.worksOk = relayFightsBattles(relayV);",
+  "tests": [
+   "test/seat2b2_siege_client.test.js"
+  ]
+ }
+]

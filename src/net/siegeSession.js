@@ -19,8 +19,24 @@
 // only while it is this session's own. C3 - an unsettled field is said ONCE and asked again on a backing-off wait (5 s,
 // 10, 20, 40, then every 60 s), so the service's hourly bound on passes is never reached. C7 - every settling answer to
 // this fighter's receipt reaches the card (a refusal in words), so it never stands on "claim it".
-import { siegeRoomKey } from './siegeRef.js';
-import { foldSiege, siegeHudModel, siegeClaimRefusal, SIEGE_STATE_EMPTY } from './siegeLink.js';
+//
+// SEAT2b part two (2026-10-01, Mac: "I want to finish the inprogress"): THE WORKS, THE FIGURES AND THE REVOLT
+// (bible/11-Multiplayer/Seats-Arc.md 6.2, 7.5, 7.7; SEAT2b part two's contract, items 1-6) - the pass the service hands
+// this client is read for what the battle froze (net/siegeLink.js readSiegePass: its works `sx` - the Walls a defender's
+// wave counts by - its kind and its settled field, where the works stand); the relay-run figures and the works are
+// stood in the town while this player stands in the battle's room (`figures` - scenes/siegeFigures.js - cleared the
+// moment it does not: EVERY ALLOCATION HAS AN OWNER), a spectator's too; a fighter strikes them as it strikes a foe -
+// a blow at a figure of the other side or at the other side's work (the attackers the guards and the Gatehouse, the
+// defenders the Ram, the rebels and their Captain - siegeLink.js siegeStrikesAt, the relay's own rule), a harmful cast at
+// a figure, never at a work (a spell harms no stone or timber) and never a heal at one (DECIDED: a gift is a side-mate's,
+// ALLY-CAST's frame between players; the relay's figures rise at their own wave) - and ONLY AT A RELAY THAT KNOWS THEM
+// (`worksOk`: net/wire.js relayKnowsWorks of the battle socket's relay - an older one closes the socket on such a word).
+// A REVOLT (`sn` 'revolt', the seats' battle `kind: 'revolt'`): its pass asked as a siege's (the holder's side `defend`,
+// anyone else `watch` - the service's to say); the holder's side musters at the ATTACKERS' camp, where the relay stands
+// it (its words say so); its HUD and card a revolt's (siegeLink.js), its receipt carried with no Honours promised.
+import { siegeRoomKey, fieldOf } from './siegeRef.js';
+import { foldSiege, siegeHudModel, siegeClaimRefusal, revoltClaimRefusal, readSiegePass, siegeWorksPoints, siegeStrikesAt, SIEGE_STATE_EMPTY } from './siegeLink.js';
+import { isSiegeFigure, isSiegeWork } from './wire.js';   // SEAT2b part two: a figure's id, a work's
 import { readSiegeReceipt } from './siegeReceipt.js';
 
 /** How long an unsettled field waits before the pass is asked again, ms - the first wait. */
@@ -45,6 +61,10 @@ export const SIEGE_SESSION_TEXT = Object.freeze({
   refused: (why) => `The battle would not have you: ${why}`,
   away: (town) => `You have left ${town}, and the battle with it.`,   // AUDIT-SEATS C1
   closed: 'The battle\'s door has closed on you - you have left it.',   // AUDIT-SEATS C1: its socket closed for good
+  // SEAT2b part two (7.7): a revolt entered - the holder's side musters at the camp outside the gate (the rebels hold the
+  // palace door, where the defenders' camp would be) and marches on them
+  revolt: (side) => (side === 'watch' ? 'You are watching the revolt. Nothing you do reaches it.'
+    : 'The town has risen against your guild. Muster at the camp outside the gate and march on the palace door - the Rebel Captain must fall.'),
 });
 
 /**
@@ -52,12 +72,16 @@ export const SIEGE_SESSION_TEXT = Object.freeze({
  * siegePass, claimSiege), `claims` (net/siegeClaims.js, or null), `hud` (ui/siegeHud.js createSiegeHud, or null),
  * `nowMs()` (AUDIT-SEATS C6: the relay's clock - the pass's window is the relay's), `movePlayer(pose)` (a wire pose:
  * natives on x and z), `say(text)`, `relayOk()` the relay fights battles; AUDIT-SEATS C1: `here(seat)` whether the player
- * is still at the seat's town.
+ * is still at the seat's town. SEAT2b part two: `worksOk()` the battle socket's relay knows a battle's works and figures
+ * (net/wire.js relayKnowsWorks - false strikes none of them), `figures` the drawing of them in the town
+ * (scenes/siegeFigures.js createSiegeFigures, or null).
  * @param {{ online: any, pass: (seat: any, field: any) => Promise<any>, claims?: any, hud?: any, nowMs?: () => number,
- *   movePlayer?: (p: any) => void, say?: (t: string) => void, relayOk?: () => boolean, here?: (seat: any) => boolean }} deps
+ *   movePlayer?: (p: any) => void, say?: (t: string) => void, relayOk?: () => boolean, here?: (seat: any) => boolean,
+ *   worksOk?: () => boolean, figures?: any }} deps
  */
-export function createSiegeSession({ online, pass, claims = null, hud = null, nowMs = () => Date.now(), movePlayer = () => {}, say = () => {}, relayOk = () => true, here = () => true }) {
-  /** @type {null | { seat: any, battle: any, field: any, room: string, side: string, window: number, sentIn: boolean, state: any, retryAt: number, joined: boolean, honours: any, tries: number, mint: any, awayAt: number|null }} */
+export function createSiegeSession({ online, pass, claims = null, hud = null, nowMs = () => Date.now(), movePlayer = () => {}, say = () => {}, relayOk = () => true, here = () => true,
+  worksOk = () => false, figures = null }) {
+  /** @type {null | { seat: any, battle: any, field: any, room: string, side: string, window: number, sentIn: boolean, state: any, retryAt: number, joined: boolean, honours: any, tries: number, mint: any, awayAt: number|null, kind: string, walls: number, points: any }} */
   let s = null;
   async function ask() {
     if (!s) return;
@@ -73,11 +97,29 @@ export function createSiegeSession({ online, pass, claims = null, hud = null, no
     }
     s.side = r.side; s.window = Number(r.window) * 1000;
     s.room = siegeRoomKey(s.seat.key, r.week);
+    // SEAT2b part two: what the battle froze, off its pass - its kind, the Walls (a defender's wave), its settled field
+    // (where the works stand); an unreadable one (an older service's word, a test's) leaves the Seat tab's kind and this
+    // game's own field
+    const p = readSiegePass(r.pass);
+    s.kind = p?.sn ?? s.kind;
+    s.walls = Array.isArray(p?.sx) ? p.sx[0] : 0;
+    s.points = siegeWorksPoints(fieldOf(p?.sf ?? s.field, p?.st ?? s.battle?.tier, s.kind));
     // AUDIT-SEATS C2: this session's own mint, kept, so a leave clears the slot only while it is still this one's
     s.mint = async () => { const again = await pass(at.seat, at.field); return again?.ok ? again.pass : null; };
     online.mintSiegePass = s.mint;
     s.joined = true;
-    say(SIEGE_SESSION_TEXT.entered(r.side));
+    say(s.kind === 'revolt' ? SIEGE_SESSION_TEXT.revolt(r.side) : SIEGE_SESSION_TEXT.entered(r.side));
+  }
+  /** SEAT2b part two: whether this fighter may strike a figure or a work `id` now - the relay knows them, the side rule
+   *  allows it (siegeLink.js siegeStrikesAt - a spectator's side strikes nothing), and it stands: a figure up, the
+   *  Gatehouse with vitality left (it is BREACHED at nought, for good - the contract's item 2), a Ram with vitality left. */
+  function strikesWork(id) {
+    if (!s || !worksOk() || !siegeStrikesAt(s.side, id)) return false;
+    const w = s.state.works;
+    if (id === '~gate') return !!w?.g && w.g[0] > 0;
+    if (id === '~ram') return !!w?.r && w.r[0] > 0;
+    const f = s.state.figures.find((x) => x.id === id);
+    return !!f && !f.down;
   }
   const api = {
     /** The room the world must stand in while a battle is entered, else null (scenes/world.js keeps its own then). */
@@ -90,7 +132,9 @@ export function createSiegeSession({ online, pass, claims = null, hud = null, no
       if (!relayOk()) { say(SIEGE_SESSION_TEXT.old); return false; }
       if (!field) { say(SIEGE_SESSION_TEXT.notHere(seat?.name ?? 'the town')); return false; }
       if (s?.mint && online.mintSiegePass === s.mint) online.mintSiegePass = null;   // AUDIT-SEATS C2: entered afresh - the old pass's mint goes
-      s = { seat, battle, field, room: '', side: 'watch', window: 0, sentIn: false, state: SIEGE_STATE_EMPTY, retryAt: 0, joined: false, honours: undefined, tries: 0, mint: null, awayAt: null };
+      figures?.clear();   // SEAT2b part two: another battle's figures go with it
+      s = { seat, battle, field, room: '', side: 'watch', window: 0, sentIn: false, state: SIEGE_STATE_EMPTY, retryAt: 0, joined: false, honours: undefined, tries: 0, mint: null, awayAt: null,
+        kind: battle?.kind ?? 'siege', walls: 0, points: null };
       ask();
       return true;
     },
@@ -102,6 +146,7 @@ export function createSiegeSession({ online, pass, claims = null, hud = null, no
       s = null;
       if (mint && online.mintSiegePass === mint) online.mintSiegePass = null;   // AUDIT-SEATS C2: another battle's mint is not this one's to clear
       hud?.hide();
+      figures?.clear();   // SEAT2b part two: every figure and work drawn, freed
       if (!quiet) say(words);
       return true;
     },
@@ -122,11 +167,13 @@ export function createSiegeSession({ online, pass, claims = null, hud = null, no
      *  this battle's own receipt's (`receipt`: an older battle's, settling now, is not this card's). */
     claimed(answer, receipt = null) {
       if (!s || (receipt != null && s.state.receipt != null && receipt !== s.state.receipt)) return;
-      s.honours = answer?.ok === false ? siegeClaimRefusal(answer) : (answer?.data?.honours ?? answer?.honours ?? null);
+      // SEAT2b part two: a revolt's refusal in its own words (none speaks of Honours - siegeLink.js revoltClaimRefusal)
+      s.honours = answer?.ok === false ? (s.kind === 'revolt' ? revoltClaimRefusal : siegeClaimRefusal)(answer) : (answer?.data?.honours ?? answer?.honours ?? null);
     },
     /** Each frame: the pass asked again while the field settles, `in` said once on an open socket, the HUD drawn, the
      *  battle left when its window has closed. AUDIT-SEATS C1: and left once the player has been away from the seat's
-     *  town BATTLE_AWAY_MS, or its socket has closed for good; the HUD drawn only in the battle's own room. */
+     *  town BATTLE_AWAY_MS, or its socket has closed for good; the HUD drawn only in the battle's own room. SEAT2b part
+     *  two: the figures and the works stood in the town only there too - cleared anywhere else. */
     tick() {
       if (!s) return;
       const now = nowMs();
@@ -135,13 +182,14 @@ export function createSiegeSession({ online, pass, claims = null, hud = null, no
       else if (now - s.awayAt >= BATTLE_AWAY_MS) { api.leave({ words: SIEGE_SESSION_TEXT.away(s.seat?.name ?? 'the town') }); return; }
       if (!s.joined) { if (s.retryAt && now >= s.retryAt) { s.retryAt = 0; ask(); } return; }
       if (s.window && now >= s.window) { api.leave(); return; }
-      if (online.room !== s.room) { s.sentIn = false; hud?.hide(); return; }
+      if (online.room !== s.room) { s.sentIn = false; hud?.hide(); figures?.clear(); return; }
       if (online.terminal) { api.leave({ words: SIEGE_SESSION_TEXT.closed }); return; }
       const open = online.status === 'open';
       if (!open) s.sentIn = false;
       else if (!s.sentIn) s.sentIn = online.sendSiege({ k: 'in' });
-      hud?.update(siegeHudModel(s.state, { seat: s.seat?.name, kind: s.battle?.kind, tier: s.battle?.tier, attacker: s.battle?.attackerGuild, defender: s.battle?.defenderGuild }, online.id, now,
-        { watching: s.side === 'watch', honours: s.honours, claimable: !!s.state.receipt && s.honours === undefined }));
+      hud?.update(siegeHudModel(s.state, { seat: s.seat?.name, kind: s.kind, tier: s.battle?.tier, attacker: s.battle?.attackerGuild, defender: s.battle?.defenderGuild }, online.id, now,
+        { watching: s.side === 'watch', honours: s.honours, claimable: !!s.state.receipt && s.honours === undefined, walls: s.walls }));
+      figures?.frame(s.state, { points: s.points, now });
     },
     /** Whether a peer is this fighter's foe (a fighter of the other side). */
     isFoe(id) {
@@ -153,11 +201,22 @@ export function createSiegeSession({ online, pass, claims = null, hud = null, no
     foes() { return s && s.side !== 'watch' ? Object.keys(s.state.roll).filter((id) => api.isFoe(id)) : []; },
     /** AUDIT-SEATS G5: the side-mates standing this fighter may heal (not itself - a self-heal is the save's own). */
     mates() { return s && s.side !== 'watch' ? Object.keys(s.state.roll).filter((id) => id !== online.id && s.state.roll[id].side === s.side && !s.state.roll[id].down) : []; },
-    /** A blow on a foe, to the referee (net/wire.js validSiegeIn's `blow`). True when it left. */
-    blow(to, { w, m, d, r }) { return !!s && api.isFoe(to) && online.sendSiege({ k: 'blow', to, w, m, d, r }); },
-    /** A cast on a peer - a harmful one on a foe, a heal on a side-mate. */
+    /** SEAT2b part two: whether this fighter may strike `id` - a foe of the roll call, or a figure or a work of the other
+     *  side's while it stands, at a relay that knows them. */
+    canStrike: (id) => (isSiegeFigure(id) || isSiegeWork(id) ? strikesWork(id) : api.isFoe(id)),
+    /** SEAT2b part two: whether a harmful spell of this fighter's may land on `id` - a foe or a figure, never a work (a spell
+     *  harms no stone or timber - net/wire.js validSiegeIn's own rule). */
+    canCast: (id) => !isSiegeWork(id) && api.canStrike(id),
+    /** SEAT2b part two: the figures and the works this fighter may strike now (scenes/world.js stands their bodies). */
+    targets() { return s ? [...s.state.figures.map((f) => f.id), '~gate', '~ram'].filter((id) => strikesWork(id)) : []; },
+    /** A blow on a foe, to the referee (net/wire.js validSiegeIn's `blow`). True when it left. SEAT2b part two: or on a
+     *  figure or a work it may strike. */
+    blow(to, { w, m, d, r }) { return !!s && api.canStrike(to) && online.sendSiege({ k: 'blow', to, w, m, d, r }); },
+    /** A cast on a peer - a harmful one on a foe, a heal on a side-mate. SEAT2b part two: a harmful one on a figure it may
+     *  strike; never a heal at a figure, never anything at a work. */
     cast(to, d, heal = false) {
       if (!s || s.side === 'watch') return false;
+      if (isSiegeFigure(to)) return !heal && api.canCast(to) && online.sendSiege({ k: 'cast', to, d, h: 0 });
       const f = s.state.roll[to];
       if (!f || (heal ? f.side !== s.side : !api.isFoe(to))) return false;
       return online.sendSiege({ k: 'cast', to, d, h: heal ? 1 : 0 });
