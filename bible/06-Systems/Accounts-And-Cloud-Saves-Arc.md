@@ -4259,10 +4259,14 @@ title they hold: upgraded, downgraded and lapsed by Patreon's own webhook, with 
   on - Link Patreon, or "Linked - Disciple" with Refresh (the same link: Patreon asked again) and Unlink. When the window
   has the focus again the card reads the account again (`flow.refresh`), so the player comes back to the link that
   landed. Nothing for a guest, nothing while linking is off, nothing from a service before acct45.
-- **Ships off.** `PATREON_CLIENT_ID = ""` and `PATREON_TIERS = ""` in the toml; the two secrets are repository secrets
-  the deploy puts on every run through one pipe (`secret bulk`, `.github/workflows/account-deploy.yml` 4c), and its
-  summary names the redirect URI and the webhook URL read off the deploy. Unset is a legal state: the card offers
-  nothing and the webhook answers `patreon-closed`.
+- **Off until the secrets are in.** The toml carries the client's id (public - it rides every authorize URL) and the
+  tier map; the two secrets are repository secrets the deploy puts on every run through one pipe (`secret bulk`,
+  `.github/workflows/account-deploy.yml` 4c), and its summary names the redirect URI and the webhook URL read off the
+  deploy. Unset is a legal state: the card offers nothing and the webhook answers `patreon-closed`.
+- **Mac's tiers** (2026-10-01: "some titles dont have titles/glyphs ingame. Heriophant is custom and Herald doesnt
+  exist ingame yet. Supporter doesnt recieve a title/glyph"): `PATREON_TIERS = "29666211:disciple"` - Disciple is the
+  one mapped. Supporter (29701293) holds none, Herald (29666234) waits for its title in the game, and Hierophant
+  (29666221) is custom, granted by name. Apostle has no tier now.
 - **The handle lists stand.** A list still grants on its own, for the titles Mac grants by name (a comp, a patron who
   will not link); the two never hold one title twice.
 
@@ -4278,13 +4282,12 @@ title they hold: upgraded, downgraded and lapsed by Patreon's own webhook, with 
 3. **The repository's secrets** (Settings, Secrets and variables, Actions): `PATREON_CLIENT_SECRET` and
    `PATREON_WEBHOOK_SECRET`.
 4. **The two lines** in `server-account/wrangler.toml`: `PATREON_CLIENT_ID` (the Client ID) and `PATREON_TIERS` - each
-   tier's id is the number after `rid=` in its Join link on the Patreon page, e.g.
-   `PATREON_TIERS = "1234567:disciple,2345678:apostle,3456789:hierophant"`. The push deploys it; from then on a patron
-   links themselves.
+   tier's id is the number after `rid=` in its Join link on the Patreon page. Done 2026-10-01 from Mac's client id and
+   tiers (above). The push deploys it; from then on a patron links themselves.
 
 - The account service is `acct45`, and none of it touches the relay: no claim is new (the tiers' titles and glyphs are
   TITLE-N's), so no relay deploy.
 - Pins: `test/patreon_link.test.js` (17) - the law, the MD5 and the signature, the sealed state and ticket, Patreon's
   shapes, the Worker end to end with Patreon's two OAuth endpoints stood in for (the yes's own read among them), the
-  card and its flow, the config and the deploy. `tools/mutants/patreonlink.json` (46, all dead). `test/accountworker.test.js` holds the four columns; the
+  card and its flow, the config and the deploy. `tools/mutants/patreonlink.json` (47, all dead). `test/accountworker.test.js` holds the four columns; the
   version pins moved to acct45 (and `gatekeys.json`'s record with them).

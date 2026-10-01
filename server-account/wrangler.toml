@@ -174,18 +174,23 @@ PENITENT_HANDLES = "Diggleborf"
 # downgraded and lapsed by Patreon's webhook (server-account/src/patreon.js).
 #
 # PATREON_CLIENT_ID is the Patreon API client's id - not a secret (it is in
-# every authorize URL). EMPTY IS OFF, and is what this ships as: the card
-# offers no link until it is set and the deploy has put the client's
-# secret. The two secrets are NOT here and must never be: the deploy puts
+# every authorize URL). Mac's client (2026-10-01). The card offers no link
+# until the deploy has put the client's secret beside it - empty here is
+# off too. The two secrets are NOT here and must never be: the deploy puts
 # PATREON_CLIENT_SECRET and PATREON_WEBHOOK_SECRET from the repository's
 # own secrets (.github/workflows/account-deploy.yml), as it puts the keys.
-PATREON_CLIENT_ID = ""
+PATREON_CLIENT_ID = "xyF8_xJg78YwVgT0xRhs6uhPVeAdOzJu7_dcpaGqvqH-5DNdbLp-gugahtfgH-Ui"
 # Which Patreon tier grants which title: "<tier id>:<title>", comma-
 # separated, the titles disciple, apostle and hierophant. A tier's id is
 # the number in its Join link on the Patreon page (`rid=`). A tier not
 # listed grants nothing; changing a line here moves every patron of that
 # tier on their next token, with nothing walked.
-PATREON_TIERS = ""
+# Mac's tiers (2026-10-01: "some titles dont have titles/glyphs ingame.
+# Heriophant is custom and Herald doesnt exist ingame yet. Supporter doesnt
+# recieve a title/glyph"): Disciple (29666211) is the one mapped. Supporter
+# (29701293) holds none; Herald (29666234) waits for its title in the game;
+# Hierophant (29666221) is custom, granted by name.
+PATREON_TIERS = "29666211:disciple"
 
 [[d1_databases]]
 binding = "DB"
