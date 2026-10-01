@@ -81,15 +81,6 @@
     ]
   },
   {
-    "name": "CLIMB4-wallrun-looks-down",
-    "file": "src/player/climbFeel.js",
-    "old": "case 'wallrun': pitchT = FEEL.WALLRUN_UP_DEG * DEG * bump(t, 0, 1.2);",
-    "new": "case 'wallrun': pitchT = -FEEL.WALLRUN_UP_DEG * DEG * bump(t, 0, 1.2);",
-    "tests": [
-      "test/climb4.test.js"
-    ]
-  },
-  {
     "name": "CLIMB4-lower-turns-away-from-the-wall",
     "file": "src/player/climbFeel.js",
     "old": "if (e.kind === 'lower' && n) this._turnTo(Math.atan2(-n[0], -n[2]), yaw, Math.max(0.05, e.dur / 5));",
@@ -144,15 +135,6 @@
     ]
   },
   {
-    "name": "CLIMB4-view-order-swapped",
-    "file": "src/player/climbFeel.js",
-    "old": "  const e00 = cr, e01 = -sr * cp, e02 = -sr * sp;\n  const e10 = sr, e11 = cr * cp, e12 = cr * sp;\n  const e20 = 0, e21 = -sp, e22 = cp;",
-    "new": "  const e00 = cr, e01 = -sr, e02 = 0;\n  const e10 = cp * sr, e11 = cp * cr, e12 = sp;\n  const e20 = -sp * sr, e21 = -sp * cr, e22 = cp;",
-    "tests": [
-      "test/climb4.test.js"
-    ]
-  },
-  {
     "name": "CLIMB4-turn-latched-as-mouse-look",
     "file": "src/player/lookFilter.js",
     "old": "  turn(dyaw, dpitch = 0) {\n    this.residualYaw += dyaw;\n    this.residualPitch += dpitch;\n  }",
@@ -162,37 +144,10 @@
     ]
   },
   {
-    "name": "CLIMB4-handle-turn-never-paid",
-    "file": "src/player/climbFeel.js",
-    "old": "if (this.fx.yaw) lookFilter?.turn?.(this.fx.yaw);",
-    "new": "",
-    "tests": [
-      "test/climb4.test.js"
-    ]
-  },
-  {
-    "name": "CLIMB4-handle-view-ignores-first-person",
-    "file": "src/player/climbFeel.js",
-    "old": "this.applied = firstPerson && this.fx ? this.fx : null;",
-    "new": "this.applied = this.fx ? this.fx : null;",
-    "tests": [
-      "test/climb4.test.js"
-    ]
-  },
-  {
     "name": "CLIMB4-handle-no-sounds",
     "file": "src/player/climbFeel.js",
     "old": "sounds?.update(dt, m);",
     "new": "",
-    "tests": [
-      "test/climb4.test.js"
-    ]
-  },
-  {
-    "name": "CLIMB4-handle-drops-the-strain",
-    "file": "src/player/climbFeel.js",
-    "old": "const sounds = audio ? new ClimbSounds({ audio, strain }) : null;",
-    "new": "const sounds = audio ? new ClimbSounds({ audio }) : null;",
     "tests": [
       "test/climb4.test.js"
     ]
@@ -234,33 +189,6 @@
     ]
   },
   {
-    "name": "CLIMB4-catch-speed-unmeasured",
-    "file": "src/player/motor.js",
-    "old": "this._pkMoveEvent(move, Math.hypot(this.velY, this._airVelX, this._airVelZ));",
-    "new": "this._pkMoveEvent(move, 0);",
-    "tests": [
-      "test/climb4.test.js"
-    ]
-  },
-  {
-    "name": "CLIMB4-launch-untold",
-    "file": "src/player/motor.js",
-    "old": "this._pkEmit('launch', { dir: [dir[0], 0, dir[2]], along, up });",
-    "new": "",
-    "tests": [
-      "test/climb4.test.js"
-    ]
-  },
-  {
-    "name": "CLIMB4-grip-low-untold",
-    "file": "src/player/motor.js",
-    "old": "pk.say?.(PARKOUR_GRIP_LOW_TEXT); this._pkEmit('gripLow');",
-    "new": "pk.say?.(PARKOUR_GRIP_LOW_TEXT);",
-    "tests": [
-      "test/climb4.test.js"
-    ]
-  },
-  {
     "name": "CLIMB4-sounds-ignore-the-switch",
     "file": "src/player/climbSounds.js",
     "old": "if (!m || !this.on()) { this.cues = null; this.prev = null; return; }",
@@ -279,10 +207,10 @@
     ]
   },
   {
-    "name": "CLIMB4-sounds-never-load",
+    "name": "CLIMB4-sounds-load-while-off",
     "file": "src/player/climbSounds.js",
-    "old": "if (this.install && this.audio) installClimbSounds(this.audio);",
-    "new": "",
+    "old": "if (!m || !this.on()) { this.cues = null; this.prev = null; return; }\n    if (this.install && this.audio) installClimbSounds(this.audio);",
+    "new": "if (this.install && this.audio) installClimbSounds(this.audio);\n    if (!m || !this.on()) { this.cues = null; this.prev = null; return; }",
     "tests": [
       "test/climb4.test.js"
     ]
@@ -468,10 +396,10 @@
     ]
   },
   {
-    "name": "CLIMB4-strain-chance-ignored",
+    "name": "CLIMB4-strain-chance-inverted",
     "file": "src/player/climbSounds.js",
     "old": "if (this.rand() >= Math.min(0.9, chance * (1 + (1 - grip)))) return;",
-    "new": "",
+    "new": "if (this.rand() < Math.min(0.9, chance * (1 + (1 - grip)))) return;",
     "tests": [
       "test/climb4.test.js"
     ]
@@ -578,15 +506,6 @@
     ]
   },
   {
-    "name": "CLIMB4-touch-swing-while-climbing",
-    "file": "src/combat/weaponRig.js",
-    "old": "if (playerWeapon.sheathed || (entity?.equipCountdown ?? 0) > 0 || _climbing) return;",
-    "new": "if (playerWeapon.sheathed || (entity?.equipCountdown ?? 0) > 0) return;",
-    "tests": [
-      "test/climb4.test.js"
-    ]
-  },
-  {
     "name": "CLIMB4-hold-not-a-climb",
     "file": "src/player/motor.js",
     "old": "climbing: !!(player.climb?.isClimbing || player.mantling || player.onWall),\n    // EOTB-IL",
@@ -658,6 +577,105 @@
     "tests": [
       "test/climb4.test.js",
       "test/dwf_audit.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB4-wallrun-looks-down",
+    "file": "src/player/climbFeel.js",
+    "old": "        case 'wallrun': pitchT = FEEL.WALLRUN_UP_DEG * DEG * bump(t, 0, 1.2);",
+    "new": "        case 'wallrun': pitchT = -FEEL.WALLRUN_UP_DEG * DEG * bump(t, 0, 1.2);",
+    "tests": [
+      "test/climb4.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB4-view-order-swapped",
+    "file": "src/player/climbFeel.js",
+    "old": "  const e00 = cr, e01 = -sr * cp, e02 = -sr * sp;\n  const e10 = sr, e11 = cr * cp, e12 = cr * sp;\n  const e20 = 0, e21 = -sp, e22 = cp;",
+    "new": "  const e00 = cr, e01 = -sr, e02 = 0;\n  const e10 = cp * sr, e11 = cp * cr, e12 = sp;\n  const e20 = -sp * sr, e21 = -sp * cr, e22 = cp;",
+    "tests": [
+      "test/climb4.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB4-handle-turn-never-paid",
+    "file": "src/player/climbFeel.js",
+    "old": "      if (this.fx.yaw) lookFilter?.turn?.(this.fx.yaw);\n",
+    "new": "",
+    "tests": [
+      "test/climb4.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB4-handle-view-ignores-first-person",
+    "file": "src/player/climbFeel.js",
+    "old": "      this.applied = firstPerson && this.fx ? this.fx : null;",
+    "new": "      this.applied = this.fx ? this.fx : null;",
+    "tests": [
+      "test/climb4.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB4-handle-drops-the-strain",
+    "file": "src/player/climbFeel.js",
+    "old": "  const sounds = audio ? new ClimbSounds({ audio, strain }) : null;",
+    "new": "  const sounds = audio ? new ClimbSounds({ audio }) : null;",
+    "tests": [
+      "test/climb4.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB4-catch-speed-unmeasured",
+    "file": "src/player/motor.js",
+    "old": "    this._pkMoveEvent(move, Math.hypot(this.velY, this._airVelX, this._airVelZ));",
+    "new": "    this._pkMoveEvent(move, 0);",
+    "tests": [
+      "test/climb4.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB4-launch-untold",
+    "file": "src/player/motor.js",
+    "old": "    this._pkEmit('launch', { dir: [dir[0], 0, dir[2]], along, up });\n",
+    "new": "",
+    "tests": [
+      "test/climb4.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB4-grip-low-untold",
+    "file": "src/player/motor.js",
+    "old": "pk.say?.(PARKOUR_GRIP_LOW_TEXT); this._pkEmit('gripLow'); }",
+    "new": "pk.say?.(PARKOUR_GRIP_LOW_TEXT); }",
+    "tests": [
+      "test/climb4.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB4-touch-swing-while-climbing",
+    "file": "src/combat/weaponRig.js",
+    "old": "      if (playerWeapon.sheathed || (entity?.equipCountdown ?? 0) > 0 || _climbing) return;   // CLIMB4: no swing with the hands on the wall",
+    "new": "      if (playerWeapon.sheathed || (entity?.equipCountdown ?? 0) > 0) return;   // CLIMB4: no swing with the hands on the wall",
+    "tests": [
+      "test/climb4.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB4-sounds-never-load",
+    "file": "src/player/climbSounds.js",
+    "old": "    if (this.install && this.audio) installClimbSounds(this.audio);\n",
+    "new": "",
+    "tests": [
+      "test/climb4.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB4-strain-chance-ignored",
+    "file": "src/player/climbSounds.js",
+    "old": "    if (this.rand() >= Math.min(0.9, chance * (1 + (1 - grip)))) return;\n",
+    "new": "",
+    "tests": [
+      "test/climb4.test.js"
     ]
   }
 ]

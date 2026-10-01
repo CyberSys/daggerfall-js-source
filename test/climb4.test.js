@@ -314,6 +314,15 @@ test('CLIMB4 F11: a catch - both hands and the body, louder the faster it came (
   for (let i = 0; i < Math.ceil(C.STRAIN_GAP_S * 20); i++) step(law, m, [], 1 / 20);
   step(law, m, [{ type: 'move', kind: 'catch', speed: 8, split: 1 }]);
   assert.equal(heard(audio).filter((h) => h.startsWith('voice')).length, 2, 'and again once the gap has passed');
+  // a chance, not a certainty - and a failing grip raises it (a hard catch's 0.5 doubled toward 0.9 at no grip)
+  const roll = (die, grip) => {
+    const e = ear({ rand: dice(die), strain: () => ({ clip: 5, pitchLift: 0 }) });
+    step(e.law, fake({ climbMove: { t: 0 }, grip }), [{ type: 'move', kind: 'catch', speed: 8, split: 1 }]);
+    return heard(e.audio).includes('voice:5');
+  };
+  assert.equal(roll(0.99, 1), false, 'a high die: no grunt');
+  assert.equal(roll(0.6, 1), false, 'a fresh grip: 0.6 misses a 0.5 chance');
+  assert.equal(roll(0.6, 0), true, '...and a spent grip\'s 0.9 takes it');
 });
 
 test('CLIMB4 F12: hand over hand - a hand at every reach the camera rolls with, a boot half a reach after, never the same clip twice running; the shimmy a hand per span along the lip and none for the body going up or down; a teleport is no travel (mutants: the reach, the boots, the repeat)', () => {
@@ -513,6 +522,8 @@ test('CLIMB4 F15: the port\'s own sounds\' switch (ES1) is over all of it, the c
     const law = new ClimbSounds({ audio, on: () => true });
     law.update(1 / 60, fake());
     law.update(1 / 60, fake());
+    for (let i = 0; i < 50 && regs.length < 11; i++) await new Promise((r) => setTimeout(r, 0));
+    assert.equal(urls.length, 11, 'the frame itself loaded them - no other call asked');
     assert.equal(await installClimbSounds(audio), 11, 'on: the eleven');
     assert.equal(urls.length, 11, '...fetched once each');
     assert.ok(urls.every((u) => /\/sfx\/climb-[a-z]+(-\d)?\.wav$/.test(u)), 'from public/sfx');
@@ -614,6 +625,10 @@ test('CLIMB4 F16: the hands on the wall - WeaponManager\'s climbing return (no s
   r.attackInput(0, 0, false);
   assert.equal(r.playerWeapon.machine.state, 'Idle', 'no swing while climbing');
   assert.ok(!evs.includes('hit'));
+  r.clickAttack();   // the touch button's door, too
+  for (let i = 0; i < 60; i++) evs.push(...frame().evs);
+  assert.equal(r.playerWeapon.machine.state, 'Idle', 'no swing off the touch button either');
+  assert.ok(!evs.includes('hit'));
   // off the wall: back up, to exactly where it was
   climbing = false;
   for (let i = 0; i < 90; i++) frame();
@@ -633,4 +648,80 @@ test('CLIMB4 F16: the hands on the wall - WeaponManager\'s climbing return (no s
   for (let i = 0; i < 120 && !m.hanging; i++) m.update(1 / 60, { ...blank, jump: i > 5 && i < 40 }, 0);
   assert.ok(m.hanging && !m.mantling, 'hanging, no move in flight');
   assert.equal(motionBagOf(m).climbing, true, 'the motion bag says climbing on the wall');
+});
+
+test('CLIMB4 F17: the handle and the view half, whole - the turn the feel owes is paid into the look filter, the view half is first person\'s alone, the effort voice is handed on; the wall run looks UP the wall; and the view\'s roll spins about the look whatever the pitch (the mutation run\'s own findings)', () => {
+  // the corner's turn, paid into the look filter by the handle
+  let paid = 0;
+  const m = fake({ climbMove: { t: 0 } });
+  m.climbEvents = [{ type: 'move', kind: 'corner', dur: 0.5, rise: 0, speed: 0, turn: 0.8, way: [0, 0], normal: [0, 0, -1] }];
+  const host = createClimbFeelHost(() => m, { yaw: 0 }, { turn: (y) => { paid += y; } });
+  for (let i = 0; i < 90; i++) { m.climbMove = i < 30 ? { t: i / 30 } : null; host.frame(1 / 60); m.climbEvents = []; }
+  assert.ok(Math.abs(paid - 0.8) < 0.01, `the corner's turn reached the view (${paid.toFixed(3)})`);
+  // the view half: first person only - never the travel view, a ride, a free camera or third person
+  const c = fake({ climbMove: { t: 0 } });
+  c.climbEvents = [{ type: 'move', kind: 'catch', dur: 0.2, rise: 0, speed: 6, turn: 0, way: [0, 0], normal: [0, 0, -1] }];
+  const h2 = createClimbFeelHost(() => c, { yaw: 0 }, null);
+  for (let i = 0; i < 4; i++) { h2.frame(1 / 60); c.climbEvents = []; }
+  assert.ok(Math.abs(h2.fx.pitch) > 1e-4, 'the catch pitched the view');
+  const v = lookAt([0, 1.7, 0], [0, 1.7, 1], [0, 1, 0]);
+  const before = Array.from(v);
+  h2.view(v, false);
+  assert.deepEqual(Array.from(v), before, 'not first person: the view untouched');
+  assert.equal(h2.pitch(), 0, '...and no pitch for the sky');
+  h2.view(v, true);
+  assert.notDeepEqual(Array.from(v), before, 'first person: applied');
+  // the effort voice is handed on
+  const strain = () => null;
+  assert.equal(createClimbFeelHost(() => c, { yaw: 0 }, null, { audio: { playOneShot() {} }, strain }).sounds.strain, strain);
+  // the wall run looks up the wall
+  const feel = new ClimbFeel();
+  const w = fake({ climbMove: { t: 0 } });
+  w.climbEvents = [{ type: 'move', kind: 'wallrun', dur: 1, rise: 1.5, speed: 0, turn: 0, way: [0, 0], normal: [0, 0, -1] }];
+  const outs = frames(feel, w, 60, 0, (i, mm) => { mm.climbMove = { t: i / 60 }; });
+  assert.ok(Math.max(...outs.map((o) => o.pitch)) > 2 * DEG, 'up the wall');
+  assert.ok(Math.min(...outs.map((o) => o.pitch)) > -0.5 * DEG, 'never down it');
+  // pitch and roll together: the roll spins about the look - the forward is the pitch's alone
+  const fwd = (fx) => { const m4 = applyClimbView(lookAt([0, 0, 0], [0, 0, -1], [0, 1, 0]), { eye: [0, 0, 0], ...fx }); return [-m4[2], -m4[6], -m4[10]]; };
+  const a = fwd({ pitch: 10 * DEG, roll: 0 }), b = fwd({ pitch: 10 * DEG, roll: 10 * DEG });
+  for (let k = 0; k < 3; k++) assert.ok(near(a[k], b[k], 1e-9), `the forward with the roll is the pitch's (${a} vs ${b})`);
+});
+
+test('CLIMB4 F18: the motor tells what the feel and the ear only heard by hand in F1-F16 - a fall caught carries its speed, an eject its launch, and the grip running low its warning, once (the mutation run\'s own findings)', () => {
+  // a fall onto a lip: the move carries the speed the body came at
+  {
+    const w = world();
+    w.box(-3, 0, 1, 3, 2.3, 4);
+    const m = climber(w.col);
+    m.spawn(0, 4.5, 0.4);
+    const seen = [];
+    for (let i = 0; i < 120 && !m.mantling && !m.hanging; i++) { m.update(1 / 60, { ...blank, jump: true }, 0); seen.push(...m.climbEvents); }
+    const mv = seen.find((e) => e.type === 'move');
+    assert.ok(mv && mv.speed > 5, `the fall's speed (${mv?.speed})`);
+  }
+  // the eject: Jump with Back off a hang launches
+  {
+    const w = world();
+    w.box(-3, 0, 1, 3, 2.3, 4);
+    const m = climber(w.col);
+    m.spawn(0, 0.02, 0.4);
+    for (let i = 0; i < 120 && !m.hanging; i++) m.update(1 / 60, { ...blank, jump: i > 5 && i < 40 }, 0);
+    for (let i = 0; i < 20; i++) m.update(1 / 60, blank, 0);
+    const seen = [];
+    for (let i = 0; i < 10; i++) { m.update(1 / 60, { ...blank, jump: i < 3, forward: i < 3 ? -1 : 0 }, 0); seen.push(...m.climbEvents); }
+    const launch = seen.find((e) => e.type === 'launch');
+    assert.ok(launch && launch.dir[2] < -0.9, 'the eject launches away from the wall');
+  }
+  // the grip running low: said once
+  {
+    const w = world();
+    w.box(-3, 0, 1, 3, 2.3, 4);
+    const m = climber(w.col);
+    m.spawn(0, 0.02, 0.4);
+    for (let i = 0; i < 120 && !m.hanging; i++) m.update(1 / 60, { ...blank, jump: i > 5 && i < 40 }, 0);
+    let n = 0, at = null;
+    for (let i = 0; i < 1800; i++) { m.update(1 / 60, blank, 0); for (const e of m.climbEvents) if (e.type === 'gripLow') { n++; at = m.grip; } }
+    assert.equal(n, 1, 'once');
+    assert.ok(at <= PARKOUR_GRIP_LOW && at > PARKOUR_GRIP_LOW - 0.01, `as it crossed the line (${at})`);
+  }
 });
