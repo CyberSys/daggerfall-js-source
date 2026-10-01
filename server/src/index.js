@@ -202,7 +202,7 @@ const GUILD_OUT_KEEP_S = MAX_TTL_S + ORDER_TTL_S + 60;
 // pure law - it imports nothing) and net/gateReceipt.js (the kill's receipt, the relay's first signature - it imports
 // identityToken.js, already here). bible/11-Multiplayer/World-Bosses.md sections 5, 6 and 8.
 import { isGateRoom, gateDayOfRoom, gateAdmits, gateHolds, gateTimes, gateBossOf, gateModsOf, GATE_COLLAPSE_MS } from '../../src/net/gateLaw.js';
-import { isSiegeRoom, newFighter, refereeBlow, refereeCast, refereeStep, siegeHeld, siegeNextWave, siegeRise, SIEGE_WAVE_MS, SIEGE_FIGHTERS_MAX, SIEGE_SPECTATORS_MAX, SIEGE_OPENS_MS, SIEGE_TICK_MS, siegeNextBeat, fieldOf, newBattle, battleStep, honoured, siegeCampPose, siegeFieldFrame, isBattleRoom, isRoyalRoom, battleOfRoom, royalAsk, royalAccept, royalMarks, royalMayStrike, royalStepOk, royalEnd, royalStep, royalLadder, royalNextBeat, ROYAL_RC_KEEP, siegePlaceFree, siegeReturn, royalPrune } from '../../src/net/siegeRef.js';   // PVP-REF: a siege's referee - siegeRef.js imports nothing, so the worker's graph stays flat   // SEAT2a: and its battle   // AUDIT-SEATS T3/R5: a side's places, a fighter's return, a tourney's records
+import { isSiegeRoom, newFighter, refereeBlow, refereeCast, refereeStep, siegeHeld, siegeNextWave, siegeRise, siegeSideWaveMs, SIEGE_FIGHTERS_MAX, SIEGE_SPECTATORS_MAX, SIEGE_OPENS_MS, SIEGE_TICK_MS, siegeNextBeat, fieldOf, newBattle, battleStep, honoured, siegeCampPose, siegeFieldFrame, isBattleRoom, isRoyalRoom, battleOfRoom, royalAsk, royalAccept, royalMarks, royalMayStrike, royalStepOk, royalEnd, royalStep, royalLadder, royalNextBeat, ROYAL_RC_KEEP, siegePlaceFree, siegeReturn, royalPrune, siegeWorksStep, siegeFiguresStep, siegeWorkBlow, siegeFigureBlow, siegeWorksFrame, siegeFiguresFrame } from '../../src/net/siegeRef.js';   // PVP-REF: a siege's referee - siegeRef.js imports nothing, so the worker's graph stays flat   // SEAT2a: and its battle   // AUDIT-SEATS T3/R5: a side's places, a fighter's return, a tourney's records   // SEAT2b part two: a battle's works and its figures, and each side's wave
 import { mintSiegeReceipt, SIEGE_RECEIPT_TTL_S, mintRoyalReceipt } from '../../src/net/siegeReceipt.js';   // SEAT2a: the relay's fourth signature - a fighter's result and Honours
 import { newFight, joinFight, applyHit, applyCrystalHit, stepBrain, stateOf, earned, earnedBy, COURT_CENTRE, BRAIN_TICK_MS, CHECKPOINT_MS, GATE_FIGHTERS_MAX } from '../../src/net/gateBrain.js';
 import { mintReceipt, importReceiptKey, readReceipt, RECEIPT_TTL_S } from '../../src/net/gateReceipt.js';
@@ -223,7 +223,7 @@ import { heraldWebhook, heraldRole, omenPost, fellPost, heraldOmenDue, heraldFel
 // dungeons' clocks - pure law; it imports wire.js, gateLaw.js and raidLaw.js, all three here already).
 import { owIdInCell, owRowInCell, owRowSane, owFoldSpent, owFoldRows, owRowsBehind, owPrune, owLedgerOf, owLedgerEmpty, toWelcome } from '../../src/net/overworldLaw.js';
 
-import { roomOf, parseClient, inRange, poseGate, chatGate, redGate, dmGate, muteGate, tokenGate, rosterFor, badged, isChatRoom, isWorldRoom, isCellRoom, streamsFoes, hitOwnerOf, worldFrameMaxFor, CELL_FRAME_RECORDS_MAX, HELLO_HZ_MAX, CHAT_HELLO_HZ_MAX, CHAT_ROOM_HZ_MAX, SOCKETS_MAX, CHAT_SOCKETS_MAX, DROP_STRIKES_MAX, CHAT_STRIKES_MAX, WORLD_MIN_MS, WORLD_CHUNK, WORLD_TTL_MS, WORLD_PREFIX, FOES_PREFIX, OWN_PREFIX, foesGate, byteGate, FOES_ROOM_BYTES_PER_S, HIT_ROOM_HZ_MAX, ACT_ROOM_HZ_MAX, ACT_ROOM_BYTES_PER_S, actGate, MAX_FRAME_BYTES, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, HIT_ROOM_BYTES_PER_S, whoGate, whoIdOf, WHO_ROOM_HZ_MAX, poseFan, poseChanged, RELAY_VERSION, KEEPALIVE_FAN_MS, ACT_SENDER_BYTES_PER_S, CHAT_ROSTER_MAX, isSocialRoom, socialGate, partyGate, SOCIAL_ROOM_HZ_MAX, FRIENDS_MAX, PENDING_MAX, PARTY_MAX, PARTY_INVITES_MAX, INVITE_TTL_MS, PARTY_OFFLINE_MS, ACCOUNT_TABS_MAX, mintPartyId, SOCIAL_REPEAT_MS, ACCOUNT_IDLE_MS, ACCOUNT_SWEEP_MS, SWEEP_STEP_MS, SWEEP_PAGE, questShareGate, amapShareGate, AMAP_ROOM_HZ_MAX, QUEST_ROOM_HZ_MAX, QUEST_ROOM_BYTES_PER_S, QUEST_PREFIX, QUEST_FRAME_MAX, tradeGate, TRADE_ROOM_HZ_MAX, TRADE_ROOM_BYTES_PER_S, castGate, CAST_HZ_MAX, CAST_DEST_SENDERS_MAX, parkGate, parkKey, parkKeyOf, PARK_KEY_RE, parkRegistryRoom, cellRoomOfWire, PARK_INTERNAL_REG, PARK_INTERNAL_DROP, PARK_CELL_MAX, PARK_ACCOUNT_MAX, PARK_TTL_MS, PARK_REFRESH_MS, PARTY_CHAT_ROOM_HZ_MAX, rollGate, rollDice, cardGate, pageGate, duelGate, DUEL_HZ_MAX, renownGate, renownRoomGate, lookGate, eventGate, EVENT_KEY, validLiveEvent, gateGate, siegeGate, GATE_INTERNAL_FELL, SOCIAL_ROOM, validGateOut, HELLO_WAIT_MS, GATE_TELL_RETRY_MS, gateReceiptKey, GATE_BRAIN_MIN, GATE_HERE_HOLD_MS, guildGate, guildRoomGate, GUILD_CHAT_ROOM_HZ_MAX, SEAT_ELSEWHERE, raidGate, RAID_INTERNAL_CLEAN, RAID_INTERNAL_DAY, RAID_DAY_ASK_MS, raidTownsGate, RAID_TELL_RETRY_MS, RAID_CLEANS_MAX, RAID_LEDGER_PREFIX, raidLedgerKey, RAID_RC_PREFIX, raidReceiptKeyOf, RAID_RC_KEEP, RAID_RC_KEEP_MS, mapPixelOfWire, validRaidOut, worldRoom, sharedClassicMinutes, wallMsForClassicMinutes, isRegionRoom, travHubGate, travRoomGate, TRAV_STALE_MS, TRAV_WELCOME_MAX, owGate, owRoomGate, OW_LEDGER_KEY, REALM_DOOR_WORD } from './relay.js';
+import { roomOf, parseClient, inRange, poseGate, chatGate, redGate, dmGate, muteGate, tokenGate, rosterFor, badged, isChatRoom, isWorldRoom, isCellRoom, streamsFoes, hitOwnerOf, worldFrameMaxFor, CELL_FRAME_RECORDS_MAX, HELLO_HZ_MAX, CHAT_HELLO_HZ_MAX, CHAT_ROOM_HZ_MAX, SOCKETS_MAX, CHAT_SOCKETS_MAX, DROP_STRIKES_MAX, CHAT_STRIKES_MAX, WORLD_MIN_MS, WORLD_CHUNK, WORLD_TTL_MS, WORLD_PREFIX, FOES_PREFIX, OWN_PREFIX, foesGate, byteGate, FOES_ROOM_BYTES_PER_S, HIT_ROOM_HZ_MAX, ACT_ROOM_HZ_MAX, ACT_ROOM_BYTES_PER_S, actGate, MAX_FRAME_BYTES, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, HIT_ROOM_BYTES_PER_S, whoGate, whoIdOf, WHO_ROOM_HZ_MAX, poseFan, poseChanged, RELAY_VERSION, KEEPALIVE_FAN_MS, ACT_SENDER_BYTES_PER_S, CHAT_ROSTER_MAX, isSocialRoom, socialGate, partyGate, SOCIAL_ROOM_HZ_MAX, FRIENDS_MAX, PENDING_MAX, PARTY_MAX, PARTY_INVITES_MAX, INVITE_TTL_MS, PARTY_OFFLINE_MS, ACCOUNT_TABS_MAX, mintPartyId, SOCIAL_REPEAT_MS, ACCOUNT_IDLE_MS, ACCOUNT_SWEEP_MS, SWEEP_STEP_MS, SWEEP_PAGE, questShareGate, amapShareGate, AMAP_ROOM_HZ_MAX, QUEST_ROOM_HZ_MAX, QUEST_ROOM_BYTES_PER_S, QUEST_PREFIX, QUEST_FRAME_MAX, tradeGate, TRADE_ROOM_HZ_MAX, TRADE_ROOM_BYTES_PER_S, castGate, CAST_HZ_MAX, CAST_DEST_SENDERS_MAX, parkGate, parkKey, parkKeyOf, PARK_KEY_RE, parkRegistryRoom, cellRoomOfWire, PARK_INTERNAL_REG, PARK_INTERNAL_DROP, PARK_CELL_MAX, PARK_ACCOUNT_MAX, PARK_TTL_MS, PARK_REFRESH_MS, PARTY_CHAT_ROOM_HZ_MAX, rollGate, rollDice, cardGate, pageGate, duelGate, DUEL_HZ_MAX, renownGate, renownRoomGate, lookGate, eventGate, EVENT_KEY, validLiveEvent, gateGate, siegeGate, GATE_INTERNAL_FELL, SOCIAL_ROOM, validGateOut, HELLO_WAIT_MS, GATE_TELL_RETRY_MS, gateReceiptKey, GATE_BRAIN_MIN, GATE_HERE_HOLD_MS, guildGate, guildRoomGate, GUILD_CHAT_ROOM_HZ_MAX, SEAT_ELSEWHERE, raidGate, RAID_INTERNAL_CLEAN, RAID_INTERNAL_DAY, RAID_DAY_ASK_MS, raidTownsGate, RAID_TELL_RETRY_MS, RAID_CLEANS_MAX, RAID_LEDGER_PREFIX, raidLedgerKey, RAID_RC_PREFIX, raidReceiptKeyOf, RAID_RC_KEEP, RAID_RC_KEEP_MS, mapPixelOfWire, validRaidOut, worldRoom, sharedClassicMinutes, wallMsForClassicMinutes, isRegionRoom, travHubGate, travRoomGate, TRAV_STALE_MS, TRAV_WELCOME_MAX, owGate, owRoomGate, OW_LEDGER_KEY, REALM_DOOR_WORD, isSiegeFigure, isSiegeWork } from './relay.js';
 
 // AUDIT WORLD34 D4: the relay names itself in /health. SLAM13 (AUDIT SLAM A5): the name lives in net/wire.js, so the
 // welcome can carry it; /health reads it through the import above. LOCALDEV1: it is NOT re-exported from this module -
@@ -388,6 +388,7 @@ export class Room {
     this._fightSavedAt = 0;
     this._siege = undefined;   // PVP-REF: a siege room's fighters, by account (storage's `siege` after a wake)
     this._siegeSavedAt = 0;
+    this._siegeFieldS = -1;   // SEAT2b part two: the second of the room's clock the field's `f` was last fanned in - it keeps its second while the beat runs at half of one
     this._helloBy = new Map();   // AUDIT-SEATS R3: a battle room's hello buckets, by verified account (_battleHelloGate) - a wake forgets them, as the meters
     this._receiptKey = undefined;   // WB3: the relay's signing key (GATE_SIGNING_KEY), imported once; null = none (the receipts go out unsigned)
     this._gateFell = undefined;     // WB3: the hub's last word of a kill, said to a hello while its gate still holds
@@ -2364,7 +2365,7 @@ export class Room {
    *  (never another's pass), this room's seat and week, inside the battle's door (SIEGE_OPENS_MS before its start to its
    *  window's close); a fighter on the side it signed (a fighter is always a fighter - never back as a spectator), the
    *  field's room permitting; a spectator, the stands' sixty permitting. The first pass names the battle - its kind,
-   *  tier, start and field - and every later one must say the same. */
+   *  tier, start and field (SEAT2b part two: and its works) - and every later one must say the same. */
   async _siegeAdmit(key, who, sp, now) {
     const s = await this._siegeOf();
     if (!sp) return who.subject && Array.isArray(who.glyphs) && who.glyphs.includes('dev') && !s?.battle ? { side: null } : { no: 'the siege is not open' };
@@ -2375,7 +2376,9 @@ export class Room {
     if (c.s !== who.subject || !room || c.sk !== room.key || c.sw !== room.week) return { no: 'that pass is for another battle' };
     if ((room.kind === 'royal') !== (c.sn === 'royal')) return { no: 'that pass is for another battle' };   // CROWN1 part two: a Royal Tourney's pass to its own room alone
     if (now < c.sb * 1000 - SIEGE_OPENS_MS) return { no: 'the siege is not open' };
-    const of = { sk: c.sk, sw: c.sw, sn: c.sn, st: c.st, sb: c.sb, se: c.se, sf: JSON.stringify(c.sf) };
+    // SEAT2b part two: AND ITS WORKS (`sx` - the service freezes them a battle, so every pass of it carries the same; none
+    // on an older service's pass, and a battle named by one fights without them, as before)
+    const of = { sk: c.sk, sw: c.sw, sn: c.sn, st: c.st, sb: c.sb, se: c.se, sf: JSON.stringify(c.sf), sx: JSON.stringify(c.sx ?? null) };
     if (s?.of && Object.keys(of).some((k) => s.of[k] !== of[k])) return { no: 'that pass is for another battle' };
     const mine = s?.fighters?.[who.subject];
     // AUDIT-SEATS R6: PAST THE WINDOW'S CLOSE, A FIGHTER COMES FOR ITS RECEIPT. The door shut at `se` for everyone, and the
@@ -2399,7 +2402,7 @@ export class Room {
     if (!s?.battle) {
       const field = fieldOf(c.sf, c.st, c.sn);
       if (!field) return { no: 'that pass will not do' };
-      this._siege = { ...(s ?? { fighters: {} }), of, battle: newBattle({ kind: c.sn, tier: c.st, startMs: c.sb * 1000, endMs: c.se * 1000, field }) };
+      this._siege = { ...(s ?? { fighters: {} }), of, battle: newBattle({ kind: c.sn, tier: c.st, startMs: c.sb * 1000, endMs: c.se * 1000, field, works: c.sx }) };   // SEAT2b part two: its works and figures
       await this._siegeSave(now, true);
       await this._siegeArm(c.sn === 'royal' ? royalNextBeat(this._siege.battle, now) : now + SIEGE_TICK_MS);   // CROWN1 part two: a tourney with no bout on wakes at its week's end
     }
@@ -2408,7 +2411,9 @@ export class Room {
   /** A siege frame: `in` makes the account a fighter at its token's Renown and answers every fighter's vitality (SEAT2a:
    *  a sided fighter at its camp; a spectator the field alone; after the end, its receipt); a blow and a cast are judged
    *  on the striker's and the target's last good poses and the striker's look - SEAT2a: never a blow or a harmful cast on
-   *  a side-mate, a heal on a side-mate alone, and nothing before the battle is joined or after it ends. */
+   *  a side-mate, a heal on a side-mate alone, and nothing before the battle is joined or after it ends. SEAT2b part two:
+   *  `in` answers the works (`w`) and the figures (`n`) as they stand too; a blow or a cast at a relay-run figure or a
+   *  work is the battle's own (`_siegeStrike`), asked before any socket is looked for. */
   async _siegeFrame(ws, a, m, now) {
     const s = (await this._siegeOf()) ?? (this._siege = { fighters: {} });
     const b = s.battle ?? null;
@@ -2436,6 +2441,7 @@ export class Room {
       this._send(ws, JSON.stringify({ t: 'siege', k: 'st', f: st }));
       if (b?.kind === 'royal') { this._royalSay(ws, s, b, a.sub); return; }   // CROWN1 part two: the ladder, the bout on, this contender's receipts - no banners
       if (b) this._send(ws, JSON.stringify({ t: 'siege', ...siegeFieldFrame(b, this._siegeCounts(s)) }));   // CROWN1 part two: the ladder, the bout on, this contender's receipts
+      for (const fr of [siegeWorksFrame(b), siegeFiguresFrame(b)]) if (fr) this._send(ws, JSON.stringify({ t: 'siege', ...fr }));   // SEAT2b part two: the works and the figures as they stand
       if (b?.result) this._send(ws, JSON.stringify({ t: 'siege', k: 'end', r: b.result, a: b.raised ? 1 : 0, ...(s.receipts?.[a.sub] ? { rc: s.receipts[a.sub] } : {}) }));
       return;
     }
@@ -2443,6 +2449,7 @@ export class Room {
     if (!by) { this._junk(ws); return; }   // a correct client says `in` first
     if (m.k === 'ask' || m.k === 'yes') { if (b?.kind === 'royal' && by.side === 'duel') await this._royalHand(ws, a, s, b, m, now); else this._junk(ws); return; }   // CROWN1 part two   // AUDIT-SEATS R9: a contender's alone
     if (b && (b.result || now < b.startMs)) return;   // SEAT2a: the battle is not joined yet, or over
+    if (isSiegeFigure(m.to) || isSiegeWork(m.to)) { await this._siegeStrike(a, s, b, by, m, now); return; }   // SEAT2b part two: a relay-run figure or a work - no socket is one
     let target = null;
     for (const [, t] of this._all()) if (t.id === m.to) { target = t; break; }
     const to = target?.sub ? s.fighters[target.sub] : null;
@@ -2454,9 +2461,7 @@ export class Room {
     const heal = m.k === 'cast' && m.h === 1;
     if (by.side && b?.kind !== 'royal' && (heal ? to.side !== by.side : to.side === by.side)) return;   // SEAT2a: the sides are kept
     if (b?.kind === 'royal' && (heal || !royalMayStrike(b, a.sub, target.sub, now))) return;   // CROWN1 part two: the bout's two alone, no heal between them
-    // the striker's look - the paperdoll every other player draws - names the weapon it holds (a woken object reads it)
-    let look = this._looks.get(a.id) ?? null;
-    if (!look && m.k === 'blow') { look = (await this.state.storage.get(lookKey(a.id))) ?? null; if (look) this._looks.set(a.id, look); }
+    const look = await this._siegeLook(a, m);
     const res = m.k === 'cast'
       ? refereeCast(by, to, { from: by.pose, at: to.pose, d: m.d, heal }, now)
       : refereeBlow(by, to, { from: by.pose, at: to.pose, held: siegeHeld(look, m.w, m.m), d: m.d, r: m.r }, now);
@@ -2465,11 +2470,46 @@ export class Room {
     if (res.fell && b?.kind === 'royal') { this._siegeFan(frames); await this._royalBoutEnd(s, b, royalEnd(b, a.sub, now), now); return; }   // CROWN1 part two: a fall ends the bout
     if (res.fell) {
       by.felled = (by.felled ?? 0) + 1;   // SEAT2a: Honours' other half (6.8)
-      to.upAt = siegeNextWave(now, SIEGE_WAVE_MS[b?.tier] ?? SIEGE_WAVE_MS.palace);   // SEAT2a: the seat's own tier's wave
+      to.upAt = siegeNextWave(now, siegeSideWaveMs(b?.tier, to.side, b?.walls));   // SEAT2a: the seat's own tier's wave - SEAT2b part two: its own side's, the defenders' faster behind the Walls
       frames.push({ k: 'fell', id: m.to, by: a.id });
       await this._siegeArm(to.upAt);
     }
     this._siegeFan(frames);
+    await this._siegeSave(now, res.fell);
+  }
+  /** The striker's look - the paperdoll every other player draws - naming the weapon it holds (a woken object reads it;
+   *  a cast needs none). */
+  async _siegeLook(a, m) {
+    let look = this._looks.get(a.id) ?? null;
+    if (!look && m.k === 'blow') { look = (await this.state.storage.get(lookKey(a.id))) ?? null; if (look) this._looks.set(a.id, look); }
+    return look;
+  }
+  /**
+   * SEAT2b part two: A BLOW OR A CAST AT A RELAY-RUN FIGURE OR A WORK (Seats-Arc 6.2, 7.5, 7.7), judged by the battle's
+   * law (net/siegeRef.js siegeFigureBlow, siegeWorkBlow - the referee's own checks, the sides kept: the attackers strike
+   * the Gatehouse and the Barracks' guards, the defenders a Ram, the rebels and their Captain; a spectator nothing, a heal
+   * never). A figure felled is said to the room (`fell`, `by` the striker) - one that never rises is the Captain, whose
+   * fall ends a revolt: the beat is woken at once; a work breached or broken is said at once (`w`). A figure's vitality
+   * and a work's ride the beat's `n` and `w`; a figure's wave and the next Ram's are the beat's own marks
+   * (net/siegeRef.js siegeNextBeat).
+   */
+  async _siegeStrike(a, s, b, by, m, now) {
+    if (!b || (m.k === 'cast' && m.h === 1)) return;
+    const look = await this._siegeLook(a, m);
+    const o = { from: by.pose, held: m.k === 'blow' ? siegeHeld(look, m.w, m.m) : null, d: m.d, r: m.r };
+    if (isSiegeWork(m.to)) {
+      const res = siegeWorkBlow(b, by, m.to, o, now);
+      if (!res.ok || !res.dealt) return;
+      if (res.fell) this._siegeFan([siegeWorksFrame(b)]);
+      await this._siegeSave(now, res.fell);
+      return;
+    }
+    const res = siegeFigureBlow(b, by, m.to, { ...o, cast: m.k === 'cast' }, now);
+    if (!res.ok || !res.dealt) return;
+    if (res.fell) {
+      this._siegeFan([{ k: 'fell', id: m.to, by: a.id }]);
+      if (b.figures.find((g) => g.id === m.to).upAt == null) await this._siegeArm(now);
+    }
     await this._siegeSave(now, res.fell);
   }
   /** SEAT2a: who is in - the two sides' fighters with a socket here, and the spectators. */
@@ -2498,7 +2538,11 @@ export class Room {
   /** THE WAVES: every fallen fighter whose wave has come rises whole (SEAT2a: at its side's camp), said to the room; the
    *  next wave armed. SEAT2a: THE BATTLE'S BEAT - each second from the first pass to the end, the field moved on and
    *  fanned; at its end each fighter's receipt minted and handed over, kept for the week a receipt lives, then the room's
-   *  siege forgotten. False when the room holds no siege (the alarm is somebody else's). */
+   *  siege forgotten. False when the room holds no siege (the alarm is somebody else's). SEAT2b part two: each beat the
+   *  works and the figures first (a Ram's swing, the figures' rises, walks and blows - a fighter a figure strikes said to
+   *  the room), then the field; the works (`w`) fanned each beat while a Gatehouse stands, the figures (`n`) each beat
+   *  while one of them stands, the field's `f` once in each second of the room's clock (the beat runs at half a second
+   *  while a figure stands or a Ram is crewed - net/siegeRef.js siegeNextBeat). */
   async _siegeTick() {
     const s = await this._siegeOf();
     if (!s) return false;
@@ -2527,16 +2571,32 @@ export class Room {
       } else if (f.down) next = Math.min(next, f.upAt);
     }
     this._siegeFan(frames);
+    let marked = frames.length > 0;   // a rise, a fall, a work's change: checkpointed at once
     if (b) {
       const list = [];
       for (const [sub, f] of Object.entries(s.fighters)) if (f.side) { f.here = !!this._siegeSocketOf(sub); list.push(f); if (!f.here && !Number.isFinite(f.goneAt)) f.goneAt = now; }   // AUDIT-SEATS T3: a leave the room never heard (a restarted object's) stamped at its first beat
+      // SEAT2b part two: THE WORKS AND THE FIGURES before the field (net/siegeRef.js siegeWorksStep, siegeFiguresStep - on
+      // the room's own draw); a fighter a figure strikes said to the room - `hp`, and a fall `by` the figure - its wave armed
+      const out = [];
+      if (siegeWorksStep(b, list, now).length) marked = true;
+      for (const e of siegeFiguresStep(b, s.fighters, now, rand01)) {
+        if (e.k !== 'hit') continue;
+        const sk = this._siegeSocketOf(e.to);
+        if (sk) out.push({ k: 'hp', id: sk[1].id, h: e.h, m: e.m }, ...(e.fell ? [{ k: 'fell', id: sk[1].id, by: e.id }] : []));
+        if (e.fell) { marked = true; next = Math.min(next, s.fighters[e.to].upAt); }
+      }
       const events = battleStep(b, list, now);
       for (const f of list) delete f.here;
-      this._siegeFan([siegeFieldFrame(b, this._siegeCounts(s))]);
+      const sec = Math.floor(now / SIEGE_TICK_MS);
+      if (events.length || sec !== this._siegeFieldS) { this._siegeFieldS = sec; out.push(siegeFieldFrame(b, this._siegeCounts(s))); }   // the field once a second, and at a banner raised or the end
+      const works = siegeWorksFrame(b), figures = siegeFiguresFrame(b);
+      if (works) out.push(works);
+      if (figures && b.figures.some((g) => !g.down)) out.push(figures);
+      this._siegeFan(out);
       if (events.some((e) => e.k === 'end')) { await this._siegeEnd(s, now); return true; }
       next = Math.min(next, siegeNextBeat(b, now));
     }
-    await this._siegeSave(now, frames.length > 0);
+    await this._siegeSave(now, marked);
     if (Number.isFinite(next)) await this.state.storage.setAlarm(next);
     return true;
   }

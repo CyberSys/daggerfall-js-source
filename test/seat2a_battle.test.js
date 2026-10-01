@@ -35,7 +35,7 @@ test('SEAT2a THE FIELD: a pass\'s field read in order - the banners, the Throne,
   assert.deepEqual({ ...SIEGE_LENGTH_MS }, { ...BATTLE_LENGTH_MS }, 'the relay\'s clock is the schedule\'s');
   assert.equal(SIEGE_OPENS_MS, SIGN_CLOSES_MS, 'the door opens as the signing closes');
   assert.deepEqual([SIEGE_BANNER.radiusM, SIEGE_BANNER.raiseS, SIEGE_BANNER.decayPerS], [8, 20, 1]);
-  assert.deepEqual([SIEGE_THRONE.palace.banners, SIEGE_THRONE.palace.holdS, SIEGE_THRONE.crown.banners, SIEGE_THRONE.crown.holdS, SIEGE_THRONE.decayPerS], [2, 120, 3, 180, 1]);
+  assert.deepEqual([SIEGE_THRONE.palace.banners, SIEGE_THRONE.palace.holdS, SIEGE_THRONE.crown.banners, SIEGE_THRONE.crown.holdS, SIEGE_THRONE.decayPerS], [2, 120, 3, 180, 1]);   // PIN MOVED (SEAT2b part two): the banners' rule, unchanged - the Gatehouse's breach beside it is battleStep's (test/seat2b2_battle.test.js)
   assert.deepEqual([SIEGE_FORFEIT_MS, SIEGE_SPECTATORS_MAX, SIEGE_TICK_MS], [600_000, 60, 1000]);
   const s = newBattle({ kind: 'siege', tier: 'crown', startMs: T, field: fieldOf([...SF.slice(0, 3), [0, 0], ...SF.slice(3)], 'crown') });
   assert.deepEqual([s.endMs - T, s.banners.map((bn) => bn.side)], [45 * 60_000, ['defend', 'defend', 'defend', 'defend']]);
@@ -102,8 +102,11 @@ test('SEAT2a THE THRONE AND THE CLOCK: open to the attackers at 2 of 3 banners (
   const c = newBattle({ kind: 'siege', tier: 'palace', startMs: T, field: fieldOf(SF, 'palace') });
   battleStep(c, [], T); battleStep(c, [fighter('attack', 0, 40)], T + 60_000);
   assert.equal(c.banners[0].raise, 5);
-  // a crown: 3 of 4, and 180 s
+  // a crown: 3 of 4, and 180 s - PIN MOVED (SEAT2b part two): on the banners alone only where no Gatehouse stands (a
+  // battle named by a pass with no works, an older service's); behind one the Throne waits on its breach too
+  // (test/seat2b2_battle.test.js THE THRONE BEHIND THE BREACH)
   const k = newBattle({ kind: 'siege', tier: 'crown', startMs: T, field: fieldOf([...SF.slice(0, 3), [0, 0], ...SF.slice(3)], 'crown') });
+  assert.equal(k.gate, null, 'no works on its pass: no Gatehouse');
   k.banners[0].side = 'attack'; k.banners[1].side = 'attack';
   run(k, [fighter('attack', 0, -40)], T, T + 5000);
   assert.equal(k.throne, 0, 'two of four: shut');

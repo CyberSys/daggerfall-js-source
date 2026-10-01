@@ -81,28 +81,28 @@
   ]
  },
  {
-  "name": "SEAT2B2C-points-units",
+  "name": "SEAT2B2C-points-camp-ignored",
   "file": "src/net/siegeLink.js",
-  "old": "(RAM_OFFSET_M * SIEGE_UNITS_PER_M) / l",
-  "new": "RAM_OFFSET_M / l",
+  "old": "camps: { attack: field.camps?.attack ?? field.throne } })",
+  "new": "camps: { attack: field.throne } })",
   "tests": [
    "test/seat2b2_siege_client.test.js"
   ]
  },
  {
-  "name": "SEAT2B2C-points-line",
+  "name": "SEAT2B2C-points-ram-at-camp",
   "file": "src/net/siegeLink.js",
-  "old": "ram: [gx + dx * k, gz + dz * k] };",
-  "new": "ram: [gx - dx * k, gz - dz * k] };",
+  "old": "ram: siegeRamPoint(",
+  "new": "ram: ((f) => f.camps.attack)(",
   "tests": [
    "test/seat2b2_siege_client.test.js"
   ]
  },
  {
-  "name": "SEAT2B2C-points-degenerate",
+  "name": "SEAT2B2C-points-gate-at-camp",
   "file": "src/net/siegeLink.js",
-  "old": "const k = l > 1e-9 ?",
-  "new": "const k = l >= 0 ?",
+  "old": "return { gate: [...field.throne], ram:",
+  "new": "return { gate: [...(field.camps?.attack ?? field.throne)], ram:",
   "tests": [
    "test/seat2b2_siege_client.test.js"
   ]

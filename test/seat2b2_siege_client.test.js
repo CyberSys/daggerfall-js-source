@@ -15,7 +15,7 @@ import { byClass } from './chargenDom.mjs';
 import { validSiegeOut, relayKnowsWorks, RELAY_VERSION } from '../src/net/wire.js';
 import { mintSiegeOrder, mintOrder } from '../src/net/identityToken.js';
 import { siegeWorksPass, RAM_OFFSET_M } from '../src/net/fortLaw.js';
-import { fieldOf, SIEGE_UNITS_PER_M } from '../src/net/siegeRef.js';
+import { fieldOf, SIEGE_UNITS_PER_M, siegeRamPoint } from '../src/net/siegeRef.js';
 import { mintSiegeReceipt } from '../src/net/siegeReceipt.js';
 import { battleAnnouncement, chronicleLine, seatWeekStartMs, seatWeekOf } from '../src/net/townSeatLaw.js';
 import {
@@ -118,6 +118,13 @@ test('SEAT2b2 THE PASS READ, THE WORKS\' PLACES AND THE SIDE RULE: the service\'
   assert.deepEqual(siegeWorksPoints({ throne: [0, 0], camps: { attack: [-300, 400] } }).ram, [-96, 128], 'four metres along the line to the camp, whichever way it runs');
   assert.deepEqual(siegeWorksPoints({ throne: [5, 5], camps: { attack: [5, 5] } }), { gate: [5, 5], ram: [5, 5] }, 'a camp on the Throne: at the gate');
   assert.equal(siegeWorksPoints(null), null);
+  // the relay's own place (siegeRef.js siegeRamPoint - one export): whole room units, and at the camp where the camp is
+  // nearer than four metres - the drawn Ram is the body the relay strikes
+  const near = { throne: [0, 0], camps: { attack: [0, RAM_OFFSET_M * SIEGE_UNITS_PER_M / 2] } };
+  assert.deepEqual(siegeWorksPoints(near).ram, [0, RAM_OFFSET_M * SIEGE_UNITS_PER_M / 2], 'a camp nearer than four metres: at the camp');
+  const odd = { throne: [0, 0], camps: { attack: [1000, 1001] } };
+  assert.deepEqual(siegeWorksPoints(odd).ram, siegeRamPoint(odd), 'the relay\'s rounding');
+  assert.ok(siegeWorksPoints(odd).ram.every(Number.isInteger));
   // the side rule
   const ids = ['~gate', '~ram', '~g1', '~g6', '~r1', '~r12', '~c', 'peer-0001'];
   assert.deepEqual(ids.map((id) => siegeStrikesAt('attack', id)), [true, false, true, true, false, false, false, false]);

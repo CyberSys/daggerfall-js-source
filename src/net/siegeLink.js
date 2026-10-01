@@ -24,8 +24,8 @@
 // Rebel Captain's vitality, the rebels standing, the clock (hours past an hour: a revolt runs two); its card in its own
 // words, the Chronicle's (net/townSeatLaw.js chronicleLine), and DECIDED (the contract's item 6: "No Honours for a
 // revolt"): it promises none - its receipt is CARRIED (the revolt's end reaches the Charter by it), never claimed.
-import { SIEGE_THRONE, SIEGE_BANNER_NAMES, SIEGE_SPECTATORS_MAX, SIEGE_WAVE_MS, SIEGE_UNITS_PER_M, siegeNextWave } from './siegeRef.js';
-import { defendersWaveMs, RAM, RAM_OFFSET_M, REVOLT } from './fortLaw.js';   // SEAT2b part two: a defender's wave, a Ram's stroke and its place, the revolt's twelve
+import { SIEGE_THRONE, SIEGE_BANNER_NAMES, SIEGE_SPECTATORS_MAX, SIEGE_WAVE_MS, siegeNextWave, siegeRamPoint } from './siegeRef.js';
+import { defendersWaveMs, RAM, REVOLT } from './fortLaw.js';   // SEAT2b part two: a defender's wave, a Ram's stroke, the revolt's twelve
 import { isSiegeFigure, siegeFigureKind } from './wire.js';   // SEAT2b part two: a figure's id, and its kind by its letter
 import { orderValid, _b64url } from './identityToken.js';   // SEAT2b part two: a pass read for what its battle froze
 import { chronicleLine, chronicleWhen } from './townSeatLaw.js';   // SEAT2b part two: a revolt's card in the Chronicle's words
@@ -108,10 +108,9 @@ export function readSiegePass(pass) {
  *  `[x, z]`), or null with no field. */
 export function siegeWorksPoints(field) {
   if (!field?.throne) return null;
-  const [gx, gz] = field.throne, camp = field.camps?.attack ?? field.throne;
-  const dx = camp[0] - gx, dz = camp[1] - gz, l = Math.hypot(dx, dz);
-  const k = l > 1e-9 ? (RAM_OFFSET_M * SIEGE_UNITS_PER_M) / l : 0;
-  return { gate: [gx, gz], ram: [gx + dx * k, gz + dz * k] };
+  // the Ram where the relay stands it (siegeRef.js siegeRamPoint - one export: whole room units, and at the camp itself
+  // where the camp is nearer than RAM_OFFSET_M), so the drawn Ram and the body the relay strikes are one
+  return { gate: [...field.throne], ram: siegeRamPoint({ throne: field.throne, camps: { attack: field.camps?.attack ?? field.throne } }) };
 }
 /** THE SIDE RULE AT A FIGURE OR A WORK (the contract's items 3, 5, 6 - the relay's own): the attackers strike the Barracks'
  *  guards and the Gatehouse; the defenders - a revolt's holder's side among them - the Ram, the rebels and their Captain;

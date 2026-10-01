@@ -122,8 +122,8 @@
  {
   "name": "SEAT2a2-law-tourney-length",
   "file": "src/net/siegeRef.js",
-  "old": "  const length = kind === 'tourney' ? SIEGE_LENGTH_MS.tourney : (SIEGE_LENGTH_MS[tier] ?? SIEGE_LENGTH_MS.palace);",
-  "new": "  const length = SIEGE_LENGTH_MS[tier] ?? SIEGE_LENGTH_MS.palace;",
+  "old": "  const length = kind === 'tourney' || kind === 'revolt' ? SIEGE_LENGTH_MS[kind] : (SIEGE_LENGTH_MS[tier] ?? SIEGE_LENGTH_MS.palace);",
+  "new": "  const length = kind === 'revolt' ? SIEGE_LENGTH_MS[kind] : (SIEGE_LENGTH_MS[tier] ?? SIEGE_LENGTH_MS.palace);",
   "tests": [
    "test/seat2a_battle.test.js",
    "test/seat2a_relay.test.js"
@@ -222,8 +222,8 @@
  {
   "name": "SEAT2a2-law-throne-open",
   "file": "src/net/siegeRef.js",
-  "old": "    const open = b.banners.filter((bn) => bn.side === 'attack').length >= rule.banners;",
-  "new": "    const open = b.banners.filter((bn) => bn.side === 'attack').length > rule.banners;",
+  "old": "    const open = b.banners.filter((bn) => bn.side === 'attack').length >= rule.banners && (!b.gate || b.breached);",
+  "new": "    const open = b.banners.filter((bn) => bn.side === 'attack').length > rule.banners && (!b.gate || b.breached);",
   "tests": [
    "test/seat2a_battle.test.js",
    "test/seat2a_relay.test.js"
@@ -742,8 +742,8 @@
  {
   "name": "SEAT2a2-relay-wave-tier",
   "file": "server/src/index.js",
-  "old": "      to.upAt = siegeNextWave(now, SIEGE_WAVE_MS[b?.tier] ?? SIEGE_WAVE_MS.palace);",
-  "new": "      to.upAt = siegeNextWave(now, SIEGE_WAVE_MS.palace);",
+  "old": "      to.upAt = siegeNextWave(now, siegeSideWaveMs(b?.tier, to.side, b?.walls));",
+  "new": "      to.upAt = siegeNextWave(now, siegeSideWaveMs('palace', to.side, b?.walls));",
   "tests": [
    "test/seat2a_battle.test.js",
    "test/seat2a_relay.test.js"
@@ -772,8 +772,8 @@
  {
   "name": "SEAT2a2-relay-fan",
   "file": "server/src/index.js",
-  "old": "      this._siegeFan([siegeFieldFrame(b, this._siegeCounts(s))]);",
-  "new": "      if (false) this._siegeFan([siegeFieldFrame(b, this._siegeCounts(s))]);",
+  "old": "out.push(siegeFieldFrame(b, this._siegeCounts(s)));",
+  "new": "void siegeFieldFrame(b, this._siegeCounts(s));",
   "tests": [
    "test/seat2a_battle.test.js",
    "test/seat2a_relay.test.js"
