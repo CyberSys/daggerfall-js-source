@@ -25,11 +25,19 @@
 // rug, a tapestry or skins any furniture or decoration. A pillow has a
 // picture of its own and stands as it. Taken down it is delivered
 // again, and a room sold gives it back the same way.
+//
+// PROF11 (2026-10-01, bible/06-Systems/Professions-Arc.md 9.3): AND THE
+// SCULPTOR'S STONE - a column, a bench, a font, a statue plinth
+// (net/recipeLaw.js STONE_DECOR, 696-699), carved at the mason's bench
+// into DFU's Furniture group and delivered as a table is. A carving has
+// no look to choose: it stands as the ONE of Daggerfall's own models
+// the Sculptor cut (stoneDecorModel), its list picture the stone's lump.
 // ═══════════════════════════════════════════════════════════════════
 
 import { GROUP_TEMPLATE_INDICES } from './itemTemplatesData.js';
 import { itemLongName } from './itemInfo.js';
 import { decorDescriptorOf, decorItemFlat } from './decorItems.js';
+import { STONE_DECOR_TEMPLATES, stoneDecorModel } from '../net/recipeLaw.js';   // PROF11: the Sculptor's four
 
 /** Daggerfall's Furniture group, 217 to 245. */
 export const FURNITURE_TEMPLATES = Object.freeze([...(GROUP_TEMPLATE_INDICES.Furniture ?? [])]);
@@ -39,15 +47,16 @@ export const FURNISH_BEDS = Object.freeze(new Set([217, 218, 219, 220]));
 export const FURNISH_TABLES_AND_CHAIRS = Object.freeze(new Set([221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232]));
 /** The pillows - the two with a picture of their own (TEXTURE.200 record 11), which stand as it. */
 export const FURNISH_PILLOWS = Object.freeze(new Set([235, 236]));
-/** Whether an item is a piece of furniture (Daggerfall's Furniture group) - delivered, never carried. */
-export const isFurnishing = (item) => item?.group === 'Furniture' && FURNITURE_TEMPLATES.includes(item?.templateIndex);
+/** Whether an item is a piece of furniture (Daggerfall's Furniture group) - delivered, never carried. PROF11: the
+ *  Sculptor's stone pieces too (696-699, in the group as a crafted table is). */
+export const isFurnishing = (item) => item?.group === 'Furniture' && (FURNITURE_TEMPLATES.includes(item?.templateIndex) || STONE_DECOR_TEMPLATES.includes(item?.templateIndex));
 
 /** The catalogue kinds a furnishing may take its look from (systems/decorCatalogue.js), or null for one with a
  *  picture of its own (a pillow) - and for anything that is no furnishing. */
 export function furnishingKinds(item) {
   if (!isFurnishing(item)) return null;
   const t = item.templateIndex;
-  if (FURNISH_PILLOWS.has(t)) return null;
+  if (FURNISH_PILLOWS.has(t) || stoneDecorModel(t) !== null) return null;   // PROF11: a carving stands as its own model
   if (FURNISH_BEDS.has(t)) return ['bed'];
   if (FURNISH_TABLES_AND_CHAIRS.has(t)) return ['furniture'];
   return ['furniture', 'decor'];   // curtains, rugs, tapestries, skins
@@ -69,12 +78,15 @@ export function decorFurnishingEntry(item, index) {
   const descriptor = decorDescriptorOf(item);
   if (!descriptor) return null;
   const looks = furnishingKinds(item);
-  const flat = decorItemFlat(item);   // a pillow's; the rest of the group has none (ItemTemplates.txt: world 0, 0)
-  if (!looks && !flat) return null;
+  // PROF11: a Sculptor's piece stands as the one model it was carved as - its picture (the stone's lump) the list's alone
+  const model = stoneDecorModel(item.templateIndex);
+  const pic = decorItemFlat(item);   // a pillow's; the rest of DFU's group has none (ItemTemplates.txt: world 0, 0)
+  const flat = model === null ? pic : null;
+  if (!looks && !flat && model === null) return null;
   return {
-    key: `furnish:${index}`, kind: 'own', own: item, furnishing: true, name: itemLongName(item), model: null, flat,
+    key: `furnish:${index}`, kind: 'own', own: item, furnishing: true, name: itemLongName(item), model, flat,
     looks, light: null, item: descriptor, storage: false, count: item.stackCount ?? 1,
-    icon: flat ? { archive: flat[0], record: flat[1], dye: null } : null,
+    icon: pic ? { archive: pic[0], record: pic[1], dye: null } : null,
   };
 }
 

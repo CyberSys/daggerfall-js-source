@@ -76,6 +76,8 @@ export const CRAFTED_FAMILIES = Object.freeze([
   Object.freeze(['furniture', 'Furniture']),
   // PROF7: the loom's - the leather armour, the clothing (its dye carried with the piece), the rugs, tapestries and skins
   Object.freeze(['leather', 'Leather Armour']), Object.freeze(['clothing', 'Clothing']), Object.freeze(['furnishings', 'Furnishings']),
+  // PROF11: the mason's bench's - the Sculptor's column, bench, font and plinth (recipeLaw STONE_DECOR)
+  Object.freeze(['stonework', 'Stonework']),
 ]);
 /** The material families the Materials view filters by - the Stores' own (section 8). */
 export const MARKET_FAMILIES = MATERIAL_FAMILIES;

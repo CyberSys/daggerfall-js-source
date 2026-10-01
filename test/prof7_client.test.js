@@ -415,7 +415,7 @@ test('PROF7 pages: the Loom at a Clothing Store - the cures for the hides held a
   const text = () => root.textContent;
   const buttons = () => [...root.querySelectorAll('button')];
   const press = (label) => buttons().find((b) => b.textContent.startsWith(label)).onclick();
-  assert.deepEqual([...PROF_STATIONS], ['forge', 'workbench', 'loom']);
+  assert.deepEqual([...PROF_STATIONS], ['forge', 'workbench', 'loom', 'mason']);   // PIN MOVED (PROF11): the mason's bench
   assert.match(stationColdLine('loom'), /The loom is still/);
   assert.match(text(), /The Loom/);
   assert.match(text(), /The tailor's loom and tanning rack - 50 gold a craft, a cure or a weave/);
@@ -516,7 +516,8 @@ test('PROF7 wiring: the street and the dungeon stamp and list their bodies for H
   assert.match(w, /stitchBand: \(\) => stitchBand\(\{ agility: liveStat\(playerEntity, 'agility'\), speed: liveStat\(playerEntity, 'speed'\) \}\),/);
   assert.match(w, /clothing: \(\) => \(playerEntity\?\.gender === 'female' \? 'WomensClothing' : 'MensClothing'\),/);
   assert.match(w, /: profession === 'outfitting'\n\s*\? \{ here: \(\) => modes\?\.loomHere\?\.\(\) \?\? null, a: 'a loom', who: 'tailor', noun: 'loom', kept: LOOM_KEPT_TEXT, xp: 'Outfitting', busy: 'Your last work is still on the loom\.' \}/);
-  assert.match(w, /const f = \(loom \? modes\?\.loomHere\?\.\(\) : bench \? modes\?\.workbenchHere\?\.\(\) : modes\?\.forgeHere\?\.\(\)\) \?\? null;/);
+  // PIN MOVED (PROF11): a work at the mason's bench asks it first
+  assert.match(w, /const f = \(mason \? modes\?\.masonHere\?\.\(\) : loom \? modes\?\.loomHere\?\.\(\) : bench \? modes\?\.workbenchHere\?\.\(\) : modes\?\.forgeHere\?\.\(\)\) \?\? null;/);
   assert.match(w, /const who = counter === 'furnisher' \? 'furnisher' : counter === 'weavers' \? 'Weavers' : 'smith';/);
   assert.match(w, /withdrawIntoPack\(playerEntity, key, n, undefined, \{ slowRot: key === 'food:meat' && profBook\?\.track\('hunting'\)\?\.specs\?\.\[100\] === 'butcher' \}\)/);
   assert.match(w, /profBook\.track\('hunting'\)\.specs\?\.\[50\] !== 'tracker' \|\| _mode\(\) !== 'exterior'\) return null;\n\s*return trackerMarks\(exteriorFoes\.foes, enchantFeet\(\)\);/);

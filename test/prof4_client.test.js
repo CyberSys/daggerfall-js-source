@@ -471,7 +471,8 @@ test('PROF4 wiring: a built pixel keeps its forest (the tree flats by World of D
   // PROF7 moved it: the station a recipe's profession names (craftStation) - the workbench Carpentry's, the loom Outfitting's
   assert.match(w, /const st = craftStation\(recipeById\(recipe\)\?\.profession\);\n\s*const f = st\.here\(\);/);
   assert.match(w, /const craftStation = \(profession\) => \(profession === 'carpentry'\n\s*\? \{ here: \(\) => modes\?\.workbenchHere\?\.\(\) \?\? null,/);
-  assert.match(w, /const bench = work\?\.station === 'workbench', loom = work\?\.station === 'loom';/);
+  // PIN MOVED (PROF11): the work names the mason's bench too
+  assert.match(w, /const bench = work\?\.station === 'workbench', loom = work\?\.station === 'loom', mason = work\?\.station === 'mason';/);
   assert.match(w, /planeBand: \(\) => planeBand\(\{ agility: liveStat\(playerEntity, 'agility'\), willpower: liveStat\(playerEntity, 'willpower'\) \}\),/);
   const m = src('src/scenes/worldModes.js');
   assert.match(m, /if \(interiorBuilding\.buildingType === BUILDING_TYPES\.FurnitureStore\) return interiorBuilding\.insideOpenShop === false \? null : \{ kind: 'shop', fee: WORKBENCH_FEE \};/);

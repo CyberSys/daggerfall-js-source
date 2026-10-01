@@ -32,11 +32,17 @@
 // KNIFE (603), the one row here a shop shelves: a tool the player buys,
 // as Foraging's six are, ONLINE ONLY (FORAGE0 14.2: nothing offline uses
 // it) - General Stores and Pawn Shops, by DFU's own custom-item loop.
+//
+// PROF11 (Professions-Arc.md 4.5, 4.8, 9.3): MORTAR (675), on the
+// stone's own picture as Rough and Cut Stone are; and the SCULPTOR'S
+// FOUR (696-699: a column, a bench, a font, a statue plinth) - pieces
+// of DFU's Furniture group, delivered among the home's things, never
+// carried, never shelved.
 // ═══════════════════════════════════════════════════════════════════
 import { registerCustomTemplates, registerKitDye, registerCustomItemsForGroup } from './itemTemplates.js';
 import { DYE_COLORS } from '../characters/dyes.js';
-import { ORES, INGOTS, STONES, TIER_VALUES, WOOD_TEMPLATES, HIDE_TEMPLATES, SKINNING_KNIFE, SIEGE_GEM } from '../net/professionLaw.js';
-import { REPAIR_KIT_TEMPLATE } from '../net/recipeLaw.js';
+import { ORES, INGOTS, STONES, TIER_VALUES, WOOD_TEMPLATES, HIDE_TEMPLATES, SKINNING_KNIFE, SIEGE_GEM, MASONRY_TEMPLATES, ICON_LODESTONE } from '../net/professionLaw.js';   // PROF11: Mortar
+import { REPAIR_KIT_TEMPLATE, STONE_DECOR } from '../net/recipeLaw.js';   // PROF11: the Sculptor's four
 import { isOnlinePage } from './onlineLane.js';
 
 /** The group every new material mints in: DFU's miscellany (UselessItems2), where Foraging's own items sit - not an
@@ -134,6 +140,28 @@ export const SIEGE_GEM_ROW = Object.freeze({
   playerTextureArchive: 0, playerTextureRecord: 0, stackable: true,
 });
 registerCustomTemplates([SIEGE_GEM_ROW]);
+
+// ─── PROF11: MORTAR AND THE SCULPTOR'S FOUR (PROF0 4.5, 4.8, 9.3: 675, 696-699) ───
+/** Mortar's row: DECIDED 1 kg (a measure of it - ten from five Rough Stone and two metals) and 2 gold (the stone's own
+ *  scale - "stone the cheapest thing in a pack", Rough Stone's 2), Lodestone's grey lump undyed as the stones', stacking,
+ *  never shelved - the Stores its one door. */
+export const MASONRY_TEMPLATE_ROWS = Object.freeze(MASONRY_TEMPLATES.map((m) => Object.freeze({
+  index: m.templateIndex, name: m.name, baseWeight: 1, hitPoints: 50, capacityOrTarget: 0, basePrice: 2,
+  enchantmentPoints: 0, rarity: 10, variants: 0, drawOrderOrEffect: 0, isBluntWeapon: false, isLiquid: false,
+  isOneHanded: false, isIngredient: false, worldTextureArchive: m.icon[0], worldTextureRecord: m.icon[1],
+  playerTextureArchive: 0, playerTextureRecord: 0, stackable: true,
+})));
+registerCustomTemplates(MASONRY_TEMPLATE_ROWS);
+/** The Sculptor's four (recipeLaw STONE_DECOR - its worth and weight, DECIDED there): one a piece, never stacked (each
+ *  its own provenance), never shelved; 200 hit points (stone outlasts DFU's oak, 50-150); in a list the stone's own
+ *  lump, in a room its one DFU model (decorFurnish.js). */
+export const STONE_DECOR_ROWS = Object.freeze(STONE_DECOR.map((d) => Object.freeze({
+  index: d.templateIndex, name: d.name, baseWeight: d.weight, hitPoints: 200, capacityOrTarget: 0, basePrice: d.price,
+  enchantmentPoints: 0, rarity: 10, variants: 0, drawOrderOrEffect: 0, isBluntWeapon: false, isLiquid: false,
+  isOneHanded: false, isIngredient: false, worldTextureArchive: ICON_LODESTONE[0], worldTextureRecord: ICON_LODESTONE[1],
+  playerTextureArchive: 0, playerTextureRecord: 0, stackable: false,
+})));
+registerCustomTemplates(STONE_DECOR_ROWS);
 
 // ─── PROF7: THE SKINNING KNIFE (PROF0 4.8: 603; FORAGE0 14.2) ─────────
 /** The knife's row: 0.5 kg, 50 uses, 100 gold, rarity 10, DFU's Dagger's picture; one to a slot, as a tool is. */

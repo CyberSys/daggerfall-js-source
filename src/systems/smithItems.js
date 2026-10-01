@@ -52,6 +52,12 @@
 // variant then the dye - its quality the armour's; the rugs,
 // tapestries and skins are furniture; the Fishing-Net Foraging's own and
 // the Skinning Knife the port's (603), each a tool, its quality its life.
+//
+// PROF11 (Professions-Arc.md 9.3): AND THE MASON'S. The Sculptor's
+// column, bench, font and plinth (696-699, recipeLaw STONE_DECOR) are
+// furniture - DFU's Furniture group, among the home's things, their
+// quality their worth and their mark a Masterwork's - and stand in a
+// room as their one DFU model (systems/decorFurnish.js).
 // ═══════════════════════════════════════════════════════════════════
 import {
   recipeById, QUALITY_EFFECTS, TOOL_LIFE, MASTERWORK, REPAIR_KIT_TEMPLATE, KIT_REPAIR, FIELD_KIT_REPAIR, INGOT_MATERIAL, ARMOR_PLATE,
@@ -310,3 +316,5 @@ export const CRAFT_KEPT_TEXT = 'The anvil rang, but no word came back - the work
 export const BENCH_KEPT_TEXT = 'The shavings fell, but no word came back - the work is kept, and made when the word comes.';
 /** PROF7: the loom's own. */
 export const LOOM_KEPT_TEXT = 'The last stitch was pulled, but no word came back - the work is kept, and made when the word comes.';
+/** PROF11: the mason's bench's own. */
+export const MASON_KEPT_TEXT = 'The last chip fell, but no word came back - the work is kept, and made when the word comes.';

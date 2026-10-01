@@ -333,6 +333,7 @@ export const REFUSALS = Object.freeze({
   'prof-hunt-high': `Your account has taken all the rare hides a day allows (${HIGH_HIDES_PER_DAY}, across your characters).`,
   'prof-foe': 'No knife takes a hide from that body.',
   'prof-dye': 'That cannot be dyed so.',
+  'prof-sculptor': 'Only a Sculptor carves stone decor - Masonry\'s choice at 100.',   // PROF11
   'bad-qty': `Take 1 to ${WITHDRAW_MAX} at a time.`,
   'bad-pixels': 'That land could not be read.',
   'bad-region': 'That region could not be read.',
@@ -1155,7 +1156,7 @@ export function accountProf({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
     harvest: (req) => post('/v1/prof/harvest', req),
     spec: (character, profession, rank, spec, from, rid) => post('/v1/prof/spec', { character, profession, rank, spec, from, rid }),   // AUDIT 29 A15: `from`, the choice the client saw standing
     withdraw: (character, material, qty, rid) => post('/v1/stores/withdraw', { character, material, qty, rid }),
-    smelt: (character, recipe, count, rid) => post('/v1/prof/smelt', { character, recipe, count, rid }),   // PROF2: the forge
+    smelt: (character, recipe, count, rid, clean = false) => post('/v1/prof/smelt', { character, recipe, count, rid, ...(clean === true ? { clean: true } : {}) }),   // PROF2: the forge; PROF11: the mason's bench, `clean` the chisel's report
     craft: (character, recipe, clean, name, rid, heartwood = false, dye = null) => post('/v1/prof/craft', { character, recipe, clean, name, rid, heartwood, ...(dye == null ? {} : { dye }) }),   // PROF3: the anvil - `clean` the act's report, `name` the maker's mark; PROF4: the workbench, `heartwood` for a plank; PROF7: the loom, a garment's `dye`
     stock: (character, material, qty, rid) => post('/v1/prof/stock', { character, material, qty, rid }),   // PROF3: the smith's stock
     writs: (character, region) => post('/v1/writs/list', { character, region }),

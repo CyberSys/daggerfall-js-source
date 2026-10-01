@@ -361,8 +361,8 @@ import { createPeerRiders, createPeerWalkers, createEotbArt } from '../net/peerR
 import { createHorseCartRuntime } from '../systems/horseCart.js';   // HCC: TrailingWagonRuntime over this host's seams
 import { setForagingHost } from '../systems/foragingInstall.js';   // FORAGE1: Foraging's reaches into the world, answered by this host
 import { registerContainerLootHandler } from '../systems/containerLoot.js';   // THE MERGE: CSA-H's shelf subscriber, by its mod's name, on PlayerActivate.OnLootSpawned's one home
-import { mintPieces, mintPiece, craftedText, CRAFT_KEPT_TEXT, BENCH_KEPT_TEXT, LOOM_KEPT_TEXT, isCraftedFurniture, asMinted, pieceOfRecipe } from '../systems/smithItems.js';   // PROF3: a craft's pieces, minted into the pack; PROF4: furniture into the home's things
-import { heatBand, planeBand, stitchBand, recipeById } from '../net/recipeLaw.js';   // PROF3: the heat's attribute band; PROF4: the plane's, and a recipe's station; PROF7: the stitch's
+import { mintPieces, mintPiece, craftedText, CRAFT_KEPT_TEXT, BENCH_KEPT_TEXT, LOOM_KEPT_TEXT, MASON_KEPT_TEXT, isCraftedFurniture, asMinted, pieceOfRecipe } from '../systems/smithItems.js';   // PROF3: a craft's pieces, minted into the pack; PROF4: furniture into the home's things; PROF11: the mason's word
+import { heatBand, planeBand, stitchBand, chiselBand, recipeById } from '../net/recipeLaw.js';   // PROF3: the heat's attribute band; PROF4: the plane's, and a recipe's station; PROF7: the stitch's; PROF11: the chisel's
 import { questActionsExtensionTemplates } from '../systems/quest/questActionsExtension.js';   // FORAGE1: QAE's four actions, which Foraging's quests say
 import { entityMaxEncumbrance } from '../combat/formulas.js';   // FORAGE1: PlayerEntity.MaxEncumbrance, for Foraging's last check
 import { createComeSailAwayPool, CULL_DETAIL_PX } from './comeSailAwayPool.js';   // CSA-B: Come Sail Away's boats, drawn
@@ -1257,7 +1257,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     ? { here: () => modes?.workbenchHere?.() ?? null, a: 'a workbench', who: 'furnisher', noun: 'workbench', kept: BENCH_KEPT_TEXT, xp: 'Carpentry', busy: 'Your last work is still on the workbench.' }
     : profession === 'outfitting'
       ? { here: () => modes?.loomHere?.() ?? null, a: 'a loom', who: 'tailor', noun: 'loom', kept: LOOM_KEPT_TEXT, xp: 'Outfitting', busy: 'Your last work is still on the loom.' }
-      : { here: () => modes?.forgeHere?.() ?? null, a: 'an anvil', who: 'smith', noun: 'anvil', kept: CRAFT_KEPT_TEXT, xp: 'Smithing', busy: accountRefusalText('prof-busy') });
+      : profession === 'masonry'   // PROF11: the mason's bench - a General Store's or a home's
+        ? { here: () => modes?.masonHere?.() ?? null, a: 'a mason\'s bench', who: 'mason', noun: 'mason\'s bench', kept: MASON_KEPT_TEXT, xp: 'Masonry', busy: 'Your last work is still on the bench.' }
+        : { here: () => modes?.forgeHere?.() ?? null, a: 'an anvil', who: 'smith', noun: 'anvil', kept: CRAFT_KEPT_TEXT, xp: 'Smithing', busy: accountRefusalText('prof-busy') });
   /** AUDIT 32 B3: a balance a counter's purchase answered, told to every book that shows one - the Bank's and the
    *  market's (AUDIT 30 U6's law, which the Stores page's counters never kept: the Market tab read the old one for its
    *  minute's cache). One door for the Stores page's counters and the Market tab's Weavers'. */
@@ -8199,19 +8201,22 @@ export async function bootWorld(canvas, renderer, params, status) {
         // it shows first - the player's own, as DFU's Clothing Store shelves it
         loom: () => modes?.loomHere?.() ?? null,
         stitchBand: () => stitchBand({ agility: liveStat(playerEntity, 'agility'), speed: liveStat(playerEntity, 'speed') }),
+        // PROF11 (bible/06-Systems/Professions-Arc.md 9.3, 9.4): THE MASON'S BENCH the player stands at, and the chisel's band
+        mason: () => modes?.masonHere?.() ?? null,
+        chiselBand: () => chiselBand({ strength: liveStat(playerEntity, 'strength'), endurance: liveStat(playerEntity, 'endurance') }),
         clothing: () => (playerEntity?.gender === 'female' ? 'WomensClothing' : 'MensClothing'),
         marks: () => marksBook?.state?.balance ?? null,   // AUDIT 32 P6: a counter's purchase the Marks cannot meet, said first
         marksOpen: () => marksBook?.state?.open !== false,
-        smelt: async (recipe, count) => {
+        smelt: async (recipe, count, { clean = false } = {}) => {
           // PROF4: the station is the work's - a smelt's and a burn's the forge, a saw's the workbench; PROF7: a cure's and
-          // a weave's the loom
+          // a weave's the loom; PROF11: a cut's and a mix's the mason's bench, its chisel's report with it
           const work = smeltRecipe(recipe);
-          const bench = work?.station === 'workbench', loom = work?.station === 'loom';
-          const f = (loom ? modes?.loomHere?.() : bench ? modes?.workbenchHere?.() : modes?.forgeHere?.()) ?? null;
-          if (!f) return { ok: false, text: loom ? 'You are not at a loom.' : bench ? 'You are not at a workbench.' : 'You are not at a forge.' };
-          const who = loom ? 'tailor' : bench ? 'furnisher' : 'smith';
-          if (f.fee > 0 && totalGoldAmount(playerEntity) < f.fee) return { ok: false, text: `The ${who} asks ${f.fee} gold for the use of the ${loom ? 'loom' : bench ? 'workbench' : 'forge'}.` };
-          const r = await profBook.smelt(recipe, count);
+          const bench = work?.station === 'workbench', loom = work?.station === 'loom', mason = work?.station === 'mason';
+          const f = (mason ? modes?.masonHere?.() : loom ? modes?.loomHere?.() : bench ? modes?.workbenchHere?.() : modes?.forgeHere?.()) ?? null;
+          if (!f) return { ok: false, text: mason ? 'You are not at a mason\'s bench.' : loom ? 'You are not at a loom.' : bench ? 'You are not at a workbench.' : 'You are not at a forge.' };
+          const who = mason ? 'mason' : loom ? 'tailor' : bench ? 'furnisher' : 'smith';
+          if (f.fee > 0 && totalGoldAmount(playerEntity) < f.fee) return { ok: false, text: `The ${who} asks ${f.fee} gold for the use of the ${mason ? 'mason\'s bench' : loom ? 'loom' : bench ? 'workbench' : 'forge'}.` };
+          const r = await profBook.smelt(recipe, count, { clean });
           if (!r?.ok) return { ok: false, text: accountRefusalText(r?.error) };
           // the fee for the smelt this press made, on the first answer it hears - `repeat` or not (AUDIT 29 C3: a first
           // answer lost, the same smelt asked again answers `repeat`, and the smith went unpaid); the page holds one press
@@ -8220,8 +8225,13 @@ export async function bootWorld(canvas, renderer, params, status) {
           const out = smeltRecipe(r.data.recipe)?.out ?? recipe;
           const made = (Number(r.data.own) || 0) + (Number(r.data.bought) || 0) || r.data.count;
           const id = String(r.data.recipe);
-          const verb = bench ? 'Sawed' : id.startsWith('burn:') ? 'Burnt' : id.startsWith('cure:') ? 'Cured' : id.startsWith('weave:') ? 'Wove' : 'Smelted';   // PROF7: the loom's
-          return { ok: true, text: `${verb} ${made} ${materialCountLabel(out, made)}${r.data.xp > 0 ? ` (+${r.data.xp} Smithing XP)` : ''}${f.fee > 0 ? `, and paid the ${who} ${f.fee} gold` : ''}.` };
+          const verb = bench ? 'Sawed' : id.startsWith('burn:') ? 'Burnt' : id.startsWith('cure:') ? 'Cured' : id.startsWith('weave:') ? 'Wove'
+            : id.startsWith('cut:') ? 'Cut' : id.startsWith('mix:') ? 'Mixed' : 'Smelted';   // PROF7: the loom's; PROF11: the mason's
+          // PROF11 (FOUND): the XP said is the work's own profession's - Masonry's at the bench (it said Smithing's whatever
+          // the work); a clean chisel and a first work said with it
+          const xpWord = professionName(smeltRecipe(r.data.recipe)?.xp ?? 'smithing');
+          const how = [r.data.clean === true ? 'a clean chisel' : null, r.data.first === true ? 'your first' : null].filter(Boolean).join(', ');
+          return { ok: true, text: `${verb} ${made} ${materialCountLabel(out, made)}${r.data.xp > 0 ? ` (+${r.data.xp} ${xpWord} XP${how ? ` - ${how}` : ''})` : ''}${f.fee > 0 ? `, and paid the ${who} ${f.fee} gold` : ''}.` };
         },
       });
     }

@@ -1097,6 +1097,17 @@ export const PROF_CSS = `/* ── PROF1: THE PROFESSIONS ── */
 .prof-strike.hit { color: #f6d58a; }
 .prof-strike.miss { color: #d98b6e; }
 @media (prefers-reduced-motion: reduce) { .prof-heatbar { box-shadow: none; } }
+/* PROF11: the mason's bench - a work's two buttons in the row's button track; the chisel's stone, its scored lines
+   across it, the marked one lit (a shape as well as a colour: its line doubled), the chisel's own line framed */
+.prof-smelt .prof-workacts { grid-column: 3; grid-row: 1; display: flex; gap: 4px; }
+.prof-stone { flex: 1 1 100%; display: flex; flex-direction: column; gap: 6px; padding: 8px 10px;
+  background: linear-gradient(180deg, #8a8478, #6c675d 60%, #57534b); border: 1px solid rgba(192,138,62,0.5); }
+.prof-chisel-line { position: relative; height: 22px; padding: 0 6px; text-align: left; font: inherit; font-size: 11px; color: #2a2620;
+  background: transparent; border: 0; border-bottom: 2px dashed rgba(40,36,30,0.55); cursor: pointer; }
+.prof-chisel-line.marked { border-bottom: 4px double #f6d58a; color: #fff6e0; text-shadow: 0 0 4px #f6d58a; }
+.prof-chisel-line.at { outline: 2px solid #efe0b8; outline-offset: -2px; }
+.prof-stone.prof-inband { box-shadow: 0 0 6px #f6d58a; }
+@media (pointer: coarse) { .prof-chisel-line { height: 40px; } }
 @media (pointer: coarse) { .prof-recipe { min-height: 40px; } }
 .prof-matline { flex: 1 1 220px; }
 @media (max-width: 720px) { .prof-cols { grid-template-columns: 1fr; } .prof-specs { grid-template-columns: 1fr; } }
