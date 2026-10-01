@@ -141,6 +141,30 @@
     ]
   },
   {
+    "name": "AUDITCLIMB2-G2-no-lean",
+    "file": "src/player/motor.js",
+    "old": "    for (const out of PARKOUR_LEAN) if (!held()) this._fcMove(was, side, vert, v, n, dt, out);\n",
+    "new": "",
+    "tests": [
+      "test/auditclimb2.test.js",
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js"
+    ]
+  },
+  {
+    "name": "AUDITCLIMB2-G2-turned-back-is-a-move",
+    "file": "src/player/motor.js",
+    "old": " && (this.pos[1] - was[1]) * Math.sign(vert) >= -1e-4;",
+    "new": ";",
+    "tests": [
+      "test/auditclimb2.test.js",
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js"
+    ]
+  },
+  {
     "name": "AUDITCLIMB2-C1-face-rung-on-roof",
     "file": "src/player/parkour.js",
     "old": "    if (dist - at(i + 1) > PARKOUR_EDGE_INSET) continue;",
@@ -239,18 +263,6 @@
     ]
   },
   {
-    "name": "AUDITCLIMB2-C3-sill-is-floor",
-    "file": "src/player/motor.js",
-    "old": "if (r.grounded && this._groundNear()) {",
-    "new": "if (r.grounded) {",
-    "tests": [
-      "test/auditclimb2.test.js",
-      "test/climb2.test.js",
-      "test/parkour.test.js",
-      "test/auditclimb1.test.js"
-    ]
-  },
-  {
     "name": "AUDITCLIMB2-C4-static-pose",
     "file": "src/player/collider.js",
     "old": "    if (!bucket?.moves) return null;",
@@ -325,7 +337,7 @@
   {
     "name": "AUDITCLIMB2-C7-corner-unticked",
     "file": "src/player/motor.js",
-    "old": "    if (m.kind === 'corner') this._wallTick(dt);",
+    "old": "    if (this._wall) this._wallTick(dt);",
     "new": "",
     "tests": [
       "test/auditclimb2.test.js",
@@ -337,8 +349,204 @@
   {
     "name": "AUDITCLIMB2-C7-hold-rebegun",
     "file": "src/player/motor.js",
-    "old": "if (m.hang && m.kind === 'corner' && this._wall) {",
+    "old": "if (m.hang && this._wall) {",
     "new": "if (false) {",
+    "tests": [
+      "test/auditclimb2.test.js",
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js"
+    ]
+  },
+  {
+    "name": "AUDITCLIMB2-G1-climb-steps",
+    "file": "src/player/motor.js",
+    "old": "this.height, false, false, true);   // AUDIT CLIMB2 G1",
+    "new": "this.height, false, false, false);   // AUDIT CLIMB2 G1",
+    "tests": [
+      "test/auditclimb2.test.js",
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js"
+    ]
+  },
+  {
+    "name": "AUDITCLIMB2-G1-ladder-unasked",
+    "file": "src/player/collider.js",
+    "old": "if (!this._noStep && dy <= 0 && ",
+    "new": "if (dy <= 0 && ",
+    "tests": [
+      "test/auditclimb2.test.js",
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js"
+    ]
+  },
+  {
+    "name": "AUDITCLIMB2-G2-bands-unasked",
+    "file": "src/player/parkour.js",
+    "old": " || !bandsClear(collider, p, height)) return false;",
+    "new": ") return false;",
+    "tests": [
+      "test/auditclimb2.test.js",
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js"
+    ]
+  },
+  {
+    "name": "AUDITCLIMB2-G2-bands-thin",
+    "file": "src/player/parkour.js",
+    "old": "PARKOUR_BODY_RADIUS - PARKOUR_FIT_EPS)) return false;",
+    "new": "PARKOUR_BODY_RADIUS - 0.2)) return false;",
+    "tests": [
+      "test/auditclimb2.test.js",
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js"
+    ]
+  },
+  {
+    "name": "AUDITCLIMB2-G2-climb-unasked",
+    "file": "src/player/motor.js",
+    "old": "\n      && bandsClear(this.collider, this.pos, this.height);",
+    "new": ";",
+    "tests": [
+      "test/auditclimb2.test.js",
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js"
+    ]
+  },
+  {
+    "name": "AUDITCLIMB2-G2-start-unasked",
+    "file": "src/player/motor.js",
+    "old": ": !bandsClear(this.collider, this.pos, this.height)) return false;",
+    "new": ": false) return false;",
+    "tests": [
+      "test/auditclimb2.test.js",
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js"
+    ],
+    "equivalent": true,
+    "why": "Walking into a rail in the collider's blind band, the body is pushed in and out of it step by step; a climb taken in it leans out on its first move (PARKOUR_LEAN), so the check spares one step's overlap the pins cannot single out from the walk's own. Kept so a climb never begins inside what it is about to lean past."
+  },
+  {
+    "name": "AUDITCLIMB2-G3-crouched-start",
+    "file": "src/player/motor.js",
+    "old": "this.crouching ? !capsuleFits(this.collider, this.pos, CAPSULE_HEIGHT) :",
+    "new": "this.crouching ? false :",
+    "tests": [
+      "test/auditclimb2.test.js",
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js"
+    ]
+  },
+  {
+    "name": "AUDITCLIMB2-G4-no-reach",
+    "file": "src/player/motor.js",
+    "old": "if (g && w.stuck && catchClear(",
+    "new": "if (false && catchClear(",
+    "tests": [
+      "test/auditclimb2.test.js",
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js"
+    ]
+  },
+  {
+    "name": "AUDITCLIMB2-G4-reach-unproven",
+    "file": "src/player/motor.js",
+    "old": "w.stuck && catchClear(this.collider, this.pos, g, CAPSULE_HEIGHT)) {",
+    "new": "w.stuck) {",
+    "tests": [
+      "test/auditclimb2.test.js",
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js"
+    ],
+    "equivalent": true,
+    "why": "The reach is a straight 10-16 cm between two bodies each proven to fit - the stuck one where the climb left it, the hang senseGrip fitted - so a solid on the way short of either end would have to lie between two capsules that overlap along most of their length. Kept as the catch's own law, which a reach is."
+  },
+  {
+    "name": "AUDITCLIMB2-G4-never-stuck",
+    "file": "src/player/motor.js",
+    "old": "w.stuck = vert > 0 && this.pos[1] - was[1] < 1e-4;",
+    "new": "w.stuck = false;",
+    "tests": [
+      "test/auditclimb2.test.js",
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js"
+    ]
+  },
+  {
+    "name": "AUDITCLIMB2-G5-lead-in-one-span",
+    "file": "src/player/motor.js",
+    "old": "for (let k = 0; k < 2 && lead; k++) {\n      const ln = lead.normal, h = PARKOUR_HAND_SPAN / 2;",
+    "new": "for (let k = 0; k < 1 && lead; k++) {\n      const ln = lead.normal, h = PARKOUR_HAND_SPAN;",
+    "tests": [
+      "test/auditclimb2.test.js",
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js"
+    ]
+  },
+  {
+    "name": "AUDITCLIMB2-G5-outer-square-only",
+    "file": "src/player/motor.js",
+    "old": "const n2 = this._pkTurned(",
+    "new": "const n2 = t ?? this._pkTurned(",
+    "tests": [
+      "test/auditclimb2.test.js",
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js"
+    ]
+  },
+  {
+    "name": "AUDITCLIMB2-G5-inner-reach-short",
+    "file": "src/player/motor.js",
+    "old": "back + PARKOUR_HAND_SPAN + back / Math.tan(Math.acos(PARKOUR_FACE_FOLLOW))",
+    "new": "back + PARKOUR_HAND_SPAN",
+    "tests": [
+      "test/auditclimb2.test.js",
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js"
+    ]
+  },
+  {
+    "name": "AUDITCLIMB2-G5-apex-unbounded",
+    "file": "src/player/motor.js",
+    "old": "if (across && apex <= back + PARKOUR_HAND_SPAN) {",
+    "new": "if (across) {",
+    "tests": [
+      "test/auditclimb2.test.js",
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js"
+    ]
+  },
+  {
+    "name": "AUDITCLIMB2-G5-thirty-falls-between",
+    "file": "src/player/parkour.js",
+    "old": "< PARKOUR_FACE_FOLLOW - PARKOUR_RAY_SCATTER) return null;",
+    "new": "< PARKOUR_FACE_FOLLOW) return null;",
+    "tests": [
+      "test/auditclimb2.test.js",
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js"
+    ]
+  },
+  {
+    "name": "AUDITCLIMB2-G6-edge-stops-the-climb",
+    "file": "src/player/motor.js",
+    "old": "    if (!held() && side && vert) this._fcMove(was, 0, vert, v, n, dt);\n",
+    "new": "",
     "tests": [
       "test/auditclimb2.test.js",
       "test/climb2.test.js",

@@ -6,7 +6,8 @@
     "new": "      this.standingHeightAdjustment = 0;\n      this.heightAction = 'crouch';",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -16,7 +17,8 @@
     "new": "    } else if (false) {",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -26,7 +28,8 @@
     "new": "      this.heightTimerMax = move.dur;",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -36,7 +39,8 @@
     "new": "",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -46,7 +50,8 @@
     "new": "  const n = 1;",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -56,7 +61,8 @@
     "new": "",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -66,7 +72,8 @@
     "new": "",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -76,7 +83,8 @@
     "new": "",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -86,7 +94,8 @@
     "new": "",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -97,7 +106,8 @@
     "tests": [
       "test/auditclimb1.test.js",
       "test/parkour.test.js",
-      "test/climb2.test.js"
+      "test/climb2.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -108,7 +118,8 @@
     "tests": [
       "test/auditclimb1.test.js",
       "test/parkour.test.js",
-      "test/climb2.test.js"
+      "test/climb2.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -119,7 +130,8 @@
     "tests": [
       "test/auditclimb1.test.js",
       "test/parkour.test.js",
-      "test/climb2.test.js"
+      "test/climb2.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -129,7 +141,8 @@
     "new": "    if (this.grounded && input.jump && !this.slowFalling   // AUDIT CLIMB1 F7: not the Jump a move spent",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -139,7 +152,8 @@
     "new": "",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -149,7 +163,8 @@
     "new": "    _activity.parkoured = null;",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -160,7 +175,8 @@
     "tests": [
       "test/auditclimb1.test.js",
       "test/parkour.test.js",
-      "test/climb2.test.js"
+      "test/climb2.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -170,7 +186,8 @@
     "new": "",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -181,7 +198,8 @@
     "tests": [
       "test/auditclimb1.test.js",
       "test/parkour.test.js",
-      "test/climb2.test.js"
+      "test/climb2.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -191,7 +209,8 @@
     "new": "  return null;",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -201,7 +220,8 @@
     "new": "  const row = getPref('enhancedClimbing');",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -211,7 +231,8 @@
     "new": "export const PARKOUR_EDGE_INSET = 0.2;",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -221,7 +242,8 @@
     "new": "return { y, key: h.key ?? null };",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -231,7 +253,8 @@
     "new": "export const PARKOUR_FACE_LEAN = 0.2;",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -241,7 +264,8 @@
     "new": "export const PARKOUR_NUDGE = Object.freeze([0]);",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -251,7 +275,8 @@
     "new": "",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -262,7 +287,8 @@
     "tests": [
       "test/auditclimb1.test.js",
       "test/parkour.test.js",
-      "test/climb2.test.js"
+      "test/climb2.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -272,7 +298,8 @@
     "new": "export const PARKOUR_TOP_DROP = 0.35;",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -282,7 +309,8 @@
     "new": "export const PARKOUR_MIN_STAND_DEPTH = 0.5;",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -292,7 +320,8 @@
     "new": "  const wall = scanFace(collider, feet, dir, low, high, reach);",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -302,7 +331,8 @@
     "new": "export const PARKOUR_UNDER = 0.08;",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -312,7 +342,8 @@
     "new": "",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -322,7 +353,8 @@
     "new": "",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -332,7 +364,8 @@
     "new": "      if (vault) move = planVault(this.pos, ledge, vault, skill, this.speed);",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -342,7 +375,8 @@
     "new": "  for (let tries = 0; tries < 1; tries++) {",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -352,7 +386,8 @@
     "new": "",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   }
 ]

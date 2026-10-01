@@ -6,7 +6,8 @@
     "new": "  let s = climbing;",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -17,7 +18,8 @@
     "tests": [
       "test/auditclimb1.test.js",
       "test/parkour.test.js",
-      "test/climb2.test.js"
+      "test/climb2.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -27,7 +29,8 @@
     "new": "  return (0.25 + 0.22 * Math.max(0, rise)) * 1.05;",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -37,7 +40,8 @@
     "new": "",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -47,7 +51,8 @@
     "new": "  if (wall.openY == null) wall.openY = feet[1] + high;",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -57,7 +62,8 @@
     "new": "  const ey = feet[1] + high + 0.3;",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -67,7 +73,8 @@
     "new": "  if (!down.normal) return { ok: false, why: 'steep-top' };",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -77,7 +84,8 @@
     "new": "",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -87,7 +95,8 @@
     "new": "  const bodies = [height];",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -97,7 +106,8 @@
     "new": "  return true;",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -107,7 +117,8 @@
     "new": "  if (!(ledge?.ok)) return null;",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -118,7 +129,8 @@
     "tests": [
       "test/auditclimb1.test.js",
       "test/parkour.test.js",
-      "test/climb2.test.js"
+      "test/climb2.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -129,7 +141,8 @@
     "tests": [
       "test/auditclimb1.test.js",
       "test/parkour.test.js",
-      "test/climb2.test.js"
+      "test/climb2.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -140,7 +153,8 @@
     "tests": [
       "test/auditclimb1.test.js",
       "test/parkour.test.js",
-      "test/climb2.test.js"
+      "test/climb2.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -150,7 +164,8 @@
     "new": "",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -160,7 +175,8 @@
     "new": "",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -171,7 +187,8 @@
     "tests": [
       "test/auditclimb1.test.js",
       "test/parkour.test.js",
-      "test/climb2.test.js"
+      "test/climb2.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -181,7 +198,8 @@
     "new": "    if (false) {",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -191,7 +209,8 @@
     "new": "    tallyMovementSkill(entity, SKILLS.Climbing);",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -201,7 +220,8 @@
     "new": "",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -211,7 +231,8 @@
     "new": "  return isEnhanced(search) && !!row;",
     "tests": [
       "test/auditclimb1.test.js",
-      "test/parkour.test.js"
+      "test/parkour.test.js",
+      "test/auditclimb2.test.js"
     ]
   }
 ]

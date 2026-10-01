@@ -1600,11 +1600,15 @@ export class Collider {
    * @returns {{grounded:boolean, hitCeiling:boolean}}
    */
   /** AUDIT (the pre-merge audit, S2): `keepFloor` - a FOE's move (enemyMotor passes it): a body held down by a ceiling
-   *  keeps the floor its lower sphere was set on (SQUEEZE1), whatever its height. The player's stances never pass it. */
-  move(feet, dx, dy, dz, height = CAPSULE_HEIGHT, snap = true, keepFloor = false) {
-    const was = this._keepFloor;
+   *  keeps the floor its lower sphere was set on (SQUEEZE1), whatever its height. The player's stances never pass it.
+   *  AUDIT CLIMB2 G1: `noStep` - a climber's move (motor.js _freeClimbStep): the hug's press into the wall is always
+   *  stopped, which the step ladder reads as a walk into a stair - a climb across under an eave was lifted 0.375 m in
+   *  one step, into the eave and the wall. A body on a wall climbs; it never steps. */
+  move(feet, dx, dy, dz, height = CAPSULE_HEIGHT, snap = true, keepFloor = false, noStep = false) {
+    const was = this._keepFloor, stepped = this._noStep;
     this._keepFloor = !!keepFloor;
-    try { return this._move(feet, dx, dy, dz, height, snap); } finally { this._keepFloor = was; }
+    this._noStep = !!noStep;
+    try { return this._move(feet, dx, dy, dz, height, snap); } finally { this._keepFloor = was; this._noStep = stepped; }
   }
   _move(feet, dx, dy, dz, height = CAPSULE_HEIGHT, snap = true) {
     const maxComp = Math.max(Math.abs(dx), Math.abs(dy), Math.abs(dz));
@@ -1700,7 +1704,7 @@ export class Collider {
     // of jamming the head or rejecting the stair outright; the raised
     // height is kept this frame and the snap below settles it onto
     // the tread as forward progress clears the edge.
-    if (dy <= 0 && wantedSq > 1e-8 && movedSq < wantedSq * 0.25) {
+    if (!this._noStep && dy <= 0 && wantedSq > 1e-8 && movedSq < wantedSq * 0.25) {
       // Each rung's raised start is RESOLVED, and a low ceiling CAPS
       // the rung to its resolved height instead of refusing the stair
       // (the 08-17 live jam: legal 2.0-headroom stairwells - a

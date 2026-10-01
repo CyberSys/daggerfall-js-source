@@ -7,7 +7,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -18,7 +19,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -29,7 +31,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -40,7 +43,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -51,7 +55,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -62,7 +67,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -73,7 +79,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -84,18 +91,20 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
     "name": "CLIMB2-grip-any-face",
     "file": "src/player/parkour.js",
-    "old": "  if (!under || under.normal[0] * normal[0] + under.normal[2] * normal[2] < PARKOUR_FACE_FOLLOW) return null;",
+    "old": "  if (!under || under.normal[0] * normal[0] + under.normal[2] * normal[2] < PARKOUR_FACE_FOLLOW - PARKOUR_RAY_SCATTER) return null;",
     "new": "  if (!under) return null;",
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -106,7 +115,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -117,7 +127,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -128,7 +139,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -139,7 +151,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -150,7 +163,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -161,7 +175,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -172,7 +187,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -183,7 +199,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -194,7 +211,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -205,7 +223,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -216,7 +235,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -227,7 +247,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -238,7 +259,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -249,7 +271,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -260,7 +283,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -271,7 +295,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -282,7 +307,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -293,7 +319,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -304,7 +331,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -315,7 +343,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -326,7 +355,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -337,7 +367,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -348,7 +379,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -359,7 +391,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -370,7 +403,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -381,7 +415,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -392,7 +427,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -403,7 +439,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -414,7 +451,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -425,7 +463,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -436,7 +475,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -447,18 +487,20 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
     "name": "CLIMB2-no-lead-hand",
     "file": "src/player/motor.js",
-    "old": "    const g = senseGrip(this.collider, [face[0] + tx * reach, 0, face[2] + tz * reach], n, w.lipY, geo, false)\n      ? senseGrip",
-    "new": "    const g = true\n      ? senseGrip",
+    "old": "    const g = lead ? at : null;",
+    "new": "    const g = at;",
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -469,18 +511,20 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
     "name": "CLIMB2-no-inner-corner",
     "file": "src/player/motor.js",
-    "old": "-(ahead.normal[0] * t[0] + ahead.normal[2] * t[2]) >= PARKOUR_CORNER_SQUARE",
-    "new": "false",
+    "old": "    if (across && apex <= back + PARKOUR_HAND_SPAN) {",
+    "new": "    if (false) {",
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -491,7 +535,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -502,7 +547,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -513,7 +559,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -524,29 +571,20 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
-    ]
-  },
-  {
-    "name": "CLIMB2-floor-does-not-end",
-    "file": "src/player/motor.js",
-    "old": "    if (r.grounded && this._groundNear()) {\n      this._wallEnd();\n      this.grounded = true;",
-    "new": "    if (false) {\n      this._wallEnd();\n      this.grounded = true;",
-    "tests": [
-      "test/climb2.test.js",
-      "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
     "name": "CLIMB2-wall-edge-kept",
     "file": "src/player/motor.js",
-    "old": "      this.pos[0] = was[0]; this.pos[1] = was[1]; this.pos[2] = was[2];\n",
-    "new": "",
+    "old": "    if (!held()) { this.pos[0] = was[0];",
+    "new": "    if (false) { this.pos[0] = was[0];",
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -557,7 +595,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -568,7 +607,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -579,7 +619,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -590,7 +631,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -601,7 +643,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -612,7 +655,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -623,7 +667,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -634,7 +679,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   },
   {
@@ -645,7 +691,8 @@
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
-      "test/auditclimb1.test.js"
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
     ]
   }
 ]

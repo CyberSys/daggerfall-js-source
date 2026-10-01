@@ -399,3 +399,217 @@ test('AUDIT CLIMB2 C7: a corner is the same hold going on - the grip warning sai
   assert.ok(tallies.length - t0 >= Math.floor(600 / 60 / cadence) - 1, `Climbing tallied ${tallies.length - t0} times in ten seconds on the pillar`);
   assert.equal(flagOff, 0, 'climbing through every corner');
 });
+
+/** A convex n-sided tower of radius R (a vertical prism), its near face at z = 1, top at 2.3; its centre's z. */
+function tower(n, R, top = 2.3) {
+  const s = scene();
+  const p = [];
+  for (let i = 0; i < n; i++) { const a = Math.PI + (Math.PI / n) * 0.5 + (2 * Math.PI * i) / n; p.push([Math.sin(a) * R, Math.cos(a) * R]); }
+  let near0 = Infinity;
+  for (let i = 0; i < n; i++) {
+    const [x0, z0] = p[i], [x1, z1] = p[(i + 1) % n];
+    if ((x0 <= 0 && x1 >= 0) || (x0 >= 0 && x1 <= 0)) near0 = Math.min(near0, z0 + (z1 - z0) * (x1 === x0 ? 0 : -x0 / (x1 - x0)));
+  }
+  const cz = 1 - near0;
+  const V = [];
+  for (const y of [0, top]) for (const [x, z] of p) V.push(x, y, z + cz);
+  const idx = [];
+  for (let i = 0; i < n; i++) { const j = (i + 1) % n; idx.push(i, j, n + j, i, n + j, n + i); }
+  for (let i = 1; i < n - 1; i++) { idx.push(0, i + 1, i); idx.push(n, n + i, n + i + 1); }
+  s.col.addMesh('tower', new Float32Array(V), idx, I);
+  return { col: s.col, cz };
+}
+
+/** A box as a prism: its four sides and two fanned caps (the hostile-geometry audit's own triangulation - the
+ *  collider's answers turn on which triangles a ray or a sphere meets first). */
+function prismBox(s, x0, y0, z0, x1, y1, z1) {
+  const p = [[x0, z0], [x1, z0], [x1, z1], [x0, z1]];
+  const V = [];
+  for (const y of [y0, y1]) for (const [x, z] of p) V.push(x, y, z);
+  const idx = [];
+  for (let i = 0; i < 4; i++) { const j = (i + 1) % 4; idx.push(i, j, 4 + j, i, 4 + j, 4 + i); }
+  for (let i = 1; i < 3; i++) { idx.push(0, i + 1, i); idx.push(4, 4 + i, 4 + i + 1); }
+  s.col.addMesh(`p${s.boxes.length}`, new Float32Array(V), idx, I);
+  s.boxes.push([x0, y0, z0, x1, y1, z1]);
+}
+
+test('AUDIT CLIMB2 G1: a free climb never steps up - the hug\'s press into the wall is no walk into a stair, and a climb across under an eave is not lifted into it', () => {
+  const s = scene();
+  prismBox(s, -0.683, 0, 1, 1.763, 2.219, 2); prismBox(s, 0.289, 0, 0.638, 0.886, 2.219, 1); prismBox(s, -0.392, 2.081, 0.517, 3.516, 2.376, 1.961);
+  for (const x of [-0.3, -0.2]) {
+    const m = motor(s.col, { skill: 100, x, z: 0.6 });
+    let worst = 0, leap = 0;
+    for (let i = 0; i < 400; i++) {
+      const was = [...m.pos];
+      step(m, { forward: i < 100 ? 1 : 0, strafe: i < 100 ? 0 : (Math.floor((i - 100) / 10) % 2 ? -1 : 1) });
+      if (m.onWall) { worst = Math.max(worst, overlap(s.boxes, m.pos, m.height)); leap = Math.max(leap, Math.hypot(m.pos[0] - was[0], m.pos[1] - was[1], m.pos[2] - was[2])); }
+    }
+    assert.ok(leap < 0.1 && worst < 0.03, `x ${x}: the longest step on the wall ${leap.toFixed(3)} m, the deepest ${worst.toFixed(3)} m`);
+  }
+  // and where the ladder's rung lands clear - a plinth beside the way across, 0.3 m over the feet - the climb is not
+  // lifted onto it in a step
+  const p = scene(); p.box(-3, 0, 1, 3, 6, 4); p.box(1, 0, 0.6, 3, 0.8, 1);
+  const m = motor(p.col, { skill: 100, z: 0.6 });
+  for (let i = 0; i < 200 && !(m.onWall && m.pos[1] > 0.5); i++) step(m, { forward: 1 });
+  assert.ok(m.onWall && m.pos[1] > 0.5 && m.pos[1] < 0.6, `on the wall at the plinth's side (y ${m.pos[1].toFixed(2)})`);
+  let leap = 0;
+  for (let i = 0; i < 90 && m.onWall; i++) { const was = [...m.pos]; step(m, { strafe: 1 }); leap = Math.max(leap, Math.abs(m.pos[1] - was[1])); }
+  assert.ok(leap < 0.05, `no step up onto the plinth (${leap.toFixed(3)} m in a step)`);
+});
+
+test('AUDIT CLIMB2 G2: the climb\'s proofs ask the whole body - a moulding or a rail between the collider\'s spheres stops a shimmy, a catch and a free climb', () => {
+  const on = (m) => m.onWall || !!m._pkMove;
+  // the shimmy into a moulding at the chest (0.20 off the face) and one at the waist (0.22 off): it stops short
+  for (const [y0, y1, z0] of [[1.65, 1.69, 0.8], [1.10, 1.14, 0.78]]) {
+    const s = scene(); s.box(-3, 0, 1, 3, 2.3, 4); s.box(0.5, y0, z0, 3, y1, 1);
+    const m = motor(s.col, { skill: 100, x: -1 });
+    let worst = 0, pop = 0;
+    for (let i = 0; i < 220; i++) {
+      const was = [...m.pos], held = on(m);
+      step(m, { jump: i >= 10 && i < 40, strafe: i >= 60 ? 1 : 0 });
+      if (on(m)) worst = Math.max(worst, overlap(s.boxes, m.pos, m.height));
+      if (held && !on(m)) pop = Math.max(pop, Math.abs(m.pos[1] - was[1]));
+    }
+    assert.ok(worst < 0.03 && pop < 0.2, `moulding at ${y0}: deepest on the wall ${worst.toFixed(3)} m, popped ${pop.toFixed(2)} m`);
+  }
+  // the catch beside a rail under the lip
+  {
+    const s = scene(); s.box(-3, 0, 1, 3, 2.15, 4); s.box(-3, 0.85, 0.91, 3, 0.88, 0.98);
+    const m = motor(s.col, { skill: 60, z: 0.45 });
+    let worst = 0;
+    for (let i = 0; i < 60; i++) { step(m, { jump: i >= 10 && i < 40 }); if (on(m)) worst = Math.max(worst, overlap(s.boxes, m.pos, m.height)); }
+    assert.ok(worst < 0.03, `the catch: ${worst.toFixed(3)} m deep`);
+  }
+  // the free climb up a wall with a rail across it: never pressed deeper into it than it stood, and up past it, leaning
+  // out - a rail in the collider's blind band (12 cm out at the chest) too, the body walked in against it
+  for (const [out, y0] of [[0.08, 0.83], [0.12, 1.15]]) {
+    const s = scene(); s.box(-3, 0, 1, 3, 6, 4); s.box(-3, y0, 1 - out, 3, y0 + 0.03, 1);
+    const m = motor(s.col, { skill: 100, z: 0.6 });
+    const entry = overlap(s.boxes, m.pos, m.height);
+    let worst = 0;
+    for (let i = 0; i < 120; i++) { step(m, { forward: 1 }); if (m.onWall) worst = Math.max(worst, overlap(s.boxes, m.pos, m.height)); }
+    assert.ok(worst <= Math.max(0.03, entry + 0.01), `the free climb at a rail ${out} out: ${worst.toFixed(3)} m deep (it stood ${entry.toFixed(3)} in)`);
+    assert.ok(m.pos[1] > y0 + 0.1, `up past the rail ${out} out (feet ${m.pos[1].toFixed(2)})`);
+  }
+});
+
+test('AUDIT CLIMB2 G3: a crouched body under a low slab takes no wall it cannot stand up on - never stood into the slab, never flicking on and off the wall', () => {
+  for (const slab of [1.4, 1.6]) {
+    const s = scene(); s.box(-3, 0, 1, 3, 4, 4); s.box(-3, slab, -0.5, 3, slab + 0.3, 1);
+    const m = motor(s.col, { skill: 100, z: -1.5 });
+    let worst = 0, flips = 0, was = false;
+    for (let i = 0; i < 400; i++) {
+      step(m, { crouch: i === 2, forward: i >= 30 ? 1 : 0 });
+      worst = Math.max(worst, overlap(s.boxes, m.pos, m.height));
+      if (m.onWall !== was) flips++;
+      was = m.onWall;
+    }
+    assert.ok(worst < 0.03 && flips === 0, `slab at ${slab}: ${flips} flips on and off the wall, ${worst.toFixed(3)} m deep`);
+  }
+  // with room to stand, a crouched climber stands and climbs (the classic climb stands a crouched one too)
+  const s = scene(); s.box(-3, 0, 1, 3, 4, 4);
+  const m = motor(s.col, { skill: 100, z: -0.5 });
+  for (let i = 0; i < 200 && !(m.onWall && m.pos[1] > 0.5); i++) step(m, { crouch: i === 2, forward: i >= 30 ? 1 : 0 });
+  assert.ok(m.onWall && !m.crouching && m.pos[1] > 0.5, `climbing, standing (y ${m.pos[1].toFixed(2)})`);
+});
+
+test('AUDIT CLIMB2 G4: a free climb takes the lip its hands come to - a sill as it reaches it, never butting the head first; a cornice it cannot get past by reaching round it', () => {
+  // a sill 12 cm out and 10 cm tall on a tall wall: held as the hands come to it, the climb never stopped under it
+  {
+    const s = scene(); s.box(-3, 0, 1.12, 3, 12, 4); s.box(-1.5, 5.4, 1.0, 1.5, 5.5, 1.12);
+    const m = motor(s.col, { skill: 100, z: 0.74 });
+    let stalls = 0, climbing = false;
+    for (let i = 0; i < 600 && !m.hanging; i++) {
+      const y = m.pos[1];
+      step(m, { forward: 1 });
+      if (climbing && m.onWall && !m.hanging && m.pos[1] - y < 1e-4) stalls++;
+      climbing ||= m.onWall;
+    }
+    assert.ok(m.hanging && near(m._wall.lipY, 5.5, 0.02), `hanging from the sill (lip ${m._wall?.lipY})`);
+    assert.equal(stalls, 0, 'the climb never stopped under it');
+  }
+  // a cornice 0.12-0.15 out and 0.2 tall: the head stops under it with the lip 1.9 over the feet - the hands reach round
+  for (const out of [0.12, 0.15]) {
+    const s = scene(); s.box(-3, 0, 1, 3, 8, 4); s.box(-3, 2.8, 1 - out, 3, 3.0, 1);
+    const m = motor(s.col, { skill: 0, z: 0.6 });
+    let worst = 0;
+    for (let i = 0; i < 300 && !m.hanging; i++) { step(m, { forward: 1 }); worst = Math.max(worst, overlap(s.boxes, m.pos, m.height)); }
+    for (let i = 0; i < 20; i++) { step(m, {}); worst = Math.max(worst, overlap(s.boxes, m.pos, m.height)); }
+    assert.ok(m.hanging && near(m._wall.lipY, 3.0, 0.02), `cornice ${out} out: hanging from it (${m.hanging ? m._wall.lipY : 'not hanging'})`);
+    assert.ok(worst < 0.03, `clear of it (${worst.toFixed(3)})`);
+  }
+});
+
+/** The inside of a polygonal room: n wall segments 0.3 thick round a circle of radius R, its near wall's face at z = 1,
+ *  top at 2.3; its centre's z. */
+function ring(n, R, top = 2.3) {
+  const s = scene();
+  const cz = 1 - R * Math.cos(Math.PI / n), k = (R + 0.3) / R;
+  for (let i = 0; i < n; i++) {
+    const a0 = (2 * Math.PI * (i - 0.5)) / n, a1 = (2 * Math.PI * (i + 0.5)) / n;
+    const p = [[Math.sin(a0) * R, Math.cos(a0) * R], [Math.sin(a1) * R, Math.cos(a1) * R]];
+    p.push([p[1][0] * k, p[1][1] * k], [p[0][0] * k, p[0][1] * k]);
+    const V = [];
+    for (const y of [0, top]) for (const [x, z] of p) V.push(x, y, z + cz);
+    const idx = [];
+    for (let a = 0; a < 4; a++) { const b = (a + 1) % 4; idx.push(a, b, 4 + b, a, 4 + b, 4 + a); }
+    for (let a = 1; a < 3; a++) { idx.push(0, a + 1, a); idx.push(4, 4 + a, 4 + a + 1); }
+    s.col.addMesh(`seg${i}`, new Float32Array(V), idx, I);
+  }
+  return { col: s.col, cz };
+}
+
+test('AUDIT CLIMB2 G5: the shimmy goes round a tower of any number of sides - its bends followed and its corners turned, whatever their angle - and round the inside of a room the same', () => {
+  for (const [n, R, inside] of [[24, 1.0], [20, 0.8], [32, 0.6], [12, 1.5], [10, 2], [8, 1.5], [6, 1.5], [8, 2, true], [10, 2, true], [12, 3, true], [12, 1.5, true], [6, 2, true]]) {
+    const { col, cz } = inside ? ring(n, R) : tower(n, R);
+    const m = motor(col, { skill: 100 });
+    for (let i = 0; i < 60; i++) step(m, { jump: i >= 10 && i < 40 });
+    assert.equal(m.hanging, true, `${n}-gon R ${R}${inside ? ' inside' : ''}: hanging`);
+    let turned = 0, prev = Math.atan2(m.pos[0], m.pos[2] - cz), corners = 0;
+    for (let i = 0; i < 2400 && Math.abs(turned) < 2 * Math.PI; i++) {
+      const was = m._pkMove;
+      step(m, { strafe: 1 });
+      if (!was && m._pkMove) corners++;
+      if (!m.onWall && !m._pkMove) break;
+      const a = Math.atan2(m.pos[0], m.pos[2] - cz);
+      let d = a - prev; if (d > Math.PI) d -= 2 * Math.PI; if (d < -Math.PI) d += 2 * Math.PI;
+      turned += d; prev = a;
+    }
+    assert.ok(Math.abs(turned) >= 2 * Math.PI, `${n}-gon R ${R}${inside ? ' inside' : ''}: round ${(Math.abs(turned) * 180 / Math.PI).toFixed(0)} deg (${m.hanging ? 'hanging' : 'let go'})`);
+    // a facet turned under the follow is followed, not swung round: a round tower is no string of corners
+    if (360 / n < 30) assert.equal(corners, 0, `${n}-gon R ${R}: followed round, ${corners} corners swung`);
+  }
+  // a lip that ends at a gap, a wall across the way beyond it: no corner - the hands do not cross the gap
+  const s = scene(); s.box(-3, 0, 1, 0, 2.3, 4); s.box(0.6, 0, -1, 3, 2.3, 4);
+  const m = motor(s.col, { skill: 100, x: -1 });
+  for (let i = 0; i < 60; i++) step(m, { jump: i >= 10 && i < 40 });
+  assert.equal(m.hanging, true);
+  let crossed = false;
+  for (let i = 0; i < 180; i++) { step(m, { strafe: 1 }); crossed ||= !!m._pkMove; }
+  assert.ok(!crossed && m.hanging && m.pos[0] < 0, `held at the lip's end (x ${m.pos[0].toFixed(2)})`);
+});
+
+test('AUDIT CLIMB2 G6: Forward with Left or Right at a wall\'s side edge still climbs - the way across ends there, the way up does not', () => {
+  const s = scene(); s.box(-3, 0, 1, 3, 8, 4);
+  const m = motor(s.col, { skill: 0, x: 2.0, z: 0.6 });
+  let edge = null;
+  for (let i = 0; i < 400; i++) {
+    step(m, { forward: 1, strafe: i >= 60 ? 1 : 0 });
+    if (edge == null && m.onWall && m.pos[0] > 2.99) edge = { i, y: m.pos[1] };
+    if (edge && i > edge.i + 120) break;
+  }
+  assert.ok(edge, 'at the edge');
+  assert.ok(m.onWall && m.pos[1] > edge.y + 0.5, `still climbing at the edge (rose ${(m.pos[1] - edge.y).toFixed(2)} m)`);
+});
+
+test('AUDIT CLIMB2 M1: Crouch with Jump held lets go and stays let go - the Jump held is spent on the hold, never a catch of the lip just dropped from', () => {
+  const s = scene(); s.box(-3, 0, 1, 3, 2.3, 4);
+  const m = motor(s.col, { skill: 100 });
+  for (let i = 0; i < 40; i++) step(m, { jump: i >= 10 });
+  assert.equal(m.hanging, true);
+  step(m, { jump: true, crouch: true });
+  let again = false;
+  for (let i = 0; i < 60; i++) { step(m, { jump: true }); again ||= m.onWall || !!m._pkMove; }
+  assert.equal(again, false, 'not caught again');
+  assert.equal(m.grounded, true, 'down on the ground');
+});

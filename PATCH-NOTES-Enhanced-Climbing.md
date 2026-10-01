@@ -23,7 +23,7 @@ Press **Jump** while moving forward at a wall or fence with a thin top, no highe
 ## Catch a ledge and hang from it
 Keep **Jump** held after a jump or while falling, and you grab a ledge that comes within reach of your hands. A tap doesn't catch anything; you have to hold it.
 
-- **Hanging:** a ledge at chest height or higher (about 1.2 m above your feet) is held. You hang under it with your eyes just below the edge.
+- **Hanging:** a ledge at chest height or higher (about 1.2 m above your feet) is held. You hang under it with your eyes just below the edge. A roof's eave counts, up to a 45° pitch.
 - **Holding Forward** as you catch it climbs you straight up, the same as before.
 - **A lower ledge** (below your chest) is stepped straight onto.
 - **Hard catches depend on skill.** At Climbing 0 you can only hold a ledge after a fall that wouldn't have hurt you anyway. At Climbing 100 you can hold one after a fall of about 15 m. Fall further than your skill can hold and you don't catch it; you keep falling and take the fall.
@@ -31,7 +31,7 @@ Keep **Jump** held after a jump or while falling, and you grab a ledge that come
 While hanging:
 - **Forward**, or a fresh press of **Jump**, climbs up onto the top, or over it if it's thin. A ledge with no room above it, such as a window sill, just keeps you hanging.
 - **Left and Right** move you along the ledge (a shimmy). The hands follow the ledge as it rises, falls and bends. You stop where it ends or breaks.
-- **Corners:** the shimmy goes round the corners of a building, inside and out. Keep the key held and you carry on round. Going round a corner uses your grip like the rest of the shimmy.
+- **Corners:** the shimmy goes round the corners of a building, inside and out, and round towers and rooms of any shape: square, eight-sided or round. Keep the key held and you carry on round. Going round a corner uses your grip like the rest of the shimmy.
 - **Back** climbs down the wall under you.
 - **Crouch** lets go. You fall from where you were hanging, so the drop is shorter than it looks from the top.
 
@@ -40,8 +40,9 @@ Hold **Forward** against a wall for a moment and you climb it. There's no dice r
 
 - **Forward** climbs up, **Back** climbs down, **Left** and **Right** move across. Let go of the keys and you stay where you are.
 - **Jump with Forward held** at a sheer wall grabs it straight from the jump.
-- Climbing down to the floor sets you back on your feet. Crouch lets go.
-- **At the top**, with Forward held, you pull yourself over the edge as soon as it's within reach. If there's no room up there, you climb on until the edge is at your hands and hang from it.
+- Climbing down to the floor sets you back on your feet. A ledge too narrow to stand on, such as a window sill, stops you on the wall above it. Crouch lets go.
+- If you're crouched under something low, you can't start a climb until there's room to stand up.
+- **At the top**, with Forward held, you pull yourself over the edge as soon as it's within reach. If there's no room up there, you climb on until the edge is at your hands and hang from it. Under a cornice that sticks out, you reach round it and hang from its edge.
 - Your **Climbing** skill sets how fast you climb: slower than before at Climbing 0, faster at 100.
 - You can still climb out of water onto a ledge the same way.
 

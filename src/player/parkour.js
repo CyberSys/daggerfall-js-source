@@ -114,6 +114,17 @@ export const PARKOUR_UP_GAP = 0.04;
 export const PARKOUR_MANTLE_ARC = 0.03;
 /** "Clear": the push collider.penetrationAt reports, findClearFloor's own. */
 export const PARKOUR_FIT_EPS = 0.03;
+/** The body's radius (the motor's CAPSULE_RADIUS, restated for the cycle and
+ *  pinned equal). */
+export const PARKOUR_BODY_RADIUS = 0.35;
+/** The body asked between the collider's spheres at least this often up its
+ *  axis (bandsClear) - half the standing chain's 0.55 spacing. */
+export const PARKOUR_FIT_BAND = 0.275;
+/** AUDIT CLIMB2 G2: a free climber's move that would take the body into a
+ *  moulding or a rail across the wall leans out past it instead - the hug let
+ *  go of, then these far out from the face: the nearest that clears, within
+ *  the wall's contact (PARKOUR_CONTACT). */
+export const PARKOUR_LEAN = [0, 0.02, 0.05, 0.1];
 /** The path is proven at least this often - under a quarter of the radius. */
 export const PARKOUR_PATH_STEP = 0.08;
 /** After a lip is found and every way onto or over it refused, the air catch
@@ -296,8 +307,25 @@ export const parkourRefusal = () => _gate?.() ?? null;
  *  that reaches such a point crosses the solid's face on the way, and the
  *  path is proven at every step - pathClear.) */
 export function capsuleFits(collider, p, height) {
-  if (!(collider.penetrationAt(p, height) < PARKOUR_FIT_EPS)) return false;
+  if (!(collider.penetrationAt(p, height) < PARKOUR_FIT_EPS) || !bandsClear(collider, p, height)) return false;
   return !Number.isFinite(collider.raycast([p[0], p[1] + 0.05, p[2]], [0, 1, 0], height - 0.1));
+}
+
+/** AUDIT CLIMB2 G2: THE BODY BETWEEN THE COLLIDER'S SPHERES. collider.js
+ *  resolves the capsule as a chain of spheres at most a diameter apart, and
+ *  between two of them it reaches only 0.22 m from the axis (standing: feet +
+ *  0.625 and + 1.175) - a moulding, a rail or a cornice there sits up to
+ *  0.16 m inside the 0.35 body and penetrationAt reads it clear. The bands are
+ *  asked too: spheres a contact's slack (PARKOUR_FIT_EPS) inside the body,
+ *  every PARKOUR_FIT_BAND or less up the axis between its ends. */
+export function bandsClear(collider, p, height) {
+  if (!collider.sphereOverlaps) return true;
+  const axis = Math.max(0, height - 2 * PARKOUR_BODY_RADIUS);
+  const n = Math.ceil(axis / PARKOUR_FIT_BAND - 1e-9);
+  for (let i = 1; i < n; i++) {
+    if (collider.sphereOverlaps([p[0], p[1] + PARKOUR_BODY_RADIUS + (axis * i) / n, p[2]], PARKOUR_BODY_RADIUS - PARKOUR_FIT_EPS)) return false;
+  }
+  return true;
 }
 
 /** A level hit that is a wall the look meets: its distance, its horizontal
@@ -755,7 +783,7 @@ export function senseGrip(collider, face, normal, lipY, opts, fit = true) {
   // 3. the face under it - under an eave the roof runs on past the edge, and the face is the rung's under the lip
   const under = faceHit(collider, [ox, y - PARKOUR_UNDER, oz], dir, far)
     ?? faceHit(collider, [ox, Math.min(y - PARKOUR_UNDER, loY - PARKOUR_GRIP_RUNG), oz], dir, far);
-  if (!under || under.normal[0] * normal[0] + under.normal[2] * normal[2] < PARKOUR_FACE_FOLLOW) return null;
+  if (!under || under.normal[0] * normal[0] + under.normal[2] * normal[2] < PARKOUR_FACE_FOLLOW - PARKOUR_RAY_SCATTER) return null;
   const n = under.normal;
   const fx = ox + dir[0] * under.dist, fz = oz + dir[2] * under.dist;
   // 4. the hang
@@ -788,10 +816,17 @@ export function planCatch(feet, grip) {
   };
 }
 
-/** A corner the shimmy turns: the other face's normal within this of square
- *  to the lip (the dot) - a building's corner, not a bend (a bend the grip
- *  follows on its own, PARKOUR_FACE_FOLLOW). */
-export const PARKOUR_CORNER_SQUARE = Math.cos((30 * Math.PI) / 180);
+/** A corner the shimmy turns is another face turned from the one held past
+ *  the follow (PARKOUR_FACE_FOLLOW - a bend the grip follows on its own, its
+ *  30 degrees taken with the rays' scatter: a 12-sided room's bends, exactly
+ *  that, fell between the two). AUDIT CLIMB2 G5: a
+ *  building's square corner, an octagonal tower's 45 degrees, a hexagon's 60
+ *  - the first cut took only corners within 30 degrees of square, and the
+ *  shimmy stopped at the first bend of every tower or room that was not
+ *  round. Round an outer corner the other face is sought this far past the
+ *  edge (its turn read off it; one too sharp to meet there is taken as
+ *  square). */
+export const PARKOUR_CORNER_PROBE = 0.1;
 /** Round an inner corner the body comes off the first face by this more. */
 export const PARKOUR_CORNER_OFF = 0.1;
 /** Round an outer corner the hands take the other face this far past the

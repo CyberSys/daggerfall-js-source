@@ -269,9 +269,10 @@ import {
   PARKOUR_AIR_REACH, PARKOUR_AIR_LOW, PARKOUR_OVER_DROP, PARKOUR_QUIET_STEPS,
   // CLIMB2: the hang, the shimmy, the grip and the free climb
   senseGrip, catchClear, planCatch, planCorner, moveClear, wallContact, carryHold, gripSeconds, shimmySpeed, freeClimbSpeed, freeStartSeconds,
+  bandsClear, capsuleFits, PARKOUR_LEAN,
   PARKOUR_HANG_DROP, PARKOUR_HANG_GAP, PARKOUR_HANG_LOW, PARKOUR_HAND_SPAN, PARKOUR_GRIP_MIN, PARKOUR_GRIP_LOW,
   PARKOUR_GRIP_LOW_TEXT, PARKOUR_GRIP_REST, PARKOUR_GRIP_REGEN_S,
-  PARKOUR_CORNER_SQUARE, PARKOUR_CORNER_OFF, PARKOUR_CORNER_IN, PARKOUR_CORNER_CLEAR, PARKOUR_WALL_REACH, PARKOUR_CONTACT,
+  PARKOUR_CORNER_PROBE, PARKOUR_FACE_FOLLOW, PARKOUR_CORNER_OFF, PARKOUR_CORNER_IN, PARKOUR_CORNER_CLEAR, PARKOUR_WALL_REACH, PARKOUR_CONTACT,
 } from './parkour.js';
 // A6: PlayerMoveScanner is a component on the player object in DFU
 // (PlayerMotor.Start :265 GetComponent), so the motor owns one. Same
@@ -1741,6 +1742,9 @@ export class PlayerMotor {
     if (s.t < freeStartSeconds(parkourSkill(pk.inputs?.() ?? {})) || this.grip < PARKOUR_GRIP_MIN) return false;
     const c = wallContact(this.collider, this.pos, [Math.sin(yaw), 0, Math.cos(yaw)], this.height, CAPSULE_RADIUS);
     if (!c) return false;
+    // AUDIT CLIMB2 G3: the body climbs standing (the wall arm of _heightAction stands it) - a crouched one under a slab
+    // it cannot stand up in takes no wall; G2: nor one a rail already runs through (the climb would carry it on up)
+    if (this.crouching ? !capsuleFits(this.collider, this.pos, CAPSULE_HEIGHT) : !bandsClear(this.collider, this.pos, this.height)) return false;
     const refusal = parkourRefusal();
     if (refusal) {
       pk.say?.(refusal);
@@ -1845,6 +1849,18 @@ export class PlayerMotor {
     if (this._wallTally > SYSTEM_TIMER_UPDATES_DIVISOR * CONTINUE_CLIMBING_SKILL_CHECK_FREQUENCY) { this._wallTally = 0; this.parkour?.tally?.(); }
   }
 
+  /** AUDIT CLIMB2 G5: the face a ray met, if it is another face the shimmy turns to - turned from `n` past the follow
+   *  (PARKOUR_FACE_FOLLOW) toward the way along the lip (`sign` -1: facing back along it, an inner corner's; 1: facing
+   *  on along it, an outer one's) - its normal, level; null otherwise. */
+  _pkTurned(hit, n, t, sign) {
+    if (!Number.isFinite(hit.dist) || !hit.normal) return null;
+    const l = Math.hypot(hit.normal[0], hit.normal[2]);
+    if (l < 1e-4) return null;
+    const n2 = [hit.normal[0] / l, 0, hit.normal[2] / l];
+    if (n2[0] * n[0] + n2[2] * n[2] >= PARKOUR_FACE_FOLLOW) return null;
+    return sign * (n2[0] * t[0] + n2[2] * t[2]) > 0 ? n2 : null;
+  }
+
   /** CLIMB2: the face point a body hanging off it stands off. */
   _pkFaceOf(n) {
     const back = CAPSULE_RADIUS + PARKOUR_HANG_GAP;
@@ -1909,8 +1925,16 @@ export class PlayerMotor {
     const d = shimmySpeed(skill) * dt * Math.min(1, Math.abs(side));
     const face = this._pkFaceOf(n);
     const reach = d + PARKOUR_HAND_SPAN;
-    const g = senseGrip(this.collider, [face[0] + tx * reach, 0, face[2] + tz * reach], n, w.lipY, geo, false)
-      ? senseGrip(this.collider, [face[0] + tx * d, 0, face[2] + tz * d], n, w.lipY, geo) : null;
+    // the body's next hold, and the lead hand a span on from it, felt along the lip in two halves, each along the face
+    // the last found - AUDIT CLIMB2 G5: asked along the face the body held, a round tower's curve turned the lead
+    // hand's facet past the follow, and the shimmy stopped on an unbroken lip
+    const at = senseGrip(this.collider, [face[0] + tx * d, 0, face[2] + tz * d], n, w.lipY, geo);
+    let lead = at;
+    for (let k = 0; k < 2 && lead; k++) {
+      const ln = lead.normal, h = PARKOUR_HAND_SPAN / 2;
+      lead = senseGrip(this.collider, [lead.face[0] - ln[2] * s * h, 0, lead.face[2] + ln[0] * s * h], ln, lead.lipY, geo, false);
+    }
+    const g = lead ? at : null;
     if (g) { this._pkHangAt(g); w.cornerRefused = 0; return true; }
     const move = this._pkCorner(s, reach, skill, geo);
     if (!move) { w.cornerRefused = s; return false; }
@@ -1936,12 +1960,15 @@ export class PlayerMotor {
     const y = w.lipY - 0.3;
     const face = this._pkFaceOf(n);
     let grip = null, mid = null;
-    const ahead = this.collider.raycastHit([this.pos[0], y, this.pos[2]], t, back + PARKOUR_HAND_SPAN);
-    if (Number.isFinite(ahead.dist) && ahead.normal && -(ahead.normal[0] * t[0] + ahead.normal[2] * t[2]) >= PARKOUR_CORNER_SQUARE) {
-      const n2 = [-t[0], 0, -t[2]];
-      const k = ahead.dist - back;
-      const cx = this.pos[0] + t[0] * k + n[0] * PARKOUR_CORNER_OFF, cz = this.pos[2] + t[2] * k + n[2] * PARKOUR_CORNER_OFF;
-      grip = senseGrip(this.collider, [cx - n2[0] * back, 0, cz - n2[2] * back], n2, w.lipY, geo);
+    // the face across the way, at its own turn (AUDIT CLIMB2 G5: not only square) - an inner corner's apex within the
+    // old reach, the face itself met as far on as a 30-degree turn puts it from the body off the first face
+    const ahead = this.collider.raycastHit([this.pos[0], y, this.pos[2]], t, back + PARKOUR_HAND_SPAN + back / Math.tan(Math.acos(PARKOUR_FACE_FOLLOW)));
+    const across = this._pkTurned(ahead, n, t, -1);
+    const apex = across ? ahead.dist - (back * (across[0] * n[0] + across[2] * n[2])) / -(across[0] * t[0] + across[2] * t[2]) : Infinity;
+    if (across && apex <= back + PARKOUR_HAND_SPAN) {
+      const n2 = across;
+      const hx = this.pos[0] + t[0] * ahead.dist, hz = this.pos[2] + t[2] * ahead.dist;
+      grip = senseGrip(this.collider, [hx + n[0] * PARKOUR_CORNER_OFF, 0, hz + n[2] * PARKOUR_CORNER_OFF], n2, w.lipY, geo);
       if (grip) mid = [(this.pos[0] + grip.feet[0]) / 2, (this.pos[1] + grip.feet[1]) / 2, (this.pos[2] + grip.feet[2]) / 2];
     } else {
       let a = 0, b = reach;   // the lip's end along it: held at a, not at b
@@ -1951,9 +1978,15 @@ export class PlayerMotor {
       }
       const c = (a + b) / 2;
       const ex = face[0] + t[0] * c, ez = face[2] + t[2] * c;
-      grip = senseGrip(this.collider, [ex - n[0] * PARKOUR_CORNER_IN, 0, ez - n[2] * PARKOUR_CORNER_IN], t, w.lipY, geo);
-      const r = (back + PARKOUR_CORNER_CLEAR) * Math.SQRT1_2;
-      if (grip) mid = [ex + (n[0] + t[0]) * r, (this.pos[1] + grip.feet[1]) / 2, ez + (n[2] + t[2]) * r];
+      // the other face, read just past the edge (AUDIT CLIMB2 G5: a tower's 45 or 60 degrees, not only square); one
+      // too sharp to meet there is taken as square
+      const px = ex + t[0] * PARKOUR_CORNER_PROBE + n[0] * back, pz = ez + t[2] * PARKOUR_CORNER_PROBE + n[2] * back;
+      const n2 = this._pkTurned(this.collider.raycastHit([px, y, pz], [-n[0], 0, -n[2]], back + PARKOUR_HAND_SPAN), n, t, 1) ?? t;
+      const along = n2[0] * n[0] + n2[2] * n[2], out = n2[0] * t[0] + n2[2] * t[2];   // the face's way on from the edge: along t, then in
+      const dx = t[0] * along - n[0] * out, dz = t[2] * along - n[2] * out;
+      grip = senseGrip(this.collider, [ex + dx * PARKOUR_CORNER_IN, 0, ez + dz * PARKOUR_CORNER_IN], n2, w.lipY, geo);
+      const bx = n[0] + n2[0], bz = n[2] + n2[2], bl = Math.hypot(bx, bz) || 1, r = back + PARKOUR_CORNER_CLEAR;
+      if (grip) mid = [ex + (bx / bl) * r, (this.pos[1] + grip.feet[1]) / 2, ez + (bz / bl) * r];
     }
     if (!grip) return null;
     const move = planCorner(this.pos, mid, grip, skill);
@@ -1967,8 +2000,7 @@ export class PlayerMotor {
    *  is. Going up, a lip come to the hands is held (the top of the climb) -
    *  and with Forward still held, climbed over. A move the wall does not go on
    *  under is not made (its side edge, its top where no lip was found); a
-   *  floor under the feet ends the climb standing (a climb down to the
-   *  ground; or a top the hug steps the body onto, the classic's own). */
+   *  floor under the body, not going up, ends the climb standing (A1). */
   _freeClimbStep(dt, side, vert, skill, inputs) {
     const w = this._wall;
     const c = wallContact(this.collider, this.pos, [-w.normal[0], 0, -w.normal[2]], this.height, CAPSULE_RADIUS,
@@ -2014,14 +2046,45 @@ export class PlayerMotor {
         this._pkHangAt(g);
         return this._hangStep(dt, { jump: false }, 0, vert, skill);
       }
+      // AUDIT CLIMB2 G4: a climb that could go no higher - the head under a cornice that stands out from the wall, the
+      // lip still over the hands - reaches up round it: the hang is taken by a catch's move, its way proven clear, and
+      // the hold goes on (an unbilled move, as a corner is)
+      if (g && w.stuck && catchClear(this.collider, this.pos, g, CAPSULE_HEIGHT)) {
+        const move = planCatch(this.pos, g);
+        move.kind = 'reach';
+        move.bill = false;
+        this._parkourBegin(move);
+        return true;
+      }
     }
+    w.stuck = false;
     if (!side && !vert) return true;
     const v = freeClimbSpeed(this.speed, skill, !!inputs.enhanced) * (side && vert ? DIAGONAL_FACTOR : 1);
-    const nx = c.normal[0], nz = c.normal[2];
+    const n = c.normal;
     const was = [this.pos[0], this.pos[1], this.pos[2]];
-    const r = this.collider.move(this.pos,
-      (-nz * side * v - nx * this.speed) * dt, vert * v * dt, (nx * side * v - nz * this.speed) * dt,
-      this.height, false);
+    this._fcMove(was, side, vert, v, n, dt);
+    // a move the wall does not go on under is not made - nor one into what the collider's spheres pass between (AUDIT
+    // CLIMB2 G2: a moulding or a rail across the wall, which the body leans out past - the hug let go of, out from the
+    // face as far as the wall is still at the hands); AUDIT CLIMB2 G6: the way across ending (the wall's side edge) is
+    // no end of the way up, which is asked alone before the step is refused. (The floor is A1's, above: the move's own
+    // ground was the step ladder's top - gone with G1 - or a sill under the feet's rim, which is no floor, C3.)
+    // (A move the collider turned back - the rail's edge pushing a body asked up down - is no move either.)
+    const held = () => this._fcHeld(n, w) && (this.pos[1] - was[1]) * Math.sign(vert) >= -1e-4;
+    for (const out of PARKOUR_LEAN) if (!held()) this._fcMove(was, side, vert, v, n, dt, out);
+    if (!held() && side && vert) this._fcMove(was, 0, vert, v, n, dt);
+    if (!held()) { this.pos[0] = was[0]; this.pos[1] = was[1]; this.pos[2] = was[2]; }
+    w.stuck = vert > 0 && this.pos[1] - was[1] < 1e-4;
+    return true;
+  }
+
+  /** CLIMB2: the free climb's move from `was` - across, up or down the face, pressed into it as the classic hug is,
+   *  or (`out`, AUDIT CLIMB2 G2) leaning that far out from it instead; never stepping (AUDIT CLIMB2 G1). */
+  _fcMove(was, side, vert, v, n, dt, out = null) {
+    const nx = n[0], nz = n[2], hug = out == null ? -this.speed * dt : out;
+    this.pos[0] = was[0]; this.pos[1] = was[1]; this.pos[2] = was[2];
+    this.collider.move(this.pos,
+      -nz * side * v * dt + nx * hug, vert * v * dt, nx * side * v * dt + nz * hug,
+      this.height, false, false, true);   // AUDIT CLIMB2 G1: no step ladder
     // the hug's press slides a body along a face's own seams (a box's diagonal edge took a climb down 2.8 m sideways):
     // across the wall the body goes as far as it was asked and no further, and no way it was not asked
     const want = side * v * dt, got = -nz * (this.pos[0] - was[0]) + nx * (this.pos[2] - was[2]);
@@ -2030,18 +2093,12 @@ export class PlayerMotor {
       const fx = this.pos[0] - nz * (keep - got), fz = this.pos[2] + nx * (keep - got);
       if (this.collider.penetrationAt([fx, this.pos[1], fz], this.height) < 0.03) { this.pos[0] = fx; this.pos[2] = fz; }
     }
-    // a floor under the body ends the climb standing on it; AUDIT CLIMB2 C3: a ledge under the feet's rim only (a sill
-    // a hand wide) is no floor - the body is held on the wall over it, as the classic's own probe from the centre has it
-    if (r.grounded && this._groundNear()) {
-      this._wallEnd();
-      this.grounded = true;
-      this.groundKey = r.groundKey ?? null;
-      return true;
-    }
-    if (!wallContact(this.collider, this.pos, [-nx, 0, -nz], this.height, CAPSULE_RADIUS, w.seek ? PARKOUR_WALL_REACH : PARKOUR_CONTACT)) {
-      this.pos[0] = was[0]; this.pos[1] = was[1]; this.pos[2] = was[2];
-    }
-    return true;
+  }
+
+  /** CLIMB2: is the free climber where the move put it still on the wall, and clear of everything (bandsClear)? */
+  _fcHeld(n, w) {
+    return !!wallContact(this.collider, this.pos, [-n[0], 0, -n[2]], this.height, CAPSULE_RADIUS, w.seek ? PARKOUR_WALL_REACH : PARKOUR_CONTACT)
+      && bandsClear(this.collider, this.pos, this.height);
   }
 
   /** CLIMB1: a move begins (CLIMB2: the climb it came out of has already let
@@ -2085,7 +2142,7 @@ export class PlayerMotor {
       const i = this.parkour.inputs?.() ?? {};
       this.grip = Math.max(0, this.grip - dt / gripSeconds(parkourSkill(i), i.fatigue ?? 1));
     }
-    if (m.kind === 'corner') this._wallTick(dt);   // AUDIT CLIMB2 C7: time round a corner is time on the wall
+    if (this._wall) this._wallTick(dt);   // AUDIT CLIMB2 C7: time round a corner (or reaching round a cornice) is time on the wall
     if (m.carrier) {
       const now = this.collider.bucketPose(m.key);
       if (now) { carryMove(m, m.carrier, now); m.carrier = now; }
@@ -2102,11 +2159,13 @@ export class PlayerMotor {
     this.groundKey = null;
     if (m.t >= 1) {
       this._pkMove = null;
-      if (m.hang && m.kind === 'corner' && this._wall) {
+      if (m.hang && this._wall) {
         // AUDIT CLIMB2 C7: A CORNER IS THE SAME HOLD GOING ON. Let go of and taken afresh, each corner said the grip's
         // warning again, restarted the Climbing tally (a pillar's faces, each shorter than its cadence, never trained
         // it) and dropped the climb's flag (the fatigue band billed a walk); only the wall held is the next face's.
+        // (A reach round a cornice, G4, is the same: the free climb's hold goes on, hanging.)
         const w = this._wall;
+        w.mode = 'hang';
         w.normal = [m.hang.normal[0], 0, m.hang.normal[2]];
         w.lipY = m.hang.lipY;
         w.key = m.key ?? null;

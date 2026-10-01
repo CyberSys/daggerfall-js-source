@@ -263,16 +263,19 @@ hanging, follows the lip and stops at gaps", "Climb up / drop: W or Jump / Crouc
 - **The hand-hold** (`senseGrip`): a lip near an expected height on a face through a known point. Level rays from where a
   hanging body's axis would be, into the wall, every 0.05 m down a window of ±0.15 about the expected lip: the lip is
   where the wall steps OUT toward the body by the grip's depth (0.08 - the face's own lean, CLIMB1's) - a rung meeting
-  nothing, or a wall set back (a sill's), over one meeting the face within the window of where it was expected. No such
-  step is no lip: a wall running on through the window, or air. Then the top by a down ray just past the face, no
+  nothing, or a wall set back (a sill's), over one meeting the face within the window of where it was expected - or
+  where a top no steeper than 45 degrees rises from the face (an eave; its depth read up the rungs it rises through, a
+  rung's height back a rung - AUDIT CLIMB2 C1). No such step is no lip: a wall running on through the window, or air. Then the top by a down ray just past the face, no
   steeper than 45 degrees and inside the window; the face under it, its normal within 30 degrees of the one expected
   (the hold follows a wall that curves and turns no corner on its own); and the hang, the body off the face by its radius
-  and 0.04, the lip 1.8 over its feet (the eye - `EYE_HEIGHT` 1.7 - 0.1 under the lip), fitting there standing. A 10 cm
+  and 0.04, the lip 1.8 over its feet (the eye - `EYE_HEIGHT` 1.7 - 0.1 under the lip), fitting there standing - the
+  whole body, between the collider's spheres too (`bandsClear`, AUDIT CLIMB2 G2). A 10 cm
   sill on a tall wall is a hold; a 5 cm one is not; a lip with the floor too near under it holds the hands but not the
   body.
 - **The grip** (`gripSeconds`): a fresh hold lasts 6 s at Climbing 0 and 30 s at 100, times 0.35..1 over the body's
   Fatigue (its current over its most - "grip on Fatigue"). It is spent whole hanging, shimmying and climbing, at half
-  held still on the wall with the feet on it; it comes back from nothing in 2.5 s standing on the ground; under 25% it is
+  held still on the wall with the feet on it; it comes back from nothing in 2.5 s standing on the ground or treading
+  water (AUDIT CLIMB2 H2); a catch's, a corner's and a reach's moves spend it as the hang does (H4); under 25% it is
   failing (the HUD's short colour, and "Your grip is failing." once a hold); under 5% it takes no new hold. Spent, the
   hands let go.
 - **The pace**: the shimmy 0.6 m/s at Climbing 0 to 1.4 at 100 (`shimmySpeed`); the free climb the classic climb's own
@@ -281,9 +284,11 @@ hanging, follows the lip and stops at gaps", "Climb up / drop: W or Jump / Crouc
   a roll).
 - **The pack** (`parkourReach(skill, load)`, `load` the pack's weight over what the body can carry): nothing to half a
   pack, 0.3 m of reach less at a full one. The chest (1.2 m, where a hang begins) stays under the shortest air reach.
-- **Corners** (the motor's, on these laws): the other face square to the lip within 30 degrees; round an inner one the
-  body comes 0.1 m off the first face; round an outer one the hands take the other face 0.25 m past the edge and the body
-  swings round it 0.1 clear; the corner's path is proven as a move's (`moveClear`), at the shimmy's pace (`planCorner`).
+- **Corners** (the motor's, on these laws): another face turned past the hold's 30-degree follow, at whatever angle - a
+  building's square corner, an octagonal tower's 45, a hexagon's 60 (AUDIT CLIMB2 G5: the first cut took only corners
+  within 30 degrees of square); round an inner one the body comes 0.1 m off the first face, its apex within the old
+  reach (no corner across a gap); round an outer one the other face's turn is read 0.1 m past the edge, the hands take
+  it 0.25 m on and the body swings round the edge 0.1 clear; the corner's path is proven as a move's (`moveClear`), at the shimmy's pace (`planCorner`).
   A lip that merely ends is no corner: past a gap the body does not fit round the edge, and where the wall runs on in the
   same face the other side's hold is sought inside the solid and is none.
 - **The free climber's wall** (`wallContact`): level rays from the axis into the wall at 0.8, 0.4 and 0.2 of the body's
@@ -303,26 +308,32 @@ hanging, follows the lip and stops at gaps", "Climb up / drop: W or Jump / Crouc
   frame's press, taken by `_heightAction`'s wall arm - no stance toggles, and the body is stood); the grip is spent; the
   Climbing skill is tallied at the classic climb's continue cadence (15 system-timer units); Left and Right are the
   look's, along the wall, decided when the key goes down and kept while it is held - so a hold carries the hands round
-  corner after corner the same way.
+  corner after corner the same way (never into the next hold: a new wall asks the look afresh - AUDIT CLIMB2 A3). A body
+  the hands hold is out of the water: never sunk, its Crouch its own (C2).
 - **The hang** (`_hangStep`): the hold is asked again where the body hangs each step (gone, the hands let go). Forward, or a fresh Jump, climbs up
   - onto the top or over a thin one, the whole way proven; a lip with neither (a sill under a window) holds, and Forward
   held asks no more until it is let go or the hands move. Back climbs down the face (the free climb, reaching for the
-  wall under a sill as far as the grab's own 0.5 m until the hug presses the body to it). Left and Right shimmy: the lead
-  hand must find a hold a span (0.25 m) ahead - the lip ends, or breaks, and the hands stop - and the body must fit where
-  it hangs next; each step's hold is the lip's own, its height and its face's turn followed. Stopped, a corner is asked
-  (`_pkCorner`): an INNER one is a wall across the lip with a lip of its own at this height; an OUTER one is the lip
+  wall under a sill as far as the grab's own 0.5 m until the hug presses the body to it). Left and Right shimmy: the body
+  must fit where it hangs next, and the lead hand must find a hold a span (0.25 m) on from there, along that hold's own
+  face (AUDIT CLIMB2 G5: asked along the face the body held, a tower's curve stopped it) - the lip ends, or breaks, and
+  the hands stop; each step's hold is the lip's own, its height and its face's turn followed. Stopped, a corner is asked
+  (`_pkCorner`): an INNER one is a face across the lip with a lip of its own at this height; an OUTER one is the lip
   ending (its end found to a centimetre) with the other face's lip round the edge. A corner is a move (`corner`,
-  unbilled) that ends in the hang on the other face.
+  unbilled) and the same hold going on round it - its warning, its tally and the climb's flag kept (AUDIT CLIMB2 C7).
 - **The free climb** (`_freeClimbStep`): Forward up, Back down, Left and Right across, at the skill's pace on the classic
   climb's, pressed into the wall as the classic hug is. Going up with Forward held, a lip coming within the hands' reach
   is climbed onto or over - CLIMB1's top-out, the one Mac's call asked for (AUDIT CLIMB2 H5: the first cut topped out
   only at the hang's height, and stuck under a wall lower than that); a lip with no way onto it is climbed on to until
-  it is at the hands (1.8 over the feet), and held. Across the wall the body goes as
-  far as it was asked and no further: the hug's press slid a body along a box's diagonal seam (a climb down went 2.8 m
-  sideways before this was stripped). A move the wall does not go on under is not made (its side edge; its top where no
-  lip was held). A floor under the feet ends the climb standing (a climb down; or a top the hug steps the body onto
-  where no lip held it - the classic climb's own shove, kept as the fallback so what was climbable stays climbable);
-  so does the floor within ClimbingMotor's own 0.12 under the feet of a climber not going up (AUDIT CLIMB2 A1).
+  it is at the hands (1.8 over the feet), and held; under a cornice that stops the head before then, the hands reach
+  round it to the lip by a catch's proven move (AUDIT CLIMB2 G4). Across the wall the body goes as far as it was asked
+  and no further: the hug's press slid a body along a box's diagonal seam (a climb down went 2.8 m sideways before this
+  was stripped). The climb never steps: the hug's press read to the collider's step ladder as a walk into a stair and
+  lifted a body 0.375 m into an eave (G1). A move the wall does not go on under is not made (its top where no lip was
+  held), nor one into what the collider's spheres pass between (G2); at the side edge the way up is asked alone (G6).
+  The floor within ClimbingMotor's own 0.12 under the body's centre - the terrain's too (C6) - ends the climb of a
+  climber not going up, standing (A1); a sill under the feet's rim is no floor, and the body is held on the wall over it
+  (C3). (The first cut also ended the climb on any ground the move met, "the classic climb's own shove": with no step
+  ladder that is A1's, a step later, and it is gone.) A crouched body takes no wall it cannot stand up on (G3).
 - **Letting go** (`_wallEnd`): Crouch, the grip spent, the gate, the hold gone, the switch turned off, levitation,
   paralysis, a placement. A Jump still held catches nothing until it is pressed afresh (it would take back the lip just
   let go of); the next step reads as a climb just ended (`climb.wasClimbing`, so a Jump on the floor goes at once, as off
@@ -338,7 +349,7 @@ hanging, follows the lip and stops at gaps", "Climb up / drop: W or Jump / Crouc
 carry (`inventory.js carriedWeight` over `formulas.js entityMaxEncumbrance`) and the Climbing tally (`climbingDeps`'
 own). THE GRIP ON THE HUD: `drawHud`'s `grip` (`{ amount, low }`), handed by the world, exterior and interior hosts and,
 for the dungeon context, by its hosts' `reportActivity`. The classic HUD draws it in the breath bar's likeness and art,
-a slot left of it (they never draw together), 50 px, bottom-anchored, surviving the large HUD as the breath does; the
+a slot left of it (both may draw at once - a grip coming back while its swimmer holds breath), 50 px, bottom-anchored, surviving the large HUD as the breath does; the
 enhanced HUD a "Grip" meter beside "Breath". The interior ticker's bag carries `climbing` (AUDIT CLIMB1's reported,
 unfixed finding - PlayerEntity.cs:405-408 asks it wherever the body is - fixed here, since the band is how a climb costs
 Fatigue). The `__climb` probe carries the hold and the grip.
@@ -363,7 +374,7 @@ seven more CLIMB1 records re-aimed at the lines CLIMB2 reshaped.
 | Forward climbs up, Crouch drops | "Jump is the grab" | Done (and a fresh Jump climbs up, the proposal's "W or Jump") | - |
 | Everyone can vault, mantle and hang from the start | "Skill scales it" | Done, nothing gated | - |
 | Skill sets reach, speed, grip time, whether a hard catch holds | "Skill scales it" | Done | - |
-| Sheer walls: Fatigue in place of the roll; skill sets speed and grip; ends in a mantle; what was climbable stays so | "Free-climb on grip" | Done: no roll; the band's Fatigue and the grip; the top held and climbed over; the hug's shove kept as the fallback | - |
+| Sheer walls: Fatigue in place of the roll; skill sets speed and grip; ends in a mantle; what was climbable stays so | "Free-climb on grip" | Done: no roll; the band's Fatigue and the grip; the top climbed over as it comes in reach (AUDIT CLIMB2 H5), a lip with no room held | - |
 | Shimmy, following the lip, stopping at gaps | the proposal | Done, and round corners | - |
 | Heavy packs cut the reach | the proposal | Done | - |
 | Hanging and climbing drain Fatigue - grip stamina | the proposal | Done: the band while on the wall, the grip on the Fatigue | - |
@@ -403,7 +414,7 @@ and AUDIT CLIMB1 record re-run (eight re-aimed at the lines CLIMB2 reshaped), al
 - Leaps - from a hang (up, sideways, back), the wall run-up, a running jump caught at the far side - are CLIMB3's; Jump
   on a free climb does nothing yet. A hang on a sill under a climbable wall cannot go on up it (CLIMB3's up-leap).
 - The view does not turn with a corner (CLIMB4, the camera); Left and Right stay the look's as the key went down.
-- The free climb does not turn a corner; across a wall it stops at the edge.
+- The free climb does not turn a corner; across a wall it stops at the edge (and goes on up it - AUDIT CLIMB2 G6).
 - A crouched jump holds nothing.
 - Forward held still against anything the probe calls a wall for the start time starts a climb - a table's side
   included; the classic climb's probe reached the same (at 0.77 s and a roll).
