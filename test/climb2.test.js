@@ -306,8 +306,9 @@ test('CLIMB2 LIVE: corners - the hands follow the lip round an outer corner and 
 
 test('CLIMB2 LIVE: the grip runs out - at Climbing 0 a hang holds six seconds, says so as it fails, and lets go; tired, a third of that; back on the ground it returns', () => {
   const r = drive(wall(2.1), { skill: 0, steps: 520, input: held() });
-  const caught = firstAt(r.log, 'hang').i;
-  const gone = r.log.findIndex((e, i) => i > caught && e.st !== 'hang');
+  // timed from the catch: the catch's own pull spends the grip as the hang does (AUDIT CLIMB2 H4)
+  const caught = firstAt(r.log, 'move:catch').i;
+  const gone = r.log.findIndex((e, i) => i > caught && e.st !== 'hang' && e.st !== 'move:catch');
   assert.ok(near((gone - caught) / 60, PARKOUR_GRIP_MIN_S, 0.05), `held ${((gone - caught) / 60).toFixed(2)} s`);
   assert.deepEqual(r.said, [PARKOUR_GRIP_LOW_TEXT], 'the line once, as it failed');
   const warned = r.log.findIndex((e) => e.grip <= PARKOUR_GRIP_LOW);
@@ -315,8 +316,8 @@ test('CLIMB2 LIVE: the grip runs out - at Climbing 0 a hang holds six seconds, s
   assert.ok(r.m.grounded, 'fell to the floor');
   // tired
   const t = drive(wall(2.1), { skill: 0, fatigue: 0, steps: 300, input: held() });
-  const tc = firstAt(t.log, 'hang').i;
-  const tg = t.log.findIndex((e, i) => i > tc && e.st !== 'hang');
+  const tc = firstAt(t.log, 'move:catch').i;
+  const tg = t.log.findIndex((e, i) => i > tc && e.st !== 'hang' && e.st !== 'move:catch');
   assert.ok(near((tg - tc) / 60, PARKOUR_GRIP_MIN_S * PARKOUR_GRIP_TIRED, 0.05), `tired: ${((tg - tc) / 60).toFixed(2)} s`);
   // on the ground it comes back, whole in PARKOUR_GRIP_REGEN_S
   r.m.grip = 0;
@@ -361,12 +362,14 @@ test('CLIMB2 LIVE: the free climb - Forward held against a wall, the skill\'s st
   assert.ok(lag < 1e-4, `the eye rides the climber, not MAC1's stair filter (lag ${lag.toFixed(4)})`);
   assert.deepEqual(states(r.log).slice(0, 4), ['ground', 'climb', 'move:mantle', 'ground'], 'the lip held, and climbed straight over');
   const pull = firstAt(r.log, 'move:mantle');
-  assert.ok(near(r.m._pkMove?.from[1] ?? pull.pos[1], 4.0 - PARKOUR_HANG_DROP, 0.03), `from the hang under the lip (${pull.pos[1].toFixed(3)})`);
+  // AUDIT CLIMB2 H5: the top-out is CLIMB1's - over the lip once it comes within the hands' reach (a lower wall's lip
+  // never comes to the hang's height)
+  assert.ok(near(pull.pos[1], 4.0 - (parkourReach(50) + PARKOUR_AIR_REACH), 0.06), `over the lip once it came within the reach (from ${pull.pos[1].toFixed(3)})`);
   const top = r.log.find((e, i) => i && r.log[i - 1].st === 'move:mantle' && e.st === 'ground');
   assert.ok(near(top.pos[1], 4.0, 0.03), 'on the top');
   // Forward let go as the lip comes to the hands: they hold it
-  const stop = drive(wall(4.0), { skill: 50, z: 0.6, steps: 240, input: (i, m) => ({ forward: m.pos[1] > 2.1 ? 0 : 1 }) });
-  assert.equal(stop.m.onWall, true, 'held on the wall under the lip');
+  const stop = drive(wall(4.0), { skill: 50, z: 0.6, steps: 240, input: (i, m) => ({ forward: m.pos[1] > 1.8 ? 0 : 1 }) });
+  assert.equal(stop.m.onWall, true, 'held on the wall below the top');
   assert.ok(r.tallies.length >= 1, 'the Climbing skill tallied on the wall');
   // the classic lane: the same wall and the same hold roll the classic machine, and nothing of this runs
   const off = drive(wall(4.0), { skill: 50, enabled: false, z: 0.6, steps: 120, input: () => ({ forward: 1 }), rolls: 0 });

@@ -134,6 +134,9 @@ export const FALL_CARRY_MAX = MAX_TERRAIN_HEIGHT * STREAMING_TERRAIN_SCALE;   //
 export const FALL_CARRY_MAX_SPEED = Math.sqrt(2 * GRAVITY * FALL_CARRY_MAX);
 /** LevitateMotor's overEncumbered threshold (:83): CarriedWeight * 4 > 250. */
 export const OVER_ENCUMBERED_LIMIT = 250;
+/** AUDIT CLIMB2 H1: a saved move's end is never further than this from the body, each way (a move spans a lip's reach
+ *  and a stride; a torn record moves the body no further). */
+export const HOLD_CARRY_MAX = 4;
 /** PlayerEnterExit.Update's dungeon arm, its afloat line (:395-404): Internal_Strings.csv:18 `cannotFloat`,
  *  handed to AddHUDText for 1.75 s. */
 export const CANNOT_FLOAT_TEXT = 'You are carrying too much to stay afloat.';
@@ -426,6 +429,7 @@ export class PlayerMotor {
     this._pkOn = false;          // CLIMB2: this step's switch - the enhanced lane's free climb takes the classic climb's place
     this._pkLeftWall = false;    // CLIMB2: the hands let go on the last step
     this._pkSide = null;         // CLIMB2: Left/Right on the wall, fixed while the key is held ({ key, s })
+    this._pkRestore = null;      // AUDIT CLIMB2 H1: a hold a save carried, taken again on the first step it can be
     // A6: the step/head probes (PlayerMoveScanner). Always mounted, as
     // the component always is; it backs off on a collider with no
     // sweep API rather than crashing the step.
@@ -746,6 +750,7 @@ export class PlayerMotor {
   pinFeet(x, y, z) {
     this._pkMove = null;   // AUDIT CLIMB1 F4: a pin is a placement - the move it interrupts is over, never resumed
     if (this._wall) this._wallEnd();   // CLIMB2: and the hold it takes the body off
+    this._pkRestore = null;
     this.pos[0] = x; this.pos[1] = y; this.pos[2] = z;
     this._prevPos[0] = x; this._prevPos[1] = y; this._prevPos[2] = z;
     this._eyeFeetY = null;   // MAC1: the smoothing primes afresh on the pinned height
@@ -878,6 +883,7 @@ export class PlayerMotor {
     this.arena = null;   // DUEL1: a placement is never a walk out of the ring - the host's duel law decides what it meant
     this._pkMove = null;   // CLIMB1: a placement is never the end of a mantle
     if (this._wall) this._wallEnd();   // CLIMB2: nor a hold
+    this._pkRestore = null;   // AUDIT CLIMB2 H1: a placement's own record follows it (restoreFall), never an older one
     this._heightReset();   // a pending height action does not ride a teleport/load
     this.holdFrame();   // DISC8-G: a landing reported before the warp is not the arrival's
   }
@@ -891,6 +897,20 @@ export class PlayerMotor {
    *  load lands the fall from the takeoff as the jump would have. A body that has touched down is still falling until
    *  the next step bills the landing, and a save in that step keeps the bill. Null when there is no fall. */
   fallSnapshot() {
+    // AUDIT CLIMB2 H1: A HOLD IS NO FALL. A save on the wall (or the season's re-anchor) recorded none, and the load put
+    // the body where it hung with nothing under it - a quicksave twelve metres up a tower loaded into a twelve-metre
+    // fall. The hold is kept instead, and a move in flight as where it ends and the hold it ends in, all against the
+    // feet, with the grip (a load is no rest); restoreFall takes the hold again (_pkRetake).
+    const m = this._pkMove, w = this._wall;
+    if (m || w) {
+      const end = m ? m.to : this.pos;
+      const hold = m ? (m.hang ? { mode: 'hang', normal: m.hang.normal, lipY: m.hang.lipY } : null) : w;
+      return {
+        to: [end[0] - this.pos[0], end[1] - this.pos[1], end[2] - this.pos[2]],
+        hold: hold ? { mode: hold.mode, normal: [hold.normal[0], 0, hold.normal[2]], lipAbove: hold.lipY != null ? hold.lipY - end[1] : null } : null,
+        grip: this.grip,
+      };
+    }
     return this.falling ? { above: this.fallStart - this.pos[1], velY: this.velY } : null;
   }
 
@@ -898,6 +918,22 @@ export class PlayerMotor {
    *  where it began against the feet, at the saved speed, each bounded by the world's tallest drop (FALL_CARRY_MAX).
    *  A torn or absent record carries nothing, so a save without one lands as every save did. */
   restoreFall(fall) {
+    if (fall && (fall.hold !== undefined || fall.to !== undefined)) {   // AUDIT CLIMB2 H1: a hold, or a move's end
+      const to = fall.to;
+      if (Array.isArray(to) && to.length === 3 && to.every(Number.isFinite)) {
+        for (let i = 0; i < 3; i++) {
+          const d = Math.min(HOLD_CARRY_MAX, Math.max(-HOLD_CARRY_MAX, to[i]));
+          this.pos[i] += d; this._prevPos[i] += d;
+        }
+        this._eyeFeetY = null;
+      }
+      if (Number.isFinite(fall.grip)) this.grip = Math.min(1, Math.max(0, fall.grip));
+      const h = fall.hold, n = h?.normal, l = Array.isArray(n) ? Math.hypot(n[0], n[2]) : 0;
+      if ((h?.mode === 'hang' || h?.mode === 'climb') && l > 1e-6 && Number.isFinite(l)) {
+        this._pkRestore = { mode: h.mode, normal: [n[0] / l, 0, n[2] / l], lipAbove: Number.isFinite(h.lipAbove) ? h.lipAbove : null };
+      }
+      return;
+    }
     if (!Number.isFinite(fall?.above)) return;
     this.falling = true;
     this.fallStart = this.pos[1] + Math.min(FALL_CARRY_MAX, Math.max(-FALL_CARRY_MAX, fall.above));
@@ -1556,12 +1592,19 @@ export class PlayerMotor {
     if (this._pkMove) { this._pkOn = true; this._parkourAdvance(dt); return true; }
     const on = this._pkOn = !!pk.enabled?.();
     const unheld = this.levitating || this.riding || this.paralyzed;   // nothing holds a wall from these
+    if (this._pkRestore) {   // AUDIT CLIMB2 H1: the hold a save (or a re-anchor) carried, taken again where the body was put
+      const r = this._pkRestore;
+      this._pkRestore = null;
+      if (on && !unheld && !this._wall) this._pkRetake(r);
+    }
     if (this._wall) {
       if (!on || unheld) { this._wallEnd(); return false; }
       return this._wallStep(dt, input, yaw, pk);
     }
     this._pkDropReq = false;
-    if (this.grounded && this.grip < 1) this.grip = Math.min(1, this.grip + dt / PARKOUR_GRIP_REGEN_S);
+    // AUDIT CLIMB2 H2: on the feet, or treading water - the free climb is this lane's only way out of the water, and a
+    // spent grip came back only on a floor the swimmer could not reach
+    if ((this.grounded || this.swimming || this.sunk) && this.grip < 1) this.grip = Math.min(1, this.grip + dt / PARKOUR_GRIP_REGEN_S);
     if (on && this.climb) this.climb.wasClimbing = !!this._pkLeftWall;   // the hands let go last step: a Jump goes at once, as off the classic climb
     this._pkLeftWall = false;
     if (!on) return false;
@@ -1610,6 +1653,18 @@ export class PlayerMotor {
     this._parkourBegin(move);
     this._parkourAdvance(dt);
     return true;
+  }
+
+  /** AUDIT CLIMB2 H1: a carried hold taken again - the hand-hold at the lip it held, or the wall it climbed. Gone (the
+   *  world changed under the save), the body falls from where it was put, as any unheld body does. */
+  _pkRetake(r) {
+    if (r.mode === 'hang' && r.lipAbove != null) {
+      const g = senseGrip(this.collider, this._pkFaceOf(r.normal), r.normal, this.pos[1] + r.lipAbove, this._pkGeo());
+      if (g) { this._wallBegin('hang', g.normal, g.lipY, g.key); this._pkHangAt(g); }
+      return;
+    }
+    const c = wallContact(this.collider, this.pos, [-r.normal[0], 0, -r.normal[2]], this.height, CAPSULE_RADIUS, PARKOUR_WALL_REACH);
+    if (c) this._wallBegin('climb', c.normal, null, c.key);
   }
 
   /** The ledge sensor's opts for this body: the band, and the stair check. */
@@ -1693,6 +1748,7 @@ export class PlayerMotor {
   /** CLIMB2: the body held on the wall - no velocity and no fall: a fall after
    *  it starts where the hands let go. The walk input is none (AUDIT CLIMB1 F9). */
   _pkHold() {
+    this.isRunning = false;   // AUDIT CLIMB2 H6: no run on the wall (the Running tally, the peers' run cycle); it latches again on the ground
     this.velY = 0;
     this._airVelX = 0;
     this._airVelZ = 0;
@@ -1906,6 +1962,26 @@ export class PlayerMotor {
     w.normal = c.normal;
     if (c.key !== w.key) { w.key = c.key; w.carrier = c.key != null ? (this.collider.bucketPose?.(c.key) ?? null) : null; }
     if (vert > 0) {
+      // AUDIT CLIMB2 H5: THE TOP-OUT. A lip coming within the hands' reach is climbed onto or over - CLIMB1's top-out of
+      // the classic climb, which this climb took the place of and lost: a free climb up a wall lower than the hang
+      // (a plinth, a garden wall) never had its lip come to the hands, and stuck under the top with Forward held. Asked
+      // only once the face has ended inside the reach (one ray), and rested after a refusal as the air catch is.
+      const reach = parkourReach(skill, inputs.load ?? 0) + PARKOUR_AIR_REACH;
+      if (!Number.isFinite(this.collider.raycast([this.pos[0], this.pos[1] + reach, this.pos[2]], into, CAPSULE_RADIUS + PARKOUR_WALL_REACH))) {
+        if (this._pkQuiet > 0) this._pkQuiet--;
+        else {
+          const geo = this._pkGeo(PARKOUR_AIR_LOW, reach);
+          const ledge = senseLedge(this.collider, this.pos, into, geo);
+          const move = ledge.ok ? this._pkOnto(ledge, geo, skill) : null;
+          if (move) {
+            this._wallEnd();
+            this._parkourBegin(move);
+            this._parkourAdvance(dt);
+            return true;
+          }
+          if (ledge.ok) this._pkQuiet = PARKOUR_QUIET_STEPS;
+        }
+      }
       const face = [this.pos[0] + into[0] * c.dist, 0, this.pos[2] + into[2] * c.dist];
       const g = senseGrip(this.collider, face, c.normal, this.pos[1] + PARKOUR_HANG_DROP, this._pkGeo());
       if (g && g.lipY - this.pos[1] <= PARKOUR_HANG_DROP + 0.04) {
@@ -1978,6 +2054,10 @@ export class PlayerMotor {
    *  its momentum and a small rise, a clamber at a step's pace. */
   _parkourAdvance(dt) {
     const m = this._pkMove;
+    if (m.hang && this.parkour) {   // AUDIT CLIMB2 H4: a catch and a corner spend the grip as the hang does
+      const i = this.parkour.inputs?.() ?? {};
+      this.grip = Math.max(0, this.grip - dt / gripSeconds(parkourSkill(i), i.fatigue ?? 1));
+    }
     if (m.carrier) {
       const now = this.collider.bucketPose(m.key);
       if (now) { carryMove(m, m.carrier, now); m.carrier = now; }

@@ -93,3 +93,101 @@ test('AUDIT CLIMB2 A3: Left and Right kept while the key is held are kept round 
   assert.ok(m.pos[0] < x0 - 0.2, `Right on B is the look's right (-x), not A's held one (moved ${(m.pos[0] - x0).toFixed(2)})`);
   assert.ok(overlap(s.boxes, m.pos) < 0.03);
 });
+
+test('AUDIT CLIMB2 H1: a save on the wall keeps the hold - the load takes it again where the body hung, with the grip it had; a save in a move lands where the move ends', () => {
+  const s = scene(); s.box(-3, 0, 1, 3, 14, 4);
+  const m = motor(s.col, { skill: 100, z: 0.6 });
+  for (let i = 0; i < 900 && !(m.onWall && m.pos[1] > 10); i++) step(m, { forward: 1 });
+  assert.ok(m.onWall && m.pos[1] > 10, 'ten metres up the wall');
+  for (let i = 0; i < 60; i++) step(m, {});
+  const grip = m.grip, at = [...m.pos];
+  const snap = m.fallSnapshot();
+  // the load: a placement, then the carried record
+  const l = motor(s.col, { skill: 100, z: 0.6 });
+  l.spawn(at[0], at[1], at[2]);
+  l.restoreFall(snap);
+  let fell = 0;
+  for (let i = 0; i < 60; i++) { step(l, {}); fell = Math.max(fell, l.landedFallDistance); }
+  assert.equal(l.onWall, true, 'the hold taken again');
+  assert.ok(Math.abs(l.pos[1] - at[1]) < 0.05 && fell === 0, `held where it was (${l.pos[1].toFixed(2)} of ${at[1].toFixed(2)}), no fall`);
+  assert.ok(Math.abs(l.grip - (grip - 60 / 60 * 0.5 / 30)) < 0.01, `the grip carried (${l.grip.toFixed(3)} from ${grip.toFixed(3)}) - a load is no rest`);
+  // a hang the same
+  const h = scene(); h.box(-3, 0, 1, 3, 2.3, 4);
+  const hm = motor(h.col, { skill: 100 });
+  for (let i = 0; i < 40; i++) step(hm, { jump: i >= 10 });
+  assert.equal(hm.hanging, true);
+  const hs = hm.fallSnapshot(), hp = [...hm.pos];
+  const hl = motor(h.col, { skill: 100 }); hl.spawn(hp[0], hp[1], hp[2]); hl.restoreFall(hs);
+  step(hl, {});
+  assert.equal(hl.hanging, true, 'hanging again');
+  // a save in a catch's move: the load is where the move ends, held
+  const cm = motor(h.col, { skill: 100 });
+  let moving = null;
+  for (let i = 0; i < 40 && !moving; i++) { step(cm, { jump: i >= 10 }); if (cm._pkMove?.kind === 'catch' && cm._pkMove.t > 0.2) moving = cm.fallSnapshot(); }
+  assert.ok(moving, 'saved in the catch');
+  const cp = [...cm.pos], cl = motor(h.col, { skill: 100 }); cl.spawn(cp[0], cp[1], cp[2]); cl.restoreFall(moving);
+  step(cl, {});
+  assert.equal(cl.hanging, true, 'the catch\'s hang');
+  // a plain fall is carried as ever
+  const f = motor(h.col, { skill: 100, y: 5, z: -2 });
+  for (let i = 0; i < 10; i++) step(f, {});
+  assert.ok(Number.isFinite(f.fallSnapshot()?.above), 'a fall is the fall\'s own record');
+});
+
+test('AUDIT CLIMB2 H2: a spent grip comes back treading water - the free climb is the only way out of the water on this lane', () => {
+  const s = scene(); s.box(-3, 0, 1, 3, 3, 4);
+  const m = motor(s.col, { skill: 50, z: 0.6, y: 1 });
+  m.swimming = true;
+  m.grip = 0;
+  let out = false;
+  for (let i = 0; i < 600 && !out; i++) { m.swimming = m.pos[1] < 1.2 && !m.onWall; step(m, { forward: 1 }); out = m.onWall; }
+  assert.equal(out, true, 'the grip came back in the water and the wall was taken');
+});
+
+test('AUDIT CLIMB2 H4: a corner and a catch spend the grip as the hang does - a corner at Climbing 0 is two seconds of it', () => {
+  const s = scene(); s.box(-3, 0, 1, 3, 2.0, 4);
+  const m = motor(s.col, { skill: 0, x: 2.4 });
+  for (let i = 0; i < 40; i++) step(m, { jump: i >= 10 });
+  assert.equal(m.hanging, true);
+  let before = null, after = null;
+  for (let i = 0; i < 400 && after == null; i++) {
+    step(m, { strafe: 1 });
+    if (m._pkMove?.kind === 'corner' && before == null) before = m.grip;
+    if (before != null && !m._pkMove && m.hanging) after = m.grip;
+  }
+  assert.ok(before != null && after != null, 'round the corner');
+  assert.ok(before - after > 0.25, `the corner spent the grip (${(before - after).toFixed(3)} of it)`);
+});
+
+test('AUDIT CLIMB2 H5: a free climb tops out over a lip in reach - a wall lower than the hang (a plinth before a taller wall) is climbed onto, not stuck under', () => {
+  const s = scene(); s.box(-3, 0, 1, 3, 1.0, 2.0); s.box(-3, 0, 2.0, 3, 6, 4);   // a metre deep: room to stand
+  const m = motor(s.col, { skill: 50, z: 0.6 });
+  const log = [];
+  let landed = false;   // Forward let go once the climb has landed on the top (held on, it would start up the taller wall)
+  for (let i = 0; i < 200; i++) {
+    step(m, { forward: landed ? 0 : 1 });
+    log.push({ wall: m.onWall, move: m._pkMove?.kind ?? null, y: m.pos[1], g: m.grounded });
+    landed ||= log.some((e) => e.move === 'mantle') && !m.mantling;
+  }
+  const first = log.findIndex((e) => e.wall);
+  assert.ok(first > 0, 'the plinth\'s face climbed');
+  assert.ok(log.some((e, i) => i > first && e.move === 'mantle'), 'its lip climbed onto');
+  const end = log[log.length - 1];
+  assert.ok(end.g && !end.wall && Math.abs(end.y - 1.0) < 0.05, `standing on the plinth (y ${end.y.toFixed(2)}, ${end.wall ? 'still on the wall' : 'off it'})`);
+  // a tall wall still tops out at its lip, and one stopped short of it holds
+  const t = scene(); t.box(-3, 0, 1, 3, 4.0, 4);
+  const u = motor(t.col, { skill: 50, z: 0.6 });
+  let top = false;
+  for (let i = 0; i < 300 && !top; i++) { step(u, { forward: 1 }); top = !u.onWall && !u.mantling && u.grounded && u.pos[1] > 3.9; }
+  assert.ok(top, 'over the 4 m wall\'s top');
+});
+
+test('AUDIT CLIMB2 H6: the run is not latched on the wall - a running catch neither trains Running while it hangs nor shows the peers a run', () => {
+  const s = scene(); s.box(-3, 0, 1, 3, 2.3, 4);
+  const m = motor(s.col, { skill: 100, z: -2 });
+  // run at it, jump, and let go of Forward as the jump leaves the ground: the lip is caught and held
+  for (let i = 0; i < 120 && !m.hanging; i++) step(m, { forward: m.grounded && i < 60 ? 1 : 0, run: true, jump: i >= 14 }, 0);
+  assert.equal(m.hanging, true, 'a running jump, caught');
+  for (let i = 0; i < 30; i++) step(m, { run: true });
+  assert.equal(m.isRunning, false, 'not running on the wall');
+});

@@ -97,7 +97,7 @@ export const BREATH_COLOR_SHORT = [148, 12, 0];
 export const breathShortThreshold = (liveEndurance) => (liveEndurance >> 3) + 4;
 
 // CLIMB2: THE GRIP BAR (the enhanced climb's - player/motor.js gripShown, `{ amount, low }`). The breath bar's own
-// likeness and art, a slot to its left (they never draw together: the hands hold no wall in the water it counts), a
+// likeness and art, a slot to its left (both may draw at once - a grip coming back while its swimmer holds breath), a
 // fixed height, bottom-anchored and rounded to whole pixels as VerticalProgress is; the short art when failing.
 export const GRIP_BAR_LEFT = BREATH_BAR_LEFT - 10;
 export const GRIP_BAR_HEIGHT = 50;

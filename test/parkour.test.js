@@ -360,7 +360,8 @@ test('CLIMB1: every host mounts the enhanced climb and reports its edge - the th
   const read = (f) => readFileSync(new URL(`../src/scenes/${f}.js`, import.meta.url), 'utf8');
   for (const f of ['world', 'exterior', 'dungeon']) {
     const s = read(f);
-    assert.match(s, /new PlayerMotor\([^\n]*climbing: climbingDeps\([^\n]*\), parkour: parkourDeps\(playerEntity(, \(l\) => townTalk\?\.say\(l\))?\) \}\);/, `${f}: the motor is handed the deps`);
+    // AUDIT CLIMB2 H7: and every host its HUD line (the grip's failing, a refused climb) - the standalone dungeon's too
+    assert.match(s, /new PlayerMotor\([^\n]*climbing: climbingDeps\([^\n]*\), parkour: parkourDeps\(playerEntity, \(l\) => (townTalk\?\.say|ctx\.hudSay\?\.)\(l\)\) \}\);/, `${f}: the motor is handed the deps and the HUD's line`);
     assert.match(s, /import \{[^}]*\bparkourDeps\b[^}]*\} from '\.\/shared\.js';/, `${f}: imported from the one home`);
   }
   assert.match(read('world'), /jumped: player\.jumped,[^\n]*\n\s*parkoured: player\.parkoured,/);

@@ -255,7 +255,7 @@
   {
     "name": "CLIMB2-grip-never-regens",
     "file": "src/player/motor.js",
-    "old": "    if (this.grounded && this.grip < 1) this.grip = Math.min(1, this.grip + dt / PARKOUR_GRIP_REGEN_S);\n",
+    "old": "    if ((this.grounded || this.swimming || this.sunk) && this.grip < 1) this.grip = Math.min(1, this.grip + dt / PARKOUR_GRIP_REGEN_S);\n",
     "new": "",
     "tests": [
       "test/climb2.test.js",
@@ -640,8 +640,8 @@
   {
     "name": "CLIMB2-pack-not-read",
     "file": "src/player/motor.js",
-    "old": "parkourReach(skill, inputs.load ?? 0)",
-    "new": "parkourReach(skill)",
+    "old": "parkourReach(skill, inputs.load ?? 0) + (air ?",
+    "new": "parkourReach(skill) + (air ?",
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",

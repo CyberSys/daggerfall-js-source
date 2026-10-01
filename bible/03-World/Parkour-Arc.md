@@ -314,12 +314,15 @@ hanging, follows the lip and stops at gaps", "Climb up / drop: W or Jump / Crouc
   ending (its end found to a centimetre) with the other face's lip round the edge. A corner is a move (`corner`,
   unbilled) that ends in the hang on the other face.
 - **The free climb** (`_freeClimbStep`): Forward up, Back down, Left and Right across, at the skill's pace on the classic
-  climb's, pressed into the wall as the classic hug is. Going up, a lip come to the hands (1.8 over the feet) is held -
-  and with Forward still held climbed over at once, the top-out Mac's call asked for. Across the wall the body goes as
+  climb's, pressed into the wall as the classic hug is. Going up with Forward held, a lip coming within the hands' reach
+  is climbed onto or over - CLIMB1's top-out, the one Mac's call asked for (AUDIT CLIMB2 H5: the first cut topped out
+  only at the hang's height, and stuck under a wall lower than that); a lip with no way onto it is climbed on to until
+  it is at the hands (1.8 over the feet), and held. Across the wall the body goes as
   far as it was asked and no further: the hug's press slid a body along a box's diagonal seam (a climb down went 2.8 m
   sideways before this was stripped). A move the wall does not go on under is not made (its side edge; its top where no
   lip was held). A floor under the feet ends the climb standing (a climb down; or a top the hug steps the body onto
-  where no lip held it - the classic climb's own shove, kept as the fallback so what was climbable stays climbable).
+  where no lip held it - the classic climb's own shove, kept as the fallback so what was climbable stays climbable);
+  so does the floor within ClimbingMotor's own 0.12 under the feet of a climber not going up (AUDIT CLIMB2 A1).
 - **Letting go** (`_wallEnd`): Crouch, the grip spent, the gate, the hold gone, the switch turned off, levitation,
   paralysis, a placement. A Jump still held catches nothing until it is pressed afresh (it would take back the lip just
   let go of); the next step reads as a climb just ended (`climb.wasClimbing`, so a Jump on the floor goes at once, as off
@@ -402,9 +405,9 @@ and AUDIT CLIMB1 record re-run (eight re-aimed at the lines CLIMB2 reshaped), al
 - The view does not turn with a corner (CLIMB4, the camera); Left and Right stay the look's as the key went down.
 - The free climb does not turn a corner; across a wall it stops at the edge.
 - A crouched jump holds nothing.
-- The grip is not spent across a catch or a corner (under a second each).
 - Forward held still against anything the probe calls a wall for the start time starts a climb - a table's side
   included; the classic climb's probe reached the same (at 0.77 s and a roll).
-- Terrain is not a wall (as CLIMB1). A save made on the wall loads the body where it hung, falling.
-- Peers see the body held still or moving up the wall (CLIMB5).
+- Terrain is not a wall (as CLIMB1). A save made on the wall keeps the hold and the grip (AUDIT CLIMB2 H1); if the world
+  has changed under it so the hold is gone, the body falls from where it was put.
+- Peers see the body held still, or walking as it moves along or up the wall - their `mv` is its displacement (CLIMB5).
 - **Not yet seen on real ARENA2 geometry**, as CLIMB1.
