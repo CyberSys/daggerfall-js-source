@@ -166,8 +166,8 @@ body or a pile below Legendary adds one to the character's drought; a Legendary 
 source door, the Legendary threshold is multiplied by `1 + 0.2 x floor(drought / 25)`, at most x3 - after 25 pieces
 x1.2, after 250 x3 - and never above the Rare threshold (the ladder never inverts). Counted at the TAKE because a
 body's loot is rolled when its foe is spawned (`hostCombat.spawnEnemyLoot`): counting the rolls would fill the
-drought by walking into a dungeon. A piece is counted once a session (dropped and taken again, it is not counted
-twice). The drought rides the character's save (a mod record, the Sigil Broker's way); offline and online alike.
+drought by walking into a dungeon. A piece is counted once (a mark the source door puts on it, cleared at its first
+take - dropped and taken again, it is not counted twice). The drought rides the character's save (a mod record, the Sigil Broker's way); offline and online alike.
 Foxglove's power (LOOT5) is the other door to a better find, and it too multiplies the source's own chance.
 
 ## 11. LOOT9 - salvage, and the Reforge
@@ -518,3 +518,38 @@ two locations so a client on another build cannot stand others), the street's ha
 its refusals, the name in all four places, the two traits on their tails, the guarantee over 600 seeded kills of an
 orc, a rat and a Fire Daedra, its most valuable piece, the mint's mix, and the corpse door against the boosted source
 seed by seed; `tools/mutants/loot7.json` (50, all dead).
+
+### LOOT8 - the drought (2026-10-01)
+
+`systems/lootDrought.js` (new): the character's DROUGHT - one more for every piece taken below Legendary, none again
+when a Legendary or better is taken. `droughtMult` - `1 + 0.2 x floor(drought / 25)`, at most x3 - is a FINDER
+(LOOT5's `registerLegendaryFind`), so at every door that ladders a list (`rollLootRarity`: a body, a dungeon's pile, a
+house's, a camp's) it multiplies the Legendary threshold beside Foxglove's, and `rarityChances` keeps the product under
+the Rare threshold. Off, it answers 1.
+
+**Counted at the take, once.** A source door marks every piece it ladders `untaken` - whatever tier it rolls, a unique
+find too (never its ammunition, never gold or an arrow) and a champion's minted piece - a declared item field
+(`itemFields.js`), so the mark rides a save, a body's record and a peer's grant. `inventory.js` gains the one TAKE seam
+(`registerTakeListener`/`tellTaken`), told by both ways a piece reaches the pack from a container: the loot window's
+and quick loot's (`itemTransfer.js` `applyTransfer` into the pack) and a body's bulk take and a peer's grant
+(`takeOneInto`). The drought's listener counts a marked piece and clears its mark - so a piece dropped and taken again
+counts nothing, and neither does a shop's, a quest's, a crafted piece or anything else no door rolled. Online, the
+first player to take a piece counts it, whichever client rolled it.
+
+**The record**: a mod record (`LootDrought`, `systems/modSaveData.js` - the Broker's way): a whole count, at most
+`DROUGHT_MAX` (100,000); a forged one is none, a new game none. `world.js` imports the module beside the sets' powers,
+so the finder and the listener stand in the game.
+
+**What moved from the design.** "A piece is counted once a session" became once EVER: a list of this session's pieces
+cannot follow a piece across the wire (a room re-sends a container as new records, so a piece dropped into a shared
+chest and taken again would have counted every time) - the mark on the piece itself can.
+
+Measured: 4,000 seeded tier-8 corpse rolls gave 42 Legendaries with no drought, 51 at 25, 78 at 100 and 127 at 250
+(the threshold 10.6 per mille to 31.8, still under the Rare's 63).
+
+Pinned: `test/loot8_drought.test.js` (7) - the multiplier and its cap, the finder (off 1), the mark on every eligible
+piece of 60 seeded piles (never gold or arrows; none off; it rides the wire, a forged one refused), the take (once; a
+Rare one more, a Legendary none, the ceiling; unmarked, gold and off nothing), every take seam (into the pack, never
+out; a throwing listener never stops a take; the body's bulk take), the record (save, load, forged, a new game), the
+doors in play (sixty bodies taken, sixty counted; three times the Legendaries at 250), and a unique find's mark;
+`tools/mutants/loot8.json` (31, all dead).

@@ -40,7 +40,7 @@
 
 import {
   addItem, canHoldAmount, effectiveUnitWeightInKg, totalWeight, isSummoned,
-  splitStack, GOLD_PIECE_WEIGHT_KG, goldPiecesOf, addGoldPieces, isGoldPieces,
+  splitStack, GOLD_PIECE_WEIGHT_KG, goldPiecesOf, addGoldPieces, isGoldPieces, tellTaken,
 } from './inventory.js';
 import { isMap, isLightSource } from './useItem.js';   // AUDIT 26 F156/F157: the map interception + the lit-torch clear
 import { CANNOT_REMOVE_ITEM_TEXT } from './createItem.js';
@@ -376,7 +376,9 @@ export function applyTransfer(item, plan, from, to, { entity = null, fromLocal =
     addGoldPieces(entity, coin.stackCount ?? 1);
     return null;
   }
-  return _applyTransfer(item, plan, from, to, rolls);
+  const landed = _applyTransfer(item, plan, from, to, rolls);
+  if (toPlayer && landed) tellTaken(landed);   // LOOT8: a piece taken into the pack - the loot window's, quick loot's
+  return landed;
 }
 /**
  * The half of a partial move that TRAVELS - or the item itself on a

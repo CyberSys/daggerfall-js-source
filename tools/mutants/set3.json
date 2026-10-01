@@ -461,8 +461,8 @@
   {
     "name": "SET3-the-powers-never-imported",
     "file": "src/scenes/world.js",
-    "old": "import { lootHudChips } from '../systems/lootPowers.js'; import { setSetPowersVoice, setHudChips, heldPlayerBlow, remarkPlayerBlow } from '../systems/sigilSetPowers.js';   // SET3: what the sets DO - every power registered at import; its voice is this host's; SET5: its chips; LOOT4: and lootPowers.js beside it, what a loot piece DOES (the Loot arc), every kind registered at import\n",
-    "new": "import { lootHudChips } from '../systems/lootPowers.js';\n",
+    "old": "import { setSetPowersVoice, setHudChips, heldPlayerBlow, remarkPlayerBlow } from '../systems/sigilSetPowers.js'; ",
+    "new": "",
     "tests": [
       "test/set3_powers.test.js"
     ]

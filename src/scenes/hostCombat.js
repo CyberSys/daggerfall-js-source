@@ -142,7 +142,7 @@ export function ensureChampionLoot(entity, level, rolls = Math.random) {
     if (rolls() < 0.5) { piece = createRandomWeapon(level, rolls); for (let n = 0; n < 32 && isAmmunition(piece); n++) piece = createRandomWeapon(level, rolls); }
     else piece = createRandomArmor(level, rolls);
     if (!piece || isAmmunition(piece)) return null;
-    (entity.items ??= []).push(piece);
+    piece.untaken = true; (entity.items ??= []).push(piece);   // LOOT8: a found piece, counted at its take
   }
   return applyRarity(piece, 'rare', rolls);
 }

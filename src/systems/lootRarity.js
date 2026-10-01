@@ -925,6 +925,7 @@ export function rollLootRarity(items, source, { rolls = Math.random, luck = 50 }
   const minted = [];
   for (const it of items) {
     if (!rarityEligible(it)) continue;
+    it.untaken = true;   // LOOT8: a piece a source door rolled, whatever its tier - its first take counts for the drought
     const tier = rollRarity({ ...source, luck, find }, rolls);
     if (tier !== 'common') { applyRarity(it, tier, rolls, null, { family: source.family ?? null }); minted.push(it); }
   }
@@ -933,10 +934,12 @@ export function rollLootRarity(items, source, { rolls = Math.random, luck = 50 }
   // The added item is rolled for its own tier too, so the rarest thing
   // in the game can still turn up legendary.
   for (const found of rollUniqueFinds({ ...source, luck }, rolls)) {
-    if (rarityEligible(found)) {
+    const piece = rarityEligible(found);
+    if (piece) {
       const tier = rollRarity({ ...source, luck, find }, rolls);
       if (tier !== 'common') { applyRarity(found, tier, rolls, null, { family: source.family ?? null }); minted.push(found); }
     }
+    if (piece || rarityRank(found) >= RARITIES.legendary.rank) found.untaken = true;   // LOOT8: a found piece too - never its ammunition
     items.push(found);
   }
   lastPass(minted, rolls);   // LOOT2: the door's last pass, after every draw it already makes
