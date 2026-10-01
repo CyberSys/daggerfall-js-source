@@ -1476,6 +1476,50 @@ the three of what was already so, D2/D7's and K1, were proven red by their mutan
 court's one crystal stand-in, its relay seam and its two records; WB3's and WB4b's records of the hand and the
 sequence; AUDIT WBX's beat and its door; WARDEN-STRIKE's four door records and its api pin; BLOOD1b's shaft record; WB3's off-the-court record now names the K1 pin, and WB8b's wrap record is no longer equivalent.
 
+## 18. Healing on the round-up (GATE-HEAL, 2026-10-01)
+
+Mac: *"Can we add a line on the damage round up showing the amount healed?"* - and asked which healing (each
+challenger's, the Warden's own, or mine alone), Mac chose **each challenger's**: a Healed figure on every row - what each
+player healed, themselves and their allies, so the healers get credit; each game reports the healing it lands, the relay
+totals and caps it.
+
+**What counts.** Health that MOVED on a challenger standing alive in the fight while it lives (from the first `in` to his
+fall or the Wrath): their own spell, potion, item or a drain's back-flow - and a party mate's spell or a stranger's gift
+(ALLY-CAST, SPELL-GIFT), which is the CASTER's. Never what spilled over a full bar (the heal is the health that moved,
+ALLY-CAST's own rule), never a revival (fallen to standing), never regeneration (the courts keep none - WBX6). The healing
+is credited to the one whose spell moved it: myself, or the mate who cast it.
+
+**Who measures it - the one healed.** Only the receiver knows what moved (the receiver decides - ALLY-CAST's law). The
+court watches my health (`scenes/gateCourt.js`): a rise between two of my frames, standing at both, is healing - the
+court's own blows on me land inside a frame (`strikePlayer`), so none hides a heal; a gap in the frames (a hidden tab,
+HEAL_GAP_MS) counts nothing. A mate's spell is said by its own door (`scenes/world.js` `onCast` - the caster's peer id
+and what moved) and taken as seen, so it is never counted twice, and never as mine. What I was healed, and by whom, is
+kept until it goes out.
+
+**The wire (relay world138, with WB11 - neither deployed yet).** `{k:'heal', h: [[by, n], ...]}`: at most
+GATE_HEAL_ROWS_MAX rows, `by` '' (myself) or the caster's peer id in the room, `n` whole points (1..GATE_HEAL_WIRE_MAX),
+the fractions kept for the next - at most every HEAL_SEND_MS while I fight and something healed me, and only to a relay
+that hears it (GATE_HEAL_RELAY_MIN - an older one junks an unknown gate word).
+
+**The relay** (`net/gateBrain.js applyHeal`). The receiver must be a fighter of this fight on the laid floor (its own
+pose - fallen or standing: a heal before a fall may be said just after it) while the fight lives; each row's healer is the receiver, or the socket in this room its peer id
+names - a fighter of this fight, else nobody is credited. What a receiver says it was healed is BELIEVED within its own
+heal bucket: HEAL_REF_BASE + HEAL_REF_LV a level - a generous reference health - refilled over HEAL_REFILL_S, HEAL_DEPTH_X
+of it deep, so no figure can be made absurd. It buys nothing: no receipt, no share, no threat, no spoils - a figure on
+the chart, counted on the healer's record (`healed`, kept with the checkpoint; a fight from before it reads none).
+
+**The chart.** A row carries `hl`, what that challenger healed, when they healed anything (`damageChart`; `validGateOut`
+projects it whole and bounded - anything else is no chart, never a refused kill). On the round-up
+(`ui/gateDamageChart.js`) a **Healed** column after the rest - after the host's on a Legion-Lord night - whenever anyone
+in the court healed, none in a court nobody healed in. On a narrow screen it takes the share's place (the share is the
+damage over the court's whole, the bar beside it says as much; the healing is said nowhere else). The ranking is the
+damage's still - a healer stands where their damage puts them, their healing beside it.
+
+What it does not do, said so: healing done to someone outside the fight, or by someone outside it, is nobody's; it is
+never a part in the fight (a healer who stood the fight earns a receipt by standing, as before - WBX R4); a heal in the
+last moment before his fall may miss the chart (the word goes out once a HEAL_SEND_MS at most, and the relay hears none
+after the fall).
+
 ## Shipped
 
 **WB1 (2026-09-25) - the omen.** `net/gateLaw.js` (the schedule, the room's key and window, the rolls, the boss table,
@@ -1848,3 +1892,15 @@ his host is the eighteenth blood-splash site (`blood1_decals` recounted). Pins `
 mutants `tools/mutants/wb11.json` (37, all dead - the spawn's clearance and the Pulse's "someone near" survived the first
 run and have pins of their own now). Not seen in a browser or on the deployed relay: this container has no ARENA2, so the
 sprites, the tethers and the sounds are the tables' until a Legion-Lord court has been looked at and heard.
+
+**GATE-HEAL (2026-10-01) - healing on the round-up.** Section 18 above: `scenes/gateCourt.js` (the watch on my health,
+`healedBy` for a mate's spell, the word out at most every HEAL_SEND_MS, fractions and a refused word kept, what is owed
+sent as the court is left), `scenes/world.js` (the ally-cast door tells the court; the court's `sendHeal`),
+`net/online.js` (`gateHealOk` from the welcome), `net/wire.js` (`heal`, GATE_HEAL_ROWS_MAX, GATE_HEAL_WIRE_MAX,
+GATE_HEAL_RELAY_MIN, the chart row's `hl`), `net/gateBrain.js` (`applyHeal`, the heal bucket, the record's `healed`,
+the row's `hl`), `server/src/index.js` (the gate arm's `heal`: the healer by peer id, the receiver's own pose),
+`ui/gateDamageChart.js` (the Healed column - after the host's on a Legion-Lord night, in the share's place on a narrow
+screen). RELAY_VERSION world138 (WB11's, neither deployed yet) re-hashed in place. Pins `test/gateheal.test.js` (10);
+the chart's DOM pins in `gateux_gate` took its empty cell; mutants `tools/mutants/gateheal.json` (26, all dead). Seen
+in a real browser at 1280x720, 390x844 and 844x390 in both skins, with and without the Host column; not yet on the
+deployed relay.

@@ -465,7 +465,7 @@ export function newFight(day, now, wrathAt, boss, md = null) {
     /** WBX5: a phase's turn still to come - PHASE_TURN's entries after the one in flight - and the next of them, begun
      *  when the breath after the last is over */
     queue: [], pending: null,
-    /** @type {Record<string, {name: string, lv: number, share: number, dealt: number, clipped: number, bucket: number, bucketAt: number, rate: number, rateAt: number, stoodMs: number, joinedAt: number, seenAt?: number, retired?: boolean, cxd?: number, hits?: number, best?: number, falls?: number, down?: boolean, hd?: number, bq?: number|null, bqAt?: number, bqWho?: string[]}>} */
+    /** @type {Record<string, {name: string, lv: number, share: number, dealt: number, clipped: number, bucket: number, bucketAt: number, rate: number, rateAt: number, stoodMs: number, joinedAt: number, seenAt?: number, retired?: boolean, cxd?: number, hits?: number, best?: number, falls?: number, down?: boolean, hd?: number, bq?: number|null, bqAt?: number, bqWho?: string[], healed?: number, hb?: number, hbAt?: number}>} */
     players: {},
     /** AUDIT WBX R4: the time a living fighter stood in the court - what "stood half the fight" is half of */
     liveMs: 0,
@@ -655,7 +655,43 @@ export function damageChart(f) {
   return Object.values(f.players).filter((q) => q.dealt > 0 || q.stoodMs > 0)
     .sort((a, b) => b.dealt - a.dealt || a.joinedAt - b.joinedAt).slice(0, DAMAGE_CHART_MAX)
     .map((q) => ({ n: q.name, l: q.lv, d: Math.round(q.dealt), x: Math.min(Math.round(q.dealt), Math.round(q.cxd ?? 0)), h: q.hits ?? 0, b: Math.round(q.best ?? 0), f: q.falls ?? 0,
-      ...(q.hd > 0 ? { a: Math.min(Math.round(q.dealt), Math.round(q.hd)) } : {}) }));   // WB11b: his host's share of it, where they struck it
+      ...(q.hd > 0 ? { a: Math.min(Math.round(q.dealt), Math.round(q.hd)) } : {}),   // WB11b: his host's share of it, where they struck it
+      ...(q.healed >= 1 ? { hl: Math.round(q.healed) } : {}) }));   // GATE-HEAL: what they healed, where they healed
+}
+
+// ═══ GATE-HEAL: HEALING ON THE ROUND-UP ════════════════════════════════════════════════════════════════════════════
+//
+// (2026-10-01, Mac: "Can we add a line on the damage round up showing the amount healed?" - each challenger's.) What a
+// fighter's game says it was healed - by itself, or by the mate whose spell it was - is credited to the HEALER, for the
+// chart alone. Only the one healed knows what moved (ALLY-CAST's law: the receiver decides), so the receiver says it;
+// what it says is believed within its own heal bucket, so no healer's figure can be made absurd. It buys nothing: no
+// receipt, no share, no threat, no spoils. bible/11-Multiplayer/World-Bosses.md section 18.
+
+/** A fighter's reference health at a level, for its heal bucket - generous (DFU's bars run lower). */
+export const HEAL_REF_BASE = 40;
+export const HEAL_REF_LV = 12;
+export const healRef = (lv) => HEAL_REF_BASE + HEAL_REF_LV * Math.max(1, lv | 0);
+/** The bucket a receiver's word is believed through: a whole reference refilled over HEAL_REFILL_S, HEAL_DEPTH_X of them
+ *  deep - a full bar every few seconds at most, sustained. */
+export const HEAL_REFILL_S = 3;
+export const HEAL_DEPTH_X = 2;
+/**
+ * GATE-HEAL: `sub` WAS HEALED `n` POINTS BY `by` (a fighter of this fight: itself, or the mate whose spell it was) - the
+ * receiver standing at `pose` (the court's frame, its own) on the laid floor while the fight lives. Believed within the
+ * receiver's heal bucket and credited to the healer's `healed`; never a part in the fight. Answers what was credited.
+ * @param {any} f @param {string} sub @param {string} by @param {number} n @param {{x: number, z: number}|null} pose @param {number} now
+ */
+export function applyHeal(f, sub, by, n, pose, now) {
+  const p = f.players[sub], q = f.players[by];
+  if (!p || !q || f.fell || f.wrath || now >= f.wrathAt || !Number.isFinite(n) || !(n > 0)) return 0;
+  if (!pose || !Number.isFinite(pose.x) || !Number.isFinite(pose.z) || !onFloor(pose.x, pose.z, f.xa, now, POSE_SLACK)) return 0;
+  const ref = healRef(p.lv), depth = HEAL_DEPTH_X * ref;
+  p.hb = Math.min(depth, (Number.isFinite(p.hb) ? p.hb : depth) + (Math.max(0, now - (Number.isFinite(p.hbAt) ? p.hbAt : now)) / 1000) * (ref / HEAL_REFILL_S));
+  p.hbAt = now;
+  const got = Math.max(0, Math.min(n, p.hb));
+  p.hb -= got;
+  q.healed = (q.healed ?? 0) + got;
+  return got;
 }
 
 /** Did `sub` earn a receipt (bible section 6)? Only a fallen boss pays: dealt RECEIPT_SHARE of the health it brought, or

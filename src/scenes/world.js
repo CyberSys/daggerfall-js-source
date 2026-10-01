@@ -15502,6 +15502,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       magic.applySpellToPlayer(spell, d.level, null, { allyCast: true, strangerCast: !mate });   // AUDIT SPELL-GIFT B6: a stranger's Cure leaves an infection be
       const healed = Math.max(0, Math.trunc(playerEntity.health - before));
       if (healed > 0 && loud) townTalk.say(`You are healed ${healed} points.`);
+      if (healed > 0) gateCourt?.healedBy?.(id, healed);   // GATE-HEAL: in a gate's court, the caster's healing (the round-up's)
       surfacePlayer();
     };
     // INSPECT1: A CARD FRAME AT ME. An ASK is answered with my card - what my own sheet shows and what I wear now
@@ -16588,6 +16589,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     send: (hit) => !!online?.sendGate?.({ k: 'hit', ...hit }),   // WB4b: a blow of mine on him, to the court's room
     sendCrystal: (hit) => !!online?.sendGate?.({ k: 'xhit', ...hit }),   // WB9c: a blow of mine on a crystal of Oblivion
     sendHost: (hit) => !!online?.sendGate?.({ k: 'ahit', ...hit }),   // WB11c: a blow of mine on one of his host
+    sendHeal: (heal) => !!online?.sendGate?.({ k: 'heal', ...heal }),   // GATE-HEAL: what healed me, and by whom
     portalDoor: (door) => { modes?.dungeonCtx?.exitDoors?.push?.(door); },   // WBX2: its door, for the exit's ray and name - and (SS3) its press, the one way through it
     // WBX7: a soul trap of mine still on him as he fell - the port's own kill roll (EnemyEntity.AttemptSoulTrap), his soul
     // into an empty gem of my pack, its words; the tether's arm is not his (the relay has already killed him)

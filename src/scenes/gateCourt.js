@@ -28,7 +28,7 @@ import { tierColour } from '../render/spoilsGlow.js';   // WB9f: a piece's landi
 import { RARITIES } from '../systems/lootRarity.js';
 import { GatePassRenderer, gateSpinRate } from '../render/gatePass.js';   // WBX2: the portal's fire is the gate's own
 import { gateArchProfile } from '../world/gateModel.js';
-import { ONLINE_MINUTES_PER_MS } from '../net/wire.js';   // WBX7: a soul trap's rounds on the shared world's clock
+import { ONLINE_MINUTES_PER_MS, GATE_HEAL_ROWS_MAX, GATE_HEAL_WIRE_MAX } from '../net/wire.js';   // WBX7: a soul trap's rounds on the shared world's clock; GATE-HEAL: the heal word's bounds
 import { spoilsLevel } from './spoilsPool.js';   // AUDIT WBX S2: the spoils never rolled past the level the fight admitted
 import { bossBarModel, drawGateBossBar } from '../ui/gateBossBar.js';
 import { marksCardModel, drawGateMarksCard } from '../ui/gateMarksView.js';   // WB9a: the night's marks over the screen as a fighter steps in
@@ -125,6 +125,12 @@ const NONE = Object.freeze([]);
 /** The boss by his id (the relay's word), or the day's (net/gateLaw.js). */
 export const bossOf = (s) => GATE_BOSSES.find((b) => b.id === s?.boss) ?? gateBossOf(s?.day ?? 0);
 
+/** GATE-HEAL (2026-10-01, Mac: "Can we add a line on the damage round up showing the amount healed?" - each challenger's):
+ *  what healed me goes to the relay at most this often (a word for every healer since the last); a gap in my frames
+ *  longer than HEAL_GAP_MS (a hidden tab) counts nothing - the watch only believes a rise it saw end to end. */
+export const HEAL_SEND_MS = 1000;
+export const HEAL_GAP_MS = 1000;
+
 /**
  * @param {{
  *   renderer?: any, gl?: any,
@@ -145,6 +151,7 @@ export const bossOf = (s) => GATE_BOSSES.find((b) => b.id === s?.boss) ?? gateBo
  *   send?: (hit: { q: number, d: number, r: number }) => boolean,
  *   sendCrystal?: (hit: { c: number, q: number, d: number, r: number }) => boolean,
  *   sendHost?: (hit: { i: number, q: number, d: number, r: number }) => boolean,
+ *   sendHeal?: (heal: { h: Array<[string, number]> }) => boolean,
  *   rng?: () => number,
  *   portalDoor?: (door: any) => void,
  *   soulTrap?: (trap: { chance: number, mobile: number, name: string }) => void,
@@ -152,7 +159,8 @@ export const bossOf = (s) => GATE_BOSSES.find((b) => b.id === s?.boss) ?? gateBo
  * }} deps
  *   WB9a: `veiled` - the step's fire is over the screen (ui/gateVeil.js): the marks' card waits under it. WB9c:
  *   `sendCrystal` - a blow of mine on a crystal of Oblivion, to the court's room (the wire's `xhit`). WB11c: `sendHost` -
- *   a blow of mine on one of his host, to the court's room (the wire's `ahit`).
+ *   a blow of mine on one of his host, to the court's room (the wire's `ahit`). GATE-HEAL: `sendHeal` - what healed me,
+ *   and by whom, to the court's room (the wire's `heal`).
  *   WB8b: `save` answers the saving throw against `el` (his aspect's element - fire, frost, shock, poison) and `strike`
  *   is told the element it landed with. WBX2: `portalDoor` lays the risen portal's door into the court's exit doors, once, so the exit's own ray, name and
  *   press take it - the way home, the bridge membrane's own (SS3: the court no longer takes a way home of its own - the
@@ -163,7 +171,7 @@ export const bossOf = (s) => GATE_BOSSES.find((b) => b.id === s?.boss) ?? gateBo
 export function createGateCourt({
   renderer = null, gl = null, getTexture = null, uploadRecordFrame = null, audio = null,
   link, spoils = null, now, cam = () => null, feet = () => null, player = () => null, save = () => 100,
-  strike = () => {}, say = () => {}, hudHidden = () => false, veiled = () => false, send = () => false, sendCrystal = () => false, sendHost = () => false, rng = Math.random,
+  strike = () => {}, say = () => {}, hudHidden = () => false, veiled = () => false, send = () => false, sendCrystal = () => false, sendHost = () => false, sendHeal = () => false, rng = Math.random,
   portalDoor: layPortalDoor = () => {}, soulTrap = () => {}, me = () => null,
 }) {
   let pass = null;
@@ -187,6 +195,34 @@ export function createGateCourt({
    *  met starved my blows); a second frame on a body already met is a blow of its own. `who` the body: 'b' him, `x<c>`
    *  a crystal, `a<i>` one of his host. */
   const blowMet = new Set();
+  // GATE-HEAL: WHAT HEALED ME. My health as I last saw it standing in a live fight (NaN: not so) and when; what healed me
+  // since my last word to the relay, by whom ('' myself, else the caster's peer id), and when that word went.
+  let healSeen = NaN, healSeenAt = -Infinity, healSentAt = -Infinity;
+  const healOwed = new Map();
+  const healLive = (s) => !!s && s.day !== null && !s.fell && s.wrath == null;
+  const owe = (by, n) => { healOwed.set(by, (healOwed.get(by) ?? 0) + n); };
+  /** A rise in my health since my last frame, standing at both with no gap between: healing - mine (a mate's spell is
+   *  said by its own door, healedBy, and taken as seen). The court's own blows on me land inside a frame (the dungeon's
+   *  strikePlayer), so none hides a heal; regeneration is barred in the courts (WBX6), so none passes for one. */
+  function watchHeal(s, t) {
+    const h = player()?.health;
+    if (healLive(s) && h > 0 && healSeen > 0 && t - healSeenAt <= HEAL_GAP_MS && h > healSeen) owe('', h - healSeen);
+  }
+  /** The frame's end: my health as it stands after the court's blows, and the word out at most every HEAL_SEND_MS. */
+  function seeHeal(s, t) {
+    const h = player()?.health;
+    healSeen = healLive(s) && Number.isFinite(h) && h > 0 ? h : NaN;
+    healSeenAt = t;
+    if (healOwed.size && t - healSentAt >= HEAL_SEND_MS) sendOwed(t);
+  }
+  /** What healed me, out as the wire's `heal`: whole points (the fractions kept for the next), each healer once. */
+  function sendOwed(t) {
+    healSentAt = t;
+    const h = [];
+    for (const [by, n] of healOwed) if (n >= 1 && h.length < GATE_HEAL_ROWS_MAX) h.push([by, Math.min(Math.floor(n), GATE_HEAL_WIRE_MAX)]);
+    if (!h.length || !sendHeal({ h })) return;
+    for (const [by, n] of h) { const left = healOwed.get(by) - n; if (left > 0) healOwed.set(by, left); else healOwed.delete(by); }
+  }
   function blowQ(who) {
     if (!blowMet.size || blowMet.has(who)) { blowSeq++; blowMet.clear(); }
     blowMet.add(who);
@@ -244,6 +280,7 @@ export function createGateCourt({
     stepFrom = null; strideRun = 0; growlAt = null; hpHeard = null; gruntAt = -Infinity; quaked = noMark(); thunderPhase = 0; thudCued = false;
     pools = []; pooled = noMark(); burnAt = -Infinity; inFire = false; outAt = -Infinity; mark = null; poolDraw = [];
     marksSaid = false; fedHeard = null; marksAt = null; chartAt = null;   // GATE-UX
+    healSeen = NaN; healSeenAt = -Infinity; healOwed.clear();   // GATE-HEAL
     portal = null; spin = 0; portalLaid = false; portalSaid = false;
     rk = null; rkDone = null; stunHeard = 0; crystalIns.length = 0; _targets.length = 0; _crystalDraw.length = 0;   // WB9c
     _bursts.length = 0; _fxLive.length = 0; meteorNow = null;   // WB9e
@@ -610,7 +647,8 @@ export function createGateCourt({
     frame() {
       blowMet.clear();   // AUDIT WB11 W3: a frame ends my blow
       const s = link.state(), t = now();
-      if (!s || s.day === null) { if (day !== null) this.leave(); return; }
+      watchHeal(s, t);   // GATE-HEAL: what healed me since my last frame
+      if (!s || s.day === null) { if (day !== null) this.leave(); seeHeal(s, t); return; }
       if (s.day !== day) reset(s.day);
       const P = profileOf(s);   // WB8b: the fight's marks, as law - the relay's word of them
       judge(s, t, P);
@@ -643,7 +681,20 @@ export function createGateCourt({
       drawGateDamageChart(chartAt !== null ? damageChartModel(s.fell, { boss: bossOf(s).name, me: me(), since: chartAt, now: t }) : null, { hidden: hudHidden() || veiled() });
       // WB9d: his ground under me and his element on me, felt - the screen's rim in its colour, the warning while I stand in it
       drawGateGround(groundViewModel({ inside: inFire, ground: groundName, color: groundColor, biteAt, biteColor, now: t }), { hidden: hudHidden() });
+      seeHeal(s, t);   // GATE-HEAL: my health after the court's blows, and what healed me out
       prevT = t;
+    },
+    /**
+     * GATE-HEAL: A MATE'S SPELL HEALED ME `n` points (scenes/world.js onCast - the health that moved), `id` the caster's
+     * peer id in the room: owed to them, and taken as seen, so the watch never counts it again, nor as mine. False
+     * outside a live fight.
+     */
+    healedBy(id, n) {
+      const s = link.state();
+      if (!healLive(s) || !(n > 0) || typeof id !== 'string' || !id || !(healSeen > 0)) return false;
+      owe(id, n);
+      healSeen += n;
+      return true;
     },
     /**
      * WB4b: HIM AS A BODY MY BLOWS MEET, or null (no fight, or he has fallen): his feet in the dungeon's frame, his
@@ -804,6 +855,7 @@ export function createGateCourt({
     portal: () => (portal ? { at: [...portal.at], rise: portal.rise } : null),
     /** Out of the court: the body put away, the bar hidden, the fight forgotten (the texture is kept - the next court wears it). */
     leave() {
+      if (healOwed.size) sendOwed(now());   // GATE-HEAL: what healed me goes before the court is put away
       spoils?.gather();   // WB5: whatever is still on the floor goes into the pack - never lost to a door, a death or the day's end
       if (batch) { renderer?.destroyBillboardBatch?.(batch); batch = null; batchShown = false; }
       drawGateBossBar(null);

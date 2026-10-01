@@ -394,7 +394,7 @@ test('WB3 receipt: the relay\'s key from its secret - PKCS8 in base64 (the accou
 // ═══ THE WIRE ════════════════════════════════════════════════════════════════════════════════════════════════════
 
 test('WB3 wire: the client says two things - `in` with a level claim, `hit` with a sequence, a damage and a kind - projected field by field, after a hello alone; the room says its closed list of kinds, each bounded; the first relay that runs a boss room is GATE_RELAY_MIN (mutants: an extra field carried; a damage past the wire\'s bound; a refusal word invented)', () => {
-  assert.deepEqual(GATE_KINDS, ['in', 'hit', 'spent', 'site', 'xhit', 'ahit']);   // AUDIT WBX S1: and the hub's `spent`; DISCORD-GATES: and its `site`; WB9c: a blow on a crystal; WB11b: on one of his host
+  assert.deepEqual(GATE_KINDS, ['in', 'hit', 'spent', 'site', 'xhit', 'ahit', 'heal']);   // AUDIT WBX S1: and the hub's `spent`; DISCORD-GATES: and its `site`; WB9c: a blow on a crystal; WB11b: on one of his host; GATE-HEAL: what healed me
   // AUDIT WBX R7: the brain's law on `in` (a whole number, carried when said); AUDIT WBX S1: a day spent, whole
   assert.deepEqual(validGateIn({ k: 'in', lv: 12, bv: GATE_BRAIN_V }), { k: 'in', lv: 12, bv: GATE_BRAIN_V });
   assert.deepEqual(validGateIn({ k: 'in', lv: 12, bv: 1.5 }), { k: 'in', lv: 12 });

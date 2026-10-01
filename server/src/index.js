@@ -202,7 +202,7 @@ const GUILD_OUT_KEEP_S = MAX_TTL_S + ORDER_TTL_S + 60;
 // pure law - it imports nothing) and net/gateReceipt.js (the kill's receipt, the relay's first signature - it imports
 // identityToken.js, already here). bible/11-Multiplayer/World-Bosses.md sections 5, 6 and 8.
 import { isGateRoom, gateDayOfRoom, gateAdmits, gateHolds, gateTimes, gateBossOf, gateModsOf, GATE_COLLAPSE_MS } from '../../src/net/gateLaw.js';
-import { newFight, joinFight, applyHit, applyCrystalHit, applyHostHit, stepBrain, stateOf, earned, earnedBy, COURT_CENTRE, BRAIN_TICK_MS, CHECKPOINT_MS, GATE_FIGHTERS_MAX } from '../../src/net/gateBrain.js';
+import { newFight, joinFight, applyHit, applyCrystalHit, applyHostHit, applyHeal, stepBrain, stateOf, earned, earnedBy, COURT_CENTRE, BRAIN_TICK_MS, CHECKPOINT_MS, GATE_FIGHTERS_MAX } from '../../src/net/gateBrain.js';
 import { mintReceipt, importReceiptKey, readReceipt, RECEIPT_TTL_S } from '../../src/net/gateReceipt.js';
 // RAID3 (2026-09-27, Mac, on World Events - Raiding Parties online: "1. Server"): TWO FILES JOIN THE BUNDLE -
 // net/raidLaw.js (a town raid's ledger, pure law - it imports nothing) and net/raidReceipt.js (a raid's receipt, the
@@ -2272,6 +2272,17 @@ export class Room {
     }
     // a blow: from a fighter (a correct client says `in` first), from where its own pose stands - the dead strike nothing
     if (!f || !f.players[a.sub]) { this._junk(ws); return; }
+    // GATE-HEAL: what healed this fighter, and by whom - '' itself, else the socket in this room the peer id names (a
+    // fighter of this fight, else nobody); believed within its own heal bucket, from its own pose (net/gateBrain.js
+    // applyHeal). A figure for the round-up alone: it keeps no beat and wakes nothing.
+    if (m.k === 'heal') {
+      const pose = a.pose ? this._courtOf(a.pose) : null;   // the fallen too: a heal before a fall may be said after it
+      for (const [by, n] of m.h) {
+        const healer = by === '' ? a.sub : [...this._all()].find(([, b]) => b.id === by)?.[1]?.sub ?? null;
+        if (healer) applyHeal(f, a.sub, healer, n, pose, now);
+      }
+      return;
+    }
     // WB9c: a blow on a crystal of Oblivion - the brain's caps as a blow on him; a crystal broken, and the Reckoning
     // broken with the last of them, said to the court at once (its health goes out on the beat)
     if (m.k === 'xhit') this._gateFan(applyCrystalHit(f, a.sub, m.c, m.d, m.r, a.pose && !a.pose.dd ? this._courtOf(a.pose) : null, now, m.q));
