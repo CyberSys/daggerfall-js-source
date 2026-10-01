@@ -25,9 +25,11 @@ import { entityMaxEncumbrance, maxEncumbrance } from '../../combat/formulas.js';
 export const COMPANION_MAX = 2;
 /** COMPANION-WEIGHT (2026-10-01, the field: "make the crew companions have a balanced inventory weight"): HIS PACK
  *  CARRIES WHAT A PERSON OF HIS STRENGTH CAN - Daggerfall's own MaxEncumbrance over his body's live strength (1.5 kg a
- *  point, and any weight allowance he wears or is cast; combat/formulas.js entityMaxEncumbrance), 90 kg at a hand's
- *  usual 60. A body whose class has not loaded yet, or none, reads an average person's (PACK_DEFAULT_STRENGTH). A pack
- *  filled past it before the limit keeps what it holds; nothing more goes in (itemTransfer.js planStore). */
+ *  point, and any weight allowance he wears or is cast; combat/formulas.js entityMaxEncumbrance): by his class's
+ *  CLASS*.CFG strength 67-97 kg (a Bard's 45 67, a Monk's 50 75, a Warrior's 60 90, a Barbarian's 65 97), a Fortify
+ *  Strength of mine on him more. With no body to read (none stands - the host passes his live body, AUDIT ECON C5) an
+ *  average person's, PACK_DEFAULT_STRENGTH's. A pack filled past it before the limit keeps what it holds; nothing more
+ *  goes in (itemTransfer.js planStore). */
 export const PACK_DEFAULT_STRENGTH = 50;
 export const packCapacityKg = (entity) => (Number(entity?.stats?.strength) > 0 ? entityMaxEncumbrance(entity) : maxEncumbrance(PACK_DEFAULT_STRENGTH));
 /** How long a knocked-out companion rests aboard before he will come ashore again - the world's minutes (8 hours). */

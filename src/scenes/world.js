@@ -6278,8 +6278,16 @@ export async function bootWorld(canvas, renderer, params, status) {
     // AUDIT WK-P3: his pack read by his key at every look - a quickload under the window stands a restored party, and a
     // list taken once kept the unloaded pack's items to be taken again (each F9/F11 a duplicate)
     let orphan = null;
-    // COMPANION-WEIGHT: and it carries what a person of his strength can - his body's, read at every store
-    const capacity = () => ({ kg: packCapacityKg(rec?.entity ?? null), name: naval?.companionPack?.(key)?.name ?? null });
+    // COMPANION-WEIGHT: and it carries what a person of his strength can - AUDIT ECON C5: his LIVE body's, looked up by
+    // his key at every store as his items are (a quickload under the window stands another, or none); gone from the
+    // party, his pack takes nothing (itemTransfer.js packGoneText) - what it took would go into the stand-in list
+    const named = naval?.companionPack?.(key)?.name ?? null;
+    const capacity = () => {
+      const pack = naval?.companionPack?.(key);
+      if (!pack) return { kg: 0, name: named, gone: true };
+      const body = crewAshore.bodies().find((f) => f.companion === key) ?? rec;
+      return { kg: packCapacityKg(body?.entity ?? null), name: pack.name ?? named };
+    };
     const w = makeInventoryWindow({ loot: { items: () => naval?.companionPack?.(key)?.items ?? (orphan ??= []), containerImage: () => CONTAINER_IMAGES.Backpack, playerOwned: true, storage: true, capacity } });
     if (!w) return false;
     if (!modes?.mountWindow?.(w)) { (w.dispose?.bind(w) ?? w._closeSilently?.bind(w))?.(); return false; }

@@ -1357,12 +1357,16 @@ followers; all of this is the port's own, over CREW-COMPANIONS.
   gold to my purse. Never thrown away. Realm customs and the account service's first save count his pack as the hold
   (`net/realmGoldLaw.js stashedItemLists`). **COMPANION-WEIGHT (2026-10-01, the field: "make the crew companions
   have a balanced inventory weight")**: it carries what a person of his strength can - DFU's MaxEncumbrance over his
-  body's live strength (`systems/naval/crewCompanions.js packCapacityKg`: 1.5 kg a point and any weight allowance, 90
-  kg at a hand's usual 60, an average person's 75 while his class has not loaded). The storage target hands it in
-  (`capacity`, read at every store), both windows' store and gold doors take what fits and refuse the rest in his name
-  (`itemTransfer.js` `packFullText`, `packFullGoldText`; `inventorySession.js storeCapacityOf`), and the enhanced
-  header shows his load against it. A pack filled past it before the limit keeps everything and takes nothing more;
-  taking out is never gated by it, and stowing it in the hold or my pack is untouched. `test/companion_weight.test.js`.
+  body's live strength (`systems/naval/crewCompanions.js packCapacityKg`: 1.5 kg a point and any weight allowance -
+  67-97 kg by his class's strength, a Bard's 45 67 and a Warrior's 60 90, more under a Fortify of mine). The storage
+  target hands it in (`capacity`, read at every store from his LIVE body, looked up by his key - AUDIT ECON C5), both
+  windows' store and gold doors take what fits and refuse the rest in his name (`itemTransfer.js` `packFullText`,
+  `packFullGoldText`; `inventorySession.js storeCapacityOf`) - above the quest arm, so a refused letter is never
+  marked dropped (C1) - and both windows show his load against it (the enhanced header; the classic remote panel,
+  C2). A pack filled past it before the limit keeps everything and takes nothing more; a companion gone from the party
+  under his open window (a quickload that left him aboard) takes nothing at all (`packGoneText`, C5 - it had taken into
+  a list nothing kept); taking out is never gated, and stowing it in the hold or my pack is untouched.
+  `test/companion_weight.test.js`.
 - **The bar** (`ui/navalHud.js drawCrewBars`): a companion's is wider (`MATE_BAR_W`), his name and health in digits
   over it and his live effects' icons under it (`MATE_FX_MAX`, the party card's own row: `composePartyFx`; fitted by
   `iconFit.js`'s law, a harmful one ringed as the card rings it); a deck hand's stays bare. Another player's companion:

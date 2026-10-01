@@ -535,9 +535,12 @@ export class NativeInventoryWindow {
     if (loot && (loot.textureArchive ?? 0) > 0) {
       return { image: dropIconImage(loot.textureArchive, loot.textureRecord), label: pileLabel(loot.pile) };
     }
+    // AUDIT ECON C2: a storage with its own limit (a companion's pack, COMPANION-WEIGHT) is labelled with its load the way
+    // the wagon is - the classic window said nothing of it while its Remove refused at the limit
+    const cap = storeCapacityOf(this.hooks, { usingWagon: this.usingWagon, chooseOne: this.chooseOne });
     return {
       container: loot ? (loot.containerImage?.() ?? CONTAINER_IMAGES.Ground) : CONTAINER_IMAGES.Ground,
-      label: pileLabel(loot?.pile),
+      label: cap ? targetIconWeightText(totalWeight(this._remote()), cap.kg) : pileLabel(loot?.pile),
     };
   }
 

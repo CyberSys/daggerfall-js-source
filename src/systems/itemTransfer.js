@@ -140,7 +140,12 @@ export const wagonFullGoldText = (n) => `Your wagon could only hold ${n} gold pi
  *  refuses in its own words, the port's: DFU has no companion to name. */
 export const packFullText = (name) => `${name || 'Your companion'} cannot carry any more.`;
 export const packFullGoldText = (name, n) => `${name || 'Your companion'} could only carry ${n} gold pieces.`;
-const packFull = (capacity) => ({ reason: 'packFull', text: packFullText(capacity?.name) });
+/** AUDIT ECON C5: a storage whose keeper is gone (a quickload under his window that left him aboard) takes nothing - what
+ *  it took would go into a list nothing keeps. */
+export const packGoneText = (name) => `${name || 'Your companion'} is no longer with you.`;
+const packFull = (capacity) => (capacity?.gone ? { reason: 'packGone', text: packGoneText(capacity?.name) } : { reason: 'packFull', text: packFullText(capacity?.name) });
+/** Whether a capacity refuses a store of `units` of `item` onto `remote` outright - gone, or no room for one. */
+const packRefuses = (capacity, item, units, remote) => !!capacity.gone || canHoldAmount(units, effectiveUnitWeightInKg(item), capacity.kg, totalWeight(remote)) <= 0;
 
 /**
  * DropGoldPopup_OnGotUserInput (:1269-1303). The GOLD arm of the same
@@ -162,6 +167,7 @@ export function planDropGold(text, { carried = 0, usingWagon = false, remote = [
   const asked = /^[0-9]+$/.test(String(text)) ? Number(text) : 0;
   if (asked < 1 || asked > carried) return { ok: false, refusal: REFUSAL.badAmount, notice: null };
   if (!usingWagon && capacity) {
+    if (capacity.gone) { const r = packFull(capacity); return { ok: false, refusal: r, notice: r.text }; }   // AUDIT ECON C5
     // COMPANION-WEIGHT: a companion's pack clamps gold the way the wagon does, by its own limit and in its own words
     const canCarry = canHoldAmount(carried, GOLD_PIECE_WEIGHT_KG, capacity.kg, totalWeight(remote));
     const notice = asked > canCarry ? packFullGoldText(capacity.name, Math.max(0, canCarry)) : null;
@@ -213,6 +219,11 @@ export function planStore(item, {
   // ANSWERS the interception; the window routes to its own reveal
   // (its use arm carries the no-reveal-seam pending law).
   if (isMap(item)) return { ok: true, map: true, amount: item.stackCount ?? 1 };
+  // AUDIT ECON C1: a storage of the port's own with no room left (a companion's pack, COMPANION-WEIGHT) refuses ABOVE
+  // the quest arm - DFU has no such limit, and its one capacity, the wagon's, never writes the flag (toWagon), so DFU
+  // never marks an item dropped and then keeps it in the pack; below it, a quest's dropped-at-place letter refused by a
+  // full pack still fired the quest's DroppedItemAtPlace while it stayed in the player's bag
+  if (capacity && !usingWagon && packRefuses(capacity, item, item.stackCount ?? 1, remote)) return { ok: false, refusal: packFull(capacity) };
   // AUDIT 26: TransferItem's QUEST arm (:1480-1505), the guard ONE
   // STATEMENT below the summoned one and ABOVE every capacity gate -
   // so a quest item stopped by a full wagon has still had its
@@ -239,7 +250,7 @@ export function planStore(item, {
     // COMPANION-WEIGHT: a storage with its own limit takes what fits, the wagon's law under its own number - a load
     // already over it (a pack filled before the limit) refuses everything more, and taking out is never gated
     const canHold = canHoldAmount(stack, effectiveUnitWeightInKg(item), capacity.kg, totalWeight(remote));
-    if (canHold <= 0) return { ok: false, refusal: packFull(capacity) };
+    if (capacity.gone || canHold <= 0) return { ok: false, refusal: packFull(capacity) };
     return { ok: true, amount: Math.min(canHold, stack), sound: 'click' };
   }
   return { ok: true, amount: stack, sound: 'click' };   // DoTransferItem (:1583)

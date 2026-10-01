@@ -2356,7 +2356,7 @@ test('ENH-NOTICE3 (AUDIT B/F5): a refusal raised over a LOOT PILE with the pack 
       const host = dom.mk('div');
       dom.body.append(host);
       const e = hero();
-      e.goldPieces = 2000000;   // CanCarryAmount's own gate: the coin weight alone fills the load (itemTransfer.js:295)
+      e.goldPieces = 2000000;   // CanCarryAmount's own gate: the coin weight alone fills the load (itemTransfer.js:306)
       const pile = [mk('Claymore')];
       const view = mountEnhancedInventory(host, {
         entity: e, items: () => e.items, loot: { items: () => pile }, onExit: () => {},

@@ -110,8 +110,8 @@ current design "does not work in an enjoyable manner"):
 - **Phase 0 - the triage, shipped with this page.** WEAR-VANILLA (gear wears
   at DFU's rate; `05-Combat/Physical-Combat-Overhaul.md`), REPAIR-RATE and
   KIT-CEILING (below), POTION-COMMON (a Potion of Healing on a looting foe 6
-  times in 100 and in a J-O pile 12, and a few on every alchemist's and
-  general store's shelf each day - `src/systems/healingSupply.js`) and
+  times in 100 and in a J-O pile 12, and a few at every alchemist's and
+  general store's counter each day - `src/systems/healingSupply.js`) and
   COMPANION-WEIGHT (a crew companion's pack carries what a person of his
   strength can, DFU's MaxEncumbrance - `03-World/Naval-Combat.md`).
 - **Phase 1 - see failure.** The server-side gold ledger: each checkpoint's
