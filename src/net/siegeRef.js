@@ -25,9 +25,11 @@
 //     draws), never the claim's own word alone.
 //   - A CAST: at most 3 damaging a 5 seconds, each to 60; a heal to 40,
 //     three a 5 seconds of its own.
-//   - A STEP: no faster than 18 m/s across the ground and half a metre
-//     (MEASURED below); past it the relay pulls the fighter back to its
-//     last good pose. A fall is gravity's, never refused.
+//   - A STEP: no faster than 18 m/s and half a metre (MEASURED below) -
+//     AUDIT-SEATS R1/R2: its run and its climb together, on an allowance
+//     the fighter carries (a second's run and the slack at most); past it
+//     the relay pulls the fighter back to its last good pose. A fall is
+//     gravity's, never refused.
 //   - A FALLEN fighter rises at its side's next wave, with 3 seconds no
 //     blow touches.
 //
@@ -127,13 +129,19 @@ export function siegeBlowMax(w, m) {
 }
 /** Whether a template is a bow (its blow a shaft's). */
 export const siegeIsBow = (w) => w === SIEGE_WEAPONS.Short_Bow || w === SIEGE_WEAPONS.Long_Bow || w === SIEGE_THUNDERLOCK.template;
+/** AUDIT-SEATS R8: THE HANDS - the look's two slots a weapon is wielded from (DFU's EquipSlots RightHand 19 and LeftHand
+ *  21: characters/paperdoll.js EQUIP_SLOTS, pinned equal - this leaf imports nothing; net/remotePlayers.js composeLook
+ *  writes each item's `equipSlot` off the equip table's own index). */
+export const SIEGE_HAND_SLOTS = Object.freeze([19, 21]);
 /**
  * THE WEAPON A STRIKER HOLDS, off its look (net/wire.js validLook's items): the claimed template and material where a
- * `Weapons` item of the look carries them, else null - hand-to-hand (`w` -1) is always held.
+ * `Weapons` item of the look carries them IN A HAND, else null - hand-to-hand (`w` -1) is always held. AUDIT-SEATS R8: in
+ * a hand - any Weapons item anywhere in the look was taken as held, so a Daedric Dai-Katana in an amulet's slot (a look
+ * the wire admits: validLookItem bounds the slot, never its kind) struck as one.
  */
 export function siegeHeld(look, w, m) {
   if (w === -1 || w == null) return { w: -1, m: 0 };
-  const it = (look?.items ?? []).find((i) => i?.group === 'Weapons' && i.templateIndex === w && (i.material ?? 0) === m);
+  const it = (look?.items ?? []).find((i) => i?.group === 'Weapons' && SIEGE_HAND_SLOTS.includes(i.equipSlot) && i.templateIndex === w && (i.material ?? 0) === m);
   return it ? { w, m } : null;
 }
 
@@ -219,16 +227,34 @@ export function refereeCast(by, to, { from = null, at = null, d = 0, heal = fals
   return { ok: true, dealt: got, fell, why: null };
 }
 
+/** AUDIT-SEATS R2: the longest a step's allowance runs - a second's run and the slack, however long the silence before. */
+export const SIEGE_STEP_WINDOW_MS = 1000;
 /**
- * A STEP JUDGED (6.1): `next` a pose `dtMs` after `last` (both in the room's units) - kept when it moved ACROSS THE GROUND
- * no faster than SIEGE_SPEED and its slack, else refused (the relay pulls the fighter back to `last`). A first pose is
- * always kept. The height is not judged (DECIDED): a fall from a wall is gravity's and outruns any run, and a climb
- * buys no reach - a blow's reach is measured in all three.
+ * A STEP JUDGED (6.1): `next` a pose `dtMs` after `last` (both in the room's units) - kept when it moved no faster than
+ * SIEGE_SPEED and its slack, else refused (the relay pulls the fighter back to `last`). A first pose is always kept.
+ *
+ * AUDIT-SEATS R1: THE RISE IS JUDGED - a step's length is its run across the ground and its climb together
+ * (+y is up: player/motor.js's gravity takes `pos[1]` down); a fall is still gravity's, never refused (it outruns any
+ * run). PVP-REF judged the ground alone (its DECIDED: "a climb buys no reach") - and a climb bought everything: a
+ * fighter rose 2,000 m in 50 ms to stand over a banner where no blow reached it, contesting it for ever.
+ *
+ * AUDIT-SEATS R2: AND THE ALLOWANCE IS CARRIED on the fighter `f` (`f.stepM`, metres): refilled at SIEGE_SPEED.mps, up
+ * to SIEGE_STEP_WINDOW_MS's run and the slack ONCE, each kept step spending its length; a refused step spends nothing
+ * (the relay keeps `last` and its time, so the next step earns the whole gap again). PVP-REF gave every pose its own
+ * slack and every gap its whole run - 180 poses 60 ms apart took a fighter 441 m in 300 ms, and ten silent seconds let
+ * one pose land 180 m away. The window is generous to the honest: a burst after a stalled link spends the second's run
+ * the stall earned, never more. Without `f` (the law alone) a step earns its own gap, held to the window, and the slack.
  */
-export function refereeStep(last, next, dtMs) {
-  if (!last) return true;
-  const allowed = SIEGE_SPEED.mps * Math.max(0, dtMs) / 1000 + SIEGE_SPEED.slackM;
-  return Math.hypot((next.x - last.x) / SIEGE_UNITS_PER_M, (next.z - last.z) / SIEGE_UNITS_PER_M) <= allowed;
+export function refereeStep(last, next, dtMs, f = null) {
+  const full = SIEGE_SPEED.mps * SIEGE_STEP_WINDOW_MS / 1000 + SIEGE_SPEED.slackM;
+  if (!last) { if (f) f.stepM = full; return true; }
+  const earned = SIEGE_SPEED.mps * Math.min(SIEGE_STEP_WINDOW_MS, Math.max(0, dtMs)) / 1000;
+  const allowed = f ? Math.min(full, (Number.isFinite(f.stepM) ? f.stepM : full) + earned) : earned + SIEGE_SPEED.slackM;
+  const rise = Math.max(0, (next.y - last.y) || 0);   // a pose with no height climbs nothing (the relay's are all finite - validPose)
+  const len = Math.hypot((next.x - last.x) / SIEGE_UNITS_PER_M, (next.z - last.z) / SIEGE_UNITS_PER_M, rise / SIEGE_UNITS_PER_M);
+  if (len > allowed) return false;
+  if (f) f.stepM = allowed - len;
+  return true;
 }
 
 /** The next wave after `now` (6.2): its boundary on the room's own clock - every `waveMs` from the epoch. */
@@ -287,15 +313,42 @@ export function newBattle({ kind, tier, startMs, field, endMs = 0 }) {
     kind, tier, startMs, endMs: startMs + length, field,
     banners: field.banners.map(() => ({ side: kind === 'tourney' ? null : 'defend', raise: 0, by: null })),
     throne: 0, raised: false, attackSeen: false, defendSeen: false, at: startMs, result: null,
+    reached: false,   // AUDIT-SEATS T1: whether the attackers ever stood alone at the open Throne (battleStep)
   };
 }
 const flat = (p, q) => Math.hypot((p.x - q[0]) / SIEGE_UNITS_PER_M, (p.z - q[1]) / SIEGE_UNITS_PER_M);
-/** The standing fighters of each side within a point's radius. */
-function presentAt(fighters, point) {
+/** AUDIT-SEATS R1: how far above or below THE FIELD'S GROUND a fighter may stand and still stand at a point, metres - the
+ *  banner's own 8 m, so a point is a sphere about its ground, never a column to the sky. */
+export const SIEGE_HEIGHT_M = 8;
+/**
+ * AUDIT-SEATS R1: THE FIELD'S GROUND - the middle height (the median; two middles, their mean) of the sided fighters
+ * standing in the room (`fighters` as battleStep takes them), in the room's units, or null with none.
+ *
+ * DECIDED here: the pass's points are `[x, z]` alone (net/identityToken.js's field - the service signs no height, and
+ * the relay holds no ground), and presence was judged flat - a fighter 2,000 m over a banner stood at it, contesting it
+ * for ever where no blow reached (a lone floater took two banners and the Throne). A seat town's ground is level (DFU
+ * flattens a location's terrain - the camps and points all stand in or at its edge), and the fighters standing on it are
+ * the room's honest many, so their middle height is the ground: a floater or a sinker more than SIEGE_HEIGHT_M off it
+ * stands at no point. Its limit, recorded: a whole side lying together moves the middle by half - then nobody stands at
+ * any point, and a siege's banners keep the holder's (a Tourney's whoever held them). The cure is a height in the
+ * field's points, the service's to sign (SEAT2b's to ask).
+ */
+export function siegeGround(fighters) {
+  const ys = [];
+  for (const f of fighters) if (!f.down && f.pose && f.here && (f.side === 'attack' || f.side === 'defend') && Number.isFinite(f.pose.y)) ys.push(f.pose.y);
+  if (!ys.length) return null;
+  ys.sort((p, q) => p - q);
+  const h = ys.length >> 1;
+  return ys.length % 2 ? ys[h] : (ys[h - 1] + ys[h]) / 2;
+}
+/** The standing fighters of each side within a point's radius - AUDIT-SEATS R1: and within SIEGE_HEIGHT_M of the field's
+ *  `ground` (siegeGround; null judges no height). */
+function presentAt(fighters, point, ground = null) {
   let attack = 0, defend = 0;
   for (const f of fighters) {
     if (f.down || !f.pose || !f.here) continue;
     if (flat(f.pose, point) > SIEGE_BANNER.radiusM) continue;
+    if (ground != null && Math.abs(f.pose.y - ground) / SIEGE_UNITS_PER_M > SIEGE_HEIGHT_M) continue;   // AUDIT-SEATS R1: above or below the field
     if (f.side === 'attack') attack++; else if (f.side === 'defend') defend++;
   }
   return { attack, defend };
@@ -323,8 +376,9 @@ export function battleStep(b, fighters, nowMs) {
     f.stood = (f.stood ?? 0) + dt;   // Honours' half (6.8): its seconds in the room since the start
     if (f.side === 'attack') b.attackSeen = true; else b.defendSeen = true;
   }
+  const ground = siegeGround(fighters);   // AUDIT-SEATS R1: the field's ground, this beat
   b.banners.forEach((bn, i) => {
-    const p = presentAt(fighters, b.field.banners[i]);
+    const p = presentAt(fighters, b.field.banners[i], ground);
     const alone = p.attack && !p.defend ? 'attack' : p.defend && !p.attack ? 'defend' : null;
     if (p.attack && p.defend) return;   // contested: frozen
     if (alone && bn.side !== alone) {
@@ -343,9 +397,13 @@ export function battleStep(b, fighters, nowMs) {
   if (b.kind === 'siege') {
     const rule = SIEGE_THRONE[b.tier] ?? SIEGE_THRONE.palace;
     const open = b.banners.filter((bn) => bn.side === 'attack').length >= rule.banners;
-    const p = presentAt(fighters, b.field.throne);
+    const p = presentAt(fighters, b.field.throne, ground);
     if (open && p.attack && !p.defend) b.throne += dt;
     else if (!(open && p.attack && p.defend)) b.throne = Math.max(0, b.throne - SIEGE_THRONE.decayPerS * dt);
+    // AUDIT-SEATS T1 (7.3: "A siege held only after the Throne was reached: -5"; 9.2: "The Throne was never reached"):
+    // REACHED once its progress was ever above nought - the attackers stood alone at the open Throne for a beat; kept
+    // for good (`th` on every receipt - net/siegeReceipt.js), never undone by the decay
+    if (b.throne > 0) b.reached = true;
     if (b.throne >= rule.holdS) return end(b, 'attack', out);
   }
   if (b.kind === 'siege' && !b.attackSeen && nowMs >= b.startMs + SIEGE_FORFEIT_MS) return end(b, b.defendSeen ? 'forfeit' : 'absent', out);
@@ -375,6 +433,41 @@ export const siegeCampPose = (b, side, was) => {
   const c = b.field.camps[side];
   return { x: c[0], y: Number.isFinite(was?.y) ? was.y : 0, z: c[1], yaw: Number.isFinite(was?.yaw) ? was.yaw : 0, pitch: 0 };
 };
+
+// ─── AUDIT-SEATS T3: A DISCONNECTED FIGHTER'S PLACE (Seats-Arc 16: "their place on the roster is kept 5 minutes; they
+// return at their camp with the next wave. After 5 minutes a signed-up substitute may take the place"; 6.4) ───
+
+/** A SIDE'S PLACES in the field - ten at a palace, twenty at a crown, its Sellswords within them (net/townSeatLaw.js
+ *  SIEGE_SIDE_MAX, pinned equal: the service's roster counts no more) - and how long a fighter gone keeps its own. */
+export const SIEGE_PLACES = Object.freeze({ palace: 10, crown: 20 });
+export const SIEGE_PLACE_KEPT_MS = 5 * 60_000;
+/** Whether a fighter holds its side's place at `now`: `here` (a socket in the room), or gone (`f.goneAt`, stamped by the
+ *  relay at the leave it sees) less than SIEGE_PLACE_KEPT_MS. A fighter gone with no stamp is held. */
+export const siegeHoldsPlace = (f, here, now) => here || !Number.isFinite(f?.goneAt) || now - f.goneAt < SIEGE_PLACE_KEPT_MS;
+/** Whether `side` has a place free at `now` for an account that holds none: `fighters` the room's (`{ [sub]: f }`),
+ *  `here(sub)` whether a socket of that account is in the room, `except` the account asking (its own place is not in
+ *  the count - a fighter back inside its five minutes has one). */
+export function siegePlaceFree(fighters, side, tier, here, now, except = null) {
+  let held = 0;
+  for (const [sub, f] of Object.entries(fighters ?? {})) if (sub !== except && f?.side === side && siegeHoldsPlace(f, here(sub), now)) held++;
+  return held < (SIEGE_PLACES[tier] ?? SIEGE_PLACES.palace);
+}
+/**
+ * A FIGHTER BACK FROM A DROP (its `in` after a leave): at its side's camp - and, the battle joined and not over, down
+ * until its side's next wave, when it rises whole and protected as any fallen fighter does (siegeRise; a fighter that
+ * fell before it dropped keeps its own wave). Before the start it simply stands at its camp; after the end nothing moves
+ * (it came for its receipt). So a drop is never a way out of a fall: the place is kept, the ground is not. Answers
+ * whether it waits for a wave (`f.upAt`).
+ */
+export function siegeReturn(b, f, now) {
+  delete f.goneAt;
+  if (!b || b.result || (f.side !== 'attack' && f.side !== 'defend')) return false;
+  f.pose = siegeCampPose(b, f.side, f.pose); f.poseAt = now;
+  if (now < b.startMs || f.down) return false;
+  f.down = true;
+  f.upAt = siegeNextWave(now, SIEGE_WAVE_MS[b.tier] ?? SIEGE_WAVE_MS.palace);
+  return true;
+}
 const sideCode = (s) => (s === 'attack' ? 1 : s === 'defend' ? 2 : 0);
 /**
  * THE FIELD'S FRAME (the relay's `f`, each second): `b` each banner `[held, its raise in whole seconds, by whom]` (0 no
@@ -505,6 +598,7 @@ export function royalEnd(b, winner, now) {
       b.pairs[k] = (b.pairs[k] ?? 0) + 1;
       (b.ladder[winner] ??= { w: 0, l: 0 }).w++;
       (b.ladder[loser] ??= { w: 0, l: 0 }).l++;
+      (b.wonAt ??= {})[winner] = now;   // AUDIT-SEATS R10: its last counted win, on the room's clock (royalLadder's tie)
     }
   }
   return { n: bt.n, w: loser ? winner : null, l: loser, a: bt.a, b: bt.b, counted };
@@ -533,9 +627,31 @@ export function royalStep(b, here, now) {
   b.at = now;
   return out;
 }
-/** THE LADDER as the room says it: `[subject, wins, losses]`, the most wins first, then the fewest losses. */
+/** THE LADDER as the room says it: `[subject, wins, losses]`, the most wins first, then the fewest losses - AUDIT-SEATS
+ *  R10: then the EARLIER last win, then the account: the service's champion rule (net/townSeatLaw.js royalStandings),
+ *  so the room's first row is the one the Turning crowns. The tie went to the account alone, and with b winning first
+ *  and a later the room showed a over b while the service crowned b. The last win is `b.wonAt` (royalEnd - the ladder's
+ *  rows keep their `{ w, l }`); a contender with none (losses alone) reads 0, as the service's does. */
 export const royalLadder = (b) => Object.entries(b?.ladder ?? {})
-  .sort(([x, p], [y, q]) => q.w - p.w || p.l - q.l || (x < y ? -1 : 1)).slice(0, ROYAL_LADDER_SHOWN).map(([sub, r]) => [sub, r.w, r.l]);
+  .sort(([x, p], [y, q]) => q.w - p.w || p.l - q.l || (b.wonAt?.[x] ?? 0) - (b.wonAt?.[y] ?? 0) || (x < y ? -1 : 1)).slice(0, ROYAL_LADDER_SHOWN).map(([sub, r]) => [sub, r.w, r.l]);
+/**
+ * AUDIT-SEATS R5: THE CONTENDERS' RECORDS PRUNED - a contender whose socket is gone (`here(sub)` false) and who holds
+ * nothing of the tourney (no ladder row, not in the bout, no challenge standing from or to it) is forgotten. Its record
+ * is a whole fighter at its Renown (every bout ends both whole), so one that comes back is made again the same. The
+ * field's bound was a count of records never deleted - forty-eight contenders entering on a Monday and leaving held the
+ * ring shut to everyone until the Turning; the room's bound is now the contenders IN it (the relay's), and this keeps the
+ * records it stores to the ones that mean something. Answers how many went.
+ */
+export function royalPrune(b, fighters, here) {
+  let n = 0;
+  const asked = new Set(Object.values(b?.asks ?? {}).map((a) => a.to));
+  for (const sub of Object.keys(fighters ?? {})) {
+    if (here(sub) || b?.ladder?.[sub] || b?.bout?.a === sub || b?.bout?.b === sub || b?.asks?.[sub] || asked.has(sub)) continue;
+    delete fighters[sub];
+    n++;
+  }
+  return n;
+}
 /** A Royal Tourney's next beat: each second while a bout is on (its draw, a fighter gone), else at the week's end. */
 export function royalNextBeat(b, now) {
   if (b.bout) return Math.min(now + SIEGE_TICK_MS, Math.max(now + 1, b.bout.endMs));

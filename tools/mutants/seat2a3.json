@@ -332,8 +332,8 @@
  {
   "name": "SEAT2a3-pass-late",
   "file": "server-account/src/seatSiege.js",
-  "old": "  if (nowS >= se) return { error: 'pass-late' };",
-  "new": "  if (nowS > se) return { error: 'pass-late' };",
+  "old": "  const late = nowS >= se;   // AUDIT-SEATS R6",
+  "new": "  const late = nowS > se;   // AUDIT-SEATS R6",
   "tests": [
    "test/seat2a_siege_service.test.js",
    "test/seat2a_siege_client.test.js"

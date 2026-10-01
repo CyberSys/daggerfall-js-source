@@ -103,8 +103,8 @@
   {
     "name": "ACC3a-11-the-who-answer-left-unbadged",
     "file": "server/src/index.js",
-    "old": "      this._send(ws, JSON.stringify(badged({ t: 'join', id: b.id, name: b.name, look, pose: inRange(a.key ?? '', a.pose, b.pose) ? (b.pose ?? null) : null }, b)));",
-    "new": "      this._send(ws, JSON.stringify({ t: 'join', id: b.id, name: b.name, look, pose: inRange(a.key ?? '', a.pose, b.pose) ? (b.pose ?? null) : null }));",
+    "old": "      this._send(ws, JSON.stringify(badged({ t: 'join', id: b.id, name: b.name, look, pose: inRange(a.key ?? '', a.pose, b.pose) ? (this._drawn(b, a.key).pose ?? null) : null }, b)));",
+    "new": "      this._send(ws, JSON.stringify({ t: 'join', id: b.id, name: b.name, look, pose: inRange(a.key ?? '', a.pose, b.pose) ? (this._drawn(b, a.key).pose ?? null) : null }));",
     "tests": [
       "test/acc3titles.test.js"
     ],

@@ -23,7 +23,7 @@ const SE = SB + 7 * 86400;
 const T = SB * 1000;
 const at = (x, z = 0) => ({ x: x * M, y: 0, z: z * M, yaw: 0, pitch: 0 });
 const SF = [[100 * M, 50 * M]];   // the ring's centre
-const LOOK = { race: 'Nord', gender: 'male', faceIndex: 0, items: [{ templateIndex: 123, group: 'Weapons', equipSlot: 0, material: 9 }] };
+const LOOK = { race: 'Nord', gender: 'male', faceIndex: 0, items: [{ templateIndex: 123, group: 'Weapons', equipSlot: 19, material: 9 }] };   // PIN MOVED (AUDIT-SEATS): R8 - the weapon in the right hand (EquipSlots.RightHand 19); slot 0 is an amulet's, and a weapon there is held no more
 const sieges = (ws, k) => ws.sent.filter((m) => m.t === 'siege' && (!k || m.k === k));
 const signing = async () => {
   const kp = await subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
@@ -175,8 +175,8 @@ test('CROWN1 THE RING HELD: a bout\'s fighter stepping past the ring and its sla
     await r.pose(wa, { ...p, x: SF[0][0] - (ROYAL_RING.radiusM + ROYAL_RING.outSlackM + 1) * M });
     assert.equal(sieges(wa, 'back').length, steps + 1, 'pulled back');
     assert.deepEqual(r.room._siege.fighters[wa.att.sub].pose, p);
-    await r.pose(wc, at(140, 50));
-    assert.equal(r.room._siege.fighters[wc.att.sub].pose.x, 140 * M, 'free outside a bout');
+    await r.pose(wc, at(118, 50));   // PIN MOVED (AUDIT-SEATS): R2 - a pose after a silence earns a second's run and the slack (18.5 m), never the silence's whole; 18 m out is still past the ring's 12 m and its 4 m slack
+    assert.equal(r.room._siege.fighters[wc.att.sub].pose.x, 118 * M, 'free outside a bout');   // PIN MOVED (AUDIT-SEATS): R2, as above
   });
 });
 

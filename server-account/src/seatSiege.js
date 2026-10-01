@@ -27,7 +27,7 @@ import { seatsOpenFor, confirmedSeats } from './townSeats.js';
 import { mustChange } from './realm.js';
 import { utcDay } from '../../src/net/marksLaw.js';
 import { mintSiegeOrder, siegeFieldValid } from '../../src/net/identityToken.js';
-import { verifySiegeReceipt } from '../../src/net/siegeReceipt.js';
+import { verifySiegeReceipt, SIEGE_RECEIPT_TTL_S } from '../../src/net/siegeReceipt.js';   // AUDIT-SEATS R6: a late pass lives the receipt's week
 import { RENOWN_XP_MAX, RENOWN_TRACKS_MAX } from '../../src/net/renown.js';
 import {
   seatWeekOf, seatKeyOk, settleField, passWindowEnds, passOpens, siegeWinner, siegeAftermath, spoilsOf, SIEGE_HONOURS,
@@ -53,22 +53,33 @@ const resultAt = (db, week, key) => db.prepare('SELECT result, raised, winner FR
  * (`field`, the pass's `sf`); the battle's field is settled as the law says (townSeatLaw.js settleField) and every pass
  * carries it. Answers `{ pass, side, week, key, startsAt, endsAt, window }`; `pass` null where this service holds no
  * signing key (the room then admits nobody - said, never a pass that cannot be checked).
+ *
+ * AUDIT-SEATS R6: A LATE PASS. Past the window's close, a fighter ON THE BATTLE'S ROSTER is still signed one - until the
+ * receipt's week is out (`se` + SIEGE_RECEIPT_TTL_S) - its claims the battle's own (the same `se` and field, so the room
+ * knows it for its battle), and `late: true` beside it: the relay admits such a hello ONLY where the battle is over and
+ * holds this account's `s1` receipt, and hands it over (server/src/index.js _siegeAdmit). The window shut both doors at
+ * `se` before, so a crown fighter who dropped at minute 40 and came back at minute 70 lost the receipt "kept a week" -
+ * its Marks, Renown and Spoils. A spectator, or a fighter of a battle whose field never settled (nobody fought it), is
+ * 'pass-late' as before. `week` (optional) asks for the seat week before this one - a receipt's week reaches past the
+ * Turning; anything else is this week.
  * @param {{db: any, nowS: number, subtle: SubtleCrypto}} ctx
  * @param {CryptoKey|null} signingKey
  */
-export async function siegePass({ db, nowS, subtle }, player, env, { key, field } = {}, signingKey) {
+export async function siegePass({ db, nowS, subtle }, player, env, { key, field, week: asked } = {}, signingKey) {
   const closed = seatOpen(player, env);
   if (closed) return closed;
   if (!seatKeyOk(key)) return { error: 'bad-seat' };
-  const week = weekAt(nowS);
+  const week = asked === weekAt(nowS) - 1 ? asked : weekAt(nowS);   // AUDIT-SEATS R6: last week's battle, asked by name
   const b = await battleAt(db, week, key);
   if (!b || b.state === 'void') return { error: 'battle-none' };
   if (nowS < passOpens(b)) return { error: 'pass-early' };
   const se = passWindowEnds(b);
-  if (nowS >= se) return { error: 'pass-late' };
+  const late = nowS >= se;   // AUDIT-SEATS R6
+  if (late && nowS >= se + SIEGE_RECEIPT_TTL_S) return { error: 'pass-late' };
   if (await overRate({ db, nowS }, `seat-pass:${player.id}`, SIEGE_PASS_HOUR, 3600)) return { error: 'seats-rate' };
   const row = await db.prepare('SELECT side FROM town_seat_rosters WHERE week = ? AND key = ? AND account = ?').bind(week, key, player.id).first();
   const side = row?.side === 'attack' || row?.side === 'defend' ? row.side : 'watch';
+  if (late && (side === 'watch' || !b.field)) return { error: 'pass-late' };   // AUDIT-SEATS R6: a rostered fighter of a fought battle alone
   let settled = b.field ?? null;
   if (!settled) {
     if (side !== 'watch') {
@@ -84,7 +95,7 @@ export async function siegePass({ db, nowS, subtle }, player, env, { key, field 
     await db.prepare('UPDATE town_seat_battles SET field = ? WHERE week = ? AND key = ? AND field IS NULL').bind(f, week, key).run();
     settled = (await db.prepare('SELECT field FROM town_seat_battles WHERE week = ? AND key = ?').bind(week, key).first())?.field ?? f;
   }
-  const out = { side, week, key, startsAt: b.starts_at, endsAt: b.ends_at, window: se };
+  const out = { side, week, key, startsAt: b.starts_at, endsAt: b.ends_at, window: se, ...(late ? { late: true } : {}) };   // AUDIT-SEATS R6: a late pass says so
   if (!signingKey) return { ...out, pass: null };
   const sf = JSON.parse(String(settled));
   const pass = await mintSiegeOrder({ s: player.id, sk: key, sw: week, sd: side, st: b.tier, sn: b.kind, sb: b.starts_at, se, sf }, signingKey, { subtle, nowS });

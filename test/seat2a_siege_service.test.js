@@ -110,7 +110,8 @@ test('SEAT2a part three THE PASS AND THE FIELD: from ten minutes before the star
   assert.equal((await s.pass(a1)).body.error, 'battle-none', 'a void battle has no field');
   s.raw.prepare("UPDATE town_seat_battles SET state = 'scheduled' WHERE week = ? AND key = ?").run(W + 1, ANTICLERE.key);
   s.setNow(START + 7200);
-  assert.equal((await s.pass(a1)).body.error, 'pass-late');
+  assert.equal((await s.pass(eye)).body.error, 'pass-late');   // PIN MOVED (AUDIT-SEATS): R6 - a spectator is refused past the window's close as before
+  assert.equal((await s.pass(a1)).body.late, true);   // PIN MOVED (AUDIT-SEATS): R6 - a rostered fighter is signed a late pass, for its receipt (its own pins: test/audit_seats_relay.test.js)
   assert.equal((await s.pass(a1, F, ASHFIELD.key)).body.error, 'battle-none');
 });
 

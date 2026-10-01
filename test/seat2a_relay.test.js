@@ -21,7 +21,7 @@ const at = (x, z = 0) => ({ x: x * M, y: 0, z: z * M, yaw: 0, pitch: 0 });
 /** The field in metres: Gate, Market, Temple, the Throne, the attackers' camp, the defenders'. */
 const FIELD_M = [[0, 40], [40, 0], [-40, 0], [0, -40], [0, 80], [0, -60]];
 const SF = FIELD_M.map(([x, z]) => [x * M, z * M]);
-const LOOK = { race: 'Nord', gender: 'male', faceIndex: 0, items: [{ templateIndex: 123, group: 'Weapons', equipSlot: 0, material: 9 }] };
+const LOOK = { race: 'Nord', gender: 'male', faceIndex: 0, items: [{ templateIndex: 123, group: 'Weapons', equipSlot: 19, material: 9 }] };   // PIN MOVED (AUDIT-SEATS): R8 - the weapon in the right hand (EquipSlots.RightHand 19); slot 0 is an amulet's, and a weapon there is held no more
 const sieges = (ws, k) => ws.sent.filter((m) => m.t === 'siege' && (!k || m.k === k));
 const signing = async () => {
   const kp = await subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
@@ -53,6 +53,24 @@ async function withBattle(fn, { start = T - 5 * 60_000 } = {}) {
   try { await fn({ r, say, pass, enter, until, relayKp, now: () => clock, set: (t) => { clock = t; } }); } finally { Date.now = realNow; }
 }
 const refused = (ws, m) => { assert.deepEqual(ws.sent.at(-1), { t: 'error', m }); assert.ok(ws.closed, m); };
+/** AUDIT-SEATS R2: walk fighters (`moves`, `[ws, pose]`) to their points at the referee's ceiling - strides of 18 m a
+ *  second apart, the room's alarms fired on the way: a pose after a silence earns a second's run and the slack, never
+ *  the silence's whole, so these pins' one-pose teleports from a camp (40 to 100 m after minutes standing) walk now. */
+async function walk({ r, until, now }, moves) {
+  for (;;) {
+    let more = false;
+    for (const [ws, to] of moves) {
+      const p = r.room._siege.fighters[ws.att.sub].pose;
+      const dx = to.x - p.x, dz = to.z - p.z, d = Math.hypot(dx, dz) / M;
+      if (d < 1e-6) continue;
+      const k = Math.min(1, 18 / d);
+      await r.pose(ws, { ...to, x: p.x + dx * k, z: p.z + dz * k });
+      if (k < 1) more = true;
+    }
+    if (!more) return;
+    await until(now() + 1000);
+  }
+}
 
 test('SEAT2a THE DOOR: a siege\'s room admits by its pass - the service\'s signature, over the hello\'s own account, this room\'s seat and week, inside its door; the first pass names the battle and every later one must agree; a fighter is always a fighter, on the side it signed; sixty spectators; the developers\' ground only while no battle stands (mutants: each refusal; the battle named by the first pass; the side on the attachment)', async () => {
   await withBattle(async ({ r, pass, enter, set }) => {
@@ -99,7 +117,7 @@ test('SEAT2a THE DOOR: a siege\'s room admits by its pass - the service\'s signa
 });
 
 test('SEAT2a THE SIDES: a fighter enters at its side\'s camp; nothing lands before the battle is joined; never a blow on a side-mate, never a heal on a foe; the fallen rise at their camp on the tier\'s wave (mutants: the camp; the start; the friendly blow; the foe\'s heal; the tier\'s wave; the rise at camp)', async () => {
-  await withBattle(async ({ r, say, enter, until }) => {
+  await withBattle(async ({ r, say, enter, until, now }) => {   // PIN MOVED (AUDIT-SEATS): R2 - `now`, for the walk below
     const a = await enter('peer-0001', 'attack', {}, { st: 'crown', sf: [...SF.slice(0, 3), [0, -30].map((v) => v * M), ...SF.slice(3)] });
     const a2 = await enter('peer-0002', 'attack', {}, { st: 'crown', sf: [...SF.slice(0, 3), [0, -30].map((v) => v * M), ...SF.slice(3)] });
     const d = await enter('peer-0003', 'defend', {}, { st: 'crown', sf: [...SF.slice(0, 3), [0, -30].map((v) => v * M), ...SF.slice(3)] });
@@ -110,7 +128,7 @@ test('SEAT2a THE SIDES: a fighter enters at its side\'s camp; nothing lands befo
     assert.deepEqual(sieges(a, 'st').at(-1).f.find((x) => x[0] === 'peer-0001'), ['peer-0001', 320, 320, 0, 1], 'the roll call names the side');
     // everyone to one spot, the battle not yet joined
     await until(T - 60_000);
-    for (const ws of [a, a2, d]) await r.pose(ws, at(0, 10));
+    await walk({ r, until, now }, [a, a2, d].map((ws) => [ws, at(0, 10)]));   // PIN MOVED (AUDIT-SEATS): R2 - 70 m from either camp, walked at the ceiling (one pose after a minute's silence may land 18.5 m away at most)
     await say(a, { k: 'blow', to: 'peer-0003', w: 123, m: 9, d: 50, r: 0 });
     assert.equal(sieges(d, 'hp').length, 0, 'not before the start');
     await until(T + 1000);
@@ -155,6 +173,7 @@ test('SEAT2a A HEADLESS 10v10 SIEGE, THE ATTACKERS\' ENDING: two banners raised 
   await withBattle(async (h) => {
     const { r, say, until, enter, relayKp } = h;
     const { att, def, eye } = await tenAside(h);
+    await walk(h, [...att.slice(0, 5).map((ws) => [ws, at(0, 40)]), ...att.slice(5).map((ws) => [ws, at(40, 0)])]);   // PIN MOVED (AUDIT-SEATS): R2 - to the Gate and the Market before the start, walked (the poses at T + 1 s below then move nobody)
     await until(T + 1000);
     await r.drop(def[9]);   // gone at the start, felling nobody
     for (let i = 0; i < 5; i++) await r.pose(att[i], at(0, 40));   // the Gate
@@ -165,9 +184,9 @@ test('SEAT2a A HEADLESS 10v10 SIEGE, THE ATTACKERS\' ENDING: two banners raised 
     assert.deepEqual(f.n, [10, 9, 1], 'who is in');
     assert.deepEqual([f.s, f.e], [T, T + SIEGE_LENGTH_MS.palace]);
     assert.ok(sieges(eye, 'f').length >= 300, 'a frame a second while it is in');
-    for (const ws of att) await r.pose(ws, at(0, -40));   // the Throne, from either banner within the step's ceiling
+    await walk(h, att.map((ws) => [ws, at(0, -40)]));   // the Throne, from either banner   // PIN MOVED (AUDIT-SEATS): R2 - walked at the ceiling, 80 m and 57 m, from T + 22 s
     await until(T + 60_000);
-    assert.equal(sieges(eye, 'f').at(-1).th, 60 - 22, 'the Throne\'s seconds: held from the beat after the attackers reached it');
+    assert.equal(sieges(eye, 'f').at(-1).th, 60 - 24, 'the Throne\'s seconds: held from the beat after the attackers reached it');   // PIN MOVED (AUDIT-SEATS): R2 - walked, the Market's five are within its 8 m from T + 24 s
     await until(T + 200_000);
     const end = sieges(eye, 'end');
     assert.deepEqual(end, [{ t: 'siege', k: 'end', r: 'attack', a: 1 }], 'the result said once, a spectator\'s without a receipt');
@@ -179,7 +198,7 @@ test('SEAT2a A HEADLESS 10v10 SIEGE, THE ATTACKERS\' ENDING: two banners raised 
       assert.equal(e.length, 1);
       const v = await verifySiegeReceipt(e[0].rc, relayKp.publicKey, { subtle, nowS });
       assert.ok(v.ok, v.why);
-      assert.deepEqual({ ...v.claims, i: 0, e: 0 }, { s: subOf(ws), sk: SK, sw: SW, sd: ws.att.sd, r: 'attack', a: 1, h: 1, i: 0, e: 0 });
+      assert.deepEqual({ ...v.claims, i: 0, e: 0 }, { s: subOf(ws), sk: SK, sw: SW, sd: ws.att.sd, r: 'attack', a: 1, h: 1, th: 1, i: 0, e: 0 });   // PIN MOVED (AUDIT-SEATS): T1 - and the Throne reached
       assert.equal(v.claims.e - v.claims.i, SIEGE_RECEIPT_TTL_S);
     }
     // the defender gone at the start: its receipt kept, its Honours none
@@ -205,6 +224,7 @@ test('SEAT2a A HEADLESS 10v10 SIEGE, THE HOLDER\'S ENDING: banners contested by 
   await withBattle(async (h) => {
     const { r, say, until, relayKp } = h;
     const { att, def, eye } = await tenAside(h);
+    await walk(h, [...att, ...def].map((ws) => [ws, at(0, 40)]));   // PIN MOVED (AUDIT-SEATS): R2 - walked to the Gate before the start (the poses at T + 1 s below then move nobody)
     await until(T + 1000);
     for (const ws of [...att, ...def]) await r.pose(ws, at(0, 40));   // all at the Gate
     await until(T + 60_000);

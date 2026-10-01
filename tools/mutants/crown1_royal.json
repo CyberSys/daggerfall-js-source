@@ -357,7 +357,7 @@
  {
   "name": "CROWN1R-ladder-order",
   "file": "src/net/siegeRef.js",
-  "old": ".sort(([x, p], [y, q]) => q.w - p.w || p.l - q.l || (x < y ? -1 : 1))",
+  "old": ".sort(([x, p], [y, q]) => q.w - p.w || p.l - q.l || (b.wonAt?.[x] ?? 0) - (b.wonAt?.[y] ?? 0) || (x < y ? -1 : 1))",
   "new": ".sort(([x, p], [y, q]) => q.w - p.w || (x < y ? -1 : 1))",
   "tests": [
    "test/crown1_royal_law.test.js"
@@ -385,8 +385,8 @@
  {
   "name": "CROWN1R-rc-foreign",
   "file": "src/net/siegeReceipt.js",
-  "old": "const ROYAL_FOREIGN = ['sd', 'r', 'a', 'h', 'k', 't', 'o', 'd', 'b', 'w', 'x', 'y', 'c'];",
-  "new": "const ROYAL_FOREIGN = ['k', 't', 'o', 'd', 'b', 'w', 'x', 'y', 'c'];",
+  "old": "const ROYAL_FOREIGN = ['sd', 'r', 'a', 'h', 'th', 'k', 't', 'o', 'd', 'b', 'w', 'x', 'y', 'c'];",
+  "new": "const ROYAL_FOREIGN = ['th', 'k', 't', 'o', 'd', 'b', 'w', 'x', 'y', 'c'];",
   "tests": [
    "test/crown1_royal_law.test.js"
   ]
@@ -814,8 +814,8 @@
  {
   "name": "CROWN1R-relay-step",
   "file": "server/src/index.js",
-  "old": "|| !royalStepOk(s.battle, a.sub, p)) {",
-  "new": "|| false) {",
+  "old": "if (!royalStepOk(s.battle, a.sub, p) || !refereeStep(",
+  "new": "if (!refereeStep(",
   "tests": [
    "test/crown1_royal_relay.test.js"
   ]
