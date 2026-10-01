@@ -71,6 +71,7 @@ import {
   overreachOf, unrestInfluence,
 } from '../../src/net/townSeatLaw.js';
 import { holdingOf } from './seatHolding.js';   // SEAT1d: the holder's own view of its Charter
+import { fightOf } from './seatBattles.js';   // SEAT2a: the battle as the Seat tab shows it
 
 const weekAt = (nowS) => seatWeekOf(nowS * 1000);
 /** Whether a member row has stood its 7 days (SEAT0 4.2: "A new member waits"). */
@@ -416,6 +417,7 @@ export async function readStandings({ db, nowS }, player, env, { key, character 
       return { guild: { id: s.guild, name: g?.name ?? '', tag: g?.tag ?? '', heraldry: heraldryOfRow(g?.heraldry) }, influence: influence + carried, legacy: carried, tribute: s.tribute, accounts: s.accounts, holder: own };
     }).sort((x, y) => y.influence - x.influence),
     holder: holder && holding ? { ...holder, edict: holding.edict } : holder, defence, battle: (await battlesOf(db, week)).get(key) ?? null, chronicle: await chronicleOf(db, key),
+    fight: await fightOf(db, key, player, character, nowS),   // SEAT2a: the week's battle placed, its sides, the reader's place; the holder's window
     ...(holding && mine?.guild === holder?.guild.id ? { holding } : {}),
     ...(mine ? { mine } : {}),
   };

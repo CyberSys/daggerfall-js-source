@@ -66,15 +66,22 @@ The first part of guild town control is in. It is open to the developers first, 
 
 - **The Seat tab** shows everyone the Tithe and this week's Edict. Members also see next week's Edict, the upkeep due and any debt. The guildmaster and Officers set the Tithe and proclaim Edicts there.
 
+## Sieges: the week of a battle (online)
+- **The window.** A seat's guildmaster or an Officer sets when its battles are fought, at the town's board: a day from **Wednesday to Saturday** and a start from **16:00 to 02:00 UTC**. A start after midnight is the night after the day you pick. If you never set one, it's Wednesday 20:00.
+- **The schedule.** At each Sunday Turning, every Right of Siege and every Tourney is placed in the coming week: a siege in the holder's window, a crown siege on Saturday (Daggerfall 20:00, Wayrest 21:00, Sentinel 22:00), a Tourney on Wednesday at 20:00. If a guild would have to fight two battles at once, the second moves two hours on, and the Seat tab says so.
+- **Signing up.** The Seat tab shows who has won the Right, who holds the Charter and when battle is joined, and how many have signed for each side. Members who were in the guild for 7 days at the Turning, and whose account counted for the guild that week, sign themselves: **10 a side** at a palace, **20** at a crown. Signing closes 10 minutes before the battle, and you can give your place back until then.
+- **Sellswords.** A side's guildmaster can hire up to **2 Sellswords** (4 at a crown) by username, for a fee of up to 5,000 Drakes held from the treasury. The Sellsword signs from the same Seat tab. A Sellsword can't be in either guild and can't fight for both sides within four weeks. A contract nobody has signed can be withdrawn, and the fee goes back.
+- The battles themselves come in the next update.
+
 ## Behind the scenes
 - **The registry.** Each client works out the seats from its own game files. When you stand in a seat town, your game reports it to the server once a day. The server trusts a seat once three players whose accounts are at least a week old agree on it exactly.
 - **Fair sieges.** In a siege the server keeps every fighter's health and checks every blow, spell and step: a blow lands only if the weapon you carry can reach and deal it, nobody heals or strikes faster than the game allows, and nobody runs faster than the fastest legal runner. A siege's health is its own (300, more with your Renown) and never touches your character's health, items or gold. Only the developers can enter a siege room yet.
-- Sieges and Tourneys come in the next updates: until then a Right of Siege is written in the Chronicle and a Contested seat stays unheld. Fortifications, deliveries to a seat's stockpile and the Siege Camp come with them. The Royal Tourney and Conscription come with the crowns' update.
+- The battles themselves come in the next update: until then a Right of Siege is written in the Chronicle and a Contested seat stays unheld. Fortifications, deliveries to a seat's stockpile and the Siege Camp come with them. The Royal Tourney and Conscription come with the crowns' update.
 
 ---
 
 ### For the team
-- Apply migrations **`0047_town_seats.sql`**, **`0048_seat_influence.sql`**, **`0049_seat_turning.sql`** and **`0050_seat_holding.sql`** (with the guild halls' 0045 and 0046, after main's 0044) to production D1 and deploy the account service (**`acct46`**).
+- Apply migrations **`0047_town_seats.sql`**, **`0048_seat_influence.sql`**, **`0049_seat_turning.sql`**, **`0050_seat_holding.sql`** and **`0051_seat_battles.sql`** (with the guild halls' 0045 and 0046, after main's 0044) to production D1 and deploy the account service (**`acct47`**).
 - **The economy model**: `node tools/seatEconomy.mjs` re-runs the guild-week table from the live law files (`--runs`, `--seed`, `--json`).
 - **Deploy the relay (`world140`).** It sends the Watch's ticks (world138), carries the seats' titles (world139) and referees a siege's room (world140, the developers alone). Deploy it before the account service: an older relay refuses a token with a seat title in it.
 - Seats are behind **`SEATS_OPEN = "dev"`** in `server-account/wrangler.toml`. Change it to `"on"` to open them to everyone.

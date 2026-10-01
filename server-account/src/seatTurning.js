@@ -24,20 +24,21 @@
 // proclaimed for the coming week - and the accounts that played (the
 // crown's scale); the batch pays the upkeep and the Edicts, lapses a
 // Charter neglected twice, writes every Standing, and sends a Bounty's
-// unspent escrow home. The battles a Right or a Contested seat names are
-// SEAT2a's to fight - until then they are the Chronicle's.
+// unspent escrow home. SEAT2a: the battles a Right or a Contested seat names placed in
+// the coming week (step 8) - their fighting is the relay's.
 //
 // EVERY CLOCK IS AN ARGUMENT, as in accounts.js.
 // ═════════════════════════════════════════════════════════════════════
 import { confirmedSeats, seatsOpenFor } from './townSeats.js';
 import { gatherStandings, seatGuildsOf, holdsOf, battlesOf, agreedGateRegions } from './seatInfluence.js';
 import { activeIn, edictsOf } from './seatHolding.js';
+import { windowOf } from './seatBattles.js';   // SEAT2a: the holder's window, frozen into its battle
 import { gameDayAt, gateTimes } from '../../src/net/gateLaw.js';
 import { guildActorOf } from './guilds.js';
 import { mustChange } from './realm.js';
 import { utcDay } from '../../src/net/marksLaw.js';
 import { GUILD_RANK_MASTER } from '../../src/net/guildLaw.js';
-import { seatWeekOf, seatWeekStartMs, seatKeyOk, turningPlan, seatGlyphsOf, seatTitleOf, SEAT_WEEK_MS, STANDING_START } from '../../src/net/townSeatLaw.js';
+import { seatWeekOf, seatWeekStartMs, seatKeyOk, turningPlan, seatGlyphsOf, seatTitleOf, SEAT_WEEK_MS, STANDING_START, placeBattles, CROWN_SEAT_REGIONS } from '../../src/net/townSeatLaw.js';
 
 /** The most weeks one read settles - a service asleep for longer starts its count again from there. */
 export const SETTLE_WEEKS_MAX = 8;
@@ -133,6 +134,24 @@ export async function settleWeek(db, week, nowS) {
       .bind(next, r.key, r.guild, holder, r.total, r.defence, nowS));
     stmts.push(history(r.key, 'right', { guild: names.get(r.guild), holder: names.get(holder), total: r.total, defence: r.defence }));
   }
+  // SEAT2a (5.2 step 8, 6.3): THE SCHEDULE - every battle the Turning names placed in the coming week, in key order, a
+  // siege at the holder's window frozen now (a crown's at its slot, a Tourney's Wednesday 20:00), moved where it would
+  // overlap another battle of either of its guilds; a battle no start can hold is void, the Chronicle says so
+  const battles = [
+    ...plan.contested.map((c) => ({ key: c.key, kind: 'tourney', attacker: c.a, defender: c.b })),
+    ...plan.rights.map((r) => ({ key: r.key, kind: 'siege', attacker: r.guild, defender: holds.get(r.key).guild_id })),
+  ];
+  for (const b of battles) {
+    const seat = registry.get(b.key);
+    Object.assign(b, { tier: seat.tier, kingdom: CROWN_SEAT_REGIONS[seat.region] ?? null, window: b.kind === 'siege' ? await windowOf(db, b.key, b.defender) : null });
+  }
+  const schedule = placeBattles(next, battles);
+  for (const p of schedule.placed) {
+    stmts.push(db.prepare('INSERT INTO town_seat_battles (week, key, kind, tier, attacker, defender, starts_at, ends_at, moved, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .bind(next, p.key, p.kind, p.tier, p.attacker, p.defender, Math.floor(p.startsAt / 1000), Math.floor(p.endsAt / 1000), p.moved ? 1 : 0, nowS));
+    if (p.moved) stmts.push(history(p.key, 'battle-moved', { at: Math.floor(p.startsAt / 1000) }));
+  }
+  for (const u of schedule.unplaced) stmts.push(history(u.key, 'battle-void', { kind: u.kind }));
   // SEAT1d (7.1, 5.2 step 5): THE UPKEEP - burnt where the treasury holds it (or the settle rolls back whole), Neglect's
   // debt written, a Charter neglected twice lapsed and its coming Edict void
   const burn = (guild, kind, amount, rid) => db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)

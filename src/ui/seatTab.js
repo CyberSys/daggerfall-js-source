@@ -20,6 +20,7 @@ import {
   SEAT_PLEDGE_WORDS, SEAT_PLEDGE_REGIONS_MAX, TRIBUTE_MARKS_PER_INFLUENCE,
   seatHolderLine, seatBattleLine, seatClaimLine, chronicleLine, SEAT_RELINQUISH_WORDS,
   seatRuleLine, seatHoldingLines, edictLine, edictMayFollow, EDICTS, TITHE_CAP, SEAT_LEVER_RANKS, BOUNTY_MARKS,
+  battleAnnouncement, sideLine, siegeWindowText, SIEGE_WINDOW_DAYS, SIEGE_WINDOW_HOURS, SIEGE_WINDOW_DEFAULT, SELLSWORD_FEE_MAX,
 } from '../net/townSeatLaw.js';
 import { GUILD_RANK_MASTER } from '../net/guildLaw.js';
 
@@ -64,6 +65,7 @@ export function createSeatTab(host, ui) {
   let tributeDrakes = 0;
   let armedAt = -Infinity;   // SEAT1c: the relinquish button's first press
   let titheAsk = null, edictAsk = null, bountyAside = 200;   // SEAT1d: the levers' own choices, kept across redraws
+  let windowAsk = null, hireHandle = '', hireFee = 0;   // SEAT2a: the window and the contract asked, kept across redraws
 
   async function load(force) {
     if (loading) return;
@@ -178,6 +180,72 @@ export function createSeatTab(host, ui) {
     return out;
   }
 
+  /** SEAT2a: THE HOLDER'S WINDOW (SEAT0 6.3) - a day and a start hour, its Officers' and guildmaster's to set. */
+  function windowNode(w) {
+    const out = el('div', 'notice-seat-levers');
+    const busy = ui.busy();
+    out.append(el('p', 'notice-seat-mine', `Battles here are fought from ${siegeWindowText(w ?? SIEGE_WINDOW_DEFAULT)}${w ? '' : ' (the default)'}.`));
+    const want = windowAsk ?? w ?? SIEGE_WINDOW_DEFAULT;
+    const day = /** @type {HTMLSelectElement} */ (el('select', 'notice-input notice-seat-window-day'));
+    day.setAttribute('aria-label', 'The window\'s day');
+    SIEGE_WINDOW_DAYS.forEach((d, i) => { const o = /** @type {HTMLOptionElement} */ (el('option', null, d)); o.value = String(i); day.append(o); });
+    day.value = String(want.day);
+    const hour = /** @type {HTMLSelectElement} */ (el('select', 'notice-input notice-seat-window-hour'));
+    hour.setAttribute('aria-label', 'The window\'s start');
+    for (const h of SIEGE_WINDOW_HOURS) { const o = /** @type {HTMLOptionElement} */ (el('option', null, `${String(h).padStart(2, '0')}:00 UTC`)); o.value = String(h); hour.append(o); }
+    hour.value = String(want.hour);
+    day.onchange = () => { windowAsk = { day: Number(day.value), hour: want.hour }; ui.rerender(); };
+    hour.onchange = () => { windowAsk = { day: want.day, hour: Number(hour.value) }; ui.rerender(); };
+    const set = button('notice-seat-window-set', 'Set the window', () => act(() => book.window(seat, want.day, want.hour)));
+    set.disabled = busy;
+    out.append(day, hour, set);
+    return out;
+  }
+
+  /** SEAT2a: THE WEEK'S BATTLE (SEAT0 6.3-6.4) - its announcement, each side's roster, the reader's place on it (signed,
+   *  or a button to sign while the rosters are open), and a side's Guildmaster's Sellswords. */
+  function fightNode(f) {
+    const out = el('div', 'notice-seat-fight');
+    const busy = ui.busy();
+    out.append(el('p', 'notice-seat-battle', battleAnnouncement(f, seat.name)));
+    const label = f.kind === 'tourney' ? ['The first contender', 'The second contender'] : ['Attackers', 'Defenders'];
+    out.append(el('p', 'notice-seat-mine', sideLine(label[0], f.sides.attack.n, f.max, f.sides.attack.swords)));
+    out.append(el('p', 'notice-seat-mine', sideLine(label[1], f.sides.defend.n, f.max, f.sides.defend.swords)));
+    const mine = f.mine ?? null;
+    if (!f.open) out.append(el('p', 'notice-seat-mine', 'The rosters are closed.'));
+    if (mine?.signed) {
+      out.append(el('p', 'notice-seat-mine', `You are signed for the ${mine.side === 'attack' ? label[0].toLowerCase() : label[1].toLowerCase()}${mine.sellsword ? ' as a Sellsword' : ''}.`));
+      if (f.open) { const b = button('notice-seat-unsign', 'Give back your place', () => act(() => book.unsign(seat))); b.disabled = busy; out.append(b); }
+    } else if (f.open && (mine?.side || mine?.hire)) {
+      const words = mine.hire ? `Sign as a Sellsword${mine.hire.fee ? ` (${mine.hire.fee} Drakes)` : ''}` : 'Sign for your side';
+      const b = button('notice-seat-sign', words, () => act(() => book.sign(seat)));
+      b.disabled = busy;
+      out.append(b);
+    }
+    if (mine?.hires && f.open) {
+      for (const h of mine.hires) {
+        const p = el('p', 'notice-seat-mine', `${h.handle} - ${h.state === 'signed' ? 'signed' : 'offered'}${h.fee ? `, ${h.fee} Drakes` : ''}.`);
+        if (h.state === 'offered') { const w = button('notice-seat-withdraw', 'Withdraw', () => act(() => book.withdrawHire(seat, h.handle))); w.disabled = busy; p.append(w); }
+        out.append(p);
+      }
+      if (mine.hires.length < f.swordsMax) {
+        const n = /** @type {HTMLInputElement} */ (el('input', 'notice-input notice-seat-hire-name'));
+        n.value = hireHandle; n.setAttribute('aria-label', 'The Sellsword\'s username'); n.setAttribute('data-focus', 'seat-hire-name');
+        n.oninput = () => { hireHandle = n.value.trim(); };
+        const fee = /** @type {HTMLInputElement} */ (el('input', 'notice-input notice-seat-hire-fee'));
+        fee.type = 'number'; fee.min = '0'; fee.max = String(SELLSWORD_FEE_MAX); fee.value = String(hireFee);
+        fee.setAttribute('aria-label', 'The Sellsword\'s fee in Drakes'); fee.setAttribute('data-focus', 'seat-hire-fee');
+        fee.oninput = () => { hireFee = Math.max(0, Math.floor(Number(fee.value) || 0)); };
+        const hire = button('notice-seat-hire', 'Hire a Sellsword', () => (hireHandle
+          ? act(() => book.hire(seat, hireHandle, Math.min(SELLSWORD_FEE_MAX, hireFee)))
+          : ui.run(async () => ({ ok: false, text: accountRefusalText('bad-handle') }))));
+        hire.disabled = busy;
+        out.append(n, fee, hire);
+      }
+    }
+    return out;
+  }
+
   return {
     /** The tab first shown: the standings read. */
     open: () => load(false),
@@ -207,8 +275,14 @@ export function createSeatTab(host, ui) {
         for (const line of seatHoldingLines(seat, data.holding)) body.append(el('p', 'notice-seat-mine', line));
         if (SEAT_LEVER_RANKS.includes(data.mine?.rank)) body.append(holdingNode(data.holding));
       }
-      const battle = seatBattleLine(data.battle ?? null);
-      if (battle) body.append(el('p', 'notice-seat-battle', battle));
+      // SEAT2a: the battle placed in the week, with its sides - or the Turning's line where none is placed (an older week)
+      if (data.fight?.kind) body.append(fightNode(data.fight));
+      else {
+        const battle = seatBattleLine(data.battle ?? null);
+        if (battle) body.append(el('p', 'notice-seat-battle', battle));
+      }
+      // SEAT2a: the holder's window, its Officers' and guildmaster's to set
+      if (holder && data.mine?.guild === holder.guild.id && SEAT_LEVER_RANKS.includes(data.mine?.rank)) body.append(windowNode(data.fight?.window ?? null));
       body.append(el('p', 'notice-seat-week', seatWeekLine(data, ui.nowS())));
       body.append(el('p', 'notice-section', 'This week\'s standings'));
       body.append(standingsNode());

@@ -510,6 +510,9 @@ export function chronicleLine(row, seat) {
     case 'lapse': return `${when}, ${c} lapsed - ${guildWords(d.guild)} could not pay its upkeep two weeks running.`;
     case 'edict': return `${when}, ${guildWords(d.guild)} proclaimed ${EDICTS[d.edict]?.name ?? 'an Edict'} at ${seat.name}.`;
     case 'edict-unpaid': return `${when}, ${guildWords(d.guild)} could not pay for the ${EDICTS[d.edict]?.name ?? 'Edict'} it proclaimed at ${seat.name}.`;
+    // SEAT2a: the schedule's two rows
+    case 'battle-moved': return `${when}, the battle for ${seat.name} was moved to ${battleWhenText(Number(d.at ?? 0) * 1000)}, so that no guild fights twice at once.`;
+    case 'battle-void': return `${when}, no hour of the week could hold the battle for ${seat.name}; it is void.`;
     default: return null;
   }
 }
@@ -780,3 +783,123 @@ export const levyOf = (qty, roll) => {
   const n = Math.floor(whole + 1e-9);
   return n + (roll < whole - n ? 1 : 0);
 };
+
+// ═══ SEAT2a: THE BATTLES' WEEK - WINDOWS, THE SCHEDULE, THE SIDES (SEAT0 6.3-6.5) ═══
+// The Turning names a Right of Siege (or a Tourney at a Contested seat) for the coming week; SEAT2a places each in the
+// week and signs its two sides. The battle itself is the relay's (net/siegeRef.js, SEAT2a's next half).
+
+/** THE HOLDER'S WINDOW (6.3, Mac: "Yes"): a day Wednesday to Saturday (0-3) and a start hour 16:00 to 02:00 UTC, two
+ *  hours long - a start from 00:00 to 02:00 belongs to the night after its day ("Wednesday 01:00" is Thursday 01:00). */
+export const SIEGE_WINDOW_DAYS = Object.freeze(['Wednesday', 'Thursday', 'Friday', 'Saturday']);
+export const SIEGE_WINDOW_HOURS = Object.freeze([16, 17, 18, 19, 20, 21, 22, 23, 0, 1, 2]);
+/** A holder that never set one gets Wednesday 20:00 UTC - a Tourney's own start too. */
+export const SIEGE_WINDOW_DEFAULT = Object.freeze({ day: 0, hour: 20 });
+export const siegeWindowOk = (day, hour) => Number.isSafeInteger(day) && day >= 0 && day < SIEGE_WINDOW_DAYS.length
+  && Number.isSafeInteger(hour) && SIEGE_WINDOW_HOURS.includes(hour);
+/** Wednesday 00:00 UTC of seat week `n`: its Turning (Sunday 18:00) and six hours to Monday, and two days. */
+const WEDNESDAY_MS = 54 * H;
+/** When a window opens in seat week `week`, ms - so the earliest, Wednesday 16:00, is exactly 70 hours after the Turning
+ *  and the latest, Saturday 02:00 (Sunday 02:00), ends at 04:00. */
+export const siegeStartMs = (week, day, hour) => seatWeekStartMs(week) + WEDNESDAY_MS + day * 24 * H + hour * H + (hour < 16 ? 24 * H : 0);
+/** CROWN SIEGES (6.3, DECIDED): Saturday, Daggerfall at 20:00, Wayrest at 21:00, Sentinel at 22:00 - whatever the
+ *  holder's window. */
+export const CROWN_SIEGE_SLOT = Object.freeze({
+  daggerfall: Object.freeze({ day: 3, hour: 20 }), wayrest: Object.freeze({ day: 3, hour: 21 }), sentinel: Object.freeze({ day: 3, hour: 22 }),
+});
+/** How long a battle runs (6.2, 6.7): a palace siege 30 minutes, a crown's 45, a Tourney 20. */
+export const BATTLE_LENGTH_MS = Object.freeze({ palace: 30 * 60_000, crown: 45 * 60_000, tourney: 20 * 60_000 });
+export const battleLengthMs = (b) => (b.kind === 'tourney' ? BATTLE_LENGTH_MS.tourney : BATTLE_LENGTH_MS[b.tier] ?? BATTLE_LENGTH_MS.palace);
+/** WHAT A BATTLE HOLDS OF ITS GUILDS' WEEK (6.3: "No guild fights twice at once") - DECIDED: a palace siege and a
+ *  Tourney their two-hour window; a crown siege the hour its slot keeps from the next crown's (45 minutes and the 10 a
+ *  side may arrive late), so a guild holding one crown and challenging another fights both. */
+export const BATTLE_BLOCK_MS = 2 * H;
+export const battleSpanMs = (b) => (b.kind === 'siege' && b.tier === 'crown' ? H : BATTLE_BLOCK_MS);
+/** The battle's first start in its week: a crown siege's slot, a Tourney's Wednesday 20:00, a siege's frozen window. */
+export function battlePreferredMs(week, b) {
+  if (b.kind === 'siege' && b.tier === 'crown' && CROWN_SIEGE_SLOT[b.kingdom]) { const s = CROWN_SIEGE_SLOT[b.kingdom]; return siegeStartMs(week, s.day, s.hour); }
+  const w = b.kind === 'siege' && b.window && siegeWindowOk(b.window.day, b.window.hour) ? b.window : SIEGE_WINDOW_DEFAULT;
+  return siegeStartMs(week, w.day, w.hour);
+}
+/** Every start a battle may take in `week`, in time order: each window hour of Wednesday to Saturday. */
+export function battleStarts(week) {
+  const out = [];
+  for (let d = 0; d < SIEGE_WINDOW_DAYS.length; d++) for (const h of SIEGE_WINDOW_HOURS) out.push(siegeStartMs(week, d, h));
+  return out.sort((a, b) => a - b);
+}
+/**
+ * THE SCHEDULE (5.2 step 8, 6.3): the week's battles placed in KEY ORDER - each at its preferred start, or, where that
+ * would overlap another battle of either of its guilds, at the next two-hour start in the Wednesday-Saturday range that
+ * clashes with nothing (`moved` says so). `battles` `{ key, kind: 'siege'|'tourney', tier, kingdom, attacker, defender,
+ * window? }`. Answers `{ placed: [{ ...b, startsAt, endsAt, moved }], unplaced: [b] }` (ms) - a battle no start of the
+ * week can hold is unplaced (DECIDED: void - the Chronicle says so; a guild would need some forty battles in one week).
+ */
+export function placeBattles(week, battles) {
+  const allowed = new Set(battleStarts(week));
+  const last = Math.max(...allowed);
+  const placed = [], unplaced = [];
+  const guildsOf = (b) => [b.attacker, b.defender].filter(Boolean);
+  const clashes = (b, at) => placed.some((p) => guildsOf(p).some((g) => guildsOf(b).includes(g))
+    && at < p.startsAt + battleSpanMs(p) && p.startsAt < at + battleSpanMs(b));
+  for (const b of [...battles].sort((x, y) => x.key - y.key)) {
+    const want = battlePreferredMs(week, b);
+    let at = null;
+    for (let t = want; t <= last; t += BATTLE_BLOCK_MS) if (allowed.has(t) && !clashes(b, t)) { at = t; break; }
+    if (at == null) { unplaced.push(b); continue; }
+    placed.push({ ...b, startsAt: at, endsAt: at + battleLengthMs(b), moved: at !== want });
+  }
+  return { placed, unplaced };
+}
+
+/** THE SIDES (6.4, DECIDED): ten against ten at a palace, twenty against twenty at a crown (6.1's measurement held them);
+ *  up to two Sellswords a side at a palace, four at a crown, within the side. */
+export const SIEGE_SIDE_MAX = Object.freeze({ palace: 10, crown: 20 });
+export const SELLSWORDS_MAX = Object.freeze({ palace: 2, crown: 4 });
+/** A side's roster is signed from the Turning until 10 minutes before the start. */
+export const SIGN_CLOSES_MS = 10 * 60_000;
+export const signOpen = (startsAtMs, nowMs) => nowMs < startsAtMs - SIGN_CLOSES_MS;
+/** A Sellsword may not have fought for the other side's guild in the last four weeks. */
+export const SELLSWORD_COOL_WEEKS = 4;
+/** A Sellsword's fee, in Marks, escrowed from the hiring guild's treasury and paid at the battle's end - DECIDED: at most
+ *  5,000 (a palace's upkeep twice: the fee is a contract's, not a way to move a treasury). */
+export const SELLSWORD_FEE_MAX = 5000;
+export const sellswordFeeOk = (n) => Number.isSafeInteger(n) && n >= 0 && n <= SELLSWORD_FEE_MAX;
+/** Who signs (6.4): the side's two guilds - the attacker's 'attack', the holder's 'defend'; a Tourney's two contenders
+ *  'attack' (its first) and 'defend' (its second), for the board's words only. */
+export const BATTLE_SIDES = Object.freeze(['attack', 'defend']);
+/** The battle a side of `guild` fights, or null. */
+export const sideOf = (battle, guild) => (battle?.attacker === guild ? 'attack' : battle?.defender === guild ? 'defend' : null);
+
+// ─── what the Seat tab says of a battle ───
+const two = (n) => String(n).padStart(2, '0');
+/** A battle's start as the board says it: "Wednesday at 20:00 UTC" (a start after midnight named by its own day). */
+export function battleWhenText(ms) {
+  const d = new Date(ms);
+  return `${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d.getUTCDay()]} at ${two(d.getUTCHours())}:${two(d.getUTCMinutes())} UTC`;
+}
+/** The window's words: "Wednesday 20:00 UTC" - a start after midnight said as the night after its day. */
+export const siegeWindowText = (w) => (w && siegeWindowOk(w.day, w.hour)
+  ? `${SIEGE_WINDOW_DAYS[w.day]} ${two(w.hour)}:00 UTC${w.hour < 16 ? ' (the night after)' : ''}` : null);
+/** THE ANNOUNCEMENT (6.3), the Seat tab's battle line: who has won what, who holds it, when battle is joined. */
+export function battleAnnouncement(b, seatName) {
+  if (!b) return null;
+  const when = battleWhenText(b.startsAt);
+  const moved = b.moved ? ' (moved, so that no guild fights twice at once)' : '';
+  if (b.kind === 'tourney') return `${guildWords(b.attackerGuild)} and ${guildWords(b.defenderGuild)} meet in a Tourney for ${seatName}. Battle is joined ${when}${moved}.`;
+  return `${guildWords(b.attackerGuild)} has won the Right of Siege at ${seatName}. ${guildWords(b.defenderGuild)} holds its Charter. Battle is joined ${when}${moved}.`;
+}
+/** A side's line: "Attackers: 7 of 10 signed (1 Sellsword)." */
+export const sideLine = (label, n, max, swords) => `${label}: ${n} of ${max} signed${swords ? ` (${swords} Sellsword${swords === 1 ? '' : 's'})` : ''}.`;
+/** Why the board will not sign a character, in its own words (the service's refusals, said by the Seat tab). */
+export const SIGN_WHY = Object.freeze({
+  'battle-none': 'No battle is named here this week.',
+  'battle-not-side': 'Your guild fights on neither side of this battle.',
+  'sign-closed': 'The rosters closed ten minutes before the battle.',
+  'sign-new-member': 'Only members of seven days at the Turning may sign.',
+  'sign-unbound': 'Only members whose account counted for the guild in the week that won the Right may sign.',
+  'sign-bound-elsewhere': 'Your account fights for another guild this week.',
+  'side-full': 'This side is full.',
+  'sellswords-full': 'This side has hired all the Sellswords it may.',
+  'sellsword-member': 'A Sellsword may belong to neither guild.',
+  'sellsword-cooling': 'This Sellsword fought for the other side in the last four weeks.',
+  'sign-twice': 'You are signed already.',
+});

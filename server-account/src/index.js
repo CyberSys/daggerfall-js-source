@@ -153,6 +153,7 @@ import { listSeats, witnessSeat, strikeSeat, seatsOpenFor } from './townSeats.js
 import { pledgeSeat, claimWatch, creditGate, creditRenown, readStandings, payTribute } from './seatInfluence.js';   // SEAT1b: influence
 import { settleDue, seatsWithHolders, relinquishSeat, seatBadgeOf, seatTitlesOf } from './seatTurning.js';   // SEAT1c: the Turning, the Charters, their titles and glyphs
 import { setTithe, proclaimEdict, claimBounty } from './seatHolding.js';   // SEAT1d: the holder's levers, a Bounty's camp
+import { setWindow, signBattle, unsignBattle, hireSellsword, withdrawHire } from './seatBattles.js';   // SEAT2a: the battles' week
 
 /** SEAT1c: the account's row with the Charter titles it may wear laid on it (`seatTitles`, titles.js titlesHeld), while the
  *  seats are open to it - for the wardrobe's read and its write. */
@@ -267,6 +268,11 @@ const SEAT_STATUS = Object.freeze({
   'seat-not-held': 409, 'seat-held-here': 409,   // SEAT1c: a Charter not the guild's to give up; a region its Charter pledges
   // SEAT1d: the Tithe set this week already, an Edict two weeks running, none to take back, the balance's cap 409
   'tithe-this-week': 409, 'edict-twice': 409, 'seat-no-edict': 409, 'marks-full': 409,
+  // SEAT2a: no battle, no contract, no such account 404; a side not this guild's, a member hired 403; the rosters' close, a
+  // side or its Sellswords full, the account's war, a Sellsword's cooling, a second signing or hire 409
+  'battle-none': 404, 'hire-none': 404, 'no-such-account': 404, 'battle-not-side': 403, 'sellsword-member': 403,
+  'sign-closed': 409, 'sign-new-member': 409, 'sign-unbound': 409, 'sign-bound-elsewhere': 409, 'side-full': 409,
+  'sellswords-full': 409, 'sellsword-cooling': 409, 'sign-twice': 409, 'hire-twice': 409,
 });
 /** PROF1: each professions refusal's status - not this account's (a guest, the switch, the Marks' switch, the rank) 403,
  *  no such writ 404, a conflict with what stands (the day, the hour, the cap, the Stores, a node or writ taken) 409, the
@@ -868,6 +874,12 @@ const service = {
           '/v1/seats/tithe': () => setTithe(ctx, who.player, env, body),
           '/v1/seats/edict': () => proclaimEdict(ctx, who.player, env, body),
           '/v1/seats/bounty': () => claimBounty(ctx, who.player, env, body),
+          // SEAT2a: the battles' week - the holder's window; a side signed, unsigned; a Sellsword hired, withdrawn
+          '/v1/seats/window': () => setWindow(ctx, who.player, env, body),
+          '/v1/seats/siege/sign': () => signBattle(ctx, who.player, env, body),
+          '/v1/seats/siege/unsign': () => unsignBattle(ctx, who.player, env, body),
+          '/v1/seats/siege/hire': () => hireSellsword(ctx, who.player, env, body),
+          '/v1/seats/siege/withdraw': () => withdrawHire(ctx, who.player, env, body),
         }[path];
         if (!act) return no('not-found', 404, origin);
         const r = await act();

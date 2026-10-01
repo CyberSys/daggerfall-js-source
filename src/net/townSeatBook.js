@@ -24,7 +24,7 @@
 //
 // Pure - the door, the storage and the clock are handed in.
 // ═══════════════════════════════════════════════════════════════════
-import { SEAT_REPORT_EVERY_S, SEAT_WATCH_CLAIM_MAX, seatReportOf, seatKeyOk, EDICTS } from './townSeatLaw.js';
+import { SEAT_REPORT_EVERY_S, SEAT_WATCH_CLAIM_MAX, seatReportOf, seatKeyOk, EDICTS, siegeWindowText } from './townSeatLaw.js';
 import { accountRefusalText } from './accountClient.js';
 import { readWatchReceipt } from './watchReceipt.js';
 import { mintMarksRid } from './marksBook.js';
@@ -191,6 +191,34 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
       standingsAt.clear();
       if (!r?.ok) return { ok: false, text: accountRefusalText(r?.error) };
       return { ok: true, text: edict ? `${EDICTS[edict]?.name ?? 'The Edict'} is proclaimed at ${seat.name} for next week. The Turning makes it law.` : 'The Edict for next week is taken back.' };
+    },
+    // ─── SEAT2a: THE BATTLES' WEEK ───────────────────────────────────
+    /** One act on this week's battle at `seat` - `{ ok, text }`, the standings read afresh after it. */
+    async battleAct(seat, ask, said) {
+      let r;
+      try { r = await ask(); } catch { r = { ok: false, error: 'offline' }; }
+      standingsAt.clear();
+      return r?.ok ? { ok: true, text: said(r.data ?? {}) } : { ok: false, text: accountRefusalText(r?.error) };
+    },
+    /** The holder's window at `seat` set - an Officer's or the guildmaster's. */
+    window(seat, day, hour) {
+      return this.battleAct(seat, () => door.window(character(), seat.key, day, hour), () => `The battles at ${seat.name} are fought from ${siegeWindowText({ day, hour })}, from the next Turning.`);
+    },
+    /** This character signed onto its side of the battle at `seat` (or as a hired Sellsword). */
+    sign(seat) {
+      return this.battleAct(seat, () => door.sign(character(), seat.key), (d) => `You are signed for the ${d.side === 'attack' ? 'attackers' : 'defenders'}${d.sellsword ? ' as a Sellsword' : ''} at ${seat.name}.`);
+    },
+    /** This account's place on the battle at `seat` given back. */
+    unsign(seat) {
+      return this.battleAct(seat, () => door.unsign(seat.key), () => `You are no longer signed for the battle at ${seat.name}.`);
+    },
+    /** A Sellsword hired by name at a fee in Drakes - the side's Guildmaster's. */
+    hire(seat, handle, fee) {
+      return this.battleAct(seat, () => door.hire(character(), seat.key, handle, fee), () => `${handle} is offered a Sellsword's contract${fee ? ` at ${fee} Drakes` : ''}.`);
+    },
+    /** A Sellsword's contract withdrawn before it is signed. */
+    withdrawHire(seat, handle) {
+      return this.battleAct(seat, () => door.withdrawHire(character(), seat.key, handle), () => `${handle}'s contract is withdrawn.`);
     },
     /** A World of Daggerfall camp cleared in `region` - the Bounty's twenty Drakes where one rules there. Quiet: `{ paid }`. */
     async bounty(site, region) {

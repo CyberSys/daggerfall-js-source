@@ -10754,6 +10754,54 @@ the vitality's floor of one (a level of nought reads one through `|| 1`, so only
 and a new fighter's write at once (the fake's storage keeps the object itself, so a skipped write read as kept - the
 test now counts the writes); AUDIT WB A1's two one-seat records re-aimed (PIN MOVED), dead.
 
+### SEAT2a (part one) - the battles' week: the holder's window, the schedule, the sides and their Sellswords
+
+2026-10-01, Mac: "Finish the seats"; "Or we could go ahead and do sieges"; "Continue" ("Hurry up"). Rides a new undeployed
+`acct47` (migration 0051_seat_battles.sql) - no relay change; the battle itself is SEAT2a's relay half. Behind
+`SEATS_OPEN` with the rest of the seats. Seats-Arc 6.3-6.5.
+
+- **The holder's window** (6.3, `/v1/seats/window`, `town_seat_windows`): a day Wednesday to Saturday and a start hour
+  16:00-02:00 UTC (a start after midnight the night after its day), set by the holder's Guildmaster or an Officer at the
+  board - the rank and the Charter asked in the write. A holder with none fights at Wednesday 20:00. A window the
+  former holder set is not the new holder's.
+- **The schedule** (5.2 step 8, `townSeatLaw.js` placeBattles, in the Turning's one batch - `town_seat_battles`): every
+  battle the Turning names, in key order - a siege at the holder's window as it stands at the Turning (frozen into the
+  battle's row; a later change is the next Turning's), a crown siege at its Saturday slot (Daggerfall 20:00, Wayrest
+  21:00, Sentinel 22:00), a Tourney at Wednesday 20:00 - moved two hours on, and on past the hours no window opens, where
+  it would overlap another battle of either of its guilds (`moved`, and a Chronicle row says so). DECIDED here: a palace
+  siege and a Tourney hold their two-hour window of their guilds' week, a crown siege the hour its slot keeps from the
+  next crown's (45 minutes) - so a guild holding one crown and challenging another fights both; a battle no start of the
+  week can hold is void (a Chronicle row; a guild would need some forty battles in a week). A battle lasts 30 minutes
+  at a palace, 45 at a crown, 20 a Tourney.
+- **The rosters** (6.4, `/v1/seats/siege/sign` and `/unsign`, `town_seat_rosters`): a member signs onto its guild's
+  side - in the guild 7 days at the Turning, its account bound to the guild in the week that won the Right and to no
+  other guild in the battle's week (the signing binds it) - ten a side at a palace, twenty at a crown, counted in the
+  INSERT; until ten minutes before the start (the close said before any other rule); a place given back while the
+  rosters are open.
+- **The Sellswords** (6.4, `/v1/seats/siege/hire` and `/withdraw`, `town_seat_hires`): a side's Guildmaster names an
+  account at a fee in Drakes (DECIDED: 0 to 5,000), escrowed from the guild's treasury (`sellsword-escrow`); at most two a
+  side at a palace and four at a crown, offered and signed together. The account signs under the contract - in neither
+  guild (any character of it), bound to no other guild this week, not on the other side's guild's rosters in the last
+  four weeks - its fee on its roster row, the week bound to the hiring guild. A contract not yet signed is withdrawn and
+  its escrow goes home (`sellsword-return`). The fee is paid at the battle's end (the relay half's result).
+- **The Seat tab** (`ui/seatTab.js`, `/v1/seats/standings`' `fight`): the announcement in 6.3's own words ("... has won
+  the Right of Siege at Anticlere. ... holds its Charter. Battle is joined Wednesday at 20:00 UTC."), each side's roster
+  and Sellswords, the reader's side with Sign (or Sign as a Sellsword at its fee) and Give back your place, none once the
+  rosters close; a side's Guildmaster's contracts with Withdraw and the hire by name and fee; the holder's Officers' and
+  Guildmaster's window.
+- **The deploy blackout's question** (17): `seatBattles.js` siegesLive - a battle live, or starting within thirty
+  minutes. Its route and the relay workflow's wait are the relay half's.
+
+Left for SEAT2a's relay half, recorded: the siege pass (the rosters signed into the relay's room), the battlefield
+(banners, the Throne), the forfeits, the result and Honours, the announcements in the server's voice, the client's fight.
+
+Pinned: `test/seat2a_service.test.js` (4), `test/seat2a_client.test.js` (5); the account version pins (`acct47`) and
+`test/accountworker.test.js` (the schema). `tools/mutants/seat2a.json` (74, all dead) - seven survived the first run and
+were killed by sharper pins (an old holder's window, the close said first, a hired account's other character in a
+side's guild, the sides' Sellsword count, a member seeing no contracts, the closed tab's offers, a signed contract's
+withdrawal); one more was recorded EQUIVALENT and dropped: the withdrawal's read widened to a signed contract (its guarded
+write refuses it the same).
+
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 
 Mac, asked how quest enemies should work online (each player's quests are their own, so two party members on the

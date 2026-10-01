@@ -45,6 +45,7 @@ import { HOME_CAP, RENT_ROOMS_MAX, RENT_HELD_MAX, RENT_DAYS_MAX } from './homeLa
 import { DECOR_CAP, DECOR_YARD_CAP } from './decorLaw.js';   // DECOR1: the cap its refusal names; HOME-YARD: a yard's
 import { MARKS_MAX, MARKS_BANK, MARKS_MOVE_MAX } from './marksLaw.js';   // MARKS1: the bounds its refusals name
 import { NOTES_LIVE_MAX, NOTE_DAYS, NOTICE_DAYS_MAX } from './boardLaw.js';   // NOTICE1: the bounds its refusals name
+import { SIGN_WHY, SELLSWORD_FEE_MAX } from './townSeatLaw.js';   // SEAT2a: the rosters' refusals in the board's own words; the fee's bound
 import {
   HARVESTS_PER_DAY, HARVESTS_PER_ACCOUNT_DAY, DEEP_UNCONFIRMED_PER_DAY, STORES_MAX, WITHDRAW_MAX, COURT_WRITS_PER_DAY, RESPEC,
   HIDES_PER_DAY, HIGH_HIDES_PER_DAY, HAULS_PER_DAY,
@@ -271,6 +272,14 @@ export const REFUSALS = Object.freeze({
   'edict-twice': 'That Edict rules this week, and only Market Day may be proclaimed two weeks running.',
   'seat-no-edict': 'No Edict is proclaimed for next week.',
   'bad-bounty': 'A Bounty sets aside at least 20 Drakes, and at most 100,000.',
+  // SEAT2a: the battles' week - the window, the rosters, the Sellswords (the board's own words: townSeatLaw.js SIGN_WHY)
+  'bad-window': 'A window is a day from Wednesday to Saturday and a start from 16:00 to 02:00 UTC.',
+  'bad-fee': `A Sellsword's fee is a whole number of Drakes, at most ${SELLSWORD_FEE_MAX.toLocaleString('en-US')}.`,
+  'bad-handle': 'Name the account by its username.',
+  'no-such-account': 'There is no account by that name.',
+  'hire-none': 'That Sellsword has no contract to withdraw.',
+  'hire-twice': 'That account has a contract here already.',
+  ...SIGN_WHY,
   // NOTICE1: the Notice Board (server-account/src/board.js)
   'board-need-account': 'Notes are pinned by registered accounts. Add a username to pin one.',
   'board-closed': 'The notice board is not open yet.',
@@ -1099,6 +1108,12 @@ export function accountSeats({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
     tithe: (character, key, pct) => post('/v1/seats/tithe', { character, key, pct }),
     edict: (character, key, edict, setAside = 0) => post('/v1/seats/edict', { character, key, edict, ...(edict === 'bounty' ? { setAside } : {}) }),
     bounty: (character, site, region) => post('/v1/seats/bounty', { character, site, region }),
+    // SEAT2a: the battles' week - the holder's window; a side signed and unsigned; a Sellsword hired and withdrawn
+    window: (character, key, day, hour) => post('/v1/seats/window', { character, key, day, hour }),
+    sign: (character, key) => post('/v1/seats/siege/sign', { character, key }),
+    unsign: (key) => post('/v1/seats/siege/unsign', { key }),
+    hire: (character, key, handle, fee = 0) => post('/v1/seats/siege/hire', { character, key, handle, fee }),
+    withdrawHire: (character, key, handle) => post('/v1/seats/siege/withdraw', { character, key, handle }),
   };
 }
 
