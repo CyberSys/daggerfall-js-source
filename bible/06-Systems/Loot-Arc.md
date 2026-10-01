@@ -140,9 +140,9 @@ as a CHAMPION, with one TRAIT:
 |---|---|
 | Mighty | its blows land half again as hard |
 | Stalwart | half again its health, on top of a champion's double |
-| Swift | it moves a third again as fast |
+| Swift | thirty more Speed (at most 100): it closes and attacks sooner |
 | Vampiric | half of what its blows take from you heals it |
-| Thorned | your weapon blows that land on it hurt you back, a seventh of them |
+| Thorned | your blows that land on it hurt you back, a seventh of them |
 
 Every champion has twice its health and its blows a quarter harder (damageScale, multiplied - never overwriting an
 elite's). Its name is the trait's and its own - `Mighty Orc Warlord` - on the HUD's target bar, its corpse and its
@@ -154,7 +154,7 @@ armour at its level is minted and made Rare. The chime rings at its fall.
 
 **Online.** A dungeon's foes are its layout's, built on every client from the location (the elite's way): the
 champion and its trait are a HASH of the location and the marker, so every client stands the same champion with no
-wire word. A foe in the street or a building is its owner's: the owner rolls it, and the foe record carries its trait
+wire word. A foe in the street or a building is its owner's: the owner's hash says it, and the foe record carries its trait
 (`cp`, sent only when set) to every puppet, which wears the same scaling, so a puppet's blow resolved on my side is a
 champion's. Said so: when a dying owner hands a street foe over, its carried loot does not travel (the hand-over's
 own law), so a champion adopted mid-fight carries none.
@@ -453,7 +453,7 @@ dungeon kinds its family or none (a Mine is no one's). `LEGENDARY_FOUND` names w
 the undead four, the daedra three, dragons two, beasts four, brutes three, casters four, rogues four, warriors six -
 and `foundAmong` reads a mod's record's own `found` too.
 
-**The pick.** `pickRecord(pool, family, rolls)` takes ONE roll, as LR1's `pick` did: with no family it is exactly
+**The pick.** `pickLegendary(pool, family, rolls)` takes ONE roll, as LR1's `pick` did: with no family it is exactly
 `pick`'s index for the same roll; a source's family weighs its own records `SIGNATURE_WEIGHT` (5) to one.
 `applyRarity` takes `{ family }`; the host door hands its source's family on; `corpseSource` reads a foe's mobile
 type (`rollCorpseLoot` hands `entity.mobileType` - LR4's one corpse door); a dungeon's treasure pile names its
@@ -467,3 +467,54 @@ seeded kills - a third of the axe's would be the even pick; five sevenths is the
 
 Pinned: `test/loot6_signatures.test.js` (4); `tools/mutants/loot6.json` (11, all dead). LR1's corpse-source pin
 reads the family (null without a type), and its four-hosts pin the pile's.
+
+### LOOT7 - champion foes (2026-10-01)
+
+`systems/champions.js` (new): the five traits (`CHAMPION_TRAITS`, in the wire's order - each name its id
+title-cased, so the two leaves that cannot import it spell it the same), `applyChampion` (on the entity, before its
+loot: twice its health - the Stalwart half again more - its blows a quarter harder MULTIPLIED onto whatever
+`damageScale` it has, so an elite's double stands under it - the Mighty half again more - and the Swift's thirty
+Speed, capped at 100; never under level 3, the watch, an ally, or off), `championName`, and the two traits that
+answer a blow on SET2's seams: the Vampiric (the struck tail: half of a blow that reached me heals it, never past its
+maximum) and the Thorned (the strike tail: a seventh of my blow that landed on it, through `hurtPlayer` - my one
+damage door, so a shield, a ward and a death save see it as any hurt; never a peer's blow, never an ally's).
+
+**Who.** A dungeon's: `markDungeonChampions` marks the layout's records by an FNV hash of the location id and the
+marker's index - one in twenty (`CHAMPION_PER_MILLE` 50), its trait from the hash's high bits - so every client
+stands the same champions with no wire word, and a mark rides its record through a rebuild. Every build arm of
+`applyEliteScaling` stands it, an elite dungeon's onto the elite's scaling. A quest's foe is never in the layout. The
+street's: an ordinary encounter's foe (`capped` - never a quest's, a summons, a placed camp's or a replacement) is
+`rollStreetChampion`'s - the same mixer over where it stands, its type and the pool's count of them, NEVER a draw:
+the pool's stream (its loot, its kit) draws as it did, and a seeded test's street stands the same foes every run
+(the row is on by default, so a draw would have made every street pin a one-in-twenty flake). The foe
+record carries the trait (`cp`, `net/wire.js` `validFoeRecord`, at most `CHAMPION_TRAIT_MAX`; RELAY_VERSION
+**world138**, NOT YET DEPLOYED - a relay before it strips the field and a peer's puppet of a champion stands as an
+ordinary foe, the owner's health word still ruling it); a puppet and an heir's adoption stand the same champion; a
+save keeps it (`champion` on the pool's record) and a load stands it again, never rolled. The gate's Warden is the
+relay's and never a pool foe.
+
+**Its name** is the trait's and its own - `Mighty Orc` - on the hover over it alive (`worldTooltips.js`
+`liveEntityName`, every pool's one namer), the HUD's target bar (`ui/hudFoeTarget.js`), its body (both pools) and
+its death line (`corpseMarker.js` `sayEnemyDied`).
+
+**Its loot.** `rollCorpseLoot` reads the mark: a champion's corpse door is the plain door with `CHAMPION_SOURCE`
+(four tiers, quality x1.5). Then `scenes/hostCombat.js` `ensureChampionLoot`: when its own roll found no Rare or
+better, its most valuable piece that could be (a plain one, or one the ladder made Magic) is made Rare; carrying
+none, a weapon (never ammunition) or a piece of armour at the player's level is minted onto it and made Rare - all
+off the spawn's own stream, after every draw before it. Never its worn kit (LR4's law). LR3's drop chime already
+rings over a body carrying a Rare, so it rings at every champion's fall.
+
+**What moved from the design.** "It moves a third again as fast" read DFU's motor wrong: an enemy's speed is
+(Speed + 150) x the scale (`enemyMotor.js` `enemyMoveSpeed`), so the Swift's thirty Speed is about a seventh faster
+on foot - and its attack roll (`attackRollPasses`) passes likelier. The table says what it does. The Thorned answers
+any blow of mine that lands (a bare hand's too), not a weapon's alone - the strike tail's own law.
+
+**Along the way.** LOOT6's `pickRecord` shared its name with `world/underwaterDecorations.js`'s, past audit24's
+one-home ratchet: renamed `pickLegendary`. WORLD8's pile pin read LOOT6's family. The relay's version pins re-chained
+("LOOT7 moved it on last (world138 ...); KEPT-KILL moved it on (world137 ..."), soc1.json's S38 and BOUNTY1 B4.
+
+Pinned: `test/loot7_champions.test.js` (7) - the traits, the dungeon's marks (about one in twenty, golden marks for
+two locations so a client on another build cannot stand others), the street's hash (never a draw; golden for one street) and the record, the scaling and
+its refusals, the name in all four places, the two traits on their tails, the guarantee over 600 seeded kills of an
+orc, a rat and a Fire Daedra, its most valuable piece, the mint's mix, and the corpse door against the boosted source
+seed by seed; `tools/mutants/loot7.json` (50, all dead).

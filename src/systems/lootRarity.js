@@ -240,7 +240,7 @@ export const foundAmong = (id) => (typeof id === 'string' ? (LEGENDARY_FOUND[id]
 export const SIGNATURE_WEIGHT = 5;
 /** THE PICK - one roll: a source with no family picks evenly (exactly `pick`'s index for the same roll); a family's own
  *  records weigh SIGNATURE_WEIGHT each. */
-export function pickRecord(pool, family, rolls = Math.random) {
+export function pickLegendary(pool, family, rolls = Math.random) {
   const w = pool.map((r) => (family && foundAmong(r.id) === family ? SIGNATURE_WEIGHT : 1));
   const total = w.reduce((a, b) => a + b, 0);
   let r = rolls() * total;
@@ -894,7 +894,7 @@ export function applyRarity(item, tier, rolls = Math.random, legendaryPool = nul
   if (tier === 'legendary') {
     const pool = legendaryPool ?? legendariesFor(item);
     if (!pool.length) return applyRarity(item, 'rare', rolls);   // no record for this item: the tier below
-    const rec = pickRecord(pool, family, rolls);   // LOOT6: a source's family weighs its own records
+    const rec = pickLegendary(pool, family, rolls);   // LOOT6: a source's family weighs its own records
     affixes = rec.affixes.map((a) => ({ ...a }));
     enchantment = rec.enchantment;
     item.legendary = rec.id;
@@ -1065,6 +1065,9 @@ export function rollExalted(item, rolls = Math.random) {
   if (!(rolls() * 1000 < _exaltedPerMille)) return false;
   return exaltLegendary(item, rolls);
 }
+/** LOOT7 (bible/06-Systems/Loot-Arc.md section 9): what a CHAMPION adds to its corpse's source - four tiers, and its
+ *  quality half again (its Rare-or-better guarantee is the spawn seam's: scenes/hostCombat.js ensureChampionLoot). */
+export const CHAMPION_SOURCE = Object.freeze({ tier: 4, quality: 1.5 });
 /** LR4 (the audit): THE CORPSE DOOR. A foe's list carries its WORN kit
  *  too (hostCombat.equipEnemy pushes every equipped piece into
  *  entity.items and onto the equip table, writing no equipSlot), so the
@@ -1075,7 +1078,9 @@ export function rollCorpseLoot(entity, basics, { rolls = Math.random, luck = 50,
   if (!lootRarityOn() || !entity) return entity?.items ?? [];
   const worn = new Set(entity.equip ? equipTableOf(entity).filter(Boolean) : []);
   const loot = (entity.items ?? []).filter((it) => it && !worn.has(it));
-  rollLootRarity(loot, { ...corpseSource(basics, entity.level, entity.mobileType), qualityMult }, { rolls, luck });   // LOOT6: its family
+  const source = corpseSource(basics, entity.level, entity.mobileType);   // LOOT6: its family
+  const champ = typeof entity.champion === 'string' && entity.champion !== '';   // LOOT7: a champion is a stronger source
+  rollLootRarity(loot, { ...source, tier: source.tier + (champ ? CHAMPION_SOURCE.tier : 0), qualityMult: qualityMult * (champ ? CHAMPION_SOURCE.quality : 1) }, { rolls, luck });
   return entity.items;
 }
 /** SIGIL1 (Mac: "weapons obtained through online play recieve a sort of sigil power"; "Magic and up, found online";

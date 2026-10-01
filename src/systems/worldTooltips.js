@@ -340,7 +340,10 @@ export function mobileEntityName(entityName, { hostile = false } = {}) {
  * takes. The fallback is the port's limit, not a second reading of the
  * mod.
  */
-export const liveEntityName = (rec, enemyName = null) => rec?.entity?.name ?? enemyName ?? null;
+/** LOOT7 (the Loot arc): a CHAMPION's trait before its name - systems/champions.js championName's word, every trait's name
+ *  its id title-cased (test/loot7_champions.test.js), spelt here as the HUD's target leaf spells it. */
+const championed = (e, name) => (name && typeof e?.champion === 'string' && e.champion ? `${e.champion.charAt(0).toUpperCase()}${e.champion.slice(1)} ${name}` : name);
+export const liveEntityName = (rec, enemyName = null) => championed(rec?.entity, rec?.entity?.name ?? enemyName ?? null);   // LOOT7: a champion by its name
 
 // ── THE TOTEM (.cs:491-505) ─────────────────────────────────────
 //

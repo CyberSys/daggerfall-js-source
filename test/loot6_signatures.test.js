@@ -58,13 +58,13 @@ test('LOOT6: the pick - one roll; no family is exactly the even pick; a family\'
   assert.deepEqual(pool.map((r) => r.id), ['wyrmbane', 'nightwhisper', 'worms-tooth']);
   for (let i = 0; i < 300; i++) {
     const r = i / 300;
-    assert.equal(LR.pickRecord(pool, null, () => r), pool[Math.floor(r * pool.length)], `no family at ${r}: the even pick`);
+    assert.equal(LR.pickLegendary(pool, null, () => r), pool[Math.floor(r * pool.length)], `no family at ${r}: the even pick`);
   }
   let n = 0;
-  LR.pickRecord(pool, 'rogue', () => { n++; return 0.5; });
+  LR.pickLegendary(pool, 'rogue', () => { n++; return 0.5; });
   assert.equal(n, 1, 'one roll');
   const tally = new Map();
-  for (let i = 0; i < 7000; i++) { const rec = LR.pickRecord(pool, 'rogue', () => i / 7000); tally.set(rec.id, (tally.get(rec.id) ?? 0) + 1); }
+  for (let i = 0; i < 7000; i++) { const rec = LR.pickLegendary(pool, 'rogue', () => i / 7000); tally.set(rec.id, (tally.get(rec.id) ?? 0) + 1); }
   assert.ok(Math.abs(tally.get('nightwhisper') / 7000 - 5 / 7) < 0.002, 'the rogue\'s own: five in seven');
   assert.ok(Math.abs(tally.get('wyrmbane') / 7000 - 1 / 7) < 0.002, 'the rest: one each');
   assert.equal(LR.SIGNATURE_WEIGHT, 5);
@@ -88,5 +88,5 @@ test('LOOT6: the doors - a corpse\'s family its foe\'s, a dungeon pile\'s its ki
   assert.ok(ownUndead / legs > 0.25, `the undead's own lean in (${ownUndead} of ${legs})`);
   const d = read('src/scenes/dungeonContext.js');
   assert.match(d, /family: dungeonFamily\(dfLocation\.mapTableData\.dungeonType\) \}/, 'a dungeon pile names its kind\'s family');
-  assert.match(read('src/systems/lootRarity.js'), /rollLootRarity\(loot, \{ \.\.\.corpseSource\(basics, entity\.level, entity\.mobileType\), qualityMult \}/, 'the corpse door its foe\'s type');
+  assert.match(read('src/systems/lootRarity.js'), /const source = corpseSource\(basics, entity\.level, entity\.mobileType\);/, 'the corpse door its foe\'s type');
 });

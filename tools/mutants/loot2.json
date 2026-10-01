@@ -174,8 +174,8 @@
   {
     "name": "LOOT2-the-last-pass-mid-list",
     "file": "src/systems/lootRarity.js",
-    "old": "    if (tier !== 'common') { applyRarity(it, tier, rolls); minted.push(it); }",
-    "new": "    if (tier !== 'common') { applyRarity(it, tier, rolls); minted.push(it); lastPass([it], rolls); }",
+    "old": "    if (tier !== 'common') { applyRarity(it, tier, rolls, null, { family: source.family ?? null }); minted.push(it); }",
+    "new": "    if (tier !== 'common') { applyRarity(it, tier, rolls, null, { family: source.family ?? null }); minted.push(it); lastPass([it], rolls); }",
     "tests": [
       "test/loot2_exalted.test.js"
     ]

@@ -209,7 +209,7 @@ import { trs, multiply, identity, UP_Y } from '../world/mat4.js';
 import { StaticBatchBuilder, keyResolver, SHADOW_CELL_SIZE } from '../render/staticBatch.js';   // PERF5: the level's static models as one mesh; LA-AUDIT A1: with its shadow cells
 import { Collider } from '../player/collider.js';
 import { ActionSystem } from '../world/actionSystem.js';
-import { collectDungeonEnemies, expandEliteEnemies, enemyHierarchyOrder } from '../characters/dungeonEnemies.js';
+import { collectDungeonEnemies, expandEliteEnemies, enemyHierarchyOrder } from '../characters/dungeonEnemies.js'; import { markDungeonChampions, applyChampion, championName } from '../systems/champions.js';   // LOOT7: the layout's champions
 import { ELITE_FOE_MULTIPLIER, ELITE_HEALTH_SCALE, ELITE_DAMAGE_SCALE, ELITE_LOOT_DROP_MULT, ELITE_LOOT_QUALITY_MULT } from '../world/spawnedDungeons.js';   // ELITE: an elite spawn's foe count and strength
 import { ENEMY_BASICS, enemyDisplayName } from '../characters/enemyBasics.js';
 import { bloodDecalDeps } from '../combat/bloodSwitch.js';   // BLOOD1a
@@ -277,7 +277,7 @@ const q3 = (v) => Math.round(v * 1000) / 1000; const GENDER_BIT = ['male', 'fema
 const HIT_POS_MAX = 1e6;
 // AUDIT FOES FOE5: the most damage one peer's blow may claim. The host TRUSTS the number (it never recomputes - the
 // striker's own calc is the game's), so without a bound any joiner could one-shot every foe in the room and empty it
-// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2428); the dungeon
+// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2432); the dungeon
 // had none. Past anything a legal swing, shaft or blast can roll.
 const HIT_DMG_MAX = 10000;
 /** REST-SYNC: a joiner's ask is answered - or given up on - inside this long: its rest breaks once, at the next hour. */
@@ -925,6 +925,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       floor: (at) => { const d = collider.raycast([at[0], at[1] + 1, at[2]], [0, -1, 0], 3); return Number.isFinite(d) ? at[1] + 1 - d : null; },
     })
     : _layoutEnemies;
+  markDungeonChampions(enemies, dfLocation.dungeon.recordElement.header.locationId);   // LOOT7: the layout's champions, a hash of the place and the marker - every client the same, no wire word
   // C8 E1 (?foes): CLASS enemies (mobileType > 43, human morphology)
   // spawn as canonical rigs instead of their C3 billboards - one rig
   // per enemy (individual animation state), floor-snapped through the
@@ -1148,11 +1149,11 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     foeDeps.applyProgressionScaling?.(entity, scaling);   // lazily loaded beside makeEnemyEntity; the dungeon's own deps (the import used `D`, which only the spawn builders below bind)
   }
   function applyEliteScaling(entity, e) {
-    if (!e?.elite || !entity) return;
+    if (!e?.elite || !entity) return void applyChampion(entity, e?.champion);   // LOOT7: a plain dungeon's champion (its loot reads the mark, so before it)
     entity.maxHealth = Math.max(1, Math.round(entity.maxHealth * ELITE_HEALTH_SCALE));
     entity.health = entity.maxHealth;
     entity.damageScale = ELITE_DAMAGE_SCALE;
-    entity.elite = true;
+    entity.elite = true; applyChampion(entity, e.champion);   // LOOT7: an elite dungeon's champion - its scale on the elite's
   }
   async function buildFoeAt(e, fallbackFlat = true, { at = -1, puppet = false, feetGiven = false } = {}) {   // DISC28-H: `feetGiven` - the position is already a motor's FEET (a streamed puppet), not a marker's sprite centre
     const basics = ENEMY_BASICS[e.mobileType];
@@ -4665,7 +4666,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const i = data.i | 0, dmg = Number(data.dmg);
     const xs = data.xs === 1;   // REST-SYNC: a shared encounter, by the room's number - not a layout index
     const f = xs ? (_sharedById.get(i) ?? null) : foes[i];
-    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2428). The number is a peer's
+    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2432). The number is a peer's
     // word and the host trusts it without recomputing, so an unbounded one let any joiner one-shot every foe in the
     // room - and, through the kill door, empty it. 10000 is past anything a legal swing, shaft or blast can roll.
     if (!f || (!xs && i >= _layoutFoes) || f.dead || !Number.isFinite(dmg) || dmg < 0 || dmg > HIT_DMG_MAX) return false;
@@ -5239,7 +5240,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // InstantiatePrefab's a fresh GameObject per saved record, so
     // EnemyEntity's `PickpocketByPlayerAttempted` default is the loaded
     // truth for every enemy. The re-minting pools match that by
-    // construction (exteriorFoes.js:1808's restoreWorld goes through
+    // construction (exteriorFoes.js:1811's restoreWorld goes through
     // spawnFoe), but this host patches the LIVE foes in place, so a
     // same-dungeon reload kept a raised latch and a failed pickpocket
     // could never be retried - falsifying the law
@@ -6947,7 +6948,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (key.startsWith('corpse:')) {
       const f = foes[Number(key.split(':')[1])];
       // .cs:526 - the entity's name and "(dead)".
-      return lootableBody(f) ? { title: corpseName(enemyDisplayName(f.mobileType)) } : null;   // AUDIT 68 S19-removed-foe-lootable
+      return lootableBody(f) ? { title: corpseName(championName(f.entity, enemyDisplayName(f.mobileType))) } : null;   // AUDIT 68 S19-removed-foe-lootable; LOOT7: a champion's body by its name
     }
     if (key.startsWith('loot:') || key.startsWith('droppedLoot:')) {
       // .cs:534-548 - a pile of ONE is named by that one item; the
