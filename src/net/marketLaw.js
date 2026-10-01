@@ -20,10 +20,11 @@
 // Pure: no clock, no DOM, no network. Both ends read it.
 // ═══════════════════════════════════════════════════════════════════
 
-import { STORES_MAX, MATERIAL_FAMILIES, MINED_KEYS, FOOD_KEYS, PLANT_GROUP_TEMPLATES } from './professionLaw.js';
+import { STORES_MAX, MATERIAL_FAMILIES, MINED_KEYS, FOOD_KEYS, PLANT_GROUP_TEMPLATES } from './professionLaw.js';   // MARKET-ANY: and the Stores' forms
 import { PROVENANCE_RE, recipeById, takesQuality, MASTERWORK } from './recipeLaw.js';
 import { MARKS_MAX } from './marksLaw.js';
 import { witnessedFact, factConfirmed, material } from './nodeLaw.js';
+import { tradeableRecord, boundRecord, BOAT_TEMPLATES, GOLD_PIECES_TEMPLATE, VALUE_IS_IDENTITY_TEMPLATES } from './realmTradeLaw.js';   // MARKET-ANY: the trade's own law of what may leave a record
 
 /** A listing stands this long (10.2: 72 hours). */
 export const MARKET_LISTING_S = 72 * 3600;
@@ -60,10 +61,12 @@ export const MARKET_MEDIAN_DAYS = 7;
 export const MARKET_KEEP_DAYS = 90;
 /** A piece's wear: its condition as a share of its most, in thousandths (PROF0 26). */
 export const WEAR_WHOLE = 1000;
-/** The Market tab's views, in its row's order (10.1; PROF5b: Auctions beside Crafted). */
+/** The Market tab's views, in its row's order (10.1; PROF5b: Auctions beside Crafted; MARKET-ANY: Goods after them - the
+ *  pieces players list from their packs). */
 export const MARKET_VIEWS = Object.freeze([
   Object.freeze(['materials', 'Materials']), Object.freeze(['crafted', 'Crafted']), Object.freeze(['auctions', 'Auctions']),
-  Object.freeze(['mine', 'My listings']), Object.freeze(['orders', 'Orders']), Object.freeze(['history', 'History']),
+  Object.freeze(['goods', 'Goods']), Object.freeze(['mine', 'My listings']), Object.freeze(['orders', 'Orders']),
+  Object.freeze(['history', 'History']),
 ]);
 /** The crafted families that list - arrows carry no provenance and the siege works are never made (PROF0 25). */
 export const CRAFTED_FAMILIES = Object.freeze([
@@ -250,3 +253,97 @@ export const AUCTION_GRACE_S = 7 * 86_400;
 /** What may be auctioned (10.2: "Masterworks only"): a Masterwork of a family the market lists - a piece that takes a
  *  quality (AUDIT 31 L9: a Repair Kit takes none, so no kit is a Masterwork). */
 export const auctionable = (recipeId, quality) => quality === MASTERWORK && pieceListable(recipeId) && takesQuality(/** @type {any} */ (recipeById(recipeId)));
+
+// ─── MARKET-ANY (FIELD BUGS 2026-10-01, the field: "The market doesn't allow you to list any item that isnt bound") ───
+//
+// A PIECE FROM THE PACK, FOR GOLD. The market listed a Stores material and a crafted piece with its maker's record, and
+// nothing else (10.2: "Loot does not list: it has no provenance. TRADE1 stays how loot changes hands") - so to a player
+// nothing they carried from the world could be sold there, and the List form offered only what a crafter had made.
+// A realm character's pack is its record on the service now (REALM P1), and a realm trade already moves a piece out of
+// one record and into another in one write (REALM P2.1, net/realmTradeLaw.js). A piece from the pack lists the same way:
+// the very record the seller's checkpoint holds, taken out of it in the listing's own batch (server-account/src/
+// market.js), and put into the buyer's record - or back into the seller's, cancelled, expired or removed - by the
+// collect's own batch. Nothing is copied: the piece is in one record, or on the listing, or on the road.
+// FOR GOLD ALONE (law 8 and the wall of 10.8, kept): after its first save a record is its tab's own checkpoint - nothing
+// the service witnessed made the piece - so a piece from the pack is the realm's gold economy, as its gold is, and never
+// becomes Drakes (law 3: nothing edited into a save is laundered into the server's economy). Gold for a piece is what two
+// realm characters' trade does face to face; the market only lets them not meet.
+
+/** A piece's record on a listing, at most this many JSON characters - the market's routes carry it in their 4 KiB body
+ *  (server-account/src/service.js MAX_BODY_BYTES) with the rest of the act. A piece the port mints is a few hundred. */
+export const GOOD_RECORD_MAX = 2048;
+/** The crafted pieces a tab names in its "My listings" read, at most - the service answers how each may list
+ *  (server-account/src/market.js heldPieces). */
+export const MARKET_HELD_MAX = 64;
+/** DFU's arrow (systems/inventory.js ARROW_TEMPLATE, pinned equal) - a quiver's stack, never a board's. */
+export const GOOD_ARROW_TEMPLATE = 131;
+/** The Goods view's families, by DFU's item groups (goodFamily). */
+export const GOODS_FAMILIES = Object.freeze([
+  Object.freeze(['weapons', 'Weapons']), Object.freeze(['armour', 'Armour']), Object.freeze(['clothing', 'Clothing']),
+  Object.freeze(['jewellery', 'Jewellery and gems']), Object.freeze(['other', 'Everything else']),
+]);
+/** A piece's family in the Goods view, by its DFU group. */
+export function goodFamily(rec) {
+  const g = rec?.group;
+  if (g === 'Weapons') return 'weapons';
+  if (g === 'Armor') return 'armour';
+  if (g === 'MensClothing' || g === 'WomensClothing') return 'clothing';
+  if (g === 'Jewellery' || g === 'Gems') return 'jewellery';
+  return 'other';
+}
+let _storesForms = /** @type {Set<string>|null} */ (null);
+/** THE STORES' OWN MATERIALS AS THE PACK HOLDS THEM - every mined, smelted, cut, felled, skinned and gathered material
+ *  with a template (systems/profItems.js mintMaterialItem mints these; the custom 600-699 rows by their index alone,
+ *  DFU's own by their group and index), as `group:index` or `*:index`. The four foods are left out: their templates are
+ *  Climates & Calories' or Foraging's as the client is set, and a Drake's worth of them is none. */
+export function storesForm(rec) {
+  if (!_storesForms) {
+    const keys = [...MINED_KEYS, ...Object.entries(PLANT_GROUP_TEMPLATES).flatMap(([g, ts]) => ts.map((t) => `${g}:${t}`))];
+    _storesForms = new Set(keys.map((k) => material(k)).filter((m) => m && Number.isSafeInteger(m.templateIndex))
+      .map((m) => (m.group ? `${m.group}:${m.templateIndex}` : `*:${m.templateIndex}`)));
+  }
+  return _storesForms.has(`${rec?.group}:${rec?.templateIndex}`) || _storesForms.has(`*:${rec?.templateIndex}`);
+}
+/**
+ * WHY A PIECE OF THE PACK MAY NOT LIST - its record as the save holds it (plain data; both ends read it) - as a word, or
+ * null. The trade's refusals first (realmTradeLaw tradeableRecord: worn, a quest's, summoned, bound, gold, a boat's),
+ * then the market's own: LOCK1's lock (the player's own word closes selling - systems/itemLock.js), a letter of credit
+ * (it IS gold, and its value is its identity), arrows (a quiver's stack), a Stores material (storesForm - THE WALL of
+ * 10.8, kept: a material bought with Drakes and withdrawn to the pack would otherwise list for gold, "a way round the
+ * Bank's daily cap and spread"; the Stores list it, in its own currency) and a record past GOOD_RECORD_MAX. A crafted
+ * piece is not refused here: whether it lists as a crafted piece or from the pack is its record's owner's question,
+ * which only the service can answer (market.js).
+ * @param {any} rec
+ */
+export function goodRefusal(rec) {
+  if (!rec || typeof rec !== 'object' || Array.isArray(rec) || !Number.isSafeInteger(rec.templateIndex)) return 'shape';
+  if (rec.equipSlot != null) return 'worn';
+  if (rec.locked === true) return 'locked';
+  if (rec.questItem) return 'quest';
+  if ((rec.timeForItemToDisappear ?? 0) !== 0) return 'summoned';
+  if (boundRecord(rec)) return 'bound';
+  if (rec.templateIndex === GOLD_PIECES_TEMPLATE && rec.group === 'Currency') return 'gold';
+  if (VALUE_IS_IDENTITY_TEMPLATES.includes(rec.templateIndex)) return 'letter';
+  if (BOAT_TEMPLATES.includes(rec.templateIndex)) return 'boat';
+  if (rec.templateIndex === GOOD_ARROW_TEMPLATE) return 'arrows';
+  if (storesForm(rec)) return 'stores';
+  if (!tradeableRecord(rec)) return 'shape';   // the trade's law, whole - nothing it refuses lists
+  let text = null;
+  try { text = JSON.stringify(rec); } catch { return 'shape'; }
+  return text.length > GOOD_RECORD_MAX ? 'large' : null;
+}
+/** Each refusal in the List form's words (the piece's name before it). */
+export const GOOD_REFUSAL_WORDS = Object.freeze({
+  shape: 'not a piece the market knows',
+  worn: 'worn - take it off first',
+  locked: 'locked - unlock it first',
+  quest: 'a quest\'s',
+  summoned: 'summoned',
+  bound: 'bound to you',
+  gold: 'gold sells as gold',
+  letter: 'a letter of credit is gold',
+  boat: 'a boat\'s',
+  arrows: 'arrows go in a quiver',
+  stores: 'a Stores material - the market sells it from the Stores alone',
+  large: 'too much to write on a board',
+});

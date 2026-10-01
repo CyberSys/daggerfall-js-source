@@ -196,7 +196,9 @@ test('AUDIT 31 H1: a piece one book keeps an act on is never taken by the other;
   let up = false;
   const door = {
     account: () => 'acct-1',
-    list: async () => (up ? { ok: false, error: 'market-not-yours' } : { ok: false, error: 'offline' }),
+    // PIN MOVED (FIELD BUGS 2026-10-01, MARKET-KEEP): the piece stands LISTED elsewhere - a record naming another owner
+    // is no proof the save's piece is a copy (a trade hands a crafted piece on and never its record), so it is put back
+    list: async () => (up ? { ok: false, error: 'market-listed' } : { ok: false, error: 'offline' }),
     fulfil: async () => ({ ok: true, data: {} }),
   };
   let writs = null;
@@ -210,7 +212,7 @@ test('AUDIT 31 H1: a piece one book keeps an act on is never taken by the other;
   const f = await writs.fulfil(FILL, piece);
   assert.deepEqual([f.ok, f.error, pack.length], [false, PIECE_KEPT_ERROR, 1], 'the writs\' book will not take a piece the market keeps');
   assert.equal((await market.list({ ...REQ, price: 400 }, piece)).error, PIECE_KEPT_ERROR, 'nor the market twice');
-  // the market settles: the service says the piece is another's - the save's copy out, never back in
+  // the market settles: the service says the piece is listed already - the save's copy out, never back in
   up = true;
   // the host's drop, by provenance (world.js marketDrop) - the kept entry's item is its stored copy
   await market.settle(() => {}, (it) => pack.push(it), (it) => { const i = pack.findIndex((x) => x.provenance === it.provenance); if (i >= 0) pack.splice(i, 1); });
@@ -218,7 +220,7 @@ test('AUDIT 31 H1: a piece one book keeps an act on is never taken by the other;
   // at once: a refusal that says it is elsewhere puts nothing back
   const fresh = packOf();
   const once = await createMarketBook({ door, storage: memStorage(), character: () => 'char-a', sleep: noWait }).list(REQ, fresh.piece);
-  assert.deepEqual([once.error, fresh.pack.length], ['market-not-yours', 0]);
+  assert.deepEqual([once.error, fresh.pack.length], ['market-listed', 0]);
   // and the other way: a fill the writs' book keeps, never listed
   const wstore = memStorage();
   const wdoor = { account: () => 'acct-1', fulfil: async () => ({ ok: false, error: 'offline' }), list: async () => ({ ok: true, data: {} }) };
@@ -234,7 +236,7 @@ test('AUDIT 31 H1: a piece one book keeps an act on is never taken by the other;
   const back = [];
   await w2.settle((it) => back.push(it), (it) => { const i = two.pack.findIndex((x) => x.provenance === it.provenance); if (i >= 0) two.pack.splice(i, 1); });
   assert.deepEqual([back.length, two.pack.length, w2.pending], [0, 0, 0]);
-  assert.deepEqual([...PIECE_GONE].sort(), ['market-listed', 'market-not-yours', 'market-standing', 'market-uncollected']);
+  assert.deepEqual([...PIECE_GONE].sort(), ['market-listed', 'market-standing', 'market-uncollected']);   // PIN MOVED (MARKET-KEEP): never 'market-not-yours'
   const w = src('src/scenes/world.js');
   assert.match(w, /holds: \(pv\) => !!writBook\?\.holdsPiece\(pv\)/);
   assert.match(w, /holds: \(pv\) => !!marketBook\?\.holdsPiece\(pv\)/);
