@@ -40,6 +40,8 @@ export const HERB_FLAT_ARCHIVE = 254;
 export const PATCH_FLATS = 5;
 export const PATCH_SPREAD = 0.7;
 export const PATCH_SCALE = 1.6;
+/** NODE-MARKS: a patch's glow about its point - its flats' ring and their height (m). */
+export const PATCH_MARK = Object.freeze({ w: 2.2, h: 1.3 });
 
 /**
  * A PIXEL'S PATCHES AS THE CLIENT STANDS THEM: the law's patches of the day, each at the tile its (u, v) falls on,
@@ -114,6 +116,7 @@ export const SICKLE_HAND = Object.freeze({ group: 'Weapons', templateIndex: 114,
  */
 export function herbKind({ book }) {
   let basketChoice = false;   // the choice key's pick at the targeted patch
+  const gone = (p) => book.taken(p.key, 'herbs') && book.taken(p.key, 'food');
   return {
     id: 'herb',
     professions: Object.freeze(['herbalism']),
@@ -128,7 +131,8 @@ export function herbKind({ book }) {
       const record = templateByIndex(p.herb)?.worldTextureRecord;
       return Number.isInteger(record) ? [{ archive: HERB_FLAT_ARCHIVE, record, scale: PATCH_SCALE, centers: patchFlats(p) }] : [];
     },
-    gone: (p) => book.taken(p.key, 'herbs') && book.taken(p.key, 'food'),
+    gone,
+    mark: (p) => (gone(p) ? null : PATCH_MARK),   // NODE-MARKS: on the compass and lit while either harvest stands
     tools: Object.freeze([FT.Sickle, FT.Basket]),   // TOOL-USE
     choose() { basketChoice = !basketChoice; },
     retarget() { basketChoice = false; },
