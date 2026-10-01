@@ -64,7 +64,7 @@ function rig(player, bodies, { wall = () => Infinity } = {}) {
     playerSinks: { hurt() {}, heal(n) { player.health = Math.min(player.maxHealth, player.health + n); }, drainMagicka() {}, restoreMagicka() {}, drainFatigue() {}, restoreFatigue() {}, say: (l) => said.push(l) },
     say: (l) => said.push(l), surfacePlayer() {},
     foes: () => [],
-    foeSinks: (f, fromPlayer) => ({ fromPlayer, hurt(n) { f.entity.health -= n; f.hurtBy = fromPlayer; }, heal(n) { f.entity.health = Math.min(f.entity.maxHealth, f.entity.health + n); }, drainMagicka() {}, restoreMagicka() {}, drainFatigue() {}, restoreFatigue() {} }),
+    foeSinks: (f, fromPlayer) => ({ fromPlayer, hurt(n) { f.entity.health -= n; f.hurtBy = fromPlayer; }, heal(n) { f.healBy = fromPlayer; f.entity.health = Math.min(f.entity.maxHealth, f.entity.health + n); }, drainMagicka() {}, restoreMagicka() {}, drainFatigue() {}, restoreFatigue() {} }),
     absorbCtx: () => ({ inside: true, day: false }),
     rolls: () => 0.99, startCastAnim: null,
     companionBodies: () => bodies,
@@ -83,6 +83,7 @@ test('COMPANION-KIT THE GIFT UNDER THE CROSSHAIR: a CasterOnly Heal readied with
   assert.equal(p.health, 20); assert.equal(h.entity.health, 10);
   assert.equal(magic.castInput([0, 0.9, 0], [0, 0, 1]), true);
   assert.equal(h.entity.health, 30, 'Hilda healed 20');
+  assert.equal(h.healBy, false, 'through her sinks as no blow of mine');
   assert.equal(p.health, 20, 'not me');
   assert.ok(p.magicka < 500, 'paid for');
   assert.ok(said.includes('You cast Balyna\'s Balm on Hilda.'), said.join(' | '));
@@ -116,6 +117,19 @@ test('COMPANION-KIT BY TOUCH, IN A BLAST, AND NEVER HARM: a ByTouch heal at her 
   magic.readySpell(spellOf(1, [HEAL, EMPTY, EMPTY]));
   magic.castInput([0, 0.9, 0], [0, 0, 1]);
   assert.equal(h.entity.health, 30, 'by touch');
+  // a gift is a SELF-CAST on her (ALLY-CAST's receiver's record): no save scales it - an immune career heals whole
+  const pi = mkPlayer(), hi = hilda([0, 0, 2]);
+  hi.entity.career = { immunityFlags: 0xff };
+  const ri = rig(pi, [hi]);
+  ri.magic.readySpell(spellOf(1, [HEAL, EMPTY, EMPTY]));
+  ri.magic.castInput([0, 0.9, 0], [0, 0, 1]);
+  assert.equal(hi.entity.health, 30, 'no save on a gift');
+  // a mixed spell (a Heal riding a Damage) is no gift at all - she is not even looked for
+  const pm = mkPlayer(), hm = hilda([0, 0, 2]);
+  const rm = rig(pm, [hm]);
+  rm.magic.readySpell(spellOf(1, [HEAL, DAMAGE, EMPTY]));
+  rm.magic.castInput([0, 0.9, 0], [0, 0, 1]);
+  assert.equal(hm.entity.health, 10, 'a Heal + Damage touch never lands on her');
   const p2 = mkPlayer(), near = hilda([2, 0, -1]), far = hilda([40, 0, 0], { companion: '42:Olaf' });
   far.entity.name = 'Olaf';
   const r2 = rig(p2, [near, far]);
@@ -208,15 +222,16 @@ test('COMPANION-KIT THE PACK ON THE REAL HOST: his pack by his layer key; sent b
 
 // ── the bar ─────────────────────────────────────────────────────────────────────────────────────────────────────
 
+const WRITES = { n: 0 };
 function fakeNode(tag) {
   const n = { tagName: tag.toUpperCase(), children: [], parent: null, attrs: {}, listeners: new Map(),
     append(...cs) { for (const c of cs) { c.parent = n; n.children.push(c); } },
     replaceChildren(...cs) { n.children = []; for (const c of cs) { c.parent = n; n.children.push(c); } },
     setAttribute(k, v) { n.attrs[k] = v; }, addEventListener(t, fn) { n.listeners.set(t, fn); }, remove() { if (n.parent) n.parent.children.splice(n.parent.children.indexOf(n), 1); } };
   let text = '', cls = '';
-  Object.defineProperty(n, 'textContent', { get: () => text, set: (v) => { text = String(v); } });
-  Object.defineProperty(n, 'className', { get: () => cls, set: (v) => { cls = String(v); } });
-  n.style = {};
+  Object.defineProperty(n, 'textContent', { get: () => text, set: (v) => { text = String(v); WRITES.n++; } });
+  Object.defineProperty(n, 'className', { get: () => cls, set: (v) => { cls = String(v); WRITES.n++; } });
+  n.style = new Proxy({}, { set(t, k, v) { t[k] = v; WRITES.n++; return true; } });
   if (n.tagName === 'CANVAS') n.getContext = () => null;
   return n;
 }
@@ -257,7 +272,8 @@ test('COMPANION-KIT THE DETAILED BAR: a companion\'s point draws the wider bar w
 test('COMPANION-KIT THE PARTY PANEL: with no party a companion ashore stands the panel for himself - his card his name, his role where a place goes, the role\'s letter on the plate, his health bar (no stamina or magicka), its digits while low and his effects; repainted only when his card\'s words move; gone with him (mutants: the panel hidden offline, the role unwritten, the card never repainted, the card kept)', () => {
   const doc = fakeDocument();
   let list = [{ key: '42:Hilda', name: 'Hilda', role: 'Bosun', h: 20, hm: 60, fx: [{ i: 3, r: 4, n: 'Fortify Strength' }] }];
-  const panel = createPartyPanel({ social: null, doc, faceLoader: async () => null, fxIcon: () => null, companions: () => list });
+  let asked = 0;
+  const panel = createPartyPanel({ social: null, doc, faceLoader: async () => null, fxIcon: () => null, companions: () => { asked++; return list; } });
   const root = doc.body.children.at(-1);
   assert.equal(root.style.display, 'none');
   panel.render({});
@@ -271,6 +287,11 @@ test('COMPANION-KIT THE PARTY PANEL: with no party a companion ashore stands the
   assert.equal(find(card, 'dfparty-fill')[0].style.width, '33%');
   assert.equal(find(card, 'dfparty-hp')[0].className, 'dfparty-hp', 'low: the digits drawn');
   assert.equal(find(card, 'dfparty-fxe').length, 1);
+  WRITES.n = 0; asked = 0;
+  panel.render({});
+  panel.render({});
+  assert.equal(WRITES.n, 0, 'nothing moved: nothing written');
+  assert.equal(asked, 2, 'and no repaint walked: the seam asked once a frame for the key alone');
   list = [{ ...list[0], h: 50 }];
   panel.render({});
   assert.equal(find(card, 'dfparty-fill')[0].style.width, '83%', 'repainted');

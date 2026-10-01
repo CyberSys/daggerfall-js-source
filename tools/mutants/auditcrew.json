@@ -557,8 +557,8 @@
   {
     "name": "AUDIT-CC-F-host-back-never",
     "file": "src/scenes/navalHost.js",
-    "old": "if (companions.sendBack(boat.uid, name)) { deps.say?.(`${name} goes back aboard.`, 3); return 'back'; }",
-    "new": ";",
+    "old": "    if (companions.isAshore(boat.uid, name)) {",
+    "new": "    if (false) {",
     "tests": [
       "test/auditcrew.test.js",
       "test/crewcompanions.test.js"

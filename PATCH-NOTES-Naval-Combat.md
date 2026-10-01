@@ -327,3 +327,10 @@ A deep audit of everything above. The highlights:
 - **Pirates sail dark.** Pirate ships keep their lanterns out at night, and a merchantman running from a pirate douses hers.
 - **Seeing at night.** At night every lookout sees a lit ship from far away but a dark ship only up close. That includes yours, and the pirates'. A pirate running dark can come up on you unseen until she's close aboard, and if you put out your own lanterns (the lantern key at the helm), you can slip past a pirate in the dark. A ship firing her guns shows herself by the flashes.
 - **Ships keep sensible hours.** A merchantman in port waits for the morning before she sails, and pirates lurking off a harbour creep in nearer the harbour mouth after dark.
+
+## Companions, kitted out (2026-10-01)
+
+- **Heal and buff your companions.** Your healing and beneficial spells now work on your companions. Aim at one and cast, the same way you would on a party member. With a companion nearby, a self-only spell waits for you to aim. Aim at the companion to give it to them, or anywhere else to cast it on yourself. Touch spells, area spells around you and beneficial missiles reach them too. Harmful spells never do.
+- **They carry things.** Use Activate on your companion to open their pack and store items in it, like your boat's hold. Their pack is saved. If they go back aboard, get knocked out, or fall, whatever they were carrying goes into your boat's hold.
+- **A proper health bar.** Each companion's bar now shows their name, their health in numbers, and icons for the spells on them.
+- **On the party panel.** Your companions now have their own cards on the party panel, below your party members. Each card shows their name, their job aboard, their health and their active spells. You see these cards even when you're not in an online party.

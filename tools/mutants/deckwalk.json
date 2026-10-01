@@ -462,8 +462,8 @@
   {
     "name": "SHIPMATES-bars-fill-unread",
     "file": "src/ui/navalHud.js",
-    "old": "    set('share', pct(p.share), (v) => { slot.fill.style.width = `${v}%`; });\n    set('at', `translate(${Math.round(p.x)}px",
-    "new": "    set('share', pct(1), (v) => { slot.fill.style.width = `${v}%`; });\n    set('at', `translate(${Math.round(p.x)}px",
+    "old": "set('share', pct(p.share), (v) => { slot.fill.style.width",
+    "new": "set('share', pct(1), (v) => { slot.fill.style.width",
     "tests": [
       "test/deckwalk.test.js"
     ]

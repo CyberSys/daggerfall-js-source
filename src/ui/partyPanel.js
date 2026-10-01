@@ -572,8 +572,8 @@ export function createPartyPanel({ social, doc = document, art = null, faceLoade
       card.hitFlip = !card.hitFlip;
       setCls(card.vitals[0].fill, `dfparty-fill ${card.hitFlip ? 'hit' : 'hit2'}`);
     }
-    const healed = pose ? partyHealOf(card.hpH, pose) : 0;
-    if (healed > 0) floatHeal(card, healed);
+    const gained = pose ? partyHealOf(card.hpH, pose) : 0;
+    if (gained > 0) floatHeal(card, gained);
     card.hpH = pose ? pose.h : null;
     paintFx(card, c.fx);
     card.hpPct = pct;

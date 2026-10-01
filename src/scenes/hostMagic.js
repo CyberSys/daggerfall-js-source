@@ -261,7 +261,8 @@ export function createPlayerMagic({
     for (const m of companionMarksFor(sp)) {
       const [x, y, z] = m.ai.feet;
       const cy = Math.min(Math.max(eye[1], y), y + m.ai.height);
-      if (Math.hypot(eye[0] - x, eye[1] - cy, eye[2] - z) <= ALLY_ARM_RADIUS) return true;
+      const off = Math.hypot(eye[0] - x, eye[1] - cy, eye[2] - z);
+      if (off <= ALLY_ARM_RADIUS) return true;
     }
     return false;
   }

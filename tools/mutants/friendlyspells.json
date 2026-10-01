@@ -2,8 +2,8 @@
   {
     "name": "FS-touch-marks-dropped",
     "file": "src/scenes/hostMagic.js",
-    "old": "const marks = [...allyMarksFor(sp), ...duelMarksFor(sp), ...bossMarksFor(sp)];",
-    "new": "const marks = [...duelMarksFor(sp), ...bossMarksFor(sp)];",
+    "old": "const marks = [...allyMarksFor(sp), ...companionMarksFor(sp), ...duelMarksFor(sp), ...bossMarksFor(sp)];",
+    "new": "const marks = [...companionMarksFor(sp), ...duelMarksFor(sp), ...bossMarksFor(sp)];",
     "tests": [
       "test/friendlyspells.test.js"
     ]
@@ -38,8 +38,8 @@
   {
     "name": "FS-missile-gift-flag-ignored",
     "file": "src/scenes/hostMagic.js",
-    "old": "      if (m.ally) {\n        const hitMate",
-    "new": "      if (false) {\n        const hitMate",
+    "old": "      if (m.ally) {\n        // COMPANION-KIT: my companion's body meets it as a mate's does\n        const hitMate",
+    "new": "      if (false) {\n        // COMPANION-KIT: my companion's body meets it as a mate's does\n        const hitMate",
     "tests": [
       "test/friendlyspells.test.js"
     ]

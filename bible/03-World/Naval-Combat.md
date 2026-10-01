@@ -1323,6 +1323,39 @@ Pins: `test/crewcompanions.test.js` and `test/auditcrew.test.js` (AUDIT CREW, `0
 the targets, the layer through doors, sweeps, knocks and catch-ups, the deck, the menu, the wiring by source).
 `tools/mutants/crewcompanions.json`: 47 mutants, all dead.
 
+## COMPANION-KIT (2026-10-01) - the companions' gifts, pack, bar and card - DECLARED
+
+Mac: *"crew member companions need the ability to gain the players healing spells/buffs, act as storage, improved
+detailed health bar with buffs and their name, and also an integration into the party UI"*. Daggerfall has no
+followers; all of this is the port's own, over CREW-COMPANIONS.
+
+- **The gifts** (`scenes/hostMagic.js`, its `companionBodies` seam - my companions' bodies in the scene, both cast
+  engines handed them). A spell ALLY-CAST would give a party mate (`allyCastable`: every real effect beneficial) reaches
+  my companion the same ways: under the crosshair within the cast's reach (`allyReachFor`: a CasterOnly or ByTouch one
+  at touch reach, a SingleTargetAtRange one at range), armed while one stands within `ALLY_ARM_RADIUS`
+  (`COMPANION_ARMED_LINE`), by touch, in my AreaAroundCaster blast, struck by my beneficial missile or its burst. It
+  lands HERE - he is mine to simulate - as ALLY-CAST's receiver's own record (`allyCastSpell`: the beneficial effects as
+  a self-cast, so no save scales it), tagged an ally's bundle (`allyCast`: a buff on his bar and card), through his own
+  sinks as no blow of mine. Never a harmful or mixed spell, a free ready, a wall between us, or another player's
+  companion (a puppet - his effects are his owner's).
+- **The pack** (`crewCompanions.js` - each companion's live `items`, saved with the party through the host's item
+  codec, `packedItems`, the cargo's own). Activating my companion in Info, Grab or Talk opens it (`player/
+  mobileEnemyActivate.js openCompanion`, every host's foe arm - the street, a building, a dungeon) as a Backpack storage
+  over whatever the mode draws; a tap never locks onto him. Sent back aboard, knocked out or fallen from her roster, he
+  gives it up (`takePack`) and the host stows it in his boat's hold (`stowPack`, the board's `giveItems`), what will not
+  go in into my pack. No weight cap - a storage window has none, the hold's neither.
+- **The bar** (`ui/navalHud.js drawCrewBars`): a companion's is wider (`MATE_BAR_W`), his name and health in digits
+  over it and his live effects' icons under it (`MATE_FX_MAX`, the party card's own row: `composePartyFx`); a deck
+  hand's stays bare. Another player's companion: his name alone.
+- **The party panel** (`ui/partyPanel.js`, its `companions` seam - `setCompanions` after the build): a card each under
+  the party's seats - the green name, the role where a member's place goes, the role's letter on the plate (the crew
+  have no portrait), the health bar (no stamina or magicka), its digits while low, the flare and the "+N", the effects
+  row - repainted only when his card's words move (`companionKey`). Offline, the panel stands for my companions alone
+  (`world.js makePartyPanel`, the one place a panel is made).
+
+Pins: `test/companionkit.test.js`. `tools/mutants/companionkit.json`: 40 mutants - 39 dead, 1 equivalent as recorded
+(the touch arm the wider crosshair pick always reaches first).
+
 ## SHIP-WATCH (2026-10-01) - life aboard between fights, and the sea by night - DECLARED
 
 Mac: *"Do #3"* - the list's *"Life aboard between fights. Crew sleep below at night, and a lookout up the mast calls
