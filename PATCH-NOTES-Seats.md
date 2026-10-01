@@ -139,13 +139,29 @@ The first part of guild town control is in. It is open to the developers first, 
 - **Storm Season** also slows the sea: a voyage into the land takes half again as long on the water.
 
 ## Fortifications (online)
-- **The works.** A held seat can raise ten works, each in tiers: the **Walls**, the **Gatehouse** (at a crown, or once a palace's Walls reach tier 3), the **Watchtowers**, the **Barracks**, the **Market Hall**, the **Shrine**, the **Forge**, the **Workshop**, the **Apothecary** and, in a port town, the **Harbour**.
+- **The works.** A held seat can raise ten works, each in tiers: the **Walls**, the **Gatehouse** (at a crown, or once a palace's Walls reach tier 3), the **Watchtowers**, the **Barracks**, the **Market Hall**, the **Shrine**, the **Forge**, the **Workshop**, the **Apothecary** and, in a town on the coast, the **Harbour**.
 - **Beginning a work.** The holder's guildmaster or an Officer begins the next tier of a work from the **Seat tab** at the town's board, for example *"Raise the Walls to tier 2 (3,000 Drakes)"*. The Drakes are spent from the guild treasury. One tier of each work can be building at a time.
 - **The stockpile.** A work also needs materials (Cut Stone, planks, ingots and more). They come from the seat's **stockpile**: the Levy's tenth, and **seat writs**. Each delivery moves straight into the works being built, in the table's order. When the last need is met, the tier stands **2, 4 or 7 days** later. The Seat tab shows each work, what it still needs, the day it stands, and the stockpile.
 - **Seat writs.** On the **Work tab**, a writ's new **For** choice sends its units to a seat your guild holds (its stockpile), or to a seat it's pledged to this week (its **Siege Camp**). A seat writ only asks for a material a work needs. The card says where the units go and shows the guild's banner. A guild member of 7 days who delivers their own units also raises the guild's influence at the seat by the units' value.
 - **The Siege Camp.** At the Turning, a camp whose guild won the Right of Siege sends its **Ram Kits** to the coming battle if the seat has a Gatehouse. Everything else in every camp is burnt.
 - **Losing them.** A captured seat's works each drop a tier, and anything being built is lost (its materials go back to the stockpile). A **Fortifier** on the defending side keeps the Walls from dropping, once a Season at each seat. At a Season's end every work drops a tier. A relinquished Charter keeps its works.
 - **The Market Hall** works at once: the holder's Tithe can go a point higher for each tier, and anyone listing at a board in its town may hold a quarter more listings for each tier.
+- **The Walls** bring the defenders back faster: their respawn wave comes 3 seconds sooner for each tier.
+- **The Gatehouse** stands before the Throne. While it stands, the attackers can't take the Throne, whatever banners they hold. A blow deals it a tenth of its damage, and each tier gives it half again its strength. Every crown has one; a palace whose Walls reach tier 3 can build its own.
+- **Rams.** The Ram Kits a Siege Camp sent go to the battle one at a time. A Ram stands before the Gatehouse; while two attackers stand at it, it strikes the gate for 500 every 10 seconds. Defenders can break it, and the next comes with the attackers' next wave.
+- **The Barracks** send 2, 4 or 6 town guards to fight for the holder in a siege. They hold the Throne and the banners, fight attackers who come near, and rise again with the defenders' wave.
+- **The Watchtowers** tell the holder's members when a challenger's influence passes half the seat's defence (tier 1) or a quarter (tier 2), on the Seat tab and once in chat.
+- **The Shrine** raises Standing by 1 a week for each tier, and each gate felled in the region gives the holder 50 influence there for each tier.
+- **The Forge, the Workshop and the Apothecary** make members' crafts better: crafting in the seat's town gives one quality step for each tier of the hall over that craft (the Forge: Smithing; the Workshop: Carpentry, Outfitting and Masonry; the Apothecary: Alchemy, Cooking and Jewelcrafting).
+- **The Harbour** makes the seat's town a port for the guild's members.
+- **The Ram Kit** can now be made: Carpentry rank 60 at a workbench (40 Oak Planks, 20 Iron Ingots, 4 Bear Hide). It goes into your Stores, and a Siege Camp's writ can ask for it.
+- **The Siegewright** can now be chosen at Carpentry 100: a Siegewright on the attacking side gives the Rams half again their strength, and a work a Siegewright begins stands a day sooner.
+
+## Revolts (online)
+- A seat whose Standing falls to **0** revolts. In the holder's window the next week, a **Rebel Captain** and **12 rebels** hold the palace door for **two hours**. Only the holder's side signs up, and Sellswords may join it.
+- Fell the Captain before the time runs out and the town settles: Standing goes back to **20**. Fail, and the Charter lapses and the seat is unheld.
+- A revolt nobody finishes also lapses the Charter at the next Turning. A revolt gives no Honours.
+- If a challenger won the Right of Siege at the seat that week, the siege is fought instead.
 
 ## Fixes (online)
 - **Leaving a battle.** You can now leave a siege or a Royal Tourney: the bar's **Leave** button, the result card's **Close**, `/leave` in chat, walking out of the seat's town, or dying.
@@ -165,15 +181,14 @@ The first part of guild town control is in. It is open to the developers first, 
 ## Behind the scenes
 - **The registry.** Each client works out the seats from its own game files. When you stand in a seat town, your game reports it to the server once a day. The server trusts a seat once three players whose accounts are at least a week old agree on it exactly.
 - **Fair sieges.** In a siege the server keeps every fighter's health and checks every blow, spell and step: a blow lands only if the weapon you carry can reach and deal it, nobody heals or strikes faster than the game allows, and nobody runs faster than the fastest legal runner. A siege's health is its own (300, more with your Renown) and never touches your character's health, items or gold. A siege room lets in only the fighters each side signed, and spectators.
-- The fortifications' effects in battle (the Walls' faster waves, the Gatehouse and its Rams, the Barracks' guards), the Shrine, the Watchtowers, the crafting halls, the Harbour and revolts come in a later update.
 
 ---
 
 ### For the team
-- Apply migrations **`0047_town_seats.sql`**, **`0048_seat_influence.sql`**, **`0049_seat_turning.sql`**, **`0050_seat_holding.sql`**, **`0051_seat_battles.sql`**, **`0052_seat_siege_results.sql`**, **`0053_crown_edicts.sql`**, **`0054_royal_tourney.sql`**, **`0055_fealty_pacts.sql`**, **`0056_orc_raids.sql`** **`0057_season_ribbons.sql`**, **`0058_audit_seats.sql`**, **`0059_masonry.sql`** and **`0060_seat_forts.sql`** (with the guild halls' 0045 and 0046, after main's 0044) to production D1 and deploy the account service (**`acct58`**).
+- Apply migrations **`0047_town_seats.sql`**, **`0048_seat_influence.sql`**, **`0049_seat_turning.sql`**, **`0050_seat_holding.sql`**, **`0051_seat_battles.sql`**, **`0052_seat_siege_results.sql`**, **`0053_crown_edicts.sql`**, **`0054_royal_tourney.sql`**, **`0055_fealty_pacts.sql`**, **`0056_orc_raids.sql`** **`0057_season_ribbons.sql`**, **`0058_audit_seats.sql`**, **`0059_masonry.sql`**, **`0060_seat_forts.sql`** and **`0061_seat_revolts.sql`** (with the guild halls' 0045 and 0046, after main's 0044) to production D1 and deploy the account service (**`acct59`**).
 - **The siege blackout.** The relay's deploy now waits while a siege is live or starts within 30 minutes (it asks the account service's public `/v1/seats/sieges/live`). Dispatch it with **force** to deploy at once - a forced deploy during a siege voids it. The account deploy now waits up to five and a half hours for the relay.
 - **The economy model**: `node tools/seatEconomy.mjs` re-runs the guild-week table from the live law files (`--runs`, `--seed`, `--json`).
-- **Deploy the relay (`world143`).** It sends the Watch's ticks (world138), carries the seats' titles (world139), referees a siege's room (world140), fights its battle by the service's pass (world141), keeps a Royal Tourney's room (world142) and carries a Season's banner ribbon, with a wider token bound (world143). Deploy it before the account service: an older relay refuses a token with a seat title in it.
+- **Deploy the relay (`world144`).** It sends the Watch's ticks (world138), carries the seats' titles (world139), referees a siege's room (world140), fights its battle by the service's pass (world141), keeps a Royal Tourney's room (world142), carries a Season's banner ribbon, with a wider token bound (world143), and fights a battle's works, guards and revolts (world144). Deploy it before the account service: an older relay refuses a token with a seat title in it and a revolt's pass, and fights none of a battle's works.
 - Seats are behind **`SEATS_OPEN = "dev"`** in `server-account/wrangler.toml`. Change it to `"on"` to open them to everyone.
 - **Seasons** count from **`SEASON_ZERO_WEEK`** in `server-account/wrangler.toml`, the seat week Season 0 begins. It ships empty, so no Season is counted. Set it to a week not yet past when the seats open, and never move it once a Season has begun. Season 0's last Turning wipes the seats.
 - **SEAT-COUNT**: run `ARENA2_PATH=/path/to/arena2 node tools/seatCount.mjs` to list every seat and the totals.

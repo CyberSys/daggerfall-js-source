@@ -4917,7 +4917,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:8347` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:8372` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:372`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -7140,7 +7140,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1108`, `src/net/online.js:2370`):**
+**Now (`src/net/wire.js:1108`, `src/net/online.js:2371`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -11463,7 +11463,8 @@ slice, and SEAT2b's need). `06-Systems/Professions-Arc.md` 32 holds the whole re
 
 Pinned: `test/prof11_law.test.js` (11), `test/prof11_service.test.js` (7), `test/prof11_client.test.js` (7). Mutants:
 `tools/mutants/prof11.json` (138, all dead - the two that held the Builder and Fortifier LOCKED re-aimed to lock them
-again, still dead). Patch notes: `PATCH-NOTES-Masonry.md`.
+again, still dead; 137 since SEAT2b part two retired the card words "Comes with the fortifications" with the last card
+that waited on them - the record that deleted them had survived since). Patch notes: `PATCH-NOTES-Masonry.md`.
 
 ### SEAT2b (part one) - the works: a seat's fortifications, its stockpile, seat writs and the Siege Camp
 
@@ -11474,7 +11475,8 @@ Seats-Arc 7.5, 7.9, 4.2. Law (`src/net/fortLaw.js`), service (`server-account/sr
 - **The works** (7.5's table whole, `FORT_WORKS`): ten - the Walls, the Gatehouse, the Watchtowers, the Barracks, the
   Market Hall, the Shrine, the Forge, the Workshop, the Apothecary, the Harbour - each its tiers' Drakes and materials.
   A Gatehouse at a crown, or at a palace whose Walls stand at tier 3; a Harbour where the funding client names its town a
-  port (DFU's own flag - bounded: a lie spends the liar's treasury on a harbour nothing docks at); the rest anywhere.
+  port (DFU's own flag - bounded: a lie spends the liar's treasury on a harbour nothing docks at; CORRECTED by part two,
+  below: a COASTAL seat - every DFU port was already a Travel Options port); the rest anywhere.
 - **A project** (`/v1/seats/fort/fund`): the holder's Guildmaster or an Officer begins the next tier of a work not
   already building - its Drakes BURNT from the treasury in the row's own batch (`fort`, once a request id), its own
   five-an-hour bucket (`seat-fort:`), asked only once the board would take it. A Builder's (Masonry 50) asks nine tenths
@@ -11501,13 +11503,131 @@ Seats-Arc 7.5, 7.9, 4.2. Law (`src/net/fortLaw.js`), service (`server-account/sr
   it does, the project and what it still wants or its day, the stockpile in the Stores' words; the holder's Officers'
   lever a work at its next tier ("Raise the Walls to tier 2 (3,000 Drakes)") through the book's `fortFund` (one request
   id a project, as the Tribute's), the board read again after.
-- NOT YET (part two): the Shrine's Standing and gate influence, the Watchtowers' word to the holder, the Forge's, the
-  Workshop's and the Apothecary's quality steps, the Harbour's port, the Ram Kit made (still `later`); and the relay's
-  part - the Walls' wave, the Gatehouse and its Rams, the Throne behind a breach, the Barracks' guards, the revolt.
+- Part two built the rest (SEAT2b part two, below): the other works' effects, the Ram Kit made and the relay's part.
 
 Pinned: `test/seat2b_law.test.js` (7), `test/seat2b_service.test.js` (11, through the real Worker), `test/seat2b_client
 .test.js` (5). Mutants: `tools/mutants/seat2b.json` (79: 78 dead, 1 equivalent recorded - the raise's own UPDATE holds
 the day the JS check spares). Patch notes: `PATCH-NOTES-Seats.md` (Fortifications).
+
+### SEAT2b (part two) - the works in battle, the Shrine, the Watchtowers, the halls, the Harbour, the Ram Kit and revolts
+
+2026-10-01, Mac: "I want to finish the inprogress". Seats-Arc 6.2, 7.3, 7.5, 7.7, 9.2; Professions-Arc 3.3, 4.8, 9.2.
+The shared contract first (law, the pass, the wire), then the relay, the service and the client to it. `acct59`
+(migration `0061_seat_revolts.sql`), `world144` (undeployed).
+
+- **The contract** (`net/fortLaw.js`, `net/identityToken.js`, `net/wire.js`): the pass carries THE WORKS (`sx` -
+  `[walls, gate, guards, rams, ramHp]`, `siegeWorksPass`; `siegeWorksValid`: a Tourney's all nought, a revolt's the Walls
+  alone, never on a Royal Tourney's pass; absent on an older service's), FROZEN with the battle at its first pass
+  (`town_seat_battles.works`, `WHERE works IS NULL` - seatForts.js `battleWorks`) so every pass agrees and the room's
+  `of` holds; a revolt's pass (`sn` 'revolt': the holder's side or a spectator - never `attack`). The figures' numbers
+  (`SIEGE_FIGURES`: a guard of Renown 25, a rebel of 1, the Rebel Captain of 50 - `figureVitality` 300 + 2 x Renown, as a
+  fighter's), the guards' posts (`guardPosts` - the Throne, then the banners, round again), a Ram 4 m before the gate,
+  the rebels' 30 s wave. The wire's figure ids (`~g1`-`~g6`, `~r1`-`~r12`, `~c`) and work ids (`~gate`, `~ram`) - outside a
+  peer id's alphabet; a blow at a peer, a figure or a work, a cast at a peer or a figure (DECIDED: a spell harms no stone
+  or timber); the `w` (works) and `n` (figures) frames; `fell` with a figure on either side; `SEAT2B_RELAY_MIN` 144.
+- **The relay** (lane R - `net/siegeRef.js`, still a leaf, fortLaw's numbers copied and pinned equal; `server/src/index.js`;
+  `world144` re-recorded): the pass's works join its `of` (a later pass that disagrees - one without works after one with
+  them among it - is refused); each beat steps the works and the figures. THE WALLS: a defender felled rises at the
+  defenders' wave 3 s sooner a tier (never under 5 s) - a revolt's holder's side the defenders. THE GATEHOUSE at the
+  Throne's point: an attacker's blow a tenth of its clipped damage (at least 1 for a real blow; a blow of nothing deals
+  nothing), the referee's reach measured to its point at the field's ground; BREACHED at nought for good (`br` 1 in that
+  step and never again 0 - the standing Ram removed, the kits spent). THE THRONE behind it: a crown's 3 of 4 banners, a
+  palace with its Gatehouse 2 of 3, and the breach. THE RAMS: one at a time, the first at the start and each next at the
+  attackers' next wave after the last fell, standing 4 m before the gate toward the attackers' camp (`siegeRamPoint` -
+  whole room units; at the camp where the camp is nearer), its swing filling while two attackers stand within 3 m
+  (pausing, never emptying), 500 a crewed 10 s; a defender's blow strikes it whole. THE GUARDS (a siege's only, the pass's
+  2, 4 or 6): posted at the Throne and then the banners, round again (guards sharing a post share its spot); a guard keeps
+  its foe while the foe is fair and within the leash of its post, else takes the nearest fair fighter within its aggro;
+  walks to its reach and strikes - reach measured in 3D from its feet on the field's ground, a whole roll on the room's
+  CSPRNG, never more than the vitality left; a standing guard contests a point (an attacker's raise and Throne hold
+  frozen) but raises nothing; felled, it rises at its post with the defenders' wave. THE REVOLT: two hours, the field's
+  banners inert, no Throne and no forfeit; the holder's side at the attackers' camp; the Captain at the palace door and the
+  twelve on a 6 m ring about it, a twelfth of a turn apart; felled rebels rise every 30 s, the Captain never; the
+  Captain's fall wakes the beat at once - every receipt `defend`; the window run out, `attack`. Felling any figure is the
+  fighter's `felled`; no heal at a figure; nothing lands on a figure or a work at or after the end. A figure's blow on a
+  fighter goes out as `hp` and `fell` with the figure's id as `by`. THE BEAT (DECIDED: `SIEGE_FIGURE_TICK_MS` 500): half a
+  second while the battle is joined and a figure stands or a Ram is crewed; `w` and `n` each beat and at a fighter's `in`
+  (`n` naming every figure, standing or down; none sent once every figure is down - the last fall is its `fell`); `f`
+  still once a second of the room's clock, and at a banner raised or the end; a woken room keeps its works and figures
+  (the checkpoint). THE MEASUREMENT again (Seats-Arc 6.1): a crown siege with its six guards 13% / 26% / 4%, a crown's
+  revolt 6% / 3% / under 1% - the sizes stand.
+- **A revolt** (7.7; the service): a held seat whose Standing the Turning writes at nought or less (a Season's end
+  reading it halfway back toward 50 first) with no Right of Siege granted there that week (DECIDED: a siege granted
+  stands in the revolt's place - the town's quarrel answered by the challenger) revolts in its holder's window of the
+  coming week: a battle of kind `revolt` (attacker none - migration 0061's CHECK; defender the holder), two hours
+  (`REVOLT.windowMs`), announced as a battle is and the Chronicle's "rose against". Only the holder's side signs (as a
+  siege's defenders, Sellswords allowed - no unbound-member check, there being no attacker to bind against); its field is
+  the holder's side's own word (DECIDED: the first sent settles it). The result: `defend` (the Captain felled) - Standing
+  20 and "The rebel captain fell at the palace door, and the Charter held." (9.2); `attack` (the window run out) - the
+  Charter lapses, the seat unheld, its Edicts to come void, "revolt-lapsed". A revolt NO RESULT REACHED by its week's
+  Turning lapses the Charter there (DECIDED: the rebels held the palace door - a withheld receipt keeps no Charter), with
+  no siege's void line. No Honours (DECIDED: they are earned between two guilds - 6.8). The seats' list and the
+  standings' fight name it (`kind: 'revolt'`, `guild: null`, `against` the holder).
+- **The Shrine** (7.5): Standing +1 a tier a week (the Turning's own `shrine` row); each gate felled in the seat's region
+  this week (a gate day three claims agree on - the Standing's own count) gives the holder +50 influence a tier there,
+  in its TOTAL (never `others`, so Tribute's room stays its members' own week).
+- **The Watchtowers** (7.5): the holder is told when a challenger's week at the seat passes - strictly - half its
+  defence (tier 1) or a quarter (tier 2) (`watchtowerPassed`): the standings' `holding.watch`, and the seats' list's
+  `watch` for the reading character's guild (its body's `character`).
+- **The Forge, the Workshop, the Apothecary** (7.5; Professions-Arc 9.2 corrected): a member of the guild holding a seat,
+  crafting at a station in that seat's town (the craft's `at`, the client's word - bounded: only the holding guild's
+  member, only the halls its seat raised), takes a quality step a tier of the hall over its profession
+  (`stationSteps`, `qualitySteps`' `station`, at most three).
+- **The Harbour** (7.5): DECIDED - CORRECTING PART ONE: raised at a COASTAL seat (its town's map pixel touching the sea,
+  the funding client's word `coastal`; an older client's `port` read as it), not at a DFU port - every DFU port is
+  already one of Travel Options' 378, so part one's gate changed nothing.
+- **The Siegewright** (Professions-Arc 3.3, chosen at Carpentry 100): on a siege's attacking roster its Rams take half
+  again their vitality (the pass's `ramHp`); a project BEGUN by one stands a day sooner (`fort.wright`, migration 0061 -
+  `fortStandsAt`'s `siegewright`: 1, 3, 6 days).
+- **The Ram Kit made** (Professions-Arc 4.8; its `later` lifted): Carpentry rank 60 at the workbench (40 Oak Planks,
+  20 Iron Ingots, 4 Bear Hide) - INTO the crafter's Stores (`work:ram`, the Siege Works family: no piece, no record, no
+  quality; its room asked in the craft's own decision, 'stores-full'), never withdrawn, never on the market, its value its
+  inputs' (108); a seat writ for a challenger's Siege Camp may ask it (`campGoodOk`) - a held seat's stockpile may not.
+- **The siege's client** (lane C1 - `net/siegeLink.js`, `net/siegeSession.js`, `ui/siegeHud.js`, `scenes/siegeFigures.js`,
+  `combat/siegeCombat.js`, `systems/siegeField.js`): the `w` and `n` frames folded (a figure felled lies down until its next
+  row and never joins the roll call); the works' places read off the pass's settled field (`siegeWorksPoints` - the
+  Gatehouse at the Throne's point, the Ram 4 m before it toward the attackers' camp); the bar's third line (the Gatehouse
+  or BREACHED, the Ram's crew and swing, the kits left, the guards) and the Throne's "and the Gatehouse breached"; a
+  defender's wave by the pass's Walls; a revolt's own bar, sides line and card ("THE REVOLT AT X IS PUT DOWN - THE CHARTER
+  HOLDS" / "THE REBELS HOLD X - THE CHARTER LAPSES", the Chronicle's words, Carry - no Honours promised); a figure or a
+  work struck only at a relay that knows them (`net/online.js` `worksOk`, `relayKnowsWorks`) and only by the side that may
+  (`siegeStrikesAt` - never a cast at a work, never a heal at a figure); the figures drawn as DFU mobiles (a guard City
+  Watch 146, the Captain Warrior 144, a rebel Rogue 136 or Thief 138 by its number's parity), a felled one its mobile's
+  corpse, a walker carried at its kind's speed for at most a second and eased in over 120 ms; the works' art painted at
+  run time (a Gatehouse's vitality bar over the Throne's point, a Ram's picture facing the gate), freed at the clear;
+  spectators see them too. G21's castle door: a crown's field before its castle's entrance (the first DUNGEON_ENTRANCE door
+  the town's models stand, `castleFrameOf`). FOUND and fixed: SIEGE_CLAIM_REFUSED lacked the service's `battle-void` - a
+  void siege's card said the receipt could not be read (AUDIT-SEATS C7's words, widened).
+- **The holding's client** (lane C2 - `net/memberWorks.js`, `net/townSeatBook.js`, `ui/seatTab.js`, `ui/seatWorks.js`,
+  `ui/workTab.js`, `ui/profPages.js`, `systems/travelPorts.js`): the seats' list read with the reader's character (each
+  seat's `works`; `watch` for its guild's held seats, the list re-read every five minutes for a member of a guild holding
+  Watchtowers, fifteen for everyone else); the Watchtowers' word said once a (week, seat, challenger, share) in chat as the
+  game's own line (kept on the device, the newest 100) and on the Seat tab; a revolt on the Seat tab - one roster, the
+  holder's side, its members and its hired Sellswords offered Sign, anyone else told why not; the Harbour's coast (the
+  town's map pixel touching the sea on CLIMATE.PAK as shipped, taken at boot before the coast is dilated) sent with the
+  fund; the member ports inside `HasPort`, so Travel Options, the held map's marks, the ship gate and the naval caches see
+  them; the station's town (`worldModes.js` stationTown - the building's home town, or none outside one) sent as the
+  craft's `at`, and each station's line "The seat's Forge: +1 quality step here." under its odds; the Ram Kit on the
+  workbench (its recipe's name - no DFU template 690) and in the Stores (no Withdraw - it waits for a Siege Camp's writ),
+  the craft's answer saying so; a writ's Ram Kit for a camp; the Siegewright's card; the 'prof-later' refusal "That is not
+  made in the Bay yet."
+- **The integration** (the lanes' seams): `guildWords` exported from `net/townSeatLaw.js` (the holding lane had said it
+  again privately - ONE DFU MEMBER, ONE EXPORT); `seatBattleLine`'s revolt arm (the list's revolt names no challenger,
+  and the line threw on it); the battle socket's `worksOk` (`net/online.js`, `relayKnowsWorks` - no lane owned it); the
+  client's Ram place the relay's own `siegeRamPoint` (it had re-derived it without the rounding or the near-camp stop);
+  the client's figure-kind names `FIGURE_KIND_NAMES` (the relay's `SIEGE_FIGURE_KINDS` is its numbers - one name, one
+  thing, AUDIT 24's duplicate-declaration gate); `ui/profPages.js`'s card words for a specialisation waiting on SEAT2b
+  deleted (no card waits on it now) with the PROF11 record that had survived on them.
+- **The four hosts** (Home.md): `scenes/world.js` wired (the figures and works in the battle's room, the coast at boot, the
+  member ports, the Seat tab's host lines); `scenes/worldModes.js` wired (the station's town); `scenes/exterior.js` FLAGGED
+  by name - the fixed city has no stations, no seats and no battle room (15.1); `scenes/dungeonContext.js` none - no
+  station, no Seat tab, no battle (15.1). Each pinned holding none.
+
+Pinned: `test/seat2b2_law.test.js` (9), `test/seat2b2_service.test.js` (11, through the real Worker), `test/seat2b2_battle.test.js` (9), `test/seat2b2_relay.test.js` (7, the real Room), `test/seat2b2_siege_client.test.js` (15), `test/seat2b2_holding_client.test.js` (17; its retail-map coast test ARENA2-gated). Mutants:
+`tools/mutants/seat2b2_law.json` (46), `tools/mutants/seat2b2_service.json` (47), `tools/mutants/seat2b2_relay.json` (171), `tools/mutants/seat2b2_siege_client.json` (148), `tools/mutants/seat2b2_holding_client.json` (106) - every one dead. PIN MOVED: PROF4 law and
+service (the Ram Kit made, the Siegewright chosen), PROF11 (the Ram Kit's rank alone), SEAT2b (the revolt's wave, a camp
+writ's material), PVP-REF (the out kinds), SEAT1a/SEAT1c/SEAT1d (`acct59`), every `world143` pin; PVP-REF's measurement (the guards and rebels the room's own), SEAT2a's crown Throne (behind the Gatehouse), SEAT1b/SEAT2b/PROF4/PROF7's client pins and MAP2's import line; some thirty older mutant records re-aimed by content. Patch notes:
+`PATCH-NOTES-Seats.md` (Fortifications, Revolts).
 
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 

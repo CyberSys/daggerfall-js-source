@@ -530,8 +530,10 @@ The roll, by the **margin** (the crafter's rank minus the recipe's rank):
 | 25-44 | - | 20 | 50 | 28 | 2 |
 | 45+ | - | - | 40 | 52 | 8 |
 
-Then **+1 step** each, at most: a seat's Forge / Workshop / Apothecary (SEAT0 7.5); a clean act (9.4); a
-specialisation that says so; Heartwood or a Warforged ingot among the inputs. Masterwright adds 5 points to
+Then **+1 step** each, at most: a clean act (9.4); a specialisation that says so; Heartwood or a Warforged ingot among
+the inputs - and a seat's Forge / Workshop / Apothecary **a step a tier** (SEAT0 7.5's "Effect per tier"; DECIDED at
+SEAT2b part two, correcting this sentence's "+1 step each, at most": the holding guild's members crafting in the seat's
+town, the hall over the recipe's profession, its tier's steps - at most three, `recipeLaw.js` qualitySteps' `station`). Masterwright adds 5 points to
 Masterwork. Nothing passes Masterwork.
 
 ### 9.3 The recipes
@@ -2223,7 +2225,7 @@ Mac: **"Do it"** (2026-09-29, PROF7 after the VEIN-NEED fix: "What was next on t
   recipes (9.3) with the stitch (9.4) and a garment's dye; and the pieces they wait on elsewhere - the Bear Hide the
   Ram Kit names (25), the Harpy Feathers 9.3's arrows name, the Fishing-Net 9.3 names Outfitting's. Not here, named:
   **Trophy Hunter** ("a trophy decor piece from a tier 5+ kill"), **Couturier** ("two-colour dyes") and **Saddler**
-  ("a wagon upgrade of +100 kg") are named and never chosen (`later`, as the Motherlode Sense and the Siegewright are) -
+  ("a wagon upgrade of +100 kg") are named and never chosen (`later`, as the Motherlode Sense is - and the Siegewright was, until SEAT2b part two chose it) -
   FACT: DFU gives each nothing to stand as - no trophy piece exists among its templates; a DFU garment takes ONE dye (its
   `dye` field, `systems/itemDye.js`); DFU's wagon has one limit, the Horse Cart's. Each waits on Mac's word for what it
   should be.
@@ -2606,7 +2608,7 @@ PROF11, DECIDED here, and what was found (FACT):
 - **The pages**: the Stores page's Mason's Bench; Masonry practised on the Professions page; a work's XP said as its own
   profession's (FOUND: it said Smithing's).
 - **Pinned**: `test/prof11_law.test.js` (11), `test/prof11_service.test.js` (7, through the real Worker),
-  `test/prof11_client.test.js` (7). Mutants: `tools/mutants/prof11.json` (138, all dead). Patch notes:
+  `test/prof11_client.test.js` (7). Mutants: `tools/mutants/prof11.json` (137, all dead - one retired with SEAT2b part two). Patch notes:
   `PATCH-NOTES-Masonry.md`.
 
 ## Appendix A - a day of a gatherer
@@ -2670,7 +2672,7 @@ At dusk the hub warns of a Motherlode in the Wrothgarian foothills in ten minute
 | The ring (PROF4) | chops 5 (tiers 1-2), 6 (3-4), 8 (5-6), a Lumberjack's two fewer, three at least; the circle from 3x the notch to it over 0.9 s and on to 0.5x; the band 12% (novice) to 20% (Master) of the notch x (INT + STR) / 2's band; a Clean Cut two chops; a swing 0.45 s; the creak at half; the fall 1.5 s, a tip and no fade (AUDIT 30 R10) |
 | Burning and sawing (PROF4) | a log a Charcoal at a forge (a Charcoal Burner's two); a log two planks at a workbench (a Timberwright's three); no XP |
 | The workbench (PROF4) | a Furniture Store's, 50 gold a craft or a saw; a home's `workbench` station, 50,000 gold |
-| Carpentry's recipes (PROF4) | staves 3 planks; short bows 3 and a Resin; long bows 4 and a Resin (DFU material by the wood: Pine Iron, Oak Steel, Cherry Silver, Teak Elven, Mahogany Mithril, Ironwood Adamantium, Ghostwood Ebony); arrows 20 of a Pine Plank, an Iron Ingot and 4 Twigs, or 1 Harpy Feathers (PROF7, AUDIT 32 R7), no quality; tables 6 and 3 planks, chairs 2, beds 8 and 2 Linen; the Basket; the Ram Kit rank 60, later (SEAT2); XP 20 x the tier, +500 the first |
+| Carpentry's recipes (PROF4) | staves 3 planks; short bows 3 and a Resin; long bows 4 and a Resin (DFU material by the wood: Pine Iron, Oak Steel, Cherry Silver, Teak Elven, Mahogany Mithril, Ironwood Adamantium, Ghostwood Ebony); arrows 20 of a Pine Plank, an Iron Ingot and 4 Twigs, or 1 Harpy Feathers (PROF7, AUDIT 32 R7), no quality; tables 6 and 3 planks, chairs 2, beds 8 and 2 Linen; the Basket; the Ram Kit rank 60 (SEAT2b part two: into the crafter's Stores - a siege work, no piece and no quality - for a Siege Camp's writ); XP 20 x the tier, +500 the first |
 | Carpentry's choices (PROF4) | Joiner: furniture at half the planks, rounded up; Bowyer: a step on the bows; a Heartwood: one plank and a step (one step with a Warforged ingot, never two); Master Joiner: every piece of furniture marked |
 | The plane (PROF4) | tolerance 18% of the board's half-height x (AGI + WIL) / 2's band, x1.5 at Master; a pass 1.2-4 s, from the head (x <= 0.08) to the foot (x >= 0.98) |
 | Furniture's quality (PROF4) | its value x its condition multiplier; no Loot Rarity roll; a Masterwork or a Master Joiner's piece marked |

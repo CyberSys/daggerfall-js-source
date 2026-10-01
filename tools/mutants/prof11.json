@@ -902,15 +902,6 @@
     ]
   },
   {
-    "name": "PROF11-pages-fortifications-unsaid",
-    "file": "src/ui/profPages.js",
-    "old": "SEAT2b: 'Comes with the fortifications',",
-    "new": "",
-    "tests": [
-      "test/prof11_client.test.js"
-    ]
-  },
-  {
     "name": "PROF11-pages-mortar-at-rank-0",
     "file": "src/ui/profPages.js",
     "old": "['Mortar, from Sulphur, Lead and Rough Stone', 2]",

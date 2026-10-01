@@ -48,7 +48,7 @@ import { SIEGE_WORK_BODY_M } from '../combat/siegeCombat.js';
 
 /** The wire's figure kinds in order (net/wire.js siegeFigureKind: 0 a guard, 1 a rebel, 2 the Captain) - fortLaw.js
  *  SIEGE_FIGURES' rows by name. */
-export const SIEGE_FIGURE_KINDS = Object.freeze(['guard', 'rebel', 'captain']);
+export const FIGURE_KIND_NAMES = Object.freeze(['guard', 'rebel', 'captain']);
 /** A figure as the cast engine names it, by its kind. */
 export const SIEGE_FIGURE_NAMES = Object.freeze(['a town guard', 'a rebel', 'the Rebel Captain']);
 export const siegeFigureName = (id) => (isSiegeFigure(id) ? SIEGE_FIGURE_NAMES[siegeFigureKind(id)] : null);   // a work's id reads a letter too: never a figure's name
@@ -75,7 +75,7 @@ export const FIGURE_SNAP_M = 6;
  *  walks; any other at its row's (x, z). */
 export function figurePlace(f, heardAt, now) {
   if (f.down || f.act !== 1) return [f.x, f.z];
-  const k = SIEGE_FIGURES[SIEGE_FIGURE_KINDS[f.kind]];
+  const k = SIEGE_FIGURES[FIGURE_KIND_NAMES[f.kind]];
   const dx = f.tx - f.x, dz = f.tz - f.z, d = Math.hypot(dx, dz);
   if (!k || !(d > 0)) return [f.x, f.z];
   const walked = Math.min(d - k.reachM * SIEGE_UNITS_PER_M, (k.speedMps * SIEGE_UNITS_PER_M * Math.max(0, Math.min(FIGURE_LEAD_MS, now - heardAt))) / 1000);
@@ -238,7 +238,7 @@ export function createSiegeFigures({ renderer = null, getTexture = null, uploadR
       stand(r, 'batch', c.archive, rkey, r.corpse, feet[0], feet[1], feet[2]);
       return;
     }
-    const k = SIEGE_FIGURES[SIEGE_FIGURE_KINDS[f.kind]];
+    const k = SIEGE_FIGURES[FIGURE_KIND_NAMES[f.kind]];
     const striking = f.act === 2 && now - r.swingAt >= (k?.swingMs ?? 1500);
     if (striking) r.swingAt = now;
     const out = r.unit.update(dt / 1000, { moving: f.act === 1, striking, hurting: hurt }, r.yaw, feet, at && at.length === 3 ? at : feet);
