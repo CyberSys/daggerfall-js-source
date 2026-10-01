@@ -2802,6 +2802,7 @@ ${badgeCss()}
 .hud-breath .hud-track { width: min(140px, 18vw); height: 8px; }
 .hud-breath .hud-fill { background: #f7ef29; }
 .hud-breath.short .hud-fill { background: #8a1f1f; }
+.hud-grip .hud-fill { background: #c9b98a; }   /* CLIMB2: the grip - stone and chalk, not the breath's yellow */
 .hud-breathlabel { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
   color: #7d7460; }
 

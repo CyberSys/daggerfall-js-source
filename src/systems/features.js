@@ -350,6 +350,24 @@ export const FEATURES = Object.freeze([
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({ store: 'prefs', key: 'enhancedAI', initial: false, online: true }),   // OFF by default and it stays off: DFU's classic motor is the 1:1 law, this the port's departure (as EnhancedCombatAI is DFU's own opt-in)
   }),
+  // CLIMB1 (2026-09-30, the Enhanced Climbing arc - bible/03-World/Parkour-Arc.md):
+  // the ledge sensor, the mantle and the vault (player/parkour.js). Offline
+  // the enhanced skin's alone - the switch composes with it in scenes/shared.js
+  // parkourSwitchOn, `?parkour=off` the kill door - and on for everyone
+  // online whatever their skin, so nobody crosses a raid's rooftops a way
+  // another cannot.
+  Object.freeze({
+    id: 'enhanced-climbing',
+    group: 'world',
+    title: 'Enhanced climbing',
+    note: 'Press Jump at a ledge to climb onto or over it, or moving forward to vault a low wall. Jump at a high '
+      + 'ledge to catch it and hang: Forward climbs up, Left and Right move along it, Crouch lets go. Hold '
+      + 'Forward against any wall to climb it. Holding on wears out your grip; your Climbing skill sets how long it '
+      + 'lasts, how high you reach and how fast you climb. Off keeps Daggerfall\u2019s climbing.',
+    effect: 'Takes effect at once.',
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'enhancedClimbing', initial: true, online: true }),
+  }),
   // FT6 (2026-09-14): ENHANCED WATER (WATER1) - the surface pass over the
   // terrain's water tiles on the enhanced skin; off, or the classic
   // skin, draws DFU's flat tile. The switch's composition has one home

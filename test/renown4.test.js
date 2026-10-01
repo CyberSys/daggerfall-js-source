@@ -209,7 +209,7 @@ test('RENOWN4 the HUD, executed: the row hangs under the vitals - the foot\'s la
     const bottom = find(root, 'hud-bottom');
     const row = find(root, 'hud-renown');
     const col = bottom.children.map((n) => n.className);
-    assert.deepEqual(col, ['hud-hotdock', 'hud-breath', 'hud-bars', 'hud-renown'], 'right under the vitals, and the foot ends there (UI3: the status row is the widget\'s tiles)');
+    assert.deepEqual(col, ['hud-hotdock', 'hud-breath', 'hud-breath hud-grip', 'hud-bars', 'hud-renown'], 'right under the vitals, and the foot ends there (UI3: the status row is the widget\'s tiles; CLIMB2: the grip beside the breath, above the vitals)');
     assert.equal(row.classList.contains('on'), false, 'offline: no row');
     let s = { level: 10, xp: 6000, pending: 1000 };
     setHudRenown(() => s);
