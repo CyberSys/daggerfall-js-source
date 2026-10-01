@@ -34,6 +34,10 @@
 //   THE TOOL'S USE (TOOL-USE). The Wood-Axe, the Pick-Axe, the Sickle,
 //   the Basket and the Fishing-Net used from the hotbar or a quick slot
 //   are E at a node of their own kind (useTool) - the act, or its need.
+//   THE MARKS (NODE-MARKS). Every node standing near the player - a
+//   patch, a vein, a boulder, a tree, a school, a body - on the compass
+//   in its profession's colour and lit in the world by its glow (marks:
+//   the kind's own word on each, its footprint and its reach).
 //
 // One owner: the host builds it online, and disposes it with the page.
 // ═══════════════════════════════════════════════════════════════════
@@ -55,6 +59,14 @@ export const NODE_AIM_DEG = 12;
 export const BANNER_RANKS = Object.freeze([25, 50, 75, 100]);
 /** The day's chip stays this long after an act or a look (s). */
 const CHIP_S = 6;
+/** NODE-MARKS: the compass marks every standing node within this many metres of the player (a kind's `reach` past it -
+ *  a Prospector's veins, PROF0 3.3), and the glow lights the same; the nearest NODE_MARK_MAX of them, at most. */
+export const NODE_MARK_M = 150;
+export const NODE_MARK_MAX = 16;
+/** NODE-MARKS: a node's glow footprint about its base where its kind names none - metres across (`w`) and up (`h`). */
+export const NODE_MARK_SIZE = Object.freeze({ w: 1.8, h: 1.3 });
+/** NODE-MARKS: the stood pixels walked for the marks - those within this many metres, past any kind's reach. */
+const MARK_WALK_M = 256;
 
 /**
  * VEIN-NEED (FIELD BUGS 2026-09-29h): WHAT E SAYS AT A NODE THAT CANNOT BE WORKED, when the press opened nothing else -
@@ -146,6 +158,12 @@ export function aimAt(eyePos, at, view) {
  * @property {(data: any) => string} [storesLine] PROF8: the goods' one line in the kind's own words (a haul's species)
  * @property {(data: any, toast: (text: string) => void) => void} [answered] PROF8: a harvest's answer heard - the kind's
  *   own after-step (a trophy into the pack, once)
+ * @property {(node: any, ctx: { specs: (profession: string) => any }) => ({ w: number, h: number, reach?: number }|null)} [mark]
+ *   NODE-MARKS: the node on the compass and in the glow - its footprint about its base (`w` across, `h` up, metres) and
+ *   how far off the compass marks it (`reach`, NODE_MARK_M without one); null for a node never marked. Without it, a
+ *   node is marked at NODE_MARK_SIZE while it is not gone for the day.
+ * @property {boolean} [marksLoose] NODE-MARKS: its loose nodes are walked for the marks (Hunting's bodies); without it
+ *   they are never asked for there (Fishing's cast - the look itself, and its water's check is Foraging's whole world)
  */
 
 /**
@@ -183,6 +201,9 @@ export function createGatherHost(deps) {
   const inDungeon = () => !!dungeon && !!deps.activeDungeon?.();
   const rank = (profession) => book.track(profession).rank;
   const specs = (profession) => book.track(profession).specs ?? { 50: null, 100: null };
+  /** NODE-MARKS: the marks' one list and the records it is refilled from; what a kind's mark is asked with */
+  const _marks = [], _markPool = [];
+  const markCtx = { specs };
 
   // ─── THE NODES ─────────────────────────────────────────────────────
   function unstand(entry) {
@@ -594,6 +615,52 @@ export function createGatherHost(deps) {
       const out = [];
       // AUDIT 29 C10: `near` ({ pos, r }) - the pixels within r alone (the compass asked every node every frame)
       for (const s of near ? nearPixels(near.pos, near.r) : stood.values()) for (const n of s.nodes) if (n.kind === kindId && pred(n) && !kindOf(n)?.gone(n)) out.push({ node: n, world: worldOf(s, n) });
+      return out;
+    },
+    /**
+     * NODE-MARKS (2026-10-01, Mac: "Any profession node, like herbs, should appear on the compass. The node itself
+     * should also stand out with a detailed slight glow"): THE NODES STANDING NEAR `pos` - underground the dungeon's,
+     * above ground the stood pixels', and the loose ones (Hunting's bodies) where they lie - each its kind's mark says
+     * stands within its reach: `{ key, profession, at: [x, y, z] its base in the scene, w, h, d, reach }`, `d` its
+     * distance on the ground, nearest first, at most NODE_MARK_MAX. One list, refilled each call (AUDIT WB D10's law): the
+     * compass and the glow read it at once and keep none of it. The professions shut, none.
+     * @param {number[]} pos the player's feet, in the place's own frame
+     */
+    marks(pos) {
+      const out = _marks;
+      out.length = 0;
+      if (book.state.open !== true || !Array.isArray(pos)) return out;
+      let used = 0;
+      const add = (k, n, x, y, z) => {
+        const m = k.mark ? k.mark(n, markCtx) : (k.gone(n) ? null : NODE_MARK_SIZE);
+        if (!m) return;
+        const reach = m.reach ?? NODE_MARK_M;
+        const d = Math.hypot(x - pos[0], z - pos[2]);
+        if (!(d <= reach)) return;
+        const r = _markPool[used] ??= { key: '', profession: '', at: [0, 0, 0], w: 0, h: 0, d: 0, reach: 0 };
+        used++;
+        r.key = n.key; r.profession = k.professions[0]; r.at[0] = x; r.at[1] = y; r.at[2] = z; r.w = m.w; r.h = m.h; r.d = d; r.reach = reach;
+        out.push(r);
+      };
+      const under = !!dungeon;
+      if (under) {
+        for (const n of dungeon.nodes) { const k = kindOf(n); if (k) add(k, n, n.local[0], n.local[1], n.local[2]); }
+      } else {
+        for (const s of nearPixels(pos, MARK_WALK_M)) {
+          const tr = deps.pixelTranslation(s.entry.px, s.entry.py, _t);
+          const tx = tr[0], ty = tr[1], tz = tr[2];
+          for (const n of s.nodes) { const k = kindOf(n); if (k) add(k, n, n.local[0] + tx, n.local[1] + ty, n.local[2] + tz); }
+        }
+      }
+      for (const k of kinds) {
+        if (!k.looseNodesOf || !k.marksLoose) continue;
+        for (const n of k.looseNodesOf({ entity: deps.entity(), dungeon: under })) {
+          const w = n.at?.();
+          if (Array.isArray(w)) add(k, n, w[0], w[1], w[2]);
+        }
+      }
+      out.sort((a, b) => a.d - b.d);
+      if (out.length > NODE_MARK_MAX) out.length = NODE_MARK_MAX;
       return out;
     },
     /** The page's teardown. */

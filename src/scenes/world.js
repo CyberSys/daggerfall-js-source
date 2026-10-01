@@ -185,7 +185,7 @@ import { createProfBook } from '../net/profBook.js';   // PROF1: this character'
 import { createProfHud } from '../ui/profHud.js';   // PROF1: the prompt, the act's meter, the toasts, the day's chip, the rank's banner
 import { createGatherHost } from './gatherHost.js';   // PROF1/PROF2: the gathering professions in the streaming world - the nodes, the target, the act
 import { herbKind } from './herbHost.js';   // PROF1: Herbalism's patches, a kind in it
-import { mineKind, PROSPECT_M } from './mineHost.js';   // PROF2: Mining's veins and Quarrying's boulders, a kind in it; the Prospector's reach
+import { mineKind } from './mineHost.js'; import { nodeCompassPoints } from '../ui/nodeMarks.js'; import { createNodeGlowPass } from '../render/nodeGlow.js';   // PROF2: Mining's veins and Quarrying's boulders, a kind in it; NODE-MARKS: every profession's nodes on the compass in its colour, and lit where they stand
 import { treeKind, isTreeRecord } from './treeHost.js';   // PROF4: Logging's trees - the forest's own - a kind in it
 import { huntKind, createBodyStamps, bodiesOf, trackerMarks } from './huntHost.js';   // PROF7: Hunting's bodies - a kind in it, the kills that stamp them, a Tracker's marks
 import { fishKind } from './fishHost.js';   // PROF8: Fishing's casts and schools - a kind in it
@@ -17072,14 +17072,14 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  (INVIS-NET) is no caret on a plan either. The roll's election, the party's size and the Renown share read
    *  `partyNear` whole - a concealed mate still fights beside me. */
   const partyOnMaps = () => partyNear().filter((m) => !_hiddenPeers.has(m.id));
-  /** PROF2: THE PROSPECTOR'S COMPASS (PROF0 3.3, 23) - the veins stood within PROSPECT_M of the player, as scene XZ, for a
-   *  character whose Mining stands under Prospector; null otherwise (nothing drawn). */
-  const prospectorVeins = () => {
-    if (!gatherHost || profBook?.state.open !== true || profBook.track('mining').specs?.[50] !== 'prospector') return null;
-    const at = enchantFeet();
-    const out = [];
-    for (const { world } of gatherHost.stoodOf('mine', (n) => n.what === 'vein', { pos: at, r: PROSPECT_M })) if (Math.hypot(world[0] - at[0], world[2] - at[2]) <= PROSPECT_M) out.push([world[0], world[2]]);   // AUDIT 29 C10: the near pixels alone
-    return out;
+  /** NODE-MARKS (2026-10-01, Mac: "Any profession node, like herbs, should appear on the compass. The node itself should
+   *  also stand out with a detailed slight glow"): THE NODES STANDING ABOUT `feet` (the place's own frame - the street's,
+   *  or the dungeon's), for the compass and the glow (scenes/gatherHost.js marks: a Prospector's veins from 200 m off,
+   *  PROF0 3.3 - mineKind's mark); null in a building, under the travel view, or with the professions shut. */
+  const nodeMarksAt = (feet) => {
+    if (!gatherHost || profBook?.state.open !== true || travelView?.active || !feet) return null;
+    const m = _mode();
+    return m === 'exterior' || m === 'dungeon' ? gatherHost.marks(feet) : null;
   };
   /** PROF7: A TRACKER'S MARKS (PROF0 3.3) - the living animals within TRACKER_M of the player, on the street, as scene
    *  XZ, for a character whose Hunting stands under Tracker; null otherwise. */
@@ -17087,11 +17087,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!gatherHost || profBook?.state.open !== true || profBook.track('hunting').specs?.[50] !== 'tracker' || _mode() !== 'exterior') return null;
     return trackerMarks(exteriorFoes.foes, enchantFeet());
   };
-  /** The professions' marks on the compass - a Prospector's veins and a Tracker's animals, one mark (the veins' copper). */
-  const professionMarks = () => {
-    const v = prospectorVeins(), a = trackerAnimals();
-    return v || a ? [...(v ?? []), ...(a ?? [])] : null;
-  };
+  /** The professions' marks on the compass - every node standing near (NODE-MARKS) and a Tracker's animals, each in its
+   *  profession's colour (ui/nodeMarks.js nodeCompassPoints); `feet` the dungeon's own, handed by its frame. NODE-MARKS:
+   *  the same nodes lit where they stand (render/nodeGlow.js), after each mode's opaque world through the veiled bodies' hook. */
+  const professionMarks = (feet = enchantFeet()) => nodeCompassPoints(nodeMarksAt(feet), trackerAnimals());
+  const nodeGlowPass = createNodeGlowPass(renderer);   // NODE-MARKS: kindled node by node, built at the first; never in a building or under the travel view (nodeMarksAt)
   /** COMPASS-PARTY (2026-09-27, Discord - Ashley: "being able to see where party members are on compass? - just lil
    *  green marks that point in that direction"): the party on MY compass, in this scene's XZ (ui/partyMapMarks.js
    *  partyCompassPoints) - the bodies the maps mark where they stand, and the rest where their poses say: the leader's
@@ -19245,7 +19245,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const drawPeerBodies = (proj, view, eye) => { if (peerBodies) peerBodies.draw(canvas, { proj, view, eye, flashOf: peerFlashOf }); peerWalkers?.drawLanterns(); };   // HT-WAIST-BACK: the walkers' lanterns, each on its own tilted basis, beside the bodies - every mode's pass calls this after the player's own body (the exterior here, the dungeon and the interior through host.drawPeerBodies)
   /** INVIS-LOOK: the concealed peers' Morrowind bodies, translucent - blended with no depth write, so every mode's pass
    *  calls this AFTER its opaque world (net/peerBodies.js drawVeiled), with the camera its body pass took. */
-  const drawVeiledPeerBodies = () => { peerBodies?.drawVeiled(); drawAuras(); };   // WB9g: and the auras, after the opaque world as the veiled are
+  const drawVeiledPeerBodies = () => { peerBodies?.drawVeiled(); drawAuras(); nodeGlowPass.draw(nodeMarksAt(enchantFeet())); };   // WB9g: and the auras, after the opaque world as the veiled are; NODE-MARKS: and the nodes' glow
   /** WB9g (2026-09-30, Mac: "an animated burning ground aura that circles the ground where your character stands"):
    *  DAGON'S FIRE AT THE FEET (render/auraRing.js) - mine, as the service signed it (the session's `au`, adopted at each
    *  mint), and every peer's the relay vouched for (their hello's `au`), each kindling as it first stands. Gathered with
@@ -19489,7 +19489,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     onLootClaimed: () => { _worldPublishedAt = -Infinity; },
     peers: peersNear,
     postItem: (text) => postItemInChat(text), canPostItem: () => canPostItemInChat(),   // CHAT-POST: the building's and the dungeon's packs post too
-    partyNear: () => partyOnMaps(),   // DISC23-A: the party's bodies, for the dungeon's and the building's plans (AUDIT pre-merge I-E: those drawn here)
+    partyNear: () => partyOnMaps(), professionMarks: (feet) => professionMarks(feet),   // DISC23-A: the party's bodies, for the dungeon's and the building's plans (AUDIT pre-merge I-E: those drawn here); NODE-MARKS: the dungeon's veins (and a body the knife may skin) on its compass, at its own feet
     allyMarks: (sp) => allyMarksNear(sp),   // AID1 onto ALLY-CAST: the dungeon's own cast engine gives to the same mates - SPELL-GIFT: and strangers, by the spell
     selfId: () => online?.id ?? null,
     dungeonAuthority,   // WORLD2: a dungeon built while another hosts starts as puppets
@@ -24435,7 +24435,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           quest: questCompassMark(),   // GUIDE5: the tracker's quest's place on the compass, on the street
           party: partyCompass(),   // COMPASS-PARTY: the party's marks - the bodies drawn here, the rest where their poses say
           ships: navalOn() && _mode() === 'exterior' ? naval?.compassShips() ?? null : null,   // AUDIT NAV1 (the helm): the sea's ships on the compass
-          veins: professionMarks(),   // PROF2: a Prospector's veins within 200 m (PROF0 3.3); PROF7: a Tracker's animals within 100 m
+          nodes: professionMarks(),   // NODE-MARKS: every profession's nodes near (PROF2: a Prospector's veins within 200 m, PROF0 3.3); PROF7: a Tracker's animals within 100 m
           largeHud: largeHudOptions({ renderer, fetchBytes, palette }, playerEntity),
           // AUDIT 39: the enhanced HUD's two hand plaques. Both values
           // are already this host's - the rig one argument over, the

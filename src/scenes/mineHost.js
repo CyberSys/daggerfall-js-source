@@ -49,6 +49,12 @@ export const ROCK_OFFSET = 0.4;
 export const VEIN_STONE_REACH = 24;
 /** A Prospector's compass marks the veins stood within this many metres (PROF0 3.3). */
 export const PROSPECT_M = 200;
+/** NODE-MARKS: a node's glow about its foot (m) - a vein's ore, a boulder's loose stone under its rock, a dungeon
+ *  vein's on its wall - and a Prospector's veins, marked out to PROSPECT_M. */
+export const MINE_MARKS = Object.freeze({
+  vein: Object.freeze({ w: 1.6, h: 1.3 }), boulder: Object.freeze({ w: 2.1, h: 1.5 }), dvein: Object.freeze({ w: 1.4, h: 1.2 }),
+});
+const PROSPECTOR_MARKS = Object.freeze({ vein: Object.freeze({ ...MINE_MARKS.vein, reach: PROSPECT_M }), dvein: Object.freeze({ ...MINE_MARKS.dvein, reach: PROSPECT_M }) });
 /** The Pick-Axe in the hand (FORAGE0 14.2): DFU's own Warhammer. */
 export const PICK_HAND = Object.freeze({ group: 'Weapons', templateIndex: 126, material: 0 });
 /** DFU's StrikeDown frames a swing plays (fpsWeapon.js clamps to the art's own count). */
@@ -207,6 +213,7 @@ export const pickHandFrame = (swing) => (swing > 0 ? { state: 'StrikeDown', fram
  */
 export function mineKind({ book }) {
   const harvestOf = (n) => (n.what === 'boulder' ? 'stone' : 'ore');
+  const gone = (n) => book.taken(n.key, harvestOf(n));
   return {
     id: 'mine',
     professions: Object.freeze(['mining']),
@@ -220,7 +227,12 @@ export function mineKind({ book }) {
       return standDungeonVeins({ dungeon, day, climate: info.climate, confirmed, wall });
     },
     flatsOf: (n) => [{ archive: ORE_FLAT_ARCHIVE, record: mineRecord(n), scale: n.what === 'boulder' ? STONE_SCALE : VEIN_SCALE, centers: mineFlats(n) }],
-    gone: (n) => book.taken(n.key, harvestOf(n)),
+    gone,
+    /** NODE-MARKS: every vein and boulder standing; a Prospector's veins from PROSPECT_M off (PROF0 3.3) */
+    mark(n, { specs }) {
+      if (gone(n)) return null;
+      return (specs('mining')[50] === 'prospector' && PROSPECTOR_MARKS[n.what]) || MINE_MARKS[n.what] || MINE_MARKS.vein;
+    },
     tools: Object.freeze([FT.PickAxe]),   // TOOL-USE: the Pick-Axe's Use at a vein or a boulder is E there
     plan(n, { entity, rank }) {
       const plan = minePlan({

@@ -6654,7 +6654,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         windowCoversHud: !!activeOverlay && dungeonWindows.hudCovered(activeOverlay),
         hudHidden: hidesHud(activeOverlay),   // AUDIT PRE-MERGE 0928 U8: a window that takes the HUD away outright, large HUD and all (MAP-FIELD2's word - Come Sail Away's position map, PauseGame(true, true), mounts here too)
         detected, playerXZ: playerFeet ? [playerFeet[0], playerFeet[2]] : null,
-        party: partyCompassPoints({ bodies: opts.party ?? null }),   // COMPASS-PARTY: the mates standing in this dungeon, at their feet in its frame
+        party: partyCompassPoints({ bodies: opts.party ?? null }), nodes: playerFeet ? (opts.nodeMarks?.(playerFeet) ?? null) : null,   // COMPASS-PARTY: the mates standing in this dungeon, at their feet in its frame; NODE-MARKS: the professions' nodes standing here (its veins), in its frame
         largeHud: largeHudOptions({ renderer, fetchBytes, palette }, playerEntity),
         // AUDIT 39: the enhanced HUD's two hand plaques - see world.js.
         readied: magic.readied() ?? null,

@@ -7223,7 +7223,7 @@ export function createWorldModes(host) {
           gateCrystals: () => host.gateCrystals?.() ?? null,   // WB9c: the Reckoning's crystals as bodies my blows meet (none but in a Reckoning)
           onCrystalHit: (hit) => !!host.onCrystalHit?.(hit),   // WB9c: and the door a blow's number on one leaves through
           spoilContents: (key) => host.spoilContents?.(key) ?? null,   // WB9f: a piece of his spoils, listed on the plaque
-          onActions: (data) => host.onActions?.(data), peers: () => host.peers?.() ?? null, selfId: () => host.selfId?.() ?? null, party: () => host.partyNear?.() ?? [],   // WORLD3: a door moved goes out; the peers the foes see; whose blow a puppet's is
+          onActions: (data) => host.onActions?.(data), peers: () => host.peers?.() ?? null, selfId: () => host.selfId?.() ?? null, party: () => host.partyNear?.() ?? [], nodeMarks: (feet) => host.professionMarks?.(feet) ?? null,   // NODE-MARKS: the dungeon's nodes on its compass, at its own feet; WORLD3: a door moved goes out; the peers the foes see; whose blow a puppet's is
           postItem: (text) => host.postItem?.(text) ?? false, canPostItem: () => host.canPostItem?.() ?? false,   // CHAT-POST: the dungeon's pack posts through the outer host
           allyMarks: (sp) => host.allyMarks?.(sp) ?? null,   // AID1 onto ALLY-CAST: the party mates' bodies, in the dungeon's frame - SPELL-GIFT: with the spell
           onLootClaimed: () => host.onLootClaimed?.(),   // AUDIT WORLD4 C2/D5: a claimed container makes the room's memory due this frame

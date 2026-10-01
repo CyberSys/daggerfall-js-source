@@ -1355,7 +1355,9 @@ instruction), and what was found (FACT):
   has boulders. Never an ingot, Cut Stone or a gem (smelted, cut or found, not the ground's). A metal's or stone's writ
   XP is Mining's.
 - **The Prospector** (3.3): the veins stood within 200 m are marked on the compass, both skins, beside the party's
-  marks (`ui/hud.js`, `ui/enhancedHud.js`). The held map's marks are not built (as PROF1's patches').
+  marks (`ui/hud.js`, `ui/enhancedHud.js`). The held map's marks are not built (as PROF1's patches'). NODE-MARKS
+  (section 31) since: every node is marked within 150 m, and the Prospector's veins from 200 m - the mine kind's own
+  `mark` (`PROSPECTOR_MARKS`).
 - **One gathering host.** FACT: the streaming world's Herbalism was one host (`scenes/herbHost.js`), and every
   gathering profession needs the same shell - a pixel's nodes stood, the nearest target, one prompt, one act, the book.
   DECIDED: the shell is `scenes/gatherHost.js`, each profession a kind in it (Herbalism's patches and Mining's veins and
@@ -2277,7 +2279,7 @@ Mac: **"Do it"** (2026-09-29, PROF7 after the VEIN-NEED fix: "What was next on t
   every other day at half its days (`survival/food.js` rotFoodDay): the same spoiling at half the pace.
 - **The Tracker** (3.3: "Animals within 100 m are marked"): the living foes 4.4 skins within 100 m of the player, on
   the street, on the compass beside a Prospector's veins - one mark, the veins' copper (the compass keeps one mark for
-  the professions).
+  the professions). NODE-MARKS (section 31) since: each profession its own colour, the animals in Hunting's coral.
 - **The knife's checks** (FORAGE0 14.3): the settlement, the sea, a foe near, the load - Foraging's order - in its own
   lines in Foraging's voice ("You cannot skin in a settlement!", "... out here!", "... with enemies nearby!", "... when
   fully encumbered!"); never inside and never the daylight - AUDIT 32 H6: underground, the dungeon's own foes are the
@@ -2452,6 +2454,56 @@ asked). What sections 5.2, 6 and 3.3 left open for PROF8, DECIDED here, and what
   peers do not see the throw (5.1's pose activity field is none of the acts' yet).
 - **Pinned**: `test/prof8_law.test.js` (7), `test/prof8_service.test.js` (3, through the real Worker), `test/prof8_client
   .test.js` (12). Mutants: `tools/mutants/prof8.json` (34, all dead). Patch notes: `PATCH-NOTES-Fishing.md`.
+
+## 31. NODE-MARKS - every node on the compass, and its glow, as built (BUILT 2026-10-01)
+
+Mac: **"Any profession node, like herbs, should appear on the compass. The node itself should also stand out with a
+detailed slight glow or something."** FACT: the compass marked a Prospector's veins (PROF2) and a Tracker's animals
+(PROF7) alone, in one copper; nodes are sparse (13 a wilderness pixel a day at most, 0.67 km² - section 6's counts), so
+a player without the two specialisations walked past patches, veins and trees with nothing to say they stood there,
+and nothing in the world set a node apart from the ground about it. DECIDED here:
+
+- **Every node, one door.** The gathering host answers the nodes standing near the player (`scenes/gatherHost.js`
+  `marks(feet)`): above ground the stood pixels' (those within 256 m), underground the dungeon's veins in its own
+  space, and the loose nodes of a kind that marks them (`marksLoose`: Hunting's bodies) where they lie - never
+  Fishing's cast, which is the look itself and whose water's check is Foraging's whole world, asked a frame - each `{ key, profession, at, w, h, d, reach }`, its
+  BASE in the scene (never the look's lift), nearest first, `NODE_MARK_MAX` (16) at most; one list, refilled. The
+  professions shut, none. A building, the travel view: none (the host's `nodeMarksAt`).
+- **Each kind says its own** (`GatherKind.mark(node, { specs })` -> `{ w, h, reach? }` or null): its glow's footprint
+  about the base and how far off the compass marks it (`NODE_MARK_M`, 150 m, without a reach). A patch while either of
+  its harvests stands (`PATCH_MARK`); a vein, a boulder and a dungeon vein while unmined (`MINE_MARKS`) - **a
+  Prospector's veins from 200 m** (`PROSPECT_M`, PROF0 3.3: the specialisation keeps its edge, now the mine kind's
+  word, and a dungeon's vein is a vein); a standing tree, never a felled one's stump (`TREE_MARK`, up its trunk);
+  Fishing's day's schools - where the fish are - and never the cast, which is the look itself (`SCHOOL_MARK`, wide and
+  low on the water); a body while its hide is untaken and the pack holds the knife (`BODY_MARK`). A kind that names no
+  mark is marked in `NODE_MARK_SIZE` while it is not gone.
+- **The colours** (`ui/nodeMarks.js`, a leaf both the HUD and the glow take): Herbalism a blossom's orchid `#e586ec`,
+  Mining PROF2's copper `#d9894a`, Logging pale heartwood `#f0dfa8`, Hunting a fresh hide's coral `#ff7360`, Fishing
+  the shallows' blue `#5ec8ff` - clear of the party's green, the quest's gold, the Detect markers' red and the ships'.
+- **The compass, both skins.** The party's 5x3 triangle and the Detect markers' bearing law (clamped), each in its
+  profession's colour, the nearer brighter (`nodeMarkAlpha`: whole at the feet, 45% dimmer at its reach), the nearest
+  drawn last, over the rest - the classic box (`ui/hud.js` drawNodeCompassMarks) and the enhanced strip
+  (`ui/enhancedHud.js`, a pooled `hud-node` a node). A Tracker's animals ride the same list in Hunting's colour. The
+  drawHud option is `nodes` (it was `veins`). The street's frame hands it (`world.js` professionMarks), and the
+  dungeon's at its own feet (`dungeonContext.js`, through `worldModes.js` `nodeMarks` and the host's
+  `professionMarks`).
+- **The glow** (`render/nodeGlow.js`). One card a node, turned about the upright to face the eye and stood 0.6 m toward
+  it (never past half its way) so the light lies over the node's own picture: a HALO, soft across and narrowing as it
+  climbs (a teardrop, to nothing at the card's sides), rising out of nothing at the ground - where the ground cuts the
+  card no edge shows - to its body low on the node and thinning to its crown, breathing; a SHIMMER, a soft band
+  climbing it every five seconds; six MOTES drifting up out of it, each its own pace and place, twinkling, born and gone
+  dark. Slight by intent (its halo a third of white at most): kindled over 0.6 s as a node first stands near (a frame's
+  step clamped to a quarter second, so a hitch never pops it), faded from 80 m to nothing at 120 m, 16 at most. The
+  duel wall's law: added (ONE, ONE), tested against the world's depth and never writing it, fogged from the travel
+  view's focus when one is set, every rate a whole number of cycles over its 60 s clock. Drawn after each mode's
+  opaque world through the veiled bodies' hook, as the auras are (the street's pass, the dungeon's `lateWorldDraw`);
+  a glow that will not build costs the glow, never the game (`createNodeGlowPass`, the world host's one door to it).
+- **Not built, named**: the held map's node marks (section 21's "the held map marks the patches and veins a character
+  has worked before" - still as PROF1 and PROF2 left it); no setting turns the glow or the marks off (the professions'
+  own switch does).
+- **Pinned**: `test/nodemarks.test.js` (17); `tools/nodeGlowProbe.mjs` compiles, links and draws the glow in a real WebGL2
+  context over a stand-in node and wall and reads the frame back (13 checks). Mutants: `tools/mutants/nodemarks.json` (44, all dead). Patch notes:
+  `PATCH-NOTES-Nodes-on-the-Compass.md`.
 
 ## Appendix A - a day of a gatherer
 
