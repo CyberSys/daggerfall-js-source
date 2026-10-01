@@ -609,7 +609,7 @@ are the **narrowed remainders** Wave D recorded rather than shipped
   INTERIM 0 behind a flag blaming a decode that had ALREADY SHIPPED".~~
   **CLOSED (ROAD-F GS2, 2026-09-03).**
   *The work was already done. D9 shipped `AcrobatMotor.cs:96-101`'s nested
-  `ImprovedAthleticism` term at `skills.js:283-303`, over the two
+  `ImprovedAthleticism` term at `skills.js:288-308`, over the two
   constants named from `AcrobatMotor.cs:14-15` - and the sentence the
   list quoted was a past-tense retirement record that happened to
   contain the marker. `tools/flagSites.mjs` deliberately does not try
