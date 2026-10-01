@@ -163,6 +163,6 @@ test('WB9d the ground drawn in its own grain: each court\'s pools on their own q
   const gc = read('src/scenes/gateCourt.js');
   assert.match(gc, /drawGateGround\(groundViewModel\(\{ inside: inFire, ground: groundName, color: groundColor, biteAt, biteColor, now: t \}\), \{ hidden: hudHidden\(\) \}\);/);
   assert.match(gc, /drawGateGround\(null\);   \/\/ WB9d/, 'put away with the court');
-  assert.match(read('src/scenes/world.js'), /drawGateBanner\(null\); drawGateMarksCard\(null\); drawGateGround\(null\);/, 'and with a held frame');
+  assert.match(read('src/scenes/world.js'), /drawGateBanner\(null\); drawGateMarksCard\(null\);( drawGateDamageChart\(null\);)? drawGateGround\(null\);/, 'and with a held frame');   // GATE-UX: the damage chart between them
   assert.match(read('src/scenes/dungeonContext.js'), /if \(!el\) flashPlayerDamage\(dmg\);/, 'DFU\'s red flash still a blow\'s alone');
 });

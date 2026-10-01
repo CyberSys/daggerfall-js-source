@@ -18,7 +18,7 @@ import { RARITIES, RARITY_ORDER, rarityChances } from '../src/systems/lootRarity
 import {
   rollSpoils, spoilsBase, magicOrBetter, sigilStone, isSigilStone, SPOILS_GOLD_PER_LEVEL, SPOILS_LEGENDARY, SPOILS_SOURCE, SIGIL_STONE, SIGIL_STONE_TEMPLATE,
 } from '../src/systems/gateSpoils.js';
-import { createSpoilsPool, spoilsList, spoilsStore, recoverSpoils, savedSince, SPOILS_TAKE_M, SPOILS_STORE_KEY, SPOILS_DAY_KEY, SPOILS_TEXT, SIGIL_TIER, SPOILS_RECORD_V } from '../src/scenes/spoilsPool.js';
+import { createSpoilsPool, spoilsList, spoilsStore, recoverSpoils, savedSince, SPOIL_KEY, SPOILS_STORE_KEY, SPOILS_DAY_KEY, SPOILS_TEXT, SIGIL_TIER, SPOILS_RECORD_V } from '../src/scenes/spoilsPool.js';
 import { isAmmunition, templateByIndex, setItemFields, mintCondition, inventoryItemImage, registerCustomTemplates, ITEM_TEMPLATES } from '../src/systems/itemTemplates.js';
 import { RRI_TEMPLATES } from '../src/systems/rriItems.js';
 import { isStackable, stacksWith, addItem } from '../src/systems/inventory.js';
@@ -218,7 +218,7 @@ function pool({ feet = null, store = null, who = 'char-1' } = {}) {
 }
 const run = (h, ms, step = 16) => { for (let t = 0; t < ms; t += step) { h.clock.t += step; h.p.frame(); } };
 
-test('WB5 the floor: the burst leaves one piece at a time from his chest, each clattering where it lands and resting in its tier (the Sigil Stone the rarest, the gold plain); a Rare-or-better at rest rings the chime and carries a light; walked over, a piece goes into the pack with its name said; leaving gathers the rest; the device keeps the pieces AS ROLLED, and whose, from the burst until a save holds them - taking and gathering change nothing there (mutants: a piece taken in the air; the take out of reach; the gather leaving pieces; the record without its pieces)', () => {
+test('WB5 the floor: the burst leaves one piece at a time from his chest, each clattering where it lands and resting in its tier (the Sigil Stone the rarest, the gold plain); a Rare-or-better at rest rings the chime and carries a light; pressed, a piece goes into the pack with its name said (GATE-UX: never walked over); leaving gathers the rest; the device keeps the pieces AS ROLLED, and whose, from the burst until a save holds them - taking and gathering change nothing there (mutants: a piece taken in the air; a piece taken underfoot; the gather leaving pieces; the record without its pieces)', () => {
   const me = { at: null };
   const h = pool({ feet: () => me.at });
   assert.equal(h.p.spew({ day: 700, seed: 99, level: 8, at: [0, 3.1, 0], bearing: 0 }), true);
@@ -238,13 +238,12 @@ test('WB5 the floor: the burst leaves one piece at a time from his chest, each c
   assert.equal(h.sounds.filter((x) => x[0] === 364).length, rare, 'the rare chime for each Rare or better, at rest');
   assert.equal(h.p.lights().length, rare, 'and its light');
   assert.equal(h.p.batches().length, 0, 'no sprite with no art (the node test has none)');
-  // walk over the first
-  me.at = [s[0].pos[0] + SPOILS_TAKE_M + 0.3, 0, s[0].pos[2]];
-  run(h, 50);
-  assert.equal(h.pack.length, 0, 'out of reach');
-  me.at = [s[0].pos[0] + SPOILS_TAKE_M - 0.2, 0, s[0].pos[2]];
-  run(h, 50);
-  assert.ok(h.pack.length >= 1, 'walked over, taken');
+  // GATE-UX: stood on, it stays; pressed, it is taken
+  me.at = [s[0].pos[0], 0, s[0].pos[2]];
+  run(h, 3000);
+  assert.equal(h.pack.length, 0, 'underfoot, never taken');
+  assert.equal(h.p.pick(`${SPOIL_KEY}0`), true);
+  assert.equal(h.pack.length, 1, 'pressed, taken');
   assert.equal(h.pack[0].item.name, list[0].item.name, 'the first to land, the first taken');
   assert.equal(h.said[0], SPOILS_TEXT.item(list[0].item.name, list[0].tier), 'its name said, with its tier');
   assert.deepEqual(h.st.get(SPOILS_STORE_KEY), [burst], 'taking changes nothing in the record: the pack is only as safe as the last save');

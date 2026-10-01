@@ -314,6 +314,6 @@ test('GUILD1b the host: world.js hands the panel a guild book over GUILD1a\'s do
   assert.match(made, /door: accountGuilds\(\{ fetch: \(u, i\) => globalThis\.fetch\(u, i\), storage: appStorage\(\) \}\)/);
   assert.match(made, /character: \(\) => characterIdOf\(playerEntity\)/);
   assert.match(made, /const short = deductGold\(playerEntity, n\); if \(account && short > 0\) account\.accountGold -= short;/, 'the purse first, the shortfall from the bank');
-  assert.match(made, /playerEntity\.bankAccounts\[_questRegionIndex\(\) \?\? 0\]/, 'the region the player stands in');
+  assert.match(made, /playerEntity\.bankAccounts\[goldRegion\(playerEntity\.bankAccounts, _questRegionIndex\(\) \?\? 0\)\]/, 'the region the player stands in - online, the Empire\'s account (EMPIRE-ACCOUNT)');
   assert.match(w, /socialPanel = createSocialPanel\(\{\n\s+social,\n\s+mail,\n\s+guild: guildBook,/);
 });

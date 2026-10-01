@@ -101,11 +101,12 @@
   {
     "name": "REALM0-sweep-one-branch",
     "file": "src/systems/banking.js",
-    "old": "  if (online && hasLoan(accounts, regionIndex)) drawEmpireAccounts(accounts, regionIndex);",
-    "new": "  if (false) drawEmpireAccounts(accounts, regionIndex);",
+    "old": "  if (online && hasLoan(accounts, regionIndex)) drawEmpireAccounts(accounts, regionIndex, undefined, { online });",
+    "new": "  if (false) drawEmpireAccounts(accounts, regionIndex, undefined, { online });",
     "tests": [
       "test/realm0.test.js"
-    ]
+    ],
+    "note": "EMPIRE-ACCOUNT (PIN MOVED): re-aimed by content to the line EMPIRE-ACCOUNT rewrote; the mutant is the same law."
   },
   {
     "name": "REALM0-draw-not-paid",
@@ -119,20 +120,22 @@
   {
     "name": "REALM0-gold-not-garnished",
     "file": "src/systems/banking.js",
-    "old": "  if (online) garnishDeposit(accounts, regionIndex, amount);",
+    "old": "  if (online) garnishDeposit(accounts, g, amount);",
     "new": "",
     "tests": [
       "test/realm0.test.js"
-    ]
+    ],
+    "note": "EMPIRE-ACCOUNT (PIN MOVED): re-aimed by content to the line EMPIRE-ACCOUNT rewrote; the mutant is the same law."
   },
   {
     "name": "REALM0-letters-not-garnished",
     "file": "src/systems/banking.js",
-    "old": "  if (online) garnishDeposit(accounts, regionIndex, paid);",
+    "old": "  if (online) garnishDeposit(accounts, g, paid);",
     "new": "",
     "tests": [
       "test/realm0.test.js"
-    ]
+    ],
+    "note": "EMPIRE-ACCOUNT (PIN MOVED): re-aimed by content to the line EMPIRE-ACCOUNT rewrote; the mutant is the same law."
   },
   {
     "name": "REALM0-garnish-any-loan",
@@ -182,11 +185,12 @@
   {
     "name": "REALM0-others-first",
     "file": "src/systems/banking.js",
-    "old": "    const own = Math.min(call, loan.accountGold);",
+    "old": "    const own = Math.min(call, bank.accountGold);",
     "new": "    const own = 0;",
     "tests": [
       "test/realm0.test.js"
-    ]
+    ],
+    "note": "EMPIRE-ACCOUNT (PIN MOVED): re-aimed by content to the line EMPIRE-ACCOUNT rewrote; the mutant is the same law."
   },
   {
     "name": "REALM0-purse-spared",

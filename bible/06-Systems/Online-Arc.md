@@ -4917,7 +4917,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:8108` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:8110` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:352`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -12183,3 +12183,41 @@ record; in short:
   old service refuses every haul as a bad node.
 - **Pinned:** `test/prof8_law.test.js` (7), `test/prof8_service.test.js` (3), `test/prof8_client.test.js` (12). Mutants:
   `tools/mutants/prof8.json` (34, all dead). Patch notes: `PATCH-NOTES-Fishing.md`.
+
+## EMPIRE-ACCOUNT (2026-10-01, the field - maya: "i deposited alot of letters of credit in a random bank somewhere but theyre gone in the daggerfall bank"; Regi: "irs taken money again"; Mac chose "2": online, every region one Empire-wide account) - one bank account online
+
+- **Why.** Online, every bank reads "The Bank of the Empire", but each region still kept its own account
+  (Daggerfall's law: sixty-two accounts, each blind to the rest). Gold paid in at one branch was missing at every other,
+  and only the classic character sheet's Gold button listed them all - so players read money deposited elsewhere as
+  money gone. And a default's draw on every branch (REALM P0.3) took the gold without a word.
+- **One account** (`systems/banking.js` `EMPIRE_ACCOUNT_REGION`, `goldRegion`): online, every branch's gold moves in the
+  Empire's account, held at Daggerfall's index (EMPIRE-BANK: the bank of Daggerfall became the bank of the Empire).
+  Deposits, letters of credit, withdrawals, a letter drawn, a ship or house bought or sold, the Marks sold, and the
+  online wallets (the market, a home, its yard, decor, a guild) all pay from it and into it; the bank window shows it
+  at every branch, and BANK-REGION's report (`ui/enhancedPorts.js`, merged beside it from #488) reads online as the
+  one account - "Empire account" - with only a branch not yet folded beneath it. Offline, Daggerfall's sixty-two accounts stand; a short table with no Empire account keeps its own.
+- **A loan still stands where it was taken.** Its due date, its default and the reputation a default costs are that
+  region's; the gold it lends and the gold that repays it are the Empire account's. The overdue sweep and the join's
+  call pay from the Empire's account first and then every other branch (`drawEmpireAccounts` skips only the account
+  already paid from), so a branch not yet folded still pays.
+- **The fold** (`foldEmpireAccounts`): as an online character boots (`scenes/world.js`, after LOAN-AMNESTY, in the one
+  parse, before the save is restored and before the join settles a loan), every other branch's gold moves into the
+  Empire's account - whatever its sign, so the total never changes - and every loan and default stays where it stands.
+  Said once the world stands: "The Bank of the Empire keeps one account now, open at every branch. N gold came in from
+  other regions." Once: a folded table moves nothing again.
+- **The service** (`net/realmGoldLaw.js` `REALM_EMPIRE_ACCOUNT`, pinned equal - the Worker does not bundle banking.js):
+  a realm record pays from the Empire's account whatever region the wallet names, then from any branch a record not yet
+  folded still keeps (one written before its character's first boot since this); a credit (a home sold, rent
+  collected, a Mark's gold, the market's gold) lands in the Empire's account. A folded record and the client's wallet
+  agree to the gold.
+- **What a default draws is said** (`systems/worldTick.js` `settleSaid`, `empireDrawLines`): online, at the join and on
+  the day's sweep, "The Empire takes N gold from your account for your loan in <region>." - nothing when nothing was
+  taken. Offline, Daggerfall's sweep stays silent.
+- **When:** the client and the account service together (the account deploy's path filter carries `realmGoldLaw.js`).
+  A client older than this pays at a branch while the service pays the Empire's account first; the total is the same
+  and the client's next checkpoint is the record.
+- Pins: `test/empireaccount.test.js` (10); `test/realm5.test.js`, `test/goldmarket_service.test.js` and
+  `test/guild1b.test.js` re-aimed at the one account, and `test/fb0930b_bankregion.test.js`'s online half. Mutants:
+  `tools/mutants/empireaccount.json` (41, all dead); `realm0.json` (4), `realm5.json` (1), `auditrealm.json` (1),
+  `fb0930b_bankregion.json` (3) and `survtiers3.json` (2) re-aimed by content. Patch notes:
+  `PATCH-NOTES-One-Bank-Account-Online.md`.
