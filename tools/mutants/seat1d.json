@@ -443,8 +443,8 @@
  {
   "name": "SEAT1d-plan-bounty-free",
   "file": "src/net/townSeatLaw.js",
-  "old": "const cost = e === 'bounty' ? Math.max(0, s.holder.setAside ?? 0) : edictCost(e, s.tier)",
-  "new": "const cost = edictCost(e, s.tier)",
+  "old": "const cost = e === 'bounty' ? Math.max(0, s.holder.setAside ?? 0) : edictCost(e, s.tier, s.holder.tideNext)",
+  "new": "const cost = edictCost(e, s.tier, s.holder.tideNext)",
   "tests": [
    "test/seat1d_client.test.js",
    "test/seat1d_service.test.js"

@@ -265,8 +265,8 @@
   {
     "name": "SEAT1b-law-gate-cap-off",
     "file": "src/net/townSeatLaw.js",
-    "old": "  const g = Math.min(GATE_WEEK_CAP, Math.max(0, gates) * GATE_INFLUENCE);",
-    "new": "  const g = Math.max(0, gates) * GATE_INFLUENCE;",
+    "old": "  const g = Math.min(GATE_WEEK_CAP, Math.max(0, gates) * GATE_INFLUENCE) * (tide === 'daedra' ? TIDE_EFFECTS.daedraGates : 1);",
+    "new": "  const g = Math.max(0, gates) * GATE_INFLUENCE * (tide === 'daedra' ? TIDE_EFFECTS.daedraGates : 1);",
     "tests": [
       "test/seat1b_service.test.js",
       "test/seat1b_client.test.js"

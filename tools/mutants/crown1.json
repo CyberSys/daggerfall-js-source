@@ -92,8 +92,8 @@
  {
   "name": "CROWN1-watch-bonus",
   "file": "src/net/townSeatLaw.js",
-  "old": "  const w = Math.floor(Math.max(0, watch) * WATCH_INFLUENCE * (1 + Math.max(0, watchBonus)) + 1e-9);",
-  "new": "  const w = Math.max(0, watch) * WATCH_INFLUENCE;",
+  "old": "  const w = Math.floor(Math.max(0, watch) * WATCH_INFLUENCE * (1 + Math.max(0, watchBonus)) * (tide === 'plague' ? TIDE_EFFECTS.plagueWatch : 1) + 1e-9);",
+  "new": "  const w = Math.floor(Math.max(0, watch) * WATCH_INFLUENCE * (tide === 'plague' ? TIDE_EFFECTS.plagueWatch : 1) + 1e-9);",
   "tests": [
    "test/crown1_law.test.js",
    "test/crown1_service.test.js"
@@ -102,8 +102,8 @@
  {
   "name": "CROWN1-watch-bonus-floor",
   "file": "src/net/townSeatLaw.js",
-  "old": "  const w = Math.floor(Math.max(0, watch) * WATCH_INFLUENCE * (1 + Math.max(0, watchBonus)) + 1e-9);",
-  "new": "  const w = Math.max(0, watch) * WATCH_INFLUENCE * (1 + Math.max(0, watchBonus));",
+  "old": "  const w = Math.floor(Math.max(0, watch) * WATCH_INFLUENCE * (1 + Math.max(0, watchBonus)) * (tide === 'plague' ? TIDE_EFFECTS.plagueWatch : 1) + 1e-9);",
+  "new": "  const w = Math.max(0, watch) * WATCH_INFLUENCE * (1 + Math.max(0, watchBonus)) * (tide === 'plague' ? TIDE_EFFECTS.plagueWatch : 1);",
   "tests": [
    "test/crown1_law.test.js"
   ]
@@ -111,8 +111,8 @@
  {
   "name": "CROWN1-watch-bonus-neg",
   "file": "src/net/townSeatLaw.js",
-  "old": "  const w = Math.floor(Math.max(0, watch) * WATCH_INFLUENCE * (1 + Math.max(0, watchBonus)) + 1e-9);",
-  "new": "  const w = Math.floor(Math.max(0, watch) * WATCH_INFLUENCE * (1 + watchBonus) + 1e-9);",
+  "old": "  const w = Math.floor(Math.max(0, watch) * WATCH_INFLUENCE * (1 + Math.max(0, watchBonus)) * (tide === 'plague' ? TIDE_EFFECTS.plagueWatch : 1) + 1e-9);",
+  "new": "  const w = Math.floor(Math.max(0, watch) * WATCH_INFLUENCE * (1 + watchBonus) * (tide === 'plague' ? TIDE_EFFECTS.plagueWatch : 1) + 1e-9);",
   "tests": [
    "test/crown1_law.test.js"
   ]
@@ -283,8 +283,8 @@
  {
   "name": "CROWN1-inf-bonus",
   "file": "server-account/src/seatInfluence.js",
-  "old": "accountSeatInfluence(v, freeLand ? FREE_LAND_WATCH_BONUS : 0)",
-  "new": "accountSeatInfluence(v)",
+  "old": "accountSeatInfluence(v, freeLand ? FREE_LAND_WATCH_BONUS : 0, tide)",
+  "new": "accountSeatInfluence(v, 0, tide)",
   "tests": [
    "test/crown1_service.test.js"
   ]
@@ -310,8 +310,8 @@
  {
   "name": "CROWN1-inf-free",
   "file": "server-account/src/seatInfluence.js",
-  "old": "reach, freeLand: isFreeLand(seat.region) });",
-  "new": "reach, freeLand: false });",
+  "old": "reach, freeLand: isFreeLand(seat.region), tide: tideAt(week, seat.region, counted) });",
+  "new": "reach, freeLand: false, tide: tideAt(week, seat.region, counted) });",
   "tests": [
    "test/crown1_service.test.js"
   ]

@@ -458,8 +458,8 @@
  {
   "name": "SEASON1-inf-season",
   "file": "server-account/src/seatInfluence.js",
-  "old": "season: seasonOf(week, seasonZeroOf(env?.SEASON_ZERO_WEEK)),",
-  "new": "season: null,",
+  "old": "  const season = seasonOf(week, seasonZeroOf(env?.SEASON_ZERO_WEEK));   // SEASON1: the Season counted, and its Tides",
+  "new": "  const season = null;   // SEASON1: the Season counted, and its Tides",
   "tests": [
    "test/season1_service.test.js"
   ]

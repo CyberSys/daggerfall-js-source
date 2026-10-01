@@ -45,7 +45,8 @@ import { mustChange } from './realm.js';
 import { utcDay } from '../../src/net/marksLaw.js';
 import { GUILD_RANK_MASTER } from '../../src/net/guildLaw.js';
 import { seatWeekOf, seatWeekStartMs, seatKeyOk, turningPlan, seatGlyphsOf, seatTitleOf, SEAT_WEEK_MS, STANDING_START, placeBattles, CROWN_SEAT_REGIONS, conscriptionDue,
-  fealtyReckoning, fealtyTribute, seasonEndingAt, seasonStanding, seasonTitles } from '../../src/net/townSeatLaw.js';
+  fealtyReckoning, fealtyTribute, seasonEndingAt, seasonStanding, seasonTitles, seasonOf } from '../../src/net/townSeatLaw.js';
+import { tideAt } from '../../src/net/tideLaw.js';   // SEASON1 part two: the Tides
 import { MARKS_MAX } from '../../src/net/marksLaw.js';
 
 /** SEASON1 (18: "At its end seats, influence, fortifications and history are wiped; Marks, the Stores and profession
@@ -129,11 +130,12 @@ export async function settleWeek(db, week, nowS, zero = null) {
     }
   }
   const conscripted = new Set(conscriptions.flatMap((c) => c.keys));
+  const counted = !!seasonOf(week, zero);   // SEASON1 part two: the Tides roll while a Season is counted
   const seats = [];
   for (const key of keys) {
     const seat = registry.get(key);
     const at = await seatGuildsOf(db, key, week);
-    const list = await gatherStandings(db, seat, week, atS);
+    const list = await gatherStandings(db, seat, week, atS, counted);
     const h = holds.get(key);
     let holder = null;
     if (h) {
@@ -149,6 +151,9 @@ export async function settleWeek(db, week, nowS, zero = null) {
         // CROWN2: a vassal's liege's reach here, halved in the defence (seatDefence); a breaker's Standing row
         liegeReach: reckoned.liegeReach(h.guild_id, registry.get(key)),
         brokeFealty: breakers.has(h.guild_id),
+        // SEASON1 part two (9.3): the week's Tide here (a Royal Wedding's Standing, a Tax Revolt's) and the coming week's
+        // (a Festival's cost)
+        tide: tideAt(week, seat.region, counted), tideNext: tideAt(next, seat.region, !!seasonOf(next, zero)),
       };
     }
     seats.push({

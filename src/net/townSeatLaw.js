@@ -18,6 +18,7 @@
 // ═══════════════════════════════════════════════════════════════════
 import { ONLINE_EPOCH_MS } from './wire.js';
 import { KINGDOMS, MARCHES, kingdomOf, isMarch, isFreeLand } from './kingdomLaw.js';
+import { TIDE_EFFECTS } from './tideLaw.js';   // SEASON1 part two: the Tides' numbers (9.3)
 import { HERALDRY_COLOURS } from './heraldryLaw.js';
 
 /** A heraldry colour key's hex (heraldryLaw.js's palette), or null. */
@@ -274,9 +275,10 @@ export function tributeRoom(others, tributeSoFar = 0) {
  * @param {{ watch?: number, gates?: number, renownXp?: number, writ?: number, homeDays?: number }} a
  * @param {number} [watchBonus]
  */
-export function accountSeatInfluence({ watch = 0, gates = 0, renownXp = 0, writ = 0, homeDays = 0 } = {}, watchBonus = 0) {
-  const w = Math.floor(Math.max(0, watch) * WATCH_INFLUENCE * (1 + Math.max(0, watchBonus)) + 1e-9);   // CROWN1: a Free Land's tenth more
-  const g = Math.min(GATE_WEEK_CAP, Math.max(0, gates) * GATE_INFLUENCE);
+export function accountSeatInfluence({ watch = 0, gates = 0, renownXp = 0, writ = 0, homeDays = 0 } = {}, watchBonus = 0, tide = 'calm') {
+  // CROWN1: a Free Land's tenth more; SEASON1 part two (9.3): a Plague's half
+  const w = Math.floor(Math.max(0, watch) * WATCH_INFLUENCE * (1 + Math.max(0, watchBonus)) * (tide === 'plague' ? TIDE_EFFECTS.plagueWatch : 1) + 1e-9);
+  const g = Math.min(GATE_WEEK_CAP, Math.max(0, gates) * GATE_INFLUENCE) * (tide === 'daedra' ? TIDE_EFFECTS.daedraGates : 1);   // SEASON1 part two: a Daedric Incursion's double, past the cap
   const r = Math.min(RENOWN_WEEK_CAP, Math.floor(Math.max(0, renownXp) / RENOWN_XP_PER_INFLUENCE));
   const h = Math.max(0, homeDays) * HOME_INFLUENCE_DAY;
   const m = Math.max(0, writ) * WRIT_INFLUENCE_PER_MARK;
@@ -473,7 +475,7 @@ export function turningPlan({ week, seats, treasuries, active = CROWN_SCALE.per 
     const e = s.holder.edict ?? null;
     let law = null;
     if (e && edictOk(e)) {
-      const cost = e === 'bounty' ? Math.max(0, s.holder.setAside ?? 0) : edictCost(e, s.tier), has = purse.get(s.holder.guild) ?? 0;
+      const cost = e === 'bounty' ? Math.max(0, s.holder.setAside ?? 0) : edictCost(e, s.tier, s.holder.tideNext), has = purse.get(s.holder.guild) ?? 0;   // SEASON1 part two: its week's Tide
       law = has >= cost ? e : null;
       if (law) purse.set(s.holder.guild, has - cost);
       edicts.push({ key: s.key, guild: s.holder.guild, edict: e, cost, state: law ? 'law' : 'unpaid' });
@@ -482,6 +484,7 @@ export function turningPlan({ week, seats, treasuries, active = CROWN_SCALE.per 
     const w = standingWeek({
       tier: s.tier, standing: s.holder.standing, tithe: s.holder.tithe ?? 0, watched: s.holder.watched ?? true, gates: s.holder.gates ?? 0,
       writs: s.holder.writs ?? 0, unchallenged, upkeep: stateOf.get(s.key), edict: law, conscripted: !!s.holder.conscripted, brokeFealty: !!s.holder.brokeFealty,
+      tide: s.holder.tide ?? 'calm',
     });
     standings.push({ key: s.key, guild: s.holder.guild, standing: w.standing, changes: w.changes });
     if (unchallenged) held.push({ key: s.key, guild: s.holder.guild, standing: w.standing });
@@ -676,6 +679,7 @@ export const STANDING_CHANGES = Object.freeze({
   revoltTo: 20, curfew: -2, levy: -2, openGates: 3,
   conscripted: -5,   // CROWN1 (7.6): a seat that paid a crown's Conscription
   fealtyBroken: -10,   // CROWN2 (7.8): every seat of a guild that broke its fealty
+  wedding: TIDE_EFFECTS.weddingStanding, taxRevolt: TIDE_EFFECTS.revoltStanding,   // SEASON1 part two (9.3): a Royal Wedding's week; a Tax Revolt's, its Tithe above 5%
 });
 /** UNREST (SEAT0 7.3): below 20 challengers earn +25% influence there, and the arrival line says so; at 0 it revolts. */
 export const STANDING_UNREST = 20;
@@ -714,7 +718,8 @@ export const edictForTier = (edict, tier) => edictOk(edict) && (!EDICTS[edict].c
 /** Whether `edict` may be proclaimed for the week after one whose Edict was `last`. */
 export const edictMayFollow = (edict, last) => edictOk(edict) && (edict !== last || EDICTS[edict].repeat);
 /** What an Edict costs at a seat of `tier` (0 for most). */
-export const edictCost = (edict, tier) => EDICTS[edict]?.cost?.[tier] ?? 0;
+export const edictCost = (edict, tier, tide = 'calm') => Math.floor((EDICTS[edict]?.cost?.[tier] ?? 0)
+  * (edict === 'festival' ? (tide === 'plague' ? TIDE_EFFECTS.plagueFestival : tide === 'wedding' ? TIDE_EFFECTS.weddingFestival : 1) : 1));   // SEASON1 part two: the coming week's Tide on a Festival
 /** The Levy's share of a gathering's yield (SEAT0 7.6), the Bounty's pay a camp and the camps an account a day. */
 export const LEVY_SHARE = 0.1;
 export const BOUNTY_MARKS = 20;
@@ -736,7 +741,7 @@ export const SEAT_LEVER_RANKS = Object.freeze([0, 1]);
  * CROWN1: `conscripted` the seat paid a crown's Conscription this week (7.6); CROWN2: `brokeFealty` its holder broke its
  * fealty at this Turning (7.8).
  */
-export function standingWeek({ tier, standing, tithe = 0, watched = true, gates = 0, writs = 0, unchallenged = false, upkeep = 'paid', edict = null, conscripted = false, brokeFealty = false }) {
+export function standingWeek({ tier, standing, tithe = 0, watched = true, gates = 0, writs = 0, unchallenged = false, upkeep = 'paid', edict = null, conscripted = false, brokeFealty = false, tide = 'calm' }) {
   const changes = [];
   const add = (row, d) => { if (d) changes.push([row, d]); };
   const t = titheStanding(tier, tithe);
@@ -750,6 +755,8 @@ export function standingWeek({ tier, standing, tithe = 0, watched = true, gates 
   if (edict && EDICTS[edict]?.standing) add(edict, EDICTS[edict].standing);
   if (conscripted) add('conscripted', STANDING_CHANGES.conscripted);
   if (brokeFealty) add('fealtyBroken', STANDING_CHANGES.fealtyBroken);
+  if (tide === 'wedding') add('wedding', STANDING_CHANGES.wedding);   // SEASON1 part two: the week's Tide in the seat's land
+  if (tide === 'revolt' && tithe > TIDE_EFFECTS.revoltTithe) add('taxRevolt', STANDING_CHANGES.taxRevolt);
   const sum = changes.reduce((a, [, d]) => a + d, 0);
   return { standing: Math.max(0, Math.min(STANDING_MAX, standing + sum)), changes };
 }
@@ -770,10 +777,10 @@ export const EDICT_WORDS = Object.freeze({
   'royal-tourney': 'A duel ladder all week at the castle\'s square, every blow refereed; the week\'s champion takes the prize and the title Champion of the kingdom for good.',
 });
 /** An Edict's line in the Seat tab, with its cost at a seat of `tier`. */
-export function edictLine(edict, tier) {
+export function edictLine(edict, tier, tide = 'calm') {   // SEASON1 part two: `tide` the coming week's, a Festival's cost
   const e = EDICTS[edict];
   if (!e) return null;
-  const cost = edictCost(edict, tier);
+  const cost = edictCost(edict, tier, tide);
   return `${e.name}: ${EDICT_WORDS[edict]}${cost ? ` Costs ${cost.toLocaleString('en-US')} Drakes.` : ''}`;
 }
 /**

@@ -119,6 +119,15 @@ The first part of guild town control is in. It is open to the developers first, 
 - **Season 0's end** wipes the seats, influence, Chronicles, fealty and Pacts. Your Marks, Stores, profession tracks, titles and Honours are kept.
 - **Once a Season** now means the Season itself. A Pact lasts to the Season's end, and the same two guilds earn Honours from each other once a Season.
 
+## Tides (online)
+- **The world moves under the war.** Each week, each kingdom, the Marches and the Free Lands have a **Tide**. The Seat tab shows this week's and next week's for the seat's land, so you can plan for the next Turning. Tides run only while a Season is counted.
+- **The Tides that touch the seats:**
+  - **Plague**: the Watch counts half, and Festivals cost double.
+  - **Daedric Incursion**: gate kills give double influence.
+  - **Royal Wedding**: Festivals cost half, and every held seat gains 3 Standing.
+  - **Tax Revolt**: a Tithe above 5% costs 3 more Standing.
+- Harvest, Blight, Storm Season, Bandit Summer and Orc Raids roll already but don't do anything yet; they arrive in a later update.
+
 ## Behind the scenes
 - **The registry.** Each client works out the seats from its own game files. When you stand in a seat town, your game reports it to the server once a day. The server trusts a seat once three players whose accounts are at least a week old agree on it exactly.
 - **Fair sieges.** In a siege the server keeps every fighter's health and checks every blow, spell and step: a blow lands only if the weapon you carry can reach and deal it, nobody heals or strikes faster than the game allows, and nobody runs faster than the fastest legal runner. A siege's health is its own (300, more with your Renown) and never touches your character's health, items or gold. A siege room lets in only the fighters each side signed, and spectators.
@@ -127,7 +136,7 @@ The first part of guild town control is in. It is open to the developers first, 
 ---
 
 ### For the team
-- Apply migrations **`0047_town_seats.sql`**, **`0048_seat_influence.sql`**, **`0049_seat_turning.sql`**, **`0050_seat_holding.sql`**, **`0051_seat_battles.sql`**, **`0052_seat_siege_results.sql`**, **`0053_crown_edicts.sql`**, **`0054_royal_tourney.sql`** and **`0055_fealty_pacts.sql`** (with the guild halls' 0045 and 0046, after main's 0044) to production D1 and deploy the account service (**`acct52`**).
+- Apply migrations **`0047_town_seats.sql`**, **`0048_seat_influence.sql`**, **`0049_seat_turning.sql`**, **`0050_seat_holding.sql`**, **`0051_seat_battles.sql`**, **`0052_seat_siege_results.sql`**, **`0053_crown_edicts.sql`**, **`0054_royal_tourney.sql`** and **`0055_fealty_pacts.sql`** (with the guild halls' 0045 and 0046, after main's 0044) to production D1 and deploy the account service (**`acct53`**).
 - **The siege blackout.** The relay's deploy now waits while a siege is live or starts within 30 minutes (it asks the account service's public `/v1/seats/sieges/live`). Dispatch it with **force** to deploy at once - a forced deploy during a siege voids it. The account deploy now waits up to five and a half hours for the relay.
 - **The economy model**: `node tools/seatEconomy.mjs` re-runs the guild-week table from the live law files (`--runs`, `--seed`, `--json`).
 - **Deploy the relay (`world142`).** It sends the Watch's ticks (world138), carries the seats' titles (world139), referees a siege's room (world140), fights its battle by the service's pass (world141) and keeps a Royal Tourney's room (world142). Deploy it before the account service: an older relay refuses a token with a seat title in it.

@@ -874,6 +874,17 @@ for the Free Lands, a pure function of the week and a salt, as the gate's site i
 | Storm Season | 5 | fishing yields +50%, sea travel slowed |
 | Tax Revolt | 5 | Tithe above 5% costs Standing -3 extra |
 
+BUILT (SEASON1 part two, the roll and the seat's own effects, 2026-10-01, `acct53`; `06-Systems/Online-Arc.md` SEASON1
+part two): the roll (`src/net/tideLaw.js` - `gateHash` over the Tides' own salt, the week and the land, walked down the
+weights; the lands in the order daggerfall, wayrest, sentinel, the Marches, the Free Lands; the sea and any region no
+crown holds always Calm); a Plague's halved Watch and doubled Festival, a Daedric Incursion's doubled gate kills (the
+week's gate influence doubled after its 900 cap), a Royal Wedding's halved Festival and +3 Standing, a Tax Revolt's -3
+above a 5% Tithe - each read at the seat's own land, the week's Tide for influence and Standing and the coming week's for
+a Festival's price; both Tides on the Seat tab. DECIDED: a Tide rolls only while a Season is counted (`SEASON_ZERO_WEEK`)
+- before, every land is Calm. NOT YET: a Harvest's, a Blight's and a Storm Season's yields, a Bandit Summer's couriers
+(the economy's - part two's next), the Orc Raids' camps and the sea's slowness (the client's), and a Daedric
+Incursion's Marks (a kill's region is the client's word until three agree).
+
 ### 9.4 Why a guild comes back
 
 A weekly pledge; a weekly Edict; Tides that change the arithmetic; a Standing to keep; fortifications that last and
@@ -972,7 +983,7 @@ bible updated in the same change, mutants recorded.
 | **SEAT2b** | Fortifications, the Barracks' guards, the Gatehouse, the Ram, revolts | Needs PROF11 (Masonry), PROF4 (Carpentry), PROF3 (Smithing's ingots for the Ram) and PROF8 (the Pearls tier-2 Shrine and Apothecary ask) |
 | **CROWN1** | The crown tier: reach, the Marches, the Free Lands, crown glyphs, the Saturday slots, Royal Tourney, Conscription - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` CROWN1: reach, the Marches' share, the Free Lands' Watch, Conscription; `acct49`; the crown glyphs were SEAT1c's, the Saturday slots SEAT2a's); **PART TWO (the Royal Tourney) SHIPPED** - the relay (`world142`), the service (`acct50`) and the client; CROWN1 is whole. Built before SEAT2b, which waits on PROF11 (Masonry) and which CROWN1 does not read | 4.4's worked example pinned to the unit; every Conscription share pinned |
 | **CROWN2** | Fealty and Pacts - **SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` CROWN2; `acct51`, migration `0055`) | The tribute, the half-reach and the break's Standing pinned at the Turning; the pledges barred; a Pact broken early in red |
-| **SEASON1** | Seasons, the Chronicle, the Hall of Records, Tides - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` SEASON1: the calendar from `SEASON_ZERO_WEEK`, the names, a Season's end - its titles, the soft reset, the Chronicle's line - Season 0's wipe, the Season on the rules and the titles; `acct52`); the Tides and the banner ribbon are part two, the Hall of Records part three | A Season's end set against a twin counting none; Season 0's wipe |
+| **SEASON1** | Seasons, the Chronicle, the Hall of Records, Tides - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` SEASON1: the calendar from `SEASON_ZERO_WEEK`, the names, a Season's end - its titles, the soft reset, the Chronicle's line - Season 0's wipe, the Season on the rules and the titles; `acct52`); **PART TWO (the Tides) BEGUN** - the roll and the seat's own effects, on the Seat tab (`acct53`); the economy's and the client's Tides and the banner ribbon follow, the Hall of Records is part three | A Season's end set against a twin counting none; Season 0's wipe |
 
 ## 14. What remains to measure
 

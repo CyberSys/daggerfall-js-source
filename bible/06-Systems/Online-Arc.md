@@ -11186,6 +11186,45 @@ standings' shape (`seat1b_service`), the Turnings due and the mint's kept titles
 `seat1c_titles`), the plan's line (`seat1d_client`), the account version pins; twelve older mutant records re-aimed by
 content (SEAT1c's four, SEAT2a part three's four, CROWN1 part two's three, CROWN2's Pact).
 
+### SEASON1 (part two, the roll and the seat's own) - the Tides
+
+2026-10-01, Mac: "Finish the seats"; "Continue"; "Hurry up". Law, service and the Seat tab; `acct53`, no migration.
+Seats-Arc 9.3. New: `src/net/tideLaw.js`.
+
+- **The roll** (`tideOf`): each seat week, a Tide for each of five lands - the three kingdoms, the Marches (the three
+  regions share it), the Free Lands - off `gateHash(TIDE_SALT, week, land)` walked down the table's weights (Calm 40,
+  Harvest 10, Blight 5, Plague 5, Orc Raids 10, Daedric Incursion 10, Royal Wedding 5, Bandit Summer 5, Storm Season 5,
+  Tax Revolt 5), as the gate's site is rolled: every client and the service roll the same Tide with nothing sent. A
+  region's land is its crown's kingdom, the Marches or the Free Lands (`tideLandOf`); the sea and a region no crown holds
+  are always Calm.
+- **DECIDED: a Tide rolls only while a Season is counted** (`tideAt(week, region, counted)` - `SEASON_ZERO_WEEK`): before,
+  every land is Calm, so nothing a Tide touches moves before the seats open to everyone.
+- **The seat's own effects**, each at the seat's land:
+  - a Plague halves the Watch (`accountSeatInfluence`'s Tide, after a Free Land's tenth, rounded down) and doubles a
+    Festival's price;
+  - a Daedric Incursion doubles the week's gate kills - after their 900 cap, so a week's gates may give 1,800;
+  - a Royal Wedding halves a Festival's price and gives every held seat +3 Standing (`STANDING_CHANGES.wedding`);
+  - a Tax Revolt costs a seat whose Tithe is above 5% another 3 Standing (`taxRevolt`).
+  The standings and the Turning read the week's Tide (influence, Standing); a Festival is priced at the Tide of the week
+  it rules (`edictCost`'s third argument, the Turning's `tideNext`), as "Everyone knows the coming week's Tides at the
+  Turning".
+- **The Seat tab**: "The Tide in the Marches this week: Daedric Incursion - gate kills give double influence. Next
+  week: Plague." under the Season's line (the standings' `tides`, null where none is counted), and the Edict form's
+  Festival priced at next week's Tide.
+- **Not yet**: the economy's Tides (a Harvest's and a Blight's yields, a Storm Season's fishing, a Bandit Summer's
+  couriers) and the client's (the Orc Raids' camps and their influence, a Storm Season's sea); a Daedric Incursion's
+  doubled Marks - DECIDED: not paid, because a kill's region is the client's word until three claims agree, and doubling
+  a faucet on one account's word is not done.
+
+Pinned: `test/tide_law.test.js` (3), `test/tide_service.test.js` (2 - each against a twin service counting no Season,
+on the Marches' Incursion and Plague around T0), `test/tide_client.test.js` (1); `test/season1_service.test.js` now meets
+week W's Royal Wedding in Wayrest (its +3 before the halving). `tools/mutants/tide.json` (43, all dead - two survived the first run and one record did not parse: the
+"no other Edict" pin had used Edicts with no price, now the Royal Tourney's; the Turning's own Tide was unpinned, now
+pinned by the Legacy it carries; the record that broke a ternary re-aimed). PIN MOVED: the
+standings' shape (`seat1b_service`), Standing's rows (`seat1d_client`), the account version pins; eight older mutant
+records re-aimed by content (CROWN1's five on the Watch and the Free Lands, SEAT1b's gate cap, SEAT1d's Bounty price,
+SEASON1's standings), all still dead.
+
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 
 Mac, asked how quest enemies should work online (each player's quests are their own, so two party members on the

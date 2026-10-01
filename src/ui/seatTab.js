@@ -24,6 +24,7 @@ import {
   battleAnnouncement, sideLine, siegeWindowText, SIEGE_WINDOW_DAYS, SIEGE_WINDOW_HOURS, SIEGE_WINDOW_DEFAULT, SELLSWORD_FEE_MAX, passOpens, passWindowEnds,
 } from '../net/townSeatLaw.js';
 import { GUILD_RANK_MASTER } from '../net/guildLaw.js';
+import { tideLine } from '../net/tideLaw.js';
 
 /** SEAT1c: how long the relinquish button stays armed after its first press, ms. */
 export const SEAT_RELINQUISH_ARM_MS = 4000;
@@ -163,7 +164,7 @@ export function createSeatTab(host, ui) {
     if (chosen) sel.value = chosen;
     sel.onchange = () => { edictAsk = sel.value; ui.rerender(); };
     out.append(sel);
-    const words = edictLine(chosen, seat.tier);
+    const words = edictLine(chosen, seat.tier, data?.tides?.next ?? 'calm');   // SEASON1 part two: the coming week's Tide on its cost
     if (words) out.append(el('p', 'notice-seat-mine', words));
     if (chosen === 'bounty') {
       const a = /** @type {HTMLInputElement} */ (el('input', 'notice-input notice-seat-bounty'));
@@ -363,6 +364,8 @@ export function createSeatTab(host, ui) {
       if (holder && data.mine?.guild === holder.guild.id && SEAT_LEVER_RANKS.includes(data.mine?.rank)) body.append(windowNode(data.fight?.window ?? null));
       const season = seasonLine(data.week, data.season ?? null);   // SEASON1
       if (season) body.append(el('p', 'notice-seat-week notice-seat-season', season));
+      const tide = data.tides ? tideLine(seat.region, data.tides.now, data.tides.next) : null;   // SEASON1 part two (9.3)
+      if (tide) body.append(el('p', 'notice-seat-week notice-seat-tide', tide));
       body.append(el('p', 'notice-seat-week', seatWeekLine(data, ui.nowS())));
       body.append(el('p', 'notice-section', 'This week\'s standings'));
       body.append(standingsNode());

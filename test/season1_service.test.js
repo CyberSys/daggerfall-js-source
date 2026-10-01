@@ -7,7 +7,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { standService, T0 } from './accountDb.mjs';
-import { seatReportText, seatWeekOf, seatWeekStartMs, SEAT_MEMBER_WAIT_S, seasonStanding, SIEGE_HONOURS } from '../src/net/townSeatLaw.js';
+import { seatReportText, seatWeekOf, seatWeekStartMs, SEAT_MEMBER_WAIT_S, seasonStanding, SIEGE_HONOURS, STANDING_CHANGES } from '../src/net/townSeatLaw.js';
+import { tideOf } from '../src/net/tideLaw.js';
 import { verifyToken } from '../src/net/identityToken.js';
 import { mintSiegeReceipt } from '../src/net/siegeReceipt.js';
 import { SEASON_ZERO_WIPED } from '../server-account/src/seatTurning.js';
@@ -84,7 +85,9 @@ test('SEASON1 A SEASON\'S END, AGAINST A TWIN COUNTING NONE: the crown\'s guildm
   assert.deepEqual(s.raw.prepare('SELECT account, title, key, week FROM town_seat_titles ORDER BY title').all().map((r) => ({ ...r })), [
     { account: oa.gm.id, title: 'crowned', key: WAYREST.key, week: W }, { account: oa.gm.id, title: 'keeper', key: WAYREST.key, week: W },
   ]);
-  assert.deepEqual([s.held(WAYREST.key).standing, s.held(ALCAIRE.key).standing], plainStanding.map(seasonStanding));
+  // week W's Tide in Wayrest is a Royal Wedding - counted only with a Season (SEASON1 part two): +3 before the halving
+  assert.equal(tideOf(W, 'wayrest'), 'wedding');
+  assert.deepEqual([s.held(WAYREST.key).standing, s.held(ALCAIRE.key).standing], plainStanding.map((x) => seasonStanding(x + STANDING_CHANGES.wedding)));
   assert.deepEqual([s.held(TULUNE.key), plain.s.held(TULUNE.key)], [null, null], 'the Daggers\' Charter lapsed in both');
   assert.ok(s.held(YKALON.key) && s.raw.prepare('SELECT 1 FROM town_seat_weeks WHERE week = ?').get(W), 'a guild with no guildmaster: the week settled all the same');
   assert.equal(s.raw.prepare("SELECT COUNT(*) AS n FROM town_seat_history WHERE key = ? AND kind = 'season-end'").get(TULUNE.key).n, 0, 'a lapsed Charter: no line');

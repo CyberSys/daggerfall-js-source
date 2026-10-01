@@ -75,6 +75,7 @@ import { holdingOf } from './seatHolding.js';   // SEAT1d: the holder's own view
 import { fightOf } from './seatBattles.js';   // SEAT2a: the battle as the Seat tab shows it
 import { royalView } from './seatRoyal.js';   // CROWN1 part two: a Royal Tourney's ladder
 import { bansOf, politicsOf } from './seatPolitics.js';   // CROWN2: the pledges fealty and Pacts forbid; a guild's politics
+import { tideAt } from '../../src/net/tideLaw.js';   // SEASON1 part two: the Tides
 
 const weekAt = (nowS) => seatWeekOf(nowS * 1000);
 /** Whether a member row has stood its 7 days (SEAT0 4.2: "A new member waits"). */
@@ -322,7 +323,7 @@ export async function creditRenown({ db, nowS }, player, env, { character, regio
  * @param {{ guilds: string[], rows: any[], renown: any[], homes: any[], binds: Map<string, string>,
  *   agreed: Map<number, number>, weekStartS: number, nowS: number, reach?: Map<string, number>, freeLand?: boolean }} o
  */
-export function standingsOf({ guilds, rows, renown, homes, binds, agreed, weekStartS, nowS, reach = new Map(), freeLand = false }) {
+export function standingsOf({ guilds, rows, renown, homes, binds, agreed, weekStartS, nowS, reach = new Map(), freeLand = false, tide = 'calm' }) {
   const out = [];
   for (const g of guilds) {
     /** @type {Map<string, { watch: number, gates: number, renownXp: number, writ: number, homeDays: number }>} */
@@ -343,7 +344,7 @@ export function standingsOf({ guilds, rows, renown, homes, binds, agreed, weekSt
       .map((h) => ({ player: h.player, days: homeDaysIn(Number(h.bought_at), weekStartS, nowS) }))
       .sort((x, y) => y.days - x.days).slice(0, HOMES_SEAT_MAX);
     for (const h of hs) if (h.days > 0) a(h.player).homeDays += h.days;
-    const per = new Map([...acc].map(([id, v]) => [id, accountSeatInfluence(v, freeLand ? FREE_LAND_WATCH_BONUS : 0)]));
+    const per = new Map([...acc].map(([id, v]) => [id, accountSeatInfluence(v, freeLand ? FREE_LAND_WATCH_BONUS : 0, tide)]));   // SEASON1 part two: the week's Tide here
     out.push({ guild: g, ...withReach(guildSeatInfluence([...per.values()], tributeMarks), reach.get(g) ?? 0), accounts: [...per.values()].filter((v) => v > 0).length, per });
   }
   return out.sort((x, y) => y.total - x.total || (x.guild < y.guild ? -1 : 1));
@@ -358,8 +359,9 @@ export async function seatGuildsOf(db, key, week) {
   if (held && !out.has(held.guild_id)) out.set(held.guild_id, Number(held.at));
   return out;
 }
-/** Each pledged guild's week at a seat (standingsOf), the rows gathered. Exported for the Turning (seatTurning.js). */
-export async function gatherStandings(db, seat, week, nowS) {
+/** Each pledged guild's week at a seat (standingsOf), the rows gathered. Exported for the Turning (seatTurning.js).
+ *  SEASON1 part two: `counted` whether a Season is counted that week - the Tides roll only then. */
+export async function gatherStandings(db, seat, week, nowS, counted = false) {
   const guilds = [...(await seatGuildsOf(db, seat.key, week)).keys()];
   if (!guilds.length) return [];
   const qs = guilds.map(() => '?').join(', ');
@@ -377,7 +379,7 @@ export async function gatherStandings(db, seat, week, nowS) {
   const { results: crownRows = [] } = seat.tier === 'palace'
     ? await db.prepare(`SELECT guild_id, tier, region FROM town_seat_holds WHERE tier = 'crown' AND guild_id IN (${qs})`).bind(...guilds).all() : { results: [] };
   const reach = new Map(guilds.map((g) => [g, seatReach(seat, crownsHeld(crownRows.filter((h) => h.guild_id === g).map((h) => ({ tier: h.tier, region: Number(h.region) }))))]));
-  return standingsOf({ guilds, rows, renown, homes, binds, agreed, weekStartS: Math.floor(seatWeekStartMs(week) / 1000), nowS, reach, freeLand: isFreeLand(seat.region) });
+  return standingsOf({ guilds, rows, renown, homes, binds, agreed, weekStartS: Math.floor(seatWeekStartMs(week) / 1000), nowS, reach, freeLand: isFreeLand(seat.region), tide: tideAt(week, seat.region, counted) });
 }
 
 /**
@@ -391,7 +393,8 @@ export async function readStandings({ db, nowS }, player, env, { key, character 
   const seat = (await confirmedSeats(db, nowS)).get(key);
   if (!seat) return { error: 'seat-unconfirmed' };
   const week = weekAt(nowS);
-  const list = await gatherStandings(db, seat, week, nowS);
+  const season = seasonOf(week, seasonZeroOf(env?.SEASON_ZERO_WEEK));   // SEASON1: the Season counted, and its Tides
+  const list = await gatherStandings(db, seat, week, nowS, !!season);
   // SEAT1c: the Legacy each guild carried in, the holder and its defence, the week's battle here, the Chronicle
   const { results: legacyRows = [] } = await db.prepare('SELECT guild_id, amount FROM town_seat_legacy WHERE week = ? AND key = ?').bind(week, key).all();
   const legacy = new Map(legacyRows.map((l) => [l.guild_id, Number(l.amount)]));
@@ -428,7 +431,9 @@ export async function readStandings({ db, nowS }, player, env, { key, character 
     }
   }
   return {
-    seat, week, phase: seatPhaseOf(nowS * 1000), season: seasonOf(week, seasonZeroOf(env?.SEASON_ZERO_WEEK)),   // SEASON1: the Season this week falls in, or null
+    seat, week, phase: seatPhaseOf(nowS * 1000), season,   // SEASON1: the Season this week falls in, or null
+    // SEASON1 part two (9.3): this week's Tide in the seat's land and the coming week's, while a Season is counted
+    tides: season ? { now: tideAt(week, seat.region, true), next: tideAt(week + 1, seat.region, !!seasonOf(week + 1, seasonZeroOf(env?.SEASON_ZERO_WEEK))) } : null,
     reckoningAt: Math.floor((start + SEAT_WEEK_MS - SEAT_RECKONING_MS) / 1000), turningAt: Math.floor((start + SEAT_WEEK_MS) / 1000),
     standings: list.map((s) => {
       const g = byId.get(s.guild);
@@ -500,7 +505,7 @@ export async function payTribute({ db, nowS }, player, env, { character, key, ma
   if (!seat) return { error: 'seat-unconfirmed' };
   const gid = a.me.guild_id;
   if ((await pledgeIn(db, week, gid, seat.region)) !== key) return { error: 'seat-no-pledge' };
-  const s = (await gatherStandings(db, seat, week, nowS)).find((x) => x.guild === gid);
+  const s = (await gatherStandings(db, seat, week, nowS, !!seasonOf(week, seasonZeroOf(env?.SEASON_ZERO_WEEK)))).find((x) => x.guild === gid);
   const room = s ? tributeRoom(s.others, s.tribute) : 0;
   if (marks / TRIBUTE_MARKS_PER_INFLUENCE > room) return { error: 'seat-tribute-cap' };   // the room is the standings' to say (mine.tributeRoom)
   try {
