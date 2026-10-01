@@ -478,15 +478,17 @@ export function createProfBook({ door, storage = null, character = () => null, n
 
     // ─── A SMELT AT A FORGE (PROF2) ─────────────────────────────────
     /** A recipe `count` times at the forge. The id is kept until an answer comes, so a press after a lost answer is the
-     *  same smelt, never a second. Answers the service's answer; the Stores and Smithing's track moved with it. */
-    async smelt(recipe, count) {
+     *  same smelt, never a second. Answers the service's answer; the Stores and Smithing's track moved with it. PROF11:
+     *  or a mason's work at the bench, `clean` the chisel's report (the service reads it only where the work has the act;
+     *  a press after a lost answer is the same work, whatever its chisel). */
+    async smelt(recipe, count, { clean = false } = {}) {
       const c = character();
       if (!c) return { ok: false, error: 'prof-character' };
       const key = `smelt|${slot()}|${recipe}|${count}`;
       const m = idFor(key, PROF_QUEUE_MS);
       if (m.promise) return m.promise;
       m.promise = (async () => {
-        const r = await ask(() => door.smelt(c, recipe, count, m.id));
+        const r = await ask(() => door.smelt(c, recipe, count, m.id, clean === true));
         m.promise = null;
         if (!keptAnswer(r)) ids.delete(key);
         if (r?.ok) { for (const s of r.data?.stores ?? []) applyStore(s); applyTrack(r.data?.track); } else shutBy(r);

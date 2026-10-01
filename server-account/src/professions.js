@@ -53,10 +53,12 @@ import {
   glintsMax, smeltRecipe, SMELT_MAX, smeltXp, craftXpCap, HARVESTS_PER_ACCOUNT_DAY, DEEP_UNCONFIRMED_PER_DAY,
   stockOf, STOCK_MAX, withdrawable, cutsMax, workPer, workSpecRank, hideOfFoe, HIDES_PER_DAY, HIGH_HIDES_PER_DAY, HIGH_HIDE_TIER,
   HAULS_PER_DAY, HAUL_YIELD, FISH_KEY, haulTier,   // PROF8
+  workOpen,   // PROF11: a mason's work asks its rank
 } from '../../src/net/professionLaw.js';
 import {
   recipeById, recipeOpen, qualityOdds, rollQuality, qualitySteps, craftQuality, takesQuality, craftXp, craftCount,
   makerName, FIRST_CRAFT_XP, firstCraftPays, recipeInputs, takesHeartwood, carriesMark, dyeOk,
+  masonXp,   // PROF11: the mason's bench's XP
 } from '../../src/net/recipeLaw.js';
 import { mintProductRecord } from '../../src/net/productRecord.js';
 import { signingKey } from './signing.js';
@@ -707,8 +709,14 @@ export async function withdrawStores(ctx, player, env, { character, material: ke
  * the same statement (an ingot is own only when every unit that made it was - bought units are spent first). Then the
  * inputs out, the products in, and the recipe's XP - Smithing's 10 x the product's tier a unit for a smelt, under the
  * crafter's limit (PROF0 3.2); none for a log's (PROF0 25).
+ *
+ * PROF11 (PROF0 3.2, 4.5, 9.3, 9.4): AND THE MASON'S BENCH's - Rough Stone cut to Cut Stone (a Quarryman's 1 : 1, a
+ * choice at 50) and Mortar mixed ten at a time (professionLaw MASON_RECIPES): a work with a CRAFT's law. Its rank is
+ * asked (`prof-rank` - workOpen); `clean` the chisel's report, read only for a work that has the act; its XP Masonry's,
+ * 20 x the rank's tier a unit (recipeLaw masonXp - XP follows the rank), half again for a clean chisel, and 500 the first
+ * time the character does it - read in the decision, as a craft's is, and kept with the row (`first`, `clean`: 0059).
  */
-export async function smeltAtForge(ctx, player, env, { character, recipe: id, count, rid } = {}) {
+export async function smeltAtForge(ctx, player, env, { character, recipe: id, count, clean = false, rid } = {}) {
   const { db, nowS, rand } = ctx;
   const refused = asks(player, { character, rid });
   if (refused) return refused;
@@ -719,6 +727,7 @@ export async function smeltAtForge(ctx, player, env, { character, recipe: id, co
     const prof = r.xp ?? r.more?.profession ?? null;
     return {
       ok: true, ...extra, recipe: row.recipe, count: Number(row.count), own: Number(row.own), bought: Number(row.bought), xp: Number(row.xp),
+      ...(r.act ? { first: Number(row.first) === 1, clean: Number(row.clean) === 1 } : {}),   // PROF11: a mason's work's first and its chisel
       track: prof ? trackView(await trackRow(db, player.id, row.char_id, prof), prof, nowS) : null,
       stores: await Promise.all([r.out, ...r.inputs.map((inp) => inp.key)].map((k) => storeOf(db, player.id, row.char_id, k))),
     };
@@ -740,14 +749,20 @@ export async function smeltAtForge(ctx, player, env, { character, recipe: id, co
   // PROF7: at the rank the choice is made at - a Tanner's at 50
   const specsHere = r.more ? { [r.more.profession]: specsAt(tracks.find((t) => t.profession === r.more.profession), nowS)[workSpecRank(r)] } : {};
   const per = workPer(r, specsHere);
+  const rank = ranks[r.xp] ?? 0;
+  if (!workOpen(r, rank)) return { error: 'prof-rank' };   // PROF11: a mason's work asks its tier's rank (Mortar's 10)
+  // PROF11: a mason's work's XP is a craft's (recipeLaw masonXp: the rank's tier a unit, a clean chisel's half again) and
+  // its first time's 500 (?11, where firstCraftPays) laid on in the decision; every other work's the smelt's
+  const act = r.act ? clean === true : false;
   const cap = r.xp ? craftXpCap(r.xp, ranks) : 0;
-  const xp = r.xp ? smeltXp(out.tier, count, ranks[r.xp] ?? 0) : 0;   // AUDIT 29 A7: the record's quarter, at the smith's rank
+  const xp = r.act ? masonXp(count, rank, { clean: act }) : r.xp ? smeltXp(out.tier, count, ranks[r.xp] ?? 0) : 0;   // AUDIT 29 A7: the record's quarter, at the smith's rank
   const nonce = mintId(rand);
-  // ?1 player ?2 character ?3 rid ?4 recipe ?5 count ?6 out ?7 STORES_MAX ?8 xp ?9 now ?10 nonce; the inputs ?11 on, two a one
-  const binds = [player.id, character, rid, r.id, count, r.out, STORES_MAX, xp, nowS, nonce];
+  // ?1 player ?2 character ?3 rid ?4 recipe ?5 count ?6 out ?7 STORES_MAX ?8 xp ?9 now ?10 nonce ?11 the first time's XP
+  // (PROF11: a mason's work's; 0 for every other) ?12 the chisel clean; the inputs ?13 on, two a one
+  const binds = [player.id, character, rid, r.id, count, r.out, STORES_MAX, xp, nowS, nonce, r.act && firstCraftPays(r) ? FIRST_CRAFT_XP : 0, act ? 1 : 0];
   const held = [], boughtOf = [];
   r.inputs.forEach((inp, i) => {
-    const k = `?${11 + 2 * i}`, need = `?${12 + 2 * i}`;
+    const k = `?${13 + 2 * i}`, need = `?${14 + 2 * i}`;
     binds.push(inp.key, inp.n * count);
     held.push(`${spendableSql('?1', '?2', k)} >= ${need}`);   // GOLD-MARKET: never gold's units
     // the products bought: the most any input's bought units reach, product by product (professionLaw smeltOrigin)
@@ -756,10 +771,12 @@ export async function smeltAtForge(ctx, player, env, { character, recipe: id, co
   const bought = boughtOf.length > 1 ? `MAX(${boughtOf.join(', ')})` : boughtOf[0];
   await db.batch([
     // THE DECISION: every input held, the product's room - and its origin, read before a unit moves; the XP what the
-    // track can take under the crafter's limit (AUDIT 29 A14: the answer says what was credited)
-    db.prepare(`INSERT OR IGNORE INTO prof_smelts (player, rid, char_id, recipe, count, own, bought, xp, at, n)
+    // track can take under the crafter's limit (AUDIT 29 A14: the answer says what was credited); PROF11: a mason's
+    // first of a work its 500 laid on (`f`, kept), and its chisel kept
+    db.prepare(`INSERT OR IGNORE INTO prof_smelts (player, rid, char_id, recipe, count, own, bought, xp, at, n, first, clean)
       SELECT ?1, ?3, ?2, ?4, ?5, ${per} * (?5 - MIN(?5, ${bought})), ${per} * MIN(?5, ${bought}),
-        MAX(0, MIN(?8, ${Number(cap)} - COALESCE((SELECT xp FROM prof_tracks WHERE player = ?1 AND char_id = ?2 AND profession = '${r.xp ?? 'smithing'}'), 0))), ?9, ?10
+        MAX(0, MIN(?8 + f * ?11, ${Number(cap)} - COALESCE((SELECT xp FROM prof_tracks WHERE player = ?1 AND char_id = ?2 AND profession = '${r.xp ?? 'smithing'}'), 0))), ?9, ?10, f, ?12
+      FROM (SELECT CASE WHEN ?11 > 0 AND NOT EXISTS (SELECT 1 FROM prof_smelts WHERE player = ?1 AND char_id = ?2 AND recipe = ?4) THEN 1 ELSE 0 END AS f)
       WHERE ${held.join(' AND ')}
         AND COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?2 AND material = ?6), 0) + ${per} * ?5 <= ?7`).bind(...binds),
     // the inputs out, each bought first
@@ -829,6 +846,8 @@ async function craftAnswer(db, player, row, nowS, extra = {}) {
  * id, its signed record (net/productRecord.js) and whether its name carries the maker's mark (a Masterwork's, a Master
  * Joiner's furniture); and the XP - 20 x the recipe's tier, +500 the character's first of it (none for a recipe made
  * wholly of goods only a counter sells - AUDIT 32 S1), under the crafter's limit (3.2), answered as credited.
+ * PROF11: or the mason's bench's carvings - the Sculptor's stone decor (recipeLaw MASONRY_RECIPES), the chisel its act,
+ * furniture among the home's things; a character not standing as a Sculptor at 100 is refused (`prof-sculptor`).
  */
 export async function craftAtAnvil(ctx, player, env, { character, recipe: id, clean, name, heartwood = false, dye = null, rid } = {}) {
   const { db, nowS, rand, subtle } = ctx;
@@ -847,8 +866,9 @@ export async function craftAtAnvil(ctx, player, env, { character, recipe: id, cl
   const ranks = Object.fromEntries(tracks.map((t) => [t.profession, rankOfXp(Number(t.xp))]));
   const prof = r.profession;
   const rank = ranks[prof] ?? 0;
-  if (!recipeOpen(r, rank)) return { error: 'prof-rank' };
   const specs = specsAt(tracks.find((t) => t.profession === prof), nowS);
+  if (r.spec && specs[100] !== r.spec) return { error: 'prof-sculptor' };   // PROF11: the stone decor is a Sculptor's (3.3)
+  if (!recipeOpen(r, rank, specs)) return { error: 'prof-rank' };
   const cap = craftXpCap(prof, ranks);
   const wood = heartwood === true && takesHeartwood(r);
   const inputs = recipeInputs(r, { heartwood: wood, joiner: specs[50] === 'joiner' });

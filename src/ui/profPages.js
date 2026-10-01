@@ -27,7 +27,10 @@
 //   craft or a saw; a home's workbench). PROF7: THE LOOM - the tanning
 //   rack's cures, the weave, and Outfitting's recipes with the stitch and
 //   a garment's dye - at a Clothing Store (its fee a craft, a cure or a
-//   weave) or a home's loom.
+//   weave) or a home's loom. PROF11: THE MASON'S BENCH - the cut (Rough
+//   Stone to Cut Stone) and the mix (Mortar) with the chisel, and the
+//   Sculptor's stone decor - at a General Store (its fee a cut, a mix
+//   or a carving) or a home's mason's bench.
 //
 // The pages draw with the menu's own kit (its `el`, divider and meter,
 // handed in), so they are the sheet's pages and not a second window.
@@ -37,12 +40,14 @@ import {
   JOURNEYMAN_RANK, MATERIAL_FAMILIES, HARVESTS_PER_DAY, HIDES_PER_DAY, HIGH_HIDES_PER_DAY, HAULS_PER_DAY, WITHDRAW_MAX, professionName, SMELT_RECIPES, SMELT_MAX, FORGE_FEE,
   withdrawable, stockOf, STOCK_MAX, BURN_RECIPES, SAW_RECIPES, WORKBENCH_FEE, WOODS, workPer, workSpecRank, CURE_RECIPES,
   WEAVE_RECIPES, LOOM_FEE, CLOTHS, WEAVERS_STOCK, STANDARD_SILK,
+  MASON_RECIPES, MASON_FEE, workOpen,   // PROF11: the mason's bench
 } from '../net/professionLaw.js';
 import {
   RECIPES, recipeOpen, qualityOdds, QUALITY_NAMES, HEAT_ACT, takesQuality, recipeInputs, takesHeartwood, PLANE_ACT, STITCH_ACT,
-  GARMENT_DYES,
+  GARMENT_DYES, MASONRY_RECIPES, CHISEL_ACT, chiselStrikes, chiselMarkS, SCULPTOR,   // PROF11: the Sculptor's stone and the chisel
 } from '../net/recipeLaw.js';
 import { createStitchAct } from '../systems/stitchAct.js';
+import { createChiselAct } from '../systems/chiselAct.js';   // PROF11
 import { DYE_NAMES } from '../characters/dyes.js';
 import { isTextEntryTarget, isDomControlTarget } from './input.js';   // AUDIT 30 A9: a field's keys and a button's are their own
 import { createHeatAct } from '../systems/heatAct.js';
@@ -58,7 +63,8 @@ import { getPref, setPref } from '../systems/uiPrefs.js';
  * @property {(key: string) => string} name               a material's name (systems/profItems.js materialLabel)
  * @property {(key: string, qty: number) => Promise<{ ok: boolean, text: string }>} withdraw   out of the Stores, into the pack
  * @property {() => ({ kind: 'shop'|'home', fee: number }|null)} [forge]   PROF2: the forge the player stands at, or null
- * @property {(recipe: string, count: number) => Promise<{ ok: boolean, text: string }>} [smelt]   PROF2: a smelt, its fee paid
+ * @property {(recipe: string, count: number, opts?: { clean?: boolean }) => Promise<{ ok: boolean, text: string }>} [smelt]   PROF2: a
+ *   smelt, its fee paid; PROF11: or a mason's work, `clean` the chisel's report
  * @property {() => Promise<any>} [settle]   AUDIT 29 C4: the kept withdrawals asked again (the Stores page opened)
  * @property {(recipe: string, opts: { clean: boolean, heartwood?: boolean, dye?: number|null }) => Promise<{ ok: boolean, text: string }>} [craft]
  *   PROF3: a craft at the anvil (PROF4: or the workbench, by the recipe's profession; PROF7: or the loom, a garment's
@@ -77,13 +83,15 @@ import { getPref, setPref } from '../systems/uiPrefs.js';
  * @property {() => (number|null)} [marks]   AUDIT 32 P6: the Marks held (the Bank's book), or null unknown - a counter's
  *   purchase the balance cannot meet is held and said
  * @property {() => boolean} [marksOpen]   AUDIT 32 P6: whether Marks are struck at all - a counter is offered only then
+ * @property {() => ({ kind: 'shop'|'home', fee: number }|null)} [mason]   PROF11: the mason's bench the player stands at
+ * @property {() => number} [chiselBand]   PROF11: the chisel's attribute band (recipeLaw chiselBand)
  */
 let _provider = /** @type {ProfPagesProvider|null} */ (null);
 /** The host's book, or null to take the pages down (offline, a closed switch, the host gone). */
 export function setProfessionsPages(p) { _provider = p ?? null; }
 /** What a locked specialisation's card says it waits for (professionLaw.js `later`). */
 const LATER_WORDS = Object.freeze({
-  PROF2b: 'Comes with the Motherlodes', SEAT2: 'Comes with the sieges',
+  PROF2b: 'Comes with the Motherlodes', SEAT2: 'Comes with the sieges', SEAT2b: 'Comes with the fortifications',   // PROF11: the Builder's and the Fortifier's
   // PROF7 (Professions-Arc.md 29): what DFU gives these nothing to stand as - for Mac
   trophy: 'Waits on a trophy to stand as', 'two-colour': 'Waits on a second dye Daggerfall\'s cloth can take', wagon: 'Waits on a wagon upgrade to hold',   // AUDIT 32 R11: Daggerfall, never "DFU", where a player reads it
 });
@@ -98,10 +106,12 @@ export const forgeOffered = () => profPagesShown();
 export const FORGE_COLD_LINE = 'The forge is cold. Smelting is done online, from your Stores page.';
 /** PROF4 (bible/06-Systems/Professions-Arc.md 25): the home stations the Stores page works - the forge and the workbench -
  *  offered, sold and worked only where it is (forgeOffered's gate, AUDIT 29 B2). */
-export const PROF_STATIONS = Object.freeze(['forge', 'workbench', 'loom']);   // PROF7: the loom
+export const PROF_STATIONS = Object.freeze(['forge', 'workbench', 'loom', 'mason']);   // PROF7: the loom; PROF11: the mason's bench
 export const WORKBENCH_COLD_LINE = 'The workbench is bare. Carpentry is done online, from your Stores page.';
 export const LOOM_COLD_LINE = 'The loom is still. Outfitting is done online, from your Stores page.';
-export const stationColdLine = (station) => (station === 'workbench' ? WORKBENCH_COLD_LINE : station === 'loom' ? LOOM_COLD_LINE : FORGE_COLD_LINE);
+export const MASON_COLD_LINE = 'The mason\'s bench is idle. Masonry is done online, from your Stores page.';   // PROF11
+export const stationColdLine = (station) => (station === 'workbench' ? WORKBENCH_COLD_LINE : station === 'loom' ? LOOM_COLD_LINE
+  : station === 'mason' ? MASON_COLD_LINE : FORGE_COLD_LINE);
 /** The rail's rows the pages add. */
 export const PROF_PAGE_SECTIONS = Object.freeze([Object.freeze(['professions', 'Professions']), Object.freeze(['stores', 'Stores'])]);
 
@@ -138,6 +148,14 @@ const _loom = {
   stitch: /** @type {((e?: any) => void)|null} */ (null),   // AUDIT 32 P1: the press's event, its moment
   actRecipe: /** @type {string|null} */ (null), actDye: /** @type {number|null} */ (null),   // AUDIT 30 A3's law: the stitch's own recipe and dye
 };
+/** PROF11: the mason's bench - the carving chosen, the chisel being struck and what it makes (`actWhat`: a work and
+ *  its count, or a carving), a work or a carving in flight, its word, the works' counts. */
+const _mason = {
+  picked: /** @type {string|null} */ (null), act: /** @type {any} */ (null), busy: false, crafting: false,
+  word: /** @type {string|null} */ (null), counts: /** @type {Record<string, number>} */ ({}), els: /** @type {any} */ (null),
+  off: /** @type {(() => void)|null} */ (null), strike: /** @type {((e?: any) => void)|null} */ (null),
+  actWhat: /** @type {{ kind: 'work'|'carve', id: string, count: number }|null} */ (null),
+};
 /** AUDIT 30 U20: the one row a smelt, burn or saw is under way on - its button alone says so. */
 let _workingOn = /** @type {string|null} */ (null);
 /**
@@ -146,7 +164,8 @@ let _workingOn = /** @type {string|null} */ (null);
  * player never finished spent its ingot. Every station's Craft waits on the others'.
  * @param {object} me
  */
-const handsAt = (me) => (me !== _anvil && _anvil.act ? 'the anvil' : me !== _bench && _bench.act ? 'the workbench' : me !== _loom && _loom.act ? 'the loom' : null);
+const handsAt = (me) => (me !== _anvil && _anvil.act ? 'the anvil' : me !== _bench && _bench.act ? 'the workbench' : me !== _loom && _loom.act ? 'the loom'
+  : me !== _mason && _mason.act ? 'the mason\'s bench' : null);   // PROF11
 /**
  * AUDIT 32 P1: AN ACT'S PRESS BUTTON (the heat's Strike, the stitch's Stitch) - pressed on the pointer's DOWN, the focus
  * left where it was (the click comes on the release: a tap on the beat was scored 90-150 ms late, and a phone has no
@@ -190,16 +209,18 @@ export function setDownProfAct() {
   if (_anvil.act) { _anvil.act.cancel(); endHeat(); _anvil.word = 'You let the ingot cool; nothing is spent.'; return true; }
   if (_bench.act) { _bench.act.cancel?.(); _bench.act = null; _bench.actRecipe = null; _bench.word = 'You set the plane down; nothing is spent.'; return true; }
   if (_loom.act) { _loom.act.cancel(); endStitch(); _loom.word = 'You set the needle down; nothing is spent.'; return true; }
+  if (_mason.act) { _mason.act.cancel(); endChisel(); _mason.word = CHISEL_DOWN_LINE; return true; }   // PROF11
   return false;
 }
 /** Whether an act is under way on the Stores page (the back stack's question). */
-export const profActUnderWay = () => !!(_anvil.act || _bench.act || _loom.act);
+export const profActUnderWay = () => !!(_anvil.act || _bench.act || _loom.act || _mason.act);   // PROF11: the chisel
 /** A fresh visit starts plain (the menu calls it with its own reset). */
 export function resetProfPages() {
   _armed = null; _profWord = null; _stores.word = null; _stores.picked = null; _stores.qty = 1; _forge.word = null; _forge.counts = {};
   endHeat(); _anvil.word = null; _anvil.picked = null; _anvil.heartwood = false;
   _bench.act?.cancel(); _bench.act = null; _bench.actRecipe = null; _bench.word = null; _bench.picked = null; _bench.counts = {}; _bench.heartwood = false;   // PROF4
   endStitch(); _loom.word = null; _loom.picked = null; _loom.counts = {}; _loom.dye = null;   // PROF7
+  endChisel(); _mason.word = null; _mason.picked = null; _mason.counts = {};   // PROF11
 }
 
 /** What the Professions page says a harvest earns for each profession PROF1 gathers, by tier. */
@@ -225,10 +246,13 @@ const UNLOCKS = Object.freeze({
   // PROF8: every haul is Raw Fish - the rank sets its XP (a haul is worked at the rank's own tier); the sea's finds need
   // the ground the witnesses confirmed, and no rank
   fishing: Object.freeze([['Raw Fish in any water; a school\'s extra fish; at sea on confirmed ground a Pearl or a Slaughterfish; a trophy', 1]]),
+  // PROF11: the bench's two works by their ranks - the cut Rough Stone's (tier 1), the mix Mortar's (tier 2); the
+  // Sculptor's stone decor comes with its card at 100
+  masonry: Object.freeze([['Cut Stone, from Rough Stone', 1], ['Mortar, from Sulphur, Lead and Rough Stone', 2]]),
 });
 /** PROF4 (FOUND): Smithing was practised from PROF3 and the page never said so - its cards stood locked. PROF7: Hunting
  *  and Outfitting. */
-const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'fishing', 'logging', 'smithing', 'outfitting', 'carpentry']);   // PROF8: Fishing
+const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'fishing', 'logging', 'smithing', 'outfitting', 'carpentry', 'masonry']);   // PROF8: Fishing; PROF11: Masonry
 /** PROF8: how a haul is made, as the page says it. */
 export const FISHING_HOW = 'With a Fishing-Net in your pack, stand in water, swim, or stand at sea, by daylight. Hold the use key to wind the net and let go to throw it; when the floats dip, press it again; then hold it to raise the band over the net\'s weight and let go to lower it - keep the weight inside to fill the net. Cast toward a rising school for an extra fish.';
 /** FIELD BUGS 2026-09-30b (TOOL-SAID): how the other three gathering professions gather, as the page says it - the page
@@ -453,6 +477,7 @@ export function drawStoresPage(detail, rerender, kit) {
   drawAnvil(detail, rerender, kit);   // PROF3
   drawWorkbench(detail, rerender, kit);   // PROF4
   drawLoom(detail, rerender, kit);   // PROF7
+  drawMasonBench(detail, rerender, kit);   // PROF11
 }
 
 /** What the Stores make of a recipe now: the most it can smelt (every input's units over its need), to SMELT_MAX. */
@@ -1211,4 +1236,244 @@ function drawLoom(detail, rerender, { el, divider }) {
     detail.append(box);
   }
   if (_loom.word) detail.append(el('p', 'prof-word', _loom.word));
+}
+
+// ─── PROF11: THE MASON'S BENCH (bible/06-Systems/Professions-Arc.md 4.5, 9.3, 9.4) ─────
+
+/** What setting the chisel down says. */
+export const CHISEL_DOWN_LINE = 'You set the chisel down; nothing is spent.';
+/** Tests: the bench's state - its chisel ticked by hand, as a frame would. */
+export const _masonForTests = () => _mason;
+/** The chisel let go: its loop, its keys and what it was making. */
+function endChisel() {
+  _mason.off?.();
+  _mason.off = null;
+  _mason.strike = null;
+  _mason.act = null;
+  _mason.els = null;
+  _mason.actWhat = null;
+}
+/** The chisel's stone redrawn from the act: the marked line lit, the line the chisel is set on shown. */
+function paintChisel() {
+  const a = _mason.act, els = _mason.els;
+  if (!a || !els?.lines) return;
+  els.lines.forEach((b, i) => { b.classList.toggle('marked', i === a.mark); b.classList.toggle('at', i === a.state.at); });
+  els.stone?.classList.toggle('prof-inband', a.onMark);
+}
+/**
+ * THE CHISEL'S KEYS (AUDIT 32 P1/P2/P4's law, the act's own and no other's): the arrows move the chisel a line; a digit
+ * (1 to CHISEL_ACT.lines) sets it on that line and strikes; Space and Enter strike where it is set (actKey). A field's
+ * keys stay the field's; a held key's repeats strike nothing.
+ */
+function chiselKey(e, strike) {
+  if (isTextEntryTarget(e.target)) return;
+  const d = e.code === 'ArrowUp' || e.code === 'ArrowLeft' ? -1 : e.code === 'ArrowDown' || e.code === 'ArrowRight' ? 1 : 0;
+  const digit = /^(?:Digit|Numpad)([1-9])$/.exec(e.code ?? '');
+  const line = digit ? Number(digit[1]) - 1 : -1;
+  if (!d && !(line >= 0 && line < CHISEL_ACT.lines)) { actKey(e, _mason.els?.hit, strike); return; }
+  e.preventDefault?.(); e.stopImmediatePropagation?.(); e.stopPropagation?.();
+  if (e.repeat) return;
+  if (d) { _mason.act?.move(d); paintChisel(); return; }
+  _mason.act?.aim(line);
+  strike(e);
+}
+/** The chisel's frame: the mark ticked and the stone drawn, the act ended when the page is gone; the work asked on the
+ *  last strike (the stitch's loop, a stone for a beat). */
+function chiselLoop(finish) {
+  const raf = globalThis.requestAnimationFrame?.bind(globalThis) ?? ((fn) => setTimeout(() => fn(Date.now()), 16));
+  const caf = globalThis.cancelAnimationFrame?.bind(globalThis) ?? clearTimeout;
+  let last = null, id = 0, live = true, inStep = false;
+  const clock = () => globalThis.performance?.now?.() ?? Date.now();
+  const next = () => { id = raf(() => { if (inStep) setTimeout(step, 16); else step(); }); };
+  const step = () => {
+    if (!live || !_mason.act) return;
+    inStep = true;
+    try {
+      const els = _mason.els;
+      if (!els?.stone || els.stone.isConnected === false) { _mason.act.cancel(); endChisel(); return; }   // the page shut under the act: nothing spent
+      const t = clock();
+      const dt = last == null ? 0 : Math.min(0.1, (t - last) / 1000);
+      last = t;
+      _mason.act.tick(dt);
+      paintChisel();
+      next();
+    } finally { inStep = false; }
+  };
+  const strike = (e) => {
+    const a = _mason.act;
+    if (!a) return;
+    const hit = a.strike(pressLead(e, last));   // AUDIT 32 P1: at the press's own moment
+    if (hit == null) return;
+    _mason.els?.marks?.[a.state.strikes.length - 1]?.classList.add(hit ? 'hit' : 'miss');
+    if (a.state.done) { const clean = a.report().clean; endChisel(); finish(clean); } else paintChisel();
+  };
+  const key = (e) => chiselKey(e, strike);
+  globalThis.document?.addEventListener?.('keydown', key, true);
+  Promise.resolve().then(() => { if (live) next(); });
+  _mason.off = () => { live = false; caf(id); globalThis.document?.removeEventListener?.('keydown', key, true); };
+  return strike;
+}
+/** The verb a mason's work is done with on its button: the cut's "Cut", the mix's "Mix". */
+export const masonVerb = (id) => (id === 'cut:stone' ? 'Cut' : 'Mix');
+
+/**
+ * PROF11: THE MASON'S BENCH - the works (Rough Stone cut to Cut Stone, a Quarryman's two a cut; Mortar mixed ten at a
+ * time), each its inputs as the Stores hold them, the rank it asks, a count, and the chisel (or Quick); then the
+ * Sculptor's stone decor - the column, the bench, the font, the plinth - each its stone, the odds, Craft (the chisel)
+ * and Quick craft. THE CHISEL (9.4): the stone's lines, the marked one lit and moving by the glint's rule; a press on a
+ * line strikes it (the arrows and a digit set the chisel, Space and Enter strike), every strike true a clean act - a
+ * carving's quality step, a work's half again of its XP. Only at a mason's bench: a General Store's, its fee a cut, a mix
+ * or a carving, or the player's own home's.
+ * @param {HTMLElement} detail @param {() => void} rerender @param {{ el: Function, divider: (w: string) => HTMLElement }} kit
+ */
+function drawMasonBench(detail, rerender, { el, divider }) {
+  const p = _provider;
+  if (!p?.mason || !p.smelt) return;
+  const book = p.book;
+  const bench = p.mason();
+  detail.append(divider('The Mason\'s Bench'));
+  if (!bench) {
+    endChisel();
+    detail.append(el('p', 'px-note', `Masonry is done at a mason's bench: a General Store's (${MASON_FEE} gold a cut, a mix or a carving), or your own home's.`));
+    return;
+  }
+  const track = book.track('masonry');
+  const rank = track?.rank ?? 0;
+  const specs = track?.specs ?? {};
+  detail.append(el('p', 'px-note', `${bench.kind === 'shop' ? `The mason's bench - ${bench.fee} gold a cut, a mix or a carving.` : 'Your mason\'s bench.'} Masonry ${rank} (${rankName(rank)}).`));
+  const short = purseShort(bench, 'mason', 'a cut, a mix or a carving');
+  if (short) detail.append(el('p', 'px-note prof-short', short));
+  // AUDIT 30 A2's law: Gentle acts switched on under the chisel sets it down - nothing spent, the work a plain one
+  if (_mason.act && getPref('gentleActs') === true) { _mason.act.cancel(); endChisel(); _mason.word = CHISEL_DOWN_LINE; }
+  const striking = !!_mason.act;
+  const gentle = getPref('gentleActs') === true;
+  const elsewhere = handsAt(_mason);   // AUDIT 32 P2: one act a page
+  const held = (k) => book.held(k);
+  // WHAT THE CHISEL'S END ASKS (AUDIT 30 A3's law: the work it began on): a work its count, by the forge's route; a
+  // carving its craft
+  const finishFor = (what) => async (clean) => {
+    const c = clean === true && getPref('gentleActs') !== true;
+    if (what.kind === 'work') {
+      _mason.busy = true; _workingOn = what.id; rerender();
+      const res = await p.smelt(what.id, what.count, { clean: c });
+      _mason.busy = false; _workingOn = null; _mason.word = res?.text ?? null; rerender();
+      return;
+    }
+    _mason.crafting = true; rerender();
+    const res = p.craft ? await p.craft(what.id, { clean: c }) : null;
+    _mason.crafting = false; _mason.word = res?.text ?? null; rerender();
+  };
+  /** @returns {any} a work's (MASON_RECIPES) or a carving's (MASONRY_RECIPES) recipe */
+  const recipeOfWhat = (what) => (what.kind === 'work' ? MASON_RECIPES : MASONRY_RECIPES).find((x) => x.id === what.id) ?? null;
+  const begin = (what) => {
+    if (gentle) { void finishFor(what)(false); return; }   // Gentle acts: a plain work, no chisel
+    _mason.act = createChiselAct({ strikes: chiselStrikes(recipeOfWhat(what)), markS: chiselMarkS(rank, p.chiselBand?.() ?? 1) });
+    _mason.actWhat = what;
+    rerender();
+  };
+  // THE CHISEL under way: the stone's lines, the marked one lit, the strikes so far
+  if (_mason.act && _mason.actWhat) {
+    const what = _mason.actWhat;
+    const r = recipeOfWhat(what);
+    const label = what.kind === 'work' ? `${p.name(r?.out ?? '')}, ${what.count} ${what.count === 1 ? 'time' : 'times'}` : (r?.name ?? '');
+    const panel = el('div', 'prof-heat prof-chisel');
+    panel.append(el('span', 'prof-heatword', `The chisel (${label}) - strike the marked line, ${_mason.act.state.need} strikes: press the line, or set the chisel with the arrows and strike with Space`));
+    const stone = el('div', 'prof-stone');
+    const lines = [];
+    for (let i = 0; i < CHISEL_ACT.lines; i++) {
+      const b = el('button', `prof-chisel-line${i === _mason.act.mark ? ' marked' : ''}${i === _mason.act.state.at ? ' at' : ''}`, String(i + 1));
+      b.type = 'button';
+      b.setAttribute?.('aria-label', `Strike line ${i + 1}`);
+      // AUDIT 32 P1's law: struck on the pointer's DOWN, its own moment; a click nobody pointed at (a screen reader's) once
+      let pointed = false;
+      b.onpointerdown = (e) => { e?.preventDefault?.(); pointed = true; _mason.act?.aim(i); _mason.strike?.(e); };
+      b.onclick = (e) => { if (pointed) { pointed = false; return; } _mason.act?.aim(i); _mason.strike?.(e); };
+      lines.push(b);
+      stone.append(b);
+    }
+    const marks = el('div', 'prof-strikes');
+    const dots = [];
+    for (let i = 0; i < _mason.act.state.need; i++) { const d = el('span', `prof-strike${i < _mason.act.state.strikes.length ? (_mason.act.state.strikes[i] ? ' hit' : ' miss') : ''}`, 'o'); dots.push(d); marks.append(d); }
+    const hit = actButton(el, 'Strike', (e) => _mason.strike?.(e));
+    const cancel = el('button', 'act', 'Set the chisel down');
+    cancel.type = 'button';
+    cancel.onclick = () => { _mason.act?.cancel(); endChisel(); _mason.word = CHISEL_DOWN_LINE; rerender(); };
+    panel.append(stone, marks, hit, cancel);
+    detail.append(panel);
+    _mason.els = { stone, lines, marks: dots, hit };
+    if (!_mason.off) _mason.strike = chiselLoop(finishFor(what));
+  }
+  // THE WORKS: the cut and the mix, each the rank it asks
+  for (const r of MASON_RECIPES) {
+    const open = workOpen(r, rank);
+    const most = open ? smeltable(r, held) : 0;
+    // the Quarryman's two a cut - a choice read at its own rank (50), as the Tanner's
+    const per = workPer(r, r.more ? { [r.more.profession]: book.track(r.more.profession)?.specs?.[workSpecRank(r)] ?? null } : {});
+    const row = el('div', `prof-smelt prof-mason${most ? '' : ' prof-locked'}`);
+    const ins = r.inputs.map((inp) => `${inp.n} ${p.name(inp.key)} (${held(inp.key)})`).join(' + ');
+    row.append(el('b', null, `${p.name(r.out)}${per > 1 ? ` x${per}` : ''}`), el('span', 'prof-split', open ? ins : `${ins} - rank ${r.rank}`));
+    const qty = el('input', 'prof-qty');
+    qty.type = 'number'; qty.min = '1'; qty.max = String(Math.max(1, most));
+    qty.value = String(Math.max(1, Math.min(_mason.counts[r.id] ?? 1, Math.max(1, most))));
+    qty.oninput = () => { _mason.counts[r.id] = Math.max(1, Math.min(SMELT_MAX, Math.floor(Number(qty.value) || 1))); };
+    const count = () => Math.max(1, Math.min(_mason.counts[r.id] ?? 1, smeltable(r, held)));
+    const shut = _mason.busy || _mason.crafting || striking || most < 1 || !!short || !!elsewhere;
+    const acts = el('span', 'prof-workacts');
+    const go = el('button', 'act', _mason.busy && _workingOn === r.id ? 'At the bench...' : masonVerb(r.id));
+    go.type = 'button';
+    go.disabled = shut;
+    go.onclick = () => { if (!go.disabled) begin({ kind: 'work', id: r.id, count: count() }); };
+    const quick = el('button', 'act', 'Quick');
+    quick.type = 'button';
+    quick.disabled = shut;
+    quick.onclick = () => { if (!quick.disabled) void finishFor({ kind: 'work', id: r.id, count: count() })(false); };
+    acts.append(go, quick);
+    row.append(qty, acts);
+    detail.append(row);
+  }
+  detail.append(el('p', 'px-note', held('stone:rough') > 0
+    ? 'Two Rough Stone cut to a Cut Stone (a Quarryman\'s two); Sulphur, Lead and five Rough Stone mix to ten Mortar. A clean chisel - every strike on the marked line - earns half again its Masonry XP.'
+    : 'Rough Stone is quarried from the boulders of the rock fields with a Pick-Axe (Mining).'));
+  if (elsewhere && !_mason.act) detail.append(el('p', 'px-note', `Your hands are at ${elsewhere} - finish there first.`));
+  // THE SCULPTOR'S STONE DECOR (3.3, 9.3): a column, a bench, a font, a statue plinth
+  detail.append(el('p', 'px-note', specs[100] === SCULPTOR ? 'Stone decor, carved for a room of your own:' : 'Stone decor - a column, a bench, a font, a statue plinth - is carved by a Sculptor (Masonry\'s choice at 100).'));
+  for (const r of MASONRY_RECIPES) {
+    const open = recipeOpen(r, rank, specs);
+    const can = open && craftable(r, held);
+    const row = el('button', `prof-recipe${_mason.picked === r.id ? ' on' : ''}${can ? '' : ' prof-locked'}`);
+    row.type = 'button';
+    row.disabled = striking;
+    row.append(el('b', null, r.name), el('span', 'prof-split', open ? (can ? 'can make now' : 'wants its inputs') : 'a Sculptor\'s'));
+    row.onclick = () => { _mason.picked = r.id; rerender(); };
+    detail.append(row);
+  }
+  const r = MASONRY_RECIPES.find((x) => x.id === _mason.picked);
+  if (r && p.craft) {
+    const box = el('div', 'prof-craft');
+    box.append(el('b', null, `${r.name} - a Sculptor's`));
+    for (const inp of r.inputs) {
+      const have = held(inp.key);
+      const line = el('div', `prof-input${have >= inp.n ? '' : ' prof-short'}`);
+      line.append(el('span', null, `${p.name(inp.key)} ${Math.min(have, inp.n)} / ${inp.n} (${have} stored)`));
+      box.append(line);
+    }
+    box.append(el('p', 'px-note', 'Stone decor goes among your things, to set down in a room of your own (Decorate).'));
+    const open = recipeOpen(r, rank, specs);
+    if (open) {
+      const odds = qualityOdds(rank - r.rank, { masterwright: false });
+      box.append(el('p', 'px-note', `Your rank ${rank}, margin ${rank - r.rank}: ${odds.map((o, q) => (o ? `${QUALITY_NAMES[q]} ${o}` : null)).filter(Boolean).join(' | ')}. A clean chisel is a step better.`));
+    }
+    const ready = open && craftable(r, held) && !_mason.busy && !_mason.crafting && !_mason.act && !elsewhere && !short;
+    const go = el('button', 'act primary', _mason.crafting ? 'At the bench...' : 'Craft');
+    go.type = 'button';
+    go.disabled = !ready;
+    go.onclick = () => { if (!go.disabled) begin({ kind: 'carve', id: r.id, count: 1 }); };
+    const quick = el('button', 'act', 'Quick craft');
+    quick.type = 'button';
+    quick.disabled = !ready;
+    quick.onclick = () => { if (!quick.disabled) void finishFor({ kind: 'carve', id: r.id, count: 1 })(false); };
+    box.append(go, quick);
+    detail.append(box);
+  }
+  if (_mason.word) detail.append(el('p', 'prof-word', _mason.word));
 }

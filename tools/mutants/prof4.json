@@ -358,8 +358,8 @@
   {
     "name": "PROF4-ram-kit-made",
     "file": "src/net/recipeLaw.js",
-    "old": "export const recipeOpen = (r, rank) => !!r && !r.later && rank >= r.rank;",
-    "new": "export const recipeOpen = (r, rank) => !!r && rank >= r.rank;",
+    "old": "export const recipeOpen = (r, rank, specs = null) => !!r && !r.later && rank >= r.rank && (!r.spec || specs?.[100] === r.spec);",
+    "new": "export const recipeOpen = (r, rank, specs = null) => !!r && rank >= r.rank && (!r.spec || specs?.[100] === r.spec);",
     "tests": [
       "test/prof4_law.test.js"
     ]
@@ -451,8 +451,8 @@
   {
     "name": "PROF4-saw-smithing-xp",
     "file": "server-account/src/professions.js",
-    "old": "  const cap = r.xp ? craftXpCap(r.xp, ranks) : 0;\n  const xp = r.xp ? smeltXp(out.tier, count, ranks[r.xp] ?? 0) : 0;",
-    "new": "  const cap = craftXpCap(r.xp ?? 'smithing', ranks);\n  const xp = smeltXp(out.tier, count, ranks[r.xp ?? 'smithing'] ?? 0);",
+    "old": "  const cap = r.xp ? craftXpCap(r.xp, ranks) : 0;\n  const xp = r.act ? masonXp(count, rank, { clean: act }) : r.xp ? smeltXp(out.tier, count, ranks[r.xp] ?? 0) : 0;",
+    "new": "  const cap = craftXpCap(r.xp ?? 'smithing', ranks);\n  const xp = r.act ? masonXp(count, rank, { clean: act }) : smeltXp(out.tier, count, ranks[r.xp ?? 'smithing'] ?? 0);",
     "tests": [
       "test/prof4_service.test.js"
     ]
@@ -732,8 +732,8 @@
   {
     "name": "PROF4-smithing-unpractised",
     "file": "src/ui/profPages.js",
-    "old": "const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'fishing', 'logging', 'smithing', 'outfitting', 'carpentry']);   // PROF8: Fishing",
-    "new": "const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'fishing', 'logging', 'outfitting', 'carpentry']);   // PROF8: Fishing",
+    "old": "const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'fishing', 'logging', 'smithing', 'outfitting', 'carpentry', 'masonry']);   // PROF8: Fishing; PROF11: Masonry",
+    "new": "const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'fishing', 'logging', 'outfitting', 'carpentry', 'masonry']);   // PROF8: Fishing; PROF11: Masonry",
     "tests": [
       "test/prof4_client.test.js"
     ]
@@ -804,8 +804,8 @@
   {
     "name": "PROF4-no-workbench-station",
     "file": "src/net/decorLaw.js",
-    "old": "export const DECOR_STATIONS = Object.freeze(['alchemy', 'spells', 'enchant', 'forge', 'workbench', 'loom']);",
-    "new": "export const DECOR_STATIONS = Object.freeze(['alchemy', 'spells', 'enchant', 'forge', 'loom']);",
+    "old": "export const DECOR_STATIONS = Object.freeze(['alchemy', 'spells', 'enchant', 'forge', 'workbench', 'loom', 'mason']);",
+    "new": "export const DECOR_STATIONS = Object.freeze(['alchemy', 'spells', 'enchant', 'forge', 'loom', 'mason']);",
     "tests": [
       "test/homestations.test.js",
       "test/prof2_client.test.js",
