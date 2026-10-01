@@ -63,6 +63,8 @@ You can no longer get stuck on a roof.
 
 - **Over a parapet:** press **Jump** at a parapet or rail with a long drop behind it, and you climb over it and hang from its far side. Then climb down with **Back**, or let go.
 - **Off an edge:** **crouch** and walk to the edge of a roof or a wall top, and you lower yourself over it and hang from the edge. Pitched eaves count, up to 45°. Walking off without crouching still just walks off.
+- **Holding Forward** as you lower yourself doesn't climb you straight back up. Press it again when you want to climb.
+- **Low parapets** over a short drop can be climbed over too.
 - With **Roleplay & Realism** stopping you from climbing, you stay crouched at the edge instead of walking off it.
 
 ## Leaps
@@ -73,8 +75,9 @@ Leaps have their own longer, flatter arc, set by your **Jumping** skill. The ord
   - with nothing else held, where there's nothing to climb onto, to leap up to a ledge above you (1 m to 1.8 m);
   - with **Back** to push off the wall and jump away from it. You can catch a ledge on the way.
   A leap uses a tenth of your grip.
-- **Running leap:** run at an edge and press **Jump** to leap 4 m to 7 m. Pressing a moment after you run off the edge still works. In the air you reach a little further for ledges.
-- **Wall run:** run at a wall and press **Jump** to run 1 m to 2 m up it and grab the ledge at the top, or keep climbing the wall.
+- **Running leap:** run at an edge and press **Jump** to leap 4 m to 7 m. It always carries you at least as far as an ordinary jump would. Pressing a moment after you run off the edge still works, and you leap the way you were running. In the air you reach a little further for ledges.
+- A running leap needs a real drop: running down stairs or off a low step, Jump is an ordinary jump. There's no leap while crouched, under Slowfall, or wading.
+- **Wall run:** run at a wall at full pace and press **Jump** to run 1 m to 2 m up it and grab the ledge at the top, or keep climbing the wall.
 - **Past a window sill:** from a hang on a sill with more wall above it, **Forward** climbs on up past it.
 - A leap trains **Jumping**; a wall run trains **Climbing**.
 
@@ -118,18 +121,3 @@ Carrying more than half of what you can carry shortens your reach. With a full p
 
 ## Performance
 Climbing over very detailed walls is faster, and so is every collision check in the game that finds nothing to push against.
-
-## Fixes
-- Pausing (a menu, the season card) during a climb no longer replays the climb's jolts and sounds when you come back.
-- Climbing feels the same at any frame rate, and a high refresh rate no longer makes the view jitter while shimmying.
-- A teleport or a load no longer carries a climb's turn or sound with it.
-- A swing that was mid-air when you grabbed a wall no longer hits.
-- Running down a steep staircase and pressing Jump is a plain jump, not a leap.
-- A running leap is never shorter than the jump it replaces, even with a Jump spell or Jumping past 100.
-- Pressing Jump just after running off an edge leaps the way you were running, wherever you have turned the view. It no longer happens off a low step or when you were crouched.
-- No leaps under Slowfall or while wading outdoors, and holding Jump as you grab a wall from the water no longer leaps.
-- Holding Run against a wall from a standstill no longer runs up it.
-- Lowering yourself off a roof with Forward still held no longer climbs you straight back up.
-- A 1.3 m parapet over a short drop can now be climbed over instead of trapping you.
-- Ledges where the ground's drawn surface sits a few centimetres below its collision are now climbable.
-- Other players' climbing sounds are limited, and turning the peers' sounds back on doesn't replay what you missed.
