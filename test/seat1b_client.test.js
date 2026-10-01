@@ -324,7 +324,7 @@ test('SEAT1b THE HOSTS BY SOURCE: the relay ticks in its pose arm and nowhere el
   assert.match(online, /const w = primary && isCellRoom\(room\) \? readWatchReceipt\(m\.r\) : null;\n\s*if \(w\) this\._deliver\('watch', \(\) => this\.onWatch\?\.\(m\.r, w\)\);/);
   const w = rd('src/scenes/world.js');
   assert.match(w, /online\.onWatch = \(r\) => seatBook\?\.keepWatch\(r\);/);
-  assert.match(w, /seatBook\?\.claimWatch\(\);/);
+  assert.match(w, /if \(seatBook\?\.claimWatchDue\(\)\) seatBook\.claimWatch\(\);/);   // PIN MOVED (AUDIT-SEATS C12): asked in sync first - a frame with nothing due makes no Promise
   assert.match(w, /isSeatPixel: \(x, y\) => seatPixels\.has\(`\$\{x\},\$\{y\}`\),/);
   assert.match(w, /const seatPixels = new Set\(townSeats\.list\.map\(\(s\) => `\$\{s\.pixel\[0\]\},\$\{s\.pixel\[1\]\}`\)\);/);
   assert.match(w, /seat: seatAt \? \{ seat: seatAt, book: seatBook, nameOf: \(k\) => seatAtMapId\(townSeats, k\)\?\.name \?\? null \} : null,/);

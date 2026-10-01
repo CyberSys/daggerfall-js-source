@@ -22,8 +22,9 @@ import {
   seatHolderLine, seatBattleLine, seatClaimLine, chronicleLine, SEAT_RELINQUISH_WORDS,
   seatRuleLine, seatHoldingLines, edictLine, edictMayFollow, edictForTier, royalTourneyLines, EDICTS, TITHE_CAP, SEAT_LEVER_RANKS, BOUNTY_MARKS,
   politicsRows, POLITICS_ACTS, seasonLine,
-  battleAnnouncement, sideLine, siegeWindowText, SIEGE_WINDOW_DAYS, SIEGE_WINDOW_HOURS, SIEGE_WINDOW_DEFAULT, SELLSWORD_FEE_MAX, passOpens, passWindowEnds,
+  sideLine, siegeWindowText, SIEGE_WINDOW_DAYS, SIEGE_WINDOW_HOURS, SIEGE_WINDOW_DEFAULT, SELLSWORD_FEE_MAX, passOpens, passWindowEnds,
 } from '../net/townSeatLaw.js';
+import { fightAnnouncement } from '../net/siegeHerald.js';   // AUDIT-SEATS G1: the battle's line, its start in the service's seconds
 import { GUILD_RANK_MASTER } from '../net/guildLaw.js';
 import { tideLine } from '../net/tideLaw.js';
 
@@ -67,25 +68,36 @@ export function createSeatTab(host, ui) {
   const nameOf = host.nameOf ?? (() => null);
   const banner = host.banner ?? (() => null);
   let data = null, error = null, loading = false;
+  let queued = null;   // AUDIT-SEATS C9: a reload asked while one was in flight (true: forced) - run after it, never dropped
   let tributeDrakes = 0;
   let armedAt = -Infinity;   // SEAT1c: the relinquish button's first press
+  let disarm = null;   // AUDIT-SEATS C13: the redraw that puts the relinquish button's words back when its arm runs out
   let titheAsk = null, edictAsk = null, bountyAside = 200;   // SEAT1d: the levers' own choices, kept across redraws
   let windowAsk = null, hireHandle = '', hireFee = 0;   // SEAT2a: the window and the contract asked, kept across redraws
   let politicsTag = '';   // CROWN2: the guild an offer is made to, kept across redraws
 
   async function load(force) {
-    if (loading) return;
+    // AUDIT-SEATS C9: a reload asked mid-read is queued - the act's read after another act's was dropped, and the tab
+    // stood on the earlier act's answer (an Edict just proclaimed read as none)
+    if (loading) { queued = !!(queued || force); return; }
     loading = true; ui.rerender();
     let r;
     try { r = await book.standings(seat.key, { force }); } catch { r = { data: null, error: 'offline' }; }
     loading = false;
-    if (ui.alive && !ui.alive()) return;
+    if (ui.alive && !ui.alive()) { queued = null; return; }
     if (r.data) data = r.data;
     error = r.error;
+    if (queued !== null) { const again = queued; queued = null; load(again); return; }
     ui.rerender();
   }
   /** An act through the window's door, the standings read afresh after it. */
   const act = (start) => ui.run(async () => { const r = await start(); load(true); return r; });
+  /** AUDIT-SEATS C13: the relinquish button drawn again once its arm has run out - it stood on "Press again" until some
+   *  other redraw came, and a press then only armed it again. */
+  const disarmLater = () => {
+    if (disarm) clearTimeout(disarm);
+    disarm = setTimeout(() => { disarm = null; if (!ui.alive || ui.alive()) ui.rerender(); }, SEAT_RELINQUISH_ARM_MS);
+  };
 
   function standingsNode() {
     const list = el('ol', 'notice-standings');
@@ -278,14 +290,16 @@ export function createSeatTab(host, ui) {
   function fightNode(f) {
     const out = el('div', 'notice-seat-fight');
     const busy = ui.busy();
-    out.append(el('p', 'notice-seat-battle', battleAnnouncement(f, seat.name)));
+    out.append(el('p', 'notice-seat-battle', fightAnnouncement(f, seat.name)));   // AUDIT-SEATS G1: its start is the service's seconds (the law reads ms)
     const label = f.kind === 'tourney' ? ['The first contender', 'The second contender'] : ['Attackers', 'Defenders'];
     out.append(el('p', 'notice-seat-mine', sideLine(label[0], f.sides.attack.n, f.max, f.sides.attack.swords)));
     out.append(el('p', 'notice-seat-mine', sideLine(label[1], f.sides.defend.n, f.max, f.sides.defend.swords)));
     const mine = f.mine ?? null;
     if (!f.open) out.append(el('p', 'notice-seat-mine', 'The rosters are closed.'));
     if (mine?.signed) {
-      out.append(el('p', 'notice-seat-mine', `You are signed for the ${mine.side === 'attack' ? label[0].toLowerCase() : label[1].toLowerCase()}${mine.sellsword ? ' as a Sellsword' : ''}.`));
+      // AUDIT-SEATS C8: the side in its own words - "for the the first contender" built off the roster's label
+      const sideWords = f.kind === 'tourney' ? ['first contender', 'second contender'] : ['attackers', 'defenders'];
+      out.append(el('p', 'notice-seat-mine', `You are signed for the ${mine.side === 'attack' ? sideWords[0] : sideWords[1]}${mine.sellsword ? ' as a Sellsword' : ''}.`));
       if (f.open) { const b = button('notice-seat-unsign', 'Give back your place', () => act(() => book.unsign(seat))); b.disabled = busy; out.append(b); }
     } else if (f.open && (mine?.side || mine?.hire)) {
       const words = mine.hire ? `Sign as a Sellsword${mine.hire.fee ? ` (${mine.hire.fee} Drakes)` : ''}` : 'Sign for your side';
@@ -381,7 +395,7 @@ export function createSeatTab(host, ui) {
       if (holder && data.mine?.guild === holder.guild.id && data.mine.rank === GUILD_RANK_MASTER) {
         const armed = () => ui.nowS() * 1000 - armedAt < SEAT_RELINQUISH_ARM_MS;   // asked at the press, not at the draw
         const b = button('notice-seat-relinquish', armed() ? SEAT_RELINQUISH_WORDS.sure : SEAT_RELINQUISH_WORDS.arm, () => {
-          if (!armed()) { armedAt = ui.nowS() * 1000; ui.rerender(); return null; }
+          if (!armed()) { armedAt = ui.nowS() * 1000; ui.rerender(); disarmLater(); return null; }
           armedAt = -Infinity;
           return act(() => book.relinquish(seat));
         });

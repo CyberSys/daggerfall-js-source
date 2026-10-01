@@ -31,6 +31,16 @@ import { LOOK_ITEM_FIELDS, LOOK_GROUPS } from './wire.js';   // the look's vocab
 import { renownText } from './renown.js';   // RENOWN1: Renown's words, left of the name in the bitmap face too
 import { guildTagText } from './guildLaw.js';   // GUILD1c: the guild's tag, right of the name in the bitmap face too
 import { ribbonRgba } from './heraldryLaw.js';   // SEASON1 part two: a Season's banner ribbon, under the name in the bitmap face too
+/** AUDIT-SEATS C12: each ribbon's two tints, parsed once - by its claim's two colour indexes (one number, no string made),
+ *  for every ribboned name every frame; anything that is no claim is asked of the law itself (it answers null). */
+const _ribbonTints = new Map();
+export function ribbonTints(rb) {
+  const k = Array.isArray(rb) && Number.isInteger(rb[0]) && Number.isInteger(rb[1]) && rb[0] >= 0 && rb[1] >= 0 && rb[0] < 256 && rb[1] < 256 ? rb[0] * 256 + rb[1] : -1;
+  if (k < 0) return ribbonRgba(rb);
+  let t = _ribbonTints.get(k);
+  if (t === undefined) { t = ribbonRgba(rb); _ribbonTints.set(k, t); }
+  return t;
+}
 // 2026-09-17 (per-request, the NON-Morrowind peer only - net/peerBodies.js and its Morrowind body are untouched):
 // the same class-enemy sprite classic dungeon humanoids already use (Warrior, Mage, Knight, ...), driven by simple
 // moving/striking flags off the peer's synced pose instead of AI - the reusable pieces dungeonContext.js already
@@ -1202,7 +1212,7 @@ export class RemotePlayers {
       // SEASON1 part two (Seats-Arc 9.1): A SEASON'S BANNER RIBBON under the name - a band the run's width in its guild's
       // field colour, edged beneath in its border colour; two solid quads (a null texture is a colour), in the gap the
       // label already keeps over the head
-      const band = ribbonRgba(n.rb);
+      const band = ribbonTints(n.rb);   // AUDIT-SEATS C12: parsed once a ribbon, not a name a frame
       if (band && renderer.drawScreenQuad) {
         const bx = Math.round(n.x - tw / 2), by = Math.round(top + font.fnt.fixedHeight * s + s), bw = Math.round(tw);
         const bh = Math.max(2, Math.round(2 * s)), eh = Math.max(1, Math.round(s));

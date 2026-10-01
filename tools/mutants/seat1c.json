@@ -356,7 +356,7 @@
   {
     "name": "SEAT1c-tab-relinquish-unarmed",
     "file": "src/ui/seatTab.js",
-    "old": "          if (!armed()) { armedAt = ui.nowS() * 1000; ui.rerender(); return null; }",
+    "old": "          if (!armed()) { armedAt = ui.nowS() * 1000; ui.rerender(); disarmLater(); return null; }",
     "new": "",
     "tests": [
       "test/seat1c_client.test.js"

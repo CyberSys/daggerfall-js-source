@@ -130,7 +130,8 @@ test('SEASON1 THE HALL OF RECORDS ON THE PAGE: the book asks its door for a seat
   assert.match(modes, /const hallOfRecordsHere = \(b\) => b\?\.buildingType === BUILDING_TYPES\.Palace && !!host\.hallOfRecords\?\.here\?\.\(homeTownOf\(b\)\);/);
   assert.match(modes, /if \(key\.startsWith\('shelf:'\)\) \{\n\s+if \(hallOfRecordsHere\(b\)\) return \{ title: HALL_OF_RECORDS_TEXT \};/, 'the plaque, before the bookshelf\'s');
   assert.match(modes, /if \(!b \|\| !shelf\) return;\n\s+if \(hallOfRecordsHere\(b\)\) \{ openHallOfRecords\(b\); return; \}/, 'the press, before the shop\'s');
-  assert.match(modes, /if \(interiorBuilding !== b\) return;\n\s+if \(w\) interiorOverlay = w;\n\s+else say\(HALL_OF_RECORDS_SHUT\);/);
+  // PIN MOVED (AUDIT-SEATS C11): a book that lands after the player left - or over a window opened meanwhile - is disposed
+  assert.match(modes, /if \(interiorBuilding !== b \|\| interiorOverlay\) \{ dropRecords\(w\); return; \}\n\s+if \(w\) interiorOverlay = w;\n\s+else say\(HALL_OF_RECORDS_SHUT\);/);
   const world = src('src/scenes/world.js');
   assert.match(world, /hallOfRecords: \{\n\s+here: \(mapId\) => !!seatHere\(mapId\),\n\s+read: async \(mapId\) => \{\n\s+const seat = seatHere\(mapId\);\n\s+if \(!seat \|\| !seatBook\) return null;\n\s+const r = await seatBook\.records\(seat\.key\);\n\s+return r\.data \? hallOfRecordsWindow\(seat, r\.data\.rows, r\.data\.zero\) : null;/);
   assert.match(src('src/ui/seatTab.js'), /chronicleLine\(r, seat, book\.zero \?\? null\)/);

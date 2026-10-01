@@ -3540,26 +3540,37 @@ export function createWorldModes(host) {
   const hallOfRecordsHere = (b) => b?.buildingType === BUILDING_TYPES.Palace && !!host.hallOfRecords?.here?.(homeTownOf(b));
   /** SEASON1 part three: THE HALL OF RECORDS OPENED - the seat's Chronicle, read by the host as a book's window (through the
    *  reader's one door, ui/hallOfRecords.js), in this host's own reader slot; said where it cannot be read. A window that
-   *  arrives after the player has left the palace is not shown. */
+   *  arrives after the player has left the palace is not shown. AUDIT-SEATS C11: ONE READ AT A TIME (a double press sent
+   *  two), and a book that arrives over a window the player opened meanwhile is let go, never put in its place undisposed. */
+  let recordsReading = false;
+  /** AUDIT-SEATS C11: a late book not shown - its window disposed. */
+  const dropRecords = (w) => { try { w?.dispose?.(); } catch { /* already gone */ } };
   function openHallOfRecords(b) {
+    if (recordsReading) return;
+    recordsReading = true;
     Promise.resolve(host.hallOfRecords.read(homeTownOf(b))).then((w) => {
-      if (interiorBuilding !== b) return;
+      recordsReading = false;
+      if (interiorBuilding !== b || interiorOverlay) { dropRecords(w); return; }
       if (w) interiorOverlay = w;
       else say(HALL_OF_RECORDS_SHUT);
-    }).catch(() => say(HALL_OF_RECORDS_SHUT));
+    }).catch(() => { recordsReading = false; say(HALL_OF_RECORDS_SHUT); });
   }
   /** AUDIT-SEATS: whether this dungeon is a crown's castle while the seats are open - the dungeon under the crown city's own
    *  map id (DFU's PlayerGPS.CurrentLocation is the city's), its castle blocks' shelves the Hall of Records. */
   const castleRecordsHere = () => mode === 'dungeon' && !!dungeonLoc && !!host.hallOfRecords?.here?.((dungeonLoc.mapTableData?.mapId ?? 0) >>> 0);
   /** AUDIT-SEATS: A CROWN'S HALL OF RECORDS, in its castle - the book in the dungeon's own window slot; said where it
-   *  cannot be read; not shown where the player has left the dungeon before it arrives. */
+   *  cannot be read; not shown where the player has left the dungeon before it arrives. AUDIT-SEATS C11: the palace's one
+   *  read at a time, and a book over a window opened meanwhile let go. */
   function openCastleRecords() {
+    if (recordsReading) return;
+    recordsReading = true;
     const at = dungeonLoc;
     Promise.resolve(host.hallOfRecords.read((at?.mapTableData?.mapId ?? 0) >>> 0)).then((w) => {
-      if (mode !== 'dungeon' || dungeonLoc !== at) return;
+      recordsReading = false;
+      if (mode !== 'dungeon' || dungeonLoc !== at || dungeonCtx?.overlayWindow?.()) { dropRecords(w); return; }
       if (w) mountServiceWindow(w);
       else say(HALL_OF_RECORDS_SHUT);
-    }).catch(() => say(HALL_OF_RECORDS_SHUT));
+    }).catch(() => { recordsReading = false; say(HALL_OF_RECORDS_SHUT); });
   }
   /** GUILD1e: THE HALL'S BOARD PRESSED - the guild's own notes for a member (the Notice Board's window, its Guilds tab
    *  alone); to anyone else it says whose it is. */

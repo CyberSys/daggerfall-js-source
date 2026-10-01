@@ -309,7 +309,7 @@
  {
   "name": "RECORDS-wm-left",
   "file": "src/scenes/worldModes.js",
-  "old": "      if (interiorBuilding !== b) return;\n      if (w) interiorOverlay = w;",
+  "old": "      if (interiorBuilding !== b || interiorOverlay) { dropRecords(w); return; }\n      if (w) interiorOverlay = w;",
   "new": "      if (w) interiorOverlay = w;",
   "tests": [
    "test/season1_records.test.js"

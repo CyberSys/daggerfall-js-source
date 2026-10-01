@@ -92,7 +92,9 @@ test('SEAT2a THE SEAT TAB\'S BATTLE: the announcement and both sides\' rosters f
   const noticeBook = { seenAt: () => null, read: async () => ({ board: { notes: [], notices: [], me: {} } }), markSeen: () => {}, cached: () => null, draft: () => ({ subject: '', body: '', days: 7, button: '' }), noticeDraft: () => ({ subject: '', body: '', days: 3 }), readGuild: async () => ({ data: null, error: 'no-guild' }) };
   const now = 1_800_000_000;
   const SH = { id: 'g1', name: 'The Silver Hand', tag: 'SH', heraldry: null }, EO = { id: 'g2', name: 'Ebon Oath', tag: 'EO', heraldry: null };
-  const fight = (mine, open = true) => ({ week: 6, key: 3021, kind: 'siege', tier: 'palace', startsAt: siegeStartMs(WK, 1, 21), endsAt: siegeStartMs(WK, 1, 21) + 1800_000, moved: false, state: 'scheduled',
+  // PIN MOVED (AUDIT-SEATS): the standings' fight carries its start and end in SECONDS, as the service sends them
+  // (server-account/src/seatBattles.js fightOf: `starts_at`) - the tab now reads them so; the fixture had them in ms
+  const fight = (mine, open = true) => ({ week: 6, key: 3021, kind: 'siege', tier: 'palace', startsAt: siegeStartMs(WK, 1, 21) / 1000, endsAt: (siegeStartMs(WK, 1, 21) + 1800_000) / 1000, moved: false, state: 'scheduled',
     attackerGuild: EO, defenderGuild: SH, sides: { attack: { n: 4, swords: 1 }, defend: { n: 2, swords: 0 } }, max: 10, swordsMax: 2, open, window: { day: 1, hour: 21 }, mine });
   const acts = [];
   const mount = (rank, guild, f) => {

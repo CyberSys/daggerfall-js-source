@@ -854,8 +854,8 @@
  {
   "name": "CROWN2-book-announced",
   "file": "src/net/townSeatBook.js",
-  "old": "(d.announced ? `Your guild has broken its Pact with <${tag}>. Everyone has been told.` : `The offer of a Pact with <${tag}> is withdrawn.`)",
-  "new": "(true ? `Your guild has broken its Pact with <${tag}>. Everyone has been told.` : `The offer of a Pact with <${tag}> is withdrawn.`)",
+  "old": "(d.announced ? `Your guild has broken its Pact with <${tag}>. Everyone has been told.` : `The offer of a Pact with",
+  "new": "(true ? `Your guild has broken its Pact with <${tag}>. Everyone has been told.` : `The offer of a Pact with",
   "tests": [
    "test/crown2_client.test.js"
   ]
@@ -998,8 +998,8 @@
  {
   "name": "CROWN2-tab-lever",
   "file": "src/ui/seatTab.js",
-  "old": "      for (const k of lever ? [r.act, r.alt] : []) {",
-  "new": "      for (const k of [r.act, r.alt]) {",
+  "old": "for (const k of lever ? [r.act, r.alt] : []) {",
+  "new": "for (const k of [r.act, r.alt]) {",
   "tests": [
    "test/crown2_client.test.js"
   ]
