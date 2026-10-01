@@ -114,6 +114,7 @@ The first part of guild town control is in. It is open to the developers first, 
 - **The Seasons.** The war runs in **Seasons of 8 weeks**, after a **four-week Season 0** (the open beta). They are named for the months: the Season of Morning Star, of Sun's Dawn, and on through the year. The Seat tab shows the week of the Season you're in.
 - **At a Season's end**, at its last Turning:
   - every guild holding a crown earns **"Crowned in Season N"**, and every guild that held a seat for the whole Season earns **"Keeper of <Town>, Season N"**. The titles go to the Guildmaster and are kept for good.
+  - every member of a Keeper's guild wears the Season's **banner ribbon** through the next Season: a thin band in the guild's colours under their name, which everyone online sees. A member who joins after that Turning doesn't wear it.
   - Legacy is cleared, and every seat's Standing moves **halfway back toward 50**.
   - The Charters stand, and every seat's Chronicle records who held it at the Season's end.
 - **Season 0's end** wipes the seats, influence, Chronicles, fealty and Pacts. Your Marks, Stores, profession tracks, titles and Honours are kept.
@@ -144,10 +145,10 @@ The first part of guild town control is in. It is open to the developers first, 
 ---
 
 ### For the team
-- Apply migrations **`0047_town_seats.sql`**, **`0048_seat_influence.sql`**, **`0049_seat_turning.sql`**, **`0050_seat_holding.sql`**, **`0051_seat_battles.sql`**, **`0052_seat_siege_results.sql`**, **`0053_crown_edicts.sql`**, **`0054_royal_tourney.sql`**, **`0055_fealty_pacts.sql`** and **`0056_orc_raids.sql`** (with the guild halls' 0045 and 0046, after main's 0044) to production D1 and deploy the account service (**`acct55`**).
+- Apply migrations **`0047_town_seats.sql`**, **`0048_seat_influence.sql`**, **`0049_seat_turning.sql`**, **`0050_seat_holding.sql`**, **`0051_seat_battles.sql`**, **`0052_seat_siege_results.sql`**, **`0053_crown_edicts.sql`**, **`0054_royal_tourney.sql`**, **`0055_fealty_pacts.sql`**, **`0056_orc_raids.sql`** and **`0057_season_ribbons.sql`** (with the guild halls' 0045 and 0046, after main's 0044) to production D1 and deploy the account service (**`acct56`**).
 - **The siege blackout.** The relay's deploy now waits while a siege is live or starts within 30 minutes (it asks the account service's public `/v1/seats/sieges/live`). Dispatch it with **force** to deploy at once - a forced deploy during a siege voids it. The account deploy now waits up to five and a half hours for the relay.
 - **The economy model**: `node tools/seatEconomy.mjs` re-runs the guild-week table from the live law files (`--runs`, `--seed`, `--json`).
-- **Deploy the relay (`world142`).** It sends the Watch's ticks (world138), carries the seats' titles (world139), referees a siege's room (world140), fights its battle by the service's pass (world141) and keeps a Royal Tourney's room (world142). Deploy it before the account service: an older relay refuses a token with a seat title in it.
+- **Deploy the relay (`world143`).** It sends the Watch's ticks (world138), carries the seats' titles (world139), referees a siege's room (world140), fights its battle by the service's pass (world141), keeps a Royal Tourney's room (world142) and carries a Season's banner ribbon, with a wider token bound (world143). Deploy it before the account service: an older relay refuses a token with a seat title in it.
 - Seats are behind **`SEATS_OPEN = "dev"`** in `server-account/wrangler.toml`. Change it to `"on"` to open them to everyone.
 - **Seasons** count from **`SEASON_ZERO_WEEK`** in `server-account/wrangler.toml`, the seat week Season 0 begins. It ships empty, so no Season is counted. Set it to a week not yet past when the seats open, and never move it once a Season has begun. Season 0's last Turning wipes the seats.
 - **SEAT-COUNT**: run `ARENA2_PATH=/path/to/arena2 node tools/seatCount.mjs` to list every seat and the totals.

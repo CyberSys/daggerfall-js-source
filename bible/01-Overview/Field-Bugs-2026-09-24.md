@@ -981,7 +981,7 @@ else saw Daggerfall's pixel werewolf. A transformed rider was worse: the
 rider layer ran first and drew a person on a horse (112382 + the rider's
 set), where the player saw their beast.
 
-The wire was never at fault. `wb` goes out on its edge (`wire.js:1208`),
+The wire was never at fault. `wb` goes out on its edge (`wire.js:1215`),
 through the door (`:1051`) and the easing (`online.js:225`), from the sender
 at `world.js:19442`.
 

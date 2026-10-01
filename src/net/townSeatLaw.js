@@ -1287,6 +1287,11 @@ export function seasonTitles(season, holds) {
   }
   return out;
 }
+/** SEASON1 (9.1): THE BANNER RIBBON'S GUILDS at a Season's end - every guild a keeper's title names (it held a seat the
+ *  whole Season), once each, in the titles' order. Its members at that Turning wear the ribbon through the next Season. */
+export const seasonRibbons = (titles) => [...new Set((titles ?? []).filter((t) => t.title === 'keeper').map((t) => t.guild))];
+/** The Season whose ribbons are worn in `season` (seasonOf's): the one before it - null with none counted or in Season 0. */
+export const ribbonSeasonOf = (season) => (season && season.n >= 1 ? season.n - 1 : null);
 /** The Seat tab's Season line off the standings' `season` (seasonOf's): "Week 3 of 8 of the Season of Morning Star." -
  *  or null for none counted. */
 export const seasonLine = (week, s) => (s ? `Week ${week - s.start + 1} of ${s.end - s.start} of ${seatSeasonName(s.n)}.` : null);

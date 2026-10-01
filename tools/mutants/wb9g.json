@@ -93,8 +93,8 @@
   {
     "name": "WB9g-the-relay-reads-no-aura",
     "file": "server/src/index.js",
-    "old": "glyphs: c.g, au: c.au, mu, lv: c.lv,",
-    "new": "glyphs: c.g, mu, lv: c.lv,",
+    "old": "glyphs: c.g, au: c.au, rb: c.rb, mu, lv: c.lv,",
+    "new": "glyphs: c.g, rb: c.rb, mu, lv: c.lv,",
     "tests": [
       "test/wb9g_insignia.test.js"
     ]
@@ -102,8 +102,8 @@
   {
     "name": "WB9g-the-socket-row-drops-it",
     "file": "server/src/index.js",
-    "old": "glyphs: who.glyphs, au: who.au, lv: who.lv,",
-    "new": "glyphs: who.glyphs, lv: who.lv,",
+    "old": "glyphs: who.glyphs, au: who.au, ...(who.rb ? { rb: who.rb } : {}), lv: who.lv,",
+    "new": "glyphs: who.glyphs, ...(who.rb ? { rb: who.rb } : {}), lv: who.lv,",
     "tests": [
       "test/wb9g_insignia.test.js"
     ]
@@ -265,8 +265,8 @@
   {
     "name": "WB9g-the-peers-aura-never-read",
     "file": "src/net/online.js",
-    "old": "title, ts, glyphs, au: readAura(p), lv: readRenown(p),",
-    "new": "title, ts, glyphs, lv: readRenown(p),",
+    "old": "title, ts, glyphs, au: readAura(p), rb: readRibbon(p), lv: readRenown(p),",
+    "new": "title, ts, glyphs, rb: readRibbon(p), lv: readRenown(p),",
     "tests": [
       "test/wb9g_insignia.test.js"
     ],
@@ -284,8 +284,8 @@
   {
     "name": "WB9g-the-memory-loses-it",
     "file": "src/net/online.js",
-    "old": "gt: p.gt ?? null, au: p.au ?? null, sub: p.sub",
-    "new": "gt: p.gt ?? null, sub: p.sub",
+    "old": "gt: p.gt ?? null, au: p.au ?? null, rb: p.rb ?? null, sub: p.sub",
+    "new": "gt: p.gt ?? null, rb: p.rb ?? null, sub: p.sub",
     "tests": [
       "test/wb9g_insignia.test.js"
     ]
@@ -293,8 +293,8 @@
   {
     "name": "WB9g-the-re-stood-peer-bare",
     "file": "src/net/online.js",
-    "old": "gt: knew.gt, au: knew.au, sub: knew.sub",
-    "new": "gt: knew.gt, sub: knew.sub",
+    "old": "gt: knew.gt, au: knew.au, rb: knew.rb, sub: knew.sub",
+    "new": "gt: knew.gt, rb: knew.rb, sub: knew.sub",
     "tests": [
       "test/wb9g_insignia.test.js"
     ]

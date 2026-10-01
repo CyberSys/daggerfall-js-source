@@ -7140,7 +7140,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1101`, `src/net/online.js:2356`):**
+**Now (`src/net/wire.js:1108`, `src/net/online.js:2368`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -11175,8 +11175,8 @@ records re-aimed by content (SEAT1c's list and its defence's two, SEAT2a part th
   `keptTitleOf`, `KEPT_TITLES`, which the mint and the wardrobe read for all three).
 - **The Seat tab**: the Season's week above the week's clock ("Week 3 of 8 of the Season of First Seed.", the standings'
   `season`), none where none is counted.
-- **Not yet**: the banner ribbon a Keeper's guild wears (the token and the name tag - part two, with the Tides); the
-  fortifications' wear (SEAT2b has none); the Chronicle as a Hall of Records book (part three).
+- **Not yet**: the banner ribbon a Keeper's guild wears (the token and the name tag - BUILT in part two, the banner
+  ribbon, below); the fortifications' wear (SEAT2b has none); the Chronicle as a Hall of Records book (part three).
 
 Pinned: `test/season1_law.test.js` (4), `test/season1_service.test.js` (3 - a Season's end set against a twin service
 counting none), `test/season1_client.test.js` (1). `tools/mutants/season1.json` (61, all dead - two survived the first run, each a vacuous pin: a
@@ -11279,6 +11279,48 @@ mutant (a sixth camp at 250, its first equivalent over fifty-influence camps), t
 PIN MOVED: the account version pins; SEAT1c's list pin (`zero`); six older mutant records re-aimed by content, still
 dead (CROWN2's red lines, SEAT1b's account cap, SEAT1c's undressed list, WOD3's placed foe - now two sites - and
 SURVTIERS3's two cites of world.js's seed, which the cite shift moved).
+
+### SEASON1 (part two, the banner ribbon) - a Keeper's guild wears its colours under the name
+
+2026-10-01, Mac: "Finish the seats"; "Continue"; "Hurry up". Service, relay and client; `acct56`, `world143`, migration
+`0057_season_ribbons.sql` (`town_seat_ribbons`: a Season, a guild, the Turning's time). Seats-Arc 9.1. With it SEASON1
+part two is whole.
+
+- **Written at the Season's end** (`seatTurning.js` settleWeek, `townSeatLaw.js` `seasonRibbons`): every guild a
+  keeper's title names - it held a seat the whole Season - once, at the Turning's own time. Season 0 names none.
+- **Worn through the next Season** (`seatRibbons.js` `ribbonOf`, `townSeatLaw.js` `ribbonSeasonOf`): the token minted for
+  a named character carries `rb` - its guild's field and border as two indexes of `heraldryLaw.js` HERALDRY_COLOURS
+  (`ribbonClaimOf`) - where that guild was ribboned at the last Season's end and the character was its member at that
+  Turning; the mint's answer says it (`ribbon`). DECIDED: a member who joined after that Turning wears none, one who
+  leaves the guild loses it at the next token; the colours are the guild's now, a guild with no heraldry Argent
+  bordered Ash (`RIBBON_PLAIN`).
+- **The token** (`identityToken.js` claimsValid, mintToken; `heraldryLaw.js` `ribbonClaimOk` - two different whole
+  indexes of the sixteen): absent for none, so a bare token is the bytes it always was. `heraldryLaw.js` joins the
+  relay's bundle (it imports nothing).
+- **THE TOKEN'S BOUND, 512 TO 640** (`wire.js` TOKEN_RE): a token wearing every optional claim at once - a seat title and
+  its claim, every glyph, an aura, a mute, the Renown cap, a guild, the realm's word and the ribbon - is 540 characters
+  of body (523 without the ribbon - already past it), over the hello's old 512, so a token the service signed would
+  have been refused as 'bad token'. Found by the
+  mapping, not the field: no account wears all of them today. AUDIT B8's pin (test/shadowfang.test.js) now wears them
+  all; the verifier's 1024 still bounds the whole.
+- **The relay** (`world143`; `server/src/index.js` `_named` and the hello's attached row, `wire.js` `badged`): the
+  ribbon off the verified token alone onto every row that names its wearer - the welcome, a join, a roster - never off
+  a frame; `readRibbon` is the client's reader.
+- **The page** (`online.js` `adoptIdentity`'s `ribbon`, `ribbonOf`; the peer's off its introduction and its newest
+  hello, kept in the session's memory so a re-stood peer wears it at once; `accountClient.js` the mint's answer):
+  `remotePlayers.js` namePoints carries it; the bitmap face draws a band the run's width under the name in the field
+  colour, edged beneath in the border colour (two solid quads); the DOM face a band under the name row
+  (`.dfname-ribbon`), its colours written when they change, off for none. The Overworld travel view's badge draws none
+  yet.
+
+Pinned: `test/season1_ribbon.test.js` (4 - the law; through the real Worker a Season's end writing it and the mint
+wearing it against a twin counting no Season; the token and the relay; the page). `tools/mutants/ribbon.json` (47: 46
+dead, 1 recorded equivalent - the mint's character gate, which a member row's own id shape already answers; one
+survived the first run, the re-stood peer's memory, now pinned). PIN MOVED: the relay and account version pins
+(`world143`, `acct56`); the relay's law row and bundle graph (`heraldryLaw.js`); identityToken.js's imports;
+WB9g's two relay source pins; the account schema's tables (`town_seat_ribbons`); AUDIT B8's widest token. Ten older
+mutant records re-aimed by content, still dead (ACC1d's and ACC3a's vouched name, ACC3b's and SLAM9's memory, SOC1's
+version line, WB9g's five).
 
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 

@@ -827,7 +827,9 @@ export function accountTokenMinter({ fetch, storage, onIssued = null, character 
           // GUILD1c: the tag my character's guild wears (null for none) - absent from a service before acct13, which says nothing
           ...('guild' in answer.data ? { guild: typeof answer.data.guild === 'string' ? answer.data.guild : null } : {}),
           // WB9g: the aura at my own feet (null for none) - absent from a service before acct38, which says nothing
-          ...('aura' in answer.data ? { aura: typeof answer.data.aura === 'string' ? answer.data.aura : null } : {}) };
+          ...('aura' in answer.data ? { aura: typeof answer.data.aura === 'string' ? answer.data.aura : null } : {}),
+          // SEASON1 part two: a Season's banner ribbon under my own name (null for none) - absent from a service before acct56
+          ...('ribbon' in answer.data ? { ribbon: Array.isArray(answer.data.ribbon) ? answer.data.ribbon : null } : {}) };
         adoptIdentity(storage, { ...who, secret: session.secret });   // AUDIT B4: into the session that asked
         // A THROW HERE IS THE HOST'S AND IS NOT THE PLAYER'S. The token
         // is good and the connection is the thing that matters; a

@@ -122,6 +122,7 @@
 
 import { sanitizeName, NAME_MAX } from './wire.js';
 import { GUILD_ID_RE, GUILD_TAG_RE, GUILD_MEMBER_RE } from './guildLaw.js';   // GUILD1c: a guild rides the token - the law's own three shapes
+import { ribbonClaimOk } from './heraldryLaw.js';   // SEASON1 part two: a Season's banner ribbon - heraldryLaw.js imports nothing, so the worker's graph stays flat
 
 /** The only version this file will read or write. It names the
  *  algorithm, so the payload cannot. */
@@ -321,6 +322,7 @@ export function claimsValid(c, { maxTtlS = MAX_TTL_S } = {}) {
   // SEAT1c: a seat's title rides with its claim, and the claim with nothing else - absent for every other title
   if (SEAT_TITLES.includes(c.t) ? !seatTitleClaimOk(c.ts) : c.ts !== undefined) return false;
   if (c.au !== undefined && !AURAS.includes(c.au)) return false;   // WB9g: the aura worn, the title's law - absent for none, one of the known or refused
+  if (c.rb !== undefined && !ribbonClaimOk(c.rb)) return false;   // SEASON1 part two: a Season's banner ribbon - absent for none, two of the sixteen colours or refused
   if (c.g !== undefined) {
     if (!Array.isArray(c.g) || c.g.length > GLYPHS_MAX) return false;
     if (!c.g.every((g) => GLYPHS.includes(g))) return false;
@@ -350,7 +352,7 @@ export function claimsValid(c, { maxTtlS = MAX_TTL_S } = {}) {
  * MINT. The account service's half - it holds the private key and
  * nothing else does.
  *
- * @param {{s:string, n:string, k:'guest'|'linked', t?:string, ts?:number[], g?:string[], mu?:number, lv?:number, gi?:string, gt?:string, gm?:string, rc?:0|1, au?:string}} who
+ * @param {{s:string, n:string, k:'guest'|'linked', t?:string, ts?:number[], g?:string[], mu?:number, lv?:number, gi?:string, gt?:string, gm?:string, rc?:0|1, au?:string, rb?:number[]}} who
  * @param {CryptoKey} privateKey  an Ed25519 private key
  * @param {{subtle: SubtleCrypto, nowS: number, ttlS?: number}} env
  * @returns {Promise<string>}
@@ -370,6 +372,7 @@ export async function mintToken(who, privateKey, { subtle, nowS, ttlS = MAX_TTL_
   if (who?.gi !== undefined || who?.gt !== undefined || who?.gm !== undefined) Object.assign(claims, { gi: who.gi, gt: who.gt, gm: who.gm });
   if (who?.rc !== undefined) claims.rc = who.rc;   // REALM-DOOR: a 0 is said, never dropped as falsy - it is the relay's refusal
   if (who?.au !== undefined) claims.au = who.au;   // WB9g: only while an aura is worn - a player wearing none mints the bytes they always did
+  if (who?.rb !== undefined) claims.rb = who.rb;   // SEASON1 part two: only while a Season's ribbon is worn - none, the bytes as before
   // A BAD CLAIM SET IS REFUSED AT THE MINTER. The verifier would refuse
   // it too, but at the player's machine, where the only thing anyone
   // learns is that online is broken.

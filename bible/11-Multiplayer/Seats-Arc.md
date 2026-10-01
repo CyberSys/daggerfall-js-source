@@ -839,8 +839,15 @@ the guild's guildmaster at that Turning (DECIDED: a Charter lapsing at that Turn
 earns none; "held all 8 weeks" is held from the Season's first week), Legacy cleared, Standing halfway back toward 50
 (rounded toward it), the Charters standing, and the Chronicle's line at every seat held; a Pact to its Season's end and
 the once-a-Season rules (Honours, a forfeit's Standing) over the Season itself; the Season on every seat title's claim
-(`ts`) and on the Seat tab. NOT YET: the banner ribbon (it needs the token and the name tag - with the Tides, SEASON1
-part two); the fortifications' wear (SEAT2b has none to wear); the Chronicle as a book (9.2, part three).
+(`ts`) and on the Seat tab. BUILT (SEASON1 part two, the banner ribbon, `acct56`, `world143`, migration 0057): the
+banner ribbon - each guild a keeper's title names written at the Turning that ends the Season (`town_seat_ribbons`, its
+Turning's time), and through the next Season the named character of every member at that Turning wears the guild's
+field and border as two colour indexes on the token (`rb`; `server-account/src/seatRibbons.js` `ribbonOf`), which the
+relay stamps on every row naming its wearer and both name faces draw as a thin band under the name (`ui/nameLayer.js`,
+`net/remotePlayers.js`). DECIDED: a member who joined after that Turning wears none, and one who leaves the guild loses
+it at the next token; the colours are the guild's as they are now (a banner changed is a ribbon changed), Argent
+bordered Ash for a guild with no heraldry; the Overworld travel view's badge draws none yet. NOT YET: the
+fortifications' wear (SEAT2b has none to wear); the Chronicle as a book (9.2, part three).
 
 ### 9.2 The Chronicle and the Hall of Records
 
@@ -994,7 +1001,7 @@ bible updated in the same change, mutants recorded.
 | **SEAT2b** | Fortifications, the Barracks' guards, the Gatehouse, the Ram, revolts | Needs PROF11 (Masonry), PROF4 (Carpentry), PROF3 (Smithing's ingots for the Ram) and PROF8 (the Pearls tier-2 Shrine and Apothecary ask) |
 | **CROWN1** | The crown tier: reach, the Marches, the Free Lands, crown glyphs, the Saturday slots, Royal Tourney, Conscription - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` CROWN1: reach, the Marches' share, the Free Lands' Watch, Conscription; `acct49`; the crown glyphs were SEAT1c's, the Saturday slots SEAT2a's); **PART TWO (the Royal Tourney) SHIPPED** - the relay (`world142`), the service (`acct50`) and the client; CROWN1 is whole. Built before SEAT2b, which waits on PROF11 (Masonry) and which CROWN1 does not read | 4.4's worked example pinned to the unit; every Conscription share pinned |
 | **CROWN2** | Fealty and Pacts - **SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` CROWN2; `acct51`, migration `0055`) | The tribute, the half-reach and the break's Standing pinned at the Turning; the pledges barred; a Pact broken early in red |
-| **SEASON1** | Seasons, the Chronicle, the Hall of Records, Tides - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` SEASON1: the calendar from `SEASON_ZERO_WEEK`, the names, a Season's end - its titles, the soft reset, the Chronicle's line - Season 0's wipe, the Season on the rules and the titles; `acct52`); **PART TWO (the Tides) BEGUN** - the roll and the seat's own effects, on the Seat tab (`acct53`); the economy's and the client's Tides and the banner ribbon follow, the Hall of Records is part three | A Season's end set against a twin counting none; Season 0's wipe |
+| **SEASON1** | Seasons, the Chronicle, the Hall of Records, Tides - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` SEASON1: the calendar from `SEASON_ZERO_WEEK`, the names, a Season's end - its titles, the soft reset, the Chronicle's line - Season 0's wipe, the Season on the rules and the titles; `acct52`); **PART TWO SHIPPED** - the roll and the seat's own effects, on the Seat tab (`acct53`); the economy's Tides (`acct54`); the Orc Raids and the stormy sea (`acct55`); the banner ribbon (`acct56`, `world143`); the Hall of Records is part three | A Season's end set against a twin counting none; Season 0's wipe |
 
 ## 14. What remains to measure
 

@@ -156,6 +156,7 @@ import { setTithe, proclaimEdict, claimBounty } from './seatHolding.js';   // SE
 import { setWindow, signBattle, unsignBattle, hireSellsword, withdrawHire, siegesLive } from './seatBattles.js';   // SEAT2a: the battles' week
 import { siegePass, claimSiege } from './seatSiege.js';   // SEAT2a part three: the pass, the result, Honours
 import { royalPass, claimRoyal, keptTitleOf, KEPT_TITLES } from './seatRoyal.js';   // CROWN1 part two: the Royal Tourney's pass, its bouts, its champion's title (SEASON1: every title kept)
+import { ribbonOf } from './seatRibbons.js';   // SEASON1 part two: a Season's banner ribbon, on the token
 import { seatWeekOf, seasonOf, seasonZeroOf } from '../../src/net/townSeatLaw.js';   // SEASON1: the Season counted
 import { offerFealty, acceptFealty, breakFealty, offerPact, breakPact, redOf } from './seatPolitics.js';   // CROWN2: fealty and Pacts, the red lines
 
@@ -564,10 +565,14 @@ const service = {
         const kept = seats && KEPT_TITLES.includes(wornT) ? await keptTitleOf(ctx.db, who.player.id, wornT, zero) : null;
         const seatT = KEPT_TITLES.includes(wornT) ? (kept ? { t: wornT, ts: kept.ts } : {})
           : SEAT_TITLES.includes(wornT) ? (seatBadge?.title === wornT ? { t: wornT, ts: seatBadge.ts } : {}) : (wornT ? { t: wornT } : {});
+        // SEASON1 part two (Seats-Arc 9.1): AND A SEASON'S BANNER RIBBON - the named character's, where its guild kept a
+        // seat through the Season before and it was a member at that Season's last Turning (seatRibbons.js ribbonOf)
+        const rb = seats && renownCharacterOk(body.character) ? await ribbonOf(ctx.db, who.player.id, body.character, seasonOf(seatWeekOf(nowS * 1000), zero)) : null;
         const wardrobe = {
           ...seatT,
           g: [...glyphsOf(who.player, env, nowS), ...(seatBadge?.glyphs ?? [])],
           au: auraWorn(who.player),   // WB9g: the aura worn, the title's law - absent for none
+          ...(rb ? { rb } : {}),
         };
         // MOD1: A MUTE RIDES THE TOKEN, so a reconnect cannot shed one -
         // every room reads it off the signature at the hello. Only while
@@ -612,6 +617,7 @@ const service = {
           xp: track ? track.xp : null,
           guild: guild ? guild.gt : null,   // GUILD1c: the tag my own name wears, beside the token as the level is
           aura: wardrobe.au ?? null,   // WB9g: the aura at my own feet, beside the token as the title is
+          ribbon: wardrobe.rb ?? null,   // SEASON1 part two: the ribbon under my own name, beside the token as the aura is
           expiresAt: nowS + MAX_TTL_S,
         }, 200, origin);
       }
