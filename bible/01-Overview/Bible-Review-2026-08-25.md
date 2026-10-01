@@ -100,7 +100,7 @@ contradict the same file.** All 20 ledgerSweep suspects verified as
 VALID rows (the matcher is over-cautious - the right failure
 direction). The real staleness is where the sweep cannot see:
 - `:341` "**TWO LEFT**... only DaedraSummoning and ReceiveHouse are
-  still null" - `guildServiceFlow.js:263/:266` maps both (G7, H1);
+  still null" - `guildServiceFlow.js:271/:274` maps both (G7, H1);
   the row contradicts the GATED derived figure fifteen lines above it
   ("still unbuilt: 0") and is on its FOURTH stale generation - the
   row's own title records the previous three.
@@ -233,7 +233,7 @@ opposite of their own code and deserve a slice's attention:
 
 ## Line-citation drift (low, batched)
 
-`Port-Ledger.md:633` (save.js:36/:586/:605 → :28/:676/:708), `:636`
+`Port-Ledger.md:633` (save.js:36/:586/:605 → :28/:682/:714), `:636`
 (world.js:5016 → :2412); `Quest-Arc.md:724`/`:2911`
 (worldModes.js:646 → :903); `Player-Arc.md:979` (worldModes.js:974 →
 :2764), `:304` (world.js "531 lines" → 3,564); `Characters-Arc.md:190`

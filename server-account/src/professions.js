@@ -17,8 +17,8 @@
 // ═══ THE SERVICE ROLLS, THE CLIENT PLAYS ═══════════════════════════
 //
 // A node's id is real by the law (nodeLaw.js - a hash of the pixel and
-// the UTC day); the hour is the shared clock's, computed here from the
-// act's end (sharedClassicMinutes); the cap, the Stores' room and the
+// the UTC day); the act's end is the request's, ten minutes at most past
+// (ANY-HOUR: no hour of it is refused); the cap, the Stores' room and the
 // dice are the service's. The act's report moves the roll by its bounded
 // step only (PROF0 5.1: a bruise one less, the Basket's +50% at most) -
 // the tool, its wear, the foe and the load are the client's courtesy.
@@ -44,8 +44,6 @@ import { marksOpenFor, balanceOf } from './marks.js';
 import { CHAR_ID_RE } from './service.js';
 import { MARKS_MAX, utcDay } from '../../src/net/marksLaw.js';
 import { renownForXp, RENOWN_XP_MAX, RENOWN_TRACKS_MAX } from '../../src/net/renown.js';
-import { sharedClassicMinutes } from '../../src/net/wire.js';
-import { isForagingDaylight } from '../../src/systems/foragingCore.js';
 import {
   PROFESSIONS, isProfession, rankOfXp, tierOpen, harvestXp, writXp, specOk, specsAt, SPEC_RANKS, RESPEC,
   HARVESTS_PER_DAY, STORES_MAX, WITHDRAW_MAX, PROF_OPS_MAX, PROF_OPS_WINDOW_S, HARVEST_LATE_S, HARVEST_EARLY_S,
@@ -53,6 +51,7 @@ import {
   glintsMax, smeltRecipe, SMELT_MAX, smeltXp, craftXpCap, HARVESTS_PER_ACCOUNT_DAY, DEEP_UNCONFIRMED_PER_DAY,
   stockOf, STOCK_MAX, withdrawable, cutsMax, workPer, workSpecRank, hideOfFoe, HIDES_PER_DAY, HIGH_HIDES_PER_DAY, HIGH_HIDE_TIER,
   HAULS_PER_DAY, HAUL_YIELD, FISH_KEY, haulTier,   // PROF8
+  herbXpTier,   // HERB-XP
 } from '../../src/net/professionLaw.js';
 import {
   recipeById, recipeOpen, qualityOdds, rollQuality, qualitySteps, craftQuality, takesQuality, craftXp, craftCount,
@@ -97,8 +96,6 @@ function dice(rand) {
   rand(new Uint8Array(b.buffer));
   return b[0] / 4294967296;
 }
-/** The shared clock's hour at an instant (epoch seconds). */
-const sharedHourAt = (atS) => Math.floor((((Math.floor(sharedClassicMinutes(atS * 1000)) % 1440) + 1440) % 1440) / 60);
 
 // ─── WHAT A CHARACTER HAS ────────────────────────────────────────────
 
@@ -302,8 +299,8 @@ function cutsOf(act, tier, lumberjack) {
  * pixel's climate and region; a dungeon's, for a dungeon vein), the act's report (`{ clean, bruised }` for an herb,
  * `{ finds }` for the Basket, `{ glints, clean }` for the Pick-Axe, `{ cuts, clean }` for the Wood-Axe - PROF4's `logs`
  * at a tree), the act's end on the shared clock (epoch seconds)
- * and the request's id. The id must be today's and real by the law; `at` at most ten minutes past and, on the surface,
- * in daylight; the ground as the witnesses confirmed it, or taken at the claim's word at the least it is worth (a
+ * and the request's id. The id must be today's and real by the law; `at` at most ten minutes past, at any hour (ANY-HOUR,
+ * 2026-10-01, Mac: "Remove the time limit for professions. Should be available at any time"); the ground as the witnesses confirmed it, or taken at the claim's word at the least it is worth (a
  * pixel's tiers 1-2 and no march or signature; a dungeon's tier 3 and no gem); the tier inside the rank; the day's cap
  * and the Stores' room decided in the harvest's own INSERT. The yield, and a gem, are the service's dice.
  *
@@ -332,8 +329,9 @@ export async function harvestNode(ctx, player, env, body = {}) {
   if (n.day !== day) return { error: 'prof-day' };   // PROF0 19: a node whose UTC day has ended lapses
   if (!Number.isSafeInteger(at) || at < nowS - HARVEST_LATE_S || at > nowS + HARVEST_EARLY_S || utcDay(at) !== day) return { error: 'prof-late' };
   const deep = n.kind === 'dvein';
-  // the wilderness keeps Foraging's day (FORAGE0 14.3); a dungeon vein keeps no hours (PROF0 5.1), nor Hunting (14.3)
-  if (!deep && !isBody && !isForagingDaylight(sharedHourAt(at))) return { error: 'prof-night' };
+  // ANY-HOUR (2026-10-01, Mac: "Remove the time limit for professions. Should be available at any time"): no node keeps
+  // hours - the wilderness kept Foraging's day (FORAGE0 14.3) and refused the night with `prof-night`; a dungeon vein and
+  // Hunting never kept any
   // AUDIT 32 S4: a body's foe is the request's shape, refused before the hour's acts are spent (as a craft's dye is)
   const hide = isBody ? hideOfFoe(foe) : null;
   if (isBody && !hide) return { error: 'prof-foe' };
@@ -366,6 +364,7 @@ export async function harvestNode(ctx, player, env, body = {}) {
   const march = !deep && !isBody && confirmed && isMarch(region);
   const roll = (lo, hi) => lo + Math.floor(dice(rand) * (hi - lo + 1));
   let tier, key2, qty, clean, gem = null, extra = null, extraQty = 1, trophy = 0;
+  let xpTier = /** @type {number|null} */ (null);   // HERB-XP: the tier the XP is reckoned at, where it is not the node's
   if (isHaul) {
     // PROF8: THE NET - a haul's Raw Fish, worked at the rank's own tier (Mac: "XP follows your rank"); a full net x1.5
     // (the act's bound); a school's fish; at sea on confirmed ground a Pearl and a Slaughterfish; a trophy anywhere
@@ -411,6 +410,7 @@ export async function harvestNode(ctx, player, env, body = {}) {
     if (kind === 'herbs') {
       tier = patch.tier;
       if (!tierOpen(rank, tier)) return { error: 'prof-rank' };
+      xpTier = herbXpTier(rank);   // HERB-XP (Mac: "XP follows your rank"): picked at the rank's own tier, as a haul is worked
       key2 = herbKey(patch.herb, region);
       const common = tier === 1;
       // the steady hand's report, bounded: an uncommon or rare herb unbruised is the clean act; a bruised one yields one
@@ -453,7 +453,7 @@ export async function harvestNode(ctx, player, env, body = {}) {
     }
   }
   if (!key2) return { error: 'bad-node' };
-  const xp = harvestXp(tier, rank, clean);
+  const xp = harvestXp(xpTier ?? tier, rank, clean);
   const nonce = mintId(rand);
   const deepUnconfirmed = deep && !confirmed ? 1 : 0;
   const mine = 'player = ?1 AND rid = ?2 AND n = ?3';

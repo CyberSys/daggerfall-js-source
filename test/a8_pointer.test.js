@@ -119,7 +119,10 @@ test('A8: every host reads the one gate, and its FLAG is retired', () => {
     const s = readFileSync(join(root, h), 'utf8');
     assert.match(s, /from '\.\.\/systems\/activateGate\.js'/, `${h} imports the gate`);
     assert.match(s, /activateFrame\(/, `${h} runs a frame of it`);
-    assert.match(s, /down: held\(keys, 'ActivateCenterObject'\)/, `${h} polls the ACTION`);
+    // PIN MOVED (AUDIT 2026-10-01 part four, CLICK-LIFT): the street's and the modal frame's press is named before the gate
+    // (`_activateDown`) - the act's click is asked with it too
+    assert.match(s, /(?:down: |const _activateDown = )held\(keys, 'ActivateCenterObject'\)/, `${h} polls the ACTION`);
+    if (/const _activateDown = /.test(s)) assert.match(s, /\n\s*down: _activateDown,/, `${h}: the gate reads that press`);
     // the flag that stood on every one of these lines
     assert.ok(!/the pointer-parity slice owns the move/.test(s),
       `${h}'s pointer-parity flag is retired, not orphaned`);

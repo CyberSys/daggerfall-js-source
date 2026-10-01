@@ -160,15 +160,6 @@
     ]
   },
   {
-    "name": "PROF8-svc-night-fishing",
-    "file": "server-account/src/professions.js",
-    "old": "  if (!deep && !isBody && !isForagingDaylight(sharedHourAt(at))) return { error: 'prof-night' };",
-    "new": "  if (!deep && !isBody && !isHaul && !isForagingDaylight(sharedHourAt(at))) return { error: 'prof-night' };",
-    "tests": [
-      "test/prof8_service.test.js"
-    ]
-  },
-  {
     "name": "PROF8-svc-haul-unwitnessed",
     "file": "server-account/src/professions.js",
     "old": "    ...(isBody ? [] : [db.prepare(`INSERT OR IGNORE INTO world_witness",

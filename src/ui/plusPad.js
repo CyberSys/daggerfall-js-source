@@ -31,8 +31,9 @@ export function plusPadActive() {
 
 // ── 1. THE LAYOUT ───────────────────────────────────────────────────
 
-/** Bumped when the layout below changes, so the one-time move runs again for rows still on the old default. */
-export const PLUS_PAD_LAYOUT_VERSION = 1;
+/** Bumped when the layout below changes, so the one-time move runs again for rows still on the old default. TOUCH-HOLD:
+ *  2 - LT is Interact (it was Recast, which the d-pad's right holds now - PLUS_DPAD_DEFAULTS). */
+export const PLUS_PAD_LAYOUT_VERSION = 2;
 
 /** The Plus rows, secondary dict. LB and RB are left FREE: holding one is the crossbar. RT is the attack through the
  *  joystick-UI RightClick (the drag-swing arm), so it holds no secondary row of its own. */
@@ -44,7 +45,10 @@ export const PLUS_PAD_LAYOUT = Object.freeze([
   ['JoystickButton7', 'Escape'],             // Menu - pause
   ['JoystickButton8', 'Run'],                // L3 - toggled by the poller (plusToggleRun)
   ['JoystickButton9', 'Crouch'],             // R3
-  ['JoystickAxis9Button0', 'RecastSpell'],   // LT - cast the last spell again
+  // TOUCH-HOLD (2026-10-01 part four - Mac: "Interact button + knife Use"): LT - E, the professions' start and their
+  // hold, and the sea's. Every Plus button held a row, and a trigger holds while the right thumb draws the knife's
+  // line; Recast, which it held, is the d-pad's right held (PLUS_DPAD_DEFAULTS)
+  ['JoystickAxis9Button0', 'Interact'],      // LT
   ['JoystickAxis7Button0', 'QuickUse1'],     // d-pad: the diamond / crossbar-left's d-pad, as PAD1
   ['JoystickAxis7Button1', 'QuickUse2'],
   ['JoystickAxis6Button1', 'QuickSpell'],
@@ -57,6 +61,9 @@ export const PLUS_PAD_UI = Object.freeze([
   ['JoystickButton0', 'LeftClick'], ['JoystickAxis10Button0', 'RightClick'], ['JoystickButton19', 'MiddleClick'], ['JoystickButton1', 'Back'],
 ]);
 const PAD1_UI = Object.freeze({ LeftClick: 'JoystickButton0', RightClick: 'JoystickButton3', MiddleClick: 'JoystickButton2', Back: 'JoystickButton1' });
+/** TOUCH-HOLD: the rows an earlier version laid that this one takes back where they still stand - version 1's Recast on
+ *  LT, which Interact takes. */
+export const PLUS_PAD_RETIRED = Object.freeze([['JoystickAxis9Button0', 'RecastSpell']]);
 
 /**
  * Move a bindings store to the Plus layout. Without `force` only PAD1's untouched defaults move - a row the player
@@ -66,8 +73,8 @@ const PAD1_UI = Object.freeze({ LeftClick: 'JoystickButton0', RightClick: 'Joyst
 export function applyPlusPadLayout(store, { force = false } = {}) {
   const changed = [];
   if (!store?.secondary) return changed;
-  // let go of PAD1's own rows where they still stand
-  for (const [code, action] of DEFAULT_SECONDARY_BINDINGS) {
+  // let go of PAD1's own rows where they still stand - TOUCH-HOLD: and an earlier Plus layout's that this one retired
+  for (const [code, action] of [...DEFAULT_SECONDARY_BINDINGS, ...PLUS_PAD_RETIRED]) {
     if (store.secondary.get(code) === action) { dropBinding(store, code, action, false); changed.push(`${action} off ${code}`); }
   }
   if (force) {
@@ -161,7 +168,7 @@ export const PLUS_DPAD_DEFAULTS = Object.freeze({
   up: Object.freeze({ tap: 'SwitchHand', hold: NEXT_MODE }),
   down: Object.freeze({ tap: 'AutoMap', hold: 'TravelMap' }),
   left: Object.freeze({ tap: 'LogBook', hold: 'Transport' }),
-  right: Object.freeze({ tap: 'Rest', hold: null }),
+  right: Object.freeze({ tap: 'Rest', hold: 'RecastSpell' }),   // TOUCH-HOLD: Recast, which LT held before Interact took it
 });
 /** What a d-pad slot may hold - the words the bindings window shows. null is "nothing". */
 export const DPAD_CHOICES = Object.freeze([

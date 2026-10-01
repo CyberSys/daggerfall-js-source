@@ -202,8 +202,8 @@
   {
     "name": "WB5-a-piece-without-its-row",
     "file": "src/systems/gateSpoils.js",
-    "old": "!templateByIndex(item?.templateIndex); n++)",
-    "new": "false; n++)",
+    "old": "(!templateByIndex(item?.templateIndex) || !wearableItem(item)); n++)",
+    "new": "!wearableItem(item); n++)",
     "tests": [
       "test/wb5_gate_spoils.test.js"
     ]

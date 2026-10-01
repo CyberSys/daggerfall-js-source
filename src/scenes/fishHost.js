@@ -28,7 +28,7 @@
 //   species' own item, into the pack once.
 // ═══════════════════════════════════════════════════════════════════
 import { haulKey, parseNodeKey, schoolSpots, SCHOOLS_PER_PIXEL, SCHOOL_R, pixelKey } from '../net/nodeLaw.js';
-import { HAULS_PER_DAY, FISH_KEY, actBand, PEARL } from '../net/professionLaw.js';
+import { HAULS_PER_DAY, FISH_KEY, actBand, PEARL, storesFullIn } from '../net/professionLaw.js';
 import { createFishAct } from '../systems/fishAct.js';
 import { FT, attributeAverage } from '../systems/foragingLaw.js';
 import { foragingActRefusal, actChecksRefusal, foragingToolIn, foragingHost } from '../systems/foragingInstall.js';
@@ -57,9 +57,11 @@ export const SCHOOL_MARK = Object.freeze({ w: 4.4, h: 0.8 });
  *  their records in DFU's TEXTURE.216 are other things. */
 export const SCHOOL_PICTURE = Object.freeze([211, 9]);
 const schoolPicture = () => { const t = templateByIndex(FT.Fish); return t?.worldTextureArchive ? [t.worldTextureArchive, t.worldTextureRecord ?? 0] : SCHOOL_PICTURE; };
-/** The net's own words where the cast stands but the ground refuses it (the prompt's; the act says Foraging's lines). */
-export const NET_WHERE = Object.freeze(['inside', 'town', 'daylight']);
-export const NET_WHERE_WORDS = Object.freeze({ inside: 'not in here', town: 'not in a settlement', daylight: 'the fish bite by daylight (07:00-17:59)' });
+/** The net's own words where the cast stands but the ground refuses it (the prompt's; the act says Foraging's lines).
+ *  ANY-HOUR (2026-10-01, Mac: "Remove the time limit for professions. Should be available at any time"): never the
+ *  hour - the fish bite by night as by day (foragingInstall.js foragingActRefusal). */
+export const NET_WHERE = Object.freeze(['inside', 'town']);
+export const NET_WHERE_WORDS = Object.freeze({ inside: 'not in here', town: 'not in a settlement' });
 /** FISH-TIRED (FIELD BUGS 2026-09-30b: "you can get instakilled when fishing"). The minute's band charges an angler
  *  treading water the swim's price, 8 or 33 fatigue every five real seconds (systems/worldTick.js; FATIGUE-IDLE spares
  *  dry ground only), and in the water a collapse was DFU's death whatever the health - now a tenth of the health a game
@@ -255,7 +257,7 @@ export function fishKind({ book, host }) {
     plan(n, { rank, entity }) {
       const plan = fishPlan({
         taken: book.taken(n.key, 'fish'), counting: book.counting(n.key, 'fish'), hauls: book.state.hauls ?? 0, cap: book.state.caps?.hauls ?? HAULS_PER_DAY,
-        rank: rank('fishing'), storesFull: book.held(FISH_KEY) >= (book.state.caps?.stores ?? 5000), where: actChecksRefusal(NET_WHERE, NET_WHERE_WORDS) ?? (tooTiredForTheWater(entity) ? NET_TIRED_WORDS : null), school: schoolWords(),
+        rank: rank('fishing'), storesFull: storesFullIn(book, FISH_KEY) /* STORES-ROOM: every origin, as the service counts */, where: actChecksRefusal(NET_WHERE, NET_WHERE_WORDS) ?? (tooTiredForTheWater(entity) ? NET_TIRED_WORDS : null), school: schoolWords(),
       });
       return { ...plan, profession: 'fishing' };
     },

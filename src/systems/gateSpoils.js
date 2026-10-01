@@ -34,6 +34,7 @@ import { setItemFields, isAmmunition, mintCondition, registerCustomTemplates, te
 import { applyRarity, rarityChances, lastPass } from './lootRarity.js';
 import { rollRegalia } from './aetheric.js';   // SET6: Ruhn's Regalia - the spoils' last roll
 import { stacksWith } from './inventory.js';   // SS1: the fold of a pack saved before the stone stacked
+import { wearableItem } from './equip.js';   // RARITY-WEAR: a spoils piece is one a slot takes
 
 /** Gold a level of the player's, before the seed's variation (0.8 to 1.2 of it). */
 export const SPOILS_GOLD_PER_LEVEL = 250;
@@ -112,10 +113,12 @@ const pick = (list, rolls) => list[Math.floor(rolls() * list.length)];
 
 /** One piece to grade: a weapon (never ammunition), a piece of armour or a jewel, the seed choosing which and what, with
  *  SetItem's condition - and never one the port has no row for (a custom class whose template is not registered names
- *  nothing true and wears nothing: the next is made). */
+ *  nothing true and wears nothing: the next is made). RARITY-WEAR (FIELD BUGS 2026-10-01, Cruor: a King's Mark "spawn[ed]
+ *  as wands, they cannot be equipped"): nor one no slot takes - the Wand is the eighth jewel, and a tier on it is read by
+ *  nothing - so it is made again too; a seed that drew no wand draws what it drew before. */
 export function spoilsBase(level, rolls) {
   let item = makeBase(level, rolls);
-  for (let n = 0; n < 32 && !templateByIndex(item?.templateIndex); n++) item = makeBase(level, rolls);
+  for (let n = 0; n < 32 && (!templateByIndex(item?.templateIndex) || !wearableItem(item)); n++) item = makeBase(level, rolls);
   return mintCondition(item);
 }
 function makeBase(level, rolls) {

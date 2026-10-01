@@ -112,8 +112,12 @@ test('PAD1-C the pad layout: pad-only codes, one action each, none the UI dict s
   assert.equal(new Set(actions).size, actions.length, 'no action twice');
   for (const c of codes) assert.ok(PAD_CODE(c), `${c} is a pad code`);
   for (const a of actions) assert.ok(ACTIONS.includes(a), `${a} is an action`);
-  const ui = new Set(DEFAULT_JOYSTICK_UI.map(([c]) => c));
-  for (const c of codes) assert.ok(!ui.has(c), `${c} is not a UI click button (A/B/X/Y keep DFU's clicks)`);
+  // PIN MOVED (2026-10-01 part four, TOUCH-HOLD - Mac: "Interact button + knife Use"): B's UI action is Back, which
+  // answers only in a window - in the world B is Interact's (Plus shares B the same way, its pack and Back); A, X and Y
+  // keep DFU's clicks
+  const ui = new Set(DEFAULT_JOYSTICK_UI.filter(([, a]) => a !== 'Back').map(([c]) => c));
+  for (const c of codes) assert.ok(!ui.has(c), `${c} is not a UI click button (A/X/Y keep DFU's clicks)`);
+  assert.deepEqual(DEFAULT_SECONDARY_BINDINGS.find(([c]) => c === DEFAULT_JOYSTICK_UI.find(([, a]) => a === 'Back')[0]), ['JoystickButton1', 'Interact'], 'B: Interact in the world');
   const kb = new Set(DEFAULT_BINDINGS.map(([c]) => c));
   for (const c of codes) assert.ok(!kb.has(c), 'no keyboard default is touched');
   for (const q of QUICKSLOT_ACTIONS) {
@@ -121,7 +125,7 @@ test('PAD1-C the pad layout: pad-only codes, one action each, none the UI dict s
     const row = DEFAULT_SECONDARY_BINDINGS.find(([, a]) => a === q);
     assert.ok(row && /^JoystickAxis[67]Button[01]$/.test(row[0]), `${q} is on the d-pad`);
   }
-  for (const a of ['Jump', 'Crouch', 'Escape', 'Inventory', 'CastSpell', 'SwingWeapon', 'ReadyWeapon', 'Run']) assert.ok(actions.includes(a), `${a} has a pad row`);
+  for (const a of ['Jump', 'Crouch', 'Escape', 'Inventory', 'CastSpell', 'SwingWeapon', 'ReadyWeapon', 'Run', 'Interact']) assert.ok(actions.includes(a), `${a} has a pad row`);
 });
 
 test('PAD1-C the store: a full reset and the load-time autofill both FILL the pad rows and never overwrite a player\'s secondary; a cleared row is remembered, saved, loaded and not resurrected; a full reset forgets the mark', () => {
