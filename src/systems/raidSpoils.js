@@ -24,7 +24,7 @@
 // Not a DFU member. Ledger A (RAID1's row).
 import { seededRng } from './wind.js';
 import { spoilsBase, magicOrBetter } from './gateSpoils.js';
-import { applyRarity } from './lootRarity.js';
+import { applyRarity, lastPass } from './lootRarity.js';
 import { rollRaidSetPiece } from './aetheric.js';
 
 /** Gold a level of the player's, before the seed's variation (0.8 to 1.2 of it) - a third of a boss's. */
@@ -61,6 +61,7 @@ export function rollRaidSpoils(seed, level, party) {
   const pieces = [{ item, tier: item.rarity ?? tier }];   // a Legendary with no record for its kind falls to Rare: read back off the item
   const set = rollRaidSetPiece(party, rolls);   // LAST: every thanks before it stays what it was for its seed
   if (set) pieces.push({ item: set, tier: set.rarity });
+  lastPass([item], rolls);   // LOOT2: the ladder's last pass, after the set piece - its earlier draws stay its seed's
   return { gold, pieces };
 }
 

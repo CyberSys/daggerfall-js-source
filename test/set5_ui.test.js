@@ -393,5 +393,5 @@ test('SET5 the surfaces\' wiring: the pack\'s card and the Info box append the s
   assert.match(hud, /const powers = setPowerChips\(vitals\);/);
   assert.doesNotMatch(hud, /from '\.\.\/systems\/sigilSetPowers\.js'/, 'the HUD never imports the powers (a cycle through the round\'s ticker)');
   const w = strip(read('src/scenes/world.js'));
-  assert.match(w, /setSetsWearer\(\(\) => playerEntity\);\s*setHudSetChips\(setHudChips\);/);
+  assert.match(w, /setSetsWearer\(\(\) => playerEntity\);\s*setHudSetChips\(\(e\) => \[\.\.\.setHudChips\(e\), \.\.\.lootHudChips\(e\)\]\);/);   // LOOT5: the Legendary powers' chips beside the sets'
 });

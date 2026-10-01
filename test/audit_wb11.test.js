@@ -411,12 +411,10 @@ test('AUDIT WB11 U2 under the Burning a Ward-Bearer\'s Pulse - the disc that hur
 
 // ═══ D: THE RECORD ═════════════════════════════════════════════════════════════════════════════════════════════════
 
-test('AUDIT WB11 D1 when the last Ward-Bearer falls his OWN ward follows for its breath (SHIELD_MS, Unyielding\'s 6 s - the signature cast under it): the court\'s words and the patch notes say it fails, never that it breaks - every blow in that breath still turned (mutants: "breaks" said; the breath dropped)', () => {
+test('AUDIT WB11 D1 when the last Ward-Bearer falls his OWN ward follows for its breath (SHIELD_MS, Unyielding\'s 6 s - the signature cast under it): the court\'s words say it fails, never that it breaks - every blow in that breath still turned (mutants: "breaks" said; the breath dropped)', () => {
   assert.ok(!/breaks/.test(GH.COURT_HOST_TEXT.felled('Ann', 0)) && !/breaks/.test(GH.COURT_HOST_TEXT.crumbled));
   assert.match(GH.COURT_HOST_TEXT.felled('Ann', 0), /his ward is failing!$/);
-  const notes = read('PATCH-NOTES-Oblivion-Gates-Legion-Lord.md');
-  assert.match(notes, /break the last one and his ward fails a few seconds later \(longer if he is Unyielding\)/);
-  assert.match(notes, /heals a little \(a few times a fight at most\)/);
+  // the patch notes say the same - on the pull request since REL6 (#503), no longer a file in the tree
   // the brain: the bearers' wait over, his own ward for SHIELD_MS
   const f = fightOf(4, 30);
   f.phase = 2; f.court = 1; f.pos = [...COURTS[1]]; f.xa = [T0 - 60_000];

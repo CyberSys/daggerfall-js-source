@@ -32,7 +32,7 @@
 
 import { registerCustomTemplates, templateByIndex, mintCondition, setItemFields, registerAmmunition } from './itemTemplates.js';
 import { addVendorTextures, vendorTextureCount } from './textureReplacement.js';
-import { registerUniqueFind, registerLegendary } from './lootRarity.js';
+import { registerUniqueFind, registerLegendary, FOE_FAMILIES } from './lootRarity.js';
 import { SKILLS } from './skills.js';
 import { APP_ROOT } from './appRoot.js';   // AUDIT-THUNDERLOCK F7
 import { GUN_FEEL } from '../combat/gunFeel.js';   // FIELD-GUN13: the flash's reach, from the one home the feel lives in (a leaf - no imports of its own)
@@ -312,6 +312,12 @@ registerLegendary({
   ],
   enchantment: { type: 3, param: 20 },   // CastWhenStrikes - the shot carries a spell
   lore: 'The Dwemer left no instructions and no second one.',
+  // AUDIT LOOT F8 (the Loot arc, bible/06-Systems/Loot-Arc.md section 7 - "every Legendary a power"): its POWER, the
+  // Dwemer's own quarrel - they knelt to no god and no daedra (systems/lootPowers.js's bane, on its own shots) - and,
+  // a unique find of no family, where its codex row says it is found
+  power: Object.freeze({ name: 'Dwemer Defiance', kind: 'bane', foes: FOE_FAMILIES.daedra, pct: 50,
+    brief: '+50% vs daedra and atronachs', text: 'Its shots deal +50% damage to the daedra, the atronachs, imps and gargoyles - the Dwemer knelt to none of them' }),
+  hint: 'Said to turn up anywhere, once in a great while',
 });
 
 // ── THE SOUND ───────────────────────────────────────────────────────

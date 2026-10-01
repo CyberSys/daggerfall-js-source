@@ -1347,7 +1347,7 @@ groups it splits into, and one that stands together round one does not.
 - **Pure, and silent without the trial**: the host's dice are the rng the relay hands every beat (its CSPRNG), and a
   fight without the trial draws none of them.
 
-### The wire (WB11b - relay world138, the brain's law 5)
+### The wire (WB11b - relay world140, world138 on its branch; the brain's law 5)
 
 | frame | way | what |
 |---|---|---|
@@ -1464,10 +1464,11 @@ must come from his court, and the floor's check is all that turns one from his n
 laid (he lands 2.4 s after the bound's word, the walkway is whole at 5 s), which no pin held: pinned (K1, below). Then
 753 records: 747 dead, the six equivalents as recorded.
 
-THE DEPLOY. RELAY_VERSION world138 (not yet deployed) holds these - its law re-hashed in place. The relay deploys itself
+THE DEPLOY. RELAY_VERSION world140 holds these (world138 on the branch, its law re-hashed in place; main's HERALD and
+LOOT7 took world138 and world139 first, so the merge moved it on). The relay deploys itself
 on the push that carries a new version (`relay-deploy.yml`), and the site's deploy waits on the account service alone,
 so the two can cross: an old game on the new relay is refused at `in` and told to reload (the law 5); a new game on a
-relay still on world137 names the nine trials' marks on the omen and the gate's card while the relay fights the eight's
+relay still on world139 names the nine trials' marks on the omen and the gate's card while the relay fights the eight's
 (the court reads the fight's own `md`, so the fight itself is right) - for the minutes the relay's job takes.
 
 Pinned in `test/audit_wb11.test.js` (23, one a finding - twenty failed on the unfixed tree for their finding's reason;
@@ -1493,7 +1494,7 @@ health that moved, ALLY-CAST's own rule); never a revival (the ally-cast door tu
 ally-cast door (`scenes/world.js` `onCast`) tells the court (`scenes/gateCourt.js` `healedBy`) the caster's peer id and
 the health that moved; the court keeps what each caster healed in me until it goes out.
 
-**The wire (relay world138, with WB11 - neither deployed yet).** `{k:'heal', h: [[by, n], ...]}`: at most
+**The wire (relay world140, with WB11 - world138 on their branch).** `{k:'heal', h: [[by, n], ...]}`: at most
 GATE_HEAL_ROWS_MAX rows, `by` the caster's peer id in the room (each caster once), `n` whole points
 (1..GATE_HEAL_WIRE_MAX), the fractions kept for the next - at most every HEAL_SEND_MS while a mate's spell has healed
 me, and only to a relay that hears it (GATE_HEAL_RELAY_MIN - an older one junks an unknown gate word).
@@ -1878,7 +1879,7 @@ rotation's own pins moved in `test/wb8b_gate_marks.test.js`, and every pin that 
 it (`wb3_gate_room`, `wb8c_gate_detail` - its Rime-Wrought Colossal and Unyielding night is day 112 now -
 `discordgates`, `eventtip`). **WB11b** - `net/gateBrain.js` (HOST_KINDS and HOST_BLOWS, the waves, the walks, the
 blows, the drinking, the bearers' wait, the crumbling, `applyHostHit`, the state's `lg`, the chart's `a`; the profile's
-`legion`), `net/wire.js` (the six words, GATE_HOST_MAX, the brain's law 5, RELAY_VERSION world138), `server/src/index.js`.
+`legion`), `net/wire.js` (the six words, GATE_HOST_MAX, the brain's law 5, RELAY_VERSION world138 - world140 at the merge), `server/src/index.js`.
 **WB11c** - `net/gateLink.js` (the fold), `net/gateStrike.js` (`hostVerdict`, `hostTelegraphAt`), `world/gateBoss.js` (the
 looks, the acts, the fall, the cues, the stand-in), `scenes/gateHost.js` (new: the court's host), `scenes/gateCourt.js`,
 `scenes/dungeonContext.js`, `scenes/hostMagic.js`, `scenes/worldModes.js`, `scenes/world.js`, `ui/gateBossBar.js`,
@@ -1900,7 +1901,16 @@ never the receiver itself - the heal bucket, the record's `healed`, the row's `h
 `heal`: the caster by peer id, the receiver's own pose), `ui/gateDamageChart.js` (the Healed column - after the host's on a
 Legion-Lord night, in the share's place on a narrow screen). The first cut also counted a fighter's own potions and
 spells, by a watch on its health; asked, Mac took allies only, and the watch went. RELAY_VERSION world138 (WB11's,
-neither deployed yet) re-hashed in place. Pins `test/gateheal.test.js` (10); the chart's DOM pins in `gateux_gate` took
+never deployed) re-hashed in place - world140 at the merge. Pins `test/gateheal.test.js` (10); the chart's DOM pins in `gateux_gate` took
 its empty cell and WB3's closed list of gate words its `heal`; mutants `tools/mutants/gateheal.json` (30, all dead). Seen
 in a real browser at 1280x720, 390x844 and 844x390 in both skins, with and without the Host column, six figures in the
 Plus skin's pixel face; not yet on the deployed relay.
+
+**The merge with main (2026-10-01).** Main's HERALD (#505) and the Loot arc's LOOT7 (#506) took world138 and world139
+first, so WB11's, AUDIT WB11's and GATE-HEAL's relay law is world140: its law row over the merged bundle (HERALD's and
+LOOT7's rows kept), every version pin re-chained ("WB11 moved it on last (world140 ...); before it LOOT7 moved it on
+(world139 ..."), GATE_HEAL_RELAY_MIN 140, disc7's list, soc1.json's S38 and BOUNTY1 B4. Following #503 (REL6 + GROWTH1)
+as #506 did, the patch notes ride the pull request: the two notes files this branch added are gone from the tree (AUDIT
+WB11 D1's pin keeps the court's words; the notes on the pull request say the same), and the branch's Testing rows and
+Active-Arcs entries are within GROWTH1's caps. Merging deploys world140 (`relay-deploy.yml`), which drops connected
+players once.

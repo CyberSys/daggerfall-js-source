@@ -309,6 +309,16 @@ function setDoorOpen(entity) {
   if (!entity?.isPlayer || entity.peer) return;
   _pending = landedBlow();
 }
+/** LOOT4 (the Loot arc, bible/06-Systems/Loot-Arc.md section 6): THE BLOW THIS HURT CARRIES - the foe's blow the door
+ *  took as it opened (`{ attacker }`), or null: a fall, a poison's round, a spell. Read by a damage modifier asked before
+ *  the hurt lands (the loot's ward, hex and evasion answer a foe's BLOW and nothing else), so the one law of what a blow
+ *  is - the struck tail's mark, taken by the door as it opens - is this file's alone. */
+export const pendingPlayerBlow = () => (_pending ? { attacker: _pending.attacker } : null);
+/** LOOT4: A FOE'S BLOW LANDED - named listeners `fn(entity, attacker, took)`, told when the door's blow took health
+ *  (the moment Spite answers), whatever set is worn: the loot's thorns, hexes and charges answer it. A name
+ *  re-registered replaces, `null` removes; one that throws is skipped. */
+const _landed = new Map();
+export function registerPlayerBlowLanded(name, fn) { if (typeof fn === 'function') _landed.set(name, fn); else _landed.delete(name); }
 
 // ── Wrath of the Warden: a blow that leaves me under the line ───────
 export function setHurt(entity, { before, after }) {
@@ -316,6 +326,7 @@ export function setHurt(entity, { before, after }) {
   const blow = _pending;
   _pending = null;
   if (!blow) return;   // L3: a fall, a poison's tick, a spell's burn - no foe's blow, no Spite and no Wrath
+  if (before - after > 0) for (const fn of _landed.values()) { try { fn(entity, blow.attacker, before - after); } catch { /* the loot is not the blow's problem */ } }   // LOOT4
   spite(entity, blow, before - after);
   if (before - after > 0) bloodied(entity);   // RAID4b: Riposte, Blood for Blood
   const v = tierOf(entity, 'ruhn', 2);

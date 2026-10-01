@@ -36,7 +36,7 @@ import { BOOK_TEMPLATE, createBook } from './books.js';   // EB3: books in the p
 import { BOOK_ID_TITLES } from './booksData.js';
 import { setPref } from './uiPrefs.js';   // LR3: the loot door turns the ladder on for the session
 import { setModSetting } from './modSettings.js';   // FIELD BUGS 2026-09-29 (the sea) #5: the sea door turns Come Sail Away on
-import { applyRarity, LEGENDARIES, ROLLED_TIERS } from './lootRarity.js';   // LR3: one of everything the ladder can mint
+import { applyRarity, LEGENDARIES, ROLLED_TIERS, exaltLegendary } from './lootRarity.js';   // LR3: one of everything the ladder can mint; LOOT2: and an Exalted
 import { AETHERIC_RECORDS, mintAetheric } from './aetheric.js';   // SET6: the Aetheric rung - Ruhn's Regalia, whole (RAID4b: and the raiding parties' three sets)
 import { createThunderlock, createPellets, THUNDERLOCK_TEMPLATE, PELLET_TEMPLATE } from './thunderlock.js';   // TSR-GUN: the port's own weapon, and the import IS its registration
 
@@ -81,7 +81,7 @@ export const TEST_RIDE = Object.freeze({
  *  the lines and the folds show; the Nord Warrior carries it. */
 export const TEST_LOOT = Object.freeze({
   id: 'loot', label: 'The loot ladder', preset: 'nord-warrior',
-  blurb: 'The Nord Warrior with a Magic and a Rare of ten base items and every Legendary in the pack, IDENTIFIED so their names and affix lines read - plus one unidentified Rare and one unidentified Legendary, which is what the two top tiers look like on the floor - and Ruhn\'s Regalia whole, the Aetheric rung. The tier colours, the affix lines and the folds on the paperdoll. Turns Loot rarity on.',
+  blurb: 'The Nord Warrior with a Magic and a Rare of ten base items and every Legendary in the pack, IDENTIFIED so their names and affix lines read - plus one unidentified Rare and one unidentified Legendary, which is what the two top tiers look like on the floor, and one Exalted Legendary - and Ruhn\'s Regalia whole, the Aetheric rung. The tier colours, the affix lines and the folds on the paperdoll. Turns Loot rarity on.',
 });
 
 /** FIELD BUGS 2026-09-29 (the sea) #5 (the Discord, through Mac: "Add a ship combat test menu option"): THE SEA
@@ -320,6 +320,8 @@ export function seedTestLoot(entity, rolls = Math.random) {
   // like on the floor, before the Mages Guild has been paid.
   put(applyRarity(base(TEST_LOOT_BASES[0]), 'rare', rolls), { identified: false });
   if (LEGENDARIES.length) put(legendaryItem(LEGENDARIES[0]), { identified: false });
+  // LOOT2 (bible/06-Systems/Loot-Arc.md section 4): and one Exalted, known - its fourth pip and its extra line's band
+  if (LEGENDARIES.length) { const ex = legendaryItem(LEGENDARIES[0]); exaltLegendary(ex, rolls); put(ex); }
   return added;
 }
 
