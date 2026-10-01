@@ -761,7 +761,7 @@ function tickPlayerMinutesOnce({
   if (activity.parkoured) {
     const exertion = FATIGUE_LOSS.Jumping;   // priced as the jump it takes the place of
     sinks.drainFatigue?.(Math.trunc(exertion * fatigueMultiplier * FATIGUE_DRAIN_SCALE));
-    tallyMovementSkill(entity, activity.parkoured === 'vault' ? SKILLS.Jumping : SKILLS.Climbing);
+    tallyMovementSkill(entity, activity.parkoured === 'vault' || activity.parkoured === 'leap' ? SKILLS.Jumping : SKILLS.Climbing);   // CLIMB3: a leap is the Jumping skill's
   }
 
   // AUDIT 23 (entity-5) - PlayerEntity.cs:309-320: TallySkill(Running, 1)

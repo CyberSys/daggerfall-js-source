@@ -1077,3 +1077,217 @@ export function planOverHang(feet, ledge, oh, skill) {
     t: 0,
   };
 }
+
+// ---- CLIMB3: LEAPS (Mac's "Parkour leap, skill-scaled": "a leap from a hang or a sprint off an edge has its own
+// longer, flatter arc scaled by Jumping; the plain jump is unchanged") ------------------------------------------------
+//
+// From a hold - the hang or the free climb - a fresh Jump leaps: with Left or Right to a hand-hold along the wall, with
+// nothing (or Forward) and no top to climb onto to one above, with Back off the wall altogether (the eject). On the
+// ground a running Jump at an edge is a running leap, and a running Jump at a wall runs up it. A leap to a hand-hold is
+// a move along a proven path into the hang (as the catch is); the eject and the running leap are flights, the catch
+// armed for them, its reach the leap's (magnetism). Every leap is the Jumping skill's: its reach, its pace, its arc.
+
+/** A side leap reaches a hand-hold this far along the wall from the hands, at Jumping 0 and 100. */
+export const PARKOUR_LEAP_SIDE_MIN = 1.5;
+export const PARKOUR_LEAP_SIDE_MAX = 2.5;
+/** An up leap reaches a lip this far over the one held, at Jumping 0 and 100. */
+export const PARKOUR_LEAP_UP_MIN = 1.0;
+export const PARKOUR_LEAP_UP_MAX = 1.8;
+/** The search for a leap's hold: along the wall every this; the side leap's lips at these heights from the one held
+ *  (each asked within senseGrip's own window, PARKOUR_LIP_FOLLOW). */
+export const PARKOUR_LEAP_SCAN = 0.1;
+export const PARKOUR_LEAP_HEIGHTS = Object.freeze([0, 0.3, -0.3, 0.6, -0.6, 0.9, -0.9]);
+/** A leap to a hold flies its path at this pace (m/s, at Jumping 0 and 100), over this arc (a side leap's). */
+export const PARKOUR_LEAP_SPEED_MIN = 4;
+export const PARKOUR_LEAP_SPEED_MAX = 6;
+export const PARKOUR_LEAP_ARC = 0.25;
+/** The grip a leap off a hold spends at once (the hold it lands in spends its own after). */
+export const PARKOUR_LEAP_GRIP = 0.1;
+/** The eject: off the wall at this speed out (m/s) and this up, at Jumping 0 and 100. */
+export const PARKOUR_EJECT_OUT_MIN = 3.5;
+export const PARKOUR_EJECT_OUT_MAX = 5.5;
+export const PARKOUR_EJECT_UP_MIN = 3.0;
+export const PARKOUR_EJECT_UP_MAX = 4.5;
+/** The running leap: a flight to a landing level with the take-off this far ahead, over an apex this high, at Jumping 0
+ *  and 100 - longer than the plain running jump's 3.4-4.6 m at every skill, and flatter (its apex 0.5-1.1 m). */
+export const PARKOUR_RUNLEAP_DIST_MIN = 4.0;
+export const PARKOUR_RUNLEAP_DIST_MAX = 7.0;
+export const PARKOUR_RUNLEAP_APEX_MIN = 0.45;
+export const PARKOUR_RUNLEAP_APEX_MAX = 0.8;
+/** ...asked when the floor ends this far ahead of the body's front - or the body left it running this long ago (the
+ *  late jump: a press a beat after the edge still leaps, never a plain jump's). */
+export const PARKOUR_RUNLEAP_EDGE = 1.2;
+export const PARKOUR_COYOTE_S = 0.15;
+/** Running is at least this share of the run's speed. */
+export const PARKOUR_RUN_SHARE = 0.75;
+/** Magnetism: in a leap's flight the catch reaches this much further. */
+export const PARKOUR_LEAP_REACH = 0.25;
+/** The wall run: a running Jump at a wall this near (from the body's front) runs up it this high (at the skills' 0 and
+ *  100 - Climbing and Jumping, averaged) at this pace; a lip coming to the hands on the way is caught there. */
+export const PARKOUR_WALLRUN_REACH = 1.0;
+export const PARKOUR_WALLRUN_MIN = 1.0;
+export const PARKOUR_WALLRUN_MAX = 2.0;
+export const PARKOUR_WALLRUN_SPEED = 5;
+
+/** CLIMB3: a leap's reach and pace at this Jumping skill. */
+export function leapSideReach(jumping) { return lerp(PARKOUR_LEAP_SIDE_MIN, PARKOUR_LEAP_SIDE_MAX, clamp01(jumping / 100)); }
+export function leapUpReach(jumping) { return lerp(PARKOUR_LEAP_UP_MIN, PARKOUR_LEAP_UP_MAX, clamp01(jumping / 100)); }
+export function leapSpeed(jumping) { return lerp(PARKOUR_LEAP_SPEED_MIN, PARKOUR_LEAP_SPEED_MAX, clamp01(jumping / 100)); }
+/** CLIMB3: the eject's launch - { out, up } m/s - at this Jumping skill. */
+export function ejectLaunch(jumping) {
+  const t = clamp01(jumping / 100);
+  return { out: lerp(PARKOUR_EJECT_OUT_MIN, PARKOUR_EJECT_OUT_MAX, t), up: lerp(PARKOUR_EJECT_UP_MIN, PARKOUR_EJECT_UP_MAX, t) };
+}
+/** CLIMB3: the running leap's launch - { along, up } m/s - at this Jumping skill under this gravity: the apex and the
+ *  distance (to a landing level with the take-off) are the law; the speeds follow. */
+export function runLeapLaunch(jumping, gravity) {
+  const t = clamp01(jumping / 100);
+  const apex = lerp(PARKOUR_RUNLEAP_APEX_MIN, PARKOUR_RUNLEAP_APEX_MAX, t), dist = lerp(PARKOUR_RUNLEAP_DIST_MIN, PARKOUR_RUNLEAP_DIST_MAX, t);
+  const up = Math.sqrt(2 * gravity * apex);
+  return { along: dist / ((2 * up) / gravity), up };
+}
+/** CLIMB3: the wall run's height at these skills. */
+export function wallRunHeight(climbing, jumping) {
+  return lerp(PARKOUR_WALLRUN_MIN, PARKOUR_WALLRUN_MAX, clamp01((clamp01(climbing / 100) + clamp01(jumping / 100)) / 2));
+}
+
+/**
+ * THE LEAP'S HOLD (CLIMB3). From the hang under `held` ({ face, normal, lipY, feet } - the hold now), a hand-hold the
+ * leap reaches: `way` 'up' (a lip over this one, up the same face, from PARKOUR_LIP_FOLLOW past it to `reach`) or
+ * 'side' with `side` +1/-1 (the hands' right or left facing the wall: lips along the wall from two hand spans to
+ * `reach`, nearest first, each at the heights PARKOUR_LEAP_HEIGHTS from this one). The way there - an arc for a side
+ * leap - proven clear for the standing body. Answers the grip (senseGrip's) with the move's `up`, or null.
+ */
+export function senseLeapHold(collider, feet, held, way, reach, opts, side = 0) {
+  if (!collider?.raycastHit || !held) return null;
+  const { stand, radius } = opts;
+  const n = held.normal, t = [-n[2] * side, 0, n[0] * side], back = radius + PARKOUR_HANG_GAP;
+  // the face under a lip near `lipY` along the column of a body at `face` (on the held face's line): the NEAREST face
+  // level rays meet in the lip's window - the face under a lip is what stands out (a moulding proud of the wall, a
+  // sill), and the held face's own line can be 0.15 m behind it or more (the free climb's hands are on the wall)
+  const faceNear = (face, lipY) => {
+    const ox = face[0] + n[0] * back, oz = face[2] + n[2] * back;
+    let best = null;
+    for (let y = lipY - PARKOUR_LIP_FOLLOW - PARKOUR_GRIP_RUNG; y <= lipY + PARKOUR_LIP_FOLLOW + 1e-9; y += PARKOUR_GRIP_RUNG) {
+      const h = faceHit(collider, [ox, y, oz], [-n[0], 0, -n[2]], back + PARKOUR_WALL_REACH);
+      if (h && (!best || h.dist < best)) best = h.dist;
+    }
+    return best == null ? face : [ox - n[0] * best, lipY, oz - n[2] * best];
+  };
+  const tryGrip = (face, lipY, arc) => {
+    const g = senseGrip(collider, faceNear(face, lipY), n, lipY, opts);
+    if (!g || Math.abs(g.lipY - held.lipY) < 1e-3 && Math.hypot(g.feet[0] - feet[0], g.feet[2] - feet[2]) < 0.05) return null;
+    // the way there: out from the wall first to the further of the two holds' distances (a free climber is pressed to
+    // the wall, and a hold's lip can stand out over it), then on - an up leap rises there, a side leap arcs over the
+    // midpoint
+    const out = Math.max(feet[0] * n[0] + feet[2] * n[2], g.feet[0] * n[0] + g.feet[2] * n[2]);
+    const mid = way === 'up'
+      ? [g.feet[0], feet[1] + 0.25 * (g.feet[1] - feet[1]), g.feet[2]]
+      : [(feet[0] + g.feet[0]) / 2, Math.max(feet[1], g.feet[1]) + arc, (feet[2] + g.feet[2]) / 2];
+    const shift = out - (mid[0] * n[0] + mid[2] * n[2]);
+    mid[0] += n[0] * shift; mid[2] += n[2] * shift;
+    return pathClear(collider, path(feet, mid, g.feet, way === 'up' ? 0.3 : 0.5, 0), stand) ? { ...g, up: mid, split: way === 'up' ? 0.3 : 0.5 } : null;
+  };
+  if (way === 'up') {
+    // each ask covers its own window (PARKOUR_LIP_FOLLOW either side): the asks tile the reach, and a lip found past
+    // it is not taken
+    for (let d = 2 * PARKOUR_LIP_FOLLOW; d - PARKOUR_LIP_FOLLOW <= reach + 1e-9; d += 2 * PARKOUR_LIP_FOLLOW) {
+      const g = tryGrip(held.face, held.lipY + d, 0);
+      if (g && g.lipY > held.lipY + PARKOUR_LIP_FOLLOW && g.lipY - held.lipY <= reach + 1e-9) return g;
+    }
+    return null;
+  }
+  // the lip held runs on this far that way unbroken - the shimmy's, not a leap's: a leap at its own height is to a hold
+  // past where it ends (across a gap, a pillar, a window's frame)
+  let runs = 0;
+  while (runs + PARKOUR_HAND_SPAN <= reach && senseGrip(collider, [held.face[0] + t[0] * (runs + PARKOUR_HAND_SPAN), held.lipY, held.face[2] + t[2] * (runs + PARKOUR_HAND_SPAN)], n, held.lipY, opts, false)) runs += PARKOUR_HAND_SPAN;
+  for (let s = 2 * PARKOUR_HAND_SPAN; s <= reach + 1e-9; s += PARKOUR_LEAP_SCAN) {
+    const face = [held.face[0] + t[0] * s, held.lipY, held.face[2] + t[2] * s];
+    for (const dy of PARKOUR_LEAP_HEIGHTS) {
+      if (Math.abs(dy) > reach - s + 0.3) continue;   // the reach is the leap's whole way, along and up or down
+      if (Math.abs(dy) < PARKOUR_LIP_FOLLOW && s <= runs + PARKOUR_HAND_SPAN) continue;
+      const g = tryGrip(face, held.lipY + dy, PARKOUR_LEAP_ARC);
+      if (g && !(Math.abs(g.lipY - held.lipY) < PARKOUR_LIP_FOLLOW && s <= runs + PARKOUR_HAND_SPAN)) return g;
+    }
+  }
+  return null;
+}
+
+/** CLIMB3: a leap's move into the hold senseLeapHold found - its path's own `up`, at the leap's pace. */
+export function planLeap(feet, g, jumping) {
+  const len = Math.hypot(g.up[0] - feet[0], g.up[1] - feet[1], g.up[2] - feet[2]) + Math.hypot(g.feet[0] - g.up[0], g.feet[1] - g.up[1], g.feet[2] - g.up[2]);
+  return {
+    kind: 'leap',
+    from: [feet[0], feet[1], feet[2]],
+    up: [...g.up],
+    to: [...g.feet],
+    split: g.split ?? 0.5, arc: 0,
+    dur: 0.15 + len / leapSpeed(jumping),
+    crouch: false,
+    exit: null,
+    hang: { normal: [...g.normal], lipY: g.lipY },
+    key: g.key ?? null,
+    t: 0,
+  };
+}
+
+/**
+ * THE WALL RUN (CLIMB3). Running at a wall along `dir`: its face within PARKOUR_WALLRUN_REACH of the body's front, and
+ * the body running up it `height` - and a lip the hands then reach (`reach` over the run's top, the air catch's) is
+ * caught: the run goes on to the hang under it. No lip there, the run ends against the wall, the hands on it (a free
+ * climb). Answers { up, to, grip, normal } (`grip` the lip it ends in, or null) or null. The way there proven clear.
+ */
+export function senseWallRun(collider, feet, dir, height, reach, opts) {
+  if (!collider?.raycastHit) return null;
+  const { radius, stand } = opts;
+  const hit = faceHit(collider, [feet[0], feet[1] + stand * 0.5, feet[2]], dir, radius + PARKOUR_WALLRUN_REACH);
+  if (!hit) return null;
+  const n = hit.normal, back = radius + PARKOUR_HANG_GAP;
+  const fx = feet[0] + dir[0] * hit.dist, fz = feet[2] + dir[2] * hit.dist;
+  const up = [fx + n[0] * back, feet[1] + 0.1, fz + n[2] * back];
+  // the lip the run comes to: the first height the face is gone, along the run's own column
+  let lipTop = null;
+  for (let y = feet[1] + stand * 0.5; y <= feet[1] + height + reach + 1e-9; y += PARKOUR_SCAN_STEP) {
+    if (!Number.isFinite(collider.raycast([up[0], y, up[2]], [-n[0], 0, -n[2]], back + PARKOUR_FACE_LEAN + 0.05))) { lipTop = y; break; }
+  }
+  let grip = null, top = feet[1] + height;
+  if (lipTop != null) {
+    grip = senseGrip(collider, [fx, lipTop, fz], n, lipTop - PARKOUR_SCAN_STEP / 2, opts);
+    if (!grip) return null;   // a lip with no hold under it: no run
+    top = grip.feet[1];
+  }
+  const to = grip ? [...grip.feet] : [up[0], top, up[2]];
+  if (to[1] <= feet[1] + 0.2) return null;
+  return pathClear(collider, path(feet, up, to, 0.25, 0), stand) ? { up, to, grip, normal: n } : null;
+}
+
+/** CLIMB3: the wall run's move - in to the wall and up it at PARKOUR_WALLRUN_SPEED; it ends in the hang at the lip it
+ *  came to, or on the wall (`wall`: the hands take it, a free climb). */
+export function planWallRun(feet, run) {
+  const len = Math.hypot(run.up[0] - feet[0], run.up[2] - feet[2]) + (run.to[1] - run.up[1]);
+  return {
+    kind: 'wallrun',
+    from: [feet[0], feet[1], feet[2]],
+    up: [...run.up],
+    to: [...run.to],
+    split: 0.25, arc: 0,
+    dur: 0.1 + len / PARKOUR_WALLRUN_SPEED,
+    crouch: false,
+    exit: null,
+    hang: run.grip ? { normal: [...run.grip.normal], lipY: run.grip.lipY } : null,
+    wall: run.grip ? null : { normal: [...run.normal] },
+    key: run.grip?.key ?? null,
+    t: 0,
+  };
+}
+
+/** CLIMB3: does the floor end within `ahead` of the body's front along `dir` - a drop past it the walk would fall
+ *  (PARKOUR_EDGE_DROP), asked every PARKOUR_LEAP_SCAN? The running leap's edge (a gap between roofs, a wall top's end). */
+export function senseDrop(collider, feet, dir, radius, ahead) {
+  if (!collider?.surfaceHit) return false;
+  const top = feet[1] + PARKOUR_TOP_PROBE, reach = PARKOUR_TOP_PROBE + PARKOUR_EDGE_DROP;
+  for (let s = radius; s <= radius + ahead + 1e-9; s += PARKOUR_LEAP_SCAN) {
+    if (floorAt(collider, feet[0] + dir[0] * s, top, feet[2] + dir[2] * s, reach) == null) return true;
+  }
+  return false;
+}
