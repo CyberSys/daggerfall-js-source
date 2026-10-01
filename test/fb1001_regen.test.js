@@ -86,7 +86,8 @@ test('CURE-ALL: the turn cures the old life whole - the pools full, the poison a
   assert.equal(p.fatigue, maxFatigue(p), 'fatigue full');
   assert.equal(p.activeEffects.filter((a) => a.kind === 'poison').length, 0, 'the poison cured');
   assert.equal(p.activeEffects.filter((a) => a.kind === 'disease').length, 0, 'the disease cured');
-  assert.equal(p.activeEffects.find((a) => a.kind === 'drainAttribute').magnitude, 0, 'the drain healed');
+  // PIN MOVED (AUDIT 2026-10-01 part four, CURE-ENDS): the cured drain ends - at nothing it stood on the HUD for good
+  assert.ok(p.activeEffects.filter((a) => a.kind === 'drainAttribute').every((a) => a.magnitude === 0 && a.ended), 'the drain healed, and ended');
   // the werewolf's turn, walked from its bite: the same cure, the same buff left running
   const w = P();
   applySpell(BIG_REGEN, 10, w, sinks(w), () => 0);
@@ -97,7 +98,7 @@ test('CURE-ALL: the turn cures the old life whole - the pools full, the poison a
   w.health = 10;
   runMagicRoundsFor(w, day(4) - 1, day(4), { sinks: {} });   // the turn
   assert.ok(liveLycanthropy(w), 'the curse stands');
-  assert.equal(w.activeEffects.find((a) => a.kind === 'drainAttribute').magnitude, 0, 'the drain healed');
+  assert.ok(w.activeEffects.filter((a) => a.kind === 'drainAttribute').every((a) => a.magnitude === 0 && a.ended), 'the drain healed, and ended (CURE-ENDS)');
   assert.equal(w.health, w.maxHealth, 'health full');
   // and the one home is what both constructors call
   const q = midFight();

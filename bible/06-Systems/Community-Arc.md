@@ -725,7 +725,7 @@ worked a batch each, and every span was checked here against the source before i
   - WeaponManager.cs:230-233 and :275-281;
   - PlayerGPS.cs:747 and :766-776;
   - DaggerfallTalkWindow.cs:1465-1499;
-  - three JS continuations that RF3 had given to the cite before them: `guildServiceFlow.js:269`/`:270` and
+  - three JS continuations that RF3 had given to the cite before them: `guildServiceFlow.js:277`/`:278` and
     `useItem.js:385-409`/`:302-338`.
 - Found by the passes and left for a person: row 735's `DaggerfallCourtWindow.cs:191` names the Dark Brotherhood
   rescue's refill, not the acquittal's (:425).

@@ -181,15 +181,6 @@
     ]
   },
   {
-    "name": "PROF2-20-dungeons-keep-the-day",
-    "file": "server-account/src/professions.js",
-    "old": "  if (!deep && !isBody && !isForagingDaylight(sharedHourAt(at))) return { error: 'prof-night' };",
-    "new": "  if (!isBody && !isForagingDaylight(sharedHourAt(at))) return { error: 'prof-night' };",
-    "tests": [
-      "test/prof2_service.test.js"
-    ]
-  },
-  {
     "name": "PROF2-21-a-dungeon-witnessed-as-a-pixel",
     "file": "server-account/src/professions.js",
     "old": "  const wkind = deep ? 'dungeon' : 'pixel';",

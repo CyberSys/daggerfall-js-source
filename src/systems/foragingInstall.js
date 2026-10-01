@@ -126,8 +126,13 @@ function wear(item, collection, entity) {
 
 /** PROF1 (FORAGE0 14.3): the checks a profession's act runs first, with Foraging's own line for `templateIndex` (the
  *  Sickle's for an herb, the Basket's for its food) - never asking Foraging's switch (law 6: the acts are the
- *  server's). Null where every check passes. */
-export const foragingActRefusal = (templateIndex, skip = null) => foragingRefusal(templateIndex, worldNow(), skip);   // PROF2: a dungeon vein skips the surface's checks
+ *  server's). Null where every check passes.
+ *  ANY-HOUR (2026-10-01, Mac: "Remove the time limit for professions. Should be available at any time"): NEVER
+ *  FORAGING'S DAYLIGHT - a profession's act keeps no hours, by night as by day (the service asks none either,
+ *  server-account/src/professions.js harvestNode). Foraging's own Use (useForagingTool: offline, a guest's lane) keeps
+ *  the mod's day. */
+const ACT_KEEPS_NO_HOURS = Object.freeze(['daylight']);
+export const foragingActRefusal = (templateIndex, skip = null) => foragingRefusal(templateIndex, worldNow(), skip ? [...skip, ...ACT_KEEPS_NO_HOURS] : ACT_KEEPS_NO_HOURS);   // PROF2: a dungeon vein skips the surface's checks
 /** PROF7 (FORAGE0 14.3): a tool not Foraging's asks the same checks of the same world, with its own lines. */
 export const actChecksRefusal = (order, lines) => checksRefusal(order, lines, worldNow());
 /** PROF1 (FORAGE0 14.1): which tool an act draws - the first of its kind in the pack, in the pack's order (as DFU's
@@ -156,7 +161,7 @@ export const PROFESSION_TOOL_HOW = Object.freeze({
   [FT.PickAxe]: (k) => `Mining is done at an ore vein or a boulder in the wilderness, or a vein in a dungeon: walk up to one until the prompt shows, then press ${k} (or use the Pick-Axe).`,
   [FT.Sickle]: (k) => `Herbalism is done at an herb patch in the wilderness: walk up to one until the prompt shows, then press ${k} (or use the Sickle).`,
   [FT.Basket]: (k, c) => `The Basket searches an herb patch in the wilderness for food: walk up to one until the prompt shows, then use the Basket (or press ${c} for the Basket, then ${k}).`,
-  [FT.FishingNet]: (k) => `Fishing is done in water by daylight: stand in it, swim, or stand at sea until the prompt shows, then press ${k} (or use the Fishing-Net).`,
+  [FT.FishingNet]: (k) => `Fishing is done in water: stand in it, swim, or stand at sea until the prompt shows, then press ${k} (or use the Fishing-Net).`,   // ANY-HOUR: at any hour
 });
 /** TOOL-SAID: the line a Use of this tool says where no node takes it - online, with the professions open, for the
  *  five profession tools; null otherwise (offline, a guest, the Spade: the Use is Foraging's). */

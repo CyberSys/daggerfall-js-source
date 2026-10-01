@@ -30,7 +30,7 @@
 import { bodyKey, utcDayOfMs } from '../net/nodeLaw.js';
 import {
   hideOfFoe, tierOpen, TIER_RANKS, knifeBand, SKINNING_KNIFE, KNIFE_CHECKS, KNIFE_REFUSALS, HIDES_PER_DAY, HIGH_HIDES_PER_DAY,
-  HIGH_HIDE_TIER, TRACKER_M, KNIFE_WHERE, KNIFE_WHERE_WORDS, TRACE_ACT,
+  HIGH_HIDE_TIER, TRACKER_M, KNIFE_WHERE, KNIFE_WHERE_WORDS, TRACE_ACT, storesFullIn,
 } from '../net/professionLaw.js';
 import { enemyDisplayName } from '../characters/enemyBasics.js';
 import { createTraceAct } from '../systems/traceAct.js';
@@ -179,7 +179,7 @@ export function huntKind({ book, bodies, openLoot = null }) {
       const hunt = book.state.hunt ?? { hides: 0, high: 0 };
       const plan = huntPlan({
         body: b, taken: book.taken(b.key, 'hide'), counting: book.counting(b.key, 'hide'), rank: rank('hunting'),
-        storesFull: (key) => book.held(key) >= (book.state.caps?.stores ?? 5000), hides: hunt.hides ?? 0, high: hunt.high ?? 0, loot: lootChoice,
+        storesFull: (key) => storesFullIn(book, key), hides: hunt.hides ?? 0, high: hunt.high ?? 0, loot: lootChoice,   // STORES-ROOM: every origin, as the service counts
         where: actChecksRefusal(KNIFE_WHERE, KNIFE_WHERE_WORDS),   // AUDIT 32 H4: a settlement or the sea - E the loot's
         steep: Number.isFinite(pitch) && pitch < BODY_STEEPEST_DEG,   // AUDIT 32 H7: stood over, its line out of the look's reach
       });

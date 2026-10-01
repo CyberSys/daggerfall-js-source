@@ -45,7 +45,7 @@ import { utcDayOfMs, pixelKey, parseNodeKey } from '../net/nodeLaw.js';
 import { TERRAIN_SIZE } from '../world/terrainSampler.js';
 /** A map pixel's side in the scene (metres). */
 const PIXEL_M = TERRAIN_SIZE;
-import { rankName, professionName } from '../net/professionLaw.js';
+import { rankName, professionName, HARVESTS_PER_ACCOUNT_DAY, DEEP_UNCONFIRMED_PER_DAY } from '../net/professionLaw.js';
 import { wearForagingTool } from '../systems/foragingInstall.js';
 import { materialCountLabel } from '../systems/profItems.js';
 import { accountRefusalText } from '../net/accountClient.js';
@@ -196,6 +196,8 @@ export function createGatherHost(deps) {
   let storesSaid = false;     // GATHER-SAID: storesWhereLine said this session
   let passedOn = '';          // VEIN-NEED: what the node the last press passed on needs, until the host hands it back
   let struck = null, strikeHeld = false;   // ACT-TOUCH: the act a finger's or a pad's press struck, for the next frame
+  let clickHeld = false;      // CLICK-LIFT: the activation's button went down while an act played, and is not yet up
+  let standSpecs = undefined; // SEASONAL-EYE: the specs that change what stands, as the pixels were last stood
   let chipLeft = 0;
   let chipProfession = /** @type {string|null} */ (null);
   const _t = [0, 0, 0];
@@ -348,9 +350,15 @@ export function createGatherHost(deps) {
         const reach = n.reach ?? NODE_REACH;
         if (s.loose ? Math.hypot(dx, dy, dz) > reach : Math.hypot(dx, dz) > reach || Math.abs(dy) > reach) continue;
         // NODE-AIM: the point of the upright the look passes nearest - the height the look's pitch reaches at the node's
-        // distance along its bearing (h tan(pitch) / cos(yaw off)), held between the base and the aim point
+        // distance along its bearing (h tan(pitch) / cos(yaw off)), held between the base and the aim point.
+        // NODE-SPAN (AUDIT 2026-10-01 part four): and up to the top of its glow where that stands higher (NODE-MARKS' box,
+        // from the base) - a tree glowed 3.4 m up and was found only on its trunk's lowest 1.2 m: a level look from two
+        // metres or closer passed over it, a look up never found it, and from the saddle nothing did; a patch glowed 1.3 m
+        // and was found 0.3 m up its centre
+        const lift = n.lift ?? 0.3;
+        const top = Math.max(lift, k.mark?.(n, markCtx)?.h ?? 0);
         const run = dir[0] * dx + dir[2] * dz;
-        const up = run > 0 ? Math.max(dy - (n.lift ?? 0.3), Math.min(dy, (dir[1] * (dx * dx + dz * dz)) / run)) : dy;
+        const up = run > 0 ? Math.max(dy - lift, Math.min(dy - lift + top, (dir[1] * (dx * dx + dz * dz)) / run)) : dy;
         const d = Math.hypot(dx, up, dz) || 1;
         const cos = (dx * dir[0] + up * dir[1] + dz * dir[2]) / (d * dl);
         const ang = Math.acos(Math.max(-1, Math.min(1, cos))) * (180 / Math.PI);
@@ -397,7 +405,20 @@ export function createGatherHost(deps) {
   }
   /** TOOL-USE: `tool` - the template whose Use asks, null for E. */
   const ctxFor = (t, tool = null) => ({ entity: deps.entity(), info: t.info, book, rank, specs, keyLabel: deps.keyLabel, pitch: t.pitch ?? null, tool });
-  const planFor = (t, tool = null) => kindOf(t.node)?.plan(t.node, ctxFor(t, tool)) ?? null;
+  /** REFUSALS-LEARNED (AUDIT 2026-10-01 part four): A PLAN THE SERVICE HAS REFUSED TODAY IS NO READY PLAN - the account's
+   *  day in the craft (every character's), or its veins in dungeons nobody has vouched for: counts the state does not
+   *  carry, so the book keeps what the refusal said (net/profBook.js `closed`) and the prompt says it, never an act played
+   *  and a tool worn for the same refusal again. */
+  function planFor(t, tool = null) {
+    const plan = kindOf(t.node)?.plan(t.node, ctxFor(t, tool)) ?? null;
+    if (!plan?.ready || typeof book.closed !== 'function') return plan;
+    if (book.closed(`account:${plan.profession}`)) return { ...plan, ready: false, rest: `${HARVESTS_PER_ACCOUNT_DAY} today across your characters` };
+    if (t.node.what === 'dvein' && book.closed('deep')) {
+      const fact = t.dungeon && dungeon ? book.dungeon(dungeon.id) : null;
+      if (fact?.state !== 'confirmed' && fact?.state !== 'disputed') return { ...plan, ready: false, rest: `${DEEP_UNCONFIRMED_PER_DAY} veins today in dungeons nobody has vouched for` };
+    }
+    return plan;
+  }
 
   // ─── THE ACT ───────────────────────────────────────────────────────
   /** The act at `t` started - true - or its checks' refusal said. TOOL-USE: `tool`, the template whose Use started it. */
@@ -509,13 +530,29 @@ export function createGatherHost(deps) {
      * level, as they hand it, every frame of a swing), and the act's strike is read off the ring alone (`input().attack`).
      * The press that lands while an act plays is ITS strike on the next frame - never another's (one Escape ended and
      * E started in the same frame); a held press strikes once, and a press with no act strikes nothing - it is never
-     * banked for one that starts after.
-     * @param {boolean} held
+     * banked for one that starts after. PAD-PULSE (AUDIT 2026-10-01 part four): `repeat` - a stroke the held trigger drew
+     * again (the Plus pad's gesture swing re-pulses it every 0.4 s), never a press: one strike for the hold, as said.
+     * @param {boolean} held @param {boolean} [repeat]
      */
-    strike(held) {
-      const edge = !!held && !strikeHeld;
+    strike(held, repeat = false) {
+      const edge = !!held && !strikeHeld && !repeat;
       strikeHeld = !!held;
       if (edge) struck = act;
+    },
+    /**
+     * CLICK-LIFT (AUDIT 2026-10-01 part four): WHETHER THE ACTIVATION'S BUTTON THIS FRAME IS THE ACT'S - down while an
+     * act plays, and so to its release. ACT-CLICK made the click an act's strike on its PRESS, and the strike that
+     * finishes the act ends it in that frame; the activation fires on the RELEASE (systems/activateGate.js, A8 fact 1),
+     * by then with no act playing, so the stroke that finished a vein, a tree or the Basket's search opened the door, the
+     * chest, the body or the lever under the look - AUDIT 32 H5's law ("a click mid-act is the act's") broken at the
+     * act's edge. Asked once a frame by the host whose ladder reads the button (the street's, the dungeon's), with the
+     * frame's `down`; the release frame answers true, the frame after it false.
+     * @param {boolean} down
+     */
+    clickTaken(down) {
+      const taken = clickHeld || (!!down && !!act);
+      clickHeld = !!down && taken;
+      return taken;
     },
     /** The tool in the hand for the rig (combat/weaponRig.js actTool): the act's, as DFU's own sprite. */
     handTool: () => (act?.hand ? act.hand(act) : null),
@@ -579,15 +616,21 @@ export function createGatherHost(deps) {
       }
       const d = utcDayOfMs(now);
       if (d !== day) { day = d; restandAll(); }
+      // SEASONAL-EYE (AUDIT 2026-10-01 part four): a spec chosen mid-session that changes what STANDS - Herbalism 100's
+      // Seasonal Eye, the herbs out of season - stands the pixels again; the patches waited for the next state read or the
+      // day's turn, and named another herb than the service rolled
+      const eye = book.state.open === true ? (specs('herbalism')[100] ?? null) : standSpecs;
+      if (eye !== standSpecs) { if (standSpecs !== undefined) restandAll(); standSpecs = eye; }
       if (book.state.open !== true) {
         if (act) { act.act.cancel(); act = null; }   // AUDIT 29 C5: shut mid-act - the act ends (the swing was held off, the tool in the hand)
+        target = null;   // NODE-SHUT (AUDIT 2026-10-01 part four): shut, no node is the target - CLIMB-NODE's hold reads it, and it held the free climb everywhere until they opened again
         hud.setPrompt(null); hud.setMeter(null); hud.setChip(null); hud.frame(dt); return;
       }
       // the streamed pixels' witnessed states - a pixel that changed stands again
-      const want = now >= pixelsAt ? [...stood.values()].map((s) => [s.entry.px, s.entry.py]).filter(([x, y]) => !book.pixel(x, y)) : [];
+      const want = now >= pixelsAt ? [...stood.values()].map((s) => [s.entry.px, s.entry.py]).filter(([x, y]) => (book.pixelWanted ? book.pixelWanted(x, y) : !book.pixel(x, y))) : [];   // GROUND-STALE: and one a harvest answered on
       if (want.length) pixelsAt = now + 5_000;
       if (want.length) book.askPixels(want).then((changed) => { for (const c of changed ?? []) restandAt(c.x, c.y); }, () => {});
-      else if (dungeon && dungeon.id !== null && now >= pixelsAt && !book.dungeon(dungeon.id)) {   // PROF2: the dungeon's witnessed state
+      else if (dungeon && dungeon.id !== null && now >= pixelsAt && (book.dungeonWanted ? book.dungeonWanted(dungeon.id) : !book.dungeon(dungeon.id))) {   // PROF2: the dungeon's witnessed state; GROUND-STALE: and again after a harvest answered in it
         pixelsAt = now + 5_000;
         const d = dungeon;
         book.askDungeon(d.id).then((changed) => { if (changed && dungeon === d) standDungeon(); }, () => {});

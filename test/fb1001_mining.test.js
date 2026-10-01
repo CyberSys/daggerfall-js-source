@@ -6,8 +6,9 @@
 // swipe and a pad's trigger reach the world through the hooks object (`inputHooks.attack`), and there, during an act,
 // the press was refused ("an act's tap is the act's") and given to nobody - in the street and underground alike (the
 // dungeon's attack sink drops it too, dungeonContext.js playerAttackInput). So on a phone or a pad no strike ever
-// landed: the meter stood, the glint moved round, and the vein was never mined. Logging's chop, Fishing's haul and
-// Hunting's trace read the same input. Now the hooks hand the press to the act (`gatherHost.strike(held)`): one strike
+// landed: the meter stood, the glint moved round, and the vein was never mined. Logging's chop, the Basket's glints and
+// the net's tug read the same input (CORRECTED by the audit, test/fb1001_audit.test.js: the steady hand, the trace and
+// the haul's band read E held, not Attack - TOUCH-HOLD, asked). Now the hooks hand the press to the act (`gatherHost.strike(held)`): one strike
 // a press, a held finger or a swinging stick never a second. The real gathering host with its kinds over a stood
 // pixel of the producers' own (test/fb0930b_toolsaid.test.js's), and the world host's hook read off its source.
 import { test } from 'node:test';
@@ -186,10 +187,10 @@ test('ACT-TOUCH: Logging\'s chop by a finger - the press as the ring meets the n
 
 test('ACT-TOUCH: the world host hands every hooks press to the act before its gates - the street\'s and, through the same hook, the dungeon\'s and a building\'s (mutants: the hook never calls it; called after the act\'s own refusal)', () => {
   const src = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
-  const at = src.indexOf('    attack: (dx, dy, held) => {');
+  const at = src.indexOf('    attack: (dx, dy, held, o = null) => {');   // PIN MOVED (AUDIT 2026-10-01 part four, PAD-PULSE): the hook hears a held stroke's repeat
   assert.ok(at > 0, 'the hooks object\'s attack');
   const body = src.slice(at, src.indexOf('\n    },', at));
-  const strike = body.indexOf('gatherHost?.strike(held)');
+  const strike = body.indexOf('gatherHost?.strike(held, o?.repeat === true)');
   assert.ok(strike > 0, `the hook hands the press to the act:\n${body}`);
   assert.ok(strike < body.indexOf('if (!walkMode)'), 'before any gate - the act ends itself off the walk (gatherHost.tick)');
   assert.ok(strike < body.indexOf("if (modeNow() === 'exterior')"), 'and before the street and the modal rigs part');
@@ -199,7 +200,11 @@ test('ACT-TOUCH: the world host hands every hooks press to the act before its ga
   const tap = src.slice(tapAt, src.indexOf('\n    },', tapAt));
   const [, first = '', second = ''] = tap.split('\n');
   assert.match(first, /^\s*if \(modes\?\.decorFlying\?\.\(\) \|\| yards\?\.flying\(\)\) return;/, `the tap's first line: ${first}`);
-  assert.match(second, /^\s*if \(gatherHost\?\.acting\(\)\) \{ gatherHost\.strike\(true\); gatherHost\.strike\(false\); return; \}/, `the tap's second line: ${second}`);
+  // PIN MOVED (AUDIT 2026-10-01 part four, STICK-TAP): never the stick's lock-only tap, and after the view's own test (a
+  // tap in the docked bar's strip is no tap) - its third line; test/fb1001_audit.test.js
+  const third = tap.split('\n')[3] ?? '';
+  assert.match(second, /^\s*if \(!ndcFromScreen\(x, y, /, `the tap's second line: ${second}`);
+  assert.match(third, /^\s*if \(gatherHost\?\.acting\(\) && !opts\?\.lockOnly\) \{ gatherHost\.strike\(true\); gatherHost\.strike\(false\); return; \}/, `the tap's third line: ${third}`);
 });
 
 test('NODE-AIM: a boulder is found by looking at its stones - the look meets a node anywhere from its base to its aim point; past the base or the aim point by the cone, nothing (mutants: the aim point alone; the span past the base; the span past the aim point)', async () => {

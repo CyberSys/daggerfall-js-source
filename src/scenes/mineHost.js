@@ -22,8 +22,8 @@
 //   its StrikeDown frames on each swing.
 // ═══════════════════════════════════════════════════════════════════
 import { veins, boulders, nodeKey, VEIN_TABLES, dungeonVeins, dveinKey } from '../net/nodeLaw.js';
-import { tierOpen, TIER_RANKS, PROF_RANK_MAX, pickAxeBand, minedMaterial } from '../net/professionLaw.js';
-import { natureStandsAt, groundAt } from '../world/terrainNature.js';
+import { tierOpen, TIER_RANKS, PROF_RANK_MAX, pickAxeBand, minedMaterial, storesFullIn } from '../net/professionLaw.js';
+import { natureStandsAt, groundAt, insideRocks } from '../world/terrainNature.js';   // NODE-CLEAR: the rock check's one home
 import { WORLD_MAP_TILE_DIM } from '../world/terrainTiles.js';
 import { TERRAIN_SIZE } from '../world/terrainSampler.js';
 import { createMineAct } from '../systems/mineAct.js';
@@ -79,9 +79,6 @@ export function rockFoot(box, x, z) {
 }
 /** The distance from (x, z) to a box's footprint (0 inside). */
 const toBox = (box, x, z) => Math.hypot(Math.max(box[0] - x, 0, x - box[3]), Math.max(box[2] - z, 0, z - box[5]));
-/** AUDIT 29 C11: whether (x, z) stands inside a rock piece's footprint (the field's boxes overlap - a foot off one piece
- *  can land inside the next). */
-const insideRocks = (rocks, x, z) => rocks.some((b) => x > b[0] && x < b[3] && z > b[2] && z < b[5]);
 /** The stone tile nearest (tx, ty) within `reach` tiles where nature could stand, or null - VEIN-CLEAR: never a tile
  *  whose stand is inside a rock piece (`rocks`). */
 function nearestStone(samples, tilemap, locationRect, tx, ty, reach, rocks) {
@@ -242,7 +239,7 @@ export function mineKind({ book }) {
     plan(n, { entity, rank }) {
       const plan = minePlan({
         node: n, taken: book.taken(n.key, harvestOf(n)), counting: book.counting(n.key, harvestOf(n)), rank: rank('mining'),
-        pick: !!foragingToolIn(entity, FT.PickAxe), storesFull: (key) => book.held(key) >= (book.state.caps?.stores ?? 5000),
+        pick: !!foragingToolIn(entity, FT.PickAxe), storesFull: (key) => storesFullIn(book, key),   // STORES-ROOM: every origin, as the service counts
         today: book.state.today?.mining ?? 0, cap: book.state.caps?.harvests ?? 60,
       });
       return { ...plan, profession: 'mining' };

@@ -7531,15 +7531,17 @@ export function createWorldModes(host) {
     return tryEnterDungeon(hit, entries, { preferEnterMarker: true, fromLoad });   // MAP-KEEP: a save's own dungeon, entered on the load arm
   }
 
-  function tryExitDungeon({ pressCast = false, interact = false } = {}) {
+  function tryExitDungeon({ pressCast = false, interact = false, actClick = false } = {}) {
     const eye = player.eye;
     const dir = eyeDir();
     // PROF2: a dungeon vein under the look takes the press - an act started (the outer host's). AUDIT 29: on Interact
     // alone, as on the street (C2/H3: a click or a finger's tap started an act a swipe could not play, and every swing
     // was held off until the player walked away); and first, so one press never clicks a quest foe AND starts an act (D3)
     if (interact && !pressCast && host.profPress?.()) return true;
-    // AUDIT 32 H5: and a click mid-act is the act's (D3's law for E) - it opened the body's loot under the knife
-    if (!interact && host.profActing?.()) return true;
+    // AUDIT 32 H5: and a click mid-act is the act's (D3's law for E) - it opened the body's loot under the knife.
+    // CLICK-LIFT (AUDIT 2026-10-01 part four): to its release - the click that struck a dungeon vein's last blow lifts
+    // after the act has ended, onto the door, the chest, the body or the lever under the look
+    if (!interact && (actClick || host.profActing?.())) return true;
     // QG1: the quest-resource click arm runs FIRST and does not
     // consume the activation (PlayerActivate.cs:325-339 - no return,
     // skipped in Info mode): a live quest foe under the ray takes the
@@ -8171,8 +8173,9 @@ export function createWorldModes(host) {
     // all, so nothing activated and F16's own tap-to-lock arms below
     // sat unreachable. `activateDown` is that press, published the way
     // `activateDir` publishes its ray.
+    const _activateDown = held(keys, 'ActivateCenterObject') || !!host.activateDown?.();
     const _act = activateFrame((latch.activate ??= createActivateGate()), {
-      down: held(keys, 'ActivateCenterObject') || !!host.activateDown?.(),
+      down: _activateDown,
       hasReadySpell: (mode === 'dungeon' ? dungeonCtx?.spellArmed?.() : magic?.spellArmed()) ?? false,
       touchSpell: ((mode === 'dungeon' ? dungeonCtx?.readiedSpell?.() : magic?.readied()) ?? null)?.rangeType === 1,   // rangeType 1 is ByTouch (spellcast.js:206)
       hudBlocked: activeMouseOverLargeHUD(),
@@ -8207,7 +8210,8 @@ export function createWorldModes(host) {
       isHeld: (a) => held(keys, a), blocked: overlayHeld, entity: playerEntity,
       onTap: (slot) => (slot === 'spell' ? interiorKeyCtx.quickSpell() : interiorKeyCtx.quickUse(slot === 'c1' ? 1 : 2)),
     });
-    if ((_act.activate || useEdge) && !overlayHeld) (mode === 'dungeon' ? tryExitDungeon : tryExit)({ pressCast: _act.pressCast, interact: useEdge });   // AUDIT DISC7 A1: whether the press was a cast (a touch spell's release)
+    const actClick = host.profClickTaken?.(_activateDown) ?? false;   // CLICK-LIFT (AUDIT 2026-10-01 part four): the click an act took, to its release - asked every frame
+    if ((_act.activate || useEdge) && !overlayHeld) (mode === 'dungeon' ? tryExitDungeon : tryExit)({ pressCast: _act.pressCast, interact: useEdge, actClick });   // AUDIT DISC7 A1: whether the press was a cast (a touch spell's release)
     // A successful exit destroyed the modal context and flipped the
     // mode - the render below must NOT run against it. This frame is
     // the transition's; the host resumes next frame. (Root cause of

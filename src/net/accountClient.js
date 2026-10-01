@@ -272,7 +272,7 @@ export const REFUSALS = Object.freeze({
   'prof-pixel': 'The land here is known otherwise to the counting-houses.',
   'prof-day': 'The day that gathering belonged to has ended.',
   'prof-late': 'That gathering reached the counting-houses too late to count.',
-  'prof-night': 'You need daylight to gather effectively!',
+  'prof-night': 'You need daylight to gather effectively!',   // ANY-HOUR: the service says it no more - kept for one not yet redeployed
   'prof-rank': 'Your craft is not yet skilled enough for that.',
   'prof-cap': `You have gathered all a day allows (${HARVESTS_PER_DAY}).`,
   // AUDIT 29

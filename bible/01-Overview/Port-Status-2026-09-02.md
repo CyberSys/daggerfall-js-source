@@ -217,7 +217,7 @@ destination** (`systems/guildServiceFlow.js`, gated by
 The superseded page's two magic gaps are closed and verified here:
 `minimumCastingCost` is live at `systems/spellcost.js:192` and is
 written by both curses (`systems/vampirism.js:205`,
-`systems/lycanthropy.js:218`), so vampire clan spells price at the
+`systems/lycanthropy.js:222`), so vampire clan spells price at the
 floor; and the 24-effect enchantment catalogue reads
 `ENCHANTMENT_COSTS` **24** with `ITEM_MAKER_EFFECT_FLAGS` 24 beside it.
 
@@ -661,7 +661,7 @@ are the **narrowed remainders** Wave D recorded rather than shipped
   CLASSIC-PAGES (2026-09-30, Mac: "Enhanced pages + key"): a door pressed for a professions page - the Professions key
   (the down arrow) or a station - opens them on either skin (`ui/pauseDoor.js` openPauseFlow), and the stations are
   offered on both; the flag is gone from the site (`06-Systems/Online-Arc.md` CLASSIC-PAGES).
-- **`src/net/professionLaw.js:361`** - the woods' pictures, untinted (PROF4, 2026-09-28). *A log and Heartwood
+- **`src/net/professionLaw.js:373`** - the woods' pictures, untinted (PROF4, 2026-09-28). *A log and Heartwood
   borrow DFU's Twigs picture and a plank the Staff's, dyed Iron; the seven woods are not tinted apart, because DFU's two
   dye swatches are clothing's and metal's and a twig's picture is neither's. Whether they read apart in the Stores and
   the pack wants the player's data on screen - Mac's eye. The professions are a Ledger A departure, so no C# line is

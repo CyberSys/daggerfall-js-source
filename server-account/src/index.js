@@ -242,7 +242,7 @@ const BOARD_STATUS = Object.freeze({
 const PROF_STATUS = Object.freeze({
   'prof-need-account': 403, 'prof-closed': 403, 'marks-closed': 403, 'prof-rank': 403,
   'no-writ': 404, 'bad-recipe': 404,
-  'prof-pixel': 409, 'prof-day': 409, 'prof-late': 409, 'prof-night': 409, 'prof-cap': 409, 'stores-full': 409, 'stores-short': 409,
+  'prof-pixel': 409, 'prof-day': 409, 'prof-late': 409, 'prof-cap': 409, 'stores-full': 409, 'stores-short': 409,   // ANY-HOUR: no `prof-night` - no node keeps hours
   'prof-account-cap': 409, 'prof-deep-cap': 409, 'prof-spec-stale': 409, 'prof-spec-taken': 409,   // AUDIT 29
   'prof-no-pack-form': 409,   // PROF3: the smith's stock stays in the Stores until its professions' templates
   'prof-later': 409,   // PROF4: a recipe whose slice is to come - the Ram Kit (PROF0 25)

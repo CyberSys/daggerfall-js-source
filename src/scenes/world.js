@@ -13024,8 +13024,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     // TI1: the swipe is the RMB drag - the mousemove arm above, on a
     // finger: the exterior rig here, the modal rig through worldModes
     // indoors, the M2 cast gate in front of both.
-    attack: (dx, dy, held) => {
-      gatherHost?.strike(held);   // ACT-TOUCH: mid-act the press is the act's strike (below it is refused for the act, street and modal)
+    attack: (dx, dy, held, o = null) => {
+      gatherHost?.strike(held, o?.repeat === true);   // ACT-TOUCH: mid-act the press is the act's strike (below it is refused for the act, street and modal); PAD-PULSE: never a held stroke's repeat
       if (!walkMode) { swipeHeld = false; return; }
       if (modeNow() === 'exterior') {
         if (yards?.flying()) { swipeHeld = false; return; }   // HOME-YARD (AUDIT): a swipe under the yard's decorator turns the eye, never swings
@@ -13045,8 +13045,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     // the docked bar's strip is no world tap at all.
     tap: (x, y, opts = null) => {
       if (modes?.decorFlying?.() || yards?.flying()) return;   // DECOR1e: under the decorator's flight a tap is no press - the bar's Place places; HOME-YARD (AUDIT): the yard's too
-      if (gatherHost?.acting()) { gatherHost.strike(true); gatherHost.strike(false); return; }   // ACT-TOUCH: mid-act a tap is the act's strike - the click's, which ACT-CLICK made one (the activation it armed did nothing mid-act)
       if (!ndcFromScreen(x, y, canvas.clientWidth, canvas.clientHeight, worldViewportRect(canvas.clientWidth, canvas.clientHeight))) return;
+      if (gatherHost?.acting() && !opts?.lockOnly) { gatherHost.strike(true); gatherHost.strike(false); return; }   // ACT-TOUCH: mid-act a tap is the act's strike - the click's, which ACT-CLICK made one (the activation it armed did nothing mid-act); STICK-TAP (AUDIT 2026-10-01 part four): never the stick's lock-only tap (TS1: a thumb re-placed on the stick is the lock pick and nothing below it), nor a tap off the world's view (the docked bar's strip, which the line above throws away)
       _tapPoint = [x, y]; _tapArmed = 2;   // AUDIT 62 F8: the arm IS the press - see _tapArmed at the gate below
       _tapLockOnly = !!opts?.lockOnly;   // TS1: touch.js's stick-half tap (TI1b) - the lock pick and nothing below it
     },
@@ -13524,7 +13524,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10063-10127 -
+  // worldModes answers it in BOTH modes (worldModes.js:10067-10131 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -19650,6 +19650,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     profNeed: () => gatherHost?.sayNeed() ?? false,   // VEIN-NEED: E opened nothing underground - the vein it passed on says what it needs
     profActTool: () => gatherHost?.handTool() ?? null,
     profActing: () => gatherHost?.acting() ?? false,
+    profClickTaken: (down) => gatherHost?.clickTaken(down) ?? false,   // CLICK-LIFT: the click an act took, to its release (the dungeon's ladder)
     currentRegionIndex: () => _questRegionIndex(),   // UL1: PlayerGPS.CurrentRegionIndex for the mode machine's mods
     climateIndex: () => maps.getClimateIndex(playerTravelPixel().x, playerTravelPixel().y),   // SURV5: PlayerGPS.CurrentClimateIndex, for the tavern's menu
     survivalEnv: () => survivalEnvNow(),   // SURV7: the interior ticker's and the dungeon's env; each overrides the flags it owns
@@ -22823,8 +22824,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // is the raw right button - DFU's own 'Mouse1' (:1010) - but
         // never read through held(), so a SwingWeapon rebind is inert.
 
+        const _activateDown = held(keys, 'ActivateCenterObject') || _tapArmed > 0;   // AUDIT 62 F8: the touch tap is the ACTION, not a synthesized 'Mouse0' - a rebind off Mouse0 must not kill the finger, and no key code can honestly stand for a mouse binding
         const _act = activateFrame((latch.activate ??= createActivateGate()), {
-          down: held(keys, 'ActivateCenterObject') || _tapArmed > 0,   // AUDIT 62 F8: the touch tap is the ACTION, not a synthesized 'Mouse0' - a rebind off Mouse0 must not kill the finger, and no key code can honestly stand for a mouse binding
+          down: _activateDown,
           hasReadySpell: magic.spellArmed(),
           touchSpell: magic.readied()?.rangeType === 1,   // rangeType 1 is ByTouch (spellcast.js:206)
           hudBlocked: activeMouseOverLargeHUD(),
@@ -22839,10 +22841,12 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         const _holdFire = (_act.activate || _act.cast || useEdge) && !!naval?.aiming && naval.holdFire();
         if (_act.cast && !_holdFire && !gatherHost?.acting()) magic.interceptAttack(true);   // the frame's firePending sends it down the live look; AUDIT 29 D2: never a readied spell mid-act (the dungeon held it off already)
         // PROF1: E at an herb patch is the patch's - an act started, or what it needs said - spent before the ladder
-        const nodeTook = useEdge && !_holdFire && !modes.transitioning && (gatherHost?.press() ?? false);   // PROF2: a patch's, a vein's or a boulder's
+        const nodeTook = useEdge && !_holdFire && !modes.transitioning && !naval?.takesActivate?.() && (gatherHost?.press() ?? false);   // PROF2: a patch's, a vein's or a boulder's; NAVAL-E (AUDIT 2026-10-01 part four): never a press the sea takes - the net's cast stood in the look while the readout said "E: board her"
         // AUDIT 32 H5: a click mid-act is the act's too (AUDIT 29 D3's law for E) - it opened the body's loot under the
-        // knife and ended the trace
-        if (((_act.activate && !gatherHost?.acting()) || (useEdge && !nodeTook)) && !modes.transitioning && !_holdFire) {
+        // knife and ended the trace. CLICK-LIFT (AUDIT 2026-10-01 part four): to its release - the click that struck the
+        // act's last blow lifts after the act has ended
+        const _actClick = gatherHost?.clickTaken(_activateDown) ?? false;
+        if (((_act.activate && !gatherHost?.acting() && !_actClick) || (useEdge && !nodeTook)) && !modes.transitioning && !_holdFire) {
           // T3b: a townsperson under the ray wins the activation (the
           // PlayerActivate nearest-hit order); G3: a guard corpse next
           // (loot pickup on the dungeon's S2 shape); doors otherwise.

@@ -127,12 +127,16 @@ export const ONCE_PER_DAY = 'You may only cast this spell once per day.';
  *  (mysticism.js liveBundles), and every recast of the same spell
  *  merged into the hidden entry (effects.js findInc), so the buff was
  *  never seen again while it was kept up. CureAll leaves them; it
- *  never cured the poisons it said it did, nor filled a pool. */
+ *  never cured the poisons it said it did, nor filled a pool.
+ *  CURE-FILL (AUDIT 2026-10-01 part four): THE POOLS ARE FILLED LAST,
+ *  to the maximums the cures give back - DFU fills them first, so a
+ *  turn with Endurance, Strength or Intelligence drained or diseased
+ *  left fatigue and magicka short of the full the turn promises. */
 export function endOldLifeEffects(entity) {
-  fillVitalSigns(entity);
   cureAllPoisons(entity);
   cureAllDiseases(entity);
   cureAllAttributes(entity);
+  fillVitalSigns(entity);
 }
 
 /** The live curse entry, or null. DISC10-E V9: a hole in the list is

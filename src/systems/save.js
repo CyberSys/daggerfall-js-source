@@ -773,6 +773,10 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   // budget (NaN, as JSON writes it), which the next tick read as spent and pruned - the flag is given at the one door old
   // data comes in by, so tickActiveEffects keeps its one law and never learns these kinds by name.
   for (const a of entity.activeEffects) if ((a.kind === 'racialOverride' || a.infection) && !a.permanent) a.permanent = true;
+  // CURE-ENDS (AUDIT 2026-10-01 part four): a drain a cure zeroed and left (the guild's stat reset before this, and a
+  // vampire's or a werewolf's turn since part four) stood on the HUD as a debuff that did nothing, for good - it ends here,
+  // at the same door (guildServiceFlow.js cureAllAttributes ends what it cures now)
+  for (const a of entity.activeEffects) if ((a.kind === 'drainAttribute' || a.kind === 'transferAttribute') && !(a.magnitude > 0)) a.ended = true;
   // V2a: the racial override MARKER is a live reference into the list
   // just restored - rebuilt here, never serialized on its own, so the
   // marker and the entry can never disagree (the gates - a second

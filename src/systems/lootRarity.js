@@ -584,7 +584,7 @@ export function repairRarityBases(items) {
 }
 
 /** The gold the affixes add. */
-export const affixesWorth =(affixes) => (affixes ?? []).reduce((n, a) => n + (AFFIX_WORTH[a.id] ?? 0) * (a.value | 0), 0);
+export const affixesWorth = (affixes) => (affixes ?? []).reduce((n, a) => n + (AFFIX_WORTH[a.id] ?? 0) * (a.value | 0), 0);
 
 /** Apply a rolled tier to an eligible item IN PLACE: the field, the
  *  affixes, the name, the value, and a Rare's or Legendary's DFU

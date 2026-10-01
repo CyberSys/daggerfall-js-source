@@ -129,7 +129,7 @@ test('PROF1 service: a common herb picked - the law\'s node, today, in daylight:
   assert.deepEqual(st.today, { herbalism: 2 });
 });
 
-test('PROF1 service: the day, the hour and the node are the law\'s - yesterday\'s node lapses, an act past ten minutes is late, the night refuses, a slot the climate lacks is no node', async () => {
+test('PROF1 service: the day and the node are the law\'s - yesterday\'s node lapses, an act past ten minutes is late, a slot the climate lacks is no node; the night harvests (ANY-HOUR)', async () => {
   const s = await stand();
   const mac = await s.registered('Mac');
   const p = patchOfTier(1);
@@ -142,13 +142,12 @@ test('PROF1 service: the day, the hour and the node are the law\'s - yesterday\'
   assert.deepEqual(await post({ node: 'tree:1:1:1:0', kind: 'herbs' }), { error: 'prof-kind' }, 'PROF4: a tree is Logging\'s - logs, never herbs');
   assert.deepEqual(await post({ kind: 'logs' }), { error: 'prof-kind' });
   assert.deepEqual(await post({ climate: 223 }), { error: 'prof-pixel' }, 'the sea grows no herbs');
+  // PIN MOVED (ANY-HOUR, 2026-10-01, Mac: "Remove the time limit for professions. Should be available at any time"):
+  // 02:00 on the shared clock refused (`prof-night`) and 07:00 was day (FORAGE0 14.3); now no hour is refused
   const night = secondAt(utcDay(_now) * DAY + 60, 2);
   clock(night);
-  assert.deepEqual(await post({ at: night - 1, node: nodeKey({ kind: 'herb', x: p.x, y: p.y, day: utcDay(night), slot: p.slot }) }), { error: 'prof-night' });
-  const dawn = secondAt(utcDay(_now) * DAY + 60, 7);
-  clock(dawn);
-  const early = await post({ at: dawn - 1, node: nodeKey({ kind: 'herb', x: p.x, y: p.y, day: utcDay(dawn), slot: p.slot }) });
-  assert.ok(early.ok, '07:00 is day (FORAGE0 14.3)');
+  const dark = await post({ at: night - 1, node: nodeKey({ kind: 'herb', x: p.x, y: p.y, day: utcDay(night), slot: p.slot }) });
+  assert.ok(dark.ok, `02:00 harvests: ${JSON.stringify(dark)}`);
   clock(NOON);
 });
 

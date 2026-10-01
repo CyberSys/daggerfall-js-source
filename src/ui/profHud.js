@@ -292,8 +292,10 @@ export function createProfHud({ doc = globalThis.document } = {}) {
       fill.style.width = `${Math.round(act.progress * 100)}%`;
       bar.append(fill);
       const hint = mk('prof-hint');
+      // STEADY-SAID (AUDIT 2026-10-01 part four): the key the steady hand holds, where it holds one (E's start; the
+      // Sickle's Use holds it itself)
       hint.textContent = st.kind === 'steady'
-        ? (st.bruised ? 'bruised - hold on to keep what is left' : `hold still (${Math.round(st.window * 10) / 10} degrees)`)
+        ? (st.bruised ? `bruised - ${label ? `keep ${label} held` : 'hold on'} to keep what is left` : `${label ? `hold ${label} and ` : ''}keep still (${Math.round(st.window * 10) / 10} degrees)`)
         : (label || 'kneeling...');
       meter.append(bar, hint);
     },

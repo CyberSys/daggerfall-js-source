@@ -263,7 +263,7 @@ test('TI1 hosts: the three combat hosts wire swipe, tap, lock and dial; the fly-
   for (const h of ['src/scenes/world.js', 'src/scenes/exterior.js', 'src/scenes/dungeon.js']) {
     const s = read(h);
     assert.match(s, /const inputHooks = \{[\s\S]*?const touch = attachTouch\(canvas, inputHooks\);/, `${h}: the layer's handle is kept for the dot (GP1: the hooks are one object the pad shares)`);
-    assert.match(s, /\n\s*attack: \(dx, dy, held\) =>/, `${h}: the swipe hook`);
+    assert.match(s, /\n\s*attack: \(dx, dy, held(?:, o = null)?\) =>/, `${h}: the swipe hook`);   // PIN MOVED (AUDIT 2026-10-01 part four, PAD-PULSE): world.js's hears a held stroke's repeat
     assert.match(s, /\n\s*tap: \(x, y, opts = null\) =>/, `${h}: the tap hook`);
     assert.match(s, /_tapLockOnly = !!opts\?\.lockOnly;/, `${h}: the tap carries the stick-half flag (TS1)`);
     assert.match(s, /locked: \(\) => lockOn\.locked,/, `${h}: the lock predicate`);

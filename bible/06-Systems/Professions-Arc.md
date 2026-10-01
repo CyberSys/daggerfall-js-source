@@ -325,11 +325,12 @@ DECIDED (Mac: "tree chopping, picking up ingredients, fishing, etc. Active playe
   Morrowind lane the arms hold it in the held-sheet pose (`src/combat/heldPose.js`). No new art: the pictures are the
   items' own. A tool used from the inventory is Foraging's own use, 1:1, in both lanes - one item, two gestures.
 - **Foraging's checks come first** (FORAGE0 14.3), each with Foraging's own refusal: not inside (except a dungeon
-  vein and Hunting), not in a settlement, **daylight 07:00-17:59** (not a dungeon vein, a Motherlode, a gate-touched
-  vein or Hunting), not at sea (but Fishing), no foe near (DFU's rest test), not fully encumbered. **The service
-  enforces daylight itself** (section 6) - for a surface node other than a Motherlode or a gate-touched vein, and for
-  every Fishing haul; the tool, its wear, the foe and the load are the client's courtesy, which
-  the service never sees.
+  vein and Hunting), not in a settlement, not at sea (but Fishing), no foe near (DFU's rest test), not fully
+  encumbered; the tool, its wear, the foe and the load are the client's courtesy, which the service never sees.
+  **ANY-HOUR** (2026-10-01, Mac: *"Remove the time limit for professions. Should be available at any time"*): no act
+  keeps hours - the daylight 07:00-17:59 the acts borrowed (and the service enforced, `prof-night`) is gone from every
+  profession, client and service (`01-Overview/Field-Bugs-2026-10-01.md` part four); Foraging's own Use keeps the mod's
+  day.
 - **Wear**: a completed act lowers the tool's condition by 1, as a Foraging use does; a tool lasts 50 harvests.
 - **The attribute bands**: Foraging's attribute pair for the tool widens or narrows the act's skill window - x0.85,
   x1.00, x1.15, x1.30 for <=39, 40-59, 60-79, >=80 (FORAGE0 14.4). Attributes are the save's, so a band only moves a
@@ -375,8 +376,8 @@ else Foraging's Fish (1605). A **trophy** is the species' own Deep Waters templa
   patch once both its harvests are taken (its herbs, and the Basket's food).
 - The sounds are DFU's own from the player's data (the wood and stone hits, the splash), and Immersive Footsteps' and
   Better Ambience's where they are on.
-- Weather and the hour matter: the net fills fastest in the first and last daylight hours (Foraging's day, 07:00-17:59 -
-  the wilderness closes at night; the dungeon veins, Hunting and the stations do not); rain wets the herbs (the steady window -20%); a storm
+- Weather and the hour matter: the net fills fastest in the first and last daylight hours (07:00-07:59 and 17:00-17:59 -
+  a bonus; ANY-HOUR: the wilderness no longer closes at night); rain wets the herbs (the steady window -20%); a storm
   drives the fish deep (longer waits, bigger fish).
 
 ## 6. Nodes
@@ -886,7 +887,7 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 | A modified client claims a rich node on a pixel nobody walks | The witnessed world: an unconfirmed pixel yields tiers 1-2 only (section 6) |
 | A modified client claims kills it never made | Hunting is bounded, not witnessed: 30 hides a day, 3 of tiers 5-6 (section 6); hides mint no Marks (no Court writ asks for them, section 11) |
 | A modified client claims hauls from water it is not in | Fishing is bounded: 40 hauls a day an account; no Pearl or Slaughterfish on an unconfirmed pixel; fish mint no Marks (section 6, 11) |
-| A modified client gathers at night | The service checks the act's hour on the shared clock itself (section 6) |
+| ~~A modified client gathers at night~~ | RETIRED (ANY-HOUR, 2026-10-01): every client gathers at night - no hour is refused |
 | Marks buy influence (materials bought at their value, then delivered to a seat) | Only **own** units count at their value; bought units at Tribute's rate inside its cap; counter goods never (section 7, 11) |
 | Marks buy XP (a counter's endless goods, each recipe made once for its first-craft bonus - AUDIT 32 S1) | A recipe made wholly of goods only a counter sells earns its craft's XP and no first-craft bonus (3.2) |
 | An alt or an outsider fills a guild's seat writ for influence | Only a 7-day member bound to the guild for the week earns influence by delivery; the rest earn the pay (section 11) |
@@ -2424,8 +2425,8 @@ asked). What sections 5.2, 6 and 3.3 left open for PROF8, DECIDED here, and what
   rank 55's, 105 a Master's; a full net x1.5.
 - **Bounded, not witnessed** (6). A haul names no node: its key is the client's own, `haul:<x>:<y>:<day>:<id>` - the map
   pixel cast from, the UTC day, twelve hex digits drawn at the cast (`nodeLaw.js` haulKey, read in its one spelling). The
-  service reads the pixel's ground (the witnesses' confirmation for the sea's finds), the day, the daylight (every haul,
-  07:00-17:59 on the shared clock - `prof-night`), and **forty hauls an ACCOUNT a day**, decided in the harvest's own
+  service reads the pixel's ground (the witnesses' confirmation for the sea's finds), the day (~~the daylight, every haul,
+  07:00-17:59 on the shared clock - `prof-night`~~ - RETIRED, ANY-HOUR: no hour is refused), and **forty hauls an ACCOUNT a day**, decided in the harvest's own
   INSERT (`prof-fish-cap`). A haul from an account a week old witnesses its pixel, as any harvest's does - so the sea's
   pixels come to be confirmed by those who fish them.
 - **The catch** (5.2). Raw Fish (`food:fish`) into the Stores as own, 1-2 a haul; in 6's order: the roll, a full net's
@@ -2575,6 +2576,33 @@ U10); a school's glow stands over the water's film (WATER1 a hand's breadth, the
 vein's base is its ore's own; the large HUD's compass is DFU's needle alone, which marks neither a Detect nor a mate.
 NOT CHANGED, named: the large HUD marks no node, as it marks no mate.
 
+## 32. AUDIT 2026-10-01 part four - the professions sound (Mac: "let's do a comprehensive audit on this and also ensure the other professions are sound")
+
+Five lanes and a re-read; the record and every finding's reproduction are `01-Overview/Field-Bugs-2026-10-01.md` part
+four (its last section). What the arc's laws now say, by section:
+
+- **5 (the acts)**: **ANY-HOUR** - no act keeps hours (above). An act's strike is never a held stroke's repeat (the Plus
+  pad's gesture swing - PAD-PULSE), never the stick's lock-only tap nor a tap off the world's view (STICK-TAP), and a
+  quick second tap of the Attack button is a press (TOUCH-RETAP). The click that struck an act is the act's to its
+  release - the stroke that finishes a vein lifts onto nothing (CLICK-LIFT). The steady hand's meter names its key.
+- **6 (nodes)**: a node is found up its upright to the top of its glow where that stands above its aim point - a tree's
+  3.4 m, a patch's 1.3 m (NODE-SPAN). A patch never stands inside a rock piece, and a tree claims the nearest flat
+  outside every one (NODE-CLEAR, VEIN-CLEAR's law). **The ground the nodes stand on**: a harvest's answer, or a refusal,
+  marks its pixel's or dungeon's witnessed state stale - read again on the next ask, the nodes stood again when it moved
+  (GROUND-STALE); at the UTC day's turn yesterday's state is no state (GROUND-MIDNIGHT). Seasonal Eye chosen stands the
+  pixels again. While a node is the target or an act plays the free climb's walk-in start is held; the professions shut,
+  no node is the target (NODE-SHUT).
+- **7 (the Stores)**: a material's room is every origin, gold-bought too, as the service counts it (STORES-ROOM). The
+  service's refusals are kept: the character's day and the Stores read the state again, the account's day in a craft and
+  its unvouched dungeon veins close until the UTC day turns, said on the prompt (REFUSALS-LEARNED); `prof-rate` keeps the
+  harvest for its ten minutes (RATE-KEPT).
+- **9 (crafting)**: the Forge sells the smith's Charcoal at a smith's forge (CHARCOAL-BUY); every counter keeps AUDIT
+  32 P6's Marks gates (COUNTER-GATES); the pad presses the pages on every skin (PAD-CLASSIC).
+- **At sea**: E is the sea's first - a struck ship's rail, a prize, the grapples - and the net's cast only when the sea
+  has nothing (NAVAL-E).
+- **Asked**: TOUCH-HOLD (no Interact on a phone or in the pad's shipped layouts: a common herb, Hunting and the net's
+  haul cannot be played there) and HERB-XP (past rank 70 every herb is worth a quarter).
+
 ## Appendix A - a day of a gatherer
 
 Ilsa, a Journeyman herbalist and Apprentice miner in Anticlere (a march), sets out at seven, when the wilderness opens. The board's Work tab has a
@@ -2604,7 +2632,7 @@ At dusk the hub warns of a Motherlode in the Wrothgarian foothills in ten minute
 | Motherlodes | 3 a day, 20 characters, 10 Marks, one an account a day, 10 (30) minutes' warning; no hours |
 | Yields | tree 2-4, vein 2-3, herb 1-3, Basket 1 / 1-2 / 1-3, hide 1, haul 1-2, boulder 3-5; order: base, act (x1.5 at most), march +25%, Tide, school +1 (Netter +2); a fraction is a chance |
 | Act bound | one quality step, +50% yield |
-| Foraging's checks | inside, settlement, daylight 07:00-17:59 (checked by the service; not dungeon veins, Motherlodes, gate-touched veins, Hunting), sea, foe near, encumbered (FORAGE0 14.3) |
+| Foraging's checks | inside, settlement, sea, foe near, encumbered (FORAGE0 14.3); ~~daylight 07:00-17:59~~ RETIRED (ANY-HOUR, 2026-10-01: no act keeps hours, the service refuses none) |
 | Harvest hour | the act's end, at most 10 minutes past |
 | Act bands | x0.85 / 1.00 / 1.15 / 1.30 by Foraging's attribute pair |
 | Tool wear | 1 an act; 50 harvests a Standard tool |
@@ -2674,7 +2702,9 @@ is re-run, not re-guessed.
 Each member does 60% of their play in the pledged region, gathers 2.5 units a harvest at 2.5 Marks a unit on
 average, and sends a quarter of it to the Siege Camp.
 
-**The fold (FORAGE0, second review)** changed two assumptions, and the table below is the re-run: **the wilderness
+**The fold (FORAGE0, second review)** changed two assumptions, and the table below is the re-run (ANY-HOUR, 2026-10-01,
+undoes the first: the wilderness keeps no hours, so the 0.73 below is 1 again - the day's caps, 60 a character and 120 an
+account in a craft, bound the harvests as before): **the wilderness
 keeps Foraging's day** - a session's surface harvests happen in the 55 daylight minutes of each 120, and the night
 gathers at half the day's rate (dungeon veins, Hunting), so harvests run at 55/120 + 65/120 x 0.5 = **0.73** of the
 old count; and **Court writs are a fixed supply** (45 regions x 6 x max(1, ceil(active / 100)) a day), which the

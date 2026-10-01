@@ -678,7 +678,10 @@ our own thing now"*): every report root-caused on the real modules before anythi
 code before it and mutation-checked. Five search lanes ran at once, one a report each; the mining lane walked E to the
 ore end to end on the real modules and ranked what could make it do nothing. One report did not reproduce, and is
 answered with a guard pin. Three calls were Mac's, asked after the first push: the shrine (*"Not now"*), the climb at a
-vein (*"Hold it at nodes"* - CLIMB-NODE) and an area spell's caster (*"Include the caster"* - AREA-CASTER).
+vein (*"Hold it at nodes"* - CLIMB-NODE) and an area spell's caster (*"Include the caster"* - AREA-CASTER). Then two
+words of his: *"let's do a comprehensive audit on this and also ensure the other professions are sound"* - the audit,
+at the end of this part, twenty faults fixed and two calls asked - and *"Remove the time limit for professions"* -
+ANY-HOUR, before it.
 
 | | Report | Reporter | What it was | Done |
 |---|---|---|---|---|
@@ -870,8 +873,11 @@ mode (`scenes/dungeonContext.js`) are the world host's motor. `test/fb1001_climb
 
 1. **Climbing at a vein** - asked, and built: CLIMB-NODE, below.
 2. **Starting an act by touch or pad.** The touch corner carries no Interact, nor the pad's defaults; a tap and the
-   pad's A are ActivateCenterObject, which AUDIT 29 C2/H3 kept off the nodes. With ACT-TOUCH an act can be played by
-   touch; the start is still E or the tool's hotbar Use (TOOL-USE).
+   pad's A are ActivateCenterObject, which AUDIT 29 C2/H3 kept off the nodes. With ACT-TOUCH an act struck by Attack
+   (a vein, a tree, the Basket's glints, the net's tug) can be played by touch; the start is still E or the tool's
+   hotbar Use (TOOL-USE). CORRECTED by the audit below: the acts HELD on E - the steady hand, the knife's trace, the
+   net's haul - are not (the Sickle's Use holds the steady hand; nothing holds the other two), and a common herb, which
+   no tool picks, cannot be started at all - asked of Mac (TOUCH-HOLD, below).
 3. **VEIN-NEED's line** is replaced when anything else is under the ray (a far corpse, a door); underground it speaks
    only when nothing at all is hit.
 4. **A dungeon vein's foe.** A vein stands off a foe marker, and the enemies-near check reaches 12 m: a live foe at its
@@ -884,3 +890,107 @@ mode (`scenes/dungeonContext.js`) are the world host's motor. `test/fb1001_climb
    "one of the rings" - on any.
 8. **Deep Waters' FillRandomItem** mints plain wands; none reaches the ladder today, and `rarityEligible` refuses one
    that ever does.
+
+## ANY-HOUR: the professions keep no hours (Mac's word)
+
+**Mac, 2026-10-01**: *"Remove the time limit for professions. Should be available at any time"*.
+
+**What it was**: the acts borrowed Foraging's checks (FORAGE0 14.3), daylight 07:00-17:59 among them - from 18:00 to
+06:59 a vein, a boulder, a patch (the Sickle's or the Basket's), a tree and the net said "You need daylight to mine
+effectively!" and the like - and the service refused any surface harvest whose act ended in those hours (`prof-night`,
+on the shared clock from the act's end). Dungeon veins and Hunting never kept hours; the stations never closed (online
+the shops stand open - OL5's shift). An act begun at 17:59 and ended at 18:00 was played, wore its tool, and was refused
+(lanes 4 and 5 below both found that edge; it goes with the rule).
+
+**Built**: a profession's act never asks the daylight (`systems/foragingInstall.js` foragingActRefusal skips it - one
+home for the five acts' starts); the net's prompt names no hour (`scenes/fishHost.js` NET_WHERE); the words say none
+(the Fishing-Net's line, the Professions page's Fishing how-to: "at any hour"); the service answers a harvest at any hour
+(`server-account/src/professions.js` harvestNode - the check, its hour helper and `prof-night`'s status gone; the client
+keeps the word's text for a service not yet redeployed). Foraging's own Use - offline and a guest's lane, the mod's 1:1 -
+keeps the mod's day (`test/forage2_tools.test.js` pins its refusal). The first and last daylight hours still halve the
+net's wait: a bonus, not a gate. `test/fb1001_anyhour.test.js` (3); `tools/mutants/fb1001_anyhour.json` (5) - all dead.
+PIN MOVED, each by content: `prof1_service` (02:00 harvests), `prof2_service` (a surface vein by night), `prof4_service`
+(a tree by night), `prof8_service` (a haul at 23:00), `prof8_client` (the net cast at 21:00; no hour has words),
+`fb0930b_toolsaid` (the net's line). MUTANTS RETIRED (the law they guarded is gone): `prof1.json` PROF1-31,
+`prof2.json` PROF2-20, `prof7.json` PROF7-svc-body-by-day, `prof8.json` PROF8-svc-night-fishing.
+
+## The audit: part four, and the professions sound (Mac: "let's do a comprehensive audit on this and also ensure the other professions are sound")
+
+Five adversarial lanes, each in its own worktree on e01969fd, reproducing every claim on the real modules (the real
+Worker over node:sqlite, the real books and hosts, the real pad and touch layers) before it was a finding: (1) part
+four's two commits line by line; (2) Herbalism and the gathering shell; (3) Logging, Carpentry, Smithing and the
+stations; (4) Hunting, Outfitting and Fishing; (5) the client's laws against the service's. Beside them a re-read of
+part four's own fixes found three faults first (NODE-SHUT, STICK-TAP, CLICK-LIFT), each red on e01969fd before the lanes
+reported, and two lanes found each of them again. No lane changed the tree; every fix below was pinned red on the code
+before it and mutation-checked. Mouse and keyboard play every profession end to end; the faults were at the edges - the
+ground a client stands on, the counters, the pad, the finger, and part four's own new seams.
+
+| Tag | Lane | What it was | Done |
+|---|---|---|---|
+| NODE-SHUT | own; 1, 2, 3 | CLIMB-NODE's hold reads the gathering host's target, and a shut frame (a sign-out, another account, the switch) left it: the free climb's walk-in start stayed held everywhere until the professions opened again | the shut frame clears the target (`scenes/gatherHost.js`) |
+| STICK-TAP | own; 1 | ACT-TOUCH struck on any tap mid-act - TS1's lock-only tap (a thumb re-placed on the move stick) and a tap in the docked bar's strip among them: an unchosen strike off the glint, a Basket's glint spent, a tug taken | the strike asked after the view's own test and never on the stick's tap (`scenes/world.js` inputHooks.tap) |
+| CLICK-LIFT | own; 1, 2, 4 | ACT-CLICK made the click a strike on its PRESS; the activation fires on the RELEASE, and the ladders asked only whether an act still played - the click that finished a vein, a tree or the Basket lifted onto the door, the chest, the body or the lever under the look, street and dungeon | the click an act took is the act's to its release (`gatherHost.js` clickTaken; the street's ladder; `worldModes.js` tryExitDungeon) |
+| CURE-ENDS | 1 | CURE-ALL cures a drain through the stat reset, which zeroed it and left it; a foe's drain is bundled, so the HUD kept a debuff that did nothing - blinking, never ending, on the party cards and the dispel list, through saves (the guild's stat reset did the same) | a cured drain ends (`systems/guildServiceFlow.js` cureAllAttributes), and one a save kept at nothing ends at the load door (`systems/save.js`) - never in the tick, which names no kind (CURSE-PERSIST1's law) |
+| CURE-FILL | 1 | the turn filled the pools before the cures: a drained Endurance, Strength or Intelligence left fatigue and magicka short of the full the record promised | the pools are filled last (`systems/lycanthropy.js` endOldLifeEffects) |
+| GROUND-STALE | 5; 2, 3 | a pixel's (or dungeon's) witnessed state was read once a UTC day, the service's at every harvest: the third witness's own harvest confirmed the ground and its client went on standing the least - "Mine Iron" offered a novice, played, worn, refused `prof-rank`, every try till midnight (a quarter of a Mountain's veins, a Woodlands Oak a Cherry, every dungeon vein) | a harvest's answer, or a refusal, marks its ground stale: it stands as it did, the next ask reads it, a moved state stands its nodes again (`net/profBook.js` staleGround, pixelWanted, dungeonWanted; `gatherHost.js`) |
+| GROUND-MIDNIGHT | 5 | at 00:00 UTC the host stood every pixel again before the day's states were read, and the read stood again only what CHANGED since yesterday: ground confirmed both days stood unconfirmed all day (its signature veins gone), and so did the dungeon underfoot | yesterday's word is no word (`net/profBook.js` askPixels, askDungeon) |
+| STORES-ROOM | 5; 2, 3 | the kinds asked `held` (own and bought - what a station may spend) for the Stores' room, the service every origin: with gold-bought units the prompt said ready, the act wore the tool, `stores-full` | the room as the service counts it (`net/professionLaw.js` storesFullIn - the five kinds) |
+| REFUSALS-LEARNED | 5 | nothing learned from `prof-account-cap`, `prof-deep-cap`, `prof-cap` or `stores-full`: every act after was offered ready, played and refused | the character's day and the Stores read the state again; the account's craft and its unvouched dungeon veins close until the UTC day turns, and the host says so (`net/profBook.js` closed; `gatherHost.js` planFor) |
+| RATE-KEPT | 5 | `prof-rate` ("Try again later") let the harvest go after the act | kept and asked again inside its ten minutes (`net/profBook.js` send) |
+| NODE-SPAN | 3; 2 | a node is found up its upright, base to aim point; a tree's is 1.2 m and its glow 3.4 m - a level look from two metres passed over it, a look up never found it, the saddle never; a patch glowed 1.3 m and was found 0.3 m up its centre | the upright runs to the glow's top where that stands higher (`gatherHost.js` findTarget) |
+| NODE-CLEAR | 2; 3 | VEIN-CLEAR kept veins out of the rock pieces; a patch or a tree could stand inside one, glowing, unreachable | a patch inside a piece stands nowhere, a tree claims the nearest flat outside every one (`world/terrainNature.js` insideRocks, one home; `herbHost.js`, `treeHost.js`) |
+| STEADY-SAID | 2 | the steady hand ends when E is let go, and its meter said "hold still" and no key: a tap of E ended it, nothing taken | the meter names the key E's start holds (the Sickle's Use holds it itself, and names none) (`herbHost.js`; `ui/profHud.js`) |
+| SEASONAL-EYE | 2 | Herbalism 100's Seasonal Eye chosen mid-session stood nothing again until the next state read or the day's turn - a winter day's patches named herbs the service did not roll | a change of it stands the pixels again (`gatherHost.js` tick) |
+| PAD-PULSE | 1; 3, 4 | the Plus pad's gesture swing re-draws its stroke every 0.4 s while RT is held, and each was a press: RT held felled a tree, caught every tug, mined a vein by itself - against ACT-TOUCH's own "a held press strikes once" | a stroke after the first is the hold's, marked, and no act's strike (`ui/gamepadInput.js`; `world.js`; `gatherHost.js` strike) |
+| TOUCH-RETAP | 1 | the Attack button's lift waits two frames (TOUCH-BUTTONS A1); a second tap inside them cancelled the lift, so the hook heard held, held - no second press to an act | a press lifts the one before it first (`ui/touch.js`) |
+| CHARCOAL-BUY | 3 | "Steel wants Charcoal ... and the smith sells it" - but the smith's stock was bought only on an anvil recipe short of an input, and none takes Charcoal: no counter stood anywhere, and a smith who felled no tree smelted no Steel | the Forge offers it at a smith's forge (`ui/profPages.js` drawForge) |
+| COUNTER-GATES | 3 | the anvil's and the workbench's counters took none of AUDIT 32 P6's gates (the loom's): offered with Marks shut or too few held, refused after the press | one counter's buy for all four (`ui/profPages.js` counterBuy) |
+| PAD-CLASSIC | 3 | the Professions pages are DOM on the classic skin too, and the pad's cursor clicked the DOM only under Plus: the Forge, the Anvil, Withdraw unpressable on Classic with a pad | the pad's click reaches the page on every skin, as a mouse's does (`ui/gamepadInput.js` pointerAt) |
+| NAVAL-E | 4 | at sea the net's cast stands in the look and the node had E first: the readout said "E: board her" and E cast the net (with a foe near, it said "You cannot fish with enemies nearby!") | the street asks the sea first (`scenes/navalHost.js` takesActivate; `world.js`) |
+
+Pins: `test/fb1001_audit.test.js` (10), `fb1001_ground.test.js` (9), `fb1001_nodes.test.js` (5),
+`fb1001_stations.test.js` (3); mutants `tools/mutants/fb1001_audit.json` (16), `fb1001_ground.json` (21),
+`fb1001_nodes.json` (9), `fb1001_stations.json` (4) - all dead. PIN MOVED, each by content: `fb1001_mining` (the tap's
+strike its third line, after the view's test; the attack hook hears a held stroke's repeat), `fb1001_regen` (the cured
+drain ended), `audit32_client` H5, `audit29_host`, `disc7`, `prof1_client` (the ladders and the node's press:
+the act's click, the sea's E), `auditnav2_helm` F31 (the gate's lifted segment asks the act's click), `touchbuttons` A1
+(a re-press lifts the one before), `a8_pointer`, `audit62_touch` (two), `roada_activate_gate` and `deckfield` (the
+street's and the modal frame's press named before the gate, the act's click asked with it), `audit39_uicore` and
+`touchinput` (world.js's attack hook hears a held stroke's repeat). Mutant records re-aimed by content, each dead:
+`audit32.json` H5 (two),
+`auditdisc7.json` A1, `fb1001_mining.json` ACT-TOUCH-the-tap-not-a-strike, `fb1001_regen.json` (the four CURE-ALL
+records, the fill now last), and those the new code moved: `audit32.json` P6 (two - the counters' one buy),
+`fb0930b_toolsaid.json` TOOL-USE-the-use-plans-as-e, `fb1001_mining.json` (ACT-TOUCH's edge and hook, NODE-AIM's three
+- the span to the glow), `prof3.json` PROF3-page-stock-at-home, `prof4.json` (the tree flat, the furnisher), `prof7.json`
+the Weavers' door, `touch_buttons.json` A1's window gate; `auditnav2_helm.json` F31 aims at `activate`'s guard alone
+(`takesActivate` words its own). Part four's one stray space (`lootRarity.js` affixesWorth) is put back (lane 1).
+
+**Asked** (design, Mac's to call):
+
+1. **TOUCH-HOLD** (lanes 2, 3, 4). No Interact exists on a phone or in the pad's shipped layouts, and E is the
+   professions' start and their hold. On those devices a common herb (no tool picks it) cannot be started, Hunting
+   cannot be started at all (the Skinning Knife has no Use) nor its trace played, and the net's haul cannot hold its
+   band (299 of 300 seeded hauls slipped to a plain net). The Sickle's hotbar Use holds the steady hand; nothing holds
+   the trace or the haul.
+2. **HERB-XP** (lane 2). Herbs stop at tier 3, and a node more than two tiers under the rank's top is worth a quarter:
+   past rank 70 every herb gives a quarter of its XP (3, 11 and 16), and 70 to 100 takes 107 full days on confirmed
+   ground. Fishing's XP follows its rank (Mac's earlier call); Herbalism is the one gathering track with the wall.
+
+**Found, not changed**:
+
+1. **The net's cast is a target only for a look between about 23 degrees down and level** (lane 4): it stands 3 m
+   ahead and 0.6 m under the eye, inside the 12-degree cone; looking down at the water from a pier, E is silent and the
+   net's Use says to stand in water.
+2. **A trophy answered after a character switch is lost** (lane 4): the answer is the other character's, let go before
+   the trophy step (AUDIT 32 B5's law), and the kept harvest with it.
+3. **A touch tap strikes when the finger lifts**, not when it lands (lane 3) - a tap is told from a swipe only at its
+   end; a notch or a glint timed to the landing is struck 60-100 ms late.
+4. **Nothing in a smithy, an armorer's or a furniture store says its station is on the Stores page** (lane 3).
+5. **The turn leaves a foe's harmful effects running** (lane 1) - paralysis among them, as DFU's CureAll does; the old
+   turn ended them (and hid the damage it went on dealing). **An item's free-readied area spell of gifts lands on its
+   caster** (AREA-CASTER) while party mates are passed by, as for every free ready (lane 1).
+6. Suspected, not shown: a street body with an empty pack offered its search (lane 4 L5; DFU's own message answers it);
+   the knife's sea check not skipped underground (L6); a client clock running fast refused `prof-late` (lane 5 L4); the
+   `bad-qty` words name the withdrawal's 200 where a smelt and a stock stop at 100 - unreachable through the pages
+   (lane 5 L5).
+

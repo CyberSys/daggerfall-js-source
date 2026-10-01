@@ -587,8 +587,8 @@
   {
     "name": "PROF4-tree-flat-shared",
     "file": "src/scenes/treeHost.js",
-    "old": "      if (claimed.has(f.id)) continue;\n",
-    "new": "",
+    "old": "if (claimed.has(f.id) || insideRocks(rocks, f.x, f.z)) continue;",
+    "new": "if (insideRocks(rocks, f.x, f.z)) continue;",
     "tests": [
       "test/prof4_client.test.js"
     ]
@@ -741,8 +741,8 @@
   {
     "name": "PROF4-workbench-no-linen",
     "file": "src/ui/profPages.js",
-    "old": "      if (sale?.counter === 'furnisher' && have < inp.n && bench.kind === 'shop' && p.stock) {",
-    "new": "      if (sale?.counter === 'smith' && have < inp.n && bench.kind === 'shop' && p.stock) {",
+    "old": "      if (sale?.counter === 'furnisher' && have < inp.n && bench.kind === 'shop') counterBuy(",
+    "new": "      if (sale?.counter === 'smith' && have < inp.n && bench.kind === 'shop') counterBuy(",
     "tests": [
       "test/prof4_client.test.js"
     ]

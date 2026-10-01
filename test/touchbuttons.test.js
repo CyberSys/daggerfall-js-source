@@ -194,7 +194,9 @@ test('AUDIT TOUCH-BUTTONS A1: the Attack slot\'s lift waits two frames - the rig
     step();
     sword.fire('touchstart', tev('touchstart', 120));   // pressed again before the first lift landed
     step();
-    assert.deepEqual(calls, [true, false, true, true], 'the old lift lets nothing go');
+    // PIN MOVED (AUDIT 2026-10-01 part four, TOUCH-RETAP): the press lifts the one before it first - an edge for whatever
+    // reads the press (an act's strike), the button held to the rig as before - and the old lift lets nothing go
+    assert.deepEqual(calls, [true, false, true, false, true], 'the old lift lets nothing go');
     sword.fire('touchend', tev('touchend', 200));
     step(); step();
     assert.equal(calls.at(-1), false, 'and the new one\'s own lift does');

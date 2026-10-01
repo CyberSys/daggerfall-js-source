@@ -345,7 +345,7 @@ test('TOOL-USE: no node of its own kind in reach - each of the five says where i
     assert.match(lineOf(FT.PickAxe), /ore vein or a boulder .* press E \(or use the Pick-Axe\)\.$/);
     assert.match(lineOf(FT.Sickle), /herb patch .* press E \(or use the Sickle\)\.$/);
     assert.match(lineOf(FT.Basket), /herb patch in the wilderness for food: .* then use the Basket \(or press Up for the Basket, then E\)\.$/);
-    assert.match(lineOf(FT.FishingNet), /in water by daylight: .* press E \(or use the Fishing-Net\)\.$/);
+    assert.match(lineOf(FT.FishingNet), /^Fishing is done in water: .* press E \(or use the Fishing-Net\)\.$/);   // PIN MOVED (ANY-HOUR): "in water by daylight" - at any hour now
     // the Wood-Axe at a patch: the patch is Herbalism's
     heard.length = 0;
     s.face(s.nodes('herb')[0]);

@@ -351,7 +351,8 @@ test('AUDIT 62 F8 (review): a held BUTTON releases only the keys the stick does 
 test('AUDIT 62 F8: the tap is the ActivateCenterObject ACTION, read straight into the gate - no synthesized "Mouse0" (mutant: keys.add(\'Mouse0\') back)', () => {
   for (const h of HOSTS) {
     const s = read(h);
-    assert.match(s, /down: held\(keys, 'ActivateCenterObject'\) \|\| _tapArmed > 0,/,
+    // PIN MOVED (AUDIT 2026-10-01 part four, CLICK-LIFT): the street names its press first (`_activateDown`)
+    assert.match(s, /(?:down: |const _activateDown = )held\(keys, 'ActivateCenterObject'\) \|\| _tapArmed > 0[,;]/,
       `${h}: a rebind of ActivateCenterObject off Mouse0 must not kill the finger`);
     assert.ok(!/_tapArmed = 2; keys\.add\('Mouse0'\)/.test(s), `${h}: the tap no longer stuffs a literal code into the held set`);
     assert.ok(!/keys\.delete\('Mouse0'\);/.test(s), `${h}: ...and its paired delete is gone with it`);
@@ -464,7 +465,11 @@ test('AUDIT 62 F8 (review): worldModes\' OWN activate gate sees the finger - its
   const wm = read('src/scenes/worldModes.js');
   const m = /\n\s*down: (.+?),\s*\n\s*hasReadySpell:/.exec(wm);
   assert.ok(m, 'worldModes no longer builds its activate gate with a `down:` input');
-  const gateDown = new Function('held', 'keys', 'host', `return (${m[1]});`);
+  // PIN MOVED (AUDIT 2026-10-01 part four, CLICK-LIFT): the press is named before the gate (`_activateDown`), and the
+  // act's click is asked with it - its own expression is the one run
+  const named = m[1] === '_activateDown' ? /\n\s*const _activateDown = (.+?);\n/.exec(wm) : null;
+  assert.ok(m[1] !== '_activateDown' || named, 'the named press is defined');
+  const gateDown = new Function('held', 'keys', 'host', `return (${named ? named[1] : m[1]});`);
   // the real `held` over the real registry, with NOTHING bound down:
   // the finger is the only press in the room.
   setBindings(defaultStore());
