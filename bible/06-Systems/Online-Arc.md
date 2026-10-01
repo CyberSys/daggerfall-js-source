@@ -4775,7 +4775,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7265` read, on one physical line:
+`src/scenes/worldModes.js:7269` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4790,7 +4790,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:5306`). With the property missing that call is a
+(`dungeonContext.js:5308`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4917,7 +4917,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:8090` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:8093` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:352`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -12194,7 +12194,8 @@ record; in short:
   Empire's account, held at Daggerfall's index (EMPIRE-BANK: the bank of Daggerfall became the bank of the Empire).
   Deposits, letters of credit, withdrawals, a letter drawn, a ship or house bought or sold, the Marks sold, and the
   online wallets (the market, a home, its yard, decor, a guild) all pay from it and into it; the bank window shows it
-  at every branch. Offline, Daggerfall's sixty-two accounts stand; a short table with no Empire account keeps its own.
+  at every branch, and BANK-REGION's report (`ui/enhancedPorts.js`, merged beside it from #488) reads online as the
+  one account - "Empire account" - with only a branch not yet folded beneath it. Offline, Daggerfall's sixty-two accounts stand; a short table with no Empire account keeps its own.
 - **A loan still stands where it was taken.** Its due date, its default and the reputation a default costs are that
   region's; the gold it lends and the gold that repays it are the Empire account's. The overdue sweep and the join's
   call pay from the Empire's account first and then every other branch (`drawEmpireAccounts` skips only the account
@@ -12216,6 +12217,7 @@ record; in short:
   A client older than this pays at a branch while the service pays the Empire's account first; the total is the same
   and the client's next checkpoint is the record.
 - Pins: `test/empireaccount.test.js` (10); `test/realm5.test.js`, `test/goldmarket_service.test.js` and
-  `test/guild1b.test.js` re-aimed at the one account. Mutants: `tools/mutants/empireaccount.json` (39, all dead);
-  `realm0.json` (4), `realm5.json` (1), `auditrealm.json` (1) and `survtiers3.json` (2) re-aimed by content. Patch notes:
+  `test/guild1b.test.js` re-aimed at the one account, and `test/fb0930b_bankregion.test.js`'s online half. Mutants:
+  `tools/mutants/empireaccount.json` (41, all dead); `realm0.json` (4), `realm5.json` (1), `auditrealm.json` (1),
+  `fb0930b_bankregion.json` (3) and `survtiers3.json` (2) re-aimed by content. Patch notes:
   `PATCH-NOTES-One-Bank-Account-Online.md`.

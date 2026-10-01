@@ -462,7 +462,7 @@ test('HOME1 the wiring by source: the home answers at the door BEFORE Daggerfall
   assert.match(m, /\+ \(!_intShared\.home && Array\.isArray\(data\.l\) \? applyInteriorLoot\(/, 'no peer\'s word on one');
   assert.match(m, /addPermanentScene\(sceneCache\(\), homeSceneName\(mapId, bd\.buildingKey\)\);/, 'a bought home\'s scene is kept');
   assert.match(m, /removePermanentScene\(sceneCache\(\), homeSceneName\(mapId, bd\.buildingKey\)\);/, 'a sold one\'s is not');
-  assert.match(m, /displayName: home \? homeDoorTitle\(home\) : shownBuildingName\(db, bd\.name\),/, 'the hover names it');   // EMPIRE-BANK: a bank's name now (discovery.js shownBuildingName)
+  assert.match(m, /displayName: home \? homeDoorTitle\(home\) : homeDoorName\(shownBuildingName\(db, bd\.name\), !!houseVerbs\),/, 'the hover names it');   // EMPIRE-BANK: a bank's name now (discovery.js shownBuildingName); FIELD BUGS 2026-09-30b HOME-PLAQUE (PIN MOVED)
   assert.match(m, /onlineHomeLines: \(\) => \(host\.onlineHomes \? HOME_BANK_LINES : null\),/);
   const w = src('src/scenes/world.js');
   assert.match(w, /const homesApi = params\.has\('online'\) \? accountHomes\([^\n]*\n\s*const onlineHomes = homesApi \? createOnlineHomes\(/, 'online alone, and built before any quest can ask');   // HOME-RENT: the service's door kept for a home's rooms too

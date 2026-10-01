@@ -104,7 +104,7 @@ test('FIELD BUGS 2026-09-29 (the sea) #4: ILIAC PUDDLE NO MORE\'S TOP IS THE FIL
 });
 
 test('FIELD BUGS 2026-09-29 (the sea) #4: the breakers are drawn BEFORE the film - with the ground, written - so the film tests against their depth, lifted in the stack; the world keeps that order (mutants: the waves after the film)', () => {
-  const waves = WORLD.indexOf('    csaDrawWaves();   // CSA-F');
+  const waves = WORLD.indexOf('    if (!tvf) csaDrawWaves();');   // FIELD BUGS 2026-09-30b TV-SURF: gated on the travel view (PIN MOVED)
   const water1 = WORLD.indexOf('      renderer.drawWaterSurfaces(_waterRows, n, 6.4, wu);');
   const top = WORLD.indexOf('    if (deepWaters) drawDeepWatersSurfaces(now);');
   assert.ok(waves > 0 && water1 > waves && top > waves, 'the breakers before WATER1 and before the top');
