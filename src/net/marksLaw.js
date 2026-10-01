@@ -99,6 +99,7 @@ export const MARKS_KINDS = Object.freeze({
   'royal-return': 'move',     // CROWN1: a Tourney no bout won - the prize home
   'fealty-tribute': 'move',   // CROWN2: a vassal's 5% of its Tithe to its liege
   'gate-incursion': 'mint',   // AUDIT-SEATS: a Daedric Incursion's second half of a gate's Marks, once three claims agree (9.3)
+  fort: 'burn',               // SEAT2b: a fortification project's Marks, from the holder's treasury as it is begun (7.5)
 });
 
 /** The switch the service's config holds (MARKS_OPEN): off, dev (the developers alone), on. */

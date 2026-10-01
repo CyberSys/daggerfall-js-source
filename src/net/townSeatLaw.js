@@ -21,6 +21,7 @@ import { KINGDOMS, MARCHES, kingdomOf, isMarch, isFreeLand } from './kingdomLaw.
 import { TIDE_EFFECTS } from './tideLaw.js';   // SEASON1 part two: the Tides' numbers (9.3)
 import { HERALDRY_COLOURS } from './heraldryLaw.js';
 import { marksText } from './marksLaw.js';   // AUDIT-SEATS L7: "1,200 Drakes"
+import { fortWork } from './fortLaw.js';   // SEAT2b: a work's name in the Chronicle
 
 /** A heraldry colour key's hex (heraldryLaw.js's palette), or null. */
 const heraldryHex = (key) => HERALDRY_COLOURS.find((c) => c.key === key)?.hex ?? null;
@@ -575,6 +576,9 @@ export function chronicleLine(row, seat, zero = null) {
     case 'fealty-broken': return `${when}, ${guildWords(d.breaker)} broke the fealty between ${guildWords(d.vassal)} and ${guildWords(d.liege)}.`;
     case 'fealty-tribute': return `${when}, ${guildWords(d.vassal)} paid ${marksText(Number(d.marks ?? 0))} of tribute to ${guildWords(d.liege)}.`;
     case 'fealty-lapsed': return `${when}, the fealty between ${guildWords(d.vassal)} and ${guildWords(d.liege)} lapsed.`;
+    // SEAT2b (7.5): a fortification's project begun, and its tier standing
+    case 'fort-begun': return `${when}, ${guildWords(d.guild)} began raising ${seat.name}'s ${fortWork(d.work)?.name ?? 'works'} to ${theirOf(d.work)} ${TIER_WORDS[d.tier] ?? 'next'} tier.`;
+    case 'fort-raised': return `${when}, ${seat.name}'s ${fortWork(d.work)?.name ?? 'works'} stood at ${theirOf(d.work)} ${TIER_WORDS[d.tier] ?? 'next'} tier.`;
     default: return null;
   }
 }
@@ -582,6 +586,10 @@ export function chronicleLine(row, seat, zero = null) {
 const ONES = Object.freeze(['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve',
   'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen']);
 const TENS = Object.freeze(['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety']);
+/** SEAT2b: a tier as the Chronicle names it. */
+const TIER_WORDS = Object.freeze({ 1: 'first', 2: 'second', 3: 'third' });
+/** SEAT2b: a work's pronoun - the Walls and the Watchtowers "their", the rest "its". */
+const theirOf = (work) => (work === 'walls' || work === 'watchtowers' || !fortWork(work) ? 'their' : 'its');
 /** A count in words, as the Chronicle reads one (9.2: "after thirty-one minutes") - 0 to 99; past it, its digits. */
 export function countWords(n) {
   if (!Number.isSafeInteger(n) || n < 0) return String(n);

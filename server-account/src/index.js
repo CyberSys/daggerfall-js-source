@@ -159,6 +159,7 @@ import { royalPass, claimRoyal, keptTitleOf, KEPT_TITLES } from './seatRoyal.js'
 import { ribbonOf } from './seatRibbons.js';   // SEASON1 part two: a Season's banner ribbon, on the token
 import { seatWeekOf, seasonOf, seasonZeroOf } from '../../src/net/townSeatLaw.js';   // SEASON1: the Season counted
 import { offerFealty, acceptFealty, breakFealty, offerPact, breakPact, redOf } from './seatPolitics.js';   // CROWN2: fealty and Pacts, the red lines
+import { fundFort, readForts } from './seatForts.js';   // SEAT2b: a seat's fortifications
 
 /** SEAT1c: the account's row with the Charter titles it may wear laid on it (`seatTitles`, titles.js titlesHeld), while the
  *  seats are open to it - for the wardrobe's read and its write. */
@@ -286,6 +287,8 @@ const SEAT_STATUS = Object.freeze({
   // CROWN2: no such guild, offer or Pact 404; a pair that does not fit, one sworn or signed already, a pledge between them 409
   'guild-unknown': 404, 'fealty-none': 404, 'pact-none': 404, 'fealty-unfit': 409, 'fealty-sworn': 409, 'fealty-pledged': 409,
   'pact-signed': 409, 'pact-self': 409, 'pact-pledged': 409, 'fealty-pledge': 409, 'pact-pledge': 409,
+  // SEAT2b: a work the seat may not raise, one building already, one at its last tier, a treasury short 409
+  'fort-not-here': 409, 'fort-building': 409, 'fort-max': 409, 'seat-treasury': 409,
 });
 /** PROF1: each professions refusal's status - not this account's (a guest, the switch, the Marks' switch, the rank) 403,
  *  no such writ 404, a conflict with what stands (the day, the hour, the cap, the Stores, a node or writ taken) 409, the
@@ -924,6 +927,9 @@ const service = {
           '/v1/seats/fealty/break': () => breakFealty(ctx, who.player, env, body),
           '/v1/seats/pact': () => offerPact(ctx, who.player, env, body),
           '/v1/seats/pact/break': () => breakPact(ctx, who.player, env, body),
+          // SEAT2b (7.5): the works read, a project begun
+          '/v1/seats/forts': () => readForts(ctx, who.player, env, body),
+          '/v1/seats/fort/fund': () => fundFort(ctx, who.player, env, body),
         }[path];
         if (!act) return no('not-found', 404, origin);
         const r = await act();
