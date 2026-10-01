@@ -486,6 +486,8 @@ jump. Not changed without his word.
 - The HUD: the grip and the breath may draw at once - "they never draw together" was wrong (H8).
 - The ledger and Active-Arcs: a catch holds (CLIMB1's catch went straight to a mantle), the free climb tops out at
   reach, and Roleplay & Realism's gate covers the catch, the grab, the free start and the hold (H9).
+- Moved pins: AUDIT pre-merge S2 (`test/squeeze1.test.js`) reads `collider.move` with G1's `noStep` after
+  `keepFloor`, and the climb's own call passing it `false`; CLIMB2's records re-aimed where the audit moved their lines.
 - This page: the free climb's "the classic climb's own shove, kept as the fallback" is gone (with no step ladder the
   move's own ground was A1's, a step later - the arm was dead and is removed); the corners, the lead hand and the grip's
   return say what the audit made them.
