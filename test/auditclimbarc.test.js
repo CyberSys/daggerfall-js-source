@@ -647,7 +647,7 @@ test('AUDIT CLIMB-ARC L9: a side leap is never along the very lip the shimmy fol
     m.spawn(-1, 0.02, 0.45);
     const r = drive(m, 0, hangThen({ jump: true, strafe: 1 }), 160);
     assert.ok(r.ctx.h != null, 'hung');
-    assert.ok(!r.billed.includes('leap'), `${deg} deg coping, Jump + Right: billed [${r.billed}]`);
+    assert.ok(!r.seen.includes('move:leap'), `${deg} deg coping, Jump + Right: no leap along it (${r.seen.join(' > ')}; AUDIT CLIMB-FIELD J1: the press pushes off instead)`);
   }
   const prism = (col, key, n, R, y0, y1, cx, cz) => {
     const v = [], idx = [];
@@ -665,7 +665,7 @@ test('AUDIT CLIMB-ARC L9: a side leap is never along the very lip the shimmy fol
     m.spawn(0, 0.02, 0.1);
     const r = drive(m, 0, hangThen({ jump: true, strafe }), 200);
     assert.ok(r.ctx.h != null, 'hung on the ring');
-    assert.ok(!r.billed.includes('leap'), `round the tower, Jump + ${strafe > 0 ? 'Right' : 'Left'}: billed [${r.billed}]`);
+    assert.ok(!r.seen.includes('move:leap'), `round the tower, Jump + ${strafe > 0 ? 'Right' : 'Left'}: no leap along the ring (${r.seen.join(' > ')})`);
   }
 });
 

@@ -66,6 +66,12 @@ export const TRIGGER_MODEL = Object.freeze({ drive: 112400, board: 112401, cargo
 export const HULL_NAMES = Object.freeze(['Rowboat', 'Large Boat', 'Small Ship', 'Large Galley', 'Carrack']);
 export const HULL_PRICES = Object.freeze([4000, 8000, 100000, 200000, 150000]);
 export const HULL_WEIGHTS = Object.freeze([30, 120, 2400, 48000, 240000]);
+/** SHIP-PACK (2026-10-01, the review before the merge: "Allow larger ships to be picked up, just like smaller vessels"):
+ *  what a hull's parts weigh packed - the table's, and never more than the Large Boat's. The three ships' rows (2,400 to
+ *  240,000 kg) were never an item's in the mod, whose ships were never packed: in the pack they would hold the bearer
+ *  under the water, sink any boat she sailed ("You're going to need a bigger boat") and take nothing more aboard. */
+export const PACKED_WEIGHT_MAX = HULL_WEIGHTS[1];
+export const packedHullWeight = (hull) => Math.min(HULL_WEIGHTS[hull], PACKED_WEIGHT_MAX);
 export const VARIANT_NAMES = Object.freeze(['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']);
 /** AUDIT PRE-MERGE 0928 O1: the variant objects each hull's prefab carries under its `Variants` node (GetVariantCount) -
  *  the Large Boat's seven, and none on the rest, whose SpawnBoat never reads its variant. */
@@ -103,6 +109,7 @@ export class Boat {
     this.uid = 0;   // the deed's item UID (placeItem.UID) - set where CSA-C places the boat
     this.packable = false;
     this.crewed = false;
+    this.itemValue = null;   // SHIP-PACK (the port's own): the worth of the item that placed her, deed or parts (comeSailAway.js takePlaceItem) - her parts are packed at it
     this.groundAsked = false;   // FIELD BUGS 29h (LOST-BOAT, the port's own): the ground under it asked once (comeSailAway.js recoverLostBoats)
     this.modifierMoveSpeedOar = 0; this.modifierMoveAccelerationOar = 0;
     this.modifierMoveSpeedSail = 0; this.modifierMoveAccelerationSail = 0;
@@ -500,7 +507,7 @@ export function getBoatTransforms(boat, parent, ctx, reinitialize = false) {
     }
     if (name.includes('BillboardHelper') && !reinitialize) setupBillboardHelper(boat, child, ctx);
     if (name.includes('ModelHelper') && !reinitialize) setupModelHelper(boat, child, ctx);
-    if (name === 'Crewed') boat.crewed = true;
+    if (name === 'Crewed') boat.crewed = boat.packable = true;   // SHIP-PACK: a crewed ship is picked up as the small boats are (comeSailAway.js PackBoat - her deed goes with her)
     if (name === 'Packable') boat.packable = true;
     if (name.includes('Handling')) {
       if (name.includes('Oar')) {

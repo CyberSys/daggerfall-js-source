@@ -229,7 +229,7 @@
   {
     "name": "SHIPLIFE-HOST-no-errand-at-launch",
     "file": "src/scenes/navalHost.js",
-    "old": "        if (e && !out.spawn.hunter && !out.spawn.encounter) e.ship.errand = errandHere(e.ship);",
+    "old": "        if (e && !out.spawn.hunter && !out.spawn.encounter && !out.spawn.relief) e.ship.errand = errandHere(e.ship);",
     "new": "        if (false) e.ship.errand = errandHere(e.ship);",
     "tests": [
       "test/shiplife.test.js"

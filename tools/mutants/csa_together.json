@@ -264,7 +264,7 @@
   {
     "name": "CSAK-aboard-enter-off-pier",
     "file": "src/scenes/comeSailAwayAboard.js",
-    "old": "if (me.ground(s.boat) == null && deckUnder(s.boat, feet, me.height)) { board(s.boat); break; }",
+    "old": "if (on(s.boat, me)) { board(s.boat); break; }",
     "new": "if (deckUnder(s.boat, feet, me.height)) { board(s.boat); break; }",
     "tests": [
       "test/csa_together.test.js"
@@ -445,7 +445,7 @@
   {
     "name": "CSAK-host-deck-not-mine",
     "file": "src/scenes/world.js",
-    "old": "for (const boat of aboard ? [...csaColliderBoats(), aboard] : csaColliderBoats()) {",
+    "old": "for (const boat of peers.length ? [...csaColliderBoats(), ...peers] : csaColliderBoats()) {",
     "new": "for (const boat of csaColliderBoats()) {",
     "tests": [
       "test/csa_together.test.js"

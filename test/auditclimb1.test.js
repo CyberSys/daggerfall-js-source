@@ -324,7 +324,7 @@ test('AUDIT CLIMB1 F11: online the row is forced on whatever the shelf holds - t
 
 // ---- the geometry lens: real ledges the first sensor missed ----
 
-test('AUDIT CLIMB1 G1: a pitched roof up to 45 degrees is climbed onto from its eave; steeper is not', () => {
+test('AUDIT CLIMB1 G1: a pitched roof up to 50 degrees is climbed onto from its eave; steeper is not (AUDIT CLIMB-FIELD R1: Daggerfall\'s "45-degree" roofs run to 48.7)', () => {
   const roof = (E, deg) => {
     const s = scene(); const t = Math.tan((deg * Math.PI) / 180), D = 3, R = E + D * t;
     s.col.addMesh('roof', new Float32Array([
@@ -334,14 +334,19 @@ test('AUDIT CLIMB1 G1: a pitched roof up to 45 degrees is climbed onto from its 
     ]), [...Array(18).keys()], I);
     return s;
   };
-  for (const deg of [15, 33, 38, 40, 44]) {
+  for (const deg of [15, 33, 38, 40, 44, 45.2, 46.2, 48.7]) {
     const l = senseLedge(roof(1.2, deg).col, [0, 0, 0.45], LOOK, GEO(2.1));
     assert.ok(l.ok && l.mantle, `${deg} degrees: a way onto it (${l.why})`);
     assert.ok(Math.abs(l.lipY - 1.2) < 0.05, `${deg} degrees: the lip is the eave (${l.lipY?.toFixed(3)})`);
   }
-  const steep = senseLedge(roof(1.2, 50).col, [0, 0, 0.45], LOOK, GEO(2.1));
-  assert.equal(steep.mantle ?? null, null, '50 degrees: a roof you slide off');
-  assert.equal(steep.why, 'steep-top', 'refused at its lip, for its pitch');
+  // past 50, to about 51.3, the face scan still ends at the eave and the lip is refused for its pitch
+  for (const deg of [50.5, 51]) {
+    const l = senseLedge(roof(1.2, deg).col, [0, 0, 0.45], LOOK, GEO(2.1));
+    assert.ok(l.mantle == null && l.why === 'steep-top', `${deg} degrees: refused at its lip, for its pitch (${l.why})`);
+  }
+  const steep = senseLedge(roof(1.2, 55).col, [0, 0, 0.45], LOOK, GEO(2.1));
+  assert.equal(steep.mantle ?? null, null, '55 degrees: a roof you slide off');
+  assert.ok(['steep-top', 'too-high'].includes(steep.why), `refused for its pitch - at its lip, or past 51 degrees read as the face going on up (${steep.why})`);
 });
 
 test('AUDIT CLIMB1 G2: an inner corner, and a ledge beside a taller wall - the body slides along the face to where it fits', () => {
