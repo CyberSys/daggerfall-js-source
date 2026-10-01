@@ -371,7 +371,7 @@ test('AUDIT WB9 bodies F2 - a hand-over allowed on a spare stands the newcomer i
   // a standing stranger changes gear: rebuilt (a build in flight, held)
   const s1 = list.find((p) => p.id === 's1');
   now += BODY_REBUILD_MS;
-  s1.look = { ...s1.look, items: [{ templateIndex: 1, group: 'Weapons', equipSlot: 20 }] };
+  s1.look = { ...s1.look, items: [{ templateIndex: 1, group: 'Armor', equipSlot: 20 }] };   // PIN MOVED (MW-CROWD, FIELD BUGS 2026-10-01 #8): a weapon is the arm's live door and rebuilds no body now - armor does
   sync(list); await settle();
   assert.ok([...pb._bodies.values()].some((b) => b.state === 'building'), 'a build in flight');
   const twin = peer('twin', 1, -1.5, 'Nord');

@@ -352,9 +352,12 @@ test('WEREWOLF1 a peer: the pose\'s `wb` 1 builds the wolf (holding nothing), ke
   assert.equal(o.werewolf, true); assert.equal(o.weapon, null, 'the sword in the look is not the wolf\'s');
   assert.equal(peerBuildOpts(LOOK, { wb: 0 }).weapon?.templateIndex, 120, 'the person holds it');
   assert.equal('werewolf' in peerBuildOpts(LOOK, { wb: 2 }), false, 'the wereboar: the person\'s opts, unchanged');
-  assert.equal(peerBodyKey(LOOK, { wb: 0 }), lookKey(LOOK), 'a person\'s key is the look\'s own');
-  assert.notEqual(peerBodyKey(LOOK, { wb: 1 }), lookKey(LOOK));
-  assert.equal(peerBodyKey(LOOK, { wb: 2 }), lookKey(LOOK));
+  // PIN MOVED (MW-CROWD, FIELD BUGS 2026-10-01 #8): a person's key is the look's own LESS ITS WEAPONS - the hand is the
+  // arm's live door (setWeapon), so a sword drawn is no new body (test/fb1001_mwcrowd.test.js)
+  const unarmed = lookKey({ ...LOOK, items: LOOK.items.filter((it) => it.group !== 'Weapons') });
+  assert.equal(peerBodyKey(LOOK, { wb: 0 }), unarmed, 'a person\'s key is the look\'s own, less its weapons');
+  assert.notEqual(peerBodyKey(LOOK, { wb: 1 }), unarmed);
+  assert.equal(peerBodyKey(LOOK, { wb: 2 }), unarmed);
   // the body layer, with a fake rig
   const built = [];
   let now = 1000;

@@ -13,3 +13,7 @@
 - **Weather fills the Overworld view.** Rain, snow, sand and wind used to show only as a small patch around your character. Now they fill the air in front of the camera, as they do on the ground.
 - **Your character faces the way you're going.** In the Overworld, the movement keys turn your character toward the direction you press, so you see them walk off to the side or come toward the camera instead of always seeing their back.
 - **Other players show up in the Overworld.** Other players were drawn at normal size from high up, so all you could see was their name over a tiny speck. They're now drawn as large as your own character, whether they're on foot, riding or in a Morrowind body.
+
+## Frame rate
+- **Smoother turning in a crowd with the Morrowind model.** Turning to face a group of players could stall a frame while every body that came into view was posed at once. Bodies about to come into view are now prepared a little ahead of the turn, a few at a time.
+- **Fewer rebuilds of other players' Morrowind bodies.** Another player drawing a different weapon, mounting a horse or stepping out of sight for a moment no longer makes their whole body load again; the weapon simply changes in their hand.

@@ -15,7 +15,7 @@ Eleven reports; every fix pinned red on the code before it.
 | 5 | "Underwater should have sun rays that dynamically show through the water" | nothing draws any | built (UNDER-RAYS) |
 | 6 | "Sometimes performance issues when along the coastline" | see below | see below |
 | 7 | "Sometimes performance issues when looking at AI ships" | see below | see below |
-| 8 | "Culling performance issues when using the morrowind model and around a large group of players" | see below | see below |
+| 8 | "Culling performance issues when using the morrowind model and around a large group of players" | after WB9h's budget: a body the view swung onto past the 2 m margin was skinned in the draw, outside the budget (a crowd turned onto, posed whole in a frame); every pose walked its skin for a sphere nothing read; a stand-in built per body per frame; a weapon drawn rebuilt the body, and a lingering body's rig was thrown away | fixed (MW-CROWD); the sprite pass per body left open |
 | 9 | "Also in the overworld, weather is weird, it only happens around the player at small scale" | the rain's, the snow's and the sand's boxes (42-70 m) and the wind's wisps wrapped round `cam.pos` - which under the Overworld stays on the traveller's head while the view stands 150-450 m up and back: a little cube of weather round the sprite, seen from outside it | fixed (OW-WEATHER) |
 | 10 | "Your sprite doesnt rotate based on direction" | the keys turned the body to the VIEW's heading and walked it camera-relative from there, so it showed its back whatever was held - S walked it backwards at the camera, A and D sideways - and the sprite's eight views and the Morrowind body never turned | fixed (OW-FACE) |
 | 11 | "and you cannot see other player's sprites" | the traveller's own body is grown with the eye's distance (OW-BIG); every other player stood at their own size - a speck at 330 m under the name that stood over them | fixed (OW-PEERS) |
@@ -132,4 +132,29 @@ view's lean, culled by their grown reach); names over the grown heads; no giant'
 
 ## The frame rate (6, 7, 8)
 
-(in progress)
+### MW-CROWD: the crowd's bodies, turned onto (8)
+
+**Read on the code after WB9h** (no GPU here to measure; `07-Rendering/Performance-Rig.md` MW-CROWD carries the
+numbers): WB9h held the crowd's skins to SKIN_BUDGET (4) a frame and culled them by the view, deciding on the LAST body
+pass's view with a 2 m margin - about 11 degrees of lead at 10 m. A body the view swung onto past it arrived stale and
+was posed in the draw, outside the budget: at 300 degrees a second and 30 frames, a crowd turned onto posed whole in one
+frame, a CPU skin and a whole re-upload each - the hitch of turning round in a crowd. Beside it, every pose walked the
+skin twice for a sphere only the shadow recorder reads (the sprite target never casts); every stepped body built a whole
+stand-in entity every frame for the weapon it holds; a weapon drawn tore the body down and built it again; and a body
+whose peer mounted or left the list a moment was thrown away and built again on its return.
+
+**The fix** (`net/peerBodies.js`, `render/renderer.js`, `combat/fpArm.js`): the margin leads the turn
+(`turnLeadMargin` - the angle the view turned last frame, three frames of it at the body's distance, capped), so the
+bodies about to come into view are skinned on the budget before; the third-person mesh has no sphere to walk
+(`bounds: false`); the weapon asked of a look is one object; a person's body key is its look less its weapons (the
+hand is `setWeapon`'s); a lingering body is kept as a spare. `test/fb1001_mwcrowd.test.js` (4),
+`tools/mutants/fb1001_mwcrowd.json` (8, all dead). PIN MOVED: `wb9h_crowd_bodies` (the lingering body kept),
+`audit_wb9` (an armor change rebuilds, a weapon no longer does), `werewolf1` (the person's key); `wb9h.json`'s
+WB9h-the-linger-spared retired (it is the law now; MW-CROWD-the-lingering-body-unloaded is its inverse), nine older
+records re-aimed by content.
+
+Still open: the sprite render is one offscreen pass a seen body a frame - batching every seen body into one bind of
+the target, or keeping each body's picture across frames, is the next slice, and it needs a GPU (above all a
+tile-based one) to measure. For the reporter, `?perf=cpu`'s `online` and `bodies` spans and `?perf=zones` say which.
+
+(#6 and #7: in progress)
