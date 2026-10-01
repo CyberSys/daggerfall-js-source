@@ -83,7 +83,7 @@
   {
     "name": "COMPASS-PARTY-enhanced-gone-mate-stays",
     "file": "src/ui/enhancedHud.js",
-    "old": "  for (let i = 0; i < parts[pool].length; i++) {",
+    "old": "  for (let i = 0; i < parts.partyMarks.length; i++) {",
     "new": "  for (let i = 0; i < list.length; i++) {",
     "tests": [
       "test/compassparty.test.js"
@@ -119,8 +119,8 @@
   {
     "name": "COMPASS-PARTY-dungeon-hands-none",
     "file": "src/scenes/dungeonContext.js",
-    "old": "        party: partyCompassPoints({ bodies: opts.party ?? null }),   // COMPASS-PARTY: the mates standing in this dungeon, at their feet in its frame\n",
-    "new": "",
+    "old": "party: partyCompassPoints({ bodies: opts.party ?? null }), nodes:",
+    "new": "nodes:",
     "tests": [
       "test/compassparty.test.js"
     ]

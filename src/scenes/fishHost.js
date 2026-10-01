@@ -50,6 +50,8 @@ export const SCHOOL_SAID_M = 40;
 /** A school's flats: three of its species' fish, small, a metre apart on the water. */
 export const SCHOOL_FLATS = 3;
 export const SCHOOL_SCALE = 0.5;
+/** NODE-MARKS: a school's glow on the water about its first fish (m) - its three a metre apart, low. */
+export const SCHOOL_MARK = Object.freeze({ w: 4.4, h: 0.8 });
 /** A school's picture: Foraging's Fish item's own world picture (1605's template - DFU's TEXTURE.211, record 9), as an
  *  herb patch stands its plant's. FOUND: not Deep Waters' fish - the port draws those from the mod's own pictures, and
  *  their records in DFU's TEXTURE.216 are other things. */
@@ -241,6 +243,8 @@ export function fishKind({ book, host }) {
     },
     /** A school is never a target; the cast is gone once its haul is asked (a new one stands). */
     gone: (n) => !!n.school || book.taken(n.key, 'fish'),
+    /** NODE-MARKS: the day's schools are Fishing's marks - where the fish are; the cast (the look itself) none. */
+    mark: (n) => (n.school ? SCHOOL_MARK : null),
     /** TOOL-USE: the Fishing-Net's Use at the cast is E there - a tap of it: no wind held, the net flies its shortest,
      *  and E (or attack) takes the tug. */
     tools: Object.freeze([FT.FishingNet]),

@@ -55,8 +55,8 @@ import { drawLootPanel } from './classicLootPanel.js';   // DISC22-C: quick loot
 import { packImgTexture } from './packArt.js';   // OVH2: the worn UI pack's picture
 import { ToolTip } from './toolTip.js';
 import { PARTY_GREEN } from '../net/social.js';   // COMPASS-PARTY: the one green a party is drawn in
-/** PROF2: the Prospector's veins on the compass - the party's mark in the veins' copper (enhancedHud.js VEIN_MARK_CSS). */
-export const VEIN_MARK = Object.freeze([217 / 255, 137 / 255, 74 / 255, 1]);
+import { nodeMarkRgb } from './nodeMarks.js';   // NODE-MARKS: a profession's nodes in its own colour
+// NODE-MARKS: PROF2's Prospector's veins were drawn here in one copper; every profession's nodes are drawn in their own now.
 
 export const COMPASS_BOX_OUTLINE = 2;
 export const COMPASS_BOX_INTERIOR = 64;
@@ -486,7 +486,7 @@ export function hideHudTextSurfaces(hudText = null) {
 }
 
 export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
-  { font = null, cursorActive = false, reticleHidden = false, windowCoversHud = null, hudHidden = false, detected = null, playerXZ = null, gate = null, quest = null, party = null, ships = null, veins = null, largeHud = null, hover = null,
+  { font = null, cursorActive = false, reticleHidden = false, windowCoversHud = null, hudHidden = false, detected = null, playerXZ = null, gate = null, quest = null, party = null, ships = null, nodes = null, largeHud = null, hover = null,
     readied = null, weapon = null, weaponSheathed = true, quickUse = null, quickSwap = null, quickOffHand = null, quickSpell = null, quickSwitchHand = null } = {}) {   // PX30b: for the enhanced HUD's hand plaques; AUDIT 28 W2: the arrow counter's gate; AUDIT 64 F35: the host's previousWindow answer; QS3: the diamond's sheathe state and its two phone taps; QS6: the caption's spell chip press
   // AUDIT 24 (wave 39): ShowPlayerDamage's red flash, under the bars.
   // THE FOUR HOSTS RULE, applied before the fact: drawHud is the one
@@ -661,7 +661,7 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
       quest: quest ?? null,   // GUIDE5: the tracker's quest's place, scene XZ, on the street - the compass's quest mark
       party: party ?? null,   // COMPASS-PARTY: the party's points (ui/partyMapMarks.js partyCompassPoints)
       ships: ships ?? null,   // AUDIT NAV1 (the helm): the sea's ships (scenes/navalHost.js compassShips)
-      veins: veins ?? null,   // PROF2: the Prospector's veins' points
+      nodes: nodes ?? null,   // NODE-MARKS: the professions' nodes, each in its profession's colour (ui/nodeMarks.js nodeCompassPoints)
       // QS3: the quickslot diamond dims its main cell when the weapon
       // is put away. drawHud has carried `weaponSheathed` since AUDIT
       // 28 W2 for the arrow counter's gate and never passed it on, so
@@ -771,6 +771,8 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
   const by = canvas.height - art.compassBox.h * s;
   const { bw, bh } = drawCompassStrip(renderer, art, bx, by, s, heading01);
   drawArrowCount(renderer, canvas, font, vitals, weaponSheathed, { bw, bh }, s);
+  // NODE-MARKS: every profession's nodes near (a Prospector's veins, 200 m; a Tracker's animals, 100 m) - FIRST, so the
+  drawNodeCompassMarks(renderer, nodes, playerXZ, heading01, { bx, by, bw, s });   // AUDIT: Detect markers, the party and the ships stand over them
   // X4: DrawTrackedObjects (HUDCompass.cs:198-217), AFTER the box -
   // HUDCompass.Draw() calls DrawCompass() then DrawTrackedObjects(),
   // so markers sit OVER the frame, and above it: DFU's marker y is
@@ -803,8 +805,6 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
   // COMPASS-PARTY: the party's marks, over the box as the Detect markers are, in the party's green
   drawPartyCompassMarks(renderer, party, playerXZ, heading01, { bx, by, bw, s });
   drawShipCompassMarks(renderer, ships, playerXZ, heading01, { bx, by, bw, s });   // AUDIT NAV1: the sea's ships
-  // PROF2: the Prospector's veins within 200 m (PROF0 3.3), the same mark in the veins' copper
-  drawPartyCompassMarks(renderer, veins, playerXZ, heading01, { bx, by, bw, s }, VEIN_MARK);
   // U38: the crosshair and the interaction-mode indicator, LAST -
   // DaggerfallHUD draws them from one Update beside the vitals it
   // already owns, and drawHud is the ONE host-agnostic call all four
@@ -890,4 +890,31 @@ export function escortBottomPx(canvas) {
   if (!native || !canvas?.height) return 0;
   const view = Number(globalThis.innerHeight) || canvas.height;
   return native * hudScale(canvas.width, canvas.height) * (view / canvas.height);
+}
+
+/** NODE-MARKS (2026-10-01, Mac: "Any profession node, like herbs, should appear on the compass"): the professions'
+ *  nodes on the classic compass - the party's 5x3 triangle, its row over the box's top edge and its bearing law
+ *  (compassMarkerLerp, clamped), each in its profession's colour (ui/nodeMarks.js nodeMarkRgb) at its own opacity, the
+ *  nearer brighter. `points` are ui/nodeMarks.js NodeCompassPoints, the nearest last (drawn over the rest). Answers
+ *  how many it drew. */
+const _nodeCol = [0, 0, 0, 1];
+export function drawNodeCompassMarks(renderer, points, playerXZ, heading01, { bx, by, bw, s }) {
+  if (!points || !points.length || !playerXZ) return 0;
+  const mw = DETECT_MARKER_W * s, mh = DETECT_MARKER_H * s;
+  const boxLeft = bx, boxRight = bx + bw - mw;
+  const my = by - mh;
+  const rowH = mh / DETECT_MARKER_H;
+  let drawn = 0;
+  for (const t of points) {
+    const lerp = Math.min(1, Math.max(0, compassMarkerLerp(t.xz, playerXZ, heading01)));
+    const mx = boxLeft + (boxRight - boxLeft) * lerp;
+    const rgb = nodeMarkRgb(t.mark);
+    _nodeCol[0] = rgb[0]; _nodeCol[1] = rgb[1]; _nodeCol[2] = rgb[2]; _nodeCol[3] = Number.isFinite(t.a) ? t.a : 1;
+    for (let r = 0; r < DETECT_MARKER_ROWS.length; r++) {
+      const fill = DETECT_MARKER_ROWS[r] * s;
+      renderer.drawScreenQuad(null, { x: mx + (mw - fill) / 2, y: my + r * rowH, w: fill, h: rowH }, undefined, _nodeCol);
+    }
+    drawn++;
+  }
+  return drawn;
 }

@@ -59,6 +59,8 @@ export const FALL_ANGLE = Math.PI / 2;
 export const LOGS_TAKE_M = 1.5;
 /** Where a tree is struck: the trunk, this high above its root. */
 export const TRUNK_LIFT = 1.2;
+/** NODE-MARKS: a tree's glow about its root (m) - up its trunk, not its crown. */
+export const TREE_MARK = Object.freeze({ w: 2.6, h: 3.4 });
 /** The Wood-Axe in the hand (FORAGE0 14.1): DFU's own War Axe, its chop StrikeDownRight's frames. */
 export const AXE_HAND = Object.freeze({ group: 'Weapons', templateIndex: 128, material: 0 });
 const CHOP_FRAMES = 5;
@@ -172,6 +174,7 @@ export function treeKind({ book, renderer = null, flatBatchAabb = null, getTextu
       sinkFelled(f, sunk, renderer);
     },
     gone: (n) => book.taken(n.key, 'logs'),
+    mark: (n) => (book.taken(n.key, 'logs') ? null : TREE_MARK),   // NODE-MARKS: a standing tree; a felled one's stump none
     tools: Object.freeze([FT.WoodAxe]),   // TOOL-USE: the Wood-Axe's Use at a tree is E there
     plan(n, { entity, rank, specs }) {
       const plan = treePlan({
