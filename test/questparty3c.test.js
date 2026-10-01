@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as acorn from 'acorn';
 import { validFoeRecord, FOE_HEALTH_MAX, FOE_LEVEL_MAX, CELL_FRAME_RECORDS_MAX, CELL_LOOSE_PUPPETS, FOES_FRAME_MAX } from '../src/net/wire.js';
-import { validQuestTags, questMarkerYields, QUEST_PUPPETS_MAX, validLooseSeqs } from '../src/scenes/exteriorFoes.js';
+import { validQuestTags, questMarkerYields, QUEST_PUPPETS_MAX, validLooseSeqs, companionNames } from '../src/scenes/exteriorFoes.js';
 
 const D = readFileSync(new URL('../src/scenes/dungeonContext.js', import.meta.url), 'utf8');
 const WM = readFileSync(new URL('../src/scenes/worldModes.js', import.meta.url), 'utf8');
@@ -78,7 +78,7 @@ function side(self, { layout = [], own = [] } = {}) {
     _layoutFoes: layout.length, foes, _authority: true, _encId: undefined, _ctxDead: false, _locationKey: 'dungeon:7',
     _ownSeq: 0, _ownFrameSeq: 0, _ownGen: 0, _ownPups: new Map(), _ownPending: new Map(), _ownOwners: new Map(), _ownPendLoose: new Set(), _ownAdopted: new Map(), _ownKept: new Map(),
     FOE_HEALTH_MAX, FOE_LEVEL_MAX, CELL_FRAME_RECORDS_MAX, QUEST_PUPPETS_MAX, CELL_LOOSE_PUPPETS, HIT_DMG_MAX: 10000, FOES_FRAME_MAX,
-    validFoeRecord, validQuestTags, validLooseSeqs, questMarkerYields, GENDER_BIT: ['male', 'female'],
+    validFoeRecord, validQuestTags, validLooseSeqs, companionNames, questMarkerYields, GENDER_BIT: ['male', 'female'],   // PIN MOVED (AUDIT WK-U3, 2026-10-01): the own lane reads companions' names beside their places
     _sharedFoe: () => false, fightN: () => 1, canStandFoe: () => true,
     applyFoeRecord: (f, r) => { if (r.f) f.ai.feet = [...r.f]; if (Number.isFinite(r.h)) f.entity.health = r.h; if (r.d === 1) f.dead = true; f._pup = { feet: [...(r.f ?? f.ai.feet)], yaw: r.y ?? 0 }; },
     buildFoeAt: async (e) => { const f = foe({ mobileType: e.mobileType, gender: e.gender, ai: { feet: [e.x, e.y, e.z], yaw: 0, resumeLive() { this.resumed = true; } } }); built.push(f); foes.push(f); return f; },

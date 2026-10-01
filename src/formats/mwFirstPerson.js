@@ -170,6 +170,7 @@ import { GRAPH_ROOT, ACCUM_ROOT_NAMES } from './mwSkin.js';
 import { transferSkin, sourceSkin, fitLift, liftBatch } from './mwSkinTransfer.js';   // MW-BRIG2: a worn model skinned from the body under it; MW-BRIG3: and fitted onto it
 import { getTextKeyTime, animVelocity } from './mwAnim.js';
 import { mat33Mul } from './mwNifMesh.js';   // AUDIT 68 S11-affine-dup: the one row-major 3x3 product
+import { applyClimbRig } from '../combat/climbRig.js';   // CLIMB6: the climb's pose on the rig's own bones
 
 /** The four parts allowed to fall back to a third-person mesh when the
  *  first-person record is missing (rule 3 / npcanimation.cpp:1217-1253).
@@ -2456,7 +2457,7 @@ export function applyFirstPersonNeck(skeleton, pose, rootRef, skelMats, pitch, a
 }
 
 export function poseAssembly(assembly, { tracks = null, sampleTrack = null,
-  time = 0, accumRoot = null, neckPitch = 0, neckAim = 0, neckOffset = null } = {}) {
+  time = 0, accumRoot = null, neckPitch = 0, neckAim = 0, neckOffset = null, climb = null } = {}) {
   const { fns, skeleton, pieces } = assembly;
   if (!fns || !skeleton) return assembly;
   const pose = fns.poseSkeleton(skeleton, tracks, sampleTrack, time, { accumRoot });
@@ -2469,6 +2470,9 @@ export function poseAssembly(assembly, { tracks = null, sampleTrack = null,
   // transform is identity - true of every fixture, false of retail data,
   // where the difference is a hand floating away from its forearm.
   applyFirstPersonNeck(skeleton, pose, GRAPH_ROOT, fns.skelMats, neckPitch, neckAim, neckOffset);
+  // CLIMB6: the climb's pose over the clip's - the hands on the stone, the feet on the wall - solved on THIS skeleton's
+  // own bones (combat/climbRig.js) in the same graph space, before any piece is placed on it
+  assembly.climbFit = climb ? applyClimbRig(skeleton, pose, GRAPH_ROOT, fns.skelMats, climb) : null;
   const mats = fns.skelMats(skeleton, pose, GRAPH_ROOT);
   for (const p of pieces) {
     if (p.kind === 'skinned') {

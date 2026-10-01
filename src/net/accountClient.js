@@ -147,6 +147,12 @@ export const REFUSALS = Object.freeze({
   owned: 'Your account already owns that.',
   short: 'Your account has not closed enough Oblivion Gates to pay for that. Each gate closed pays one Sigil Stone.',
   guest: 'The Broker records insignia only on an account with a username and password. Give this account one first.',
+  // PATREON-LINK, a patron's own Patreon (server-account/src/patreon.js). `signature` is the webhook's, met by Patreon
+  // and never a player; it has a sentence because every word the service says does.
+  'patreon-closed': 'Linking Patreon is not switched on yet.',
+  'patreon-down': 'Patreon did not answer. Try linking again in a minute.',
+  'patreon-needs-account': 'Linking Patreon needs a username and a password. Give this account one first.',
+  signature: 'The account service could not check who sent that request.',
   // MOD1, moderation. A moderator reads these in chat, beside the
   // command they just typed.
   'not-moderator': 'Only moderators can do that.',
@@ -311,7 +317,7 @@ export const REFUSALS = Object.freeze({
   'prof-pixel': 'The land here is known otherwise to the counting-houses.',
   'prof-day': 'The day that gathering belonged to has ended.',
   'prof-late': 'That gathering reached the counting-houses too late to count.',
-  'prof-night': 'You need daylight to gather effectively!',
+  'prof-night': 'You need daylight to gather effectively!',   // ANY-HOUR: the service says it no more - kept for one not yet redeployed
   'prof-rank': 'Your craft is not yet skilled enough for that.',
   'prof-cap': `You have gathered all a day allows (${HARVESTS_PER_DAY}).`,
   // AUDIT 29
@@ -610,6 +616,10 @@ export const equipAura = (io, aura) => call(io, '/v1/account/aura', { aura: aura
 /** WB9g: buy a piece of the Broker's insignia (net/insignia.js INSIGNIA) for this account - the wardrobe after the sale and
  *  the `purse` its closed gates can still pay, or a refusal (`owned`, `short` with `purse` and `price`, `guest`). */
 export const buyInsignia = (io, item) => call(io, '/v1/account/insignia', { item });
+/** PATREON-LINK: take this account's Patreon off it - `{ ok, titles, title, glyphs, auras, aura, insignia, patreon }`,
+ *  the wardrobe after it and the card's Patreon row. Linking has no call here: the account read carries the link, and
+ *  the player follows it in a browser (server-account/src/patreon.js says why). */
+export const unlinkPatreon = (io) => call(io, '/v1/patreon/unlink', {});
 
 /** ACC4: ONE BEAT OF TIME PLAYED. It carries no number - the service
  *  credits the gap by its own clock (net/playClock.js says why), and
@@ -837,7 +847,7 @@ export function accountTokenMinter({ fetch, storage, onIssued = null, character 
           ...('guild' in answer.data ? { guild: typeof answer.data.guild === 'string' ? answer.data.guild : null } : {}),
           // WB9g: the aura at my own feet (null for none) - absent from a service before acct38, which says nothing
           ...('aura' in answer.data ? { aura: typeof answer.data.aura === 'string' ? answer.data.aura : null } : {}),
-          // SEASON1 part two: a Season's banner ribbon under my own name (null for none) - absent from a service before acct56
+          // SEASON1 part two: a Season's banner ribbon under my own name (null for none) - absent from a service before acct58
           ...('ribbon' in answer.data ? { ribbon: Array.isArray(answer.data.ribbon) ? answer.data.ribbon : null } : {}) };
         adoptIdentity(storage, { ...who, secret: session.secret });   // AUDIT B4: into the session that asked
         // A THROW HERE IS THE HOST'S AND IS NOT THE PLAYER'S. The token

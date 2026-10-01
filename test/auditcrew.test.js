@@ -54,7 +54,10 @@ test('AUDIT CC-A1 (blocker): a sweep that empties the pool without marking anyon
   assert.deepEqual(layer.bodies(), street.live, 'and the orphans forgotten');
 });
 
-test('AUDIT CC-A2: health rides through a door as a SHARE of the whole - a body rolled a smaller pool is not healed by the door, a larger one not hurt by it', async () => {
+// PIN MOVED (AUDIT WATCH-KIT WK-U2, 2026-10-01): the door still neither heals nor hurts him, and now his WHOLE rides with
+// him too - carried as a share of each place's fresh roll (this pin's "half of the new whole", 20 of 40, then 40 of 80),
+// his maximum changed at every door and his card and bar read the re-roll as a blow or a heal
+test('AUDIT CC-A2: a door neither heals nor hurts him - a body rolled a smaller pool or a larger one stands at his own whole, hurt as he left (AUDIT WK-U2: never a share of the new roll)', async () => {
   const { party, state, mkPlace, layer } = world();
   party.take(7, hand('Aldric'), 0);
   const a = mkPlace('street', { maxHealth: 60 });
@@ -65,11 +68,11 @@ test('AUDIT CC-A2: health rides through a door as a SHARE of the whole - a body 
   const b = mkPlace('shop', { maxHealth: 40 });
   state.place = b;
   layer.frame(); await settle();
-  assert.equal(b.bodies[0].entity.health, 20, 'half of the new whole');
+  assert.deepEqual([b.bodies[0].entity.health, b.bodies[0].entity.maxHealth], [30, 60], 'his own whole, hurt as he left');
   const c = mkPlace('cellar', { maxHealth: 80 });
   state.place = c;
   layer.frame(); await settle();
-  assert.equal(c.bodies[0].entity.health, 40, 'still half');
+  assert.deepEqual([c.bodies[0].entity.health, c.bodies[0].entity.maxHealth], [30, 60], 'still');
 });
 
 test('AUDIT CC-A3: the catch-up stands a body afresh (the motor resumed - no phantom fall billed from the old ledge), and never chases a leader in the air', async () => {
@@ -157,7 +160,8 @@ test('AUDIT CC-A9: a boat with no deed number lists no Companions row (its press
 
 test('AUDIT CC-A10: a pause holds the layer (no knock, no stand, no catch-up under a window); the bars show the peers\' companions indoors and underground too', () => {
   const w = rd('src/scenes/world.js');
-  assert.match(w, /function crewAshoreTick\(\) \{\n\s*if \(!navalOn\(\)\) \{ crewAshore\.clear\(\); return; \}\n\s*if \(gamePaused\(\)\) return;/);
+  // PIN MOVED (COMPANION-KIT): the party panel's companions are drawn first - its own covering word holds it under a window
+  assert.match(w, /function crewAshoreTick\(\) \{\n(?:\s*try \{ companionPanelFrame\(\); \}[^\n]*\n)?\s*if \(!navalOn\(\)\) \{ crewAshore\.clear\(\); return; \}\n\s*if \(gamePaused\(\)\) return;/);
   assert.match(w, /for \(const f of _mode\(\) === 'exterior' \? exteriorFoes\.foes : _insidePool\(\)\) \{/);
 });
 
@@ -471,9 +475,10 @@ test('AUDIT CC-E1 (major, Mac: "Full co-op combat now"): on the street my compan
 test('AUDIT CC-E2 (major): underground my companion rides the room\'s own lane (`cp`), stood as my ally by everyone; his blows on the room\'s foes and theirs on him reach the body\'s owner', () => {
   const d = rd('src/scenes/dungeonContext.js');
   assert.doesNotMatch(rd('src/scenes/world.js'), /if \(f\) f\._loose = false; return f;/, 'no longer kept off the lane');
-  assert.match(d, /if \(!qt && f\.companion != null && !f\.dead\) cp\.push\(i\);/);
+  // PIN MOVED (AUDIT WK-U3, 2026-10-01): his name rides beside his place (`cn`), the law unchanged
+  assert.match(d, /if \(!qt && f\.companion != null && !f\.dead\) \{ cp\.push\(i\); cn\.push\(/);
   assert.match(d, /comp = validLooseSeqs\(data\.cp\);/);
-  assert.match(d, /companionPuppet\(f, lo && comp\.has\(r\.i\)\); f\._heirElse/);
+  assert.match(d, /companionPuppet\(f, lo && comp\.has\(r\.i\), compNames\.get\(r\.i\)\); f\._heirElse/);   // PIN MOVED (AUDIT WK-U3): and named
   assert.match(d, /if \(coop\) opts\.onFoeHit\?\.\(\{ own: 1, to: foe\._ownFrom, k: _locationKey, i: foe\._ownI, \.\.\.coop \}\);/, 'own-lane bodies');
   assert.match(d, /if \(coop\?\.al === 1\) opts\.onFoeHit\?\.\(\{ \.\.\.\(foe\._encId != null \? \{ i: foe\._encId, xs: 1 \} : \{ i: pi \}\), \.\.\.coop \}\);/, 'the room\'s foes, as a joiner');
   assert.match(d, /if \(data\.fb === 1\) \{\n\s*if \(!f \|\| f\.dead \|\| f\.companion == null/, 'the foe\'s blow lands on my companion');

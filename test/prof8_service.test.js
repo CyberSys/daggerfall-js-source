@@ -109,7 +109,7 @@ test('PROF8 service: at sea on ground the witnesses confirmed, a Pearl and a Sla
   assert.equal(lied.body.qty, 1, 'a school past the two is none');
 });
 
-test('PROF8 service: forty hauls an ACCOUNT a day - the forty-first refused, on another character too; the kind and the key\'s one spelling; the daylight; the pixel witnessed by a haul', async () => {
+test('PROF8 service: forty hauls an ACCOUNT a day - the forty-first refused, on another character too; the kind and the key\'s one spelling; hauled by night too (ANY-HOUR); the pixel witnessed by a haul', async () => {
   const s = await stand();
   const mac = await s.registered('Mac');
   for (let i = 0; i < HAULS_PER_DAY; i++) {
@@ -126,10 +126,13 @@ test('PROF8 service: forty hauls an ACCOUNT a day - the forty-first refused, on 
   assert.deepEqual((await s.haul(ann, { node: `haul:0300:200:${day}:${hid()}` })).body, { error: 'bad-node' }, 'one spelling');
   assert.deepEqual((await s.haul(ann, { node: `haul:300:200:${day}:XYZ` })).body, { error: 'bad-node' });
   assert.deepEqual((await s.haul(ann, { day: day - 1 })).body, { error: 'prof-day' });
+  // PIN MOVED (ANY-HOUR, 2026-10-01, Mac: "Remove the time limit for professions. Should be available at any time"):
+  // 23:00 refused a haul (`prof-night`, "the wilderness keeps Foraging's day"); now the net is hauled as at noon
   const night = secondAt(utcDay(NOON) * DAY + 3600, 23);
   Date.now = () => night * 1000;
   try {
-    assert.deepEqual((await s.haul(ann, { at: night - 2 })).body, { error: 'prof-night' }, 'the wilderness keeps Foraging\'s day');
+    const dark = await s.haul(ann, { at: night - 2 });
+    assert.equal(dark.status, 200, JSON.stringify(dark.body));
   } finally { Date.now = () => NOON * 1000; }
   // a haul from an account a week old witnesses its pixel
   s.raw.prepare('UPDATE players SET registered_at = ? WHERE id = ?').run(NOON - 9 * DAY, ann.id);

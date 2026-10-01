@@ -46,8 +46,8 @@
   {
     "name": "QP3C-empty-full-silent",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    if (!out.length && !whole) return null;\n    const qf = [], lf = [], cp = [];",
-    "new": "    if (!out.length) return null;\n    const qf = [], lf = [], cp = [];",
+    "old": "    if (!out.length && !whole) return null;\n    const qf = [], lf = [], cp = [], cn = [];",
+    "new": "    if (!out.length) return null;\n    const qf = [], lf = [], cp = [], cn = [];",
     "tests": ["test/questparty3c.test.js"]
   },
   {
@@ -88,8 +88,8 @@
   {
     "name": "QP3C-heir-ignored",
     "file": "src/scenes/dungeonContext.js",
-    "old": "      if (f) { applyOwnRecord(f, r, share); if ((lo && comp.has(r.i)) || f.companion != null) companionPuppet(f, lo && comp.has(r.i)); f._heirElse = ownHeirElse(r); if (ownHeirIsMe(r) && f.companion == null) adoptOwn(from, f, share); continue; }",
-    "new": "      if (f) { applyOwnRecord(f, r, share); if ((lo && comp.has(r.i)) || f.companion != null) companionPuppet(f, lo && comp.has(r.i)); continue; }",
+    "old": "      if (f) { applyOwnRecord(f, r, share); if ((lo && comp.has(r.i)) || f.companion != null) companionPuppet(f, lo && comp.has(r.i), compNames.get(r.i)); f._heirElse = ownHeirElse(r); if (ownHeirIsMe(r) && f.companion == null) adoptOwn(from, f, share); continue; }",
+    "new": "      if (f) { applyOwnRecord(f, r, share); if ((lo && comp.has(r.i)) || f.companion != null) companionPuppet(f, lo && comp.has(r.i), compNames.get(r.i)); continue; }",
     "tests": ["test/questparty3c.test.js"]
   },
   {

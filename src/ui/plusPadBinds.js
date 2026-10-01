@@ -12,7 +12,8 @@
 //      the ordinary bindings store (the secondary dict and the joystick-UI dict), so the classic Controls grid shows
 //      the same answer. The d-pad is set in part 2; LB/RB are the crossbar's while it is in force.
 //   2. D-PAD - every direction has a TAP and a HOLD (ui/plusPad.js plusDpadMap). Defaults: up = swap hands / next
-//      interaction mode, down = map / travel map, left = quest log / transport, right = rest / -.
+//      interaction mode, down = map / travel map, left = quest log / transport, right = rest / recast spell (TOUCH-HOLD:
+//      LT, which held Recast, is Interact).
 //   3. STICKS - the left and right stick's sensitivity (ui/plusPad.js plusStickSens).
 // Everything here is buttons (no sliders, no drop-downs), so the pad's own cursor and d-pad jumps can drive all of it.
 import {
@@ -37,6 +38,7 @@ export const PLUS_BIND_ROWS = Object.freeze([
   { id: 'weapon', label: 'Draw / sheathe', sec: 'ReadyWeapon' },
   { id: 'spellbook', label: 'Spellbook', sec: 'CastSpell' },
   { id: 'recast', label: 'Recast spell', sec: 'RecastSpell' },
+  { id: 'interact', label: 'Interact (the use key)', sec: 'Interact' },   // TOUCH-HOLD: the professions' E and the sea's
   { id: 'pause', label: 'Pause', sec: 'Escape', keep: true },
   { id: 'run', label: 'Run', sec: 'Run' },
   { id: 'crouch', label: 'Crouch', sec: 'Crouch' },

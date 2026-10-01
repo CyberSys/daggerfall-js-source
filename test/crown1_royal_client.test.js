@@ -241,10 +241,10 @@ test('CROWN1 THE SOCKET\'S ROYAL ROOM: its hello carries a fresh pass; its words
   const ws = sockets.at(-1);
   ws.open(); await settle();
   assert.equal(ws.sent[0].sp, `v1.royal.${room.length}`);
-  ws.receive({ t: 'welcome', id: 'mac-0001', peers: [], host: 'mac-0001', world: null, now: AT, v: 'world141' });
+  ws.receive({ t: 'welcome', id: 'mac-0001', peers: [], host: 'mac-0001', world: null, now: AT, v: 'world145' });
   assert.deepEqual([o.siegeOk, o.royalOk], [true, false]);
   assert.equal(o.sendSiege({ k: 'in' }), false, 'a relay that fights sieges but keeps no Royal Tourney');
-  ws.receive({ t: 'welcome', id: 'mac-0001', peers: [], host: 'mac-0001', world: null, now: AT, v: 'world143' });
+  ws.receive({ t: 'welcome', id: 'mac-0001', peers: [], host: 'mac-0001', world: null, now: AT, v: 'world147' });
   assert.equal(o.royalOk, true);
   assert.equal(o.sendSiege({ k: 'ask', to: 'peer-0002' }), true);
   assert.deepEqual(ws.sent.at(-1), { t: 'siege', k: 'ask', to: 'peer-0002' });

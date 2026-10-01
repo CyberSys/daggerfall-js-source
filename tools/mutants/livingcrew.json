@@ -83,8 +83,8 @@
   {
     "name": "CREW-song-under-the-guns",
     "file": "src/systems/naval/crewLife.js",
-    "old": "    if (!battle && !muster && !struck) {\n      if (chanty) {",
-    "new": "    if (!muster && !struck) {\n      if (chanty) {",
+    "old": "    if (!battle && !muster && !struck && !asleep) {   // SHIP-WATCH: no song in the night watch\n      if (chanty) {",
+    "new": "    if (!muster && !struck && !asleep) {   // SHIP-WATCH: no song in the night watch\n      if (chanty) {",
     "tests": [
       "test/livingcrew.test.js"
     ]

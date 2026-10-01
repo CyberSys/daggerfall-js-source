@@ -82,6 +82,7 @@ export const TITLE_TEXT = Object.freeze({
   shadowfang: 'Shadow Fang',         // SHADOW-FANG (2026-09-26, Mac): SirMcMobdon's own
   penitent: 'Penitent',              // PENITENT (2026-09-29, Mac): Diggleborf's own
   gatebreaker: 'Gatebreaker',        // WB9g (2026-09-30, Mac): the Sigil Broker's, bought
+  herald: 'Herald',                  // HERALD (2026-10-01, Mac): the Patreon tier between Disciple and Hierophant
   // SEAT1c (Seats-Arc 7.4): the seats' five - each worded off its claim where this client knows the place
   // (townSeatLaw.js seatTitleText: "Warden of Anticlere"), and these words alone where it does not
   warden: 'Warden',
@@ -148,6 +149,11 @@ export const TITLE_RGBA = Object.freeze({
   penitent: PENITENT_GOLD,
   // WB9g: the fire at the gradient's middle - the colour a face that cannot draw a gradient uses
   gatebreaker: GATEBREAKER_FIRE,
+  // HERALD (2026-10-01, Mac: "you'll need to develop the herald title/glyph"; no colour named): AZURE, heraldry's own
+  // blue - a herald wears the arms he cries. Between the Disciple's teal and the Apostle's violet on the tiers' rise,
+  // and brighter and bluer-violet than the moderator's shield, which is a shield and never a trumpet. Chosen over a
+  // periwinkle (lost on a day sky), a silver (read as a bare name) and a purple (the Apostle's) on five grounds.
+  herald: Object.freeze([0.31, 0.49, 1, 1]),          // #4f7dff
   // SEAT1c: the seats' - a Warden's bronze, a Protector's royal purple, the Crowned's pale gold, a Keeper's
   // weathered green, a Champion's silver; none another title's
   warden: Object.freeze([0.769, 0.549, 0.290, 1]),    // #c48c4a
@@ -196,6 +202,7 @@ export const GLYPH_RGBA = Object.freeze({
   hierophant: TITLE_RGBA.hierophant,
   shadowfang: TITLE_RGBA.shadowfang,   // SHADOW-FANG: the outline's crimson - the fill is the gradient below
   penitent: TITLE_RGBA.penitent,       // PENITENT: the lozenge in the title's gold - the sword in it is its detail, below
+  herald: TITLE_RGBA.herald,           // HERALD: the trumpet in the title's azure
   // SEAT1c: a palace seat's tower in the Warden's bronze (the token carries no guild's colours - Seats-Arc 7.4 asked
   // the guild's first colour), and each crown in its kingdom's metal (townSeatLaw.js KINGDOM_METALS)
   tower: TITLE_RGBA.warden,
@@ -241,6 +248,7 @@ export const GLYPH_MARK = Object.freeze({
   hierophant: '!',
   shadowfang: '>',    // SHADOW-FANG: the wolf's muzzle, facing the way the glyph's does
   penitent: '|',      // PENITENT: the sword's blade, one upright stroke
+  herald: '<',        // HERALD: the trumpet's bell, flaring the way the glyph's does
   tower: '=',         // SEAT1c: a tower's battlement
   crownDF: 'D',       // SEAT1c: each crown its kingdom's initial
   crownWR: 'W',
@@ -278,6 +286,10 @@ export const GLYPH_PATH = Object.freeze({
   // PENITENT: Diggleborf's sketch - a tall lozenge, point up and point down, the widest a little below the middle (its
   // sword is GLYPH_DETAIL's)
   penitent: 'M8 .8L13 8.2L8 15.2L3 8.2Z',
+  // HERALD: the herald's trumpet, level, its bell flaring right, and the swallowtail banner hanging from it - a
+  // mouthpiece, the tube, the bell, the banner. A raised trumpet read as a pick at a name's size, and a trumpet alone
+  // as a megaphone; the banner is what makes it a herald's.
+  herald: 'M1.2 3.6V6.4M1.2 5H8.6M8.6 5L14.8 1.8V8.2ZM3 5V13.6L5.2 11.6L7.4 13.6V5',
   // SEAT1c: a palace seat's tower - three merlons over a shaft, a door at its foot
   tower: 'M3.5 15V6.5H2.5V2.5h2.2v1.8h1.6V2.5h3.4v1.8h1.6V2.5h2.2v4h-1V15h-3.2v-3.2a1.3 1.3 0 0 0-2.6 0V15z',
   // SEAT1c: a crown seat's crown - a jewelled band and five points, its kingdom's metal
@@ -289,7 +301,7 @@ export const GLYPH_PATH = Object.freeze({
 /** Is this glyph DRAWN as an outline rather than filled? The sprout is
  *  a shape and the brackets are strokes; said here so the layer does
  *  not have to know which is which by name. */
-export const GLYPH_STROKE = Object.freeze({ sprout: true, dev: true, mod: true, dm: true, disciple: true, apostle: true, hierophant: true, shadowfang: false, penitent: true, tower: false, crownDF: false, crownWR: false, crownSN: false });   // SEAT1c: the seats' four filled
+export const GLYPH_STROKE = Object.freeze({ sprout: true, dev: true, mod: true, dm: true, disciple: true, apostle: true, hierophant: true, shadowfang: false, penitent: true, herald: true, tower: false, crownDF: false, crownWR: false, crownSN: false });   // SEAT1c: the seats' four filled
 
 /**
  * The title a peer wears, ready to draw: `{ key, text, rgba }`, or

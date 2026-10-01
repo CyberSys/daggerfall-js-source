@@ -137,26 +137,26 @@ test('ACC1b: the migration is the real schema, and applying it twice changes not
   // HOME-RENT (0037_home_rooms.sql): `home_rooms` (one row a room offered to rent, and its tenancy)
   // GOLD-MARKET added two (0041): `market_gold` (the gold a character's sales hold for it) and `market_gold_prices`
   // (gold's own price table)
-  // GUILD1e added one (0046 - 0045 until main's MARKET-ANY took 0044, 0044 before SCALE1): `guild_notes` (a guild's own board - its notes, its members' alone)
-  // SEAT1a added one (0047 - 0046 until main's MARKET-ANY took 0044, 0045 until main's SCALE1 took 0043): `town_seat_history` (the Chronicle - its first rows a
-  // developer's strike); and rebuilt `world_witness` to admit the kind `seat`. SEAT1b added four (0048):
+  // GUILD1e added one (0047 - 0046 until main's PATREON-LINK took 0045, 0045 until main's MARKET-ANY took 0044, 0044 before SCALE1): `guild_notes` (a guild's own board - its notes, its members' alone)
+  // SEAT1a added one (0048 - 0047 until main's PATREON-LINK took 0045, 0046 until main's MARKET-ANY took 0044, 0045 until main's SCALE1 took 0043): `town_seat_history` (the Chronicle - its first rows a
+  // developer's strike); and rebuilt `world_witness` to admit the kind `seat`. SEAT1b added four (0049):
   // `town_seat_pledges` (a guild's seat a region a week), `town_seat_binds` (an account's war-guild for the week),
   // `town_seat_influence` (the week's sources, one row an event) and `town_seat_renown` (Renown earned in a region); and
-  // gave `gate_kills` a region. SEAT1c added four (0049): `town_seat_weeks` (the Turning's key, one row a settled week),
+  // gave `gate_kills` a region. SEAT1c added four (0050): `town_seat_weeks` (the Turning's key, one row a settled week),
   // `town_seat_holds` (the Charters held), `town_seat_legacy` (what a guild carries into a week) and `town_seat_rights`
-  // (the week's battles the Turning named). SEAT1d added four (0050): `town_seat_edicts` (a seat's Edict a week),
+  // (the week's battles the Turning named). SEAT1d added four (0051): `town_seat_edicts` (a seat's Edict a week),
   // `town_seat_stockpile` (the Levy's units, the seat's), `town_seat_levies` (one row a harvest that paid it) and
   // `town_seat_bounties` (a camp paid, once a day); and gave the holds their Tithe and debt, the listings and auctions
   // their board
-  // SEAT2a added four (0051): `town_seat_windows` (a holder's window), `town_seat_battles` (the week's battles the Turning
+  // SEAT2a added four (0052): `town_seat_windows` (a holder's window), `town_seat_battles` (the week's battles the Turning
   // placed), `town_seat_rosters` (each side's signed fighters) and `town_seat_hires` (the Sellswords' contracts)
-  // CROWN1 part two added four (0054, PIN MOVED): `town_seat_royal_fields` (each contender's ring), `town_seat_royal` (a
+  // CROWN1 part two added four (0055, PIN MOVED): `town_seat_royal_fields` (each contender's ring), `town_seat_royal` (a
   // Royal Tourney's week - its ring and champion), `town_seat_bouts` (each bout a receipt brought) and `town_seat_titles`
   // (the titles kept for good)
-  // CROWN2 added three (0055, PIN MOVED): `guild_fealty` (a vassal's liege, offered, sworn or breaking), `guild_pacts` (a
+  // CROWN2 added three (0056, PIN MOVED): `guild_fealty` (a vassal's liege, offered, sworn or breaking), `guild_pacts` (a
   // pair's Pact for the rest of the Season) and `town_seat_red` (the server's red lines)
-  // SEASON1 part two added one (0057, PIN MOVED): `town_seat_ribbons` (each guild a Season's end gave its banner ribbon)
-  // SEAT2b added four (0060, PIN MOVED): `town_seat_forts` (a seat's works, each its tier and the project raising the next),
+  // SEASON1 part two added one (0058, PIN MOVED): `town_seat_ribbons` (each guild a Season's end gave its banner ribbon)
+  // SEAT2b added four (0061, PIN MOVED): `town_seat_forts` (a seat's works, each its tier and the project raising the next),
   // `town_seat_fort_held` (what a project holds), `town_seat_fortifier` (a Fortifier's save a Season) and `town_seat_camps` (a
   // challenger's Siege Camp)
   assert.deepEqual(tables, ['board_notes', 'board_notices', 'board_reports', 'commissions', 'duel_results', 'gate_kills', 'guild_fealty', 'guild_invites', 'guild_ledger', 'guild_marks', 'guild_members', 'guild_notes', 'guild_pacts', 'guild_prof_stores', 'guild_store_ledger', 'guild_store_moves', 'guild_writ_budgets', 'guild_writ_fills', 'guild_writs', 'guilds', 'home_decor', 'home_hidden', 'home_rooms', 'homes', 'letters', 'market_auction_reports', 'market_auctions', 'market_bids', 'market_deliveries', 'market_fills', 'market_gold', 'market_gold_prices', 'market_listings', 'market_orders', 'market_prices', 'market_reports', 'market_sales', 'marks', 'marks_ledger', 'node_harvests', 'players', 'products', 'prof_choices', 'prof_crafts', 'prof_smelts', 'prof_stock', 'prof_stores', 'prof_tracks', 'prof_withdrawals', 'raid_cleanses', 'raid_spoils', 'rate_limits', 'realm_census', 'realm_characters', 'realm_passes', 'realm_trades', 'realm_tx_guard', 'renown_accounts', 'renown_tracks', 'saves', 'sessions', 'town_seat_aftermath', 'town_seat_battles', 'town_seat_binds', 'town_seat_bounties', 'town_seat_bouts', 'town_seat_camps', 'town_seat_edicts', 'town_seat_fields', 'town_seat_fort_held', 'town_seat_fortifier', 'town_seat_forts', 'town_seat_hires', 'town_seat_history', 'town_seat_holds', 'town_seat_honours', 'town_seat_influence', 'town_seat_legacy', 'town_seat_levies', 'town_seat_pledges', 'town_seat_red', 'town_seat_renown', 'town_seat_results', 'town_seat_ribbons', 'town_seat_rights', 'town_seat_rosters', 'town_seat_royal', 'town_seat_royal_fields', 'town_seat_stockpile', 'town_seat_titles', 'town_seat_weeks', 'town_seat_windows', 'world_witness', 'writ_days', 'writs']);   // SEAT2a part three: the field, the result, the aftermath, Honours (PIN MOVED)
@@ -189,8 +189,12 @@ test('ACC1b: the migration is the real schema, and applying it twice changes not
   // (a sale is a fact that happened, never a rule a row satisfies - so it
   // is recorded, and what is held is still read off it at every ask), and
   // `aura`, the aura WORN, the one choice about it, as `title` is.
+  // PATREON-LINK added FOUR - the Patreon account this one linked and what Patreon last said of its membership (0045):
+  // `patreon_user` (UNIQUE: one pledge dresses one account), `patreon_tiers`, `patreon_status` and `patreon_at`. Patreon's
+  // word, stored as WB9g's sale is because nothing here can derive it; the title is still read off it at every ask.
   assert.deepEqual(cols.sort(), ['aura', 'created_at', 'email', 'guest_name', 'handle', 'handle_lc', 'id', 'insignia', 'insignia_spent',
-    'last_seen', 'legal_accepted_at', 'muted_by', 'muted_until', 'password', 'played_at', 'played_s', 'privacy_version', 'recovery_hash',
+    'last_seen', 'legal_accepted_at', 'muted_by', 'muted_until', 'password', 'patreon_at', 'patreon_status', 'patreon_tiers', 'patreon_user',
+    'played_at', 'played_s', 'privacy_version', 'recovery_hash',
     'registered_at', 'renown_hour', 'renown_hour_xp', 'renown_last_credit', 'terms_version', 'title']);
   assert.ok(!cols.some((c) => /founder|developer|sprout|glyph|grant/i.test(c)), `a grant became a column: ${cols}`);
   // SAVES AND PROVIDER LINKS ARE STILL NOT HERE. They arrive as their

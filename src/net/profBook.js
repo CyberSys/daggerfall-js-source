@@ -29,8 +29,8 @@
 // Pure - the door, the storage, the clock and the ids are handed in - so
 // the pins drive it without a network.
 // ═══════════════════════════════════════════════════════════════════
-import { HARVEST_LATE_S, HIDES_PER_DAY, HIGH_HIDES_PER_DAY, HAULS_PER_DAY } from './professionLaw.js';   // PROF8: the day's forty hauls
-import { pixelKey } from './nodeLaw.js';
+import { HARVEST_LATE_S, HIDES_PER_DAY, HIGH_HIDES_PER_DAY, HAULS_PER_DAY, NODE_PROFESSIONS } from './professionLaw.js';   // PROF8: the day's forty hauls
+import { pixelKey, parseNodeKey } from './nodeLaw.js';
 import { accountRefusalText } from './accountClient.js';
 import { ASK_AGAIN_NOW, jittered } from './backoff.js';   // SCALE1: asks again spread out, and never at once into a minute's refusal
 
@@ -105,6 +105,10 @@ export function createProfBook({ door, storage = null, character = () => null, n
     hunt: { hides: 0, high: 0 },
     /** PROF8: the account's hauls today (40 a day, every character's together) */
     hauls: 0,
+    /** REFUSALS-LEARNED: the state to be read again (a refusal said the day's count or the Stores moved elsewhere) */
+    reread: false,
+    /** REFUSALS-LEARNED: what the account's refusals closed, by key (`account:<profession>`, `deep`) -> the UTC day */
+    closed: new Map(),
   };
   const account = () => { try { return door.account?.() ?? null; } catch { return null; } };
   const slot = () => `${account() ?? ''}|${character() ?? ''}`;
@@ -157,6 +161,7 @@ export function createProfBook({ door, storage = null, character = () => null, n
   };
   function apply(data) {
     state.open = true;
+    state.reread = false;   // REFUSALS-LEARNED: read
     state.account = account();
     state.day = Number.isSafeInteger(data?.day) ? data.day : dayOf(now());
     state.character = data?.character ?? character();
@@ -178,11 +183,25 @@ export function createProfBook({ door, storage = null, character = () => null, n
     if (h && typeof h === 'object') state.hunt = { hides: Math.max(0, h.hides | 0), high: Math.max(0, h.high | 0) };
   }
 
-  /** The pixels' states, as the service last said them this UTC day: 'x,y' -> { day, state, climate?, region? }. */
+  /** The pixels' states, as the service last said them this UTC day: 'x,y' -> { day, state, climate?, region?, stale? }. */
   const pixels = new Map();
-  /** PROF2: the dungeons' states the same way: id -> { day, state, climate?, region? }. */
+  /** PROF2: the dungeons' states the same way: id -> { day, state, climate?, region?, stale? }. */
   const dungeons = new Map();
   let _pixelsBusy = null;
+  /**
+   * GROUND-STALE (AUDIT 2026-10-01 part four): A HARVEST'S ANSWER IS WHEN ITS GROUND CAN MOVE. The service reads a
+   * pixel's or a dungeon's witnesses fresh at every harvest, and the third week-old account's harvest confirms it in that
+   * very statement; the book kept the morning's state for the whole UTC day, so its client went on standing the ground's
+   * least (an Oak where the service rolls Cherry, Iron where it rolls Silver), offered a novice the act, wore the tool
+   * and was refused `prof-rank` - every try, until midnight. Now the answered node's ground is marked stale: it stands as
+   * it did, and the host's next ask reads it again (`pixelWanted`, `dungeonWanted`); a state that moved stands its
+   * nodes again. A body names no ground.
+   */
+  function staleGround(node) {
+    const n = parseNodeKey(node);
+    const g = !n || n.kind === 'body' ? null : n.kind === 'dvein' ? dungeons.get(n.dungeon) : pixels.get(pixelKey(n.x, n.y));
+    if (g) g.stale = true;
+  }
   /** The writs' cache: `slot|region` -> { at, data, error } (AUDIT 31 B7: the list carries this account's and
    *  character's own - PROF6's "yours", its guild, its balance). */
   const writCache = new Map();
@@ -235,8 +254,12 @@ export function createProfBook({ door, storage = null, character = () => null, n
     stale() {
       if (state.open === false) return account() !== state.account || now() - state.readAt >= PROF_CLOSED_RECHECK_MS;
       if (state.character !== character() || state.account !== account()) return true;
+      if (state.reread && now() - state.readAt >= PROF_REFRESH_BACKOFF_MS) return true;   // REFUSALS-LEARNED
       return state.day !== dayOf(now()) && now() - state.readAt >= PROF_REFRESH_BACKOFF_MS;
     },
+    /** REFUSALS-LEARNED: whether today a refusal closed `key` for the account - `account:<profession>` (the account's
+     *  day in that craft, every character's), or `deep` (its veins in dungeons nobody has vouched for). */
+    closed(key) { return state.closed.get(key) === dayOf(now()); },
     /** A track as the service last said it (never null: a profession not worked yet is at nothing). */
     track(profession) { return state.tracks.get(profession) ?? { profession, xp: 0, rank: 0, specs: { 50: null, 100: null }, respec: null }; },
     /** One material's count in the Stores, own and bought (GOLD-MARKET: and `gold`, bought with gold, where held). */
@@ -250,13 +273,15 @@ export function createProfBook({ door, storage = null, character = () => null, n
     // ─── THE PIXELS ─────────────────────────────────────────────────
     /** A streamed pixel's witnessed state today, or null not yet asked. */
     pixel(x, y) { const p = pixels.get(pixelKey(x, y)); return p && p.day === dayOf(now()) ? p : null; },
+    /** GROUND-STALE: whether the host should ask after a pixel - not yet known today, or a harvest answered on it since. */
+    pixelWanted(x, y) { const p = this.pixel(x, y); return !p || p.stale === true; },
     /** Asks after the pixels not yet known today, PROF_PIXELS_MAX at a time, one read in flight. Answers the pixels
      *  whose state is new (the host re-stands their patches). */
     async askPixels(list) {
       if (_pixelsBusy || state.open === false) return [];
       const c = character();
       const day = dayOf(now());
-      const want = (list ?? []).filter(([x, y]) => pixels.get(pixelKey(x, y))?.day !== day).slice(0, PROF_PIXELS_MAX);
+      const want = (list ?? []).filter(([x, y]) => { const p = pixels.get(pixelKey(x, y)); return p?.day !== day || p.stale === true; }).slice(0, PROF_PIXELS_MAX);   // GROUND-STALE: and one a harvest answered on
       if (!c || !want.length) return [];
       _pixelsBusy = (async () => {
         const r = await ask(() => door.pixels(c, want));
@@ -266,7 +291,10 @@ export function createProfBook({ door, storage = null, character = () => null, n
           const k = pixelKey(p.x, p.y);
           const before = pixels.get(k);
           pixels.set(k, { day, state: p.state, climate: p.climate ?? null, region: p.region ?? null });
-          if (!before || before.state !== p.state) changed.push(p);
+          // GROUND-MIDNIGHT (AUDIT 2026-10-01 part four): yesterday's word is no word - the day's turn stood every pixel
+          // again before today's states were read (the ground's least), so a pixel confirmed yesterday AND today was
+          // never stood again: it stood unconfirmed all day, its signature veins gone
+          if (!before || before.day !== day || before.state !== p.state) changed.push(p);
         }
         return changed;
       })().finally(() => { _pixelsBusy = null; });
@@ -276,10 +304,12 @@ export function createProfBook({ door, storage = null, character = () => null, n
     // ─── THE DUNGEONS (PROF2) ───────────────────────────────────────
     /** A dungeon's witnessed state today (its id DFU's MapId & 0xfffff), or null not yet asked. */
     dungeon(id) { const d = dungeons.get(id); return d && d.day === dayOf(now()) ? d : null; },
+    /** GROUND-STALE: whether the host should ask after a dungeon - not yet known today, or a harvest answered in it since. */
+    dungeonWanted(id) { const d = this.dungeon(id); return !d || d.stale === true; },
     /** Asks after a dungeon not yet known today, beside no pixels - one read in flight. Answers whether its state is
      *  new (the dungeon's veins stand again). */
     async askDungeon(id) {
-      if (_pixelsBusy || state.open === false || this.dungeon(id)) return false;
+      if (_pixelsBusy || state.open === false || !this.dungeonWanted(id)) return false;   // GROUND-STALE: or one a harvest answered in
       const c = character();
       if (!c) return false;
       const day = dayOf(now());
@@ -289,7 +319,7 @@ export function createProfBook({ door, storage = null, character = () => null, n
         const d = (r.data?.dungeons ?? []).find((x) => x.id === id);
         const before = dungeons.get(id);
         dungeons.set(id, { day, state: d?.state ?? 'none', climate: d?.climate ?? null, region: d?.region ?? null });
-        return !before || before.state !== (d?.state ?? 'none') ? [id] : [];
+        return !before || before.day !== day || before.state !== (d?.state ?? 'none') ? [id] : [];   // GROUND-MIDNIGHT: yesterday's is no word
       })().finally(() => { _pixelsBusy = null; });
       return (await _pixelsBusy).length > 0;
     },
@@ -539,6 +569,7 @@ export function createProfBook({ door, storage = null, character = () => null, n
     if (r?.ok) {
       drop(h.rid, key);
       state.taken.add(`${h.node}|${h.kind}`);
+      staleGround(h.node);   // GROUND-STALE: this harvest may be the witness that confirmed its ground
       applyStore(r.data?.store);
       applyStore(r.data?.gemStore);   // PROF2: a gem the strikes found
       applyStore(r.data?.extraStore);   // PROF7 (FOUND): a tree's Resin and a body's butchery - PROF4 never applied it
@@ -548,7 +579,9 @@ export function createProfBook({ door, storage = null, character = () => null, n
       if (r.data?.track && Number.isSafeInteger(r.data?.today)) state.today = { ...state.today, [r.data.track.profession]: r.data.today };
       return { ok: true, data: r.data };
     }
-    if (keptAnswer(r)) {
+    // RATE-KEPT (AUDIT 2026-10-01 part four): the hour's acts spent (`prof-rate`) said "Try again later" and let the harvest
+    // go - the act played and the tool worn for nothing; kept now, and asked again inside its ten minutes
+    if (keptAnswer(r) || r?.error === 'prof-rate') {
       const kept = keptOf(key);
       const k = kept.harvests.find((x) => x.rid === h.rid);
       if (k) { k.tries = (k.tries | 0) + 1; k.nextAt = now() + PROF_PUMP_MS[Math.min(k.tries - 1, PROF_PUMP_MS.length - 1)]; writeKept(kept, key); }
@@ -558,6 +591,14 @@ export function createProfBook({ door, storage = null, character = () => null, n
     if (!here) return { ok: false, error: r?.error ?? 'server', elsewhere: true };
     shutBy(r);
     if (r?.error === 'node-taken') state.taken.add(`${h.node}|${h.kind}`);
+    // REFUSALS-LEARNED (AUDIT 2026-10-01 part four): WHAT A REFUSAL SAYS OF THE DAY IS KEPT - the plan went on offering
+    // the act as ready, the act played, the tool wore, and the same refusal came every try. The character's day or the
+    // Stores filled elsewhere (another device): the state is read again. The account's day in the craft, or its veins in
+    // dungeons nobody has vouched for - counts the state does not carry: closed until the UTC day turns.
+    if (r?.error === 'prof-cap' || r?.error === 'stores-full') state.reread = true;
+    if (r?.error === 'prof-account-cap') state.closed.set(`account:${NODE_PROFESSIONS[parseNodeKey(h.node)?.kind] ?? ''}`, dayOf(now()));
+    if (r?.error === 'prof-deep-cap') state.closed.set('deep', dayOf(now()));
+    staleGround(h.node);   // GROUND-STALE: a refusal (`prof-rank` on a node the client stood within the rank) is the stale ground's word too
     // AUDIT 32 B2: the account's day as the refusal says it - the book counted what this device saw, and another
     // character (or device) of the account may have taken the rest; a knife worn on every try until the next day's read
     if (r?.error === 'prof-hunt-cap') state.hunt = { ...(state.hunt ?? { hides: 0, high: 0 }), hides: Math.max(state.hunt?.hides ?? 0, state.caps?.hides ?? HIDES_PER_DAY) };

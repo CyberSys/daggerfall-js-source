@@ -182,7 +182,7 @@
   {
     "name": "SET5-the-huds-chips-unwired",
     "file": "src/scenes/world.js",
-    "old": "  setHudSetChips(setHudChips);   // SET5: the set powers' windows and recoveries, as chips after the HUD's effects\n",
+    "old": "  setHudSetChips((e) => [...setHudChips(e), ...lootHudChips(e)]);   // SET5: the set powers' windows and recoveries, as chips after the HUD's effects; LOOT5: and the Legendary powers' beside them\n",
     "new": "",
     "tests": [
       "test/set5_ui.test.js"

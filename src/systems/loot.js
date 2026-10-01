@@ -17,8 +17,8 @@
 // MI (magic items) rolls need the MAGIC.DEF registry
 // (setMagicItemTemplates), and EVERY host that can generate loot now
 // loads it: scenes/shared.js:133-136 (loadMagicRegistries) feeds the
-// module table this file reads, called from dungeonContext.js:1507,
-// world.js:5183 and exterior.js:1317 - interiors run inside those hosts
+// module table this file reads, called from dungeonContext.js:1508,
+// world.js:5189 and exterior.js:1319 - interiors run inside those hosts
 // and read the same table. What is left is the data-absent boot, and
 // that is DFU's own answer rather than a stand-in: shared.js:144
 // records it, the category simply stays empty.
@@ -33,6 +33,7 @@ import { CLOTHING_DYES } from '../characters/dyes.js';
 import { legacyEnchantmentValue } from './enchantments.js';   // G4: ItemBuilder's closing value sum
 import { validItemField, validItemFields, itemFieldsOfKind, ITEM_STR_MAX } from './itemFields.js';   // RF5: the one declaration of every item field's kind (LR4's affix check rides it)
 import { validSetMarks } from './aetheric.js';   // AUDIT SET D6: the wire's cross-checks of a sigil and an Aetheric piece
+import { validImprint } from './lootRarity.js';   // LOOT10: and of a Rare's imprint
 import { createRandomBook, BOOK_TEMPLATE } from './books.js';   // IM1: CreateRandomBook whole (A2: + its book-file price)
 import { potionRecipeByKey, POTION_DEFAULT_TEXTURE_RECORD } from './potions.js';   // F103: PotionRecipeKey's price side effect; AUDIT 63 F20: and its texture-record half
 import { RANDOM_TREASURE_ARCHIVE, RANDOM_TREASURE_ICONS, DROP_ICON_ARCHIVES, DROP_ICON_IDXS } from './lootDataTables.js';   // G5: DaggerfallLootDataTables.cs, its own file again
@@ -578,6 +579,7 @@ export function validLootItem(v) {
   // answers a missing value with the template's own).
   if (!validItemFields(out)) return null;
   if (!validSetMarks(out)) return null;   // AUDIT SET D6: and the marks agree with the item - a set's sigil, a blow, the Aetheric
+  if (!validImprint(out)) return null;   // LOOT10: an imprint only as the Reforge makes one
   // AUDIT WORLD6a B1: THE PRICE IS NOT THE WIRE'S. A shelf's list lands on every client (WORLD6a) and calculateCost
   // reads `value`, so a peer minted a Daedric dai-katana at `value: 0` onto a shop's shelf and every player in the
   // Bay could buy it for 2 gold, and the room remembered it for thirty days. The value is floored at what the port

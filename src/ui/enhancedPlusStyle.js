@@ -673,8 +673,12 @@ const RARITY_VARS = Object.freeze({
   aetheric: `--rar: #bfe8ff; --rar-hi: #f0faff; --rar-lo: #4d7fa3; --rar-rgb: 191,232,255; --rar-pips: '\\25c8';`,
   artifact: `--rar: #b57bee; --rar-hi: #dcbcf8; --rar-lo: #683a9c; --rar-rgb: 181,123,238; --rar-pips: '\\2726';`,
 });
-/** The tiers' custom properties as rules - under `scope` (a descendant selector with its space) or everywhere. */
-export const rarityVarsCss = (scope = '') => Object.entries(RARITY_VARS).map(([k, v]) => `${scope}[data-rarity="${k}"] { ${v} }`).join('\n');
+/** LOOT2 (bible/06-Systems/Loot-Arc.md section 4): an EXALTED Legendary's pips - its three diamonds and a star. */
+export const EXALTED_PIPS = `--rar-pips: '\\25c6\\25c6\\25c6\\2605';`;
+/** The tiers' custom properties as rules - under `scope` (a descendant selector with its space) or everywhere. LOOT2: and
+ *  the Exalted's pips after them, so its rule outranks the Legendary's at the same weight. */
+export const rarityVarsCss = (scope = '') => [...Object.entries(RARITY_VARS).map(([k, v]) => `${scope}[data-rarity="${k}"] { ${v} }`),
+  `${scope}[data-rarity="legendary"][data-exalted] { ${EXALTED_PIPS} }`].join('\n');
 /** SIGIL-UI: the sigil's colours, as custom properties. */
 export const SIGIL_VARS_CSS = `:root { --sigil: #72f0d8; --sigil-mid: #2fb8a2; --sigil-lo: #0f5048; --sigil-rgb: 114,240,216; }`;
 /** SIGIL-UI: the rune's breath. */
@@ -860,6 +864,24 @@ export const BROKER_CSS = `/* ── SET7: THE SIGIL BROKER'S WINDOW (ui/brokerW
   .broker-offer { grid-template-columns: 44px minmax(0, 1fr) 112px; padding: 6px 8px; }
   .broker-offer .broker-price { grid-column: 2; grid-row: 2; }
   .broker-offer .broker-buy { grid-column: 3; grid-row: 1 / span 2; padding-left: 6px; padding-right: 6px; letter-spacing: 0.03em; }
+}`;
+/** AUDIT LOOT F6: THE REFORGE'S WINDOW (ui/reforgeWindow.js) - the Broker's shape, so his sheet lays it; these are the rules
+ *  his window never needed: the pages' tabs (the chosen one the kit's brass `.on`), the Codex's rows of words alone (his
+ *  grid put them in its 48px picture column), the salvage's Keep under its Break, and a card's line with its press. The
+ *  classic skin lays it beside his sheet (reforgeWindow.js), the Plus sheet carries it. */
+export const REFORGE_CSS = `/* ── LOOT9/LOOT10: THE REFORGE'S WINDOW (ui/reforgeWindow.js) ── */
+.reforge-tabs { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 16px 0; }
+.reforge-tabs[hidden] { display: none; }
+.broker-offer.codex-row, .broker-offer.codex-set { grid-template-columns: minmax(0, 1fr); }
+.broker-offer.codex-set { cursor: default; }
+.broker-offer.codex-row .broker-set, .broker-offer.codex-set .broker-set { white-space: normal; }   /* a hint and a set's pieces read whole, a phone's too */
+.broker-offer.codex-row:not(.found) .broker-name { color: #8d8270; }
+.broker-offer > .reforge-keep { grid-column: 4; }
+.reforge-card .reforge-line, .imprint-card .imprint-choice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 8px; margin: 2px 0; }
+.reforge-card .reforge-press, .imprint-card .imprint-press { width: auto; flex: 0 0 auto; }
+@media (max-width: 720px) {
+  .reforge-tabs { padding: 6px 12px 0; }
+  .broker-offer > .reforge-keep { grid-column: 3; grid-row: 3; }   /* the Broker's phone rule spans every press over two rows: Keep sat on Break it */
 }`;
 /** BOUNTY1 (2026-09-28): THE BOUNTY BOARD'S WINDOW and the payday notice (ui/bountyWindow.js) - the Broker's kind: a
  *  stone window over the world, the town's notices in a list, the one pressed read whole beside it (under it on a
@@ -1433,6 +1455,7 @@ ${SET_BLOCK_CSS}
 .setline-stage { min-width: 64px; text-align: right; color: #b9ab93; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
 @media (pointer: coarse) { .setline { min-height: 40px; } .setstrip { max-height: 216px; } }   /* AUDIT SET U14: a line a thumb presses, as every other press on a touch screen */
 ${BROKER_CSS}
+${REFORGE_CSS}
 ${BOUNTY_CSS}
 ${NOTICE_CSS}
 ${PROF_CSS}

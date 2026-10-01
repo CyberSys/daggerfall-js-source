@@ -119,6 +119,10 @@ function rayMarks(bucket) {
 }
 /** FB0930-FRAME: the pin's door to the stamp - test/fb0930_frame.test.js walks a bucket across the wrap. */
 export function _setRayStampForTest(n) { RAY_STAMP = n; }
+/** PERF-CLIMB: the resolve's fixed-point stop (_resolveCapsule), on unless a pin turns it off to hold the answers the
+ *  same with it and without it. */
+let FIXED_POINT_STOP = true;
+export function _setFixedPointStopForTest(on) { FIXED_POINT_STOP = !!on; }
 /** FB0930-FOE-RAYS: the grid is XZ only, so a cell holds the column's whole height - a dungeon's floor and ceiling,
  *  and the floors and ceilings of every level stacked above and below it. A triangle whose Y extent misses the ray's
  *  own Y extent across the cell cannot be hit IN this cell and is not tested there (nor marked, so the cell where the
@@ -1505,6 +1509,7 @@ export class Collider {
     const lowOneWay = straddle ? axis : true;
     let lowFloor = -Infinity;
     for (let iter = 0; iter < 3; iter++) {
+      const sx = low[0], sy = low[1], sz = low[2];   // PERF-CLIMB: where the pass began
       if (tall) {
         const lo = LOW_OUT;
         lo.grounded = false; lo.hitCeiling = false; lo.pushedDown = false; lo.groundKey = null; lo.groundY = undefined;
@@ -1541,6 +1546,14 @@ export class Collider {
       low[0] = high[0];
       low[2] = high[2];
       low[1] = high[1] - axis;
+      // PERF-CLIMB (the Enhanced Climbing arc's dense-mesh limit, bible/03-World/Parkour-Arc.md): A PASS THAT MOVED
+      // NOTHING IS THE LAST. Its centres are all derived from `low` (the middles and the head off it), and nothing else
+      // it reads changes between passes - so a pass that ends where it began, to the bit, would be run again exactly,
+      // pushing nothing and ORing the same flags into `out`. Stopping there is the same answer, cheaper: a body in the
+      // open (every fit the climb's proofs ask, every step of a walk in the clear) paid three passes for one, and a body
+      // against a wall two for... the pass that pushed and the one that found it out. A pass the rounding of the
+      // low-head-low round trip moved by a bit is not "nothing", and goes on as it always did.
+      if (FIXED_POINT_STOP && low[0] === sx && low[1] === sy && low[2] === sz) break;
     }
     feet[0] = low[0];
     feet[1] = low[1] - CAPSULE_RADIUS;
@@ -1877,8 +1890,11 @@ export class Collider {
         out.grounded = true;
       }
     }
-    // Terrain/ground floor beneath everything.
-    if (feet[1] < floor + SKIN) {
+    // Terrain/ground floor beneath everything. CLIMB-DOWN T1: what it holds up is a body under the floor or settling
+    // into its skin - never one RISING clear of it, which it took back down whenever the rise was under the skin: a
+    // climb at a third of a slow walk (the classic climb below Speed 25, the free climb at low Climbing) never left the
+    // terrain, as Unity's controller, which has no such clamp, leaves it.
+    if (feet[1] < floor + SKIN && !(dy > 0 && feet[1] >= floor)) {
       if (dy <= 0) out.grounded = true;
       feet[1] = floor;
     }

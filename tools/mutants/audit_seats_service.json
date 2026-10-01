@@ -71,7 +71,7 @@
    "test/audit_seats_service.test.js"
   ],
   "equivalent": true,
-  "why": "a contract's account always stands: town_seat_hires.account cascades ON DELETE with its player (0051), so the hire is gone with it - kept as the CASE's own word that no line pays an account that is not there"
+  "why": "a contract's account always stands: town_seat_hires.account cascades ON DELETE with its player (0052), so the hire is gone with it - kept as the CASE's own word that no line pays an account that is not there"
  },
  {
   "name": "AUDIT-SEATS-S2-guild-gone",
@@ -387,7 +387,7 @@
    "test/audit_seats_service.test.js"
   ],
   "equivalent": true,
-  "why": "a hold's guild always stands: town_seat_holds.guild_id cascades ON DELETE with its guild (0049), so the JOIN finds no hold of a guild that is gone - kept as the refund's own word"
+  "why": "a hold's guild always stands: town_seat_holds.guild_id cascades ON DELETE with its guild (0050), so the JOIN finds no hold of a guild that is gone - kept as the refund's own word"
  },
  {
   "name": "AUDIT-SEATS-S4-history",

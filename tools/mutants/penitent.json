@@ -137,12 +137,12 @@
   {
     "name": "PENITENT-lozenge-filled",
     "file": "src/ui/playerBadge.js",
-    "old": "hierophant: true, shadowfang: false, penitent: true, tower: false,",
-    "new": "hierophant: true, shadowfang: false, penitent: false, tower: false,",
+    "old": "shadowfang: false, penitent: true, herald: true, tower: false,",
+    "new": "shadowfang: false, penitent: false, herald: true, tower: false,",
     "tests": [
       "test/penitent.test.js"
     ],
-    "note": "SEAT1c (PIN MOVED): re-aimed by content."
+    "note": "SEAT1c (PIN MOVED) and HERALD (RE-AIMED), each by content; the merge of main re-aimed it over both - herald after the penitent, the seats' after herald."
   },
   {
     "name": "PENITENT-mark-another-glyphs",
@@ -174,11 +174,12 @@
   {
     "name": "PENITENT-glyph-without-the-title",
     "file": "server-account/src/titles.js",
-    "old": "shadowfang: 'shadowfang', penitent: 'penitent' });",
-    "new": "shadowfang: 'shadowfang', penitent: 'shadowfang' });",
+    "old": "penitent: 'penitent', herald: 'herald' });",
+    "new": "penitent: 'shadowfang', herald: 'herald' });",
     "tests": [
       "test/penitent.test.js"
-    ]
+    ],
+    "note": "HERALD (RE-AIMED by content: the lists end with herald now)."
   },
   {
     "name": "PENITENT-granted-to-another-account",
@@ -192,22 +193,22 @@
   {
     "name": "PENITENT-title-not-in-the-vocabulary",
     "file": "src/net/identityToken.js",
-    "old": "'shadowfang', 'penitent', 'gatebreaker', 'warden',",
-    "new": "'shadowfang', 'gatebreaker', 'warden',",
+    "old": "'shadowfang', 'penitent', 'gatebreaker', 'herald', 'warden',",
+    "new": "'shadowfang', 'gatebreaker', 'herald', 'warden',",
     "tests": [
       "test/penitent.test.js"
     ],
-    "note": "SEAT1c (PIN MOVED): re-aimed by content."
+    "note": "SEAT1c (PIN MOVED) and HERALD (RE-AIMED), each by content; the merge of main re-aimed it over both - herald after the penitent, the seats' after herald."
   },
   {
     "name": "PENITENT-glyph-not-in-the-vocabulary",
     "file": "src/net/identityToken.js",
-    "old": "'hierophant', 'shadowfang', 'penitent', 'tower',",
-    "new": "'hierophant', 'shadowfang', 'tower',",
+    "old": "'hierophant', 'shadowfang', 'penitent', 'herald', 'tower',",
+    "new": "'hierophant', 'shadowfang', 'herald', 'tower',",
     "tests": [
       "test/penitent.test.js"
     ],
-    "note": "SEAT1c (PIN MOVED): re-aimed by content."
+    "note": "SEAT1c (PIN MOVED) and HERALD (RE-AIMED), each by content; the merge of main re-aimed it over both - herald after the penitent, the seats' after herald."
   },
   {
     "name": "PENITENT-staff",

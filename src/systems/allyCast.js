@@ -56,6 +56,22 @@ export function allyCastable(spell) {
   return fx.length > 0 && fx.every(allyEffect);
 }
 
+/** AUDIT WK-M4 (2026-10-01): WHAT MY COMPANION CAN USE. He is a body this scene simulates, not a player, and three of the
+ *  families a mate may be given are read off the PLAYER alone: Light (15 - the magic candle burns for the player's own
+ *  effect, scenes/hostMagic.js `candle`), Detect (39 - the compass's markers, systems/nearbyObjects.js detectedMarkers
+ *  over the player's entity) and Comprehend Languages (44 - the pacification roll, scenes/hostCombat.js, reads the
+ *  player's). On him they landed where nothing reads them: "You cast Light on Hilda.", the magicka spent, nothing lit -
+ *  and a CasterOnly Light ARMED instead of lighting me whenever a companion stood within ALLY_ARM_RADIUS. */
+export const COMPANION_UNREAD_TYPES = Object.freeze(new Set([15, 39, 44]));
+/** An effect my companion can use: a gift, and not one of the three only a player reads. */
+export const companionEffect = (e) => allyEffect(e) && !COMPANION_UNREAD_TYPES.has(e.type);
+/** AUDIT WK-M4: whether a spell is my companion's to be given - a gift (allyCastable: every real effect beneficial) that
+ *  carries something he can use. A Light alone is never his (it lights me, or arms for a mate); a Heal beside a Light is,
+ *  and what lands on him is the Heal (allyCastSpell's `companion` strip). */
+export function companionCastable(spell) {
+  return allyCastable(spell) && spell.effects.some(companionEffect);
+}
+
 /** SPELL-GIFT (2026-09-27, Discord - Tabitha, a cleric: "a LARGE amount of buffs & spells just don't work when cast on
  *  another person, even with touch. Normal regen seems okay, but Regen + Anything, Fortify Attributes, etc."). A
  *  CASTERONLY GIFT ARMS WHILE A MATE STANDS NEAR. Most of the buffs a healer casts are CasterOnly - DFU's spellbook
@@ -69,6 +85,8 @@ export function allyCastable(spell) {
 export const ALLY_ARM_RADIUS = 10;
 /** ...and what the armed ready says under DFU's own "Press button to fire spell." - where the click will land. */
 export const ALLY_ARMED_LINE = 'Aim at a party member to cast it on them, or anywhere else to cast it on yourself.';
+/** COMPANION-KIT: ...and the same word with my companion near (scenes/hostMagic.js companionNear). */
+export const COMPANION_ARMED_LINE = 'Aim at your companion to cast it on them, or anywhere else to cast it on yourself.';
 
 /** SPELL-GIFT (Tabitha: "Allow casting of buffs on players outside party ... Many spells should be blacklisted [Spells
  *  that can be considered annoyances like levitate reducing movespeed, etc.]", with her INITIAL PLAYER2PLAYER SPELL
@@ -98,9 +116,9 @@ export function strangerCastable(spell) {
  *  third of casts (two thirds for a Breton, three quarters under Resist Magic), a Levitate was "Save versus spell
  *  made.", and the caster had paid. And the sender chose it: a crafted rangeType 0 skipped the save the honest
  *  frame took. Now the receiver decides that too. The icon rides so the HUD's row can show it. */
-export function allyCastSpell(d, { stranger = false } = {}) {
+export function allyCastSpell(d, { stranger = false, companion = false } = {}) {
   if (!d || !Array.isArray(d.effects)) return null;
-  const effects = d.effects.filter(stranger ? strangerEffect : allyEffect).slice(0, MAX_EFFECTS_PER_SPELL);   // SPELL-GIFT: a stranger's cast keeps the stranger's list alone
+  const effects = d.effects.filter(stranger ? strangerEffect : companion ? companionEffect : allyEffect).slice(0, MAX_EFFECTS_PER_SPELL);   // SPELL-GIFT: a stranger's cast keeps the stranger's list alone; AUDIT WK-M4: my companion's gift, what he can use
   if (!effects.length) return null;
   const icon = Number.isInteger(d.icon) && d.icon >= 0 && d.icon < SPELL_ICON_COUNT ? d.icon : 0;
   return { name: typeof d.name === 'string' ? d.name : '', element: d.element ?? 4, rangeType: 0, effects, icon, index: -1, custom: true };

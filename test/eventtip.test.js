@@ -128,7 +128,7 @@ test('EVENT-TIP: the gate\'s card - where, when it next moves (the countdown\'s 
   const at = (ms, fell = null) => { const phase = gatePhase(t, ms, fell); return gateTip({ site, phase, t }, gateCountdown(t, ms, phase), fell); };
   const marks = (day) => { const w = gateModsWords(gateModsOf(day)); return `${w.charAt(0).toUpperCase()}${w.slice(1)}`; };
   assert.deepEqual(at(t.omenAt + 1000), { title: 'Oblivion Gate', lines: ['Near Copperham, Wrothgarian Mountains', `Opens in ${countdownText(t.openAt - t.omenAt - 1000)}`, 'Valkynaz Ruhn, Warden of the Burning Gate', marks(740)] });   // WB8c: and tonight's marks while he stands
-  assert.equal(marks(740), 'The Storm-Crowned - Vengeful, Soul-Hungry');
+  assert.equal(marks(740), 'The Storm-Crowned - Vengeful, Dagon\'s Favoured');   // WB11a: the nine-trial rotation's (it was Vengeful, Soul-Hungry)
   assert.equal(at(t.openAt + 1000).lines[1], `Open - seals in ${countdownText(t.sealAt - t.openAt - 1000)}`);
   assert.equal(at(t.sealAt + 2000).lines[1], 'Sealed - collapses in 9:58', 'GATE-COLLAPSE: the sealed hours say when they end');
   assert.equal(at(t.wrathAt + 1000).lines[1], 'Collapsing');
@@ -218,7 +218,7 @@ test('EVENT-TIP on the held map: the hover asks a party member, a raided town, a
     const [gx, gy] = toPaper(win._view, 5.2, 3.4);
     const onRing = win._hoverLabel(gx, gy);
     assert.equal(onRing.tip.title, 'Oblivion Gate');
-    assert.deepEqual(onRing.tip.lines, ['Near Copperham, Daggerfall', `Open - seals in ${countdownText(t.sealAt - clock.now)}`, 'Valkynaz Ruhn, Warden of the Burning Gate', 'The Venom-Blooded - Scarring, Grudge-Bearer']);   // WB8c: day 741's marks
+    assert.deepEqual(onRing.tip.lines, ['Near Copperham, Daggerfall', `Open - seals in ${countdownText(t.sealAt - clock.now)}`, 'Valkynaz Ruhn, Warden of the Burning Gate', 'The Burning - Unyielding, Echoing']);   // WB8c: day 741's marks (WB11a's rotation - they were the Venom-Blooded, Scarring and Grudge-Bearer)
     assert.equal(onRing.label, `Oblivion Gate - seals in ${countdownText(t.sealAt - clock.now)}`);
     const [ox, oy] = toPaper(win._view, 9.5, 9.5);
     assert.equal(win._hoverLabel(ox, oy).tip, undefined, 'past the ring: the province, no card');

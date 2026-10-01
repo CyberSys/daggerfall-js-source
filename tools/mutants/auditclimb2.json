@@ -325,7 +325,7 @@
   {
     "name": "AUDITCLIMB2-C7-corner-unticked",
     "file": "src/player/motor.js",
-    "old": "    if (this._wall) this._wallTick(dt);",
+    "old": "    if (this._wall && !spent) this._wallTick(dt);",
     "new": "",
     "tests": [
       "test/auditclimb2.test.js",

@@ -152,7 +152,8 @@ test('ROAD-Ar: activeMouseOverLargeHUD is cursorActive AND enabled AND over the 
 test('ROAD-Ar: all four hosts pass the gate every input it declares', () => {
   for (const h of HOSTS) {
     const s = host(h);
-    assert.match(s, /down: held\(keys, 'ActivateCenterObject'\)/, `${h} polls the ACTION`);
+    // PIN MOVED (AUDIT 2026-10-01 part four, CLICK-LIFT): the street's and the modal frame's press is named first
+    assert.match(s, /(?:down: |const _activateDown = )held\(keys, 'ActivateCenterObject'\)/, `${h} polls the ACTION`);
     assert.match(s, /hasReadySpell:/, `${h} feeds HasReadySpell`);
     // R3: the ByTouch exception was a callee option no host passed
     assert.match(s, /touchSpell:.*rangeType === 1/, `${h} feeds the ByTouch exception`);

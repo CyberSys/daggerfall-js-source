@@ -514,19 +514,24 @@ test('AUDIT CLIMB2 G3: a crouched body under a low slab takes no wall it cannot 
 });
 
 test('AUDIT CLIMB2 G4: a free climb takes the lip its hands come to - a sill as it reaches it, never butting the head first; a cornice it cannot get past by reaching round it', () => {
-  // a sill 12 cm out and 10 cm tall on a tall wall: held as the hands come to it, the climb never stopped under it
+  // a sill 12 cm out and 10 cm tall on a tall wall: taken as the hands come to it, the climb never stopped under it
+  // (CLIMB3 moved this pin: with Forward held the hold it takes there goes on up the wall over it, past the sill)
   {
     const s = scene(); s.box(-3, 0, 1.12, 3, 12, 4); s.box(-1.5, 5.4, 1.0, 1.5, 5.5, 1.12);
     const m = motor(s.col, { skill: 100, z: 0.74 });
-    let stalls = 0, climbing = false;
-    for (let i = 0; i < 600 && !m.hanging; i++) {
+    let stalls = 0, climbing = false, worst = 0, took = false;
+    for (let i = 0; i < 900 && m.pos[1] < 6; i++) {
       const y = m.pos[1];
       step(m, { forward: 1 });
       if (climbing && m.onWall && !m.hanging && m.pos[1] - y < 1e-4) stalls++;
       climbing ||= m.onWall;
+      took ||= m._wall?.past != null && near(m._wall.past, 5.5, 0.02);
+      worst = Math.max(worst, overlap(s.boxes, m.pos, m.height));
     }
-    assert.ok(m.hanging && near(m._wall.lipY, 5.5, 0.02), `hanging from the sill (lip ${m._wall?.lipY})`);
+    assert.ok(took, 'the sill taken as the hands came to it');
+    assert.ok(m.onWall && m.pos[1] >= 6, `and the climb went on up past it (at ${m.pos[1].toFixed(2)})`);
     assert.equal(stalls, 0, 'the climb never stopped under it');
+    assert.ok(worst < 0.03, `never into the sill (${worst.toFixed(3)})`);
   }
   // a cornice 0.12-0.15 out and 0.2 tall: the head stops under it with the lip 1.9 over the feet - the hands reach round
   for (const out of [0.12, 0.15]) {

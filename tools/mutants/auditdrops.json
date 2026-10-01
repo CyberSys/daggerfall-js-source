@@ -324,8 +324,8 @@
   {
     "name": "AD-E4-body-peers-leak",
     "file": "src/net/remotePlayers.js",
-    "old": "    for (const id of this._footsteps.keys()) if (!seen.has(id)) this._footsteps.delete(id);\n    for (const id of this._attackAn.keys()) if (!seen.has(id)) this._attackAn.delete(id);",
-    "new": "",
+    "old": "    for (const id of this._footsteps.keys()) if (!seen.has(id)) this._footsteps.delete(id);\n    for (const id of [...this._climbSounds.peers.keys()]) if (!seen.has(id)) this._climbSounds.forget(id);   // CLIMB5: a peer gone - their next climb seen is a first\n    for (const id of this._attackAn.keys()) if (!seen.has(id)) this._attackAn.delete(id);",
+    "new": "    for (const id of [...this._climbSounds.peers.keys()]) if (!seen.has(id)) this._climbSounds.forget(id);   // CLIMB5: a peer gone - their next climb seen is a first",
     "tests": [
       "test/auditdrops.test.js"
     ]

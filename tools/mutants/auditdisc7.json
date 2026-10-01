@@ -119,8 +119,8 @@
   {
     "name": "A1-modal-press-cast-lost",
     "file": "src/scenes/worldModes.js",
-    "old": "tryExit)({ pressCast: _act.pressCast, interact: useEdge });",
-    "new": "tryExit)({ pressCast: false, interact: useEdge });",
+    "old": "tryExit)({ pressCast: _act.pressCast, interact: useEdge, actClick });",
+    "new": "tryExit)({ pressCast: false, interact: useEdge, actClick });",
     "tests": [
       "test/disc7.test.js"
     ]

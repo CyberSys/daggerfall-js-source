@@ -190,7 +190,7 @@ export const ACCOUNT_KINDS = Object.freeze(['guest', 'linked']);
 /** The titles that exist. A title is WORN one at a time, so a token
  *  carries at most one. Grants are the service's business (who HOLDS
  *  one); this list is the vocabulary both ends share. */
-export const TITLES = Object.freeze(['founder', 'developer', 'dungeonmaster', 'disciple', 'apostle', 'hierophant', 'shadowfang', 'penitent', 'gatebreaker', 'warden', 'protector', 'crowned', 'keeper', 'champion']);   // TITLE-N (2026-09-24, Mac): the Dungeon Master, and the three Patreon tiers in their order; SHADOW-FANG (2026-09-26, Mac): SirMcMobdon's own; PENITENT (2026-09-29, Mac): Diggleborf's own; WB9g (2026-09-30, Mac: "a brand new title to the broker"): the Gatebreaker, bought with Sigil Stones (net/insignia.js)
+export const TITLES = Object.freeze(['founder', 'developer', 'dungeonmaster', 'disciple', 'apostle', 'hierophant', 'shadowfang', 'penitent', 'gatebreaker', 'herald', 'warden', 'protector', 'crowned', 'keeper', 'champion']);   // HERALD (2026-10-01, Mac: "Herald doesnt exist ingame yet" - "you'll need to develop the herald title/glyph"): the Patreon tier between Disciple and Hierophant, after the Gatebreaker (the seats' five after it, SEAT1c); TITLE-N (2026-09-24, Mac): the Dungeon Master, and the three Patreon tiers in their order; SHADOW-FANG (2026-09-26, Mac): SirMcMobdon's own; PENITENT (2026-09-29, Mac): Diggleborf's own; WB9g (2026-09-30, Mac: "a brand new title to the broker"): the Gatebreaker, bought with Sigil Stones (net/insignia.js)
 
 /** SEAT1c (2026-09-30, Mac: "Finish the seats"; Seats-Arc 7.4): THE SEATS' TITLES - five GENERIC ids, because a town's
  *  or a Season's name cannot be a closed list's word: "Warden of <Town>" (a palace seat's guildmaster), "Protector of
@@ -213,7 +213,7 @@ export const AURAS = Object.freeze(['dagonfire']);
  *  sprout is "this account is new", dev is "this is a developer", mod is
  *  "this is a moderator" (MOD1, Mac: "a moderator glyph") - so a token
  *  may carry several and a player chooses none of them. */
-export const GLYPHS = Object.freeze(['sprout', 'dev', 'mod', 'dm', 'disciple', 'apostle', 'hierophant', 'shadowfang', 'penitent', 'tower', 'crownDF', 'crownWR', 'crownSN']);   // SEAT1c (Seats-Arc 7.4): a seat's - `tower` every member of a guild holding a palace seat, a crown in its kingdom's metal every member of a crown's   // TITLE-N: each new title has its own glyph (Mac), true of whoever holds the title; SHADOW-FANG: the wolf's head, and the werewolf's skin rides it; PENITENT: the sword in its lozenge
+export const GLYPHS = Object.freeze(['sprout', 'dev', 'mod', 'dm', 'disciple', 'apostle', 'hierophant', 'shadowfang', 'penitent', 'herald', 'tower', 'crownDF', 'crownWR', 'crownSN']);   // HERALD: the herald's trumpet and its banner, after the penitent's; SEAT1c (Seats-Arc 7.4): a seat's - `tower` every member of a guild holding a palace seat, a crown in its kingdom's metal every member of a crown's   // TITLE-N: each new title has its own glyph (Mac), true of whoever holds the title; SHADOW-FANG: the wolf's head, and the werewolf's skin rides it; PENITENT: the sword in its lozenge
 
 /** The bound on `g`, and it is the vocabulary's own size rather than a
  *  number somebody picked: a token carrying more glyph slots than there

@@ -183,12 +183,12 @@ test('PERF2 pins: the sky passes, the clouds\' composite and the ring sit AT the
   // the hosts: terrain, then the sky block, then the water
   const w = read('src/scenes/world.js');
   const terrainAt = w.indexOf('renderer.drawTerrain(p.dwTerrain ?? p.terrain, pixelMatrix,');   // DW-C: a pixel's clipped ground (Iliac Puddle No More's cap) draws in its place
-  const skyAt = w.indexOf('sky.draw(tvf ? tvf.yaw : cam.yaw, tvf ? tvf.pitch : cam.pitch, fieldOfView(), worldAspect');   // TV1: the sky turns to the travel view's eye
+  const skyAt = w.indexOf('sky.draw(tvf ? tvf.yaw : cam.yaw, tvf ? tvf.pitch : cam.pitch + climbFeel.pitch(), fieldOfView() + climbFeel.fovRad(), worldAspect');   // CLIMB4: the climb's pitch and kick   // TV1: the sky turns to the travel view's eye
   const ringAt = w.indexOf('farRing.draw(view, {');
   const waterAt = w.indexOf('if (waterOn) {');
   const billAt = w.indexOf('renderer.drawBillboards(allBatches, camRight, bbUp);');   // TV1: the flats lean to the travel view's eye
   assert.ok(terrainAt > 0 && terrainAt < skyAt && skyAt < ringAt && ringAt < waterAt && waterAt < billAt, `world: terrain ${terrainAt} < sky ${skyAt} < ring ${ringAt} < water ${waterAt} < flats ${billAt}`);
-  assert.equal((w.match(/renderer\.markForeignPass\(\);/g) || []).length, 16, 'moved, not added (UNDER-LOOK added the water\'s seam under the sea, GUILD1d added the halls\' banners\' seam, WB9g added the aura\'s seam, TV4 added the curtains\' seam under the travel view, DUEL1 added the ring wall\'s seam, WB2 the gate\'s fire, WB4a the court\'s telegraph, WB6a the Deadlands\' sea and sky, counted in glstate too): glstate counts the seams (WIND3 added the wisps\' seam, WEATHER2d the sand\'s, BOLT the bolts\', DW-C the sea surfaces\', OH-C the pit\'s core and miasma, counted there too)');
+  assert.equal((w.match(/renderer\.markForeignPass\(\);/g) || []).length, 18, 'moved, not added (LOOT11 added the loot lines\' two seams, the street\'s pass and the modes\' hook; UNDER-LOOK added the water\'s seam under the sea, GUILD1d added the halls\' banners\' seam, WB9g added the aura\'s seam, TV4 added the curtains\' seam under the travel view, DUEL1 added the ring wall\'s seam, WB2 the gate\'s fire, WB4a the court\'s telegraph, WB6a the Deadlands\' sea and sky, counted in glstate too): glstate counts the seams (WIND3 added the wisps\' seam, WEATHER2d the sand\'s, BOLT the bolts\', DW-C the sea surfaces\', OH-C the pit\'s core and miasma, counted there too)');
   const e = read('src/scenes/exterior.js');
   const eTerrain = e.indexOf('renderer.drawTerrain(groundSurface, identityMatrix,');
   const eSky = e.indexOf('sky.draw(Math.atan2(dx, dz), Math.atan2(dy, horiz)');

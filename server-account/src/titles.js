@@ -20,9 +20,14 @@
 //   DEV       the same list as the Developer title.
 //   DUNGEON MASTER, DISCIPLE, APOSTLE, HIEROPHANT (TITLE-N, 2026-09-24)
 //             your handle is in that title's own list in the config;
-//             each list grants the title AND its glyph.
+//             each list grants the title AND its glyph. PATREON-LINK
+//             (2026-10-01): or, for the three Patreon tiers, the Patreon
+//             account you linked is an active patron entitled to that
+//             tier now (patreon.js) - Patreon's word, stored as WB9g's
+//             sale is, and read against the config at every ask.
 //   SHADOW FANG (SHADOW-FANG, 2026-09-26) the same, one player's own.
 //   PENITENT (PENITENT, 2026-09-29) the same, Diggleborf's own.
+//   HERALD (HERALD, 2026-10-01) the same, and the Patreon tier's.
 //   GATEBREAKER (WB9g, 2026-09-30) - the ONE grant that is not derived
 //             but recorded: the title the Sigil Broker sells, held because
 //             the account bought it (the row's `insignia`, 0036). A sale is
@@ -57,6 +62,7 @@
 
 import { TITLES, GLYPHS, AURAS, SEAT_TITLES } from '../../src/net/identityToken.js';
 import { insigniaHeld, insigniaKeys } from '../../src/net/insignia.js';   // WB9g: the Broker's insignia - a title and an aura bought
+import { patreonTitlesOf } from './patreon.js';   // PATREON-LINK: a Patreon tier's title, held by the pledge
 
 /** THE FOUNDER CUTOFF, and it is a date rather than a count because
  *  "all current players" is a statement about a MOMENT. Everyone who
@@ -136,14 +142,21 @@ export const TIER_LISTS = Object.freeze({
   // PENITENT (2026-09-29, Mac): "This new custom title/glyph is for the user Diggleborf" - a second title made for one
   // player, granted the same way.
   penitent: 'PENITENT_HANDLES',
+  // HERALD (2026-10-01, Mac: "Herald doesnt exist ingame yet" - "you'll need to develop the herald title/glyph"): the
+  // Patreon tier between Disciple and Hierophant. Held by its pledge (PATREON_TIERS) like the tiers before it, and by
+  // this list for a Herald Mac names.
+  herald: 'HERALD_HANDLES',
 });
 /** The glyph each of those titles carries, in the vocabulary's words. */
-export const TIER_GLYPH = Object.freeze({ dungeonmaster: 'dm', disciple: 'disciple', apostle: 'apostle', hierophant: 'hierophant', shadowfang: 'shadowfang', penitent: 'penitent' });
+export const TIER_GLYPH = Object.freeze({ dungeonmaster: 'dm', disciple: 'disciple', apostle: 'apostle', hierophant: 'hierophant', shadowfang: 'shadowfang', penitent: 'penitent', herald: 'herald' });
 
-/** Does this player hold that list's title? A guest holds none, for the developer's reason. */
+/** Does this player hold that list's title? A guest holds none, for the developer's reason. PATREON-LINK (2026-10-01,
+ *  Mac: "having to manually hand out titles ... its really hard to keep up with it"): AND a Patreon tier's title is held
+ *  by the pledge too - the account's linked Patreon membership, read against PATREON_TIERS (patreon.js) - so a patron
+ *  needs no line here, and the lists stay for the titles Mac grants by name. */
 export const holdsTier = (title, player, env) =>
   typeof player?.handle === 'string' && !!player.handle && Object.hasOwn(TIER_LISTS, title)
-  && handleList(env?.[TIER_LISTS[title]]).has(player.handle.toLowerCase());
+  && (handleList(env?.[TIER_LISTS[title]]).has(player.handle.toLowerCase()) || patreonTitlesOf(player, env).includes(title));
 
 /** Is this player one of them? A handle a guest does not have cannot
  *  be in any list, so a guest is never a developer - which is right:

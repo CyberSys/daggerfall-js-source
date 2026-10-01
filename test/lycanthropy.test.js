@@ -106,8 +106,9 @@ test('V2a: the pending marker becomes a live curse in the same round, cured clea
   assert.equal(p.racialOverride, entry, 'the marker IS the entry');
   assert.equal(p.racialOverridePending, undefined);
   assert.equal(entry.infectionType, LYCANTHROPY_TYPES.Werewolf);
-  // CureAll at Start: the old fortify ended with the old life
-  assert.ok(p.activeEffects.find((a) => a.kind === 'fortifyAttribute').ended);
+  // CureAll at Start cures the old life - its buffs run on (CURE-ALL, FIELD BUGS 2026-10-01: they were ended, hidden
+  // while they ticked, and a recast merged into the hidden one)
+  assert.ok(!p.activeEffects.find((a) => a.kind === 'fortifyAttribute').ended, 'the fortify runs on');
   assert.equal(liveInfection(p), null, 'nothing left for the temple to cure');
   // and a second infection can never take hold
   assert.equal(infectionAccepted(p, INFECTION.Vampirism), false);

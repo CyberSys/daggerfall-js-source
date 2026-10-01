@@ -290,8 +290,8 @@
   {
     "name": "NAV1-no-disengage-hysteresis",
     "file": "src/systems/naval/navalAI.js",
-    "old": "      if (dist < (held ? sight * DISENGAGE : sight) && (held ? dist * 0.8 : dist) < enemyD) { enemy = c; enemyD = held ? dist * 0.8 : dist; }",
-    "new": "      if (dist < sight && (held ? dist * 0.8 : dist) < enemyD) { enemy = c; enemyD = held ? dist * 0.8 : dist; }",
+    "old": "      if (dist < (held ? see * DISENGAGE : see) && (held ? dist * 0.8 : dist) < enemyD) { enemy = c; enemyD = held ? dist * 0.8 : dist; }",
+    "new": "      if (dist < see && (held ? dist * 0.8 : dist) < enemyD) { enemy = c; enemyD = held ? dist * 0.8 : dist; }",
     "tests": [
       "test/navaudit_captains.test.js"
     ]

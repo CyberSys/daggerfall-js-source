@@ -1,9 +1,11 @@
-# FIELD BUGS 2026-10-01 - the runaway pet's tiger; and seven lines: the yard, the market, the paint, the rent, the road, the potions, the climb past 100; and eleven: the rain in a puddle, the sprinkle, the square clouds, the sea from under it, the slow frames, the Overworld
+# FIELD BUGS 2026-10-01 - the runaway pet's tiger; and seven lines: the yard, the market, the paint, the rent, the road, the potions, the climb past 100; and eleven: the rain in a puddle, the sprinkle, the square clouds, the sea from under it, the slow frames, the Overworld; and seven more: mining, the regeneration spell, the King's Mark, the cloak's drape, the identified trade, the shrine
 
-*The same date, three times (the merges of PR #498 and PR #499 with main, 2026-10-01): KEPT-KILL was written on main
-(PR #497) while part two - a list of seven - was written on PR #498's branch, and part three - two lists, eleven lines -
-on PR #499's, each under the same name. The merges keep all three here, so every cite of this page stands; part two's
-numbers (1-7) and part three's (1-11), their tags and their pins' `fb1001_` are each their own.*
+*The same date, four times (the merges of PR #498 and PR #499 with main, 2026-10-01, and part four's branch after
+them): KEPT-KILL was written on main (PR #497) while part two - a list of seven - was written on PR #498's branch, and
+part three - two lists, eleven lines - on PR #499's, each under the same name; part four - seven screenshots and a line
+- on `claude/mining-life-skill-broken-s7ustd`. The merges keep all of them here, so every cite of this page stands; part
+two's numbers (1-7), part three's (1-11) and part four's (1-7), their tags and their pins' `fb1001_` are each their
+own.*
 
 One #bug-reports thread, and Mac's ask on it: *"Report on other player's quest enemies being dead"*, then *"If someone
 kills a quest target regardless of relation then it should ping the quest for the players involved regardless ... So if
@@ -28,7 +30,7 @@ Houseguest", is the other tiger in the pack: a house, and a kill.)
 `scenes/world.js` questShareSeam):
 
 - The quest's own mount stands it on its player's machine alone (`systems/quest/sceneMount.js:118` - only while
-  `killCount < spawnCount`), past the layout's run (`dungeonContext.js:1447` spawnQuestFoe). The room's stream carries
+  `killCount < spawnCount`), past the layout's run (`dungeonContext.js:1448` spawnQuestFoe). The room's stream carries
   the layout alone (`foesFrame`), and a peer's blow past the run is refused (`applyHit`, `i >= _layoutFoes`).
 - Shared with the party (QUEST-PARTY), it rides the room's own lane to the party alone, stood as a puppet for a LINKED
   copy only (DISC28-J's `accepts`), struck only by the party, hunting only the party (`isPrivateQuestFoe`,
@@ -667,3 +669,384 @@ scratch triple (to the bit, 2,000 cases), which the flag cubes turn through. `te
 Left open: the hull's tree walk itself (pruning the subtrees the pool never reads - the oar effects' - would halve a
 galley's), which AUDIT 0928's pin holds to every active object in order; and at night a moving ship's lanterns within
 51.5 m re-render their shadow faces every frame (a change to what is lit, so not taken here).
+
+## Part four - mining, the regeneration spell, the King's Mark, the cloak's drape, the identified trade, the shrine
+
+Seven screenshots through Mac - six #bug-reports threads and one #suggestions post - and his own line beside them:
+*"Also mining, the life skill, is broken"*. The rule is the one Mac set on 2026-09-30 (*"I dont care about DFU. We're
+our own thing now"*): every report root-caused on the real modules before anything changed, each fix pinned red on the
+code before it and mutation-checked. Five search lanes ran at once, one a report each; the mining lane walked E to the
+ore end to end on the real modules and ranked what could make it do nothing. One report did not reproduce, and is
+answered with a guard pin. Three calls were Mac's, asked after the first push: the shrine (*"Not now"*), the climb at a
+vein (*"Hold it at nodes"* - CLIMB-NODE) and an area spell's caster (*"Include the caster"* - AREA-CASTER). Then two
+words of his: *"let's do a comprehensive audit on this and also ensure the other professions are sound"* - the audit,
+at the end of this part, twenty faults fixed and two calls asked - and *"Remove the time limit for professions"* -
+ANY-HOUR, before it.
+
+| | Report | Reporter | What it was | Done |
+|---|---|---|---|---|
+| 1 | "minig is broken doesnt work"; Mac: "Also mining, the life skill, is broken" | OG; Mac | nothing in the laws (every mining suite green): four faults between E and the ore. Mid-act only the right button struck - a left click was the act's and nothing else, and the meter's "strike the glint" named no key; a finger's or a pad's Attack never reached the act, street or dungeon; a boulder was found only by aiming a metre up its rock, and the node nearest the look was hidden-tested alone, so one behind its rock hid every other; a vein with no rock left could stand inside a rock piece; and walking into a vein's rock to reach it climbed the rock (CLIMB2's free climb) | fixed (ACT-CLICK, ACT-TOUCH, NODE-AIM, VEIN-CLEAR); asked, built (CLIMB-NODE) |
+| 2 | "Regen spell stopped providing healing after vampire transformation" | Skaadi | the turn's CureAll ended every live entry: a running Regenerate ticked on hidden from the HUD, the party cards and the dispel list, and every recast merged into the hidden one; CureAll never cured the poisons nor filled the pools it should | fixed (CURE-ALL) |
+| 3 | "Big Regen Spell doesnt do anything" - GOD MODE: Area at Range, Magic Based, Regenerate and Fortify Attribute (Strength) | Opaldes; Skaadi: "Yeah that's precisely what my spell is as well. Same issue." | an Area at Range spell reached its caster only where it burst within 4.35 m of them, an Area Around Caster never (DFU's ignoreCaster); and where it did, its caster saved against their own gift - the Regenerate every round, the Fortify at its landing, two rounds in three zeroed for a Breton, silently | fixed (AREA-SELF); asked, built (AREA-CASTER) |
+| 4 | King's Mark: "If these items spawn as wands, they cannot be equipped as wands are not an equippable effectively being useless. Solution: Make these items not roll as wands" | Cruor | a Legendary record names the piece a maker minted; the Gate's spoils and a town's thanks drew a jewel over all eight Jewellery templates, and the eighth is the Wand, which no slot takes - one jewel in eight, every tier on it read by nothing | fixed (RARITY-WEAR) |
+| 5 | "With the last patch it removed the 'Use' button for cloaks and replaced it with 'Raise Hood' and I can no longer change how the cloak is worn, eg; Over shoulder, behind, etc" | SlipperyPeasant | HOOD-SAID (PR #468) put the hood's button in Use's place on a worn cloak's card, and the hood keeps the drape: a worn casual cloak's other two drapes were out of reach on the Enhanced Plus pack | fixed (CLOAK-DRAPE) |
+| 6 | "If you trade someone unidentified items and they identify them, They will not be identified when traded back to the original player." | Masta_Fu | did not reproduce: the flag rides every door a traded piece passes, hand to hand and through the realm | answered; guard pin (TRADE-KNOWN) |
+| 7 | "Fully restore magicka by donating to wilderness shrines" - "Make an offering of (x amount gold) and meditate for an hour?" (#suggestions) | QuinsmQuansm | a design ask - World of Daggerfall's shrines stand in the wild (`WOD_Shrine_Dibella_01`, the regions' Shrines and Roadside Shrines lists), and nothing in them is worked | asked: Mac, "Not now" - recorded, not built |
+
+Pins: `test/fb1001_{mining,regen,wand,drape,identify,climbnode}.test.js` (8, 5, 3, 2, 2, 4), each red on the code before
+but the guard pin (it passes on the code before, and its mutants are the claim) and the guards beside the reds (a jump
+not held, a blast with harm in it). Mutants: `tools/mutants/fb1001_mining.json` (15), `fb1001_regen.json` (14),
+`fb1001_wand.json` (11), `fb1001_drape.json` (10), `fb1001_identify.json` (5), `fb1001_climbnode.json` (6) - all dead. PIN MOVED, each by content: `prof1_client` (the world host's `gatherHost?.acting()` reads, seven to eight - the
+tap's), `audit0928_input` U2 (the tap hook it lifts asks the gathering host's act, after the decorator's flight -
+`gatherHost: null` in its scope), `parkour` CLIMB1 (the world host's motor hands the parkour deps its hold), `lycanthropy` V2a (the old life's fortify runs on), `curse_persist` CURSE-REPAIR1 (what the onset cures is a
+drain, not a buff; a curse given back cures neither). Mutant records re-aimed by content, each dead: `audit29.json`
+AUDIT29-C1-through-the-wall (the seen test is the loop's now), `fb0929h_infectionkept.json`'s turn mutant (CureAll's
+import), `prof2.json` PROF2-33-no-stone-tile and `wb5.json` WB5-a-piece-without-its-row (the guards they cut grew a
+clause), and the three cite-rot records whose cites the shift moved (`survtiers.json`'s potion cite, `survtiers3.json`'s
+two equip cites). Six world.js cites in struck rows (the Ledger's, the Settings spec's), which the shift holds, were
+moved by hand to the lines they mean (citedrift CD4).
+
+## ACT-CLICK and ACT-TOUCH: every press the player has strikes (1)
+
+**Reproduced first** (the real gathering host and its kinds over a stood Woodlands pixel - `test/fb0930b_toolsaid`'s
+- and the world host's own input closure lifted off its source and run over the real edge ring and the shipped
+bindings): E at a vein starts the act; the act strikes on `input().attack` alone, which was the frame's SwingWeapon
+press - the right button (`inputActions.js` Mouse1). A left click (ActivateCenterObject) reached nothing: mid-act it is
+the act's and no door's (AUDIT 32 H5), and the act never read it. The meter said "strike the glint". A finger's Attack
+button or swipe and a pad's trigger never write the edge ring - they call the hooks object (`inputHooks.attack`), which
+during an act refused the press ("an act's tap is the act's") and handed it to nobody; underground the dungeon's sink
+does the same (`dungeonContext.js` playerAttackInput). So on a phone or a pad the meter stood, the glint moved round,
+and no vein was ever mined; Logging's chop, the Basket's search and Fishing's haul read the same input. AUDIT 29 C2/H3
+had met the same wall from the other side - a click or a tap started an act a swipe could not play - and took the
+click's start away rather than giving the act its strike.
+
+**The fix.** ACT-CLICK (`scenes/world.js`, the gathering host's `input`): the act's strike is the swing's press OR the
+activation's - either button, on the press, never the hold. ACT-TOUCH (`scenes/gatherHost.js` `strike(held)`): the
+hooks hand every press to the host before any gate (`inputHooks.attack`, so the street's and the modal rigs' alike),
+and a tap mid-act is a strike (`inputHooks.tap`, right after the decorator's flight, under which a tap is no press; it
+armed an activation that did nothing mid-act); the press that
+lands while an act plays is its strike on the next frame - that act's, never one Escape and E swapped in under it - a
+held finger or a swinging stick strikes once, and a press with no act is never banked for one that starts after. The meter names it: "click to strike the glint", "click as the
+ring meets the notch" (`ui/profHud.js`). THE FOUR HOSTS: the streaming world wired (the street, and the dungeon and the
+buildings through the same hooks); the fixed city (`scenes/exterior.js`) stands no nodes (PROF0 17.1, FLAGGED there);
+the interiors (`scenes/worldModes.js`) and the dungeon (`scenes/dungeonContext.js`) hold their swing off an act as
+before and are reached by the world host's hooks. `test/fb1001_mining.test.js` (ACT-TOUCH 4, ACT-CLICK 1).
+
+## NODE-AIM and VEIN-CLEAR: the node you look at is the one you get (1)
+
+**Reproduced first** (the real host over the pixel, a boulder at a rock four metres tall): a boulder's aim point is its
+lift, half its rock's height up to 1.2 m (`mineHost.js` standMineNodes), and the host found a node by the angle to that
+point alone, within NODE_AIM_DEG (12) - so from a metre and a half its loose stones, where NODE-MARKS' glow stands, are
+some 30 degrees off it, and no look at them found it: no prompt, and E did nothing. And the host took the node nearest
+the look, then asked the collider whether it was seen (AUDIT 29 C1) - only that one: a vein behind its rock nearest the
+crosshair hid every other node in view. And a vein with no rock piece left to claim stood on the nearest stone tile
+where nature could, with no look at the field's pieces: a rock field stands on stone, so that tile could lie under a
+piece - a vein inside a rock, glowing and on the compass, that no look could reach.
+
+**The fix** (`scenes/gatherHost.js` findTarget; `scenes/mineHost.js`). The look meets a node anywhere up its upright,
+from its base to its aim point (the point of it the look passes nearest - the look's height at the node's distance
+along its bearing, held between the two); of the nodes in the cone, nearest the look first, the first the collider
+says is seen is the target. A vein's stone tile and its last fallback are never inside a rock piece (`insideRocks`,
+AUDIT 29 C11's test for a rock's foot). The act's own aim - its glint points - is the node's aim point, as before.
+`test/fb1001_mining.test.js` (NODE-AIM 2, VEIN-CLEAR 1).
+
+## CURE-ALL: the turn cures the old life and leaves this one's buffs (2)
+
+**Reproduced first** (Skaadi's spell through the real `applySpell`, a poison by `startPoison`, a disease by
+`inflictDisease`, a drain; the turn by `createVampirismCurse`, the deploy's own constructor, and the werewolf's by its
+bite walked to the turn): after the turn the Regenerate entry carried `ended` - and a timed entry ticks on whatever it
+says (`effects.js` tickActiveEffects), so it healed, but `liveBundles` (`mysticism.js`) skips it: no icon on the HUD,
+none on the party's cards, nothing to dispel; and `findInc` asks no `ended`, so every recast merged into the hidden
+entry and the icon never came back while the spell was kept up. The poison ran on ("ended above by their own law" -
+nothing ended it), and no pool was filled. The healing itself was never stopped by the turn: what zeroed GOD MODE's is
+AREA-SELF's, below.
+
+**Why.** `lycanthropy.js` endOldLifeEffects stood for PlayerEffectManager.CureAll, read as "every effect of the old life
+ends". CureAll (EntityEffectManager.cs:1598-1608) fills health, fatigue and magicka, removes the poison bundles, cures
+the diseases and heals attribute and skill damage - the buffs are left (VampirismEffect.Start :81, "cure everything on
+player").
+
+**The fix** (`systems/lycanthropy.js`): CureAll whole, through the port's own homes - `fillVitalSigns` (statMods.js),
+`cureAllPoisons` and `cureAllDiseases` (effects.js), `cureAllAttributes` (guildServiceFlow.js; no effect of the port
+holds a skill down, so CureAllSkills has nothing to cure). The buffs running at the turn run on, shown. One home for
+both curses, as before. `test/fb1001_regen.test.js` (CURE-ALL 2).
+
+## AREA-SELF: a caster's own blast of gifts lands on them as a self-cast (3)
+
+**Reproduced first** (GOD MODE through the real cast engine, `createPlayerMagic`, test/roadh_missiles's rig, a Breton
+caught two metres from the burst): the Regenerate landed with `saveScaled` and the Fortify at whatever its landing's
+save left - its caster rolled Resist Magic against their own gift, every round of the Regenerate (`effects.js`
+effectMagnitude). The regeneration lane's engine run: three bursts by a wall two metres off gave the Fortify 200, 0 and
+950 of 1001; burst thirty metres off, or into open air until the missile's eight seconds ran out, the spell landed on
+its caster nothing at all, and said nothing.
+
+**Why.** DFU save-scales every bundle that is not CasterOnly (EntityEffect.cs:805-806) and means it for the caster too
+("Allow to resist 'other target' spells, e.g. when caught inside own AOE radius", EntityEffectManager.cs:1254-1255).
+The port already ruled the other way for a gift: AUDIT ALLY-CAST C1 - a party mate's buff lands as a self-cast,
+because in DFU only a foe ever receives an external bundle - so a mate's blast healed its party whole and its own
+caster by two rounds in three.
+
+**The fix** (`scenes/hostMagic.js` explodeAt): where the player's own blast catches the player and every effect in it is
+a gift (`allyCastable`, the ally law's one test), it lands as a self-cast. A blast with harm in it, and a foe's, are
+saved against as before. A departure (Port-Ledger). The reach was DFU's - an Area at Range spell's caster in its blast
+only where it bursts within 4.35 m (`spellcast.js` EXPLOSION_RADIUS and the player's 0.35 body), an Area Around
+Caster's never - and Mac, asked, took it away for a spell of gifts: AREA-CASTER, below, lands it on its caster at the
+cast, so the burst passes them by. `test/fb1001_regen.test.js` (AREA-SELF with AREA-CASTER 3).
+
+## RARITY-WEAR: no slot, no tier (4)
+
+**Reproduced first** (the real `rollSpoils` and `rollRaidSpoils` over two thousand seeds, the real `equipItem`): the
+Gate's spoils and a town's thanks mint their base in `gateSpoils.js` spoilsBase, a jewel a third of the time drawn over
+`ITEM_GROUPS.Jewellery` - Amulet, Bracer, Ring, Bracelet, Mark, Torc, Cloth Amulet and Wand. The Wand (140) has no slot
+(GetJewelleryEquipSlot's None; `equipRules.js` has no row, `test/equipmechanics.test.js` pins "wands resolve nowhere"),
+and the ladder graded it all the same: its affixes and a Held enchantment read worn pieces alone (`lootRarity.js`
+wornItems, `enchantments.js` equippedEnchantedItems), so a King's Mark on one was a different picture, a WEAR that did
+nothing, and a USE that said "Nothing happens." The search lane's run: 82 of 706 King's Marks on a Wand.
+
+**The fix.** `systems/equip.js` wearableItem - GetEquipSlot asked of an empty table, the one law; `lootRarity.js`
+rarityEligible refuses a piece no slot takes; the spoils' base is made again when it is one (a seed that drew no wand
+draws what it drew before); and a save's rolled wands load as the Amulet (`repairRarityBases`, beside DISC29-B's repair
+in `save.js`, every list the save carries): the same weight and condition, a Legendary keeping its record's name, a
+Magic or Rare one named for its new base, the price moved by the two bases. DFU's own wands (MAGIC.DEF's, Use a cast)
+and a plain one stay wands. `test/fb1001_wand.test.js` (3).
+
+## CLOAK-DRAPE: the drape beside the hood (5)
+
+**Reproduced first** (the Enhanced Plus pack mounted on the fake document, a casual cloak worn through `equipItem`):
+the card offered Take off, Raise hood, Add to hotbar, Lock, Info, Post in chat - the screenshot's row; Raise hood moves
+to the same drape's other drawing (`toggleHood`, `variant ^ 1`), so of the casual cloak's six drawings - three drapes,
+0/1, 2/3 and 4/5, each one hood down and one hood up - two drapes were out of reach while worn. Taken off, its Use from
+the pack still stepped them; the classic window's Use and middle click were never changed.
+
+**The fix** (`systems/useItem.js` nextDrape, drapeCount; `ui/enhancedInventory.js`): a worn hooded garment of more than
+one drape - the casual cloak - carries Change drape beside the hood: the next drape, the hood as it was, said ("You
+rearrange your cloak."), the doll redrawn and the card kept up, as the hood's press is. A formal cloak and plain robes
+hang one way and get none; an enchanted casual cloak keeps its Use beside it. `test/fb1001_drape.test.js` (2).
+
+## TRADE-KNOWN: the report did not reproduce (6)
+
+**Tried** (the real trade manager over the real trade pack and `validTradeData`, hand to hand; and the real account
+Worker over node:sqlite with `createRealmSession` and `realmTradeEscrow`, test/realm4's two tabs): DFU's own magic
+Broadsword and a ladder's Rare, both minted unknown, handed A to B; B knows them by the Identify spell's law; B hands
+them back - A holds both known, reads their known names, and the realm's record keeps them known. What a piece knows is
+its record's `isIdentified`; the wire's clamp keeps it as the bool it is (`loot.js` validLootItem, `itemFields.js`), the
+relay reads no item, and a realm trade moves the giver's own checkpointed record, which must be the offer in every field
+but the count, the price and the receiver's marks (`realmTradeLaw.js` recordIsOffered). Nothing keys a piece by an id
+that could put an older copy back. So the file is a guard pin.
+
+**Open, unconfirmed.** Knowing a piece is no realm act: it rides the holder's next checkpoint (the two-minute one, a
+page hidden, a trade's hold - which checkpoints first). A tab that joins again before one lands plays the record the
+first trade wrote, the piece unknown in it. For the reporter: did the piece show its known name in the trade window's
+offer before the trade back, and is it known in the holder's pack after a relog?
+
+## AREA-CASTER: an area spell of gifts lands on its caster (3; asked)
+
+**Asked** after the first push - Area Around Caster never reaches its caster (DFU), and Area at Range only within about
+4 m of its burst: should an area spell made only of buffs always land on its caster too? Mac: *"Include the caster"*.
+
+**Built** (`scenes/hostMagic.js` giveAreaToCaster): an area spell every effect of which is a gift (`allyCastable`, the
+ally law's one test) lands on its caster at the cast, as a self-cast (never saved against - AREA-SELF's law): an Area
+Around Caster's beside the foes, mates, duel opponent and boss its sweep reaches; an Area at Range's as its missile
+leaves, wherever it bursts and if it bursts nowhere. Once: the burst that catches its caster passes them by (AREA-SELF's
+arm in explodeAt now lands nothing on them), or a second Regenerate's rounds would stack onto the first. The landing
+says a Heal's "You are healed N points.", as a Caster Only cast does. A spell with harm in it is DFU's still: its caster
+only where its blast reaches them, and saved against; a foe's blast of gifts is saved against. In the ledger with
+AREA-SELF. `test/fb1001_regen.test.js` (AREA-CASTER 3).
+
+## CLIMB-NODE: the free climb holds at a node (1; asked)
+
+**Found** walking E to the ore: CLIMB2's free climb starts after Forward is held against any face for its start time
+(0.6 s, 0.3 s at Climbing 100; online always - `player/motor.js` _freeStart, `player/parkour.js`), and a vein stands at
+its rock's foot, so a player who walked into the rock to reach the ore climbed it and lost the target and the act.
+**Asked**: Mac, *"Hold it at nodes"*.
+
+**Built** (`player/motor.js` _freeStart, `scenes/shared.js` parkourDeps' `hold`, `scenes/world.js`): while a
+profession's node is under the look - its prompt up (`gatherHost.target`) - or an act plays, the walk-in start is held,
+and its count begins again when it lets go (pressed into the rock most of the start time, a node, then none: a whole
+start time again, never the rest of it). A jump's grab and a mantle are a jump's and are not held; the hang, the
+shimmy and climbing anywhere else are CLIMB2's. THE FOUR HOSTS: the streaming world's one motor (its dungeon and its
+buildings drive the same `player`) is handed the hold; the fixed city (`scenes/exterior.js`) and the standalone
+dungeon (`scenes/dungeon.js`) stand no nodes and hand none; the interiors (`scenes/worldModes.js`) and the dungeon
+mode (`scenes/dungeonContext.js`) are the world host's motor. `test/fb1001_climbnode.test.js` (4).
+
+## Found on the way, not changed
+
+1. **Climbing at a vein** - asked, and built: CLIMB-NODE, below.
+2. **Starting an act by touch or pad.** The touch corner carries no Interact, nor the pad's defaults; a tap and the
+   pad's A are ActivateCenterObject, which AUDIT 29 C2/H3 kept off the nodes. With ACT-TOUCH an act struck by Attack
+   (a vein, a tree, the Basket's glints, the net's tug) can be played by touch; the start is still E or the tool's
+   hotbar Use (TOOL-USE). CORRECTED by the audit below: the acts HELD on E - the steady hand, the knife's trace, the
+   net's haul - are not (the Sickle's Use holds the steady hand; nothing holds the other two), and a common herb, which
+   no tool picks, cannot be started at all - asked of Mac (TOUCH-HOLD, below).
+3. **VEIN-NEED's line** is replaced when anything else is under the ray (a far corpse, a door); underground it speaks
+   only when nothing at all is hit.
+4. **A dungeon vein's foe.** A vein stands off a foe marker, and the enemies-near check reaches 12 m: a live foe at its
+   marker refuses the start, said ("You cannot mine with enemies nearby!").
+5. **A partial save is silent.** "Save versus spell made." is said for a full save and a failed chance; a magnitude a
+   save zeroed says nothing (DFU says it, EntityEffect.cs:810) - a harmful own blast's, a foe's.
+6. **Area Around Caster never reached its caster** (DFU's ignoreCaster, DaggerfallMissile.cs:282) - asked, and built for
+   a spell of gifts: AREA-CASTER, below.
+7. **The Jewellery Legendaries name no templates**: a King's Mark lands on any wearable jewel, and Archmage's Loop -
+   "one of the rings" - on any.
+8. **Deep Waters' FillRandomItem** mints plain wands; none reaches the ladder today, and `rarityEligible` refuses one
+   that ever does.
+
+## ANY-HOUR: the professions keep no hours (Mac's word)
+
+**Mac, 2026-10-01**: *"Remove the time limit for professions. Should be available at any time"*.
+
+**What it was**: the acts borrowed Foraging's checks (FORAGE0 14.3), daylight 07:00-17:59 among them - from 18:00 to
+06:59 a vein, a boulder, a patch (the Sickle's or the Basket's), a tree and the net said "You need daylight to mine
+effectively!" and the like - and the service refused any surface harvest whose act ended in those hours (`prof-night`,
+on the shared clock from the act's end). Dungeon veins and Hunting never kept hours; the stations never closed (online
+the shops stand open - OL5's shift). An act begun at 17:59 and ended at 18:00 was played, wore its tool, and was refused
+(lanes 4 and 5 below both found that edge; it goes with the rule).
+
+**Built**: a profession's act never asks the daylight (`systems/foragingInstall.js` foragingActRefusal skips it - one
+home for the five acts' starts); the net's prompt names no hour (`scenes/fishHost.js` NET_WHERE); the words say none
+(the Fishing-Net's line, the Professions page's Fishing how-to: "at any hour"); the service answers a harvest at any hour
+(`server-account/src/professions.js` harvestNode - the check, its hour helper and `prof-night`'s status gone; the client
+keeps the word's text for a service not yet redeployed). Foraging's own Use - offline and a guest's lane, the mod's 1:1 -
+keeps the mod's day (`test/forage2_tools.test.js` pins its refusal). The first and last daylight hours still halve the
+net's wait: a bonus, not a gate. `test/fb1001_anyhour.test.js` (3); `tools/mutants/fb1001_anyhour.json` (5) - all dead.
+PIN MOVED, each by content: `prof1_service` (02:00 harvests), `prof2_service` (a surface vein by night), `prof4_service`
+(a tree by night), `prof8_service` (a haul at 23:00), `prof8_client` (the net cast at 21:00; no hour has words),
+`fb0930b_toolsaid` (the net's line). MUTANTS RETIRED (the law they guarded is gone): `prof1.json` PROF1-31,
+`prof2.json` PROF2-20, `prof7.json` PROF7-svc-body-by-day, `prof8.json` PROF8-svc-night-fishing.
+
+## The audit: part four, and the professions sound (Mac: "let's do a comprehensive audit on this and also ensure the other professions are sound")
+
+Five adversarial lanes, each in its own worktree on e01969fd, reproducing every claim on the real modules (the real
+Worker over node:sqlite, the real books and hosts, the real pad and touch layers) before it was a finding: (1) part
+four's two commits line by line; (2) Herbalism and the gathering shell; (3) Logging, Carpentry, Smithing and the
+stations; (4) Hunting, Outfitting and Fishing; (5) the client's laws against the service's. Beside them a re-read of
+part four's own fixes found three faults first (NODE-SHUT, STICK-TAP, CLICK-LIFT), each red on e01969fd before the lanes
+reported, and two lanes found each of them again. No lane changed the tree; every fix below was pinned red on the code
+before it and mutation-checked. Mouse and keyboard play every profession end to end; the faults were at the edges - the
+ground a client stands on, the counters, the pad, the finger, and part four's own new seams.
+
+| Tag | Lane | What it was | Done |
+|---|---|---|---|
+| NODE-SHUT | own; 1, 2, 3 | CLIMB-NODE's hold reads the gathering host's target, and a shut frame (a sign-out, another account, the switch) left it: the free climb's walk-in start stayed held everywhere until the professions opened again | the shut frame clears the target (`scenes/gatherHost.js`) |
+| STICK-TAP | own; 1 | ACT-TOUCH struck on any tap mid-act - TS1's lock-only tap (a thumb re-placed on the move stick) and a tap in the docked bar's strip among them: an unchosen strike off the glint, a Basket's glint spent, a tug taken | the strike asked after the view's own test and never on the stick's tap (`scenes/world.js` inputHooks.tap) |
+| CLICK-LIFT | own; 1, 2, 4 | ACT-CLICK made the click a strike on its PRESS; the activation fires on the RELEASE, and the ladders asked only whether an act still played - the click that finished a vein, a tree or the Basket lifted onto the door, the chest, the body or the lever under the look, street and dungeon | the click an act took is the act's to its release (`gatherHost.js` clickTaken; the street's ladder; `worldModes.js` tryExitDungeon) |
+| CURE-ENDS | 1 | CURE-ALL cures a drain through the stat reset, which zeroed it and left it; a foe's drain is bundled, so the HUD kept a debuff that did nothing - blinking, never ending, on the party cards and the dispel list, through saves (the guild's stat reset did the same) | a cured drain ends (`systems/guildServiceFlow.js` cureAllAttributes), and one a save kept at nothing ends at the load door (`systems/save.js`) - never in the tick, which names no kind (CURSE-PERSIST1's law) |
+| CURE-FILL | 1 | the turn filled the pools before the cures: a drained Endurance, Strength or Intelligence left fatigue and magicka short of the full the record promised | the pools are filled last (`systems/lycanthropy.js` endOldLifeEffects) |
+| GROUND-STALE | 5; 2, 3 | a pixel's (or dungeon's) witnessed state was read once a UTC day, the service's at every harvest: the third witness's own harvest confirmed the ground and its client went on standing the least - "Mine Iron" offered a novice, played, worn, refused `prof-rank`, every try till midnight (a quarter of a Mountain's veins, a Woodlands Oak a Cherry, every dungeon vein) | a harvest's answer, or a refusal, marks its ground stale: it stands as it did, the next ask reads it, a moved state stands its nodes again (`net/profBook.js` staleGround, pixelWanted, dungeonWanted; `gatherHost.js`) |
+| GROUND-MIDNIGHT | 5 | at 00:00 UTC the host stood every pixel again before the day's states were read, and the read stood again only what CHANGED since yesterday: ground confirmed both days stood unconfirmed all day (its signature veins gone), and so did the dungeon underfoot | yesterday's word is no word (`net/profBook.js` askPixels, askDungeon) |
+| STORES-ROOM | 5; 2, 3 | the kinds asked `held` (own and bought - what a station may spend) for the Stores' room, the service every origin: with gold-bought units the prompt said ready, the act wore the tool, `stores-full` | the room as the service counts it (`net/professionLaw.js` storesFullIn - the five kinds) |
+| REFUSALS-LEARNED | 5 | nothing learned from `prof-account-cap`, `prof-deep-cap`, `prof-cap` or `stores-full`: every act after was offered ready, played and refused | the character's day and the Stores read the state again; the account's craft and its unvouched dungeon veins close until the UTC day turns, and the host says so (`net/profBook.js` closed; `gatherHost.js` planFor) |
+| RATE-KEPT | 5 | `prof-rate` ("Try again later") let the harvest go after the act | kept and asked again inside its ten minutes (`net/profBook.js` send) |
+| NODE-SPAN | 3; 2 | a node is found up its upright, base to aim point; a tree's is 1.2 m and its glow 3.4 m - a level look from two metres passed over it, a look up never found it, the saddle never; a patch glowed 1.3 m and was found 0.3 m up its centre | the upright runs to the glow's top where that stands higher (`gatherHost.js` findTarget) |
+| NODE-CLEAR | 2; 3 | VEIN-CLEAR kept veins out of the rock pieces; a patch or a tree could stand inside one, glowing, unreachable | a patch inside a piece stands nowhere, a tree claims the nearest flat outside every one (`world/terrainNature.js` insideRocks, one home; `herbHost.js`, `treeHost.js`) |
+| STEADY-SAID | 2 | the steady hand ends when E is let go, and its meter said "hold still" and no key: a tap of E ended it, nothing taken | the meter names the key E's start holds (the Sickle's Use holds it itself, and names none) (`herbHost.js`; `ui/profHud.js`) |
+| SEASONAL-EYE | 2 | Herbalism 100's Seasonal Eye chosen mid-session stood nothing again until the next state read or the day's turn - a winter day's patches named herbs the service did not roll | a change of it stands the pixels again (`gatherHost.js` tick) |
+| PAD-PULSE | 1; 3, 4 | the Plus pad's gesture swing re-draws its stroke every 0.4 s while RT is held, and each was a press: RT held felled a tree, caught every tug, mined a vein by itself - against ACT-TOUCH's own "a held press strikes once" | a stroke after the first is the hold's, marked, and no act's strike (`ui/gamepadInput.js`; `world.js`; `gatherHost.js` strike) |
+| TOUCH-RETAP | 1 | the Attack button's lift waits two frames (TOUCH-BUTTONS A1); a second tap inside them cancelled the lift, so the hook heard held, held - no second press to an act | a press lifts the one before it first (`ui/touch.js`) |
+| CHARCOAL-BUY | 3 | "Steel wants Charcoal ... and the smith sells it" - but the smith's stock was bought only on an anvil recipe short of an input, and none takes Charcoal: no counter stood anywhere, and a smith who felled no tree smelted no Steel | the Forge offers it at a smith's forge (`ui/profPages.js` drawForge) |
+| COUNTER-GATES | 3 | the anvil's and the workbench's counters took none of AUDIT 32 P6's gates (the loom's): offered with Marks shut or too few held, refused after the press | one counter's buy for all four (`ui/profPages.js` counterBuy) |
+| PAD-CLASSIC | 3 | the Professions pages are DOM on the classic skin too, and the pad's cursor clicked the DOM only under Plus: the Forge, the Anvil, Withdraw unpressable on Classic with a pad | the pad's click reaches the page on every skin, as a mouse's does (`ui/gamepadInput.js` pointerAt) |
+| NAVAL-E | 4 | at sea the net's cast stands in the look and the node had E first: the readout said "E: board her" and E cast the net (with a foe near, it said "You cannot fish with enemies nearby!") | the street asks the sea first (`scenes/navalHost.js` takesActivate; `world.js`) |
+
+Pins: `test/fb1001_audit.test.js` (10), `fb1001_ground.test.js` (9), `fb1001_nodes.test.js` (5),
+`fb1001_stations.test.js` (3); mutants `tools/mutants/fb1001_audit.json` (16), `fb1001_ground.json` (21),
+`fb1001_nodes.json` (9), `fb1001_stations.json` (4) - all dead. PIN MOVED, each by content: `fb1001_mining` (the tap's
+strike its third line, after the view's test; the attack hook hears a held stroke's repeat), `fb1001_regen` (the cured
+drain ended), `audit32_client` H5, `audit29_host`, `disc7`, `prof1_client` (the ladders and the node's press:
+the act's click, the sea's E), `auditnav2_helm` F31 (the gate's lifted segment asks the act's click), `touchbuttons` A1
+(a re-press lifts the one before), `a8_pointer`, `audit62_touch` (two), `roada_activate_gate` and `deckfield` (the
+street's and the modal frame's press named before the gate, the act's click asked with it), `audit39_uicore` and
+`touchinput` (world.js's attack hook hears a held stroke's repeat). Mutant records re-aimed by content, each dead:
+`audit32.json` H5 (two),
+`auditdisc7.json` A1, `fb1001_mining.json` ACT-TOUCH-the-tap-not-a-strike, `fb1001_regen.json` (the four CURE-ALL
+records, the fill now last), and those the new code moved: `audit32.json` P6 (two - the counters' one buy),
+`fb0930b_toolsaid.json` TOOL-USE-the-use-plans-as-e, `fb1001_mining.json` (ACT-TOUCH's edge and hook, NODE-AIM's three
+- the span to the glow), `prof3.json` PROF3-page-stock-at-home, `prof4.json` (the tree flat, the furnisher), `prof7.json`
+the Weavers' door, `touch_buttons.json` A1's window gate; `auditnav2_helm.json` F31 aims at `activate`'s guard alone
+(`takesActivate` words its own). Part four's one stray space (`lootRarity.js` affixesWorth) is put back (lane 1).
+
+**Asked** (design, Mac's to call - and called: the next section):
+
+1. **TOUCH-HOLD** (lanes 2, 3, 4). No Interact exists on a phone or in the pad's shipped layouts, and E is the
+   professions' start and their hold. On those devices a common herb (no tool picks it) cannot be started, Hunting
+   cannot be started at all (the Skinning Knife has no Use) nor its trace played, and the net's haul cannot hold its
+   band (299 of 300 seeded hauls slipped to a plain net). The Sickle's hotbar Use holds the steady hand; nothing holds
+   the trace or the haul.
+2. **HERB-XP** (lane 2). Herbs stop at tier 3, and a node more than two tiers under the rank's top is worth a quarter:
+   past rank 70 every herb gives a quarter of its XP (3, 11 and 16), and 70 to 100 takes 107 full days on confirmed
+   ground. Fishing's XP follows its rank (Mac's earlier call); Herbalism is the one gathering track with the wall.
+
+**Found, not changed**:
+
+1. **The net's cast is a target only for a look between about 23 degrees down and level** (lane 4): it stands 3 m
+   ahead and 0.6 m under the eye, inside the 12-degree cone; looking down at the water from a pier, E is silent and the
+   net's Use says to stand in water.
+2. **A trophy answered after a character switch is lost** (lane 4): the answer is the other character's, let go before
+   the trophy step (AUDIT 32 B5's law), and the kept harvest with it.
+3. **A touch tap strikes when the finger lifts**, not when it lands (lane 3) - a tap is told from a swipe only at its
+   end; a notch or a glint timed to the landing is struck 60-100 ms late.
+4. **Nothing in a smithy, an armorer's or a furniture store says its station is on the Stores page** (lane 3).
+5. **The turn leaves a foe's harmful effects running** (lane 1) - paralysis among them, as DFU's CureAll does; the old
+   turn ended them (and hid the damage it went on dealing). **An item's free-readied area spell of gifts lands on its
+   caster** (AREA-CASTER) while party mates are passed by, as for every free ready (lane 1).
+6. Suspected, not shown: a street body with an empty pack offered its search (lane 4 L5; DFU's own message answers it);
+   the knife's sea check not skipped underground (L6); a client clock running fast refused `prof-late` (lane 5 L4); the
+   `bad-qty` words name the withdrawal's 200 where a smelt and a stock stop at 100 - unreachable through the pages
+   (lane 5 L5).
+
+## TOUCH-HOLD and HERB-XP: Mac's calls
+
+Asked as the audit closed, each with its options: TOUCH-HOLD - Mac: **"Interact button + knife Use"**; HERB-XP - Mac:
+**"XP follows your rank"**. Both built.
+
+**TOUCH-HOLD.** A phone and a pad could not play a common herb, Hunting or the net's haul: E is the professions' start
+and their hold, and neither had an E.
+
+- **The touch corner.** Its third slot - empty by default - is Interact (`ui/touchButtons.js`: glyph E, a HOLD slot,
+  so the Interact action's live key is down while the finger is; `systems/uiPrefs.js`). A choice on the Touch card like
+  any other. The default corner runs 16..344 px (the mode cycle and F a slot further in), inside the widest corner the
+  HUD keeps clear of (`TOUCH_CORNER_MAX`, 392).
+- **The pad, classic layer.** B is Interact in the world (`systems/inputActions.js` `DEFAULT_SECONDARY_BINDINGS` - a
+  PAD1 row, filled into an old file at the next load). B did nothing in the world: DFU's Back answers only while a
+  window is up, and a window's press never reaches the world's edge ring (`ui/input.js`); in a window it is Back still.
+- **The pad, Enhanced Plus.** Every button held a row, so LT is Interact (`ui/plusPad.js`, layout 2): a trigger holds
+  while the right thumb draws the knife's line. Recast, which LT held, is the d-pad's right held (`PLUS_DPAD_DEFAULTS`
+  - so right's tap, Rest, fires on its release, as up's, down's and left's do). A store on layout 1 moves once, taking
+  back layout 1's Recast on LT where it still stands (`PLUS_PAD_RETIRED`); a row the player set themselves stands. The
+  Controller bindings window has an Interact row (`ui/plusPadBinds.js`).
+- **The prompts.** With a pad in hand the professions' prompts, meters and tool lines name its button - "[LT] Pick Red
+  Rose", "hold B and keep still" - as the sea's readout names its own (AUDIT NAV1); else the key (`scenes/world.js`
+  `actKeyWord`). They said "[E]" to a hand holding no keyboard.
+- **The Skinning Knife's Use.** From the hotbar or a quick slot at a body it is E there (TOOL-USE - `scenes/huntHost.js`
+  `tools`, `systems/foragingInstall.js` the knife's use handler and its line), and it HOLDS the knife, as the Sickle's
+  Use holds the steady hand: the line is drawn by the look alone - a swipe, the right stick, the mouse - with no key held
+  (`heldByUse`); the meter says "aim the knife at the first point", never a key (`ui/profHud.js` `byUse`). It skins
+  whatever the choice key picked, the pick unmoved; away from a body it says where Hunting is done; offline, or with the
+  professions shut, it has no Use (the knife is the professions' alone). The Hunting card and the empty Stores say so.
+
+So on a phone: a common herb is a press of the E button; an uncommon or rare herb the Sickle's Use (or E held); Hunting
+the knife's Use, the line drawn with a swipe; the net's haul E held to raise the band; the sea's E the same button. On a
+pad the same through B (classic) or LT (Plus).
+
+**HERB-XP.** A herb is picked at the highest tier the rank opens, as a haul is worked (`src/net/professionLaw.js`
+`herbXpTier`, the service's harvest): every herb a rank may pick is worth 15 x the rank's tier, x1.5 picked clean, never a
+quarter. At rank 70 a common herb is 90 and an uncommon one picked clean 135 (they were 3 and 11); 70 to 100 is some nine
+days of sixty plain herbs, where it was 107 on confirmed ground. Below rank 10 nothing changes; from it a common herb is
+worth the rank's tier too (30 at rank 10, where it was 15) - Fishing's law exactly. The herb's own tier still opens it
+and is the harvest's row. **The Basket's food keeps its tier** (not asked: at rank 70 a full search is 5) - it is
+Foraging's food search, not a herb.
+
+**The service's version.** HERB-XP is the account service's law, and so was ANY-HOUR - which shipped in part four's
+first audit commit without moving `ACCOUNT_VERSION` (its law says every change to the Worker's moves it, or a deploy
+that did not happen looks like one that did). Both ride **acct46** (`server-account/src/service.js`, `wrangler.toml` -
+acct45 on this branch, renumbered past main's PATREON-LINK at the merge); no migration, no route changed.
+
+Pins: `test/fb1001_touchhold.test.js` (7), `test/fb1001_herbxp.test.js` (3); mutants
+`tools/mutants/fb1001_touchhold.json` (21), `fb1001_herbxp.json` (6) - all dead. PIN MOVED, each by content: `prof1_service`
+(a common herb at rank 10: 30), `pad1` PAD1-C (B's UI action is Back, a window's alone - A, X and Y keep DFU's clicks),
+`padplus1` PADPLUS3 (right's tap on its release), `touchbuttons` (the law; the default corner), `renown4b` (the corner
+16..344), `touchinput` TI1 (the defaults), `fb0930b_toolsaid` (the knife's line among the tools'; the empty Stores' words),
+`prof7_client` (the key named unless the knife's Use holds it), `audit0928_input` (Controls.md's Interact row - its Pad
+cell, from the registry), and the nine account-version pins (acct46, past PATREON-LINK's acct45 at the merge). Mutant record re-aimed by content, dead:
+`fb0930b_toolsaid.json` TOOL-SAID-the-world-never-says-the-professions-are-open. `actKeyWord`'s pad line is worded its
+own so `navaudit_presentation.json` NAVP-pad-keys-named-as-keys names one site still (MUT-AIM).

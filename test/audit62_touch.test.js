@@ -351,7 +351,8 @@ test('AUDIT 62 F8 (review): a held BUTTON releases only the keys the stick does 
 test('AUDIT 62 F8: the tap is the ActivateCenterObject ACTION, read straight into the gate - no synthesized "Mouse0" (mutant: keys.add(\'Mouse0\') back)', () => {
   for (const h of HOSTS) {
     const s = read(h);
-    assert.match(s, /down: held\(keys, 'ActivateCenterObject'\) \|\| _tapArmed > 0,/,
+    // PIN MOVED (AUDIT 2026-10-01 part four, CLICK-LIFT): the street names its press first (`_activateDown`)
+    assert.match(s, /(?:down: |const _activateDown = )held\(keys, 'ActivateCenterObject'\) \|\| _tapArmed > 0[,;]/,
       `${h}: a rebind of ActivateCenterObject off Mouse0 must not kill the finger`);
     assert.ok(!/_tapArmed = 2; keys\.add\('Mouse0'\)/.test(s), `${h}: the tap no longer stuffs a literal code into the held set`);
     assert.ok(!/keys\.delete\('Mouse0'\);/.test(s), `${h}: ...and its paired delete is gone with it`);
@@ -433,13 +434,16 @@ test('AUDIT 62 F16/F28: the world hosts publish the lock doors and worldModes ar
     assert.ok(!/modeNow\(\) === 'exterior'[^\n]*lockOn\.tick/.test(s), `${h}: the tick must not be gated on the mode`);
   }
   const wm = read('src/scenes/worldModes.js');
-  assert.match(wm, /if \(host\.activateDir\?\.\(\) && interiorCtx\) \{\s*\n\s*const f = pickFoe\(eye, dir, interiorFoePool\(\), interiorCtx\.collider, LOCK_PICK_DISTANCE\);\s*\n\s*if \(f\) \{ host\.lockToggle\?\.\(f\); return true; \}/,
+  // PIN MOVED (AUDIT WATCH-KIT WK-P2, 2026-10-01): each arm's pool passes my companion by (`.filter((f) => f.companion ==
+  // null)`, the street's law - test/auditwatchkit_ui.test.js runs both arms); re-aimed by content, the arms' own pool
+  // and collider as before
+  assert.match(wm, /if \(host\.activateDir\?\.\(\) && interiorCtx\) \{\s*\n\s*const f = pickFoe\(eye, dir, interiorFoePool\(\)\.filter\(\(f\) => f\.companion == null\), interiorCtx\.collider, LOCK_PICK_DISTANCE\);[^\n]*\n\s*if \(f\) \{ host\.lockToggle\?\.\(f\); return true; \}/,
     'the interior ladder locks on a finger tap, over its OWN pool and collider');
-  assert.match(wm, /if \(host\.activateDir\?\.\(\) && dungeonCtx\) \{\s*\n\s*const f = pickFoe\(eye, dir, dungeonCtx\.foes, dungeonCtx\.collider, LOCK_PICK_DISTANCE\);\s*\n\s*if \(f\) \{ host\.lockToggle\?\.\(f\); return true; \}/,
+  assert.match(wm, /if \(host\.activateDir\?\.\(\) && dungeonCtx\) \{\s*\n\s*const f = pickFoe\(eye, dir, dungeonCtx\.foes\.filter\(\(f\) => f\.companion == null\), dungeonCtx\.collider, LOCK_PICK_DISTANCE\);[^\n]*\n\s*if \(f\) \{ host\.lockToggle\?\.\(f\); return true; \}/,
     'and so does the world-hosted dungeon - the ladder the classic start runs through');
   // the arm sits AFTER the quest click, whose fall-through must survive
-  for (const [arm, quest] of [[wm.indexOf('interiorFoePool(), interiorCtx.collider, LOCK_PICK_DISTANCE'), wm.indexOf('pickQuestFoe(eye, dir, interiorFoePool()')],
-    [wm.indexOf('dungeonCtx.foes, dungeonCtx.collider, LOCK_PICK_DISTANCE'), wm.indexOf('pickQuestFoe(eye, dir, dungeonCtx.foes')]]) {
+  for (const [arm, quest] of [[wm.indexOf('interiorFoePool().filter((f) => f.companion == null), interiorCtx.collider, LOCK_PICK_DISTANCE'), wm.indexOf('pickQuestFoe(eye, dir, interiorFoePool()')],
+    [wm.indexOf('dungeonCtx.foes.filter((f) => f.companion == null), dungeonCtx.collider, LOCK_PICK_DISTANCE'), wm.indexOf('pickQuestFoe(eye, dir, dungeonCtx.foes')]]) {
     assert.ok(quest > 0 && arm > quest, 'QG1\'s non-consuming quest arm still runs first');
   }
   assert.match(wm, /host\.reportFrame\?\.\(proj, view\);/, 'the modal frame reports its camera, so the tap ray and the dot stop riding the last street frame');
@@ -464,7 +468,11 @@ test('AUDIT 62 F8 (review): worldModes\' OWN activate gate sees the finger - its
   const wm = read('src/scenes/worldModes.js');
   const m = /\n\s*down: (.+?),\s*\n\s*hasReadySpell:/.exec(wm);
   assert.ok(m, 'worldModes no longer builds its activate gate with a `down:` input');
-  const gateDown = new Function('held', 'keys', 'host', `return (${m[1]});`);
+  // PIN MOVED (AUDIT 2026-10-01 part four, CLICK-LIFT): the press is named before the gate (`_activateDown`), and the
+  // act's click is asked with it - its own expression is the one run
+  const named = m[1] === '_activateDown' ? /\n\s*const _activateDown = (.+?);\n/.exec(wm) : null;
+  assert.ok(m[1] !== '_activateDown' || named, 'the named press is defined');
+  const gateDown = new Function('held', 'keys', 'host', `return (${named ? named[1] : m[1]});`);
   // the real `held` over the real registry, with NOTHING bound down:
   // the finger is the only press in the room.
   setBindings(defaultStore());

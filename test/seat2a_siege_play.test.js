@@ -246,7 +246,7 @@ test('SEAT2a part four THE SOCKET: a siege\'s room hello carries a fresh pass mi
   assert.equal(ws.sent[0].t, 'hello');
   assert.equal(ws.sent[0].sp, `v1.pass1.${room.length}`, 'a pass minted for this hello');
   assert.equal(o.sendSiege({ k: 'in' }), false, 'not before a relay that fights battles welcomed the socket');
-  ws.receive({ t: 'welcome', id: 'mac-0001', peers: [], host: 'mac-0001', world: null, now: AT, v: 'world143' });
+  ws.receive({ t: 'welcome', id: 'mac-0001', peers: [], host: 'mac-0001', world: null, now: AT, v: 'world147' });
   assert.equal(o.siegeOk, true);
   assert.equal(o.sendSiege({ k: 'in' }), true);
   assert.deepEqual(ws.sent.at(-1), { t: 'siege', k: 'in' });
@@ -265,7 +265,7 @@ test('SEAT2a part four THE SOCKET: a siege\'s room hello carries a fresh pass mi
   const old = new OnlineSession({ url: 'wss://relay.test', name: 'Mac', id: 'mac-0002', secret: 'shh-shh-shh-0002', WebSocketImpl: FakeWS, now: () => AT });
   old.join(room, pose(0, 0));
   const w2 = sockets.at(-1); w2.open(); await settle();
-  w2.receive({ t: 'welcome', id: 'mac-0002', peers: [], host: 'mac-0002', world: null, now: AT, v: 'world140' });
+  w2.receive({ t: 'welcome', id: 'mac-0002', peers: [], host: 'mac-0002', world: null, now: AT, v: 'world144' });
   assert.equal(old.sendSiege({ k: 'in' }), false, 'an older relay closes on the frame: never sent');
 });
 

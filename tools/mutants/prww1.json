@@ -29,7 +29,7 @@
   {
     "name": "PRWW1-beast-table-not-chooseTable",
     "file": "src/net/peerRiders.js",
-    "old": "export const beastTable = (pose) => chooseTable({ transformed: true, riding: !!pose?.rd, stopped: !pose?.mv, sheathed: !pose?.wd });",
+    "old": "export const beastTable = (pose) => chooseTable({ transformed: true, riding: !!pose?.rd, stopped: !peerMoving(pose), sheathed: !pose?.wd });",
     "new": "export const beastTable = (pose) => (pose?.mv ? 'MoveLycan' : 'IdleLycan');",
     "tests": [
       "test/prww1_werewolf.test.js"
@@ -65,7 +65,7 @@
   {
     "name": "PRWW1-run-clock-unchanged",
     "file": "src/net/peerRiders.js",
-    "old": "(beast && !riding ? speedMod({ running: pose.mv === 2 }) : 1)",
+    "old": "(beast && !riding ? speedMod({ running: pose.mv === 2 && peerMoving(pose) }) : 1)",
     "new": "1",
     "tests": [
       "test/prww1_werewolf.test.js"

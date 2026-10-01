@@ -15,9 +15,7 @@
     "new": "    if (p === rounds.length) return true;",
     "tests": [
       "test/wb8b_gate_marks.test.js"
-    ],
-    "equivalent": true,
-    "why": "Belt and braces: for the pinned GATE_SALT the depth-first walk's first full path already closes the cycle's wrap (the pins hold the wrap itself - its last gate and its first share nothing), so the check never turns the walk; it stands for a salt or a table that would not."
+    ]
   },
   {
     "name": "WB8b-the-aspects-never-turn",
@@ -318,8 +316,8 @@
   {
     "name": "WB8b-the-old-law-let-in",
     "file": "src/net/wire.js",
-    "old": "export const GATE_BRAIN_MIN = 4;",
-    "new": "export const GATE_BRAIN_MIN = 3;",
+    "old": "export const GATE_BRAIN_MIN = 5;",
+    "new": "export const GATE_BRAIN_MIN = 4;",
     "tests": [
       "test/wb8b_gate_marks.test.js"
     ]

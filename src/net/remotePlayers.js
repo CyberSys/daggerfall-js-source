@@ -60,7 +60,7 @@ import { TRANSPORT_MODES } from '../systems/transport.js';   // RIDE-SOUND: the 
 import { swingSoundFor, SOUND } from '../systems/soundClips.js';   // PEER-FS2: a peer's own swing sound, off the pose's `an` edge and their equipped weapon
 import { billboardSize } from '../world/rmbFlats.js';   // PCORPSE1: a corpse stands as the dungeon's own corpses stand
 import { raceGenderPain3Sound, CLASSIC_PLAYER_DEATH_SOUND } from '../systems/playerDeath.js';   // PCORPSE1: the fallen player's own cry
-import { RACES } from '../systems/races.js';
+import { RACES } from '../systems/races.js'; import { PeerClimbSounds, peerBodyYaw, peerMoving } from './peerClimb.js';   // CLIMB5: a peer on the wall faces it, takes no stride, and is heard climbing
 
 // ── PCORPSE1: THE FALLEN ──────────────────────────────────────────
 //
@@ -504,6 +504,7 @@ export class RemotePlayers {
     this._dolls = new Map();     // lookKey -> { rec, w, h } ready | Promise composing | { failedUntil } (insertion-ordered: the oldest first)
     this._footsteps = new Map(); // PEER-FS1: peer id -> FootstepMachine (the stride timing off their own pose)
     this._attackAn = new Map();  // PEER-FS2: peer id -> the last `an` heard, so a new swing count is a swing
+    this._climbSounds = new PeerClimbSounds({ audio: deps?.audio ?? null, profile: PEER_SOUND_PROFILE });   // CLIMB5: peer id -> their climb's last state and place, heard at them
     this._riding = new Map();
     this._onFoot = new Set();    // AUDIT DISC7 B4: peer ids last seen on foot - their next mount is a mount (the neigh soon after)    // RIDE-SOUND: peer id -> { anim: RidingAnimator, rd } - the mounted peer's hooves
     this._batches = new Map();   // peer id -> { batch, key, doll, peer } (doll kind) | { batch, kind: 'mobile', mobileType, gender, mobileUnit, archive, tex, height, lastAn, lastCn, peer } (mobile kind)
@@ -801,6 +802,7 @@ export class RemotePlayers {
       if (!peer?.shown) continue;
       seen.add(peer.id);
       this._syncFootsteps(peer, toScene, eye);
+      this._syncClimbSound(peer, toScene, eye);   // CLIMB5
       this._syncAttackSound(peer, toScene, eye);
       this._syncRidingSound(peer, toScene, dt, eye, poseAgeMs);
       // AUDIT (the pre-merge audit, I-G): a peer the classic lane stands NOWHERE (INVIS-NET) is still heard - DFU turns a
@@ -866,6 +868,7 @@ export class RemotePlayers {
       }
     }
     for (const id of this._footsteps.keys()) if (!seen.has(id)) this._footsteps.delete(id);
+    for (const id of [...this._climbSounds.peers.keys()]) if (!seen.has(id)) this._climbSounds.forget(id);   // CLIMB5: a peer gone - their next climb seen is a first
     for (const id of this._attackAn.keys()) if (!seen.has(id)) this._attackAn.delete(id);
     for (const id of [...this._riding.keys()]) if (!seen.has(id)) this._stopRidingSound(id);   // RIDE-SOUND: a peer gone (or every peer, on the dead's empty sync) takes their hooves with them
     for (const id of [...this._onFoot]) if (!seen.has(id)) this._onFoot.delete(id);   // AUDIT DISC7 B4: and what they were last seen on
@@ -899,16 +902,27 @@ export class RemotePlayers {
     // the recentre is handled the way EV1 handles it for the local machine - world.js calls `rebaseFootsteps` in
     // the same block that calls `footsteps.rebase()`, so the anchor re-seeds and the 819.2-unit jump is no stride.
     // AUDIT RIDE: a peer in the saddle takes no stride - the rider's own machine is silent on a mount (isOnFoot), so the others' is too
-    const step = fm.update(f, { grounded: true, swimming: false, levitating: false, onFoot: !shown.rd, standingStill: !shown.mv, halfSpeed: false }, set);
+    const step = fm.update(f, { grounded: true, swimming: false, levitating: false, onFoot: !shown.rd, standingStill: !peerMoving(shown), halfSpeed: false }, set);   // CLIMB5: no stride on the wall
     if (!step) return;
     if (!peerInEarshot(f, eye)) return;
     peerSound(this.deps.audio, step.clip, f, step.volume);
+  }
+
+  /** CLIMB5: a peer's climb, heard at them (net/peerClimb.js) - its changes and its rhythm, within earshot, behind the
+   *  peers' own sounds' switch as their stride is. */
+  _syncClimbSound(peer, toScene, eye) {
+    if (!this.deps?.audio?.play3d) return;
+    const f = toScene(peer.shown);
+    // AUDIT CLIMB-ARC N5: the switch silences, it does not blind - the law is told every change with the sound off, so
+    // switching it back on plays no catch nor let-go that happened while it was off
+    this._climbSounds.update(peer.id, peer.shown, f, getPref('peerFootsteps') !== false && peerInEarshot(f, eye));
   }
 
   /** PEER-BUZZ: the floating origin moved - every peer's stride anchor re-seeds on its next frame, as the local
    *  machine's does (EV1 `footsteps.rebase()`), so the 819.2-unit shift of every scene point is not a step. */
   rebaseFootsteps() {
     for (const fm of this._footsteps.values()) fm.rebase();
+    this._climbSounds.rebase();   // CLIMB5: and the climb's last places - the shift is no reach up the wall
   }
 
   /** PEER-FS2 (Mac: "attacking sounds are not in"): every SWING - not just
@@ -1037,10 +1051,11 @@ export class RemotePlayers {
     if (entry && (entry.kind !== 'mobile' || entry.mobileUnit !== bundle.mobileUnit)) { this.renderer.destroyBillboardBatch?.(entry.batch); this._batches.delete(peer.id); entry = null; }
     const shown = peer.shown;
     const f = toScene(shown);
-    const moving = !!shown.mv;
+    const moving = peerMoving(shown);   // CLIMB5: a shimmy along a lip is no walk
     const an = shown.an | 0;
     const striking = entry != null && entry.lastAn != null && an !== entry.lastAn;
-    const yaw = Number.isFinite(shown.yaw) ? shown.yaw : 0;
+    const face = peerBodyYaw(shown);   // CLIMB5: on the wall, facing it
+    const yaw = Number.isFinite(face) ? face : 0;
     // BUGFIX (2026-09-17): mobileOrientation (characters/mobileUnit.js) reads cameraPos[0]/[2] unconditionally to
     // work out which of the 8 directional frames faces the viewer - it was never optional the way `null` assumed,
     // and crashed the moment a sprite actually built successfully. `eye` is the local player's own position, passed

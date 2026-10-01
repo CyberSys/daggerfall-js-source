@@ -652,8 +652,8 @@
  {
   "name": "CROWN1R-wire-relay",
   "file": "src/net/wire.js",
-  "old": "export const ROYAL_RELAY_MIN = 142;",
-  "new": "export const ROYAL_RELAY_MIN = 141;",
+  "old": "export const ROYAL_RELAY_MIN = 146;",
+  "new": "export const ROYAL_RELAY_MIN = 145;",
   "tests": [
    "test/crown1_royal_law.test.js"
   ]

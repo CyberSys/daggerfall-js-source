@@ -18,6 +18,10 @@
 // furniture. It clears at once when the foe dies, because a dead thing
 // has no health to report.
 export const FOE_TARGET_SECONDS = 6;
+/** LOOT7 (the Loot arc): a CHAMPION's trait before its name, as systems/champions.js championName says it - the entity's
+ *  own `champion` id title-cased (every trait's name is its id's, test/loot7_champions.test.js); this leaf imports
+ *  nothing, so it is spelt here. */
+const titled = (e, base) => (typeof e.champion === 'string' && e.champion && base ? `${e.champion.charAt(0).toUpperCase()}${e.champion.slice(1)} ${base}` : base);
 
 let _foe = null;
 let _left = 0;
@@ -46,7 +50,7 @@ export function foeTarget() {
   if (!e || _foe.dead) return null;
   const max = e.maxHealth || e.health || 1;
   return {
-    name: String(e.name ?? e.career?.name ?? 'Foe'),
+    name: String(titled(e, e.name ?? e.career?.name ?? 'Foe')),   // LOOT7: a champion's trait before its name
     health: Math.max(0, e.health ?? 0),
     maxHealth: max,
     fade: Math.min(1, _left / 1.5),   // the last second and a half

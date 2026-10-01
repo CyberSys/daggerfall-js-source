@@ -16,8 +16,8 @@
   {
     "name": "INVIS-no-edge",
     "file": "src/net/wire.js",
-    "old": "    || (a.cv | 0) !== (b.cv | 0);   // INVIS-NET",
-    "new": "    || false;   // INVIS-NET",
+    "old": "    || (a.cv | 0) !== (b.cv | 0)   // INVIS-NET",
+    "new": "    || false   // INVIS-NET",
     "tests": ["test/invisnet.test.js"]
   },
   {

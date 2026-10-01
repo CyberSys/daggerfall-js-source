@@ -60,7 +60,7 @@ import { morrowindDataGeneration } from '../scenes/dataSource.js';
 import { objectAabb, rayAabb, hasMeshCollider, RAY_DISTANCE } from '../player/activate.js';   // AUDIT 63 F37: one live box for both rays
 import { SOUND } from '../systems/soundClips.js';
 import { equipSoundFor } from '../characters/weapons.js';   // F023: GetEquipSound
-import { setMidScreenText } from '../ui/midScreenText.js';   // AUDIT 64 F34: FPSWeapon.cs:365's mid-screen line
+import { setMidScreenText } from '../ui/midScreenText.js'; import { weaponOffsetHeight } from '../ui/hudLarge.js';   // AUDIT 64 F34: FPSWeapon.cs:365's mid-screen line; CLIMB4: OnGUI's own offset, the climb's drop under it
 import { createWeaponWidget } from './weaponWidget.js';
 import { atlasFileName } from './diverseWeapons.js';   // DW1: the art cache's third key
 // SW1: SHIELD WIDGET. The sibling, beside the weapon's clone and driven
@@ -294,9 +294,9 @@ export async function autoBuildArms(entity, { dataCount = morrowindDataCount, me
  *                     The note that hosts without a HUD text layer
  *                     pass console is retired: every call site hands
  *                     over a real one - hudText.add
- *                     (dungeonContext.js:3186), townTalk.say
- *                     (exterior.js:2175, world.js:8283) and
- *                     worldModes' own interior sink (worldModes.js:507,
+ *                     (dungeonContext.js:3191), townTalk.say
+ *                     (exterior.js:2177, world.js:8371) and
+ *                     worldModes' own interior sink (worldModes.js:508,
  *                     which warns to console only where a host mounts
  *                     no townTalk at all), so the empty default below
  *                     is unreached,
@@ -394,6 +394,30 @@ export function sheetHolderOf(rig) {
     // hidden or third-person arm answers none, and the window hides the ink
     corners: () => { const r = rig(); return (r?.armsDrawn?.() ? r.paperCorners() : null) ?? null; },
   };
+}
+
+/** CLIMB4 (the Enhanced Climbing arc - bible/03-World/Parkour-Arc.md, the feel): THE VIEWMODEL LOWERED FOR THE CLIMB.
+ *  WeaponManager.Update's climbing return (:236-240) is ShowWeapons(false) - a cut; the port eases it, down quickly as
+ *  the hands go to the stone (`down` s, the time constant) and back up a little slower as they come off it (`up`). */
+export const CLIMB_LOWER_TAU = Object.freeze({ down: 0.07, up: 0.14 });
+/** Lowered this far, the viewmodel is out of sight: no lane draws. */
+export const CLIMB_LOWER_GONE = 0.98;
+/** One frame of the lowering: toward 1 while `climbing`, back to 0 after; snapped home within half a percent. */
+export function climbLowerStep(lower, climbing, dt) {
+  const target = climbing ? 1 : 0;
+  const tau = climbing ? CLIMB_LOWER_TAU.down : CLIMB_LOWER_TAU.up;
+  const next = lower + (target - lower) * (1 - Math.exp(-Math.max(0, dt) / tau));
+  return Math.abs(target - next) < 0.005 ? target : next;
+}
+/** The classic sprite's drop, in pixels of a `height`-tall screen: a smoothstep of the lowering over the whole height,
+ *  so the hand sinks out of the bottom of the screen (0 lowers nothing - DFU's rect). */
+export function climbDrop(lower, height) {
+  const s = Math.min(1, Math.max(0, lower));
+  return s > 0 ? Math.round(s * s * (3 - 2 * s) * height) : 0;
+}
+/** The Morrowind arms' screen rect, lowered the same way (fpArm.setScreenTransform's rect: x, y, w, h). */
+export function climbLowerRect(rect, lower) {
+  return { ...rect, y: rect.y + climbDrop(lower, rect.h) };
 }
 
 export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, entity, camera = null, say = () => {}, spellArmed = () => false, abortSpell = () => {}, bindWorn = true, activateHeld = () => false, envHit = null, missEffect = null, collider = null, actionDown = null, torches = () => null, sheetWindowUp = () => false, dropRefusal = () => null, actTool = () => null }) {   // HT1 (KB1): whether a registry action is held, and the hosts' dropped-torch pool   // MAP-WEAPON: whether the travel map window holds the screen   // AUDIT 28 W12: HasAction(ActivateCenterObject) - the drawn bow's un-draw; WW1: the widget's recoil doors
@@ -535,6 +559,8 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
   playerWeapon.onAttackResult = ({ foe, damage }) => widget.onAttackDamageCalculated({ damage, parrySounds: !!foe?.basics?.parrySounds, pos: foe?.pos ?? foe?.ai?.pos ?? null, isEnemy: true });
   let _activatePrev = false, _activateStarted = false;
   let _lastEye = null;   // WW1: PlayerMotor.MoveDirection, read off the eye's motion between frames, in the body's own frame
+  let _climbLower = 0;   // CLIMB4: the viewmodel lowered for the climb, 0 (in the hand) .. 1 (gone) - climbLower()
+  let _climbing = false;   // CLIMB4: the last frame's climb (the touch button's swing reads it)
   // MW-D8. `camera` is REQUIRED for the Morrowind arm and there is no
   // fallback: a host that does not pass one gets the classic sprite and
   // a named reason, never a plausible arm in the wrong place. An arm
@@ -1322,7 +1348,7 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
     },
     /** ClickToAttack for the touch button. */
     clickAttack() {
-      if (playerWeapon.sheathed || (entity?.equipCountdown ?? 0) > 0) return;
+      if (playerWeapon.sheathed || (entity?.equipCountdown ?? 0) > 0 || _climbing) return;   // CLIMB4: no swing with the hands on the wall
       const strike = playerWeapon.clickAttack();
       if (strike) fpAttack(strike);
     },
@@ -1466,7 +1492,14 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
       // returns first - a readied spell or its cast (:246-262), the equip
       // countdown (:276-281), the sheathe (:283-288). The input buffer's
       // refusal alone let a held button swing a hidden weapon.
-      const canAttack = !playerWeapon.sheathed && (entity?.equipCountdown ?? 0) <= 0 && !spellArmed() && !fpsSpellCasting.isPlayingAnim && !actTool();   // AUDIT 29 D2: no swing behind a gathering act's tool
+      // CLIMB4 (the Enhanced Climbing arc - the feel): THE HANDS ARE ON THE WALL. WeaponManager.Update's "do nothing if
+      // player paralyzed or is climbing" (:236-240) - ShowWeapons(false), no swing - read off the camera's climb (the
+      // classic climb, a move in flight, a hold on the wall: the hosts' `climbing`). The picture EASES down and back up
+      // rather than cutting (CLIMB_LOWER_TAU): the hands leave the hilt for the stone and come back to it.
+      const camNow = camera?.() ?? null;
+      const climbing = _climbing = !!camNow?.climbing;
+      _climbLower = climbLowerStep(_climbLower, climbing, dt);
+      const canAttack = !playerWeapon.sheathed && (entity?.equipCountdown ?? 0) <= 0 && !spellArmed() && !fpsSpellCasting.isPlayingAnim && !climbing && !actTool();   // AUDIT 29 D2: no swing behind a gathering act's tool
       const strike = !paralyzed && c && canAttack
         ? playerWeapon.gesture(_dx, _dy, _held, dt, Math.max(c.clientWidth, c.clientHeight), { cancelHeld: activateHeld() })   // AUDIT 28 W12
         : null;
@@ -1564,7 +1597,9 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
       // a bow, and only while the arm is actually animating the shot.
       // The rule's own reason was the hit frame - it never argued the
       // arrow should leave before the string does.
-      const evs = playerWeapon.update(dt);
+      // AUDIT CLIMB-ARC F7: WeaponManager.Update's climbing return (:236-240) skips the hit frame too - a swing begun before
+      // the hands took the wall steps on (the picture is lowered with it) but lands nothing and sounds nothing
+      const evs = _climbing ? (playerWeapon.update(dt), []) : playerWeapon.update(dt);
       if (playerWeapon.machine.isBow && evs.includes('done')) _bowReleaseHidden = true;   // ARROW2: FPSWeapon.cs:529-531
       // AUDIT-THUNDERLOCK F8: THE WEAPON'S OWN VOICE, in the one place
       // all four hosts share. The machine emits `bowSound` for a bow
@@ -1606,7 +1641,7 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
       // and it must read the SAME numbers the mod's modules read
       // whether or not any mod is enabled. (`_lastEye` is the frame's
       // own bookkeeping and belongs out here for the same reason.)
-      const cam = camera?.() ?? null;
+      const cam = camNow;   // CLIMB4: read once, above the swing's gate
       const mv = cam?.move ?? {};
       const spd = entity ? liveStat(entity, 'speed') : 50;
       const base = Number.isFinite(mv.baseSpeed) ? mv.baseSpeed : walkSpeed(spd);
@@ -1708,7 +1743,9 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
      *  scene; any HUD draws over it). Runs the bow guard first. */
     /** MAP3: whether the Morrowind arm was the thing drawn on the last
      *  frame - the held map's holder opens the hands lane on it. */
-    armsDrawn() { return _armDrewLast && fpArm.drewLast(); },   // AUDIT-MAP2: the seam was reached AND the arm composed
+    armsDrawn() { return _armDrewLast && fpArm.drewLast(); },
+    /** CLIMB4: how far the viewmodel is lowered for the climb (0 in the hand .. 1 gone). */
+    climbLower() { return _climbLower; },   // AUDIT-MAP2: the seam was reached AND the arm composed
     /** MAP-FIELD: whether the Morrowind arm WOULD draw if it were handed
      *  a sheet - which is what the held map has to ask, because until it
      *  holds one the arm is sheathed and does not draw at all. The EOTB
@@ -1910,6 +1947,14 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
       // transform over their composite (Bob, Inertia, Step); the Offset
       // module's slide is the sprite's own sheathe and stays with it.
       fpArm.setScreenTransform(widgetOn() ? (base) => widget.armsTransform(base) : null);
+      // CLIMB4: and the climb's lowering over it - the arms leave the screen downward while the hands are on the wall.
+      // CLIMB6: unless the Morrowind arms are posed on the climb - the hands reach the stone they hold (combat/climbRig.js),
+      // and stay on the screen where the stone is.
+      const armsClimb = fpArm.active() && !!fpArm.climbPosed?.();
+      if (_climbLower > 0 && !armsClimb) { const armsBase = fpArm.screenTransform(); fpArm.setScreenTransform((base) => climbLowerRect(armsBase ? armsBase(base) : base, _climbLower)); }
+      // Lowered out of sight, no lane draws (the arm's record stays the top's false); the gun and the clone have no slide
+      // of their own to lend, so halfway down they are gone - the arms and the classic sprite slide the whole way.
+      if (!armsClimb && (_climbLower >= CLIMB_LOWER_GONE || (_climbLower >= 0.5 && !fpArm.active() && (widgetOn() || thunderlockHeld())))) return;
       // WW1: THE CLONE DRAWS IN THE SPRITE'S PLACE. DFU's clone hides the
       // original every frame and draws itself in OnGUI; here the one
       // draw seam picks the clone while its switch is on - after the arm
@@ -1982,7 +2027,7 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
       if (gunSliding && !shown()) return;
       if (widgetOn() && c && widget.draw(renderer, c, fpTint)) return;
       const art = c && artFor(playerWeapon.weapon);
-      if (art && spriteShown()) drawFpsWeapon(renderer, c, art, playerWeapon.machine.state, playerWeapon.machine.frame, { tint: fpTint });
+      if (art && spriteShown()) drawFpsWeapon(renderer, c, art, playerWeapon.machine.state, playerWeapon.machine.frame, { tint: fpTint, offsetHeight: weaponOffsetHeight() - climbDrop(_climbLower, c.height) });   // CLIMB4: lowered for the climb (0: OnGUI's own offset)
     }
   }
 }

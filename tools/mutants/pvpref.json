@@ -811,8 +811,8 @@
  {
   "name": "PVPREF-wire-relay-min",
   "file": "src/net/wire.js",
-  "old": "export const SIEGE_RELAY_MIN = 140;",
-  "new": "export const SIEGE_RELAY_MIN = 139;",
+  "old": "export const SIEGE_RELAY_MIN = 144;",
+  "new": "export const SIEGE_RELAY_MIN = 143;",
   "tests": [
    "test/pvpref_law.test.js"
   ]

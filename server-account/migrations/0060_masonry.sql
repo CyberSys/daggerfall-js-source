@@ -3,8 +3,8 @@
 --
 --   npx wrangler d1 migrations apply daggerfall-accounts --remote
 --
--- Applied exactly once through the `d1_migrations` ledger, which the deploy runs (ACC1-CI). Numbered 0059: another
--- slice may take 0058 in parallel - the ledger applies them in their order whichever lands first.
+-- Applied exactly once through the `d1_migrations` ledger, which the deploy runs (ACC1-CI). Numbered 0060: another
+-- slice may take 0059 in parallel - the ledger applies them in their order whichever lands first.
 
 -- A MASON'S WORK rides the forge's table (prof_smelts - one route, one table, each recipe naming its station: PROF4's
 -- law), and is the one work with a craft's law (src/net/professionLaw.js MASON_RECIPES): its XP is 3.2's craft's, the

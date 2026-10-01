@@ -68,6 +68,7 @@ test('AUDIT 58: every combat-voice play site spends the lift it was handed', () 
     ['src/scenes/exteriorFoes.js', 6],   // WORLD6b: applyHit plays a peer's blow's pain at the owner - the fifth site; WORLD6b-ii: my foe's swing at a peer, the sixth
     ['src/scenes/cityGuards.js', 4],
     ['src/combat/arrowFlight.js', 1],
+    ['src/player/climbSounds.js', 1],   // CLIMB4: the climber's effort (hostCombat.playerClimbStrain) - the seventeenth
   ];
   let total = 0;
   for (const [f, n] of SITES) {
@@ -76,7 +77,7 @@ test('AUDIT 58: every combat-voice play site spends the lift it was handed', () 
     assert.equal(lifts.length, n, `${f}: ${lifts.length} voice sites carry the lift, expected ${n}`);
     total += lifts.length;
   }
-  assert.equal(total, 16, 'all sixteen');
+  assert.equal(total, 17, 'all seventeen');
   // ...and the vampire override arm keeps its hard 0, which is DFU's:
   // PlayAttackVoice lifts only in the `customSound == None` arm
   // (FPSWeapon.cs:313-320); :323 is a bare PlayOneShot at the source's

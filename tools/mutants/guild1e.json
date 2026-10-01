@@ -110,7 +110,7 @@
   },
   {
     "name": "GUILD1e-guild-gone-notes-stay",
-    "file": "server-account/migrations/0046_guild_board.sql",
+    "file": "server-account/migrations/0047_guild_board.sql",
     "old": "  FOREIGN KEY (guild_id) REFERENCES guilds(id) ON DELETE CASCADE,",
     "new": "  FOREIGN KEY (guild_id) REFERENCES guilds(id),",
     "tests": [

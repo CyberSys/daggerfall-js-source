@@ -238,9 +238,12 @@ test('CLIMB2 LIVE: let go of a free climb with Jump held - the lip above is not 
   assert.ok(!r.log.slice(let_).some((e) => e.st === 'move:catch' || e.st === 'hang' || e.st === 'climb'), 'the Jump held through the letting go caught nothing');
 });
 
-test('CLIMB2 LIVE: a lip with no top to climb onto - a sill under a window - holds; Forward asks once; Back climbs down the face', () => {
+test('CLIMB2 LIVE: a lip with no top to climb onto - a sill under a soffit - holds; Forward asks once; Back climbs down the face', () => {
+  // CLIMB3 moved this pin: a sill on a wall that goes on up over it is climbed past (test/climb3.test.js); this one is
+  // under a soffit standing out over the body 0.4 m above it, nothing for the hands to go on up
   const s = scene();
-  s.box(-3, 0, 1.12, 3, 8, 4, 'wall');
+  s.box(-3, 0, 1.12, 3, 2.7, 4, 'wall');
+  s.box(-3, 2.7, 0.1, 3, 2.9, 4, 'soffit');
   s.box(-1.5, 2.2, 1, 1.5, 2.3, 1.12, 'sill');
   let asks = 0;
   const r = drive(s.col, { skill: 100, steps: 200, input: (i, m) => {

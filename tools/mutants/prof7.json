@@ -365,15 +365,6 @@
     ]
   },
   {
-    "name": "PROF7-svc-body-by-day",
-    "file": "server-account/src/professions.js",
-    "old": "  if (!deep && !isBody && !isForagingDaylight(sharedHourAt(at))) return { error: 'prof-night' };",
-    "new": "  if (!deep && !isForagingDaylight(sharedHourAt(at))) return { error: 'prof-night' };",
-    "tests": [
-      "test/prof7_service.test.js"
-    ]
-  },
-  {
     "name": "PROF7-svc-body-witnesses",
     "file": "server-account/src/professions.js",
     "old": "  const witness = !isBody && Number.isSafeInteger(player.registered_at)",
@@ -1038,8 +1029,8 @@
   {
     "name": "PROF7-pages-weavers-unnamed",
     "file": "src/ui/profPages.js",
-    "old": "Math.min(STOCK_MAX, need), 'weavers');",
-    "new": "Math.min(STOCK_MAX, need));",
+    "old": "who: 'the Weavers', counter: 'weavers' });",
+    "new": "who: 'the Weavers' });",
     "tests": [
       "test/prof7_client.test.js"
     ]
