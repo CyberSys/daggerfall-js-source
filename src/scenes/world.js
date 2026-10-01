@@ -51,7 +51,7 @@ import { applyClimate, getTerrainGroundArchive, groundIsSnowy, getNatureArchive,
 import { RMB_SIDE, layoutLocation } from '../world/locationLayout.js';
 import { lookAt, multiply, perspective, mirrorProjectionX, trs, identity, UP_Y, wrapAngle } from '../world/mat4.js';   // HANDEDNESS: the one mirror (mat4's law)
 import { aabbOutside, localAabb, transformedAabb, flatBatchAabb, cullDisabled } from '../render/frustum.js';   // GHOST1: the plane extraction comes through bounds.js's `spherePlanes` now - `_planes` serves the sphere test too
-import { spherePlanes, batchVisible, setFlatLean } from '../render/bounds.js';   // PERF-CROWD: the batch's own bounding sphere, the test the shadow replay already uses   // GHOST1: through its ONE home, on the NORMALISED planes it needs   // EV3: the frustum
+import { spherePlanes, batchVisible, setFlatLean, batchSphere } from '../render/bounds.js';   // PERF-CROWD: the batch's own bounding sphere, the test the shadow replay already uses   // GHOST1: through its ONE home, on the NORMALISED planes it needs   // EV3: the frustum
 import { withMoonAmbient } from '../render/enhancedSky.js';   // EV5: secunda rides the ambient
 import { FarRingRenderer, ringDisabled, ringHeight } from '../render/farRing.js';   // EV8: the province's mountains on the horizon
 import { syncLightingLane, lanternColor } from '../render/enhancedLighting.js';   // EL1: the Enhanced Lighting lane, installed at mount
@@ -94,7 +94,7 @@ import { tallySwingSkills, SWING_FATIGUE_COST, playerPainVoice, playPlayerVoice,
 import { flashPlayerDamage } from '../ui/damageFlash.js';
 import { resetVitalsDetector } from '../ui/hudVitals.js';   // BLOOD AUDIT 5: the load's detector reset   // AUDIT 24 (wave 46): the arrow owes the flash too   // AUDIT 23 (C14)
 import { hudFade } from '../ui/fadeLayer.js';   // D4: performFastTravel's and TeleportAway's fade from black
-import { exhaustionOutcome, restMagickaCap } from '../systems/rest.js';   // AUDIT 23 (C5); SWIM-SPENT: the water's line is the outcome's
+import { exhaustionOutcome } from '../systems/rest.js';   // AUDIT 23 (C5); SWIM-SPENT: the water's line is the outcome's
 import { bloodDecalDeps } from '../combat/bloodSwitch.js';
 import { createBloodMarks } from '../combat/bloodMarks.js';   // BLOOD1a: the ring, owned by this host and ended by its own name
 import { preloadRestArt } from '../ui/restWindow.js';   // S40: rest above ground   // D3: REST00I0/01I0/02I0
@@ -263,6 +263,7 @@ import { markFoeStruck } from '../ui/hudFoeTarget.js';   // DUEL1: my duel oppon
 import { lowerCondition, blowWear } from '../systems/equip.js';   // DUEL1: my weapon wears on a blow that landed on my opponent; BALANCE1: on the port's wear scale
 import { reportPlayerAttack } from '../combat/formulas.js';   // DUEL1: the defender's answer, on my HUD's damage numbers
 import { worldHoverFrame, hideWorldPlaque, destroyWorldPlaque, worldPlaqueOn } from '../ui/worldPlaque.js';   // WORLD-HOVER: the one seam each host calls, its hide door for the branches that return above it, and the teardown
+import { keysHeading, axesToward, tvOwnGrow } from '../player/travelCamera.js';   // OW-FACE: the body faces the keys' way under the Overworld; OW-PEERS: the others grown as the traveller is
 import { createTravelView, TV_MOVE_ACTIONS, TRAVEL_VIEW_TEXT, travelViewLine, travelTripLine, travelWalkRate, shipPassageRows } from './travelView.js';   // TV1: the travel view (bible/06-Systems/Travel-View.md) - the raised eye, its input and its ways out
 import { showTravelViewHud, hideTravelViewHud, updateTravelViewHud, travelViewHudPickAt, showTravelViewConfirm, hideTravelViewConfirm, travelViewConfirmOpen } from '../ui/travelViewHud.js';   // TV1: its readout
 import { createBandSprites } from '../world/bandSprites.js';   // OW-FOES: the bands as their monsters, faded in near
@@ -362,7 +363,7 @@ import { mintPieces, mintPiece, craftedText, CRAFT_KEPT_TEXT, BENCH_KEPT_TEXT, L
 import { heatBand, planeBand, stitchBand, recipeById } from '../net/recipeLaw.js';   // PROF3: the heat's attribute band; PROF4: the plane's, and a recipe's station; PROF7: the stitch's
 import { questActionsExtensionTemplates } from '../systems/quest/questActionsExtension.js';   // FORAGE1: QAE's four actions, which Foraging's quests say
 import { entityMaxEncumbrance } from '../combat/formulas.js';   // FORAGE1: PlayerEntity.MaxEncumbrance, for Foraging's last check
-import { createComeSailAwayPool } from './comeSailAwayPool.js';   // CSA-B: Come Sail Away's boats, drawn
+import { createComeSailAwayPool, CULL_DETAIL_PX } from './comeSailAwayPool.js';   // CSA-B: Come Sail Away's boats, drawn
 import { createComeSailAwayPeers } from './comeSailAwayPeers.js';   // CSA-J: another player's boats, seen
 import { createComeSailAwayAboard, CSA_ABOARD_GRACE, deckPose as csaDeckPose, helmWord as csaHelmWordOf, localOf as csaLocalOf } from './comeSailAwayAboard.js';   // CSA-K: another player's boat, boarded; FIELD BUGS 2026-09-29 (the sea) #1: the deck's frame, the helmsman's place
 import { csaWireRecord, csaRecordKey } from '../systems/comeSailAwayWire.js';   // CSA-J: my boats, said
@@ -427,7 +428,7 @@ import { dungeonLocationFor } from '../world/smallerDungeons.js';   // AUDIT 28 
 import { audio, QuestAudioSource, logarithmicRolloff, plainSourceGain } from '../systems/audio.js';   // E6: the QuestMachine's own DaggerfallAudioSource (PlaySound's busy-skip)
 import { music } from '../systems/music.js';
 import { AmbientEffects, EXTERIOR_AMBIENT_WAITS, presetForExterior } from '../systems/ambientEffects.js';
-import { createWeatherFront, blendTerms, soundWeather } from '../systems/weatherFront.js';   // WX2: the front reaches the ground
+import { createWeatherFront, blendTerms, soundWeather, fallTerms } from '../systems/weatherFront.js';   // WX2: the front reaches the ground; RAIN-SPRINKLE: the look of what falls
 import { fetchBytes, loadMagicRegistries, seasonOverride, createSkyController, createPlayerTicker, createRestDeps, plainLines, wireInfectionVideos, createMusicDirector, motorStats, climbingDeps, parkourDeps, createDetectFeed, foeNearbyRecord, nearbyLootRecords, claimFrame, frameAlive, frameHeld, applyFallLanding, ensureAudio, applyMotorEffectFlags, adjustFallStart, offsetArrows, populatesWanderingNpcs, endRunToTitleMenu, exitToTitleMenu, subscribeFoePools, sensesContext, routeMouseDrag , raisePlayerSkills, liveEnchantFoes, liveEnchantFoeSinks, enchantFoeHost, realmSaveSink, setRealmSaveSink, setBeforeTitleExit } from './shared.js';   // TP1: PlayerEntity.RaiseSkills   // EC1: the live enchant pool + its sinks router; AUDIT 58: the membership question the Wabbajack door asks too
 import { getNearbyObjects } from '../systems/nearbyObjects.js';   // X9: the dispel sweep filters the same scan
 import { dispelNearby, liveBundles, attemptSoulTrap, SOUL_TRAP_TEXT } from '../systems/mysticism.js';   // X9: the destroy law (destroyed, not killed); WBX7: the kill's soul trap roll, for the court's boss
@@ -642,6 +643,7 @@ import { getBuildingVariant, setLastLocationKeyTo } from '../systems/worldDataVa
 import { createDeepWatersHost, deepWatersOn, DEEP_WATERS_VENDOR, deepWatersDecorationSettings, deepWatersFishSettings, deepWatersEnemySettings, deepWatersLootSettings, deepWatersEnemySettingsNear, standsTheDeep, DEEP_SHARE_RADIUS } from './deepWatersHost.js';   // DW-B: Iliac Puddle No More (jet082) - the deep bay
 import { DeepWatersRenderer, surfaceScrollAt, DECORATION_CUTOFF } from '../render/deepWatersRender.js';   // DW-C: its seafloor and its surface; DW-E5: the billboard's cut-out the sunken piles keep
 import { clippedTerrainIndices } from '../world/deepWaterCap.js';   // DW-C: the clip's cull, out of the ground's own index set (FAR-CLIP1: the rest is the clip program's)
+import { underwaterLookUniforms, UNDERWATER_MURK, SHAFT_REACH_M } from '../world/underwaterLook.js';   // UNDER-LOOK, UNDER-RAYS (FIELD BUGS 2026-10-01 #4, #5)
 import { lookSettings, surfaceLook, underwaterFogColor, sceneTint, seafloorTexture, seafloorTextureStrength, seafloorPalette, seafloorAmbientBoost, daylightFactor, SURFACE_TEXTURE, horizonAmbientColor, distanceFogUniforms, underwaterVisionDistance, topSurfaceOpaqueFadeEnd } from '../world/deepWaterLook.js';   // DW-C
 import { SURFACE_RENDER_Y_OFFSET } from '../world/deepWaterSurface.js';   // DW-C: the surface stands 3 cm over the sea
 import { createDeepWatersPlayer } from './deepWatersPlayer.js';   // DW-D: the swimmer in the carved sea
@@ -1651,6 +1653,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // whole, every frame: the row's own numbers, untouched.
   const weatherFront = createWeatherFront({ seed: Number(params.get('wseed')) || 7 });
   const weatherTerms = () => ({ sun: weatherSun, dim: LAB_DIM[weather] ?? 1, fog: weatherFog });
+  const FALL_LIGHT = Object.freeze({ sun: weatherSunlightScale('overcast', false), dim: LAB_DIM.overcast });   // RAIN-SPRINKLE: what a sprinkle's sky lights like - an overcast one's
   let wxNow = weatherTerms();
   let wxFrom = wxNow;
   let seenJump = weatherJumpStamp();   // WX2a: the sim's jump stamp as this host last saw it
@@ -2779,10 +2782,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     return { s: _dwLook, daylight, seaY, camY, underwater, look };
   }
   let _dwFrame = null;
+  const _underLook = { keep: [0, 0, 0], body: [0, 0, 0], sunW: [0, 0, 0], shaft: [0, 0, 0] };   // UNDER-LOOK: the pass's values, kept
   /** DW-C: the frame's look and its distance fog, after beginFrame (which clears the fog - it is a frame's). */
   function beginDeepWatersFrame(minute) {
     const f = _dwFrame = dwFrameLook(minute);
-    if (f.underwater) renderer.setWaterFog(distanceFogUniforms(f.s, { daylight: f.daylight, cameraY: f.camY, oceanY: _dwFogP.oceanY }, _dwFogU));
+    if (f.underwater) renderer.setWaterFog(distanceFogUniforms(f.s, { daylight: f.daylight, cameraY: f.camY, oceanY: _dwFogP.oceanY, murk: UNDERWATER_MURK }, _dwFogU));   // UNDER-LOOK: the port's murk (world/underwaterLook.js)
     // DW-F: the column's frame for the flats - on while the top is drawn over the sea, as the floor's (dwColumnFrame)
     const cf = dwColumnFrame(f);
     _dwColumnNow = cf.columnOn && cf.surfaceTexture ? { seaY: cf.seaY, topColor: cf.topColor, topVision: cf.topVision, surfaceScroll: cf.surfaceScroll, surfaceTexture: cf.surfaceTexture, origin: state.pixelTranslation(state.current.x, state.current.y, _dwColumnOrigin) } : null;
@@ -5670,9 +5674,21 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (h && Number.isFinite(h.dist)) take({ distance: h.dist, point: at(h.dist), name: 'StaticGeometry', terrain: null, root: null });
     if (mode === 'exterior') {
       const limit = best ? best.distance : reach;
-      const below = (t) => { const q = at(t); const g = surfaceAt(q[0], q[2]); return Number.isFinite(g) && q[1] < g; };
+      // COAST-RAY (FIELD BUGS 2026-10-01 #6, "Sometimes performance issues when along the coastline"): a STRAIGHT-DOWN
+      // ray asks one column of ground - x and z never move along it - and the walk asked surfaceAt again at every
+      // quarter metre and every halving: ~1,900 lookups a ray from 500 m over the sea, and Come Sail Away's breakers
+      // cast several hundred such rays every map pixel crossed on a coast (UpdateWaveMesh), a stall of 0.1-0.6 s. The
+      // column is asked once; and the walk starts two steps short of the crossing - its height falls with t, so every
+      // step before is a miss, and t0's steps are exact quarters, so the step it starts on is the one it reached - or
+      // not at all, where nothing can be met (a column not built, a ray not falling). Its floats and its answer are the
+      // ones it was.
+      const vertical = d[0] === 0 && d[2] === 0, g0 = vertical ? surfaceAt(o[0], o[2]) : NaN;
+      const below = vertical
+        ? (t) => Number.isFinite(g0) && o[1] + d[1] * t < g0
+        : (t) => { const q = at(t); const g = surfaceAt(q[0], q[2]); return Number.isFinite(g) && q[1] < g; };
+      const start = !vertical ? 0 : !(Number.isFinite(g0) && d[1] < 0) ? limit : Math.max(0, Math.floor((g0 - o[1]) / d[1] / 0.25) - 2) * 0.25;
       if (!below(0)) {
-        for (let t0 = 0; t0 < limit; t0 += 0.25) {
+        for (let t0 = start; t0 < limit; t0 += 0.25) {
           const t1 = Math.min(limit, t0 + 0.25);
           if (!below(t1)) continue;
           let lo = t0, hi = t1;
@@ -8199,7 +8215,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2755 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6582
+  // that context through modes.dungeonCtx - so worldModes.js:6569
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -10617,9 +10633,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         playerEntity.health = playerEntity.maxHealth;
         playerEntity.fatigue = maxFatigue(playerEntity);
         if (!hasSpecialAbility(playerEntity.career, SPECIAL_ABILITY.NoRegenSpellPoints)) {
-          // MANA-HALF (systems/rest.js): the nights' rest fills magicka as far as rest does - online, half the pool,
-          // never taking back what stands above it
-          playerEntity.magicka = Math.max(playerEntity.magicka ?? 0, restMagickaCap(playerEntity));
+          playerEntity.magicka = playerEntity.maxMagicka;
         }
       }
       // RaiseTime through the ONE clock: the U24 advance runs the same
@@ -13434,7 +13448,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10073-10137 -
+  // worldModes answers it in BOTH modes (worldModes.js:10060-10124 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -19188,6 +19202,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // dolls - their 8-way picture, their sprite's offset and their lantern were the traveller's, edge-on as the view orbited
     const peerYaw = travelView?.active && travelView.camera ? travelView.camera.yaw : cam.yaw;
     const peerEye = travelView?.eye ?? cam.pos, peerRight = [Math.cos(peerYaw), 0, -Math.sin(peerYaw)];
+    const tvGrow = travelView?.active ? peerGrow : null;   // OW-PEERS: the others grown under the Overworld, as the traveller is
     const drawable = isCellRoom(online.room) && csaOn() ? csaAboard.glue(online.drawable(), { poseOf: (o, i) => csaPoseAhead(o, i, dt), toWire: campToWire, dt }) : online.drawable();   // CSA-K: a peer aboard a boat stands on its deck as it is drawn here - its owner's (mine among them) or the one led here - never a stride behind it
     peerCastVisuals(drawable);   // SPELLFX1: a peer's new cast, drawn once
     _veilT += dt > 0 ? dt : 0;
@@ -19211,12 +19226,12 @@ export async function bootWorld(canvas, renderer, params, status) {
     // stands for it; the wereboar has no Morrowind form and stays the rider layer's alone. AUDIT E4: the rider layer
     // DEFERS the werewolf on foot and settles it after the bodies have synced - whether its wolf stands is THIS frame's
     // answer, so the frame a peer transforms, its wolf first stands or walks out of range draws it once
-    peerRiders.sync(seen, onlineToScene, { eye: peerEye, right: peerRight, dt, defer: (d) => peerIsWolf(d.shown), conceal: veilOf });
+    peerRiders.sync(seen, onlineToScene, { eye: peerEye, right: peerRight, dt, defer: (d) => peerIsWolf(d.shown), conceal: veilOf, grow: tvGrow });
     const afoot = seen.filter((d) => !peerRiders.isRiding(d.id) && !d.shown?.wb || (peerIsWolf(d.shown) && !d.shown.rd));   // DISC12: a beast wears no Morrowind body; PR-WW1: it stands as EOTB's lycanthrope (peerRiders), or - while that art is not up - as the beast's enemy sprite (remotePlayers); WEREWOLF1: but a werewolf on foot does, Bloodmoon's
     peerBodies.sync(afoot, onlineToScene, dt, player.pos, { priority: (id) => !!social?.isPartyPeer(id), conceal: veilOf });   // the nearest first, the far ones asleep; AUDIT PARTY8: a party mate before a stranger
     // DISC23-B: a peer on foot who stands in no Morrowind body here stands as the Eye Of The Beholder set they chose -
     // after the bodies (a Morrowind player's own choice for everyone they meet), before the class sprite and the doll
-    peerWalkers.sync(seen, onlineToScene, { eye: peerEye, right: peerRight, dt, skip: (id) => peerBodies.heightOf(id) > 0, hurt: (id) => peerHurtAge(id) < PEER_FLINCH_S, conceal: veilOf });   // PEERFX3: a class skin's hurt pose
+    peerWalkers.sync(seen, onlineToScene, { eye: peerEye, right: peerRight, dt, skip: (id) => peerBodies.heightOf(id) > 0, hurt: (id) => peerHurtAge(id) < PEER_FLINCH_S, conceal: veilOf, grow: tvGrow });   // PEERFX3: a class skin's hurt pose
     peerRiders.settle((id) => peerBodies.wolfStands(id));   // WEREWOLF1 (AUDIT E4): the deferred werewolves, now the bodies have stood - before anything reads the riders
     auraFrame(seen);   // WB9g: the auras at the feet - mine and the drawn peers' - gathered with the rest
     // PCORPSE1: a body heard in a room this scene has left for another KIND of space (a dungeon's local frame, the
@@ -19236,7 +19251,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       for (const acct of [..._partyBodies]) if (!others.some((m) => m.acct === acct)) { _partyBodies.delete(acct); remotePlayers.partyForget(acct); }
     }
     if (online.room) remotePlayers.keepCorpses((r) => r === online.room || ((isWorldRoom(r) || isCellRoom(r)) && (isWorldRoom(online.room) || isCellRoom(online.room))));   // PCORPSE2: never judged while between rooms (a cell crossing's gap) - no room is not another space
-    remotePlayers.sync(drawable, onlineToScene, { bodyHeight: (id) => peerRiders.heightOf(id) || peerBodies.heightOf(id) || peerWalkers.heightOf(id), dt, eye: travelView?.eye ?? player.pos, poseAgeMs: (p) => online.poseAgeMs(p), conceal: veilOf, hidden: (id) => _hiddenPeers.has(id) });   // AUDIT (pre-merge) I-G: every peer HEARD (a concealed one's steps, swings and hooves - sound is no renderer), the classic lane's concealed drawn nowhere   // 2026-09-17: dt drives the class-enemy billboard path's own animation clock; eye is the local player's own position, needed for mobileOrientation's facing calculation (see remotePlayers.js _syncMobilePeer)   // AUDIT DEEP R-11: under the travel view, the view's own eye - the picture each peer shows is the one the camera sees
+    remotePlayers.sync(drawable, onlineToScene, { bodyHeight: (id) => peerRiders.heightOf(id) || peerBodies.heightOf(id) || peerWalkers.heightOf(id), dt, eye: travelView?.eye ?? player.pos, poseAgeMs: (p) => online.poseAgeMs(p), conceal: veilOf, hidden: (id) => _hiddenPeers.has(id), grow: tvGrow });   // AUDIT (pre-merge) I-G: every peer HEARD (a concealed one's steps, swings and hooves - sound is no renderer), the classic lane's concealed drawn nowhere   // 2026-09-17: dt drives the class-enemy billboard path's own animation clock; eye is the local player's own position, needed for mobileOrientation's facing calculation (see remotePlayers.js _syncMobilePeer)   // AUDIT DEEP R-11: under the travel view, the view's own eye - the picture each peer shows is the one the camera sees
     peerFlashFrame();   // PEERFX3: after every layer has (re)made its sprites this frame
   };
   /** SPELLFX1 (the Unity co-op's RpcPlayPlayerSpellCastVisual): EVERY PEER'S CAST, DRAWN. The pose already carries the
@@ -19268,7 +19283,12 @@ export async function bootWorld(canvas, renderer, params, status) {
     }
     if (_castSeen.size > (online?.peers.size ?? 0) + 16) for (const [id, v] of _castSeen) if (v.frame !== _castFrame) _castSeen.delete(id);
   }
-  const drawPeerBodies = (proj, view, eye) => { if (peerBodies) peerBodies.draw(canvas, { proj, view, eye, flashOf: peerFlashOf }); peerWalkers?.drawLanterns(); };   // HT-WAIST-BACK: the walkers' lanterns, each on its own tilted basis, beside the bodies - every mode's pass calls this after the player's own body (the exterior here, the dungeon and the interior through host.drawPeerBodies)
+  /** OW-PEERS (FIELD BUGS 2026-10-01 #11, "you cannot see other player's sprites"): under the Overworld the traveller's
+   *  own body is drawn grown with the eye's distance (OW-BIG, tvOwnGrow) and every other player was drawn at its own
+   *  size - a speck at 330 m under the name that stood over it. Each is grown by the same law at its own feet; 1 off
+   *  the view. */
+  const peerGrow = (f) => { const e = travelView?.active ? travelView.eye : null; return e ? tvOwnGrow(Math.hypot(e[0] - f[0], e[1] - f[1], e[2] - f[2])) : 1; };
+  const drawPeerBodies = (proj, view, eye, face = null) => { if (peerBodies) peerBodies.draw(canvas, { proj, view, eye, flashOf: peerFlashOf, grow: face ? peerGrow : null, up: face?.up ?? null }); peerWalkers?.drawLanterns(); };   // OW-PEERS: under the Overworld the bodies grown and leaned as the traveller's own   // HT-WAIST-BACK: the walkers' lanterns, each on its own tilted basis, beside the bodies - every mode's pass calls this after the player's own body (the exterior here, the dungeon and the interior through host.drawPeerBodies)
   /** INVIS-LOOK: the concealed peers' Morrowind bodies, translucent - blended with no depth write, so every mode's pass
    *  calls this AFTER its opaque world (net/peerBodies.js drawVeiled), with the camera its body pass took. */
   const drawVeiledPeerBodies = () => { peerBodies?.drawVeiled(); drawAuras(); };   // WB9g: and the auras, after the opaque world as the veiled are
@@ -20280,6 +20300,21 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
    * A batch with no bounds is always drawn, as `batchVisible` has it.
    */
   const billboardOutside = (b) => !batchVisible(_planes, b);
+  /** SHIP-FLATS (FIELD BUGS 2026-10-01 #7, "Sometimes performance issues when looking at AI ships"): the boats' and the
+   *  sea's ships' flats - a galley's fifty, her lanterns half of them, the crews' - went to the billboard pass from every
+   *  ship out to 1.9 km, three GL calls a flat, where her hull's own meshes are left undrawn under a pixel (AUDIT NAV1's
+   *  CULL_DETAIL_PX). The flats take the hull's law: a flat whose sphere is under a pixel across, at the drawing
+   *  buffer's height from this frame's eye, is not drawn. */
+  const _shipFlatSphere = new Float64Array(4);
+  function pushSeenShipFlats(list, out) {
+    const P = renderer._proj, eye = renderer._camPos;
+    const pxPerM = P ? P[5] * (renderer.gl?.drawingBufferHeight ?? 0) / 2 : 0;   // a metre's pixels a metre off
+    for (const b of list) {
+      const sp = pxPerM > 0 ? batchSphere(b, _shipFlatSphere) : null;
+      if (sp && sp[3] > 0 && 2 * sp[3] * pxPerM < CULL_DETAIL_PX * Math.hypot(sp[0] - eye[0], sp[1] - eye[1], sp[2] - eye[2])) continue;   // under a pixel
+      out.push(b);
+    }
+  }
   // A4: the streaming world's animal sources - pixel-local positions
   // translated through the floating origin at roll time (16 Hz over
   // a handful of animals; recenters are free).
@@ -21858,6 +21893,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     danger: () => duelEnemyNear() || areEnemiesNearby(exteriorFoePool()),   // the travel map's own refusal, and the Travel Options journey's stop (AUDIT DEEP2 A9/B-4: a live duel too, DUEL1's)
     actionsOf: (e) => actionsOf(e, keys),
     movementHeld: () => TV_MOVE_ACTIONS.some((a) => held(keys, a)),
+    movementAxes: () => ({ forward: (held(keys, 'MoveForwards') ? 1 : 0) - (held(keys, 'MoveBackwards') ? 1 : 0), strafe: (held(keys, 'MoveRight') ? 1 : 0) - (held(keys, 'MoveLeft') ? 1 : 0) }),   // OW-FACE: the way the keys point
     autopilot: () => !!travelOptions?.state?.autopilot,
     holdBody: (on) => mwViewHoldThird(on),
     freeCursor: (free) => { if (free) { tvCursorWas = cursorActive(); setCursorActive(true); releaseLook(); } else { setCursorActive(tvCursorWas); if (!tvCursorWas && !gamePaused() && !pointerSurfaces.size && !(modes?.modalWindowUp?.() ?? false) && !overlayOpen()) requestLook(canvas); } },   // AUDIT DEEP2 A3: nor under the Tab dial   // AUDIT DEEP T1-5: never the lock under an open chat or a window - the surface's close, or the look gate's, takes it back   // AUDIT TV B9: a cursor the player freed before the view is free after it
@@ -22463,6 +22499,14 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           // strafe key, so DFU sidesteps a held strafe at walk speed with
           // limitDiagonalSpeed cutting the forward share - the port
           // zeroed it and ran 41% faster along the bearing while it was held.
+        }
+        // OW-FACE (FIELD BUGS 2026-10-01 #10): under the Overworld the keys move the body the way they point from the VIEW
+        // (TV1's camera-relative law, unchanged) and the body FACES that way - travelView.steer turns it to the keys'
+        // heading, and here the keys' vector is turned onto the body, so the walk is the keys' way while it turns and
+        // straight ahead once it has (the sprite's eight views and the Morrowind body's walk follow the heading)
+        if (travelView?.active && travelView.camera && !_travelDrive && !_overlayHeld && !travelOptions?.state?.autopilot && (axes.forward || axes.strafe)) {
+          const turned = axesToward(cam.yaw, keysHeading(travelView.camera.yaw, axes.forward, axes.strafe), axes.forward, axes.strafe);
+          axes.forward = turned.forward; axes.strafe = turned.strafe;
         }
         // TV-WASD: THE KEYS' TRAVEL WAITS FOR THE GROUND as a journey's walk does (TO-FIELD's sentence), looking the way
         // the keys move the body - its heading turned by the axes (the motor's right is (cos, 0, -sin))
@@ -23240,7 +23284,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (crossing && !jump) sky.weatherArrive();
     const fx = weatherFront.tick({ dt, weather, arrival: enhancedFront ? sky.frontArrival() : 1, nowMinutes: playerTicker.classicMinutes, tsec: now / 1000, jump, peak: weatherOverride ? null : currentWeatherIntensity() });   // WEATHER3b: the map's intensity at the player is the peak
     if (fx.changed) wxFrom = wxNow;
-    wxNow = enhancedFront ? blendTerms(wxFrom, weatherTerms(), fx.t) : weatherTerms();
+    wxNow = enhancedFront ? blendTerms(wxFrom, fallTerms(weatherTerms(), fx.intensity, weather, FALL_LIGHT), fx.t) : weatherTerms();   // RAIN-SPRINKLE: a sprinkle looks like one
     const wd = windDrive(sky, now / 1000, dt);   // WIND3: the frame's wind in every consumer's units, read once
     // A3: the exterior ambience (WeatherAmbientEffects 5/25) - the
     // weather/time preset per WeatherManager.SetAmbientEffects.
@@ -23449,7 +23493,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // MW-D24: the player's own body, in third person only.
     renderer.setCloudShadow(sky?.cloudShadow ?? null);   // VC4: the frame's deck, for the body and everything before the pixel loop
     mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.bodyFeetAt(), yaw: cam.yaw, face: tvFace });   // DISC18: the body at the capsule's own feet, not the camera's smoothed ones
-    drawPeerBodies(proj, view, mwv.eye);   // MWBODY1: the others' bodies, the same pass
+    drawPeerBodies(proj, view, mwv.eye, tvf ? tvFace : null);   // MWBODY1: the others' bodies, the same pass; OW-PEERS: grown under the Overworld
     mwViewDrawWagon(renderer);   // EOTB-IL: the cart, when the transport is the cart
     gatePool?.draw(renderer);   // WB2: the Oblivion Gate's stone
     camps.draw(renderer);   // SURV3: the tents, the cart's own pass
@@ -23901,7 +23945,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (sigilBroker && _mode() === 'exterior') livePersonBatches.push(...sigilBroker.batches());   // SET7: the Broker on the flats' axis, as a foe stands
     // HCC: the horse billboards on the flats' axis (the runtime ticked above, hccTick - AUDIT HCC H1)
     if (hcc.enabled && _mode() === 'exterior') livePersonBatches.push(...hcc.batches());
-    if (csaOn() && _mode() === 'exterior') livePersonBatches.push(...csa.batches());   // CSA-B: the boats' crews and lanterns
+    if (csaOn() && _mode() === 'exterior') pushSeenShipFlats(csa.batches(), livePersonBatches);   // CSA-B: the boats' crews and lanterns; SHIP-FLATS: none under a pixel
     // TO-FIELD3 (Mac, 2026-09-18): "hunting rolls fire during travel
     // again". TO-FIELD held SURV6's roll while an accelerated journey
     // ran; the gate is REMOVED on Mac's word, with the `resting` flag
@@ -23943,12 +23987,20 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     csaDrawParticlesBlended();   // CSA-F: the oars' and rudders' drops (the Transparent queue)
     if (naval?.enabled) navalRender.draw(naval.drawFrame());   // NAV-B: the smoke, the spray, the balls in flight and the aim's arcs and zone, over the sea's top
     navalHud(dt);   // NAV-F: the helm's readout
-    // DW-D: UnderwaterPresentationEffects.UpdateWeatherParticles - a swimmer outdoors (never a water walker) has no
-    // rain or snow about them (the port's sand is the same kind of particle volume, and goes with them); DW-C: and
-    // under the distance fog the air's own effects - the sand, the wisps, the bolts, none of which writes a depth the
-    // mod's post effect would fog it by, so all of which it closes to the fog colour - are the fog's
+    // DW-C: under the distance fog the air's own effects - the sand, the wisps, the bolts, none of which writes a depth
+    // the mod's post effect would fog it by, so all of which it closes to the fog colour - are the fog's. PUDDLE-RAIN
+    // (FIELD BUGS 2026-10-01 #1): and so is what falls. DW-D stood the rain, the snow and the sand down for any swimmer
+    // outdoors (UnderwaterPresentationEffects.UpdateWeatherParticles, IsPlayerSwimming && !IsWaterWalking) - and the
+    // port swims wherever the drawn water is under the feet (MAC2), a puddle's whole tile among it, so a body sunk in a
+    // puddle with its eye over the water lost the rain while the rain loop played on. The water over the EYE hides it.
     const _dwAirOff = !!_dwFogP?.under;
-    const _dwPrecipOff = _dwAirOff || (!!dwPlayer && walkMode && !!player.isPlayerSwimming && !player.waterWalking);
+    const _dwPrecipOff = _dwAirOff;
+    // OW-WEATHER (FIELD BUGS 2026-10-01 #9, "in the overworld, weather is weird, it only happens around the player at
+    // small scale"): the sand, the rain, the snow and the wisps wrap their boxes (42 to 90 m) round the eye handed in,
+    // and under the Overworld cam.pos stays on the traveller's head (player/travelCamera.js) while the view stands
+    // 150-450 m up and back - so the weather was a small cube round the sprite, seen from outside it. They wrap round
+    // the eye the view is drawn from: the air in front of the camera is full of it, as it is when you stand in it.
+    const wxEye = tvf ? mwv.eye : cam.pos;
     // WX2: what falls is what the front SHOWS - under the enhanced sky the
     // outgoing rain tapers after the sim has cleared and the incoming
     // holds off until the deck is in. Classic: the sim's mode, as W1.
@@ -23957,7 +24009,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // WEATHER2d: THE SANDSTORM'S SAND - the wisps' program in the sand's look, the front's intensity its
       // strength, on the one wind's rate and travel; the rain program never draws it
       if (sand && !_dwPrecipOff) {
-        sand.draw({ on: true, strength01: fx.intensity, windV: wd.windV, step: wd.step, gust: wd.gust }, proj, view, new Float32Array(cam.pos), now / 1000);
+        sand.draw({ on: true, strength01: fx.intensity, windV: wd.windV, step: wd.step, gust: wd.gust }, proj, view, new Float32Array(wxEye), now / 1000);
         renderer.markForeignPass();
       }
     } else if (precipShown && precip) {   // W1 review: the gate is the MODE, never the object - the renderer outlives a clear-up
@@ -23983,7 +24035,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // the front and the wind carry on underneath, which is what the mod's
       // `PlayerWeather` disable leaves running too.
       if (!_travelWeatherOff && !_dwPrecipOff) {
-        precip.draw(precipShown, proj, view, new Float32Array(cam.pos), camRight, now / 1000);
+        precip.draw(precipShown, proj, view, new Float32Array(wxEye), camRight, now / 1000);
         renderer.markForeignPass();   // EV6: so did the rain
       }
     }
@@ -23991,7 +24043,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // rain and before the grass, on the same integrated wind; a foreign
     // pass like the rain. Their row is read every frame.
     if (wisps && wd.on && wispsOn() && !_dwAirOff) {
-      wisps.draw(wd, proj, view, new Float32Array(cam.pos), now / 1000);
+      wisps.draw(wd, proj, view, new Float32Array(wxEye), now / 1000);
       renderer.markForeignPass();
     }
     // BOLT: the burning channels, over what the world drew and behind what stands in front of them - from the eye the
@@ -24244,6 +24296,12 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       })),
     });
     arrows.draw(renderer);
+    // UNDER-LOOK and UNDER-RAYS (FIELD BUGS 2026-10-01 #4, #5): under the sea, the water body and the sun's shafts over
+    // every pixel the world drew - after the last world pass, before the weapon and the HUD (world/underwaterLook.js)
+    if (deepWaters && dwRender && _dwFogP?.under && _dwFrame) {
+      dwRender.drawUnderwaterLook(underwaterLookUniforms({ depth: _dwFogP.oceanY - cam.pos[1], daylight: _dwFrame.daylight, toSun: sunDirection(minute), sunColor: renderer._sunColor, sunScale: renderer._sunScale }, _underLook), _dwFogP.oceanY, SHAFT_REACH_M, now / 1000);
+      renderer.markForeignPass();
+    }
     // C9: the exterior FP weapon - swings/sounds through the rig. The
     // open world still has no ACTION OBJECTS in melee reach, and that
     // is DFU's own shape above ground rather than a hole: there is no

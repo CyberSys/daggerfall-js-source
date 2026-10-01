@@ -209,7 +209,10 @@ test('WB9h the swap: a nearer stranger takes the farthest stranger\'s body only 
   assert.equal(pb._bodies.get('s0')?.goneAt != null, true, 's0 gone from the room: its body lingers');
   const late = peer('late', 2, -2);
   sync([...stay, late]);
-  assert.equal(s0rig.unloaded, true, 'a lingering body\'s rig is unloaded, not kept - its peer went');
+  // PIN MOVED (MW-CROWD, FIELD BUGS 2026-10-01 #8): a lingering body's rig is KEPT as a spare (SPARE_MS, SPARE_MAX) - its
+  // peer mounted or left the list a moment and came back to a whole rebuild (test/fb1001_mwcrowd.test.js)
+  assert.equal(s0rig.unloaded, false, 'a lingering body\'s rig is kept, a spare for its peer\'s return');
+  assert.ok(pb._spares.some((x) => x.rig === s0rig));
   assert.equal(pb._bodies.has('late'), true, 'a lingering body gives its slot at once - nothing is seen to go');
   assert.equal(BODY_LINGER_MS > 0, true);
 });

@@ -295,8 +295,8 @@ export async function autoBuildArms(entity, { dataCount = morrowindDataCount, me
  *                     pass console is retired: every call site hands
  *                     over a real one - hudText.add
  *                     (dungeonContext.js:3180), townTalk.say
- *                     (exterior.js:2174, world.js:8031) and
- *                     worldModes' own interior sink (worldModes.js:502,
+ *                     (exterior.js:2175, world.js:8047) and
+ *                     worldModes' own interior sink (worldModes.js:500,
  *                     which warns to console only where a host mounts
  *                     no townTalk at all), so the empty default below
  *                     is unreached,

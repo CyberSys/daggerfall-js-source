@@ -507,7 +507,7 @@
   {
     "name": "HT-WAIST-BACK-the-walker-never-hangs-it",
     "file": "src/net/peerRiders.js",
-    "old": "      hangLantern(r, pose, feet, view, eye, right, step, ft);\n",
+    "old": "      else hangLantern(r, pose, feet, view, eye, right, step, ft);\n",
     "new": "",
     "tests": [
       "test/htwaistback.test.js"

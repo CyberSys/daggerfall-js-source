@@ -64,7 +64,13 @@ import { precipitationForWeather } from '../world/weather.js';
 /** Each mode's peak range, as a fraction of the profile's count: what
  *  a cut into that weather can roll. A rain can be a sprinkle; a storm
  *  never is; snow rarely buries the screen. */
-export const PRECIP_PEAK = Object.freeze({ rain: [0.25, 1.0], storm: [0.6, 1.0], snow: [0.2, 0.85], sand: [0.5, 1.0] });   // WEATHER2d: a sandstorm is never thin
+export const PRECIP_PEAK = Object.freeze({ rain: [0.05, 1.0], storm: [0.6, 1.0], snow: [0.05, 0.85], sand: [0.5, 1.0] });   // WEATHER2d: a sandstorm is never thin
+/** RAIN-SPRINKLE (FIELD BUGS 2026-10-01 #2, "Rain shouldnt always be a downpour, should sometimes sprinkle"): the roll
+ *  is placed in the range by u^skew, so a rain is a sprinkle or a shower far more often than a downpour - on the map's
+ *  lane the place's intensity is the roll, so a rain system's edge drizzles and only its heart pours. WX2's floors
+ *  (rain 0.25, snow 0.2) under the map's own (WEATHER3i: the core's edge at a fifth) never drew under ~0.4 of the
+ *  profile - ten thousand drops in the eye's 42 m box - and the fog and the sun took the whole row whatever fell. */
+export const PRECIP_SKEW = Object.freeze({ rain: 2, snow: 1.5, storm: 1, sand: 1 });
 /** The arrival window the drops fill in over: nothing falls until the
  *  front is past half in, and it is all down just before the front lands. */
 export const PRECIP_IN = Object.freeze([0.55, 0.95]);
@@ -95,11 +101,11 @@ export { smoothstep };
 /** The LOOK a mode has: storm shares the rain's. null for no mode. */
 export const precipKind = (mode) => (mode === 'snow' ? 'snow' : mode === 'sand' ? 'sand' : mode ? 'rain' : null);   // WEATHER2d: the sand is its own look
 
-/** A roll `u` in 0..1 placed in the mode's peak range. */
+/** A roll `u` in 0..1 placed in the mode's peak range, by its skew (RAIN-SPRINKLE). */
 export function rollPeak(mode, u) {
   const r = PRECIP_PEAK[mode];
   if (!r) return 0;
-  const v = Math.min(1, Math.max(0, u));
+  const v = Math.min(1, Math.max(0, u)) ** (PRECIP_SKEW[mode] ?? 1);
   return r[0] * (1 - v) + r[1] * v;   // the two-term form lands the ends exactly
 }
 
@@ -133,6 +139,35 @@ export function blendTerms(from, to, t) {
     sun: lerp(from.sun, to.sun, t),
     dim: lerp(from.dim ?? 1, to.dim ?? 1, t),
     fog: blendFog(from.fog, to.fog, t),
+  };
+}
+
+/** RAIN-SPRINKLE: the intensity band a fall's LOOK crosses - at its foot a rain or a snow looks as an overcast sky
+ *  does (the host's `light`), past its top as the weather's own row has it. */
+export const FALL_LOOK = Object.freeze([0.05, 0.6]);
+/** ...and a sprinkle's fog: this share of its row's exp density. */
+export const FALL_FOG_FLOOR = 0.25;
+/**
+ * RAIN-SPRINKLE: the world's terms under what is FALLING, not under the word. A rain or a snow row is the downpour's
+ * look - exp fog (0.003, snow 0.005), the sun at 0.45, the grass dimmed to 0.6 - and every rain wore it whole, a
+ * sprinkle too. Under the band the fog thins to FALL_FOG_FLOOR of its density and the sun and the grass come up to
+ * `light`'s (never darker than the row). Any other word - a fog bank, a sandstorm, a clear sky with the last of a
+ * shower draining - is handed back as it came. The host blends the answer on the front (blendTerms) as before.
+ * @param {{sun: number, dim?: number, fog: any}} terms - the weather's row
+ * @param {number} intensity - the front's, the share of the profile on screen
+ * @param {string} weather - the sim's word
+ * @param {{sun: number, dim: number}} light - an overcast sky's sun and grass
+ */
+export function fallTerms(terms, intensity, weather, light) {
+  const mode = precipitationForWeather(weather);
+  if (mode !== 'rain' && mode !== 'storm' && mode !== 'snow') return terms;
+  const k = smoothstep(FALL_LOOK[0], FALL_LOOK[1], intensity);
+  if (k >= 1) return terms;
+  const dim = terms.dim ?? 1;
+  return {
+    sun: Math.max(terms.sun, lerp(light.sun, terms.sun, k)),
+    dim: Math.max(dim, lerp(light.dim, dim, k)),
+    fog: terms.fog?.mode === 'exp' ? { ...terms.fog, density: terms.fog.density * lerp(FALL_FOG_FLOOR, 1, k) } : terms.fog,
   };
 }
 

@@ -22,7 +22,7 @@ import { cloudsStateUnderMod, dynamicMoonState, dynamicMoonlight } from '../rend
 import { isEnhanced } from '../systems/uiSkin.js';
 import { getPref } from '../systems/uiPrefs.js';   // RA1: the Enhanced pane's sky switch
 import { pageParam } from '../systems/pageQuery.js';   // CLIMB1: `?parkour=off`, the enhanced climb's kill door
-import { isOnlinePage, onlineForcedPref } from '../systems/onlineLane.js';   // CLIMB1: online the skin is not asked, and the row is the lane's; MANA-HALF: online, rest's "full" is its cap
+import { isOnlinePage, onlineForcedPref } from '../systems/onlineLane.js';   // CLIMB1: online the skin is not asked, and the row is the lane's
 import { carriedWeight } from '../systems/inventory.js';   // CLIMB2: a heavy pack cuts the enhanced climb's reach
 import { entityMaxEncumbrance } from '../combat/formulas.js';   // CLIMB2: ...over what the body can carry
 import { DynamicSkiesRenderer } from '../render/dynamicSkiesRenderer.js';   // DS1: Dynamic Skies' skybox, the mod's own pass
@@ -51,7 +51,7 @@ import { setInfectionHost, vampireClanForFaction } from '../systems/infection.js
 import { findFactions } from '../systems/talk.js';   // V1: GetRegionFaction's FindFactions(Province, region)
 import { FACTION_TYPES } from '../formats/factionFile.js';
 import { killIfAnyLiveStatZero } from '../systems/statMods.js';   // AUDIT 24 (wave 32): the per-entity laws a foe pool owes
-import { hasSpecialAbility, SPECIAL_ABILITY, healthRecoveryRate, fatigueRecoveryRate, restedMagicka, restMagickaCap, restIgnoresNoRegen } from '../systems/rest.js';   // MANA-HALF: the rested hour's magicka, up to the cap
+import { hasSpecialAbility, SPECIAL_ABILITY, healthRecoveryRate, fatigueRecoveryRate, spellPointRecoveryRate, restIgnoresNoRegen } from '../systems/rest.js';
 import { entityImprovedAthleticism } from '../systems/enchantments.js';   // AUDIT 26 F044: the ImprovesTalents fatigue arm   // the rested hour's three rates, one home for every host (V5 + S40, same line from two lanes)
 import { getPreventedRestMessage } from '../systems/restSession.js';
 import { registerPreventRestCondition } from '../systems/restSession.js';   // SURV7: the survival rest gate's seam
@@ -2200,21 +2200,18 @@ export function routeMouseDrag({ walkMode, buttons, keys = null, mode = 'exterio
 export function restVitals(entity, { day = false, inside = true } = {}) {
   entity.health = Math.min(entity.maxHealth, entity.health + healthRecoveryRate(entity, { day, inside }));
   entity.fatigue = Math.min(maxFatigue(entity), (entity.fatigue ?? 0) + fatigueRecoveryRate(maxFatigue(entity)));
-  entity.magicka = Math.min(entity.maxMagicka ?? Infinity, (entity.magicka ?? 0) + restedMagicka(entity));   // MANA-HALF: online, up to half the pool
+  entity.magicka = Math.min(entity.maxMagicka ?? Infinity, (entity.magicka ?? 0) + spellPointRecoveryRate(entity));
   tallySkill(entity, SKILLS.Medical);
   surfacePlayer();
   return restFullyHealed(entity);
 }
 
 /** IsPlayerFullyHealed (:524-537) - health AND fatigue at max, and
- *  magicka at max UNLESS the career cannot regenerate it at all.
- *  MANA-HALF: online "full" is as far as rest brings it - the cap (half the pool) or more - or "rest until healed"
- *  would never end for a caster below a full pool. */
+ *  magicka at max UNLESS the career cannot regenerate it at all. */
 export const restFullyHealed = (entity) =>
   entity.health === entity.maxHealth
   && (entity.fatigue ?? 0) === maxFatigue(entity)
   && ((entity.magicka ?? 0) === (entity.maxMagicka ?? 0)
-    || (isOnlinePage() && (entity.magicka ?? 0) >= restMagickaCap(entity))   // MANA-HALF: online, the rest's cap
     || (hasSpecialAbility(entity.career, SPECIAL_ABILITY.NoRegenSpellPoints) && !restIgnoresNoRegen()));   // REST-MANA1: online a no-regen career rests until its magicka is full too
 
 /**

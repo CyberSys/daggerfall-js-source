@@ -119,6 +119,16 @@ export const SPARE_MAX = 4;
  *  SKIN's test adds (metres), so a body the view is swinging onto is posed before it comes into sight. */
 export const BODY_SPHERE_SHARE = 0.75;
 export const CULL_MARGIN_M = 2;
+/** MW-CROWD (FIELD BUGS 2026-10-01 #8, "Culling performance issues when using the morrowind model and around a large
+ *  group of players"): THE MARGIN LEADS A TURNING EYE. The skins are decided on the LAST pass's view, and a body the
+ *  view swung onto past CULL_MARGIN_M arrived stale and was posed in the draw, outside SKIN_BUDGET - at 300 degrees a
+ *  second and 30 frames a crowd's every body swung onto posed in one frame (a CPU skin and a whole re-upload each). The
+ *  margin grows by the turn: the angle the view turned last frame, TURN_LEAD_FRAMES frames of it (no more than
+ *  TURN_LEAD_MAX), at the body's distance - so the bodies about to come into view are skinned on the budget before. */
+export const TURN_LEAD_FRAMES = 3;
+export const TURN_LEAD_MAX = 1.2;
+/** The margin a body `dist` metres off takes when the view turned `turn` radians last frame. */
+export const turnLeadMargin = (dist, turn) => CULL_MARGIN_M + (turn > 0 ? Math.max(0, dist) * Math.tan(Math.min(TURN_LEAD_MAX, turn * TURN_LEAD_FRAMES)) : 0);
 /** AUDIT WB9 (bodies F1): the most of the frames a body went unposed its particles are stepped by at once, seconds - a
  *  body out of the view steps its clocks unposed, and its whole bank (a minute behind the eye: sixty seconds) as one
  *  particle step threw every flame out of its sprite, blinking it out as it came back into sight. */
@@ -136,8 +146,12 @@ export function poseCadenceFor(d2) {
  *  setWeapon (MAC7 #2). */
 /** DISC12: the weapon in the hand the peer USES - the look carries both hands, the pose's `lh` says which one is
  *  drawn (WeaponManager.ApplyWeapon :741-755: the other hand is never on screen). */
+const _stubSlots = new WeakMap();   // MW-CROWD: a look's stand-in's slots, once a look - a look is replaced, never mutated (lookKey's law)
 export function peerWeaponOf(look, shown = null) {
-  const slots = peerStubEntity(look).equip.slots;
+  // MW-CROWD: every stepped body asked this every frame, and each ask built a whole stand-in (an entity, a 27-slot
+  // equip table, its items) - eight bodies' worth of garbage a frame in a crowd. One a look now
+  let slots = look && typeof look === 'object' ? _stubSlots.get(look) : null;
+  if (!slots) { slots = peerStubEntity(look).equip.slots; if (look && typeof look === 'object') _stubSlots.set(look, slots); }
   return slots[shown?.lh ? EQUIP_SLOTS.LeftHand : EQUIP_SLOTS.RightHand] ?? null;
 }
 
@@ -162,7 +176,23 @@ function wolfLookKey(look) {
  *  equip table tore the standing wolf down and built it again ten seconds on (a second refusal and warning, where it
  *  was refused). */
 export function peerBodyKey(look, shown = null, glyphs = null) {
-  return peerIsWolf(shown) ? `wolf|${wolfLookKey(look)}|${werewolfSkinOf(glyphs) ?? ''}` : lookKey(look);   // SHADOW-FANG: and the wolf's skin
+  return peerIsWolf(shown) ? `wolf|${wolfLookKey(look)}|${werewolfSkinOf(glyphs) ?? ''}` : bodyLookKey(look);   // SHADOW-FANG: and the wolf's skin
+}
+
+/** MW-CROWD (FIELD BUGS 2026-10-01 #8): A PERSON'S BODY IS ITS LOOK LESS ITS WEAPONS. The weapon in hand is the arm's
+ *  live door (`_arm` -> setWeapon, DISC12's hand swap), so a peer who drew another sword tore down a built body after
+ *  BODY_REBUILD_MS and queued a whole build for it - the doll standing meanwhile - to hold what setWeapon had already put
+ *  in the hand. The body key reads every other item as lookKey does; memoised by the look, as lookKey is. */
+const _bodyLookKeys = new WeakMap();
+function bodyLookKey(look) {
+  if (!look || typeof look !== 'object') return lookKey(look);
+  let k = _bodyLookKeys.get(look);
+  if (k === undefined) {
+    const items = Array.isArray(look.items) ? look.items : [];
+    k = items.some((it) => it?.group === 'Weapons') ? lookKey({ ...look, items: items.filter((it) => it?.group !== 'Weapons') }) : lookKey(look);
+    _bodyLookKeys.set(look, k);
+  }
+  return k;
 }
 
 export function peerBuildOpts(look, shown = null, glyphs = null) {
@@ -271,6 +301,7 @@ export class PeerBodies {
     this._cam = null;   // INVIS-LOOK: the camera the body pass drew with this frame - the late pass draws the concealed with it
     this._planes = new Float64Array(20);   // WB9h: the last body pass's view sides (viewPlanes) - that pass's test, the next frame's skins
     this._planesOk = false;
+    this._turn = 0; this._lastFwd = null;   // MW-CROWD: the last pass's turn (radians) and its forward
     this._live = new Map();   // WB9h: the frame's drawable peers - one map and one list, refilled a frame (AUDIT WB D10)
     this._want = []; this._wantPool = [];
     this._due = [];   // WB9h: the bodies stepped this frame, for the skin budget
@@ -286,7 +317,7 @@ export class PeerBodies {
   has(id) { return this._standing(this._bodies.get(id)); }
 
   /** The body's height over its feet - the capsule scaled by the race's own (MW-D34) - or 0 without a standing body: the name pass's head. */
-  heightOf(id) { const b = this._bodies.get(id); return this._standing(b) ? CAPSULE_HEIGHT * (b.rig.raceHeightScale?.() ?? 1) : 0; }
+  heightOf(id) { const b = this._bodies.get(id); return this._standing(b) ? CAPSULE_HEIGHT * (b.rig.raceHeightScale?.() ?? 1) * (this._cam?.grow && b.feet ? Math.max(1, this._cam.grow(b.feet)) : 1) : 0; }   // OW-PEERS: a grown body's head, for its name
 
   /** Why a look has no body - a person's, or (AUDIT E7) a wolf's by the pose and glyphs it is keyed on - or null. */
   failureOf(look, shown = null, glyphs = null) {
@@ -456,7 +487,7 @@ export class PeerBodies {
     // WB9h: a standing body given up is kept for its body's next wearer, and the hand-over is timed (a lingering one's
     // peer is gone - nothing is seen to go)
     if (victim.goneAt == null) this._swappedAt = this._now();
-    this._release(victim.id, victim.goneAt == null, key);
+    this._release(victim.id, true, key);   // MW-CROWD: a LINGERING body is kept too - its peer mounted or dropped out of the list a moment, and came back to a whole rebuild (_release spares only a built, skinned rig)
     return true;
   }
 
@@ -478,13 +509,13 @@ export class PeerBodies {
     b.d2 = near ? dist2(f, near) : 0;
     b.far = !!near && b.d2 > BODY_RANGE * BODY_RANGE;
     b.cam = peerCamera(peer.shown, f, b.speed, b.cam, b.yaw);
-    b.inView = !this._planesOk || this._sees(b, CULL_MARGIN_M);   // WB9h: in the last pass's view, with the margin a turning eye needs
+    b.inView = !this._planesOk || this._sees(b, turnLeadMargin(Math.sqrt(b.d2), this._turn));   // WB9h: in the last pass's view, with the margin a turning eye needs - MW-CROWD: led by the turn
   }
 
   /** WB9h: does the view the last body pass drew (viewPlanes) reach this body - its sphere about its middle, BODY_SPHERE_SHARE of
    *  its height round, `margin` metres more? */
-  _sees(b, margin) {
-    const h = CAPSULE_HEIGHT * (b.rig.raceHeightScale?.() ?? 1);
+  _sees(b, margin, grow = 1) {
+    const h = CAPSULE_HEIGHT * (b.rig.raceHeightScale?.() ?? 1) * grow;   // OW-PEERS: a grown body reaches its grow times as far
     return sphereInView(this._planes, b.feet[0], b.feet[1] + h / 2, b.feet[2], h * BODY_SPHERE_SHARE + margin);
   }
 
@@ -613,10 +644,18 @@ export class PeerBodies {
 
   /** The bodies, after the local one (the same pass, MW-D24) - the standing ones. INVIS-LOOK: not a CONCEALED peer's -
    *  that one is drawn translucent after the world's opaque draws (drawVeiled), with the camera kept here. */
-  draw(canvas, { proj, view, eye, flashOf = null }) {
-    const c = this._cam ?? (this._cam = { canvas: null, proj: null, view: null, eye: null, flashOf: null });
+  draw(canvas, { proj, view, eye, flashOf = null, grow = null, up = null }) {
+    const c = this._cam ?? (this._cam = { canvas: null, proj: null, view: null, eye: null, flashOf: null, grow: null, up: null });
     c.canvas = canvas; c.proj = proj; c.view = view; c.eye = eye; c.flashOf = flashOf;
+    c.grow = grow; c.up = up;   // OW-PEERS (FIELD BUGS 2026-10-01 #11): under the Overworld each body drawn its grow times about its feet, leaned as the traveller's own is (drawThird's OW-BIG and AUDIT OW3 J6)
     this._planesOk = !!viewPlanes(proj, view, this._planes);   // WB9h: this pass's view - and the next frame's skins
+    // MW-CROWD: how far the view turned since the last pass - the angle between the two forwards (the view's third row)
+    if (this._planesOk) {
+      const fx = -view[2], fy = -view[6], fz = -view[10], l = this._lastFwd;
+      this._turn = l ? Math.acos(Math.max(-1, Math.min(1, fx * l[0] + fy * l[1] + fz * l[2]))) : 0;
+      const k = this._lastFwd ?? (this._lastFwd = new Float64Array(3));
+      k[0] = fx; k[1] = fy; k[2] = fz;
+    }
     return this._drawBodies(canvas, proj, view, eye, false, flashOf);
   }
 
@@ -637,7 +676,8 @@ export class PeerBodies {
       if (!this._standing(b) || !b.veil !== !veiled) continue;
       // WB9h: out of the view (the frustum's sides and near, the body's own reach): nothing to draw - the sprite pass
       // has no such test. A view that is no lens (a stub's) keeps the old test alone: behind the eye.
-      if (this._planesOk) { if (!this._sees(b, 0)) continue; }
+      const g = this._cam?.grow ? Math.max(1, this._cam.grow(b.feet)) : 1;   // OW-PEERS
+      if (this._planesOk) { if (!this._sees(b, 0, g)) continue; }
       else if (view && view.length === 16) {
         const f = b.feet, vz = view[2] * f[0] + view[6] * f[1] + view[10] * f[2] + view[14];
         if (vz > CAPSULE_HEIGHT) continue;
@@ -647,7 +687,7 @@ export class PeerBodies {
       if (b.stale) {
         try { b.rig.update(0, { pose: true, effectsDt: b.bank }); b.bank = 0; b.stale = false; b.owed = false; b.posedAt = this._frame; } catch (e) { this._fail(b, `update threw: ${e?.message ?? e}`); continue; }
       }
-      try { if (b.rig.drawThird(canvas, { proj, view, eye, feet: b.feet, yaw: b.yaw, hitFlash: flashOf ? flashOf(b.id) : 0, conceal: b.veil ?? null })) drawn++; } catch (e) { this._fail(b, `draw threw: ${e?.message ?? e}`); }   // AUDIT MWBODY A1; HITFLASH1: a struck body flashes red; INVIS-LOOK: a concealed one blends
+      try { if (b.rig.drawThird(canvas, { proj, view, eye, feet: b.feet, yaw: b.yaw, hitFlash: flashOf ? flashOf(b.id) : 0, conceal: b.veil ?? null, grow: g, up: this._cam?.up ?? null })) drawn++; } catch (e) { this._fail(b, `draw threw: ${e?.message ?? e}`); }   // AUDIT MWBODY A1; HITFLASH1: a struck body flashes red; INVIS-LOOK: a concealed one blends; OW-PEERS: grown and leaned under the Overworld
     }
     return drawn;
   }

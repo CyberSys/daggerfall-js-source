@@ -46,6 +46,18 @@ export function quatRotate(q, v) {
   return [v[0] + 2 * (w * uv[0] + uuv[0]), v[1] + 2 * (w * uv[1] + uuv[1]), v[2] + 2 * (w * uv[2] + uuv[2])];
 }
 
+/** SHIP-FLAGS (FIELD BUGS 2026-10-01 #7): quatRotate of (vx, vy, vz) into `out`, with no array made - the same
+ *  products in the same order (cross(u, v), then cross(u, uv)), so the answer is quatRotate's to the bit. A ship's flag
+ *  is two dozen cubes of 36 triangles, two turns each, every frame: five arrays a turn was ~170 thousand a second for
+ *  one ship. */
+export function quatRotateInto(q, vx, vy, vz, out) {
+  const x = q[0], y = q[1], z = q[2], w = q[3];
+  const uv0 = y * vz - z * vy, uv1 = z * vx - x * vz, uv2 = x * vy - y * vx;
+  const uuv0 = y * uv2 - z * uv1, uuv1 = z * uv0 - x * uv2, uuv2 = x * uv1 - y * uv0;
+  out[0] = vx + 2 * (w * uv0 + uuv0); out[1] = vy + 2 * (w * uv1 + uuv1); out[2] = vz + 2 * (w * uv2 + uuv2);
+  return out;
+}
+
 /** A rotation from an orthonormal basis (columns right, up, forward) -
  *  the matrix-to-quaternion ladder with the trace test first. */
 export function quatFromBasis(right, up, forward) {

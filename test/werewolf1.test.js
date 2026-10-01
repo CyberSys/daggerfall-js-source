@@ -352,9 +352,12 @@ test('WEREWOLF1 a peer: the pose\'s `wb` 1 builds the wolf (holding nothing), ke
   assert.equal(o.werewolf, true); assert.equal(o.weapon, null, 'the sword in the look is not the wolf\'s');
   assert.equal(peerBuildOpts(LOOK, { wb: 0 }).weapon?.templateIndex, 120, 'the person holds it');
   assert.equal('werewolf' in peerBuildOpts(LOOK, { wb: 2 }), false, 'the wereboar: the person\'s opts, unchanged');
-  assert.equal(peerBodyKey(LOOK, { wb: 0 }), lookKey(LOOK), 'a person\'s key is the look\'s own');
-  assert.notEqual(peerBodyKey(LOOK, { wb: 1 }), lookKey(LOOK));
-  assert.equal(peerBodyKey(LOOK, { wb: 2 }), lookKey(LOOK));
+  // PIN MOVED (MW-CROWD, FIELD BUGS 2026-10-01 #8): a person's key is the look's own LESS ITS WEAPONS - the hand is the
+  // arm's live door (setWeapon), so a sword drawn is no new body (test/fb1001_mwcrowd.test.js)
+  const unarmed = lookKey({ ...LOOK, items: LOOK.items.filter((it) => it.group !== 'Weapons') });
+  assert.equal(peerBodyKey(LOOK, { wb: 0 }), unarmed, 'a person\'s key is the look\'s own, less its weapons');
+  assert.notEqual(peerBodyKey(LOOK, { wb: 1 }), unarmed);
+  assert.equal(peerBodyKey(LOOK, { wb: 2 }), unarmed);
   // the body layer, with a fake rig
   const built = [];
   let now = 1000;
@@ -386,7 +389,7 @@ test('WEREWOLF1 a peer: the pose\'s `wb` 1 builds the wolf (holding nothing), ke
 
 test('WEREWOLF1 the host: a werewolf on foot goes to the bodies (so its wolf builds while the rider layer\'s lycanthrope stands for it); the rider layer DEFERS it and settles it after the bodies have stood (AUDIT E4: a skip read before them was the last frame\'s answer); a mounted beast and the wereboar stay the rider layer\'s (mutants: the settle dropped; the wolf kept out of the bodies; the boar deferred)', () => {
   const w = rd('src/scenes/world.js');
-  assert.match(w, /peerRiders\.sync\(seen, onlineToScene, \{ eye: peerEye, right: peerRight, dt, defer: \(d\) => peerIsWolf\(d\.shown\), conceal: veilOf \}\);/);   // INVIS-NET (the merge): the drawn, not the whole list
+  assert.match(w, /peerRiders\.sync\(seen, onlineToScene, \{ eye: peerEye, right: peerRight, dt, defer: \(d\) => peerIsWolf\(d\.shown\), conceal: veilOf(?:, grow: tvGrow)? \}\);/);   // INVIS-NET (the merge): the drawn, not the whole list; PIN MOVED (OW-PEERS, FIELD BUGS 2026-10-01 #11): and the Overworld's grow
   assert.match(w, /const afoot = seen\.filter\(\(d\) => !peerRiders\.isRiding\(d\.id\) && !d\.shown\?\.wb \|\| \(peerIsWolf\(d\.shown\) && !d\.shown\.rd\)\);/);
   const order = ['peerRiders.sync(seen', 'peerBodies.sync(afoot', 'peerRiders.settle((id) => peerBodies.wolfStands(id));', 'remotePlayers.sync(drawable'].map((t) => w.indexOf(t));
   assert.ok(order.every((i, k) => i > 0 && (k === 0 || i > order[k - 1])), `riders, bodies, the settle, then whatever reads the riders (${order})`);

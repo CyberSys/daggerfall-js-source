@@ -595,4 +595,5 @@ deps' `climbing` down `_hangStep`, `_pkShimmy` and `_pkCorner`). The reach, the 
 - **Mutants**: `tools/mutants/climb2.json` grows to 67, nine for the carry (each law capped, each hand-down dropped);
   the three records on the lines it reshaped are re-aimed. All twelve dead.
 - **The merge's own fault**: `scenes/shared.js` imported `isOnlinePage` twice (CLIMB1's switch and MANA-HALF each
-  added it, and git merged both lines cleanly), so the module did not load; one import now.
+  added it, and git merged both lines cleanly), so the module did not load; one import now. #500 has since reverted
+  MANA-HALF, and the next merge took its side: the import is CLIMB1's alone again.

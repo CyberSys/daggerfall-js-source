@@ -302,7 +302,7 @@ test('WIND3 the flats\' sway in the renderer: BB_VS declares the wind and the sh
 });
 
 test('WIND3 the hosts: both exterior hosts read the one wind once a frame, feed the rain\'s rate and travel from it, draw the wisps after the rain as a foreign pass, tick the loop beside the ambience and stop it on the modal frame, hand the flats the wind before their draw, and tag the flora batches - and hold no copy of the mapping', () => {
-  for (const [host, eye] of [['src/scenes/world.js', 'cam.pos'], ['src/scenes/exterior.js', 'eye']]) {
+  for (const [host, eye] of [['src/scenes/world.js', 'wxEye'], ['src/scenes/exterior.js', 'eye']]) {   // PIN MOVED (OW-WEATHER, FIELD BUGS 2026-10-01 #9): the world host's eye is the view's (test/fb1001_overworld.test.js)
     const s = rd(host);
     const one = (re, what) => assert.equal((s.match(re) || []).length, 1, `${host}: ${what}`);
     one(/const wd = windDrive\(sky, now \/ 1000, dt\);/g, 'the one read');
