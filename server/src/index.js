@@ -202,7 +202,8 @@ const GUILD_OUT_KEEP_S = MAX_TTL_S + ORDER_TTL_S + 60;
 // pure law - it imports nothing) and net/gateReceipt.js (the kill's receipt, the relay's first signature - it imports
 // identityToken.js, already here). bible/11-Multiplayer/World-Bosses.md sections 5, 6 and 8.
 import { isGateRoom, gateDayOfRoom, gateAdmits, gateHolds, gateTimes, gateBossOf, gateModsOf, GATE_COLLAPSE_MS } from '../../src/net/gateLaw.js';
-import { isSiegeRoom, newFighter, refereeBlow, refereeCast, refereeStep, siegeHeld, siegeNextWave, siegeRise, SIEGE_WAVE_MS, SIEGE_FIGHTERS_MAX } from '../../src/net/siegeRef.js';   // PVP-REF: a siege's referee - siegeRef.js imports nothing, so the worker's graph stays flat
+import { isSiegeRoom, siegeOfRoom, newFighter, refereeBlow, refereeCast, refereeStep, siegeHeld, siegeNextWave, siegeRise, SIEGE_WAVE_MS, SIEGE_FIGHTERS_MAX, SIEGE_SPECTATORS_MAX, SIEGE_OPENS_MS, SIEGE_TICK_MS, siegeNextBeat, fieldOf, newBattle, battleStep, honoured, siegeCampPose, siegeFieldFrame } from '../../src/net/siegeRef.js';   // PVP-REF: a siege's referee - siegeRef.js imports nothing, so the worker's graph stays flat   // SEAT2a: and its battle
+import { mintSiegeReceipt, SIEGE_RECEIPT_TTL_S } from '../../src/net/siegeReceipt.js';   // SEAT2a: the relay's fourth signature - a fighter's result and Honours
 import { newFight, joinFight, applyHit, applyCrystalHit, stepBrain, stateOf, earned, earnedBy, COURT_CENTRE, BRAIN_TICK_MS, CHECKPOINT_MS, GATE_FIGHTERS_MAX } from '../../src/net/gateBrain.js';
 import { mintReceipt, importReceiptKey, readReceipt, RECEIPT_TTL_S } from '../../src/net/gateReceipt.js';
 // RAID3 (2026-09-27, Mac, on World Events - Raiding Parties online: "1. Server"): TWO FILES JOIN THE BUNDLE -
@@ -1171,8 +1172,11 @@ export class Room {
       // the object's own word, for a socket that opened a moment before the seal.
       if (isGateRoom(a.key)) { const no = await this._gateAdmit(a.key, who.subject, now); if (no) { this._refuse(ws, no); return; } }
       // PVP-REF: A SIEGE'S ROOM ADMITS THE DEVELOPERS ALONE until SEAT2a schedules its battles and signs its sides - the
-      // referee's proving ground and its measurement (Seats-Arc 6.1)
-      if (isSiegeRoom(a.key) && !(who.subject && Array.isArray(who.glyphs) && who.glyphs.includes('dev'))) { this._refuse(ws, 'the siege is not open'); return; }
+      // referee's proving ground and its measurement (Seats-Arc 6.1). SEAT2a: BY ITS PASS - the account service's word
+      // (the hello's `sp`) that this account fights on a side, or watches; the developers' ground only while the room
+      // holds no battle
+      let siegeSide = null;
+      if (isSiegeRoom(a.key)) { const v = await this._siegeAdmit(a.key, who, m.sp, now); if (v.no) { this._refuse(ws, v.no); return; } siegeSide = v.side; }
       // ONE-SEAT (Mac: "the player can only have one character only at a time"): A HUB HELLO THAT DOES NOT CLAIM IS A
       // RECONNECT, and while another tab of the same account holds the hub the seat is that tab's - refused here, before
       // anything is written, so a tab superseded while its socket was down cannot take the seat back by reconnecting.
@@ -1220,7 +1224,7 @@ export class Room {
       await this.state.storage.put(secretKey(m.id), m.secret);
       if (!chat) { await this.state.storage.put(lookKey(m.id), m.look); this._looks.set(m.id, m.look); }   // a channel keeps no look: nobody is drawn from it
       const guild = who.gi ? { gi: who.gi, gt: who.gt, gm: who.gm } : {};   // GUILD1c: the guild the token carried, when it carried one
-      if (!this._setAttach(ws, { ...a, id: m.id, name: who.name, title: who.title, ...(who.ts ? { ts: who.ts } : {}), glyphs: who.glyphs, au: who.au, lv: who.lv, ...guild, gio: who.gio, sub: who.subject, mu: who.mu, pose: chat ? null : m.pose, since: replaced?.since ?? now })) { this._refuse(ws, 'hello too large'); return; }   // MOD1: `sub` the verified account (what a mute names), `mu` until when it may not talk   // RENOWN1: `lv` the Renown level the token carried
+      if (!this._setAttach(ws, { ...a, id: m.id, name: who.name, title: who.title, ...(who.ts ? { ts: who.ts } : {}), glyphs: who.glyphs, au: who.au, lv: who.lv, ...guild, gio: who.gio, sub: who.subject, ...(siegeSide ? { sd: siegeSide } : {}), mu: who.mu, pose: chat ? null : m.pose, since: replaced?.since ?? now })) { this._refuse(ws, 'hello too large'); return; }   // MOD1: `sub` the verified account (what a mute names), `mu` until when it may not talk   // RENOWN1: `lv` the Renown level the token carried
       // SRV-N: `v` rides EVERY welcome, a channel's included. A player in the enhanced skin holds a presence socket
       // and one chat socket per tab; whichever reconnects first after a hand deploy is the one that notices, and the
       // client's detector (net/updateNotice.js) is a Set so the rest of them say nothing. SLAM13 (AUDIT SLAM A5): and
@@ -2259,42 +2263,100 @@ export class Room {
     const was = await this.state.storage.getAlarm();
     if (was == null || was > at) await this.state.storage.setAlarm(at);
   }
-  /** A siege frame: `in` makes the account a fighter at its token's Renown and answers every fighter's vitality; a blow
-   *  and a cast are judged on the striker's and the target's last good poses and the striker's look. */
+  /** SEAT2a: WHO A SIEGE'S ROOM ADMITS (Seats-Arc 6.2, 6.4, 6.6) - `{ side }` or `{ no }`. Without a pass, a developer,
+   *  while the room holds no battle (PVP-REF's ground, unsided). With one: the service's signature over this account
+   *  (never another's pass), this room's seat and week, inside the battle's door (SIEGE_OPENS_MS before its start to its
+   *  window's close); a fighter on the side it signed (a fighter is always a fighter - never back as a spectator), the
+   *  field's room permitting; a spectator, the stands' sixty permitting. The first pass names the battle - its kind,
+   *  tier, start and field - and every later one must say the same. */
+  async _siegeAdmit(key, who, sp, now) {
+    const s = await this._siegeOf();
+    if (!sp) return who.subject && Array.isArray(who.glyphs) && who.glyphs.includes('dev') && !s?.battle ? { side: null } : { no: 'the siege is not open' };
+    if (!who.subject || !this._verifyKey) return { no: 'the siege is not open' };
+    const r = await verifyOrder(sp, this._verifyKey, { subtle: crypto.subtle, nowS: Math.floor(now / 1000), kind: 'siege' });
+    if (!r.ok) return { no: 'that pass will not do' };
+    const c = r.claims, room = siegeOfRoom(key);
+    if (c.s !== who.subject || !room || c.sk !== room.key || c.sw !== room.week) return { no: 'that pass is for another battle' };
+    if (now < c.sb * 1000 - SIEGE_OPENS_MS || now >= c.se * 1000) return { no: 'the siege is not open' };
+    const of = { sk: c.sk, sw: c.sw, sn: c.sn, st: c.st, sb: c.sb, se: c.se, sf: JSON.stringify(c.sf) };
+    if (s?.of && Object.keys(of).some((k) => s.of[k] !== of[k])) return { no: 'that pass is for another battle' };
+    const mine = s?.fighters?.[who.subject];
+    if (c.sd === 'watch') {
+      if (mine?.side) return { no: 'a fighter is always a fighter' };
+      let watching = 0;
+      for (const [, b] of this._all()) if (b.id && b.sd === 'watch' && b.sub !== who.subject) watching++;
+      if (watching >= SIEGE_SPECTATORS_MAX) return { no: 'the stands are full' };
+    } else if (mine) {
+      if (mine.side !== c.sd) return { no: 'that pass is for another side' };
+    } else if (s && Object.keys(s.fighters).length >= SIEGE_FIGHTERS_MAX) return { no: 'the field is full' };
+    if (!s?.battle) {
+      const field = fieldOf(c.sf, c.st);
+      if (!field) return { no: 'that pass will not do' };
+      this._siege = { ...(s ?? { fighters: {} }), of, battle: newBattle({ kind: c.sn, tier: c.st, startMs: c.sb * 1000, field }) };
+      await this._siegeSave(now, true);
+      await this._siegeArm(now + SIEGE_TICK_MS);
+    }
+    return { side: c.sd };
+  }
+  /** A siege frame: `in` makes the account a fighter at its token's Renown and answers every fighter's vitality (SEAT2a:
+   *  a sided fighter at its camp; a spectator the field alone; after the end, its receipt); a blow and a cast are judged
+   *  on the striker's and the target's last good poses and the striker's look - SEAT2a: never a blow or a harmful cast on
+   *  a side-mate, a heal on a side-mate alone, and nothing before the battle is joined or after it ends. */
   async _siegeFrame(ws, a, m, now) {
     const s = (await this._siegeOf()) ?? (this._siege = { fighters: {} });
+    const b = s.battle ?? null;
     if (m.k === 'in') {
-      if (!s.fighters[a.sub]) {
+      if (a.sd !== 'watch' && !s.fighters[a.sub]) {
         if (Object.keys(s.fighters).length >= SIEGE_FIGHTERS_MAX) { this._send(ws, JSON.stringify({ t: 'siege', k: 'no', m: 'the field is full' })); return; }
-        s.fighters[a.sub] = { ...newFighter(a.lv, now), pose: a.pose ?? null, poseAt: now };
+        const side = a.sd === 'attack' || a.sd === 'defend' ? a.sd : null;
+        const pose = b && side ? siegeCampPose(b, side, a.pose) : (a.pose ?? null);
+        s.fighters[a.sub] = { ...newFighter(a.lv, now), side, pose, poseAt: now };
+        if (b && side) this._send(ws, JSON.stringify({ t: 'siege', k: 'back', p: pose }));
         await this._siegeSave(now, true);
       }
       const st = [];
-      for (const [sub, f] of Object.entries(s.fighters)) { const sk = this._siegeSocketOf(sub); if (sk) st.push([sk[1].id, f.hp, f.max, f.down ? 1 : 0]); }
+      for (const [sub, f] of Object.entries(s.fighters)) { const sk = this._siegeSocketOf(sub); if (sk) st.push([sk[1].id, f.hp, f.max, f.down ? 1 : 0, ...(f.side ? [f.side === 'attack' ? 1 : 2] : [])]); }   // SEAT2a: a sided fighter's side (1 attacking, 2 defending)
       this._send(ws, JSON.stringify({ t: 'siege', k: 'st', f: st }));
+      if (b) this._send(ws, JSON.stringify({ t: 'siege', ...siegeFieldFrame(b, this._siegeCounts(s)) }));
+      if (b?.result) this._send(ws, JSON.stringify({ t: 'siege', k: 'end', r: b.result, a: b.raised ? 1 : 0, ...(s.receipts?.[a.sub] ? { rc: s.receipts[a.sub] } : {}) }));
       return;
     }
     const by = s.fighters[a.sub];
     if (!by) { this._junk(ws); return; }   // a correct client says `in` first
+    if (b && (b.result || now < b.startMs)) return;   // SEAT2a: the battle is not joined yet, or over
     let target = null;
-    for (const [, b] of this._all()) if (b.id === m.to) { target = b; break; }
+    for (const [, t] of this._all()) if (t.id === m.to) { target = t; break; }
     const to = target?.sub ? s.fighters[target.sub] : null;
     if (!to) return;   // a spectator, or a socket gone: nothing to strike
+    const heal = m.k === 'cast' && m.h === 1;
+    if (by.side && (heal ? to.side !== by.side : to.side === by.side)) return;   // SEAT2a: the sides are kept
     // the striker's look - the paperdoll every other player draws - names the weapon it holds (a woken object reads it)
     let look = this._looks.get(a.id) ?? null;
     if (!look && m.k === 'blow') { look = (await this.state.storage.get(lookKey(a.id))) ?? null; if (look) this._looks.set(a.id, look); }
     const res = m.k === 'cast'
-      ? refereeCast(by, to, { from: by.pose, at: to.pose, d: m.d, heal: m.h === 1 }, now)
+      ? refereeCast(by, to, { from: by.pose, at: to.pose, d: m.d, heal }, now)
       : refereeBlow(by, to, { from: by.pose, at: to.pose, held: siegeHeld(look, m.w, m.m), d: m.d, r: m.r }, now);
     if (!res.ok || !res.dealt) return;
     const frames = [{ k: 'hp', id: m.to, h: to.hp, m: to.max }];
     if (res.fell) {
-      to.upAt = siegeNextWave(now, SIEGE_WAVE_MS.palace);   // SEAT2a: the seat's own tier's wave
+      by.felled = (by.felled ?? 0) + 1;   // SEAT2a: Honours' other half (6.8)
+      to.upAt = siegeNextWave(now, SIEGE_WAVE_MS[b?.tier] ?? SIEGE_WAVE_MS.palace);   // SEAT2a: the seat's own tier's wave
       frames.push({ k: 'fell', id: m.to, by: a.id });
       await this._siegeArm(to.upAt);
     }
     this._siegeFan(frames);
     await this._siegeSave(now, res.fell);
+  }
+  /** SEAT2a: who is in - the two sides' fighters with a socket here, and the spectators. */
+  _siegeCounts(s) {
+    let attack = 0, defend = 0, watch = 0;
+    for (const [, b] of this._all()) {
+      if (!b.id) continue;
+      if (b.sd === 'watch') { watch++; continue; }
+      const side = b.sub ? s.fighters[b.sub]?.side : null;
+      if (side === 'attack') attack++; else if (side === 'defend') defend++;
+    }
+    return [attack, defend, watch];
   }
   /** A fighter's step: kept (true) where the referee allows it, else the fighter told its last good pose (false). */
   async _siegeStep(ws, a, p, now) {
@@ -2304,22 +2366,60 @@ export class Room {
     f.pose = p; f.poseAt = now;
     return true;
   }
-  /** THE WAVES: every fallen fighter whose wave has come rises whole, said to the room; the next wave armed. False when
-   *  the room holds no siege (the alarm is somebody else's). */
+  /** THE WAVES: every fallen fighter whose wave has come rises whole (SEAT2a: at its side's camp), said to the room; the
+   *  next wave armed. SEAT2a: THE BATTLE'S BEAT - each second from the first pass to the end, the field moved on and
+   *  fanned; at its end each fighter's receipt minted and handed over, kept for the week a receipt lives, then the room's
+   *  siege forgotten. False when the room holds no siege (the alarm is somebody else's). */
   async _siegeTick() {
     const s = await this._siegeOf();
     if (!s) return false;
     const now = Date.now();
+    const b = s.battle ?? null;
+    if (b?.result) {
+      if (now >= (s.dropAt ?? 0)) { await this.state.storage.delete('siege'); this._siege = null; } else await this.state.storage.setAlarm(s.dropAt);
+      return true;
+    }
     const frames = [];
     let next = Infinity;
     for (const [sub, f] of Object.entries(s.fighters)) {
-      if (siegeRise(f, now)) { const sk = this._siegeSocketOf(sub); if (sk) frames.push({ k: 'up', id: sk[1].id }, { k: 'hp', id: sk[1].id, h: f.hp, m: f.max }); }
-      else if (f.down) next = Math.min(next, f.upAt);
+      if (siegeRise(f, now)) {
+        const sk = this._siegeSocketOf(sub);
+        if (b && f.side) { f.pose = siegeCampPose(b, f.side, f.pose); f.poseAt = now; }
+        if (sk) frames.push({ k: 'up', id: sk[1].id, ...(b && f.side ? { p: f.pose } : {}) }, { k: 'hp', id: sk[1].id, h: f.hp, m: f.max });
+      } else if (f.down) next = Math.min(next, f.upAt);
     }
     this._siegeFan(frames);
+    if (b) {
+      const list = [];
+      for (const [sub, f] of Object.entries(s.fighters)) if (f.side) { f.here = !!this._siegeSocketOf(sub); list.push(f); }
+      const events = battleStep(b, list, now);
+      for (const f of list) delete f.here;
+      this._siegeFan([siegeFieldFrame(b, this._siegeCounts(s))]);
+      if (events.some((e) => e.k === 'end')) { await this._siegeEnd(s, now); return true; }
+      next = Math.min(next, siegeNextBeat(b, now));
+    }
     await this._siegeSave(now, frames.length > 0);
     if (Number.isFinite(next)) await this.state.storage.setAlarm(next);
     return true;
+  }
+  /** SEAT2a: THE END (6.5, 6.8) - every sided fighter's `s1` receipt minted (the result, whether a banner was raised, its
+   *  own Honours), each fighter here handed its own, the result said to everyone; kept a receipt's week for a fighter
+   *  who returns for it (17: "its result and Honours are signed receipts the relay keeps"). */
+  async _siegeEnd(s, now) {
+    const b = s.battle, key = await this._receiptKeyOf(), nowS = Math.floor(now / 1000);
+    s.receipts = {};
+    for (const [sub, f] of Object.entries(s.fighters)) {
+      if (f.side !== 'attack' && f.side !== 'defend') continue;
+      try { s.receipts[sub] = await mintSiegeReceipt({ s: sub, sk: s.of.sk, sw: s.of.sw, sd: f.side, r: b.result, a: b.raised ? 1 : 0, h: honoured(f, b) ? 1 : 0 }, key, { subtle: crypto.subtle, nowS }); } catch (e) { console.warn('[siege] receipt failed', e?.message ?? e); }
+    }
+    s.dropAt = now + SIEGE_RECEIPT_TTL_S * 1000;
+    for (const [ws, att] of [...this._all()]) {
+      if (!att.id) continue;
+      const rc = att.sub ? s.receipts[att.sub] : undefined;
+      this._send(ws, JSON.stringify({ t: 'siege', k: 'end', r: b.result, a: b.raised ? 1 : 0, ...(rc ? { rc } : {}) }));
+    }
+    await this._siegeSave(now, true);
+    await this.state.storage.setAlarm(s.dropAt);
   }
 
   // ───────────────────────────── WB3: THE GATE ─────────────────────────────

@@ -71,19 +71,24 @@ The first part of guild town control is in. It is open to the developers first, 
 - **The schedule.** At each Sunday Turning, every Right of Siege and every Tourney is placed in the coming week: a siege in the holder's window, a crown siege on Saturday (Daggerfall 20:00, Wayrest 21:00, Sentinel 22:00), a Tourney on Wednesday at 20:00. If a guild would have to fight two battles at once, the second moves two hours on, and the Seat tab says so.
 - **Signing up.** The Seat tab shows who has won the Right, who holds the Charter and when battle is joined, and how many have signed for each side. Members who were in the guild for 7 days at the Turning, and whose account counted for the guild that week, sign themselves: **10 a side** at a palace, **20** at a crown. Signing closes 10 minutes before the battle, and you can give your place back until then.
 - **Sellswords.** A side's guildmaster can hire up to **2 Sellswords** (4 at a crown) by username, for a fee of up to 5,000 Drakes held from the treasury. The Sellsword signs from the same Seat tab. A Sellsword can't be in either guild and can't fight for both sides within four weeks. A contract nobody has signed can be withdrawn, and the fee goes back.
-- The battles themselves come in the next update.
+- **The battlefield** (the server's side is in; the game's side comes next). A siege's room lets in only the fighters signed for each side, plus up to **60 spectators**. You start at your side's camp and rise there after a fall, every 20 seconds (30 at a crown). You can't strike or harm your own side, and you can only heal your own side.
+  - **Banners.** Stand at a banner point (the Gate, the Market, the Temple) with no living enemy within 8 m for **20 seconds** to raise it. A contested banner freezes, and a half-raised one falls back if you leave it.
+  - **The Throne.** It opens to the attackers once they hold **2 of the 3** banners (3 of 4 at a crown). Holding it uncontested for **2 minutes** (3 at a crown) takes the seat.
+  - **The clock.** A siege lasts **30 minutes** (45 at a crown); at time the holder keeps the seat. A Tourney lasts 20 minutes and goes to the side holding more banners.
+  - **No-shows.** If no attacker comes within **10 minutes**, the attackers forfeit.
+  - **Your receipt.** At the end every fighter gets a receipt signed by the server: the result, and whether you earned Honours (you stood for half the battle or felled a foe). Lost your connection at the end? Come back within the battle's window and it's waiting for you. Claiming it comes in the next update.
 
 ## Behind the scenes
 - **The registry.** Each client works out the seats from its own game files. When you stand in a seat town, your game reports it to the server once a day. The server trusts a seat once three players whose accounts are at least a week old agree on it exactly.
-- **Fair sieges.** In a siege the server keeps every fighter's health and checks every blow, spell and step: a blow lands only if the weapon you carry can reach and deal it, nobody heals or strikes faster than the game allows, and nobody runs faster than the fastest legal runner. A siege's health is its own (300, more with your Renown) and never touches your character's health, items or gold. Only the developers can enter a siege room yet.
-- The battles themselves come in the next update: until then a Right of Siege is written in the Chronicle and a Contested seat stays unheld. Fortifications, deliveries to a seat's stockpile and the Siege Camp come with them. The Royal Tourney and Conscription come with the crowns' update.
+- **Fair sieges.** In a siege the server keeps every fighter's health and checks every blow, spell and step: a blow lands only if the weapon you carry can reach and deal it, nobody heals or strikes faster than the game allows, and nobody runs faster than the fastest legal runner. A siege's health is its own (300, more with your Renown) and never touches your character's health, items or gold. A siege room lets in only the fighters each side signed, and spectators.
+- Fighting a battle from the game, the result and Honours come in the next update: until then a Right of Siege is written in the Chronicle and a Contested seat stays unheld. Fortifications, deliveries to a seat's stockpile and the Siege Camp come with them. The Royal Tourney and Conscription come with the crowns' update.
 
 ---
 
 ### For the team
 - Apply migrations **`0047_town_seats.sql`**, **`0048_seat_influence.sql`**, **`0049_seat_turning.sql`**, **`0050_seat_holding.sql`** and **`0051_seat_battles.sql`** (with the guild halls' 0045 and 0046, after main's 0044) to production D1 and deploy the account service (**`acct47`**).
 - **The economy model**: `node tools/seatEconomy.mjs` re-runs the guild-week table from the live law files (`--runs`, `--seed`, `--json`).
-- **Deploy the relay (`world140`).** It sends the Watch's ticks (world138), carries the seats' titles (world139) and referees a siege's room (world140, the developers alone). Deploy it before the account service: an older relay refuses a token with a seat title in it.
+- **Deploy the relay (`world141`).** It sends the Watch's ticks (world138), carries the seats' titles (world139), referees a siege's room (world140) and fights its battle by the service's pass (world141). Deploy it before the account service: an older relay refuses a token with a seat title in it.
 - Seats are behind **`SEATS_OPEN = "dev"`** in `server-account/wrangler.toml`. Change it to `"on"` to open them to everyone.
 - **SEAT-COUNT**: run `ARENA2_PATH=/path/to/arena2 node tools/seatCount.mjs` to list every seat and the totals.
 - A developer can strike a false seat from the registry in chat: `/seat strike <map id>`.

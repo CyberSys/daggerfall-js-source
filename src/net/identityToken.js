@@ -472,7 +472,7 @@ async function openSealed(token, publicKey, { subtle, nowS, skewS, valid }) {
  *  second: 'renown', a character's Renown that ROSE while its player was
  *  already in a room, carried in by that player's own client (the token
  *  that let them in said the Renown they had then). */
-export const ORDER_KINDS = Object.freeze(['mute', 'renown', 'guild', 'guildout']);   // GUILD1c: a character's guild now, and a member or a guild gone
+export const ORDER_KINDS = Object.freeze(['mute', 'renown', 'guild', 'guildout', 'siege']);   // GUILD1c: a character's guild now, and a member or a guild gone   // SEAT2a: a battle's pass
 /** An order lives a minute - long enough to be carried to every room
  *  the moderator holds, short enough that a leaked one is stale before
  *  anyone could use it for anything but what it already said. */
@@ -496,9 +496,52 @@ export function orderValid(c) {
   if (c.o === 'guild' && (!guildClaimsValid(c) || c.mu !== undefined || c.lv !== undefined)) return false;
   if (c.o === 'guildout' && (typeof c.gi !== 'string' || !GUILD_ID_RE.test(c.gi) || c.gt !== undefined
     || (c.gm !== undefined && (typeof c.gm !== 'string' || !GUILD_MEMBER_RE.test(c.gm))) || c.mu !== undefined || c.lv !== undefined)) return false;
+  // SEAT2a: a battle's pass carries its own fields and no other kind's; no other kind carries a pass's
+  const noSiege = SIEGE_PASS_FIELDS.every((f) => c[f] === undefined);
+  if (c.o !== 'siege' && !noSiege) return false;
+  if (c.o === 'siege' && (!siegePassValid(c) || c.mu !== undefined || c.lv !== undefined || !noGuild)) return false;
   if (!Number.isSafeInteger(c.i) || !Number.isSafeInteger(c.e)) return false;
   if (c.e <= c.i || c.e - c.i > ORDER_TTL_S) return false;
   return true;
+}
+
+/* ═══ SEAT2a: THE SIEGE PASS (bible/11-Multiplayer/Seats-Arc.md 6.2, 6.4, 6.6) ═══════════════════════════════════
+ *
+ * FACT: the relay has no door to the account service (its receipts ride the players' own clients). So a siege's room
+ * cannot ask who signed which side - the service tells it, once a socket, in an order the room checks with the key it
+ * already holds: `{o:'siege', s, sk, sw, sd, st, sn, sb, se, sf, i, e}` - account `s` may enter seat `sk`'s battle of
+ * week `sw` on side `sd` ('attack', 'defend', or 'watch' - a spectator), the battle a `sn` ('siege' | 'tourney') at a
+ * `st` seat ('palace' | 'crown'), starting `sb` and its window closing `se` (epoch seconds), on the field `sf` (the
+ * banners' points, the Throne's, the attackers' camp and the defenders', each `[x, z]` in the room's units - the
+ * service derives none of it; the client derives it from the town and the service signs what every signed client
+ * agrees, part four). Its carrier is the account it names: the room refuses a pass whose `s` is not the hello's own.
+ */
+/** A pass's fields - never on another kind. */
+export const SIEGE_PASS_FIELDS = Object.freeze(['sk', 'sw', 'sd', 'st', 'sn', 'sb', 'se', 'sf']);
+/** The sides a pass may name: the two sides' fighters, and a spectator's. */
+export const SIEGE_PASS_SIDES = Object.freeze(['attack', 'defend', 'watch']);
+/** A pass's field: a palace's three banners or a crown's four, the Throne and the two camps - each a point. */
+export const siegePassPoints = (tier) => (tier === 'crown' ? 7 : 6);
+/** A field's coordinates' bound, in the room's units. */
+export const SIEGE_PASS_COORD_MAX = 1e9;
+/** The longest a battle's window may run on a pass (a palace siege's or a Tourney's two hours). */
+export const SIEGE_PASS_SPAN_S = 2 * 3600;
+const coordOk = (v) => Number.isSafeInteger(v) && Math.abs(v) <= SIEGE_PASS_COORD_MAX;
+/** Whether a claim set's pass fields are a pass's. */
+export function siegePassValid(c) {
+  if (!Number.isSafeInteger(c.sk) || c.sk < 0 || c.sk > 0xffffffff || !Number.isSafeInteger(c.sw) || c.sw < 0) return false;
+  if (!SIEGE_PASS_SIDES.includes(c.sd) || (c.st !== 'palace' && c.st !== 'crown') || (c.sn !== 'siege' && c.sn !== 'tourney')) return false;
+  if (!Number.isSafeInteger(c.sb) || c.sb <= 0 || !Number.isSafeInteger(c.se) || c.se <= c.sb || c.se - c.sb > SIEGE_PASS_SPAN_S) return false;
+  if (!Array.isArray(c.sf) || c.sf.length !== siegePassPoints(c.st)) return false;
+  return c.sf.every((p) => Array.isArray(p) && p.length === 2 && coordOk(p[0]) && coordOk(p[1]));
+}
+
+/** SEAT2a: MINT A SIEGE PASS - the service's word that account `s` may enter seat `sk`'s battle of week `sw` on side `sd`. */
+export async function mintSiegeOrder({ s, sk, sw, sd, st, sn, sb, se, sf }, privateKey, { subtle, nowS, ttlS = ORDER_TTL_S }) {
+  if (!Number.isSafeInteger(nowS)) throw new TypeError('mintSiegeOrder needs an integer epoch-seconds clock');
+  const claims = { o: 'siege', s, sk, sw, sd, st, sn, sb, se, sf, i: nowS, e: nowS + ttlS };
+  if (!orderValid(claims)) throw new TypeError('mintSiegeOrder refused an order it could not verify');
+  return sealClaims(claims, privateKey, subtle);
 }
 
 /** MINT AN ORDER - the account service's half, as `mintToken` is. */

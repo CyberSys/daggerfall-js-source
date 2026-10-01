@@ -10802,6 +10802,58 @@ side's guild, the sides' Sellsword count, a member seeing no contracts, the clos
 withdrawal); one more was recorded EQUIVALENT and dropped: the withdrawal's read widened to a signed contract (its guarded
 write refuses it the same).
 
+### SEAT2a (part two) - the battle in the relay: the pass, the sides, the banners, the Throne, the receipts
+
+2026-10-01, Mac: "Finish the seats"; "Or we could go ahead and do sieges"; "Continue" ("Hurry up"). Rides a new undeployed
+relay `world141` - no account change; the service mints the pass and reads the receipt in part three. Seats-Arc 6.2,
+6.4-6.8, 17.
+
+- **The pass** (`net/identityToken.js`, the `siege` order - `{o, s, sk, sw, sd, st, sn, sb, se, sf, i, e}`): FACT, the
+  relay has no door to the account service, so a siege's room is told who fights by an order the service signs and the
+  room checks with the key it already holds - account `s` may enter seat `sk`'s battle of week `sw` on side `sd`
+  ('attack', 'defend', or 'watch' - a spectator), the battle a `sn` (siege, Tourney) at a `st` seat, starting `sb`, its
+  window closing `se` (at most two hours on), on the field `sf` (a palace's three banners or a crown's four, the Throne,
+  the attackers' camp and the defenders' - whole room units). Its fields are never on another kind, and no other kind's on
+  it; it lives an order's minute. It rides the hello as `sp` (a token's shape on the wire).
+- **The door** (`server/src/index.js` `_siegeAdmit`): the pass's own account (never another's), this room's seat and
+  week, from ten minutes before the start (DECIDED: the door opens as the signing closes) until the window closes. The
+  first pass names the battle - its kind, tier, start, window and field - and every later one must say the same. A
+  fighter is always a fighter (never back as a spectator) and on the side it signed; the field holds forty-eight; the
+  stands sixty (6.6). Without a pass, a developer is admitted only while the room holds no battle - PVP-REF's ground.
+- **The sides** (6.2): a fighter enters at its side's camp (the relay says so, as a pull-back); never a blow or a harmful
+  cast on a side-mate, a heal on a side-mate alone; nothing lands before the battle is joined or after it ends; the
+  fallen rise at their camp on the tier's wave (20 s at a palace, 30 at a crown); a felling is the feller's, for Honours.
+- **The battlefield** (`net/siegeRef.js` battleStep, each second on the room's alarm from the first pass to the end,
+  landing exactly on the start, a siege's forfeit mark and the end): a banner raised by a side standing alone within 8 m
+  for 20 s, frozen while both stand there, its half-raise falling back a second a second when left and begun again by
+  the other side; a fallen fighter, or one whose socket is gone, holds nothing. The Throne opens to the attackers at 2 of
+  a palace's 3 banners (DECIDED: 3 of a crown's 4 until SEAT2b raises the Gatehouse), held uncontested 120 s (180) it is
+  theirs, frozen while contested, falling back otherwise. At time a siege is the holder's; a Tourney's the side holding
+  more banners (a dead heat `tie` - the service reads the higher influence). No attacker in a siege's room by ten
+  minutes is a forfeit, nobody at all `absent` (DECIDED: 6.5's no-shows are a siege's - a Tourney's absent contender
+  simply holds no banners at its end). A beat counts five seconds at most. The field is fanned each second (`f`: each
+  banner held, raised and by whom, the Throne's seconds, the clock, who is in).
+- **The receipt** (`net/siegeReceipt.js`, `s1`, the relay's fourth signature with the gate's key - `{s, sk, sw, sd, r, a,
+  h, i, e}`): at the end every sided fighter's is minted - the result, whether the attackers raised a banner (6.8: a
+  siege nobody fought is not a victory), and its own Honours (stood half the battle in the room, or felled a foe) - and
+  handed to it; the result said to everyone. DECIDED: one receipt a fighter, each carrying the result - the battle's
+  result reaches the service in whichever fighter's client carries it first, and the same receipt is that fighter's
+  Honours claim (17's "the relay keeps and posts" is the gate's carried shape: the relay cannot post). The room keeps them
+  a receipt's week for a fighter who returns for its own, then forgets the siege.
+
+Left for part three (the service), recorded: the pass minted from the rosters and the field witnessed, the result
+applied (6.5, 6.8), Honours claimed, `/v1/seats/sieges/live` and the deploy blackout. Part four (the client): the siege's
+session and HUD, its blows sent to the referee, the camp's respawn, the spectator's camera, the field from the town.
+
+Pinned: `test/seat2a_battle.test.js` (7), `test/seat2a_relay.test.js` (4 - the slice's gate: a headless 10v10 siege run
+to both endings, the forfeit and the absence besides); the order kinds' pins in `test/guild1c.test.js` and
+`test/renown1.test.js`, PVP-REF's out-kinds (PIN MOVED), and the relay pins (`world141`). `tools/mutants/seat2a2.json` (86, all
+dead) - five survived the first run and were killed by sharper pins (a palace's field with a fourth banner, an attacker
+gone before the start, a Tourney's defenders' banner, the pass's two hours, a blow after the end); two hung the harness on
+an alarm that re-armed for ever, which now fails instead of spinning, and the keeping week is pinned. Seven older records
+re-aimed by content (PIN MOVED: GUILD1c's order kinds, PVP-REF's door, roll call, save, wave and rise, SOC1's version) -
+all still dead.
+
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 
 Mac, asked how quest enemies should work online (each player's quests are their own, so two party members on the

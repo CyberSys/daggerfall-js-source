@@ -838,8 +838,8 @@
  {
   "name": "PVPREF-relay-open-door",
   "file": "server/src/index.js",
-  "old": "      if (isSiegeRoom(a.key) && !(who.subject && Array.isArray(who.glyphs) && who.glyphs.includes('dev'))) { this._refuse(ws, 'the siege is not open'); return; }\n",
-  "new": "",
+  "old": "    if (!sp) return who.subject && Array.isArray(who.glyphs) && who.glyphs.includes('dev') && !s?.battle ? { side: null } : { no: 'the siege is not open' };",
+  "new": "    if (!sp) return { side: null };",
   "tests": [
    "test/pvpref_relay.test.js"
   ]
@@ -883,8 +883,8 @@
  {
   "name": "PVPREF-relay-unsaved-fighter",
   "file": "server/src/index.js",
-  "old": "        s.fighters[a.sub] = { ...newFighter(a.lv, now), pose: a.pose ?? null, poseAt: now };\n        await this._siegeSave(now, true);",
-  "new": "        s.fighters[a.sub] = { ...newFighter(a.lv, now), pose: a.pose ?? null, poseAt: now };\n        await this._siegeSave(now, false);",
+  "old": "        s.fighters[a.sub] = { ...newFighter(a.lv, now), side, pose, poseAt: now };\n        if (b && side) this._send(ws, JSON.stringify({ t: 'siege', k: 'back', p: pose }));\n        await this._siegeSave(now, true);",
+  "new": "        s.fighters[a.sub] = { ...newFighter(a.lv, now), side, pose, poseAt: now };\n        if (b && side) this._send(ws, JSON.stringify({ t: 'siege', k: 'back', p: pose }));\n        await this._siegeSave(now, false);",
   "tests": [
    "test/pvpref_relay.test.js"
   ]
@@ -892,8 +892,8 @@
  {
   "name": "PVPREF-relay-roll-call-whole",
   "file": "server/src/index.js",
-  "old": "if (sk) st.push([sk[1].id, f.hp, f.max, f.down ? 1 : 0]); }",
-  "new": "if (sk) st.push([sk[1].id, f.max, f.max, f.down ? 1 : 0]); }",
+  "old": "if (sk) st.push([sk[1].id, f.hp, f.max, f.down ? 1 : 0, ...(f.side ? [f.side === 'attack' ? 1 : 2] : [])]); }",
+  "new": "if (sk) st.push([sk[1].id, f.max, f.max, f.down ? 1 : 0, ...(f.side ? [f.side === 'attack' ? 1 : 2] : [])]); }",
   "tests": [
    "test/pvpref_relay.test.js"
   ]
@@ -920,7 +920,7 @@
  {
   "name": "PVPREF-relay-wave-off-clock",
   "file": "server/src/index.js",
-  "old": "      to.upAt = siegeNextWave(now, SIEGE_WAVE_MS.palace);",
+  "old": "      to.upAt = siegeNextWave(now, SIEGE_WAVE_MS[b?.tier] ?? SIEGE_WAVE_MS.palace);",
   "new": "      to.upAt = now + SIEGE_WAVE_MS.palace;",
   "tests": [
    "test/pvpref_relay.test.js"
@@ -974,8 +974,8 @@
  {
   "name": "PVPREF-relay-no-rise-word",
   "file": "server/src/index.js",
-  "old": "      if (siegeRise(f, now)) { const sk = this._siegeSocketOf(sub); if (sk) frames.push({ k: 'up', id: sk[1].id }, { k: 'hp', id: sk[1].id, h: f.hp, m: f.max }); }",
-  "new": "      if (siegeRise(f, now)) { const sk = this._siegeSocketOf(sub); if (sk) frames.push({ k: 'hp', id: sk[1].id, h: f.hp, m: f.max }); }",
+  "old": "        if (sk) frames.push({ k: 'up', id: sk[1].id, ...(b && f.side ? { p: f.pose } : {}) }, { k: 'hp', id: sk[1].id, h: f.hp, m: f.max });",
+  "new": "        if (sk) frames.push({ k: 'hp', id: sk[1].id, h: f.hp, m: f.max });",
   "tests": [
    "test/pvpref_relay.test.js"
   ]

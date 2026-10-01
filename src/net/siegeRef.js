@@ -239,3 +239,154 @@ export function siegeRise(f, now) {
   f.down = false; f.hp = f.max; f.safeTo = now + SIEGE_PROTECT_MS; f.casts = []; f.heals = [];
   return true;
 }
+
+// ═════════════════════════════════════════════════════════════════════
+// SEAT2a (2026-10-01, Mac: "Finish the seats"; "Or we could go ahead and
+// do sieges"; "Continue") - THE BATTLEFIELD (Seats-Arc 6.2, 6.5, 6.7, 6.8):
+// the banners and the Throne, the clock, the no-shows, the result and who
+// earned Honours. Pure, as the referee above: every `now` an argument.
+// ═════════════════════════════════════════════════════════════════════
+
+/** A BANNER (6.2): stand within 8 m with no living enemy there - 20 seconds raises it; a contested point freezes; an
+ *  abandoned half-raised banner falls back at 1 second a second. */
+export const SIEGE_BANNER = Object.freeze({ radiusM: 8, raiseS: 20, decayPerS: 1 });
+/** THE THRONE (6.2): open to the attackers while they hold 2 of a palace's 3 banners (3 of a crown's 4 - DECIDED: until
+ *  SEAT2b raises the Gatehouse, the banners alone open a crown's Throne); held uncontested 120 seconds at a palace, 180
+ *  at a crown, takes the seat; its progress decays 1 second a second while it is not held. */
+export const SIEGE_THRONE = Object.freeze({ palace: Object.freeze({ banners: 2, holdS: 120 }), crown: Object.freeze({ banners: 3, holdS: 180 }), decayPerS: 1 });
+/** How long a battle runs, ms (6.2, 6.7 - net/townSeatLaw.js BATTLE_LENGTH_MS, pinned equal: the relay bundles this leaf). */
+export const SIEGE_LENGTH_MS = Object.freeze({ palace: 30 * 60_000, crown: 45 * 60_000, tourney: 20 * 60_000 });
+/** No attacker in the room 10 minutes after the start: a forfeit (6.5). */
+export const SIEGE_FORFEIT_MS = 10 * 60_000;
+/** Spectators a siege's room admits (6.6). */
+export const SIEGE_SPECTATORS_MAX = 60;
+/** The battle's beat on the room's alarm, ms. */
+export const SIEGE_TICK_MS = 1000;
+/** A battlefield's banner points, in order: a palace's three, a crown's four (6.2). */
+export const SIEGE_BANNER_NAMES = Object.freeze(['Gate', 'Market', 'Temple', 'Palace']);
+export const siegeBannerCount = (tier) => (tier === 'crown' ? 4 : 3);
+/** A battle's sides, and a spectator's word on a pass. */
+export const SIEGE_SIDES = Object.freeze(['attack', 'defend']);
+
+/** THE FIELD a pass carries (net/identityToken.js's `siege` order `sf`): the banners' points, the Throne's, the two
+ *  camps' - each `[x, z]` in the room's units. `{ banners, throne, camps: { attack, defend } }`, or null. */
+export function fieldOf(sf, tier) {
+  const n = siegeBannerCount(tier);
+  if (!Array.isArray(sf) || sf.length !== n + 3) return null;
+  if (!sf.every((p) => Array.isArray(p) && p.length === 2 && p.every((v) => Number.isFinite(v) && Math.abs(v) <= 1e9))) return null;
+  return { banners: sf.slice(0, n).map((p) => [p[0], p[1]]), throne: [sf[n][0], sf[n][1]], camps: { attack: [sf[n + 1][0], sf[n + 1][1]], defend: [sf[n + 2][0], sf[n + 2][1]] } };
+}
+
+/** A NEW BATTLE: a siege's banners start the holder's (`defend`), a Tourney's no one's. */
+export function newBattle({ kind, tier, startMs, field }) {
+  const length = kind === 'tourney' ? SIEGE_LENGTH_MS.tourney : (SIEGE_LENGTH_MS[tier] ?? SIEGE_LENGTH_MS.palace);
+  return {
+    kind, tier, startMs, endMs: startMs + length, field,
+    banners: field.banners.map(() => ({ side: kind === 'tourney' ? null : 'defend', raise: 0, by: null })),
+    throne: 0, raised: false, attackSeen: false, defendSeen: false, at: startMs, result: null,
+  };
+}
+const flat = (p, q) => Math.hypot((p.x - q[0]) / SIEGE_UNITS_PER_M, (p.z - q[1]) / SIEGE_UNITS_PER_M);
+/** The standing fighters of each side within a point's radius. */
+function presentAt(fighters, point) {
+  let attack = 0, defend = 0;
+  for (const f of fighters) {
+    if (f.down || !f.pose || !f.here) continue;
+    if (flat(f.pose, point) > SIEGE_BANNER.radiusM) continue;
+    if (f.side === 'attack') attack++; else if (f.side === 'defend') defend++;
+  }
+  return { attack, defend };
+}
+
+/**
+ * ONE BEAT OF THE BATTLE (6.2, 6.5): `fighters` every fighter's `{ side, pose, down, here }` (`here` its socket in the
+ * room), the battle moved on to `nowMs`. Each banner raised by the side alone at it (twenty seconds; the other side's
+ * half-raise begun again), frozen while both stand there, falling back a second a second when left; a siege's Throne,
+ * open while the attackers hold enough banners, raised by attackers alone at it and falling back otherwise - held its
+ * time, the seat is taken. The clock: at its end a siege is the holder's, a Tourney the side with more banners' (a dead
+ * heat `tie` - the service reads the higher influence). No attacker in a siege's room by ten minutes past the start: a
+ * forfeit (`absent` when no defender came either - the holder keeps it, nothing more; DECIDED: 6.5's no-shows are a
+ * siege's - a Tourney's absent contender simply holds no banners at its end). Each fighter in the room is credited its
+ * seconds there (`stood`, Honours' half). Answers the beat's events (`{ k: 'banner', i, side }`, `{ k: 'end', result }`);
+ * the battle's `result` once ended.
+ */
+export function battleStep(b, fighters, nowMs) {
+  if (b.result || nowMs < b.startMs) return [];
+  const dt = Math.max(0, Math.min(nowMs - Math.max(b.at, b.startMs), 5 * SIEGE_TICK_MS)) / 1000;
+  b.at = nowMs;
+  const out = [];
+  for (const f of fighters) {
+    if (!f.here || (f.side !== 'attack' && f.side !== 'defend')) continue;
+    f.stood = (f.stood ?? 0) + dt;   // Honours' half (6.8): its seconds in the room since the start
+    if (f.side === 'attack') b.attackSeen = true; else b.defendSeen = true;
+  }
+  b.banners.forEach((bn, i) => {
+    const p = presentAt(fighters, b.field.banners[i]);
+    const alone = p.attack && !p.defend ? 'attack' : p.defend && !p.attack ? 'defend' : null;
+    if (p.attack && p.defend) return;   // contested: frozen
+    if (alone && bn.side !== alone) {
+      if (bn.by !== alone) { bn.by = alone; bn.raise = 0; }
+      bn.raise += dt;
+      if (bn.raise >= SIEGE_BANNER.raiseS) {
+        bn.side = alone; bn.raise = 0; bn.by = null;
+        if (alone === 'attack') b.raised = true;
+        out.push({ k: 'banner', i, side: alone });
+      }
+      return;
+    }
+    bn.raise = Math.max(0, bn.raise - SIEGE_BANNER.decayPerS * dt);
+    if (!bn.raise) bn.by = null;
+  });
+  if (b.kind === 'siege') {
+    const rule = SIEGE_THRONE[b.tier] ?? SIEGE_THRONE.palace;
+    const open = b.banners.filter((bn) => bn.side === 'attack').length >= rule.banners;
+    const p = presentAt(fighters, b.field.throne);
+    if (open && p.attack && !p.defend) b.throne += dt;
+    else if (!(open && p.attack && p.defend)) b.throne = Math.max(0, b.throne - SIEGE_THRONE.decayPerS * dt);
+    if (b.throne >= rule.holdS) return end(b, 'attack', out);
+  }
+  if (b.kind === 'siege' && !b.attackSeen && nowMs >= b.startMs + SIEGE_FORFEIT_MS) return end(b, b.defendSeen ? 'forfeit' : 'absent', out);
+  if (nowMs >= b.endMs) {
+    if (b.kind === 'siege') return end(b, 'defend', out);
+    const a = b.banners.filter((bn) => bn.side === 'attack').length, d = b.banners.filter((bn) => bn.side === 'defend').length;
+    return end(b, a > d ? 'attack' : d > a ? 'defend' : 'tie', out);
+  }
+  return out;
+}
+function end(b, result, out) {
+  b.result = result;
+  out.push({ k: 'end', result });
+  return out;
+}
+
+/** HONOURS (6.8): "Every fighter who stood half the siege or felled a foe" - `stood` its seconds in the room standing,
+ *  `felled` how many it brought down, against the battle's own run (`b.at` its end, from its start). */
+export const honoured = (f, b) => (f.felled ?? 0) > 0 || (f.stood ?? 0) * 1000 >= (Math.max(b.at, b.startMs) - b.startMs) / 2;
+
+/** The room's door opens this long before the battle is joined - the sides gather at their camps (6.4: signing closes
+ *  ten minutes before the start; DECIDED here: the door opens as it closes). */
+export const SIEGE_OPENS_MS = 10 * 60_000;
+/** A side's camp as a pose (6.2: the fallen rise there, a fighter enters there) - the height and facing kept from `was`,
+ *  the ground's to settle. */
+export const siegeCampPose = (b, side, was) => {
+  const c = b.field.camps[side];
+  return { x: c[0], y: Number.isFinite(was?.y) ? was.y : 0, z: c[1], yaw: Number.isFinite(was?.yaw) ? was.yaw : 0, pitch: 0 };
+};
+const sideCode = (s) => (s === 'attack' ? 1 : s === 'defend' ? 2 : 0);
+/**
+ * THE FIELD'S FRAME (the relay's `f`, each second): `b` each banner `[held, its raise in whole seconds, by whom]` (0 no
+ * one, 1 the attackers, 2 the defenders), `th` the Throne's whole seconds, `s` and `e` the battle's start and end (ms),
+ * `n` who is in - `[attackers, defenders, spectators]`.
+ */
+export const siegeFieldFrame = (b, n) => ({
+  k: 'f', b: b.banners.map((bn) => [sideCode(bn.side), Math.floor(bn.raise), sideCode(bn.by)]), th: Math.floor(b.throne), s: b.startMs, e: b.endMs, n,
+});
+/** The battle's next beat after `now`: a second on, or sooner where its start, a siege's forfeit mark or its end falls
+ *  first - so a battle ends on its own clock, never a beat late. */
+export function siegeNextBeat(b, now) {
+  let next = now + SIEGE_TICK_MS;
+  const marks = [b.startMs, b.endMs];
+  if (b.kind === 'siege' && !b.attackSeen) marks.push(b.startMs + SIEGE_FORFEIT_MS);
+  for (const m of marks) if (m > now && m < next) next = m;
+  return next;
+}

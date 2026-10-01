@@ -437,6 +437,12 @@ a spell's reach 60 m.
 - **Respawns**: in waves, every **20 seconds** (palace) or **30** (crown), at the side's camp, with **3 seconds** of
   protection.
 
+BUILT (SEAT2a part two, 2026-10-01; `06-Systems/Online-Arc.md` SEAT2a part two): the relay's battle (`world141`) - the
+room admits by the service's pass (`net/identityToken.js`'s `siege` order, the field it signs), from ten minutes before
+the start (DECIDED there: the door opens as the signing closes); the banners, the Throne, the clock and the waves at the
+camp as written (`net/siegeRef.js` battleStep, a beat a second). DECIDED there: until SEAT2b raises the Gatehouse, a
+crown's Throne opens on its 3 of 4 banners alone.
+
 ### 6.3 Scheduling
 
 - **The holder's window** - DECIDED (Mac: "Yes"): the holder sets a standing window on the board - a day from
@@ -485,6 +491,9 @@ BUILT (SEAT2a part one, 2026-10-01): the rosters and the Sellswords as written -
   Season.
 - **Both absent** - the holder keeps the seat.
 
+BUILT (SEAT2a part two): a siege's result `forfeit` or `absent` at its ten-minute mark. DECIDED there: the no-shows are a
+siege's - a Tourney's absent contender simply holds no banners at its end.
+
 ### 6.6 Spectators
 
 Up to **60** spectators may enter a siege room: no body drawn to fighters, no collider, excluded from every banner
@@ -510,6 +519,12 @@ signed receipt (`s1.`, the gate's
 Ed25519 shape), claimed at the account service: **50 Marks and 2,000 Renown XP** on the winning side, **25 Marks and
 1,000 Renown XP** on the losing side, and one roll on the **Spoils of War** table (PROF0 4.7: a rare material only war
 yields - Warforged Steel ingot, a Standard-bearer's silk, a Siege-cracked gem).
+
+BUILT (SEAT2a part two): the `s1` receipt (`net/siegeReceipt.js`) - DECIDED there: one a fighter, each carrying the
+battle's result, whether a banner was raised and the fighter's own Honours (stood half the battle in the room, or felled
+a foe), so the result reaches the service in whichever fighter's client carries it first (the relay cannot post - 17's
+"keeps and posts" is the gate's carried shape); the room keeps them a receipt's week for a fighter who returns. Claimed
+in part three.
 
 ## 7. Holding a seat
 
@@ -890,7 +905,7 @@ bible updated in the same change, mutants recorded.
 | **SEAT1c** | The Turning; claims; Contested; the Charter; titles and glyphs (relay first); the Seat tab - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` SEAT1c; the titles' vocabulary at `world139`, the Season's and the champion's minted by SEASON1 and CROWN1) | `settleWeek` idempotent under two racing readers; a held seat's banners in the guild's colours |
 | **SEAT1d** | Upkeep, Overreach, Tithe, discounts, Standing, Edicts, Neglect; the economy model as a tool reading townSeatLaw.js and professionLaw.js (PROF0 Appendix C) - **SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` SEAT1d; `tools/seatEconomy.mjs`, its re-run in Appendix C) | Every Standing row pinned; the Tithe routes only Marks; the model re-runs Appendix C's table. The Tithe needs PROF5 (the market) |
 | **PVP-REF** | The refereed blow and step; the 40-fighter measurement - **SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` PVP-REF; relay `world140`, the developers alone until SEAT2a; the step's ceiling MEASURED to 18 m/s) | 6.1's buckets pinned against DFU's damage ranges; the measurement recorded (every budget under 60% - the sizes stand) |
-| **SEAT2a** | Siege rooms, banners, the Throne, windows, forfeits, spectators, the Tourney, Honours - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` SEAT2a: the window, the schedule, the sides and their Sellswords; `acct47`) | A headless 10v10 siege runs to both endings |
+| **SEAT2a** | Siege rooms, banners, the Throne, windows, forfeits, spectators, the Tourney, Honours - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` SEAT2a: the window, the schedule, the sides and their Sellswords; `acct47`); **PART TWO SHIPPED** 2026-10-01 (the relay's battle - the pass, the sides, the banners and the Throne, the no-shows, the `s1` receipts; `world141`) | A headless 10v10 siege runs to both endings |
 | **SEAT2b** | Fortifications, the Barracks' guards, the Gatehouse, the Ram, revolts | Needs PROF11 (Masonry), PROF4 (Carpentry), PROF3 (Smithing's ingots for the Ram) and PROF8 (the Pearls tier-2 Shrine and Apothecary ask) |
 | **CROWN1** | The crown tier: reach, the Marches, the Free Lands, crown glyphs, the Saturday slots, Royal Tourney, Conscription | - |
 | **CROWN2** | Fealty and Pacts | - |
