@@ -628,11 +628,24 @@ export const GRASSLIT_FS_EDITS = Object.freeze([
     from: '  if (uPixel > 0.5) c = (pxTone < 1.5 ? root : (pxTone < 2.5 ? mid : tip)) * (0.92 + pxBlade * 0.16);',
     to: '  if (uPixel > 0.5) c = (pxTone < 1.5 ? root : (pxTone < 2.5 ? mid : (pxTone < 3.5 ? tip : top))) * (0.95 + pxBlade * 0.10);   // GRASS-LIT: the highlight is the tile\'s brightest tenth',
   }),
+  // the patch tint keeps its mean and loses its extremes (0.88..1.12) - a field of the ground's colours, varied as the
+  // tile is. Two edits on its two numbers, never the pixel style's band formula between them (MUT-AIM: an edit that
+  // repeats a line gives another list's mutant anchor a second site)
   Object.freeze({
-    why: 'the patch tint keeps its mean and loses its extremes - a field of the ground\'s colours, varied as the tile is - and the far field gives way to the ground\'s mean',
-    from: '  c *= 0.80 + mix(vTint, floor(vTint * (uPxTintBands - 1.0) + 0.5) / (uPxTintBands - 1.0), uPixel) * 0.42;',
-    to: '  c *= 0.88 + mix(vTint, floor(vTint * (uPxTintBands - 1.0) + 0.5) / (uPxTintBands - 1.0), uPixel) * 0.24;   // GRASS-LIT: 0.88..1.12\n'
-      + '  c = mix(c, vGround, vFar);   // GRASS-LIT: the far field is the ground\'s colour',
+    why: 'the patch tint\'s floor',
+    from: '  c *= 0.80 + mix(vTint, ',
+    to: '  c *= 0.88 + mix(vTint, ',
+  }),
+  Object.freeze({
+    why: 'the patch tint\'s span',
+    from: ', uPixel) * 0.42;',
+    to: ', uPixel) * 0.24;',
+  }),
+  Object.freeze({
+    why: 'the far field gives way to the ground\'s mean, before the wet and the snow (which are the ground\'s too)',
+    from: '  // wet grass is DARKER; snow-laden grass is pale and cold\n',
+    to: '  c = mix(c, vGround, vFar);   // GRASS-LIT: the far field is the ground\'s colour\n'
+      + '  // wet grass is DARKER; snow-laden grass is pale and cold\n',
   }),
   Object.freeze({
     why: 'lit as the ground is - the ambient under a soft sward shade, the sun through the deck and the map, the moon, the player\'s light - and under Enhanced Lighting through the lane\'s own decode, exposure, curve and encode',

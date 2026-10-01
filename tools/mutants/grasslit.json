@@ -62,8 +62,8 @@
   {
     "name": "GRASSLIT-far-blend",
     "file": "src/render/labGrass.js",
-    "old": "      + '  c = mix(c, vGround, vFar);   // GRASS-LIT: the far field is the ground\\'s colour',",
-    "new": "      + '',",
+    "old": "    to: '  c = mix(c, vGround, vFar);   // GRASS-LIT: the far field is the ground\\'s colour\\n'\n",
+    "new": "    to: ''\n",
     "tests": [
       "test/grasslit.test.js",
       "test/grasspx.test.js",

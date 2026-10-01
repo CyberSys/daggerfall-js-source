@@ -129,7 +129,7 @@ test('GRASS-LIT: the vertex stage reads the root\'s sun once - the deck and the 
   assert.ok(GAME_GRASS_VS.includes('vNear = iAtt * iAtt * max(dot(nrm, iL / max(iD, 1e-4)), 0.0) * uIndirectColor;'), 'R12\'s falloff, the ground\'s own');
   assert.ok(GAME_GRASS_VS.includes('vec3 nrm = normalize(vec3(-lean.y, 0.35, lean.x) + vec3(0.0, 0.85, 0.0));'));
   for (const name of ['float cloudShadowAt(vec3 wp)', 'float sunShadowAt(vec3 wp, vec3 n)']) assert.ok(GAME_GRASS_VS.includes(name), `the terrain's own reader: ${name}`);
-  assert.equal(GRASSLIT_VS_EDITS.length, 3); assert.equal(GRASSLIT_FS_EDITS.length, 6);
+  assert.equal(GRASSLIT_VS_EDITS.length, 3); assert.equal(GRASSLIT_FS_EDITS.length, 8);
   // the lane's codec is ONE text - EL_GLSL carries it, and so does the grass
   assert.ok(EL_GLSL.includes(EL_CODEC_GLSL) && GAME_GRASS_FS.includes(EL_CODEC_GLSL));
   // no weather dim from the host: the light is weathered already
