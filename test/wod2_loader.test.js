@@ -390,7 +390,7 @@ test('WOD2: the streaming host wires the loader where DFU does - decision before
   assert.match(w, /wod\.noteRegion\(maps\.getRegionIndexAt\(here\.x, here\.y\)\);\s*await wod\.settle\(\);/);
   assert.match(w, /mapRegionIndex: dfLocation \? dfLocation\.regionIndex : -1,/, 'GetMapPixelData\'s -1 off a location');
   assert.match(w, /worldHeight: woods\.getHeightMapValue\(px, py\),/);
-  assert.match(w, /wod: wodPicks \? \{ picks: wodPicks\.map\(\(p\) => \(\{ flatten: p\.flatten, rect: p\.rect \}\)\) \} : null,/);
+  assert.match(w, /wod: wodPicks \? \{ picks: wodPicks\.map\(\(p\) => \(\{ flatten: p\.flatten, rect: p\.rect, hide: !wodPiecewise\(p\.prefabName\), bounds: forests \? wodSiteFootprint\(p\.prefab, p\.rect\) : null \}\)\) \} : null,/);   // FOREST1: and which picks are sites, with their footprints
   assert.match(w, /return net\?\.source === 'basic-roads' \? basicRoadsPathsPoint\(net, x, y\) : 0;/, 'only his mod answers getPathsPoint');
   // The object block: a collider per model, no climate remap, no doors.
   const block = w.slice(w.indexOf('const place = wod.placements(wodPicks, wodAverages);'), w.indexOf('// EV7: the nature layout arrived'));

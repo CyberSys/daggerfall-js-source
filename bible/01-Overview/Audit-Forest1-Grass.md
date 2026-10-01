@@ -1,0 +1,102 @@
+# AUDIT FOREST1 + GRASS-LIT (2026-10-01)
+
+Mac: *"audit this and ensure it's as detailed as possible. In addition to this, I want to drastically improve the
+grass texture that isn't super dark and blends well into the terrain."*
+
+Two pieces of work on `claude/new-session-0j5ivw`, after FOREST1 (Real forests, commit 490e8f4a) landed there:
+
+1. **AUDIT FOREST1.** A second, read-only lens over the forest branch (an independent reviewer: frames, every
+   consumer of the nature flats, determinism, edge cases, cost, test strength, the docs' claims), then every finding
+   paid, pinned and mutation-checked. The real game data was used for the first time - the branch had shipped with
+   synthetic terrain only.
+2. **GRASS-LIT.** The grass's colour and light, measured against the real ground tiles and the real light, its five
+   causes of darkness found and fixed, and the result photographed on the real game in every condition.
+
+## How it was verified
+
+- **The real game data, outside the repo.** Daggerfall's ARENA2 (the freeware game files, from the Daggerfall Unity
+  bundle the Internet Archive holds) was unpacked into the session's scratch directory - never the tree
+  (Port-Doctrine: the data and any render of it stay out of the repository). Every number below marked *real* comes
+  from it.
+- **`tools/grassLookProbe.mjs`** boots the real streaming world headless (SwiftShader) at a one-square view radius,
+  stands the camera on a field (`__grassSpot`, shot mode only), and photographs it - optionally several grass palettes
+  per boot (`__grassTones`). Before/after sets were taken from a worktree of the branch's head and from the work, at
+  noon, 8:00, 18:40, 23:30, overcast, rain, the rain season, the classic lighting lane and the smooth style.
+- **`tools/grassLightProbe.mjs`** walks the day's real light (world/worldClock.js, the weather's own scales) through
+  the terrain's formula and the grass's, both lanes, five climates, and prints the colours and their ratio. No GPU.
+- **`test/glsl.mjs`** runs the compiled grass fragment stage in JS, so the new law is pinned on the shader's own text
+  against TERRAIN_FS's and EL_TERRAIN_FS's formulas.
+- **Mutation.** `tools/mutants/forest1.json` (27) and `tools/mutants/grasslit.json` (19), all dead.
+
+## AUDIT FOREST1 - the findings, ranked as the lens ranked them
+
+| # | Finding | Evidence | Paid |
+|---|---|---|---|
+| F1 | **Every World of Daggerfall rock field and mountain became a "hidden place".** The kernel gave every pick `hide: true`; 206,964 of the mod's 222,816 instances (93%) are `Rocks_*` / `Mountain_*`, whose rects are anchors, not footprints - a woods ring off to one side of a rock field, a 9x9 clearing at its anchor, and groves growing through boulder meshes (nature was never tested against the rock pieces). Contradicted the Features note. | `terrainGen.js` pois; the packs scanned | The host marks each pick (`hide: !wodPiecewise(prefabName)`; `worldOfDaggerfall.js` hands the prefab's name on the pick); scenery is no place. A wood's flats keep out of the rock pieces (`insideRocks(pixelRocks, ...)` in the nature loop, forest mode - DFU's own scatter with the switch off stays as DFU lays it). |
+| F2 | **The cost was understated.** "About as many flats as DFU" was a global average from synthetic terrain, and the elevation scale's omission was unsaid. | the lens's benchmark | Measured on the *real* WOODS.WLD, 675 land pixels: flats 1,856 vs DFU 1,900; Trees 1,274 vs 530 (2.4x), at most 7,664 vs 2,296; layout 1.66 ms vs 1.31. The forest density fell from 0.7 to 0.5 a grass tile, the field is sampled on a 4-tile world lattice (twenty-seven times fewer field samples), and the ledger and the patch notes say the cost and the dial. |
+| F3 | **The patch notes' Logging claim was false.** `standTrees` takes the flat nearest each law point; plains keep lone trees, so 55% of 420 simulated nodes stood on the plains. | `treeHost.js` standTrees | A Tree flat carries its tile's `wood`; the day's trees stand at the woods' own (`FOREST.woods`, 0.5) wherever the pixel has any, the lone trees only where it has none. DFU's scatter carries no `wood` and is unchanged. |
+| F4 | **Eight surviving mutants** - the location dropped from the places, the hidden flag forced, a fixed z inset, no undergrowth, no steepness test, the field shifted a tile, the ring's max-exclusive edge, the town's `near`. | the lens ran them | Each pinned: the kernel with a location (woods round a dungeon, fields round a town), both insets, the woods' undergrowth share, a fifty-degree slope, every flat's `wood` equal to the field plus the pull exactly, the ring's edge tile, the town's ease, and the numbers as literals (two more survivors the first pass found: the measurements read `FOREST` itself). 27 mutants, all dead. |
+| F5 | **The Oblivion Gate's clearing kept no nature.** `GATE_CLEAR_M` refused WoD pieces only: ~31 trees inside the clearing in a wood (5-11 under DFU), through the plinth and the Sigil Broker. | `gateClearance.js` | The nature loop keeps the gate's clearing (`pointNearGate(gateClear, ...)`, World of Daggerfall's flats' own margin) in BOTH modes - the gate is the port's own feature, and the sweep already rebuilds a pixel when the gate's day turns. |
+| F6 | **Peers could disagree on a whole pixel's forest.** One RNG stream walked the pixel: a place one peer stands and another does not (a spawned dungeon's expiry runs on the character's own clock) shifted every tile after it. `?forests=off` worked online. | `layoutForests` | Every tile draws its own dice off its WORLD tile (`tileDraw`, murmur3's finaliser over three words) - a difference moves only the flats about that place (pinned: everything past a place's reach is identical with and without it). The kill door is offline's alone. The steepness decision is on the gradient (no arctangent). |
+| F7 | **Camps reached past their clearing.** The clearing was the rect plus four tiles; `BanditCamp_04`'s objects reach seven tiles south of a three-tile rect, `Nature_01`'s six. | the prefabs | A site's FOOTPRINT is the clearing: its rect and every object of it grown by the site margin (`wodSiteFootprint`, beside `wodSiteClear`, which reads the objects the same way). |
+| F8 | **Trees stood on tracks over dirt** (a track over dirt leaves the tile's record dirt, so the record cannot say so); a stale cite (`roadPainter.js` into `terrainNature.js`); the online patch note ignored the kill door. | `roadPainter.js` TRACK_TILES | The kernel hands the road painter's own `paths` mask to the forest, which keeps off it; the cite re-aimed (`:146 and :200`); the door fixed (F6). |
+
+**Answered OK by the lens** (with evidence): the World of Daggerfall rect and the DFU location rect are in the
+tilemap's frame (x the column, y the row; checked against the prefabs' object extents); the field's world mapping is
+continuous east and north (pixel `py` stands at z = -py x 819.2, tile y runs north); the worker carries the job whole;
+`perlinNoise` is floor and arithmetic only; seasons and Seasons of the Iliac Bay read records by index on the summer
+archive; the far ring, the Overworld and the server never read nature; herbs and veins (`natureStandsAt`) are
+unchanged.
+
+## GRASS-LIT - why the grass was dark, measured
+
+The temperate grass tile (TEXTURE.302, its grass base) averages **(52, 76, 42)** - *real*. Its texels are
+low-contrast: the dark third is 0.85x the mean, the light third 1.16x, the brightest tenth 1.27x (the five grass
+climates' bases averaged, `GRASS_PALETTE`). Five causes stacked:
+
+1. **A fixed olive the ground is not.** The blade's middle was (33, 51, 18) - two thirds as bright as the tile and
+   twice as yellow; its root the tile at 0.62, shaded again by 0.42 of the ambient; its tip a yellow the tile has
+   nowhere in it.
+2. **The weather, twice.** The lab's `LAB_DIM` (rain 0.60, a storm 0.46) rode on a light already weathered
+   (`exteriorAmbient` takes the weather's scale squared, the sun once).
+3. **No lighting lane.** Under Enhanced Lighting (the enhanced skin's default) the ground is decoded, lit linear,
+   exposed (1.4 x the eye's adaptation), tonemapped and encoded; the grass ran none of it.
+4. **Light the ground had and the grass did not.** The cloud deck's shadow, the sun map (a tree's shade - the forests
+   made this matter), and the player-following light (R12).
+5. **The ambient occlusion.** The air pass reads its AO off the frame's depth at the resolve; the grass writes that
+   depth, so every blade read as a crease and the AO's 0.75 resolve darkened the field and the ground round each tuft.
+   Proven by photograph: with all four tones at the ground's own colour, the tufts still drew 10-15% darker than the
+   ground - and with `?air=off`, or with the fix, they vanished into it.
+
+`tools/grassLightProbe.mjs`, the middle of a blade against its ground, before -> after (classic lane):
+
+| | noon | 9:00 | 18:30 | overcast | rain | storm |
+|---|---|---|---|---|---|---|
+| woodland | 0.62x -> 1.18x | 0.61x -> 1.17x | 0.58x -> 1.16x | 0.45x -> 1.18x | 0.37x -> 1.18x | 0.28x -> 1.17x |
+| swamp | 0.74x -> 1.18x | 0.73x -> 1.17x | 0.69x -> 1.15x | 0.53x -> 1.18x | 0.44x -> 1.18x | 0.33x -> 1.17x |
+
+(The *before* omits cause 5, which darkened it further on the enhanced lane.)
+
+**The fix** (`render/labGrass.js` GRASSLIT_VS_EDITS / GRASSLIT_FS_EDITS, the fourth declared list over the lab's
+text; `render/airPass.js` snapshotAoDepth; `render/enhancedLighting.js` EL_CODEC_GLSL factored out byte for byte;
+`scenes/world.js` the frame's light and the AO copy): the tuft's four tones are ratios of the ground's own mean
+under each blade (`GRASS_TONES`: the root 0.92x - it melts into the ground - then 1.18-1.24x, 1.38-1.50x and the
+highlight 1.56-1.70x, a shade greener, as a sunlit blade is lighter than the soil under it); the light is the
+terrain's, on whichever lane is installed, with the deck and the sun map read once at the root (lifted 0.2 off the
+ground's own depth, in each triangle's provoking vertex alone) and R12; no second weather dim; past 0.12-0.6 of the range the colour gives way to the ground's
+mean; and the AO reads a copy of the depth taken just before the grass draws, so the grass neither takes nor casts
+occlusion and still hides, and is hidden, by depth. Tones were chosen by photographing candidates on the real game
+(`__grassTones`): the ground's own palette alone made the tufts all but invisible; brighter tips past it read as grass.
+
+## Known and not paid
+
+- **Lanterns and torches do not light the grass.** The terrain's point-light loop runs per fragment through the
+  light clusters; the grass would need it per vertex or per fragment for a million blades. At night in a lit camp the
+  ground glows and the grass beside it does not. Towns carry little grass.
+- **The ground's slope is not the blade's.** A blade's normal stands near straight up; the terrain's own vertex
+  normal is not carried per blade (the packed lanes are full). On a slope facing away from a low sun the ground
+  darkens a little more than the field on it.
+- **A texture mod's ground.** The grass's per-record mean is taken off the classic tile set; a mod that replaces the
+  ground (Texture Mods) draws other colours under it.
+- **The far rings draw every Tree.** Forests carry 2.4x DFU's Trees on average; the Features row is the dial.
+- **SwiftShader's milliseconds are not a player's.** The probe's frames prove the picture, not the frame rate.

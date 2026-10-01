@@ -8,7 +8,7 @@ import { modSetting, setModSetting, _resetModSettings, SWITCH_RESETS, KEY_MIGRAT
 import { diverseWeaponsPresetOn } from '../src/combat/diverseWeapons.js';
 import {
   LAB_GRASS_HEAD, LAB_GRASS_FS, GAME_GRASS_FS, GAME_GRASS_VS, GRASSPX_FS_EDITS, GRASSFOG_FS_EDITS, GRASSFOG_VS_EDITS,
-  FOG_FACTOR_GLSL, applyGrassEdits,
+  FOG_FACTOR_GLSL, applyGrassEdits, GRASSLIT_FS_EDITS, GRASS_TONES,
 } from '../src/render/labGrass.js';
 import { glslFunctions } from './glsl.mjs';
 import { FOG_GLSL } from '../src/render/fogGlsl.js';   // AUDIT 68: fogFactorAt's one home
@@ -29,6 +29,8 @@ function bladeColour(fs, { d, fog = { mode: 0, density: 0, range: [0, 1] }, pixe
     uDwFog: [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]],   // DW-C: the carved sea's distance fog, off
     gl_FragCoord: [3, 5, 0.5, 1], o: [0, 0, 0, 0],
     texture: () => [3 / 4, 0.9, 0.5, 1],
+    // GRASS-LIT: the classic lane, the root in full sun, near the eye, the shipped tones
+    uLane: 0, uELExposure: 1, vSun: 1, vNear: [0, 0, 0], vFar: 0, uGrassTone: GRASS_TONES.map((t) => [...t]),
   };
   const f = glslFunctions(LAB_GRASS_HEAD + fs, binds);
   f.main();
@@ -37,7 +39,7 @@ function bladeColour(fs, { d, fog = { mode: 0, density: 0, range: [0, 1] }, pixe
 const near = (a, b, e) => a.every((v, i) => Math.abs(v - b[i]) <= e);
 
 test('DISC20-A: a blade fogs as the ground under it does - heavy fog swallows it at 100 m, rain thins it, a clear day barely touches it; smooth and pixel alike, and with no fog the picture is the unfogged stage\'s own (mutants: the blend dropped; the blend before the pixel ramp; the world point not handed down)', () => {
-  const unfogged = applyGrassEdits(LAB_GRASS_FS, GRASSPX_FS_EDITS);   // the stage as it compiled before DISC20
+  const unfogged = applyGrassEdits(applyGrassEdits(LAB_GRASS_FS, GRASSPX_FS_EDITS), GRASSLIT_FS_EDITS);   // the stage under every list but the fog's (GRASS-LIT's lands on the lab's and the pixel style's lines alone)
   for (const pixel of [0, 1]) {
     const clear = bladeColour(unfogged, { d: 100, pixel });
     assert.deepEqual(bladeColour(GAME_GRASS_FS, { d: 100, pixel }), clear, `${pixel ? 'pixel' : 'smooth'}: no fog, the same picture`);

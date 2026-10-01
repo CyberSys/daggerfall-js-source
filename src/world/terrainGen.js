@@ -115,13 +115,19 @@ export function generatePixelTerrain({ woods, px, py, stride = 1, tilemap, locat
     locationRect: wodResult?.locationRect ?? locationRect,
     // FOREST1: the places the woods close round or draw back from - the
     // location (hidden or not, as the caller says) and every World of
-    // Daggerfall site, each its own rect (the loader's rect is only the last).
+    // Daggerfall SITE (the loader's rect is only the last), each its whole
+    // footprint; never a rock field or a mountain (AUDIT FOREST1 F1: the
+    // caller marks them `hide: false` and they are no place). And the road
+    // painter's own track mask, which a forest keeps off (AUDIT FOREST1 F8).
     forests: forests ? {
       archive: forests.archive,
       pois: [
         ...(hasLocation && locationRect ? [{ ...locationRect, hide: !!forests.hidden }] : []),
-        ...(wod?.picks ?? []).map(({ rect: r }) => ({ xMin: r.x, xMax: r.x + r.width, yMin: r.y, yMax: r.y + r.height, hide: true })),
+        ...(wod?.picks ?? []).filter((p) => p.hide !== false).map(({ rect: r, bounds: b }) => (b
+          ? { xMin: b.xMin, xMax: b.xMax, yMin: b.yMin, yMax: b.yMax, hide: true }
+          : { xMin: r.x, xMax: r.x + r.width, yMin: r.y, yMax: r.y + r.height, hide: true })),
       ],
+      paths,
     } : null,
   });
   return { samples, tilemap, positions: grid.positions, normals: grid.normals, tilemapBytes, avg, nature,

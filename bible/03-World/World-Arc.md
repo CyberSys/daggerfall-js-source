@@ -87,14 +87,18 @@ world-framed per (natureArchive, record). Integration pins: city pixel
 (207,213) 1237 flats (rect-suppressed), wilderness (206,213) 5331 -
 44013 across the 3x3. Pins in test/terrain.test.js.
 
-REAL FORESTS (FOREST1, 2026-10-01) is the port's departure from that
-scatter, behind the enhanced Features row `realForests` (on by default,
-forced on online): one world-continuous forest field, woods and plains,
-each flat inside its own tile, dungeons and World of Daggerfall sites in
-the woods and towns in fields. Off, on a desert, or with an archive that
-has no Tree table, the scatter above stands byte for byte. The rules and
-the numbers are the Port-Ledger A row (REAL FORESTS); pins in
-test/forest1.test.js.
+REAL FORESTS (FOREST1, 2026-10-01; AUDIT FOREST1 the same day) is the
+port's departure from that scatter, behind the enhanced Features row
+`realForests` (on by default, forced on online): one world-continuous
+forest field read off a 4-tile world lattice, woods and plains, each flat
+inside its own tile and off the painted tracks, each tile's dice its own
+world tile's, dungeons and World of Daggerfall sites (never their rock
+fields) in the woods round clearings the size of their footprints, towns
+in fields, the Oblivion Gate's clearing kept, Logging's trees in the
+woods. Off, on a desert, or with an archive that has no Tree table, the
+scatter above stands byte for byte. The rules and the numbers (measured
+on the real WOODS.WLD) are the Port-Ledger A row (REAL FORESTS); the audit
+is `01-Overview/Audit-Forest1-Grass.md`; pins in test/forest1.test.js.
 
 ## Milestone 7 - locations on terrain (SHIPPED)
 

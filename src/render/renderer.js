@@ -2501,6 +2501,14 @@ export class Renderer {
    *  enhanced travel map's relief). A no-op with nothing owed. */
   resolveFrame() { this._compositeAir(); }
 
+  /** GRASS-LIT: the ambient occlusion's depth taken NOW - the streaming host calls this just before the grass draws,
+   *  so the AO reads the world without the field in it (AirPass.snapshotAoDepth says why). Changes the bound
+   *  framebuffers and puts the frame's back; a no-op without the air pass or a world frame bound. */
+  snapshotAoDepth() {
+    if (!this._air || !this._frameFbo) return false;
+    return this._air.snapshotAoDepth();
+  }
+
   _compositeAir() {
     if (this._retroOwed && !this._air?.pending) this._presentRetroFrame();
     if (this._perfOpen && !this._air?.pending) this._perfClose();   // AUDIT 68 S16-perf-no-resolve-leak: no resolve owed - the frame's first screen draw closes its meter, as the resolve would

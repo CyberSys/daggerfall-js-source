@@ -592,6 +592,62 @@ directory by `test/audit18_bible_docs.test.js`:
   `GRASSPX_FS_EDITS` then `GRASSFOG_FS_EDITS`; run through `test/glsl.mjs`
   in both styles, no fog is the old picture to the bit and each fog mode
   is exactly the terrain's blend (`test/disc20.test.js`).
+  **GRASS-LIT (2026-10-01, Mac: "drastically improve the grass texture
+  that isn't super dark and blends well into the terrain"): THE GROUND'S
+  COLOUR AND THE GROUND'S LIGHT.** Measured first, on the real tiles
+  (TEXTURE.302 and the four other grass climates, read 2026-10-01) and
+  the real light (`tools/grassLightProbe.mjs` prints both lanes, five
+  climates, six times and weathers): the blade's middle drew 0.62x the
+  ground under it at a sunny noon, 0.37x in rain and 0.28x in a storm,
+  and FIVE causes stacked. (1) A fixed olive the ground is not - the
+  temperate grass tile averages (52, 76, 42), the blade's middle was
+  (33, 51, 18), its root the tile x 0.62 shaded again by 0.42. (2) The
+  lab's weather dim (LAB_DIM) on a light the host had weathered already
+  (exteriorAmbient takes the scale squared, the sun once). (3) No
+  lighting lane: under Enhanced Lighting the ground is decoded, lit in
+  linear, exposed (EL_EXPOSURE x the eye), tonemapped and encoded, and
+  the grass ran none of it. (4) Light the ground did not get - the
+  cloud deck's shadow, the sun map and R12's player light lit the
+  ground and not the blades on it. (5) THE AMBIENT OCCLUSION: the air
+  pass reads its AO off the frame's depth at the resolve (EL6), the
+  grass writes that depth, and every blade read as a crease - the AO's
+  0.75 resolve darkened the field and the ground round each tuft
+  (`?air=off` drew the same tufts in the ground's own colour; the
+  probe photographs both). A FOURTH EDIT LIST, `GRASSLIT_VS_EDITS` /
+  `GRASSLIT_FS_EDITS`, after the fog's: the tuft's four tones are
+  RATIOS OF THE GROUND'S MEAN under each blade (`GRASS_TONES`, uploaded
+  as `uGrassTone` - the root in the tile's own shade, the middle its
+  light third and over, the tip and the highlight brighter and a shade
+  greener: a lit blade is lighter than the soil under it), drawn from
+  the tiles' measured palette (`GRASS_PALETTE`: the dark third 0.85x,
+  the light third 1.16x, the brightest tenth 1.27x of the mean); the
+  light is the terrain's - ambient under a soft sward shade
+  (`GRASS_SWARD` 0.9 at the root), the sun by its scale through the
+  deck and the sun map read once at the root (lifted `GRASS_SUN_LIFT`
+  0.2 off the ground's own depth, the flats' one-read law - in each
+  triangle's provoking vertex alone, handed down `flat`), the moon,
+  R12 - and under the lane through its own decode, exposure, eye,
+  curve and encode (`EL_CODEC_GLSL`, the lane's text factored out
+  byte for byte); the blade's normal stands nearer the ground's; the
+  rim catches only in sun; past `GRASS_FAR_BLEND` (0.12-0.6 of the
+  range) the colour gives way to the ground's mean, so the far field
+  melts into the tile instead of banding. The host hands no weather dim
+  (dim 1) and the frame's lane, eye, deck, sun map and player light;
+  `Renderer.snapshotAoDepth` copies the depth just before the grass
+  draws (one blit) and the AO and its blur read the copy
+  (`AirPass.snapshotAoDepth`), so the grass neither takes nor casts
+  occlusion and still hides and is hidden by depth. Now the middle is
+  1.17x the ground in every condition the probe walks. `grassLit` is
+  the fragment in JS term for term; `test/grasslit.test.js` runs the
+  compiled stage through `test/glsl.mjs` against TERRAIN_FS's and
+  EL_TERRAIN_FS's formulas (a blade in the ground's colour IS the
+  ground's pixel on both lanes), pins the upload (linear under the lane,
+  every sampler on its own unit), the AO copy and the host;
+  `tools/mutants/grasslit.json` (19, all dead). Seen on the real game
+  data (`tools/grassLookProbe.mjs`, the world at a one-square radius,
+  `__grassSpot` / `__grassTones` in shot mode): no dark tuft, no yellow
+  band at the middle distance, a field lighter than its ground by a
+  blade's sunlit tip.
 - `grassPixelArt.js` - GRASS-PX THE TUFT SHEET: eight 8x16 tufts (GRASS-PX4; 16x32 until 2026-09-22, and the laws are written as fractions of the tuft so the old size still builds through `buildTuftSheet({ w, h })`) built at boot from a seed (one-texel stalks bending as height squared, four tones with one highlight texel, alpha 0 or 255), their coverage mip chain (max alpha per block, never an average, down to 1x1), the pixel style's numbers (8 Hz sway, 24 lean steps, 3x tuft width, 8-step ramp, 4 tint bands) and `pixelGrass()`, the row's word; the shader edits themselves are `GRASSPX_VS_EDITS` / `GRASSPX_FS_EDITS` in labGrass.js.
 - `spoilsGlow.js` - WB5: a fallen boss's spoils at rest, each in a BEAM of its tier's colour rising from a HALO on the floor (Loot Rarity's own colours - the first place a rarity is drawn in the world), a Legendary's and an Artifact's taller and pulsing. One foreign pass drawn beside the Burning Court's telegraph (the same seam), on the duel wall's law: fixed geometry placed by uniforms, added onto the frame, no depth written, fogged.
 - `deadlands.js` - WB6a: the Deadlands round the Burning Court - THE SKY, painted per pixel on one triangle at the far plane (a churning overcast lit from below; Oblivion's VORTEX over the great tower, turning whole and pouring inward; the BEAM up into its eye; black Daedric TOWERS with horns and a crown; three rings of JAGGED RIDGES hazier the further, with falls of fire; seeded LIGHTNING in the deck), and THE SEA, a disc of moving fire (crust plates on molten channels, glowing cracks, a slow pulse) whose rim becomes exactly the sky's horizon, so no edge is ever seen. One foreign pass in the dungeon arm after the court's solid geometry and before its flats (PERF2's law: the sea depth-tested, the sky tested at the far plane and never written); and the court's own light (`courtLighting` - a trilight red above and fire-orange below, the vortex's key light from behind the boss). WB6b: THE AIR'S LIFE (`drawLife`, after the telegraph in the court's pass - one vertex a mote: embers off the sea from past the court's edge and off its braziers, turning with the drift of the air, and ash falling through it; depth-tested and never written, the ash laid over premultiplied and the embers added; the world image's own height sizes the motes, RETRO1's `worldViewportPx` as the bolts read it); a strike LIGHTS THE COURT (`courtLighting(flash)`: the trilight's sky flares and the key swings toward it); `flashOfSlot`, the one answer the sky's flash and the thunder (scenes/deadlandsAir.js) read, on slots whole over the period; and the hosts hand the relay's clock (world.js `deadlandsSeconds`), so it is one moment on every screen. The land and the floor's shards round the court are court draws, not this pass (world/deadlandsLand.js, stood by worldModes' `standDeadlands`).

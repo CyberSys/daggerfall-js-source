@@ -34,7 +34,7 @@ import { materialLabel } from '../systems/profItems.js';
 import { liveStat } from '../systems/statMods.js';
 import { getPref } from '../systems/uiPrefs.js';
 import { TERRAIN_SIZE } from '../world/terrainSampler.js';
-import { insideRocks, TREE_RECORDS, isTreeRecord } from '../world/terrainNature.js';   // NODE-CLEAR: the rock check's one home; FOREST1: and the Tree records'
+import { insideRocks, TREE_RECORDS, isTreeRecord, FOREST } from '../world/terrainNature.js';   // NODE-CLEAR: the rock check's one home; FOREST1: and the Tree records', and what the woods are
 
 /** World of Daggerfall's Tree records (FOREST1: their home is world/terrainNature.js, where the forests read them). */
 export { TREE_RECORDS, isTreeRecord };
@@ -63,14 +63,19 @@ export const axeHandFrame = (swing) => (swing > 0 ? { state: 'StrikeDownRight', 
  * its law point - `{ key, what: 'tree', slot, tier, material, rare, flat, local, lift }`, `local` pixel-local metres,
  * `flat` the forest flat it is (`{ id, group, i, x, y, z }`). A pixel whose forest holds no tree flat stands none.
  * NODE-CLEAR (AUDIT 2026-10-01 part four): never a flat inside a rock piece (`rocks`, the pixel's) - the next outside.
+ * FOREST1 (AUDIT FOREST1 F3): under Real forests a flat carries how wooded its tile is (`wood`), and the day's trees
+ * stand at the woods' own (FOREST.woods and over) wherever the pixel has any - the plains' lone trees stand only where
+ * a pixel has no wood at all. DFU's scatter carries no `wood`, and every flat of it is the nearest's to take.
  * @param {{ px: number, py: number, day: number, climate: number, confirmed?: boolean,
- *   forest?: { trees: Array<{ id: number, group: string, i: number, x: number, y: number, z: number }> }|null,
+ *   forest?: { trees: Array<{ id: number, group: string, i: number, x: number, y: number, z: number, wood?: number }> }|null,
  *   rocks?: number[][] }} p
  */
 export function standTrees({ px, py, day, climate, confirmed = false, forest = null, rocks = [] }) {
   const out = [];
-  const flats = forest?.trees ?? [];
-  if (!WOOD_TABLES[climate] || !flats.length) return out;
+  const all = forest?.trees ?? [];
+  if (!WOOD_TABLES[climate] || !all.length) return out;
+  const woods = all.filter((f) => (f.wood ?? 0) >= FOREST.woods);   // FOREST1 (F3)
+  const flats = woods.length ? woods : all;
   const claimed = new Set();
   for (const t of trees({ x: px, y: py, day, climate, confirmed })) {
     const lx = t.u * TERRAIN_SIZE, lz = t.v * TERRAIN_SIZE;

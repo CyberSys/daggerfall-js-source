@@ -247,25 +247,46 @@ export function layoutNature(heightmapData, tilemapData, opts) {
 //     the same one. Three octaves of the terrain's own Perlin noise
 //     (world/perlin.js), each turned by an exact rational rotation (no
 //     sin or cos, whose last bit differs between engines) over a slow
-//     warp, so the edges wander instead of running along an axis.
-//   - FORESTS AND PLAINS. Inside a forest nearly every grass tile stands
-//     a Tree (the archive's World of Daggerfall Tree records) with some
+//     warp, so the edges wander instead of running along an axis. A
+//     pixel samples it on a FOREST.lattice-tile lattice and reads between
+//     the samples (forestField) - the lattice is the world's, so two
+//     pixels share their edge's samples and the field stays continuous.
+//   - FORESTS AND PLAINS. Inside a forest most grass tiles stand a Tree
+//     (the archive's World of Daggerfall Tree records) with some
 //     undergrowth; outside, the plains keep a light scatter of bushes,
 //     flowers and rocks and the odd lone tree. Dirt takes less, stone
 //     least. Deserts (DFU's Desert base type - the Desert and the
 //     Subtropical climates) keep DFU's scatter whole.
 //   - NO GRID. Each flat stands somewhere inside its own tile, never on
 //     its corner, on the ground there (groundAt) - inside its tile, so
-//     never on the road tile beside it.
-//   - PLACES IN THE WOODS. Around a dungeon, a ruin, a shrine or a World
-//     of Daggerfall site the woods close in (a clearing their clearance
-//     keeps, the rect widened by NATURE_CLEARANCE as DFU's own); around a
-//     town, a farm or a tavern they draw back into fields. The pull fades
-//     out toward the pixel's edges, so it never cuts a forest off at one.
-//     The location's rect is tested whole here, as natureStandsAt does -
-//     NT2's quirk (trees across an eight-block town) is DFU's scatter's.
-//   - A forest pixel stands about as many flats as DFU's did (fewer in
-//     the lowlands' plains, more Trees): the cost moves into the woods.
+//     never on the road tile beside it; and never on a tile the road
+//     painter laid a track over (its `paths` mask - a track over dirt
+//     leaves the record dirt).
+//   - EVERY TILE ITS OWN DICE (AUDIT FOREST1 F6). A tile's draws are a
+//     hash of its WORLD tile, not a stream walked across the pixel - so a
+//     place one peer stands and another does not (a spawned dungeon's
+//     clock is the character's) moves the flats about that place alone,
+//     never every tile after it, and Logging's trees stay where the room
+//     sees them.
+//   - PLACES IN THE WOODS. Around a dungeon, a keep, a shrine, a ruin, a
+//     graveyard, a coven or a World of Daggerfall site (a camp, a fort,
+//     a ruin - never its rock fields and mountains, AUDIT FOREST1 F1,
+//     which are scenery and stand where the field puts them) the woods
+//     close in, round a clearing that is the place's whole footprint (a
+//     site's objects, not only its rect - AUDIT FOREST1 F7) widened by
+//     DFU's clearance; around a town, a farm or a tavern they draw back
+//     into fields. The pull fades out toward the pixel's edges, so it
+//     never cuts a forest off at one. The location's rect is tested
+//     whole here, as natureStandsAt does - NT2's quirk (trees across an
+//     eight-block town) is DFU's scatter's.
+//   - THE COST. A wholly wooded grass pixel stands ~0.5 Trees a tile -
+//     about 8,000, against DFU's 1,700-4,200 on the same ground (its
+//     0.9 x the WOODS byte's elevation scale x ~9 Tree records of 31);
+//     with about 45% of the land wooded and the plains nearly bare, the
+//     average pixel stands about what DFU's uplands do, and fewer flats
+//     in all. DFU's elevation scale is not applied (a lowland wood is a
+//     wood). The far rings draw every Tree (world/flatDistance.js), so a
+//     wooded horizon costs more than DFU's - the Features row is the dial.
 // ═══════════════════════════════════════════════════════════════════
 
 /** FOREST1's numbers, in one place. Tiles are DFU's (6.4 m). */
@@ -281,18 +302,24 @@ export const FOREST = Object.freeze({
   warp: 48, warpWave: 140,
   /** where the field turns from plain to forest - about 45% of the land is forest */
   edge: Object.freeze([0.495, 0.525]),
+  /** a pixel samples the field every this many world tiles and reads between (a power of two dividing 128) */
+  lattice: 4,
   /** a grass tile's chances: a Tree and undergrowth inside a forest; a Tree and ground cover on a plain */
-  forestTree: 0.7, undergrowth: 0.15, plainTree: 0.02, plainCover: 0.1,
+  forestTree: 0.5, undergrowth: 0.12, plainTree: 0.02, plainCover: 0.1,
   /** the ground's share of those chances, by DFU's tile record (1 dirt, 2 grass, 3 stone) */
   ground: Object.freeze({ 1: 0.6, 2: 1, 3: 0.15 }),
   /** where in its tile a flat may stand (a fraction of the tile, each way) */
   inset: Object.freeze([0.1, 0.9]),
-  /** the woods about a place: full inside `near` tiles of its rect, none past `far`; a town's fields the same way */
+  /** the woods about a place: full inside `near` tiles of its footprint, none past `far`; a town's fields the same way */
   hide: Object.freeze({ near: 10, far: 30, pull: 1 }),
   clear: Object.freeze({ near: 6, far: 26, pull: 1 }),
   /** the pull fades out over this many tiles before the pixel's edge */
   edgeFade: 12,
+  /** how wooded a flat's tile must be for Logging to call it a tree of the woods (scenes/treeHost.js standTrees) */
+  woods: 0.5,
 });
+/** tan(MAX_STEEPNESS) squared - the steepness test on the gradient itself, no arctangent in the decision */
+const TAN_MAX_STEEP_SQ = Math.tan(MAX_STEEPNESS * Math.PI / 180) ** 2;
 
 const smoothstep = (a, b, v) => {
   const t = Math.min(1, Math.max(0, (v - a) / (b - a)));
@@ -313,10 +340,40 @@ export function forestCover(tx, tz) {
   return n;
 }
 
-/** How much forest a world tile is: 0 a plain, 1 the woods, between them its edge. */
+/** How much forest a world tile is, exactly: 0 a plain, 1 the woods, between them its edge. */
 export const forestAt = (tx, tz) => smoothstep(FOREST.edge[0], FOREST.edge[1], forestCover(tx, tz));
 
-/** The places' pull on a pixel tile (+ the woods close in, - they draw back), faded toward the pixel's edges. */
+/**
+ * A PIXEL'S FOREST, as the layout reads it: forestAt on the world's FOREST.lattice lattice over the pixel and its
+ * far edge (the next pixel's first samples - the same world tiles, so the same numbers), read bilinearly between.
+ * Answers `(x, y) => wood` for the pixel's tiles. Twenty-seven times fewer field samples than a tile each.
+ * @param {number} mapPixelX @param {number} mapPixelY
+ */
+export function forestField(mapPixelX, mapPixelY) {
+  const L = FOREST.lattice, n = WORLD_MAP_TILE_DIM / L + 1;
+  const ox = mapPixelX * WORLD_MAP_TILE_DIM, oz = -mapPixelY * WORLD_MAP_TILE_DIM;
+  const g = new Float64Array(n * n);
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) g[j * n + i] = forestAt(ox + i * L, oz + j * L);
+  return (x, y) => {
+    const fx = x / L, fy = y / L;
+    const i = Math.min(n - 2, Math.floor(fx)), j = Math.min(n - 2, Math.floor(fy));
+    const u = fx - i, v = fy - j;
+    const a = g[j * n + i], b = g[j * n + i + 1], c = g[(j + 1) * n + i], d = g[(j + 1) * n + i + 1];
+    return (a * (1 - u) + b * u) * (1 - v) + (c * (1 - u) + d * u) * v;   // weights, so a lattice point reads its sample exactly
+  };
+}
+
+/** A tile's own dice: draw `k` of world tile (tx, tz), uniform in [0, 1) - an integer hash (murmur3's finaliser over
+ *  the three words), so it is the same number on every engine and owes nothing to the tiles drawn before it. */
+export function tileDraw(tx, tz, k) {
+  let h = Math.imul(tx | 0, 0x9e3779b1) ^ Math.imul(tz | 0, 0x85ebca77) ^ Math.imul((k | 0) + 0x632be5ab, 0xc2b2ae3d);
+  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+
+/** The places' pull on a pixel tile (+ the woods close in, - they draw back), faded toward the pixel's edges. A
+ *  place's footprint is `{ xMin, xMax, yMin, yMax }` in tiles, max-exclusive, as DFU's rects. */
 export function placesPull(pois, x, y) {
   if (!pois?.length) return 0;
   const tDim = WORLD_MAP_TILE_DIM;
@@ -326,7 +383,7 @@ export function placesPull(pois, x, y) {
   for (const p of pois) {
     const dx = Math.max(p.xMin - x, 0, x - (p.xMax - 1)), dy = Math.max(p.yMin - y, 0, y - (p.yMax - 1));
     const ring = p.hide ? FOREST.hide : FOREST.clear;
-    const k = (1 - smoothstep(ring.near, ring.far, Math.hypot(dx, dy))) * ring.pull;
+    const k = (1 - smoothstep(ring.near, ring.far, Math.sqrt(dx * dx + dy * dy))) * ring.pull;
     pull += p.hide ? k : -k;
   }
   return pull * fade;
@@ -343,7 +400,8 @@ function coverOf(archive) {
   return out;
 }
 
-/** FOREST1's layoutNature: the same answer's shape, DFU's tests on the tile, the forests' chances and places. */
+/** FOREST1's layoutNature: the same answer's shape (plus each flat's `wood`), DFU's tests on the tile, the forests'
+ *  chances and places, a tile's own dice. */
 function layoutForests(heightmapData, tilemapData, opts) {
   const hDim = HEIGHTMAP_DIMENSION;
   const tDim = WORLD_MAP_TILE_DIM;
@@ -354,38 +412,43 @@ function layoutForests(heightmapData, tilemapData, opts) {
   const trees = TREE_RECORDS[opts.forests.archive];
   const cover = coverOf(opts.forests.archive);
   const pois = opts.forests.pois ?? [];
-  // the clearings: the location's rect and every place's, widened by DFU's clearance
+  const paths = opts.forests.paths ?? null;
+  // the clearings: the location's rect and every place's footprint, widened by DFU's clearance
   const clear = [opts.locationRect, ...pois].filter((r) => r && r.xMax > r.xMin && r.yMax > r.yMin).map((r) => ({
     xMin: r.xMin - NATURE_CLEARANCE, xMax: r.xMax + NATURE_CLEARANCE, yMin: r.yMin - NATURE_CLEARANCE, yMax: r.yMax + NATURE_CLEARANCE,
   }));
-  const seed = makeTerrainKey(opts.mapPixelX, opts.mapPixelY) >>> 0;
-  const rng = new UMRandom(seed === 0 ? 0x6e624eb7 : seed);
+  const woodAt = forestField(opts.mapPixelX, opts.mapPixelY);
   const ox = opts.mapPixelX * tDim, oz = -opts.mapPixelY * tDim;
   const [in0, in1] = FOREST.inset;
 
   const flats = [];
   for (let y = 0; y < tDim; y++) {
     for (let x = 0; x < tDim; x++) {
-      const ground = FOREST.ground[tilemapData[y * tDim + x] & 0x3f];
-      if (!ground) continue;
+      const ti = y * tDim + x;
+      const ground = FOREST.ground[tilemapData[ti] & 0x3f];
+      if (!ground || paths?.[ti]) continue;
       if (clear.some((r) => x >= r.xMin && x < r.xMax && y >= r.yMin && y < r.yMax)) continue;
       const hl = at(Math.max(0, x - 1), y), hr = at(Math.min(hDim - 1, x + 1), y);
       const hd = at(x, Math.max(0, y - 1)), hu = at(x, Math.min(hDim - 1, y + 1));
-      const steepness = Math.atan(Math.hypot((hr - hl) / (2 * cell), (hu - hd) / (2 * cell))) * (180 / Math.PI);
-      if (steepness > MAX_STEEPNESS) continue;
+      const gx = (hr - hl) / (2 * cell), gz = (hu - hd) / (2 * cell);
+      const g2 = gx * gx + gz * gz;
+      if (g2 > TAN_MAX_STEEP_SQ) continue;
       const hx = Math.min(hDim - 1, Math.max(0, Math.trunc(hDim * (x / tDim))));
       const hy = Math.min(hDim - 1, Math.max(0, Math.trunc(hDim * (y / tDim))));
       if (Math.fround(heightmapData[hy + hx * hDim] * MAX_TERRAIN_HEIGHT) < SCALED_BEACH_ELEVATION) continue;
 
-      const wood = Math.min(1, Math.max(0, forestAt(ox + x, oz + y) + placesPull(pois, x, y)));
+      const wood = Math.min(1, Math.max(0, woodAt(x, y) + placesPull(pois, x, y)));
       const tree = (FOREST.plainTree + (FOREST.forestTree - FOREST.plainTree) * wood) * ground;
       const under = (FOREST.plainCover + (FOREST.undergrowth - FOREST.plainCover) * wood) * ground;
-      const roll = rng.nextFloat();
+      const wx = ox + x, wz = oz + y;
+      const roll = tileDraw(wx, wz, 0);
       if (roll >= tree + under) continue;
       const pool = roll < tree ? trees : cover;
-      const record = pool[rng.nextIntRange(0, pool.length)];
-      const mx = (x + rng.nextFloatRange(in0, in1)) * scale, mz = (y + rng.nextFloatRange(in0, in1)) * scale;
-      flats.push({ record, x: mx, y: groundAt(heightmapData, mx, mz) - steepness / SLOPE_SINK_RATIO, z: mz });
+      const record = pool[Math.floor(tileDraw(wx, wz, 1) * pool.length)];
+      const mx = (x + in0 + (in1 - in0) * tileDraw(wx, wz, 2)) * scale;
+      const mz = (y + in0 + (in1 - in0) * tileDraw(wx, wz, 3)) * scale;
+      const steepness = Math.atan(Math.sqrt(g2)) * (180 / Math.PI);
+      flats.push({ record, x: mx, y: groundAt(heightmapData, mx, mz) - steepness / SLOPE_SINK_RATIO, z: mz, wood });
     }
   }
   return flats;

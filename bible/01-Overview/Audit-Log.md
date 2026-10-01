@@ -8,6 +8,17 @@
 
 Newest first.
 
+**2026-10-01 - AUDIT FOREST1 + GRASS-LIT.** Mac: *"audit this and ensure it's as
+detailed as possible. In addition to this, I want to drastically improve the grass texture that
+isn't super dark and blends well into the terrain."* A read-only second lens over Real forests,
+eight findings (rock fields made hidden places, the cost understated, a false Logging claim,
+eight surviving mutants, the gate's clearing, peers' dice cascading, camps past their clearing,
+trees on tracks), all paid; then the grass's five causes of darkness measured on the real tiles
+and light and fixed - the ground's own palette, the ground's own light on both lanes, the deck,
+the sun map, one weather dim, and the AO read off the depth before the grass. Verified on the real
+game data in scratch (`tools/grassLookProbe.mjs`, `tools/grassLightProbe.mjs`). 46 mutants, all
+dead. Record: `Audit-Forest1-Grass.md`.
+
 **2026-09-24 - AUDIT 68: THE WHOLE-TREE SWEEP (PARTIAL).** Mac: *"a deep
 comprehensive audit across the entirety of the codebase, making bug
 fixes, refactoring where needed and overall doing some major

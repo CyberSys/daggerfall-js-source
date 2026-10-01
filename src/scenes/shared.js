@@ -773,10 +773,12 @@ export function parkourSwitchOn(search) {
 /** FOREST1: THE REAL FORESTS' SWITCH - the Features row (`realForests`) on
  *  the enhanced skin, and on for everyone online whatever their skin: the
  *  woods are the ground Logging's trees stand on, and the room agrees on
- *  its ground (parkourSwitchOn's shape). `?forests=off` the kill door. The
+ *  its ground (parkourSwitchOn's shape). `?forests=off` the kill door, offline. The
  *  world host reads it once, at its mount (a flip reaches the next world). */
 export function realForestsOn(search) {
-  if (pageParam('forests', search) === 'off') return false;
+  // AUDIT FOREST1 F6: the kill door is offline's alone - online the woods are the room's ground, and a peer who shut
+  // them would stand Logging's trees where nobody else sees a tree
+  if (pageParam('forests', search) === 'off' && !isOnlinePage(search)) return false;
   const row = onlineForcedPref('realForests', search) ?? getPref('realForests');
   return !!row && (isOnlinePage(search) || isEnhanced(search));
 }
