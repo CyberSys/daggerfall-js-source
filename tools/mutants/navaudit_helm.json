@@ -1127,8 +1127,8 @@
   {
     "name": "NAV1H-the-compass-unfed",
     "file": "src/scenes/world.js",
-    "old": "          ships: navalOn() && _mode() === 'exterior' ? naval?.compassShips() ?? null : null,   // AUDIT NAV1 (the helm): the sea's ships on the compass\n",
-    "new": "",
+    "old": "          ships: navalOn() && _mode() === 'exterior' ? naval?.compassShips() ?? null : null, boats:",
+    "new": "          boats:",
     "tests": [
       "test/navaudit_helm.test.js"
     ]

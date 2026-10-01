@@ -107,6 +107,7 @@ import { getInteractionMode } from '../player/interactionMode.js';
 import { mountHotbarDock, drawEnhancedHotbar, detachHotbarDock, hotbarMode } from './enhancedHotbar.js';   // HB1: the hotbar, the diamond's alternative (one or the other)
 import { setEnhancedMidTextScale } from './enhancedHudText.js';   // AUDIT FONT F2: the mid-screen label is a layer beside this one, not inside it (the popup column it once scaled too is a toast in the notice stack since ENH-NOTICE3)
 import { QUEST_MARK_CSS } from './questMarks.js'; import { nodeMarkCss } from './nodeMarks.js';   // GUIDE5: the tracker's quest on the compass, in the marks' one gold; NODE-MARKS: a profession's nodes in its own colour
+import { BOAT_GLYPH_URL } from './boatMarks.js';   // BOAT-MARK: my boats on the strip, a sail over a hull
 
 /**
  * PX30c (Mac: "is there anyway I can adjust the sizing?"): THE HUD'S
@@ -342,6 +343,35 @@ function drawShipMarks(ships, playerXZ, heading01) {
     if (node.style.left !== l) node.style.left = l;
     const c = SHIP_MARK_CSS[list[i].kind] ?? SHIP_MARK_CSS.ship;
     if (node.style.borderBottomColor !== c) node.style.borderBottomColor = c;
+  }
+}
+
+// BOAT-MARK (2026-10-01, "I want to build a compass icon that tracks your boat"): MY BOATS ON THE STRIP - a little boat
+// (ui/boatMarks.js BOAT_GLYPH_URL: a sail over a hull in the boats' teal, edged dark) on the strip's middle where the
+// quest's and the gate's diamonds stand, by the same bearing law (compassMarkerLerp, clamp and all): a boat behind
+// stands at the strip's end on the side to turn toward. `points` scene XZ (ui/boatMarks.js boatCompassPoints). Pooled
+// and hidden, never removed; each bearing kept on the node (`_bm`), never read back from a style that normalises it.
+const boatMarkCss = () => 'position:absolute;top:50%;width:14px;height:12px;margin:-6px 0 0 -7px;'
+  + `background:${BOAT_GLYPH_URL} center / 100% 100% no-repeat;filter:drop-shadow(0 0 1px rgba(0,0,0,0.9));pointer-events:none`;
+function drawBoatMarks(points, playerXZ, heading01) {
+  const list = (points && playerXZ) ? points : [];
+  while (parts.boatMarks.length < list.length) {
+    const node = el('i', 'hud-boat');
+    node.style.cssText = boatMarkCss();
+    node._bm = { left: '' };
+    parts.compass.append(node);
+    parts.boatMarks.push(node);
+  }
+  for (let i = 0; i < parts.boatMarks.length; i++) {
+    const node = parts.boatMarks[i];
+    if (i >= list.length) {
+      if (node.style.display !== 'none') node.style.display = 'none';
+      continue;
+    }
+    if (node.style.display === 'none') node.style.display = '';
+    const at = Math.min(1, Math.max(0, compassMarkerLerp(list[i], playerXZ, heading01)));
+    const l = `${(at * 100).toFixed(1)}%`;
+    if (node._bm.left !== l) { node._bm.left = l; node.style.left = l; }
   }
 }
 
@@ -760,7 +790,7 @@ function build(doc) {
   cells.main.cell.addEventListener('pointerdown', tap(() => { liveOpts.quickSwitchHand?.(); }));
 
   doc.body.append(root);
-  return { root, bottom, compass, marks, detectMarks: [], partyMarks: [], shipMarks: [], nodeMarks: [], gateMark: null, questMark: null, foe, foeName, foeFill, foeGhost, foeChunks, foeBladeFull, magicka, health, fatigue,
+  return { root, bottom, compass, marks, detectMarks: [], partyMarks: [], shipMarks: [], nodeMarks: [], boatMarks: [], gateMark: null, questMark: null, foe, foeName, foeFill, foeGhost, foeChunks, foeBladeFull, magicka, health, fatigue,
     stat, quickCap: cap, quickDiamond: diamond, top,   // UI3: the status widget, the caption it stands on, the diamond it may stand beside and the top block over it (its band is measured from them)
     renown, renownBox, renownFill, renownGhost, renownNum,
     breath, breathFill, readied, reticle, cross, centreWord, cornerWord,
@@ -879,6 +909,7 @@ export function drawEnhancedHud(vitals, heading01, dt = 0, opts = {}) {
   drawQuestMark(opts.quest ?? null, opts.playerXZ ?? null, heading01);   // GUIDE5
   drawPartyMarks(opts.party ?? null, opts.playerXZ ?? null, heading01);   // COMPASS-PARTY
   drawShipMarks(opts.ships ?? null, opts.playerXZ ?? null, heading01);   // AUDIT NAV1: the sea's ships
+  drawBoatMarks(opts.boats ?? null, opts.playerXZ ?? null, heading01);   // BOAT-MARK: my boats
   drawNodeMarks(opts.nodes ?? null, opts.playerXZ ?? null, heading01);   // NODE-MARKS: the professions' nodes (PROF2: a Prospector's veins; PROF7: a Tracker's animals)
 
   // THE TARGET, when there is one.
