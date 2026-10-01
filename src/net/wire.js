@@ -3305,7 +3305,7 @@ export function validSiegeIn(m) {
 
 /** A battle's results as the room says them at its end (net/siegeReceipt.js SIEGE_RESULTS - pinned equal: the wire
  *  imports no receipt's law). */
-export const SIEGE_END_RESULTS = Object.freeze(['attack', 'defend', 'tie', 'forfeit', 'absent']);
+export const SIEGE_END_RESULTS = Object.freeze(['attack', 'defend', 'tie', 'forfeit', 'absent', 'void']);   // AUDIT-SEATS II: and a battle the room lost (17)
 /** The most a roll call names (siegeRef.js SIEGE_FIGHTERS_MAX), the most a field's frame counts in the room. */
 export const SIEGE_ROLL_MAX = 48;
 export const SIEGE_ROOM_MAX = 200;

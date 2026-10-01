@@ -46,7 +46,8 @@ test('SEAT2a part four THE ROOM\'S WORDS: each kind projected and bounded - the 
     assert.equal(validSiegeOut({ ...f, ...bad }), null, JSON.stringify(bad));
   }
   assert.deepEqual(validSiegeOut({ k: 'end', r: 'forfeit', a: 0, rc: 's1.abc.' }), { k: 'end', r: 'forfeit', a: 0, rc: 's1.abc.' });
-  for (const bad of [{ r: 'void' }, { a: 2 }, { rc: 'r1.abc.def' }, { rc: 7 }]) assert.equal(validSiegeOut({ k: 'end', r: 'attack', a: 1, ...bad }), null, JSON.stringify(bad));
+  for (const bad of [{ r: 'won' }, { a: 2 }, { rc: 'r1.abc.def' }, { rc: 7 }]) assert.equal(validSiegeOut({ k: 'end', r: 'attack', a: 1, ...bad }), null, JSON.stringify(bad));   // PIN MOVED (AUDIT-SEATS II): `void` is an end now (17)
+  assert.deepEqual(validSiegeOut({ k: 'end', r: 'void', a: 0 }), { k: 'end', r: 'void', a: 0 });
   assert.equal(validSiegeOut({ k: 'nope' }), null);
 });
 

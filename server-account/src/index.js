@@ -942,7 +942,9 @@ const service = {
         }[path];
         if (!act) return no('not-found', 404, origin);
         const r = await act();
-        return 'error' in r ? no(r.error, SEAT_STATUS[r.error] ?? 400, origin) : json(r, 200, origin);
+        // AUDIT-SEATS II S2: a refusal's `why` kept, as the gate's claim keeps it - a receipt's carrier holds what the
+        // service could mend (a signature, a clock) only by its `why`, and a bare word made it let genuine receipts go
+        return 'error' in r ? json({ error: r.error, ...(r.why ? { why: r.why } : {}) }, SEAT_STATUS[r.error] ?? 400, origin) : json(r, 200, origin);
       }
 
       // ═══ PROF1: THE PROFESSIONS ══════════════════════════════════════

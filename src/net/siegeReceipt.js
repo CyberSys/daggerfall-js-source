@@ -38,7 +38,7 @@ export const SIEGE_RECEIPT_TTL_S = 7 * 24 * 3600;
 export const SIEGE_RECEIPT_MAX = 400;
 /** A battle's results (net/siegeRef.js battleStep): a side took it, a Tourney's dead heat, a forfeit (no attacker came),
  *  absent (nobody came). */
-export const SIEGE_RESULTS = Object.freeze(['attack', 'defend', 'tie', 'forfeit', 'absent']);
+export const SIEGE_RESULTS = Object.freeze(['attack', 'defend', 'tie', 'forfeit', 'absent', 'void']);   // AUDIT-SEATS II D1/L3/R3 (17): `void` - a room lost past SIEGE_LOST_MS, or a deploy, mid-battle
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();

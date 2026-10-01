@@ -542,8 +542,8 @@
  {
   "name": "SEAT2a2-rc-results",
   "file": "src/net/siegeReceipt.js",
-  "old": "export const SIEGE_RESULTS = Object.freeze(['attack', 'defend', 'tie', 'forfeit', 'absent']);",
-  "new": "export const SIEGE_RESULTS = Object.freeze(['attack', 'defend', 'tie', 'forfeit', 'absent', 'void']);",
+  "old": "export const SIEGE_RESULTS = Object.freeze(['attack', 'defend', 'tie', 'forfeit', 'absent', 'void']);",
+  "new": "export const SIEGE_RESULTS = Object.freeze(['attack', 'defend', 'tie', 'forfeit', 'absent', 'void', 'won']);",
   "tests": [
    "test/seat2a_battle.test.js",
    "test/seat2a_relay.test.js"

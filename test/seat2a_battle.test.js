@@ -234,7 +234,7 @@ test('SEAT2a THE RECEIPT: `s1` - the account, the seat and week, its side, the r
   const v = await verifySiegeReceipt(rc, kp.publicKey, { subtle, nowS });
   assert.deepEqual(v, { ok: true, claims: { ...what, th: 0, i: nowS, e: nowS + SIEGE_RECEIPT_TTL_S } });   // PIN MOVED (AUDIT-SEATS): T1 - every receipt carries `th`, 0 where the Throne was not reached
   assert.equal(SIEGE_RECEIPT_TTL_S, 7 * 24 * 3600);
-  assert.deepEqual([...SIEGE_RESULTS], ['attack', 'defend', 'tie', 'forfeit', 'absent']);
+  assert.deepEqual([...SIEGE_RESULTS], ['attack', 'defend', 'tie', 'forfeit', 'absent', 'void']);   // PIN MOVED (AUDIT-SEATS II): a battle its room lost (17)
   assert.deepEqual((await verifySiegeReceipt(rc, kp.publicKey, { subtle, nowS: nowS + SIEGE_RECEIPT_TTL_S })), { ok: false, why: 'expired' });
   assert.deepEqual((await verifySiegeReceipt(rc, kp.publicKey, { subtle, nowS: nowS - 60 })), { ok: false, why: 'future' });
   const unsigned = await mintSiegeReceipt(what, null, { subtle, nowS });
@@ -253,11 +253,11 @@ test('SEAT2a THE RECEIPT: `s1` - the account, the seat and week, its side, the r
   const watch = await mintWatchReceipt({ s: 'acct-0001', x: 1, y: 1, c: 1 }, kp.privateKey, { subtle, nowS });
   assert.equal((await verifySiegeReceipt(watch, kp.publicKey, { subtle, nowS })).ok, false, 'nor a Watch\'s a siege\'s');
   const valid = (o) => siegeReceiptValid({ ...what, ...o, i: nowS, e: nowS + 60 });
-  assert.ok(valid({}) && valid({ sd: 'attack', r: 'attack', a: 1, h: 0 }) && valid({ r: 'tie' }) && valid({ r: 'absent' }));
-  for (const bad of [{ s: 'x' }, { sk: -1 }, { sk: 2 ** 32 }, { sw: -1 }, { sd: 'watch' }, { r: 'void' }, { a: 2 }, { h: true }, { n: 'x' }, { k: 'guest' }, { o: 'siege' }, { d: 1 }, { b: 'x' }, { w: 1 }, { x: 1 }, { y: 1 }, { c: 1 }, { t: 'x' }]) {
+  assert.ok(valid({}) && valid({ sd: 'attack', r: 'attack', a: 1, h: 0 }) && valid({ r: 'tie' }) && valid({ r: 'absent' }) && valid({ r: 'void' }));   // PIN MOVED (AUDIT-SEATS II): `void`, a battle its room lost
+  for (const bad of [{ s: 'x' }, { sk: -1 }, { sk: 2 ** 32 }, { sw: -1 }, { sd: 'watch' }, { r: 'won' }, { a: 2 }, { h: true }, { n: 'x' }, { k: 'guest' }, { o: 'siege' }, { d: 1 }, { b: 'x' }, { w: 1 }, { x: 1 }, { y: 1 }, { c: 1 }, { t: 'x' }]) {
     assert.equal(valid(bad), false, JSON.stringify(bad));
   }
   assert.equal(siegeReceiptValid({ ...what, i: nowS, e: nowS + SIEGE_RECEIPT_TTL_S + 1 }), false, 'a week at most');
   assert.equal(siegeReceiptValid({ ...what, i: nowS, e: nowS }), false);
-  await assert.rejects(mintSiegeReceipt({ ...what, r: 'void' }, kp.privateKey, { subtle, nowS }), /refused/);
+  await assert.rejects(mintSiegeReceipt({ ...what, r: 'won' }, kp.privateKey, { subtle, nowS }), /refused/);   // PIN MOVED (AUDIT-SEATS II): `void` is a result now; a word no result is still refused
 });

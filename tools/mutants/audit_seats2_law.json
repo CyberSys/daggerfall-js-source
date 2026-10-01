@@ -1,0 +1,44 @@
+[
+  {
+    "name": "AS2-R1-field-arity",
+    "file": "src/net/identityToken.js",
+    "old": "  if (n !== 2 && n !== 3) return false;",
+    "new": "  if (n < 2) return false;",
+    "tests": ["test/audit_seats2_law.test.js"]
+  },
+  {
+    "name": "AS2-R1-field-mixed",
+    "file": "src/net/identityToken.js",
+    "old": "  return sf.every((p) => Array.isArray(p) && p.length === n && p.every(coordOk));",
+    "new": "  return sf.every((p) => Array.isArray(p) && p.length >= 2 && p.every(coordOk));",
+    "tests": ["test/audit_seats2_law.test.js"]
+  },
+  {
+    "name": "AS2-R1-field-height-unbounded",
+    "file": "src/net/identityToken.js",
+    "old": "  return sf.every((p) => Array.isArray(p) && p.length === n && p.every(coordOk));",
+    "new": "  return sf.every((p) => Array.isArray(p) && p.length === n && coordOk(p[0]) && coordOk(p[1]));",
+    "tests": ["test/audit_seats2_law.test.js"]
+  },
+  {
+    "name": "AS2-void-receipt-dropped",
+    "file": "src/net/siegeReceipt.js",
+    "old": "'forfeit', 'absent', 'void']);   // AUDIT-SEATS II D1/L3/R3",
+    "new": "'forfeit', 'absent']);   // AUDIT-SEATS II D1/L3/R3",
+    "tests": ["test/audit_seats2_law.test.js", "test/seat2a_battle.test.js"]
+  },
+  {
+    "name": "AS2-void-end-dropped",
+    "file": "src/net/wire.js",
+    "old": "export const SIEGE_END_RESULTS = Object.freeze(['attack', 'defend', 'tie', 'forfeit', 'absent', 'void']);",
+    "new": "export const SIEGE_END_RESULTS = Object.freeze(['attack', 'defend', 'tie', 'forfeit', 'absent']);",
+    "tests": ["test/audit_seats2_law.test.js", "test/seat2a_siege_play.test.js"]
+  },
+  {
+    "name": "AS2-revolt-void-line",
+    "file": "src/net/townSeatLaw.js",
+    "old": "but the battle was void; ${c} stands for now.`;",
+    "new": "but the battle was void.`;",
+    "tests": ["test/audit_seats2_law.test.js"]
+  }
+]

@@ -1,0 +1,11 @@
+[
+  {
+    "name": "AS2-S2-why-dropped",
+    "file": "server-account/src/index.js",
+    "old": "return 'error' in r ? json({ error: r.error, ...(r.why ? { why: r.why } : {}) }, SEAT_STATUS[r.error] ?? 400, origin)",
+    "new": "return 'error' in r ? json({ error: r.error }, SEAT_STATUS[r.error] ?? 400, origin)",
+    "tests": [
+      "test/audit_seats2_service.test.js"
+    ]
+  }
+]

@@ -573,10 +573,16 @@ export function siegePassValid(c) {
   return siegeFieldValid(c.sf, c.st, c.sn);
 }
 /** A battle's field as a pass carries it (`sf`): a palace's six points or a crown's seven, each `[x, z]` whole room units
- *  within their bound - the service asks it of a client's derivation too (SEAT2a part three). */
+ *  within their bound - the service asks it of a client's derivation too (SEAT2a part three). AUDIT-SEATS II R1/R2: or
+ *  each `[x, z, g]`, `g` THE GROUND'S HEIGHT at the point in the same units (the height a fighter's feet stand at there,
+ *  as its game's motor stands them) - every point the one shape, so the two sides' derivations agree or do not as a
+ *  whole; the relay judges a fighter's height against the signed ground where the pass carries it, and against the
+ *  fighters' own middle (siegeRef.js siegeGround) where an older client's field does not. */
 export function siegeFieldValid(sf, tier, kind = 'siege') {
   if (!Array.isArray(sf) || sf.length !== siegePassPoints(tier, kind)) return false;
-  return sf.every((p) => Array.isArray(p) && p.length === 2 && coordOk(p[0]) && coordOk(p[1]));
+  const n = Array.isArray(sf[0]) ? sf[0].length : 0;
+  if (n !== 2 && n !== 3) return false;
+  return sf.every((p) => Array.isArray(p) && p.length === n && p.every(coordOk));
 }
 
 /** SEAT2a: MINT A SIEGE PASS - the service's word that account `s` may enter seat `sk`'s battle of week `sw` on side `sd`. */

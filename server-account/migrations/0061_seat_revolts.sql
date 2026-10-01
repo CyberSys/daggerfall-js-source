@@ -5,7 +5,9 @@
 --     it names no attacking guild);
 --   - a battle keeps its WORKS (`works`, the pass's `sx` - fortLaw.js siegeWorksPass: the Walls' tier, the Gatehouse's
 --     vitality, the Barracks' guards, the Ram Kits and a Ram's vitality), frozen at its first pass so every pass agrees;
---   - a fortification project keeps whether a SIEGEWRIGHT began it (`wright`: "siege works a day sooner").
+--   - a fortification project keeps whether a SIEGEWRIGHT began it (`wright`: "siege works a day sooner");
+--   - AUDIT-SEATS II (17: "A room lost for more than 5 minutes - or a forced deploy - voids the siege"): a battle keeps
+--     whether its relay VOIDED it (`relay_void`, a carried `void` receipt's word) - a revolt so voided lapses no Charter.
 --
 --   npx wrangler d1 migrations apply daggerfall-accounts --remote
 --
@@ -28,6 +30,7 @@ CREATE TABLE IF NOT EXISTS town_seat_battles_new (
   field      TEXT,
   rams       INTEGER NOT NULL DEFAULT 0 CHECK (rams >= 0),
   works      TEXT,
+  relay_void INTEGER NOT NULL DEFAULT 0 CHECK (relay_void IN (0, 1)),
   PRIMARY KEY (week, key)
 );
 INSERT INTO town_seat_battles_new (week, key, kind, tier, attacker, defender, starts_at, ends_at, moved, state, at, field, rams)

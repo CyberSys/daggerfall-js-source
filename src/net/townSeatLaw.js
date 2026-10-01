@@ -626,6 +626,7 @@ export function chronicleLine(row, seat, zero = null) {
     case 'revolt': return `${when}, ${seat.name} rose against ${guildWords(d.guild)}.`;
     case 'revolt-down': return `${when}, ${seat.name} rose against ${guildWords(d.guild)}. The rebel captain fell at the palace door, and the Charter held.`;
     case 'revolt-lapsed': return `${when}, ${seat.name} rose against ${guildWords(d.guild)}. The rebels held the palace door, and ${c} lapsed.`;
+    case 'revolt-void': return `${when}, ${seat.name} rose against ${guildWords(d.guild)}, but the battle was void; ${c} stands for now.`;   // AUDIT-SEATS II (17): a revolt its room lost
     default: return null;
   }
 }
