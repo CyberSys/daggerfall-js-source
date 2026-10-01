@@ -57,12 +57,12 @@ test('SEAT2a part three THE WINNER AND THE AFTERMATH: a taken seat the attackers
 
 test('SEAT2a part three HONOURS AND THE SPOILS: 50 Marks and 2,000 Renown XP to the winners, 25 and 1,000 to the losers; a fighter\'s roll its own and the same however asked, between the ingot and the silk (the Siege-cracked Gem waits for its template); the Chronicle\'s rows; the refusals in the board\'s words (mutants: the sizes; the roll; the rows; the words)', () => {
   assert.deepEqual(SIEGE_HONOURS, { win: { marks: 50, xp: 2000 }, lose: { marks: 25, xp: 1000 } });
-  assert.deepEqual([...SIEGE_SPOILS], ['ingot:warforged', STANDARD_SILK.key]);
+  assert.deepEqual([...SIEGE_SPOILS], ['ingot:warforged', STANDARD_SILK.key, 'gem:siege']);   // PIN MOVED (AUDIT-SEATS): the Siege-cracked Gem has its template (678)
   const rolls = new Set();
   for (let i = 0; i < 40; i++) rolls.add(spoilsOf(20, 3021, `acct-${i}`));
-  assert.deepEqual([...rolls].sort(), [...SIEGE_SPOILS].sort(), 'both fall');
+  assert.deepEqual([...rolls].sort(), [...SIEGE_SPOILS].sort(), 'all three fall');
   assert.equal(spoilsOf(20, 3021, 'acct-7'), spoilsOf(20, 3021, 'acct-7'), 'the same however often asked');
-  const pick = (w, k, a) => { let h = 0x811c9dc5; for (const ch of `${w}:${k}:${a}`) { h ^= ch.charCodeAt(0); h = Math.imul(h, 0x01000193) >>> 0; } return SIEGE_SPOILS[h % 2]; };
+  const pick = (w, k, a) => { let h = 0x811c9dc5; for (const ch of `${w}:${k}:${a}`) { h ^= ch.charCodeAt(0); h = Math.imul(h, 0x01000193) >>> 0; } return SIEGE_SPOILS[h % 3]; };
   for (let i = 0; i < 10; i++) assert.equal(spoilsOf(21, 3022, `a-${i}`), pick(21, 3022, `a-${i}`), 'FNV-1a over the battle and the account');
   const SH = { name: 'The Silver Hand', tag: 'SH' }, EO = { name: 'Ebon Oath', tag: 'EO' };
   const line = (kind, data) => chronicleLine({ week: 20, kind, data }, SEAT);

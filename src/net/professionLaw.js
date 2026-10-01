@@ -349,6 +349,13 @@ export const GEMS = Object.freeze([
   dfu('gem:jade', 'gems', gemTierOfPrice(10), 'Gems', 4), dfu('gem:turquoise', 'gems', gemTierOfPrice(50), 'Gems', 5),
   dfu('gem:malachite', 'gems', gemTierOfPrice(25), 'Gems', 6), dfu('gem:amber', 'gems', gemTierOfPrice(100), 'Gems', 7),
 ]);
+/** DFU's Diamond's picture (TEXTURE.254 record 3), the one the Siege-cracked Gem borrows. */
+export const ICON_DIAMOND = Object.freeze([254, 3]);
+/** THE SIEGE-CRACKED GEM (4.7, 4.8: 678): a Siege Honour's Spoils, a gem only war yields - the Diamond's tier, on the
+ *  Diamond's own picture. DECIDED (AUDIT-SEATS): undyed and without 4.8's "cracked overlay" - the icon's one door is a
+ *  dye (systems/itemTemplates.js inventoryItemImage), no overlay crosses the renderers; the name says what it is.
+ *  Mining never strikes one: GEMS is the glint's table, and this row is not in it. */
+export const SIEGE_GEM = made('gem:siege', 'gems', gemTierOfPrice(500), 678, 'Siege-cracked Gem', ICON_DIAMOND, null);
 /** Every new template PROF2 registers, by template. */
 export const MINING_TEMPLATES = Object.freeze([...ORES, ...INGOTS, ...STONES]);
 
@@ -442,7 +449,7 @@ export const CURED_LEATHER = made('leather:cured', 'hides', 2, 665, 'Cured Leath
 export const HARDENED_LEATHER = made('leather:hardened', 'hides', 5, 666, 'Hardened Leather', ICON_GARMENT, null);
 /** The cloth (4.5, 668-671), each its step (9.3: Linen 1, Wool 2, Silk 4, Standard-bearer's Silk 5). Linen and Wool are
  *  never gathered - the Weavers' counter sells them; a Silk Bolt is woven from Spider Silk; Standard-bearer's Silk is a
- *  Siege Honour's Spoils (4.7), which nothing yields before the sieges. */
+ *  Siege Honour's Spoils (4.7). */
 export const LINEN = made('cloth:linen', 'hides', 1, 668, 'Linen Bolt', ICON_GARMENT, null);
 export const WOOL = made('cloth:wool', 'hides', 2, 669, 'Wool Bolt', ICON_GARMENT, null);
 export const SILK = made('cloth:silk', 'hides', 4, 670, 'Silk Bolt', ICON_GARMENT, null);
@@ -569,7 +576,7 @@ export const STOCK_MAX = 100;
 export const NO_PACK_FORM = Object.freeze([]);
 /** Whether the Stores may give a material to the pack. */
 export const withdrawable = (key) => !NO_PACK_FORM.includes(key);
-const MINED = new Map([...METALS, ...ORES, ...INGOTS, ...STONES, ...GEMS, PEARL, ...WOOD_TEMPLATES, ...HIDE_TEMPLATES, ...PARTS].map((m) => [m.key, m]));   // PROF7: the hides, leathers, cloth and a body's DFU parts; PROF8: the sea's Pearl
+const MINED = new Map([...METALS, ...ORES, ...INGOTS, ...STONES, ...GEMS, SIEGE_GEM, PEARL, ...WOOD_TEMPLATES, ...HIDE_TEMPLATES, ...PARTS].map((m) => [m.key, m]));   // PROF7: the hides, leathers, cloth and a body's DFU parts; PROF8: the sea's Pearl; AUDIT-SEATS: the Siege-cracked Gem
 /** A mined (or smelted) material's row, or null. */
 export const minedMaterial = (key) => MINED.get(key) ?? null;
 /** PROF5: every registered material's key, in the registry's order - the market's catalogue beside the herbs and foods. */

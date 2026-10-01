@@ -318,6 +318,14 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
       return this.politicsAct(() => door.pact(character(), tag), (d) => (d.signed ? `The Pact with <${tag}> is signed, until week ${d.until}.` : `Your guild offers <${tag}> a Pact of non-aggression.`));
     },
     /** The Pact with <tag> broken (a signed one is announced to everyone in red) - or its offer withdrawn. */
+    /** AUDIT-SEATS: the offer of fealty the guild tagged `tag` made to this one, declined. */
+    declineFealty(tag) {
+      return this.politicsAct(() => door.fealtyBreak(character(), tag), (d) => (d.declined ? `The offer of fealty from <${tag}> is declined.` : d.withdrawn ? 'Your guild\'s offer of fealty is withdrawn.' : 'The fealty ends at the Turning. Your guild loses 10 Standing at each seat it holds.'));
+    },
+    /** AUDIT-SEATS: the offer of a Pact the guild tagged `tag` made to this one, declined (an unsigned offer's break). */
+    declinePact(tag) {
+      return this.politicsAct(() => door.pactBreak(character(), tag), (d) => (d.announced ? `Your guild has broken its Pact with <${tag}>. Everyone has been told.` : `The offer of a Pact from <${tag}> is declined.`));
+    },
     breakPact(tag) {
       return this.politicsAct(() => door.pactBreak(character(), tag), (d) => (d.announced ? `Your guild has broken its Pact with <${tag}>. Everyone has been told.` : `The offer of a Pact with <${tag}> is withdrawn.`));
     },

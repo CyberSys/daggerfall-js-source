@@ -527,7 +527,11 @@ export function chronicleLine(row, seat, zero = null) {
     case 'battle-moved': return `${when}, the battle for ${seat.name} was moved to ${battleWhenText(Number(d.at ?? 0) * 1000)}, so that no guild fights twice at once.`;
     case 'battle-void': return `${when}, no hour of the week could hold the battle for ${seat.name}; it is void.`;
     // SEAT2a part three: a battle's end
-    case 'siege-taken': return `${when}, ${guildWords(d.guild)} took ${c} by siege from ${guildWords(d.from)}.`;
+    // AUDIT-SEATS (9.2: "stormed the gates of Anticlere and took its Charter from the Ebon Oath after thirty-one minutes"):
+    // the siege's length where its row keeps one
+    case 'siege-taken': return Number.isSafeInteger(d.minutes) && d.minutes > 0
+      ? `${when}, ${guildWords(d.guild)} stormed the gates of ${seat.name} and took its Charter from ${guildWords(d.from)} after ${countWords(d.minutes)} ${d.minutes === 1 ? 'minute' : 'minutes'}.`
+      : `${when}, ${guildWords(d.guild)} took ${c} by siege from ${guildWords(d.from)}.`;
     case 'siege-held': return `${when}, ${guildWords(d.guild)} held ${seat.name} against the siege of ${guildWords(d.against)}.`;
     case 'siege-forfeit': return `${when}, ${guildWords(d.against)} never came to the siege of ${seat.name}; ${guildWords(d.guild)} holds it by forfeit.`;
     case 'siege-absent': return `${when}, neither side came to the siege of ${seat.name}; ${guildWords(d.guild)} keeps it.`;
@@ -547,6 +551,20 @@ export function chronicleLine(row, seat, zero = null) {
     default: return null;
   }
 }
+// ─── AUDIT-SEATS (2026-10-01, Mac: "We need to do a comprehensive audit on everything and finish the not done") ───
+const ONES = Object.freeze(['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve',
+  'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen']);
+const TENS = Object.freeze(['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety']);
+/** A count in words, as the Chronicle reads one (9.2: "after thirty-one minutes") - 0 to 99; past it, its digits. */
+export function countWords(n) {
+  if (!Number.isSafeInteger(n) || n < 0) return String(n);
+  if (n < 20) return ONES[n];
+  if (n < 100) return TENS[Math.floor(n / 10)] + (n % 10 ? `-${ONES[n % 10]}` : '');
+  return n.toLocaleString('en-US');
+}
+/** A siege's length, whole minutes (at least one), from its start to the end its receipt was signed at - or null. */
+export const siegeMinutes = (startS, endS) => (Number.isFinite(startS) && Number.isFinite(endS) && endS >= startS ? Math.max(1, Math.round((endS - startS) / 60)) : null);
+
 // ─── SEASON1 part three (2026-10-01, Mac: "Finish the seats"; "Continue"; "Hurry up"): THE HALL OF RECORDS (9.2) ───
 /** The weeks of a Season in words, as the Hall of Records reads them - "the third week". */
 const WEEK_ORDINALS = Object.freeze(['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth']);
@@ -1017,9 +1035,9 @@ export const SIEGE_STANDING = Object.freeze({ held: 15, forfeit: 10 });
 export const SIEGE_DEFENCE_BONUS = 1.2;
 /** HONOURS (6.8): Marks and Renown XP on the winning side and the losing, and one roll on the Spoils of War. */
 export const SIEGE_HONOURS = Object.freeze({ win: Object.freeze({ marks: 50, xp: 2000 }), lose: Object.freeze({ marks: 25, xp: 1000 }) });
-/** THE SPOILS OF WAR (PROF0 4.7; professionLaw.js): the registered goods only war yields - DECIDED (part three): the
- *  Siege-cracked Gem waits for its template, so a roll is between the ingot and the silk. */
-export const SIEGE_SPOILS = Object.freeze(['ingot:warforged', 'cloth:standard']);
+/** THE SPOILS OF WAR (PROF0 4.7; professionLaw.js): the registered goods only war yields - the Warforged Steel Ingot,
+ *  Standard-bearer's Silk and (AUDIT-SEATS, its template 678) the Siege-cracked Gem, a roll a third each. */
+export const SIEGE_SPOILS = Object.freeze(['ingot:warforged', 'cloth:standard', 'gem:siege']);
 /** A fighter's roll on the Spoils - its own, the same however often it is asked (FNV-1a over the battle and the account). */
 export function spoilsOf(week, key, account) {
   let h = 0x811c9dc5;
@@ -1240,11 +1258,12 @@ export const FEALTY_WHY = Object.freeze({
 export const POLITICS_ACTS = Object.freeze({
   'fealty-accept': 'Accept', 'fealty-withdraw': 'Withdraw', 'fealty-break': 'Break fealty',
   'pact-accept': 'Sign', 'pact-withdraw': 'Withdraw', 'pact-break': 'Break the Pact',
+  'fealty-decline': 'Decline', 'pact-decline': 'Decline',   // AUDIT-SEATS: an offer made to the guild, turned down
 });
 /**
  * A GUILD'S CROWN POLITICS AS THE SEAT TAB SAYS THEM (7.8) - the service's `politics` (seatPolitics.js politicsOf): one
  * row a fealty or Pact, `{ text, act, tag }` - `act` the lever an Officer may pull on it (POLITICS_ACTS) and `tag` the
- * other guild's, or `act` null. A fealty breaking ends at the Turning; a Pact signed runs to its week.
+ * other guild's, or `act` null; an offer made to the guild has a second lever, `alt` (its Decline). A fealty breaking ends at the Turning; a Pact signed runs to its week.
  */
 export function politicsRows(p) {
   const rows = [];
@@ -1257,13 +1276,13 @@ export function politicsRows(p) {
     } else if (f.mine) {
       rows.push({ text: f.asVassal ? `Your guild offers to swear fealty to ${guildWords(f.liege)}.` : `Your guild offers to take ${guildWords(f.vassal)} as its vassal.`, act: 'fealty-withdraw', tag: other.tag });
     } else {
-      rows.push({ text: f.asVassal ? `${GuildWords(f.liege)} offers to take your guild as its vassal.` : `${GuildWords(f.vassal)} offers to swear fealty to your guild.`, act: 'fealty-accept', tag: other.tag });
+      rows.push({ text: f.asVassal ? `${GuildWords(f.liege)} offers to take your guild as its vassal.` : `${GuildWords(f.vassal)} offers to swear fealty to your guild.`, act: 'fealty-accept', alt: 'fealty-decline', tag: other.tag });
     }
   }
   for (const c of p?.pacts ?? []) {
     if (c.state === 'signed') rows.push({ text: `A Pact of non-aggression with ${guildWords(c.with)}, until week ${c.until}. Breaking it early is announced to everyone.`, act: 'pact-break', tag: c.with.tag });
     else if (c.mine) rows.push({ text: `Your guild offers ${guildWords(c.with)} a Pact of non-aggression.`, act: 'pact-withdraw', tag: c.with.tag });
-    else rows.push({ text: `${GuildWords(c.with)} offers your guild a Pact of non-aggression, until week ${c.until}.`, act: 'pact-accept', tag: c.with.tag });
+    else rows.push({ text: `${GuildWords(c.with)} offers your guild a Pact of non-aggression, until week ${c.until}.`, act: 'pact-accept', alt: 'pact-decline', tag: c.with.tag });
   }
   return rows;
 }

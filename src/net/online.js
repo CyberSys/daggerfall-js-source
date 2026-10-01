@@ -2102,16 +2102,18 @@ export class OnlineSession {
       // heard - and one that takes my guild off tells the host, which looks again: my other rooms still wear the tag.
       if (typeof m.id !== 'string') return;
       const gt = readGuildTag(m);
+      // AUDIT-SEATS: a Season's banner ribbon is its guild's - a tag that moves takes it off (the relay's row too)
       if (m.id === this.id) {
         const was = this.gt ?? null;
         this.gt = gt;
+        if (was !== gt) this.rb = null;
         if (was && !gt) this._deliver('guild', () => this.onGuildGone?.());
         return;
       }
       const p = this.peers.get(m.id);
-      if (p) p.gt = gt;
+      if (p) { if ((p.gt ?? null) !== gt) p.rb = null; p.gt = gt; }
       const k = this._known.get(m.id);
-      if (k) k.gt = gt;
+      if (k) { if ((k.gt ?? null) !== gt) k.rb = null; k.gt = gt; }
     } else if (m.t === 'pose') {
       // WORLD6b-iii(e): a stranger's pose - a member beyond the welcome's roster, asked for.
       // SLAM6: AND STOOD WHERE IT SAYS IT IS, THIS FRAME. The pose used to be dropped until the `who` answered, and

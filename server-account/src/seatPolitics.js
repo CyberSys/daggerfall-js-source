@@ -111,7 +111,8 @@ export async function acceptFealty({ db, nowS }, player, env, { character, tag }
 /**
  * BREAK FEALTY (7.8: "Either side may break fealty at a Turning") - this guild's sworn fealty, as liege of the guild
  * tagged `tag` or vassal of whoever: marked breaking now, ended at the next Turning, the breaker's Standing -10 there.
- * Withdraws an offer of this guild's too.
+ * Withdraws an offer of this guild's too - and (AUDIT-SEATS, the Seat tab's Decline) declines the offer the guild tagged
+ * `tag` made to this one, at no cost.
  * @param {{db: any, nowS: number}} ctx
  */
 export async function breakFealty({ db, nowS }, player, env, { character, tag = null } = {}) {
@@ -122,6 +123,11 @@ export async function breakFealty({ db, nowS }, player, env, { character, tag = 
   const withdrawn = await db.prepare("DELETE FROM guild_fealty WHERE state = 'offered' AND offered_by = ?1 AND (vassal = ?1 OR liege = ?1) AND (?2 IS NULL OR vassal = ?2 OR liege = ?2)")
     .bind(a.gid, other?.id ?? null).run();
   if (withdrawn?.meta?.changes) return { ok: true, withdrawn: true };
+  if (other) {
+    const declined = await db.prepare(`DELETE FROM guild_fealty WHERE state = 'offered' AND offered_by = ?2
+      AND ((vassal = ?1 AND liege = ?2) OR (vassal = ?2 AND liege = ?1))`).bind(a.gid, other.id).run();
+    if (declined?.meta?.changes) return { ok: true, declined: true };
+  }
   const r = await db.prepare(`UPDATE guild_fealty SET state = 'breaking', broken_by = ?1, at = ?3 WHERE state = 'sworn'
     AND (vassal = ?1 OR (liege = ?1 AND vassal = ?2))`).bind(a.gid, other?.id ?? '', nowS).run();
   return r?.meta?.changes ? { ok: true, breaking: true } : { error: 'fealty-none' };

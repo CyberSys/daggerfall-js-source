@@ -35,6 +35,7 @@ import { titleBadge, glyphBadges, cssRgba, GLYPH_STROKE, GLYPH_EDGE_W } from './
 import { PIXEL_STACK } from './pixelifyFive.js';   // AUDIT NAMES N1-4: the in-play name face
 import { renownText } from '../net/renown.js';
 import { guildTagText } from '../net/guildLaw.js';
+import { ribbonColours } from '../net/heraldryLaw.js';   // AUDIT-SEATS: a Season's banner ribbon, under the name here too
 import { TV_FILTER_GROUPS, TV_FILTER_TEXT, travelViewFilters, toggleTravelViewFilter, onTravelViewFilters, markShown, countGroups } from '../systems/travelViewFilters.js';   // OW-FILTER
 import { travelPathMode, setTravelPathMode, onTravelPathMode, TRAVEL_PATH_MODES, TRAVEL_PATH_TEXT } from '../systems/travelPathMode.js';   // OW-PATH: the Roads / Free switch
 
@@ -637,10 +638,12 @@ export const TRAVEL_VIEW_NAME_COLORS = Object.freeze({
 });
 /** The badge's own words and marks, off a mark's `badge` (the peer's, as the relay stamped them). */
 function badgeParts(b) {
-  return { lv: renownText(b?.lv), gt: guildTagText(b?.gt), title: titleBadge(b), glyphs: glyphBadges(b) };
+  return { lv: renownText(b?.lv), gt: guildTagText(b?.gt), title: titleBadge(b), glyphs: glyphBadges(b), rb: ribbonColours(b?.rb) };
 }
 /** Its key in the sprite cache and the frame's picture. */
-const badgeKey = (b) => (b ? `${b.title ?? ''}|${(b.glyphs ?? []).join(',')}|${b.lv ?? ''}|${b.gt ?? ''}` : '');
+const badgeKey = (b) => (b ? `${b.title ?? ''}|${(b.glyphs ?? []).join(',')}|${b.lv ?? ''}|${b.gt ?? ''}|${(Array.isArray(b.rb) ? b.rb : []).join('/')}` : '');
+/** AUDIT-SEATS: a Season's banner ribbon under the row - its field's band and its border's edge, px. */
+export const TRAVEL_VIEW_RIBBON = Object.freeze({ band: 2, edge: 1, gap: 1 });
 /**
  * OVERWORLD NAMES (2026-09-28, Mac: "Full, like in play"): A PLAYER'S NAME AS IT READS OVER THEIR HEAD IN PLAY - the
  * title its own line above, in its own colour (a gradient title across its letters); under it one row centred as the
@@ -670,7 +673,8 @@ function badgeSprite(doc, m, size, party, dpr, bk = badgeKey(m.badge)) {
   const glyphW = P.glyphs.length ? P.glyphs.length * gs + (P.glyphs.length - 1) * 2 : 0;
   const rowW = lvW + (lvW ? gap : 0) + nameW + arrowW + (gtW ? gap + gtW : 0) + (glyphW ? gap + glyphW : 0);
   const titleH = P.title ? small + 3 : 0, rowH = size + 6;
-  const w = Math.ceil(Math.max(rowW, titleW) + 8), h = Math.ceil(titleH + rowH + 2);
+  const ribbonH = P.rb ? TRAVEL_VIEW_RIBBON.gap + TRAVEL_VIEW_RIBBON.band + TRAVEL_VIEW_RIBBON.edge : 0;   // AUDIT-SEATS
+  const w = Math.ceil(Math.max(rowW, titleW) + 8), h = Math.ceil(titleH + rowH + 2 + ribbonH);
   c.width = Math.ceil(w * dpr); c.height = Math.ceil(h * dpr);
   x.scale(dpr, dpr);
   x.textBaseline = 'top';
@@ -698,6 +702,13 @@ function badgeSprite(doc, m, size, party, dpr, bk = badgeKey(m.badge)) {
   }
   let cx = (w - rowW) / 2;
   const ry = titleH + 3;
+  if (P.rb) {   // AUDIT-SEATS: a Season's banner ribbon under the row, the row's width - its field, edged in its border
+    const R = TRAVEL_VIEW_RIBBON, by = ry + size + 3 + R.gap;
+    x.shadowBlur = 0; x.shadowOffsetY = 0;
+    x.fillStyle = P.rb.field; x.fillRect(cx, by, rowW, R.band);
+    x.fillStyle = P.rb.border; x.fillRect(cx, by + R.band, rowW, R.edge);
+    x.shadowBlur = 3; x.shadowOffsetY = 1;
+  }
   if (P.lv) {   // the Renown, boxed, left of the name
     x.shadowBlur = 0; x.shadowOffsetY = 0;
     x.fillStyle = N.renownBack; x.fillRect(cx, ry - 1, lvW, size + 2);

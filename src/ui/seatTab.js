@@ -14,6 +14,7 @@
 // A seat is run from its town's board, in person - that is the point of a physical board: the war has a place.
 //
 // Every act goes through the window's one-at-a-time door (`ui.run`), and the standings are read again after each.
+import { HALL_OF_RECORDS_SHUT } from '../systems/onlineHomes.js';   // AUDIT-SEATS: the Hall of Records' words where it cannot be read
 import { accountRefusalText } from '../net/accountClient.js';
 import {
   seatInfoLine, seatWeekLine, seatStandingLine, seatNoStandingsLine, seatMineLines, seatTributeLine, seatMay,
@@ -56,7 +57,8 @@ const SHUT = new Set(['seats-closed', 'no-session', 'auth', 'seat-unconfirmed'])
  * @param {{ seat: { key: number, name: string, region: number, tier: string },
  *   book: ReturnType<typeof import('../net/townSeatBook.js').createTownSeatBook>,
  *   nameOf?: (key: number) => (string|null), banner?: (heraldry: any, width: number) => (Node|null),
- *   enterBattle?: (seat: any, fight: any) => boolean, enterRoyal?: (seat: any, royal: any, watch: boolean) => boolean }} host   SEAT2a part four: the world's door into the battle   CROWN1 part two: and into a Royal Tourney
+ *   enterBattle?: (seat: any, fight: any) => boolean, enterRoyal?: (seat: any, royal: any, watch: boolean) => boolean,
+ *   readRecords?: (seat: any) => Promise<boolean> }} host   AUDIT-SEATS: the Hall of Records, opened from the board   SEAT2a part four: the world's door into the battle   CROWN1 part two: and into a Royal Tourney
  * @param {{ busy: () => boolean, run: (start: () => Promise<any>) => any, rerender: () => void, nowS: () => number,
  *   alive?: () => boolean }} ui
  */
@@ -237,11 +239,13 @@ export function createSeatTab(host, ui) {
     const acts = {
       'fealty-accept': (t) => book.acceptFealty(t), 'fealty-withdraw': (t) => book.breakFealty(t), 'fealty-break': (t) => book.breakFealty(t),
       'pact-accept': (t) => book.offerPact(t), 'pact-withdraw': (t) => book.breakPact(t), 'pact-break': (t) => book.breakPact(t),
+      'fealty-decline': (t) => book.declineFealty(t), 'pact-decline': (t) => book.declinePact(t),   // AUDIT-SEATS: an offer turned down
     };
     for (const r of rows) {
       const line = el('p', 'notice-seat-mine', r.text);
-      if (lever && r.act) {
-        const b = button(`notice-seat-${r.act}`, POLITICS_ACTS[r.act], () => act(() => acts[r.act](r.tag)));
+      for (const k of lever ? [r.act, r.alt] : []) {
+        if (!k) continue;
+        const b = button(`notice-seat-${k}`, POLITICS_ACTS[k], () => act(() => acts[k](r.tag)));
         b.disabled = busy;
         line.append(b);
       }
@@ -391,6 +395,13 @@ export function createSeatTab(host, ui) {
         const ol = el('ol', 'notice-chronicle');
         for (const l of lines) ol.append(el('li', null, l));
         body.append(ol);
+      }
+      // AUDIT-SEATS (9.2: "the board's Chronicle pinboard ... read it as prose"): the whole Chronicle, the Hall of Records
+      // book, from the board - every seat's, a crown's and a palace with no shelf to hold it included
+      if (host.readRecords) {
+        const b = button('notice-seat-records', 'Read the Hall of Records', () => ui.run(async () => ((await host.readRecords(seat)) ? { ok: true, text: '' } : { ok: false, text: HALL_OF_RECORDS_SHUT })));
+        b.disabled = ui.busy();
+        body.append(b);
       }
       return body;
     },

@@ -3548,6 +3548,19 @@ export function createWorldModes(host) {
       else say(HALL_OF_RECORDS_SHUT);
     }).catch(() => say(HALL_OF_RECORDS_SHUT));
   }
+  /** AUDIT-SEATS: whether this dungeon is a crown's castle while the seats are open - the dungeon under the crown city's own
+   *  map id (DFU's PlayerGPS.CurrentLocation is the city's), its castle blocks' shelves the Hall of Records. */
+  const castleRecordsHere = () => mode === 'dungeon' && !!dungeonLoc && !!host.hallOfRecords?.here?.((dungeonLoc.mapTableData?.mapId ?? 0) >>> 0);
+  /** AUDIT-SEATS: A CROWN'S HALL OF RECORDS, in its castle - the book in the dungeon's own window slot; said where it
+   *  cannot be read; not shown where the player has left the dungeon before it arrives. */
+  function openCastleRecords() {
+    const at = dungeonLoc;
+    Promise.resolve(host.hallOfRecords.read((at?.mapTableData?.mapId ?? 0) >>> 0)).then((w) => {
+      if (mode !== 'dungeon' || dungeonLoc !== at) return;
+      if (w) mountServiceWindow(w);
+      else say(HALL_OF_RECORDS_SHUT);
+    }).catch(() => say(HALL_OF_RECORDS_SHUT));
+  }
   /** GUILD1e: THE HALL'S BOARD PRESSED - the guild's own notes for a member (the Notice Board's window, its Guilds tab
    *  alone); to anyone else it says whose it is. */
   function openHallBoard() {
@@ -7451,6 +7464,10 @@ export function createWorldModes(host) {
       // same shape (one factory builds both lists), and PlayerActivate
       // has no scene gate on the quest-resource arm at all (:326-339).
       ctx.addActivationTargets(() => questFlatTargets(dungeonQuestFlats));
+      // AUDIT-SEATS (Seats-Arc 9.2: "A Hall of Records book in every seat's palace and the three castles"): a crown's
+      // castle shelves, while the seats are open - geometry in DFU's castle, as a palace's are
+      ctx.addActivationTargets(() => (castleRecordsHere() ? ctx.castleShelves.map((s, i) => ({ key: `records:${i}`, aabb: s.aabb, distance: RAY_DISTANCE, reach: DEFAULT_ACTIVATION_DISTANCE })) : NO_TARGETS));
+      ctx.addActivationNamer((key) => (typeof key === 'string' && key.startsWith('records:') ? { title: HALL_OF_RECORDS_TEXT } : null));
       // AUDIT 64 F13: THE DUNGEON'S STATIC NPCs. RDBLayout.AddFlat gives
       // an NPC-archive flat (334/346/357/175-184) a StaticNPC
       // (RDBLayout.cs:1226-1231) and DaggerfallBillboard.cs:318-319/:343-349
@@ -7731,6 +7748,7 @@ export function createWorldModes(host) {
     // WB9f: A PIECE OF HIS SPOILS, pressed - into the pack, said as a walk-over says it (the court's own rung: the court
     // alone stands these keys)
     if (key.startsWith('spoil')) { quickLootSpend(); host.takeSpoil?.(key); return true; }   // AUDIT WB9 (spoils F2): a P or J that armed this press is spent on it
+    if (key.startsWith('records:')) { openCastleRecords(); return true; }   // AUDIT-SEATS: a crown's Hall of Records, in its castle
     // U26: droppedLoot: is the player's own pile - the same three-way
     // arm the standalone dungeon scene carries, kept in step here.
     if (key.startsWith('loot:') || key.startsWith('corpse:') || key.startsWith('droppedLoot:') || key.startsWith('droppedTorch:') || key.startsWith('camp:') || key.startsWith('hearth:')) {   // AUDIT-WH2 L2-F1: hearth: - HEARTH1's fourth host, stood and named down here since it shipped and never answered

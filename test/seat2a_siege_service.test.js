@@ -136,6 +136,8 @@ test('SEAT2a part three THE RESULT, A SEAT TAKEN: the first receipt writes it - 
   assert.deepEqual(s.holdOf(), { guild_id: eo.gid, standing: STANDING_START, since_week: W + 1, truce_week: W + 1 }, 'the Charter the attacker\'s, in truce at the next Turning');
   assert.equal(s.raw.prepare('SELECT COUNT(*) AS n FROM town_seat_legacy WHERE key = ? AND guild_id = ?').get(ANTICLERE.key, sh.gid).n, 0, 'the old holder\'s Legacy cleared');
   assert.ok(s.raw.prepare("SELECT 1 FROM town_seat_history WHERE key = ? AND kind = 'siege-taken'").get(ANTICLERE.key));
+  // AUDIT-SEATS: the row keeps the siege's length - the start to the end the receipt was signed at (25 minutes here)
+  assert.equal(JSON.parse(s.raw.prepare("SELECT data FROM town_seat_history WHERE key = ? AND kind = 'siege-taken'").get(ANTICLERE.key).data).minutes, 25);
   assert.equal(s.battle().state, 'fought');
   assert.equal(s.marks(sword), 300, 'the Sellsword paid its fee');
   assert.equal(s.purse(eo.gid), 1000 - 300, 'the unsigned contract\'s escrow home');

@@ -18304,8 +18304,16 @@ export async function bootWorld(canvas, renderer, params, status) {
       town: { name: town.name, mapId: town.mapId }, rumour: rumour ?? [], bountyLine: !!town.bountyLine,
       gate: () => noticeGateCard(), answer: (note) => answerNote(note), work, market,
       guilds: true,   // GUILD1e: the Guilds tab - the town's recruitment posters, and the reader's own guild's board
-      seatBattle: (st, f) => siegeEnter(st, f), seatRoyal: (st, r, w) => royalEnter(st, r, w), seat: seatAt ? { seat: seatAt, book: seatBook, nameOf: (k) => seatAtMapId(townSeats, k)?.name ?? null } : null,   // SEAT1b: a seat town's standings   // SEAT2a part four: the battle's door
+      seatBattle: (st, f) => siegeEnter(st, f), seatRoyal: (st, r, w) => royalEnter(st, r, w), seatRecords: (st) => openRecordsFromBoard(st), seat: seatAt ? { seat: seatAt, book: seatBook, nameOf: (k) => seatAtMapId(townSeats, k)?.name ?? null } : null,   // SEAT1b: a seat town's standings   // SEAT2a part four: the battle's door
     });
+  };
+  /** AUDIT-SEATS (Seats-Arc 9.2): A SEAT'S HALL OF RECORDS FROM ITS BOARD - its Chronicle read as a book, in place of the
+   *  board; false where it cannot be read. */
+  const openRecordsFromBoard = async (st) => {
+    const r = st && seatBook ? await seatBook.records(st.key) : null;
+    if (!r?.data) return false;
+    townTalk.showOverlay(hallOfRecordsWindow(st, r.data.rows, r.data.zero));
+    return true;
   };
   /** THE ONE CONSTRUCTION SEAM (PROF0 17.2): every Notice Board window this host opens - a town's, and (GUILD1e) the
    *  board in a guild's hall - is built here, with the book, the character and the shared clock the service keeps. */
@@ -21722,7 +21730,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     return holder._tvAt;
   }
   /** OVERWORLD NAMES: a player's badge as their name wears it in play - the relay's stamps, never a frame's own words. */
-  const tvBadgeOf = (p) => ({ title: p.title ?? null, glyphs: Array.isArray(p.glyphs) ? p.glyphs : [], lv: p.lv ?? null, gt: p.gt ?? null });
+  const tvBadgeOf = (p) => ({ title: p.title ?? null, glyphs: Array.isArray(p.glyphs) ? p.glyphs : [], lv: p.lv ?? null, gt: p.gt ?? null, rb: p.rb ?? null });   // AUDIT-SEATS: and a Season's banner ribbon
   const TV_PEER_HEAD_M = 1.8;   // m: a peer's head when no body layer knows their height
   /** The readout's marks: the plates (the journey's own end hides its plate), and the end. World points - the view
    *  projects them through the frame's matrices. */

@@ -36,7 +36,7 @@ import {
   PROFESSIONS, SPECIALISATIONS, SPEC_RANKS, RESPEC, xpForRank, rankName, PROF_RANK_MAX, TIER_RANKS, CRAFTS_ABOVE_JOURNEYMAN,
   JOURNEYMAN_RANK, MATERIAL_FAMILIES, HARVESTS_PER_DAY, HIDES_PER_DAY, HIGH_HIDES_PER_DAY, HAULS_PER_DAY, WITHDRAW_MAX, professionName, SMELT_RECIPES, SMELT_MAX, FORGE_FEE,
   withdrawable, stockOf, STOCK_MAX, BURN_RECIPES, SAW_RECIPES, WORKBENCH_FEE, WOODS, workPer, workSpecRank, CURE_RECIPES,
-  WEAVE_RECIPES, LOOM_FEE, CLOTHS, WEAVERS_STOCK,
+  WEAVE_RECIPES, LOOM_FEE, CLOTHS, WEAVERS_STOCK, STANDARD_SILK,
 } from '../net/professionLaw.js';
 import {
   RECIPES, recipeOpen, qualityOdds, QUALITY_NAMES, HEAT_ACT, takesQuality, recipeInputs, takesHeartwood, PLANE_ACT, STITCH_ACT,
@@ -48,7 +48,6 @@ import { isTextEntryTarget, isDomControlTarget } from './input.js';   // AUDIT 3
 import { createHeatAct } from '../systems/heatAct.js';
 import { createPlaneAct } from '../systems/planeAct.js';
 import { material } from '../net/nodeLaw.js';
-import { UNYIELDED } from '../net/marketLaw.js';   // AUDIT 32 P8: a cloth nothing yields yet
 import { marksText } from '../net/marksLaw.js';   // AUDIT 32 R13: "1 Drake", as the Market tab says it
 import { accountRefusalText } from '../net/accountClient.js';
 import { getPref, setPref } from '../systems/uiPrefs.js';
@@ -1091,9 +1090,9 @@ function drawLoom(detail, rerender, { el, divider }) {
     detail.append(row);
   }
   const list = loomRecipes(_loom.family, _loom.cloth, clothing);
-  // AUDIT 32 P8: a cloth nothing yields yet says so - Standard-bearer's Silk is a siege's Spoils (PROF0 4.7); its 76
-  // garments stood wanting their inputs for ever
-  if (_loom.family === 'clothing' && UNYIELDED.includes(_loom.cloth)) detail.append(el('p', 'px-note', `${p.name(_loom.cloth)} comes with the sieges - a Siege Honour's Spoils. Nothing yields it yet.`));
+  // AUDIT 32 P8: Standard-bearer's Silk says where it comes from - a siege's Spoils (PROF0 4.7), the one door to its 76
+  // garments; AUDIT-SEATS: the sieges yield it now (townSeatLaw.js SIEGE_SPOILS), so no longer "nothing yields it yet"
+  if (_loom.family === 'clothing' && _loom.cloth === STANDARD_SILK.key) detail.append(el('p', 'px-note', `${p.name(_loom.cloth)} comes with the sieges - a Siege Honour's Spoils.`));
   for (const r of list) {
     const open = recipeOpen(r, rank);
     const can = open && craftable(r, held);

@@ -72,9 +72,9 @@ test('PROF7 law: the leathers (665 Cured tier 2, 666 Hardened tier 5) and the cl
     assert.ok(MINED_KEYS.includes(m.key), m.key);
   }
   assert.equal(professionOfFamily('hides'), null, 'no Court writ asks a hide - bounded, not witnessed (PROF0 11)');
-  assert.deepEqual([...UNYIELDED], ['ingot:daedric', 'ingot:warforged', 'cloth:standard']);
+  assert.deepEqual([...UNYIELDED], ['ingot:daedric']);   // PIN MOVED (AUDIT-SEATS): the sieges' Spoils yield the silk
   const cat = new Set(marketCatalogue().map((c) => c.key));
-  assert.deepEqual([cat.has('hide:bear'), cat.has('leather:hardened'), cat.has('part:dragonscale'), cat.has('food:meat'), cat.has('cloth:standard')], [true, true, true, true, false]);
+  assert.deepEqual([cat.has('hide:bear'), cat.has('leather:hardened'), cat.has('part:dragonscale'), cat.has('food:meat'), cat.has('cloth:standard')], [true, true, true, true, true]);
   assert.deepEqual(FOOD_KEYS.slice(-2), ['food:meat', 'food:fish']);
   assert.deepEqual(materialOf('food:meat', herbTier), { key: 'food:meat', family: 'food', tier: 1, value: 1 });
 });

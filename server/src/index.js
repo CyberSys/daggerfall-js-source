@@ -828,8 +828,10 @@ export class Room {
     const one = gm === undefined ? undefined : this._guildOuts.get(`${gi}:${gm}`);
     return (all !== undefined && all > i) || (one !== undefined && one > i);
   }
-  /** GUILD1c: an attachment with its guild taken off (its id, tag and member row). */
-  _unguild(a) { const b = { ...a }; delete b.gi; delete b.gt; delete b.gm; return b; }
+  /** GUILD1c: an attachment with its guild taken off (its id, tag and member row) - AUDIT-SEATS: and its Season's banner
+   *  ribbon, which is a guild's (a member who leaves, or changes guild, wears it no more; a token minted since says the
+   *  same). */
+  _unguild(a) { const b = { ...a }; delete b.gi; delete b.gt; delete b.gm; delete b.rb; return b; }
   /** GUILD1c: a player's guild tag as a frame - `gt` absent for none. */
   _guildFrame(id, gt) { return JSON.stringify(gt ? { t: 'guild', id, gt } : { t: 'guild', id }); }
   /** CHAT-CHAN + DICE1: A LINE OUT, on the channel it was said on - the chat's and the roll's one fan. `frame` is the

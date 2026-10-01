@@ -31,7 +31,7 @@ import { verifySiegeReceipt } from '../../src/net/siegeReceipt.js';
 import { RENOWN_XP_MAX, RENOWN_TRACKS_MAX } from '../../src/net/renown.js';
 import {
   seatWeekOf, seatKeyOk, settleField, passWindowEnds, passOpens, siegeWinner, siegeAftermath, spoilsOf, SIEGE_HONOURS,
-  CLAIM_FEE, STANDING_START, STANDING_MAX, seasonFloor, seasonZeroOf,
+  CLAIM_FEE, STANDING_START, STANDING_MAX, seasonFloor, seasonZeroOf, siegeMinutes,
 } from '../../src/net/townSeatLaw.js';
 
 const weekAt = (nowS) => seatWeekOf(nowS * 1000);
@@ -169,7 +169,8 @@ async function applyResult(db, b, c, nowS, zero) {
           truce_week = excluded.truce_week, tithe = 0, tithe_week = NULL, owed = 0, at = excluded.at`)
         .bind(K, b.attacker, Number(seat?.region ?? 0), b.tier, W, STANDING_START, W, nowS),
       db.prepare('DELETE FROM town_seat_legacy WHERE key = ? AND guild_id = ? AND week >= ?').bind(K, b.defender, W),
-      history('siege-taken', { guild: nameOf(b.attacker), from: nameOf(b.defender) }),
+      // AUDIT-SEATS: its length, the battle's start to the end every receipt was signed at (the relay's _siegeEnd)
+      history('siege-taken', { guild: nameOf(b.attacker), from: nameOf(b.defender), minutes: siegeMinutes(Number(b.starts_at), Number(c.i)) }),
     );
   } else {
     if (after.standing) stmts.push(db.prepare('UPDATE town_seat_holds SET standing = MIN(?, standing + ?) WHERE key = ? AND guild_id = ?').bind(STANDING_MAX, after.standing, K, b.defender));

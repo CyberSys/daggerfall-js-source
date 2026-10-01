@@ -175,6 +175,10 @@ export async function settleWeek(db, week, nowS, zero = null) {
   const names = await namesOf(db, [...purseIds, ...fealties.flatMap((f) => [f.vassal, f.liege])]);   // CROWN2: a lapsed liege may hold nothing now
   const history = (key, kind, data) => db.prepare('INSERT INTO town_seat_history (key, week, kind, data, at) VALUES (?, ?, ?, ?, ?)')
     .bind(key, week, kind, JSON.stringify(data), nowS);
+  /** AUDIT-SEATS: a Chronicle row naming what a payment PAID - the amount of ledger row `rid`, which this batch wrote just
+   *  before it (what the treasury held, up to the due) - and none where an empty treasury paid nothing. */
+  const paidHistory = (key, kind, data, rid) => db.prepare(`INSERT INTO town_seat_history (key, week, kind, data, at)
+    SELECT ?1, ?2, ?3, json_set(?4, '$.marks', amount), ?5 FROM marks_ledger WHERE actor = 'seats' AND rid = ?6`).bind(key, week, kind, JSON.stringify(data), nowS, rid);   // the (actor, rid) index
   const stmts = [db.prepare('INSERT INTO town_seat_weeks (week, settled_at) VALUES (?, ?)').bind(week, nowS)];
   for (const c of plan.claims) {
     // the fee burnt from the treasury - only where it holds it and the seat is still unheld, or the whole settle rolls back
@@ -269,8 +273,9 @@ export async function settleWeek(db, week, nowS, zero = null) {
       SELECT 'guild', ?1, CASE WHEN ${to} THEN 'guild' ELSE 'burn' END, CASE WHEN ${to} THEN ?2 END, 'conscription', MIN(?3, balance), ?4, ?5, 'seats', 'The Turning', ?6
       FROM guild_marks WHERE guild_id = ?1 AND balance > 0`)
       .bind(c.guild, c.crown, c.amount, utcDay(nowS), nowS, `conscription-${week}-${c.crownKey}-${c.guild}`));
-    stmts.push(history(c.crownKey, 'conscription', { guild: names.get(c.crown), from: names.get(c.guild), marks: c.amount }));
-    for (const k of c.keys) stmts.push(history(k, 'conscripted', { guild: names.get(c.guild), crown: names.get(c.crown), marks: c.amount }));
+    const rid = `conscription-${week}-${c.crownKey}-${c.guild}`;   // AUDIT-SEATS: the Chronicle names what was paid, not the due
+    stmts.push(paidHistory(c.crownKey, 'conscription', { guild: names.get(c.crown), from: names.get(c.guild) }, rid));
+    for (const k of c.keys) stmts.push(paidHistory(k, 'conscripted', { guild: names.get(c.guild), crown: names.get(c.crown) }, rid));
   }
   // CROWN2 (7.8): THE FEALTIES - each vassal's tribute (5% of its week's Tithe, a fealty that stood the week through,
   // broken at this Turning or not), after its upkeep and Edicts and Conscription, from what is left of its treasury; then
@@ -285,7 +290,7 @@ export async function settleWeek(db, week, nowS, zero = null) {
         SELECT 'guild', ?1, CASE WHEN ${to} THEN 'guild' ELSE 'burn' END, CASE WHEN ${to} THEN ?2 END, 'fealty-tribute', MIN(?3, balance), ?4, ?5, 'seats', 'The Turning', ?6
         FROM guild_marks WHERE guild_id = ?1 AND balance > 0`).bind(f.vassal, f.liege, owed, utcDay(nowS), nowS, `fealty-${week}-${f.vassal}`));
       const k = crownKeyOf(f.liege);
-      if (k != null) stmts.push(history(k, 'fealty-tribute', { vassal: names.get(f.vassal), liege: names.get(f.liege), marks: owed }));
+      if (k != null) stmts.push(paidHistory(k, 'fealty-tribute', { vassal: names.get(f.vassal), liege: names.get(f.liege) }, `fealty-${week}-${f.vassal}`));   // AUDIT-SEATS: what was paid
     }
     if (f.broken || !f.fits) {
       stmts.push(db.prepare('DELETE FROM guild_fealty WHERE vassal = ? AND liege = ?').bind(f.vassal, f.liege));

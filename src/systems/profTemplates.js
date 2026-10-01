@@ -35,7 +35,7 @@
 // ═══════════════════════════════════════════════════════════════════
 import { registerCustomTemplates, registerKitDye, registerCustomItemsForGroup } from './itemTemplates.js';
 import { DYE_COLORS } from '../characters/dyes.js';
-import { ORES, INGOTS, STONES, TIER_VALUES, WOOD_TEMPLATES, HIDE_TEMPLATES, SKINNING_KNIFE } from '../net/professionLaw.js';
+import { ORES, INGOTS, STONES, TIER_VALUES, WOOD_TEMPLATES, HIDE_TEMPLATES, SKINNING_KNIFE, SIEGE_GEM } from '../net/professionLaw.js';
 import { REPAIR_KIT_TEMPLATE } from '../net/recipeLaw.js';
 import { isOnlinePage } from './onlineLane.js';
 
@@ -123,6 +123,17 @@ export const HIDE_TEMPLATE_ROWS = Object.freeze(HIDE_TEMPLATES.map((m) => Object
   playerTextureArchive: 0, playerTextureRecord: 0, stackable: true, ...(m.dye ? { iconDye: DYE_COLORS[m.dye] } : {}),
 })));
 registerCustomTemplates(HIDE_TEMPLATE_ROWS);
+
+// ─── AUDIT-SEATS: THE SIEGE-CRACKED GEM (PROF0 4.7, 4.8: 678) ─────────
+/** A siege's Spoils' gem: DFU's Diamond's weight and picture (itemTemplates.json Gems 3: 0.25 kg, TEXTURE.254 record 3),
+ *  half its price (a cracked stone), stacking, never shelved - the Stores its one door, as every row here. */
+export const SIEGE_GEM_ROW = Object.freeze({
+  index: SIEGE_GEM.templateIndex, name: SIEGE_GEM.name, baseWeight: 0.25, hitPoints: 50, capacityOrTarget: 0, basePrice: 250,
+  enchantmentPoints: 0, rarity: 10, variants: 0, drawOrderOrEffect: 0, isBluntWeapon: false, isLiquid: false,
+  isOneHanded: false, isIngredient: false, worldTextureArchive: SIEGE_GEM.icon[0], worldTextureRecord: SIEGE_GEM.icon[1],
+  playerTextureArchive: 0, playerTextureRecord: 0, stackable: true,
+});
+registerCustomTemplates([SIEGE_GEM_ROW]);
 
 // ─── PROF7: THE SKINNING KNIFE (PROF0 4.8: 603; FORAGE0 14.2) ─────────
 /** The knife's row: 0.5 kg, 50 uses, 100 gold, rarity 10, DFU's Dagger's picture; one to a slot, as a tool is. */
