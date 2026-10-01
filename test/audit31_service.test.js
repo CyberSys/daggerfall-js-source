@@ -374,7 +374,7 @@ test('AUDIT 31 L1: a crafter\'s twenty count the commissions that stand - twenty
   assert.deepEqual(states, { open: 1, expired: COMMISSIONS_FOR_MAX }, 'the crafter\'s read closes what ran out');
 });
 
-test('AUDIT 31 L2: a piece of a material nothing yields yet (Daedric, Warforged) is never commissioned', async () => {
+test('AUDIT 31 L2: a piece of a material nothing yields yet (Daedric) is never commissioned; a Warforged one is, the sieges yield it now', async () => {
   clock(T0);
   const s = await stand();
   await s.registered('Silverthorn');
@@ -382,7 +382,7 @@ test('AUDIT 31 L2: a piece of a material nothing yields yet (Daedric, Warforged)
   s.seedMarks(pia, 10_000);
   const r = await s.commission(pia, 'Silverthorn', { recipe: 'longsword:daedric' });
   assert.deepEqual([r.status, r.body.error], [409, 'commission-unyielded']);
-  assert.equal((await s.commission(pia, 'Silverthorn', { recipe: 'cuirass:warforged' })).body.error, 'commission-unyielded');
+  assert.notEqual((await s.commission(pia, 'Silverthorn', { recipe: 'cuirass:warforged' })).body.error, 'commission-unyielded');   // PIN MOVED (AUDIT-SEATS): a siege's Spoils yield the ingot
 });
 
 test('AUDIT 31 S5: a commission\'s fill says why the piece is held - on its way to the crafter still, listed, or standing in a home', async () => {

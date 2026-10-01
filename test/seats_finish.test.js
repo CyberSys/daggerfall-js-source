@@ -15,6 +15,12 @@ import { TRAVEL_VIEW_RIBBON } from '../src/ui/travelViewHud.js';
 import { byClass } from './chargenDom.mjs';
 import { mountNoticeBoard } from '../src/ui/noticeWindow.js';
 import { HALL_OF_RECORDS_SHUT } from '../src/systems/onlineHomes.js';
+import { templateByIndex } from '../src/systems/itemTemplates.js';
+import '../src/systems/profTemplates.js';
+import { SIEGE_GEM, GEMS } from '../src/net/professionLaw.js';
+import { material } from '../src/net/nodeLaw.js';
+import { mintMaterialItem, materialLabel, materialCountLabel } from '../src/systems/profItems.js';
+import { SIEGE_SPOILS } from '../src/net/townSeatLaw.js';
 
 const WAYREST = { key: 5023, name: 'Wayrest', region: 23, tier: 'crown', pixel: [590, 166] };
 const ALCAIRE = { key: 3034, name: 'Alcaire Keep', region: 34, tier: 'palace', pixel: [520, 130] };
@@ -123,6 +129,8 @@ test('AUDIT-SEATS THE RIBBON ON THE TRAVEL VIEW: a traveller frame keeps the rib
   assert.equal(validTravellerFrame({ t: 'trav', id: 'peer-0002', name: 'Bran', p: null, rb: [2, 2] }).rb, null);
   assert.deepEqual({ ...TRAVEL_VIEW_RIBBON }, { band: 2, edge: 1, gap: 1 });
   const hud = readFileSync(new URL('../src/ui/travelViewHud.js', import.meta.url), 'utf8');
+  assert.match(hud, /const ribbonH = P\.rb \? TRAVEL_VIEW_RIBBON\.gap \+ TRAVEL_VIEW_RIBBON\.band \+ TRAVEL_VIEW_RIBBON\.edge : 0;/, 'the sprite grown to hold it');
+  assert.match(hud, /h = Math\.ceil\(titleH \+ rowH \+ 2 \+ ribbonH\)/);
   assert.match(hud, /glyphs: glyphBadges\(b\), rb: ribbonColours\(b\?\.rb\) \};/);
   assert.match(hud, /\$\{b\.gt \?\? ''\}\|\$\{\(Array\.isArray\(b\.rb\) \? b\.rb : \[\]\)\.join\('\/'\)\}/, 'the sprite keyed by it');
   assert.match(hud, /x\.fillStyle = P\.rb\.field; x\.fillRect\(cx, by, rowW, R\.band\);\n\s+x\.fillStyle = P\.rb\.border; x\.fillRect\(cx, by \+ R\.band, rowW, R\.edge\);/);
@@ -184,4 +192,15 @@ test('AUDIT-SEATS THE CHRONICLE NAMES WHAT WAS PAID: a vassal\'s tribute and a C
   ins.run(5023, 9, 'fealty-tribute', JSON.stringify({}), 1, 'fealty-9-none');
   const rows = raw.prepare("SELECT data FROM town_seat_history WHERE kind = 'fealty-tribute'").all().map((r) => JSON.parse(r.data));
   assert.deepEqual(rows, [{ vassal: { name: 'V', tag: 'V' }, liege: { name: 'L', tag: 'L' }, marks: 30 }]);
+});
+
+test('AUDIT-SEATS THE SIEGE-CRACKED GEM: template 678 registered on the Diamond\'s picture, a Stores material of the gems at the Diamond\'s tier that withdraws as an item and is named as one; never a vein\'s strike (mutants: the template; the registry)', () => {
+  const t = templateByIndex(678);
+  assert.deepEqual([t?.name, t?.worldTextureArchive, t?.worldTextureRecord, t?.stackable, t?.rarity], ['Siege-cracked Gem', 254, 3, true, 10]);
+  assert.deepEqual({ ...SIEGE_GEM, icon: [...SIEGE_GEM.icon] }, { key: 'gem:siege', family: 'gems', tier: 6, templateIndex: 678, name: 'Siege-cracked Gem', icon: [254, 3], dye: null });
+  assert.deepEqual(material('gem:siege'), { key: 'gem:siege', family: 'gems', tier: 6, value: material('gem:diamond').value, templateIndex: 678 });
+  assert.equal(mintMaterialItem('gem:siege', false)?.templateIndex, 678);
+  assert.deepEqual([materialLabel('gem:siege', false), materialCountLabel('gem:siege', 2, false)], ['Siege-cracked Gem', 'Siege-cracked Gems']);
+  assert.equal(GEMS.some((g) => g.key === 'gem:siege'), false, 'the glint\'s table holds no war\'s gem');
+  assert.ok(SIEGE_SPOILS.includes('gem:siege'));
 });

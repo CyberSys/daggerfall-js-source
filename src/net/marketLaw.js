@@ -102,7 +102,11 @@ export const saleTax = (total) => Math.floor((total * MARKET_TAX_PCT) / 100);
  *  the tax it would have paid bought whole, and splitting a sale saves nothing. */
 export const saleTaxOn = (before, total) => saleTax(before + total) - saleTax(before);
 /** The Tithe on a sale at `pct` hundredths, rounded down (nought until SEAT1). */
-export const saleTithe = (total, pct = MARKET_TITHE_PCT) => Math.floor((total * pct) / 100);
+export const saleTithe = (total, pct = MARKET_TITHE_PCT) => Math.floor((Math.max(0, total) * Math.max(0, pct)) / 100);   // AUDIT-SEATS L10: townSeatLaw.js titheOf's rule, a negative none
+/** AUDIT-SEATS L4: the Tithe on a sale of `total` out of a listing that has already sold `before` - as saleTaxOn: the
+ *  rate's share of the running total, less what the earlier sales paid at it, so a listing bought a unit at a time pays
+ *  the holder what it would have bought whole (ten 9-Drake units at 10% paid 0 apiece, 9 whole). */
+export const saleTitheOn = (before, total, pct = MARKET_TITHE_PCT) => saleTithe(before + total, pct) - saleTithe(before, pct);
 /** What the seller receives of a sale: the price less the tax and the Tithe (10.4). */
 export const sellerGets = (total, tithePct = MARKET_TITHE_PCT) => total - saleTax(total) - saleTithe(total, tithePct);
 
@@ -129,7 +133,7 @@ export const MARKET_GOLD_HELD_MAX = 10 * MARKS_MAX;
  *  gold listing pays its fee out of each sale, 1% of it rounded up, where a Drakes listing pays it at listing (a gold
  *  seller holds no gold on the service to pay it from); `gets`, what is held for the seller. */
 export function goldSaleOf(before, total) {
-  const tax = saleTaxOn(before, total), fee = listingFee(total), tithe = saleTithe(total);
+  const tax = saleTaxOn(before, total), fee = listingFee(total), tithe = saleTitheOn(before, total);
   return { tax, fee, tithe, gets: Math.max(0, total - tax - fee - tithe) };
 }
 /** An amount of gold in words, as the game's own windows say it. */

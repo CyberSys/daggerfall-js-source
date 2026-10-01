@@ -150,7 +150,7 @@ test('CROWN1 THE CHAMPION: at the Turning that ends its week the ladder\'s first
   assert.deepEqual([minted.title, minted.ts], ['champion', [WAYREST.key, 0]]);
   const v = await verifyToken(minted.token, s.svc.identityPublic, { subtle, nowS: s.getNow() });
   assert.deepEqual([v.claims.t, v.claims.ts], ['champion', [WAYREST.key, 0]]);
-  assert.equal(seatTitleText('champion', minted.ts, (k) => (k === WAYREST.key ? WAYREST : null)), 'Champion of Wayrest, Season 0');
+  assert.equal(seatTitleText('champion', minted.ts, (k) => (k === WAYREST.key ? WAYREST : null)), 'Champion of Wayrest');   // PIN MOVED (AUDIT-SEATS L7): with no Season counted, none named
   // a week with no bout won: the prize home
   assert.deepEqual((await s.call('/v1/seats/edict', { character: s.gm.character, key: WAYREST.key, edict: 'royal-tourney' }, s.gm)).body, { ok: true, next: 'royal-tourney' }, 'proclaimed again for week W + 3');
   s.watch(W + 2);

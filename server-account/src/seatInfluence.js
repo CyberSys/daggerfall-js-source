@@ -465,7 +465,11 @@ export async function readStandings({ db, nowS }, player, env, { key, character 
   return {
     seat, week, phase: seatPhaseOf(nowS * 1000), season,   // SEASON1: the Season this week falls in, or null
     // SEASON1 part two (9.3): this week's Tide in the seat's land and the coming week's, while a Season is counted
-    tides: season ? { now: tideAt(week, seat.region, true), next: tideAt(week + 1, seat.region, !!seasonOf(week + 1, seasonZeroOf(env?.SEASON_ZERO_WEEK))) } : null,
+    // AUDIT-SEATS L6: and the week before the first counted one - the Turning prices next week's Edict at next week's Tide
+    tides: (() => {
+      const nextCounted = !!seasonOf(week + 1, seasonZeroOf(env?.SEASON_ZERO_WEEK));
+      return season || nextCounted ? { now: tideAt(week, seat.region, !!season), next: tideAt(week + 1, seat.region, nextCounted) } : null;
+    })(),
     reckoningAt: Math.floor((start + SEAT_WEEK_MS - SEAT_RECKONING_MS) / 1000), turningAt: Math.floor((start + SEAT_WEEK_MS) / 1000),
     standings: list.map((s) => {
       const g = byId.get(s.guild);
@@ -494,14 +498,17 @@ export async function holdsOf(db) {
     guild: guildView(h.guild_id, h.name, h.tag, h.heraldry), since: Number(h.since_week), standing: Number(h.standing), tithe: Number(h.tithe ?? 0),
   }]));
 }
-/** THE WEEK'S BATTLES the last Turning named, by key: `{ kind, guild, against }` - a Right of Siege's challenger and
- *  holder, or a Contested seat's two contenders. */
+/** THE WEEK'S BATTLES the last Turning named, by key: `{ kind, guild, against, startsAt, endsAt }` - a Right of Siege's
+ *  challenger and holder, or a Contested seat's two contenders; AUDIT-SEATS G2: and when the schedule placed it (ms, or
+ *  null for a battle no hour could hold), so the arrival line can call the siege (3.3). */
 export async function battlesOf(db, week) {
   const { results = [] } = await db.prepare(`SELECT r.key, r.kind, r.guild_id, r.against, a.name AS an, a.tag AS at, a.heraldry AS ah,
-      b.name AS bn, b.tag AS bt, b.heraldry AS bh FROM town_seat_rights r JOIN guilds a ON a.id = r.guild_id LEFT JOIN guilds b ON b.id = r.against
+      b.name AS bn, b.tag AS bt, b.heraldry AS bh, x.starts_at, x.ends_at FROM town_seat_rights r JOIN guilds a ON a.id = r.guild_id
+      LEFT JOIN guilds b ON b.id = r.against LEFT JOIN town_seat_battles x ON x.week = r.week AND x.key = r.key
     WHERE r.week = ?`).bind(week).all();
   return new Map(results.map((r) => [Number(r.key), {
     kind: r.kind, guild: guildView(r.guild_id, r.an, r.at, r.ah), against: r.against ? guildView(r.against, r.bn, r.bt, r.bh) : null,
+    startsAt: r.starts_at == null ? null : Number(r.starts_at) * 1000, endsAt: r.ends_at == null ? null : Number(r.ends_at) * 1000,
   }]));
 }
 /** A seat's Chronicle, newest first - `{ kind, week, data }`, at most `max` (SEAT_CHRONICLE_SHOWN, the Seat tab's). */

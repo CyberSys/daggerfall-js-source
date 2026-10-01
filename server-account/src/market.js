@@ -68,7 +68,7 @@ import { recipeById } from '../../src/net/recipeLaw.js';
 import {
   MARKET_LISTING_S, MARKET_ORDER_S, MARKET_LISTINGS_MAX, MARKET_ORDERS_MAX, MARKET_POSTS_MAX, MARKET_OPS_MAX, MARKET_WINDOW_S,
   MARKET_SHOWN, MARKET_HISTORY_SHOWN, MARKET_TRADES_SHOWN, MARKET_MEDIAN_DAYS, MARKET_KEEP_DAYS, MARKET_RID_RE, MARKET_ID_RE,
-  MARKET_VIEWS, CRAFTED_FAMILIES, unitsOk, priceOk, wearOk, provenanceOk, listingFee, saleTaxOn, saleTithe, hubReport, hubPixelOk,
+  MARKET_VIEWS, CRAFTED_FAMILIES, unitsOk, priceOk, wearOk, provenanceOk, listingFee, saleTaxOn, saleTithe, saleTitheOn, hubReport, hubPixelOk,
   MARKET_WORTH_MAX, UNYIELDED, pieceListable, MARKET_TAX_PCT, MARKET_TITHE_PCT,
   hubPixel, roadPixels, courierFee, courierSeconds, medianOf, medianLine, marketCatalogue,
   AUCTION_S, AUCTION_LATE_S, AUCTION_ADD_S, AUCTION_GRACE_S, bidOk, auctionNext, auctionable,
@@ -927,7 +927,8 @@ export async function marketBuy(ctx, player, env, { character, region, listing: 
   // SEAT1d (SEAT0 7.2): the Tithe of the seat the listing's board belongs to, from the seller's proceeds; the share of
   // the courier the buyer's board's seat takes, out of what is burnt
   const tt = await titheAt(db, nowS, from, rowBoard(l));
-  const tax = saleTaxOn((Number(l.units) - left) * Number(l.price), total), tithe = tt ? saleTithe(total, tt.pct) : 0;
+  const before = (Number(l.units) - left) * Number(l.price);   // AUDIT-SEATS L4: the Tithe of the running total too, as the tax
+  const tax = saleTaxOn(before, total), tithe = tt ? saleTitheOn(before, total, tt.pct) : 0;
   const gets = total - tax - tithe;
   const ct = road.courier > 0 ? await titheAt(db, nowS, region, boardOf(board)) : null;
   const courierTithe = ct ? titheOf(road.courier, ct.pct) : 0;

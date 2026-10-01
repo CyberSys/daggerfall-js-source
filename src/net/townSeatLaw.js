@@ -20,9 +20,12 @@ import { ONLINE_EPOCH_MS } from './wire.js';
 import { KINGDOMS, MARCHES, kingdomOf, isMarch, isFreeLand } from './kingdomLaw.js';
 import { TIDE_EFFECTS } from './tideLaw.js';   // SEASON1 part two: the Tides' numbers (9.3)
 import { HERALDRY_COLOURS } from './heraldryLaw.js';
+import { marksText } from './marksLaw.js';   // AUDIT-SEATS L7: "1,200 Drakes"
 
 /** A heraldry colour key's hex (heraldryLaw.js's palette), or null. */
 const heraldryHex = (key) => HERALDRY_COLOURS.find((c) => c.key === key)?.hex ?? null;
+/** AUDIT-SEATS L10: a count the law sums - a finite number at least nought, else nought (Math.max lets a NaN through). */
+const amountOf = (x) => { const n = Number(x); return Number.isFinite(n) && n > 0 ? n : 0; };
 
 /** A seat's tier: a crown (the three capitals) or a palace (every other location with a Palace) - SEAT0 3.1. */
 export const SEAT_TIERS = Object.freeze(['palace', 'crown']);
@@ -87,8 +90,9 @@ export function parseSeatReport(text) {
 /**
  * THE ACCOUNTS WHOSE SEAT REPORTS ARE IGNORED (SEAT0 3.2: "An account whose disagreements match nobody else's three times
  * has its reports ignored for a week"): over every seat's reports (`[{ key, account, report, at }]`) and each seat's
- * confirmed answer (`confirmed`: key -> text), an account that, in the last SEAT_WITNESS_IGNORED_S before `nowS`, gave
- * SEAT_WITNESS_UNMATCHED_MAX answers that differ from the confirmed one and that no other account gave. Pure.
+ * confirmed answer (`confirmed`: key -> text), an account that gave SEAT_WITNESS_UNMATCHED_MAX answers inside
+ * SEAT_WITNESS_IGNORED_S that differ from the confirmed one and that no other account gave - ignored for
+ * SEAT_WITNESS_IGNORED_S from the last of them (AUDIT-SEATS L8). Pure.
  * @param {{ key: string, account: string, report: string, at: number }[]} rows
  * @param {Map<string, string>} confirmed
  * @param {number} nowS
@@ -101,18 +105,28 @@ export function seatIgnoredAccounts(rows, confirmed, nowS) {
     set.add(r.account);
     givers.set(k, set);
   }
-  const unmatched = new Map();
+  const unmatched = new Map();   // account -> the times of its unmatched answers
   for (const r of rows ?? []) {
     const c = confirmed.get(r.key);
-    if (c == null || r.report === c || r.at < nowS - SEAT_WITNESS_IGNORED_S) continue;
+    if (c == null || r.report === c || r.at > nowS) continue;
     if ((givers.get(`${r.key}\n${r.report}`)?.size ?? 0) > 1) continue;
-    unmatched.set(r.account, (unmatched.get(r.account) ?? 0) + 1);
+    const ts = unmatched.get(r.account) ?? [];
+    ts.push(r.at);
+    unmatched.set(r.account, ts);
   }
-  return new Set([...unmatched].filter(([, n]) => n >= SEAT_WITNESS_UNMATCHED_MAX).map(([a]) => a));
+  // AUDIT-SEATS L8: "ignored for a week" FROM the third - each third unmatched answer inside a week ignores the account
+  // until a week after it (a sliding count let the first answer age out a day later and lifted it)
+  const n = SEAT_WITNESS_UNMATCHED_MAX;
+  const out = new Set();
+  for (const [a, ts] of unmatched) {
+    ts.sort((x, y) => x - y);
+    for (let i = n - 1; i < ts.length; i++) {
+      if (ts[i] - ts[i - n + 1] <= SEAT_WITNESS_IGNORED_S && nowS < ts[i] + SEAT_WITNESS_IGNORED_S) { out.add(a); break; }
+    }
+  }
+  return out;
 }
 
-/** The kingdom a seat is under (kingdomLaw.js) - its id, or null for a March or a Free Land. */
-export const seatKingdomOf = (seat) => kingdomOf(seat?.region);
 /** A kingdom's name. */
 export const kingdomName = (id) => KINGDOMS[id]?.name ?? null;
 
@@ -132,12 +146,21 @@ const GuildWords = (g) => { const w = guildWords(g); return `${w[0].toUpperCase(
  * @param {{ name: string, tier: string, region: number, holder?: any }} seat
  * @param {{ name: string, tag: string }|null} [holder]
  */
-export function seatArrivalLine(seat, holder = seat?.holder?.guild ?? null) {   // SEAT1c: a dressed seat names its own holder
+export function seatArrivalLine(seat, holder = seat?.holder?.guild ?? null, nowMs = Date.now()) {   // SEAT1c: a dressed seat names its own holder
+  const siege = siegeCalledClause(seat?.battle, nowMs);
   if (seat.tier === 'crown') {
     const k = kingdomName(CROWN_SEAT_REGIONS[seat.region]) ?? seat.name;
-    return holder ? `${seat.name}, capital of the Kingdom of ${k}, held by ${guildWords(holder)}.` : `${seat.name}, capital of the Kingdom of ${k}. Its Crown Charter is unheld.`;
+    return (holder ? `${seat.name}, capital of the Kingdom of ${k}, held by ${guildWords(holder)}.` : `${seat.name}, capital of the Kingdom of ${k}. Its Crown Charter is unheld.`) + siege;
   }
-  return holder ? `${seat.name}, held by ${guildWords(holder)}.` : `${seat.name}. Its Charter is unheld.`;
+  return (holder ? `${seat.name}, held by ${guildWords(holder)}.` : `${seat.name}. Its Charter is unheld.`) + siege;
+}
+/** AUDIT-SEATS G2 (3.3: "under siege this week: the line gains ' A siege is called for Wednesday at 20:00.' in the
+ *  siege's own words"): the clause for a dressed seat's battle (`{ kind, startsAt, endsAt }`, ms) - a siege placed and not
+ *  yet over - or nothing. */
+export function siegeCalledClause(battle, nowMs) {
+  if (battle?.kind !== 'siege' || !Number.isFinite(battle.startsAt)) return '';
+  if (Number.isFinite(battle.endsAt) && nowMs >= battle.endsAt) return '';
+  return ` A siege is called for ${battleWhenText(battle.startsAt)}.`;
 }
 
 /** The map's line for a seat, in its box: "The Charter of Anticlere: unheld" (SEAT1c: "held by the Silver Hand <SH>"). */
@@ -147,9 +170,10 @@ export function seatInfoLine(seat, holder = null) {
 }
 
 /** THE MAP'S MARKS (SEAT0 3.3): the unheld ring's stone grey; each crown's metal; a free land's green. */
-export const SEAT_RING_UNHELD = '#8a8a8a';
-export const KINGDOM_METALS = Object.freeze({ daggerfall: '#3b6fd8', wayrest: '#b3262e', sentinel: '#d4a017' });
-export const FREE_LAND_RING = '#2f8f4e';
+// AUDIT-SEATS L10: the heraldry's own colours by name (Ash, Azure, Crimson, Gold, Vert), not their hex written twice
+export const SEAT_RING_UNHELD = heraldryHex('ash');
+export const KINGDOM_METALS = Object.freeze({ daggerfall: heraldryHex('azure'), wayrest: heraldryHex('crimson'), sentinel: heraldryHex('gold') });
+export const FREE_LAND_RING = heraldryHex('vert');
 /** The same metals as heraldry colours (net/heraldryLaw.js keys) - the kingdom's plain banner at an unheld seat. */
 export const KINGDOM_BANNER_COLOURS = Object.freeze({ daggerfall: 'azure', wayrest: 'crimson', sentinel: 'gold' });
 /**
@@ -262,8 +286,8 @@ export const SEAT_LEGACY_SHARE = 0.1;
  * @param {number} tributeSoFar its Tribute there this week, influence
  */
 export function tributeRoom(others, tributeSoFar = 0) {
-  const cap = Math.floor((Math.max(0, others) * TRIBUTE_SHARE_MAX) / (1 - TRIBUTE_SHARE_MAX) + 1e-9);
-  return Math.max(0, cap - Math.max(0, tributeSoFar));
+  const cap = Math.floor((amountOf(others) * TRIBUTE_SHARE_MAX) / (1 - TRIBUTE_SHARE_MAX) + 1e-9);
+  return Math.max(0, cap - amountOf(tributeSoFar));
 }
 
 /**
@@ -278,12 +302,13 @@ export function tributeRoom(others, tributeSoFar = 0) {
  */
 export function accountSeatInfluence({ watch = 0, gates = 0, renownXp = 0, writ = 0, homeDays = 0, raid = 0 } = {}, watchBonus = 0, tide = 'calm') {
   // CROWN1: a Free Land's tenth more; SEASON1 part two (9.3): a Plague's half
-  const w = Math.floor(Math.max(0, watch) * WATCH_INFLUENCE * (1 + Math.max(0, watchBonus)) * (tide === 'plague' ? TIDE_EFFECTS.plagueWatch : 1) + 1e-9);
-  const g = Math.min(GATE_WEEK_CAP, Math.max(0, gates) * GATE_INFLUENCE) * (tide === 'daedra' ? TIDE_EFFECTS.daedraGates : 1);   // SEASON1 part two: a Daedric Incursion's double, past the cap
-  const r = Math.min(RENOWN_WEEK_CAP, Math.floor(Math.max(0, renownXp) / RENOWN_XP_PER_INFLUENCE));
-  const h = Math.max(0, homeDays) * HOME_INFLUENCE_DAY;
-  const m = Math.max(0, writ) * WRIT_INFLUENCE_PER_MARK;
-  const o = Math.min(TIDE_EFFECTS.orcsInfluenceWeek, Math.max(0, raid));   // SEASON1 part two (9.3): an Orc Raid's camps, a week's 250
+  // AUDIT-SEATS L10: every count through amountOf - a NaN is none, not a NaN total
+  const w = Math.floor(amountOf(watch) * WATCH_INFLUENCE * (1 + amountOf(watchBonus)) * (tide === 'plague' ? TIDE_EFFECTS.plagueWatch : 1) + 1e-9);
+  const g = Math.min(GATE_WEEK_CAP, amountOf(gates) * GATE_INFLUENCE) * (tide === 'daedra' ? TIDE_EFFECTS.daedraGates : 1);   // SEASON1 part two: a Daedric Incursion's double, past the cap
+  const r = Math.min(RENOWN_WEEK_CAP, Math.floor(amountOf(renownXp) / RENOWN_XP_PER_INFLUENCE));
+  const h = amountOf(homeDays) * HOME_INFLUENCE_DAY;
+  const m = amountOf(writ) * WRIT_INFLUENCE_PER_MARK;
+  const o = Math.min(TIDE_EFFECTS.orcsInfluenceWeek, amountOf(raid));   // SEASON1 part two (9.3): an Orc Raid's camps, a week's 250
   return Math.min(ACCOUNT_SEAT_WEEK_CAP, w + g + r + h + m + o);
 }
 
@@ -380,7 +405,7 @@ export const STANDING_UNCHALLENGED = 5;
 /** What Standing does to the defence (SEAT0 7.3): +0.5% a point above 50, -1% a point below (100: +25%, 0: -50%). */
 export const standingModifier = (s) => (s >= STANDING_START ? (s - STANDING_START) * 0.005 : (s - STANDING_START) * 0.01);
 /** A guild's whole claim at a seat: this week's influence and the Legacy it carried in. */
-export const claimTotal = (g) => Math.max(0, g.influence) + Math.max(0, g.legacy ?? 0);
+export const claimTotal = (g) => amountOf(g.influence) + amountOf(g.legacy);
 /** THE TIE ORDER (SEAT0 5.2 step 1): the greater total, then the higher Legacy, then the earlier pledge, then the lower
  *  guild id. */
 export const bySeatStanding = (a, b) => claimTotal(b) - claimTotal(a) || (b.legacy ?? 0) - (a.legacy ?? 0)
@@ -460,8 +485,9 @@ export function turningPlan({ week, seats, treasuries, active = CROWN_SCALE.per 
     const defence = seatDefence(s.guilds.find((g) => g.guild === s.holder.guild), s.holder.standing, extraOf(s.holder.guild), !!s.holder.bonus, s.holder.liegeReach ?? 0);
     for (const g of s.guilds) {
       if (g.guild === s.holder.guild || (s.barred ?? []).includes(g.guild)) continue;   // SEAT2a: a challenger that lost or forfeited its siege here
-      const total = claimTotal({ ...g, influence: unrestInfluence(g.influence, s.holder.standing) });
-      if (total >= CLAIM_THRESHOLD[s.tier] && total > defence) candidates.push({ ...g, key: s.key, total, defence });
+      const risen = { ...g, influence: unrestInfluence(g.influence, s.holder.standing) }, total = claimTotal(risen);
+      // AUDIT-SEATS L2: ranked as risen (5.2 step 4, "highest first ... at its strongest seat") - not by the raw influence
+      if (total >= CLAIM_THRESHOLD[s.tier] && total > defence) candidates.push({ ...risen, key: s.key, total, defence });
     }
   }
   candidates.sort((a, b) => bySeatStanding(a, b) || a.key - b.key);
@@ -521,7 +547,7 @@ export function chronicleLine(row, seat, zero = null) {
     case 'neglect': return `${when}, ${guildWords(d.guild)} could not pay the upkeep of ${c}. ${seat.name} is in Neglect.`;
     case 'late': return `${when}, ${guildWords(d.guild)} paid the upkeep it owed for ${c}.`;
     case 'lapse': return `${when}, ${c} lapsed - ${guildWords(d.guild)} could not pay its upkeep two weeks running.`;
-    case 'edict': return `${when}, ${guildWords(d.guild)} proclaimed ${EDICTS[d.edict]?.name ?? 'an Edict'} at ${seat.name}.`;
+    case 'edict': return `${when}, ${guildWords(d.guild)} proclaimed ${edictWords(d.edict) ?? 'an Edict'} at ${seat.name}.`;   // AUDIT-SEATS L7: its article
     case 'edict-unpaid': return `${when}, ${guildWords(d.guild)} could not pay for the ${EDICTS[d.edict]?.name ?? 'Edict'} it proclaimed at ${seat.name}.`;
     // SEAT2a: the schedule's two rows
     case 'battle-moved': return `${when}, the battle for ${seat.name} was moved to ${battleWhenText(Number(d.at ?? 0) * 1000)}, so that no guild fights twice at once.`;
@@ -538,15 +564,16 @@ export function chronicleLine(row, seat, zero = null) {
     case 'tourney-won': return `${when}, ${guildWords(d.guild)} won the Tourney for ${c}.`;
     case 'tourney-unheld': return `${when}, the Tourney for ${seat.name} was fought, but neither guild could pay for ${c}.`;
     // CROWN1: Conscription paid (7.6) - at the crown, and at each seat that paid it
-    case 'conscription': return `${when}, the crown's Conscription brought ${guildWords(d.guild)} ${Number(d.marks ?? 0).toLocaleString('en-US')} Marks of its kingdom's Tithe.`;
-    case 'conscripted': return `${when}, ${guildWords(d.guild)} paid ${Number(d.marks ?? 0).toLocaleString('en-US')} Marks of its Tithe to ${guildWords(d.crown)}'s Conscription.`;
+    // AUDIT-SEATS L7: in Drakes, the word every player-read sum says (DRAKES; marksLaw.js marksText)
+    case 'conscription': return `${when}, the crown's Conscription brought ${guildWords(d.guild)} ${marksText(Number(d.marks ?? 0))} of its kingdom's Tithe.`;
+    case 'conscripted': return `${when}, ${guildWords(d.guild)} paid ${marksText(Number(d.marks ?? 0))} of its Tithe to ${guildWords(d.crown)}'s Conscription.`;
     // CROWN1 part two: the Royal Tourney's end
-    case 'royal-champion': return `${when}, ${d.name || 'a contender'} won the Royal Tourney at ${seat.name} with ${Number(d.wins ?? 0)} bouts - Champion of ${kingdomName(d.kingdom) ?? seat.name}.`;
+    case 'royal-champion': return `${when}, ${d.name || 'a contender'} won the Royal Tourney at ${seat.name} with ${plural(Number(d.wins ?? 0), 'bout')} - Champion of ${kingdomName(d.kingdom) ?? seat.name}.`;   // AUDIT-SEATS L7: "1 bout"
     case 'royal-none': return `${when}, no bout of the Royal Tourney at ${seat.name} was won; its prize went home.`;
     // CROWN2: fealty (7.8)
     case 'fealty-sworn': return `${when}, ${guildWords(d.vassal)} swore fealty to ${guildWords(d.liege)}.`;
     case 'fealty-broken': return `${when}, ${guildWords(d.breaker)} broke the fealty between ${guildWords(d.vassal)} and ${guildWords(d.liege)}.`;
-    case 'fealty-tribute': return `${when}, ${guildWords(d.vassal)} paid ${Number(d.marks ?? 0).toLocaleString('en-US')} Marks of tribute to ${guildWords(d.liege)}.`;
+    case 'fealty-tribute': return `${when}, ${guildWords(d.vassal)} paid ${marksText(Number(d.marks ?? 0))} of tribute to ${guildWords(d.liege)}.`;
     case 'fealty-lapsed': return `${when}, the fealty between ${guildWords(d.vassal)} and ${guildWords(d.liege)} lapsed.`;
     default: return null;
   }
@@ -642,6 +669,9 @@ export function seatTitleOf(holds, season = 0) {
 }
 /** A seat title in words, off its claim - `place(key)` the client's own seat by key (its name and region), or null:
  *  "Warden of Anticlere", "Protector of Wayrest"; null where the place is not this client's to name. */
+/** AUDIT-SEATS L7: a title's Season as it reads - ", Season 3" - and nothing for a title won with none counted (a
+ *  champion's before SEASON_ZERO_WEEK is set: seatRoyal.js keptTitleOf passes 0, and "Season 0" is the beta's name). */
+const seasonTail = (n) => (Number.isSafeInteger(n) && n >= 1 ? `, Season ${n}` : '');
 export function seatTitleText(title, ts, place) {
   if (!Array.isArray(ts)) return null;
   const seat = place?.(ts[0]) ?? null;
@@ -650,8 +680,8 @@ export function seatTitleText(title, ts, place) {
     case 'warden': return seat ? `Warden of ${seat.name}` : null;
     case 'protector': return kingdom ? `Protector of ${kingdom}` : null;
     case 'crowned': return `Crowned in Season ${ts[1]}`;
-    case 'keeper': return seat ? `Keeper of ${seat.name}, Season ${ts[1]}` : null;
-    case 'champion': return kingdom ? `Champion of ${kingdom}, Season ${ts[1]}` : null;   // CROWN1 part two: 7.6's words
+    case 'keeper': return seat ? `Keeper of ${seat.name}${seasonTail(ts[1])}` : null;
+    case 'champion': return kingdom ? `Champion of ${kingdom}${seasonTail(ts[1])}` : null;   // CROWN1 part two: 7.6's words
     default: return null;
   }
 }
@@ -766,6 +796,11 @@ export const EDICTS = Object.freeze({
   'royal-tourney': Object.freeze({ name: 'Royal Tourney', standing: 0, cost: Object.freeze({ crown: 5000 }), repeat: false, crown: true }),
 });
 export const edictOk = (e) => typeof e === 'string' && Object.hasOwn(EDICTS, e);
+/** AUDIT-SEATS L7: an Edict as a sentence names it (9.2: "proclaimed a Festival") - a Curfew, a Festival, a Levy, a
+ *  Bounty, a Conscription, a Royal Tourney; Market Day and Open Gates bare - or null for none. */
+export const edictWords = (e) => (edictOk(e) ? (e === 'market-day' || e === 'open-gates' ? EDICTS[e].name : `a ${EDICTS[e].name}`) : null);
+/** The same at a sentence's start: "A Festival", "Market Day". */
+const edictWordsCap = (e) => { const w = edictWords(e); return w && w[0].toUpperCase() + w.slice(1); };
 /** CROWN1: whether `edict` may be proclaimed at a seat of `tier` - a crown's Edicts at a crown seat alone. */
 export const edictForTier = (edict, tier) => edictOk(edict) && (!EDICTS[edict].crown || tier === 'crown');
 /** Whether `edict` may be proclaimed for the week after one whose Edict was `last`. */
@@ -853,7 +888,7 @@ export function seatHoldingLines(seat, h) {
  *  Edict"): "Tithe 6%. Market Day is proclaimed." - with Unrest where it is; null for an unheld seat. */
 export function seatRuleLine(seat, holder) {
   if (!holder) return null;
-  const e = holder.edict && EDICTS[holder.edict] ? `${EDICTS[holder.edict].name} is proclaimed.` : 'No Edict rules this week.';
+  const e = holder.edict && EDICTS[holder.edict] ? `${edictWordsCap(holder.edict)} is proclaimed.` : 'No Edict rules this week.';
   return `Tithe ${holder.tithe ?? 0}%. ${e}${seatInUnrest(holder.standing) ? ` ${seat.name} is in Unrest.` : ''}`;
 }
 /** THE ARRIVAL'S NEWS after its line (SEAT0 7.3: "the arrival line says so"): a seat in Unrest, the Edict that rules -
@@ -863,7 +898,7 @@ export function seatArrivalNews(seat) {
   if (!h) return null;
   const parts = [];
   if (seatInUnrest(h.standing)) parts.push('The town is in Unrest.');
-  if (h.edict && EDICTS[h.edict]) parts.push(`${EDICTS[h.edict].name} is proclaimed.`);
+  if (h.edict && EDICTS[h.edict]) parts.push(`${edictWordsCap(h.edict)} is proclaimed.`);
   return parts.length ? parts.join(' ') : null;
 }
 
@@ -927,9 +962,9 @@ export function battleStarts(week) {
   return out.sort((a, b) => a - b);
 }
 /**
- * THE SCHEDULE (5.2 step 8, 6.3): the week's battles placed in KEY ORDER - each at its preferred start, or, where that
- * would overlap another battle of either of its guilds, at the next two-hour start in the Wednesday-Saturday range that
- * clashes with nothing (`moved` says so). `battles` `{ key, kind: 'siege'|'tourney', tier, kingdom, attacker, defender,
+ * THE SCHEDULE (5.2 step 8, 6.3): the week's battles placed in KEY ORDER, the crown sieges first (AUDIT-SEATS L5) -
+ * each at its preferred start, or, where that would overlap another battle of either of its guilds, at the next two-hour
+ * start in the Wednesday-Saturday range that clashes with nothing (`moved` says so). `battles` `{ key, kind: 'siege'|'tourney', tier, kingdom, attacker, defender,
  * window? }`. Answers `{ placed: [{ ...b, startsAt, endsAt, moved }], unplaced: [b] }` (ms) - a battle no start of the
  * week can hold is unplaced (DECIDED: void - the Chronicle says so; a guild would need some forty battles in one week).
  */
@@ -940,7 +975,10 @@ export function placeBattles(week, battles) {
   const guildsOf = (b) => [b.attacker, b.defender].filter(Boolean);
   const clashes = (b, at) => placed.some((p) => guildsOf(p).some((g) => guildsOf(b).includes(g))
     && at < p.startsAt + battleSpanMs(p) && p.startsAt < at + battleSpanMs(b));
-  for (const b of [...battles].sort((x, y) => x.key - y.key)) {
+  // AUDIT-SEATS L5: the crown sieges first - their Saturday slots are fixed "whatever the holder's window" (6.3), and a
+  // crown slot is among what the others move around - then the rest in key order
+  const crownFirst = (b) => (b.kind === 'siege' && b.tier === 'crown' && CROWN_SIEGE_SLOT[b.kingdom] ? 0 : 1);
+  for (const b of [...battles].sort((x, y) => crownFirst(x) - crownFirst(y) || x.key - y.key)) {
     const want = battlePreferredMs(week, b);
     let at = null;
     for (let t = want; t <= last; t += BATTLE_BLOCK_MS) if (allowed.has(t) && !clashes(b, t)) { at = t; break; }
@@ -963,10 +1001,8 @@ export const SELLSWORD_COOL_WEEKS = 4;
  *  5,000 (a palace's upkeep twice: the fee is a contract's, not a way to move a treasury). */
 export const SELLSWORD_FEE_MAX = 5000;
 export const sellswordFeeOk = (n) => Number.isSafeInteger(n) && n >= 0 && n <= SELLSWORD_FEE_MAX;
-/** Who signs (6.4): the side's two guilds - the attacker's 'attack', the holder's 'defend'; a Tourney's two contenders
- *  'attack' (its first) and 'defend' (its second), for the board's words only. */
-export const BATTLE_SIDES = Object.freeze(['attack', 'defend']);
-/** The battle a side of `guild` fights, or null. */
+/** The battle a side of `guild` fights, or null: the attacker's 'attack', the holder's 'defend' (6.4); a Tourney's two
+ *  contenders 'attack' (its first) and 'defend' (its second), for the board's words only. */
 export const sideOf = (battle, guild) => (battle?.attacker === guild ? 'attack' : battle?.defender === guild ? 'defend' : null);
 
 // ─── what the Seat tab says of a battle ───
@@ -1031,7 +1067,7 @@ export const passOpens = (b) => b.starts_at - SIGN_CLOSES_MS / 1000;
 
 /** WHAT A SIEGE GIVES (6.8): the holder's Standing for a held siege (only where a banner was raised) and for a forfeit,
  *  a new holder's Standing, and the next Turning's defence for the holder that held or won by forfeit (x1.2). */
-export const SIEGE_STANDING = Object.freeze({ held: 15, forfeit: 10 });
+export const SIEGE_STANDING = Object.freeze({ held: STANDING_CHANGES.siegeHeld, forfeit: 10 });   // AUDIT-SEATS L10: 7.3's row, written once
 export const SIEGE_DEFENCE_BONUS = 1.2;
 /** HONOURS (6.8): Marks and Renown XP on the winning side and the losing, and one roll on the Spoils of War. */
 export const SIEGE_HONOURS = Object.freeze({ win: Object.freeze({ marks: 50, xp: 2000 }), lose: Object.freeze({ marks: 25, xp: 1000 }) });
@@ -1068,11 +1104,6 @@ export function siegeAftermath(kind, result, raised, { forfeitPaid = false } = {
   if (result === 'forfeit') return { bonus: true, barred: true, standing: forfeitPaid ? 0 : SIEGE_STANDING.forfeit, taken: false };
   return { bonus: false, barred: false, standing: 0, taken: false };
 }
-/** The Chronicle's words for a battle's end. */
-export const SIEGE_RESULT_WORDS = Object.freeze({
-  attack: 'The attackers took the seat.', defend: 'The holder held the seat.', forfeit: 'The attackers never came: a forfeit.',
-  absent: 'Neither side came; the holder keeps the seat.', tie: 'A dead heat.',
-});
 /** Why the service will not let a character into a battle, or take its Honours, in its own words (a battle that is not
  *  there is SIGN_WHY's; a receipt that is not the relay's, or another account's, the gate's words). */
 export const SIEGE_WHY = Object.freeze({
@@ -1335,10 +1366,14 @@ export function seasonTitles(season, holds) {
   const out = [];
   for (const h of [...(holds ?? [])].sort((a, b) => a.key - b.key)) {
     if (h.tier === 'crown') out.push({ guild: h.guild, title: 'crowned', key: h.key });
-    if (Number(h.since) <= season.start) out.push({ guild: h.guild, title: 'keeper', key: h.key });
+    if (keptWholeSeason(season, h.since)) out.push({ guild: h.guild, title: 'keeper', key: h.key });
   }
   return out;
 }
+/** WHETHER A CHARTER HELD `season` WHOLE (9.1's Keeper) - its `since` (the first week held) at the Season's first week.
+ *  AUDIT-SEATS L1, DECIDED: Season 1's first week is no one's - Season 0's last Turning claims nothing (18: the seats are
+ *  wiped), so its first Charters stand from the week after; a Charter from Season 1's first Turning held it whole. */
+export const keptWholeSeason = (season, since) => !!season && Number(since) <= season.start + (season.n === 1 ? 1 : 0);
 /** SEASON1 (9.1): THE BANNER RIBBON'S GUILDS at a Season's end - every guild a keeper's title names (it held a seat the
  *  whole Season), once each, in the titles' order. Its members at that Turning wear the ribbon through the next Season. */
 export const seasonRibbons = (titles) => [...new Set((titles ?? []).filter((t) => t.title === 'keeper').map((t) => t.guild))];

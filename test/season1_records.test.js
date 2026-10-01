@@ -38,7 +38,7 @@ test('SEASON1 THE HALL OF RECORDS\' LAW: a row\'s week in its Season\'s words - 
   ];
   const chapters = hallOfRecordsChapters(rows, ANTICLERE, 10);
   assert.deepEqual(chapters.map((c) => [c.heading, c.lines.length]), [[null, 1], ['Season 0', 1], ['the Season of Morning Star', 2], ['the Season of Sun\'s Dawn', 1]]);
-  assert.equal(chapters[3].lines[0], 'In the second week of the Season of Sun\'s Dawn, the Silver Hand <SH> proclaimed Festival at Anticlere.');
+  assert.equal(chapters[3].lines[0], 'In the second week of the Season of Sun\'s Dawn, the Silver Hand <SH> proclaimed a Festival at Anticlere.');   // PIN MOVED (AUDIT-SEATS L7): 9.2's article
   assert.equal(chapters[2].lines[1], 'At the end of the Season of Morning Star, the Silver Hand <SH> held Anticlere.');
   assert.deepEqual(hallOfRecordsChapters(rows, ANTICLERE, null).map((c) => [c.heading, c.lines.length]), [[null, 5]], 'none counted: one chapter, unheaded');
   assert.deepEqual([hallOfRecordsChapters([], ANTICLERE), hallOfRecordsChapters(null, ANTICLERE)], [[], []]);

@@ -45,7 +45,7 @@ import { mustChange } from './realm.js';
 import { utcDay } from '../../src/net/marksLaw.js';
 import { GUILD_RANK_MASTER } from '../../src/net/guildLaw.js';
 import { seatWeekOf, seatWeekStartMs, seatKeyOk, turningPlan, seatGlyphsOf, seatTitleOf, SEAT_WEEK_MS, STANDING_START, placeBattles, CROWN_SEAT_REGIONS, conscriptionDue,
-  fealtyReckoning, fealtyTribute, seasonEndingAt, seasonStanding, seasonTitles, seasonOf, seasonRibbons } from '../../src/net/townSeatLaw.js';
+  fealtyReckoning, fealtyTribute, seasonEndingAt, seasonStanding, seasonTitles, seasonOf, seasonRibbons, keptWholeSeason } from '../../src/net/townSeatLaw.js';
 import { tideAt } from '../../src/net/tideLaw.js';   // SEASON1 part two: the Tides
 import { MARKS_MAX } from '../../src/net/marksLaw.js';
 
@@ -323,7 +323,7 @@ export async function settleWeek(db, week, nowS, zero = null) {
     }
     // SEASON1 part two (9.1): the banner ribbon - each keeper's guild, for its members as they stand at this Turning
     for (const g of seasonRibbons(titles)) stmts.push(db.prepare('INSERT OR IGNORE INTO town_seat_ribbons (season, guild_id, at) VALUES (?, ?, ?)').bind(ending.n, g, atS));
-    for (const h of stood) stmts.push(history(h.key, 'season-end', { guild: names.get(h.guild), season: ending.n, kept: h.since <= ending.start }));
+    for (const h of stood) stmts.push(history(h.key, 'season-end', { guild: names.get(h.guild), season: ending.n, kept: keptWholeSeason(ending, h.since) }));
   }
   // SEASON1 (18): SEASON 0'S END - the Edicts proclaimed for the next week void (none was paid), then the seats wiped
   if (wipe) {

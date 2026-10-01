@@ -141,6 +141,8 @@ test('CROWN2 THE SEAT TAB\'S POLITICS: every member reads its guild\'s rows; an 
       offerFealty: async (t, as) => { acts.push(['offerFealty', t, as]); return { ok: true, text: 'ok' }; },
       offerPact: async (t) => { acts.push(['offerPact', t]); return { ok: true, text: 'ok' }; },
       breakPact: async (t) => { acts.push(['breakPact', t]); return { ok: true, text: 'ok' }; },
+      declineFealty: async (t) => { acts.push(['declineFealty', t]); return { ok: true, text: 'ok' }; },   // AUDIT-SEATS: an offer turned down
+      declinePact: async (t) => { acts.push(['declinePact', t]); return { ok: true, text: 'ok' }; },
     };
     mountNoticeBoard(host, { town: { name: 'Anticlere', mapId: 3021 }, book: noticeBook, nowS: () => now, seat: { seat: ANTICLERE, book: seatBook } });
     byClass(host, 'notice-tab')[1].onclick();
@@ -156,6 +158,11 @@ test('CROWN2 THE SEAT TAB\'S POLITICS: every member reads its guild\'s rows; an 
   assert.match(host.textContent, /Wolves <WF> offers to swear fealty to your guild\./);
   byClass(host, 'notice-seat-fealty-accept')[0].click(); await tick();
   assert.deepEqual(acts.at(-1), ['acceptFealty', 'WF']);
+  byClass(host, 'notice-seat-fealty-decline')[0].click(); await tick();   // AUDIT-SEATS: its Decline beside its Accept
+  assert.deepEqual(acts.at(-1), ['declineFealty', 'WF']);
+  assert.equal(byClass(host, 'notice-seat-fealty-decline')[0].textContent, 'Decline');
+  byClass(host, 'notice-seat-pact-decline')[0].click(); await tick();
+  assert.deepEqual(acts.at(-1), ['declinePact', 'EO']);
   byClass(host, 'notice-seat-pact-accept')[0].click(); await tick();
   assert.deepEqual(acts.at(-1), ['offerPact', 'EO']);
   assert.equal(byClass(host, 'notice-seat-pact-accept')[0].textContent, 'Sign');

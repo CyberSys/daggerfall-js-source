@@ -112,14 +112,14 @@ test('SEAT1d THE WORDS: an Edict\'s line with its cost; the holder\'s members\' 
   assert.equal(seatRuleLine(ANTICLERE, { tithe: 8, edict: 'market-day', standing: 50 }), 'Tithe 8%. Market Day is proclaimed.');
   assert.equal(seatRuleLine(ANTICLERE, { tithe: 0, edict: null, standing: 10 }), 'Tithe 0%. No Edict rules this week. Anticlere is in Unrest.');
   assert.equal(seatRuleLine(ANTICLERE, null), null);
-  assert.equal(seatArrivalNews({ ...ANTICLERE, holder: { standing: 10, edict: 'curfew' } }), 'The town is in Unrest. Curfew is proclaimed.');
+  assert.equal(seatArrivalNews({ ...ANTICLERE, holder: { standing: 10, edict: 'curfew' } }), 'The town is in Unrest. A Curfew is proclaimed.');   // PIN MOVED (AUDIT-SEATS L7): its article
   assert.equal(seatArrivalNews({ ...ANTICLERE, holder: { standing: 50, edict: null } }), null);
   assert.equal(seatArrivalNews(ANTICLERE), null);
   const row = (kind, data) => chronicleLine({ kind, week: 4, data }, ANTICLERE);
   assert.equal(row('neglect', { guild: SH }), 'In week 4, the Silver Hand <SH> could not pay the upkeep of the Charter of Anticlere. Anticlere is in Neglect.');
   assert.equal(row('late', { guild: SH }), 'In week 4, the Silver Hand <SH> paid the upkeep it owed for the Charter of Anticlere.');
   assert.equal(row('lapse', { guild: SH }), 'In week 4, the Charter of Anticlere lapsed - the Silver Hand <SH> could not pay its upkeep two weeks running.');
-  assert.equal(row('edict', { guild: SH, edict: 'festival' }), 'In week 4, the Silver Hand <SH> proclaimed Festival at Anticlere.');
+  assert.equal(row('edict', { guild: SH, edict: 'festival' }), 'In week 4, the Silver Hand <SH> proclaimed a Festival at Anticlere.');   // PIN MOVED (AUDIT-SEATS L7)
   assert.equal(row('edict-unpaid', { guild: SH, edict: 'festival' }), 'In week 4, the Silver Hand <SH> could not pay for the Festival it proclaimed at Anticlere.');
 });
 
@@ -168,7 +168,7 @@ test('SEAT1d THE CLIENT\'S OWN (systems/seatEdicts.js): a seat town\'s shops pri
   assert.deepEqual([e.guardLevelBonus(23 * 60), e.crimeFactor()], [0, 1]);
   // the arrival's news; a Festival's buff for a game day
   e.arrived(at(3022));
-  assert.deepEqual(said, ['The town is in Unrest. Bounty is proclaimed.']);
+  assert.deepEqual(said, ['The town is in Unrest. A Bounty is proclaimed.']);   // PIN MOVED (AUDIT-SEATS L7)
   assert.equal(e.festive(), false);
   e.arrived({ ...ANTICLERE, holder: { guild: { id: 'g1' }, standing: 50, edict: 'festival' } });
   assert.deepEqual([said.at(-1), e.festive(), festiveCalls], [FESTIVE_TEXT, true, 1]);
@@ -220,7 +220,7 @@ test('SEAT1d THE SEAT TAB\'S LEVERS: the holder\'s Officer sees the Tithe and it
   const holding = { standing: 55, tithe: 6, titheWeek: 15, edict: 'festival', next: 'curfew', upkeep: 2500, owed: 0 };
   const { host, v } = mount(1, holding);
   await tick();
-  assert.match(host.textContent, /Tithe 6%\. Festival is proclaimed\./);
+  assert.match(host.textContent, /Tithe 6%\. A Festival is proclaimed\./);   // PIN MOVED (AUDIT-SEATS L7): its article
   assert.match(host.textContent, /Proclaimed for next week: Curfew\./);
   assert.match(host.textContent, /Upkeep at the Turning: 2,500 Drakes/);
   const opts = byClass(host, 'notice-seat-edict')[0].children.map((o) => o.value);
@@ -248,7 +248,7 @@ test('SEAT1d THE SEAT TAB\'S LEVERS: the holder\'s Officer sees the Tithe and it
   member.v.unmount();
   const stranger = mount(2, undefined);
   await tick();
-  assert.match(stranger.host.textContent, /Tithe 6%\. Festival is proclaimed\./, 'everyone\'s line');
+  assert.match(stranger.host.textContent, /Tithe 6%\. A Festival is proclaimed\./, 'everyone\'s line');
   assert.doesNotMatch(stranger.host.textContent, /Upkeep at the Turning/);
   stranger.v.unmount();
 });

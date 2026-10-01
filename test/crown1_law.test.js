@@ -102,7 +102,7 @@ test('CROWN1 A CONSCRIPTED SEAT\'S STANDING (7.3, 7.6): -5 in its week\'s rows, 
 test('CROWN1 THE CHRONICLE\'S CONSCRIPTION ROWS: at the crown, what it brought; at each seat that paid, what it paid and to whom (mutants: the kinds; the sums)', () => {
   const seat = { key: 17, name: 'Daggerfall', tier: 'crown', region: 17 };
   assert.equal(chronicleLine({ kind: 'conscription', week: 4, data: { guild: { name: 'The Silver Hand', tag: 'SH' }, from: { name: 'Oath', tag: 'OA' }, marks: 1200 } }, seat),
-    'In week 4, the crown\'s Conscription brought the Silver Hand <SH> 1,200 Marks of its kingdom\'s Tithe.');
+    'In week 4, the crown\'s Conscription brought the Silver Hand <SH> 1,200 Drakes of its kingdom\'s Tithe.');   // PIN MOVED (AUDIT-SEATS L7): Drakes, the players' word
   assert.equal(chronicleLine({ kind: 'conscripted', week: 4, data: { guild: { name: 'Oath', tag: 'OA' }, crown: { name: 'The Silver Hand', tag: 'SH' }, marks: 300 } }, { ...seat, name: 'Tulune', tier: 'palace' }),
-    'In week 4, Oath <OA> paid 300 Marks of its Tithe to the Silver Hand <SH>\'s Conscription.');
+    'In week 4, Oath <OA> paid 300 Drakes of its Tithe to the Silver Hand <SH>\'s Conscription.');
 });

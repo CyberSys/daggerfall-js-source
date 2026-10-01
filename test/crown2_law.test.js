@@ -70,7 +70,7 @@ test('CROWN2 CONSCRIPTION SPARES A VASSAL (7.6: "never a vassal\'s"); the pledge
   const sh = { name: 'The Silver Hand', tag: 'SH' }, oa = { name: 'The Oath', tag: 'OA' };
   assert.equal(chronicleLine({ kind: 'fealty-sworn', week: 5, data: { vassal: sh, liege: oa } }, seat), 'In week 5, the Silver Hand <SH> swore fealty to the Oath <OA>.');
   assert.equal(chronicleLine({ kind: 'fealty-broken', week: 6, data: { vassal: sh, liege: oa, breaker: oa } }, seat), 'In week 6, the Oath <OA> broke the fealty between the Silver Hand <SH> and the Oath <OA>.');
-  assert.equal(chronicleLine({ kind: 'fealty-tribute', week: 6, data: { vassal: sh, liege: oa, marks: 1000 } }, seat), 'In week 6, the Silver Hand <SH> paid 1,000 Marks of tribute to the Oath <OA>.');
+  assert.equal(chronicleLine({ kind: 'fealty-tribute', week: 6, data: { vassal: sh, liege: oa, marks: 1000 } }, seat), 'In week 6, the Silver Hand <SH> paid 1,000 Drakes of tribute to the Oath <OA>.');   // PIN MOVED (AUDIT-SEATS L7): Drakes
   assert.equal(chronicleLine({ kind: 'fealty-lapsed', week: 7, data: { vassal: sh, liege: oa } }, seat), 'In week 7, the fealty between the Silver Hand <SH> and the Oath <OA> lapsed.');
   assert.deepEqual(Object.keys(FEALTY_WHY), ['fealty-unfit', 'fealty-none', 'fealty-sworn', 'fealty-pledged', 'fealty-pledge', 'pact-none', 'pact-signed', 'pact-self', 'pact-pledged', 'pact-pledge', 'guild-unknown']);
 });
