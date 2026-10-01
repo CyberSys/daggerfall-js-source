@@ -31,7 +31,7 @@ import { poseHzFor, POSE_HZ_MIN } from '../src/net/online.js';
 import { fakeRoom } from './fakeRoom.mjs';
 
 const M = SIEGE_UNITS_PER_M;
-const LOOK = { race: 'Nord', gender: 'male', faceIndex: 0, items: [{ templateIndex: 123, group: 'Weapons', equipSlot: 0, material: 9 }] };
+const LOOK = { race: 'Nord', gender: 'male', faceIndex: 0, items: [{ templateIndex: 123, group: 'Weapons', equipSlot: 19, material: 9 }] };   // PIN MOVED (AUDIT-SEATS): R8 - the weapon in the right hand (EquipSlots.RightHand 19); slot 0 is an amulet's, and a weapon there is held no more
 const SHARE = 0.6;
 const SECONDS = 10;
 /** The pose fan's design point (SLAM1/SLAM6): 200 in one block, all moving, at the crowded floor. */

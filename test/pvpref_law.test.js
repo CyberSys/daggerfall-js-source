@@ -52,7 +52,7 @@ test('PVP-REF THE BUCKETS (6.1: "DFU\'s own damage range for that weapon at that
   assert.deepEqual([siegeBlowMax(123, 9), siegeBlowMax(113, 0), siegeBlowMax(-1, 0), siegeBlowMax(null, 0), siegeBlowMax(9999, 0), siegeBlowMax(560, 9)], [124, 80, 112, 112, 0, 134]);
   assert.equal(siegeBlowMax(113, 42), (6 + 0 + 35) * 2, 'a material past the table: no modifier');
   assert.deepEqual([siegeIsBow(129), siegeIsBow(130), siegeIsBow(560), siegeIsBow(123), siegeIsBow(-1)], [true, true, true, false, false]);
-  const look = { items: [{ templateIndex: 123, group: 'Weapons', material: 9 }, { templateIndex: 102, group: 'Armor', material: 9 }] };
+  const look = { items: [{ templateIndex: 123, group: 'Weapons', equipSlot: 19, material: 9 }, { templateIndex: 102, group: 'Armor', equipSlot: 21, material: 9 }] };   // PIN MOVED (AUDIT-SEATS): R8 - held is in a hand (the right's 19; the armour in the left's 21 is still no weapon)
   assert.deepEqual(siegeHeld(look, 123, 9), { w: 123, m: 9 });
   assert.equal(siegeHeld(look, 123, 8), null, 'another material than the one held');
   assert.equal(siegeHeld(look, 102, 9), null, 'armour is no weapon');
@@ -179,7 +179,7 @@ test('PVP-REF THE CAST AND THE STEP: three damaging casts a 5 s, each to 60; a h
   assert.equal(refereeStep(at(0), at(0, 9.4), 500), true, '9 m in half a second and the slack');
   assert.equal(refereeStep(at(0), at(0, 9.6), 500), false);
   assert.equal(refereeStep(at(0), at(0, 9.4), 400), false);
-  assert.equal(refereeStep(at(0), { ...at(1), y: 30 * SIEGE_UNITS_PER_M }, 100), true, 'a fall of thirty metres is gravity\'s');
+  assert.equal(refereeStep(at(0), { ...at(1), y: -30 * SIEGE_UNITS_PER_M }, 100), true, 'a fall of thirty metres is gravity\'s');   // PIN MOVED (AUDIT-SEATS): R1 - +y is up (player/motor.js's gravity takes pos[1] down), so a fall is -30 m; +30 m is a climb, judged now
   assert.deepEqual([SIEGE_SPEED.mps, SIEGE_SPEED.slackM], [18, 0.5]);
   // THE MEASUREMENT (6.1): the motor's fastest legal run - live Speed at its cap, Running at the softcap's top, the
   // lycanthrope's +30 and one Enhances Skill item - and the ceiling 25% above it; the starting 12.5 under a mastered run

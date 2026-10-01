@@ -202,7 +202,7 @@ const GUILD_OUT_KEEP_S = MAX_TTL_S + ORDER_TTL_S + 60;
 // pure law - it imports nothing) and net/gateReceipt.js (the kill's receipt, the relay's first signature - it imports
 // identityToken.js, already here). bible/11-Multiplayer/World-Bosses.md sections 5, 6 and 8.
 import { isGateRoom, gateDayOfRoom, gateAdmits, gateHolds, gateTimes, gateBossOf, gateModsOf, GATE_COLLAPSE_MS } from '../../src/net/gateLaw.js';
-import { isSiegeRoom, newFighter, refereeBlow, refereeCast, refereeStep, siegeHeld, siegeNextWave, siegeRise, SIEGE_WAVE_MS, SIEGE_FIGHTERS_MAX, SIEGE_SPECTATORS_MAX, SIEGE_OPENS_MS, SIEGE_TICK_MS, siegeNextBeat, fieldOf, newBattle, battleStep, honoured, siegeCampPose, siegeFieldFrame, isBattleRoom, isRoyalRoom, battleOfRoom, royalAsk, royalAccept, royalMarks, royalMayStrike, royalStepOk, royalEnd, royalStep, royalLadder, royalNextBeat, ROYAL_RC_KEEP } from '../../src/net/siegeRef.js';   // PVP-REF: a siege's referee - siegeRef.js imports nothing, so the worker's graph stays flat   // SEAT2a: and its battle
+import { isSiegeRoom, newFighter, refereeBlow, refereeCast, refereeStep, siegeHeld, siegeNextWave, siegeRise, SIEGE_WAVE_MS, SIEGE_FIGHTERS_MAX, SIEGE_SPECTATORS_MAX, SIEGE_OPENS_MS, SIEGE_TICK_MS, siegeNextBeat, fieldOf, newBattle, battleStep, honoured, siegeCampPose, siegeFieldFrame, isBattleRoom, isRoyalRoom, battleOfRoom, royalAsk, royalAccept, royalMarks, royalMayStrike, royalStepOk, royalEnd, royalStep, royalLadder, royalNextBeat, ROYAL_RC_KEEP, siegePlaceFree, siegeReturn, royalPrune } from '../../src/net/siegeRef.js';   // PVP-REF: a siege's referee - siegeRef.js imports nothing, so the worker's graph stays flat   // SEAT2a: and its battle   // AUDIT-SEATS T3/R5: a side's places, a fighter's return, a tourney's records
 import { mintSiegeReceipt, SIEGE_RECEIPT_TTL_S, mintRoyalReceipt } from '../../src/net/siegeReceipt.js';   // SEAT2a: the relay's fourth signature - a fighter's result and Honours
 import { newFight, joinFight, applyHit, applyCrystalHit, stepBrain, stateOf, earned, earnedBy, COURT_CENTRE, BRAIN_TICK_MS, CHECKPOINT_MS, GATE_FIGHTERS_MAX } from '../../src/net/gateBrain.js';
 import { mintReceipt, importReceiptKey, readReceipt, RECEIPT_TTL_S } from '../../src/net/gateReceipt.js';
@@ -388,6 +388,7 @@ export class Room {
     this._fightSavedAt = 0;
     this._siege = undefined;   // PVP-REF: a siege room's fighters, by account (storage's `siege` after a wake)
     this._siegeSavedAt = 0;
+    this._helloBy = new Map();   // AUDIT-SEATS R3: a battle room's hello buckets, by verified account (_battleHelloGate) - a wake forgets them, as the meters
     this._receiptKey = undefined;   // WB3: the relay's signing key (GATE_SIGNING_KEY), imported once; null = none (the receipts go out unsigned)
     this._gateFell = undefined;     // WB3: the hub's last word of a kill, said to a hello while its gate still holds
     this._event = undefined;        // EVENT1: the hub's live event, read once (_liveEvent) - undefined: not read yet
@@ -622,6 +623,11 @@ export class Room {
    *  and its strikes are the socket's meters; the attachment is written only when one of its own fields moved. */
   _meter(ws, a, now, patch = {}, passPatch = {}) {
     const pass = this._spend(ws, now, poseGate, 'bucket', 'drops', 'too many poses');
+    return this._metered(ws, a, pass, patch, passPatch);
+  }
+  /** AUDIT-SEATS R2: the meter's write, its gate already spent (`pass`) - a battle room's pose spends the gate BEFORE the
+   *  referee judges it (the pose arm's note), and is written here only once judged. */
+  _metered(ws, a, pass, patch = {}, passPatch = {}) {
     const write = pass ? { ...patch, ...passPatch } : patch;
     const next = Object.keys(write).length ? { ...a, ...write } : a;
     if (next !== a) this._setAttach(ws, next);
@@ -1161,10 +1167,19 @@ export class Room {
     if (m.t === 'hello') {
       const now = Date.now();
       const chat = isChatRoom(a.key);
-      // the room's hello gate (A6): a storm is 2N frames a cycle for everyone in a place; a channel's hello costs no roster, so its gate runs deeper - never off (AUDIT CHAT A1)
-      const gate = tokenGate(await this.state.storage.get('hellos'), now, chat ? CHAT_HELLO_HZ_MAX : HELLO_HZ_MAX);
-      await this.state.storage.put('hellos', gate.bucket);
-      if (!gate.pass) { this._refuse(ws, 'busy', CLOSE_BUSY); return; }
+      // AUDIT-SEATS R3: A BATTLE'S DOOR IS NEVER SHUT BY A STRANGER. The room's hello gate below was spent BEFORE the token
+      // was read, so twelve tokenless hellos a second made the next real attacker's hello 'busy' - held from ten minutes
+      // before the start to ten after it, a forfeit nobody fought. A siege's or a Royal Tourney's room spends its gate only
+      // once the token AND the pass are verified (`_battleHelloGate`, below), by account: a hello refused for either
+      // touches no bucket.
+      const battle = isBattleRoom(a.key);
+      let gate = null;
+      if (!battle) {
+        // the room's hello gate (A6): a storm is 2N frames a cycle for everyone in a place; a channel's hello costs no roster, so its gate runs deeper - never off (AUDIT CHAT A1)
+        gate = tokenGate(await this.state.storage.get('hellos'), now, chat ? CHAT_HELLO_HZ_MAX : HELLO_HZ_MAX);
+        await this.state.storage.put('hellos', gate.bucket);
+        if (!gate.pass) { this._refuse(ws, 'busy', CLOSE_BUSY); return; }
+      }
       // ACC1d: the name this socket will wear, and whether the relay vouches for it. AUDIT 68 S01-hello-writes-before-token:
       // asked BEFORE anything is written or replaced (the id's secret, its look, a live holder of the id, the
       // attachment), so a refused hello leaves nothing behind - a tokenless one planted a secret that refused the owner
@@ -1180,7 +1195,11 @@ export class Room {
       // (the hello's `sp`) that this account fights on a side, or watches; the developers' ground only while the room
       // holds no battle
       let siegeSide = null;
-      if (isBattleRoom(a.key)) { const v = await this._siegeAdmit(a.key, who, m.sp, now); if (v.no) { this._refuse(ws, v.no); return; } siegeSide = v.side; }   // CROWN1 part two: and a Royal Tourney's, by its pass
+      if (battle) {
+        const v = await this._siegeAdmit(a.key, who, m.sp, now); if (v.no) { this._refuse(ws, v.no); return; } siegeSide = v.side;   // CROWN1 part two: and a Royal Tourney's, by its pass
+        gate = await this._battleHelloGate(who.subject, siegeSide, now);   // AUDIT-SEATS R3: the token and the pass verified - now the gate
+        if (!gate.pass) { this._refuse(ws, 'busy', CLOSE_BUSY); return; }
+      }
       // ONE-SEAT (Mac: "the player can only have one character only at a time"): A HUB HELLO THAT DOES NOT CLAIM IS A
       // RECONNECT, and while another tab of the same account holds the hub the seat is that tab's - refused here, before
       // anything is written, so a tab superseded while its socket was down cannot take the seat back by reconnecting.
@@ -1224,7 +1243,7 @@ export class Room {
       // carried over - a claim that closed the account's other tabs, or a reconnect that replaced its own old socket,
       // moved a seat the room never lost, and the sweep below took every party in the hub with it (a stranger's too)
       const carried = !!replaced || (!!m.cl && seatHeld.length > 0);
-      if (!others.length && !carried) { try { await this._sweep(); } catch (e) { console.warn('[room] sweep failed', e?.message ?? e); } await this.state.storage.put('hellos', gate.bucket); }   // an empty room forgets every look and secret an unclean close left behind - not its hello gate (AUDIT SOC A2: contained - a failed list here made every first hello into an empty hub throw before its welcome)
+      if (!others.length && !carried) { try { await this._sweep(); } catch (e) { console.warn('[room] sweep failed', e?.message ?? e); } if (gate.bucket) await this.state.storage.put('hellos', gate.bucket); }   // AUDIT-SEATS R3: a battle room's fighter spent no stored bucket   // an empty room forgets every look and secret an unclean close left behind - not its hello gate (AUDIT SOC A2: contained - a failed list here made every first hello into an empty hub throw before its welcome)
       await this.state.storage.put(secretKey(m.id), m.secret);
       if (!chat) { await this.state.storage.put(lookKey(m.id), m.look); this._looks.set(m.id, m.look); }   // a channel keeps no look: nobody is drawn from it
       const guild = who.gi ? { gi: who.gi, gt: who.gt, gm: who.gm } : {};   // GUILD1c: the guild the token carried, when it carried one
@@ -1279,7 +1298,7 @@ export class Room {
       // Selecting first fixes the breach and the waste together: at most ROSTER_MAX keys are ever asked for, and an
       // awake object usually asks for none, because `_looks` already holds what every hello said (the `who` path
       // has read it that way since AUDIT WORLD6b-iii(e) B1 - the hello path just never did).
-      const near = rosterFor(others, m.id, m.pose);
+      const near = rosterFor(battle ? others.map((b) => this._drawn(b, a.key)) : others, m.id, m.pose);   // AUDIT-SEATS T2: in a battle room, a spectator's place is said to nobody
       const missing = near.filter((b) => !this._looks.has(b.id)).map((b) => lookKey(b.id));
       const fetched = missing.length ? await this.state.storage.get(missing) : new Map();
       const roster = near.map((b) => {
@@ -1316,7 +1335,7 @@ export class Room {
         const parks = (await this._parkList(now)).filter((e) => e.sub !== sub).map((e) => this._parkPublic(e));
         if (!this._send(ws, JSON.stringify({ t: 'parks', now, data: parks }))) return;
       }
-      const join = JSON.stringify(badged({ t: 'join', id: m.id, name: who.name, look: m.look, pose: m.pose }, who));
+      const join = JSON.stringify(badged({ t: 'join', id: m.id, name: who.name, look: m.look, pose: this._drawn({ sub: who.subject, pose: m.pose }, a.key).pose }, who));   // AUDIT-SEATS T2: and a spectator's join stands it nowhere
       for (const [other, b] of [...this._all()]) if (other !== ws && b.id) this._send(other, join);
       return;
     }
@@ -1671,8 +1690,12 @@ export class Room {
       const now = Date.now();
       a = this._meterLook(ws, a, now); if (!a) return;
       if (isChatRoom(a.key)) return;
-      const gate = tokenGate(await this.state.storage.get('hellos'), now, HELLO_HZ_MAX);
-      await this.state.storage.put('hellos', gate.bucket);
+      // AUDIT-SEATS R3: AND IN A BATTLE ROOM THE ACCOUNT'S OWN GATE, as its hello's (`_battleHelloGate`) - the room's stored
+      // bucket there is the stands', and a crowd of spectators draining it would refuse a fighter's change of gear 'busy',
+      // its socket closed mid-battle
+      const battleGate = isBattleRoom(a.key) ? await this._battleHelloGate(a.sub, a.sd, now) : null;
+      const gate = battleGate ?? tokenGate(await this.state.storage.get('hellos'), now, HELLO_HZ_MAX);
+      if (!battleGate) await this.state.storage.put('hellos', gate.bucket);
       if (!gate.pass) { this._refuse(ws, 'busy', CLOSE_BUSY); return; }
       await this.state.storage.put(lookKey(a.id), m.look); this._looks.set(a.id, m.look);
       if (this._attach(ws)?.id !== a.id) return;   // replaced while the store was written: the new socket's hello said its own
@@ -1874,7 +1897,8 @@ export class Room {
       // peer that would otherwise arrive unbadged while everyone else
       // is badged - a signal true most of the time, which is the shape
       // ACC1d-MARK was retired for being.
-      this._send(ws, JSON.stringify(badged({ t: 'join', id: b.id, name: b.name, look, pose: inRange(a.key ?? '', a.pose, b.pose) ? (b.pose ?? null) : null }, b)));
+      if (isBattleRoom(a.key)) await this._siegeOf();   // AUDIT-SEATS T2: who is a body there, read before the answer
+      this._send(ws, JSON.stringify(badged({ t: 'join', id: b.id, name: b.name, look, pose: inRange(a.key ?? '', a.pose, b.pose) ? (this._drawn(b, a.key).pose ?? null) : null }, b)));
       return;
     }
     if (m.t === 'pose' || m.t === 'ping') {
@@ -1909,11 +1933,25 @@ export class Room {
       // and an event is where those turn up.
       // PVP-REF (Seats-Arc 6.1): A FIGHTER'S STEP IS JUDGED - faster than the referee's ceiling, it is neither kept nor
       // relayed, and the fighter is pulled back to its last good pose
-      if (posed && isBattleRoom(a.key) && a.sub && !(await this._siegeStep(ws, a, m.p, now))) return;
-      const met = this._meter(ws, a, now, { pose: posed ? m.p : a.pose }, posed ? { turn: ((a.turn | 0) + 1) & 0xffff, ...(still ? { kept: now } : {}) } : {});
+      // AUDIT-SEATS R2/R4: AND THE POSE GATE IS SPENT FIRST, in a battle room. The step was judged BEFORE the meter, so a
+      // pose the 20 Hz gate then dropped had already moved the referee's fighter (a burst outran the ceiling it never
+      // reached the gate with), and a refused step returned before the meter - 5,000 refused poses in a millisecond bought
+      // 5,000 `back` frames and never a strike. Over the rate a fighter's pose is dropped WHOLE now - neither judged, kept
+      // nor relayed - and struck; under it, judged, and a refusal has spent its token like any pose.
+      const battle = posed && isBattleRoom(a.key) && a.sub;
+      if (battle && !this._spend(ws, now, poseGate, 'bucket', 'drops', 'too many poses')) return;
+      const step = battle ? await this._siegeStep(ws, a, m.p, now) : null;
+      if (battle && !step) return;
+      const turned = posed ? { turn: ((a.turn | 0) + 1) & 0xffff, ...(still ? { kept: now } : {}) } : {};
+      const met = battle ? this._metered(ws, a, true, { pose: m.p }, turned) : this._meter(ws, a, now, { pose: posed ? m.p : a.pose }, turned);
       if (!met) return;   // over the rate: kept as the latest, not relayed
       if (m.t === 'ping') { this._send(ws, '{"t":"pong"}'); return; }   // a ping that reached the object (the runtime answers the exact one in its sleep)
       if (chat) return;   // a channel is no place: a pose there is kept by no one and reaches no one
+      // AUDIT-SEATS T2 (Seats-Arc 6.6: "no body drawn to fighters, no collider, excluded from every banner count, a free
+      // camera over the town"): A SPECTATOR IS NO BODY - in a battle room a socket that is no fighter (a spectator's pass,
+      // or a fighter's before its `in`) keeps its camera on its own attachment and is drawn to nobody: the fan below said
+      // its every pose, and the fighters drew sixty spectators among them
+      if (step === 'eye') return;
       const out = JSON.stringify({ t: 'pose', id: a.id, p: m.p });
       // SLAM1: the fan is BOUNDED. A room's cost was N senders times N listeners, and the range cull does not help
       // the one case that matters - an event, where everybody stands in one place and every range test passes.
@@ -1941,7 +1979,10 @@ export class Room {
       for (const [other] of (still ? heard : poseFan(heard, m.p, (e) => e[1].pose, met.turn, (e) => e[1].id))) this._send(other, out);   // SLAM10: the far tier bucketed by the listener's ID, so a moving crowd cannot shuffle who is served
       // SEAT1b (Seats-Arc 4.2): THE WATCH - a verified account standing in a cell, having moved, is ticked every
       // WATCH_TICK_MS with a receipt only the account service counts, and only in a seat's own pixel (net/watchReceipt.js)
-      if (isCellRoom(a.key) && typeof met.sub === 'string' && met.sub) await this._watchTick(ws, met.sub, m.p, !unmoved, now);
+      // AUDIT-SEATS R7: in the pose's OWN cell alone - every cell room ticked whatever pixel the pose claimed, a halo's too
+      // (the client keeps a halo's `watch` for nothing - net/online.js: "the relay ticks the socket that stands there,
+      // never a halo's"), so one player stood in up to four rooms each minting its k1 receipts
+      if (isCellRoom(a.key) && cellRoomOfWire(m.p.x, m.p.z) === a.key && typeof met.sub === 'string' && met.sub) await this._watchTick(ws, met.sub, m.p, !unmoved, now);
       return;
     }
     if (m.t === 'chat') {
@@ -2234,6 +2275,7 @@ export class Room {
     for (const [other, b] of [...this._all()]) if (other !== ws && b.id) this._send(other, out);
     this._travOwed.delete(a.id);   // AUDIT DEEP2 C2: the leave takes the mark out - an owed clear of it is said
     if (!isChatRoom(a.key) && this._leads(a, ws)) this._sayHost({ skip: ws, except: ws });   // WORLD1: the host left - the next-longest in the room is the host now, said to everyone (ROSTER-G: a channel has no host)
+    if (isBattleRoom(a.key) && a.sub) { try { await this._siegeGone(ws, a.sub, Date.now()); } catch (e) { console.warn('[siege] leave failed', e?.message ?? e); } }   // AUDIT-SEATS T3: a fighter's place kept from now
     if (isSocialRoom(a.key) && a.acct) { try { await this._leaveAccount(ws, a, Date.now()); } catch (e) { console.warn('[hub] leave failed', e?.message ?? e); } }   // SOC1: last seen stamped, the friends and the party told
   }
 
@@ -2255,6 +2297,56 @@ export class Room {
     let best = null;
     for (const [ws, b] of this._all()) if (b.id && b.sub === sub && (!best || (b.since ?? 0) >= (best[1].since ?? 0))) best = [ws, b];
     return best;
+  }
+  /** AUDIT-SEATS T2: an attachment as a battle room tells it to others - a fighter's as it is, anyone else's (a spectator, a
+   *  fighter before its `in`) standing nowhere (`pose` null: no body drawn - Seats-Arc 6.6). Any other room's as it is. */
+  _drawn(b, key) {
+    return !isBattleRoom(key) || this._siege?.fighters?.[b.sub] ? b : { ...b, pose: null };
+  }
+  /**
+   * AUDIT-SEATS R3: A BATTLE ROOM'S HELLO GATE, spent only once the hello's token and pass are verified (the hello's own
+   * note says why), BY ACCOUNT: each its own HELLO_HZ_MAX a second - an account's reconnect loop waits on itself alone -
+   * and the stands besides on the room's stored bucket (sixty spectators' hellos bounded together as a room's were); a
+   * fighter never waits on the stands. `{ pass, bucket }` - `bucket` the room's, where it was spent.
+   */
+  async _battleHelloGate(sub, side, now) {
+    const own = tokenGate(this._helloBy.get(sub), now, HELLO_HZ_MAX);
+    this._helloBy.delete(sub);
+    if (this._helloBy.size >= SOCKETS_MAX) this._helloBy.delete(this._helloBy.keys().next().value);   // the stalest account's goes first
+    this._helloBy.set(sub, own.bucket);
+    if (!own.pass) return { pass: false };
+    if (side !== 'watch') return { pass: true };
+    const stands = tokenGate(await this.state.storage.get('hellos'), now, HELLO_HZ_MAX);
+    await this.state.storage.put('hellos', stands.bucket);
+    return { pass: stands.pass, bucket: stands.bucket };
+  }
+  /**
+   * AUDIT-SEATS T3/R5: WHETHER THE ROOM HAS ROOM FOR A NEW FIGHTER'S RECORD - a refusal's words, or null. A sided fighter:
+   * a place free on its side (siegePlaceFree - a fighter gone keeps its own SIEGE_PLACE_KEPT_MS, then a substitute may take
+   * it) and the field's records (SIEGE_FIGHTERS_MAX); a Royal Tourney's contender: the contenders IN the room, the records
+   * of the gone who hold nothing pruned first (royalPrune - the bound was a count of records never deleted, a week's);
+   * anyone else (PVP-REF's ground) the field's records.
+   */
+  _siegeRoomFor(s, sub, side, now) {
+    const here = (x) => !!this._siegeSocketOf(x);
+    if (side === 'duel') {
+      if (s.battle) royalPrune(s.battle, s.fighters, here);
+      let n = 0;
+      for (const [, b] of this._all()) if (b.id && b.sd === 'duel' && b.sub !== sub) n++;
+      return n >= SIEGE_FIGHTERS_MAX ? 'the field is full' : null;
+    }
+    if ((side === 'attack' || side === 'defend') && s.battle && !siegePlaceFree(s.fighters, side, s.battle.tier, here, now, sub)) return 'the field is full';
+    return Object.keys(s.fighters).length >= SIEGE_FIGHTERS_MAX ? 'the field is full' : null;
+  }
+  /** AUDIT-SEATS T3: an account's last socket gone from the room - its fighter's leave stamped (`goneAt`): its place kept
+   *  SIEGE_PLACE_KEPT_MS from now, its `in` on return at its camp with the next wave. Another socket still speaking for
+   *  the account (a reconnect that replaced this one) is no leave. */
+  async _siegeGone(ws, sub, now) {
+    const s = await this._siegeOf(), f = s?.fighters?.[sub];
+    if (!f) return;
+    for (const [other, b] of this._all()) if (other !== ws && b.id && b.sub === sub && !this._gone.has(other) && !this._dead.has(other)) return;
+    f.goneAt = now;
+    await this._siegeSave(now, true);
   }
   /** Frames to everyone in the room. */
   _siegeFan(frames) {
@@ -2282,10 +2374,17 @@ export class Room {
     const c = r.claims, room = battleOfRoom(key);
     if (c.s !== who.subject || !room || c.sk !== room.key || c.sw !== room.week) return { no: 'that pass is for another battle' };
     if ((room.kind === 'royal') !== (c.sn === 'royal')) return { no: 'that pass is for another battle' };   // CROWN1 part two: a Royal Tourney's pass to its own room alone
-    if (now < c.sb * 1000 - SIEGE_OPENS_MS || now >= c.se * 1000) return { no: 'the siege is not open' };
+    if (now < c.sb * 1000 - SIEGE_OPENS_MS) return { no: 'the siege is not open' };
     const of = { sk: c.sk, sw: c.sw, sn: c.sn, st: c.st, sb: c.sb, se: c.se, sf: JSON.stringify(c.sf) };
     if (s?.of && Object.keys(of).some((k) => s.of[k] !== of[k])) return { no: 'that pass is for another battle' };
     const mine = s?.fighters?.[who.subject];
+    // AUDIT-SEATS R6: PAST THE WINDOW'S CLOSE, A FIGHTER COMES FOR ITS RECEIPT. The door shut at `se` for everyone, and the
+    // service's pass with it - so a crown fighter who dropped at minute 40 and came back at minute 70 never had the `s1`
+    // the room kept "a week for a fighter who returns" (its Marks, its Renown, its Spoils). Now the service signs a
+    // rostered fighter's pass until the receipt's week is out (server-account/src/seatSiege.js siegePass), and the room
+    // admits it past `se` ONLY where the battle is over and holds this account's receipt, on the side it fought - its
+    // `in` hands the receipt over; nothing lands after the end (`_siegeFrame`). Anyone else is refused as before.
+    if (now >= c.se * 1000) return s?.battle?.result && s.receipts?.[who.subject] && mine?.side === c.sd ? { side: c.sd } : { no: 'the siege is not open' };
     if (c.sd === 'watch') {
       if (mine?.side) return { no: 'a fighter is always a fighter' };
       let watching = 0;
@@ -2293,7 +2392,10 @@ export class Room {
       if (watching >= SIEGE_SPECTATORS_MAX) return { no: 'the stands are full' };
     } else if (mine) {
       if (mine.side !== c.sd) return { no: 'that pass is for another side' };
-    } else if (s && Object.keys(s.fighters).length >= SIEGE_FIGHTERS_MAX) return { no: 'the field is full' };
+      // AUDIT-SEATS T3: a fighter back after its five minutes has a place only where its side has one free (a substitute
+      // may have taken it); inside them, its own is kept (siegePlaceFree counts every place but the asker's)
+      if (s.battle && (c.sd === 'attack' || c.sd === 'defend') && !siegePlaceFree(s.fighters, c.sd, s.battle.tier, (x) => !!this._siegeSocketOf(x), now, who.subject)) return { no: 'your place was taken' };
+    } else if (s) { const no = this._siegeRoomFor(s, who.subject, c.sd, now); if (no) return { no }; }   // AUDIT-SEATS T3/R5: a side's places, a tourney's contenders in the room
     if (!s?.battle) {
       const field = fieldOf(c.sf, c.st, c.sn);
       if (!field) return { no: 'that pass will not do' };
@@ -2311,13 +2413,22 @@ export class Room {
     const s = (await this._siegeOf()) ?? (this._siege = { fighters: {} });
     const b = s.battle ?? null;
     if (m.k === 'in') {
-      if (a.sd !== 'watch' && !s.fighters[a.sub]) {
-        if (Object.keys(s.fighters).length >= SIEGE_FIGHTERS_MAX) { this._send(ws, JSON.stringify({ t: 'siege', k: 'no', m: 'the field is full' })); return; }
+      const mine = s.fighters[a.sub];
+      if (a.sd !== 'watch' && !mine) {
         const side = a.sd === 'attack' || a.sd === 'defend' || a.sd === 'duel' ? a.sd : null;   // CROWN1 part two: a Royal Tourney's contender
+        const full = this._siegeRoomFor(s, a.sub, side, now);   // AUDIT-SEATS T3/R5: a side's places, a tourney's contenders in the room, the field's records
+        if (full) { this._send(ws, JSON.stringify({ t: 'siege', k: 'no', m: full })); return; }
         const camp = b && (side === 'attack' || side === 'defend');
         const pose = camp ? siegeCampPose(b, side, a.pose) : (a.pose ?? null);
         s.fighters[a.sub] = { ...newFighter(a.lv, now), side, pose, poseAt: now };
         if (camp) this._send(ws, JSON.stringify({ t: 'siege', k: 'back', p: pose }));
+        await this._siegeSave(now, true);
+      } else if (mine && Number.isFinite(mine.goneAt)) {
+        // AUDIT-SEATS T3 (16: "they return at their camp with the next wave"): BACK FROM A DROP - at its camp, down until its
+        // side's next wave (siegeReturn), so a drop is never a way out of a fall; after the end, its receipt and nothing more
+        const waits = siegeReturn(b, mine, now);
+        if (b && !b.result && (mine.side === 'attack' || mine.side === 'defend')) this._send(ws, JSON.stringify({ t: 'siege', k: 'back', p: mine.pose }));
+        if (waits) await this._siegeArm(mine.upAt);
         await this._siegeSave(now, true);
       }
       const st = [];
@@ -2330,12 +2441,16 @@ export class Room {
     }
     const by = s.fighters[a.sub];
     if (!by) { this._junk(ws); return; }   // a correct client says `in` first
-    if (m.k === 'ask' || m.k === 'yes') { if (b?.kind === 'royal') await this._royalHand(ws, a, s, b, m, now); else this._junk(ws); return; }   // CROWN1 part two
+    if (m.k === 'ask' || m.k === 'yes') { if (b?.kind === 'royal' && by.side === 'duel') await this._royalHand(ws, a, s, b, m, now); else this._junk(ws); return; }   // CROWN1 part two   // AUDIT-SEATS R9: a contender's alone
     if (b && (b.result || now < b.startMs)) return;   // SEAT2a: the battle is not joined yet, or over
     let target = null;
     for (const [, t] of this._all()) if (t.id === m.to) { target = t; break; }
     const to = target?.sub ? s.fighters[target.sub] : null;
     if (!to) return;   // a spectator, or a socket gone: nothing to strike
+    // AUDIT-SEATS R9: ONCE A BATTLE STANDS, A BLOW OR A CAST IS BETWEEN SIDED FIGHTERS ALONE. A developer who entered PVP-REF's
+    // ground without a pass before the first pass named the battle stayed unsided, and `by.side && ...` below then skipped
+    // the side rule whole - it struck either side, healed either, and was a target whose felling bought Honours
+    if (b && (!by.side || !to.side)) return;
     const heal = m.k === 'cast' && m.h === 1;
     if (by.side && b?.kind !== 'royal' && (heal ? to.side !== by.side : to.side === by.side)) return;   // SEAT2a: the sides are kept
     if (b?.kind === 'royal' && (heal || !royalMayStrike(b, a.sub, target.sub, now))) return;   // CROWN1 part two: the bout's two alone, no heal between them
@@ -2368,14 +2483,17 @@ export class Room {
     }
     return [attack, defend, watch];
   }
-  /** A fighter's step: kept (true) where the referee allows it, else the fighter told its last good pose (false). */
+  /** A fighter's step: kept where the referee allows it ('body' - AUDIT-SEATS T2: a body the room is told of), else the
+   *  fighter told its last good pose (false). Not a fighter: 'eye' - its camera is its own, kept and drawn to nobody. */
   async _siegeStep(ws, a, p, now) {
     const s = await this._siegeOf(), f = s?.fighters[a.sub];
-    if (!f) return true;   // not a fighter: a spectator's camera is its own
-    // CROWN1 part two: and a Royal Tourney's bout kept in its ring
-    if (!refereeStep(f.pose, p, now - (f.poseAt ?? now)) || !royalStepOk(s.battle, a.sub, p)) { this._send(ws, JSON.stringify({ t: 'siege', k: 'back', p: f.pose })); return false; }
+    if (!f) return 'eye';   // not a fighter: a spectator's camera is its own
+    // CROWN1 part two: and a Royal Tourney's bout kept in its ring - asked first (AUDIT-SEATS R2: a step the ring refuses
+    // spends none of the fighter's run); AUDIT-SEATS R1/R2: the referee's step judges the climb, on the fighter's own
+    // carried allowance (`f`)
+    if (!royalStepOk(s.battle, a.sub, p) || !refereeStep(f.pose, p, now - (f.poseAt ?? now), f)) { this._send(ws, JSON.stringify({ t: 'siege', k: 'back', p: f.pose })); return false; }
     f.pose = p; f.poseAt = now;
-    return true;
+    return 'body';
   }
   /** THE WAVES: every fallen fighter whose wave has come rises whole (SEAT2a: at its side's camp), said to the room; the
    *  next wave armed. SEAT2a: THE BATTLE'S BEAT - each second from the first pass to the end, the field moved on and
@@ -2411,7 +2529,7 @@ export class Room {
     this._siegeFan(frames);
     if (b) {
       const list = [];
-      for (const [sub, f] of Object.entries(s.fighters)) if (f.side) { f.here = !!this._siegeSocketOf(sub); list.push(f); }
+      for (const [sub, f] of Object.entries(s.fighters)) if (f.side) { f.here = !!this._siegeSocketOf(sub); list.push(f); if (!f.here && !Number.isFinite(f.goneAt)) f.goneAt = now; }   // AUDIT-SEATS T3: a leave the room never heard (a restarted object's) stamped at its first beat
       const events = battleStep(b, list, now);
       for (const f of list) delete f.here;
       this._siegeFan([siegeFieldFrame(b, this._siegeCounts(s))]);
@@ -2430,7 +2548,7 @@ export class Room {
     s.receipts = {};
     for (const [sub, f] of Object.entries(s.fighters)) {
       if (f.side !== 'attack' && f.side !== 'defend') continue;
-      try { s.receipts[sub] = await mintSiegeReceipt({ s: sub, sk: s.of.sk, sw: s.of.sw, sd: f.side, r: b.result, a: b.raised ? 1 : 0, h: honoured(f, b) ? 1 : 0 }, key, { subtle: crypto.subtle, nowS }); } catch (e) { console.warn('[siege] receipt failed', e?.message ?? e); }
+      try { s.receipts[sub] = await mintSiegeReceipt({ s: sub, sk: s.of.sk, sw: s.of.sw, sd: f.side, r: b.result, a: b.raised ? 1 : 0, h: honoured(f, b) ? 1 : 0, th: b.reached ? 1 : 0 }, key, { subtle: crypto.subtle, nowS }); } catch (e) { console.warn('[siege] receipt failed', e?.message ?? e); }   // AUDIT-SEATS T1: and whether the Throne was reached
     }
     s.dropAt = now + SIEGE_RECEIPT_TTL_S * 1000;
     for (const [ws, att] of [...this._all()]) {

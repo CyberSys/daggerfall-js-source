@@ -602,8 +602,8 @@
  {
   "name": "SEAT2a2-relay-door",
   "file": "server/src/index.js",
-  "old": "    if (now < c.sb * 1000 - SIEGE_OPENS_MS || now >= c.se * 1000) return { no: 'the siege is not open' };",
-  "new": "    if (now >= c.se * 1000) return { no: 'the siege is not open' };",
+  "old": "    if (now < c.sb * 1000 - SIEGE_OPENS_MS) return { no: 'the siege is not open' };",
+  "new": "    if (false) return { no: 'the siege is not open' };",
   "tests": [
    "test/seat2a_battle.test.js",
    "test/seat2a_relay.test.js"
@@ -612,8 +612,8 @@
  {
   "name": "SEAT2a2-relay-window",
   "file": "server/src/index.js",
-  "old": "    if (now < c.sb * 1000 - SIEGE_OPENS_MS || now >= c.se * 1000) return { no: 'the siege is not open' };",
-  "new": "    if (now < c.sb * 1000 - SIEGE_OPENS_MS) return { no: 'the siege is not open' };",
+  "old": "    if (now >= c.se * 1000) return s?.battle?.result && s.receipts?.[who.subject] && mine?.side === c.sd ? { side: c.sd } : { no: 'the siege is not open' };\n",
+  "new": "",
   "tests": [
    "test/seat2a_battle.test.js",
    "test/seat2a_relay.test.js"
@@ -762,8 +762,8 @@
  {
   "name": "SEAT2a2-relay-here",
   "file": "server/src/index.js",
-  "old": "      for (const [sub, f] of Object.entries(s.fighters)) if (f.side) { f.here = !!this._siegeSocketOf(sub); list.push(f); }",
-  "new": "      for (const [sub, f] of Object.entries(s.fighters)) if (f.side) { f.here = true; list.push(f); }",
+  "old": "      for (const [sub, f] of Object.entries(s.fighters)) if (f.side) { f.here = !!this._siegeSocketOf(sub); list.push(f);",
+  "new": "      for (const [sub, f] of Object.entries(s.fighters)) if (f.side) { f.here = true; list.push(f);",
   "tests": [
    "test/seat2a_battle.test.js",
    "test/seat2a_relay.test.js"
@@ -802,8 +802,8 @@
  {
   "name": "SEAT2a2-relay-receipt-honour",
   "file": "server/src/index.js",
-  "old": "r: b.result, a: b.raised ? 1 : 0, h: honoured(f, b) ? 1 : 0 }, key,",
-  "new": "r: b.result, a: b.raised ? 1 : 0, h: 1 }, key,",
+  "old": "r: b.result, a: b.raised ? 1 : 0, h: honoured(f, b) ? 1 : 0, th: b.reached ? 1 : 0 }, key,",
+  "new": "r: b.result, a: b.raised ? 1 : 0, h: 1, th: b.reached ? 1 : 0 }, key,",
   "tests": [
    "test/seat2a_battle.test.js",
    "test/seat2a_relay.test.js"
@@ -812,8 +812,8 @@
  {
   "name": "SEAT2a2-relay-receipt-raised",
   "file": "server/src/index.js",
-  "old": "r: b.result, a: b.raised ? 1 : 0, h: honoured(f, b) ? 1 : 0 }, key,",
-  "new": "r: b.result, a: 1, h: honoured(f, b) ? 1 : 0 }, key,",
+  "old": "r: b.result, a: b.raised ? 1 : 0, h: honoured(f, b) ? 1 : 0, th: b.reached ? 1 : 0 }, key,",
+  "new": "r: b.result, a: 1, h: honoured(f, b) ? 1 : 0, th: b.reached ? 1 : 0 }, key,",
   "tests": [
    "test/seat2a_battle.test.js",
    "test/seat2a_relay.test.js"

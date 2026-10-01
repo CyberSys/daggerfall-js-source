@@ -360,8 +360,8 @@
  {
   "name": "PVPREF-held-any-material",
   "file": "src/net/siegeRef.js",
-  "old": "i?.group === 'Weapons' && i.templateIndex === w && (i.material ?? 0) === m);",
-  "new": "i?.group === 'Weapons' && i.templateIndex === w);",
+  "old": "i?.group === 'Weapons' && SIEGE_HAND_SLOTS.includes(i.equipSlot) && i.templateIndex === w && (i.material ?? 0) === m);",
+  "new": "i?.group === 'Weapons' && SIEGE_HAND_SLOTS.includes(i.equipSlot) && i.templateIndex === w);",
   "tests": [
    "test/pvpref_law.test.js"
   ]
@@ -369,8 +369,8 @@
  {
   "name": "PVPREF-held-any-group",
   "file": "src/net/siegeRef.js",
-  "old": "i?.group === 'Weapons' && i.templateIndex === w && (i.material ?? 0) === m);",
-  "new": "i.templateIndex === w && (i.material ?? 0) === m);",
+  "old": "i?.group === 'Weapons' && SIEGE_HAND_SLOTS.includes(i.equipSlot) && i.templateIndex === w && (i.material ?? 0) === m);",
+  "new": "SIEGE_HAND_SLOTS.includes(i.equipSlot) && i.templateIndex === w && (i.material ?? 0) === m);",
   "tests": [
    "test/pvpref_law.test.js"
   ]
@@ -629,8 +629,8 @@
  {
   "name": "PVPREF-step-first-refused",
   "file": "src/net/siegeRef.js",
-  "old": "  if (!last) return true;\n  const allowed",
-  "new": "  if (!last) return false;\n  const allowed",
+  "old": "  if (!last) { if (f) f.stepM = full; return true; }",
+  "new": "  if (!last) { if (f) f.stepM = full; return false; }",
   "tests": [
    "test/pvpref_law.test.js"
   ]
@@ -638,8 +638,8 @@
  {
   "name": "PVPREF-step-negative-time",
   "file": "src/net/siegeRef.js",
-  "old": "  const allowed = SIEGE_SPEED.mps * Math.max(0, dtMs) / 1000 + SIEGE_SPEED.slackM;",
-  "new": "  const allowed = SIEGE_SPEED.mps * dtMs / 1000 + SIEGE_SPEED.slackM;",
+  "old": "  const earned = SIEGE_SPEED.mps * Math.min(SIEGE_STEP_WINDOW_MS, Math.max(0, dtMs)) / 1000;",
+  "new": "  const earned = SIEGE_SPEED.mps * Math.min(SIEGE_STEP_WINDOW_MS, dtMs) / 1000;",
   "tests": [
    "test/pvpref_law.test.js"
   ]
@@ -647,8 +647,8 @@
  {
   "name": "PVPREF-step-judges-height",
   "file": "src/net/siegeRef.js",
-  "old": "  return Math.hypot((next.x - last.x) / SIEGE_UNITS_PER_M, (next.z - last.z) / SIEGE_UNITS_PER_M) <= allowed;",
-  "new": "  return metres(last, next) <= allowed;",
+  "old": "  const rise = Math.max(0, (next.y - last.y) || 0);",
+  "new": "  const rise = Math.abs((next.y - last.y) || 0);",
   "tests": [
    "test/pvpref_law.test.js"
   ]
@@ -656,8 +656,8 @@
  {
   "name": "PVPREF-step-x-alone",
   "file": "src/net/siegeRef.js",
-  "old": "  return Math.hypot((next.x - last.x) / SIEGE_UNITS_PER_M, (next.z - last.z) / SIEGE_UNITS_PER_M) <= allowed;",
-  "new": "  return Math.abs(next.x - last.x) / SIEGE_UNITS_PER_M <= allowed;",
+  "old": "  const len = Math.hypot((next.x - last.x) / SIEGE_UNITS_PER_M, (next.z - last.z) / SIEGE_UNITS_PER_M, rise / SIEGE_UNITS_PER_M);",
+  "new": "  const len = Math.hypot((next.x - last.x) / SIEGE_UNITS_PER_M, rise / SIEGE_UNITS_PER_M);",
   "tests": [
    "test/pvpref_law.test.js"
   ]
@@ -874,8 +874,8 @@
  {
   "name": "PVPREF-relay-one-more-fighter",
   "file": "server/src/index.js",
-  "old": "        if (Object.keys(s.fighters).length >= SIEGE_FIGHTERS_MAX) {",
-  "new": "        if (Object.keys(s.fighters).length > SIEGE_FIGHTERS_MAX) {",
+  "old": "    return Object.keys(s.fighters).length >= SIEGE_FIGHTERS_MAX ? 'the field is full' : null;",
+  "new": "    return Object.keys(s.fighters).length > SIEGE_FIGHTERS_MAX ? 'the field is full' : null;",
   "tests": [
    "test/pvpref_relay.test.js"
   ]
@@ -938,7 +938,7 @@
  {
   "name": "PVPREF-relay-step-unjudged",
   "file": "server/src/index.js",
-  "old": "      if (posed && isBattleRoom(a.key) && a.sub && !(await this._siegeStep(ws, a, m.p, now))) return;\n",
+  "old": "      if (battle && !step) return;\n",
   "new": "",
   "tests": [
    "test/pvpref_relay.test.js"
@@ -947,8 +947,8 @@
  {
   "name": "PVPREF-relay-step-unkept",
   "file": "server/src/index.js",
-  "old": "    f.pose = p; f.poseAt = now;\n    return true;",
-  "new": "    f.poseAt = now;\n    return true;",
+  "old": "    f.pose = p; f.poseAt = now;\n    return 'body';",
+  "new": "    f.poseAt = now;\n    return 'body';",
   "tests": [
    "test/pvpref_relay.test.js"
   ]
@@ -956,8 +956,8 @@
  {
   "name": "PVPREF-relay-no-back",
   "file": "server/src/index.js",
-  "old": "    if (!refereeStep(f.pose, p, now - (f.poseAt ?? now)) || !royalStepOk(s.battle, a.sub, p)) { this._send(ws, JSON.stringify({ t: 'siege', k: 'back', p: f.pose })); return false; }",
-  "new": "    if (!refereeStep(f.pose, p, now - (f.poseAt ?? now)) || !royalStepOk(s.battle, a.sub, p)) return false;",
+  "old": "    if (!royalStepOk(s.battle, a.sub, p) || !refereeStep(f.pose, p, now - (f.poseAt ?? now), f)) { this._send(ws, JSON.stringify({ t: 'siege', k: 'back', p: f.pose })); return false; }",
+  "new": "    if (!royalStepOk(s.battle, a.sub, p) || !refereeStep(f.pose, p, now - (f.poseAt ?? now), f)) return false;",
   "tests": [
    "test/pvpref_relay.test.js"
   ]
@@ -965,7 +965,7 @@
  {
   "name": "PVPREF-relay-spectator-pinned",
   "file": "server/src/index.js",
-  "old": "    if (!f) return true;   // not a fighter: a spectator's camera is its own",
+  "old": "    if (!f) return 'eye';   // not a fighter: a spectator's camera is its own",
   "new": "    if (!f) return false;   // not a fighter: a spectator's camera is its own",
   "tests": [
    "test/pvpref_relay.test.js"

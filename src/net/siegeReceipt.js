@@ -5,11 +5,16 @@
 // a foe earns a signed receipt (`s1.`, the gate's Ed25519 shape), claimed at the account service") and 17 ("its result
 // and Honours are signed receipts the relay keeps").
 //
-//     s1.<base64url({ s, sk, sw, sd, r, a, h, i, e })>.<base64url(64-byte Ed25519 signature)>
+//     s1.<base64url({ s, sk, sw, sd, r, a, h, th, i, e })>.<base64url(64-byte Ed25519 signature)>
 //         s the account (the pass's own)   sk the seat's key   sw the seat week the battle was fought in
 //         sd the side it fought on ('attack' | 'defend')
 //         r the battle's result (SIEGE_RESULTS)   a 1 when the attackers raised a banner (6.8: "a siege nobody fought is
 //         not a victory")   h 1 when this fighter earned Honours (stood half the battle or felled a foe)
+//         th 1 when the attackers REACHED THE THRONE - its progress was ever above nought: they stood alone at it while
+//         it was open (net/siegeRef.js battleStep's `reached`). AUDIT-SEATS T1 (7.3: "A siege held only after the Throne
+//         was reached: -5"; 9.2: "The Throne was never reached"). A Tourney's, a forfeit's and an absence's are 0. Minted
+//         on every receipt; one minted before it carries none and reads as 0 (readSiegeReceipt and verifySiegeReceipt
+//         say `th: 0`), so the service reads `c.th === 1` alone
 //         i issued, epoch seconds   e expires (i + SIEGE_RECEIPT_TTL_S)
 //
 // ONE RECEIPT A FIGHTER, AND EVERY ONE CARRIES THE RESULT: FACT, the relay has no door to the account service, so the
@@ -51,21 +56,25 @@ export function siegeReceiptValid(c) {
   if (c.sd !== 'attack' && c.sd !== 'defend') return false;
   if (!SIEGE_RESULTS.includes(c.r)) return false;
   if ((c.a !== 0 && c.a !== 1) || (c.h !== 0 && c.h !== 1)) return false;
+  if (c.th !== undefined && c.th !== 0 && c.th !== 1) return false;   // AUDIT-SEATS T1: the Throne reached - absent on a receipt minted before it
   if (!Number.isSafeInteger(c.i) || !Number.isSafeInteger(c.e)) return false;
   if (c.e <= c.i || c.e - c.i > SIEGE_RECEIPT_TTL_S) return false;
   return true;
 }
+/** AUDIT-SEATS T1: a receipt's claims as they are read - one minted before `th` reads as 0. */
+const withThrone = (c) => ({ ...c, th: c.th === 1 ? 1 : 0 });
 
 /**
- * MINT - the relay's half. With no key the receipt goes out unsigned (`s1.<body>.`).
- * @param {{s: string, sk: number, sw: number, sd: string, r: string, a: number, h: number}} what
+ * MINT - the relay's half. With no key the receipt goes out unsigned (`s1.<body>.`). AUDIT-SEATS T1: `th` on every one
+ * (0 where the caller says none).
+ * @param {{s: string, sk: number, sw: number, sd: string, r: string, a: number, h: number, th?: number}} what
  * @param {CryptoKey|null} privateKey an Ed25519 private key (net/gateReceipt.js importReceiptKey), or null for none
  * @param {{subtle: SubtleCrypto, nowS: number}} env
  * @returns {Promise<string>}
  */
-export async function mintSiegeReceipt({ s, sk, sw, sd, r, a, h }, privateKey, { subtle, nowS }) {
+export async function mintSiegeReceipt({ s, sk, sw, sd, r, a, h, th = 0 }, privateKey, { subtle, nowS }) {
   if (!Number.isSafeInteger(nowS)) throw new TypeError('mintSiegeReceipt needs an integer epoch-seconds clock');
-  const claims = { s, sk, sw, sd, r, a, h, i: nowS, e: nowS + SIEGE_RECEIPT_TTL_S };
+  const claims = { s, sk, sw, sd, r, a, h, th, i: nowS, e: nowS + SIEGE_RECEIPT_TTL_S };
   if (!siegeReceiptValid(claims)) throw new TypeError('mintSiegeReceipt refused a claim set it could not verify');
   const body = _b64url.encode(enc.encode(JSON.stringify(claims)));
   if (!privateKey) return `${SIEGE_RECEIPT_V}.${body}.`;
@@ -86,7 +95,7 @@ export function readSiegeReceipt(r) {
   if (!raw) return null;
   let c;
   try { c = JSON.parse(dec.decode(raw)); } catch { return null; }
-  return siegeReceiptValid(c) ? { ...c, signed: parts[2].length > 0 } : null;
+  return siegeReceiptValid(c) ? { ...withThrone(c), signed: parts[2].length > 0 } : null;
 }
 
 /**
@@ -117,7 +126,7 @@ export async function verifySiegeReceipt(r, publicKey, { subtle, nowS, skewS = S
   if (!Number.isSafeInteger(nowS)) return { ok: false, why: 'clock' };
   if (nowS >= claims.e) return { ok: false, why: 'expired' };
   if (claims.i > nowS + skewS) return { ok: false, why: 'future' };
-  return { ok: true, claims };
+  return { ok: true, claims: withThrone(claims) };   // AUDIT-SEATS T1: an older receipt's Throne reads as 0
 }
 
 // ═══ CROWN1 part two: A ROYAL TOURNEY'S BOUT (Seats-Arc 7.6) ═══════════════════════════════════════════════════════
@@ -132,7 +141,7 @@ export async function verifySiegeReceipt(r, publicKey, { subtle, nowS, skewS = S
 
 /** The bout receipt's version. */
 export const ROYAL_RECEIPT_V = 't1';
-const ROYAL_FOREIGN = ['sd', 'r', 'a', 'h', 'k', 't', 'o', 'd', 'b', 'w', 'x', 'y', 'c'];
+const ROYAL_FOREIGN = ['sd', 'r', 'a', 'h', 'th', 'k', 't', 'o', 'd', 'b', 'w', 'x', 'y', 'c'];   // AUDIT-SEATS T1: and a siege's Throne
 
 /** Everything a well-formed bout receipt's claims must be, before any signature is considered. */
 export function royalReceiptValid(c) {

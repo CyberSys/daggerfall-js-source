@@ -229,14 +229,14 @@ test('SEAT2a THE RECEIPT: `s1` - the account, the seat and week, its side, the r
   const rc = await mintSiegeReceipt(what, kp.privateKey, { subtle, nowS });
   assert.ok(rc.startsWith('s1.'));
   const v = await verifySiegeReceipt(rc, kp.publicKey, { subtle, nowS });
-  assert.deepEqual(v, { ok: true, claims: { ...what, i: nowS, e: nowS + SIEGE_RECEIPT_TTL_S } });
+  assert.deepEqual(v, { ok: true, claims: { ...what, th: 0, i: nowS, e: nowS + SIEGE_RECEIPT_TTL_S } });   // PIN MOVED (AUDIT-SEATS): T1 - every receipt carries `th`, 0 where the Throne was not reached
   assert.equal(SIEGE_RECEIPT_TTL_S, 7 * 24 * 3600);
   assert.deepEqual([...SIEGE_RESULTS], ['attack', 'defend', 'tie', 'forfeit', 'absent']);
   assert.deepEqual((await verifySiegeReceipt(rc, kp.publicKey, { subtle, nowS: nowS + SIEGE_RECEIPT_TTL_S })), { ok: false, why: 'expired' });
   assert.deepEqual((await verifySiegeReceipt(rc, kp.publicKey, { subtle, nowS: nowS - 60 })), { ok: false, why: 'future' });
   const unsigned = await mintSiegeReceipt(what, null, { subtle, nowS });
   assert.deepEqual(await verifySiegeReceipt(unsigned, kp.publicKey, { subtle, nowS }), { ok: false, why: 'unsigned' });
-  assert.deepEqual(readSiegeReceipt(unsigned), { ...what, i: nowS, e: nowS + SIEGE_RECEIPT_TTL_S, signed: false });
+  assert.deepEqual(readSiegeReceipt(unsigned), { ...what, th: 0, i: nowS, e: nowS + SIEGE_RECEIPT_TTL_S, signed: false });   // PIN MOVED (AUDIT-SEATS): T1 - and `th`
   assert.equal(readSiegeReceipt(rc).signed, true);
   const [, body, sig] = rc.split('.');
   // a signature changed in its first character - never the same signature (CROWN1's fix: replacing the last two with

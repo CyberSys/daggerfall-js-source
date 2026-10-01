@@ -15,7 +15,7 @@ const M = SIEGE_UNITS_PER_M;
 const at = (x, z = 0) => ({ x: x * M, y: 0, z: z * M, yaw: 0, pitch: 0 });
 const where = (p) => p && [p.x, p.y, p.z];
 /** A fighter's look: a Daedric Dai-Katana in hand. */
-const LOOK = { race: 'Nord', gender: 'male', faceIndex: 0, items: [{ templateIndex: 123, group: 'Weapons', equipSlot: 0, material: 9 }] };
+const LOOK = { race: 'Nord', gender: 'male', faceIndex: 0, items: [{ templateIndex: 123, group: 'Weapons', equipSlot: 19, material: 9 }] };   // PIN MOVED (AUDIT-SEATS): R8 - the weapon in the right hand (EquipSlots.RightHand 19); slot 0 is an amulet's, and a weapon there is held no more
 const sieges = (ws, k) => ws.sent.filter((m) => m.t === 'siege' && (!k || m.k === k));
 async function withSiege(fn, start = 1_800_000_000_000) {
   const realNow = Date.now; let clock = start; Date.now = () => clock;
