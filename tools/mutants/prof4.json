@@ -39,8 +39,8 @@
   {
     "name": "PROF4-tree-no-march",
     "file": "src/net/nodeLaw.js",
-    "old": "  let y = roll;\n  if (march) y *= MARCH_MULT;\n  return Math.max(1, wholeYield(y, chance));\n}\n/**\n * A TREE'S FINDS",
-    "new": "  let y = roll;\n  return Math.max(1, wholeYield(y, chance));\n}\n/**\n * A TREE'S FINDS",
+    "old": "  let y = roll;\n  if (march) y *= MARCH_MULT;\n  y *= tideMult;   // SEASON1 part two: the land's Tide on confirmed ground (tideLaw.js tideYield)\n  return Math.max(1, wholeYield(y, chance));\n}\n/**\n * A TREE'S FINDS",
+    "new": "  let y = roll;\n  y *= tideMult;   // SEASON1 part two: the land's Tide on confirmed ground (tideLaw.js tideYield)\n  return Math.max(1, wholeYield(y, chance));\n}\n/**\n * A TREE'S FINDS",
     "tests": [
       "test/prof4_law.test.js"
     ]

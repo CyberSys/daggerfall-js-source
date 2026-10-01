@@ -55,6 +55,8 @@ import { marksOpenFor, balanceOf } from './marks.js';
 import { boardOpenFor } from './board.js';
 import { titheAt } from './seatHolding.js';   // SEAT1d: the bailiwick's Tithe
 import { titheOf } from '../../src/net/townSeatLaw.js';
+import { tideNow } from './tides.js';   // SEASON1 part two: a Bandit Summer's couriers (9.3)
+import { tideCourier } from '../../src/net/tideLaw.js';
 import { profOpenFor, spendStatements, spendOrigins, spendableSql, storeOf } from './professions.js';
 import { REALM_ID_RE, realmActFirst, prepareRealmRecord, mustChange, dropIfUnnamed, recordMovedOf, dropObjects } from './realm.js';   // GOLD-MARKET
 import { payFromSave, creditSave } from '../../src/net/realmGoldLaw.js';   // GOLD-MARKET: a gold sale moves a realm record's gold
@@ -127,14 +129,17 @@ async function hubsAt(db, regions, own) {
   }
   return out;
 }
-/** The courier between two regions: `{ courier, seconds, road }` - nothing on the same region, null with no road. */
-function courierOf(hubs, from, to, units) {
+/** The courier between two regions: `{ courier, seconds, road }` - nothing on the same region, null with no road.
+ *  SEASON1 part two: `slow` the Tide's factor on its seconds where it is bound (tideLaw.js tideCourier). */
+function courierOf(hubs, from, to, units, slow = 1) {
   if (from === to) return { courier: 0, seconds: 0, road: 0 };
   const a = hubs.get(from), b = hubs.get(to);
   if (!a || !b) return null;
   const road = roadPixels(a, b);
-  return { courier: courierFee(units, road), seconds: courierSeconds(road), road };
+  return { courier: courierFee(units, road), seconds: courierSeconds(road) * slow, road };
 }
+/** SEASON1 part two (9.3): a Bandit Summer where a courier is bound, while a Season is counted. */
+const courierSlow = (env, nowS, to) => tideCourier(tideNow(env, nowS, to));
 /** AUDIT 30 S3: whether the ledger already holds this account's line `rid` + `suffix` - a request id spent, though the
  *  row that would answer its repeat was pruned. */
 const spent = async (db, me, rid, suffix) => !!(await db.prepare('SELECT 1 FROM marks_ledger WHERE actor = ?1 AND rid = ?2').bind(me, `${rid}${suffix}`).first());
@@ -507,7 +512,7 @@ export async function marketRead(ctx, player, env, { character, region, view, fa
   };
   const quote = async (rows, unitsOf) => {
     const at = await hubsAt(db, [region, ...rows.map((l) => Number(l.region))], own);
-    return rows.map((l) => courierOf(at, Number(l.region), region, unitsOf(l)));
+    return rows.map((l) => courierOf(at, Number(l.region), region, unitsOf(l), courierSlow(env, nowS, region)));
   };
 
   if (view === 'materials') {
@@ -913,7 +918,7 @@ export async function marketBuy(ctx, player, env, { character, region, listing: 
   if (units > Number(l.own) + Number(l.bought)) return { error: 'market-short' };
   const from = Number(l.region);
   const own = hubsOf(hubs);
-  const road = courierOf(await hubsAt(db, [from, region], own), from, region, units);
+  const road = courierOf(await hubsAt(db, [from, region], own), from, region, units, courierSlow(env, nowS, region));
   if (!road) return { error: 'market-no-road' };
   if (at) return buyWithGold(ctx, player, { character, region, l, units, max, rid, road, own, at, answer });
   const total = units * Number(l.price);
@@ -1520,7 +1525,7 @@ export async function marketBid(ctx, player, env, { character, region, auction: 
   if (amount < next) return { error: 'auction-low' };
   const from = Number(a.region);
   const own = hubsOf(hubs);
-  const road = courierOf(await hubsAt(db, [from, region], own), from, region, 1);
+  const road = courierOf(await hubsAt(db, [from, region], own), from, region, 1, courierSlow(env, nowS, region));
   if (!road) return { error: 'market-no-road' };
   const held = amount + road.courier;
   const bidId = mintId(rand);

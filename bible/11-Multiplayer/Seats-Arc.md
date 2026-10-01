@@ -881,9 +881,13 @@ crown holds always Calm); a Plague's halved Watch and doubled Festival, a Daedri
 week's gate influence doubled after its 900 cap), a Royal Wedding's halved Festival and +3 Standing, a Tax Revolt's -3
 above a 5% Tithe - each read at the seat's own land, the week's Tide for influence and Standing and the coming week's for
 a Festival's price; both Tides on the Seat tab. DECIDED: a Tide rolls only while a Season is counted (`SEASON_ZERO_WEEK`)
-- before, every land is Calm. NOT YET: a Harvest's, a Blight's and a Storm Season's yields, a Bandit Summer's couriers
-(the economy's - part two's next), the Orc Raids' camps and the sea's slowness (the client's), and a Daedric
-Incursion's Marks (a kill's region is the client's word until three agree).
+- before, every land is Calm. BUILT (SEASON1 part two, the economy's, `acct54`): a Harvest's quarter more on the land's
+gathering (herbs, the basket, wood, ore, stone - DECIDED: not the net), a Blight's quarter less on herbs and wood, a
+Storm Season's half again on the net - each on confirmed ground alone, after the March's, as the March is (DECIDED: a
+region named falsely earns no Harvest and dodges no Blight); a Bandit Summer's courier twice as long into its land,
+fixed when it is sent. NOT YET: the Orc Raids' camps and the sea's slowness (the client's), and a Daedric Incursion's
+Marks (a kill's region is the client's word until three agree). DECIDED: the sea (region 31) is no land, so a haul at sea
+meets no Storm Season.
 
 ### 9.4 Why a guild comes back
 

@@ -126,7 +126,14 @@ The first part of guild town control is in. It is open to the developers first, 
   - **Daedric Incursion**: gate kills give double influence.
   - **Royal Wedding**: Festivals cost half, and every held seat gains 3 Standing.
   - **Tax Revolt**: a Tithe above 5% costs 3 more Standing.
-- Harvest, Blight, Storm Season, Bandit Summer and Orc Raids roll already but don't do anything yet; they arrive in a later update.
+- **The Tides that touch the economy:**
+  - **Harvest**: gathering yields a quarter more (herbs, foraging, wood, ore and stone).
+  - **Blight**: herbs and wood yield a quarter less.
+  - **Storm Season**: fishing yields half again.
+  - **Bandit Summer**: couriers into the land take twice as long.
+
+  These count where the witnesses have confirmed the ground, as the Marches' bonus does.
+- Orc Raids rolls already but doesn't do anything yet; it arrives in a later update.
 
 ## Behind the scenes
 - **The registry.** Each client works out the seats from its own game files. When you stand in a seat town, your game reports it to the server once a day. The server trusts a seat once three players whose accounts are at least a week old agree on it exactly.
@@ -136,7 +143,7 @@ The first part of guild town control is in. It is open to the developers first, 
 ---
 
 ### For the team
-- Apply migrations **`0047_town_seats.sql`**, **`0048_seat_influence.sql`**, **`0049_seat_turning.sql`**, **`0050_seat_holding.sql`**, **`0051_seat_battles.sql`**, **`0052_seat_siege_results.sql`**, **`0053_crown_edicts.sql`**, **`0054_royal_tourney.sql`** and **`0055_fealty_pacts.sql`** (with the guild halls' 0045 and 0046, after main's 0044) to production D1 and deploy the account service (**`acct53`**).
+- Apply migrations **`0047_town_seats.sql`**, **`0048_seat_influence.sql`**, **`0049_seat_turning.sql`**, **`0050_seat_holding.sql`**, **`0051_seat_battles.sql`**, **`0052_seat_siege_results.sql`**, **`0053_crown_edicts.sql`**, **`0054_royal_tourney.sql`** and **`0055_fealty_pacts.sql`** (with the guild halls' 0045 and 0046, after main's 0044) to production D1 and deploy the account service (**`acct54`**).
 - **The siege blackout.** The relay's deploy now waits while a siege is live or starts within 30 minutes (it asks the account service's public `/v1/seats/sieges/live`). Dispatch it with **force** to deploy at once - a forced deploy during a siege voids it. The account deploy now waits up to five and a half hours for the relay.
 - **The economy model**: `node tools/seatEconomy.mjs` re-runs the guild-week table from the live law files (`--runs`, `--seed`, `--json`).
 - **Deploy the relay (`world142`).** It sends the Watch's ticks (world138), carries the seats' titles (world139), referees a siege's room (world140), fights its battle by the service's pass (world141) and keeps a Royal Tourney's room (world142). Deploy it before the account service: an older relay refuses a token with a seat title in it.

@@ -71,6 +71,8 @@ import { CLIMATES } from '../../src/formats/mapsTables.js';
 import { seatsOpenFor } from './townSeats.js';   // SEAT1d: the Levy, where the seats are this account's
 import { levyAt } from './seatHolding.js';
 import { levyOf, seatWeekOf } from '../../src/net/townSeatLaw.js';
+import { tideNow } from './tides.js';   // SEASON1 part two: the land's Tide (9.3)
+import { tideYield } from '../../src/net/tideLaw.js';
 
 const DAY_S = 86_400;
 /** The pixels one read may ask after - a streamed 5 x 5. */
@@ -367,6 +369,9 @@ export async function harvestNode(ctx, player, env, body = {}) {
   const rank = rankOfXp(Number(row?.xp ?? 0));
   const specs = specsAt(row, nowS);
   const march = !deep && !isBody && confirmed && isMarch(region);
+  // SEASON1 part two (9.3): the land's Tide this week, on confirmed ground alone - as the March's, so a region named
+  // falsely earns no Harvest and dodges no Blight
+  const tide = !deep && !isBody && confirmed ? tideNow(env, nowS, region) : 'calm';
   const roll = (lo, hi) => lo + Math.floor(dice(rand) * (hi - lo + 1));
   let tier, key2, qty, clean, gem = null, extra = null, extraQty = 1, trophy = 0;
   if (isHaul) {
@@ -380,7 +385,7 @@ export async function harvestNode(ctx, player, env, body = {}) {
     gem = finds.pearl;
     extra = finds.scales;
     trophy = finds.trophy ? 1 : 0;
-    qty = haulYield({ roll: roll(HAUL_YIELD[0], HAUL_YIELD[1]), clean, march, school: net.school, netter: specs[50] === 'netter', slaughterfish: !!finds.scales }, dice(rand));
+    qty = haulYield({ roll: roll(HAUL_YIELD[0], HAUL_YIELD[1]), clean, march, school: net.school, netter: specs[50] === 'netter', slaughterfish: !!finds.scales, tideMult: tideYield(tide, 'haul') }, dice(rand));
   } else if (isBody) {
     // PROF7: THE SKINNING KNIFE - the hide of the foe the client names; a clean pelt x1.5 (the act's bound), a torn one's
     // DFU part lost; the part one body in four; the butchery beside it, a Butcher's two (PROF0 4.4, 29)
@@ -404,7 +409,7 @@ export async function harvestNode(ctx, player, env, body = {}) {
     const c = cutsOf(act, tier, specs[50] === 'lumberjack');
     clean = c.clean;
     key2 = found.material;
-    qty = treeYield({ roll: roll(TREE_YIELD[0], TREE_YIELD[1]), march }, dice(rand));
+    qty = treeYield({ roll: roll(TREE_YIELD[0], TREE_YIELD[1]), march, tideMult: tideYield(tide, 'tree') }, dice(rand));
     const finds = treeFinds({ cuts: c.cuts, confirmed, forester: specs[50] === 'forester' }, () => dice(rand));
     gem = finds.heartwood;
     extra = finds.resin;
@@ -423,7 +428,7 @@ export async function harvestNode(ctx, player, env, body = {}) {
       if (!common && specs[100] === 'apothecarys-friend') { bruised = false; clean = true; }
       qty = herbYield({
         roll: roll(HERB_YIELD[0], HERB_YIELD[1]), common, gardener: specs[50] === 'gardener',
-        seasonMult: herbSeasonMult(patch.herb, daySeason(day)), offSeason: patch.offSeason, bruised, march,
+        seasonMult: herbSeasonMult(patch.herb, daySeason(day)), offSeason: patch.offSeason, bruised, march, tideMult: tideYield(tide, 'herb'),
       }, dice(rand));
     } else {
       tier = 1;
@@ -432,7 +437,7 @@ export async function harvestNode(ctx, player, env, body = {}) {
       const finds = Number.isSafeInteger(act?.finds) ? Math.max(0, Math.min(3, act.finds)) : 0;
       clean = finds >= 3;
       const [lo, hi] = FOOD_YIELD[food.block];
-      qty = foodYield({ roll: roll(lo, hi), step: basketStep(finds), march }, dice(rand));
+      qty = foodYield({ roll: roll(lo, hi), step: basketStep(finds), march, tideMult: tideYield(tide, 'food') }, dice(rand));
     }
   } else {
     // PROF2: THE PICK-AXE - a vein's ore, a boulder's stone, a dungeon vein's deep ore (PROF0 23)
@@ -445,12 +450,12 @@ export async function harvestNode(ctx, player, env, body = {}) {
     const s = strikesOf(act, tier);
     clean = s.clean;
     if (n.kind === 'boulder') {
-      const y = boulderYield({ roll: roll(BOULDER_YIELD[0], BOULDER_YIELD[1]), march, cut: clean || specs[100] === 'stonebreaker' }, dice(rand));
+      const y = boulderYield({ roll: roll(BOULDER_YIELD[0], BOULDER_YIELD[1]), march, cut: clean || specs[100] === 'stonebreaker', tideMult: tideYield(tide, 'boulder') }, dice(rand));
       key2 = y.material;
       qty = y.qty;
     } else {
       key2 = found.material;
-      qty = veinYield({ roll: roll(VEIN_YIELD[0], VEIN_YIELD[1]), deep, deepDelver: specs[50] === 'deep-delver', march }, dice(rand));
+      qty = veinYield({ roll: roll(VEIN_YIELD[0], VEIN_YIELD[1]), deep, deepDelver: specs[50] === 'deep-delver', march, tideMult: tideYield(tide, 'vein') }, dice(rand));
       // a gem: each strike on the glint a chance (a Prospector's x1.1), on ground the witnesses confirmed - one at most
       gem = veinGem({ kind: n.kind, climate, glints: s.glints, confirmed, prospector: specs[50] === 'prospector' }, () => dice(rand));
     }

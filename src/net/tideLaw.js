@@ -93,3 +93,18 @@ export function tideLine(region, now, next) {
   if (!land || !now) return null;
   return `The Tide in ${land} this week: ${tideName(now)} - ${TIDE_WORDS[now][0].toLowerCase()}${TIDE_WORDS[now].slice(1)}${next ? ` Next week: ${tideName(next)}.` : ''}`;
 }
+/** The land's gathering a Harvest raises (9.3: "gathering yields +25%") - every node on the ground: herbs, the basket,
+ *  wood, ore, stone. DECIDED: not the net, whose Tide is the Storm Season's, and never a body (it names no ground). */
+export const HARVEST_KINDS = Object.freeze(['herb', 'food', 'tree', 'vein', 'boulder']);
+/** A TIDE ON A GATHERING'S YIELD (9.3), by what is worked - `kind` a node's ('herb', 'food', 'tree', 'vein', 'boulder')
+ *  or 'haul' (the net): a Harvest a quarter more on the land's gathering, a Blight a quarter less on herbs and wood, a
+ *  Storm Season half again on the net; else 1. The service asks it on confirmed ground alone, as the March's. */
+export function tideYield(tide, kind) {
+  if (tide === 'harvest' && HARVEST_KINDS.includes(kind)) return TIDE_EFFECTS.harvestYield;
+  if (tide === 'blight' && (kind === 'herb' || kind === 'tree')) return TIDE_EFFECTS.blightYield;
+  if (tide === 'storms' && kind === 'haul') return TIDE_EFFECTS.stormsFish;
+  return 1;
+}
+/** A courier's road into a land in a Bandit Summer (9.3: "couriers into the kingdom take twice as long") - the factor on
+ *  its seconds, by the Tide where it is bound. */
+export const tideCourier = (tide) => (tide === 'bandits' ? TIDE_EFFECTS.banditsCourier : 1);

@@ -11225,6 +11225,29 @@ standings' shape (`seat1b_service`), Standing's rows (`seat1d_client`), the acco
 records re-aimed by content (CROWN1's five on the Watch and the Free Lands, SEAT1b's gate cap, SEAT1d's Bounty price,
 SEASON1's standings), all still dead.
 
+### SEASON1 (part two, the economy's) - a Harvest, a Blight, a Storm Season, a Bandit Summer
+
+2026-10-01, Mac: "Finish the seats"; "Continue"; "Hurry up". Law and service; `acct54`, no migration. Seats-Arc 9.3.
+New: `server-account/src/tides.js` (`tideNow` - the seat week's Tide at a region, while a Season is counted).
+
+- **The yields** (`tideLaw.js` `tideYield`, `nodeLaw.js` each yield's `tideMult`): a Harvest a quarter more on the land's
+  gathering - herbs, the basket, wood, ore, stone (`HARVEST_KINDS`; DECIDED: not the net, whose Tide is the Storm
+  Season's); a Blight a quarter less on herbs and wood; a Storm Season half again on the net (before a school's fish is
+  added). Each is taken after the March's and its fraction rolled as every yield's is. A body's hide has no Tide.
+- **Confirmed ground alone** (`harvestNode`): DECIDED, as the March's bonus - on a pixel the witnesses have not confirmed
+  the region is the client's word, so a Harvest named falsely earns nothing and a Blight cannot be dodged by naming
+  another region. A dungeon's vein has no Tide either.
+- **The couriers** (`market.js` `courierOf`'s `slow`, `tideLaw.js` `tideCourier`): a Bandit Summer where a courier is bound
+  doubles its seconds - the read's quote, a buy's arrival and a bid's road alike, fixed when it is sent.
+- DECIDED: the sea (region 31) belongs to no land, so a haul at sea meets no Storm Season; a coast's haul meets its
+  region's land's.
+
+Pinned: `test/tide_economy.test.js` (2 - the law; and through the real Worker a tree felled on confirmed ground in
+Daggerfall's Harvest and Blight weeks, unconfirmed ground, and a courier into Daggerfall in its Bandit Summer, each
+against a twin service counting no Season). `tools/mutants/tide2.json` (26, all dead - one survived the first run: the net's Tide before a
+school's fish was pinned at the dice's top, where the order rounds alike; now at their foot). PIN MOVED: the account version
+pins; two older mutant records (PROF4's tree, PROF8's net) re-aimed by content, still dead.
+
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 
 Mac, asked how quest enemies should work online (each player's quests are their own, so two party members on the
