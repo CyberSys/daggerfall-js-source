@@ -75,7 +75,7 @@ import { getInt } from '../systems/settings.js';   // MAC-O4: Controls/WeaponSwi
 import { MoveAxes } from '../player/moveAxes.js';   // AUDIT 28 W8: MovementAcceleration
 import { CameraRecoiler } from '../player/cameraRecoiler.js';   // AUDIT 28 W9: CameraRecoilStrength
 import { HeadBobber } from '../player/headBobber.js';   // AUDIT 28 W10: HeadBobbing
-import { createClimbFeelHost } from '../player/climbFeel.js';   // CLIMB4: the climb's camera
+import { createClimbFeelHost } from '../player/climbFeel.js'; import { playerClimbStrain } from './hostCombat.js';   // CLIMB4: the climb's camera, and its effort's voice
 import { lastHealthLost, lastHealthLostPercent } from '../ui/hudVitals.js';   // AUDIT 28 W9: the detector's loss
 import { fieldOfView } from '../ui/viewSettings.js';   // MENU: Video/FieldOfView, one home for five hosts
 import { carriedWeight } from '../systems/inventory.js';   // F027 / E4: PlayerEntity.CarriedWeight, the gold counter's term and all
@@ -192,7 +192,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
     ctx.quickLoad = (...args) => { cameraRecoiler.reset(); return _ctxQuickLoad.apply(ctx, args); };
   }
   const headBobber = new HeadBobber();   // AUDIT 28 W10: HeadBobbing
-  const climbFeel = createClimbFeelHost(() => player, cam, lookFilter);   // CLIMB4: the climb's camera (world.js's law)
+  const climbFeel = createClimbFeelHost(() => player, cam, lookFilter, { audio, strain: (r) => playerClimbStrain(playerEntity, r) });   // CLIMB4: the climb's camera and sounds (world.js's law)
   let rightHeld = false;   // AUDIT 28 F-C2: HasAction(SwingWeapon) - the raw button, ungated
   let swingKeyLatch = false;   // MAC-SWING1: the same action, bound to a key or pad code
   // TI1: the touch layer's state. swipeHeld is the swipe's SwingWeapon

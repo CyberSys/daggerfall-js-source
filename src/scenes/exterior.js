@@ -114,7 +114,7 @@ import { createPlayerMagic } from './hostMagic.js';   // M2: spellcasting above 
 import { preloadSpellbookArt, spellbookArtLoaded } from '../ui/spellbookWindow.js';   // U42: the classic art window (retires M2's keyed stand-in)
 import { createSpellbookWindow } from '../ui/spellbookDoor.js';   // PX23: the book's one door
 import { worldMinutes, setWorldMinutes, ownMinutes, sharedClockOn, trustedWorldMinutes } from '../systems/worldTick.js';   // AUDIT 23 (C2): the ONE clock; AUDIT WORLD5 C10 / WORLD7: the quest clocks' played step, this host's word too
-import { tallySwingSkills, SWING_FATIGUE_COST, playerPainVoice, playPlayerVoice, makeEnemiesHostile, isBowWeapon } from './hostCombat.js';   // AUDIT 23 (C14); QX1: GameManager.MakeEnemiesHostile, the quest action's door
+import { tallySwingSkills, SWING_FATIGUE_COST, playerPainVoice, playPlayerVoice, makeEnemiesHostile, isBowWeapon, playerClimbStrain } from './hostCombat.js';   // AUDIT 23 (C14); QX1: GameManager.MakeEnemiesHostile, the quest action's door
 import { exhaustionOutcome } from '../systems/rest.js';   // AUDIT 23 (C5); SWIM-SPENT: the water's line is the outcome's
 import { preloadRestArt } from '../ui/restWindow.js';   // S40: rest above ground   // D3: REST00I0/01I0/02I0
 import { createRestWindow } from '../ui/restDoor.js';   // RESTDOOR1: the enhanced/native fork, same law as ui/tradeDoor.js
@@ -2178,7 +2178,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // optional - a host that forgets it gets the classic sprite and a
     // named reason rather than an arm at the world origin.
     // MW-D10: rule 54's neck pitch; MW-D15: rule 32(a)'s sneak sink.
-    camera: () => ({ pos: player.eyeAt(), yaw: cam.yaw, pitch: cam.pitch, sneaking: !!player.isSneaking, feet: player.pos, climbing: !!(player.climb?.isClimbing || player.mantling),   // HT1
+    camera: () => ({ pos: player.eyeAt(), yaw: cam.yaw, pitch: cam.pitch, sneaking: !!player.isSneaking, feet: player.pos, climbing: !!(player.climb?.isClimbing || player.mantling || player.onWall),   // HT1
       bob: [0, player.bobOffset ? player.bobOffset[1] : 0],   // IG1: the bob's vertical feeds the first-person offset
       move: motionBagOf(player) }),   // MW-D26: the movement-settings vector, the reference's own selection source; MW-D39 added the jump-state inputs; WW2: the one bag (a partial copy left the bob's idle gate unsent)
     spellArmed: () => magic.spellArmed(), abortSpell: () => magic.abortReadySpell(),   // M2: HasReadySpell hides the weapon; MAC-O1: WeaponManager.Update:251 - the key puts a readied spell away and draws
@@ -2762,7 +2762,7 @@ export async function bootExterior(canvas, renderer, params, status) {
   const moveAxes = new MoveAxes();   // AUDIT 28 W8: MovementAcceleration
   const cameraRecoiler = new CameraRecoiler();   // AUDIT 28 W9: CameraRecoilStrength
   const headBobber = new HeadBobber();   // AUDIT 28 W10: HeadBobbing
-  const climbFeel = createClimbFeelHost(() => player, cam, lookFilter);   // CLIMB4: the climb's camera (world.js's law)
+  const climbFeel = createClimbFeelHost(() => player, cam, lookFilter, { audio, strain: (r) => playerClimbStrain(playerEntity, r) });   // CLIMB4: the climb's camera and sounds (world.js's law)
   let rightHeld = false;   // AUDIT 28 F-C2: HasAction(SwingWeapon) - the raw button, ungated
   let swingKeyLatch = false;   // MAC-SWING1: the same action, bound to a key or pad code
   // TI1: the touch layer's state. swipeHeld is the swipe's SwingWeapon

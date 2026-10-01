@@ -26,6 +26,7 @@
 //     toward its side, an up leap looks up; the WALL RUN looks up the wall.
 
 import { PARKOUR_GRIP_LOW } from './parkour.js';
+import { ClimbSounds } from './climbSounds.js';   // the ear's half, framed with the eye's
 
 /** The constants of the feel. Angles in degrees where named _DEG, distances in metres, rates per second. */
 export const FEEL = Object.freeze({
@@ -274,11 +275,14 @@ export function applyClimbView(view, fx) {
  *  firstPerson)` at the view line (the pitch, the roll and the eye - first person only, never the travel view's or a
  *  free camera's), and the lens terms every other pass of the frame takes so its horizon stands where the view's does
  *  (`fovRad()` - the kick, any view; `pitch()` - the pitch the view took). `player` is a thunk: hosts build the handle
- *  beside their bobber, before the motor stands. */
-export function createClimbFeelHost(player, cam, lookFilter) {
+ *  beside their bobber, before the motor stands. With `audio`, the frame also sounds the climb (player/climbSounds.js -
+ *  any view: the ear is the body's), `strain(rolls)` its effort voice (scenes/hostCombat.js playerClimbStrain). */
+export function createClimbFeelHost(player, cam, lookFilter, { audio = null, strain = null } = {}) {
   const law = new ClimbFeel();
+  const sounds = audio ? new ClimbSounds({ audio, strain }) : null;
   return {
     law,
+    sounds,
     fx: null,
     applied: null,
     frame(dt) {
@@ -286,6 +290,7 @@ export function createClimbFeelHost(player, cam, lookFilter) {
       if (!m) return;
       this.fx = law.update(dt, m, cam.yaw);
       if (this.fx.yaw) lookFilter?.turn?.(this.fx.yaw);
+      sounds?.update(dt, m);
     },
     view(view, firstPerson) {
       this.applied = firstPerson && this.fx ? this.fx : null;
@@ -294,6 +299,6 @@ export function createClimbFeelHost(player, cam, lookFilter) {
     },
     fovRad() { return ((this.fx?.fov ?? 0) * Math.PI) / 180; },
     pitch() { return this.applied?.pitch ?? 0; },
-    reset() { law.reset(); this.fx = null; this.applied = null; },
+    reset() { law.reset(); sounds?.reset(); this.fx = null; this.applied = null; },
   };
 }

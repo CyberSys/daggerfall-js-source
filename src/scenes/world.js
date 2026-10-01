@@ -90,7 +90,7 @@ import { calculateCastCost } from '../systems/spellcost.js';   // M2   // T3b
 import { rangedDamageSpells } from '../systems/spellcast.js';   // U42: the flight probe's picker
 import { worldMinutes, setWorldMinutes, setSharedClock, sharedClockOn, sharedWallMs, alignEntityClocks, CLASSIC_MINUTES_PER_SECOND, setWorldPriceTilt, empireJoin, ownMinutes, advanceOwnMinutes, worldNightfallText, hearSharedClock, ownWalkWaiting, trustedWorldMinutes } from '../systems/worldTick.js';   // ECON1 / AUDIT ALL E1: the world's tilt off the file's base powers   // AUDIT 23 (C2): the ONE clock
 import { setSyntheticTimeIncrease } from '../systems/effectBroker.js';   // AUDIT 63 F13: DaggerfallTravelPopUp_OnPostFastTravel (EntityEffectBroker.cs:846-847)
-import { tallySwingSkills, SWING_FATIGUE_COST, playerPainVoice, playPlayerVoice, makeEnemiesHostile, isBowWeapon, enemyHeavyPainVoice } from './hostCombat.js';   // ROAD-B: GameManager.MakeEnemiesHostile
+import { tallySwingSkills, SWING_FATIGUE_COST, playerPainVoice, playPlayerVoice, makeEnemiesHostile, isBowWeapon, enemyHeavyPainVoice, playerClimbStrain } from './hostCombat.js';   // ROAD-B: GameManager.MakeEnemiesHostile
 import { flashPlayerDamage } from '../ui/damageFlash.js';
 import { resetVitalsDetector } from '../ui/hudVitals.js';   // BLOOD AUDIT 5: the load's detector reset   // AUDIT 24 (wave 46): the arrow owes the flash too   // AUDIT 23 (C14)
 import { hudFade } from '../ui/fadeLayer.js';   // D4: performFastTravel's and TeleportAway's fade from black
@@ -2566,7 +2566,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const eye = [cam.pos[0] + _dwEyeOffset[0], cam.pos[1] + _dwEyeOffset[1], cam.pos[2] + _dwEyeOffset[2]];
     const V = lookAt(eye, [eye[0] + forward[0], eye[1] + forward[1], eye[2] + forward[2]], UP_Y);
     const worldAspect = largeHudWorldAspect(canvas.clientWidth, canvas.clientHeight);   // ROAD-E E5: the docked bar's reduced aspect, as the frame's
-    const P = mirrorProjectionX(perspective(fieldOfView(), worldAspect, 0.2, 6000));   // the frame's own lens (HANDEDNESS, mat4's law)
+    const P = mirrorProjectionX(perspective(fieldOfView() + climbFeel.fovRad(), worldAspect, 0.2, 6000));   // the frame's own lens (HANDEDNESS, mat4's law; CLIMB4: its kick)
     const viewport = (q) => {
       const ex = V[0] * q[0] + V[4] * q[1] + V[8] * q[2] + V[12], ey = V[1] * q[0] + V[5] * q[1] + V[9] * q[2] + V[13];
       const ez = V[2] * q[0] + V[6] * q[1] + V[10] * q[2] + V[14], ew = V[3] * q[0] + V[7] * q[1] + V[11] * q[2] + V[15];
@@ -4512,7 +4512,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const headBobber = new HeadBobber();   // AUDIT 28 W10: HeadBobbing
   // CLIMB4: THE FEEL - the climb's camera, one per body as the bobber is: framed after the motor moved (its turn owed to
   // the look filter), its view half laid on the view in first person, its kick and pitch on every lens of the frame
-  const climbFeel = createClimbFeelHost(() => player, cam, lookFilter);
+  const climbFeel = createClimbFeelHost(() => player, cam, lookFilter, { audio, strain: (r) => playerClimbStrain(playerEntity, r) });   // ...and its sounds
 
   /** U53's one-builder law: ONE place changes the mode, and both the
    *  T-key pick and the interior hosts' dismount take it. TR5. */
@@ -7949,7 +7949,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // doing - and the pitch already proved that is the seam every host
     // has. Morrowind's Sneak STANCE, which is DFU's Sneak binding; its
     // Crouch is a collider height, not an animation state.
-    camera: () => ({ pos: player.eyeAt(), yaw: cam.yaw, pitch: cam.pitch, sneaking: !!player.isSneaking, feet: player.pos, climbing: !!(player.climb?.isClimbing || player.mantling),   // HT1: the body's centre and the climb, for the torch
+    camera: () => ({ pos: player.eyeAt(), yaw: cam.yaw, pitch: cam.pitch, sneaking: !!player.isSneaking, feet: player.pos, climbing: !!(player.climb?.isClimbing || player.mantling || player.onWall),   // HT1: the body's centre and the climb, for the torch
       // IG1: the head bob's VERTICAL feeds the first-person offset (the
       // reference's head_bobbing.lua drives setFirstPersonOffset's z
       // only); bobOffset[1] is the raw vertical, un-rotated.

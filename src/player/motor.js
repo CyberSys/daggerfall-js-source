@@ -89,8 +89,10 @@ export function motionBagOf(player) {
     grounded: player.grounded !== false, jumping: !!player.jumping, swimming: !!player.swimming, levitating: !!player.levitating,
     crouching: !!player.crouching, riding: !!player.riding, standing: !!player.standing, speedField: player.speed || 0,
     // AUDIT CLIMB1 F9: the climb - the classic one or a mantle in flight - for what puts the hands away for it (the
-    // dungeon host's torch read `climbing` off this bag, which never carried it: no torch stowed on a dungeon wall)
-    climbing: !!(player.climb?.isClimbing || player.mantling),
+    // dungeon host's torch read `climbing` off this bag, which never carried it: no torch stowed on a dungeon wall).
+    // CLIMB4: and a hold on the wall (the hang, the free climb) - both hands on the stone: the weapon lowered, the
+    // torch stowed, the shield down
+    climbing: !!(player.climb?.isClimbing || player.mantling || player.onWall),
     // EOTB-IL: what Eye Of The Beholder's PlayerBillboard reads off PlayerMotor beside the above - the sneak
     // (its frame time doubles), FreezeMotor (a frozen motor is "stopped"), OnExteriorWater == Swimming (the sprite's
     // top at the swim line), and the live capsule height (the billboard's parent is the capsule's centre)
@@ -1884,7 +1886,7 @@ export class PlayerMotor {
   /** CLIMB2: the hands let go. A Jump still held catches nothing until it is
    *  pressed afresh - it would take back the lip just dropped from. */
   _wallEnd() {
-    if (this._wall) this._pkEmit('release', { normal: [...this._wall.normal] });
+    if (this._wall) this._pkEmit('release', { mode: this._wall.mode, normal: [...this._wall.normal] });
     this._wall = null;
     this._pkArm = null;   // ...and a let-go arms nothing: only a fresh press catches again
     this._pkDropReq = false;
@@ -2065,6 +2067,15 @@ export class PlayerMotor {
   _pkEmit(type, data = null) {
     this.climbEvents.push(data ? { type, ...data } : { type });
   }
+  /** CLIMB4: a move's event - its kind and time, its rise and its split (where the hands take the lip: the sounds'), the
+   *  speed the body came to it at, the turn a corner makes, its way, and the wall it ends on. */
+  _pkMoveEvent(move, speed) {
+    this._pkEmit('move', {
+      kind: move.kind, dur: move.dur, rise: move.to[1] - move.from[1], split: move.split ?? 0.5, speed, turn: move.turn ?? 0,
+      way: [move.to[0] - move.from[0], move.to[2] - move.from[2]], normal: move.hang ? [...move.hang.normal] : move.wall ? [...move.wall.normal] : null,
+    });
+  }
+
 
   /** CLIMB3: the running leap's launch [along, up] for the Jumping skill the deps read. */
   _pkRunLeapSpeeds(pk) {
@@ -2317,11 +2328,7 @@ export class PlayerMotor {
    *  own clock, so it is down before the body passes under anything. */
   _parkourBegin(move) {
     // CLIMB4: the move begins - and the speed the body came to it at (a catch's impact: the feel's dip, the sound's weight)
-    const speed = Math.hypot(this.velY, this._airVelX, this._airVelZ);
-    this._pkEmit('move', {
-      kind: move.kind, dur: move.dur, rise: move.to[1] - move.from[1], speed, turn: move.turn ?? 0,
-      way: [move.to[0] - move.from[0], move.to[2] - move.from[2]], normal: move.hang ? [...move.hang.normal] : move.wall ? [...move.wall.normal] : null,
-    });
+    this._pkMoveEvent(move, Math.hypot(this.velY, this._airVelX, this._airVelZ));
     this._pkUnsink();
     this._pkArm = null;   // the tap catch: the press is spent on the move
     this._pkLeap = null;  // CLIMB3: a leap's flight ends in what it caught
@@ -2384,6 +2391,7 @@ export class PlayerMotor {
       const nx = m.next;
       nx.carrier = nx.key != null ? (this.collider.bucketPose?.(nx.key) ?? null) : null;
       this._pkMove = nx;
+      this._pkMoveEvent(nx, 0);   // CLIMB4: told as its own move - the feel looks down over the edge, not up a second sill
     } else if (m.t >= 1) {
       this._pkMove = null;
       if (m.hang && this._wall) {

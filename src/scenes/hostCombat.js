@@ -362,6 +362,21 @@ export function playerAttackGrunt(playerEntity, isBow, rolls = Math.random) {
   });
 }
 
+/** CLIMB4 (the Enhanced Climbing arc - bible/03-World/Parkour-Arc.md): the player's EFFORT on a hard climb - a pull-up
+ *  from a hang, a leap's launch, a fall caught, the grip gone - in the attack grunt's own voice: the port's departure
+ *  (DFU's climber climbs in silence), so it rides the attack grunt's gates exactly (the CombatVoices switch, a
+ *  transformed lycanthrope's silence) and its clip (a vampire's override, else GetRaceGenderAttackSound by race and
+ *  gender). WHEN is the caller's (player/climbSounds.js: a chance per move, never two within seconds). Returns
+ *  { clip, pitchLift } or null. */
+export function playerClimbStrain(playerEntity, rolls = Math.random) {
+  if (!playerEntity || !combatVoicesEnabled() || suppressOptionalCombatVoices(playerEntity)) return null;
+  const vamp = vampireAttackVoice(playerEntity, rolls);
+  if (vamp != null) return { clip: vamp, pitchLift: 0 };
+  return playerVoice({
+    race: RACES[playerEntity.race] ?? 1, gender: playerEntity.gender ?? 'male', isAttack: true, rolls,
+  });
+}
+
 /**
  * PlayerFootsteps.RemoveHealth (:347-364) - the player's pain voice,
  * which the port had never played. The clip tables were ported with

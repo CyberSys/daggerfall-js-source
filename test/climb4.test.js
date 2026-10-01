@@ -2,13 +2,28 @@
 // detai. Liike proer feel to climbing"): THE FEEL. The motor's climb events (motor.js _pkEmit), the camera's law over
 // them (player/climbFeel.js - the catch's dip, the sway, the shimmy's and the free climb's rhythm, the pull-up's look,
 // the lower's and the corner's and the eject's turn, the leap's kick, the grip's tremble), its view half
-// (applyClimbView), the look filter's turn, and every host that draws a first-person view applying it.
+// (applyClimbView), the look filter's turn, and every host that draws a first-person view applying it. And THE
+// SOUNDS (player/climbSounds.js, F9-F15): the eleven clips of our own (tools/climbSfx.mjs), registered once; the catch,
+// the hands and boots on the wall, every move's cues on its own clock, the grip failing and gone, the effort's voice
+// (hostCombat.playerClimbStrain) - and the port's own sounds' switch over all of it.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { PlayerMotor } from '../src/player/motor.js';
 import { Collider } from '../src/player/collider.js';
-import { ClimbFeel, applyClimbView, FEEL, bump, tremble } from '../src/player/climbFeel.js';
+import { ClimbFeel, applyClimbView, FEEL, bump, tremble, createClimbFeelHost } from '../src/player/climbFeel.js';
+import { ClimbSounds, CLIMB_SFX, CLIMB_SFX_FILES, CLIMB_SOUND, installClimbSounds, _resetClimbSounds, moveCues } from '../src/player/climbSounds.js';
+import { enhancedSoundsOn } from '../src/systems/enhancedSounds.js';
+import { playerClimbStrain, playerAttackGrunt } from '../src/scenes/hostCombat.js';
+import { getBool, setValue, resetToDefaults } from '../src/systems/settings.js';
+import { createWeaponRig, climbLowerStep, climbDrop, climbLowerRect, CLIMB_LOWER_TAU, CLIMB_LOWER_GONE } from '../src/combat/weaponRig.js';
+import { setModSetting, _resetModSettings } from '../src/systems/modSettings.js';
+import { EQUIP_SLOTS } from '../src/systems/equip.js';
+import { motionBagOf } from '../src/player/motor.js';
 import { LookFilter, takeFrameLook } from '../src/player/lookFilter.js';
 import { lookAt } from '../src/world/mat4.js';
 import { PARKOUR_GRIP_LOW } from '../src/player/parkour.js';
@@ -184,7 +199,7 @@ test('CLIMB4 F7: the look filter takes the climb\'s turn as owed look - paid out
 test('CLIMB4 F8: every host that draws a first-person view frames the feel after its motor and lays its view half on the view - first person only - and the climb\'s kick and pitch on every lens of the frame', () => {
   const read = (f) => readFileSync(new URL(`../src/scenes/${f}.js`, import.meta.url), 'utf8');
   const w = read('world');
-  assert.match(w, /const climbFeel = createClimbFeelHost\(\(\) => player, cam, lookFilter\);/, 'world: one per body, the look filter its turn\'s');
+  assert.match(w, /const climbFeel = createClimbFeelHost\(\(\) => player, cam, lookFilter[,)]/, 'world: one per body, the look filter its turn\'s');
   assert.ok(w.indexOf('climbFeel.frame(dt);') > w.lastIndexOf('cam.pos = player.eyeAt();', w.indexOf('climbFeel.frame(dt);')), 'world: framed after the eye');
   assert.match(w, /const view = betterAmbience\.view\(lookAt\(mwv\.eye[^\n]*\n\s*climbFeel\.view\(view, !tvf && !mwv\.thirdPerson\);/, 'world: the view half, first person, never the travel view');
   assert.match(w, /perspective\(fieldOfView\(\) \+ climbFeel\.fovRad\(\), worldAspect/, 'world: the kick on the lens');
@@ -197,15 +212,425 @@ test('CLIMB4 F8: every host that draws a first-person view frames the feel after
   assert.match(wm, /const view = betterAmbience\.view\(lookAt\(mwv\.eye[^\n]*\n\s*host\.climbFeel\?\.view\(view, !decorTool\.flying\(\) && !mwv\.thirdPerson\);/, 'worldModes: the view half, never the decorator\'s free camera');
   assert.match(wm, /perspective\(fieldOfView\(\) \+ \(host\.climbFeel\?\.fovRad\(\) \?\? 0\)/, 'worldModes: the kick');
   const ex = read('exterior');
-  assert.match(ex, /const climbFeel = createClimbFeelHost\(\(\) => player, cam, lookFilter\);/);
+  assert.match(ex, /const climbFeel = createClimbFeelHost\(\(\) => player, cam, lookFilter[,)]/);
   assert.match(ex, /climbFeel\.view\(view, walkMode && !riding && !mwv\.thirdPerson\);/, 'exterior: first person, never the ride view');
   assert.match(ex, /fieldOfView\(\) \+ climbFeel\.fovRad\(\),/);
   assert.match(ex, /sky\.draw\(Math\.atan2\(dx, dz\), Math\.atan2\(dy, horiz\) \+ climbFeel\.pitch\(\), fieldOfView\(\) \+ climbFeel\.fovRad\(\)/);
   const dg = read('dungeon');
-  assert.match(dg, /const climbFeel = createClimbFeelHost\(\(\) => player, cam, lookFilter\);/);
+  assert.match(dg, /const climbFeel = createClimbFeelHost\(\(\) => player, cam, lookFilter[,)]/);
   assert.match(dg, /climbFeel\.view\(view, walkMode && !mwv\.thirdPerson\);/, 'dungeon: first person, never the fly-cam');
   assert.match(dg, /perspective\(fieldOfView\(\) \+ climbFeel\.fovRad\(\)/);
   for (const [f, s] of [['world', w], ['exterior', ex], ['dungeon', dg]]) {
     assert.ok(s.indexOf('climbFeel.frame(dt);') > s.lastIndexOf('cam.pos = player.eyeAt();', s.indexOf('climbFeel.frame(dt);')), `${f}: framed after the eye`);
   }
+});
+
+// ---- THE SOUNDS ----------------------------------------------------------------------------------------------------
+
+const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..');
+/** A WAV's header, read as DAGGER.SND's bake writes it. */
+function wavHeader(bytes) {
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const tag = (o) => String.fromCharCode(...bytes.subarray(o, o + 4));
+  return { riff: tag(0), wave: tag(8), fmt: tag(12), format: dv.getUint16(20, true), channels: dv.getUint16(22, true), rate: dv.getUint32(24, true), bits: dv.getUint16(34, true), data: tag(36), dataLen: dv.getUint32(40, true) };
+}
+/** The bus as a pin hears it: every one-shot, [key, volume, pitch]. */
+function bus() {
+  const shots = [];
+  return { shots, playOneShot: (k, v = 1, p = 1) => { shots.push([k, v, p]); } };
+}
+/** A dice that answers `v` (0: every chance taken, a key's first pick; 0.99: none). */
+const dice = (v) => () => v;
+/** The law on a pin's bus: on, no loading, its dice and its effort voice set by the test. */
+function ear({ rand = dice(0.5), strain = null, on = () => true } = {}) {
+  const audio = bus();
+  return { audio, law: new ClimbSounds({ audio, rand, strain, on, install: false }) };
+}
+const kind = (k) => (k ? String(k).replace(/^climb:/, '').replace(/-\d$/, '') : k);
+const heard = (audio) => audio.shots.map(([k]) => (typeof k === 'number' ? `voice:${k}` : kind(k)));
+const step = (law, m, ev = [], dt = 1 / 60) => { m.climbEvents = ev; law.update(dt, m); m.climbEvents = []; };
+
+test('CLIMB4 F9: the eleven clips - one file a key, each shipped as DAGGER.SND\'s own (PCM, mono, 8-bit, 11025 Hz), whole, on the provenance page, and baked deterministically: tools/climbSfx.mjs writes the shipped bytes (mutants: a key without a file, an unseeded noise)', () => {
+  const keys = Object.values(CLIMB_SFX).flat();
+  assert.equal(keys.length, 11, 'eleven clips');
+  assert.deepEqual(Object.keys(CLIMB_SFX_FILES).sort(), keys.slice().sort(), 'a file for every key');
+  assert.equal(new Set(Object.values(CLIMB_SFX_FILES)).size, keys.length, 'one file a key');
+  const sources = readFileSync(join(ROOT, 'public/sfx/SOURCES.md'), 'utf8');
+  for (const file of Object.values(CLIMB_SFX_FILES)) {
+    const bytes = readFileSync(join(ROOT, 'public/sfx', file));
+    const h = wavHeader(bytes);
+    assert.deepEqual([h.riff, h.wave, h.fmt, h.data], ['RIFF', 'WAVE', 'fmt ', 'data'], file);
+    assert.deepEqual([h.format, h.channels, h.rate, h.bits], [1, 1, 11025, 8], `${file}: DAGGER.SND's format`);
+    assert.equal(h.dataLen, bytes.length - 44, `${file}: whole`);
+    assert.ok(h.dataLen > 11025 * 0.05, `${file}: a sound, not a click`);
+    assert.ok(sources.includes(`\`${file}\``), `${file}: its provenance row`);
+  }
+  const dir = mkdtempSync(join(tmpdir(), 'climbsfx-'));
+  try {
+    execFileSync(process.execPath, [join(ROOT, 'tools/climbSfx.mjs')], { cwd: dir, stdio: 'pipe' });
+    for (const f of Object.values(CLIMB_SFX_FILES)) {
+      assert.ok(readFileSync(join(dir, 'public/sfx', f)).equals(readFileSync(join(ROOT, 'public/sfx', f))), `${f}: the bake's bytes`);
+    }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('CLIMB4 F10: the clips register on the bus once - under their keys, a clip that will not load is silence and the rest still take, and a bus with no door loads nothing', async () => {
+  _resetClimbSounds();
+  const regs = [];
+  const audio = { registerSound: async (k) => { regs.push(k); return k !== 'climb:pull'; } };
+  const fetchBytes = async (file) => { if (file === 'climb-whoosh.wav') throw new Error('404'); return new Uint8Array(8); };
+  assert.equal(await installClimbSounds(audio, { fetchBytes }), 9, 'nine took: one the decoder refused, one never came');
+  assert.equal(regs.length, 10, 'each key offered once (the one that never came, never)');
+  assert.ok(regs.every((k) => k in CLIMB_SFX_FILES));
+  assert.equal(await installClimbSounds(audio, { fetchBytes }), 9, 'once: the second call answers the first');
+  assert.equal(regs.length, 10, '...and offers nothing again');
+  _resetClimbSounds();
+  assert.equal(await installClimbSounds({}, { fetchBytes }), 0, 'no registerSound, no load');
+  _resetClimbSounds();
+});
+
+test('CLIMB4 F11: a catch - both hands and the body, louder the faster it came (to its most); a hard one (a fall caught) wrings the player\'s effort, spent with its lift, a soft one never - and never two within STRAIN_GAP_S (mutants: the speed ignored, the gap dropped)', () => {
+  const C = CLIMB_SOUND;
+  for (const [speed, vol] of [[0, C.CATCH_BASE], [4, C.CATCH_BASE + 4 * C.CATCH_PER_SPEED], [30, C.CATCH_MAX]]) {
+    const { audio, law } = ear();
+    step(law, fake({ climbMove: { t: 0 } }), [{ type: 'move', kind: 'catch', speed, split: 1, dur: 0.15 }]);
+    assert.equal(audio.shots.length, 1, `speed ${speed}: one sound`);
+    const [k, v, p] = audio.shots[0];
+    assert.equal(k, 'climb:catch');
+    assert.ok(near(v, vol, 1e-9), `speed ${speed}: volume ${v} (want ${vol})`);
+    assert.ok(Math.abs(p - 1) <= C.PITCH_JITTER + 1e-9, 'its pitch moved no more than the jitter');
+  }
+  const voices = [];
+  const strain = (rolls) => { voices.push(rolls); return { clip: 77, pitchLift: 0.2 }; };
+  const { audio, law } = ear({ rand: dice(0), strain });
+  const m = fake({ climbMove: { t: 0 } });
+  step(law, m, [{ type: 'move', kind: 'catch', speed: 3, split: 1 }]);
+  assert.deepEqual(heard(audio), ['catch'], 'a soft catch: no effort');
+  step(law, m, [{ type: 'move', kind: 'catch', speed: 8, split: 1 }]);
+  assert.deepEqual(heard(audio), ['catch', 'catch', 'voice:77'], 'a hard one: the effort');
+  assert.deepEqual(audio.shots[2].slice(1), [C.STRAIN, 1.2], 'at the effort\'s volume, its lift spent (AUDIT 58)');
+  step(law, m, [{ type: 'move', kind: 'catch', speed: 8, split: 1 }]);
+  assert.equal(heard(audio).filter((h) => h.startsWith('voice')).length, 1, 'never two within the gap');
+  for (let i = 0; i < Math.ceil(C.STRAIN_GAP_S * 20); i++) step(law, m, [], 1 / 20);
+  step(law, m, [{ type: 'move', kind: 'catch', speed: 8, split: 1 }]);
+  assert.equal(heard(audio).filter((h) => h.startsWith('voice')).length, 2, 'and again once the gap has passed');
+});
+
+test('CLIMB4 F12: hand over hand - a hand at every reach the camera rolls with, a boot half a reach after, never the same clip twice running; the shimmy a hand per span along the lip and none for the body going up or down; a teleport is no travel (mutants: the reach, the boots, the repeat)', () => {
+  const C = CLIMB_SOUND;
+  {
+    const { audio, law } = ear({ rand: dice(0) });
+    const m = fake({ onWall: true, hanging: false, wallNormal: [0, 0, -1], pos: [0, 1, 0] });
+    step(law, m);
+    for (let i = 0; i < 200; i++) { m.pos = [0, 1 + 0.01 * (i + 1), 0]; step(law, m); }   // 2.0 m up
+    const hands = audio.shots.filter(([, v]) => v === C.STEP), feet = audio.shots.filter(([, v]) => v === C.FOOT);
+    assert.equal(hands.length, Math.floor(2.0 / FEEL.REACH + 1e-9), `a hand every ${FEEL.REACH} m: ${hands.length}`);
+    assert.equal(feet.length, Math.floor(2.0 / FEEL.REACH - 0.5 + 1e-9) + 1, 'a boot half a reach after each');
+    assert.ok(feet.every(([, , p]) => Math.abs(p - C.FOOT_PITCH) <= C.FOOT_PITCH * C.PITCH_JITTER + 1e-9), 'the boots lower');
+    assert.ok(audio.shots.every(([k]) => CLIMB_SFX.step.includes(k)), 'the step clips');
+    for (let i = 1; i < audio.shots.length; i++) assert.notEqual(audio.shots[i][0], audio.shots[i - 1][0], 'never the clip just heard');
+    const n = audio.shots.length;
+    m.pos = [0, 9, 0]; step(law, m);
+    assert.equal(audio.shots.length, n, 'a teleport: no travel, no hands');
+  }
+  {
+    const { audio, law } = ear();
+    const m = fake({ onWall: true, hanging: true, wallNormal: [0, 0, -1], pos: [0, 2, 0] });
+    step(law, m);
+    for (let i = 0; i < 100; i++) { m.pos = [0.01 * (i + 1), 2, 0]; step(law, m); }   // 1.0 m along
+    assert.equal(audio.shots.length, Math.floor(1.0 / FEEL.SHIMMY_SPAN + 1e-9), 'a hand every span along the lip');
+    assert.ok(audio.shots.every(([, v, p]) => v === C.SHIMMY && Math.abs(p - C.SHIMMY_PITCH) <= C.SHIMMY_PITCH * C.PITCH_JITTER + 1e-9));
+    const n = audio.shots.length;
+    for (let i = 0; i < 100; i++) { m.pos = [1, 2 + 0.01 * (i + 1), 0]; step(law, m); }
+    assert.equal(audio.shots.length, n, 'hanging, up and down is no shimmy');
+  }
+});
+
+test('CLIMB4 F13: every move sounds on its own clock - a pull-up\'s haul (the hands already on the lip from a hang, onto it from the ground) and the boots over the sill at its split, a step-up a hand and a scuff, the vault, the lower, the corner, the wall run; a leap\'s push and rush at the launch and its grab only at its arrival, with no second grab for the hold; a move chained on pays what the last still owed (mutants: the cues all at once, the arrival\'s double grab)', () => {
+  const C = CLIMB_SOUND;
+  // a pull-up from a hang, on its clock
+  {
+    const { audio, law } = ear({ rand: dice(0), strain: () => ({ clip: 5, pitchLift: 0 }) });
+    const m = fake({ climbMove: { t: 0 } });
+    step(law, m, [{ type: 'release', mode: 'hang' }, { type: 'move', kind: 'mantle', rise: 1.5, split: 0.6, dur: 0.8 }]);
+    assert.deepEqual(heard(audio), [], 'from a hang the hands hold the lip already - nothing at t 0, and no let-go');
+    m.climbMove.t = 0.3; step(law, m);
+    assert.deepEqual(heard(audio), ['pull', 'voice:5'], 'the haul, and its effort');
+    assert.equal(audio.shots[0][1], C.PULL, 'the whole haul');
+    m.climbMove.t = 0.59; step(law, m);
+    assert.equal(audio.shots.length, 2, 'the sill not yet');
+    m.climbMove.t = 0.61; step(law, m);
+    assert.deepEqual(heard(audio), ['pull', 'voice:5', 'scrape'], 'the boots over the sill at the split');
+    m.climbMove = null; step(law, m);
+    assert.equal(audio.shots.length, 3, 'onto the top: the stride\'s step is the stride\'s');
+  }
+  const play = (ev, ts, { arrive = null } = {}) => {
+    const { audio, law } = ear({ rand: dice(0) });
+    const m = fake({ climbMove: { t: 0 } });
+    step(law, m, ev);
+    for (const t of ts) { m.climbMove.t = t; step(law, m); }
+    m.climbMove = null;
+    step(law, m, arrive ? [arrive] : []);
+    return audio;
+  };
+  assert.deepEqual(heard(play([{ type: 'move', kind: 'mantle', rise: 1.5, split: 0.6 }], [0.3, 0.7])), ['grab', 'pull', 'scrape'], 'from the ground the hands go onto the lip first');
+  assert.deepEqual(heard(play([{ type: 'move', kind: 'mantle', rise: 0.5, split: 0.5 }], [0.3, 0.7])), ['grab', 'scrape'], 'a step-up: a hand and a scuff, no haul');
+  const vault = play([{ type: 'move', kind: 'vault', rise: 0.9, split: 0.4 }], [0.2, 0.3, 0.5]);
+  assert.deepEqual(heard(vault), ['grab', 'whoosh'], 'the vault: a hand on the top, the body over it');
+  assert.deepEqual(heard(play([{ type: 'move', kind: 'lower', rise: -1.5, split: 0.4 }], [0.1, 0.5, 0.95])), ['scrape', 'grab', 'step'], 'the lower: over the edge, the hands take it, the boots meet the wall');
+  assert.deepEqual(heard(play([{ type: 'move', kind: 'corner', split: 0.5 }], [0.3, 0.8])), ['step', 'step'], 'a corner: two hands round it');
+  assert.deepEqual(heard(play([{ type: 'move', kind: 'wallrun', rise: 1.5, split: 0.5 }], [0.2, 0.4, 0.6], { arrive: { type: 'hold', mode: 'hang' } })),
+    ['whoosh', 'step', 'step', 'step', 'grab'], 'the wall run: boots up the wall, the hands at the top');
+  // a leap: the push and the rush at once, the grab only at the arrival - and only the one
+  {
+    const { audio, law } = ear({ rand: dice(0.99) });
+    const m = fake({ climbMove: { t: 0 } });
+    step(law, m, [{ type: 'release', mode: 'hang' }, { type: 'move', kind: 'leap', rise: 0.2, split: 0.3 }]);
+    assert.deepEqual(heard(audio), ['step'], 'the push');
+    m.climbMove.t = 0.5; step(law, m);
+    assert.deepEqual(heard(audio), ['step', 'whoosh'], 'the rush');
+    m.climbMove.t = 0.97; step(law, m);
+    assert.equal(audio.shots.length, 2, 'no grab in the air');
+    m.climbMove = null; step(law, m, [{ type: 'hold', mode: 'hang' }]);
+    assert.deepEqual(heard(audio), ['step', 'whoosh', 'grab'], 'the hands take the far hold - once');
+    assert.equal(audio.shots[2][1], C.GRAB * 1.2);
+  }
+  // a hold with no move (the free climb begun from the ground) is a hand on the wall
+  {
+    const { audio, law } = ear();
+    step(law, fake({ onWall: true }), [{ type: 'hold', mode: 'climb' }]);
+    assert.deepEqual(heard(audio), ['grab']);
+  }
+  // a move chained on: the last one's owed cues first
+  {
+    const { audio, law } = ear();
+    const m = fake({ climbMove: { t: 0 } });
+    step(law, m, [{ type: 'move', kind: 'mantle', rise: 1.1, split: 0.8 }]);
+    m.climbMove.t = 0.5; step(law, m);
+    m.climbMove = { t: 0 };
+    step(law, m, [{ type: 'move', kind: 'lower', rise: -1.4, split: 0.4 }]);
+    assert.deepEqual(heard(audio), ['grab', 'pull', 'scrape', 'scrape'], 'the parapet\'s sill, then over the edge');
+  }
+  // the cue table itself: sorted, every time within the move
+  for (const k of ['catch', 'mantle', 'vault', 'lower', 'corner', 'leap', 'wallrun']) {
+    const cues = moveCues({ kind: k, rise: 1.5, split: 0.5, speed: 6 }, null);
+    assert.ok(cues.length > 0 && cues.every(([t], i) => t >= 0 && t <= 1 && (i === 0 || t >= cues[i - 1][0])), `${k}: cues in order, within the move`);
+  }
+});
+
+test('CLIMB4 F13b: the motor tells every move it makes - the release says the hold it let go (hang or climb), a move its split, and a move chained on (over a parapet, down into the hang) is told as its own, so the camera looks down over the edge and does not look up a second sill', () => {
+  // the tower and the climb over its parapet (CLIMB-DOWN T7's)
+  const col = new Collider(() => 0);
+  let n = 0;
+  const box = (...b) => col.addMesh(`b${n++}`, new Float32Array([b[0], b[1], b[2], b[3], b[1], b[2], b[3], b[4], b[2], b[0], b[4], b[2], b[0], b[1], b[5], b[3], b[1], b[5], b[3], b[4], b[5], b[0], b[4], b[5]]), BOX_IDX, I);
+  const H = 8, ph = 1.0, pw = 0.25;
+  box(-3, 0, -3, 3, H, 3);
+  box(-3, H, -3, 3, H + ph, -3 + pw); box(-3, H, 3 - pw, 3, H + ph, 3); box(-3, H, -3, -3 + pw, H + ph, 3); box(3 - pw, H, -3, 3, H + ph, 3);
+  const m = climber(col);
+  m.spawn(0, 8.02, 0);
+  const feel = new ClimbFeel();
+  const seen = [];
+  let lowerPitch = 0, inLower = false;
+  for (let i = 0; i < 300; i++) {
+    m.update(1 / 60, { ...blank, forward: m.pos[2] > -2.25 && !m._pkMove && !m._wall ? 1 : 0, jump: m.pos[2] <= -2.25 && !m._pkMove && !m._wall }, Math.PI);
+    for (const e of m.climbEvents) seen.push(e);
+    const fx = feel.update(1 / 60, m, Math.PI);
+    if (m._pkMove?.kind === 'lower') { inLower = true; lowerPitch = Math.min(lowerPitch, fx.pitch); }
+    if (inLower && m.hanging) break;
+  }
+  const moves = seen.filter((e) => e.type === 'move');
+  assert.deepEqual(moves.map((e) => e.kind).slice(0, 2), ['mantle', 'lower'], 'the chained lower told as its own move');
+  assert.ok(moves.every((e) => Number.isFinite(e.split) && e.split >= 0 && e.split <= 1), 'each with its split');
+  assert.ok(lowerPitch < -2 * DEG, `the lower looks down over the edge (${(lowerPitch / DEG).toFixed(1)} deg)`);
+  assert.ok(m.hanging, 'into the hang');
+  // Crouch lets the hang go: the release says it was a hang
+  const rel = [];
+  for (let i = 0; i < 5 && m.onWall; i++) { m.update(1 / 60, { ...blank, crouch: true }, Math.PI); rel.push(...m.climbEvents); }
+  assert.ok(rel.some((e) => e.type === 'release' && e.mode === 'hang'), 'the release names the hold let go');
+});
+
+test('CLIMB4 F14: the grip failing - grit coming away, and again every few seconds while it holds on the wall, none off it; the grip gone - the boots scrabbling, the stone giving, the effort; a let-go the hands leaving the stone; a release into a move nothing of its own (mutants: the trickle\'s clock, the slip\'s cry)', () => {
+  const C = CLIMB_SOUND;
+  {
+    const { audio, law } = ear();
+    const m = fake({ onWall: true, hanging: true, grip: PARKOUR_GRIP_LOW - 0.05, wallNormal: [0, 0, -1] });
+    step(law, m, [{ type: 'gripLow' }]);
+    assert.deepEqual(audio.shots.map(([k, v]) => [k, v]), [['climb:crumble', C.CRUMBLE]], 'the grit coming away');
+    for (let i = 0; i < 600; i++) step(law, m);   // ten seconds held
+    const trickles = audio.shots.slice(1);
+    assert.ok(trickles.length >= Math.floor(10 / C.TRICKLE_MAX_S) && trickles.length <= Math.ceil(10 / C.TRICKLE_MIN_S), `again every ${C.TRICKLE_MIN_S}-${C.TRICKLE_MAX_S} s: ${trickles.length} in ten`);
+    assert.ok(trickles.every(([k, v]) => k === 'climb:crumble' && v === C.TRICKLE));
+    const k = audio.shots.length;
+    m.onWall = false; m.hanging = false;
+    for (let i = 0; i < 600; i++) step(law, m);
+    assert.equal(audio.shots.length, k, 'off the wall, none');
+  }
+  {
+    const { audio, law } = ear({ rand: dice(0), strain: () => ({ clip: 9, pitchLift: 0.1 }) });
+    step(law, fake({ grip: 0 }), [{ type: 'release', mode: 'hang' }]);
+    assert.deepEqual(heard(audio), ['scrape', 'crumble', 'voice:9'], 'the grip gone');
+    assert.equal(audio.shots[0][1], C.SLIP);
+  }
+  {
+    const { audio, law } = ear({ rand: dice(0), strain: () => ({ clip: 9, pitchLift: 0 }) });
+    step(law, fake({ grip: 0.6 }), [{ type: 'release', mode: 'hang' }]);
+    assert.deepEqual(audio.shots.map(([k, v]) => [kind(k), v]), [['step', C.LET_GO]], 'let go: the hands leaving the stone, no cry');
+  }
+  {
+    const { audio, law } = ear();
+    step(law, fake({ grip: 0.6, climbMove: { t: 0 } }), [{ type: 'release', mode: 'hang' }, { type: 'move', kind: 'corner', split: 0.5 }]);
+    assert.deepEqual(heard(audio), [], 'a release into a move: the move\'s sounds alone');
+  }
+  // the launch (the eject, the running leap): the push, the rush, the effort
+  {
+    const { audio, law } = ear({ rand: dice(0), strain: () => ({ clip: 3, pitchLift: 0 }) });
+    step(law, fake(), [{ type: 'launch', dir: [0, 0, 1], along: 4, up: 3 }]);
+    assert.deepEqual(heard(audio), ['step', 'whoosh', 'voice:3']);
+  }
+});
+
+test('CLIMB4 F15: the port\'s own sounds\' switch (ES1) is over all of it, the clips load the first frame it is on, every host sounds its climb through the feel\'s handle with the player\'s effort voice, and the voice rides the attack grunt\'s gates (mutants: the switch ignored, a host unwired)', async () => {
+  // off: nothing at all, whatever the motor says
+  {
+    const { audio, law } = ear({ on: () => false, rand: dice(0), strain: () => ({ clip: 1, pitchLift: 0 }) });
+    const m = fake({ onWall: true, climbMove: { t: 0 }, grip: 0 });
+    step(law, m, [{ type: 'move', kind: 'catch', speed: 9 }, { type: 'launch' }, { type: 'gripLow' }, { type: 'release', mode: 'hang' }]);
+    for (let i = 0; i < 60; i++) { m.pos = [0, 0.02 * i, 0]; step(law, m); }
+    assert.deepEqual(audio.shots, [], 'silent');
+  }
+  assert.equal(new ClimbSounds().on, enhancedSoundsOn, 'the switch is the port\'s own sounds\'');
+  // the first frame on loads the clips, once - and off, never
+  const realFetch = globalThis.fetch;
+  const urls = [], regs = [];
+  try {
+    globalThis.fetch = async (url) => { urls.push(String(url)); return { ok: true, arrayBuffer: async () => new ArrayBuffer(8) }; };
+    const audio = { playOneShot() {}, registerSound: async (k) => { regs.push(k); return true; } };
+    _resetClimbSounds();
+    const off = new ClimbSounds({ audio, on: () => false });
+    off.update(1 / 60, fake());
+    await new Promise((r) => setTimeout(r, 0));
+    assert.equal(urls.length, 0, 'off: nothing loaded');
+    const law = new ClimbSounds({ audio, on: () => true });
+    law.update(1 / 60, fake());
+    law.update(1 / 60, fake());
+    assert.equal(await installClimbSounds(audio), 11, 'on: the eleven');
+    assert.equal(urls.length, 11, '...fetched once each');
+    assert.ok(urls.every((u) => /\/sfx\/climb-[a-z]+(-\d)?\.wav$/.test(u)), 'from public/sfx');
+    assert.deepEqual(regs.slice().sort(), Object.keys(CLIMB_SFX_FILES).sort(), '...registered under their keys');
+  } finally { globalThis.fetch = realFetch; _resetClimbSounds(); }
+  // the handle frames the sounds with the camera
+  {
+    const a = bus();
+    const host = createClimbFeelHost(() => ({ ...fake({ climbMove: { t: 0 } }), climbEvents: [{ type: 'move', kind: 'catch', speed: 2 }] }), { yaw: 0 }, null, { audio: a });
+    host.sounds.on = () => true; host.sounds.install = false;
+    host.frame(1 / 60);
+    assert.deepEqual(heard(a), ['catch'], 'framed with the eye');
+    assert.equal(createClimbFeelHost(() => null, { yaw: 0 }, null).sounds, null, 'no bus, no sounds');
+  }
+  const read = (f) => readFileSync(new URL(`../src/scenes/${f}.js`, import.meta.url), 'utf8');
+  for (const f of ['world', 'exterior', 'dungeon']) {
+    assert.match(read(f), /const climbFeel = createClimbFeelHost\(\(\) => player, cam, lookFilter, \{ audio, strain: \(r\) => playerClimbStrain\(playerEntity, r\) \}\);/, `${f}: its climb sounded, the player's effort its voice`);
+  }
+  // the voice: the attack grunt's own clip, under its gates - and none without a body
+  const breton = { race: 'Breton', gender: 'male', maxHealth: 40 };
+  const v = playerClimbStrain(breton, dice(0));
+  assert.ok(v && v.clip >= 0 && v.pitchLift >= 0, 'a Breton\'s effort');
+  assert.equal(v.clip, playerAttackGrunt(breton, false, dice(0))?.clip, 'the attack grunt\'s clip');
+  assert.equal(playerClimbStrain({ ...breton, activeEffects: [{ kind: 'racialOverride', racial: 'lycanthropy', isTransformed: true }] }, dice(0)), null, 'a transformed lycanthrope is silent');
+  assert.equal(playerClimbStrain(null, dice(0)), null);
+  const was = getBool('Enhancements', 'CombatVoices');
+  try {
+    setValue('Enhancements', 'CombatVoices', false);
+    assert.equal(playerClimbStrain(breton, dice(0)), null, 'the CombatVoices switch off: silent');
+  } finally { setValue('Enhancements', 'CombatVoices', was); }
+});
+
+// ---- THE HANDS ON THE WALL -----------------------------------------------------------------------------------------
+
+/** WEAPON09.CIF: one WeaponAnim record, 7 frames of 100x80 (ARROW2's synthetic bow). */
+function bowCif() {
+  const W = 100, H = 80, head = 12 + 31 * 2 + 2;
+  const runs = Math.ceil((W * H) / 128);
+  const b = new Uint8Array(head + runs * 2);
+  const v = new DataView(b.buffer);
+  v.setUint16(0, W, true); v.setUint16(2, H, true);
+  for (let f = 0; f < 7; f++) v.setUint16(12 + f * 2, head, true);
+  for (let k = 0; k < runs; k++) b[head + k * 2] = 255;
+  v.setUint16(12 + 62, b.length, true);
+  return b;
+}
+
+test('CLIMB4 F16: the hands on the wall - WeaponManager\'s climbing return (no swing, no weapon) for the enhanced climb\'s hold and moves as for the classic climb, the picture easing down out of the screen and back up after; the torch, the shield and the dungeon\'s bag read the hold as a climb (mutants: the hold not a climb, the cut, the swing on the wall)', async () => {
+  // the law: down quick, up slower, home exactly
+  let x = 0;
+  for (let i = 0; i < 6; i++) x = climbLowerStep(x, true, 1 / 60);
+  assert.ok(x > 0.6 && x < 1, `a tenth of a second in, mostly down (${x.toFixed(2)})`);
+  for (let i = 0; i < 30; i++) x = climbLowerStep(x, true, 1 / 60);
+  assert.equal(x, 1, 'and gone - snapped home');
+  let up = x, down = 0;
+  for (let i = 0; i < 6; i++) { up = climbLowerStep(up, false, 1 / 60); down = climbLowerStep(down, true, 1 / 60); }
+  assert.ok(1 - up < down, 'it comes back slower than it went');
+  assert.ok(CLIMB_LOWER_TAU.up > CLIMB_LOWER_TAU.down);
+  assert.equal(climbLowerStep(0, false, 1 / 60), 0, 'never climbing, never lowered');
+  assert.equal(climbDrop(0, 600), 0, 'unlowered: DFU\'s rect');
+  assert.equal(climbDrop(1, 600), 600, 'lowered: the whole screen down');
+  for (let k = 1; k <= 10; k++) assert.ok(climbDrop(k / 10, 600) >= climbDrop((k - 1) / 10, 600), 'monotonic');
+  assert.deepEqual(climbLowerRect({ x: 3, y: 0, w: 800, h: 600 }, 1), { x: 3, y: 600, w: 800, h: 600 }, 'the arms\' rect the same way');
+
+  // the rig: a bow in the hand, the camera's climb flag the test's
+  resetToDefaults(); _resetModSettings();
+  setModSetting('weapon-widget', 'Enabled', false);
+  const quads = [];
+  const renderer = { uploadTexture: (_k, name) => name, drawScreenQuad: (tex, rect) => quads.push({ tex, rect }) };
+  const canvas = { width: 320, height: 200, clientWidth: 320, clientHeight: 200 };
+  const entity = {
+    items: [{ name: 'Arrow', templateIndex: 131, stackCount: 20 }],
+    equip: { slots: { [EQUIP_SLOTS.RightHand]: { name: 'Long Bow', templateIndex: 130, material: 0 } } },
+    stats: { speed: 50 },
+  };
+  let climbing = false;
+  const r = createWeaponRig({
+    renderer, canvas, entity, audio: { playOneShot() {} }, palette: { get: () => ({ r: 0, g: 0, b: 0 }) },
+    fetchBytes: async () => bowCif(), camera: () => ({ pos: [0, 1.7, 0], yaw: 0, pitch: 0, climbing, move: { grounded: !climbing } }),
+  });
+  r.toggleSheath();
+  for (let i = 0; i < 90; i++) { r.frame(1 / 60); r.draw(); }
+  await new Promise((res) => setTimeout(res, 0));
+  for (let i = 0; i < 5; i++) { r.frame(1 / 60); r.draw(); }
+  const frame = () => { const evs = r.frame(1 / 60); quads.length = 0; r.draw(); return { evs, q: quads.find((z) => typeof z.tex === 'string' && z.tex.startsWith('fpw:')) }; };
+  const rest = frame().q;
+  assert.ok(rest && rest.rect.y < canvas.height, 'the bow in the hand');
+  climbing = true;
+  const ys = [];
+  for (let i = 0; i < 6; i++) { const { q } = frame(); ys.push(q ? q.rect.y : Infinity); }
+  assert.ok(ys[0] > rest.rect.y && ys.every((y, i) => i === 0 || y >= ys[i - 1]), `eased down, not cut (${ys.map((y) => (Number.isFinite(y) ? y.toFixed(0) : 'gone')).join(' ')})`);
+  for (let i = 0; i < 40; i++) frame();
+  assert.equal(r.climbLower(), 1);
+  assert.equal(frame().q, undefined, 'lowered: no weapon drawn');
+  // no swing on the wall
+  r.attackInput(0, 0, true);
+  const evs = [];
+  for (let i = 0; i < 60; i++) evs.push(...frame().evs);
+  r.attackInput(0, 0, false);
+  assert.equal(r.playerWeapon.machine.state, 'Idle', 'no swing while climbing');
+  assert.ok(!evs.includes('hit'));
+  // off the wall: back up, to exactly where it was
+  climbing = false;
+  for (let i = 0; i < 90; i++) frame();
+  const back = frame().q;
+  assert.ok(back && back.rect.y === rest.rect.y && r.climbLower() === 0, 'back in the hand, where DFU draws it');
+  _resetModSettings(); resetToDefaults();
+
+  // the hosts: a hold on the wall is a climb for the hands (the weapon, the torch, the shield), and the dungeon's bag says so
+  const read = (f) => readFileSync(new URL(`../src/scenes/${f}.js`, import.meta.url), 'utf8');
+  for (const f of ['world', 'exterior', 'worldModes']) {
+    assert.match(read(f), /camera: \(\) => \(\{ pos: player\.eyeAt\(\),[^\n]*climbing: !!\(player\.climb\?\.isClimbing \|\| player\.mantling \|\| player\.onWall\)/, `${f}: the hold is a climb`);
+  }
+  const w = world();
+  w.box(-3, 0, 1, 3, 2.3, 4);
+  const m = climber(w.col);
+  m.spawn(0, 0.02, 0.4);
+  for (let i = 0; i < 120 && !m.hanging; i++) m.update(1 / 60, { ...blank, jump: i > 5 && i < 40 }, 0);
+  assert.ok(m.hanging && !m.mantling, 'hanging, no move in flight');
+  assert.equal(motionBagOf(m).climbing, true, 'the motion bag says climbing on the wall');
 });
