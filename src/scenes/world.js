@@ -16,7 +16,7 @@ import { FlatAnimator, armFlatAnim } from '../render/flatAnimation.js';   // FA1
 import { WORLD_FRAME } from '../render/renderer.js';   // AUDIT-EL F5
 import { windmillsOn } from '../world/windmills.js';   // WM3: the Windmills pack's switch
 import { openWodWorld, wodOn, wodLightColors } from '../world/worldOfDaggerfall.js';   // WOD2: World of Daggerfall's loader, one per page
-import { wodLightPosition, wodLightProperties } from '../world/wodLocationObjects.js';   // WOD2: the mod's own AddLight
+import { wodLightPosition, wodLightProperties, WOD_BUSH_MODEL } from '../world/wodLocationObjects.js';   // WOD2: the mod's own AddLight; WOD-BUSH: its shrub, stood on the ground
 import { WodSpawner, WOD_LOOT_LOCATION_INDEX, WOD_LOOT_ALIGN } from '../world/wodSpawner.js';   // WOD3: LocationEnemySpawner
 import { wodSiteId, yieldsTo } from '../world/wodShared.js';   // WOD7: a camp's marker, shared online
 import { alignBillboardToGround, alignControllerToGround } from '../world/groundAlign.js';   // WOD3: SpawnLoot's drop; CSA-D: BoardBoat's AlignControllerToGround
@@ -38,7 +38,7 @@ import { settlementsOf, loadModRoads, basicRoadsPathsPoint, WATER_BYTE } from '.
 import { modSetting, modSettingsOf, modSettingsGeneration, MOD_SETTINGS, latchModLoaded } from '../systems/modSettings.js';   // ROADS 24; HCC: the mod's eight switches; CSA-D: a mod's title for the load's failure line; AUDIT PRE-MERGE 0928 S4: the next-load mods latched at mount
 import { hasPort, PORT_LOCATION_IDS } from '../systems/travelPorts.js';   // AUDIT-RR2 G22: Travel Options' port list for RR's ship gate
 import { WoodsFile, MAP_WIDTH, MAP_HEIGHT } from '../formats/woodsFile.js';
-import { buildTerrainIndices, isOutdoorWaterTile, TERRAIN_TILE_DIM, TERRAIN_SKIRT_DEPTH, surfaceHeightAt, groundOffPlane, terrainSampleHeightAt } from '../world/terrainSurface.js';
+import { buildTerrainIndices, isOutdoorWaterTile, TERRAIN_TILE_DIM, TERRAIN_SKIRT_DEPTH, surfaceHeightAt, groundOffPlane, terrainSampleHeightAt, lowestGroundUnder } from '../world/terrainSurface.js';
 import { waterUniforms, buildWaterIndices, waterSwitchOn } from '../render/waterSurface.js';   // WATER1: the enhanced water surface over the pixel's own grid; WATER-AUDIT: its own index set
 import { waterCorners, WATER_DRAW_MASK_TABLE } from '../world/waterCorners.js';   // GRASS-WET1: the one table that says which of a tile's corners stand in water - the DRAW's, because a blade in a puddle is a picture, not a physics
 import { windowEmissionRGB } from '../render/windowEmission.js';
@@ -3709,6 +3709,16 @@ export async function bootWorld(canvas, renderer, params, status) {
         if (!gpu) continue;   // a model ARCH3D does not carry stands empty in DFU (no mesh, no collider)
         const cpu = cpuModels.get(m.modelId);
         const box = transformedAabb(archAabb(m.modelId, cpu.positions), m.matrix);
+        // WOD-BUSH (2026-10-01, Mac: "World of daggerfall bush props float above the ground in bandit camps"): the
+        // layouts' shrub stands on the DRAWN ground. The mod stands every object on the site's average plus the
+        // author's own height, and the ground is levelled to that average only inside the site's rect - the band past
+        // it is eased toward it (flattenForLocation), and the shrubs ring the site in that band, at heights the
+        // author read off the ground of the one place they were laid out. They hung over ground falling away (DFU's
+        // too). Its mesh's foot goes to the lowest ground under the middle of its footprint, collider and all.
+        if (m.modelId === WOD_BUSH_MODEL) {
+          const dy = lowestGroundUnder(samples, box) - box[1];
+          m.matrix[13] += dy; box[1] += dy; box[4] += dy;
+        }
         // ROADS-CLEAR (2026-09-25, Mac: "Camps, mountains from WOD, shouldnt be placed on roads"): a piece whose own
         // mesh box reaches a road - here or in the pixel it spills into - is not stood: no mesh, no collider. The rock
         // fields and mountains lose the pieces over the road and keep the rest; a whole site was asked at its pick.
