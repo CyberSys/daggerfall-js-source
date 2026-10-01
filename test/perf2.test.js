@@ -183,7 +183,7 @@ test('PERF2 pins: the sky passes, the clouds\' composite and the ring sit AT the
   // the hosts: terrain, then the sky block, then the water
   const w = read('src/scenes/world.js');
   const terrainAt = w.indexOf('renderer.drawTerrain(p.dwTerrain ?? p.terrain, pixelMatrix,');   // DW-C: a pixel's clipped ground (Iliac Puddle No More's cap) draws in its place
-  const skyAt = w.indexOf('sky.draw(tvf ? tvf.yaw : cam.yaw, tvf ? tvf.pitch : cam.pitch, fieldOfView(), worldAspect');   // TV1: the sky turns to the travel view's eye
+  const skyAt = w.indexOf('sky.draw(tvf ? tvf.yaw : cam.yaw, tvf ? tvf.pitch : cam.pitch + climbFeel.pitch(), fieldOfView() + climbFeel.fovRad(), worldAspect');   // CLIMB4: the climb's pitch and kick   // TV1: the sky turns to the travel view's eye
   const ringAt = w.indexOf('farRing.draw(view, {');
   const waterAt = w.indexOf('if (waterOn) {');
   const billAt = w.indexOf('renderer.drawBillboards(allBatches, camRight, bbUp);');   // TV1: the flats lean to the travel view's eye

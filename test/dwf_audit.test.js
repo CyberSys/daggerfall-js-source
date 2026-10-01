@@ -79,9 +79,10 @@ test('AUDIT DW-F E5-1/E5-4: the view the loot and the guards test is the one the
   const w = rd('src/scenes/world.js');
   const view = w.slice(w.indexOf('  function dwSpawnView() {'), w.indexOf('  /** The frame\'s CharacterController.velocity'));
   assert.match(view, /const V = lookAt\(eye, \[eye\[0\] \+ forward\[0\], eye\[1\] \+ forward\[1\], eye\[2\] \+ forward\[2\]\], UP_Y\);/, 'this frame\'s camera');
-  assert.match(view, /const worldAspect = largeHudWorldAspect\(canvas\.clientWidth, canvas\.clientHeight\);[^\n]*\n\s+const P = mirrorProjectionX\(perspective\(fieldOfView\(\), worldAspect, 0\.2, 6000\)\);/, '...through the frame\'s own lens');
+  // CLIMB4: the frame's lens carries the climb's kick (a leap's), and so does this one - the same lens, kicked or not
+  assert.match(view, /const worldAspect = largeHudWorldAspect\(canvas\.clientWidth, canvas\.clientHeight\);[^\n]*\n\s+const P = mirrorProjectionX\(perspective\(fieldOfView\(\) \+ climbFeel\.fovRad\(\), worldAspect, 0\.2, 6000\)\);/, '...through the frame\'s own lens');
   assert.doesNotMatch(view, /renderer\._view|renderer\._proj/, 'not the last pass\'s matrices');
-  assert.match(w, /const proj = mirrorProjectionX\(perspective\(fieldOfView\(\), worldAspect, 0\.2, 6000\)\);/, 'the frame draws through the same lens');
+  assert.match(w, /const proj = mirrorProjectionX\(perspective\(fieldOfView\(\) \+ climbFeel\.fovRad\(\), worldAspect, 0\.2, 6000\)\);/, 'the frame draws through the same lens');
   assert.match(w, /for \(let i = 0; i < 3; i\+\+\) _dwEyeOffset\[i\] = mwv\.eye\[i\] - cam\.pos\[i\];/, 'the camera machine\'s eye, relative (a crossing moves cam.pos, not the offset)');
   assert.match(w, /if \(_dwLootVel\.last\) for \(let i = 0; i < 3; i\+\+\) _dwLootVel\.last\[i\] \+= r\.offset\[i\];/, 'FloatingOrigin moves the player by transform: no velocity');
   assert.match(w, /dwLoot\?\.pump\(f\);[^\n]*\n\s+dwLootLetGoVelocity\(\);/, 'indoors: the way out is a reposition');

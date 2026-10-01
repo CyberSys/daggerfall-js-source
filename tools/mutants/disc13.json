@@ -119,8 +119,8 @@
   {
     "name": "DISC13-A-the-dungeon-host-passes-no-render-feet",
     "file": "src/scenes/dungeon.js",
-    "old": "!!player.crouching, player.feetAt());",
-    "new": "!!player.crouching);",
+    "old": "!!player.crouching, player.feetAt(), climbRigInput(player, cam.yaw), aimView);",
+    "new": "!!player.crouching, undefined, climbRigInput(player, cam.yaw), aimView);",
     "tests": [
       "test/disc13.test.js"
     ]

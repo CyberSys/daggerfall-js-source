@@ -290,7 +290,7 @@ test('AUDIT CLIMB1 F9: a move in flight reads as a climb to what watches the bod
   assert.equal(m.moveSpeed, 0);
   assert.equal(motionBagOf(m).climbing, true, 'the motion bag says climbing (the dungeon host\'s torch reads it)');
   for (const f of ['src/scenes/world.js', 'src/scenes/exterior.js', 'src/scenes/worldModes.js']) {
-    assert.match(read(f), /camera: \(\) => \(\{ pos: player\.eyeAt\(\),[^\n]*climbing: !!\(player\.climb\?\.isClimbing \|\| player\.mantling\)/, `${f}: the torch and the shield read the move as a climb`);
+    assert.match(read(f), /camera: \(\) => \(\{ pos: player\.eyeAt\(\),[^\n]*climbing: !!\(player\.climb\?\.isClimbing \|\| player\.mantling( \|\| player\.onWall)?\)/, `${f}: the torch and the shield read the move as a climb`);   // CLIMB4: and the hold (climb4.test.js F16)
   }
   assert.match(read('src/scenes/world.js'), /window\.__climb = \(\) => JSON\.stringify\(\{[^}]*mantling: !!player\.mantling/, 'the __climb probe sees a mantle');
 });
