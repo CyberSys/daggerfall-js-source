@@ -18075,7 +18075,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     prompt: (rows, onYes, onNo) => { const box = new YesNoBoxWindow({ rows, onYes, onNo }); townTalk.showOverlay(box); return box; },
     closePrompt: (box) => { if (box.done) return; box.onYes = null; box.onNo = null; box.answer(false); },
     say: (text) => chatNotice(text),
-    mid: (text) => setMidScreenText(text, PARTY_REST_FAR_SECONDS),
+    mid: (text, seconds = PARTY_REST_FAR_SECONDS) => setMidScreenText(text, seconds),   // PARTY-READY: the leader's wait stands the round
+    tabOpen: () => !!socialPanel?.isOpen?.() && socialPanel.tab() === 'party',   // PARTY-READY: the tab answers the round itself
     travel: (pick, opts, computed) => partyTravelJourney(pick, opts, computed),
     openMap: () => toggleTravelMap(),
     clock: () => performance.now(),

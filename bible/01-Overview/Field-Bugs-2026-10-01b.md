@@ -7,7 +7,7 @@ distance at which overworld enemies slow the user down"*.
 | | Report | What it was | Done |
 |---|---|---|---|
 | 1 | the bush props float in bandit camps | the mod's own heights, read off the author's ground, in the band the mod only eases toward the site's level | fixed (WOD-BUSH) |
-| 2 | the ready-up element is hidden | (open) | open |
+| 2 | the ready-up element is hidden | the ready-up's own windows closed the Party tab that holds it, and the leader's HUD label stood 4 s of a 60 s round | fixed (PARTY-READY) |
 | 3 | overworld enemies slow the traveller too far out | the port's own warning (OW6), 1.2 s since OW6-NEAR | fixed (OW6-HALF) |
 
 ## WOD-BUSH: World of Daggerfall's shrubs stand on the ground (1)
@@ -35,6 +35,38 @@ uneven scales and random tilts; the camps carry no nature-archive flat at all), 
 does not hold. NOT SEEN ON A GPU.
 
 `test/wodbush.test.js` (5); `tools/mutants/wodbush.json` 7, 7 dead.
+
+## PARTY-READY: the ready-up stays on screen (2)
+
+The ready-up is PARTY-TRAVEL's round (`systems/partyTravel.js`, `06-Systems/Online-Arc.md` PARTY-TRAVEL and PARTY-READY):
+the leader chooses a destination on the travel map, the gathered members are asked, and the party sets out when nobody
+gathered is still waiting. It has three things on screen - the leader's HUD label, a member's Yes/No box and the Party
+tab's Journey block (the round's count and Call off; a member's Ready and Stay behind) - and the round took them away
+itself:
+
+- **The leader's Party tab.** Its Travel map opens the travel map, a window over the HUD; the Social panel closes under
+  any such cover (SOC3) and nothing opened it again, so for the whole round the tab - the count, Call off - was gone.
+- **The leader's label.** "Waiting for the party to ready up (n/m ready)." stood PARTY_REST_FAR_SECONDS (4) of a round
+  that runs PARTY_READY_TIMEOUT_MS (60); the answers after that reached the chat alone.
+- **A member's Party tab.** Open as the round began, it was asked anyway by the box, which pauses the game - and the
+  pause takes the tab, the chat and the party's HUD out of the page.
+
+Now the Party tab a cover took mid-journey comes back when it lifts (after the map its Travel map opened, or after any
+window over an open round); the leader's label stands for what is left of the round, set again only as the count
+moves, and the set-out, a call-off or a lapse says its own line over it; and a member with the tab open answers there,
+the box asking only once it is closed unanswered. No regression in the history the clone holds: a gap in PARTY-UI's
+design (2026-09-26), not a break.
+
+Found on the way: `test/partytravel.test.js` did not parse - two unescaped `'` in its RELAY_VERSION history line,
+since the merge before this one - so none of its tests ran and every mutant list naming it (`party-travel.json`,
+`auditpartyui.json`, ...) killed nothing. Escaped; the lists that name it run real again (101 dead in the two
+re-aimed).
+
+Not changed, and asked: if "the ui element" is the PARTY HUD (the portraits, SOC4), it still hides on a member's
+screen while the box stands - a member without the tab open is asked by the box, and the whole enhanced HUD hides
+under a pausing window by design.
+
+`test/partytravel.test.js` (+3), `test/soc3_socialpanel.test.js` (+1); `tools/mutants/partyready.json` 14, 14 dead.
 
 ## OW6-HALF: the journey's hold on enemies begins half as far out (3)
 
