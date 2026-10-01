@@ -75,6 +75,29 @@ export function spellPointRecoveryRate(entity) {
   return Math.max(Math.floor((entity.maxMagicka ?? 0) / 8), 1);
 }
 
+/** MANA-HALF (FIELD BUGS 2026-10-01 #6: "Potions are durability. Mages could basically kill for free. Potions makes
+ *  them cost to use magic. Gold sink same as repairs for melee"; Mac chose "Half the pool"): ONLINE, A REST GIVES
+ *  MAGICKA BACK UP TO HALF THE POOL. A sword wears with every blow and a smith is paid to mend it; magicka came back
+ *  whole, free, from four seconds of rest anywhere, for every career (REST-MANA1). Online every hour that rests -
+ *  the rest window's (scenes/shared.js restVitals), the collapse's (exhaustionOutcome) and a cautious journey's
+ *  (scenes/world.js) - fills magicka up to this share of the pool and no further, and never takes back what stands
+ *  above it; Restore Power (systems/restorePower.js) is the rest of it, a gold a point. Offline, Daggerfall's. */
+export const ONLINE_REST_MAGICKA_SHARE = 0.5;
+
+/** MANA-HALF: the most magicka rest brings a character back to - half the pool online (floored), the whole pool offline. */
+export function restMagickaCap(entity, { online = isOnlinePage() } = {}) {
+  const max = entity?.maxMagicka ?? 0;
+  return online ? Math.floor(max * ONLINE_REST_MAGICKA_SHARE) : max;
+}
+
+/** MANA-HALF: what one rested hour gives - CalculateSpellPointRecoveryRate, up to `restMagickaCap` and never below
+ *  nothing (a pool already over the cap, from a potion, keeps what it has). Offline the cap is the pool, which the
+ *  hosts' own clamp already was: the same number. */
+export function restedMagicka(entity, { online = isOnlinePage() } = {}) {
+  const room = restMagickaCap(entity, { online }) - (entity?.magicka ?? 0);
+  return Math.max(0, Math.min(spellPointRecoveryRate(entity), room));
+}
+
 // The exhaustion texts: TEXT.RSC 1071 ("you drop to the ground",
 // safe) / 1072 (enemies nearby); the in-water line is a TextManager
 // string (no RSC record).
@@ -114,7 +137,7 @@ export function exhaustionOutcome({ enemiesNearby = false, swimming = false, ent
       textId: EXHAUSTED_SAFE_TEXT_ID,
       health: healthRecoveryRate(entity, { day, inside }),
       fatigue: fatigueRecoveryRate(maxFatigue(entity)),
-      magicka: spellPointRecoveryRate(entity),
+      magicka: restedMagicka(entity),   // MANA-HALF: online, up to half the pool
     };
   }
   return { kind: 'death', textId: EXHAUSTED_ENEMIES_TEXT_ID, inWater: false };   // foes about, on dry feet (the water's is `drown`, above)

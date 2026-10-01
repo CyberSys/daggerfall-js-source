@@ -200,6 +200,6 @@ test('QUEST-PARTY by source: the world host keeps who shared each quest, hands t
   assert.match(w, /accepts: \(from, tag\) => !!social\?\.isPartyPeer\(from\) && !!sharedQuestFoe\(questBridge\?\.machine, tag\),/);
   assert.match(w, /peerMayHit: \(peerId, f\) => !!social\?\.isPartyPeer\(peerId\) && f\.entity\?\.team !== 'PlayerAlly' && !!questShareTag\(questBridge\?\.machine, f, !!social\?\.party\),/);
   assert.match(w, /onPuppetHurt: \(tag\) => sharedQuestFoe\(questBridge\?\.machine, tag\)\?\.setInjured\?\.\(\),/);
-  assert.match(w, /onPuppetDied: \(tag\) => sharedQuestFoe\(questBridge\?\.machine, tag\)\?\.incrementKills\?\.\(\),/);
+  assert.match(w, /onPuppetDied: \(tag, from, i\) => \{\n\s+const foe = sharedQuestFoe\(questBridge\?\.machine, tag\);\n\s+if \(!foe\) return;[\s\S]{0,300}?foe\.incrementKills\?\.\(\);\n\s+\},/);   // KEPT-KILL re-aimed it (PIN MOVED): the kill counts through the ledger a holder's pose shares (test/keptkill.test.js)
   assert.match(w, /if \(partnerStandsQuestFoes\(\{ questName: handle\.foe\?\.parentQuest\?\.questName, sharerOf: \(q\) => _liveSharer\(q\), inMyParty: \(a\) => !!social\?\.inMyParty\(a\), peers: peersNear\(\), accountOfPeer: \(id\) => social\?\.accountOfPeer\(id\), myFeet: feet \}\)\) return true;/, 'the exterior arm: counted as placed, stood by the sharer');
 });

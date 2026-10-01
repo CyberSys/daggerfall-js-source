@@ -687,7 +687,8 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
    *  partyPeer(id) whether a peer is of my party (AUDIT DISC28 QS-J: an heir's taking and a kept foe's blow),
    *  peerMayHit(peerId, f) whether a peer's blow (and so a hunt) may reach my quest foe, and
    *  onPuppetHurt/onPuppetDied(tag) - the injury and the kill a member's own copy of the quest counts off a partner's
-   *  foe it saw hurt and fall. */
+   *  foe it saw hurt and fall (KEPT-KILL: the death names its owner and number, `onPuppetDied(tag, owner, i)`), and
+   *  onKeptDied(tag, i) - KEPT-KILL: a foe I kept on a partner's word fell here, to be said in my party pose. */
   let _questShare = null;
   function setQuestShare(q) { _questShare = q ?? null; }
   /** AUDIT (the pre-merge audit, Q3): the quest word a foe of mine rides with - my shared quest's, or the partner's word
@@ -702,6 +703,16 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
    *  QS-J: the PARTY'S (partyPeer) - accepts is DISC28-J's linked-copy law, which a foe kept on a partner's word is kept
    *  exactly for lacking, so no member's blow landed on it. */
   const _peerMayHit = (id, f) => (f._keptTag ? !!_questShare?.partyPeer?.(id) : !!_questShare?.peerMayHit?.(id, f));
+  /** KEPT-KILL (2026-10-01): a foe I keep on a partner's word (`_keptTag` - my copy holds no such quest, so nothing here
+   *  counts it) says its fall once, by the quest behaviour's own test (health at zero, QuestResourceBehaviour.update),
+   *  with its number on my stream - my party pose carries it (`qk`) and every copy that holds the quest counts it,
+   *  wherever its member stands. A foe culled or let go fell to nobody. */
+  function keptKillTick(f) {
+    if (!f._keptTag || f._keptSaid || f.puppet || !(f.entity?.health <= 0)) return false;
+    f._keptSaid = true;
+    _questShare?.onKeptDied?.(f._keptTag, f.seq);
+    return true;
+  }
   /** QUEST-PARTY: the peers my quest foe may hunt - only those whose blow may reach it (it rides to them), never a
    *  peer that stands no puppet of it: a quest foe hunted any peer in the cell, and chased one who could not see it. */
   const questPeerCandidates = (f) => (_qTag(f) ? peerCandidates().filter((c) => _peerMayHit(c.id, f)) : []);
@@ -1028,6 +1039,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // zero (the injured-check return holds death to the next tick),
       // and a corpse's component still runs in DFU.
       f.questBehaviour?.update();
+      if (f._keptTag) keptKillTick(f);   // KEPT-KILL: and a foe kept on a partner's word says its fall
       if (f.dead) continue;
       // WORLD6b: a PUPPET - posed by its owner's stream (the feet eased toward the streamed feet, a far jump snapped, the
       // yaw set), the walk while the streamed feet move, the hurt one-shot after a health drop, the strike edge once
@@ -2163,7 +2175,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     if (f._pupMine && f.ai?.detected) setEnemyAlert(playerEntity, false);   // AUDIT WORLD6b-ii B6: its owner's foe was on me; the alert clears as a foe of mine would (survivors re-raise it)
     f.dead = true;
     renownFoeDied(f);
-    if (f._pupQuest) _questShare?.onPuppetDied?.(f._pupQuest);   // QUEST-PARTY: a party's quest foe fell - my copy of the quest counts the kill (IncrementKills)   // RENOWN1: its owner's frame says it fell - it pays me if I fought it
+    if (f._pupQuest) _questShare?.onPuppetDied?.(f._pupQuest, f.puppet, f.seq);   // KEPT-KILL: whose foe, by its number - the kill the owner's pose may say too counts once   // QUEST-PARTY: a party's quest foe fell - my copy of the quest counts the kill (IncrementKills)   // RENOWN1: its owner's frame says it fell - it pays me if I fought it
     f.corpse = true;
     releaseFoeBatch(f);
     mintCorpse(f);

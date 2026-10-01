@@ -109,7 +109,7 @@
   {
     "name": "QP3C-no-kill",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    if (f._pupQuest && !wasDead && f.dead) share?.onPuppetDied?.(f._pupQuest);",
+    "old": "    if (f._pupQuest && !wasDead && f.dead) share?.onPuppetDied?.(f._pupQuest, f._ownFrom, f._ownI);",
     "new": "    void wasDead;",
     "tests": ["test/questparty3c.test.js"]
   },
