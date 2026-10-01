@@ -48,6 +48,8 @@ export const KNIFE_HAND = Object.freeze({ group: 'Weapons', templateIndex: 113, 
  *  downhill or under a rider was none) - and stands this far above its ground for the look. */
 export const BODY_REACH = CORPSE_ACTIVATION_DISTANCE;
 export const BODY_LIFT = 0.2;
+/** NODE-MARKS: a body's glow where it lies (m) - long and low. */
+export const BODY_MARK = Object.freeze({ w: 2.2, h: 1.0 });
 /** AUDIT 32 H7: the steepest bearing below the eye a body's line can be drawn at - the look stops at PITCH_FLOOR, and the
  *  line's lowest point lies TRACE_ACT.spanPitchDeg under the body's centre (a degree's margin). Steeper, the player is
  *  standing over it: the plan asks them to step back. */
@@ -168,6 +170,8 @@ export function huntKind({ book, bodies, openLoot = null }) {
     looseNodesOf: ({ entity }) => (foragingToolIn(entity, SKINNING_KNIFE.templateIndex) ? bodies() : []),
     flatsOf: () => [],   // the body is its own picture (DFU's corpse)
     gone: (b) => book.taken(b.key, 'hide'),
+    mark: (b) => (book.taken(b.key, 'hide') ? null : BODY_MARK),   // NODE-MARKS: a body the knife may still skin
+    marksLoose: true,
     choose(b) { if (lootChoice || searchable(b)) lootChoice = !lootChoice; },   // AUDIT 32 H8: never a search of nothing
     retarget() { lootChoice = false; },
     plan(b, { rank, keyLabel, pitch = null }) {

@@ -106,7 +106,7 @@ import { crosshairEnabled, interactionIconStyle, iconReplacesCrosshair, modeIcon
 import { getInteractionMode } from '../player/interactionMode.js';
 import { mountHotbarDock, drawEnhancedHotbar, detachHotbarDock, hotbarMode } from './enhancedHotbar.js';   // HB1: the hotbar, the diamond's alternative (one or the other)
 import { setEnhancedMidTextScale } from './enhancedHudText.js';   // AUDIT FONT F2: the mid-screen label is a layer beside this one, not inside it (the popup column it once scaled too is a toast in the notice stack since ENH-NOTICE3)
-import { QUEST_MARK_CSS } from './questMarks.js';   // GUIDE5: the tracker's quest on the compass, in the marks' one gold
+import { QUEST_MARK_CSS } from './questMarks.js'; import { nodeMarkCss } from './nodeMarks.js';   // GUIDE5: the tracker's quest on the compass, in the marks' one gold; NODE-MARKS: a profession's nodes in its own colour
 
 /**
  * PX30c (Mac: "is there anyway I can adjust the sizing?"): THE HUD'S
@@ -291,19 +291,19 @@ function drawQuestMark(quest, playerXZ, heading01) {
 const partyMarkCss = (colour = PARTY_GREEN_CSS) => 'position:absolute;bottom:0;width:0;height:0;margin-left:-4px;'
   + 'border-left:4px solid transparent;border-right:4px solid transparent;'
   + `border-top:5px solid ${colour};filter:drop-shadow(0 0 1px rgba(0,0,0,0.9));pointer-events:none`;
-/** PROF2: the Prospector's veins on the strip (PROF0 3.3) - the party's mark in the veins' copper. */
-export const VEIN_MARK_CSS = '#d9894a';
-/** @param {'partyMarks'|'veinMarks'} pool */
-function drawPartyMarks(points, playerXZ, heading01, pool = 'partyMarks', colour = PARTY_GREEN_CSS) {
+/** The party's marks on the strip. PROF2's Prospector's veins rode this pool in their copper; NODE-MARKS draws every
+ *  profession's nodes in their own colours, through their own pool (drawNodeMarks, at the foot of this file - its
+ *  colours ui/nodeMarks.js's). */
+function drawPartyMarks(points, playerXZ, heading01) {
   const list = (points && playerXZ) ? points : [];
-  while (parts[pool].length < list.length) {
-    const node = el('i', pool === 'partyMarks' ? 'hud-party' : 'hud-vein');
-    node.style.cssText = partyMarkCss(colour);
+  while (parts.partyMarks.length < list.length) {
+    const node = el('i', 'hud-party');
+    node.style.cssText = partyMarkCss();
     parts.compass.append(node);
-    parts[pool].push(node);
+    parts.partyMarks.push(node);
   }
-  for (let i = 0; i < parts[pool].length; i++) {
-    const node = parts[pool][i];
+  for (let i = 0; i < parts.partyMarks.length; i++) {
+    const node = parts.partyMarks[i];
     if (i >= list.length) {
       if (node.style.display !== 'none') node.style.display = 'none';
       continue;
@@ -769,7 +769,7 @@ function build(doc) {
   cells.main.cell.addEventListener('pointerdown', tap(() => { liveOpts.quickSwitchHand?.(); }));
 
   doc.body.append(root);
-  return { root, bottom, compass, marks, detectMarks: [], partyMarks: [], shipMarks: [], veinMarks: [], gateMark: null, questMark: null, foe, foeName, foeFill, foeGhost, foeChunks, foeBladeFull, magicka, health, fatigue,
+  return { root, bottom, compass, marks, detectMarks: [], partyMarks: [], shipMarks: [], nodeMarks: [], gateMark: null, questMark: null, foe, foeName, foeFill, foeGhost, foeChunks, foeBladeFull, magicka, health, fatigue,
     stat, quickCap: cap, quickDiamond: diamond, top,   // UI3: the status widget, the caption it stands on, the diamond it may stand beside and the top block over it (its band is measured from them)
     renown, renownBox, renownFill, renownGhost, renownNum,
     breath, breathFill, grip, gripFill, readied, reticle, cross, centreWord, cornerWord,
@@ -888,7 +888,7 @@ export function drawEnhancedHud(vitals, heading01, dt = 0, opts = {}) {
   drawQuestMark(opts.quest ?? null, opts.playerXZ ?? null, heading01);   // GUIDE5
   drawPartyMarks(opts.party ?? null, opts.playerXZ ?? null, heading01);   // COMPASS-PARTY
   drawShipMarks(opts.ships ?? null, opts.playerXZ ?? null, heading01);   // AUDIT NAV1: the sea's ships
-  drawPartyMarks(opts.veins ?? null, opts.playerXZ ?? null, heading01, 'veinMarks', VEIN_MARK_CSS);   // PROF2: the Prospector's veins
+  drawNodeMarks(opts.nodes ?? null, opts.playerXZ ?? null, heading01);   // NODE-MARKS: the professions' nodes (PROF2: a Prospector's veins; PROF7: a Tracker's animals)
 
   // THE TARGET, when there is one.
   const t = foeTarget();
@@ -1482,3 +1482,47 @@ export function destroyEnhancedHud() {
 }
 
 export { compassScroll };
+
+// NODE-MARKS (2026-10-01, Mac: "Any profession node, like herbs, should appear on the compass"): THE PROFESSIONS' NODES
+// ON THE STRIP - the party's triangle, by the same bearing law, each in its profession's colour (ui/nodeMarks.js
+// nodeMarkCss) at its own opacity, the nearer brighter; `points` NodeCompassPoints, the nearest last so it stands over
+// the rest. Pooled and hidden, never removed. AUDIT NODE-MARKS: in a layer of their own just over the tape and the
+// needle (`nodeLayer`), so every other mark - a Detect marker, a mate, the gate, the quest, a ship - stands over them
+// whenever it was made; and each write is kept on the node itself (`_nm`), never read back from the style, which
+// normalises what it is given ("1.00" reads "1") and so was written again every frame.
+function nodeLayer() {
+  if (parts.nodeLayer) return parts.nodeLayer;
+  const layer = el('div', 'hud-nodes');
+  layer.style.cssText = 'position:absolute;inset:0;pointer-events:none';
+  const needle = parts.compass.children?.[1] ?? null;   // build(): the strip, then the needle, then every mark made since
+  if (needle && typeof parts.compass.insertBefore === 'function') parts.compass.insertBefore(layer, needle.nextSibling ?? null);
+  else parts.compass.append(layer);
+  parts.nodeLayer = layer;
+  return layer;
+}
+function drawNodeMarks(points, playerXZ, heading01) {
+  const list = (points && playerXZ) ? points : [];
+  while (parts.nodeMarks.length < list.length) {
+    const node = el('i', 'hud-node');
+    node.style.cssText = partyMarkCss();
+    node._nm = { left: '', colour: '', a: '' };
+    nodeLayer().append(node);
+    parts.nodeMarks.push(node);
+  }
+  for (let i = 0; i < parts.nodeMarks.length; i++) {
+    const node = parts.nodeMarks[i];
+    if (i >= list.length) {
+      if (node.style.display !== 'none') node.style.display = 'none';
+      continue;
+    }
+    if (node.style.display === 'none') node.style.display = '';
+    const p = list[i], kept = node._nm;
+    const at = Math.min(1, Math.max(0, compassMarkerLerp(p.xz, playerXZ, heading01)));
+    const l = `${(at * 100).toFixed(1)}%`;
+    if (kept.left !== l) { kept.left = l; node.style.left = l; }
+    const c = nodeMarkCss(p.mark);
+    if (kept.colour !== c) { kept.colour = c; node.style.borderTopColor = c; }
+    const o = (Number.isFinite(p.a) ? p.a : 1).toFixed(2);
+    if (kept.a !== o) { kept.a = o; node.style.opacity = o; }
+  }
+}
