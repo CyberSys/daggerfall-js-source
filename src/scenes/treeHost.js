@@ -172,6 +172,7 @@ export function treeKind({ book, renderer = null, flatBatchAabb = null, getTextu
       sinkFelled(f, sunk, renderer);
     },
     gone: (n) => book.taken(n.key, 'logs'),
+    tools: Object.freeze([FT.WoodAxe]),   // TOOL-USE: the Wood-Axe's Use at a tree is E there
     plan(n, { entity, rank, specs }) {
       const plan = treePlan({
         node: n, taken: book.taken(n.key, 'logs'), counting: book.counting(n.key, 'logs'), rank: rank('logging'),

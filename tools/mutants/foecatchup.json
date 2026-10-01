@@ -16,15 +16,15 @@
   {
     "name": "FOECATCHUP-the-street-pool-uncapped",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "      f.ai.update(foeFrameDt(dt), playerFeet, _armed(f, senses), _fParalyzed, _fPaused);",
-    "new": "      f.ai.update(dt, playerFeet, _armed(f, senses), _fParalyzed, _fPaused);",
+    "old": "f.ai.update(foeFrameDt(dt), playerFeet, _armed(f, senses), _fParalyzed, _fPaused);",
+    "new": "f.ai.update(dt, playerFeet, _armed(f, senses), _fParalyzed, _fPaused);",
     "tests": ["test/foecatchup.test.js"]
   },
   {
     "name": "FOECATCHUP-the-watch-uncapped",
     "file": "src/scenes/cityGuards.js",
-    "old": "      g.ai.update(foeFrameDt(dt), playerFeet, _armed(g, senses), _gParalyzed);",
-    "new": "      g.ai.update(dt, playerFeet, _armed(g, senses), _gParalyzed);",
+    "old": "g.ai.update(foeFrameDt(dt), playerFeet, _armed(g, senses), _gParalyzed);",
+    "new": "g.ai.update(dt, playerFeet, _armed(g, senses), _gParalyzed);",
     "tests": ["test/foecatchup.test.js"]
   },
   {

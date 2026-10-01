@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
   SPECIAL_ABILITY, RAPID_HEALING, hasSpecialAbility, healingRateModifier,
   healthRecoveryRate, fatigueRecoveryRate, spellPointRecoveryRate,
-  exhaustionOutcome, EXHAUSTED_SAFE_TEXT_ID, EXHAUSTED_ENEMIES_TEXT_ID,
+  exhaustionOutcome, EXHAUSTED_SAFE_TEXT_ID, EXHAUSTED_ENEMIES_TEXT_ID, EXHAUSTED_SWIM_SHARE, EXHAUSTED_SWIMMING_LINE,
 } from '../src/systems/rest.js';
 
 const P = (over = {}) => ({
@@ -41,7 +41,7 @@ test('rest: the three per-hour rates, verbatim', () => {
   assert.equal(spellPointRecoveryRate(P({ career: { abilityFlagsAndSpellPointsBitfield: 8 } })), 0);
 });
 
-test('rest: the exhaustion outcome - a safe collapse rests an hour, enemies or water kill', () => {
+test('rest: the exhaustion outcome - a safe collapse rests an hour, enemies kill, the water drowns (SWIM-SPENT)', () => {
   // Safe: one hour's worth of each pool + the 1071 text
   const safe = exhaustionOutcome({ enemiesNearby: false, swimming: false, entity: P() });
   assert.equal(safe.kind, 'rest');
@@ -54,10 +54,13 @@ test('rest: the exhaustion outcome - a safe collapse rests an hour, enemies or w
   assert.equal(near.kind, 'death');
   assert.equal(near.textId, EXHAUSTED_ENEMIES_TEXT_ID);
   assert.ok(!near.inWater);
-  // In water: death by drowning line (no RSC record - the localized
-  // string), even with no enemies around
+  // In water: FIELD BUGS 2026-09-30b SWIM-SPENT (PIN MOVED) - no longer DFU's death whatever the health, but a tenth
+  // of the health pool a drain and a line, with or without enemies about
   const wet = exhaustionOutcome({ enemiesNearby: false, swimming: true, entity: P() });
-  assert.equal(wet.kind, 'death');
+  assert.equal(wet.kind, 'drown');
+  assert.equal(wet.damage, Math.ceil(P().maxHealth * EXHAUSTED_SWIM_SHARE));
+  assert.equal(wet.line, EXHAUSTED_SWIMMING_LINE);
   assert.equal(wet.textId, null);
   assert.ok(wet.inWater);
+  assert.equal(exhaustionOutcome({ enemiesNearby: true, swimming: true, entity: P() }).kind, 'drown', 'foes about change nothing in the water');
 });

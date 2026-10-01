@@ -126,6 +126,8 @@ The altitude-aware passes land with TV1, because the view is not 1:1 without the
 - **Billboards:** tilt to face a raised eye in this view only.
 - **Shadows:** cascades centred on the ground point the camera looks at, not the eye.
 - **Grass:** stays with the player; from 450 m it is not drawn.
+- **The surf:** Come Sail Away's breakers are not drawn (FIELD BUGS 2026-09-30b TV-SURF) - from 150-450 m a strip
+  laid for a ground eye is seen whole, a half-tone sheet over open water.
 - **Precipitation:** a column over the player's own ground.
 - **Cloud march:** its origin at the eye's height.
 

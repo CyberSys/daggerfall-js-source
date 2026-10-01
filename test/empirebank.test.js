@@ -40,7 +40,7 @@ test('EMPIRE-BANK a bank discovered before shows its name now; a quest\'s rename
   assert.equal(shownBuildingName({ ...bank, isOverrideName: true, displayName: 'The Hideout' }, 'The Bank of the Empire'), 'The Hideout');
   assert.equal(shownBuildingName({ buildingType: BUILDING_TYPES.Tavern, displayName: 'The Rusty Tankard', isOverrideName: false }, 'Something Else'), 'The Rusty Tankard');
   assert.match(src('src/ui/exteriorAutomapWindow.js'), /name = shownBuildingName\(rec, byKey\.get\(b\.buildingKey\)\?\.name\) \|\|/);
-  assert.match(src('src/scenes/worldModes.js'), /displayName: home \? homeDoorTitle\(home\) : shownBuildingName\(db, bd\.name\),/);
+  assert.match(src('src/scenes/worldModes.js'), /displayName: home \? homeDoorTitle\(home\) : homeDoorName\(shownBuildingName\(db, bd\.name\), !!houseVerbs\),/);   // FIELD BUGS 2026-09-30b HOME-PLAQUE (PIN MOVED): a nameless house with verbs is a Residence
 });
 
 test('EMPIRE-BANK the loans: online the cap is a tenth - DFU\'s law and Roleplay & Realism\'s alike - and a loan past it is refused; offline the cap is whole (mutants: the tenth offline; the override skipped online; the divisor)', () => {
