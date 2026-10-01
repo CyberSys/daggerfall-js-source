@@ -10,6 +10,10 @@ It answers RESTX1's open door (Mac, 2026-09-15: *"We can dive deeper in how we w
 at a later time but for now this is the solution"*) and OL3's recorded alternative (*"the shared
 world keeps ONE clock, so per-player deadlines would be a different design"*). This is that design.
 
+[NEXT, PROPOSED 2026-10-01: `Online-Time-Arc.md` (TIME) splits the world's clock below in two - a faster SKY
+(a day every 30 real minutes) and this page's world clock kept as the EVENT clock - and leaves the
+character's clock as it is. Nothing here changes until it is built.]
+
 ## The problem, stated whole
 
 DFU has one clock, and the player owns it. Every "and then time passes" moves it: a night's sleep,
@@ -299,7 +303,8 @@ No relay change. The servers keep the save opaque, and `RELAY_VERSION` does not 
 ## OPEN - Mac's calls
 
 1. **Quest clocks on the character's clock?** LIVED1 leaves WORLD7: a quest's timer charges played
-   time, and a rest or a journey charges it nothing.
+   time, and a rest or a journey charges it nothing. [PROPOSED by `Online-Time-Arc.md` 6.3 (TIME3): yes,
+   with a quest's hour and date reads on the sky.]
    - **Recommended:** a quest's COUNTDOWNS (the Clock resource: "you have N days") charge the
      character's own time, so a journey spends a quest's days as in DFU, and a loiter fast-forwards a
      quest's wait ("come back in three days"). This is FB-2026-09-25's open "loiter fast-forward for
