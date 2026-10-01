@@ -1,0 +1,456 @@
+[
+  {
+    "name": "CLIMB5-pose-sends-a-hang-as-a-face",
+    "file": "src/player/motor.js",
+    "old": "const cl = player.mantling ? 3 : player.hanging ? 1 : player.onWall",
+    "new": "const cl = player.mantling ? 3 : player.hanging ? 2 : player.onWall",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-pose-forgets-the-classic-climb",
+    "file": "src/player/motor.js",
+    "old": ": player.onWall || player.climb?.isClimbing ? 2 : 0;",
+    "new": ": player.onWall ? 2 : 0;",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-pose-drops-the-facing",
+    "file": "src/player/motor.js",
+    "old": "return Number.isFinite(cw) ? { cl, cw: Math.round(cw * 1000) / 1000 || 0 } : { cl };",
+    "new": "return { cl };",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-pose-sends-negative-zero",
+    "file": "src/player/motor.js",
+    "old": "{ cl, cw: Math.round(cw * 1000) / 1000 || 0 }",
+    "new": "{ cl, cw: Math.round(cw * 1000) / 1000 }",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-facing-out-of-the-wall",
+    "file": "src/player/motor.js",
+    "old": "if (n) return Math.atan2(-n[0], -n[2]);",
+    "new": "if (n) return Math.atan2(n[0], n[2]);",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-facing-the-move-backwards",
+    "file": "src/player/motor.js",
+    "old": "return dx * dx + dz * dz > 1e-6 ? Math.atan2(dx, dz) : null;",
+    "new": "return dx * dx + dz * dz > 1e-6 ? Math.atan2(-dx, -dz) : null;",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-body-snaps-to-the-wall",
+    "file": "src/player/motor.js",
+    "old": "const next = from + d * (1 - Math.exp(-Math.max(0, dt) / BODY_TURN_TAU));",
+    "new": "const next = from + d;",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-body-never-lets-go",
+    "file": "src/player/motor.js",
+    "old": "this._bodyYaw = face == null && Math.abs(Math.atan2(Math.sin(left), Math.cos(left))) < 1e-3 ? null : next;",
+    "new": "this._bodyYaw = next;",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-body-follows-the-view-on-the-wall",
+    "file": "src/player/motor.js",
+    "old": "const target = face ?? viewYaw;",
+    "new": "const target = viewYaw;",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-wire-strips-the-climb",
+    "file": "src/net/wire.js",
+    "old": "    ...climbOf(cl, cw),\n",
+    "new": "",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-wire-state-unbounded",
+    "file": "src/net/wire.js",
+    "old": "const c = uint(cl, 3) ?? 0;",
+    "new": "const c = uint(cl, 255) ?? 0;",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-wire-facing-unwrapped",
+    "file": "src/net/wire.js",
+    "old": "return finite(cw) ? { cl: c, cw: wrapAngle(cw) } : { cl: c };",
+    "new": "return finite(cw) ? { cl: c, cw } : { cl: c };",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-wire-keeps-a-facing-that-is-no-number",
+    "file": "src/net/wire.js",
+    "old": "return finite(cw) ? { cl: c, cw: wrapAngle(cw) } : { cl: c };",
+    "new": "return cw !== undefined ? { cl: c, cw: wrapAngle(cw) } : { cl: c };",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-changed-misses-a-hold-taken",
+    "file": "src/net/wire.js",
+    "old": "|| (a.cl | 0) !== (b.cl | 0) || ((a.cl | 0) > 0 && Math.abs(wrapAngle((a.cw ?? 0) - (b.cw ?? 0))) > eps);",
+    "new": "|| ((a.cl | 0) > 0 && Math.abs(wrapAngle((a.cw ?? 0) - (b.cw ?? 0))) > eps);",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-changed-misses-the-turn-on-the-wall",
+    "file": "src/net/wire.js",
+    "old": "|| (a.cl | 0) !== (b.cl | 0) || ((a.cl | 0) > 0 && Math.abs(wrapAngle((a.cw ?? 0) - (b.cw ?? 0))) > eps);",
+    "new": "|| (a.cl | 0) !== (b.cl | 0);",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-changed-compares-the-facing-raw",
+    "file": "src/net/wire.js",
+    "old": "Math.abs(wrapAngle((a.cw ?? 0) - (b.cw ?? 0))) > eps",
+    "new": "Math.abs((a.cw ?? 0) - (b.cw ?? 0)) > eps",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-lerp-drops-the-climb",
+    "file": "src/net/online.js",
+    "old": "    ...(to.cl ? { cl: to.cl, ...(Number.isFinite(to.cw) ? { cw: to.cw } : {}) } : {}),",
+    "new": "",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-lerp-drops-the-facing",
+    "file": "src/net/online.js",
+    "old": "{ cl: to.cl, ...(Number.isFinite(to.cw) ? { cw: to.cw } : {}) }",
+    "new": "{ cl: to.cl }",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-peer-climbing-off-the-wall-too",
+    "file": "src/net/peerClimb.js",
+    "old": "export const peerClimbing = (shown) => (shown?.cl | 0) > 0;",
+    "new": "export const peerClimbing = (shown) => (shown?.cl | 0) >= 0;",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-peer-yaw-takes-a-missing-facing",
+    "file": "src/net/peerClimb.js",
+    "old": "return peerClimbing(shown) && Number.isFinite(shown.cw) ? shown.cw : shown?.yaw;",
+    "new": "return peerClimbing(shown) ? shown.cw : shown?.yaw;",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-peer-walks-on-the-wall",
+    "file": "src/net/peerClimb.js",
+    "old": "export const peerMoving = (shown) => !!shown?.mv && !peerClimbing(shown);",
+    "new": "export const peerMoving = (shown) => !!shown?.mv;",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-cues-a-catch-onto-a-face",
+    "file": "src/net/peerClimb.js",
+    "old": "if (!was) return now === HANG ?",
+    "new": "if (!was) return now === FACE ?",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-cues-a-let-go-off-a-move",
+    "file": "src/net/peerClimb.js",
+    "old": "if (!now) return was === MOVE ? [] : [['step', C.LET_GO]];",
+    "new": "if (!now) return [['step', C.LET_GO]];",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-cues-the-haul-weights-swapped",
+    "file": "src/net/peerClimb.js",
+    "old": "C.PULL * (was === HANG ? 1 : 0.7)",
+    "new": "C.PULL * (was === HANG ? 0.7 : 1)",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-sounds-replay-an-old-climb-on-first-sight",
+    "file": "src/net/peerClimb.js",
+    "old": "const s = this.peers.get(id);\n    if (!s) { this.peers.set(id, { cl, at: at ? [at[0], at[1], at[2]] : null, climb: 0, shimmy: 0 }); return; }",
+    "new": "let s = this.peers.get(id);\n    if (!s) { s = { cl: 0, at: at ? [at[0], at[1], at[2]] : null, climb: 0, shimmy: 0 }; this.peers.set(id, s); }",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-sounds-heard-out-of-earshot",
+    "file": "src/net/peerClimb.js",
+    "old": "if (on && heard && at) for",
+    "new": "if (on && at) for",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-sounds-ignore-the-ports-switch",
+    "file": "src/net/peerClimb.js",
+    "old": "const on = this.on() && !!this.audio?.play3d;",
+    "new": "const on = !!this.audio?.play3d;",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-sounds-a-hand-per-span-up-a-face",
+    "file": "src/net/peerClimb.js",
+    "old": "s.climb += d / FEEL.REACH;",
+    "new": "s.climb += d / FEEL.SHIMMY_SPAN;",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-sounds-a-hand-per-reach-along-a-lip",
+    "file": "src/net/peerClimb.js",
+    "old": "s.shimmy += d / FEEL.SHIMMY_SPAN;",
+    "new": "s.shimmy += d / FEEL.REACH;",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-sounds-a-snap-is-a-climb",
+    "file": "src/net/peerClimb.js",
+    "old": "if (d > 1e-5 && d < 1) {",
+    "new": "if (d > 1e-5) {",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-sounds-never-forget",
+    "file": "src/net/peerClimb.js",
+    "old": "forget(id) { this.peers.delete(id); }",
+    "new": "forget(id) { void id; }",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-sounds-rebase-keeps-the-old-frame",
+    "file": "src/net/peerClimb.js",
+    "old": "rebase() { for (const s of this.peers.values()) s.at = null; }",
+    "new": "rebase() {}",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-body-camera-grounded-on-the-wall",
+    "file": "src/net/peerBodies.js",
+    "old": "  c.move.grounded = !peerClimbing(shown);",
+    "new": "  c.move.grounded = true;",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-body-camera-walks-on-the-wall",
+    "file": "src/net/peerBodies.js",
+    "old": "const moving = peerMoving(shown);   // CLIMB5: a shimmy along a lip is no walk",
+    "new": "const moving = !!shown.mv;   // CLIMB5: a shimmy along a lip is no walk",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-body-eases-to-the-camera",
+    "file": "src/net/peerBodies.js",
+    "old": "b.yaw += wrapAngle(peerBodyYaw(peer.shown) - b.yaw)",
+    "new": "b.yaw += wrapAngle(peer.shown.yaw - b.yaw)",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-billboard-walks-on-the-wall",
+    "file": "src/net/remotePlayers.js",
+    "old": "const moving = peerMoving(shown);   // CLIMB5: a shimmy along a lip is no walk",
+    "new": "const moving = !!shown.mv;   // CLIMB5: a shimmy along a lip is no walk",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-billboard-faces-the-camera",
+    "file": "src/net/remotePlayers.js",
+    "old": "const face = peerBodyYaw(shown);   // CLIMB5: on the wall, facing it",
+    "new": "const face = shown.yaw;   // CLIMB5: on the wall, facing it",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-stride-on-the-wall",
+    "file": "src/net/remotePlayers.js",
+    "old": "standingStill: !peerMoving(shown)",
+    "new": "standingStill: !shown.mv",
+    "tests": [
+      "test/climb5.test.js",
+      "test/peerstride.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-climb-sound-unwired",
+    "file": "src/net/remotePlayers.js",
+    "old": "      this._syncClimbSound(peer, toScene, eye);   // CLIMB5\n",
+    "new": "",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-climb-sound-ignores-the-peers-switch",
+    "file": "src/net/remotePlayers.js",
+    "old": "if (!this.deps?.audio?.play3d || getPref('peerFootsteps') === false) return;",
+    "new": "if (!this.deps?.audio?.play3d) return;",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-gone-peer-never-forgotten",
+    "file": "src/net/remotePlayers.js",
+    "old": "for (const id of [...this._climbSounds.peers.keys()]) if (!seen.has(id)) this._climbSounds.forget(id);",
+    "new": "",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-rebase-skips-the-climb",
+    "file": "src/net/remotePlayers.js",
+    "old": "    this._climbSounds.rebase();   // CLIMB5: and the climb's last places - the shift is no reach up the wall\n",
+    "new": "",
+    "tests": [
+      "test/climb5.test.js",
+      "test/peerstride.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-walker-stands-a-walk-on-the-wall",
+    "file": "src/net/peerRiders.js",
+    "old": "stopped: !peerMoving(pose)",
+    "new": "stopped: !pose.mv",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-walker-faces-the-camera",
+    "file": "src/net/peerRiders.js",
+    "old": "const view = viewOf(peerBodyYaw(pose), feet, eye);",
+    "new": "const view = viewOf(pose.yaw, feet, eye);",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-walker-strides-on-the-wall",
+    "file": "src/net/peerRiders.js",
+    "old": "spriteStride(peerMoving(pose) && !r.shot,",
+    "new": "spriteStride(!!pose.mv && !r.shot,",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-pose-unsent",
+    "file": "src/scenes/world.js",
+    "old": "      ...climbPoseOf(player),   // CLIMB5",
+    "new": "      // CLIMB5",
+    "tests": [
+      "test/climb5.test.js",
+      "test/mac7.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-exterior-draws-the-body-at-the-camera",
+    "file": "src/scenes/exterior.js",
+    "old": "mwViewDrawBody(canvas, { proj, view, eye, feet: player.bodyFeetAt(), yaw: player.bodyYawFor(cam.yaw) });",
+    "new": "mwViewDrawBody(canvas, { proj, view, eye, feet: player.bodyFeetAt(), yaw: cam.yaw });",
+    "tests": [
+      "test/climb5.test.js",
+      "test/prbow1b_followups.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-facing-ignores-the-moves-hold",
+    "file": "src/player/motor.js",
+    "old": "    const n = this._wall?.normal ?? m?.hang?.normal ?? m?.wall?.normal ?? null;",
+    "new": "    const n = this._wall?.normal ?? null;",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-sounds-rhythm-carried-across-a-change",
+    "file": "src/net/peerClimb.js",
+    "old": "    if (cl !== s.cl) { s.climb = 0; s.shimmy = 0; }\n",
+    "new": "",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB5-climb-sound-heard-everywhere",
+    "file": "src/net/remotePlayers.js",
+    "old": "    this._climbSounds.update(peer.id, peer.shown, f, peerInEarshot(f, eye));",
+    "new": "    this._climbSounds.update(peer.id, peer.shown, f);",
+    "tests": [
+      "test/climb5.test.js"
+    ]
+  }
+]
