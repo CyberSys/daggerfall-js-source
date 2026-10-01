@@ -183,7 +183,9 @@ test('SEA-EASE the relief near a port: a harbour known, the relief still goes ab
   d.step = (dt, ctx) => {
     if (sent || !ctx.distress) return real(dt, ctx);
     sent = true;
-    return { despawn: [], spawn: { seed: 99, classId: 'navyCutter', variant: 0, pos: [0, 0, -700], yaw: 0, hunter: false, relief: true } };
+    // past her lookout (the pirate 1500 m off): she sails her laid course, no fight of her own yet - nearer, she would
+    // take the pirate at once and her course would end with it
+    return { despawn: [], spawn: { seed: 99, classId: 'navyCutter', variant: 0, pos: [0, 0, -1500], yaw: 0, hunter: false, relief: true } };
   };
   s.run(1);
   assert.equal(sent, true, 'the distress reached the director');

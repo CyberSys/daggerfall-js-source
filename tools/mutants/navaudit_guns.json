@@ -391,8 +391,8 @@
   {
     "name": "NAV1G-the-trade-unread",
     "file": "src/scenes/navalHost.js",
-    "old": "    if (!striker || !kindred(striker, s)) provoke(s, by, clock);",
-    "new": "    provoke(s, by, clock);",
+    "old": "    if (!stray && (!striker || !kindred(striker, s))) provoke(s, by, clock);",
+    "new": "    if (!stray) provoke(s, by, clock);",
     "tests": [
       "test/navaudit_guns.test.js"
     ]

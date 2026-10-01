@@ -1436,6 +1436,74 @@ host drawing none below, the captains and the errands by night, the lanterns, th
 the world's wiring); AUDIT WATCH-KIT's `test/auditwatchkit_crew.test.js` and `auditwatchkit_sea.test.js`.
 `tools/mutants/shipwatch.json`: 54 mutants, all dead.
 
+## SEA-EASE (2026-10-01) - a quieter, safer bay, and the crown's ships at the player's side - DECLARED
+
+Mac: *"Also, too many ships are appearing. Friendly AI should help the player in combat. The sea is too dangerous right
+now"*. All of it the port's own, over NAV-C's traffic and SEA-PEACE's tempers (`systems/naval/navalDirector.js`,
+`navalAI.js`, `navalRaiders.js`, `scenes/navalHost.js`).
+
+- **Fewer ships.** The densities keep one, two or four ships near a player (`DENSITY` few, some, many - they kept two,
+  three and five), rolled for every `SPAWN_EVERY` (60-140 s, was 30-65) and the first `FIRST_ROLL_S` (30 s, was 12)
+  after the water is reached; one raider of Warm Ashes' at a time (`RAIDER_SHIPS_MAX`, was two). Measured by the
+  director's own law (a straight course at 6 m/s for twenty hours, `test/seaease.test.js`): at the default "Some" 18
+  ships an hour where it launched 31, and 6 pirates where it launched 15.
+- **A safer sea.** The open bay's weights 30 pirates, 45 merchantmen, 25 crown's ships (`FACTION_WEIGHTS`, were 45, 38
+  and 17), and within `PORT_PIXELS` of a port the pirates' weight cut to `PORT_PIRATE_K` (a half) - the crown's own
+  waters; a quarter of the pirates bold (`BOLD_SHARE`, was two in five) - the rest wary, taking only a prize they
+  outgun; a boat lying still grappled after `GRAPPLE_STILL_S` (15 s, was 5) - a captain who stops to look about is not
+  boarded for it.
+- **THE RELIEF** (`navalDirector.js`). While a pirate I stand fights a lawful player - engaged on them or coming
+  alongside - and no crown's ship that does not hunt them sails within `RELIEF_NEAR_M` of them (`navalHost.js
+  distressAt`: me at my helm, a peer at theirs; their notoriety in the waters' crown under `NAVY_HUNTS`), the
+  director's next roll comes within `RELIEF_WAIT_S` and, on `RELIEF_CHANCE` of it (its own `RELIEF_SALT` stream), launches
+  a navy ship on the ring about them, facing them - in a berth past the density's own, one relief at a time, and while
+  they fight it launches nothing else: the sea sends help, never more strangers. Her course is laid for where they
+  were (`ship.course`), kept until her lookout has a fight (the guns she sails for are not one) or she is within
+  `RELIEF_REACHED_M` of it; no errand of her own. She is a crown's ship like any, and sails on when it is done.
+- **A crown's ship stands by a lawful player** (`navalAI.js standsBy`, `fightsAny`). Of the pirates in her lookout,
+  one fighting a player she does not hunt (in her fight with them, or coming alongside) is hers first - chosen as if
+  `AID_PRIORITY` (a half) nearer than she is. A navy ship that takes on a pirate fighting me says so, once: "*her name*
+  comes to your aid!".
+- **THE STRAY** (`navalHost.js strayOnAlly`). A ball of mine that strikes a crown's ship of mine fighting a pirate is a
+  stray, not a feud, while what I have struck her for stays under `ALLY_STRAY_SHARE` (15%) of her hull: no Piracy, no
+  notoriety, no provocation and no witness, and "Check your fire! *her name* fights on your side." said once; past it,
+  the law as ever. A peer's ball on her is weighed the same (their own client charges their own law).
+
+Said: the Ships at sea setting keeps its three tiers - their numbers moved; a player who wants the old sea picks
+"Many" (four). Not done: merchantmen do not come to anyone's aid (a merchant fights no one - SEA-PEACE); a relief is
+sent only by the player who stands the sea (SEA-TRAFFIC's election).
+
+Pins: `test/seaease.test.js` (the numbers, the measured hour, the relief's law, standing by, the host's relief and its
+cry, no relief, the stray and the peer's stray). `tools/mutants/seaease.json`: 37 mutants, all dead.
+
+## SHIP-PRICE (2026-10-01) - a boat about a quarter of the price - DECLARED
+
+Mac: *"make ship prices more reasonable and provide more accessibility options to acquiring"* - his pick, "About a
+quarter". Come Sail Away's hulls cost 4,000, 8,000, 100,000, 200,000 and 150,000; they cost 1,000 (Rowboat), 2,500
+(Large Boat), 25,000 (Small Ship), 50,000 (Large Galley) and 37,500 (Carrack) now (`systems/comeSailAwayBoat.js
+HULL_PRICES`) - what a shelf's deed or parts sell for (AssignVariantsToShopItems) and what a packed boat's item is worth.
+An item already minted keeps the value it was bought at. The bank's classic ship (Daggerfall's own, `banking.js
+SHIP_PRICES`, the realm's customs pinned equal) is unchanged - not a boat that sails.
+
+Pins: `test/shipcredit.test.js` (SHIP-PRICE), `test/csa_items.test.js` (the shelf's values off the table, PIN MOVED).
+
+## SHIP-CREDIT (2026-10-01) - a boat bought on the bank's credit - DECLARED
+
+Mac's second pick of the same ask: *"Buy on credit - Pay part now; the bank lends you the rest under Daggerfall's own
+loan rules."* At a shop's counter a lot holding a boat (Come Sail Away's parts or deed - `tradeModes.js lotHasBoat`)
+that the purse falls short of is offered on credit, in both trade skins (`ui/nativeTrade.js`, `ui/enhancedTrade.js`):
+the purse pays what it holds - `CREDIT_DOWN_SHARE` (a fifth) of the price at least - and the bank of the shop's region
+lends the rest under BorrowLoan's own law (`banking.js creditDecision`): borrowDecision's refusals (a loan or a
+default standing there; online the Empire's one loan a character, in its own words), `LOAN_MINIMUM` at least (a
+shortfall under it borrows the minimum and the purse pays the less), CalculateMaxBankLoan at most (level x 50,000;
+online a tenth); repaid with its 10% within the year, LoanChecker's reminders and default as for any loan
+(`takeCredit`). The lent gold goes to the shop, never into the account. The box: what the purse holds against the
+price, what the bank lends, what is paid now and owed within the year, and "Buy on credit?"; a refusal says why under
+the gold's own. The host asks the bank again at the Yes (`worldModes.js commitTrade`) and buys nothing on a credit no
+longer given.
+
+Pins: `test/shipcredit.test.js`. `tools/mutants/shipcredit.json`: 30 mutants (SHIP-PRICE's two with them), all dead.
+
 ## The tests
 
 One suite a slice - `test/nav_a_guns.test.js` (the flight, the aim, the volley, the reload, a ball's hurt, a ship's
