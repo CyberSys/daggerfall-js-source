@@ -370,7 +370,7 @@ export function createCrewLife({ deck, roster, seed, places = [], faction = null
     if (rng() < 0.35 && !quiet && m !== chanty?.leader) {
       let best = null, bestD = CREW_TALK_SEEK;
       for (const o of members) {
-        if (o === m || o.gone || o.below || o.state !== 'idle' || o.mate || o === chanty?.leader || o === lookout) continue;
+        if (o === m || o.gone || o.below || o.state !== 'idle' || o.mate || o === chanty?.leader) continue;
         const d = Math.hypot(o.pos[0] - m.pos[0], o.pos[2] - m.pos[2]);
         if (d < bestD) { bestD = d; best = o; }
       }

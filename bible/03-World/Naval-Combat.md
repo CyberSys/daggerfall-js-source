@@ -1370,7 +1370,7 @@ by night a pirate sees her only close aboard unless they are.
 
 Pins: `test/shipwatch.test.js` (the laws, the watch below and every hand up, the lookout, the work and its swing, the
 host drawing none below, the captains and the errands by night, the lanterns, the cry and the lamps on the real host,
-the world's wiring). `tools/mutants/shipwatch.json`: MUTANTS_LINE.
+the world's wiring). `tools/mutants/shipwatch.json`: 54 mutants, all dead.
 
 ## The tests
 

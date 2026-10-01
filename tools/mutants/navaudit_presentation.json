@@ -1124,8 +1124,8 @@
   {
     "name": "NAVP-hail-bearing-unread",
     "file": "src/scenes/navalHost.js",
-    "old": "const where = boat ? ` ${bearingWords(bearingOf([s.pos[0] - from[0], 0, s.pos[2] - from[2]], boat.GameObject.rotation))}` : '';",
-    "new": "const where = '';",
+    "old": "const bears = boat ? ` ${bearingWords(bearingOf([s.pos[0] - from[0], 0, s.pos[2] - from[2]], boat.GameObject.rotation))}` : '';",
+    "new": "const bears = '';",
     "tests": [
       "test/navaudit_presentation.test.js"
     ]
@@ -1133,7 +1133,7 @@
   {
     "name": "NAVP-hail-range-unread",
     "file": "src/scenes/navalHost.js",
-    "old": "if (e.hailed || d > SAIL_HO_RANGE) continue;",
+    "old": "if (e.hailed || d > nightSight(SAIL_HO_RANGE, { night, lit: shipLit(e) })) continue;",
     "new": "if (e.hailed) continue;",
     "tests": [
       "test/navaudit_presentation.test.js"

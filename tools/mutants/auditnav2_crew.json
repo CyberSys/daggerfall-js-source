@@ -248,8 +248,8 @@
   {
     "name": "AUDIT-NAV2-F46-host-says-no-colours",
     "file": "src/scenes/navalHost.js",
-    "old": "battle, struck: st !== SHIP_STATES.afloat, hold, toward });",
-    "new": "battle, struck: false, hold, toward });",
+    "old": "battle, struck: st !== SHIP_STATES.afloat, hold, toward, work:",
+    "new": "battle, struck: false, hold, toward, work:",
     "tests": [
       "test/auditnav2_crew.test.js",
       "test/livingcrew.test.js"
@@ -258,8 +258,8 @@
   {
     "name": "AUDIT-NAV2-F46-struck-crew-sings",
     "file": "src/systems/naval/crewLife.js",
-    "old": "    if (!battle && !muster && !struck) {\n      if (chanty) {",
-    "new": "    if (!battle && !muster) {\n      if (chanty) {",
+    "old": "    if (!battle && !muster && !struck && !asleep) {   // SHIP-WATCH: no song in the night watch\n      if (chanty) {",
+    "new": "    if (!battle && !muster && !asleep) {   // SHIP-WATCH: no song in the night watch\n      if (chanty) {",
     "tests": [
       "test/auditnav2_crew.test.js"
     ]
@@ -267,8 +267,8 @@
   {
     "name": "AUDIT-NAV2-F46-struck-crew-calm-words",
     "file": "src/systems/naval/crewLife.js",
-    "old": "battle ? CREW_BLURBS.battle : struck ? CREW_BLURBS.struck : CREW_BLURBS.calm)",
-    "new": "battle ? CREW_BLURBS.battle : CREW_BLURBS.calm)",
+    "old": "battle ? CREW_BLURBS.battle : struck ? CREW_BLURBS.struck : asleep ? CREW_BLURBS.night : CREW_BLURBS.calm)",
+    "new": "battle ? CREW_BLURBS.battle : asleep ? CREW_BLURBS.night : CREW_BLURBS.calm)",
     "tests": [
       "test/auditnav2_crew.test.js"
     ]
@@ -276,8 +276,8 @@
   {
     "name": "AUDIT-NAV2-F46-struck-crew-trade-words",
     "file": "src/systems/naval/crewLife.js",
-    "old": "const own = !battle && !struck && faction",
-    "new": "const own = !battle && faction",
+    "old": "const own = !battle && !struck && !asleep && faction",
+    "new": "const own = !battle && !asleep && faction",
     "tests": [
       "test/auditnav2_crew.test.js"
     ]
@@ -330,8 +330,8 @@
   {
     "name": "AUDIT-NAV2-F47-leader-taken-to-talk",
     "file": "src/systems/naval/crewLife.js",
-    "old": "if (o === m || o.gone || o.state !== 'idle' || o.mate || o === chanty?.leader) continue;",
-    "new": "if (o === m || o.gone || o.state !== 'idle' || o.mate) continue;",
+    "old": "if (o === m || o.gone || o.below || o.state !== 'idle' || o.mate || o === chanty?.leader) continue;",
+    "new": "if (o === m || o.gone || o.below || o.state !== 'idle' || o.mate) continue;",
     "tests": [
       "test/auditnav2_crew.test.js"
     ]

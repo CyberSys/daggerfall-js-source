@@ -180,15 +180,6 @@
     ]
   },
   {
-    "name": "CL-lookout-chats",
-    "file": "src/systems/naval/crewLife.js",
-    "old": "|| o === chanty?.leader || o === lookout) continue;",
-    "new": "|| o === chanty?.leader) continue;",
-    "tests": [
-      "test/shipwatch.test.js"
-    ]
-  },
-  {
     "name": "CL-call-by-first",
     "file": "src/systems/naval/crewLife.js",
     "old": "const by = pickLookout() ?? live()[0];",

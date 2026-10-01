@@ -83,8 +83,8 @@
   {
     "name": "AUDIT-NAV2-F2-contacts-full-crew",
     "file": "src/scenes/navalHost.js",
-    "old": "        power: peerPowerOf(p, self),\n      });",
-    "new": "        power: p.hull == null ? null : fightingPower({ hull: p.hull, hullHp: hullBuild(p.hull).hullHp, hullShare: share }),\n      });",
+    "old": "        power: peerPowerOf(p, self),\n        lit: !!p.boat?.LightOn,   // SHIP-WATCH: as their word lights her\n      });",
+    "new": "        power: p.hull == null ? null : fightingPower({ hull: p.hull, hullHp: hullBuild(p.hull).hullHp, hullShare: share }),\n        lit: !!p.boat?.LightOn,   // SHIP-WATCH: as their word lights her\n      });",
     "tests": [
       "test/auditnav2_online.test.js"
     ]

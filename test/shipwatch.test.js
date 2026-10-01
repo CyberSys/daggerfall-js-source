@@ -31,6 +31,7 @@ import { findHarbour, createWaterGrid, errandFor, stepErrand, LURK_R, NIGHT_LURK
 import { SHIP_STATES } from '../src/systems/naval/navalDamage.js';
 import { SAIL_HO_RANGE } from '../src/scenes/navalHost.js';
 import { CREW_ORDERS } from '../src/systems/naval/shipCrew.js';
+import { setLights } from '../src/systems/comeSailAwayBoat.js';
 import { sea } from './navalSea.mjs';
 
 const WORLD = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
@@ -107,6 +108,11 @@ test('SHIP-WATCH TURNED IN: at the sleeping hour all but the watch walk to her h
   for (const w of words) assert.ok(!CREW_BLURBS.calm.includes(w) || CREW_BLURBS.night.includes(w), `a night word: ${w}`);
   assert.ok([...words].some((w) => CREW_BLURBS.night.includes(w)), 'the night\'s own words');
   for (const s of life.speech()) assert.ok(!s.member.below);
+  // two stations on a crew of four: both keep their posts, whatever the watch's count
+  const two = createCrewLife({ deck: plainDeck(), roster: crewRoster({ hull: 3, seed: 4, shipClass: pirate }).slice(0, 4), seed: 4, places: [[5.5, 3.2, -11], [-5.5, 3.2, -11]] });
+  run(two, 40, { asleep: true });
+  assert.equal(two.members.filter((m) => m.station).length, 2);
+  assert.ok(two.members.filter((m) => m.station).every((m) => !m.below), 'every station at his post');
 });
 
 test('SHIP-WATCH ALL HANDS: the guns or a muster call every hand up at once out of her hatch, one crying ALL_HANDS - and her colours struck do too; the morning brings them up quietly; a man taken off her deck while below comes up out of her hatch; one going ashore comes home on her deck (mutants: the fight leaves them below, no cry, the morning shouts, the taken man where he slept)', () => {
@@ -152,10 +158,11 @@ test('SHIP-WATCH ALL HANDS: the guns or a muster call every hand up at once out 
 });
 
 test('SHIP-WATCH THE LOOKOUT: a walker - never her Bard nor her station, her first man only if none else - walks to her bow (LOOKOUT_BACK from her stem, on her centre line) and keeps it facing out over her stem, talking to nobody; a call is shouted by him, and a lookout gone is another (mutants: the Bard at the bow, no post, he chats, the call by the first man)', () => {
-  const roster = [{ mobile: MOBILE.Bard, gender: 'male' }, { mobile: MOBILE.Warrior, gender: 'male' }, { mobile: MOBILE.Archer, gender: 'female' }, { mobile: MOBILE.Monk, gender: 'male' }];
+  const roster = [{ mobile: MOBILE.Warrior, gender: 'male' }, { mobile: MOBILE.Bard, gender: 'male' }, { mobile: MOBILE.Archer, gender: 'female' }, { mobile: MOBILE.Monk, gender: 'male' }];
   const life = createCrewLife({ deck: plainDeck(), roster, seed: 3 });
   const lk = life.lookout();
   assert.ok(lk && lk.mobile !== MOBILE.Bard && lk.i > 0, `${lk?.mobile}`);
+  assert.equal(lk.mobile, MOBILE.Archer, 'past her Bard to the next');
   assert.ok(life.bow && Math.abs(life.bow[0]) < 0.5 && life.bow[2] > 10, `her bow ${life.bow}`);
   run(life, 30, {});
   assert.ok(Math.hypot(lk.pos[0] - life.bow[0], lk.pos[2] - life.bow[2]) < 0.6, 'at the bow');
@@ -186,11 +193,15 @@ test('SHIP-WATCH AT WORK: what a fight left to mend sets most of the idle crew t
   assert.ok(working >= 3, `hands at work: ${working}`);
   assert.ok(swings > 20 && swings < steps * 3, `swings ${swings} over ${steps} steps`);
   assert.ok([...words].some((w) => CREW_BLURBS.work.includes(w)), 'the work\'s words');
-  // at peace: chores now and then, fewer
+  // at peace: chores now and then, far fewer
   const calm = crewOf(8);
-  let chores = 0;
-  run(calm, 240, {}, (l) => { chores = Math.max(chores, l.members.filter((m) => m.state === 'work').length); });
+  let chores = 0, calmSum = 0, calmN = 0;
+  run(calm, 240, {}, (l) => { const n = l.members.filter((m) => m.state === 'work').length; chores = Math.max(chores, n); calmSum += n; calmN++; });
   assert.ok(chores >= 1, 'a chore at peace');
+  const busy2 = crewOf(8);
+  let busySum = 0, busyN = 0;
+  run(busy2, 240, { work: 1 }, (l) => { busySum += l.members.filter((m) => m.state === 'work').length; busyN++; });
+  assert.ok(busySum / busyN > 2 * (calmSum / calmN), `the work draws them: ${(busySum / busyN).toFixed(2)} at work against ${(calmSum / calmN).toFixed(2)} at peace`);
   // the guns end it
   busy.step(0.05, { battle: true, work: 1 });
   busy.step(0.05, { battle: true, work: 1 });
@@ -374,9 +385,18 @@ test('SHIP-WATCH THE FAR LAMPS ON THE REAL HOST: by night a lit ship past LAMP_N
     assert.ok(Math.abs(l.size - lampSize(d)) < 1e-9 && Math.abs(l.color[3] - lampAlpha(d)) < 1e-9);
     assert.ok(Math.hypot(l.pos[0] - m.ship.pos[0], l.pos[2] - m.ship.pos[2]) < 60, 'the merchantman\'s - never the dark pirate\'s');
   }
+  // her own lantern flats near the eye: no lamp of hers within LAMP_NEAR_M
+  h.view.look = { origin: [m.ship.pos[0], 6, m.ship.pos[2] + 8], dir: [1, 0, 0] };
+  const near = h.host.drawFrame().particles.filter((q) => q.kind === 'lamp' && Math.hypot(q.pos[0] - m.ship.pos[0], q.pos[2] - m.ship.pos[2]) < 60);
+  for (const l of near) assert.ok(Math.hypot(l.pos[0] - h.view.look.origin[0], l.pos[1] - h.view.look.origin[1], l.pos[2] - h.view.look.origin[2]) > LAMP_NEAR_M);
+  assert.ok(near.length < lamps.length, 'the near ones left to her flats');
+  // by day none - a lit boat of mine either (her switch on in daylight)
   const d = await sea({ hull: HULL.SmallShip, where: { cityLights: false } });
   d.host.spawnShip('merchantGalleon', { range: 400, bearing: 1 });
   d.run(0.3);
+  setLights(d.boat, true);
+  d.view.look = { origin: [300, 6, 300], dir: [1, 0, 0] };
+  assert.equal(d.boat.LightOn, true);
   assert.equal(d.host.drawFrame().particles.filter((q) => q.kind === 'lamp').length, 0, 'by day none');
 });
 
