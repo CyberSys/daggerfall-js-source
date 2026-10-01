@@ -736,6 +736,18 @@ and the Charter lapses and the seat is unheld; succeed, and Standing returns to 
 - **Pacts** - two guilds may sign a **Pact of non-aggression** for the rest of a Season: neither may pledge against a
   seat the other holds. Breaking it early is allowed and announced to the whole server in red.
 
+BUILT (CROWN2, 2026-10-01, `acct51`; `06-Systems/Online-Arc.md` CROWN2): fealty offered by either side's Guildmaster or
+Officer and sworn when the other side's accepts (`fealtyKingdom`: a palace of the crown's kingdom, or a March it claims,
+to that crown's holder - never a Free Land's, never a crown holder as vassal); the vassal's tribute (5% of its week's
+Tithe, after its upkeep, Edicts and Conscription, out of what its treasury holds), the liege's half-reach on the
+vassal's own influence in its defence (added after the multipliers), Conscription sparing a vassal (7.6); neither may
+pledge against the other's seats, nor swear while one is pledged against the other. A break is asked any day and taken
+at the next Turning (the breaker's Standing -10 at every seat it holds); a pair that no longer fits lapses there at no
+cost. Pacts for the rest of the Season, signed when the other side offers back; broken early at once, a red line on
+the seats' list for a day that every client says in chat once. Both on the Seat tab, with an Officer's levers.
+DECIDED: until SEASON1 counts Seasons, a Season is each 8-week block of seat weeks (`pactUntil`); a fealty that is
+breaking lends no reach and still pays its last week's tribute; a liege holding two crowns takes the first that fits.
+
 ### 7.9 The seat on the Notice Board
 
 DECIDED (Mac): "The new notice board should be a physical object that houses quests, the player auction house,
@@ -946,9 +958,8 @@ bible updated in the same change, mutants recorded.
 | **PVP-REF** | The refereed blow and step; the 40-fighter measurement - **SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` PVP-REF; relay `world140`, the developers alone until SEAT2a; the step's ceiling MEASURED to 18 m/s) | 6.1's buckets pinned against DFU's damage ranges; the measurement recorded (every budget under 60% - the sizes stand) |
 | **SEAT2a** | Siege rooms, banners, the Throne, windows, forfeits, spectators, the Tourney, Honours - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` SEAT2a: the window, the schedule, the sides and their Sellswords; `acct47`); **PART TWO SHIPPED** 2026-10-01 (the relay's battle - the pass, the sides, the banners and the Throne, the no-shows, the `s1` receipts; `world141`); **PART THREE SHIPPED** 2026-10-01 (the service - the pass and the field, the result and all it gives, Honours, the deploy blackout; `acct48`); **PART FOUR SHIPPED** 2026-10-01 (the client - the field from the town, the room and its pass, the HUD and the card, blows, the camp, the receipts carried) - **SEAT2a SHIPPED** | A headless 10v10 siege runs to both endings |
 | **SEAT2b** | Fortifications, the Barracks' guards, the Gatehouse, the Ram, revolts | Needs PROF11 (Masonry), PROF4 (Carpentry), PROF3 (Smithing's ingots for the Ram) and PROF8 (the Pearls tier-2 Shrine and Apothecary ask) |
-| **CROWN1** | The crown tier: reach, the Marches, the Free Lands, crown glyphs, the Saturday slots, Royal Tourney, Conscription - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` CROWN1: reach, the Marches' share, the Free Lands' Watch, Conscription; `acct49`; the crown glyphs were SEAT1c's, the Saturday slots SEAT2a's); **PART TWO (the Royal Tourney) SHIPPED** - the relay
-(`world142`), the service (`acct50`) and the client; CROWN1 is whole. Built before SEAT2b, which waits on PROF11 (Masonry) and which CROWN1 does not read | 4.4's worked example pinned to the unit; every Conscription share pinned |
-| **CROWN2** | Fealty and Pacts | - |
+| **CROWN1** | The crown tier: reach, the Marches, the Free Lands, crown glyphs, the Saturday slots, Royal Tourney, Conscription - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` CROWN1: reach, the Marches' share, the Free Lands' Watch, Conscription; `acct49`; the crown glyphs were SEAT1c's, the Saturday slots SEAT2a's); **PART TWO (the Royal Tourney) SHIPPED** - the relay (`world142`), the service (`acct50`) and the client; CROWN1 is whole. Built before SEAT2b, which waits on PROF11 (Masonry) and which CROWN1 does not read | 4.4's worked example pinned to the unit; every Conscription share pinned |
+| **CROWN2** | Fealty and Pacts - **SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` CROWN2; `acct51`, migration `0055`) | The tribute, the half-reach and the break's Standing pinned at the Turning; the pledges barred; a Pact broken early in red |
 | **SEASON1** | Seasons, the Chronicle, the Hall of Records, Tides | - |
 
 ## 14. What remains to measure

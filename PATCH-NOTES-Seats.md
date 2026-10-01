@@ -101,6 +101,15 @@ The first part of guild town control is in. It is open to the developers first, 
 - **The ladder.** Each bout won counts on the ladder, which is shown on the Seat tab and on screen. The same two players count at most **three bouts a day** against each other.
 - **The champion.** When the week ends, the ladder's leader wins the **5,000 Drakes** and the title **"Champion of <Kingdom>, Season N"** for good. Ties go to fewer losses, then to whoever reached their wins first. If no bout was won, the prize goes back to the crown.
 
+## Fealty and Pacts (online)
+- **Fealty.** A guild holding a palace seat in a crown's kingdom, or in a March that crown claims, can swear fealty to the guild holding the crown. Either side's Guildmaster or an Officer offers it on the Seat tab, by the other guild's tag, and the other side accepts it there. The Free Lands swear to no one, and a guild holding a crown is no one's vassal.
+  - **The vassal** pays its liege **5%** of its Tithe each week, at the Turning, after its own upkeep.
+  - **The liege** adds **half its reach** to the vassal's defence: an eighth of the vassal's own influence at a seat in the crown's kingdom, a sixteenth at a March.
+  - **Never against each other.** A liege and its vassal can't pledge against each other's seats, and Conscription never takes from a vassal.
+  - **Breaking it.** Either side can break it at any time. It ends at the next Turning, and the side that broke it loses **10 Standing** at every seat it holds. If the two no longer fit (the liege loses its crown, say), the fealty simply ends at the Turning, at no cost.
+- **Pacts.** Any two guilds can sign a **Pact of non-aggression**. One side offers it on the Seat tab, and the other offers it back to sign it. It lasts to the end of the Season (every 8 weeks for now). Neither guild can pledge against a seat the other holds. A Pact can be broken early, but the whole server is told in red.
+- None of this can be sworn or signed while either guild is pledged against the other's seat that week.
+
 ## Behind the scenes
 - **The registry.** Each client works out the seats from its own game files. When you stand in a seat town, your game reports it to the server once a day. The server trusts a seat once three players whose accounts are at least a week old agree on it exactly.
 - **Fair sieges.** In a siege the server keeps every fighter's health and checks every blow, spell and step: a blow lands only if the weapon you carry can reach and deal it, nobody heals or strikes faster than the game allows, and nobody runs faster than the fastest legal runner. A siege's health is its own (300, more with your Renown) and never touches your character's health, items or gold. A siege room lets in only the fighters each side signed, and spectators.
@@ -109,7 +118,7 @@ The first part of guild town control is in. It is open to the developers first, 
 ---
 
 ### For the team
-- Apply migrations **`0047_town_seats.sql`**, **`0048_seat_influence.sql`**, **`0049_seat_turning.sql`**, **`0050_seat_holding.sql`**, **`0051_seat_battles.sql`**, **`0052_seat_siege_results.sql`**, **`0053_crown_edicts.sql`** and **`0054_royal_tourney.sql`** (with the guild halls' 0045 and 0046, after main's 0044) to production D1 and deploy the account service (**`acct50`**).
+- Apply migrations **`0047_town_seats.sql`**, **`0048_seat_influence.sql`**, **`0049_seat_turning.sql`**, **`0050_seat_holding.sql`**, **`0051_seat_battles.sql`**, **`0052_seat_siege_results.sql`**, **`0053_crown_edicts.sql`**, **`0054_royal_tourney.sql`** and **`0055_fealty_pacts.sql`** (with the guild halls' 0045 and 0046, after main's 0044) to production D1 and deploy the account service (**`acct51`**).
 - **The siege blackout.** The relay's deploy now waits while a siege is live or starts within 30 minutes (it asks the account service's public `/v1/seats/sieges/live`). Dispatch it with **force** to deploy at once - a forced deploy during a siege voids it. The account deploy now waits up to five and a half hours for the relay.
 - **The economy model**: `node tools/seatEconomy.mjs` re-runs the guild-week table from the live law files (`--runs`, `--seed`, `--json`).
 - **Deploy the relay (`world142`).** It sends the Watch's ticks (world138), carries the seats' titles (world139), referees a siege's room (world140), fights its battle by the service's pass (world141) and keeps a Royal Tourney's room (world142). Deploy it before the account service: an older relay refuses a token with a seat title in it.

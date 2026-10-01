@@ -76,7 +76,7 @@ test('SEAT2a THE SIDES AND THE WORDS: ten and twenty a side, two and four Sellsw
   assert.equal(battleWhenText(siegeStartMs(WK, 0, 1)), 'Thursday at 01:00 UTC');
   const SH = { name: 'The Silver Hand', tag: 'SH' }, EO = { name: 'Ebon Oath', tag: 'EO' };
   assert.equal(battleAnnouncement({ kind: 'siege', startsAt: siegeStartMs(WK, 0, 20), attackerGuild: SH, defenderGuild: EO }, 'Anticlere'),
-    'the Silver Hand <SH> has won the Right of Siege at Anticlere. Ebon Oath <EO> holds its Charter. Battle is joined Wednesday at 20:00 UTC.', '6.3\'s announcement');
+    'The Silver Hand <SH> has won the Right of Siege at Anticlere. Ebon Oath <EO> holds its Charter. Battle is joined Wednesday at 20:00 UTC.', '6.3\'s announcement (PIN MOVED, CROWN2: the name opening it capitalised)');
   assert.match(battleAnnouncement({ kind: 'tourney', startsAt: siegeStartMs(WK, 0, 20), moved: true, attackerGuild: SH, defenderGuild: EO }, 'Anticlere'), /meet in a Tourney for Anticlere\. Battle is joined Wednesday at 20:00 UTC \(moved, so that no guild fights twice at once\)\./);
   assert.equal(battleAnnouncement(null, 'x'), null);
   assert.equal(sideLine('Attackers', 7, 10, 1), 'Attackers: 7 of 10 signed (1 Sellsword).');
@@ -117,7 +117,8 @@ test('SEAT2a THE SEAT TAB\'S BATTLE: the announcement and both sides\' rosters f
   // a member of the attackers, not signed
   let host = mount(2, 'g2', fight({ side: 'attack', signed: false, sellsword: false }));
   await tick();
-  assert.match(host.textContent, /Ebon Oath <EO> has won the Right of Siege at Anticlere\. the Silver Hand <SH> holds its Charter\. Battle is joined Thursday at 21:00 UTC\./);
+  // PIN MOVED (CROWN2): a guild's name opening a sentence is capitalised - "The Silver Hand", where it read "the"
+  assert.match(host.textContent, /Ebon Oath <EO> has won the Right of Siege at Anticlere\. The Silver Hand <SH> holds its Charter\. Battle is joined Thursday at 21:00 UTC\./);
   assert.match(host.textContent, /Attackers: 4 of 10 signed \(1 Sellsword\)\./);
   assert.match(host.textContent, /Defenders: 2 of 10 signed\./);
   byClass(host, 'notice-seat-sign')[0].click(); await tick();

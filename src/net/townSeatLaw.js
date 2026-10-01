@@ -122,6 +122,8 @@ export function charterName(seat) {
 }
 /** A guild as the arrival line names it: "the Silver Hand <SH>". */
 const guildWords = (g) => `${/^the /i.test(g.name) ? `the ${g.name.slice(4)}` : g.name} <${g.tag}>`;
+/** CROWN2: the same, opening a sentence (SEAT2a's announcement too, which had opened one with "the"). */
+const GuildWords = (g) => { const w = guildWords(g); return `${w[0].toUpperCase()}${w.slice(1)}`; };
 /**
  * THE ARRIVAL LINE (SEAT0 3.3 - HUB1's five-second line, extended to every seat): "Anticlere. Its Charter is unheld."; a
  * held one "Anticlere, held by the Silver Hand <SH>."; a crown "Wayrest, capital of the Kingdom of Wayrest, held by the
@@ -382,7 +384,9 @@ export const bySeatStanding = (a, b) => claimTotal(b) - claimTotal(a) || (b.lega
 /** THE HOLDER'S DEFENCE (SEAT0 5.2 step 3): its own influence at the seat x (1 + Standing's modifier) x (1 - Overreach's
  *  cut, SEAT1d - `extra` its guild's) x 1.2 where it held its last siege or won it by forfeit (`held`, SEAT2a part
  *  three - the siege's aftermath), and its Legacy. A liege's reach comes with CROWN2. */
-export const seatDefence = (own, standing, extra = 0, held = false) => Math.floor(Math.max(0, own?.influence ?? 0) * (1 + standingModifier(standing)) * overreachDefence(extra) * (held ? SIEGE_DEFENCE_BONUS : 1) + 1e-9) + Math.max(0, own?.legacy ?? 0);
+export const seatDefence = (own, standing, extra = 0, held = false, liegeReach = 0) => Math.floor(Math.max(0, own?.influence ?? 0) * (1 + standingModifier(standing)) * overreachDefence(extra) * (held ? SIEGE_DEFENCE_BONUS : 1) + 1e-9)
+  + Math.floor(Math.max(0, own?.influence ?? 0) * Math.max(0, liegeReach) * FEALTY.reachShare + 1e-9)   // CROWN2 (5.2 step 4, 7.8): a vassal's - half its liege's reach on its own influence
+  + Math.max(0, own?.legacy ?? 0);
 
 /**
  * THE TURNING'S PLAN (SEAT0 5.2) - pure. `seats` every confirmed seat with anything at it this week: its tier, its
@@ -449,7 +453,7 @@ export function turningPlan({ week, seats, treasuries, active = CROWN_SCALE.per 
   const candidates = [];
   for (const s of sorted) {
     if (!keeps(s) || s.holder.truceWeek === week) continue;
-    const defence = seatDefence(s.guilds.find((g) => g.guild === s.holder.guild), s.holder.standing, extraOf(s.holder.guild), !!s.holder.bonus);
+    const defence = seatDefence(s.guilds.find((g) => g.guild === s.holder.guild), s.holder.standing, extraOf(s.holder.guild), !!s.holder.bonus, s.holder.liegeReach ?? 0);
     for (const g of s.guilds) {
       if (g.guild === s.holder.guild || (s.barred ?? []).includes(g.guild)) continue;   // SEAT2a: a challenger that lost or forfeited its siege here
       const total = claimTotal({ ...g, influence: unrestInfluence(g.influence, s.holder.standing) });
@@ -477,7 +481,7 @@ export function turningPlan({ week, seats, treasuries, active = CROWN_SCALE.per 
     const unchallenged = !seatTaken.has(s.key);
     const w = standingWeek({
       tier: s.tier, standing: s.holder.standing, tithe: s.holder.tithe ?? 0, watched: s.holder.watched ?? true, gates: s.holder.gates ?? 0,
-      writs: s.holder.writs ?? 0, unchallenged, upkeep: stateOf.get(s.key), edict: law, conscripted: !!s.holder.conscripted,
+      writs: s.holder.writs ?? 0, unchallenged, upkeep: stateOf.get(s.key), edict: law, conscripted: !!s.holder.conscripted, brokeFealty: !!s.holder.brokeFealty,
     });
     standings.push({ key: s.key, guild: s.holder.guild, standing: w.standing, changes: w.changes });
     if (unchallenged) held.push({ key: s.key, guild: s.holder.guild, standing: w.standing });
@@ -528,6 +532,11 @@ export function chronicleLine(row, seat) {
     // CROWN1 part two: the Royal Tourney's end
     case 'royal-champion': return `${when}, ${d.name || 'a contender'} won the Royal Tourney at ${seat.name} with ${Number(d.wins ?? 0)} bouts - Champion of ${kingdomName(d.kingdom) ?? seat.name}.`;
     case 'royal-none': return `${when}, no bout of the Royal Tourney at ${seat.name} was won; its prize went home.`;
+    // CROWN2: fealty (7.8)
+    case 'fealty-sworn': return `${when}, ${guildWords(d.vassal)} swore fealty to ${guildWords(d.liege)}.`;
+    case 'fealty-broken': return `${when}, ${guildWords(d.breaker)} broke the fealty between ${guildWords(d.vassal)} and ${guildWords(d.liege)}.`;
+    case 'fealty-tribute': return `${when}, ${guildWords(d.vassal)} paid ${Number(d.marks ?? 0).toLocaleString('en-US')} Marks of tribute to ${guildWords(d.liege)}.`;
+    case 'fealty-lapsed': return `${when}, the fealty between ${guildWords(d.vassal)} and ${guildWords(d.liege)} lapsed.`;
     default: return null;
   }
 }
@@ -538,8 +547,8 @@ export const seatHolderLine = (holder) => (holder
 /** This week's battle at a seat, in words - a Contested seat's Tourney, or a Right of Siege - or null. */
 export function seatBattleLine(battle) {
   if (!battle) return null;
-  if (battle.kind === 'tourney') return `${guildWords(battle.guild)} and ${guildWords(battle.against)} meet in a Tourney for the Charter this week.`;
-  return `${guildWords(battle.guild)} has won a Right of Siege against ${guildWords(battle.against)} this week.`;
+  if (battle.kind === 'tourney') return `${GuildWords(battle.guild)} and ${guildWords(battle.against)} meet in a Tourney for the Charter this week.`;
+  return `${GuildWords(battle.guild)} has won a Right of Siege against ${guildWords(battle.against)} this week.`;
 }
 /** What the relinquish button says - pressed once to arm, again to give the Charter up. */
 export const SEAT_RELINQUISH_WORDS = Object.freeze({ arm: 'Give up the Charter', sure: 'Press again to give up the Charter' });
@@ -664,6 +673,7 @@ export const STANDING_CHANGES = Object.freeze({
   siegeHeld: 15, throneReached: -5, festival: 10, neglect: -10, writ: 1, writWeekMax: 5, paidLate: -5,
   revoltTo: 20, curfew: -2, levy: -2, openGates: 3,
   conscripted: -5,   // CROWN1 (7.6): a seat that paid a crown's Conscription
+  fealtyBroken: -10,   // CROWN2 (7.8): every seat of a guild that broke its fealty
 });
 /** UNREST (SEAT0 7.3): below 20 challengers earn +25% influence there, and the arrival line says so; at 0 it revolts. */
 export const STANDING_UNREST = 20;
@@ -721,9 +731,10 @@ export const SEAT_LEVER_RANKS = Object.freeze([0, 1]);
  * any of the holder's own members kept the Watch there; `gates` gates felled in its region; `writs` the holder's writs
  * filled there; `unchallenged` no Right granted against it; `upkeep` 'paid', 'late' (paid with the arrears) or
  * 'neglect'; `edict` the Edict the Turning makes law for the coming week (its row taken as it is proclaimed);
- * CROWN1: `conscripted` the seat paid a crown's Conscription this week (7.6).
+ * CROWN1: `conscripted` the seat paid a crown's Conscription this week (7.6); CROWN2: `brokeFealty` its holder broke its
+ * fealty at this Turning (7.8).
  */
-export function standingWeek({ tier, standing, tithe = 0, watched = true, gates = 0, writs = 0, unchallenged = false, upkeep = 'paid', edict = null, conscripted = false }) {
+export function standingWeek({ tier, standing, tithe = 0, watched = true, gates = 0, writs = 0, unchallenged = false, upkeep = 'paid', edict = null, conscripted = false, brokeFealty = false }) {
   const changes = [];
   const add = (row, d) => { if (d) changes.push([row, d]); };
   const t = titheStanding(tier, tithe);
@@ -736,6 +747,7 @@ export function standingWeek({ tier, standing, tithe = 0, watched = true, gates 
   if (upkeep === 'late') add('paidLate', STANDING_CHANGES.paidLate);
   if (edict && EDICTS[edict]?.standing) add(edict, EDICTS[edict].standing);
   if (conscripted) add('conscripted', STANDING_CHANGES.conscripted);
+  if (brokeFealty) add('fealtyBroken', STANDING_CHANGES.fealtyBroken);
   const sum = changes.reduce((a, [, d]) => a + d, 0);
   return { standing: Math.max(0, Math.min(STANDING_MAX, standing + sum)), changes };
 }
@@ -910,8 +922,8 @@ export function battleAnnouncement(b, seatName) {
   if (!b) return null;
   const when = battleWhenText(b.startsAt);
   const moved = b.moved ? ' (moved, so that no guild fights twice at once)' : '';
-  if (b.kind === 'tourney') return `${guildWords(b.attackerGuild)} and ${guildWords(b.defenderGuild)} meet in a Tourney for ${seatName}. Battle is joined ${when}${moved}.`;
-  return `${guildWords(b.attackerGuild)} has won the Right of Siege at ${seatName}. ${guildWords(b.defenderGuild)} holds its Charter. Battle is joined ${when}${moved}.`;
+  if (b.kind === 'tourney') return `${GuildWords(b.attackerGuild)} and ${guildWords(b.defenderGuild)} meet in a Tourney for ${seatName}. Battle is joined ${when}${moved}.`;
+  return `${GuildWords(b.attackerGuild)} has won the Right of Siege at ${seatName}. ${GuildWords(b.defenderGuild)} holds its Charter. Battle is joined ${when}${moved}.`;
 }
 /** A side's line: "Attackers: 7 of 10 signed (1 Sellsword)." */
 export const sideLine = (label, n, max, swords) => `${label}: ${n} of ${max} signed${swords ? ` (${swords} Sellsword${swords === 1 ? '' : 's'})` : ''}.`;
@@ -1039,15 +1051,16 @@ export const CONSCRIPTION = Object.freeze({ kingdom: 0.02, march: 0.01, standing
  * WHAT A CROWN CONSCRIPTS - pure. `kingdom` the proclaiming crown's ('daggerfall' ...), `crownGuild` its holder, `holds`
  * every Charter (`[{ key, guild, tier, region }]`), `tithes` each guild's Tithe taken this week (Drakes). DECIDED (CROWN1):
  * the ledger names the guild a Tithe reached, not the seat it was taken at, so a guild's week of Tithe is shared over its
- * Charters - each conscripted seat pays its share of it at its rate. A Free Land is no crown's; a vassal's seat is CROWN2's.
+ * Charters - each conscripted seat pays its share of it at its rate. A Free Land is no crown's; a vassal of the crown's
+ * (`vassals`, CROWN2) pays its fealty's tribute instead.
  * Answers `[{ guild, keys, amount }]`, a guild that holds nothing here never named.
  */
-export function conscriptionDue({ kingdom, crownGuild, holds, tithes }) {
+export function conscriptionDue({ kingdom, crownGuild, holds, tithes, vassals = new Set() }) {
   const by = new Map();
   for (const h of holds ?? []) { let l = by.get(h.guild); if (!l) by.set(h.guild, l = []); l.push(h); }
   const out = [];
   for (const [guild, seats] of by) {
-    if (guild === crownGuild) continue;
+    if (guild === crownGuild || vassals.has(guild)) continue;   // CROWN2 (7.6): "never a vassal's"
     const here = seats.filter((h) => h.tier === 'palace' && (isMarch(h.region) ? MARCHES[h.region].includes(kingdom) : kingdomOf(h.region) === kingdom));
     if (!here.length) continue;
     const rate = here.reduce((n, h) => n + (isMarch(h.region) ? CONSCRIPTION.march : CONSCRIPTION.kingdom), 0);
@@ -1109,4 +1122,104 @@ export function royalTourneyLines(r) {
   const out = [`A Royal Tourney is proclaimed: a duel ladder all week at the castle's square, every blow refereed. The week's champion takes ${Number(r.prize ?? 0).toLocaleString('en-US')} Drakes and the title for good.`];
   const rows = (r.ladder ?? []).map((x, i) => `${i + 1}. ${x.name || 'Someone'} - ${x.wins} won, ${x.losses} lost`);
   return [...out, ...(rows.length ? rows : ['No bout has been won yet.'])];
+}
+
+// ═══ CROWN2: FEALTY AND PACTS (SEAT0 7.8) ═══════════════════════════════════════════════════════════════════════════
+// Crown politics, kept by the account service (server-account/src/seatPolitics.js) and reckoned at the Turning.
+
+/** FEALTY (7.8): a vassal pays its liege 5% of its week's Tithe; the liege adds half its reach at the vassal's seat to the
+ *  vassal's defence; the side that breaks it loses STANDING_CHANGES.fealtyBroken at every seat it holds. */
+export const FEALTY = Object.freeze({ tribute: 0.05, reachShare: 0.5, breakStanding: STANDING_CHANGES.fealtyBroken });
+/**
+ * WHETHER `vassal` MAY SWEAR TO `liege` - each guild's Charters (`[{ tier, region }]`): the liege holds a crown, the
+ * vassal none, and the vassal a palace seat of that crown's kingdom or of a March it claims (never a Free Land's). The
+ * crown's kingdom, or null. DECIDED: a crown holder is no one's vassal; a liege holding two crowns takes the first that
+ * fits.
+ */
+export function fealtyKingdom(vassalHolds, liegeHolds) {
+  if ((vassalHolds ?? []).some((h) => h.tier === 'crown')) return null;
+  for (const k of crownsHeld(liegeHolds)) {
+    if ((vassalHolds ?? []).some((h) => (isMarch(h.region) ? MARCHES[h.region].includes(k) : kingdomOf(h.region) === k))) return k;   // a palace: a crown holder returned above
+  }
+  return null;
+}
+/**
+ * THE TURNING'S FEALTIES (7.8) - each standing pair (`{ vassal, liege, state, broken_by }`, 'sworn' or 'breaking') over
+ * the Charters as they stand (`[{ guild, tier, region }]`): each pair as the Turning settles it - `{ vassal, liege,
+ * broken, fits }` (`broken` its breaker, or null; a pair that no longer fits lapses); the breakers (their Standing row);
+ * and `liegeReach(guild, seat)`, a vassal's liege's reach at a seat it holds (seatReach) - 0 for a guild with no liege,
+ * a fealty breaking or one that no longer fits.
+ */
+export function fealtyReckoning(rows, charters) {
+  const chartersOf = (g) => (charters ?? []).filter((h) => h.guild === g);
+  const fealties = (rows ?? []).map((f) => ({ vassal: f.vassal, liege: f.liege, broken: f.state === 'breaking' ? f.broken_by : null, fits: !!fealtyKingdom(chartersOf(f.vassal), chartersOf(f.liege)) }));
+  const liegeOf = new Map(fealties.filter((f) => f.fits && !f.broken).map((f) => [f.vassal, f.liege]));
+  return {
+    fealties,
+    breakers: new Set(fealties.filter((f) => f.broken).map((f) => f.broken)),
+    liegeReach: (guild, seat) => (liegeOf.has(guild) ? seatReach(seat, crownsHeld(chartersOf(liegeOf.get(guild)))) : 0),
+  };
+}
+/** A vassal's tribute off its week's Tithe, rounded down. */
+export const fealtyTribute = (tithe) => Math.floor(Math.max(0, Number(tithe) || 0) * FEALTY.tribute + 1e-9);
+/** THE SEASON a Pact runs to (7.8: "for the rest of a Season") - DECIDED: until SEASON1 counts Seasons, a Season is each
+ *  SEASON_WEEKS-week block of seat weeks from week 0, so a Pact signed in week `w` stands through the week before
+ *  pactUntil(w). */
+export const SEASON_WEEKS = 8;
+export const pactUntil = (week) => (Math.floor(Math.max(0, week) / SEASON_WEEKS) + 1) * SEASON_WEEKS;
+/** Whether guild `g` may pledge at a seat `holder` holds, its liege, vassals and Pact partners known - a reason, or null. */
+export function pledgeBarred(g, holder, { liege = null, vassals = [], pacts = [] } = {}) {
+  if (!holder || holder === g) return null;
+  if (holder === liege || vassals.includes(holder)) return 'fealty-pledge';
+  if (pacts.includes(holder)) return 'pact-pledge';
+  return null;
+}
+/** The red line the whole server reads when a Pact is broken early (7.8). */
+export const pactBrokenText = (breaker, other) => `${GuildWords(breaker)} has broken its Pact of non-aggression with ${guildWords(other)}.`;
+/** How long the seats' list carries a red announcement, seconds. */
+export const SEAT_RED_S = 24 * 3600;
+/** Why the service will not swear, accept, break or pledge, in its own words. */
+export const FEALTY_WHY = Object.freeze({
+  'fealty-unfit': 'Fealty is sworn by a guild holding a palace of a crown\'s kingdom (or a March it claims) to that crown\'s holder.',
+  'fealty-none': 'There is no such offer of fealty.',
+  'fealty-sworn': 'Your guild is sworn already.',
+  'fealty-pledged': 'One of you is pledged against the other\'s seat this week.',
+  'fealty-pledge': 'Your guild may not pledge against its liege\'s or its vassal\'s seat.',
+  'pact-none': 'There is no such Pact.',
+  'pact-signed': 'A Pact stands between your guilds already.',
+  'pact-self': 'A guild makes no Pact with itself.',
+  'pact-pledged': 'One of you is pledged against the other\'s seat this week.',
+  'pact-pledge': 'Your guild may not pledge against a seat its Pact partner holds.',
+  'guild-unknown': 'There is no guild by that tag.',
+});
+/** THE POLITICS' LEVERS' WORDS on the Seat tab, by act. */
+export const POLITICS_ACTS = Object.freeze({
+  'fealty-accept': 'Accept', 'fealty-withdraw': 'Withdraw', 'fealty-break': 'Break fealty',
+  'pact-accept': 'Sign', 'pact-withdraw': 'Withdraw', 'pact-break': 'Break the Pact',
+});
+/**
+ * A GUILD'S CROWN POLITICS AS THE SEAT TAB SAYS THEM (7.8) - the service's `politics` (seatPolitics.js politicsOf): one
+ * row a fealty or Pact, `{ text, act, tag }` - `act` the lever an Officer may pull on it (POLITICS_ACTS) and `tag` the
+ * other guild's, or `act` null. A fealty breaking ends at the Turning; a Pact signed runs to its week.
+ */
+export function politicsRows(p) {
+  const rows = [];
+  for (const f of p?.fealty ?? []) {
+    const other = f.asVassal ? f.liege : f.vassal;
+    if (f.state === 'sworn') {
+      rows.push({ text: f.asVassal ? `Your guild is sworn to ${guildWords(f.liege)}.` : `${GuildWords(f.vassal)} is sworn to your guild.`, act: 'fealty-break', tag: other.tag });
+    } else if (f.state === 'breaking') {
+      rows.push({ text: `The fealty between ${guildWords(f.vassal)} and ${guildWords(f.liege)} ends at the Turning.`, act: null, tag: other.tag });
+    } else if (f.mine) {
+      rows.push({ text: f.asVassal ? `Your guild offers to swear fealty to ${guildWords(f.liege)}.` : `Your guild offers to take ${guildWords(f.vassal)} as its vassal.`, act: 'fealty-withdraw', tag: other.tag });
+    } else {
+      rows.push({ text: f.asVassal ? `${GuildWords(f.liege)} offers to take your guild as its vassal.` : `${GuildWords(f.vassal)} offers to swear fealty to your guild.`, act: 'fealty-accept', tag: other.tag });
+    }
+  }
+  for (const c of p?.pacts ?? []) {
+    if (c.state === 'signed') rows.push({ text: `A Pact of non-aggression with ${guildWords(c.with)}, until week ${c.until}. Breaking it early is announced to everyone.`, act: 'pact-break', tag: c.with.tag });
+    else if (c.mine) rows.push({ text: `Your guild offers ${guildWords(c.with)} a Pact of non-aggression.`, act: 'pact-withdraw', tag: c.with.tag });
+    else rows.push({ text: `${GuildWords(c.with)} offers your guild a Pact of non-aggression, until week ${c.until}.`, act: 'pact-accept', tag: c.with.tag });
+  }
+  return rows;
 }

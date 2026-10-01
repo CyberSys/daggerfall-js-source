@@ -4917,7 +4917,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:8294` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:8298` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:352`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -11084,6 +11084,62 @@ Pinned: `test/crown1_royal_client.test.js` (7). `tools/mutants/crown1_royal_clie
 the first run, each a pin that was vacuous or missing: the roll call's fallen, a day's ending in days, a bout not mine,
 a bout's end said ten seconds, another's bout giving me no foe and no ring, the bouts' own store). Nine of part four's
 records were re-aimed by content (the carrier's and the socket's lines, now any battle room's).
+
+### CROWN2 - Fealty and Pacts
+
+2026-10-01, Mac: "Finish the seats"; "Continue"; "Hurry up". Service, law and client; `acct51`, migration
+`0055_fealty_pacts.sql`. Seats-Arc 7.6, 7.8. New: `server-account/src/seatPolitics.js`.
+
+- **Fealty sworn** (`/v1/seats/fealty`, `offerFealty`; `/v1/seats/fealty/accept`, `acceptFealty`): either side's
+  Guildmaster or Officer offers it by the other guild's tag - `as` 'vassal' (this guild swears) or 'liege' (it takes the
+  other as vassal) - and the other side's accepts. The pair must fit at both (`fealtyKingdom`): the liege holds a crown,
+  the vassal none, and the vassal a palace of that crown's kingdom or of a March it claims - never a Free Land's. DECIDED:
+  a crown holder is no one's vassal; a liege holding two crowns takes the first that fits. Neither may be pledged
+  against the other's seat that week (`fealty-pledged`). One fealty a vassal (`guild_fealty` keyed on the vassal); an
+  accept writes once, the Chronicle at the liege's crown and every vassal seat.
+- **The Turning** (`fealtyReckoning`, in settleWeek's own batch): each pair over the Charters as they stand - a pair that
+  no longer fits LAPSES (ended, no cost); a broken one ends; the rest give the liege's half-reach on the vassal's
+  defence. The vassal's TRIBUTE - 5% of its week's Tithe (`fealtyTribute`, rounded down; the Tithe shared with
+  Conscription's read) - is paid after its upkeep, Edicts and Conscription, `MIN(balance)` (burnt where the liege's purse
+  is full), for every pair that still fits, broken this Turning or not (it stood the week). Conscription spares a vassal
+  of the crown that proclaims it (7.6: "never a vassal's"; `conscriptionDue`'s `vassals`).
+- **The half-reach** (`seatDefence`'s fifth argument): the liege's reach at the vassal's seat (`seatReach` - a quarter
+  in its kingdom, an eighth at a March), halved, on the vassal's OWN influence - added after the Standing, Overreach and
+  held multipliers, never multiplied by them. The Seat tab's defence line reads it the Turning's way: a fealty sworn, not
+  breaking, that still fits.
+- **The break** (`/v1/seats/fealty/break`, `breakFealty`): asked any day by either side (a vassal needs no tag), taken at
+  the next Turning - 7.8's "at a Turning" - where the breaker loses `STANDING_CHANGES.fealtyBroken` (-10) at every seat it
+  holds (`standingWeek`'s `brokeFealty`). DECIDED: a fealty breaking lends no reach that Turning. The same call withdraws
+  an offer this guild made.
+- **Pacts** (`/v1/seats/pact`, `offerPact`; `/v1/seats/pact/break`, `breakPact`): any two guilds - one offers, the other
+  offering back signs it - until `pactUntil(week)`. DECIDED: until SEASON1 counts Seasons, a Season is each 8-week block
+  of seat weeks (`SEASON_WEEKS`, equal to `SIEGE_PAIR_WEEKS`), so a Pact runs to the end of its block. Broken early at
+  once: the row gone and a RED LINE (`pactBrokenText`) written to `town_seat_red`, carried on the seats' list for
+  `SEAT_RED_S` (a day); an unsigned offer is only withdrawn, unannounced.
+- **The pledges** (`pledgeBarred`, asked by `pledgeSeat`): a liege and its vassal (a fealty breaking included - it
+  stands until the Turning) and two Pact partners may not pledge at a seat the other holds (`fealty-pledge`,
+  `pact-pledge`); another seat stands open.
+- **The Seat tab** (`ui/seatTab.js` `politicsNode`, `townSeatLaw.js` `politicsRows`): every member reads its guild's
+  liege, vassals, Pacts and the offers standing (the standings' `mine.politics`, `politicsOf`); an Officer or the
+  Guildmaster has each row's lever (Accept, Withdraw, Break fealty, Sign, Break the Pact) and a tag box with "Swear
+  fealty", "Take as vassal" and "Offer a Pact" (`townSeatBook.js` `offerFealty`, `acceptFealty`, `breakFealty`,
+  `offerPact`, `breakPact`).
+- **The red lines in chat** (`townSeatBook.js` `sayRed`, `redTick`): each one the list carries is said ONCE a device -
+  as the server's own line on every tab (RED1's `pushAll`, `red: true`) - its id remembered on the device
+  (`crown2.redSeen`, the newest 100); one offered before the chat stands is offered again at the next read; the list is
+  read again every `SEAT_RED_READ_MS` (15 minutes) while the seats are open to the account, never while shut.
+- A guild's name opening a sentence is now capitalised (`GuildWords`) - the red line, the rows, and SEAT2a's
+  announcement and SEAT1c's battle line, which had opened with "the" (PIN MOVED in `seat2a_client`, `seat1c_client`).
+
+Pinned: `test/crown2_law.test.js` (5), `test/crown2_service.test.js` (5), `test/crown2_client.test.js` (5).
+`tools/mutants/crown2.json` (118, all dead - twelve survived the first run: one was dead code (the fit's palace test, after
+the crown holder's return), removed; the Turning's fealty reckoning moved into the law, where its fit, break and reach
+are pinned (`fealtyReckoning`), the reach it hands pinned by source; the rest were missing pins - a second crown that
+fits where the first does not, an offer naming neither side, an accept after the pair stopped fitting, two accepts at
+once (a held batch), a Pact offered while pledged, the same side offering a Pact twice, the liege's own view, a week's
+tribute with no Conscription ruling, an offer accepted on the tab). PIN MOVED: the standings' shape (`seat1b_service`), the list's source pin
+(`seat1c_client`), Standing's rows (`seat1d_client`), the chat's greeting (`chathelp`), the schema list (`accountworker`), the version pins; nine older mutant
+records re-aimed by content (SEAT1c's list and its defence's two, SEAT2a part three's two, CROWN1's two, SURVTIERS3's two cites), all still dead.
 
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 

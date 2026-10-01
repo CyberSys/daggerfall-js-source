@@ -28,7 +28,9 @@
 // the coming week (step 8) - their fighting is the relay's. CROWN1: a crown's Conscription
 // that ruled the week paid out of the conscripted guilds' Tithe (7.6), after their upkeep;
 // and part two: a Royal Tourney's prize escrowed as it is made law, and the week's champion
-// named, paid and titled as its week settles.
+// named, paid and titled as its week settles. CROWN2: each vassal's tribute to its liege (5% of
+// its week's Tithe, after its upkeep), the liege's half-reach on a vassal's defence, a fealty
+// broken (the breaker's Standing -10 at every seat) or lapsed (a pair that no longer fits).
 //
 // EVERY CLOCK IS AN ARGUMENT, as in accounts.js.
 // ═════════════════════════════════════════════════════════════════════
@@ -42,7 +44,8 @@ import { guildActorOf } from './guilds.js';
 import { mustChange } from './realm.js';
 import { utcDay } from '../../src/net/marksLaw.js';
 import { GUILD_RANK_MASTER } from '../../src/net/guildLaw.js';
-import { seatWeekOf, seatWeekStartMs, seatKeyOk, turningPlan, seatGlyphsOf, seatTitleOf, SEAT_WEEK_MS, STANDING_START, placeBattles, CROWN_SEAT_REGIONS, conscriptionDue } from '../../src/net/townSeatLaw.js';
+import { seatWeekOf, seatWeekStartMs, seatKeyOk, turningPlan, seatGlyphsOf, seatTitleOf, SEAT_WEEK_MS, STANDING_START, placeBattles, CROWN_SEAT_REGIONS, conscriptionDue,
+  fealtyReckoning, fealtyTribute } from '../../src/net/townSeatLaw.js';
 import { MARKS_MAX } from '../../src/net/marksLaw.js';
 
 /** The most weeks one read settles - a service asleep for longer starts its count again from there. */
@@ -89,19 +92,28 @@ export async function settleWeek(db, week, nowS) {
   // challenger barred from the seat at this Turning
   const { results: afterRows = [] } = await db.prepare('SELECT key, guild_id, what FROM town_seat_aftermath WHERE week = ?').bind(week).all();
   const aftermath = (key, what) => afterRows.filter((r) => Number(r.key) === key && r.what === what).map((r) => r.guild_id);
+  // CROWN2 (7.8): THE FEALTIES standing - each pair's Charters as they stand now; one that no longer fits lapses (no
+  // Standing), one broken ends (its breaker's Standing -10 at every seat), the rest give the liege's half-reach on the
+  // vassal's defence; each sworn the week through pays its tribute
+  const charters = holdRows.map((h) => ({ key: Number(h.key), guild: h.guild_id, tier: h.tier, region: Number(h.region) }));
+  const chartersOf = (g) => charters.filter((h) => h.guild === g);
+  const { results: fealtyRows = [] } = await db.prepare("SELECT vassal, liege, state, broken_by FROM guild_fealty WHERE state IN ('sworn', 'breaking')").all();
+  const reckoned = fealtyReckoning(fealtyRows, charters);
+  const { fealties, breakers } = reckoned;
   // CROWN1 (7.6): THE CONSCRIPTIONS that ruled the week - each crown's, still held by the guild that proclaimed it, over
-  // the Tithe every guild took this week; a seat that pays loses its Standing row
+  // the Tithe every guild took this week; a seat that pays loses its Standing row (CROWN2: never a vassal of that crown's)
   const conscriptions = [];
   const ruling = [...(await edictsOf(db, week))].filter(([key, e]) => e.edict === 'conscription' && holds.get(key)?.guild_id === e.guild && holds.get(key)?.tier === 'crown');
-  if (ruling.length) {
+  let tithes = new Map();
+  if (ruling.length || fealties.length) {
     const { results: titheRows = [] } = await db.prepare("SELECT dst_id, SUM(amount) AS n FROM marks_ledger WHERE dst_kind = 'guild' AND kind = 'tithe' AND at >= ? AND at < ? GROUP BY dst_id")
       .bind(fromS, atS).all();
-    const tithes = new Map(titheRows.map((t) => [t.dst_id, Number(t.n)]));
-    const charters = holdRows.map((h) => ({ key: Number(h.key), guild: h.guild_id, tier: h.tier, region: Number(h.region) }));
-    for (const [key, e] of ruling) {
-      for (const d of conscriptionDue({ kingdom: CROWN_SEAT_REGIONS[Number(holds.get(key).region)], crownGuild: e.guild, holds: charters, tithes })) {
-        if (d.amount > 0) conscriptions.push({ crownKey: key, crown: e.guild, ...d });
-      }
+    tithes = new Map(titheRows.map((t) => [t.dst_id, Number(t.n)]));
+  }
+  for (const [key, e] of ruling) {
+    const vassals = new Set(fealties.filter((f) => f.liege === e.guild).map((f) => f.vassal));
+    for (const d of conscriptionDue({ kingdom: CROWN_SEAT_REGIONS[Number(holds.get(key).region)], crownGuild: e.guild, holds: charters, tithes, vassals })) {
+      if (d.amount > 0) conscriptions.push({ crownKey: key, crown: e.guild, ...d });
     }
   }
   const conscripted = new Set(conscriptions.flatMap((c) => c.keys));
@@ -122,6 +134,9 @@ export async function settleWeek(db, week, nowS) {
         tithe: Number(h.tithe), owed: Number(h.owed), watched: !!watched, gates: gatesIn.get(Number(h.region)) ?? 0, writs: Number(writs?.n ?? 0),
         edict: e?.edict ?? null, setAside: Number(e?.set_aside ?? 0), bonus: aftermath(key, 'bonus').includes(h.guild_id),
         conscripted: conscripted.has(key),
+        // CROWN2: a vassal's liege's reach here, halved in the defence (seatDefence); a breaker's Standing row
+        liegeReach: reckoned.liegeReach(h.guild_id, registry.get(key)),
+        brokeFealty: breakers.has(h.guild_id),
       };
     }
     seats.push({
@@ -135,7 +150,7 @@ export async function settleWeek(db, week, nowS) {
   const { results: purses = [] } = purseIds.length
     ? await db.prepare(`SELECT guild_id, balance FROM guild_marks WHERE guild_id IN (${purseIds.map(() => '?').join(', ')})`).bind(...purseIds).all() : { results: [] };
   const plan = turningPlan({ week, seats, treasuries: new Map(purses.map((p) => [p.guild_id, Number(p.balance)])), active: await activeIn(db, week) });
-  const names = await namesOf(db, purseIds);
+  const names = await namesOf(db, [...purseIds, ...fealties.flatMap((f) => [f.vassal, f.liege])]);   // CROWN2: a lapsed liege may hold nothing now
   const history = (key, kind, data) => db.prepare('INSERT INTO town_seat_history (key, week, kind, data, at) VALUES (?, ?, ?, ?, ?)')
     .bind(key, week, kind, JSON.stringify(data), nowS);
   const stmts = [db.prepare('INSERT INTO town_seat_weeks (week, settled_at) VALUES (?, ?)').bind(week, nowS)];
@@ -234,6 +249,26 @@ export async function settleWeek(db, week, nowS) {
       .bind(c.guild, c.crown, c.amount, utcDay(nowS), nowS, `conscription-${week}-${c.crownKey}-${c.guild}`));
     stmts.push(history(c.crownKey, 'conscription', { guild: names.get(c.crown), from: names.get(c.guild), marks: c.amount }));
     for (const k of c.keys) stmts.push(history(k, 'conscripted', { guild: names.get(c.guild), crown: names.get(c.crown), marks: c.amount }));
+  }
+  // CROWN2 (7.8): THE FEALTIES - each vassal's tribute (5% of its week's Tithe, a fealty that stood the week through,
+  // broken at this Turning or not), after its upkeep and Edicts and Conscription, from what is left of its treasury; then
+  // the broken and the lapsed ended, the Chronicle saying so at the liege's crown and the vassal's seats
+  const crownKeyOf = (g) => chartersOf(g).find((h) => h.tier === 'crown')?.key ?? null;
+  for (const f of fealties) {
+    const both = [crownKeyOf(f.liege), ...chartersOf(f.vassal).map((h) => h.key)].filter((k) => k != null);
+    const owed = f.fits ? fealtyTribute(tithes.get(f.vassal) ?? 0) : 0;
+    if (owed > 0) {
+      const to = `COALESCE((SELECT balance FROM guild_marks WHERE guild_id = ?2), 0) + MIN(?3, balance) <= ${MARKS_MAX} AND EXISTS (SELECT 1 FROM guilds WHERE id = ?2)`;
+      stmts.push(db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
+        SELECT 'guild', ?1, CASE WHEN ${to} THEN 'guild' ELSE 'burn' END, CASE WHEN ${to} THEN ?2 END, 'fealty-tribute', MIN(?3, balance), ?4, ?5, 'seats', 'The Turning', ?6
+        FROM guild_marks WHERE guild_id = ?1 AND balance > 0`).bind(f.vassal, f.liege, owed, utcDay(nowS), nowS, `fealty-${week}-${f.vassal}`));
+      const k = crownKeyOf(f.liege);
+      if (k != null) stmts.push(history(k, 'fealty-tribute', { vassal: names.get(f.vassal), liege: names.get(f.liege), marks: owed }));
+    }
+    if (f.broken || !f.fits) {
+      stmts.push(db.prepare('DELETE FROM guild_fealty WHERE vassal = ? AND liege = ?').bind(f.vassal, f.liege));
+      for (const k of both) stmts.push(history(k, f.broken ? 'fealty-broken' : 'fealty-lapsed', { vassal: names.get(f.vassal), liege: names.get(f.liege), ...(f.broken ? { breaker: names.get(f.broken) } : {}) }));
+    }
   }
   // CROWN1 part two (7.6): THE WEEK'S ROYAL TOURNEYS - each champion named, paid its prize and titled; none, the prize home
   stmts.push(...(await royalTurning(db, week, nowS, history, registry)));

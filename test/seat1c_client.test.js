@@ -84,7 +84,8 @@ test('SEAT1c THE WORDS AND THE MARKS: the Chronicle\'s lines; the holder\'s, the
   assert.equal(row('nonsense', {}), null);
   assert.equal(seatHolderLine({ guild: SH, since: 3, standing: 55 }), 'Held by the Silver Hand <SH> since week 3. Standing 55.');
   assert.equal(seatHolderLine(null), 'No guild holds this Charter.');
-  assert.equal(seatBattleLine({ kind: 'tourney', guild: SH, against: EO }), 'the Silver Hand <SH> and Ebon Oath <EO> meet in a Tourney for the Charter this week.');
+  // PIN MOVED (CROWN2): a guild's name opening a sentence is capitalised
+  assert.equal(seatBattleLine({ kind: 'tourney', guild: SH, against: EO }), 'The Silver Hand <SH> and Ebon Oath <EO> meet in a Tourney for the Charter this week.');
   assert.equal(seatBattleLine({ kind: 'siege', guild: EO, against: SH }), 'Ebon Oath <EO> has won a Right of Siege against the Silver Hand <SH> this week.');
   assert.equal(seatBattleLine(null), null);
   assert.match(seatClaimLine(ANTICLERE), /6,000 influence, and 8,000 Drakes/);
@@ -168,7 +169,8 @@ test('SEAT1c THE BOOK AND THE SEAT TAB: a derived seat dressed in its holder and
 test('SEAT1c THE HOSTS BY SOURCE: the service settles the Turning before any seat answer, decorates the list with holders and battles, routes relinquish; a guild holding a Charter or named in a battle to come does not go; the holder counts at its seat and pledges nowhere else in its region; the client\'s seats are dressed, the arrival names the holder, the banners fly its colours (mutants: each seam)', () => {
   const idx = rd('server-account/src/index.js');
   assert.match(idx, /if \(seatsOpenFor\(who\.player, env\)\) await settleDue\(ctx\.db, nowS\);\n\s*const act = \{/);
-  assert.match(idx, /return 'error' in r \? r : \{ \.\.\.r, seats: await seatsWithHolders\(ctx\.db, r\.seats, nowS\) \};/);
+  // PIN MOVED (CROWN2): the list carries the server's red lines too
+  assert.match(idx, /return 'error' in r \? r : \{ \.\.\.r, seats: await seatsWithHolders\(ctx\.db, r\.seats, nowS\), red: await redOf\(ctx\.db, nowS\) \};/);
   assert.match(idx, /'\/v1\/seats\/relinquish': \(\) => relinquishSeat\(ctx, who\.player, env, body\),/);
   assert.ok(rd('server-account/src/service.js').includes("'/v1/seats/relinquish',"));
   const gu = rd('server-account/src/guilds.js');

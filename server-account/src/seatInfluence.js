@@ -68,12 +68,13 @@ import {
   SEAT_PLEDGES_HOUR, SEAT_WATCH_CLAIM_MAX, WATCH_DAY_CAP, GATE_INFLUENCE, GATE_REGION_AGREE, HOMES_SEAT_MAX, TRIBUTE_MARKS_PER_INFLUENCE,
   SEAT_WEEK_MS, SEAT_RECKONING_MS,
   accountSeatInfluence, guildSeatInfluence, tributeRoom, homeDaysIn, seatDefence, SEAT_CHRONICLE_SHOWN,
-  overreachOf, unrestInfluence, crownsHeld, seatReach, withReach, FREE_LAND_WATCH_BONUS,
+  overreachOf, unrestInfluence, crownsHeld, seatReach, withReach, FREE_LAND_WATCH_BONUS, pledgeBarred, fealtyKingdom,
 } from '../../src/net/townSeatLaw.js';
 import { isFreeLand } from '../../src/net/kingdomLaw.js';
 import { holdingOf } from './seatHolding.js';   // SEAT1d: the holder's own view of its Charter
 import { fightOf } from './seatBattles.js';   // SEAT2a: the battle as the Seat tab shows it
 import { royalView } from './seatRoyal.js';   // CROWN1 part two: a Royal Tourney's ladder
+import { bansOf, politicsOf } from './seatPolitics.js';   // CROWN2: the pledges fealty and Pacts forbid; a guild's politics
 
 const weekAt = (nowS) => seatWeekOf(nowS * 1000);
 /** Whether a member row has stood its 7 days (SEAT0 4.2: "A new member waits"). */
@@ -182,6 +183,10 @@ export async function pledgeSeat({ db, nowS }, player, env, { character, key = n
   if (!seat) return { error: 'seat-unconfirmed' };
   // SEAT1c: a guild holding a seat in the region is pledged to it, and nowhere else there
   if (await db.prepare('SELECT 1 FROM town_seat_holds WHERE guild_id = ? AND region = ?').bind(gid, seat.region).first()) return { error: 'seat-held-here' };
+  // CROWN2 (7.8): never against a liege's, a vassal's or a Pact partner's seat
+  const heldBy = (await db.prepare('SELECT guild_id FROM town_seat_holds WHERE key = ?').bind(key).first())?.guild_id ?? null;
+  const barred = pledgeBarred(gid, heldBy, await bansOf(db, gid, week));
+  if (barred) return { error: barred };
   const r = await db.prepare(`INSERT INTO town_seat_pledges (week, guild_id, region, key, set_by, at)
     SELECT ?1, ?2, ?3, ?4, ?5, ?6 WHERE ${rankHeld}
       AND (SELECT COUNT(*) FROM town_seat_pledges WHERE week = ?1 AND guild_id = ?2 AND region <> ?3) < ?7
@@ -394,9 +399,16 @@ export async function readStandings({ db, nowS }, player, env, { key, character 
   const own = holder ? list.find((s) => s.guild === holder.guild.id) : null;
   // SEAT1d: the holder's own view - its Standing, Tithe, Edicts and upkeep; its defence at its Overreach
   const holding = holder ? await holdingOf(db, key, nowS) : null;
-  const { results: tiers = [] } = holder ? await db.prepare('SELECT tier FROM town_seat_holds WHERE guild_id = ?').bind(holder.guild.id).all() : { results: [] };
+  const { results: tiers = [] } = holder ? await db.prepare('SELECT tier, region FROM town_seat_holds WHERE guild_id = ?').bind(holder.guild.id).all() : { results: [] };
   const held = holder ? !!(await db.prepare("SELECT 1 FROM town_seat_aftermath WHERE week = ? AND key = ? AND guild_id = ? AND what = 'bonus'").bind(week, key, holder.guild.id).first()) : false;   // SEAT2a: a held siege's x1.2
-  const defence = holder ? seatDefence({ influence: own?.total ?? 0, legacy: legacy.get(holder.guild.id) ?? 0 }, holder.standing, overreachOf(tiers.map((t) => t.tier)), held) : null;
+  // CROWN2 (7.8): a vassal's - its liege's half-reach here, as the Turning reckons it: a fealty sworn (not breaking) that
+  // still fits
+  const liege = holder ? (await db.prepare("SELECT liege FROM guild_fealty WHERE vassal = ? AND state = 'sworn'").bind(holder.guild.id).first())?.liege ?? null : null;
+  const { results: liegeRows = [] } = liege ? await db.prepare('SELECT tier, region FROM town_seat_holds WHERE guild_id = ?').bind(liege).all() : { results: [] };
+  const liegeHolds = liegeRows.map((h) => ({ tier: h.tier, region: Number(h.region) }));
+  const fits = liege && fealtyKingdom(tiers.map((h) => ({ tier: h.tier, region: Number(h.region) })), liegeHolds);
+  const liegeReach = fits ? seatReach(seat, crownsHeld(liegeHolds)) : 0;
+  const defence = holder ? seatDefence({ influence: own?.total ?? 0, legacy: legacy.get(holder.guild.id) ?? 0 }, holder.standing, overreachOf(tiers.map((t) => t.tier)), held, liegeReach) : null;
   const ids = list.map((s) => s.guild);
   const { results: gs = [] } = ids.length
     ? await db.prepare(`SELECT id, name, tag, heraldry FROM guilds WHERE id IN (${ids.map(() => '?').join(', ')})`).bind(...ids).all() : { results: [] };
@@ -410,6 +422,7 @@ export async function readStandings({ db, nowS }, player, env, { key, character 
       mine = {
         guild: me.guild_id, rank: Number(me.rank), seasoned: seasoned(me, nowS), bound: await boundTo(db, week, player.id),
         pledges: await pledgesOf(db, week, me.guild_id), influence: s?.per.get(player.id) ?? 0,
+        politics: await politicsOf(db, me.guild_id, nowS),   // CROWN2: its liege, vassals, Pacts and the offers standing
         tributeRoom: s ? tributeRoom(s.others, s.tribute) * TRIBUTE_MARKS_PER_INFLUENCE : 0,
       };
     }

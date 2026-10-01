@@ -46,6 +46,11 @@ export const SEAT_WATCH_KEY = 'seat1.watch';
 export const SEAT_WATCH_HELD_MAX = 60;
 /** SEAT1b: the longest a held receipt waits before the kept ones are claimed, ms. */
 export const SEAT_WATCH_CLAIM_EVERY_MS = 10 * 60_000;
+/** CROWN2: the red announcements this device has put in chat (their ids, newest kept), and how many it keeps. */
+export const SEAT_RED_SEEN_KEY = 'crown2.redSeen';
+export const SEAT_RED_SEEN_MAX = 100;
+/** CROWN2: how often an online client reads the seats' list again for the server's red lines, ms. */
+export const SEAT_RED_READ_MS = 15 * 60_000;
 /** SEAT1b: the answers after which a claim's receipts are let go - counted, or refused for good (a watch claim answers
  *  each receipt's fate in its `why`, and none of them is mended by asking again). */
 const WATCH_SETTLED = Object.freeze(['bad-watch', 'seats-need-account']);
@@ -69,11 +74,34 @@ export function parseSeatCommand(text) {
  *   nowMs?: () => number,
  *   me?: () => (string|null), character?: () => (string|null), rid?: () => string,
  *   isSeatPixel?: (x: number, y: number) => boolean, relayNowS?: () => (number|null),
+ *   onRed?: ((line: { text: string, at: number }) => boolean)|null,
  * }} deps SEAT1b: `me` the signed-in account's id, `character` the character standing here, `rid` a fresh request id
  *   (the Marks' own shape), `isSeatPixel` whether this client's own derivation holds a seat at a map pixel, `relayNowS`
- *   the relay's clock (null unheard - a receipt's life is the relay's)
+ *   the relay's clock (null unheard - a receipt's life is the relay's); CROWN2: `onRed` says a red line (false: not yet)
  */
-export function createTownSeatBook({ door, storage = null, nowMs = () => Date.now(), me = () => null, character = () => null, rid = () => mintMarksRid(), isSeatPixel = () => false, relayNowS = () => null }) {
+export function createTownSeatBook({ door, storage = null, nowMs = () => Date.now(), me = () => null, character = () => null, rid = () => mintMarksRid(), isSeatPixel = () => false, relayNowS = () => null, onRed = null }) {
+  /** CROWN2: the red lines already said, by id - read from the device once */
+  let redSeen = null;
+  const redSeenList = () => {
+    if (redSeen) return redSeen;
+    redSeen = [];
+    try {
+      const v = JSON.parse(storage?.getItem?.(SEAT_RED_SEEN_KEY) ?? 'null');
+      if (Array.isArray(v)) redSeen = v.filter((id) => Number.isSafeInteger(id)).slice(-SEAT_RED_SEEN_MAX);
+    } catch { /* a bad key reads as none */ }
+    return redSeen;
+  };
+  /** CROWN2: each red line the list carries that this device has not said yet, handed to `onRed` oldest first - kept as
+   *  said unless `onRed` answers false (no chat to say it in yet: the next read offers it again). */
+  const sayRed = (rows) => {
+    if (!onRed || !Array.isArray(rows)) return;
+    const seen = redSeenList();
+    const said = rows.filter((r) => Number.isSafeInteger(r?.id) && typeof r.text === 'string' && !seen.includes(r.id))
+      .filter((r) => onRed({ text: r.text, at: Number(r.at) * 1000 }) !== false);
+    if (!said.length) return;
+    redSeen = [...seen, ...said.map((r) => r.id)].slice(-SEAT_RED_SEEN_MAX);
+    try { storage?.setItem?.(SEAT_RED_SEEN_KEY, JSON.stringify(redSeen)); } catch { /* this page keeps them */ }
+  };
   /** whether the seats are open to this account, as the last read said: true, false, or null not yet asked */
   let open = null;
   let data = null, at = -Infinity, pending = null;
@@ -132,6 +160,7 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
         open = true; data = r.data;
         states = new Map((data?.seats ?? []).map((s) => [s.key, s.state]));
         dress = new Map((data?.seats ?? []).map((s) => [s.key, { holder: s.holder ?? null, battle: s.battle ?? null }]));
+        sayRed(data?.red);   // CROWN2: the server's red lines, each said once
         return { data, error: null };
       }
       if (SHUT.includes(r?.error)) { open = false; data = null; states = new Map(); dress = new Map(); }
@@ -258,6 +287,38 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
       if (!r?.ok) return { ok: false, error: r?.error ?? 'offline', ...(r?.why ? { why: r.why } : {}), text: accountRefusalText(r?.error) };
       const d = r.data ?? {};
       return { ok: true, counted: !!d.counted, wins: Number(d.wins ?? 0) };
+    },
+    // ─── CROWN2: FEALTY AND PACTS ────────────────────────────────────
+    /** One act on this guild's crown politics - `{ ok, text }`, the standings read afresh after it. */
+    async politicsAct(ask, said) {
+      let r;
+      try { r = await ask(); } catch { r = { ok: false, error: 'offline' }; }
+      standingsAt.clear();
+      return r?.ok ? { ok: true, text: said(r.data ?? {}) } : { ok: false, text: accountRefusalText(r?.error) };
+    },
+    /** Fealty offered to the guild tagged `tag` - `as` 'vassal' (this guild swears to it) or 'liege' (takes it as vassal). */
+    offerFealty(tag, as) {
+      return this.politicsAct(() => door.fealty(character(), tag, as), () => (as === 'vassal' ? `Your guild offers to swear fealty to <${tag}>.` : `Your guild offers to take <${tag}> as its vassal.`));
+    },
+    /** The fealty <tag> offered, accepted - sworn from this week. */
+    acceptFealty(tag) {
+      return this.politicsAct(() => door.fealtyAccept(character(), tag), () => `The fealty with <${tag}> is sworn.`);
+    },
+    /** This guild's fealty with <tag> broken at the next Turning (a vassal's needs no tag) - or its offer withdrawn. */
+    breakFealty(tag) {
+      return this.politicsAct(() => door.fealtyBreak(character(), tag), (d) => (d.withdrawn ? 'Your guild\'s offer of fealty is withdrawn.' : 'The fealty ends at the Turning. Your guild loses 10 Standing at each seat it holds.'));
+    },
+    /** A Pact offered to <tag>, or its offer signed. */
+    offerPact(tag) {
+      return this.politicsAct(() => door.pact(character(), tag), (d) => (d.signed ? `The Pact with <${tag}> is signed, until week ${d.until}.` : `Your guild offers <${tag}> a Pact of non-aggression.`));
+    },
+    /** The Pact with <tag> broken (a signed one is announced to everyone in red) - or its offer withdrawn. */
+    breakPact(tag) {
+      return this.politicsAct(() => door.pactBreak(character(), tag), (d) => (d.announced ? `Your guild has broken its Pact with <${tag}>. Everyone has been told.` : `The offer of a Pact with <${tag}> is withdrawn.`));
+    },
+    /** CROWN2: the seats' list read again for the server's red lines, while the seats are open, every SEAT_RED_READ_MS. */
+    redTick() {
+      if (open === true && !pending && nowMs() - at >= SEAT_RED_READ_MS) read({ force: true });
     },
     /** A World of Daggerfall camp cleared in `region` - the Bounty's twenty Drakes where one rules there. Quiet: `{ paid }`. */
     async bounty(site, region) {

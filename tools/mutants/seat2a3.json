@@ -222,8 +222,8 @@
  {
   "name": "SEAT2a3-law-plan-bonus",
   "file": "src/net/townSeatLaw.js",
-  "old": "extraOf(s.holder.guild), !!s.holder.bonus);",
-  "new": "extraOf(s.holder.guild));",
+  "old": "extraOf(s.holder.guild), !!s.holder.bonus, s.holder.liegeReach ?? 0);",
+  "new": "extraOf(s.holder.guild), false, s.holder.liegeReach ?? 0);",
   "tests": [
    "test/seat2a_siege_service.test.js",
    "test/seat2a_siege_client.test.js"
@@ -302,8 +302,8 @@
  {
   "name": "SEAT2a3-standings-held",
   "file": "server-account/src/seatInfluence.js",
-  "old": "const defence = holder ? seatDefence({ influence: own?.total ?? 0, legacy: legacy.get(holder.guild.id) ?? 0 }, holder.standing, overreachOf(tiers.map((t) => t.tier)), held) : null;",
-  "new": "const defence = holder ? seatDefence({ influence: own?.total ?? 0, legacy: legacy.get(holder.guild.id) ?? 0 }, holder.standing, overreachOf(tiers.map((t) => t.tier))) : null;",
+  "old": "overreachOf(tiers.map((t) => t.tier)), held, liegeReach) : null;",
+  "new": "overreachOf(tiers.map((t) => t.tier)), false, liegeReach) : null;",
   "tests": [
    "test/seat2a_siege_service.test.js",
    "test/seat2a_siege_client.test.js"

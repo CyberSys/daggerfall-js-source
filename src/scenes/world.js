@@ -1147,8 +1147,12 @@ export async function bootWorld(canvas, renderer, params, status) {
       door: _seatDoor, storage: appStorage(), me: _seatDoor.me, character: () => characterIdOf(playerEntity),
       isSeatPixel: (x, y) => seatPixels.has(`${x},${y}`),
       relayNowS: () => (_sharedClockHeard ? Math.floor((Date.now() + _sharedOffsetMs) / 1000) : null),   // a receipt's life is the relay's
+      // CROWN2: a Pact broken early, said in red on every tab as the server's own line (RED1) - offered again while there is no chat yet
+      onRed: (line) => (redChat ? redChat(line) : false),
     })
     : null;
+  /** CROWN2: where the seats' red lines are said - set once the chat is (it is made later in the scene). */
+  let redChat = null;
   /** SEAT2a part four: the siege this client is in, made with the online session (net/siegeSession.js) - null offline. */
   let siegeSession = null;
   /** Each seat town's battlefield as its build derived it, by its map id (`{ key, px, py, field }` - a town's is fixed;
@@ -15751,6 +15755,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!online.url) return;   // AUDIT CHAT A9/B1: a relay the law refused is no relay for the chat either - not the public default by the back door
     chatLog = new ChatLog();
     chatLinks = new Map();
+    redChat = (line) => { if (!chatLog) return false; chatLog.pushAll({ text: line.text, at: line.at, red: true }); return true; };   // CROWN2: the seats' red lines
     chatLog.push(chatLog.active, { text: CHAT_GREETING_TEXT, system: true }, { quiet: true });   // CHAT-HELP: every join, the player's alone, no badge
     // MOD1: A MUTE IS SAID ONCE. An order reaches every room this client
     // holds, so the same notice can arrive two or three times at once;
@@ -16841,6 +16846,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (gateOmen) reportGateSite();   // DISCORD-GATES: where the gate stands, to the hub
     raidClaims?.tick();   // RAID4: and the raids' receipts, on theirs
     seatBook?.claimWatch();   // SEAT1b: the Watch's kept ticks, claimed a claim's worth or ten minutes at a time
+    seatBook?.redTick();   // CROWN2: the seats' list read again for the server's red lines
     if (gatePool && (modes?.mode ?? 'exterior') !== 'exterior') drawGateBanner(null);   // WB2: the countdown is the street's; the pool's own frame runs there alone
     if (gatePool && (modes?.mode ?? 'exterior') !== 'exterior' && modes?.gateArenaDay?.() == null) drawGateMarksCard(null);   // WB9a: the gate's card is the street's, the court draws its own - anywhere else, none
     // WB3b: the court stands until its gate's day is over - then it comes apart around whoever is in it, who land

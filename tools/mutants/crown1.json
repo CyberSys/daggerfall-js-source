@@ -161,8 +161,8 @@
  {
   "name": "CROWN1-consc-own",
   "file": "src/net/townSeatLaw.js",
-  "old": "    if (guild === crownGuild) continue;\n",
-  "new": "",
+  "old": "    if (guild === crownGuild || vassals.has(guild)) continue;   // CROWN2 (7.6): \"never a vassal's\"\n",
+  "new": "    if (vassals.has(guild)) continue;   // CROWN2 (7.6): \"never a vassal's\"\n",
   "tests": [
    "test/crown1_law.test.js"
   ]
@@ -359,8 +359,8 @@
  {
   "name": "CROWN1-tur-paid-only",
   "file": "server-account/src/seatTurning.js",
-  "old": "        if (d.amount > 0) conscriptions.push(",
-  "new": "        conscriptions.push(",
+  "old": "      if (d.amount > 0) conscriptions.push(",
+  "new": "      conscriptions.push(",
   "tests": [
    "test/crown1_service.test.js"
   ]

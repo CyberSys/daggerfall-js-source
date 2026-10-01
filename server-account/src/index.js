@@ -156,6 +156,7 @@ import { setTithe, proclaimEdict, claimBounty } from './seatHolding.js';   // SE
 import { setWindow, signBattle, unsignBattle, hireSellsword, withdrawHire, siegesLive } from './seatBattles.js';   // SEAT2a: the battles' week
 import { siegePass, claimSiege } from './seatSiege.js';   // SEAT2a part three: the pass, the result, Honours
 import { royalPass, claimRoyal, championOf } from './seatRoyal.js';   // CROWN1 part two: the Royal Tourney's pass, its bouts, its champion's title
+import { offerFealty, acceptFealty, breakFealty, offerPact, breakPact, redOf } from './seatPolitics.js';   // CROWN2: fealty and Pacts, the red lines
 
 /** SEAT1c: the account's row with the Charter titles it may wear laid on it (`seatTitles`, titles.js titlesHeld), while the
  *  seats are open to it - for the wardrobe's read and its write. */
@@ -280,6 +281,9 @@ const SEAT_STATUS = Object.freeze({
   'pass-early': 409, 'pass-late': 409, 'field-unsettled': 409, 'honours-twice': 409, 'not-yours': 403,
   // CROWN1 part two: no Royal Tourney here 404; its week's champion named, its ring unsettled 409
   'royal-none': 404, 'royal-over': 409, 'ring-unsettled': 409,
+  // CROWN2: no such guild, offer or Pact 404; a pair that does not fit, one sworn or signed already, a pledge between them 409
+  'guild-unknown': 404, 'fealty-none': 404, 'pact-none': 404, 'fealty-unfit': 409, 'fealty-sworn': 409, 'fealty-pledged': 409,
+  'pact-signed': 409, 'pact-self': 409, 'pact-pledged': 409, 'fealty-pledge': 409, 'pact-pledge': 409,
 });
 /** PROF1: each professions refusal's status - not this account's (a guest, the switch, the Marks' switch, the rank) 403,
  *  no such writ 404, a conflict with what stands (the day, the hour, the cap, the Stores, a node or writ taken) 409, the
@@ -877,7 +881,7 @@ const service = {
         const act = {
           '/v1/seats/list': async () => {
             const r = await listSeats(ctx, who.player, env);
-            return 'error' in r ? r : { ...r, seats: await seatsWithHolders(ctx.db, r.seats, nowS) };   // SEAT1c: each seat's holder and battle
+            return 'error' in r ? r : { ...r, seats: await seatsWithHolders(ctx.db, r.seats, nowS), red: await redOf(ctx.db, nowS) };   // SEAT1c: each seat's holder and battle   // CROWN2: the server's red lines
           },
           '/v1/seats/relinquish': () => relinquishSeat(ctx, who.player, env, body),   // SEAT1c: a Charter given up at its board
           '/v1/seats/witness': () => witnessSeat(ctx, who.player, env, body),
@@ -903,6 +907,12 @@ const service = {
           // CROWN1 part two: a Royal Tourney's pass (the ring the contender's game derived); a bout's receipt claimed
           '/v1/seats/royal/pass': async () => royalPass(ctx, who.player, env, body, await signingKey(env, subtle)),
           '/v1/seats/royal/claim': async () => claimRoyal(ctx, who.player, env, body, await gatePublicKey(env, subtle)),
+          // CROWN2: fealty offered (as vassal or liege), accepted, broken; a Pact offered (or accepted) and broken
+          '/v1/seats/fealty': () => offerFealty(ctx, who.player, env, body),
+          '/v1/seats/fealty/accept': () => acceptFealty(ctx, who.player, env, body),
+          '/v1/seats/fealty/break': () => breakFealty(ctx, who.player, env, body),
+          '/v1/seats/pact': () => offerPact(ctx, who.player, env, body),
+          '/v1/seats/pact/break': () => breakPact(ctx, who.player, env, body),
         }[path];
         if (!act) return no('not-found', 404, origin);
         const r = await act();

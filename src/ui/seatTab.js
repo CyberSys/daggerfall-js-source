@@ -20,6 +20,7 @@ import {
   SEAT_PLEDGE_WORDS, SEAT_PLEDGE_REGIONS_MAX, TRIBUTE_MARKS_PER_INFLUENCE,
   seatHolderLine, seatBattleLine, seatClaimLine, chronicleLine, SEAT_RELINQUISH_WORDS,
   seatRuleLine, seatHoldingLines, edictLine, edictMayFollow, edictForTier, royalTourneyLines, EDICTS, TITHE_CAP, SEAT_LEVER_RANKS, BOUNTY_MARKS,
+  politicsRows, POLITICS_ACTS,
   battleAnnouncement, sideLine, siegeWindowText, SIEGE_WINDOW_DAYS, SIEGE_WINDOW_HOURS, SIEGE_WINDOW_DEFAULT, SELLSWORD_FEE_MAX, passOpens, passWindowEnds,
 } from '../net/townSeatLaw.js';
 import { GUILD_RANK_MASTER } from '../net/guildLaw.js';
@@ -67,6 +68,7 @@ export function createSeatTab(host, ui) {
   let armedAt = -Infinity;   // SEAT1c: the relinquish button's first press
   let titheAsk = null, edictAsk = null, bountyAside = 200;   // SEAT1d: the levers' own choices, kept across redraws
   let windowAsk = null, hireHandle = '', hireFee = 0;   // SEAT2a: the window and the contract asked, kept across redraws
+  let politicsTag = '';   // CROWN2: the guild an offer is made to, kept across redraws
 
   async function load(force) {
     if (loading) return;
@@ -223,6 +225,49 @@ export function createSeatTab(host, ui) {
     return out;
   }
 
+  /** CROWN2: A GUILD'S CROWN POLITICS (SEAT0 7.8) - its liege, vassals, Pacts and the offers standing, for every member;
+   *  for an Officer or the guildmaster, each one's lever and a guild's tag to offer fealty or a Pact to. */
+  function politicsNode(p, lever) {
+    const out = el('div', 'notice-seat-politics');
+    const busy = ui.busy();
+    out.append(el('p', 'notice-section', 'Fealty and Pacts'));
+    const rows = politicsRows(p);
+    if (!rows.length) out.append(el('p', 'notice-seat-mine', 'Your guild has no liege, no vassal and no Pact.'));
+    const acts = {
+      'fealty-accept': (t) => book.acceptFealty(t), 'fealty-withdraw': (t) => book.breakFealty(t), 'fealty-break': (t) => book.breakFealty(t),
+      'pact-accept': (t) => book.offerPact(t), 'pact-withdraw': (t) => book.breakPact(t), 'pact-break': (t) => book.breakPact(t),
+    };
+    for (const r of rows) {
+      const line = el('p', 'notice-seat-mine', r.text);
+      if (lever && r.act) {
+        const b = button(`notice-seat-${r.act}`, POLITICS_ACTS[r.act], () => act(() => acts[r.act](r.tag)));
+        b.disabled = busy;
+        line.append(b);
+      }
+      out.append(line);
+    }
+    if (!lever) return out;
+    const tag = /** @type {HTMLInputElement} */ (el('input', 'notice-input notice-seat-politics-tag'));
+    tag.setAttribute('aria-label', 'A guild\'s tag');
+    tag.placeholder = 'Guild tag';
+    tag.maxLength = 8;
+    tag.value = politicsTag;
+    tag.oninput = () => { politicsTag = tag.value.trim(); };
+    out.append(tag);
+    /** @type {Array<[string, string, (t: string) => Promise<any>]>} */
+    const offers = [
+      ['notice-seat-swear', 'Swear fealty', (t) => book.offerFealty(t, 'vassal')],
+      ['notice-seat-take', 'Take as vassal', (t) => book.offerFealty(t, 'liege')],
+      ['notice-seat-pact', 'Offer a Pact', (t) => book.offerPact(t)],
+    ];
+    for (const [cls, words, ask] of offers) {
+      const b = button(cls, words, () => (politicsTag ? act(() => ask(politicsTag)) : null));
+      b.disabled = busy;
+      out.append(b);
+    }
+    return out;
+  }
+
   /** SEAT2a: THE WEEK'S BATTLE (SEAT0 6.3-6.4) - its announcement, each side's roster, the reader's place on it (signed,
    *  or a button to sign while the rosters are open), and a side's Guildmaster's Sellswords. */
   function fightNode(f) {
@@ -322,6 +367,7 @@ export function createSeatTab(host, ui) {
       body.append(el('p', 'notice-seat-mine', seatClaimLine(seat, data.defence ?? null)));
       for (const line of seatMineLines(seat, data.mine ?? null, nameOf)) body.append(el('p', 'notice-seat-mine', line));
       if (data.mine) body.append(leversNode(data.mine));
+      if (data.mine?.politics) body.append(politicsNode(data.mine.politics, SEAT_LEVER_RANKS.includes(data.mine.rank)));   // CROWN2
       // SEAT1c: the guildmaster of the holder gives the Charter up here, at its board - armed by a first press
       if (holder && data.mine?.guild === holder.guild.id && data.mine.rank === GUILD_RANK_MASTER) {
         const armed = () => ui.nowS() * 1000 - armedAt < SEAT_RELINQUISH_ARM_MS;   // asked at the press, not at the draw
