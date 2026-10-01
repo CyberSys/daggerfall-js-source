@@ -446,11 +446,12 @@
   {
     "name": "AUDIT-REALM-L3F8-a-due-loan-kept",
     "file": "src/systems/worldTick.js",
-    "old": "    const outcome = settleOverdueLoan(accounts, r, entity);\n    if (outcome.kind",
+    "old": "    const outcome = settleSaid(entity, r, say);\n    if (outcome.kind",
     "new": "    const outcome = { kind: null };\n    if (outcome.kind",
     "tests": [
       "test/auditrealm.test.js"
-    ]
+    ],
+    "note": "EMPIRE-ACCOUNT (PIN MOVED): re-aimed by content to the line EMPIRE-ACCOUNT rewrote; the mutant is the same law."
   },
   {
     "name": "AUDIT-REALM-L2F6-the-session-kept",
