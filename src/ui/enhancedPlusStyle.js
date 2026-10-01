@@ -673,8 +673,12 @@ const RARITY_VARS = Object.freeze({
   aetheric: `--rar: #bfe8ff; --rar-hi: #f0faff; --rar-lo: #4d7fa3; --rar-rgb: 191,232,255; --rar-pips: '\\25c8';`,
   artifact: `--rar: #b57bee; --rar-hi: #dcbcf8; --rar-lo: #683a9c; --rar-rgb: 181,123,238; --rar-pips: '\\2726';`,
 });
-/** The tiers' custom properties as rules - under `scope` (a descendant selector with its space) or everywhere. */
-export const rarityVarsCss = (scope = '') => Object.entries(RARITY_VARS).map(([k, v]) => `${scope}[data-rarity="${k}"] { ${v} }`).join('\n');
+/** LOOT2 (bible/06-Systems/Loot-Arc.md section 4): an EXALTED Legendary's pips - its three diamonds and a star. */
+export const EXALTED_PIPS = `--rar-pips: '\\25c6\\25c6\\25c6\\2605';`;
+/** The tiers' custom properties as rules - under `scope` (a descendant selector with its space) or everywhere. LOOT2: and
+ *  the Exalted's pips after them, so its rule outranks the Legendary's at the same weight. */
+export const rarityVarsCss = (scope = '') => [...Object.entries(RARITY_VARS).map(([k, v]) => `${scope}[data-rarity="${k}"] { ${v} }`),
+  `${scope}[data-rarity="legendary"][data-exalted] { ${EXALTED_PIPS} }`].join('\n');
 /** SIGIL-UI: the sigil's colours, as custom properties. */
 export const SIGIL_VARS_CSS = `:root { --sigil: #72f0d8; --sigil-mid: #2fb8a2; --sigil-lo: #0f5048; --sigil-rgb: 114,240,216; }`;
 /** SIGIL-UI: the rune's breath. */

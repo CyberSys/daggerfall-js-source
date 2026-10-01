@@ -31,7 +31,7 @@
 import { seededRng } from './wind.js';
 import { createRandomWeapon, createRandomArmor, ITEM_GROUPS } from './loot.js';
 import { setItemFields, isAmmunition, mintCondition, registerCustomTemplates, templateByIndex } from './itemTemplates.js';
-import { applyRarity, rarityChances } from './lootRarity.js';
+import { applyRarity, rarityChances, lastPass } from './lootRarity.js';
 import { rollRegalia } from './aetheric.js';   // SET6: Ruhn's Regalia - the spoils' last roll
 import { stacksWith } from './inventory.js';   // SS1: the fold of a pack saved before the stone stacked
 
@@ -136,6 +136,9 @@ export function rollSpoils(seed, level) {
   // sixth of the time - rolled LAST, so every spoils before it is what it was for its seed; it leaves him last
   const regalia = rollRegalia(rolls);
   if (regalia) pieces.push({ item: regalia, tier: regalia.rarity });
+  // LOOT2 (bible/06-Systems/Loot-Arc.md section 4): the ladder's last pass - a Legendary among them Exalted one time in
+  // ten - rolled after the Regalia, so every spoils before it is what it was for its seed
+  lastPass(pieces.map((p) => p.item), rolls);
   return { gold, pieces, sigil: sigilStone() };
 }
 

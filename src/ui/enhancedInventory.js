@@ -2267,6 +2267,7 @@ function openMenu(item, from, x, y) {
 export function markItemFrame(node, item) {
   const r = rarityAttr(item);
   if (r) node.dataset.rarity = r;
+  if (r === 'legendary' && item?.exalted === true) node.dataset.exalted = '';   // LOOT2: an Exalted's fourth pip (the sheet's own)
   if (validSigil(item?.sigil)) node.dataset.sigil = '';   // every frame here is a fresh node per render - nothing to take off
   markSetFrame(node, item);   // SET5: a set piece's rune wears its set's colour (ui/setCard.js)
   if (isLocked(item)) node.dataset.locked = '';   // LOCK1: the padlock in the picture's corner (the sheet's own)

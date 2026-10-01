@@ -157,7 +157,9 @@ test('SET6 the drop: the spoils\' LAST roll - a Regalia piece a sixth of the tim
     const b = before(seed, 12);
     assert.equal(s.gold, b.gold, `seed ${seed}: the gold`);
     assert.deepEqual(s.pieces.slice(0, 3).map((p) => p.item.name), b.names, `seed ${seed}: the three graded pieces`);
-    assert.deepEqual(s.pieces.slice(0, 3).map((p) => JSON.stringify(p.item.affixes ?? null)), b.affixes);
+    // LOOT2 (bible/06-Systems/Loot-Arc.md section 4): an Exalted Legendary's extra line is drawn AFTER everything and
+    // appended - the record's own lines are still the seed's, exactly
+    assert.deepEqual(s.pieces.slice(0, 3).map((p) => JSON.stringify((p.item.exalted ? p.item.affixes.slice(0, -1) : p.item.affixes) ?? null)), b.affixes);
     const has = s.pieces.length === 4;
     assert.equal(has, b.next < REGALIA_CHANCE, `seed ${seed}: the next roll decides it`);
     if (!has) continue;

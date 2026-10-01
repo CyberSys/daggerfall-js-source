@@ -70,7 +70,8 @@ import { registerEntityFold, registerWeaponDamageMod, newMods, EMPTY_MODS } from
 import { templateByIndex, itemBaseValue, isAmmunition } from './itemTemplates.js';   // AUDIT 68 S27-ammo-arrow-only: the ammunition registry's home
 import { rriVariantWord } from './rriItems.js';   // DISC29-B: the word Roleplay & Realism: Items' mint put before the template's name
 import { STAT_KEYS_ORDER } from './statMods.js';
-import { SKILL_NAMES, SKILL_COUNT } from './skills.js';
+import { SKILL_NAMES, SKILL_COUNT, SKILLS, MAGIC_SKILLS } from './skills.js';
+import { weaponSkillUsed } from '../characters/weapons.js';   // LOOT1: a weapon's skill affix leans to the skill that swings it
 import { ENCHANTMENT_TYPES } from '../formats/magicDef.js';
 import { enchantmentName, enchantmentParamName } from './enchantmentCatalogue.js';
 import { rollSigil, sigilOnline, SIGIL_BANDS } from './sigil.js';   // SIGIL1: a weapon won online may carry a sigil
@@ -349,6 +350,50 @@ export const AFFIX_WORTH = Object.freeze({ damage: 40, armor: 60, weight: 15, st
 const rangeInt = (min, max, rolls) => min + Math.floor(rolls() * (max + 1 - min));
 const pick = (list, rolls) => list[Math.floor(rolls() * list.length)];
 
+/** LOOT1 (the Loot arc, bible/06-Systems/Loot-Arc.md - AUDIT-LR's second note: "a warhammer can roll +20 Impish ... a
+ *  weighting toward the group's own combat skills would be a tuning slice"): A SKILL AFFIX LEANS TO THE ITEM'S OWN
+ *  SKILLS. A weapon's to the hand that swings it - half the time its own weapon skill, then the strike's kin (Critical
+ *  Strike, Backstabbing, Dodging); a piece of armour's to the body (the seven ways of fighting and the five of moving);
+ *  jewellery's to the mind (the six schools and the skills of talk and the shadows) - in all, 85 times in a hundred.
+ *  The rest of the time any skill at all, the languages among them (a skill affix was a language 9 times in 35; now
+ *  about 1 in 25) - a weighting, never a fence: an amulet of tongues is still a find. */
+export const SKILL_OWN_SHARE = 0.5;
+export const SKILL_KIN_SHARE = 0.85;
+const S = SKILLS;
+const STRIKE_KIN = Object.freeze([S.CriticalStrike, S.Backstabbing, S.Dodging]);
+const BODY_KIN = Object.freeze([S.ShortBlade, S.LongBlade, S.HandToHand, S.Axe, S.BluntWeapon, S.Archery, S.CriticalStrike,
+  S.Dodging, S.Running, S.Jumping, S.Climbing, S.Swimming]);
+const MIND_KIN = Object.freeze([...MAGIC_SKILLS, S.Etiquette, S.Streetwise, S.Mercantile, S.Lockpicking, S.Pickpocket,
+  S.Stealth, S.Medical]);
+/** The skills an item leans to: `{ own, kin }` - a weapon's own skill (null for one with none) and its kin. */
+export function skillKin(item) {
+  if (item?.group === 'Weapons') return { own: weaponSkillUsed(item.templateIndex), kin: STRIKE_KIN };
+  if (item?.group === 'Armor') return { own: null, kin: BODY_KIN };
+  if (item?.group === 'Jewellery') return { own: null, kin: MIND_KIN };
+  return { own: null, kin: Object.freeze([]) };
+}
+/** One skill affix's skill, of the `free` ones (a kind with a param never repeats one): the item's own, then its kin,
+ *  then any - each step taken only when it has a free skill to give (its share given to the next), so the draw never
+ *  comes back empty.
+ *
+ *  ONE ROLL, AS THE DRAW IT REPLACES TOOK (`pick(free, rolls)`): the roll's place in [0, 1) chooses the step AND the
+ *  skill within it, each step's interval spread evenly over its list. Every seeded mint - the gate's spoils, a town's
+ *  thanks, the Sigil Broker's day, a Masterwork's roll - draws exactly as many rolls as it did, so what it mints after
+ *  a skill affix (the next piece, the Regalia's roll, the gold) is still its seed's; only the skill itself moved. */
+function pickSkill(item, free, rolls) {
+  const r = rolls();
+  const { own, kin } = skillKin(item);
+  const ownFree = own != null && free.includes(own);
+  if (ownFree && r < SKILL_OWN_SHARE) return own;
+  const near = kin.filter((s) => free.includes(s));
+  const lo = ownFree ? SKILL_OWN_SHARE : 0;   // where the kin's interval starts
+  const within = (list, from, to) => list[Math.min(list.length - 1, Math.floor(((r - from) / (to - from)) * list.length))];
+  if (near.length && r < SKILL_KIN_SHARE) return within(near, lo, SKILL_KIN_SHARE);
+  return within(free, near.length ? SKILL_KIN_SHARE : lo, 1);
+}
+/** Tests only: the one draw, alone. */
+export const _pickSkillForTests = pickSkill;
+
 /** LR4 (the audit): ONE AFFIX RECORD, VALID - a known kind, a param the
  *  kind names (and none for a kind without), an integer value from 1 to
  *  the kind's Legendary ceiling. The wire's validator refuses a list
@@ -386,7 +431,7 @@ export function rollAffixes(item, tier, rolls = Math.random) {
     const value = rangeInt(lo, hi, rolls);
     if (!k.params) { taken.add(id); return { id, value }; }
     const free = k.params.filter((p) => !taken.has(`${id}:${p}`));
-    const param = pick(free, rolls);
+    const param = id === 'skill' ? pickSkill(item, free, rolls) : pick(free, rolls);   // LOOT1: a skill leans to the item's own
     taken.add(`${id}:${param}`);
     return { id, param, value };
   };
@@ -599,10 +644,11 @@ export const RARE_ENCHANT_WORTH = 600;
  *  live luck. Returns the list for chaining. */
 export function rollLootRarity(items, source, { rolls = Math.random, luck = 50 } = {}) {
   if (!lootRarityOn() || !source || !Array.isArray(items)) return items;
+  const minted = [];
   for (const it of items) {
     if (!rarityEligible(it)) continue;
     const tier = rollRarity({ ...source, luck }, rolls);
-    if (tier !== 'common') applyRarity(it, tier, rolls);
+    if (tier !== 'common') { applyRarity(it, tier, rolls); minted.push(it); }
   }
   // THE UNIQUE FIND, after the tiers and ONCE for the list: it adds an
   // item DFU's roll cannot produce rather than promoting one it did.
@@ -611,11 +657,96 @@ export function rollLootRarity(items, source, { rolls = Math.random, luck = 50 }
   for (const found of rollUniqueFinds({ ...source, luck }, rolls)) {
     if (rarityEligible(found)) {
       const tier = rollRarity({ ...source, luck }, rolls);
-      if (tier !== 'common') applyRarity(found, tier, rolls);
+      if (tier !== 'common') { applyRarity(found, tier, rolls); minted.push(found); }
     }
     items.push(found);
   }
+  lastPass(minted, rolls);   // LOOT2: the door's last pass, after every draw it already makes
   return items;
+}
+/** LOOT2 (bible/06-Systems/Loot-Arc.md section 4): A DOOR'S LAST PASS over the pieces it just laddered - each Legendary's
+ *  one-in-ten Exalted - taken after every draw the door already makes, so a seeded door's earlier pieces are still its
+ *  seed's (SET6's law: the gate's spoils, a town's thanks). */
+export function lastPass(pieces, rolls = Math.random) {
+  for (const it of pieces ?? []) if (it?.rarity === 'legendary') rollExalted(it, rolls);
+}
+
+// ── LOOT2: the roll seen, and the Exalted ──────────────────────────
+// The Loot arc (bible/06-Systems/Loot-Arc.md section 4). A rolled line says the band it was rolled in, so two swords
+// are compared by how WELL they rolled, not only by what; a Rare whose every line stands at its band's top says so; and
+// a Legendary minted at a source is, one time in ten, EXALTED - one more line, of a kind its record does not carry,
+// from the top half of the Legendary band. The record stays what a player learns (its name, its lore, its lines); the
+// Exalted is the find.
+/** Per mille that a Legendary minted at a source is Exalted. */
+export const EXALTED_PER_MILLE = 100;
+/** What being Exalted adds to a Legendary's price, beside its extra line's points. */
+export const EXALTED_WORTH = 1000;
+let _exaltedPerMille = EXALTED_PER_MILLE;
+/** Tests only: the chance (null puts it back). */
+export function _setExaltedForTests(perMille) { _exaltedPerMille = perMille == null ? EXALTED_PER_MILLE : perMille; }
+
+/** How many of a Legendary's lines are its record's (the rest is an Exalted's extra); null for a piece no record holds. */
+const recordLines = (item) => (item?.legendary ? (legendaryById(item.legendary)?.affixes.length ?? null) : null);
+/** THE BAND a piece's line `i` was rolled in - `[lo, hi]` - or null for a line no roll made: a Legendary's record lines
+ *  (its signature, fixed), an Aetheric piece's, a line past a forged record's count. */
+export function affixBand(item, i) {
+  const a = item?.affixes?.[i];
+  if (!validAffix(a)) return null;
+  if (item.rarity === 'magic' || item.rarity === 'rare') return AFFIX_RANGES[a.id][item.rarity];
+  if (item.rarity === 'legendary' && item.exalted === true) {
+    const own = recordLines(item);
+    return own != null && i >= own ? AFFIX_RANGES[a.id].legendary : null;
+  }
+  return null;
+}
+/** One line as the card reads it: the affix's label, and its band when a roll made it - `+18% damage [10-25]`. */
+export function affixLine(item, i) {
+  const label = affixLabel(item?.affixes?.[i]);
+  if (!label) return '';
+  const band = affixBand(item, i);
+  return band ? `${label} [${band[0]}-${band[1]}]` : label;
+}
+/** PERFECT: a Rare whose every line stands at the top of its band. Never a Magic piece - one line at its top is one
+ *  Magic in eight, no word's worth. */
+export function isPerfect(item) {
+  if (item?.rarity !== 'rare' || !Array.isArray(item.affixes) || !item.affixes.length) return false;
+  return item.affixes.every((a, i) => { const b = affixBand(item, i); return !!b && a.value === b[1]; });
+}
+/** The tier's words on the first line: "Exalted Legendary", "Perfect Rare", else the tier's own label. An Exalted is
+ *  said while the piece is still unknown (its tile's pips say it too); a Perfect only once its numbers are read. */
+export function tierLabel(item) {
+  const tier = rarityOf(item);
+  if (tier === 'legendary' && item?.exalted === true) return 'Exalted Legendary';
+  if (tier === 'rare' && isPerfect(item) && identified(item)) return 'Perfect Rare';
+  return RARITIES[tier].label;
+}
+/** EXALT a Legendary IN PLACE: one more line - a kind its lines do not carry and its group may, or (none left) a kind
+ *  with a param its lines leave free - its value from the top half of the Legendary band; the mark, and the price.
+ *  Answers whether it was exalted (never twice, never a piece that is not a Legendary, never one with no line left). */
+export function exaltLegendary(item, rolls = Math.random) {
+  if (item?.rarity !== 'legendary' || item.exalted === true || !Array.isArray(item.affixes)) return false;
+  const kinds = AFFIX_IDS.filter((id) => AFFIX_KINDS[id].groups.includes(item.group));
+  const carried = new Set(item.affixes.map((a) => a?.id));
+  const freeParams = (id) => AFFIX_KINDS[id].params.filter((p) => !item.affixes.some((a) => a?.id === id && a.param === p));
+  let pool = kinds.filter((id) => !carried.has(id));
+  if (!pool.length) pool = kinds.filter((id) => AFFIX_KINDS[id].params && freeParams(id).length);
+  if (!pool.length) return false;
+  const id = pick(pool, rolls);
+  const [lo, hi] = AFFIX_RANGES[id].legendary;
+  const value = rangeInt(Math.ceil((lo + hi) / 2), hi, rolls);
+  const k = AFFIX_KINDS[id];
+  const line = k.params ? { id, param: pick(carried.has(id) ? freeParams(id) : k.params, rolls), value } : { id, value };
+  item.affixes = [...item.affixes, line];
+  item.exalted = true;
+  item.value = (Number.isFinite(item.value) ? item.value : itemBaseValue(item)) + EXALTED_WORTH + affixesWorth([line]);
+  return true;
+}
+/** The one-in-ten, for a Legendary just minted at a source - taken AFTER every draw its door already makes, so a seed's
+ *  earlier spoils stay what they were (SET6's law). Answers whether it was exalted. */
+export function rollExalted(item, rolls = Math.random) {
+  if (!lootRarityOn() || item?.rarity !== 'legendary' || item.exalted === true) return false;
+  if (!(rolls() * 1000 < _exaltedPerMille)) return false;
+  return exaltLegendary(item, rolls);
 }
 /** LR4 (the audit): THE CORPSE DOOR. A foe's list carries its WORN kit
  *  too (hostCombat.equipEnemy pushes every equipped piece into
@@ -741,9 +872,9 @@ export function rarityLines(item, { sigil = true, set = true, lore = true } = {}
   if (!lootRarityOn() || !item) return [];
   const tier = rarityOf(item);
   if (tier === 'common') return [];
-  const out = [RARITIES[tier].label];
+  const out = [tierLabel(item)];   // LOOT2: "Exalted Legendary", "Perfect Rare"
   if (!identified(item)) { out.push('Unidentified'); return [...out, ...(sigil ? setSigilLines(item) : []), ...(set ? setLines(item) : [])]; }   // SIGIL1: a sigil is the port's own mark, seen at once - AUDIT SET U5: and so is its set (the card draws it; the classic tooltip said nothing)
-  for (const a of item.affixes ?? []) out.push(affixLabel(a));
+  (item.affixes ?? []).forEach((a, i) => out.push(affixLine(item, i)));   // LOOT2: a rolled line with its band
   if (item.rarity && Array.isArray(item.enchantments)) {
     for (const e of item.enchantments) {
       if (!e || e.type === T.None) continue;
