@@ -148,6 +148,8 @@ export function decorDoorMarkPixels(size = 16) {
 }
 /** HOME-YARD: the lot's marked edge, a soft blue - never a doorway's green. */
 export const DECOR_LOT_MARK = Object.freeze([0.45, 0.75, 1, 0.5]);
+/** FB1001 ROAD-LOT: the most bands the lot's edge is marked in - four sides, and the road's sides where it cuts in. */
+export const DECOR_LOT_MARKS = 64;
 /** DECOR1e: the light a piece with none of its own is given when the owner lights it - a warm lamp's. */
 export const DECOR_DEFAULT_LIGHT = Object.freeze({ color: Object.freeze([1, 0.85, 0.6]), range: 6, intensity: 1 });
 
@@ -1314,10 +1316,10 @@ export function createDecorTool(deps) {
     const sig = quads.map((q) => q.pos.map((v) => v.toFixed(2)).join(',')).join('|');
     if (sig === p.lotSig || !renderer?.createDecalBatch) return;
     p.lotSig = sig;
-    p.lotMarks ??= renderer.createDecalBatch(4);
+    p.lotMarks ??= renderer.createDecalBatch(DECOR_LOT_MARKS);   // FB1001 ROAD-LOT: the edge along the road's sides too
     markTex ??= renderer.uploadTexture?.('decor', 'doorway-mark', decorDoorMarkPixels(), { mips: false }) ?? null;
-    const out = new Float32Array(DECAL_FLOATS * 4);
-    for (let i = 0; i < 4; i++) {
+    const out = new Float32Array(DECAL_FLOATS * DECOR_LOT_MARKS);
+    for (let i = 0; i < DECOR_LOT_MARKS; i++) {
       if (quads[i]) writeDecalQuad(out, i * DECAL_FLOATS, { ...quads[i], tint: DECOR_LOT_MARK, wet: 0 });
       else clearDecalQuad(out, i * DECAL_FLOATS);
     }
