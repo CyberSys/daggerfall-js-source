@@ -721,8 +721,8 @@
  {
   "name": "PVPREF-wire-no-cast",
   "file": "src/net/wire.js",
-  "old": "export const SIEGE_KINDS = Object.freeze(['in', 'blow', 'cast']);",
-  "new": "export const SIEGE_KINDS = Object.freeze(['in', 'blow']);",
+  "old": "export const SIEGE_KINDS = Object.freeze(['in', 'blow', 'cast', 'ask', 'yes']);",
+  "new": "export const SIEGE_KINDS = Object.freeze(['in', 'blow', 'ask', 'yes']);",
   "tests": [
    "test/pvpref_law.test.js"
   ]
@@ -730,8 +730,8 @@
  {
   "name": "PVPREF-wire-any-to",
   "file": "src/net/wire.js",
-  "old": "  if (typeof m.to !== 'string' || !ID_RE.test(m.to)) return null;\n  if (!finite(m.d) || m.d <= 0 || m.d > SIEGE_DMG_WIRE_MAX)",
-  "new": "  if (typeof m.to !== 'string') return null;\n  if (!finite(m.d) || m.d <= 0 || m.d > SIEGE_DMG_WIRE_MAX)",
+  "old": "  if (typeof m.to !== 'string' || !ID_RE.test(m.to)) return null;\n  if (m.k === 'ask' || m.k === 'yes')",
+  "new": "  if (typeof m.to !== 'string') return null;\n  if (m.k === 'ask' || m.k === 'yes')",
   "tests": [
    "test/pvpref_law.test.js"
   ]
@@ -847,7 +847,7 @@
  {
   "name": "PVPREF-relay-two-seats",
   "file": "server/src/index.js",
-  "old": "      if ((isGateRoom(a.key) || isSiegeRoom(a.key)) && who.subject) for (const [other, b] of [...this._all()])",
+  "old": "      if ((isGateRoom(a.key) || isBattleRoom(a.key)) && who.subject) for (const [other, b] of [...this._all()])",
   "new": "      if (isGateRoom(a.key) && who.subject) for (const [other, b] of [...this._all()])",
   "tests": [
    "test/pvpref_relay.test.js"
@@ -856,8 +856,8 @@
  {
   "name": "PVPREF-relay-any-room",
   "file": "server/src/index.js",
-  "old": "      if (!isSiegeRoom(a.key) || typeof a.sub !== 'string' || !a.sub) { this._junk(ws); return; }",
-  "new": "      if (typeof a.sub !== 'string' || !a.sub) { this._junk(ws); return; }",
+  "old": "      if (!isBattleRoom(a.key) || typeof a.sub !== 'string' || !a.sub) { this._junk(ws); return; }\n      try { await this._siegeFrame",
+  "new": "      if (typeof a.sub !== 'string' || !a.sub) { this._junk(ws); return; }\n      try { await this._siegeFrame",
   "tests": [
    "test/pvpref_relay.test.js"
   ]
@@ -883,8 +883,8 @@
  {
   "name": "PVPREF-relay-unsaved-fighter",
   "file": "server/src/index.js",
-  "old": "        s.fighters[a.sub] = { ...newFighter(a.lv, now), side, pose, poseAt: now };\n        if (b && side) this._send(ws, JSON.stringify({ t: 'siege', k: 'back', p: pose }));\n        await this._siegeSave(now, true);",
-  "new": "        s.fighters[a.sub] = { ...newFighter(a.lv, now), side, pose, poseAt: now };\n        if (b && side) this._send(ws, JSON.stringify({ t: 'siege', k: 'back', p: pose }));\n        await this._siegeSave(now, false);",
+  "old": "        s.fighters[a.sub] = { ...newFighter(a.lv, now), side, pose, poseAt: now };\n        if (camp) this._send(ws, JSON.stringify({ t: 'siege', k: 'back', p: pose }));\n        await this._siegeSave(now, true);",
+  "new": "        s.fighters[a.sub] = { ...newFighter(a.lv, now), side, pose, poseAt: now };\n        if (camp) this._send(ws, JSON.stringify({ t: 'siege', k: 'back', p: pose }));\n        await this._siegeSave(now, false);",
   "tests": [
    "test/pvpref_relay.test.js"
   ]
@@ -892,8 +892,8 @@
  {
   "name": "PVPREF-relay-roll-call-whole",
   "file": "server/src/index.js",
-  "old": "if (sk) st.push([sk[1].id, f.hp, f.max, f.down ? 1 : 0, ...(f.side ? [f.side === 'attack' ? 1 : 2] : [])]); }",
-  "new": "if (sk) st.push([sk[1].id, f.max, f.max, f.down ? 1 : 0, ...(f.side ? [f.side === 'attack' ? 1 : 2] : [])]); }",
+  "old": "if (sk) st.push([sk[1].id, f.hp, f.max, f.down ? 1 : 0, ...(f.side === 'attack' || f.side === 'defend' ? [f.side === 'attack' ? 1 : 2] : [])]); }",
+  "new": "if (sk) st.push([sk[1].id, f.max, f.max, f.down ? 1 : 0, ...(f.side === 'attack' || f.side === 'defend' ? [f.side === 'attack' ? 1 : 2] : [])]); }",
   "tests": [
    "test/pvpref_relay.test.js"
   ]
@@ -938,7 +938,7 @@
  {
   "name": "PVPREF-relay-step-unjudged",
   "file": "server/src/index.js",
-  "old": "      if (posed && isSiegeRoom(a.key) && a.sub && !(await this._siegeStep(ws, a, m.p, now))) return;\n",
+  "old": "      if (posed && isBattleRoom(a.key) && a.sub && !(await this._siegeStep(ws, a, m.p, now))) return;\n",
   "new": "",
   "tests": [
    "test/pvpref_relay.test.js"
@@ -956,8 +956,8 @@
  {
   "name": "PVPREF-relay-no-back",
   "file": "server/src/index.js",
-  "old": "    if (!refereeStep(f.pose, p, now - (f.poseAt ?? now))) { this._send(ws, JSON.stringify({ t: 'siege', k: 'back', p: f.pose })); return false; }",
-  "new": "    if (!refereeStep(f.pose, p, now - (f.poseAt ?? now))) return false;",
+  "old": "    if (!refereeStep(f.pose, p, now - (f.poseAt ?? now)) || !royalStepOk(s.battle, a.sub, p)) { this._send(ws, JSON.stringify({ t: 'siege', k: 'back', p: f.pose })); return false; }",
+  "new": "    if (!refereeStep(f.pose, p, now - (f.poseAt ?? now)) || !royalStepOk(s.battle, a.sub, p)) return false;",
   "tests": [
    "test/pvpref_relay.test.js"
   ]

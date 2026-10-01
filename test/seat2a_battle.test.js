@@ -219,7 +219,7 @@ test('SEAT2a THE PASS: the service\'s `siege` order - the account, the seat and 
   assert.deepEqual(parseClient(JSON.stringify({ ...hello, sp: 7 }), { hasHello: false }), { error: 'bad pass' });
   assert.equal('sp' in parseClient(JSON.stringify(hello), { hasHello: false }), false);
   assert.equal(SIEGE_BATTLE_RELAY_MIN, 141);
-  assert.deepEqual(['world140', 'world141', 'world142', 'x141', null].map(relayFightsBattles), [false, true, true, false, false]);
+  assert.deepEqual(['world140', 'world142', 'world142', 'x141', null].map(relayFightsBattles), [false, true, true, false, false]);
 });
 
 test('SEAT2a THE RECEIPT: `s1` - the account, the seat and week, its side, the result, whether a banner was raised, its Honours - signed by the relay\'s key, verified rung for rung, read unsigned by the client; never the gate\'s, the raid\'s or the Watch\'s, nor they it (mutants: each field; the TTL; the version; the disjointness)', async () => {

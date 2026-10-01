@@ -702,6 +702,12 @@ DECIDED: the ledger names the guild a Tithe reached, not the seat, so a guild's 
 Charters and each conscripted seat pays its share at its rate; a seat that pays nothing (its guild took no Tithe) loses
 no Standing. The Royal Tourney is part two (migration `0053` admits its id already).
 
+BUILT (CROWN1 part two, the relay, `world142`; Online-Arc CROWN1 part two): the Royal Tourney's room
+`royal:<crown>:<week>` by the service's pass, one bout at a time in DUEL1's ring (its numbers pinned equal) - a
+challenge, its accept, the marks, the countdown, the bout's two alone, the ring held by the step, a fall's end, a draw,
+a walkover - every blow the referee's; the room's ladder (the same two three times a UTC day) and the winner's signed
+`t1` receipt.
+
 ### 7.7 Revolt
 
 A seat at Standing 0 revolts at its next siege window: a relay-run uprising (the gate's brain, with the adds the

@@ -432,8 +432,8 @@
  {
   "name": "SEAT2a2-pass-sides",
   "file": "src/net/identityToken.js",
-  "old": "export const SIEGE_PASS_SIDES = Object.freeze(['attack', 'defend', 'watch']);",
-  "new": "export const SIEGE_PASS_SIDES = Object.freeze(['attack', 'defend', 'watch', 'neutral']);",
+  "old": "export const SIEGE_PASS_SIDES = Object.freeze(['attack', 'defend', 'watch', 'duel']);",
+  "new": "export const SIEGE_PASS_SIDES = Object.freeze(['attack', 'defend', 'watch', 'duel', 'neutral']);",
   "tests": [
    "test/seat2a_battle.test.js",
    "test/seat2a_relay.test.js"
@@ -462,8 +462,8 @@
  {
   "name": "SEAT2a2-pass-se",
   "file": "src/net/identityToken.js",
-  "old": "c.se <= c.sb || c.se - c.sb > SIEGE_PASS_SPAN_S",
-  "new": "c.se < c.sb || c.se - c.sb > SIEGE_PASS_SPAN_S",
+  "old": "c.se <= c.sb || c.se - c.sb > (royal ? ROYAL_PASS_SPAN_S : SIEGE_PASS_SPAN_S)",
+  "new": "c.se < c.sb || c.se - c.sb > (royal ? ROYAL_PASS_SPAN_S : SIEGE_PASS_SPAN_S)",
   "tests": [
    "test/seat2a_battle.test.js",
    "test/seat2a_relay.test.js"
@@ -472,8 +472,8 @@
  {
   "name": "SEAT2a2-pass-points",
   "file": "src/net/identityToken.js",
-  "old": "export const siegePassPoints = (tier) => (tier === 'crown' ? 7 : 6);",
-  "new": "export const siegePassPoints = (tier) => (tier === 'crown' ? 6 : 6);",
+  "old": "export const siegePassPoints = (tier, kind = 'siege') => (kind === 'royal' ? 1 : tier === 'crown' ? 7 : 6);",
+  "new": "export const siegePassPoints = (tier, kind = 'siege') => (kind === 'royal' ? 1 : tier === 'crown' ? 6 : 6);",
   "tests": [
    "test/seat2a_battle.test.js",
    "test/seat2a_relay.test.js"
@@ -492,8 +492,8 @@
  {
   "name": "SEAT2a2-rc-foreign",
   "file": "src/net/siegeReceipt.js",
-  "old": "const FOREIGN = ['n', 'k', 't', 'o', 'd', 'b', 'w', 'x', 'y', 'c'];",
-  "new": "const FOREIGN = ['n', 'k', 't', 'o', 'd', 'b', 'w', 'x', 'y'];",
+  "old": "const FOREIGN = ['n', 'k', 't', 'o', 'd', 'b', 'w', 'x', 'y', 'c', 'l'];",
+  "new": "const FOREIGN = ['n', 'k', 't', 'o', 'd', 'b', 'w', 'x', 'y', 'l'];",
   "tests": [
    "test/seat2a_battle.test.js",
    "test/seat2a_relay.test.js"
@@ -662,7 +662,7 @@
  {
   "name": "SEAT2a2-relay-arm",
   "file": "server/src/index.js",
-  "old": "      await this._siegeArm(now + SIEGE_TICK_MS);\n    }\n    return { side: c.sd };",
+  "old": "      await this._siegeArm(c.sn === 'royal' ? royalNextBeat(this._siege.battle, now) : now + SIEGE_TICK_MS);   // CROWN1 part two: a tourney with no bout on wakes at its week's end\n    }\n    return { side: c.sd };",
   "new": "    }\n    return { side: c.sd };",
   "tests": [
    "test/seat2a_battle.test.js",
@@ -682,7 +682,7 @@
  {
   "name": "SEAT2a2-relay-camp-in",
   "file": "server/src/index.js",
-  "old": "        const pose = b && side ? siegeCampPose(b, side, a.pose) : (a.pose ?? null);",
+  "old": "        const pose = camp ? siegeCampPose(b, side, a.pose) : (a.pose ?? null);",
   "new": "        const pose = a.pose ?? null;",
   "tests": [
    "test/seat2a_battle.test.js",
@@ -712,8 +712,8 @@
  {
   "name": "SEAT2a2-relay-friendly",
   "file": "server/src/index.js",
-  "old": "    if (by.side && (heal ? to.side !== by.side : to.side === by.side)) return;   // SEAT2a: the sides are kept",
-  "new": "    if (by.side && heal && to.side !== by.side) return;   // SEAT2a: the sides are kept",
+  "old": "    if (by.side && b?.kind !== 'royal' && (heal ? to.side !== by.side : to.side === by.side)) return;   // SEAT2a: the sides are kept",
+  "new": "    if (by.side && b?.kind !== 'royal' && heal && to.side !== by.side) return;   // SEAT2a: the sides are kept",
   "tests": [
    "test/seat2a_battle.test.js",
    "test/seat2a_relay.test.js"
@@ -722,8 +722,8 @@
  {
   "name": "SEAT2a2-relay-foe-heal",
   "file": "server/src/index.js",
-  "old": "    if (by.side && (heal ? to.side !== by.side : to.side === by.side)) return;   // SEAT2a: the sides are kept",
-  "new": "    if (by.side && !heal && to.side === by.side) return;   // SEAT2a: the sides are kept",
+  "old": "    if (by.side && b?.kind !== 'royal' && (heal ? to.side !== by.side : to.side === by.side)) return;   // SEAT2a: the sides are kept",
+  "new": "    if (by.side && b?.kind !== 'royal' && !heal && to.side === by.side) return;   // SEAT2a: the sides are kept",
   "tests": [
    "test/seat2a_battle.test.js",
    "test/seat2a_relay.test.js"

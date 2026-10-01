@@ -202,8 +202,8 @@ const GUILD_OUT_KEEP_S = MAX_TTL_S + ORDER_TTL_S + 60;
 // pure law - it imports nothing) and net/gateReceipt.js (the kill's receipt, the relay's first signature - it imports
 // identityToken.js, already here). bible/11-Multiplayer/World-Bosses.md sections 5, 6 and 8.
 import { isGateRoom, gateDayOfRoom, gateAdmits, gateHolds, gateTimes, gateBossOf, gateModsOf, GATE_COLLAPSE_MS } from '../../src/net/gateLaw.js';
-import { isSiegeRoom, siegeOfRoom, newFighter, refereeBlow, refereeCast, refereeStep, siegeHeld, siegeNextWave, siegeRise, SIEGE_WAVE_MS, SIEGE_FIGHTERS_MAX, SIEGE_SPECTATORS_MAX, SIEGE_OPENS_MS, SIEGE_TICK_MS, siegeNextBeat, fieldOf, newBattle, battleStep, honoured, siegeCampPose, siegeFieldFrame } from '../../src/net/siegeRef.js';   // PVP-REF: a siege's referee - siegeRef.js imports nothing, so the worker's graph stays flat   // SEAT2a: and its battle
-import { mintSiegeReceipt, SIEGE_RECEIPT_TTL_S } from '../../src/net/siegeReceipt.js';   // SEAT2a: the relay's fourth signature - a fighter's result and Honours
+import { isSiegeRoom, newFighter, refereeBlow, refereeCast, refereeStep, siegeHeld, siegeNextWave, siegeRise, SIEGE_WAVE_MS, SIEGE_FIGHTERS_MAX, SIEGE_SPECTATORS_MAX, SIEGE_OPENS_MS, SIEGE_TICK_MS, siegeNextBeat, fieldOf, newBattle, battleStep, honoured, siegeCampPose, siegeFieldFrame, isBattleRoom, isRoyalRoom, battleOfRoom, royalAsk, royalAccept, royalMarks, royalMayStrike, royalStepOk, royalEnd, royalStep, royalLadder, royalNextBeat, ROYAL_RC_KEEP } from '../../src/net/siegeRef.js';   // PVP-REF: a siege's referee - siegeRef.js imports nothing, so the worker's graph stays flat   // SEAT2a: and its battle
+import { mintSiegeReceipt, SIEGE_RECEIPT_TTL_S, mintRoyalReceipt } from '../../src/net/siegeReceipt.js';   // SEAT2a: the relay's fourth signature - a fighter's result and Honours
 import { newFight, joinFight, applyHit, applyCrystalHit, stepBrain, stateOf, earned, earnedBy, COURT_CENTRE, BRAIN_TICK_MS, CHECKPOINT_MS, GATE_FIGHTERS_MAX } from '../../src/net/gateBrain.js';
 import { mintReceipt, importReceiptKey, readReceipt, RECEIPT_TTL_S } from '../../src/net/gateReceipt.js';
 // RAID3 (2026-09-27, Mac, on World Events - Raiding Parties online: "1. Server"): TWO FILES JOIN THE BUNDLE -
@@ -249,6 +249,8 @@ export default {
     if (key.startsWith('gate:') && !(isGateRoom(key) && gateHolds(gateDayOfRoom(key), Date.now()))) return json({ error: 'the gate is closed' }, 404);
     // PVP-REF: a siege's room stands for its own key alone (`siege:<seat>:<week>`) - no object for a key a client made up
     if (key.startsWith('siege:') && !isSiegeRoom(key)) return json({ error: 'no such siege' }, 404);
+    // CROWN1 part two: a Royal Tourney's room, the same - `royal:<crown seat>:<week>` and nothing else
+    if (key.startsWith('royal:') && !isRoyalRoom(key)) return json({ error: 'no such tourney' }, 404);
     if (String(request.headers.get('Upgrade') ?? '').toLowerCase() !== 'websocket') return json({ error: 'websocket only' }, 426);
     const id = env.ROOMS.idFromName(key);
     return env.ROOMS.get(id).fetch(request);
@@ -1176,7 +1178,7 @@ export class Room {
       // (the hello's `sp`) that this account fights on a side, or watches; the developers' ground only while the room
       // holds no battle
       let siegeSide = null;
-      if (isSiegeRoom(a.key)) { const v = await this._siegeAdmit(a.key, who, m.sp, now); if (v.no) { this._refuse(ws, v.no); return; } siegeSide = v.side; }
+      if (isBattleRoom(a.key)) { const v = await this._siegeAdmit(a.key, who, m.sp, now); if (v.no) { this._refuse(ws, v.no); return; } siegeSide = v.side; }   // CROWN1 part two: and a Royal Tourney's, by its pass
       // ONE-SEAT (Mac: "the player can only have one character only at a time"): A HUB HELLO THAT DOES NOT CLAIM IS A
       // RECONNECT, and while another tab of the same account holds the hub the seat is that tab's - refused here, before
       // anything is written, so a tab superseded while its socket was down cannot take the seat back by reconnecting.
@@ -1207,7 +1209,7 @@ export class Room {
       // AUDIT WB A1: ONE SEAT AN ACCOUNT in a gate's court. The fight is the account's (net/gateBrain.js - its players by
       // account, the newest socket speaking for it), so a second socket is never a second fighter, only a seat the court
       // cannot give anyone else: the older goes, replaced, its leave said.
-      if ((isGateRoom(a.key) || isSiegeRoom(a.key)) && who.subject) for (const [other, b] of [...this._all()]) if (other !== ws && b.id && b.sub === who.subject) this._refuse(other, 'replaced', CLOSE_REPLACED);   // PVP-REF: and a siege's field, one fighter an account
+      if ((isGateRoom(a.key) || isBattleRoom(a.key)) && who.subject) for (const [other, b] of [...this._all()]) if (other !== ws && b.id && b.sub === who.subject) this._refuse(other, 'replaced', CLOSE_REPLACED);   // PVP-REF: and a siege's field, one fighter an account
       // ONE-SEAT: A CLAIM TAKES THE SEAT - every other tab of this account in the hub is closed, the reason said first,
       // and its client leaves every room it holds (net/online.js `superseded`). Their leaves are said at the reap, as
       // every close this object makes is (AUDIT WORLD34 D1).
@@ -1623,7 +1625,7 @@ export class Room {
       // (anywhere else junk), from a VERIFIED account (`sub`, off the token); the referee (net/siegeRef.js) judges it
       const now = Date.now();
       if (!this._spend(ws, now, siegeGate, 'siegeBucket', 'siegeDrops', 'too many siege frames')) return;
-      if (!isSiegeRoom(a.key) || typeof a.sub !== 'string' || !a.sub) { this._junk(ws); return; }
+      if (!isBattleRoom(a.key) || typeof a.sub !== 'string' || !a.sub) { this._junk(ws); return; }
       try { await this._siegeFrame(ws, a, m, now); } catch (e) { console.warn('[siege] frame failed', e?.message ?? e); }
       return;
     }
@@ -1905,7 +1907,7 @@ export class Room {
       // and an event is where those turn up.
       // PVP-REF (Seats-Arc 6.1): A FIGHTER'S STEP IS JUDGED - faster than the referee's ceiling, it is neither kept nor
       // relayed, and the fighter is pulled back to its last good pose
-      if (posed && isSiegeRoom(a.key) && a.sub && !(await this._siegeStep(ws, a, m.p, now))) return;
+      if (posed && isBattleRoom(a.key) && a.sub && !(await this._siegeStep(ws, a, m.p, now))) return;
       const met = this._meter(ws, a, now, { pose: posed ? m.p : a.pose }, posed ? { turn: ((a.turn | 0) + 1) & 0xffff, ...(still ? { kept: now } : {}) } : {});
       if (!met) return;   // over the rate: kept as the latest, not relayed
       if (m.t === 'ping') { this._send(ws, '{"t":"pong"}'); return; }   // a ping that reached the object (the runtime answers the exact one in its sleep)
@@ -2275,8 +2277,9 @@ export class Room {
     if (!who.subject || !this._verifyKey) return { no: 'the siege is not open' };
     const r = await verifyOrder(sp, this._verifyKey, { subtle: crypto.subtle, nowS: Math.floor(now / 1000), kind: 'siege' });
     if (!r.ok) return { no: 'that pass will not do' };
-    const c = r.claims, room = siegeOfRoom(key);
+    const c = r.claims, room = battleOfRoom(key);
     if (c.s !== who.subject || !room || c.sk !== room.key || c.sw !== room.week) return { no: 'that pass is for another battle' };
+    if ((room.kind === 'royal') !== (c.sn === 'royal')) return { no: 'that pass is for another battle' };   // CROWN1 part two: a Royal Tourney's pass to its own room alone
     if (now < c.sb * 1000 - SIEGE_OPENS_MS || now >= c.se * 1000) return { no: 'the siege is not open' };
     const of = { sk: c.sk, sw: c.sw, sn: c.sn, st: c.st, sb: c.sb, se: c.se, sf: JSON.stringify(c.sf) };
     if (s?.of && Object.keys(of).some((k) => s.of[k] !== of[k])) return { no: 'that pass is for another battle' };
@@ -2290,11 +2293,11 @@ export class Room {
       if (mine.side !== c.sd) return { no: 'that pass is for another side' };
     } else if (s && Object.keys(s.fighters).length >= SIEGE_FIGHTERS_MAX) return { no: 'the field is full' };
     if (!s?.battle) {
-      const field = fieldOf(c.sf, c.st);
+      const field = fieldOf(c.sf, c.st, c.sn);
       if (!field) return { no: 'that pass will not do' };
-      this._siege = { ...(s ?? { fighters: {} }), of, battle: newBattle({ kind: c.sn, tier: c.st, startMs: c.sb * 1000, field }) };
+      this._siege = { ...(s ?? { fighters: {} }), of, battle: newBattle({ kind: c.sn, tier: c.st, startMs: c.sb * 1000, endMs: c.se * 1000, field }) };
       await this._siegeSave(now, true);
-      await this._siegeArm(now + SIEGE_TICK_MS);
+      await this._siegeArm(c.sn === 'royal' ? royalNextBeat(this._siege.battle, now) : now + SIEGE_TICK_MS);   // CROWN1 part two: a tourney with no bout on wakes at its week's end
     }
     return { side: c.sd };
   }
@@ -2308,28 +2311,32 @@ export class Room {
     if (m.k === 'in') {
       if (a.sd !== 'watch' && !s.fighters[a.sub]) {
         if (Object.keys(s.fighters).length >= SIEGE_FIGHTERS_MAX) { this._send(ws, JSON.stringify({ t: 'siege', k: 'no', m: 'the field is full' })); return; }
-        const side = a.sd === 'attack' || a.sd === 'defend' ? a.sd : null;
-        const pose = b && side ? siegeCampPose(b, side, a.pose) : (a.pose ?? null);
+        const side = a.sd === 'attack' || a.sd === 'defend' || a.sd === 'duel' ? a.sd : null;   // CROWN1 part two: a Royal Tourney's contender
+        const camp = b && (side === 'attack' || side === 'defend');
+        const pose = camp ? siegeCampPose(b, side, a.pose) : (a.pose ?? null);
         s.fighters[a.sub] = { ...newFighter(a.lv, now), side, pose, poseAt: now };
-        if (b && side) this._send(ws, JSON.stringify({ t: 'siege', k: 'back', p: pose }));
+        if (camp) this._send(ws, JSON.stringify({ t: 'siege', k: 'back', p: pose }));
         await this._siegeSave(now, true);
       }
       const st = [];
-      for (const [sub, f] of Object.entries(s.fighters)) { const sk = this._siegeSocketOf(sub); if (sk) st.push([sk[1].id, f.hp, f.max, f.down ? 1 : 0, ...(f.side ? [f.side === 'attack' ? 1 : 2] : [])]); }   // SEAT2a: a sided fighter's side (1 attacking, 2 defending)
+      for (const [sub, f] of Object.entries(s.fighters)) { const sk = this._siegeSocketOf(sub); if (sk) st.push([sk[1].id, f.hp, f.max, f.down ? 1 : 0, ...(f.side === 'attack' || f.side === 'defend' ? [f.side === 'attack' ? 1 : 2] : [])]); }   // SEAT2a: a sided fighter's side (1 attacking, 2 defending)
       this._send(ws, JSON.stringify({ t: 'siege', k: 'st', f: st }));
-      if (b) this._send(ws, JSON.stringify({ t: 'siege', ...siegeFieldFrame(b, this._siegeCounts(s)) }));
+      if (b?.kind === 'royal') { this._royalSay(ws, s, b, a.sub); return; }   // CROWN1 part two: the ladder, the bout on, this contender's receipts - no banners
+      if (b) this._send(ws, JSON.stringify({ t: 'siege', ...siegeFieldFrame(b, this._siegeCounts(s)) }));   // CROWN1 part two: the ladder, the bout on, this contender's receipts
       if (b?.result) this._send(ws, JSON.stringify({ t: 'siege', k: 'end', r: b.result, a: b.raised ? 1 : 0, ...(s.receipts?.[a.sub] ? { rc: s.receipts[a.sub] } : {}) }));
       return;
     }
     const by = s.fighters[a.sub];
     if (!by) { this._junk(ws); return; }   // a correct client says `in` first
+    if (m.k === 'ask' || m.k === 'yes') { if (b?.kind === 'royal') await this._royalHand(ws, a, s, b, m, now); else this._junk(ws); return; }   // CROWN1 part two
     if (b && (b.result || now < b.startMs)) return;   // SEAT2a: the battle is not joined yet, or over
     let target = null;
     for (const [, t] of this._all()) if (t.id === m.to) { target = t; break; }
     const to = target?.sub ? s.fighters[target.sub] : null;
     if (!to) return;   // a spectator, or a socket gone: nothing to strike
     const heal = m.k === 'cast' && m.h === 1;
-    if (by.side && (heal ? to.side !== by.side : to.side === by.side)) return;   // SEAT2a: the sides are kept
+    if (by.side && b?.kind !== 'royal' && (heal ? to.side !== by.side : to.side === by.side)) return;   // SEAT2a: the sides are kept
+    if (b?.kind === 'royal' && (heal || !royalMayStrike(b, a.sub, target.sub, now))) return;   // CROWN1 part two: the bout's two alone, no heal between them
     // the striker's look - the paperdoll every other player draws - names the weapon it holds (a woken object reads it)
     let look = this._looks.get(a.id) ?? null;
     if (!look && m.k === 'blow') { look = (await this.state.storage.get(lookKey(a.id))) ?? null; if (look) this._looks.set(a.id, look); }
@@ -2338,6 +2345,7 @@ export class Room {
       : refereeBlow(by, to, { from: by.pose, at: to.pose, held: siegeHeld(look, m.w, m.m), d: m.d, r: m.r }, now);
     if (!res.ok || !res.dealt) return;
     const frames = [{ k: 'hp', id: m.to, h: to.hp, m: to.max }];
+    if (res.fell && b?.kind === 'royal') { this._siegeFan(frames); await this._royalBoutEnd(s, b, royalEnd(b, a.sub, now), now); return; }   // CROWN1 part two: a fall ends the bout
     if (res.fell) {
       by.felled = (by.felled ?? 0) + 1;   // SEAT2a: Honours' other half (6.8)
       to.upAt = siegeNextWave(now, SIEGE_WAVE_MS[b?.tier] ?? SIEGE_WAVE_MS.palace);   // SEAT2a: the seat's own tier's wave
@@ -2360,9 +2368,10 @@ export class Room {
   }
   /** A fighter's step: kept (true) where the referee allows it, else the fighter told its last good pose (false). */
   async _siegeStep(ws, a, p, now) {
-    const f = (await this._siegeOf())?.fighters[a.sub];
+    const s = await this._siegeOf(), f = s?.fighters[a.sub];
     if (!f) return true;   // not a fighter: a spectator's camera is its own
-    if (!refereeStep(f.pose, p, now - (f.poseAt ?? now))) { this._send(ws, JSON.stringify({ t: 'siege', k: 'back', p: f.pose })); return false; }
+    // CROWN1 part two: and a Royal Tourney's bout kept in its ring
+    if (!refereeStep(f.pose, p, now - (f.poseAt ?? now)) || !royalStepOk(s.battle, a.sub, p)) { this._send(ws, JSON.stringify({ t: 'siege', k: 'back', p: f.pose })); return false; }
     f.pose = p; f.poseAt = now;
     return true;
   }
@@ -2377,6 +2386,15 @@ export class Room {
     const b = s.battle ?? null;
     if (b?.result) {
       if (now >= (s.dropAt ?? 0)) { await this.state.storage.delete('siege'); this._siege = null; } else await this.state.storage.setAlarm(s.dropAt);
+      return true;
+    }
+    if (b?.kind === 'royal') {   // CROWN1 part two: a Royal Tourney's beat - a bout's draw or walkover, the week's end
+      for (const e of royalStep(b, (sub) => !!this._siegeSocketOf(sub), now)) {
+        if (e.k === 'bout') await this._royalBoutEnd(s, b, e, now);
+        else { s.dropAt = now + SIEGE_RECEIPT_TTL_S * 1000; await this._siegeSave(now, true); await this.state.storage.setAlarm(s.dropAt); return true; }
+      }
+      await this._siegeSave(now, false);
+      await this.state.storage.setAlarm(royalNextBeat(b, now));
       return true;
     }
     const frames = [];
@@ -2420,6 +2438,88 @@ export class Room {
     }
     await this._siegeSave(now, true);
     await this.state.storage.setAlarm(s.dropAt);
+  }
+
+  // ───────────────────────── CROWN1 part two: A ROYAL TOURNEY'S ROOM ─────────────────────────
+  // Seats-Arc 7.6: DUEL1's ring, every blow the referee's; one bout at a time; the ladder the room's (net/siegeRef.js).
+  /** A peer id's account here, or null. */
+  _royalSubOf(id) {
+    for (const [, t] of this._all()) if (t.id === id && t.sub) return t.sub;
+    return null;
+  }
+  /** The ladder as the room says it - each contender by its peer id here ('' for one gone). */
+  _royalLadderFrame(b) {
+    return { k: 'lad', l: royalLadder(b).map(([sub, w, l]) => [this._siegeSocketOf(sub)?.[1].id ?? '', w, l]) };
+  }
+  /** The bout on, as the room says it - or null. */
+  _royalBoutFrame(b) {
+    const bt = b.bout;
+    if (!bt) return null;
+    const ia = this._siegeSocketOf(bt.a)?.[1].id, ib = this._siegeSocketOf(bt.b)?.[1].id;
+    return ia && ib ? { k: 'bout', a: ia, b: ib, n: bt.n, s: bt.startMs, e: bt.endMs } : null;
+  }
+  /** A contender's entry said: every fighter's vitality was sent; the ladder, the bout on, and the receipts this account
+   *  won here and was not handed (a reconnect's). */
+  _royalSay(ws, s, b, sub) {
+    this._send(ws, JSON.stringify({ t: 'siege', ...this._royalLadderFrame(b) }));
+    const bout = this._royalBoutFrame(b);
+    if (bout) this._send(ws, JSON.stringify({ t: 'siege', ...bout }));
+    for (const rc of s.royalRc?.[sub] ?? []) this._send(ws, JSON.stringify({ t: 'siege', k: 'won', rc }));
+  }
+  /** A CHALLENGE (`ask`, to the one challenged) or its ACCEPT (`yes`, to the challenger): the bout begun - both whole and
+   *  on their marks, said to the room - or a refusal in words. */
+  async _royalHand(ws, a, s, b, m, now) {
+    const other = this._royalSubOf(m.to);
+    if (!other || !s.fighters[other]) { this._send(ws, JSON.stringify({ t: 'siege', k: 'no', m: 'no such contender' })); return; }
+    if (m.k === 'ask') {
+      const no = royalAsk(b, a.sub, other, now);
+      if (no) { this._send(ws, JSON.stringify({ t: 'siege', k: 'no', m: no })); return; }
+      const sk = this._siegeSocketOf(other);
+      if (sk) this._send(sk[0], JSON.stringify({ t: 'siege', k: 'ask', id: a.id }));
+      return;
+    }
+    const r = royalAccept(b, a.sub, other, now);
+    if (r.no) { this._send(ws, JSON.stringify({ t: 'siege', k: 'no', m: r.no })); return; }
+    const fa = s.fighters[r.bout.a], fb = s.fighters[r.bout.b];
+    const [pa, pb] = royalMarks(b, fa.pose, fb.pose);
+    const frames = [];
+    for (const [sub, f, p] of [[r.bout.a, fa, pa], [r.bout.b, fb, pb]]) {
+      Object.assign(f, { pose: p, poseAt: now });   // whole already: a contender's vitality moves in a bout alone, and every bout ends both whole
+      const sk = this._siegeSocketOf(sub);
+      if (sk) { this._send(sk[0], JSON.stringify({ t: 'siege', k: 'back', p })); frames.push({ k: 'hp', id: sk[1].id, h: f.hp, m: f.max }); }
+    }
+    const bout = this._royalBoutFrame(b);
+    this._siegeFan(bout ? [...frames, bout] : frames);
+    await this._siegeSave(now, true);
+    await this._siegeArm(royalNextBeat(b, now));
+  }
+  /** A BOUT OVER (`e` royalEnd's): both whole again, said to the room with the ladder; the winner handed its signed
+   *  receipt (`t1`), kept the room's week for a reconnect. */
+  async _royalBoutEnd(s, b, e, now) {
+    if (!e) return;
+    const frames = [];
+    for (const sub of [e.a, e.b]) {
+      const f = s.fighters[sub];
+      if (!f) continue;
+      Object.assign(f, { hp: f.max, down: false, upAt: 0 });
+      const sk = this._siegeSocketOf(sub);
+      if (sk) frames.push({ k: 'hp', id: sk[1].id, h: f.hp, m: f.max });
+    }
+    const idOf = (sub) => (sub ? this._siegeSocketOf(sub)?.[1].id ?? '' : '');
+    const w = idOf(e.w), l = idOf(e.l);
+    // a walkover's loser is gone - no socket names it ('' its id); a draw names neither
+    frames.push({ k: 'bend', n: e.n, w: e.w ? w : '', l: e.w ? l : '', c: e.counted && w ? 1 : 0 }, this._royalLadderFrame(b));
+    this._siegeFan(frames);
+    if (e.w && e.l) {
+      try {
+        const rc = await mintRoyalReceipt({ s: e.w, l: e.l, sk: s.of.sk, sw: s.of.sw, n: e.n }, await this._receiptKeyOf(), { subtle: crypto.subtle, nowS: Math.floor(now / 1000) });
+        s.royalRc ??= {};
+        s.royalRc[e.w] = [...(s.royalRc[e.w] ?? []), rc].slice(-ROYAL_RC_KEEP);
+        const sk = this._siegeSocketOf(e.w);
+        if (sk) this._send(sk[0], JSON.stringify({ t: 'siege', k: 'won', rc }));
+      } catch (err) { console.warn('[royal] receipt failed', err?.message ?? err); }
+    }
+    await this._siegeSave(now, true);
   }
 
   // ───────────────────────────── WB3: THE GATE ─────────────────────────────

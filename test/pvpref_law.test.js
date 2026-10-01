@@ -65,8 +65,8 @@ test('PVP-REF THE ROOM AND VITALITY: `siege:<seat>:<week>`; 300 + 2 x Renown, th
   assert.equal(siegeOfRoom('nope'), null);
   assert.ok(SIEGE_ROOM.test('siege:0:0'));
   assert.deepEqual([siegeVitality(1), siegeVitality(50), siegeVitality(99), siegeVitality(0), siegeVitality(undefined), siegeVitality(12.9), siegeVitality(-5)], [302, 400, 400, 302, 302, 324, 302]);
-  assert.deepEqual([...SIEGE_KINDS], ['in', 'blow', 'cast']);
-  assert.deepEqual([...SIEGE_OUT_KINDS], ['st', 'hp', 'fell', 'up', 'back', 'no', 'f', 'end']);   // SEAT2a: the battle's field and its end (PIN MOVED)
+  assert.deepEqual([...SIEGE_KINDS], ['in', 'blow', 'cast', 'ask', 'yes']);   // CROWN1 part two: a Royal Tourney's challenge and accept (PIN MOVED)
+  assert.deepEqual([...SIEGE_OUT_KINDS], ['st', 'hp', 'fell', 'up', 'back', 'no', 'f', 'end', 'ask', 'bout', 'bend', 'lad', 'won']);   // SEAT2a: the battle's field and its end (PIN MOVED); CROWN1 part two: a Royal Tourney's (PIN MOVED)
   assert.deepEqual(validSiegeIn({ k: 'in', junk: 1 }), { k: 'in' });
   assert.deepEqual(validSiegeIn({ k: 'blow', to: 'peer-0002', w: 123, m: 9, d: 40, r: 0, x: 1 }), { k: 'blow', to: 'peer-0002', w: 123, m: 9, d: 40, r: 0 });
   assert.deepEqual(validSiegeIn({ k: 'blow', to: 'peer-0002', w: -1, m: 0, d: 4, r: 1 }), { k: 'blow', to: 'peer-0002', w: -1, m: 0, d: 4, r: 1 });
@@ -82,7 +82,7 @@ test('PVP-REF THE ROOM AND VITALITY: `siege:<seat>:<week>`; 300 + 2 x Renown, th
   assert.deepEqual(parseClient(JSON.stringify({ t: 'siege', k: 'in' }), { hasHello: true }), { t: 'siege', k: 'in' });
   assert.deepEqual(parseClient(JSON.stringify({ t: 'siege', k: 'in' })), { error: 'siege before hello' });
   assert.deepEqual(parseClient(JSON.stringify({ t: 'siege', k: 'heal' }), { hasHello: true }), { error: 'bad siege' });
-  assert.deepEqual([relaySupportsSiege('world139'), relaySupportsSiege('world141')], [false, true]);
+  assert.deepEqual([relaySupportsSiege('world139'), relaySupportsSiege('world142')], [false, true]);
 });
 
 test('PVP-REF THE BLOW: both standing, the weapon the look holds, its kind its own (a bow a shaft), the reach (2.5 m and 3 of slack; a shaft 60), four a second (one second deep, spent first), a fighter just risen untouched; the damage clipped to the bucket and the vitality left; a fall at none (mutants: each refusal; the clip; the fall; the rate\'s refill)', () => {

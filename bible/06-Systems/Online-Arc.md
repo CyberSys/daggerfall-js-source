@@ -10979,6 +10979,41 @@ in `seatReach` and `conscriptionDue` - no kingdom or March holds one), removed; 
 a crown's own region, a crown seat never conscripted, a guild that took no Tithe never conscripted). PIN MOVED: the
 Edicts' list and Standing's rows (`test/seat1d_client.test.js`).
 
+### CROWN1 (part two, the relay) - the Royal Tourney's room, its bouts and its ladder
+
+2026-10-01, Mac: "Finish the seats"; "Continue"; "Hurry up". Relay and law; `world142`. Seats-Arc 7.6: "a duel ladder all
+week in the crown's city, at the castle's entrance square: DUEL1's ring, but every blow refereed by PVP-REF in a
+siege:-shaped room - a defender-resolved duel cannot award a title - the relay keeping the ladder".
+
+- **The room** (`net/siegeRef.js` `ROYAL_ROOM`, `isBattleRoom`, `battleOfRoom`; the Worker's 404 for any other `royal:`
+  key): `royal:<crown seat key>:<seat week>` - DECIDED: not `siege:` itself, which holds one battle a seat a week, so a
+  crown's siege and its Royal Tourney may share a week. It runs on the siege room's own machinery (`_siegeAdmit`,
+  `_siegeFrame`, `_siegeStep`, `_siegeTick`), the battle's kind read off the pass and checked against the key's.
+- **The pass** (`identityToken.js` `siegePassValid`): the same `siege` order, `sn` 'royal' - at a crown alone, a
+  contender's `duel` or a spectator's `watch` (a contender is a Royal Tourney's alone), its window the seat week the
+  Edict rules (`ROYAL_PASS_SPAN_S`), its field the ring's centre, one point.
+- **A bout** (`royalAsk`, `royalAccept`, `royalMayStrike`, `royalStepOk`, `royalEnd`, `royalStep`): a contender
+  challenges another (`ask`, said to that one alone - never oneself, never into the bout on), the other accepts (`yes`);
+  one bout at a time ("the ring is taken"). Both are set on their marks - DECIDED: 4 m either side of the centre, facing
+  it - and after DUEL1's countdown the bout's two alone strike each other, every blow the referee's, no heal between
+  them; a bout's fighter stepping past the ring and its slack is pulled back (the relay holds the ring - DUEL1's
+  clients each held their own). A fall ends the bout; DUEL1's longest (5 minutes) a draw; a fighter gone from the room
+  DUEL1's ten seconds loses it (a walkover - its loser named by no socket); at the week's end the bout on is a draw and
+  the room closes. The ring's numbers are DUEL1's, copied into the leaf and pinned equal (`ROYAL_RING`).
+- **The ladder**: a win and a loss for every decided bout - DECIDED: the same two counted at most three times a UTC day
+  (`ROYAL_PAIR_DAY_MAX`; DUEL1's record counts ten, but a title is at stake). Said as `lad` (the top ten, most wins then
+  fewest losses), with `bout` and `bend` (`c` whether it counted).
+- **The receipt** (`net/siegeReceipt.js` `t1`): the winner handed `{ s, l, sk, sw, n }` signed with the gate's key - the
+  relay's fifth use of it, the version inside the signed bytes and the shapes disjoint (`s1` now refuses a loser) - and
+  kept the room's week for a reconnect (`ROYAL_RC_KEEP`). The service counts the receipts it is given by the ladder's
+  own rule and names the champion (part two, the service).
+
+Pinned: `test/crown1_royal_law.test.js` (9), `test/crown1_royal_relay.test.js` (5, over the real Room).
+`tools/mutants/crown1_royal.json` (97, all dead - three survived the first run: the siege receipt's refusal of a
+loser and the heal between a bout's two were pinned; the accept's restore of both fighters' vitality was dead code,
+since a contender's vitality moves in a bout alone and every bout ends both whole - removed). PIN MOVED: the siege's
+kinds (`test/pvpref_law.test.js`), the step's source pin (`test/chat1.test.js`), the relay version pins.
+
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 
 Mac, asked how quest enemies should work online (each player's quests are their own, so two party members on the

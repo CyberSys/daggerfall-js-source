@@ -161,7 +161,7 @@ test('GATE-UX 4 the chart at the kill: every fighter with a part, most dealt fir
   const relay = read('server/src/index.js');
   assert.match(relay, /this\._gateFan\(\[\{ k: 'fell', at: f\.fell\.at, top: f\.fell\.top, n: f\.fell\.n, \.\.\.\(f\.fell\.dm \? \{ dm: f\.fell\.dm \} : \{\}\) \}\]\);/);
   assert.match(relay, /_gateTellHub\(\{ d: f\.day, at: f\.fell\.at, top: f\.fell\.top, n: f\.fell\.n, rc:/, 'the hub\'s word carries no chart');
-  assert.equal(RELAY_VERSION, 'world141');   // SEAT2a moved it on last (world141: the siege battle); PVP-REF moved it on (world140: the refereed siege room), SEAT1c (world139) and SEAT1b (world138) before it - the Seats arc's, past main's; KEPT-KILL before them (world137: the party pose field `qk`); GATE-UX's chart rides from world136
+  assert.equal(RELAY_VERSION, 'world142');   // CROWN1 part two moved it on last (world142: the Royal Tourney); SEAT2a moved it on (world141: the siege battle); PVP-REF moved it on (world140: the refereed siege room), SEAT1c (world139) and SEAT1b (world138) before it - the Seats arc's, past main's; KEPT-KILL before them (world137: the party pose field `qk`); GATE-UX's chart rides from world136
 });
 
 test('GATE-UX 4 the chart on the wire: each row a name and its whole numbers, most dealt first, at most GATE_CHART_MAX; names cleaned; anything malformed is no chart - and never costs the kill its word (mutants: a junk chart taken; the fall dropped with a bad chart)', () => {

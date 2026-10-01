@@ -270,15 +270,18 @@ export const SIEGE_SIDES = Object.freeze(['attack', 'defend']);
 
 /** THE FIELD a pass carries (net/identityToken.js's `siege` order `sf`): the banners' points, the Throne's, the two
  *  camps' - each `[x, z]` in the room's units. `{ banners, throne, camps: { attack, defend } }`, or null. */
-export function fieldOf(sf, tier) {
+export function fieldOf(sf, tier, kind = 'siege') {
+  if (kind === 'royal') return royalFieldOf(sf);   // CROWN1 part two: a Royal Tourney's field is its ring
   const n = siegeBannerCount(tier);
   if (!Array.isArray(sf) || sf.length !== n + 3) return null;
   if (!sf.every((p) => Array.isArray(p) && p.length === 2 && p.every((v) => Number.isFinite(v) && Math.abs(v) <= 1e9))) return null;
   return { banners: sf.slice(0, n).map((p) => [p[0], p[1]]), throne: [sf[n][0], sf[n][1]], camps: { attack: [sf[n + 1][0], sf[n + 1][1]], defend: [sf[n + 2][0], sf[n + 2][1]] } };
 }
 
-/** A NEW BATTLE: a siege's banners start the holder's (`defend`), a Tourney's no one's. */
-export function newBattle({ kind, tier, startMs, field }) {
+/** A NEW BATTLE: a siege's banners start the holder's (`defend`), a Tourney's no one's. CROWN1 part two: a Royal
+ *  Tourney's ladder, open from `startMs` to `endMs` (its pass's week). */
+export function newBattle({ kind, tier, startMs, field, endMs = 0 }) {
+  if (kind === 'royal') return newRoyal({ startMs, endMs, field });
   const length = kind === 'tourney' ? SIEGE_LENGTH_MS.tourney : (SIEGE_LENGTH_MS[tier] ?? SIEGE_LENGTH_MS.palace);
   return {
     kind, tier, startMs, endMs: startMs + length, field,
@@ -389,4 +392,152 @@ export function siegeNextBeat(b, now) {
   if (b.kind === 'siege' && !b.attackSeen) marks.push(b.startMs + SIEGE_FORFEIT_MS);
   for (const m of marks) if (m > now && m < next) next = m;
   return next;
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// CROWN1 part two (2026-10-01, Mac: "Finish the seats"; "Continue";
+// "Hurry up") - THE ROYAL TOURNEY (Seats-Arc 7.6): "a duel ladder all week
+// in the crown's city, at the castle's entrance square: DUEL1's ring, but
+// every blow refereed by PVP-REF in a siege:-shaped room - a
+// defender-resolved duel cannot award a title - the relay keeping the
+// ladder". Its room is `royal:<crown seat key>:<seat week>` (DECIDED: not
+// `siege:` itself - a crown's siege and its Royal Tourney may fall in the
+// same week), open the whole week its Edict rules, by the service's pass
+// (`sn` 'royal': a contender `duel`, or a spectator). One bout at a time in
+// the ring: a contender challenges another, the other accepts, both are
+// set on their marks whole, and after DUEL1's countdown only the two may
+// strike each other - the referee above judging every blow, the ring held
+// by the step (a bout's fighter past its edge pulled back). A fall ends the
+// bout; DUEL1's longest a draw; a bout's fighter gone from the room loses.
+// The winner is handed a signed receipt (net/siegeReceipt.js `t1`), the
+// ladder counts it - the same two at most ROYAL_PAIR_DAY_MAX a UTC day,
+// as the service counts the receipts it is given (the champion is the
+// service's to name, at the Turning). Pure, as above.
+// ═════════════════════════════════════════════════════════════════════
+
+/** A Royal Tourney's room - one a crown a week. */
+export const ROYAL_ROOM = /^royal:(0|[1-9]\d{0,9}):(0|[1-9]\d{0,5})$/;
+export const royalRoomKey = (key, week) => `royal:${key}:${week}`;
+export const isRoyalRoom = (k) => ROYAL_ROOM.test(String(k ?? ''));
+/** A room the referee keeps: a siege's, or a Royal Tourney's. */
+export const isBattleRoom = (k) => isSiegeRoom(k) || isRoyalRoom(k);
+/** A battle room's kind, seat and week - `{ kind: 'siege' | 'royal', key, week }` - or null. */
+export function battleOfRoom(k) {
+  const s = siegeOfRoom(k);
+  if (s) return { kind: 'siege', ...s };
+  const m = ROYAL_ROOM.exec(String(k ?? ''));
+  return m ? { kind: 'royal', key: Number(m[1]), week: Number(m[2]) } : null;
+}
+/** THE RING - DUEL1's (net/duelSession.js DUEL_RADIUS_M, DUEL_COUNTDOWN_MS, DUEL_MAX_MS, DUEL_ASK_TTL_MS, DUEL_GONE_MS,
+ *  DUEL_OUT_SLACK_M - pinned equal: this leaf imports nothing): its radius, the countdown, a bout's longest (then a draw),
+ *  how long an ask stands, how long a bout's fighter may be gone from the room before it loses, the slack past the edge
+ *  a step is given; and DECIDED here, each fighter's mark this far either side of the centre. */
+export const ROYAL_RING = Object.freeze({ radiusM: 12, countdownMs: 3000, boutMs: 5 * 60_000, askMs: 30_000, goneMs: 10_000, outSlackM: 4, markM: 4 });
+/** DECIDED: the same two contenders' bouts count at most this many a UTC day - a rematch or two, never a farm (the
+ *  service's own count, net/townSeatLaw.js ROYAL_PAIR_DAY, pinned equal). */
+export const ROYAL_PAIR_DAY_MAX = 3;
+/** The ladder's rows the room says. */
+export const ROYAL_LADDER_SHOWN = 10;
+/** A winner's receipts the room keeps for its reconnect, newest last. */
+export const ROYAL_RC_KEEP = 20;
+
+/** A Royal Tourney's field as its pass carries it: the ring's centre, one point - `{ ring: [x, z] }`, or null. */
+export function royalFieldOf(sf) {
+  if (!Array.isArray(sf) || sf.length !== 1) return null;
+  const p = sf[0];
+  if (!Array.isArray(p) || p.length !== 2 || !p.every((v) => Number.isFinite(v) && Math.abs(v) <= 1e9)) return null;
+  return { ring: [p[0], p[1]] };
+}
+/** A NEW ROYAL TOURNEY: no bout, an empty ladder. */
+export const newRoyal = ({ startMs, endMs, field }) => ({
+  kind: 'royal', tier: 'crown', startMs, endMs, field, bout: null, n: 0, ladder: {}, pairs: {}, asks: {}, at: startMs, result: null,
+});
+const utcDayOf = (ms) => Math.floor(ms / 86_400_000);
+const pairOf = (x, y, ms) => `${x < y ? x : y}|${x < y ? y : x}|${utcDayOf(ms)}`;
+/** A CHALLENGE: `from` asks `to` (account subjects) - it stands ROYAL_RING.askMs. A reason it may not, or null. */
+export function royalAsk(b, from, to, now) {
+  if (b?.kind !== 'royal' || b.result || now < b.startMs || now >= b.endMs) return 'the tourney is not open';
+  if (!from || !to || from === to) return 'no such contender';
+  if (b.bout && [b.bout.a, b.bout.b].some((x) => x === from || x === to)) return 'a bout is on';
+  b.asks[from] = { to, at: now };
+  return null;
+}
+/** AN ACCEPT: `by` takes `from`'s standing challenge, and the bout begins - after the countdown, to DUEL1's longest (never
+ *  past the week). One at a time: refused while the ring holds another. `{ bout }` or `{ no }`. */
+export function royalAccept(b, by, from, now) {
+  if (b?.kind !== 'royal' || b.result || now >= b.endMs - ROYAL_RING.countdownMs) return { no: 'the tourney is not open' };
+  const ask = b.asks[from];
+  if (!ask || ask.to !== by || now - ask.at > ROYAL_RING.askMs) return { no: 'no such challenge' };
+  if (b.bout) return { no: 'the ring is taken' };
+  delete b.asks[from];
+  b.n += 1;
+  const startMs = now + ROYAL_RING.countdownMs;
+  b.bout = { n: b.n, a: from, b: by, startMs, endMs: Math.min(b.endMs, startMs + ROYAL_RING.boutMs), gone: {} };
+  return { bout: b.bout };
+}
+/** The bout's two marks as poses - the challenger's west of the centre, the other's east, each facing it (the height
+ *  kept from `was`, the ground's to settle). */
+export function royalMarks(b, wasA, wasB) {
+  const [x, z] = b.field.ring, d = ROYAL_RING.markM * SIEGE_UNITS_PER_M;
+  const at = (dx, was, yaw) => ({ x: x + dx, y: Number.isFinite(was?.y) ? was.y : 0, z, yaw, pitch: 0 });
+  return [at(-d, wasA, Math.PI / 2), at(d, wasB, -Math.PI / 2)];
+}
+/** Whether `by` may strike `to` now: the running bout's two, its countdown run. */
+export const royalMayStrike = (b, by, to, now) => !!b?.bout && now >= b.bout.startMs && now < b.bout.endMs
+  && ((b.bout.a === by && b.bout.b === to) || (b.bout.b === by && b.bout.a === to));
+/** Whether a bout's fighter may step to `p` - within the ring and its slack; anyone else anywhere. */
+export function royalStepOk(b, sub, p) {
+  if (!b?.bout || (b.bout.a !== sub && b.bout.b !== sub) || !p) return true;
+  return Math.hypot((p.x - b.field.ring[0]) / SIEGE_UNITS_PER_M, (p.z - b.field.ring[1]) / SIEGE_UNITS_PER_M) <= ROYAL_RING.radiusM + ROYAL_RING.outSlackM;
+}
+/** A BOUT ENDED - `winner` its subject, or null for a draw: the ladder's win and loss, where the same two have not met
+ *  ROYAL_PAIR_DAY_MAX times today (`counted`). `{ n, w, l, a, b, counted }` (`w`, `l` null in a draw), or null. */
+export function royalEnd(b, winner, now) {
+  const bt = b?.bout;
+  if (!bt) return null;
+  b.bout = null;
+  const loser = winner === bt.a ? bt.b : winner === bt.b ? bt.a : null;
+  let counted = false;
+  if (loser) {
+    const k = pairOf(bt.a, bt.b, now);
+    counted = (b.pairs[k] ?? 0) < ROYAL_PAIR_DAY_MAX;
+    if (counted) {
+      b.pairs[k] = (b.pairs[k] ?? 0) + 1;
+      (b.ladder[winner] ??= { w: 0, l: 0 }).w++;
+      (b.ladder[loser] ??= { w: 0, l: 0 }).l++;
+    }
+  }
+  return { n: bt.n, w: loser ? winner : null, l: loser, a: bt.a, b: bt.b, counted };
+}
+/** ONE BEAT OF A ROYAL TOURNEY: the lapsed asks forgotten; a bout past its time a draw; a bout's fighter gone from the room
+ *  (`here(sub)` false) ROYAL_RING.goneMs loses it; at the week's end any bout a draw and the tourney over. Answers its
+ *  events - `{ k: 'bout', ...royalEnd }`, `{ k: 'end', result: 'over' }`. */
+export function royalStep(b, here, now) {
+  if (b?.kind !== 'royal' || b.result) return [];
+  const out = [];
+  for (const [k, a] of Object.entries(b.asks)) if (now - a.at > ROYAL_RING.askMs) delete b.asks[k];
+  const bt = b.bout;
+  if (bt && now >= bt.endMs) out.push({ k: 'bout', ...royalEnd(b, null, now) });
+  else if (bt) {
+    for (const who of [bt.a, bt.b]) {
+      if (here(who)) { delete bt.gone[who]; continue; }
+      bt.gone[who] ??= now;
+      if (now - bt.gone[who] >= ROYAL_RING.goneMs) { out.push({ k: 'bout', ...royalEnd(b, who === bt.a ? bt.b : bt.a, now) }); break; }
+    }
+  }
+  if (now >= b.endMs) {
+    if (b.bout) out.push({ k: 'bout', ...royalEnd(b, null, now) });
+    b.result = 'over';
+    out.push({ k: 'end', result: 'over' });
+  }
+  b.at = now;
+  return out;
+}
+/** THE LADDER as the room says it: `[subject, wins, losses]`, the most wins first, then the fewest losses. */
+export const royalLadder = (b) => Object.entries(b?.ladder ?? {})
+  .sort(([x, p], [y, q]) => q.w - p.w || p.l - q.l || (x < y ? -1 : 1)).slice(0, ROYAL_LADDER_SHOWN).map(([sub, r]) => [sub, r.w, r.l]);
+/** A Royal Tourney's next beat: each second while a bout is on (its draw, a fighter gone), else at the week's end. */
+export function royalNextBeat(b, now) {
+  if (b.bout) return Math.min(now + SIEGE_TICK_MS, Math.max(now + 1, b.bout.endMs));
+  return Math.max(now + 1, b.endMs);
 }

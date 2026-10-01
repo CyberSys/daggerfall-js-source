@@ -515,29 +515,37 @@ export function orderValid(c) {
  * banners' points, the Throne's, the attackers' camp and the defenders', each `[x, z]` in the room's units - the
  * service derives none of it; the client derives it from the town and the service signs what every signed client
  * agrees, part four). Its carrier is the account it names: the room refuses a pass whose `s` is not the hello's own.
+ * CROWN1 part two: a Royal Tourney's pass is the same order - `sn` 'royal' at a crown, its side a contender's `duel` or a
+ * spectator's `watch`, its window the week the Edict rules (to ROYAL_PASS_SPAN_S), its field the ring's centre alone.
  */
 /** A pass's fields - never on another kind. */
 export const SIEGE_PASS_FIELDS = Object.freeze(['sk', 'sw', 'sd', 'st', 'sn', 'sb', 'se', 'sf']);
-/** The sides a pass may name: the two sides' fighters, and a spectator's. */
-export const SIEGE_PASS_SIDES = Object.freeze(['attack', 'defend', 'watch']);
-/** A pass's field: a palace's three banners or a crown's four, the Throne and the two camps - each a point. */
-export const siegePassPoints = (tier) => (tier === 'crown' ? 7 : 6);
+/** The sides a pass may name: the two sides' fighters, and a spectator's - CROWN1 part two: and a Royal Tourney's
+ *  contender. */
+export const SIEGE_PASS_SIDES = Object.freeze(['attack', 'defend', 'watch', 'duel']);
+/** A pass's field: a palace's three banners or a crown's four, the Throne and the two camps - each a point; a Royal
+ *  Tourney's ring, one. */
+export const siegePassPoints = (tier, kind = 'siege') => (kind === 'royal' ? 1 : tier === 'crown' ? 7 : 6);
 /** A field's coordinates' bound, in the room's units. */
 export const SIEGE_PASS_COORD_MAX = 1e9;
 /** The longest a battle's window may run on a pass (a palace siege's or a Tourney's two hours). */
 export const SIEGE_PASS_SPAN_S = 2 * 3600;
+/** CROWN1 part two: a Royal Tourney's - its seat week. */
+export const ROYAL_PASS_SPAN_S = 7 * 24 * 3600;
 const coordOk = (v) => Number.isSafeInteger(v) && Math.abs(v) <= SIEGE_PASS_COORD_MAX;
 /** Whether a claim set's pass fields are a pass's. */
 export function siegePassValid(c) {
   if (!Number.isSafeInteger(c.sk) || c.sk < 0 || c.sk > 0xffffffff || !Number.isSafeInteger(c.sw) || c.sw < 0) return false;
-  if (!SIEGE_PASS_SIDES.includes(c.sd) || (c.st !== 'palace' && c.st !== 'crown') || (c.sn !== 'siege' && c.sn !== 'tourney')) return false;
-  if (!Number.isSafeInteger(c.sb) || c.sb <= 0 || !Number.isSafeInteger(c.se) || c.se <= c.sb || c.se - c.sb > SIEGE_PASS_SPAN_S) return false;
-  return siegeFieldValid(c.sf, c.st);
+  const royal = c.sn === 'royal';
+  if (!SIEGE_PASS_SIDES.includes(c.sd) || (c.st !== 'palace' && c.st !== 'crown') || (c.sn !== 'siege' && c.sn !== 'tourney' && !royal)) return false;
+  if (royal ? c.st !== 'crown' || (c.sd !== 'duel' && c.sd !== 'watch') : c.sd === 'duel') return false;   // a contender is a Royal Tourney's alone
+  if (!Number.isSafeInteger(c.sb) || c.sb <= 0 || !Number.isSafeInteger(c.se) || c.se <= c.sb || c.se - c.sb > (royal ? ROYAL_PASS_SPAN_S : SIEGE_PASS_SPAN_S)) return false;
+  return siegeFieldValid(c.sf, c.st, c.sn);
 }
 /** A battle's field as a pass carries it (`sf`): a palace's six points or a crown's seven, each `[x, z]` whole room units
  *  within their bound - the service asks it of a client's derivation too (SEAT2a part three). */
-export function siegeFieldValid(sf, tier) {
-  if (!Array.isArray(sf) || sf.length !== siegePassPoints(tier)) return false;
+export function siegeFieldValid(sf, tier, kind = 'siege') {
+  if (!Array.isArray(sf) || sf.length !== siegePassPoints(tier, kind)) return false;
   return sf.every((p) => Array.isArray(p) && p.length === 2 && coordOk(p[0]) && coordOk(p[1]));
 }
 
