@@ -1,0 +1,137 @@
+// @ts-check
+// ═══════════════════════════════════════════════════════════════════
+// LOOT9 (2026-10-01) — SALVAGE, AND THE REFORGE.
+//
+// The Loot arc (bible/06-Systems/Loot-Arc.md section 11; Mac: "Do you
+// wanna turn this into an arc and do all of the above?" - "Salvage and
+// reroll: break unwanted Magic+ items into a crafting material ... spend
+// it at the Mages Guild to reroll one affix"). Three things, each a law
+// here and a face elsewhere:
+//
+//   - THE WELKYND SHARD (systems/gateSpoils.js, template 571 beside the
+//     Sigil Stone): a sliver of Ayleid magicka-crystal, stacking and BOUND
+//     (itemBound.js: never sold, traded, dropped or listed), the
+//     Reforge's only coin.
+//   - SALVAGE: a laddered piece broken into shards - a Magic 1, a Rare 3,
+//     a Legendary 8, an Exalted 15. Never an Aetheric piece (the Broker's
+//     dismantle is its), an artifact, a quest's item, a bound, worn or
+//     locked one - and never a piece the ladder did not grade (DFU's own
+//     magic items, a made one), so shards come from what was FOUND.
+//   - THE REFORGE: one line of a known Magic or Rare piece - or an
+//     Exalted Legendary's own extra line - rolled again
+//     (lootRarity.js reforgeAffix), for shards and gold; once a piece is
+//     reforged, only that line again.
+//
+// The window (ui/reforgeWindow.js) and the pack card's Salvage button
+// (ui/enhancedInventory.js) draw and ask; everything they do is here.
+// OFF IS DFU EXACTLY: with the loot-rarity row off nothing salvages and
+// nothing is reforged.
+// ═══════════════════════════════════════════════════════════════════
+
+import { lootRarityOn, reforgeableLines, reforgeAffix } from './lootRarity.js';
+import { welkyndShards, isWelkyndShard, WELKYND_SHARD } from './gateSpoils.js';
+import { isBound } from './itemBound.js';
+import { isLocked } from './itemLock.js';
+import { isEquipped } from './equip.js';
+import { addItem } from './inventory.js';
+import { totalGoldAmount, deductGold } from './court.js';
+import { itemIsIdentified } from './tradeModes.js';
+
+/** What a piece salvages into, by its tier (an Exalted Legendary its own). */
+export const SALVAGE_SHARDS = Object.freeze({ magic: 1, rare: 3, legendary: 8, exalted: 15 });
+/** The shards a piece salvages into - 0 for one the ladder never graded (Common, DFU's own magic, a made piece), an
+ *  Aetheric piece and an artifact. */
+export function salvageShards(item) {
+  const t = item?.rarity;
+  if (t === 'legendary') return item.exalted === true ? SALVAGE_SHARDS.exalted : SALVAGE_SHARDS.legendary;
+  return t === 'magic' || t === 'rare' ? SALVAGE_SHARDS[t] : 0;
+}
+/** Why a piece may not be salvaged, or null: 'off', 'aetheric', 'artifact', 'quest', 'not' (nothing to salvage),
+ *  'bound', 'worn', 'locked'. */
+export function salvageRefusal(item) {
+  if (!lootRarityOn()) return 'off';
+  if (!item) return 'not';
+  if (item.rarity === 'aetheric') return 'aetheric';
+  if (item.artifact || item.rarity === 'artifact') return 'artifact';
+  if (item.questItem) return 'quest';
+  if (!salvageShards(item)) return 'not';
+  if (isBound(item)) return 'bound';
+  if (isEquipped(item)) return 'worn';
+  if (isLocked(item)) return 'locked';
+  return null;
+}
+/** SALVAGE, MADE, on a pack (`items`, the list itself): the piece out, its shards in (joining the pack's unlocked
+ *  stack) - all of it or none of it. Answers `{ ok: true, shards }` or `{ ok: false, reason }` (salvageRefusal's,
+ *  or 'gone' for a piece not in the pack). */
+export function salvagePiece(item, { items }) {
+  if (!Array.isArray(items) || !items.includes(item)) return { ok: false, reason: 'gone' };
+  const why = salvageRefusal(item);
+  if (why) return { ok: false, reason: why };
+  const shards = salvageShards(item);
+  items.splice(items.indexOf(item), 1);
+  addItem(items, welkyndShards(shards));
+  return { ok: true, shards };
+}
+
+// ── the purse ───────────────────────────────────────────────────────
+/** The shards a pack may spend: every unlocked stack's count (a locked stack is the player's word to keep it). */
+export const shardsHeld = (items) => (Array.isArray(items) ? items : []).reduce((n, it) => n + (isWelkyndShard(it) && !isLocked(it) ? (it.stackCount ?? 1) : 0), 0);
+/** Spend `n` shards off a pack's unlocked stacks, emptied stacks out of it. Answers whether it could (nothing taken when
+ *  it could not). */
+export function spendShards(items, n) {
+  if (!(n > 0)) return true;
+  if (shardsHeld(items) < n) return false;
+  let owed = n;
+  for (let i = items.length - 1; i >= 0 && owed > 0; i--) {
+    const it = items[i];
+    if (!isWelkyndShard(it) || isLocked(it)) continue;
+    const have = it.stackCount ?? 1;
+    if (have <= owed) { items.splice(i, 1); owed -= have; } else { it.stackCount = have - owed; owed = 0; }
+  }
+  return true;
+}
+/** "1 Welkynd Shard", "3 Welkynd Shards". */
+export const shardsText = (n) => `${n} ${WELKYND_SHARD.name}${n === 1 ? '' : 's'}`;
+
+// ── the Reforge ─────────────────────────────────────────────────────
+/** What a reforge costs, by the piece's tier: shards and gold. */
+export const REFORGE_PRICE = Object.freeze({
+  magic: Object.freeze({ shards: 2, gold: 100 }),
+  rare: Object.freeze({ shards: 4, gold: 400 }),
+  exalted: Object.freeze({ shards: 10, gold: 2000 }),
+});
+/** A piece's price, or null for one the Reforge does not take. */
+export function reforgePrice(item) {
+  if (item?.rarity === 'magic' || item?.rarity === 'rare') return REFORGE_PRICE[item.rarity];
+  if (item?.rarity === 'legendary' && item.exalted === true) return REFORGE_PRICE.exalted;
+  return null;
+}
+/** Why a line of a piece may not be reforged now, or null: 'off', 'not' (no tier the Reforge takes, or no line it may
+ *  roll), 'unknown' (not yet identified), 'worn', 'line' (a line it may not take - a record's, or not the line the
+ *  piece was reforged on), 'shards', 'gold'. `player` is the payer: `{ items, goldPieces }`. */
+export function reforgeRefusal(item, index, player) {
+  if (!lootRarityOn()) return 'off';
+  const price = reforgePrice(item);
+  const lines = reforgeableLines(item);
+  if (!price || !lines.length) return 'not';
+  if (!itemIsIdentified(item)) return 'unknown';
+  if (isEquipped(item)) return 'worn';
+  if (!lines.includes(index)) return 'line';
+  if (shardsHeld(player?.items) < price.shards) return 'shards';
+  if (totalGoldAmount(player) < price.gold) return 'gold';
+  return null;
+}
+/** THE REFORGE, MADE: paid (the shards, then the gold - DFU's purse-then-letters law), the line rolled again. Answers
+ *  `{ ok: true, line, price }` or `{ ok: false, reason }` with nothing taken. */
+export function reforgePiece(item, index, player, rolls = Math.random) {
+  if (!player || !Array.isArray(player.items) || !player.items.includes(item)) return { ok: false, reason: 'gone' };
+  const why = reforgeRefusal(item, index, player);
+  if (why) return { ok: false, reason: why };
+  const price = /** @type {{ shards: number, gold: number }} */ (reforgePrice(item));
+  const before = { affixes: item.affixes, name: item.name, value: item.value, reforged: item.reforged };
+  const line = reforgeAffix(item, index, rolls);
+  if (!line) { Object.assign(item, before); if (before.reforged === undefined) delete item.reforged; return { ok: false, reason: 'not' }; }
+  spendShards(player.items, price.shards);
+  deductGold(player, price.gold);
+  return { ok: true, line, price };
+}

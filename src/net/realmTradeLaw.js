@@ -65,7 +65,7 @@ export const REALM_TRADE_RECORD_MAX = 4096;
  *  Stone's row (systems/gateSpoils.js SIGIL_STONE_TEMPLATES) is the one; test/auditrealm.test.js holds this list equal to
  *  every row the game registers with `bound`. The service read `rec.bound` alone, and a stone's record carries no mark
  *  of its own - so two halves naming a stone moved it between two realm characters. */
-export const BOUND_TEMPLATES = Object.freeze([570]);
+export const BOUND_TEMPLATES = Object.freeze([570, 571]);   // LOOT9: the Welkynd Shard's row beside the Stone's
 /** A bound record, as systems/itemBound.js isBound reads a piece: its own mark (SS4), or its row's (SS1) - and no field
  *  on the record unbinds what the row binds. */
 export const boundRecord = (/** @type {any} */ rec) => rec?.bound === true || BOUND_TEMPLATES.includes(rec?.templateIndex);

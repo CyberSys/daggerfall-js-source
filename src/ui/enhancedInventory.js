@@ -132,6 +132,7 @@ import { repaintKeepingScroll } from './domRepaint.js';
 import { overlayAction, eventActions } from './input.js';   // MAC-C: and the REGISTRY's answer for the two window keys
 import { audio } from '../systems/audio.js';   // MAC-O6: the pack's own transfer cue - this window carried none at all
 import { dismantleStones, dismantleRefusal, dismantleWare, dismantleAsk, DISMANTLED, DISMANTLE_WORN } from '../systems/sigilBroker.js';   // SS5: a Broker ware back into stones
+import { salvageShards, salvageRefusal, salvagePiece, shardsText } from '../systems/reforge.js';   // LOOT9: a laddered piece broken into Welkynd Shards
 import { SOUND } from '../systems/soundClips.js';
 
 import { expandRowValues } from '../systems/quest/questMacros.js';   // MACROS1: a used item's record through its own context (%map)
@@ -2847,6 +2848,13 @@ function itemActs(picked, side, { qty = true } = {}) {
     d.onclick = () => askDismantle(picked);
     acts.append(d);
   }
+  // LOOT9 (the Loot arc): a laddered piece SALVAGED into Welkynd Shards (systems/reforge.js) - the Reforge's coin - asked
+  // first, as the dismantle is; never a worn one (taken off first), and a piece that will never break shows no button
+  if (side === 'local' && !line.equipped && salvageShards(picked) > 0 && !['off', 'aetheric', 'artifact', 'quest', 'bound'].includes(salvageRefusal(picked) ?? '')) {
+    const v = el('button', 'act', 'Salvage');
+    v.onclick = () => askSalvage(picked);
+    acts.append(v);
+  }
   // PLUS10 (a player: "in classic mode it gives more detailed info about items"): INFO, under Plus. The classic
   // window's Info mode reads the game's own TEXT.RSC record for the item (a sword, a shield, an arrow, a soul trap,
   // a book each read differently) and, for an enchanted item, chains the "Item powers" box. The enhanced card is a
@@ -2939,6 +2947,55 @@ function askDismantle(item) {
   // and every Escape for good
   const timer = setTimeout(() => { document.addEventListener('pointerdown', away, true); document.addEventListener('keydown', key, true); }, 0);
   dismantleOff = () => { clearTimeout(timer); document.removeEventListener('pointerdown', away, true); document.removeEventListener('keydown', key, true); };
+}
+/** LOOT9: THE SALVAGE'S QUESTION - the dismantle's own (askDismantle), in the one question's slot, its words the
+ *  Reforge's: Salvage (or Y) breaks the piece into its shards (systems/reforge.js salvagePiece); Keep, N, Enter, Escape
+ *  or a press outside keep it. A locked piece is refused in words before any question is asked. */
+export const SALVAGE_ASK = (name, n) => [`Salvage ${name}?`, `It is gone for good, and you get ${shardsText(n)}.`];
+export const SALVAGED_LINE = (name, n) => `Salvaged: ${name}, for ${shardsText(n)}.`;
+function askSalvage(item) {
+  hideTip(); closeMenu(); closeInfo(); closeDismantle();
+  const name = itemLongName(item, { getQuest: deps.getQuest ?? null });
+  const refusedFor = (why) => { notice = why === 'locked' ? lockedText(name) : null; refresh(); render(); };
+  const why = salvageRefusal(item);
+  if (why) { refusedFor(why); return; }
+  const n = salvageShards(item);
+  dismantleEl = el('div', 'inv-info inv-dismantle inv-salvage');
+  dismantleEl.setAttribute('role', 'alertdialog');
+  dismantleEl.setAttribute('aria-label', 'Salvage'); dismantleEl.setAttribute('aria-modal', 'true');
+  const card = el('div', 'card');
+  const sec = el('div', 'inv-info-box');
+  for (const t of SALVAGE_ASK(name, n)) sec.append(el('p', 'center', t));
+  card.append(sec);
+  const row = el('div', 'acts');
+  const ok = el('button', 'act primary', 'Salvage');
+  ok.onclick = (e) => {
+    e?.stopPropagation?.();
+    closeDismantle();
+    const r = salvagePiece(item, { items: deps.items?.() ?? [] });
+    if (!r.ok) return void refusedFor(r.reason);   // worn or locked since the question was asked - said
+    if (picked === item) picked = null;
+    notice = SALVAGED_LINE(name, r.shards);
+    refresh();
+    render();
+  };
+  const no = el('button', 'act', 'Keep');
+  no.onclick = (e) => { e?.stopPropagation?.(); closeDismantle(); };   // the piece kept
+  row.append(pairGuard(ok), no);
+  card.append(row);
+  dismantleEl.append(card);
+  document.body.append(dismantleEl);
+  no.focus?.({ preventScroll: true });   // the answer that loses nothing
+  const box = dismantleEl;
+  const outside = (e) => { if (e.target === box || !box.contains(e.target)) { e.stopPropagation(); closeDismantle(); } };
+  const keys = (e) => {
+    const answer = e.code === 'KeyY' ? 'yes' : (e.key === 'Escape' || e.key === 'Enter' || e.code === 'KeyN' || e.code === 'NumpadEnter') ? 'keep' : null;
+    if (!answer) return;
+    e.preventDefault(); e.stopPropagation();
+    if (answer === 'yes') ok.onclick({ detail: 1, stopPropagation() {} }); else closeDismantle();
+  };
+  const laid = setTimeout(() => { document.addEventListener('pointerdown', outside, true); document.addEventListener('keydown', keys, true); }, 0);
+  dismantleOff = () => { clearTimeout(laid); document.removeEventListener('pointerdown', outside, true); document.removeEventListener('keydown', keys, true); };
 }
 let targetEl = null, targetOff = null;
 function closeTarget() { targetEl?.remove(); targetEl = null; targetOff?.(); targetOff = null; }

@@ -553,3 +553,63 @@ Rare one more, a Legendary none, the ceiling; unmarked, gold and off nothing), e
 out; a throwing listener never stops a take; the body's bulk take), the record (save, load, forged, a new game), the
 doors in play (sixty bodies taken, sixty counted; three times the Legendaries at 250), and a unique find's mark;
 `tools/mutants/loot8.json` (31, all dead).
+
+### LOOT9 - salvage, and the Reforge (2026-10-01)
+
+**The Welkynd Shard** (`systems/gateSpoils.js`, template 571 beside the Sigil Stone's 570): `WELKYND_SHARD_TEMPLATES`,
+a gem's row that stacks with its own kind alone and is BOUND - so itemBound.js's whole law holds it (never sold, traded,
+dropped or listed) and the realm's service refuses it too (`net/realmTradeLaw.js` `BOUND_TEMPLATES` now `[570, 571]`,
+AUDIT REALM F1's pin reading the new row). The Sapphire's art (TEXTURE.254 record 2). `welkyndShards(n)` mints a stack.
+
+**`systems/reforge.js`** (new) holds every law the faces call:
+- SALVAGE: `salvageShards` - a Magic piece 1, a Rare 3, a Legendary 8, an Exalted 15 - by the piece's own `rarity`
+  field, so only what the ladder GRADED breaks (a Common, DFU's own magic items and a made piece are worth none: shards
+  come from what was found, never bought). `salvageRefusal` - 'off', 'aetheric' (the Broker's dismantle is its),
+  'artifact', 'quest', 'not', 'bound', 'worn', 'locked'. `salvagePiece` - the piece out, its shards onto the pack's
+  unlocked stack (addItem: never a locked one), all of it or none of it.
+- THE PURSE: `shardsHeld` counts the unlocked stacks (a lock is the player's word to keep them); `spendShards` takes from
+  them, an emptied stack out, nothing when short.
+- THE REFORGE: `REFORGE_PRICE` - a Magic 2 shards and 100 gold, a Rare 4 and 400, an Exalted 10 and 2,000;
+  `reforgeRefusal` ('off', 'not', 'unknown' - the guild identifies it first, 'worn', 'line', 'shards', 'gold');
+  `reforgePiece` - the line rolled, then paid: the shards, then the gold through `court.deductGold` (DFU's
+  purse-then-letters law, so a letter of credit pays); nothing taken when refused.
+
+**The roll** (`lootRarity.js`): `reforgeableLines` - a Magic's or Rare's every line, an Exalted Legendary's own extra line
+(its last, as exaltLegendary appends it), never a record's; once reforged (`reforged`, a declared item field - the
+line's index, 0-15), that line alone. `reforgeAffix` rolls it again from its tier's pool - never a kind (nor a param of a
+kind with params) another line carries; a line that DOES something (LOOT4) stays one and a number stays a number; a
+Rare's line keeps its slot, so its name keeps its prefix and its suffix; an Exalted line from the top half of the
+Legendary band, as its exalting rolled it. The same kind may come back with its value rolled again. The name (a Magic's
+or a Rare's - a Legendary keeps its record's) and the price follow (the price by the two lines' worth, so a sigil's or a
+set's share stays).
+
+**The faces.**
+- THE WINDOW (`ui/reforgeWindow.js`, a lazy chunk; `ui/reforgeDoor.js` its door, the Broker's shape): two pages over the
+  player's own pack - REFORGE (every piece the Reforge takes, a row in its tier's frame; the piece whole beside the list,
+  each line it may roll carrying its own press with the price on it, or why not in a word - "Need 3 more shards", "Not
+  identified"; an unidentified piece's lines never shown) and SALVAGE (every graded piece that will break, its yield,
+  and a press that asks first - "Break it" / "Keep"). The purse and the last word stand in the header. Its rows wear the
+  Broker's own classes, so both skins dress it as they dress his.
+- THE MAGES GUILD (`scenes/worldModes.js` `openGuildService`): the Identify NPC's popup carries a `reforge` hook (the
+  Mages Guild's group, the Identify service, the row on) - a dispatch, as a service's is. On the Enhanced Plus face
+  (`ui/enhancedPorts.js`) it is a row beside the service; on the classic popup (`ui/guildServiceWindow.js`) a port-drawn
+  row UNDER DFU's 130x51 panel (`REFORGE_RECT`, its key F, its click the ButtonClick its four sisters play).
+- THE PACK CARD (`ui/enhancedInventory.js`): Salvage beside the Broker's Dismantle, for a graded piece that will break
+  and is not worn, asked first in the dismantle's own question slot (Keep, N, Enter, Escape or a press outside keep it).
+
+**What moved from the design.** "At the Mages Guild (both skins)": the salvage's guild face is the Reforge's window, which
+both skins reach through the Identify NPC's fourth row; the pack card's button is the enhanced pack's (the classic pack
+has no card). "A fourth row beside Identify": the classic popup's art has three rows and Exit, so the fourth is the
+port's own strip under it.
+
+**Along the way.** Five mutant records whose `old` the new code doubled (AUDIT SS's question, SS1's Stone row) kept
+their one site - the Salvage's question wears its own lines, the shard's row its own order; AUDIT REALM F1's record
+re-aimed to the two-row list; F141's click roster counts the fifth; UI.md counts 270 modules, Systems.md 339.
+
+Pinned: `test/loot9_reforge.test.js` (9) - the shard (its row, bound, stacking, at least one), salvage (the yields, every
+refusal, all or nothing, a locked stack never joined, off), the purse, the lines (and the mark on the wire, a forged one
+refused), the roll over 600 seeded pieces (never a carried kind, a proc a proc, a Rare's slot and name, the name and the
+price, the same kind back and another), the price and the press (refused with nothing taken, paid shards then gold, a
+letter of credit paying, once reforged only that line), the window (both pages, an unknown piece's card, a press, the
+ask), the guild's fourth row (classic click and key, no hook no row, the Plus face, the host's hook), and the pack
+card's Salvage; `tools/mutants/loot9.json` (52, all dead).

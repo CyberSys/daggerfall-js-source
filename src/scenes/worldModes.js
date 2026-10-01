@@ -320,7 +320,7 @@ import { setPassiveSpecialsHost, FIGHTER_TRAINERS_FACTION } from '../systems/pas
 import { DaedraSummonedWindow, REFUSAL_FOE_COUNT, COVEN_FAIL_FOE_COUNT } from '../ui/daedraSummonedWindow.js';   // G7b: the summoning's own film window
 import { orderOf } from '../systems/guildVariants.js';
 import { joinedGuildOfGroup } from '../systems/guilds.js';
-import { GUILD_GROUPS } from '../formats/factionFile.js';
+import { GUILD_GROUPS } from '../formats/factionFile.js'; import { lootRarityOn } from '../systems/lootRarity.js'; import { reforgePiece, salvagePiece } from '../systems/reforge.js'; import { createReforgeOverlay } from '../ui/reforgeDoor.js';   // LOOT9: the Mages Guild's Reforge
 import { SpellMakerWindow, preloadSpellMakerArt, spellMakerArtLoaded } from '../ui/spellMakerWindow.js';   // S1: the Mages Guild / Kynareth spell maker; E8: on INFO01I0 art
 import { hasSpellbook } from '../systems/spellMaker.js';   // AUDIT 63 F12: MakeSpells' door gate (DaggerfallGuildServicePopupWindow.cs:391)
 // M2: the potion maker - the other half of the guild's magic economy.
@@ -4295,8 +4295,22 @@ export function createWorldModes(host) {
         return { dispatched: true };
       },
       onClose: () => closeSpellWindow(win),
+      // LOOT9 (the Loot arc, bible/06-Systems/Loot-Arc.md section 11): the Mages Guild's Identify NPC keeps the Reforge
+      // too - the popup's fourth row on either skin; a dispatch, as a service's is
+      reforge: route.guildGroup === GUILD_GROUPS.MagesGuild && service === 'Identify' && lootRarityOn() ? () => (openReforge() ? { dispatched: true } : null) : null,
     });  win = enhancedWindow(win, 'guild');   // PORT4: the enhanced skin's face; the classic window unchanged
     mountServiceWindow(win);
+  }
+  /** LOOT9: THE REFORGE'S WINDOW over the player's own pack - its salvage and its reforge the law's (systems/reforge.js),
+   *  paid from the player's shards and purse. Answers the window, or null with no page to draw it on. */
+  function openReforge() {
+    const o = createReforgeOverlay({
+      items: () => playerEntity.items ?? [], payer: () => playerEntity, gold: () => totalGoldAmount(playerEntity),
+      reforge: (item, line) => reforgePiece(item, line, playerEntity),
+      salvage: (item) => salvagePiece(item, { items: (playerEntity.items ??= []) }),
+      wearer: playerEntity, nameOf: (item) => itemLongName(item),
+    });
+    return o ? mountServiceWindow(o) : null;
   }
 
   /** U42: the CLASSIC spellbook in CAST mode - the interior host's

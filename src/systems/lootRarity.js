@@ -1068,6 +1068,49 @@ export function rollExalted(item, rolls = Math.random) {
   if (!(rolls() * 1000 < _exaltedPerMille)) return false;
   return exaltLegendary(item, rolls);
 }
+/** LOOT9 (bible/06-Systems/Loot-Arc.md section 11): THE LINES THE REFORGE MAY TAKE - every line of a Magic or Rare
+ *  piece; an Exalted Legendary's own extra line (its last - exaltLegendary appends it) and never a record's; and once a
+ *  piece has been reforged, that line alone (`reforged`, the line's index). Indices into `affixes`; none for anything
+ *  else, and none that is not a valid line. */
+export function reforgeableLines(item) {
+  const list = Array.isArray(item?.affixes) ? item.affixes : [];
+  let lines = [];
+  if (item?.rarity === 'magic' || item?.rarity === 'rare') lines = list.map((_, i) => i);
+  else if (item?.rarity === 'legendary' && item.exalted === true && list.length) lines = [list.length - 1];
+  lines = lines.filter((i) => validAffix(list[i]));
+  return Number.isInteger(item?.reforged) ? lines.filter((i) => i === item.reforged) : lines;
+}
+/** LOOT9: REFORGE ONE LINE, IN PLACE - rolled again from its tier's pool, never a kind (or, for a kind with params, a
+ *  param) another line carries; a line that DOES something (LOOT4) stays one and a number stays a number; a Rare's line
+ *  keeps its slot, so its name keeps its prefix and its suffix; an Exalted Legendary's line from the top half of the
+ *  Legendary band, as its exalting rolled it. The same kind may come back - its value rolled again. The name (a Magic's
+ *  or a Rare's - a Legendary keeps its record's) and the price follow, and the line is marked (`reforged`). Answers the
+ *  new line, or null (a line the Reforge may not take; nothing changed). */
+export function reforgeAffix(item, index, rolls = Math.random) {
+  if (!reforgeableLines(item).includes(index)) return null;
+  const tier = item.rarity;
+  const old = item.affixes[index];
+  const was = AFFIX_KINDS[old.id];
+  const others = item.affixes.filter((_, i) => i !== index);
+  const freeParams = (id) => AFFIX_KINDS[id].params.filter((p) => !others.some((a) => a?.id === id && a.param === p));
+  const pool = AFFIX_IDS.filter((id) => {
+    const k = AFFIX_KINDS[id];
+    if (!k.groups.includes(item.group) || !!k.proc !== !!was.proc) return false;
+    if (tier === 'rare' && k.slot !== was.slot) return false;
+    return k.params ? freeParams(id).length > 0 : !others.some((a) => a?.id === id);
+  });
+  if (!pool.length) return null;   // never: the line's own kind is always free to come back
+  const id = pick(pool, rolls);
+  const k = AFFIX_KINDS[id];
+  const [lo, hi] = AFFIX_RANGES[id][tier];
+  const value = rangeInt(tier === 'legendary' ? Math.ceil((lo + hi) / 2) : lo, hi, rolls);
+  const line = k.params ? { id, param: id === 'skill' ? pickSkill(item, freeParams(id), rolls) : pick(freeParams(id), rolls), value } : { id, value };
+  item.affixes = item.affixes.map((a, i) => (i === index ? line : a));
+  item.reforged = index;
+  if (tier !== 'legendary') item.name = rarityName(item, tier, item.affixes);
+  item.value = (Number.isFinite(item.value) ? item.value : itemBaseValue(item)) - affixesWorth([old]) + affixesWorth([line]);
+  return line;
+}
 /** LOOT7 (bible/06-Systems/Loot-Arc.md section 9): what a CHAMPION adds to its corpse's source - four tiers, and its
  *  quality half again (its Rare-or-better guarantee is the spawn seam's: scenes/hostCombat.js ensureChampionLoot). */
 export const CHAMPION_SOURCE = Object.freeze({ tier: 4, quality: 1.5 });
