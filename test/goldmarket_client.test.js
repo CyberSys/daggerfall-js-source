@@ -285,7 +285,8 @@ test('GOLD-MARKET refusals: every new word the service says has its sentence', (
 
 test('GOLD-MARKET wiring: the host gives the market book the realm act over the playing session and a wallet that pays at the board\'s region (purse, letters, then that account - the service\'s order); the door has the collect; the service routes it', () => {
   const w = src('src/scenes/world.js');
-  assert.match(w, /realm: realmSession \? \{ act: \(o\) => realmGoldAct\(\{ \.\.\.o, session: realmSession, checkpoint: \(\) => onlineCheckpoint\(\) \}\) \} : null,\n\s+wallet: realmSession \? \(region\) => \{/);
+  // PIN MOVED (FIELD BUGS 2026-10-01, MARKET-ANY): the realm hook carries the session's abandon too, and the goods' receive beside it
+  assert.match(w, /realm: realmSession \? \{ act: \(o\) => realmGoldAct\(\{ \.\.\.o, session: realmSession, checkpoint: \(\) => onlineCheckpoint\(\) \}\), abandon: \(why\) => realmSession\.abandon\(why\) \} : null, goods: realmSession \? \{ receive: \(rec\) => marketGoods\.receive\(rec\) \} : null,\n\s+wallet: realmSession \? \(region\) => \{/);
   assert.match(w, /pay: \(n\) => \{ const owed = deductGold\(playerEntity, n\); if \(account && owed > 0\) account\.accountGold -= owed; \},\n\s+credit: \(n\) => addGold\(playerEntity, n\),/);
   assert.match(src('src/net/accountClient.js'), /gold: \(req\) => post\('\/v1\/market\/gold', req\),/);
   assert.match(src('server-account/src/index.js'), /'\/v1\/market\/gold': \(\) => marketGoldCollect\(mctx, who\.player, env, body\),/);

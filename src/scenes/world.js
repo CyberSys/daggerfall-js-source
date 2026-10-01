@@ -525,7 +525,7 @@ import { allyCastSpell, allyCastable, strangerCastable, allyReachFor, allyCastTa
 import { composePartyFx } from '../net/partyBuffs.js';   // PARTY-BUFFS: my effects on the party pose   // ALLY-CAST: a beneficial spell at a party mate; SPELL-GIFT: and the stranger's list
 import { checkpointAllowed, checkpointDue, checkpointedTradePack, createSaveSoon } from '../systems/onlineCheckpoint.js';   // REALM P0.5: the character saved as it plays online; PROF-SAVE: and at once after a professions act
 import { createTradeManager, TRADE_RANGE_M, inTradeRange, tradeDistance } from '../net/tradeSession.js';   // TRADE1: the player-to-player trade's state machine (pure)
-import { createTradePack, tradeRefusal } from '../systems/tradePack.js';   // TRADE1: the trade's door into the real pack; PROF5: what may not be sold
+import { createTradePack, tradeRefusal, createMarketGoods } from '../systems/tradePack.js';   // TRADE1: the trade's door into the real pack; PROF5: what may not be sold; MARKET-ANY: the pack's side of a piece from the pack
 import { isLocked } from '../systems/itemLock.js';   // PROF5: a locked piece is not listed
 import { createPlayerTradeWindow, playerTradeReady } from '../ui/playerTradeDoor.js';   // TRADE1: the enhanced window two players share
 import { createPeerMenuReader } from '../systems/peerMenuBind.js';   // PEERMENU1: the player menu opens on a bind (hold E / hold A)
@@ -1124,9 +1124,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       stores: { apply: (st) => profBook?.applyStore(st) },   // AUDIT 30 U1: what the market moves in the Stores, the Stores' count
       holds: (pv) => !!writBook?.holdsPiece(pv),   // AUDIT 31 H1: a piece the writs' book keeps a fill of is not listed too
       // GOLD-MARKET: a realm character's gold trade moves its record on the service, in the sale's own batch - the purse
-      // checkpointed first (realmSaves.js realmGoldAct) - and the save's gold as the record's pays at the BOARD's region:
-      // the purse, its letters, then that region's account (realmGoldLaw payFromSave; court.js deductGold, the same order)
-      realm: realmSession ? { act: (o) => realmGoldAct({ ...o, session: realmSession, checkpoint: () => onlineCheckpoint() }) } : null,
+      // checkpointed first (realmSaves.js realmGoldAct) - and the save's gold as the record's pays at the BOARD's region: the purse, its letters,
+      // then that region's account (realmGoldLaw payFromSave; court.js deductGold). MARKET-ANY: a pack's piece moves it too; one this game will not hold ends the session
+      realm: realmSession ? { act: (o) => realmGoldAct({ ...o, session: realmSession, checkpoint: () => onlineCheckpoint() }), abandon: (why) => realmSession.abandon(why) } : null, goods: realmSession ? { receive: (rec) => marketGoods.receive(rec) } : null,
       wallet: realmSession ? (region) => {
         playerEntity.bankAccounts ??= createBankAccounts(BANK_REGION_COUNT);
         const account = playerEntity.bankAccounts[region] ?? null;
@@ -1225,8 +1225,8 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  the home's crafted furniture not set down. AUDIT 30 C2: none enchanted since its craft - the market mints a piece
    *  again from its record, and the item maker's work would be lost on the way (smithItems asMinted). */
   /** AUDIT 31 H1: a piece either book keeps an act on (a listing, an auction or a fill whose answer is still to come) - it
-   *  is offered to neither again until that answer comes. */
-  const pieceKept = (pv) => !!marketBook?.holdsPiece(pv) || !!writBook?.holdsPiece(pv);
+   *  is offered to neither again until that answer comes. MARKET-ANY: and the pack's side of a piece from the pack (systems/tradePack.js createMarketGoods). */
+  const pieceKept = (pv) => !!marketBook?.holdsPiece(pv) || !!writBook?.holdsPiece(pv); const marketGoods = createMarketGoods(playerEntity, { kept: (pv) => pieceKept(pv), say: (t) => townTalk.say(t) });
   const marketPieces = () => [
     ...(playerEntity.items ?? []).filter((it) => it?.provenance && asMinted(it) && !tradeRefusal(it) && !isLocked(it) && !pieceKept(it.provenance))
       .map((item) => ({ item, where: 'pack', name: itemLongName(item) })),
@@ -17960,7 +17960,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const market = marketBook && profBook?.state.open === true && marksBook?.state?.open !== false && Number.isInteger(region) ? {
       book: marketBook, stores: () => profBook.state.stores, region, regionName: REGION_NAMES[region] ?? 'the region',
       regionNameOf: (r) => REGION_NAMES[r] ?? 'another region', hubs: marketHubs, name: (k) => materialLabel(k), countName: materialCountLabel,
-      pieces: marketPieces, take: marketTake, putBack: marketPutBack, mint: marketMint, pieceName: marketPieceName, drop: marketDrop,
+      pieces: marketPieces, take: marketTake, putBack: marketPutBack, mint: marketMint, pieceName: marketPieceName, drop: marketDrop, goods: () => marketGoods.goods(), good: (it) => marketGoods.good(it), goodName: (rec) => marketGoods.goodName(rec),   // MARKET-ANY: a piece from the pack, for gold
       weavers: WEAVERS_STOCK,
       stock: async (key, n) => {
         const r = await profBook.stock(key, n);
