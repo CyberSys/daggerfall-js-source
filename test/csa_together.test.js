@@ -2,7 +2,7 @@
 // sail together, to walk on board as it moves ... instead of an overuse of keybinds, is there a way we can instead
 // develop enhanced plus UI elements?"). The boat under way says its way (systems/comeSailAwayWire.js `m`) and its
 // readers lead it (scenes/comeSailAwayPeers.js); another player's boat is boarded, stood on, carried by and left
-// (scenes/comeSailAwayAboard.js), the deck holding only who is aboard; the others aboard are seen on the deck; the helm's
+// (scenes/comeSailAwayAboard.js), the deck standing for everyone (FIELD BUGS 2026-10-01b); the others aboard are seen on the deck; the helm's
 // nine keys are a panel (ui/enhancedHelm.js) and a pad's d-pad (ui/gamepadInput.js), pressing the registry's actions
 // through the host's one seam (scenes/world.js). The boats are the vendored hulls over a stand-in renderer and pipeline
 // (test/csa_online.test.js's); world.js's own statements are mounted where they are behaviour (audit0928_online's law).
@@ -212,10 +212,7 @@ test('CSA-K: CARRIED by the boat\'s move - the feet kept at their place on the d
   const r = await deckRig({ m: [[4, 0, 30]] });   // under way and turning
   r.me.feet = [r.deck[0], r.deck[1], r.deck[2]];
   r.me.ground = (b) => (b === r.boat ? 'boat' : 'other');
-  assert.equal(r.aboard.frame(r.view()), null, 'standing on it before its colliders stand for me: the ground is not its yet');
-  r.me.ground = null;
-  assert.equal(r.aboard.frame(r.view()), r.boat);
-  r.me.ground = (b) => (b === r.boat ? 'boat' : 'other');
+  assert.ok(r.aboard.frame(r.view()) === r.boat, 'standing on its colliders: aboard (FIELD BUGS 2026-10-01b - they stand for everyone, as one\'s own boat\'s do; a landing is the ABOARD pin\'s)');
   const pose = () => ({ position: [...r.boat.GameObject.position], rotation: [...r.boat.GameObject.rotation] });
   const was = pose();
   const local = localOf(was, r.me.feet);
@@ -372,11 +369,12 @@ function mount(scope, code, name) {
   return new Function('__scope', `with (__scope) { ${code}\n return ${name}; }`)(proxy);
 }
 
-test('CSA-K: the host - the deck I stand aboard stands in MY collider beside my boats and never else; the peers are posed once a frame after the mod\'s step and its colliders, before the eye; the carry is the motor\'s carryBy and the look\'s yaw; the gate is online, walking, outdoors, alive and the mod on', () => {
+test('CSA-K: the host - another\'s boat stands in MY collider beside my boats, aboard it or not (FIELD BUGS 2026-10-01b); the peers are posed once a frame after the mod\'s step and its colliders, before the eye; the carry is the motor\'s carryBy and the look\'s yaw; the gate is online, walking, outdoors, alive and the mod on', () => {
   const sync = cut(WORLD, 'function csaSyncColliders() {', '\n  }\n');
   // THE MERGE with NAV-H (2026-09-28): MY boats are csaColliderBoats() - mine, and the sea's ships near enough to board
-  // and to ram (test/nav_h_host.test.js pins its body) - and the deck I stand aboard joins them as it joined csa.boats
-  assert.match(sync, /const aboard = csaAboard\.aboard\?\.boat \?\? null;[^\n]*\n\s+for \(const boat of aboard \? \[\.\.\.csaColliderBoats\(\), aboard\] : csaColliderBoats\(\)\) \{/);
+  // and to ram (test/nav_h_host.test.js pins its body) - and every peer's boat joins them on the street, aboard it or not
+  // (FIELD BUGS 2026-10-01b: test/fb1001b_peerboats.test.js runs it)
+  assert.match(sync, /const peers = \(modes\?\.mode \?\? 'exterior'\) === 'exterior' \? csa\.peerBoats : \[\];[^\n]*\n\s+for \(const boat of peers\.length \? \[\.\.\.csaColliderBoats\(\), \.\.\.peers\] : csaColliderBoats\(\)\) \{/);
   const upd = cut(WORLD, 'function csaUpdate(dt) {', '\n  }\n');
   assert.match(upd, /csaSyncColliders\(\);\n\s+csaPeersFrame\(dt\);[^\n]*\n\s+if \(_csaMovedPlayer\) cam\.pos = player\.eyeAt\(\);/, 'after the colliders, before the eye');
   const peersFrame = cut(WORLD, 'function csaPeersFrame(dt) {', '\n  }\n');
@@ -384,7 +382,7 @@ test('CSA-K: the host - the deck I stand aboard stands in MY collider beside my 
   assert.match(peersFrame, /allowed: csaOn\(\) && !!online && walkMode && playerSpawned && !_teleporting && !_traveling && \(modes\?\.mode \?\? 'exterior'\) === 'exterior' && !\(playerEntity\.health <= 0 \|\| modes\?\.deathUp\?\.\(\)\),/);
   assert.match(peersFrame, /ground: \(b\) => \(!player\.grounded \? null : typeof player\.groundKey === 'string' && player\.groundKey\.startsWith\(`csaBoat:\$\{csaBoatId\(b\)\}:`\) \? 'boat' : 'other'\),/, 'its own buckets are the boat\'s ground');
   assert.match(peersFrame, /carry: \(d, yawDeg\) => \{ player\.carryBy\(d\[0\], d\[1\], d\[2\]\); cam\.yaw \+= \(yawDeg \* Math\.PI\) \/ 180; _csaMovedPlayer = true; \}/);
-  assert.match(peersFrame, /if \(boat \|\| _csaBuckets\.size\) csaSyncColliders\(\);/, 'the deck where it stands now, or gone with the one left');
+  assert.match(peersFrame, /if \(boat \|\| _csaBuckets\.size\) csaSyncColliders\(\);/, 'the boats where they stand now');
   const pool = cut(WORLD, 'function csaPoolFrame(dt) {', '\n  }\n');
   assert.match(pool, /csaPeersFrame\(dt\);[^\n]*\n\s+_csaPeersPosed = false;/, 'posed here when the step did not run; the latch re-armed for the next frame');
 });

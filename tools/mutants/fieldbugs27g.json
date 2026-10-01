@@ -137,7 +137,7 @@
   {
     "name": "EMPIRE-BANK-whole-loan",
     "file": "src/systems/banking.js",
-    "old": "  return isOnlinePage() ? Math.floor(cap / EMPIRE_LOAN_DIVISOR) : cap;",
+    "old": "  return online ? Math.floor(cap / EMPIRE_LOAN_DIVISOR) : cap;",
     "new": "  return cap;",
     "tests": [
       "test/empirebank.test.js"
@@ -146,8 +146,8 @@
   {
     "name": "EMPIRE-BANK-override-skipped",
     "file": "src/systems/banking.js",
-    "old": "  const cap = _maxLoanOverride?.(level) ?? level * LOAN_MAX_PER_LEVEL;\n  return isOnlinePage()",
-    "new": "  const cap = level * LOAN_MAX_PER_LEVEL;\n  return isOnlinePage()",
+    "old": "  const cap = _maxLoanOverride?.(level) ?? level * LOAN_MAX_PER_LEVEL;\n  return online",
+    "new": "  const cap = level * LOAN_MAX_PER_LEVEL;\n  return online",
     "tests": [
       "test/empirebank.test.js"
     ]

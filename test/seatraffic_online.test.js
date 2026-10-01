@@ -25,8 +25,12 @@ test('SEA-TRAFFIC a player sailing near a lower id ashore meets the sea\'s traff
   // (PIN MOVED): the director's count is a running total that never falls, and b's already stood above nought - the
   // pin read it and passed whatever a did. Now: from a's swim on, b launches none, and the shared sea keeps its traffic
   A.s.view.feet = [0, 0, -300];   // a swims out
+  // PIN MOVED (SEA-EASE, 2026-10-01): the sea's ships are fewer and slower to come - b's sea stood full at "Some", so it
+  // launched nothing whether it was the launcher or not. Its own ships taken off and two rolls' time: a b that still
+  // thought itself the launcher would launch again
+  for (const e of all(B)) if (!e.owner) B.s.host._sea.delete(e.id);
   const bBefore = B.s.host.directorState.count;
-  r.run(150);
+  r.run(300);
   assert.equal(B.s.host.directorState.count, bBefore, 'b, the higher id, launches none once a is on the water');
   assert.ok(all(A).length + all(B).length > 0, 'the sea keeps its traffic');
 });

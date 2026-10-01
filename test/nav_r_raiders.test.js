@@ -47,7 +47,9 @@ test('NAV-R the plan: a raider within RAIDER_STAND_M of me stands, the nearest f
   const r = (id, seed, x) => ({ id, seed, pos: [x, 0, 0] });
   const empty = { me, myId: 'm', stood: new Map(), peers: new Map(), spent: new Set() };
   assert.deepEqual(raiderPlan({ ...empty, raiders: [r('a', 1, RAIDER_STAND_M + 5)] }), { stand: [], drop: [] }, 'out of reach');
-  assert.deepEqual(raiderPlan({ ...empty, raiders: [r('far', 1, 1100), r('near', 2, 300), r('mid', 3, 800)] }).stand, ['near', 'mid'], `the nearest ${RAIDER_SHIPS_MAX}`);
+  // SEA-EASE (PIN MOVED): one raider at a time (RAIDER_SHIPS_MAX was two) - the nearest
+  assert.equal(RAIDER_SHIPS_MAX, 1);
+  assert.deepEqual(raiderPlan({ ...empty, raiders: [r('far', 1, 1100), r('near', 2, 300), r('mid', 3, 800)] }).stand, ['near'], `the nearest ${RAIDER_SHIPS_MAX}`);
   assert.deepEqual(raiderPlan({ ...empty, raiders: [r('a', 1, 300)], spent: new Set(['a']) }).stand, [], 'spent for its life');
   // mine: kept while it fights, let go past the drop range, and one gone past its life only out of sight
   const stood = new Map([['a', { pos: [RAIDER_DROP_M + 10, 0, 0], engaged: false }], ['b', { pos: [RAIDER_DROP_M + 10, 0, 0], engaged: true }], ['c', { pos: [600, 0, 0], engaged: false }]]);

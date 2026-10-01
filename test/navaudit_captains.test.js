@@ -664,7 +664,7 @@ test('AUDIT NAV1 M8 the sea keeps the world\'s time: a long frame (Come Sail Awa
 test('AUDIT NAV1 NAV-R a raider coming alongside to board is chasing me - the Overworld\'s map says so, and losing me spends her (mutants: the board mode unread)', async () => {
   const { host, run, log } = await sea({ hull: 2, settings: { ShipsAtSea: 'off', Boarders: true } });
   host.raiders([{ id: 'r1', seed: 0x51f00d, pos: [300, 0, 0], yaw: Math.PI / 2, ahead: [600, 0, 0] }], { sight: 1000, spent: new Set() });
-  run(8);
+  run(GRAPPLE_STILL_S + 3);   // SEA-EASE (PIN MOVED): a boat lying still is boarded after GRAPPLE_STILL_S (it was 5 s, the run 8)
   const e = [...host._sea.values()].find((x) => x.raider);
   assert.equal(e.ship.mode, 'board', 'my boat lies still: she comes to board');
   assert.equal(host.raiderShipOf(0x51f00d).chase, true);
