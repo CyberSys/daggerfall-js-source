@@ -261,6 +261,68 @@ export function sharedQuestFoe(machine, tag) {
   return null;
 }
 
+/** KEPT-KILL (2026-10-01, Mac: "If someone kills a quest target regardless of relation then it should ping the quest for
+ *  the players involved regardless ... party only sync with quest entities"). A quest foe a party member HOLDS ON A
+ *  PARTNER'S WORD (AUDIT DISC28 QS-J: its owner left or died and named that member heir, whose copy holds no such quest
+ *  - `_keptTag`) died in the heir's world alone: each copy of the quest counts only the deaths it sees (QUEST-PARTY
+ *  phase 1), so a kill with no linked copy in the room counted on none - the owner came back to a fresh foe at the
+ *  marker. The heir's party pose says the kill now (`qk`, net/wire.js validPartyPose), and every member's linked copy
+ *  counts it wherever that member stands; the resync's max merge (QUEST1) keeps the copies equal after.
+ *
+ *  ONE LEDGER, BOTH ENDS. The heir's half: what I say (`said`), and the rows my pose carries for KEPT_KILL_HOLD_MS
+ *  (`rows`) - long enough for a member's link to drop and come back (the hub keeps a member's last pose). A member's
+ *  half: what my copy has counted, by owner, quest, symbol and the foe's number (`credit`) - the pose repeats its rows
+ *  on every change for the whole hold, and a member who stood the foe as a puppet counted its fall when it saw it
+ *  (the puppet door asks the same ledger); whichever of the two arrives first counts, the other never. */
+export const KEPT_KILL_HOLD_MS = 5 * 60 * 1000;
+/** KEPT-KILL: how long a counted kill is remembered - past the hold, so no repeat of a held row counts twice. */
+export const KEPT_KILL_MEMORY_MS = 2 * KEPT_KILL_HOLD_MS;
+export class KeptKillLedger {
+  constructor({ max = 8, holdMs = KEPT_KILL_HOLD_MS, memoryMs = KEPT_KILL_MEMORY_MS } = {}) {
+    this.max = max; this.holdMs = holdMs; this.memoryMs = memoryMs;
+    this._said = [];   // { q, s, i, at } - mine, newest last
+    this._counted = new Map();   // `${owner}|${q}|${s}|${i}` -> when my copy counted it
+  }
+  /** The heir's half: a foe kept on the partner's word `tag` ({ q, s }) died here, number `i` on my stream. */
+  said(tag, i, now) {
+    if (!tag || typeof tag.q !== 'string' || typeof tag.s !== 'string' || !Number.isInteger(i)) return false;
+    this._said.push({ q: tag.q, s: tag.s, i, at: now });
+    if (this._said.length > this.max) this._said.splice(0, this._said.length - this.max);
+    return true;
+  }
+  /** The rows my pose carries - the kills said within the hold - or null when there are none. */
+  rows(now) {
+    this._said = this._said.filter((r) => now - r.at < this.holdMs);
+    return this._said.length ? this._said.map(({ q, s, i }) => ({ q, s, i })) : null;
+  }
+  /** A member's half: true the first time my copy counts owner `owner`'s foe `i` of quest `q`'s Foe `s` - by its fall
+   *  seen (a puppet) or by the heir's word (a pose row), whichever came first; false after. */
+  credit(owner, q, s, i, now) {
+    for (const [k, at] of this._counted) if (now - at >= this.memoryMs) this._counted.delete(k);
+    const k = `${owner}|${q}|${s}|${i}`;
+    if (this._counted.has(k)) return false;
+    this._counted.set(k, now);
+    return true;
+  }
+}
+
+/** KEPT-KILL: a party member's pose rows (`qk`) onto my copies - each row whose quest my copy keeps in step with the
+ *  party and whose Foe it holds (sharedQuestFoe: a linked copy alone, DISC28-J's law) is the injury and the kill, once
+ *  (`ledger.credit`). A kill is a blow landed, so the injury goes first, as QuestResourceBehaviour's own update sets it
+ *  before the death. Answers how many it counted. */
+export function creditKeptKills(machine, ledger, owner, rows, now) {
+  if (!machine || !ledger || !owner || !Array.isArray(rows)) return 0;
+  let n = 0;
+  for (const r of rows) {
+    const foe = sharedQuestFoe(machine, r);
+    if (!foe || !ledger.credit(owner, r.q, r.s, r.i, now)) continue;
+    if (!foe.injuredTrigger) foe.setInjured?.();
+    foe.incrementKills?.();
+    n++;
+  }
+  return n;
+}
+
 /** QUEST-PARTY: whether the member who shared quest `questName` - still in my party - stands within `radius` of me:
  *  then that member's copy stands the quest's foes and mine stands none (a wave counts here as placed). */
 export function partnerStandsQuestFoes({ questName, sharerOf, inMyParty, peers, accountOfPeer, myFeet, radius = QUEST_SHARE_RADIUS }) {
