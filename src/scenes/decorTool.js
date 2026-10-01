@@ -114,6 +114,9 @@ export const DECOR_FLOAT_AT = 3;
 export const DECOR_PREVIEW_SPIN = 30;
 /** How long the service's refusal of a placement stays on the bar, milliseconds. */
 export const DECOR_REFUSAL_MS = 4000;
+/** RENT-FRESH (FIELD BUGS 2026-10-01): how old the owner's rooms may grow while the rooms view is up before they are read
+ *  again, milliseconds - a tenant pays at the door while the owner stands in the house. */
+export const RENT_VIEW_FRESH_MS = 30_000;
 /** DECOR2c: what the bar says while a mount has nothing to hang on. */
 export const DECOR_MOUNT_NO_SURFACE = 'Look at a wall to hang it on.';
 /** HOME-DOORS: what the bar says while a door is being placed - the doorways still being found, none in the house, or
@@ -365,7 +368,7 @@ export function createDecorTool(deps) {
   /** @type {any} */ let doorRooms = null;   // HOME-DOORS (AUDIT): the rooms found with the placed doors seen through - the doorways' links
   /** @type {any} */ let markTex = null;
   // HOME-RENT: the service's word on this home's rooms - read once a visit while the panel is up, and after each change
-  const rentState = { visit: /** @type {any} */ (undefined), list: /** @type {any[]|null} */ (null), due: 0, now: 0, busy: false };
+  const rentState = { visit: /** @type {any} */ (undefined), list: /** @type {any[]|null} */ (null), due: 0, now: 0, busy: false, asked: 0, at: -Infinity };   // RENT-FRESH: the last read's number and when it was asked
   /** @type {Set<string>} the flight's own held actions - its presses never reach the host */
   const flyHeld = new Set();
   /** @type {Map<number, {gpu: any, box: any}|null>} */
@@ -632,25 +635,40 @@ export function createDecorTool(deps) {
     return !!r?.ok;
   }
   /** HOME-RENT: THE OWNER'S ROOMS TO RENT - each room the house's walls part it into beside its offer (and an offer whose
-   *  room the walls no longer make), the rent held, the service's clock; read once a visit. Null where there is no
-   *  service door (a house or a ship, or someone else's home). */
+   *  room the walls no longer make), the rent held, the service's clock. Null where there is no service door (a house
+   *  or a ship, or someone else's home).
+   *  RENT-FRESH (FIELD BUGS 2026-10-01, "Room renting is buggy"): READ AGAIN as the panel opens (the view the opening
+   *  asks for is asked with the panel shut) and while the rooms view stays up past RENT_VIEW_FRESH_MS - it was read once
+   *  a visit, so a tenant who paid while the owner stood in the house was never shown ("No rent to collect").
+   *  RENT-ORPHANS: the rows once the finder is done, a house of ONE room's included - its offers are listed to withdraw
+   *  (a door taken down made one room of two, and the offers in it, tenants and all, vanished from the owner's view
+   *  while every visitor could still rent them); `finding` while it works (the view said "a house of one room"). */
   function rentView(r) {
     const door = r?.kind === 'home' ? deps.rent?.() ?? null : null;
     if (!door) return null;
     const visit = deps.visit?.();
     if (rentState.visit !== visit) { rentState.visit = visit; rentState.list = null; rentState.due = 0; refreshRent(door); }
-    const list = roomList();
+    else if (!rentState.busy && (!panel?.isOpen() || (panel.mode?.() === 'rent' && now() - rentState.at >= RENT_VIEW_FRESH_MS))) refreshRent(door);
+    const found = roomsFound();
+    const list = found && found.length > 1 ? found : null;
     const origin = deps.origin?.() ?? [0, 0, 0];
     return {
-      rows: list ? rentRoomsView(list, rentState.list ?? [], (p) => rooms.roomOf(p), origin) : [],
-      rooms: !!list, loaded: rentState.list != null, due: rentState.due, now: rentState.now || Math.floor(now() / 1000), busy: rentState.busy,
+      rows: found ? rentRoomsView(list ?? [], rentState.list ?? [], (p) => rooms.roomOf(p), origin) : [],
+      rooms: !!list, finding: !found, loaded: rentState.list != null, due: rentState.due, now: rentState.now || Math.floor(now() / 1000), busy: rentState.busy,
     };
+  }
+  /** RENT-ORPHANS: the house's rooms once the finder is done for this interior - one room or none among them - else null. */
+  function roomsFound() {
+    if (!rooms || roomsFor !== (deps.collider?.() ?? null) || !rooms.done()) return null;
+    return rooms.rooms() ?? [];
   }
   function refreshRent(door = deps.rent?.() ?? null) {
     if (!door) return Promise.resolve(false);
     const visit = rentState.visit;
+    const ask = ++rentState.asked;   // RENT-FRESH: only the latest read stands - an older one landing late is not the rooms now
+    rentState.at = now();
     return Promise.resolve(door.rooms()).then((res) => {
-      if (rentState.visit !== visit || !res?.ok) return false;
+      if (rentState.visit !== visit || ask !== rentState.asked || !res?.ok) return false;
       rentState.list = res.rooms;
       rentState.due = res.due ?? 0;
       rentState.now = res.now ?? 0;

@@ -209,6 +209,8 @@ export function createOnlineHomes({ api, character = () => null, now = () => Dat
   const asking = new Map();
   /** @type {Map<number, number>} */
   const failed = new Map();
+  /** @type {Map<number, Promise<boolean>>} HOMES-FORCE: the forced read waiting behind a town's ask in flight */
+  const forcing = new Map();
   let version = 0;
   const idOf = (mapId) => (Number.isFinite(Number(mapId)) ? Number(mapId) >>> 0 : 0);
 
@@ -219,7 +221,7 @@ export function createOnlineHomes({ api, character = () => null, now = () => Dat
     const had = towns.get(id);
     if (!force && had && now() - had.at < ttlMs) return Promise.resolve(true);
     const flying = asking.get(id);
-    if (flying) return flying;
+    if (flying) return force ? afterFlight(id, flying) : flying;
     if (!force && now() - (failed.get(id) ?? -Infinity) < HOME_RETRY_MS) return Promise.resolve(!!had);
     const p = Promise.resolve()
       .then(() => api.town(id, character()))   // HOME-RENT: the playing character's own tenancies ride the answer
@@ -249,6 +251,21 @@ export function createOnlineHomes({ api, character = () => null, now = () => Dat
       .finally(() => { asking.delete(id); });
     asking.set(id, p);
     return p;
+  }
+
+  /**
+   * HOMES-FORCE (FIELD BUGS 2026-10-01, "Room renting is buggy"): A FORCED READ ASKED WHILE ANOTHER IS IN FLIGHT IS ASKED
+   * AFTER IT, never answered by it - the one in flight left before the change that forced this one (a room rented, a
+   * home bought or sold), and its answer does not hold it: a rent that landed under a plaque's read kept the door shut on
+   * its tenant for the town's whole minute. ASYNC NEVER DROPS: one such read waits a town, however many ask for it.
+   */
+  function afterFlight(id, flying) {
+    let next = forcing.get(id);
+    if (!next) {
+      next = flying.then(() => { forcing.delete(id); return ensure(id, { force: true }); });
+      forcing.set(id, next);
+    }
+    return next;
   }
 
   /** `ensure`, but a door does not wait on it longer than `ms`: resolves whether the town is known by then. */

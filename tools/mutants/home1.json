@@ -236,7 +236,7 @@
   {
     "name": "HOME1-two-asks-in-flight",
     "file": "src/systems/onlineHomes.js",
-    "old": "    const flying = asking.get(id);\n    if (flying) return flying;\n",
+    "old": "    const flying = asking.get(id);\n    if (flying) return force ? afterFlight(id, flying) : flying;\n",
     "new": "",
     "tests": [
       "test/home1.test.js"

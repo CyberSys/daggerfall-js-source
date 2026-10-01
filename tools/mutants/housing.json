@@ -458,7 +458,7 @@
   {
     "name": "HOME-RENT-the-orphans-number-taken",
     "file": "src/systems/homeRent.js",
-    "old": "    const number = o ? o.room : next;",
+    "old": "    const number = o ? o.room : rentRoomOk(f.id) && !held.has(f.id) ? f.id : next;",
     "new": "    const number = o ? o.room : f.id;",
     "tests": [
       "test/homerent.test.js"
