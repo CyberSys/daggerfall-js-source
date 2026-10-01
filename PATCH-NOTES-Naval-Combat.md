@@ -302,3 +302,10 @@ A deep audit of everything above. The highlights:
 - **Ports look the same for everyone online.** Moored ships no longer depend on your character's level, a friend's moored ships no longer empty your sea, and sailing a little way out and back no longer empties the harbour.
 - **Gamepad steering at the helm** is no longer taken over by the boat menu when you look down at your deck.
 - **Zoom at the helm** now moves on the first notch when your ship's rigging is in the way, and a trackpad swipe no longer rushes through the whole range.
+
+## Your crew, and repairs at sea (2026-09-30)
+
+- **Your crew have names.** Every hand you see on deck has a name and a job: your First Mate, your Bard, a Bosun, a Gunner, a Carpenter and more. They remember the fights and boardings they've been through. When one falls in battle you'll hear who, and new hires sign on with names of their own. Your own crew's lines show their name.
+- **Crew spirits.** Your crew's spirits rise with victories, prizes, plunder, time in port and a round of grog, and sink with losses, a wreck and long voyages away from port. High spirits mean a faster reload, quicker mending and an extra hand in a boarding; low spirits slow them down, darken their chatter and stop the singing. No wages, and nobody deserts.
+- **Give orders.** Use the **Orders** button on the helm panel, or **Give orders** in your boat's menu: **Man the guns** (faster reload), **All hands to the rail** (the crew musters to repel boarders, one more hand in the fight), **Make repairs**, or **Stand down**. Your First Mate answers by name. **Crew** in the boat menu shows everyone aboard and how their spirits stand.
+- **Repair at sea.** Buy **Carpenter's Stores** at the shipwright (they sit in your hold). At sea, order **Make repairs** and, with no enemy near, your crew mends the hull and sails all the way to full, and can refloat a wreck. Each store covers a tenth of the ship; when you run out, or she's whole, your First Mate tells you. The free patch-up to half strength still works as before.

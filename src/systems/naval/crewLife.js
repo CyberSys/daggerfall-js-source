@@ -288,14 +288,17 @@ export function createCrewLife({ deck, roster, seed, places = [], faction = null
    * colours down (or her going down): no song, no talk, a surrender's few words; `ctx.muster` - a boarding at hand (a
    * grapple thrown, or a ship closing to board): the side of her deck (her frame's x sign, +1 or -1) the other ship lies
    * on, every man to that rail, facing out; `ctx.avoid` - a point (her frame) no walker steps within 0.8 m of (the
-   * player on her deck).
+   * player on her deck). SHIP-CREW (a player's crew): `ctx.order` her captain's standing order - 'guns' her crew at the
+   * guns as in a fight, 'rail' every man to the rail (the side a boarding lies on, else her starboard), 'repair' and
+   * 'stand' their own work; `ctx.sings` false - their spirits too low for a song; `ctx.line()` a line of theirs by
+   * their spirits or their order (shipCrew.js line), or null for the crew's own.
    * @param {number} dt
-   * @param {{ battle?: boolean, struck?: boolean, muster?: number, avoid?: number[] | null }} [ctx]
+   * @param {{ battle?: boolean, struck?: boolean, muster?: number, avoid?: number[] | null, order?: string | null, sings?: boolean, line?: (() => string | null) | null }} [ctx]
    */
   function step(dt, ctx = {}) {
     if (!(dt > 0)) return;
-    const muster = ctx.muster === 1 || ctx.muster === -1 ? ctx.muster : 0;
-    const battle = !!ctx.battle || !!muster;
+    const muster = ctx.muster === 1 || ctx.muster === -1 ? ctx.muster : ctx.order === 'rail' ? 1 : 0;
+    const battle = !!ctx.battle || !!muster || ctx.order === 'guns';
     const struck = !!ctx.struck && !muster;
     // AUDIT NAV2 F46: the guns out, or her colours down - every talk ends at once (5 to 13 talk lines a run were said
     // under the guns, only the muster ended one)
@@ -347,7 +350,7 @@ export function createCrewLife({ deck, roster, seed, places = [], faction = null
         }
       } else if ((chantyT -= dt) <= 0) {
         const crew = live();
-        if (crew.length >= 2) {
+        if (crew.length >= 2 && ctx.sings !== false) {   // SHIP-CREW: no song in low spirits
           const bard = crew.find((m) => m.mobile === MOBILE.Bard);
           chanty = { song: pick(rng, CHANTIES), line: -1, t: 0, leader: bard ?? pick(rng, crew) };
           if (chanty.leader.mate) endTalk(chanty.leader);   // AUDIT NAV2 F47: her leader leaves his talk to sing - a verse was said over it
@@ -403,8 +406,11 @@ export function createCrewLife({ deck, roster, seed, places = [], faction = null
       if (!m.mate && !chanty && (m.blurbT -= dt) <= 0) {
         m.blurbT = within(rng, CREW_BLURB_S) * (battle ? 0.35 : struck ? 2 : 1);
         if (!m.line) {
+          // SHIP-CREW: a player's crew's own line first - their order's work, or their spirits - never under real fire
+          const theirs = !struck && !ctx.battle && !ctx.muster ? ctx.line?.() ?? null : null;
           const own = !battle && !struck && faction && CREW_BLURBS[faction] && rng() < 0.3 ? CREW_BLURBS[faction] : null;
-          say(m, pick(rng, own ?? (muster ? CREW_BLURBS.muster : battle ? CREW_BLURBS.battle : struck ? CREW_BLURBS.struck : CREW_BLURBS.calm)), muster || battle ? 'shout' : 'talk');
+          if (theirs) say(m, theirs, muster || battle ? 'shout' : 'talk');
+          else say(m, pick(rng, own ?? (muster ? CREW_BLURBS.muster : battle ? CREW_BLURBS.battle : struck ? CREW_BLURBS.struck : CREW_BLURBS.calm)), muster || battle ? 'shout' : 'talk');
         }
       }
       // turn toward his face (a walker faces his way)

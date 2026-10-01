@@ -156,11 +156,12 @@
   {
     "name": "AUDWB-A6-two-stores",
     "file": "src/scenes/world.js",
-    "old": "    try { if (recoverSpoils(_spoilsStore, takeSpoil, { who, saves: enumerateSaves().info.values(), onHanded: (rec) => spoilsPool.adopt(rec) })) setMidScreenText(SPOILS_TEXT.gathered);",
-    "new": "    try { if (recoverSpoils(spoilsStore(appStorage()), takeSpoil, { who, saves: enumerateSaves().info.values(), onHanded: (rec) => spoilsPool.adopt(rec) })) setMidScreenText(SPOILS_TEXT.gathered);",
+    "old": "recoverSpoils(_spoilsStore, takeSpoil, { who, saves: enumerateSaves().info.values(), onHanded: (rec) => spoilsPool.adopt(rec),",
+    "new": "recoverSpoils(spoilsStore(appStorage()), takeSpoil, { who, saves: enumerateSaves().info.values(), onHanded: (rec) => spoilsPool.adopt(rec),",
     "tests": [
       "test/auditwb_spoils.test.js"
-    ]
+    ],
+    "note": "AUDIT RESCUE-SAVE (PIN MOVED): re-aimed by content - the door's options gained the kept save's records (A1)."
   },
   {
     "name": "AUDWB-A5-every-refusal-let-go",
@@ -177,7 +178,9 @@
     "file": "src/net/accountClient.js",
     "old": "...(typeof data?.why === 'string' ? { why: data.why } : {}), ...(Number.isSafeInteger(data?.seq)",
     "new": "...(Number.isSafeInteger(data?.seq)",
-    "tests": ["test/auditwb_spoils.test.js"]
+    "tests": [
+      "test/auditwb_spoils.test.js"
+    ]
   },
   {
     "name": "AUDWB-A5-the-rung-dropped-by-the-route",

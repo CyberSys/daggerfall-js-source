@@ -190,9 +190,9 @@ export function reloadSeconds(gunKind, crewShare, crewed) {
  * One ship's gun deck: each battery's clock, the barrels aboard, the brace. `step(dt)` runs the clocks; `ready`
  * asks; `fired` starts a battery's reload. Pure state the host and the AI share.
  * @param {number} hull
- * @param {{ crewed?: boolean, crewShare?: () => number, barrels?: number }} [opts]
+ * @param {{ crewed?: boolean, crewShare?: () => number, barrels?: number, reloadScale?: () => number }} [opts]
  */
-export function createGunDeck(hull, { crewed = true, crewShare = () => 1, barrels = BARREL.stock } = {}) {
+export function createGunDeck(hull, { crewed = true, crewShare = () => 1, barrels = BARREL.stock, reloadScale = () => 1 } = {}) {
   /** @type {Record<string, number>} */ const clocks = { starboard: 0, port: 0, bow: 0, stern: 0 };
   /** @type {Record<string, number>} */ const length = { starboard: 1, port: 1, bow: 1, stern: 1 };
   /** @type {number} */ let barrelStock = barrels;
@@ -213,7 +213,8 @@ export function createGunDeck(hull, { crewed = true, crewShare = () => 1, barrel
     fired(side) {
       const b = batteryOf(hull, side);
       if (!b) return;
-      const s = reloadSeconds(b.gun, crewShare(), crewed);
+      // SHIP-CREW: a player's crew's spirits and standing order scale it (shipCrew.js reloadScaleOf), never a barrel's drop
+      const s = reloadSeconds(b.gun, crewShare(), crewed) * (b.gun === 'barrel' ? 1 : Math.max(0.5, Math.min(1.5, Number(reloadScale()) || 1)));
       clocks[side] = s; length[side] = s || 1;
       if (b.gun === 'barrel') barrelStock = Math.max(0, barrelStock - 1);
     },
