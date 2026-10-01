@@ -444,7 +444,9 @@ test('TOOL-USE: the world host hands Foraging the professions, the keys, and the
   assert.ok(at > 0);
   const host = w.slice(at, w.indexOf('\n  });', at));
   assert.match(host, /professionsOpen: \(\) => profBook\?\.state\.open === true,/);
-  assert.match(host, /keyLabel: \(a\) => \{ const c = getBinding\(bindings\(\), a\); return c \? tagText\(c\) : null; \},/);
+  // PIN MOVED (2026-10-01 part four, TOUCH-HOLD): the key as the hand holds it - a pad in hand, its button (world.js
+  // actKeyWord, pinned whole in test/fb1001_touchhold.test.js); else the key, as before
+  assert.match(host, /keyLabel: \(a\) => actKeyWord\(a\),/);
   assert.match(host, /\n {4}professionUse: \(t\) => gatherHost\?\.useTool\(t\) \?\? false,/);
 });
 
