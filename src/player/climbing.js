@@ -27,6 +27,7 @@
 // the wall probe live in the motor - they own the capsule.
 
 import { SYSTEM_TIMER_UPDATES_DIVISOR } from './motor.js';
+import { overcapClimbSpeed } from '../systems/skillSoftcap.js';   // CLIMB-PAST: a leaf (its one import, masterSkills.js, imports nothing)
 
 // ClimbingMotor.cs:75-84, verbatim.
 export const CONTINUE_CLIMBING_SKILL_CHECK_FREQUENCY = 15;
@@ -66,9 +67,12 @@ export function climbingChance(base, liveClimbing, liveLuck, { khajiit = false, 
 
 /** PlayerSpeedChanger.GetClimbingSpeed: baseSpeed / 3 (x2 under the
  *  Climbing effect). baseSpeed is the motor's STALE Speed field - the
- *  climbing early-return sits above UpdateSpeed, the swim quirk. */
-export function climbingSpeed(baseSpeed, enhanced = false) {
-  return (baseSpeed / 3) * (enhanced ? 2 : 1);
+ *  climbing early-return sits above UpdateSpeed, the swim quirk.
+ *  CLIMB-PAST: times the softcap's climb multiplier for the LIVE
+ *  Climbing (skillSoftcap.js overcapClimbSpeed) - 1 to 100, so DFU's
+ *  law stands there; a mastered skill's points past 100 climb faster. */
+export function climbingSpeed(baseSpeed, enhanced = false, liveClimbing = 0) {
+  return (baseSpeed / 3) * (enhanced ? 2 : 1) * overcapClimbSpeed(liveClimbing);
 }
 
 /** The ClimbingCheck state machine, classic arms only. deps = {

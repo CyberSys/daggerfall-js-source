@@ -566,7 +566,8 @@ test('S40 hosts: all four can now rest, and each supplies its own place', () => 
   assert.match(wm, /return interiorRestPlace\(\{/);
   assert.match(wm, /room: findRentedRoom\(playerEntity\.rentedRooms/);
   // H1's ledger, which both rest lanes had to leave as a constant.
-  assert.match(wm, /houseOwned: interiorHome \? \(interiorHome\.own \|\| rentDaysLeft\(interiorHome\.tenant, Math\.floor\(Date\.now\(\) \/ 1000\)\) > 0\) : isHouseOwned\(playerEntity\.houses/);   // HOME1 re-aim: my online home's bed is mine too; HOME-RENT re-aim: and my rented room's
+  assert.match(wm, /houseOwned: !interiorHome && isHouseOwned\(playerEntity\.houses/);   // HOME1 re-aim: my online home's bed is mine too; HOME-RENT re-aim: and my rented room's
+  assert.match(wm, /homeBed: homeBedIsMine\(interiorHome, /);   // PIN MOVED (FIELD BUGS 2026-10-01 RENT-REST): an online home's bed - the owner's or the tenant's - is the bag's `homeBed`
   assert.match(wm, /guildCanRest\(guild, membershipOf/);
   assert.match(wm, /m\.type === INTERIOR_MARKER\.REST/);
   assert.match(wm, /permanentScene: !!scene && containsPermanentScene\(sceneCache\(\), scene\)/);

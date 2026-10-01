@@ -13,6 +13,8 @@
 //     Come Sail Away boat's deed or parts (AUDIT REALM2 T1: the realm's own law, net/realmTradeLaw.js BOAT_TEMPLATES);
 //   - weight is systems/inventory.js's own arithmetic against combat/formulas.js entityMaxEncumbrance.
 import { validLootList } from './loot.js';
+import { itemLongName } from './itemInfo.js';   // MARKET-ANY: a pack piece named as the pack names it
+import { goodRefusal, GOOD_REFUSAL_WORDS } from '../net/marketLaw.js';   // MARKET-ANY: what may list from the pack
 import { splitStack, addItem, itemWeight, totalWeight, carriedWeight, isSummoned, isGoldPieces, addGoldPieces, goldPiecesOf, GOLD_PIECE_WEIGHT_KG } from './inventory.js';
 import { isEquipped } from './equip.js';
 import { clearLightSourceOnLeave } from './itemTransfer.js';
@@ -123,5 +125,67 @@ export function createTradePack(entity) {
     },
 
     gold: () => goldPiecesOf(entity),
+  };
+}
+
+// ─── MARKET-ANY (FIELD BUGS 2026-10-01, the field: "The market doesn't allow you to list any item that isnt bound") ───
+//
+// THE PACK'S SIDE OF A PIECE FROM THE PACK ON THE MARKET - what the Market tab's List form offers of the pack and why the
+// rest may not go, a piece as it lists (its record as the service matches it, its place in the save, its taking), a
+// record's name, and a collected piece into the pack. The law is net/marketLaw.js goodRefusal; this adapter does every
+// move, as a realm trade's piece moves (REALM P2.1): the service takes the piece out of the seller's record and puts it
+// into the buyer's (server-account/src/market.js), and these keep the pack the record's twin. Not a DFU member:
+// Daggerfall has no other player to sell to. Ledger A.
+
+/**
+ * @param {any} entity the live player entity (`items`)
+ * @param {{ kept?: (provenance: string) => boolean, say?: (text: string) => void }} [o] `kept` - a crafted piece another
+ *   act of the counting-house holds (net/marketBook.js holdsPiece, the writs' book's), left out; `say` - the HUD's line
+ */
+export function createMarketGoods(entity, { kept = () => false, say = () => {} } = {}) {
+  return {
+    /** The pack's pieces as the List form offers them - each with why it may not go, in the form's words, or null. A
+     *  crafted piece's way (from the pack, or as a crafted piece) is the service's to say - the tab asks it. */
+    goods() {
+      const pack = createTradePack(entity);
+      return (entity.items ?? []).filter((it) => it && !(typeof it.provenance === 'string' && kept(it.provenance))).map((item) => {
+        // a piece the trade's wire will not carry (a row this game does not know) is no piece the service could match
+        const why = goodRefusal(item) ?? (pack.wire([{ item, count: Math.max(1, item.stackCount ?? 1) }])?.[0] ? null : 'shape');
+        return { item, name: itemLongName(item), why: why ? (GOOD_REFUSAL_WORDS[/** @type {keyof typeof GOOD_REFUSAL_WORDS} */ (why)] ?? why) : null };
+      });
+    },
+    /** A piece of the pack as it lists: its record as the trade's wire projects it (what the service matches against
+     *  the record - realmTradeLaw recordIsOffered), its index in the list the save writes as `items` (tradePack picks -
+     *  AUDIT REALM L1-F1), and its taking - its whole stack out of the pack (tradePack take: the lit light let go) -
+     *  answering its undo, or null when the pack no longer holds it where it was, or it may not go. */
+    good(/** @type {any} */ item) {
+      const pack = createTradePack(entity);
+      const entries = [{ item, count: Math.max(1, item?.stackCount ?? 1) }];
+      const pick = pack.picks(entries)[0];
+      return {
+        offered: pack.wire(entries)?.[0] ?? null,
+        pick,
+        take: () => {
+          if ((entity.items ?? [])[pick] !== item || goodRefusal(item)) return null;
+          const handle = pack.take(entries, 0);
+          return handle ? () => pack.restore(handle) : null;
+        },
+      };
+    },
+    /** A pack piece's record named as the pack names it - another player's record through the wire's clamp first. */
+    goodName(/** @type {any} */ rec) {
+      const it = rec ? validLootList([rec])?.[0] : null;
+      return it ? itemLongName(it) : 'a piece';
+    },
+    /** A piece collected - the record the service put into this character's record - into the pack as a trade's piece
+     *  comes (tradePack unwire: the wire's clamp, and a bound piece refused; give). False: this game will not hold it. */
+    receive(/** @type {any} */ rec) {
+      const pack = createTradePack(entity);
+      const items = rec ? pack.unwire([rec]) : null;
+      if (!items?.length) return false;
+      pack.give(items, 0);
+      say(`${itemLongName(items[0])} is in your pack.`);
+      return true;
+    },
   };
 }
