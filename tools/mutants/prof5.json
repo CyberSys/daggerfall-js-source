@@ -926,11 +926,12 @@
   {
     "name": "PROF5-window-market-hidden",
     "file": "src/ui/noticeWindow.js",
-    "old": "...(workShown() ? [['work', 'Work']] : []), ...(marketShown() ? [['market', 'Market']] : []), ...(guildsShown() ? [['guilds', 'Guilds']] : [])];",
-    "new": "...(workShown() ? [['work', 'Work']] : []), ...(guildsShown() ? [['guilds', 'Guilds']] : [])];",
+    "old": "...(workShown() ? [['work', 'Work']] : []), ...(marketShown() ? [['market', 'Market']] : []), ...(guildsShown() ? [['guilds', 'Guilds']] : []), ...(seatShown() ? [['seat', 'Seat']] : [])];",
+    "new": "...(workShown() ? [['work', 'Work']] : []), ...(guildsShown() ? [['guilds', 'Guilds']] : []), ...(seatShown() ? [['seat', 'Seat']] : [])];",
     "tests": [
       "test/prof5_client.test.js"
-    ]
+    ],
+    "note": "SEAT1b (PIN MOVED): re-aimed by content - the board's tabs gained the Seat tab after Guilds."
   },
   {
     "name": "PROF5-host-wear-unminted",

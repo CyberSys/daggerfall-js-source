@@ -175,11 +175,12 @@
   {
     "name": "GUILD1e-tab-unshown",
     "file": "src/ui/noticeWindow.js",
-    "old": "...(guildsShown() ? [['guilds', 'Guilds']] : [])];",
-    "new": "...([])];",
+    "old": "...(guildsShown() ? [['guilds', 'Guilds']] : []), ...(seatShown() ? [['seat', 'Seat']] : [])];",
+    "new": "...(seatShown() ? [['seat', 'Seat']] : [])];",
     "tests": [
       "test/guild1e_client.test.js"
-    ]
+    ],
+    "note": "SEAT1b (PIN MOVED): re-aimed by content - the board's tabs gained the Seat tab after Guilds."
   },
   {
     "name": "GUILD1e-posters-any-note",
