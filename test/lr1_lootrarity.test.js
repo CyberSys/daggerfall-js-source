@@ -161,7 +161,9 @@ test('LR1: the odds follow the SOURCE - monotone in tier, luck and boss, capped,
 });
 
 test('LR2: the affix kinds - six, each banded per tier, each with a word for the name and a line for the tooltip', () => {
-  assert.deepEqual(LR.AFFIX_IDS, ['damage', 'armor', 'weight', 'stat', 'resist', 'skill']);
+  // LOOT4 (bible/06-Systems/Loot-Arc.md section 6): the six numbers LR1 shipped, and five that DO something after them
+  assert.deepEqual(LR.AFFIX_IDS.filter((id) => !LR.AFFIX_KINDS[id].proc), ['damage', 'armor', 'weight', 'stat', 'resist', 'skill']);
+  assert.deepEqual(LR.AFFIX_IDS.filter((id) => LR.AFFIX_KINDS[id].proc), ['elemental', 'leech', 'thorns', 'focus', 'slayer']);
   for (const id of LR.AFFIX_IDS) {
     const k = LR.AFFIX_KINDS[id];
     assert.ok(['prefix', 'suffix'].includes(k.slot));

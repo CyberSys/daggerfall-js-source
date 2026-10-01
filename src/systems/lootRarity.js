@@ -297,6 +297,12 @@ export const AFFIX_RANGES = Object.freeze({
   resist: Object.freeze({ magic: [10, 20], rare: [20, 35], legendary: [35, 50] }),   // on the saving throw against one element
   skill:  Object.freeze({ magic: [5, 10],  rare: [10, 20], legendary: [20, 30] }),   // on one skill
   weight: Object.freeze({ magic: [10, 20], rare: [20, 35], legendary: [35, 50] }),   // % carrying capacity
+  // LOOT4 (bible/06-Systems/Loot-Arc.md section 6): the five that DO something - systems/lootPowers.js does it
+  elemental: Object.freeze({ magic: [1, 3], rare: [3, 6], legendary: [6, 10] }),     // that much of its element a weapon blow
+  leech:     Object.freeze({ magic: [2, 4], rare: [4, 7], legendary: [7, 10] }),     // % of a landed weapon blow, healed
+  thorns:    Object.freeze({ magic: [1, 3], rare: [3, 6], legendary: [6, 10] }),     // back to a foe whose blow lands on you
+  focus:     Object.freeze({ magic: [2, 4], rare: [4, 7], legendary: [7, 10] }),     // % off a spell's magicka
+  slayer:    Object.freeze({ magic: [5, 10], rare: [10, 20], legendary: [20, 30] }), // % more weapon damage to one kind of foe
 });
 /** How many affixes a tier rolls: [min, max]. A Legendary's are its record's. */
 export const AFFIX_COUNTS = Object.freeze({ magic: [1, 2], rare: [3, 4] });
@@ -319,6 +325,21 @@ const RESIST_SUFFIX = Object.freeze({
   magic: ['of Warding', 'of the Ward', 'of Negation'],
 });
 const SKILL_SUFFIX = Object.freeze(['of Practice', 'of Skill', 'of Mastery']);
+/** LOOT4: the elements a weapon's blow may carry, and the kinds of foe a slayer's edge is for (DFU's own four groups -
+ *  FormulaHelper.GetEnemyGroup, combat/formulas.js enemyEntityGroup; systems/lootPowers.js foeGroup reads a foe). */
+export const PROC_ELEMENTS = Object.freeze(['fire', 'frost', 'shock']);
+export const SLAYER_FOES = Object.freeze(['undead', 'daedra', 'humanoid', 'animal']);
+const ELEMENTAL_PREFIX = Object.freeze({
+  fire: ['Smouldering', 'Burning', 'Infernal'], frost: ['Chilling', 'Freezing', 'Glacial'], shock: ['Sparking', 'Crackling', 'Thundering'],
+});
+const LEECH_SUFFIX = Object.freeze(['of Leeching', 'of the Leech', 'of the Vampire']);
+const THORNS_PREFIX = Object.freeze(['Barbed', 'Spiked', 'Thorned']);
+const FOCUS_PREFIX = Object.freeze(["Adept's", "Magister's", "Sorcerer's"]);
+const SLAYER_SUFFIX = Object.freeze({
+  undead: ['of Rest', 'of the Gravewatch', 'of Exorcism'], daedra: ['of Banishing', 'of the Exile', "of Oblivion's Bane"],
+  humanoid: ['of the Duellist', 'of the Headsman', 'of the Warlord'], animal: ['of the Hunt', 'of the Huntsman', 'of the Wild Hunt'],
+});
+const SLAYER_NOUN = Object.freeze({ undead: 'the undead', daedra: 'daedra', humanoid: 'humanoids', animal: 'animals' });
 const DAMAGE_PREFIX = Object.freeze(["Soldier's", "Warrior's", "Slayer's"]);
 const ARMOR_PREFIX = Object.freeze(["Sentinel's", "Guardian's", "Bulwark"]);
 const WEIGHT_PREFIX = Object.freeze(["Porter's", "Mule's", "Giant's"]);
@@ -341,11 +362,24 @@ export const AFFIX_KINDS = Object.freeze({
     word: (band, p) => RESIST_SUFFIX[p][band], label: (a) => `+${a.value}% ${cap(a.param)} resistance` }),
   skill:  Object.freeze({ slot: 'suffix', groups: Object.freeze(['Weapons', 'Armor', 'Jewellery']), params: Object.freeze([...Array(SKILL_COUNT).keys()]),
     word: (band) => SKILL_SUFFIX[band], label: (a) => `+${a.value} ${SKILL_NAMES[a.param] ?? 'Skill'}` }),
+  // LOOT4: the five that DO something (`proc`) - never in the roll's own draw (rollAffixes), a door's last pass adds
+  // one (rollProcLine), and they never name a piece (nameAround)
+  elemental: Object.freeze({ slot: 'prefix', groups: Object.freeze(['Weapons']), params: PROC_ELEMENTS, proc: true,
+    word: (band, p) => ELEMENTAL_PREFIX[p][band], label: (a) => `+${a.value} ${cap(a.param)} damage` }),
+  leech:  Object.freeze({ slot: 'suffix', groups: Object.freeze(['Weapons']), params: null, proc: true,
+    word: (band) => LEECH_SUFFIX[band], label: (a) => `${a.value}% life leech` }),
+  thorns: Object.freeze({ slot: 'prefix', groups: Object.freeze(['Armor']), params: null, proc: true,
+    word: (band) => THORNS_PREFIX[band], label: (a) => `${a.value} thorns` }),
+  focus:  Object.freeze({ slot: 'prefix', groups: Object.freeze(['Jewellery']), params: null, proc: true,
+    word: (band) => FOCUS_PREFIX[band], label: (a) => `-${a.value}% spell cost` }),
+  slayer: Object.freeze({ slot: 'suffix', groups: Object.freeze(['Weapons']), params: SLAYER_FOES, proc: true,
+    word: (band, p) => SLAYER_SUFFIX[p][band], label: (a) => `+${a.value}% damage vs ${SLAYER_NOUN[a.param]}` }),
 });
 export const AFFIX_IDS = Object.freeze(Object.keys(AFFIX_KINDS));
 
 /** Gold per point of each affix, for the item's value. */
-export const AFFIX_WORTH = Object.freeze({ damage: 40, armor: 60, weight: 15, stat: 90, resist: 20, skill: 25 });
+export const AFFIX_WORTH = Object.freeze({ damage: 40, armor: 60, weight: 15, stat: 90, resist: 20, skill: 25,
+  elemental: 50, leech: 80, thorns: 40, focus: 60, slayer: 25 });   // LOOT4
 
 const rangeInt = (min, max, rolls) => min + Math.floor(rolls() * (max + 1 - min));
 const pick = (list, rolls) => list[Math.floor(rolls() * list.length)];
@@ -420,7 +454,7 @@ export const affixWord = (a, tier) => (validAffix(a) ? AFFIX_KINDS[a.id].word(BA
  *  of armour's armour) half the time, a Rare guaranteed a prefix AND a
  *  suffix so its name has both parts. */
 export function rollAffixes(item, tier, rolls = Math.random) {
-  const kinds = AFFIX_IDS.filter((id) => AFFIX_KINDS[id].groups.includes(item.group));
+  const kinds = AFFIX_IDS.filter((id) => AFFIX_KINDS[id].groups.includes(item.group) && !AFFIX_KINDS[id].proc);   // LOOT4: the numbers alone - a door's last pass adds a kind that does something
   const [min, max] = AFFIX_COUNTS[tier] ?? [0, 0];
   const count = rangeInt(min, max, rolls);
   const out = [];
@@ -660,8 +694,9 @@ export function rarityName(item, tier, affixes) {
   return nameAround(template != null ? rriVariantWord(item) + template : (item.name ?? ''), tier, affixes);
 }
 const nameAround = (base, tier, affixes) => {
-  const pre = affixes.find((a) => AFFIX_KINDS[a?.id]?.slot === 'prefix');
-  const suf = affixes.find((a) => AFFIX_KINDS[a?.id]?.slot === 'suffix');
+  const names = (a, slot) => AFFIX_KINDS[a?.id]?.slot === slot && !AFFIX_KINDS[a.id].proc;   // LOOT4: a line that does something never names a piece
+  const pre = affixes.find((a) => names(a, 'prefix'));
+  const suf = affixes.find((a) => names(a, 'suffix'));
   const parts = [];
   if (pre) parts.push(affixWord(pre, tier));
   parts.push(base);
@@ -749,12 +784,51 @@ export function rollLootRarity(items, source, { rolls = Math.random, luck = 50 }
   lastPass(minted, rolls);   // LOOT2: the door's last pass, after every draw it already makes
   return items;
 }
-/** LOOT2 (bible/06-Systems/Loot-Arc.md section 4): A DOOR'S LAST PASS over the pieces it just laddered - each Legendary's
- *  one-in-ten Exalted - taken after every draw the door already makes, so a seeded door's earlier pieces are still its
- *  seed's (SET6's law: the gate's spoils, a town's thanks). */
+/** LOOT2 (bible/06-Systems/Loot-Arc.md section 4): A DOOR'S LAST PASS over the pieces it just laddered - LOOT4: each
+ *  Magic's and Rare's chance at a line that does something, then each Legendary's one-in-ten Exalted - taken after
+ *  every draw the door already makes, so a seeded door's earlier pieces are still its seed's (SET6's law: the gate's
+ *  spoils, a town's thanks). The commoner draw first: an Exalted never moves a proc line's roll. */
 export function lastPass(pieces, rolls = Math.random) {
+  for (const it of pieces ?? []) if (it?.rarity === 'magic' || it?.rarity === 'rare') rollProcLine(it, rolls);
   for (const it of pieces ?? []) if (it?.rarity === 'legendary') rollExalted(it, rolls);
 }
+
+// ── LOOT4: a line that does something ───────────────────────────────
+// The Loot arc (bible/06-Systems/Loot-Arc.md section 6). LR1's six kinds are numbers a wearer carries; five more DO
+// something (systems/lootPowers.js: a weapon's sear, leech and slayer's edge, armour's thorns, jewellery's focus).
+// A Magic piece one time in five, a Rare a bit over one time in three, takes ONE such line in its door's last pass:
+// a kind its group may carry, from its tier's band. It never names the piece (nameAround), so a Rare's two-part name
+// and a Magic's one word stand as LR1 made them.
+/** Per mille that a Magic or a Rare minted at a source takes a line that does something. */
+export const PROC_PER_MILLE = Object.freeze({ magic: 200, rare: 350 });
+let _procPerMille = PROC_PER_MILLE;
+/** Tests only: the chances (null puts them back). */
+export function _setProcForTests(table) { _procPerMille = table == null ? PROC_PER_MILLE : table; }
+/** ADD a line that does something to a Magic or Rare IN PLACE: a kind its group may carry that it does not, from its
+ *  tier's band, its price with it. Answers the line, or null when no such kind is left. */
+export function addProcLine(item, rolls = Math.random) {
+  if ((item?.rarity !== 'magic' && item?.rarity !== 'rare') || !Array.isArray(item.affixes)) return null;
+  const kinds = AFFIX_IDS.filter((id) => AFFIX_KINDS[id].proc && AFFIX_KINDS[id].groups.includes(item.group) && !item.affixes.some((a) => a?.id === id));
+  if (!kinds.length) return null;
+  const id = pick(kinds, rolls);
+  const k = AFFIX_KINDS[id];
+  const [lo, hi] = AFFIX_RANGES[id][item.rarity];
+  const value = rangeInt(lo, hi, rolls);
+  const line = k.params ? { id, param: pick(k.params, rolls), value } : { id, value };
+  item.affixes = [...item.affixes, line];
+  item.value = (Number.isFinite(item.value) ? item.value : itemBaseValue(item)) + affixesWorth([line]);
+  return line;
+}
+/** The chance, for a Magic or a Rare just minted at a source: one roll, then the line - never a second on a piece that
+ *  carries one. Answers the line, or null. */
+export function rollProcLine(item, rolls = Math.random) {
+  if (!lootRarityOn() || (item?.rarity !== 'magic' && item?.rarity !== 'rare') || !Array.isArray(item.affixes)) return null;
+  if (item.affixes.some((a) => AFFIX_KINDS[a?.id]?.proc)) return null;
+  if (!(rolls() * 1000 < (_procPerMille[item.rarity] ?? 0))) return null;
+  return addProcLine(item, rolls);
+}
+/** Does a line do something (LOOT4's five)? */
+export const isProcAffix = (a) => !!AFFIX_KINDS[a?.id]?.proc;
 
 // ── LOOT2: the roll seen, and the Exalted ──────────────────────────
 // The Loot arc (bible/06-Systems/Loot-Arc.md section 4). A rolled line says the band it was rolled in, so two swords

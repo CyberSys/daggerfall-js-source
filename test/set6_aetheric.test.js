@@ -11,7 +11,7 @@ import {
 } from '../src/systems/aetheric.js';
 import {
   RARITY_ORDER, RARITIES, ROLLED_TIERS, rarityOf, rarityRank, applyRarity, rarityEligible, bestRarity, rarityLines, rollRarity,
-  affixesWorth, validAffix, AFFIX_RANGES,
+  affixesWorth, validAffix, AFFIX_RANGES, isProcAffix,   // LOOT4: a line that does something, appended in a door's last pass
 } from '../src/systems/lootRarity.js';
 import { rollSpoils, spoilsBase, magicOrBetter, SPOILS_GOLD_PER_LEVEL, SPOILS_LEGENDARY } from '../src/systems/gateSpoils.js';
 import { spoilsList } from '../src/scenes/spoilsPool.js';
@@ -157,9 +157,11 @@ test('SET6 the drop: the spoils\' LAST roll - a Regalia piece a sixth of the tim
     const b = before(seed, 12);
     assert.equal(s.gold, b.gold, `seed ${seed}: the gold`);
     assert.deepEqual(s.pieces.slice(0, 3).map((p) => p.item.name), b.names, `seed ${seed}: the three graded pieces`);
-    // LOOT2 (bible/06-Systems/Loot-Arc.md section 4): an Exalted Legendary's extra line is drawn AFTER everything and
-    // appended - the record's own lines are still the seed's, exactly
-    assert.deepEqual(s.pieces.slice(0, 3).map((p) => JSON.stringify((p.item.exalted ? p.item.affixes.slice(0, -1) : p.item.affixes) ?? null)), b.affixes);
+    // LOOT2/LOOT4 (bible/06-Systems/Loot-Arc.md sections 4 and 6): an Exalted Legendary's extra line and a Magic's or a
+    // Rare's line that does something are drawn AFTER everything and appended - the lines before them are still the
+    // seed's, exactly
+    const drawn = (it) => (it.exalted ? it.affixes.slice(0, -1) : it.affixes?.filter((a) => !isProcAffix(a)));
+    assert.deepEqual(s.pieces.slice(0, 3).map((p) => JSON.stringify(drawn(p.item) ?? null)), b.affixes);
     const has = s.pieces.length === 4;
     assert.equal(has, b.next < REGALIA_CHANCE, `seed ${seed}: the next roll decides it`);
     if (!has) continue;

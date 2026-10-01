@@ -330,3 +330,41 @@ dagger's pool as Wyrmbane and Nightwhisper alone; it reads Worm's Tooth beside t
 Edge), the gun's exclusive claim unmoved.
 
 Pinned: `test/loot3_legendaries.test.js` (4); `tools/mutants/loot3.json` (10, all dead).
+
+### LOOT4 - five affix kinds that do things (2026-10-01)
+
+`systems/lootRarity.js`: five kinds join the six, marked `proc` - `elemental` (fire, frost, shock) and `slayer` (the
+undead, daedra, humanoids, animals) and `leech` on a weapon, `thorns` on armour, `focus` on jewellery - each banded
+Magic / Rare / Legendary as section 6 says, each a word (`Burning`, `of the Leech`, `Barbed`, `Adept's`, `of the
+Gravewatch` ...) and a label (`+5 Fire damage`, `5% life leech`, `4 thorns`, `-6% spell cost`, `+15% damage vs the
+undead`), each worth its points. They are NEVER in the ladder's own draw (`rollAffixes` draws the six numbers alone, so
+every seeded mint draws as it did) and they NEVER name a piece (`nameAround` passes them by): a Magic keeps its one
+word and a Rare its two, as LR1 made them.
+
+**The roll.** A door's last pass (`lastPass`, LOOT2's) now gives every Magic one chance in five and every Rare 35 in a
+hundred at ONE such line (`rollProcLine`, `PROC_PER_MILLE`; `addProcLine` mints it): a kind its group may carry and it
+does not, its tier's band, appended after its numbers, the price with it. Every proc in the pass is drawn before any
+Exalted, so neither moves the other's roll whatever a list's order. The gate's spoils and a town's thanks take them in
+the same pass, after every earlier draw.
+
+**What they do** - `systems/lootPowers.js` (new, the kit), registered at import under one name (`lootPowers`) and
+imported by the game beside the sets' own (`scenes/world.js`, folded onto the sets' import line - line-neutral):
+
+- the BLOW modifier: the slayer's per cents of the whole blow at its kind of foe (`foeGroup` - DFU's own four groups,
+  `enemyEntityGroup`, a class foe a humanoid by its Human affinity), the fraction carried on the weapon (the sets'
+  own law), and the elemental's flat sear - none on a foe IMMUNE to the element, half (floored) on one that RESISTS
+  (`elementShare`, the career's own `careerTolerance`); the weapon IN HAND's lines alone.
+- a STRIKE listener (the blow that landed, its final damage): the leech's share heals me, the fraction carried
+  (`healMine`), never past my maximum and never a body.
+- a LANDED-BLOW listener: the thorns I wear back to the foe whose blow took my health, summed under `THORNS_CAP` (25),
+  through the foe's own pool's door. **One law of a blow**: `sigilSetPowers.js` now tells named listeners
+  (`registerPlayerBlowLanded`) from inside its own hurt, at the moment Spite answers - the struck tail's mark, taken by
+  the door as it opens (AUDIT FINAL F10), so a fall, a poison's round or a blow the door swallowed answers no thorn -
+  and exports `pendingPlayerBlow`, the blow a hurt carries, for LOOT5's damage modifiers.
+- a CAST COST modifier: the focus I wear off my spells, under `FOCUS_CAP` (30%).
+
+Never at a player (a duel's blow refused by the blow modifier, a duel's blow at me never asking the port), never a
+peer's blow resolved here, never the Warden's ward; off, nothing (`linesOf` reads none).
+
+Pinned: `test/loot4_procs.test.js` (8); `tools/mutants/loot4.json` (26, all dead). LR2's six-kinds pin reads the six
+numbers and the five after them; SET6's earlier-spoils pin passes the appended lines by.
