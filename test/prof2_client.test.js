@@ -401,8 +401,9 @@ test('PROF2 hosts: the streaming world stands every kind through the one host, i
   assert.match(w, /const rockPick = \(i\) => wodPicks\[i\]\?\.name === 'Rocks' \|\| wodPicks\[i\]\?\.name === 'Mountains';/);
   assert.match(w, /if \(!townTalk\.overlayActive && act === 'Escape' && gatherHost\?\.cancel\(\)\) \{ e\.preventDefault\(\); e\.profActEnded = true; return true; \}/, 'Escape above the mode gate');
   assert.ok(w.indexOf("act === 'Escape' && gatherHost?.cancel()") < w.indexOf("if (!townTalk.overlayActive && (modes?.mode ?? 'exterior') === 'exterior') {"), 'before the exterior gate');
-  assert.match(w, /veins: professionMarks\(\),/);   // PROF7 moved it: a Tracker's animals beside a Prospector's veins
-  assert.match(w, /const v = prospectorVeins\(\), a = trackerAnimals\(\);/);
+  assert.match(w, /nodes: professionMarks\(\),/);   // PROF7 moved it: a Tracker's animals beside a Prospector's veins; NODE-MARKS: every node beside them
+  assert.match(w, /const professionMarks = \(feet = enchantFeet\(\)\) => nodeCompassPoints\(nodeMarksAt\(feet\), trackerAnimals\(\)\);/);
+  assert.match(src('src/scenes/mineHost.js'), /return \(specs\('mining'\)\[50\] === 'prospector' && PROSPECTOR_MARKS\[n\.what\]\) \|\| MINE_MARKS\[n\.what\] \|\| MINE_MARKS\.vein;/, 'NODE-MARKS: the Prospector\'s veins marked from PROSPECT_M off, in the mine kind\'s own mark');
   assert.match(w, /onDungeonLeave: \(\) => \{ const n = handOverRoomFoes\(\);[^\n]*gatherHost\?\.leaveDungeon\(\); worldPublish\(performance\.now\(\), true\); \},/, 'the veins dropped while the dungeon still stands');
   assert.match(w, /profPress: \(\) => gatherHost\?\.press\(\) \?\? false,/);
   assert.match(src('src/world/worldOfDaggerfall.js'), /name: session\.name\[pick\.index\] \}\)\);/);
@@ -415,8 +416,8 @@ test('PROF2 hosts: the streaming world stands every kind through the one host, i
   assert.match(d, /actTool: \(\) => opts\.actTool\?\.\(\) \?\? null,/);
   assert.match(d, /if \(held && opts\.profActing\?\.\(\)\) return;/, 'AUDIT 29 D2: the press alone');
   assert.match(d, /if \(dfLocation\?\.spawned \|\| isGateArena\(dfLocation\) \|\| !Number\.isSafeInteger\(dfLocation\?\.mapTableData\?\.mapId\)\) return null;/, 'a spawned dungeon grows none, nor the Burning Court (AUDIT 29 D5)');
-  assert.match(src('src/ui/hud.js'), /drawPartyCompassMarks\(renderer, veins, playerXZ, heading01, \{ bx, by, bw, s \}, VEIN_MARK\);/);
-  assert.match(src('src/ui/enhancedHud.js'), /drawPartyMarks\(opts\.veins \?\? null, opts\.playerXZ \?\? null, heading01, 'veinMarks', VEIN_MARK_CSS\);/);
+  assert.match(src('src/ui/hud.js'), /drawNodeCompassMarks\(renderer, nodes, playerXZ, heading01, \{ bx, by, bw, s \}\);/);   // NODE-MARKS: in each profession's colour
+  assert.match(src('src/ui/enhancedHud.js'), /drawNodeMarks\(opts\.nodes \?\? null, opts\.playerXZ \?\? null, heading01\);/);
   assert.match(src('src/systems/save.js'), /import '\.\/profTemplates\.js';/, 'every scene a save loads in knows the new templates');
   assert.doesNotMatch(src('src/scenes/exterior.js'), /gatherHost|createProfBook/, 'the fixed city: no wilderness, no nodes (PROF0 17.1, FLAGGED)');
 });
