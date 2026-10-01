@@ -510,8 +510,14 @@ export function stampResidenceQuestNames(summaries, discoveredRows, questSource,
   const discovered = new Map((discoveredRows ?? []).map((r) => [r.buildingKey, r]));
   for (const b of summaries ?? []) {
     const rec = discovered.get(b.buildingKey);
-    if (!rec || !b.isResidence || rec.isOverrideName) continue;
-    b.questName = residenceQuestName(questSource, mapID, b.buildingKey);
+    if (!rec || !b.isResidence) continue;
+    const marked = residenceQuestName(questSource, mapID, b.buildingKey);
+    // FIELD BUGS 2026-09-30b (RES-RING): whether a quest's marked residence, whichever arm its plate takes - the
+    // Enhanced sheet's ring and pen. Every quest house the player learns of is override-named at discovery (AUDIT 63
+    // F49), so the arm below never ran for one and the sheet drew the house a townsperson had just marked as any house
+    b.questMarked = marked !== '';
+    if (rec.isOverrideName) continue;   // :676-682 - the display-name arm returns first (the classic plate, unchanged)
+    b.questName = marked;
   }
   return summaries;
 }

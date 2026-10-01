@@ -136,7 +136,7 @@ export const GUARD_PLACE_ATTEMPTS = 12;
 export const GUARD_INDOOR_DOOR_OFFSET = CAPSULE_RADIUS + 0.1;   // 0.45
 
 export function createCityGuards({ renderer, collider, fetchBytes, getTexture, uploadRecordFrame, playerEntity, audio, onPlayerHurt, currentMinute, rand = Math.random, say = null,
-  hitEffects = null,   // AUDIT 24 (wave 39): the host's one blood/effect pool
+  hitEffects = null, groundStands = null,   // AUDIT 24 (wave 39): the host's one blood/effect pool; FALL-HOLD: exteriorFoes.js's ground law - the watch has no distance cull at all
   // GameObjectHelper.CreateEnemyCorpseMarker (:836-839) hands an
   // OUTSIDE corpse to StreamingWorld.TrackLooseObject, which stamps it
   // with the streamer's CURRENT map pixel (:462-476). exteriorFoes
@@ -1038,7 +1038,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
       // exemption from either.
       const _gParalyzed = entityIsParalyzed(g.entity);   // S22: the FreeAction read-time fold
       applyEnemyMotorEffectFlags(g.ai, g.entity);   // A5: Levitate.SetEnemyMotor's IsLevitating, folded from the effect's presence
-      g.ai.update(foeFrameDt(dt), playerFeet, _armed(g, senses), _gParalyzed);   // FOE-CATCHUP: three steps a frame at most
+      if (groundStands && !groundStands(g.ai.feet[0], g.ai.feet[2])) g.ai.holdFrame(); else g.ai.update(foeFrameDt(dt), playerFeet, _armed(g, senses), _gParalyzed);   // FALL-HOLD (exteriorFoes.js); FOE-CATCHUP: three steps a frame at most
       // WERE-FRIGHT: a watchman frightened off (frighten, above) whose run is over is gone - the walk-away, no body,
       // as the watch goes when a crime clears. While he runs he only runs: no target, so no swing (below), no bark
       // (below), and - his run sensing nothing (EnemyAI.flee) - no alert and no tongue roll.

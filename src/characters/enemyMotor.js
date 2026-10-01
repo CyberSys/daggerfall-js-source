@@ -2001,6 +2001,23 @@ export class EnemyAI {
     this._restGrounded = false;   // AUDIT WORLD2 B12: a foe that takes the seat standing still re-grounds on its first step, not its first move
   }
 
+  /** FALL-HOLD (FIELD BUGS 2026-09-30b, ReynBlackwinter: "constant fps drop in overworld ... Resets after
+   *  saving\loading, heard its from an enemy endlessly falling through the ground somewhere"): A FRAME THE HOST HOLDS
+   *  THIS FOE ON steps nothing, so it senses nothing - PlayerMotor.holdFrame's law, foe-side. The streaming host holds
+   *  the player's motor until the pixel under him is built (world.js _seasonHoldKey); its pools now hold a foe whose
+   *  column has no built ground (`groundStands`, the host's heightAt finite). Stepped there, a walker fell for ever:
+   *  nothing here bounds a fall, a placed foe (a World of Daggerfall camp's) is never culled, and the save re-mints it
+   *  wherever it stood - over a pixel the load has not built. Every fixed step of the fall cost more: collider.move
+   *  sweeps in SUBSTEP_LEN pieces, 256 at most (DFU's CharacterController.Move is one sweep), ten capsule resolves a
+   *  piece - 770 a frame at a minute's fall, 2,560 from 201.6 s. The column alone is asked, never the height: a flyer,
+   *  a levitator or a swimmer over built ground, and a Deep Waters swimmer (a carved cell answers its seafloor), are
+   *  stepped as before. A sense latched before the hold would outlive it - `detected` spared it the relevance cull
+   *  (and held the encounter cap), `inSight` kept its melee deciding, either one or `wouldBeSpawned` refused the
+   *  player's rest (areEnemiesNearby). The first step after the hold senses afresh. */
+  holdFrame() {
+    this.inSight = false; this.detected = false; this.wouldBeSpawned = false;
+  }
+
   /** AUDIT 68 S20-offset-ai-memory: the floating-origin recenter moves every WORLD position the motor holds, not the
    *  feet alone. The fall anchor is DFU's own (FloatingOrigin.cs:128-130 -> EnemyMotor.AdjustLastGrounded, :235-238);
    *  the pursuit memory is a departure (EnemySenses hears no OnPositionUpdate), else a foe hunting out of sight walks

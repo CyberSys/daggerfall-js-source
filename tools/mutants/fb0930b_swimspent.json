@@ -1,0 +1,65 @@
+[
+  {
+    "name": "SWIM-SPENT-the-water-still-kills",
+    "file": "src/systems/rest.js",
+    "old": "  if (swimming) {\n    return { kind: 'drown',",
+    "new": "  if (false) {\n    return { kind: 'drown',",
+    "tests": ["test/fb0930b_swimspent.test.js"]
+  },
+  {
+    "name": "SWIM-SPENT-the-whole-pool-at-once",
+    "file": "src/systems/rest.js",
+    "old": "export const EXHAUSTED_SWIM_SHARE = 0.1;",
+    "new": "export const EXHAUSTED_SWIM_SHARE = 1;",
+    "tests": ["test/fb0930b_swimspent.test.js"]
+  },
+  {
+    "name": "SWIM-SPENT-a-small-pool-drowns-for-nothing",
+    "file": "src/systems/rest.js",
+    "old": "damage: Math.max(1, Math.ceil((entity?.maxHealth ?? 0) * EXHAUSTED_SWIM_SHARE))",
+    "new": "damage: Math.ceil((entity?.maxHealth ?? 0) * EXHAUSTED_SWIM_SHARE)",
+    "tests": ["test/fb0930b_swimspent.test.js"]
+  },
+  {
+    "name": "SWIM-SPENT-foes-about-still-kill-in-the-water",
+    "file": "src/systems/rest.js",
+    "old": "  if (swimming) {\n    return { kind: 'drown',",
+    "new": "  if (swimming && !enemiesNearby) {\n    return { kind: 'drown',",
+    "tests": ["test/fb0930b_swimspent.test.js"]
+  },
+  {
+    "name": "SWIM-SPENT-the-street-host-drowns-at-once",
+    "file": "src/scenes/world.js",
+    "old": "      if (out.kind === 'drown') { townTalk.say(out.line); hurtPlayer(playerEntity, out.damage, { bypassShield: true }); return; }",
+    "new": "",
+    "tests": ["test/fb0930b_swimspent.test.js"]
+  },
+  {
+    "name": "SWIM-SPENT-come-sail-away-hears-a-death",
+    "file": "src/scenes/world.js",
+    "old": "    _inExhaustion = true;\n    try {\n      const out = exhaustionOutcome({",
+    "new": "    _inExhaustion = true;\n    if (csaRuntime) csaCall(() => csaRuntime.OnPlayerDeath());\n    try {\n      const out = exhaustionOutcome({",
+    "tests": ["test/fb0930b_swimspent.test.js"]
+  },
+  {
+    "name": "SWIM-SPENT-the-one-location-host-drowns-at-once",
+    "file": "src/scenes/exterior.js",
+    "old": "      if (out.kind === 'drown') { townTalk.say(out.line); hurtPlayer(playerEntity, out.damage, { bypassShield: true }); return; }",
+    "new": "",
+    "tests": ["test/fb0930b_swimspent.test.js"]
+  },
+  {
+    "name": "SWIM-SPENT-the-dungeon-drowns-at-once",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "    if (out.kind === 'drown') { hudText.add(out.line); hurtEntity(playerEntity, out.damage, { bypassShield: true }); surfacePlayer(); return; }",
+    "new": "",
+    "tests": ["test/fb0930b_swimspent.test.js"]
+  },
+  {
+    "name": "SWIM-SPENT-the-dungeon-hears-a-death",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "    // GameManager.AreEnemiesNearby() (PlayerEntity.cs:2397) - the\n    // STRICT variant, through the ONE home the three hosts ask.\n    const enemiesNearby = areEnemiesNearby(foes);",
+    "new": "    opts.csaOnPlayerDeath?.();\n    // GameManager.AreEnemiesNearby() (PlayerEntity.cs:2397) - the\n    // STRICT variant, through the ONE home the three hosts ask.\n    const enemiesNearby = areEnemiesNearby(foes);",
+    "tests": ["test/fb0930b_swimspent.test.js"]
+  }
+]
