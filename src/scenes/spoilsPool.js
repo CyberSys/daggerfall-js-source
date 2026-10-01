@@ -71,7 +71,7 @@
 // and the walk-over's reach (SPOILS_TAKE_M) went with it; leaving the court still gathers what is left (`gather`).
 //
 // Not a DFU member. Ledger A (WB).
-import { rollSpoils } from '../systems/gateSpoils.js';
+import { rollSpoils, nameEmbers } from '../systems/gateSpoils.js';
 import { seededRng } from '../systems/wind.js';
 import { spewLaunches, spewPiece, flySpew, keepLaunch, floorRayAt } from '../world/gateSpew.js';
 import { SpoilsGlowRenderer, tierColour } from '../render/spoilsGlow.js';   // WBX3: the loot line
@@ -184,6 +184,7 @@ export const savedSince = (saves, who, at) => who != null && [...(saves ?? [])].
 function keptPiece(p) {
   if (p?.kind === 'gold') return Number.isSafeInteger(p.gold) && p.gold > 0 ? { ...p } : null;
   const item = p?.kind === 'item' ? validLootItem(p.item) : null;
+  if (item) nameEmbers([item]);   // WB12a: a stone a crash record kept under its old name lands as a Deadlands Ember
   return item ? { ...p, item } : null;
 }
 

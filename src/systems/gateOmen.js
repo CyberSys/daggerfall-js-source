@@ -83,7 +83,7 @@ export function gateSkyNear(distM) {
 export const gateSkyWeight = (t, nowMs, fellAt, distM) => gateSkyPhaseWeight(t, nowMs, fellAt) * gateSkyNear(distM);
 
 /** WB3b: the kill, said to everyone online (the hub's word): who stood where, and who struck hardest. */
-export const fellLine = ({ near, boss, top }) => `${boss} has fallen at the Oblivion Gate near ${near}${top?.length ? ` - struck down by ${top.length > 1 ? `${top.slice(0, -1).join(', ')} and ${top[top.length - 1]}` : top[0]}` : ''}. The gate collapses.`;
+export const fellLine = ({ near, boss, top }) => `${boss} has fallen at Dagon's Breach near ${near}${top?.length ? ` - struck down by ${top.length > 1 ? `${top.slice(0, -1).join(', ')} and ${top[top.length - 1]}` : top[0]}` : ''}. The breach collapses.`;
 
 /**
  * EVENT-TIP (2026-09-28, Mac: "I also want to add a tooltip to the map for these type of events"): THE GATE'S CARD on
@@ -98,7 +98,7 @@ export function gateTip(c, cd, fell = null, boss = gateBossOf(c.t.day)) {
   const when = cd
     ? (cd.to === 'open' ? `Opens in ${countdownText(cd.ms)}` : cd.to === 'seal' ? `Open - seals in ${countdownText(cd.ms)}` : `Sealed - collapses in ${countdownText(cd.ms)}`)
     : (c.phase === 'collapsing' ? 'Collapsing' : null);
-  return { title: 'Oblivion Gate', lines: [`Near ${c.site.place}`, ...(when ? [when] : []), ...(Number.isFinite(fell) ? [`${boss.name} has fallen`] : [`${boss.name}, ${boss.title}`, marksLineOf(c.t.day)])] };
+  return { title: 'Dagon\'s Breach', lines: [`Near ${c.site.place}`, ...(when ? [when] : []), ...(Number.isFinite(fell) ? [`${boss.name} has fallen`] : [`${boss.name}, ${boss.title}`, marksLineOf(c.t.day)])] };
 }
 /** AUDIT PRE-MERGE 0929 W2-2: a day's marks as the card says them, worded once a day - the card is asked every frame a
  *  gate stands on the map, and the marks were read and joined anew each time. */
@@ -182,7 +182,7 @@ export function createGateOmen({ now, site, say, localTime = () => null, fellAt 
       const c = current;
       if (!c?.site || !gateMarked(c.phase)) return null;
       const cd = gateCountdown(c.t, now(), c.phase);
-      const label = cd ? `Oblivion Gate - ${cd.to === 'collapse' ? 'sealed, ' : ''}${countdownWords(cd)}` : 'Oblivion Gate';   // GATE-COLLAPSE: the sealed hours count down too
+      const label = cd ? `Dagon's Breach - ${cd.to === 'collapse' ? 'sealed, ' : ''}${countdownWords(cd)}` : 'Dagon\'s Breach';   // GATE-COLLAPSE: the sealed hours count down too
       return { day: c.t.day, cx: c.site.ring.cx, cy: c.site.ring.cy, r: c.site.ring.r, label, phase: c.phase, tip: gateTip(c, cd, fellAt(c.t.day)) };   // EVENT-TIP: and its card
     },
     /** WBX8: THE SKY THE GATE BURNS over an eye at `eye` (scene metres): its weight (gateSkyWeight - its life by its

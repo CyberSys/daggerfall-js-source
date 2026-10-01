@@ -806,7 +806,7 @@ export const BROKER_CSS = `/* ── SET7: THE SIGIL BROKER'S WINDOW (ui/brokerW
   background: rgba(90,20,16,0.45); box-shadow: 0 0 8px rgba(224,64,48,0.35); text-shadow: 1px 1px 0 #050608; }
 .broker-body { display: flex; gap: 14px; padding: 12px 16px 16px; min-height: 0; overflow: auto; }
 .broker-offers { flex: 1 1 55%; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.broker-offer { display: grid; grid-template-columns: 48px minmax(0, 1fr) 112px 148px; align-items: center; gap: 10px;   /* SS2: the price's column one width in every row - "12 Sigil Stones" is 108px, "4" 101 - so the prices stand in a line */
+.broker-offer { display: grid; grid-template-columns: 48px minmax(0, 1fr) 124px 148px; align-items: center; gap: 10px;   /* SS2: the price's column one width in every row - WB12a: "12 Deadlands Embers" is 120px, "4" 115 - so the prices stand in a line */
   padding: 6px 10px; cursor: pointer; border: 1px solid transparent; }
 .broker-offer.on { background: linear-gradient(90deg, rgba(243,207,134,0.12), transparent 85%); }
 .broker-frame { position: relative; width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center;

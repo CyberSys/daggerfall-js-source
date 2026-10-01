@@ -127,7 +127,7 @@ test('EVENT-TIP: the gate\'s card - where, when it next moves (the countdown\'s 
   const site = { place: 'Copperham, Wrothgarian Mountains', near: 'Copperham', px: 400, py: 200, spot: [409.6, 409.6], ring: { cx: 400.3, cy: 200.6, r: 2 } };
   const at = (ms, fell = null) => { const phase = gatePhase(t, ms, fell); return gateTip({ site, phase, t }, gateCountdown(t, ms, phase), fell); };
   const marks = (day) => { const w = gateModsWords(gateModsOf(day)); return `${w.charAt(0).toUpperCase()}${w.slice(1)}`; };
-  assert.deepEqual(at(t.omenAt + 1000), { title: 'Oblivion Gate', lines: ['Near Copperham, Wrothgarian Mountains', `Opens in ${countdownText(t.openAt - t.omenAt - 1000)}`, 'Valkynaz Ruhn, Warden of the Burning Gate', marks(740)] });   // WB8c: and tonight's marks while he stands
+  assert.deepEqual(at(t.omenAt + 1000), { title: 'Dagon\'s Breach', lines: ['Near Copperham, Wrothgarian Mountains', `Opens in ${countdownText(t.openAt - t.omenAt - 1000)}`, 'Valkynaz Ruhn, Warden of the Burning Gate', marks(740)] });   // WB8c: and tonight's marks while he stands
   assert.equal(marks(740), 'The Storm-Crowned - Vengeful, Dagon\'s Favoured');   // WB11a: the nine-trial rotation's (it was Vengeful, Soul-Hungry)
   assert.equal(at(t.openAt + 1000).lines[1], `Open - seals in ${countdownText(t.sealAt - t.openAt - 1000)}`);
   assert.equal(at(t.sealAt + 2000).lines[1], 'Sealed - collapses in 9:58', 'GATE-COLLAPSE: the sealed hours say when they end');
@@ -139,7 +139,7 @@ test('EVENT-TIP: the gate\'s card - where, when it next moves (the countdown\'s 
   omen.frame();
   const mark = omen.mapMark();
   assert.deepEqual(mark.tip, at(t.sealAt + 2000));
-  assert.deepEqual(readGateMark(() => mark, { width: 1000, height: 500 }).tip, { title: 'Oblivion Gate', lines: mark.tip.lines });
+  assert.deepEqual(readGateMark(() => mark, { width: 1000, height: 500 }).tip, { title: 'Dagon\'s Breach', lines: mark.tip.lines });
   assert.equal(readGateMark(() => ({ ...mark, tip: 'x' }), { width: 1000, height: 500 }).tip, null, 'a card that is not one reads as none');
   clock.now = t.wrathAt + GATE_COLLAPSE_MS; omen.frame();
   assert.equal(omen.mapMark(), null, 'gone: no ring, no card');
@@ -217,9 +217,9 @@ test('EVENT-TIP on the held map: the hover asks a party member, a raided town, a
     assert.match(onTown.label, /Copperham/);
     const [gx, gy] = toPaper(win._view, 5.2, 3.4);
     const onRing = win._hoverLabel(gx, gy);
-    assert.equal(onRing.tip.title, 'Oblivion Gate');
+    assert.equal(onRing.tip.title, 'Dagon\'s Breach');
     assert.deepEqual(onRing.tip.lines, ['Near Copperham, Daggerfall', `Open - seals in ${countdownText(t.sealAt - clock.now)}`, 'Valkynaz Ruhn, Warden of the Burning Gate', 'The Burning - Unyielding, Echoing']);   // WB8c: day 741's marks (WB11a's rotation - they were the Venom-Blooded, Scarring and Grudge-Bearer)
-    assert.equal(onRing.label, `Oblivion Gate - seals in ${countdownText(t.sealAt - clock.now)}`);
+    assert.equal(onRing.label, `Dagon's Breach - seals in ${countdownText(t.sealAt - clock.now)}`);
     const [ox, oy] = toPaper(win._view, 9.5, 9.5);
     assert.equal(win._hoverLabel(ox, oy).tip, undefined, 'past the ring: the province, no card');
     const [cx2, cy2] = toPaper(win._view, 8.2, 6.2);
@@ -229,13 +229,13 @@ test('EVENT-TIP on the held map: the hover asks a party member, a raided town, a
     win._hoverAt = { sx: gx, sy: gy, cx: 300, cy: 200 };
     win._showTip(onRing.tip, 300, 200);
     assert.equal(win._chrome.tip.style.display, 'block');
-    assert.deepEqual(cardText(win), ['Oblivion Gate', ...onRing.tip.lines]);
+    assert.deepEqual(cardText(win), ['Dagon\'s Breach', ...onRing.tip.lines]);
     assert.deepEqual([win._chrome.tip.style.left, win._chrome.tip.style.top], ['316px', '216px']);
     // a STILL pointer's card follows the poll: the gate seals under it
     clock.now = t.sealAt + 2000; omen.frame();
     win.tick(0.3);
-    assert.deepEqual(cardText(win).slice(0, 3), ['Oblivion Gate', 'Near Copperham, Daggerfall', 'Sealed - collapses in 9:58']);
-    assert.equal(win._chrome.label.textContent, 'Oblivion Gate - sealed, collapses in 9:58', 'and the label with it');
+    assert.deepEqual(cardText(win).slice(0, 3), ['Dagon\'s Breach', 'Near Copperham, Daggerfall', 'Sealed - collapses in 9:58']);
+    assert.equal(win._chrome.label.textContent, 'Dagon\'s Breach - sealed, collapses in 9:58', 'and the label with it');
     // ...and goes when the gate does
     clock.now = t.wrathAt + GATE_COLLAPSE_MS; omen.frame();
     win.tick(0.3);

@@ -394,7 +394,7 @@ test('NOTICE1 the cards hang in their order - the rumour first, the bounty board
   const board = boardOf(
     [{ id: 'p1', subject: 'Party', body: 'x', from: 'Anna', at: 300 }, { id: 'g1', subject: 'Join us', body: 'y', from: 'Aldric', at: 100, guild: { name: 'The Hound', tag: 'HND' } }],
     [{ id: 's1', subject: 'Festival', body: 'z', from: 'Devra', at: 250 }]);
-  const cards = noticeCards({ town: { name: 'Anticlere' }, rumour: ['The price of grain is up.', ''], bountyLine: true, gate: { subject: 'An Oblivion Gate', body: 'soon' }, board, seenAt: 200 });
+  const cards = noticeCards({ town: { name: 'Anticlere' }, rumour: ['The price of grain is up.', ''], bountyLine: true, gate: { subject: 'Dagon\'s Breach', body: 'soon' }, board, seenAt: 200 });
   assert.deepEqual(cards.map((c) => [c.key, c.seal]), [['rumour', 'town'], ['bounty', 'bounty'], ['gate', 'server'], ['notice:s1', 'server'], ['note:p1', 'player'], ['note:g1', 'guild']]);
   assert.equal(cards[0].subject, 'News of Anticlere');
   assert.equal(cards[1].body, BOUNTY_BOARD_LINE);

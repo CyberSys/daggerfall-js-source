@@ -1519,6 +1519,252 @@ on myself is no one's; it is never a part in the fight (a healer who stood the f
 before - WBX R4); a heal in the last moment before his fall may miss the chart (the word goes out once a HEAL_SEND_MS
 at most, and the relay hears none after the fall).
 
+## 19. Dagon's Breach - the gates in their year (WB12, 2026-10-01)
+
+Mac: *"So, getting feedback that our oblivion gates arent lore friendly to the current daggerfall timeline. How can
+we link it more true to lore?"* - then, shown a mock-up of the summoned frame, *"What do you think? I'd like to rename
+the stones. And if we're going to do this I want it be as detailed as possible."* Asked four questions, Mac chose
+**Dagon's Breach** for the name, **Deadlands Ember** for the stones, **harder and richer** for Mehrunes Dagon's day,
+and **shops, libraries and the first breach** for the book. Then: *"Btw I want to do all 4. We're going balls deep
+with this"* - the coven's ritual site too - and of it: the faithful stand **from the omen to the opening**, **6-8
+faithful and a Summoner**, breaking the rite pays **an extra ember** to everyone who helped when the breach is closed
+(the boss unchanged), and **a chest** stands in their circle.
+
+### The year, and why the doors close
+
+The game is 3E 417. Uriel Septim VII sits the Ruby Throne, the Amulet of Kings is worn, and the Dragonfires burn in
+the Temple of the One: the Covenant of Akatosh and Saint Alessia bars every Prince of Oblivion from forcing his way
+into Tamriel. The Oblivion Crisis - gates opening across Tamriel - comes in 3E 433, when the fires go out. So an
+"Oblivion Gate" opening on its own in 3E 417 breaks the timeline; that is the feedback, and it is right.
+
+The Covenant bars a door forced from without. It never barred a door opened from within: every conjurer who calls a
+scamp proves it, and Daggerfall's own covens call the Princes themselves on their summoning days. So the gates
+become **Dagon's Breaches** - wounds in the world that **Dagon's mortal faithful** tear open with their rite, which a
+Dremora of his house (the Warden, Valkynaz Ruhn - valkynaz is a Dremora rank) holds open from his side. **The
+Covenant fights every one**: that is why a breach only stands for its window - the Covenant **seals** it two hours
+after it opens and **tears it shut** two hours after that (the seal and the collapse every gate already keeps), and
+Dagon's Wrath is the door slammed on whoever is still inside. The precedent is canon: Dagon's legions took the
+Battlespire in the years of the Imperial Simulacrum, a generation before the game. **No mechanic changes for the
+frame**; the words do (A), and three things are added (B, C, D).
+
+What stays, because it is lore-sound in 3E 417: the Deadlands (Dagon's realm), the Burning Court, the Dremora ranks,
+Valkynaz Ruhn and his title **Warden of the Burning Gate** (the faithful's name for the arch the breach wears),
+"the gate" for that arch of black stone (*"The gate is sealed. It opens in 3:12."*), the Gatebreaker title, Ruhn's
+Regalia, Dagon's Brand, the Sigil Broker, and "Oblivion" as the name of the planes (*Meteor of Oblivion*, the
+*crystals of Oblivion*). What goes is "Oblivion Gate" as the name of the event, and "Sigil Stone" - a sigil stone is
+the keystone of a Crisis gate.
+
+### A. The breach and its words (WB12a)
+
+**The name.** The event is **Dagon's Breach** (a breach in running text, "the breach near Copperham"); a count of them
+is **breaches closed**. Every player-facing line that named an Oblivion Gate says it so, and the Covenant is named
+where a line says why the door closes:
+
+| moment | was | is |
+|---|---|---|
+| omen (chat) | The sky burns over the wilds near P. An Oblivion Gate opens there at 20:00 (14:32 your time) - it is marked on your map. | The sky burns over the wilds near P. Dagon's faithful are calling a door to the Deadlands: the breach opens there at 20:00 (14:32 your time). It is marked on your map. |
+| risen | An Oblivion Gate has risen near N. It opens in 4:07. | Dagon's Breach has torn open near N. It opens in 4:07. |
+| open | The Oblivion Gate near N stands open until 22:00 (...). | Dagon's Breach near N stands open until 22:00 (...). The Covenant will not suffer it long. |
+| sealed | The Oblivion Gate near N has sealed. It collapses at 00:00 (...). | The Covenant has sealed Dagon's Breach near N. It collapses at 00:00 (...). |
+| collapse | The Oblivion Gate near N collapses. B returns to the Deadlands. | The Covenant tears Dagon's Breach near N shut. B is cast back into the Deadlands. |
+| his fall | B has fallen at the Oblivion Gate near N - struck down by ... The gate collapses. | B has fallen at Dagon's Breach near N - struck down by ... The breach collapses. |
+| banner, plaque, map legend, ring, map card | Oblivion Gate - opens in 3:12 | Dagon's Breach - opens in 3:12 |
+| notice card | An Oblivion Gate | Dagon's Breach |
+| marks card | Beyond this gate B waits, ... | Beyond the breach B waits, ... |
+| Discord omen | ... An Oblivion Gate opens (in 2 hours) ... and seals at ... | ... Dagon's faithful open a breach (in 2 hours) ... and the Covenant seals it at ... |
+| Discord fall | B has fallen at the Oblivion Gate near N ... The gate collapses. | B has fallen at Dagon's Breach near N ... The breach collapses. |
+| claims, record | The gate is closed in your name. Gates closed: 4. | The breach is closed in your name. Breaches closed: 4. |
+| Drakes line | The gate is on your record. ... for two gates a day. | The breach is on your record. ... for two breaches a day. |
+| profile, account card | Gates closed: n | Breaches closed: n |
+| Broker's title and aura | ... the ember of an Oblivion Gate closed ... closed enough Gates ... | ... the ember of a breach closed ... closed enough breaches ... |
+| set power | Wrath of the Warden! The gate's fire bursts from you. | Wrath of the Warden! The breach's fire bursts from you. |
+| account refusal | ... closed enough Oblivion Gates ... Each gate closed pays one Sigil Stone. | ... closed enough of Dagon's Breaches ... Each breach closed pays its Deadlands Embers. |
+
+The relay's refusal WORDS (`the gate is closed`, `the gate is sealed`, `the gate is closing`, `the court is full`) are
+protocol, not prose, and keep their bytes; the sentences the client makes of them name the gate, the arch, and stay.
+
+**Deadlands Ember.** The Sigil Stone (template 570) is the **Deadlands Ember**: *a coal of the breach's fire, carried
+out when the Warden falls; it does not cool and does not go out.* Only the NAME moves - the template id, its binding,
+every key, field, save vendor, salt, device key, CSS class, token claim, insignia id and database column keep their
+bytes (a sale, a save, a realm record and a listing all read the same). The name lives in each record, not only the
+template (a stone's `name` is written when it is minted and kept by every save), so a **load repair** renames every
+template-570 record under the old name - in every list a save carries, beside the rarity names' own repair - and the
+crash records' pieces and the stack fold do the same; a stone minted after the change is an ember from birth, and a
+merge or a split can never leave a stack with two names. The Broker counts in embers ("4 Deadlands Embers", "Not
+enough Deadlands Embers", "Trades in Deadlands Embers", "The Broker's eyes never leave her embers"); the price column,
+sized for "12 Sigil Stones", is re-measured for "50 Deadlands Embers" in a real browser.
+
+**A guard**, as DRAKES pinned the old currency's name: no shipped source names an Oblivion Gate or a Sigil Stone in
+player text.
+
+### B. Mehrunes Dagon's day (WB12b)
+
+**When.** Daggerfall's own calendar: Mehrunes Dagon's summoning day is the 20th of Sun's Dusk (day of the year 320 in
+`systems/daedraSummoning.js`), which the Bay also keeps as the Warriors' Festival (`systems/holidays.js`). One breach
+is exactly one game day of the shared clock (two real hours), so **the breach of game day d is Dagon's day when
+`d % 360 === 319`** - one breach every 360, every 30 real days, at the same times of day (the first: game day 679,
+opening 2026-10-10 08:32:30 UTC). The law is pure (`net/gateLaw.js isDagonsDay`, 360 pinned inline as 1440 is - the
+relay's graph never imports the calendar), pinned against the summoning table and the festival.
+
+**Harder - his Legion and a third trial.** On Dagon's day **the Legion-Lord always comes, with one more trial than
+usual**: the day's two trials become three. The marks cycle stays the plain rotation (its every law - each round every
+aspect, no two gates running sharing a mark - is the cycle's and is kept); a wrapper, `gateMarksOf(day)`, is what the
+relay's fight, the omen, the herald, the gate's card and the map's tip read: on any other day it IS the cycle's; on
+Dagon's day it adds the Legion-Lord when the cycle did not bring him, else the first trial (in a fixed order:
+Vengeful, Unyielding, Favoured, then the table's) that neither the day before nor the day after carries. The wire
+takes an aspect and up to three trials (`GATE_MARKS_WIRE_MAX`, apart from GATE_TRIALS_A_DAY, which the cycle's law
+needs at 2); the brain's law moves to **6** (a game of law 5 cannot read a third trial - it would drop the fight's
+every state - so it is refused at the gate and told to reload, on every day). The marks card and the boss bar hold
+four marks. **Every attack stays escapable** at 7.6 m/s under every great set (the law's test walks every slot of the
+cycle with Dagon's day's wrapper, not only the two the calendar lands on today).
+
+**Richer - double embers.** Every challenger who earns spoils on Dagon's day takes **two** Deadlands Embers. The ember
+draws no dice, so a stack of two leaves every other piece of a seed as it was. The account service believes what the
+pack holds by what the account closed, so the purse counts it: `gate_kills` gains `stones` (migration 0046, default 1 -
+no Dagon's day ever ran before it, the first falls after the epoch's day 319), written at the claim by the same law,
+and the purse is their sum.
+
+**The words.** The omen on Dagon's day: *"It is the 20th of Sun's Dusk, Mehrunes Dagon's day, and while the Bay keeps
+the Warriors' Festival every coven calls to him at once. The breach near N opens wider tonight: his Legion comes with
+him, and its fire pays double."*; the Discord omen post opens **Mehrunes Dagon's day.**; the marks card is titled
+*Dagon's Day - A Great Breach*.
+
+### C. On the Burning Doors (WB12c)
+
+A Mages Guild conjurer's account of the breaches (the text is the appendix below): what the common folk call them,
+the Covenant, the faithful and their rite, the Warden, why the doors close, the Battlespire, Dagon's day, the embers,
+and counsel - which tells a reader how the game works in the world's own words.
+
+- **The book**: id **417** (the year; above the classic ids, its low byte no classic book's, under the decor law's
+  0xffff), template 277 like every book, its price the classic law's own for its title (463), plain ASCII in
+  Daggerfall's book format so the reader and the raum-book skin show it as any other.
+- **Where it lives**: a port registry (`systems/portBooks.js`) that encodes its pages into the BOK format's own bytes,
+  as `encodeRscRecord` does for the port's text records; the classic table baked from DFU is never touched. The one
+  open door reads a port book from the registry before it asks for a file.
+- **Where it is found**: the **booksellers** (and the general stores and pawnshops that stock books) and the
+  **library shelves** (libraries, and the guild halls and temples whose shelves the Mages Guild opens) draw it at the
+  odds of any other book; dungeon loot, houses, biographies and quests stay the classic books'.
+- **The first breach**: the first time a character closes a breach - the first ember that enters the pack - a copy is
+  handed over: *"A Mages Guild courier finds you: 'On the Burning Doors', with the Guild's compliments."* Once a
+  character (its save's own record, as the Broker's and the codex's are).
+
+### D. The faithful's rite (WB12d)
+
+**The site.** Each breach's faithful work their rite in a circle **90-180 m from where the breach will stand** -
+inside its own map pixel (the site keeps every guarantee the gate's scan gives: land, no town, no dungeon), never
+within 60 m of the arch (its banner) and never on its approach - at a bearing and distance the day's rolls give
+(`riteSiteOf(day)`, pure, so every client and the relay agree with no word sent).
+
+**The window: from the omen to the opening** (about 15 real minutes - three game hours). With the omen, a **pillar of
+smoke** rises from the circle, visible across the omen's ring. When the breach opens, the faithful still standing
+finish the rite and **pass into the breach** (gone, with a line to those near); the circle, its fires and its chest
+stay until the breach collapses.
+
+**The look.** A ring of braziers round **Dagon's sigil burned into the earth** (the rune ring the breach's own art
+wears), an altar stone, the faithful's tents and a fire - made in code as the gate's art is, its fires lit as the
+court's braziers are.
+
+**The faithful.** **6-8 of Dagon's faithful and a Summoner** (the day's roll), robed casters - mages, battlemages,
+healers and nightblades (Daggerfall has no witch; covens are places, not mobiles) - named *Dagon's Faithful* and *the
+Summoner*. They chant at the circle until disturbed; one woken wakes them all (a camp's law). The Summoner has three
+times a caster's health. **On Dagon's day the great rite**: twice the faithful (12-16) and *the Arch-Summoner* (five
+times). Online every player sees the same faithful: the first to come within reach springs them and owns them (the
+World of Daggerfall camps' law), every other sees them as the owner's.
+
+**Breaking the rite.** The rite is broken when **the Summoner falls before the breach opens**. Everyone who struck one
+of the faithful while standing at the circle is **one who helped**.
+
+**The extra ember.** When the breach is **closed** (the Warden falls - not when the Covenant tears it shut), everyone
+who helped **takes one more Deadlands Ember** - whether or not they fought the Warden: a challenger's receipt says so
+(`r`), and one who helped but did not fight is minted a receipt of the rite alone (`x: 'rite'`) that pays that one
+ember and nothing else. The account's purse counts it (the claim's `stones`); a receipt of the rite alone is **not a
+breach closed** (no Drakes strike, no "breaches closed"). The boss is unchanged.
+
+**How the relay knows.** Each player at the circle says the rite's word (`t: 'rite'`) to the circle's own cell every
+few seconds while the rite stands: the day, whether they struck the faithful, whether they saw the Summoner fall. The
+cell believes a word only from a socket whose pose stands within reach of the circle the day's law places, in the
+rite's window; it folds the helpers by account and, when the Summoner's fall is said, tells the hub once (the raids'
+cleanse door). The hub keeps the day's rite, says it to everyone online (and to every hello after), and the breach's
+room reads it at the kill. Honest limit, stated: as with a raid, a word is a player's own; the relay checks where and
+when it was said, not each blow - a lie can buy a liar one ember.
+
+**The chest.** In the circle stands the faithful's chest. It opens **once the rite is broken**, for each character
+**once a day**: gold, two to four reagents of the rite (Sulphur, Ichor, Ectoplasm, Lich Dust, a Daedra's Heart
+rarely), and a small chance (one in twenty; one in ten on Dagon's day) at **a piece of Dagon's Brand** - a Magic piece
+of armour bearing the set's sigil.
+
+**The words.** At the omen: *"Dagon's faithful gather in the wilds near N to work the rite. Cut down their Summoner
+before the breach opens and the breach will pay you an ember more."* Near the circle: *"Chanting rises from the
+smoke - Dagon's faithful work their rite here."* Broken (everyone online): *"The faithful's rite near N is broken.
+Those who broke it carry an ember more out of the breach, if the breach is closed."* At the opening, unbroken (those
+near): *"The faithful finish their rite and pass into the breach."* The Discord omen post adds *His faithful work the
+rite nearby*; a broken rite is posted with who broke it.
+
+### Versions and the deploy
+
+The relay's law moves to **world141** (the words of `gateLaw.js` and `gateHerald.js`, the brain's law 6, the third
+trial, the rite's word and the receipt's `r`), the brain's law to **6**, the account service to **acct46** (migration
+0046's `stones`, the claim of `r` and of a rite alone). Each deploy drops connected players once, as every relay
+deploy does; a game from before it is refused at the breach and told to reload.
+
+### What does not change
+
+Every mechanic of the fight on every day but Dagon's; the schedule; the rotation of marks; the spoils' dice; the
+Broker's wares and prices; every id, key and column. The court is the Burning Court; the Deadlands are the Deadlands.
+
+### Appendix - On the Burning Doors
+
+*By Ysolde Marnhel, Master Conjurer of the Mages Guild, Wayrest.*
+
+> Every day now, somewhere in the wilds of the Bay, the sky catches fire. Herders swear to a door of black stone that
+> rises where no stone stood, its arch full of flame, and to a lord of the Deadlands who waits within. The common folk
+> call these the doors of Oblivion and bar their shutters. They are right to bar them, and wrong about nearly
+> everything else.
+>
+> **The Covenant.** Since the days of Saint Alessia, Akatosh has kept a covenant with the blood of the Emperors. While
+> a Septim wears the Amulet of Kings and the Dragonfires burn in the Temple of the One, no Prince of Oblivion may force
+> his way into Tamriel. Our Emperor Uriel, seventh of that name, sits the Ruby Throne, and the fires burn. No invasion
+> comes. But the Covenant was made to bar a door forced from without. It was never made to bar a door opened from
+> within. Every apprentice who calls a scamp into a circle proves as much, and every coven of the Bay that calls a
+> Prince on his own day proves it more loudly.
+>
+> **The faithful.** Mehrunes Dagon, Prince of Destruction, has never lacked for worshippers in a land as quarrelsome
+> as ours. His faithful keep to the wilds, and to a rite older than Wayrest. They gather about a ring of braziers, burn
+> his sigil into the earth, and bleed for him. What opens is not a gate as the Daedra raise them in their own realms.
+> It is a breach: a wound in the world, held open by the will of the Prince and the blood of his faithful, and by
+> nothing else.
+>
+> **The Warden.** No Prince walks through such a wound himself. He sends a lord of his house to hold it, a Dremora of
+> the rank they call valkynaz, and the one who answers most often in our Bay names himself Ruhn. Among the faithful he
+> is the Warden of the Burning Gate. I have spoken with three who stood before him and lived. They agree that he is
+> very large, that he burns, and that he does not tire.
+>
+> **Why the doors close.** Here the Covenant shows its teeth. A breach is a door the Dragonfires did not permit, and
+> they will not suffer it long. From the hour it opens the Covenant presses upon it like a hand upon a wound. Within
+> two hours it is sealed; two hours after, it collapses entirely, and whatever of Dagon's remains on our side is cast
+> back into the Deadlands. Should the Warden fall before then, the breach fails at once. It is his will that holds the
+> door.
+>
+> **The Battlespire.** I am asked whether the Prince has done such a thing before. He has, and worse. In the years of
+> the false Emperor his legions took the Battlespire itself, where the Empire trained its battlemages, and held it
+> until a single apprentice drove them out. Not since the Battlespire fell has Dagon found doors so wide as these.
+>
+> **Dagon's day.** On the twentieth of Sun's Dusk the Bay keeps the Warriors' Festival, and Dagon's faithful keep his
+> day. On that night every coven calls to him at once, and the breach opens wider than any Warden can hold alone: his
+> Legion comes through with him, and his marks lie heavier. The fire of that night burns hotter too, and those who
+> close the door carry twice the embers out of it.
+>
+> **The embers.** Those who close a breach carry out coals of its fire. They do not cool and they do not go out, and in
+> the Guild we call them Deadlands embers. The Guild will buy them for study. A certain Broker of the wilds pays
+> better, and asks fewer questions.
+>
+> **Counsel.** If you would close a door, find the faithful first. Their circle stands within sight of where the breach
+> will open, and their smoke rises with the first omen. No one coven opens a breach - the Prince presses on that place
+> from his side, and the faithful only widen the wound - so their door will open whatever you do. But cut down their
+> Summoner before the rite is done, and the fire of the broken rite clings to those who broke it: when the door is
+> closed, it pays each of them an ember more. What the faithful keep in their circle is yours as well. Do not go alone.
+> Do not stand where the ground glows. And when the Covenant closes the door, do not be on the wrong side of it.
+
 ## Shipped
 
 **WB1 (2026-09-25) - the omen.** `net/gateLaw.js` (the schedule, the room's key and window, the rolls, the boss table,

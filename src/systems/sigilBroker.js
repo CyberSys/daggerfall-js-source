@@ -297,9 +297,9 @@ registerModSaveData(BROKER_SAVE_VENDOR, {
  *  alone for now): the share of a ware's price its dismantle gives back - half, rounded down: a Rare piece's 4 give 2,
  *  a Legendary's or a weapon's 6 give 3, the Regalia's 12 give 6 - so a ware is never a free try of the day's stock. */
 export const BROKER_DISMANTLE_SHARE = 0.5;
-/** A count of stones in the Broker's words - "1 Sigil Stone", "4 Sigil Stones" (his window's purse and sale, the
- *  dismantle's). */
-export const stonesText = (n) => `${n} Sigil Stone${n === 1 ? '' : 's'}`;
+/** A count of stones in the Broker's words - "1 Deadlands Ember", "4 Deadlands Embers" (his window's purse and sale,
+ *  the dismantle's; WB12a - the Sigil Stone's new name). */
+export const stonesText = (n) => `${n} Deadlands Ember${n === 1 ? '' : 's'}`;
 /** The stones a piece dismantles into: its share of what the Broker took for it (`stonesPaid`, marked at the mint -
  *  brokerStock), at least one; 0 for a piece the Broker never sold - a drop, or a ware bought before SS5. A ware is
  *  BOUND (SS4) as well as priced, and both marks are read: no list a peer hands over lands a bound piece
@@ -340,7 +340,7 @@ export const DISMANTLE_WORN = (name) => `Take off ${name} before dismantling it.
 export const DISMANTLED = (name, n) => `Dismantled: ${name}, for ${stonesText(n)}.`;
 
 /** The words a refused offer wears, and the set an offer belongs to by name. */
-export const BROKER_REFUSALS = Object.freeze({ bought: 'Bought today', stones: 'Not enough Sigil Stones', gone: 'Gone with the day', heavy: 'Too heavy to carry' });
+export const BROKER_REFUSALS = Object.freeze({ bought: 'Bought today', stones: 'Not enough Deadlands Embers', gone: 'Gone with the day', heavy: 'Too heavy to carry' });
 export const offerSetName = (offer) => setById(offer?.set)?.name ?? '';
 export { SIGIL_STONE_TEMPLATE };
 /** Tests only: forget the record. */

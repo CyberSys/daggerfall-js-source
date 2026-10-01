@@ -2,7 +2,7 @@
 // trade for daily reset sigil items at a new NPC vendor that stands outside the oblivion gate"): THE SIGIL BROKER'S LAW
 // (systems/sigilBroker.js) - the day of the shared clock and when it turns; the day's stock, the same for every player
 // and minted from fixed tables (a piece of each world set, a set weapon, a piece of the Regalia), every piece known,
-// fresh, a valid loot item; the prices in Sigil Stones; what an offer asks and the sale it plans; and the one-a-day
+// fresh, a valid loot item; the prices in Deadlands Embers; what an offer asks and the sale it plans; and the one-a-day
 // record in the character's save.
 import './modsOff.js';
 import { test } from 'node:test';
@@ -30,7 +30,7 @@ import { overlayOpen, clearOverlays } from '../src/ui/enhancedOverlays.js';
 import { setLocked } from '../src/systems/itemLock.js';
 
 const DAY = brokerDay(Date.parse('2026-09-27T12:00:00Z'));
-/** SS1: a stack of `n` Sigil Stones - one record, as addItem makes it. */
+/** SS1: a stack of `n` Deadlands Embers - one record, as addItem makes it. */
 const stack = (n) => Object.assign(sigilStone(), { stackCount: n });
 /** SS1: a pack after a sale's take (`[{ item, count }]`): a stack it empties gone, one it draws on at what it keeps. */
 const spend = (pack, take) => pack.flatMap((x) => {
@@ -239,8 +239,8 @@ test('SET7 the window: the purse (and its locked stones) and the turn of the day
   assert.equal(brokerTurnText(5 * 3_600_000), '5h 00m');
   assert.equal(brokerTurnText(38 * 60_000 - 1), '38m');
   assert.equal(brokerTurnText(-5), '0m');
-  assert.deepEqual([stonesText(1), stonesText(3)], ['1 Sigil Stone', '3 Sigil Stones']);
-  assert.deepEqual([purseText(3), purseText(3, 1)], ['3 Sigil Stones', '3 Sigil Stones · 1 locked']);
+  assert.deepEqual([stonesText(1), stonesText(3)], ['1 Deadlands Ember', '3 Deadlands Embers']);
+  assert.deepEqual([purseText(3), purseText(3, 1)], ['3 Deadlands Embers', '3 Deadlands Embers · 1 locked']);
   assert.equal(BROKER_REPAINT_MS, 30_000);
   assert.deepEqual([buyLabel({ ok: true }), buyLabel({ ok: false, reason: 'stones', price: 6, have: 1 }), buyLabel({ ok: false, reason: 'bought' }), buyLabel({ ok: false, reason: 'gone' })],
     ['Buy', 'Need 5 more', 'Bought', 'Gone'], 'the Buy\'s word fits the button');
@@ -268,8 +268,8 @@ test('SET7 the window: the purse (and its locked stones) and the turn of the day
       const shell = one(host, 'broker-shell');
       assert.ok(shell, 'the window stands in the door\'s host');
       assert.equal(shell.attrs.role, 'dialog');
-      assert.equal(one(shell, 'broker-purse').textContent, '7 Sigil Stones · 1 locked', 'SS1: the purse counts its stacks whole');
-      assert.equal(one(shell, 'broker-sub').textContent, 'Sigil Stones buy the day\'s stock · it turns in 5h 00m');
+      assert.equal(one(shell, 'broker-purse').textContent, '7 Deadlands Embers · 1 locked', 'SS1: the purse counts its stacks whole');
+      assert.equal(one(shell, 'broker-sub').textContent, 'Deadlands Embers buy the day\'s stock · it turns in 5h 00m');
       const noteLine = one(shell, 'broker-note');
       assert.equal(noteLine.textContent, '', 'no word before a press');
       assert.equal(noteLine.attrs.hidden, '', 'and the line hidden');
@@ -289,7 +289,7 @@ test('SET7 the window: the purse (and its locked stones) and the turn of the day
       assert.equal(buys[1].attrs.disabled, '', 'a refused offer cannot be pressed');
       assert.ok(rows[1].classList.contains('no-bought'));
       assert.equal(buys[5].textContent, 'Need 5 more', 'the Regalia at twelve, a purse of seven');
-      assert.equal(buys[5].attrs.title, 'Not enough Sigil Stones');
+      assert.equal(buys[5].attrs.title, 'Not enough Deadlands Embers');
       assert.equal(buys[5].attrs.disabled, '');
       assert.equal(buys[0].attrs.title, undefined, 'a Buy that may be pressed needs no reason');
       assert.equal(buys[0].textContent, 'Buy');
@@ -318,8 +318,8 @@ test('SET7 the window: the purse (and its locked stones) and the turn of the day
       assert.deepEqual(sales, [stock[0].id]);
       assert.equal(one(shell, 'broker-note').textContent, BROKER_SOLD(stock[0].item.name, stock[0].price));
       assert.equal(one(shell, 'broker-note'), noteLine, 'the same line, said again');
-      assert.equal(BROKER_SOLD('Ebony Cuirass', 2), 'Bought: Ebony Cuirass, for 2 Sigil Stones.');
-      assert.equal(BROKER_SOLD('The Warden', 3), 'Bought: The Warden, for 3 Sigil Stones.', 'AUDIT U6: never "the The Warden"');
+      assert.equal(BROKER_SOLD('Ebony Cuirass', 2), 'Bought: Ebony Cuirass, for 2 Deadlands Embers.');
+      assert.equal(BROKER_SOLD('The Warden', 3), 'Bought: The Warden, for 3 Deadlands Embers.', 'AUDIT U6: never "the The Warden"');
       assert.ok(one(shell, 'broker-note').classList.contains('ok'));
       rows = kids(shell, 'broker-offer');
       assert.equal(one(rows[0], 'broker-buy').textContent, 'Bought');
@@ -351,7 +351,7 @@ test('SET7 the window: the purse (and its locked stones) and the turn of the day
       assert.equal(rows[2].attrs.tabindex, '0');
       assert.equal(rows[3].attrs['aria-pressed'], 'true', 'the pressed row says so');
       assert.equal(rows[2].attrs['aria-pressed'], 'false');
-      assert.match(rows[2].attrs['aria-label'], new RegExp(`^${stock[2].item.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}, .+, \\d+ Sigil Stones?$`));
+      assert.match(rows[2].attrs['aria-label'], new RegExp(`^${stock[2].item.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}, .+, \\d+ Deadlands Embers?$`));
       let prevented = 0;
       rows[2].onkeydown({ key: 'Enter', target: rows[2], preventDefault() { prevented++; } });
       assert.equal(prevented, 1);

@@ -36,8 +36,8 @@ export const GATE_ME_POLL_MS = 1000;
 
 /** The words. */
 export const GATE_CLAIM_TEXT = Object.freeze({
-  recorded: (n) => `The gate is closed in your name. Gates closed: ${n}.`,
-  guest: 'This gate is not on your record yet: only registered accounts keep one. Add a username this week and it counts.',
+  recorded: (n) => `The breach is closed in your name. Breaches closed: ${n}.`,   // WB12a
+  guest: 'This breach is not on your record yet: only registered accounts keep one. Add a username this week and it counts.',
 });
 
 /** AUDIT WB A5: the refusals of a receipt the service can mend - its key not the relay's pair, a clock off - kept for

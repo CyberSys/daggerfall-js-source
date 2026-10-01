@@ -340,7 +340,7 @@ export function setHurt(entity, { before, after }) {
   _s.wrathUntil = now + WRATH_SECONDS;
   _s.recovering.add('wrath');
   const struck = nova(v.nova);
-  say(struck ? `Wrath of the Warden! The gate's fire bursts from you (${struck} struck).` : 'Wrath of the Warden! The gate\'s fire bursts from you.');
+  say(struck ? `Wrath of the Warden! The breach's fire bursts from you (${struck} struck).` : 'Wrath of the Warden! The breach\'s fire bursts from you.');   // WB12a
   sound('wrath');
 }
 /** RAID4b: A FOE'S BLOW TOOK MY HEALTH - Riposte's window opens (the next blow of mine inside it is sharpened), and

@@ -443,7 +443,7 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
       // WB5b: the Oblivion Gates this account closed - each a kill the relay signed and this service counted once
       // (net/gateClaims.js carries the receipts). A service from before it says nothing.
       const gates = gateRecordText(flow.account.gates);
-      if (gates) row('Gates closed', gates);
+      if (gates) row('Breaches closed', gates);   // WB12a
       // MARKS1: the account's Marks - the server's currency, struck for acts a server witnessed (PROF0 10.5). Null where
       // Marks are not this account's (a guest, the service's switch), and a service from before it says nothing.
       if (Number.isSafeInteger(flow.account.marks)) row('Drakes', marksText(flow.account.marks));

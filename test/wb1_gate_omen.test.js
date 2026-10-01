@@ -265,12 +265,12 @@ test('WB1 the chat: each moment\'s line ONCE, in order, and a late arrival hears
   for (let ms = clock.now; ms <= t.wrathAt + GATE_COLLAPSE_MS + 5000; ms += 1000) { clock.now = ms; omen.frame(); }
   assert.equal(lines.length, 6, lines.join('\n'));
   assert.equal(lines[0], omenLine({ place: 'Copperham, Wrothgarian Mountains', at: `L${600 * 1440 + 1200}` }));
-  assert.match(lines[0], /^The sky burns over the wilds near Copperham, Wrothgarian Mountains\. An Oblivion Gate opens there at 20:00 \(L\d+ your time\)/);
+  assert.match(lines[0], /^The sky burns over the wilds near Copperham, Wrothgarian Mountains\. Dagon's faithful are calling a door to the Deadlands: the breach opens there at 20:00 \(L\d+ your time\)\. It is marked on your map\.$/);
   assert.equal(lines[1], marksLine({ boss: 'Valkynaz Ruhn', md: gateModsOf(600) }), 'WB8c: tonight\'s marks, beside the omen - once');
   assert.equal(lines[2], riseLine({ near: 'Copperham', left: '5:00' }));
   assert.equal(lines[3], openLine({ near: 'Copperham', at: `L${600 * 1440 + 1320}` }));
   assert.equal(lines[4], sealLine({ near: 'Copperham', at: `L${600 * 1440 + 1440}` }));
-  assert.match(lines[4], /^The Oblivion Gate near Copperham has sealed\. It collapses at 00:00 \(L865440 your time\)\.$/, 'GATE-COLLAPSE: the seal says when it goes - the wrath, midnight');
+  assert.match(lines[4], /^The Covenant has sealed Dagon's Breach near Copperham\. It collapses at 00:00 \(L865440 your time\)\.$/, 'GATE-COLLAPSE: the seal says when it goes - the wrath, midnight');
   assert.equal(lines[5], wrathLine({ near: 'Copperham', boss: 'Valkynaz Ruhn' }));
   // a player arriving 90 s into the sealed wait hears the rise line with what is LEFT, and nothing before it - and
   // (WB8c) tonight's marks beside it
@@ -299,10 +299,10 @@ test('WB1 the map\'s mark and the compass: the ring while marked, its words coun
   clock.now = t.omenAt + 1000; omen.frame();
   const m = omen.mapMark();
   assert.deepEqual({ cx: m.cx, cy: m.cy, r: m.r, day: m.day }, { cx: 400.3, cy: 200.6, r: 2, day: 604 });
-  assert.equal(m.label, `Oblivion Gate - opens in ${countdownText(t.openAt - clock.now)}`);
+  assert.equal(m.label, `Dagon's Breach - opens in ${countdownText(t.openAt - clock.now)}`);
   assert.equal(omen.standing(), null, 'the omen marks the land before the gate stands on it');
   clock.now = t.openAt + 2000; omen.frame();
-  assert.match(omen.mapMark().label, /^Oblivion Gate - seals in 9:58$/);
+  assert.match(omen.mapMark().label, /^Dagon's Breach - seals in 9:58$/);
   const st = omen.standing();
   assert.deepEqual({ day: st.day, px: st.px, py: st.py, spot: st.spot, phase: st.phase, near: st.near }, { day: 604, px: 400, py: 200, spot: [409.6, 409.6], phase: 'open', near: 'Copperham' });
   assert.deepEqual(st.t, t, 'its times, for the pool\'s rise and collapse (WB2)');
@@ -310,7 +310,7 @@ test('WB1 the map\'s mark and the compass: the ring while marked, its words coun
   // GATE-COLLAPSE (the field's screenshot: the ring labelled "Oblivion Gate" and nothing else, sealed for the night):
   // the sealed hours count down to the collapse, and the ring goes with the gate
   clock.now = t.sealAt + 2000; omen.frame();
-  assert.match(omen.mapMark().label, /^Oblivion Gate - sealed, collapses in 9:58$/);
+  assert.match(omen.mapMark().label, /^Dagon's Breach - sealed, collapses in 9:58$/);
   assert.equal(omen.mapMark().phase, 'closed');
   clock.now = t.wrathAt + GATE_COLLAPSE_MS; omen.frame();
   assert.equal(omen.mapMark(), null, 'gone: no ring');
@@ -326,8 +326,8 @@ test('WB1 the maps\' reading: a bad mark is none, the held map repaints on the w
   assert.equal(readGateMark(() => ({ cx: NaN, cy: 1, r: 2 }), size), null);
   assert.equal(readGateMark(() => ({ cx: 1, cy: 1, r: 0 }), size), null);
   assert.equal(readGateMark(() => ({ cx: 2000, cy: 1, r: 2 }), size), null, 'off the map');
-  const a = readGateMark(() => ({ day: 5, cx: 10.5, cy: 20.25, r: 2, label: 'Oblivion Gate - opens in 4:00', phase: 'sealed' }), size);
-  const b = { ...a, label: 'Oblivion Gate - opens in 3:59' };
+  const a = readGateMark(() => ({ day: 5, cx: 10.5, cy: 20.25, r: 2, label: 'Dagon\'s Breach - opens in 4:00', phase: 'sealed' }), size);
+  const b = { ...a, label: 'Dagon\'s Breach - opens in 3:59' };
   assert.notEqual(gateMarkKey(a), gateMarkKey(b), 'the held map shows the countdown');
   assert.equal(gateRingKey(a), gateRingKey(b), 'the classic page draws no words and does not rebuild for them');
   const texels = gateRingTexels(a, 0, 0, 320, 160);
@@ -342,10 +342,10 @@ test('WB1 the maps\' reading: a bad mark is none, the held map repaints on the w
 test('WB1 the ink: the ring in map pixels, never under ten paper pixels, with its words over its top', () => {
   const calls = [];
   const ctx = new Proxy({}, { get: (o, k) => (k in o ? o[k] : (...args) => calls.push([k, ...args])), set: (o, k, v) => { o[k] = v; return true; } });
-  paintGateRing(ctx, { ox: 0, oy: 0, scale: 12 }, { cx: 10, cy: 5, r: 2, label: 'Oblivion Gate - opens in 1:00' }, 0.5);
+  paintGateRing(ctx, { ox: 0, oy: 0, scale: 12 }, { cx: 10, cy: 5, r: 2, label: 'Dagon\'s Breach - opens in 1:00' }, 0.5);
   const arcs = calls.filter(([k]) => k === 'arc');
   assert.deepEqual(arcs[0].slice(1, 4), [120, 60, 24], 'the area: two map pixels at twelve paper pixels each');
-  assert.ok(calls.some(([k, text]) => k === 'fillText' && text === 'Oblivion Gate - opens in 1:00'));
+  assert.ok(calls.some(([k, text]) => k === 'fillText' && text === 'Dagon\'s Breach - opens in 1:00'));
   calls.length = 0;
   paintGateRing(ctx, { ox: 0, oy: 0, scale: 1 }, { cx: 10, cy: 5, r: 2 }, 0);
   assert.equal(calls.find(([k]) => k === 'arc')[3], 10, 'the whole bay on the sheet: still findable');

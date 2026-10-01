@@ -55,7 +55,7 @@ const RETRY = Object.freeze(['offline', 'server']);
 /** The words. */
 export const MARKS_TEXT = Object.freeze({
   struck: (n, balance) => `${marksText(n)} struck to your account. You hold ${marksText(balance)}.`,
-  capped: 'The gate is on your record. The counting-houses strike Drakes for two gates a day.',
+  capped: 'The breach is on your record. The counting-houses strike Drakes for two breaches a day.',   // WB12a
   sold: (marks, gold) => `The Bank buys ${marksText(marks)} for ${gold.toLocaleString('en-US')} gold, paid into your account here.`,
   kept: 'The Bank has your Drakes and will pay when the counting-house answers.',
   settled: (marks, gold) => `The Bank has finished counting: ${marksText(marks)} bought for ${gold.toLocaleString('en-US')} gold, paid into your account.`,

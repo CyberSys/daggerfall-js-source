@@ -61,12 +61,12 @@ export const BROKER_REPAINT_MS = 30_000;
 export const INSIGNIA_HEAD = 'Insignia';
 export const INSIGNIA_SUB = 'Kept by your account, worn by every character of it - bought once';
 export const INSIGNIA_LINE = Object.freeze({
-  title: 'A title worn over your name, in the fire of the Gate that bore it',
+  title: 'A title worn over your name, in the fire of the breach that bore it',   // WB12a
   aura: 'A ring of Dagon\'s fire burning about your feet, for every player to see',
 });
 export const INSIGNIA_CARD = Object.freeze({
-  title: ['Gatebreaker', 'Worn over your name for every player to read - the coal, the fire and the ember of an Oblivion Gate closed.', 'The Broker sells it once, to an account that has closed enough Gates to pay for it. Wear it here or on your account card; take it off and put it on again as often as you like.'],
-  aura: ['Dagon\'s Fire', 'A ring of fire that circles the ground where you stand - its flames chasing round it, embers wheeling in it, a glow in the stone within - seen by every player near you.', 'The Broker sells it once, to an account that has closed enough Gates to pay for it. Wear it here or on your account card.'],
+  title: ['Gatebreaker', 'Worn over your name for every player to read - the coal, the fire and the ember of a breach closed.', 'The Broker sells it once, to an account that has closed enough breaches to pay for it. Wear it here or on your account card; take it off and put it on again as often as you like.'],
+  aura: ['Dagon\'s Fire', 'A ring of fire that circles the ground where you stand - its flames chasing round it, embers wheeling in it, a glow in the stone within - seen by every player near you.', 'The Broker sells it once, to an account that has closed enough breaches to pay for it. Wear it here or on your account card.'],
 });
 /** WB9g: an insignia row's button word - why not, or what a press will do. */
 export function insigniaLabel(row, { have, busy, pending }) {
@@ -200,7 +200,7 @@ export function mountBrokerWindow(host, deps) {
     const offers = deps.stock();
     const state = { items: deps.items(), bought: deps.bought(), day: deps.day() };
     const picture = deps.picture !== undefined ? deps.picture : (it) => classicPicture(it, deps.wearer, () => render());
-    sub.textContent = `Sigil Stones buy the day's stock · it turns in ${brokerTurnText(brokerTurnsIn(deps.now()))}`;
+    sub.textContent = `Deadlands Embers buy the day's stock · it turns in ${brokerTurnText(brokerTurnsIn(deps.now()))}`;   // WB12a
     noteLine.textContent = note ? note.text : '';
     noteLine.className = `broker-note${note?.ok ? ' ok' : ''}`;
     if (!note) noteLine.setAttribute('hidden', ''); else noteLine.removeAttribute?.('hidden');

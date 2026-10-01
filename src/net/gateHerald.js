@@ -70,7 +70,7 @@ export function omenPost({ day, place = null, role = null }) {
   const map = place ? '' : ' - it is marked on your map';
   const marks = ` Tonight he comes **${aspect.epithet}**${trials.length ? `, ${listOf(trials.map((x) => x.name))}` : ''}.`;
   return {
-    content: `${ping}**The sky burns ${where}.** An Oblivion Gate opens ${stamp(t.openAt, 'R')} (${stamp(t.openAt, 't')}) and seals at ${stamp(t.sealAt, 't')}${map}. ${boss.name}, ${boss.title}, holds it.${marks}`,
+    content: `${ping}**The sky burns ${where}.** Dagon's faithful open a breach ${stamp(t.openAt, 'R')} (${stamp(t.openAt, 't')}) and the Covenant seals it at ${stamp(t.sealAt, 't')}${map}. ${boss.name}, ${boss.title}, holds it.${marks}`,
     allowed_mentions: role ? { roles: [role] } : { parse: [] },
   };
 }
@@ -85,7 +85,7 @@ export function fellPost({ day, place = null, top = [], n = 0 }) {
   const others = Number.isSafeInteger(n) ? Math.max(0, n - names.length) : 0;
   const by = names.length ? ` - struck down by ${listOf([...names, ...(others ? [`${others} other${others === 1 ? '' : 's'}`] : [])])}` : '';
   return {
-    content: `**${boss.name} has fallen** at the Oblivion Gate ${place ? `near ${place}` : 'in the wilds'}${by}. The gate collapses.`,
+    content: `**${boss.name} has fallen** at Dagon's Breach ${place ? `near ${place}` : 'in the wilds'}${by}. The breach collapses.`,
     allowed_mentions: { parse: [] },
   };
 }

@@ -173,8 +173,8 @@
   {
     "name": "WB5b-a-strangers-nought-said",
     "file": "src/ui/profileWindow.js",
-    "old": "  return Number.isSafeInteger(n) && n > 0 ? `Gates closed: ${n}` : null;",
-    "new": "  return Number.isSafeInteger(n) && n >= 0 ? `Gates closed: ${n}` : null;",
+    "old": "  return Number.isSafeInteger(n) && n > 0 ? `Breaches closed: ${n}` : null;",
+    "new": "  return Number.isSafeInteger(n) && n >= 0 ? `Breaches closed: ${n}` : null;",
     "tests": [
       "test/wb5b_gate_claim.test.js"
     ]
@@ -209,7 +209,7 @@
   {
     "name": "WB5b-no-account-card-row",
     "file": "src/ui/enhancedAccount.js",
-    "old": "      if (gates) row('Gates closed', gates);\n",
+    "old": "      if (gates) row('Breaches closed', gates);",
     "new": "",
     "tests": [
       "test/wb5b_gate_claim.test.js"

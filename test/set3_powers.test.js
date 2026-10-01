@@ -520,7 +520,7 @@ test('SET3 Wrath of the Warden: a foe\'s blow that takes me from at or above 30%
   blow(e, 11);
   assert.equal(e.health, 29);
   assert.deepEqual(d.hurts, [['near', 10]], 'crossed: 10 at Faint, only within six metres');
-  assert.deepEqual(v.said, ['Wrath of the Warden! The gate\'s fire bursts from you (1 struck).']);
+  assert.deepEqual(v.said, ['Wrath of the Warden! The breach\'s fire bursts from you (1 struck).']);
   assert.deepEqual(v.sounds, ['wrath']);
   assert.equal(weaponBlowMods(sword(), 100, e, RAT), 112, 'the fury (+10%) and the sear (+2)');
   at(WRATH_SECONDS - 0.01);
@@ -549,7 +549,7 @@ test('SET3 Wrath of the Warden: a foe\'s blow that takes me from at or above 30%
   setPlayerDoor(null);
   e.health = 50; at(1000);
   blow(e, 25);   // AUDIT FINAL F10: through the door, which takes the mark as it opens
-  assert.equal(v.said.at(-1), 'Wrath of the Warden! The gate\'s fire bursts from you.', 'no door: the fury still wakes, no count said');
+  assert.equal(v.said.at(-1), 'Wrath of the Warden! The breach\'s fire bursts from you.', 'no door: the fury still wakes, no count said');
   assert.equal(weaponBlowMods(sword(), 100, e, RAT), 112);
   // AUDIT SET H1/M4/L7: who the Nova spares - asked in that order, the host's ray last (only for a foe otherwise struck)
   const w = fresh(); online(1);
@@ -567,7 +567,7 @@ test('SET3 Wrath of the Warden: a foe\'s blow that takes me from at or above 30%
   blow(me, 25);
   assert.deepEqual(dw.hurts, [['step', 10], ['open', 10]], 'the ally, the calmed foe, the storey above, the one behind the wall and the fire daedra spared');
   assert.deepEqual(rays.map(([a, b]) => [a, b[0]]), [[[0, 0, 0], 2.5], [[0, 0, 0], 3], [[0, 0, 0], 4]], 'the ray asked from my feet, only for a foe nothing else spared');
-  assert.deepEqual(w.said, ['Wrath of the Warden! The gate\'s fire bursts from you (2 struck).']);
+  assert.deepEqual(w.said, ['Wrath of the Warden! The breach\'s fire bursts from you (2 struck).']);
 });
 
 test('SET3 Eventide: a kill of mine wraps me in Nocturnal\'s shadow - a Chameleon of whole magic rounds on me through the door, no save and no roll - said and sounded, and it recovers in its time; the bundle lands as the classic Chameleon; AUDIT M5: a round more than it names, so it lasts at least what the card says; L8: the kill of my own ally or the watch is no kill (mutants: no recovery; the shadow on four pieces; the rounds off the stage; the shadow a round short; an ally\'s death feeding it)', () => {

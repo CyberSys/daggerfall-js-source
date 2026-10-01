@@ -46,12 +46,12 @@ test('DISCORD-GATES law: THE OMEN\'S POST - the role pinged first and the ONLY m
   const p = omenPost({ day: DAY, place: 'Copperham, Wrothgarian Mountains', role: ROLE });
   assert.ok(p.content.startsWith(`<@&${ROLE}> `), 'the role, first');
   assert.deepEqual(p.allowed_mentions, { roles: [ROLE] }, 'that role and nothing else - no @everyone, no user, whatever the text holds');
-  assert.equal(p.content, `<@&${ROLE}> **The sky burns near Copperham, Wrothgarian Mountains.** An Oblivion Gate opens <t:${s(TT.openAt)}:R> (<t:${s(TT.openAt)}:t>) and seals at <t:${s(TT.sealAt)}:t>. ${gateBossOf(DAY).name}, ${gateBossOf(DAY).title}, holds it. Tonight he comes **the Storm-Crowned**, Unyielding and Soul-Hungry.`);   // WB11a: the nine-trial rotation moved the day's marks (it was the Burning, Soul-Hungry and Echoing)
+  assert.equal(p.content, `<@&${ROLE}> **The sky burns near Copperham, Wrothgarian Mountains.** Dagon's faithful open a breach <t:${s(TT.openAt)}:R> (<t:${s(TT.openAt)}:t>) and the Covenant seals it at <t:${s(TT.sealAt)}:t>. ${gateBossOf(DAY).name}, ${gateBossOf(DAY).title}, holds it. Tonight he comes **the Storm-Crowned**, Unyielding and Soul-Hungry.`);   // WB11a: the nine-trial rotation moved the day's marks (it was the Burning, Soul-Hungry and Echoing)
   assert.deepEqual(gateModsOf(DAY), ['storm', 'unyielding', 'soulhungry'], 'WB8c: the day\'s own marks, in the tables\' words - never a player\'s');
   assert.equal(TT.openAt - TT.omenAt, 15 * 60_000, 'Mac\'s "15 min before": the omen is the gate\'s own, fifteen real minutes before it opens');
   const q = omenPost({ day: DAY });
   assert.deepEqual(q.allowed_mentions, { parse: [] }, 'no role: nobody pinged');
-  assert.ok(q.content.startsWith('**The sky burns over the wilds.** An Oblivion Gate opens'), q.content);
+  assert.ok(q.content.startsWith('**The sky burns over the wilds.** Dagon\'s faithful open a breach'), q.content);
   assert.ok(q.content.includes(' - it is marked on your map.'), 'no place: the map');
   assert.ok(!p.content.includes('marked on your map'), 'a place: said');
   assert.ok(p.content.length < 2000 && q.content.length < 2000, 'a Discord message\'s bound');
@@ -60,12 +60,12 @@ test('DISCORD-GATES law: THE OMEN\'S POST - the role pinged first and the ONLY m
 test('DISCORD-GATES law: THE KILL\'S POST - the boss fallen, where, by the court\'s top dealers and how many more; pings nobody; a name is letters, digits, spaces, apostrophes and hyphens (mutants: a ping on the kill; the others miscounted; a name posted raw)', () => {
   const boss = gateBossOf(DAY).name;
   const p = fellPost({ day: DAY, place: 'Copperham, Wrothgarian Mountains', top: ['Ann', 'Bran', 'Cid'], n: 15 });
-  assert.equal(p.content, `**${boss} has fallen** at the Oblivion Gate near Copperham, Wrothgarian Mountains - struck down by Ann, Bran, Cid and 12 others. The gate collapses.`);
+  assert.equal(p.content, `**${boss} has fallen** at Dagon's Breach near Copperham, Wrothgarian Mountains - struck down by Ann, Bran, Cid and 12 others. The breach collapses.`);
   assert.deepEqual(p.allowed_mentions, { parse: [] }, 'the kill pings nobody (Mac: the role on the omen alone)');
-  assert.ok(fellPost({ day: DAY, top: ['Ann', 'Bran'], n: 2 }).content.endsWith('in the wilds - struck down by Ann and Bran. The gate collapses.'));
+  assert.ok(fellPost({ day: DAY, top: ['Ann', 'Bran'], n: 2 }).content.endsWith('in the wilds - struck down by Ann and Bran. The breach collapses.'));
   assert.ok(fellPost({ day: DAY, top: ['Ann'], n: 2 }).content.includes('struck down by Ann and 1 other.'));
   assert.ok(fellPost({ day: DAY, top: ['Ann'], n: 1 }).content.includes('struck down by Ann.'));
-  assert.equal(fellPost({ day: DAY, top: [], n: 3 }).content, `**${boss} has fallen** at the Oblivion Gate in the wilds. The gate collapses.`);
+  assert.equal(fellPost({ day: DAY, top: [], n: 3 }).content, `**${boss} has fallen** at Dagon's Breach in the wilds. The breach collapses.`);
   const loud = fellPost({ day: DAY, top: ['@everyone', '**Mac**', 'https://evil.io/x', '<@&1>'], n: 4 }).content;
   assert.ok(loud.includes('struck down by everyone, Mac, httpsevilio'), loud);
   assert.ok(!/@|https:|<@&/.test(loud.replace(/^\*\*[^*]+\*\*/, '')), 'no mention and no link rides a name');

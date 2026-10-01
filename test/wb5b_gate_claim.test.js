@@ -288,10 +288,10 @@ test('WB5b the words and the cards: the account card\'s row says the count or "N
   assert.equal(gateRecordText({ closed: 3 }), '3');
   assert.equal(gateRecordText({ closed: 0 }), 'None yet');
   assert.equal(gateRecordText(null), null); assert.equal(gateRecordText({ closed: -1 }), null); assert.equal(gateRecordText({}), null);
-  assert.equal(profileGateLine({ wins: 1, losses: 0, gates: { closed: 2 } }), 'Gates closed: 2');
+  assert.equal(profileGateLine({ wins: 1, losses: 0, gates: { closed: 2 } }), 'Breaches closed: 2');
   assert.equal(profileGateLine({ wins: 1, losses: 0, gates: { closed: 0 } }), null, 'a stranger\'s none is not news');
   assert.equal(profileGateLine('asking'), null); assert.equal(profileGateLine(null), null);
-  assert.equal(profileView({ name: 'Bran', record: { wins: 0, losses: 0, gates: { closed: 5 } } }).gates, 'Gates closed: 5');
+  assert.equal(profileView({ name: 'Bran', record: { wins: 0, losses: 0, gates: { closed: 5 } } }).gates, 'Breaches closed: 5');
   // the kept read keeps the gates
   const seen = [];
   const recs = createDuelRecords({ read: async () => ({ ok: true, data: { id: 'x', wins: 2, losses: 1, gates: { closed: 4 } } }), onRecord: (id, rec) => seen.push(rec) });
@@ -306,11 +306,11 @@ test('WB5b the words and the cards: the account card\'s row says the count or "N
   const doc = fakeDoc();
   const w = createProfileWindow({ doc, win: { addEventListener() {}, removeEventListener() {} } });
   w.show('peer-1', profileView({ name: 'Bran', state: 'asking', record: { wins: 0, losses: 0, gates: { closed: 3 } } }));
-  assert.deepEqual(all(w.root.children[0], 'dfprofile-gates').map((n) => n.textContent), ['Gates closed: 3'], 'the Inspect card\'s line');
+  assert.deepEqual(all(w.root.children[0], 'dfprofile-gates').map((n) => n.textContent), ['Breaches closed: 3'], 'the Inspect card\'s line');
   w.update('peer-1', profileView({ name: 'Bran', state: 'asking', record: { wins: 0, losses: 0, gates: { closed: 0 } } }));
   assert.equal(all(w.root.children[0], 'dfprofile-gates').length, 0, 'and none for none');
   const card = src('src/ui/enhancedAccount.js');
-  assert.match(card, /const gates = gateRecordText\(flow\.account\.gates\);\s*\n\s*if \(gates\) row\('Gates closed', gates\);/, 'the main menu\'s account card');
+  assert.match(card, /const gates = gateRecordText\(flow\.account\.gates\);\s*\n\s*if \(gates\) row\('Breaches closed', gates\);/, 'the main menu\'s account card');
 });
 
 test('WB5b the key tool mints ONE pair - the relay\'s private half (PKCS8, what the relay imports) and the account service\'s public half (base64url raw, what it verifies with), a receipt signed by the one verifying with the other - and writes nothing to disk (mutants: two pairs; a key on disk)', async () => {

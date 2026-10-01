@@ -138,8 +138,8 @@ test('PLUS-DRESS the gate: the boss\'s bar and the countdown paint from CLASSES 
   }
   destroyGateBossBar();
   destroyGateBanner();
-  drawGateBanner('Oblivion Gate - opens in 3:12', { doc });
-  drawGateBanner('Oblivion Gate - opens in 3:11', { doc });
+  drawGateBanner('Dagon\'s Breach - opens in 3:12', { doc });
+  drawGateBanner('Dagon\'s Breach - opens in 3:11', { doc });
   const banner = made.at(-1);
   assert.equal(banner.className, 'wb-gate-banner');
   assert.equal(banner.style.cssText, undefined);

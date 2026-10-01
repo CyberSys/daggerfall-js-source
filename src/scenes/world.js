@@ -1027,7 +1027,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (walkMode && playerSpawned && again.some((k) => `${k.px},${k.py}` === under)) _seasonHoldKey = under;
     for (const k of again) destroyPixel(k.px, k.py, { collectLoose: false });   // the carry keeps the markers, as the late sweep's
     queue.push(...again.sort(nearestFirstFrom(state.current)));
-    console.log(`[gate] ${again.length} pixel(s) built again for the Oblivion Gate's clearing${clear ? ` (${clear.key})` : ''}`);
+    console.log(`[gate] ${again.length} pixel(s) built again for the breach's clearing${clear ? ` (${clear.key})` : ''}`);
   }
   // EV8: the far province ring - enhanced only (the 1:1 lane keeps the
   // fog horizon DFU draws), ?ring=off the escape hatch. Built lazily
@@ -3763,7 +3763,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         }
       }
       if (_wodOffRoad) console.log(`[wod] pixel ${key}: ${_wodOffRoad} piece(s) kept off the road`);   // ROADS-CLEAR
-      if (_wodOffGate) console.log(`[wod] pixel ${key}: ${_wodOffGate} piece(s) kept off the Oblivion Gate`);   // GATE-CLEAR
+      if (_wodOffGate) console.log(`[wod] pixel ${key}: ${_wodOffGate} piece(s) kept off Dagon's Breach`);   // GATE-CLEAR
       const site = [...wodPicks].reverse().find((p) => p.flatten);
       if (site) wodSite = { xMin: site.rect.x, xMax: site.rect.x + site.rect.width, yMin: site.rect.y, yMax: site.rect.y + site.rect.height };
     }
@@ -16855,7 +16855,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const why = insigniaRefusal(offer, { held: _insignia.held, stones: stoneCount(spendableStonesIn(playerEntity.items ?? [])), online: !!io && !!online });
     if (why === 'owned') return { ok: false, text: 'Your account already owns that.' };
     if (why === 'offline') return { ok: false, text: 'Insignia is kept by your account - sign in and go online to buy it.' };
-    if (why === 'stones') return { ok: false, text: `Not enough Sigil Stones - it asks ${stonesText(offer.price)}.` };
+    if (why === 'stones') return { ok: false, text: `Not enough Deadlands Embers - it asks ${stonesText(offer.price)}.` };
     if (why) return { ok: false, text: 'The Broker will not sell that.' };
     _insignia.busy = true;
     try {
@@ -16866,7 +16866,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         items: playerEntity.items, buy: (id) => buyInsignia(io, id), save: () => saveSoon.changed(),
         held: async (id) => { const a = await readAccount(io); const w = a.ok ? a.data?.wardrobe : null; return Array.isArray(w?.insignia) && w.insignia.includes(id) ? w : null; },
       });
-      if (!r.ok) return { ok: false, text: r.error === 'stones' ? `Not enough Sigil Stones - it asks ${stonesText(offer.price)}.` : r.error === 'short' ? `${accountRefusalText('short')} It asks ${stonesText(offer.price)}.` : accountRefusalText(r.error) };
+      if (!r.ok) return { ok: false, text: r.error === 'stones' ? `Not enough Deadlands Embers - it asks ${stonesText(offer.price)}.` : r.error === 'short' ? `${accountRefusalText('short')} It asks ${stonesText(offer.price)}.` : accountRefusalText(r.error) };
       insigniaAdopt(r.data);
       audio.playOneShot(SOUND.GoldPieces, 1);
       surfacePlayer();
@@ -18186,7 +18186,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const noticeGateCard = () => {
     const mark = gateOmen?.mapMark?.();
     const near = gateOmen?.current?.()?.site?.near;
-    return mark && near ? { subject: 'An Oblivion Gate', body: `${mark.label}. It stands near ${near}.` } : null;
+    return mark && near ? { subject: 'Dagon\'s Breach', body: `${mark.label}. It stands near ${near}.` } : null;   // WB12a
   };
   /** NOTICE1: A NOTE'S ONE BUTTON (net/boardLaw.js NOTE_BUTTONS), answered through the doors that stand: a duel
    *  challenge where the author stands within DUEL1's reach outdoors (its own challenge); otherwise - and for a party

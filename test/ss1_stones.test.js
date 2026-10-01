@@ -1,5 +1,5 @@
 // SS1 (2026-09-27, Mac: "make sigil stones bound items and stackable, raise the prices on the new boss vendor"): the
-// Sigil Stone BOUND (systems/itemBound.js - never handed to another player: the trade will not hold one out, and a
+// Deadlands Ember BOUND (systems/itemBound.js - never handed to another player: the trade will not hold one out, and a
 // peer's lot carrying one is refused whole) and STACKING with its own kind alone (systems/gateSpoils.js), the stones a
 // save holds from before folded into their stacks on load (systems/save.js, below its index-keyed relinks), and the
 // card's line. The Broker's count, sale and prices over the stacks are test/set7_broker.test.js's. SS3 (the world
@@ -46,7 +46,7 @@ const summary = (list) => list.map((i) => [i.name, i.stackCount ?? 1, isLocked(i
 test('SS1 the stone is bound by its row: every stone, one minted before the row said so too, and no mark on the record unbinds it; SS4: a piece carrying the mark itself is bound too (the Broker\'s wares), and nothing else is - a gem, no item at all; the binding is not the lock - the player\'s lock is its own word (mutants: the row unbound; a record unbinding its row; the mark ignored)', () => {
   assert.equal(templateByIndex(SIGIL_STONE_TEMPLATE).bound, true, 'the row says it');
   assert.equal(isBound(sigilStone()), true);
-  assert.equal(isBound({ group: 'Gems', templateIndex: SIGIL_STONE_TEMPLATE, name: 'Sigil Stone' }), true, 'a record from before SS1: bound, by its row');
+  assert.equal(isBound({ group: 'Gems', templateIndex: SIGIL_STONE_TEMPLATE, name: 'Deadlands Ember' }), true, 'a record from before SS1: bound, by its row');
   assert.equal(isBound({ ...sigilStone(), bound: false }), true, 'no field on the record unbinds it');
   assert.equal(isBound({ ...ruby(), bound: true }), true, 'SS4: a piece carrying the mark itself is bound');
   assert.equal(isBound(ruby()), false);
@@ -107,7 +107,7 @@ test('SS1 the trade, end to end over the wire: my stone is refused at the table,
   assert.ok(v, 'the wire itself carries it - the refusal is the receiver\'s');
   r.A.onFrame('peerBBBB', v);
   assert.equal(r.A.session, null, 'the trade is over on my side');
-  assert.deepEqual(summary(r.ents.A.items), [['Sigil Stone', 4, false], ['Ruby', 1, false]], 'nothing of mine moved');
+  assert.deepEqual(summary(r.ents.A.items), [['Deadlands Ember', 4, false], ['Ruby', 1, false]], 'nothing of mine moved');
 });
 
 test('SS1 the stone stacks with its own kind alone: a won stone joins the stack in the pack, a locked stack takes only locked stones, a gem never joins it (mutants: the row unstacked)', () => {
@@ -116,10 +116,10 @@ test('SS1 the stone stacks with its own kind alone: a won stone joins the stack 
   addItem(pack, ruby());
   addItem(pack, sigilStone());
   addItem(pack, sigilStone());
-  assert.deepEqual(summary(pack), [['Sigil Stone', 3, false], ['Ruby', 1, false]]);
+  assert.deepEqual(summary(pack), [['Deadlands Ember', 3, false], ['Ruby', 1, false]]);
   setLocked(pack[0], true);
   addItem(pack, sigilStone());
-  assert.deepEqual(summary(pack), [['Sigil Stone', 3, true], ['Ruby', 1, false], ['Sigil Stone', 1, false]], 'a locked stack is its own');
+  assert.deepEqual(summary(pack), [['Deadlands Ember', 3, true], ['Ruby', 1, false], ['Deadlands Ember', 1, false]], 'a locked stack is its own');
   assert.equal(stacksWith(ruby(), sigilStone()), false);
 });
 
@@ -127,7 +127,7 @@ test('SS1 the fold: a pack saved before the stone stacked - a record a stone - i
   const r = ruby();
   const list = [sigilStone(), r, sigilStone(), Object.assign(stack(2), { locked: true }), stack(3), Object.assign(sigilStone(), { locked: true })];
   assert.equal(restackStones(list), 3, 'three records folded');
-  assert.deepEqual(summary(list), [['Sigil Stone', 5, false], ['Ruby', 1, false], ['Sigil Stone', 3, true]]);
+  assert.deepEqual(summary(list), [['Deadlands Ember', 5, false], ['Ruby', 1, false], ['Deadlands Ember', 3, true]]);
   assert.equal(list[1], r, 'a gem untouched, in its place');
   assert.equal(restackStones(list), 0, 'folded once: nothing more to fold');
   const plain = [ruby(), ruby()];
@@ -157,10 +157,10 @@ test('SS1 a load folds the stones - the pack\'s and the wagon\'s - BELOW the ind
   const lines = [];
   console.info = (s) => lines.push(String(s));
   try { restorePlayer(t, snap); } finally { console.info = info; }
-  assert.deepEqual(t.items.map((i) => [i.name, i.stackCount ?? 1]), [['Sigil Stone', 3], ['Torch', 1]], 'one stack');
+  assert.deepEqual(t.items.map((i) => [i.name, i.stackCount ?? 1]), [['Deadlands Ember', 3], ['Torch', 1]], 'one stack');
   assert.equal(t.lightSource, t.items[1], 'the torch is still the light - the index was read before a record moved');
-  assert.deepEqual(t.wagonItems.map((i) => [i.name, i.stackCount ?? 1]), [['Sigil Stone', 3], ['Ruby', 1]], 'the wagon\'s too');
-  assert.ok(lines.some((l) => l.includes('SS1') && l.includes('2 Sigil Stone record(s)')), 'said, in the console');
+  assert.deepEqual(t.wagonItems.map((i) => [i.name, i.stackCount ?? 1]), [['Deadlands Ember', 3], ['Ruby', 1]], 'the wagon\'s too');
+  assert.ok(lines.some((l) => l.includes('SS1') && l.includes('2 Deadlands Ember record(s)')), 'said, in the console');
 });
 
 test('SS1 the card says a bound piece is bound, in the lock\'s own line style without its padlock; a gem says nothing of it (mutants: the card line missing)', () => {
@@ -175,8 +175,8 @@ test('SS1 the card says a bound piece is bound, in the lock\'s own line style wi
     try {
       host.querySelectorAll('.packtab').find((t) => textOf(t).toLowerCase().includes('valu'))?.onclick();
       const rowOf = (name) => host.querySelectorAll('.itemrow').find((r) => textOf(r).includes(name)) ?? null;
-      assert.ok(rowOf('Sigil Stone'), 'the stack on the Valuables page');
-      rowOf('Sigil Stone').onclick({ timeStamp: 100, detail: 1 });
+      assert.ok(rowOf('Deadlands Ember'), 'the stack on the Valuables page');
+      rowOf('Deadlands Ember').onclick({ timeStamp: 100, detail: 1 });
       assert.deepEqual(host.querySelectorAll('.boundline').map((n) => n.textContent), [BOUND_LINE], 'the card says it once');
       rowOf('Ruby').onclick({ timeStamp: 5000, detail: 1 });
       assert.deepEqual(host.querySelectorAll('.boundline'), [], 'a gem says nothing of it');
@@ -186,7 +186,7 @@ test('SS1 the card says a bound piece is bound, in the lock\'s own line style wi
   assert.doesNotMatch(read('src/ui/enhancedPlusStyle.js'), /\.boundline::before/, 'without its padlock');
 });
 
-test('SS2 the Broker\'s price column is one width in every row, wide enough for a two-digit price - "12 Sigil Stones" measures 108px in the window\'s 12px face, "4 Sigil Stones" 101 (tools/brokerProbe.mjs measures it on the real page; each row is its own grid, so a column sized by its text moved the Regalia\'s price 7px out of the line) (mutants: the price column sized by its text)', () => {
+test('SS2 the Broker\'s price column is one width in every row, wide enough for a two-digit price - "12 Deadlands Embers" measures 108px in the window\'s 12px face, "4 Deadlands Embers" 101 (tools/brokerProbe.mjs measures it on the real page; each row is its own grid, so a column sized by its text moved the Regalia\'s price 7px out of the line) (mutants: the price column sized by its text)', () => {
   const css = read('src/ui/enhancedPlusStyle.js');
   const grid = /\.broker-offer \{ display: grid; grid-template-columns: 48px minmax\(0, 1fr\) (\d+)px 148px;/.exec(css);
   assert.ok(grid, 'the price column has a width of its own');
@@ -202,7 +202,7 @@ test('SS3 the law: a bound piece may be put in the player\'s wagon and the playe
   for (const kind of ['ground', 'container', 'reward', 'elsewhere']) assert.equal(boundRefusesPut(stone, kind), true, kind);
   for (const kind of ['wagon', 'storage']) assert.equal(boundRefusesPut(stone, kind), false, kind);
   for (const kind of ['ground', 'container', 'reward', 'wagon', 'storage']) assert.equal(boundRefusesPut(gem, kind), false, `a gem: ${kind}`);
-  assert.equal(boundText('Sigil Stone'), 'Sigil Stone is bound to you - it cannot be dropped, traded or sold.');
+  assert.equal(boundText('Deadlands Ember'), 'Deadlands Ember is bound to you - it cannot be dropped, traded or sold.');
   assert.equal(boundText(''), 'That is bound to you - it cannot be dropped, traded or sold.');
   assert.deepEqual(unbound([gem, stack(3), stone]), [gem]);
   assert.equal(unbound(null), null);
@@ -231,7 +231,7 @@ function withStonePack(loot, fn) {
 
 test('SS3 the enhanced pack: a stone is not dropped on the ground - it stays in the pack and the pack says why - while a gem drops as ever; the player\'s own storage takes it (mutants: the ground takes a bound piece)', () => {
   withStonePack(null, ({ dom, e, stones, gem, dropped, rowOf, actOf, textOf }) => {
-    rowOf('Sigil Stone').onclick({ timeStamp: 100, detail: 1 });
+    rowOf('Deadlands Ember').onclick({ timeStamp: 100, detail: 1 });
     assert.ok(actOf('Drop'), 'the act is offered - and speaks when pressed');
     actOf('Drop').onclick();
     assert.ok(e.items.includes(stones) && !dropped.includes(stones), 'the stones stay in the pack');
@@ -246,10 +246,10 @@ test('SS3 the enhanced pack: a stone is not dropped on the ground - it stays in 
   // have been put in one: the test below)
   const store = [];
   withStonePack({ items: () => store, storage: true }, ({ e, stones, rowOf, actOf }) => {
-    rowOf('Sigil Stone').onclick({ timeStamp: 100, detail: 1 });
+    rowOf('Deadlands Ember').onclick({ timeStamp: 100, detail: 1 });
     actOf('Store').onclick();
     assert.ok(!e.items.includes(stones), 'out of the pack');
-    assert.deepEqual(store.map((i) => [i.name, i.stackCount ?? 1]), [['Sigil Stone', 3]], 'into the owner\'s own storage, whole');
+    assert.deepEqual(store.map((i) => [i.name, i.stackCount ?? 1]), [['Deadlands Ember', 3]], 'into the owner\'s own storage, whole');
   });
 });
 
@@ -263,7 +263,7 @@ test('SS3 the drag: a stone carried out over the world does not say "Drop" - the
     down(rowOf('Ruby')); move();
     assert.equal(ghostWord(), 'Drop', 'a gem: the ground\'s own verb');
     dom.win.fire('keydown', { key: 'Escape', code: 'Escape', repeat: false, preventDefault() {}, stopPropagation() {} });
-    down(rowOf('Sigil Stone')); move();
+    down(rowOf('Deadlands Ember')); move();
     assert.ok(dom.doc.querySelectorAll('.dragghost').length === 1, 'the stone is carried');
     assert.notEqual(ghostWord(), 'Drop', 'but promises no drop');
     up();
@@ -373,7 +373,7 @@ function classicCounter(mode, item, more = {}) {
   return { said: w.box?.rows?.[0]?.text ?? null, staged: w.staged.includes(item), kept: bag.includes(item) };
 }
 
-test('SS4 the classic counter: Sell and Sell Magic refuse a Sigil Stone and a Broker ware, in the pack\'s own words, and both stay in the pack; a gem still sells; a repair and an identify still take a bound piece, because it comes back (mutants: the classic counter sells a bound piece)', () => {
+test('SS4 the classic counter: Sell and Sell Magic refuse a Deadlands Ember and a Broker ware, in the pack\'s own words, and both stay in the pack; a gem still sells; a repair and an identify still take a bound piece, because it comes back (mutants: the classic counter sells a bound piece)', () => {
   const ware = () => brokerStock(DAY)[0].item;
   for (const mode of ['Sell', 'SellMagic']) {
     for (const item of [stack(3), ware()]) {
@@ -395,7 +395,7 @@ test('SS4 the classic counter: Sell and Sell Magic refuse a Sigil Stone and a Br
   }
 });
 
-test('SS4 the enhanced counter: a Sigil Stone and a Broker ware pressed for Sell or Sell Magic stay in the pack and the counter says why, in the pack\'s own words; a gem sells; the smith still takes a worn ware (mutants: the enhanced counter sells a bound piece; the enhanced Sell Magic sells one; the binding closing the enhanced smith)', () => {
+test('SS4 the enhanced counter: a Deadlands Ember and a Broker ware pressed for Sell or Sell Magic stay in the pack and the counter says why, in the pack\'s own words; a gem sells; the smith still takes a worn ware (mutants: the enhanced counter sells a bound piece; the enhanced Sell Magic sells one; the binding closing the enhanced smith)', () => {
   const textOf = (n) => `${n.textContent ?? ''}${(n.children ?? []).map(textOf).join('')}`;
   const WORD = Object.freeze({ Sell: 'Sell', SellMagic: 'Sell', Repair: 'Repair' });
   /** The enhanced counter in `mode` over `bag`; `press(item)` turns to its page, picks its row and presses the mode's
@@ -424,7 +424,7 @@ test('SS4 the enhanced counter: a Sigil Stone and a Broker ware pressed for Sell
       at(mode, bag, ({ press, said, ok }) => {
         press(item);
         assert.ok(bag.includes(item), `${mode}: ${item.name} stays in the pack`);
-        assert.equal(item.stackCount ?? 1, item.name === 'Sigil Stone' ? 3 : 1, 'whole');
+        assert.equal(item.stackCount ?? 1, item.name === 'Deadlands Ember' ? 3 : 1, 'whole');
         assert.equal(said().length, 1, `${mode}: the counter says why`);
         assert.match(said()[0], /^.+ is bound to you - it cannot be dropped, traded or sold\.$/);
         assert.ok(said()[0].startsWith(item.name), 'naming the piece');
@@ -473,10 +473,10 @@ test('SS5 the law: every ware carries its price, and dismantles for half of it, 
   assert.equal(validLootItem({ ...wired, stonesPaid: 0 }), null, 'a price under one is no item');
   assert.equal(validLootItem({ ...wired, stonesPaid: 'twelve' }), null);
   assert.equal(windowStonesText, stonesText, 'the window says the law\'s own words');
-  assert.deepEqual(dismantleAsk('Ebony Cuirass', 2), ['Dismantle Ebony Cuirass?', 'It is gone for good, and you get 2 Sigil Stones back.']);
-  assert.equal(DISMANTLE_INSTEAD(3), 'Dismantle it for 3 Sigil Stones instead?');
+  assert.deepEqual(dismantleAsk('Ebony Cuirass', 2), ['Dismantle Ebony Cuirass?', 'It is gone for good, and you get 2 Deadlands Embers back.']);
+  assert.equal(DISMANTLE_INSTEAD(3), 'Dismantle it for 3 Deadlands Embers instead?');
   assert.equal(DISMANTLE_WORN('Ebony Cuirass'), 'Take off Ebony Cuirass before dismantling it.');
-  assert.equal(DISMANTLED('Ebony Cuirass', 1), 'Dismantled: Ebony Cuirass, for 1 Sigil Stone.');
+  assert.equal(DISMANTLED('Ebony Cuirass', 1), 'Dismantled: Ebony Cuirass, for 1 Deadlands Ember.');
 });
 
 test('SS5 the dismantle, made: the ware out and its stones in, joining the pack\'s unlocked stack (never a locked one), the rest of the pack untouched and the day\'s mark kept; a worn, a locked, an absent or an unsold piece is refused and nothing moves (mutants: a worn ware dismantled; a locked ware dismantled; the ware kept; no stones back)', () => {
@@ -487,12 +487,12 @@ test('SS5 the dismantle, made: the ware out and its stones in, joining the pack\
   const pack = [locked, w, gem, loose];
   assert.equal(dismantleRefusal(w), null);
   assert.deepEqual(dismantleWare(w, { items: pack }), { ok: true, stones: 3 });
-  assert.deepEqual(summary(pack), [['Sigil Stone', 2, true], ['Ruby', 1, false], ['Sigil Stone', 6, false]], 'the ware gone; three stones on the unlocked stack');
+  assert.deepEqual(summary(pack), [['Deadlands Ember', 2, true], ['Ruby', 1, false], ['Deadlands Ember', 6, false]], 'the ware gone; three stones on the unlocked stack');
   assert.equal(pack[1], gem, 'the gem untouched');
   assert.deepEqual(brokerBought(DAY), [offer.id], 'bought today still - a ware dismantled is not bought again');
   const lockedOnly = [Object.assign(stack(2), { locked: true }), ware(0)];
   assert.equal(dismantleWare(lockedOnly[1], { items: lockedOnly }).ok, true);
-  assert.deepEqual(summary(lockedOnly), [['Sigil Stone', 2, true], ['Sigil Stone', 2, false]], 'a locked stack takes only locked stones');
+  assert.deepEqual(summary(lockedOnly), [['Deadlands Ember', 2, true], ['Deadlands Ember', 2, false]], 'a locked stack takes only locked stones');
   const refused = (item, pack2, reason) => {
     const before = summary(pack2);
     assert.deepEqual(dismantleWare(item, { items: pack2 }), { ok: false, reason });
@@ -567,12 +567,12 @@ test('SS5 the enhanced pack: a ware\'s card offers Dismantle, which asks first -
     press(dialogAct('Dismantle'));
     assert.equal(dialog(), null, 'the question goes with the answer');
     assert.equal(e.items.includes(w), false, 'the ware is gone');
-    assert.deepEqual(summary(e.items), [['Ruby', 1, false], ['Sigil Stone', 7, false]], 'six stones back, on the stack');
+    assert.deepEqual(summary(e.items), [['Ruby', 1, false], ['Deadlands Ember', 7, false]], 'six stones back, on the stack');
     assert.ok(said().includes(DISMANTLED(name, 6)), 'and the pack says so');
     assert.equal(onAnyPage(name), false, 'and no page lists it (the pages rebuilt from the pack)');
     open('Ruby');
     assert.equal(actOf('Dismantle'), null, 'a gem: no Dismantle');
-    open('Sigil Stone');
+    open('Deadlands Ember');
     assert.equal(actOf('Dismantle'), null, 'a stone: none');
   });
   const lockedWare = Object.assign(ware(5), { locked: true });
@@ -608,7 +608,7 @@ test('SS5 the classic pack: Remove over the ground offers a ware\'s dismantle in
   yes.win.input('KeyY');
   assert.equal(yes.win.inputBox, null);
   assert.equal(yes.bag.includes(w), false, 'Yes: dismantled');
-  assert.deepEqual(summary(yes.bag), [['Sigil Stone', 1 + n, false]]);
+  assert.deepEqual(summary(yes.bag), [['Deadlands Ember', 1 + n, false]]);
   assert.deepEqual(yes.win.boxes, [{ rows: [{ text: DISMANTLED(name, n), center: true }] }]);
   const no = at(ware(2));
   no.win.input('KeyN');

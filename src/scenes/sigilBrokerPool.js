@@ -45,10 +45,10 @@ export const BROKER_TURN_RATE = 2.4;
 /** Her words: her plaque's name and line, the Info press, the Steal press, and the gate taking her away mid-sale. */
 export const BROKER_TEXT = Object.freeze({
   name: 'Sigil Broker',
-  trade: 'Trades in Sigil Stones',
+  trade: 'Trades in Deadlands Embers',   // WB12a
   info: presentNpcInfoText('the Sigil Broker'),
-  steal: 'The Broker\'s eyes never leave her stones.',
-  gone: 'The Sigil Broker is gone with the gate.',
+  steal: 'The Broker\'s eyes never leave her embers.',
+  gone: 'The Sigil Broker is gone with the breach.',
 });
 /** The one empty answer for no Broker - the host asks for the targets and the batches every frame. */
 const NONE = Object.freeze([]);

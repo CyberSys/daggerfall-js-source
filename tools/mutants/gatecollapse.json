@@ -52,8 +52,8 @@
   {
     "name": "GATE-COLLAPSE-the-map-forgets-it-sealed",
     "file": "src/systems/gateOmen.js",
-    "old": "`Oblivion Gate - ${cd.to === 'collapse' ? 'sealed, ' : ''}${countdownWords(cd)}`",
-    "new": "`Oblivion Gate - ${countdownWords(cd)}`",
+    "old": "`Dagon's Breach - ${cd.to === 'collapse' ? 'sealed, ' : ''}${countdownWords(cd)}`",
+    "new": "`Dagon's Breach - ${countdownWords(cd)}`",
     "tests": [
       "test/wb1_gate_omen.test.js",
       "test/wb2_gate.test.js"

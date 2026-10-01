@@ -84,7 +84,7 @@ test('WB9a the card\'s clock: stepping in it stands MARKS_CARD_ARRIVE_MS - in ov
   assert.equal(marksCardModel(md, BOSS, { since: 1000, now: 1000 + MARKS_CARD_ARRIVE_MS }), null, 'gone');
   const gate = marksCardModel(md, BOSS, { mode: 'gate', now: 9e12 });
   assert.equal(gate.mode, 'gate'); assert.equal(gate.alpha, 1);
-  assert.equal(gate.sub, 'Beyond this gate Valkynaz Ruhn waits, the Venom-Blooded');
+  assert.equal(gate.sub, 'Beyond the breach Valkynaz Ruhn waits, the Venom-Blooded');
   assert.ok(MARKS_CARD_ARRIVE_MS >= OPENING_MS, 'the card stands at least while he does');
 });
 

@@ -105,7 +105,7 @@ const _views = new WeakMap();
 /** The card's words. */
 export const MARKS_CARD_TEXT = Object.freeze({
   title: 'The Warden\'s Marks',
-  gate: (boss, epithet) => `Beyond this gate ${boss} waits, ${epithet}`,
+  gate: (boss, epithet) => `Beyond the breach ${boss} waits, ${epithet}`,   // WB12a
   arrive: (boss, epithet) => `${boss} comes ${epithet} tonight`,
   element: (el) => `His blows carry ${el.toLowerCase()}`,
 });

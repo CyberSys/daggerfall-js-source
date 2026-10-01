@@ -38,8 +38,8 @@
   {
     "name": "DISCORD-GATES-the-open-said-as-the-seal",
     "file": "src/net/gateHerald.js",
-    "old": "opens ${stamp(t.openAt, 'R')}",
-    "new": "opens ${stamp(t.sealAt, 'R')}",
+    "old": "open a breach ${stamp(t.openAt, 'R')} ",
+    "new": "open a breach ${stamp(t.sealAt, 'R')} ",
     "tests": [
       "test/discordgates.test.js"
     ]

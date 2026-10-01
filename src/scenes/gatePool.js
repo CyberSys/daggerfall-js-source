@@ -55,7 +55,7 @@ export const GATE_STEP_M = 1.5;
 
 /** The words a gate answers with. */
 export const GATE_TEXT = Object.freeze({
-  name: 'Oblivion Gate',
+  name: 'Dagon\'s Breach',   // WB12a (Mac: "Dagon's Breach"): the event's name - the arch it wears is still "the gate"
   opensIn: (left) => `The gate is sealed. It opens in ${left}.`,
   sealed: 'The gate has sealed.',
   collapsesIn: (left) => `The gate has sealed. It collapses in ${left}.`,   // GATE-COLLAPSE: the sealed hours say when they end

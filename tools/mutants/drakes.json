@@ -83,8 +83,8 @@
   {
     "name": "DRAKES-the-gate-line-old",
     "file": "src/net/marksBook.js",
-    "old": "The counting-houses strike Drakes for two gates a day.",
-    "new": "The counting-houses strike Marks for two gates a day.",
+    "old": "The counting-houses strike Drakes for two breaches a day.",
+    "new": "The counting-houses strike Marks for two breaches a day.",
     "tests": [
       "test/drakes.test.js"
     ]
