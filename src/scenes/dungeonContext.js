@@ -39,7 +39,7 @@ import { WATER_SCROLL_TILES_PER_SEC } from '../render/waterSurface.js';   // WAT
 import { enemyControllerHeight, idleSpriteHeight, flyerStandFeet, centreFromFeet, spriteOriginY, keepRebuiltSpawn } from '../characters/enemyAnchor.js';   // INCIDENT 2026-09-04 (ceiling bats): SetupDemoEnemy.cs:103-115 capsule + DaggerfallMobileUnit.cs:398-411 anchor
 import { MobileUnit, MOBILE_DAEDRA_SEDUCER, SeducerTransformBehaviour } from '../characters/mobileUnit.js';   // C11: classic sprite monsters   // A5: the Seducer transform pair + its trigger
 import { dfMeshToModel, GLOBAL_SCALE } from '../world/meshReader.js';
-import { customModelFor, emptyModel } from '../world/customModels.js';   // DS1: models no ARCH3D carries, and GetModelData's false
+import { customModelFor, customAliasFor, emptyModel } from '../world/customModels.js';   // DS1: models no ARCH3D carries, and GetModelData's false; WD3: a classic model under another id
 import { RDB_SIDE, MOVE_ACTION_FLAGS, ACTION_FLAGS, TRIGGER_FLAGS } from '../world/rdbLayout.js';   // WAVE D: the move family - an acting FLAT tweens like the model beside it
 import { NPC_CONTEXT } from '../characters/staticNpc.js';   // AUDIT 64 F13: StaticNPC.SetLayoutData(RdbObject) stamps Context.Dungeon
 import { drawnFlat } from '../characters/nudeFlats.js';   // NUDE-FLATS: Show Nudity off draws a nude figure's clothed stand-in
@@ -341,7 +341,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   const getModelPre = (id) => {
     if (!preModels.has(id)) {
       const custom = customModelFor(id);   // DS1: a registered model (world/customModels.js), asked before ARCH3D
-      const index = custom ? -1 : arch.getRecordIndex(id);
+      const alias = custom ? null : customAliasFor(id);   // WD3: an alias stands its classic model's geometry
+      const index = custom ? -1 : alias ? arch.getRecordIndex(alias.model) : arch.getRecordIndex(id);
       if (custom) preModels.set(id, custom);
       else if (index === -1) {
         // DS1: GetModelData answers false (RDBLayout.cs:634-638) - nothing drawn, no door taken - a world-data
@@ -1911,7 +1912,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:14735 / exterior.js:3762), set
+  // host's own townTalk sink (world.js:14835 / exterior.js:3762), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -2498,7 +2499,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // copied mount would have diverged the first time an arm grew.
   /** DR1: THE TWO SPELL WINDOWS THIS HOST MOUNTS NOW, and the one door
    *  they go through. `mountSpellWindow` is worldModes'
-   *  mountSpellWindow DUNGEON ARM (worldModes.js:1384,
+   *  mountSpellWindow DUNGEON ARM (worldModes.js:1385,
    *  `dungeonCtx?.showOverlay(win)`) resolved to what it actually
    *  calls here - this file's own pushDungeonWindow, which IS
    *  UserInterfaceManager.PushWindow. So a spell window raised over an
@@ -3040,7 +3041,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1118 against :1148; worldModes.js:7839 against :7866).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1118 against :1148; worldModes.js:7854 against :7881).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -3863,8 +3864,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:24479,
-              // exterior.js:5381 and worldModes.js:8557 already ran;
+              // playerArrowHitFoe is the one copy world.js:24580,
+              // exterior.js:5381 and worldModes.js:8572 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -7939,6 +7940,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // AUDIT 63 F28: the orphaned-quest-item sweep rides the ONE
       // composer, so this host runs it too (SaveLoadManager.cs:1518).
       if (session && restoreSessionState(extras, { questBridge: opts.questBridge, talk: opts.talkSave, entity: playerEntity, spawnLedger: opts.spawnLedger?.() ?? null })) opts.onQuestRestored?.();
+      if (session) opts.layoutPinsLoaded?.(extras);   // WD3: the save's towns in their layouts (world.js applyLayoutPins) - a world load does its own
       const settled = extras.world && extras.locationKey === _locationKey ? applyWorld(extras.world) : null;   // AUDIT OH-F B1: the rebuilds, handed back
       if (!settled && extras.world) hudText.add('(different dungeon - world state left as built)');   // cross-location travel-on-load pends in the STANDALONE scene alone - a world-hosted dungeon hands such a save up before this (quickLoad, CASTLE1)
       // A1: restorePlayer replaced the automap store, so the live

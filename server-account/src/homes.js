@@ -38,22 +38,24 @@ import { CHAR_ID_RE } from './service.js';
 import { prepareRealmRecord, realmActFirst, realmAtOf, recordMovedOf, mustChange, dropObjects, dropIfUnnamed, REALM_ID_RE } from './realm.js';   // REALM P2.2b; AUDIT REALM L1-F2: the record asked first; AUDIT REALM2 S3: a landed batch's object kept
 import { payFromSave, creditSave } from '../../src/net/realmGoldLaw.js';   // REALM P2.2b: the wallet's own order, over the record
 import {
-  HOME_CAP, HOME_ENTRY_DEFAULT, HOME_CLAIMS_MAX, HOME_CLAIMS_WINDOW_S, HOME_TOWN_MAX,
-  homeMapIdOk, homeBuildingKeyOk, homeRegionOk, homePriceOk, homeEntryOk, homeSaleRefund, homeLookOf,
+  HOME_CAP, HOME_ENTRY_DEFAULT, HOME_CLAIMS_MAX, HOME_CLAIMS_WINDOW_S, HOME_TOWN_MAX, HOME_LAYOUTS_MAX,
+  homeMapIdOk, homeBuildingKeyOk, homeRegionOk, homePriceOk, homeEntryOk, homeSaleRefund, homeLookOf, homeLayoutOk,
 } from '../../src/net/homeLaw.js';
 import { DECOR_OPS_MAX, DECOR_OPS_WINDOW_S } from '../../src/net/decorLaw.js';   // HOME-LOOK: a repaint counts as a decorator's write
 
 const homeOf = (row) => ({
   mapId: row.map_id, buildingKey: row.building_key, region: row.region, character: row.char_id,
   entry: row.entry, price: row.price, boughtAt: row.bought_at,
+  ...(row.layout ? { layout: row.layout } : {}),   // WD3: the layout the town keeps - none where it is Daggerfall's own
 });
 
 /** THE CLAIM'S ONE WRITE: the house the character's, while it is nobody's and the character holds fewer than its cap.
  *  `paid` (AUDIT REALM L1-F3, migration 0020): the gold a realm record paid for it - the price, for a realm character's
  *  claim; nothing for any other character's, whose client paid (or did not) out of a save the service never sees. */
-const claimStatement = (db, player, { mapId, buildingKey, region, character, price }, nowS, paid = 0) => db.prepare(`INSERT OR IGNORE INTO homes (map_id, building_key, player, char_id, owner_name, region, entry, price, bought_at, paid)
-    SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM homes WHERE player = ? AND char_id = ?) < ?`)
-  .bind(mapId, buildingKey, player.id, character, displayName(player), region, HOME_ENTRY_DEFAULT, price, nowS, paid, player.id, character, HOME_CAP);
+const claimStatement = (db, player, { mapId, buildingKey, region, character, price, layout = null }, nowS, paid = 0) => db.prepare(`INSERT OR IGNORE INTO homes (map_id, building_key, player, char_id, owner_name, region, entry, price, bought_at, paid, layout)
+    SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT t.layout FROM homes t WHERE t.map_id = ? ORDER BY t.bought_at, t.building_key LIMIT 1), CASE WHEN EXISTS (SELECT 1 FROM homes t WHERE t.map_id = ?) THEN NULL ELSE ? END)
+    WHERE (SELECT COUNT(*) FROM homes WHERE player = ? AND char_id = ?) < ?`)
+  .bind(mapId, buildingKey, player.id, character, displayName(player), region, HOME_ENTRY_DEFAULT, price, nowS, paid, mapId, mapId, layout, player.id, character, HOME_CAP);
 
 /**
  * REALM P2.2b: A REALM CHARACTER'S CLAIM - the house and the record's payment in ONE batch, the price off the record by
@@ -88,10 +90,11 @@ async function realmClaim(ctx, player, at, claim) {
  * @param {any} player  the session's player row
  * @param {{mapId?: unknown, buildingKey?: unknown, region?: unknown, character?: unknown, price?: unknown, realm?: unknown}} claim
  */
-export async function claimHome(ctx, player, { mapId, buildingKey, region, character, price, realm = null } = {}) {
+export async function claimHome(ctx, player, { mapId, buildingKey, region, character, price, realm = null, layout = null } = {}) {
   const { db, nowS } = ctx;
   if (accountKind(player) !== 'linked') return { error: 'homes-need-account' };
   if (!homeMapIdOk(mapId) || !homeBuildingKeyOk(buildingKey) || !homeRegionOk(region) || !homePriceOk(price)) return { error: 'bad-home' };
+  if (!homeLayoutOk(layout)) return { error: 'bad-home' };   // WD3: the layout the claimant's town stands in (null: Daggerfall's)
   if (typeof character !== 'string' || !CHAR_ID_RE.test(character)) return { error: 'home-character' };
   // AUDIT REALM2 S2: A HOUSE IS A REALM CHARACTER'S, BOUGHT ON ITS RECORD. Any other id still claimed on its client's word
   // - a made-up one at a price of 1, sixty buildings an hour taken from the world - and customs carried the house in.
@@ -99,7 +102,7 @@ export async function claimHome(ctx, player, { mapId, buildingKey, region, chara
   const side = await realmActFirst(db, player.id, character, realm);   // AUDIT REALM L1-F2: where the record stands, before the hour's claims
   if (side.error) return side;
   if (await overRate({ db, nowS }, `home:${player.id}`, HOME_CLAIMS_MAX, HOME_CLAIMS_WINDOW_S)) return { error: 'home-rate' };
-  return realmClaim(ctx, player, side.at, { mapId, buildingKey, region, character, price });   // a realm character's side is always its record
+  return realmClaim(ctx, player, side.at, { mapId, buildingKey, region, character, price, layout: layout ?? null });   // a realm character's side is always its record
 }
 
 /** DECOR1e: a home's placed pieces and half of what they cost - what its sale gives back for them. */
@@ -258,4 +261,17 @@ export async function homesOf({ db }, player) {
   const { results = [] } = await db.prepare('SELECT * FROM homes WHERE player = ? ORDER BY bought_at, map_id, building_key')
     .bind(player.id).all();
   return { homes: results.map(homeOf), cap: HOME_CAP };
+}
+
+/**
+ * WD3: EVERY TOWN THAT HOLDS A HOME, AND THE LAYOUT IT KEEPS - its oldest home's (null: Daggerfall's own town). Read by
+ * every session at its online boot (a guest's too: the towns are everyone's to walk), so each client stands each such
+ * town as its homes were bought in it (src/systems/layoutPins.js), one town for the whole room. `[mapId, layout]` rows.
+ * @param {{db: any}} ctx
+ */
+export async function homeLayouts({ db }) {
+  const { results = [] } = await db.prepare(`SELECT h.map_id, h.layout FROM homes h
+    WHERE NOT EXISTS (SELECT 1 FROM homes o WHERE o.map_id = h.map_id AND (o.bought_at < h.bought_at OR (o.bought_at = h.bought_at AND o.building_key < h.building_key)))
+    ORDER BY h.map_id LIMIT ?`).bind(HOME_LAYOUTS_MAX).all();
+  return { towns: results.map((r) => [r.map_id, homeLayoutOk(r.layout) ? r.layout ?? null : null]) };
 }

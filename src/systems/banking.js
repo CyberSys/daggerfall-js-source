@@ -40,6 +40,7 @@
 import { CRIMES } from './court.js';
 import { BUILDING_TYPES, isResidence } from '../world/buildingNames.js';   // H1: the houses-for-sale filter
 import { isOnlinePage } from './onlineLane.js';   // EMPIRE-BANK: online, the Empire lends a tenth
+import { stampLayout, layoutStampOfMapId } from './layoutPins.js';   // WD3: a deed keeps the layout its town was bought in
 import { GOLD_PIECE_WEIGHT_KG, letterOfCredit } from './inventory.js';
 import {
   DAYS_PER_YEAR, DAYS_PER_MONTH, MINUTES_PER_DAY,
@@ -199,6 +200,7 @@ export function allocateHouseToPlayer(houses, regionIndex, { buildingKey, mapId,
   slot.mapId = mapId;
   slot.buildingKey = buildingKey;
   delete slot.crossed;   // RESTORE: a house bought is the buyer's own, whatever crossed customs in this slot before
+  stampLayout(slot, layoutStampOfMapId(mapId));   // WD3: the layout the town stands in, which a load keeps it in (systems/layoutPins.js)
   discoverBuilding?.(buildingKey, `${playerName}'s residence`);
   addPermanentScene?.(mapId, buildingKey);
   addNote?.(`Deed to a house in ${location}, ${regionName}.`);
@@ -1040,7 +1042,7 @@ export function bankingStatusRows(accounts, { regionName = () => '', dueText = n
 //    the permanent-scene set, so housesForSale, allocateHouseToPlayer
 //    and sellHouse above are live; H2/H4 brought the BUY UI itself -
 //    DaggerfallBankPurchasePopUp is ui/bankPurchaseWindow.js
-//    (BankPurchaseWindow :102), mounted at scenes/worldModes.js:3105
+//    (BankPurchaseWindow :102), mounted at scenes/worldModes.js:3106
 //    openPurchase with drawBankModelPreview (:1938) as the dedicated
 //    3D model panel, and ui/bankWindow.js:292-305 routes BUY HOUSE's
 //    'pick' into it (a host without the window still falls back to

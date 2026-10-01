@@ -29,7 +29,8 @@ import { attachTouch } from '../ui/touch.js';
 import { attachGamepad } from '../ui/gamepadInput.js';   // GP1: the pad speaks the same hooks
 import { BlocksFile } from '../formats/blocksFile.js';
 import { bindWorldDataBlocks } from '../formats/worldDataReplacement.js';   // RR3b
-import { loadModWorldData } from './modWorldData.js';   // RR3b
+import { loadModWorldData, ensureWorldDataPack } from './modWorldData.js';   // RR3b; WD3: a pack a save's pins let in
+import { configureLayoutPins, layoutRecordsOf, pinsFrom, setLayoutPins, stampLayout, layoutStampOfPixel, HOME_LAYOUTS_WAIT_MS, HOME_LAYOUTS_RETRIES } from '../systems/layoutPins.js';   // WD3: a town keeps the layout a save's things were made in
 import { DFPalette } from '../formats/dfPalette.js';
 import { MapsFile, getWorldClimateSettings, longitudeLatitudeToMapPixel, getPixelFromPixelID, REGION_RACES, LOCATION_TYPES, CLIMATES, REGION_NAMES } from '../formats/mapsFile.js';   // SPAWNED-DUNGEONS1: the ocean gate and the synthesized location's region name
 import { questTracker } from '../ui/questTracker.js';   // GUIDE5: the quest the player follows - its places, marked
@@ -590,7 +591,7 @@ const RACE_BY_NAME_BANK = Object.freeze(Object.fromEntries(
   Object.entries(BANK_TYPES).map(([race, bank]) => [bank, race])));
 import { startDisease, endDisease, diseaseCount } from '../systems/diseases.js';   // AUDIT 24: the quest bridge's MakePcDiseased / CurePcDisease seams; U41: the popup's diseased warning
 import { poisonCount } from '../systems/poisons.js';   // U41: the warning's other half
-import { discoverRandomLocation, discoverLocation, undiscoverBuilding, discoverBuilding, discoveredBuildings, hasDiscoveredLocationId, setDiscoveredBuildingCustomName, discoveryGeneration, restampQuestNames } from '../systems/discovery.js';   // G8 + TV: the guild map reveals + the entry writer; TK-ii: the quest-residence undiscover; AUDIT DISC28 QS-K2: the town map's re-stamp
+import { discoverRandomLocation, discoverLocation, undiscoverBuilding, discoverBuilding, discoveredBuildings, hasDiscoveredLocationId, setDiscoveredBuildingCustomName, discoveryGeneration, restampQuestNames, pruneDiscoveryLayouts } from '../systems/discovery.js';   // G8 + TV: the guild map reveals + the entry writer; TK-ii: the quest-residence undiscover; AUDIT DISC28 QS-K2: the town map's re-stamp
 import {
   WEATHER_TYPES, fogForWeather, scaleFogForDistance, skyOffsetForWeather, weatherSunlightScale,
   weatherRng, fogFactor, precipitationForWeather,
@@ -643,7 +644,7 @@ import { LETHAL_HIT, bloodHit } from '../combat/bloodDecals.js';   // the trampl
 import { RIDING_VOLUME_SCALE } from '../systems/riding.js';   // AUDIT-RR F16: the trample clip at RidingVolumeScale
 import { setRrHostSeams, rrEnabled } from '../systems/rrInstall.js';   // RR2: what the riding component reads off the scene
 import { rrFortProximityLines, rrMasterArmorerDiscovery } from '../systems/rrQuestLine.js';   // RR3: the two PlayerGPS subscribers
-import { getBuildingVariant, setLastLocationKeyTo } from '../systems/worldDataVariants.js';   // RR3: the shop variant the quest set
+import { getBuildingVariant, setLastLocationKeyTo, makeLocationKey } from '../systems/worldDataVariants.js';   // RR3: the shop variant the quest set
 import { createDeepWatersHost, deepWatersOn, DEEP_WATERS_VENDOR, deepWatersDecorationSettings, deepWatersFishSettings, deepWatersEnemySettings, deepWatersLootSettings, deepWatersEnemySettingsNear, standsTheDeep, DEEP_SHARE_RADIUS } from './deepWatersHost.js';   // DW-B: Iliac Puddle No More (jet082) - the deep bay
 import { DeepWatersRenderer, surfaceScrollAt, DECORATION_CUTOFF } from '../render/deepWatersRender.js';   // DW-C: its seafloor and its surface; DW-E5: the billboard's cut-out the sunken piles keep
 import { clippedTerrainIndices } from '../world/deepWaterCap.js';   // DW-C: the clip's cull, out of the ground's own index set (FAR-CLIP1: the rest is the clip program's)
@@ -1056,6 +1057,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   let _locIndexGen = 0;
   const _hubRows = [];   // HUB1: the game's own rows, whatever a mod's addition later stands on their pixel
   const _bandPlacePixels = new Set();   // AUDIT OW4 B2 / AUDIT OW5 B2: the land a band may NOT stand on (below)
+  const _layoutKeyPixel = new Map();   // WD3: a town's location key -> its pixel in the index (the layout pins' refresh)
+  const _layoutKeyOfMapId = new Map();   // WD3: a town's map id (unsigned) -> its location key (a save's records name towns so)
   for (let r = 0; r < maps.regionCount; r++) {
     const region = maps.getRegion(r);
     if (!region) continue;
@@ -1066,6 +1069,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       const p = longitudeLatitudeToMapPixel(loc.mapTableData.longitude, loc.mapTableData.latitude);
       locationIndex.set(`${p.x},${p.y}`, loc);
       if (l < baseCount) { _hubRows.push(loc); _bandPlacePixels.add(`${p.x},${p.y}`); }   // OW6: the band's places
+      _layoutKeyPixel.set(makeLocationKey(r, l), `${p.x},${p.y}`);   // WD3
+      _layoutKeyOfMapId.set(loc.mapTableData.mapId >>> 0, makeLocationKey(r, l));   // WD3
       if (l < baseCount) {   // BOUNTY1: the game's own rows alone - a mod's addition stands on one client and not another
         _bountyLocPixels.add(`${p.x},${p.y}`);   // the pixels a hunt's ground may not be
         // a dungeon a board may name - the game's own, never a town's (a city's castle is the city's)
@@ -1078,6 +1083,16 @@ export async function bootWorld(canvas, renderer, params, status) {
       }
     }
   }
+  // WD3: WHERE A SAVE'S RECORDS STAND, for the layout pins (systems/layoutPins.js) - a town by its map id (a deed, a
+  // room, a quest's site, a repair ticket), by its pixel (a Recall anchor, an inside save), by its discovery id
+  // (`<region>:<name>`), and the grid it is laid out from now (which mods change it). The index answers each; the
+  // map ids and names are the game's own (the town mods keep every one - measured over all 15,251 locations).
+  configureLayoutPins({
+    locationKeyOfMapId: (mapId) => _layoutKeyOfMapId.get(Number(mapId) >>> 0) ?? null,
+    locationKeyOfPixel: (x, y) => { const loc = locationIndex.get(`${x},${y}`); return loc && !loc.spawned ? makeLocationKey(loc.regionIndex, loc.locationIndex ?? 0) : null; },
+    gridOf: (key) => locationIndex.get(_layoutKeyPixel.get(key))?.exterior?.exteriorData?.blockNames ?? null,
+    locationKeyOfTown: (regionIndex, name) => { const l = maps.getRegion(regionIndex)?.mapNameLookup?.get(name); return l == null ? null : makeLocationKey(regionIndex, l); },
+  });
   // AUDIT OW4 B2: the game's own places, as the maps have them - the land a band may NOT stand on (filled above). Never the
   // live index: online it gains a spawned dungeon as each client's pixels build (and loses one on its expiry), so one
   // client's bands vanished as it walked up to them, re-walked from birth round the new place (a jump), and a peer three
@@ -1095,6 +1110,13 @@ export async function bootWorld(canvas, renderer, params, status) {
   // HOME-RENT: the service's homes door itself, for a home's rooms - read at its door, rented, offered, collected
   const homesApi = params.has('online') ? accountHomes({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() }) : null;
   const onlineHomes = homesApi ? createOnlineHomes({ api: homesApi, character: () => characterIdOf(playerEntity) }) : null;
+  // WD3: THE TOWNS THAT HOLD AN ONLINE HOME, AND THE LAYOUT EACH WAS BOUGHT IN (net/homeLaw.js) - asked now, beside the
+  // boot's own loading, and answered into the layout pins before the first town stands (below, at the first build), so
+  // every client of the room stands a home's town as its homes were bought in it. An answer that does not come is asked
+  // again behind the play, and the towns it names are built again when it lands.
+  const homeLayoutsOnline = !!homesApi;
+  let _serverLayoutRecords = null;   // [{ locationKey, stamp, kind }] once the service has answered
+  let _homeLayoutsAsk = homesApi ? homesApi.layouts().catch(() => null) : null;
   // HOME-LOOK (2026-09-30, asked: "The ability to choose the texture for the roof, walls, door, windows, etc"): A PLAYER'S
   // HOME IS DRAWN OUT OF ITS PIXEL'S MERGE, with its OWN texture table - the pixel's climate swaps and its owner's look
   // over them (world/homeLook.js) - so a look that lands, or changes, repaints it where it stands (refreshHomeLooks). A
@@ -4336,6 +4358,15 @@ export async function bootWorld(canvas, renderer, params, status) {
   const queue = state.init(startPixel.x, startPixel.y);
   if (wod) wodSlots.step(startPixel.x, startPixel.y, state.terrainDistance, StreamingWorldState.onMap);   // AUDIT BRANCH (WoD) L1-3: the first UpdateWorld
   _wodArrival = wodArrivalOf(queue);   // WOD6: the first world is an InitWorld too
+  // WD3: online, the homes' towns in their layouts before the first town is built (the ask went out at the boot's top)
+  if (_homeLayoutsAsk) {
+    status('reading the towns of the homes');
+    const heard = await Promise.race([_homeLayoutsAsk, new Promise((res) => setTimeout(() => res(null), HOME_LAYOUTS_WAIT_MS))]);
+    _homeLayoutsAsk = null;
+    const landing = takeHomeLayouts(heard);
+    if (landing) await landing;
+    else askHomeLayoutsAgain(1);
+  }
   let building = false;
 
   // A1: THE SEASON TURNS UNDER A STANDING WORLD.
@@ -8384,7 +8415,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2761 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6613
+  // that context through modes.dungeonCtx - so worldModes.js:6627
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -9583,7 +9614,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  exterior origin slides the pixel a step west on any negative local
    *  x and a step south on any negative local z - one block off the
    *  start of Privateer's Hold is enough. That is what made Recall's
-   *  IsSameInterior dungeon arm (teleportAnchor.js:163-166) unable to
+   *  IsSameInterior dungeon arm (teleportAnchor.js:169-172) unable to
    *  answer true against an anchor set in the room the player is
    *  standing in: setRecallAnchor already took the streamer's pixel
    *  (:2777) and this read did not. The streamer is frozen while a mode
@@ -10949,6 +10980,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     // the building with its pools alive, and P8's unified frame makes
     // the inside position a plain world position.
     const interior = modes?.interiorSaveData?.() ?? null;
+    // WD3: the load re-enters this building by its door, which names a building only in its town's layout - the
+    // layout rides with it, and the load keeps the town in it (applyLayoutPins); none for classic
+    if (interior) { const at = playerTravelPixel(); stampLayout(interior, layoutStampOfPixel(at.x, at.y)); }
     // AUDIT 63 F24: ...and the interior host's LIVE ENEMIES with it.
     // SaveLoadManager.cs:865's enemyData is unconditional, and the
     // fourth host's two pools rode nothing. Natives through the same
@@ -11066,6 +11100,71 @@ export async function bootWorld(canvas, renderer, params, status) {
   function pickedSaveSnap({ key = null, mostRecent = false } = {}) {
     return key != null ? loadSlot(key) : mostRecent ? (mostRecentRestorable()?.snap ?? null) : null;
   }
+  /** WD3: the service's answer of every town holding a home and its layout (homes.js homeLayouts), into the pins'
+   *  records - answers the pins' landing, or null for no answer. A town this map does not hold (a mod's new location)
+   *  holds nothing. */
+  function takeHomeLayouts(heard) {
+    const towns = heard?.ok ? heard.data?.towns : null;
+    if (!Array.isArray(towns)) return null;
+    _serverLayoutRecords = towns.filter((t) => Array.isArray(t)).map(([mapId, layout]) => ({
+      locationKey: _layoutKeyOfMapId.get(Number(mapId) >>> 0) ?? null, stamp: typeof layout === 'string' ? layout : undefined, kind: 'house',
+    }));
+    return applyLayoutPins().catch((e) => console.warn('[layout] the homes\' towns:', e?.message ?? e));
+  }
+  /** WD3: an answer that did not come in time is asked again, a few times, further apart; the towns it pins are built
+   *  again where they stand (applyLayoutPins). */
+  function askHomeLayoutsAgain(attempt) {
+    if (attempt > HOME_LAYOUTS_RETRIES || !homesApi) { console.warn('[layout] the homes\' towns were not heard - each stands as the room\'s mods lay it out'); return; }
+    setTimeout(() => {
+      homesApi.layouts().catch(() => null).then((heard) => { if (!takeHomeLayouts(heard)) askHomeLayoutsAgain(attempt + 1); });
+    }, HOME_LAYOUTS_WAIT_MS * attempt);
+  }
+  /**
+   * WD3: THE SAVE'S TOWNS, IN THE LAYOUTS ITS THINGS WERE MADE IN (systems/layoutPins.js). Called once a save's
+   * player and quests are restored and before its place is built: the deeds, the rented rooms, the active quests'
+   * building sites, the repair tickets, an anchor set indoors and the save's own building name the towns they hold,
+   * each in the layout it was stamped with; a town whose layout the mods loaded for this game would change is pinned
+   * to it. A pack a pin lets in is fetched first (a mod switched off since a house was bought under it). Each town whose
+   * answer changed is read again into the index and, if it stands, built again; a town whose layout moved since its
+   * discoveries were made forgets them (systems/discovery.js). `extras` is the restore's - the inside save's building.
+   */
+  async function applyLayoutPins(extras = null) {
+    // ONLINE THE TOWNS ARE THE ROOM'S: only the service's homes hold one (every client the same pins - a save's own
+    // records would stand one player's town apart from the room's); offline, the save's
+    const records = homeLayoutsOnline ? (_serverLayoutRecords ?? []) : layoutRecordsOf({
+      houses: playerEntity.houses, rooms: playerEntity.rentedRooms,
+      sites: questBridge?.machine?.getAllActiveQuestSites?.() ?? [],
+      repairs: (playerEntity.otherItems ?? []).map((it) => it?.repairData).filter(Boolean),
+      anchor: playerEntity.anchorPosition,
+      inside: extras?.interior && extras?.world?.pixel ? { pixel: extras.world.pixel, layout: extras.interior.layout } : null,
+    });
+    const pins = pinsFrom(records);
+    // the packs a pin lets in, on the door BEFORE the pins answer for them - a pin into a pack that will not load
+    // is dropped, and its town stands as the mods loaded for the game serve it
+    for (const pin of pins.values()) {
+      for (const v of [...pin.in]) if (!(await ensureWorldDataPack(v))) pin.in.delete(v);
+    }
+    for (const [k, pin] of [...pins]) if (!pin.in.size && !pin.out.size) pins.delete(k);
+    const changed = setLayoutPins(pins);
+    let rebuilt = 0;
+    for (const key of changed) {
+      const pixelKey = _layoutKeyPixel.get(key);
+      if (!pixelKey) continue;
+      const loc = maps.getLocation(key % 100, Math.floor(key / 100));
+      if (!loc?.exterior?.exteriorData) continue;
+      locationIndex.set(pixelKey, loc);
+      _locIndexGen += 1;   // AUDIT OW4 D5: a reader keeping a list off the index sees the change
+      if (built.has(pixelKey)) {
+        const [px, py] = pixelKey.split(',').map(Number);
+        destroyPixel(px, py, { collectLoose: false });
+        queue.push({ px, py });
+        rebuilt++;
+      }
+    }
+    const forgotten = pruneDiscoveryLayouts();
+    if (pins.size || changed.size) console.log(`[layout] ${pins.size} town(s) kept in a save's layout (${[...pins.values()].map((p) => p.why).join(', ') || 'none'}); ${changed.size} read again, ${rebuilt} rebuilt${forgotten ? `; ${forgotten} discovered building(s) forgotten where a layout moved` : ''}`);
+    else if (forgotten) console.log(`[layout] ${forgotten} discovered building(s) forgotten where a layout moved`);
+  }
   async function worldQuickLoad({ mostRecent = false, key = null, snap: picked = null } = {}) {
     if (_loading) return;
     if (worldMoveBusy()) { townTalk.say('Loading is disabled while travelling.'); return; }   // AUDIT 68 S22: never a second teleport beside one in flight
@@ -11166,6 +11265,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // runs inside the composer, after the quest machine is restored,
       // exactly where LoadGame runs it.
       if (restoreSessionState(extras, { questBridge, talk: { mill: rumorMill, tree: topicTree, session: npcSession }, entity: playerEntity, spawnLedger: _spawnLedger })) _questStarted = true;
+      await applyLayoutPins(extras);   // WD3: the save's towns in the layouts its things were made in, before its place is built
       let csaElsewhere = false;   // CSA-J (the audit): the load did not land where its save stood
       if (extras.locationKey === 'world' && extras.world?.pixel) {
         const w = extras.world;
@@ -13622,7 +13722,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10120-10184 -
+  // worldModes answers it in BOTH modes (worldModes.js:10135-10199 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -19915,6 +20015,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // restored machine).
     talkSave: { mill: rumorMill, tree: topicTree, session: npcSession },
     onQuestRestored: () => { _questStarted = true; },
+    layoutPinsLoaded: (extras) => applyLayoutPins(extras).catch((e) => console.warn('[layout] pins on a dungeon load:', e?.message ?? e)),   // WD3: a same-dungeon load holds its own save's towns too
     // R1: the discovery store's location key - the SAME string the
     // quest bridge's discoverBuilding uses, so the exterior lockpick
     // anti-grind record and the talk reveals share one namespace.

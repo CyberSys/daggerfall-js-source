@@ -311,6 +311,7 @@ import {
   clearSceneHidden, // BASE-HIDE: and what its owner took out of its own furniture comes back
 } from '../systems/sceneCache.js';
 import { WORLD_CONTEXT } from '../systems/teleportAnchor.js';   // A10: SetAnchor's world context, one enum for the three hosts
+import { stampLayout, layoutStampAt, layoutLocationKeyOfMapId, layoutsMatch } from '../systems/layoutPins.js';   // WD3: an interior's scene keeps its town's layout
 // S40: resting where the player has a claim - the rented-room finder
 // the tavern rents through, and FightersGuild.CanRest.
 import { findRentedRoom, removeExpiredRooms } from '../systems/tavern.js';
@@ -481,7 +482,7 @@ export function createWorldModes(host) {
   // The host destructure moves with it, because `say` closes over
   // `townTalk`. It reads only the function's own argument, so it is
   // safe anywhere inside the body.
-  const { canvas, renderer, player, cam, keys, latch, blocks, pipeline, doorTargets, doorGeneration = null, npcTargets = null, boardTargets = null, buildingTargets = null, bulletinBoardNews = null, baseCollider, voxelfolk = false, piece = 0, paint = false, buildingDataForDoor = null, townTalk = null, magic = null, spellsByIndex = null, questBridge = null, questSceneCtx = null, npcSession = null, talkSave = null, onQuestRestored = null, discoveryLocationId = null, questBuildingSource = null, gps = null, buildingDirectory = null, openBountyBoard = null, openNoticeBoard = null } = host;   // AUDIT 63 F49: questBuildingSource = PlayerGPS.DiscoverBuilding's { currentMapID, isBuildingQuestResource } pair   // H1: the location's whole building list, for the houses-for-sale roll   // V5: gps = PlayerGPS's location reads, for CanRest   // R1: the discovery store's location key (the anti-grind record's namespace)   // B4: the quicksave composer's trio + the world host's _questStarted latch   // Q4-v: the quest bridge + the host's scene-context closure ({mapId, locationIndex})   // M2: the host's cast engine + SPELLS.STD getter ride in   // host.foes: C8 E1 rigged class enemies in dungeons; buildingDataForDoor: E2's shop identity closure; townTalk: U23's static-NPC seam
+  const { canvas, renderer, player, cam, keys, latch, blocks, pipeline, doorTargets, doorGeneration = null, npcTargets = null, boardTargets = null, buildingTargets = null, bulletinBoardNews = null, baseCollider, voxelfolk = false, piece = 0, paint = false, buildingDataForDoor = null, townTalk = null, magic = null, spellsByIndex = null, questBridge = null, questSceneCtx = null, npcSession = null, talkSave = null, onQuestRestored = null, layoutPinsLoaded = null, discoveryLocationId = null, questBuildingSource = null, gps = null, buildingDirectory = null, openBountyBoard = null, openNoticeBoard = null } = host;   // AUDIT 63 F49: questBuildingSource = PlayerGPS.DiscoverBuilding's { currentMapID, isBuildingQuestResource } pair   // H1: the location's whole building list, for the houses-for-sale roll   // V5: gps = PlayerGPS's location reads, for CanRest   // R1: the discovery store's location key (the anti-grind record's namespace)   // B4: the quicksave composer's trio + the world host's _questStarted latch   // Q4-v: the quest bridge + the host's scene-context closure ({mapId, locationIndex})   // M2: the host's cast engine + SPELLS.STD getter ride in   // host.foes: C8 E1 rigged class enemies in dungeons; buildingDataForDoor: E2's shop identity closure; townTalk: U23's static-NPC seam
   let swingKeyLatch = false;   // MAC-SWING1: a swing bound to a key or pad code, polled in frame()
   const moveAxes = new MoveAxes();   // AUDIT 28 W8: MovementAcceleration - the modal frames' own axes
   // U43-ii: the interior HUD-text layer is the OUTER host's, and
@@ -2601,7 +2602,7 @@ export function createWorldModes(host) {
       // The proceeds were weighed before they were paid: a purse that
       // would push the player past MaxEncumbrance becomes a letter of
       // credit instead. B2 gave it its destination - DepositAll_LOC
-      // (banking.js:726, DaggerfallBankingWindow :377-389) takes EVERY
+      // (banking.js:728, DaggerfallBankingWindow :377-389) takes EVERY
       // letter in the pack at face value - so the note that once stood
       // here saying there was nowhere to cash one is retired.
       if (proceeds?.kind === 'letterOfCredit') {
@@ -2648,10 +2649,10 @@ export function createWorldModes(host) {
       } else {
         for (const it of staged) {
           if (isBeingRepaired(it)) continue;   // already booked; UpdateRepairTimes only stretches it
-          leaveForRepair(it, bk, calculateItemRepairTime(it.currentCondition ?? 0, it.maxCondition ?? 0), now);
+          leaveForRepair(it, bk, calculateItemRepairTime(it.currentCondition ?? 0, it.maxCondition ?? 0), now, homeTownOf(interiorBuilding));   // WD3: the ticket names the smith's town
           questBridge?.notebook?.addNote?.(`Left my ${_itemLabel(it)} for repair at ${interiorBuilding?.name ?? 'the shop'}.`);
         }
-        updateRepairTimes([...staged], { commit: true, nowMinutes: now, buildingKey: bk });
+        updateRepairTimes([...staged], { commit: true, nowMinutes: now, buildingKey: bk, mapId: homeTownOf(interiorBuilding) });
       }
     } else if (mode === 'Identify') {
       // X7: two Identify paths through one arm, as DFU has them. The
@@ -3415,7 +3416,11 @@ export function createWorldModes(host) {
   function cacheInteriorScene() {
     const name = currentInteriorScene();
     if (!name) return;
-    cacheScene(sceneCache(), name, currentSceneState());
+    const state = currentSceneState();
+    // WD3: the layout of the town this building stands in, where the host can place the town (systems/layoutPins.js)
+    const townKey = layoutLocationKeyOfMapId(questSceneCtx?.()?.mapId ?? 0);
+    if (townKey != null) stampLayout(state, layoutStampAt(townKey));
+    cacheScene(sceneCache(), name, state);
   }
 
   /** RestoreCachedScene on the way IN (:804). A scene never cached
@@ -3427,6 +3432,15 @@ export function createWorldModes(host) {
     if (!name || !interiorCtx) return;
     const data = restoreCachedScene(sceneCache(), name);
     if (!data) return;
+    // WD3: A SCENE CACHED IN ANOTHER LAYOUT OF THIS TOWN was another building's - its shelves, chests and floor are
+    // never laid into this one. An ordinary scene goes (the world moving on would take it anyway); a permanent one (a
+    // house, a rented room) is kept, unrestored, for the layout it belongs to - which a save's pins hold its town in.
+    const townKey = layoutLocationKeyOfMapId(questSceneCtx?.()?.mapId ?? 0);
+    if (townKey != null && !layoutsMatch(data.layout, layoutStampAt(townKey))) {
+      if (containsPermanentScene(sceneCache(), name)) cacheScene(sceneCache(), name, data);
+      console.warn(`[layout] ${name}: cached in another layout of this town - not restored`);
+      return;
+    }
     for (const c of data.lootContainers) {
       const [kind, i] = c.key.split(':');
       const target = kind === 'shelf' ? interiorCtx.shelves?.[+i] : interiorCtx.containers?.[+i];
@@ -5070,7 +5084,7 @@ export function createWorldModes(host) {
       // queue stretch and the never-decrease clamp real laws rather
       // than dead arms of a one-item list (:1069 -> :514-568).
       const bk = interiorBuilding?.buildingKey ?? 0;
-      updateRepairTimes([...repairJobsAt(playerEntity, bk, now), it], { commit: true, nowMinutes: now, buildingKey: bk });
+      updateRepairTimes([...repairJobsAt(playerEntity, bk, now), it], { commit: true, nowMinutes: now, buildingKey: bk, mapId: homeTownOf(interiorBuilding) });   // WD3: the ticket names the smith's town
       const i = playerEntity.items.indexOf(it);
       if (i >= 0) playerEntity.items.splice(i, 1);
       (playerEntity.otherItems ??= []).push(it);
@@ -5694,7 +5708,7 @@ export function createWorldModes(host) {
    *  building and enters it. There is no distance test of its own here;
    *  the ray's RayDistance is the whole reach.
    *
-   *  Info only (:461). DiscoverBuilding (:465) - discovery.js:83 no-ops a re-discover
+   *  Info only (:461). DiscoverBuilding (:465) - discovery.js:93 no-ops a re-discover
    *  as PlayerGPS.cs:926-927 does (DISC28-K: bar a live quest's rename) - then the
    *  discovered record's display name as HUD text (:468-471), and for a
    *  LOCKED building below Temple that is not HouseForSale the
@@ -7337,6 +7351,7 @@ export function createWorldModes(host) {
           // restored-Symbol duplicate quirk sceneMount records.
           questBridge, talkSave,
           onQuestRestored: () => { onQuestRestored?.(); mountQuestResources(); },
+          layoutPinsLoaded,   // WD3: the world host's layout pins, for a load this context lands itself
           // AUDIT 39 (#41): PlayerDeath.cs reads the camera's LIVE local
           // y and the controller's LIVE height at the moment of death,
           // so a crouched death sinks from the crouched eye. dungeon.js
@@ -8532,7 +8547,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:14525's own wave-46 note); the interior
+          // a blow (world.js:14625's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -11173,7 +11188,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3477-3499), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:10967). So an F9 pressed in a shop
+     *  unconditionally (world.js:11001). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -11212,7 +11227,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:11082)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:11181)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -11222,7 +11237,7 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:9960`
+     *  HARD2c: this used to spell them out, and named `world.js:9991`
      *  and `dungeonContext.js:7807` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */

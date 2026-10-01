@@ -125,6 +125,9 @@ const copySceneEntry = (d) => ({
   // writer's own frame), and `terrainScale` the ground an exterior height stood on - absent on an entry written
   // before either was carried, which the restoring host reads as the old raw frame on the prefab's 1.5.
   frame: d.frame ?? null, terrainScale: d.terrainScale ?? null,
+  // WD3: the layout of the town an interior was cached in (systems/layoutPins.js) - only where a layout mod changed the
+  // town; an entry without one was cached in Daggerfall's own
+  ...(typeof d.layout === 'string' && d.layout ? { layout: d.layout } : {}),
 });
 
 /** CacheScene (:84-98). DFU caches exactly TWO kinds of thing for a
@@ -242,10 +245,10 @@ export function restoreSceneCache(cache, snap) {
 // EVERY CALLER OF THIS CACHE IS WIRED. The last one to land was the
 // HOUSE deed's AddPermanentScene, which needed the building directory
 // to know which building was bought: H1/H2 shipped both halves -
-// banking.js:203 calls the hook inside allocateHouseToPlayer with the
-// bought building's own mapId and key, and worldModes.js:2953 supplies
+// banking.js:205 calls the hook inside allocateHouseToPlayer with the
+// bought building's own mapId and key, and worldModes.js:2954 supplies
 // it as addPermanentScene(sceneCache(), interiorSceneName(mapId, key)),
 // reached from the bank's buy arm (:2144-2148), the knightly gift
 // (:2752) and :4933, with sellHouse dropping the scene again (:2184). The
-// tavern's rented room (tavern.js:150) and the ship's two scenes
-// (banking.js:314-316) name themselves and were wired before it.
+// tavern's rented room (tavern.js:151) and the ship's two scenes
+// (banking.js:316-318) name themselves and were wired before it.

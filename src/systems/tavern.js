@@ -11,6 +11,7 @@ import { HOLIDAYS, getHolidayId } from './holidays.js';
 import { calculateTradePrice, essentialPrice } from './shopStock.js';   // ESSENTIALS-HALF: online, a room and a meal cost half
 import { dayOfYear } from './gameDate.js';
 import { interiorSceneName, addPermanentScene, removePermanentScene } from './sceneCache.js';   // P1: the rented room's own scene
+import { stampLayout, layoutStampOfMapId } from './layoutPins.js';   // WD3: a room keeps the layout its inn was rented in
 
 /** The TEXT.RSC records the window speaks (:37-41). */
 export const TOO_MANY_DAYS_ID = 16;
@@ -160,6 +161,7 @@ export function rentRoom(rooms, { room, days, nowMinutes, mapId, buildingKey, na
     allocatedBedIndex: Math.floor(rolls() * Math.max(1, bedCount)),
     expiryMinutes: nowMinutes + 24 * 60 * days,
   };
+  stampLayout(fresh, layoutStampOfMapId(mapId));   // WD3: the inn's town's layout (systems/layoutPins.js)
   rooms.push(fresh);
   return fresh;
 }
@@ -203,11 +205,11 @@ export function eatOrDrink(index, { gold = 0, gameMinutes = 0, online = undefine
 
 // The three clauses that stood here are all closed:
 //  - (RETIRED by TK-iv: the TALK button. tavernWindow.js:371, and the
-//    KeyT arm at :343, fire hooks.onTalk; worldModes.js:3981 supplies
+//    KeyT arm at :343, fire hooks.onTalk; worldModes.js:3995 supplies
 //    it as openStaticNpc(pn, { forceTalk: true }), which reaches
-//    npcSession.talkToStaticNPC at worldModes.js:3145 - TalkManager.
+//    npcSession.talkToStaticNPC at worldModes.js:3146 - TalkManager.
 //    TalkToStaticNPC (TalkManager.cs:752-770). The guild popup's TALK
-//    button shares that door at worldModes.js:4088, popupTalkToStaticNpc.)
+//    button shares that door at worldModes.js:4102, popupTalkToStaticNpc.)
 //  - (RETIRED by P1: AddPermanentScene (:246) keeps a rented room's
 //    interior loaded across a save. The port now has a permanent-scene
 //    set, and rentRoom names the scene it should hold.)

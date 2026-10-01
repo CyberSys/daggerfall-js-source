@@ -12,7 +12,7 @@ import { dfMeshToModel } from '../world/meshReader.js'; import { patchSeams } fr
 import { fetchBytes, texName } from './shared.js';
 import { decodedTexture, preloadTextureArchive, isVendorArchive, vendorTextureStandIn, setTextureDeriveContext } from '../systems/textureReplacement.js';   // M-TEX: user-supplied textures override the classic ones
 import { classicRecordRgba } from '../formats/derivedTexture.js';   // WD2: a mod sprite rebuilt from the player's own record
-import { customModelFor } from '../world/customModels.js';   // DS1: models no ARCH3D carries
+import { customModelFor, customAliasFor, aliasSubMeshes } from '../world/customModels.js';   // DS1: models no ARCH3D carries; WD3: a classic model with its pictures swapped
 import { dyeToken, changeDyeBitmap } from '../characters/dyes.js';   // DW3: the per-dye UI variant; DYE-ICON: and the classic arm's ChangeDye
 import { ROTOR, MACHINERY, MACHINERY_MODEL_ID, MACHINERY_CHILDREN, PLANK_GEAR, ROLLER } from '../world/windmillMesh.js';   // WM2b/WM2d/WM4b: the vendored mill and its machinery, uploaded like any other model
 import { skinnedBody } from '../world/windmills.js';   // WM2e: its walls and roof follow the climate
@@ -274,6 +274,10 @@ export function createDataPipeline({ renderer, arch, palette, fetch = fetchBytes
       cpuModels.set(modelIdNum, { modelIdNum, positions: custom.positions, indices: custom.indices, subMeshes: custom.subMeshes, doors: custom.doors ?? [], normals: custom.normals, uvs: custom.uvs });
       return gpu;
     }
+    // WD3: an ALIAS - a classic model read out of the player's ARCH3D with some of its pictures swapped
+    // (world/customModels.js registerModelAlias; the town mods' coloured beds)
+    const alias = customAliasFor(modelIdNum);
+    if (alias) return buildAliasMesh(modelIdNum, alias);
     const index = arch.getRecordIndex(modelIdNum);
     if (index === -1) {
       gpuMeshes.set(modelIdNum, null);
@@ -291,6 +295,19 @@ export function createDataPipeline({ renderer, arch, palette, fetch = fetchBytes
     // whichever caller happened to still have it. The model knows.
     cpuModels.set(modelIdNum, { modelIdNum, positions: model.positions, indices: model.indices, subMeshes: model.subMeshes, doors: model.doors, normals: model.normals, uvs: model.uvs });   // PERF4: the static batch merges the whole vertex
     gpuMeshes.set(modelIdNum, gpu);
+    return gpu;
+  }
+  /** WD3: an alias's mesh - its classic model's geometry and UVs (sized by the classic pictures, which a swapped
+   *  picture keeps), the swap laid on, then an ordinary model under the alias's own id. No classic model, no mesh. */
+  async function buildAliasMesh(modelIdNum, alias) {
+    const index = arch.getRecordIndex(alias.model);
+    if (index === -1) { gpuMeshes.set(modelIdNum, null); return null; }
+    const dfMesh = patchSeams(alias.model, arch.getMesh(index));
+    for (const sm of dfMesh.subMeshes) await getTexture(sm.textureArchive);
+    const classic = dfMeshToModel(dfMesh, getTextureSize);
+    const model = { ...classic, subMeshes: aliasSubMeshes(classic.subMeshes, alias.remap) };
+    const gpu = await uploadModel(modelIdNum, model);
+    cpuModels.set(modelIdNum, { modelIdNum, positions: model.positions, indices: model.indices, subMeshes: model.subMeshes, doors: model.doors, normals: model.normals, uvs: model.uvs });
     return gpu;
   }
   /** WM2b: THE WINDMILL ROTOR, uploaded once per scene.

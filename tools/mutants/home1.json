@@ -11,8 +11,8 @@
   {
     "name": "HOME1-claim-cap-unread",
     "file": "server-account/src/homes.js",
-    "old": "price, nowS, paid, player.id, character, HOME_CAP);",
-    "new": "price, nowS, paid, player.id, character, HOME_CAP + 1);",
+    "old": "paid, mapId, mapId, layout, player.id, character, HOME_CAP);",
+    "new": "paid, mapId, mapId, layout, player.id, character, HOME_CAP + 1);",
     "tests": [
       "test/home1.test.js"
     ]
@@ -281,8 +281,8 @@
   {
     "name": "HOME1-the-claims-character",
     "file": "src/systems/onlineHomes.js",
-    "old": "const r = await api.claim({ mapId: id, buildingKey, region, character: me, price, ...(realm ? { realm } : {}) });",
-    "new": "const r = await api.claim({ mapId: id, buildingKey, region, character: null, price, ...(realm ? { realm } : {}) });",
+    "old": "const r = await api.claim({ mapId: id, buildingKey, region, character: me, price, ...(realm ? { realm } : {}), ...(layout ? { layout } : {}) });",
+    "new": "const r = await api.claim({ mapId: id, buildingKey, region, character: null, price, ...(realm ? { realm } : {}), ...(layout ? { layout } : {}) });",
     "tests": [
       "test/home1.test.js"
     ]
@@ -308,8 +308,8 @@
   {
     "name": "HOME1-the-service-asked-short-of-gold",
     "file": "src/systems/onlineHomes.js",
-    "old": "    if (!afford(price)) return { ok: false, error: 'gold' };\n    if (realm) {",
-    "new": "    if (realm) {",
+    "old": "    if (!afford(price)) return { ok: false, error: 'gold' };\n    // WD3: the layout this town stands in",
+    "new": "    // WD3: the layout this town stands in",
     "tests": [
       "test/home1.test.js"
     ]
@@ -326,8 +326,8 @@
   {
     "name": "HOME1-a-refusal-paid-for",
     "file": "src/systems/onlineHomes.js",
-    "old": "    const r = await homes.claim({ mapId, buildingKey, region, price });\n    if (!r.ok) return r;\n",
-    "new": "    const r = await homes.claim({ mapId, buildingKey, region, price });\n",
+    "old": "    const r = await homes.claim({ mapId, buildingKey, region, price, ...(layout ? { layout } : {}) });\n    if (!r.ok) return r;\n",
+    "new": "    const r = await homes.claim({ mapId, buildingKey, region, price, ...(layout ? { layout } : {}) });\n",
     "tests": [
       "test/home1.test.js"
     ]

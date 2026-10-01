@@ -929,7 +929,8 @@ export function accountHomes({ fetch, storage }) {
   return {
     town: (mapId, character = null) => post('/v1/homes/town', { mapId, ...(character ? { character } : {}) }),   // HOME-RENT: the playing character's own tenancies
     mine: () => post('/v1/homes/mine', {}),
-    claim: ({ mapId, buildingKey, region, character, price, realm = null }) => post('/v1/homes/claim', { mapId, buildingKey, region, character, price, ...(realm ? { realm } : {}) }),   // REALM P2.2b: a realm character's record pays
+    claim: ({ mapId, buildingKey, region, character, price, realm = null, layout = null }) => post('/v1/homes/claim', { mapId, buildingKey, region, character, price, ...(realm ? { realm } : {}), ...(layout ? { layout } : {}) }),   // REALM P2.2b: a realm character's record pays; WD3: the layout the town stands in (none: Daggerfall's)
+    layouts: () => post('/v1/homes/layouts', {}),   // WD3: every town holding a home, and the layout it keeps
     release: (mapId, buildingKey, realm = null) => post('/v1/homes/release', { mapId, buildingKey, ...(realm ? { realm } : {}) }),
     entry: (mapId, buildingKey, entry) => post('/v1/homes/entry', { mapId, buildingKey, entry }),
     // HOME-RENT: a home's rooms (server-account/src/rent.js) - read at its door, offered and withdrawn by its owner, rented

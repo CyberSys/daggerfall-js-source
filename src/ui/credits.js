@@ -345,6 +345,27 @@ export const CREDITS = Object.freeze({
       vendor: Object.freeze(['detailed-ships']),
       link: 'https://www.nexusmods.com/daggerfallunity/mods/1080',
     }),
+    // WD3: carademono's two town mods, one entry each (two vendors, two pages).
+    Object.freeze({
+      title: 'Beautiful Villages of Daggerfall',
+      version: '1.4.2',
+      author: 'carademono',
+      what: 'The villages, hamlets, farms, manors and temples of the Iliac Bay laid out again, and the roadside taverns rebuilt (WD3) - 7,317 places, exactly as the author arranged them. The pieces it borrows from other mods (Daggerfall Expanded Textures, the RMB Resource Pack and others) are the port\u2019s own stand-ins.',
+      terms: 'Ported 1:1 from the shipped bundle - every town as the author\u2019s edit over your own game files - see vendor/beautiful-villages/README.md for the permission record.',
+      contact: 'carademono, through the Lysandus\u2019 Tomb Discord server',
+      vendor: Object.freeze(['beautiful-villages']),
+      link: 'https://www.nexusmods.com/daggerfallunity/mods/566',
+    }),
+    Object.freeze({
+      title: 'Beautiful Cities of Daggerfall',
+      version: '0.5.0',
+      author: 'carademono',
+      what: 'The cities of the Iliac Bay laid out again (WD3) - districts, walls, gates, markets and docks, 410 cities exactly as the author arranged them. The pieces it borrows from other mods are the port\u2019s own stand-ins.',
+      terms: 'Ported 1:1 from the shipped bundle - every city as the author\u2019s edit over your own game files - see vendor/beautiful-cities/README.md for the permission record.',
+      contact: 'carademono, through the Lysandus\u2019 Tomb Discord server',
+      vendor: Object.freeze(['beautiful-cities']),
+      link: 'https://www.nexusmods.com/daggerfallunity/mods/720',
+    }),
     // WA1: Kamer's third - after the mill and the wilderness, which the CR1
     // gate finds first by his name.
     Object.freeze({

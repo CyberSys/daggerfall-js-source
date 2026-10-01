@@ -147,7 +147,7 @@ import { titleWorn, glyphsOf, auraWorn } from './titles.js';
 import { sendLetter, inboxOf, readLetter, deleteLetter } from './letters.js';   // MAIL1: the letters' routes
 import { reportRenownXp, renownTrackOf, renownTracksOf, renownCharacterOk } from './renownTracks.js';   // RENOWN1: Renown's track - RENOWN-CHAR: a character's again
 import { claimRaid, raidRecordOf } from './raids.js';   // RAID4: the towns defended
-import { claimHome, releaseHome, setHomeEntry, homesInTown, homesOf, setHomeLook } from './homes.js';   // HOME1: the online homes' routes; HOME-LOOK: its outside
+import { claimHome, releaseHome, setHomeEntry, homesInTown, homesOf, setHomeLook, homeLayouts } from './homes.js';   // HOME1: the online homes' routes; HOME-LOOK: its outside; WD3: the towns' layouts
 import { roomsOf, offerRoom, withdrawRoom, rentRoom, collectRent } from './rent.js';   // HOME-RENT: a home's rooms, rented
 import {
   foundGuild, guildOf, invitesOf, inviteToGuild, answerInvite, leaveGuild, removeFromGuild, rankGuildMember, renameGuildRanks,
@@ -738,6 +738,7 @@ const service = {
           return 'error' in r ? no(r.error, 400, origin) : json(r, 200, origin);
         }
         if (path === '/v1/homes/mine') return json(await homesOf(ctx, who.player), 200, origin);
+        if (path === '/v1/homes/layouts') return json(await homeLayouts(ctx), 200, origin);   // WD3: every town holding a home, and the layout it keeps
         if (path === '/v1/homes/decor') {
           const r = await decorOf(ctx, who.player, body);
           return 'error' in r ? no(r.error, 400, origin) : json(r, 200, origin);

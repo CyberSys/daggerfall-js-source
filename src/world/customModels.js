@@ -21,7 +21,32 @@ const _models = new Map();   // id -> { build, isOn, cached }
 export function registerCustomModel(id, build, isOn = () => true) {
   _models.set(Number(id), { build, isOn: typeof isOn === 'function' ? isOn : () => true, cached: null });
 }
-export function unregisterCustomModel(id) { _models.delete(Number(id)); }
+export function unregisterCustomModel(id) { _models.delete(Number(id)); _aliases.delete(Number(id)); }
+
+// WD3 (2026-10-01): A MODEL THAT IS A CLASSIC ONE WITH OTHER PICTURES ON IT. Beautiful Villages' and Beautiful Cities'
+// eighteen beds (42069-42086) are Daggerfall's own three beds (41000-41002) under blankets of six colours; the bundle's
+// meshes are copies of the ARCH3D records, which the port never carries. An ALIAS names the classic model to read out
+// of the player's ARCH3D and the textures to swap on it - `remap`, `"<archive>_<record>"` -> [archive, record] - so the
+// geometry is the player's own and only the swap is the port's (world/townStandIns.js).
+const _aliases = new Map();   // id -> { model, remap, isOn }
+/** Register `id` as classic `model` with its textures swapped (`remap`). */
+export function registerModelAlias(id, { model, remap = {} }, isOn = () => true) {
+  _aliases.set(Number(id), { model: Number(model), remap: Object.freeze({ ...remap }), isOn: typeof isOn === 'function' ? isOn : () => true });
+}
+/** The alias registered for `id` while its switch is on - { model, remap } - else null. */
+export function customAliasFor(id) {
+  const a = _aliases.get(Number(id));
+  return a && a.isOn() ? a : null;
+}
+/** The swap an alias makes on a classic model's sub-meshes (dfMeshToModel's shape): a copy, the classic one untouched. */
+export function aliasSubMeshes(subMeshes, remap) {
+  return subMeshes.map((sm) => {
+    const to = remap?.[`${sm.textureArchive}_${sm.textureRecord}`];
+    return to ? { ...sm, textureArchive: to[0], textureRecord: to[1] } : sm;
+  });
+}
+/** The ARCH3D record a model id is measured by - its own, or an alias's classic model (a size, a radius, an icon). */
+export const classicModelIdOf = (id) => customAliasFor(id)?.model ?? Number(id);
 
 /** The model registered for `id` while its switch is on, built once; else null. */
 export function customModelFor(id) {
@@ -36,4 +61,4 @@ export function emptyModel() {
   return { positions: new Float32Array(0), normals: new Float32Array(0), uvs: new Float32Array(0), indices: new Uint32Array(0), subMeshes: [], doors: [] };
 }
 /** Test seam. */
-export function _resetCustomModels() { _models.clear(); }
+export function _resetCustomModels() { _models.clear(); _aliases.clear(); }

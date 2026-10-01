@@ -28,6 +28,7 @@ import { mergeNamedBuildings, makeBuildingKey, blockBuildingCount } from '../tal
 import { generateBuildingName } from '../../world/buildingNames.js';
 import { surname, firstName, getNameBankOfRegion, GENDERS } from '../../characters/nameHelper.js';
 import { RDB_RESOURCE_TYPES } from '../../formats/blocksFile.js';
+import { stampLayout, layoutStampOfMapId } from '../layoutPins.js';   // WD3: a building site keeps its town's layout
 
 export const Scopes = Object.freeze({ None: 'none', Local: 'local', Remote: 'remote', Fixed: 'fixed' });
 
@@ -195,6 +196,15 @@ export class Place extends QuestResource {
     else if (this.scope === Scopes.Remote) this._setupRemoteSite(world, line);
     else this._setupFixedLocation(world);
     this.sitePending = false;
+    this._stampSiteLayout();
+  }
+
+  /** WD3 (a port addition): a BUILDING site names its building by key, and a key names a building only in the layout
+   *  its town stood in - so the site carries that layout, and a load keeps the town in it while the quest runs
+   *  (systems/layoutPins.js). A town or dungeon site holds no building and carries none. */
+  _stampSiteLayout() {
+    const sd = this.siteDetails;
+    if (sd?.siteType === SITE_TYPES.Building && sd.buildingKey > 0) stampLayout(sd, layoutStampOfMapId(sd.mapId));
   }
 
   _rolls() { return this.parentQuest?.rolls ?? Math.random; }
@@ -737,6 +747,7 @@ export class Place extends QuestResource {
       questSpawnMarkers: null, questItemMarkers: null,
       selectedMarker: { targetResources: null },
     };
+    this._stampSiteLayout();   // WD3
     this.symbol = new QuestSymbol(symbolName);
     this.sitePending = false;
     return true;

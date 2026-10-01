@@ -35,7 +35,7 @@ briefly shared a name.
 **Why the findings are numbered from F3.** The tree cites `AUDIT 58 F3`,
 `F4` and `F5` by number **37 times across 14 files** - `src/world/terrainGenClient.js:147`,
 `src/world/terrainGenWorker.js:45`, `src/world/terrainHelper.js:2`,
-`src/world/roadsCache.js:17`, `src/scenes/world.js:144`,
+`src/world/roadsCache.js:17`, `src/scenes/world.js:145`,
 `src/formats/woodsFile.js:93`, `test/modsettings.test.js`,
 `test/audit58_terrainhelper.test.js`, `test/ledger.test.js:245`,
 `test/citedrift.test.js`, `Port-Ledger.md:82-83`, `Testing.md` - and
@@ -168,7 +168,7 @@ now has a name per host.
 readers asked one.** `interiorFoes` and `interiorGuards` are both live
 inside a building; the senses feed, the enchant pool and the rest refusal
 each walked only the first, so the indoor city watch was invisible to all
-three (`src/scenes/worldModes.js:1197-1291`). **The exterior host mounted no
+three (`src/scenes/worldModes.js:1198-1292`). **The exterior host mounted no
 enchant ctx at all** - the session has ONE, and that host set none, so
 every enchantment payload that needs a foe idled in the host a player
 spends most of their time in (`setDefaultEnchantCtx` is imported at
@@ -279,7 +279,7 @@ hardcoded F1-F4 literals that the controls window could not rebind.
 
 **`cacheScene()` discarded `droppedPiles`.** `currentSceneState()` builds
 three fields, `restoreInteriorScene()` reads three back, and the store
-between them destructured two (`src/systems/sceneCache.js:131-135`), so
+between them destructured two (`src/systems/sceneCache.js:134-138`), so
 `restorePiles(undefined)` killed every live pile and restored nothing:
 interior dropped loot never cached, never rode the save, and was
 destroyed on every exit. **The Ledger recorded the opposite** - the

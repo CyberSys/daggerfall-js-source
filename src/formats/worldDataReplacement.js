@@ -24,7 +24,8 @@
 // Northrock Fort (a new location in the Wrothgarian Mountains), its
 // RRFORT01.RMB, and the armorer's shop as the quest rebuilds it.
 import { getBool } from '../systems/settings.js';
-import { NO_VARIANT, makeLocationKey, getLocationVariant, getBlockVariantHere, getBuildingVariantHere, setNewLocationIndexResolver } from '../systems/worldDataVariants.js';
+import { isOnlinePage } from '../systems/onlineLane.js';   // WD3: online the door is the room's
+import { NO_VARIANT, makeLocationKey, getLocationVariant, getBlockVariantHere, getBuildingVariantHere, setNewLocationIndexResolver, readingLocationKeyOf, noteReadingLocation } from '../systems/worldDataVariants.js';
 import { LOCATION_TYPES, DUNGEON_TYPES, getWorldClimateSettings, REGION_NAMES } from './mapsFile.js';
 import { BLOCK_TYPES, RDB_RESOURCE_TYPES } from './blocksFile.js';
 import { BUILDING_TYPES } from '../world/buildingNames.js';
@@ -36,26 +37,109 @@ export { makeLocationKey };
 
 /** DaggerfallUnity.Settings.AssetInjection. */
 export const assetInjectionOn = () => getBool('Enhancements', 'AssetInjection');
+/**
+ * WD3: THE DOOR'S GATE. DFU's is AssetInjection alone, and offline it stays so. ONLINE THE GROUND IS THE ROOM'S: the
+ * world-data mods the room owns (systems/onlineLane.js ONLINE_ROOM_MOD_KEYS - Beautiful Villages and Cities, Detailed
+ * Ships, Roleplay & Realism's fort) stand buildings, decks and walls every player walks, and a player's Replace Game
+ * Artwork switched off stood none of them on that one screen - a departure (Port-Ledger, WD3): online the door is open
+ * whatever the switch says, which keeps the textures and the music it gates elsewhere. Each mod's own switch still
+ * decides its files.
+ */
+const worldDataOn = () => assetInjectionOn() || isOnlinePage();
 
 // ---- the mod's assets (ModManager.TryGetAsset / FindAssets, the port's one source) ----
-const _assets = new Map();   // file name -> { json, isOn }
+// WD3: a name may be carried by more than one mod (Beautiful Villages and Beautiful Cities both ship FIGHBM00.RMB,
+// and they differ). ModManager.TryGetAsset walks the ENABLED mods in reverse load order and takes the first that has
+// the asset (ModManager.cs:404-427, EnumerateEnabledModsReverse) - so each name keeps every mod's entry, highest
+// load priority first, and the live one answers: a switched-off mod never hides the one under it, and two mods'
+// order is the load order's, never the order their files happened to arrive in.
+const _assets = new Map();   // file name -> [{ json, get, isOn, priority, vendor }], highest priority first
+function addAssetEntry(fileName, entry) {
+  const list = _assets.get(fileName) ?? [];
+  const mine = list.findIndex((e) => (e.vendor ?? null) === (entry.vendor ?? null));
+  if (mine >= 0) list.splice(mine, 1);   // a mod registering its own file again replaces it (a registration naming no mod, WD1's, replaces the last that named none - the C#'s one asset a name)
+  // a later registration of equal priority stands in front (the C# Map.set's last-writer rule, kept for WD1's files)
+  let at = list.findIndex((e) => e.priority <= entry.priority);
+  if (at < 0) at = list.length;
+  list.splice(at, 0, entry);
+  _assets.set(fileName, list);
+}
 /** A vendored mod's world-data file by its DFU name; `isOn` is the mod's
- *  switch (a mod that is off is a mod DFU never loaded). */
-export function registerWorldDataAsset(fileName, json, isOn = null) {
+ *  switch (a mod that is off is a mod DFU never loaded); `priority` its
+ *  place in the load order (higher wins), `vendor` whose it is. */
+export function registerWorldDataAsset(fileName, json, isOn = null, { priority = 0, vendor = null } = {}) {
   if (!fileName || json == null) return false;
-  _assets.set(fileName, { json, isOn: typeof isOn === 'function' ? isOn : null });
+  addAssetEntry(fileName, { json, get: null, isOn: typeof isOn === 'function' ? isOn : null, priority, vendor });
   return true;
 }
-const assetOn = (a) => !!a && (a.isOn?.() ?? true);
-/** ModManager.TryGetAsset(fileName): the JSON, or null. */
-function tryGetAsset(fileName) { const a = _assets.get(fileName); return assetOn(a) ? a.json : null; }
+/** WD3: every file of an opened world-data pack (formats/worldDataPack.js) on the door, each rebuilt from the
+ *  player's own data the first time it is asked for. Answers how many names it registered. */
+export function registerWorldDataPack(pack, isOn = null, { priority = 0 } = {}) {
+  if (!pack?.names) return 0;
+  let n = 0;
+  for (const name of pack.names()) {
+    addAssetEntry(name, { json: null, get: (maps) => pack.rebuild(name, maps), isOn: typeof isOn === 'function' ? isOn : null, priority, vendor: pack.vendor });
+    n++;
+  }
+  return n;
+}
+function assetOn(a) {
+  if (!a) return false;
+  const pin = a.vendor ? pinHere() : null;
+  if (pin?.in?.has(a.vendor)) return true;     // WD3: a town a save made in this mod's layout keeps it
+  if (pin?.out?.has(a.vendor)) return false;   // WD3: and one made without it stays without it
+  return a.isOn?.() ?? true;
+}
+/** WD3: whether a mod carries a world-data file - the layout pins ask which mods a town's files come from
+ *  (systems/layoutPins.js). Answers for the mods on the door: one never loaded carries nothing here. */
+export const worldDataVendorCarries = (vendor, fileName) => (_assets.get(fileName) ?? []).some((a) => a.vendor === vendor);
+function liveAsset(fileName) {
+  for (const a of _assets.get(fileName) ?? []) if (assetOn(a)) return a;
+  return null;
+}
+/** A pack file that will not rebuild on this player's data is said once and not served (WD1's "a patch whose ops do
+ *  not land is said and not served") - the location or block is the classic one, never a throw out of the reader. */
+const _refused = new Set();
+function assetJson(a, fileName, maps) {
+  if (a.json != null) return a.json;
+  try {
+    return a.get(maps);
+  } catch (e) {
+    if (!_refused.has(fileName)) { _refused.add(fileName); console.error(`[worlddata] ${fileName} (${a.vendor}): ${e?.message ?? e} - not served`); }
+    return null;
+  }
+}
+/** ModManager.TryGetAsset(fileName): the JSON, or null. `maps` is the
+ *  MapsFile asking (a location file of a pack is an edit of its classic
+ *  location). */
+function tryGetAsset(fileName, maps = null) { const a = liveAsset(fileName); return a ? assetJson(a, fileName, maps) : null; }
 /** ModManager.FindAssets<TextAsset>(worldData, extension): every asset
- *  whose name ends so, in registration order (the C#'s list). */
+ *  whose name ends so, in registration order (the C#'s list). The JSON is
+ *  read when asked for - a pack's 7,000 location files are never rebuilt
+ *  to be passed over by a `locationnew-` filter. */
 function findAssets(extension) {
   const out = [];
-  for (const [name, a] of _assets) if (name.endsWith(extension) && assetOn(a)) out.push({ name, json: a.json });
+  for (const [name] of _assets) {
+    if (!name.endsWith(extension)) continue;
+    const a = liveAsset(name);
+    if (a) out.push({ name, get json() { return assetJson(a, name, null); } });
+  }
   return out;
 }
+
+// ---- WD3: layout pins (systems/layoutPins.js decides; the door only asks) ----
+// A town whose buildings a save has made its own - a house bought, decorated and filled, a room rented, a quest's
+// site - keeps the layout those were made in: its location and the blocks laid out in it are served with exactly the
+// world-data mods that were serving it then. The oracle answers, for the location the door is asked about (a
+// location by its own key; a block or a building by the town whose grid named it - WorldDataVariants'
+// readingLocationKeyOf, which MapsFile.getRmbBlockName notes and a location read takes back), the vendors pinned out
+// of it and pinned into it, or null.
+let _pinAt = () => null;   // (locationKey) -> { out:Set<vendor>, in:Set<vendor> } | null
+/** The pin oracle (systems/layoutPins.js installs it). */
+export function setLayoutPinOracle(fn) { _pinAt = typeof fn === 'function' ? fn : () => null; }
+let _pinKey = null;   // the location a pin is being asked for; null = the town whose blocks are being read
+const pinLocationKey = () => _pinKey ?? readingLocationKeyOf();
+const pinHere = () => _pinAt(pinLocationKey());
 
 // ---- the caches (:57-65) ----
 let regions = new Map();          // regionIndex -> dfRegion | NO_REPLACEMENT
@@ -75,11 +159,12 @@ export const boundWorldDataBlocks = () => _blocksFile;
 /** Once: the readers' door. Tests reset with `_resetWorldDataReplacement`. */
 export function installWorldDataReplacement() {
   setNewLocationIndexResolver(getNewDFLocationIndex);   // AUDIT-RR F33: SetNewLocationVariant -> GetNewDFLocationIndex (WorldDataVariants.cs:101) - RR3a's seam, wired
-  setWorldDataDoor({ getDFRegionAdditionalLocationData, getDFLocationReplacementData, getDFBlockReplacementData, getBuildingReplacementData, getNewDFBlockName, getNewDFBlockIndex, applyBuildingReplacementAutoMapData });
+  setWorldDataDoor({ getDFRegionAdditionalLocationData, getDFLocationReplacementData, getDFBlockReplacementData, getBuildingReplacementData, getNewDFBlockName, getNewDFBlockIndex, applyBuildingReplacementAutoMapData, noteReadingLocation });   // WD3: MapsFile.getRmbBlockName names the town whose blocks come next
 }
 export function _resetWorldDataReplacement({ assets = true } = {}) {
   regions = new Map(); locations = new Map(); blocks = new Map(); buildings = new Map();
   nextBlockIndex = 0; newBlockNames = new Map(); newBlockIndices = new Map(); _blocksFile = null;
+  _refused.clear(); _quietLocations = false;
   if (assets) _assets.clear();
 }
 
@@ -101,7 +186,7 @@ export function getNewDFLocationIndex(regionIndex, locationName) {
  *  dfRegion (mapNames, mapTable, the two lookups, locationCount) and
  *  answers true when any landed. Mutates `dfRegion` as the C# `ref`. */
 export function getDFRegionAdditionalLocationData(regionIndex, dfRegion) {
-  if (!assetInjectionOn() || !dfRegion) return false;
+  if (!worldDataOn() || !dfRegion) return false;
   const cached = regions.get(regionIndex);
   if (cached !== undefined) {
     if (cached !== NO_REPLACEMENT) { copyRegionInto(cached, dfRegion); return true; }
@@ -109,8 +194,10 @@ export function getDFRegionAdditionalLocationData(regionIndex, dfRegion) {
   }
   const dataLocationCount = dfRegion.locationCount;
   let locationAssignmentSuccess = true;
-  for (const { name, json } of findAssets(`-${regionIndex}.json`)) {
+  for (const asset of findAssets(`-${regionIndex}.json`)) {
+    const { name } = asset;
     if (!name.startsWith('locationnew-')) continue;
+    const json = asset.json;   // WD3: read only now - a pack's `location-<r>-<i>.json` ending in this region's number is passed over unread
     // AUDIT-RR2 G3: DFU's throw escapes this one region's read (MapsFile.cs:984, outside ReadRegion's catch) when the
     // region is first loaded; the port's boot index reads EVERY region, so one bad mod file is said and its location
     // skipped rather than the whole world host dying at boot - a departure, recorded
@@ -164,18 +251,31 @@ function addLocationToRegion(regionIndex, dfRegion, dfLocation) {
 }
 
 // ---- GetDFLocationReplacementData (:204-262) ----
-/** The replacement (or new) DFLocation for region/index, or null. */
-export function getDFLocationReplacementData(regionIndex, locationIndex) {
-  if (!assetInjectionOn()) return null;
+/** The replacement (or new) DFLocation for region/index, or null. `maps`
+ *  is the MapsFile asking (WD3: a pack's location file is rebuilt over the
+ *  location as that reader holds it). */
+export function getDFLocationReplacementData(regionIndex, locationIndex, maps = null) {
+  if (!worldDataOn()) return null;
   const locationKey = makeLocationKey(regionIndex, locationIndex);
   const { variant, newLocation } = getLocationVariant(locationKey);
   let locationVariantKey = `${locationKey}${variant}`;
   if (newLocation && !locations.has(locationVariantKey)) {
     if (!loadNewDFLocationVariant(regionIndex, locationIndex, variant)) locationVariantKey = String(locationKey);   // Fall back to non-variant if load fails
   }
+  // WD3: a pinned town is asked fresh - its answer is the save's, never the cache's
+  const fileName = locationReplacementFilename(regionIndex, locationIndex, variant);
+  if (pinnedHere(locationKey, fileName)) {
+    if (newLocation) return locations.get(locationVariantKey) ?? null;   // a location a mod ADDED is no town's layout to keep
+    const json = withPinKey(locationKey, () => tryGetAsset(fileName, maps));
+    if (!json) return null;
+    const dfLocation = locationFromJson(json, regionIndex);
+    dfLocation.locationIndex = locationIndex;
+    assignBlockIndices(dfLocation);
+    return dfLocation;
+  }
   const cached = locations.get(locationVariantKey);
   if (cached !== undefined) return cached === NO_REPLACEMENT ? null : cached;
-  const json = tryGetAsset(locationReplacementFilename(regionIndex, locationIndex, variant));
+  const json = tryGetAsset(fileName, maps);
   if (!json) {
     if (variant === NO_VARIANT) locations.set(locationVariantKey, NO_REPLACEMENT);
     return null;
@@ -183,8 +283,23 @@ export function getDFLocationReplacementData(regionIndex, locationIndex) {
   const dfLocation = locationFromJson(json, regionIndex);
   dfLocation.locationIndex = locationIndex;
   if (assignBlockIndices(dfLocation)) locations.set(locationVariantKey, dfLocation);
-  console.log(`[worlddata] Found DFLocation override, region:${regionIndex}, index:${locationIndex} variant:${variant}`);
+  if (!_quietLocations) console.log(`[worlddata] Found DFLocation override, region:${regionIndex}, index:${locationIndex} variant:${variant}`);
   return dfLocation;
+}
+/** WD3: a pack's thousands of locations, and the hundreds of new blocks their grids name, are not each logged (the
+ *  loader counts the files once). */
+let _quietLocations = false;
+export function quietLocationOverrides(on) { _quietLocations = !!on; }
+/** WD3: whether a pin turns away a mod that carries this file at this location - only then is the cache bypassed. */
+function pinnedHere(locationKey, fileName) {
+  const pin = _pinAt(locationKey);
+  if (!pin || (!pin.out?.size && !pin.in?.size)) return false;
+  return (_assets.get(fileName) ?? []).some((a) => a.vendor && (pin.out?.has(a.vendor) || pin.in?.has(a.vendor)));
+}
+function withPinKey(key, fn) {
+  const was = _pinKey;
+  _pinKey = key;
+  try { return fn(); } finally { _pinKey = was; }
 }
 /** LoadNewDFLocationVariant (:263-298): the variant of a NEW location,
  *  from `locationnew-*-<region><variant>.json`. */
@@ -194,8 +309,10 @@ export function loadNewDFLocationVariant(regionIndex, locationIndex, variant) {
   if (!base || base === NO_REPLACEMENT) return false;
   const locationVariantKey = `${locationKey}${variant}`;
   if (locations.has(locationVariantKey)) return false;
-  for (const { name, json } of findAssets(`-${regionIndex}${variant}.json`)) {
+  for (const asset of findAssets(`-${regionIndex}${variant}.json`)) {
     // AUDIT-RR2 G16: the mod arm (:284-292) takes EVERY asset the suffix finds - only the loose-file arm (:271) names locationnew-*
+    const json = asset.json;
+    if (!json) continue;
     const variantLocation = locationFromJson(json, regionIndex);
     addNewDFLocationVariant(locationIndex, locationVariantKey, variantLocation);
     return true;
@@ -225,7 +342,7 @@ function assignBlockIndices(dfLocation) {
 function assignNextIndex(blockName) {
   newBlockNames.set(nextBlockIndex, blockName);
   newBlockIndices.set(blockName, nextBlockIndex);
-  console.log(`[worlddata] Found a new DFBlock: ${blockName}, (assigned index: ${nextBlockIndex})`);
+  if (!_quietLocations) console.log(`[worlddata] Found a new DFBlock: ${blockName}, (assigned index: ${nextBlockIndex})`);   // WD3: a pack's 439 new blocks are not each logged either
   nextBlockIndex++;
 }
 
@@ -234,9 +351,17 @@ function assignNextIndex(blockName) {
  *  with its RMB buildings replaced where a building file says so; null
  *  when the mod ships none. */
 export function getDFBlockReplacementData(block, blockName) {
-  if (!assetInjectionOn() || !blockName) return null;
+  if (!worldDataOn() || !blockName) return null;
   const variant = getBlockVariantHere(blockName);
   const blockKey = `${blockName}${variant}`;
+  // WD3: a block laid out in a pinned town is asked fresh, without the mods its pin turns away
+  if (pinnedHere(pinLocationKey(), blockReplacementFilename(blockName, variant))) {
+    const json = tryGetAsset(blockReplacementFilename(blockName, variant));
+    if (!json) return null;
+    const dfBlock = blockFromJson(json, block);
+    if (blockName.endsWith('.RMB')) replaceRmbBlockBuildingData(blockName, block, dfBlock);
+    return dfBlock;
+  }
   const cached = blocks.get(blockKey);
   if (cached !== undefined) return cached === NO_REPLACEMENT ? null : cached;
   const json = tryGetAsset(blockReplacementFilename(blockName, variant));
@@ -277,9 +402,11 @@ function replaceRmbBlockBuildingData(blockName, blockIndex, dfBlock) {
  *  ask sets no variant of its own (the C# asks with NoVariant and lets
  *  WorldDataVariants answer for the last location). */
 export function getBuildingReplacementData(blockName, blockIndex, recordIndex) {
-  if (!assetInjectionOn() || !blockName) return null;
+  if (!worldDataOn() || !blockName) return null;
   const variant = getBuildingVariantHere(blockName, recordIndex, NO_VARIANT);
   const key = `${blockIndex}|${recordIndex}|${variant}`;
+  const file = buildingReplacementFilename(blockName, blockIndex, recordIndex, variant);
+  if (pinnedHere(pinLocationKey(), file)) { const json = tryGetAsset(file); return json ? buildingReplacementFromJson(json) : null; }   // WD3
   const cached = buildings.get(key);
   if (cached !== undefined) return cached === NO_REPLACEMENT ? null : cached;
   const json = tryGetAsset(buildingReplacementFilename(blockName, blockIndex, recordIndex, variant));
@@ -430,7 +557,7 @@ export function blockFromJson(json, index) {
   const type = enumOf(BLOCK_TYPES, json.Type, name.endsWith('.RMB') ? BLOCK_TYPES.Rmb : name.endsWith('.RDB') ? BLOCK_TYPES.Rdb : name.endsWith('.RDI') ? BLOCK_TYPES.Rdi : BLOCK_TYPES.Unknown);
   if (type === BLOCK_TYPES.Rdb || type === BLOCK_TYPES.Rdi) {
     return {
-      position: json.Position ?? 0, index, name, type,
+      position: json.Position ?? 0, index, name, type, fromWorldData: true,   // WD3: served from a mod's JSON, not BLOCKS.BSA
       rmbBlock: null,
       rdbBlock: type === BLOCK_TYPES.Rdb ? rdbBlockFromJson(json.RdbBlock ?? {}) : null,
       rdiBlock: type === BLOCK_TYPES.Rdi ? { data: json.RdiBlock?.Data ? Uint8Array.from(json.RdiBlock.Data) : null } : null,
@@ -449,12 +576,17 @@ export function blockFromJson(json, index) {
     index,
     name,
     type,
+    fromWorldData: true,   // WD3: served from a mod's JSON, not BLOCKS.BSA (world/rmbLayout.js: its own mills, not Kamer's)
     rmbBlock: {
       fldHeader: {
         numBlockDataRecords: subRecords.length, numMisc3dObjectRecords: misc3d.length, numMiscFlatObjectRecords: miscFlat.length,
         blockPositions, buildingDataList, section2UnknownData: new Array(32).fill(0), blockDataSizes: new Array(32).fill(0),
         groundData: groundDataFromJson(fh.GroundData), autoMapData: Uint8Array.from(fh.AutoMapData ?? new Array(AUTO_MAP_DATA_SIZE).fill(0)),
-        name: fh.Name ?? name, otherNames: null,
+        // WD3: FldHeader.OtherNames is a public field FullSerializer writes and reads (DFBlock.cs), so a block served
+        // from JSON keeps it - and RMBLayout's Order of the Raven case (KRAVE01.HS2 -> GuildHall, faction 414,
+        // RMBLayout.cs:677-683; talkTopics.mergeNamedBuildings) fires for Beautiful Cities' knightly blocks as in DFU.
+        // A file that leaves it out (RRFORT01) carries none.
+        name: fh.Name ?? name, otherNames: Array.isArray(fh.OtherNames) ? [...fh.OtherNames] : null,
       },
       subRecords, misc3dObjectRecords: misc3d, miscFlatObjectRecords: miscFlat,
     },
