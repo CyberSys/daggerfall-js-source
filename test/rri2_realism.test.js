@@ -424,8 +424,7 @@ test('RRI2 wiring: the install registers the six delegates; the read-through sit
   assert.match(rd('src/systems/useItem.js'), /const handler = itemUseHandler\(item\.templateIndex\);\n  if \(handler\) \{\n    const handled = handler\(item, collection, \{ entity, rolls, nowMinute, localItems: bag, target, chooseTarget \}\);[^\n]*\n    if \(handled\) return questItem \? \{ \.\.\.handled, questItem: true \} : handled;\n  \}\n\n  let out = null;/, 'the delegate arm, then the ladder');
   assert.match(rd('src/systems/inventory.js'), /if \(isRriStackable\(item\)\) return true;/);
   assert.match(rd('src/systems/shopStock.js'), /let cost = conditionBasedPricesOn\(\) \? conditionCostBase\(baseValue, conditionPercentage\) : baseValue;/);
-  // PIN MOVED (FIELD BUGS 2026-10-01 MANA-SHOP): online a bottle of Restore Power is costed as it is sold, else this
-  assert.match(rd('src/systems/tradeModes.js'), /\?\? calculateCost\(itemValueOf\(item\), quality, priceAdjustment, conditionPercentage\(item\)\)\) \* stack;/, 'the Sell arm passes ConditionPercentage (:462)');
+  assert.match(rd('src/systems/tradeModes.js'), /calculateCost\(itemValueOf\(item\), quality, priceAdjustment, conditionPercentage\(item\)\) \* stack;/, 'the Sell arm passes ConditionPercentage (:462)');
   assert.match(rd('src/systems/repairService.js'), /conditionBasedPricesOn\(\) \? conditionRepairCostBase\(baseItemValue, condition, max, instantRepairs\) : Math\.trunc\(10 \* baseItemValue \/ 100\)/);
   assert.match(rd('src/systems/chargenSession.js'), /assignStartingSpells\(setIndex, spellsByIndex, result\.career\)/);
   assert.match(rd('src/systems/chargenSession.js'), /assignStartingEquipment\(playerEntity, \{ classIndex: result\.careerIndex/);
