@@ -48,6 +48,7 @@
 // with the motor are restated and pinned equal (test/auditclimb1, test/climb2).
 
 import { KHAJIIT_CLIMBING_BONUS, climbingSpeed } from './climbing.js';
+import { overcapClimbSpeed } from '../systems/skillSoftcap.js';   // CLIMB-PAST: the climb's pace past 100 (a leaf)
 
 /** The lip height above the feet a standing body reaches with its hands, at
  *  Climbing 0 and at Climbing 100: a ledge at the chest, and one at the full
@@ -241,8 +242,10 @@ const smooth = (t) => t * t * (3 - 2 * t);
 
 /** The Climbing skill the moves read: the classic law's own arithmetic
  *  (climbing.js climbingChance - +30 for a Khajiit, doubled under the
- *  Climbing effect), held to 0..100 because past 100 (SOFTCAP1) the reach
- *  and the pace have nowhere further to go. */
+ *  Climbing effect), held to 0..100 because past 100 (SOFTCAP1) the reach,
+ *  the grip and the pace's share have nowhere further to go. The points past
+ *  100 go to the pace alone, read off the LIVE value as the classic climb's
+ *  (CLIMB-PAST: shimmySpeed, freeClimbSpeed). */
 export function parkourSkill({ climbing = 0, khajiit = false, enhanced = false } = {}) {
   let s = climbing + (khajiit ? KHAJIIT_CLIMBING_BONUS : 0);
   if (enhanced) s *= 2;
@@ -275,15 +278,18 @@ export function gripSeconds(skill, fatigue = 1) {
   return lerp(PARKOUR_GRIP_MIN_S, PARKOUR_GRIP_MAX_S, clamp01(skill / 100)) * lerp(PARKOUR_GRIP_TIRED, 1, clamp01(fatigue));
 }
 
-/** CLIMB2: the shimmy's pace along a lip, m/s. */
-export function shimmySpeed(skill) {
-  return lerp(PARKOUR_SHIMMY_MIN, PARKOUR_SHIMMY_MAX, clamp01(skill / 100));
+/** CLIMB2: the shimmy's pace along a lip, m/s - CLIMB-PAST: times the
+ *  classic climb's multiplier for the LIVE Climbing (skillSoftcap.js
+ *  overcapClimbSpeed), so a mastered skill's points past 100 shimmy faster. */
+export function shimmySpeed(skill, live = 0) {
+  return lerp(PARKOUR_SHIMMY_MIN, PARKOUR_SHIMMY_MAX, clamp01(skill / 100)) * overcapClimbSpeed(live);
 }
 
 /** CLIMB2: the free climb's pace, m/s - the classic climb's over the motor's
- *  Speed (and the Climbing spell's doubling), times the skill's share. */
-export function freeClimbSpeed(speed, skill, spell = false) {
-  return climbingSpeed(speed, spell) * lerp(PARKOUR_CLIMB_MIN, PARKOUR_CLIMB_MAX, clamp01(skill / 100));
+ *  Speed (and the Climbing spell's doubling, and CLIMB-PAST's points past 100
+ *  of the LIVE Climbing), times the skill's share. */
+export function freeClimbSpeed(speed, skill, spell = false, live = 0) {
+  return climbingSpeed(speed, spell, live) * lerp(PARKOUR_CLIMB_MIN, PARKOUR_CLIMB_MAX, clamp01(skill / 100));
 }
 
 /** CLIMB2: how long Forward is held against a wall before the free climb. */
@@ -853,8 +859,9 @@ export function moveClear(collider, m, height) {
 }
 
 /** A corner's move: the hang carried round it by `mid` into the hang on the
- *  other face, at the shimmy's pace. Unbilled: a shimmy is no new exertion. */
-export function planCorner(from, mid, grip, skill) {
+ *  other face, at the shimmy's pace (`live`: the LIVE Climbing, shimmySpeed's).
+ *  Unbilled: a shimmy is no new exertion. */
+export function planCorner(from, mid, grip, skill, live = 0) {
   const len = Math.hypot(mid[0] - from[0], mid[1] - from[1], mid[2] - from[2])
     + Math.hypot(grip.feet[0] - mid[0], grip.feet[1] - mid[1], grip.feet[2] - mid[2]);
   return {
@@ -863,7 +870,7 @@ export function planCorner(from, mid, grip, skill) {
     up: [...mid],
     to: [...grip.feet],
     split: 0.5, arc: 0,
-    dur: Math.max(0.2, len / shimmySpeed(skill)),
+    dur: Math.max(0.2, len / shimmySpeed(skill, live)),
     crouch: false,
     exit: null,
     hang: { normal: [...grip.normal], lipY: grip.lipY },

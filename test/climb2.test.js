@@ -8,13 +8,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  senseGrip, wallContact, gripSeconds, shimmySpeed, freeClimbSpeed, freeStartSeconds, parkourReach, registerParkourGate,
+  senseGrip, wallContact, gripSeconds, shimmySpeed, freeClimbSpeed, freeStartSeconds, parkourReach, registerParkourGate, planCorner,
   PARKOUR_HANG_DROP, PARKOUR_HANG_LOW, PARKOUR_HANG_GAP, PARKOUR_GRIP_MIN_S, PARKOUR_GRIP_MAX_S, PARKOUR_GRIP_TIRED,
   PARKOUR_GRIP_REGEN_S, PARKOUR_GRIP_LOW, PARKOUR_GRIP_LOW_TEXT, PARKOUR_GRIP_MIN, PARKOUR_HAND_SPAN,
   PARKOUR_REACH_MIN, PARKOUR_AIR_REACH, PARKOUR_LOAD_CUT, PARKOUR_START_MIN_S, PARKOUR_START_MAX_S,
   PARKOUR_SHIMMY_MIN, PARKOUR_SHIMMY_MAX, PARKOUR_CLIMB_MIN, PARKOUR_CLIMB_MAX, PARKOUR_UP_GAP,
 } from '../src/player/parkour.js';
 import { climbingSpeed, CONTINUE_CLIMBING_SKILL_CHECK_FREQUENCY } from '../src/player/climbing.js';
+import { overcapClimbSpeed } from '../src/systems/skillSoftcap.js';
 import {
   PlayerMotor, motionBagOf, CAPSULE_RADIUS, CAPSULE_HEIGHT, EYE_HEIGHT, SYSTEM_TIMER_UPDATES_DIVISOR,
 } from '../src/player/motor.js';
@@ -531,4 +532,39 @@ test('CLIMB2 hosts: the deps carry the Fatigue, the pack and the tally; every HU
   assert.match(hud, /drawGripBar\(renderer, canvas, art, grip, s2\);/, '...and under the large HUD');
   assert.match(hud, /\n\s*grip,   \/\/ CLIMB2\n/, 'the enhanced HUD is handed it');
   assert.match(read('src/ui/enhancedHud.js'), /el\('span', 'hud-breathlabel', 'Grip'\)/);
+});
+
+test('CLIMB2 x CLIMB-PAST (main #498): a mastered Climbing\'s points past 100 climb faster on the enhanced lane too - the free climb, the shimmy and its corners, by the classic climb\'s own multiplier', () => {
+  // online the enhanced climb is always on and the classic climb never runs, so a pace that read the 0..100 skill alone
+  // took FIELD BUGS 2026-10-01 #7's fix ("Running jumping climbing dint work passed 100") away from every online climber
+  const x = overcapClimbSpeed(200);
+  assert.ok(x > 1.3, `Climbing 200 climbs x${x} on the classic lane`);
+  // the laws: the LIVE value's multiplier on the pace alone - the skill's share stays the 0..100 law's
+  assert.ok(near(freeClimbSpeed(6, 100, false, 200), climbingSpeed(6, false, 200) * PARKOUR_CLIMB_MAX), 'the classic climb\'s own pace, at the share');
+  assert.ok(near(freeClimbSpeed(6, 100, false, 200), x * freeClimbSpeed(6, 100)));
+  assert.equal(freeClimbSpeed(6, 100, false, 100), freeClimbSpeed(6, 100), 'to 100 nothing moves');
+  assert.ok(near(shimmySpeed(100, 200), x * PARKOUR_SHIMMY_MAX));
+  assert.equal(shimmySpeed(100, 100), PARKOUR_SHIMMY_MAX);
+  const grip = { feet: [1, 0, 0], normal: [1, 0, 0], lipY: 2 };
+  assert.ok(near(planCorner([0, 0, 0], [0.5, 0, 0.3], grip, 100, 200).dur * x, planCorner([0, 0, 0], [0.5, 0, 0.3], grip, 100).dur), 'a corner at the shimmy\'s pace');
+  // live, through the deps' own `climbing` read: up the face, along the lip, and round a corner
+  const up = (skill) => {
+    const r = drive(wall(6.0), { skill, z: 0.6, steps: 120, input: () => ({ forward: 1 }) });
+    const s = firstAt(r.log, 'climb').i;
+    return (r.log[s + 50].pos[1] - r.log[s + 20].pos[1]) / (30 / 60);
+  };
+  assert.ok(near(up(200) / up(100), x, 0.02), `the free climb: ${up(100).toFixed(2)} -> ${up(200).toFixed(2)} m/s`);
+  const along = (skill) => {
+    const r = drive(wall(2.3), { skill, steps: 150, input: (i) => ({ ...held()(i), strafe: i >= 60 && i < 90 ? 1 : 0 }) });
+    assert.equal(r.log[59].st, 'hang', `hanging at Climbing ${skill}`);
+    return (r.log[89].pos[0] - r.log[59].pos[0]) / (30 / 60);
+  };
+  assert.ok(near(along(200), x * PARKOUR_SHIMMY_MAX, 0.04), `the shimmy: ${along(200).toFixed(2)} m/s`);
+  const corner = (skill) => {
+    let dur = null;
+    drive(wall(2.3, 3), { skill, x: 1.5, steps: 400, input: (i, m) => { if (dur == null && m._pkMove?.kind === 'corner') dur = m._pkMove.dur; return { ...held()(i), strafe: i >= 60 ? 1 : 0 }; } });
+    assert.ok(dur != null, `a corner at Climbing ${skill}`);
+    return dur;
+  };
+  assert.ok(near(corner(100) / corner(200), x, 0.01), `round the corner in ${corner(200).toFixed(3)} s, not ${corner(100).toFixed(3)}`);
 });

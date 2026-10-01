@@ -3084,7 +3084,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  streamer is behind. A horse at the shipped default limit of sixty
    *  covers ~65 units in a 10 fps frame and ~120 at the mod's ceiling of
    *  a hundred - past a 64-unit probe, off the built world, and once the
-   *  motor is airborne `airControl` is false (motor.js:2582) so zeroing
+   *  motor is airborne `airControl` is false (motor.js:2583) so zeroing
    *  the drive on the NEXT frame no longer steers: the fall is already
    *  paid for. `travelLookahead` measures the frame that is about to
    *  run instead, and keeps 64 as its floor. */

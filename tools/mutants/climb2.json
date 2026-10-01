@@ -26,8 +26,8 @@
   {
     "name": "CLIMB2-shimmy-pace-flat",
     "file": "src/player/parkour.js",
-    "old": "  return lerp(PARKOUR_SHIMMY_MIN, PARKOUR_SHIMMY_MAX, clamp01(skill / 100));",
-    "new": "  return PARKOUR_SHIMMY_MAX;",
+    "old": "  return lerp(PARKOUR_SHIMMY_MIN, PARKOUR_SHIMMY_MAX, clamp01(skill / 100)) * overcapClimbSpeed(live);",
+    "new": "  return PARKOUR_SHIMMY_MAX * overcapClimbSpeed(live);",
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
@@ -38,8 +38,8 @@
   {
     "name": "CLIMB2-climb-pace-flat",
     "file": "src/player/parkour.js",
-    "old": "  return climbingSpeed(speed, spell) * lerp(PARKOUR_CLIMB_MIN, PARKOUR_CLIMB_MAX, clamp01(skill / 100));",
-    "new": "  return climbingSpeed(speed, spell);",
+    "old": "  return climbingSpeed(speed, spell, live) * lerp(PARKOUR_CLIMB_MIN, PARKOUR_CLIMB_MAX, clamp01(skill / 100));",
+    "new": "  return climbingSpeed(speed, spell, live);",
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
@@ -506,7 +506,7 @@
   {
     "name": "CLIMB2-no-corners",
     "file": "src/player/motor.js",
-    "old": "    const move = this._pkCorner(s, reach, skill, geo);",
+    "old": "    const move = this._pkCorner(s, reach, skill, geo, live);",
     "new": "    const move = null;",
     "tests": [
       "test/climb2.test.js",
@@ -688,6 +688,114 @@
     "file": "src/player/motor.js",
     "old": "parkourReach(skill, inputs.load ?? 0) + (air ?",
     "new": "parkourReach(skill) + (air ?",
+    "tests": [
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB2-PAST-free-climb-capped",
+    "file": "src/player/parkour.js",
+    "old": "  return climbingSpeed(speed, spell, live) * lerp(PARKOUR_CLIMB_MIN, PARKOUR_CLIMB_MAX, clamp01(skill / 100));",
+    "new": "  return climbingSpeed(speed, spell) * lerp(PARKOUR_CLIMB_MIN, PARKOUR_CLIMB_MAX, clamp01(skill / 100));",
+    "tests": [
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB2-PAST-shimmy-capped",
+    "file": "src/player/parkour.js",
+    "old": "  return lerp(PARKOUR_SHIMMY_MIN, PARKOUR_SHIMMY_MAX, clamp01(skill / 100)) * overcapClimbSpeed(live);",
+    "new": "  return lerp(PARKOUR_SHIMMY_MIN, PARKOUR_SHIMMY_MAX, clamp01(skill / 100));",
+    "tests": [
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB2-PAST-corner-capped",
+    "file": "src/player/parkour.js",
+    "old": "    dur: Math.max(0.2, len / shimmySpeed(skill, live)),",
+    "new": "    dur: Math.max(0.2, len / shimmySpeed(skill)),",
+    "tests": [
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB2-PAST-free-climb-not-told",
+    "file": "src/player/motor.js",
+    "old": "freeClimbSpeed(this.speed, skill, !!inputs.enhanced, inputs.climbing ?? 0)",
+    "new": "freeClimbSpeed(this.speed, skill, !!inputs.enhanced)",
+    "tests": [
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB2-PAST-hang-not-told",
+    "file": "src/player/motor.js",
+    "old": "this._hangStep(dt, input, side, vert, skill, inputs.climbing ?? 0)",
+    "new": "this._hangStep(dt, input, side, vert, skill)",
+    "tests": [
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB2-PAST-shimmy-not-told",
+    "file": "src/player/motor.js",
+    "old": "    else if (this._pkShimmy(dt, side, skill, geo, live)) {",
+    "new": "    else if (this._pkShimmy(dt, side, skill, geo)) {",
+    "tests": [
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB2-PAST-shimmy-step-capped",
+    "file": "src/player/motor.js",
+    "old": "    const d = shimmySpeed(skill, live) * dt",
+    "new": "    const d = shimmySpeed(skill) * dt",
+    "tests": [
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB2-PAST-corner-not-told",
+    "file": "src/player/motor.js",
+    "old": "    const move = this._pkCorner(s, reach, skill, geo, live);",
+    "new": "    const move = this._pkCorner(s, reach, skill, geo);",
+    "tests": [
+      "test/climb2.test.js",
+      "test/parkour.test.js",
+      "test/auditclimb1.test.js",
+      "test/auditclimb2.test.js"
+    ]
+  },
+  {
+    "name": "CLIMB2-PAST-corner-plan-not-told",
+    "file": "src/player/motor.js",
+    "old": "    const move = planCorner(this.pos, mid, grip, skill, live);",
+    "new": "    const move = planCorner(this.pos, mid, grip, skill);",
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",

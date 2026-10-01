@@ -66,6 +66,7 @@ Carrying more than half of what you can carry shortens your reach. With a full p
 
 ## Your skills matter
 - **Climbing** sets how high you can reach, how fast you pull yourself up, climb and shimmy, how long your grip lasts, and how long a fall you can still catch.
+- Past 100, Climbing still makes you climb and shimmy faster, up to 1.4 times as fast at 200, just as it does for ordinary climbing.
 - Climbing onto or over something, and catching a ledge or a wall, each cost about as much fatigue as a jump and train **Climbing**. A vault trains **Jumping**. Time on a wall costs fatigue as climbing always has, and trains Climbing as often as the old climb did.
 - Khajiit and the Climbing spell help here too.
 - With **Roleplay & Realism** on, you can't climb, catch or hang while holding a weapon, just as with ordinary climbing. Drawing one on a wall makes you let go. You can still vault. Sheathe your weapon (or use bare hands) to climb.

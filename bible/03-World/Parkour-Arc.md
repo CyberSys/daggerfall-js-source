@@ -581,3 +581,18 @@ climbing list re-run: 165 dead, 5 recorded equivalent, none surviving. The survi
   shins under a ceiling at the head.
 
 Still open: `test/climbreal.test.js`'s real half has never run, because no session has had the game data.
+
+**MAIN #498's CLIMB-PAST, CARRIED** (the merge of 2026-10-01). FIELD BUGS 2026-10-01 #7 ("Running jumping climbing dint
+work passed 100") gave a mastered Climbing's points past 100 to the classic climb's speed: `climbing.js climbingSpeed`
+times `skillSoftcap.js overcapClimbSpeed` of the LIVE skill, x1.4 at 200. This lane's pace read the 0..100 skill
+alone, and online, where the row is forced on and the classic climb never runs, that would have taken the fix away
+from every climber. Now the free climb's pace is the classic climb's own with the live value (`freeClimbSpeed`'s
+`live`), and the shimmy and its corners take the same multiplier (`shimmySpeed`, `planCorner`; the motor hands the
+deps' `climbing` down `_hangStep`, `_pkShimmy` and `_pkCorner`). The reach, the grip and the catch's fall stay the
+0..100 law's, as CLIMB-PAST left the classic check's.
+- **Pinned**: `test/climb2.test.js` "CLIMB2 x CLIMB-PAST", red on the merge: the laws, and live at Climbing 200 the
+  climb up the face, the shimmy along the lip and a corner's move each x1.4.
+- **Mutants**: `tools/mutants/climb2.json` grows to 67, nine for the carry (each law capped, each hand-down dropped);
+  the three records on the lines it reshaped are re-aimed. All twelve dead.
+- **The merge's own fault**: `scenes/shared.js` imported `isOnlinePage` twice (CLIMB1's switch and MANA-HALF each
+  added it, and git merged both lines cleanly), so the module did not load; one import now.

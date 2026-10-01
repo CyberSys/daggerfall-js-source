@@ -1854,7 +1854,7 @@ export class PlayerMotor {
     if (this.grip <= 0) { this.grip = 0; this._wallEnd(); return false; }
     if (!w.warned && this.grip <= PARKOUR_GRIP_LOW) { w.warned = true; pk.say?.(PARKOUR_GRIP_LOW_TEXT); }
     this._wallTick(dt);
-    const owned = w.mode === 'hang' ? this._hangStep(dt, input, side, vert, skill) : this._freeClimbStep(dt, side, vert, skill, inputs);
+    const owned = w.mode === 'hang' ? this._hangStep(dt, input, side, vert, skill, inputs.climbing ?? 0) : this._freeClimbStep(dt, side, vert, skill, inputs);
     if (this._wall) this._pkHold();
     // the climb's own mirror (AUDIT 65 XL-5): the step returns above both writers of the cached pair
     this.standing = this.grounded;
@@ -1901,8 +1901,9 @@ export class PlayerMotor {
    *  climbs up: onto the top or over a thin one, the whole way proven (a lip
    *  with neither - a sill under a window - holds, and Forward held asks no
    *  more until it is let go or the hands move); Back climbs down the face (a
-   *  free climb); Left and Right shimmy. */
-  _hangStep(dt, input, side, vert, skill) {
+   *  free climb); Left and Right shimmy. `live` is the LIVE Climbing, the
+   *  shimmy's pace past 100 (CLIMB-PAST, parkour.js shimmySpeed). */
+  _hangStep(dt, input, side, vert, skill, live = 0) {
     const w = this._wall;
     const geo = this._pkGeo();
     if (!senseGrip(this.collider, this._pkFaceOf(w.normal), w.normal, w.lipY, geo)) { this._wallEnd(); return false; }
@@ -1927,7 +1928,7 @@ export class PlayerMotor {
       return true;
     }
     if (!side) w.cornerRefused = 0;
-    else if (this._pkShimmy(dt, side, skill, geo)) { if (this._wall) w.upRefused = false; }
+    else if (this._pkShimmy(dt, side, skill, geo, live)) { if (this._wall) w.upRefused = false; }
     return true;
   }
 
@@ -1936,12 +1937,12 @@ export class PlayerMotor {
    *  hands stop), and the body must fit where it hangs next (a wall across
    *  the lip, a pillar). Each step's hold is the lip's own: its height and
    *  its face's turn followed. Answers whether the body moved. */
-  _pkShimmy(dt, side, skill, geo) {
+  _pkShimmy(dt, side, skill, geo, live = 0) {
     const w = this._wall, n = w.normal;
     const s = Math.sign(side);
     if (w.cornerRefused === s) return false;
     const tx = -n[2] * s, tz = n[0] * s;
-    const d = shimmySpeed(skill) * dt * Math.min(1, Math.abs(side));
+    const d = shimmySpeed(skill, live) * dt * Math.min(1, Math.abs(side));
     const face = this._pkFaceOf(n);
     const reach = d + PARKOUR_HAND_SPAN;
     // the body's next hold, and the lead hand a span on from it, felt along the lip in two halves, each along the face
@@ -1955,7 +1956,7 @@ export class PlayerMotor {
     }
     const g = lead ? at : null;
     if (g) { this._pkHangAt(g); w.cornerRefused = 0; return true; }
-    const move = this._pkCorner(s, reach, skill, geo);
+    const move = this._pkCorner(s, reach, skill, geo, live);
     if (!move) { w.cornerRefused = s; return false; }
     this._parkourBegin(move);   // AUDIT CLIMB2 C7: the hands go round - the hold is not let go (_parkourAdvance)
     return true;
@@ -1972,7 +1973,7 @@ export class PlayerMotor {
    *  round the edge, and where the wall runs on in the same face the other
    *  side's hold is sought inside the solid and is none (the first cut asked
    *  the running face as well - the mutation run found it could not decide). */
-  _pkCorner(s, reach, skill, geo) {
+  _pkCorner(s, reach, skill, geo, live = 0) {
     const w = this._wall, n = w.normal;
     const t = [-n[2] * s, 0, n[0] * s];
     const back = CAPSULE_RADIUS + PARKOUR_HANG_GAP;
@@ -2008,7 +2009,7 @@ export class PlayerMotor {
       if (grip) mid = [ex + (bx / bl) * r, (this.pos[1] + grip.feet[1]) / 2, ez + (bz / bl) * r];
     }
     if (!grip) return null;
-    const move = planCorner(this.pos, mid, grip, skill);
+    const move = planCorner(this.pos, mid, grip, skill, live);
     return moveClear(this.collider, move, CAPSULE_HEIGHT) ? move : null;
   }
 
@@ -2078,7 +2079,7 @@ export class PlayerMotor {
     }
     w.stuck = false;
     if (!side && !vert) return true;
-    const v = freeClimbSpeed(this.speed, skill, !!inputs.enhanced) * (side && vert ? DIAGONAL_FACTOR : 1);
+    const v = freeClimbSpeed(this.speed, skill, !!inputs.enhanced, inputs.climbing ?? 0) * (side && vert ? DIAGONAL_FACTOR : 1);   // CLIMB-PAST: the live Climbing's points past 100
     const n = c.normal;
     const was = [this.pos[0], this.pos[1], this.pos[2]];
     this._fcMove(was, side, vert, v, n, dt);
