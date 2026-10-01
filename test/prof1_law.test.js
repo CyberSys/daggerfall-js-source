@@ -28,6 +28,11 @@ import { MARKS_FAUCETS, MARKS_KINDS } from '../src/net/marksLaw.js';
 const name = (i) => templateByIndex(i).name;
 const names = (list) => list.map(name);
 
+// TIME1 (bible/06-Systems/Online-Time-Arc.md): a UTC day's season and month are the SKY's (nodeLaw dayDate), which
+// turns a year every 7.5 real days from its switch - so the winter day these pins stand on is FOUND, the first on or
+// after the one they used to name whose month is 1 and whose season is winter, never named by its date.
+const WINTER_DAY = (() => { let d = utcDayOfMs(Date.UTC(2027, 0, 15)); while (!(dayMonth(d) === 1 && daySeason(d) === SEASONS.Winter)) d++; return d; })();
+
 test('PROF1 law: thirteen professions - five that gather, eight that craft, in the tab\'s order (PROF0 3.1)', () => {
   assert.deepEqual(PROFESSIONS.map((p) => [p.name, p.kind]), [
     ['Mining', 'gathering'], ['Logging', 'gathering'], ['Herbalism', 'gathering'], ['Hunting', 'gathering'], ['Fishing', 'gathering'],
@@ -150,7 +155,7 @@ test('PROF1 law: how many nodes a pixel holds a day, by climate (PROF0 6); the t
 
 test('PROF1 law: a pixel\'s patches are the clock\'s - the same for every asker; held to tier 2 unconfirmed; a bare first draw draws again at that tier or below; a Seasonal Eye keeps it, off-season', () => {
   const C = mapsFile.CLIMATES;
-  const T = utcDayOfMs(Date.UTC(2027, 0, 15));   // winter on the shared clock
+  const T = WINTER_DAY;   // winter on the shared clock - TIME1: the sky's, found rather than named by its date
   assert.equal(daySeason(T), SEASONS.Winter);
   const a = herbPatches({ x: 400, y: 200, day: T, climate: C.Woodlands, confirmed: true });
   assert.deepEqual(a, herbPatches({ x: 400, y: 200, day: T, climate: C.Woodlands, confirmed: true }), 'pure');
@@ -160,7 +165,7 @@ test('PROF1 law: a pixel\'s patches are the clock\'s - the same for every asker;
     assert.ok(herbInSeason(p.herb, SEASONS.Winter), 'winter: only what grows');
     assert.ok(HERB_TABLES[C.Woodlands][p.tier - 1].includes(p.herb));
   }
-  // a game year is thirty real days (360 game days of two hours), so a summer day is found by walking forward
+  // a game year is 7.5 real days on the sky (TIME1: 360 game days of thirty minutes), so a summer day is found by walking forward
   let S = T;
   while (daySeason(S) !== SEASONS.Summer) S++;
   let rare = 0, unconfRare = 0, eyeOff = 0;
@@ -200,7 +205,7 @@ test('PROF1 law: the yields - an herb 1-3, the Basket by its block; the order ba
   assert.equal(foodYield({ roll: 1, step: 1.25 }, 0.2), 2);
   assert.equal(foodYield({ roll: 1, step: 1.25 }, 0.3), 1);
   const C = mapsFile.CLIMATES;
-  const T = utcDayOfMs(Date.UTC(2027, 0, 15));
+  const T = WINTER_DAY;   // TIME1: the sky's winter, month 1
   assert.deepEqual(basketFood(C.Desert, T, 0), { block: 'A', material: 'food:orange' });
   assert.deepEqual(basketFood(C.Woodlands, T, 0), { block: 'D', material: 'food:apple' }, 'winter months: block D');
   assert.deepEqual(basketFood(C.Swamp, T, 0.99), { block: 'C', material: 'food:egg' });

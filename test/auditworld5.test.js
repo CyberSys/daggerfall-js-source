@@ -82,7 +82,8 @@ test('AUDIT WORLD5 C2: a source that steps BACKWARDS re-anchors the tick\'s read
   const w = rd('src/scenes/world.js');
   // LIVED1: the arrival re-anchors the world's reading and moves nothing of the character's, so a correction needs no shift of its own
   assert.match(w, /online\.onClock = \(offsetMs\) => \{ const was = _sharedOffsetMs; _sharedOffsetMs = offsetMs; (?:_sharedClockHeard = true; )?if \(Math\.abs\(offsetMs - was\) > 1000\) onlineArrival\(\); (?:hearSharedClock\(\); )?\};/, 'a correction over a second is an arrival');
-  assert.match(w, /const onlineArrival = \(\) => \{ alignEntityClocks\(playerEntity, worldMinutes\(\)\); rollClimateWeathersForDay\(worldMinutes\(\)\); refreshSeason\(worldMinutes\(\)\); \};\s*onlineArrival\(\);/, 'the same arrival the session\'s start runs');
+  // TIME1: the arrival's season is the SKY's; the markers and the weather's roll stay the event clock's
+  assert.match(w, /const onlineArrival = \(\) => \{ alignEntityClocks\(playerEntity, worldMinutes\(\)\); rollClimateWeathersForDay\(worldMinutes\(\)\); refreshSeason\(skyMinutes\(\)\); \};[^\n]*\s*onlineArrival\(\);/, 'the same arrival the session\'s start runs');
 });
 
 test('AUDIT WORLD5 C3 (LIVED1: an arrival moves nothing of the character\'s): every marker a save carries is on the character\'s own clock, which stood while they were away - so a room keeps its hours, a loan its week, a summoned item what it had left and a skill check that was due is due, by the markers standing where they were; a young world or an old one alike; a fresh character starts its day marker at its own clock', () => {
@@ -281,9 +282,9 @@ test('AUDIT WORLD5 by source: the sentence refills in both lanes (C9; LIVED1: it
   // DISC25-D: the last clause ("the quest clocks stand still") had been false since WORLD7 - they count played time
   assert.match(rd('src/ui/enhancedMenu.js'), /The world\\u2019s clock and sky run on real time: resting, travelling, jail time or training don\\u2019t move them, so a quest that waits for a time of day waits for the world\\u2019s\. Your character also keeps their own time: it runs while you play, resting, travelling, jail time and training use it, and it stops while you are logged off\./, 'C12 (LIVED1: and the character\'s own time; AUDIT LIVED1b U8: logged off, not away)');
   const w = rd('src/scenes/world.js');
-  const install = w.indexOf("if (params.has('online')) { setSharedClock(() => sharedClassicMinutes(Date.now() + _sharedOffsetMs), (m) => wallMsForClassicMinutes(m) - _sharedOffsetMs); setSharedWeather(true); }");
+  const install = w.indexOf("if (params.has('online')) { setSharedClock(() => sharedClassicMinutes(Date.now() + _sharedOffsetMs), (m) => wallMsForClassicMinutes(m) - _sharedOffsetMs, { sky: () => skyClassicMinutes(Date.now() + _sharedOffsetMs), skyWall: (m) => wallMsForSkyMinutes(m) - _sharedOffsetMs }); setSharedWeather(true); }");   // TIME1: and the sky beside it
   const boot = w.indexOf('export async function bootWorld(');
-  const season = w.indexOf('let season = seasonPin ?? climateSeasonFromMinutes(worldMinutes());');
+  const season = w.indexOf('let season = seasonPin ?? climateSeasonFromMinutes(skyMinutes());');   // TIME1: the sky's season
   assert.ok(boot > 0 && install > boot && season > install, 'C13: installed before the first read of the clock (the season)');
   assert.ok(!w.slice(boot, install).split('\n').some((l) => !l.trim().startsWith('//') && l.includes('worldMinutes()')), 'C13: nothing between the boot\'s door and the install reads the clock');
   assert.match(w, /if \(opts\.speedCautious\) \{/, 'C14 (LIVED1): the heal is the trip\'s nights, and online they are the character\'s own');

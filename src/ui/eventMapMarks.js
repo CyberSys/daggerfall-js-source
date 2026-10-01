@@ -50,10 +50,14 @@ export const raidPartyWord = (type) => { const w = raidTypeName(type); return w[
  * every raid RUNNING now (raidActive: begun, not withdrawn, not cleansed) at its town's pixel, with its label and its
  * tip. The deaths are said only once some are known here (a raid another runner holds counts none on this machine).
  * @param {ReadonlyArray<any>|null|undefined} raids systems/raidingParties.js raidState().raids
+ * TIME1 (bible/06-Systems/Online-Time-Arc.md section 7): online a raid's withdrawal is said in this machine's LOCAL time
+ * (`localTime`: the event clock's minute as "HH:MM", or null) - the raids keep the event clock's schedule and the sky the
+ * player sees turns at its own rate, so the event clock's game time would contradict the clock in front of them.
+ * Offline, or with no local time to say, the game clock's, as before: offline the sky is the one clock.
  * @param {number} nowMinutes
- * @param {{regionName?: (r: number) => string}} [o]
+ * @param {{regionName?: (r: number) => string, localTime?: ((minute: number) => string|null)|null}} [o]
  */
-export function raidMapMarks(raids, nowMinutes, { regionName = () => '' } = {}) {
+export function raidMapMarks(raids, nowMinutes, { regionName = () => '', localTime = null } = {}) {
   const out = [];
   for (const r of raids ?? []) {
     if (!r || !raidActive(r, nowMinutes) || !Number.isInteger(r.px) || !Number.isInteger(r.py)) continue;
@@ -61,7 +65,8 @@ export function raidMapMarks(raids, nowMinutes, { regionName = () => '' } = {}) 
     const region = String(regionName(r.regionIndex) ?? '');
     const lines = [region ? `${town}, ${region}` : town, `${raidPartyWord(r.type)} attacking`];
     if (r.killed > 0 && r.attackAmount > 0) lines.push(`${Math.min(r.killed, r.attackAmount)} of ${r.attackAmount} driven off`);
-    lines.push(`Withdraws at ${clockText(r.endMinute)}`);
+    const local = typeof localTime === 'function' ? localTime(r.endMinute) : null;
+    lines.push(local ? `Withdraws at ${local} your time` : `Withdraws at ${clockText(r.endMinute)}`);
     out.push({ key: raidKey(r), px: r.px, py: r.py, label: `${town} - under attack`, tip: { title: RAID_TIP_TITLE, lines } });
   }
   return out;

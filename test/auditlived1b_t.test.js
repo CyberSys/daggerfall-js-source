@@ -232,7 +232,7 @@ test('AUDIT LIVED1b T4, T5, T8 (23 host and UI reads, by source): every read LIV
     ["src/scenes/world.js", /_lastEncMinutes = Math\.floor\(playerTicker\.ownMinutes\);   \/\/ X-slice: PreventEnemySpawns parity - no spawn catch-up for the traveled window/, "the journey's encounter marker (w-journey-encounter-marker-on-the-worlds-clock, w-journey-encounter-marker-deleted)"],
     ["src/scenes/world.js", /cureLycanthropy\(playerEntity, \{\n\s*nowMinutes: Math\.floor\(ownMinutes\(\)\),\n\s*advanceMinutes: \(m\) => advanceOwnMinutes\(m\),/, "the lycanthropy cure's stamp and hour (w-cure-quest-stamp-on-the-worlds-clock, w-cure-quest-hour-not-spent)"],
     ["src/scenes/world.js", /racialOverrideBlocks: !!racialRestBlock\(playerEntity, Math\.floor\(ownMinutes\(\)\)\),/, "the party rest's vampire gate (w-party-rest-block-on-the-worlds-clock)"],
-    ["src/scenes/exterior.js", /skyMinutes: sharedClockOn\(\) \? Math\.floor\(worldMinutes\(\)\) : null,/, "the spawn table's hour (ex-spawn-table-reads-the-characters-hour)"],
+    ["src/scenes/exterior.js", /skyMinutes: sharedClockOn\(\) \? Math\.floor\(skyMinutes\(\)\) : null,/, "the spawn table's hour (ex-spawn-table-reads-the-characters-hour)"],   // TIME1: the sky's own clock
     ["src/scenes/exterior.js", /drinkAtSource\(playerEntity, Math\.floor\(ownMinutes\(\)\)\)\.text\); return true; \};/, "a drink at a spring (ex-drink-on-the-worlds-clock)"],
     ["src/scenes/exterior.js", /const rb = racialRestBlock\(playerEntity, Math\.floor\(ownMinutes\(\)\)\);   \/\/ V2b/, "the vampire's rest gate (ex-rest-gate-on-the-worlds-clock)"],
     ["src/scenes/exterior.js", /now: \(\) => playerTicker\.ownMinutes,   \/\/ V2a: MorphSelf's once-a-day clock/, "MorphSelf (ex-morphself-on-the-worlds-clock)"],

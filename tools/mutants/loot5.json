@@ -65,7 +65,7 @@
   {
     "name": "LOOT5-the-moon-at-noon",
     "file": "src/systems/lootPowers.js",
-    "old": "      case 'moon': if (isNight(worldMinutes())) pct += p.pct + (group === 'animal' ? p.beast : 0); break;",
+    "old": "      case 'moon': if (isNight(skyMinutes())) pct += p.pct + (group === 'animal' ? p.beast : 0); break;",
     "new": "      case 'moon': pct += p.pct + (group === 'animal' ? p.beast : 0); break;",
     "tests": [
       "test/loot5_powers.test.js"

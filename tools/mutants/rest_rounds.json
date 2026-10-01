@@ -11,8 +11,8 @@
   {
     "name": "REST-ROUNDS-window-claimed-player-not-run",
     "file": "src/systems/worldTick.js",
-    "old": "  const rounds = runMagicRoundsFor(entity, magicRoundWindow.from, magicRoundWindow.to, { sinks, rolls, say, skyMinutes: _sharedClock ? worldTo : null });",
-    "new": "  const rounds = runMagicRoundsFor(entity, magicRoundWindow.from, raiseMinutes > 0 ? magicRoundWindow.from : magicRoundWindow.to, { sinks, rolls, say, skyMinutes: _sharedClock ? worldTo : null });",
+    "old": "  const rounds = runMagicRoundsFor(entity, magicRoundWindow.from, magicRoundWindow.to, { sinks, rolls, say, skyMinutes: _sharedClock ? skyMinutes() : null });",
+    "new": "  const rounds = runMagicRoundsFor(entity, magicRoundWindow.from, raiseMinutes > 0 ? magicRoundWindow.from : magicRoundWindow.to, { sinks, rolls, say, skyMinutes: _sharedClock ? skyMinutes() : null });",
     "tests": [
       "test/restrounds.test.js"
     ]

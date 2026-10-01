@@ -740,7 +740,7 @@
   {
     "name": "AUDITLIVED1B-T4-ex-spawn-table-reads-the-characters-hour",
     "file": "src/scenes/exterior.js",
-    "old": "        skyMinutes: sharedClockOn() ? Math.floor(worldMinutes()) : null,",
+    "old": "        skyMinutes: sharedClockOn() ? Math.floor(skyMinutes()) : null,",
     "new": "        skyMinutes: null,",
     "tests": [
       "test/auditlived1b_t.test.js"
@@ -1012,8 +1012,8 @@
   {
     "name": "AUDITLIVED1B-T10-wt-nightfall-ceil-to-floor",
     "file": "src/systems/worldTick.js",
-    "old": "  const real = Math.max(1, Math.ceil(toDusk / ONLINE_MINUTES_PER_MS / 60000));",
-    "new": "  const real = Math.max(1, Math.floor(toDusk / ONLINE_MINUTES_PER_MS / 60000));",
+    "old": "  const real = Math.max(1, Math.ceil(ms / 60000));",
+    "new": "  const real = Math.max(1, Math.floor(ms / 60000));",
     "tests": [
       "test/auditlived1b_t.test.js"
     ]

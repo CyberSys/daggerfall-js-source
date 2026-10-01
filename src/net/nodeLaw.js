@@ -25,7 +25,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { gateHash } from './gateLaw.js';   // the one mix every clock-law in the world rolls with
-import { sharedClassicMinutes } from './wire.js';
+import { skyClassicMinutes } from './skyLaw.js';   // TIME1: a UTC day's season and month are the SKY's (bible/06-Systems/Online-Time-Arc.md section 4)
 import { CLIMATES, REGION_NAMES, MAX_MAP_PIXEL_X, MAX_MAP_PIXEL_Y } from '../formats/mapsTables.js';
 import { SEASONS, seasonValue, dateFromClassicMinutes } from '../systems/gameDate.js';
 import { basketBlock, BASKET_BLOCKS } from '../systems/foragingCore.js';   // the Basket's blocks and foods - the IL's, one home
@@ -118,8 +118,10 @@ export const herbSeasonMult = (templateIndex, season) =>
 /** The UTC day an instant (ms) falls in. */
 export const utcDayOfMs = (ms) => Math.floor(ms / 86_400_000);
 /** A UTC day's first instant on the shared clock, as DFU's date - a day's patches, the Basket's block and a writ's
- *  table read the season and month of it, so nothing under a player changes before the day does. */
-export const dayDate = (day) => dateFromClassicMinutes(Math.floor(sharedClassicMinutes(day * 86_400_000)));
+ *  table read the season and month of it, so nothing under a player changes before the day does. TIME1: the SKY's date
+ *  at that instant, so a herb blooms in the spring the player sees - it holds the whole UTC day, and can trail the
+ *  sky's season by up to a day (the event clock's, before the sky's first switch: one law, both ends). */
+export const dayDate = (day) => dateFromClassicMinutes(Math.floor(skyClassicMinutes(day * 86_400_000)));
 export const daySeason = (day) => seasonValue(dayDate(day));
 export const dayMonth = (day) => dayDate(day).month;
 

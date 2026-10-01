@@ -20,7 +20,7 @@ import { loadModWorldData } from './modWorldData.js';   // RR3b
 import { DFPalette } from '../formats/dfPalette.js';
 import { INTERIOR_AMBIENT, INTERIOR_NIGHT_AMBIENT, INTERIOR_LIGHT_DIR } from '../world/interiorLights.js';
 import { isNight } from '../world/worldClock.js';   // AUDIT 23 (C12)
-import { worldMinutes } from '../systems/worldTick.js';   // AUDIT 23 (C12)
+import { skyMinutes } from '../systems/worldTick.js';   // AUDIT 23 (C12); TIME1: the sky's night
 import { nearestLights } from '../world/cityLights.js';
 import { syncLightingLane } from '../render/enhancedLighting.js';   // EL1
 import { INTERIOR_MARKER } from '../world/interiorLayout.js';
@@ -96,7 +96,7 @@ export async function bootInterior(canvas, renderer, params, status) {
 
   // R8: verbatim interior ambient; verbatim InteriorFogSettings
   // (exponential 0.001, fog color black).
-  renderer.setLighting(new Float32Array(isNight(worldMinutes() % 1440) ? INTERIOR_NIGHT_AMBIENT : INTERIOR_AMBIENT), 0);   // AUDIT 23 (C12): PlayerAmbientLight.cs:75-80
+  renderer.setLighting(new Float32Array(isNight(skyMinutes() % 1440) ? INTERIOR_NIGHT_AMBIENT : INTERIOR_AMBIENT), 0);   // AUDIT 23 (C12): PlayerAmbientLight.cs:75-80
   renderer.setWindowEmission(windowEmissionRGB('disabled'));   // F002: the dev route draws the same Disabled interiors (DaggerfallInterior.cs:473/:517/:1270)
   renderer.setFog('exp', 0.001, 0, 0, new Float32Array([0, 0, 0]));
 

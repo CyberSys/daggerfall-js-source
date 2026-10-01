@@ -2,7 +2,7 @@
   {
     "name": "AUDITLIVED1-A-the-dungeon-rest-arm-reads-the-characters-sky",
     "file": "src/scenes/dungeonContext.js",
-    "old": "say: (msg) => hudText.add(msg), skyMinutes: sharedClockOn() ? Math.floor(worldMinutes()) : null });",
+    "old": "say: (msg) => hudText.add(msg), skyMinutes: sharedClockOn() ? Math.floor(skyMinutes()) : null });",
     "new": "say: (msg) => hudText.add(msg) });",
     "tests": [
       "test/auditlived1.test.js"
@@ -21,7 +21,7 @@
   {
     "name": "AUDITLIVED1-C-the-cure-holiday-on-the-characters-calendar",
     "file": "src/scenes/worldModes.js",
-    "old": "rows, now: () => interiorTicker.classicMinutes, onClose: () => closeSelf(), godName,",
+    "old": "rows, now: () => skyMinutes(), onClose: () => closeSelf(), godName,",
     "new": "rows, now, onClose: () => closeSelf(), godName,",
     "tests": [
       "test/auditlived1.test.js"
@@ -370,8 +370,8 @@
   {
     "name": "AUDITLIVED1-T5-the-moon-reads-the-characters-clock",
     "file": "src/systems/worldTick.js",
-    "old": "lycanthropyMagicRound(entity, { nowMinutes: r + 1, clockMinutes, skyMinutes: sky, say });",
-    "new": "lycanthropyMagicRound(entity, { nowMinutes: r + 1, clockMinutes, say });",
+    "old": "lycanthropyMagicRound(entity, { nowMinutes: r + 1, clockMinutes, skyMinutes: sky, moonNight: Number.isFinite(skyMinutes), say });",
+    "new": "lycanthropyMagicRound(entity, { nowMinutes: r + 1, clockMinutes, moonNight: Number.isFinite(skyMinutes), say });",
     "tests": [
       "test/auditlived1.test.js"
     ]
@@ -532,7 +532,7 @@
   {
     "name": "AUDITLIVED1-T7-the-spawn-tables-hour",
     "file": "src/scenes/world.js",
-    "old": "skyMinutes: sharedClockOn() ? Math.floor(worldMinutes()) : null",
+    "old": "skyMinutes: sharedClockOn() ? Math.floor(skyMinutes()) : null",
     "new": "skyMinutes: null",
     "tests": [
       "test/auditlived1.test.js"
@@ -568,7 +568,7 @@
   {
     "name": "AUDITLIVED1-T7-dungeon-air",
     "file": "src/scenes/dungeonContext.js",
-    "old": "const wm = worldMinutes()",
+    "old": "const wm = skyMinutes()",
     "new": "const wm = ownMinutes()",
     "tests": [
       "test/auditlived1.test.js"

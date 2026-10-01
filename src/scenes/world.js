@@ -88,7 +88,7 @@ import { preloadSpellbookArt } from '../ui/spellbookWindow.js';   // U42: the cl
 import { createSpellbookWindow } from '../ui/spellbookDoor.js';   // PX23: the book's one door
 import { calculateCastCost } from '../systems/spellcost.js';   // M2   // T3b
 import { rangedDamageSpells } from '../systems/spellcast.js';   // U42: the flight probe's picker
-import { worldMinutes, setWorldMinutes, setSharedClock, sharedClockOn, sharedWallMs, alignEntityClocks, CLASSIC_MINUTES_PER_SECOND, setWorldPriceTilt, empireJoin, ownMinutes, advanceOwnMinutes, worldNightfallText, hearSharedClock, ownWalkWaiting, trustedWorldMinutes } from '../systems/worldTick.js';   // ECON1 / AUDIT ALL E1: the world's tilt off the file's base powers   // AUDIT 23 (C2): the ONE clock
+import { worldMinutes, skyMinutes, setWorldMinutes, setSharedClock, sharedClockOn, sharedWallMs, alignEntityClocks, CLASSIC_MINUTES_PER_SECOND, setWorldPriceTilt, empireJoin, ownMinutes, advanceOwnMinutes, worldNightfallText, hearSharedClock, ownWalkWaiting, trustedWorldMinutes } from '../systems/worldTick.js';   // ECON1 / AUDIT ALL E1: the world's tilt off the file's base powers   // AUDIT 23 (C2): the ONE clock
 import { setSyntheticTimeIncrease } from '../systems/effectBroker.js';   // AUDIT 63 F13: DaggerfallTravelPopUp_OnPostFastTravel (EntityEffectBroker.cs:846-847)
 import { tallySwingSkills, SWING_FATIGUE_COST, playerPainVoice, playPlayerVoice, makeEnemiesHostile, isBowWeapon, enemyHeavyPainVoice, playerClimbStrain } from './hostCombat.js';   // ROAD-B: GameManager.MakeEnemiesHostile
 import { flashPlayerDamage } from '../ui/damageFlash.js';
@@ -489,6 +489,7 @@ import {
 } from '../systems/realmSaves.js';   // REALM P1.3: an online character is the realm's - joined, loaded and checkpointed through the service
 import { reclaimFromDevice, reclaimLines } from '../systems/realmCustoms.js';   // RESTORE: what customs once kept back, given back at the boot
 import { appStorage } from '../systems/appStorage.js';   // ACC1d: where that session lives - the app's store, not the tab's (a second tab is the same player)
+import { skyClassicMinutes, wallMsForSkyMinutes } from '../net/skyLaw.js';   // TIME1: the sky's own clock, installed beside the event clock
 import { POSE_STRIKES, isWorldRoom, isCellRoom, cellHaloFor, actFrameFits, sharedClassicMinutes, wallMsForClassicMinutes } from '../net/wire.js';   // WORLD6b-iii(b): the cell seam's halo   // MAC7 #1: the swing's kind on the wire; AUDIT WORLD4 A1: whether an act frame can be said at all
 import { hasDaggerfallArrows } from '../combat/fpArm.js';   // MAC7 #2: the arrow bit on the wire - weaponRig's own read
 import { drawText } from '../ui/text.js';   // ONLINE1: the session's status line
@@ -782,8 +783,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   // AUDIT WORLD5 C13: the FIRST thing this boot does - it stood below the season reads (the climate season and the
   // mod's four-valued one, both off worldMinutes()), so an online boot dressed the world in the session clock's
   // season and the shared clock's turned it over on the first frame.
+  // TIME1: and the SKY beside the shared clock - the hour, the date and the moons at their own rate (net/skyLaw.js), through the same offset
   let _sharedOffsetMs = 0;   // the relay's clock minus this machine's, heard when the session's welcome arrives
-  if (params.has('online')) { setSharedClock(() => sharedClassicMinutes(Date.now() + _sharedOffsetMs), (m) => wallMsForClassicMinutes(m) - _sharedOffsetMs); setSharedWeather(true); }   // and the day picks the sky from here on (weatherSim); OL3: the inverse beside it, for the prices said in real time
+  if (params.has('online')) { setSharedClock(() => sharedClassicMinutes(Date.now() + _sharedOffsetMs), (m) => wallMsForClassicMinutes(m) - _sharedOffsetMs, { sky: () => skyClassicMinutes(Date.now() + _sharedOffsetMs), skyWall: (m) => wallMsForSkyMinutes(m) - _sharedOffsetMs }); setSharedWeather(true); }   // and the day picks the sky from here on (weatherSim); OL3: the inverse beside it, for the prices said in real time
   let _sharedClockHeard = false;   // AUDIT ONLINE2 F2: whether it has been - a receipt's life is the relay's, never this device's
   setSigilOnline(params.has('online'));   // SIGIL1: this session plays online - before any list is minted (a pile rolls at a dungeon's build)
   // SET3: THE SETS' VOICE - a power's line on the HUD (the default), and its sound: Unbroken's the parry's ring, the
@@ -807,7 +809,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // world: tickSeason below is DaggerfallLocation.Update's lastSeason
   // test, and applyWeather/weatherSun read this binding live.
   const seasonPin = seasonOverride(params);
-  let season = seasonPin ?? climateSeasonFromMinutes(worldMinutes());
+  let season = seasonPin ?? climateSeasonFromMinutes(skyMinutes());   // TIME1: the sky's season
   // SIB1: SEASONS OF THE ILIAC BAY - SeasonHelper's instance, when the
   // mod's switch is on. Its season is DFU's FOUR-valued SeasonValue off
   // the one clock (the climate season above has two); `recordCount` is
@@ -821,7 +823,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // the seam collects the qualifying KEYS and the driver rebuilds them
   // alone (ROAD-H H3). Inert until `seasonsReady` says the mod is here.
   const _reskin = createSeasonReskin();   // ROAD-H H3: the frame's pending re-skin, declared ABOVE the seam that marks into it - the boot's forced apply can land during any await between here and the frame loop, and a collector still in its temporal dead zone would throw inside seasonsReady's catch and leave the mod silently inert
-  let _fourSeason = seasonValue(dateFromClassicMinutes(worldMinutes()));
+  let _fourSeason = seasonValue(dateFromClassicMinutes(skyMinutes()));   // TIME1: the sky's
   let seasonsActive = false;
   let seasonsReady = Promise.resolve(false);
   const seasons = modSetting('seasons-iliac-bay', 'Enabled') ? new SeasonHelper({
@@ -829,7 +831,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // refreshSeason latched (`_seasonDay`), and the one clock still
     // reads the departure minute - the same rule the climate season
     // takes, read through the same latch.
-    currentSeason: () => seasonValue(dateFromClassicMinutes(_seasonStraightening ? _seasonDay * MINUTES_PER_DAY : worldMinutes())),
+    currentSeason: () => seasonValue(dateFromClassicMinutes(_seasonStraightening ? _seasonDay * MINUTES_PER_DAY : skyMinutes())),   // TIME1: the sky's
     recordCount: async (archive) => (await getTexture(archive)).recordCount,
     load: (prefix) => loadSeasonsTextures(prefix),
     refresh: () => _reskin.markStale(seasons, built),
@@ -1689,7 +1691,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (bootTod != null && !sharedClockOn()) setWorldMinutes(Math.floor(worldMinutes() / 1440) * 1440 + bootTod);
   }
   const timeScaleMult = params.has('timescale') && !sharedClockOn() ? Number(params.get('timescale')) / 12 : 1;
-  const minuteNow = () => worldMinutes() % 1440;
+  const minuteNow = () => skyMinutes() % 1440;   // TIME1: THE SKY's hour - every isNight, hour and sky read below takes it
 
   // A5b: OUTDOOR MUSIC. AssignPlaylist's City/Wilderness arms - night
   // overrides everything, and by day the weather picks the list
@@ -4356,7 +4358,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // SeasonValue can only move on a DAY boundary (GetSeasonValue reads
   // Month), so the poll compares days and builds a date only when one
   // turns over - a frame in the same day costs one division.
-  let _seasonDay = Math.floor(worldMinutes() / MINUTES_PER_DAY);
+  let _seasonDay = Math.floor(skyMinutes() / MINUTES_PER_DAY);   // TIME1: the sky's day, held for the session to notice it turn
   /** Re-read the cached season off the one clock. Answers true when it
    *  MOVED, so the caller can decide what to do about geometry that
    *  already stands - a teleport is about to rebuild the world anyway
@@ -4383,7 +4385,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     _fourSeason = four;
     if (seasonsActive) seasons.onNewMonth().catch((e) => console.warn('[seasons] month turn:', e?.message ?? e));
   }
-  function refreshSeason(atMinutes = worldMinutes()) {
+  function refreshSeason(atMinutes = skyMinutes()) {   // TIME1: the sky's season
     const day = Math.floor(atMinutes / MINUTES_PER_DAY);
     if (day === _seasonDay) return false;
     _seasonDay = day;
@@ -4639,7 +4641,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const survivalEnvNow = () => {
     const m = _mode();
     const feet = walkMode && playerSpawned ? player.pos : cam.pos;
-    const wm = worldMinutes();
+    const wm = skyMinutes();   // TIME1: the air's month and hour are the sky's
     const weather = currentWeather();
     const lyc = liveLycanthropy(playerEntity);
     return {
@@ -6182,7 +6184,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     map: { open: () => csaMapOpen(), close: () => csaMapClose() },
     mousePosition: () => _csaMouse,
     screenRect: () => ({ x: 0, y: 0, width: canvas.width, height: canvas.height }),
-    date: () => { const d = dateFromClassicMinutes(worldMinutes()); return { day: d.day, month: d.month }; },
+    date: () => { const d = dateFromClassicMinutes(skyMinutes()); return { day: d.day, month: d.month }; },   // TIME1: the sky's date
     effects: {
       isWaterWalking: () => isEntityWaterWalking(playerEntity),
       bundleNames: () => liveBundles(playerEntity).map((b) => b.name),
@@ -7434,7 +7436,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     entity: playerEntity,
     env: () => ({
       minute: Math.floor(ownMinutes()), climateIndex: maps.getClimateIndex(playerTravelPixel().x, playerTravelPixel().y),   // LIVED1: the hunt's minute is the body's (its needs, its catch's age); the winter below is the sky's
-      luck: liveStat(playerEntity, 'luck'), winter: seasonValue(dateFromClassicMinutes(worldMinutes())) === SEASONS.Winter,
+      luck: liveStat(playerEntity, 'luck'), winter: seasonValue(dateFromClassicMinutes(skyMinutes())) === SEASONS.Winter,   // TIME1: the sky's winter
       outdoors: _mode() === 'exterior' && !(walkMode && playerSpawned && player.isPlayerSwimming), afloat: playerAfloat(), inLocationRect: _musicInLocationRect(), night: isNight(minuteNow()),   // SEA-HUNT: nothing is hunted from a deck
       enemiesNear: areEnemiesNearby(exteriorFoePool()), resting: !!playerEntity.isResting || !!playerEntity.preventEnemySpawns,
       hasBow: weaponTypeForItem(weaponRig.playerWeapon.weapon) === WEAPON_TYPES.Bow,
@@ -7665,6 +7667,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // LIVE. Same damage door shape as the guards; no crime machinery.
   const exteriorFoes = createExteriorFoes({
     inLocation: () => _musicInLocationRect(),   // SOFTCAP5: only the wilderness scales its foes (towns and cities never)
+    skyMinute: () => Math.floor(skyMinutes()),   // TIME1: the wilds' night is the sky's
     renderer, collider, fetchBytes, getTexture, uploadRecordFrame, playerEntity, audio, hitEffects, groundStands: (x, z) => Number.isFinite(heightAt(x, z)),   // FALL-HOLD: a foe over a pixel not built is held, not stepped
     playerWeaponSheathed: () => !!weaponRig.playerWeapon.sheathed,   // AUDIT 24 (wave 42): pacification's drawn-weapon penalty
     currentMinute: () => Math.floor(playerTicker.ownMinutes),
@@ -7763,7 +7766,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       const _m = modes?.mode ?? 'exterior';
       const hit = (!spawns || (walkMode && playerSpawned && player.isPlayerSwimming)) ? null : intermittentEnemySpawn({   // XL-1: :489 reads PlayerEnterExit.IsPlayerSwimming, the host flag
         gameMinutes: _lastEncMinutes + l + 1, inside: _m !== 'exterior', inDungeon: _m === 'dungeon', isResting: false,   // the dungeon's rest roll is dungeonContext's own
-        skyMinutes: sharedClockOn() ? Math.floor(worldMinutes()) : null,   // LIVED1: online the minute is the character's own and night is the sky's
+        skyMinutes: sharedClockOn() ? Math.floor(skyMinutes()) : null,   // LIVED1: online the minute is the character's own and night is the sky's; TIME1: the sky's own clock
         restAsks: playerEntity.isResting ? playerEntity.restAsks : 1,   // SURV4 + SURV-TIERS: the rest's asks, its kind priced by the tier at the open (scenes/shared.js) - a rough rest asks twice in Hard, once in Casual
         // F061: IsPlayerInLocationRect is the WIDENED TOWN RECT
         // (PlayerGPS.cs:687-699), not "this pixel has a location" -
@@ -8080,7 +8083,7 @@ export async function bootWorld(canvas, renderer, params, status) {
             ground: () => { try { const px = playerTravelPixel(); return { climate: maps.getClimateIndex(px.x, px.y), region: maps.getRegionIndexAt(px.x, px.y) }; } catch { return null; } },
             eye: () => ({ pos: cam.pos, dir: [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)] }),
             feet: () => (walkMode ? player.pos : cam.pos),
-            hour: () => Math.floor((((worldMinutes() % 1440) + 1440) % 1440) / 60),
+            hour: () => Math.floor((((skyMinutes() % 1440) + 1440) % 1440) / 60),   // TIME1: the sky's hour
             storm: () => currentWeather() === 'thunder',
             climateAt: (x, y) => { try { return maps.getClimateIndex(x, y); } catch { return null; } },
             day: () => utcDayOfMs(Date.now() + _sharedOffsetMs),
@@ -8470,7 +8473,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // through the one that owns the billboard - `exteriorFoePool` is
     // the watch AND the encounter foes, and this arm reached the
     // encounter pool's remover for both. That was not a leak: removeFoe
-    // (exteriorFoes.js:532-537) never looks the record up in `foes`, and
+    // (exteriorFoes.js:535-540) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
     // got exactly what removeGuard (cityGuards.js:1627-1645) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
@@ -9796,7 +9799,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so the one clock still reads the departure date here and reading
     // it straightened nothing. No re-skin sweep either way: the
     // teardown below is a real unload (CollectLooseObjects and all).
-    refreshSeason(arriveMinutes ?? worldMinutes());
+    refreshSeason(arriveMinutes ?? skyMinutes());   // TIME1: the sky's
     _seasonStraightening = true;   // ...and no frame polls it back off the live clock until the destination stands
     _reskin.clear();   // ...and the frame's own re-skin has nothing left to re-skin
     _seasonHoldKey = null;    // ...nor a held motor: the spawn below re-anchors it anyway
@@ -10767,7 +10770,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // pick towards the side the journey came from.
       const travelStart = state.worldCoords(walkMode ? player.pos : cam.pos);
       await _teleportToPixel(pick.pixel.x, pick.pixel.y, null,
-        { arriveMinutes: sharedClockOn() ? worldMinutes() : worldMinutes() + computed.minutes,   // WORLD5: online the trip takes no world time - the arrival is now
+        { arriveMinutes: sharedClockOn() ? skyMinutes() : worldMinutes() + computed.minutes,   // WORLD5: online the trip takes no world time - the arrival is now; TIME1: the sky's now (the season it lands in)
           reposition: REPOSITION.DirectionFromStartMarker,
           travelStart, modEvent: 'travel' });
       hccPostDue = false; hccRuntimeOn()?.handlePostFastTravel();   // HCC (AUDIT HCC H2): OnPostFastTravel [IL_a2b4] - the relocation is pending; the team re-stands behind the player once the world is up
@@ -11523,7 +11526,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (giveOffer()) return false;
     // ONE clock for both sun rungs, so the two cannot disagree across a
     // minute boundary the way two separate reads could.
-    const nowMin = Math.floor(worldMinutes());
+    const nowMin = Math.floor(skyMinutes());   // TIME1: the sky's sun
     // AUDIT 64 F21: the CAREER rung, the one the comment above has
     // named since AUDIT 39 and the code never carried -
     // DaggerfallUI.cs:614-621: `if (PlayerEntity.Career.DamageFromSunlight
@@ -12019,7 +12022,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // EVENT-TIP (Mac: "add a tooltip to the map for these type of events"): THE TOWNS UNDER ATTACK - every raid
       // running now on the raids' own clock, at its town, with the card a hover asks for (ui/eventMapMarks.js). A
       // function for the gate's reason; none while the mod is off. The enhanced map alone draws them.
-      raids: () => (raidingPartiesOn() ? raidMapMarks(raidState().raids, worldMinutes(), { regionName: (r) => REGION_NAMES[r] ?? '' }) : []),
+      raids: () => (raidingPartiesOn() ? raidMapMarks(raidState().raids, worldMinutes(), { regionName: (r) => REGION_NAMES[r] ?? '', localTime: sharedClockOn() ? eventLocalTime : null }) : []),   // TIME1: online the withdrawal in local time
       // GUIDE5: WHERE THE QUESTS POINT - every active quest's place the player's map holds, the followed one filled
       // (ui/questMarks.js); a function for the gate's reason (a step logged while the map stands open). The enhanced
       // map alone draws them: a player who chose DFU's own maps chose DFU's look.
@@ -14776,8 +14779,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     // the notebook's headers (DaggerfallDateTime's two shapes, the
     // gameDate laws; CityName is the current location's name with the
     // region as DFU's no-location fallback)
-    dateTimeString: () => dateTimeString(dateFromClassicMinutes(playerTicker.classicMinutes)),
-    midDateTimeString: () => midDateTimeString(dateFromClassicMinutes(playerTicker.classicMinutes)),
+    dateTimeString: () => dateTimeString(dateFromClassicMinutes(skyMinutes())),   // TIME1: the date the player sees
+    midDateTimeString: () => midDateTimeString(dateFromClassicMinutes(skyMinutes())),
     cityName: () => _questLoc()?.name ?? questWorld.currentRegionName(),
   }, { label: 'world.js' });
   // WA1: Warm Ashes - Ships' quest action, registered as its Awake registers it [IL_0303] - on the machine this host
@@ -14797,7 +14800,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   setForagingHost({
     world: () => {
       const m = _mode();
-      const wm = worldMinutes();
+      const wm = skyMinutes();   // TIME1: the forager's hour is the sky's
       const px = playerTravelPixel();
       const exterior = m === 'exterior';
       return {
@@ -14813,7 +14816,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         exteriorWater: exterior ? (player.onExteriorWaterMethod ?? 'None') : 'None',
       };
     },
-    monthValue: () => dateFromClassicMinutes(worldMinutes()).month,
+    monthValue: () => dateFromClassicMinutes(skyMinutes()).month,   // TIME1: the sky's month
     entity: () => playerEntity,
     startQuest: (name) => {
       const quest = questBridge.questLists.getQuest(name, 0);
@@ -15640,7 +15643,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // ownMinutes) is independent of the world's reading, so a correction of this machine's clock shifts no marker of
     // theirs either. [SUPERSEDES the markers' shift to the world's time at every arrival and correction, and AUDIT
     // SURV-TIERS' needs shift by the correction's delta.] The Empire's call and the needs read the character's clock.
-    const onlineArrival = () => { alignEntityClocks(playerEntity, worldMinutes()); rollClimateWeathersForDay(worldMinutes()); refreshSeason(worldMinutes()); };
+    const onlineArrival = () => { alignEntityClocks(playerEntity, worldMinutes()); rollClimateWeathersForDay(worldMinutes()); refreshSeason(skyMinutes()); };   // TIME1: the season the sky's
     onlineArrival(); empireJoin({ entity: playerEntity, nowMinutes: ownMinutes(), say: (l, d) => townTalk.say(l, d) });   // REALM P0.3: the Empire calls in the debt it would not have lent - the loans run on the character's own clock (LIVED1)
     alignSurvival(playerEntity, Math.floor(ownMinutes()), Math.floor(ownMinutes()));   // SURV7: a record ahead of the character's own clock starts fresh; the absence itself is save.js's load arm
     online.onClock = (offsetMs) => { const was = _sharedOffsetMs; _sharedOffsetMs = offsetMs; _sharedClockHeard = true; if (Math.abs(offsetMs - was) > 1000) onlineArrival(); hearSharedClock(); };   // WORLD5: the relay's clock corrects this machine's; AUDIT LIVED1b P4: and the load's absence is paid on it
@@ -16510,6 +16513,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     }, { timeout: 4000 });
   };
   const _gateTwo = (n) => String(n).padStart(2, '0');
+  /** TIME1: an EVENT clock minute as this machine's local "HH:MM" (the gates' and the raids' words), or null offline. */
+  function eventLocalTime(minute) { const ms = sharedWallMs(minute); if (ms == null) return null; const d = new Date(ms); return `${_gateTwo(d.getHours())}:${_gateTwo(d.getMinutes())}`; }
   /** WB3b: THE COURT'S LINK (net/gateLink.js) - the relay's words about a gate's fight, off the court's room and the hub:
    *  the omen reads its word of a kill (a gate whose boss fell collapses on every screen), the chat says the kill. */
   /** WB5b: THE RECEIPTS THIS DEVICE CARRIES TO THE ACCOUNT SERVICE (net/gateClaims.js) - each kill the relay signed for
@@ -16702,7 +16707,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       try { const scan = gateScanOf(); return scan ? findGateSite(day, scan) : null; } catch (e) { console.warn('[gate] no site', e?.message ?? e); return null; }
     },
     say: (text) => chatNotice(text),
-    localTime: (minute) => { const ms = sharedWallMs(minute); if (ms == null) return null; const d = new Date(ms); return `${_gateTwo(d.getHours())}:${_gateTwo(d.getMinutes())}`; },
+    localTime: eventLocalTime,
     fellAt: (day) => gateLink?.fellAt(day) ?? null,   // WB3b: the relay's word of the kill
     // AUDIT WB C4: nothing said and no gate stood before the relay's clock is read and the hub has welcomed this player
     // (its word of a kill comes just behind) - or, a hub that never answers, eight seconds on the relay's clock alone
@@ -18032,7 +18037,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if ((modes?.mode ?? 'exterior') !== 'exterior') return PARTY_TRAVEL_TEXT.inside;
     if (!(playerEntity.health > 0) || worldMoveBusy()) return PARTY_TRAVEL_TEXT.off;
     if (duelEnemyNear() || areEnemiesNearby([...cityGuards.guards, ...exteriorFoes.foes]) || navalHostileNear()) return CANNOT_TRAVEL_ENEMIES_TEXT;   // NAV-H: a hostile ship in reach too
-    const nowMin = Math.floor(worldMinutes());
+    const nowMin = Math.floor(skyMinutes());   // TIME1: the sky's sun
     if (careerSunDamage(playerEntity.career) && isDayFromMinutes(nowMin)) return withNightfall(SUNLIGHT_TRAVEL_TEXT);
     const sun = racialFastTravelBlock(playerEntity, nowMin)?.text ?? null;
     return sun ? withNightfall(sun) : null;   // LIVED1: the door's own words, and when the world's night falls
@@ -21322,7 +21327,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   // towns, made of Daggerfall's own themed groups; under the Overworld one that sees me CHASES, and one that reaches me
   // (or comes within the stand-off with the view down) stands as exactly those foes. The enhanced interface, outdoors.
   const bandNowMs = () => Date.now() + (online ? _sharedOffsetMs : 0);
-  const bandNight = (ms) => { const m = ((online ? sharedClassicMinutes(ms) : worldMinutes()) % 1440 + 1440) % 1440; return m < 360 || m > 1080; };
+  const bandNight = (ms) => { const m = ((online ? skyClassicMinutes(ms) : skyMinutes()) % 1440 + 1440) % 1440; return m < 360 || m > 1080; };   // TIME1: the sky's night at the life's start - a pure function of the relay's ms, the same for every player
   /** The land a band may stand on: a map pixel with no water and no place in it (native units). */
   const bandOk = (x, z) => {
     const px = Math.floor(x / 32768), py = 499 - Math.floor(z / 32768);
@@ -22255,7 +22260,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     _holidayText.update(dt, {
       currentLocation: () => _musicLoc,
       onHUD: () => !gamePaused(),
-      gameMinutes: () => Math.floor(playerTicker.classicMinutes),   // ToClassicDaggerfallTime (:569)
+      gameMinutes: () => Math.floor(skyMinutes()),   // ToClassicDaggerfallTime (:569); TIME1: the sky's date
       regionIndex: () => _questRegionIndex(),   // PlayerGPS.CurrentRegionIndex (:570)
       // SetTextTokens(int) with ClickAnywhereToClose (:574-575) - the
       // host's own TEXT.RSC parchment door, the one the quest boxes use.
@@ -23341,6 +23346,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           // cleared before the next, so this read `false` at sea every time and stood land camps on the carved seabed
           preventEnemySpawns: playerEntity.preventEnemySpawns || _deepSuppressesSpawns() || !!(walkMode && playerSpawned && player.isPlayerSwimming),
           gameMinutes: Math.floor(playerTicker.classicMinutes),
+          skyMinutes: Math.floor(skyMinutes()),   // TIME1: the camp's day and night are the sky's
         }, Math.random, { fovDegrees: fieldOfView() * 180 / Math.PI });   // CAMP-RING: 50%, three groups round the player
         // DROPS-AUDIT CAMP-CAP: the encounter cap is eight (and the wire carries eight puppets an owner, wire.js
         // CELL_PUPPETS_MAX), and three groups ask ~10 - so a group stands WHOLE or not at all, never a one-foe remnant
@@ -23601,8 +23607,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // (DaggerfallSky.cs:354-357); rain/snow keep their boot variant.
     if (skyInside) { skyInside = false; sky.setInside(false); }   // DS1: ExteriorTransitionEvent
     sky.use((currentEntry ? currentEntry.skyBase : 16) + (weatherSkyOffset === 0
-      ? seasonValue(dateFromClassicMinutes(playerTicker.classicMinutes)) : weatherSkyOffset), minute, weatherSkyOffset === 0,
-    { weather, violence: weatherOverride ?? currentWeatherRaw(), classicMinutes: playerTicker.classicMinutes, sun: wxNow.sun, flash: flash - 1, pos: walkMode ? player.pos : cam.pos, cells: fieldCellsHere(), cloudBase: weatherOverride ? null : currentCloudBase(), approach: weatherOverride ? 0 : currentWindApproach() });   // WEATHER2a: the wind blows by the table's word; WEATHER2b/c: the field's cells are the clouds' cells   // ES1: the sky's clock and weather; VC4: the camera's world position, the clouds' and their shadow's origin; the enhanced sky's clouds and moons; VC3: the strobe lights the clouds; DS1 (AUDIT 61): the ONE sunlight scale the ground takes (the front's blend of the host's SetSunlightScale - pin and latch included; the raw row under ?front=off)
+      ? seasonValue(dateFromClassicMinutes(skyMinutes())) : weatherSkyOffset), minute, weatherSkyOffset === 0,   // TIME1: the sky's season
+    { weather, violence: weatherOverride ?? currentWeatherRaw(), classicMinutes: playerTicker.classicMinutes, skyMinutes: skyMinutes(), sun: wxNow.sun, flash: flash - 1, pos: walkMode ? player.pos : cam.pos, cells: fieldCellsHere(), cloudBase: weatherOverride ? null : currentCloudBase(), approach: weatherOverride ? 0 : currentWindApproach() });   // WEATHER2a: the wind blows by the table's word; WEATHER2b/c: the field's cells are the clouds' cells   // ES1: the sky's clock and weather; VC4: the camera's world position, the clouds' and their shadow's origin; the enhanced sky's clouds and moons; VC3: the strobe lights the clouds; DS1 (AUDIT 61): the ONE sunlight scale the ground takes (the front's blend of the host's SetSunlightScale - pin and latch included; the raw row under ?front=off)
     // Verbatim: fog is never disabled (SetFog keeps RenderSettings.fog on);
     // Sunny/Overcast ARE linear fog to 2400 - the classic distance haze.
     // DaggerfallSky.SetSkyFogColor (:318-325): anything denser than

@@ -133,7 +133,7 @@ import { dateFromClassicMinutes, dateString, dateTimeString } from '../systems/g
 // PX5: the pause clock reads THE ONE CLOCK directly (AUDIT 23 C2's
 // law - every host already reads this same module), so no host seam
 // is needed and no host can drift.
-import { worldMinutes, trustedWorldMinutes } from '../systems/worldTick.js';
+import { worldMinutes, skyMinutes, trustedWorldMinutes } from '../systems/worldTick.js';
 import { BUILD_TAG } from '../buildTag.js';
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { repaintKeepingScroll } from './domRepaint.js';
@@ -3313,7 +3313,7 @@ function renderHome() {
     // PX5: the world's date and time, bottom-right like the reference,
     // through DFU's own header formatter over THE ONE CLOCK - a paused
     // clock, so one read at render is the truth for the whole visit.
-    const d = dateFromClassicMinutes(Math.floor(worldMinutes()));
+    const d = dateFromClassicMinutes(Math.floor(skyMinutes()));   // TIME1: the date and time the world shows are the sky's
     const clock = el('div', 'px-clock');
     clock.append(el('span', null, dateString(d)), el('span', 'px-clocktime', dateTimeString(d).split(' on ')[0]));
     home.append(clock);

@@ -42,7 +42,7 @@ import { announceSkillRaise, announceMastery, announceSkillMilestone } from '../
 import { masterSkillsBoxDue, setMasterSkills, MASTER_SKILLS_OFFER_ROWS, MASTER_SKILLS_INFO_ROWS, MASTER_SKILLS_DECLINED_TEXT, MASTER_SKILLS_INTRO_ROWS, nextMasteryChoice, masteryChoiceRows, masterSkill } from '../systems/masterSkills.js';   // SOFTCAP3/4
 import { DOOR_SPELL_TEXT, castBySkeletonKey } from '../systems/mysticism.js';   // X1: the door-spell alert lines; D9: Open.CheckCastByItem
 import { raiseSkills } from '../systems/advancement.js';   // AUDIT 23 (entity-1): the rest-end raise
-import { tickPlayerMinutes, runMagicRoundsFor, worldMinutes, setWorldMinutes, ownMinutes, advanceOwnMinutes, tickInFlight, MINUTES_PER_DAY, CLASSIC_MINUTES_PER_SECOND, sharedClockOn } from '../systems/worldTick.js';
+import { tickPlayerMinutes, runMagicRoundsFor, worldMinutes, skyMinutes, setWorldMinutes, ownMinutes, advanceOwnMinutes, tickInFlight, MINUTES_PER_DAY, CLASSIC_MINUTES_PER_SECOND, sharedClockOn } from '../systems/worldTick.js';
 import { REST_KIND, REST_TEXT_SURVIVAL, restCost, restHour, stiffen } from '../systems/survival/rest.js';   // SURV4: the rest law - a bed and a fire sleep, the window alone is rough
 import { survivalRules } from '../systems/survival/switch.js';   // SURV-TIERS: the rest's price is the tier's, read at the open
 import { sleepStage } from '../systems/survival/needs.js';   // AUDIT SURV-TIERS (the third pass): the rough night's lesser sleep, said
@@ -543,6 +543,11 @@ export function createSkyController(gl, params) {
         // hours of wind they missed; a load to an EARLIER clock costs
         // no minutes (the jump stamp takes the row whole either way).
         const nowMin = extra?.classicMinutes ?? 0;
+        // TIME1: TWO MINUTES. `classicMinutes` is the clock the presentation WALKS - dt, the ease, the wind, the drift, the
+        // clouds' boil - the event clock online, so every TimeScale 12 constant below stays true; `skyMinutes` is the one
+        // it READS the date off - the moons' phases, the season, the mod's calendar - the sky's own clock online. A host
+        // that hands one gets the one clock for both, as offline.
+        const skyNow = extra?.skyMinutes ?? nowMin;
         const dt = lastMin === null || nowMin < lastMin ? 0 : nowMin - lastMin;   // GAME MINUTES
         lastMin = nowMin;
         const dtReal = weatherAt === null ? 0 : Math.min(MAX_DELTA_SECONDS, Math.max(0, seconds - weatherAt));   // the mod's own frame (DS1): Time.deltaTime, clamped as Unity clamps it
@@ -594,9 +599,9 @@ export function createSkyController(gl, params) {
           // latch included - and the skybox's _LightColor0 takes the
           // SAME number the world's key light takes, as in DFU. The
           // calendar recompute stays for a caller that passes no `sun`.
-          const winter = seasonValue(dateFromClassicMinutes(nowMinutes)) === SEASONS.Winter;
+          const winter = seasonValue(dateFromClassicMinutes(skyNow)) === SEASONS.Winter;   // TIME1: the sky's season
           const st = dynamic.tick({
-            minuteOfDay, classicMinutes: nowMinutes, weather: skyWord, seconds, dt: dtReal,   // EVENT1: the sky's word
+            minuteOfDay, classicMinutes: skyNow, weather: skyWord, seconds, dt: dtReal,   // EVENT1: the sky's word; TIME1: its date (the moons) the sky's
             weatherScale: extra?.sun ?? weatherSunlightScale(weatherName, winter),   // SunlightManager.ScaleFactor, as WeatherManager sets it
             playerPos: extra?.pos ?? null,   // FlashOnce reads playerTransform.position live (MODS AUDIT)
           });
@@ -608,7 +613,7 @@ export function createSkyController(gl, params) {
           // the MOD's horizon; and the ground's deck takes their shadow.
           if (clouds) {
             const cb = dreadW > 0 ? { word: skyWord, row: weatherRowNow } : cloudBaseOf(extra, weatherName, weatherRowNow);   // WEATHER3c; EVENT1: the dread's deck over the map's clear air
-            clouds.setState(cloudsStateUnderMod(st, dynamicMoons, { minuteOfDay, weather: cb.word, classicMinutes: nowMinutes, seconds, drift: driftXZ, row: cb.row }),
+            clouds.setState(cloudsStateUnderMod(st, dynamicMoons, { minuteOfDay, weather: cb.word, classicMinutes: nowMinutes, skyMinutes: skyNow, seconds, drift: driftXZ, row: cb.row }),
               cb.row, cb.word, easeDt, driftXZ, (extra?.flash ?? 0) + dreadGlow, extra?.pos ?? null, extra?.cells ?? null);   // WEATHER2c: the field's cells; EVENT1: the red strikes' glow
             if (clouds.shadow) Object.assign(dynamicDeck, clouds.shadow);
           }
@@ -618,6 +623,7 @@ export function createSkyController(gl, params) {
           minuteOfDay,
           weather: skyWord,   // EVENT1
           classicMinutes: extra?.classicMinutes ?? 0,
+          skyMinutes: skyNow,   // TIME1: the moons' date
           seconds,
           drift: driftXZ,   // WIND2
           row: weatherRowNow,
@@ -631,7 +637,7 @@ export function createSkyController(gl, params) {
           // far cumulus is lit white while the storm overhead is dark by its own grey. The dome, the fog and the sun
           // keep the worn word, eased on the front. Off the lane the clouds take the dome's own state, as before.
           const cb = dreadW > 0 ? { word: skyWord, row: weatherRowNow } : cloudBaseOf(extra, weatherName, weatherRowNow);   // EVENT1: as above
-          const cloudSky = cb.row === weatherRowNow ? enhancedSky.state : skyState({ minuteOfDay, weather: cb.word, classicMinutes: extra?.classicMinutes ?? 0, seconds, drift: driftXZ, row: cb.row });
+          const cloudSky = cb.row === weatherRowNow ? enhancedSky.state : skyState({ minuteOfDay, weather: cb.word, classicMinutes: extra?.classicMinutes ?? 0, skyMinutes: skyNow, seconds, drift: driftXZ, row: cb.row });
           clouds.setState(cloudSky, cb.row, cb.word, easeDt, driftXZ, (extra?.flash ?? 0) + dreadGlow, extra?.pos ?? null, extra?.cells ?? null);   // WEATHER2c: the field's cells; EVENT1: the red strikes' glow
         }
         // VC4: the ground's deck carries the slab's own shadow map and its square
@@ -2010,7 +2016,7 @@ export function wireInfectionVideos(renderer, { textAt = null, factionDict = nul
       const province = dict && regionIndex >= 0 ? findFactions(dict, { type: FACTION_TYPES.Province, region: regionIndex })[0] : null;
       return vampireClanForFaction(province);
     },
-    hourNow: () => Math.floor((worldMinutes() % MINUTES_PER_DAY) / 60),
+    hourNow: () => Math.floor((skyMinutes() % MINUTES_PER_DAY) / 60),   // TIME1: the hour of the sky
   });
 }
 
@@ -2350,7 +2356,7 @@ export function createRestDeps(entity, opts = {}) {
       return healed;
     },
     fullyHealed: () => restFullyHealed(entity),
-    sharedMinutes: () => (sharedClockOn() ? worldMinutes() : null),   // OL2: the window's world-clock line online, and the session's quest gate (RESTX2) - LIVED1: the rest's own hours are the character's
+    sharedMinutes: () => (sharedClockOn() ? skyMinutes() : null),   // OL2: the window's world-clock line online, and the session's quest gate (RESTX2) - LIVED1: the rest's own hours are the character's; TIME1: the world time it says is the sky's
     dead: () => entity.health <= 0,
     vitals: () => ({
       health: entity.health, maxHealth: entity.maxHealth,
