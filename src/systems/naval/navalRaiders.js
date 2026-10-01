@@ -30,8 +30,9 @@ export const RAIDER_STAND_M = 1200;
 export const RAIDER_DROP_M = 1700;
 /** Its course: the place its seeded course reaches this many seconds on is what it steers for. */
 export const RAIDER_LEAD_S = 45;
-/** At most this many raiders stand at once - the nearest (a raider is a cell's in a life: two is already a crowd). */
-export const RAIDER_SHIPS_MAX = 2;
+/** At most this many raiders stand at once - the nearest (a raider is a cell's in a life: two is already a crowd).
+ *  SEA-EASE (Mac: "too many ships are appearing", "The sea is too dangerous right now"): one (it was two). */
+export const RAIDER_SHIPS_MAX = 1;
 /** The seed's salt for its class (never the course's own stream). */
 const CLASS_SALT = 0x5ea1c1a5;
 
