@@ -37,7 +37,7 @@ import { bossPlace, bossHop, bossAct, bossStandIn, bossLookOf, LEAP_AIR_MS, LEAP
 import { createGateCourt, COURT_PHASE_TEXT, COURT_STRIKE_TEXT, MARK_COLOR, COURT_ROUND_MS } from '../src/scenes/gateCourt.js';
 import { GATE_STATE_EMPTY } from '../src/net/gateLink.js';
 import { bossBarModel, BOSS_BAR_TEXT } from '../src/ui/gateBossBar.js';
-import { createSpoilsPool, iconSize, SPOILS_ICON_ARCHIVE, SPOILS_TAKE_AFTER_MS, SPOILS_TAKE_M, SPOILS_ICON_MAX_M, SPOILS_ICON_M_PER_PX } from '../src/scenes/spoilsPool.js';
+import { createSpoilsPool, iconSize, SPOILS_ICON_ARCHIVE, SPOILS_ICON_MAX_M, SPOILS_ICON_M_PER_PX } from '../src/scenes/spoilsPool.js';
 import { lineHeight } from '../src/render/spoilsGlow.js';
 import { itemIconKey, itemIconColor32 } from '../src/ui/itemIconColor32.js';
 import { setCourtRules, regenBarred } from '../src/systems/courtRules.js';
@@ -196,7 +196,7 @@ test('AUDIT SS the court\'s two ways home are PRESSED where their fire stands - 
 /** A floor at y 0, as the collider's ray answers it. */
 const floor = (from, dir, len) => { if (dir[1] >= 0) return null; const t = from[1] / -dir[1]; return t <= len ? { dist: t, normal: [0, 1, 0] } : null; };
 
-test('WBX3 each piece is itself on the floor: an item stands as its own picture (the pack\'s, uploaded under the pool\'s pseudo-archive, keyed by the picture), gold keeps its pile; its line leaves the top of its sprite; a resting piece is taken only SPOILS_TAKE_AFTER_MS after it came to rest (mutants: the pile for every piece; the line from the floor; the take at once)', async () => {
+test('WBX3 each piece is itself on the floor: an item stands as its own picture (the pack\'s, uploaded under the pool\'s pseudo-archive, keyed by the picture), gold keeps its pile; its line leaves the top of its sprite; a resting piece is taken only when pressed - GATE-UX: never underfoot (mutants: the pile for every piece; the line from the floor; the take underfoot)', async () => {
   const uploads = [], batches = [], destroyed = [], taken = [];
   const clock = { t: 0 };
   const feet = { at: null };
@@ -231,30 +231,13 @@ test('WBX3 each piece is itself on the floor: an item stands as its own picture 
   const q = createSpoilsPool({ renderer, gl: null, ray: floor, now: () => clock.t, take: () => {}, iconOf: async () => icon });
   assert.match(read('src/scenes/spoilsPool.js'), /root: \[f\.fly\.pos\[0\], f\.fly\.pos\[1\] \+ f\.h, f\.fly\.pos\[2\]\]/, 'the line\'s root is the sprite\'s crown');
   void q; void pass;
-  // the take: not before it has rested SPOILS_TAKE_AFTER_MS, then as the feet pass over it
+  // GATE-UX: the take is the press's alone - feet on a piece long rested take nothing, the press takes it
   const piece = st.pieces.find((x) => x.kind === 'item');
   feet.at = [piece.pos[0], piece.pos[1], piece.pos[2]];
-  const restAt = clock.t;   // every piece has rested well before now - take them
-  clock.t += 16; p.frame();
-  assert.ok(taken.length >= 1, 'taken, long rested');
-  // a fresh spew: my feet on the first piece the moment it rests - it waits SPOILS_TAKE_AFTER_MS, then it is taken
-  const taken2 = [];
-  const clock2 = { t: 0 };
-  let stand = null;
-  const fresh = createSpoilsPool({ renderer, gl: null, ray: floor, feet: () => stand, now: () => clock2.t, take: (x) => taken2.push(x), iconOf: null });
-  fresh.spew({ day: 901, seed: 5, level: 3, at: [0, 0.05, 0], bearing: 0 });
-  let firstRest = null;
-  for (let i = 0; i < 400 && firstRest === null; i++) {
-    clock2.t += 16; fresh.frame();
-    const first = fresh.state().pieces.find((x) => x.rest);
-    if (first) { firstRest = clock2.t; stand = [first.pos[0], first.pos[1], first.pos[2]]; }
-  }
-  assert.ok(firstRest !== null, 'a piece came to rest');
-  while (clock2.t + 16 < firstRest + SPOILS_TAKE_AFTER_MS) { clock2.t += 16; fresh.frame(); }
-  assert.deepEqual(taken2, [], 'under my feet, but not taken before it has rested SPOILS_TAKE_AFTER_MS');
-  for (let i = 0; i < 4; i++) { clock2.t += 16; fresh.frame(); }
-  assert.ok(taken2.length >= 1, 'taken once it has rested SPOILS_TAKE_AFTER_MS');
-  void restAt; void SPOILS_TAKE_M;
+  for (let i = 0; i < 200; i++) { clock.t += 16; p.frame(); }
+  assert.deepEqual(taken, [], 'underfoot, long rested, never taken');
+  assert.equal(p.pick(p.targets()[0].key), true);
+  assert.equal(taken.length, 1, 'pressed, taken');
 });
 
 test('WBX3 the picture, the burst and the pieces\' words: the icon\'s key is its archive, record and dye; a page with no canvas has none; the burst says the spoils are this player\'s alone; AUDIT FINAL F3 the swatch the classic arm dyes (main\'s DYE-ICON) in the key and the ask, the pack\'s own law - a Regalia piece on the court\'s floor was drawn in the base metal (mutants: two dyes one key; the burst unsaid; the swatch out of the floor\'s key; the floor asked undyed)', async () => {
@@ -430,9 +413,10 @@ test('WBX5 the leap on the screen: he stands through its wind-up, crosses the ai
   at(h, 2000, state({ phase: 2 }));
   assert.ok(h.said.includes(COURT_PHASE_TEXT[2]), 'the turn said');
   assert.match(COURT_PHASE_TEXT[3], /Dagon's Champion/);
+  // GATE-UX: the bar no longer says the phase under his health (test/gateux_gate.test.js) - the turn is still said
   const bar = bossBarModel(state({ phase: 2 }), 5000, { name: 'Valkynaz Ruhn', title: 'Warden' });
-  assert.equal(bar.phaseName, BOSS_BAR_TEXT.phase(2));
-  assert.equal(BOSS_BAR_TEXT.phase(3), `III - ${PHASE_NAMES[2]}`);
+  assert.equal(bar.phaseName, undefined);
+  assert.equal(BOSS_BAR_TEXT.phase, undefined);
   assert.ok(relayVersionAtLeast(114), `the brain's law moved: ${RELAY_VERSION}`);
 });
 
