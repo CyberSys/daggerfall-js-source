@@ -2,11 +2,12 @@
   {
     "name": "BANK-REGION-the-region-unnamed",
     "file": "src/ui/enhancedPorts.js",
-    "old": "[here ? `Account in ${here}` : 'Account balance', L.account]",
-    "new": "['Account balance', L.account]",
+    "old": "here ? `Account in ${here}` : 'Account balance', L.account]",
+    "new": "'Account balance', L.account]",
     "tests": [
       "test/fb0930b_bankregion.test.js"
-    ]
+    ],
+    "note": "EMPIRE-ACCOUNT (PIN MOVED): re-aimed by content - online the row is the Empire's one account; offline, BANK-REGION as it shipped."
   },
   {
     "name": "BANK-REGION-the-others-unlisted",
@@ -20,20 +21,22 @@
   {
     "name": "BANK-REGION-the-account-itself-listed-again",
     "file": "src/ui/enhancedPorts.js",
-    "old": "(i !== w.region && a?.accountGold > 0 ?",
+    "old": "(i !== gold && a?.accountGold > 0 ?",
     "new": "(a?.accountGold > 0 ?",
     "tests": [
       "test/fb0930b_bankregion.test.js"
-    ]
+    ],
+    "note": "EMPIRE-ACCOUNT (PIN MOVED): re-aimed by content - online the row is the Empire's one account; offline, BANK-REGION as it shipped."
   },
   {
     "name": "BANK-REGION-every-empty-account-listed",
     "file": "src/ui/enhancedPorts.js",
-    "old": "(i !== w.region && a?.accountGold > 0 ?",
-    "new": "(i !== w.region && a ?",
+    "old": "(i !== gold && a?.accountGold > 0 ?",
+    "new": "(i !== gold && a ?",
     "tests": [
       "test/fb0930b_bankregion.test.js"
-    ]
+    ],
+    "note": "EMPIRE-ACCOUNT (PIN MOVED): re-aimed by content - online the row is the Empire's one account; offline, BANK-REGION as it shipped."
   },
   {
     "name": "BANK-REGION-a-werewolf-reads-the-vampire-book",

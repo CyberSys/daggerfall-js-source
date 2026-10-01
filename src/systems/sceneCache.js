@@ -248,4 +248,4 @@ export function restoreSceneCache(cache, snap) {
 // reached from the bank's buy arm (:2144-2148), the knightly gift
 // (:2752) and :4933, with sellHouse dropping the scene again (:2184). The
 // tavern's rented room (tavern.js:150) and the ship's two scenes
-// (banking.js:313-315) name themselves and were wired before it.
+// (banking.js:314-316) name themselves and were wired before it.

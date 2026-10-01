@@ -51,6 +51,7 @@ import {
   depositGold, withdrawGold, depositAllLetters, withdrawLetter,
   repayLoan, borrowLoan, shipSellPrice,
   empireRefusalLines, empireDefaultOwed, empireGarnishLines,   // REALM P0.3: online, the Empire is one lender
+  goldRegion,   // EMPIRE-ACCOUNT: online, one account at every branch
 } from '../systems/banking.js';
 import { REGION_NAMES } from '../formats/mapsFile.js';   // REALM P0.3: the branch another loan or default stands in
 import { expandMacroValues } from '../systems/quest/questMacros.js';   // MH1: the ONE walk
@@ -442,7 +443,7 @@ export class BankWindow {
     // move. A host that wires only the coin reader still draws.
     const purse = this.hooks.player.totalGold?.() ?? this.hooks.player.gold();
     return {
-      account: String(accountTotal(a, r)),
+      account: String(accountTotal(a, goldRegion(a, r))),   // EMPIRE-ACCOUNT: online, the Empire's account at every branch
       inventory: wagon > 0 ? `${purse} (+${wagon})` : String(purse),
       loanDue: String(loanedTotal(a, r)),
       loanBy: this.hooks.dueDateText?.(loanDueDate(a, r), { short: true }) ?? '',   // AUDIT LIVED1 P: the parchment's room

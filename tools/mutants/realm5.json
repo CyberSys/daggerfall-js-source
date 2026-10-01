@@ -20,11 +20,12 @@
   {
     "name": "REALM5-bank-never-pays",
     "file": "src/net/realmGoldLaw.js",
-    "old": "  if (owed > 0) accountOfSave(save, region).accountGold -= owed;",
-    "new": "  if (owed > 0) void owed;",
+    "old": "    a.accountGold -= take;\n",
+    "new": "",
     "tests": [
       "test/realm5.test.js"
-    ]
+    ],
+    "note": "EMPIRE-ACCOUNT (PIN MOVED): re-aimed by content to the line EMPIRE-ACCOUNT rewrote; the mutant is the same law."
   },
   {
     "name": "REALM5-credit-to-purse-only",
