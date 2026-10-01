@@ -37,6 +37,8 @@ import { stepGhost, chunkFrame } from './barLoss.js';   // AUDIT NAV1 (the prese
 import { injectEnhancedFonts } from './enhancedStyle.js';   // AUDIT NAV1 (the presentation): the kit's face on the classic skin too
 import { READY_FLASH_S } from '../systems/naval/navalGunnery.js';   // AUDIT NAV1 (the presentation): a battery's flash, the host's word
 import { PARTY_GREEN_CSS } from '../net/social.js';   // SHIPMATES: the crew's bars in the party's one green
+import { spellIconUrl } from './enhancedArt.js';   // COMPANION-KIT: a companion's effects' icons over his bar
+import { partyFxKey, partyFxAbbrev } from '../net/partyBuffs.js';   // COMPANION-KIT: the party card's own effect row's key and words
 
 export const NAVAL_HUD_STYLE_ID = 'dagger-naval-hud-style';
 export const NAVAL_KIT_STYLE_ID = 'dagger-naval-kit-style';
@@ -77,6 +79,9 @@ export const NAVAL_TAG_BAR_W = 44;
  *  whole to CREW_FADE_FROM metres, TAG_FADE_TO of it at CREW_BAR_RANGE (the tags' own fade over the crew's reach - the
  *  ships' starts at 150 m, past every bar). */
 export const CREW_BAR_W = 30;
+/** COMPANION-KIT: a companion's bar is wider (px), and its effects row holds this many tiles at the most. */
+export const MATE_BAR_W = 52;
+export const MATE_FX_MAX = 6;
 export const CREW_GREEN = PARTY_GREEN_CSS;
 export const CREW_BAR_RANGE = 45;
 export const CREW_FADE_FROM = 15;
@@ -331,6 +336,17 @@ body:has(.hud-foe.on.blade) .dfnaval-hud { --nc-top: ${NAVAL_CARD_TOP_BLADE}; }
 .dfnaval-crew { position: absolute; left: 0; top: 0; width: ${CREW_BAR_W}px; height: 4px; background: #0b1409; box-shadow: 0 0 0 1px #050608;
   transform-origin: 0 0; will-change: transform, opacity; }
 .dfnaval-crew > i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(180deg, #b8ffb8 0 1px, ${CREW_GREEN} 1px); }
+.dfnaval-crew.mate { width: ${MATE_BAR_W}px; height: 5px; }
+.dfnaval-crew-name { position: absolute; left: 50%; bottom: calc(100% + 2px); transform: translateX(-50%); white-space: nowrap; font-size: 10px;
+  line-height: 1; color: ${CREW_GREEN}; text-shadow: ${OUTLINED}; }
+.dfnaval-crew-name:empty, .dfnaval-crew-fx:empty { display: none; }
+.dfnaval-crew-hp { margin-left: 4px; color: #e8f6e2; font-size: 9px; }
+.dfnaval-crew-hp:empty { display: none; }
+.dfnaval-crew-fx { position: absolute; left: 50%; top: calc(100% + 2px); transform: translateX(-50%); display: flex; gap: 1px; }
+.dfnaval-crew-fxe { position: relative; width: 12px; height: 12px; box-shadow: 0 0 0 1px #050608; background: #1b2618; overflow: hidden;
+  font-size: 7px; line-height: 12px; text-align: center; color: #e8f6e2; }
+.dfnaval-crew-fxe.debuff { box-shadow: 0 0 0 1px #6b1d14; }
+.dfnaval-crew-fxe > img { width: 12px; height: 12px; image-rendering: pixelated; display: block; }
 .dfnaval-tally.miss .dfnaval-tally-hits { color: #b3a684; }
 .dfnaval-say { position: absolute; left: 0; top: 0; max-width: ${CREW_SAY_W}px; padding: 2px 7px 3px; font-size: 11px; line-height: 1.3;
   color: #efe8d6; text-shadow: ${OUTLINED}; text-align: center; white-space: normal; text-wrap: balance;
@@ -826,7 +842,10 @@ export function drawNavalTags(points, { covered = false, doc = globalThis.docume
   });
 }
 
-/** SHIPMATES: the player's own crew's bars (the constants beside the ships' tags, whose sheet they share). */
+/** SHIPMATES: the player's own crew's bars (the constants beside the ships' tags, whose sheet they share). COMPANION-KIT
+ *  (2026-10-01, Mac: "improved detailed health bar with buffs and their name"): a companion's point carries `name`, `hp`
+ *  and `hpMax` and `fx` (partyBuffs.js composePartyFx's - his live effects) - his bar is wider, his name and health over
+ *  it and his effects' icons under it (the spell's icon, its first letters while the sheet is on its way). */
 let crewSlots = [];
 export function drawCrewBars(points, { covered = false, doc = globalThis.document, scale = 1 } = {}) {
   const want = covered ? [] : points ?? [];
@@ -839,9 +858,11 @@ export function drawCrewBars(points, { covered = false, doc = globalThis.documen
   }
   while (crewSlots.length < want.length) {
     const n = el(doc, 'div', 'dfnaval-crew'), fill = el(doc, 'i');
-    n.append(fill);
+    const name = el(doc, 'span', 'dfnaval-crew-name'), word = el(doc, 'span'), hp = el(doc, 'span', 'dfnaval-crew-hp'), fx = el(doc, 'div', 'dfnaval-crew-fx');
+    name.append(word, hp);
+    n.append(fill, name, fx);
     tagRoot.append(n);
-    crewSlots.push({ n, fill, k: {} });
+    crewSlots.push({ n, fill, word, hp, fx, k: {} });
   }
   crewSlots.forEach((slot, i) => {
     const p = want[i];
@@ -850,6 +871,22 @@ export function drawCrewBars(points, { covered = false, doc = globalThis.documen
     if (!p) return;
     const set = (key, v, write) => { if (slot.k[key] !== v) { slot.k[key] = v; write(v); } };
     set('share', pct(p.share), (v) => { slot.fill.style.width = `${v}%`; });
+    // COMPANION-KIT: a companion's name, his health in digits and his effects; a deck hand's bar stays bare
+    const mate = typeof p.name === 'string' && p.name.length > 0;
+    set('cls', mate ? 'dfnaval-crew mate' : 'dfnaval-crew', (v) => { slot.n.className = v; });
+    set('name', mate ? p.name : '', (v) => { slot.word.textContent = v; });
+    set('hp', mate && Number.isFinite(p.hp) && Number.isFinite(p.hpMax) && p.hpMax > 0 ? `${Math.max(0, Math.round(p.hp))}/${Math.round(p.hpMax)}` : '', (v) => { slot.hp.textContent = v; });
+    const fx = mate && Array.isArray(p.fx) ? p.fx.slice(0, MATE_FX_MAX) : [];
+    const urls = fx.map((e) => { try { return spellIconUrl(e.i); } catch { return null; } });
+    set('fx', `${partyFxKey(fx)}#${urls.map((u) => (u ? 1 : 0)).join('')}`, () => {
+      slot.fx.replaceChildren?.();
+      fx.forEach((e, k) => {
+        const tile = el(doc, 'span', `dfnaval-crew-fxe${e.d ? ' debuff' : ''}`);
+        if (urls[k]) { const img = el(doc, 'img'); img.src = urls[k]; img.alt = ''; tile.append(img); } else tile.textContent = partyFxAbbrev(e.n);
+        tile.setAttribute?.('title', `${e.n || 'Spell'} - ${e.r} rounds`);
+        slot.fx.append(tile);
+      });
+    });
     set('at', `translate(${Math.round(p.x)}px, ${Math.round(p.y)}px) scale(${scale}) translate(-50%, -100%)`, (v) => { slot.n.style.transform = v; });
     set('a', String(Math.round(tagAlpha(p.distance, CREW_BAR_RANGE, CREW_FADE_FROM) * 100) / 100), (v) => { slot.n.style.opacity = v; });
   });

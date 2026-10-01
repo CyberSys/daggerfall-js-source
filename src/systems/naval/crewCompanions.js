@@ -15,6 +15,9 @@
 //  - A HAND THAT FALLS (the roster shorter, the boat gone) leaves the party and the rest with him (`prune`).
 //  - His health rides with him through every door (`hurt`): null is whole, and a new place stands him as he left
 //    the last.
+//  - COMPANION-KIT (2026-10-01, Mac: "act as storage"): HIS PACK - the things the player hands him (`pack`, the live
+//    list the storage window takes from and stows into), saved with the party through the host's item codec; sent back
+//    aboard, knocked out or fallen, he gives it up (`takePack`) and the host stows it in her hold.
 
 /** How many hands walk ashore with the player at once (Mac: "Up to 2"). */
 export const COMPANION_MAX = 2;
@@ -25,7 +28,7 @@ export const COMPANION_WHY = Object.freeze({ full: 'two ashore already', resting
 /** The picker's words. */
 export const COMPANION_TEXT = Object.freeze({ take: 'Take ashore', back: 'Send back aboard', ashore: 'ashore', resting: 'resting' });
 
-/** @typedef {{ boat: number, name: string, role: string, mobile: number, gender: 'male'|'female', health: number|null, maxHealth: number|null }} Companion */
+/** @typedef {{ boat: number, name: string, role: string, mobile: number, gender: 'male'|'female', health: number|null, maxHealth: number|null, items: any[] }} Companion */
 /** @typedef {{ boat: number, name: string, until: number }} Resting */
 
 const isName = (s) => typeof s === 'string' && s.length > 0 && s.length <= 80;
@@ -35,8 +38,12 @@ const same = (a, boat, name) => a.boat === boat && a.name === name;
 /**
  * The party ashore.
  * @param {any} [record] - a save's (`snapshot()`), or none: nobody ashore
+ * @param {{ serialize: (items: any[]) => any[], deserialize: (data: any[]) => any[] } | null} [codec] - COMPANION-KIT: the
+ *   host's item codec for the packs (Come Sail Away's cargo's, scenes/world.js packedItems); none: packs kept as given
  */
-export function createCompanions(record = null) {
+export function createCompanions(record = null, codec = null) {
+  const packIn = (data) => { if (!Array.isArray(data) || !data.length) return []; try { const out = codec ? codec.deserialize(data) : data.slice(); return Array.isArray(out) ? out : []; } catch { return []; } };
+  const packOut = (items) => { if (!items?.length) return []; try { return codec ? codec.serialize(items) : items.slice(); } catch { return []; } };
   /** @type {Companion[]} */
   let party = [];
   /** @type {Resting[]} */
@@ -49,6 +56,7 @@ export function createCompanions(record = null) {
         boat: c.boat, name: c.name, role: isName(c.role) ? c.role : 'Deckhand', mobile: Number.isInteger(c.mobile) ? c.mobile : 0,
         gender: c.gender === 'female' ? 'female' : 'male',
         health: c.health != null && Number.isFinite(hp) && hp > 0 ? hp : null, maxHealth: c.maxHealth != null && Number.isFinite(max) && max > 0 ? max : null,
+        items: packIn(c.items),   // COMPANION-KIT: his pack
       });
     }
     for (const r of Array.isArray(record.resting) ? record.resting : []) {
@@ -88,7 +96,7 @@ export function createCompanions(record = null) {
       if (!isBoat(boat) || !isName(hand?.name) || find(boat, hand.name) || this.why(boat, hand, now) != null) return null;
       resting = resting.filter((r) => !same(r, boat, hand.name));
       /** @type {Companion} */
-      const c = { boat, name: hand.name, role: hand.role, mobile: hand.mobile, gender: hand.gender === 'female' ? 'female' : 'male', health: null, maxHealth: null };
+      const c = { boat, name: hand.name, role: hand.role, mobile: hand.mobile, gender: hand.gender === 'female' ? 'female' : 'male', health: null, maxHealth: null, items: [] };
       party.push(c);
       return c;
     },
@@ -137,8 +145,18 @@ export function createCompanions(record = null) {
     },
     /** The names of a boat's hands ashore - her deck stands without them. @param {number} boat */
     awayOf: (boat) => new Set(party.filter((p) => p.boat === boat).map((p) => p.name)),
-    /** The party as the save keeps it. */
-    snapshot: () => ({ party: party.map((p) => ({ ...p })), resting: resting.map((r) => ({ ...r })) }),
+    /** COMPANION-KIT: a companion's pack - the live list the storage window takes from and stows into - or null. @param {number} boat @param {string} name */
+    packOf: (boat, name) => find(boat, name)?.items ?? null,
+    /** COMPANION-KIT: his pack given up (sent back, knocked out, fallen) - its things, his list emptied. @param {number} boat @param {string} name */
+    takePack(boat, name) {
+      const c = find(boat, name);
+      if (!c?.items?.length) return [];
+      const out = c.items.slice();
+      c.items.length = 0;
+      return out;
+    },
+    /** The party as the save keeps it - COMPANION-KIT: each pack through the codec. */
+    snapshot: () => ({ party: party.map((p) => ({ ...p, items: packOut(p.items) })), resting: resting.map((r) => ({ ...r })) }),
   };
 }
 

@@ -6259,6 +6259,17 @@ export async function bootWorld(canvas, renderer, params, status) {
     const w = makeInventoryWindow({ loot: cargoLootTarget(cargo) });
     if (w && !modes?.mountWindow?.(w)) (w.dispose?.bind(w) ?? w._closeSilently?.bind(w))?.();   // a slot already held: the pack built for it is put away again
   };
+  /** COMPANION-KIT (2026-10-01, Mac: companions "act as storage"): my companion activated - his pack (the party's live
+   *  list, naval.companionPack) opened as a storage beside mine, over whatever the mode draws (a building's, a dungeon's
+   *  or the street's slot). Answers whether it opened. */
+  const openCompanionPack = (rec) => {
+    const pack = naval?.companionPack?.(rec?.companion) ?? null;
+    if (!pack || !inventoryDoorReady()) return false;
+    const w = makeInventoryWindow({ loot: { items: () => pack.items, containerImage: () => CONTAINER_IMAGES.Backpack, playerOwned: true, storage: true } });
+    if (!w) return false;
+    if (!modes?.mountWindow?.(w)) { (w.dispose?.bind(w) ?? w._closeSilently?.bind(w))?.(); return false; }
+    return true;
+  };
   /** A DaggerfallListPickerWindow over the top window, one row each; the pick handed back by index. Its backdrop is
    *  DaggerfallPopupWindow.Draw's: the window it was pushed over drawn, then ScreenDimColor, which is Color.clear. */
   const csaOpenListPicker = (rows, onPick) => {
@@ -6898,6 +6909,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const navalCrew = createNavalCrew({ renderer, getTexture, uploadRecordFrame });   // LIVING CREW: the crews on the decks near the eye
   const navalRender = new NavalRenderer(renderer);
   naval = createNavalHost({
+    packedItems: { serialize: (items) => (items ?? []).map((it) => ({ ...it })), deserialize: (records) => (records ?? []).map((it) => setItemFields({ ...it })) },   // COMPANION-KIT: the companions' packs saved as the cargo's are (save.js's item copy)
     pool: csa,
     csa: () => (navalOn() ? csaRuntime : null),
     seaY: () => tvSeaY(),
@@ -7077,7 +7089,11 @@ export async function bootWorld(canvas, renderer, params, status) {
         if (key == null) { key = `crew:${++_crewKey}`; _crewKeys.set(f, key); }
         if (crewSight.blocked(player.collider, eye, key, head)) continue;
         const max = f.entity.maxHealth;
-        points.push({ x: at.x, y: at.y, share: max > 0 ? Math.max(0, f.entity.health) / max : 1, distance: d });
+        // COMPANION-KIT: a companion's bar says who he is, his health and his effects (mine live here; another player's
+        // companion is a puppet whose effects are his owner's - his name alone)
+        const mate = f.companion != null;
+        points.push({ x: at.x, y: at.y, share: max > 0 ? Math.max(0, f.entity.health) / max : 1, distance: d,
+          ...(mate ? { name: f.entity.name || 'Companion', hp: f.entity.health, hpMax: max, fx: f.puppet ? [] : composePartyFx(f.entity) } : {}) });
       }
     }
     drawCrewBars(points, { covered, scale: enhancedHudScale() });
@@ -7279,7 +7295,39 @@ export async function bootWorld(canvas, renderer, params, status) {
   let _companionPruneN = 0;
   /** CREW-COMPANIONS: the companion layer's frame, in every mode (the street's frame and the modal one) - and the party
    *  kept to the living hands once a second. */
+  /** COMPANION-KIT (Mac: "an integration into the party UI"): my companions as the party panel's cards - each his
+   *  name, role and effects, his health off his body where one stands here (else as the party carries it, a share of
+   *  his whole); none with the arc off. */
+  function partyCompanions() {
+    const party = navalOn() ? naval?.companions?.party ?? [] : [];
+    if (!party.length) return [];
+    const bodies = new Map(crewAshore.bodies().map((r) => [r.companion, r]));
+    return party.map((c) => {
+      const key = `${c.boat}:${c.name}`, rec = bodies.get(key);
+      const e = rec && !rec.dead ? rec.entity : null;
+      const hm = e?.maxHealth ?? c.maxHealth ?? 100, h = e ? e.health : c.health ?? hm;
+      return { key, name: c.name, role: c.role, h, hm, fx: e ? composePartyFx(e) : [] };
+    });
+  }
+  /** COMPANION-KIT: offline (no chat links, which draw the panel online) the party panel stands for my companions alone -
+   *  made the first time one is ashore, drawn under the HUD's own covering word. */
+  /** SOC4: THE party HUD, made in this one place - over `social` in socialStart, or (COMPANION-KIT) over none for my
+   *  companions alone offline - with my companions under its seats either way. */
+  function makePartyPanel(social) {
+    partyPanel = createPartyPanel({ social, art: { fetchBytes, palette }, here: () => _partyPose });
+    partyPanel.setCompanions(partyCompanions);   // COMPANION-KIT
+    return partyPanel;
+  }
+  function companionPanelFrame() {
+    if (chatLinks) return;
+    if (!partyPanel) {
+      if (!partyCompanions().length) return;
+      makePartyPanel(null);
+    }
+    partyPanel.render({ covered: townTalk.hudCovered || (modes?.hudCovered ?? false) || gamePaused() });
+  }
   function crewAshoreTick() {
+    try { companionPanelFrame(); } catch (e) { console.warn('[companions] panel', e?.message ?? e); }   // COMPANION-KIT
     if (!navalOn()) { crewAshore.clear(); return; }
     if (gamePaused()) return;   // AUDIT CC-A10: no knock, no stand, no catch-up under a window
     if (++_companionPruneN >= 60) { _companionPruneN = 0; naval?.pruneCompanions?.(); }
@@ -8166,6 +8214,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     renderer, audio, getTexture, uploadRecord, uploadRecordFrame,
     allyMarks: (sp) => allyMarksNear(sp),   // AID1 onto ALLY-CAST: the party mates' bodies, for a beneficial touch, missile or blast (declared beside allyTargetPick, below) - SPELL-GIFT: the spell rides, for the strangers its list may reach
     peerBodies: () => peersNear(),   // SPELLFX1: every player's body, where a peer's drawn missile stops (declared below this engine's build)
+    companionBodies: () => crewAshore.bodies(),   // COMPANION-KIT: my companions here - my healing and buffs reach them
     // DUEL1: my duel opponent's body, for my harmful spells alone, while we fight - and the door the blow leaves by
     duelMark: () => { if (!duelMgr.fighting) return null; const b = duelBody(duelMgr.opponent); return b ? { ...b, name: peerName(b.id) ?? 'your opponent' } : null; },
     castAtDuel: (id, sp) => duelSpellOut(id, sp),
@@ -16003,7 +16052,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     // classic record this host reads, so a portrait is the same CIF the paper doll draws and nothing is loaded twice.
     // PARTY8-B: `here` is the pose partyFrame last SENT - the HUD draws a seat's place only when it is not mine,
     // and reads the composed pose rather than composing one (AUDIT SOC B18: that read is twice a second, not per frame)
-    partyPanel = createPartyPanel({ social, art: { fetchBytes, palette }, here: () => _partyPose });
+    partyPanel?.destroy?.();   // COMPANION-KIT: the offline panel my companions stood gives way to the party's
+    makePartyPanel(social);
     // SOC5 (Mac: "which should show options to add as a friend or invite to a party"): the F-menu, over the same
     // picture and the same link. Its acts leave through `socialLink()` and not the `link` captured above, because a
     // reconnect replaces the session object and a captured one would send into a closed socket for the rest of the
@@ -19617,6 +19667,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     postItem: (text) => postItemInChat(text), canPostItem: () => canPostItemInChat(),   // CHAT-POST: the building's and the dungeon's packs post too
     partyNear: () => partyOnMaps(), professionMarks: (feet) => professionMarks(feet),   // DISC23-A: the party's bodies, for the dungeon's and the building's plans (AUDIT pre-merge I-E: those drawn here); NODE-MARKS: the dungeon's veins (and a body the knife may skin) on its compass, at its own feet
     allyMarks: (sp) => allyMarksNear(sp),   // AID1 onto ALLY-CAST: the dungeon's own cast engine gives to the same mates - SPELL-GIFT: and strangers, by the spell
+    companionBodies: () => crewAshore.bodies(),   // COMPANION-KIT: my companions underground, for the dungeon's own cast engine
+    openCompanionPack: (rec) => openCompanionPack(rec),   // COMPANION-KIT: a companion activated indoors or underground - his pack
     selfId: () => online?.id ?? null,
     dungeonAuthority,   // WORLD2: a dungeon built while another hosts starts as puppets
     // TTL1: the two spawned-dungeon clocks, from the mode machine's
@@ -22863,7 +22915,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           // TI1: a tap on a live foe is the LOCK (player/lockOn.js),
           // toggled, and the activation ends there - the ladder has no
           // arm for a living enemy but the quest one above, which ran.
-          const _lockFoe = _tapDir ? pickFoe(cam.pos, useFwd, [...exteriorFoes.foes, ...cityGuards.guards], collider, LOCK_PICK_DISTANCE) : null;
+          const _lockFoe = _tapDir ? pickFoe(cam.pos, useFwd, [...exteriorFoes.foes, ...cityGuards.guards].filter((f) => f.companion == null), collider, LOCK_PICK_DISTANCE) : null;   // COMPANION-KIT: a tap on my companion opens his pack, never a lock-on
           // AUDIT 63 F33: ActivateMobileEnemy (PlayerActivate.cs
           // :800-841) - the LIVING-foe arm the ladder never had.
           // AUDIT 63 F33 (review round): the NEAR call is decided
@@ -22885,6 +22937,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
               hud: (t) => townTalk.say(t),
               modal: (t) => townTalk.showOverlay(new ActionTextBox(String(t).split('\n'))),
               makeEnemiesHostile: _makeEnemiesHostile,
+              openCompanion: (rec) => openCompanionPack(rec),   // COMPANION-KIT: my companion's pack
               playerFeet: walkMode ? player.pos : cam.pos,
               nothingText: () => townTalk.randomText(FOUND_NOTHING_VALUABLE_TEXT_ID) || 'You found nothing valuable.',
             });

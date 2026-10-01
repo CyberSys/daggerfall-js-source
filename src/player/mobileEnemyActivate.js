@@ -79,6 +79,8 @@ export function youSeeEnemyText(name) {
  * @param deps.playerFeet     where the attack came from, for the seed
  * @param deps.rolls          Dice100 / Random.Range
  * @param deps.nothingText    GetRandomText(8999)
+ * @param deps.openCompanion  COMPANION-KIT: a companion of MINE (crewAshore.js - `companion`, a shipmate, never another
+ *   player's `peer:` one) activated in any mode but Steal opens his pack (the host's window); none, DFU's line as ever
  * @returns true when the activation was CONSUMED (DFU's `break` out of
  *   ActivateMobileEnemy - the enemy was the ray's hit either way)
  */
@@ -92,9 +94,15 @@ export function activateMobileEnemy(foe, distance, mode, player, {
   // drag the result onto the label with it; the default is the same
   // static funnel DaggerfallUI.cs:783-789 gives every caller.
   midScreen = setMidScreenText,
+  openCompanion = null,
 } = {}) {
   if (!foe || foe.dead) return false;
   const entity = foe.entity ?? null;
+  // COMPANION-KIT (2026-10-01, Mac: companions "act as storage"): my companion activated opens his pack - Steal from him
+  // is the shipmate's silent break below
+  if (mode !== 'steal' && openCompanion && foe.companion != null && foe.shipmate === true && !String(foe.companion).startsWith('peer:')) {
+    if (openCompanion(foe)) return true;
+  }
   if (mode !== 'steal') {
     // :814-826 - Info, Grab and Talk all pop the one line, with no
     // distance gate of any kind.

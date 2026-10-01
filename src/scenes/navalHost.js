@@ -445,7 +445,7 @@ export function createNavalHost(deps) {
   const pendingBoats = new Map();   // a save's records waiting for their boat
   /** AUDIT CC-A5: nobody of hers ashore (never mutated). */
   const NO_HANDS_AWAY = new Set();
-  let companions = createCompanions();   // CREW-COMPANIONS: the party ashore (crewCompanions.js), saved beside the crews
+  let companions = createCompanions(null, deps.packedItems ?? null);   // CREW-COMPANIONS: the party ashore (crewCompanions.js), saved beside the crews - COMPANION-KIT: their packs through the save's item codec
   function myBoatState(boat) {
     if (!boat) return null;
     const keyed = boat.uid ? boatState.get(boat.uid) : boatStateByObj.get(boat);
@@ -3366,13 +3366,29 @@ export function createNavalHost(deps) {
   }
   /** Whether a hand of a boat of mine still lives (on her roster) - the party's `prune`. */
   const handLives = (uid, name) => !!handsByUid(uid)?.some((h) => h?.name === name);
+  /** COMPANION-KIT: a companion's pack given up (sent back, knocked out, fallen) - into his boat's hold (Come Sail Away's
+   *  cargo, the board's giveItems), what it will not take into my pack; said when anything moved. */
+  function stowPack(uid, items, name) {
+    if (!items?.length) return;
+    const boat = (csa()?.state?.AllBoats ?? []).find((b) => b?.uid === uid) ?? null;
+    const r = deps.board?.giveItems?.(items, boat) ?? { left: items };
+    const left = r?.left ?? [];
+    if (left.length && boat) deps.board?.giveItems?.(left, null);
+    deps.say?.(`${name ?? 'Your companion'}'s pack is stowed ${boat ? 'in the hold' : 'in your pack'}.`, 3);
+  }
   /** Take a hand of a boat of mine ashore, or send one back: the picker's row pressed. Answers what was said. */
   function companionPress(boat, name, now) {
     const st = myBoatState(boat);
     if (!st || !boat?.uid) return null;
     const hand = st.crew.hands.find((h) => h.name === name);
     if (!hand) return null;
-    if (companions.sendBack(boat.uid, name)) { deps.say?.(`${name} goes back aboard.`, 3); return 'back'; }
+    if (companions.isAshore(boat.uid, name)) {
+      const pack = companions.takePack(boat.uid, name);   // COMPANION-KIT: his pack stowed in her hold
+      companions.sendBack(boat.uid, name);
+      deps.say?.(`${name} goes back aboard.`, 3);
+      stowPack(boat.uid, pack, name);
+      return 'back';
+    }
     const why = companions.why(boat.uid, hand, now, !!boat.crewed);
     if (why) { deps.say?.(`${name} cannot come ashore - ${why}.`, 3); return null; }
     if (!companions.take(boat.uid, hand, now)) return null;
@@ -3400,7 +3416,7 @@ export function createNavalHost(deps) {
       if (!Number.isSafeInteger(key) || key <= 0 || !rec || typeof rec !== 'object') continue;
       pendingBoats.set(key, rec);
     }
-    companions = createCompanions(r?.party ?? null);   // CREW-COMPANIONS: an older save's, nobody ashore
+    companions = createCompanions(r?.party ?? null, deps.packedItems ?? null);   // CREW-COMPANIONS: an older save's, nobody ashore - COMPANION-KIT: their packs
     clear();
   }
 
@@ -3434,9 +3450,20 @@ export function createNavalHost(deps) {
         if (rec?.mates) { const crew = createShipCrew({ seed: c.boat >>> 0, record: rec.mates }); crew.event('knocked'); rec.mates = crew.snapshot(); }
       }
       deps.say?.(`${c.name} is knocked senseless - your crew carries ${c.gender === 'female' ? 'her' : 'him'} back aboard to rest.`, 4);
+      if (c.items?.length) stowPack(c.boat, c.items.splice(0), c.name);   // COMPANION-KIT: and his pack with him
     },
     /** CREW-COMPANIONS: the party's hands no longer anyone's (fallen, the boat gone) out of it - answers them. */
-    pruneCompanions: () => companions.prune(handLives),
+    pruneCompanions: () => {
+      const gone = companions.prune(handLives);
+      for (const c of gone) if (c.items?.length) stowPack(c.boat, c.items.splice(0), c.name);   // COMPANION-KIT: a fallen hand's pack is not lost
+      return gone;
+    },
+    /** COMPANION-KIT: a companion's pack by his layer key (crewAshore.js companionKeyOf, `${boat}:${name}`) - his name,
+     *  role and live item list - or null. */
+    companionPack(key) {
+      const c = companions.party.find((p) => `${p.boat}:${p.name}` === key);
+      return c ? { name: c.name, role: c.role, items: c.items } : null;
+    },
     /** CREW-COMPANIONS: a boat of mine's roster places ashore - her deck stands without them (navalCrew.js `away`). */
     awayOf(boat) {
       // AUDIT CC-A5: none away is an EMPTY set, never null - null left the last hand home off her deck for good; and

@@ -78,9 +78,10 @@ test('AUDIT 23 magic-4: every spending cast arm tallies the effect schools', () 
     'the spend is CastReadySpell\'s single DecreaseMagicka, five frames before the release');
   // ALLY-CAST (2026-09-23): a fifth arm before the four - the cast on a party mate - spends, tallies and records alike
   // RESURRECT1: and a sixth, the Resurrect at a fallen party member's body, spends, tallies and records alike
-  assert.equal((src.match(/tallyCastSkills\(sp\);/g) ?? []).length, 6,
-    'the ally arm, the Resurrect arm, CasterOnly, ByTouch, AreaAroundCaster and the missile arm all tally');
-  assert.equal((src.match(/lastCastCost = cost;/g) ?? []).length, 6, 'and all six still record the cost');
+  // PIN MOVED (COMPANION-KIT): and a seventh, the gift to my companion under the crosshair, spends, tallies and records alike
+  assert.equal((src.match(/tallyCastSkills\(sp\);/g) ?? []).length, 7,
+    'the ally arm, the companion arm, the Resurrect arm, CasterOnly, ByTouch, AreaAroundCaster and the missile arm all tally');
+  assert.equal((src.match(/lastCastCost = cost;/g) ?? []).length, 7, 'and all seven still record the cost');
   // the tally gates on the cost table (DFU's effect != null), not the
   // priced-as-Destruction default
   assert.ok(/function tallyCastSkills\(sp\) \{[\s\S]*?EFFECT_COST_TABLE\[`\$\{e\.type\},\$\{e\.subType & 0xff\}`\]/.test(src));

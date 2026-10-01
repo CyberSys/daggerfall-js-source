@@ -51,7 +51,7 @@ import { potionBundle } from '../systems/potions.js';   // U44: DrinkPotion's bu
 import { SPELL_CAST_SOUND } from '../systems/enemySpells.js';
 import { tallySkill } from '../systems/skills.js';
 import { morphSelf } from '../systems/lycanthropy.js';   // V2a: the MorphSelf arm the ONE cast engine wires
-import { allyCastable, allyReachFor, allyCastFrame, allyCastCasterLine, allyCastCasterLineMany, ALLY_TOUCH_REACH, ALLY_ARM_RADIUS, ALLY_ARMED_LINE } from '../systems/allyCast.js';   // SPELL-GIFT: the arm near a mate, the line it says, and the area's one line
+import { allyCastable, allyReachFor, allyCastFrame, allyCastCasterLine, allyCastCasterLineMany, allyCastSpell, PERSON_RADIUS, ALLY_TOUCH_REACH, ALLY_ARM_RADIUS, ALLY_ARMED_LINE, COMPANION_ARMED_LINE } from '../systems/allyCast.js';   // SPELL-GIFT: the arm near a mate, the line it says, and the area's one line
 import { hasResurrect, RESURRECT_REACH, RESURRECT_TEXT, pickFallenBody } from '../systems/resurrect.js';   // RESURRECT1: a fallen party member's body is the target   // ALLY-CAST: a beneficial spell at the party mate under the crosshair
 import { billboardSize, centredBase } from '../world/rmbFlats.js';
 import { createMagicCandle } from './magicCandle.js';   // X11: the Light effect's candle
@@ -153,6 +153,12 @@ export function createPlayerMagic({
   // visitorMagicRefusal), or null. Asked at the ready, at the click (a spell readied outside is fired inside) and by an
   // item's cast; a host that hands none casts anywhere, as ever.
   castRefusal = null,
+  // COMPANION-KIT (2026-10-01, Mac: "crew member companions need the ability to gain the players healing spells/buffs"):
+  // MY COMPANIONS' BODIES in this scene (scenes/crewAshore.js - foe records, `rec.companion`), or none. A beneficial
+  // spell (ALLY-CAST's own test, allyCastable) reaches them as it reaches a party mate - under the crosshair, by touch,
+  // in a blast, struck by a missile - but lands HERE (they are mine to simulate), as a gift: ALLY-CAST's receiver's own
+  // record (a self-cast, no save) tagged as an ally's bundle, through the foe's own sinks and never as my blow.
+  companionBodies = null,
 }) {
   const playerCaster = () => ({ entity: playerEntity, sinks: playerSinks });
   /** HOME-MAGIC: the place's refusal SAID, and the ready dropped with it (the silence gate's own shape) - true when a
@@ -191,6 +197,73 @@ export function createPlayerMagic({
       out.push({ ally: true, mate: q.mate !== false, id: q.id, name: q.name ?? 'a party member', dead: false, ai: { feet: q.feet, height: Number.isFinite(q.height) && q.height > 0 ? q.height : CAPSULE_HEIGHT } });   // AUDIT SPELL-GIFT B2: `mate`
     }
     return out;
+  }
+  /** COMPANION-KIT: my companions as foe-shaped marks ({companion, rec, name, ai}) for a spell that may be given and is
+   *  not a free ready - ALLY-CAST's own gate; [] for anything else, or with no seam. */
+  function companionMarksFor(sp, free = readiedFree) {
+    if (!companionBodies || !sp || free || !allyCastable(sp)) return [];
+    let list = null;
+    try { list = companionBodies() ?? null; } catch { return []; }
+    if (!Array.isArray(list)) return [];
+    const out = [];
+    for (const rec of list) {
+      const f = rec?.ai?.feet;
+      if (!rec || rec.dead || !rec.entity || rec.puppet || !Array.isArray(f) || f.length !== 3 || !f.every(Number.isFinite)) continue;
+      out.push({ companion: true, rec, name: rec.entity.name || 'your companion', dead: false, ai: { feet: f, height: Number.isFinite(rec.ai.height) && rec.ai.height > 0 ? rec.ai.height : CAPSULE_HEIGHT } });
+    }
+    return out;
+  }
+  /** COMPANION-KIT: a gift landed on my companion - applied here, ALLY-CAST's receiver's record (its beneficial effects as
+   *  a self-cast: no save, the caster's level), tagged an ally's bundle (a buff on his bar and his card), through his own
+   *  sinks as no blow of mine. Answers whether anything landed. */
+  function giveToCompanion(mark, sp, { quiet = false } = {}) {
+    const rec = mark?.rec;
+    if (!rec || rec.dead || !rec.entity) return false;
+    const gift = allyCastSpell({ name: sp?.name, element: sp?.element, effects: sp?.effects, icon: sp?.icon });
+    if (!gift) return false;
+    applySpellToFoe(gift, effectiveLevel(playerEntity), rec, playerCaster(), { allyCast: true }, foeSinks(rec, false));
+    if (!quiet) say(allyCastCasterLine(sp.name, mark.name));
+    return true;
+  }
+  /** COMPANION-KIT: a blast's gift to every companion in it - one line for all of them, as SPELL-GIFT's. */
+  function giveToCompanions(marks, sp) {
+    const names = [];
+    for (const t of marks) if (giveToCompanion(t, sp, { quiet: true })) names.push(t.name);
+    const line = allyCastCasterLineMany(sp.name, names);
+    if (line) say(line);
+    return names.length;
+  }
+  /** COMPANION-KIT: the companion the crosshair is on within `reach` - the aim passing within his body's radius of his
+   *  axis, his own line of sight clear (a touch never crosses a wall); the nearest along the aim, or null. */
+  function companionInReach(eye, dir, reach, sp = readiedSpell) {
+    if (!eye || !dir || !(reach > 0)) return null;
+    const l = Math.hypot(dir[0], dir[1], dir[2]) || 1, ux = dir[0] / l, uy = dir[1] / l, uz = dir[2] / l;
+    let best = null, bestT = Infinity;
+    for (const m of companionMarksFor(sp)) {
+      const [x, y, z] = m.ai.feet;
+      const t = (x - eye[0]) * ux + (z - eye[2]) * uz;   // along the aim, on the ground's plane
+      const flat = Math.hypot(ux, uz);
+      if (!(flat > 1e-6)) continue;
+      const along = t / (flat * flat);   // the ray's own parameter at his axis
+      if (!(along > 0) || along > reach) continue;
+      const px = eye[0] + ux * along, py = eye[1] + uy * along, pz = eye[2] + uz * along;
+      if (Math.hypot(px - x, pz - z) > PERSON_RADIUS + 0.15 || py < y - 0.2 || py > y + m.ai.height + 0.2) continue;
+      if (along >= bestT) continue;
+      const hit = collider.raycast(eye, [ux, uy, uz], along);
+      if (Number.isFinite(hit) && hit < along - 1e-3) continue;
+      best = m; bestT = along;
+    }
+    return best;
+  }
+  /** COMPANION-KIT: whether a companion the spell may be given to stands within ALLY_ARM_RADIUS of the caster's eye. */
+  function companionNear(eye, sp) {
+    if (!eye) return false;
+    for (const m of companionMarksFor(sp)) {
+      const [x, y, z] = m.ai.feet;
+      const cy = Math.min(Math.max(eye[1], y), y + m.ai.height);
+      if (Math.hypot(eye[0] - x, eye[1] - cy, eye[2] - z) <= ALLY_ARM_RADIUS) return true;
+    }
+    return false;
   }
   /** DUEL1: the duel opponent as a foe-shaped mark ({duel, id, name, ai:{feet, height}}) for a spell with a harmful
    *  family in it (duelSpellOf), a free ready's included (an enchanted item's strike is a duellist's too); [] for
@@ -492,6 +565,7 @@ export function createPlayerMagic({
     // AID1 onto ALLY-CAST: MY OWN beneficial blast reaches the party mates in it too (DoAreaOfEffect's OverlapSphere meets
     // their colliders) - `allies` is the missile's own word that it may be given (not a free ready)
     if (allies && caster?.entity === playerEntity) giveToAllies(sweepFoes(pos, EXPLOSION_RADIUS, allyMarksFor(spell, false)), spell);   // SPELL-GIFT: one line for all of them
+    if (allies && caster?.entity === playerEntity) giveToCompanions(sweepFoes(pos, EXPLOSION_RADIUS, companionMarksFor(spell, false)), spell);   // COMPANION-KIT: and my companions in it
     // DUEL1: and MY blast reaches my duel opponent standing in it (`duel`: the missile's own word it is mine)
     if (duel && caster?.entity === playerEntity) for (const t of sweepFoes(pos, EXPLOSION_RADIUS, duelMarksFor(spell))) giveToDuel(t, spell);
     // WB4b: and the court's boss, whose flank is in it (his own radius)
@@ -529,7 +603,7 @@ export function createPlayerMagic({
    *  (DaggerfallMissile.cs:273-275). Both reads live here. */
   function pickTouch(eye, dir, sp = null) {
     if (!eye || !dir) return null;
-    const marks = [...allyMarksFor(sp), ...duelMarksFor(sp), ...bossMarksFor(sp)];   // AID1 onto ALLY-CAST: a beneficial touch may land on a party mate - the nearest along the aim wins; DUEL1: a harmful one on my duel opponent; WB4b: or on the court's boss
+    const marks = [...allyMarksFor(sp), ...companionMarksFor(sp), ...duelMarksFor(sp), ...bossMarksFor(sp)];   // COMPANION-KIT: or on my companion   // AID1 onto ALLY-CAST: a beneficial touch may land on a party mate - the nearest along the aim wins; DUEL1: a harmful one on my duel opponent; WB4b: or on the court's boss
     return pickTouchTarget(eye, dir, marks.length ? [...playerTargets(), ...marks] : playerTargets(), (c, d) => {   // DISC19-F (AUDIT DISC19): my touch meets no defender
       const l = d || 1, dx = (c[0] - eye[0]) / l, dy = (c[1] - eye[1]) / l, dz = (c[2] - eye[2]) / l;
       const hit = collider.raycast(eye, [dx, dy, dz], d);
@@ -649,6 +723,15 @@ export function createPlayerMagic({
       say(allyCastCasterLine(sp.name, ally.name));
       return done(true);
     }
+    // COMPANION-KIT: ...or MY COMPANION under the crosshair - the same reach, given here
+    const mine = !readiedFree && allyReach !== null && allyCastable(sp) ? companionInReach(eye, dir, allyReach) : null;
+    if (mine) {
+      lastCastCost = cost;
+      tallyCastSkills(sp);
+      surfacePlayer();
+      giveToCompanion(mine, sp);
+      return done(true);
+    }
     if (sp.rangeType === 0) {
       // S7: CasterOnly applies to SELF (Balyna's Balm heals) - no
       // missile; AssignBundle at :2117.
@@ -675,6 +758,7 @@ export function createPlayerMagic({
       // Nothing in reach when the hands open: the spell is spent and
       // gone, exactly as DFU's touch missile that finds no entity.
       if (t?.ally) giveToAlly(t, sp);   // AID1 onto ALLY-CAST: the touch met a mate the crosshair pick did not name
+      else if (t?.companion) giveToCompanion(t, sp);   // COMPANION-KIT: the touch met my companion
       else if (t?.duel) giveToDuel(t, sp);   // DUEL1: the touch met my duel opponent
       else if (t?.boss) giveToBoss(t, sp);   // WB4b: the touch met the court's boss
       else if (t) applySpellToFoe(sp, effectiveLevel(playerEntity), t, playerCaster());
@@ -689,6 +773,7 @@ export function createPlayerMagic({
         applySpellToFoe(sp, effectiveLevel(playerEntity), t, playerCaster());
       }
       giveToAllies(sweepFoes(eye, EXPLOSION_RADIUS, allyMarksFor(sp)), sp);   // AID1 onto ALLY-CAST: the mates around me - SPELL-GIFT: one line for all of them
+      giveToCompanions(sweepFoes(eye, EXPLOSION_RADIUS, companionMarksFor(sp)), sp);   // COMPANION-KIT: and my companions
       for (const t of sweepFoes(eye, EXPLOSION_RADIUS, duelMarksFor(sp))) giveToDuel(t, sp);   // DUEL1: and my duel opponent, if they stand in it
       for (const t of sweepFoes(eye, EXPLOSION_RADIUS, bossMarksFor(sp))) giveToBoss(t, sp);   // WB4b: and the court's boss, if any of him stands in it
       return done(true);
@@ -806,6 +891,8 @@ export function createPlayerMagic({
       // the mate says "Cast Heal on Bran", and the next click resolves through releaseFrame's ally arm, or through
       // the CasterOnly arm as ever if they moved. A free ready (A7) fires on the spot as DFU's does; so does one
       // with nobody there.
+      if (!free && allyCastable(sp) && companionInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); return true; }   // COMPANION-KIT: my companion under the crosshair arms it, as a mate does
+      if (!free && allyCastable(sp) && companionNear(lastAim?.eye ?? null, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); say(COMPANION_ARMED_LINE); return true; }   // COMPANION-KIT: and with my companion near
       if (!free && allyCastable(sp) && allyInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); return true; }
       // SPELL-GIFT (2026-09-27, Tabitha: "a LARGE amount of buffs & spells just don't work when cast on another person"):
       // ...AND WITH A MATE NEAR, not only one already under the crosshair (systems/allyCast.js ALLY_ARM_RADIUS). Readied
@@ -936,10 +1023,12 @@ export function createPlayerMagic({
       // (DaggerfallMissile's SphereCast hits whatever collider is there) - an AreaAtRange one bursts, the rest are given
       // to that mate alone
       if (m.ally) {
-        const hitMate = allyMarksFor(m.spell, false).find((p) => missileHitsCapsule(m.pos, p.ai.feet, p.ai.height, PLAYER_BODY_RADIUS));
+        // COMPANION-KIT: my companion's body meets it as a mate's does
+        const hitMate = [...allyMarksFor(m.spell, false), ...companionMarksFor(m.spell, false)].find((p) => missileHitsCapsule(m.pos, p.ai.feet, p.ai.height, PLAYER_BODY_RADIUS));
         if (hitMate) {
           const at = [m.pos[0], m.pos[1], m.pos[2]];
           if (m.spell.rangeType === 4) explodeAt(at, m.spell, effectiveLevel(playerEntity), playerFeet, playerCaster(), { playerHeight, allies: true, duel: !!m.duel, boss: m.boss ?? !!m.duel });
+          else if (hitMate.companion) giveToCompanion(hitMate, m.spell);   // COMPANION-KIT
           else giveToAlly(hitMate, m.spell);
           showImpactFlash(m, at);
           retireMissile(m);

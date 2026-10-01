@@ -69,6 +69,8 @@ export function allyCastable(spell) {
 export const ALLY_ARM_RADIUS = 10;
 /** ...and what the armed ready says under DFU's own "Press button to fire spell." - where the click will land. */
 export const ALLY_ARMED_LINE = 'Aim at a party member to cast it on them, or anywhere else to cast it on yourself.';
+/** COMPANION-KIT: ...and the same word with my companion near (scenes/hostMagic.js companionNear). */
+export const COMPANION_ARMED_LINE = 'Aim at your companion to cast it on them, or anywhere else to cast it on yourself.';
 
 /** SPELL-GIFT (Tabitha: "Allow casting of buffs on players outside party ... Many spells should be blacklisted [Spells
  *  that can be considered annoyances like levitate reducing movespeed, etc.]", with her INITIAL PLAYER2PLAYER SPELL

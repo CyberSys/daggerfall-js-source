@@ -2626,6 +2626,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // passes none
     allyMarks: opts.allyMarks ? (sp) => opts.allyMarks(sp) : null,   // SPELL-GIFT: the spell rides, for the strangers its list may reach
     peerBodies: opts.peers ? () => opts.peers() : null,   // SPELLFX1: every player's body, where a peer's drawn missile stops
+    companionBodies: opts.companionBodies ? () => opts.companionBodies() : null,   // COMPANION-KIT: my companions here (the dungeon's own records)
     // QG1: the ready-spell doors - this host's own cast engine raises
     // into the same machine the world lane's does (opts.questBridge is
     // handed down by world.js/worldModes; the standalone ?dungeon

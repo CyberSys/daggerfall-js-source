@@ -157,7 +157,8 @@ test('AUDIT CC-A9: a boat with no deed number lists no Companions row (its press
 
 test('AUDIT CC-A10: a pause holds the layer (no knock, no stand, no catch-up under a window); the bars show the peers\' companions indoors and underground too', () => {
   const w = rd('src/scenes/world.js');
-  assert.match(w, /function crewAshoreTick\(\) \{\n\s*if \(!navalOn\(\)\) \{ crewAshore\.clear\(\); return; \}\n\s*if \(gamePaused\(\)\) return;/);
+  // PIN MOVED (COMPANION-KIT): the party panel's companions are drawn first - its own covering word holds it under a window
+  assert.match(w, /function crewAshoreTick\(\) \{\n(?:\s*try \{ companionPanelFrame\(\); \}[^\n]*\n)?\s*if \(!navalOn\(\)\) \{ crewAshore\.clear\(\); return; \}\n\s*if \(gamePaused\(\)\) return;/);
   assert.match(w, /for \(const f of _mode\(\) === 'exterior' \? exteriorFoes\.foes : _insidePool\(\)\) \{/);
 });
 

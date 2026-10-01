@@ -45,6 +45,14 @@
 // like exactly that here. The decode is cached per race|gender|face, because eight seats over a long session are at
 // most eight distinct faces and a re-decode per repaint would be work for nothing.
 //
+// COMPANION-KIT (2026-10-01, Mac: crew member companions need "an integration into the party UI"): MY COMPANIONS ARE
+// ON IT TOO - a card each under the party's (`companions()`, the host's word: each one's key, name, role, health and
+// live effects), offline as well as in a party: with no party and a companion ashore the panel stands for them alone.
+// His card is the member's own - the green name, the health bar, its digits while it is low, the flare on a hit, the
+// "+N" off a heal, the effects row - with his ROLE under the bar where a member's place goes, the role's first letter on
+// the plate where a face goes (the crew have no portrait), and no stamina or magicka hairlines (the crew carry none).
+// He is repainted only when what his card says moved (`companionKey`), as a member is.
+//
 // ART LANDS ASYNC (Ledger A's rule, the seams lane): the card is built at once with a neutral plate where the face
 // will go, the CIF is fetched off the frame, and the portrait appears the moment it lands. A member whose pose has
 // not arrived yet (`p` null - they joined a second ago, or they are offline) gets the same plate and dashes for
@@ -129,6 +137,8 @@ ${PIXELIFY_FIVE_FACE}
 .dfparty-card { position: relative; display: flex; gap: 6px; padding: 3px 0; }   /* relative: PARTY-BUFFS' heal floats off it */
 /* away: the whole card goes quiet - the portrait too, so a grey face is never mistaken for a live one */
 .dfparty-card.away { opacity: .46; filter: grayscale(1); }
+.dfparty-card.mate .dfparty-thin { display: none; }   /* COMPANION-KIT: the crew carry no stamina or magicka */
+.dfparty-card.mate .dfparty-where { opacity: .8; }
 .dfparty-face { flex: none; box-sizing: content-box; width: ${FACE_BOX_W}px; height: ${FACE_BOX_H}px; overflow: hidden;   /* AUDIT PARTY8: the sheet's border-box took the 1px border out of the plate and squashed a 31-wide head */
   display: flex; align-items: center; justify-content: center;
   background: linear-gradient(180deg, #232830, #14171b); border: 1px solid var(--iron, #2b323b);
@@ -295,7 +305,10 @@ export function createFaceLoader({ fetchBytes, palette } = {}) {
  * The returned panel: `render({ covered })` once a frame from the host, `setHidden(covered)` for the same word said
  * on its own, and `destroy()`.
  */
-export function createPartyPanel({ social, doc = document, art = null, faceLoader = null, touch = isTouchDevice(), here = null, fxIcon = null } = {}) {
+/** COMPANION-KIT: the one string a companion's card is repainted on - his name, role, health and effects. */
+export const companionKey = (c) => `${c?.key}|${c?.name}|${c?.role}|${Math.round(Number(c?.h) || 0)}/${Math.round(Number(c?.hm) || 0)}|${partyFxKey(c?.fx)}`;
+export function createPartyPanel({ social, doc = document, art = null, faceLoader = null, touch = isTouchDevice(), here = null, fxIcon = null, companions: companionsIn = null } = {}) {
+  let companions = companionsIn;
   injectPartyStyle(doc);
   // PARTY-BUFFS: an effect's icon - the enhanced spellbook's own cut of ICON00I0 (null until the sheet lands); a seam
   // so the pins can hand one in without loading the sheet
@@ -330,7 +343,10 @@ export function createPartyPanel({ social, doc = document, art = null, faceLoade
   let paintedPose = -1;        // AUDIT PARTY8: ...and the `social.poseVersion` - a pose alone moves this one, never the version
   let hereWas = '';            // PARTY8-B: my place's words at the last pass, so the place lines follow ME as well as them
   let covered = false;         // the host's word: a window over the HUD
-  let showing = false;         // is there a party with somebody else in it
+  let showing = false;         // is there a party with somebody else in it - COMPANION-KIT: or a companion of mine
+  let compPainted = null;      // COMPANION-KIT: the companions' key the cards were last written from
+  /** COMPANION-KIT: the host's companions this frame, or none. */
+  const comps = () => { try { const l = companions?.() ?? []; return Array.isArray(l) ? l : []; } catch { return []; } };
   let alive = true;
   let warned = false;
 
@@ -426,7 +442,7 @@ export function createPartyPanel({ social, doc = document, art = null, faceLoade
     // root comes back from display:none (a window closing) or the row is re-inserted (a seat joining): every seat that
     // took any hit this session flashed at once
     for (const slot of vitals) slot.fill.addEventListener?.('animationend', () => setCls(slot.fill, 'dfparty-fill'));
-    return { node, facebox, pix, name, lead, where, hp, vitals, fx, fxKey: '#', faceKey: null, drawn: null, away: null, hpPct: null, hpH: null, hitFlip: false };
+    return { node, facebox, pix, facemark, name, lead, where, hp, vitals, fx, fxKey: '#', faceKey: null, drawn: null, away: null, hpPct: null, hpH: null, hitFlip: false };
   };
 
   /** PARTY-BUFFS: the member's own effects row, rewritten only when what it says moved (the icon, the rounds, the
@@ -526,7 +542,7 @@ export function createPartyPanel({ social, doc = document, art = null, faceLoade
       hereWas = hk;
       const hp = herePose();
       for (const [acct, card] of cards) {
-        if (card.away) continue;
+        if (card.away || acct.startsWith('companion:')) continue;   // COMPANION-KIT: a companion's line is his role, not a place
         const p = social.party?.members?.find((x) => x.acct === acct)?.p ?? null;
         setCls(card.where, `dfparty-where${p && !withMe(p, hp) ? '' : ' off'}`);
       }
@@ -537,18 +553,56 @@ export function createPartyPanel({ social, doc = document, art = null, faceLoade
     }
   };
 
+  /** COMPANION-KIT: one companion onto one card - the member's own parts, his role where a place goes. */
+  const paintCompanion = (card, c) => {
+    setCls(card.node, 'dfparty-card mate');
+    const nm = String(c.name ?? '');
+    if (card.name.textContent !== nm) { setText(card.name, nm); card.name.setAttribute('title', nm); }
+    setCls(card.lead, 'dfparty-lead off');
+    setText(card.where, String(c.role ?? ''));
+    setCls(card.where, `dfparty-where${c.role ? '' : ' off'}`);
+    const h = Number(c.h), hm = Number(c.hm);
+    const pose = Number.isFinite(h) && Number.isFinite(hm) && hm > 0 ? { h, hm } : null;
+    setWidth(card.vitals[0].fill, `${pose ? barPercent(pose.h, pose.hm) : 0}%`);
+    setText(card.vitals[0].num, pose ? vitalsText(pose.h, pose.hm) : VITALS_BLANK);
+    setText(card.hp, card.vitals[0].num.textContent);
+    const pct = pose ? barPercent(pose.h, pose.hm) : null;
+    setCls(card.hp, `dfparty-hp${pct != null && pct < HP_DIGITS_BELOW ? '' : ' off'}`);
+    if (pose && card.hpH != null && pose.h < card.hpH) {
+      card.hitFlip = !card.hitFlip;
+      setCls(card.vitals[0].fill, `dfparty-fill ${card.hitFlip ? 'hit' : 'hit2'}`);
+    }
+    const healed = pose ? partyHealOf(card.hpH, pose) : 0;
+    if (healed > 0) floatHeal(card, healed);
+    card.hpH = pose ? pose.h : null;
+    paintFx(card, c.fx);
+    card.hpPct = pct;
+    const mark = (String(c.role ?? c.name ?? '?').trim()[0] ?? '?').toUpperCase();
+    if (card.facemark && card.facemark.textContent !== mark) card.facemark.textContent = mark;
+  };
   const paint = () => {
     hereWas = hereKey();   // PARTY8-B: paintCard reads my place as it writes each line; the live pass starts from there
     const rows = social?.others?.() ?? [];
     const leader = social?.party?.leader ?? null;
-    showing = rows.length > 0;
-    setText(count, `${(social?.party?.members?.length ?? rows.length + 1)}/${PARTY_MAX}`);   // PARTY8: the seats filled, me included
-    for (const [acct, card] of cards) if (!rows.some((m) => m.acct === acct)) { card.node.remove?.(); cards.delete(acct); }
+    const mates = comps();   // COMPANION-KIT
+    compPainted = mates.map(companionKey).join('#');
+    showing = rows.length > 0 || mates.length > 0;
+    setText(count, social?.party ? `${(social?.party?.members?.length ?? rows.length + 1)}/${PARTY_MAX}` : '');   // PARTY8: the seats filled, me included - COMPANION-KIT: no seats with no party
+    const keep = new Set([...rows.map((m) => m.acct), ...mates.map((c) => `companion:${c.key}`)]);
+    for (const [acct, card] of cards) if (!keep.has(acct)) { card.node.remove?.(); cards.delete(acct); }
     const order = [];
     for (const m of rows) {
       let card = cards.get(m.acct);
       if (!card) { card = makeCard(); cards.set(m.acct, card); }
       paintCard(card, m, m.acct === leader);
+      order.push(card.node);
+    }
+    // COMPANION-KIT: my companions under the party's seats
+    for (const c of mates) {
+      const id = `companion:${c.key}`;
+      let card = cards.get(id);
+      if (!card) { card = makeCard(); cards.set(id, card); }
+      paintCompanion(card, c);
       order.push(card.node);
     }
     // The seats' order is the hub's; re-parent only when it actually moved, so a pose writes no structure.
@@ -574,11 +628,16 @@ export function createPartyPanel({ social, doc = document, art = null, faceLoade
       // ui/chatPanel.js render's own door: a panel nobody can see is not painted, and the version it did not paint
       // stays owed - so the frame the window closes draws everything that arrived while it was up.
       if (covered) return;
-      if (!social) return;
+      // COMPANION-KIT: my companions repaint the panel when their cards' words moved, a party or none
+      const ck = comps().map(companionKey).join('#');
+      if (!social) { if (ck !== compPainted) paint(); return; }
+      if (ck !== compPainted) { painted = social.version; paintedPose = social.poseVersion ?? 0; paint(); return; }
       if (social.version === painted && (social.poseVersion ?? 0) === paintedPose) { paintLive(); return; }   // AUDIT SOC B8: the clock moves where the version does not
       painted = social.version; paintedPose = social.poseVersion ?? 0;
       paint();
     },
+    /** COMPANION-KIT: the host's companions seam, handed in after the build (the party's panel is made over `social`). */
+    setCompanions(fn) { companions = typeof fn === 'function' ? fn : null; compPainted = null; },
     /** What the panel currently draws, for a host or a pin that wants it without walking the DOM. */
     cardCount: () => cards.size,
     cardFor: (acct) => cards.get(acct) ?? null,
