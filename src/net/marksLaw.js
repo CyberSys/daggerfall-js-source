@@ -87,6 +87,18 @@ export const MARKS_KINDS = Object.freeze({
   'bounty-escrow': 'move',    // SEAT1d: a Bounty's set-aside, held while it rules (the `escrow` end, `bounty:<key>:<week>`)
   bounty: 'move',             // SEAT1d: twenty Drakes a camp cleared, out of the Bounty's escrow
   'bounty-return': 'move',    // SEAT1d: what a Bounty's escrow did not pay, home to its guild at the next Turning
+  // AUDIT-SEATS: the kinds the guilds and the seats wrote that this list never named
+  heraldry: 'burn',           // GUILD1d: a guild's heraldry changed (Seats-Arc 8.1: 500 Drakes)
+  'sellsword-escrow': 'move', // SEAT2a: a Sellsword's fee, from the hiring guild's treasury, held while the contract stands
+  'sellsword-fee': 'move',    // SEAT2a: the fee, out of the escrow to the Sellsword at the battle's end
+  'sellsword-return': 'move', // SEAT2a: a withdrawn or unearned contract's fee, home to its guild
+  'siege-honours': 'mint',    // SEAT2a: a siege's Honours, off the fighter's relay-signed receipt (Seats-Arc 6.8)
+  conscription: 'move',       // CROWN1: a palace seat's share of its Tithe to its crown's treasury
+  'royal-escrow': 'move',     // CROWN1: a Royal Tourney's prize, held from the crown's treasury while it rules
+  'royal-prize': 'move',      // CROWN1: the prize, out of the escrow to the champion's account
+  'royal-return': 'move',     // CROWN1: a Tourney no bout won - the prize home
+  'fealty-tribute': 'move',   // CROWN2: a vassal's 5% of its Tithe to its liege
+  'gate-incursion': 'mint',   // AUDIT-SEATS: a Daedric Incursion's second half of a gate's Marks, once three claims agree (9.3)
 });
 
 /** The switch the service's config holds (MARKS_OPEN): off, dev (the developers alone), on. */

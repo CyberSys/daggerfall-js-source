@@ -39,6 +39,7 @@ import { gatherStandings, seatGuildsOf, holdsOf, battlesOf, agreedGateRegions } 
 import { activeIn, edictsOf } from './seatHolding.js';
 import { windowOf } from './seatBattles.js';   // SEAT2a: the holder's window, frozen into its battle
 import { royalTurning } from './seatRoyal.js';   // CROWN1 part two: a Royal Tourney's champion named
+import { incursionStatements } from './seatIncursion.js';   // AUDIT-SEATS: a Daedric Incursion's Marks
 import { gameDayAt, gateTimes } from '../../src/net/gateLaw.js';
 import { guildActorOf } from './guilds.js';
 import { mustChange } from './realm.js';
@@ -99,7 +100,8 @@ export async function settleWeek(db, week, nowS, zero = null) {
   const days = [];
   for (let d = gameDayAt(fromS * 1000); d <= gameDayAt(atS * 1000); d++) { const r = gateTimes(d).riseAt / 1000; if (r >= fromS && r < atS) days.push(d); }
   const gatesIn = new Map();
-  for (const region of (await agreedGateRegions(db, days)).values()) gatesIn.set(region, (gatesIn.get(region) ?? 0) + 1);
+  const agreed = await agreedGateRegions(db, days);
+  for (const region of agreed.values()) gatesIn.set(region, (gatesIn.get(region) ?? 0) + 1);
   const { results: proclaimed = [] } = await db.prepare("SELECT key, edict, guild_id, set_aside FROM town_seat_edicts WHERE week = ? AND state = 'proclaimed'").bind(next).all();
   // SEAT2a part three: the week's sieges remembered (6.5, 6.8) - a holder that held or won by forfeit defends at x1.2, its
   // challenger barred from the seat at this Turning
@@ -299,6 +301,8 @@ export async function settleWeek(db, week, nowS, zero = null) {
   }
   // CROWN1 part two (7.6): THE WEEK'S ROYAL TOURNEYS - each champion named, paid its prize and titled; none, the prize home
   stmts.push(...(await royalTurning(db, week, nowS, history, registry)));
+  // AUDIT-SEATS (9.3): A DAEDRIC INCURSION'S MARKS - the gate days' second half, now three claims agree on their regions
+  stmts.push(...incursionStatements(db, { week, agreed, counted, nowS }));
   // every held seat's Standing after its week (7.3) - SEASON1: halfway back toward 50 at a Season's end; the unchallenged
   // in the Chronicle
   for (const w of plan.standings) {

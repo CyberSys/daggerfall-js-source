@@ -13,12 +13,16 @@ import {
   seatReportText, seatWeekOf, SEAT_MEMBER_WAIT_S, seasonTitles, keptWholeSeason, turningPlan, placeBattles, CROWN_SIEGE_SLOT,
   siegeStartMs, chronicleLine, edictWords, seatRuleLine, seatArrivalNews, seatTitleText, seatIgnoredAccounts, SEAT_WITNESS_IGNORED_S,
   accountSeatInfluence, tributeRoom, claimTotal, SIEGE_STANDING, STANDING_CHANGES, KINGDOM_METALS, SEAT_RING_UNHELD, FREE_LAND_RING,
-  seatArrivalLine, siegeCalledClause, battleWhenText,
+  seatArrivalLine, siegeCalledClause, battleWhenText, seatWeekStartMs,
 } from '../src/net/townSeatLaw.js';
 import { saleTithe, saleTitheOn, saleTax } from '../src/net/marketLaw.js';
 import { isMarch } from '../src/net/kingdomLaw.js';
 import { tideAt } from '../src/net/tideLaw.js';
 import { HERALDRY_COLOURS } from '../src/net/heraldryLaw.js';
+import { MARKS_KINDS, utcDay } from '../src/net/marksLaw.js';
+import { gameDayAt, gateTimes } from '../src/net/gateLaw.js';
+import { tideOf } from '../src/net/tideLaw.js';
+import { readdirSync } from 'node:fs';
 
 const ANTICLERE = { key: 3021, name: 'Anticlere', region: 21, tier: 'palace', pixel: [402, 151] };
 const WAYREST = { key: 5023, name: 'Wayrest', region: 23, tier: 'crown', pixel: [590, 166] };
@@ -209,4 +213,69 @@ test('AUDIT-SEATS G2 THE ARRIVAL LINE\'S SIEGE: a seat under siege this week gai
     .run(W, ANTICLERE.key, eoGid, s.gid, start / 1000, end / 1000, T0);
   const b = (await s.svc.call('/v1/seats/list', {}, s.gm.secret)).body.seats.find((x) => x.key === ANTICLERE.key).battle;
   assert.deepEqual([b.kind, b.guild.tag, b.startsAt, b.endsAt], ['siege', 'EO', start, end]);
+});
+
+// ─── THE INCURSION'S MARKS (9.3) ─────────────────────────────────────
+
+test('AUDIT-SEATS A DAEDRIC INCURSION\'S MARKS: at the Turning, every claim of a gate day whose region three claims agree on, in a land that rolled the Incursion, is minted its gate Marks again - once, where its purse has room; an unagreed region, an unstruck claim, a full purse and a Calm land none (mutants: the Tide; the agreed region; the struck line; the room; once)', async (t) => {
+  assert.equal(tideOf(W, 'marches'), 'daedra', 'the Marches\' Incursion around T0 (test/tide_service.test.js)');
+  let now = T0;
+  t.mock.method(Date, 'now', () => now * 1000);
+  const svc = await standService({ SEATS_OPEN: 'on', MARKS_OPEN: 'on', SEASON_ZERO_WEEK: String(W) });
+  const raw = svc.env.DB._raw;
+  raw.prepare('INSERT INTO town_seat_weeks (week, settled_at) VALUES (?, ?)').run(W - 1, T0);
+  const weekStart = seatWeekStartMs(W) / 1000;
+  const days = [];
+  for (let d = gameDayAt(weekStart * 1000); days.length < 2; d++) if (gateTimes(d).riseAt / 1000 >= weekStart) days.push(d);
+  const [d, e] = days;
+  const accounts = [];
+  for (const h of ['Ada', 'Bram', 'Cora', 'Dov', 'Esk', 'Fen']) accounts.push(await svc.registered(h));
+  const kill = (a, day, region, struck = true) => {
+    raw.prepare("INSERT INTO gate_kills (day, account, boss, earned, at, region) VALUES (?, ?, 'ruhn', 'x', ?, ?)").run(day, a.id, T0, region);
+    if (struck) raw.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
+      VALUES ('mint', NULL, 'account', ?, 'gate', 50, ?, ?, ?, NULL, ?)`).run(a.id, utcDay(T0), T0, a.id, `gate:${day}`);
+  };
+  // day d: four claim the Marches' Anticlere (21), one a Calm kingdom's region; one of the four's Marks unstruck, one purse full
+  for (const a of accounts.slice(0, 3)) kill(a, d, 21);
+  kill(accounts[3], d, 21, false);
+  kill(accounts[4], d, 23);
+  raw.prepare('UPDATE marks SET balance = ? WHERE account = ?').run(10_000_000 - 10, accounts[2].id);
+  // day e: two claims only - no region agreed
+  kill(accounts[0], e, 21); kill(accounts[5], e, 21);
+  now = Math.floor(seatWeekStartMs(W + 1) / 1000) + 3 * 3600;
+  await svc.call('/v1/seats/list', {}, accounts[0].secret);
+  const lines = () => raw.prepare("SELECT dst_id, amount, rid FROM marks_ledger WHERE kind = 'gate-incursion' ORDER BY dst_id").all().map((r) => [r.dst_id, Number(r.amount), r.rid]);
+  assert.deepEqual(lines(), [[accounts[0].id, 50, `incursion:${d}`], [accounts[1].id, 50, `incursion:${d}`]].sort((x, y) => (x[0] < y[0] ? -1 : 1)),
+    'the agreed day\'s struck claims alone - not the unstruck, not the full purse, not the other region, not the day two claims named');
+  assert.equal(raw.prepare('SELECT COUNT(*) AS n FROM town_seat_weeks WHERE week = ?').get(W).n, 1, 'the settle stood');
+  // a second settle is no settle (the weeks' key) - and no second half
+  await svc.call('/v1/seats/list', {}, accounts[1].secret);
+  assert.equal(lines().length, 2);
+  // the same week counting no Season: the Marches Calm, none paid
+  let then = T0;
+  t.mock.method(Date, 'now', () => then * 1000);
+  const calm = await standService({ SEATS_OPEN: 'on', MARKS_OPEN: 'on' });
+  const craw = calm.env.DB._raw;
+  craw.prepare('INSERT INTO town_seat_weeks (week, settled_at) VALUES (?, ?)').run(W - 1, T0);
+  const c3 = [await calm.registered('Cato'), await calm.registered('Cyra'), await calm.registered('Cole')];
+  for (const a of c3) {
+    craw.prepare("INSERT INTO gate_kills (day, account, boss, earned, at, region) VALUES (?, ?, 'ruhn', 'x', ?, 21)").run(d, a.id, T0);
+    craw.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid) VALUES ('mint', NULL, 'account', ?, 'gate', 50, ?, ?, ?, NULL, ?)`).run(a.id, utcDay(T0), T0, a.id, `gate:${d}`);
+  }
+  then = now;
+  await calm.call('/v1/seats/list', {}, c3[0].secret);
+  assert.equal(craw.prepare("SELECT COUNT(*) AS n FROM marks_ledger WHERE kind = 'gate-incursion'").get().n, 0, 'no Season, no Tide');
+});
+
+test('AUDIT-SEATS THE LEDGER\'S KINDS: every kind a service statement writes to the one ledger is named in MARKS_KINDS, with the way it moves Marks (the guilds\' and the seats\' had drifted off it) (mutants: a kind dropped)', () => {
+  const dir = new URL('../server-account/src/', import.meta.url);
+  const written = new Set();
+  for (const f of readdirSync(dir).filter((n) => n.endsWith('.js'))) {
+    const text = readFileSync(new URL(f, dir), 'utf8');
+    for (const m of text.matchAll(/'(?:mint|account|guild|escrow)', [^,]+, (?:'(?:burn|account|guild|escrow)'|CASE[^']*'[a-z]+'[^']*'[a-z]+' END), [^,]+, '([a-z-]+)'/g)) written.add(m[1]);
+    for (const m of text.matchAll(/END, '([a-z-]+)', /g)) written.add(m[1]);
+  }
+  for (const k of ['gate-incursion', 'siege-honours', 'fealty-tribute', 'conscription', 'royal-prize', 'heraldry', 'sellsword-fee', 'tribute', 'seat-claim']) assert.ok(written.has(k), `the sweep finds ${k}`);
+  for (const k of written) assert.ok(Object.hasOwn(MARKS_KINDS, k), `${k} is written to the ledger and named nowhere`);
+  assert.deepEqual(['siege-honours', 'gate-incursion', 'conscription', 'fealty-tribute', 'heraldry'].map((k) => MARKS_KINDS[k]), ['mint', 'mint', 'move', 'move', 'burn']);
 });

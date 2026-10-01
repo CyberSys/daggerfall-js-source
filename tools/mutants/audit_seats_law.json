@@ -250,5 +250,89 @@
   "tests": [
    "test/audit_seats_law.test.js"
   ]
+ },
+ {
+  "name": "ASL-INC-tide",
+  "file": "server-account/src/seatIncursion.js",
+  "old": "if (tideAt(week, region, counted) !== 'daedra') continue;",
+  "new": "if (tideAt(week, region, true) !== 'daedra') continue;",
+  "tests": [
+   "test/audit_seats_law.test.js"
+  ]
+ },
+ {
+  "name": "ASL-INC-region",
+  "file": "server-account/src/seatIncursion.js",
+  "old": "      WHERE k.day = ?1 AND k.region = ?2\n",
+  "new": "      WHERE k.day = ?1\n",
+  "tests": [
+   "test/audit_seats_law.test.js"
+  ]
+ },
+ {
+  "name": "ASL-INC-struck",
+  "file": "server-account/src/seatIncursion.js",
+  "old": "JOIN marks_ledger l ON l.actor = k.account AND l.rid = ?6 AND l.kind = 'gate'",
+  "new": "JOIN marks_ledger l ON l.actor = k.account AND l.kind = 'gate'",
+  "tests": [
+   "test/audit_seats_law.test.js"
+  ]
+ },
+ {
+  "name": "ASL-INC-room",
+  "file": "server-account/src/seatIncursion.js",
+  "old": "COALESCE((SELECT balance FROM marks WHERE account = k.account), 0) + l.amount <= ?7`)",
+  "new": "1`)",
+  "tests": [
+   "test/audit_seats_law.test.js"
+  ]
+ },
+ {
+  "name": "ASL-INC-once",
+  "file": "server-account/src/seatIncursion.js",
+  "old": "        AND NOT EXISTS (SELECT 1 FROM marks_ledger x WHERE x.actor = k.account AND x.rid = ?5)\n",
+  "new": "",
+  "tests": [
+   "test/audit_seats_law.test.js"
+  ],
+  "equivalent": true,
+  "why": "an incursion:<day> line is written only by the settle of the week holding that gate day, and town_seat_weeks' key lets that settle run once (a racing second rolls back whole); gate_kills' key (day, account) gives each account one row a day, so the statement never meets its own line - the guard keeps a future retry from failing the Turning on UNIQUE (actor, rid), it changes no answer today"
+ },
+ {
+  "name": "ASL-INC-call",
+  "file": "server-account/src/seatTurning.js",
+  "old": "  stmts.push(...incursionStatements(db, { week, agreed, counted, nowS }));\n",
+  "new": "",
+  "tests": [
+   "test/audit_seats_law.test.js"
+  ]
+ },
+ {
+  "name": "ASL-INC-amount",
+  "file": "server-account/src/seatIncursion.js",
+  "old": "'gate-incursion', l.amount, ?3,",
+  "new": "'gate-incursion', 1, ?3,",
+  "tests": [
+   "test/audit_seats_law.test.js"
+  ]
+ },
+ {
+  "name": "ASL-KIND-drop",
+  "file": "src/net/marksLaw.js",
+  "old": "  'fealty-tribute': 'move',   // CROWN2: a vassal's 5% of its Tithe to its liege\n",
+  "new": "",
+  "tests": [
+   "test/audit_seats_law.test.js"
+  ]
+ },
+ {
+  "name": "ASL-KIND-mint",
+  "file": "src/net/marksLaw.js",
+  "old": "  'siege-honours': 'mint',",
+  "new": "  'siege-honours': 'move',",
+  "tests": [
+   "test/audit_seats_law.test.js",
+   "test/marks1.test.js"
+  ]
  }
 ]
