@@ -159,3 +159,102 @@ test('AUDIT CC-A10: a pause holds the layer (no knock, no stand, no catch-up und
   assert.match(w, /function crewAshoreTick\(\) \{\n\s*if \(!navalOn\(\)\) \{ crewAshore\.clear\(\); return; \}\n\s*if \(gamePaused\(\)\) return;/);
   assert.match(w, /for \(const f of _mode\(\) === 'exterior' \? exteriorFoes\.foes : _insidePool\(\)\) \{/);
 });
+
+// ── CC-B: combat and AI ──────────────────────────────────────────────────────────────────────────────────────────
+
+import { EnemyAI, FOLLOW_LEASH, FOLLOW_SLACK } from '../src/characters/enemyMotor.js';
+import { runTargetMachine, getTargets } from '../src/characters/enemyTargets.js';
+import { isTownThreat } from '../src/systems/townWatch.js';
+
+const walkCollider = () => ({
+  raycast: (o, d) => (d[1] < -0.5 ? Math.max(0, o[1]) + 0.5 : Infinity),
+  capsuleCast: () => ({ dist: Infinity, key: null }),
+  move: (feet, dx, dy, dz) => { feet[0] += dx; feet[2] += dz; return { grounded: true }; },
+});
+const mkSenses = (extra = {}) => ({ gameMinutes: 0, playerStealth: 0, rolls: () => 0.5, ...extra });
+function body(feet, { team = 'PlayerEnemy', hostile = true, yaw = 0, companion = null } = {}) {
+  const ai = new EnemyAI(walkCollider(), feet, yaw);
+  ai.isHostile = hostile;
+  return { ai, entity: { team, mobileTeam: team, health: 20, basics: { team } }, companion };
+}
+const armed = (pool) => (ai, pf, dt) => runTargetMachine(pool.find((c) => c.ai === ai), pool, pf, dt, { infighting: true, playerEntity: { health: 100 } });
+const run = (pool, playerFeet, seconds) => {
+  const targeting = armed(pool);
+  for (let t = 0; t < seconds; t += 1 / 60) for (const f of pool) f.ai.update(1 / 60, playerFeet, mkSenses({ targeting }));
+};
+
+test('AUDIT CC-B1 (blocker): no blow of the player\'s turns a companion - both pools\' attack door passes him by, and the dungeon\'s shaft flies past him', () => {
+  for (const [p, v] of [['src/scenes/exteriorFoes.js', 'f'], ['src/scenes/dungeonContext.js', 'foe']]) {
+    assert.match(rd(p), new RegExp(`function handleAttackFromPlayer\\(${v}, playerFeet = null, peer = false, peerId = null\\) \\{\\n\\s*if \\(!${v}\\?\\.ai \\|\\| ${v}\\.companion != null\\) return;`), p);
+  }
+  assert.match(rd('src/scenes/dungeonContext.js'), /for \(const f of foes\) \{\n\s*if \(f\.dead \|\| f\.companion != null\) continue;   \/\/ AUDIT CC-B1/);
+});
+
+test('AUDIT CC-B2: a companion takes no ally for his foe whatever his team reads, and no ally takes him', () => {
+  const pf = [0, 0, 30];
+  const turned = body([0, 0, 0], { team: 'KnightsAndMages', companion: 'a' });   // a team a blow reset, before the layer puts it back
+  const mate = body([0, 0, 3], { team: 'PlayerAlly', yaw: Math.PI, companion: 'b' });
+  assert.equal(getTargets(turned, [turned, mate], pf, { infighting: true }).target, null, 'infighting on');
+  assert.equal(getTargets(turned, [turned, mate], pf, { infighting: false }).target, null, 'and off');
+  assert.equal(getTargets(mate, [mate, turned], pf, { infighting: false }).target, null, 'nor the other way');
+});
+
+test('AUDIT CC-B3 (major): drawn past the leash a companion comes all the way home - a struck one\'s secondary target no longer pins him at the leash', () => {
+  const leader = [0, 0, 0];
+  const mate = body([0, 0, FOLLOW_LEASH + 1], { team: 'PlayerAlly', companion: 'k', yaw: Math.PI });
+  mate.ai.follow = { feet: () => leader, stop: 2.5 };
+  const orc = body([0, 0, FOLLOW_LEASH + 4], { team: 'Orcs', yaw: Math.PI });
+  mate.ai.target = orc; mate.ai.secondaryTarget = orc;   // struck by it (makeEnemyHostileToAttacker writes both)
+  orc.ai.feet[2] = FOLLOW_LEASH + 30;   // it stands off
+  run([mate, orc], leader, 12);
+  const d = Math.hypot(mate.ai.feet[0], mate.ai.feet[2]);
+  assert.ok(d <= 2.5 + FOLLOW_SLACK + 0.5, `home (${d.toFixed(1)} m)`);
+  assert.equal(mate.ai.secondaryTarget, null);
+});
+
+test('AUDIT CC-B4 (major): a companion never runs out past the leash at a foe standing off there (an archer at 30 m), and never stands idle holding a foe he has never seen', () => {
+  const leader = [0, 0, 0];
+  const mate = body([0, 0, 0], { team: 'PlayerAlly', companion: 'k' });
+  mate.ai.follow = { feet: () => leader, stop: 2.5 };
+  const archer = body([0, 0, FOLLOW_LEASH + 10], { team: 'Orcs', yaw: Math.PI });
+  archer.ai.update = () => {};   // it stands there
+  let far = 0;
+  const targeting = armed([mate, archer]);
+  for (let t = 0; t < 20; t += 1 / 60) {
+    mate.ai.update(1 / 60, leader, mkSenses({ targeting }));
+    far = Math.max(far, Math.hypot(mate.ai.feet[0], mate.ai.feet[2]));
+  }
+  assert.ok(far < 6, `he kept to heel (${far.toFixed(1)} m at the farthest)`);
+  // a target held but not pursuable - never seen (no predicted position: through a wall, in the spawn band) or given
+  // up on - leaves him following (the classic tick does nothing with it, and he stood idle 15 m out)
+  const m2 = body([0, 0, 15], { team: 'PlayerAlly', companion: 'k' });
+  m2.ai.follow = { feet: () => leader, stop: 2.5 };
+  const ghost = body([0, 0, 18], { team: 'Orcs' });
+  m2.ai.target = ghost; m2.ai.predictedTargetPos = null; m2.ai.giveUpTimer = 200;
+  assert.equal(m2.ai._followWanted(), true, 'never seen');
+  m2.ai.predictedTargetPos = [0, 0, 18]; m2.ai.giveUpTimer = 0;
+  assert.equal(m2.ai._followWanted(), true, 'given up');
+  m2.ai.giveUpTimer = 200;
+  assert.equal(m2.ai._followWanted(), false, 'seen, in reach of the leader: he fights it');
+  assert.equal(m2.ai.target, ghost, 'and keeps it');
+});
+
+test('AUDIT CC-B5: the pathing motor drops the route it held when it turns from fighting to following and back', () => {
+  assert.match(rd('src/ai/enhancedMotor.js'), /if \(this\._following !== this\._wasFollowing\) \{ this\._wasFollowing = this\._following; this\.path = null; this\.repathT = 0; \}/);
+});
+
+test('AUDIT CC-B6: a torch thrown indoors or underground passes a companion by (the street\'s already did); the watch stays while a monster fights one', () => {
+  assert.match(rd('src/scenes/worldModes.js'), /foes: \(\) => interiorFoePool\(\)\.filter\(\(f\) => !sparedByPlayer\(f\)\),/);
+  assert.match(rd('src/scenes/dungeonContext.js'), /collider: \(\) => collider, foes: \(\) => foes\.filter\(\(f\) => !sparedByPlayer\(f\)\),/);
+  const monster = { ai: { isHostile: true, target: { companion: 'k', dead: false } }, entity: { team: 'Orcs' } };
+  assert.equal(isTownThreat(monster, { inTownRect: () => true }), true);
+});
+
+test('AUDIT CC-B7: companions fight a quest\'s foes and its foes fight them', () => {
+  const pf = [0, 0, 30];
+  const mate = body([0, 0, 0], { team: 'PlayerAlly', companion: 'k' });
+  const quest = body([0, 0, 3], { team: 'Orcs', yaw: Math.PI });
+  quest.isQuestFoe = true;
+  assert.equal(getTargets(mate, [mate, quest], pf, { infighting: true }).target, quest);
+  assert.equal(getTargets(quest, [quest, mate], pf, { infighting: true }).target, mate);
+});

@@ -143,7 +143,7 @@ export function createNavalCrew({ renderer, getTexture, uploadRecordFrame, rand 
       if (off && !w.hold) w = { ...w, count: Math.max(0, w.count - off) };
       // AUDIT CC-A5: a hand home again stands with his sprite (one came home while another stayed ashore: the count
       // stood met, the mending's branch never ran, and he walked her deck unseen)
-      if (w.away) for (const m of ship.life.members) if (!m.gone && !ship.sprites.get(m)) ship.sprites.set(m, sprite(m));
+      if (w.away) for (const m of ship.life.members) { if (!m.gone && !ship.sprites.get(m)) ship.sprites.set(m, sprite(m)); }
       if (w.hold && !ship.held) { ship.held = true; ship.life.take(Infinity); }   // another's fight took them (a room's)
       else if (!w.hold && ship.life.standing() > w.count) ship.life.trim(w.count);
       else if (!w.hold && ship.life.standing() < w.count) {   // AUDIT NAV2 F42: mended - her crew grows back (it only ever thinned)

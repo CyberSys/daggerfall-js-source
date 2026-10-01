@@ -164,6 +164,7 @@ export class EnhancedEnemyAI extends EnemyAI {
     this.path = null; this.pathI = 1; this.repathT = 0; this.pathEpoch = undefined;
     this.stuckT = 0; this.lastX = feet[0]; this.lastZ = feet[2];
     this.navBroken = false;
+    this._wasFollowing = false;   // AUDIT CC-B5: the route's goal - the leader's or the foe's
     /** observational, his stuckStats pattern - probes and tests only */
     this.navStats = { repaths: 0, fails: 0, stuckFires: 0 };
   }
@@ -233,6 +234,8 @@ export class EnhancedEnemyAI extends EnemyAI {
       // the classic tick's own three gates, read after it ran. The goal
       // is the classic destination's own target, the predicted position.
       // CREW-COMPANIONS: a follower's route is _followGoal's (repathed there, toward the leader); only the watchdog here
+      // AUDIT CC-B5: a route is to one goal - the leader's or the foe's; turning from one to the other, it goes
+      if (this._following !== this._wasFollowing) { this._wasFollowing = this._following; this.path = null; this.repathT = 0; }
       if (this._following) {
         if (this.path && this.moving) this._stuckWatch(chf, Math.sin(this.yaw), Math.cos(this.yaw), dt);
         else { this.stuckT = 0; this.lastX = this.feet[0]; this.lastZ = this.feet[2]; }

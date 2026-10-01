@@ -173,8 +173,8 @@
   {
     "name": "CA-swept-never-restood",
     "file": "src/scenes/crewAshore.js",
-    "old": "      if (rec.dead || !rec.ai) { stood.delete(k); continue; }",
-    "new": "      if (rec.dead || !rec.ai) continue;",
+    "old": "      if (rec.dead || !rec.ai || (s.has && !s.has(rec))) { stood.delete(k); continue; }",
+    "new": "      if (rec.dead || !rec.ai || (s.has && !s.has(rec))) continue;",
     "tests": [
       "test/crewcompanions.test.js"
     ]
@@ -191,7 +191,7 @@
   {
     "name": "CA-health-forgotten",
     "file": "src/scenes/crewAshore.js",
-    "old": "      if (rec.entity) party.hurt(s.c.boat, s.c.name, rec.entity.health, rec.entity.maxHealth);\n",
+    "old": "        party.hurt(s.c.boat, s.c.name, rec.entity.health, rec.entity.maxHealth);\n",
     "new": "",
     "tests": [
       "test/crewcompanions.test.js"
@@ -200,8 +200,8 @@
   {
     "name": "CA-no-catch-up",
     "file": "src/scenes/crewAshore.js",
-    "old": "        if (Math.hypot(f[0] - L.feet[0], f[2] - L.feet[2]) > CATCH_UP_M || Math.abs(f[1] - L.feet[1]) > CATCH_UP_DY) {",
-    "new": "        if (Math.hypot(f[0] - L.feet[0], f[2] - L.feet[2]) > CATCH_UP_M) {",
+    "old": "        const away = Math.hypot(f[0] - L.feet[0], f[2] - L.feet[2]) > CATCH_UP_M || (L.grounded !== false && Math.abs(f[1] - L.feet[1]) > CATCH_UP_DY);",
+    "new": "        const away = Math.hypot(f[0] - L.feet[0], f[2] - L.feet[2]) > CATCH_UP_M;",
     "tests": [
       "test/crewcompanions.test.js"
     ]
@@ -209,8 +209,8 @@
   {
     "name": "CA-catch-up-keeps-target",
     "file": "src/scenes/crewAshore.js",
-    "old": "          rec.ai.target = null; rec.ai.path = null;",
-    "new": "          rec.ai.path = null;",
+    "old": "          if (typeof rec.ai.resumeLive === 'function') rec.ai.resumeLive();\n",
+    "new": "",
     "tests": [
       "test/crewcompanions.test.js"
     ]
@@ -245,8 +245,8 @@
   {
     "name": "CA-health-not-carried",
     "file": "src/scenes/crewAshore.js",
-    "old": "          if (c.health != null) rec.entity.health = Math.min(rec.entity.maxHealth ?? c.health, c.health);\n",
-    "new": "",
+    "old": "          if (c.health != null && c.maxHealth > 0 && max > 0) rec.entity.health =",
+    "new": "          if (false) rec.entity.health =",
     "tests": [
       "test/crewcompanions.test.js"
     ]
@@ -281,8 +281,8 @@
   {
     "name": "FM-follow-while-fighting",
     "file": "src/characters/enemyMotor.js",
-    "old": "    if (this.target == null) return true;\n    const leader",
-    "new": "    return true;\n    const leader",
+    "old": "    if (this.target == null) return true;\n    const tf",
+    "new": "    return true;\n    const tf",
     "tests": [
       "test/crewcompanions.test.js"
     ]
@@ -290,8 +290,8 @@
   {
     "name": "FM-no-leash",
     "file": "src/characters/enemyMotor.js",
-    "old": "    if (Math.hypot(leader[0] - this.feet[0], leader[2] - this.feet[2]) <= (this.follow.leash ?? FOLLOW_LEASH)) return false;",
-    "new": "    return false;",
+    "old": "    if (home > leash || (tf && Math.hypot(tf[0] - leader[0], tf[2] - leader[2]) > leash)) {",
+    "new": "    if (tf && Math.hypot(tf[0] - leader[0], tf[2] - leader[2]) > leash) {",
     "tests": [
       "test/crewcompanions.test.js"
     ]
@@ -353,7 +353,7 @@
   {
     "name": "ET-companion-takes-an-ally",
     "file": "src/characters/enemyTargets.js",
-    "old": "      if ((self.companion != null || c.companion != null) && selfTeam === 'PlayerAlly' && targetEntity?.team === 'PlayerAlly') continue;\n",
+    "old": "    if (self.companion != null && (c.companion != null || targetEntity?.team === 'PlayerAlly')) continue;\n",
     "new": "",
     "tests": [
       "test/crewcompanions.test.js"

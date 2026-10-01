@@ -152,7 +152,7 @@ export function getTargets(self, candidates, playerFeet, {
     // Can't target self (:768)
     if (c === self || (targetAi && targetAi === ai)) continue;
     // NoTarget mode (:776-777): the BASICS team here
-    if ((noTargetMode || !ai.isHostile || selfMobileTeam === 'PlayerAlly') && isPlayer) continue;
+    if ((noTargetMode || !ai.isHostile || selfMobileTeam === 'PlayerAlly' || self.companion != null) && isPlayer) continue;   // AUDIT CC-B2: a companion never the player's foe, whatever his team reads
     // Pacified enemies should not attack player allies (:780-781)
     if (!ai.isHostile && targetEntity && targetEntity.team === 'PlayerAlly') continue;
     // Player allies should not attack pacified enemies (:784-789)
@@ -182,12 +182,15 @@ export function getTargets(self, candidates, playerFeet, {
       // player's side, and are fought back), and a companion never takes another ally for its foe - neither arm is
       // DFU's, which has no companion; every other pair keeps the chain above.
       if (!isPlayer && selfMobileTeam !== 'PlayerAlly' && !(c.companion != null && ai.isHostile)) continue;
-      if ((self.companion != null || c.companion != null) && selfTeam === 'PlayerAlly' && targetEntity?.team === 'PlayerAlly') continue;
     }
+    // AUDIT CC-B2: a companion's own side, by what he IS - never by his team, which a blow can reset for a frame: he
+    // takes no ally for his foe, and no ally takes him
+    if (self.companion != null && (c.companion != null || targetEntity?.team === 'PlayerAlly')) continue;
+    if (c.companion != null && selfTeam === 'PlayerAlly') continue;
     // Quest enemy AI only targets player unless marked attackable (:806-807)
-    if (self.isQuestFoe && !self.questAttackable && !isPlayer) continue;
+    if (self.isQuestFoe && !self.questAttackable && !isPlayer && c.companion == null) continue;   // AUDIT CC-B7: a quest's foe fights the player's companions
     // For now, quest AI can't be targeted (:814-815)
-    if (targetAi && c.isQuestFoe && !c.questAttackable) continue;
+    if (targetAi && c.isQuestFoe && !c.questAttackable && self.companion == null) continue;   // AUDIT CC-B7: and they fight it
     const tFeet = isPlayer ? (c.feet ?? playerFeet) : targetAi.feet;   // WORLD3: a peer at its own feet
     if (!tFeet) continue;
     const tHeight = isPlayer ? (c.height ?? playerHeight) : targetAi.height;   // WORLD3: and its own capsule

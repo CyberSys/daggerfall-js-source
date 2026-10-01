@@ -502,6 +502,7 @@ export class EnemyAI {
     this.follow = null;
     this._following = false;
     this._followWalking = false;
+    this._returning = false;   // AUDIT CC-B3: drawn past the leash, coming home
     // TakeAction:443-449 sets stopDistance BEFORE GetDestination, and
     // both the approach test (:487) and the search ramp (:552) read it.
     // Seeded here so a caller that drives _getDestination directly has
@@ -1593,15 +1594,35 @@ export class EnemyAI {
     this.justEncountered = false;
   }
 
-  /** CREW-COMPANIONS: whether a companion turns to its leader this step - no target, or the target has drawn it past
-   *  the leash (it drops the target then, and the target machine picks again once it is back at heel). */
+  /** CREW-COMPANIONS: whether a companion turns to its leader this step. He fights a foe within the leash of his
+   *  LEADER that he can pursue; otherwise he keeps to the leader. AUDIT CC-B3/B4: once drawn past the leash he is
+   *  RETURNING - every target dropped, the secondary one too (a struck companion's attacker was pinned back on the next
+   *  tick, and he froze at the leash), until he is back inside `stop + FOLLOW_SLACK`; a foe standing off past the leash
+   *  of the leader (an archer at 30 m) is never run out to; and a target he holds but cannot pursue (never seen, given
+   *  up) leaves him following, never standing idle 15 m out. */
   _followWanted() {
-    if (this.target == null) return true;
     const leader = this.follow.feet?.();
-    if (!leader) return false;
-    if (Math.hypot(leader[0] - this.feet[0], leader[2] - this.feet[2]) <= (this.follow.leash ?? FOLLOW_LEASH)) return false;
-    this.target = null;
-    return true;
+    if (!leader) return this.target == null;
+    const leash = this.follow.leash ?? FOLLOW_LEASH;
+    const home = Math.hypot(leader[0] - this.feet[0], leader[2] - this.feet[2]);
+    if (this._returning) {
+      if (home <= (this.follow.stop ?? FOLLOW_STOP) + FOLLOW_SLACK) this._returning = false;
+      else { this._dropTargets(); return true; }
+    }
+    if (this.target == null) return true;
+    const tf = this.target.ai?.feet ?? this.target.feet ?? null;
+    if (home > leash || (tf && Math.hypot(tf[0] - leader[0], tf[2] - leader[2]) > leash)) {
+      this._returning = home > leash;
+      this._dropTargets();
+      return true;
+    }
+    return this.predictedTargetPos == null || this.giveUpTimer <= 0;
+  }
+
+  /** CREW-COMPANIONS: every target a companion holds, let go (the secondary one and the senses on it included). */
+  _dropTargets() {
+    this.target = null; this.secondaryTarget = null; this.targetSenses = null;
+    this.lastKnownTargetPos = null; this.predictedTargetPos = null;
   }
 
   /** CREW-COMPANIONS: one step of keeping to the leader - stand inside `stop`, walk once past `stop + FOLLOW_SLACK`
