@@ -455,13 +455,13 @@ export function newFight(day, now, wrathAt, boss, md = null) {
     /** WBX5: a phase's turn still to come - PHASE_TURN's entries after the one in flight - and the next of them, begun
      *  when the breath after the last is over */
     queue: [], pending: null,
-    /** @type {Record<string, {name: string, lv: number, share: number, dealt: number, clipped: number, bucket: number, bucketAt: number, rate: number, rateAt: number, stoodMs: number, joinedAt: number, seenAt?: number, retired?: boolean}>} */
+    /** @type {Record<string, {name: string, lv: number, share: number, dealt: number, clipped: number, bucket: number, bucketAt: number, rate: number, rateAt: number, stoodMs: number, joinedAt: number, seenAt?: number, retired?: boolean, cxd?: number, hits?: number, best?: number, falls?: number, down?: boolean}>} */
     players: {},
     /** AUDIT WBX R4: the time a living fighter stood in the court - what "stood half the fight" is half of */
     liveMs: 0,
     /** @type {Record<string, number>} sub -> decayed damage */
     threat: {},
-    /** @type {{at: number, top: string[], n: number}|null} */
+    /** @type {{at: number, top: string[], n: number, dm?: ReturnType<typeof damageChart>}|null} */
     fell: null,
     /** @type {{at: number}|null} */
     wrath: null,
@@ -508,6 +508,7 @@ export function joinFight(f, sub, name, lv, now, admits, present = null) {
     name: String(name ?? '').slice(0, 24), lv: level, share, dealt: 0, clipped: 0,
     bucket: fresh ? BUCKET_DEPTH_X * dpsRef(level) : 0, bucketAt: now, rate: GATE_HIT_HZ_MAX, rateAt: now, stoodMs: 0, joinedAt: now,
     seenAt: now, retired: false,
+    cxd: 0, hits: 0, best: 0, falls: 0, down: false,   // GATE-UX: the damage chart's detail (damageChart)
   };
   return true;
 }
@@ -580,12 +581,12 @@ export function applyHit(f, sub, d, r, pose, now) {
   p.bucket -= got;
   p.clipped += want - got;   // the caps' clipping - what his ward took off is his, not a cap's
   p.dealt += got;
-  if (got > 0) f.threat[sub] = (f.threat[sub] ?? 0) + got;
+  if (got > 0) { f.threat[sub] = (f.threat[sub] ?? 0) + got; p.hits = (p.hits ?? 0) + 1; p.best = Math.max(p.best ?? 0, got); }   // GATE-UX: the chart's blows and best
   f.hp -= got;
   if (f.hp <= 1e-6 && f.max > 0) {
     settleAt(f, now);   // AUDIT WBX F3: where he fell, not where his last beat left him
     f.hp = 0;
-    f.fell = { at: now, top: topDealers(f, 3), n: Object.keys(f.players).length };
+    f.fell = { at: now, top: topDealers(f, 3), n: Object.keys(f.players).length, dm: damageChart(f) };   // GATE-UX: and every fighter's part, ranked
     f.move = null;
     f.atk = null;
     f.cx = null;   // AUDIT WB9 (brain F4): a kill mid-Reckoning spends its crystals - no beat after the fall clears them
@@ -626,6 +627,24 @@ export function leapAt(atk, now) {
 export function topDealers(f, k) {
   return Object.values(f.players).filter((q) => q.dealt > 0)
     .sort((a, b) => b.dealt - a.dealt || a.joinedAt - b.joinedAt).slice(0, k).map((q) => q.name);
+}
+
+/** GATE-UX (2026-10-01, Mac: "Develop a detailed damage chart after the boss kill, showing and ranking everyone's
+ *  damage"): the most rows the chart the kill carries holds (net/wire.js GATE_CHART_MAX - pinned equal). A court of more
+ *  fighters says its count (`fell.n`) and its first DAMAGE_CHART_MAX. */
+export const DAMAGE_CHART_MAX = 32;
+/**
+ * GATE-UX: THE DAMAGE CHART, made at the kill - every fighter who had a part (a blow landed, or a moment stood alive in
+ * the court), most damage first (ties by the earlier to join - topDealers' own order), each row whole numbers: `n` the
+ * name, `l` the level claimed, `d` all they dealt (his health and the crystals', `dealt` - what the receipts and the
+ * herald's names count), `x` the crystals' share of it, `h` the blows that landed on him, `b` the heaviest of them, `f`
+ * how many times they fell in the court. At most DAMAGE_CHART_MAX rows. Pure.
+ * @param {ReturnType<typeof newFight>} f
+ */
+export function damageChart(f) {
+  return Object.values(f.players).filter((q) => q.dealt > 0 || q.stoodMs > 0)
+    .sort((a, b) => b.dealt - a.dealt || a.joinedAt - b.joinedAt).slice(0, DAMAGE_CHART_MAX)
+    .map((q) => ({ n: q.name, l: q.lv, d: Math.round(q.dealt), x: Math.min(Math.round(q.dealt), Math.round(q.cxd ?? 0)), h: q.hits ?? 0, b: Math.round(q.best ?? 0), f: q.falls ?? 0 }));
 }
 
 /** Did `sub` earn a receipt (bible section 6)? Only a fallen boss pays: dealt RECEIPT_SHARE of the health it brought, or
@@ -692,6 +711,8 @@ export function stepBrain(f, now, bodies, rng) {
   // standing: a living body in the court stands its time; AUDIT WBX R4: and the fight's own clock runs while one does
   let living = false;
   for (const b of bodies) { const p = f.players[b.sub]; if (p && !b.dead) { p.stoodMs += dt; living = true; } }
+  // GATE-UX: a fall counted once - the beat it is first seen dead, again only after it has stood up alive in the court
+  for (const b of bodies) { const p = f.players[b.sub]; if (!p) continue; if (b.dead && !p.down) p.falls = (p.falls ?? 0) + 1; p.down = !!b.dead; }
   if (living) f.liveMs = (f.liveMs ?? 0) + dt;
   // AUDIT WBX R1: a fighter in the court is seen (its share back if it had gone); one gone ABSENT_RETIRE_MS takes its
   // share out of his health
@@ -979,6 +1000,7 @@ export function applyCrystalHit(f, sub, c, d, r, pose, now) {
   p.bucket -= got;
   p.clipped += d - got;
   p.dealt += got;
+  p.cxd = (p.cxd ?? 0) + got;   // GATE-UX: the chart says the crystals apart
   q.h -= got;
   if (q.h > 1e-6) return out;
   q.h = 0;
@@ -1015,7 +1037,7 @@ export function stateOf(f) {
     k: 'st', d: f.day, b: f.boss, ph: f.phase, h: Math.round(f.hp), m: Math.round(f.max), x: r2(f.pos[0]), z: r2(f.pos[1]), yw: r2(f.yaw),
     mv: f.move ? { x: r2(f.move.x), z: r2(f.move.z), tx: r2(f.move.tx), tz: r2(f.move.tz), v: f.move.v, at: f.move.at } : null,
     atk: f.atk ? atkFrame(f.atk) : null, sh: f.shieldUntil, wr: f.wrathAt, n: Object.keys(f.players).length,
-    fell: f.fell ? { at: f.fell.at, top: f.fell.top, n: f.fell.n } : null, wrath: f.wrath ? f.wrath.at : null,
+    fell: f.fell ? { at: f.fell.at, top: f.fell.top, n: f.fell.n, ...(f.fell.dm ? { dm: f.fell.dm } : {}) } : null, wrath: f.wrath ? f.wrath.at : null,   // GATE-UX: the chart with it (a late door, a reconnect)
     md: f.md ?? null,   // WB8b: his marks - every screen fights the fight's own, whatever the day's draw would say
     // WB9b: the court he fights in and the crossings' words (the walkways laid); WB9c: the crystals standing, the stun,
     // and when the next Reckoning comes (for its countdown)

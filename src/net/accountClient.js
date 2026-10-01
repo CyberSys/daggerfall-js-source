@@ -322,7 +322,8 @@ export const REFUSALS = Object.freeze({
   'market-seller-full': 'The seller cannot hold any more Drakes just now.',
   'market-listings-max': `You have ${MARKET_LISTINGS_MAX} listings up already. Cancel one first.`,
   'market-orders-max': `You have ${MARKET_ORDERS_MAX} buy orders up already. Withdraw one first.`,
-  'market-not-yours': 'That piece is not yours to sell: its record names another owner.',
+  // MARKET-KEEP: the piece stays with its holder - said so, and where it may still go
+  'market-not-yours': 'That piece\'s maker\'s record names another owner, so only they can sell it at the counting-house. It stays in your pack - a piece from your pack sells for gold.',
   'market-listed': 'That piece is on the market already.',
   'market-order-full': 'The buyer\'s Stores cannot hold that many more.',
   'market-elsewhere': 'That order is filled at the boards of its own region.',
@@ -341,6 +342,11 @@ export const REFUSALS = Object.freeze({
   'market-drakes-goods': 'What you bought with Drakes sells for Drakes. Only what you gathered, made or bought with gold sells for gold.',
   'market-gold-none': 'Your sales hold no gold for you just now.',
   'market-gold-full': 'The seller cannot hold any more gold from the market just now.',
+  // MARKET-ANY: a piece from the pack
+  'market-not-good': 'That piece cannot be sold on the market.',
+  'market-good-gone': 'The realm does not hold that piece where your pack had it. Nothing was listed.',
+  'market-piece-route': 'That piece\'s maker\'s record is yours: list it as a crafted piece.',
+  'market-goods-gold': 'A piece from your pack sells for gold alone.',
   'stores-gold': 'What you bought with gold is not used there. Withdraw it to your pack, or sell it again for gold.',
   // PROF5b: the auctions
   'auction-not-masterwork': 'Only a Masterwork is sold at auction. List it at a price instead.',
@@ -1061,7 +1067,8 @@ export function accountMarket({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) 
     order: (req) => post('/v1/market/order', req),
     fill: (req) => post('/v1/market/fill', req),
     unorder: (order, rid) => post('/v1/market/unorder', { order, rid }),
-    collect: (character, delivery, rid) => post('/v1/market/collect', { character, delivery, rid }),
+    // MARKET-ANY: a piece from a pack goes into the record - where it stands (`realm`) with it
+    collect: (character, delivery, rid, realm = null) => post('/v1/market/collect', { character, delivery, rid, ...(realm ? { realm } : {}) }),
     report: (listing) => post('/v1/market/report', { listing }),
     remove: (listing) => post('/v1/market/remove', { listing }),
     // PROF5b: an auction posted (a Masterwork at its opening bid), and a bid on one

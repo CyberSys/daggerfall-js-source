@@ -3,9 +3,9 @@
 // torch works) and have a sort of rarity glow attached to it"): THE SPOILS ON THE COURT'S FLOOR - one player's share of a
 // fallen boss (systems/gateSpoils.js rollSpoils, off the relay's receipt), spewed out of his chest piece by piece
 // (world/gateSpew.js - the thrown torch's own flight), each landing with the torch's own clatter, and at rest standing
-// in its tier's beam (render/spoilsGlow.js) with a Rare-or-better's light and chime. Walked over, a piece goes into the
-// pack; leaving the court gathers whatever is still on the floor. Design: bible/11-Multiplayer/World-Bosses.md
-// section 7.
+// in its tier's beam (render/spoilsGlow.js) with a Rare-or-better's light and chime. Pressed, a piece goes into the
+// pack (GATE-UX: no longer walked over - below); leaving the court gathers whatever is still on the floor. Design:
+// bible/11-Multiplayer/World-Bosses.md section 7.
 //
 // SEEN BY THIS PLAYER ALONE, and never sent: every other player's spoils are their own seed's, on their own screen.
 //
@@ -65,6 +65,11 @@
 // (`contentsOf`). Walking over a piece still takes it. Each piece's rest is told to the court (`frame(onRest)`), which
 // throws its tier's sparks where it lands.
 //
+// GATE-UX (2026-10-01, Mac: "Loot at the end can still be walked over and picked up"): THE PRESS IS THE ONLY HAND. A
+// piece on the floor is taken when it is pressed (`pick`) and no other way - a fighter crossing the court to the one
+// they wanted swept up every piece in their path, unlooked at. WBX3's wait after a piece came to rest (SPOILS_TAKE_AFTER_MS)
+// and the walk-over's reach (SPOILS_TAKE_M) went with it; leaving the court still gathers what is left (`gather`).
+//
 // Not a DFU member. Ledger A (WB).
 import { rollSpoils } from '../systems/gateSpoils.js';
 import { seededRng } from '../systems/wind.js';
@@ -77,11 +82,6 @@ import { SOUND } from '../systems/soundClips.js';
 import { CLIPS } from '../systems/handheldTorches.js';
 import { RAY_DISTANCE, TREASURE_ACTIVATION_DISTANCE } from '../player/activate.js';   // WB9f: a piece is pressed as a loot pile is
 
-/** A resting piece is taken when the player's feet come within this of it (metres, across the floor). */
-export const SPOILS_TAKE_M = 1.3;
-/** WBX3: ...and no sooner than this after it came to rest - a piece landing under a fighter's feet is seen before it is
- *  taken. */
-export const SPOILS_TAKE_AFTER_MS = 1500;
 /** WBX3: an item's picture stands this many metres a texel tall on the floor, and never taller than the most. */
 export const SPOILS_ICON_M_PER_PX = 0.022;
 export const SPOILS_ICON_MAX_M = 1.1;
@@ -228,7 +228,7 @@ export function recoverSpoils(store, take, { who = null, saves = [], onHanded = 
  *   renderer?: any, gl?: any, getTexture?: ((archive: number) => Promise<any>)|null,
  *   uploadRecordFrame?: ((archive: number, record: number, frame: number) => void)|null, audio?: any,
  *   ray: (from: number[], dir: number[], len: number) => ({dist: number, normal?: number[]}|null),
- *   feet?: () => number[]|null, now: () => number,
+ *   now: () => number,
  *   take: (piece: any) => void, say?: (text: string) => void,
  *   store?: { get: (k: string) => any, set: (k: string, v: any) => void, remove: (k: string) => void, hold?: (k: string, v: any) => void, persisted?: (k: string) => boolean }|null,
  *   who?: () => string|null, wall?: () => number,
@@ -247,7 +247,7 @@ export function recoverSpoils(store, take, { who = null, saves = [], onHanded = 
  */
 export function createSpoilsPool({
   renderer = null, gl = null, getTexture = null, uploadRecordFrame = null, audio = null,
-  ray, feet = () => null, now, take, say = () => {}, store = null, who = () => null, wall = () => Date.now(), iconOf = null,
+  ray, now, take, say = () => {}, store = null, who = () => null, wall = () => Date.now(), iconOf = null,
   onSpent = () => {}, keys = SPOILS_KEYS, recordsMax = SPOILS_RECORDS_MAX, itemName = (item) => item?.name ?? 'Something',
 }) {
   const STORE_KEY = keys.store, DAY_KEY = keys.day;   // RAID4b: a town's thanks keep their own
@@ -447,14 +447,14 @@ export function createSpoilsPool({
       }
       return all.length - left.length;
     },
-    /** One frame: the pieces leave on their schedule, fly, clatter and rest; a resting piece under the player's feet is
-     *  taken. WB9f: `onRest(pos, tier, kind)` is told of each piece the frame it comes to rest (the court's sparks). */
+    /** One frame: the pieces leave on their schedule, fly, clatter and rest - and stay where they rest until pressed
+     *  (GATE-UX: never taken underfoot). WB9f: `onRest(pos, tier, kind)` is told of each piece the frame it comes to
+     *  rest (the court's sparks). */
     frame(onRest = null) {
       if (!rec) return;
       const t = now(), dt = Math.max(0, Math.min(0.1, (t - lastT) / 1000));
       lastT = t;
       loadTex();
-      const f0 = feet();
       floor.forEach((f, i) => {
         if (f.taken) return;
         if (!f.left) { if (t - t0 < launches[i].at) return; f.left = true; }
@@ -469,8 +469,6 @@ export function createSpoilsPool({
         }
         const b = batchOf(f);
         if (b) { b.origin[0] = f.fly.pos[0]; b.origin[1] = f.fly.pos[1]; b.origin[2] = f.fly.pos[2]; }
-        // WBX3: seen before it is taken - a piece may be walked over only SPOILS_TAKE_AFTER_MS after it came to rest
-        if (f.fly.rest && t - f.restAt >= SPOILS_TAKE_AFTER_MS && f0 && Math.hypot(f.fly.pos[0] - f0[0], f.fly.pos[2] - f0[2]) <= SPOILS_TAKE_M && Math.abs(f.fly.pos[1] - f0[1]) < 2) takeOne(f);
       });
     },
     /**
@@ -503,7 +501,8 @@ export function createSpoilsPool({
     },
     /** WB9f: what an item's key holds, for the plaque's list - the one item - or null. */
     contentsOf(key) { const f = pieceAt(key); return f && f.piece.kind === 'item' ? [f.piece.item] : null; },
-    /** WB9f: THE PRESS - the piece a key names into the pack, said as a walk-over says it; false when it is not there. */
+    /** WB9f: THE PRESS - the piece a key names into the pack, and said; false when it is not there. GATE-UX: the only
+     *  way a piece leaves the floor short of leaving the court. */
     pick(key) { const f = pieceAt(key); if (!f) return false; takeOne(f); return true; },
     /** The pieces, for the host's billboard pass (AUDIT WB D10: an empty floor - the court's every frame but a kill's -
      *  makes nothing). */

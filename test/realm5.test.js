@@ -130,7 +130,7 @@ test('REALM P2.2 law: the record pays exactly as the client\'s wallet pays - ded
   const poor = { goldPieces: 10, items: [letter(20)], bankAccounts: [{ accountGold: 5 }] };
   const before = JSON.stringify(poor);
   assert.equal(payFromSave(poor, 36, 0), false);
-  assert.equal(payFromSave(poor, 31, 1), false, 'another region\'s account is not this wallet\'s');
+  assert.equal(payFromSave(poor, 31, 1), false, 'a region with no account of its own and no Empire account pays from the purse alone');
   assert.equal(JSON.stringify(poor), before, 'nothing changed');
   assert.equal(payFromSave(poor, 35, 0), true);
   const c = { goldPieces: 5, bankAccounts: [{ accountGold: 7 }] };

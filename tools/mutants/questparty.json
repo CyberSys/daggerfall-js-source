@@ -135,7 +135,7 @@
   {
     "name": "QP-no-kill-credit",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "    if (f._pupQuest) _questShare?.onPuppetDied?.(f._pupQuest);",
+    "old": "    if (f._pupQuest) _questShare?.onPuppetDied?.(f._pupQuest, f.puppet, f.seq);",
     "new": "",
     "tests": ["test/questparty.test.js"]
   },

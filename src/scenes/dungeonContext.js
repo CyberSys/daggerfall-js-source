@@ -276,7 +276,7 @@ const q3 = (v) => Math.round(v * 1000) / 1000; const GENDER_BIT = ['male', 'fema
 const HIT_POS_MAX = 1e6;
 // AUDIT FOES FOE5: the most damage one peer's blow may claim. The host TRUSTS the number (it never recomputes - the
 // striker's own calc is the game's), so without a bound any joiner could one-shot every foe in the room and empty it
-// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2367); the dungeon
+// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2379); the dungeon
 // had none. Past anything a legal swing, shaft or blast can roll.
 const HIT_DMG_MAX = 10000;
 /** REST-SYNC: a joiner's ask is answered - or given up on - inside this long: its rest breaks once, at the next hour. */
@@ -1909,7 +1909,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:14541 / exterior.js:3757), set
+  // host's own townTalk sink (world.js:14545 / exterior.js:3757), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -2496,7 +2496,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // copied mount would have diverged the first time an arm grew.
   /** DR1: THE TWO SPELL WINDOWS THIS HOST MOUNTS NOW, and the one door
    *  they go through. `mountSpellWindow` is worldModes'
-   *  mountSpellWindow DUNGEON ARM (worldModes.js:1379,
+   *  mountSpellWindow DUNGEON ARM (worldModes.js:1381,
    *  `dungeonCtx?.showOverlay(win)`) resolved to what it actually
    *  calls here - this file's own pushDungeonWindow, which IS
    *  UserInterfaceManager.PushWindow. So a spell window raised over an
@@ -2528,7 +2528,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
    *    isBeingRepaired - Buy and Repair only (remoteList :256-259,
    *      _takeItemFromRepair :388, _clear :430)
    *    accepts/enchanted - localListAccepts' Sell and SellMagic arms
-   *      (tradeModes.js:390-392); Identify returns true unfiltered
+   *      (tradeModes.js:397-399); Identify returns true unfiltered
    *    weight - sellProceeds, on the Sell confirm alone (:490)
    *    priceCtx - read by tradeCost's PAID Identify arm (:263-265) and
    *      by _modeAction's ShowTradePopup ELSE (:456-466). Neither can
@@ -3034,7 +3034,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1112 against :1142; worldModes.js:7788 against :7815).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1112 against :1142; worldModes.js:7801 against :7828).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -3787,8 +3787,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:24194,
-              // exterior.js:5372 and worldModes.js:8495 already ran;
+              // playerArrowHitFoe is the one copy world.js:24219,
+              // exterior.js:5372 and worldModes.js:8508 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -4401,7 +4401,18 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     applyFoeRecord(f, r);
     if (Number.isFinite(r.h)) f._pupH = r.h;
     if (f._pupQuest && !f._qHurt && Number.isFinite(h0) && Number.isFinite(r.h) && r.h < h0) { f._qHurt = true; share?.onPuppetHurt?.(f._pupQuest); }
-    if (f._pupQuest && !wasDead && f.dead) share?.onPuppetDied?.(f._pupQuest);
+    if (f._pupQuest && !wasDead && f.dead) share?.onPuppetDied?.(f._pupQuest, f._ownFrom, f._ownI);   // KEPT-KILL: whose foe, by its number - the kill the owner's pose may say too counts once
+  }
+  /** KEPT-KILL (2026-10-01): a foe I keep on a partner's word (AUDIT DISC28 QS-J's `_keptTag` - my copy holds no such
+   *  quest, so nothing here counts it) says its fall once, by the quest behaviour's own test (health at zero,
+   *  QuestResourceBehaviour.update), with its number on my lane - my party pose carries it (`qk`) and every copy that
+   *  holds the quest counts it, wherever its member stands. A foe let go (its owner's again, a room change) fell to
+   *  nobody. */
+  function keptKillTick(f) {
+    if (!f._keptTag || f._keptSaid || f._ownFrom != null || !(f.entity?.health <= 0)) return false;
+    f._keptSaid = true;
+    ownShare()?.onKeptDied?.(f._keptTag, f._ownSeq);
+    return true;
   }
   /** QUEST-PARTY phase 3c: a party member's quest foe goes - its batch, its body, its place in the pool, the target
    *  machine's memory of it (the shared encounter's teardown). */
@@ -4622,7 +4633,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const i = data.i | 0, dmg = Number(data.dmg);
     const xs = data.xs === 1;   // REST-SYNC: a shared encounter, by the room's number - not a layout index
     const f = xs ? (_sharedById.get(i) ?? null) : foes[i];
-    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2367). The number is a peer's
+    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2379). The number is a peer's
     // word and the host trusts it without recomputing, so an unbounded one let any joiner one-shot every foe in the
     // room - and, through the kill door, empty it. 10000 is past anything a legal swing, shaft or blast can roll.
     if (!f || (!xs && i >= _layoutFoes) || f.dead || !Number.isFinite(dmg) || dmg < 0 || dmg > HIT_DMG_MAX) return false;
@@ -5188,7 +5199,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // InstantiatePrefab's a fresh GameObject per saved record, so
     // EnemyEntity's `PickpocketByPlayerAttempted` default is the loaded
     // truth for every enemy. The re-minting pools match that by
-    // construction (exteriorFoes.js:1778's restoreWorld goes through
+    // construction (exteriorFoes.js:1790's restoreWorld goes through
     // spawnFoe), but this host patches the LIVE foes in place, so a
     // same-dungeon reload kept a raised latch and a failed pickpocket
     // could never be retried - falsifying the law
@@ -6032,7 +6043,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // B1: QuestResourceBehaviour.Update every frame the object lives
     // (dead included - a corpse's component still runs in DFU, and the
     // kill credit lands the update AFTER health hit zero).
-    for (const f of foes) f.questBehaviour?.update();
+    for (const f of foes) { f.questBehaviour?.update(); if (f._keptTag) keptKillTick(f); }   // KEPT-KILL: and a foe kept on a partner's word says its fall
     // AUDIT 18 F5: the rest clock USED to tick here, which made it
     // unreachable - drawFoes only runs when NO overlay is up, and the
     // rest window IS an overlay. It ticks from tickOverlay now, called

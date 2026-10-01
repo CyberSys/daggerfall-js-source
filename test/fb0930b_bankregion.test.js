@@ -63,14 +63,18 @@ test('BANK-REGION the report: a teller in Wayrest names Wayrest\'s account and l
     lane(online, () => {
       const away = teller(p, WAYREST, 'Wayrest');
       assert.equal(away.title, online ? 'Bank of the Empire' : 'Bank of Wayrest', 'EMPIRE-BANK\'s name stands');
-      assert.deepEqual(rows(away), [['Account in Wayrest', '0'], ['Banked in Daggerfall Bluffs', '777'], ['Banked in Daggerfall', '12345'], ['Gold carried', '300']],
-        `${online ? 'online' : 'offline'}: the 0 is Wayrest's, and the gold is still in the bank, where it was banked`);
-      assert.deepEqual(rows(teller(p, DAGGERFALL, 'Daggerfall')), [['Account in Daggerfall', '12345'], ['Banked in Daggerfall Bluffs', '777'], ['Gold carried', '300']],
+      // EMPIRE-ACCOUNT (2026-10-01): online every branch keeps the Empire's one account (Daggerfall's index), and only a
+      // branch not yet folded into it stands beneath; offline each region's own, as BANK-REGION shipped it
+      assert.deepEqual(rows(away), online
+        ? [['Empire account', '12345'], ['Banked in Daggerfall Bluffs', '777'], ['Gold carried', '300']]
+        : [['Account in Wayrest', '0'], ['Banked in Daggerfall Bluffs', '777'], ['Banked in Daggerfall', '12345'], ['Gold carried', '300']],
+        `${online ? 'online: the Empire\'s account at Wayrest' : 'offline: the 0 is Wayrest\'s'}, and the gold is still in the bank, where it was banked`);
+      assert.deepEqual(rows(teller(p, DAGGERFALL, 'Daggerfall')), [[online ? 'Empire account' : 'Account in Daggerfall', '12345'], ['Banked in Daggerfall Bluffs', '777'], ['Gold carried', '300']],
         'at home: its own account once, the other region beneath');
     });
   }
   delete p.bankAccounts[BLUFFS].accountGold;   // a malformed account lists nothing and throws nothing
-  assert.deepEqual(lane(true, () => rows(teller(p, DAGGERFALL, 'Daggerfall'))), [['Account in Daggerfall', '12345'], ['Gold carried', '300']]);
+  assert.deepEqual(lane(true, () => rows(teller(p, DAGGERFALL, 'Daggerfall'))), [['Empire account', '12345'], ['Gold carried', '300']]);
 });
 
 test('BANK-REGION the curse takes nothing: the werewolf turn walked on the real tick (bite, dream, turn, the beast and back, a save and a load) keeps every account, the loan and the Fighters Guild rank, and the hall shows no Join; a vampire reads DFU\'s empty book and its cure gives the rank back (mutants: a werewolf reads the vampire book)', () => {

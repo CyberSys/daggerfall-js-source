@@ -58,6 +58,7 @@ import { GOLD_PIECE_WEIGHT_KG, isEnchanted } from './inventory.js';
 import { calculateItemRepairCost, repairRefusal } from './repairService.js';
 import { itemValueOf, conditionPercentage } from './itemTemplates.js';
 import { isPotion } from './useItem.js';   // ESSENTIALS-HALF: the potion, by DFU's own IsPotion   // JAN1: the one value read; RRI2: ConditionPercentage, the Sell arm's third argument
+import { restorePowerCost } from './restorePower.js';   // MANA-SHOP: online, Restore Power at a gold a point of what it restores
 import { HOLIDAYS } from './holidays.js';
 import { GUILDS } from './guilds.js';
 import {
@@ -128,7 +129,7 @@ export const IDENTIFY_COST_MULTIPLIER = 25;
  *  no magic in it at all. It was never seen because the Identify
  *  destination was a null and the mode could not be opened; X7 opened
  *  it, so the derivation had to be right first. Both paths run at
- *  worldModes.js:2562 now (commitTrade) - the paid service and the spell. */
+ *  worldModes.js:2565 now (commitTrade) - the paid service and the spell. */
 export const itemIsIdentified = (item) => !isEnchanted(item) || item?.isIdentified === true;
 
 /** FormulaHelper.CalculateItemIdentifyCost (:1935-1955). FREE on the
@@ -206,10 +207,14 @@ export function buyHolidayHalvesPrice(item, { holidayId = HOLIDAYS.None, guildFa
 /** One basket item's Buy price (:443-450). The halving is C# integer
  *  division on an int, so it TRUNCATES, and it lands AFTER the stack
  *  multiply rather than per unit. */
-export function buyItemPrice(item, { quality = 0, priceAdjustment = 1000, holidayId = HOLIDAYS.None, guildFactionId = null, online = undefined } = {}) {
-  const price = calculateCost(itemValueOf(item), quality, priceAdjustment) * (item.stackCount ?? 1);   // JAN1: the one value read
+export function buyItemPrice(item, { quality = 0, priceAdjustment = 1000, holidayId = HOLIDAYS.None, guildFactionId = null, online = undefined, buyerLevel = null } = {}) {
+  // MANA-SHOP (systems/restorePower.js): online a bottle of Restore Power costs what it restores at the buyer's level, a
+  // gold a point - in place of the counter's cost and ESSENTIALS-HALF; a holiday's half still lands
+  const mana = restorePowerCost(item, buyerLevel, online === undefined ? undefined : { online });
+  const price = (mana ?? calculateCost(itemValueOf(item), quality, priceAdjustment)) * (item.stackCount ?? 1);   // JAN1: the one value read
   const holiday = buyHolidayHalvesPrice(item, { holidayId, guildFactionId });
   const held = holiday ? Math.trunc(price / 2) : price;
+  if (mana != null) return held;
   // ESSENTIALS-HALF (2026-09-30, Discord: "cut the cost of most essential items by half"): online a POTION costs half
   // (shopStock.js essentialPrice, rounded up - its law against buying to sell back), at every counter's Buy. AUDIT
   // ESSENTIALS F1: never on top of a holiday's own half - the sale cap reads the full price, so a quarter bought on
@@ -236,7 +241,7 @@ export function buyItemPrice(item, { quality = 0, priceAdjustment = 1000, holida
 export function tradeCost(mode, staged = [], {
   quality = 0, priceAdjustment = 1000, holidayId = HOLIDAYS.None,
   guildFactionId = null, reducedRepairCost = null, reducedIdentifyCost = null,
-  usingIdentifySpell = false, isBeingRepaired = () => false,
+  usingIdentifySpell = false, isBeingRepaired = () => false, buyerLevel = null,
 } = {}) {
   let cost = 0;
   let modeActionEnabled = false;
@@ -246,7 +251,7 @@ export function tradeCost(mode, staged = [], {
     switch (mode) {
       case 'Buy':
         modeActionEnabled = true;
-        cost += buyItemPrice(item, { quality, priceAdjustment, holidayId, guildFactionId });
+        cost += buyItemPrice(item, { quality, priceAdjustment, holidayId, guildFactionId, buyerLevel });
         pieces += stack;
         break;
       case 'Sell':
@@ -254,7 +259,9 @@ export function tradeCost(mode, staged = [], {
         // DFU passes ConditionPercentage (:462) into a slot its own
         // CalculateCost never reads - see the header; RRI2: Roleplay &
         // Realism: Items' override reads it, so the slot is passed.
-        cost += calculateCost(itemValueOf(item), quality, priceAdjustment, conditionPercentage(item)) * stack;   // JAN1: an item with no finite value is priced at its base, never NaN
+        // MANA-SHOP: online a bottle of Restore Power is costed as the counter sells it, so REALM P0.4's half of the least
+        // it asks keeps buying it to sell back from paying
+        cost += (restorePowerCost(item, buyerLevel) ?? calculateCost(itemValueOf(item), quality, priceAdjustment, conditionPercentage(item))) * stack;   // JAN1: an item with no finite value is priced at its base, never NaN
         break;
       case 'SellMagic':
         // DFU's own TODO sits on this line: "Fencing base price higher
@@ -445,14 +452,14 @@ export const DOESNT_NEED_IDENTIFY = 'This does not need to be identified.';
 
 // The three clauses that stood here are all closed:
 //  - the IDENTIFY SPELL arm (:956-996) is live. identifySpellPass
-//    (:161) feeds worldModes.js:2332-2352, which spends the magicka
+//    (:161) feeds worldModes.js:2334-2354, which spends the magicka
 //    ONCE for the whole list whatever the outcome and tells the player
 //    "N of M identified"; the window opens from openIdentifyWindow
-//    (worldModes.js:9575), the entry point the magic arc owed.
+//    (worldModes.js:9588), the entry point the magic arc owed.
 //  - the LETTER OF CREDIT is tender and bankable: minted at systems/
 //    inventory.js:69, summed by creditAmount at systems/court.js:244,
 //    spent letters-before-coins by deductGold at court.js:286, and
-//    moved at systems/banking.js:675 depositAllLetters / :666
+//    moved at systems/banking.js:732 depositAllLetters / :750
 //    withdrawLetter.
 //  - SellMagic's "fencing base price" TODO is DFU's own
 //    (DaggerfallTradeWindow.cs:464 carries it verbatim), so it is

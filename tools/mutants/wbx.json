@@ -38,11 +38,12 @@
   {
     "name": "WBX3-the-take-at-once",
     "file": "src/scenes/spoilsPool.js",
-    "old": "        if (f.fly.rest && t - f.restAt >= SPOILS_TAKE_AFTER_MS && f0 && Math.hypot(",
-    "new": "        if (f.fly.rest && f0 && Math.hypot(",
+    "old": "        if (f.taken || !f.left || !f.fly.rest) return;",
+    "new": "        if (f.taken || !f.left) return;",
     "tests": [
-      "test/wbx_gate_fixes.test.js"
-    ]
+      "test/wb9f_gate_spoils.test.js"
+    ],
+    "why": "GATE-UX: the walk-over's wait is gone - a piece is no target until it rests"
   },
   {
     "name": "WBX3-the-line-from-the-floor",
