@@ -281,7 +281,7 @@
   {
     "name": "RIDE-fixed-name-height",
     "file": "src/net/peerRiders.js",
-    "old": "    heightOf: (id) => { const r = figs.get(id); return r?.batch && r.size && r.xml ? r.size.h + r.xml.y / r.xml.scale : 0; },",
+    "old": "    heightOf: (id) => { const r = figs.get(id); return r?.batch && r.size && r.xml ? r.size.h + (r.xml.y / r.xml.scale) * (r.g ?? 1) : 0; },",
     "new": "    heightOf: (id) => (figs.has(id) ? 2.6 : 0),",
     "tests": [
       "test/hcc_park.test.js"

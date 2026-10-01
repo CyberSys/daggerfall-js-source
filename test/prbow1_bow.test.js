@@ -396,5 +396,5 @@ test('PR-BOW1: the wiring, by source - the upload folds the per-range boxes, dra
   assert.match(draw, /visibleRangeBounds\(thirdMesh\.ranges, thirdBodyBox, CARRIED_SLOTS\)/, 'the anchor height is the body\'s');
   assert.match(draw, /drawRigSpriteBox\(renderer, canvas, thirdMesh, model, \{ center, halfW, halfH, anchor, hitFlash, conceal, up \}/, 'and the quad is anchored (AUDIT OW4 J6: and leaned by the view\'s up)');
   assert.match(rd('src/player/mwView.js'), /fpArm\.drawThird\(canvas, \{ proj, view, eye, feet, yaw, grow: face\?\.grow > 1 \? face\.grow : 1, up: face\?\.up \?\? null \}\)/, 'the local body, every host (AUDIT OW3 J6: grown under the travel view; AUDIT OW4 J6: leaned)');
-  assert.match(rd('src/net/peerBodies.js'), /b\.rig\.drawThird\(canvas, \{ proj, view, eye, feet: b\.feet, yaw: b\.yaw, hitFlash: flashOf \? flashOf\(b\.id\) : 0, conceal: b\.veil \?\? null \}\)/, 'every peer\'s body');
+  assert.match(rd('src/net/peerBodies.js'), /b\.rig\.drawThird\(canvas, \{ proj, view, eye, feet: b\.feet, yaw: b\.yaw, hitFlash: flashOf \? flashOf\(b\.id\) : 0, conceal: b\.veil \?\? null(?:, grow: g, up: this\._cam\?\.up \?\? null)? \}\)/, 'every peer\'s body');   // PIN MOVED (OW-PEERS, FIELD BUGS 2026-10-01 #11): grown and leaned under the Overworld
 });

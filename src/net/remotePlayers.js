@@ -38,6 +38,7 @@ import { MobileUnit } from '../characters/mobileUnit.js';
 import { ENEMY_BASICS, ENEMY_NAMES } from '../characters/enemyBasics.js';
 import { MOBILE_TYPES } from '../characters/mobileTypes.js';   // DISC12: the beast a peer in beast form stands as
 import { mobileBillboardSize } from '../world/rmbFlats.js';
+import { quadHalfDiagonal } from '../render/bounds.js';   // OW-PEERS: a grown sprite's reach, as the batch is made with
 import { modSetting, storedModSetting } from '../systems/modSettings.js';   // DISC23-B: the Eye Of The Beholder set the look carries
 import { getPref } from '../systems/uiPrefs.js';   // 2026-09-17: the 'peerClassSprites' on/off, read once a sync (Other players, enhancedMenu.js peerSpritesCard)
 import { CLASS_CAREERS } from '../systems/chargen.js';   // 2026-09-17 (bugfix): a stock class's CFG-loaded career carries no `.name` of its own - chargenSession.js's own class list already falls back to this array by careerIndex (`cf.career.name || CLASS_CAREERS[i]`), and composeLook needs the same fallback or every stock-class peer sends class:null
@@ -770,10 +771,11 @@ export class RemotePlayers {
    * answers 0 for every peer.
    * @param {Iterable<any>} peers
    * @param {(p: any) => number[]} [toScene]
-   * @param {{bodyHeight?: (id: any) => number, dt?: number, eye?: number[]|null, poseAgeMs?: ((peer: any) => number)|null, conceal?: (id: any) => object|null, hidden?: (id: any) => boolean}} [opts]  PEER-FS1: `eye` is the listener, for the falloff; INVIS-LOOK: `conceal` a concealed peer's draw (ECV1's visual) or null
+   * @param {{bodyHeight?: (id: any) => number, dt?: number, eye?: number[]|null, poseAgeMs?: ((peer: any) => number)|null, conceal?: (id: any) => object|null, hidden?: (id: any) => boolean, grow?: ((feet: number[]) => number)|null}} [opts]  PEER-FS1: `eye` is the listener, for the falloff; INVIS-LOOK: `conceal` a concealed peer's draw (ECV1's visual) or null
    */
-  sync(peers, toScene = (p) => [p.x, p.y, p.z], { bodyHeight = () => 0, dt = 0, eye = null, poseAgeMs = null, conceal = () => null, hidden = () => false } = {}) {
+  sync(peers, toScene = (p) => [p.x, p.y, p.z], { bodyHeight = () => 0, dt = 0, eye = null, poseAgeMs = null, conceal = () => null, hidden = () => false, grow = null } = {}) {
     const live = new Set();
+    this._grow = grow;   // OW-PEERS (FIELD BUGS 2026-10-01 #11): under the Overworld, feet -> how many times its size a sprite is drawn
     // PCORPSE1: the fallen lie on whatever the living do - placed, aged out, drawn
     if (eye && eye.length === 3) this._lastEye = [eye[0], eye[1], eye[2]];
     this._lastToScene = toScene;
@@ -1007,7 +1009,9 @@ export class RemotePlayers {
     entry.batch.origin[0] = f[0]; entry.batch.origin[1] = f[1]; entry.batch.origin[2] = f[2];
     entry.batch.conceal = veil;   // INVIS-LOOK: the renderer's blended phase, or plain
     entry.peer = peer;
-    if (!veil) this._shown.push({ peer, height: entry.doll.h });
+    const g = this._growAt(f);
+    if (entry.g !== g) { entry.g = g; this._sizeBatch(entry.batch, { w: entry.doll.w * g, h: entry.doll.h * g }, g); }   // OW-PEERS
+    if (!veil) this._shown.push({ peer, height: entry.doll.h * g });
   }
 
   /** The class-enemy billboard path: `bundle.mobileUnit.update` is fed simple flags off the peer's OWN synced pose
@@ -1042,22 +1046,35 @@ export class RemotePlayers {
     const rkey = `${out.record}#${out.frame}`;
     if (!this.renderer.textures?.has?.(`${bundle.archive}_${rkey}`)) this.deps.uploadRecordFrame(bundle.archive, out.record, out.frame);
     const sz = mobileBillboardSize(bundle.tex, out.record);
-    const size = { w: out.flip ? -sz.w : sz.w, h: sz.h };
+    const g = this._growAt(f);   // OW-PEERS: grown under the Overworld, as the traveller is
+    const size = { w: (out.flip ? -sz.w : sz.w) * g, h: sz.h * g };
     if (!entry) {
       const batch = this.renderer.createBillboardBatch(bundle.archive, rkey, size, [[0, 0, 0]]);
       batch.origin = [0, 0, 0];
-      entry = { kind: 'mobile', batch, mobileUnit: bundle.mobileUnit, archive: bundle.archive, tex: bundle.tex, height: sz.h, lastAn: an, peer };
+      entry = { kind: 'mobile', batch, mobileUnit: bundle.mobileUnit, archive: bundle.archive, tex: bundle.tex, height: sz.h * g, lastAn: an, peer, g: 1 };
       this._batches.set(peer.id, entry);
     } else {
       entry.batch.record = rkey;
       entry.batch.size = size;
-      entry.height = sz.h;
+      entry.height = sz.h * g;
       entry.lastAn = an;
       entry.peer = peer;
     }
+    if (entry.g !== g) { entry.g = g; this._sizeBatch(entry.batch, size, g); }
     entry.batch.origin[0] = f[0]; entry.batch.origin[1] = f[1]; entry.batch.origin[2] = f[2];
     entry.batch.conceal = veil;   // INVIS-LOOK
     if (!veil) this._shown.push({ peer, height: entry.height });
+  }
+
+  /** OW-PEERS: the Overworld's grow at a peer's feet (1 off the view). */
+  _growAt(f) { const g = this._grow ? this._grow(f) : 1; return g > 1 ? g : 1; }
+
+  /** OW-PEERS: a sprite's new size through the batch standing - its reach for the cull with it, and a grown one casts no
+   *  giant's shadow (AUDIT OW5 R2's law for the traveller's own). */
+  _sizeBatch(batch, size, g) {
+    batch.size = size;
+    if (batch.bounds) batch.bounds[3] = quadHalfDiagonal(size);
+    batch.noShadow = g > 1;
   }
 
   /** The batches for the hosts' billboard pass. */

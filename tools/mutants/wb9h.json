@@ -29,7 +29,7 @@
   {
     "name": "WB9h-the-culled-drawn",
     "file": "src/net/peerBodies.js",
-    "old": "      if (this._planesOk) { if (!this._sees(b, 0)) continue; }",
+    "old": "      if (this._planesOk) { if (!this._sees(b, 0, g)) continue; }",
     "new": "      if (this._planesOk) { /* drawn */ }",
     "tests": [
       "test/wb9h_crowd_bodies.test.js"
@@ -47,7 +47,7 @@
   {
     "name": "WB9h-the-skin-margin-dropped",
     "file": "src/net/peerBodies.js",
-    "old": "    b.inView = !this._planesOk || this._sees(b, CULL_MARGIN_M);",
+    "old": "    b.inView = !this._planesOk || this._sees(b, turnLeadMargin(Math.sqrt(b.d2), this._turn));",
     "new": "    b.inView = !this._planesOk || this._sees(b, 0);",
     "tests": [
       "test/wb9h_crowd_bodies.test.js"
@@ -178,15 +178,6 @@
     "file": "src/net/peerBodies.js",
     "old": "    b.rig.attach(this.renderer, null);\n",
     "new": "",
-    "tests": [
-      "test/wb9h_crowd_bodies.test.js"
-    ]
-  },
-  {
-    "name": "WB9h-the-linger-spared",
-    "file": "src/net/peerBodies.js",
-    "old": "    this._release(victim.id, victim.goneAt == null, key);",
-    "new": "    this._release(victim.id, true, key);",
     "tests": [
       "test/wb9h_crowd_bodies.test.js"
     ]
