@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { standService, T0 } from './accountDb.mjs';
+import { seatBadgeOf } from '../server-account/src/seatTurning.js';
 import { fakeRoom } from './fakeRoom.mjs';
 import { claimsValid, SEAT_TITLES, seatTitleClaimOk, TITLES, GLYPHS } from '../src/net/identityToken.js';
 import { badged, readBadge } from '../src/net/wire.js';
@@ -102,6 +103,7 @@ test('SEAT1c THE SERVICE\'S MINT AND WARDROBE: a palace seat\'s guildmaster may 
   assert.deepEqual([claims.t, claims.ts], ['warden', [ANTICLERE.key, 0]], 'in the signed claims');
   const m2 = await mint(mem, mem.character);
   assert.deepEqual([m2.title, m2.ts, m2.glyphs.includes('tower')], [null, undefined, true], 'a member: the tower, no title');
+  assert.deepEqual(await seatBadgeOf(svc.env.DB, mem.id, mem.character), { glyphs: ['tower'], title: null, ts: null }, 'a member\'s badge: the glyph, never the title - whatever it wears');
   const m3 = await mint(gm, 'char-gamal-other');
   assert.deepEqual([m3.title, m3.glyphs.includes('tower')], [null, false], 'the guildmaster\'s other character: neither');
   assert.equal((await svc.call('/v1/account/title', { title: 'warden' }, outsider.secret)).status, 403);

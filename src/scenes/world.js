@@ -520,8 +520,8 @@ import { GuildBook } from '../net/guildBook.js';   // GUILD1b: the guild the Gui
 import { sellProceeds } from '../systems/tradeModes.js';   // GUILD-LETTER: a withdrawal weighed as the trade window weighs a sale
 import { realmLetterOfCredit } from '../net/realmGoldLaw.js';   // GUILD-LETTER: the letter the service writes on a realm record, one maker
 import { createSocialPanel, TRY_AGAIN_TEXT, NO_PARTY_TEXT, LETTERS_SIGNED_OUT_TEXT } from '../ui/socialPanel.js';   // SOC3: the friends + party panel the Social button opens; AUDIT SOC B17: and its word for a refused act, so the F-menu's line and the panel's note agree
-import { glyphMarks, setSeatTitlePlaces } from '../ui/playerBadge.js';   // PEER-PLAQUE1: a badge's plain-text marks, for the plaque's title
-import { TITLE_TEXT, AURA_TEXT } from '../ui/playerBadge.js';   // WB9g: the Broker's insignia, named in its rows
+import { glyphMarks } from '../ui/playerBadge.js';   // PEER-PLAQUE1: a badge's plain-text marks, for the plaque's title
+import { TITLE_TEXT, AURA_TEXT, setSeatTitlePlaces } from '../ui/playerBadge.js';   // WB9g: the Broker's insignia, named in its rows; SEAT1c: the seat titles' places
 import { pickPeerInFront, SOCIAL_REACH, peerRayPick, peerIdOfKey, peerRelationText } from '../player/socialPick.js';   // SOC5: which body the ray struck, and how far "on their body" reaches; PEER-PLAQUE1: and the plaque's half of the same pick
 import { allyCastSpell, allyCastable, strangerCastable, allyReachFor, allyCastTargetLine, allyCastPlaqueLine } from '../systems/allyCast.js';
 import { composePartyFx } from '../net/partyBuffs.js';   // PARTY-BUFFS: my effects on the party pose   // ALLY-CAST: a beneficial spell at a party mate; SPELL-GIFT: and the stranger's list
