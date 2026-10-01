@@ -563,8 +563,8 @@
   {
     "name": "PROF5-svc-courier-free",
     "file": "server-account/src/market.js",
-    "old": "      FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3 AND courier > 0`).bind(me, rid, nonce),",
-    "new": "      FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3 AND courier < 0`).bind(me, rid, nonce),",
+    "old": "      FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3 AND courier - ?4 > 0`).bind(me, rid, nonce, courierTithe),",
+    "new": "      FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3 AND courier - ?4 < 0`).bind(me, rid, nonce, courierTithe),",
     "tests": [
       "test/prof5_service.test.js",
       "test/prof5_client.test.js"
@@ -863,8 +863,8 @@
   {
     "name": "PROF5-tab-max-price-only",
     "file": "src/ui/marketTab.js",
-    "old": "listing: row.id, units, max: units * row.price + (courier ?? 0), hubs: m.hubs, ...(gold ? { currency: 'gold' } : {}) }, m.mint),",
-    "new": "listing: row.id, units, max: units * row.price, hubs: m.hubs, ...(gold ? { currency: 'gold' } : {}) }, m.mint),",
+    "old": "listing: row.id, units, max: units * row.price + (courier ?? 0), hubs: m.hubs, ...at(), ...(gold ? { currency: 'gold' } : {}) }, m.mint),",
+    "new": "listing: row.id, units, max: units * row.price, hubs: m.hubs, ...at(), ...(gold ? { currency: 'gold' } : {}) }, m.mint),",
     "tests": [
       "test/prof5_client.test.js"
     ]

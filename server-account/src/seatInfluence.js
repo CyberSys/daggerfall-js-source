@@ -68,7 +68,9 @@ import {
   SEAT_PLEDGES_HOUR, SEAT_WATCH_CLAIM_MAX, WATCH_DAY_CAP, GATE_INFLUENCE, GATE_REGION_AGREE, HOMES_SEAT_MAX, TRIBUTE_MARKS_PER_INFLUENCE,
   SEAT_WEEK_MS, SEAT_RECKONING_MS,
   accountSeatInfluence, guildSeatInfluence, tributeRoom, homeDaysIn, seatDefence, SEAT_CHRONICLE_SHOWN,
+  overreachOf, unrestInfluence,
 } from '../../src/net/townSeatLaw.js';
+import { holdingOf } from './seatHolding.js';   // SEAT1d: the holder's own view of its Charter
 
 const weekAt = (nowS) => seatWeekOf(nowS * 1000);
 /** Whether a member row has stood its 7 days (SEAT0 4.2: "A new member waits"). */
@@ -262,7 +264,7 @@ export async function creditGate({ db, nowS }, player, env, { character, day, re
 
 /** Each gate day's region, where GATE_REGION_AGREE of its claims agree on it - the most agreeing; two regions level at
  *  the top agree on neither. */
-async function agreedGateRegions(db, days) {
+export async function agreedGateRegions(db, days) {
   const out = new Map();
   if (!days.length) return out;
   const { results = [] } = await db.prepare(`SELECT day, region, COUNT(*) AS n FROM gate_kills
@@ -381,7 +383,10 @@ export async function readStandings({ db, nowS }, player, env, { key, character 
   const legacy = new Map(legacyRows.map((l) => [l.guild_id, Number(l.amount)]));
   const holder = (await holdsOf(db)).get(key) ?? null;
   const own = holder ? list.find((s) => s.guild === holder.guild.id) : null;
-  const defence = holder ? seatDefence({ influence: own?.total ?? 0, legacy: legacy.get(holder.guild.id) ?? 0 }, holder.standing) : null;
+  // SEAT1d: the holder's own view - its Standing, Tithe, Edicts and upkeep; its defence at its Overreach
+  const holding = holder ? await holdingOf(db, key, nowS) : null;
+  const { results: tiers = [] } = holder ? await db.prepare('SELECT tier FROM town_seat_holds WHERE guild_id = ?').bind(holder.guild.id).all() : { results: [] };
+  const defence = holder ? seatDefence({ influence: own?.total ?? 0, legacy: legacy.get(holder.guild.id) ?? 0 }, holder.standing, overreachOf(tiers.map((t) => t.tier))) : null;
   const ids = list.map((s) => s.guild);
   const { results: gs = [] } = ids.length
     ? await db.prepare(`SELECT id, name, tag, heraldry FROM guilds WHERE id IN (${ids.map(() => '?').join(', ')})`).bind(...ids).all() : { results: [] };
@@ -405,9 +410,13 @@ export async function readStandings({ db, nowS }, player, env, { key, character 
     standings: list.map((s) => {
       const g = byId.get(s.guild);
       const carried = legacy.get(s.guild) ?? 0;
-      return { guild: { id: s.guild, name: g?.name ?? '', tag: g?.tag ?? '', heraldry: heraldryOfRow(g?.heraldry) }, influence: s.total + carried, legacy: carried, tribute: s.tribute, accounts: s.accounts, holder: s.guild === holder?.guild.id };
+      // SEAT1d: a challenger's influence at a seat in Unrest risen a quarter, as the Turning counts it
+      const own = s.guild === holder?.guild.id;
+      const influence = own || !holder ? s.total : unrestInfluence(s.total, holder.standing);
+      return { guild: { id: s.guild, name: g?.name ?? '', tag: g?.tag ?? '', heraldry: heraldryOfRow(g?.heraldry) }, influence: influence + carried, legacy: carried, tribute: s.tribute, accounts: s.accounts, holder: own };
     }).sort((x, y) => y.influence - x.influence),
-    holder, defence, battle: (await battlesOf(db, week)).get(key) ?? null, chronicle: await chronicleOf(db, key),
+    holder: holder && holding ? { ...holder, edict: holding.edict } : holder, defence, battle: (await battlesOf(db, week)).get(key) ?? null, chronicle: await chronicleOf(db, key),
+    ...(holding && mine?.guild === holder?.guild.id ? { holding } : {}),
     ...(mine ? { mine } : {}),
   };
 }
@@ -415,11 +424,13 @@ export async function readStandings({ db, nowS }, player, env, { key, character 
 // ─── SEAT1c: THE HOLDERS, THE WEEK'S BATTLES, THE CHRONICLE ─────────
 
 const guildView = (id, name, tag, heraldry) => ({ id, name: name ?? '', tag: tag ?? '', heraldry: heraldryOfRow(heraldry) });
-/** EVERY CHARTER HELD, by key: `{ guild: { id, name, tag, heraldry }, since, standing }`. */
+/** EVERY CHARTER HELD, by key: `{ guild: { id, name, tag, heraldry }, since, standing, tithe }` (SEAT1d: its Tithe). */
 export async function holdsOf(db) {
-  const { results = [] } = await db.prepare(`SELECT h.key, h.guild_id, h.since_week, h.standing, g.name, g.tag, g.heraldry FROM town_seat_holds h
+  const { results = [] } = await db.prepare(`SELECT h.key, h.guild_id, h.since_week, h.standing, h.tithe, g.name, g.tag, g.heraldry FROM town_seat_holds h
     JOIN guilds g ON g.id = h.guild_id`).all();
-  return new Map(results.map((h) => [Number(h.key), { guild: guildView(h.guild_id, h.name, h.tag, h.heraldry), since: Number(h.since_week), standing: Number(h.standing) }]));
+  return new Map(results.map((h) => [Number(h.key), {
+    guild: guildView(h.guild_id, h.name, h.tag, h.heraldry), since: Number(h.since_week), standing: Number(h.standing), tithe: Number(h.tithe ?? 0),
+  }]));
 }
 /** THE WEEK'S BATTLES the last Turning named, by key: `{ kind, guild, against }` - a Right of Siege's challenger and
  *  holder, or a Contested seat's two contenders. */

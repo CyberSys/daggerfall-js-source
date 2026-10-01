@@ -152,6 +152,7 @@ import { readGuildBoard, pinGuildNote, takeDownGuildNote } from './guildBoard.js
 import { listSeats, witnessSeat, strikeSeat, seatsOpenFor } from './townSeats.js';   // SEAT1a: the seats' witnessed registry
 import { pledgeSeat, claimWatch, creditGate, creditRenown, readStandings, payTribute } from './seatInfluence.js';   // SEAT1b: influence
 import { settleDue, seatsWithHolders, relinquishSeat, seatBadgeOf, seatTitlesOf } from './seatTurning.js';   // SEAT1c: the Turning, the Charters, their titles and glyphs
+import { setTithe, proclaimEdict, claimBounty } from './seatHolding.js';   // SEAT1d: the holder's levers, a Bounty's camp
 
 /** SEAT1c: the account's row with the Charter titles it may wear laid on it (`seatTitles`, titles.js titlesHeld), while the
  *  seats are open to it - for the wardrobe's read and its write. */
@@ -264,6 +265,8 @@ const SEAT_STATUS = Object.freeze({
   'seat-reckoning': 409, 'seat-pledges-full': 409, 'seat-no-pledge': 409, 'seat-tribute-cap': 409, 'guild-marks-short': 409,
   'no-gate-key': 503,
   'seat-not-held': 409, 'seat-held-here': 409,   // SEAT1c: a Charter not the guild's to give up; a region its Charter pledges
+  // SEAT1d: the Tithe set this week already, an Edict two weeks running, none to take back, the balance's cap 409
+  'tithe-this-week': 409, 'edict-twice': 409, 'seat-no-edict': 409, 'marks-full': 409,
 });
 /** PROF1: each professions refusal's status - not this account's (a guest, the switch, the Marks' switch, the rank) 403,
  *  no such writ 404, a conflict with what stands (the day, the hour, the cap, the Stores, a node or writ taken) 409, the
@@ -701,7 +704,7 @@ const service = {
       if (path.startsWith('/v1/homes/')) {
         if (request.method !== 'POST') return no('method', 405, origin);
         if (path === '/v1/homes/town') {
-          const r = await homesInTown(ctx, who.player, body);
+          const r = await homesInTown(ctx, who.player, body, { seats: seatsOpenFor(who.player, env) });   // SEAT1d: Open Gates
           return 'error' in r ? no(r.error, 400, origin) : json(r, 200, origin);
         }
         if (path === '/v1/homes/mine') return json(await homesOf(ctx, who.player), 200, origin);
@@ -859,6 +862,10 @@ const service = {
           '/v1/seats/standings': () => readStandings(ctx, who.player, env, body),
           '/v1/seats/watch': async () => claimWatch(ctx, who.player, env, body, await gatePublicKey(env, subtle)),
           '/v1/seats/tribute': () => payTribute(ctx, who.player, env, body),
+          // SEAT1d: the holder's levers at its board - the Tithe, the coming week's Edict; a Bounty's camp paid
+          '/v1/seats/tithe': () => setTithe(ctx, who.player, env, body),
+          '/v1/seats/edict': () => proclaimEdict(ctx, who.player, env, body),
+          '/v1/seats/bounty': () => claimBounty(ctx, who.player, env, body),
         }[path];
         if (!act) return no('not-found', 404, origin);
         const r = await act();

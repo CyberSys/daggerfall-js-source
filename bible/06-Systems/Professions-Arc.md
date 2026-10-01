@@ -1024,10 +1024,11 @@ Every PROF slice's record names all four (Home.md, THE FOUR HOSTS RULE, 17e), ea
   commission it posted (its escrow returned or burnt by a line) or names (declined, its pay home - BUILT, PROF6), an
   order's escrow (burnt by a line, as said), and a guild left with no one (never reclaimed for its name while it keeps
   anything - BUILT, AUDIT 31 S7).
-- **The Tithe** (10.4) is nought until SEAT1 sets a holder's rate. **OPEN** (AUDIT 31 L5): a sale, an auction's close,
-  a guild writ's delivery and a commission's fill write no Tithe line - so SEAT1 writes the Tithe's line (to the
-  holder, or burnt) wherever it takes one BEFORE it raises the rate, or the Tithe is taken from a sale and credited to
-  no one (pinned at nought: `test/audit31_law.test.js`).
+- **The Tithe** (10.4) - BUILT (SEAT1d, 2026-10-01; `06-Systems/Online-Arc.md` SEAT1d), closing AUDIT 31 L5's OPEN item:
+  a sale and an auction's close take their seat's holder's rate and write the Tithe's own line (`tithe`, to the
+  holder's treasury, or burnt where the guild is gone or its cap holds), and a courier's share goes the same way; a
+  guild writ's delivery and a commission's fill take none (Seats-Arc 7.2: "a writ has no fee"), and the law's nought
+  (`MARKET_TITHE_PCT`) stays the default where no seat holds the board (`test/audit31_law.test.js`).
 - **A guild disbands** (or its last member leaves): refused while its gold treasury or its guild Stores hold anything
   (GUILD1's rule, grown a clause - BUILT with PROF6, and while one of its writs stands, or a closed one's pay waits for
   the treasury's room - AUDIT 31 A15: section 28), while it holds a Charter and while a Right of Siege or a Tourney is pending (SEAT0
@@ -2542,8 +2543,9 @@ At dusk the hub warns of a Motherlode in the Wrothgarian foothills in ten minute
 
 The numbers above were not guessed. A deterministic model (a seeded Monte Carlo of a week of play, 400 runs a row)
 was run over three player profiles and the whole table, and the table was retuned until it balanced. SEAT1d ships
-the model as a tool reading townSeatLaw.js and professionLaw.js directly (to be written), so every later balance pass
-is re-run, not re-guessed.
+the model as a tool reading townSeatLaw.js and professionLaw.js directly - BUILT (2026-10-01): `node
+tools/seatEconomy.mjs` (`--runs`, `--seed`, `--json`) - so every later balance pass is re-run, not re-guessed. Its
+re-run is below the first table.
 
 **The players** - a guild's members are 35% casual, 45% regular, 20% hardcore:
 
@@ -2575,6 +2577,24 @@ seat that cost nothing. **The retuned table** (writs 3 a day at x1.2, 10-50 unit
 | 20 | 13,687 / 17,513 / 20,774 | 17,416 | 14% | 86% |
 | 30 | 21,834 / 25,987 / 30,201 | 26,464 | 9% | 57% |
 | 50 | 36,270 / 42,151 / 48,517 | 43,738 | 6% | 34% |
+
+**The re-run** (SEAT1d, 2026-10-01: `tools/seatEconomy.mjs`, 400 runs a size, seed 1 - the players above, the law's own
+sources and caps, the Court writ's own units and pay; the crown's upkeep at a hundred accounts):
+
+| Guild size | Influence a week (p10 / p50 / p90) | Writ Marks a week (p50) | Palace upkeep, of that | Crown upkeep, of that |
+|---|---|---|---|---|
+| 5 | 1,942 / 3,580 / 5,255 | 3,900 | 64% | 385% |
+| 8 | 4,130 / 6,036 / 8,111 | 6,570 | 38% | 228% |
+| 12 | 6,268 / 8,858 / 11,484 | 9,660 | 26% | 155% |
+| 20 | 12,001 / 14,834 / 17,724 | 15,930 | 16% | 94% |
+| 30 | 18,481 / 22,415 / 26,244 | 24,210 | 10% | 62% |
+| 50 | 31,834 / 37,180 / 42,357 | 40,320 | 6% | 37% |
+
+The writ income agrees with the first table within a tenth; the influence runs about 15% under it - the first table's
+week was not written down, and the tool's is (the Watch a two minutes in the seat town, gates and Renown and the Siege
+Camp's quarter of the gathering at 60% in the pledged region, each source and the account at its cap). A palace is
+still within an eight-member guild's median; a crown's 30,000 is a forty-member guild's median, beyond a thirty's p90.
+Recorded OPEN for Mac in Seats-Arc Appendix C.
 
 What the table means, and why each number is where it is:
 

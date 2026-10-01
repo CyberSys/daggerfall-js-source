@@ -328,8 +328,8 @@
   {
     "name": "AUDIT-ALL-A6-a-restore-rolls-the-bonus-again",
     "file": "src/scenes/cityGuards.js",
-    "old": "level ?? effectiveLevel(playerEntity), Math.random, { exactLevel: level != null });",
-    "new": "level ?? effectiveLevel(playerEntity));",
+    "old": "level ?? effectiveLevel(playerEntity) + (levelBonus?.() ?? 0), Math.random, { exactLevel: level != null });",
+    "new": "level ?? effectiveLevel(playerEntity) + (levelBonus?.() ?? 0));",
     "tests": [
       "test/watch1.test.js"
     ]

@@ -33,14 +33,48 @@ The first part of guild town control is in. It is open to the developers first, 
 - **Titles and glyphs.** Every member of a guild holding a town's Charter wears a **tower** beside their name; a crown's members wear their kingdom's **crown**. The guildmaster can wear the title **Warden of <Town>** (a crown: **Protector of <Kingdom>**) from their account card.
 - **The Seat tab** now shows the holder, this week's siege or Tourney, what it takes to claim or challenge, and the town's **Chronicle**. The guildmaster can give the Charter up there. A guild holding a Charter can't disband until it does.
 
+## Holding a Charter: upkeep, the Tithe, Standing and Edicts (online)
+- **Upkeep.** Each Sunday's Turning takes a held seat's upkeep from the guild's Drake treasury: **2,500** for a palace, **15,000** for a crown (scaled to how many players played that week, from 0.4x to 1.5x).
+- **Holding more than one seat costs more.** A crown counts as 3 and a palace as 1. Everything past your biggest seat is your **Overreach**: each point adds 25% to every seat's upkeep and takes 5% off every seat's defence. A crown plus a palace is 1 point; two crowns are 3.
+- **Neglect.** If the treasury can't pay, the seat falls into **Neglect**: Standing drops 10 and the week is owed. Next Sunday both weeks are due. Pay them and you're back (Standing -5 for paying late). Miss again and the Charter **lapses**.
+- **The Tithe.** Your guildmaster or an Officer sets it at the town's board, **0-10%** (a crown **0-15%**), once a week. It comes out of the seller's proceeds on every sale at the boards your seat covers: its own town and every town in the region nearer to it than to another seat. It also takes the same cut of courier fees paid there. It goes into your guild's Drake treasury. Sales for gold pay no Tithe.
+- **Members shop cheaper.** Members of the holding guild pay **10% less** at the seat town's shops (**15%** at a crown) for buying and repairs, and **5% more off** while Standing is 80 or higher.
+- **Standing**, the town's favour, now moves each week:
+
+  | Change | Standing |
+  |---|---|
+  | A low Tithe (half the cap or less) | +2 |
+  | A high Tithe (over three quarters of the cap) | -3 |
+  | Held without a challenge | +5 |
+  | Each gate felled in the region | +2 (up to +6) |
+  | Each of your writs filled there | +1 (up to +5) |
+  | No member of yours kept the Watch | -5 |
+  | Neglect | -10 |
+  | Paying late | -5 |
+
+  Below **20** the town is in **Unrest**: challengers earn a quarter more influence there, and visitors are told so when they arrive.
+- **Edicts.** Each week the guildmaster or an Officer proclaims an **Edict** for the next week at the board. It takes effect at the Turning. Only Market Day can be proclaimed two weeks running.
+
+  | Edict | Effect | Cost |
+  |---|---|---|
+  | **Market Day** | A tenth off at the town's shops, for everyone | - |
+  | **Open Gates** | Every home in town is open to all | Standing +3 |
+  | **Curfew** | Guards are much tougher at night, and crimes there cost double reputation | Standing -2 |
+  | **Festival** | Everyone who comes to town gets **+5 to every attribute for a day** | Standing +10; 2,500 Drakes (a crown 10,000) |
+  | **Levy** | A tenth of what's gathered near the town goes to its stockpile | Standing -2 |
+  | **Bounty** | World of Daggerfall camps near the town drop double loot, and the treasury pays **20 Drakes** for each camp you clear, up to 5 a day, from what you set aside | the set-aside |
+
+- **The Seat tab** shows everyone the Tithe and this week's Edict. Members also see next week's Edict, the upkeep due and any debt. The guildmaster and Officers set the Tithe and proclaim Edicts there.
+
 ## Behind the scenes
 - **The registry.** Each client works out the seats from its own game files. When you stand in a seat town, your game reports it to the server once a day. The server trusts a seat once three players whose accounts are at least a week old agree on it exactly.
-- Sieges and Tourneys come in the next updates: until then a Right of Siege is written in the Chronicle and a Contested seat stays unheld. Titles and glyphs for holders, upkeep and Standing's other changes come next. Deliveries to a seat's stockpile come with the Siege Camp.
+- Sieges and Tourneys come in the next updates: until then a Right of Siege is written in the Chronicle and a Contested seat stays unheld. Fortifications, deliveries to a seat's stockpile and the Siege Camp come with them. The Royal Tourney and Conscription come with the crowns' update.
 
 ---
 
 ### For the team
-- Apply migrations **`0046_town_seats.sql`**, **`0047_seat_influence.sql`** and **`0048_seat_turning.sql`** (with 0044 and 0045, after main's 0043) to production D1 and deploy the account service (**`acct44`**).
+- Apply migrations **`0046_town_seats.sql`**, **`0047_seat_influence.sql`**, **`0048_seat_turning.sql`** and **`0049_seat_holding.sql`** (with 0044 and 0045, after main's 0043) to production D1 and deploy the account service (**`acct45`**).
+- **The economy model**: `node tools/seatEconomy.mjs` re-runs the guild-week table from the live law files (`--runs`, `--seed`, `--json`).
 - **Deploy the relay (`world137`).** It sends the Watch's ticks (world136) and carries the seats' titles (world137). Deploy it before the account service: an older relay refuses a token with a seat title in it.
 - Seats are behind **`SEATS_OPEN = "dev"`** in `server-account/wrangler.toml`. Change it to `"on"` to open them to everyone.
 - **SEAT-COUNT**: run `ARENA2_PATH=/path/to/arena2 node tools/seatCount.mjs` to list every seat and the totals.

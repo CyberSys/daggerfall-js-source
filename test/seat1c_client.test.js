@@ -58,8 +58,10 @@ test('SEAT1c THE DEFENCE AND THE RIGHTS: the holder\'s own week x (1 + Standing\
   assert.equal(standingModifier(40), -0.1);
   assert.equal(seatDefence({ influence: 4000, legacy: 300 }, 60), 4500);
   assert.equal(seatDefence(null, 50), 0);
-  const held = (key, holder, guilds, o = {}) => ({ key, tier: 'palace', holder: { guild: holder, standing: 50, truceWeek: null, ...o }, guilds });
-  const p = turningPlan({ week: 9, treasuries: new Map(), seats: [
+  // SEAT1d: each holder at a Tithe that moves Standing neither way, its upkeep paid - so the Turning's +5 stands alone
+  const held = (key, holder, guilds, o = {}) => ({ key, tier: 'palace', holder: { guild: holder, standing: 50, truceWeek: null, tithe: 6, ...o }, guilds });
+  const purses = new Map(['h1', 'h2', 'h3', 'h4'].map((h) => [h, 2500]));
+  const p = turningPlan({ week: 9, treasuries: purses, seats: [
     held(1, 'h1', [g('h1', 4000), g('c', 9000), g('d', 7000)]),
     held(2, 'h2', [g('h2', 4000), g('c', 8000)]),
     held(3, 'h3', [g('h3', 1000), g('e', 9000)], { truceWeek: 9 }),
@@ -67,7 +69,7 @@ test('SEAT1c THE DEFENCE AND THE RIGHTS: the holder\'s own week x (1 + Standing\
   ] });
   assert.deepEqual(p.rights.map((r) => [r.key, r.guild, r.defence]), [[1, 'c', 4000]], 'one a guild: seat 2 has no other challenger; seat 1 to the Circle, not the Host');
   assert.deepEqual(p.held.map((h) => [h.key, h.standing]), [[2, 55], [3, 55], [4, 100]], 'held unchallenged: +5, the truce seat too, capped at 100');
-  const q = turningPlan({ week: 9, treasuries: new Map(), seats: [held(1, 'h1', [g('h1', 4000), g('c', 9000), g('d', 7000)]), held(2, 'h2', [g('h2', 4000), g('c', 9500)])] });
+  const q = turningPlan({ week: 9, treasuries: purses, seats: [held(1, 'h1', [g('h1', 4000), g('c', 9000), g('d', 7000)]), held(2, 'h2', [g('h2', 4000), g('c', 9500)])] });
   assert.deepEqual(q.rights.map((r) => [r.key, r.guild]).sort((a, b) => a[0] - b[0]), [[1, 'd'], [2, 'c']], 'the Circle\'s strongest is seat 2; seat 1 falls to the Host, next in line');
   assert.equal(STANDING_UNCHALLENGED, 5);
 });

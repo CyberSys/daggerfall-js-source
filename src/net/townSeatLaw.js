@@ -377,25 +377,35 @@ export const claimTotal = (g) => Math.max(0, g.influence) + Math.max(0, g.legacy
  *  guild id. */
 export const bySeatStanding = (a, b) => claimTotal(b) - claimTotal(a) || (b.legacy ?? 0) - (a.legacy ?? 0)
   || (a.pledgedAt ?? Infinity) - (b.pledgedAt ?? Infinity) || (a.guild < b.guild ? -1 : a.guild > b.guild ? 1 : 0);
-/** THE HOLDER'S DEFENCE (SEAT0 5.2 step 3): its own influence at the seat x (1 + Standing's modifier), and its Legacy.
- *  Overreach's cut, a held siege's x1.2 and a liege's reach come with their slices (SEAT1d, SEAT2a, CROWN2). */
-export const seatDefence = (own, standing) => Math.floor(Math.max(0, own?.influence ?? 0) * (1 + standingModifier(standing)) + 1e-9) + Math.max(0, own?.legacy ?? 0);
+/** THE HOLDER'S DEFENCE (SEAT0 5.2 step 3): its own influence at the seat x (1 + Standing's modifier) x (1 - Overreach's
+ *  cut, SEAT1d - `extra` its guild's), and its Legacy. A held siege's x1.2 and a liege's reach come with their slices
+ *  (SEAT2a, CROWN2). */
+export const seatDefence = (own, standing, extra = 0) => Math.floor(Math.max(0, own?.influence ?? 0) * (1 + standingModifier(standing)) * overreachDefence(extra) + 1e-9) + Math.max(0, own?.legacy ?? 0);
 
 /**
  * THE TURNING'S PLAN (SEAT0 5.2) - pure. `seats` every confirmed seat with anything at it this week: its tier, its
- * holder (`{ guild, standing, truceWeek }` or null) and each guild's week there (`{ guild, influence, legacy,
- * pledgedAt }`, influence after its caps); `treasuries` each guild's Drake treasury. Answers what the settle writes:
+ * holder (`{ guild, standing, truceWeek }` or null - SEAT1d: its `tithe`, the upkeep it `owed` from a week in Neglect,
+ * whether its own members kept the Watch there (`watched`), the `gates` felled in its region, its `writs` filled there,
+ * and the `edict` proclaimed for the coming week, or null) and each guild's week there (`{ guild, influence, legacy,
+ * pledgedAt }`, influence after its caps); `treasuries` each guild's Drake treasury; `active` the accounts that played
+ * online in the week (the crown's scale). Answers what the settle writes:
  *   claims      an unheld seat's Charter taken (`{ key, guild, fee, total }`), in key order, each fee paid in turn;
  *   contested   an unheld seat whose two first claimants stand within 10% (`{ key, a, b }`) - a Tourney decides it;
+ *   upkeep      SEAT1d: each held seat's week paid (`{ key, guild, amount, paid, owed, state }` - 'paid'; 'late', with
+ *               the week in Neglect's arrears; 'neglect', its first short week; 'lapse', its second), in key order out
+ *               of what the claims left - reckoned before the Rights, so a Charter that lapses is no siege's;
  *   rights      a Right of Siege granted (`{ key, guild, total, defence }`) - one a guild and one a seat a week, the
  *               strongest first, a seat in truce (changed hands at the last Turning) never challenged;
- *   held        a held seat no Right was granted against, its Standing raised (`{ key, guild, standing }`);
+ *   edicts      SEAT1d: the coming week's Edict at each held seat that keeps its Charter (`{ key, guild, edict, cost,
+ *               state }` - 'law', its cost paid (a Bounty's the `setAside` its holder named, escrowed), or 'unpaid');
+ *   standings   SEAT1d: every held seat's Standing after its week (`{ key, guild, standing, changes }`, standingWeek);
+ *   held        a held seat no Right was granted against (`{ key, guild, standing }`), its Standing as standings says;
  *   legacy      what each guild carries into the next week at each seat (`{ key, guild, amount }`), 10% of its week.
- * @param {{ week: number, seats: any[], treasuries: Map<string, number> }} o
+ * @param {{ week: number, seats: any[], treasuries: Map<string, number>, active?: number }} o
  */
-export function turningPlan({ week, seats, treasuries }) {
+export function turningPlan({ week, seats, treasuries, active = CROWN_SCALE.per }) {
   const purse = new Map(treasuries);
-  const claims = [], contested = [], rights = [], held = [], legacy = [];
+  const claims = [], contested = [], rights = [], held = [], legacy = [], upkeep = [], edicts = [], standings = [];
   const sorted = [...seats].sort((a, b) => a.key - b.key);
   for (const s of sorted) {
     for (const g of s.guilds) {
@@ -418,14 +428,29 @@ export function turningPlan({ week, seats, treasuries }) {
     purse.set(taker.guild, (purse.get(taker.guild) ?? 0) - fee);
     claims.push({ key: s.key, guild: taker.guild, fee, total: claimTotal(taker) });
   }
-  // 3-4. HELD SEATS: the defence, every candidate, one pass
+  // 5. SEAT1d: THE UPKEEP (7.1) - each holder's Overreach over the seats it held this week
+  const tiersOf = new Map();
+  for (const s of sorted) if (s.holder) tiersOf.set(s.holder.guild, [...(tiersOf.get(s.holder.guild) ?? []), s.tier]);
+  const extraOf = (guild) => overreachOf(tiersOf.get(guild) ?? []);
+  const stateOf = new Map();
+  for (const s of sorted) {
+    if (!s.holder) continue;
+    const g = s.holder.guild, owed = Math.max(0, s.holder.owed ?? 0);
+    const amount = seatUpkeep(s.tier, extraOf(g), active), due = amount + owed, has = purse.get(g) ?? 0;
+    const state = has >= due ? (owed > 0 ? 'late' : 'paid') : owed > 0 ? 'lapse' : 'neglect';
+    if (state === 'paid' || state === 'late') purse.set(g, has - due);
+    stateOf.set(s.key, state);
+    upkeep.push({ key: s.key, guild: g, amount, paid: state === 'paid' || state === 'late' ? due : 0, owed: state === 'neglect' ? amount : 0, state });
+  }
+  const keeps = (s) => s.holder && stateOf.get(s.key) !== 'lapse';
+  // 3-4. HELD SEATS: the defence, every candidate, one pass - a challenger's influence at a seat in Unrest risen
   const candidates = [];
   for (const s of sorted) {
-    if (!s.holder || s.holder.truceWeek === week) continue;
-    const defence = seatDefence(s.guilds.find((g) => g.guild === s.holder.guild), s.holder.standing);
+    if (!keeps(s) || s.holder.truceWeek === week) continue;
+    const defence = seatDefence(s.guilds.find((g) => g.guild === s.holder.guild), s.holder.standing, extraOf(s.holder.guild));
     for (const g of s.guilds) {
       if (g.guild === s.holder.guild) continue;
-      const total = claimTotal(g);
+      const total = claimTotal({ ...g, influence: unrestInfluence(g.influence, s.holder.standing) });
       if (total >= CLAIM_THRESHOLD[s.tier] && total > defence) candidates.push({ ...g, key: s.key, total, defence });
     }
   }
@@ -436,10 +461,26 @@ export function turningPlan({ week, seats, treasuries }) {
     seatTaken.add(c.key); guildTaken.add(c.guild);
     rights.push({ key: c.key, guild: c.guild, total: c.total, defence: c.defence });
   }
+  // SEAT1d: THE COMING WEEK'S EDICTS (7.6), paid after the upkeep; and every held seat's week of Standing (7.3)
   for (const s of sorted) {
-    if (s.holder && !seatTaken.has(s.key)) held.push({ key: s.key, guild: s.holder.guild, standing: Math.min(STANDING_MAX, s.holder.standing + STANDING_UNCHALLENGED) });
+    if (!keeps(s)) continue;
+    const e = s.holder.edict ?? null;
+    let law = null;
+    if (e && edictOk(e)) {
+      const cost = e === 'bounty' ? Math.max(0, s.holder.setAside ?? 0) : edictCost(e, s.tier), has = purse.get(s.holder.guild) ?? 0;
+      law = has >= cost ? e : null;
+      if (law) purse.set(s.holder.guild, has - cost);
+      edicts.push({ key: s.key, guild: s.holder.guild, edict: e, cost, state: law ? 'law' : 'unpaid' });
+    }
+    const unchallenged = !seatTaken.has(s.key);
+    const w = standingWeek({
+      tier: s.tier, standing: s.holder.standing, tithe: s.holder.tithe ?? 0, watched: s.holder.watched ?? true, gates: s.holder.gates ?? 0,
+      writs: s.holder.writs ?? 0, unchallenged, upkeep: stateOf.get(s.key), edict: law,
+    });
+    standings.push({ key: s.key, guild: s.holder.guild, standing: w.standing, changes: w.changes });
+    if (unchallenged) held.push({ key: s.key, guild: s.holder.guild, standing: w.standing });
   }
-  return { claims, contested, rights, held, legacy };
+  return { claims, contested, upkeep, rights, edicts, standings, held, legacy };
 }
 
 // ─── THE CHRONICLE'S WORDS (SEAT0 9.2) ─────────────────────────────
@@ -463,6 +504,12 @@ export function chronicleLine(row, seat) {
     case 'held': return `${when}, ${guildWords(d.guild)} held ${seat.name} unchallenged.`;
     case 'relinquish': return `${when}, ${guildWords(d.guild)} gave up ${c}.`;
     case 'strike': return `${when}, ${seat.name} was struck from the registry.`;
+    // SEAT1d: the upkeep's and the Edicts' rows
+    case 'neglect': return `${when}, ${guildWords(d.guild)} could not pay the upkeep of ${c}. ${seat.name} is in Neglect.`;
+    case 'late': return `${when}, ${guildWords(d.guild)} paid the upkeep it owed for ${c}.`;
+    case 'lapse': return `${when}, ${c} lapsed - ${guildWords(d.guild)} could not pay its upkeep two weeks running.`;
+    case 'edict': return `${when}, ${guildWords(d.guild)} proclaimed ${EDICTS[d.edict]?.name ?? 'an Edict'} at ${seat.name}.`;
+    case 'edict-unpaid': return `${when}, ${guildWords(d.guild)} could not pay for the ${EDICTS[d.edict]?.name ?? 'Edict'} it proclaimed at ${seat.name}.`;
     default: return null;
   }
 }
@@ -523,3 +570,213 @@ export function seatTitleText(title, ts, place) {
     default: return null;
   }
 }
+
+// ═══ SEAT1d: HOLDING A SEAT (SEAT0 7.1-7.3, 7.6) ════════════════════
+// What a Charter costs each week (upkeep, Overreach), what it pays (the Tithe across its bailiwick, the members'
+// discount), the town's favour (Standing, every row of 7.3) and the holder's word (the Edicts). The Turning reckons
+// every one of them in its one batch (server-account/src/seatTurning.js); the client prices its own shops off them.
+
+/** A Charter's upkeep a week, in Drakes from the holder's treasury - burnt (SEAT0 7.1). */
+export const SEAT_UPKEEP = Object.freeze({ palace: 2500, crown: 15000 });
+/** The crown's scale: x min(1.5, max(0.4, active / 100)), `active` the accounts that played online in the week. */
+export const CROWN_SCALE = Object.freeze({ least: 0.4, most: 1.5, per: 100 });
+export const crownScale = (active) => Math.min(CROWN_SCALE.most, Math.max(CROWN_SCALE.least, Math.max(0, Number(active) || 0) / CROWN_SCALE.per));
+/** OVERREACH (SEAT0 7.1): a palace weighs 1, a crown 3; a guild's extra is its seats' weight less its heaviest seat's;
+ *  every seat it holds pays upkeep x (1 + 0.25 x extra) and defends at x (1 - 0.05 x extra) - added, not compounded. */
+export const SEAT_WEIGHT = Object.freeze({ palace: 1, crown: 3 });
+export const OVERREACH = Object.freeze({ upkeep: 0.25, defence: 0.05 });
+/** A guild's Overreach extra over the tiers of the seats it holds. */
+export function overreachOf(tiers) {
+  const w = (tiers ?? []).map((t) => SEAT_WEIGHT[t] ?? 0);
+  return w.length ? w.reduce((a, b) => a + b, 0) - Math.max(...w) : 0;
+}
+/** The defence's Overreach factor, never below nothing. */
+export const overreachDefence = (extra) => Math.max(0, 1 - OVERREACH.defence * Math.max(0, extra));
+/** ONE SEAT'S UPKEEP this week - its tier's, the crown's scale over `active`, Overreach's share.
+ * @param {string} tier @param {number} [extra] @param {number} [active] */
+export const seatUpkeep = (tier, extra = 0, active = CROWN_SCALE.per) =>
+  Math.floor(SEAT_UPKEEP[tier] * (tier === 'crown' ? crownScale(active) : 1) * (1 + OVERREACH.upkeep * Math.max(0, extra)) + 1e-9);
+
+/** THE TITHE (SEAT0 7.2): the holder's rate in whole percents, palace 0-10, crown 0-15, changed at most once a week. */
+export const TITHE_CAP = Object.freeze({ palace: 10, crown: 15 });
+export const titheOk = (tier, pct) => Number.isSafeInteger(pct) && pct >= 0 && pct <= (TITHE_CAP[tier] ?? -1);
+/** A Tithe's share of an amount (a sale's price, a courier's fee), rounded down - marketLaw.js saleTithe's rule. */
+export const titheOf = (amount, pct) => Math.floor((Math.max(0, amount) * Math.max(0, pct)) / 100);
+/**
+ * THE BAILIWICK (SEAT0 7.2): the seat a Notice Board belongs to - the seat of its region nearest it by map pixel (ties
+ * to the lower key), or null in a region with none. `seats` the confirmed registry's (`{ key, region, pixel }`), `pixel`
+ * the board's town (null: the region's lowest key - every board in a seated region is some seat's).
+ * @param {Iterable<{ key: number, region: number, pixel: number[] }>} seats
+ * @param {number} region
+ * @param {number[]|null} [pixel]
+ */
+export function bailiwickOf(seats, region, pixel = null) {
+  let best = null, bestD = Infinity;
+  for (const s of seats) {
+    if (s.region !== region) continue;
+    const d = pixel ? (s.pixel[0] - pixel[0]) ** 2 + (s.pixel[1] - pixel[1]) ** 2 : 0;
+    if (d < bestD || (d === bestD && s.key < best.key)) { best = s; bestD = d; }
+  }
+  return best;
+}
+
+/** THE MEMBERS' DISCOUNT (SEAT0 7.2) at the seat town's shops, and its rise while Standing is loved; Market Day's for
+ *  everyone (7.6). Added, never compounded, and applied on the buyer's own client where the shop's price is reckoned. */
+export const MEMBER_DISCOUNT = Object.freeze({ palace: 0.10, crown: 0.15 });
+export const STANDING_LOVED = 80;
+export const LOVED_DISCOUNT = 0.05;
+export const MARKET_DAY_DISCOUNT = 0.10;
+/**
+ * WHAT A SEAT TOWN'S SHOPS ASK OF THIS PLAYER, as a factor of their price: 1 less the members' discount (a member of the
+ * holder's guild) and Market Day's (anyone, while it is proclaimed). `seat` a dressed seat (`{ tier, holder }`, the
+ * holder `{ guild: { id }, standing, edict }`), `guildId` the player's own guild or null.
+ */
+export function seatShopFactor(seat, guildId = null) {
+  const h = seat?.holder;
+  if (!h) return 1;
+  const member = guildId != null && h.guild?.id === guildId;
+  const off = (member ? (MEMBER_DISCOUNT[seat.tier] ?? 0) + (h.standing >= STANDING_LOVED ? LOVED_DISCOUNT : 0) : 0)
+    + (h.edict === 'market-day' ? MARKET_DAY_DISCOUNT : 0);
+  return Math.max(0, 1 - off);
+}
+
+/** STANDING (SEAT0 7.3): every row of its table. The siege's and the revolt's rows are SEAT2a's and SEAT2b's to apply. */
+export const STANDING_CHANGES = Object.freeze({
+  titheLow: 2, titheHigh: -3, unchallenged: STANDING_UNCHALLENGED, gate: 2, gateWeekMax: 6, noWatch: -5,
+  siegeHeld: 15, throneReached: -5, festival: 10, neglect: -10, writ: 1, writWeekMax: 5, paidLate: -5,
+  revoltTo: 20, curfew: -2, levy: -2, openGates: 3,
+});
+/** UNREST (SEAT0 7.3): below 20 challengers earn +25% influence there, and the arrival line says so; at 0 it revolts. */
+export const STANDING_UNREST = 20;
+export const UNREST_BONUS = 0.25;
+export const seatInUnrest = (standing) => standing != null && standing < STANDING_UNREST;
+/** A challenger's influence at a seat in Unrest - the holder's own never rises. */
+export const unrestInfluence = (influence, standing) => (seatInUnrest(standing) ? Math.floor(Math.max(0, influence) * (1 + UNREST_BONUS) + 1e-9) : influence);
+/** The Tithe's rows: at or below half its cap +2 a week, above three quarters of it -3. */
+export function titheStanding(tier, pct) {
+  const cap = TITHE_CAP[tier] ?? 0;
+  if (pct <= cap / 2) return STANDING_CHANGES.titheLow;
+  if (pct > (cap * 3) / 4) return STANDING_CHANGES.titheHigh;
+  return 0;
+}
+
+/**
+ * THE EDICTS (SEAT0 7.6): one for the coming week, proclaimed on the board by the Guildmaster or an Officer; none two
+ * weeks running but Market Day. `cost` Drakes from the treasury at the Turning that makes it law (palace, crown);
+ * `standing` its row of 7.3. The crown's two (the Royal Tourney, Conscription) are CROWN1's.
+ */
+export const EDICTS = Object.freeze({
+  'market-day': Object.freeze({ name: 'Market Day', standing: 0, cost: null, repeat: true }),
+  'open-gates': Object.freeze({ name: 'Open Gates', standing: STANDING_CHANGES.openGates, cost: null, repeat: false }),
+  curfew: Object.freeze({ name: 'Curfew', standing: STANDING_CHANGES.curfew, cost: null, repeat: false }),
+  festival: Object.freeze({ name: 'Festival', standing: STANDING_CHANGES.festival, cost: Object.freeze({ palace: 2500, crown: 10000 }), repeat: false }),
+  levy: Object.freeze({ name: 'Levy', standing: STANDING_CHANGES.levy, cost: null, repeat: false }),
+  bounty: Object.freeze({ name: 'Bounty', standing: 0, cost: null, repeat: false }),
+});
+export const edictOk = (e) => typeof e === 'string' && Object.hasOwn(EDICTS, e);
+/** Whether `edict` may be proclaimed for the week after one whose Edict was `last`. */
+export const edictMayFollow = (edict, last) => edictOk(edict) && (edict !== last || EDICTS[edict].repeat);
+/** What an Edict costs at a seat of `tier` (0 for most). */
+export const edictCost = (edict, tier) => EDICTS[edict]?.cost?.[tier] ?? 0;
+/** The Levy's share of a gathering's yield (SEAT0 7.6), the Bounty's pay a camp and the camps an account a day. */
+export const LEVY_SHARE = 0.1;
+export const BOUNTY_MARKS = 20;
+export const BOUNTY_CAMPS_DAY = 5;
+/** The Festive buff (SEAT0 7.6): +5 to every attribute for a game day, in the town while the Festival is proclaimed. */
+export const FESTIVE = Object.freeze({ attributes: 5, gameDays: 1 });
+/** Edicts and Tithe changes an account may ask an hour (Appendix B: edicts 5). */
+export const SEAT_EDICTS_HOUR = 5;
+/** Who may set the Tithe and proclaim an Edict: the Guildmaster and the Officers (SEAT0 7.9: "for the holder's
+ *  Officers: the levers"). */
+export const SEAT_LEVER_RANKS = Object.freeze([0, 1]);
+
+/**
+ * A HELD SEAT'S WEEK OF STANDING (SEAT0 7.3), in the table's order - `{ standing, changes }`, `changes` each row that
+ * moved it (`[row, delta]`), the result held to 0-100. `o`: its tier and Standing; `tithe` its rate; `watched` whether
+ * any of the holder's own members kept the Watch there; `gates` gates felled in its region; `writs` the holder's writs
+ * filled there; `unchallenged` no Right granted against it; `upkeep` 'paid', 'late' (paid with the arrears) or
+ * 'neglect'; `edict` the Edict the Turning makes law for the coming week (its row taken as it is proclaimed).
+ */
+export function standingWeek({ tier, standing, tithe = 0, watched = true, gates = 0, writs = 0, unchallenged = false, upkeep = 'paid', edict = null }) {
+  const changes = [];
+  const add = (row, d) => { if (d) changes.push([row, d]); };
+  const t = titheStanding(tier, tithe);
+  add(t > 0 ? 'titheLow' : 'titheHigh', t);
+  if (unchallenged) add('unchallenged', STANDING_CHANGES.unchallenged);
+  add('gate', Math.min(STANDING_CHANGES.gateWeekMax, STANDING_CHANGES.gate * Math.max(0, gates)));
+  if (!watched) add('noWatch', STANDING_CHANGES.noWatch);
+  add('writ', Math.min(STANDING_CHANGES.writWeekMax, STANDING_CHANGES.writ * Math.max(0, writs)));
+  if (upkeep === 'neglect') add('neglect', STANDING_CHANGES.neglect);
+  if (upkeep === 'late') add('paidLate', STANDING_CHANGES.paidLate);
+  if (edict && EDICTS[edict]?.standing) add(edict, EDICTS[edict].standing);
+  const sum = changes.reduce((a, [, d]) => a + d, 0);
+  return { standing: Math.max(0, Math.min(STANDING_MAX, standing + sum)), changes };
+}
+
+/** CURFEW (SEAT0 7.6): the town's guards stand this many levels stronger at night, and a crime there costs this many
+ *  times the legal reputation - each player's own, on its own client. */
+export const CURFEW = Object.freeze({ guardLevels: 5, crimeFactor: 2 });
+
+/** What each Edict does, in the Seat tab's words. */
+export const EDICT_WORDS = Object.freeze({
+  'market-day': 'The town\'s shops ask a tenth less of everyone.',
+  'open-gates': 'Every home in the town stands open to all. Standing +3.',
+  curfew: 'The guards are stronger at night and every crime costs twice the reputation. Standing -2.',
+  festival: 'Music and banners; everyone in the town is Festive, +5 to every attribute for a day. Standing +10.',
+  levy: 'A tenth of what is gathered near the town goes to its stockpile. Standing -2.',
+  bounty: 'Camps in the region yield double, and the treasury pays 20 Drakes a camp cleared, from what is set aside.',
+});
+/** An Edict's line in the Seat tab, with its cost at a seat of `tier`. */
+export function edictLine(edict, tier) {
+  const e = EDICTS[edict];
+  if (!e) return null;
+  const cost = edictCost(edict, tier);
+  return `${e.name}: ${EDICT_WORDS[edict]}${cost ? ` Costs ${cost.toLocaleString('en-US')} Drakes.` : ''}`;
+}
+/**
+ * THE HOLDER'S OWN LINES on the Seat tab, for its members (SEAT0 7.9) - `h` the standings answer's `holding`
+ * (`{ standing, tithe, edict, next, upkeep, owed }`): the Edict proclaimed for next week, Unrest's cost, the upkeep the
+ * Turning will ask, and Neglect's debt. (The Tithe and this week's Edict are everyone's - seatRuleLine.)
+ */
+export function seatHoldingLines(seat, h) {
+  if (!h) return [];
+  const out = [h.next ? `Proclaimed for next week: ${EDICTS[h.next]?.name ?? h.next}.` : 'No Edict is proclaimed for next week.'];
+  if (seatInUnrest(h.standing)) out.push(`Unrest: challengers earn a quarter more influence at ${seat.name}.`);
+  out.push(`Upkeep at the Turning: ${Number(h.upkeep ?? 0).toLocaleString('en-US')} Drakes from the treasury (the Tithe at most ${TITHE_CAP[seat.tier]}%).`);
+  if (h.owed > 0) out.push(`Neglect: ${Number(h.owed).toLocaleString('en-US')} Drakes of upkeep are owed with it, or the Charter lapses.`);
+  return out;
+}
+/** The Seat tab's line for everyone under the holder's (SEAT0 7.9: "Standing and its trend, the Tithe, this week's
+ *  Edict"): "Tithe 6%. Market Day is proclaimed." - with Unrest where it is; null for an unheld seat. */
+export function seatRuleLine(seat, holder) {
+  if (!holder) return null;
+  const e = holder.edict && EDICTS[holder.edict] ? `${EDICTS[holder.edict].name} is proclaimed.` : 'No Edict rules this week.';
+  return `Tithe ${holder.tithe ?? 0}%. ${e}${seatInUnrest(holder.standing) ? ` ${seat.name} is in Unrest.` : ''}`;
+}
+/** THE ARRIVAL'S NEWS after its line (SEAT0 7.3: "the arrival line says so"): a seat in Unrest, the Edict that rules -
+ *  or null. */
+export function seatArrivalNews(seat) {
+  const h = seat?.holder;
+  if (!h) return null;
+  const parts = [];
+  if (seatInUnrest(h.standing)) parts.push('The town is in Unrest.');
+  if (h.edict && EDICTS[h.edict]) parts.push(`${EDICTS[h.edict].name} is proclaimed.`);
+  return parts.length ? parts.join(' ') : null;
+}
+
+/** A World of Daggerfall camp's id (src/world/wodShared.js wodSiteId: "px,py:objectID[.n]", or Privateer's Hold's
+ *  "px,py:hold") - its map pixel, or null. */
+export function bountySitePixel(site) {
+  const m = /^(\d{1,3}),(\d{1,3}):(?:\d{1,10}(?:\.\d{1,3})?|hold)$/.exec(typeof site === 'string' ? site : '');
+  if (!m) return null;
+  const x = Number(m[1]), y = Number(m[2]);
+  return x < 1000 && y < 500 ? [x, y] : null;
+}
+
+/** THE LEVY'S SHARE OF ONE HARVEST (SEAT0 7.6): a tenth of `qty`, its fraction kept or not by `roll` (0-1, the
+ *  harvest's own) - so a harvest of 3 gives the seat one unit three times in ten, and the tenth holds on average. */
+export const levyOf = (qty, roll) => {
+  const whole = Math.round(Math.max(0, qty) * LEVY_SHARE * 1e6) / 1e6;   // 3 x 0.1 is 0.30000000000000004 in floats
+  const n = Math.floor(whole + 1e-9);
+  return n + (roll < whole - n ? 1 : 0);
+};

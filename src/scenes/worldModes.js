@@ -1295,7 +1295,7 @@ export function createWorldModes(host) {
    *  runMagicRoundsFor, so no tickActiveEffects and no updatePoisons
    *  (worldTick.js:391-392), and no killIfAnyLiveStatZero. Both pools
    *  READ the effect list every frame (exteriorFoes.js:1092-1096 and
-   *  cityGuards.js:1039-1049 each take `entityIsParalyzed` +
+   *  cityGuards.js:1040-1050 each take `entityIsParalyzed` +
    *  `applyEnemyMotorEffectFlags`), and nothing ever ended one: a
    *  Continuous Damage bundle on a foe in a shop never took a round,
    *  a poison inflicted at this host's own onInflictPoison never
@@ -2496,7 +2496,7 @@ export function createWorldModes(host) {
       allowMagicRepairs: getBool('Controls', 'AllowMagicRepairs'),
       priceCtx: () => ({
         quality: b.quality ?? 0,
-        priceAdjustment: regionPriceAdjustment(playerEntity, b.regionIndex ?? 0),
+        priceAdjustment: shopAdjustment(b, mode),   // SEAT1d: a seat town's members and Market Day
         // UNLIKE the tavern's meal, this one reads the player's REAL
         // region (:437), so a regional holiday actually lands.
         holidayId: getHolidayId(Math.floor(worldMinutes()), b.regionIndex ?? 0),
@@ -2723,11 +2723,19 @@ export function createWorldModes(host) {
   // Both branches now share one value resolution (DFU's item.value,
   // which every item carries once minted) and the stack multiplier.
   function itemValue(it) { return itemValueOf(it); }   // JAN1: the one value read (a non-finite value is an absent one)
+  // SEAT1d (Seats-Arc 7.2, 7.6): a seat town's shop asks its holder's members less, and everyone less on Market Day - a
+  // multiplier of its own on the shop's price adjustment (never regionPriceAdjustment's region-wide index), for what the
+  // player BUYS and has REPAIRED alone; what a shop pays for a sale is the shop's own
+  function shopAdjustment(b, mode) {
+    const adj = regionPriceAdjustment(playerEntity, b?.regionIndex ?? 0);
+    const f = mode === 'Buy' || mode === 'Repair' ? host.seatShopFactor?.(b) ?? 1 : 1;
+    return f === 1 ? adj : Math.round(adj * f);
+  }
   function buyPrice(it) {
     const b = interiorBuilding;
     // FB0929: the counter's own law, not a second copy of it - the walk's cost and pieces, and GetTradePrice's floor
     // of a gold a piece, so the keyed row's price is the price it charges and the trade window's
-    const lot = tradeCost('Buy', [it], { quality: b.quality, priceAdjustment: regionPriceAdjustment(playerEntity, b.regionIndex ?? 0) });
+    const lot = tradeCost('Buy', [it], { quality: b.quality, priceAdjustment: shopAdjustment(b, 'Buy') });
     return getTradePrice('Buy', lot.cost, b.quality, {
       mercantile: skillValue(playerEntity, SKILLS.Mercantile),
       personality: playerEntity.stats?.personality == null ? 50 : liveStat(playerEntity, 'personality'),
@@ -4967,7 +4975,7 @@ export function createWorldModes(host) {
     // the Buy branch (:497-498) and its floor of a gold a piece
     const lot = tradeCost('Repair', [it], {
       quality: b?.quality ?? 0,
-      priceAdjustment: regionPriceAdjustment(playerEntity, b?.regionIndex ?? 0),
+      priceAdjustment: shopAdjustment(b, 'Repair'),
       reducedRepairCost: discount ?? null,
     });
     return getTradePrice('Repair', lot.cost, b?.quality ?? 0, { mercantile: skillValue(playerEntity, SKILLS.Mercantile), personality: playerEntity.stats?.personality == null ? 50 : liveStat(playerEntity, 'personality') }, lot.pieces);
@@ -8559,7 +8567,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:14405's own wave-46 note); the interior
+          // a blow (world.js:14423's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -8594,10 +8602,10 @@ export function createWorldModes(host) {
         // AUDIT 58: WeaponManager.cs:630 after the damage fork - a
         // zero-damage shaft still enrages its mark and the room.
         // ROAD-G G1 (review): the interior WATCH carries the pair now
-        // (cityGuards.js:777-782), so this seam splits by pool exactly
+        // (cityGuards.js:778-783), so this seam splits by pool exactly
         // as `dealDamage` above it does rather than dropping the
         // non-encounter half - the zero-damage SWING already reaches
-        // that door (cityGuards.js:1346) and the shaft owes the same.
+        // that door (cityGuards.js:1347) and the shaft owes the same.
         onAttackFromPlayer: (f) => (f._encounter
           ? interiorFoes?.attackFromPlayer(f, player.pos, 'arrow')   // AUDIT WORLD6b-iii(e) A2: the pool's one door, the shaft's kind on it
           : interiorGuards?.handleAttackFromPlayer(f, player.pos)),
@@ -11202,7 +11210,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3472-3494), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:10851). So an F9 pressed in a shop
+     *  unconditionally (world.js:10869). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -11241,7 +11249,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:10966)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:10984)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -11251,7 +11259,7 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:9844`
+     *  HARD2c: this used to spell them out, and named `world.js:9862`
      *  and `dungeonContext.js:7635` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */

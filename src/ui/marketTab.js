@@ -132,11 +132,15 @@ export function medianLineNode(line) {
  *   putBack: (item: any, where: string) => void, mint: (piece: any, why: string) => void, pieceName: (piece: any) => string,
  *   drop?: (item: any, where: string) => void,
  *   weavers: ReadonlyArray<{ key: string, marks: number }>, stock: (key: string, n: number) => Promise<{ ok: boolean, text?: string }>,
- * }} m the host's market (scenes/world.js); `drop` - a piece a settled listing took, out of the save (AUDIT 30 C3)
+ *   board?: number[]|null,
+ * }} m the host's market (scenes/world.js); `drop` - a piece a settled listing took, out of the save (AUDIT 30 C3);
+ *   SEAT1d: `board` the board's town pixel - a listing's, an auction's and a buy's courier's Tithe is its seat's
  * @param {{ busy: () => boolean, run: (start: () => Promise<any>) => Promise<void>, rerender: () => void, nowS: () => number,
  *   alive: () => boolean }} ui the window's
  */
 export function createMarketTab(m, ui) {
+  /** SEAT1d (Seats-Arc 7.2): the board's town pixel on every post and buy - the seat whose bailiwick it is takes the Tithe. */
+  const at = () => (m.board ? { board: m.board } : {});
   const st = {
     view: 'materials', family: /** @type {string|null} */ (null), tier: 0, query: '', picked: /** @type {string|null} */ (null),
     qty: 1, data: /** @type {any} */ (null), error: /** @type {string|null} */ (null), stale: false, loading: false,
@@ -320,7 +324,7 @@ export function createMarketTab(m, ui) {
     const gold = row.currency === 'gold';   // GOLD-MARKET: bought off the purse, at its exact cost
     const buy = button('primary market-buy', m.book.busy ? 'Buying...' : 'Buy', () => {
       const units = unitsNow(), courier = courierOf(row, units), w = what(units);
-      return act(() => m.book.buy({ region: m.region, listing: row.id, units, max: units * row.price + (courier ?? 0), hubs: m.hubs, ...(gold ? { currency: 'gold' } : {}) }, m.mint),
+      return act(() => m.book.buy({ region: m.region, listing: row.id, units, max: units * row.price + (courier ?? 0), hubs: m.hubs, ...at(), ...(gold ? { currency: 'gold' } : {}) }, m.mint),
         (d) => (d?.sale?.here ? `Bought ${w}.` : `Bought ${w} - the courier brings it from ${m.regionNameOf(row.region)} in ${arrivalText(d?.sale?.arrivesAt, ui.nowS())}.`));
     });
     const refresh = () => {
@@ -446,7 +450,7 @@ export function createMarketTab(m, ui) {
         el('span', 'notice-label', 'Units'), units, el('span', 'notice-label', `${unitWord} each`), price);
       worth = () => st.list.units * st.list.price;
       can = () => !!st.list.material && most >= st.list.units;
-      send = () => act(() => m.book.list({ region: m.region, kind: 'material', material: st.list.material, units: st.list.units, price: st.list.price, hubs: m.hubs, ...(gold ? { currency: 'gold' } : {}) }),
+      send = () => act(() => m.book.list({ region: m.region, kind: 'material', material: st.list.material, units: st.list.units, price: st.list.price, hubs: m.hubs, ...at(), ...(gold ? { currency: 'gold' } : {}) }),
         `Listed ${st.list.units} ${m.countName(st.list.material, st.list.units)} at ${priceText(st.list.price, cur)} each.`);
     } else {
       // PROF5b: an auction offers the Masterworks alone (10.2)
@@ -461,9 +465,9 @@ export function createMarketTab(m, ui) {
       can = () => !!chosen;
       const piece = () => ({ item: chosen.item, where: chosen.where, take: () => m.take(chosen.item, chosen.where), putBack: m.putBack });
       send = auction
-        ? () => act(() => m.book.auction({ region: m.region, provenance: chosen.item.provenance, wear: wearOf(chosen.item), opening: st.list.price, hubs: m.hubs }, piece()),
+        ? () => act(() => m.book.auction({ region: m.region, provenance: chosen.item.provenance, wear: wearOf(chosen.item), opening: st.list.price, hubs: m.hubs, ...at() }, piece()),
           `${chosen?.name} is up for auction, opening at ${marksText(st.list.price)}.`)
-        : () => act(() => m.book.list({ region: m.region, kind: 'piece', provenance: chosen.item.provenance, wear: wearOf(chosen.item), price: st.list.price, hubs: m.hubs, ...(gold ? { currency: 'gold' } : {}) }, piece()),
+        : () => act(() => m.book.list({ region: m.region, kind: 'piece', provenance: chosen.item.provenance, wear: wearOf(chosen.item), price: st.list.price, hubs: m.hubs, ...at(), ...(gold ? { currency: 'gold' } : {}) }, piece()),
           `Listed ${chosen?.name} at ${priceText(st.list.price, cur)}.`);
     }
     // AUDIT 30 U13: a listing the fee or the board's limit would refuse is not offered - the words say which

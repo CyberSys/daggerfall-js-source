@@ -272,8 +272,8 @@
   {
     "name": "GOLDMARKET-tab-gold-buy-no-currency",
     "file": "src/ui/marketTab.js",
-    "old": "hubs: m.hubs, ...(gold ? { currency: 'gold' } : {}) }, m.mint)",
-    "new": "hubs: m.hubs }, m.mint)",
+    "old": "hubs: m.hubs, ...at(), ...(gold ? { currency: 'gold' } : {}) }, m.mint)",
+    "new": "hubs: m.hubs, ...at() }, m.mint)",
     "tests": [
       "test/goldmarket_client.test.js"
     ]

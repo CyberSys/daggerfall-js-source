@@ -88,8 +88,8 @@
   {
     "name": "SEAT1c-law-defence-no-legacy",
     "file": "src/net/townSeatLaw.js",
-    "old": "Math.floor(Math.max(0, own?.influence ?? 0) * (1 + standingModifier(standing)) + 1e-9) + Math.max(0, own?.legacy ?? 0);",
-    "new": "Math.floor(Math.max(0, own?.influence ?? 0) * (1 + standingModifier(standing)) + 1e-9);",
+    "old": "Math.floor(Math.max(0, own?.influence ?? 0) * (1 + standingModifier(standing)) * overreachDefence(extra) + 1e-9) + Math.max(0, own?.legacy ?? 0);",
+    "new": "Math.floor(Math.max(0, own?.influence ?? 0) * (1 + standingModifier(standing)) * overreachDefence(extra) + 1e-9);",
     "tests": [
       "test/seat1c_service.test.js",
       "test/seat1c_client.test.js"
@@ -98,8 +98,8 @@
   {
     "name": "SEAT1c-law-defence-no-standing",
     "file": "src/net/townSeatLaw.js",
-    "old": "Math.floor(Math.max(0, own?.influence ?? 0) * (1 + standingModifier(standing)) + 1e-9) + Math.max(0, own?.legacy ?? 0);",
-    "new": "Math.floor(Math.max(0, own?.influence ?? 0) + 1e-9) + Math.max(0, own?.legacy ?? 0);",
+    "old": "Math.floor(Math.max(0, own?.influence ?? 0) * (1 + standingModifier(standing)) * overreachDefence(extra) + 1e-9) + Math.max(0, own?.legacy ?? 0);",
+    "new": "Math.floor(Math.max(0, own?.influence ?? 0) * overreachDefence(extra) + 1e-9) + Math.max(0, own?.legacy ?? 0);",
     "tests": [
       "test/seat1c_client.test.js"
     ]
@@ -146,8 +146,8 @@
   {
     "name": "SEAT1c-law-truce-ignored",
     "file": "src/net/townSeatLaw.js",
-    "old": "    if (!s.holder || s.holder.truceWeek === week) continue;",
-    "new": "    if (!s.holder) continue;",
+    "old": "    if (!keeps(s) || s.holder.truceWeek === week) continue;",
+    "new": "    if (!keeps(s)) continue;",
     "tests": [
       "test/seat1c_service.test.js",
       "test/seat1c_client.test.js"
@@ -185,8 +185,8 @@
   {
     "name": "SEAT1c-law-standing-uncapped",
     "file": "src/net/townSeatLaw.js",
-    "old": "standing: Math.min(STANDING_MAX, s.holder.standing + STANDING_UNCHALLENGED) });",
-    "new": "standing: s.holder.standing + STANDING_UNCHALLENGED });",
+    "old": "  return { standing: Math.max(0, Math.min(STANDING_MAX, standing + sum)), changes };",
+    "new": "  return { standing: Math.max(0, standing + sum), changes };",
     "tests": [
       "test/seat1c_client.test.js"
     ]
@@ -266,8 +266,8 @@
   {
     "name": "SEAT1c-settle-standing-kept",
     "file": "server-account/src/seatTurning.js",
-    "old": "    stmts.push(db.prepare('UPDATE town_seat_holds SET standing = ? WHERE key = ? AND guild_id = ?').bind(h.standing, h.key, h.guild));",
-    "new": "    stmts.push(db.prepare('SELECT ?, ?, ?').bind(h.standing, h.key, h.guild));",
+    "old": "    stmts.push(db.prepare('UPDATE town_seat_holds SET standing = ? WHERE key = ? AND guild_id = ?').bind(w.standing, w.key, w.guild));",
+    "new": "    stmts.push(db.prepare('SELECT ?, ?, ?').bind(w.standing, w.key, w.guild));",
     "tests": [
       "test/seat1c_service.test.js"
     ]

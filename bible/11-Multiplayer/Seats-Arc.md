@@ -323,8 +323,10 @@ weeks: the first Turning fell on Sunday 2026-09-20 at 18:00 UTC.
 ### 5.2 What the Turning decides
 
 BUILT (SEAT1c, 2026-09-30; `06-Systems/Online-Arc.md` SEAT1c): steps 1-4, 6, 7 (the Legacy) and 9 below, in
-`townSeatLaw.js` turningPlan and `server-account/src/seatTurning.js`; upkeep and Neglect (step 5) are SEAT1d's, reach
-and Overreach CROWN1's and SEAT1d's, the schedule (step 8) SEAT2a's, and the Siege Camps (step 7) SEAT2b's.
+`townSeatLaw.js` turningPlan and `server-account/src/seatTurning.js`; BUILT (SEAT1d, 2026-10-01; Online-Arc SEAT1d): step
+5 (the upkeep, Neglect and its lapse - reckoned before step 4, so a Charter that lapses is no siege's), Overreach's cut
+in step 3, Unrest's quarter in step 4, and the coming week's Edict made law with every row of Standing; reach is
+CROWN1's, the schedule (step 8) SEAT2a's, and the Siege Camps (step 7) SEAT2b's.
 
 The Turning is never a job that runs. The account service settles week N **the first time anything asks about any
 seat after N's boundary** (`settleWeek(N)`, one D1 transaction, idempotent on `town_seat_weeks.week` - a second
@@ -505,6 +507,9 @@ yields - Warforged Steel ingot, a Standard-bearer's silk, a Siege-cracked gem).
   a palace, extra 1 (+25% upkeep, -5% defence); two crowns, extra 3. An empire
   is possible, and it pays for itself only if it is loved (Standing) and built (fortifications).
 
+BUILT (SEAT1d, 2026-10-01; `06-Systems/Online-Arc.md` SEAT1d): the upkeep, the crown's scale (over the registered
+accounts whose last play beat fell in the week) and Overreach, paid at the Turning.
+
 ### 7.2 What a seat pays
 
 - **The Tithe** - a cut of the Marks that change hands at the seat town's Notice Boards: **a share of each sale's
@@ -538,6 +543,13 @@ yields - Warforged Steel ingot, a Standard-bearer's silk, a Siege-cracked gem).
 - **The Charter Room's rule**: the decor tool refuses a piece within **2 m** of any NPC or quest marker the palace's
   layout places, so no decoration can stand on a questor's spot.
 
+BUILT (SEAT1d, 2026-10-01; Online-Arc SEAT1d): the Tithe, set once a week by the Guildmaster or an Officer, taken from
+a sale's proceeds (a listing's and an auction's) and a courier's share at the bailiwick of the board each was posted or
+bought at (the board's town pixel, the client's word), to the holder's treasury or burnt; the members' discount and
+Market Day on the buyer's own client, for buying and repairing at the seat town's shops. The Charter Room and the
+hall's rule are the holder's hall's (GUILD1d's halls; the palace interior as the holder's hall is SEAT2a's, with the
+Throne).
+
 ### 7.3 Standing - the town's favour
 
 Every held seat has a **Standing** from 0 to 100; a new Charter starts at **50**.
@@ -555,6 +567,12 @@ Every held seat has a **Standing** from 0 to 100; a new Charter starts at **50**
 **What Standing does**: defence **+0.5% a point above 50**, **-1% a point below 50** (at 100: +25%; at 0: -50%); at
 **80+** the members' discount rises 5%; below **20** the seat is in **Unrest** (challengers earn +25% influence
 there, and the arrival line says so); at **0** it revolts (7.7).
+
+BUILT (SEAT1d, 2026-10-01; Online-Arc SEAT1d): every row the Turning can reckon now - the Tithe's two, held
+unchallenged, the gates (the week's gate days whose region three claims agree on), the Watch, the holder's own writs
+filled in the region, Neglect, upkeep late, the Edicts' - held to 0-100; Unrest's quarter on the board and at the
+Turning, and in the arrival line; the discount's rise at 80. The siege's rows and the revolt's are SEAT2a's and SEAT2b's
+(their numbers are in the law).
 
 ### 7.4 Titles and glyphs from a seat
 
@@ -617,6 +635,12 @@ Edict may be proclaimed two weeks running except Market Day.
 | **Festival** | any | music, banners, lanterns; everyone in town gets the Festive buff (+5 to all attributes, 1 game day); Standing +10 | 2,500 Marks (palace), 10,000 (crown) |
 | **Royal Tourney** | crown | a duel ladder all week in the crown's **city**, at the castle's entrance square (every seat act happens in its city, 15.1): DUEL1's ring, but every blow **refereed by PVP-REF** in a `siege:`-shaped room - a defender-resolved duel cannot award a title - the relay keeping the ladder; the week's winner earns "Champion of <Kingdom>, Season N" for good (a fifth generic title id, `champion`) | 5,000 Marks prize pool, from the treasury to the winner |
 | **Conscription** | crown | the kingdom's palace seats held by other guilds pay this crown 2% of their Tithe for the week (never a vassal's, 7.8; never a free land's); a **march's** seats pay 1% to each claiming crown that proclaims it | Standing -5 at every seat that pays |
+
+BUILT (SEAT1d, 2026-10-01; Online-Arc SEAT1d): the six of any tier - proclaimed in the week before the one they rule
+(so a new Charter's first week rules none), made law and paid for at the Turning or let fall unpaid. Market Day and
+Curfew on the player's own client; Open Gates in the town's homes as the service reads them; the Festival's buff a
+game day from the arrival; the Levy at the harvest (its tenth kept by the harvest's own roll); the Bounty's escrow, its
+claims (a camp is a World of Daggerfall site) and its doubled loot. The Royal Tourney and Conscription are CROWN1's.
 
 ### 7.7 Revolt
 
@@ -840,7 +864,7 @@ bible updated in the same change, mutants recorded.
 | **SEAT1a** | The derivation; the registry; the map rings; arrival lines; banners (unheld: the kingdom's) - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` SEAT1a; behind SEATS_OPEN at `dev`) | Pins over a fixture MAPS set: every Palace record is a seat, capitals are crowns, mod rows never count; three witnesses confirm |
 | **SEAT1b** | Influence: pledges, the Watch, gate kills, homes, Renown's region, Tribute; the standings on the board - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` SEAT1b; the stockpile's deliveries ride SEAT1c) | Each source's cap pinned; per-account war and the 7-day wait pinned |
 | **SEAT1c** | The Turning; claims; Contested; the Charter; titles and glyphs (relay first); the Seat tab - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` SEAT1c; the titles' vocabulary at `world137`, the Season's and the champion's minted by SEASON1 and CROWN1) | `settleWeek` idempotent under two racing readers; a held seat's banners in the guild's colours |
-| **SEAT1d** | Upkeep, Overreach, Tithe, discounts, Standing, Edicts, Neglect; the economy model as a tool reading townSeatLaw.js and professionLaw.js (PROF0 Appendix C) | Every Standing row pinned; the Tithe routes only Marks; the model re-runs Appendix C's table. The Tithe needs PROF5 (the market) |
+| **SEAT1d** | Upkeep, Overreach, Tithe, discounts, Standing, Edicts, Neglect; the economy model as a tool reading townSeatLaw.js and professionLaw.js (PROF0 Appendix C) - **SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` SEAT1d; `tools/seatEconomy.mjs`, its re-run in Appendix C) | Every Standing row pinned; the Tithe routes only Marks; the model re-runs Appendix C's table. The Tithe needs PROF5 (the market) |
 | **PVP-REF** | The refereed blow and step; the 40-fighter measurement | 6.1's buckets pinned against DFU's damage ranges; the measurement recorded |
 | **SEAT2a** | Siege rooms, banners, the Throne, windows, forfeits, spectators, the Tourney, Honours | A headless 10v10 siege runs to both endings |
 | **SEAT2b** | Fortifications, the Barracks' guards, the Gatehouse, the Ram, revolts | Needs PROF11 (Masonry), PROF4 (Carpentry), PROF3 (Smithing's ingots for the Ram) and PROF8 (the Pearls tier-2 Shrine and Apothecary ask) |
@@ -1113,3 +1137,10 @@ The model lives with Marks, in `06-Systems/Professions-Arc.md` Appendix C. What 
 | Palace upkeep | 1,000 | **2,500** | at 1,000 it was 6% of a 12-member guild's writ income - a seat that cost nothing; now a quarter |
 | Crown upkeep | 10,000 | **15,000 x the server's scale** | more than half a 30-member guild's income, scaled so a small server's crown is not starved |
 | Whole server, Marks minted / burnt | 2.3 | **1.00** (0.83 at 50 accounts, 0.81 at 300, Court writs scaling with the server) | the Bank's exchange is the voluntary valve at the edges |
+
+RE-RUN (SEAT1d, 2026-10-01): the model is a tool now (`tools/seatEconomy.mjs`, 400 runs a size, seed 1 - Professions-Arc
+Appendix C has its table). Built from the record's stated players and reading the law, it finds each size's week about
+15% under the first table's (an eight-member guild's median 6,036 against 7,249; its writ income 6,570 against 7,057): a
+palace stays within a regular eight-member guild's median week, but a crown's 30,000 is a forty-member guild's median
+(a thirty-member guild's p90 is 26,244, not 30,201). OPEN for Mac: whether the crown's line falls to the re-run's p90 of
+a thirty-member guild, or stays for the weekly report's own players (MEASURED, below) to decide.

@@ -24,7 +24,7 @@
 //
 // Pure - the door, the storage and the clock are handed in.
 // ═══════════════════════════════════════════════════════════════════
-import { SEAT_REPORT_EVERY_S, SEAT_WATCH_CLAIM_MAX, seatReportOf, seatKeyOk } from './townSeatLaw.js';
+import { SEAT_REPORT_EVERY_S, SEAT_WATCH_CLAIM_MAX, seatReportOf, seatKeyOk, EDICTS } from './townSeatLaw.js';
 import { accountRefusalText } from './accountClient.js';
 import { readWatchReceipt } from './watchReceipt.js';
 import { mintMarksRid } from './marksBook.js';
@@ -173,6 +173,31 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
       writeReported(t);
       try { await door.witness(s); } catch { /* the next day asks again */ }
       return true;
+    },
+    // ─── SEAT1d: THE HOLDER'S LEVERS, A BOUNTY'S CAMP ───────────────
+    /** The Tithe at `seat` set (an Officer's or the guildmaster's, once a week) - `{ ok, text }`, the standings read afresh. */
+    async tithe(seat, pct) {
+      let r;
+      try { r = await door.tithe(character(), seat.key, pct); } catch { r = { ok: false, error: 'offline' }; }
+      standingsAt.clear();
+      if (r?.ok) at = -Infinity;
+      return r?.ok ? { ok: true, text: `The Tithe at ${seat.name} is ${pct}% from the next sale.` } : { ok: false, text: accountRefusalText(r?.error) };
+    },
+    /** The coming week's Edict at `seat` proclaimed (`edict` null: taken back) - `{ ok, text }`. A Bounty names what it
+     *  sets aside. */
+    async edict(seat, edict, setAside = 0) {
+      let r;
+      try { r = await door.edict(character(), seat.key, edict, setAside); } catch { r = { ok: false, error: 'offline' }; }
+      standingsAt.clear();
+      if (!r?.ok) return { ok: false, text: accountRefusalText(r?.error) };
+      return { ok: true, text: edict ? `${EDICTS[edict]?.name ?? 'The Edict'} is proclaimed at ${seat.name} for next week. The Turning makes it law.` : 'The Edict for next week is taken back.' };
+    },
+    /** A World of Daggerfall camp cleared in `region` - the Bounty's twenty Drakes where one rules there. Quiet: `{ paid }`. */
+    async bounty(site, region) {
+      if (open !== true) return { paid: 0 };
+      let r;
+      try { r = await door.bounty(character(), site, region); } catch { r = { ok: false, error: 'offline' }; }
+      return { paid: r?.ok ? Number(r.data?.paid ?? 0) : 0 };
     },
     // ─── SEAT1b: INFLUENCE ─────────────────────────────────────────
     /** A seat's standings (`/v1/seats/standings`, with this character's own guild): the last answer inside

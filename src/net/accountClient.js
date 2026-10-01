@@ -264,6 +264,13 @@ export const REFUSALS = Object.freeze({
   // SEAT1c: the Charters
   'seat-not-held': 'Your guild does not hold that Charter.',
   'seat-held-here': 'Your guild holds a Charter in this region, and is pledged to it.',
+  // SEAT1d: the holder's levers
+  'bad-tithe': 'A Tithe is a whole percent: at most 10% at a palace seat, 15% at a crown.',
+  'tithe-this-week': 'The Tithe has been set this week already. It may change again after the Turning.',
+  'bad-edict': 'There is no such Edict.',
+  'edict-twice': 'That Edict rules this week, and only Market Day may be proclaimed two weeks running.',
+  'seat-no-edict': 'No Edict is proclaimed for next week.',
+  'bad-bounty': 'A Bounty sets aside at least 20 Drakes, and at most 100,000.',
   // NOTICE1: the Notice Board (server-account/src/board.js)
   'board-need-account': 'Notes are pinned by registered accounts. Add a username to pin one.',
   'board-closed': 'The notice board is not open yet.',
@@ -1082,6 +1089,10 @@ export function accountSeats({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
     watch: (character, receipts) => post('/v1/seats/watch', { character, receipts }),
     tribute: (character, key, marks, rid) => post('/v1/seats/tribute', { character, key, marks, rid }),
     relinquish: (character, key) => post('/v1/seats/relinquish', { character, key }),   // SEAT1c
+    // SEAT1d: the holder's levers at its board - the Tithe, the coming week's Edict (null takes it back); a Bounty's camp
+    tithe: (character, key, pct) => post('/v1/seats/tithe', { character, key, pct }),
+    edict: (character, key, edict, setAside = 0) => post('/v1/seats/edict', { character, key, edict, ...(edict === 'bounty' ? { setAside } : {}) }),
+    bounty: (character, site, region) => post('/v1/seats/bounty', { character, site, region }),
   };
 }
 

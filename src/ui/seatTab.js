@@ -19,6 +19,7 @@ import {
   seatInfoLine, seatWeekLine, seatStandingLine, seatNoStandingsLine, seatMineLines, seatTributeLine, seatMay,
   SEAT_PLEDGE_WORDS, SEAT_PLEDGE_REGIONS_MAX, TRIBUTE_MARKS_PER_INFLUENCE,
   seatHolderLine, seatBattleLine, seatClaimLine, chronicleLine, SEAT_RELINQUISH_WORDS,
+  seatRuleLine, seatHoldingLines, edictLine, edictMayFollow, EDICTS, TITHE_CAP, SEAT_LEVER_RANKS, BOUNTY_MARKS,
 } from '../net/townSeatLaw.js';
 import { GUILD_RANK_MASTER } from '../net/guildLaw.js';
 
@@ -62,6 +63,7 @@ export function createSeatTab(host, ui) {
   let data = null, error = null, loading = false;
   let tributeDrakes = 0;
   let armedAt = -Infinity;   // SEAT1c: the relinquish button's first press
+  let titheAsk = null, edictAsk = null, bountyAside = 200;   // SEAT1d: the levers' own choices, kept across redraws
 
   async function load(force) {
     if (loading) return;
@@ -126,6 +128,56 @@ export function createSeatTab(host, ui) {
     return out;
   }
 
+  /** SEAT1d: THE HOLDER'S LEVERS (SEAT0 7.9: "for the holder's Officers: the levers - the Tithe, the Edict") - the
+   *  Tithe, once a week, within its tier's cap; the coming week's Edict, proclaimed or taken back. */
+  function holdingNode(h) {
+    const out = el('div', 'notice-seat-levers');
+    const busy = ui.busy();
+    const cap = TITHE_CAP[seat.tier] ?? 0;
+    if (h.titheWeek !== data.week) {
+      const n = /** @type {HTMLInputElement} */ (el('input', 'notice-input notice-seat-tithe'));
+      n.type = 'number'; n.min = '0'; n.max = String(cap); n.step = '1';
+      n.value = String(titheAsk ?? h.tithe);
+      n.setAttribute('aria-label', 'The Tithe, in percent');
+      n.setAttribute('data-focus', 'seat-tithe');
+      n.oninput = () => { titheAsk = Math.floor(Number(n.value) || 0); };
+      const set = button('notice-seat-tithe-set', 'Set the Tithe', () => act(() => book.tithe(seat, Math.max(0, Math.min(cap, titheAsk ?? h.tithe)))));
+      set.disabled = busy;
+      out.append(n, set);
+    } else out.append(el('p', 'notice-seat-mine', 'The Tithe has been set this week.'));
+    const sel = /** @type {HTMLSelectElement} */ (el('select', 'notice-input notice-seat-edict'));
+    sel.setAttribute('aria-label', 'The Edict for next week');
+    // none two weeks running but Market Day: this week's Edict is not offered again
+    const allowed = Object.keys(EDICTS).filter((k) => edictMayFollow(k, h.edict));
+    for (const k of allowed) {
+      const o = /** @type {HTMLOptionElement} */ (el('option', null, EDICTS[k].name));
+      o.value = k;
+      sel.append(o);
+    }
+    const chosen = edictAsk && allowed.includes(edictAsk) ? edictAsk : (h.next && allowed.includes(h.next) ? h.next : allowed[0] ?? null);
+    if (chosen) sel.value = chosen;
+    sel.onchange = () => { edictAsk = sel.value; ui.rerender(); };
+    out.append(sel);
+    const words = edictLine(chosen, seat.tier);
+    if (words) out.append(el('p', 'notice-seat-mine', words));
+    if (chosen === 'bounty') {
+      const a = /** @type {HTMLInputElement} */ (el('input', 'notice-input notice-seat-bounty'));
+      a.type = 'number'; a.min = String(BOUNTY_MARKS); a.step = String(BOUNTY_MARKS); a.value = String(bountyAside);
+      a.setAttribute('aria-label', 'Drakes set aside for the Bounty');
+      a.oninput = () => { bountyAside = Math.floor(Number(a.value) || 0); };
+      out.append(a);
+    }
+    const go = button('notice-seat-edict-set', 'Proclaim for next week', () => act(() => book.edict(seat, chosen, chosen === 'bounty' ? bountyAside : 0)));
+    go.disabled = busy || !chosen;
+    out.append(go);
+    if (h.next) {
+      const back = button('notice-seat-edict-back', 'Take it back', () => act(() => book.edict(seat, null)));
+      back.disabled = busy;
+      out.append(back);
+    }
+    return out;
+  }
+
   return {
     /** The tab first shown: the standings read. */
     open: () => load(false),
@@ -148,6 +200,13 @@ export function createSeatTab(host, ui) {
         return body;
       }
       body.append(el('p', 'notice-seat-mine', seatHolderLine(holder)));
+      // SEAT1d: the Tithe and the Edict for everyone; the holder's own lines and its Officers' levers
+      const rule = seatRuleLine(seat, holder);
+      if (rule) body.append(el('p', 'notice-seat-mine', rule));
+      if (data.holding) {
+        for (const line of seatHoldingLines(seat, data.holding)) body.append(el('p', 'notice-seat-mine', line));
+        if (SEAT_LEVER_RANKS.includes(data.mine?.rank)) body.append(holdingNode(data.holding));
+      }
       const battle = seatBattleLine(data.battle ?? null);
       if (battle) body.append(el('p', 'notice-seat-battle', battle));
       body.append(el('p', 'notice-seat-week', seatWeekLine(data, ui.nowS())));

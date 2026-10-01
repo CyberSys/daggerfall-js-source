@@ -45,8 +45,9 @@ export const MARKET_OPS_MAX = 120;
 export const MARKET_WINDOW_S = 3600;
 /** The sales tax, in hundredths of a sale, burnt from the seller's proceeds (10.4: 5%). */
 export const MARKET_TAX_PCT = 5;
-/** The Tithe, in hundredths (10.4: the holder's rate, 0-10% or 0-15%). FOUND: no seat is held yet (SEAT1 builds
- *  holders), so it is nought until SEAT1 sets it - the law keeps the term so the shape does not change. */
+/** The Tithe, in hundredths (10.4: the holder's rate, 0-10% or 0-15%) - nought where no seat holds the board's
+ *  bailiwick. SEAT1d: a sale's rate is its seat's holder's (server-account/src/seatHolding.js titheAt, passed to saleTithe),
+ *  and its line goes to that holder's treasury (or is burnt) - this default the rest of the law's shape keeps. */
 export const MARKET_TITHE_PCT = 0;
 /** The courier (10.4): a load of this many units a trip, a road this many pixels a Mark, at least this many Marks. */
 export const COURIER = Object.freeze({ load: 20, pixelsAMark: 25, least: 2, baseS: 900, pixelsAMinute: 10 });

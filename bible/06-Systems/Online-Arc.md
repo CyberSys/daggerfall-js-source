@@ -4775,7 +4775,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7358` read, on one physical line:
+`src/scenes/worldModes.js:7366` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4917,7 +4917,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:8147` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:8165` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:352`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -10598,6 +10598,93 @@ schema). `tools/mutants/seat1c.json` (57, all dead) - two more were recorded EQU
 read of its key (an optimisation - the key's own INSERT refuses a second settle whatever it reads) and the claim fee's
 balance guard (the treasury's own CHECK refuses an overdraft, so the batch rolls back either way); GUILD1d, SEAT1a,
 SEAT1b, ACC1d, ACC3a, ACC3b, NAME-ADOPT, PENITENT, SHADOW-FANG and WB9g records re-aimed by content, all dead.
+
+### SEAT1d - holding a seat: the upkeep and Neglect, Overreach, the Tithe, the members' discount, Standing, the Edicts
+
+2026-10-01, Mac: "Finish the seats"; "Continue". Rides a new undeployed `acct45` (migration 0049_seat_holding.sql) - no
+relay change. Behind `SEATS_OPEN` with the rest of the seats. Seats-Arc 7.1-7.3, 7.6; Appendix C.
+
+- **The upkeep** (Seats-Arc 7.1, 5.2 step 5): the Turning pays each Charter's week from its holder's Drake treasury,
+  burnt (a `seat-upkeep` line): 2,500 a palace, 15,000 a crown x the server's scale - min(1.5, max(0.4, active / 100)),
+  `active` the registered accounts whose last play beat fell in the week (`seatHolding.js` activeIn, `players.played_at`
+  - the last beat only, so a settle read late counts low and the scale's floor holds it). **Overreach**: a guild's
+  extra is its seats' weight (a palace 1, a crown 3) less its heaviest's; each seat it holds pays x (1 + 0.25 x extra)
+  and defends at x (1 - 0.05 x extra), added. Paid in key order out of what the claims left (`turningPlan`'s one purse).
+  **Neglect**: a treasury short of a week's upkeep writes the week owed (`town_seat_holds.owed`), Standing -10 and a
+  Chronicle row; the next Turning asks both weeks - paid, it is late (Standing -5, a Chronicle row); short again, the
+  Charter lapses (the hold deleted, its coming Edict void, a Chronicle row). DECIDED here, recorded: the upkeep is
+  reckoned before the Rights of Siege, so a Charter that lapses at a Turning is no siege's - the seat is unheld from the
+  next week and may be claimed at the Turning after (SEAT0 5.2 wrote step 5 after step 4; a Right against a Charter
+  that is gone has nothing to besiege).
+- **Standing** (7.3), every row the slice can reckon, at the Turning, in the table's order (`standingWeek`): the
+  Tithe's two (at or below half its cap +2, above three quarters -3), held unchallenged +5, each gate felled in the
+  region +2 (at most +6 - the gate days of the week whose region three claims agree on), a week without the Watch from
+  the holder's own members -5, each of the holder's writs filled in the region +1 (at most +5 - its own guild writs,
+  `guild_writs` filled in the week: a guild may fill its own, paying the writ and its tax, which the +5 bounds), Neglect
+  -10, upkeep late -5, and the coming Edict's own row when it becomes law; held to 0-100. The siege's rows (+15, -5
+  after the Throne) and the revolt's (to 20) are in the law for SEAT2a and SEAT2b. **Unrest** (below 20): a
+  challenger's influence there counts a quarter more, on the Seat tab's standings and at the Turning; the arrival says
+  so.
+- **The Tithe** (7.2): set by the Guildmaster or an Officer at the board (`/v1/seats/tithe`), a whole percent, 0-10 at a
+  palace and 0-15 at a crown, once a seat week (`tithe_week`, asked in the UPDATE with the rank and the cap). **The
+  bailiwick**: a listing and an auction record the board they were posted at (its town's map pixel, `board_x`/`board_y`
+  - the client's own, sent with every post and buy); a sale pays the Tithe of the seat of its region nearest that board
+  (ties to the lower key; an older client's posting, which names none, the region's first seat), taken from the
+  seller's proceeds as a `tithe` line from the buyer to the holder's treasury - or burnt where the guild is gone or its
+  treasury's cap holds (PROF0 18's OPEN item, "SEAT1 writes the Tithe's line (to the holder, or burnt)", closed); a
+  courier's fee pays the same share to the buyer's board's seat out of what is burnt; an auction pays its Tithe at its
+  close out of the winning bid's escrow (`market_auctions.tithe`). A gold sale pays none (gold never becomes Drakes);
+  an auction's courier and a buy order's fill pay none (the bid names no board; a fill is not a listing's sale); a writ
+  has no fee (7.2). A board is the client's word: a seller who names another board of the same region chooses between
+  that region's seats, as walking there would.
+- **The members' discount and Market Day** (7.2, 7.6) - the player's own client, where the shop's price is reckoned:
+  a multiplier of its own on the shop's price adjustment (`worldModes.js` shopAdjustment - never
+  `regionPriceAdjustment`'s region-wide index, which also sets quest gold), for what the player buys and has repaired
+  at a seat town's shops alone (what a shop pays for a sale is the shop's): 10% for a member of the holder's guild (15%
+  at a crown), 5% more while Standing is 80 or more, and Market Day's tenth for everyone - added.
+- **The Edicts** (7.6): the Guildmaster or an Officer proclaims next week's at the board (`/v1/seats/edict`,
+  `town_seat_edicts`), replaced or taken back until the Turning, never this week's again but Market Day; the Turning
+  makes it law and pays its cost (a Festival's 2,500 / 10,000 burnt, a `seat-edict` line; a Bounty's set-aside escrowed,
+  `bounty-escrow`) - or lets it fall unpaid (a Chronicle row). DECIDED here: proclaimed in the week before it rules ("At
+  each Turning the holder proclaims one Edict for the coming week") - so a new Charter's first week rules none. The
+  seats' list names the Edict that rules at each held seat. Each, where it lands:
+  - **Market Day**: the shops above.
+  - **Open Gates**: while it rules, the town's homes read open to all (`homes.js` homesInTown - a reader the seats are
+    open to; the owner's own view, and its choice, kept for after). Standing +3.
+  - **Curfew**: the town's watchmen are posted five levels stronger at night (`cityGuards.js` levelBonus), and a crime
+    there costs twice the legal reputation (`court.js` setCrimeRepFactor - the legal loss alone, the People's half as
+    DFU's). Standing -2.
+  - **Festival**: everyone who comes into the town is Festive for a game day - +5 to every attribute through an entity
+    fold (`systems/seatEdicts.js`, `entityMods.js` registerEntityFold), recomputed the moment it takes. Standing +10.
+  - **Levy**: a tenth of each harvest on the ground of the seat's bailiwick goes to the seat's stockpile
+    (`town_seat_stockpile` - the SEAT's, never withdrawn; SEAT2b's fortifications spend it), its fraction kept by the
+    harvest's own roll so the tenth holds on average (`levyOf`), the gatherer keeping at least one; a dungeon's vein and
+    a body name no town's ground. The harvest answers its `levy`. Standing -2.
+  - **Bounty**: World of Daggerfall camps in the bailiwick yield double loot, and a camp's foe the player fought,
+    fallen, is claimed (`/v1/seats/bounty` - the site's id names its pixel): 20 Drakes from the escrow, a camp once a
+    UTC day whoever cleared it, five an account a day, never past the set-aside; what the escrow did not pay goes home at
+    the next Turning (`bounty-return`). Bounded, not witnessed: a modified client can claim camps it never fought, five
+    a day - SEAT0 7.6's own bound. "A camp" is a World of Daggerfall site (one marker, its one foe).
+  - The crown's two (the Royal Tourney, Conscription) are CROWN1's.
+- **The Seat tab** (7.9): everyone sees the Tithe and the Edict that rules (and Unrest); the holder's members see next
+  week's Edict, the upkeep the Turning will ask (its Overreach, the crown's scale) and Neglect's debt (`holding` on
+  `/v1/seats/standings`); its Guildmaster and Officers the levers - the Tithe once a week, the Edict with its words and
+  cost (a Bounty's set-aside), its take-back.
+- **The economy model** (`tools/seatEconomy.mjs`, Professions-Arc Appendix C: "SEAT1d ships the model as a tool"): a
+  seeded Monte Carlo of a guild's week reading townSeatLaw.js and professionLaw.js - the table re-run is recorded in
+  Appendix C.
+
+Left for their slices, recorded: the siege's and the revolt's Standing rows (SEAT2a, SEAT2b - their numbers are in the
+law); the stockpile's writs and the Siege Camp (SEAT2b); the crown's Edicts, reach and the Marches (CROWN1); a vassal's
+tribute and Conscription as shares of the Tithe (CROWN1, CROWN2).
+
+Pinned: `test/seat1d_service.test.js` (6), `test/seat1d_client.test.js` (10); re-aimed in `test/seat1c_service.test.js`
+and `test/seat1c_client.test.js` (a holder now pays its upkeep, so the Turning's +5 is pinned beside a paid week at a
+Tithe that moves nothing), `test/audit31_law.test.js` (the Tithe's nought the default where no seat holds the board),
+`test/roadg_pools.test.js` (a cite), the account version pins. `tools/mutants/seat1d.json` (86, all dead) - one more
+was recorded EQUIVALENT and dropped: the Tithe's high row asked at three quarters inclusive (no whole-percent Tithe sits
+on three quarters of either cap, 7.5 or 11.25); GOLDMARKET, PROF5, SEAT1c, SIGIL1, SURVTIERS3 and AUDIT ALL A6 records
+re-aimed by content (PIN MOVED), all dead.
 
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 

@@ -44,6 +44,7 @@ import {
 import { DECOR_OPS_MAX, DECOR_OPS_WINDOW_S } from '../../src/net/decorLaw.js';   // HOME-LOOK: a repaint counts as a decorator's write
 import { hallMay } from '../../src/net/hallLaw.js';   // GUILD1d: a hall's keepers
 import { heraldryOfRow } from './halls.js';   // GUILD1d: a hall's heraldry, on its door
+import { openGatesAt } from './seatHolding.js';   // SEAT1d: Open Gates, where the town's holder proclaims it
 
 const homeOf = (row) => ({
   mapId: row.map_id, buildingKey: row.building_key, region: row.region, character: row.char_id,
@@ -227,8 +228,11 @@ export async function setHomeLook({ db, nowS }, player, { mapId, buildingKey, ch
  * in, and which are the caller's own. Never the price, never another account's character.
  * @param {{db: any}} ctx
  */
-export async function homesInTown({ db, nowS = Math.floor(Date.now() / 1000) }, player, { mapId, character = null } = {}) {
+export async function homesInTown({ db, nowS = Math.floor(Date.now() / 1000) }, player, { mapId, character = null } = {}, { seats = false } = {}) {
   if (!homeMapIdOk(mapId)) return { error: 'bad-home' };
+  // SEAT1d (Seats-Arc 7.6): OPEN GATES - while the town's holder proclaims it, every home there stands open to all (a
+  // reader the seats are open to); each owner's own choice is kept, and its own view shows it
+  const open = seats && await openGatesAt(db, nowS, mapId);
   // HOME-RENT: each home's rooms still free to rent (how many, and the cheapest a day), and - for the character the
   // caller names - the end of its own tenancy there, which opens the door to it
   const me = typeof character === 'string' && CHAR_ID_RE.test(character) ? character : '';
@@ -244,7 +248,7 @@ export async function homesInTown({ db, nowS = Math.floor(Date.now() / 1000) }, 
         WHERE a.player = h.player AND a.char_id = h.char_id AND b.player = ?2 AND b.char_id = ?3)) AS guildmate
     FROM homes h LEFT JOIN guilds g ON g.id = h.guild_id WHERE h.map_id = ?4 ORDER BY h.building_key LIMIT ?5`).bind(nowS, player.id, me, mapId, HOME_TOWN_MAX).all();
   return {
-    mapId,
+    mapId, ...(open ? { openGates: true } : {}),
     homes: results.map((h) => {
       if (h.guild_id != null) {
         // GUILD1d: A GUILD'S HALL - named by its guild, whose members walk in and whose Officers furnish it; nobody's home
@@ -259,7 +263,7 @@ export async function homesInTown({ db, nowS = Math.floor(Date.now() / 1000) }, 
       // HOME-CROSSED: my own realm character's house no record paid for is `crossed` - its door asks no price
       const crossed = mine && REALM_ID_RE.test(String(h.char_id)) && !(Number(h.paid) > 0);
       return {
-        buildingKey: h.building_key, owner: h.owner_name, entry: h.entry, mine, ...(mine ? { character: h.char_id } : {}), ...(crossed ? { crossed } : {}),
+        buildingKey: h.building_key, owner: h.owner_name, entry: open && !mine ? 'public' : h.entry, mine, ...(mine ? { character: h.char_id } : {}), ...(crossed ? { crossed } : {}),
         ...(Number(h.vacant) > 0 ? { rent: { vacant: Number(h.vacant), from: Number(h.rent_from) } } : {}),
         ...(Number.isSafeInteger(h.tenancy) && h.tenancy > nowS ? { tenant: h.tenancy } : {}),
         ...(h.look ? (() => { const look = homeLookOf(h.look); return look ? { look } : {}; })() : {}),   // HOME-LOOK: how its owner painted it

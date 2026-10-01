@@ -51,5 +51,5 @@ test('AUDIT 31 L8: the seat week\'s first Sunday 18:00 UTC is the online epoch\'
 });
 
 test('AUDIT 31 L5: the Tithe is nought until SEAT1 - a sale and an auction\'s close write no Tithe line yet, so a Tithe above nought would leave Marks in no account (Professions-Arc 18, OPEN)', () => {
-  assert.equal(MARKET_TITHE_PCT, 0, 'SEAT1 writes the Tithe\'s line (a buy\'s, an auction\'s close, a writ\'s, a commission\'s) before it raises this');
+  assert.equal(MARKET_TITHE_PCT, 0, 'the default where no seat holds the bailiwick - SEAT1d takes a buy\'s and an auction\'s close\'s rate from its seat, beside its own line (test/seat1d_service.test.js); a writ and a commission pay none (Seats-Arc 7.2: "a writ has no fee")');
 });

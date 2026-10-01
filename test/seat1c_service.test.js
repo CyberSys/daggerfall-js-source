@@ -146,6 +146,9 @@ test('SEAT1c THE HOLDER\'S DEFENCE AND THE RIGHTS OF SIEGE: a new Charter\'s tru
   raw.prepare("INSERT INTO town_seat_holds (key, guild_id, region, tier, since_week, standing, truce_week, at) VALUES (?, ?, ?, 'palace', ?, 50, NULL, ?)").run(9999, h2.gid, 21, W, T0);
   assert.equal((await svc.call('/v1/seats/pledge', { character: h2.gm.character, key: ANTICLERE.key }, h2.gm.secret)).body.error, 'seat-held-here');
   raw.prepare('DELETE FROM town_seat_holds WHERE key = 9999').run();
+  // SEAT1d: each holder pays its week's upkeep, at a Tithe that moves Standing neither way - so the Turning's +5 stands alone
+  raw.prepare('UPDATE town_seat_holds SET tithe = 6').run();
+  treasury(h1.gid, 2500); treasury(h2.gid, 2500);
   // the Circle beats both holders; the Host beats the Oath alone
   pledge(ch.gid, ANTICLERE); pledge(ch.gid, ALCAIRE); pledge(ch2.gid, ALCAIRE);
   await earn(h1.gid, ANTICLERE, 4000); await earn(h2.gid, ALCAIRE, 5000);

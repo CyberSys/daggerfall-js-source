@@ -18,14 +18,21 @@
 //
 // The settle reads the week's standings as they stood at its Turning
 // (seatInfluence.js gatherStandings - a home's days counted to the
-// boundary, not to the reader's now). Upkeep, Neglect and Overreach are
-// SEAT1d's; the battles a Right or a Contested seat names are SEAT2a's to
-// fight - until then they are the Chronicle's.
+// boundary, not to the reader's now). SEAT1d: each holder's week beside
+// it - its own members' Watch there, the gates felled in its region, its
+// writs filled there, its Tithe and what it owes from Neglect, the Edict
+// proclaimed for the coming week - and the accounts that played (the
+// crown's scale); the batch pays the upkeep and the Edicts, lapses a
+// Charter neglected twice, writes every Standing, and sends a Bounty's
+// unspent escrow home. The battles a Right or a Contested seat names are
+// SEAT2a's to fight - until then they are the Chronicle's.
 //
 // EVERY CLOCK IS AN ARGUMENT, as in accounts.js.
 // ═════════════════════════════════════════════════════════════════════
 import { confirmedSeats, seatsOpenFor } from './townSeats.js';
-import { gatherStandings, seatGuildsOf, holdsOf, battlesOf } from './seatInfluence.js';
+import { gatherStandings, seatGuildsOf, holdsOf, battlesOf, agreedGateRegions } from './seatInfluence.js';
+import { activeIn, edictsOf } from './seatHolding.js';
+import { gameDayAt, gateTimes } from '../../src/net/gateLaw.js';
 import { guildActorOf } from './guilds.js';
 import { mustChange } from './realm.js';
 import { utcDay } from '../../src/net/marksLaw.js';
@@ -59,29 +66,49 @@ export async function settleWeek(db, week, nowS) {
   const atS = turningOf(week);
   const registry = await confirmedSeats(db, nowS);
   const { results: pledgedKeys = [] } = await db.prepare('SELECT DISTINCT key FROM town_seat_pledges WHERE week = ?').bind(week).all();
-  const { results: holdRows = [] } = await db.prepare('SELECT key, guild_id, region, standing, truce_week FROM town_seat_holds').all();
+  const { results: holdRows = [] } = await db.prepare('SELECT key, guild_id, region, tier, standing, truce_week, tithe, owed FROM town_seat_holds').all();
   const holds = new Map(holdRows.map((h) => [Number(h.key), h]));
   const keys = [...new Set([...pledgedKeys.map((p) => Number(p.key)), ...holds.keys()])].filter((k) => registry.has(k)).sort((a, b) => a - b);
   const { results: legacyRows = [] } = await db.prepare('SELECT key, guild_id, amount FROM town_seat_legacy WHERE week = ?').bind(week).all();
   const legacyOf = new Map(legacyRows.map((l) => [`${l.key}\n${l.guild_id}`, Number(l.amount)]));
+  const next = week + 1;
+  // SEAT1d: the holders' week - the gates the week's days felled, region by region; the Edicts proclaimed for the next
+  const fromS = Math.floor(seatWeekStartMs(week) / 1000);
+  const days = [];
+  for (let d = gameDayAt(fromS * 1000); d <= gameDayAt(atS * 1000); d++) { const r = gateTimes(d).riseAt / 1000; if (r >= fromS && r < atS) days.push(d); }
+  const gatesIn = new Map();
+  for (const region of (await agreedGateRegions(db, days)).values()) gatesIn.set(region, (gatesIn.get(region) ?? 0) + 1);
+  const { results: proclaimed = [] } = await db.prepare("SELECT key, edict, guild_id, set_aside FROM town_seat_edicts WHERE week = ? AND state = 'proclaimed'").bind(next).all();
   const seats = [];
   for (const key of keys) {
     const seat = registry.get(key);
     const at = await seatGuildsOf(db, key, week);
     const list = await gatherStandings(db, seat, week, atS);
     const h = holds.get(key);
+    let holder = null;
+    if (h) {
+      const watched = await db.prepare("SELECT 1 FROM town_seat_influence WHERE week = ? AND key = ? AND guild_id = ? AND source = 'watch' LIMIT 1").bind(week, key, h.guild_id).first();
+      const writs = await db.prepare("SELECT COUNT(*) AS n FROM guild_writs WHERE guild_id = ? AND region = ? AND state = 'filled' AND closed_at >= ? AND closed_at < ?")
+        .bind(h.guild_id, Number(h.region), fromS, atS).first();
+      const e = proclaimed.find((x) => Number(x.key) === key && x.guild_id === h.guild_id) ?? null;
+      holder = {
+        guild: h.guild_id, standing: Number(h.standing), truceWeek: h.truce_week == null ? null : Number(h.truce_week),
+        tithe: Number(h.tithe), owed: Number(h.owed), watched: !!watched, gates: gatesIn.get(Number(h.region)) ?? 0, writs: Number(writs?.n ?? 0),
+        edict: e?.edict ?? null, setAside: Number(e?.set_aside ?? 0),
+      };
+    }
     seats.push({
-      key, tier: seat.tier,
-      holder: h ? { guild: h.guild_id, standing: Number(h.standing), truceWeek: h.truce_week == null ? null : Number(h.truce_week) } : null,
+      key, tier: seat.tier, holder,
       guilds: list.map((s) => ({ guild: s.guild, influence: s.total, legacy: legacyOf.get(`${key}\n${s.guild}`) ?? 0, pledgedAt: at.get(s.guild) ?? atS })),
     });
   }
   const guildIds = [...new Set(seats.flatMap((s) => s.guilds.map((g) => g.guild)))];
-  const { results: purses = [] } = guildIds.length
-    ? await db.prepare(`SELECT guild_id, balance FROM guild_marks WHERE guild_id IN (${guildIds.map(() => '?').join(', ')})`).bind(...guildIds).all() : { results: [] };
-  const plan = turningPlan({ week, seats, treasuries: new Map(purses.map((p) => [p.guild_id, Number(p.balance)])) });
-  const names = await namesOf(db, [...guildIds, ...holdRows.map((h) => h.guild_id)]);
-  const next = week + 1;
+  // the holders' treasuries too - a holder nobody else pledged against still pays its upkeep
+  const purseIds = [...new Set([...guildIds, ...holdRows.map((h) => h.guild_id)])];
+  const { results: purses = [] } = purseIds.length
+    ? await db.prepare(`SELECT guild_id, balance FROM guild_marks WHERE guild_id IN (${purseIds.map(() => '?').join(', ')})`).bind(...purseIds).all() : { results: [] };
+  const plan = turningPlan({ week, seats, treasuries: new Map(purses.map((p) => [p.guild_id, Number(p.balance)])), active: await activeIn(db, week) });
+  const names = await namesOf(db, purseIds);
   const history = (key, kind, data) => db.prepare('INSERT INTO town_seat_history (key, week, kind, data, at) VALUES (?, ?, ?, ?, ?)')
     .bind(key, week, kind, JSON.stringify(data), nowS);
   const stmts = [db.prepare('INSERT INTO town_seat_weeks (week, settled_at) VALUES (?, ?)').bind(week, nowS)];
@@ -106,8 +133,56 @@ export async function settleWeek(db, week, nowS) {
       .bind(next, r.key, r.guild, holder, r.total, r.defence, nowS));
     stmts.push(history(r.key, 'right', { guild: names.get(r.guild), holder: names.get(holder), total: r.total, defence: r.defence }));
   }
+  // SEAT1d (7.1, 5.2 step 5): THE UPKEEP - burnt where the treasury holds it (or the settle rolls back whole), Neglect's
+  // debt written, a Charter neglected twice lapsed and its coming Edict void
+  const burn = (guild, kind, amount, rid) => db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
+    SELECT 'guild', ?1, 'burn', NULL, ?2, ?3, ?4, ?5, 'seats', 'The Turning', ?6 WHERE COALESCE((SELECT balance FROM guild_marks WHERE guild_id = ?1), 0) >= ?3`)
+    .bind(guild, kind, amount, utcDay(nowS), nowS, rid);
+  for (const u of plan.upkeep) {
+    if (u.state === 'paid' || u.state === 'late') {
+      if (u.paid > 0) stmts.push(burn(u.guild, 'seat-upkeep', u.paid, `upkeep-${week}-${u.key}`), mustChange(db));
+      stmts.push(db.prepare('UPDATE town_seat_holds SET owed = 0 WHERE key = ? AND guild_id = ?').bind(u.key, u.guild));
+      if (u.state === 'late') stmts.push(history(u.key, 'late', { guild: names.get(u.guild), paid: u.paid }));
+    } else if (u.state === 'neglect') {
+      stmts.push(db.prepare('UPDATE town_seat_holds SET owed = ? WHERE key = ? AND guild_id = ?').bind(u.owed, u.key, u.guild));
+      stmts.push(history(u.key, 'neglect', { guild: names.get(u.guild), owed: u.owed }));
+    } else {
+      stmts.push(db.prepare('DELETE FROM town_seat_holds WHERE key = ? AND guild_id = ?').bind(u.key, u.guild));
+      stmts.push(db.prepare("UPDATE town_seat_edicts SET state = 'void' WHERE key = ? AND week = ? AND state = 'proclaimed'").bind(u.key, next));
+      stmts.push(history(u.key, 'lapse', { guild: names.get(u.guild) }));
+    }
+  }
+  // the coming week's Edicts: law, their cost burnt (a Bounty's escrowed) - or fallen
+  for (const e of plan.edicts) {
+    if (e.state === 'law') {
+      if (e.cost > 0) {
+        stmts.push(e.edict === 'bounty'
+          ? db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
+              SELECT 'guild', ?1, 'escrow', ?2, 'bounty-escrow', ?3, ?4, ?5, 'seats', 'The Turning', ?2
+              WHERE COALESCE((SELECT balance FROM guild_marks WHERE guild_id = ?1), 0) >= ?3`).bind(e.guild, `bounty:${e.key}:${next}`, e.cost, utcDay(nowS), nowS)
+          : burn(e.guild, 'seat-edict', e.cost, `edict-${next}-${e.key}`), mustChange(db));
+      }
+      stmts.push(db.prepare("UPDATE town_seat_edicts SET state = 'law', cost = ? WHERE key = ? AND week = ? AND guild_id = ? AND state = 'proclaimed'").bind(e.cost, e.key, next, e.guild));
+      stmts.push(history(e.key, 'edict', { guild: names.get(e.guild), edict: e.edict }));
+    } else {
+      stmts.push(db.prepare("UPDATE town_seat_edicts SET state = 'unpaid' WHERE key = ? AND week = ? AND guild_id = ? AND state = 'proclaimed'").bind(e.key, next, e.guild));
+      stmts.push(history(e.key, 'edict-unpaid', { guild: names.get(e.guild), edict: e.edict }));
+    }
+  }
+  // the week's Bounties done: what their escrow did not pay goes home
+  for (const [key, b] of await edictsOf(db, week)) {
+    if (b.edict !== 'bounty') continue;
+    stmts.push(db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
+      SELECT 'escrow', ?1, 'guild', guild_id, 'bounty-return', set_aside - spent, ?2, ?3, 'seats', 'The Turning', ?1 || ':return'
+      FROM town_seat_edicts WHERE key = ?4 AND week = ?5 AND state = 'law' AND set_aside > spent AND EXISTS (SELECT 1 FROM guilds WHERE id = guild_id)`)
+      .bind(`bounty:${key}:${week}`, utcDay(nowS), nowS, key, week));
+    stmts.push(db.prepare("UPDATE town_seat_edicts SET state = 'returned' WHERE key = ? AND week = ? AND state = 'law'").bind(key, week));
+  }
+  // every held seat's Standing after its week (7.3); the unchallenged in the Chronicle
+  for (const w of plan.standings) {
+    stmts.push(db.prepare('UPDATE town_seat_holds SET standing = ? WHERE key = ? AND guild_id = ?').bind(w.standing, w.key, w.guild));
+  }
   for (const h of plan.held) {
-    stmts.push(db.prepare('UPDATE town_seat_holds SET standing = ? WHERE key = ? AND guild_id = ?').bind(h.standing, h.key, h.guild));
     stmts.push(history(h.key, 'held', { guild: names.get(h.guild), standing: h.standing }));
   }
   for (const l of plan.legacy) {
@@ -118,11 +193,17 @@ export async function settleWeek(db, week, nowS) {
 }
 
 /** THE SEATS AS THE MAP AND THE ARRIVAL NEED THEM: each listed seat with its holder and this week's battle at it (a
- *  Contested seat's Tourney, a held seat's siege), or null. */
+ *  Contested seat's Tourney, a held seat's siege), or null. SEAT1d: the holder with the Edict that rules this week (the
+ *  client's shops, its arrival and its Festival read it), or null. */
 export async function seatsWithHolders(db, seats, nowS) {
   const holds = await holdsOf(db);
   const battles = await battlesOf(db, weekAt(nowS));
-  return seats.map((s) => ({ ...s, holder: holds.get(s.key) ?? null, battle: battles.get(s.key) ?? null }));
+  const edicts = await edictsOf(db, weekAt(nowS));
+  return seats.map((s) => {
+    const h = holds.get(s.key) ?? null;
+    const e = edicts.get(s.key);
+    return { ...s, holder: h ? { ...h, edict: e && e.guild === h.guild.id ? e.edict : null } : null, battle: battles.get(s.key) ?? null };
+  });
 }
 
 /**
