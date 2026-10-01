@@ -534,7 +534,8 @@ test('PROF7 wiring: the street and the dungeon stamp and list their bodies for H
   const idx = src('server-account/src/index.js');
   assert.match(idx, /'prof-hunt-cap': 409, 'prof-hunt-high': 409, 'prof-foe': 400, 'prof-dye': 400,/);
   const c = src('src/net/accountClient.js');
-  assert.match(c, /craft: \(character, recipe, clean, name, rid, heartwood = false, dye = null\) => post\('\/v1\/prof\/craft', \{ character, recipe, clean, name, rid, heartwood, \.\.\.\(dye == null \? \{\} : \{ dye \}\) \}\),/);
+  // PIN MOVED (SEAT2b part two): the craft carries `at` too - the station's town, a seat key or null - beside the dye
+  assert.match(c, /craft: \(character, recipe, clean, name, rid, heartwood = false, dye = null, at = null\) => post\('\/v1\/prof\/craft', \{ character, recipe, clean, name, rid, heartwood, at: seatKeyOk\(at\) \? at : null, \.\.\.\(dye == null \? \{\} : \{ dye \}\) \}\),/);
   for (const word of ['prof-hunt-cap', 'prof-hunt-high', 'prof-foe', 'prof-dye']) assert.doesNotMatch(accountRefusalText(word), /problem|could not be read/, word);
   assert.match(src('.github/workflows/account-deploy.yml'), /- "src\/characters\/dyes\.js"/);
   assert.match(src('src/systems/foragingInstall.js'), /hudText\(brokeMessage\(item\.templateIndex, item\.name\)\);/);

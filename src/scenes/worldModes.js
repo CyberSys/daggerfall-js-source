@@ -11201,6 +11201,14 @@ export function createWorldModes(host) {
       if (hallMemberHere() && interiorDecor.list().some((p) => p?.station === 'mason')) return { kind: 'home', fee: 0 };   // AUDIT GUILD1d A2's law
       return null;
     },
+    /** SEAT2b part two (bible/11-Multiplayer/Seats-Arc.md 7.5's Forge, Workshop and Apothecary - DECIDED in the contract:
+     *  any station in a seat's town, a shop's, a home's or a hall's): THE TOWN THE STATIONS HERE STAND IN - the building's
+     *  own (its door's location, homeTownOf: HOME1's, the town that keys its home), as a seat key (`mapId >>> 0`): the
+     *  craft's `at` and the step lines' seat; null outside a building. */
+    stationTown() {
+      if (mode !== 'interior' || !interiorBuilding) return null;
+      return (homeTownOf(interiorBuilding) >>> 0) || null;
+    },
     // Q4-v: the world seam's playerInside half + the machine's
     // hot-place callback (deps.world.mountCurrentSiteQuestResources).
     get interiorBuilding() { return interiorBuilding; },

@@ -27,9 +27,16 @@
 // part its own ingredient (Big Tooth, Spider's Venom...); its butchery
 // C&C's Raw Meat, and a Slaughterfish's Raw Fish as the Basket's fruit is
 // chosen - C&C's while it is on, else Foraging's Fish.
+//
+// SEAT2b part two: A SIEGE WORK - the Ram Kit (PROF0 4.8's 690: "Ram Kit |
+// Stores (a siege work)") - is named but never minted: it stays in the
+// Stores for a Siege Camp's writ (professionLaw.js withdrawable is false),
+// so no template is registered for a pack to hold; its name is its
+// recipe's (net/recipeLaw.js 'ramkit:oak' - one home).
 // ═══════════════════════════════════════════════════════════════════
 import { material } from '../net/nodeLaw.js';
 import { minedMaterial } from '../net/professionLaw.js';
+import { RECIPES } from '../net/recipeLaw.js';   // SEAT2b part two: a siege work's name, its recipe's
 import { setItemFields, mintCondition, templateByIndex } from './itemTemplates.js';
 import { addItem } from './inventory.js';
 import { itemNameParts } from './itemInfo.js';
@@ -71,6 +78,7 @@ export function materialLabel(key, cc = survivalOn()) {
   if (!m) return String(key ?? '');
   if (m.family === 'herbs') return itemNameParts({ group: m.group, templateIndex: m.templateIndex }).name;
   if (m.family === 'food') { const t = foodTemplate(key, cc); return templateByIndex(t)?.name ?? String(key); }
+  if (m.family === 'works') return RECIPES.find((r) => r.kind === 'siege' && r.templateIndex === m.templateIndex)?.name ?? String(key);   // SEAT2b part two: "Ram Kit"
   return templateByIndex(m.templateIndex)?.name ?? minedMaterial(key)?.name ?? String(key);   // PROF2: DFU's name, or the row's
 }
 

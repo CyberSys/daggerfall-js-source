@@ -32,6 +32,13 @@
 //   Sculptor's stone decor - at a General Store (its fee a cut, a mix
 //   or a carving) or a home's mason's bench.
 //
+// SEAT2b part two (2026-10-01, Mac: "I want to finish the inprogress"; bible/11-Multiplayer/Seats-Arc.md 7.5, 4.2):
+// THE SEAT'S HALL AT EACH STATION - where the player's guild holds the town's seat and its Forge, Workshop or Apothecary
+// gives the recipe's profession steps, the craft box says so under its odds ("The seat's Forge: +1 quality step here.",
+// net/memberWorks.js hallStepsLine; no line anywhere else). THE RAM KIT MADE at the workbench (Carpentry 60) - into
+// the Stores, never the pack: the Stores page lists it in the Siege Works and never offers to withdraw it. THE
+// SIEGEWRIGHT chosen at Carpentry 100 like any card (its `later` lifted, professionLaw.js).
+//
 // The pages draw with the menu's own kit (its `el`, divider and meter,
 // handed in), so they are the sheet's pages and not a second window.
 // ═══════════════════════════════════════════════════════════════════
@@ -45,7 +52,9 @@ import {
 import {
   RECIPES, recipeOpen, qualityOdds, QUALITY_NAMES, HEAT_ACT, takesQuality, recipeInputs, takesHeartwood, PLANE_ACT, STITCH_ACT,
   GARMENT_DYES, MASONRY_RECIPES, CHISEL_ACT, chiselStrikes, chiselMarkS, SCULPTOR,   // PROF11: the Sculptor's stone and the chisel
+  recipeById,   // SEAT2b part two: a siege work's answer
 } from '../net/recipeLaw.js';
+import { hallStepsLine } from '../net/memberWorks.js';   // SEAT2b part two: the seat's halls at a station
 import { createStitchAct } from '../systems/stitchAct.js';
 import { createChiselAct } from '../systems/chiselAct.js';   // PROF11
 import { DYE_NAMES } from '../characters/dyes.js';
@@ -85,13 +94,15 @@ import { getPref, setPref } from '../systems/uiPrefs.js';
  * @property {() => boolean} [marksOpen]   AUDIT 32 P6: whether Marks are struck at all - a counter is offered only then
  * @property {() => ({ kind: 'shop'|'home', fee: number }|null)} [mason]   PROF11: the mason's bench the player stands at
  * @property {() => number} [chiselBand]   PROF11: the chisel's attribute band (recipeLaw chiselBand)
+ * @property {() => (Record<string, number>|null)} [halls]   SEAT2b part two: the standing works of the seat of the town the
+ *   stations here stand in, where the player's guild holds it (net/townSeatBook.js memberWorks), else null
  */
 let _provider = /** @type {ProfPagesProvider|null} */ (null);
 /** The host's book, or null to take the pages down (offline, a closed switch, the host gone). */
 export function setProfessionsPages(p) { _provider = p ?? null; }
 /** What a locked specialisation's card says it waits for (professionLaw.js `later`). */
 const LATER_WORDS = Object.freeze({
-  PROF2b: 'Comes with the Motherlodes', SEAT2: 'Comes with the sieges', SEAT2b: 'Comes with the fortifications',   // PROF11: the Builder's and the Fortifier's
+  PROF2b: 'Comes with the Motherlodes', SEAT2b: 'Comes with the fortifications',   // PROF11: the Builder's and the Fortifier's - SEAT2b part two: the sieges' words gone, the Siegewright chosen
   // PROF7 (Professions-Arc.md 29): what DFU gives these nothing to stand as - for Mac
   trophy: 'Waits on a trophy to stand as', 'two-colour': 'Waits on a second dye Daggerfall\'s cloth can take', wagon: 'Waits on a wagon upgrade to hold',   // AUDIT 32 R11: Daggerfall, never "DFU", where a player reads it
 });
@@ -191,12 +202,31 @@ function actKey(e, ownButton, press) {
   e.preventDefault?.(); e.stopImmediatePropagation?.(); e.stopPropagation?.();
   if (!e.repeat) press(e);
 }
+/** SEAT2b part two (Seats-Arc 7.5's Forge, Workshop and Apothecary): THE SEAT'S HALL HERE - its line under a craft's odds
+ *  where the player's guild holds the town's seat and its hall gives the recipe's profession steps (net/memberWorks.js
+ *  hallStepsLine over the provider's `halls`); no line anywhere else. */
+function hallLine(box, el, r) {
+  const line = hallStepsLine(r, _provider?.halls?.() ?? null);
+  if (line) box.append(el('p', 'px-note prof-hall', line));
+}
 /** AUDIT 30 U13: a station's fee the purse cannot meet - its words, or null. */
 function purseShort(station, who, per) {
   const p = _provider;
   if (!station || station.kind !== 'shop' || !(station.fee > 0) || typeof p?.purse !== 'function') return null;
   const have = p.purse();
   return have < station.fee ? `The ${who} asks ${station.fee} gold ${per}; you carry ${have}.` : null;
+}
+/** SEAT2b part two (Seats-Arc 4.2: "its siege works (a Ram Kit) go to the siege it won"; PROF0 4.8: "Ram Kit | Stores (a
+ *  siege work)"): what a siege work says - at the workbench, and in the Stores in the Withdraw's place. */
+export const RAM_KIT_BENCH_LINE = 'A Ram Kit goes into your Stores, never your pack - a siege work, delivered to a Siege Camp by a seat writ at a Notice Board\'s Work tab.';
+export const RAM_KIT_STAYS_LINE = 'A siege work stays in the Stores and never comes to the pack. A seat writ for a Siege Camp takes it, at a Notice Board\'s Work tab.';
+/** SEAT2b part two: what a craft's answer says where it made a siege work - the service answers no record and
+ *  systems/smithItems.js mints no piece; the kit is in the Stores, its row with the answer - or null for any other craft. */
+export function storedWorkText(data) {
+  const r = recipeById(data?.recipe);
+  if (r?.kind !== 'siege') return null;
+  const n = Math.max(1, Math.floor(Number(data?.count) || 1));
+  return `You made ${n === 1 ? `a ${r.name}` : `${n} ${r.name}s`} - it waits in your Stores for a Siege Camp's writ`;
 }
 /** What a Stores material of the smith's stock says in place of a withdrawal. */
 export const STOCK_STAYS_LINE = 'It stays at the bench: the anvil and the workbench spend it, and it comes to the pack once its own craft is practised.';   // PROF4: a counter's good with no pack form - none since PROF7 registered them all (NO_PACK_FORM empty), kept for a material to come
@@ -448,7 +478,13 @@ export function drawStoresPage(detail, rerender, kit) {
   }
   detail.append(grid);
   const pick = rows.find((r) => r.material === _stores.picked);
-  if (pick) {
+  // SEAT2b part two (Seats-Arc 4.2): a siege work - the Ram Kit - stays in the Stores for a Siege Camp's writ: its line
+  // and its words, and never a Withdraw (professionLaw.js withdrawable)
+  if (pick?.family === 'works') {
+    const bar = el('div', 'prof-matbar');
+    bar.append(el('span', 'prof-matline', `${pick.name} x${pick.total} - tier ${pick.tier} - ${pick.value} Drake${pick.value === 1 ? '' : 's'} each`));
+    detail.append(bar, el('p', 'px-note', RAM_KIT_STAYS_LINE));
+  } else if (pick) {
     const bar = el('div', 'prof-matbar');
     bar.append(el('span', 'prof-matline', `${pick.name} x${pick.total} - tier ${pick.tier} - ${pick.value} Drake${pick.value === 1 ? '' : 's'} each`));
     const qty = el('input', 'prof-qty');
@@ -707,6 +743,7 @@ function drawAnvil(detail, rerender, { el, divider }) {
     if (takesQuality(r) && recipeOpen(r, rank)) {
       const odds = qualityOdds(rank - r.rank, { masterwright: specs[100] === 'masterwright' });
       box.append(el('p', 'px-note', `Your rank ${rank}, margin ${rank - r.rank}: ${odds.map((o, q) => (o ? `${QUALITY_NAMES[q]} ${o}` : null)).filter(Boolean).join(' | ')}. A clean heat is a step better.`));
+      hallLine(box, el, r);   // SEAT2b part two: the seat's Forge
     } else if (!takesQuality(r)) box.append(el('p', 'px-note', 'A Repair Kit mends a quarter of a piece\'s condition, once - a weapon or armour of its metal.'));
     heartwoodToggle(box, el, r, book, _anvil, rerender, striking);   // PROF4: a Heartwood for a plank - the axes, hammers, shields, the Spade
     const gentle = getPref('gentleActs') === true;
@@ -907,7 +944,7 @@ function drawWorkbench(detail, rerender, { el, divider }) {
     const row = el('button', `prof-recipe${_bench.picked === r.id ? ' on' : ''}${can ? '' : ' prof-locked'}`);
     row.type = 'button';
     row.disabled = planing;
-    row.append(el('b', null, r.name), el('span', 'prof-split', r.later ? LATER_WORDS.SEAT2 : open ? (can ? 'can make now' : 'wants its inputs') : `rank ${r.rank}`));
+    row.append(el('b', null, r.name), el('span', 'prof-split', open ? (can ? 'can make now' : 'wants its inputs') : `rank ${r.rank}`));   // SEAT2b part two: the Ram Kit made - none waits on the sieges
     row.onclick = () => { _bench.picked = r.id; rerender(); };
     detail.append(row);
   }
@@ -936,18 +973,19 @@ function drawWorkbench(detail, rerender, { el, divider }) {
       }
       box.append(line);
     }
-    if (r.later) box.append(el('p', 'px-note', 'The Ram Kit is made when the sieges come.'));   // AUDIT 32 R8: its Bear Hides are Hunting's now
+    if (r.kind === 'siege') box.append(el('p', 'px-note', RAM_KIT_BENCH_LINE));   // SEAT2b part two: made, into the Stores (AUDIT 32 R8: its Bear Hides are Hunting's)
     else if (r.kind === 'arrows') box.append(el('p', 'px-note', `Twenty arrows, one quiver - an arrow takes no quality.`));
     else if (r.family === 'furniture') box.append(el('p', 'px-note', 'Furniture goes among your things, to set down in a room of your own (Decorate).'));
     if (takesQuality(r) && recipeOpen(r, rank)) {
       const odds = qualityOdds(rank - r.rank, { masterwright: false });
       box.append(el('p', 'px-note', `Your rank ${rank}, margin ${rank - r.rank}: ${odds.map((o, q) => (o ? `${QUALITY_NAMES[q]} ${o}` : null)).filter(Boolean).join(' | ')}. A clean pass of the plane is a step better.`));
+      hallLine(box, el, r);   // SEAT2b part two: the seat's Workshop
     }
     heartwoodToggle(box, el, r, book, _bench, rerender, planing);
     const gentle = getPref('gentleActs') === true;
     const elsewhere = handsAt(_bench);   // AUDIT 32 P2
     if (elsewhere && !_bench.act) box.append(el('p', 'px-note', `Your hands are at ${elsewhere} - finish there first.`));
-    const ready = !r.later && recipeOpen(r, rank) && craftable(r, held, spends) && !_bench.busy && !_bench.crafting && !_bench.act && !elsewhere && !short;
+    const ready = recipeOpen(r, rank) && craftable(r, held, spends) && !_bench.busy && !_bench.crafting && !_bench.act && !elsewhere && !short;   // SEAT2b part two: the Ram Kit's `later` gone
     // AUDIT 30 A3: the pass makes the recipe it began on, with its Heartwood - never the page's pick when it lands; AUDIT 32
     // P5: its own flag in flight, as the loom's
     const craftOf = (id, wood) => async (clean, rep = null) => {
@@ -1179,6 +1217,7 @@ function drawLoom(detail, rerender, { el, divider }) {
     if (takesQuality(r) && recipeOpen(r, rank)) {
       const odds = qualityOdds(rank - r.rank, { masterwright: false });
       box.append(el('p', 'px-note', `Your rank ${rank}, margin ${rank - r.rank}: ${odds.map((o, q) => (o ? `${QUALITY_NAMES[q]} ${o}` : null)).filter(Boolean).join(' | ')}. A clean stitch is a step better${specs[50] === 'tailor' && r.family === 'clothing' ? ', and a Tailor\'s clothing another' : specs[50] === 'leatherworker' && r.family === 'leather' ? ', and a Leatherworker\'s leather another' : ''}.`));
+      hallLine(box, el, r);   // SEAT2b part two: the seat's Workshop
     }
     const gentle = getPref('gentleActs') === true;
     const dye = r.kind === 'garment' && r.dyes === true ? _loom.dye : null;
@@ -1462,6 +1501,7 @@ function drawMasonBench(detail, rerender, { el, divider }) {
     if (open) {
       const odds = qualityOdds(rank - r.rank, { masterwright: false });
       box.append(el('p', 'px-note', `Your rank ${rank}, margin ${rank - r.rank}: ${odds.map((o, q) => (o ? `${QUALITY_NAMES[q]} ${o}` : null)).filter(Boolean).join(' | ')}. A clean chisel is a step better.`));
+      hallLine(box, el, r);   // SEAT2b part two: the seat's Workshop (Masonry's)
     }
     const ready = open && craftable(r, held) && !_mason.busy && !_mason.crafting && !_mason.act && !elsewhere && !short;
     const go = el('button', 'act primary', _mason.crafting ? 'At the bench...' : 'Craft');

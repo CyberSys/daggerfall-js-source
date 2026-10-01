@@ -20,6 +20,27 @@
 // care, and neither does the Set below; the numbers are kept as
 // written because the comments beside the extras are the only record
 // of WHY a given hamlet counts as a port.
+//
+// SEAT2b part two (2026-10-01, Mac: "I want to finish the inprogress"):
+// THE MEMBER PORTS (bible/11-Multiplayer/Seats-Arc.md 7.5's Harbour:
+// "ships (the Sea update) dock at the seat; the town is a Travel Options
+// port for members"). A held seat whose Harbour stands is a port for the
+// members of the guild holding it - asked HERE, in HasPort, so every port
+// question the port asks hears it: the popup's three ship laws
+// (ui/travelPopUp.js), the map's PORTS filter and its marks
+// (ui/travelMapOptions.js, ui/heldMap.js), the mod's own hasPort for
+// other mods (systems/travelOptions.js) and the host's harbour, where
+// ships dock (scenes/world.js csaIsPortTown and its naval reads). The
+// source is the player's own dressed seats (net/townSeatBook.js
+// memberPorts - its guild's held seats with a Harbour), so a stranger's
+// ports never change; offline, and for a player whose guild holds no
+// Harbour, the source is empty and HasPort is the mod's 378 alone. AND
+// THE HARBOUR'S COAST: "coastal seats only" is a town whose map pixel
+// touches the sea (coastalPixel, below - the contract's DECIDED,
+// correcting part one's DFU port flag).
+import { PAK_WIDTH } from '../formats/pakFile.js';
+import { MAP_WIDTH, MAP_HEIGHT } from '../formats/woodsFile.js';
+import { OCEAN_CLIMATE } from '../world/terrainHelper.js';
 
 /** :875-931 - the main block, in the mod's own rows of ten. */
 export const PORT_LOCATION_IDS_MAIN = Object.freeze([
@@ -151,12 +172,82 @@ export function maskMapId(mapId) {
   return (mapId | 0) & 0x000FFFFF;
 }
 
+// ─── SEAT2b part two: THE MEMBER PORTS ───────────────────────────────
+
+/** Where the member ports come from - a function answering the map ids
+ *  (seat keys) of this player's guild's harbours, or null for none. */
+let _memberSource = null;
+/** The last answer read from it (its identity: the book hands the same
+ *  frozen array until its list or its guild moves), the masked set made
+ *  of it, and a count that moves whenever the set's members change. */
+let _memberFrom = null;
+let _memberSet = new Set();
+let _memberVersion = 0;
+
+/** THE MEMBER PORTS' SOURCE (scenes/world.js, at boot: the seats' book's
+ *  memberPorts; null offline). Setting it lets go of the last set. */
+export function setMemberPorts(source) {
+  _memberSource = typeof source === 'function' ? source : null;
+  _memberFrom = null;
+  if (_memberSet.size) { _memberSet = new Set(); _memberVersion++; }
+}
+/** The member ports now, masked as the table is (a source that throws
+ *  or answers nothing holds none). */
+function memberSet() {
+  let ids = null;
+  try { ids = _memberSource ? _memberSource() : null; } catch { ids = null; }
+  if (ids === _memberFrom) return _memberSet;
+  _memberFrom = ids;
+  const next = new Set([...(ids ?? [])].filter((id) => Number.isFinite(id)).map(maskMapId));
+  if (next.size !== _memberSet.size || [...next].some((id) => !_memberSet.has(id))) _memberVersion++;
+  _memberSet = next;
+  return _memberSet;
+}
+/** Whether a map id is one of this player's member ports (a harbour its
+ *  guild's held seat raised) - and not one of the mod's own. */
+export const memberPort = (mapId) => mapId != null && Number.isFinite(mapId) && memberSet().has(maskMapId(mapId));
+/** A count that moves whenever the member ports change - what a cache of
+ *  port answers keys on (the held map's marks, the naval host's pixel). */
+export const memberPortsVersion = () => { memberSet(); return _memberVersion; };
+
 /** :870-873, HasPort(int mapId). The two overloads above it
  *  (:860-868) take a MapSummary or a RegionMapTable and reach the same
  *  place through their `.ID` / `.MapId`, so the port has one function
  *  and its callers pass the number. A null or undefined id - a pixel
- *  with no location - is not a port. */
+ *  with no location - is not a port. SEAT2b part two: and a member port
+ *  is one, for the members of the guild whose Harbour it is (above). */
 export function hasPort(mapId) {
   if (mapId == null || !Number.isFinite(mapId)) return false;
-  return PORT_SET.has(maskMapId(mapId));
+  const m = maskMapId(mapId);
+  return PORT_SET.has(m) || memberSet().has(m);
+}
+
+// ─── SEAT2b part two: THE HARBOUR'S COAST ────────────────────────────
+
+/**
+ * WHETHER A TOWN'S MAP PIXEL TOUCHES THE SEA (Seats-Arc 7.5's Harbour,
+ * "coastal seats only"; the contract's DECIDED): a sea pixel - CLIMATE.PAK's
+ * ocean, TerrainHelper's 223 - among its eight neighbours, read off
+ * `climate`, a CLIMATE.PAK buffer AS THE FILE HOLDS IT (PAK_WIDTH a row,
+ * MapsFile.getClimateIndex's own +1 X column). Never the reader's live
+ * buffer: world/terrainHelper.js dilateCoastalClimate relabels a coast's
+ * first two rings of sea as land at boot, after which no town touches
+ * the sea - so the host keeps the buffer from before it (coastOf, below).
+ */
+export function coastalPixel(climate, x, y) {
+  if (!climate || !Number.isInteger(x) || !Number.isInteger(y)) return false;
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      const nx = x + dx, ny = y + dy;
+      if ((dx || dy) && nx >= 0 && ny >= 0 && nx < MAP_WIDTH && ny < MAP_HEIGHT && climate[ny * PAK_WIDTH + nx + 1] === OCEAN_CLIMATE) return true;
+    }
+  }
+  return false;
+}
+/** THE COAST, KEPT: the coastal test over a copy of `maps`' climate
+ *  buffer taken NOW - the host calls it before the dilation (scenes/
+ *  world.js's boot, AUDIT 58 F4's repair), and asks the town's pixel. */
+export function coastOf(maps) {
+  const climate = maps?.climatePak?.buffer?.slice?.() ?? null;
+  return (x, y) => coastalPixel(climate, x, y);
 }

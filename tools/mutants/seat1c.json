@@ -347,8 +347,8 @@
   {
     "name": "SEAT1c-book-undressed",
     "file": "src/net/townSeatBook.js",
-    "old": "    dressed: (seat) => (seat ? { ...seat, holder: dress.get(seat.key)?.holder ?? null, battle: dress.get(seat.key)?.battle ?? null } : null),",
-    "new": "    dressed: (seat) => (seat ? { ...seat, holder: null, battle: null } : null),",
+    "old": "    dressed: (seat) => (seat ? { ...seat, holder: dress.get(seat.key)?.holder ?? null, battle: dress.get(seat.key)?.battle ?? null, works: dress.get(seat.key)?.works ?? NO_WORKS } : null),",
+    "new": "    dressed: (seat) => (seat ? { ...seat, holder: null, battle: null, works: dress.get(seat.key)?.works ?? NO_WORKS } : null),",
     "tests": [
       "test/seat1c_client.test.js"
     ]

@@ -1952,7 +1952,9 @@ test('MAP2 resume: a pending destination asks once on the first tick - Yes resum
 test('MAP2: the additions are the classic window\'s own functions, and the probe reports them', () => {
   const src = read('src/ui/heldMap.js');
   assert.match(src, /import \{ teleportCost, teleportCostPrompt, portsFilterAllows, locationInfoRows, resumePrompt \} from '\.\/travelMapOptions\.js';/);
-  assert.match(src, /import \{ hasPort \} from '\.\.\/systems\/travelPorts\.js';/);
+  // PIN MOVED (SEAT2b part two): the window also reads the member ports' version (systems/travelPorts.js
+  // memberPortsVersion) so a held seat's Harbour re-marks its port - still the one port law, never the list.
+  assert.match(src, /import \{ hasPort, memberPortsVersion \} from '\.\.\/systems\/travelPorts\.js';/);
   assert.match(src, /if \(!portsFilterAllows\(this\.portsFilter, summary\?\.mapID \?\? summary\?\.mapId\)\) return false;\s*\n\s*return checkLocationDiscovered\(summary\);/, 'the classic override, verbatim');
   assert.match(src, /get: \(\) => travelMapMarkedMapId\(\),\s*\n\s*set: \(v\) => setTravelMapMarkedMapId\(v\),/, 'the mark in the shared store');
   assert.match(src, /const info = locationInfoRows\(summary\?\.locationType,/);

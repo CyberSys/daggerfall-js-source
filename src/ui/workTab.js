@@ -27,7 +27,8 @@ import {
 import { GUILD_RANK_MASTER } from '../net/guildLaw.js';
 import { HANDLE_RE } from '../net/handleShape.js';
 import { WRIT_MOVED } from '../net/writBook.js';
-import { FORT_MATERIALS } from '../net/fortLaw.js';   // SEAT2b: what a seat writ may ask
+import { fortMaterialOk, campGoodOk, RAM_KIT_KEY } from '../net/fortLaw.js';   // SEAT2b: what a seat writ may ask; part two: a Siege Camp's Ram Kits
+import { material } from '../net/nodeLaw.js';   // SEAT2b part two: the Ram Kit's row - a Stores good never on the market's catalogue
 import { bannerSvg } from './heraldryArt.js';   // AUDIT-SEATS G11: a guild writ's card under its guild's banner
 
 /** AUDIT 31 U11: how long a Decline stays armed after its first press - the Guild tab's confirm's kind. */
@@ -129,6 +130,10 @@ export const paidText = (pay, tax) => `${marksText(pay)} struck to your account$
  */
 export function createWorkTab(w, ui) {
   const catalogue = marketCatalogue();
+  /** SEAT2b part two (Seats-Arc 4.2: "its siege works (a Ram Kit) go to the siege it won"): what a Siege Camp's writ may
+   *  ask - a work's materials and the Ram Kit (fortLaw.js campGoodOk; the kit no catalogue's, so its own row after them);
+   *  a held seat's stockpile asks the works' materials alone (fortMaterialOk). */
+  const campGoods = [...catalogue.filter((m) => campGoodOk(m.key) && m.key !== RAM_KIT_KEY), material(RAM_KIT_KEY)].filter(Boolean);
   const nowMs = ui.nowMs ?? (() => Date.now());
   const fresh = () => ({
     /** the open form: 'writ' | 'commission' | null */
@@ -292,10 +297,11 @@ export function createWorkTab(w, ui) {
     const f = st.writ;
     f.pay = intOf(f.pay, 1, Math.max(1, max()));
     // SEAT2b (Professions-Arc 11): a seat writ - for a seat of this region the guild holds (its stockpile) or is pledged to
-    // this week (its Siege Camp) - asks only what a work asks
+    // this week (its Siege Camp) - asks only what a work asks; SEAT2b part two: a Siege Camp's, a Ram Kit too
     const seats = Array.isArray(g.seats) ? g.seats : [];
     if (!seats.some((x) => x.key === f.seat)) f.seat = null;
-    const choices = f.seat != null ? catalogue.filter((m) => FORT_MATERIALS.includes(m.key)) : catalogue;
+    const forSeat = seats.find((x) => x.key === f.seat) ?? null;
+    const choices = !forSeat ? catalogue : forSeat.camp ? campGoods : catalogue.filter((m) => fortMaterialOk(m.key));
     if (!choices.some((m) => m.key === f.material)) f.material = choices[0]?.key ?? f.material;
     const forSel = seats.length ? select([['', 'The guild Stores'], ...seats.map((x) => [String(x.key), seatWritPlace(x).replace(/^t/, 'T')])], f.seat == null ? '' : String(f.seat),
       (v) => { f.seat = v === '' ? null : Number(v); ui.rerender(); }, "Where the writ's units go") : null;

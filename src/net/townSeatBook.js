@@ -22,6 +22,13 @@
 // pixel's alone - until the account service has counted them, a claim
 // every SEAT_WATCH_CLAIM_EVERY_MS or as soon as a claim's worth is held.
 //
+// SEAT2b part two (2026-10-01, Mac: "I want to finish the inprogress"): AND THE WORKS A HOLDER'S MEMBERS FEEL (Seats-Arc
+// 7.5) - each seat's standing works kept with its holder and battle (the dressed seat), the list read with the reader's
+// character so it carries `watch` (its guild's held seats with Watchtowers, a challenger past the share now); each
+// such row said once in the chat a (week, seat, guild, share), and on the Seat tab; the towns its guild's Harbours make
+// ports (systems/travelPorts.js asks); the halls a member crafts by; and the list read on a shorter wait while the
+// guild holds a seat whose Watchtowers stand (net/memberWorks.js holds the law).
+//
 // Pure - the door, the storage and the clock are handed in.
 // ═══════════════════════════════════════════════════════════════════
 import { SEAT_REPORT_EVERY_S, SEAT_WATCH_CLAIM_MAX, seatReportOf, seatKeyOk, EDICTS, siegeWindowText, seatWeekOf, seasonOf } from './townSeatLaw.js';
@@ -30,6 +37,9 @@ import { readWatchReceipt } from './watchReceipt.js';
 import { mintMarksRid } from './marksBook.js';
 import { tideAt } from './tideLaw.js';   // SEASON1 part two: the Tides
 import { fortWork } from './fortLaw.js';   // SEAT2b: the works
+import {
+  NO_WORKS, seatWorksOf, memberWorksOf, memberPortsOf, watchtoweredOf, watchRowsOf, watchtowerLine, watchtowerWordId,
+} from './memberWorks.js';   // SEAT2b part two: the works a holder's members feel
 
 /** How long a list read is kept before the next is asked, ms. */
 export const SEAT_LIST_CACHE_MS = 5 * 60_000;
@@ -55,6 +65,14 @@ export const SEAT_RED_SEEN_KEY = 'crown2.redSeen';
 export const SEAT_RED_SEEN_MAX = 100;
 /** CROWN2: how often an online client reads the seats' list again for the server's red lines, ms. */
 export const SEAT_RED_READ_MS = 15 * 60_000;
+/** SEAT2b part two (Seats-Arc 7.5's Watchtowers): how often a member whose guild holds a seat with Watchtowers reads the
+ *  list again while online, ms - DECIDED: the list's own minutes (SEAT_LIST_CACHE_MS), so a challenger past the share is
+ *  told within five minutes of the service's count, and the list is never asked more often than its cache would let it
+ *  be; everyone else keeps the red lines' quarter hour. */
+export const SEAT_WATCHTOWER_READ_MS = SEAT_LIST_CACHE_MS;
+/** SEAT2b part two: the Watchtowers' words this device has said (their ids, newest kept), and how many it keeps. */
+export const SEAT_WORD_SEEN_KEY = 'seat2b.watchSaid';
+export const SEAT_WORD_SEEN_MAX = 100;
 /** SEAT1b: the answers after which a claim's receipts are let go - counted, or refused for good (a watch claim answers
  *  each receipt's fate in its `why`, and none of them is mended by asking again). AUDIT-SEATS C10: and the seats shut to
  *  this account - but never `auth` or `no-session`: a session run out is mended by signing in again, and the ticks it
@@ -88,11 +106,15 @@ export function parseSeatCommand(text) {
  *   me?: () => (string|null), character?: () => (string|null), rid?: () => string,
  *   isSeatPixel?: (x: number, y: number) => boolean, relayNowS?: () => (number|null),
  *   onRed?: ((line: { text: string, at: number }) => boolean)|null,
+ *   guildId?: () => (string|null), nameOf?: (key: number) => (string|null),
+ *   onWord?: ((line: { text: string, at: number }) => boolean)|null,
  * }} deps SEAT1b: `me` the signed-in account's id, `character` the character standing here, `rid` a fresh request id
  *   (the Marks' own shape), `isSeatPixel` whether this client's own derivation holds a seat at a map pixel, `relayNowS`
- *   the relay's clock (null unheard - a receipt's life is the relay's); CROWN2: `onRed` says a red line (false: not yet)
+ *   the relay's clock (null unheard - a receipt's life is the relay's); CROWN2: `onRed` says a red line (false: not yet);
+ *   SEAT2b part two: `guildId` the playing character's own guild (null for none), `nameOf` a seat's name in this client's
+ *   own derivation (null: a seat it lacks), `onWord` says a Watchtowers' word in the chat (false: not yet)
  */
-export function createTownSeatBook({ door, storage = null, nowMs = () => Date.now(), me = () => null, character = () => null, rid = () => mintMarksRid(), isSeatPixel = () => false, relayNowS = () => null, onRed = null }) {
+export function createTownSeatBook({ door, storage = null, nowMs = () => Date.now(), me = () => null, character = () => null, rid = () => mintMarksRid(), isSeatPixel = () => false, relayNowS = () => null, onRed = null, guildId = () => null, nameOf = () => null, onWord = null }) {
   /** CROWN2: the red lines already said, by id - read from the device once */
   let redSeen = null;
   const redSeenList = () => {
@@ -115,13 +137,65 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
     redSeen = [...seen, ...said.map((r) => r.id)].slice(-SEAT_RED_SEEN_MAX);
     try { storage?.setItem?.(SEAT_RED_SEEN_KEY, JSON.stringify(redSeen)); } catch { /* this page keeps them */ }
   };
+  /** SEAT2b part two: the Watchtowers' words already said, by id - read from the device once */
+  let wordSeen = null;
+  const wordSeenList = () => {
+    if (wordSeen) return wordSeen;
+    wordSeen = [];
+    try {
+      const v = JSON.parse(storage?.getItem?.(SEAT_WORD_SEEN_KEY) ?? 'null');
+      if (Array.isArray(v)) wordSeen = v.filter((id) => typeof id === 'string').slice(-SEAT_WORD_SEEN_MAX);
+    } catch { /* a bad key reads as none */ }
+    return wordSeen;
+  };
+  /** SEAT2b part two: a word handed to `onWord` - false where there is no chat yet, or the host could not say it */
+  const sayWord = (line) => { try { return onWord(line) !== false; } catch { return false; } };
+  /**
+   * SEAT2b part two (Seats-Arc 7.5): THE WATCHTOWERS' WORD - each row of the list's `watch` (net/memberWorks.js
+   * watchRowsOf) at a seat this client's own derivation names, not yet said this week for that seat, challenger and
+   * share (watchtowerWordId), handed to `onWord`; kept as said unless `onWord` answers false (no chat yet: the next read
+   * offers it again).
+   */
+  const sayWatch = (rows) => {
+    if (!onWord) return;
+    const week = seatWeekOf(nowMs());
+    const seen = new Set(wordSeenList());
+    const said = [];
+    for (const row of watchRowsOf(rows)) {
+      const id = watchtowerWordId(week, row);
+      const name = nameOf(row.key);
+      if (!name || seen.has(id)) continue;
+      seen.add(id);
+      if (sayWord({ text: watchtowerLine(row, name), at: nowMs() })) said.push(id);
+    }
+    if (!said.length) return;
+    wordSeen = [...wordSeenList(), ...said].slice(-SEAT_WORD_SEEN_MAX);
+    try { storage?.setItem?.(SEAT_WORD_SEEN_KEY, JSON.stringify(wordSeen)); } catch { /* this page keeps them */ }
+  };
   /** whether the seats are open to this account, as the last read said: true, false, or null not yet asked */
   let open = null;
   let data = null, at = -Infinity, pending = null;
+  /** SEAT2b part two: the character the last list was read for - its `watch` is that character's guild's, so another
+   *  character's ask reads the list afresh */
+  let readFor = null;
   /** @type {Map<number, string>} the confirmed seats' states, by key */
   let states = new Map();
-  /** SEAT1c: each confirmed seat's holder and this week's battle at it, by key */
+  /** SEAT1c: each confirmed seat's holder and this week's battle at it, by key; SEAT2b part two: and its standing works */
   let dress = new Map();
+  /** SEAT2b part two: the playing character's own guild, asked of the host (null for none, or a host not yet ready) */
+  const guildNow = () => { try { return guildId() ?? null; } catch { return null; } };
+  /** SEAT2b part two: what the reader's guild holds, worked out once a list and a guild - the member ports (frozen, the
+   *  same array until either moves, so systems/travelPorts.js masks them once) and whether a seat's Watchtowers stand */
+  let held = { from: /** @type {any} */ (undefined), gid: /** @type {any} */ (undefined), ports: memberPortsOf([], null), towers: false };
+  const heldNow = () => {
+    const gid = guildNow();
+    const from = open === true ? dress : null;
+    if (held.from !== from || held.gid !== gid) {
+      const seats = from ? [...from].map(([key, d]) => ({ key, ...d })) : [];
+      held = { from, gid, ports: memberPortsOf(seats, gid, (k) => nameOf(k) != null), towers: watchtoweredOf(seats, gid) };
+    }
+    return held;
+  };
   let reported = null;
   const reportedTable = () => {
     if (reported) return reported;
@@ -164,22 +238,28 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
     try { storage?.setItem?.(SEAT_WATCH_KEY, JSON.stringify(list)); } catch { /* this page keeps them */ }
   };
 
-  /** The confirmed seats: the last answer inside SEAT_LIST_CACHE_MS (a refusal too), else the service's. */
+  /** The confirmed seats: the last answer inside SEAT_LIST_CACHE_MS (a refusal too) for this character, else the
+   *  service's. SEAT2b part two: asked with the reader's character (its guild's `watch`); a read asked while one is in
+   *  flight is answered by it (ASYNC NEVER DROPS: coalesced, never a second ask nor a dropped one). */
   function read({ force = false } = {}) {
+    const who = character();
+    if (readFor !== who) force = true;   // SEAT2b part two: another character's list is not this one's (its guild's `watch`)
     if (!force && nowMs() - at < SEAT_LIST_CACHE_MS) return Promise.resolve({ data, error: open === false ? 'seats-closed' : null });
     if (pending) return pending;
     pending = (async () => {
       let r;
-      try { r = await door.list(); } catch { r = { ok: false, error: 'offline' }; }
+      try { r = await door.list(who); } catch { r = { ok: false, error: 'offline' }; }
       pending = null;
       // a session not yet there is asked again at the next ask (a player who signs in sees the seats then); any other
-      // answer, a refusal too, holds the list's minutes
+      // answer, a refusal too, holds the list's minutes - for the character it was asked for
       at = r?.error === 'no-session' ? -Infinity : nowMs();
+      readFor = who;
       if (r?.ok) {
         open = true; data = r.data;
         states = new Map((data?.seats ?? []).map((s) => [s.key, s.state]));
-        dress = new Map((data?.seats ?? []).map((s) => [s.key, { holder: s.holder ?? null, battle: s.battle ?? null }]));
+        dress = new Map((data?.seats ?? []).map((s) => [s.key, { holder: s.holder ?? null, battle: s.battle ?? null, works: seatWorksOf(s.works) }]));   // SEAT2b part two: its standing works
         sayRed(data?.red);   // CROWN2: the server's red lines, each said once
+        if (who === character()) sayWatch(data?.watch);   // SEAT2b part two: the Watchtowers' word - the character's it was read for
         return { data, error: null };
       }
       if (SHUT.includes(r?.error)) { open = false; data = null; states = new Map(); dress = new Map(); }
@@ -197,8 +277,22 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
     /** The last list read, or null. */
     get data() { return data; },
     /** SEAT1c: a seat this client derived, dressed in what the service last said of it - its holder and this week's battle
-     *  there (both null for an unheld, quiet one, or a seat not read yet). */
-    dressed: (seat) => (seat ? { ...seat, holder: dress.get(seat.key)?.holder ?? null, battle: dress.get(seat.key)?.battle ?? null } : null),
+     *  there (both null for an unheld, quiet one, or a seat not read yet); SEAT2b part two: and its standing works
+     *  (`{ [work]: tier }`, none for a bare or unread seat). */
+    dressed: (seat) => (seat ? { ...seat, holder: dress.get(seat.key)?.holder ?? null, battle: dress.get(seat.key)?.battle ?? null, works: dress.get(seat.key)?.works ?? NO_WORKS } : null),
+    // ─── SEAT2b part two: THE WORKS A HOLDER'S MEMBERS FEEL (Seats-Arc 7.5) ───
+    /** THE MEMBER PORTS: the keys of the seats the reader's guild holds whose Harbour stands, while the seats are open (the
+     *  same frozen array until the list or the guild moves) - systems/travelPorts.js setMemberPorts' source. */
+    memberPorts: () => heldNow().ports,
+    /** Whether the reader's guild holds a seat whose Watchtowers stand - the list read on SEAT_WATCHTOWER_READ_MS. */
+    watchtowered: () => heldNow().towers,
+    /** THE HALLS A MEMBER CRAFTS BY: a dressed seat's works where the reader's guild holds it (null otherwise, and while
+     *  the seats are shut) - a station's town's (scenes/world.js, the Stores page's step lines). */
+    memberWorks: (seat) => (open === true ? memberWorksOf(seat, guildNow()) : null),
+    /** THE WATCHTOWERS' WORDS at `seat` as the last list read for this character said them - every row there, said or
+     *  not (the Seat tab's holder block). */
+    watchLines: (seat) => (seat && open === true && readFor === character()
+      ? watchRowsOf(data?.watch).filter((r) => r.key === seat.key).map((r) => watchtowerLine(r, seat.name)) : []),
     /** SEAT1c: the guildmaster gives up a Charter at its board - `{ ok, text }`, the list and standings read afresh after. */
     async relinquish(seat) {
       let r;
@@ -343,9 +437,12 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
     breakPact(tag) {
       return this.politicsAct(() => door.pactBreak(character(), tag), (d) => (d.announced ? `Your guild has broken its Pact with <${tag}>. Everyone has been told.` : `The offer of a Pact with <${tag}> is withdrawn.`));
     },
-    /** CROWN2: the seats' list read again for the server's red lines, while the seats are open, every SEAT_RED_READ_MS. */
+    /** CROWN2: the seats' list read again for the server's red lines, while the seats are open, every SEAT_RED_READ_MS;
+     *  SEAT2b part two: every SEAT_WATCHTOWER_READ_MS while the reader's guild holds a seat whose Watchtowers stand (a
+     *  bounded wait - the Watchtowers' word comes with it). A read in flight is the one asked (read's `pending`). */
     redTick() {
       if (open === true && !pending && nowMs() - at >= SEAT_RED_READ_MS) read({ force: true });
+      else if (open === true && !pending && nowMs() - at >= SEAT_WATCHTOWER_READ_MS && heldNow().towers) read({ force: true });
     },
     // ─── SEASON1 part two: THE TIDES AS THIS CLIENT READS THEM ───────
     /** The week Season 0 began, as the seats' list last said - or null (no Season counted: every land is Calm). */
@@ -412,15 +509,16 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
       return { data: null, error: r?.error ?? 'server' };
     },
     /** SEAT2b (7.5): a project begun on `work` at `seat` - its tier's Drakes burnt from the holder's treasury (an Officer's
-     *  or the guildmaster's), `port` whether DFU names the town a port (a Harbour's ask). `{ ok, text, forts }`. ONE
-     *  REQUEST ID A PROJECT, as the Tribute's: the same work asked again after an answer that never came carries the same
-     *  id, and the service answers it `repeat` rather than burning twice. */
-    async fortFund(seat, work, port = false) {
+     *  or the guildmaster's), `coastal` whether the town touches the sea (a Harbour's ask - SEAT2b part two, CORRECTING
+     *  PART ONE's DFU port flag: systems/travelPorts.js coastalPixel). `{ ok, text, forts }`. ONE REQUEST ID A PROJECT,
+     *  as the Tribute's: the same work asked again after an answer that never came carries the same id, and the service
+     *  answers it `repeat` rather than burning twice. */
+    async fortFund(seat, work, coastal = false) {
       const ask = `${seat.key}:${work}`;
       if (fortAsk?.ask !== ask) fortAsk = { ask, rid: rid() };
       const id = fortAsk.rid;
       let r;
-      try { r = await door.fortFund(character(), seat.key, work, id, port); } catch { r = { ok: false, error: 'offline' }; }
+      try { r = await door.fortFund(character(), seat.key, work, id, coastal === true); } catch { r = { ok: false, error: 'offline' }; }
       if (r?.ok || (r?.error && !['offline', 'server', 'timeout'].includes(r.error))) { if (fortAsk?.rid === id) fortAsk = null; }
       standingsAt.clear();
       if (!r?.ok) return { ok: false, text: accountRefusalText(r?.error) };

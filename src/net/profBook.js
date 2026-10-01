@@ -33,6 +33,7 @@ import { HARVEST_LATE_S, HIDES_PER_DAY, HIGH_HIDES_PER_DAY, HAULS_PER_DAY } from
 import { pixelKey } from './nodeLaw.js';
 import { accountRefusalText } from './accountClient.js';
 import { ASK_AGAIN_NOW, jittered } from './backoff.js';   // SCALE1: asks again spread out, and never at once into a minute's refusal
+import { seatKeyOk } from './townSeatLaw.js';   // SEAT2b part two: a craft's `at` is a seat key
 
 /** Where this device keeps the acts whose answers did not come: { [account|character]: { harvests, withdrawals } }. */
 export const PROF_KEPT_KEY = 'prof1.kept';
@@ -389,17 +390,21 @@ export function createProfBook({ door, storage = null, character = () => null, n
      * `name` the maker's mark. The craft is KEPT before it is asked - its pieces are the save's once the service answers,
      * so a lost answer is asked again (the same id, the same pieces) and `mint` makes them on the answer, once: the tab
      * that lets the craft go mints it (AUDIT 29 C5's law). One at a time. AUDIT 30 C4: `fee` the station's gold, kept with
-     * the craft and handed to `mint` with it - the tab that mints the pieces pays it, whenever the answer comes.
+     * the craft and handed to `mint` with it - the tab that mints the pieces pays it, whenever the answer comes. SEAT2b
+     * part two (Seats-Arc 7.5): `at` the station's town (a seat key - its holder's halls' steps there), kept with the craft
+     * so an answer lost and asked again asks at the same town (ASYNC NEVER DROPS: the replay is the same act). A siege
+     * work (the Ram Kit) answers no record: it is made INTO the Stores, and its row arrives with the answer's `stores`.
      * @returns {Promise<{ ok: boolean, data?: any, error?: string, kept?: boolean, elsewhere?: boolean }>}
      */
-    async craft(recipe, { clean = false, name = null, heartwood = false, fee = 0, dye = null } = {}, mint) {
+    async craft(recipe, { clean = false, name = null, heartwood = false, fee = 0, dye = null, at = null } = {}, mint) {
       if (_craftBusy) return { ok: false, error: 'prof-busy' };
       const key = slot();
       const c = character();
       if (!c || !account()) return { ok: false, error: 'no-session' };
       _craftBusy = (async () => {
         const w = { rid: rid(), recipe, clean: clean === true, name: typeof name === 'string' ? name : null, character: c, heartwood: heartwood === true,   // PROF4: a Heartwood for a plank
-          fee: Number.isSafeInteger(fee) && fee > 0 ? fee : 0, ...(Number.isInteger(dye) ? { dye } : {}) };   // PROF7: a garment's dye
+          fee: Number.isSafeInteger(fee) && fee > 0 ? fee : 0, ...(Number.isInteger(dye) ? { dye } : {}),   // PROF7: a garment's dye
+          at: seatKeyOk(at) ? at : null };   // SEAT2b part two: the station's town
         const kept = keptOf(key);
         kept.crafts.push(w);
         writeKept(kept, key);
@@ -573,7 +578,8 @@ export function createProfBook({ door, storage = null, character = () => null, n
   /** A kept craft's ask (PROF3): its pieces minted and the craft let go on an answer, let go on a refusal, kept on
    *  silence - the service's row answers the same id with the same pieces whenever it is asked again. */
   async function craftOne(w, key, mint) {
-    const r = await ask(() => door.craft(w.character, w.recipe, w.clean, w.name, w.rid, w.heartwood === true, Number.isInteger(w.dye) ? w.dye : null));
+    // SEAT2b part two: the kept craft's own town - a replay asks where the craft was made (a record kept before `at` none)
+    const r = await ask(() => door.craft(w.character, w.recipe, w.clean, w.name, w.rid, w.heartwood === true, Number.isInteger(w.dye) ? w.dye : null, seatKeyOk(w.at) ? w.at : null));
     // AUDIT 32 B5: heard after a switch, the craft waits kept for its own character's settle - asked again there, the
     // service's row answers the same pieces into the right pack
     if (key !== slot()) return { ok: false, error: 'elsewhere', kept: true };
