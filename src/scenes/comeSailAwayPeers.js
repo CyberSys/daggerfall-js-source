@@ -1,8 +1,8 @@
 // @ts-check
 // COME SAIL AWAY - ANOTHER PLAYER'S BOAT (CSA-J, 2026-09-28). A peer's word (systems/comeSailAwayWire.js, `sa` on
 // their foes frame) stood as boats the others can see: each built as SpawnBoat builds one, into the pool's PEER list
-// (scenes/comeSailAwayPool.js) - drawn, baked and lit as a boat of mine, and a collider, a ray's hit or an activation
-// only as CSA-K makes one (scenes/comeSailAwayAboard.js: a deck for whoever is aboard it, its ladder and boxes pressed)
+// (scenes/comeSailAwayPool.js) - drawn, baked, lit and collided with as a boat of mine (FIELD BUGS 2026-10-01b), a ray's
+// hit or an activation only as CSA-K makes one (scenes/comeSailAwayAboard.js: its deck stood on, its ladder and boxes pressed)
 // because the host's loops read the pool's own `boats` - and posed every frame from the word, which stays
 // in the wire frame and is converted each frame (the floating origin, AUDIT HCC O1). A step past twenty metres is a
 // teleport and snaps; anything nearer eases (horseCartWire.js easeToward, the team's law). The sails raise and stow
