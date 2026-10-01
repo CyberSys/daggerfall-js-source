@@ -23,3 +23,8 @@ export const skyCalendarOn = () => _on;
 /** TIME1: the sky's classic minute at the instant the event clock reads `eventMinutes` - the minute a season, a month
  *  or an hour of the day is read off for a law that walks the event clock. The minute itself when off. */
 export const skyMinuteOfEvent = (eventMinutes) => (_on && Number.isFinite(eventMinutes) ? skyClassicMinutes(wallMsForClassicMinutes(eventMinutes)) : eventMinutes);
+/** TIME3: the same in classic SECONDS - a journal's date (quest/questMacros.js %qdt): the step was stamped on the event
+ *  clock (quest/quest.js), and the date the player reads it by is the sky's at that instant. Unrounded, as the date
+ *  reader floors: a stamp a fraction of a second before the sky's midnight is still that day. The stamp itself when
+ *  off, untouched. */
+export const skySecondsOfEvent = (eventSeconds) => (_on && Number.isFinite(eventSeconds) ? skyClassicMinutes(wallMsForClassicMinutes(eventSeconds / 60)) * 60 : eventSeconds);

@@ -259,7 +259,7 @@ test('AUDIT WORLD5 C8 (LIVED1): the sub-tick\'s minutes ride to the host alone, 
   const i = dc.indexOf('const _restAdvance = (n) => {');
   const arm = dc.slice(i, dc.indexOf('\n  };', i));
   assert.ok(i > 0 && arm.length > 200);
-  assert.ok(arm.includes('const end = classicMinutesRef.value + n;') && arm.includes('const start = Math.floor(end) - n;') && arm.includes('classicMinutesRef.value += n;'), 'the span off the character\'s clock, which the arm moves');
+  assert.ok(arm.includes('const end = classicMinutesRef.value + n;') && arm.includes('const start = Math.floor(end) - n;') && arm.includes('advanceOwnMinutes(n);'), 'the span off the character\'s clock, which the arm moves (TIME3: a raise, counted)');
   assert.ok(arm.includes('const _w = claimMagicRounds(start, end);'), 'the broker window off the same span');
   assert.ok(arm.includes('gameMinutes: start + l + 1,'), 'and the spawner offered each of its ten minutes once');
   assert.match(dc, /advanceMinutes: \(n\) => _restAdvance\(n\),/);
@@ -280,7 +280,7 @@ test('AUDIT WORLD5 by source: the sentence refills in both lanes (C9; LIVED1: it
   assert.match(rd('server/src/index.js'), /"now":\$\{Date\.now\(\)\},"v":/, 'C11: not the hello\'s start, four awaits earlier');
   assert.ok(relayVersionAtLeast(66), 'C11: the relay bumped, and has not gone backwards since (SRV-N: asked monotonically - five pins used to retype one moving number)');
   // DISC25-D: the last clause ("the quest clocks stand still") had been false since WORLD7 - they count played time
-  assert.match(rd('src/ui/enhancedMenu.js'), /The world\\u2019s clock and sky run on real time: resting, travelling, jail time or training don\\u2019t move them, so a quest that waits for a time of day waits for the world\\u2019s\. Your character also keeps their own time: it runs while you play, resting, travelling, jail time and training use it, and it stops while you are logged off\./, 'C12 (LIVED1: and the character\'s own time; AUDIT LIVED1b U8: logged off, not away)');
+  assert.match(rd('src/ui/enhancedMenu.js'), /The world\\u2019s clock and sky run on real time: resting, travelling, jail time or training don\\u2019t move them, so a quest that waits for a time of day waits for the world\\u2019s, and a full moon holds a lycanthrope for its night alone\. Your character also keeps their own time: it runs while you play, resting, travelling, jail time and training use it, and it stops while you are logged off\./, 'C12 (LIVED1: and the character\'s own time; AUDIT LIVED1b U8: logged off, not away; TIME2: the full moon\'s night)');
   const w = rd('src/scenes/world.js');
   const install = w.indexOf("if (params.has('online')) { setSharedClock(() => sharedClassicMinutes(Date.now() + _sharedOffsetMs), (m) => wallMsForClassicMinutes(m) - _sharedOffsetMs, { sky: () => skyClassicMinutes(Date.now() + _sharedOffsetMs), skyWall: (m) => wallMsForSkyMinutes(m) - _sharedOffsetMs }); setSharedWeather(true); }");   // TIME1: and the sky beside it
   const boot = w.indexOf('export async function bootWorld(');

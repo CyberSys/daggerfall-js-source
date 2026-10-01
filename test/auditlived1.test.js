@@ -26,7 +26,7 @@ import { TrainPc } from '../src/systems/quest/actions.js';
 import { Clock } from '../src/systems/quest/clock.js';
 import { SKILLS } from '../src/systems/skills.js';
 import { snapshotPlayer, restorePlayer, clampMarkersAheadOf } from '../src/systems/save.js';
-import { offlineCopyOf, onlineCopyOf, QUEST_WORLD_SECOND_KEYS } from '../src/systems/offlineCopy.js';
+import { offlineCopyOf, onlineCopyOf, QUEST_WORLD_SECOND_KEYS, QUEST_OWN_SECOND_KEYS } from '../src/systems/offlineCopy.js';
 import { startDisease, DISEASES } from '../src/systems/diseases.js';
 import { NORMALIZE_INTERVAL_MINUTES } from '../src/systems/court.js';
 import { bankingStatusRows } from '../src/systems/banking.js';
@@ -195,7 +195,8 @@ test('AUDIT LIVED1 E (S3/R5, S5/U4) + G (R6): the doors between the lanes rebase
   assert.deepEqual(off.spawns, [['k', own - 100, own - 50], ['j', own - 10]]);
   assert.deepEqual([off.world.camps[0].litUntil, off.world.camps[0].placedAt], [own + 480, own - 5]);
   assert.equal(snap.worldMinutes, world, 'the realm\'s save itself is untouched');
-  assert.ok(QUEST_WORLD_SECOND_KEYS.includes('guardAnchor'));
+  // TIME3: a guard's arrival is a countdown's stamp - the character's clock since TIME3, the world's in an envelope from before it
+  assert.ok(QUEST_OWN_SECOND_KEYS.includes('guardAnchor') && !QUEST_WORLD_SECOND_KEYS.includes('guardAnchor'));
   // end to end: the quest's three days stay three days on the offline clock
   const offClock = new Clock({ nowSeconds: () => own * 60 });
   offClock.restoreSaveData(off.quest.quests[0].resources[0].clock);

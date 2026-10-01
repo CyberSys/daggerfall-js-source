@@ -12,7 +12,10 @@ world keeps ONE clock, so per-player deadlines would be a different design"*). T
 
 [NEXT, PROPOSED 2026-10-01: `Online-Time-Arc.md` (TIME) splits the world's clock below in two - a faster SKY
 (a day every 30 real minutes) and this page's world clock kept as the EVENT clock - and leaves the
-character's clock as it is. Nothing here changes until it is built.]
+character's clock as it is. Nothing here changes until it is built. BUILT 2026-10-01 (TIME1-TIME4): where this
+page says the world's clock for the sun, the moons, the calendar or a season, read the SKY; for the world's
+business (prices, shelves, gates, raids, stamps), the event clock, unchanged. The quest clocks below moved to the
+character's clock (OPEN 1, answered).]
 
 ## The problem, stated whole
 
@@ -88,7 +91,8 @@ character's.
   powers and regional conditions (the shared day's rolls);
 - shops, gates, guild halls and NPC schedules (OL4, OL5), the day's shelf stock;
 - gates, raids, bosses, the broker, respawns (WORLD8), campfires, dropped torches;
-- **quest clocks** (WORLD7's played time; OPEN 1 below).
+- **quest clocks** (WORLD7's played time; OPEN 1 below). [TIME3: now the CHARACTER's clock - the time lived one
+  played step at most, the time raised whole - and the journal's dates the event clock's; `Online-Time-Arc.md` 6.3a.]
 
 ### Reads the character's clock (changed online; offline identical)
 
@@ -304,7 +308,8 @@ No relay change. The servers keep the save opaque, and `RELAY_VERSION` does not 
 
 1. **Quest clocks on the character's clock?** LIVED1 leaves WORLD7: a quest's timer charges played
    time, and a rest or a journey charges it nothing. [PROPOSED by `Online-Time-Arc.md` 6.3 (TIME3): yes,
-   with a quest's hour and date reads on the sky.]
+   with a quest's hour and date reads on the sky. ANSWERED AND BUILT 2026-10-01 (Mac: "Let's do it"): the
+   recommendation below, with a party's copy on its holder's clock (6.3a).]
    - **Recommended:** a quest's COUNTDOWNS (the Clock resource: "you have N days") charge the
      character's own time, so a journey spends a quest's days as in DFU, and a loiter fast-forwards a
      quest's wait ("come back in three days"). This is FB-2026-09-25's open "loiter fast-forward for

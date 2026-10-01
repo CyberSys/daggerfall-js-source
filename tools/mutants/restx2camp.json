@@ -1,12 +1,13 @@
 [
   {
-    "name": "RESTX2-the-quest-tick-rides-the-online-sub-tick",
+    "name": "RESTX2-TIME3-the-rest-stands-the-quests-down-online",
     "file": "src/systems/restSession.js",
-    "old": "      if (!Number.isFinite(this.deps.sharedMinutes?.())) this.deps.tickQuests?.();",
-    "new": "      this.deps.tickQuests?.();",
+    "old": "      this.deps.tickQuests?.();",
+    "new": "      if (!Number.isFinite(this.deps.sharedMinutes?.())) this.deps.tickQuests?.();",
     "tests": [
       "test/restx2_online_rest.test.js"
-    ]
+    ],
+    "note": "TIME3 (SUPERSEDED, REVERSED): RESTX2 stood the quest tick down online and this record killed its removal; TIME3 made the removal the law (a quest's countdowns run on the character's clock, which the rest moves), so the record now kills the stand-down put back."
   },
   {
     "name": "RESTX2-the-session-hands-the-host-an-end-again",

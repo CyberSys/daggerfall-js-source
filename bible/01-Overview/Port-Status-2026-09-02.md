@@ -403,7 +403,7 @@ are the **narrowed remainders** Wave D recorded rather than shipped
   "DR1: THE TWO WINDOW SEAMS, MOUNTED"), pinned by three DR1 cases in
   `test/x11b.test.js`. This was also Ledger row `:789`'s adjudication,
   and that row is struck with it.
-- **`src/ui/enhancedMenu.js:3932`** - the rest of the keyboard; the
+- **`src/ui/enhancedMenu.js:3946`** - the rest of the keyboard; the
   wizard walks to `done` with no pointer. *The enhanced menu is the
   enhanced skin, a Ledger A departure, so no C# line is owed. The flag
   names its own blocker: focus order across a rail, a settings list and
@@ -535,7 +535,7 @@ are the **narrowed remainders** Wave D recorded rather than shipped
   second.*
 - ~~**`src/scenes/worldModes.js:2098`** - above ground only:
   `QuestMachine.SetupIndividualStaticNPC`. *Multi-host. The law is
-  ported and idle at `systems/quest/machine.js:840` including the
+  ported and idle at `systems/quest/machine.js:875` including the
   away arm's `setActive(false)`, but there is no moment to run it: both
   exterior hosts lay their RMB blocks out before the quest bridge
   exists.*~~ **SHIPPED (ROAD-E E3, 2026-09-02).** *The law is not idle:

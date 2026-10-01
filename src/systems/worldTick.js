@@ -656,6 +656,7 @@ function tickPlayerMinutesOnce({
     // LAST reading, so the window below is counted once - ownMinutes() would read the world's current one
     classicMinutes = _ownMinutes ?? worldFrom;
     _ownMinutes = classicMinutes + (worldTo - worldFrom) + (raiseMinutes > 0 ? raiseMinutes : 0);
+    if (raiseMinutes > 0) _raisedMinutes += raiseMinutes;   // TIME3: the raise, counted - a quest charges it whole
   }
   // AUDIT LIVED1 I: the world's arms walk no world minute twice - AUDIT LIVED1b P3: and lose none lived; they walk the
   // parts of the reading's window no walk this session covered (worldArmsPieces)
@@ -1229,6 +1230,7 @@ export function setSharedClock(source, wallOf = null, { sky = null, skyWall = nu
   _sharedClockHeard = false;   // AUDIT LIVED1b P4: and it has not heard the relay's clock yet
   _absenceWaiting = null;
   _ownMinutes = null;   // LIVED1: a clock installed or removed is a new session - the character's own time comes from its load
+  _raisedMinutes = 0;   // TIME3: ...and its raises are counted from nought
   // ECON1: the world's prices stand with the world's clock - every consumer of regionPriceAdjustment reads today's
   // world index while the clock stands, and the player's own again when it goes
   setWorldPriceSource(_sharedClock ? (regionIndex) => worldRegionPrice(regionIndex, _sharedClock()) : null);
@@ -1248,6 +1250,18 @@ export const sharedClockOn = () => _sharedClock !== null;
 // The rule for which one a law reads: the sun, the moons, the calendar and the world everyone shares read the world's;
 // the body, its magic, its needs, its contracts and its standing read the character's (bible/06-Systems/Lived-Time.md).
 let _ownMinutes = null;
+// TIME3 (bible/06-Systems/Online-Time-Arc.md 6.3): THE SESSION'S RAISES - the minutes the character's clock has run
+// AHEAD of the world's this session, counted as they are raised (every RaiseTime: the ticker's advance, through the
+// tick's raiseMinutes, and advanceOwnMinutes). A quest's countdowns run on the character's clock, which moves two
+// ways online: with the world while they live in it - a quest charges that by one played step a frame at most, the
+// rest is time away and forgiven (WORLD7: a hidden tab, a menu left open) - and ahead of it when they raise time, which
+// a quest charges whole, as DFU charges a RaiseTime: a three-day wait is a 72-hour rest. This count tells the two
+// apart. A load moves the clock and raises nothing; a clock installed or removed starts a session and the count with
+// it; offline there is one clock, no raise to tell apart, and it reads 0.
+let _raisedMinutes = 0;
+/** TIME3: the minutes raised this session - a quest's countdown charges the raised part of its clock whole. Nought
+ *  offline: the count starts again with every clock installed or removed, and only the online lane adds to it. */
+export const raisedMinutes = () => _raisedMinutes;
 /** LIVED1: the character's own clock - online the one the load restored, run by the tick and every RaiseTime; offline
  *  the world's clock itself. Before a load online it reads the world's (a character born online starts there). */
 export const ownMinutes = () => (_sharedClock ? (_ownMinutes ?? _sharedClock()) : _worldMinutes);
@@ -1265,6 +1279,7 @@ export function advanceOwnMinutes(delta) {
   if (!_sharedClock) return setWorldMinutes(_worldMinutes + d);
   if (!Number.isFinite(d)) return ownMinutes();   // AUDIT LIVED1b F3: an Infinity would set a clock the calendar loop never ends on
   _ownMinutes = ownMinutes() + d;
+  if (d > 0) _raisedMinutes += d;   // TIME3: the raise, counted
   return _ownMinutes;
 }
 /** AUDIT LIVED1b S1: whether a raise waits for its walk online - the character's clock a whole minute past the minute

@@ -65,6 +65,12 @@
 //     cross-player-visible state; ticking it against a locally
 //     simulated minute would desync this player's quests from everyone
 //     else's. Offline the quest tick rides the sub-tick as DFU has it.
+//     [TIME3 (2026-10-01, bible/06-Systems/Online-Time-Arc.md 6.3): it
+//     does now, online as offline. A quest's countdowns run on the
+//     character's own clock, which the rest moves, and a party's shared
+//     copy runs on its holder's (quest/machine.js updateSharedQuest), so
+//     a rest spends this player's quest days and no one else's.
+//     SUPERSEDES the stand-down above.]
 // AUDIT RESTX F1's full-health guard on the Medical tally went with
 // the free lane: the exploit it closed ("rest 99 hours" = 99 tallies on
 // one click) needed an hour that cost no time, and every hour costs
@@ -626,9 +632,11 @@ export class RestSession {
       // It is the SESSION's law and not a host's: DFU calls the
       // machine directly here, bypassing QuestMachine.Update's
       // real-time pacing, so the port must call the unpaced door too.
-      // RESTX2: NOT online - a quest clock charges PLAYED time there (WORLD7), and a rest's hours are the character's
-      // own time (LIVED1), not play. The session's one read of the world's clock is this gate.
-      if (!Number.isFinite(this.deps.sharedMinutes?.())) this.deps.tickQuests?.();
+      // TIME3 (bible/06-Systems/Online-Time-Arc.md 6.3): online too. A quest's countdowns run on the character's own
+      // clock, and a rest's hours are theirs (LIVED1) - raised, so a quest charges them whole (quest/clock.js): a
+      // three-day wait is a 72-hour rest, about half a minute, as in DFU. [SUPERSEDES RESTX2's stand-down online, which
+      // WORLD7 kept while a quest clock charged played time alone.]
+      this.deps.tickQuests?.();
       this._minutesOfHour += MINUTES_PER_TICK;
       if (this._minutesOfHour < 60) {
         // :381-385 returns false here, so DFU's frame is over either

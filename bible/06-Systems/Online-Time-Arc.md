@@ -4,9 +4,12 @@ TIME (proposed 2026-10-01). Mac: *"I want to talk about how we could change onli
 just feel like people have to wait insanely long, werewolf forms last insanely long, etc"*, then *"I
 don't want a band aid, I want a detailed way we can do this."*
 
-**Status: DESIGN. Nothing on this page is built.** It extends LIVED1 (`Lived-Time.md`), which gave every
-character a clock of their own; it keeps all of it. Offline is untouched: one clock, DFU's TimeScale 12,
-byte for byte.
+**Status: BUILT 2026-10-01 - TIME1, TIME2, TIME3 and TIME4** (Mac: *"And this is the way?"*, then *"Let's do it.
+This needs to be perfect"*: every recommendation below, OPEN's calls with them). It extends LIVED1 (`Lived-Time.md`),
+which gave every character a clock of their own; it keeps all of it. Offline is untouched: one clock, DFU's
+TimeScale 12, byte for byte. **The sky switches at 2026-10-03T16:22:30Z** (`net/skyLaw.js` `SKY_SEGMENTS`); a build
+that goes live after that instant must move it to the next aligned one first (`node tools/skyCutover.mjs`), or the
+sky jumps once at the deploy (section 4). What was built beyond this design, and why, is in 6.3a and the Record.
 
 ## 1. The problem, stated whole
 
@@ -303,6 +306,36 @@ by `ONLINE_MINUTES_PER_MS` today, which stays the event clock's rate, and would 
 The machine gets two clocks where DFU has one: `nowSeconds` becomes the character's, and a new
 `skySeconds` serves `DailyFrom` and the date. Offline both are the one clock.
 
+### 6.3a As built (TIME3)
+
+- **Two charges, one clock.** The character's clock moves two ways online: with the world while they live in it,
+  and ahead of it when they raise time. A quest tells the two apart by the session's count of raised minutes
+  (`worldTick.js raisedMinutes`, counted where a raise is made: the ticker's advance and `advanceOwnMinutes`;
+  the dungeon host's rest and exhaustion collapse raise through `advanceOwnMinutes` too, where they wrote the
+  clock's view before). A Clock charges the raised part of its gap whole and the lived part one played step at
+  most (`quest/clock.js chargeSeconds`); never more than the clock moved. A clock restored or received has no
+  count beside its sample, and its first gap is a resume: one step at most. CreateFoe's interval keeps the
+  same law: a rest spends it, a lived time away past one step is forgiven.
+- **The rest ticks the quests online** (`restSession.js`), every sub-tick, as offline. RESTX2's stand-down goes.
+- **Whole seconds.** DFU samples `WorldTime.Now.ToSeconds()` - whole seconds of a clock that keeps its fraction -
+  so a gap loses nothing. The port sampled the fractional reading and cut each GAP to whole seconds: at ten
+  quest ticks a real second a countdown ran a fifth to a third slow, offline too. The Clock samples whole seconds
+  now (a fidelity fix found on the way, in TIME3's own code).
+- **The journal's dates are the event clock's**, read on the sky's calendar. A quest's start and each logged
+  step are stamps, and every stamp is the event clock's or the character's (section 5): `%qdt` turns the event
+  stamp into the sky's date at that instant (`skyCalendar.js skySecondsOfEvent`), so the journal agrees with the
+  calendar the player saw. The countdowns' stamps are the character's.
+- **A quest envelope says which clock its countdowns stand on**: `ownSecondsAt`, the holder's clock as it was
+  taken (`quest/questStamps.js`). An online save from before TIME3 has none; its countdowns were the world's, and
+  the load moves them onto the character's once, by the distance at the save (`questBlockOnOwnClock`). The doors
+  between the lanes move a TIME3 envelope's journal dates alone.
+- **A party's copies (OPEN 3: the holder's clock).** A copy's countdowns move from the sender's own clock to the
+  receiver's when it lands (`questDataOnThisClock`, a share and every resync). LIVE SYNC overwrites a copy with
+  its partner's on every change, so a resync keeps this holder's running clocks - their remainder and samples, as
+  it keeps each world's foe counts. A clock the partner's copy started, stopped or ran out takes the envelope's
+  state, and the task it fired rides the resync: **a clock that runs out on one copy has run out for the party.**
+  A member's rest spends their own copy's days until then.
+
 ### 6.4 Weather keeps its pace
 
 The six zones roll and evolve on the event clock's days and hours, as today: a roll every two real
@@ -322,7 +355,11 @@ counts years, before the years run faster.
 - **The date and time the menus show, and the rest window's "World time":** the sky.
 - **The Online pane's rules,** said at the door: "A day in the world is half an hour: midnight on the
   hour and the half hour, dusk at :22 and :52. Your own time runs as Daggerfall's does - resting and
-  travel spend it, being away does not."
+  travel spend it, being away does not." [TIME4, as built: `ui/enhancedMenu.js skyDayWords` says the first
+  sentence as it is true when the pane opens - before the switch, "a day in the world is two hours of real time
+  until" the switch in the player's own time - and the paragraph after it adds that a full moon holds a
+  lycanthrope for its night alone and that quest timers run on the character's own time, so a rest spends a
+  quest's days as in Daggerfall.]
 - **The vampire's nightfall words:** the sky's rate (6.2).
 - **A character's deadlines** ("7 days of your time (14h of play)"): unchanged. They are on the
   character's clock, whose rate does not change.
@@ -334,7 +371,8 @@ counts years, before the years run faster.
   the old functions retire with the next relay deploy that happens anyway. `World-Bosses.md`'s game-time
   column retires with them. The gate panel already shows real local times.
 - **The patch notes,** in the pull request's description: "A day online is now 30 minutes. Nights, full
-  moons and quest hours come round four times as often."
+  moons and quest hours come round four times as often." [TIME4, as built: `PATCH-NOTES-A-Faster-Sky.md`, the
+  root's file the release composes its notes from, as every patch's.]
 
 ## 8. The law in code
 
@@ -343,6 +381,12 @@ counts years, before the years run faster.
   `ONLINE_MINUTES_PER_MS` keep their names and meaning, the event clock's; the comments that say so are
   written in `skyLaw.js` and the bible, not in `wire.js`, whose bytes are the relay's.
 - **`net/nodeLaw.js`:** `dayDate` reads the sky (section 5.1); the account service redeploys with it.
+- **`systems/skyCalendar.js`** (new leaf, TIME1): an event minute's sky - the weather's season and hour; TIME3's
+  `skySecondsOfEvent` the journal's dates.
+- **`systems/quest/questStamps.js`** (new, TIME3): the stamps by clock, the walk that moves them, the load's and
+  a share's moves (6.3a).
+- **`ui/enhancedMenu.js skyDayWords`** (TIME4): the Online pane's sentence, true when it opens - before the switch
+  it says when the sky turns.
 - **`systems/worldTick.js`:**
   - `setSharedClock(source, wallOf, { sky, skyWall })`: the event clock's source as today, the sky's beside
     it.
@@ -415,6 +459,9 @@ each other once TIME1 has landed.
 
 ## OPEN - Mac's calls
 
+**DECIDED 2026-10-01** (Mac: *"Let's do it"*): the recommendation in each, as built. 5 stays open by its own
+terms; 9 is new and not built.
+
 1. **The rate.** Recommended: TimeScale 48, a day every 30 minutes with midnight on the hour and the half
    hour. The alternatives are in section 3.
 2. **The full moon.** Recommended: the night, 15 minutes. The alternative is DFU's whole day on the
@@ -430,6 +477,10 @@ each other once TIME1 has landed.
 7. **The year.** It climbs about 49 a real year. Recommended: let it.
 8. **Respawns.** Unchanged: one real hour (WORLD8, `wire.js RESPAWN_MS`). They run on real time, not the
    sky, so this design does not move them; a shorter respawn is its own call.
+9. **Time zones** (Mac, 2026-10-01: *"What if we went further and split the sections of daggerfall into time
+   zones?"*). NOT BUILT. The sky is one hour everywhere today. Zones fit on top of it: an offset on the sky's
+   hour by a place's east-west position, smooth rather than banded, so walking or fast travel never jumps the
+   clock at a border. Answered then: finish the faster sky first, try zones as their own slice.
 
 ## Record
 
@@ -439,3 +490,10 @@ each other once TIME1 has landed.
   rumours, the spawned dungeons, the gates' income, the naval day's laws; the camp window corrected to the
   character's clock. Added to section 7 and TIME1: the gates' and raids' words. The census became a table.
   No reader found saves a sky minute.
+- 2026-10-01: BUILT. TIME1: the sky's law (`net/skyLaw.js`), its install and `skyMinutes()`, every sky reader
+  moved and every event reader held by the census (`test/time1_census.test.js` over
+  `test/fixtures/time1_census.json`), the weather's season, the nightfall words, the gates' and raids' local
+  times, `tools/skyCutover.mjs`. TIME2: the full moon's night online. TIME3: quests on the character's clock and
+  the sky (6.3a). TIME4: the Online pane's sentence, this page, `Lived-Time.md`, `Online-Arc.md`, `Quest-Arc.md`,
+  `World-Bosses.md`, `Clock-Arc.md`, the Port Ledger's departures, the patch notes
+  (`PATCH-NOTES-A-Faster-Sky.md`). Each slice's mutant campaign is `tools/mutants/time<n>.json`, all dead.

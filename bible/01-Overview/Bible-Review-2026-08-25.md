@@ -142,7 +142,7 @@ per arc:
   factual error found in the whole bible: `:798-805` claims "only %G
   has a capitalized handler" in DFU / "%G2/%G3 uppercase DO NOT
   EXIST" - refuted by the doc's own Wave 25 (`:2908`) and
-  `questMacros.js:514-525` ("MacroHelper.cs:240-245 registers ALL SIX
+  `questMacros.js:517-528` ("MacroHelper.cs:240-245 registers ALL SIX
   capitalized forms"); the early section was never corrected.
 - *World-Arc / Player-Arc*: ~20 clauses closed by later slices still
   read "pends" - T3c's list (`:653`) has three clauses T3d/T3e/T3f
@@ -233,7 +233,7 @@ opposite of their own code and deserve a slice's attention:
 
 ## Line-citation drift (low, batched)
 
-`Port-Ledger.md:633` (save.js:36/:586/:605 → :28/:682/:714), `:636`
+`Port-Ledger.md:633` (save.js:36/:587/:606 → :28/:683/:715), `:637`
 (world.js:5023 → :2412); `Quest-Arc.md:724`/`:2911`
 (worldModes.js:647 → :903); `Player-Arc.md:979` (worldModes.js:976 →
 :2764), `:304` (world.js "531 lines" → 3,564); `Characters-Arc.md:190`

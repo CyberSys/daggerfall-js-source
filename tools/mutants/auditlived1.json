@@ -66,20 +66,22 @@
   {
     "name": "AUDITLIVED1-E-the-quest-stamps-stay-on-the-world",
     "file": "src/systems/offlineCopy.js",
-    "old": "  if (copy.quest) shiftQuestSeconds(copy.quest, delta * 60);",
+    "old": "  if (copy.quest) shiftQuestStamps(copy.quest, delta * 60, { own: questOwn, world: true });",
     "new": "",
     "tests": [
       "test/auditlived1.test.js"
-    ]
+    ],
+    "note": "TIME3 (PIN MOVED): the quest stamps' walk moved to src/systems/quest/questStamps.js with the countdowns' own keys; re-aimed by content."
   },
   {
     "name": "AUDITLIVED1-E-a-zero-never-becomes-a-date",
-    "file": "src/systems/offlineCopy.js",
-    "old": "    if (QUEST_WORLD_SECOND_KEYS.includes(k)) { if (Number.isFinite(v) && v !== 0) node[k] = v + deltaSeconds; }",
-    "new": "    if (QUEST_WORLD_SECOND_KEYS.includes(k)) { if (Number.isFinite(v)) node[k] = v + deltaSeconds; }",
+    "file": "src/systems/quest/questStamps.js",
+    "old": "if (QUEST_OWN_SECOND_KEYS.includes(k)) { if (ownBelow && Number.isFinite(v) && v !== 0) n[k] = v + deltaSeconds; }",
+    "new": "if (QUEST_OWN_SECOND_KEYS.includes(k)) { if (ownBelow && Number.isFinite(v)) n[k] = v + deltaSeconds; }",
     "tests": [
       "test/auditlived1.test.js"
-    ]
+    ],
+    "note": "TIME3 (PIN MOVED): the quest stamps' walk moved to src/systems/quest/questStamps.js with the countdowns' own keys; re-aimed by content."
   },
   {
     "name": "AUDITLIVED1-E-the-rumours-keep-the-worlds-limits",
@@ -111,11 +113,12 @@
   {
     "name": "AUDITLIVED1-E-the-distance-the-wrong-way",
     "file": "src/systems/offlineCopy.js",
-    "old": "return rebaseWorldStamps(copy, Math.floor(own) - Math.floor(world), daysBetween(own, world));",
-    "new": "return rebaseWorldStamps(copy, Math.floor(world) - Math.floor(own), daysBetween(own, world));",
+    "old": "rebaseWorldStamps(copy, Math.floor(own) - Math.floor(world), daysBetween(own, world), { questOwn: 'legacy' });",
+    "new": "rebaseWorldStamps(copy, Math.floor(world) - Math.floor(own), daysBetween(own, world), { questOwn: 'legacy' });",
     "tests": [
       "test/auditlived1.test.js"
-    ]
+    ],
+    "note": "TIME3 (PIN MOVED): the quest stamps' walk moved to src/systems/quest/questStamps.js with the countdowns' own keys; re-aimed by content."
   },
   {
     "name": "AUDITLIVED1-E-copy-to-offline-skips-the-door",

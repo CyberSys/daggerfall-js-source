@@ -186,9 +186,15 @@
   },
   {
    "file": "src/scenes/exterior.js",
-   "has": "classicSeconds: () => playerTicker.classicMinutes * 60,",
+   "has": "worldSeconds: () => playerTicker.classicMinutes * 60,",
    "clock": "event",
-   "why": "the quest machine's clock (TIME3 moves it)"
+   "why": "the quest's journal dates (TIME3: the countdowns moved to the character's clock)"
+  },
+  {
+   "file": "src/scenes/exterior.js",
+   "has": "skySeconds: () => skyMinutes() * 60,",
+   "clock": "sky",
+   "why": "a quest's hour, date and season (TIME3)"
   },
   {
    "file": "src/scenes/exterior.js",
@@ -484,9 +490,15 @@
   },
   {
    "file": "src/scenes/world.js",
-   "has": "classicSeconds: () => playerTicker.classicMinutes * 60,",
+   "has": "worldSeconds: () => playerTicker.classicMinutes * 60,",
    "clock": "event",
-   "why": "the quest machine's clock (TIME3 moves it)"
+   "why": "the quest's journal dates (TIME3: the countdowns moved to the character's clock)"
+  },
+  {
+   "file": "src/scenes/world.js",
+   "has": "skySeconds: () => skyMinutes() * 60,",
+   "clock": "sky",
+   "why": "a quest's hour, date and season (TIME3)"
   },
   {
    "file": "src/scenes/world.js",
@@ -733,6 +745,12 @@
    "has": "skyClassicMinutes(wallMsForClassicMinutes",
    "clock": "law",
    "why": "the sky's date for an event minute"
+  },
+  {
+   "file": "src/systems/skyCalendar.js",
+   "has": "? skyClassicMinutes(wallMsForClassicMinutes(eventSeconds / 60)) * 60",
+   "clock": "law",
+   "why": "TIME3: a journal date, stamped on the event clock, on the sky's calendar"
   },
   {
    "file": "src/systems/worldTick.js",

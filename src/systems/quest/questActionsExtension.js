@@ -127,7 +127,7 @@ export class RaiseTime extends ActionTemplate {
     if (this.minutes + this.hours > 0) {
       seconds = raiseTimeSeconds(this.hours, this.minutes);
     } else if (this.minutesTo + this.hoursTo > 0) {
-      const now = Math.floor((hooks?.nowSeconds?.() ?? 0) / 60);   // classic minutes: midnight on a whole day
+      const now = Math.floor(((hooks?.skySeconds ?? hooks?.nowSeconds)?.() ?? 0) / 60);   // classic minutes: midnight on a whole day - TIME3: the time of day is the sky's
       const current = 60 * (now % 60) + 3600 * (Math.floor(now / 60) % 24);
       const desired = 60 * this.minutesTo + 3600 * this.hoursTo;
       seconds = desired >= current ? desired - current : desired - current + 86400;

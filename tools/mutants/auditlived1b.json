@@ -400,21 +400,23 @@
   },
   {
     "name": "AUDITLIVED1B-R3-the-journal-stays",
-    "file": "src/systems/offlineCopy.js",
+    "file": "src/systems/quest/questStamps.js",
     "old": "if (m && Number.isFinite(m.time) && m.time !== 0) m.time += deltaSeconds;",
     "new": "void m;",
     "tests": [
       "test/auditlived1b.test.js"
-    ]
+    ],
+    "note": "TIME3 (PIN MOVED): the quest stamps' walk moved to src/systems/quest/questStamps.js with the countdowns' own keys; re-aimed by content."
   },
   {
     "name": "AUDITLIVED1B-R3-a-zero-moves",
-    "file": "src/systems/offlineCopy.js",
+    "file": "src/systems/quest/questStamps.js",
     "old": "if (m && Number.isFinite(m.time) && m.time !== 0) m.time += deltaSeconds;",
     "new": "if (m && Number.isFinite(m.time)) m.time += deltaSeconds;",
     "tests": [
       "test/auditlived1b.test.js"
-    ]
+    ],
+    "note": "TIME3 (PIN MOVED): the quest stamps' walk moved to src/systems/quest/questStamps.js with the countdowns' own keys; re-aimed by content."
   },
   {
     "name": "AUDITLIVED1B-D2-the-stock-stays",
