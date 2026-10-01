@@ -279,3 +279,25 @@ test('AUDIT-SEATS THE LEDGER\'S KINDS: every kind a service statement writes to 
   for (const k of written) assert.ok(Object.hasOwn(MARKS_KINDS, k), `${k} is written to the ledger and named nowhere`);
   assert.deepEqual(['siege-honours', 'gate-incursion', 'conscription', 'fealty-tribute', 'heraldry'].map((k) => MARKS_KINDS[k]), ['mint', 'mint', 'move', 'move', 'burn']);
 });
+
+// ─── G21: A CROWN'S FIELD AT ITS CASTLE'S ENTRANCE ───────────────────
+
+test('AUDIT-SEATS G21 A CROWN\'S FIELD AT ITS CASTLE\'S ENTRANCE (6.2: "the Gatehouse stands at the castle\'s entrance in the city", "the Throne (the castle entrance)"): where the town stands the castle\'s door, a crown\'s Throne, defenders\' camp and Palace square stand before it; a palace seat\'s never; a crown with none found, its palace\'s door (mutants: the castle\'s face; the tier\'s gate; the fallback)', async () => {
+  const { siegeFieldOf, SIEGE_FIELD } = await import('../src/systems/siegeField.js');
+  const door = (a, b, box) => ({ door: { a, b }, box });
+  const frames = new Map([['palace', door([-1, 0, 0], [1, 0, 0], [-10, 0, -20, 10, 10, 0])]]);
+  // the castle's entrance faces -x (away from its middle at x = +80)
+  const castle = door([60, 0, -1], [60, 0, 1], [60, 0, -20, 100, 30, 20]);
+  const base = { frames, palaceKeys: ['palace'], gates: [{ box: [-1, 0, 299, 1, 6, 301] }], centre: [0, 100] };
+  const crown = siegeFieldOf({ ...base, tier: 'crown', castle });
+  const near = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]) < 1e-9;
+  assert.ok(near(crown.throne, [60 - SIEGE_FIELD.thronePaceM, 0]), `the Throne a pace before the castle door: ${crown.throne}`);
+  assert.ok(near(crown.camps.defend, [60 - SIEGE_FIELD.defendCampM, 0]));
+  assert.ok(near(crown.banners[3], [60 - SIEGE_FIELD.squareM, 0]), 'the Palace square before the castle');
+  const palace = siegeFieldOf({ ...base, tier: 'palace', castle });
+  assert.ok(near(palace.throne, [0, SIEGE_FIELD.thronePaceM]), 'a palace seat\'s Throne at its palace door');
+  assert.equal(palace.banners.length, 3);
+  const none = siegeFieldOf({ ...base, tier: 'crown', castle: null });
+  assert.ok(near(none.throne, [0, SIEGE_FIELD.thronePaceM]) && near(none.banners[3], [0, SIEGE_FIELD.squareM]), 'no castle door found: the palace\'s');
+  assert.equal(siegeFieldOf({ frames: new Map(), palaceKeys: [], tier: 'crown', castle }) !== null, true, 'a castle alone holds a crown\'s field');
+});

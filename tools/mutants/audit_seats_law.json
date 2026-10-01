@@ -334,5 +334,32 @@
    "test/audit_seats_law.test.js",
    "test/marks1.test.js"
   ]
+ },
+ {
+  "name": "ASL-G21-castle",
+  "file": "src/systems/siegeField.js",
+  "old": "const face = (tier === 'crown' ? doorFace(castle) : null) ?? palace;",
+  "new": "const face = palace;",
+  "tests": [
+   "test/audit_seats_law.test.js"
+  ]
+ },
+ {
+  "name": "ASL-G21-tier",
+  "file": "src/systems/siegeField.js",
+  "old": "const face = (tier === 'crown' ? doorFace(castle) : null) ?? palace;",
+  "new": "const face = doorFace(castle) ?? palace;",
+  "tests": [
+   "test/audit_seats_law.test.js"
+  ]
+ },
+ {
+  "name": "ASL-G21-fallback",
+  "file": "src/systems/siegeField.js",
+  "old": "const face = (tier === 'crown' ? doorFace(castle) : null) ?? palace;",
+  "new": "const face = (tier === 'crown' ? doorFace(castle) : null);",
+  "tests": [
+   "test/audit_seats_law.test.js"
+  ]
  }
 ]

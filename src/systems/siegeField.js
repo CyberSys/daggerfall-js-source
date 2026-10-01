@@ -13,7 +13,10 @@
 //   - THE MARKET: the rumour board nearest the town's middle (a town with none: the middle itself);
 //   - THE TEMPLE: the Temple building's door, else the largest guild hall's (6.2), else the town's middle;
 //   - A CROWN'S PALACE SQUARE (the fourth banner): DECIDED here: 20 m before the palace door, until CROWN1 measures the
-//     castle's entrance in the city.
+//     castle's entrance in the city. AUDIT-SEATS G21 (6.2: "the Gatehouse stands at the castle's entrance in the city"
+//     and "the Throne (the castle entrance)"): where the town's records stand the castle's dungeon-entrance door
+//     (`castle`, its frame), a crown's Throne, its defenders' camp and its Palace square stand before THAT door - the
+//     palace's only where none is found.
 //
 // THE SAME ON EVERY MACHINE: every input is the town's own records (MAPS.BSA, the RMB blocks), and the world point is
 // pure arithmetic off the pixel and the local metres - never the floating origin - rounded to whole natives (the wire's
@@ -58,10 +61,13 @@ const step = (p, d, m) => [p[0] + d[0] * m, p[1] + d[1] * m];
  * THE FIELD in the pixel's own metres: `{ banners, throne, camps: { attack, defend } }` (each `[x, z]`), or null for a
  * town whose palace has no door. `frames` the pixel's building frames (scenes/world.js `homeFrames` - `{ door, box }`),
  * `palaceKeys`, `templeKeys`, `hallKeys` their buildings' keys, `gates` and `boards` `{ box }`, `bounty` the boards
- * BOUNTY1 took, `centre` the town's middle `[x, z]`, `tier` the seat's.
+ * BOUNTY1 took, `centre` the town's middle `[x, z]`, `tier` the seat's; AUDIT-SEATS G21: `castle` a crown city's castle
+ * entrance's frame (`{ door, box }`, the dungeon-entrance door the town's blocks stand), or null.
  */
-export function siegeFieldOf({ frames = null, palaceKeys = [], templeKeys = [], hallKeys = [], gates = [], boards = [], bounty = new Set(), centre = [0, 0], tier = 'palace' } = {}) {
-  const face = palaceKeys.map((k) => doorFace(frames?.get?.(k))).find(Boolean);
+export function siegeFieldOf({ frames = null, palaceKeys = [], templeKeys = [], hallKeys = [], gates = [], boards = [], bounty = new Set(), centre = [0, 0], tier = 'palace', castle = null } = {}) {
+  const palace = palaceKeys.map((k) => doorFace(frames?.get?.(k))).find(Boolean) ?? null;
+  // AUDIT-SEATS G21: a crown's field stands before its castle's entrance where the town's records hold one
+  const face = (tier === 'crown' ? doorFace(castle) : null) ?? palace;
   if (!face) return null;
   const throne = step(face.at, face.out, SIEGE_FIELD.thronePaceM);
   const defend = step(face.at, face.out, SIEGE_FIELD.defendCampM);
