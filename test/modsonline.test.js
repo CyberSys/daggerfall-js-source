@@ -294,7 +294,8 @@ test('MODS-ONLINE-3 by execution: the survival system writes only its own entity
 
 test('MODS-ONLINE-5: one ruleset per room - the reason PCAAO is forced whole forces RR\'s six combat overrides the same way, and intensive training is forced OFF because the shared clock would hand its +4 out for free', () => {
   const rr = ONLINE_ROOM_MOD_KEYS['roleplay-realism'];
-  for (const k of ['advancedArchery', 'weaponSpeed', 'weaponMaterials', 'equipDamage', 'encumbranceEffects']) assert.equal(onlineForcedModSetting('roleplay-realism', k, '?online=1'), true, `${k} is the room's, at the mod's own default`);
+  for (const k of ['advancedArchery', 'weaponSpeed', 'weaponMaterials', 'encumbranceEffects']) assert.equal(onlineForcedModSetting('roleplay-realism', k, '?online=1'), true, `${k} is the room's, at the mod's own default`);
+  assert.equal(onlineForcedModSetting('roleplay-realism', 'equipDamage', '?online=1'), false, 'WEAR-VANILLA: the armour x5 is the room\'s, forced off (the port\'s default)');
   assert.equal(onlineForcedModSetting('roleplay-realism', 'classicStrengthDamageBonus', '?online=1'), false, 'the classic bonus ships off and stays off');
   assert.equal(onlineForcedModSetting('roleplay-realism', 'RefinedTraining.intensiveTraining', '?online=1'), false, 'CLOCK-REFUSAL: the four days would not pass');
   for (const k of ['bandaging', 'climbingRestriction', 'loanAmountPerLevel', 'shipPorts', 'bedSleeping', 'underworldExpulsion', 'EnhancedRiding.TrampleCivilians', 'RefinedTraining.variableTrainingPrice']) assert.equal(onlineForcedModSetting('roleplay-realism', k, '?online=1'), undefined, `${k} stays the player's - it reaches nobody`);

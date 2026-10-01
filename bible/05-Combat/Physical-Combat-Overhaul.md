@@ -64,7 +64,7 @@ its `modsettings.json`:
 | `MirrorVCEH` / `OnAttackDamageCalculated` / `OnSavingThrow` | the Vanilla Combat Event Handler's two events, mirrored to relay to OTHER mods | not carried - no consumer here (README) |
 | `Debug.LogFormat("matReqDamMulti")` | a Unity console line | not carried |
 
-## The one departure: the hit chance's floor (DISC19-D, Mac's call 2026-09-24)
+## The first departure: the hit chance's floor (DISC19-D, Mac's call 2026-09-24)
 
 `CalculateSuccessfulHit` computes `Mathf.Clamp(num, 3, 97)` and never
 assigns it, so under the mod a sum below zero was a certain miss. With a
@@ -78,6 +78,34 @@ the stock core applies and the mod's author wrote - in both directions:
 every blow lands at least 3 in 100 (55 of 2000 on that Vampire, 51 on the
 Lich) and misses at least 3 in 100, a monster's on the player included.
 Ledger A's PCO1 row records it; `test/pcaao.test.js` pins it.
+
+## The second departure: the wear modules ship off (WEAR-VANILLA, 2026-10-01)
+
+The repair triage: "Disable the modded feature that increases durability
+loss. Vanilla values work fine. Weapon degradation done improperly is
+extremely agitating if done wrong." `equipmentDamageEnhanced` wore a
+weapon about 2.8x DFU per landed hit - more, the better its metal - and a
+struck piece about 15x, by a monster's claws too, which DFU never lets wear
+armour; `fadingEnchantedItems` destroyed a player's broken enchanted piece.
+BALANCE1's 0.6 on every blow softened it without undoing it. Both ship OFF
+in the port now (the mod ships them on), with Roleplay Realism's
+`equipDamage` (armour x5, the arm that answers when this one is off), and
+the wear scale is back at 1. A switch alone was not enough: the mod's own
+core (`CalculateAttackDamage` under the redone armour formula) calls the
+class's own `DamageEquipment` and wears gear its way whatever
+`equipmentDamageEnhanced` says. So `pcaaoAttackDamage` follows the switch -
+a departure from the mod's code as well as its defaults: off, the blow
+wears what FormulaHelper's DamageEquipment says (`formulas.js`
+`damageEquipment`), with the weapon it was struck with, never the stand-in
+the core assigns a monster's natural attack (DFU has no such weapon). The rest of the overhaul - the redone armour
+formula, the criticals, condition-based effectiveness, soft materials, the
+strength fix - is untouched. Offline the switches are the player's (a
+value saved under the old default is let go once, `SWITCH_RESETS`);
+online the room reads the port's defaults. Measured through `calculateAttackDamage` (a level-20 player,
+skills 70, level-10 foes, a quality-10 smith; repair prices unchanged): a
+Daedric longsword's repair 17.5-25.2 gold a landed hit -> 4.8-6.9, a
+Daedric cuirass's 6.4-10.6 a monster's blow -> 0 and an armed foe's 6.4 ->
+0.9; Ebony 4.4-6.7 -> 1.3-2.0 and 2.0-3.5 -> 0-0.3. Ledger A, WEAR-VANILLA; `test/wear_vanilla.test.js`.
 
 ## What is kept bug for bug
 
@@ -121,7 +149,7 @@ Ledger A's PCO1 row records it; `test/pcaao.test.js` pins it.
   port has no mod list, so the mod is a switch in the Mods pane (the
   Dynamic Skies precedent after VC1). ~~Off~~ ON by default since MO1
   (2026-09-12, Mac's law: every mod on; the pane is where it is turned off). The seven shipped module keys
-  default as shipped (all on). Mac's to flip.
+  default as shipped (all on), but for the two wear modules, off since WEAR-VANILLA (above).
 - **The two derived arms read the OTHER mods' own switches** (MM1, Mac:
   "there shouldn't be compatibility switches between mods"; they were
   switches of this mod's from PCO1 to MM1). `meanerMonsters` is

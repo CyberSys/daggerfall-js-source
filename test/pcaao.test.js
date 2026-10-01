@@ -478,7 +478,8 @@ test('PCO1: the seams - the Mods pane entry, the credit, the vendor folder, worl
   const shipped = JSON.parse(rd('vendor/pcaao/modsettings.json')).Sections[0].Keys;
   for (const k of shipped) {
     assert.ok(m.keys[k.Name], `the shipped key ${k.Name} is on the pane`);
-    assert.equal(m.keys[k.Name].default, k.Value, `${k.Name} defaults as shipped`);
+    if (k.Name === 'equipmentDamageEnhanced' || k.Name === 'fadingEnchantedItems') { assert.equal(k.Value, true); assert.equal(m.keys[k.Name].default, false, `WEAR-VANILLA: ${k.Name} ships on, the port's default is off`); }
+    else assert.equal(m.keys[k.Name].default, k.Value, `${k.Name} defaults as shipped`);
     assert.equal(m.keys[k.Name].description, k.Description, `${k.Name}'s description is the mod's own`);
   }
   assert.equal(m.keys.Enabled.default, true, 'MO1 (Mac, 2026-09-12): every mod is on by default; the Mods pane is where it is turned off');

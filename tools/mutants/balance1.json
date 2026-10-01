@@ -103,19 +103,20 @@
     ]
   },
   {
-    "name": "BALANCE1-wear-scale-is-one",
+    "name": "BALANCE1-wear-scale-back-at-0.6",
     "file": "src/systems/equip.js",
-    "old": "export const CONDITION_WEAR_SCALE = 0.6;",
-    "new": "export const CONDITION_WEAR_SCALE = 1;",
+    "old": "export const CONDITION_WEAR_SCALE = 1;",
+    "new": "export const CONDITION_WEAR_SCALE = 0.6;",
     "tests": [
-      "test/balance1.test.js"
+      "test/balance1.test.js",
+      "test/wear_vanilla.test.js"
     ]
   },
   {
     "name": "BALANCE1-seam-never-restores",
     "file": "src/systems/equip.js",
     "old": "export function _wearScaleForTests(scale = CONDITION_WEAR_SCALE) { _wearScale = scale; }",
-    "new": "export function _wearScaleForTests(scale = 1) { _wearScale = scale; }",
+    "new": "export function _wearScaleForTests(scale = 0.6) { _wearScale = scale; }",
     "tests": [
       "test/balance1.test.js"
     ]

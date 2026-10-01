@@ -1,0 +1,87 @@
+[
+  {
+    "name": "WEAR-VANILLA-overhaul-wear-ships-on",
+    "file": "src/systems/modSettings.js",
+    "old": "      equipmentDamageEnhanced: Object.freeze({ default: false,",
+    "new": "      equipmentDamageEnhanced: Object.freeze({ default: true,",
+    "tests": [
+      "test/wear_vanilla.test.js",
+      "test/pcaao.test.js"
+    ]
+  },
+  {
+    "name": "WEAR-VANILLA-fading-ships-on",
+    "file": "src/systems/modSettings.js",
+    "old": "      fadingEnchantedItems: Object.freeze({ default: false,",
+    "new": "      fadingEnchantedItems: Object.freeze({ default: true,",
+    "tests": [
+      "test/wear_vanilla.test.js",
+      "test/pcaao.test.js"
+    ]
+  },
+  {
+    "name": "WEAR-VANILLA-rr-armour-x5-ships-on",
+    "file": "src/systems/modSettings.js",
+    "old": "      equipDamage: Object.freeze({ default: false,",
+    "new": "      equipDamage: Object.freeze({ default: true,",
+    "tests": [
+      "test/wear_vanilla.test.js",
+      "test/rr1_realism.test.js"
+    ]
+  },
+  {
+    "name": "WEAR-VANILLA-room-armour-x5-on",
+    "file": "src/systems/onlineLane.js",
+    "old": "classicStrengthDamageBonus: false, equipDamage: false, encumbranceEffects: true,",
+    "new": "classicStrengthDamageBonus: false, equipDamage: true, encumbranceEffects: true,",
+    "tests": [
+      "test/wear_vanilla.test.js",
+      "test/modsonline.test.js"
+    ]
+  },
+  {
+    "name": "WEAR-VANILLA-reset-drops-overhaul-wear",
+    "file": "src/systems/modSettings.js",
+    "old": "  Object.freeze({ vendor: 'pcaao', key: 'equipmentDamageEnhanced', stamp: 'equipmentDamageEnhanced@WEAR-VANILLA' }),\n",
+    "new": "",
+    "tests": [
+      "test/wear_vanilla.test.js"
+    ]
+  },
+  {
+    "name": "WEAR-VANILLA-reset-drops-fading",
+    "file": "src/systems/modSettings.js",
+    "old": "  Object.freeze({ vendor: 'pcaao', key: 'fadingEnchantedItems', stamp: 'fadingEnchantedItems@WEAR-VANILLA' }),\n",
+    "new": "",
+    "tests": [
+      "test/wear_vanilla.test.js"
+    ]
+  },
+  {
+    "name": "WEAR-VANILLA-reset-drops-rr-armour-x5",
+    "file": "src/systems/modSettings.js",
+    "old": "  Object.freeze({ vendor: 'roleplay-realism', key: 'equipDamage', stamp: 'equipDamage@WEAR-VANILLA' }),\n",
+    "new": "",
+    "tests": [
+      "test/wear_vanilla.test.js"
+    ]
+  },
+  {
+    "name": "WEAR-VANILLA-core-always-wears-its-way",
+    "file": "src/combat/pcaao.js",
+    "old": "  if (modules.equipmentDamageEnhanced) pcaaoDamageEquipment(attacker, target, damage, weapon, struckBodyPart, { rolls, say, modules });\n  else damageEquipment(attacker, target, damage, struckWith, struckBodyPart, { rolls, say });\n",
+    "new": "  pcaaoDamageEquipment(attacker, target, damage, weapon, struckBodyPart, { rolls, say, modules });\n",
+    "tests": [
+      "test/wear_vanilla.test.js"
+    ]
+  },
+  {
+    "name": "WEAR-VANILLA-core-wears-the-stand-in",
+    "file": "src/combat/pcaao.js",
+    "old": "  else damageEquipment(attacker, target, damage, struckWith, struckBodyPart, { rolls, say });\n",
+    "new": "  else damageEquipment(attacker, target, damage, weapon, struckBodyPart, { rolls, say });\n",
+    "tests": [
+      "test/wear_vanilla.test.js"
+    ]
+  }
+]

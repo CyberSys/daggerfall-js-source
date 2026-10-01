@@ -358,7 +358,7 @@ export const ONLINE_ROOM_MOD_KEYS = Object.freeze({
   // Forced OFF, which is what the mod ships anyway.
   'roleplay-realism': Object.freeze({
     Enabled: true, enemyAppearance: true,
-    advancedArchery: true, weaponSpeed: true, weaponMaterials: true, classicStrengthDamageBonus: false, equipDamage: true, encumbranceEffects: true,
+    advancedArchery: true, weaponSpeed: true, weaponMaterials: true, classicStrengthDamageBonus: false, equipDamage: false, encumbranceEffects: true,   // WEAR-VANILLA (2026-10-01): armour x5 off, the port's default (modSettings.js)
     'RefinedTraining.intensiveTraining': false,
   }),
 });

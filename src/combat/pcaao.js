@@ -100,6 +100,7 @@ import {
   registerFormulaOverride, handToHandMinDamage, handToHandMaxDamage,
   WEAPON_MATERIAL_MODIFIER, enemyEntityGroup, careerAttackModifier, ENEMY_GROUPS, dice100,
   MATERIAL_INEFFECTIVE_TEXT, SUCCESSFUL_BACKSTAB_TEXT,
+  damageEquipment,   // WEAR-VANILLA: DFU's DamageEquipment, the core's wear while the wear module is off
 } from './formulas.js';
 import { meanerMonstersOn } from './pcaaoMeanerMonsters.js';
 import { RR_VENDOR, rrAdjustWeaponHitChanceMod, rrAdjustWeaponAttackDamage } from '../systems/rrRealism.js';   // AUDIT 68 S08-pcaao-archery-duplicate: RR's two archery members, one export
@@ -1031,6 +1032,7 @@ export function pcaaoAttackDamage(attacker, target, {
     const b = AIAttacker.basics ?? {};
     if (int(((b.minDamage ?? 0) + (b.maxDamage ?? 0)) / 2) > wepAvg) weapon = null;
   }
+  const struckWith = weapon;   // WEAR-VANILLA: the weapon the blow is struck with - never a monster's stand-in below
   if (weapon) {
     if (modules.softMaterialRequirements) {
       if ((target.minMetalToHit ?? -1) > weapon.material) {
@@ -1156,7 +1158,13 @@ export function pcaaoAttackDamage(attacker, target, {
   // num2, weapon, num10)` - the static, not FormulaHelper's), so the
   // overhaul always wears gear its way, PRE-reduction, whatever the
   // equipmentDamageEnhanced switch registered for DFU's own path.
-  pcaaoDamageEquipment(attacker, target, damage, weapon, struckBodyPart, { rolls, say, modules });
+  // WEAR-VANILLA (2026-10-01, the repair triage: "Disable the modded feature that increases durability loss. Vanilla
+  // values work fine"): A DEPARTURE - only while that module is on. Off (the port's default, modSettings.js), the blow
+  // wears what FormulaHelper's DamageEquipment says (formulas.js damageEquipment, Roleplay Realism's slot inside it),
+  // with the weapon it was struck with: a monster's stand-in is the overhaul's device, so a claw wears no armour, as in
+  // DFU. The rest of the overhaul - the hit, the damage, the reduction - is untouched.
+  if (modules.equipmentDamageEnhanced) pcaaoDamageEquipment(attacker, target, damage, weapon, struckBodyPart, { rolls, say, modules });
+  else damageEquipment(attacker, target, damage, struckWith, struckBodyPart, { rolls, say });
   if (AITarget && isMonster(AITarget)) {
     if (!pcaaoArmorStruckVerification(target, struckBodyPart)) damage = pcaaoPercentageReductionCalculationForMonsters(attacker, target, damage, bluntWep, naturalDamResist);
     else if (unarmedAttack) damage = pcaaoArmorDamageReductionWithUnarmed(attacker, target, damage, struckBodyPart, naturalDamResist, modules);
