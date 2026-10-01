@@ -58,6 +58,35 @@ Hanging and climbing wear out your grip. When it runs out, you let go.
 - A **Grip** meter shows with the breath bar while you hold on, and while it comes back. It turns red, and you're told "Your grip is failing.", when it's nearly gone.
 - With no grip left you can't catch or grab anything until it comes back.
 
+## Getting down
+You can no longer get stuck on a roof.
+
+- **Over a parapet:** press **Jump** at a parapet or rail with a long drop behind it, and you climb over it and hang from its far side. Then climb down with **Back**, or let go.
+- **Off an edge:** **crouch** and walk to the edge of a roof or a wall top, and you lower yourself over it and hang from the edge. Pitched eaves count, up to 45°. Walking off without crouching still just walks off.
+- With **Roleplay & Realism** stopping you from climbing, you stay crouched at the edge instead of walking off it.
+
+## Leaps
+Leaps have their own longer, flatter arc, set by your **Jumping** skill. The ordinary jump hasn't changed.
+
+- **From a hang or a climb**, press **Jump**:
+  - with **Left** or **Right** to leap sideways to the next handhold along the wall (1.5 m to 2.5 m);
+  - with nothing else held, where there's nothing to climb onto, to leap up to a ledge above you (1 m to 1.8 m);
+  - with **Back** to push off the wall and jump away from it. You can catch a ledge on the way.
+  A leap uses a tenth of your grip.
+- **Running leap:** run at an edge and press **Jump** to leap 4 m to 7 m. Pressing a moment after you run off the edge still works. In the air you reach a little further for ledges.
+- **Wall run:** run at a wall and press **Jump** to run 1 m to 2 m up it and grab the ledge at the top, or keep climbing the wall.
+- **Past a window sill:** from a hang on a sill with more wall above it, **Forward** climbs on up past it.
+- A leap trains **Jumping**; a wall run trains **Climbing**.
+
+## How it feels
+- **The view moves with you.** A catch jolts the view down, harder after a long fall. Hanging sways a little. Shimmying and climbing rock from one hand to the other. Pulling up, you look up at the edge and then over it. A vault dips over the top, lowering yourself looks down over the edge, and corners turn the view with the wall. Leaps kick the view outward. A failing grip shakes. All of this is first person only.
+- **You can hear it.** Hands slap onto stone, boots scrape for footholds, you haul yourself over edges, and grit crumbles away when your grip starts to go. Every hand and foot hold is heard, never the same sound twice in a row. Hard pulls, leaps and long catches can make your character grunt (with combat voices on). These are part of **Enhanced sounds**.
+- **Your weapon goes down** while your hands are on the wall, and comes back up when you let go. You can't swing while climbing, as in Daggerfall.
+
+## Other players, and third person
+- In third person your character turns to face the wall while climbing and turns back after.
+- Online, other players see you facing the wall you're climbing, posed off the ground rather than walking in the air, and hear you climb. (This needs the updated server.)
+
 ## Saving on a wall
 Save while you hang or climb and the load puts you back on the wall where you were, with the grip you had left. Save in the middle of a climb onto a ledge and you load at the end of it.
 
@@ -77,5 +106,8 @@ Carrying more than half of what you can carry shortens your reach. With a full p
 - Offline, the classic UI always uses classic climbing.
 - Online it's on for everyone, whichever UI they use, so every player can reach the same places.
 
-## Coming next
-Leaping between ledges, the arms and camera showing all of this, and other players seeing you climb.
+## Performance
+Climbing over very detailed walls is faster, and so is every collision check in the game that finds nothing to push against.
+
+## Not yet
+In the Morrowind-style first-person view, the arms lower out of sight while you climb rather than reaching for the ledge.

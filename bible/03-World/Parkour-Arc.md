@@ -36,9 +36,11 @@ over them (`combat/heldPose.js`, the held map's) for hands on a lip in first per
 |---|---|---|
 | CLIMB1 | The ledge sensor; the MANTLE (a jump pressed at a lip, a lip caught with Jump held in the air, the classic climb's top-out), the CLAMBER over a thin top and the VAULT; the switch; the tick's bill | **SHIPPED** 2026-09-30, **AUDITED** the same day (AUDIT CLIMB1) |
 | CLIMB2 | The catch becomes a HANG: shimmy along the lip (and round its corners), drop, climb up and down; grip on Fatigue; the free climb on grip (Mac's "Sheer walls"); encumbrance cuts the reach (a hard catch's hold came with the audit) | **SHIPPED** 2026-09-30 |
-| CLIMB3 | LEAPS: up, sideways and back off the wall from a hang, the wall run-up, the running jump off an edge caught at the far side (Mac's "Leaps", Jumping-scaled) | |
-| CLIMB4 | The feel: the arms on the lip (heldPose deltas), the camera's dip and pitch, the sounds | |
-| CLIMB5 | Online and third person: the move on the wire, the peers' and the rig's poses | |
+| CLIMB-DOWN | The way down from a roof: over a parapet into a hang, crouched off an edge into a hang (Mac: "players can get stuck on the very top of roofs") | **SHIPPED** 2026-10-01 |
+| CLIMB3 | LEAPS: up, sideways and back off the wall from a hang, the wall run-up, the running jump off an edge caught at the far side (Mac's "Leaps", Jumping-scaled) | **SHIPPED** 2026-10-01 |
+| CLIMB4 | The feel: the camera's dip, sway, rhythm, looks and kicks; the sounds; the hands off the weapon and onto the wall | **SHIPPED** 2026-10-01 |
+| CLIMB5 | Online and third person: the climb on the wire, the peers turned to the wall and heard climbing, the own body facing the wall | **SHIPPED** 2026-10-01 |
+| PERF-CLIMB | The dense-mesh limit: a capsule resolve that moved nothing stops | **SHIPPED** 2026-10-01 |
 
 ## CLIMB1 (2026-09-30): THE LEDGE SENSOR, THE MANTLE, THE CLAMBER AND THE VAULT - SHIPPED
 
@@ -529,6 +531,7 @@ and lets the head clip, AUDIT 64 F5), not the climb's. And on a dense mesh (one 
 free climb's top-out step costs about 13.5 ms (39 `penetrationAt` calls inside the ledge's proof) and a corner's up to
 7.3 ms, once each; a steady climb's 2.0-2.4 ms a step is the collider's own move (walking along the same wall costs
 the same). Daggerfall's models are a few hundred triangles; plain geometry stays under 0.5 ms a step in every state.
+(PERF-CLIMB, below, took a quarter to a third off every one of these, exactly.)
 
 ## AFTER AUDIT CLIMB2 (2026-10-01): what was left
 
@@ -597,3 +600,138 @@ deps' `climbing` down `_hangStep`, `_pkShimmy` and `_pkCorner`). The reach, the 
 - **The merge's own fault**: `scenes/shared.js` imported `isOnlinePage` twice (CLIMB1's switch and MANA-HALF each
   added it, and git merged both lines cleanly), so the module did not load; one import now. #500 has since reverted
   MANA-HALF, and the next merge took its side: the import is CLIMB1's alone again.
+
+## CLIMB-DOWN (2026-10-01): THE WAY DOWN FROM A ROOF - SHIPPED
+
+Mac, on the merged arc: *"So plsyers can get stuck on the very top of roofs"* - and *"Take care of the remaining
+items. I really want you to go all in on this."* The enhanced climb took a player up every wall, and only a fall
+brought them down. A free climb tops out over a thin parapet onto the roof inside, and from there the vault and the
+clamber refused it (the drop past it would hurt), the plain jump could not clear it, and a press against it started a
+free climb of its inner face that could only stand up again: walled in for good.
+
+- **Over a parapet** (`parkour.js senseOverHang`, `planOverHang`). Jump at a thin top over a drop the clamber will not
+  step down (a parapet, a rail) climbs over it into a hang on its far side: a clamber chained into the drop, one move
+  with a `next` (`motor.js _parkourAdvance` goes on into it with no new bill, the body never set down between them).
+- **Off an edge, crouched** (`senseEdge`, `planLower`, `motor.js _pkLowerStart`). Crouch walked to an edge over a drop
+  the walk would fall lowers the body over it into a hang from its lip; the stance is stood as the drop begins, so the
+  eye only sinks. Eaves to 45 degrees, wall tops, wide parapets. Back climbs down from the hang, as ever.
+- **Roleplay & Realism** refuses the lower as it refuses every climb; refused, the crouched body holds at the edge
+  (the line said once, `_pkEdgeSaid`) instead of walking off it.
+- **A save** mid-climb over a parapet keeps the hang it ends in (`fallSnapshot` follows the chain); a recentre or a deck
+  carries the chained part (`offsetMove`, `carryMove`).
+- Found beside it, each its own fix: the collider's last-resort terrain clamp took any body within its 2 cm skin back
+  down to the terrain, rising or not, so a climb under 2 cm a step (the free climb at Climbing 0-20, the classic climb
+  below Speed 25) never left the ground outdoors - a body rising clear of the floor rises now (`collider.js`); the fit
+  asked the meshes only, and outdoors CLIMB2's catch at a 1.6-1.75 m wall at Climbing 0 hung the feet 5-20 cm in the
+  ground - `capsuleFits` refuses a body under the terrain (`collider.restFloor`); "up to 45 degrees" refused exactly 45
+  - every top test takes the rays' scatter, as the grip's other comparisons do.
+- **Pinned**: `test/climbdown.test.js` (10), each red on the code before its fix.
+
+## CLIMB3 (2026-10-01): LEAPS - SHIPPED
+
+Mac's call, *"Parkour leap, skill-scaled"*: a leap from a hang or a sprint off an edge has its own longer, flatter
+arc scaled by Jumping; the plain jump is unchanged.
+
+- **From a hold**, a fresh Jump leaps (until now Jump on a free climb did nothing): with Left or Right to a hand-hold
+  along the wall past where the held lip ends (`senseLeapHold` - never along the shimmy's own lip), with no top to climb
+  onto up to a lip over the one held, with Back off the wall (the eject: a flight with the catch armed). A leap to a
+  hold is a move along a proven path, out from the wall first, the hold going on through it; it spends a tenth of the
+  grip. Reach and pace are the Jumping skill's (side 1.5-2.5 m, up 1.0-1.8 m).
+- **Running**, Jump at an edge is a running leap: a flight to a landing 4-7 m ahead over an apex of 0.45-0.8 m by
+  Jumping - longer and flatter than the plain jump at every skill. A press a beat after running off the edge (0.15 s)
+  still leaps. In a leap's flight the catch looks the way it flew and reaches 0.25 m further (the magnetism).
+- **Running, Jump at a wall** runs up it (1.0-2.0 m by Climbing and Jumping) into the hang at a lip the hands then
+  reach, or onto the wall as a free climb. A climb: Roleplay & Realism asks.
+- **Forward from a hang on a sill under a wall that goes on up** climbs on past it (CLIMB2's open item): the free climb
+  rises in front of the sill without pressing into it, the wall behind it within the grab's reach.
+- **The bill**: a leap is a jump's fatigue and trains Jumping; a wall run trains Climbing (`worldTick.js`).
+- **Moved pins**: CLIMB2 LIVE's sill now sits under a soffit (a sill on a wall that goes on up is climbed past); AUDIT
+  CLIMB2 G4's sill is taken and the climb goes on past it, never stalling under it, never into it.
+- **Pinned**: `test/climb3.test.js` (10).
+
+## CLIMB4 (2026-10-01): THE FEEL - SHIPPED
+
+Mac: *"I reallty want go to go all in with the detai. Liike proer feel to climbing"*.
+
+- **The motor tells the frame its climb** (`motor.js _pkEmit`, `climbEvents`, cleared each render frame): a hold taken
+  (its mode) and let go (the mode it was), a move begun (its kind, time, rise, split and the speed the body came at; a
+  chained move is told as its own), a corner's turn, a leap's launch, the grip failing.
+- **The camera** (`player/climbFeel.js`, a pure law; one per host view, beside the HeadBobber): a catch dips the eye
+  and pitches the view down, harder the faster the body came; hanging sways a little on the arms; the shimmy rolls toward
+  its way with each hand; the free climb bobs hand over hand, the roll swapping hands; a failing grip trembles; a
+  pull-up looks up at the lip, then down over it as the body crests; a vault pitches down over the top; a lower looks
+  down over the edge and turns the view to the wall; a corner turns the view with the wall; a leap's launch kicks the
+  field of view, the eject turns the view the way it flew, a side leap rolls toward its side, the wall run looks up.
+  The view half (`applyClimbView`) is the view matrix's alone, first person only; turns are headings paid through the
+  look filter (`LookFilter.turn`), never latched as the mouse's; the kick and the pitch reach the sky, the far ring and
+  the spawn view's lens, so the horizon stands where the view's does.
+- **The sounds** (`player/climbSounds.js`, framed with the camera). Eleven clips of the port's own, synthesised
+  deterministically by `tools/climbSfx.mjs` and baked to DAGGER.SND's format (`public/sfx/climb-*.wav`, provenance in
+  `public/sfx/SOURCES.md`): hands on stone, the catch with the body's weight, hand over hand, boots scrabbling, the haul
+  over a sill, a leap's rush, the grit a failing grip lets go. Every move sounds on its own clock (a pull-up's haul and
+  its sill, the vault, the lower, the corner, the wall run, the leap's push, rush and arrival); the free climb places a
+  hand at every reach the camera rolls with and a boot half a reach after; the shimmy a hand per span; the grip failing
+  crumbles and trickles every few seconds while it holds; the grip gone scrabbles and cries; a let-go is the hands
+  leaving the stone. Never the clip just heard, every pitch moved a little. The climber's effort is the player's own
+  attack voice (`hostCombat.js playerClimbStrain` - the grunt's gates: CombatVoices, a transformed lycanthrope's
+  silence, a vampire's override), never two within three seconds. Off with the port's own sounds (ES1, the enhanced
+  skin's switch, whose row now says so).
+- **The hands on the wall** (`combat/weaponRig.js`). WeaponManager's climbing return (:236-240 - no swing, no weapon)
+  for the enhanced hold and moves as for the classic climb: the swing refused on both doors, the viewmodel eased down
+  out of the screen and back after (`climbLowerStep`: down on 0.07 s, back on 0.14 s) - the classic sprite through
+  OnGUI's own offset, the Morrowind arms through their screen transform, the gun and the widget's clone gone halfway
+  (they have no slide to lend). The hold counts as a climb for the torch, the shield and the dungeon's bag
+  (`motionBagOf`).
+- **Not done, and why**: the Morrowind arms keep their idle under the lowering rather than reaching for the lip - a
+  per-bone pose (`heldPose`'s deltas) tuned blind, with no game data in any session to look at, would ship arms bent
+  wrong; the lowering reads right on every lane today.
+- **Pinned**: `test/climb4.test.js` (17).
+
+## CLIMB5 (2026-10-01): THE CLIMB, SEEN AND HEARD BY THE OTHERS - SHIPPED
+
+A peer on a wall was a body standing in the air, facing wherever their camera looked, walking in place along a lip,
+and silent.
+
+- **The pose carries the climb** (`motor.js climbPoseOf`): `cl` 1 hanging, 2 on a face (the classic climb too), 3 a
+  move in flight; `cw` the way the body faces on it (`climbFacing`: into the wall held, the wall a move ends on, else
+  the move's own way). Both omitted off the wall, so a ground pose keeps the bytes it always had; `validPose` bounds
+  and wraps them, `poseChanged` sends a hold, a move and a turn on the wall at once (compared as an angle), `lerpPose`
+  carries them whole. RELAY_VERSION world138, not yet deployed - a relay before it strips both, and the others draw a
+  climber as before.
+- **The others** (`net/peerClimb.js`): the Morrowind body faces the wall and takes the in-air pose the local third
+  person takes there; no walk on the wall (a shimmy is hands, not strides) for the bodies, the billboards, the riders'
+  walkers and the stride; and the climb is HEARD at the climber - the catch, the hands onto a face, the haul over a lip,
+  the hold taken, the let-go, a hand per reach up a face and a boot after, a hand per span along a lip - behind the
+  peers' sounds' switch and the port's own sounds'. An old climb first seen is not replayed; a snap is no climb.
+- **The own body in third person** turns to the wall it holds, eased whatever the view does, and back to the view
+  after (`motor.bodyYawFor`, `BODY_TURN_TAU` 0.08 s) - then is the view's yaw exactly, as for a player who never
+  climbs; all five body draws read it.
+- **Pinned**: `test/climb5.test.js` (7), end to end through the relay's door included.
+
+## PERF-CLIMB (2026-10-01): A RESOLVE THAT MOVED NOTHING STOPS - SHIPPED
+
+The recorded limit above: on a dense collider mesh the free climb's top-out step and a corner's turn cost a frame's
+budget once each. Measured on a 714-brick wall (8,568 triangles in one mesh): the top-out step asked 38 capsule fits -
+342 sphere resolves, 13 of its 14 ms - and a step simply pressed into the same wall cost 23 ms with the climb switched
+off. The collider's own.
+
+`collider.js _resolveCapsule` ran three passes whatever the first found. Every centre a pass reads derives from the
+lower bead, so a pass that ends where it began, to the bit, is the same pass again - pushing nothing, ORing the same
+flags. It stops there now; a pass the low-head-low round trip's rounding moved by a bit goes on as it always did.
+
+- **The same answers**: 300 random scenes (120,000 steps, the climb on and off) hash identically with the stop and
+  without it; the pin runs 80 (`_setFixedPointStopForTest`).
+- **Faster**: the top-out 14.3 -> 10.8 ms (186 sphere resolves), a step pressed into the wall 23.3 -> 13.5 ms, the
+  steady climb 3.4 -> 2.2 ms, a corner's turn on a 637-brick tower 15.1 -> 9.5 ms; in the open every resolve is one pass
+  where it was three - every body in the game, not only the climber.
+- **What remains** on such a mesh is the grid's own 2 m columns: every sphere walks the triangles of the 6 x 6 m round
+  it, top to bottom. A finer or a three-dimensional broad phase changes the ORDER contacts are met in, and the pushes
+  are order-dependent - a slice of its own, with its own proof. Daggerfall's models are a few hundred triangles.
+- **Pinned**: `test/climbperf.test.js` (3).
+
+## Still open
+
+- **Real geometry**: `test/climbreal.test.js`'s real half has never run - no session has had the game data
+  (`ARENA2_PATH`). It runs the moment one does.
+- **The Morrowind arms on the lip**: a per-bone reach, tuned with the arms on screen (above).
+- **The relay**: world138 is not yet deployed; until it is, the others see a climber as before.
