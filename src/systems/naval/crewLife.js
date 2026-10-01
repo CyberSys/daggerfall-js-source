@@ -491,7 +491,7 @@ export function createCrewLife({ deck, roster, seed, places = [], faction = null
       let alive = members.reduce((a, m) => a + (m.gone ? 0 : 1), 0);
       for (const m of members) {
         if (alive >= n) return;
-        if (!m.gone || m.taken) continue;
+        if (!m.gone || m.taken || m.ashore) continue;
         const at = m.station ? m.post : freeSpot() ?? m.post;
         m.pos = [...at]; m.gone = false; m.state = 'idle'; m.t = within(rng, CREW_IDLE_S); m.path = null; m.face = null;
         alive++;
@@ -501,6 +501,29 @@ export function createCrewLife({ deck, roster, seed, places = [], faction = null
         if (at) { m.pos = [...at]; m.post = [...at]; }
         members.push(m);
       }
+    },
+    /**
+     * CREW-COMPANIONS: the hands ashore with the player (`ids`, roster places) off her deck, and the ones home again back
+     * on it where they left it (a free spot when another stands there). Answers how many are off.
+     * @param {Set<number>} ids
+     */
+    away(ids) {
+      let off = 0;
+      for (const m of members) {
+        const out = ids.has(m.i);
+        if (out && !m.ashore) {
+          if (!m.gone) { if (m.mate) endTalk(m); dropLeader(m); m.gone = true; m.line = null; }
+          m.ashore = true;
+        } else if (!out && m.ashore) {
+          m.ashore = false;
+          if (!m.taken) {
+            const at = m.station ? m.post : freeSpot() ?? m.post;
+            m.pos = [...at]; m.gone = false; m.state = 'idle'; m.t = within(rng, CREW_IDLE_S); m.path = null; m.face = null;
+          }
+        }
+        if (m.ashore) off++;
+      }
+      return off;
     },
     /** How many stand. */
     standing: () => members.reduce((a, m) => a + (m.gone ? 0 : 1), 0),

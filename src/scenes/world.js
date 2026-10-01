@@ -380,6 +380,7 @@ import { NavalRenderer } from '../render/navalRender.js';   // NAV-B: the smoke,
 import { drawNavalHud, navalTouchBrace, navalPadPrompts, drawNavalTags, drawCrewBars, CREW_BAR_RANGE, drawCrewLines, CREW_SAY_RANGE } from '../ui/navalHud.js';   // AUDIT NAV1 (#14): and the ships' tags - SHIPMATES: and the crew's bars - LIVING CREW: and their lines
 import { createNavalCrew, CREW_RANGE, CREW_KEEP } from './navalCrew.js';   // LIVING CREW: the crews on the decks near the eye
 import { crewRoster, crewCount } from '../systems/naval/crewLife.js';
+import { createCrewAshore } from './crewAshore.js';   // CREW-COMPANIONS: the party ashore, stood in every place
 import { hullBuild } from '../systems/naval/navalShips.js';   // LIVING CREW: a room's boat's crew, her hull's own
 import { sparedByPlayer, isShipmate } from '../combat/friendlyFire.js';   // SHIPMATES: the player's own crew, spared his blows and wearing their bars
 import { padFamily } from '../ui/padGlyphs.js';   // AUDIT NAV1 (the presentation): the pad in hand's family - the readout names its buttons
@@ -5958,7 +5959,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const rows = boatMenuRows({
       boxes, packable: !!boat.packable, sailingThis, sailing: !!csaRuntime?.isSailing(), aboard: csaStandsOn(boat),
       passengers: csaPassengersOn(boat), variants: boat.VariantObject != null && boat.GetVariantCount >= 1,
-      naval: navalOn(), crewed: !!boat.crewed,   // SHIP-CREW: her crew's card and her orders
+      naval: navalOn(), crewed: !!boat.crewed, companions: !!boat.uid,   // SHIP-CREW: her crew's card and her orders - AUDIT CC-A9: hands go ashore by her deed's number
     });
     return { boxes, rows };
   };
@@ -5967,8 +5968,12 @@ export async function bootWorld(canvas, renderer, params, status) {
   const csaBoatVerb = (pick, verb) => {
     if (!csaRuntime) return;
     // SHIP-CREW: her crew's card and her orders - the port's own rows, no box of the mod's (in reach as a box is)
-    if (verb === BOAT_VERB.crew || verb === BOAT_VERB.orders) {
-      if (pick.distance <= CSA_ACTIVATION_DISTANCE) { if (verb === BOAT_VERB.crew) navalCrewCard(pick.boat); else navalOrders(pick.boat); }
+    if (verb === BOAT_VERB.crew || verb === BOAT_VERB.orders || verb === BOAT_VERB.companions) {
+      if (pick.distance <= CSA_ACTIVATION_DISTANCE) {
+        if (verb === BOAT_VERB.crew) navalCrewCard(pick.boat);
+        else if (verb === BOAT_VERB.orders) navalOrders(pick.boat);
+        else navalCompanions(pick.boat);   // CREW-COMPANIONS
+      }
       return;
     }
     const { boxes, rows } = csaBoatMenu(pick.boat);
@@ -7126,11 +7131,12 @@ export async function bootWorld(canvas, renderer, params, status) {
   let _crewKey = 0;
   function navalCrewBars(proj, view, eye) {
     if (typeof document === 'undefined') return;
-    const covered = townTalk.overlayActive || gamePaused() || !!townTalk.hudHidden || _mode() !== 'exterior' || !!travelView?.active;
+    const covered = townTalk.overlayActive || gamePaused() || !!townTalk.hudHidden || !!travelView?.active;
     const points = [];
     if (!covered) {
       const w = canvas.clientWidth, h = canvas.clientHeight, rect = worldViewportRect(w, h);
-      for (const f of exteriorFoes.foes) {   // mine on a deck, and a room's crew its owner names (exteriorFoes.js `cw`)
+      // CREW-COMPANIONS: indoors and underground, my companions' (the street's pool holds them outdoors, with the rest)
+      for (const f of _mode() === 'exterior' ? exteriorFoes.foes : _insidePool()) {   // AUDIT CC-A10: indoors and underground the place's own list - a peer's companions too   // mine on a deck, and a room's crew its owner names (exteriorFoes.js `cw`)
         const feet = f.ai?.feet;
         if (!isShipmate(f) || !feet || !f.entity) continue;
         const d = Math.hypot(feet[0] - eye[0], feet[1] - eye[1], feet[2] - eye[2]);
@@ -7155,6 +7161,15 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  facing the other) and where I stand on her (never walked through). A Warm Ashes raid holds my crew off my deck
    *  (its own allies are them), and a fight's end brings my hands home; the arc off, none stands. */
   let _crewBoarding = null;
+  /** AUDIT CC-D6: a boat of mine's deck roster - each place the class and sex of the hand her saved crew named there
+   *  (shipCrew.js), the seed's roll only past them. The crew seed moves with the session (online the tab's id and the
+   *  boat's place among the active), and "Hilda, Bard" floated over a male Warrior. */
+  const navalMyRoster = (boat, seed, crew) => {
+    const hands = naval?.crewOf?.(boat)?.hands ?? [];
+    return crewRoster({ hull: boat.hull, seed, crew }).map((r, i) => (hands[i] ? { mobile: hands[i].mobile, gender: hands[i].gender === 'female' ? 'female' : 'male' } : r));
+  };
+  /** AUDIT CC-A5: my boats always say who is away - an empty set brings the last of the party home onto her deck. */
+  const NO_HANDS_AWAY = new Set();
   const _crewCtx = { battle: false, struck: false, muster: 0, avoid: null, order: null, sings: true, line: null }, _crewMe = [0, 0, 0], _crewThem = [0, 0, 0];
   const _crewSeed = (s) => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193); return h >>> 0; };
   /** AUDIT NAV2 F9: my boat's crew seeded as a room seeds her (comeSailAwayPeers peerKey, `${whose}:${which}` - which,
@@ -7181,7 +7196,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // AUDIT NAV2 F43: a Warm Ashes raid on her deck is fought by its own `_ally_`, her crew (AUDIT NAV1 B2) - her living
       // crew held off her deck till it ends, never walking and singing among the raiders
       const raid = !!b?.quest && b.boat === boat;
-      list.push({ key: boat, boat, deck: csa.deckOf(boat.hull, boat.variant ?? 0), count: crewCount({ hull: boat.hull, crew }), rosterOf: () => crewRoster({ hull: boat.hull, seed, crew }), seed, faction: null, battle: !!mine?.battle, toward: mine?.toward ?? null, hold: raid, mine });   // SHIP-CREW: `mine` her order, spirits and lines
+      list.push({ key: boat, boat, deck: csa.deckOf(boat.hull, boat.variant ?? 0), count: crewCount({ hull: boat.hull, crew }), rosterOf: () => navalMyRoster(boat, seed, crew), seed, faction: null, battle: !!mine?.battle, toward: mine?.toward ?? null, hold: raid, mine, away: naval?.awayOf?.(boat) ?? NO_HANDS_AWAY });   // SHIP-CREW: `mine` her order, spirits and lines - CREW-COMPANIONS: `away` her hands ashore, off her deck
     }
     for (const boat of csa.peerBoats) {
       if (!boat?.crewed || !boat.GameObject?.activeSelf || !near(boat, boat.GameObject.position)) continue;
@@ -7289,6 +7304,62 @@ export async function bootWorld(canvas, renderer, params, status) {
     csaOpenListPicker(rows.map((r) => r.label), (i) => {
       if (_csaPicker) { modes?.closeWindow?.(_csaPicker); _csaPicker = null; }
       if (rows[i]) naval.giveOrder?.(boat, rows[i].id);
+    });
+    return true;
+  }
+  /** CREW-COMPANIONS: the place the player stands in, as the companion layer (crewAshore.js) asks it - its key (the
+   *  pool itself: the street's, a building's, a dungeon's), how a companion stands there (the player's ally, loose of
+   *  every cap, out of the place's own save - the layer's catch-up comes long before the street's cull) and goes, and where behind the player a
+   *  body may stand (the place's collider swept from the player's feet). None while the player is not afoot in it: a
+   *  door or a load in flight, at a helm, in the travel view, or the naval arc off. */
+  function companionPlace() {
+    if (!navalOn() || !walkMode || !playerSpawned || _loading || modes?.transitioning || travelView?.active || csaRuntime?.isSailing?.()) return null;
+    const spotOf = (col) => (from, dx, dz) => { const p = [from[0], from[1], from[2]]; try { col?.move(p, dx, 0, dz, 1.8); } catch { /* the leader's own spot */ } return [p[0], p[1], p[2]]; };   // AUDIT CC-A3: the swept spot's own height (a slope's, a stair's)
+    const mode = _mode();
+    const standIn = (pool) => (mobile, feet, o) => pool.spawnFoe(mobile, feet, { yaw: o.yaw, gender: o.gender, allied: true, loose: true, transient: true });
+    // AUDIT CC-A1: `has` - a place's clear empties its list and marks nobody (the street's clearLive), so the layer
+    // asks the list itself whether a body still stands there
+    if (mode === 'exterior') return { key: exteriorFoes, spawn: standIn(exteriorFoes), remove: (f) => exteriorFoes.removeFoe(f), has: (f) => exteriorFoes.foes.includes(f), spot: spotOf(collider) };
+    if (mode === 'interior') {
+      const pool = modes?.interiorPool?.();
+      return pool ? { key: pool, spawn: standIn(pool), remove: (f) => pool.removeFoe(f), has: (f) => pool.foes.includes(f), spot: spotOf(modes?.interiorCollider) } : null;
+    }
+    const d = _dungeonPool();
+    if (!d?.spawnLooseFoe || !d.removeLooseFoe) return null;
+    return {
+      key: d,
+      // AUDIT CC-E1: a companion rides the room's own lane as a loose stand - the frame's `cp` names him, and everyone in
+      // the room stands him as my ally (dungeonContext.js companionPuppet); off the lane he was nobody's to see
+      spawn: (mobile, feet, o) => d.spawnLooseFoe(mobile, feet, { yawRad: o.yaw, allied: true, gender: o.gender }),
+      remove: (f) => d.removeLooseFoe(f), has: (f) => d.foes.includes(f), spot: spotOf(d.collider),
+    };
+  }
+  const crewAshore = createCrewAshore({
+    party: () => (navalOn() ? naval?.companions ?? null : null),
+    place: companionPlace,
+    leader: () => (playerSpawned ? { feet: [player.pos[0], player.pos[1], player.pos[2]], yaw: cam.yaw, grounded: !!player.grounded && !player.levitating && !player.swimming } : null),   // AUDIT CC-A3: on a floor or not
+    now: () => Math.floor(playerTicker.ownMinutes),
+    onKnocked: (c) => naval?.companionKnocked?.(c),
+  });
+  let _companionPruneN = 0;
+  /** CREW-COMPANIONS: the companion layer's frame, in every mode (the street's frame and the modal one) - and the party
+   *  kept to the living hands once a second. */
+  function crewAshoreTick() {
+    if (!navalOn()) { crewAshore.clear(); return; }
+    if (gamePaused()) return;   // AUDIT CC-A10: no knock, no stand, no catch-up under a window
+    if (++_companionPruneN >= 60) { _companionPruneN = 0; naval?.pruneCompanions?.(); }
+    try { crewAshore.frame(); } catch (e) { console.warn('[companions]', e?.message ?? e); }
+  }
+  /** CREW-COMPANIONS: a boat of mine's hands to take ashore (two at most) or send back aboard - a picker of her roster,
+   *  a refused row with its reason (crewCompanions.js companionRows), the press the host's (navalHost companionPress). */
+  function navalCompanions(boat) {
+    if (!navalOn() || !naval || !boat) return false;
+    const rows = naval.companionRows?.(boat, Math.floor(playerTicker.ownMinutes));
+    if (!rows) return false;
+    if (!rows.length) { messageBox([`The ${CSA_HULL_NAMES[boat.hull] ?? 'boat'} has no hands to spare.`]); return true; }
+    csaOpenListPicker(rows.map((r) => (r.disabled ? `${r.label} (${r.why})` : r.label)), (i) => {
+      if (_csaPicker) { modes?.closeWindow?.(_csaPicker); _csaPicker = null; }
+      if (rows[i]) naval.companionPress?.(boat, rows[i].id, Math.floor(playerTicker.ownMinutes));
     });
     return true;
   }
@@ -8285,10 +8356,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2755 mounts the same one, gated on
+  // and dungeonContext.js:2756 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6663
+  // that context through modes.dungeonCtx - so worldModes.js:6664
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -8383,7 +8454,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // through the one that owns the billboard - `exteriorFoePool` is
     // the watch AND the encounter foes, and this arm reached the
     // encounter pool's remover for both. That was not a leak: removeFoe
-    // (exteriorFoes.js:512-517) never looks the record up in `foes`, and
+    // (exteriorFoes.js:514-519) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
     // got exactly what removeGuard (cityGuards.js:1628-1646) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
@@ -10887,7 +10958,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7628), so exterior mode and a
+    // composer, dungeonContext.js:7693), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -11019,6 +11090,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // this hook and the hook was never wired.
     travelOptions?.clearTravelDestination();
     if (worldTimeScale() !== 1) resetTimeScale();
+    crewAshore.clear();   // AUDIT CC-A8: the party out of every pool before the save lands - a dungeon's patches its foes by number, and a companion in the list took another's record
     // AUDIT-MACL F2: THE LATCH GOES UP BEFORE THE FIRST AWAIT, and MAC-L4
     // is why it has to be said out loud. This guard and the latch below
     // it used to be separated by straight-line code alone - one
@@ -13540,7 +13612,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10157-10221 -
+  // worldModes answers it in BOTH modes (worldModes.js:10160-10224 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -19603,6 +19675,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       : Number.isFinite(gateLink?.fellAt(g.day)) ? GATE_NO_TEXT['the gate is closing']
         : !gateAdmits(g.day, Date.now() + _sharedOffsetMs) ? GATE_TEXT.sealed : null),
     drawPeerNames: ({ proj, view, eye }) => drawPeerNames(proj, view, eye),
+    drawCompanionBars: ({ proj, view, eye }) => navalCrewBars(proj, view, eye),   // CREW-COMPANIONS: my companions' green bars indoors and underground
     drawPeerBodies: ({ proj, view, eye }) => drawPeerBodies(proj, view, eye),
     peerLights: (o) => peerTorchLights(o),   // PEERLIGHT1: the others' torches, for the dungeon's and the interior's light lists   // MWBODY1: the others' bodies, after the player's own
     drawVeiledPeerBodies: () => drawVeiledPeerBodies(),   // INVIS-LOOK: and the concealed ones, after the opaque world
@@ -22337,6 +22410,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       warmAshesFrame(gamePaused() ? 0 : dt * worldTimeScale());   // WA1: the mod's coroutine clock, in every mode (a MonoBehaviour's Time.deltaTime)
       raidingPartiesFrame(gamePaused() ? 0 : dt);   // RAID1: indoors too - the day's roll, the region's news, a raid running out; nothing is stood (FindCurrentRaid wants the street)
       if (_bandChase.size) bandDrop();   // AUDIT OW4 B5: a door ends every chase, spent - the band frame never runs indoors, and a chase froze there to take up again on the way out
+      crewAshoreTick();   // CREW-COMPANIONS: the party stood indoors and underground too
       hccTick(dt, now);   // AUDIT HCC H1: the runtime's LateUpdate indoors too - the hotkeys' "outdoors only", the settings, the switch
       townTalk.frame(dt);
       renderer.resolveFrame();   // AUDIT RETRO1 E5/C8: a frame that drew no screen quad (the enhanced skin, a sheathed weapon) is shown NOW, not at the next beginFrame
@@ -23630,6 +23704,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     }
     csaPoolFrame(dt);   // CSA-B/C: the sails' FixDeformations (LateUpdate) and the lanterns' two behaviours, on Time.deltaTime; the lights they decide reach the next frame's list (the mod's own Update and LateUpdate ran after the motor: csaUpdate)
     warmAshesFrame(gamePaused() ? 0 : dt * worldTimeScale());   // WA1: TransportToShipWithDelay's WaitForSeconds, held by a pause, scaled with the world
+    crewAshoreTick();   // CREW-COMPANIONS: the party stood on the street
     hccTick(dt, now);   // AUDIT HCC H1: LateUpdate - after the motor and the recentre, before the world pass draws the wagon
     renderer.setClearColor(SKY_CLEAR);   // INCIDENT 2026-09-04 / REVIEW 2026-09-05: this frame is the EXTERIOR's (the mode frames returned above and clear black in worldModes) - CameraClearManager.cs:51-57
     renderer.setFlashLight(sky.lightningLight() ?? boltFrame.flash);   // DS1: Dynamic Skies' LightningFlash, composed first on the point-light channel just stored; BOLT: else a near ground strike's own light, from where it struck

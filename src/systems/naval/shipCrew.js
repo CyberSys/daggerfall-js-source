@@ -31,8 +31,11 @@ import { MOBILE } from './navalBoarding.js';
 export const MORALE_START = 60;
 export const MORALE_MAX = 100;
 /** What lifts them, and what wears them (points). A hand lost costs HAND_LOST, a fight's losses at most LOSSES_CAP. */
-export const MORALE_EVENT = Object.freeze({ win: 10, prize: 6, plunder: 3, grog: 15, handLost: -3, wrecked: -15 });
+export const MORALE_EVENT = Object.freeze({ win: 10, prize: 6, plunder: 3, grog: 15, handLost: -3, wrecked: -15, knocked: -4 });   // CREW-COMPANIONS: one of theirs carried back aboard (crewCompanions.js)
 export const LOSSES_CAP = -15;
+/** AUDIT CC-D4: a fight's losses are counted as one while each comes within this of the last (s) - a boarding's dead,
+ *  lost after the colours came down, spent the NEXT fight's cap, and a hostile at the edge of reach handed out new ones. */
+export const LOSSES_WINDOW_S = 60;
 /** The sea wears a point off every SEA_DECAY_S away from port (sea seconds); a port lifts one every PORT_RISE_S up to
  *  PORT_CAP (above it, only a win or a round lifts them). */
 export const SEA_DECAY_S = 150;
@@ -125,9 +128,12 @@ export function handName(seed, hire, gender, regionIndex = 17) {
 export function createShipCrew({ seed, regionIndex = 17, record = null }) {
   /** @type {{ name: string, role: string, mobile: number, gender: 'male'|'female', fights: number, boardings: number }[]} */
   let hands = [];
-  let morale = MORALE_START, hires = 0, seaT = 0, portT = 0, losses = 0;
+  let morale = MORALE_START, hires = 0, seaT = 0, portT = 0, losses = 0, lossT = 0;
+  /** AUDIT CC-D5: the world's day her crew last drank the yard's round (one a port day). */
+  let grogDay = null;
   /** @type {string} */
   let order = CREW_ORDERS.stand;
+  // AUDIT CC-D3: the standing order rides the save (one not CREW_ORDERS' own stands down); the grog's day with it
   if (record && typeof record === 'object') {
     const m = Number(record.morale);
     morale = Number.isFinite(m) ? clamp(m, 0, MORALE_MAX) : MORALE_START;
@@ -139,6 +145,8 @@ export function createShipCrew({ seed, regionIndex = 17, record = null }) {
       }));
     }
     hires = Math.max(hires, hands.length);
+    if (typeof record.order === 'string' && /** @type {string[]} */ (Object.values(CREW_ORDERS)).includes(record.order)) order = record.order;
+    if (Number.isFinite(record.grogDay)) grogDay = record.grogDay;
   }
   const rng = mulberry32(((seed >>> 0) ^ 0x3c7e11) >>> 0);
   const bump = (d) => { morale = clamp(morale + d, 0, MORALE_MAX); };
@@ -179,6 +187,9 @@ export function createShipCrew({ seed, regionIndex = 17, record = null }) {
      */
     event(kind, n = 1) {
       if (kind === 'handLost') {
+        if (!Number.isFinite(n)) return;   // AUDIT CC-D4: a NaN loss saved as null and loaded as no spirits at all
+        if (lossT > LOSSES_WINDOW_S) losses = 0;
+        lossT = 0;
         const d = Math.max(LOSSES_CAP - losses, MORALE_EVENT.handLost * Math.max(0, n));
         losses += d;
         bump(d);
@@ -198,12 +209,14 @@ export function createShipCrew({ seed, regionIndex = 17, record = null }) {
      */
     tick(dt, { atSea = false, inPort = false } = {}) {
       if (!(dt > 0)) return;
+      lossT += dt;
       if (inPort) {
         seaT = 0;
-        if (morale < PORT_CAP && (portT += dt) >= PORT_RISE_S) { portT -= PORT_RISE_S; morale = Math.min(PORT_CAP, morale + 1); }
+        // AUDIT CC-D4: a long step spent at once (a backlog drained a point a frame after it)
+        if (morale < PORT_CAP) { portT += dt; const k = Math.floor(portT / PORT_RISE_S); if (k > 0) { portT -= k * PORT_RISE_S; morale = Math.min(PORT_CAP, morale + k); } } else portT = 0;
       } else if (atSea) {
         portT = 0;
-        if ((seaT += dt) >= SEA_DECAY_S) { seaT -= SEA_DECAY_S; bump(-1); }
+        seaT += dt; const k = Math.floor(seaT / SEA_DECAY_S); if (k > 0) { seaT -= k * SEA_DECAY_S; bump(-k); }
       }
     },
     /** The order given - CREW_ORDERS' own words; answers whether it was one. @param {string} o */
@@ -227,7 +240,10 @@ export function createShipCrew({ seed, regionIndex = 17, record = null }) {
     /** Whether they sing (low spirits sing no chanties). */
     sings: () => morale >= SING_MIN,
     /** The crew as the save keeps them. */
-    snapshot: () => ({ morale: Math.round(morale * 10) / 10, hires, hands: hands.map((h) => ({ ...h })) }),
+    /** AUDIT CC-D5: whether her crew drank the yard's round on the world's day `day`, and the round drunk. */
+    grogOn: (day) => day != null && grogDay === day,
+    drankGrog(day) { if (Number.isFinite(day)) grogDay = day; },
+    snapshot: () => ({ morale: Math.round(morale * 10) / 10, hires, hands: hands.map((h) => ({ ...h })), order, grogDay }),
   };
 }
 
@@ -235,16 +251,16 @@ export function createShipCrew({ seed, regionIndex = 17, record = null }) {
  * The crew's card - the roster's lines as a captain reads them: her spirits, then each hand, his role, and what he
  * has stood with her.
  * @param {{ morale: number, hands: { name: string, role: string, fights: number, boardings: number }[] }} crew
- * @param {{ ship?: string, order?: string }} [o]
+ * @param {{ ship?: string, order?: string, ashore?: Set<string>|null }} [o]
  */
-export function crewCard(crew, { ship = 'Your ship', order = CREW_ORDERS.stand } = {}) {
+export function crewCard(crew, { ship = 'Your ship', order = CREW_ORDERS.stand, ashore = null } = {}) {
   const s = spiritsOf(crew.morale);
   const lines = [`${ship}'s crew - spirits ${s.label} (${Math.round(crew.morale)} of ${MORALE_MAX}).`];
   if (order && order !== CREW_ORDERS.stand) lines.push(`Standing order: ${ORDER_TEXT[order].label}.`);
   if (!crew.hands.length) lines.push('No hands aboard.');
   for (const h of crew.hands) {
     const deeds = [h.fights ? `${h.fights} ${h.fights === 1 ? 'fight' : 'fights'}` : '', h.boardings ? `${h.boardings} ${h.boardings === 1 ? 'boarding' : 'boardings'}` : ''].filter(Boolean).join(', ');
-    lines.push(`${h.name}, ${h.role}${deeds ? ` - ${deeds}` : ''}`);
+    lines.push(`${h.name}, ${h.role}${deeds ? ` - ${deeds}` : ''}${ashore?.has(h.name) ? ' - ashore with you' : ''}`);   // AUDIT CC-D8: a hand ashore said so
   }
   return lines;
 }
