@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PlayerMotor, CAPSULE_RADIUS, CAPSULE_HEIGHT, SYSTEM_TIMER_UPDATES_DIVISOR, HOLD_CARRY_MAX } from '../src/player/motor.js';
 import { Collider } from '../src/player/collider.js';
-import { senseGrip, PARKOUR_GRIP_LOW_TEXT } from '../src/player/parkour.js';
+import { senseGrip, capsuleFits, PARKOUR_GRIP_LOW_TEXT, PARKOUR_BODY_RADIUS } from '../src/player/parkour.js';
 import { CONTINUE_CLIMBING_SKILL_CHECK_FREQUENCY } from '../src/player/climbing.js';
 
 const I = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
@@ -605,11 +605,21 @@ test('AUDIT CLIMB2 G6: Forward with Left or Right at a wall\'s side edge still c
 test('AUDIT CLIMB2 M1: Crouch with Jump held lets go and stays let go - the Jump held is spent on the hold, never a catch of the lip just dropped from', () => {
   const s = scene(); s.box(-3, 0, 1, 3, 2.3, 4);
   const m = motor(s.col, { skill: 100 });
-  for (let i = 0; i < 40; i++) step(m, { jump: i >= 10 });
+  for (let i = 0; i < 60; i++) step(m, { jump: i >= 10 && i < 40 });   // caught, and Jump let go of on the wall
   assert.equal(m.hanging, true);
-  step(m, { jump: true, crouch: true });
+  step(m, { jump: true, crouch: true });   // a fresh Jump pressed as Crouch lets go - the hold's own let-go spends it
   let again = false;
   for (let i = 0; i < 60; i++) { step(m, { jump: true }); again ||= m.onWall || !!m._pkMove; }
   assert.equal(again, false, 'not caught again');
   assert.equal(m.grounded, true, 'down on the ground');
+});
+
+test('AUDIT CLIMB2 M2: the fit\'s headroom ray still answers what the collider and the bands cannot - a body pinned between a slab at its feet and one at its head reads clear to both', () => {
+  assert.equal(PARKOUR_BODY_RADIUS, CAPSULE_RADIUS, 'the body\'s radius restated for the cycle');
+  for (const [y1, y2] of [[0.02, 1.5], [0.1, 1.56], [0.2, 1.62]]) {
+    const s = scene(); s.box(-2, y1, -2, 2, y1 + 0.1, 2); s.box(-2, y2, -2, 2, y2 + 0.1, 2);
+    assert.equal(capsuleFits(s.col, [0, 0, 0], CAPSULE_HEIGHT), false, `slabs at ${y1} and ${y2}`);
+  }
+  const s = scene();
+  assert.equal(capsuleFits(s.col, [0, 0, 0], CAPSULE_HEIGHT), true, 'and the open fits');
 });

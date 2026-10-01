@@ -422,3 +422,106 @@ and AUDIT CLIMB1 record re-run (eight re-aimed at the lines CLIMB2 reshaped), al
   has changed under it so the hold is gone, the body falls from where it was put.
 - Peers see the body held still, or walking as it moves along or up the wall - their `mv` is its displacement (CLIMB5).
 - **Not yet seen on real ARENA2 geometry**, as CLIMB1.
+
+## AUDIT CLIMB2 (2026-10-01): "ensure its perfection before we merge"
+
+Mac: *"Hey audit this and ensure its perfection before we merge."* Four lenses on PR #483 (CLIMB1 and CLIMB2):
+fidelity to the ask and the four calls, an adversarial read of the code, the climb against hostile geometry (a battery
+of 44 hand-built scenes under 11 input scripts, rotated, and 12,000 random scenes, the body's overlap measured exactly),
+and the hosts and the records. Every finding below was pinned RED first (`test/auditclimb2.test.js`, 22 tests; the
+scenes are boxes and prisms, the body's overlap with them measured EXACTLY - never through the collider's resolve or
+`penetrationAt`, which the audit found blind between the collider's spheres, G2). The mutation run then found
+survivors; each was a finding too (the last table).
+
+### Fidelity - CLIMB1 and CLIMB2 against the ask and the calls
+
+| Promise | Source | Now | Where it lands |
+|---|---|---|---|
+| Latch, mantle | the ask | Done - and a roof's eave is a hold now (C1), round any tower or room (G5) | - |
+| Jump from one location to another ledge | the ask | Not built | CLIMB3 |
+| Jump near a ledge catches or mantles; Jump held keeps catching | "Jump is the grab" | Done - see the open question below | - |
+| W climbs up, Crouch drops | "Jump is the grab" | Done - over deep water too (C2), and Jump held through the drop catches nothing (M1) | - |
+| Everyone can vault, mantle and hang; skill sets reach, speed, grip time, hard catches | "Skill scales it" | Done; a catch and a corner spend the grip as the hang does (H4) | - |
+| Any wall climbable on Fatigue, skill sets speed and grip, the climb ends in a mantle | "Free-climb on grip" | Done: the top-out at reach (H5), under a cornice by a reach (G4), outdoors on terrain (C6), never stepping into what it climbs (G1, G2) | - |
+| Everything climbable stays climbable | "Free-climb on grip" | Done - a save on the wall keeps the hold (H1); a crouched body under a slab is the one refusal (G3), and the classic climb stands that body up into the slab | - |
+| Parkour leap, skill-scaled | "Parkour leap" | Not built | CLIMB3 |
+
+**Open question, put to Mac**: a *tapped* Jump at a ledge above standing reach does not catch it - the catch asks for
+Jump held (the patch notes say so). "Jump near a ledge catches" could be read to mean a tap arms a catch for that
+jump. Not changed without his word.
+
+### Findings (each pinned red, each fixed)
+
+| # | Lens | Finding | Fix |
+|---|---|---|---|
+| A1 | fidelity | A free climb begun at the floor and let go of held the body on the wall, feet on the floor, until the grip ran out | ClimbingMotor's own "ground directly below too close" (0.12 under the centre) ends a climb not going up |
+| A3 | fidelity | Left and Right kept while the key is held carried into the next hold - Right moved left on the next wall | A new wall asks the look afresh; only a corner keeps the way round |
+| H1 | hosts | A save on the wall recorded no fall and no hold: a quicksave twelve metres up a tower loaded into a twelve-metre fall | `fallSnapshot` keeps the hold (or a move's end, bounded by `HOLD_CARRY_MAX`) and the grip; the load takes it again (`_pkRetake`) |
+| H2 | hosts | The grip came back only on the ground - a swimmer with a spent grip could never climb out (the free climb is this lane's only way out of the water) | It comes back treading water too |
+| H4 | hosts | A catch and a corner spent no grip - a corner at Climbing 0 was two free seconds | Every move that ends in a hang spends it |
+| H5 | hosts | The free climb topped out only at the hang's height: a wall lower than that (a plinth, a garden wall) was never topped, the climber stuck under its lip with Forward held | CLIMB1's top-out: a lip in reach is climbed onto or over |
+| H6 | hosts | A running catch kept the run latched on the wall (the Running tally, the peers' run cycle) | The hold clears it |
+| H7 | hosts | The standalone dungeon host passed parkour no `say` - the grip's warning and a refused climb said nothing there | `parkourDeps(playerEntity, (l) => ctx.hudSay?.(l))` |
+| C1 | code | A pitched roof's eave was no hold: two rungs on the roof passed the face test, and above about 32 degrees no rung pair receded the grip's depth - 0 of 25 heights held from 35 to 44 degrees; a free climb under such a roof stuck at the eave | The face rung is one the rung under it does not stand out from; a top rising from it is read up the rungs (a rung's height back a rung); the face under an eave is the rung's under the lip |
+| C2 | code | Over deep exterior water the hosts' flag sank a hanging body to the swimmer's 0.3 m and swallowed the Crouch that lets go; a climb out of the water under a low roof was planned for the 0.3 m body and ended 0.35 m inside the quay | A held body is out of the water: unsunk the step it takes the hold, never sunk on it |
+| C3 | code | Climbing down past a 12 cm window sill stood the body on the sill, and Back walked it off into a 5.3 m fall | Only a floor under the body's centre ends the climb |
+| C4 | code | A recentre under a hold on what stands again at its new place (the parked wagon, a gate, an action object) carried the body back the whole recentre - 819 m | `bucketPose` answers no pose for a bucket that does not move with one |
+| C5 | code | A catch or a corner in flight left its hang behind a vertical recentre (the hang sought 500 m away) and a turning hull (50 degrees off at 25 deg/s) | `offsetMove` and `carryMove` carry the move's hang |
+| C6 | code | A1's floor was the meshes' only - outdoors on terrain it never fired; the classic climb's own probe had the same latent fault | The probe is `surfaceHit` (the terrain's too), for both climbs |
+| C7 | code | Each corner let go and took a new hold: the grip's warning said again at every corner, a pillar's Climbing tally never reached, the climb's flag down (the fatigue band billed a walk) for every corner | A corner is the same hold going on |
+| G1 | geometry | The hug's press into the wall read to the collider's step ladder as a walk into a stair: a climb across under an eave was lifted 0.375 m in one step, 0.34 m into the wall, and held there | The climb's move never steps (`collider.move`'s `noStep`) |
+| G2 | geometry | The proofs used `penetrationAt`, whose capsule is a chain of three spheres reaching 0.22 m from the axis between them: a moulding, a rail or a cornice there sat up to 0.16 m inside the body - the shimmy, the catch, the corners and the free climb all walked into one (about 230 of the 12,000 random scenes) | `bandsClear` asks the bands between the spheres (in `capsuleFits`, the free climb's every move and its start) |
+| G3 | geometry | A crouched body under a low slab started a free climb, was stood up 0.43 m into the slab, and flicked on and off the wall without end | A crouched body takes no wall it cannot stand up on |
+| G4 | geometry | Under a cornice standing 0.12-0.15 out the head stopped with the lip 1.9 over the feet, past the hang's 1.84: Forward did nothing until the grip ran out | A climb that can go no higher reaches round to the lip by a proven catch's move, the hold going on |
+| G5 | geometry | The shimmy stopped on the first bend of every tower and room that was not round or square: the lead hand was asked along the face the body held (a curve turned it past the follow), and a corner had to be within 30 degrees of square (an octagon's 45, a hexagon's 60, a 12-gon's 30 fell between) | The lead hand from the body's next hold; a corner at whatever turn, its inner apex in reach |
+| G6 | geometry | Forward with Right at the wall's side edge reverted the whole move, the way up with the way across: the climb froze there | The way up is asked alone |
+| M1 | mutation | Letting go spending a held Jump was pinned only through the corner's old let-go | A fresh Jump pressed as Crouch lets go: let go, not caught again |
+| M2 | mutation | The fit's headroom ray lost its pin to the bands, which see a slab through the body's middle | A body pinned between slabs at its feet and its head reads clear to the collider and the bands: the ray refuses it |
+
+### Records corrected
+
+- The patch notes: the reach is shoulder height at Climbing 0; the vault's limit is about 1.2 m; the hang starts about
+  1.2 m above the feet; the top-out, the grip treading water, the meter with the breath bar, corners spending the grip,
+  saving on a wall, and now eaves, towers, sills, cornices and the crouched start (H3).
+- The HUD: the grip and the breath may draw at once - "they never draw together" was wrong (H8).
+- The ledger and Active-Arcs: a catch holds (CLIMB1's catch went straight to a mantle), the free climb tops out at
+  reach, and Roleplay & Realism's gate covers the catch, the grab, the free start and the hold (H9).
+- This page: the free climb's "the classic climb's own shove, kept as the fallback" is gone (with no step ladder the
+  move's own ground was A1's, a step later - the arm was dead and is removed); the corners, the lead hand and the grip's
+  return say what the audit made them.
+
+### The mutation run's own findings
+
+Two runs: the audit's own records (29 at first, 46 at the end - `tools/mutants/auditclimb2.json`) and every CLIMB1,
+AUDIT CLIMB1 and CLIMB2 record again, the lines the audit moved re-aimed. Each survivor was a finding:
+
+| Survivor | What it showed | Now |
+|---|---|---|
+| C2: the hold unsinking the swimmer at once | The frame's own unsink came a step later and the pins read the state after it - but a crouched move begun in a frame of several steps would be stood up under the roof by it | Pinned: the swimmer is whole on the step the wall is taken |
+| C2: the plan's sunk height | Dead behind that unsink: no plan is made while sunk | Removed |
+| C1: the depth walk across any rise | A moulding 6 cm deep, its wall set back a further 4 cm a few centimetres up, read as a roof at some heights and not others | The walk asks a rung's height of recession a rung (a 45-degree top, the rays' scatter less - `PARKOUR_RAY_SCATTER`); pinned at eleven heights |
+| C1: the step's inset | Equivalent: the scan is top-down, and the rung above is asked first | Recorded |
+| G1: the climb's `noStep`, and the ladder's own check | Behind G2's whole-body proof, a rung landed in the eave is refused anyway; beside a block the collider's resolve gives the same path (measured on 0.8-1.0 m plinths) | Recorded equivalent: a climber never steps |
+| G2: the free start's own check | A climb taken inside a rail leans out on its first move | Recorded equivalent |
+| G2: the rail (found pinning the start) | A climber under a rail sat stuck, every move pressed back into it, and the collider's sphere turned a move up into one down | The climb leans out past it (`PARKOUR_LEAN`, the hug let go of, then 2, 5, 10 cm out); a move the collider turns back is no move; pinned at 8 and 12 cm |
+| G4: the reach's path proven | Equivalent: a straight 10-16 cm between two bodies each proven to fit | Recorded |
+| G5: the lead hand from the next hold | The new corners took a 20-gon round anyway - by swinging eight corners | The lead hand felt in two halves; a round tower is followed with no corner swung (pinned) |
+| G5: the 30 degrees | A small 12-sided room (R 1.5) still stopped: its 30-degree bends fell between the follow and the corner, and the corner's ray passed the next wall's end | The follow takes its 30 degrees with the rays' scatter; pinned |
+| CLIMB2: letting go spends a held Jump; the top's arrival. CLIMB1: the fit's headroom ray | The climbing records never ran the audit's pins, and the audit's changes took their old kills (the corner no longer lets go; the top-out at reach; the bands catch a slab through the middle) | Every climbing list runs `test/auditclimb2.test.js`; pinned by M1 (a fresh Jump at the let-go), G4 (the sill held as the hands come to it) and M2 (a body pinned between slabs at its feet and head, which only the ray sees) |
+| CLIMB2: the free climb's floor arm | Dead behind A1 with no step ladder | Removed |
+
+At the end: 155 dead, 5 recorded equivalent, none surviving. Against the audit's own instruments: the hand-built
+battery (44 scenes, 11 scripts, 3 spawns, 2 skills) has no failing run (126 before), the shimmy goes round every tower
+and room it was tried on, and 6,000 random scenes leave overlaps of 4.6 cm at most (16 cm before) - the fit's own
+resolution between its samples, recorded below.
+
+**Recorded limits**: between the fit's samples (every 0.275 m up the axis, a contact's 3 cm inside the body) a thin
+feature can still sit up to about 5 cm in; finer sampling costs every path proof several times its spheres. A tapped
+Jump does not catch (the open question above).
+
+Found on the way and NOT this PR's (reported, not fixed): standing up from a crouch under a low eave sinks the body
+0.29 m into the floor with the enhanced climb off too - the stand-up's own (DFU's CanStand clears the camera's rise
+and lets the head clip, AUDIT 64 F5), not the climb's. And on a dense mesh (one collider mesh of 11,500 triangles) a
+free climb's top-out step costs about 13.5 ms (39 `penetrationAt` calls inside the ledge's proof) and a corner's up to
+7.3 ms, once each; a steady climb's 2.0-2.4 ms a step is the collider's own move (walking along the same wall costs
+the same). Daggerfall's models are a few hundred triangles; plain geometry stays under 0.5 ms a step in every state.
