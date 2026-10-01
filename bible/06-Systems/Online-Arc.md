@@ -4790,7 +4790,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:5308`). With the property missing that call is a
+(`dungeonContext.js:5319`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -10383,6 +10383,19 @@ flats and before the water (`opts.lateWorldDraw`, WATER-D1's law), the building 
 over a concealed peer; a concealed walker's lantern is not drawn; no hit reveal (a blow on a peer lands on their own
 screen). F and the plaque still skip a concealed peer, and its foes still read its flags (INVIS-NET).
 `01-Overview/Field-Bugs-2026-09-27b.md`. Pinned: `test/invislook.test.js` (7). `tools/mutants/invislook.json` (31 dead).
+
+## KEPT-KILL (2026-10-01, Mac: "If someone kills a quest target regardless of relation then it should ping the quest for the players involved regardless") - a kept quest foe's fall reaches every copy
+
+QUEST-PARTY counts on each copy only the deaths it sees. A shared quest's foe its owner hands to a party member whose copy
+holds no such quest (AUDIT DISC28 QS-J keeps it on the partner's word, `_keptTag`) has no copy to count it in the heir's
+world, so a kill there with no linked copy in the room counted nowhere, and the owner's copy stood a fresh foe at the
+marker. Now the heir says it: a kept foe at zero health says its fall once (`keptKillTick`, both pools), the heir's party
+pose carries it for five minutes (`qk` - quest, Foe symbol, the foe's stream number; net/wire.js validPartyPose,
+RELAY_VERSION world137), and every member's linked copy counts the injury and the kill, wherever that member stands
+(`scenes/questFoeHost.js creditKeptKills`). A linked member in the room who saw the puppet fall counted it already: the
+puppet's death names its owner and number, and both doors ask one ledger (`KeptKillLedger`), so the kill counts once.
+A relay before world136 strips the field and nothing changes. The record and the report it answered:
+`01-Overview/Field-Bugs-2026-10-01.md`. Pinned: `test/keptkill.test.js` (7).
 
 ## PSCALE-OWN (2026-09-27, Mac: "Finish the 2 gaps") - a shared quest's foe underground weighs the party
 
