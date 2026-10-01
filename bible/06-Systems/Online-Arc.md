@@ -10745,7 +10745,10 @@ side-mate's alone, a blow never a side-mate's); the wave by the seat's tier; the
 Tourney stands on is CROWN1's.
 
 Pinned: `test/pvpref_law.test.js` (5), `test/pvpref_relay.test.js` (4), `test/pvpref_measure.test.js` (1); the relay
-version pins and `test/relayversion.test.js`'s world138 LAW row (its graph adds `src/net/siegeRef.js`).
+version pins and `test/relayversion.test.js`'s world138 LAW row (its graph adds `src/net/siegeRef.js`). The suite's two
+catches: the account Worker bundles `wire.js`, so `siegeRef.js` joins `.github/workflows/account-deploy.yml`'s paths
+(`test/accountdeploy.test.js` walks the graph); and `test/chat1.test.js`'s AUDIT CHAT A3 pin, which read the pose arm
+straight from `still` to the meter, names the siege step between them (PIN MOVED - a channel is never a siege's room).
 `tools/mutants/pvpref.json` (108, all dead) - two survived the first run and were killed by a sharper pin, recorded:
 the vitality's floor of one (a level of nought reads one through `|| 1`, so only a negative level tells the floor apart),
 and a new fighter's write at once (the fake's storage keeps the object itself, so a skipped write read as kept - the
