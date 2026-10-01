@@ -368,3 +368,74 @@ peer's blow resolved here, never the Warden's ward; off, nothing (`linesOf` read
 
 Pinned: `test/loot4_procs.test.js` (8); `tools/mutants/loot4.json` (26, all dead). LR2's six-kinds pin reads the six
 numbers and the five after them; SET6's earlier-spoils pin passes the appended lines by.
+
+### LOOT5 - every Legendary a power (2026-10-01)
+
+`systems/lootRarity.js` `LEGENDARY_POWERS`: one power a record, keyed by its id (the records keep LR2's own shape; a
+mod's record may carry its own `power`, and `powerOf` reads both) - a name, a brief inside CARD-FIT's 32 characters, a
+sentence, a `kind` and its numbers. The card and the tooltip say it after the enchantment (`powerLine`, "Dragonsbane:
++50% vs dragons and giants"), the lore still last.
+
+| record | power | what it does |
+|---|---|---|
+| Wyrmbane | Dragonsbane | Its blows deal +50% damage to dragonlings and giants |
+| Nightwhisper | Silent Death | Its blows deal double damage to a foe that has not noticed you |
+| Graveward | Sanctified | Its blows deal +40% damage to the undead, and each undead foe you kill while you wield it heals you 10% of your health |
+| Stormcaller's Bow | Chain Lightning | Each of its arrows that lands arcs to the nearest other foe within 6 m, for half its damage as shock |
+| The Warden | Last Stand | Under a quarter of your health, the damage you take is lessened by a quarter |
+| Titanheart | Unyielding | No single hurt takes more than a quarter of your health |
+| Aegis of Dawn | Dawnward | Each foe's blow that lands on you charges it; at five charges, the next foe's blow is turned aside whole |
+| Foxglove | Fortune's Favour | While you wear it, every Legendary you find is half again as likely - its source's own chance, times one and a half |
+| King's Mark | Tribute | Each foe you kill pays you 5 gold for each of its levels |
+| Archmage's Loop | Spell Mastery | Your spells cost 15% less magicka, and 30% less while your magicka is under half |
+| Ansei's Edge | Way of the Sword | Each of its blows that lands grants Flow for 6 s, up to five: +6% weapon damage a stack |
+| Tsaesci Fang | Serpent's Kiss | Its blows carry 8 poison, twice that to a foe under half its health - none to a foe immune, half to one that resists |
+| Orsinium's Anvil | Earthshaker | Each of its blows that lands shakes the ground: every other foe within 3 m takes a quarter of it |
+| The Glenmoril Bow | Hunter's Moon | At night its blows deal +35% damage, and +35% more to animals |
+| The Direnni Staff | Arcane Conduit | While you wield it your spells cost 20% less magicka, and each of its blows that lands restores 3 magicka |
+| Gortwog's Cleaver | Orc Rage | While you wield it each foe you kill heals you 10% of your health, and under a third of your health its blows deal +30% damage |
+| Worm's Tooth | Soul Siphon | While you wield it each foe you kill restores 15% of your magicka |
+| Warp-Edge | Many Endings | Each of its blows that lands strikes again, one time in ten, for the same damage |
+| The Visor of King Lysandus | The Ghost-King's Vigil | When a hurt leaves you under a third of your health, you are healed 20% of it. Recovers in 60 s |
+| The Wayrest Courier's Treads | Courier's Haste | A kill fortifies your Speed by 20 for two magic rounds. Recovers in 10 s |
+| Gauntlets of the Rose | Open Hand | Each of your bare-handed blows that lands strikes again for the same damage |
+| The Mountain's Root | Bedrock | Each foe's blow that lands on you lessens the blows after it by 4% for 6 s, up to five times |
+| The Raven's Wings | Raven's Evasion | A foe's blow is turned aside whole 15 times in a hundred |
+| The Night Mother's Embrace | Sweet Mother's Kiss | Your weapon blows deal +50% damage to a foe under a quarter of its health |
+| The Wall of Daggerfall | Bulwark | Each foe's blow on you is lessened by 5 points, never under 1 |
+| The Amulet of the Nine | Divine Grace | Damage that would kill you leaves you standing, healed a quarter of your health. Recovers in 180 s |
+| The Witch-Sisters' Ring | Hex | A foe whose blow lands on you is hexed for 8 s: its blows on you are lessened by a quarter |
+| The Duelist's Vambrace | First Blood | Your first weapon blow on each foe deals +60% damage |
+| The Mark of the Hist | Hist-Sap | Each magic round you regenerate 2% of your health, 4% while you are under half |
+| The Reachman's Torc | Hagraven's Pact | A Destruction spell that strikes you is absorbed 15 times in a hundred, as Spell Absorption is |
+
+**Who.** `systems/lootPowers.js` `wornPowers(entity)`: MY entity's worn pieces - a Legendary's record (a piece that is
+a Legendary; an id on anything else wakes nothing) and, from LOOT10, a Rare's imprint - ONE entry a power, however many
+pieces carry it. A WEAPON's power rides that weapon's own blows (`blowPowers`: the one that struck); the rest of it
+while it is wielded; armour's and jewellery's ride every blow of mine, my fists' too. Asleep in a duel (the sets' own
+word, `setsDueling`), nothing with the switch off, and offline as online.
+
+**Through which seam.** The blow (bane, unaware - the host's own word that the foe had not noticed me -, sanctified,
+flow's stacks, venom's poison under the element's law, the moon by the world clock's night, rage, the execution, first
+blood); the landed strike (chain - a bow's, the nearest other foe within 6 m, shock under its law -, quake - a melee
+blow's, every other foe within 3 m -, echo, the open hand, the conduit's magicka, flow's stack); the landed foe's blow
+(Dawnward's charge, Bedrock's stack, the Hex on the foe that struck); MY damage door's modifier (a foe's blow - the
+sets' `pendingPlayerBlow` - turned aside whole by Dawnward's five charges or the Raven's 15 in a hundred, lessened by
+its Hex, Bedrock and Bulwark; any hurt by the Last Stand under its line and Unyielding's share at most), its death
+save (Divine Grace, its heal told after the door leaves me at 1) and its hurt listener (the Ghost-King's Vigil); my
+kill (Sanctified's and Orc Rage's heal, Soul Siphon, Tribute, Courier's Haste - the city watch and an ally never
+count, the sets' own law); the cast price (the Direnni Staff, the Archmage's Loop, beside LOOT4's focus - all of it
+at most `SPELL_CUT_MOST`, 50%); the absorption roll (Hagraven's Pact); the magic round (Hist-Sap, and "ready again");
+the host door's FINDER (`lootRarity.js registerLegendaryFind` - Fortune's Favour times the source's own Legendary
+threshold, past its cap but never past the Rare threshold; `rarityChances` takes `find`, the host door reads
+`legendaryFindMult` once a list). The reach powers spare an ally or a foe at peace, a foe a storey away and one behind
+a wall, as Cleave and the Nova do.
+
+**Seen.** `lootHudChips` - Flow's and Bedrock's stacks, Dawnward's charges, a recovery running - beside the sets' chips
+(`scenes/world.js` hands the HUD both, line-neutral), in the Legendary's orange (`ui/enhancedHud.js`).
+
+**What it moved.** SET5's pin on the HUD's wiring reads both lists; five mutant records whose anchors the arc's edits
+moved were re-aimed by content (DISC29-B's unguarded name, SET3's import and its fall, SET5's chips, LOOT4's focus
+cap) and still die (`test/mutantdrift.test.js`).
+
+Pinned: `test/loot5_powers.test.js` (7); `tools/mutants/loot5.json` (38, all dead).

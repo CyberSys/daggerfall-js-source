@@ -24,6 +24,15 @@
 //   focus       a CAST COST modifier: that share off my spells'
 //               magicka, all I wear summed under FOCUS_CAP
 //
+// LOOT5 (section 7): EVERY LEGENDARY A POWER - the records' own (systems/
+// lootRarity.js LEGENDARY_POWERS), done here through the same seams and a
+// few more (my damage door's modifier, death save and hurt listener, my
+// kills, the absorption roll, the magic round, the host door's finders).
+// A power counts ONCE however many pieces carry it; a WEAPON's power rides
+// that weapon's own blows (the rest of it while it is wielded); armour's
+// and jewellery's ride every blow of mine. A power sleeps in a duel, as a
+// set does (sigilSets.js setsDueling).
+//
 // NEVER ON A PLAYER (the arc's law 5): a blow at a player is a duel's,
 // and the blow modifier refuses it; a duel's blow at me passes my damage
 // door without asking the port (playerEntity.js hurtPlayer's `spare`),
@@ -34,16 +43,30 @@
 import { registerWeaponBlowMod } from './entityMods.js';
 import { registerPlayerStrikeListener, enemyEntityGroup, ENEMY_GROUPS } from '../combat/formulas.js';
 import { registerSpellCostMod } from './spellcost.js';
-import { registerPlayerBlowLanded } from './sigilSetPowers.js';
+import { registerPlayerBlowLanded, pendingPlayerBlow, REACH_RISE_M } from './sigilSetPowers.js';
 import { playerDoor } from './playerDoor.js';
 import { careerTolerance, EFFECT_FLAGS } from './spellcast.js';
-import { lootRarityOn, validAffix } from './lootRarity.js';
+import { lootRarityOn, validAffix, powerOf, registerLegendaryFind } from './lootRarity.js';
 import { equipTableOf } from './equip.js';
+import { registerPlayerDamageMod, registerPlayerDeathSave, registerPlayerHurtListener, playerEntity } from '../characters/playerEntity.js';
+import { registerPlayerKillListener } from './playerKills.js';
+import { registerAbsorptionChance } from './absorption.js';
+import { registerMagicRoundHook, worldMinutes } from './worldTick.js';
+import { setsDueling } from './sigilSets.js';
+import { addGoldPieces } from './inventory.js';
+import { isNight } from '../world/worldClock.js';
+import { hudText } from './notify.js';
+import { weaponSkillUsed } from '../characters/weapons.js';
+import { SKILLS } from './skills.js';
+import { friendlyProtected } from '../combat/playerWeapon.js';
+import { KNIGHT_CITY_WATCH } from '../characters/mobileTypes.js';
 
 /** All the thorns a wearer's pieces sum to, at most, a blow. */
 export const THORNS_CAP = 25;
 /** All the focus a wearer's pieces sum to, at most (%). */
 export const FOCUS_CAP = 30;
+/** LOOT5: all the loot takes off a spell's magicka, focus and powers together, at most (%). */
+export const SPELL_CUT_MOST = 50;
 
 const mine = (e) => !!e?.isPlayer && !e.peer;
 /** A piece's valid lines of one kind - none with the switch off (off is DFU exactly). */
@@ -97,21 +120,95 @@ function shareOf(key, damage, pct) {
   return more;
 }
 
+// ── LOOT5: the powers' memory, clock, chance and voice ─────────────
+let _now = () => performance.now() / 1000;
+let _rand = Math.random;
+const freshState = () => ({
+  flow: 0, flowUntil: 0,                 // Way of the Sword
+  bedrock: 0, bedrockUntil: 0,           // Bedrock
+  charges: 0,                            // Dawnward
+  vigilReady: 0, graceReady: 0, hasteReady: 0, graceHeal: 0,
+  recovering: new Set(),                 // the recoveries whose "ready again" is still to be said
+});
+let _s = freshState();
+/** @type {WeakMap<object, number>} */
+let _hexed = new WeakMap();              // a foe's entity -> until when its blows are hexed
+/** @type {WeakSet<object>} */
+let _struck = new WeakSet();             // the foes my blows have landed on (First Blood)
+let _manaOwed = 0;
+let _say = (line) => { hudText(line); };
+/** The host's voice for a power's line (the HUD's own door by default). */
+export function setLootPowersVoice({ say = null } = {}) { if (typeof say === 'function') _say = say; }
+const say = (line) => { try { _say(line); } catch { /* a line is not the power's problem */ } };
+
+/** Every power MY entity's worn pieces carry - `[{ id, power, item }]`, ONE entry an id (a power counts once): a
+ *  Legendary's own record, and (LOOT10) a Rare's imprint. None for anyone but me, with the switch off, or in a duel. */
+export function wornPowers(entity) {
+  if (!mine(entity) || !lootRarityOn() || setsDueling()) return [];
+  const out = [];
+  const seen = new Set();
+  for (const it of wornPieces(entity)) {
+    const ids = [it.rarity === 'legendary' ? it.legendary : null, it.rarity === 'rare' ? it.imprint : null];
+    for (const id of ids) {
+      if (typeof id !== 'string' || seen.has(id)) continue;
+      const power = powerOf(id);
+      if (!power) continue;
+      seen.add(id);
+      out.push({ id, power, item: it });
+    }
+  }
+  return out;
+}
+/** The first worn power of a kind, or null. */
+export const powerKind = (entity, kind) => wornPowers(entity).find((p) => p.power.kind === kind)?.power ?? null;
+const isWeapon = (it) => it?.group === 'Weapons';
+/** The powers that ride THIS blow: a weapon's only when it is the one that struck; armour's and jewellery's always. */
+const blowPowers = (entity, weapon) => wornPowers(entity).filter((p) => !isWeapon(p.item) || p.item === weapon || (weapon && weapon.legendary === p.id));
+const share = (e) => (Number.isFinite(e?.health) && e.maxHealth > 0 ? e.health / e.maxHealth : 1);
+const ranged = (w) => !!w && weaponSkillUsed(w.templateIndex) === SKILLS.Archery;
+export const flowStacks = (now = _now()) => (now < _s.flowUntil ? _s.flow : 0);
+export const bedrockStacks = (now = _now()) => (now < _s.bedrockUntil ? _s.bedrock : 0);
+const hexed = (foe, now = _now()) => !!foe && now < (_hexed.get(foe) ?? 0);
+/** Restore MY magicka, the fraction carried, never past its maximum. */
+function gainMana(entity, amount) {
+  if (!entity || !(amount > 0) || !Number.isFinite(entity.magicka)) return;
+  const exact = amount + _manaOwed;
+  const whole = Math.floor(exact + 1e-9);
+  _manaOwed = exact - whole;
+  if (whole > 0) entity.magicka = Math.min(Number.isFinite(entity.maxMagicka) ? entity.maxMagicka : entity.magicka + whole, entity.magicka + whole);
+}
+
 // ── the blow: elemental, slayer ─────────────────────────────────────
 /**
  * MY weapon's blow at a foe: the slayer's per cents of its kind, taken of the whole blow with the fraction carried, and
  * the elemental's flat sear, each of the weapon IN HAND alone. Nothing for a miss, a blow at a player (a duel), a peer's
  * blow resolved here, a foe's, or the Warden's ward.
  */
-export function lootBlow(weapon, damage, attacker, target) {
+export function lootBlow(weapon, damage, attacker, target, info) {
   if (!(damage > 0) || !mine(attacker) || !target || target.isPlayer || target.warded) return damage;
   let out = damage;
   const group = foeGroup(target);
-  let pct = 0;
+  let pct = 0, flat = 0;
   for (const a of linesOf(weapon, 'slayer')) if (a.param === group) pct += a.value;
+  for (const a of linesOf(weapon, 'elemental')) flat += Math.floor(a.value * elementShare(target, a.param));
+  // LOOT5: the powers that ride this blow
+  const now = _now();
+  for (const { power: p } of blowPowers(attacker, weapon)) {
+    switch (p.kind) {
+      case 'bane': if (target.affinity !== 'Human' && p.foes.includes(target.careerIndex)) pct += p.pct; break;   // a class foe's career index is its class's, never a monster's
+      case 'unaware': if (info?.unaware) pct += p.pct; break;
+      case 'sanctified': if (group === p.group) pct += p.pct; break;
+      case 'flow': pct += p.pct * flowStacks(now); break;
+      case 'venom': flat += Math.floor(p.flat * (share(target) < 0.5 ? 2 : 1) * elementShare(target, 'poison')); break;
+      case 'moon': if (isNight(worldMinutes())) pct += p.pct + (group === 'animal' ? p.beast : 0); break;
+      case 'rage': if (share(attacker) < p.below / 100) pct += p.pct; break;
+      case 'execute': if (share(target) < p.below / 100) pct += p.pct; break;
+      case 'firstblood': if (!_struck.has(target)) pct += p.pct; break;
+      default: break;
+    }
+  }
   if (pct > 0) out += shareOf(weapon ?? attacker, damage, pct);
-  for (const a of linesOf(weapon, 'elemental')) out += Math.floor(a.value * elementShare(target, a.param));
-  return out;
+  return out + flat;
 }
 
 // ── the strike: leech ───────────────────────────────────────────────
@@ -121,6 +218,54 @@ export function lootStrike(attacker, target, damage, weapon) {
   let pct = 0;
   for (const a of linesOf(weapon, 'leech')) pct += a.value;
   if (pct > 0) healMine(attacker, (damage * pct) / 100);
+  // LOOT5: the powers that answer a blow that landed
+  const now = _now();
+  for (const { power: p } of blowPowers(attacker, weapon)) {
+    switch (p.kind) {
+      case 'chain': if (ranged(weapon)) arc(target, (damage * p.share) / 100, p.metres); break;
+      case 'quake': if (weapon && !ranged(weapon)) quake(target, (damage * p.share) / 100, p.metres); break;
+      case 'echo': if (_rand() * 100 < p.chance) again(target, damage); break;
+      case 'fists': if (!weapon) again(target, damage); break;
+      case 'conduit': gainMana(attacker, p.mana); break;
+      case 'flow': _s.flow = Math.min(p.max, flowStacks(now) + 1); _s.flowUntil = now + p.seconds; break;
+      default: break;
+    }
+  }
+  _struck.add(target);   // First Blood: the foe's first landed blow was this one
+}
+
+// ── LOOT5: a blow's reach past the one it struck ────────────────────
+const flat2 = (a, b) => Math.hypot(a[0] - b[0], a[2] - b[2]);
+const rise = (a, b) => Math.abs((a[1] ?? 0) - (b[1] ?? 0));
+/** The live foes my harm may reach near `feet`, but `except` - never an ally or a foe at peace (the sets' AUDIT SET H1),
+ *  one a storey away (M4) or one behind a wall (the host's ray, where it has one). */
+function near(door, feet, metres, except) {
+  return door.foes().filter((f) => f.entity !== except && !f.dead && f.ai?.feet && !friendlyProtected(f, { protection: true })
+    && rise(f.ai.feet, feet) <= REACH_RISE_M && flat2(f.ai.feet, feet) <= metres && (!door.clear || door.clear(feet, f.ai.feet)));
+}
+const recordOf = (door, entity) => door?.foes().find((f) => f.entity === entity) ?? null;
+/** The struck foe takes the blow again (Many Endings, Open Hand) - through its own pool's door. */
+function again(target, damage) {
+  const door = playerDoor();
+  const f = recordOf(door, target);
+  if (f && !f.dead) door.hurtFoe(f, Math.max(1, Math.round(damage)));
+}
+/** Chain Lightning: the nearest other foe within `metres` of the struck one takes `amount` as shock. */
+function arc(target, amount, metres) {
+  const door = playerDoor();
+  const struck = recordOf(door, target);
+  if (!struck?.ai?.feet || !(amount > 0)) return;
+  let best = null, bestD = metres;
+  for (const f of near(door, struck.ai.feet, metres, target)) { const d = flat2(f.ai.feet, struck.ai.feet); if (d <= bestD) { best = f; bestD = d; } }
+  const n = best ? Math.floor(amount * elementShare(best.entity, 'shock')) : 0;
+  if (best && n > 0) door.hurtFoe(best, n);
+}
+/** Earthshaker: every other foe within `metres` of the struck one takes `amount`. */
+function quake(target, amount, metres) {
+  const door = playerDoor();
+  const struck = recordOf(door, target);
+  if (!struck?.ai?.feet || !(amount > 0)) return;
+  for (const f of near(door, struck.ai.feet, metres, target)) door.hurtFoe(f, Math.max(1, Math.round(amount)));
 }
 
 // ── a foe's blow landed: thorns ────────────────────────────────────
@@ -128,6 +273,13 @@ export function lootStrike(attacker, target, damage, weapon) {
  *  back to the foe that struck - through its own pool's door (systems/playerDoor.js), a kill mine. */
 export function lootLanded(entity, attacker, took) {
   if (!mine(entity) || !(took > 0) || !attacker || attacker.isPlayer) return;
+  // LOOT5: the powers a landed blow arms - Dawnward's charge, Bedrock's stack, the Hex on the foe that struck
+  const now = _now();
+  for (const { power: p } of wornPowers(entity)) {
+    if (p.kind === 'dawnward') _s.charges = Math.min(p.charges, _s.charges + 1);
+    else if (p.kind === 'bedrock') { _s.bedrock = Math.min(p.max, bedrockStacks(now) + 1); _s.bedrockUntil = now + p.seconds; }
+    else if (p.kind === 'hex') _hexed.set(attacker, now + p.seconds);
+  }
   const n = Math.min(THORNS_CAP, wornSum(entity, 'thorns'));
   if (n <= 0) return;
   const door = playerDoor();
@@ -135,12 +287,147 @@ export function lootLanded(entity, attacker, took) {
   if (f && !f.dead) door.hurtFoe(f, n);
 }
 
+// ── LOOT5: the damage I take ────────────────────────────────────────
+/** MY damage door's modifier (before a Shield spell's pool): a FOE'S BLOW turned aside whole - Dawnward's five charges,
+ *  the Raven's evasion - then lessened by its Hex, by Bedrock's stacks, by Bulwark's points (never under 1); ANY hurt
+ *  lessened by the Last Stand under its line, then no more than Unyielding's share of my health. A fall or a poison is
+ *  no blow (`pendingPlayerBlow` - the sets' own law of one). */
+export function lootDamageMod(entity, dmg) {
+  if (!mine(entity) || !(dmg > 0)) return dmg;
+  const powers = wornPowers(entity);
+  if (!powers.length) return dmg;
+  const blow = pendingPlayerBlow();
+  const now = _now();
+  const kind = (k) => powers.find((p) => p.power.kind === k)?.power ?? null;
+  if (blow) {
+    const dawn = kind('dawnward');
+    if (dawn && _s.charges >= dawn.charges) { _s.charges = 0; say('Dawnward turns the blow aside.'); return 0; }
+    const raven = kind('evade');
+    if (raven && _rand() * 100 < raven.chance) { say('You evade the blow.'); return 0; }
+  }
+  let d = dmg;
+  const hex = kind('hex');
+  if (blow && hex && hexed(blow.attacker, now)) d *= 1 - hex.less / 100;
+  const bed = kind('bedrock');
+  if (blow && bed) d *= 1 - (bed.less * bedrockStacks(now)) / 100;
+  const wall = kind('bulwark');
+  if (blow && wall) d = Math.max(1, d - wall.less);
+  const last = kind('laststand');
+  if (last && share(entity) < last.below / 100) d *= 1 - last.less / 100;
+  const titan = kind('unyielding');
+  if (titan && entity.maxHealth > 0) d = Math.min(d, Math.max(1, Math.ceil((entity.maxHealth * titan.most) / 100)));
+  return Math.max(dmg > 0 && d > 0 ? 1 : 0, Math.round(d));
+}
+/** DIVINE GRACE: damage that would kill me leaves me standing (the door sets me at 1), healed a share once the hurt is
+ *  told; then it must recover. */
+export function lootDeathSave(entity) {
+  const p = powerKind(entity, 'grace');
+  if (!p) return false;
+  const now = _now();
+  if (now < _s.graceReady) return false;
+  _s.graceReady = now + p.recover;
+  _s.graceHeal = p.heal;
+  _s.recovering.add('grace');
+  say('Divine Grace! The Nine will not let you fall.');
+  return true;
+}
+/** A HURT LANDED on me (told after it): Divine Grace's heal, after the door left me at 1; the Ghost-King's Vigil when a
+ *  hurt takes me under its line. */
+export function lootHurt(entity, { before, after }) {
+  if (!mine(entity)) return;
+  const max = entity.maxHealth;
+  if (_s.graceHeal > 0) { healMine(entity, (max * _s.graceHeal) / 100); _s.graceHeal = 0; }
+  const v = powerKind(entity, 'vigil');
+  if (!v || !(max > 0) || !(after > 0)) return;
+  const line = (max * v.below) / 100;
+  if (!(before >= line && after < line)) return;
+  const now = _now();
+  if (now < _s.vigilReady) return;
+  _s.vigilReady = now + v.recover;
+  _s.recovering.add('vigil');
+  healMine(entity, (max * v.heal) / 100);
+  say("The Ghost-King's Vigil - you are not alone on the field.");
+}
+
+// ── LOOT5: a kill of mine ───────────────────────────────────────────
+/** A kill that never pays (the sets' own AUDIT SET L8): the city watch, and my own ally. */
+const neverCounts = (e) => e?.mobileType === KNIGHT_CITY_WATCH || e?.team === 'PlayerAlly' || e?.mobileTeam === 'PlayerAlly';
+/** Courier's Haste: Fortify Speed (classic 9, subtype 6) for `rounds` magic rounds, a flat magnitude - one round more,
+ *  as Eventide's, so it lasts what it says however the round falls. */
+export const hasteBundle = (p) => ({
+  name: "Courier's Haste", rangeType: 0, element: 4,
+  effects: [{
+    type: 9, subType: 6, durationBase: Math.max(1, p.rounds | 0) + 1, durationMod: 0, durationPerLevel: 1,
+    chanceBase: 1, chanceMod: 1, chancePerLevel: 1,
+    magnitudeBaseLow: p.speed, magnitudeBaseHigh: p.speed, magnitudeLevelBase: 0, magnitudeLevelHigh: 0, magnitudePerLevel: 1,
+  }],
+});
+/** MY KILL (playerKills.js - every pool's word that my own blow killed a foe): Sanctified's and Orc Rage's heal, Soul
+ *  Siphon's magicka, Tribute's gold, Courier's Haste. */
+export function lootKill(foe) {
+  if (!foe || neverCounts(foe)) return;
+  const door = playerDoor();
+  const me = door?.player?.() ?? playerEntity;
+  const powers = wornPowers(me);
+  if (!powers.length) return;
+  const now = _now();
+  for (const { power: p } of powers) {
+    switch (p.kind) {
+      case 'sanctified': if (foeGroup(foe) === p.group) healMine(me, (me.maxHealth * p.heal) / 100); break;
+      case 'rage': healMine(me, (me.maxHealth * p.heal) / 100); break;
+      case 'siphon': gainMana(me, (me.maxMagicka * p.pct) / 100); break;
+      case 'tribute': { const g = p.gold * Math.max(1, foe.level | 0); addGoldPieces(me, g); say(`Tribute: ${g} gold.`); break; }
+      case 'haste':
+        if (now >= _s.hasteReady && door?.castOnPlayer) { _s.hasteReady = now + p.recover; _s.recovering.add('haste'); door.castOnPlayer(hasteBundle(p)); }
+        break;
+      default: break;
+    }
+  }
+}
+
 // ── the cast: focus ─────────────────────────────────────────────────
 /** MY spell's magicka: the focus I wear off it, summed under the cap. */
 export function lootCastCost(entity, sp) {
   if (!mine(entity)) return sp;
-  const pct = Math.min(FOCUS_CAP, wornSum(entity, 'focus'));
+  let pct = Math.min(FOCUS_CAP, wornSum(entity, 'focus'));
+  for (const { power: p } of wornPowers(entity)) {   // LOOT5: the Direnni Staff wielded, the Archmage's Loop
+    if (p.kind === 'conduit') pct += p.less;
+    else if (p.kind === 'mastery') pct += Number.isFinite(entity.magicka) && entity.maxMagicka > 0 && entity.magicka < entity.maxMagicka / 2 ? p.low : p.less;
+  }
+  pct = Math.min(SPELL_CUT_MOST, pct);
   return pct > 0 ? (sp * (100 - pct)) / 100 : sp;
+}
+
+// ── LOOT5: the absorption roll, the round, the find ─────────────────
+/** Hagraven's Pact: the chance (%) a Destruction spell that strikes me is absorbed (absorption.js's own roll, under DFU's
+ *  two gates). */
+export const lootAbsorbChance = (target) => (mine(target) ? (powerKind(target, 'absorb')?.chance ?? 0) : 0);
+const READY = Object.freeze({
+  vigil: { at: () => _s.vigilReady, line: "The Ghost-King's Vigil is ready again.", kind: 'vigil' },
+  grace: { at: () => _s.graceReady, line: 'Divine Grace is ready again.', kind: 'grace' },
+  haste: { at: () => _s.hasteReady, line: null, kind: 'haste' },   // ten seconds: no word worth saying
+});
+/** THE MAGIC ROUND: Hist-Sap's regeneration, and "ready again" for a recovery that ran out with its power still worn. */
+export function lootRound(entity) {
+  if (!mine(entity)) return;
+  const hist = powerKind(entity, 'regen');
+  if (hist && entity.maxHealth > 0 && entity.health > 0 && entity.health < entity.maxHealth) {
+    healMine(entity, (entity.maxHealth * (share(entity) < 0.5 ? hist.low : hist.pct)) / 100);
+  }
+  if (!_s.recovering.size) return;
+  const now = _now();
+  for (const k of [..._s.recovering]) {
+    const r = READY[k];
+    if (now < r.at()) continue;
+    _s.recovering.delete(k);
+    if (r.line && powerKind(entity, r.kind)) say(r.line);
+  }
+}
+/** Fortune's Favour: the host door's finder (lootRarity.js registerLegendaryFind) - the Legendary threshold times the
+ *  power's own, while MY entity wears it. */
+export function lootFind() {
+  const me = playerDoor()?.player?.() ?? playerEntity;
+  return powerKind(me, 'fortune')?.mult ?? 1;
 }
 
 // ── registered at import ───────────────────────────────────────────
@@ -149,6 +436,37 @@ registerWeaponBlowMod(LOOT_POWERS, lootBlow);
 registerPlayerStrikeListener(LOOT_POWERS, lootStrike);
 registerPlayerBlowLanded(LOOT_POWERS, lootLanded);
 registerSpellCostMod(LOOT_POWERS, lootCastCost);
+registerPlayerDamageMod(LOOT_POWERS, lootDamageMod);   // LOOT5
+registerPlayerDeathSave(LOOT_POWERS, lootDeathSave);
+registerPlayerHurtListener(LOOT_POWERS, lootHurt);
+registerPlayerKillListener(LOOT_POWERS, lootKill);
+registerAbsorptionChance(LOOT_POWERS, lootAbsorbChance);
+registerMagicRoundHook(LOOT_POWERS, lootRound);
+registerLegendaryFind(LOOT_POWERS, lootFind);
 
-/** Tests only: every carry fresh. */
-export function _resetLootPowersForTests() { _carry = new WeakMap(); _healOwed = 0; }
+/** LOOT5: THE HUD'S CHIPS for the powers now, beside the sets' (scenes/world.js hands both to the HUD) - each
+ *  `{ key, set: 'legendary', name, text, state }`: Flow's and Bedrock's stacks and seconds, Dawnward's charges, a
+ *  recovery running. [] for anyone but me, and while the powers sleep. */
+export function lootHudChips(entity, now = _now()) {
+  const powers = wornPowers(entity);
+  if (!powers.length) return [];
+  const has = (k) => powers.some((p) => p.power.kind === k);
+  const left = (t) => Math.max(0, Math.ceil(t - now));
+  const time = (n) => (n >= 60 ? `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}` : `${n}s`);
+  const out = [];
+  if (has('flow') && flowStacks(now)) out.push({ key: 'flow', set: 'legendary', name: `Flow ${flowStacks(now)}`, text: time(left(_s.flowUntil)), state: 'active' });
+  if (has('bedrock') && bedrockStacks(now)) out.push({ key: 'bedrock', set: 'legendary', name: `Bedrock ${bedrockStacks(now)}`, text: time(left(_s.bedrockUntil)), state: 'active' });
+  if (has('dawnward') && _s.charges) out.push({ key: 'dawnward', set: 'legendary', name: 'Dawnward', text: `${_s.charges}/${powerKind(entity, 'dawnward').charges}`, state: 'active' });
+  if (has('vigil') && left(_s.vigilReady)) out.push({ key: 'vigil', set: 'legendary', name: 'Vigil', text: time(left(_s.vigilReady)), state: 'recovering' });
+  if (has('grace') && left(_s.graceReady)) out.push({ key: 'grace', set: 'legendary', name: 'Divine Grace', text: time(left(_s.graceReady)), state: 'recovering' });
+  if (has('haste') && left(_s.hasteReady)) out.push({ key: 'haste', set: 'legendary', name: 'Haste', text: time(left(_s.hasteReady)), state: 'recovering' });
+  return out;
+}
+
+/** Tests only: every carry and power fresh, a clock and a chance of their own (seconds, [0, 1)). */
+export function _resetLootPowersForTests() {
+  _carry = new WeakMap(); _healOwed = 0; _manaOwed = 0; _s = freshState(); _hexed = new WeakMap(); _struck = new WeakSet();
+  _say = (line) => { hudText(line); };
+}
+export function _setLootPowersClockForTests(fn) { _now = typeof fn === 'function' ? fn : () => performance.now() / 1000; }
+export function _setLootPowersRandForTests(fn) { _rand = typeof fn === 'function' ? fn : Math.random; }

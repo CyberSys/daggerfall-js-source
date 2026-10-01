@@ -187,16 +187,29 @@ export const RARITY_WEIGHTS = Object.freeze({
 export const SOURCE_MULT = Object.freeze({ corpse: 1, pile: 1.3, boss: 2.5 });
 export const LUCK_PER_POINT = 2;
 
-/** The three thresholds, per mille, for one source at one luck. */
-export function rarityChances({ kind = 'corpse', tier = 0, boss = false, luck = 50, qualityMult = 1 } = {}) {
+/** The three thresholds, per mille, for one source at one luck. LOOT5: `find` multiplies the Legendary threshold - the
+ *  source's OWN chance, past its cap but never past the Rare threshold (the ladder never inverts): Foxglove's Fortune's
+ *  Favour, and LOOT8's drought. */
+export function rarityChances({ kind = 'corpse', tier = 0, boss = false, luck = 50, qualityMult = 1, find = 1 } = {}) {
   // ELITE: `qualityMult` scales the whole ladder (1.2 = every tier 20% likelier), caps unchanged
   const mult = (boss ? SOURCE_MULT.boss : (SOURCE_MULT[kind] ?? 1)) * (Number.isFinite(qualityMult) && qualityMult > 0 ? qualityMult : 1);
   const luckMod = (Math.max(0, Math.min(100, luck | 0)) - 50) * LUCK_PER_POINT;
   const at = (w) => Math.max(0, Math.min(w.cap, (w.base + w.perTier * Math.max(0, tier)) * mult + luckMod));
   const magic = at(RARITY_WEIGHTS.magic);
   const rare = Math.min(magic, at(RARITY_WEIGHTS.rare));
-  const legendary = Math.min(rare, at(RARITY_WEIGHTS.legendary));
+  const legendary = Math.min(rare, at(RARITY_WEIGHTS.legendary) * (Number.isFinite(find) && find > 0 ? find : 1));
   return { magic, rare, legendary };
+}
+
+/** LOOT5 (bible/06-Systems/Loot-Arc.md sections 7 and 10): THE FINDERS - named functions answering a multiplier on the
+ *  Legendary threshold at the host door (rollLootRarity): Foxglove's power (systems/lootPowers.js), the drought
+ *  (LOOT8). Their product; a finder that throws or answers nonsense is 1. */
+const _finders = new Map();
+export function registerLegendaryFind(name, fn) { if (typeof fn === 'function') _finders.set(name, fn); else _finders.delete(name); }
+export function legendaryFindMult() {
+  let m = 1;
+  for (const fn of _finders.values()) { try { const v = fn(); if (Number.isFinite(v) && v > 0) m *= v; } catch { /* a finder is not the roll's problem */ } }
+  return m;
 }
 
 /** One roll in [0, 1000) against the thresholds, highest tier first. */
@@ -663,6 +676,77 @@ export const LEGENDARIES = Object.freeze([
     lore: 'Briar-bound and hagraven-blessed, taken off a Reach chieftain who had no more use for it.' },
 ]);
 export const legendaryById = (id) => allLegendaries().find((l) => l.id === id) ?? null;
+/** LOOT5 (the Loot arc, bible/06-Systems/Loot-Arc.md section 7): EVERY LEGENDARY A POWER. Each record names one: its
+ *  name, its BRIEF (the card's row - CARD-FIT's 32 characters at most), its sentence, its `kind` (what systems/
+ *  lootPowers.js does with it) and its numbers, fixed - a Legendary does not grow. Keyed by the record's id, so the
+ *  records keep LR2's own shape; a mod's record may carry its own `power` (powerOf reads both). */
+export const LEGENDARY_POWERS = Object.freeze({
+  wyrmbane: Object.freeze({ name: 'Dragonsbane', kind: 'bane', foes: Object.freeze([34, 40, 16]), pct: 50,
+    brief: '+50% vs dragons and giants', text: 'Its blows deal +50% damage to dragonlings and giants' }),
+  nightwhisper: Object.freeze({ name: 'Silent Death', kind: 'unaware', pct: 100,
+    brief: '+100% to a foe unaware', text: 'Its blows deal double damage to a foe that has not noticed you' }),
+  graveward: Object.freeze({ name: 'Sanctified', kind: 'sanctified', group: 'undead', pct: 40, heal: 10,
+    brief: '+40% vs undead; their end heals', text: 'Its blows deal +40% damage to the undead, and each undead foe you kill while you wield it heals you 10% of your health' }),
+  stormcaller: Object.freeze({ name: 'Chain Lightning', kind: 'chain', metres: 6, share: 50,
+    brief: 'Arrows arc 50% to a foe near', text: 'Each of its arrows that lands arcs to the nearest other foe within 6 m, for half its damage as shock' }),
+  'anseis-edge': Object.freeze({ name: 'Way of the Sword', kind: 'flow', pct: 6, max: 5, seconds: 6,
+    brief: '+6% a hit, up to 5 (6s)', text: 'Each of its blows that lands grants Flow for 6 s, up to five: +6% weapon damage a stack' }),
+  'tsaesci-fang': Object.freeze({ name: "Serpent's Kiss", kind: 'venom', flat: 8,
+    brief: '+8 poison, x2 under half', text: 'Its blows carry 8 poison, twice that to a foe under half its health - none to a foe immune, half to one that resists' }),
+  'orsiniums-anvil': Object.freeze({ name: 'Earthshaker', kind: 'quake', metres: 3, share: 25,
+    brief: 'Blows quake 25% around', text: 'Each of its blows that lands shakes the ground: every other foe within 3 m takes a quarter of it' }),
+  'glenmoril-bow': Object.freeze({ name: "Hunter's Moon", kind: 'moon', pct: 35, beast: 35,
+    brief: '+35% at night, +70% on beasts', text: 'At night its blows deal +35% damage, and +35% more to animals' }),
+  'direnni-staff': Object.freeze({ name: 'Arcane Conduit', kind: 'conduit', less: 20, mana: 3,
+    brief: '-20% spell cost; hits give 3 MP', text: 'While you wield it your spells cost 20% less magicka, and each of its blows that lands restores 3 magicka' }),
+  'gortwogs-cleaver': Object.freeze({ name: 'Orc Rage', kind: 'rage', heal: 10, below: 33, pct: 30,
+    brief: 'Kills heal 10%; +30% when low', text: 'While you wield it each foe you kill heals you 10% of your health, and under a third of your health its blows deal +30% damage' }),
+  'worms-tooth': Object.freeze({ name: 'Soul Siphon', kind: 'siphon', pct: 15,
+    brief: 'Kills restore 15% magicka', text: 'While you wield it each foe you kill restores 15% of your magicka' }),
+  'warp-edge': Object.freeze({ name: 'Many Endings', kind: 'echo', chance: 10,
+    brief: '10% to strike twice', text: 'Each of its blows that lands strikes again, one time in ten, for the same damage' }),
+  'the-warden': Object.freeze({ name: 'Last Stand', kind: 'laststand', below: 25, less: 25,
+    brief: '-25% damage taken when low', text: 'Under a quarter of your health, the damage you take is lessened by a quarter' }),
+  titanheart: Object.freeze({ name: 'Unyielding', kind: 'unyielding', most: 25,
+    brief: 'No hurt over 25% of health', text: 'No single hurt takes more than a quarter of your health' }),
+  'aegis-of-dawn': Object.freeze({ name: 'Dawnward', kind: 'dawnward', charges: 5,
+    brief: 'Turns aside every 6th blow', text: 'Each foe\'s blow that lands on you charges it; at five charges, the next foe\'s blow is turned aside whole' }),
+  'lysandus-visor': Object.freeze({ name: "The Ghost-King's Vigil", kind: 'vigil', below: 33, heal: 20, recover: 60,
+    brief: 'Heal 20% when low (60s)', text: 'When a hurt leaves you under a third of your health, you are healed 20% of it. Recovers in 60 s' }),
+  'wayrest-treads': Object.freeze({ name: "Courier's Haste", kind: 'haste', speed: 20, rounds: 2, recover: 10,
+    brief: 'Kills: +20 Speed (2 rounds)', text: 'A kill fortifies your Speed by 20 for two magic rounds. Recovers in 10 s' }),
+  'gauntlets-of-the-rose': Object.freeze({ name: 'Open Hand', kind: 'fists',
+    brief: 'Bare-handed blows land twice', text: 'Each of your bare-handed blows that lands strikes again for the same damage' }),
+  'mountains-root': Object.freeze({ name: 'Bedrock', kind: 'bedrock', less: 4, max: 5, seconds: 6,
+    brief: '-4% damage a hit, up to 5', text: 'Each foe\'s blow that lands on you lessens the blows after it by 4% for 6 s, up to five times' }),
+  'ravens-wings': Object.freeze({ name: "Raven's Evasion", kind: 'evade', chance: 15,
+    brief: '15% to evade a blow', text: 'A foe\'s blow is turned aside whole 15 times in a hundred' }),
+  'night-mothers-embrace': Object.freeze({ name: "Sweet Mother's Kiss", kind: 'execute', below: 25, pct: 50,
+    brief: '+50% to foes under 25%', text: 'Your weapon blows deal +50% damage to a foe under a quarter of its health' }),
+  'wall-of-daggerfall': Object.freeze({ name: 'Bulwark', kind: 'bulwark', less: 5,
+    brief: 'Blows on you: -5 damage', text: 'Each foe\'s blow on you is lessened by 5 points, never under 1' }),
+  foxglove: Object.freeze({ name: "Fortune's Favour", kind: 'fortune', mult: 1.5,
+    brief: 'Legendaries half again likelier', text: 'While you wear it, every Legendary you find is half again as likely - its source\'s own chance, times one and a half' }),
+  'kings-mark': Object.freeze({ name: 'Tribute', kind: 'tribute', gold: 5,
+    brief: 'Kills pay 5 gold a level', text: 'Each foe you kill pays you 5 gold for each of its levels' }),
+  'archmages-loop': Object.freeze({ name: 'Spell Mastery', kind: 'mastery', less: 15, low: 30,
+    brief: '-15% spell cost, -30% when low', text: 'Your spells cost 15% less magicka, and 30% less while your magicka is under half' }),
+  'amulet-of-the-nine': Object.freeze({ name: 'Divine Grace', kind: 'grace', heal: 25, recover: 180,
+    brief: 'Cheat death, heal 25% (180s)', text: 'Damage that would kill you leaves you standing, healed a quarter of your health. Recovers in 180 s' }),
+  'witch-sisters-ring': Object.freeze({ name: 'Hex', kind: 'hex', less: 25, seconds: 8,
+    brief: 'Strikers hexed: -25% (8s)', text: 'A foe whose blow lands on you is hexed for 8 s: its blows on you are lessened by a quarter' }),
+  'duelists-vambrace': Object.freeze({ name: 'First Blood', kind: 'firstblood', pct: 60,
+    brief: '+60% first blow on a foe', text: 'Your first weapon blow on each foe deals +60% damage' }),
+  'mark-of-the-hist': Object.freeze({ name: 'Hist-Sap', kind: 'regen', pct: 2, low: 4,
+    brief: 'Regenerate 2% a round', text: 'Each magic round you regenerate 2% of your health, 4% while you are under half' }),
+  'reachmans-torc': Object.freeze({ name: "Hagraven's Pact", kind: 'absorb', chance: 15,
+    brief: '15% to absorb a spell', text: 'A Destruction spell that strikes you is absorbed 15 times in a hundred, as Spell Absorption is' }),
+});
+/** A record's power: the port's table's, else a mod's record's own `power`, else null. */
+export const powerOf = (id) => (typeof id === 'string' ? (LEGENDARY_POWERS[id] ?? legendaryById(id)?.power ?? null) : null);
+/** The power's line on a card and a tooltip: its name and its brief. */
+export const powerLine = (p) => (p?.name && p?.brief ? `${p.name}: ${p.brief}` : '');
+
 /** DFU-shaped, but not DFU's - the pool is the port's own, so it is
  *  allowed to grow (registerLegendary, below). */
 export const allLegendaries = () => [...LEGENDARIES, ..._customLegendaries];
@@ -764,10 +848,11 @@ export const RARE_ENCHANT_WORTH = 600;
  *  live luck. Returns the list for chaining. */
 export function rollLootRarity(items, source, { rolls = Math.random, luck = 50 } = {}) {
   if (!lootRarityOn() || !source || !Array.isArray(items)) return items;
+  const find = legendaryFindMult();   // LOOT5: the finders' word, once for the list
   const minted = [];
   for (const it of items) {
     if (!rarityEligible(it)) continue;
-    const tier = rollRarity({ ...source, luck }, rolls);
+    const tier = rollRarity({ ...source, luck, find }, rolls);
     if (tier !== 'common') { applyRarity(it, tier, rolls); minted.push(it); }
   }
   // THE UNIQUE FIND, after the tiers and ONCE for the list: it adds an
@@ -776,7 +861,7 @@ export function rollLootRarity(items, source, { rolls = Math.random, luck = 50 }
   // in the game can still turn up legendary.
   for (const found of rollUniqueFinds({ ...source, luck }, rolls)) {
     if (rarityEligible(found)) {
-      const tier = rollRarity({ ...source, luck }, rolls);
+      const tier = rollRarity({ ...source, luck, find }, rolls);
       if (tier !== 'common') { applyRarity(found, tier, rolls); minted.push(found); }
     }
     items.push(found);
@@ -1042,6 +1127,7 @@ export function rarityLines(item, { sigil = true, set = true, lore = true } = {}
       out.push(param && param !== 'None' ? `${enchantmentName(key)}: ${param}` : enchantmentName(key ?? ''));
     }
   }
+  { const p = item.legendary ? powerOf(item.legendary) : null; if (p) out.push(powerLine(p)); }   // LOOT5: its power, by name and brief
   if (sigil) out.push(...setSigilLines(item));   // SIGIL1: what the sigil gives in my hand, and how far it has grown (AUDIT SET U11: a set piece's, asleep in a duel)
   if (set) out.push(...setLines(item));   // SET5: its set - what is worn of it, and its three tiers (a card that draws the set's block asks without)
   const words = !lore ? null : item.legendary ? legendaryById(item.legendary)?.lore : item.aetheric ? (_aethericLore?.(item) ?? null) : null;   // SET6: an Aetheric piece's own; CARD-FIT: the card's list asks without (the Info box says it)

@@ -461,8 +461,8 @@
   {
     "name": "SET3-the-powers-never-imported",
     "file": "src/scenes/world.js",
-    "old": "import { setSetPowersVoice, setHudChips, heldPlayerBlow, remarkPlayerBlow } from '../systems/sigilSetPowers.js';   // SET3: what the sets DO - every power registered at import; its voice is this host's; SET5: its chips\n",
-    "new": "",
+    "old": "import { lootHudChips } from '../systems/lootPowers.js'; import { setSetPowersVoice, setHudChips, heldPlayerBlow, remarkPlayerBlow } from '../systems/sigilSetPowers.js';   // SET3: what the sets DO - every power registered at import; its voice is this host's; SET5: its chips; LOOT4: and lootPowers.js beside it, what a loot piece DOES (the Loot arc), every kind registered at import\n",
+    "new": "import { lootHudChips } from '../systems/lootPowers.js';\n",
     "tests": [
       "test/set3_powers.test.js"
     ]
@@ -578,8 +578,8 @@
   {
     "name": "SET3-a-fall-waking-it",
     "file": "src/systems/sigilSetPowers.js",
-    "old": "  if (!blow) return;   // L3: a fall, a poison's tick, a spell's burn - no foe's blow, no Spite and no Wrath\n  spite(entity, blow, before - after);\n",
-    "new": "  if (blow) spite(entity, blow, before - after);\n",
+    "old": "  if (!blow) return;   // L3: a fall, a poison's tick, a spell's burn - no foe's blow, no Spite and no Wrath\n  if (before - after > 0) for (const fn of _landed.values()) { try { fn(entity, blow.attacker, before - after); } catch { /* the loot is not the blow's problem */ } }   // LOOT4\n  spite(entity, blow, before - after);\n",
+    "new": "  if (blow && before - after > 0) for (const fn of _landed.values()) { try { fn(entity, blow.attacker, before - after); } catch { /* the loot is not the blow's problem */ } }   // LOOT4\n  if (blow) spite(entity, blow, before - after);\n",
     "tests": [
       "test/set3_powers.test.js"
     ]

@@ -279,7 +279,7 @@ test('LOOT4: the focus - my spells cost less, all I wear under the cap; register
   for (const [seam, fn] of [['registerWeaponBlowMod', 'lootBlow'], ['registerPlayerStrikeListener', 'lootStrike'], ['registerPlayerBlowLanded', 'lootLanded'], ['registerSpellCostMod', 'lootCastCost']]) {
     assert.match(src, new RegExp(`\\n${seam}\\(LOOT_POWERS, ${fn}\\);`), `${seam} -> ${fn}`);
   }
-  assert.match(read('src/scenes/world.js'), /import '\.\.\/systems\/lootPowers\.js'; import \{ setSetPowersVoice/, 'the game imports it beside the sets');
+  assert.match(read('src/scenes/world.js'), /from '\.\.\/systems\/lootPowers\.js'; import \{ setSetPowersVoice/, 'the game imports it beside the sets');
 });
 
 test('LOOT4: the wire carries a line that does something and refuses a forged one', () => {

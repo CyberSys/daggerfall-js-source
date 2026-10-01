@@ -191,8 +191,8 @@
   {
     "name": "LOOT4-the-focus-uncapped",
     "file": "src/systems/lootPowers.js",
-    "old": "  const pct = Math.min(FOCUS_CAP, wornSum(entity, 'focus'));",
-    "new": "  const pct = wornSum(entity, 'focus');",
+    "old": "  let pct = Math.min(FOCUS_CAP, wornSum(entity, 'focus'));",
+    "new": "  let pct = wornSum(entity, 'focus');",
     "tests": [
       "test/loot4_procs.test.js"
     ]
