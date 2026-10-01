@@ -88,8 +88,8 @@
   {
     "name": "SEAT1c-law-defence-no-legacy",
     "file": "src/net/townSeatLaw.js",
-    "old": "Math.floor(Math.max(0, own?.influence ?? 0) * (1 + standingModifier(standing)) * overreachDefence(extra) + 1e-9) + Math.max(0, own?.legacy ?? 0);",
-    "new": "Math.floor(Math.max(0, own?.influence ?? 0) * (1 + standingModifier(standing)) * overreachDefence(extra) + 1e-9);",
+    "old": "Math.floor(Math.max(0, own?.influence ?? 0) * (1 + standingModifier(standing)) * overreachDefence(extra) * (held ? SIEGE_DEFENCE_BONUS : 1) + 1e-9) + Math.max(0, own?.legacy ?? 0);",
+    "new": "Math.floor(Math.max(0, own?.influence ?? 0) * (1 + standingModifier(standing)) * overreachDefence(extra) * (held ? SIEGE_DEFENCE_BONUS : 1) + 1e-9);",
     "tests": [
       "test/seat1c_service.test.js",
       "test/seat1c_client.test.js"
@@ -98,8 +98,8 @@
   {
     "name": "SEAT1c-law-defence-no-standing",
     "file": "src/net/townSeatLaw.js",
-    "old": "Math.floor(Math.max(0, own?.influence ?? 0) * (1 + standingModifier(standing)) * overreachDefence(extra) + 1e-9) + Math.max(0, own?.legacy ?? 0);",
-    "new": "Math.floor(Math.max(0, own?.influence ?? 0) * overreachDefence(extra) + 1e-9) + Math.max(0, own?.legacy ?? 0);",
+    "old": "Math.floor(Math.max(0, own?.influence ?? 0) * (1 + standingModifier(standing)) * overreachDefence(extra) * (held ? SIEGE_DEFENCE_BONUS : 1) + 1e-9) + Math.max(0, own?.legacy ?? 0);",
+    "new": "Math.floor(Math.max(0, own?.influence ?? 0) * overreachDefence(extra) * (held ? SIEGE_DEFENCE_BONUS : 1) + 1e-9) + Math.max(0, own?.legacy ?? 0);",
     "tests": [
       "test/seat1c_client.test.js"
     ]

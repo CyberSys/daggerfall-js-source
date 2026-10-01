@@ -532,8 +532,13 @@ export function siegePassValid(c) {
   if (!Number.isSafeInteger(c.sk) || c.sk < 0 || c.sk > 0xffffffff || !Number.isSafeInteger(c.sw) || c.sw < 0) return false;
   if (!SIEGE_PASS_SIDES.includes(c.sd) || (c.st !== 'palace' && c.st !== 'crown') || (c.sn !== 'siege' && c.sn !== 'tourney')) return false;
   if (!Number.isSafeInteger(c.sb) || c.sb <= 0 || !Number.isSafeInteger(c.se) || c.se <= c.sb || c.se - c.sb > SIEGE_PASS_SPAN_S) return false;
-  if (!Array.isArray(c.sf) || c.sf.length !== siegePassPoints(c.st)) return false;
-  return c.sf.every((p) => Array.isArray(p) && p.length === 2 && coordOk(p[0]) && coordOk(p[1]));
+  return siegeFieldValid(c.sf, c.st);
+}
+/** A battle's field as a pass carries it (`sf`): a palace's six points or a crown's seven, each `[x, z]` whole room units
+ *  within their bound - the service asks it of a client's derivation too (SEAT2a part three). */
+export function siegeFieldValid(sf, tier) {
+  if (!Array.isArray(sf) || sf.length !== siegePassPoints(tier)) return false;
+  return sf.every((p) => Array.isArray(p) && p.length === 2 && coordOk(p[0]) && coordOk(p[1]));
 }
 
 /** SEAT2a: MINT A SIEGE PASS - the service's word that account `s` may enter seat `sk`'s battle of week `sw` on side `sd`. */

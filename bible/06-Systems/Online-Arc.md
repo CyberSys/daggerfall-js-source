@@ -10854,6 +10854,56 @@ an alarm that re-armed for ever, which now fails instead of spinning, and the ke
 re-aimed by content (PIN MOVED: GUILD1c's order kinds, PVP-REF's door, roll call, save, wave and rise, SOC1's version) -
 all still dead.
 
+### SEAT2a (part three) - what the service says of a battle: the pass, the result, Honours, the blackout
+
+2026-10-01, Mac: "Finish the seats"; "Or we could go ahead and do sieges"; "Continue" ("Hurry up"). Rides a new undeployed
+`acct48` (migration 0052_seat_siege_results.sql); the relay's `world141` row re-recorded (identityToken.js's field check
+drawn out as `siegeFieldValid`, the same law - never shipped under the first hash). Seats-Arc 6.2, 6.5-6.8, 17.
+
+- **The pass** (`/v1/seats/siege/pass`, `server-account/src/seatSiege.js` siegePass): this week's battle at a seat, from
+  ten minutes before its start until its window closes (the battle's block - two hours, a crown siege's one); a signed
+  fighter on its side, any other linked account a spectator; signed with the identity key the room already holds.
+- **The field** (6.2, `town_seat_fields`, the battle row's `field`): DECIDED here - the service derives none of it. Each
+  signed fighter's game sends the field it derived from the town; the battle's is the first an attacker and a defender
+  both sent (two sides whose interests differ agreeing on it - two of one side agree nothing), else, once the battle is
+  joined with a side absent, the one most sent (the earliest first). Settled once; every pass carries it.
+- **The result** (`/v1/seats/siege/claim`, `town_seat_results`): a fighter's `s1` receipt, verified with the relay's
+  public half and naming the claimer; the first to arrive writes the battle's result in one batch keyed on the battle -
+  a second rolls back whole. What it gives (6.5-6.8; `townSeatLaw.js` siegeWinner, siegeAftermath):
+  - a seat taken: the attacker's Charter at Standing 50, in truce at the next Turning, its Tithe and arrears none; the
+    old holder's Legacy at the seat cleared (the fortifications' tier down is SEAT2b's);
+  - a seat held: +15 Standing and x1.2 at the next Turning - only where a banner was raised (a siege nobody fought is not a
+    victory); a forfeit: +10 (once a Season against the same challenger) and x1.2; either way the challenger's influence
+    at the seat this week cleared and the seat barred to it at the next Turning (`town_seat_aftermath`, read by the
+    Turning: `seatDefence`'s new `held`, `turningPlan`'s `barred`; the Seat tab's defence shows the x1.2); an absence:
+    nothing;
+  - a Tourney: the side with more banners takes the Charter and pays the claim fee - else the other if it can - else the
+    seat stays unheld; a dead heat to the higher influence that week;
+  - the Sellswords: a signed contract's escrowed fee paid to its Sellsword (`sellsword-fee`), an unsigned one's home.
+- **Honours** (6.8, `town_seat_honours`): once a battle an account, for a receipt that earned them and the character it
+  names - 50 Marks and 2,000 Renown XP on the winning side, 25 and 1,000 on the losing (into that character's track), and
+  a roll on the Spoils of War into its Stores. DECIDED here: the roll is the fighter's own (FNV-1a over the battle and
+  the account), between the Warforged Steel Ingot and the Standard-bearer's Silk - the Siege-cracked Gem waits for its
+  template (FLAGGED below); "once a Season" (the pair's Honours, a forfeit's Standing) is any 8 weeks until SEASON1 counts
+  Seasons.
+- **The blackout** (17): `/v1/seats/sieges/live`, public (a GET, naming no guild); `.github/workflows/relay-deploy.yml`
+  waits on it five minutes at a time before a deploy (a dispatch's `force` deploys at once; an unanswered question is not
+  a siege - said, and the deploy goes on; GitHub's six-hour job ceiling bounds the wait), and
+  `.github/workflows/account-deploy.yml`'s wait on the relay lengthened from twenty minutes to five and a half hours.
+- **The client's calls** (`accountClient.js` seats `pass`, `claimSiege`; `townSeatBook.js` siegePass, claimSiege) and the
+  refusals in the board's words (`SIEGE_WHY`). The siege's session that uses them is part four.
+
+FLAGGED: the Siege-cracked Gem (PROF0 4.7) has no template; Lapidary's specialisation names it. Until it has one the
+Spoils roll between the other two.
+
+Pinned: `test/seat2a_siege_service.test.js` (4, through the real Worker), `test/seat2a_siege_client.test.js` (4); the
+account version pins (`acct48`), the schema (`test/accountworker.test.js`, PIN MOVED), the account deploy's paths
+(`src/net/siegeReceipt.js`). `tools/mutants/seat2a3.json` (70: 68 dead, 2 recorded EQUIVALENT) - nine survived the first
+run: seven were killed by sharper pins (the Turning reading the week's bonus and bars - a challenger past the holder's
+plain defence and short of its x1.2, its pledge for the week - a void battle's pass, a dead heat at equal influence, the
+forfeit's Chronicle row, an unsettled field's 409); two are EQUIVALENT - the settled field's `IS NULL` guard (only two
+racing requests reach it) and the claim's read of a written result (the result's key refuses a second write whole).
+
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 
 Mac, asked how quest enemies should work online (each player's quests are their own, so two party members on the

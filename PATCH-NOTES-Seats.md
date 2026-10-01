@@ -76,17 +76,25 @@ The first part of guild town control is in. It is open to the developers first, 
   - **The Throne.** It opens to the attackers once they hold **2 of the 3** banners (3 of 4 at a crown). Holding it uncontested for **2 minutes** (3 at a crown) takes the seat.
   - **The clock.** A siege lasts **30 minutes** (45 at a crown); at time the holder keeps the seat. A Tourney lasts 20 minutes and goes to the side holding more banners.
   - **No-shows.** If no attacker comes within **10 minutes**, the attackers forfeit.
-  - **Your receipt.** At the end every fighter gets a receipt signed by the server: the result, and whether you earned Honours (you stood for half the battle or felled a foe). Lost your connection at the end? Come back within the battle's window and it's waiting for you. Claiming it comes in the next update.
+  - **Your receipt.** At the end every fighter gets a receipt signed by the server: the result, and whether you earned Honours (you stood for half the battle or felled a foe). Lost your connection at the end? Come back within the battle's window and it's waiting for you.
+- **What a battle gives** (the server's side is in; the game carries your receipt in the next update).
+  - **Attackers win:** the Charter is theirs, at Standing 50, and it can't be challenged at the next Turning. The old holder's carried-over influence there is gone.
+  - **The holder holds:** +15 Standing and a fifth more defence at the next Turning - but only if the attackers raised at least one banner. The attackers lose their influence there that week and can't challenge the seat at the next Turning.
+  - **A forfeit:** +10 Standing (once a Season against the same challenger) and the same fifth more defence; the challenger is shut out the same way.
+  - **A Tourney:** the side holding more banners takes the Charter and pays the claim fee. If it can't pay, the other side may; if neither can, the seat stays unheld. A dead heat goes to the guild with more influence there that week.
+  - **Sellswords** are paid their fee when the battle ends; an unsigned contract's fee goes back to the guild.
+- **Honours.** Fight on the winning side and earn **50 Marks and 2,000 Renown XP**; on the losing side **25 Marks and 1,000**. Every honoured fighter also rolls on the **Spoils of War**: a Warforged Steel Ingot or a Standard-bearer's Silk, into your Stores. The same two guilds earn Honours from each other once a Season (8 weeks).
 
 ## Behind the scenes
 - **The registry.** Each client works out the seats from its own game files. When you stand in a seat town, your game reports it to the server once a day. The server trusts a seat once three players whose accounts are at least a week old agree on it exactly.
 - **Fair sieges.** In a siege the server keeps every fighter's health and checks every blow, spell and step: a blow lands only if the weapon you carry can reach and deal it, nobody heals or strikes faster than the game allows, and nobody runs faster than the fastest legal runner. A siege's health is its own (300, more with your Renown) and never touches your character's health, items or gold. A siege room lets in only the fighters each side signed, and spectators.
-- Fighting a battle from the game, the result and Honours come in the next update: until then a Right of Siege is written in the Chronicle and a Contested seat stays unheld. Fortifications, deliveries to a seat's stockpile and the Siege Camp come with them. The Royal Tourney and Conscription come with the crowns' update.
+- Fighting a battle from the game comes in the next update: until then a Right of Siege is written in the Chronicle and a Contested seat stays unheld. Fortifications, deliveries to a seat's stockpile and the Siege Camp come with them. The Royal Tourney and Conscription come with the crowns' update.
 
 ---
 
 ### For the team
-- Apply migrations **`0047_town_seats.sql`**, **`0048_seat_influence.sql`**, **`0049_seat_turning.sql`**, **`0050_seat_holding.sql`** and **`0051_seat_battles.sql`** (with the guild halls' 0045 and 0046, after main's 0044) to production D1 and deploy the account service (**`acct47`**).
+- Apply migrations **`0047_town_seats.sql`**, **`0048_seat_influence.sql`**, **`0049_seat_turning.sql`**, **`0050_seat_holding.sql`**, **`0051_seat_battles.sql`** and **`0052_seat_siege_results.sql`** (with the guild halls' 0045 and 0046, after main's 0044) to production D1 and deploy the account service (**`acct48`**).
+- **The siege blackout.** The relay's deploy now waits while a siege is live or starts within 30 minutes (it asks the account service's public `/v1/seats/sieges/live`). Dispatch it with **force** to deploy at once - a forced deploy during a siege voids it. The account deploy now waits up to five and a half hours for the relay.
 - **The economy model**: `node tools/seatEconomy.mjs` re-runs the guild-week table from the live law files (`--runs`, `--seed`, `--json`).
 - **Deploy the relay (`world141`).** It sends the Watch's ticks (world138), carries the seats' titles (world139), referees a siege's room (world140) and fights its battle by the service's pass (world141). Deploy it before the account service: an older relay refuses a token with a seat title in it.
 - Seats are behind **`SEATS_OPEN = "dev"`** in `server-account/wrangler.toml`. Change it to `"on"` to open them to everyone.

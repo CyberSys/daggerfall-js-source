@@ -80,6 +80,10 @@ export async function settleWeek(db, week, nowS) {
   const gatesIn = new Map();
   for (const region of (await agreedGateRegions(db, days)).values()) gatesIn.set(region, (gatesIn.get(region) ?? 0) + 1);
   const { results: proclaimed = [] } = await db.prepare("SELECT key, edict, guild_id, set_aside FROM town_seat_edicts WHERE week = ? AND state = 'proclaimed'").bind(next).all();
+  // SEAT2a part three: the week's sieges remembered (6.5, 6.8) - a holder that held or won by forfeit defends at x1.2, its
+  // challenger barred from the seat at this Turning
+  const { results: afterRows = [] } = await db.prepare('SELECT key, guild_id, what FROM town_seat_aftermath WHERE week = ?').bind(week).all();
+  const aftermath = (key, what) => afterRows.filter((r) => Number(r.key) === key && r.what === what).map((r) => r.guild_id);
   const seats = [];
   for (const key of keys) {
     const seat = registry.get(key);
@@ -95,11 +99,11 @@ export async function settleWeek(db, week, nowS) {
       holder = {
         guild: h.guild_id, standing: Number(h.standing), truceWeek: h.truce_week == null ? null : Number(h.truce_week),
         tithe: Number(h.tithe), owed: Number(h.owed), watched: !!watched, gates: gatesIn.get(Number(h.region)) ?? 0, writs: Number(writs?.n ?? 0),
-        edict: e?.edict ?? null, setAside: Number(e?.set_aside ?? 0),
+        edict: e?.edict ?? null, setAside: Number(e?.set_aside ?? 0), bonus: aftermath(key, 'bonus').includes(h.guild_id),
       };
     }
     seats.push({
-      key, tier: seat.tier, holder,
+      key, tier: seat.tier, holder, barred: aftermath(key, 'barred'),
       guilds: list.map((s) => ({ guild: s.guild, influence: s.total, legacy: legacyOf.get(`${key}\n${s.guild}`) ?? 0, pledgedAt: at.get(s.guild) ?? atS })),
     });
   }

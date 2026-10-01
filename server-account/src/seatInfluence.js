@@ -387,7 +387,8 @@ export async function readStandings({ db, nowS }, player, env, { key, character 
   // SEAT1d: the holder's own view - its Standing, Tithe, Edicts and upkeep; its defence at its Overreach
   const holding = holder ? await holdingOf(db, key, nowS) : null;
   const { results: tiers = [] } = holder ? await db.prepare('SELECT tier FROM town_seat_holds WHERE guild_id = ?').bind(holder.guild.id).all() : { results: [] };
-  const defence = holder ? seatDefence({ influence: own?.total ?? 0, legacy: legacy.get(holder.guild.id) ?? 0 }, holder.standing, overreachOf(tiers.map((t) => t.tier))) : null;
+  const held = holder ? !!(await db.prepare("SELECT 1 FROM town_seat_aftermath WHERE week = ? AND key = ? AND guild_id = ? AND what = 'bonus'").bind(week, key, holder.guild.id).first()) : false;   // SEAT2a: a held siege's x1.2
+  const defence = holder ? seatDefence({ influence: own?.total ?? 0, legacy: legacy.get(holder.guild.id) ?? 0 }, holder.standing, overreachOf(tiers.map((t) => t.tier)), held) : null;
   const ids = list.map((s) => s.guild);
   const { results: gs = [] } = ids.length
     ? await db.prepare(`SELECT id, name, tag, heraldry FROM guilds WHERE id IN (${ids.map(() => '?').join(', ')})`).bind(...ids).all() : { results: [] };

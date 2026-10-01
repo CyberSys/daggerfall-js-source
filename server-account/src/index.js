@@ -153,7 +153,8 @@ import { listSeats, witnessSeat, strikeSeat, seatsOpenFor } from './townSeats.js
 import { pledgeSeat, claimWatch, creditGate, creditRenown, readStandings, payTribute } from './seatInfluence.js';   // SEAT1b: influence
 import { settleDue, seatsWithHolders, relinquishSeat, seatBadgeOf, seatTitlesOf } from './seatTurning.js';   // SEAT1c: the Turning, the Charters, their titles and glyphs
 import { setTithe, proclaimEdict, claimBounty } from './seatHolding.js';   // SEAT1d: the holder's levers, a Bounty's camp
-import { setWindow, signBattle, unsignBattle, hireSellsword, withdrawHire } from './seatBattles.js';   // SEAT2a: the battles' week
+import { setWindow, signBattle, unsignBattle, hireSellsword, withdrawHire, siegesLive } from './seatBattles.js';   // SEAT2a: the battles' week
+import { siegePass, claimSiege } from './seatSiege.js';   // SEAT2a part three: the pass, the result, Honours
 
 /** SEAT1c: the account's row with the Charter titles it may wear laid on it (`seatTitles`, titles.js titlesHeld), while the
  *  seats are open to it - for the wardrobe's read and its write. */
@@ -273,6 +274,9 @@ const SEAT_STATUS = Object.freeze({
   'battle-none': 404, 'hire-none': 404, 'no-such-account': 404, 'battle-not-side': 403, 'sellsword-member': 403,
   'sign-closed': 409, 'sign-new-member': 409, 'sign-unbound': 409, 'sign-bound-elsewhere': 409, 'side-full': 409,
   'sellswords-full': 409, 'sellsword-cooling': 409, 'sign-twice': 409, 'hire-twice': 409,
+  // SEAT2a part three: the field's door, its window, an unsettled field, a second Honours 409; a receipt another account's
+  // 403; a bad field, a receipt not the relay's, no character for the XP 400 (the default)
+  'pass-early': 409, 'pass-late': 409, 'field-unsettled': 409, 'honours-twice': 409, 'not-yours': 403,
 });
 /** PROF1: each professions refusal's status - not this account's (a guest, the switch, the Marks' switch, the rank) 403,
  *  no such writ 404, a conflict with what stands (the day, the hour, the cap, the Stores, a node or writ taken) 409, the
@@ -390,6 +394,13 @@ const service = {
       });
     }
 
+    // SEAT2a part three: THE DEPLOY BLACKOUT'S QUESTION (Seats-Arc 17) - public, as the health is: whether any battle is
+    // live or starts within thirty minutes, and the latest end among them. It names no guild.
+    if (path === '/v1/seats/sieges/live') {
+      if (request.method !== 'GET') return no('method', 405, origin);
+      if (!env.DB) return no('no-database', 503, origin);
+      return json(await siegesLive(env.DB, Math.floor(Date.now() / 1000)), 200, origin);
+    }
     if (path === '/v1/health') return json({ ok: true, v: env.ACCOUNT_VERSION || ACCOUNT_VERSION, ...(maintaining(env) ? { maintenance: true } : {}) }, 200, origin);   // RESTORE: and whether it is held for maintenance
 
     // ACC1-CI: THE SERVICE PUBLISHES ITS OWN PUBLIC KEY, and that is the
@@ -880,6 +891,9 @@ const service = {
           '/v1/seats/siege/unsign': () => unsignBattle(ctx, who.player, env, body),
           '/v1/seats/siege/hire': () => hireSellsword(ctx, who.player, env, body),
           '/v1/seats/siege/withdraw': () => withdrawHire(ctx, who.player, env, body),
+          // SEAT2a part three: a battle's pass (the field the fighter's game derived); a fighter's receipt claimed
+          '/v1/seats/siege/pass': async () => siegePass(ctx, who.player, env, body, await signingKey(env, subtle)),
+          '/v1/seats/siege/claim': async () => claimSiege(ctx, who.player, env, body, await gatePublicKey(env, subtle)),
         }[path];
         if (!act) return no('not-found', 404, origin);
         const r = await act();

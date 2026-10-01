@@ -103,8 +103,8 @@
  {
   "name": "SEAT1d-law-defence-no-overreach",
   "file": "src/net/townSeatLaw.js",
-  "old": "* (1 + standingModifier(standing)) * overreachDefence(extra) + 1e-9)",
-  "new": "* (1 + standingModifier(standing)) + 1e-9)",
+  "old": "* (1 + standingModifier(standing)) * overreachDefence(extra) * (held ? SIEGE_DEFENCE_BONUS : 1) + 1e-9)",
+  "new": "* (1 + standingModifier(standing)) * (held ? SIEGE_DEFENCE_BONUS : 1) + 1e-9)",
   "tests": [
    "test/seat1d_client.test.js"
   ]

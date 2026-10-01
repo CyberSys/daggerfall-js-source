@@ -45,7 +45,7 @@ import { HOME_CAP, RENT_ROOMS_MAX, RENT_HELD_MAX, RENT_DAYS_MAX } from './homeLa
 import { DECOR_CAP, DECOR_YARD_CAP } from './decorLaw.js';   // DECOR1: the cap its refusal names; HOME-YARD: a yard's
 import { MARKS_MAX, MARKS_BANK, MARKS_MOVE_MAX } from './marksLaw.js';   // MARKS1: the bounds its refusals name
 import { NOTES_LIVE_MAX, NOTE_DAYS, NOTICE_DAYS_MAX } from './boardLaw.js';   // NOTICE1: the bounds its refusals name
-import { SIGN_WHY, SELLSWORD_FEE_MAX } from './townSeatLaw.js';   // SEAT2a: the rosters' refusals in the board's own words; the fee's bound
+import { SIGN_WHY, SIEGE_WHY, SELLSWORD_FEE_MAX } from './townSeatLaw.js';   // SEAT2a: the rosters' refusals in the board's own words; the fee's bound
 import {
   HARVESTS_PER_DAY, HARVESTS_PER_ACCOUNT_DAY, DEEP_UNCONFIRMED_PER_DAY, STORES_MAX, WITHDRAW_MAX, COURT_WRITS_PER_DAY, RESPEC,
   HIDES_PER_DAY, HIGH_HIDES_PER_DAY, HAULS_PER_DAY,
@@ -280,6 +280,7 @@ export const REFUSALS = Object.freeze({
   'hire-none': 'That Sellsword has no contract to withdraw.',
   'hire-twice': 'That account has a contract here already.',
   ...SIGN_WHY,
+  ...SIEGE_WHY,   // SEAT2a part three: the pass and the Honours
   // NOTICE1: the Notice Board (server-account/src/board.js)
   'board-need-account': 'Notes are pinned by registered accounts. Add a username to pin one.',
   'board-closed': 'The notice board is not open yet.',
@@ -1114,6 +1115,9 @@ export function accountSeats({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
     unsign: (key) => post('/v1/seats/siege/unsign', { key }),
     hire: (character, key, handle, fee = 0) => post('/v1/seats/siege/hire', { character, key, handle, fee }),
     withdrawHire: (character, key, handle) => post('/v1/seats/siege/withdraw', { character, key, handle }),
+    // SEAT2a part three: a battle's pass (the field this game derived from the town); a fighter's receipt claimed
+    pass: (key, field) => post('/v1/seats/siege/pass', { key, ...(field ? { field } : {}) }),
+    claimSiege: (receipt, character) => post('/v1/seats/siege/claim', { receipt, character }),
   };
 }
 

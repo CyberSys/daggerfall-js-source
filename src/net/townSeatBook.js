@@ -220,6 +220,26 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
     withdrawHire(seat, handle) {
       return this.battleAct(seat, () => door.withdrawHire(character(), seat.key, handle), () => `${handle}'s contract is withdrawn.`);
     },
+    // ─── SEAT2a part three: THE PASS AND THE CLAIM ───────────────────
+    /** A pass into the battle at `seat` (`field` the field this game derived from the town) - `{ ok, pass, side, window }`
+     *  or `{ ok: false, error, text }` (`field-unsettled` asks again in a moment). */
+    async siegePass(seat, field) {
+      let r;
+      try { r = await door.pass(seat.key, field); } catch { r = { ok: false, error: 'offline' }; }
+      if (!r?.ok) return { ok: false, error: r?.error ?? 'offline', text: accountRefusalText(r?.error) };
+      const d = r.data ?? {};
+      return { ok: true, pass: d.pass ?? null, side: d.side, week: d.week, startsAt: d.startsAt, endsAt: d.endsAt, window: d.window };
+    },
+    /** A fighter's `s1` receipt carried to the service - the battle's result, and this character's Honours where it earned
+     *  them. `{ ok, result, winner, honours }` or `{ ok: false, error, text }`; the board's standings read afresh. */
+    async claimSiege(receipt) {
+      let r;
+      try { r = await door.claimSiege(receipt, character()); } catch { r = { ok: false, error: 'offline' }; }
+      standingsAt.clear();
+      if (!r?.ok) return { ok: false, error: r?.error ?? 'offline', text: accountRefusalText(r?.error) };
+      const d = r.data ?? {};
+      return { ok: true, result: d.result, winner: d.winner ?? null, honours: d.honours ?? null };
+    },
     /** A World of Daggerfall camp cleared in `region` - the Bounty's twenty Drakes where one rules there. Quiet: `{ paid }`. */
     async bounty(site, region) {
       if (open !== true) return { paid: 0 };

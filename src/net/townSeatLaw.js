@@ -378,9 +378,9 @@ export const claimTotal = (g) => Math.max(0, g.influence) + Math.max(0, g.legacy
 export const bySeatStanding = (a, b) => claimTotal(b) - claimTotal(a) || (b.legacy ?? 0) - (a.legacy ?? 0)
   || (a.pledgedAt ?? Infinity) - (b.pledgedAt ?? Infinity) || (a.guild < b.guild ? -1 : a.guild > b.guild ? 1 : 0);
 /** THE HOLDER'S DEFENCE (SEAT0 5.2 step 3): its own influence at the seat x (1 + Standing's modifier) x (1 - Overreach's
- *  cut, SEAT1d - `extra` its guild's), and its Legacy. A held siege's x1.2 and a liege's reach come with their slices
- *  (SEAT2a, CROWN2). */
-export const seatDefence = (own, standing, extra = 0) => Math.floor(Math.max(0, own?.influence ?? 0) * (1 + standingModifier(standing)) * overreachDefence(extra) + 1e-9) + Math.max(0, own?.legacy ?? 0);
+ *  cut, SEAT1d - `extra` its guild's) x 1.2 where it held its last siege or won it by forfeit (`held`, SEAT2a part
+ *  three - the siege's aftermath), and its Legacy. A liege's reach comes with CROWN2. */
+export const seatDefence = (own, standing, extra = 0, held = false) => Math.floor(Math.max(0, own?.influence ?? 0) * (1 + standingModifier(standing)) * overreachDefence(extra) * (held ? SIEGE_DEFENCE_BONUS : 1) + 1e-9) + Math.max(0, own?.legacy ?? 0);
 
 /**
  * THE TURNING'S PLAN (SEAT0 5.2) - pure. `seats` every confirmed seat with anything at it this week: its tier, its
@@ -447,9 +447,9 @@ export function turningPlan({ week, seats, treasuries, active = CROWN_SCALE.per 
   const candidates = [];
   for (const s of sorted) {
     if (!keeps(s) || s.holder.truceWeek === week) continue;
-    const defence = seatDefence(s.guilds.find((g) => g.guild === s.holder.guild), s.holder.standing, extraOf(s.holder.guild));
+    const defence = seatDefence(s.guilds.find((g) => g.guild === s.holder.guild), s.holder.standing, extraOf(s.holder.guild), !!s.holder.bonus);
     for (const g of s.guilds) {
-      if (g.guild === s.holder.guild) continue;
+      if (g.guild === s.holder.guild || (s.barred ?? []).includes(g.guild)) continue;   // SEAT2a: a challenger that lost or forfeited its siege here
       const total = claimTotal({ ...g, influence: unrestInfluence(g.influence, s.holder.standing) });
       if (total >= CLAIM_THRESHOLD[s.tier] && total > defence) candidates.push({ ...g, key: s.key, total, defence });
     }
@@ -513,6 +513,13 @@ export function chronicleLine(row, seat) {
     // SEAT2a: the schedule's two rows
     case 'battle-moved': return `${when}, the battle for ${seat.name} was moved to ${battleWhenText(Number(d.at ?? 0) * 1000)}, so that no guild fights twice at once.`;
     case 'battle-void': return `${when}, no hour of the week could hold the battle for ${seat.name}; it is void.`;
+    // SEAT2a part three: a battle's end
+    case 'siege-taken': return `${when}, ${guildWords(d.guild)} took ${c} by siege from ${guildWords(d.from)}.`;
+    case 'siege-held': return `${when}, ${guildWords(d.guild)} held ${seat.name} against the siege of ${guildWords(d.against)}.`;
+    case 'siege-forfeit': return `${when}, ${guildWords(d.against)} never came to the siege of ${seat.name}; ${guildWords(d.guild)} holds it by forfeit.`;
+    case 'siege-absent': return `${when}, neither side came to the siege of ${seat.name}; ${guildWords(d.guild)} keeps it.`;
+    case 'tourney-won': return `${when}, ${guildWords(d.guild)} won the Tourney for ${c}.`;
+    case 'tourney-unheld': return `${when}, the Tourney for ${seat.name} was fought, but neither guild could pay for ${c}.`;
     default: return null;
   }
 }
@@ -902,4 +909,84 @@ export const SIGN_WHY = Object.freeze({
   'sellsword-member': 'A Sellsword may belong to neither guild.',
   'sellsword-cooling': 'This Sellsword fought for the other side in the last four weeks.',
   'sign-twice': 'You are signed already.',
+});
+
+// ─── SEAT2a (part three): THE PASS, THE FIELD, THE RESULT AND HONOURS (SEAT0 6.2, 6.5-6.8) ───
+// The relay fights the battle (net/siegeRef.js); the service signs who may enter it and settles what it gave.
+
+/** The field a client derives from the town, settled for a battle (DECIDED, part three): the first one an attacker and a
+ *  defender submitted alike (two sides whose interests differ agreeing on it), else - once the battle is joined, a side
+ *  absent - the one most submitted, the earliest first. `rows` `[{ side, field, at }]` (`field` its JSON), oldest
+ *  first. Null while nothing settles it. */
+export function settleField(rows, joined) {
+  const seen = new Map();
+  for (const r of rows ?? []) {
+    const k = String(r.field);
+    let v = seen.get(k);
+    if (!v) seen.set(k, v = { field: k, attack: false, defend: false, n: 0, at: r.at });
+    if (r.side === 'attack') v.attack = true; else if (r.side === 'defend') v.defend = true;
+    v.n++;
+    if (v.attack && v.defend) return k;
+  }
+  if (!joined || !seen.size) return null;
+  return [...seen.values()].sort((a, b) => b.n - a.n || a.at - b.at)[0].field;
+}
+/** The room's window on a pass (`se`): the battle's block - two hours, a crown siege's one (battleSpanMs). */
+export const passWindowEnds = (b) => b.starts_at + battleSpanMs({ kind: b.kind, tier: b.tier }) / 1000;
+/** The pass's door opens as the rosters close (SIGN_CLOSES_MS before the start - net/siegeRef.js SIEGE_OPENS_MS). */
+export const passOpens = (b) => b.starts_at - SIGN_CLOSES_MS / 1000;
+
+/** WHAT A SIEGE GIVES (6.8): the holder's Standing for a held siege (only where a banner was raised) and for a forfeit,
+ *  a new holder's Standing, and the next Turning's defence for the holder that held or won by forfeit (x1.2). */
+export const SIEGE_STANDING = Object.freeze({ held: 15, forfeit: 10 });
+export const SIEGE_DEFENCE_BONUS = 1.2;
+/** HONOURS (6.8): Marks and Renown XP on the winning side and the losing, and one roll on the Spoils of War. */
+export const SIEGE_HONOURS = Object.freeze({ win: Object.freeze({ marks: 50, xp: 2000 }), lose: Object.freeze({ marks: 25, xp: 1000 }) });
+/** THE SPOILS OF WAR (PROF0 4.7; professionLaw.js): the registered goods only war yields - DECIDED (part three): the
+ *  Siege-cracked Gem waits for its template, so a roll is between the ingot and the silk. */
+export const SIEGE_SPOILS = Object.freeze(['ingot:warforged', 'cloth:standard']);
+/** A fighter's roll on the Spoils - its own, the same however often it is asked (FNV-1a over the battle and the account). */
+export function spoilsOf(week, key, account) {
+  let h = 0x811c9dc5;
+  for (const ch of `${week}:${key}:${account}`) { h ^= ch.charCodeAt(0); h = Math.imul(h, 0x01000193) >>> 0; }
+  return SIEGE_SPOILS[h % SIEGE_SPOILS.length];
+}
+/** THE ONCE-A-SEASON RULE (6.5, 6.8): the same two guilds earn Honours from battles with each other, and a forfeit by the
+ *  same challenger gives Standing, once a Season - DECIDED (part three): until SEASON1 counts Seasons, once in any 8 weeks
+ *  (a Season's length, 12.4). */
+export const SIEGE_PAIR_WEEKS = 8;
+
+/** Which side won (6.5-6.8): a taken seat the attackers', a held one, a forfeit and an absence the holder's; a
+ *  Tourney's side with more banners - a dead heat the higher influence (`tie` with `higher` the side whose guild had
+ *  more). Null where nobody won (a Tourney's tie with no higher). */
+export function siegeWinner(result, higher = null) {
+  if (result === 'attack') return 'attack';
+  if (result === 'defend' || result === 'forfeit' || result === 'absent') return 'defend';
+  if (result === 'tie') return higher === 'attack' || higher === 'defend' ? higher : null;
+  return null;
+}
+/** What the Turning remembers of a siege (6.5, 6.8): `bonus` the holder defends at x1.2 at the next Turning, `barred` the
+ *  challenger may not challenge the seat then, `standing` the holder's change, `taken` the seat changes hands. A
+ *  Tourney's result is its winner's Charter alone. */
+export function siegeAftermath(kind, result, raised, { forfeitPaid = false } = {}) {
+  if (kind !== 'siege') return { bonus: false, barred: false, standing: 0, taken: false };
+  if (result === 'attack') return { bonus: false, barred: false, standing: 0, taken: true };
+  if (result === 'defend') return { bonus: !!raised, barred: true, standing: raised ? SIEGE_STANDING.held : 0, taken: false };
+  if (result === 'forfeit') return { bonus: true, barred: true, standing: forfeitPaid ? 0 : SIEGE_STANDING.forfeit, taken: false };
+  return { bonus: false, barred: false, standing: 0, taken: false };
+}
+/** The Chronicle's words for a battle's end. */
+export const SIEGE_RESULT_WORDS = Object.freeze({
+  attack: 'The attackers took the seat.', defend: 'The holder held the seat.', forfeit: 'The attackers never came: a forfeit.',
+  absent: 'Neither side came; the holder keeps the seat.', tie: 'A dead heat.',
+});
+/** Why the service will not let a character into a battle, or take its Honours, in its own words (a battle that is not
+ *  there is SIGN_WHY's; a receipt that is not the relay's, or another account's, the gate's words). */
+export const SIEGE_WHY = Object.freeze({
+  'pass-early': 'The field opens ten minutes before the battle.',
+  'pass-late': 'The battle\'s window has closed.',
+  'field-bad': 'Your game could not work out this town\'s field.',
+  'field-unsettled': 'Waiting for the other side\'s scouts to agree on the field - try again in a moment.',
+  'honours-character': 'Honours are claimed for a character.',
+  'honours-twice': 'Your Honours from this battle are claimed already.',
 });
