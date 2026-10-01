@@ -56,6 +56,7 @@ import { packImgTexture } from './packArt.js';   // OVH2: the worn UI pack's pic
 import { ToolTip } from './toolTip.js';
 import { PARTY_GREEN } from '../net/social.js';   // COMPASS-PARTY: the one green a party is drawn in
 import { nodeMarkRgb } from './nodeMarks.js';   // NODE-MARKS: a profession's nodes in its own colour
+import { BOAT_MARK_RGB, BOAT_GLYPH_W, BOAT_GLYPH_ROWS } from './boatMarks.js';   // BOAT-MARK: my boats, a sail over a hull
 // NODE-MARKS: PROF2's Prospector's veins were drawn here in one copper; every profession's nodes are drawn in their own now.
 
 export const COMPASS_BOX_OUTLINE = 2;
@@ -499,7 +500,7 @@ export function hideHudTextSurfaces(hudText = null) {
 }
 
 export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
-  { font = null, cursorActive = false, reticleHidden = false, windowCoversHud = null, hudHidden = false, detected = null, playerXZ = null, gate = null, quest = null, party = null, ships = null, nodes = null, largeHud = null, hover = null,
+  { font = null, cursorActive = false, reticleHidden = false, windowCoversHud = null, hudHidden = false, detected = null, playerXZ = null, gate = null, quest = null, party = null, ships = null, nodes = null, boats = null, largeHud = null, hover = null,
     grip = null,   // CLIMB2: the enhanced climb's grip, { amount, low } or null
     readied = null, weapon = null, weaponSheathed = true, quickUse = null, quickSwap = null, quickOffHand = null, quickSpell = null, quickSwitchHand = null } = {}) {   // PX30b: for the enhanced HUD's hand plaques; AUDIT 28 W2: the arrow counter's gate; AUDIT 64 F35: the host's previousWindow answer; QS3: the diamond's sheathe state and its two phone taps; QS6: the caption's spell chip press
   // AUDIT 24 (wave 39): ShowPlayerDamage's red flash, under the bars.
@@ -676,6 +677,7 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
       party: party ?? null,   // COMPASS-PARTY: the party's points (ui/partyMapMarks.js partyCompassPoints)
       ships: ships ?? null,   // AUDIT NAV1 (the helm): the sea's ships (scenes/navalHost.js compassShips)
       nodes: nodes ?? null,   // NODE-MARKS: the professions' nodes, each in its profession's colour (ui/nodeMarks.js nodeCompassPoints)
+      boats: boats ?? null,   // BOAT-MARK: my boats, scene XZ (ui/boatMarks.js boatCompassPoints)
       // QS3: the quickslot diamond dims its main cell when the weapon
       // is put away. drawHud has carried `weaponSheathed` since AUDIT
       // 28 W2 for the arrow counter's gate and never passed it on, so
@@ -790,6 +792,7 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
   drawArrowCount(renderer, canvas, font, vitals, weaponSheathed, { bw, bh }, s);
   // NODE-MARKS: every profession's nodes near (a Prospector's veins, 200 m; a Tracker's animals, 100 m) - FIRST, so the
   drawNodeCompassMarks(renderer, nodes, playerXZ, heading01, { bx, by, bw, s });   // AUDIT: Detect markers, the party and the ships stand over them
+  drawBoatCompassMarks(renderer, boats, playerXZ, heading01, { bx, by, bw, s });   // BOAT-MARK: my boats - over the nodes, under the live marks
   // X4: DrawTrackedObjects (HUDCompass.cs:198-217), AFTER the box -
   // HUDCompass.Draw() calls DrawCompass() then DrawTrackedObjects(),
   // so markers sit OVER the frame, and above it: DFU's marker y is
@@ -930,6 +933,28 @@ export function drawNodeCompassMarks(renderer, points, playerXZ, heading01, { bx
     for (let r = 0; r < DETECT_MARKER_ROWS.length; r++) {
       const fill = DETECT_MARKER_ROWS[r] * s;
       renderer.drawScreenQuad(null, { x: mx + (mw - fill) / 2, y: my + r * rowH, w: fill, h: rowH }, undefined, _nodeCol);
+    }
+    drawn++;
+  }
+  return drawn;
+}
+
+/** BOAT-MARK (2026-10-01, "I want to build a compass icon that tracks your boat"): my boats on the classic compass -
+ *  a little boat (ui/boatMarks.js BOAT_GLYPH_ROWS: a sail over a hull, BOAT_GLYPH_W native pixels across), its foot on
+ *  the box's top edge as the Detect markers' row stands, by their bearing law (compassMarkerLerp, clamped: a boat
+ *  behind stands at the box's end on the side to turn toward), in the boats' teal. `points` are scene XZ
+ *  (ui/boatMarks.js boatCompassPoints). Answers how many it drew. */
+export function drawBoatCompassMarks(renderer, points, playerXZ, heading01, { bx, by, bw, s }) {
+  if (!points || !points.length || !playerXZ) return 0;
+  const mw = BOAT_GLYPH_W * s;
+  const boxLeft = bx, boxRight = bx + bw - mw;
+  const my = by - BOAT_GLYPH_ROWS.length * s;
+  let drawn = 0;
+  for (const xz of points) {
+    const lerp = Math.min(1, Math.max(0, compassMarkerLerp(xz, playerXZ, heading01)));
+    const mx = boxLeft + (boxRight - boxLeft) * lerp;
+    for (let r = 0; r < BOAT_GLYPH_ROWS.length; r++) {
+      for (const [from, len] of BOAT_GLYPH_ROWS[r]) renderer.drawScreenQuad(null, { x: mx + from * s, y: my + r * s, w: len * s, h: s }, undefined, BOAT_MARK_RGB);
     }
     drawn++;
   }

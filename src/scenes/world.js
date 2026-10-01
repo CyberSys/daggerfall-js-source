@@ -33,7 +33,7 @@ import { loadModWorldData } from './modWorldData.js';   // RR3b
 import { DFPalette } from '../formats/dfPalette.js';
 import { MapsFile, getWorldClimateSettings, longitudeLatitudeToMapPixel, getPixelFromPixelID, REGION_RACES, LOCATION_TYPES, CLIMATES, REGION_NAMES } from '../formats/mapsFile.js';   // SPAWNED-DUNGEONS1: the ocean gate and the synthesized location's region name
 import { questTracker } from '../ui/questTracker.js';   // GUIDE5: the quest the player follows - its places, marked
-import { marksOn, questMapMarks } from '../ui/questMarks.js';   // GUIDE5: where the quests point, on the held map and the compass
+import { marksOn, questMapMarks } from '../ui/questMarks.js'; import { boatCompassPoints } from '../ui/boatMarks.js';   // GUIDE5: where the quests point, on the held map and the compass; BOAT-MARK: where my boats lie, on the compass
 import { settlementsOf, loadModRoads, basicRoadsPathsPoint, WATER_BYTE } from '../world/roadsProducer.js';   // ROADS 3 / AUDIT ROADS F2 / ROADS 22; WOD2: Basic Roads' getPathsPoint, the question World of Daggerfall's loader asks
 import { modSetting, modSettingsOf, modSettingsGeneration, MOD_SETTINGS, latchModLoaded } from '../systems/modSettings.js';   // ROADS 24; HCC: the mod's eight switches; CSA-D: a mod's title for the load's failure line; AUDIT PRE-MERGE 0928 S4: the next-load mods latched at mount
 import { hasPort, PORT_LOCATION_IDS } from '../systems/travelPorts.js';   // AUDIT-RR2 G22: Travel Options' port list for RR's ship gate
@@ -24484,7 +24484,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // layer, because a talk window is a modal above the vitals.
     // AUDIT 39: THE CALL IS UNCONDITIONAL. drawHud runs the damage
     // flash and the enhanced DOM HUD ABOVE its own `!art` return
-    // (hud.js:450-478) because neither reads ARENA2 - "a player whose
+    // (hud.js:451-479) because neither reads ARENA2 - "a player whose
     // HUD art failed to load still has vitals". Wrapping the whole
     // call in `if (hudArt)` inverted that: hudArt starts null and is
     // filled by a fire-and-forget load whose failure leaves it null
@@ -24595,7 +24595,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           gate: gateCompassMark(),   // WB1: the Oblivion Gate on the compass, while the player stands in its ring
           quest: questCompassMark(),   // GUIDE5: the tracker's quest's place on the compass, on the street
           party: partyCompass(),   // COMPASS-PARTY: the party's marks - the bodies drawn here, the rest where their poses say
-          ships: navalOn() && _mode() === 'exterior' ? naval?.compassShips() ?? null : null,   // AUDIT NAV1 (the helm): the sea's ships on the compass
+          ships: navalOn() && _mode() === 'exterior' ? naval?.compassShips() ?? null : null, boats: csaRuntime && _mode() === 'exterior' ? boatCompassPoints(csaRuntime.AllBoats, csaBoatUnderMe(), enchantFeet(), state, TERRAIN_SIZE) : null,   // AUDIT NAV1 (the helm): the sea's ships on the compass; BOAT-MARK: my own boats, from anywhere on the street (under the travel view too), the one at my helm left out
           nodes: professionMarks(),   // NODE-MARKS: every profession's nodes near (PROF2: a Prospector's veins within 200 m, PROF0 3.3); PROF7: a Tracker's animals within 100 m
           largeHud: largeHudOptions({ renderer, fetchBytes, palette }, playerEntity),
           // AUDIT 39: the enhanced HUD's two hand plaques. Both values

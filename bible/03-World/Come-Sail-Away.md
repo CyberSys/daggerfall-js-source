@@ -2161,6 +2161,39 @@ the key ON (`systems/modSettings.js`); the player can still turn it off. AUDIT P
 a dungeon alone (`UpdateBoatVisibility`'s `inDungeon`, the host's `isPlayerInsideDungeon`). `test/csa_registration.test.js` DEPARTED;
 `03-World/Naval-Combat.md` KEEP-PLUNDER is the other half.
 
+## Your boats on the compass (BOAT-MARK, 2026-10-01 - DECLARED)
+
+The field: a Large Boat put in from its deed, her owner killed aboard her and woken at a temple -
+*"is there any way to know where your ships are located at?"*, then *"I want to build a compass icon that tracks your
+boat"*. A packable hull's deed or parts are spent on placing (`takePlaceItem`: the item is removed unless the boat is
+crewed), the boat is kept where she was left, and nothing in the game said where that was: the mod's position box
+reads the map only from aboard, its `printboats` lists pixels on the developer console alone (offline), and the
+compass marked the sea's ships (`scenes/navalHost.js compassShips`), never the player's own. The mod has no compass
+mark; the port's (`ui/boatMarks.js`, a leaf):
+- **Every boat in `AllBoats` is a point**, on the street only (buildings and dungeons steer by their own frames) and
+  under the travel view, which is the street's: `boatCompassPoints(boats, current, feet, world, terrainSize)`, called
+  with the streaming world's own state and no allocation but the points' pool. AllBoats is mine alone - another
+  player's boats are CSA-K's peers, the sea's ships the naval host's.
+- **In sight, where she floats** (`boatMarkAt`): an active boat (her pixel within one of mine - UpdateBoatVisibility's
+  law) at her root's XZ, wherever that is - a boat drawn somewhere wrong is still where she is drawn.
+- **Out of sight, where she floats while that stands on her own pixel.** FIELD-CSA1 made every boat out of sight ride
+  every recentre and teleport (`OnPositionUpdate`, `OnWorldReanchored`), so her place is normally good in this frame;
+  it is taken while it stands within `BOAT_PIXEL_SLACK_M` (120 m) of her `MapPixel`'s square under
+  `pixelTranslation`. Past it - a frame a load never carried her into (RestoreSaveData compensates the height alone,
+  kept) - the mark stands at her pixel's middle, the quest mark's own sum. A dungeon's boat (`inside`) is always the
+  middle: her numbers are the dungeon's frame.
+- **None for the boat at my helm** (`csaBoatUnderMe`), **nor one within `BOAT_MARK_NEAR_M`** (12 m, flat) of my feet:
+  at her, aboard or on the quay beside her, the bearing would swing with every step.
+- **The mark is a little boat** - a sail over a hull - in one sea-glass teal (`BOAT_MARK_CSS` `#20e0b0`), at least 103
+  RGB from every other mark on the strip (the test holds NODE-MARKS' 75). The classic box (`ui/hud.js
+  drawBoatCompassMarks`) draws it 7x5 native pixels, its foot on the box's top edge, by the Detect markers' bearing
+  law (clamped: a boat behind pins to the end to turn toward), after the professions' nodes and under the Detect
+  markers, the party and the ships. The enhanced strip draws the same boat as a 14x12 SVG on the strip's middle,
+  where the quest's and the gate's diamonds stand, pooled and hidden, never removed.
+- The world host's edit is line-neutral (the import folded beside the quest marks', the door beside the ships'): 346
+  cites point into `scenes/world.js`. Pins: `test/boatmark.test.js` (8); `tools/mutants/boatmark.json` (26, all dead).
+  Not verified in a browser.
+
 ## What was already waiting in the port
 
 - Iliac Puddle No More's swim stands down on a boat
