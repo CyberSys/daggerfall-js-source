@@ -29,6 +29,7 @@ import { createGatherHost, NODE_MARK_M, NODE_MARK_MAX, NODE_MARK_SIZE } from '..
 import { NODE_MARK_CSS, nodeMarkCss, nodeMarkRgb, nodeMarkAlpha, nodeCompassPoints, NODE_MARK_FAR_DIM } from '../src/ui/nodeMarks.js';
 import { drawNodeCompassMarks, compassMarkerLerp, DETECT_MARKER_W, DETECT_MARKER_H } from '../src/ui/hud.js';
 import { PARTY_GREEN_CSS } from '../src/net/social.js';
+import { SHIP_MARK_CSS } from '../src/ui/enhancedHud.js';
 import { QUEST_MARK_CSS } from '../src/ui/questMarks.js';
 import {
   NODE_GLOW_M, NODE_GLOW_FADE_M, NODE_GLOW_MAX, NODE_GLOW_KINDLE_S, NODE_GLOW_PERIOD, NODE_GLOW_PULL, NODE_GLOW_MOTES,
@@ -101,7 +102,8 @@ test('NODE-MARKS the host: every node standing within NODE_MARK_M of the feet - 
   // the oracle: from each node's own place and the pixel's middle, every node within reach, nearest first
   const feetAt = [...all.map((n) => t.base(n)), [TERRAIN_SIZE / 2 + TR[0], TR[1], TERRAIN_SIZE / 2 + TR[2]]];
   let seenHerb = false;
-  for (const feet of feetAt) {
+  for (const raw of feetAt) {
+    const feet = new Float32Array(raw);   // AUDIT (the independent pass): the motor's own feet are a Float32Array
     const want = all.map((n) => ({ n, at: t.base(n) })).map((o) => ({ ...o, d: Math.hypot(o.at[0] - feet[0], o.at[2] - feet[2]) }))
       .filter((o) => o.d <= NODE_MARK_M).sort((a, b) => a.d - b.d).slice(0, NODE_MARK_MAX);
     const got = t.host.marks(feet).map((m) => ({ key: m.key, profession: m.profession, at: [...m.at], w: m.w, h: m.h, d: m.d, reach: m.reach }));
@@ -117,6 +119,9 @@ test('NODE-MARKS the host: every node standing within NODE_MARK_M of the feet - 
     }
   }
   assert.ok(seenHerb, 'a herb patch marked');
+  const f0 = t.base(all[0]);
+  assert.deepEqual(t.host.marks(new Float32Array(f0)).map((m) => m.key), t.host.marks([...f0]).map((m) => m.key), 'AUDIT: typed feet and plain feet mark alike');
+  assert.ok(t.host.marks(new Float32Array(f0)).length > 0, 'AUDIT: the motor\'s Float32Array feet mark the nodes (it marked none)');
   assert.deepEqual(t.host.marks([5000, 0, 5000]), [], 'a pixel 5 km off');
   const feet = t.base(all[0]);
   assert.ok(t.host.marks(feet).length > 0);
@@ -146,13 +151,13 @@ test('NODE-MARKS the host: a Prospector\'s veins are marked from PROSPECT_M off 
   const off = (NODE_MARK_M + PROSPECT_M) / 2;
   // walk off the vein to the side its pixel is widest, so the feet stay over the pixel's ground
   const dir = vein.local[0] < TERRAIN_SIZE / 2 ? 1 : -1;
-  const feet = [at[0] + dir * off, at[1], at[2]];
+  const feet = new Float32Array([at[0] + dir * off, at[1], at[2]]);
   assert.ok(!plain.host.marks(feet).some((m) => m.key === vein.key), `${off} m off: no mark for an ordinary miner`);
   const pro = await rig({ specs: { 50: 'prospector' } });
   const m = pro.host.marks(feet).find((x) => x.key === vein.key);
   assert.ok(m, `${off} m off: a Prospector's mark`);
   assert.equal(m.reach, PROSPECT_M);
-  assert.ok(Math.abs(m.d - off) < 1e-6);
+  assert.ok(Math.abs(m.d - off) < 1e-3);
   assert.ok(pro.host.marks(feet).every((x) => x.d <= NODE_MARK_M || x.reach === PROSPECT_M), 'only the veins reach past NODE_MARK_M');
   const kind = mineKind({ book: { taken: () => false } });
   const specs = () => ({ 50: 'prospector', 100: null });
@@ -161,7 +166,7 @@ test('NODE-MARKS the host: a Prospector\'s veins are marked from PROSPECT_M off 
 });
 
 test('NODE-MARKS the host: the loose nodes - a body the knife may skin is Hunting\'s mark where it lies, in BODY_MARK; no knife, or its hide taken, none; a kind that marks none of its loose nodes (Fishing\'s cast) is never asked for them (mutants: the loose nodes never walked; a body marked with no knife; every kind\'s loose nodes asked)', async () => {
-  const near = [TR[0] + 300, TR[1], TR[2] + 300];
+  const near = new Float32Array([TR[0] + 300, TR[1], TR[2] + 300]);
   const body = { key: 'body:20500:aaaaaaaaaaaa', at: [near[0] + 3, near[1], near[2] + 4] };
   let asked = 0;
   const cast = { id: 'cast', professions: Object.freeze(['fishing']), nodesOf: () => [], flatsOf: () => [], gone: () => false,
@@ -203,7 +208,7 @@ test('NODE-MARKS the host underground: the dungeon\'s veins in its own space, Mi
   t.host.enterDungeon({ id: 88, climate: WOODS, region: GLENUMBRA, wall, stand: async () => ({}), drop: () => {} });
   for (let i = 0; i < 4; i++) await tick();
   const law = dungeonVeins({ dungeon: 88, day: DAY, climate: WOODS, confirmed: false });
-  const m = t.host.marks([0, 0, 0]);
+  const m = t.host.marks(new Float32Array(3));   // the dungeon's own feet: the motor's typed array too
   assert.equal(m.length, law.length, 'each of the dungeon\'s veins');
   for (const x of m) {
     assert.ok(x.key.startsWith('dvein:88:'));
@@ -246,6 +251,17 @@ test('NODE-MARKS the colours: one a profession, each its own and none the party\
   assert.equal(new Set(css).size, css.length);
   assert.ok(!css.includes(PARTY_GREEN_CSS.toLowerCase()) && !css.includes(QUEST_MARK_CSS.toLowerCase()));
   assert.equal(NODE_MARK_CSS.mining, '#d9894a');
+  // AUDIT NODE-MARKS (the independent pass): clear of every other TRIANGLE on the strip by colour - Logging's pale
+  // heartwood stood 26 from a ship's bone, Hunting's coral 42 from a hostile ship's red - and of each other. The quest's
+  // gold and the gate's ember are diamonds on the strip's middle, a ship's triangle points UP: Mining's copper (PROF2's,
+  // the veins' colour since before the ships) stands beside those three by shape alone, every other node's by colour too
+  const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  const others = { party: PARTY_GREEN_CSS, detect: '#9a1808', gate: '#ff5a2a', quest: QUEST_MARK_CSS, ...Object.fromEntries(Object.entries(SHIP_MARK_CSS).map(([k, v]) => [`ship ${k}`, v])) };
+  const byShape = { mining: ['gate', 'quest', 'ship hostile'] };
+  for (const [p, hex] of Object.entries(NODE_MARK_CSS)) {
+    for (const [o, ohex] of Object.entries(others)) if (!byShape[p]?.includes(o)) assert.ok(Math.hypot(...rgb(hex).map((v, i) => v - rgb(ohex)[i])) >= 75, `${p} ${hex} beside the ${o}'s ${ohex}`);
+    for (const [q, qhex] of Object.entries(NODE_MARK_CSS)) if (q !== p) assert.ok(Math.hypot(...rgb(hex).map((v, i) => v - rgb(qhex)[i])) >= 75, `${p} beside ${q}`);
+  }
   for (const [p, hex] of Object.entries(NODE_MARK_CSS)) {
     const rgb = nodeMarkRgb(p);
     assert.equal(nodeMarkCss(p), hex);
@@ -271,6 +287,14 @@ test('NODE-MARKS nodeCompassPoints: the host\'s marks in their professions, the 
   assert.equal(nodeCompassPoints([], null), null);
   assert.equal(nodeCompassPoints(null, []), null);
   assert.equal(nodeCompassPoints(marks, null), nodeCompassPoints([marks[0]], null), 'one list, refilled');
+});
+
+test('NODE-MARKS AUDIT the classic compass\'s order: the node marks are drawn FIRST, after the strip, so the Detect markers (a spell\'s whole output), the party and the ships stand over them (mutant: the nodes drawn last again)', () => {
+  const H = src('src/ui/hud.js');
+  const body = H.slice(H.indexOf('export function drawHud('), H.indexOf('export function drawPartyCompassMarks('));
+  const nodesAt = body.indexOf('drawNodeCompassMarks(renderer, nodes,');
+  assert.ok(nodesAt > body.indexOf('drawCompassStrip(renderer, art, bx, by, s, heading01)'), 'over the strip');
+  for (const later of ['if (detected && detected.length && playerXZ)', 'drawPartyCompassMarks(renderer, party,', 'drawShipCompassMarks(renderer, ships,']) assert.ok(nodesAt < body.indexOf(later), `before ${later}`);
 });
 
 test('NODE-MARKS the classic compass: the party\'s 5x3 triangle per node over the box\'s top edge at its bearing, clamped, in its profession\'s colour at its opacity; nothing without points or my own place (mutants: one colour for all; the opacity dropped; the bearing ignored)', () => {
@@ -308,7 +332,9 @@ const mkEl = () => ({
   attrs: {},
   setAttribute(k, v) { this.attrs[k] = String(v); }, getAttribute(k) { return this.attrs[k]; },
   removeAttribute(a) { delete this.attrs[a]; }, remove() {},
-  append(...c) { this.children.push(...c); }, appendChild(c) { this.children.push(c); return c; },
+  append(...c) { for (const n of c) { if (n && typeof n === 'object') n.parentNode = this; } this.children.push(...c); }, appendChild(c) { this.append(c); return c; },
+  insertBefore(n, ref) { const i = ref ? this.children.indexOf(ref) : -1; n.parentNode = this; if (i < 0) this.children.push(n); else this.children.splice(i, 0, n); return n; },
+  get nextSibling() { const sib = this.parentNode?.children ?? []; return sib[sib.indexOf(this) + 1] ?? null; },
   replaceChildren(...c) { this.children = c; }, addEventListener() {},
 });
 const findAll = (n, cls, out = []) => { if (String(n.className ?? '').split(/\s+/).includes(cls)) out.push(n); for (const c of n.children ?? []) findAll(c, cls, out); return out; };
@@ -340,6 +366,24 @@ test('NODE-MARKS the enhanced strip: a mark per node at its bearing in its profe
     assert.equal(marks[1].style.display, 'none', 'the gone node\'s mark hidden');
     frame(null);
     assert.equal(marks[0].style.display, 'none');
+    // AUDIT: the node marks' own layer, just over the tape and the needle - every other mark over them, made before or after
+    const compass = findAll(root, 'hud-compass')[0];
+    const layer = findAll(root, 'hud-nodes')[0];
+    assert.ok(layer && marks.every((m) => layer.children.includes(m)), 'the node marks live in their layer');
+    assert.equal(compass.children.indexOf(layer), 2, 'right after the strip and the needle');
+    assert.ok(compass.children.indexOf(findAll(root, 'hud-party')[0]) > 2, 'a mate made BEFORE them stands over them');
+    drawEnhancedHud(me, 0, 0, { weapon: null, weaponSheathed: true, playerXZ: [0, 0], party: [[0, 30], [10, 30]], detected: [[0, 40]], nodes: nodeCompassPoints([{ profession: 'mining', at: [0, 0, 40], d: 40, reach: 150 }]) });
+    assert.equal(compass.children.indexOf(layer), 2, 'and the layer stays under the marks made after it');
+    assert.ok(findAll(root, 'hud-party').every((m) => compass.children.indexOf(m) > 2));
+    // AUDIT: each write kept on the node, never read back from a style that normalises what it was given
+    const n0 = marks[0];
+    const same = () => drawEnhancedHud(me, 0, 0, { weapon: null, weaponSheathed: true, playerXZ: [0, 0], nodes: nodeCompassPoints([{ profession: 'mining', at: [0, 0, 40], d: 0, reach: 150 }]) });
+    same();
+    assert.deepEqual([n0.style.opacity, n0.style.left], ['1.00', '50.0%'], 'written');
+    n0.style.opacity = '1'; n0.style.left = '50%';   // what a browser reads back for '1.00' and '50.0%'
+    same();
+    assert.equal(n0.style.opacity, '1', 'the same opacity: not written again');
+    assert.equal(n0.style.left, '50%', 'the same bearing: not written again');
   } finally {
     destroyEnhancedHud();
     clearQuickslots();
@@ -353,12 +397,13 @@ test('NODE-MARKS nodeGlows: those within NODE_GLOW_M of the eye, each kindling f
   const st = createNodeGlowState(), out = [];
   const mk = (key, z, profession = 'herbalism') => ({ key, profession, at: [0, 0, z], w: 2, h: 1 });
   const marks = [mk('a', 10), mk('b', (NODE_GLOW_FADE_M + NODE_GLOW_M) / 2, 'fishing'), mk('c', NODE_GLOW_M + 5)];
-  assert.equal(nodeGlows(marks, [0, 0, 0], 100, st, out).length, 0, 'the first sight: unkindled, nothing drawn');
-  nodeGlows(marks, [0, 0, 0], 100 + NODE_GLOW_KINDLE_S / 4, st, out);
-  nodeGlows(marks, [0, 0, 0], 100 + NODE_GLOW_KINDLE_S / 2, st, out);
+  const E = new Float32Array(3);   // AUDIT (the independent pass): the renderer's camera is a Float32Array
+  assert.equal(nodeGlows(marks, E, 100, st, out).length, 0, 'the first sight: unkindled, nothing drawn');
+  nodeGlows(marks, E, 100 + NODE_GLOW_KINDLE_S / 4, st, out);
+  nodeGlows(marks, E, 100 + NODE_GLOW_KINDLE_S / 2, st, out);
   assert.equal(out.length, 2, 'past NODE_GLOW_M: none');
   assert.ok(Math.abs(out[0].alpha - 0.5) < 1e-9, 'half kindled, frame by frame');
-  for (let i = 1; i <= 8; i++) nodeGlows(marks, [0, 0, 0], 100 + NODE_GLOW_KINDLE_S / 2 + i * 0.1, st, out);
+  for (let i = 1; i <= 8; i++) nodeGlows(marks, E, 100 + NODE_GLOW_KINDLE_S / 2 + i * 0.1, st, out);
   assert.equal(out[0].alpha, 1, 'whole');
   const hitch = createNodeGlowState();
   nodeGlows(marks, [0, 0, 0], 0, hitch, []);
@@ -373,6 +418,9 @@ test('NODE-MARKS nodeGlows: those within NODE_GLOW_M of the eye, each kindling f
   assert.ok(!st.nodes.has('a'), 'unmarked: forgotten');
   nodeGlows(marks, [0, 0, 0], 101.7, st, out);
   assert.equal(out.find((g) => g.seed === nodeGlowSeed('a')), undefined, 'and kindles again from nothing');
+  const rec = out[0];
+  nodeGlows(marks, [0, 0, 0], 101.75, st, out);
+  assert.equal(out[0], rec, 'AUDIT: the records refilled, none made a frame');
   const many = Array.from({ length: 40 }, (_, i) => mk(`n${i}`, i));
   nodeGlows(many, [0, 0, 0], 102, st, out);
   nodeGlows(many, [0, 0, 0], 102.2, st, out);
@@ -382,9 +430,9 @@ test('NODE-MARKS nodeGlows: those within NODE_GLOW_M of the eye, each kindling f
 });
 
 /** The glow's light at a point on its card - the shader's own main(), run. */
-const glowAt = (vM, { t = 7.25, seed = 0.31, alpha = 1, color = [1, 1, 1], w = 2, h = 1.5, world = [0, 0, 0], fog = null } = {}) => {
+const glowAt = (vM, { t = 7.25, seed = 0.31, alpha = 1, color = [1, 1, 1], w = 2, h = 1.5, world = [0, 0, 0], fog = null, still = 0 } = {}) => {
   const f = glslFunctions(NODE_GLOW_FS, {
-    vM, vWorld: world, uSize: [w, h], uColor: color, uAlpha: alpha, uSeed: seed, uTime: t,
+    vM, vWorld: world, uSize: [w, h], uColor: color, uAlpha: alpha, uSeed: seed, uTime: t, uStill: still,
     uFogMode: fog ? 2 : 0, uFogDensity: fog?.density ?? 0, uFogRange: [0, 1], uCamPos: [0, 0, 0], uFocus: [0, 0, 0, 0],
   });
   f.main();
@@ -467,6 +515,7 @@ test('NODE-MARKS the glow\'s draw: nothing to draw touches nothing; one quad a n
   assert.deepEqual(calls.filter((c) => c[0] === 'uniform1f' && c[1] === 'uAlpha').map((c) => c[2]), [1, 0.5]);
   assert.deepEqual(calls.filter((c) => c[0] === 'uniform1f' && c[1] === 'uSeed').map((c) => c[2]), [0.1, 0.2]);
   assert.equal(calls.find((c) => c[0] === 'uniform1f' && c[1] === 'uTime')[2], 7, 'the clock wrapped');
+  assert.equal(calls.find((c) => c[0] === 'uniform1f' && c[1] === 'uStill')[2], 0, 'moving by default');
   assert.deepEqual(calls.find((c) => c[0] === 'blendFunc').slice(1), [gl.ONE, gl.ONE]);
   assert.deepEqual(calls.filter((c) => c[0] === 'depthMask').map((c) => c[1]), [false, true]);
   const names = calls.map((c) => c[0]);
@@ -476,31 +525,48 @@ test('NODE-MARKS the glow\'s draw: nothing to draw touches nothing; one quad a n
   assert.deepEqual(calls.find((c) => c[0] === 'uniform4fv' && c[1] === 'uFocus')?.[2], focus, 'the travel view\'s focus, as every fogged program');
   assert.ok(NODE_GLOW_MAX >= NODE_MARK_MAX, 'every node the compass marks may glow');
   assert.ok(NODE_GLOW_M <= NODE_MARK_M && NODE_GLOW_FADE_M < NODE_GLOW_M);
+  calls.length = 0;
+  r.draw([{ at: [1, 0, 1], w: 2, h: 1, rgb: herb, alpha: 1, seed: 0.1 }], I, I, [0, 1.6, 0], 3, null, true);
+  assert.equal(calls.find((c) => c[0] === 'uniform1f' && c[1] === 'uStill')[2], 1, 'AUDIT: the still form uploaded');
 });
 
 // ─── THE WIRING ──────────────────────────────────────────────────────
 
-test('NODE-MARKS the world host\'s glow pass (createNodeGlowPass), over a fake renderer: the marks lit under the frame\'s own camera and fog (its focus too), kindling node by node; built once, at the first node to light - a build that throws costs the glow, never the game, and is never tried again; a pass that lit something is a foreign pass; no camera, null marks or nothing kindled lights nothing and builds nothing (mutants: built every frame; the throw let through; the foreign pass unmarked; the fog not handed)', () => {
+test('NODE-MARKS the world host\'s glow pass (createNodeGlowPass), over a fake renderer: the marks lit under the frame\'s own camera and fog (its focus too), kindling node by node; AUDIT: the program built at IDLE once a node is first marked - never on a frame - and nothing lit until it stands; a build that throws costs the glow, never the game, and is never tried again; a pass that RAN is a foreign pass, whatever it drew; under reduced motion its still form; no camera or null marks light nothing (mutants: built on the frame; built every frame; the throw let through; the foreign pass marked only for a draw; the fog not handed; the still form never asked)', () => {
   const marked = [];
-  const renderer = { _proj: new Float32Array(16), _view: new Float32Array(16), _camPos: [0, 1.6, 0], _fogMode: 2, _fogDensity: 0.01, _fogRange: [0, 1], _focus: new Float32Array([1, 2, 3, 1]), gl: {}, markForeignPass: () => marked.push(1) };
-  let t = 10, builds = 0;
+  const renderer = { _proj: new Float32Array(16), _view: new Float32Array(16), _camPos: new Float32Array([0, 1.6, 0]), _fogMode: 2, _fogDensity: 0.01, _fogRange: [0, 1], _focus: new Float32Array([1, 2, 3, 1]), gl: {}, markForeignPass: () => marked.push(1) };
+  let t = 10, builds = 0, still = false;
+  const idled = [];
   const drawn = [];
-  const fake = { drawn: 0, draw(list, proj, view, eye, seconds, fog) { this.drawn = list.length; drawn.push({ n: list.length, proj, view, eye, seconds, fog }); } };
-  const pass = createNodeGlowPass(renderer, { now: () => t, build: () => { builds++; return /** @type {any} */ (fake); } });
+  const fake = { drawn: 0, draw(list, proj, view, eye, seconds, fog, st) { this.drawn = list.length; drawn.push({ n: list.length, proj, view, eye, seconds, fog, st }); } };
+  const pass = createNodeGlowPass(renderer, { now: () => t, build: () => { builds++; return /** @type {any} */ (fake); }, idle: (fn) => idled.push(fn), reduced: () => still });
   const marks = [{ key: 'herb:1:2:3:0', profession: 'herbalism', at: [0, 0, 5], w: 2, h: 1 }];
+  assert.equal(pass.draw(null), 0);
+  assert.equal(idled.length, 0, 'nothing marked: nothing asked of the idle');
   assert.equal(pass.draw(marks), 0, 'first sight: unkindled');
-  assert.equal(builds, 0, 'nothing to light, nothing built');
+  assert.equal(idled.length, 1, 'the first node marked asks the idle for the compile');
+  assert.equal(builds, 0, 'never on the frame');
+  t += 0.1;
+  assert.equal(pass.draw(marks), 0, 'kindling, but the program not yet built: nothing lit');
+  assert.equal(marked.length, 0, 'and no foreign pass');
+  idled[0]();   // the browser's idle time
+  assert.equal(builds, 1);
   t += 0.1;
   assert.equal(pass.draw(marks), 1);
-  assert.equal(builds, 1);
+  assert.equal(idled.length, 1, 'asked once');
   assert.equal(drawn[0].proj, renderer._proj);
   assert.equal(drawn[0].eye, renderer._camPos, 'the frame\'s own camera');
   assert.deepEqual(drawn[0].fog, { mode: 2, density: 0.01, range: renderer._fogRange, camPos: renderer._camPos, focus: renderer._focus }, 'the frame\'s fog and the travel view\'s focus');
   assert.equal(drawn[0].seconds, t);
+  assert.equal(drawn[0].st, false, 'moving');
   assert.equal(marked.length, 1, 'a foreign pass');
+  still = true; t += 0.1;
+  pass.draw(marks);
+  assert.equal(drawn[1].st, true, 'reduced motion: the still form');
+  fake.draw = function (list) { this.drawn = 0; drawn.push({ n: list.length }); };   // a pass that ran and drew nothing
   t += 0.1;
   pass.draw(marks);
-  assert.equal(builds, 1, 'built once');
+  assert.equal(marked.length, 3, 'a pass that RAN is a foreign pass - its program went up whatever it drew');
   assert.equal(pass.draw(null), 0, 'none marked');
   renderer._proj = null;
   t += 0.1;
@@ -511,7 +577,7 @@ test('NODE-MARKS the world host\'s glow pass (createNodeGlowPass), over a fake r
   try {
     renderer._proj = new Float32Array(16);
     let tries = 0;
-    const broken = createNodeGlowPass(renderer, { now: () => t, build: () => { tries++; throw new Error('no GL'); } });
+    const broken = createNodeGlowPass(renderer, { now: () => t, build: () => { tries++; throw new Error('no GL'); }, idle: (fn) => fn(), reduced: () => false });
     broken.draw(marks); t += 0.1;
     assert.equal(broken.draw(marks), 0, 'a glow that will not build lights nothing');
     t += 0.1;
@@ -521,12 +587,30 @@ test('NODE-MARKS the world host\'s glow pass (createNodeGlowPass), over a fake r
   } finally { console.warn = warn; }
 });
 
-test('NODE-MARKS the hosts by source: the street\'s compass and the dungeon\'s take the nodes; the glow is drawn after each mode\'s opaque world through the veiled bodies\' hook; none in a building, under the travel view or with the professions shut; every edit to the cited hosts line-neutral (one import line, one door folded beside the party\'s)', () => {
+test('NODE-MARKS AUDIT the still form, the shader RUN: under reduced motion (`uStill` 1) the picture is the same at every moment - no breath, no shimmer climbing, every mote held at its own place - and still a glow, low on the node; and the motes still stand in it (mutants: the clock not held; the shimmer kept; the halo dropped)', () => {
+  const h = 1.5;
+  const at = (vM, t, still = 1, seed = 0.31) => glowAt(vM, { t, seed, still, h });
+  const probe = [];
+  for (let i = 0; i < 40; i++) probe.push([((i % 8) - 3.5) / 4, ((Math.floor(i / 8) + 0.5) / 5) * h]);
+  for (const p of probe) assert.ok(Math.abs(lum(at(p, 3)) - lum(at(p, 41.7))) < 1e-9, `still at ${p}`);
+  assert.ok(probe.some((p) => Math.abs(lum(at(p, 3, 0)) - lum(at(p, 41.7, 0))) > 1e-3), 'moving without it');
+  assert.ok(rowMean(0.3 * h, { still: 1 }) > 0.05, 'the halo stands');
+  assert.ok(rowMean(0.3 * h, { still: 1 }) > rowMean(0.75 * h, { still: 1 }) * 2, 'low on the node');
+  // no shimmer: a held band would sit where its seed puts it, and the halo does not care for the seed - so a row's median
+  // (the motes are a few points of it) is the same for any two nodes
+  const rowMedian = (y, seed) => { const v = []; for (let i = 0; i < 21; i++) v.push(lum(at([-1 + (2 * i) / 20, y], 3, 1, seed))); v.sort((p, q) => p - q); return v[10]; };
+  for (let y = 0.1; y < 0.95; y += 0.1) assert.ok(Math.abs(rowMedian(y * h, 0.12) - rowMedian(y * h, 0.64)) < 0.01, `no band held at ${y.toFixed(1)} of its height`);   // a band is ~0.05 a row; the motes' tails far less
+  let sparks = 0;
+  for (let y = 0.05; y < 0.95; y += 0.01) for (let x = -0.6; x <= 0.6; x += 0.01) if (lum(at([x * 1, y * h], 3)) > 0.6) sparks++;
+  assert.ok(sparks > 0, 'the motes held where they are, not gone');
+});
+
+test('NODE-MARKS the hosts by source: the street\'s compass and the dungeon\'s take the nodes - under the travel view too (AUDIT); the glow is drawn after each mode\'s opaque world through the veiled bodies\' hook, never under the travel view; none in a building or with the professions shut; every edit to the cited hosts line-neutral (one import line, one door folded beside the party\'s)', () => {
   const w = src('src/scenes/world.js');
-  assert.match(w, /if \(!gatherHost \|\| profBook\?\.state\.open !== true \|\| travelView\?\.active \|\| !feet\) return null;\n\s*const m = _mode\(\);\n\s*return m === 'exterior' \|\| m === 'dungeon' \? gatherHost\.marks\(feet\) : null;/);
+  assert.match(w, /if \(!gatherHost \|\| profBook\?\.state\.open !== true \|\| !feet\) return null;\n\s*const m = _mode\(\);\n\s*return m === 'exterior' \|\| m === 'dungeon' \? gatherHost\.marks\(feet\) : null;/, 'AUDIT: the compass keeps the nodes under the travel view, as PROF2\'s Prospector\'s veins were kept');
   assert.match(w, /nodes: professionMarks\(\),/);
   assert.match(w, /const professionMarks = \(feet = enchantFeet\(\)\) => nodeCompassPoints\(nodeMarksAt\(feet\), trackerAnimals\(\)\);\n\s*const nodeGlowPass = createNodeGlowPass\(renderer\);/);
-  assert.match(w, /const drawVeiledPeerBodies = \(\) => \{ peerBodies\?\.drawVeiled\(\); drawAuras\(\); nodeGlowPass\.draw\(nodeMarksAt\(enchantFeet\(\)\)\); \};/);
+  assert.match(w, /const drawVeiledPeerBodies = \(\) => \{ peerBodies\?\.drawVeiled\(\); drawAuras\(\); nodeGlowPass\.draw\(travelView\?\.active \? null : nodeMarksAt\(enchantFeet\(\)\)\); \};/, 'the glow alone none under the travel view');
   assert.match(w, /partyNear: \(\) => partyOnMaps\(\), professionMarks: \(feet\) => professionMarks\(feet\),/);
   assert.match(w, /^import \{ mineKind \} from '\.\/mineHost\.js'; import \{ nodeCompassPoints \} from '\.\.\/ui\/nodeMarks\.js'; import \{ createNodeGlowPass \} from '\.\.\/render\/nodeGlow\.js';/m);
   assert.match(src('src/scenes/worldModes.js'), /party: \(\) => host\.partyNear\?\.\(\) \?\? \[\], nodeMarks: \(feet\) => host\.professionMarks\?\.\(feet\) \?\? null,/);

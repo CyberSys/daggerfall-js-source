@@ -2468,7 +2468,8 @@ and nothing in the world set a node apart from the ground about it. DECIDED here
   space, and the loose nodes of a kind that marks them (`marksLoose`: Hunting's bodies) where they lie - never
   Fishing's cast, which is the look itself and whose water's check is Foraging's whole world, asked a frame - each `{ key, profession, at, w, h, d, reach }`, its
   BASE in the scene (never the look's lift), nearest first, `NODE_MARK_MAX` (16) at most; one list, refilled. The
-  professions shut, none. A building, the travel view: none (the host's `nodeMarksAt`).
+  professions shut, none. A building: none (the host's `nodeMarksAt`); under the travel view the compass keeps them and
+  the glow alone is off (AUDIT, below).
 - **Each kind says its own** (`GatherKind.mark(node, { specs })` -> `{ w, h, reach? }` or null): its glow's footprint
   about the base and how far off the compass marks it (`NODE_MARK_M`, 150 m, without a reach). A patch while either of
   its harvests stands (`PATCH_MARK`); a vein, a boulder and a dungeon vein while unmined (`MINE_MARKS`) - **a
@@ -2478,12 +2479,15 @@ and nothing in the world set a node apart from the ground about it. DECIDED here
   low on the water); a body while its hide is untaken and the pack holds the knife (`BODY_MARK`). A kind that names no
   mark is marked in `NODE_MARK_SIZE` while it is not gone.
 - **The colours** (`ui/nodeMarks.js`, a leaf both the HUD and the glow take): Herbalism a blossom's orchid `#e586ec`,
-  Mining PROF2's copper `#d9894a`, Logging pale heartwood `#f0dfa8`, Hunting a fresh hide's coral `#ff7360`, Fishing
-  the shallows' blue `#5ec8ff` - clear of the party's green, the quest's gold, the Detect markers' red and the ships'.
+  Mining PROF2's copper `#d9894a`, Logging a new leaf's sap green `#d4e157`, Hunting the rose of a fresh hide
+  `#ff6f91`, Fishing the shallows' blue `#5ec8ff` (AUDIT: Logging was pale heartwood and Hunting coral) - each at least
+  75 apart from every other node's and from the party's green, the Detect markers' red, the gate's ember and the ships'
+  red, bone and grey. Mining's copper stands near the quest's gold, the gate's ember and a hostile ship's red, and is
+  told from them by shape alone (diamonds on the strip's middle; a ship's triangle points up, a node's down).
 - **The compass, both skins.** The party's 5x3 triangle and the Detect markers' bearing law (clamped), each in its
   profession's colour, the nearer brighter (`nodeMarkAlpha`: whole at the feet, 45% dimmer at its reach), the nearest
   drawn last, over the rest - the classic box (`ui/hud.js` drawNodeCompassMarks) and the enhanced strip
-  (`ui/enhancedHud.js`, a pooled `hud-node` a node). A Tracker's animals ride the same list in Hunting's colour. The
+  (`ui/enhancedHud.js`, a pooled `hud-node` a node) - and UNDER every other mark (AUDIT, below). A Tracker's animals ride the same list in Hunting's colour. The
   drawHud option is `nodes` (it was `veins`). The street's frame hands it (`world.js` professionMarks), and the
   dungeon's at its own feet (`dungeonContext.js`, through `worldModes.js` `nodeMarks` and the host's
   `professionMarks`).
@@ -2492,18 +2496,71 @@ and nothing in the world set a node apart from the ground about it. DECIDED here
   climbs (a teardrop, to nothing at the card's sides), rising out of nothing at the ground - where the ground cuts the
   card no edge shows - to its body low on the node and thinning to its crown, breathing; a SHIMMER, a soft band
   climbing it every five seconds; six MOTES drifting up out of it, each its own pace and place, twinkling, born and gone
-  dark. Slight by intent (its halo a third of white at most): kindled over 0.6 s as a node first stands near (a frame's
+  dark - and under reduced motion all of it held still (AUDIT, below). Slight by intent (its halo a third of white at
+  most): kindled over 0.6 s as a node first stands near (a frame's
   step clamped to a quarter second, so a hitch never pops it), faded from 80 m to nothing at 120 m, 16 at most. The
   duel wall's law: added (ONE, ONE), tested against the world's depth and never writing it, fogged from the travel
   view's focus when one is set, every rate a whole number of cycles over its 60 s clock. Drawn after each mode's
   opaque world through the veiled bodies' hook, as the auras are (the street's pass, the dungeon's `lateWorldDraw`);
-  a glow that will not build costs the glow, never the game (`createNodeGlowPass`, the world host's one door to it).
+  never under the travel view; built at idle once a node is first marked; a glow that will not build costs the glow,
+  never the game (`createNodeGlowPass`, the world host's one door to it).
 - **Not built, named**: the held map's node marks (section 21's "the held map marks the patches and veins a character
   has worked before" - still as PROF1 and PROF2 left it); no setting turns the glow or the marks off (the professions'
   own switch does).
-- **Pinned**: `test/nodemarks.test.js` (17); `tools/nodeGlowProbe.mjs` compiles, links and draws the glow in a real WebGL2
-  context over a stand-in node and wall and reads the frame back (13 checks). Mutants: `tools/mutants/nodemarks.json` (44, all dead). Patch notes:
+- **Pinned**: `test/nodemarks.test.js` (19); `tools/nodeGlowProbe.mjs` compiles, links and draws the glow in a real WebGL2
+  context over a stand-in node and wall, and through the world host's own pass with the renderer's typed camera, and
+  reads the frame back (14 checks). Mutants: `tools/mutants/nodemarks.json` (58, all dead). Patch notes:
   `PATCH-NOTES-Nodes-on-the-Compass.md`.
+
+### AUDIT NODE-MARKS (2026-10-01, Mac: "Audit this")
+
+Two lanes: the author's own adversarial re-read, and an independent pass that read the commit cold. FOUND, each fixed and
+pinned (`test/nodemarks.test.js`, `tools/mutants/nodemarks.json`):
+
+- **HIGH - no node was ever marked in play, and a Prospector's veins went with them** (the independent pass). The host's
+  `marks` refused any feet that were not a plain Array (`Array.isArray(pos)`), and the player's feet are the motor's
+  `Float32Array` (`player/motor.js`: `this.pos = new Float32Array(3)`) - on the street and underground both. Every
+  test had handed it a plain array, so the suite was green over a compass that marked nothing but a Tracker's animals;
+  PROF2's Prospector's veins, which went through `stoodOf` with no such check, had been marked and now were not.
+  FIXED: a place is any three numbers (`isVec3`); the tests hand the motor's own typed feet.
+- **HIGH - the glow never lit, and was never built** (the independent pass). `nodeGlows` refused an eye that was not a
+  plain Array, and the renderer's camera is a `Float32Array` (`render/renderer.js` `_camPos`). The pass picked
+  nothing, so it never built its program. `tools/nodeGlowProbe.mjs` drew through `NodeGlowRenderer` directly, past the
+  picking, so it was green too. FIXED as above; the fake renderer's camera is typed; and the probe lights a herb through
+  the world host's own pass with a `Float32Array` camera (with the old check it reads `lit 0`).
+- **MEDIUM - the compass lost every mark under the travel view.** One gate (`nodeMarksAt`) served the compass and the
+  glow, and the compass is drawn under the view (only the reticle hides) - PROF2's Prospector's veins had shown there.
+  FIXED: the compass keeps them; the glow alone is gated, at its hook.
+- **MEDIUM - the glow moved under reduced motion.** The professions' own law (`ui/profHud.js`: every act has a still
+  form for the system's reduced motion) was not kept: the halo breathed, the shimmer climbed, the motes rose. FIXED: a
+  still form (`uStill`) - the halo steady, no shimmer, every mote held at its own place - read once a second, as the
+  professions' HUD reads it.
+- **MEDIUM - sixteen node marks could bury a Detect marker or a mate.** The classic box drew the nodes after the Detect
+  markers (a spell's whole output), the party and the ships; the enhanced strip stacked by whichever mark was made
+  first. FIXED: the classic box draws them first; the enhanced strip keeps them in a layer of their own just over the
+  tape (`hud-nodes`).
+- **LOW - a colour was a ship's** (the independent pass). Logging's pale heartwood stood 26 from a ship's bone, and
+  Hunting's coral 42 from a hostile ship's red, while this section said the colours were clear of the ships'. FIXED:
+  sap green and rose, and the distances pinned (Mining's copper and its three shape-told neighbours named).
+- **LOW - the first node's compile was on a frame.** The program was built inside the draw that first lit a node,
+  seconds into any walk in the wilderness, against PERF-WARM's law (`render/warmPrograms.js`). FIXED: it is asked of the
+  idle when a node is first marked, and nothing is lit until it stands (a node kindles from nothing, so the wait is
+  never seen).
+- **LOW - smaller.** A pass that ran but drew nothing did not mark the foreign pass its program change needs - FIXED, a
+  pass that runs is one. The enhanced strip read its own style back to skip a write, and a style normalises what it is
+  given ("1.00" reads "1") - FIXED, the writes kept on the node. `nodeGlows` made a record a lit node a frame - FIXED,
+  refilled.
+
+CHECKED, SOUND (the independent pass, read at the commit): the mode machine and the host agree on underground
+(`setMode('dungeon')` before `profDungeonEntered`, every exit's `onDungeonLeave` before `setMode('exterior')`); the
+floating origin (the translation read fresh each call, no place cached by the glow); the day's turn, a character switch
+and a shut book; nothing in `marks` throws (every node carries `local`, a spawned dungeon stands none, the cast never
+asked); no caller still passes `veins`; the shared lists are each read before the next fill; the pass's GL bracket
+(the auras' and the duel wall's), with the level drawn before `lateWorldDraw` underground; a building's hook lights
+nothing; the edits to the cited hosts line-neutral. The author's own: a solid quad's alpha blends (`screenQuadBlends`,
+U10); a school's glow stands over the water's film (WATER1 a hand's breadth, the sea's mods 3-10 cm up); a dungeon
+vein's base is its ore's own; the large HUD's compass is DFU's needle alone, which marks neither a Detect nor a mate.
+NOT CHANGED, named: the large HUD marks no node, as it marks no mate.
 
 ## Appendix A - a day of a gatherer
 

@@ -20,7 +20,7 @@ const shotsAt = process.argv.includes('--shots') ? process.argv[process.argv.ind
 const out = []; const check = (n, ok, d = '') => { out.push(ok); console.log(`${ok ? 'ok  ' : 'FAIL'} ${n}${d ? ` - ${d}` : ''}`); };
 
 const PAGE = `<!doctype html><html><body style="margin:0;background:#000"><canvas id=c width=640 height=480></canvas><script type=module>
-import { NodeGlowRenderer, NODE_GLOW_PERIOD, NODE_GLOW_PULL } from '/src/render/nodeGlow.js';
+import { NodeGlowRenderer, NODE_GLOW_PERIOD, NODE_GLOW_PULL, createNodeGlowPass } from '/src/render/nodeGlow.js';
 import { nodeMarkRgb } from '/src/ui/nodeMarks.js';
 const gl = document.getElementById('c').getContext('webgl2', { alpha: false, preserveDrawingBuffer: true });
 const vs = \`#version 300 es
@@ -61,6 +61,29 @@ window.draw = (eye, t, alpha, pts, { walled = false, glow = true } = {}) => {
     const o = new Uint8Array(4); gl.readPixels(x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, o); return Array.from(o);
   };
   return { error: gl.getError(), drawn: glow ? pass.drawn : 0, px: pts.map(px) };
+};
+/** AUDIT NODE-MARKS: THE WORLD HOST'S OWN PATH - createNodeGlowPass over a renderer stand-in holding the camera as the
+ *  renderer does (a Float32Array _camPos), "frames" frames a quarter second apart (the program built at the first
+ *  node marked, the kindling run whole), then the herb's pixel read back. */
+window.throughPass = (eye, frames, pts) => {
+  const proj = persp(0.9, 640 / 480, 0.05, 100), view = look(eye, [0, 0.5, 0]), vp = mul(proj, view);
+  let t = 50, foreign = 0, lit = 0;
+  const r = { gl, _proj: proj, _view: view, _camPos: new Float32Array(eye), _fogMode: 0, _fogDensity: 0, _fogRange: new Float32Array([0, 1]), _focus: new Float32Array(4), markForeignPass: () => { foreign++; } };
+  const p2 = createNodeGlowPass(r, { now: () => t, idle: (fn) => fn(), reduced: () => false });
+  const marks = [{ key: 'herb:400:150:20500:0', profession: 'herbalism', at: [-1.5, 0, 0], w: 2.2, h: 1.3 }];
+  for (let i = 0; i < frames; i++) {
+    gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.disable(gl.CULL_FACE); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.useProgram(pr); gl.uniformMatrix4fv(gl.getUniformLocation(pr, 'vp'), false, vp);
+    gl.uniform3f(gl.getUniformLocation(pr, 'c'), 0.08, 0.075, 0.07); gl.bindVertexArray(floor.v); gl.drawArrays(gl.TRIANGLES, 0, floor.n);
+    gl.uniform3f(gl.getUniformLocation(pr, 'c'), 0.12, 0.16, 0.08); gl.bindVertexArray(sprite.v); gl.drawArrays(gl.TRIANGLES, 0, sprite.n); gl.bindVertexArray(null);
+    lit = p2.draw(marks); t += 0.25;
+  }
+  const px = (w) => {
+    const c = [0, 1, 2, 3].map((k) => vp[k] * w[0] + vp[4 + k] * w[1] + vp[8 + k] * w[2] + vp[12 + k]);
+    const x = Math.round((c[0] / c[3] * 0.5 + 0.5) * 640), y = Math.round((c[1] / c[3] * 0.5 + 0.5) * 480);
+    const o = new Uint8Array(4); gl.readPixels(x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, o); return Array.from(o);
+  };
+  return { error: gl.getError(), lit, foreign, px: pts.map(px) };
 };
 window.ready = true;
 </script></body></html>`;
@@ -113,6 +136,11 @@ try {
   check('no jump where the clock wraps', Math.max(...jump) <= 12, jump.join(' '));
   const cold = await page.evaluate(([e, q]) => window.draw(e, 7.25, 0, q), [eye, pts]);
   check('unkindled, nothing glows', cold.px.every((c, i) => Math.abs(lum(c) - lum(bare.px[i])) < 3), JSON.stringify(cold.px));
+  // AUDIT NODE-MARKS (the independent pass): the world host's own path, with the renderer's own typed camera - the pass
+  // picked nothing for a Float32Array eye, so the glow was never built and never lit in the game
+  const through = await page.evaluate(([e, q]) => window.throughPass(e, 5, q), [eye, [pts[0]]]);
+  const throughBare = await page.evaluate(([e, q]) => window.draw(e, 7.25, 1, q, { glow: false }), [eye, [pts[0]]]);
+  check('through the world host\'s pass, with a Float32Array camera, the herb is lit', through.lit === 1 && through.error === 0 && lum(through.px[0]) - lum(throughBare.px[0]) > 40, `lit ${through.lit}, foreign ${through.foreign}, ${JSON.stringify(through.px[0])} over ${JSON.stringify(throughBare.px[0])}`);
   check('no page error', errs.length === 0, errs.join('; '));
 } finally {
   await browser.close();

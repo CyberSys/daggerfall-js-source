@@ -1463,13 +1463,27 @@ export { compassScroll };
 // NODE-MARKS (2026-10-01, Mac: "Any profession node, like herbs, should appear on the compass"): THE PROFESSIONS' NODES
 // ON THE STRIP - the party's triangle, by the same bearing law, each in its profession's colour (ui/nodeMarks.js
 // nodeMarkCss) at its own opacity, the nearer brighter; `points` NodeCompassPoints, the nearest last so it stands over
-// the rest. Pooled and hidden, never removed.
+// the rest. Pooled and hidden, never removed. AUDIT NODE-MARKS: in a layer of their own just over the tape and the
+// needle (`nodeLayer`), so every other mark - a Detect marker, a mate, the gate, the quest, a ship - stands over them
+// whenever it was made; and each write is kept on the node itself (`_nm`), never read back from the style, which
+// normalises what it is given ("1.00" reads "1") and so was written again every frame.
+function nodeLayer() {
+  if (parts.nodeLayer) return parts.nodeLayer;
+  const layer = el('div', 'hud-nodes');
+  layer.style.cssText = 'position:absolute;inset:0;pointer-events:none';
+  const needle = parts.compass.children?.[1] ?? null;   // build(): the strip, then the needle, then every mark made since
+  if (needle && typeof parts.compass.insertBefore === 'function') parts.compass.insertBefore(layer, needle.nextSibling ?? null);
+  else parts.compass.append(layer);
+  parts.nodeLayer = layer;
+  return layer;
+}
 function drawNodeMarks(points, playerXZ, heading01) {
   const list = (points && playerXZ) ? points : [];
   while (parts.nodeMarks.length < list.length) {
     const node = el('i', 'hud-node');
     node.style.cssText = partyMarkCss();
-    parts.compass.append(node);
+    node._nm = { left: '', colour: '', a: '' };
+    nodeLayer().append(node);
     parts.nodeMarks.push(node);
   }
   for (let i = 0; i < parts.nodeMarks.length; i++) {
@@ -1479,13 +1493,13 @@ function drawNodeMarks(points, playerXZ, heading01) {
       continue;
     }
     if (node.style.display === 'none') node.style.display = '';
-    const p = list[i];
+    const p = list[i], kept = node._nm;
     const at = Math.min(1, Math.max(0, compassMarkerLerp(p.xz, playerXZ, heading01)));
     const l = `${(at * 100).toFixed(1)}%`;
-    if (node.style.left !== l) node.style.left = l;
+    if (kept.left !== l) { kept.left = l; node.style.left = l; }
     const c = nodeMarkCss(p.mark);
-    if (node.dataset.mark !== c) { node.dataset.mark = c; node.style.borderTopColor = c; }
+    if (kept.colour !== c) { kept.colour = c; node.style.borderTopColor = c; }
     const o = (Number.isFinite(p.a) ? p.a : 1).toFixed(2);
-    if (node.style.opacity !== o) node.style.opacity = o;
+    if (kept.a !== o) { kept.a = o; node.style.opacity = o; }
   }
 }

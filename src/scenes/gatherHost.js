@@ -67,6 +67,9 @@ export const NODE_MARK_MAX = 16;
 export const NODE_MARK_SIZE = Object.freeze({ w: 1.8, h: 1.3 });
 /** NODE-MARKS: the stood pixels walked for the marks - those within this many metres, past any kind's reach. */
 const MARK_WALK_M = 256;
+/** AUDIT NODE-MARKS (the independent pass): a place is any three numbers - the player's feet are the motor's
+ *  Float32Array (player/motor.js), which `Array.isArray` refuses, and every mark was refused with them. */
+const isVec3 = (v) => v != null && typeof v === 'object' && v.length >= 3;
 
 /**
  * VEIN-NEED (FIELD BUGS 2026-09-29h): WHAT E SAYS AT A NODE THAT CANNOT BE WORKED, when the press opened nothing else -
@@ -629,7 +632,7 @@ export function createGatherHost(deps) {
     marks(pos) {
       const out = _marks;
       out.length = 0;
-      if (book.state.open !== true || !Array.isArray(pos)) return out;
+      if (book.state.open !== true || !isVec3(pos)) return out;
       let used = 0;
       const add = (k, n, x, y, z) => {
         const m = k.mark ? k.mark(n, markCtx) : (k.gone(n) ? null : NODE_MARK_SIZE);
@@ -656,7 +659,7 @@ export function createGatherHost(deps) {
         if (!k.looseNodesOf || !k.marksLoose) continue;
         for (const n of k.looseNodesOf({ entity: deps.entity(), dungeon: under })) {
           const w = n.at?.();
-          if (Array.isArray(w)) add(k, n, w[0], w[1], w[2]);
+          if (isVec3(w)) add(k, n, w[0], w[1], w[2]);
         }
       }
       out.sort((a, b) => a.d - b.d);

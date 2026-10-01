@@ -10,19 +10,24 @@
 // and the light it points at read as one thing. The nodes themselves
 // are the gathering host's (scenes/gatherHost.js marks).
 //
-// The colours keep clear of the compass's other marks: the party's
-// green, the quest's gold, the Detect markers' blood red and the ships'.
-// Mining keeps the copper PROF2's Prospector's veins were drawn in. A
-// leaf - it imports nothing, so the HUD and the glow take it without
-// taking each other.
+// The colours keep clear of the compass's other marks - the party's
+// green, the Detect markers' blood red, the gate's ember and the ships'
+// red, bone and grey - and of each other (AUDIT NODE-MARKS: Logging's
+// pale heartwood was a ship's bone and Hunting's coral a hostile ship's
+// red; test/nodemarks.test.js holds the distances). Mining keeps the
+// copper PROF2's Prospector's veins were drawn in, near the quest's gold,
+// the gate's ember and a hostile ship's red - told apart by shape alone:
+// theirs are diamonds on the strip's middle and a ship's triangle points
+// up, a node's points down. A leaf - it imports nothing, so the HUD and
+// the glow take it without taking each other.
 // ═══════════════════════════════════════════════════════════════════
 
 /** A gathering profession's mark colour (CSS hex) - its compass mark and its node's glow. */
 export const NODE_MARK_CSS = Object.freeze({
   herbalism: '#e586ec',   // a blossom's orchid
   mining: '#d9894a',      // PROF2's copper
-  logging: '#f0dfa8',     // pale heartwood
-  hunting: '#ff7360',     // a fresh hide's coral
+  logging: '#d4e157',     // a new leaf's sap green
+  hunting: '#ff6f91',     // the rose of a fresh hide
   fishing: '#5ec8ff',     // the shallows' blue
 });
 /** A profession no colour is named for is drawn in Mining's (the first the compass marked). */

@@ -561,8 +561,8 @@
   {
     "name": "WB9g-the-auras-never-drawn",
     "file": "src/scenes/world.js",
-    "old": "peerBodies?.drawVeiled(); drawAuras(); nodeGlowPass.draw(nodeMarksAt(enchantFeet())); };",
-    "new": "peerBodies?.drawVeiled(); nodeGlowPass.draw(nodeMarksAt(enchantFeet())); };",
+    "old": "peerBodies?.drawVeiled(); drawAuras(); nodeGlowPass.draw(travelView?.active ? null : nodeMarksAt(enchantFeet())); };",
+    "new": "peerBodies?.drawVeiled(); nodeGlowPass.draw(travelView?.active ? null : nodeMarksAt(enchantFeet())); };",
     "tests": [
       "test/wb9g_insignia.test.js"
     ]

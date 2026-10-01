@@ -20,6 +20,11 @@
 // focus when one is set; every rate a whole number of cycles over the wrapped clock (NODE_GLOW_PERIOD), so the picture
 // at the wrap is the picture at zero. Pure where it can be: `nodeGlows` (who is drawn, how bright) and `nodeGlowClock`.
 //
+// AUDIT NODE-MARKS (Mac: "Audit this"): UNDER REDUCED MOTION IT STANDS STILL - the halo steady, no shimmer, the motes
+// held where they are (`uStill`), the professions' own law (ui/profHud.js: every act has a still form); its program is
+// built at idle once a node is first marked, never on the frame that first lights one (PERF-WARM's law); and a pass that
+// ran is a foreign pass whatever it drew.
+//
 // Not a DFU member.
 import { FOG_FACTOR_GLSL } from './labGrass.js';
 import { buildProgram } from './glProgram.js';
@@ -60,20 +65,23 @@ export function nodeGlowSeed(key) {
 }
 
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+/** AUDIT NODE-MARKS (the independent pass): a place is any three numbers - the renderer's camera is a Float32Array
+ *  (`_camPos`), which `Array.isArray` refuses, and nothing was ever lit for it. */
+const isVec3 = (v) => v != null && typeof v === 'object' && v.length >= 3;
 
 /**
  * @typedef {{ at: number[], w: number, h: number, rgb: readonly number[], alpha: number, seed: number }} NodeGlow
- * @typedef {{ nodes: Map<string, { kindle: number, seen: number, seed: number }>, frame: number, lastS: number|null }} NodeGlowState
+ * @typedef {{ nodes: Map<string, { kindle: number, seen: number, seed: number }>, frame: number, lastS: number|null, pool: NodeGlow[] }} NodeGlowState
  */
-/** A fresh state for `nodeGlows` - each node's kindling, by its key. */
-export const createNodeGlowState = () => /** @type {NodeGlowState} */ ({ nodes: new Map(), frame: 0, lastS: null });
+/** A fresh state for `nodeGlows` - each node's kindling, by its key, and the records `out` is refilled from. */
+export const createNodeGlowState = () => /** @type {NodeGlowState} */ ({ nodes: new Map(), frame: 0, lastS: null, pool: [] });
 
 /**
  * WHO GLOWS THIS FRAME, AND HOW BRIGHT: of the gathering host's `marks` (`{ key, profession, at, w, h }`, nearest first),
  * those within NODE_GLOW_M of `eye`, at most NODE_GLOW_MAX - each kindling from nothing over NODE_GLOW_KINDLE_S when it
  * first stands near and fading toward nothing from NODE_GLOW_FADE_M to NODE_GLOW_M - written into `out` (one list,
- * refilled) and answered. A node no longer marked is forgotten (it kindles again when it next stands near). `nowS` any
- * clock in seconds. Pure but for `state` and `out`.
+ * refilled from the state's own records - AUDIT NODE-MARKS: none made a frame) and answered. A node no longer marked is
+ * forgotten (it kindles again when it next stands near). `nowS` any clock in seconds. Pure but for `state` and `out`.
  * @param {ReadonlyArray<{ key: string, profession: string, at: number[], w: number, h: number }>|null|undefined} marks
  * @param {number[]|null|undefined} eye @param {number} nowS @param {NodeGlowState} state @param {NodeGlow[]} out
  */
@@ -82,17 +90,20 @@ export function nodeGlows(marks, eye, nowS, state, out) {
   const dt = state.lastS === null ? 0 : Math.min(0.25, Math.max(0, nowS - state.lastS));
   state.lastS = nowS;
   const frame = ++state.frame;
-  if (Array.isArray(marks) && Array.isArray(eye)) {
+  if (Array.isArray(marks) && isVec3(eye)) {
     for (const m of marks) {
       if (out.length >= NODE_GLOW_MAX) break;
-      if (!m || !Array.isArray(m.at) || !(m.w > 0) || !(m.h > 0)) continue;
+      if (!m || !isVec3(m.at) || !(m.w > 0) || !(m.h > 0)) continue;
       const d = Math.hypot(m.at[0] - eye[0], m.at[1] - eye[1], m.at[2] - eye[2]);
       if (!(d <= NODE_GLOW_M)) continue;
       let n = state.nodes.get(m.key);
       if (!n) { n = { kindle: 0, seen: frame, seed: nodeGlowSeed(m.key) }; state.nodes.set(m.key, n); } else n.kindle = Math.min(1, n.kindle + dt / NODE_GLOW_KINDLE_S);
       n.seen = frame;
       const alpha = n.kindle * (1 - smooth(NODE_GLOW_FADE_M, NODE_GLOW_M, d));
-      if (alpha > 0.001) out.push({ at: m.at, w: m.w, h: m.h, rgb: nodeMarkRgb(m.profession), alpha, seed: n.seed });
+      if (!(alpha > 0.001)) continue;
+      const g = state.pool[out.length] ??= { at: m.at, w: 0, h: 0, rgb: nodeMarkRgb(m.profession), alpha: 0, seed: 0 };
+      g.at = m.at; g.w = m.w; g.h = m.h; g.rgb = nodeMarkRgb(m.profession); g.alpha = alpha; g.seed = n.seed;
+      out.push(g);
     }
   }
   for (const [key, n] of state.nodes) if (n.seen !== frame) state.nodes.delete(key);
@@ -132,6 +143,7 @@ uniform vec3 uColor;
 uniform float uAlpha;   // its kindling and its distance's fade
 uniform float uSeed;
 uniform float uTime;    // nodeGlowClock's seconds
+uniform float uStill;   // AUDIT NODE-MARKS: 1 under reduced motion - the halo steady, no shimmer, the motes held
 uniform int uFogMode;
 uniform float uFogDensity;
 uniform vec2 uFogRange;
@@ -143,25 +155,26 @@ float hash11(float n) { return fract(sin(n * 12.9898 + 4.1414) * 43758.5453); }
 void main() {
   float hw = 0.5 * uSize.x, h = uSize.y;
   float qx = vM.x / hw, qy = vM.y / h;
+  float tm = uTime * (1.0 - uStill);   // still: every moving part held at its seed's own place
   // THE HALO: soft across, narrowing as it climbs (a teardrop, not a column), and to nothing at the card's sides (no
   // edge shows); out of nothing at the ground, its body low on the node, thinning to its crown; breathing
   float across = exp(-qx * qx * (2.4 + 3.0 * qy)) * (1.0 - smoothstep(0.6, 1.0, abs(qx)));
   float up = smoothstep(0.0, 0.22, qy) * pow(max(1.0 - qy, 0.0), 1.5);
-  float breath = 0.8 + 0.2 * sin(TAU * (uTime * ${f(NODE_GLOW_RATES.breath)} + uSeed));
+  float breath = mix(0.8 + 0.2 * sin(TAU * (tm * ${f(NODE_GLOW_RATES.breath)} + uSeed)), 0.9, uStill);
   float halo = across * up * breath;
   // THE SHIMMER: a soft band climbing it
-  float band = exp(-pow((fract(qy - uTime * ${f(NODE_GLOW_RATES.shimmer)} + uSeed) - 0.5) * 8.0, 2.0)) * across * up;
+  float band = exp(-pow((fract(qy - tm * ${f(NODE_GLOW_RATES.shimmer)} + uSeed) - 0.5) * 8.0, 2.0)) * across * up * (1.0 - uStill);
   // THE MOTES: each its own place, pace and twinkle, born and gone dark (so its leap from the crown to the root is unseen)
   float motes = 0.0;
   for (int i = 0; i < ${NODE_GLOW_MOTES}; i++) {
     float fi = float(i);
     float s = hash11(fi + uSeed * 31.0);
-    float life = fract(uTime * (${f(NODE_GLOW_RATES.mote)} + fi * ${f(NODE_GLOW_RATES.moteStep)}) + s);
+    float life = fract(tm * (${f(NODE_GLOW_RATES.mote)} + fi * ${f(NODE_GLOW_RATES.moteStep)}) + s);
     float mx = ((hash11(fi * 7.0 + uSeed * 13.0) * 2.0 - 1.0) * 0.6 + 0.08 * sin(life * TAU + fi * 2.3)) * hw;
     float my = (0.05 + 0.9 * life) * h;
     vec2 d = vM - vec2(mx, my);
     float r = ${f(NODE_GLOW_MOTE_R)} * (0.75 + 0.5 * s);
-    float twinkle = 0.65 + 0.35 * sin(TAU * (uTime * ${f(NODE_GLOW_RATES.twinkle)} + s));
+    float twinkle = 0.65 + 0.35 * sin(TAU * (tm * ${f(NODE_GLOW_RATES.twinkle)} + s));
     motes += exp(-dot(d, d) / (r * r)) * sin(life * 3.141592653589793) * twinkle;
   }
   float light = ${f(NODE_GLOW_GAIN.halo)} * halo + ${f(NODE_GLOW_GAIN.shimmer)} * band + ${f(NODE_GLOW_GAIN.mote)} * motes;
@@ -185,7 +198,7 @@ export class NodeGlowRenderer {
     this.gl = gl;
     this.program = buildProgram(gl, NODE_GLOW_VS, NODE_GLOW_FS, 'node glow');
     this.u = {};
-    for (const n of ['uVP', 'uAt', 'uSize', 'uEye', 'uPull', 'uColor', 'uAlpha', 'uSeed', 'uTime', 'uFogMode', 'uFogDensity', 'uFogRange', 'uCamPos', 'uFocus']) this.u[n] = gl.getUniformLocation(this.program, n);
+    for (const n of ['uVP', 'uAt', 'uSize', 'uEye', 'uPull', 'uColor', 'uAlpha', 'uSeed', 'uTime', 'uStill', 'uFogMode', 'uFogDensity', 'uFogRange', 'uCamPos', 'uFocus']) this.u[n] = gl.getUniformLocation(this.program, n);
     const verts = nodeGlowVertices();
     this.count = verts.length / 2;
     this.vao = gl.createVertexArray();
@@ -202,11 +215,11 @@ export class NodeGlowRenderer {
 
   /**
    * Light the frame's nodes - `list` NodeGlows (already picked: nodeGlows) - with the frame's camera, its clock
-   * (`seconds`, wrapped here) and its fog as the renderer set it ({ mode, density, range, camPos, focus }). Nothing to
-   * draw, nothing touched.
+   * (`seconds`, wrapped here) and its fog as the renderer set it ({ mode, density, range, camPos, focus }); `still` -
+   * reduced motion's still form. Nothing to draw, nothing touched.
    * @param {ReadonlyArray<NodeGlow>} list
    */
-  draw(list, proj, view, eye, seconds, fog = null) {
+  draw(list, proj, view, eye, seconds, fog = null, still = false) {
     this.drawn = 0;
     if (!Array.isArray(list) || !list.length || !eye) return;
     const gl = this.gl, U = this.u;
@@ -214,6 +227,7 @@ export class NodeGlowRenderer {
     gl.useProgram(this.program);
     gl.uniformMatrix4fv(U.uVP, false, this._vp);
     gl.uniform1f(U.uTime, nodeGlowClock(seconds));
+    gl.uniform1f(U.uStill, still ? 1 : 0);
     gl.uniform3f(U.uEye, eye[0], eye[1], eye[2]);
     gl.uniform1f(U.uPull, NODE_GLOW_PULL);
     gl.uniform1i(U.uFogMode, fog ? fog.mode : 0);
@@ -227,7 +241,7 @@ export class NodeGlowRenderer {
     gl.disable(gl.CULL_FACE);
     for (const g of list) {
       if (this.drawn >= NODE_GLOW_MAX) break;
-      if (!g || !Array.isArray(g.at) || !(g.alpha > 0.001)) continue;
+      if (!g || !isVec3(g.at) || !(g.alpha > 0.001)) continue;
       gl.uniform3f(U.uAt, g.at[0], g.at[1], g.at[2]);
       gl.uniform2f(U.uSize, g.w, g.h);
       gl.uniform3f(U.uColor, g.rgb[0], g.rgb[1], g.rgb[2]);
@@ -243,27 +257,41 @@ export class NodeGlowRenderer {
   }
 }
 
+/** AUDIT NODE-MARKS: the system's reduced motion, asked once a second at most - ui/profHud.js's own reading. */
+function reducedMotionReader() {
+  let at = -Infinity, reduced = false;
+  return (nowS) => {
+    if (nowS - at > 1) { at = nowS; try { reduced = !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches; } catch { reduced = false; } }
+    return reduced;
+  };
+}
+/** PERF-WARM's idle wait (render/warmPrograms.js): a compile is moved to time the browser was going to spend idle. */
+const idleCall = (fn) => (globalThis.requestIdleCallback ? globalThis.requestIdleCallback(fn, { timeout: 1000 }) : setTimeout(fn, 0));
+
 /**
  * THE WORLD HOST'S PASS: the gathering host's marks lit each frame under the camera and the fog the renderer drew the
  * world with (its `_proj`, `_view`, `_camPos`, `_fog*` and `_focus` - the auras' law), each node kindling as it first
- * stands near (nodeGlows). The program is built at the first node to light, in a try: a glow that will not build costs
- * the glow, never the game. A draw that lit anything is a foreign pass (the renderer's program changed behind it).
- * `draw(marks)` answers how many it lit; `marks` null lights none and forgets every node.
- * @param {any} renderer @param {{ now?: () => number, build?: (gl: any) => NodeGlowRenderer }} [o]
+ * stands near (nodeGlows). AUDIT NODE-MARKS: the program is built at IDLE once a node is first marked (`idle`, PERF-WARM's
+ * wait) and nothing is lit until it stands - a node kindles from nothing over NODE_GLOW_KINDLE_S, so the wait is never
+ * seen - in a try: a glow that will not build costs the glow, never the game, and is never tried again. A pass that ran
+ * is a foreign pass (its program and its VAO went up whatever it drew). Under reduced motion it draws its still form
+ * (`reduced`). `draw(marks)` answers how many it lit; `marks` null lights none and forgets every node.
+ * @param {any} renderer
+ * @param {{ now?: () => number, build?: (gl: any) => NodeGlowRenderer, idle?: (fn: () => void) => void, reduced?: (nowS: number) => boolean }} [o]
  */
-export function createNodeGlowPass(renderer, { now = () => performance.now() / 1000, build = (gl) => new NodeGlowRenderer(gl) } = {}) {
+export function createNodeGlowPass(renderer, { now = () => performance.now() / 1000, build = (gl) => new NodeGlowRenderer(gl), idle = idleCall, reduced = reducedMotionReader() } = {}) {
   const state = createNodeGlowState(), list = /** @type {NodeGlow[]} */ ([]);
-  let pass = /** @type {NodeGlowRenderer|null} */ (null), tried = false;
+  let pass = /** @type {NodeGlowRenderer|null} */ (null), asked = false;
+  const make = () => { try { pass = build(renderer.gl); } catch (e) { console.warn('[prof] the nodes\' glow would not build', e?.message ?? e); pass = null; } };
   return {
     /** @param {Parameters<typeof nodeGlows>[0]} marks */
     draw(marks) {
       const proj = renderer._proj, view = renderer._view, eye = renderer._camPos;   // the frame's camera, the world's own
       const t = now();
-      if (!nodeGlows(marks, eye, t, state, list).length || !proj || !view) return 0;
-      if (!tried) { tried = true; try { pass = build(renderer.gl); } catch (e) { console.warn('[prof] the nodes\' glow would not build', e?.message ?? e); pass = null; } }
-      if (!pass) return 0;
-      pass.draw(list, proj, view, eye, t, { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, camPos: renderer._camPos, focus: renderer._focus });
-      if (pass.drawn) renderer.markForeignPass();
+      if (!asked && marks?.length) { asked = true; idle(make); }   // the first node marked: the compile, at idle
+      if (!nodeGlows(marks, eye, t, state, list).length || !proj || !view || !pass) return 0;
+      pass.draw(list, proj, view, eye, t, { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, camPos: renderer._camPos, focus: renderer._focus }, reduced(t));
+      renderer.markForeignPass();
       return pass.drawn;
     },
   };

@@ -17075,9 +17075,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** NODE-MARKS (2026-10-01, Mac: "Any profession node, like herbs, should appear on the compass. The node itself should
    *  also stand out with a detailed slight glow"): THE NODES STANDING ABOUT `feet` (the place's own frame - the street's,
    *  or the dungeon's), for the compass and the glow (scenes/gatherHost.js marks: a Prospector's veins from 200 m off,
-   *  PROF0 3.3 - mineKind's mark); null in a building, under the travel view, or with the professions shut. */
+   *  PROF0 3.3 - mineKind's mark); null in a building or with the professions shut (AUDIT: the compass keeps them under the travel view). */
   const nodeMarksAt = (feet) => {
-    if (!gatherHost || profBook?.state.open !== true || travelView?.active || !feet) return null;
+    if (!gatherHost || profBook?.state.open !== true || !feet) return null;
     const m = _mode();
     return m === 'exterior' || m === 'dungeon' ? gatherHost.marks(feet) : null;
   };
@@ -17091,7 +17091,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  profession's colour (ui/nodeMarks.js nodeCompassPoints); `feet` the dungeon's own, handed by its frame. NODE-MARKS:
    *  the same nodes lit where they stand (render/nodeGlow.js), after each mode's opaque world through the veiled bodies' hook. */
   const professionMarks = (feet = enchantFeet()) => nodeCompassPoints(nodeMarksAt(feet), trackerAnimals());
-  const nodeGlowPass = createNodeGlowPass(renderer);   // NODE-MARKS: kindled node by node, built at the first; never in a building or under the travel view (nodeMarksAt)
+  const nodeGlowPass = createNodeGlowPass(renderer);   // NODE-MARKS: kindled node by node, built at idle; never in a building (nodeMarksAt) nor under the travel view (the hook's own gate)
   /** COMPASS-PARTY (2026-09-27, Discord - Ashley: "being able to see where party members are on compass? - just lil
    *  green marks that point in that direction"): the party on MY compass, in this scene's XZ (ui/partyMapMarks.js
    *  partyCompassPoints) - the bodies the maps mark where they stand, and the rest where their poses say: the leader's
@@ -19245,7 +19245,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const drawPeerBodies = (proj, view, eye) => { if (peerBodies) peerBodies.draw(canvas, { proj, view, eye, flashOf: peerFlashOf }); peerWalkers?.drawLanterns(); };   // HT-WAIST-BACK: the walkers' lanterns, each on its own tilted basis, beside the bodies - every mode's pass calls this after the player's own body (the exterior here, the dungeon and the interior through host.drawPeerBodies)
   /** INVIS-LOOK: the concealed peers' Morrowind bodies, translucent - blended with no depth write, so every mode's pass
    *  calls this AFTER its opaque world (net/peerBodies.js drawVeiled), with the camera its body pass took. */
-  const drawVeiledPeerBodies = () => { peerBodies?.drawVeiled(); drawAuras(); nodeGlowPass.draw(nodeMarksAt(enchantFeet())); };   // WB9g: and the auras, after the opaque world as the veiled are; NODE-MARKS: and the nodes' glow
+  const drawVeiledPeerBodies = () => { peerBodies?.drawVeiled(); drawAuras(); nodeGlowPass.draw(travelView?.active ? null : nodeMarksAt(enchantFeet())); };   // WB9g: and the auras, after the opaque world as the veiled are; NODE-MARKS: and the nodes' glow
   /** WB9g (2026-09-30, Mac: "an animated burning ground aura that circles the ground where your character stands"):
    *  DAGON'S FIRE AT THE FEET (render/auraRing.js) - mine, as the service signed it (the session's `au`, adopted at each
    *  mint), and every peer's the relay vouched for (their hello's `au`), each kindling as it first stands. Gathered with

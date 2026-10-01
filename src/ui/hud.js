@@ -771,6 +771,8 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
   const by = canvas.height - art.compassBox.h * s;
   const { bw, bh } = drawCompassStrip(renderer, art, bx, by, s, heading01);
   drawArrowCount(renderer, canvas, font, vitals, weaponSheathed, { bw, bh }, s);
+  // NODE-MARKS: every profession's nodes near (a Prospector's veins, 200 m; a Tracker's animals, 100 m) - FIRST, so the
+  drawNodeCompassMarks(renderer, nodes, playerXZ, heading01, { bx, by, bw, s });   // AUDIT: Detect markers, the party and the ships stand over them
   // X4: DrawTrackedObjects (HUDCompass.cs:198-217), AFTER the box -
   // HUDCompass.Draw() calls DrawCompass() then DrawTrackedObjects(),
   // so markers sit OVER the frame, and above it: DFU's marker y is
@@ -803,8 +805,6 @@ export function drawHud(renderer, canvas, art, vitals, heading01, dt = 0,
   // COMPASS-PARTY: the party's marks, over the box as the Detect markers are, in the party's green
   drawPartyCompassMarks(renderer, party, playerXZ, heading01, { bx, by, bw, s });
   drawShipCompassMarks(renderer, ships, playerXZ, heading01, { bx, by, bw, s });   // AUDIT NAV1: the sea's ships
-  // NODE-MARKS: every profession's nodes near (a Prospector's veins within 200 m, PROF0 3.3; a Tracker's animals, 100 m)
-  drawNodeCompassMarks(renderer, nodes, playerXZ, heading01, { bx, by, bw, s });
   // U38: the crosshair and the interaction-mode indicator, LAST -
   // DaggerfallHUD draws them from one Update beside the vitals it
   // already owns, and drawHud is the ONE host-agnostic call all four

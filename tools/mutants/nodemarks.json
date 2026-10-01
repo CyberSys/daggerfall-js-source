@@ -65,8 +65,8 @@
   {
     "name": "NODE-MARKS-the-professions-shut-still-marked",
     "file": "src/scenes/gatherHost.js",
-    "old": "      if (book.state.open !== true || !Array.isArray(pos)) return out;",
-    "new": "      if (!Array.isArray(pos)) return out;",
+    "old": "      if (book.state.open !== true || !isVec3(pos)) return out;",
+    "new": "      if (!isVec3(pos)) return out;",
     "tests": [
       "test/nodemarks.test.js"
     ]
@@ -92,8 +92,8 @@
   {
     "name": "NODE-MARKS-the-loose-nodes-never-walked",
     "file": "src/scenes/gatherHost.js",
-    "old": "          if (Array.isArray(w)) add(k, n, w[0], w[1], w[2]);",
-    "new": "          if (Array.isArray(w) && false) add(k, n, w[0], w[1], w[2]);",
+    "old": "          if (isVec3(w)) add(k, n, w[0], w[1], w[2]);",
+    "new": "          if (isVec3(w) && false) add(k, n, w[0], w[1], w[2]);",
     "tests": [
       "test/nodemarks.test.js"
     ]
@@ -318,7 +318,7 @@
   {
     "name": "NODE-MARKS-the-glow-never-drawn",
     "file": "src/scenes/world.js",
-    "old": "peerBodies?.drawVeiled(); drawAuras(); nodeGlowPass.draw(nodeMarksAt(enchantFeet())); };",
+    "old": "peerBodies?.drawVeiled(); drawAuras(); nodeGlowPass.draw(travelView?.active ? null : nodeMarksAt(enchantFeet())); };",
     "new": "peerBodies?.drawVeiled(); drawAuras(); };",
     "tests": [
       "test/nodemarks.test.js",
@@ -326,12 +326,13 @@
     ]
   },
   {
-    "name": "NODE-MARKS-marked-under-the-travel-view",
+    "name": "NODE-MARKS-lit-under-the-travel-view",
     "file": "src/scenes/world.js",
-    "old": "    if (!gatherHost || profBook?.state.open !== true || travelView?.active || !feet) return null;",
-    "new": "    if (!gatherHost || profBook?.state.open !== true || !feet) return null;",
+    "old": "nodeGlowPass.draw(travelView?.active ? null : nodeMarksAt(enchantFeet()));",
+    "new": "nodeGlowPass.draw(nodeMarksAt(enchantFeet()));",
     "tests": [
-      "test/nodemarks.test.js"
+      "test/nodemarks.test.js",
+      "test/invislook.test.js"
     ]
   },
   {
@@ -362,37 +363,163 @@
     ]
   },
   {
-    "name": "NODE-MARKS-glow-a-build-failure-costs-the-game",
-    "file": "src/render/nodeGlow.js",
-    "old": "      if (!tried) { tried = true; try { pass = build(renderer.gl); } catch (e) { console.warn('[prof] the nodes\\' glow would not build', e?.message ?? e); pass = null; } }",
-    "new": "      if (!tried) { tried = true; pass = build(renderer.gl); }",
+    "name": "AUDIT-NODE-MARKS-the-compass-loses-them-under-the-travel-view",
+    "file": "src/scenes/world.js",
+    "old": "    if (!gatherHost || profBook?.state.open !== true || !feet) return null;",
+    "new": "    if (!gatherHost || profBook?.state.open !== true || travelView?.active || !feet) return null;",
     "tests": [
       "test/nodemarks.test.js"
     ]
   },
   {
-    "name": "NODE-MARKS-glow-built-every-frame",
+    "name": "AUDIT-NODE-MARKS-built-on-the-frame",
     "file": "src/render/nodeGlow.js",
-    "old": "      if (!tried) { tried = true; try {",
-    "new": "      if (true) { tried = true; try {",
+    "old": "      if (!asked && marks?.length) { asked = true; idle(make); }",
+    "new": "      if (!asked && marks?.length) { asked = true; make(); }",
     "tests": [
       "test/nodemarks.test.js"
     ]
   },
   {
-    "name": "NODE-MARKS-glow-the-foreign-pass-unmarked",
+    "name": "AUDIT-NODE-MARKS-built-every-frame",
     "file": "src/render/nodeGlow.js",
-    "old": "      if (pass.drawn) renderer.markForeignPass();",
+    "old": "      if (!asked && marks?.length) { asked = true; idle(make); }",
+    "new": "      if (marks?.length) { asked = true; idle(make); }",
+    "tests": [
+      "test/nodemarks.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-NODE-MARKS-a-build-failure-costs-the-game",
+    "file": "src/render/nodeGlow.js",
+    "old": "  const make = () => { try { pass = build(renderer.gl); } catch (e) { console.warn('[prof] the nodes\\' glow would not build', e?.message ?? e); pass = null; } };",
+    "new": "  const make = () => { pass = build(renderer.gl); };",
+    "tests": [
+      "test/nodemarks.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-NODE-MARKS-the-foreign-pass-only-for-a-draw",
+    "file": "src/render/nodeGlow.js",
+    "old": "      renderer.markForeignPass();\n      return pass.drawn;",
+    "new": "      if (pass.drawn) renderer.markForeignPass();\n      return pass.drawn;",
+    "tests": [
+      "test/nodemarks.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-NODE-MARKS-the-fog-not-handed",
+    "file": "src/render/nodeGlow.js",
+    "old": "{ mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, camPos: renderer._camPos, focus: renderer._focus }, reduced(t));",
+    "new": "null, reduced(t));",
+    "tests": [
+      "test/nodemarks.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-NODE-MARKS-the-still-form-never-asked",
+    "file": "src/render/nodeGlow.js",
+    "old": "camPos: renderer._camPos, focus: renderer._focus }, reduced(t));",
+    "new": "camPos: renderer._camPos, focus: renderer._focus }, false);",
+    "tests": [
+      "test/nodemarks.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-NODE-MARKS-the-still-clock-not-held",
+    "file": "src/render/nodeGlow.js",
+    "old": "  float tm = uTime * (1.0 - uStill);",
+    "new": "  float tm = uTime;",
+    "tests": [
+      "test/nodemarks.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-NODE-MARKS-the-still-shimmer-kept",
+    "file": "src/render/nodeGlow.js",
+    "old": " * across * up * (1.0 - uStill);",
+    "new": " * across * up;",
+    "tests": [
+      "test/nodemarks.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-NODE-MARKS-the-still-flag-never-uploaded",
+    "file": "src/render/nodeGlow.js",
+    "old": "    gl.uniform1f(U.uStill, still ? 1 : 0);\n",
     "new": "",
     "tests": [
       "test/nodemarks.test.js"
     ]
   },
   {
-    "name": "NODE-MARKS-glow-the-fog-not-handed",
+    "name": "AUDIT-NODE-MARKS-a-record-made-a-frame",
     "file": "src/render/nodeGlow.js",
-    "old": "      pass.draw(list, proj, view, eye, t, { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, camPos: renderer._camPos, focus: renderer._focus });",
-    "new": "      pass.draw(list, proj, view, eye, t, null);",
+    "old": "      const g = state.pool[out.length] ??= {",
+    "new": "      const g = {",
+    "tests": [
+      "test/nodemarks.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-NODE-MARKS-classic-nodes-drawn-last",
+    "file": "src/ui/hud.js",
+    "old": "  // NODE-MARKS: every profession's nodes near (a Prospector's veins, 200 m; a Tracker's animals, 100 m) - FIRST, so the\n  drawNodeCompassMarks(renderer, nodes, playerXZ, heading01, { bx, by, bw, s });   // AUDIT: Detect markers, the party and the ships stand over them\n",
+    "new": "",
+    "tests": [
+      "test/nodemarks.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-NODE-MARKS-enhanced-no-layer",
+    "file": "src/ui/enhancedHud.js",
+    "old": "    nodeLayer().append(node);",
+    "new": "    parts.compass.append(node);",
+    "tests": [
+      "test/nodemarks.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-NODE-MARKS-enhanced-layer-on-top",
+    "file": "src/ui/enhancedHud.js",
+    "old": "  if (needle && typeof parts.compass.insertBefore === 'function') parts.compass.insertBefore(layer, needle.nextSibling ?? null);",
+    "new": "  if (false) parts.compass.insertBefore(layer, needle.nextSibling ?? null);",
+    "tests": [
+      "test/nodemarks.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-NODE-MARKS-enhanced-opacity-read-back",
+    "file": "src/ui/enhancedHud.js",
+    "old": "    if (kept.a !== o) { kept.a = o; node.style.opacity = o; }",
+    "new": "    if (node.style.opacity !== o) { kept.a = o; node.style.opacity = o; }",
+    "tests": [
+      "test/nodemarks.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-NODE-MARKS-enhanced-left-read-back",
+    "file": "src/ui/enhancedHud.js",
+    "old": "    if (kept.left !== l) { kept.left = l; node.style.left = l; }",
+    "new": "    if (node.style.left !== l) { kept.left = l; node.style.left = l; }",
+    "tests": [
+      "test/nodemarks.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-NODE-MARKS-the-motors-typed-feet-refused",
+    "file": "src/scenes/gatherHost.js",
+    "old": "      if (book.state.open !== true || !isVec3(pos)) return out;",
+    "new": "      if (book.state.open !== true || !Array.isArray(pos)) return out;",
+    "tests": [
+      "test/nodemarks.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-NODE-MARKS-the-renderers-typed-camera-refused",
+    "file": "src/render/nodeGlow.js",
+    "old": "  if (Array.isArray(marks) && isVec3(eye)) {",
+    "new": "  if (Array.isArray(marks) && Array.isArray(eye)) {",
     "tests": [
       "test/nodemarks.test.js"
     ]
