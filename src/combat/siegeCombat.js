@@ -19,6 +19,13 @@
 //
 // Pure but for the one spell door (handed in for the pins), the stand-in and the rolls. Not a DFU member. Ledger A (EVERY
 // PALACE A SEAT's row).
+//
+// SEAT2b part two (2026-10-01, Mac: "I want to finish the inprogress"; the contract's item 3): THE FIGURES AND THE WORKS
+// STRUCK AS THE FOES ARE - the melee arm meets the nearest body its swing reaches among the battle's foes and, at a relay
+// that knows them, the relay-run figures and the works this fighter may strike (`siegeSwingTarget`: the duel's own test -
+// reach, view and sight, the host's to answer - at each body's middle); the arrows and the cast engine take the same
+// bodies (scenes/world.js). A work's body is a post at its point (SIEGE_WORK_BODY_M - the Gatehouse at the Throne's point,
+// the Ram at its own; the relay measures a blow's reach from the striker's pose to that point).
 import { SIEGE_HIT, SIEGE_CASTS } from '../net/siegeRef.js';
 import { duelSpellOf } from './duelCombat.js';
 import { applySpell } from '../systems/effects.js';
@@ -35,6 +42,26 @@ export const siegeSpellBarred = (sp) => (Array.isArray(sp?.effects) ? sp.effects
 /** The wards' line, and the saddle's. */
 export const SIEGE_SPELL_BARRED_TEXT = 'Teleport, Recall and Levitate do nothing on a battlefield.';
 export const SIEGE_DISMOUNT_TEXT = 'No horse is ridden on a battlefield - you go on foot.';
+
+/** SEAT2b part two: how tall a work's body stands from its point, metres - the swing's middle and the arrows' capsule (a
+ *  gate's arch, an engine's roof). */
+export const SIEGE_WORK_BODY_M = Object.freeze({ gate: 3, ram: 2.2 });
+/**
+ * SEAT2b part two: THE BODY A SWING MEETS among `bodies` (`{ id, feet, height? }`, the scene's frame - the foes', the
+ * figures', the works'): the nearest whose middle (its feet, half its height up - `fallbackH` where it names none) the
+ * host's `reaches(dist, middle)` admits (the duel's test: within the weapon's reach, in view, in sight), or null.
+ * @param {ArrayLike<number>} eye @param {ReadonlyArray<{ id: string, feet: ArrayLike<number>, height?: number }>} bodies
+ * @param {(dist: number, middle: number[]) => boolean} reaches @param {number} [fallbackH]
+ */
+export function siegeSwingTarget(eye, bodies, reaches, fallbackH = 1.8) {
+  let best = null, bestD = Infinity;
+  for (const b of bodies) {
+    const c = [b.feet[0], b.feet[1] + (b.height ?? fallbackH) / 2, b.feet[2]];
+    const dist = Math.hypot(c[0] - eye[0], c[1] - eye[1], c[2] - eye[2]);
+    if (dist < bestD && reaches(dist, c)) { bestD = dist; best = b.id; }
+  }
+  return best;
+}
 
 /**
  * THE NUMBERS A SPELL CARRIES TO THE REFEREE: `{ harm, heal }` - what its harmful families (duelSpellOf) deal at once (at

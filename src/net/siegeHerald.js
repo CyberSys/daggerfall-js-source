@@ -18,6 +18,10 @@
 // (`fight`: its start in seconds, `moved`, `state`) - or from the list itself, where it carries `startsAt`, which spares
 // the read (asked of the service: AUDIT-SEATS's report). A void battle is never announced.
 //
+// SEAT2b part two (2026-10-01; Seats-Arc 7.7): A REVOLT is announced the same way - the list's battle `kind: 'revolt'`,
+// its holder `against` and no challenger (`guild` null) - in its own words, battleAnnouncement's revolt arm ("Anticlere has
+// risen against ... Its rebels hold the palace door"), at the same four marks.
+//
 // Pure - the list, the read, the chat and the clock are handed in. Not a DFU member. Ledger A (EVERY PALACE A SEAT's row).
 import { battleAnnouncement, seatWeekOf, seatWeekStartMs } from './townSeatLaw.js';
 
