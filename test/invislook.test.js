@@ -74,7 +74,7 @@ test('INVIS-LOOK executed: the doll and the body - a concealed peer\'s doll carr
   // the class sprite takes the same two lines as the doll (its path builds off the enemy art, so it is read by source)
   const src = rd('src/net/remotePlayers.js');
   assert.equal((src.match(/entry\.batch\.conceal = veil;/g) ?? []).length, 2, 'the doll and the class sprite');
-  assert.equal((src.match(/if \(!veil\) this\._shown\.push\(\{ peer, height: (?:bodyH|entry\.doll\.h|entry\.height) \}\);/g) ?? []).length, 3, 'no name: the body, the doll and the class sprite');
+  assert.equal((src.match(/if \(!veil\) this\._shown\.push\(\{ peer, height: (?:bodyH|entry\.doll\.h \* g|entry\.height) \}\);/g) ?? []).length, 3, 'no name: the body, the doll and the class sprite');   // PIN MOVED (OW-PEERS): the doll's height grown under the Overworld
   assert.match(src, /this\._syncMobilePeer\(peer, bundle, toScene, dt, eye, veil\); continue; \}/);
 });
 
@@ -243,7 +243,7 @@ test('INVIS-LOOK by source: the host - the look read once a frame and handed to 
   const w = rd('src/scenes/world.js');
   assert.match(w, /const veilOn = combatVisualsOn\(\);[^\n]*\n\s*const seen = \[\];\n\s*for \(const d of drawable\) \{\n\s*const look = peerDraw\(d\.shown\?\.cv \| 0, veilOn, _veilT, d\.id\);\n\s*if \(look\.kind === 'hidden'\) \{ _hiddenPeers\.add\(d\.id\); continue; \}[^\n]*\n\s*if \(look\.kind === 'conceal'\) _veils\.set\(d\.id, look\.visual\);\n\s*seen\.push\(d\);\n\s*\}/, 'once a frame, off the shown pose');
   assert.match(w, /_veilT \+= dt > 0 \? dt : 0;\n\s*_veils\.clear\(\);/, 'the clock, and last frame\'s looks gone');
-  for (const re of [/peerRiders\.sync\(seen, [^\n]*conceal: veilOf \}\);/, /peerBodies\.sync\(afoot, [^\n]*conceal: veilOf \}\);/, /peerWalkers\.sync\(seen, [^\n]*conceal: veilOf \}\);/, /remotePlayers\.sync\(drawable, [^\n]*conceal: veilOf, hidden: \(id\) => _hiddenPeers\.has\(id\) \}\);/]) assert.match(w, re);
+  for (const re of [/peerRiders\.sync\(seen, [^\n]*conceal: veilOf(?:, grow: tvGrow)? \}\);/, /peerBodies\.sync\(afoot, [^\n]*conceal: veilOf \}\);/, /peerWalkers\.sync\(seen, [^\n]*conceal: veilOf(?:, grow: tvGrow)? \}\);/, /remotePlayers\.sync\(drawable, [^\n]*conceal: veilOf, hidden: \(id\) => _hiddenPeers\.has\(id\)(?:, grow: tvGrow)? \}\);/]) assert.match(w, re);   // PIN MOVED (OW-PEERS, FIELD BUGS 2026-10-01 #11): and the Overworld's grow
   assert.match(w, /const drawVeiledPeerBodies = \(\) => \{ peerBodies\?\.drawVeiled\(\); drawAuras\(\); nodeGlowPass\.draw\(travelView\?\.active \? null : nodeMarksAt\(enchantFeet\(\)\)\); \};/, 'WB9g: and the auras at the wearers\' feet after them, through the same hook; NODE-MARKS: and the gathering nodes\' glow');
   assert.match(w, /drawVeiledPeerBodies: \(\) => drawVeiledPeerBodies\(\),/, 'the mode machine gets it');
   const grass = w.indexOf("renderer.markForeignPass();   // EV6: the grass changed programs behind the shadows' back");

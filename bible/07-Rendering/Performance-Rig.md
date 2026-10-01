@@ -444,6 +444,43 @@ pose or a camera move - is the next slice, and it needs a GPU to measure.
 GPU skinning still removes the skin's cost outright. The build itself is
 still a long task on the main thread when it comes.
 
+## MW-CROWD - the crowd's bodies, turned onto (FIELD BUGS 2026-10-01 #8)
+
+"Culling performance issues when using the morrowind model and around a large
+group of players." Read on the code after WB9h (no GPU here to measure): the
+crowd's skins were budgeted, but four costs were left, each fixed with the
+picture unchanged (`test/fb1001_mwcrowd.test.js`, `tools/mutants/fb1001_mwcrowd.json`):
+
+- THE TURN. The skins are decided on the last body pass's view with
+  CULL_MARGIN_M (2 m), about 11 degrees of lead at 10 m - and a body the view
+  swung onto past it arrived stale and was posed in the DRAW, outside
+  SKIN_BUDGET (`_drawBodies`' stale arm). At 300 degrees a second and 30
+  frames a crowd turned onto posed whole in one frame - a CPU skin and a whole
+  re-upload each. `turnLeadMargin`: the margin grows by the angle the view
+  turned last frame (measured off the two passes' forwards), TURN_LEAD_FRAMES
+  (3) frames of it at the body's distance, never past TURN_LEAD_MAX (1.2 rad),
+  so the bodies about to come into view are skinned on the budget before.
+- DEAD WORK AT EVERY POSE. `updateCharacterMesh` walked every corner of the
+  skin twice (`boundsOf`) for a sphere only the shadow recorder reads - and the
+  sprite target never casts (`drawCharacter` records nothing under
+  `_spriteDepth`). The third-person mesh is minted with `bounds: false`; the
+  first-person arm keeps its sphere.
+- GARBAGE EVERY FRAME. `peerWeaponOf` built a whole stand-in (an entity, a
+  27-slot equip table, its items) for every stepped body every frame. One a
+  look (a WeakMap, as lookKey's).
+- REBUILDS. A weapon drawn tore down a built body after BODY_REBUILD_MS and
+  queued a whole build (the doll standing meanwhile), though `setWeapon` had
+  put it in the hand - a person's body key is its look LESS ITS WEAPONS now.
+  And a lingering body's rig was unloaded, so a peer who mounted or dropped
+  out of the list a moment came back to a whole build - it is kept as a spare
+  (SPARE_MS, SPARE_MAX), as a body given up in a swap is.
+
+Still open, as WB9h left it: the sprite render is one a seen body a frame
+(one offscreen pass, two framebuffer switches and the character block
+re-sent each) - batching every seen body into one bind of the target, or
+keeping each body's picture across frames, is the next slice, and it needs a
+GPU (above all a tiler's) to measure.
+
 ## PERF-READ1 - the `hud` span was the vsync wait (2026-09-21)
 
 Mac pasted a `?perf=cpu` readout from the road: `cpu 17.15ms | hud 7.09 |

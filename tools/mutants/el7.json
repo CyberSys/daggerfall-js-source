@@ -155,8 +155,8 @@
   {
     "name": "renderer-char-no-bounds",
     "file": "src/render/renderer.js",
-    "old": "bounds: boundsOf(packed, null, 0, -1, floats) };   // EL7",
-    "new": "bounds: null };   // EL7",
+    "old": "bounds: opts.bounds === false ? null : boundsOf(packed, null, 0, -1, floats) };",
+    "new": "bounds: null };",
     "tests": [
       "test/el7_polish.test.js"
     ]

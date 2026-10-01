@@ -103,19 +103,23 @@ function figureLayer(art) {
     figs.delete(id);
   }
   /** Stand `s` at `feet` for figure `r`: its batch (re-made when the sprite changes), its size, its offset. `mode`
-   *  is spriteSize's own: `{ riding }`, or PR-WW1's `{ transformed: true }` for a beast. */
-  function place(r, s, feet, right, mode) {
+   *  is spriteSize's own: `{ riding }`, or PR-WW1's `{ transformed: true }` for a beast. OW-PEERS (FIELD BUGS
+   *  2026-10-01 #11): `grow` times its size and its offset under the Overworld, as the traveller's own (tvOwnGrow) -
+   *  a grown figure casts no giant's shadow (AUDIT OW5 R2's law). */
+  function place(r, s, feet, right, mode, grow = 1) {
     const up = art.ensure(s);
+    const g = grow > 1 ? grow : 1;
     if (up) {
       const xml = spriteOffset(s.archive, s.record);
-      const size = spriteSize(up.w, up.h, mode, xml.scale);
+      const own = spriteSize(up.w, up.h, mode, xml.scale);
+      const size = g > 1 ? { w: own.w * g, h: own.h * g } : own;
       const key = `${s.archive}:${s.rec}`;
       if (!r.batch) {
         r.batch = renderer.createBillboardBatch(s.archive, s.rec, size, [[0, 0, 0]]);
         r.batch.origin = [0, 0, 0];
         r.batch.conceal = r.veil ?? null;   // INVIS-LOOK: a new sprite keeps the figure's draw
         r.batchKey = key;
-      } else if (r.batchKey !== key) {
+      } else if (r.batchKey !== key || r.g !== g) {   // OW-PEERS: a new grow is a new size through the batch standing
         // AUDIT FLICKER R1: A NEW FRAME IS WRITTEN THROUGH THE BATCH STANDING, as the foes' and the bands' are. It was
         // destroyed and made again at every animation frame (a rider's every 1/16 s) in the update, after the frame's
         // records were taken and before the next frame replays them: the replay met a dead batch and the figure cast
@@ -124,13 +128,14 @@ function figureLayer(art) {
         if (r.batch.bounds) r.batch.bounds[3] = quadHalfDiagonal(size);
         r.batchKey = key;
       }
-      r.size = size; r.xml = xml; r.mirror = s.mirror;
+      r.size = size; r.xml = xml; r.mirror = s.mirror; r.g = g;
+      if (r.batch) r.batch.noShadow = g > 1;
     }
     if (r.batch && r.xml) {
       // EOTB's placement (eotbBody place()): the offset in metres, x along the view's right (negated when mirrored),
       // y over the feet; the renderer's billboard is bottom-anchored (EOTB-FEET), so the base is the feet plus y
-      const x = (r.xml.x / r.xml.scale) * (r.mirror ? -1 : 1);
-      const y = r.xml.y / r.xml.scale;
+      const x = (r.xml.x / r.xml.scale) * (r.mirror ? -1 : 1) * (r.g ?? 1);
+      const y = (r.xml.y / r.xml.scale) * (r.g ?? 1);
       r.batch.origin[0] = feet[0] + right[0] * x; r.batch.origin[1] = feet[1] + y; r.batch.origin[2] = feet[2] + right[2] * x;
     }
   }
@@ -145,7 +150,7 @@ function figureLayer(art) {
     sweep(seen) { for (const id of [...figs.keys()]) if (!seen.has(id)) drop(id); },
     isDrawn: (id) => !!figs.get(id)?.batch,
     batchOf: (id) => figs.get(id)?.batch ?? null,   // PEERFX3: the one sprite a hurt flash tints
-    heightOf: (id) => { const r = figs.get(id); return r?.batch && r.size && r.xml ? r.size.h + r.xml.y / r.xml.scale : 0; },
+    heightOf: (id) => { const r = figs.get(id); return r?.batch && r.size && r.xml ? r.size.h + (r.xml.y / r.xml.scale) * (r.g ?? 1) : 0; },
     batches: () => [...figs.values()].map((r) => r.batch).filter(Boolean),
     offsetAll(offset) {
       for (const r of figs.values()) {
@@ -171,6 +176,7 @@ export function createPeerRiders({ renderer = null, urlFor = eotbSpriteUrl, deco
   let hScene = null, hEye = null, hRight = null, hDt = 0;   // and the frame's own placing, kept for them (no object a frame)
   /** @type {(id: string) => object|null} */
   let hConceal = () => null;   // INVIS-LOOK: and the frame's concealed draws, for a deferred beast too
+  let hGrow = null;   // OW-PEERS: the Overworld's grow (feet -> times), for a deferred beast too
 
   /**
    * One frame. `peers` the host's drawable list ({ id, pose, shown }), `toScene` the pose's feet in scene units, `eye`
@@ -182,13 +188,13 @@ export function createPeerRiders({ renderer = null, urlFor = eotbSpriteUrl, deco
    * INVIS-LOOK: `conceal(id)` a concealed peer's draw (ECV1's visual, the host's) or null - read by `one`, for a
    * deferred beast too (the frame's own, kept like its placing).
    * @param {Array<any>} peers @param {(p: any) => number[]} toScene
-   * @param {{eye?: number[]|Float32Array|null, right?: number[], dt?: number, defer?: (peer: any) => boolean, conceal?: (id: string) => object|null}} [opts]
+   * @param {{eye?: number[]|Float32Array|null, right?: number[], dt?: number, defer?: (peer: any) => boolean, conceal?: (id: string) => object|null, grow?: ((feet: number[]) => number)|null}} [opts]
    */
-  function sync(peers, toScene, { eye = null, right = [1, 0, 0], dt = 0, defer = () => false, conceal = () => null } = {}) {
+  function sync(peers, toScene, { eye = null, right = [1, 0, 0], dt = 0, defer = () => false, conceal = () => null, grow = null } = {}) {
     const on = enabled();
     const seen = new Set();
     deferred.length = 0;
-    hScene = toScene; hEye = eye; hRight = right; hDt = dt; hConceal = conceal;
+    hScene = toScene; hEye = eye; hRight = right; hDt = dt; hConceal = conceal; hGrow = grow;
     for (const peer of on ? peers ?? [] : []) {
       // AUDIT RIDE: the SHOWN pose - the one the session eases between words, which the bodies, the dolls, the names
       // and the casts all read; the latest word ran up to a whole interval ahead of the rider's own name
@@ -246,7 +252,7 @@ export function createPeerRiders({ renderer = null, urlFor = eotbSpriteUrl, deco
     const s = spriteFor(table, viewOf(pose.yaw, feet, eye), r.frame, { onHorse: pose.rv | 0, lycanthropyType: beast });
     if (!s) return;
     // PR-WW1: the transformed forms take the saddle's size (sizeMod - one constant serves both)
-    layer.place(r, s, feet, right, beast ? { transformed: true } : { riding: true });
+    layer.place(r, s, feet, right, beast ? { transformed: true } : { riding: true }, hGrow ? hGrow(feet) : 1);   // OW-PEERS
   }
 
   return {
@@ -321,9 +327,9 @@ export function createPeerWalkers({ renderer = null, urlFor = eotbSpriteUrl, dec
    * One frame: `peers`, `toScene`, `eye`, `right` and `dt` as the riders' sync; `skip(id)` a peer another layer
    * already stands (the viewer's Morrowind body).
    * @param {Array<any>} peers @param {(p: any) => number[]} toScene
-   * @param {{eye?: number[]|Float32Array|null, right?: number[], dt?: number, skip?: (id: string) => boolean, hurt?: (id: string) => boolean, conceal?: (id: string) => object|null}} [opts]
+   * @param {{eye?: number[]|Float32Array|null, right?: number[], dt?: number, skip?: (id: string) => boolean, hurt?: (id: string) => boolean, conceal?: (id: string) => object|null, grow?: ((feet: number[]) => number)|null}} [opts]
    */
-  function sync(peers, toScene, { eye = null, right = [1, 0, 0], dt = 0, skip = () => false, hurt = () => false, conceal = () => null } = {}) {
+  function sync(peers, toScene, { eye = null, right = [1, 0, 0], dt = 0, skip = () => false, hurt = () => false, conceal = () => null, grow = null } = {}) {
     const on = enabled();
     const seen = new Set();
     lit.length = 0;
@@ -368,8 +374,10 @@ export function createPeerWalkers({ renderer = null, urlFor = eotbSpriteUrl, dec
       const flinch = set >= EOTB_FOOT_SET_COUNT && hurt(peer.id);
       const s = spriteFor(flinch ? 'Death' : r.table, view, flinch ? 0 : r.frame, { onFoot: set });
       if (!s) continue;
-      layer.place(r, s, feet, right, { riding: false });
-      hangLantern(r, pose, feet, view, eye, right, step, ft);
+      const g = grow ? grow(feet) : 1;   // OW-PEERS: grown under the Overworld, as the traveller is
+      layer.place(r, s, feet, right, { riding: false }, g);
+      if (g > 1) { if (r.lantern) { dropSpriteLantern(r.lantern, store.renderer); r.lantern = null; } }   // OW-PEERS: a grown walker's waist is not where the lantern hangs (eotbBody's OW-BIG rule)
+      else hangLantern(r, pose, feet, view, eye, right, step, ft);
     }
     layer.sweep(seen);
   }

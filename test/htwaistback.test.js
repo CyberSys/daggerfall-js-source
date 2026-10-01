@@ -312,8 +312,8 @@ test('HT-WAIST-BACK: ONE HOME - your sprite and the walkers hang it through play
   }
   // the host: the bodies' hook - world.js's exterior pass calls it, and worldModes' dungeon and interior passes reach it
   const world = rd('src/scenes/world.js');
-  assert.match(world, /const drawPeerBodies = \(proj, view, eye\) => \{ if \(peerBodies\) peerBodies\.draw\(canvas, \{ proj, view, eye, flashOf: peerFlashOf \}\); peerWalkers\?\.drawLanterns\(\); \};/);
-  assert.match(world, /mwViewDrawBody\([^\n]*\n\s*drawPeerBodies\(proj, view, mwv\.eye\);/, 'the exterior pass: right after the player\'s own body');
+  assert.match(world, /const drawPeerBodies = \(proj, view, eye, face = null\) => \{ if \(peerBodies\) peerBodies\.draw\(canvas, \{ proj, view, eye, flashOf: peerFlashOf, grow: face \? peerGrow : null, up: face\?\.up \?\? null \}\); peerWalkers\?\.drawLanterns\(\); \};/);   // PIN MOVED (OW-PEERS, FIELD BUGS 2026-10-01 #11)
+  assert.match(world, /mwViewDrawBody\([^\n]*\n\s*drawPeerBodies\(proj, view, mwv\.eye, tvf \? tvFace : null\);/, 'the exterior pass: right after the player\'s own body');
   assert.equal(rd('src/scenes/worldModes.js').match(/mwViewDrawBody\([^\n]*\n\s*host\.drawPeerBodies\?\.\(\{ proj, view, eye: mwv\.eye \}\);/g)?.length, 2, 'the dungeon and the interior passes: the same hook');
   // the pace: one law, two readers
   const pace = rd('src/net/peerPace.js');

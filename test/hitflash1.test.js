@@ -79,6 +79,6 @@ test('HITFLASH1 wiring: both billboard shaders and the sprite quad read the flas
   const w = read('src/scenes/world.js');
   assert.match(w, /setBatchHitFlash\(layer\?\.batchOf\?\.\(id\), k\)/);
   assert.doesNotMatch(w, /conceal = k > 0 \? \{ mode: 5/, 'the peers no longer borrow the concealed phase');
-  assert.match(w, /peerBodies\.draw\(canvas, \{ proj, view, eye, flashOf: peerFlashOf \}\)/);
+  assert.match(w, /peerBodies\.draw\(canvas, \{ proj, view, eye, flashOf: peerFlashOf(?:, grow: face \? peerGrow : null, up: face\?\.up \?\? null)? \}\)/);   // PIN MOVED (OW-PEERS, FIELD BUGS 2026-10-01 #11): and the Overworld's grow
   assert.match(read('src/net/peerBodies.js'), /hitFlash: flashOf \? flashOf\(b\.id\) : 0/);
 });
