@@ -2,8 +2,8 @@
   {
     "name": "TOUCH-BUTTONS-attack-under-a-window",
     "file": "src/ui/touch.js",
-    "old": "() => { if (hooks.paused?.()) return; const s = attackStroke(); attacking = b;",
-    "new": "() => { const s = attackStroke(); attacking = b;",
+    "old": "() => { if (hooks.paused?.()) return; const s = attackStroke(); if (attacking === b)",
+    "new": "() => { const s = attackStroke(); if (attacking === b)",
     "tests": ["test/touchbuttons.test.js"]
   },
   {

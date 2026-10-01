@@ -442,7 +442,7 @@
   {
     "name": "SURVTIERS3-the-gear-cite-equip-seed-rots",
     "file": "src/systems/startingGear.js",
-    "old": "// (equip.js:335), which survives",
+    "old": "// (equip.js:340), which survives",
     "new": "// (equip.js:307), which survives",
     "tests": [
       "test/citedrift.test.js"
@@ -461,7 +461,7 @@
   {
     "name": "SURVTIERS3-the-exterior-cite-equip-guard-rots",
     "file": "src/scenes/exterior.js",
-    "old": "early-returns (equip.js:336).",
+    "old": "early-returns (equip.js:341).",
     "new": "early-returns (equip.js:306).",
     "tests": [
       "test/citedrift.test.js"

@@ -1751,6 +1751,10 @@ export class PlayerMotor {
    *  starts a free climb. No roll: the grip is what runs out. */
   _freeStart(dt, input, yaw, pk) {
     if (!(input.forward > 0) || !(this.grounded || this.swimming || this.sunk)) { this._fcStart = null; return false; }
+    // CLIMB-NODE (FIELD BUGS 2026-10-01, Mac: "Hold it at nodes"): a profession's node under the look - its prompt up -
+    // or an act playing holds the start, and its count begins again when it lets go: a vein stands at its rock's foot,
+    // and walking into the rock to reach it climbed it. A jump's grab and a mantle are a jump's, and are not held.
+    if (pk.hold?.()) { this._fcStart = null; return false; }
     const s = this._fcStart;
     if (!s || Math.hypot(this.pos[0] - s.x, this.pos[2] - s.z) >= START_CLIMB_HORIZONTAL_TOLERANCE) {
       this._fcStart = { x: this.pos[0], z: this.pos[2], t: 0 };

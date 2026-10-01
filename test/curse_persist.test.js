@@ -80,14 +80,19 @@ test('CURSE-REPAIR1: giving a curse back does NOT replay its onset - the buffs a
   const b = P();
   b.spells.push({ index: 92, name: 'Spell92', tag: LYCANTHROPY_SPELL_TAG, custom: true });
   b.activeEffects.push({ kind: 'fortifyAttribute', stat: 'strength', magnitude: 10, roundsRemaining: 20 });
+  b.activeEffects.push({ kind: 'drainAttribute', stat: 'agility', magnitude: 6, permanent: true });
   assert.equal(repairLostCurses(b, { now: 9 }), 'lycanthropy');
   const buff = b.activeEffects.find((a) => a.kind === 'fortifyAttribute');
   assert.ok(buff && !buff.ended, 'the running buff is this life\'s, and stays');
-  // the onset itself still ends the old life, as VampirismEffect.Start / LycanthropyEffect.Start do
+  assert.equal(b.activeEffects.find((a) => a.kind === 'drainAttribute').magnitude, 6, 'the drain running now stays');
+  // the onset itself still cures the old life, as VampirismEffect.Start / LycanthropyEffect.Start do - CureAll's
+  // drains, poisons and diseases (CURE-ALL, FIELD BUGS 2026-10-01: never the buffs, which are this life's too)
   const c = P();
   c.activeEffects.push({ kind: 'fortifyAttribute', stat: 'strength', magnitude: 10, roundsRemaining: 20 });
+  c.activeEffects.push({ kind: 'drainAttribute', stat: 'agility', magnitude: 6, permanent: true });
   createLycanthropyCurse(c, LYCANTHROPY_TYPES.Werewolf, { now: 0 });
-  assert.equal(c.activeEffects.find((a) => a.kind === 'fortifyAttribute').ended, true, 'a curse CAUGHT still ends the old life');
+  assert.equal(c.activeEffects.find((a) => a.kind === 'drainAttribute').magnitude, 0, 'a curse CAUGHT still cures the old life');
+  assert.ok(!c.activeEffects.find((a) => a.kind === 'fortifyAttribute').ended, 'and leaves its buffs running');
 });
 
 test('CURSE-REPAIR1: nothing is given back where nothing was lost - a live curse, a cured player, a curse waiting to deploy, an infection that will deploy one; a second load gives nothing twice (mutants: the cured player re-cursed; the pending marker ignored)', () => {

@@ -90,10 +90,11 @@ export const PREF_DEFAULTS = Object.freeze({
   touchGyroSensitivity: 1,   // 1 = a degree of phone is a degree of camera
   touchHaptics: true,        // a short vibration on a button, an armed swipe and a lock
   touchFullscreen: true,     // the first touch asks for fullscreen and a landscape lock where the browser allows it
-  // TOUCH-BUTTONS (2026-09-27): the corner's three slots, from the corner in (ui/touchButtons.js) - TI1's two, and none
+  // TOUCH-BUTTONS (2026-09-27): the corner's three slots, from the corner in (ui/touchButtons.js) - TI1's two, and
+  // TOUCH-HOLD's Interact (2026-10-01 part four: the professions' E, which a phone never had)
   touchButton1: 'Jump',
   touchButton2: 'ReadyWeapon',
-  touchButton3: 'none',
+  touchButton3: 'Interact',
   // SPELL-GIFT (2026-09-27): whether a player OUTSIDE my party may cast the stranger's list of spells on me (Heal,
   // Regenerate, Cure, Fortify, Shield, resistances, Jumping, Water Breathing - systems/allyCast.js). On: Tabitha's ask.
   acceptStrangerSpells: true,

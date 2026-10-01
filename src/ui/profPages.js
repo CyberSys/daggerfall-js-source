@@ -231,7 +231,7 @@ const UNLOCKS = Object.freeze({
  *  and Outfitting. */
 const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'fishing', 'logging', 'smithing', 'outfitting', 'carpentry']);   // PROF8: Fishing
 /** PROF8: how a haul is made, as the page says it. */
-export const FISHING_HOW = 'With a Fishing-Net in your pack, stand in water, swim, or stand at sea, by daylight. Hold the use key to wind the net and let go to throw it; when the floats dip, press it again; then hold it to raise the band over the net\'s weight and let go to lower it - keep the weight inside to fill the net. Cast toward a rising school for an extra fish.';
+export const FISHING_HOW = 'With a Fishing-Net in your pack, stand in water, swim, or stand at sea, at any hour. Hold the use key to wind the net and let go to throw it; when the floats dip, press it again; then hold it to raise the band over the net\'s weight and let go to lower it - keep the weight inside to fill the net. Cast toward a rising school for an extra fish.';
 /** FIELD BUGS 2026-09-30b (TOOL-SAID): how the other three gathering professions gather, as the page says it - the page
  *  said it for Hunting and Fishing alone, and players used the tools from the pack. TOOL-USE: a tool's Use at the node
  *  (the hotbar's, a quick slot's) is the key's; from the pack it only points the way. */
@@ -242,7 +242,7 @@ export const GATHER_HOW = Object.freeze({
 });
 /** TOOL-SAID: the empty Stores say where their goods come from - a node's act (TOOL-USE: the key's, or the tool's Use
  *  there), never a tool used from the pack. */
-export const STORES_EMPTY_LINE = 'Your Stores are empty. What you gather online is kept here: press the use key at an herb patch, a tree, an ore vein or a boulder, a body you felled, or in water with a net - or use the Sickle, Basket, Pick-Axe, Wood-Axe or Fishing-Net from your hotbar or quick slot there. A tool used from your pack gathers nothing: it only points the way.';
+export const STORES_EMPTY_LINE = 'Your Stores are empty. What you gather online is kept here: press the use key at an herb patch, a tree, an ore vein or a boulder, a body you felled, or in water with a net - or use the Sickle, Basket, Pick-Axe, Wood-Axe, Skinning Knife or Fishing-Net from your hotbar or quick slot there. A tool used from your pack gathers nothing: it only points the way.';   // TOUCH-HOLD: the knife's Use
 /** A craft practised in part - what raises it now (none since PROF4: Smithing's is whole). */
 const PARTLY = Object.freeze({});
 
@@ -299,7 +299,8 @@ export function drawProfessionsPage(detail, rerender, kit) {
     // PROF7: Hunting's day is the account's (PROF0 6) - its hides, every character's together, and the rare ones
     const h = book.state.hunt ?? { hides: 0, high: 0 };
     pane.append(el('p', 'prof-today', `Today: ${h.hides} of ${book.state.caps?.hides ?? HIDES_PER_DAY} hides, ${h.high} of ${book.state.caps?.highHides ?? HIGH_HIDES_PER_DAY} of tiers 5-6 - your account's, across your characters`));
-    pane.append(el('p', 'px-note', 'A body your own blow felled, with a Skinning Knife in your pack: the act choice key searches it instead. Hold the use key on the first point of the line and draw the knife along it.'));
+    // TOUCH-HOLD: the knife's Use, as the Sickle's - it holds the knife, so the line is drawn with no key held
+    pane.append(el('p', 'px-note', 'A body your own blow felled, with a Skinning Knife in your pack: the act choice key searches it instead. Hold the use key on the first point of the line and draw the knife along it - or use the Skinning Knife from your hotbar or quick slot at the body: it holds the knife for you, and you draw the line by looking.'));
   } else if (_sel === 'fishing') {
     // PROF8: Fishing's day is the account's too (PROF0 6) - its hauls, every character's together
     pane.append(el('p', 'prof-today', `Today: ${book.state.hauls ?? 0} of ${book.state.caps?.hauls ?? HAULS_PER_DAY} hauls - your account's, across your characters`));
@@ -499,6 +500,30 @@ function workRows(detail, rerender, el, recipes, state, verb, busyVerb, go, shor
 }
 
 /**
+ * COUNTER-GATES (AUDIT 2026-10-01 part four): A COUNTER'S BUY, ONE HOME - the loom's AUDIT 32 P6 law for every counter:
+ * offered only while Marks are struck, the price held or said before the press (the anvil's and the workbench's offered
+ * it whatever the balance, and with Marks shut, and refused it after). `state` the station's page state (its `busy`, its
+ * `word`); `who` the counter as the button names it; `counter` the Weavers' own door, where the stock is theirs.
+ * @param {HTMLElement} line
+ */
+function counterBuy(line, { el, p, state, rerender, key, need, sale, who, counter = null }) {
+  if (!p.stock || p.marksOpen?.() === false) return;
+  const balance = p.marks?.() ?? null;
+  const shortOf = Number.isSafeInteger(balance) && balance < sale.marks * need;
+  const buy = el('button', 'act', `Buy ${need} from ${who} - ${sale.marks * need} Drakes`);
+  buy.type = 'button';
+  buy.disabled = state.busy || shortOf;
+  if (shortOf) line.append(el('span', 'prof-split', `you hold ${marksText(balance)}`));   // AUDIT 32 R13: "1 Drake"
+  buy.onclick = async () => {
+    if (state.busy) return;
+    state.busy = true; rerender();
+    const res = await (counter ? p.stock(key, Math.min(STOCK_MAX, need), counter) : p.stock(key, Math.min(STOCK_MAX, need)));
+    state.busy = false; state.word = res?.text ?? null; rerender();
+  };
+  line.append(buy);
+}
+
+/**
  * PROF2: THE FORGE (bible/06-Systems/Professions-Arc.md 4.1, 23) - under the Stores, the smelts: each recipe's inputs
  * as the Stores hold them, how many it can make, a count and Smelt; PROF4: and the logs burnt to Charcoal. Only at a
  * forge: a Weaponsmith's or an Armorer's, whose use fee is paid a smelt, or the player's own home forge.
@@ -521,7 +546,17 @@ function drawForge(detail, rerender, { el, divider }) {
   // PROF4: the logs a forge burns - those the Stores hold (a log a Charcoal; a Charcoal Burner's two)
   const burns = BURN_RECIPES.filter((r) => book.held(r.inputs[0].key) > 0);
   if (burns.length) workRows(detail, rerender, el, burns, _forge, 'Burn', 'Burning...', (id, n) => p.smelt(id, n), short);
-  if (r0Charcoal(book)) detail.append(el('p', 'px-note', 'Steel wants Charcoal: a log burns to it here (Logging\'s), and the smith sells it.'));
+  if (r0Charcoal(book)) {
+    const line = el('p', 'px-note', 'Steel wants Charcoal: a log burns to it here (Logging\'s), and the smith sells it.');
+    // CHARCOAL-BUY (AUDIT 2026-10-01 part four): and here is where - the smith's stock was bought only on an anvil
+    // recipe short of an input, and no anvil recipe takes Charcoal, so its counter never stood: a smith who fells no
+    // tree smelted no Steel. At a smith's forge, the Charcoal a Steel smelt asks, from the counter
+    const sale = stockOf('wood:charcoal');
+    const steel = SMELT_RECIPES.find((r) => r.inputs.some((i) => i.key === 'wood:charcoal'));
+    const need = steel?.inputs.find((i) => i.key === 'wood:charcoal')?.n ?? 1;
+    if (sale && forge.kind === 'shop') counterBuy(line, { el, p, state: _forge, rerender, key: 'wood:charcoal', need, sale, who: 'the smith' });
+    detail.append(line);
+  }
   if (_forge.word) detail.append(el('p', 'prof-word', _forge.word));
 }
 /** Whether the Steel line needs its word: no Charcoal held. */
@@ -665,19 +700,7 @@ function drawAnvil(detail, rerender, { el, divider }) {
       const line = el('div', `prof-input${have >= inp.n ? '' : ' prof-short'}`);
       line.append(el('span', null, `${p.name(inp.key)} ${Math.min(have, inp.n)} / ${inp.n} (${have} stored)`));
       const sale = stockOf(inp.key);
-      if (sale && have < inp.n && forge.kind === 'shop' && p.stock) {
-        const need = inp.n - have;
-        const buy = el('button', 'act', `Buy ${need} from the smith - ${sale.marks * need} Drakes`);
-        buy.type = 'button';
-        buy.disabled = _anvil.busy;
-        buy.onclick = async () => {
-          if (_anvil.busy) return;
-          _anvil.busy = true; rerender();
-          const res = await p.stock(inp.key, Math.min(STOCK_MAX, need));
-          _anvil.busy = false; _anvil.word = res?.text ?? null; rerender();
-        };
-        line.append(buy);
-      }
+      if (sale && have < inp.n && forge.kind === 'shop') counterBuy(line, { el, p, state: _anvil, rerender, key: inp.key, need: inp.n - have, sale, who: 'the smith' });   // COUNTER-GATES
       box.append(line);
     }
     if (takesQuality(r) && recipeOpen(r, rank)) {
@@ -897,19 +920,7 @@ function drawWorkbench(detail, rerender, { el, divider }) {
       const line = el('div', `prof-input${have >= inp.n ? '' : ' prof-short'}`);
       line.append(el('span', null, `${p.name(inp.key)} ${Math.min(have, inp.n)} / ${inp.n} (${have} stored)`));
       const sale = stockOf(inp.key);
-      if (sale?.counter === 'furnisher' && have < inp.n && bench.kind === 'shop' && p.stock) {
-        const need = inp.n - have;
-        const buy = el('button', 'act', `Buy ${need} from the furnisher - ${sale.marks * need} Drakes`);
-        buy.type = 'button';
-        buy.disabled = _bench.busy;
-        buy.onclick = async () => {
-          if (_bench.busy) return;
-          _bench.busy = true; rerender();
-          const res = await p.stock(inp.key, Math.min(STOCK_MAX, need));
-          _bench.busy = false; _bench.word = res?.text ?? null; rerender();
-        };
-        line.append(buy);
-      }
+      if (sale?.counter === 'furnisher' && have < inp.n && bench.kind === 'shop') counterBuy(line, { el, p, state: _bench, rerender, key: inp.key, need: inp.n - have, sale, who: 'the furnisher' });   // COUNTER-GATES
       box.append(line);
     }
     if (r.later) box.append(el('p', 'px-note', 'The Ram Kit is made when the sieges come.'));   // AUDIT 32 R8: its Bear Hides are Hunting's now
@@ -1113,24 +1124,9 @@ function drawLoom(detail, rerender, { el, divider }) {
       const line = el('div', `prof-input${have >= inp.n ? '' : ' prof-short'}`);
       line.append(el('span', null, `${p.name(inp.key)} ${Math.min(have, inp.n)} / ${inp.n} (${have} stored)`));
       const sale = WEAVERS_STOCK.find((x) => x.key === inp.key);   // the Weavers' Linen and Wool (4.5), at the tailor's
-      if (sale && have < inp.n && loom.kind === 'shop' && p.stock && p.marksOpen?.() !== false) {
-        const need = inp.n - have;
-        // AUDIT 32 P6: the Marks the purchase asks, held or said before the press (the Market tab's counter's law, AUDIT
-        // 30 U12/U13) - it was offered whatever the balance, and refused after
-        const balance = p.marks?.() ?? null;
-        const shortOf = Number.isSafeInteger(balance) && balance < sale.marks * need;
-        const buy = el('button', 'act', `Buy ${need} from the Weavers - ${sale.marks * need} Drakes`);
-        buy.type = 'button';
-        buy.disabled = _loom.busy || shortOf;
-        if (shortOf) line.append(el('span', 'prof-split', `you hold ${marksText(balance)}`));   // AUDIT 32 R13: "1 Drake"
-        buy.onclick = async () => {
-          if (_loom.busy) return;
-          _loom.busy = true; rerender();
-          const res = await p.stock(inp.key, Math.min(STOCK_MAX, need), 'weavers');
-          _loom.busy = false; _loom.word = res?.text ?? null; rerender();
-        };
-        line.append(buy);
-      }
+      // AUDIT 32 P6: the Marks the purchase asks, held or said before the press (the Market tab's counter's law, AUDIT 30
+      // U12/U13) - it was offered whatever the balance, and refused after; COUNTER-GATES: the one counter's buy now
+      if (sale && have < inp.n && loom.kind === 'shop') counterBuy(line, { el, p, state: _loom, rerender, key: inp.key, need: inp.n - have, sale, who: 'the Weavers', counter: 'weavers' });
       box.append(line);
     }
     if (r.family === 'furnishings') box.append(el('p', 'px-note', 'Furnishings go among your things, to set down in a room of your own (Decorate).'));

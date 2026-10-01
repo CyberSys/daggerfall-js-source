@@ -318,7 +318,9 @@ test('AUDIT WK-M5: THE SAFETY NET\'S THREE HOLES AND ITS FALSE EQUIVALENT - a be
     assert.equal(magic.missileCount(), 1);
     fly(magic);
     assert.equal(h.entity.health, 30, 'in the burst, once');
-    assert.equal(p.health, 20, 'me 8 m off: out of it');
+    // PIN MOVED (the merge with FIELD BUGS 2026-10-01 part four, AREA-CASTER - Mac: "Include the caster"): a spell of
+    // gifts lands on its caster at the cast wherever it bursts - out of the burst, and given it as its caster, once
+    assert.equal(p.health, 40, 'me 8 m off: out of the burst, given it as its caster');
     assert.deepEqual(casts(said), ['You cast Healing Burst on Hilda.']);
   }
   {

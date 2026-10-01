@@ -2020,6 +2020,17 @@ export function createNavalHost(deps) {
     startBoarding('board', e, null);
     return true;
   }
+  /** NAVAL-E (AUDIT 2026-10-01 part four): WHETHER `activate` WOULD TAKE THE PRESS NOW, asked without taking it - a prize's
+   *  hold, a struck ship to board or to heave to beside, the yard at her quay, a struck ship's rail on foot. The street
+   *  asks it before a node's press: at sea the net's cast stands in the look, and E cast it while the readout said "E:
+   *  board her". */
+  function takesActivate() {
+    if (aiming || boarding || !enabled) return false;   // activate's own guard
+    const boat = myBoat();
+    if (prizeInReach(boat)) return true;
+    if (boat) return !!(boardable(boat) || heaveFor(boat) || yardHere(boat));
+    return !!boardableOnFoot();
+  }
   /** A prize this player took and has not yet scuttled or cast off, within reach - of the helm (BOARD_RANGE past the
    *  two beams) or of the feet (FOOT_BOARD_M past hers) - the look on her. */
   function prizeInReach(boat) {
@@ -3509,6 +3520,7 @@ export function createNavalHost(deps) {
     hostileNear: () => hostileNearMe(),
     /** SEA-HUNT: whether the player stands aboard - at a helm, on a boat of theirs or on a sea ship's deck (aboardShip). */
     aboard: () => aboardShip(),
+    takesActivate,   // NAVAL-E: the sea's E before a node's
     saveRefused,   // AUDIT NAV1 (B14): no save in a boarding or on a sea ship's deck
     threats,   // THE MERGE (OW6): the hostile ships a journey slows for
     tags: tagsModel,   // AUDIT NAV1 (#14): the ships the tags stand over (the world projects them)

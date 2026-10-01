@@ -313,8 +313,8 @@
   {
     "name": "AUDIT29-C1-through-the-wall",
     "file": "src/scenes/gatherHost.js",
-    "old": "    if (best && deps.clear && !deps.clear(pos, best.world, best.dungeon)) return null;\n",
-    "new": "",
+    "old": "    for (const c of seen) if (!deps.clear || deps.clear(pos, c.at, c.best.dungeon)) return c.best;",
+    "new": "    for (const c of seen) return c.best;",
     "tests": [
       "test/audit29_host.test.js"
     ]

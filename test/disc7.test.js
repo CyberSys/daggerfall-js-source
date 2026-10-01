@@ -94,7 +94,8 @@ test('ACT-MENU: the plaque draws the verbs as the loot list\'s rows, the lit one
   const w = rd('src/scenes/world.js');
   assert.match(w, /else if \(_tapLockOnly\) \{[^\n]*\}\s*\n\s*else if \(!_act\.pressCast && plaquePeerAct\(cam\.pos, useFwd\)\) \{/, 'the street: a player the plaque lit takes the press ahead of the ladder, on the press\'s ray, never on a cast');
   const m = rd('src/scenes/worldModes.js');
-  assert.match(m, /\(mode === 'dungeon' \? tryExitDungeon : tryExit\)\(\{ pressCast: _act\.pressCast, interact: useEdge \}\);/, 'the building and the dungeon hear whether the press cast (and, AUDIT 29, whether it was Interact)');
+  // PIN MOVED (AUDIT 2026-10-01 part four, CLICK-LIFT): and whether the click was an act's, to its release
+  assert.match(m, /\(mode === 'dungeon' \? tryExitDungeon : tryExit\)\(\{ pressCast: _act\.pressCast, interact: useEdge, actClick \}\);/, 'the building and the dungeon hear whether the press cast (and, AUDIT 29, whether it was Interact)');
   assert.equal((m.match(/if \(!pressCast && host\.plaquePeerAct\?\.\(eye, dir\)\) return true;/g) ?? []).length, 2, 'both ladders, after QG1 and the lock (AUDIT DISC7 A11)');
   for (const fn of ['function tryExit(', 'function tryExitDungeon(']) {
     const body = m.slice(m.indexOf(fn), m.indexOf(fn) + 6000);

@@ -597,3 +597,14 @@ deps' `climbing` down `_hangStep`, `_pkShimmy` and `_pkCorner`). The reach, the 
 - **The merge's own fault**: `scenes/shared.js` imported `isOnlinePage` twice (CLIMB1's switch and MANA-HALF each
   added it, and git merged both lines cleanly), so the module did not load; one import now. #500 has since reverted
   MANA-HALF, and the next merge took its side: the import is CLIMB1's alone again.
+
+## CLIMB-NODE (FIELD BUGS 2026-10-01) - THE FREE CLIMB HOLDS AT A NODE
+
+Found answering "minig is broken doesnt work" (`01-Overview/Field-Bugs-2026-10-01.md` part four): a vein stands at its
+rock's foot (PROF2), and the free climb's walk-in start (Forward held against a face for `freeStartSeconds`) climbed the
+rock under a player who walked into it to reach the ore - the target and the act lost. Asked, Mac: *"Hold it at
+nodes"*. While a profession's node is under the look (the gathering host's target, its prompt up) or an act plays, the
+walk-in start is held (`player/motor.js` _freeStart, `pk.hold` - `scenes/shared.js` parkourDeps' third argument, the
+world host's), and its count begins again when it lets go. A jump's grab, a mantle, the hang and the shimmy are not
+held. `test/fb1001_climbnode.test.js` (4); `tools/mutants/fb1001_climbnode.json` (6, all dead).
+

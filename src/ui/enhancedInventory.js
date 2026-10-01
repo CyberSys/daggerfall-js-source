@@ -63,7 +63,7 @@ import { magicPowersLines } from '../systems/itemPowers.js';   // PLUS10: %mpw
 import { CHAT_MAX } from '../net/wire.js';   // CHAT-POST: a posted item is one chat line
 import { itemIsIdentified } from '../systems/tradeModes.js';   // PLUS10: MagicPowers' identified arm
 import { PACK_PAGES, PAGE_IDS, pageOf, filterByPage } from './packPages.js';   // PX31: the pack's nine pages (the classic keeps DFU's four)
-import { useItem, isLightSource, usableItem, isPotionRecipe, toggleHood, HOOD_TEXT } from '../systems/useItem.js';   // PLUS10: isPotionRecipe, a recipe's second Info box   // HT2: the light source's own act; Mac: Use only where the law has an arm   // HOOD-SAID: the hood's button and its lines
+import { useItem, isLightSource, usableItem, isPotionRecipe, toggleHood, HOOD_TEXT, nextDrape, drapeCount, DRAPE_TEXT } from '../systems/useItem.js';   // PLUS10: isPotionRecipe, a recipe's second Info box   // HT2: the light source's own act; Mac: Use only where the law has an arm   // HOOD-SAID: the hood's button and its lines   // CLOAK-DRAPE: the drape's
 // QS2: the quickslot model (systems/quickslots.js). This screen is the ONE
 // place a slot is filled - Mac's own words, "in the enhanced menu through the
 // tooltip to slot 1/2" - and it fills one by naming the item's KIND, which is
@@ -1371,6 +1371,15 @@ function takeOff(slot) {
 function hood(item) {
   if (!toggleHood(item)) return;
   notice = hoodUp(item) ? HOOD_TEXT.raise : HOOD_TEXT.lower;
+  refresh();
+  refreshFigure();
+  render();
+}
+/** CLOAK-DRAPE: the cloak's next drape (useItem.js nextDrape - the hood as it was), said and drawn as the hood is, the
+ *  card kept up. */
+function drape(item) {
+  if (!nextDrape(item)) return;
+  notice = DRAPE_TEXT;
   refresh();
   refreshFigure();
   render();
@@ -2815,6 +2824,15 @@ function itemActs(picked, side, { qty = true } = {}) {
     const h = el('button', 'act', hoodUp(picked) ? 'Lower hood' : 'Raise hood');
     h.onclick = () => hood(picked);
     acts.append(h);
+  }
+  // CLOAK-DRAPE (FIELD BUGS 2026-10-01, SlipperyPeasant: "it removed the 'Use' button for cloaks and replaced it with
+  // 'Raise Hood' and I can no longer change how the cloak is worn"): the hood keeps its drape, so a worn casual cloak's
+  // other two drapes were out of reach - Change drape steps them, the hood as it was (useItem.js nextDrape). A garment
+  // of one drape (a formal cloak, plain robes) has none to change.
+  if (hooded && drapeCount(picked) > 1) {
+    const d = el('button', 'act', 'Change drape');
+    d.onclick = () => drape(picked);
+    acts.append(d);
   }
   const u = el('button', 'act', 'Use');
   // THE COLLECTION IS THE LIVE LIST, not the model's. `useItem`

@@ -61,7 +61,8 @@ const codes = (keys, type) => keys.filter((e) => e.type === type).map((e) => e.c
 test('TOUCH-BUTTONS: the law - three slots, TI1\'s two by default, anything unknown reads as its slot\'s default, the choices walk and wrap', () => {
   assert.deepEqual(TOUCH_BUTTON_SLOTS, ['touchButton1', 'touchButton2', 'touchButton3']);
   for (const slot of TOUCH_BUTTON_SLOTS) assert.equal(PREF_DEFAULTS[slot], TOUCH_BUTTON_DEFAULTS[slot], `${slot}: the shelf's default is the law's`);
-  assert.deepEqual(touchButtonSlots(() => undefined).map((a) => a.id), ['Jump', 'ReadyWeapon', 'none']);
+  // PIN MOVED (2026-10-01 part four, TOUCH-HOLD - Mac: "Interact button + knife Use"): the third slot is Interact
+  assert.deepEqual(touchButtonSlots(() => undefined).map((a) => a.id), ['Jump', 'ReadyWeapon', 'Interact']);
   assert.deepEqual(touchButtonSlots((k) => ({ touchButton1: 'Attack', touchButton2: 'nonsense', touchButton3: 'Inventory' })[k]).map((a) => a.id),
     ['Attack', 'ReadyWeapon', 'Inventory'], 'an unknown id (an old or hand-edited shelf) is the slot\'s default');
   const ids = TOUCH_BUTTON_ACTIONS.map((a) => a.id);
@@ -88,10 +89,13 @@ test('TOUCH-BUTTONS: the Attack stroke is DFU\'s click-to-attack draw (AUDIT A7:
   assert.ok(Number.isFinite(edge.dx) && Number.isFinite(edge.dy));
 });
 
-test('TOUCH-BUTTONS: the default corner stands where TI1\'s did - Jump at 16, F at 232, the corner ending at 280 - and the widest is bounded', () => {
+// PIN MOVED (2026-10-01 part four, TOUCH-HOLD): Interact in the third slot - the mode cycle and F a slot further in, the
+// corner ending at 344, inside the widest the HUD keeps clear of
+test('TOUCH-BUTTONS: the default corner - Jump at 16 where TI1\'s stood, Interact third, F at 296, the corner ending at 344 - and the widest is bounded', () => {
   const def = layoutTouchCorner(touchButtonSlots(() => undefined), { mode: true, social: true });
-  assert.deepEqual(def.slots.map((s) => [s.action.id, s.right]), [['Jump', 16], ['ReadyWeapon', 92]]);
-  assert.deepEqual([def.mode, def.social, def.extent], [156, 232, 280]);
+  assert.deepEqual(def.slots.map((s) => [s.action.id, s.right]), [['Jump', 16], ['ReadyWeapon', 92], ['Interact', 156]]);
+  assert.deepEqual([def.mode, def.social, def.extent], [220, 296, 344]);
+  assert.ok(def.extent <= TOUCH_CORNER_MAX, 'inside the widest corner');
   const none = layoutTouchCorner(touchButtonSlots(() => 'none'), { mode: false, social: true });
   assert.deepEqual([none.slots.length, none.social], [0, 16], 'empty slots take no room');
   assert.ok(TOUCH_CORNER_MAX > 280 && TOUCH_CORNER_MAX <= 420, `the widest corner: ${TOUCH_CORNER_MAX}`);
@@ -194,7 +198,9 @@ test('AUDIT TOUCH-BUTTONS A1: the Attack slot\'s lift waits two frames - the rig
     step();
     sword.fire('touchstart', tev('touchstart', 120));   // pressed again before the first lift landed
     step();
-    assert.deepEqual(calls, [true, false, true, true], 'the old lift lets nothing go');
+    // PIN MOVED (AUDIT 2026-10-01 part four, TOUCH-RETAP): the press lifts the one before it first - an edge for whatever
+    // reads the press (an act's strike), the button held to the rig as before - and the old lift lets nothing go
+    assert.deepEqual(calls, [true, false, true, false, true], 'the old lift lets nothing go');
     sword.fire('touchend', tev('touchend', 200));
     step(); step();
     assert.equal(calls.at(-1), false, 'and the new one\'s own lift does');

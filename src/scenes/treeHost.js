@@ -26,7 +26,7 @@
 //   systems/chopAct.js; the Wood-Axe draws DFU's War Axe in the hand.
 // ═══════════════════════════════════════════════════════════════════
 import { trees, nodeKey, WOOD_TABLES } from '../net/nodeLaw.js';
-import { tierOpen, TIER_RANKS, woodAxeBand, chopsFor } from '../net/professionLaw.js';
+import { tierOpen, TIER_RANKS, woodAxeBand, chopsFor, storesFullIn } from '../net/professionLaw.js';
 import { createChopAct } from '../systems/chopAct.js';
 import { FT } from '../systems/foragingLaw.js';
 import { foragingActRefusal, foragingToolIn } from '../systems/foragingInstall.js';
@@ -34,6 +34,7 @@ import { materialLabel } from '../systems/profItems.js';
 import { liveStat } from '../systems/statMods.js';
 import { getPref } from '../systems/uiPrefs.js';
 import { TERRAIN_SIZE } from '../world/terrainSampler.js';
+import { insideRocks } from '../world/terrainNature.js';   // NODE-CLEAR: the rock check's one home
 
 /** World of Daggerfall's Tree records, by the climate's summer nature archive (LocationHelper.cs billboards). */
 export const TREE_RECORDS = Object.freeze({
@@ -71,10 +72,12 @@ export const axeHandFrame = (swing) => (swing > 0 ? { state: 'StrikeDownRight', 
  * A PIXEL'S TREES AS THE CLIENT STANDS THEM: the law's trees of the day, each at the unclaimed forest tree flat nearest
  * its law point - `{ key, what: 'tree', slot, tier, material, rare, flat, local, lift }`, `local` pixel-local metres,
  * `flat` the forest flat it is (`{ id, group, i, x, y, z }`). A pixel whose forest holds no tree flat stands none.
+ * NODE-CLEAR (AUDIT 2026-10-01 part four): never a flat inside a rock piece (`rocks`, the pixel's) - the next outside.
  * @param {{ px: number, py: number, day: number, climate: number, confirmed?: boolean,
- *   forest?: { trees: Array<{ id: number, group: string, i: number, x: number, y: number, z: number }> }|null }} p
+ *   forest?: { trees: Array<{ id: number, group: string, i: number, x: number, y: number, z: number }> }|null,
+ *   rocks?: number[][] }} p
  */
-export function standTrees({ px, py, day, climate, confirmed = false, forest = null }) {
+export function standTrees({ px, py, day, climate, confirmed = false, forest = null, rocks = [] }) {
   const out = [];
   const flats = forest?.trees ?? [];
   if (!WOOD_TABLES[climate] || !flats.length) return out;
@@ -83,7 +86,7 @@ export function standTrees({ px, py, day, climate, confirmed = false, forest = n
     const lx = t.u * TERRAIN_SIZE, lz = t.v * TERRAIN_SIZE;
     let best = null, bestD = Infinity;
     for (const f of flats) {
-      if (claimed.has(f.id)) continue;
+      if (claimed.has(f.id) || insideRocks(rocks, f.x, f.z)) continue;   // NODE-CLEAR (AUDIT 2026-10-01 part four): never a tree inside a rock piece, where no look reaches it
       const d = (f.x - lx) ** 2 + (f.z - lz) ** 2;
       if (d < bestD) { bestD = d; best = f; }
     }
@@ -156,7 +159,7 @@ export function treeKind({ book, renderer = null, flatBatchAabb = null, getTextu
     id: 'tree',
     professions: Object.freeze(['logging']),
     nodesOf({ px, py, day, info, confirmed, entry }) {
-      return standTrees({ px, py, day, climate: info.climate, confirmed, forest: entry.forest ?? null });
+      return standTrees({ px, py, day, climate: info.climate, confirmed, forest: entry.forest ?? null, rocks: entry.rocks ?? [] });   // NODE-CLEAR
     },
     /** A standing tree is the forest's own flat: the node adds none. */
     flatsOf: () => [],
@@ -180,7 +183,7 @@ export function treeKind({ book, renderer = null, flatBatchAabb = null, getTextu
       const plan = treePlan({
         node: n, taken: book.taken(n.key, 'logs'), counting: book.counting(n.key, 'logs'), rank: rank('logging'),
         lumberjack: specs?.('logging')?.[50] === 'lumberjack',
-        axe: !!foragingToolIn(entity, FT.WoodAxe), storesFull: (key) => book.held(key) >= (book.state.caps?.stores ?? 5000),
+        axe: !!foragingToolIn(entity, FT.WoodAxe), storesFull: (key) => storesFullIn(book, key),   // STORES-ROOM: every origin, as the service counts
         today: book.state.today?.logging ?? 0, cap: book.state.caps?.harvests ?? 60,
       });
       return { ...plan, profession: 'logging' };

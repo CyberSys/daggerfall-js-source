@@ -166,7 +166,7 @@ test('AUDIT 39 F127 / TI1: the drag hook is live - the swipe calls it, and no bu
   // passes neither it nor a tap and gets no sword and no dial.
   for (const h of ['src/scenes/world.js', 'src/scenes/exterior.js', 'src/scenes/dungeon.js']) {
     const s = read(h);
-    assert.match(s, /\n\s*attack: \(dx, dy, held\) =>/, `${h} passes the live drag hook`);
+    assert.match(s, /\n\s*attack: \(dx, dy, held(?:, o = null)?\) =>/, `${h} passes the live drag hook`);   // PIN MOVED (AUDIT 2026-10-01 part four, PAD-PULSE): world.js's hears a held stroke's repeat
     assert.doesNotMatch(s, /attackTap: \(\) =>/, `${h} no longer passes a tap-to-attack`);
   }
   assert.doesNotMatch(read('src/scenes/interior.js'), /attackTap|attack: \(dx/);

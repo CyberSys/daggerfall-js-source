@@ -95,7 +95,7 @@ test('PROF2 service: a vein mined - the law\'s ore into the Stores, own; Mining 
   assert.ok(st.taken.includes(`${v.key}|ore`));
 });
 
-test('PROF2 service: the Pick-Axe\'s report, bounded - clean only with every strike on the glint (+50% XP); a strike count past the finish\'s is cut; a tier past the rank refused; the night refuses a surface vein', async () => {
+test('PROF2 service: the Pick-Axe\'s report, bounded - clean only with every strike on the glint (+50% XP); a strike count past the finish\'s is cut; a tier past the rank refused; a surface vein is mined by night (ANY-HOUR)', async () => {
   const s = await stand();
   const mac = await s.registered('Mac');
   s.setXp(mac, xpForRank(10));
@@ -109,9 +109,13 @@ test('PROF2 service: the Pick-Axe\'s report, bounded - clean only with every str
   assert.equal(plain.body.xp, harvestXp(1, 10, false), 'one glint of the two: no clean finish, whatever it says');
   const fresh = await s.registered('Ann');
   assert.deepEqual((await s.call('/v1/prof/harvest', ore(fresh, v), fresh.secret)).body, { error: 'prof-rank' }, 'tier 2 wants Mining 10');
+  // PIN MOVED (ANY-HOUR, 2026-10-01, Mac: "Remove the time limit for professions. Should be available at any time"):
+  // 02:00 refused a surface vein (`prof-night`); now it is mined as at noon
   clock(secondAt(today() * DAY + 60, 2));
   const [night] = veinsAt(WOODS, GLENUMBRA, [(x) => x.tier === 1]);
-  assert.deepEqual((await s.call('/v1/prof/harvest', ore(fresh, night, { at: _now - 2 }), fresh.secret)).body, { error: 'prof-night' });
+  const dark = await s.call('/v1/prof/harvest', ore(fresh, night, { at: _now - 2 }), fresh.secret);
+  assert.equal(dark.status, 200, JSON.stringify(dark.body));
+  assert.equal(dark.body.material, night.material, 'its ore, by night');
   clock(NOON);
 });
 

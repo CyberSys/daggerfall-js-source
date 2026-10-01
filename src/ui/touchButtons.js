@@ -24,6 +24,9 @@ export const TOUCH_BUTTON_ACTIONS = Object.freeze([
   { id: 'Jump', label: 'Jump', glyph: '↑↑', kind: 'hold', w: 64 },
   { id: 'ReadyWeapon', label: 'Ready or sheathe weapon', glyph: 'Z', kind: 'hold', w: 52 },
   { id: 'Attack', label: 'Attack', glyph: '⚔', kind: 'attack', w: 64 },
+  // TOUCH-HOLD (2026-10-01 part four - Mac: "Interact button + knife Use"): E, the use key - the professions' start and
+  // their hold (the steady hand, the knife's line, the net's haul) and the sea's, held while the finger is
+  { id: 'Interact', label: 'Interact (the use key)', glyph: 'E', kind: 'hold', w: 52 },
   { id: 'CastSpell', label: 'Spellbook', glyph: 'Cast', kind: 'tap', w: 60 },
   { id: 'RecastSpell', label: 'Ready the last spell', glyph: 'Recast', kind: 'tap', w: 72 },
   { id: 'UseMagicItem', label: 'Use magic item', glyph: 'Item', kind: 'tap', w: 60 },
@@ -42,9 +45,10 @@ export const TOUCH_BUTTON_ACTIONS = Object.freeze([
 ]);
 const BY_ID = new Map(TOUCH_BUTTON_ACTIONS.map((a) => [a.id, a]));
 
-/** The three slots, right to left from the corner, and what TI1 put there. */
+/** The three slots, right to left from the corner, and what TI1 put there - TOUCH-HOLD: and the third, Interact. A
+ *  phone had no E at all, so a common herb, a body and the net's haul could not be played there. */
 export const TOUCH_BUTTON_SLOTS = Object.freeze(['touchButton1', 'touchButton2', 'touchButton3']);
-export const TOUCH_BUTTON_DEFAULTS = Object.freeze({ touchButton1: 'Jump', touchButton2: 'ReadyWeapon', touchButton3: 'none' });
+export const TOUCH_BUTTON_DEFAULTS = Object.freeze({ touchButton1: 'Jump', touchButton2: 'ReadyWeapon', touchButton3: 'Interact' });
 
 /** A choice by id; anything unknown (an old or hand-edited store) reads as its slot's default. */
 export const touchButtonAction = (id) => BY_ID.get(id) ?? null;
@@ -80,8 +84,9 @@ export function attackStroke(rolls = Math.random) {
 
 /** THE CORNER'S LAYOUT, one home for every control in it: the slots from the corner in, then the mode cycle and the
  *  F button where the host hands their hooks in (touch.js), each `right` px from the screen's right edge with a
- *  12 px gap - which puts TI1's default corner (Jump, Ready Weapon, the mode cycle, F) at exactly the 16..280 px
- *  RENOWN4b's model keeps the HUD clear of, Jump and F where they always stood. A 'none' slot takes no room.
+ *  12 px gap - which put TI1's default corner (Jump, Ready Weapon, the mode cycle, F) at the 16..280 px RENOWN4b's
+ *  model kept the HUD clear of; TOUCH-HOLD's Interact in the third slot takes it to 16..344, inside the widest corner
+ *  the HUD keeps clear of (TOUCH_CORNER_MAX), Jump where it always stood. A 'none' slot takes no room.
  *  Answers {slots: [{action, right}], mode, social, extent}. */
 export const TOUCH_CORNER_GAP = 12;
 export const MODE_BUTTON_W = 64;

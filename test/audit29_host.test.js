@@ -280,7 +280,7 @@ test('AUDIT 29: the hosts by source - the seams the audit moved', () => {
   assert.match(rigSrc, /const canAttack = [^\n]*&& !actTool\(\);/);
   assert.match(w, /if \(_act\.cast && (?:!_holdFire && )?!gatherHost\?\.acting\(\)\) magic\.interceptAttack\(true\);/);
   // C2 + D3: a dungeon vein on Interact alone, before QG1
-  assert.match(m, /\(mode === 'dungeon' \? tryExitDungeon : tryExit\)\(\{ pressCast: _act\.pressCast, interact: useEdge \}\)/);
+  assert.match(m, /\(mode === 'dungeon' \? tryExitDungeon : tryExit\)\(\{ pressCast: _act\.pressCast, interact: useEdge, actClick \}\)/);   // PIN MOVED (AUDIT 2026-10-01 part four, CLICK-LIFT): and the act's click to its release
   const t = m.slice(m.indexOf('function tryExitDungeon('));
   assert.ok(t.indexOf('host.profPress?.()') < t.indexOf('pickQuestFoe('), 'the vein before the quest foe');
   // C3 + C11 + D5: the dungeon's own mesh; no vein in the air; no court

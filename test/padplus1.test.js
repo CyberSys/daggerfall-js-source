@@ -245,6 +245,10 @@ test('PADPLUS3: B opens the pack and closes it and neither press leaks into the 
     events.length = 0;
     pad.buttons[15] = { pressed: true, value: 1 }; gp.tick(1 / 60);
     assert.ok(getBinding(store, 'Rest'), 'Rest has a key');
+    // PIN MOVED (2026-10-01 part four, TOUCH-HOLD): right has a hold now (Recast, which LT held before Interact took
+    // it), so its tap fires on the RELEASE, as up's, down's and left's do
+    assert.ok(!events.includes(`keydown:${getBinding(store, 'Rest')}`), `the press alone rests nothing yet - it might be a hold: ${events}`);
+    pad.buttons[15] = { pressed: false, value: 0 }; gp.tick(1 / 60);
     assert.ok(events.includes(`keydown:${getBinding(store, 'Rest')}`), `right rests: ${events}`);
     assert.ok(!events.includes(`keydown:${getBinding(store, 'CharacterSheet')}`), 'and is no longer the sheet');
     gp.dispose();
