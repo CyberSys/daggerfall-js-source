@@ -26,13 +26,11 @@ import { confirmedSeats, seatsOpenFor } from './townSeats.js';
 import { MARKS_MAX, utcDay } from '../../src/net/marksLaw.js';
 import {
   seatWeekOf, seatWeekStartMs, SEAT_WEEK_MS, seatKeyOk, seatRegionOk, edictOk, edictForTier, edictMayFollow, bailiwickOf, bountySitePixel, overreachOf, seatUpkeep,
-  SEAT_LEVER_RANKS, SEAT_EDICTS_HOUR, BOUNTY_MARKS, BOUNTY_CAMPS_DAY, CROWN_SCALE,
+  SEAT_LEVER_RANKS, SEAT_EDICTS_HOUR, BOUNTY_MARKS, BOUNTY_CAMPS_DAY, BOUNTY_SET_ASIDE_MAX, CROWN_SCALE,
 } from '../../src/net/townSeatLaw.js';
 
 const weekAt = (nowS) => seatWeekOf(nowS * 1000);
 const LEVERS_SQL = SEAT_LEVER_RANKS.join(', ');
-/** The most a Bounty may set aside - a week of its 5-camp days for a hundred accounts. */
-export const BOUNTY_SET_ASIDE_MAX = 100_000;
 
 /** THE ACCOUNTS THAT PLAYED IN A WEEK (SEAT0 7.1, the crown's scale) - a registered account whose last play beat
  *  (`players.played_at`, accounts.js creditPlay) falls inside it. The last beat only: one that played on after the

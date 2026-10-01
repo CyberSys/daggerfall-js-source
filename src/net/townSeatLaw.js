@@ -870,6 +870,9 @@ export const edictCost = (edict, tier, tide = 'calm') => Math.floor((EDICTS[edic
 export const LEVY_SHARE = 0.1;
 export const BOUNTY_MARKS = 20;
 export const BOUNTY_CAMPS_DAY = 5;
+/** The most a Bounty may set aside - a week of its 5-camp days for a hundred accounts (AUDIT-SEATS II L11: the law's, so
+ *  the service's refusal and the client's words read one number - it lived in seatHolding.js alone). */
+export const BOUNTY_SET_ASIDE_MAX = 100_000;
 /** The Festive buff (SEAT0 7.6): +5 to every attribute for a game day, in the town while the Festival is proclaimed. */
 export const FESTIVE = Object.freeze({ attributes: 5, gameDays: 1 });
 /** Edicts and Tithe changes an account may ask an hour (Appendix B: edicts 5). */
