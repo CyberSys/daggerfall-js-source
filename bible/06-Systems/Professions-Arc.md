@@ -1401,6 +1401,12 @@ As built:
   `tools/mutants/prof2.json`, 40 mutants, every one dead. The done-when is `prof2_client`'s DONE WHEN: a confirmed
   Wayrest pixel's first vein stood at its rock piece is Mithril, mined through the real Worker, smelted at a forge into
   a Mithril Ingot and withdrawn as its registered template.
+- **FIELD BUGS 2026-10-01 part four** ("minig is broken doesnt work"; Mac: "Also mining, the life skill, is broken";
+  `01-Overview/Field-Bugs-2026-10-01.md`): an act's strike is either button (ACT-CLICK - mid-act a left click had been
+  the act's and nothing else) and a finger's or a pad's Attack or a tap (ACT-TOUCH, `scenes/gatherHost.js` strike - the
+  hooks had refused every such press mid-act, so no vein was ever mined on a phone or a pad); a node is found anywhere up
+  its upright, base to aim point - a boulder by its stones - and of the nodes in the cone the first SEEN nearest the look
+  is the target (NODE-AIM); a vein's stone tile is never inside a rock piece (VEIN-CLEAR). The meter names the press.
 
 ## 24. PROF3 - Smithing: the anvil, quality and provenance, as built (SHIPPED 2026-09-28, at `dev`)
 

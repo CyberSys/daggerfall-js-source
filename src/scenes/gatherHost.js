@@ -195,6 +195,7 @@ export function createGatherHost(deps) {
   let refreshAt = 0, pixelsAt = 0, targetKey = null;
   let storesSaid = false;     // GATHER-SAID: storesWhereLine said this session
   let passedOn = '';          // VEIN-NEED: what the node the last press passed on needs, until the host hands it back
+  let struck = null, strikeHeld = false;   // ACT-TOUCH: the act a finger's or a pad's press struck, for the next frame
   let chipLeft = 0;
   let chipProfession = /** @type {string|null} */ (null);
   const _t = [0, 0, 0];
@@ -310,11 +311,17 @@ export function createGatherHost(deps) {
     const tr = deps.pixelTranslation(s.entry.px, s.entry.py, _t);
     return [n.local[0] + tr[0], n.local[1] + tr[1] + (n.lift ?? 0.3), n.local[2] + tr[2]];
   };
-  /** The node in reach nearest the look - TOOL-USE: of `own`'s kinds alone, for a tool's Use. */
+  /** The node in reach nearest the look - TOOL-USE: of `own`'s kinds alone, for a tool's Use.
+   *  NODE-AIM (FIELD BUGS 2026-10-01, "minig is broken doesnt work"): the look meets a node anywhere up its upright -
+   *  from its base, where its picture and NODE-MARKS' glow stand, to its aim point (its lift: a boulder's is halfway up
+   *  its rock, up to 1.2 m) - so a boulder is found by looking at its stones; it was found only a metre up the rock's
+   *  face, outside the 12-degree cone from anywhere near. And of the nodes in the cone, the nearest the look that is SEEN
+   *  is the target: one hidden behind its rock, nearest the look, hid every other node in view. */
   function findTarget(own = kinds) {
     const { pos, dir } = deps.eye();
     const dl = Math.hypot(dir[0], dir[1], dir[2]) || 1;
-    let best = null, bestAng = NODE_AIM_DEG;
+    /** @type {Array<{ ang: number, at: number[], best: any }>} */
+    const seen = [];
     const reachBox = NODE_REACH + 1;
     // PROF2: underground the dungeon's nodes, in its own space; above ground the streamed pixels'
     const under = inDungeon();
@@ -340,20 +347,24 @@ export function createGatherHost(deps) {
         // eye's height below it read against its reach dropped a body a metre downhill, or under a rider
         const reach = n.reach ?? NODE_REACH;
         if (s.loose ? Math.hypot(dx, dy, dz) > reach : Math.hypot(dx, dz) > reach || Math.abs(dy) > reach) continue;
-        const d = Math.hypot(dx, dy, dz) || 1;
-        const cos = (dx * dir[0] + dy * dir[1] + dz * dir[2]) / (d * dl);
+        // NODE-AIM: the point of the upright the look passes nearest - the height the look's pitch reaches at the node's
+        // distance along its bearing (h tan(pitch) / cos(yaw off)), held between the base and the aim point
+        const run = dir[0] * dx + dir[2] * dz;
+        const up = run > 0 ? Math.max(dy - (n.lift ?? 0.3), Math.min(dy, (dir[1] * (dx * dx + dz * dz)) / run)) : dy;
+        const d = Math.hypot(dx, up, dz) || 1;
+        const cos = (dx * dir[0] + up * dir[1] + dz * dir[2]) / (d * dl);
         const ang = Math.acos(Math.max(-1, Math.min(1, cos))) * (180 / Math.PI);
-        if (ang < bestAng) {
-          bestAng = ang;
+        if (ang < NODE_AIM_DEG) {
           // the node's bearing below the eye (AUDIT 32 H7: a body under the player's feet asks them to step back)
-          best = { node: n, px: s.entry?.px ?? null, py: s.entry?.py ?? null, dungeon: s.loose ? under : !s.entry, loose: !!s.loose, info: s.info, world: w, pitch: Math.atan2(dy, Math.hypot(dx, dz)) * (180 / Math.PI) };
+          seen.push({ ang, at: [w[0], pos[1] + up, w[2]], best: { node: n, px: s.entry?.px ?? null, py: s.entry?.py ?? null, dungeon: s.loose ? under : !s.entry, loose: !!s.loose, info: s.info, world: w, pitch: Math.atan2(dy, Math.hypot(dx, dz)) * (180 / Math.PI) } });
         }
       }
     }
-    // AUDIT 29 C1: and seen - one ray to the chosen node through the place's collider (a vein through a dungeon's wall, a
-    // patch behind a rock, is no target)
-    if (best && deps.clear && !deps.clear(pos, best.world, best.dungeon)) return null;
-    return best;
+    // AUDIT 29 C1: and seen - a ray to the node through the place's collider (a vein through a dungeon's wall, a patch
+    // behind a rock, is no target); NODE-AIM: nearest the look first, and the first seen is the one
+    seen.sort((a, b) => a.ang - b.ang);
+    for (const c of seen) if (!deps.clear || deps.clear(pos, c.at, c.best.dungeon)) return c.best;
+    return null;
   }
   /** AUDIT 29 C10: the stood pixels whose ground is within `r` of `pos` - the player's and its edge neighbours' - never
    *  every streamed pixel's every node, every frame. */
@@ -492,6 +503,20 @@ export function createGatherHost(deps) {
     },
     /** Whether an act is playing - the host keeps the weapon's swing, and the press ladder, off it. */
     acting: () => !!act,
+    /**
+     * ACT-TOUCH (FIELD BUGS 2026-10-01, "minig is broken doesnt work"): THE ATTACK FROM A DOOR THE EDGE RING NEVER SEES -
+     * a finger's Attack button or swipe and a pad's trigger reach the world through the host's hooks (`held` the press's
+     * level, as they hand it, every frame of a swing), and the act's strike is read off the ring alone (`input().attack`).
+     * The press that lands while an act plays is ITS strike on the next frame - never another's (one Escape ended and
+     * E started in the same frame); a held press strikes once, and a press with no act strikes nothing - it is never
+     * banked for one that starts after.
+     * @param {boolean} held
+     */
+    strike(held) {
+      const edge = !!held && !strikeHeld;
+      strikeHeld = !!held;
+      if (edge) struck = act;
+    },
     /** The tool in the hand for the rig (combat/weaponRig.js actTool): the act's, as DFU's own sprite. */
     handTool: () => (act?.hand ? act.hand(act) : null),
     /** E pressed: a node in reach takes it - an act started. True when the press was the node's. */
@@ -574,6 +599,8 @@ export function createGatherHost(deps) {
       const feetNow = deps.feet();
       for (const k of kinds) k.frame?.(dt, { feet: feetNow, translation: (e) => (stood.get(pixelKey(e.px, e.py))?.entry === e ? deps.pixelTranslation(e.px, e.py, [0, 0, 0]) : null) });
       const input = deps.input();
+      const attack = input.attack || (!!act && struck === act);   // ACT-TOUCH: the edge ring's press, or the hooks' - on the act it struck
+      struck = null;
       if (act) {
         const { pos } = deps.eye();
         const v = deps.view();
@@ -581,7 +608,7 @@ export function createGatherHost(deps) {
         const w = actWorld(act);
         act.world = w ?? act.world;
         const gone = act.loose ? !w : !act.dungeon && !stood.has(pixelKey(act.px, act.py));   // its pixel torn down under it; PROF7: its body let go
-        act.act.tick(dt, { held: input.held || act.heldByUse === true, attack: input.attack, view: v, pos: { x: feet[0], z: feet[2] }, aim: aimAt(pos, act.world, v) });   // TOOL-USE: a hold the Use made
+        act.act.tick(dt, { held: input.held || act.heldByUse === true, attack, view: v, pos: { x: feet[0], z: feet[2] }, aim: aimAt(pos, act.world, v) });   // TOOL-USE: a hold the Use made
         const away = gone || Math.hypot(act.world[0] - pos[0], act.world[2] - pos[2]) > (act.node.reach ?? NODE_REACH) + 1;
         const here = act.dungeon ? inDungeon() : deps.active();
         if (act.act.state.cancelled || away || !here) { act = null; hud.setMeter(null); hud.toast(ACT_STOPPED_LINE); }   // GATHER-SAID: said, never only the meter gone (Escape ends it in `cancel`, unsaid)

@@ -82,8 +82,9 @@ const toBox = (box, x, z) => Math.hypot(Math.max(box[0] - x, 0, x - box[3]), Mat
 /** AUDIT 29 C11: whether (x, z) stands inside a rock piece's footprint (the field's boxes overlap - a foot off one piece
  *  can land inside the next). */
 const insideRocks = (rocks, x, z) => rocks.some((b) => x > b[0] && x < b[3] && z > b[2] && z < b[5]);
-/** The stone tile nearest (tx, ty) within `reach` tiles where nature could stand, or null. */
-function nearestStone(samples, tilemap, locationRect, tx, ty, reach) {
+/** The stone tile nearest (tx, ty) within `reach` tiles where nature could stand, or null - VEIN-CLEAR: never a tile
+ *  whose stand is inside a rock piece (`rocks`). */
+function nearestStone(samples, tilemap, locationRect, tx, ty, reach, rocks) {
   let best = null, bestD = Infinity;
   for (let dy = -reach; dy <= reach; dy++) {
     for (let dx = -reach; dx <= reach; dx++) {
@@ -93,7 +94,7 @@ function nearestStone(samples, tilemap, locationRect, tx, ty, reach) {
       if (x < 0 || y < 0 || x >= WORLD_MAP_TILE_DIM || y >= WORLD_MAP_TILE_DIM) continue;
       if ((tilemap[y * WORLD_MAP_TILE_DIM + x] & 0x3f) !== 3) continue;
       const at = natureStandsAt(samples, tilemap, locationRect, x, y);
-      if (at) { best = at; bestD = d; }
+      if (at && !insideRocks(rocks, at.x, at.z)) { best = at; bestD = d; }
     }
   }
   return best;
@@ -126,7 +127,11 @@ export function standMineNodes({ px, py, day, climate, region = null, confirmed 
       if (!local) {
         const tx = Math.min(WORLD_MAP_TILE_DIM - 1, Math.floor(v.u * WORLD_MAP_TILE_DIM));
         const ty = Math.min(WORLD_MAP_TILE_DIM - 1, Math.floor(v.v * WORLD_MAP_TILE_DIM));
-        const at = nearestStone(samples, tilemap, locationRect, tx, ty, VEIN_STONE_REACH) ?? natureStandsAt(samples, tilemap, locationRect, tx, ty);
+        // VEIN-CLEAR (FIELD BUGS 2026-10-01): a rock field stands on stone, so the stone tile nearest could lie under a
+        // piece of it - a vein stood inside the rock, glowing and marked, that no look could reach (the ray to it is the
+        // rock's); it stands on the nearest stone outside every piece, as a rock's foot does (AUDIT 29 C11)
+        const outside = (a) => (a && !insideRocks(rocks ?? [], a.x, a.z) ? a : null);
+        const at = nearestStone(samples, tilemap, locationRect, tx, ty, VEIN_STONE_REACH, rocks ?? []) ?? outside(natureStandsAt(samples, tilemap, locationRect, tx, ty));
         if (at) local = [at.x, at.y, at.z];
       }
       if (!local) continue;

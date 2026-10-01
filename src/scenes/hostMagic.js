@@ -498,7 +498,13 @@ export function createPlayerMagic({
     if (boss && caster?.entity === playerEntity) for (const t of sweepFoes(pos, EXPLOSION_RADIUS, bossMarksFor(spell))) giveToBoss(t, spell);   // AUDIT WBX F5: `boss` - a Soul Trap is no duel spell, and it meets him too
     // ROAD-H H2: the player is a COLLIDER in DFU's OverlapSphere like every foe (DaggerfallMissile.cs:481) - its CharacterController capsule, at the LIVE height PlayerHeightChanger keeps (:54-57/:475-478). This measured ONE POINT at the STANDING half-capsule, feet + 0.9: a metre and a half wrong on a mount, half a metre wrong crouched, and short of DFU's catch by a whole body radius in every stance. AUDIT 65 CV-2: and that body is the PLAYER's 0.35 (PlayerAdvanced.prefab:82), not the foe's 0.45 - the rim is 4.35.
     if (playerFeet && !crewBlast && sphereOverlapsCapsule(pos, EXPLOSION_RADIUS, playerFeet, playerHeight, PLAYER_BODY_RADIUS)) {
-      applySpellToPlayer(spell, casterLevel, caster);
+      // AREA-SELF (FIELD BUGS 2026-10-01, Opaldes: "Big Regen Spell doesnt do anything" - Area at Range, Regenerate and
+      // Fortify): MY OWN BLAST OF GIFTS LANDS ON ME AS A SELF-CAST - ALLY-CAST C1's law for every gift a party mate's
+      // blast gives (allyCast.js allyCastSpell): DFU save-scales every bundle that is not CasterOnly, so its caster
+      // resisted their own Regenerate round by round (two rounds in three for a Breton) and their own Fortify at the
+      // landing. A blast that is not all gifts (allyCastable) is saved against as before.
+      const gift = caster?.entity === playerEntity && allyCastable(spell);
+      applySpellToPlayer(gift ? { ...spell, rangeType: 0 } : spell, casterLevel, caster);
     }
   }
 

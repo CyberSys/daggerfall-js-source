@@ -690,8 +690,8 @@ The sixth merge's conflicts showed a Ledger row whose DFU message ids read "8076
 The struck row above it still reads "8076/8077", and DFU's TalkManager.cs answers with records 8075, 8076 and 8077
 (:2029-2035). `tools/citeShift.mjs` and `tools/citeMerge.mjs` had been moving it for as far back as the history goes.
 - **CITE-SLASH.** RF3's grammar read a bare `/N` after a cite, anywhere up to the next cite, as that cite's line. So
-  "8076/8077", a sentence after `world.js:7526`, was world.js:12570 to both tools, and it moved whenever that line did.
-  A bare `/N` now continues only the chain it touches: `world.js:11125/11126`, `:18/20`. The colon forms keep RF3's
+  "8076/8077", a sentence after `world.js:7526`, was world.js:12572 to both tools, and it moved whenever that line did.
+  A bare `/N` now continues only the chain it touches: `world.js:11127/11128`, `:18/20`. The colon forms keep RF3's
   reach, because the colon says what they are.
 - **CITE-CS.** RF3 ends a cite's region at a `.cs:N` cite, but DFU's members are mostly written without their file:
   "| TalkManager.GetReactionToPlayer_0_1_2 (:689-693) |" in the Ledger's DFU column, and
@@ -726,7 +726,7 @@ worked a batch each, and every span was checked here against the source before i
   - PlayerGPS.cs:747 and :766-776;
   - DaggerfallTalkWindow.cs:1465-1499;
   - three JS continuations that RF3 had given to the cite before them: `guildServiceFlow.js:269`/`:270` and
-    `useItem.js:357-381`/`:274-310`.
+    `useItem.js:385-409`/`:302-338`.
 - Found by the passes and left for a person: row 735's `DaggerfallCourtWindow.cs:191` names the Dark Brotherhood
   rescue's refill, not the acquittal's (:425).
 

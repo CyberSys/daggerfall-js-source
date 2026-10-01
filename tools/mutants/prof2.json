@@ -300,8 +300,8 @@
   {
     "name": "PROF2-33-no-stone-tile",
     "file": "src/scenes/mineHost.js",
-    "old": "const at = nearestStone(samples, tilemap, locationRect, tx, ty, VEIN_STONE_REACH) ?? natureStandsAt(",
-    "new": "const at = natureStandsAt(",
+    "old": "const at = nearestStone(samples, tilemap, locationRect, tx, ty, VEIN_STONE_REACH, rocks ?? []) ?? outside(natureStandsAt(",
+    "new": "const at = outside(natureStandsAt(",
     "tests": [
       "test/prof2_client.test.js"
     ]

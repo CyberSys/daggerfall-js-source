@@ -151,7 +151,7 @@ export function createProfHud({ doc = globalThis.document } = {}) {
         const pips = mk('prof-finds');
         pips.textContent = `${'o '.repeat(Math.min(st.points, st.need))}${'. '.repeat(Math.max(0, st.need - st.points))}`.trim();
         const hint = mk('prof-hint');
-        hint.textContent = st.creaked ? 'it creaks - keep chopping' : st.gentle ? (label || 'chop') : (label || 'chop as the ring meets the notch');
+        hint.textContent = st.creaked ? 'it creaks - keep chopping' : st.gentle ? (label || 'click to chop') : (label || 'click as the ring meets the notch');   // ACT-CLICK: the press named - either button, a tap, Attack
         meter.append(pips, hint);
         return;
       }
@@ -177,7 +177,7 @@ export function createProfHud({ doc = globalThis.document } = {}) {
         const pips = mk('prof-finds');
         pips.textContent = `${'o '.repeat(Math.min(st.points, st.need))}${'. '.repeat(Math.max(0, st.need - st.points))}`.trim();
         const hint = mk('prof-hint');
-        hint.textContent = st.gentle ? (label || 'strike') : (label || 'strike the glint');
+        hint.textContent = st.gentle ? (label || 'click to strike') : (label || 'click to strike the glint');   // ACT-CLICK: the press named (it said 'strike the glint', and only the right button struck)
         meter.append(face, pips, hint);
         return;
       }
