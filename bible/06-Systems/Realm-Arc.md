@@ -291,6 +291,8 @@ These apply at online character creation and are enforced at checkpoint. The num
   - A default anywhere closes the Empire everywhere and garnishes future deposits.
   - The cap comes from the service, with `loanAmountPerLevel` locked.
   - At cutover, any debt above the Empire's cap is called in.
+  - **One account** (EMPIRE-ACCOUNT, 2026-10-01): every branch keeps the same account, the Empire's, so gold paid in
+    anywhere is drawn anywhere. A loan still stands where it was taken. What a default draws is said.
 
 **Sinks:**
 - **Vendor spread.** Online, a shop pays at most 50% of its own selling price. This ends both the same-shop profit and

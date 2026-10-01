@@ -317,12 +317,13 @@ test('GOLD-MARKET service: the seller\'s gold collected into its own record\'s a
   assert.equal(open(), 0, 'collected: nothing keeps the character now');
   assert.deepEqual((await s.call('/v1/market/gold', { character: eve.character, realm: eve.at(), region: DF }, eve.secret)).body, { error: 'market-gold-none' });
   assert.equal(s.record(eve).seq, after.seq, 'refused before the record moved');
-  // where the record keeps no account: the purse
+  // EMPIRE-ACCOUNT: collected at another board, into the same one account - the Empire's (the purse only where a record
+  // keeps none: test/realm5.test.js, test/empireaccount.test.js)
   const second = await s.list(eve, { units: 1 });
   assert.equal((await s.buy(tom, second.body.listing, { units: 1 })).status, 200);
   const one = s.held(eve);
   assert.equal((await s.call('/v1/market/gold', { character: eve.character, realm: eve.at(), region: WR }, eve.secret)).status, 200);
-  assert.equal(s.record(eve).save.goldPieces, 7 + one);
+  assert.deepEqual([s.record(eve).save.bankAccounts[DF].accountGold, s.record(eve).save.goldPieces], [50 + gets + one, 7]);
   // a character not the realm's collects none
   const mac = await s.registered('Mac');
   assert.deepEqual((await s.call('/v1/market/gold', { character: mac.character, region: DF }, mac.secret)).body, { error: 'market-gold-realm' });
