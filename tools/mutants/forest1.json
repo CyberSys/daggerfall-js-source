@@ -1,0 +1,92 @@
+[
+  {
+    "name": "FOREST1-field-at-north-up",
+    "file": "src/world/terrainNature.js",
+    "old": "oz = -opts.mapPixelY * tDim",
+    "new": "oz = opts.mapPixelY * tDim",
+    "tests": [
+      "test/forest1.test.js"
+    ]
+  },
+  {
+    "name": "FOREST1-no-grid",
+    "file": "src/world/terrainNature.js",
+    "old": "inset: Object.freeze([0.1, 0.9])",
+    "new": "inset: Object.freeze([0, 0])",
+    "tests": [
+      "test/forest1.test.js"
+    ]
+  },
+  {
+    "name": "FOREST1-trees-in-the-woods",
+    "file": "src/world/terrainNature.js",
+    "old": "const pool = roll < tree ? trees : cover;",
+    "new": "const pool = roll < under ? trees : cover;",
+    "tests": [
+      "test/forest1.test.js"
+    ]
+  },
+  {
+    "name": "FOREST1-towns-in-fields",
+    "file": "src/world/terrainNature.js",
+    "old": "pull += p.hide ? k : -k;",
+    "new": "pull += k;",
+    "tests": [
+      "test/forest1.test.js"
+    ]
+  },
+  {
+    "name": "FOREST1-every-site-a-clearing",
+    "file": "src/world/terrainNature.js",
+    "old": "const clear = [opts.locationRect, ...pois]",
+    "new": "const clear = [opts.locationRect]",
+    "tests": [
+      "test/forest1.test.js"
+    ]
+  },
+  {
+    "name": "FOREST1-pull-fades-at-every-edge",
+    "file": "src/world/terrainNature.js",
+    "old": "Math.min(x, y, tDim - 1 - x, tDim - 1 - y)",
+    "new": "Math.min(tDim - 1 - x, tDim - 1 - y)",
+    "tests": [
+      "test/forest1.test.js"
+    ]
+  },
+  {
+    "name": "FOREST1-deserts-keep-dfu",
+    "file": "src/world/terrainNature.js",
+    "old": "if (opts.forests && opts.climateType !== CLIMATE_TYPE_DESERT",
+    "new": "if (opts.forests",
+    "tests": [
+      "test/forest1.test.js"
+    ]
+  },
+  {
+    "name": "FOREST1-on-the-ground-there",
+    "file": "src/world/terrainNature.js",
+    "old": "x: mx, y: groundAt(heightmapData, mx, mz)",
+    "new": "x: mx, y: at(x, y)",
+    "tests": [
+      "test/forest1.test.js"
+    ]
+  },
+  {
+    "name": "FOREST1-ground-shares",
+    "file": "src/world/terrainNature.js",
+    "old": "FOREST.ground[tilemapData[y * tDim + x] & 0x3f]",
+    "new": "FOREST.ground[2]",
+    "tests": [
+      "test/forest1.test.js"
+    ]
+  },
+  {
+    "name": "FOREST1-beach-line",
+    "file": "src/world/terrainNature.js",
+    "old": "if (Math.fround(heightmapData[hy + hx * hDim] * MAX_TERRAIN_HEIGHT) < SCALED_BEACH_ELEVATION) continue;\n\n      const wood",
+    "new": "const wood",
+    "tests": [
+      "test/forest1.test.js"
+    ]
+  }
+]

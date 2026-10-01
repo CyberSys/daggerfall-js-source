@@ -27,6 +27,7 @@
 // (hDim - 1) / tDim lands on integer sample coordinates.
 
 import { UMRandom } from '../formats/umRandom.js';
+import { perlinNoise } from './perlin.js';   // FOREST1: the forests' field rides the terrain's own noise
 import {
   HEIGHTMAP_DIMENSION, MAX_TERRAIN_HEIGHT, STREAMING_TERRAIN_SCALE,
   TERRAIN_SIZE, SCALED_BEACH_ELEVATION,
@@ -40,6 +41,21 @@ const BASE_CHANCE_ON_GRASS = 0.9;
 const BASE_CHANCE_ON_STONE = 0.05;
 const NATURE_CLEARANCE = 4;
 const CLIMATE_TYPE_DESERT = 0; // DFLocation.ClimateBaseType.Desert
+
+/** World of Daggerfall's Tree records, by the climate's summer nature archive (LocationHelper.cs billboards). FOREST1:
+ *  moved here from scenes/treeHost.js (which re-exports it) - the forests' layout reads it on the terrain worker, and
+ *  the worker does not import a scene. */
+export const TREE_RECORDS = Object.freeze({
+  500: Object.freeze([12, 13, 14, 15, 16, 18, 30]),
+  501: Object.freeze([11, 12, 13, 16, 30]),
+  502: Object.freeze([12, 13, 15, 16, 17, 18, 30]),
+  503: Object.freeze([5, 11, 12, 13, 28, 30]),
+  504: Object.freeze([12, 13, 14, 15, 16, 17, 18, 25, 30]),
+  506: Object.freeze([5, 11, 12, 13, 14, 15, 16, 24, 25, 30]),
+  508: Object.freeze([13, 15, 16, 18, 24, 25, 30]),
+  510: Object.freeze([5, 11, 12, 13, 15, 16, 24, 25, 30]),
+});
+export const isTreeRecord = (baseArchive, record) => !!TREE_RECORDS[baseArchive]?.includes(record);
 
 /**
  * PROF1 (bible/06-Systems/Professions-Arc.md 22): WHERE DFU'S OWN NATURE WOULD STAND, asked of ONE tile - the rules
@@ -113,10 +129,16 @@ export function makeTerrainKey(mapPixelX, mapPixelY) {
  * @param {number} opts.rawWorldHeight - WOODS byte for the pixel.
  * @param {number} opts.climateType - ClimateBaseType (0 Desert).
  * @param {{xMin,xMax,yMin,yMax}|null} opts.locationRect - tile space.
+ * @param {?{archive:number, pois?:Array<{xMin:number,xMax:number,yMin:number,yMax:number,hide:boolean}>}} [opts.forests]
+ *   FOREST1: the Real forests switch - the climate's summer nature archive and the pixel's places. Absent (or on a
+ *   desert, or an archive with no Tree table), DFU's scatter below, byte for byte.
  * @returns {Array<{record:number,x:number,y:number,z:number}>} base
  *   positions in pixel-local world units.
  */
 export function layoutNature(heightmapData, tilemapData, opts) {
+  if (opts.forests && opts.climateType !== CLIMATE_TYPE_DESERT && TREE_RECORDS[opts.forests.archive]) {
+    return layoutForests(heightmapData, tilemapData, opts);
+  }
   const hDim = HEIGHTMAP_DIMENSION;
   const tDim = WORLD_MAP_TILE_DIM;
   const worldHeight = MAX_TERRAIN_HEIGHT * STREAMING_TERRAIN_SCALE;   // TerrainNature.LayoutNature's terrainScale - the game scene's (TERRAIN-SCALE1)
@@ -200,6 +222,170 @@ export function layoutNature(heightmapData, tilemapData, opts) {
         y: at(x, y) - steepness / SLOPE_SINK_RATIO,
         z: y * scale,
       });
+    }
+  }
+  return flats;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// FOREST1 (2026-10-01, the Discord's "Real Forests" thread: "Currently
+// trees are just even spaced around the whole map in temperate areas. It
+// would be more interesting and realistic if the trees crowded closer
+// together into forests, which could hide interesting pois inside.
+// Outside of forests would be rolling plains.") - REAL FORESTS, the
+// port's own departure from DefaultTerrainNature, behind the Features
+// row `realForests` (systems/features.js) and nowhere else.
+//
+// DFU rolls every grass tile against one flat chance and picks one of
+// the archive's 31 records at random, so a Tree is ~a third of a field
+// spread evenly over the whole map, each at its tile's corner - the grid
+// the thread describes. Here:
+//   - ONE FIELD FOR THE WHOLE BAY. forestCover is a pure function of the
+//     WORLD tile (the map pixel's 128 tiles plus the tile, north up as
+//     pixelTranslation stands them), so a forest runs on across a map
+//     pixel's edge, and every client - and the terrain worker - stands
+//     the same one. Three octaves of the terrain's own Perlin noise
+//     (world/perlin.js), each turned by an exact rational rotation (no
+//     sin or cos, whose last bit differs between engines) over a slow
+//     warp, so the edges wander instead of running along an axis.
+//   - FORESTS AND PLAINS. Inside a forest nearly every grass tile stands
+//     a Tree (the archive's World of Daggerfall Tree records) with some
+//     undergrowth; outside, the plains keep a light scatter of bushes,
+//     flowers and rocks and the odd lone tree. Dirt takes less, stone
+//     least. Deserts (DFU's Desert base type - the Desert and the
+//     Subtropical climates) keep DFU's scatter whole.
+//   - NO GRID. Each flat stands somewhere inside its own tile, never on
+//     its corner, on the ground there (groundAt) - inside its tile, so
+//     never on the road tile beside it.
+//   - PLACES IN THE WOODS. Around a dungeon, a ruin, a shrine or a World
+//     of Daggerfall site the woods close in (a clearing their clearance
+//     keeps, the rect widened by NATURE_CLEARANCE as DFU's own); around a
+//     town, a farm or a tavern they draw back into fields. The pull fades
+//     out toward the pixel's edges, so it never cuts a forest off at one.
+//     The location's rect is tested whole here, as natureStandsAt does -
+//     NT2's quirk (trees across an eight-block town) is DFU's scatter's.
+//   - A forest pixel stands about as many flats as DFU's did (fewer in
+//     the lowlands' plains, more Trees): the cost moves into the woods.
+// ═══════════════════════════════════════════════════════════════════
+
+/** FOREST1's numbers, in one place. Tiles are DFU's (6.4 m). */
+export const FOREST = Object.freeze({
+  /** forestCover's octaves: wavelength (tiles), weight, the rotation's (cos, sin) - 3-4-5, 7-24-25 and 5-12-13
+   *  triangles, exact - and an offset into the noise. */
+  octaves: Object.freeze([
+    Object.freeze({ wave: 192, weight: 0.58, c: 0.8, s: 0.6, off: 17.3 }),
+    Object.freeze({ wave: 72, weight: 0.27, c: 0.28, s: 0.96, off: 91.7 }),
+    Object.freeze({ wave: 26, weight: 0.15, c: 5 / 13, s: 12 / 13, off: 53.1 }),
+  ]),
+  /** the warp: how far (tiles) and how slowly (wavelength, tiles) the field's input wanders */
+  warp: 48, warpWave: 140,
+  /** where the field turns from plain to forest - about 45% of the land is forest */
+  edge: Object.freeze([0.495, 0.525]),
+  /** a grass tile's chances: a Tree and undergrowth inside a forest; a Tree and ground cover on a plain */
+  forestTree: 0.7, undergrowth: 0.15, plainTree: 0.02, plainCover: 0.1,
+  /** the ground's share of those chances, by DFU's tile record (1 dirt, 2 grass, 3 stone) */
+  ground: Object.freeze({ 1: 0.6, 2: 1, 3: 0.15 }),
+  /** where in its tile a flat may stand (a fraction of the tile, each way) */
+  inset: Object.freeze([0.1, 0.9]),
+  /** the woods about a place: full inside `near` tiles of its rect, none past `far`; a town's fields the same way */
+  hide: Object.freeze({ near: 10, far: 30, pull: 1 }),
+  clear: Object.freeze({ near: 6, far: 26, pull: 1 }),
+  /** the pull fades out over this many tiles before the pixel's edge */
+  edgeFade: 12,
+});
+
+const smoothstep = (a, b, v) => {
+  const t = Math.min(1, Math.max(0, (v - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+
+/**
+ * THE FOREST FIELD at a world tile: ~0.4..0.6, forest where it is high. `tx` east, `tz` north, in tiles - a map
+ * pixel's tile (x, y) is (mapPixelX * 128 + x, -mapPixelY * 128 + y).
+ * @param {number} tx @param {number} tz
+ */
+export function forestCover(tx, tz) {
+  const w = FOREST.warpWave, k = 2 * FOREST.warp;
+  const wx = tx + (perlinNoise(tx / w + 211.3, tz / w + 7.9) - 0.5) * k;
+  const wz = tz + (perlinNoise(tx / w + 37.1, tz / w + 151.7) - 0.5) * k;
+  let n = 0;
+  for (const o of FOREST.octaves) n += perlinNoise((wx * o.c - wz * o.s) / o.wave + o.off, (wx * o.s + wz * o.c) / o.wave + o.off) * o.weight;
+  return n;
+}
+
+/** How much forest a world tile is: 0 a plain, 1 the woods, between them its edge. */
+export const forestAt = (tx, tz) => smoothstep(FOREST.edge[0], FOREST.edge[1], forestCover(tx, tz));
+
+/** The places' pull on a pixel tile (+ the woods close in, - they draw back), faded toward the pixel's edges. */
+export function placesPull(pois, x, y) {
+  if (!pois?.length) return 0;
+  const tDim = WORLD_MAP_TILE_DIM;
+  const fade = smoothstep(0, FOREST.edgeFade, Math.min(x, y, tDim - 1 - x, tDim - 1 - y));
+  if (fade <= 0) return 0;
+  let pull = 0;
+  for (const p of pois) {
+    const dx = Math.max(p.xMin - x, 0, x - (p.xMax - 1)), dy = Math.max(p.yMin - y, 0, y - (p.yMax - 1));
+    const ring = p.hide ? FOREST.hide : FOREST.clear;
+    const k = (1 - smoothstep(ring.near, ring.far, Math.hypot(dx, dy))) * ring.pull;
+    pull += p.hide ? k : -k;
+  }
+  return pull * fade;
+}
+
+const coverRecords = new Map();
+/** An archive's records that are not Trees (DFU's 1..31): the plains' and the undergrowth's. */
+function coverOf(archive) {
+  let out = coverRecords.get(archive);
+  if (!out) {
+    out = Object.freeze(Array.from({ length: 31 }, (_, i) => i + 1).filter((r) => !isTreeRecord(archive, r)));
+    coverRecords.set(archive, out);
+  }
+  return out;
+}
+
+/** FOREST1's layoutNature: the same answer's shape, DFU's tests on the tile, the forests' chances and places. */
+function layoutForests(heightmapData, tilemapData, opts) {
+  const hDim = HEIGHTMAP_DIMENSION;
+  const tDim = WORLD_MAP_TILE_DIM;
+  const yScale = MAX_TERRAIN_HEIGHT * STREAMING_TERRAIN_SCALE;   // layoutNature's terrainScale (TERRAIN-SCALE1)
+  const cell = TERRAIN_SIZE / (hDim - 1);
+  const at = (x, y) => heightmapData[x * hDim + y] * yScale;
+  const scale = TERRAIN_SIZE / tDim;
+  const trees = TREE_RECORDS[opts.forests.archive];
+  const cover = coverOf(opts.forests.archive);
+  const pois = opts.forests.pois ?? [];
+  // the clearings: the location's rect and every place's, widened by DFU's clearance
+  const clear = [opts.locationRect, ...pois].filter((r) => r && r.xMax > r.xMin && r.yMax > r.yMin).map((r) => ({
+    xMin: r.xMin - NATURE_CLEARANCE, xMax: r.xMax + NATURE_CLEARANCE, yMin: r.yMin - NATURE_CLEARANCE, yMax: r.yMax + NATURE_CLEARANCE,
+  }));
+  const seed = makeTerrainKey(opts.mapPixelX, opts.mapPixelY) >>> 0;
+  const rng = new UMRandom(seed === 0 ? 0x6e624eb7 : seed);
+  const ox = opts.mapPixelX * tDim, oz = -opts.mapPixelY * tDim;
+  const [in0, in1] = FOREST.inset;
+
+  const flats = [];
+  for (let y = 0; y < tDim; y++) {
+    for (let x = 0; x < tDim; x++) {
+      const ground = FOREST.ground[tilemapData[y * tDim + x] & 0x3f];
+      if (!ground) continue;
+      if (clear.some((r) => x >= r.xMin && x < r.xMax && y >= r.yMin && y < r.yMax)) continue;
+      const hl = at(Math.max(0, x - 1), y), hr = at(Math.min(hDim - 1, x + 1), y);
+      const hd = at(x, Math.max(0, y - 1)), hu = at(x, Math.min(hDim - 1, y + 1));
+      const steepness = Math.atan(Math.hypot((hr - hl) / (2 * cell), (hu - hd) / (2 * cell))) * (180 / Math.PI);
+      if (steepness > MAX_STEEPNESS) continue;
+      const hx = Math.min(hDim - 1, Math.max(0, Math.trunc(hDim * (x / tDim))));
+      const hy = Math.min(hDim - 1, Math.max(0, Math.trunc(hDim * (y / tDim))));
+      if (Math.fround(heightmapData[hy + hx * hDim] * MAX_TERRAIN_HEIGHT) < SCALED_BEACH_ELEVATION) continue;
+
+      const wood = Math.min(1, Math.max(0, forestAt(ox + x, oz + y) + placesPull(pois, x, y)));
+      const tree = (FOREST.plainTree + (FOREST.forestTree - FOREST.plainTree) * wood) * ground;
+      const under = (FOREST.plainCover + (FOREST.undergrowth - FOREST.plainCover) * wood) * ground;
+      const roll = rng.nextFloat();
+      if (roll >= tree + under) continue;
+      const pool = roll < tree ? trees : cover;
+      const record = pool[rng.nextIntRange(0, pool.length)];
+      const mx = (x + rng.nextFloatRange(in0, in1)) * scale, mz = (y + rng.nextFloatRange(in0, in1)) * scale;
+      flats.push({ record, x: mx, y: groundAt(heightmapData, mx, mz) - steepness / SLOPE_SINK_RATIO, z: mz });
     }
   }
   return flats;

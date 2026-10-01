@@ -187,6 +187,7 @@ import { createGatherHost } from './gatherHost.js';   // PROF1/PROF2: the gather
 import { herbKind } from './herbHost.js';   // PROF1: Herbalism's patches, a kind in it
 import { mineKind } from './mineHost.js'; import { nodeCompassPoints } from '../ui/nodeMarks.js'; import { createNodeGlowPass } from '../render/nodeGlow.js';   // PROF2: Mining's veins and Quarrying's boulders, a kind in it; NODE-MARKS: every profession's nodes on the compass in its colour, and lit where they stand
 import { treeKind, isTreeRecord } from './treeHost.js';   // PROF4: Logging's trees - the forest's own - a kind in it
+import { realForestsOn, FOREST_HIDDEN_LOCATION_TYPES } from './shared.js';   // FOREST1: the Real forests switch, and the places the woods hide
 import { huntKind, createBodyStamps, bodiesOf, trackerMarks } from './huntHost.js';   // PROF7: Hunting's bodies - a kind in it, the kills that stamp them, a Tracker's marks
 import { fishKind } from './fishHost.js';   // PROF8: Fishing's casts and schools - a kind in it
 import { utcDayOfMs } from '../net/nodeLaw.js';   // PROF8: a haul's UTC day
@@ -984,6 +985,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // loads the room's list instead (worldOfDaggerfall.js says why). A
   // failure here costs the world its camps, never the stream.
   const wod = wodOn() ? openWodWorld({ online: params.has('online') }) : null;
+  // FOREST1: REAL FORESTS (world/terrainNature.js layoutForests) - read
+  // once, as the world mounts: every pixel of a world stands one forest,
+  // and a flip of the row reaches the next world.
+  const forests = realForestsOn();
   const wodOpened = wod
     ? wod.open().then(() => true, (e) => { console.warn(`[wod] World of Daggerfall did not open: ${e?.message ?? e}`); return false; })
     : Promise.resolve(false);
@@ -3239,6 +3244,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     const { samples, tilemap, positions, normals, tilemapBytes, avg, nature, withRoads, paths, wodAverages } = await terrainGen.generate({
       px, py, stride, tilemap: seedTilemap, locationRect, hasLocation: !!dfLocation, climateType: climateBase,
       wod: wodPicks ? { picks: wodPicks.map((p) => ({ flatten: p.flatten, rect: p.rect })) } : null,   // WOD2: the smoothing arms run in the kernel
+      // FOREST1: the woods' archive (the climate's summer one, which names its Trees) and whether this pixel's place is one they hide
+      forests: forests ? { archive: climate.natureArchive, hidden: FOREST_HIDDEN_LOCATION_TYPES.has(dfLocation?.mapTableData?.locationType) } : null,
     });
     // DW-B: HandlePromote's synchronous arm - a pixel beside the player's is
     // promoted now, on the Deep Waters worker while this build lays out, and

@@ -34,20 +34,10 @@ import { materialLabel } from '../systems/profItems.js';
 import { liveStat } from '../systems/statMods.js';
 import { getPref } from '../systems/uiPrefs.js';
 import { TERRAIN_SIZE } from '../world/terrainSampler.js';
-import { insideRocks } from '../world/terrainNature.js';   // NODE-CLEAR: the rock check's one home
+import { insideRocks, TREE_RECORDS, isTreeRecord } from '../world/terrainNature.js';   // NODE-CLEAR: the rock check's one home; FOREST1: and the Tree records'
 
-/** World of Daggerfall's Tree records, by the climate's summer nature archive (LocationHelper.cs billboards). */
-export const TREE_RECORDS = Object.freeze({
-  500: Object.freeze([12, 13, 14, 15, 16, 18, 30]),
-  501: Object.freeze([11, 12, 13, 16, 30]),
-  502: Object.freeze([12, 13, 15, 16, 17, 18, 30]),
-  503: Object.freeze([5, 11, 12, 13, 28, 30]),
-  504: Object.freeze([12, 13, 14, 15, 16, 17, 18, 25, 30]),
-  506: Object.freeze([5, 11, 12, 13, 14, 15, 16, 24, 25, 30]),
-  508: Object.freeze([13, 15, 16, 18, 24, 25, 30]),
-  510: Object.freeze([5, 11, 12, 13, 15, 16, 24, 25, 30]),
-});
-export const isTreeRecord = (baseArchive, record) => !!TREE_RECORDS[baseArchive]?.includes(record);
+/** World of Daggerfall's Tree records (FOREST1: their home is world/terrainNature.js, where the forests read them). */
+export { TREE_RECORDS, isTreeRecord };
 /** The stump a felled tree leaves: the archive's Tree Trunk (record 19) where the table names one; the logs at its foot
  *  the archive's Logs (record 31) where it has them. */
 export const STUMP_RECORD = 19;

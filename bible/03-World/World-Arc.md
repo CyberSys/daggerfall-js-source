@@ -87,6 +87,15 @@ world-framed per (natureArchive, record). Integration pins: city pixel
 (207,213) 1237 flats (rect-suppressed), wilderness (206,213) 5331 -
 44013 across the 3x3. Pins in test/terrain.test.js.
 
+REAL FORESTS (FOREST1, 2026-10-01) is the port's departure from that
+scatter, behind the enhanced Features row `realForests` (on by default,
+forced on online): one world-continuous forest field, woods and plains,
+each flat inside its own tile, dungeons and World of Daggerfall sites in
+the woods and towns in fields. Off, on a desert, or with an archive that
+has no Tree table, the scatter above stands byte for byte. The rules and
+the numbers are the Port-Ledger A row (REAL FORESTS); pins in
+test/forest1.test.js.
+
 ## Milestone 7 - locations on terrain (SHIPPED)
 
 `src/formats/umRandom.js` is a 1:1 translation of Unity.Mathematics

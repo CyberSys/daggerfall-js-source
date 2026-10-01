@@ -49,12 +49,16 @@ import { applyPicks } from './wodLocationLoader.js';   // WOD2: World of Daggerf
  * @param {?{picks:Array<{flatten:boolean, rect:object}>}} [job.wod] -
  *   WOD2: the World of Daggerfall instances the main thread's
  *   pickLocations placed on this pixel, in order; null with the mod off.
+ * @param {?{archive:number, hidden:boolean}} [job.forests] - FOREST1: the
+ *   Real forests switch (null off, DFU's scatter): the climate's summer
+ *   nature archive, and whether the pixel's location is a place the woods
+ *   hide (a dungeon, a shrine) rather than one they draw back from (a town).
  * @returns {{samples: Float32Array, tilemap: Uint8Array,
  *   positions: Float32Array, normals: Float32Array,
  *   tilemapBytes: Uint8Array, avg: number, paths: ?Uint8Array,
  *   nature: Array<{record:number,x:number,y:number,z:number}>}}
  */
-export function generatePixelTerrain({ woods, px, py, stride = 1, tilemap, locationRect = null, hasLocation = false, climateType, roads = null, wod = null }) {
+export function generatePixelTerrain({ woods, px, py, stride = 1, tilemap, locationRect = null, hasLocation = false, climateType, roads = null, wod = null, forests = null }) {
   const samples = generateSamples(woods, px, py);
   let avg = 0;
   if (hasLocation) {
@@ -109,6 +113,16 @@ export function generatePixelTerrain({ woods, px, py, stride = 1, tilemap, locat
     // and the nature layout reads that field - so the trees keep their
     // clearance off a camp exactly as they keep it off a town.
     locationRect: wodResult?.locationRect ?? locationRect,
+    // FOREST1: the places the woods close round or draw back from - the
+    // location (hidden or not, as the caller says) and every World of
+    // Daggerfall site, each its own rect (the loader's rect is only the last).
+    forests: forests ? {
+      archive: forests.archive,
+      pois: [
+        ...(hasLocation && locationRect ? [{ ...locationRect, hide: !!forests.hidden }] : []),
+        ...(wod?.picks ?? []).map(({ rect: r }) => ({ xMin: r.x, xMax: r.x + r.width, yMin: r.y, yMax: r.y + r.height, hide: true })),
+      ],
+    } : null,
   });
   return { samples, tilemap, positions: grid.positions, normals: grid.normals, tilemapBytes, avg, nature,
     paths,   // GRASS-PATH1: null when no network was present, as `withRoads` says
