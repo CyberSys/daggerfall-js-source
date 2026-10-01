@@ -1,26 +1,28 @@
-# FIELD BUGS 2026-09-30b - the fishing death, the tools' silent Use, the werewolf's bank, the falling foe, the unmarked residence, the Overworld's surf
+# FIELD BUGS 2026-09-30b - the fishing death, the tools that gathered nothing, the werewolf's bank, the falling foe, the unmarked residence, the Overworld's surf
 
 Five screenshots of the Discord's #support and #general, and one line of Mac's own beside them: *"Also you can get
 instakilled when fishing"*. The rule for a batch like it: every report root-caused on the real modules, the port's own
-faults fixed and pinned, and what is Daggerfall's own (or a mod's) fixed as a declared departure when a player named it
-a bug (Mac, of 29h's three: *"Dont worry abour DFU."*), with the call said plainly below for Mac to take back. Six
+faults fixed and pinned, and what was Daggerfall's own (or a mod's) fixed wherever it failed the player - Mac, on this
+batch's first answer, which had left the drowning collapse and the tools' Foraging use as the source's: *"I dont care
+about DFU. We're our own thing now."* So SWIM-SPENT and TOOL-USE, and nothing here is offered back. Six
 investigations ran first, each on the real modules with a reproduction; the fixes were built and pinned one to a tag.
 The letter is this batch's own: 30's page is PR #468's.
 
 | | Report | Reporter | What it was | Done |
 |---|---|---|---|---|
-| 1 | "you can get instakilled when fishing" | Mac | on a lake the net works only while the angler swims, and a swimmer holding still pays the swim's fatigue (8 or 33 a game minute); at 0 in the water DFU's collapse is death whatever the health, said after it - the day's forty hauls take about as long as a 6,400 bar lasts at Swimming 5, and nine seeded days in twenty died inside them | fixed (FISH-TIRED) |
-| 2 | "I've been chopping wood but it doesn't look like anything about the logging profession is changing"; "using my sickle to gather herbs in the wild, but I dont get any exp"; "I fish, or use the axe and I get no exp ... I just physically get lumber in the misc tab" ("Skinning is working though") | midijamz, Maevin, 名無しの人 | a tool used from the pack or the hotbar is Foraging's own gesture (FORAGE0 law 4) - the mod's yields into the pack, its quest, no profession - and nothing said so; the professions gather only at their nodes | fixed, a departure (TOOL-SAID) |
+| 1 | "you can get instakilled when fishing" | Mac | on a lake the net works only while the angler swims, and a swimmer holding still pays the swim's fatigue (8 or 33 a game minute); at 0 in the water DFU's collapse is death whatever the health, said after it - the day's forty hauls take about as long as a 6,400 bar lasts at Swimming 5, and nine seeded days in twenty died inside them | fixed (FISH-TIRED, SWIM-SPENT) |
+| 2 | "I've been chopping wood but it doesn't look like anything about the logging profession is changing"; "using my sickle to gather herbs in the wild, but I dont get any exp"; "I fish, or use the axe and I get no exp ... I just physically get lumber in the misc tab" ("Skinning is working though") | midijamz, Maevin, 名無しの人 | a tool used from the pack or the hotbar is Foraging's own gesture (FORAGE0 law 4) - the mod's yields into the pack, its quest, no profession - and nothing said so; the professions gather only at their nodes | fixed (TOOL-SAID, then TOOL-USE) |
 | 3 | "is it normal when u become a werewolf you loose the gold in your bank and u have to rejoin fighters guild~?" | Guppy | the curse takes nothing (walked on the real tick, a save and a load with it); online every bank is "The Bank of the Empire" but a deposit lives in its region's account, and the teller in another region read "Account balance 0" | fixed (BANK-REGION); the rest said |
 | 4 | "constant fps drop in overworld? Resets after saving\loading, heard its from an enemy endlessly falling through the ground somewhere" | ReynBlackwinter | a World of Daggerfall camp's foe (never culled) re-minted by a load over a pixel not built falls for ever, and every fixed step of the fall costs more collider work - 2,560 capsule resolves a frame from 201.6 s, one foe | fixed (FALL-HOLD) |
-| 5 | "a couple quests that take place a <someone>'s residence. People aren't marking it on the map ... every door looks like just a house I can buy" | midijamz | three: the Enhanced town sheet never rang a residence an NPC had marked (it is override-named at its discovery); DFU's 35% roll marks 26 questions in 100; a nameless house drew no plaque, so its HOME2 verbs never showed and the first click at any house asked "Buy it?" | fixed (RES-RING, HOME-PLAQUE); a departure (RES-MARK) |
+| 5 | "a couple quests that take place a <someone>'s residence. People aren't marking it on the map ... every door looks like just a house I can buy" | midijamz | three: the Enhanced town sheet never rang a residence an NPC had marked (it is override-named at its discovery); DFU's 35% roll marks 26 questions in 100; a nameless house drew no plaque, so its HOME2 verbs never showed and the first click at any house asked "Buy it?" | fixed (RES-RING, RES-MARK, HOME-PLAQUE) |
 | 6 | a screenshot: the Overworld over a coast, the sea laid over with light-blue rectangles | (no words) | Come Sail Away's breaker strips, surf from a ground eye, seen whole from the travel view's 150-450 m | fixed (TV-SURF) |
 | 7 | "If i battle I'll die / And I was trying to sail to Privateers hold" ("I can't fix it without battling") | ItMustBeMonday | answered in the thread by Mac ("Okay I got you"); the words do not say what the fight is | asked |
 
-Pins: `test/fb0930b_{fishtired,toolsaid,bankregion,fallhold,questresidence,tvsurf}.test.js` (26), each file red on the
-code before (two guards green both sides: `bankregion`'s walk of the curse, `fallhold`'s interior floor). Mutants: `tools/mutants/fb0930b_*.json`, 52 records,
-52 dead; four older records re-aimed by content (`em34` EM4-14, `forage1` FORAGE1-18, `foecatchup`'s two step records),
-all dead.
+Pins: `test/fb0930b_{fishtired,swimspent,toolsaid,bankregion,fallhold,questresidence,tvsurf}.test.js` (31), each file
+red on the code before (guards green both sides: `bankregion`'s walk of the curse, `fallhold`'s interior floor,
+`toolsaid`'s lanes). Mutants: `tools/mutants/fb0930b_*.json`, 95 records, 95 dead; older records re-aimed by content
+(`em34` EM4-14, `forage1` FORAGE1-18, `foecatchup`'s two step records, `csa_close`'s CSA-J dungeon hook, and the four
+cite records of `survtiers`/`survtiers3` the cite shift moved), all dead.
 
 ## FISH-TIRED: no net in the water on the last quarter of the fatigue bar (1)
 
@@ -41,8 +43,8 @@ line is the one after it. Nothing warns: no fatigue line exists in the port, onl
 the eye on its meter for 5-85 s. A Lamia's fatigue rider (damage x 128 a hit; two in twenty of the underwater table)
 reaches the same death.
 
-**The fix** (`scenes/fishHost.js`): the collapse stays DFU's - a swimmer who runs out drowns anywhere. The net is the
-port's: no cast in the water under a quarter of the fatigue bar (`NET_TIRED_SHARE`), and an act there ends when the bar
+**The fix** (`scenes/fishHost.js`): the net keeps its angler off the collapse (the collapse itself is SWIM-SPENT's,
+below): no cast in the water under a quarter of the fatigue bar (`NET_TIRED_SHARE`), and an act there ends when the bar
 falls into it (the kind's frame cancels the act it started); the prompt and E say "too tired to fish in the water - get
 out and rest", with a quarter of the bar to swim out on (of 6,400, four minutes of treading water at the worst rate).
 The test is the collapse's own - Foraging's world's `swimming`, `isPlayerSwimming` - so a pier or a deck asks nothing.
@@ -54,7 +56,27 @@ purpose, and it misses the Lamia); a warning alone (a toast among the haul toast
 encumbrance check (75 kg at STR 50) casts while sinking - DFU and Deep Waters' own law, with its line ("You are
 carrying too much to stay afloat.") and some 30 s of breath; a trophy (1 in 200 hauls) can push a pack over it. For Mac.
 
-## TOOL-SAID: a profession tool's Use says it earns no XP, and where the profession is done (2)
+## SWIM-SPENT: a swimmer who runs out of fatigue drowns, not at once (1)
+
+Mac, on this batch's first answer - which fixed the net and left the collapse as DFU's: *"I dont care about DFU.
+We're our own thing now."*
+
+**Why.** DFU's PlayerEntity.OnExhausted `SetHealth(0)`s a swimmer whose fatigue runs out, whatever the health, and says
+so only after ("Fatigue overcomes you and sends you to a watery grave....") in a box that held the swimmer still. The
+port kept it 1:1 in the three hosts a swimmer can collapse in (`scenes/world.js`, `scenes/exterior.js`,
+`scenes/dungeonContext.js`). FISH-TIRED keeps the net's angler off the last quarter of the bar; the death itself stood
+for every swimmer, and for a Lamia's fatigue rider.
+
+**The fix** (`systems/rest.js` exhaustionOutcome, the three hosts): in the water a drain to nothing is `drown` - a
+tenth of the health pool (`EXHAUSTED_SWIM_SHARE`, never nothing), and "You are too exhausted to swim - get out of the
+water!" on the HUD, with no box. The ticker drains to nothing once a game minute while the swimmer stays in the water,
+so MEASURED on the real ticker: from full health a drain at 5, 10 ... 50 real seconds, dead at 50 - where it was dead at
+the first. At the shore the collapse is the rest hour it always was, and on dry feet foes about still kill. Come Sail
+Away hears no death of a swimmer still swimming (its OnPlayerDeath rides the collapse's two arms). The interior host
+passes no swimmer and is unchanged. `test/fb0930b_swimspent.test.js` (3), red on the code before; `rest`'s water case
+and `csa_close`'s CSA-J dungeon pin re-aimed (PIN MOVED), `fishtired`'s stand-in for world.js given the drown arm.
+
+## TOOL-SAID, then TOOL-USE: a profession tool is the profession's (2)
 
 **Reproduced first** (the real `installForaging`, `useItem`, `hotbarPress` -> `useQuickslot` and an open `profBook`,
 `?online=1`): Foraging is on online by default (MO1; `'foraging'` is in `ONLINE_PLAYERS_OWN_MODS`, never forced) and all
@@ -72,8 +94,8 @@ said "What you gather online is kept here" beside a pack filling with lumber. Sk
 Knife has no Use: a body is its only gesture. The same misreading is 30's CHOP-WAIT ("the woodcutting animation") and
 29h's report 2 (the pack's Pick-Axe beside a vein, For Mac 1).
 
-**The fix** (a declared departure, Port-Ledger A; `systems/foragingInstall.js`, `ui/profPages.js`, `scenes/world.js`
-`setForagingHost`): online, while the professions are the account's, a Use of the Wood-Axe, the Pick-Axe, the Sickle,
+**The first fix** (TOOL-SAID, `systems/foragingInstall.js`, `ui/profPages.js`, `scenes/world.js` `setForagingHost`),
+kept to laws 1 and 4: online, while the professions are the account's, a Use of the Wood-Axe, the Pick-Axe, the Sickle,
 the Basket or the Fishing-Net says after the mod's own words - in the same box, which the hotbar says too - that it earns
 no XP and where the profession is done, naming the node and the bound key ("No Logging XP from this. Logging is done at
 a tree in the wilderness: walk up to one until the prompt shows, then press E. Only some trees can be felled each
@@ -81,7 +103,22 @@ day."); a refused Use says it after the refusal ("You cannot mine in here!"). Wi
 is still offered and says the line alone (law 6's exception: the tools are the professions'). The mod's yields, lines
 and quests are kept (law 1); offline and a guest's lane are the mod's 1:1; the Spade stays Foraging's alone. The
 Professions page says how Herbalism, Mining and Logging gather (`GATHER_HOW`), and the empty Stores where their goods
-come from (`STORES_EMPTY_LINE`). `test/fb0930b_toolsaid.test.js` (8), red on the code before.
+come from (`STORES_EMPTY_LINE`).
+
+**The fix** (TOOL-USE - Mac, on TOOL-SAID: *"I dont care about DFU. We're our own thing now"*; laws 1 and 4 give way
+online): while the professions are the account's, the Wood-Axe, the Pick-Axe, the Sickle, the Basket and the
+Fishing-Net are the professions'. Their Use from the hotbar or a quick slot at a node of their own kind is E there
+(`scenes/gatherHost.js` `useTool`: each kind declares its `tools`, the target is the tool's kinds' alone under E's own
+cone and reach) - the Wood-Axe fells the tree, the Pick-Axe works the vein or the boulder (and a dungeon vein), the
+Sickle picks the patch's herbs and the Basket searches it for food (`herbHost.js` `patchPlan`'s `only`: a tool asks
+its own harvest whatever the choice key picked, and never starts the other's), the Fishing-Net casts; or the node's
+need is said at once. Anywhere else, and from the open pack (its window holds the world off), the Use gives none of
+Foraging's yields, quests or wear: it says where the profession is done ("Logging is done at a tree in the
+wilderness: walk up to one until the prompt shows, then press E (or use the Wood-Axe)."). Foraging's own refusal
+("You cannot mine in here!") is no longer said there. Offline and a guest's lane are the mod's 1:1; the Spade stays
+Foraging's alone. The Sickle's Use holds the steady hand itself (no E held: Escape or walking off ends it), and the
+net's Use is a tap - the shortest throw, E taking the tug. `test/fb0930b_toolsaid.test.js` (10), over the real
+`useItem`, `hotbarPress` and `createGatherHost` with its four kinds; red on the code before.
 
 **Found on the way, left open.** A tree node draws no picture of its own (`treeHost.js` `flatsOf: () => []`): 6 nodes
 among 1,664-4,376 tree flats a pixel (MEASURED on `layoutNature` over a grass Woodlands pixel), and E at a tree that is
@@ -156,7 +193,7 @@ Buy it?".
   `discovery.js`), and `stampResidenceQuestNames` stamped `questName` only on the other arm (ExteriorAutomap.cs's
   ladder, :676-682, which the classic plate keeps) - so the Enhanced sheet's ring and quest pen, which read
   `questName`, never drew a marked residence. EM4's ring pins set `questName` by hand on a record the game does not make.
-- RES-MARK (DFU's own, a departure): TalkManager's hint marks the map on a roll of 0.35 or under, outdoors
+- RES-MARK (DFU's own): TalkManager's hint marks the map on a roll of 0.35 or under, outdoors
   (:1707-1723); MEASURED over 20,000 seeded questions, a street commoner who knows a local building marks it 26 times in
   100, gives "north of here" 49 times and does not know 25 - and a residence has no sign on its door.
 - HOME-PLAQUE (the port's): a private house has no name (DFU's BuildingNames names none), a nameless door draws no
@@ -202,21 +239,20 @@ drawing: the waves' state (the currents, the helm's neighbours) is untouched. `t
 
 ## For Mac
 
-1. **TOOL-SAID keeps Foraging's yields online** (law 1, yours). The two other readings are still yours: (a) the
-   hotbar's Use does what E does where a node of the tool's own kind is in reach (29h For Mac 1's lean - it cannot work
-   from the open pack, whose window holds the target off); (b) online, with the professions open, the Use gives none of
-   the mod's yields - only the line (it would end the pack's unbounded faucet beside the bounded professions, and the
-   main door to FORAGE4's wait page).
-2. **The trees.** A tree node draws no picture of its own and stands 6 among 1,664-4,376 tree flats a pixel; E at a tree
-   that is no node says nothing, and the Logging notes say "look at a tree and press E". A node's own mark, or a line
-   at a tree that is none, is a design call.
-3. **The departures, to take back if you want them back:** TOOL-SAID (the Use's line), RES-MARK (a quest's own building
-   always marked by one who knows it).
+1. **The trees.** A tree node draws no picture of its own and stands 6 among 1,664-4,376 tree flats a pixel; E (or the
+   Wood-Axe) at a tree that is no node says nothing, and the Logging notes say "look at a tree and press E". A node's
+   own mark, or a line at a tree that is none, is a design call.
+2. **TOOL-USE's two feels.** The Sickle's Use holds the steady hand without E (letting go ends nothing; Escape, walking
+   off or a bruise does), and the Fishing-Net's Use throws the shortest cast (3 m) where a held E winds it farther - a
+   default wind is one line.
+3. **Offline.** Offline, the tools are still Foraging's 1:1 (there are no professions offline); "our own thing" may
+   reach there too.
 4. **A sinking angler at sea.** Between the afloat line (62.5 kg carried, whatever the STR) and the net's encumbrance
-   check (75 kg at STR 50) the net casts while its angler sinks - DFU's and Deep Waters' own law, with its line and some
-   30 s of breath; a trophy (1 in 200 hauls) can push a pack over it. A trophy that would sink its swimmer could go to
-   the Stores instead.
-5. **A quest house in a neighbouring town.** `questSiteHere` asks the quests of the town the player stands in while the
+   check (75 kg at STR 50) the net casts while its angler sinks, with its line and some 30 s of breath; a trophy (1 in
+   200 hauls) can push a pack over it. A trophy that would sink its swimmer could go to the Stores instead.
+5. **Exhaustion with foes about** on dry feet is still DFU's death, whatever the health - no report named it, but it is
+   the same shape SWIM-SPENT ended in the water.
+6. **A quest house in a neighbouring town.** `questSiteHere` asks the quests of the town the player stands in while the
    home offer uses the door's own town (`homeTownOf`), so a quest house across a town line could be offered for sale -
    read, not reproduced.
-6. **ItMustBeMonday (7)**: what the fight at sea was, if it was not what you answered in the thread.
+7. **ItMustBeMonday (7)**: what the fight at sea was, if it was not what you answered in the thread.
