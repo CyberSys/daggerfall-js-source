@@ -1070,10 +1070,10 @@ the scene the picture takes in:
   `foldRangeBoxes`, refolded at every upload, `:2808`).
 
 **Hosts.** Every Morrowind body in the port goes through `drawThird`. The
-local player's goes through `mwView.mwViewDrawBody` (`mwView.js:395`,
-`:339`), which four files call: `world.js:23064`, `exterior.js:5237`,
-`worldModes.js:8326` and `:8434` (the dungeon and the interior passes),
-and `dungeon.js:1100`. `dungeonContext.js`, the fourth motor host, builds
+local player's goes through `mwView.mwViewDrawBody` (`mwView.js:446`,
+`:462`), which four files call: `world.js:23582`, `exterior.js:5240`,
+`worldModes.js:8329` and `:8437` (the dungeon and the interior passes),
+and `dungeon.js:1102`. `dungeonContext.js`, the fourth motor host, builds
 the dungeon for those hosts and draws no body of its own. The other players'
 bodies go through `peerBodies.js:694` (`PeerBodies.draw`, and INVIS-LOOK's `drawVeiled`, by `_drawBodies`). The open world
 calls it at `world.js:23583`, and the modal passes reach it through
