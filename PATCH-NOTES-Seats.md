@@ -92,18 +92,27 @@ The first part of guild town control is in. It is open to the developers first, 
 - **The Free Lands.** No crown reaches Balfiera, Orsinium or the Wrothgarian Mountains. Instead, every guild's Watch there counts **a tenth more**.
 - **Conscription.** A new Edict, for a crown alone. While it rules, the kingdom's palace seats held by other guilds pay the crown **2%** of their Tithe for that week (a March's seats **1%** to each claiming crown that proclaims it). It's paid at the Turning, after the guild's own upkeep, from whatever its treasury holds; each seat that pays loses **5 Standing**, and both Chronicles say so. A guild's Tithe for the week is shared evenly across all its seats, and a guild that took no Tithe pays nothing. The Free Lands never pay.
 
+## The Royal Tourney (online)
+- **A crown's Edict.** A crown's guild can proclaim a **Royal Tourney** for the coming week. It costs **5,000 Drakes**, set aside as the week's prize.
+- **The ring.** All that week a duel ring stands at the castle's square in the crown's city. Open the town's Notice Board, go to its Seat tab and choose **Enter the Royal Tourney** (or **Watch**).
+- **Bouts.** To challenge a contender, open their card and press **Challenge**. To accept a challenge made to you, press **Challenge** on the challenger's card within 30 seconds. One bout fights at a time: both fighters start whole on their marks, and after a three-second countdown only the two of them can strike each other.
+  - The server referees every blow, and you can't leave the ring during a bout.
+  - A fall ends the bout. Five minutes with no fall is a draw, and a fighter who leaves the room loses.
+- **The ladder.** Each bout won counts on the ladder, which is shown on the Seat tab and on screen. The same two players count at most **three bouts a day** against each other.
+- **The champion.** When the week ends, the ladder's leader wins the **5,000 Drakes** and the title **"Champion of <Kingdom>, Season N"** for good. Ties go to fewer losses, then to whoever reached their wins first. If no bout was won, the prize goes back to the crown.
+
 ## Behind the scenes
 - **The registry.** Each client works out the seats from its own game files. When you stand in a seat town, your game reports it to the server once a day. The server trusts a seat once three players whose accounts are at least a week old agree on it exactly.
 - **Fair sieges.** In a siege the server keeps every fighter's health and checks every blow, spell and step: a blow lands only if the weapon you carry can reach and deal it, nobody heals or strikes faster than the game allows, and nobody runs faster than the fastest legal runner. A siege's health is its own (300, more with your Renown) and never touches your character's health, items or gold. A siege room lets in only the fighters each side signed, and spectators.
-- Fortifications, deliveries to a seat's stockpile and the Siege Camp come in a later update. The Royal Tourney comes with the crowns' next update.
+- Fortifications, deliveries to a seat's stockpile and the Siege Camp come in a later update.
 
 ---
 
 ### For the team
-- Apply migrations **`0047_town_seats.sql`**, **`0048_seat_influence.sql`**, **`0049_seat_turning.sql`**, **`0050_seat_holding.sql`**, **`0051_seat_battles.sql`**, **`0052_seat_siege_results.sql`** and **`0053_crown_edicts.sql`** (with the guild halls' 0045 and 0046, after main's 0044) to production D1 and deploy the account service (**`acct49`**).
+- Apply migrations **`0047_town_seats.sql`**, **`0048_seat_influence.sql`**, **`0049_seat_turning.sql`**, **`0050_seat_holding.sql`**, **`0051_seat_battles.sql`**, **`0052_seat_siege_results.sql`**, **`0053_crown_edicts.sql`** and **`0054_royal_tourney.sql`** (with the guild halls' 0045 and 0046, after main's 0044) to production D1 and deploy the account service (**`acct50`**).
 - **The siege blackout.** The relay's deploy now waits while a siege is live or starts within 30 minutes (it asks the account service's public `/v1/seats/sieges/live`). Dispatch it with **force** to deploy at once - a forced deploy during a siege voids it. The account deploy now waits up to five and a half hours for the relay.
 - **The economy model**: `node tools/seatEconomy.mjs` re-runs the guild-week table from the live law files (`--runs`, `--seed`, `--json`).
-- **Deploy the relay (`world141`).** It sends the Watch's ticks (world138), carries the seats' titles (world139), referees a siege's room (world140) and fights its battle by the service's pass (world141). Deploy it before the account service: an older relay refuses a token with a seat title in it.
+- **Deploy the relay (`world142`).** It sends the Watch's ticks (world138), carries the seats' titles (world139), referees a siege's room (world140), fights its battle by the service's pass (world141) and keeps a Royal Tourney's room (world142). Deploy it before the account service: an older relay refuses a token with a seat title in it.
 - Seats are behind **`SEATS_OPEN = "dev"`** in `server-account/wrangler.toml`. Change it to `"on"` to open them to everyone.
 - **SEAT-COUNT**: run `ARENA2_PATH=/path/to/arena2 node tools/seatCount.mjs` to list every seat and the totals.
 - A developer can strike a false seat from the registry in chat: `/seat strike <map id>`.

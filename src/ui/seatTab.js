@@ -19,7 +19,7 @@ import {
   seatInfoLine, seatWeekLine, seatStandingLine, seatNoStandingsLine, seatMineLines, seatTributeLine, seatMay,
   SEAT_PLEDGE_WORDS, SEAT_PLEDGE_REGIONS_MAX, TRIBUTE_MARKS_PER_INFLUENCE,
   seatHolderLine, seatBattleLine, seatClaimLine, chronicleLine, SEAT_RELINQUISH_WORDS,
-  seatRuleLine, seatHoldingLines, edictLine, edictMayFollow, edictForTier, EDICTS, TITHE_CAP, SEAT_LEVER_RANKS, BOUNTY_MARKS,
+  seatRuleLine, seatHoldingLines, edictLine, edictMayFollow, edictForTier, royalTourneyLines, EDICTS, TITHE_CAP, SEAT_LEVER_RANKS, BOUNTY_MARKS,
   battleAnnouncement, sideLine, siegeWindowText, SIEGE_WINDOW_DAYS, SIEGE_WINDOW_HOURS, SIEGE_WINDOW_DEFAULT, SELLSWORD_FEE_MAX, passOpens, passWindowEnds,
 } from '../net/townSeatLaw.js';
 import { GUILD_RANK_MASTER } from '../net/guildLaw.js';
@@ -54,7 +54,7 @@ const SHUT = new Set(['seats-closed', 'no-session', 'auth', 'seat-unconfirmed'])
  * @param {{ seat: { key: number, name: string, region: number, tier: string },
  *   book: ReturnType<typeof import('../net/townSeatBook.js').createTownSeatBook>,
  *   nameOf?: (key: number) => (string|null), banner?: (heraldry: any, width: number) => (Node|null),
- *   enterBattle?: (seat: any, fight: any) => boolean }} host   SEAT2a part four: the world's door into the battle
+ *   enterBattle?: (seat: any, fight: any) => boolean, enterRoyal?: (seat: any, royal: any, watch: boolean) => boolean }} host   SEAT2a part four: the world's door into the battle   CROWN1 part two: and into a Royal Tourney
  * @param {{ busy: () => boolean, run: (start: () => Promise<any>) => any, rerender: () => void, nowS: () => number,
  *   alive?: () => boolean }} ui
  */
@@ -203,6 +203,26 @@ export function createSeatTab(host, ui) {
     return out;
   }
 
+  /** CROWN1 part two: THE ROYAL TOURNEY ruling at this crown this week (SEAT0 7.6) - what it is and gives, the ladder, and
+   *  the doors into it (net/royalSession.js, through the world's hook): to contend, or to watch. */
+  function royalNode(r) {
+    const out = el('div', 'notice-seat-royal');
+    const lines = royalTourneyLines(r);
+    out.append(el('p', 'notice-seat-battle', lines[0]));
+    for (const line of lines.slice(1)) out.append(el('p', 'notice-seat-mine', line));
+    if (host.enterRoyal) {
+      const busy = ui.busy();
+      /** @type {Array<[string, string, boolean, string]>} */
+      const doors = [['notice-seat-royal-enter', 'Enter the Royal Tourney', false, 'To the ring.'], ['notice-seat-royal-watch', 'Watch the Royal Tourney', true, 'You take your place to watch.']];
+      for (const [cls, words, watch, said] of doors) {
+        const b = button(cls, words, () => ui.run(async () => (host.enterRoyal(seat, r, watch) ? { ok: true, text: said } : { ok: false, text: '' })));
+        b.disabled = busy;
+        out.append(b);
+      }
+    }
+    return out;
+  }
+
   /** SEAT2a: THE WEEK'S BATTLE (SEAT0 6.3-6.4) - its announcement, each side's roster, the reader's place on it (signed,
    *  or a button to sign while the rosters are open), and a side's Guildmaster's Sellswords. */
   function fightNode(f) {
@@ -293,6 +313,7 @@ export function createSeatTab(host, ui) {
         const battle = seatBattleLine(data.battle ?? null);
         if (battle) body.append(el('p', 'notice-seat-battle', battle));
       }
+      if (data.royal) body.append(royalNode(data.royal));   // CROWN1 part two: the Royal Tourney ruling here
       // SEAT2a: the holder's window, its Officers' and guildmaster's to set
       if (holder && data.mine?.guild === holder.guild.id && SEAT_LEVER_RANKS.includes(data.mine?.rank)) body.append(windowNode(data.fight?.window ?? null));
       body.append(el('p', 'notice-seat-week', seatWeekLine(data, ui.nowS())));

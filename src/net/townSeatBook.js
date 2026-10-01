@@ -240,6 +240,25 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
       const d = r.data ?? {};
       return { ok: true, result: d.result, winner: d.winner ?? null, honours: d.honours ?? null };
     },
+    /** CROWN1 part two: A ROYAL TOURNEY'S PASS for `seat` - a contender's with the ring this game derived (`field`), or a
+     *  spectator's (`watch`). `{ ok, pass, side, week, startsAt, endsAt }` or `{ ok: false, error, text }`. */
+    async royalPass(seat, field, watch = false) {
+      let r;
+      try { r = await door.royalPass(seat.key, field, watch); } catch { r = { ok: false, error: 'offline' }; }
+      if (!r?.ok) return { ok: false, error: r?.error ?? 'offline', text: accountRefusalText(r?.error) };
+      const d = r.data ?? {};
+      return { ok: true, pass: d.pass ?? null, side: d.side, week: d.week, startsAt: d.startsAt, endsAt: d.endsAt };
+    },
+    /** CROWN1 part two: a bout's `t1` receipt carried to the service - `{ ok, counted, wins }` or `{ ok: false, error, text }`;
+     *  the board's standings read afresh (its ladder moved). */
+    async claimRoyal(receipt) {
+      let r;
+      try { r = await door.claimRoyal(receipt); } catch { r = { ok: false, error: 'offline' }; }
+      standingsAt.clear();
+      if (!r?.ok) return { ok: false, error: r?.error ?? 'offline', ...(r?.why ? { why: r.why } : {}), text: accountRefusalText(r?.error) };
+      const d = r.data ?? {};
+      return { ok: true, counted: !!d.counted, wins: Number(d.wins ?? 0) };
+    },
     /** A World of Daggerfall camp cleared in `region` - the Bounty's twenty Drakes where one rules there. Quiet: `{ paid }`. */
     async bounty(site, region) {
       if (open !== true) return { paid: 0 };

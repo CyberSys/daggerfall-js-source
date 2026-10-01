@@ -1102,3 +1102,11 @@ export function royalStandings(bouts) {
   return [...by.values()].filter((r) => r.wins > 0 || r.losses > 0)
     .sort((x, y) => y.wins - x.wins || x.losses - y.losses || x.last - y.last || (x.account < y.account ? -1 : 1));
 }
+/** THE SEAT TAB'S ROYAL TOURNEY (7.6, 7.9): what is proclaimed and won, then the ladder - each row `1. Arden - 4 won, 1
+ *  lost` - or that no bout is won yet. `r` the standings' `royal` (`{ prize, ladder }`), or null for none. */
+export function royalTourneyLines(r) {
+  if (!r) return [];
+  const out = [`A Royal Tourney is proclaimed: a duel ladder all week at the castle's square, every blow refereed. The week's champion takes ${Number(r.prize ?? 0).toLocaleString('en-US')} Drakes and the title for good.`];
+  const rows = (r.ladder ?? []).map((x, i) => `${i + 1}. ${x.name || 'Someone'} - ${x.wins} won, ${x.losses} lost`);
+  return [...out, ...(rows.length ? rows : ['No bout has been won yet.'])];
+}

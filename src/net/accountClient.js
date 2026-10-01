@@ -1120,6 +1120,9 @@ export function accountSeats({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
     // SEAT2a part three: a battle's pass (the field this game derived from the town); a fighter's receipt claimed
     pass: (key, field) => post('/v1/seats/siege/pass', { key, ...(field ? { field } : {}) }),
     claimSiege: (receipt, character) => post('/v1/seats/siege/claim', { receipt, character }),
+    // CROWN1 part two: a Royal Tourney's pass (a contender's ring, or a spectator's); a bout's receipt claimed
+    royalPass: (key, field, watch) => post('/v1/seats/royal/pass', { key, ...(field ? { field } : {}), ...(watch ? { watch: true } : {}) }),
+    claimRoyal: (receipt) => post('/v1/seats/royal/claim', { receipt }),
   };
 }
 

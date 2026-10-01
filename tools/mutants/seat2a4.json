@@ -398,8 +398,8 @@
  {
   "name": "SEAT2a4-claims-unsigned",
   "file": "src/net/siegeClaims.js",
-  "old": "  const live = (r, nowS) => { const c = readSiegeReceipt(r); return !!c && c.signed && c.e > nowS; };",
-  "new": "  const live = (r, nowS) => { const c = readSiegeReceipt(r); return !!c && c.e > nowS; };",
+  "old": "  const live = (r, nowS) => { const c = read(r); return !!c && c.signed && c.e > nowS; };",
+  "new": "  const live = (r, nowS) => { const c = read(r); return !!c && c.e > nowS; };",
   "tests": [
    "test/seat2a_siege_play.test.js"
   ]
@@ -407,8 +407,8 @@
  {
   "name": "SEAT2a4-claims-expired",
   "file": "src/net/siegeClaims.js",
-  "old": "  const live = (r, nowS) => { const c = readSiegeReceipt(r); return !!c && c.signed && c.e > nowS; };",
-  "new": "  const live = (r, nowS) => { const c = readSiegeReceipt(r); return !!c && c.signed; };",
+  "old": "  const live = (r, nowS) => { const c = read(r); return !!c && c.signed && c.e > nowS; };",
+  "new": "  const live = (r, nowS) => { const c = read(r); return !!c && c.signed; };",
   "tests": [
    "test/seat2a_siege_play.test.js"
   ]
@@ -425,8 +425,8 @@
  {
   "name": "SEAT2a4-claims-bound",
   "file": "src/net/siegeClaims.js",
-  "old": "      if (kept.length > SIEGE_CLAIMS_MAX) kept = kept.slice(-SIEGE_CLAIMS_MAX);",
-  "new": "      if (false) kept = kept.slice(-SIEGE_CLAIMS_MAX);",
+  "old": "      if (kept.length > max) kept = kept.slice(-max);",
+  "new": "      if (false) kept = kept.slice(-max);",
   "tests": [
    "test/seat2a_siege_play.test.js"
   ]
@@ -443,7 +443,7 @@
  {
   "name": "SEAT2a4-claims-me",
   "file": "src/net/siegeClaims.js",
-  "old": "          if (readSiegeReceipt(r)?.s !== who) continue;",
+  "old": "          if (read(r)?.s !== who) continue;",
   "new": "          if (false) continue;",
   "tests": [
    "test/seat2a_siege_play.test.js"
@@ -461,8 +461,8 @@
  {
   "name": "SEAT2a4-claims-mend",
   "file": "src/net/siegeClaims.js",
-  "old": "  if (r?.error === 'receipt') return !MENDABLE.includes(r?.why);",
-  "new": "  if (r?.error === 'receipt') return true;",
+  "old": "  if (r?.error === 'honours-twice' || r?.error === 'battle-none') return true;\n  if (r?.error === 'receipt') return !MENDABLE.includes(r?.why);",
+  "new": "  if (r?.error === 'honours-twice' || r?.error === 'battle-none') return true;\n  if (r?.error === 'receipt') return true;",
   "tests": [
    "test/seat2a_siege_play.test.js"
   ]
@@ -722,7 +722,7 @@
  {
   "name": "SEAT2a4-online-sp",
   "file": "src/net/online.js",
-  "old": "    if (isSiegeRoom(this.room) && this._siegePass) frame.sp = this._siegePass;",
+  "old": "    if (isBattleRoom(this.room) && this._siegePass) frame.sp = this._siegePass;",
   "new": "    if (this._siegePass) frame.sp = this._siegePass;",
   "tests": [
    "test/seat2a_siege_play.test.js"
@@ -731,7 +731,7 @@
  {
   "name": "SEAT2a4-online-mint-room",
   "file": "src/net/online.js",
-  "old": "      if (room === this.room && isSiegeRoom(room) && this.mintSiegePass) {",
+  "old": "      if (room === this.room && isBattleRoom(room) && this.mintSiegePass) {",
   "new": "      if (room === this.room && this.mintSiegePass) {",
   "tests": [
    "test/seat2a_siege_play.test.js"
@@ -740,8 +740,8 @@
  {
   "name": "SEAT2a4-online-send-ok",
   "file": "src/net/online.js",
-  "old": "    if (!g || !this.siegeOk || !isSiegeRoom(this.room) || this.status !== 'open' || !this._ws) return false;",
-  "new": "    if (!g || !isSiegeRoom(this.room) || this.status !== 'open' || !this._ws) return false;",
+  "old": "    if (!g || !isBattleRoom(this.room) || !(isRoyalRoom(this.room) ? this.royalOk : this.siegeOk) || this.status !== 'open' || !this._ws) return false;",
+  "new": "    if (!g || !isBattleRoom(this.room) || this.status !== 'open' || !this._ws) return false;",
   "tests": [
    "test/seat2a_siege_play.test.js"
   ]
@@ -749,7 +749,7 @@
  {
   "name": "SEAT2a4-online-recv-room",
   "file": "src/net/online.js",
-  "old": "      if (!primary || !isSiegeRoom(room)) return;\n      const g = validSiegeOut(m);",
+  "old": "      if (!primary || !isBattleRoom(room)) return;   // CROWN1 part two: a Royal Tourney's room's words too\n      const g = validSiegeOut(m);",
   "new": "      if (!primary) return;\n      const g = validSiegeOut(m);",
   "tests": [
    "test/seat2a_siege_play.test.js"

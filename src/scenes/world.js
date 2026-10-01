@@ -692,7 +692,9 @@ import { RACES } from '../systems/races.js';   // DW-D: ArgonianInfiniteBreath
 import { createSiegeSession } from '../net/siegeSession.js';   // SEAT2a part four: a siege as this client fights it
 import { createSiegeClaims } from '../net/siegeClaims.js';   // SEAT2a part four: its receipts carried to the service
 import { createSiegeHud } from '../ui/siegeHud.js';   // SEAT2a part four: the bar, the sides, the result card
-import { siegeFieldOf, siegeFieldWire, buildingKeysOfType } from '../systems/siegeField.js';   // SEAT2a part four: the battlefield the town's records give
+import { siegeFieldOf, siegeFieldWire, buildingKeysOfType, royalRingWire } from '../systems/siegeField.js';   // SEAT2a part four: the battlefield the town's records give   // CROWN1 part two: and a crown's ring
+import { createRoyalSession } from '../net/royalSession.js';   // CROWN1 part two: a Royal Tourney as this client fights it
+import { createRoyalClaims } from '../net/siegeClaims.js';   // CROWN1 part two: its bouts' receipts carried to the service
 
 /** Internal_Strings_en 654 / 655, the two guild map-reveal notes
  *  (ThievesGuild.cs:115, DarkBrotherhood.cs:108). %map is the
@@ -1159,6 +1161,17 @@ export async function bootWorld(canvas, renderer, params, status) {
     let field = null;
     for (const [mapId, t] of siegeFieldsByTown) if (built.has(t.key) && seatAtMapId(townSeats, mapId)?.key === seat.key) { field = siegeFieldWire(t.px, t.py, t.field); break; }   // the town built: the player is there
     return siegeSession.enter(seat, fight, field);
+  };
+  /** CROWN1 part two: the Royal Tourney this client is in, made with the online session (net/royalSession.js) - null
+   *  offline. */
+  let royalSession = null;
+  /** CROWN1 part two: the Seat tab's door into a Royal Tourney - the crown's ring this game derived from the city (null
+   *  where it is not built: the player is not there), then the session; a contender or a spectator. */
+  const royalEnter = (seat, royal, watch) => {
+    if (!royalSession) return false;
+    let field = null;
+    for (const [mapId, t] of siegeFieldsByTown) if (built.has(t.key) && seatAtMapId(townSeats, mapId)?.key === seat.key) { field = royalRingWire(t.px, t.py, t.field); break; }
+    return royalSession.enter(seat, royal, field, { watch });
   };
   /** SEAT1a: the seat a location IS, while the seats are open to this account - off the client's own derivation (a seat
    *  it lacks is never drawn, listed or honoured). */
@@ -15654,8 +15667,13 @@ export async function bootWorld(canvas, renderer, params, status) {
       const siegeClaims = createSiegeClaims({ claim: (r) => seatBook.claimSiege(r), me: () => accountId(), storage: appStorage(), onClaimed: (a) => siegeSession?.claimed(a) });
       const siegeHud = createSiegeHud(document, { onClaim: () => siegeClaims.offer({ force: true }) });
       siegeSession = createSiegeSession({ online, pass: (seat, field) => seatBook.siegePass(seat, field), claims: siegeClaims, hud: siegeHud, movePlayer: siegeMoveTo, say: (t) => { if (t) townTalk.say(t); }, relayOk: () => online.siegeOk });
-      online.onSiege = (g, room) => siegeSession?.onSiege(g, room);
+      // CROWN1 part two: A ROYAL TOURNEY - the same room's words, the same HUD; the bouts won carried to the service
+      const royalClaims = createRoyalClaims({ claim: (r) => seatBook.claimRoyal(r), me: () => accountId(), storage: appStorage() });
+      royalSession = createRoyalSession({ online, pass: (seat, field, watch) => seatBook.royalPass(seat, field, watch), claims: royalClaims, hud: siegeHud, movePlayer: siegeMoveTo,
+        say: (t) => { if (t) townTalk.say(t); }, relayOk: () => online.royalOk, name: (id) => peerName(id) ?? '' });
+      online.onSiege = (g, room) => { siegeSession?.onSiege(g, room); royalSession?.onSiege(g, room); };
       siegeClaims.offer();
+      royalClaims.offer();
     }
     // JOURNAL1 (Addison Knox: "Player journals ... shared in-world for storytelling"): A PAGE HELD OUT TO ME. Held,
     // never opened over my game (net/journalPage.js PageOffers: a writer's newest replaces their last and waits
@@ -16400,7 +16418,8 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  in view and in sight (the duel's test); my swing rolled on my own sheet against a body of my own sheet, sent to the
    *  relay, which clips it to DFU's range for the weapon my look holds (net/siegeRef.js). True when the swing was theirs. */
   const siegeMeleeHit = (eye, inViewFn) => {
-    const foes = siegeSession?.foes() ?? [];
+    const battle = royalSession?.active() ? royalSession : siegeSession;   // CROWN1 part two: a Royal Tourney's bout, the same arm
+    const foes = battle?.foes() ?? [];
     if (!foes.length) return false;
     let best = null, bestD = Infinity;
     for (const id of foes) {
@@ -16419,7 +16438,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const r = resolveDuelStrike({ by: 'melee', a, ...(w ? { w } : {}), ...(sw ? { sw } : {}) }, duelStub(a).stub);
     if (r.dmg > 0) {
       const held = weapon ? (composeLook(playerEntity)?.items ?? []).find((i) => i?.group === 'Weapons' && i.templateIndex === weapon.templateIndex) ?? null : null;
-      siegeSession.blow(best, { w: weapon ? weapon.templateIndex : -1, m: held?.material ?? 0, d: r.dmg, r: 0 });
+      battle.blow(best, { w: weapon ? weapon.templateIndex : -1, m: held?.material ?? 0, d: r.dmg, r: 0 });
     }
     return true;
   };
@@ -16532,6 +16551,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   };
   /** The Inspect card's press: the law asks again before anything is sent (the button may be a moment old). */
   const duelChallenge = (peerId) => {
+    // CROWN1 part two: in a Royal Tourney the card's Challenge is the tourney's - an accept where they challenged me first
+    if (royalSession?.active()) { if (!royalSession.challenge(peerId)) tradeSay('You cannot challenge them now.'); repaintDuelProfile(); return; }
     const r = duelMgr.request(peerId);
     if (!r.ok) tradeSay(r.why === 'try again' ? TRY_AGAIN_TEXT : `You cannot duel them: ${r.why}.`);
     repaintDuelProfile();
@@ -17055,6 +17076,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       while (_duelTrail.length && tNow - _duelTrail[0].t > DUEL_TRAIL_MS) _duelTrail.shift();
     } else if (_duelTrail.length) _duelTrail.length = 0;
     player.arena = live && (modes?.mode ?? 'exterior') === 'exterior' ? { centre: campToScene(live.c), radius: DUEL_RADIUS_M } : null;
+    // CROWN1 part two: a Royal Tourney's bout holds me in its ring (the relay pulls a step past it back as well)
+    const royalRing = !player.arena && (modes?.mode ?? 'exterior') === 'exterior' ? royalSession?.ring() : null;
+    if (royalRing) player.arena = { centre: campToScene([royalRing.centre[0], campToWire(player.feetAt())[1], royalRing.centre[1]]), radius: royalRing.radius };
     // WB3b: the court's floor is a ring the body cannot leave - WB9b: the three courts' floor, as far as the walkways
     // between them are laid (one arena, its crossings and clock refilled each frame)
     if (!player.arena && modes?.gateArenaDay?.() != null) { _courtArena.xa = gateLink?.state()?.xa ?? _gateFloor.none; _courtArena.now = Date.now() + _sharedOffsetMs; player.arena = _courtArena; }
@@ -17087,6 +17111,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       seen.add(e.rec.s);
       out.push({ centre: campToScene(e.rec.c), radius: DUEL_RADIUS_M, alpha: 0.85 });
     }
+    // CROWN1 part two: a Royal Tourney's ring, while I am entered - before the castle, at my own feet's height
+    const rc = royalSession?.ringCentre();
+    if (rc) out.push({ centre: campToScene([rc[0], campToWire(player.feetAt())[1], rc[1]]), radius: DUEL_RADIUS_M, alpha: 0.85 });
     return out;
   };
   /** SOC5: the line that goes on the world tab when an act LEFT. The hub writes no chat line (SOC1); the client puts
@@ -18258,7 +18285,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       town: { name: town.name, mapId: town.mapId }, rumour: rumour ?? [], bountyLine: !!town.bountyLine,
       gate: () => noticeGateCard(), answer: (note) => answerNote(note), work, market,
       guilds: true,   // GUILD1e: the Guilds tab - the town's recruitment posters, and the reader's own guild's board
-      seatBattle: (st, f) => siegeEnter(st, f), seat: seatAt ? { seat: seatAt, book: seatBook, nameOf: (k) => seatAtMapId(townSeats, k)?.name ?? null } : null,   // SEAT1b: a seat town's standings   // SEAT2a part four: the battle's door
+      seatBattle: (st, f) => siegeEnter(st, f), seatRoyal: (st, r, w) => royalEnter(st, r, w), seat: seatAt ? { seat: seatAt, book: seatBook, nameOf: (k) => seatAtMapId(townSeats, k)?.name ?? null } : null,   // SEAT1b: a seat town's standings   // SEAT2a part four: the battle's door
     });
   };
   /** THE ONE CONSTRUCTION SEAM (PROF0 17.2): every Notice Board window this host opens - a town's, and (GUILD1e) the
@@ -19303,7 +19330,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const wc = state.worldCoords(player.pos);
     let key;
     const mp = overworld ? worldCoordToMapPixel(wc.x, wc.z) : null;
-    if (overworld) key = siegeSession?.room() ?? roomKeyFor({ host: 'world', mode, mapPixel: mp });   // SEAT2a part four: a battle entered stands in its own room
+    if (overworld) key = siegeSession?.room() ?? royalSession?.room() ?? roomKeyFor({ host: 'world', mode, mapPixel: mp });   // SEAT2a part four: a battle entered stands in its own room (CROWN1 part two: a Royal Tourney too)
     else if (modes?.roomIdentity?.()?.kind === 'gate') key = gateRoomKey(modes?.roomIdentity?.()?.day);   // WB3b: the court's room is its gate's own
     else {
       const ident = modes?.roomIdentity?.();
@@ -19407,6 +19434,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     else if (key !== online.room) { if (!online.room || isWorldRoom(key) || isWorldRoom(online.room) || (isCellRoom(key) && online.inRoom(key)) || now - _onlineKeySince >= ROOM_HOLD_MS) { online.setLook(composeLook(playerEntity)); online.join(key, { ...pose, ...arm }); } }   // the look re-composed: the next room's hello carries the gear worn now (PROFILE2: through setLook, so a halo the join PROMOTES - no hello of its own - is told too)
     else online.sendPose({ ...pose, ...arm, ...poseFx() });   // PEERFX1: and my landed blows and the blows I took
     siegeSession?.tick();   // SEAT2a part four: the battle's pass, its `in`, its HUD, its window
+    royalSession?.tick();   // CROWN1 part two: the tourney's pass, its `in`, its HUD, its week
     // WB3b: THE COURT'S ROOM HEARS MY LEVEL CLAIM once per welcome (net/gateBrain.js - the health I bring into the fight
     // and the bucket I may deal from); a reconnect's welcome says it again, and the relay keeps my first
     if (gateLink && online.gateOk && isGateRoom(online.room) && online.welcomes !== _gateInFor && online.sendGate({ k: 'in', lv: Math.max(1, playerEntity.level | 0), bv: GATE_BRAIN_V })) _gateInFor = online.welcomes;

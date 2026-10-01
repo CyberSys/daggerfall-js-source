@@ -136,6 +136,7 @@ function injectSkin(doc = document) {
  *   guilds?: boolean,
  *   guildOnly?: ({ name: string } | null),
  *   seat?: ({ seat: any, book: any, nameOf?: (key: number) => (string|null) } | null), seatBattle?: (seat: any, fight: any) => boolean,
+ *   seatRoyal?: (seat: any, royal: any, watch: boolean) => boolean,
  * }} deps `work` - PROF1's Court writs for the board's region (net/profBook.js), or null where the professions are not
  *   this account's; PROF6: with `writs` (net/writBook.js) the guild writs and commissions beside them (ui/workTab.js),
  *   `pieces` the pieces in the save that answer a commission; `market` - PROF5's Market tab's host (ui/marketTab.js createMarketTab's `m`), or null where the
@@ -194,7 +195,7 @@ export function mountNoticeBoard(host, deps) {
   const seatHost = guildOnly ? null : (deps.seat ?? null);
   const seatShown = () => !!seatHost && seatHost.book?.open === true;
   let seatBusy = false, seatOpened = false;
-  const seatTab = seatHost ? createSeatTab({ ...seatHost, ...(deps.seatBattle ? { enterBattle: deps.seatBattle } : {}), banner: (h, w) => bannerImg(h, w) }, {   // SEAT2a part four: and the battle's door
+  const seatTab = seatHost ? createSeatTab({ ...seatHost, ...(deps.seatBattle ? { enterBattle: deps.seatBattle } : {}), ...(deps.seatRoyal ? { enterRoyal: deps.seatRoyal } : {}), banner: (h, w) => bannerImg(h, w) }, {   // SEAT2a part four: and the battle's door
     busy: () => seatBusy,
     run: async (start) => {
       if (seatBusy) return;

@@ -4917,7 +4917,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:8281` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:8294` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:352`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -7140,7 +7140,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1101`, `src/net/online.js:2354`):**
+**Now (`src/net/wire.js:1101`, `src/net/online.js:2356`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -11049,6 +11049,41 @@ contender changing its ring after it settled, a crown with no tourney, a bout wo
 MOVED: the Edicts' list (`seat1d_client`, `crown1_law`, `crown1_client`), the standings' shape (`seat1b_service`), the
 mint's source pin (`seat1c_titles`), the schema list (`accountworker`), the account version pins; two older mutant
 records re-aimed by content.
+
+### CROWN1 (part two, the client) - the Royal Tourney as the game fights it
+
+2026-10-01, Mac: "Finish the seats"; "Continue"; "Hurry up". Client only. Seats-Arc 7.6. With it CROWN1 is whole.
+New: `src/net/royalLink.js`, `src/net/royalSession.js`.
+
+- **The door** (`ui/seatTab.js` `royalNode`, `townSeatLaw.js` `royalTourneyLines`): at a crown whose Royal Tourney rules
+  this week the Seat tab says what it is and gives, the ladder (the top ten), and two doors - "Enter the Royal Tourney"
+  and "Watch the Royal Tourney" - through the world's hook (`seatRoyal`, as a siege's `seatBattle`).
+- **The ring from the city** (`systems/siegeField.js` `royalRingWire`): the crown's Palace square, its siege field's
+  fourth banner (20 m before the palace door) - 7.6's "castle's entrance square" - one world point, the same to the unit
+  on every machine, so two contenders' derivations agree and settle it at the service.
+- **The session** (`net/royalSession.js`): the pass asked with that point (asked again every 5 s while the ring is
+  unsettled, said in words); the tourney's room (`royal:<key>:<week>`) joined as the primary room, a fresh pass on every
+  hello (`net/online.js`, which now reads every battle room - `isBattleRoom` - and sends to a Royal Tourney's only at a
+  relay that keeps one, `royalOk`); `in` said once a socket is open; left at the week's end.
+- **A challenge** - DECIDED: the profile card's own Challenge button, no new widget. While entered it is the
+  tourney's: on a contender whose challenge at this player still stands (30 s) it ACCEPTS (`yes`), on anyone else it
+  challenges (`ask`); the challenged player is told in words and on the HUD. A spectator challenges no one.
+- **The bout**: its one opponent, once the countdown has run, is the foe a melee swing reaches (the siege's arm,
+  `siegeMeleeHit`, reading whichever battle is entered) - the relay referees it; from the countdown the motor holds this
+  player in the ring (`player.arena`, DUEL1's own clamp) and the relay pulls a step past it back; the ring is drawn
+  before the castle while entered (DUEL1's wall).
+- **The HUD** (`net/royalLink.js` `foldRoyal`, `royalHudModel`, drawn by the siege's own readout): the tourney, its
+  prize and its end; the ring - empty, a bout's countdown or its clock; the ladder's first five; this player's vitality
+  in a bout, its record, a challenge at it, its last bout's end (and whether the ladder counted it).
+- **The receipts** (`net/siegeClaims.js` `createRoyalClaims` - the siege's carrier, given its store, reader, settling
+  answers and size): a bout's `t1` kept and carried at once and every ten minutes until the service counts it, finds the
+  tourney gone or over, or refuses a receipt that is not the relay's.
+- **The title**: "Champion of <Kingdom>, Season N" on the player's badge (`seatTitleText`, part two the service).
+
+Pinned: `test/crown1_royal_client.test.js` (7). `tools/mutants/crown1_royal_client.json` (58, all dead - seven survived
+the first run, each a pin that was vacuous or missing: the roll call's fallen, a day's ending in days, a bout not mine,
+a bout's end said ten seconds, another's bout giving me no foe and no ring, the bouts' own store). Nine of part four's
+records were re-aimed by content (the carrier's and the socket's lines, now any battle room's).
 
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 

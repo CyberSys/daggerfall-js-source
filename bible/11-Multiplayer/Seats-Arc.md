@@ -715,6 +715,11 @@ three times a UTC day, by the bout's own day); the ladder on the Seat tab; the c
 its week - the prize to its account, "Champion of <Kingdom>, Season N" kept for good - or, no bout won, the prize home.
 DECIDED: the ladder's ties go to fewer losses, then to whoever reached its wins first.
 
+BUILT (CROWN1 part two, the client; Online-Arc CROWN1 part two): the Seat tab's doors (to contend, to watch); the ring at
+the crown's Palace square, derived from the city; the room joined by its pass; a challenge and its accept on the profile
+card's own Challenge button; the bout's one foe for the melee arm, the motor and the relay holding the ring; the HUD (the
+ring, the ladder, the challenges, a bout's end); the receipts carried. With it CROWN1 is whole.
+
 ### 7.7 Revolt
 
 A seat at Standing 0 revolts at its next siege window: a relay-run uprising (the gate's brain, with the adds the
@@ -941,8 +946,8 @@ bible updated in the same change, mutants recorded.
 | **PVP-REF** | The refereed blow and step; the 40-fighter measurement - **SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` PVP-REF; relay `world140`, the developers alone until SEAT2a; the step's ceiling MEASURED to 18 m/s) | 6.1's buckets pinned against DFU's damage ranges; the measurement recorded (every budget under 60% - the sizes stand) |
 | **SEAT2a** | Siege rooms, banners, the Throne, windows, forfeits, spectators, the Tourney, Honours - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` SEAT2a: the window, the schedule, the sides and their Sellswords; `acct47`); **PART TWO SHIPPED** 2026-10-01 (the relay's battle - the pass, the sides, the banners and the Throne, the no-shows, the `s1` receipts; `world141`); **PART THREE SHIPPED** 2026-10-01 (the service - the pass and the field, the result and all it gives, Honours, the deploy blackout; `acct48`); **PART FOUR SHIPPED** 2026-10-01 (the client - the field from the town, the room and its pass, the HUD and the card, blows, the camp, the receipts carried) - **SEAT2a SHIPPED** | A headless 10v10 siege runs to both endings |
 | **SEAT2b** | Fortifications, the Barracks' guards, the Gatehouse, the Ram, revolts | Needs PROF11 (Masonry), PROF4 (Carpentry), PROF3 (Smithing's ingots for the Ram) and PROF8 (the Pearls tier-2 Shrine and Apothecary ask) |
-| **CROWN1** | The crown tier: reach, the Marches, the Free Lands, crown glyphs, the Saturday slots, Royal Tourney, Conscription - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` CROWN1: reach, the Marches' share, the Free Lands' Watch, Conscription; `acct49`; the crown glyphs were SEAT1c's, the Saturday slots SEAT2a's); **PART TWO (the Royal Tourney) SHIPPED** in the relay
-(`world142`) and the service (`acct50`), its client to follow. Built before SEAT2b, which waits on PROF11 (Masonry) and which CROWN1 does not read | 4.4's worked example pinned to the unit; every Conscription share pinned |
+| **CROWN1** | The crown tier: reach, the Marches, the Free Lands, crown glyphs, the Saturday slots, Royal Tourney, Conscription - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` CROWN1: reach, the Marches' share, the Free Lands' Watch, Conscription; `acct49`; the crown glyphs were SEAT1c's, the Saturday slots SEAT2a's); **PART TWO (the Royal Tourney) SHIPPED** - the relay
+(`world142`), the service (`acct50`) and the client; CROWN1 is whole. Built before SEAT2b, which waits on PROF11 (Masonry) and which CROWN1 does not read | 4.4's worked example pinned to the unit; every Conscription share pinned |
 | **CROWN2** | Fealty and Pacts | - |
 | **SEASON1** | Seasons, the Chronicle, the Hall of Records, Tides | - |
 

@@ -17,7 +17,7 @@
 // Pure - the call, the store and the clocks are handed in.
 //
 // Not a DFU member. Ledger A (EVERY PALACE A SEAT's row).
-import { readSiegeReceipt } from './siegeReceipt.js';
+import { readSiegeReceipt, readRoyalReceipt } from './siegeReceipt.js';
 
 /** The device's siege receipts not yet settled with the account service. */
 export const SIEGE_CLAIMS_KEY = 'seat2a.siegeClaims';
@@ -38,16 +38,18 @@ export function siegeClaimSettles(r) {
 /**
  * THE CARRIER. `claim(receipt)` the book's call (`{ ok, ... }` or `{ ok: false, error, why? }`), `me()` the signed-in
  * account's id (null: none), `nowMs()`, `storage` (a Storage, or null), `onClaimed(answer, claims)` said for a settled
- * claim that the service took.
+ * claim that the service took. CROWN1 part two: the same carrier for a Royal Tourney's bouts (createRoyalClaims) - its
+ * store's key, its receipt's reader, its own settling answers and how many it keeps.
  */
-export function createSiegeClaims({ claim, me = () => null, nowMs = () => Date.now(), storage = null, onClaimed = null }) {
+export function createSiegeClaims({ claim, me = () => null, nowMs = () => Date.now(), storage = null, onClaimed = null,
+  storeKey = SIEGE_CLAIMS_KEY, read = readSiegeReceipt, settles = siegeClaimSettles, max = SIEGE_CLAIMS_MAX }) {
   /** @type {string[]} */
   let kept = [];
-  try { const v = JSON.parse(storage?.getItem(SIEGE_CLAIMS_KEY) ?? '[]'); if (Array.isArray(v)) kept = v.filter((x) => typeof x === 'string' && readSiegeReceipt(x)); } catch { kept = []; }
+  try { const v = JSON.parse(storage?.getItem(storeKey) ?? '[]'); if (Array.isArray(v)) kept = v.filter((x) => typeof x === 'string' && read(x)); } catch { kept = []; }
   let offeredAt = -Infinity;
   let busy = false;
-  const save = () => { try { storage?.setItem(SIEGE_CLAIMS_KEY, JSON.stringify(kept)); } catch { /* memory keeps it */ } };
-  const live = (r, nowS) => { const c = readSiegeReceipt(r); return !!c && c.signed && c.e > nowS; };
+  const save = () => { try { storage?.setItem(storeKey, JSON.stringify(kept)); } catch { /* memory keeps it */ } };
+  const live = (r, nowS) => { const c = read(r); return !!c && c.signed && c.e > nowS; };
   return {
     /** The receipts kept. */
     list: () => kept.slice(),
@@ -56,7 +58,7 @@ export function createSiegeClaims({ claim, me = () => null, nowMs = () => Date.n
       const nowS = Math.floor(nowMs() / 1000);
       if (!live(r, nowS) || kept.includes(r)) return false;
       kept.push(r);
-      if (kept.length > SIEGE_CLAIMS_MAX) kept = kept.slice(-SIEGE_CLAIMS_MAX);
+      if (kept.length > max) kept = kept.slice(-max);
       save();
       offeredAt = -Infinity;
       return true;
@@ -73,10 +75,10 @@ export function createSiegeClaims({ claim, me = () => null, nowMs = () => Date.n
       try {
         kept = kept.filter((r) => live(r, nowS));
         for (const r of kept.slice()) {
-          if (readSiegeReceipt(r)?.s !== who) continue;
+          if (read(r)?.s !== who) continue;
           let a;
           try { a = await claim(r); } catch { a = { ok: false, error: 'offline' }; }
-          if (!siegeClaimSettles(a)) continue;
+          if (!settles(a)) continue;
           kept = kept.filter((x) => x !== r);
           settled++;
           if (a?.ok) onClaimed?.(a, r);
@@ -86,3 +88,19 @@ export function createSiegeClaims({ claim, me = () => null, nowMs = () => Date.n
     },
   };
 }
+
+// ─── CROWN1 part two: A ROYAL TOURNEY'S BOUTS (Seats-Arc 7.6) ─────────────────────────────────────────────────────
+/** The device's bout receipts not yet settled with the account service. */
+export const ROYAL_CLAIMS_KEY = 'crown1.royalClaims';
+/** The most it keeps - a busy week of bouts won. */
+export const ROYAL_CLAIMS_MAX = 40;
+/** Whether an answer settles a bout's receipt: counted or not, the tourney gone or over, a receipt that is not the
+ *  relay's (but for the refusals the service can mend). */
+export function royalClaimSettles(r) {
+  if (r?.ok) return true;
+  if (r?.error === 'royal-none' || r?.error === 'royal-over') return true;
+  if (r?.error === 'receipt') return !MENDABLE.includes(r?.why);
+  return false;
+}
+/** THE BOUTS' CARRIER - createSiegeClaims's, over `t1` receipts (`/v1/seats/royal/claim`). */
+export const createRoyalClaims = (o) => createSiegeClaims({ ...o, storeKey: ROYAL_CLAIMS_KEY, read: readRoyalReceipt, settles: royalClaimSettles, max: ROYAL_CLAIMS_MAX });

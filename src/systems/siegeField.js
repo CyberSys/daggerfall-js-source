@@ -111,3 +111,7 @@ export function siegeFieldOf({ frames = null, palaceKeys = [], templeKeys = [], 
 export const siegeWorldPoint = (px, py, p) => [Math.round(px * PIXEL_UNITS + p[0] * SIEGE_UNITS_PER_M), Math.round((499 - py) * PIXEL_UNITS + p[1] * SIEGE_UNITS_PER_M)];
 /** The field as a pass carries it (`sf`): the banners, the Throne, the attackers' camp, the defenders' - world points. */
 export const siegeFieldWire = (px, py, f) => (f ? [...f.banners, f.throne, f.camps.attack, f.camps.defend].map((p) => siegeWorldPoint(px, py, p)) : null);
+/** CROWN1 part two: A ROYAL TOURNEY'S RING (Seats-Arc 7.6: "at the castle's entrance square") - the crown's Palace square,
+ *  its field's fourth banner (SIEGE_FIELD.squareM before the palace door), as a pass carries it: one world point. Null for a
+ *  field with no square (a palace's). */
+export const royalRingWire = (px, py, f) => (f && f.banners.length >= 4 ? [siegeWorldPoint(px, py, f.banners[3])] : null);
