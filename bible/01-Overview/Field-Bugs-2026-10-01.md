@@ -1050,3 +1050,92 @@ Pins: `test/fb1001_touchhold.test.js` (7), `test/fb1001_herbxp.test.js` (3); mut
 cell, from the registry), and the nine account-version pins (acct46, past PATREON-LINK's acct45 at the merge). Mutant record re-aimed by content, dead:
 `fb0930b_toolsaid.json` TOOL-SAID-the-world-never-says-the-professions-are-open. `actKeyWord`'s pad line is worded its
 own so `navaudit_presentation.json` NAVP-pad-keys-named-as-keys names one site still (MUT-AIM).
+
+## Part five - the cast when used, the friend list, the mountain, the slow fall, the 3D map, the gate's health, the cursor
+
+Eight #bug-reports threads through Mac, as screenshots. Every report root-caused on the real modules before anything
+changed (Mac's rule of 2026-09-30), one search lane a report; each fix pinned red on the code before it and
+mutation-checked. Three calls were Mac's, asked with the root causes in hand: the 3D map's drag (*"Unlock on intent"*),
+the friend list (*"Build it"*) and the mountain (*"Retexture them to be as detailed as possible"*). One report was
+already fixed on main.
+
+| | Report | Reporter | What it was | Done |
+|---|---|---|---|---|
+| 1 | "Big Regen Spell doesnt do anything" - GOD MODE: Area at Range, Magic Based, Regenerate and Fortify Attribute (Strength) | Opaldes | part four's #3, the same screenshot: fixed there (AREA-SELF, AREA-CASTER - PR #509, on main) | answered |
+| 2 | "'Cast when used' items don't work in dungeons" - "I enchanted a bracer to cast Ice Storm when used, it works fine in the overworld, but as soon as I enter a dungeon, the spell doesn't activate"; "only a fireball enchantment on the scarab"; "they work in other interiors like shops and guilds" | Skibbster; kurkku | the session's one enchant ctx readied an item's spell on the host's engine, which fires above ground and indoors only; underground the dungeon context builds and drives its own. The click swung the weapon, the item still wore, and the spell sat stranded until the first click back outside | fixed (CAST-USE) |
+| 3 | "My friend list is different between devices. On my laptop and desktop." | Shanewerewolf5 | see FRIENDS-SYNC below | - |
+| 4 | "MASSIVE buggy mountain at 823, 399" | maya | see WOD-ROCK below | - |
+| 5 | "When the Slowfall effect is active, falls drift to the side and catch on the wall, getting the player stuck before they touch the ground"; "then your speed weirdly accumulates and you pummel to ground HARD" | DoubleDutchess; Skeptikali | three things around the spell never heard of it: the classic climb's slip integrated plain gravity and billed the whole slip; the classic airborne grasp fired all the way down a fall five times as long; the frozen liftoff momentum kept pressing into whatever face the glide reached, and past the slope limit the collider's push-out lifted the body more than the spell lowered it | fixed (SLOW-SLIP, SLOW-GRASP, SLOW-PRESS) |
+| 6 | "Holding the right-mouse button to rotate the 3D map only works on one axis (X or Y) at a time. The rotation should work for both vertical and horizontal simultaneously." | lumin | TURN-STEADY (Mac: "its a bit hard to control") let a drag's first 8 px pick turn-only, tilt-only or both for the WHOLE drag | asked, built (ORBIT-FREE) |
+| 7 | "I left the Oblivion Gate with 6% health and logging in chunks my heath back down to 6% from full"; "IIRC I saved right after leaving the oblivion gate w/ 6% health" | Leafen | see below | - |
+| 8 | "Menu scrollbars change the custom cursor back to the default cursor when hovered over" - "This also happens when you move your cursor far enough to the right of the screen." | Skibbster | two Chromium laws: a native scrollbar always shows the platform arrow, and `scrollbar-color` (inherited) made every menu's scrollbar native; a custom cursor over 32 DIP a side is dropped for the arrow wherever it would not lie wholly in the viewport, and the gauntlet was 31x34 | fixed (CURSOR-EDGE) |
+
+## CAST-USE: an item's spell is readied on the engine that fires it (2)
+
+**Reproduced first** (two real `createPlayerMagic` engines over one player - the host's and the dungeon context's -
+the real `createEnchantCtx` mounted as `scenes/world.js` mounts it, the real `useItem`, the click sent to each mode's
+engine): Ice Storm, Fireball and Ice Bolt, Area at Range, Area Around Caster and Single Target at Range alike, fired in
+the street and in a shop and were never armed in a dungeon; the item lost its 10 condition all the same, and the first
+street click after the dungeon fired the stranded ready. A CasterOnly Heal landed everywhere (the player is one entity)
+but was said on the street's channel.
+
+**Why.** Every Use path (the pack, the U picker, the quick slots, the hotbar) runs `useItem`, whose Cast When Used
+payload goes through the session's ONE enchant ctx (`systems/enchantments.js` setDefaultEnchantCtx): a non-CasterOnly
+spell is `setReadySpell`, which the ctx turned into the host's `magic.readySpell(record, { free: true })`. The host's
+engine fires only above ground (its frame's `firePending` is gated to exterior mode) and indoors (worldModes takes it
+for the interior arm); the hosted dungeon mounts no ctx of its own (`enchantCtx: false`) and drives the engine it builds
+(`dungeonContext.js` playerAttackInput, its frame's `firePending`).
+
+**The fix** (`scenes/shared.js` liveCastEngine; `scenes/hostEnchant.js`; `scenes/dungeonContext.js` castEngine): the ctx
+takes a GETTER and asks it at every call - underground the dungeon context's engine, above ground and indoors the
+host's; a context left from a descent never answers outside one. Cast When Strikes and reflection ride the same
+getter. `scenes/world.js` and `scenes/exterior.js` mount it alike. `test/fb1001_castuse.test.js`.
+
+## SLOW-SLIP, SLOW-GRASP, SLOW-PRESS: Slowfall is heard by everything a fall does (5)
+
+**Reproduced first** (a real `PlayerMotor` over a real `Collider`, the classic climb's dice scripted). A slip off a
+classic climb under the spell fell at 19-27 m/s and billed the whole slip - 10 m of wall, 25 HP; 20 m, 72 HP: the slip
+arm (`player/motor.js`) integrated plain gravity and anchored its fall once, at the let-go, the one place gravity ran
+without the spell's arm. A slow fall pressed into a wall with Forward held was grasped at 18.4 m on the way down: the
+airborne grasp's 0.77 s timer is 1.6 m of a slow fall, its roll re-tried every 1.6 m (`player/climbing.js`). And no
+air control steers a fall: the liftoff momentum is replayed every step, so a glide five times as long carried 4.8 times
+as far - into a wall it pressed all the way down, and into a face steeper than the slope limit (72 and 75 degrees) the
+collider's push-out lifted the capsule more than the spell's 0.035 m a step lowered it: it hung at 12.7 m for 20 s, or
+crept up the face, and fell the whole height when the spell ran out.
+
+**The fix.** SLOW-SLIP: the slip takes the spell's arm - 2.1 m/s, its fall re-anchored every tick. SLOW-GRASP: a slow
+fall is not grasped onto a wall (a departure - Port-Ledger); a climb under way is untouched, and Forward at the wall's
+foot climbs as ever. SLOW-PRESS: on a slow fall the frozen momentum keeps only what the collider let it do, so the
+press into a face it was stopped by is spent. Enhanced Climbing's own grab (Jump + Forward) is a deliberate act and is
+left. `test/fb1001_slowfall.test.js`.
+
+## ORBIT-FREE: a drag turns and tilts once it means to (6; asked)
+
+**Reproduced first** (the real `HeldMapWindow`'s stage listeners): a right-drag of 20 px across, then 40 down, then 20
+on the diagonal handed the 3D sheet `[10,0] [20,0] [0,0] [0,0] [20,0]` - all 60 px down dropped. TURN-STEADY's lock
+(`ui/heldMap.js`), from Mac's "its a bit hard to control", let the first 8 px choose for the whole drag; Shift + left (a
+trackpad's) the same. DFU's automap turns and orbits from one drag (`ui/automapCamera.js` dragRotate - the classic
+automap port is unaffected), and the held sheet's own `orbitBy` already takes both.
+
+**Asked** - the report against Mac's own call. Mac: *"Unlock on intent"*. **Built**: the lock still settles in the first
+8 px; a locked drag then keeps what it holds back the other way, less its drift (each move forgives half its own travel
+along the lock - the slope the lock's own 2:1 calls drift); past 24 px of it the drag turns AND tilts every move to its
+release, the held-back travel spent first. A sideways sweep that drifts or wobbles still never tilts.
+`test/fb1001_orbitfree.test.js`. The pad (right stick: turn and zoom) and two fingers (twist) never tilt; not asked.
+
+## CURSOR-EDGE: the gauntlet everywhere (8)
+
+**Measured** in Chromium 141 under Xvfb, the X server's own cursor read back through XFixes while a real pointer moved:
+over the Settings list's scrollbar the platform arrow; within 31 px of the right edge and 34 px of the foot the arrow.
+`ui/enhancedStyle.js` dressed the menus' scrollbars with `::-webkit-scrollbar` AND set `scrollbar-width` and
+`scrollbar-color` on `.shell, .px-win`; since Chromium 121 either standard property draws the native bar and turns the
+dress off, and `scrollbar-color` inherits - every scroller in every menu was a 15 px native bar, and Blink shows its
+own arrow over a native scrollbar whatever `cursor` the scroller wears. A custom scrollbar's parts take the scroller's
+cursor. And Blink drops a cursor image over 32 DIP a side for the next in its list wherever it would not lie wholly
+inside the viewport: the gauntlet (`ui/plusCursor.js`) was 31x34, the classic CURSOR.IMG at 2x 64 px wide.
+
+**The fix.** One unscoped `::-webkit-scrollbar` dress; the standard pair only under `@supports not
+selector(::-webkit-scrollbar)` (Firefox), the pack card's thin bar the same; the gauntlet 31x32 (two near-twin rows of
+the hand dropped, 2x the exact double), the pad's drawn box with it (`ui/gamepadInput.js`); the classic arrow cropped
+to what it draws and scaled only as far as 32 DIP allows (`ui/cursor.js`). Menus' scrollbars in Chromium are now the
+10 px stone slider the skin always meant. `test/fb1001_cursoredge.test.js`.
