@@ -106,11 +106,13 @@ export async function signBattle({ db, nowS }, player, env, { character, key } =
   const me = await db.prepare('SELECT guild_id, joined_at FROM guild_members WHERE player = ? AND char_id = ?').bind(player.id, character).first();
   const side = me ? sideOf({ attacker: b.attacker, defender: b.defender }, me.guild_id) : null;
   if (side) {
-    // A MEMBER: 7 days at the Turning, bound to the guild in the Right's week, bound to no other this week
+    // A MEMBER: 7 days at the Turning, bound to the guild in the Right's week, bound to no other this week - SEAT2b part two
+    // (DECIDED): a revolt asks no Right's week (none was won - the town rose against its holder, and every member of seven
+    // days may answer it)
     const turningS = Math.floor(seatWeekStartMs(week) / 1000);
     if (Number(me.joined_at) > turningS - SEAT_MEMBER_WAIT_S) return { error: 'sign-new-member' };
     const then = (await db.prepare('SELECT guild_id FROM town_seat_binds WHERE week = ? AND account = ?').bind(week - 1, player.id).first())?.guild_id ?? null;
-    if (then !== me.guild_id) return { error: 'sign-unbound' };
+    if (b.kind !== 'revolt' && then !== me.guild_id) return { error: 'sign-unbound' };
     if (bound != null && bound !== me.guild_id) return { error: 'sign-bound-elsewhere' };
     const r = await db.prepare(`INSERT INTO town_seat_rosters (week, key, account, char_id, guild_id, side, sellsword, fee, at)
       SELECT ?1, ?2, ?3, ?4, ?5, ?6, 0, 0, ?7
@@ -266,7 +268,8 @@ export async function fightOf(db, key, player, character, nowS) {
   for (const r of rows) { const s = sides[r.side]; if (!s) continue; s.n += Number(r.n); if (Number(r.sellsword)) s.swords += Number(r.n); }
   const out = {
     week, key, kind: b.kind, tier: b.tier, startsAt: b.starts_at, endsAt: b.ends_at, moved: !!b.moved, state: b.state,
-    attackerGuild: g.get(b.attacker) ?? { id: b.attacker, name: '', tag: '' }, defenderGuild: g.get(b.defender) ?? { id: b.defender, name: '', tag: '' },
+    // SEAT2b part two: a revolt's attackers are the relay's rebels - no guild
+    attackerGuild: b.attacker == null ? null : g.get(b.attacker) ?? { id: b.attacker, name: '', tag: '' }, defenderGuild: g.get(b.defender) ?? { id: b.defender, name: '', tag: '' },
     sides, max: SIEGE_SIDE_MAX[b.tier] ?? SIEGE_SIDE_MAX.palace, swordsMax: SELLSWORDS_MAX[b.tier] ?? SELLSWORDS_MAX.palace,
     open: nowS < b.starts_at - SIGN_CLOSES_MS / 1000, window,
   };

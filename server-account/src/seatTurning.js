@@ -35,14 +35,13 @@
 // EVERY CLOCK IS AN ARGUMENT, as in accounts.js.
 // ═════════════════════════════════════════════════════════════════════
 import { confirmedSeats, seatsOpenFor } from './townSeats.js';
-import { gatherStandings, seatGuildsOf, holdsOf, battlesOf, agreedGateRegions } from './seatInfluence.js';
+import { gatherStandings, seatGuildsOf, holdsOf, battlesOf, agreedGateRegions, weekGateDays } from './seatInfluence.js';
 import { activeIn, edictsOf } from './seatHolding.js';
 import { windowOf } from './seatBattles.js';   // SEAT2a: the holder's window, frozen into its battle
 import { royalTurning } from './seatRoyal.js';   // CROWN1 part two: a Royal Tourney's champion named
 import { incursionStatements } from './seatIncursion.js';   // AUDIT-SEATS: a Daedric Incursion's Marks
-import { fortsSeasonStatements, campsSpent } from './seatForts.js';   // SEAT2b: a Season's wear, the Siege Camps spent
+import { fortsSeasonStatements, campsSpent, effectiveTiersOf } from './seatForts.js';   // SEAT2b: a Season's wear, the Siege Camps spent; part two: the works as they stand
 import { swordsSettled } from './seatSiege.js';   // AUDIT-SEATS S3: a void battle's Sellsword escrow home
-import { gameDayAt, gateTimes } from '../../src/net/gateLaw.js';
 import { guildActorOf } from './guilds.js';
 import { mustChange } from './realm.js';
 import { utcDay } from '../../src/net/marksLaw.js';
@@ -111,8 +110,7 @@ export async function settleWeek(db, week, nowS, zero = null) {
   const next = week + 1;
   // SEAT1d: the holders' week - the gates the week's days felled, region by region; the Edicts proclaimed for the next
   const fromS = Math.floor(seatWeekStartMs(week) / 1000);
-  const days = [];
-  for (let d = gameDayAt(fromS * 1000); d <= gameDayAt(atS * 1000); d++) { const r = gateTimes(d).riseAt / 1000; if (r >= fromS && r < atS) days.push(d); }
+  const days = weekGateDays(week, atS);   // SEAT2b part two: one home with the Shrine's (seatInfluence.js)
   const gatesIn = new Map();
   const agreed = await agreedGateRegions(db, days);
   for (const region of agreed.values()) gatesIn.set(region, (gatesIn.get(region) ?? 0) + 1);
@@ -132,6 +130,12 @@ export async function settleWeek(db, week, nowS, zero = null) {
     WHERE b.week = ? AND b.state IN ('scheduled', 'void') AND NOT EXISTS (SELECT 1 FROM town_seat_results x WHERE x.week = b.week AND x.key = b.key) ORDER BY b.key`).bind(week).all();
   const carriedAt = new Map(unfought.filter((u) => u.state === 'scheduled' && u.kind === 'siege' && Number(u.standing) && holds.get(Number(u.key))?.guild_id === u.defender)
     .map((u) => [Number(u.key), { guild: u.attacker, total: Number(u.total ?? 0), defence: Number(u.defence ?? 0) }]));
+  // SEAT2b part two (7.7): A REVOLT NO RESULT REACHED - the rebels held the palace door; its Charter lapses at this Turning
+  // where its holder still holds it (turningPlan's `revoltLapsed`)
+  const revoltLapsed = new Set(unfought.filter((u) => u.state === 'scheduled' && u.kind === 'revolt' && holds.get(Number(u.key))?.guild_id === u.defender).map((u) => Number(u.key)));
+  // SEAT2b part two (7.5): each held seat's works as they stood at the Turning (a project whose day came, risen) - the
+  // Shrine's Standing; read here, never through the lazy rise (seatForts.js riseDue writes at the reader's clock)
+  const works = await effectiveTiersOf(db, [...holds.keys()], atS);
   // CROWN2 (7.8): THE FEALTIES standing - each pair's Charters as they stand now; one that no longer fits lapses (no
   // Standing), one broken ends (its breaker's Standing -10 at every seat), the rest give the liege's half-reach on the
   // vassal's defence; each sworn the week through pays its tribute
@@ -183,6 +187,8 @@ export async function settleWeek(db, week, nowS, zero = null) {
         // SEASON1 part two (9.3): the week's Tide here (a Royal Wedding's Standing, a Tax Revolt's) and the coming week's
         // (a Festival's cost)
         tide: tideAt(week, seat.region, counted), tideNext: tideAt(next, seat.region, !!seasonOf(next, zero)),
+        // SEAT2b part two: its Shrine's tier (7.5), and whether its revolt this week went unanswered (7.7)
+        shrine: works.get(key)?.shrine ?? 0, revoltLapsed: revoltLapsed.has(key),
       };
     }
     seats.push({
@@ -195,12 +201,13 @@ export async function settleWeek(db, week, nowS, zero = null) {
   const purseIds = [...new Set([...guildIds, ...holdRows.map((h) => h.guild_id)])];
   const { results: purses = [] } = purseIds.length
     ? await db.prepare(`SELECT guild_id, balance FROM guild_marks WHERE guild_id IN (${purseIds.map(() => '?').join(', ')})`).bind(...purseIds).all() : { results: [] };
-  const reckonedPlan = turningPlan({ week, seats, treasuries: new Map(purses.map((p) => [p.guild_id, Number(p.balance)])), active: await activeIn(db, week) });
   // SEASON1 (9.1, 18): the Season this Turning ends, if it ends one - Season 0's end settles its own week and sets nothing
   // up for the next (no Charter claimed, no Right, no battle, no Edict, no Legacy), then wipes the seats
   const ending = seasonEndingAt(week, zero);
   const wipe = ending?.n === 0;
-  const plan = wipe ? { ...reckonedPlan, claims: [], contested: [], rights: [], edicts: [], standings: [], held: [], legacy: [] } : reckonedPlan;
+  // SEAT2b part two: a revolt reads the Standing as this Turning writes it - halfway back toward 50 at a Season's end
+  const reckonedPlan = turningPlan({ week, seats, treasuries: new Map(purses.map((p) => [p.guild_id, Number(p.balance)])), active: await activeIn(db, week), seasonEnds: !!ending });
+  const plan = wipe ? { ...reckonedPlan, claims: [], contested: [], rights: [], edicts: [], standings: [], held: [], legacy: [], revolts: [] } : reckonedPlan;
   const names = await namesOf(db, [...purseIds, ...fealties.flatMap((f) => [f.vassal, f.liege]), ...unfought.flatMap((u) => [u.attacker, u.defender])]);   // CROWN2: a lapsed liege may hold nothing now; AUDIT-SEATS S3: a void battle's two
   const history = (key, kind, data) => db.prepare('INSERT INTO town_seat_history (key, week, kind, data, at) VALUES (?, ?, ?, ?, ?)')
     .bind(key, week, kind, JSON.stringify(data), nowS);
@@ -237,11 +244,14 @@ export async function settleWeek(db, week, nowS, zero = null) {
   const battles = [
     ...plan.contested.map((c) => ({ key: c.key, kind: 'tourney', attacker: c.a, defender: c.b })),
     ...plan.rights.map((r) => ({ key: r.key, kind: 'siege', attacker: r.guild, defender: holds.get(r.key).guild_id })),
+    // SEAT2b part two (7.7; 6.3: "a revolt takes the holder's window"): its attackers the relay's rebels, no guild's
+    ...plan.revolts.map((r) => ({ key: r.key, kind: 'revolt', attacker: null, defender: r.guild })),
   ];
   for (const b of battles) {
     const seat = registry.get(b.key);
-    Object.assign(b, { tier: seat.tier, kingdom: CROWN_SEAT_REGIONS[seat.region] ?? null, window: b.kind === 'siege' ? await windowOf(db, b.key, b.defender) : null });
+    Object.assign(b, { tier: seat.tier, kingdom: CROWN_SEAT_REGIONS[seat.region] ?? null, window: b.kind === 'siege' || b.kind === 'revolt' ? await windowOf(db, b.key, b.defender) : null });
   }
+  for (const r of plan.revolts) stmts.push(history(r.key, 'revolt', { guild: names.get(r.guild) }));   // the Chronicle: "Anticlere rose against ..."
   const schedule = placeBattles(next, battles);
   for (const p of schedule.placed) {
     stmts.push(db.prepare('INSERT INTO town_seat_battles (week, key, kind, tier, attacker, defender, starts_at, ends_at, moved, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
@@ -269,7 +279,7 @@ export async function settleWeek(db, week, nowS, zero = null) {
     } else {
       stmts.push(db.prepare('DELETE FROM town_seat_holds WHERE key = ? AND guild_id = ?').bind(u.key, u.guild));
       stmts.push(db.prepare("UPDATE town_seat_edicts SET state = 'void' WHERE key = ? AND week = ? AND state = 'proclaimed'").bind(u.key, next));
-      stmts.push(history(u.key, 'lapse', { guild: names.get(u.guild) }));
+      stmts.push(history(u.key, u.state === 'revolt' ? 'revolt-lapsed' : 'lapse', { guild: names.get(u.guild) }));   // SEAT2b part two: the rebels held the door
     }
   }
   // the coming week's Edicts: law, their cost burnt (a Bounty's escrowed) - or fallen
@@ -367,7 +377,8 @@ export async function settleWeek(db, week, nowS, zero = null) {
       stmts.push(db.prepare(`UPDATE town_seat_battles SET state = 'void' WHERE week = ?1 AND key = ?2 AND state = 'scheduled'
         AND NOT EXISTS (SELECT 1 FROM town_seat_results WHERE week = ?1 AND key = ?2)`).bind(week, key), mustChange(db));
       const carried = plan.rights.some((r) => r.key === key && r.carried);
-      stmts.push(history(key, 'siege-void', { battle: u.kind, guild: nameOr(u.attacker), holder: nameOr(u.defender), carried }));
+      // SEAT2b part two: a revolt's own line is its lapse's (the upkeep's 'revolt' above) - never a siege's void
+      if (u.kind !== 'revolt') stmts.push(history(key, 'siege-void', { battle: u.kind, guild: nameOr(u.attacker), holder: nameOr(u.defender), carried }));
     }
     stmts.push(...(await swordsSettled(db, week, key, nowS, { voided: true })));
   }
@@ -379,7 +390,7 @@ export async function settleWeek(db, week, nowS, zero = null) {
   // crown's, "Keeper of <Town>, Season N" for a seat held the whole Season), over the Charters that stood its last week
   // through (none lapsed now); and the Chronicle's line at every one of them (Season 0's titles none, its lines wiped below)
   if (ending) {
-    const lapsed = new Set([...plan.upkeep.filter((u) => u.state === 'lapse').map((u) => u.key), ...unregistered.map((h) => Number(h.key))]);   // AUDIT-SEATS S4
+    const lapsed = new Set([...plan.upkeep.filter((u) => u.state === 'lapse' || u.state === 'revolt').map((u) => u.key), ...unregistered.map((h) => Number(h.key))]);   // AUDIT-SEATS S4; SEAT2b part two: a revolt's lapse
     const stood = holdRows.filter((h) => !lapsed.has(Number(h.key))).map((h) => ({ key: Number(h.key), guild: h.guild_id, tier: h.tier, since: Number(h.since_week) }));
     const titles = seasonTitles(ending, stood);
     const masters = await guildmastersOf(db, [...new Set(titles.map((t) => t.guild))]);
@@ -417,10 +428,11 @@ export async function seatsWithHolders(db, seats, nowS) {
   const holds = await holdsOf(db);
   const battles = await battlesOf(db, weekAt(nowS));
   const edicts = await edictsOf(db, weekAt(nowS));
+  const works = await effectiveTiersOf(db, seats.map((s) => s.key), nowS);   // SEAT2b part two: each seat's works as they stand
   return seats.map((s) => {
     const h = holds.get(s.key) ?? null;
     const e = edicts.get(s.key);
-    return { ...s, holder: h ? { ...h, edict: e && e.guild === h.guild.id ? e.edict : null } : null, battle: battles.get(s.key) ?? null };
+    return { ...s, holder: h ? { ...h, edict: e && e.guild === h.guild.id ? e.edict : null } : null, battle: battles.get(s.key) ?? null, works: works.get(s.key) ?? {} };
   });
 }
 

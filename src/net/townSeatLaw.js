@@ -21,7 +21,7 @@ import { KINGDOMS, MARCHES, kingdomOf, isMarch, isFreeLand } from './kingdomLaw.
 import { TIDE_EFFECTS } from './tideLaw.js';   // SEASON1 part two: the Tides' numbers (9.3)
 import { HERALDRY_COLOURS } from './heraldryLaw.js';
 import { marksText } from './marksLaw.js';   // AUDIT-SEATS L7: "1,200 Drakes"
-import { fortWork, REVOLT } from './fortLaw.js';   // SEAT2b: a work's name in the Chronicle; part two: a revolt's window
+import { fortWork, REVOLT, revoltDue, shrineStanding } from './fortLaw.js';   // SEAT2b: a work's name in the Chronicle; part two: a revolt's window and its due, the Shrine's Standing
 
 /** A heraldry colour key's hex (heraldryLaw.js's palette), or null. */
 const heraldryHex = (key) => HERALDRY_COLOURS.find((c) => c.key === key)?.hex ?? null;
@@ -444,12 +444,20 @@ export const seatDefence = (own, standing, extra = 0, held = false, liegeReach =
  *               state }` - 'law', its cost paid (a Bounty's the `setAside` its holder named, escrowed), or 'unpaid');
  *   standings   SEAT1d: every held seat's Standing after its week (`{ key, guild, standing, changes }`, standingWeek);
  *   held        a held seat no Right was granted against (`{ key, guild, standing }`), its Standing as standings says;
- *   legacy      what each guild carries into the next week at each seat (`{ key, guild, amount }`), 10% of its week.
- * @param {{ week: number, seats: any[], treasuries: Map<string, number>, active?: number }} o
+ *   legacy      what each guild carries into the next week at each seat (`{ key, guild, amount }`), 10% of its week;
+ *   revolts     SEAT2b part two (7.7): a held seat whose Standing this Turning writes at nought (`revoltDue` - halfway back
+ *               toward 50 first where `seasonEnds`, as the settle writes it) and against which no Right was granted
+ *               (`{ key, guild }`) - its revolt in the holder's window of the coming week. DECIDED: a siege granted at
+ *               the seat stands in the revolt's place - the town's quarrel is the challenger's to answer that week.
+ * SEAT2b part two: a holder's `shrine` (its Shrine's tier, Standing a point a tier - 7.5) and `revoltLapsed` (its revolt
+ * this week reached no result: the rebels held the palace door - DECIDED, a withheld or never-carried receipt keeps no
+ * Charter): such a Charter lapses at this Turning as a second short week's does (`upkeep` state 'revolt', nothing paid) -
+ * reckoned before the Rights, so it is no siege's, and unheld from the next week.
+ * @param {{ week: number, seats: any[], treasuries: Map<string, number>, active?: number, seasonEnds?: boolean }} o
  */
-export function turningPlan({ week, seats, treasuries, active = CROWN_SCALE.per }) {
+export function turningPlan({ week, seats, treasuries, active = CROWN_SCALE.per, seasonEnds = false }) {
   const purse = new Map(treasuries);
-  const claims = [], contested = [], rights = [], held = [], legacy = [], upkeep = [], edicts = [], standings = [];
+  const claims = [], contested = [], rights = [], held = [], legacy = [], upkeep = [], edicts = [], standings = [], revolts = [];
   const sorted = [...seats].sort((a, b) => a.key - b.key);
   for (const s of sorted) {
     for (const g of s.guilds) {
@@ -481,12 +489,12 @@ export function turningPlan({ week, seats, treasuries, active = CROWN_SCALE.per 
     if (!s.holder) continue;
     const g = s.holder.guild, owed = Math.max(0, s.holder.owed ?? 0);
     const amount = seatUpkeep(s.tier, extraOf(g), active), due = amount + owed, has = purse.get(g) ?? 0;
-    const state = has >= due ? (owed > 0 ? 'late' : 'paid') : owed > 0 ? 'lapse' : 'neglect';
+    const state = s.holder.revoltLapsed ? 'revolt' : has >= due ? (owed > 0 ? 'late' : 'paid') : owed > 0 ? 'lapse' : 'neglect';   // SEAT2b part two: an unfought revolt lapses it
     if (state === 'paid' || state === 'late') purse.set(g, has - due);
     stateOf.set(s.key, state);
     upkeep.push({ key: s.key, guild: g, amount, paid: state === 'paid' || state === 'late' ? due : 0, owed: state === 'neglect' ? amount : 0, state });
   }
-  const keeps = (s) => s.holder && stateOf.get(s.key) !== 'lapse';
+  const keeps = (s) => s.holder && stateOf.get(s.key) !== 'lapse' && stateOf.get(s.key) !== 'revolt';
   // AUDIT-SEATS S3 (17: "At that Turning the carried Right is the challenger's one Right of Siege (5.2 step 4 grants it no
   // other), and the seat is granted no other challenge"): `carried` a Right whose siege was void this week (`{ guild,
   // total, defence }` - the Right as it was granted), granted again first where the holder keeps its Charter
@@ -529,12 +537,14 @@ export function turningPlan({ week, seats, treasuries, active = CROWN_SCALE.per 
     const w = standingWeek({
       tier: s.tier, standing: s.holder.standing, tithe: s.holder.tithe ?? 0, watched: s.holder.watched ?? true, gates: s.holder.gates ?? 0,
       writs: s.holder.writs ?? 0, unchallenged, upkeep: stateOf.get(s.key), edict: law, conscripted: !!s.holder.conscripted, brokeFealty: !!s.holder.brokeFealty,
-      tide: s.holder.tide ?? 'calm',
+      tide: s.holder.tide ?? 'calm', shrine: s.holder.shrine ?? 0,   // SEAT2b part two: the Shrine's row
     });
     standings.push({ key: s.key, guild: s.holder.guild, standing: w.standing, changes: w.changes });
     if (unchallenged) held.push({ key: s.key, guild: s.holder.guild, standing: w.standing });
+    // SEAT2b part two (7.7): A REVOLT DUE - the Standing as this Turning writes it at nought, no Right granted here
+    if (unchallenged && revoltDue(seasonEnds ? seasonStanding(w.standing) : w.standing)) revolts.push({ key: s.key, guild: s.holder.guild });
   }
-  return { claims, contested, upkeep, rights, edicts, standings, held, legacy };
+  return { claims, contested, upkeep, rights, edicts, standings, held, legacy, revolts };
 }
 
 // ─── THE CHRONICLE'S WORDS (SEAT0 9.2) ─────────────────────────────
@@ -872,9 +882,9 @@ export const SEAT_LEVER_RANKS = Object.freeze([0, 1]);
  * filled there; `unchallenged` no Right granted against it; `upkeep` 'paid', 'late' (paid with the arrears) or
  * 'neglect'; `edict` the Edict the Turning makes law for the coming week (its row taken as it is proclaimed);
  * CROWN1: `conscripted` the seat paid a crown's Conscription this week (7.6); CROWN2: `brokeFealty` its holder broke its
- * fealty at this Turning (7.8).
+ * fealty at this Turning (7.8). SEAT2b part two: `shrine` its Shrine's tier - Standing a point a week a tier (7.5).
  */
-export function standingWeek({ tier, standing, tithe = 0, watched = true, gates = 0, writs = 0, unchallenged = false, upkeep = 'paid', edict = null, conscripted = false, brokeFealty = false, tide = 'calm' }) {
+export function standingWeek({ tier, standing, tithe = 0, watched = true, gates = 0, writs = 0, unchallenged = false, upkeep = 'paid', edict = null, conscripted = false, brokeFealty = false, tide = 'calm', shrine = 0 }) {
   const changes = [];
   const add = (row, d) => { if (d) changes.push([row, d]); };
   const t = titheStanding(tier, tithe);
@@ -890,6 +900,7 @@ export function standingWeek({ tier, standing, tithe = 0, watched = true, gates 
   if (brokeFealty) add('fealtyBroken', STANDING_CHANGES.fealtyBroken);
   if (tide === 'wedding') add('wedding', STANDING_CHANGES.wedding);   // SEASON1 part two: the week's Tide in the seat's land
   if (tide === 'revolt' && tithe > TIDE_EFFECTS.revoltTithe) add('taxRevolt', STANDING_CHANGES.taxRevolt);
+  add('shrine', shrineStanding(shrine));   // SEAT2b part two (7.5): the Shrine's week
   const sum = changes.reduce((a, [, d]) => a + d, 0);
   return { standing: Math.max(0, Math.min(STANDING_MAX, standing + sum)), changes };
 }

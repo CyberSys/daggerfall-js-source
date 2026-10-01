@@ -24,7 +24,7 @@
 // ═════════════════════════════════════════════════════════════════════
 import { accountKind, displayName, overRate } from './accounts.js';
 import { seatsOpenFor, confirmedSeats } from './townSeats.js';
-import { fortifierAt, fortsCaptureWithSave } from './seatForts.js';   // SEAT2b: a capture's drop, a Fortifier's save
+import { fortifierAt, fortsCaptureWithSave, battleWorks } from './seatForts.js';   // SEAT2b: a capture's drop, a Fortifier's save; part two: the battle's works
 import { mustChange } from './realm.js';
 import { gatherStandings } from './seatInfluence.js';   // AUDIT-SEATS S8: a Tourney's dead heat as the Turning counted it
 import { utcDay, MARKS_MAX } from '../../src/net/marksLaw.js';
@@ -33,7 +33,7 @@ import { verifySiegeReceipt, SIEGE_RECEIPT_TTL_S } from '../../src/net/siegeRece
 import { RENOWN_XP_MAX, RENOWN_TRACKS_MAX } from '../../src/net/renown.js';
 import {
   seatWeekOf, seatKeyOk, settleField, passWindowEnds, passOpens, siegeWinner, siegeAftermath, spoilsOf, SIEGE_HONOURS,
-  CLAIM_FEE, STANDING_START, STANDING_MAX, seasonFloor, seasonZeroOf, siegeMinutes, seatWeekStartMs, seasonOf,
+  CLAIM_FEE, STANDING_START, STANDING_MAX, seasonFloor, seasonZeroOf, siegeMinutes, seatWeekStartMs, seasonOf, STANDING_CHANGES,
 } from '../../src/net/townSeatLaw.js';
 
 const weekAt = (nowS) => seatWeekOf(nowS * 1000);
@@ -91,16 +91,20 @@ export async function siegePass({ db, nowS, subtle }, player, env, { key, field,
         .bind(week, key, player.id, side, JSON.stringify(field), nowS).run();
     }
     const { results: rows = [] } = await db.prepare('SELECT side, field, at FROM town_seat_fields WHERE week = ? AND key = ? ORDER BY at, rowid').bind(week, key).all();
-    const f = settleField(rows.map((r) => ({ side: r.side, field: r.field, at: Number(r.at) })), nowS >= b.starts_at);
+    // SEAT2b part two (DECIDED): a revolt's field is its holder's side's own word - the first sent settles it (no other side
+    // exists to agree with, and the field only places the rebels the holder must reach: a lie gains it nothing)
+    const f = settleField(rows.map((r) => ({ side: r.side, field: r.field, at: Number(r.at) })), nowS >= b.starts_at || b.kind === 'revolt');
     if (!f) return { error: 'field-unsettled' };
     // settled once: a second request racing this one keeps the first's
     await db.prepare('UPDATE town_seat_battles SET field = ? WHERE week = ? AND key = ? AND field IS NULL').bind(f, week, key).run();
     settled = (await db.prepare('SELECT field FROM town_seat_battles WHERE week = ? AND key = ?').bind(week, key).first())?.field ?? f;
   }
-  const out = { side, week, key, startsAt: b.starts_at, endsAt: b.ends_at, window: se, ...(late ? { late: true } : {}) };   // AUDIT-SEATS R6: a late pass says so
+  // SEAT2b part two: the battle's works, frozen at its first pass (seatForts.js battleWorks) - every pass of it carries them
+  const sx = await battleWorks(db, b, nowS);
+  const out = { side, week, key, kind: b.kind, startsAt: b.starts_at, endsAt: b.ends_at, window: se, works: sx, ...(late ? { late: true } : {}) };   // AUDIT-SEATS R6: a late pass says so
   if (!signingKey) return { ...out, pass: null };
   const sf = JSON.parse(String(settled));
-  const pass = await mintSiegeOrder({ s: player.id, sk: key, sw: week, sd: side, st: b.tier, sn: b.kind, sb: b.starts_at, se, sf }, signingKey, { subtle, nowS });
+  const pass = await mintSiegeOrder({ s: player.id, sk: key, sw: week, sd: side, st: b.tier, sn: b.kind, sb: b.starts_at, se, sf, sx }, signingKey, { subtle, nowS });
   return { ...out, pass };
 }
 
@@ -179,6 +183,21 @@ async function applyResult(db, b, c, nowS, zero) {
     db.prepare("UPDATE town_seat_battles SET state = ? WHERE week = ? AND key = ?").bind(result === 'forfeit' ? 'forfeit' : 'fought', W, K),
   ];
   const run = async (stmts) => { try { await db.batch(stmts); return true; } catch { return false; } };
+  // SEAT2b part two (7.7): A REVOLT'S END - the Rebel Captain felled (`defend`): Standing returns to 20; the window run out
+  // with him standing (`attack`): the Charter lapses, the seat unheld, its coming Edict void - the works stay the seat's
+  // (a lapse is no capture). Its holder's Sellswords paid as any battle's. No Honours (claimSiege).
+  if (b.kind === 'revolt') {
+    const g = b.defender;
+    if (result === 'defend') {
+      return run([...head('defend'),
+        db.prepare('UPDATE town_seat_holds SET standing = ? WHERE key = ? AND guild_id = ?').bind(STANDING_CHANGES.revoltTo, K, g),
+        history('revolt-down', { guild: nameOf(g) }), ...swords]);
+    }
+    return run([...head('attack'),
+      db.prepare('DELETE FROM town_seat_holds WHERE key = ? AND guild_id = ?').bind(K, g),
+      db.prepare("UPDATE town_seat_edicts SET state = 'void' WHERE key = ? AND week > ? AND state = 'proclaimed'").bind(K, W),
+      history('revolt-lapsed', { guild: nameOf(g) }), ...swords]);
+  }
   if (b.kind === 'tourney') {
     const higher = result === 'tie' ? await higherOf(db, b, nowS, zero) : null;
     const winner = siegeWinner(result, higher);
@@ -273,7 +292,9 @@ export async function claimSiege({ db, nowS, subtle }, player, env, { receipt, c
     throw new Error('claimSiege: the result was neither written nor found');   // a 500, never a quiet loss
   }
   const out = { result: r.result, winner: r.winner ?? null, applied };
-  if (c.h !== 1) return { ...out, honours: null };
+  // SEAT2b part two (DECIDED): a revolt earns no Honours - they are earned between two guilds (6.8), and nothing is minted
+  // from an uprising
+  if (c.h !== 1 || b.kind === 'revolt') return { ...out, honours: null };
   if (typeof character !== 'string' || !character || character.length > 64) return { error: 'honours-character' };
   if (await db.prepare('SELECT 1 FROM town_seat_honours WHERE week = ? AND key = ? AND account = ?').bind(c.sw, c.sk, player.id).first()) return { error: 'honours-twice' };
   // the pair's Honours this Season: any other battle between the two guilds, either way round, since the Season began (SEASON1;

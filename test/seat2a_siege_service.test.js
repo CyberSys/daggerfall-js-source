@@ -94,10 +94,10 @@ test('SEAT2a part three THE PASS AND THE FIELD: from ten minutes before the star
   assert.equal((await s.pass(d1, F2)).body.error, 'field-unsettled', 'a defender who differs');
   const r = await s.pass(d1, F);
   assert.equal(r.status, 200);
-  assert.deepEqual({ ...r.body, pass: !!r.body.pass }, { side: 'defend', week: W + 1, key: ANTICLERE.key, startsAt: START, endsAt: START + 1800, window: START + 7200, pass: true });
+  assert.deepEqual({ ...r.body, pass: !!r.body.pass }, { side: 'defend', week: W + 1, key: ANTICLERE.key, kind: 'siege', startsAt: START, endsAt: START + 1800, window: START + 7200, works: [0, 0, 0, 0, 0], pass: true });   // PIN MOVED (SEAT2b part two): the battle's kind and its works (a palace with none raised)
   const v = await verifyOrder(r.body.pass, s.svc.identityPublic, { subtle, nowS: s.getNow(), kind: 'siege' });
   assert.ok(v.ok, v.why);
-  assert.deepEqual({ ...v.claims, i: 0, e: 0 }, { o: 'siege', s: d1.id, sk: ANTICLERE.key, sw: W + 1, sd: 'defend', st: 'palace', sn: 'siege', sb: START, se: START + 7200, sf: F, i: 0, e: 0 });
+  assert.deepEqual({ ...v.claims, i: 0, e: 0 }, { o: 'siege', s: d1.id, sk: ANTICLERE.key, sw: W + 1, sd: 'defend', st: 'palace', sn: 'siege', sb: START, se: START + 7200, sf: F, sx: [0, 0, 0, 0, 0], i: 0, e: 0 });   // PIN MOVED (SEAT2b part two): the works signed
   assert.equal(s.battle().field, JSON.stringify(F), 'settled on the battle');
   const late = await s.pass(a1, F2);
   assert.deepEqual((await verifyOrder(late.body.pass, s.svc.identityPublic, { subtle, nowS: s.getNow(), kind: 'siege' })).claims.sf, F, 'settled once: a later field changes nothing');

@@ -284,8 +284,8 @@
  {
   "name": "TIDE-plan-tide",
   "file": "src/net/townSeatLaw.js",
-  "old": "      tide: s.holder.tide ?? 'calm',\n",
-  "new": "",
+  "old": "      tide: s.holder.tide ?? 'calm', shrine:",
+  "new": "      shrine:",
   "tests": [
    "test/tide_law.test.js",
    "test/season1_service.test.js"
@@ -321,8 +321,8 @@
  {
   "name": "TIDE-inf-counted",
   "file": "server-account/src/seatInfluence.js",
-  "old": "  const list = await gatherStandings(db, seat, week, nowS, !!season);",
-  "new": "  const list = await gatherStandings(db, seat, week, nowS);",
+  "old": "const { list, holder, defence, rows } = await boardOf(db, seat, week, nowS, !!season);",
+  "new": "const { list, holder, defence, rows } = await boardOf(db, seat, week, nowS);",
   "tests": [
    "test/tide_service.test.js"
   ]

@@ -1,0 +1,392 @@
+[
+ {
+  "name": "SEAT2b2L-gate-crown",
+  "file": "src/net/fortLaw.js",
+  "old": "const gate = tier === 'crown' || t('gatehouse') >= 1 ? gatehouseVitality(t('gatehouse')) : 0;",
+  "new": "const gate = t('gatehouse') >= 1 ? gatehouseVitality(t('gatehouse')) : 0;",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-ram-needs-gate",
+  "file": "src/net/fortLaw.js",
+  "old": "const kits = gate ? Math.max(0,",
+  "new": "const kits = 1 ? Math.max(0,",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-siegewright-ram",
+  "file": "src/net/fortLaw.js",
+  "old": "kits ? ramVitality(siegewright) : 0]",
+  "new": "kits ? ramVitality(false) : 0]",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-tourney-works",
+  "file": "src/net/fortLaw.js",
+  "old": "  if (kind !== 'siege') return [0, 0, 0, 0, 0];",
+  "new": "  if (kind === 'royal') return [0, 0, 0, 0, 0];",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-revolt-walls",
+  "file": "src/net/fortLaw.js",
+  "old": "  if (kind === 'revolt') return [t('walls'), 0, 0, 0, 0];",
+  "new": "  if (kind === 'revolt') return [0, 0, 0, 0, 0];",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-camp-ram",
+  "file": "src/net/fortLaw.js",
+  "old": "export const campGoodOk = (key) => fortMaterialOk(key) || key === RAM_KIT_KEY;",
+  "new": "export const campGoodOk = (key) => fortMaterialOk(key);",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-watch-strict",
+  "file": "src/net/fortLaw.js",
+  "old": "Number(influence) > Number(defence) * share",
+  "new": "Number(influence) >= Number(defence) * share",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-posts-throne-first",
+  "file": "src/net/fortLaw.js",
+  "old": "const posts = [field?.throne, ...(field?.banners ?? [])].filter(Boolean);",
+  "new": "const posts = [...(field?.banners ?? []), field?.throne].filter(Boolean);",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-figure-vitality",
+  "file": "src/net/fortLaw.js",
+  "old": "export const figureVitality = (kind) => 300 + 2 * (SIEGE_FIGURES[kind]?.renown ?? 1);",
+  "new": "export const figureVitality = (kind) => 300 + 3 * (SIEGE_FIGURES[kind]?.renown ?? 1);",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-guard-renown",
+  "file": "src/net/fortLaw.js",
+  "old": "guard: Object.freeze({ renown: 25,",
+  "new": "guard: Object.freeze({ renown: 26,",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-rebel-wave",
+  "file": "src/net/fortLaw.js",
+  "old": "rebelsWaveMs: 30000 });",
+  "new": "rebelsWaveMs: 20000 });",
+  "tests": [
+   "test/seat2b2_law.test.js",
+   "test/seat2b_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-ram-offset",
+  "file": "src/net/fortLaw.js",
+  "old": "export const RAM_OFFSET_M = 4;",
+  "new": "export const RAM_OFFSET_M = 3;",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-wright-days",
+  "file": "src/net/fortLaw.js",
+  "old": "export const SIEGEWRIGHT_SOONER_DAYS = 1;",
+  "new": "export const SIEGEWRIGHT_SOONER_DAYS = 0;",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-pass-gate-bound",
+  "file": "src/net/identityToken.js",
+  "old": "gate: 60_000,",
+  "new": "gate: 50_000,",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-pass-coupling",
+  "file": "src/net/identityToken.js",
+  "old": "if ((rams > 0) !== (ramHp > 0) || (rams > 0 && gate === 0)) return false;",
+  "new": "if ((rams > 0 && gate === 0)) return false;",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-pass-kind-works",
+  "file": "src/net/identityToken.js",
+  "old": "if (kind !== 'siege' && (gate !== 0 || guards !== 0 || rams !== 0 || (kind === 'tourney' && walls !== 0))) return false;",
+  "new": "if (kind === 'tourney' && (gate !== 0 || guards !== 0 || rams !== 0 || walls !== 0)) return false;",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-pass-revolt-attack",
+  "file": "src/net/identityToken.js",
+  "old": "if (c.sn === 'revolt' && c.sd === 'attack') return false;",
+  "new": "if (c.sn === 'revolt' && c.sd === 'duel') return false;",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-pass-mint-works",
+  "file": "src/net/identityToken.js",
+  "old": "...(sx !== undefined ? { sx } : {}),",
+  "new": "...({}),",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-pass-revolt-kind",
+  "file": "src/net/identityToken.js",
+  "old": "export const SIEGE_PASS_KINDS = Object.freeze(['siege', 'tourney', 'royal', 'revolt']);",
+  "new": "export const SIEGE_PASS_KINDS = Object.freeze(['siege', 'tourney', 'royal']);",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-wire-figure-id",
+  "file": "src/net/wire.js",
+  "old": "/^~(?:g[1-6]|r(?:1[0-2]|[1-9])|c)$/",
+  "new": "/^~(?:g[1-7]|r(?:1[0-2]|[1-9])|c)$/",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-wire-cast-work",
+  "file": "src/net/wire.js",
+  "old": "(m.k === 'blow' && isSiegeWork(m.to))",
+  "new": "(isSiegeWork(m.to))",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-wire-ask-figure",
+  "file": "src/net/wire.js",
+  "old": "(m.k !== 'ask' && m.k !== 'yes' && isSiegeFigure(m.to))",
+  "new": "(isSiegeFigure(m.to))",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-wire-relay-min",
+  "file": "src/net/wire.js",
+  "old": "export const SEAT2B_RELAY_MIN = 144;",
+  "new": "export const SEAT2B_RELAY_MIN = 143;",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-wire-breach-gate",
+  "file": "src/net/wire.js",
+  "old": "(m.br === 1 && g === 0)",
+  "new": "(false)",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-wire-gate-hp",
+  "file": "src/net/wire.js",
+  "old": "intIn(m.g[1], 1, SIEGE_GATE_WIRE_MAX) && intIn(m.g[0], 0, m.g[1])",
+  "new": "intIn(m.g[1], 1, SIEGE_GATE_WIRE_MAX) && intIn(m.g[0], 0, SIEGE_GATE_WIRE_MAX)",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-wire-figure-kind",
+  "file": "src/net/wire.js",
+  "old": "r[1] !== siegeFigureKind(r[0])",
+  "new": "r[1] < 0",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-wire-figure-once",
+  "file": "src/net/wire.js",
+  "old": "seen.has(r[0]) ||",
+  "new": "false ||",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-wire-fell-figure",
+  "file": "src/net/wire.js",
+  "old": "(isId(m.id) || isSiegeFigure(m.id))",
+  "new": "(isId(m.id))",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-wire-figures-max",
+  "file": "src/net/wire.js",
+  "old": "export const SIEGE_FIGURES_MAX = 13;",
+  "new": "export const SIEGE_FIGURES_MAX = 14;",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-revolt-length",
+  "file": "src/net/townSeatLaw.js",
+  "old": "revolt: REVOLT.windowMs });",
+  "new": "revolt: REVOLT.windowMs / 2 });",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-revolt-own-length",
+  "file": "src/net/townSeatLaw.js",
+  "old": "b.kind === 'revolt' ? BATTLE_LENGTH_MS.revolt : BATTLE_LENGTH_MS[b.tier]",
+  "new": "BATTLE_LENGTH_MS[b.tier]",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-revolt-window",
+  "file": "src/net/townSeatLaw.js",
+  "old": "(b.kind === 'siege' || b.kind === 'revolt') && b.window && siegeWindowOk",
+  "new": "b.kind === 'siege' && b.window && siegeWindowOk",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-revolt-announcement",
+  "file": "src/net/townSeatLaw.js",
+  "old": "Its rebels hold the palace door; the Rebel Captain must fall by the window's end, or the Charter lapses.",
+  "new": "Its rebels hold the palace door.",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-revolt-line",
+  "file": "src/net/townSeatLaw.js",
+  "old": "case 'revolt': return `${when}, ${seat.name} rose against ${guildWords(d.guild)}.`;",
+  "new": "case 'revolt': return `${when}, ${seat.name} rose up against ${guildWords(d.guild)}.`;",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-revolt-down-words",
+  "file": "src/net/townSeatLaw.js",
+  "old": "The rebel captain fell at the palace door, and the Charter held.",
+  "new": "The rebel captain fell, and the Charter held.",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-revolt-lapsed-words",
+  "file": "src/net/townSeatLaw.js",
+  "old": "The rebels held the palace door, and ${c} lapsed.",
+  "new": "The rebels held the door, and ${c} lapsed.",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-station-steps",
+  "file": "src/net/recipeLaw.js",
+  "old": "+ Math.max(0, Math.min(3, Math.floor(Number(station) || 0)));",
+  "new": "+ Math.max(0, Math.min(2, Math.floor(Number(station) || 0)));",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-ramkit-later",
+  "file": "src/net/recipeLaw.js",
+  "old": "rank: RAM_KIT_RANK, inputs: RAM_KIT_INPUTS",
+  "new": "rank: RAM_KIT_RANK, later: 'sieges', inputs: RAM_KIT_INPUTS",
+  "tests": [
+   "test/seat2b2_law.test.js",
+   "test/prof4_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-siegewright-later",
+  "file": "src/net/professionLaw.js",
+  "old": "    100: pair(spec('siegewright', 'Siegewright', 'Rams +50% vitality; siege works a day sooner.'),",
+  "new": "    100: pair(spec('siegewright', 'Siegewright', 'Rams +50% vitality; siege works a day sooner.', 'SEAT2'),",
+  "tests": [
+   "test/seat2b2_law.test.js",
+   "test/prof4_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-ramkit-value",
+  "file": "src/net/professionLaw.js",
+  "old": "TIER_VALUES[(MINED.get(k)?.tier ?? 1) - 1] * n, 0);",
+  "new": "TIER_VALUES[(MINED.get(k)?.tier ?? 1) - 1] * n, 1);",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-ramkit-family",
+  "file": "src/net/professionLaw.js",
+  "old": "if (key === RAM_KIT_KEY) return { key, family: 'works',",
+  "new": "if (key === RAM_KIT_KEY) return { key, family: 'wood',",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-works-family-word",
+  "file": "src/net/professionLaw.js",
+  "old": "  Object.freeze(['works', 'Siege Works']),",
+  "new": "  Object.freeze(['works', 'Siege Work']),",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2L-works-craft",
+  "file": "src/net/professionLaw.js",
+  "old": "    : family === 'works' ? 'carpentry' : null);",
+  "new": "    : family === 'works' ? 'smithing' : null);",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ }
+]

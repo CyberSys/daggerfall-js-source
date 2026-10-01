@@ -73,7 +73,9 @@ import {
 import { CLIMATES } from '../../src/formats/mapsTables.js';
 import { seatsOpenFor } from './townSeats.js';   // SEAT1d: the Levy, where the seats are this account's
 import { levyAt } from './seatHolding.js';
-import { levyOf, seatWeekOf } from '../../src/net/townSeatLaw.js';
+import { levyOf, seatWeekOf, seatKeyOk } from '../../src/net/townSeatLaw.js';
+import { stationSteps } from '../../src/net/fortLaw.js';   // SEAT2b part two: a seat's halls' quality steps
+import { effectiveTiersOf } from './seatForts.js';
 import { tideNow } from './tides.js';   // SEASON1 part two: the land's Tide (9.3)
 import { tideYield } from '../../src/net/tideLaw.js';
 
@@ -851,8 +853,12 @@ async function craftAnswer(db, player, row, nowS, extra = {}) {
  * wholly of goods only a counter sells - AUDIT 32 S1), under the crafter's limit (3.2), answered as credited.
  * PROF11: or the mason's bench's carvings - the Sculptor's stone decor (recipeLaw MASONRY_RECIPES), the chisel its act,
  * furniture among the home's things; a character not standing as a Sculptor at 100 is refused (`prof-sculptor`).
+ * SEAT2b part two (Seats-Arc 7.5): `at` - the town the station stands in (a seat's key, the client's word, or null): where
+ * the character's guild holds that seat, its Forge, Workshop and Apothecary give their professions' crafts a quality step
+ * a tier (fortLaw.js stationSteps; DECIDED: any station in the town - its shops, a home's, a hall's). Bounded: only the
+ * holding guild's member earns it, only the works its seat raised, only their tiers' steps - a lie saves a walk.
  */
-export async function craftAtAnvil(ctx, player, env, { character, recipe: id, clean, name, heartwood = false, dye = null, rid } = {}) {
+export async function craftAtAnvil(ctx, player, env, { character, recipe: id, clean, name, heartwood = false, dye = null, at = null, rid } = {}) {
   const { db, nowS, rand, subtle } = ctx;
   const refused = asks(player, { character, rid });
   if (refused) return refused;
@@ -878,8 +884,9 @@ export async function craftAtAnvil(ctx, player, env, { character, recipe: id, cl
   const cap = craftXpCap(prof, ranks);
   const wood = heartwood === true && takesHeartwood(r);
   const inputs = recipeInputs(r, { heartwood: wood, joiner: specs[50] === 'joiner' });
+  const station = takesQuality(r) ? await stationAt(db, player, env, character, at, prof, nowS) : 0;   // SEAT2b part two: the seat's halls
   const quality = takesQuality(r)
-    ? craftQuality(rollQuality(dice(rand), qualityOdds(rank - r.rank, { masterwright: specs[100] === 'masterwright' })), qualitySteps(r, { clean: clean === true, spec50: specs[50], heartwood: wood }))
+    ? craftQuality(rollQuality(dice(rand), qualityOdds(rank - r.rank, { masterwright: specs[100] === 'masterwright' })), qualitySteps(r, { clean: clean === true, spec50: specs[50], heartwood: wood, station }))
     : -1;
   const count = craftCount(r, specs[100]);
   const maker = makerName(name);
@@ -937,6 +944,16 @@ export async function craftAtAnvil(ctx, player, env, { character, recipe: id, cl
   }
   if (siege) return { error: 'stores-full', material: RAM_KIT_KEY };   // SEAT2b part two: every input held - the kit's room was not
   return { error: 'stores-short' };
+}
+
+/** SEAT2b part two: THE STEPS A SEAT'S HALLS GIVE a craft in `profession` at the seat whose key the client names (`at`) -
+ *  nought unless the seats are open to the account and the character's guild holds that seat; its works as they stand. */
+async function stationAt(db, player, env, character, at, profession, nowS) {
+  if (at == null || !seatKeyOk(at) || !seatsOpenFor(player, env)) return 0;
+  const held = await db.prepare(`SELECT 1 FROM town_seat_holds h JOIN guild_members m ON m.guild_id = h.guild_id
+    WHERE h.key = ? AND m.player = ? AND m.char_id = ?`).bind(at, player.id, character).first();
+  if (!held) return 0;
+  return stationSteps(profession, (await effectiveTiersOf(db, [at], nowS)).get(at) ?? {});
 }
 
 // ─── THE SMITH'S STOCK (PROF0 24) ────────────────────────────────────

@@ -191,8 +191,8 @@
  {
   "name": "TIDE3-ix-zero",
   "file": "server-account/src/index.js",
-  "old": ", red: await redOf(ctx.db, nowS), zero: seasonZeroOf(env.SEASON_ZERO_WEEK) };",
-  "new": ", red: await redOf(ctx.db, nowS) };",
+  "old": "red: await redOf(ctx.db, nowS), zero: seasonZeroOf(env.SEASON_ZERO_WEEK),",
+  "new": "red: await redOf(ctx.db, nowS),",
   "tests": [
    "test/tide_orcs.test.js",
    "test/seat1c_client.test.js"

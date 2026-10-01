@@ -782,8 +782,8 @@
  {
   "name": "CROWN2-idx-red",
   "file": "server-account/src/index.js",
-  "old": ", red: await redOf(ctx.db, nowS), zero: seasonZeroOf(env.SEASON_ZERO_WEEK) };",
-  "new": ", red: [], zero: seasonZeroOf(env.SEASON_ZERO_WEEK) };",
+  "old": "seats: await seatsWithHolders(ctx.db, r.seats, nowS), red: await redOf(ctx.db, nowS), zero:",
+  "new": "seats: await seatsWithHolders(ctx.db, r.seats, nowS), red: [], zero:",
   "tests": [
    "test/crown2_service.test.js"
   ]

@@ -328,7 +328,7 @@
   {
     "name": "SEAT2b-fund-any-place",
     "file": "server-account/src/seatForts.js",
-    "old": "if (!fortMayRaise(work, { tier: hold.tier, coastal: port === true, walls: tiers.walls ?? 0 })) return { error: 'fort-not-here' };",
+    "old": "  if (!fortMayRaise(work, { tier: hold.tier, coastal: (coastal ?? port) === true, walls: tiers.walls ?? 0 })) return { error: 'fort-not-here' };",
     "new": "",
     "tests": [
       "test/seat2b_service.test.js"
@@ -420,8 +420,8 @@
   {
     "name": "SEAT2b-capture-project-stands",
     "file": "server-account/src/seatForts.js",
-    "old": "      building = NULL, stands_at = NULL, builder = 0, guild_id = NULL WHERE key = ?1`",
-    "new": "      builder = 0, guild_id = NULL WHERE key = ?1`",
+    "old": "      building = NULL, stands_at = NULL, builder = 0, wright = 0, guild_id = NULL WHERE key = ?1`",
+    "new": "      builder = 0, wright = 0, guild_id = NULL WHERE key = ?1`",
     "tests": [
       "test/seat2b_service.test.js"
     ]
@@ -546,7 +546,7 @@
   {
     "name": "SEAT2b-writ-any-material",
     "file": "server-account/src/writs.js",
-    "old": "    if (!fortMaterialOk(key)) return { error: 'bad-material' };\n",
+    "old": "    if (!campGoodOk(key)) return { error: 'bad-material' };\n",
     "new": "",
     "tests": [
       "test/seat2b_service.test.js"

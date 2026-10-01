@@ -46,7 +46,7 @@ import { STORES_MAX } from '../../src/net/professionLaw.js';
 import { material, regionOk } from '../../src/net/nodeLaw.js';
 import { HANDLE_RE } from '../../src/net/handleShape.js';
 import { GUILD_RANK_MASTER } from '../../src/net/guildLaw.js';
-import { fortMaterialOk } from '../../src/net/fortLaw.js';   // SEAT2b: what a seat writ may ask
+import { fortMaterialOk, campGoodOk, RAM_KIT_KEY } from '../../src/net/fortLaw.js';   // SEAT2b: what a seat writ may ask; part two: a camp's Ram Kits
 import { seatKeyOk } from '../../src/net/townSeatLaw.js';
 import { confirmedSeats } from './townSeats.js';
 import { supplyForts } from './seatForts.js';   // SEAT2b: a stockpile's delivery moved into its projects
@@ -302,8 +302,9 @@ export async function postGuildWrit(ctx, player, env, { character, region, mater
   const closed = shut(player, env);
   if (closed) return closed;
   if (!regionOk(region)) return { error: 'bad-region' };
-  // AUDIT 31 L6: a material the Stores keep but nothing yields yet is its own word
-  if (!writMaterialOk(key)) return { error: material(key) && UNYIELDED.includes(key) ? 'market-unyielded' : 'bad-material' };
+  // AUDIT 31 L6: a material the Stores keep but nothing yields yet is its own word - SEAT2b part two: a seat writ may ask a
+  // Ram Kit, which no market sells (a Siege Camp's alone, below)
+  if (!writMaterialOk(key) && !(seat != null && key === RAM_KIT_KEY)) return { error: material(key) && UNYIELDED.includes(key) ? 'market-unyielded' : 'bad-material' };
   if (!writUnitsOk(units)) return { error: 'bad-units' };
   if (!writPayOk(key, pay)) return { error: 'writ-pay' };
   const a = await guildActorOf(db, player, character);
@@ -318,13 +319,16 @@ export async function postGuildWrit(ctx, player, env, { character, region, mater
     if (!seatKeyOk(seat)) return { error: 'bad-seat' };
     const s = (await confirmedSeats(db, nowS)).get(seat);
     if (!s || Number(s.region) !== region) return { error: 'writ-elsewhere' };
-    if (!fortMaterialOk(key)) return { error: 'bad-material' };
+    if (!campGoodOk(key)) return { error: 'bad-material' };
     const holds = await db.prepare('SELECT 1 FROM town_seat_holds WHERE key = ? AND guild_id = ?').bind(seat, g).first();
     if (!holds) {
       const pledged = await db.prepare('SELECT 1 FROM town_seat_pledges WHERE week = ? AND key = ? AND guild_id = ?').bind(seatWeek(nowS), seat, g).first();
       if (!pledged) return { error: 'seat-not-pledged' };
       camp = 1;
     }
+    // SEAT2b part two (4.2: "its siege works (a Ram Kit) go to the siege it won"): a Ram Kit is a camp's - a held seat's
+    // stockpile asks the works' materials alone
+    if (!camp && !fortMaterialOk(key)) return { error: 'bad-material' };
   }
   if (await overRate(ctx, `writ-post:${me}`, WRIT_POSTS_MAX, WRIT_WINDOW_S)) return { error: 'writ-rate' };
   const officer = rank === GUILD_RANK_MASTER ? 0 : 1;

@@ -37,7 +37,7 @@ test('SEAT1a three witnesses a week old confirm a seat byte for byte; a younger 
   assert.equal((await witness(b)).body.counted, true);
   assert.deepEqual((await list(a)).seats, [], 'two agree: not yet');
   assert.equal((await witness(c)).body.counted, true);
-  assert.deepEqual((await list(a)).seats, [{ ...ANTICLERE, state: 'confirmed', holder: null, battle: null }]);   // SEAT1c (PIN MOVED): each seat's holder and battle beside it
+  assert.deepEqual((await list(a)).seats, [{ ...ANTICLERE, state: 'confirmed', holder: null, battle: null, works: {} }]);   // SEAT1c (PIN MOVED): each seat's holder and battle beside it; SEAT2b part two (PIN MOVED): its works
   assert.deepEqual((await list(a)).me, { witness: true, developer: false });
   assert.equal((await list(young)).me.witness, false);
   // the first answer stands: a witness's second, different report changes nothing
@@ -57,7 +57,7 @@ test('SEAT1a the one dispute rule: a lone dissenter is counted, not obeyed; two 
   assert.deepEqual((await list(w[0])).seats.map((s) => s.state), ['confirmed'], 'one dissenter: still confirmed');
   await witness(w[4], { ...ANTICLERE, pixel: [402, 152] });
   const d = (await list(w[0])).seats;
-  assert.deepEqual(d, [{ ...ANTICLERE, state: 'disputed', holder: null, battle: null }], 'two agree on another answer: disputed - the confirmed answer still in force');
+  assert.deepEqual(d, [{ ...ANTICLERE, state: 'disputed', holder: null, battle: null, works: {} }], 'two agree on another answer: disputed - the confirmed answer still in force');   // SEAT2b part two (PIN MOVED): its works
   // a lone liar, three times over: every report of theirs matches nobody - ignored
   const liar = w[5];
   const seats = [{ ...WAYREST }, { key: 7001, name: 'Glenpoint', region: 18, tier: 'palace', pixel: [200, 100] }, { key: 7002, name: 'Tulune', region: 58, tier: 'palace', pixel: [150, 120] }];

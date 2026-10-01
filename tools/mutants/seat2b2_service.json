@@ -1,0 +1,431 @@
+[
+ {
+  "name": "SEAT2b2-shrine-row",
+  "file": "src/net/townSeatLaw.js",
+  "old": "  add('shrine', shrineStanding(shrine));",
+  "new": "  add('shrine', shrineStanding(shrine - 1));",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-revolt-despite-right",
+  "file": "src/net/townSeatLaw.js",
+  "old": "    if (unchallenged && revoltDue(seasonEnds ? seasonStanding(w.standing) : w.standing)) revolts.push",
+  "new": "    if (revoltDue(seasonEnds ? seasonStanding(w.standing) : w.standing)) revolts.push",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-revolt-season-ignored",
+  "file": "src/net/townSeatLaw.js",
+  "old": "revoltDue(seasonEnds ? seasonStanding(w.standing) : w.standing)",
+  "new": "revoltDue(w.standing)",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-revolt-lapse-ignored",
+  "file": "src/net/townSeatLaw.js",
+  "old": "const state = s.holder.revoltLapsed ? 'revolt' : has >= due",
+  "new": "const state = has >= due",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-revolt-lapse-keeps",
+  "file": "src/net/townSeatLaw.js",
+  "old": "  const keeps = (s) => s.holder && stateOf.get(s.key) !== 'lapse' && stateOf.get(s.key) !== 'revolt';",
+  "new": "  const keeps = (s) => s.holder && stateOf.get(s.key) !== 'lapse';",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-turning-shrine-unread",
+  "file": "server-account/src/seatTurning.js",
+  "old": "shrine: works.get(key)?.shrine ?? 0, revoltLapsed",
+  "new": "shrine: 0, revoltLapsed",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-turning-unfought-kind",
+  "file": "server-account/src/seatTurning.js",
+  "old": "u.state === 'scheduled' && u.kind === 'revolt' && holds.get",
+  "new": "u.state === 'scheduled' && holds.get",
+  "tests": [
+   "test/seat2b2_service.test.js",
+   "test/audit_seats_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-turning-revolt-window",
+  "file": "server-account/src/seatTurning.js",
+  "old": "window: b.kind === 'siege' || b.kind === 'revolt' ? await windowOf",
+  "new": "window: b.kind === 'siege' ? await windowOf",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-turning-revolt-unplaced",
+  "file": "server-account/src/seatTurning.js",
+  "old": "    ...plan.revolts.map((r) => ({ key: r.key, kind: 'revolt', attacker: null, defender: r.guild })),",
+  "new": "    ...[],",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-turning-revolt-line",
+  "file": "server-account/src/seatTurning.js",
+  "old": "  for (const r of plan.revolts) stmts.push(history(r.key, 'revolt', { guild: names.get(r.guild) }));",
+  "new": "  for (const r of []) stmts.push(history(r.key, 'revolt', { guild: names.get(r.guild) }));",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-turning-lapse-line",
+  "file": "server-account/src/seatTurning.js",
+  "old": "u.state === 'revolt' ? 'revolt-lapsed' : 'lapse'",
+  "new": "'lapse'",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-turning-void-line",
+  "file": "server-account/src/seatTurning.js",
+  "old": "      if (u.kind !== 'revolt') stmts.push(history(key, 'siege-void'",
+  "new": "      stmts.push(history(key, 'siege-void'",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-turning-season-lapsed",
+  "file": "server-account/src/seatTurning.js",
+  "old": "u.state === 'lapse' || u.state === 'revolt'",
+  "new": "u.state === 'lapse'",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-turning-season-plan",
+  "file": "server-account/src/seatTurning.js",
+  "old": "active: await activeIn(db, week), seasonEnds: !!ending });",
+  "new": "active: await activeIn(db, week), seasonEnds: false });",
+  "tests": [
+   "test/seat1d_client.test.js",
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-list-works",
+  "file": "server-account/src/seatTurning.js",
+  "old": "battle: battles.get(s.key) ?? null, works: works.get(s.key) ?? {} };",
+  "new": "battle: battles.get(s.key) ?? null };",
+  "tests": [
+   "test/seat2b2_service.test.js",
+   "test/seat1a_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-effective-risen",
+  "file": "server-account/src/seatForts.js",
+  "old": "CASE WHEN building IS NOT NULL AND stands_at IS NOT NULL AND stands_at <= ? THEN building ELSE tier END AS t",
+  "new": "CASE WHEN building IS NOT NULL AND stands_at IS NOT NULL AND stands_at <= ? - 2000000000 THEN building ELSE tier END AS t",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-effective-zero",
+  "file": "server-account/src/seatForts.js",
+  "old": "if (!fortWork(r.work) || !(Number(r.t) > 0)) continue;",
+  "new": "if (!fortWork(r.work) || !(Number(r.t) >= 0)) continue;",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-wright-day",
+  "file": "server-account/src/seatForts.js",
+  "old": ".bind(fortStandsAt(nowS, r.building, { siegewright: r.wright }), key, r.work, r.building));",
+  "new": ".bind(fortStandsAt(nowS, r.building, { siegewright: false }), key, r.work, r.building));",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-wright-unkept",
+  "file": "server-account/src/seatForts.js",
+  "old": ".bind(key, work, t - 1, t, g, builder ? 1 : 0, nowS, wright ? 1 : 0),",
+  "new": ".bind(key, work, t - 1, t, g, builder ? 1 : 0, nowS, 0),",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-coastal-ignored",
+  "file": "server-account/src/seatForts.js",
+  "old": "coastal: (coastal ?? port) === true,",
+  "new": "coastal: port === true,",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-siegewright-side",
+  "file": "server-account/src/seatForts.js",
+  "old": "WHERE r.week = ? AND r.key = ? AND r.side = 'attack'`).bind(week, key).all();",
+  "new": "WHERE r.week = ? AND r.key = ? AND r.side = 'defend'`).bind(week, key).all();",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-works-unfrozen",
+  "file": "server-account/src/seatForts.js",
+  "old": "  if (b.works != null) return JSON.parse(String(b.works));",
+  "new": "  if (false) return JSON.parse(String(b.works));",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-works-camp",
+  "file": "server-account/src/seatForts.js",
+  "old": "rams: Number(b.rams ?? 0), siegewright:",
+  "new": "rams: 0, siegewright:",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-pass-no-works",
+  "file": "server-account/src/seatSiege.js",
+  "old": "se, sf, sx }, signingKey",
+  "new": "se, sf }, signingKey",
+  "tests": [
+   "test/seat2b2_service.test.js",
+   "test/seat2a_siege_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-revolt-field",
+  "file": "server-account/src/seatSiege.js",
+  "old": "nowS >= b.starts_at || b.kind === 'revolt');",
+  "new": "nowS >= b.starts_at);",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-revolt-standing",
+  "file": "server-account/src/seatSiege.js",
+  "old": ".bind(STANDING_CHANGES.revoltTo, K, g),",
+  "new": ".bind(STANDING_CHANGES.revoltTo + 1, K, g),",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-revolt-lapse-edict",
+  "file": "server-account/src/seatSiege.js",
+  "old": "state = 'void' WHERE key = ? AND week > ? AND state = 'proclaimed'\").bind(K, W),",
+  "new": "state = 'void' WHERE key = ? AND week = ? AND state = 'proclaimed'\").bind(K, W),",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-revolt-lapse-hold",
+  "file": "server-account/src/seatSiege.js",
+  "old": "      db.prepare('DELETE FROM town_seat_holds WHERE key = ? AND guild_id = ?').bind(K, g),",
+  "new": "      db.prepare('DELETE FROM town_seat_holds WHERE key = ? AND guild_id = ? AND 0').bind(K, g),",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-revolt-honours",
+  "file": "server-account/src/seatSiege.js",
+  "old": "if (c.h !== 1 || b.kind === 'revolt') return",
+  "new": "if (c.h !== 1) return",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-revolt-down-line",
+  "file": "server-account/src/seatSiege.js",
+  "old": "history('revolt-down', { guild: nameOf(g) }), ...swords]);",
+  "new": "history('revolt-held', { guild: nameOf(g) }), ...swords]);",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-revolt-sign-bound",
+  "file": "server-account/src/seatBattles.js",
+  "old": "if (b.kind !== 'revolt' && then !== me.guild_id) return { error: 'sign-unbound' };",
+  "new": "if (then !== me.guild_id) return { error: 'sign-unbound' };",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-revolt-fight-attacker",
+  "file": "server-account/src/seatBattles.js",
+  "old": "attackerGuild: b.attacker == null ? null : g.get(b.attacker)",
+  "new": "attackerGuild: g.get(b.attacker)",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-shrine-region",
+  "file": "server-account/src/seatInfluence.js",
+  "old": ".filter((r) => r === Number(seat.region)).length;",
+  "new": ".filter((r) => r != null).length;",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-shrine-share",
+  "file": "server-account/src/seatInfluence.js",
+  "old": "    own.shrine = shrineGateInfluence(shrine) * gates;",
+  "new": "    own.shrine = shrineGateInfluence(1) * gates;",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-shrine-holder",
+  "file": "server-account/src/seatInfluence.js",
+  "old": "  const own = shrine > 0 ? list.find((x) => x.guild === holder) : null;",
+  "new": "  const own = shrine > 0 ? list[0] : null;",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-watch-holder",
+  "file": "server-account/src/seatInfluence.js",
+  "old": ".filter((s) => !s.holder && watchtowerPassed(s.influence, defence, tower))",
+  "new": ".filter((s) => watchtowerPassed(s.influence, defence, tower))",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-revolt-battles",
+  "file": "server-account/src/seatInfluence.js",
+  "old": "FROM town_seat_battles x JOIN guilds d ON d.id = x.defender WHERE x.week = ? AND x.kind = 'revolt'",
+  "new": "FROM town_seat_battles x JOIN guilds d ON d.id = x.defender WHERE x.week = ? AND x.kind = 'riot'",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-list-watch",
+  "file": "server-account/src/index.js",
+  "old": "...(guild ? { watch: await watchOf(ctx.db, guild, nowS, env) } : {}) };",
+  "new": "watch: guild ? await watchOf(ctx.db, guild, nowS, env) : [] };",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-halls-member",
+  "file": "server-account/src/professions.js",
+  "old": "  if (!held) return 0;",
+  "new": "  if (!held && false) return 0;",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-halls-profession",
+  "file": "server-account/src/professions.js",
+  "old": "return stationSteps(profession, (await effectiveTiersOf(db, [at], nowS)).get(at) ?? {});",
+  "new": "return stationSteps('carpentry', (await effectiveTiersOf(db, [at], nowS)).get(at) ?? {});",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-halls-unasked",
+  "file": "server-account/src/professions.js",
+  "old": "const station = takesQuality(r) ? await stationAt(db, player, env, character, at, prof, nowS) : 0;",
+  "new": "const station = 0;",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-writ-stockpile-ram",
+  "file": "server-account/src/writs.js",
+  "old": "    if (!camp && !fortMaterialOk(key)) return { error: 'bad-material' };",
+  "new": "    if (false) return { error: 'bad-material' };",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-writ-market-ram",
+  "file": "server-account/src/writs.js",
+  "old": "!(seat != null && key === RAM_KIT_KEY)",
+  "new": "!(key === RAM_KIT_KEY)",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-kit-piece",
+  "file": "server-account/src/professions.js",
+  "old": "  const siege = r.kind === 'siege';",
+  "new": "  const siege = false;",
+  "tests": [
+   "test/seat2b2_service.test.js",
+   "test/prof4_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-kit-room",
+  "file": "server-account/src/professions.js",
+  "old": "+ ?6 <= ${Number(STORES_MAX)}`);   // SEAT2b part two: the kit's room",
+  "new": "+ ?6 <= ${Number(STORES_MAX) + 1}`);   // SEAT2b part two: the kit's room",
+  "tests": [
+   "test/seat2b2_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-kit-answer",
+  "file": "server-account/src/professions.js",
+  "old": "...(r.kind === 'siege' ? [RAM_KIT_KEY] : [])])] : [];",
+  "new": "...([])])] : [];",
+  "tests": [
+   "test/prof4_service.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-kit-withdrawn",
+  "file": "src/net/professionLaw.js",
+  "old": "!NO_PACK_FORM.includes(key) && key !== RAM_KIT_KEY;",
+  "new": "!NO_PACK_FORM.includes(key);",
+  "tests": [
+   "test/seat2b2_service.test.js",
+   "test/seat2b2_law.test.js"
+  ]
+ }
+]

@@ -30,6 +30,7 @@ import { FORT_WORKS, fortWork, fortMaxTier, fortMayRaise, fortNeeds, fortStandsA
 import { MARKET_LISTINGS_MAX } from '../../src/net/marketLaw.js';
 import { TITHE_CAP } from '../../src/net/townSeatLaw.js';
 import { specsAt, isBuilder as isBuilderSpec, isFortifier as isFortifierSpec } from '../../src/net/professionLaw.js';
+import { siegeWorksPass } from '../../src/net/fortLaw.js';   // SEAT2b part two: a battle's works on its pass
 
 const weekAt = (nowS) => seatWeekOf(nowS * 1000);
 const ORDER = new Map(FORT_WORKS.map((w, i) => [w.id, i]));
@@ -38,11 +39,30 @@ const byOrder = (a, b) => (ORDER.get(a.work) ?? 99) - (ORDER.get(b.work) ?? 99);
 const historyRow = (db, key, nowS, kind, data) => db.prepare('INSERT INTO town_seat_history (key, week, kind, data, at) VALUES (?, ?, ?, ?, ?)')
   .bind(key, weekAt(nowS), kind, JSON.stringify(data), nowS);
 
-/** A seat's works' rows, `[{ work, tier, building, builder, standsAt, guild }]`, in the table's order. */
+/** A seat's works' rows, `[{ work, tier, building, builder, wright, standsAt, guild }]`, in the table's order (SEAT2b part two:
+ *  `wright` - a Siegewright began the project). */
 async function rowsOf(db, key) {
-  const { results = [] } = await db.prepare('SELECT work, tier, building, builder, stands_at, guild_id FROM town_seat_forts WHERE key = ?').bind(key).all();
+  const { results = [] } = await db.prepare('SELECT work, tier, building, builder, wright, stands_at, guild_id FROM town_seat_forts WHERE key = ?').bind(key).all();
   return results.map((r) => ({ work: r.work, tier: Number(r.tier), building: r.building == null ? null : Number(r.building), builder: Number(r.builder) === 1,
-    standsAt: r.stands_at == null ? null : Number(r.stands_at), guild: r.guild_id ?? null })).filter((r) => fortWork(r.work)).sort(byOrder);
+    wright: Number(r.wright) === 1, standsAt: r.stands_at == null ? null : Number(r.stands_at), guild: r.guild_id ?? null })).filter((r) => fortWork(r.work)).sort(byOrder);
+}
+/**
+ * SEAT2b part two: THE WORKS AS THEY STAND AT `atS`, for many seats and without a write - each project whose day has come
+ * counted at its tier (the lazy rise, riseDue, writes at the reader's clock; the Turning and the seats' list must not):
+ * `Map<key, { [work]: tier }>`, tiers above nought alone.
+ */
+export async function effectiveTiersOf(db, keys, atS) {
+  const out = new Map();
+  if (!keys?.length) return out;
+  const { results = [] } = await db.prepare(`SELECT key, work, CASE WHEN building IS NOT NULL AND stands_at IS NOT NULL AND stands_at <= ? THEN building ELSE tier END AS t
+    FROM town_seat_forts WHERE key IN (${keys.map(() => '?').join(', ')})`).bind(atS, ...keys).all();
+  for (const r of results) {
+    if (!fortWork(r.work) || !(Number(r.t) > 0)) continue;
+    let m = out.get(Number(r.key));
+    if (!m) out.set(Number(r.key), m = {});
+    m[r.work] = Number(r.t);
+  }
+  return out;
 }
 /** What each of a seat's projects holds: `Map<work, Map<material, qty>>`. */
 async function heldOf(db, key) {
@@ -58,7 +78,7 @@ async function riseDue(db, key, nowS) {
     if (r.building == null || r.standsAt == null || r.standsAt > nowS) continue;
     try {
       await db.batch([
-        db.prepare('UPDATE town_seat_forts SET tier = building, building = NULL, stands_at = NULL, builder = 0 WHERE key = ? AND work = ? AND building = ? AND stands_at <= ?')
+        db.prepare('UPDATE town_seat_forts SET tier = building, building = NULL, stands_at = NULL, builder = 0, wright = 0 WHERE key = ? AND work = ? AND building = ? AND stands_at <= ?')
           .bind(key, r.work, r.building, nowS),
         mustChange(db),
         db.prepare('DELETE FROM town_seat_fort_held WHERE key = ? AND work = ?').bind(key, r.work),
@@ -96,7 +116,7 @@ export async function supplyForts(db, key, nowS) {
     }
     if (fortWanting(needs, has).every(([, n]) => n === 0)) {
       stmts.push(db.prepare('UPDATE town_seat_forts SET stands_at = ? WHERE key = ? AND work = ? AND building = ? AND stands_at IS NULL')
-        .bind(fortStandsAt(nowS, r.building), key, r.work, r.building));
+        .bind(fortStandsAt(nowS, r.building, { siegewright: r.wright }), key, r.work, r.building));   // SEAT2b part two: a Siegewright's a day sooner
     }
   }
   if (!stmts.length) return;
@@ -127,21 +147,27 @@ export async function fortTiersOf(db, key, nowS) {
   return Object.fromEntries((await rowsOf(db, key)).map((r) => [r.work, r.tier]));
 }
 
-/** Whether `character` of `player` is a Builder (Masonry 50) now. */
-async function isBuilder(db, player, character, nowS) {
-  const row = await db.prepare("SELECT spec50, spec100, respec_rank, respec_to, respec_at FROM prof_tracks WHERE player = ? AND char_id = ? AND profession = 'masonry'")
-    .bind(player, character).first();
-  return isBuilderSpec(specsAt(row ? { ...row, respec_rank: row.respec_rank == null ? null : Number(row.respec_rank), respec_at: row.respec_at == null ? null : Number(row.respec_at) } : null, nowS));   // PROF11's law
+/** A character's specialisations in `profession` now (professionLaw.js specsAt over its track row). */
+async function specsOf(db, player, character, profession, nowS) {
+  const row = await db.prepare('SELECT spec50, spec100, respec_rank, respec_to, respec_at FROM prof_tracks WHERE player = ? AND char_id = ? AND profession = ?')
+    .bind(player, character, profession).first();
+  return specsAt(row ? { ...row, respec_rank: row.respec_rank == null ? null : Number(row.respec_rank), respec_at: row.respec_at == null ? null : Number(row.respec_at) } : null, nowS);
 }
+/** Whether `character` of `player` is a Builder (Masonry 50) now. */
+const isBuilder = async (db, player, character, nowS) => isBuilderSpec(await specsOf(db, player, character, 'masonry', nowS));   // PROF11's law
+/** SEAT2b part two: whether `character` of `player` stands as a Siegewright (Carpentry 100) now. */
+const isSiegewright = async (db, player, character, nowS) => (await specsOf(db, player, character, 'carpentry', nowS))[100] === 'siegewright';
 
 /**
- * BEGIN A PROJECT (7.5): `{ character, key, work, port, rid }` - the holder's Guildmaster or an Officer, the next tier
+ * BEGIN A PROJECT (7.5): `{ character, key, work, coastal, rid }` - the holder's Guildmaster or an Officer, the next tier
  * of a work the seat may raise and that is not already building; its Marks burnt from the treasury in the same batch
  * as the row (`fort`, once a `rid`), and the stockpile's units moved in at once. Answers `{ ok, work, tier, needs,
- * forts }` or `{ error }`.
+ * forts }` or `{ error }`. SEAT2b part two: `coastal` - the funding client's word that the town touches the sea (fortLaw.js
+ * harbourPort's DECIDED, correcting part one's port flag; an older client's `port` read as it); a Siegewright's project
+ * stands a day sooner (`wright`, kept with it as the Builder's stone is).
  * @param {{db: any, nowS: number}} ctx
  */
-export async function fundFort(ctx, player, env, { character, key, work, port = false, rid } = {}) {
+export async function fundFort(ctx, player, env, { character, key, work, coastal = undefined, port = false, rid } = {}) {
   const { db, nowS } = ctx;
   if (accountKind(player) !== 'linked') return { error: 'seats-need-account' };
   if (!seatsOpenFor(player, env)) return { error: 'seats-closed' };
@@ -159,11 +185,12 @@ export async function fundFort(ctx, player, env, { character, key, work, port = 
   const tiers = await fortTiersOf(db, key, nowS);
   const rows = await rowsOf(db, key);
   const cur = rows.find((r) => r.work === work);
-  if (!fortMayRaise(work, { tier: hold.tier, coastal: port === true, walls: tiers.walls ?? 0 })) return { error: 'fort-not-here' };
+  if (!fortMayRaise(work, { tier: hold.tier, coastal: (coastal ?? port) === true, walls: tiers.walls ?? 0 })) return { error: 'fort-not-here' };
   if (cur?.building != null) return { error: 'fort-building' };
   const t = (cur?.tier ?? 0) + 1;
   if (t > fortMaxTier(work)) return { error: 'fort-max' };
   const builder = await isBuilder(db, player.id, character, nowS);
+  const wright = await isSiegewright(db, player.id, character, nowS);   // SEAT2b part two
   const { marks, needs } = /** @type {{ marks: number, needs: any[] }} */ (fortNeeds(work, t, { builder }));
   // the rate, once the ask is one the board would take - its own bucket, beside the levers' (Appendix B's five an hour)
   if (await overRate(ctx, `seat-fort:${player.id}`, SEAT_EDICTS_HOUR, 3600)) return { error: 'seats-rate' };
@@ -180,9 +207,9 @@ export async function fundFort(ctx, player, env, { character, key, work, port = 
         .bind(g, marks, utcDay(nowS), nowS, player.id, w.name, `${rid}:fort`, key, Number(a.me.rid)),
       mustChange(db),
       // the project: the next tier, no other building at this work
-      db.prepare(`INSERT INTO town_seat_forts (key, work, tier, building, guild_id, builder, stands_at, at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL, ?7)
-        ON CONFLICT (key, work) DO UPDATE SET building = excluded.building, guild_id = excluded.guild_id, builder = excluded.builder, stands_at = NULL, at = excluded.at
-        WHERE town_seat_forts.building IS NULL AND town_seat_forts.tier = ?3`).bind(key, work, t - 1, t, g, builder ? 1 : 0, nowS),
+      db.prepare(`INSERT INTO town_seat_forts (key, work, tier, building, guild_id, builder, wright, stands_at, at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?8, NULL, ?7)
+        ON CONFLICT (key, work) DO UPDATE SET building = excluded.building, guild_id = excluded.guild_id, builder = excluded.builder, wright = excluded.wright, stands_at = NULL, at = excluded.at
+        WHERE town_seat_forts.building IS NULL AND town_seat_forts.tier = ?3`).bind(key, work, t - 1, t, g, builder ? 1 : 0, nowS, wright ? 1 : 0),
       mustChange(db),
       historyRow(db, key, nowS, 'fort-begun', { guild: { name: guild?.name ?? '', tag: guild?.tag ?? '' }, work, tier: t }),
     ]);
@@ -192,7 +219,7 @@ export async function fundFort(ctx, player, env, { character, key, work, port = 
     return { error: 'fort-building' };
   }
   await supplyForts(db, key, nowS);
-  return { ok: true, work, tier: t, marks, needs, builder, forts: await fortsOf(db, key, nowS) };
+  return { ok: true, work, tier: t, marks, needs, builder, wright, forts: await fortsOf(db, key, nowS) };
 }
 
 /** THE BOARD'S READ (`/v1/seats/forts`): `{ ok, key, works, stockpile }` - anyone the seats are open to. */
@@ -215,7 +242,7 @@ export function fortsCapturedStatements(db, key, { fortifier = false } = {}) {
       ON CONFLICT (key, material) DO UPDATE SET qty = town_seat_stockpile.qty + excluded.qty`).bind(key),
     db.prepare('DELETE FROM town_seat_fort_held WHERE key = ?').bind(key),
     db.prepare(`UPDATE town_seat_forts SET tier = CASE WHEN ?2 = 1 AND work = 'walls' THEN tier ELSE MAX(0, tier - 1) END,
-      building = NULL, stands_at = NULL, builder = 0, guild_id = NULL WHERE key = ?1`).bind(key, fortifier ? 1 : 0),
+      building = NULL, stands_at = NULL, builder = 0, wright = 0, guild_id = NULL WHERE key = ?1`).bind(key, fortifier ? 1 : 0),
   ];
 }
 /**
@@ -237,6 +264,32 @@ export async function fortifierAt(db, week, key, nowS, seasonWeek) {
     if (isFortifierSpec(specs)) return row.account;
   }
   return null;
+}
+/**
+ * SEAT2b part two: A SIEGEWRIGHT ON THE ATTACKING ROSTER (Carpentry 100, Professions-Arc 3.3: "Rams +50% vitality") -
+ * DECIDED: the Rams are the attackers' works, so a Siegewright who signed the attacking side of the battle gives them its
+ * half again (the Fortifier's mirror on the defending roster).
+ */
+export async function siegewrightAt(db, week, key, nowS) {
+  const { results = [] } = await db.prepare(`SELECT t.spec50, t.spec100, t.respec_rank, t.respec_to, t.respec_at FROM town_seat_rosters r
+    JOIN prof_tracks t ON t.player = r.account AND t.char_id = r.char_id AND t.profession = 'carpentry'
+    WHERE r.week = ? AND r.key = ? AND r.side = 'attack'`).bind(week, key).all();
+  return results.some((row) => specsAt({ ...row, respec_rank: row.respec_rank == null ? null : Number(row.respec_rank), respec_at: row.respec_at == null ? null : Number(row.respec_at) }, nowS)[100] === 'siegewright');
+}
+/**
+ * SEAT2b part two: A BATTLE'S WORKS, FROZEN (the pass's `sx` - fortLaw.js siegeWorksPass): written once, at the battle's
+ * first pass (`town_seat_battles.works`, `WHERE works IS NULL`), from the seat's works as they stand then, the Ram Kits the
+ * Siege Camp sent and a Siegewright on the attacking roster (the rosters closed as the door opened) - so every pass of the
+ * battle carries the same works, and the room, which refuses a pass that disagrees with the first, stays whole. Answers the
+ * frozen `[walls, gate, guards, rams, ramHp]`.
+ */
+export async function battleWorks(db, b, nowS) {
+  if (b.works != null) return JSON.parse(String(b.works));
+  const forts = (await effectiveTiersOf(db, [b.key], nowS)).get(b.key) ?? {};
+  const sx = siegeWorksPass({ kind: b.kind, tier: b.tier, forts, rams: Number(b.rams ?? 0), siegewright: b.kind === 'siege' && await siegewrightAt(db, b.week, b.key, nowS) });
+  await db.prepare('UPDATE town_seat_battles SET works = ? WHERE week = ? AND key = ? AND works IS NULL').bind(JSON.stringify(sx), b.week, b.key).run();
+  const kept = (await db.prepare('SELECT works FROM town_seat_battles WHERE week = ? AND key = ?').bind(b.week, b.key).first())?.works;
+  return kept != null ? JSON.parse(String(kept)) : sx;
 }
 /** The capture's statements with the Fortifier's save written beside them (its Season's one), and the Chronicle's word. */
 export function fortsCaptureWithSave(db, key, { nowS, seasonWeek, fortifier = null, history }) {

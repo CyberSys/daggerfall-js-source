@@ -248,8 +248,8 @@
   {
     "name": "PROF3-svc-clean-truthy",
     "file": "server-account/src/professions.js",
-    "old": "qualitySteps(r, { clean: clean === true, spec50: specs[50], heartwood: wood })",
-    "new": "qualitySteps(r, { clean: !!clean, spec50: specs[50], heartwood: wood })",
+    "old": "qualitySteps(r, { clean: clean === true, spec50: specs[50], heartwood: wood, station })",
+    "new": "qualitySteps(r, { clean: !!clean, spec50: specs[50], heartwood: wood, station })",
     "tests": [
       "test/prof3_service.test.js"
     ]

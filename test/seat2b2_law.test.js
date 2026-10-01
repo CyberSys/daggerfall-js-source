@@ -17,7 +17,7 @@ import {
   validSiegeIn, validSiegeOut, SIEGE_OUT_KINDS, SEAT2B_RELAY_MIN, relayKnowsWorks, SIEGE_FIGURE_ID_RE, SIEGE_WORK_IDS,
   SIEGE_FIGURES_MAX, siegeFigureKind, SIEGE_GATE_WIRE_MAX, SIEGE_RAM_WIRE_MAX, RELAY_VERSION,
 } from '../src/net/wire.js';
-import { RAM_KIT_INPUTS, RAM_KIT_VALUE, RAM_KIT_TEMPLATE_INDEX, materialOf, MINED_KEYS, MATERIAL_FAMILIES, specOk, professionOfFamily } from '../src/net/professionLaw.js';
+import { RAM_KIT_INPUTS, RAM_KIT_VALUE, RAM_KIT_TEMPLATE_INDEX, materialOf, MINED_KEYS, MATERIAL_FAMILIES, specOk, professionOfFamily, withdrawable } from '../src/net/professionLaw.js';
 import { recipeById, recipeOpen, takesQuality, RAM_KIT_TEMPLATE, qualitySteps, craftQuality } from '../src/net/recipeLaw.js';
 import { marketCatalogue } from '../src/net/marketLaw.js';
 import { BATTLE_LENGTH_MS, battleLengthMs, battlePreferredMs, battleSpanMs, siegeStartMs, battleAnnouncement, chronicleLine, placeBattles } from '../src/net/townSeatLaw.js';
@@ -168,6 +168,7 @@ test('SEAT2b2 THE RAM KIT MADE: Carpentry rank 60, open now - 40 Oak Planks, 20 
   assert.equal(marketCatalogue().some((m) => m.key === RAM_KIT_KEY), false);
   assert.deepEqual([campGoodOk(RAM_KIT_KEY), fortMaterialOk(RAM_KIT_KEY), campGoodOk('stone:cut'), campGoodOk('metal:iron')], [true, false, true, false]);
   assert.equal(professionOfFamily('works'), 'carpentry');
+  assert.deepEqual([withdrawable(RAM_KIT_KEY), withdrawable('plank:oak')], [false, true], 'a siege work never to the pack');
   assert.equal(specOk('carpentry', 100, 'siegewright'), true);
 });
 

@@ -396,7 +396,7 @@
  {
   "name": "SEAT2a-svc-unbound",
   "file": "server-account/src/seatBattles.js",
-  "old": "    if (then !== me.guild_id) return { error: 'sign-unbound' };\n",
+  "old": "    if (b.kind !== 'revolt' && then !== me.guild_id) return { error: 'sign-unbound' };\n",
   "new": "",
   "tests": [
    "test/seat2a_service.test.js"
@@ -594,8 +594,8 @@
  {
   "name": "SEAT2a-turn-window-ignored",
   "file": "server-account/src/seatTurning.js",
-  "old": "    Object.assign(b, { tier: seat.tier, kingdom: CROWN_SEAT_REGIONS[seat.region] ?? null, window: b.kind === 'siege' ? await windowOf(db, b.key, b.defender) : null });",
-  "new": "    Object.assign(b, { tier: seat.tier, kingdom: CROWN_SEAT_REGIONS[seat.region] ?? null, window: null });",
+  "old": "window: b.kind === 'siege' || b.kind === 'revolt' ? await windowOf(db, b.key, b.defender) : null });",
+  "new": "window: null });",
   "tests": [
    "test/seat2a_service.test.js"
   ]

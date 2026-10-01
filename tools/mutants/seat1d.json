@@ -375,8 +375,8 @@
  {
   "name": "SEAT1d-plan-paid-strict",
   "file": "src/net/townSeatLaw.js",
-  "old": "const state = has >= due ? (owed > 0 ? 'late' : 'paid') : owed > 0 ? 'lapse' : 'neglect';",
-  "new": "const state = has > due ? (owed > 0 ? 'late' : 'paid') : owed > 0 ? 'lapse' : 'neglect';",
+  "old": "has >= due ? (owed > 0 ? 'late' : 'paid') : owed > 0 ? 'lapse' : 'neglect';",
+  "new": "has > due ? (owed > 0 ? 'late' : 'paid') : owed > 0 ? 'lapse' : 'neglect';",
   "tests": [
    "test/seat1d_client.test.js"
   ]
@@ -384,8 +384,8 @@
  {
   "name": "SEAT1d-plan-never-late",
   "file": "src/net/townSeatLaw.js",
-  "old": "const state = has >= due ? (owed > 0 ? 'late' : 'paid') : owed > 0 ? 'lapse' : 'neglect';",
-  "new": "const state = has >= due ? 'paid' : owed > 0 ? 'lapse' : 'neglect';",
+  "old": "has >= due ? (owed > 0 ? 'late' : 'paid') : owed > 0 ? 'lapse' : 'neglect';",
+  "new": "has >= due ? 'paid' : owed > 0 ? 'lapse' : 'neglect';",
   "tests": [
    "test/seat1d_client.test.js",
    "test/seat1d_service.test.js"
@@ -394,8 +394,8 @@
  {
   "name": "SEAT1d-plan-never-lapse",
   "file": "src/net/townSeatLaw.js",
-  "old": "const state = has >= due ? (owed > 0 ? 'late' : 'paid') : owed > 0 ? 'lapse' : 'neglect';",
-  "new": "const state = has >= due ? (owed > 0 ? 'late' : 'paid') : 'neglect';",
+  "old": "has >= due ? (owed > 0 ? 'late' : 'paid') : owed > 0 ? 'lapse' : 'neglect';",
+  "new": "has >= due ? (owed > 0 ? 'late' : 'paid') : 'neglect';",
   "tests": [
    "test/seat1d_client.test.js",
    "test/seat1d_service.test.js"
@@ -414,8 +414,8 @@
  {
   "name": "SEAT1d-plan-lapse-besieged",
   "file": "src/net/townSeatLaw.js",
-  "old": "  const keeps = (s) => s.holder && stateOf.get(s.key) !== 'lapse';",
-  "new": "  const keeps = (s) => s.holder;",
+  "old": "  const keeps = (s) => s.holder && stateOf.get(s.key) !== 'lapse' && stateOf.get(s.key) !== 'revolt';",
+  "new": "  const keeps = (s) => s.holder && stateOf.get(s.key) !== 'revolt';",
   "tests": [
    "test/seat1d_client.test.js"
   ]
@@ -534,8 +534,8 @@
  {
   "name": "SEAT1d-settle-no-scale",
   "file": "server-account/src/seatTurning.js",
-  "old": "active: await activeIn(db, week) });",
-  "new": "active: 100 });",
+  "old": "active: await activeIn(db, week), seasonEnds: !!ending });",
+  "new": "active: 100, seasonEnds: !!ending });",
   "tests": [
    "test/seat1d_service.test.js"
   ]

@@ -380,7 +380,7 @@ test('AUDIT-SEATS R6 THE LATE PASS (server-account/src/seatSiege.js siegePass): 
   now = S + 7200;   // the window's close
   const late = await ask(fighter, { key: SK });
   assert.equal(late.status, 200, JSON.stringify(late.body));
-  assert.deepEqual({ ...late.body, pass: !!late.body.pass }, { side: 'attack', week: W, key: SK, startsAt: S, endsAt: S + 1800, window: S + 7200, late: true, pass: true });
+  assert.deepEqual({ ...late.body, pass: !!late.body.pass }, { side: 'attack', week: W, key: SK, kind: 'siege', startsAt: S, endsAt: S + 1800, window: S + 7200, works: [0, 0, 0, 0, 0], late: true, pass: true });   // PIN MOVED (SEAT2b part two): the battle's kind and its works
   const v = await verifyOrder(late.body.pass, svc.identityPublic, { subtle, nowS: now, kind: 'siege' });
   assert.ok(v.ok, v.why);
   assert.deepEqual([v.claims.sd, v.claims.sb, v.claims.se, v.claims.sf], ['attack', S, S + 7200, SF], 'the battle\'s own pass - the room knows it for its battle');
