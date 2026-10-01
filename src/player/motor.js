@@ -163,6 +163,9 @@ export const STEP_OFFSET = 0.5;
  *  r - sqrt((r + skin)^2 - r^2), about 0.067. */
 export const CLIMB_SIDE_REACH = CAPSULE_RADIUS + 0.1;
 export const CLIMB_CAP_LOW = CAPSULE_RADIUS - Math.sqrt(CLIMB_SIDE_REACH ** 2 - CAPSULE_RADIUS ** 2);
+/** ClimbingMotor.cs:318-320: the ground directly below is "too close for climbing" within this under the feet (a ray
+ *  from the capsule's centre, height/2 + this) - the classic climb's abort, and the free climb's (AUDIT CLIMB2 A1). */
+export const CLIMB_GROUND_NEAR = 0.12;
 /** MAC1: the render eye pays a grounded step out over this many seconds
  *  (see PlayerMotor._noteVerticalStep). */
 export const STEP_SMOOTH_TAU = 0.06;
@@ -1444,7 +1447,7 @@ export class PlayerMotor {
       // ":318-320: ground directly below too close for climbing" -
       // from the capsule center, height/2 + 0.12 down
       tooCloseToGround: () => Number.isFinite(this.collider.raycast(
-        [this.pos[0], this.pos[1] + this.height / 2, this.pos[2]], [0, -1, 0], this.height / 2 + 0.12)),
+        [this.pos[0], this.pos[1] + this.height / 2, this.pos[2]], [0, -1, 0], this.height / 2 + CLIMB_GROUND_NEAR)),
     });
     if (!climbing) return false;
     // :322-326 zeroes moveDirection before the climb/swim/levitate
@@ -1677,8 +1680,9 @@ export class PlayerMotor {
    *  climbing a face (lipY null). Every reader of the climb reads it
    *  (climb.hold: the fatigue band's climbing arm, the bob, the torch, the
    *  shield, the motion bag) with none of the classic machine's rolls. */
-  _wallBegin(mode, normal, lipY, key) {
+  _wallBegin(mode, normal, lipY, key, corner = false) {
     this._wall = { mode, normal: [normal[0], 0, normal[2]], lipY, key: key ?? null, carrier: null, warned: false, upRefused: false };
+    if (!corner) this._pkSide = null;   // AUDIT CLIMB2 A3: a new wall asks the look afresh; a corner keeps the hold's way round
     if (key != null) this._wall.carrier = this.collider.bucketPose?.(key) ?? null;
     this._wallTally = 0;
     this._fcStart = null;
@@ -1890,6 +1894,14 @@ export class PlayerMotor {
       w.seek ? PARKOUR_WALL_REACH : PARKOUR_CONTACT);
     if (!c) { this._wallEnd(); return false; }
     if (w.seek && c.dist <= CAPSULE_RADIUS + PARKOUR_CONTACT) w.seek = false;
+    // AUDIT CLIMB2 A1: not going up with the floor this near under the feet is standing, not a hold - ClimbingMotor's
+    // own "ground directly below too close" abort (:318-320, height/2 + 0.12 from the capsule's centre). A climb begun
+    // at the floor and let go of held the body there, on the wall and not on its feet, until the grip ran out.
+    if (vert <= 0 && Number.isFinite(this.collider.raycast(
+      [this.pos[0], this.pos[1] + this.height / 2, this.pos[2]], [0, -1, 0], this.height / 2 + CLIMB_GROUND_NEAR))) {
+      this._wallEnd();
+      return false;
+    }
     const into = [-w.normal[0], 0, -w.normal[2]];
     w.normal = c.normal;
     if (c.key !== w.key) { w.key = c.key; w.carrier = c.key != null ? (this.collider.bucketPose?.(c.key) ?? null) : null; }
@@ -1983,7 +1995,7 @@ export class PlayerMotor {
     if (m.t >= 1) {
       this._pkMove = null;
       if (m.hang) {
-        this._wallBegin('hang', m.hang.normal, m.hang.lipY, m.key);   // CLIMB2: a catch ends held, under the lip
+        this._wallBegin('hang', m.hang.normal, m.hang.lipY, m.key, m.kind === 'corner');   // CLIMB2: a catch ends held, under the lip
       } else if (m.exit) {
         this.jumping = true;   // Jumping withholds the floor snap until the landing
         this.velY = m.exitVy ?? 0;
