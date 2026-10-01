@@ -153,10 +153,10 @@ test('LR1: the odds follow the SOURCE - monotone in tier, luck and boss, capped,
   assert.equal(LR.rollRarity({ kind: 'corpse', tier: 10 }, () => (c.magic - 0.5) / 1000), 'magic');
   assert.equal(LR.rollRarity({ kind: 'corpse', tier: 10 }, () => 0.999), 'common');
   // the sources
-  assert.deepEqual(LR.corpseSource({ level: 7, affinity: 'Animal' }, 3), { kind: 'corpse', tier: 7, boss: false });
-  assert.deepEqual(LR.corpseSource({ level: 3, affinity: 'Daedra' }, 3), { kind: 'corpse', tier: 3, boss: true }, 'any Daedra is a boss');
-  assert.deepEqual(LR.corpseSource({ level: LR.BOSS_LEVEL }, 1), { kind: 'corpse', tier: LR.BOSS_LEVEL, boss: true });
-  assert.deepEqual(LR.corpseSource({}, 9), { kind: 'corpse', tier: 9, boss: false }, 'a class enemy has no level in ENEMY_BASICS - its entity level stands in');
+  assert.deepEqual(LR.corpseSource({ level: 7, affinity: 'Animal' }, 3), { kind: 'corpse', tier: 7, boss: false, family: null });   // LOOT6: a family by the foe's type, none without one
+  assert.deepEqual(LR.corpseSource({ level: 3, affinity: 'Daedra' }, 3), { kind: 'corpse', tier: 3, boss: true, family: null }, 'any Daedra is a boss');
+  assert.deepEqual(LR.corpseSource({ level: LR.BOSS_LEVEL }, 1), { kind: 'corpse', tier: LR.BOSS_LEVEL, boss: true, family: null });
+  assert.deepEqual(LR.corpseSource({}, 9), { kind: 'corpse', tier: 9, boss: false, family: null }, 'a class enemy has no level in ENEMY_BASICS - its entity level stands in');
   assert.deepEqual(LR.pileSource(12), { kind: 'pile', tier: 12, boss: false });
 });
 
@@ -399,7 +399,7 @@ test('LR1: rollLootRarity - off or sourceless returns the DFU list untouched; on
 test('LR1: four hosts - every list a host mints rolls at its source, and the pile\'s tier is the dungeon\'s', () => {
   const dc = read('src/scenes/dungeonContext.js');
   assert.equal((dc.match(/spawnEnemyLoot\(entity, e\.mobileType, basics, D\.playerEntity, \{ \.\.\.eliteLootOpts\(e\), where: 'dungeon' \}\)/g) ?? []).length, 2, 'both dungeon spawn arms, through the one seam (RF2), whose corpse door is LR4\'s');
-  assert.match(dc, /rollLootRarity\(items, \{ \.\.\.pileSource\(dungeonRarityTier\(dfLocation\.mapTableData\.dungeonType\)\), qualityMult: elite \? ELITE_LOOT_QUALITY_MULT : 1 \}, \{ luck: liveStat\(playerEntity, 'luck'\) \}\)/, 'the treasure piles at the dungeon\'s tier');
+  assert.match(dc, /rollLootRarity\(items, \{ \.\.\.pileSource\(dungeonRarityTier\(dfLocation\.mapTableData\.dungeonType\)\), qualityMult: elite \? ELITE_LOOT_QUALITY_MULT : 1, family: dungeonFamily\(dfLocation\.mapTableData\.dungeonType\) \}, \{ luck: liveStat\(playerEntity, 'luck'\) \}\)/, 'the treasure piles at the dungeon\'s tier (LOOT6: and its kind\'s family)');
   assert.match(read('src/scenes/exteriorFoes.js'), /spawnEnemyLoot\(entity, mobileType, basics, playerEntity, \{ rolls \}\)/, 'the exterior foes, off the same stream');
   assert.match(read('src/scenes/cityGuards.js'), /spawnEnemyLoot\(entity, GUARD_MOBILE_TYPE, basics, playerEntity, \{ rolls: rand \}\)/, 'the watch');
   assert.match(read('src/scenes/hostCombat.js'), /rollCorpseLoot\(entity, basics, \{ rolls, luck: liveStat\(player, 'luck'\), qualityMult: lootQualityMult \}\);/, 'the corpse door, in the one seam (RF2)');

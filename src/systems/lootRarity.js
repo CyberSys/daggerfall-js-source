@@ -167,13 +167,86 @@ export const BOSS_LEVEL = 18;
 
 /** The corpse source for an enemy: its own level (a class enemy has
  *  none in ENEMY_BASICS and scales to the player, so its entity level
- *  stands in), boss when it is a Daedra or high enough. */
-export function corpseSource(basics, entityLevel = 1) {
+ *  stands in), boss when it is a Daedra or high enough. LOOT6: and its
+ *  FAMILY, by its mobile type (null for none). */
+export function corpseSource(basics, entityLevel = 1, mobileType = null) {
   const level = Math.max(1, (basics?.level ?? entityLevel) | 0);
   const boss = basics?.affinity === 'Daedra' || level >= BOSS_LEVEL;
-  return { kind: 'corpse', tier: level, boss };
+  return { kind: 'corpse', tier: level, boss, family: foeFamily(mobileType) };
 }
 export const pileSource = (tier, boss = false) => ({ kind: 'pile', tier: Math.max(0, tier | 0), boss });
+
+// ── LOOT6: signature drops ──────────────────────────────────────────
+// The Loot arc (bible/06-Systems/Loot-Arc.md section 8): each Legendary record is FOUND AMONG a family of the foe table,
+// and a source of that family - a corpse of one of its foes, a pile in a dungeon kind of its - weighs its own records
+// SIGNATURE_WEIGHT to one in the record's pick. WHETHER a Legendary drops is the source's tier alone (LR1's law); the
+// family steers WHICH. One roll a pick, as the pick it replaces took, so no seeded mint draws more.
+/** The port's grouping of the foe table (ENEMY_BASICS by mobile type; the class foes by their own teams and magic). */
+export const FOE_FAMILIES = Object.freeze({
+  undead: Object.freeze([15, 17, 18, 19, 23, 28, 30, 32, 33]),                   // the skeletal warrior to the Ancient Lich, the vampires among them
+  daedra: Object.freeze([1, 22, 25, 26, 27, 29, 31, 35, 36, 37, 38]),            // the five Daedra, the four atronachs, the imp and the gargoyle
+  dragon: Object.freeze([34, 40]),                                               // the two dragonlings
+  beast: Object.freeze([0, 2, 3, 4, 5, 6, 8, 9, 10, 11, 13, 14, 20, 41, 42]),    // the animals, the werecreatures, the wild and the water
+  brute: Object.freeze([7, 12, 16, 21, 24]),                                     // the orcs and the giant
+  caster: Object.freeze([128, 129, 130, 131, 132, 133]),                         // Mage, Spellsword, Battlemage, Sorcerer, Healer, Nightblade
+  rogue: Object.freeze([134, 135, 136, 137, 138, 139]),                          // Bard, Burglar, Rogue, Acrobat, Thief, Assassin
+  warrior: Object.freeze([140, 141, 142, 143, 144, 145, 146]),                   // Monk, Archer, Ranger, Barbarian, Warrior, Knight, the watch
+});
+export const FAMILY_IDS = Object.freeze(Object.keys(FOE_FAMILIES));
+/** A foe's family by its mobile type, or null (the horse; a type the table does not know). */
+export function foeFamily(mobileType) {
+  if (!Number.isInteger(mobileType)) return null;
+  for (const id of FAMILY_IDS) if (FOE_FAMILIES[id].includes(mobileType)) return id;
+  return null;
+}
+/** A dungeon kind's family (DFRegion.DungeonTypes order) - whose its piles are; null for a kind of no one family. */
+export const DUNGEON_FAMILY = Object.freeze([
+  'undead',   // 0 Crypt
+  'brute',    // 1 OrcStronghold
+  'warrior',  // 2 HumanStronghold
+  'rogue',    // 3 Prison
+  'daedra',   // 4 DesecratedTemple
+  null,       // 5 Mine
+  'beast',    // 6 NaturalCave
+  'caster',   // 7 Coven
+  'undead',   // 8 VampireHaunt
+  'caster',   // 9 Laboratory
+  'beast',    // 10 HarpyNest
+  'undead',   // 11 RuinedCastle
+  'beast',    // 12 SpiderNest
+  'brute',    // 13 GiantStronghold
+  'dragon',   // 14 DragonsDen
+  'warrior',  // 15 BarbarianStronghold
+  'daedra',   // 16 VolcanicCaves
+  'beast',    // 17 ScorpionNest
+  'undead',   // 18 Cemetery
+]);
+export const dungeonFamily = (dungeonType) => DUNGEON_FAMILY[dungeonType] ?? null;
+/** Each record's family - where it is found. Keyed by id; a mod's record may carry its own `found`. */
+export const LEGENDARY_FOUND = Object.freeze({
+  graveward: 'undead', 'the-warden': 'undead', 'aegis-of-dawn': 'undead', 'lysandus-visor': 'undead',
+  'warp-edge': 'daedra', 'orsiniums-anvil': 'daedra', 'amulet-of-the-nine': 'daedra',
+  wyrmbane: 'dragon', 'mountains-root': 'dragon',
+  stormcaller: 'beast', 'glenmoril-bow': 'beast', foxglove: 'beast', 'mark-of-the-hist': 'beast',
+  titanheart: 'brute', 'gortwogs-cleaver': 'brute', 'reachmans-torc': 'brute',
+  'direnni-staff': 'caster', 'archmages-loop': 'caster', 'worms-tooth': 'caster', 'witch-sisters-ring': 'caster',
+  nightwhisper: 'rogue', 'tsaesci-fang': 'rogue', 'night-mothers-embrace': 'rogue', 'wayrest-treads': 'rogue',
+  'anseis-edge': 'warrior', 'gauntlets-of-the-rose': 'warrior', 'ravens-wings': 'warrior', 'wall-of-daggerfall': 'warrior',
+  'kings-mark': 'warrior', 'duelists-vambrace': 'warrior',
+});
+/** Where a record is found, or null. */
+export const foundAmong = (id) => (typeof id === 'string' ? (LEGENDARY_FOUND[id] ?? legendaryById(id)?.found ?? null) : null);
+/** How much a family's own records weigh against the rest in a pick from a source of that family. */
+export const SIGNATURE_WEIGHT = 5;
+/** THE PICK - one roll: a source with no family picks evenly (exactly `pick`'s index for the same roll); a family's own
+ *  records weigh SIGNATURE_WEIGHT each. */
+export function pickRecord(pool, family, rolls = Math.random) {
+  const w = pool.map((r) => (family && foundAmong(r.id) === family ? SIGNATURE_WEIGHT : 1));
+  const total = w.reduce((a, b) => a + b, 0);
+  let r = rolls() * total;
+  for (let i = 0; i < pool.length; i++) { if (r < w[i]) return pool[i]; r -= w[i]; }
+  return pool[pool.length - 1];
+}
 
 /** THE TUNING TABLE. Per mille of reaching AT LEAST the tier: `base`
  *  at source tier 0, `perTier` more per tier point, never over `cap`.
@@ -814,14 +887,14 @@ export const affixesWorth = (affixes) => (affixes ?? []).reduce((n, a) => n + (A
  *  enchantment. Common leaves the item as DFU minted it; so does any
  *  tier the ladder does not roll (SET6: an Aetheric piece is a fixed
  *  record, minted whole by systems/aetheric.js - never a roll). */
-export function applyRarity(item, tier, rolls = Math.random, legendaryPool = null) {
+export function applyRarity(item, tier, rolls = Math.random, legendaryPool = null, { family = null } = {}) {
   if (!item || !ROLLED_TIERS.includes(tier)) return item;
   let affixes;
   let enchantment = null;
   if (tier === 'legendary') {
     const pool = legendaryPool ?? legendariesFor(item);
     if (!pool.length) return applyRarity(item, 'rare', rolls);   // no record for this item: the tier below
-    const rec = pick(pool, rolls);
+    const rec = pickRecord(pool, family, rolls);   // LOOT6: a source's family weighs its own records
     affixes = rec.affixes.map((a) => ({ ...a }));
     enchantment = rec.enchantment;
     item.legendary = rec.id;
@@ -853,7 +926,7 @@ export function rollLootRarity(items, source, { rolls = Math.random, luck = 50 }
   for (const it of items) {
     if (!rarityEligible(it)) continue;
     const tier = rollRarity({ ...source, luck, find }, rolls);
-    if (tier !== 'common') { applyRarity(it, tier, rolls); minted.push(it); }
+    if (tier !== 'common') { applyRarity(it, tier, rolls, null, { family: source.family ?? null }); minted.push(it); }
   }
   // THE UNIQUE FIND, after the tiers and ONCE for the list: it adds an
   // item DFU's roll cannot produce rather than promoting one it did.
@@ -862,7 +935,7 @@ export function rollLootRarity(items, source, { rolls = Math.random, luck = 50 }
   for (const found of rollUniqueFinds({ ...source, luck }, rolls)) {
     if (rarityEligible(found)) {
       const tier = rollRarity({ ...source, luck, find }, rolls);
-      if (tier !== 'common') { applyRarity(found, tier, rolls); minted.push(found); }
+      if (tier !== 'common') { applyRarity(found, tier, rolls, null, { family: source.family ?? null }); minted.push(found); }
     }
     items.push(found);
   }
@@ -1002,7 +1075,7 @@ export function rollCorpseLoot(entity, basics, { rolls = Math.random, luck = 50,
   if (!lootRarityOn() || !entity) return entity?.items ?? [];
   const worn = new Set(entity.equip ? equipTableOf(entity).filter(Boolean) : []);
   const loot = (entity.items ?? []).filter((it) => it && !worn.has(it));
-  rollLootRarity(loot, { ...corpseSource(basics, entity.level), qualityMult }, { rolls, luck });
+  rollLootRarity(loot, { ...corpseSource(basics, entity.level, entity.mobileType), qualityMult }, { rolls, luck });   // LOOT6: its family
   return entity.items;
 }
 /** SIGIL1 (Mac: "weapons obtained through online play recieve a sort of sigil power"; "Magic and up, found online";

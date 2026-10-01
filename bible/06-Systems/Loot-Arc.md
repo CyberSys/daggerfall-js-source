@@ -439,3 +439,31 @@ moved were re-aimed by content (DISC29-B's unguarded name, SET3's import and its
 cap) and still die (`test/mutantdrift.test.js`).
 
 Pinned: `test/loot5_powers.test.js` (7); `tools/mutants/loot5.json` (38, all dead).
+
+### LOOT6 - signature drops (2026-10-01)
+
+`systems/lootRarity.js`: `FOE_FAMILIES` groups the foe table in eight - the **undead** (15, 17, 18, 19, 23, the two
+vampires 28 and 30, the two liches), the **daedra** (the five Daedra, the four atronachs, the imp and the gargoyle),
+**dragons** (the two dragonlings), **beasts** (the animals, the werecreatures, the spriggan, centaur, nymph and harpy,
+the slaughterfish, dreugh and lamia), **brutes** (the four orcs and the giant), and the class foes by their own teams
+and magic - **casters** (Mage, Spellsword, Battlemage, Sorcerer, Healer, Nightblade), **rogues** (Bard, Burglar,
+Rogue, Acrobat, Thief, Assassin) and **warriors** (Monk, Archer, Ranger, Barbarian, Warrior, Knight, the watch). Every
+foe of the table is in one, the horse in none (`foeFamily`). `DUNGEON_FAMILY` gives each of DFRegion's nineteen
+dungeon kinds its family or none (a Mine is no one's). `LEGENDARY_FOUND` names where each of the thirty is found -
+the undead four, the daedra three, dragons two, beasts four, brutes three, casters four, rogues four, warriors six -
+and `foundAmong` reads a mod's record's own `found` too.
+
+**The pick.** `pickRecord(pool, family, rolls)` takes ONE roll, as LR1's `pick` did: with no family it is exactly
+`pick`'s index for the same roll; a source's family weighs its own records `SIGNATURE_WEIGHT` (5) to one.
+`applyRarity` takes `{ family }`; the host door hands its source's family on; `corpseSource` reads a foe's mobile
+type (`rollCorpseLoot` hands `entity.mobileType` - LR4's one corpse door); a dungeon's treasure pile names its
+kind's family (`scenes/dungeonContext.js`, line-neutral). The gate's spoils, a town's thanks, the Broker and a
+Masterwork name none, so they pick as they did - SET6's earlier-spoils pin unmoved. WHETHER a Legendary drops is
+the tier's alone: `rarityChances` reads no family.
+
+Measured: a vampire's two pieces (a dagger, whose pool holds no undead record, and a battle axe, whose pool holds
+Graveward beside Wyrmbane and Gortwog's Cleaver) gave the undead's own over a quarter of their Legendaries in 3,000
+seeded kills - a third of the axe's would be the even pick; five sevenths is the weighed one.
+
+Pinned: `test/loot6_signatures.test.js` (4); `tools/mutants/loot6.json` (11, all dead). LR1's corpse-source pin
+reads the family (null without a type), and its four-hosts pin the pile's.
