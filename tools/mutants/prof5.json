@@ -332,8 +332,8 @@
   {
     "name": "PROF5-law-wool-held-back",
     "file": "src/net/professionLaw.js",
-    "old": "export const NO_PACK_FORM = Object.freeze([]);",
-    "new": "export const NO_PACK_FORM = Object.freeze(['cloth:wool']);",
+    "old": "export const NO_PACK_FORM = Object.freeze(['work:ram']);",
+    "new": "export const NO_PACK_FORM = Object.freeze(['work:ram', 'cloth:wool']);",
     "tests": [
       "test/prof5_law.test.js",
       "test/prof5_service.test.js"

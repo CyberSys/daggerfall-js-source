@@ -284,8 +284,8 @@
  {
   "name": "TIDE-plan-tide",
   "file": "src/net/townSeatLaw.js",
-  "old": "      tide: s.holder.tide ?? 'calm',\n",
-  "new": "",
+  "old": "tide: s.holder.tide ?? 'calm', shrine:",
+  "new": "shrine:",
   "tests": [
    "test/tide_law.test.js",
    "test/season1_service.test.js"
@@ -303,8 +303,8 @@
  {
   "name": "TIDE-inf-tide",
   "file": "server-account/src/seatInfluence.js",
-  "old": "freeLand: isFreeLand(seat.region), tide: tideAt(week, seat.region, counted) });",
-  "new": "freeLand: isFreeLand(seat.region) });",
+  "old": "freeLand: isFreeLand(seat.region), tide: tideAt(week, seat.region, counted),",
+  "new": "freeLand: isFreeLand(seat.region),",
   "tests": [
    "test/tide_service.test.js"
   ]

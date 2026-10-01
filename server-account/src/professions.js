@@ -74,6 +74,9 @@ import { levyAt } from './seatHolding.js';
 import { levyOf, seatWeekOf } from '../../src/net/townSeatLaw.js';
 import { tideNow } from './tides.js';   // SEASON1 part two: the land's Tide (9.3)
 import { tideYield } from '../../src/net/tideLaw.js';
+import { stationSteps } from '../../src/net/fortLaw.js';   // SEAT2b part two (7.5): a seat's crafting halls
+import { fortTiersOf } from './seatForts.js';   // SEAT2b part two: the halls standing at the seat
+import { RAM_KIT } from '../../src/net/professionLaw.js';   // SEAT2b part two: a siege work's place in the Stores
 
 const DAY_S = 86_400;
 /** The pixels one read may ask after - a streamed 5 x 5. */
@@ -816,11 +819,12 @@ function provenanceId(rand) {
  *  whether their names carry the maker's mark, and the Stores of what it spent (a Heartwood among them). */
 async function craftAnswer(db, player, row, nowS, extra = {}) {
   const r = recipeById(row.recipe);
-  const ids = [row.provenance, row.provenance2].filter(Boolean);
+  const siege = r?.kind === 'siege';   // SEAT2b part two: a siege work is the Stores' (craftAtAnvil) - no piece, its kit beside the inputs
+  const ids = siege ? [] : [row.provenance, row.provenance2].filter(Boolean);
   const { results = [] } = await db.prepare(`SELECT provenance, record, maker, marked FROM products WHERE provenance IN (${ids.map((_, i) => `?${i + 1}`).join(', ')})`).bind(...ids).all();
   const by = new Map(results.map((p) => [p.provenance, p]));
   const prof = r?.profession ?? 'smithing';
-  const spent = r ? [...new Set([...r.inputs.map((i) => i.key), ...recipeInputs(r, { heartwood: Number(row.heartwood) === 1 }).map((i) => i.key)])] : [];
+  const spent = r ? [...new Set([...r.inputs.map((i) => i.key), ...recipeInputs(r, { heartwood: Number(row.heartwood) === 1 }).map((i) => i.key), ...(siege ? [RAM_KIT.key] : [])])] : [];
   return {
     ok: true, ...extra, recipe: row.recipe, quality: Number(row.quality), count: Number(row.count), seed: Number(row.seed),
     maker: by.get(row.provenance)?.maker ?? null, marked: Number(by.get(row.provenance)?.marked ?? 0) === 1, xp: Number(row.xp), first: Number(row.first) === 1,
@@ -837,7 +841,9 @@ async function craftAnswer(db, player, row, nowS, extra = {}) {
  * garment's colour (recipeLaw GARMENT_DYES) - signed into the record, kept on the piece; asked of anything else,
  * refused (`prof-dye`). The service cannot see the anvil, the workbench or the loom (as it cannot see the forge,
  * PROF0 23): the inputs are the Stores' and their units are the bound. The recipe's rank is the
- * character's rank in its profession to reach; a recipe whose slice is to come is refused (`prof-later` - the Ram Kit).
+ * character's rank in its profession to reach; a recipe whose slice is to come is refused (`prof-later` - none since SEAT2b
+ * part two made the Ram Kit: a siege work, into the Stores, PROF0 4.8). SEAT2b part two: `seat` the town the station stands
+ * in - its holder's members craft there a step a tier of its crafting halls better (seatStepsFor).
  * The quality is the service's roll on the margin (9.2), then a step each for the act the client reports clean (the
  * honest bound: one step, 5.1), the family's specialisation, and a Warforged ingot or a Heartwood (one step between
  * them); a Masterwright's points; nothing past Masterwork - a Repair Kit and arrows take none, and a Quartermaster's kit
@@ -849,7 +855,21 @@ async function craftAnswer(db, player, row, nowS, extra = {}) {
  * PROF11: or the mason's bench's carvings - the Sculptor's stone decor (recipeLaw MASONRY_RECIPES), the chisel its act,
  * furniture among the home's things; a character not standing as a Sculptor at 100 is refused (`prof-sculptor`).
  */
-export async function craftAtAnvil(ctx, player, env, { character, recipe: id, clean, name, heartwood = false, dye = null, rid } = {}) {
+/**
+ * SEAT2b part two (Seats-Arc 7.5: "members smithing here: quality +1 step" a tier - the Forge's, and the Workshop's and
+ * the Apothecary's for theirs): THE STEPS A SEAT'S CRAFTING HALLS GIVE a craft in `profession` at `seat` (a map id - the
+ * town the client says its station stands in), where the crafting character's guild holds that seat; nought anywhere
+ * else. The service cannot see the anvil (PROF0 23): the place is the client's word, bounded as the clean act's is - the
+ * holder's own members alone, its own seat's tiers, nothing past Masterwork (craftQuality).
+ */
+export async function seatStepsFor(db, player, character, seat, profession, nowS) {
+  if (!Number.isSafeInteger(seat) || seat < 0 || seat > 0xffffffff) return 0;
+  const held = await db.prepare(`SELECT 1 FROM guild_members m JOIN town_seat_holds h ON h.guild_id = m.guild_id
+    WHERE m.player = ? AND m.char_id = ? AND h.key = ?`).bind(player, character, seat).first();
+  return held ? stationSteps(profession, await fortTiersOf(db, seat, nowS)) : 0;
+}
+
+export async function craftAtAnvil(ctx, player, env, { character, recipe: id, clean, name, heartwood = false, dye = null, rid, seat = null } = {}) {
   const { db, nowS, rand, subtle } = ctx;
   const refused = asks(player, { character, rid });
   if (refused) return refused;
@@ -859,7 +879,7 @@ export async function craftAtAnvil(ctx, player, env, { character, recipe: id, cl
   if (closed) return closed;
   const r = recipeById(id);
   if (!r) return { error: 'bad-recipe' };
-  if (r.later) return { error: 'prof-later' };   // PROF4: the Ram Kit - named, made with the sieges (PROF0 25)
+  if (r.later) return { error: 'prof-later' };   // PROF4: a recipe named before its slice (the Ram Kit until SEAT2b part two - none now)
   if (!dyeOk(r, dye)) return { error: 'prof-dye' };   // PROF7: a garment's dye, of its ten - nothing else is dyed
   if (await overRate(ctx, `prof:${player.id}`, PROF_OPS_MAX, PROF_OPS_WINDOW_S)) return { error: 'prof-rate' };
   const { results: tracks = [] } = await db.prepare('SELECT * FROM prof_tracks WHERE player = ?1 AND char_id = ?2').bind(player.id, character).all();
@@ -872,9 +892,17 @@ export async function craftAtAnvil(ctx, player, env, { character, recipe: id, cl
   const cap = craftXpCap(prof, ranks);
   const wood = heartwood === true && takesHeartwood(r);
   const inputs = recipeInputs(r, { heartwood: wood, joiner: specs[50] === 'joiner' });
+  // SEAT2b part two: the seat's crafting halls' steps, where the crafter's guild holds the town it crafts in (seatStepsFor)
+  const halls = takesQuality(r) ? await seatStepsFor(db, player.id, character, seat, prof, nowS) : 0;
   const quality = takesQuality(r)
-    ? craftQuality(rollQuality(dice(rand), qualityOdds(rank - r.rank, { masterwright: specs[100] === 'masterwright' })), qualitySteps(r, { clean: clean === true, spec50: specs[50], heartwood: wood }))
+    ? craftQuality(rollQuality(dice(rand), qualityOdds(rank - r.rank, { masterwright: specs[100] === 'masterwright' })), qualitySteps(r, { clean: clean === true, spec50: specs[50], heartwood: wood }) + halls)
     : -1;
+  // SEAT2b part two (PROF0 4.8: "690 | Ram Kit | Stores (a siege work)"): A SIEGE WORK goes into the crafter's Stores, never
+  // the pack - own or bought as its inputs were spent (bought first, as every spend - so bought where any input held a
+  // bought unit: the smelt's rule, professionLaw smeltOrigin, read before the spend), within the Stores' room
+  const siege = r.kind === 'siege';
+  let siegeOrigin = 'own';
+  if (siege) for (const inp of inputs) if ((await storeOf(db, player.id, character, inp.key)).bought > 0) siegeOrigin = 'bought';
   const count = craftCount(r, specs[100]);
   const maker = makerName(name);
   const marked = carriesMark(r, quality, specs[100]) ? 1 : 0;
@@ -894,6 +922,7 @@ export async function craftAtAnvil(ctx, player, env, { character, recipe: id, cl
     held.push(`${spendableSql('?1', '?2', `?${17 + 2 * i}`)} >= ?${18 + 2 * i}`);   // GOLD-MARKET: never gold's units
   });
   const decided = 'EXISTS (SELECT 1 FROM prof_crafts WHERE player = ?1 AND rid = ?5 AND n = ?6)';
+  if (siege) held.push(`COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?2 AND material = '${RAM_KIT.key}'), 0) + ?6 <= ${STORES_MAX}`);   // SEAT2b part two: the kit's room
   await db.batch([
     // THE DECISION: every input held - and the XP what the track can take under the crafter's limit, the first craft's
     // 500 laid on when the character has made none of the recipe (and the recipe pays it - AUDIT 32 S1)
@@ -907,10 +936,14 @@ export async function craftAtAnvil(ctx, player, env, { character, recipe: id, cl
     ...inputs.flatMap((inp) => spendStatements(db, {
       player: player.id, character, materialSql: '?3', qtySql: '?4', guard: decided, binds: [inp.key, inp.n, rid, nonce],
     })),
-    // the pieces, each its provenance id, its owner (this account), its signed record, its mark and (PROF7) its dye
-    ...provs.map((p, i) => db.prepare(`INSERT INTO products (provenance, owner, char_id, maker, recipe, template, material, quality, seed, record, made_at, marked, dye)
-      SELECT ?4, ?1, ?2, ?6, ?7, ?8, ?9, quality, seed, ?10, at, ?11, dye FROM prof_crafts WHERE player = ?1 AND rid = ?3 AND n = ?5`)
-      .bind(player.id, character, rid, p, nonce, maker, r.id, r.templateIndex, r.material, records[i], marked)),
+    // the pieces, each its provenance id, its owner (this account), its signed record, its mark and (PROF7) its dye -
+    // SEAT2b part two: a siege work's kits into the Stores instead
+    ...(siege ? [db.prepare(`INSERT INTO prof_stores (player, char_id, material, origin, qty)
+      SELECT ?1, ?2, ?4, ?6, count FROM prof_crafts WHERE player = ?1 AND rid = ?3 AND n = ?5
+      ON CONFLICT (player, char_id, material, origin) DO UPDATE SET qty = prof_stores.qty + excluded.qty`).bind(player.id, character, rid, RAM_KIT.key, nonce, siegeOrigin)]
+      : provs.map((p, i) => db.prepare(`INSERT INTO products (provenance, owner, char_id, maker, recipe, template, material, quality, seed, record, made_at, marked, dye)
+        SELECT ?4, ?1, ?2, ?6, ?7, ?8, ?9, quality, seed, ?10, at, ?11, dye FROM prof_crafts WHERE player = ?1 AND rid = ?3 AND n = ?5`)
+        .bind(player.id, character, rid, p, nonce, maker, r.id, r.templateIndex, r.material, records[i], marked))),
     // the XP the decision credited, under the crafter's limit - the recipe's profession's
     db.prepare(`INSERT INTO prof_tracks (player, char_id, profession, xp, updated_at)
       SELECT ?1, ?2, ?7, MIN(?4, xp), ?5 FROM prof_crafts WHERE player = ?1 AND rid = ?3 AND n = ?6
@@ -924,6 +957,7 @@ export async function craftAtAnvil(ctx, player, env, { character, recipe: id, cl
     const st = await storeOf(db, player.id, character, inp.key);
     if (st.own + st.bought < inp.n) return { error: st.own + st.bought + (st.gold ?? 0) >= inp.n ? 'stores-gold' : 'stores-short', material: inp.key };   // GOLD-MARKET
   }
+  if (siege) return { error: 'stores-full', material: RAM_KIT.key };   // SEAT2b part two: every input held - the kit's room is what failed
   return { error: 'stores-short' };
 }
 

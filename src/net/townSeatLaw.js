@@ -137,7 +137,7 @@ export function charterName(seat) {
   return `the Charter of ${seat?.name ?? 'the town'}`;
 }
 /** A guild as the arrival line names it: "the Silver Hand <SH>". */
-const guildWords = (g) => `${/^the /i.test(g.name) ? `the ${g.name.slice(4)}` : g.name} <${g.tag}>`;
+export const guildWords = (g) => `${/^the /i.test(g.name) ? `the ${g.name.slice(4)}` : g.name} <${g.tag}>`;   // SEAT2b part two: exported - the Watchtowers' word names a guild the Chronicle's way
 /** CROWN2: the same, opening a sentence (SEAT2a's announcement too, which had opened one with "the"). */
 const GuildWords = (g) => { const w = guildWords(g); return `${w[0].toUpperCase()}${w.slice(1)}`; };
 /**
@@ -359,7 +359,7 @@ export function seatWeekLine({ phase, reckoningAt, turningAt }, nowS) {
     : `The Muster: pledges close Friday 18:00 UTC, in ${seatSpanWords(reckoningAt - nowS)}.`;
 }
 /** A standing's row: "1. the Silver Hand <SH> - 8,393 influence". */
-export const seatStandingLine = (s, i) => `${i + 1}. ${guildWords(s.guild)} - ${s.influence.toLocaleString('en-US')} influence`;
+export const seatStandingLine = (s, i) => `${i + 1}. ${guildWords(s.guild)} - ${s.influence.toLocaleString('en-US')} influence${s.shrine > 0 ? ` (its Shrine's ${s.shrine.toLocaleString('en-US')})` : ''}`;   // SEAT2b part two: the holder's Shrine's part
 /** No guild pledged here yet. */
 export const seatNoStandingsLine = (seat) => `No guild has pledged to ${seat.name} this week.`;
 /**
@@ -529,7 +529,7 @@ export function turningPlan({ week, seats, treasuries, active = CROWN_SCALE.per 
     const w = standingWeek({
       tier: s.tier, standing: s.holder.standing, tithe: s.holder.tithe ?? 0, watched: s.holder.watched ?? true, gates: s.holder.gates ?? 0,
       writs: s.holder.writs ?? 0, unchallenged, upkeep: stateOf.get(s.key), edict: law, conscripted: !!s.holder.conscripted, brokeFealty: !!s.holder.brokeFealty,
-      tide: s.holder.tide ?? 'calm',
+      tide: s.holder.tide ?? 'calm', shrine: s.holder.shrine ?? 0,   // SEAT2b part two: the Shrine's Standing
     });
     standings.push({ key: s.key, guild: s.holder.guild, standing: w.standing, changes: w.changes });
     if (unchallenged) held.push({ key: s.key, guild: s.holder.guild, standing: w.standing });
@@ -867,9 +867,10 @@ export const SEAT_LEVER_RANKS = Object.freeze([0, 1]);
  * filled there; `unchallenged` no Right granted against it; `upkeep` 'paid', 'late' (paid with the arrears) or
  * 'neglect'; `edict` the Edict the Turning makes law for the coming week (its row taken as it is proclaimed);
  * CROWN1: `conscripted` the seat paid a crown's Conscription this week (7.6); CROWN2: `brokeFealty` its holder broke its
- * fealty at this Turning (7.8).
+ * fealty at this Turning (7.8). SEAT2b part two: `shrine` the Shrine's row (7.5: "Standing +1 a week" a tier - fortLaw.js
+ * shrineStanding of its tier, the caller's: this law reads no works).
  */
-export function standingWeek({ tier, standing, tithe = 0, watched = true, gates = 0, writs = 0, unchallenged = false, upkeep = 'paid', edict = null, conscripted = false, brokeFealty = false, tide = 'calm' }) {
+export function standingWeek({ tier, standing, tithe = 0, watched = true, gates = 0, writs = 0, unchallenged = false, upkeep = 'paid', edict = null, conscripted = false, brokeFealty = false, tide = 'calm', shrine = 0 }) {
   const changes = [];
   const add = (row, d) => { if (d) changes.push([row, d]); };
   const t = titheStanding(tier, tithe);
@@ -885,6 +886,7 @@ export function standingWeek({ tier, standing, tithe = 0, watched = true, gates 
   if (brokeFealty) add('fealtyBroken', STANDING_CHANGES.fealtyBroken);
   if (tide === 'wedding') add('wedding', STANDING_CHANGES.wedding);   // SEASON1 part two: the week's Tide in the seat's land
   if (tide === 'revolt' && tithe > TIDE_EFFECTS.revoltTithe) add('taxRevolt', STANDING_CHANGES.taxRevolt);
+  add('shrine', Math.max(0, Math.trunc(Number(shrine) || 0)));   // SEAT2b part two (7.5): the Shrine's Standing a week, its tier's (fortLaw.js shrineStanding)
   const sum = changes.reduce((a, [, d]) => a + d, 0);
   return { standing: Math.max(0, Math.min(STANDING_MAX, standing + sum)), changes };
 }

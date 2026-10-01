@@ -36,7 +36,7 @@ import { questTracker } from '../ui/questTracker.js';   // GUIDE5: the quest the
 import { marksOn, questMapMarks } from '../ui/questMarks.js'; import { boatCompassPoints } from '../ui/boatMarks.js';   // GUIDE5: where the quests point, on the held map and the compass; BOAT-MARK: where my boats lie, on the compass
 import { settlementsOf, loadModRoads, basicRoadsPathsPoint, WATER_BYTE } from '../world/roadsProducer.js';   // ROADS 3 / AUDIT ROADS F2 / ROADS 22; WOD2: Basic Roads' getPathsPoint, the question World of Daggerfall's loader asks
 import { modSetting, modSettingsOf, modSettingsGeneration, MOD_SETTINGS, latchModLoaded } from '../systems/modSettings.js';   // ROADS 24; HCC: the mod's eight switches; CSA-D: a mod's title for the load's failure line; AUDIT PRE-MERGE 0928 S4: the next-load mods latched at mount
-import { hasPort, PORT_LOCATION_IDS } from '../systems/travelPorts.js';   // AUDIT-RR2 G22: Travel Options' port list for RR's ship gate
+import { hasPortFor, setSeatHarbours, PORT_LOCATION_IDS } from '../systems/travelPorts.js';   // AUDIT-RR2 G22: Travel Options' port list for RR's ship gate; SEAT2b part two: a members' Harbour among them (hasPortFor)
 import { WoodsFile, MAP_WIDTH, MAP_HEIGHT } from '../formats/woodsFile.js';
 import { buildTerrainIndices, isOutdoorWaterTile, TERRAIN_TILE_DIM, TERRAIN_SKIRT_DEPTH, surfaceHeightAt, groundOffPlane, terrainSampleHeightAt } from '../world/terrainSurface.js';
 import { waterUniforms, buildWaterIndices, waterSwitchOn } from '../render/waterSurface.js';   // WATER1: the enhanced water surface over the pixel's own grid; WATER-AUDIT: its own index set
@@ -361,7 +361,7 @@ import { createPeerRiders, createPeerWalkers, createEotbArt } from '../net/peerR
 import { createHorseCartRuntime } from '../systems/horseCart.js';   // HCC: TrailingWagonRuntime over this host's seams
 import { setForagingHost } from '../systems/foragingInstall.js';   // FORAGE1: Foraging's reaches into the world, answered by this host
 import { registerContainerLootHandler } from '../systems/containerLoot.js';   // THE MERGE: CSA-H's shelf subscriber, by its mod's name, on PlayerActivate.OnLootSpawned's one home
-import { mintPieces, mintPiece, craftedText, CRAFT_KEPT_TEXT, BENCH_KEPT_TEXT, LOOM_KEPT_TEXT, MASON_KEPT_TEXT, isCraftedFurniture, asMinted, pieceOfRecipe } from '../systems/smithItems.js';   // PROF3: a craft's pieces, minted into the pack; PROF4: furniture into the home's things; PROF11: the mason's word
+import { mintPieces, mintPiece, craftedText, storedText, CRAFT_KEPT_TEXT, BENCH_KEPT_TEXT, LOOM_KEPT_TEXT, MASON_KEPT_TEXT, isCraftedFurniture, asMinted, pieceOfRecipe } from '../systems/smithItems.js';   // PROF3: a craft's pieces, minted into the pack; PROF4: furniture into the home's things; PROF11: the mason's word; SEAT2b part two: a siege work's
 import { heatBand, planeBand, stitchBand, chiselBand, recipeById } from '../net/recipeLaw.js';   // PROF3: the heat's attribute band; PROF4: the plane's, and a recipe's station; PROF7: the stitch's; PROF11: the chisel's
 import { questActionsExtensionTemplates } from '../systems/quest/questActionsExtension.js';   // FORAGE1: QAE's four actions, which Foraging's quests say
 import { entityMaxEncumbrance } from '../combat/formulas.js';   // FORAGE1: PlayerEntity.MaxEncumbrance, for Foraging's last check
@@ -694,6 +694,8 @@ import { carvedFloorLocalY } from './deepWatersHost.js';   // DW-D: the shore pr
 import { breathStep, setWaterBreathingRule } from '../systems/breath.js';   // DW-D: the dungeon's breath law, on the open sea; ApplyArgonianInfiniteBreath
 import { CLASSIC_UPDATE_INTERVAL } from '../characters/weaponStates.js';   // DW-D: PlayerEntity's classic cadence, the dungeon's import
 import { RACES } from '../systems/races.js';   // DW-D: ArgonianInfiniteBreath
+import { stationSteps, harbourPortFor, coastalAt } from '../net/fortLaw.js';   // SEAT2b part two: a seat's crafting halls, its members' Harbour, a coast
+import { isWaterPixel } from '../ui/overworldModel.js';   // SEAT2b part two: a coast is the sea beside the town (the port's one water law)
 import { createSiegeSession, isBattleLeaveCommand, BATTLE_NONE_TEXT } from '../net/siegeSession.js';   // SEAT2a part four: a siege as this client fights it   // AUDIT-SEATS C1: the chat's `/leave`
 import { createSiegeClaims } from '../net/siegeClaims.js';   // SEAT2a part four: its receipts carried to the service
 import { createSiegeHud } from '../ui/siegeHud.js';   // SEAT2a part four: the bar, the sides, the result card
@@ -1207,6 +1209,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** SEAT1a: the seat a location IS, while the seats are open to this account - off the client's own derivation (a seat
    *  it lacks is never drawn, listed or honoured). */
   const seatHere = (mapId) => (seatBook?.open === true ? seatBook.dressed(seatAtMapId(townSeats, mapId)) : null);   // SEAT1c: dressed in its holder
+  // SEAT2b part two (Seats-Arc 7.5: "the town is a Travel Options port for members"): a Harbour standing at a seat my
+  // guild holds is a port to the travel map, the ship's rules and the held map (systems/travelPorts.js hasPortFor)
+  setSeatHarbours((mapId) => harbourPortFor(seatHere(mapId), guildBook?.guild?.id ?? null));
   // SEAT1d (Seats-Arc 7.2, 7.6): a held seat as this client lives it - its shops' prices for its holder's members and on
   // Market Day, its arrival's news, a Festival's buff, a Curfew's watch and crimes, a Bounty's camps (systems/seatEdicts.js)
   const seatEdicts = createSeatEdicts({
@@ -5109,8 +5114,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     paused: () => gamePaused(),
     ridingVolumeScale: () => (_travelSoundsOff ? 0 : 1),   // AUDIT-TO1 J1: TransportManager.RidingVolumeScale = 0 for the journey
     // RR1: IsShipAvailiable's reads - the location under the player (loaded, a port) and whether they stand on the ship
-    // AUDIT-RR2 G22: `travelOptionsEnabled` asks TO's "hasPort" (RoleplayRealism.cs:635-644; TravelOptionsMapWindow.cs:870-873 - the hand-written port list), else the flag
-    shipLocation: () => { const loc = _questLoc(); return loc ? { locationLoaded: true, portTown: (modSetting('travel-options', 'Enabled') === true ? hasPort(loc.mapTableData?.mapId) : (loc.exterior?.exteriorData?.portTownAndUnknown ?? 0) !== 0), onShip: isOnShip(playerEntity, playerEntity.boardShipPosition ?? null, playerTravelPixel()) } : { locationLoaded: false, onShip: false }; },   // DISC13-D: `locationLoaded`, the key isShipAvailable reads - `loaded` left shipPorts answering every port as the wilderness
+    // AUDIT-RR2 G22: `travelOptionsEnabled` asks TO's "hasPort" (RoleplayRealism.cs:635-644; TravelOptionsMapWindow.cs:870-873 - the hand-written port list), else the flag - SEAT2b part two: a members' Harbour at a seat among them (travelPorts.js hasPortFor)
+    shipLocation: () => { const loc = _questLoc(); return loc ? { locationLoaded: true, portTown: (modSetting('travel-options', 'Enabled') === true ? hasPortFor(loc.mapTableData?.mapId) : (loc.exterior?.exteriorData?.portTownAndUnknown ?? 0) !== 0), onShip: isOnShip(playerEntity, playerEntity.boardShipPosition ?? null, playerTravelPixel()) } : { locationLoaded: false, onShip: false }; },   // DISC13-D: `locationLoaded`, the key isShipAvailable reads - `loaded` left shipPorts answering every port as the wilderness
     // RR2: EnhancedRiding's reads - the look, the ground, the module's settings
     lookPitch: () => cam.pitch, lookYaw: () => cam.yaw, groundHeightAt: (x, z) => heightAt(x, z),
     enhancedRiding: () => (rrRidingOn() ? { terrainFollowing: rrRidingSetting('followTerrainEnabled') === true, softenFollow: rrRidingSetting('followTerrainSoftenFactor') ?? 8 } : null),
@@ -6392,10 +6397,13 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  FIELD BUGS 29h (DEED-PORT; Mac: "Dont worry abour DFU"): or a harbour the map DRAWS - Travel Options' 378, the
    *  port list of the travel map's anchors and its passage (28e measured every one of the byte's 343 among them) - so the
    *  deed, the variant box and the shipwright answer to the port the player was shown. */
+  /** SEAT2b part two (Seats-Arc 7.5: "Harbour (coastal seats only)"): a map pixel of sea - the port's one water law
+   *  (ui/overworldModel.js isWaterPixel over CLIMATE.PAK and WOODS.WLD's height), for a town's coast (fortLaw.js coastalAt). */
+  const seaPixel = (x, y) => isWaterPixel(maps.getClimateIndex(x, y), woods.getHeightMapValue(x, y));
   const csaIsPortTown = (x, y) => {
     const summary = travelLocationSummaryAt(mapDict, x, y);
     if (!summary) return false;
-    if (hasPort(summary.id)) return true;
+    if (hasPortFor(summary.id)) return true;   // SEAT2b part two: or a members' Harbour at a seat ("ships dock at the seat")
     const loc = maps.getLocation(summary.regionIndex, summary.locationIndex ?? summary.mapIndex);
     return !!loc && (loc.exterior?.exteriorData?.portTownAndUnknown ?? 0) !== 0;
   };
@@ -8294,10 +8302,16 @@ export async function bootWorld(canvas, renderer, params, status) {
           if (f.fee > 0 && totalGoldAmount(playerEntity) < f.fee) return { ok: false, text: `The ${st.who} asks ${f.fee} gold for the use of the ${st.noun}.` };
           // AUDIT 30 C4: the fee rides the kept craft and is paid as its pieces are minted (profMintCraft) - by this press's
           // answer, or a settle's later; A4: the workbench's kept word its own
-          const r = await profBook.craft(recipe, { clean, heartwood, dye, fee: f.fee > 0 ? f.fee : 0, name: typeof playerEntity?.name === 'string' ? playerEntity.name : null }, profMintCraft);
+          // SEAT2b part two (Seats-Arc 7.5): the town the station stands in, where my guild holds it and its crafting halls
+          // step this craft (fortLaw.js stationSteps) - the service asks the Charter again (professions.js seatStepsFor)
+          const hall = seatHere(_musicLoc?.mapTableData?.mapId);
+          const seat = hall && hall.holder?.guild?.id === (guildBook?.guild?.id ?? null) && stationSteps(recipeById(recipe)?.profession, hall.forts ?? {}) > 0 ? hall.key : null;
+          const r = await profBook.craft(recipe, { clean, heartwood, dye, fee: f.fee > 0 ? f.fee : 0, name: typeof playerEntity?.name === 'string' ? playerEntity.name : null, seat }, profMintCraft);
           if (!r?.ok) return { ok: false, text: r?.kept ? st.kept : r?.error === 'prof-busy' ? st.busy : accountRefusalText(r?.error) };
           const paid = f.fee > 0 && !r.elsewhere;
-          return { ok: true, text: `${craftedText(mintPieces(r.data))} (+${r.data.xp} ${st.xp} XP)${paid ? `, and paid the ${st.who} ${f.fee} gold` : ''}.` };
+          const rec = recipeById(recipe);
+          const made = rec?.kind === 'siege' ? storedText(rec.name, Number(r.data.count) || 1) : craftedText(mintPieces(r.data));   // SEAT2b part two: a Ram Kit is the Stores'
+          return { ok: true, text: `${made} (+${r.data.xp} ${st.xp} XP)${paid ? `, and paid the ${st.who} ${f.fee} gold` : ''}.` };
         },
         stock: async (material, qty, counter = stockOf(material)?.counter) => {
           const r = await profBook.stock(material, qty);
@@ -17083,6 +17097,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (gateOmen) reportGateSite();   // DISCORD-GATES: where the gate stands, to the hub
     raidClaims?.tick();   // RAID4: and the raids' receipts, on theirs
     if (seatBook?.claimWatchDue()) seatBook.claimWatch();   // SEAT1b: the Watch's kept ticks, claimed a claim's worth or ten minutes at a time   // AUDIT-SEATS C12: asked in sync first - no Promise a frame
+    { const g = guildBook?.guild?.id ?? null; if (g && seatBook?.towersDue(g)) seatBook.towers(g, (t) => townTalk.say(t, 6)).catch(() => {}); }   // SEAT2b part two (7.5): the Watchtowers' word to a holder's member, ten minutes apart
     seatBook?.redTick();   // CROWN2: the seats' list read again for the server's red lines
     if (siegeClaims?.due()) siegeClaims.offer();   // AUDIT-SEATS C5: a battle's receipt the service has not settled, offered again on its own clock (SIEGE_CLAIM_RETRY_MS)
     if (royalClaims?.due()) royalClaims.offer();   // AUDIT-SEATS C5: and a bout's - before its week is over and the service answers `royal-over`
@@ -18532,7 +18547,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       town: { name: town.name, mapId: town.mapId }, rumour: rumour ?? [], bountyLine: !!town.bountyLine,
       gate: () => noticeGateCard(), answer: (note) => answerNote(note), work, market,
       guilds: true,   // GUILD1e: the Guilds tab - the town's recruitment posters, and the reader's own guild's board
-      seatBattle: (st, f) => siegeEnter(st, f), seatRoyal: (st, r, w) => royalEnter(st, r, w), seatRecords: (st) => openRecordsFromBoard(st), seat: seatAt ? { seat: seatAt, book: seatBook, nameOf: (k) => seatAtMapId(townSeats, k)?.name ?? null, port: csaIsPortTown(town.px, town.py), countName: materialCountLabel } : null,   // SEAT1b: a seat town's standings   // SEAT2a part four: the battle's door
+      seatBattle: (st, f) => siegeEnter(st, f), seatRoyal: (st, r, w) => royalEnter(st, r, w), seatRecords: (st) => openRecordsFromBoard(st), seat: seatAt ? { seat: seatAt, book: seatBook, nameOf: (k) => seatAtMapId(townSeats, k)?.name ?? null, port: coastalAt(town.px, town.py, seaPixel, csaIsPortTown(town.px, town.py)), countName: materialCountLabel } : null,   // SEAT1b: a seat town's standings   // SEAT2a part four: the battle's door
     });
   };
   /** AUDIT-SEATS (Seats-Arc 9.2): A SEAT'S HALL OF RECORDS FROM ITS BOARD - its Chronicle read as a book, in place of the

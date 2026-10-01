@@ -21,13 +21,14 @@ import {
   SEAT_PLEDGE_WORDS, SEAT_PLEDGE_REGIONS_MAX, TRIBUTE_MARKS_PER_INFLUENCE,
   seatHolderLine, seatBattleLine, seatClaimLine, chronicleLine, SEAT_RELINQUISH_WORDS,
   seatRuleLine, seatHoldingLines, edictLine, edictMayFollow, edictForTier, royalTourneyLines, EDICTS, TITHE_CAP, SEAT_LEVER_RANKS, BOUNTY_MARKS,
-  politicsRows, POLITICS_ACTS, seasonLine,
+  politicsRows, POLITICS_ACTS, seasonLine, guildWords,
   sideLine, siegeWindowText, SIEGE_WINDOW_DAYS, SIEGE_WINDOW_HOURS, SIEGE_WINDOW_DEFAULT, SELLSWORD_FEE_MAX, passOpens, passWindowEnds,
 } from '../net/townSeatLaw.js';
 import { fightAnnouncement } from '../net/siegeHerald.js';   // AUDIT-SEATS G1: the battle's line, its start in the service's seconds
 import { GUILD_RANK_MASTER } from '../net/guildLaw.js';
 import { tideLine } from '../net/tideLaw.js';
 import { drawSeatWorks } from './seatWorks.js';   // SEAT2b: the works
+import { towersText } from '../net/fortLaw.js';   // SEAT2b part two: the Watchtowers' word
 
 /** SEAT1c: how long the relinquish button stays armed after its first press, ms. */
 export const SEAT_RELINQUISH_ARM_MS = 4000;
@@ -115,6 +116,8 @@ export function createSeatTab(host, ui) {
       list.append(li);
     });
     if (!rows.length) list.append(el('li', 'notice-empty', seatNoStandingsLine(seat)));
+    // SEAT2b part two (7.5): the Watchtowers' word - the service answers it to the holder's members alone
+    for (const w of Array.isArray(data?.towers) ? data.towers : []) list.append(el('li', 'notice-seat-towers', towersText(seat.name, guildWords({ name: w.name, tag: w.tag }), w.share)));
     return list;
   }
 

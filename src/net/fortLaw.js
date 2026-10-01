@@ -85,8 +85,18 @@ export function fortNeeds(id, t, { builder = false } = {}) {
   if (!row) return null;
   return { marks: row.marks, needs: row.needs.map(([k, n]) => [k, isStone(k) ? fortificationStone(n, builder) : n]) };
 }
-/** When a project of tier `t` stands: its last delivery (s) and the tier's days (7.5), or null. */
-export const fortStandsAt = (lastDeliveryS, t) => (Number.isFinite(lastDeliveryS) && t >= 1 && t <= 3 ? lastDeliveryS + FORT_TIER_DAYS[t - 1] * 86400 : null);
+/**
+ * THE SIEGEWRIGHT'S DAY (Carpentry 100, Professions-Arc 3.3: "Rams +50% vitality; siege works a day sooner"). SEAT2b
+ * part two DECIDED: the day is a WORK's - a project begun by a Siegewright stands a day sooner. Both records name the
+ * Siege Camp's Ram Kits "siege works", but a kit is made at the bench at once and spent at the Turning; the only siege
+ * work that waits days is 7.5's, a project's tier standing 2, 4 or 7 days after its last delivery. The Rams' half is the
+ * battle's (ramVitality, a Siegewright on the attacking roster - the Fortifier's way).
+ */
+export const SIEGEWRIGHT_DAYS = 1;
+/** When a project of tier `t` stands: its last delivery (s) and the tier's days (7.5) - a day fewer where a Siegewright
+ *  began it - or null. */
+export const fortStandsAt = (lastDeliveryS, t, { siegewright = false } = {}) => (Number.isFinite(lastDeliveryS) && t >= 1 && t <= 3
+  ? lastDeliveryS + (FORT_TIER_DAYS[t - 1] - (siegewright ? SIEGEWRIGHT_DAYS : 0)) * 86400 : null);
 /** How much of each need is still wanting, given what the project holds (`held`: material -> units). */
 export const fortWanting = (needs, held) => (needs ?? []).map(([k, n]) => [k, Math.max(0, n - Math.max(0, Number(held?.get?.(k) ?? held?.[k] ?? 0)))]);
 /** Whether every need is met. */
@@ -125,6 +135,24 @@ export const RAM = Object.freeze({ vitality: 3000, damage: 500, everyMs: 10000, 
 export const ramVitality = (siegewright = false) => Math.round(RAM.vitality * (siegewright ? 1 + RAM.siegewright : 1));
 /** The Watchtowers: the holder told when a challenger passes half its defence (tier 1), a quarter (tier 2). */
 export const watchtowerShare = (t) => (t >= 2 ? 0.25 : t === 1 ? 0.5 : null);
+/**
+ * SEAT2b part two: WHAT THE WATCHTOWERS SEE (7.5) - the challengers whose week at the seat has passed the towers' share
+ * of the holder's defence: `standings` each pledged guild's `{ guild, influence }` as the Seat tab shows it (a
+ * challenger's risen in Unrest, its Legacy in - the number the Turning sets against the defence), `holder` the holder's
+ * guild id, `defence` its defence now, `t` the Watchtowers' tier. Answers `[{ guild, influence, share }]`, the most
+ * dangerous first - none without towers, without a defence, or for the holder itself. "Passes" is at or past (a
+ * challenger level with the share has passed it). Pure.
+ */
+export function towersSee(standings, { holder, defence, t }) {
+  const share = watchtowerShare(t);
+  if (share == null || !(Number(defence) > 0)) return [];
+  const line = Number(defence) * share;
+  return (standings ?? []).filter((s) => s && s.guild !== holder && Number(s.influence) >= line)
+    .map((s) => ({ guild: s.guild, influence: Number(s.influence), share }))
+    .sort((a, b) => b.influence - a.influence || (a.guild < b.guild ? -1 : 1));
+}
+/** The holder's word from its Watchtowers: "The Watchtowers of Anticlere see the Iron Circle <IC> past half our defence." */
+export const towersText = (seatName, guildName, share) => `The Watchtowers of ${seatName} see ${guildName} past ${share <= 0.25 ? 'a quarter' : 'half'} of our defence.`;
 /** The Barracks: the relay-run town guards that fight for the holder - 2, 4, 6. */
 export const barracksGuards = (t) => [0, 2, 4, 6][Math.max(0, Math.min(3, Number(t) || 0))];
 /** The Market Hall: the town's boards list a quarter more a tier; the Tithe's cap a point more a tier. */
@@ -149,6 +177,24 @@ export function stationSteps(profession, forts) {
 }
 /** The Harbour: a port for members (the Travel Options' port) at tier 1 or more. */
 export const harbourPort = (t) => Number(t) >= 1;
+/**
+ * SEAT2b part two: WHETHER A TOWN IS COASTAL (7.5: "Harbour (coastal seats only)") - its own map pixel or one of the
+ * eight about it water (`isWater(px, py)`, the host's sea test: ui/overworldModel.js isWaterPixel over CLIMATE.PAK's
+ * Ocean and WOODS.WLD's sea level), or `port` (a harbour Travel Options or DFU already draws there stands on water).
+ * DECIDED: part one asked the port flag alone, and a port is already Travel Options' port - its Harbour gave nothing. A
+ * coast is the sea beside the town; the funding client's word, bounded as before (a lie spends the liar's treasury on a
+ * harbour no ship can reach).
+ */
+export function coastalAt(px, py, isWater, port = false) {
+  if (port) return true;
+  if (!Number.isFinite(px) || !Number.isFinite(py) || typeof isWater !== 'function') return false;
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (isWater(px + dx, py + dy)) return true;
+  return false;
+}
+/** SEAT2b part two: whether `seat` (the seats' list's - its holder and its works' tiers, `forts`) is a Travel Options port
+ *  for a character of guild `guild`: a Harbour standing there and the guild its holder (7.5: "the town is a Travel
+ *  Options port for members"). */
+export const harbourPortFor = (seat, guild) => !!guild && seat?.holder?.guild?.id === guild && harbourPort(seat?.forts?.harbour ?? 0);
 
 // ─── THE SIEGE CAMP (4.2, 5.2 step 7) ─────────────────────────────────
 

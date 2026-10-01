@@ -200,6 +200,8 @@ function purseShort(station, who, per) {
 }
 /** What a Stores material of the smith's stock says in place of a withdrawal. */
 export const STOCK_STAYS_LINE = 'It stays at the bench: the anvil and the workbench spend it, and it comes to the pack once its own craft is practised.';   // PROF4: a counter's good with no pack form - none since PROF7 registered them all (NO_PACK_FORM empty), kept for a material to come
+/** SEAT2b part two: what a siege work (the Ram Kit) says in place of a withdrawal - its road is a Siege Camp's writ. */
+export const SIEGE_STAYS_LINE = 'A siege work stays in the Stores: a writ for your guild\'s Siege Camp carries it to the siege, delivered at a Notice Board\'s Work tab.';
 /**
  * AUDIT 32 P12: ESCAPE SETS AN ACT DOWN before it closes the window (AUDIT 31's law: Escape closes a form before the
  * window) - the heat, the plane or the stitch under way let go, nothing spent, and said. It closed the pause window, and
@@ -470,7 +472,7 @@ export function drawStoresPage(detail, rerender, kit) {
     detail.append(bar);
     detail.append(el('p', 'px-note', withdrawable(pick.material)
       ? 'Withdrawn, a material is an item in your pack and never goes back into the Stores. Writs are delivered at a Notice Board\'s Work tab.'
-      : STOCK_STAYS_LINE));
+      : pick.family === 'siege' ? SIEGE_STAYS_LINE : STOCK_STAYS_LINE));   // SEAT2b part two: a siege work's road
     if ((pick.gold | 0) > 0) detail.append(el('p', 'px-note', GOLD_GOODS_LINE));
   }
   if (_stores.word) detail.append(el('p', 'prof-word', _stores.word));
@@ -947,7 +949,8 @@ function drawWorkbench(detail, rerender, { el, divider }) {
       if (sale?.counter === 'furnisher' && have < inp.n && bench.kind === 'shop') counterBuy(line, { el, p, state: _bench, rerender, key: inp.key, need: inp.n - have, sale, who: 'the furnisher' });   // COUNTER-GATES
       box.append(line);
     }
-    if (r.later) box.append(el('p', 'px-note', 'The Ram Kit is made when the sieges come.'));   // AUDIT 32 R8: its Bear Hides are Hunting's now
+    if (r.later) box.append(el('p', 'px-note', 'Comes with a later work.'));   // a recipe named before its slice (none since SEAT2b part two)
+    else if (r.kind === 'siege') box.append(el('p', 'px-note', 'A Ram Kit goes to your Stores - a seat writ carries it to your guild\'s Siege Camp, and a camp that wins a Right of Siege sends it to the battle where a Gatehouse stands.'));   // SEAT2b part two: a siege work's road
     else if (r.kind === 'arrows') box.append(el('p', 'px-note', `Twenty arrows, one quiver - an arrow takes no quality.`));
     else if (r.family === 'furniture') box.append(el('p', 'px-note', 'Furniture goes among your things, to set down in a room of your own (Decorate).'));
     if (takesQuality(r) && recipeOpen(r, rank)) {

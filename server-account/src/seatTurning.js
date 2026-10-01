@@ -40,7 +40,8 @@ import { activeIn, edictsOf } from './seatHolding.js';
 import { windowOf } from './seatBattles.js';   // SEAT2a: the holder's window, frozen into its battle
 import { royalTurning } from './seatRoyal.js';   // CROWN1 part two: a Royal Tourney's champion named
 import { incursionStatements } from './seatIncursion.js';   // AUDIT-SEATS: a Daedric Incursion's Marks
-import { fortsSeasonStatements, campsSpent } from './seatForts.js';   // SEAT2b: a Season's wear, the Siege Camps spent
+import { fortsSeasonStatements, campsSpent, fortTiersOf } from './seatForts.js';   // SEAT2b: a Season's wear, the Siege Camps spent; part two: a holder's Shrine
+import { shrineStanding } from '../../src/net/fortLaw.js';   // SEAT2b part two (7.5): the Shrine's Standing a week
 import { swordsSettled } from './seatSiege.js';   // AUDIT-SEATS S3: a void battle's Sellsword escrow home
 import { gameDayAt, gateTimes } from '../../src/net/gateLaw.js';
 import { guildActorOf } from './guilds.js';
@@ -183,6 +184,8 @@ export async function settleWeek(db, week, nowS, zero = null) {
         // SEASON1 part two (9.3): the week's Tide here (a Royal Wedding's Standing, a Tax Revolt's) and the coming week's
         // (a Festival's cost)
         tide: tideAt(week, seat.region, counted), tideNext: tideAt(next, seat.region, !!seasonOf(next, zero)),
+        // SEAT2b part two (7.5: "Standing +1 a week" a tier): the Shrine standing at the Turning's clock (its due raised first)
+        shrine: shrineStanding((await fortTiersOf(db, key, atS)).shrine ?? 0),
       };
     }
     seats.push({
@@ -417,10 +420,16 @@ export async function seatsWithHolders(db, seats, nowS) {
   const holds = await holdsOf(db);
   const battles = await battlesOf(db, weekAt(nowS));
   const edicts = await edictsOf(db, weekAt(nowS));
+  // SEAT2b part two (7.5): each seat's works standing now - a project whose day has come counts (seatForts.js fortTierAt's
+  // rule, read and never written) - so every client knows a members' Harbour, the Watchtowers and the crafting halls
+  const { results: fortRows = [] } = await db.prepare(`SELECT key, work, CASE WHEN building IS NOT NULL AND stands_at IS NOT NULL AND stands_at <= ?1
+    THEN building ELSE tier END AS t FROM town_seat_forts WHERE tier > 0 OR (building IS NOT NULL AND stands_at IS NOT NULL AND stands_at <= ?1)`).bind(nowS).all();
+  const forts = new Map();
+  for (const r of fortRows) if (Number(r.t) > 0) { const k = Number(r.key); forts.set(k, { ...(forts.get(k) ?? {}), [r.work]: Number(r.t) }); }
   return seats.map((s) => {
     const h = holds.get(s.key) ?? null;
     const e = edicts.get(s.key);
-    return { ...s, holder: h ? { ...h, edict: e && e.guild === h.guild.id ? e.edict : null } : null, battle: battles.get(s.key) ?? null };
+    return { ...s, holder: h ? { ...h, edict: e && e.guild === h.guild.id ? e.edict : null } : null, battle: battles.get(s.key) ?? null, ...(forts.has(s.key) ? { forts: forts.get(s.key) } : {}) };
   });
 }
 

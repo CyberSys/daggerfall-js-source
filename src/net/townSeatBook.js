@@ -24,12 +24,12 @@
 //
 // Pure - the door, the storage and the clock are handed in.
 // ═══════════════════════════════════════════════════════════════════
-import { SEAT_REPORT_EVERY_S, SEAT_WATCH_CLAIM_MAX, seatReportOf, seatKeyOk, EDICTS, siegeWindowText, seatWeekOf, seasonOf } from './townSeatLaw.js';
+import { SEAT_REPORT_EVERY_S, SEAT_WATCH_CLAIM_MAX, seatReportOf, seatKeyOk, EDICTS, siegeWindowText, seatWeekOf, seasonOf, guildWords } from './townSeatLaw.js';
 import { accountRefusalText } from './accountClient.js';
 import { readWatchReceipt } from './watchReceipt.js';
 import { mintMarksRid } from './marksBook.js';
 import { tideAt } from './tideLaw.js';   // SEASON1 part two: the Tides
-import { fortWork } from './fortLaw.js';   // SEAT2b: the works
+import { fortWork, towersText } from './fortLaw.js';   // SEAT2b: the works; part two: the Watchtowers' word
 
 /** How long a list read is kept before the next is asked, ms. */
 export const SEAT_LIST_CACHE_MS = 5 * 60_000;
@@ -55,6 +55,11 @@ export const SEAT_RED_SEEN_KEY = 'crown2.redSeen';
 export const SEAT_RED_SEEN_MAX = 100;
 /** CROWN2: how often an online client reads the seats' list again for the server's red lines, ms. */
 export const SEAT_RED_READ_MS = 15 * 60_000;
+/** SEAT2b part two (7.5): the Watchtowers' words said on this device (`week:seat:guild:share`) - its key, the most kept -
+ *  and how often a holder's member asks its towers. */
+export const SEAT_TOWERS_KEY = 'seat2b.towers';
+export const SEAT_TOWERS_SAID_MAX = 100;
+export const SEAT_TOWERS_EVERY_MS = 10 * 60_000;
 /** SEAT1b: the answers after which a claim's receipts are let go - counted, or refused for good (a watch claim answers
  *  each receipt's fate in its `why`, and none of them is mended by asking again). AUDIT-SEATS C10: and the seats shut to
  *  this account - but never `auth` or `no-session`: a session run out is mended by signing in again, and the ticks it
@@ -148,6 +153,20 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
   /** SEAT2b: a project begun - its ask and its one request id, as the Tribute's */
   /** @type {{ ask: string, rid: string }|null} */
   let fortAsk = null;
+  /** SEAT2b part two: the Watchtowers' words already said (`week:seat:guild:share`), read from the device once, and the
+   *  last ask's moment and its flight */
+  let towersSaid = null, towersAt = -Infinity, towersBusy = false;
+  const towersSaidList = () => {
+    if (towersSaid) return towersSaid;
+    towersSaid = [];
+    try {
+      const v = JSON.parse(storage?.getItem?.(SEAT_TOWERS_KEY) ?? 'null');
+      if (Array.isArray(v)) towersSaid = v.filter((x) => typeof x === 'string').slice(-SEAT_TOWERS_SAID_MAX);
+    } catch { /* a bad key reads as none */ }
+    return towersSaid;
+  };
+  /** SEAT2b part two: the seats `guild` holds whose Watchtowers stand, as the list last said them. */
+  const towerSeats = (guild) => (guild ? (data?.seats ?? []).filter((s) => s?.holder?.guild?.id === guild && Number(s?.forts?.watchtowers ?? 0) >= 1) : []);
   /** SEAT1b: the Watch's receipts held - read from the device once, kept in memory where the store refuses writes */
   let watchList = null, watchBusy = false;
   const watchHeld = () => {
@@ -178,7 +197,7 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
       if (r?.ok) {
         open = true; data = r.data;
         states = new Map((data?.seats ?? []).map((s) => [s.key, s.state]));
-        dress = new Map((data?.seats ?? []).map((s) => [s.key, { holder: s.holder ?? null, battle: s.battle ?? null }]));
+        dress = new Map((data?.seats ?? []).map((s) => [s.key, { holder: s.holder ?? null, battle: s.battle ?? null, forts: s.forts ?? null }]));   // SEAT2b part two: its works standing
         sayRed(data?.red);   // CROWN2: the server's red lines, each said once
         return { data, error: null };
       }
@@ -198,7 +217,7 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
     get data() { return data; },
     /** SEAT1c: a seat this client derived, dressed in what the service last said of it - its holder and this week's battle
      *  there (both null for an unheld, quiet one, or a seat not read yet). */
-    dressed: (seat) => (seat ? { ...seat, holder: dress.get(seat.key)?.holder ?? null, battle: dress.get(seat.key)?.battle ?? null } : null),
+    dressed: (seat) => (seat ? { ...seat, holder: dress.get(seat.key)?.holder ?? null, battle: dress.get(seat.key)?.battle ?? null, forts: dress.get(seat.key)?.forts ?? null } : null),   // SEAT2b part two: and its works
     /** SEAT1c: the guildmaster gives up a Charter at its board - `{ ok, text }`, the list and standings read afresh after. */
     async relinquish(seat) {
       let r;
@@ -508,6 +527,40 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
         if (r?.ok) standingsAt.clear();
       }
       return r?.ok ? r.data : null;
+    },
+    /** SEAT2b part two (Seats-Arc 7.5): WHETHER THE WATCHTOWERS ARE DUE TO BE ASKED - `guild` (the playing character's)
+     *  holds a seat whose Watchtowers stand and SEAT_TOWERS_EVERY_MS has passed since the last ask. Asked in sync each
+     *  frame (scenes/world.js), as claimWatchDue: a frame with nothing due makes no Promise. */
+    towersDue(guild) {
+      return !towersBusy && open === true && nowMs() - towersAt >= SEAT_TOWERS_EVERY_MS && towerSeats(guild).length > 0;
+    },
+    /** SEAT2b part two (7.5: "the holder is told when a challenger passes half its defence (tier 1) or a quarter (tier
+     *  2)"): THE WATCHTOWERS ASKED - each seat `guild` holds with Watchtowers, its standings read (the service answers
+     *  `towers` to the holder's members alone - seatInfluence.js readStandings) and every challenger past the towers'
+     *  share not yet said this week handed to `say` (fortLaw.js towersText), kept as said on the device. Answers the
+     *  lines said.
+     *  @param {string|null} guild @param {(text: string) => void} [say] */
+    async towers(guild, say = (_text) => {}) {
+      if (towersBusy) return [];
+      towersBusy = true; towersAt = nowMs();
+      const lines = [];
+      try {
+        for (const s of towerSeats(guild)) {
+          const r = await this.standings(s.key, { force: true });
+          const week = r.data?.week;
+          for (const w of Array.isArray(r.data?.towers) ? r.data.towers : []) {
+            const id = `${week}:${s.key}:${w.guild}:${w.share}`;
+            const said = towersSaidList();
+            if (said.includes(id)) continue;
+            const text = towersText(s.name ?? 'the seat', guildWords({ name: w.name, tag: w.tag }), w.share);
+            say(text);
+            lines.push(text);
+            towersSaid = [...said, id].slice(-SEAT_TOWERS_SAID_MAX);
+            try { storage?.setItem?.(SEAT_TOWERS_KEY, JSON.stringify(towersSaid)); } catch { /* this page keeps them */ }
+          }
+        }
+      } finally { towersBusy = false; }
+      return lines;
     },
     /** The chat's `/seat strike <key>`: a developer's strike - the list read afresh after. */
     async strike(key) {

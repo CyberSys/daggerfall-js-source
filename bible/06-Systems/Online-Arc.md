@@ -4917,7 +4917,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:8436` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:8450` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:472`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -11504,10 +11504,63 @@ Seats-Arc 7.5, 7.9, 4.2. Law (`src/net/fortLaw.js`), service (`server-account/sr
 - NOT YET (part two): the Shrine's Standing and gate influence, the Watchtowers' word to the holder, the Forge's, the
   Workshop's and the Apothecary's quality steps, the Harbour's port, the Ram Kit made (still `later`); and the relay's
   part - the Walls' wave, the Gatehouse and its Rams, the Throne behind a breach, the Barracks' guards, the revolt.
+  BUILT since: the works at peace (SEAT2b part two (a), below).
 
 Pinned: `test/seat2b_law.test.js` (7), `test/seat2b_service.test.js` (11, through the real Worker), `test/seat2b_client
 .test.js` (5). Mutants: `tools/mutants/seat2b.json` (79: 78 dead, 1 equivalent recorded - the raise's own UPDATE holds
 the day the JS check spares). Patch notes: `PATCH-NOTES-Seats.md` (Fortifications).
+
+### SEAT2b part two (a) - the works at peace: the Siegewright's day, the Shrine, the Watchtowers, the halls, the Harbour, the Ram Kit
+
+2026-10-01, Mac: "Finish the seats"; "Let's pick up 482" (PR 482's remaining scope). Seats-Arc 7.5, 4.2; Professions-Arc
+3.3, 4.8. Law (`src/net/fortLaw.js`, `townSeatLaw.js`, `professionLaw.js`, `recipeLaw.js`), service (`seatForts.js`,
+`seatInfluence.js`, `seatTurning.js`, `professions.js`, `writs.js`; migration `0062_seat_works_peace.sql`) and client
+(`src/net/townSeatBook.js`, `profBook.js`, `src/systems/travelPorts.js`, the Seat tab, the Stores page, the host).
+`acct61`; the relay untouched (its hash unchanged).
+
+- **The Siegewright's day** (Carpentry 100: "Rams +50% vitality; siege works a day sooner" - chosen now, no longer
+  `later`). DECIDED: the day is a WORK's - a project begun by a Siegewright stands a day sooner (1, 3 or 6 days after
+  its last need is met), kept on the project's row (`town_seat_forts.siegewright`) and cleared when it rises or the seat
+  is taken. Both records name a Ram Kit "a siege work", but a kit is made at the bench at once and spent at the Turning;
+  the only siege work that waits days is 7.5's. The Rams' half is the battle's (part two (b)).
+- **The Shrine** (7.5: "Standing +1 a week; each gate felled in the region gives the holder +50 influence", a tier):
+  its tier's Standing at the Turning (`standingWeek`'s `shrine` row, read off the works at the Turning's clock), and 50 a
+  tier for each gate day of the week whose region three claims agree on (`gatesFelledIn` - the Turning's own count) -
+  the holder's own row beside its accounts', no account's cap spent on it (as Tribute's is not), past its reach, so it
+  stands in the defence at the board and at the Turning; the standings line names it ("(its Shrine's 200)").
+- **The Watchtowers** (7.5: "the holder is told when a challenger passes half its defence (tier 1) or a quarter (tier
+  2)"): the standings answer `towers` to the holder's own members alone - each challenger at or past the share of the
+  defence, as the Seat tab shows both (`towersSee`; "passes" is at or past), a tier whose day has come counted
+  (`fortTierAt`, read without a write). A member's client asks its guild's towered seats every ten minutes and says each
+  challenger, week and share once ("The Watchtowers of Anticlere see the Iron Circle <IC> past half of our defence."),
+  kept on the device (`seat2b.towers`, the newest 100); the Seat tab lists them under the standings.
+- **The crafting halls** (7.5: the Forge for Smithing; the Workshop for Carpentry, Outfitting and Masonry; the
+  Apothecary for Alchemy, Cooking and Jewelcrafting - a quality step a tier): a craft carries the town its station
+  stands in (`seat`, the host's word where its guild holds the town and a hall of the recipe's profession stands); the
+  service asks the Charter again (`seatStepsFor`: the crafting character a member of the holder) and lays the steps on
+  beside the clean act's, nothing past Masterwork. The client's word on the place, bounded as the clean act's is: the
+  holder's members alone, its own seat's halls. The Apothecary's professions craft at no station yet (no recipe is
+  Alchemy's, Cooking's or Jewelcrafting's): its steps wait on their slices.
+- **The Harbour** (7.5: "coastal seats only ... ships dock at the seat; the town is a Travel Options port for members").
+  DECIDED: a coast is the sea beside the town - its own map pixel or one of the eight about it water (the port's one
+  water law, `isWaterPixel`, over CLIMATE.PAK and WOODS.WLD), or a harbour already drawn there (`coastalAt`); part one
+  asked DFU's port flag alone, and a port was already Travel Options' port - its Harbour gave nothing. A Harbour
+  standing at a seat the playing character's guild holds makes the town a Travel Options port (`hasPortFor`, the host's
+  word beside the mod's untouched list): the travel map's PORTS filter, the popup's ship rules, the held map, the
+  "hasPort" Travel Options answers other mods (Roleplay Realism's ship gate) and Come Sail Away's deed. The seats' list
+  carries each seat's works standing (`forts`), so every client knows a Harbour, the Watchtowers and the halls.
+- **The Ram Kit made** (PROF0 4.8: "690 | Ram Kit | Stores (a siege work)"): at Carpentry 60 its 40 Oak Planks, 20 Iron
+  Ingots and 4 Bear Hides spent and the kit put in the crafter's Stores - own, or bought where any input held a bought
+  unit (the smelt's rule) - never a piece and never to the pack (`NO_PACK_FORM`); a full Stores refuses it before
+  anything is spent (`stores-full`). DECIDED: worth its inputs at their values (108 Drakes), so a writ's pay and the
+  influence a delivery raises keep the materials'. A Siege Camp's writ asks Ram Kits (the Work tab offers them for a
+  camp alone); a holder's stockpile and the guild Stores ask none (`bad-material`). It lists on the market as any Stores
+  material (a sale makes it bought). The workbench says "You made a Ram Kit - it waits in your Stores"; the Stores page
+  says its road is a Siege Camp's writ.
+
+Pinned: `test/seat2b_peace_law.test.js` (5), `test/seat2b_peace_service.test.js` (7, through the real Worker),
+`test/seat2b_peace_client.test.js` (5); twelve older tests' pins moved (PIN MOVED). Mutants: `tools/mutants/seat2b_peace.json`
+(63, all dead); sixteen older records re-aimed by content. Patch notes: `PATCH-NOTES-Seats.md` (The works at peace).
 
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 

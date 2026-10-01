@@ -41,7 +41,7 @@ test('PROF11 law: Mortar is 675 - the stone family, tier 2, worth 2 Marks, Lodes
   assert.equal(TIER_VALUES[MORTAR.tier - 1], 2, '4.5: Mortar tier 2 (2)');
   assert.equal(minedMaterial('stone:mortar'), MORTAR);
   assert.ok(MINED_KEYS.includes('stone:mortar'), 'the registry, the market\'s catalogue');
-  assert.equal(MINED_KEYS.at(-1), 'stone:mortar', 'registered last - no key before it moved');
+  assert.deepEqual(MINED_KEYS.slice(-2), ['stone:mortar', 'work:ram'], 'registered last - no key before it moved (SEAT2b part two\'s Ram Kit after it - PIN MOVED)');
   assert.equal(withdrawable('stone:mortar'), true);
   assert.ok(marketCatalogue().some((m) => m.key === 'stone:mortar'), 'listed on the Materials view');
   assert.equal(UNYIELDED.includes('stone:mortar'), false, 'the bench yields it');
@@ -182,7 +182,7 @@ test('PROF11 law: the Sculptor\'s four (9.3) - a column, a bench, a font, a stat
   assert.deepEqual([recipeOpen(col, 100), recipeOpen(col, 100, { 50: null, 100: null }), recipeOpen(col, 100, { 100: 'fortifier' }), recipeOpen(col, 100, { 100: 'sculptor' }), recipeOpen(col, 9, { 100: 'sculptor' }), recipeOpen(col, 100, { 50: 'sculptor' })],
     [false, false, false, true, false, false]);
   assert.equal(recipeOpen(recipeById('dagger:iron'), 0), true, 'a recipe that asks no choice is the rank\'s alone');
-  assert.equal(recipeOpen(recipeById('ramkit:oak'), 100, { 100: 'sculptor' }), false, 'the Ram Kit still waits for the sieges');
+  assert.equal(recipeOpen(recipeById('ramkit:oak'), 100, { 100: 'sculptor' }), true, 'the Ram Kit made since SEAT2b part two (PIN MOVED: it waited for the sieges)');
   // its quality, steps, mark: furniture's - the clean chisel a step, no family choice, the mark a Masterwork's alone
   assert.equal(takesQuality(col), true);
   assert.equal(takesHeartwood(col), false);

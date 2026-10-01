@@ -688,6 +688,15 @@ funding client names its town a port (DFU's own flag); one project a work at a t
 Watchtowers, the Forge, the Workshop, the Apothecary and the Harbour's effects; the Walls', the Gatehouse's and the
 Barracks' in battle (the relay's).
 
+BUILT (SEAT2b part two (a), 2026-10-01, `acct61`, migration 0062; `06-Systems/Online-Arc.md` SEAT2b part two (a)): the
+works at peace - a Siegewright's project a day sooner (DECIDED: the "siege works" of Professions-Arc 3.3 are these
+projects); the Shrine's Standing and its 50 a tier for each gate felled in the region, counted in the holder's defence;
+the Watchtowers' word to the holder's members; the Forge's and the Workshop's steps for the holder's members crafting in
+its town (the Apothecary's wait on Alchemy's, Cooking's and Jewelcrafting's stations); the Harbour a Travel Options port
+for the holder's members, raised at a coastal town (DECIDED: the sea beside it, or a harbour already drawn there); the
+Ram Kit made into the Stores and carried to a Siege Camp by its writs. NOT YET: the works in battle (part two (b)) and
+the Barracks' guards and the revolt (part two (c)).
+
 ### 7.6 Edicts
 
 At each Turning the holder proclaims **one Edict** for the coming week (Guildmaster or Officer, on the board). No

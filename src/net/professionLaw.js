@@ -159,7 +159,7 @@ export const SPECIALISATIONS = Object.freeze({
   carpentry: Object.freeze({
     50: pair(spec('bowyer', 'Bowyer', 'Bows +1 quality step (arrows take none).'),
       spec('joiner', 'Joiner', 'Furniture at half the planks.')),
-    100: pair(spec('siegewright', 'Siegewright', 'Rams +50% vitality; siege works a day sooner.', 'SEAT2'),   // PROF4: the sieges are SEAT2's
+    100: pair(spec('siegewright', 'Siegewright', 'Rams +50% vitality; siege works a day sooner.'),   // PROF4: the sieges are SEAT2's - SEAT2b part two: chosen since (fortLaw.js SIEGEWRIGHT_DAYS, ramVitality)
       spec('master-joiner', 'Master Joiner', "Furniture carries the maker's mark.")),
   }),
   masonry: Object.freeze({
@@ -273,6 +273,7 @@ export const MATERIAL_FAMILIES = Object.freeze([
   Object.freeze(['metals', 'Ores and Metals']), Object.freeze(['wood', 'Wood']), Object.freeze(['herbs', 'Herbs']),
   Object.freeze(['hides', 'Hides and Cloth']), Object.freeze(['food', 'Food']), Object.freeze(['stone', 'Stone']),
   Object.freeze(['gems', 'Gems']), Object.freeze(['essences', 'Essences']), Object.freeze(['spoils', 'Spoils of War']),
+  Object.freeze(['siege', 'Siege Works']),   // SEAT2b part two: the Ram Kit, made at the workbench (PROF0 4.8's 690)
 ]);
 /** DFU's two plant groups (itemTemplatesData.js GROUP_TEMPLATE_INDICES), as the material keys write them. */
 export const PLANT_GROUPS = Object.freeze({ p1: 'PlantIngredients1', p2: 'PlantIngredients2' });
@@ -307,7 +308,7 @@ export const HERB_VALUES = Object.freeze([1, 2, 5]);
 
 /**
  * @typedef {{ key: string, family: string, tier: number, templateIndex: number, group?: string, name?: string,
- *   icon?: readonly number[]|null, dye?: string|null }} MinedRow a mined (or smelted) material's row - or a stock's (PROF3)
+ *   icon?: readonly number[]|null, dye?: string|null, value?: number }} MinedRow a mined (or smelted) material's row - or a stock's (PROF3)
  */
 /** A DFU item's material row: its key, family, tier, DFU group and template. @returns {MinedRow} */
 const dfu = (key, family, tier, group, templateIndex) => Object.freeze({ key, family, tier, group, templateIndex });
@@ -419,6 +420,16 @@ export const RESIN = made('wood:resin', 'wood', 1, 653, 'Resin', ICON_ALOE, null
 export const HEARTWOOD = made('wood:heartwood', 'wood', 4, 654, 'Heartwood', ICON_TWIGS, null);
 /** Every new template PROF4 registers, by template. */
 export const WOOD_TEMPLATES = Object.freeze([...LOGS, ...PLANKS, CHARCOAL, RESIN, HEARTWOOD]);
+/**
+ * SEAT2b part two (PROF0 4.8: "690 | Ram Kit | Stores (a siege work)"; Seats-Arc 4.2, 6.2): THE RAM KIT AS THE STORES HOLD
+ * IT - made at the workbench (recipeLaw.js `ramkit:oak`, Carpentry 60), delivered by a seat writ to a pledged challenger's
+ * Siege Camp, sent at the Turning to the siege the camp won where a Gatehouse stands (fortLaw.js campSpent). A siege work
+ * never leaves the Stores (NO_PACK_FORM): its whole road is the writ's. DECIDED: its tier the recipe's (5) and its worth
+ * the inputs' at their tiers' values (40 Oak Planks 80, 20 Iron Ingots 20, 4 Bear Hides 8 - 108), so a writ's pay and the
+ * influence a delivery raises (4.2: "own units at their value") keep the materials' - a tier's 9 would make a kit worth
+ * less than its hides.
+ */
+export const RAM_KIT = Object.freeze({ ...made('work:ram', 'siege', 5, 690, 'Ram Kit', ICON_IRON, null), value: 108 });
 // ─── THE HIDES PROF7 STORES (PROF0 4.4, 4.5, 4.8, 29) ────────────────
 
 /** DFU's pictures the hides and the cloth borrow (law 6). FOUND (PROF0 29): 4.8's "DFU Small Skins" and "Large Skins"
@@ -601,12 +612,13 @@ export const STOCKS = Object.freeze([...SMITH_STOCK, ...FURNISHER_STOCK, ...WEAV
 export const stockOf = (key) => STOCKS.find((s) => s.key === key) ?? null;
 /** Units a purchase, at most. */
 export const STOCK_MAX = 100;
-/** The materials with no pack form yet - none since PROF7, which registered the hides', the leathers' and the cloth's
- *  templates (PROF4 the planks' and Charcoal's before it): every material the Stores hold withdraws. */
-export const NO_PACK_FORM = Object.freeze([]);
+/** The materials with no pack form - none since PROF7, which registered the hides', the leathers' and the cloth's
+ *  templates (PROF4 the planks' and Charcoal's before it), until SEAT2b part two made the Ram Kit: a siege work never
+ *  leaves the Stores but by a Siege Camp's writ. */
+export const NO_PACK_FORM = Object.freeze(['work:ram']);   // SEAT2b part two: a siege work's road is the writ's (RAM_KIT)
 /** Whether the Stores may give a material to the pack. */
 export const withdrawable = (key) => !NO_PACK_FORM.includes(key);
-const MINED = new Map([...METALS, ...ORES, ...INGOTS, ...STONES, ...GEMS, SIEGE_GEM, PEARL, ...WOOD_TEMPLATES, ...HIDE_TEMPLATES, ...PARTS, ...MASONRY_TEMPLATES].map((m) => [m.key, m]));   // PROF7: the hides, leathers, cloth and a body's DFU parts; PROF8: the sea's Pearl; AUDIT-SEATS: the Siege-cracked Gem; PROF11: the bench's Mortar
+const MINED = new Map([...METALS, ...ORES, ...INGOTS, ...STONES, ...GEMS, SIEGE_GEM, PEARL, ...WOOD_TEMPLATES, ...HIDE_TEMPLATES, ...PARTS, ...MASONRY_TEMPLATES, RAM_KIT].map((m) => [m.key, m]));   // PROF7: the hides, leathers, cloth and a body's DFU parts; PROF8: the sea's Pearl; AUDIT-SEATS: the Siege-cracked Gem; PROF11: the bench's Mortar; SEAT2b part two: the Ram Kit
 /** A mined (or smelted) material's row, or null. */
 export const minedMaterial = (key) => MINED.get(key) ?? null;
 /** PROF5: every registered material's key, in the registry's order - the market's catalogue beside the herbs and foods. */
@@ -632,7 +644,7 @@ export function materialOf(key, herbTier) {
   }
   if (FOOD_KEYS.includes(key)) return { key, family: 'food', tier: 1, value: TIER_VALUES[0] };
   const r = MINED.get(key);
-  if (r) return { key, family: r.family, tier: r.tier, value: TIER_VALUES[r.tier - 1], ...(r.group ? { group: r.group } : {}), templateIndex: r.templateIndex };
+  if (r) return { key, family: r.family, tier: r.tier, value: r.value ?? TIER_VALUES[r.tier - 1], ...(r.group ? { group: r.group } : {}), templateIndex: r.templateIndex };   // SEAT2b part two: a row's own worth (the Ram Kit's)
   return null;
 }
 /** Which profession gathers a material - a writ's XP goes to it. PROF4: wood is Logging's (a writ asks only logs). */
@@ -854,6 +866,9 @@ export const FORTIFIER_SAVES_A_SEASON = 1;
 export const FORTIFIER_WORK = 'walls';
 /** Whether a track stands as a Fortifier - its choice at 100. */
 export const isFortifier = (specs) => specs?.[100] === 'fortifier';
+/** SEAT2b part two (3.3: "Siegewright - Rams +50% vitality; siege works a day sooner"): a character standing as a
+ *  Siegewright - Carpentry's choice at 100 (`specs` its Carpentry track's, specsAt). */
+export const isSiegewright = (specs) => specs?.[100] === 'siegewright';
 /** Whether a Fortifier who has saved Walls `saves` times this Season (SEAT2b keeps the count, a Season's) may save more. */
 export const fortifierReady = (saves = 0) => (Number.isSafeInteger(saves) ? saves : FORTIFIER_SAVES_A_SEASON) < FORTIFIER_SAVES_A_SEASON;
 /**

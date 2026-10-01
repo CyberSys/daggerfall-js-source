@@ -51,8 +51,8 @@
   {
     "name": "SEAT2b-stands-a-day-early",
     "file": "src/net/fortLaw.js",
-    "old": "lastDeliveryS + FORT_TIER_DAYS[t - 1] * 86400",
-    "new": "lastDeliveryS + (FORT_TIER_DAYS[t - 1] - 1) * 86400",
+    "old": "lastDeliveryS + (FORT_TIER_DAYS[t - 1] - (siegewright",
+    "new": "lastDeliveryS + (FORT_TIER_DAYS[t - 1] - 1 - (siegewright",
     "tests": [
       "test/seat2b_law.test.js",
       "test/seat2b_client.test.js",
@@ -420,8 +420,8 @@
   {
     "name": "SEAT2b-capture-project-stands",
     "file": "server-account/src/seatForts.js",
-    "old": "      building = NULL, stands_at = NULL, builder = 0, guild_id = NULL WHERE key = ?1`",
-    "new": "      builder = 0, guild_id = NULL WHERE key = ?1`",
+    "old": "      building = NULL, stands_at = NULL, builder = 0, siegewright = 0, guild_id = NULL WHERE key = ?1`",
+    "new": "      builder = 0, siegewright = 0, guild_id = NULL WHERE key = ?1`",
     "tests": [
       "test/seat2b_service.test.js"
     ]
@@ -546,7 +546,7 @@
   {
     "name": "SEAT2b-writ-any-material",
     "file": "server-account/src/writs.js",
-    "old": "    if (!fortMaterialOk(key)) return { error: 'bad-material' };\n",
+    "old": "    if (!fortMaterialOk(key) && key !== RAM_KIT_KEY) return { error: 'bad-material' };\n",
     "new": "",
     "tests": [
       "test/seat2b_service.test.js"

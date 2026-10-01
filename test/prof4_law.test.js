@@ -100,7 +100,7 @@ test('PROF4 law: the forge burns a log to a Charcoal (a Charcoal Burner two) and
   assert.ok(SMITH_STOCK.every((x) => x.counter === 'smith'));
   assert.deepEqual(STOCKS.map((x) => x.key), ['leather:cured', 'plank:oak', 'plank:pine', 'wood:charcoal', 'cloth:linen', 'cloth:linen', 'cloth:wool']);   // PROF5: the Weavers' counter's two after them
   assert.equal(stockOf('cloth:linen').counter, 'furnisher');
-  assert.deepEqual([...NO_PACK_FORM], []);   // PROF5: Wool Bolt beside the Linen; PROF7 moved it: every one has its template now
+  assert.deepEqual([...NO_PACK_FORM], ['work:ram']);   // PROF5: Wool Bolt beside the Linen; PROF7 moved it: every one has its template now; SEAT2b part two (PIN MOVED): a Ram Kit's road is the writ's
   assert.deepEqual(['leather:cured', 'cloth:linen', 'hide:bear', 'plank:oak', 'log:teak', 'wood:charcoal', 'ingot:iron'].map(withdrawable), [true, true, true, true, true, true, true]);
 });
 
@@ -119,8 +119,9 @@ test('PROF4 law: Carpentry\'s recipes (9.3) - staves 3 planks, short bows 3 and 
     [[217, '8 plank:pine + 2 cloth:linen'], [219, '8 plank:oak + 2 cloth:linen'], [218, '8 plank:cherry + 2 cloth:linen'], [220, '8 plank:teak + 2 cloth:linen']]);
   assert.deepEqual([recipeById('basket:pine').templateIndex, ins('basket:pine'), recipeById('basket:pine').kind], [1607, '2 plank:pine', 'tool']);
   const ram = recipeById('ramkit:oak');
-  assert.deepEqual([ram.templateIndex, ram.rank, RAM_KIT_RANK, ins('ramkit:oak'), ram.later], [690, 60, 60, '40 plank:oak + 20 ingot:iron + 4 hide:bear', 'sieges']);
-  assert.equal(recipeOpen(ram, 100), false, 'named, never made');
+  assert.deepEqual([ram.templateIndex, ram.rank, RAM_KIT_RANK, ins('ramkit:oak'), ram.later], [690, 60, 60, '40 plank:oak + 20 ingot:iron + 4 hide:bear', undefined]);   // SEAT2b part two (PIN MOVED): made with the sieges
+  assert.equal(recipeOpen(ram, 100), true, 'made since SEAT2b part two (PIN MOVED: named, never made until the sieges)');
+  assert.equal(recipeOpen(ram, 59), false, 'at Carpentry 60');
   assert.equal(recipeOpen(recipeById('chair:oak'), 10), true);
   assert.equal(recipeOpen(recipeById('chair:oak'), 9), false);
   assert.ok(SMITH_RECIPES.every((r) => r.profession === 'smithing'));
@@ -138,8 +139,8 @@ test('PROF4 law: what a craft spends - a Joiner\'s furniture at half the planks 
   assert.deepEqual([qualitySteps(r('shortbow:oak'), { spec50: 'bowyer' }), qualitySteps(r('staff:oak'), { spec50: 'bowyer' }), qualitySteps(r('chair:oak'), { heartwood: true, clean: true }), qualitySteps(r('warhammer:warforged'), { heartwood: true }), qualitySteps(r('longsword:iron'), { heartwood: true })], [1, 0, 2, 1, 0]);
   assert.deepEqual([carriesMark(r('chair:oak'), 1, 'master-joiner'), carriesMark(r('staff:oak'), 1, 'master-joiner'), carriesMark(r('chair:oak'), 1, null), carriesMark(r('staff:oak'), MASTERWORK, null)], [true, false, false, true]);
   assert.equal(craftCount(r('arrows:north'), 'quartermaster'), 1);
-  assert.equal(specOk('carpentry', 100, 'siegewright'), false, 'the sieges\' choice waits for them');
-  assert.equal(SPECIALISATIONS.carpentry[100][0].later, 'SEAT2');
+  assert.equal(specOk('carpentry', 100, 'siegewright'), true, 'the sieges\' choice, chosen since SEAT2b part two (PIN MOVED: it waited for them)');
+  assert.equal(SPECIALISATIONS.carpentry[100][0].later, undefined, 'SEAT2b part two (PIN MOVED): the Siegewright chosen since');
   assert.equal(specOk('carpentry', 100, 'master-joiner'), true);
 });
 

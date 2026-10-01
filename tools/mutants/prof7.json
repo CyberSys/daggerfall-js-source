@@ -142,8 +142,8 @@
   {
     "name": "PROF7-a-hide-held-back",
     "file": "src/net/professionLaw.js",
-    "old": "export const NO_PACK_FORM = Object.freeze([]);",
-    "new": "export const NO_PACK_FORM = Object.freeze(['hide:bear']);",
+    "old": "export const NO_PACK_FORM = Object.freeze(['work:ram']);",
+    "new": "export const NO_PACK_FORM = Object.freeze(['work:ram', 'hide:bear']);",
     "tests": [
       "test/prof7_law.test.js"
     ]
@@ -910,8 +910,8 @@
   {
     "name": "PROF7-client-dye-unsent",
     "file": "src/net/accountClient.js",
-    "old": "...(dye == null ? {} : { dye }) }),",
-    "new": "}),",
+    "old": "...(dye == null ? {} : { dye }), ...(seat == null",
+    "new": "...(seat == null",
     "tests": [
       "test/prof7_client.test.js"
     ]

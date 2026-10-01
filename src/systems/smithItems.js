@@ -311,6 +311,10 @@ export function craftedText(pieces) {
   if (isCraftedFurniture(it)) return `You made ${one} - it waits among your things for a room to stand in`;
   return pieces.length > 1 ? `You made ${pieces.length} ${name}s` : `You made ${one}`;
 }
+/** SEAT2b part two (PROF0 4.8: "690 | Ram Kit | Stores (a siege work)"): what a siege work's craft says - its kits go to
+ *  the Stores, never the pack (the service answers no piece - professions.js craftAtAnvil): "You made a Ram Kit - it waits
+ *  in your Stores". */
+export const storedText = (name, count = 1) => (count > 1 ? `You made ${count} ${name}s - they wait in your Stores` : `You made a ${name} - it waits in your Stores`);
 /** What a craft whose answer did not come says: kept, and made when it does. */
 export const CRAFT_KEPT_TEXT = 'The anvil rang, but no word came back - the work is kept, and made when the word comes.';
 /** AUDIT 30 A4: the workbench's own (Carpentry's work is planed, not struck). */

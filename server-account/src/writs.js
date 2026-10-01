@@ -46,7 +46,7 @@ import { STORES_MAX } from '../../src/net/professionLaw.js';
 import { material, regionOk } from '../../src/net/nodeLaw.js';
 import { HANDLE_RE } from '../../src/net/handleShape.js';
 import { GUILD_RANK_MASTER } from '../../src/net/guildLaw.js';
-import { fortMaterialOk } from '../../src/net/fortLaw.js';   // SEAT2b: what a seat writ may ask
+import { fortMaterialOk, RAM_KIT_KEY } from '../../src/net/fortLaw.js';   // SEAT2b: what a seat writ may ask; part two: a Siege Camp's Ram Kits
 import { seatKeyOk } from '../../src/net/townSeatLaw.js';
 import { confirmedSeats } from './townSeats.js';
 import { supplyForts } from './seatForts.js';   // SEAT2b: a stockpile's delivery moved into its projects
@@ -318,14 +318,17 @@ export async function postGuildWrit(ctx, player, env, { character, region, mater
     if (!seatKeyOk(seat)) return { error: 'bad-seat' };
     const s = (await confirmedSeats(db, nowS)).get(seat);
     if (!s || Number(s.region) !== region) return { error: 'writ-elsewhere' };
-    if (!fortMaterialOk(key)) return { error: 'bad-material' };
+    if (!fortMaterialOk(key) && key !== RAM_KIT_KEY) return { error: 'bad-material' };
     const holds = await db.prepare('SELECT 1 FROM town_seat_holds WHERE key = ? AND guild_id = ?').bind(seat, g).first();
     if (!holds) {
       const pledged = await db.prepare('SELECT 1 FROM town_seat_pledges WHERE week = ? AND key = ? AND guild_id = ?').bind(seatWeek(nowS), seat, g).first();
       if (!pledged) return { error: 'seat-not-pledged' };
       camp = 1;
     }
-  }
+    // SEAT2b part two (Seats-Arc 4.2: "its siege works (a Ram Kit) go to the siege it won"): A RAM KIT IS A SIEGE CAMP'S - a
+    // holder's stockpile builds works and no work asks one
+    if (key === RAM_KIT_KEY && !camp) return { error: 'bad-material' };
+  } else if (key === RAM_KIT_KEY) return { error: 'bad-material' };   // SEAT2b part two: nor the guild Stores' (a kit leaves the Stores by a camp's writ alone)
   if (await overRate(ctx, `writ-post:${me}`, WRIT_POSTS_MAX, WRIT_WINDOW_S)) return { error: 'writ-rate' };
   const officer = rank === GUILD_RANK_MASTER ? 0 : 1;
   const escrow = units * pay;

@@ -147,6 +147,14 @@ The first part of guild town control is in. It is open to the developers first, 
 - **Losing them.** A captured seat's works each drop a tier, and anything being built is lost (its materials go back to the stockpile). A **Fortifier** on the defending side keeps the Walls from dropping, once a Season at each seat. At a Season's end every work drops a tier. A relinquished Charter keeps its works.
 - **The Market Hall** works at once: the holder's Tithe can go a point higher for each tier, and anyone listing at a board in its town may hold a quarter more listings for each tier.
 
+## The works at peace (online)
+- **The Shrine.** Each tier of a seat's Shrine gives its holder **+1 Standing** every week. It also gives the holder **50 influence a tier** for every gate felled in the seat's region that week, which counts toward its defence. The Seat tab shows the Shrine's share of the holder's influence.
+- **The Watchtowers.** The holder's members are told when a challenger reaches **half** of their defence (tier 1) or **a quarter** of it (tier 2), for example *"The Watchtowers of Anticlere see the Iron Circle <IC> past half of our defence."* Each warning comes once in chat, and the Seat tab lists them under the standings.
+- **The crafting halls.** The holder's members crafting in the seat's town get a better quality roll: **a step for each tier** of the **Forge** (Smithing) and of the **Workshop** (Carpentry, Outfitting and Masonry). The **Apothecary**'s step waits for the professions it serves.
+- **The Harbour.** A Harbour can be raised at any seat **on the coast**, where the sea touches the town. Once it stands, the town is a **port for the holder's members**: the travel map's ports, ship travel's port rules, and the boat deed all count it.
+- **The Siegewright.** Carpentry's master choice is open now. A work begun by a Siegewright stands **a day sooner**. Its +50% to a Ram's health comes with the battle update.
+- **The Ram Kit.** Carpenters can make the **Ram Kit** at Carpentry 60 from 40 Oak Planks, 20 Iron Ingots and 4 Bear Hides. It goes to your Stores and never to your pack. A guild pledged to a seat posts a writ for Ram Kits to fill its **Siege Camp**; each kit counts as 108 Drakes of materials. A seat's own stockpile and the guild Stores don't take them.
+
 ## Fixes (online)
 - **Leaving a battle.** You can now leave a siege or a Royal Tourney: the bar's **Leave** button, the result card's **Close**, `/leave` in chat, walking out of the seat's town, or dying.
 - **Battle announcements.** Each battle at a seat is announced in red at the Turning, a day before, an hour before and five minutes before.
@@ -165,12 +173,12 @@ The first part of guild town control is in. It is open to the developers first, 
 ## Behind the scenes
 - **The registry.** Each client works out the seats from its own game files. When you stand in a seat town, your game reports it to the server once a day. The server trusts a seat once three players whose accounts are at least a week old agree on it exactly.
 - **Fair sieges.** In a siege the server keeps every fighter's health and checks every blow, spell and step: a blow lands only if the weapon you carry can reach and deal it, nobody heals or strikes faster than the game allows, and nobody runs faster than the fastest legal runner. A siege's health is its own (300, more with your Renown) and never touches your character's health, items or gold. A siege room lets in only the fighters each side signed, and spectators.
-- The fortifications' effects in battle (the Walls' faster waves, the Gatehouse and its Rams, the Barracks' guards), the Shrine, the Watchtowers, the crafting halls, the Harbour and revolts come in a later update.
+- The fortifications' effects in battle (the Walls' faster waves, the Gatehouse and its Rams, the Barracks' guards) and revolts come in a later update.
 
 ---
 
 ### For the team
-- Apply migrations **`0048_town_seats.sql`**, **`0049_seat_influence.sql`**, **`0050_seat_turning.sql`**, **`0051_seat_holding.sql`**, **`0052_seat_battles.sql`**, **`0053_seat_siege_results.sql`**, **`0054_crown_edicts.sql`**, **`0055_royal_tourney.sql`**, **`0056_fealty_pacts.sql`**, **`0057_orc_raids.sql`** **`0058_season_ribbons.sql`**, **`0059_audit_seats.sql`**, **`0060_masonry.sql`** and **`0061_seat_forts.sql`** (with the guild halls' 0046 and 0047, after main's 0044 and 0045) to production D1 and deploy the account service (**`acct60`**).
+- Apply migrations **`0048_town_seats.sql`**, **`0049_seat_influence.sql`**, **`0050_seat_turning.sql`**, **`0051_seat_holding.sql`**, **`0052_seat_battles.sql`**, **`0053_seat_siege_results.sql`**, **`0054_crown_edicts.sql`**, **`0055_royal_tourney.sql`**, **`0056_fealty_pacts.sql`**, **`0057_orc_raids.sql`** **`0058_season_ribbons.sql`**, **`0059_audit_seats.sql`**, **`0060_masonry.sql`**, **`0061_seat_forts.sql`** and **`0062_seat_works_peace.sql`** (with the guild halls' 0046 and 0047, after main's 0044 and 0045) to production D1 and deploy the account service (**`acct61`**).
 - **The siege blackout.** The relay's deploy now waits while a siege is live or starts within 30 minutes (it asks the account service's public `/v1/seats/sieges/live`). Dispatch it with **force** to deploy at once - a forced deploy during a siege voids it. The account deploy now waits up to five and a half hours for the relay.
 - **The economy model**: `node tools/seatEconomy.mjs` re-runs the guild-week table from the live law files (`--runs`, `--seed`, `--json`).
 - **Deploy the relay (`world147`).** It sends the Watch's ticks (world142), carries the seats' titles (world143), referees a siege's room (world144), fights its battle by the service's pass (world145), keeps a Royal Tourney's room (world146) and carries a Season's banner ribbon, with a wider token bound (world147). Deploy it before the account service: an older relay refuses a token with a seat title in it.

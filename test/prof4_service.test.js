@@ -246,7 +246,7 @@ test('PROF4 service: arrows are twenty at no quality (their record -1), one piec
   assert.deepEqual(s.stores(mac, 'p1:8'), []);
   assert.deepEqual((await s.call('/v1/prof/craft', craft(mac, 'arrows:south'), mac.secret)).body.error, 'stores-short', 'the southern Twigs are another material');
   s.setXp(mac, xpForRank(RAM_KIT_RANK), 'carpentry');
-  assert.deepEqual((await s.call('/v1/prof/craft', craft(mac, 'ramkit:oak'), mac.secret)).body, { error: 'prof-later' });
+  assert.deepEqual((await s.call('/v1/prof/craft', craft(mac, 'ramkit:oak'), mac.secret)).body, { error: 'stores-short' });   // SEAT2b part two (PIN MOVED): made now - refused for its inputs alone
   s.setXp(mac, 0, 'carpentry');
   s.give(mac, 'plank:oak', 'own', 3);
   assert.deepEqual((await s.call('/v1/prof/craft', craft(mac, 'table-small:oak'), mac.secret)).body, { error: 'prof-rank' }, 'Oak asks Carpentry 10');

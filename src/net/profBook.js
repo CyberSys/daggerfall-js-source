@@ -422,14 +422,15 @@ export function createProfBook({ door, storage = null, character = () => null, n
      * the craft and handed to `mint` with it - the tab that mints the pieces pays it, whenever the answer comes.
      * @returns {Promise<{ ok: boolean, data?: any, error?: string, kept?: boolean, elsewhere?: boolean }>}
      */
-    async craft(recipe, { clean = false, name = null, heartwood = false, fee = 0, dye = null } = {}, mint) {
+    async craft(recipe, { clean = false, name = null, heartwood = false, fee = 0, dye = null, seat = null } = {}, mint) {
       if (_craftBusy) return { ok: false, error: 'prof-busy' };
       const key = slot();
       const c = character();
       if (!c || !account()) return { ok: false, error: 'no-session' };
       _craftBusy = (async () => {
         const w = { rid: rid(), recipe, clean: clean === true, name: typeof name === 'string' ? name : null, character: c, heartwood: heartwood === true,   // PROF4: a Heartwood for a plank
-          fee: Number.isSafeInteger(fee) && fee > 0 ? fee : 0, ...(Number.isInteger(dye) ? { dye } : {}) };   // PROF7: a garment's dye
+          fee: Number.isSafeInteger(fee) && fee > 0 ? fee : 0, ...(Number.isInteger(dye) ? { dye } : {}),   // PROF7: a garment's dye
+          ...(Number.isSafeInteger(seat) && seat >= 0 ? { seat } : {}) };   // SEAT2b part two: the held town the station stands in (its crafting halls' steps)
         const kept = keptOf(key);
         kept.crafts.push(w);
         writeKept(kept, key);
@@ -614,7 +615,7 @@ export function createProfBook({ door, storage = null, character = () => null, n
   /** A kept craft's ask (PROF3): its pieces minted and the craft let go on an answer, let go on a refusal, kept on
    *  silence - the service's row answers the same id with the same pieces whenever it is asked again. */
   async function craftOne(w, key, mint) {
-    const r = await ask(() => door.craft(w.character, w.recipe, w.clean, w.name, w.rid, w.heartwood === true, Number.isInteger(w.dye) ? w.dye : null));
+    const r = await ask(() => door.craft(w.character, w.recipe, w.clean, w.name, w.rid, w.heartwood === true, Number.isInteger(w.dye) ? w.dye : null, Number.isSafeInteger(w.seat) ? w.seat : null));
     // AUDIT 32 B5: heard after a switch, the craft waits kept for its own character's settle - asked again there, the
     // service's row answers the same pieces into the right pack
     if (key !== slot()) return { ok: false, error: 'elsewhere', kept: true };

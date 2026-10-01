@@ -68,7 +68,7 @@ test('SEAT2b THE WORKS PANEL: the works a palace may raise (no Gatehouse below t
 
 test('SEAT2b SEAT WRITS ON THE WORK TAB: the guild\'s seats of the region offered as where a writ\'s units go - the stockpile it holds, the Siege Camp it is pledged to - a seat\'s writ asking only what a work asks, posted with its seat; a seat writ\'s card says so, under its guild\'s banner (mutants: the choice; the materials; the post; the card\'s words; the banner)', async () => {
   const { createWorkTab, seatWritFor, seatWritPlace } = await import('../src/ui/workTab.js');
-  const { FORT_MATERIALS } = await import('../src/net/fortLaw.js');
+  const { FORT_MATERIALS, RAM_KIT_KEY } = await import('../src/net/fortLaw.js');
   const T = 1_800_000_000;
   const posted = [];
   const w = { writs: { state: { workDrafts: null }, post: async (req) => { posted.push(req); return { ok: true }; } }, held: () => 0, region: 21, regionName: 'Anticlere', regionNameOf: () => 'Elsewhere', countName: (k) => k, pieces: () => [], reload() {} };
@@ -89,10 +89,14 @@ test('SEAT2b SEAT WRITS ON THE WORK TAB: the guild\'s seats of the region offere
   const where = find(node, "Where the writ's units go");
   assert.deepEqual(where.children.map((o) => [o.value, o.textContent]), [['', 'The guild Stores'], ['3021', "Anticlere's stockpile"], ['3022', 'The Siege Camp at Ashfield']]);
   assert.ok(find(node, 'The material the writ asks').children.length > FORT_MATERIALS.length, 'the guild Stores: the whole catalogue');
+  assert.equal(find(node, 'The material the writ asks').children.some((o) => o.value === RAM_KIT_KEY), false, 'SEAT2b part two: never a Ram Kit for the guild Stores');
+  where.value = '3021'; where.onchange();
+  node = tab.node(data);
+  assert.deepEqual(find(node, 'The material the writ asks').children.map((o) => o.value).sort(), [...FORT_MATERIALS].sort(), 'a stockpile\'s writ asks what a work asks');
   where.value = '3022'; where.onchange();
   node = tab.node(data);
   const mats = find(node, 'The material the writ asks').children.map((o) => o.value);
-  assert.deepEqual(mats.sort(), [...FORT_MATERIALS].sort(), 'a seat writ asks what a work asks');
+  assert.deepEqual(mats.sort(), [...FORT_MATERIALS, RAM_KIT_KEY].sort(), 'a Siege Camp\'s writ asks what a work asks - SEAT2b part two (PIN MOVED): and Ram Kits');
   node.querySelectorAll('*').find((n) => n.className?.includes?.('work-post')).click();
   await new Promise((r) => setTimeout(r, 0));
   assert.equal(posted.at(-1).seat, 3022);

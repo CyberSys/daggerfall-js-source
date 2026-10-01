@@ -97,7 +97,7 @@ import { isPlayerControlledTravel, enforceShipRestriction, shipTravelRefusal, sc
 // MAP2: the mod's map additions, through the SAME functions the classic
 // window calls (ui/travelMapOptions.js), so the two skins cannot drift.
 import { teleportCost, teleportCostPrompt, portsFilterAllows, locationInfoRows, resumePrompt } from './travelMapOptions.js';
-import { hasPort } from '../systems/travelPorts.js';
+import { hasPortFor as hasPort } from '../systems/travelPorts.js';   // SEAT2b part two: HasPort, or a members' Harbour at a seat (travelPorts.js hasPortFor)
 import { noticeHold, noticeRelease } from './enhancedNotice.js';   // ENH-NOTICE3: this window's own click-anywhere boxes, as the enhanced panel
 import { TRAVEL_OPTIONS_TEXT as TO_TEXT, format as toFormat } from '../systems/travelOptionsText.js';
 import { getDaggerfallDistance, MatchesCutOff } from '../systems/editDistance.js';

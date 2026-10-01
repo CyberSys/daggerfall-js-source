@@ -146,6 +146,10 @@ Marks** and a week's wait.
 | Cooking | **Cook** - +1 serving a dish / **Field Cook** - a campfire without a Campfire Kit's charge | **Chef** - feasts last +50% / **Provisioner** - rations and dishes never spoil |
 | Jewelcrafting | **Gemcutter** - a set gem adds +10% enchantment points / **Goldsmith** - Silver counts as Gold | **Master Jeweller** - jewellery Masterwork chance +5% / **Lapidary** - Siege-cracked Gems set as any gem |
 
+BUILT (SEAT2b part two (a), 2026-10-01): the **Siegewright** is chosen (no longer `later`). DECIDED: "siege works a day
+sooner" is a seat's work (Seats-Arc 7.5) - a project begun by a Siegewright stands a day sooner (1, 3 or 6 days); a Ram
+Kit is made at once. Its Rams' +50% is the battle's (SEAT2b part two (b)).
+
 ## 4. Materials
 
 ### 4.1 Metals - DFU's ten materials on the seven tiers
@@ -309,6 +313,13 @@ The Basket's foods are Foraging's and C&C's own templates, not new ones (FORAGE0
 
 **Marks value** of a material (the writs' and the market's reference, 10.5, section 11): tier 1: **1**; 2: **2**; 3:
 **4**; 4: **6**; 5: **9**; 6: **14**; 7: **40** Marks. A common herb **1**, uncommon **2**, rare **5**.
+
+BUILT (SEAT2b part two (a), 2026-10-01; `06-Systems/Online-Arc.md` SEAT2b part two (a)): **the Ram Kit (690)** is made at
+the workbench at Carpentry 60 (9.3) and goes to the Stores - own, or bought where any input held a bought unit - never to
+the pack (`NO_PACK_FORM`): its road is a Siege Camp's writ (Seats-Arc 4.2), and a holder's stockpile and the guild Stores
+ask none. DECIDED: its worth is its inputs' at their values (40 Oak Planks 80, 20 Iron Ingots 20, 4 Bear Hides 8 - **108**
+Marks), not its tier's 9 - so a writ's pay and the influence a delivery raises keep the materials'. Its family is **Siege
+Works**; it lists on the market as any Stores material.
 
 ## 5. The hands do the work - the acts
 
@@ -2234,7 +2245,7 @@ Mac: **"Do it"** (2026-09-29, PROF7 after the VEIN-NEED fix: "What was next on t
   recipes (9.3) with the stitch (9.4) and a garment's dye; and the pieces they wait on elsewhere - the Bear Hide the
   Ram Kit names (25), the Harpy Feathers 9.3's arrows name, the Fishing-Net 9.3 names Outfitting's. Not here, named:
   **Trophy Hunter** ("a trophy decor piece from a tier 5+ kill"), **Couturier** ("two-colour dyes") and **Saddler**
-  ("a wagon upgrade of +100 kg") are named and never chosen (`later`, as the Motherlode Sense and the Siegewright are) -
+  ("a wagon upgrade of +100 kg") are named and never chosen (`later`, as the Motherlode Sense is and the Siegewright was until SEAT2b part two) -
   FACT: DFU gives each nothing to stand as - no trophy piece exists among its templates; a DFU garment takes ONE dye (its
   `dye` field, `systems/itemDye.js`); DFU's wagon has one limit, the Horse Cart's. Each waits on Mac's word for what it
   should be.

@@ -31,8 +31,8 @@
   {
     "name": "PROF11-mortar-unregistered",
     "file": "src/net/professionLaw.js",
-    "old": "...PARTS, ...MASONRY_TEMPLATES]",
-    "new": "...PARTS]",
+    "old": "...PARTS, ...MASONRY_TEMPLATES, RAM_KIT]",
+    "new": "...PARTS, RAM_KIT]",
     "tests": [
       "test/prof11_law.test.js",
       "test/prof11_service.test.js"

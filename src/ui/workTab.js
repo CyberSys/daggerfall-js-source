@@ -27,7 +27,7 @@ import {
 import { GUILD_RANK_MASTER } from '../net/guildLaw.js';
 import { HANDLE_RE } from '../net/handleShape.js';
 import { WRIT_MOVED } from '../net/writBook.js';
-import { FORT_MATERIALS } from '../net/fortLaw.js';   // SEAT2b: what a seat writ may ask
+import { FORT_MATERIALS, RAM_KIT_KEY } from '../net/fortLaw.js';   // SEAT2b: what a seat writ may ask; part two: a Siege Camp's Ram Kits
 import { bannerSvg } from './heraldryArt.js';   // AUDIT-SEATS G11: a guild writ's card under its guild's banner
 
 /** AUDIT 31 U11: how long a Decline stays armed after its first press - the Guild tab's confirm's kind. */
@@ -295,7 +295,9 @@ export function createWorkTab(w, ui) {
     // this week (its Siege Camp) - asks only what a work asks
     const seats = Array.isArray(g.seats) ? g.seats : [];
     if (!seats.some((x) => x.key === f.seat)) f.seat = null;
-    const choices = f.seat != null ? catalogue.filter((m) => FORT_MATERIALS.includes(m.key)) : catalogue;
+    // SEAT2b part two (Seats-Arc 4.2): a Siege Camp's writ may ask Ram Kits too; a kit is a camp's alone (writs.js)
+    const camp = f.seat != null && !!seats.find((x) => x.key === f.seat)?.camp;
+    const choices = f.seat != null ? catalogue.filter((m) => FORT_MATERIALS.includes(m.key) || (camp && m.key === RAM_KIT_KEY)) : catalogue.filter((m) => m.key !== RAM_KIT_KEY);
     if (!choices.some((m) => m.key === f.material)) f.material = choices[0]?.key ?? f.material;
     const forSel = seats.length ? select([['', 'The guild Stores'], ...seats.map((x) => [String(x.key), seatWritPlace(x).replace(/^t/, 'T')])], f.seat == null ? '' : String(f.seat),
       (v) => { f.seat = v === '' ? null : Number(v); ui.rerender(); }, "Where the writ's units go") : null;

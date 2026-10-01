@@ -60,7 +60,9 @@ import { mustChange } from './realm.js';
 import { seatsOpenFor, confirmedSeats } from './townSeats.js';
 import { marksOpenFor } from './marks.js';
 import { verifyWatchReceipt } from '../../src/net/watchReceipt.js';
-import { gateTimes } from '../../src/net/gateLaw.js';
+import { gateTimes, gameDayAt } from '../../src/net/gateLaw.js';
+import { shrineGateInfluence, towersSee } from '../../src/net/fortLaw.js';   // SEAT2b part two (7.5): a Shrine's gates, the Watchtowers' word
+import { fortTierAt } from './seatForts.js';   // SEAT2b part two: the Shrine standing, read without a write
 import { MARKS_RID_RE, utcDay } from '../../src/net/marksLaw.js';
 import { RENOWN_XP_REPORT_MAX } from '../../src/net/renown.js';
 import {
@@ -393,7 +395,7 @@ export async function creditRenown({ db, nowS }, player, env, { character, regio
  * @param {{ guilds: string[], rows: any[], renown: any[], homes: any[], binds: Map<string, string>,
  *   agreed: Map<number, number>, weekStartS: number, nowS: number, reach?: Map<string, number>, freeLand?: boolean }} o
  */
-export function standingsOf({ guilds, rows, renown, homes, binds, agreed, weekStartS, nowS, reach = new Map(), freeLand = false, tide = 'calm' }) {
+export function standingsOf({ guilds, rows, renown, homes, binds, agreed, weekStartS, nowS, reach = new Map(), freeLand = false, tide = 'calm', shrine = null }) {
   const out = [];
   for (const g of guilds) {
     /** @type {Map<string, { watch: number, gates: number, renownXp: number, writ: number, homeDays: number, raid: number }>} */
@@ -416,7 +418,11 @@ export function standingsOf({ guilds, rows, renown, homes, binds, agreed, weekSt
       .sort((x, y) => y.days - x.days).slice(0, HOMES_SEAT_MAX);
     for (const h of hs) if (h.days > 0) a(h.player).homeDays += h.days;
     const per = new Map([...acc].map(([id, v]) => [id, accountSeatInfluence(v, freeLand ? FREE_LAND_WATCH_BONUS : 0, tide)]));   // SEASON1 part two: the week's Tide here
-    out.push({ guild: g, ...withReach(guildSeatInfluence([...per.values()], tributeMarks), reach.get(g) ?? 0), accounts: [...per.values()].filter((v) => v > 0).length, per });
+    const row = { guild: g, ...withReach(guildSeatInfluence([...per.values()], tributeMarks), reach.get(g) ?? 0), accounts: [...per.values()].filter((v) => v > 0).length, per };
+    // SEAT2b part two (7.5: "each gate felled in the region gives the holder +50 influence"): THE SHRINE'S, the holder's
+    // own - a guild's row beside its accounts' (no account's cap is spent on it, as Tribute's is not), past the reach
+    if (shrine && shrine.guild === g && shrine.influence > 0) { row.total += shrine.influence; row.shrine = shrine.influence; }
+    out.push(row);
   }
   return out.sort((x, y) => y.total - x.total || (x.guild < y.guild ? -1 : 1));
 }
@@ -429,6 +435,27 @@ export async function seatGuildsOf(db, key, week) {
   const held = await db.prepare('SELECT guild_id, at FROM town_seat_holds WHERE key = ?').bind(key).first();
   if (held && !out.has(held.guild_id)) out.set(held.guild_id, Number(held.at));
   return out;
+}
+/** SEAT2b part two: THE GATES FELLED IN `region` this seat week, to `nowS` - each gate day whose rise falls in the week
+ *  and whose claims agree on the region (GATE_REGION_AGREE - agreedGateRegions), as the Turning counts them for Standing
+ *  (seatTurning.js gatesIn). */
+export async function gatesFelledIn(db, week, region, nowS) {
+  const fromS = Math.floor(seatWeekStartMs(week) / 1000), toS = Math.min(nowS, fromS + SEAT_WEEK_MS / 1000);
+  const days = [];
+  for (let d = gameDayAt(fromS * 1000); d <= gameDayAt(toS * 1000); d++) { const r = gateTimes(d).riseAt / 1000; if (r >= fromS && r < toS) days.push(d); }
+  let n = 0;
+  for (const rg of (await agreedGateRegions(db, days)).values()) if (rg === Number(region)) n++;
+  return n;
+}
+/** SEAT2b part two: A HOLDER'S SHRINE AT A SEAT this week - `{ guild, influence }` (its tier's 50 a gate felled in the
+ *  region - fortLaw.js shrineGateInfluence), or null with no holder, no Shrine or no gate. */
+export async function shrineOf(db, seat, week, nowS) {
+  const h = await db.prepare('SELECT guild_id FROM town_seat_holds WHERE key = ?').bind(seat.key).first();
+  if (!h) return null;
+  const per = shrineGateInfluence(await fortTierAt(db, seat.key, 'shrine', nowS));
+  if (per <= 0) return null;
+  const gates = await gatesFelledIn(db, week, seat.region, nowS);
+  return gates > 0 ? { guild: h.guild_id, influence: per * gates, gates } : null;
 }
 /** Each pledged guild's week at a seat (standingsOf), the rows gathered. Exported for the Turning (seatTurning.js).
  *  SEASON1 part two: `counted` whether a Season is counted that week - the Tides roll only then. */
@@ -454,7 +481,8 @@ export async function gatherStandings(db, seat, week, nowS, counted = false) {
   const { results: crownRows = [] } = seat.tier === 'palace'
     ? await db.prepare(`SELECT guild_id, tier, region FROM town_seat_holds WHERE tier = 'crown' AND guild_id IN (${qs})`).bind(...guilds).all() : { results: [] };
   const reach = new Map(guilds.map((g) => [g, seatReach(seat, crownsHeld(crownRows.filter((h) => h.guild_id === g).map((h) => ({ tier: h.tier, region: Number(h.region) }))))]));
-  return standingsOf({ guilds, rows, renown, homes, binds, agreed, weekStartS: Math.floor(seatWeekStartMs(week) / 1000), nowS, reach, freeLand: isFreeLand(seat.region), tide: tideAt(week, seat.region, counted) });
+  return standingsOf({ guilds, rows, renown, homes, binds, agreed, weekStartS: Math.floor(seatWeekStartMs(week) / 1000), nowS, reach, freeLand: isFreeLand(seat.region), tide: tideAt(week, seat.region, counted),
+    shrine: await shrineOf(db, seat, week, nowS) });   // SEAT2b part two: the holder's Shrine
 }
 
 /**
@@ -505,6 +533,23 @@ export async function readStandings({ db, nowS }, player, env, { key, character 
       };
     }
   }
+  const standings = list.map((s) => {
+    const g = byId.get(s.guild);
+    const carried = legacy.get(s.guild) ?? 0;
+    // SEAT1d: a challenger's influence at a seat in Unrest risen a quarter, as the Turning counts it
+    const own = s.guild === holder?.guild.id;
+    const influence = own || !holder ? s.total : unrestInfluence(s.total, holder.standing);
+    return { guild: { id: s.guild, name: g?.name ?? '', tag: g?.tag ?? '', heraldry: heraldryOfRow(g?.heraldry) }, influence: influence + carried, legacy: carried, tribute: s.tribute, accounts: s.accounts, holder: own,
+      ...(s.shrine ? { shrine: s.shrine } : {}) };   // SEAT2b part two: the holder's Shrine's part of its week
+  }).sort((x, y) => y.influence - x.influence);
+  // SEAT2b part two (7.5: "the holder is told when a challenger passes half its defence (tier 1) or a quarter (tier 2)"):
+  // THE WATCHTOWERS' WORD, to the holder's own members alone - every challenger at or past its towers' share of the
+  // defence, as the Seat tab shows both (fortLaw.js towersSee); the client says each once (net/townSeatBook.js towers)
+  const towerTier = holder && mine?.guild === holder.guild.id ? await fortTierAt(db, key, 'watchtowers', nowS) : 0;
+  const towers = towerTier > 0 && defence != null
+    ? towersSee(standings.map((s) => ({ guild: s.guild.id, influence: s.influence })), { holder: holder.guild.id, defence, t: towerTier })
+      .map((w) => ({ ...w, name: byId.get(w.guild)?.name ?? '', tag: byId.get(w.guild)?.tag ?? '' }))
+    : null;
   return {
     seat, week, phase: seatPhaseOf(nowS * 1000), season,   // SEASON1: the Season this week falls in, or null
     // SEASON1 part two (9.3): this week's Tide in the seat's land and the coming week's, while a Season is counted
@@ -514,14 +559,8 @@ export async function readStandings({ db, nowS }, player, env, { key, character 
       return season || nextCounted ? { now: tideAt(week, seat.region, !!season), next: tideAt(week + 1, seat.region, nextCounted) } : null;
     })(),
     reckoningAt: Math.floor((start + SEAT_WEEK_MS - SEAT_RECKONING_MS) / 1000), turningAt: Math.floor((start + SEAT_WEEK_MS) / 1000),
-    standings: list.map((s) => {
-      const g = byId.get(s.guild);
-      const carried = legacy.get(s.guild) ?? 0;
-      // SEAT1d: a challenger's influence at a seat in Unrest risen a quarter, as the Turning counts it
-      const own = s.guild === holder?.guild.id;
-      const influence = own || !holder ? s.total : unrestInfluence(s.total, holder.standing);
-      return { guild: { id: s.guild, name: g?.name ?? '', tag: g?.tag ?? '', heraldry: heraldryOfRow(g?.heraldry) }, influence: influence + carried, legacy: carried, tribute: s.tribute, accounts: s.accounts, holder: own };
-    }).sort((x, y) => y.influence - x.influence),
+    standings,
+    ...(towers ? { towers } : {}),   // SEAT2b part two: the Watchtowers' word, the holder's members'
     holder: holder && holding ? { ...holder, edict: holding.edict } : holder, defence, battle: (await battlesOf(db, week)).get(key) ?? null, chronicle: await chronicleOf(db, key),
     fight: await fightOf(db, key, player, character, nowS),   // SEAT2a: the week's battle placed, its sides, the reader's place; the holder's window
     royal: seat.tier === 'crown' ? await royalView(db, key, nowS) : null,   // CROWN1 part two: the Royal Tourney ruling here this week, its prize and ladder

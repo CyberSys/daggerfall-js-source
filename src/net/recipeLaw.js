@@ -181,7 +181,7 @@ export const CARPENTRY_RECIPES = Object.freeze([
   ...FURNITURE_WOODS.map(([w, i]) => carpentry({ id: `chair:${w}`, name: `${woodName(w)} Chair`, kind: 'furniture', family: 'furniture', templateIndex: 229 + i, wood: w, inputs: [[plank(w), 2]] })),
   ...BEDS.map(([p, name, t, w]) => carpentry({ id: `${p}:${w}`, name, kind: 'furniture', family: 'furniture', templateIndex: t, wood: w, inputs: [[plank(w), 8], [LINEN.key, 2]] })),
   carpentry({ id: 'basket:pine', name: 'Basket', kind: 'tool', family: 'tools', templateIndex: 1607, wood: 'pine', inputs: [[PINE_PLANK.key, 2]] }),
-  carpentry({ id: 'ramkit:oak', name: 'Ram Kit', kind: 'siege', family: 'siege', templateIndex: RAM_KIT_TEMPLATE, wood: 'oak', tier: 5, rank: RAM_KIT_RANK, later: 'sieges', inputs: [[plank('oak'), 40], ['ingot:iron', 20], [BEAR_HIDE.key, 4]] }),
+  carpentry({ id: 'ramkit:oak', name: 'Ram Kit', kind: 'siege', family: 'siege', templateIndex: RAM_KIT_TEMPLATE, wood: 'oak', tier: 5, rank: RAM_KIT_RANK, inputs: [[plank('oak'), 40], ['ingot:iron', 20], [BEAR_HIDE.key, 4]] }),
 ]);
 // ─── OUTFITTING (PROF0 9.3, 29) ──────────────────────────────────────
 
