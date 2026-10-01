@@ -17,3 +17,5 @@
 ## Frame rate
 - **Smoother turning in a crowd with the Morrowind model.** Turning to face a group of players could stall a frame while every body that came into view was posed at once. Bodies about to come into view are now prepared a little ahead of the turn, a few at a time.
 - **Fewer rebuilds of other players' Morrowind bodies.** Another player drawing a different weapon, mounting a horse or stepping out of sight for a moment no longer makes their whole body load again; the weapon simply changes in their hand.
+- **No more stalls along the coast.** Walking or sailing along a coastline could stall the game for a moment each time you crossed into a new area, while the surf along the shore was rebuilt. The rebuild now takes a few milliseconds instead.
+- **Ships in the distance cost less.** The small details on far-off ships, such as lanterns, are no longer drawn once they're smaller than a pixel, just like the ships' own fittings, and ships' flags take less work to draw every frame.

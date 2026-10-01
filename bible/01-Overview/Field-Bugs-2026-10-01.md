@@ -4,7 +4,7 @@ Two lists through Mac, the second added while the first was being worked: eight 
 sea and the frame rate, then three on the Overworld. The batch's rule is the one Mac set on 2026-09-30 ("I dont care
 about DFU. We're our own thing now"): each report root-caused on the real modules, and fixed wherever it failed the
 player - three of the fixes are departures from Iliac Puddle No More's own presentation and are in the Port-Ledger.
-Eleven reports; every fix pinned red on the code before it.
+Eleven reports; every fix pinned red on the code before it, the frame rate's measured or read on the code (no GPU here).
 
 | | Report | What it was | Done |
 |---|---|---|---|
@@ -13,14 +13,14 @@ Eleven reports; every fix pinned red on the code before it.
 | 3 | "Clouds in the distance sometimes look square" | the volumetric clouds' sky map, a third of a degree a texel (6 to 23 screen pixels), read by ONE bilinear tap, each texel marched from its own jittered start: a far cloud a few texels across was soft squares and diamonds | fixed (CLOUD-SQUARE) |
 | 4 | "Underwater should have a water look to it, not as clear" | under Iliac Puddle No More's sea the mod's distance fog leaves a pixel at the eye untouched and takes ~2% of its red a metre over a 66.5 m vision; the world fog is a thin neutral grey; nothing tints the water body | fixed (UNDER-LOOK) |
 | 5 | "Underwater should have sun rays that dynamically show through the water" | nothing draws any | built (UNDER-RAYS) |
-| 6 | "Sometimes performance issues when along the coastline" | see below | see below |
-| 7 | "Sometimes performance issues when looking at AI ships" | see below | see below |
+| 6 | "Sometimes performance issues when along the coastline" | Come Sail Away's breakers are rebuilt at every map pixel crossed on a coast, several hundred straight-down rays from 500 m over the sea, and the port's Physics.Raycast walked the ground in quarter metres asking it again at every step and halving - ~1,900 lookups a ray, a stall of a tenth to more than half a second a crossing | fixed (COAST-RAY) |
+| 7 | "Sometimes performance issues when looking at AI ships" | no single cost the view switches on was found (a stub-renderer measure: a galley's frame the same in view and behind); what the view does switch on is the ships' flats - a galley's fifty, lanterns half of them - drawn from every ship to 1.9 km where her hull's meshes are left undrawn under a pixel; and the flags' cubes made five arrays a turn, two turns a triangle, every frame | fixed (SHIP-FLATS, SHIP-FLAGS); the hull's tree walk left |
 | 8 | "Culling performance issues when using the morrowind model and around a large group of players" | after WB9h's budget: a body the view swung onto past the 2 m margin was skinned in the draw, outside the budget (a crowd turned onto, posed whole in a frame); every pose walked its skin for a sphere nothing read; a stand-in built per body per frame; a weapon drawn rebuilt the body, and a lingering body's rig was thrown away | fixed (MW-CROWD); the sprite pass per body left open |
 | 9 | "Also in the overworld, weather is weird, it only happens around the player at small scale" | the rain's, the snow's and the sand's boxes (42-70 m) and the wind's wisps wrapped round `cam.pos` - which under the Overworld stays on the traveller's head while the view stands 150-450 m up and back: a little cube of weather round the sprite, seen from outside it | fixed (OW-WEATHER) |
 | 10 | "Your sprite doesnt rotate based on direction" | the keys turned the body to the VIEW's heading and walked it camera-relative from there, so it showed its back whatever was held - S walked it backwards at the camera, A and D sideways - and the sprite's eight views and the Morrowind body never turned | fixed (OW-FACE) |
 | 11 | "and you cannot see other player's sprites" | the traveller's own body is grown with the eye's distance (OW-BIG); every other player stood at their own size - a speck at 330 m under the name that stood over them | fixed (OW-PEERS) |
 
-Pins: `test/fb1001_{puddlerain,rainsprinkle,cloudsquare,underwater,overworld}.test.js`, each file red on the code
+Pins: `test/fb1001_{puddlerain,rainsprinkle,cloudsquare,underwater,overworld,mwcrowd,coastships}.test.js`, each file red on the code
 before (the four that import what this batch exports fail to load; `puddlerain` fails both tests on the old gate).
 Mutants: `tools/mutants/fb1001_*.json`. PIN MOVED, each by content: `dwc_fog` (the gate's line), `weatherfront`
 (four seeded floors of 0.1 restated against the episode's own peak - a seed may roll a sprinkle now - the hosts'
@@ -157,4 +157,44 @@ Still open: the sprite render is one offscreen pass a seen body a frame - batchi
 the target, or keeping each body's picture across frames, is the next slice, and it needs a GPU (above all a
 tile-based one) to measure. For the reporter, `?perf=cpu`'s `online` and `bodies` spans and `?perf=zones` say which.
 
-(#6 and #7: in progress)
+### COAST-RAY: the coast's breakers, rebuilt in a moment (6)
+
+**Measured first** (a replica of the real `buildWaveMesh` over the walk as it stood, a trivial `surfaceAt` - the game's
+builds a key, reads the built map and the carved sea's floor at every call): Come Sail Away rebuilds its breakers at
+every map pixel crossed (`OnPositionUpdate -> UpdateWaveMesh`; and at OnLoad, OnTransition and a teleport) - four
+straight-down rays from 500 m over the sea for every water pixel in the window and every water neighbour, and the
+port's Physics.Raycast (`world.js` csaRaycast) walked the ground in quarter metres and twenty halvings asking
+`surfaceAt` at every one. A straight coast at Waves.Distance 2: 540 rays, 1,027,080 lookups, 58 ms; at Distance 4,
+3,218,184 lookups, 142 ms - inland nothing (no water pixel, no ray), so a coast's walk, a zig-zag over a pixel border,
+or a boat at sea stalled now and then.
+
+**The fix** (`scenes/world.js` csaRaycast): a straight-down ray asks its one column once, and its walk starts two
+quarter-steps short of the crossing (the height falls with t, so every step before is a miss; t0's steps are exact
+quarters, so the step it starts on is the one it reached) - or not at all where nothing can be met. The same answer to
+the bit (a thousand columns at random, and the coast's whole mesh, against the walk as it stood); 540 lookups and
+1.8 ms for the coast above, 3.3 ms at Distance 4. Every straight-down ray Come Sail Away casts gains it (PlaceBoat's,
+the foes' under a boat owner). `test/fb1001_coastships.test.js` (COAST-RAY, 2).
+
+Found on the way, not changed: near a port whose shore sounds no harbour, the naval host sounds it again every ten
+seconds (`navalHost.js`, HARBOUR_RETRY_S) - 10,000 to 26,000 `isWater` asks a time; and the carved sea's two blended
+top passes and its floor are fill the GPU pays near a coast, not measurable here.
+
+### SHIP-FLATS, SHIP-FLAGS: the ships in view (7)
+
+**Measured first** (five Large Galleys of the real models in Node, a stub renderer): the pool's frame and draw cost the
+same with the ships in view as behind the eye (2.91 + 1.32 ms against 2.87 + 1.27) - the walk of each hull's node tree
+(594 nodes for a galley, 224 of them idle oar-effect particles) runs for every ship within 1.9 km whatever the view. What
+the view does switch on: the ships' flats - a galley's fifty-one, her lanterns twenty-five of them; a small ship's
+twenty-five - went to the billboard pass from every ship out to 1.9 km, three GL calls a flat, where her hull's own
+meshes are left undrawn under a pixel (AUDIT NAV1's CULL_DETAIL_PX); and a flag's two dozen cubes were turned through
+`quatRotate`, five arrays a turn, two turns a triangle, 36 triangles a cube, every frame.
+
+**The fix**: `scenes/world.js` `pushSeenShipFlats` - the boats' flats take the hull's law (a sphere under a pixel across
+at the drawing buffer's height from this frame's eye is not drawn; under the game's 70-degree lens on a 1080-line
+buffer a flat 0.4 by 0.5 m is a pixel at ~490 m, a sail far past it); `world/quat.js` `quatRotateInto` - quatRotate's products in its order, written into a
+scratch triple (to the bit, 2,000 cases), which the flag cubes turn through. `test/fb1001_coastships.test.js`
+(SHIP-FLAGS, SHIP-FLATS, 2). `tools/mutants/fb1001_coastships.json` (9: 8 dead, 1 equivalent as recorded).
+
+Left open: the hull's tree walk itself (pruning the subtrees the pool never reads - the oar effects' - would halve a
+galley's), which AUDIT 0928's pin holds to every active object in order; and at night a moving ship's lanterns within
+51.5 m re-render their shadow faces every frame (a change to what is lit, so not taken here).

@@ -51,7 +51,7 @@ import { applyClimate, getTerrainGroundArchive, groundIsSnowy, getNatureArchive,
 import { RMB_SIDE, layoutLocation } from '../world/locationLayout.js';
 import { lookAt, multiply, perspective, mirrorProjectionX, trs, identity, UP_Y, wrapAngle } from '../world/mat4.js';   // HANDEDNESS: the one mirror (mat4's law)
 import { aabbOutside, localAabb, transformedAabb, flatBatchAabb, cullDisabled } from '../render/frustum.js';   // GHOST1: the plane extraction comes through bounds.js's `spherePlanes` now - `_planes` serves the sphere test too
-import { spherePlanes, batchVisible, setFlatLean } from '../render/bounds.js';   // PERF-CROWD: the batch's own bounding sphere, the test the shadow replay already uses   // GHOST1: through its ONE home, on the NORMALISED planes it needs   // EV3: the frustum
+import { spherePlanes, batchVisible, setFlatLean, batchSphere } from '../render/bounds.js';   // PERF-CROWD: the batch's own bounding sphere, the test the shadow replay already uses   // GHOST1: through its ONE home, on the NORMALISED planes it needs   // EV3: the frustum
 import { withMoonAmbient } from '../render/enhancedSky.js';   // EV5: secunda rides the ambient
 import { FarRingRenderer, ringDisabled, ringHeight } from '../render/farRing.js';   // EV8: the province's mountains on the horizon
 import { syncLightingLane, lanternColor } from '../render/enhancedLighting.js';   // EL1: the Enhanced Lighting lane, installed at mount
@@ -362,7 +362,7 @@ import { mintPieces, mintPiece, craftedText, CRAFT_KEPT_TEXT, BENCH_KEPT_TEXT, L
 import { heatBand, planeBand, stitchBand, recipeById } from '../net/recipeLaw.js';   // PROF3: the heat's attribute band; PROF4: the plane's, and a recipe's station; PROF7: the stitch's
 import { questActionsExtensionTemplates } from '../systems/quest/questActionsExtension.js';   // FORAGE1: QAE's four actions, which Foraging's quests say
 import { entityMaxEncumbrance } from '../combat/formulas.js';   // FORAGE1: PlayerEntity.MaxEncumbrance, for Foraging's last check
-import { createComeSailAwayPool } from './comeSailAwayPool.js';   // CSA-B: Come Sail Away's boats, drawn
+import { createComeSailAwayPool, CULL_DETAIL_PX } from './comeSailAwayPool.js';   // CSA-B: Come Sail Away's boats, drawn
 import { createComeSailAwayPeers } from './comeSailAwayPeers.js';   // CSA-J: another player's boats, seen
 import { createComeSailAwayAboard, CSA_ABOARD_GRACE, deckPose as csaDeckPose, helmWord as csaHelmWordOf, localOf as csaLocalOf } from './comeSailAwayAboard.js';   // CSA-K: another player's boat, boarded; FIELD BUGS 2026-09-29 (the sea) #1: the deck's frame, the helmsman's place
 import { csaWireRecord, csaRecordKey } from '../systems/comeSailAwayWire.js';   // CSA-J: my boats, said
@@ -5672,9 +5672,21 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (h && Number.isFinite(h.dist)) take({ distance: h.dist, point: at(h.dist), name: 'StaticGeometry', terrain: null, root: null });
     if (mode === 'exterior') {
       const limit = best ? best.distance : reach;
-      const below = (t) => { const q = at(t); const g = surfaceAt(q[0], q[2]); return Number.isFinite(g) && q[1] < g; };
+      // COAST-RAY (FIELD BUGS 2026-10-01 #6, "Sometimes performance issues when along the coastline"): a STRAIGHT-DOWN
+      // ray asks one column of ground - x and z never move along it - and the walk asked surfaceAt again at every
+      // quarter metre and every halving: ~1,900 lookups a ray from 500 m over the sea, and Come Sail Away's breakers
+      // cast several hundred such rays every map pixel crossed on a coast (UpdateWaveMesh), a stall of 0.1-0.6 s. The
+      // column is asked once; and the walk starts two steps short of the crossing - its height falls with t, so every
+      // step before is a miss, and t0's steps are exact quarters, so the step it starts on is the one it reached - or
+      // not at all, where nothing can be met (a column not built, a ray not falling). Its floats and its answer are the
+      // ones it was.
+      const vertical = d[0] === 0 && d[2] === 0, g0 = vertical ? surfaceAt(o[0], o[2]) : NaN;
+      const below = vertical
+        ? (t) => Number.isFinite(g0) && o[1] + d[1] * t < g0
+        : (t) => { const q = at(t); const g = surfaceAt(q[0], q[2]); return Number.isFinite(g) && q[1] < g; };
+      const start = !vertical ? 0 : !(Number.isFinite(g0) && d[1] < 0) ? limit : Math.max(0, Math.floor((g0 - o[1]) / d[1] / 0.25) - 2) * 0.25;
       if (!below(0)) {
-        for (let t0 = 0; t0 < limit; t0 += 0.25) {
+        for (let t0 = start; t0 < limit; t0 += 0.25) {
           const t1 = Math.min(limit, t0 + 0.25);
           if (!below(t1)) continue;
           let lo = t0, hi = t1;
@@ -20263,6 +20275,21 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
    * A batch with no bounds is always drawn, as `batchVisible` has it.
    */
   const billboardOutside = (b) => !batchVisible(_planes, b);
+  /** SHIP-FLATS (FIELD BUGS 2026-10-01 #7, "Sometimes performance issues when looking at AI ships"): the boats' and the
+   *  sea's ships' flats - a galley's fifty, her lanterns half of them, the crews' - went to the billboard pass from every
+   *  ship out to 1.9 km, three GL calls a flat, where her hull's own meshes are left undrawn under a pixel (AUDIT NAV1's
+   *  CULL_DETAIL_PX). The flats take the hull's law: a flat whose sphere is under a pixel across, at the drawing
+   *  buffer's height from this frame's eye, is not drawn. */
+  const _shipFlatSphere = new Float64Array(4);
+  function pushSeenShipFlats(list, out) {
+    const P = renderer._proj, eye = renderer._camPos;
+    const pxPerM = P ? P[5] * (renderer.gl?.drawingBufferHeight ?? 0) / 2 : 0;   // a metre's pixels a metre off
+    for (const b of list) {
+      const sp = pxPerM > 0 ? batchSphere(b, _shipFlatSphere) : null;
+      if (sp && sp[3] > 0 && 2 * sp[3] * pxPerM < CULL_DETAIL_PX * Math.hypot(sp[0] - eye[0], sp[1] - eye[1], sp[2] - eye[2])) continue;   // under a pixel
+      out.push(b);
+    }
+  }
   // A4: the streaming world's animal sources - pixel-local positions
   // translated through the floating origin at roll time (16 Hz over
   // a handful of animals; recenters are free).
@@ -23892,7 +23919,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (sigilBroker && _mode() === 'exterior') livePersonBatches.push(...sigilBroker.batches());   // SET7: the Broker on the flats' axis, as a foe stands
     // HCC: the horse billboards on the flats' axis (the runtime ticked above, hccTick - AUDIT HCC H1)
     if (hcc.enabled && _mode() === 'exterior') livePersonBatches.push(...hcc.batches());
-    if (csaOn() && _mode() === 'exterior') livePersonBatches.push(...csa.batches());   // CSA-B: the boats' crews and lanterns
+    if (csaOn() && _mode() === 'exterior') pushSeenShipFlats(csa.batches(), livePersonBatches);   // CSA-B: the boats' crews and lanterns; SHIP-FLATS: none under a pixel
     // TO-FIELD3 (Mac, 2026-09-18): "hunting rolls fire during travel
     // again". TO-FIELD held SURV6's roll while an accelerated journey
     // ran; the gate is REMOVED on Mac's word, with the `resting` flag
