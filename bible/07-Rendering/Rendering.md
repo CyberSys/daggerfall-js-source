@@ -712,8 +712,11 @@ directory by `test/audit18_bible_docs.test.js`:
   storm walks the peak across with no gap; a twelve-second smoothing
   rides on top so a jump in the clock never steps the count. THE
   EPISODE: every precipitating cut rolls a PEAK from its mode's range -
-  rain 0.25..1.0 (a sprinkle to a downpour), storm 0.6..1.0, snow
-  0.2..0.85 - seeded on the cut's minute as WIND1 seeds its front, and
+  rain 0.05..1.0 (a sprinkle to a downpour), storm 0.6..1.0, snow
+  0.05..0.85, placed by the roll to the power of its skew (rain 2, snow
+  1.5: RAIN-SPRINKLE, FIELD BUGS 2026-10-01 #2 - a rain system's edge
+  drizzles and only its heart pours, and the fog, the sun and the grass
+  dim follow what falls, `fallTerms`) - seeded on the cut's minute as WIND1 seeds its front, and
   the intensity WANDERS under the peak (0.6..1.0 on two slow periods) so
   a shower is never one number for an hour. The ear follows what FALLS:
   the rain loop's gain is the intensity (a `setVolume` on the engine's

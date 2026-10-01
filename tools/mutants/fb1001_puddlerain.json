@@ -1,0 +1,38 @@
+[
+  {
+    "name": "PUDDLE-RAIN-the-swimmer-arm-back",
+    "file": "src/scenes/world.js",
+    "old": "    const _dwPrecipOff = _dwAirOff;",
+    "new": "    const _dwPrecipOff = _dwAirOff || (!!dwPlayer && walkMode && !!player.isPlayerSwimming && !player.waterWalking);",
+    "tests": [
+      "test/fb1001_puddlerain.test.js"
+    ]
+  },
+  {
+    "name": "PUDDLE-RAIN-the-gate-off-under-water-too",
+    "file": "src/scenes/world.js",
+    "old": "    const _dwPrecipOff = _dwAirOff;",
+    "new": "    const _dwPrecipOff = false;",
+    "tests": [
+      "test/fb1001_puddlerain.test.js"
+    ]
+  },
+  {
+    "name": "PUDDLE-RAIN-the-sand-reads-nothing",
+    "file": "src/scenes/world.js",
+    "old": "      if (sand && !_dwPrecipOff) {",
+    "new": "      if (sand) {",
+    "tests": [
+      "test/fb1001_puddlerain.test.js"
+    ]
+  },
+  {
+    "name": "PUDDLE-RAIN-the-rain-reads-nothing",
+    "file": "src/scenes/world.js",
+    "old": "      if (!_travelWeatherOff && !_dwPrecipOff) {",
+    "new": "      if (!_travelWeatherOff) {",
+    "tests": [
+      "test/fb1001_puddlerain.test.js"
+    ]
+  }
+]

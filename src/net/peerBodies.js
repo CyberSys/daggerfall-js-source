@@ -286,7 +286,7 @@ export class PeerBodies {
   has(id) { return this._standing(this._bodies.get(id)); }
 
   /** The body's height over its feet - the capsule scaled by the race's own (MW-D34) - or 0 without a standing body: the name pass's head. */
-  heightOf(id) { const b = this._bodies.get(id); return this._standing(b) ? CAPSULE_HEIGHT * (b.rig.raceHeightScale?.() ?? 1) : 0; }
+  heightOf(id) { const b = this._bodies.get(id); return this._standing(b) ? CAPSULE_HEIGHT * (b.rig.raceHeightScale?.() ?? 1) * (this._cam?.grow && b.feet ? Math.max(1, this._cam.grow(b.feet)) : 1) : 0; }   // OW-PEERS: a grown body's head, for its name
 
   /** Why a look has no body - a person's, or (AUDIT E7) a wolf's by the pose and glyphs it is keyed on - or null. */
   failureOf(look, shown = null, glyphs = null) {
@@ -483,8 +483,8 @@ export class PeerBodies {
 
   /** WB9h: does the view the last body pass drew (viewPlanes) reach this body - its sphere about its middle, BODY_SPHERE_SHARE of
    *  its height round, `margin` metres more? */
-  _sees(b, margin) {
-    const h = CAPSULE_HEIGHT * (b.rig.raceHeightScale?.() ?? 1);
+  _sees(b, margin, grow = 1) {
+    const h = CAPSULE_HEIGHT * (b.rig.raceHeightScale?.() ?? 1) * grow;   // OW-PEERS: a grown body reaches its grow times as far
     return sphereInView(this._planes, b.feet[0], b.feet[1] + h / 2, b.feet[2], h * BODY_SPHERE_SHARE + margin);
   }
 
@@ -613,9 +613,10 @@ export class PeerBodies {
 
   /** The bodies, after the local one (the same pass, MW-D24) - the standing ones. INVIS-LOOK: not a CONCEALED peer's -
    *  that one is drawn translucent after the world's opaque draws (drawVeiled), with the camera kept here. */
-  draw(canvas, { proj, view, eye, flashOf = null }) {
-    const c = this._cam ?? (this._cam = { canvas: null, proj: null, view: null, eye: null, flashOf: null });
+  draw(canvas, { proj, view, eye, flashOf = null, grow = null, up = null }) {
+    const c = this._cam ?? (this._cam = { canvas: null, proj: null, view: null, eye: null, flashOf: null, grow: null, up: null });
     c.canvas = canvas; c.proj = proj; c.view = view; c.eye = eye; c.flashOf = flashOf;
+    c.grow = grow; c.up = up;   // OW-PEERS (FIELD BUGS 2026-10-01 #11): under the Overworld each body drawn its grow times about its feet, leaned as the traveller's own is (drawThird's OW-BIG and AUDIT OW3 J6)
     this._planesOk = !!viewPlanes(proj, view, this._planes);   // WB9h: this pass's view - and the next frame's skins
     return this._drawBodies(canvas, proj, view, eye, false, flashOf);
   }
@@ -637,7 +638,8 @@ export class PeerBodies {
       if (!this._standing(b) || !b.veil !== !veiled) continue;
       // WB9h: out of the view (the frustum's sides and near, the body's own reach): nothing to draw - the sprite pass
       // has no such test. A view that is no lens (a stub's) keeps the old test alone: behind the eye.
-      if (this._planesOk) { if (!this._sees(b, 0)) continue; }
+      const g = this._cam?.grow ? Math.max(1, this._cam.grow(b.feet)) : 1;   // OW-PEERS
+      if (this._planesOk) { if (!this._sees(b, 0, g)) continue; }
       else if (view && view.length === 16) {
         const f = b.feet, vz = view[2] * f[0] + view[6] * f[1] + view[10] * f[2] + view[14];
         if (vz > CAPSULE_HEIGHT) continue;
@@ -647,7 +649,7 @@ export class PeerBodies {
       if (b.stale) {
         try { b.rig.update(0, { pose: true, effectsDt: b.bank }); b.bank = 0; b.stale = false; b.owed = false; b.posedAt = this._frame; } catch (e) { this._fail(b, `update threw: ${e?.message ?? e}`); continue; }
       }
-      try { if (b.rig.drawThird(canvas, { proj, view, eye, feet: b.feet, yaw: b.yaw, hitFlash: flashOf ? flashOf(b.id) : 0, conceal: b.veil ?? null })) drawn++; } catch (e) { this._fail(b, `draw threw: ${e?.message ?? e}`); }   // AUDIT MWBODY A1; HITFLASH1: a struck body flashes red; INVIS-LOOK: a concealed one blends
+      try { if (b.rig.drawThird(canvas, { proj, view, eye, feet: b.feet, yaw: b.yaw, hitFlash: flashOf ? flashOf(b.id) : 0, conceal: b.veil ?? null, grow: g, up: this._cam?.up ?? null })) drawn++; } catch (e) { this._fail(b, `draw threw: ${e?.message ?? e}`); }   // AUDIT MWBODY A1; HITFLASH1: a struck body flashes red; INVIS-LOOK: a concealed one blends; OW-PEERS: grown and leaned under the Overworld
     }
     return drawn;
   }

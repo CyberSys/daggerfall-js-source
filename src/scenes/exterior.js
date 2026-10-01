@@ -104,7 +104,7 @@ import { drawnFlat } from '../characters/nudeFlats.js';   // NUDE-FLATS: Show Nu
 import { CityLightAnimator, SUN_RIG_COLOR, INDIRECT_LIGHT_COLOR, INDIRECT_LIGHT_RANGE, exteriorAmbient, indirectLightScale, isCityLightsOn, isNight, parseTimeOfDay, sunDirection, sunScale, windowStyleForTime } from '../world/worldClock.js';
 import { audio } from '../systems/audio.js';
 import { AmbientEffects, EXTERIOR_AMBIENT_WAITS, presetForExterior } from '../systems/ambientEffects.js';
-import { createWeatherFront, blendTerms, soundWeather } from '../systems/weatherFront.js';   // WX2: the front reaches the ground
+import { createWeatherFront, blendTerms, soundWeather, fallTerms } from '../systems/weatherFront.js';   // WX2: the front reaches the ground; RAIN-SPRINKLE: the look of what falls
 import { createAnimalAmbience } from '../systems/animalAmbience.js';   // A4
 import { CityNavigation } from '../world/cityNavigation.js';   // T1 towns
 import { TownPopulation } from '../systems/townPopulation.js';
@@ -490,6 +490,7 @@ export async function bootExterior(canvas, renderer, params, status) {
   // path takes the row's own numbers whole.
   const weatherFront = createWeatherFront({ seed: Number(params.get('wseed')) || 7 });
   const weatherTerms = () => ({ sun: weatherSun, dim: 1, fog: weatherFog });
+  const FALL_LIGHT = Object.freeze({ sun: weatherSunlightScale('overcast', false), dim: 1 });   // RAIN-SPRINKLE: what a sprinkle's sky lights like - an overcast one's
   let wxNow = weatherTerms();
   let wxFrom = wxNow;
   let seenJump = weatherJumpStamp();   // WX2a: the sim's jump stamp as this host last saw it
@@ -5114,7 +5115,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     if (crossing && !jump) sky.weatherArrive();
     const fx = weatherFront.tick({ dt, weather, arrival: enhancedFront ? sky.frontArrival() : 1, nowMinutes: playerTicker.classicMinutes, tsec: now / 1000, jump, peak: weatherOverride ? null : currentWeatherIntensity() });   // WEATHER3b: the map's intensity at the player is the peak
     if (fx.changed) wxFrom = wxNow;
-    wxNow = enhancedFront ? blendTerms(wxFrom, weatherTerms(), fx.t) : weatherTerms();
+    wxNow = enhancedFront ? blendTerms(wxFrom, fallTerms(weatherTerms(), fx.intensity, weather, FALL_LIGHT), fx.t) : weatherTerms();   // RAIN-SPRINKLE: a sprinkle looks like one
     const wd = windDrive(sky, now / 1000, dt);   // WIND3: the frame's wind in every consumer's units, read once
     // A3: the exterior ambience (WeatherAmbientEffects 5/25).
     audio.setListener(eye, [target[0] - eye[0], target[1] - eye[1], target[2] - eye[2]]);

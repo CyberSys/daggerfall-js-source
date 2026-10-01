@@ -236,11 +236,15 @@ as lead and are recorded as such; each is one line to change if Mac calls otherw
   look point by construction (the eye stands back along its heading), so the cascades
   are rendered about the same focus; the receivers pick a cascade about `uSunOrigin`, the
   point the pass itself rendered about, so the pick and the maps can never disagree.
-- **The cloud march and the rain need no change.** The volumetric deck marches from the
+- **The cloud march needs no change.** The volumetric deck marches from the
   traveller's head (`sky.use({ pos: player.pos })` - AUDIT DEEP R-10: this said the frame's
-  raised eye; from 30 degrees down or more little sky is in the picture either way); the rain, the grass, the streaming and the
+  raised eye; from 30 degrees down or more little sky is in the picture either way); the grass, the streaming and the
   weather sample stay on `cam.pos`, which never left the traveller. Grass is not drawn
-  from the air (under a pixel at 150 m).
+  from the air (under a pixel at 150 m). What FALLS does not (OW-WEATHER, FIELD BUGS 2026-10-01 #9: "it only
+  happens around the player at small scale"): the rain's, the snow's and the sand's boxes and the wind's wisps
+  wrap round the eye they are handed, and round the head they were a little cube of weather about the sprite
+  seen from 330 m outside it - they wrap round the view's own eye now (world.js `wxEye`), so the air in front
+  of the camera is full of it, as it is when you stand in it.
 
 **The way in, and every way out.** In: the map's button, KeyO on the sheet, or the
 `TravelView` key if bound. The gate (world.js `travelViewAllowed`): the enhanced lane, a
@@ -262,7 +266,10 @@ the view. So P0's one unwind line in the host stays the plaque's alone.
 is a pick (TV2's seam: `onPick(x, y)`), a drag orbits and tilts, the wheel zooms, the
 right button and the context menu never reach the host. The look keys turn the view,
 not the traveller. Movement keys walk the traveller camera-relative (the traveller
-turns toward the input at 6 rad/s the short way) while no journey drives - and,
+turns toward the way the keys point at 6 rad/s the short way, and faces it - OW-FACE, FIELD BUGS 2026-10-01 #10:
+it turned to the VIEW's heading and walked every key from there, so its sprite showed its back whatever was held;
+`travelView.steer` turns it to `keysHeading`, and the host turns the keys' axes onto the body, `axesToward`, so
+the walk is the keys' way while it turns) while no journey drives - and,
 since TV-WASD (below), at the travel speed. The DOM beside the canvas keeps its own
 events.
 
@@ -974,6 +981,13 @@ redrawn); `tools/mutants/tv3.json` and `tv5.json` (the OVERWORLD-NAMES records).
   40-50 px tall at 1080p at every zoom, a Mount & Blade party's icon. The view hands the step (`frame().grow`), the
   host passes it on the body's `face`, and the sprite lane (`player/eotbBody.js`) makes its batch again at each whole
   step; a grown sprite casts no giant's shadow (`selfCard` off) and hangs no lantern on a waist that moved.
+- **OW-PEERS** (FIELD BUGS 2026-10-01 #11, "you cannot see other player's sprites"): OW-BIG grew the traveller
+  alone, so every other player stood at their own size - a speck at 330 m under the name that stood over them. Each
+  is grown by the same law at their own feet (world.js `peerGrow`, `tvOwnGrow` of the view's eye to them): the
+  riders, the beasts and the walkers (`net/peerRiders.js`, its size, offset and reach), the dolls and the class
+  sprites (`net/remotePlayers.js`), the Morrowind bodies (`net/peerBodies.js`, `drawThird`'s `grow` and the view's
+  lean, culled by their grown reach); their names over the grown heads; none casts a giant's shadow, no walker hangs
+  a lantern. `test/fb1001_overworld.test.js`.
 
 **Proof.** `test/heldmap.test.js`, `test/tv5_far_places.test.js`, `test/eotb_body.test.js`,
 `test/tv1_travel_view.test.js`; `tools/mutants/ow1.json` (14 records, all dead).

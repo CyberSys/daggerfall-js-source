@@ -59,7 +59,7 @@
 // ═══════════════════════════════════════════════════════════════════
 import {
   TV_RISE_S, TV_FALL_S, TV_ZOOM_STEP, ceilingFor, initialCamera, stepCamera, zoomTarget, orbitBy, turnCamera, blendView,
-  anglesOf, rightOf, leanedUp, turnHeading, forwardOf, tvOwnGrow,
+  anglesOf, rightOf, leanedUp, turnHeading, forwardOf, tvOwnGrow, keysHeading,
 } from '../player/travelCamera.js';
 
 /** A press that moves further than this (px) before it lifts is a drag (the orbit), not a click (a pick). */
@@ -185,6 +185,7 @@ export function travelViewLine({ place = null, near = null, region = '' } = {}) 
  * @param {() => boolean} [deps.danger] - enemies near (DFU's AreEnemiesNearby): the view will not rise, and falls
  * @param {(e:any) => string[]} deps.actionsOf - a key event's registry actions (KB1)
  * @param {() => boolean} [deps.movementHeld] - a movement action is held (the host's own Set)
+ * @param {() => {forward: number, strafe: number}} [deps.movementAxes] - OW-FACE: the keys' axes (forward and right, -1..1)
  * @param {() => boolean} [deps.autopilot] - a Travel Options journey drives the traveller
  * @param {(on:boolean) => boolean} [deps.holdBody] - player/mwView.js mwViewHoldThird
  * @param {(free:boolean) => void} [deps.freeCursor] - the cursor out (up) and the look back (off)
@@ -434,7 +435,13 @@ export function createTravelView(deps) {
     const yawDir = (lookHeld.has('TurnRight') ? 1 : 0) - (lookHeld.has('TurnLeft') ? 1 : 0);
     const tiltDir = (lookHeld.has('LookDown') ? 1 : 0) - (lookHeld.has('LookUp') ? 1 : 0);
     if (yawDir || tiltDir) camera = turnCamera(camera, yawDir * TV_KEY_ORBIT_RATE * dt, tiltDir * TV_KEY_TILT_RATE * dt);
-    if (!deps.autopilot?.() && deps.movementHeld?.()) deps.setYaw(turnHeading(deps.yaw(), camera.yaw, dt));
+    // OW-FACE (FIELD BUGS 2026-10-01 #10): the body turns to the way the keys point from the view, not to the view's own
+    // heading - it walked every key's way with its back to the camera (S toward it, A and D sideways), so the sprite's
+    // eight views and the Morrowind body never turned; the host turns the axes onto the body (axesToward)
+    if (!deps.autopilot?.() && deps.movementHeld?.()) {
+      const ax = deps.movementAxes?.();
+      deps.setYaw(turnHeading(deps.yaw(), (ax && keysHeading(camera.yaw, ax.forward, ax.strafe)) ?? camera.yaw, dt));
+    }
   }
 
   /**
