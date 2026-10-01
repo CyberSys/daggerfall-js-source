@@ -338,11 +338,12 @@
   {
     "name": "S38-version-not-bumped",
     "file": "src/net/wire.js",
-    "old": "export const RELAY_VERSION = 'world138';",
+    "old": "export const RELAY_VERSION = 'world140';",
     "new": "export const RELAY_VERSION = 'world131';",
     "tests": [
       "test/soc1_hub.test.js",
       "test/relayversion.test.js"
-    ]
+    ],
+    "note": "HERALD (PIN MOVED): world138."
   }
 ]

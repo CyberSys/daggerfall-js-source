@@ -563,8 +563,16 @@ export function actionLabel(action) {
  * Sneak, the modes, the journals and the maps have no pad row: eight
  * buttons and four directions is what a pad has, and the rest is the
  * grid's to bind - a combo with View or Menu held is DFU's own way.
+ *
+ * TOUCH-HOLD (2026-10-01 part four - Mac: "Interact button + knife
+ * Use"): B is INTERACT in the world - E, the professions' start and
+ * their hold (a common herb, a body, the net's haul) and the sea's,
+ * which no pad row reached. B did nothing there (DFU's Back answers
+ * only while a window is up, and a window's press never reaches the
+ * world's edge ring - ui/input.js), and in a window it is Back still.
  */
 export const DEFAULT_SECONDARY_BINDINGS = Object.freeze([
+  ['JoystickButton1', 'Interact'],        // B / Circle - in the world (Back in a window)
   ['JoystickButton4', 'Crouch'],          // LB / L1
   ['JoystickButton5', 'Jump'],            // RB / R1
   ['JoystickButton6', 'Inventory'],       // View / Share

@@ -228,7 +228,9 @@ export function attachGamepad(canvas, hooks = {}, { getPads = null, dispatch = s
     // PADPLUS1: UNDER PLUS THE CURSOR CLICKS THE PAGE. The enhanced windows are DOM above the canvas, and an event
     // dispatched at the canvas never reaches them - the pad could open a window and not press one button in it.
     // Over a DOM element the events go to it, as a mouse's would; over the canvas (a classic window) they stay there.
-    if (plusPadActive()) {
+    // PAD-CLASSIC (AUDIT 2026-10-01 part four): ON EVERY SKIN - the Professions pages are DOM on the classic skin too
+    // (ui/pauseDoor.js), and there the pad moved its cursor over the Forge, the Anvil and Withdraw and A pressed nothing
+    {
       const t = domTargetAt(cursor[0], cursor[1], canvas);
       const phase = type === 'pointerdown' ? 'down' : type === 'pointerup' ? 'up' : 'move';
       if (phase === 'move') {
@@ -480,7 +482,9 @@ export function attachGamepad(canvas, hooks = {}, { getPads = null, dispatch = s
     let dx, dy;
     if (Math.hypot(left.h, left.v) > 0.5) { const m = Math.hypot(left.h, left.v); dx = (left.h / m) * STROKE_PX; dy = (-left.v / m) * STROKE_PX; }
     else { swingAlt = !swingAlt; dx = swingAlt ? STROKE_PX : -STROKE_PX; dy = STROKE_PX * 0.3; }
-    if (gesture) { hooks.attack?.(dx, dy, true); pulsed = true; }
+    // PAD-PULSE (AUDIT 2026-10-01 part four): a stroke after the first is the HOLD's, said so - the rig swings again on it,
+    // and a profession's act takes the press alone (one strike, one tug, never a felled tree by RT held)
+    if (gesture) { hooks.attack?.(dx, dy, true, first ? null : { repeat: true }); pulsed = true; }
     else if (first) hooks.attack?.(dx, dy, true);
   }
 

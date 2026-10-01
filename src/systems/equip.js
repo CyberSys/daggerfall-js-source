@@ -44,6 +44,11 @@ export const equipOf = (entity) => (entity.equip ??= createEquipTable());
 export const equipTableOf = (entity) => equipOf(entity).slots;
 
 export const getEquipSlot = (entity, item) => equipOf(entity).getEquipSlot(numeric(item));
+/** RARITY-WEAR (FIELD BUGS 2026-10-01, Cruor: a King's Mark "spawn[ed] as wands, they cannot be equipped"): WHETHER ANY
+ *  SLOT COULD EVER TAKE THE ITEM - GetEquipSlot asked of an empty table. A Wand answers no (GetJewelleryEquipSlot's
+ *  None - equipRules.js has no row for 140), so a tier rolled on one is read by nothing: the affix fold and a Held
+ *  enchantment read worn pieces alone. */
+export const wearableItem = (item) => !!item && createEquipTable().getEquipSlot(numeric(item)) !== EQUIP_SLOTS.None;
 
 /** UnequipItem(slot): clears the slot + the item's mark. */
 /** CH3 (AUDIT 23 characters-13), REBUILT AT FX1 (F128): the SWAP
@@ -328,7 +333,7 @@ export function fillEquipTable(slots, items) {
  *  chargenSession.js:142 (?class= headless) and :235 (the wizard) -
  *  and the guard below (`entity.equip || items.length`) makes this a
  *  no-op for any character that went through either. What is left is
- *  residue at the two host calls (world.js:5010, exterior.js:1305):
+ *  residue at the two host calls (world.js:5011, exterior.js:1305):
  *  a chargenDone entity whose bag AND equip table are both empty
  *  still takes a free dagger here. Deleting the calls is a behaviour
  *  change, so it waits for a slice that owns one. */

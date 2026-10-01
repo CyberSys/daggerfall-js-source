@@ -189,6 +189,34 @@ export function toggleHood(item) {
 /** HOOD-SAID: what a press of the pack's hood button says - the port's own lines, beside UseItem's "You light the %it.". */
 export const HOOD_TEXT = Object.freeze({ raise: 'You raise your hood.', lower: 'You lower your hood.' });
 
+/** CLOAK-DRAPE (FIELD BUGS 2026-10-01, SlipperyPeasant: "I can no longer change how the cloak is worn, eg; Over shoulder,
+ *  behind, etc"): HOW MANY WAYS A HOODED GARMENT HANGS - its drawings in HOOD-SAID's pairs (one drape hood down and hood
+ *  up), so the casual cloak's six are three drapes and the formal cloak's and plain robes' two are one. 0 for a garment
+ *  with no hood, whose Use still steps its drawings. */
+export const drapeCount = (item) => (hoodCapable(item) ? Math.floor((templateByIndex(item.templateIndex)?.variants ?? 0) / 2) : 0);
+/** CLOAK-DRAPE: THE NEXT DRAPE, THE HOOD AS IT WAS - Use stood on a worn cloak's card for this until HOOD-SAID gave its
+ *  place to the hood, which keeps the drape; this keeps the hood. The next pair round (a stray value past the count is
+ *  the last drape's), and of it the drawing whose hood is the one the garment wore. True when the drape moved; a
+ *  garment of one drape stays as it was. */
+export function nextDrape(item) {
+  const drapes = drapeCount(item);
+  if (drapes < 2) return false;
+  const from = item.variant ?? 0;
+  const up = hoodUp(item);
+  const d = Math.min(drapes - 1, from >> 1);
+  for (let step = 1; step < drapes; step++) {
+    const pair = (d + step) % drapes;
+    for (const v of [2 * pair, 2 * pair + 1]) {
+      item.variant = v;
+      if (hoodUp(item) === up) return true;
+    }
+  }
+  item.variant = from;
+  return false;
+}
+/** CLOAK-DRAPE: what a press of the pack's drape button says. */
+export const DRAPE_TEXT = 'You rearrange your cloak.';
+
 // ── the strings UseItem shows (DFU's Internal_Strings) ────────────
 
 export const USE_TEXT = Object.freeze({

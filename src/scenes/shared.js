@@ -779,7 +779,9 @@ export function parkourSwitchOn(search) {
  *  CLIMB2: the body's Fatigue over its most (the grip's time), the pack's
  *  weight over what it can carry (the reach), and the Climbing tally the free
  *  climb takes at the classic climb's cadence (climbingDeps' own). */
-export function parkourDeps(entity, say = null) {
+/** CLIMB-NODE (FIELD BUGS 2026-10-01, Mac: "Hold it at nodes"): `hold` - whether the free climb's walk-in start is held
+ *  (the world host's: a profession's node under the look, or an act playing - player/motor.js _freeStart). */
+export function parkourDeps(entity, say = null, { hold = null } = {}) {
   return {
     enabled: () => parkourSwitchOn(),
     inputs: () => {
@@ -795,6 +797,7 @@ export function parkourDeps(entity, say = null) {
     },
     tally: () => tallyMovementSkill(entity, SKILLS.Climbing),
     say,
+    hold,
   };
 }
 

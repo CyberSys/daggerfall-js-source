@@ -64,6 +64,8 @@ export const ORDER_TEXT = Object.freeze({
 
 /** The roles after her First Mate (and a Bard her Bard), dealt in turn. */
 export const ROLES = Object.freeze(['Bosun', 'Gunner', 'Carpenter', 'Lookout', 'Cook', 'Deckhand']);
+/** SHIP-WATCH: the role whose hand keeps her bow (AUDIT WK-W10: the card's Lookout is her lookout). */
+export const LOOKOUT_ROLE = 'Lookout';
 
 /** The spirits, in words, by the lowest morale each begins at. */
 export const SPIRITS = Object.freeze([

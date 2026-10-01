@@ -73,6 +73,12 @@ export function natureStandsAt(heightmapData, tilemapData, locationRect, x, y) {
   return { x: x * scale, y: at(x, y) - steepness / SLOPE_SINK_RATIO, z: y * scale };
 }
 
+/** AUDIT 29 C11: whether (x, z) stands inside a rock piece's footprint (`rocks` a pixel's World of Daggerfall rock boxes,
+ *  [x0, y0, z0, x1, y1, z1] in natureStandsAt's frame; the field's boxes overlap - a foot off one piece can land inside the
+ *  next). NODE-CLEAR (AUDIT 2026-10-01 part four): ONE HOME - VEIN-CLEAR kept the veins out of the rocks, and a patch or a
+ *  tree stood inside one, glowing and on the compass, where no look could reach it. */
+export const insideRocks = (rocks, x, z) => (rocks ?? []).some((b) => x > b[0] && x < b[3] && z > b[2] && z < b[5]);
+
 /**
  * PROF2: THE GROUND'S HEIGHT at a pixel-local point (metres, x east and z the tile rows' way - natureStandsAt's frame),
  * bilinear between the heightmap's four samples round it (a sample stands at each tile corner). A vein stands at a rock

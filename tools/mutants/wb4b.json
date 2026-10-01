@@ -65,7 +65,7 @@
   {
     "name": "WB4b-the-sequence-not-advancing",
     "file": "src/scenes/gateCourt.js",
-    "old": "send({ q: ++blowSeq, d: dmg, r })",
+    "old": "send({ q: blowQ('b'), d: dmg, r })",
     "new": "send({ q: blowSeq, d: dmg, r })",
     "tests": [
       "test/wb4b_gate_blows.test.js"

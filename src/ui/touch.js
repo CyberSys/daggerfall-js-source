@@ -126,7 +126,7 @@ function synth(type, code) {
 // InputManager.GetKey's dual-dict fallthrough :1084). Move Jump off
 // Space in the controls window and the JUMP button fired whatever now
 // owned Space; move Run off ShiftLeft and the stick's 80% throw did
-// nothing. The reverse lookup is GetBinding (inputActions.js:979,
+// nothing. The reverse lookup is GetBinding (inputActions.js:987,
 // InputManager.cs:641-671) and it is exactly what the automap, rest
 // and exterior-automap windows already ask. Resolved at PRESS time, so
 // a rebind takes effect on the next touch with no re-attach.
@@ -359,8 +359,11 @@ export function attachTouch(canvas, hooks = {}) {
         // AUDIT TOUCH-BUTTONS A1: THE LIFT WAITS TWO FRAMES. The rig keeps the live button (weaponRig.attackInput) and
         // reads it once a frame, so a tap lifted before the host's next frame - a quick one, or any during a long
         // frame - swung nothing; held that long, the frame sees the press. A new press in between is its own.
+        // TOUCH-RETAP (AUDIT 2026-10-01 part four): A PRESS IN BETWEEN LIFTS THE ONE BEFORE IT FIRST - the stale lift lets
+        // nothing go, so the hook heard held, held: no press at all to whatever reads the press's edge (an act's strike,
+        // ACT-TOUCH's), and a quick second tap struck nothing. The rig reads the button's level, and sees it held as before.
         const seq = () => attackSeq;
-        b = button(action.glyph, ...at, () => { if (hooks.paused?.()) return; const s = attackStroke(); attacking = b; attackSeq++; hooks.attack(s.dx, s.dy, true); },
+        b = button(action.glyph, ...at, () => { if (hooks.paused?.()) return; const s = attackStroke(); if (attacking === b) hooks.attack(0, 0, false); attacking = b; attackSeq++; hooks.attack(s.dx, s.dy, true); },
           () => {
             if (attacking !== b) return;
             const mine = seq();

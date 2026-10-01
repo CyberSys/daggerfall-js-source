@@ -38,6 +38,7 @@ import { isOnlinePage } from './onlineLane.js';
 import { liveStat, maxFatigue, FATIGUE_MULTIPLIER } from './statMods.js';
 import { survivalOn } from './survival/switch.js';
 import { createSurvivalItem } from './survival/items.js';
+import { SKINNING_KNIFE } from '../net/professionLaw.js';   // TOUCH-HOLD: the knife's Use, a profession tool's
 import { registerContainerLootHandler } from './containerLoot.js';
 import { registerTabledLootHandler } from './loot.js';
 import { registerEnemyDeathHandler } from '../scenes/corpseMarker.js';
@@ -126,8 +127,13 @@ function wear(item, collection, entity) {
 
 /** PROF1 (FORAGE0 14.3): the checks a profession's act runs first, with Foraging's own line for `templateIndex` (the
  *  Sickle's for an herb, the Basket's for its food) - never asking Foraging's switch (law 6: the acts are the
- *  server's). Null where every check passes. */
-export const foragingActRefusal = (templateIndex, skip = null) => foragingRefusal(templateIndex, worldNow(), skip);   // PROF2: a dungeon vein skips the surface's checks
+ *  server's). Null where every check passes.
+ *  ANY-HOUR (2026-10-01, Mac: "Remove the time limit for professions. Should be available at any time"): NEVER
+ *  FORAGING'S DAYLIGHT - a profession's act keeps no hours, by night as by day (the service asks none either,
+ *  server-account/src/professions.js harvestNode). Foraging's own Use (useForagingTool: offline, a guest's lane) keeps
+ *  the mod's day. */
+const ACT_KEEPS_NO_HOURS = Object.freeze(['daylight']);
+export const foragingActRefusal = (templateIndex, skip = null) => foragingRefusal(templateIndex, worldNow(), skip ? [...skip, ...ACT_KEEPS_NO_HOURS] : ACT_KEEPS_NO_HOURS);   // PROF2: a dungeon vein skips the surface's checks
 /** PROF7 (FORAGE0 14.3): a tool not Foraging's asks the same checks of the same world, with its own lines. */
 export const actChecksRefusal = (order, lines) => checksRefusal(order, lines, worldNow());
 /** PROF1 (FORAGE0 14.1): which tool an act draws - the first of its kind in the pack, in the pack's order (as DFU's
@@ -156,10 +162,14 @@ export const PROFESSION_TOOL_HOW = Object.freeze({
   [FT.PickAxe]: (k) => `Mining is done at an ore vein or a boulder in the wilderness, or a vein in a dungeon: walk up to one until the prompt shows, then press ${k} (or use the Pick-Axe).`,
   [FT.Sickle]: (k) => `Herbalism is done at an herb patch in the wilderness: walk up to one until the prompt shows, then press ${k} (or use the Sickle).`,
   [FT.Basket]: (k, c) => `The Basket searches an herb patch in the wilderness for food: walk up to one until the prompt shows, then use the Basket (or press ${c} for the Basket, then ${k}).`,
-  [FT.FishingNet]: (k) => `Fishing is done in water by daylight: stand in it, swim, or stand at sea until the prompt shows, then press ${k} (or use the Fishing-Net).`,
+  [FT.FishingNet]: (k) => `Fishing is done in water: stand in it, swim, or stand at sea until the prompt shows, then press ${k} (or use the Fishing-Net).`,   // ANY-HOUR: at any hour
+  // TOUCH-HOLD (2026-10-01 part four - Mac: "Interact button + knife Use"): the knife's Use at a body is E there, and it
+  // holds the knife for the line as the Sickle's holds the steady hand (scenes/huntHost.js)
+  [SKINNING_KNIFE.templateIndex]: (k) => `Hunting is done at a body your own blow felled: walk up to it until the prompt shows, then press ${k} (or use the Skinning Knife).`,
 });
 /** TOOL-SAID: the line a Use of this tool says where no node takes it - online, with the professions open, for the
- *  five profession tools; null otherwise (offline, a guest, the Spade: the Use is Foraging's). */
+ *  five profession tools (TOUCH-HOLD: and the Skinning Knife); null otherwise (offline, a guest, the Spade: the Use is
+ *  Foraging's). */
 export function professionToolLine(templateIndex) {
   const how = PROFESSION_TOOL_HOW[templateIndex];
   if (!how || !isOnlinePage() || _host?.professionsOpen?.() !== true) return null;
@@ -294,6 +304,11 @@ export function installForaging({ fetchBytes = null } = {}) {
   const toolUse = (item, collection, ctx) => useForagingTool(item, collection, ctx);
   toolUse.usable = (item) => foragingOn() || !!professionToolLine(item?.templateIndex);   // TOOL-SAID: online the tools are the professions' whatever the switch says (law 6)
   for (const t of TOOL_TEMPLATES) registerItemUseHandler(t, toolUse);
+  // TOUCH-HOLD: the Skinning Knife's Use - the professions' alone (the knife is sold online only, PROF0 15): at a body
+  // the act, anywhere else the way said; offline, or with the professions shut, it has none
+  const knifeUse = (item, collection, ctx) => (professionToolLine(item?.templateIndex) ? useForagingTool(item, collection, ctx) : null);
+  knifeUse.usable = (item) => !!professionToolLine(item?.templateIndex);
+  registerItemUseHandler(SKINNING_KNIFE.templateIndex, knifeUse);
   const eat = (item, collection, ctx) => eatForagingFood(item, collection, ctx);
   eat.usable = () => foragingOn();
   for (const t of Object.keys(FOODS)) registerItemUseHandler(Number(t), eat);

@@ -174,6 +174,13 @@ export const BUCKET_DEPTH_X = 15;
 export const HIT_CAP_X = 12;
 /** The most blows one account lands a second (a fast swing is about one; arrows and spells fewer). */
 export const GATE_HIT_HZ_MAX = 4;
+/** AUDIT WB11 W3: ONE BLOW, ONE TOKEN. A swing's arc, a blast or a volley meets every body in it, each body met its own
+ *  frame - every one of them under the blow's one sequence (`q`). The hand charges a BLOW, not a body: a frame of the
+ *  blow just charged (its `q`, within BLOW_GROUP_MS of the charge) on a body it has not met yet rides on it,
+ *  BLOW_BODIES_MAX bodies at most; any other frame is a blow of its own. (A token a body met: a swing through five Imps
+ *  landed four, and starved the blows after it.) */
+export const BLOW_GROUP_MS = 250;
+export const BLOW_BODIES_MAX = 8;
 /** How far a melee blow reaches past the boss's body (the player's own 2.5 - playerWeapon.js) and the slack for the
  *  pose's age (a pose is up to a fifth of a second old, and the boss walks while it travels). */
 export const MELEE_REACH = 2.5;
@@ -354,7 +361,7 @@ export const FAVOURED_PHASE = Object.freeze({ hellfire: 1, meteor: 1, spokes: 2 
  * moves is each attack's line here (`atk[key]`: its reach, its phase, its element, its name, the ground it leaves, its
  * share and base) and the body's. Pure; ONE PROFILE A SET OF MARKS, made once and kept - keyed by the set as the tables
  * order it (its aspect, then its trials in GATE_TRIALS' order), so the order the words came in makes no second one, and
- * there are 149 sets at most (four aspects with none, one or two of eight trials, and none at all).
+ * there are 185 sets at most (four aspects with none, one or two of nine trials - WB11a's ninth - and none at all).
  * @param {unknown} md
  */
 export function fightProfile(md) {
@@ -389,6 +396,7 @@ export function fightProfile(md) {
     shieldMs: unyielding?.shieldMs ?? SHIELD_MS, hitX: unyielding?.hit ?? 1, dmgX,
     threatPick: grudge?.threatPick ?? THREAT_PICK, threatDecay: grudge?.threatDecay ?? THREAT_DECAY,
     feed: hungry?.heal ?? 0, feedsMax: hungry?.feeds ?? 0, echo: !!T('echoing'),
+    legion: !!T('legion')?.legion,   // WB11b: his host fights beside him (HOST_KINDS) - nothing of it runs without the trial
     atk: Object.freeze(atk),
     trialsLine: trials.map((t) => t.name).join(' - '),   // AUDIT PRE-MERGE 0929 W2-2: said by the bar every frame, joined once
   });
@@ -452,10 +460,12 @@ export function newFight(day, now, wrathAt, boss, md = null) {
      *  -2 while one is under way), the crystals of the one in flight ({i, c: [{x, z, h}], m} - its attack's number), and
      *  how long a broken one leaves him stunned */
     rk: 0, cx: null, stunUntil: 0, cxSentAt: 0, cxSent: '',
+    /** WB11b: his host under the Legion-Lord trial (newHost - made at the fight's first beat under it), null in any other */
+    lg: null,
     /** WBX5: a phase's turn still to come - PHASE_TURN's entries after the one in flight - and the next of them, begun
      *  when the breath after the last is over */
     queue: [], pending: null,
-    /** @type {Record<string, {name: string, lv: number, share: number, dealt: number, clipped: number, bucket: number, bucketAt: number, rate: number, rateAt: number, stoodMs: number, joinedAt: number, seenAt?: number, retired?: boolean, cxd?: number, hits?: number, best?: number, falls?: number, down?: boolean}>} */
+    /** @type {Record<string, {name: string, lv: number, share: number, dealt: number, clipped: number, bucket: number, bucketAt: number, rate: number, rateAt: number, stoodMs: number, joinedAt: number, seenAt?: number, retired?: boolean, cxd?: number, hits?: number, best?: number, falls?: number, down?: boolean, hd?: number, bq?: number|null, bqAt?: number, bqWho?: string[], healed?: number, hb?: number, hbAt?: number}>} */
     players: {},
     /** AUDIT WBX R4: the time a living fighter stood in the court - what "stood half the fight" is half of */
     liveMs: 0,
@@ -554,16 +564,14 @@ export function freeSeat(f, present) {
  * shielded, past the account's blow rate, a pose that says nothing, a melee blow from out of reach, anything from
  * off the court. Clipped (and counted): past the one-blow cap, past the bucket.
  */
-export function applyHit(f, sub, d, r, pose, now) {
+export function applyHit(f, sub, d, r, pose, now, seq = null) {
   const p = f.players[sub];
   if (!p || f.fell || f.wrath || !Number.isFinite(d) || !(d > 0)) return 0;
   if (now >= f.wrathAt) return 0;   // AUDIT WBX R6: midnight is the Wrath's, whether or not a beat has said so yet
   if (now < f.shieldUntil) return 0;
   // the blow rate: a token bucket, GATE_HIT_HZ_MAX a second, one second deep - spent whatever the blow turns out to be
-  p.rate = Math.min(GATE_HIT_HZ_MAX, p.rate + (Math.max(0, now - p.rateAt) / 1000) * GATE_HIT_HZ_MAX);
-  p.rateAt = now;
-  if (p.rate < 1) return 0;
-  p.rate -= 1;
+  // (AUDIT WB11 W3: once a blow, however many bodies it meets - spendBlow, the one hand of every arm)
+  if (!spendBlow(p, now, seq, 'b')) return 0;
   if (!pose || !Number.isFinite(pose.x) || !Number.isFinite(pose.z)) return 0;
   if (!onFloor(pose.x, pose.z, f.xa, now, POSE_SLACK)) return 0;   // nobody strikes the court from off it - WB9b: its floor as far as it is laid
   // AUDIT WB9 (brain F1): nor from outside the court he fights in - he chooses, aims at and waits for only those in it
@@ -590,6 +598,7 @@ export function applyHit(f, sub, d, r, pose, now) {
     f.move = null;
     f.atk = null;
     f.cx = null;   // AUDIT WB9 (brain F4): a kill mid-Reckoning spends its crystals - no beat after the fall clears them
+    if (f.lg) f.lg.ads = [];   // WB11b: and his host goes with him (the fall's word says so - no word of its own)
   }
   return got;
 }
@@ -638,13 +647,53 @@ export const DAMAGE_CHART_MAX = 32;
  * the court), most damage first (ties by the earlier to join - topDealers' own order), each row whole numbers: `n` the
  * name, `l` the level claimed, `d` all they dealt (his health and the crystals', `dealt` - what the receipts and the
  * herald's names count), `x` the crystals' share of it, `h` the blows that landed on him, `b` the heaviest of them, `f`
- * how many times they fell in the court. At most DAMAGE_CHART_MAX rows. Pure.
+ * how many times they fell in the court; WB11b: `a` his host's share of it, for one who struck it (none else). At most
+ * DAMAGE_CHART_MAX rows. Pure.
  * @param {ReturnType<typeof newFight>} f
  */
 export function damageChart(f) {
   return Object.values(f.players).filter((q) => q.dealt > 0 || q.stoodMs > 0)
     .sort((a, b) => b.dealt - a.dealt || a.joinedAt - b.joinedAt).slice(0, DAMAGE_CHART_MAX)
-    .map((q) => ({ n: q.name, l: q.lv, d: Math.round(q.dealt), x: Math.min(Math.round(q.dealt), Math.round(q.cxd ?? 0)), h: q.hits ?? 0, b: Math.round(q.best ?? 0), f: q.falls ?? 0 }));
+    .map((q) => ({ n: q.name, l: q.lv, d: Math.round(q.dealt), x: Math.min(Math.round(q.dealt), Math.round(q.cxd ?? 0)), h: q.hits ?? 0, b: Math.round(q.best ?? 0), f: q.falls ?? 0,
+      ...(q.hd > 0 ? { a: Math.min(Math.round(q.dealt), Math.round(q.hd)) } : {}),   // WB11b: his host's share of it, where they struck it
+      ...(q.healed >= 1 ? { hl: Math.round(q.healed) } : {}) }));   // GATE-HEAL: what they healed, where they healed
+}
+
+// ═══ GATE-HEAL: HEALING ON THE ROUND-UP ════════════════════════════════════════════════════════════════════════════
+//
+// (2026-10-01, Mac: "Can we add a line on the damage round up showing the amount healed?" - each challenger's; "Like
+// for healers" - allies only.) What a fighter's game says another's spell healed in it is credited to the CASTER, for the
+// chart alone; a heal on oneself is no one's. Only the one healed knows what moved (ALLY-CAST's law: the receiver
+// decides), so the receiver says it; what it says is believed within its own heal bucket, so no healer's figure can be
+// made absurd. It buys nothing: no receipt, no share, no threat, no spoils. bible/11-Multiplayer/World-Bosses.md
+// section 18.
+
+/** A fighter's reference health at a level, for its heal bucket - generous (DFU's bars run lower). */
+export const HEAL_REF_BASE = 40;
+export const HEAL_REF_LV = 12;
+export const healRef = (lv) => HEAL_REF_BASE + HEAL_REF_LV * Math.max(1, lv | 0);
+/** The bucket a receiver's word is believed through: a whole reference refilled over HEAL_REFILL_S, HEAL_DEPTH_X of them
+ *  deep - a full bar every few seconds at most, sustained. */
+export const HEAL_REFILL_S = 3;
+export const HEAL_DEPTH_X = 2;
+/**
+ * GATE-HEAL: `sub` WAS HEALED `n` POINTS BY `by` (ANOTHER fighter of this fight, the one whose spell it was - never
+ * `sub` itself) - the receiver standing at `pose` (the court's frame, its own) on the laid floor while the fight lives.
+ * Believed within the receiver's heal bucket and credited to the healer's `healed`; never a part in the fight. Answers
+ * what was credited.
+ * @param {any} f @param {string} sub @param {string} by @param {number} n @param {{x: number, z: number}|null} pose @param {number} now
+ */
+export function applyHeal(f, sub, by, n, pose, now) {
+  const p = f.players[sub], q = f.players[by];
+  if (!p || !q || sub === by || f.fell || f.wrath || now >= f.wrathAt || !Number.isFinite(n) || !(n > 0)) return 0;
+  if (!pose || !Number.isFinite(pose.x) || !Number.isFinite(pose.z) || !onFloor(pose.x, pose.z, f.xa, now, POSE_SLACK)) return 0;
+  const ref = healRef(p.lv), depth = HEAL_DEPTH_X * ref;
+  p.hb = Math.min(depth, (Number.isFinite(p.hb) ? p.hb : depth) + (Math.max(0, now - (Number.isFinite(p.hbAt) ? p.hbAt : now)) / 1000) * (ref / HEAL_REFILL_S));
+  p.hbAt = now;
+  const got = Math.max(0, Math.min(n, p.hb));
+  p.hb -= got;
+  q.healed = (q.healed ?? 0) + got;
+  return got;
 }
 
 /** Did `sub` earn a receipt (bible section 6)? Only a fallen boss pays: dealt RECEIPT_SHARE of the health it brought, or
@@ -758,6 +807,9 @@ export function stepBrain(f, now, bodies, rng) {
     f.atk = { i: ++f.seq, a: wr.id, at: Math.max(f.wrathAt, now + 1000), x: f.pos[0], z: f.pos[1], yw: f.yaw, tg: [], until: 0 };
     f.atk.until = f.atk.at + wr.active;
     out.push({ k: 'atk', ...atkFrame(f.atk) });
+    // WB11b: and his host - it crumbles as Dagon gathers; said AFTER his word (AUDIT WB11 B2: a screen that heard the
+    // crumbling first read it as the Ward-Bearers' cap and said his ward broke - it stands through the wind-up)
+    hostGone(f, now, out, HOST_GONE.crumbled);
     hpFrame(f, now, out);   // AUDIT WBX R5
     return out;
   }
@@ -775,9 +827,11 @@ export function stepBrain(f, now, bodies, rng) {
     out.push({ k: 'ph', n: f.phase, until: f.shieldUntil });
     const [first, ...rest] = PHASE_TURN[f.phase];
     f.queue = rest.map((e) => ({ ...e }));
+    hostGone(f, now, out, HOST_GONE.crumbled);   // WB11b: his host crumbles at every turn - each kind is its phase's or its court's
     f.pending = null;
     beginTurn(f, first, now, here, rng, out);
   }
+  stepHost(f, now, here, rng, out, P);   // WB11b: his host's beat - under the Legion-Lord alone
   // WB9c: STUNNED - his Reckoning broken, he kneels: no step, no blow, until it passes
   if (now < (f.stunUntil ?? 0)) { hpFrame(f, now, out); stateFrame(f, now, out); return out; }
   // an attack in flight: the charge runs its lane over its active span, a leap lands him where it falls; the rest hold
@@ -788,6 +842,7 @@ export function stepBrain(f, now, bodies, rng) {
     if (A === ATTACKS.cross && now >= f.atk.at && Number.isInteger(f.atk.to)) {   // WB9b: he stands in the new court from the landing
       f.court = f.atk.to;
     }
+    if (P.legion && A === ATTACKS.cross && f.court === f.atk.to) raiseBearers(f, now, bodies, rng, out);   // WB11b: his Ward-Bearers rise in the court he lands in (once a court)
     if (A === ATTACKS.reckon && now >= f.atk.at && f.cx) f.cx = null;   // WB9c: the Reckoning landed - the crystals are spent in it
     if (now < f.atk.until) { hpFrame(f, now, out); cxFrame(f, now, out); stateFrame(f, now, out); return out; }
     const was = f.atk;
@@ -801,6 +856,26 @@ export function stepBrain(f, now, bodies, rng) {
     if (P.echo && ATTACK_BY_ID[was.a] === ATTACKS.meteor && !was.echo) f.queue.unshift({ a: 'meteor', echo: true, who: was.who ?? null, point: was.tg?.[0] ?? null });
     // WBX5: a turn still to come goes on from here, a breath later
     if (f.queue.length) { const next = f.queue.shift(); f.nextAt = now + TURN_BREATH_MS; f.pending = next; if (next.wait) f.waitUntil = now + CROSS_WAIT_MAX_MS; }
+  }
+  // WB11b: UNDER THE LEGION-LORD THE WAIT IS HIS WARD-BEARERS' - his ward holds, as WB9b's below, until a living
+  // challenger stands in the new court (or CROSS_WAIT_MAX_MS); from then it holds while one of his Ward-Bearers stands
+  // (BEARER_WARD_MAX_MS at most - then any left crumble), and as the last falls it breaks into his profile's own ward,
+  // the turn going on under it as before (the signature cast under it). Each change of the ward said (`ph`).
+  if (P.legion && f.pending?.wait && now >= f.nextAt) {
+    if (f.pending.wait !== 'bearers') {
+      const none = !here.length && now < (f.waitUntil ?? 0);
+      if (none) return heldBeat(f, now, out);
+      f.pending = { wait: 'bearers' };
+      f.waitUntil = now + BEARER_WARD_MAX_MS;
+      f.shieldUntil = f.waitUntil;
+      out.push({ k: 'ph', n: f.phase, until: f.shieldUntil });
+    }
+    if (bearersStand(f) && now < f.waitUntil) return heldBeat(f, now, out);
+    hostGone(f, now, out, HOST_GONE.crumbled, (a) => a.k === HOST.bearer);   // the cap: any still standing crumble
+    f.shieldUntil = P.shieldMs + now;   // his own ward, as a challenger's arrival raises it below (Unyielding's 6 s)
+    out.push({ k: 'ph', n: f.phase, until: f.shieldUntil });
+    f.pending = f.queue.length ? f.queue.shift() : null;
+    f.nextAt = now + TURN_BREATH_MS;
   }
   // WB9b: THE WAIT in a new court - his ward holds until a living challenger stands in it (or CROSS_WAIT_MAX_MS), then
   // holds his profile's ward more while the turn goes on (the signature is cast under it)
@@ -981,15 +1056,12 @@ export const reckonOpen = (f, now) => !!f.atk && f.atk.a === ATTACKS.reckon.id &
  * is a part in the fight). Answers the frames to fan: a crystal broken (`cxb`, by whom), and when it was the last, THE
  * RECKONING BROKEN - it is called off, and he is stunned STUN_MS (`stun`); the next comes RECKON_EVERY_MS after.
  */
-export function applyCrystalHit(f, sub, c, d, r, pose, now) {
+export function applyCrystalHit(f, sub, c, d, r, pose, now, seq = null) {
   const out = [];
   const p = f.players[sub], X = f.cx, q = X && Number.isInteger(c) ? X.c[c] : null;
   if (!p || f.fell || f.wrath || !q || !(q.h > 0) || !Number.isFinite(d) || !(d > 0) || now >= f.wrathAt) return out;
   if (!reckonOpen(f, now)) return out;   // AUDIT WB9 (brain F2): only while the Reckoning still winds up, and not in its last breath
-  p.rate = Math.min(GATE_HIT_HZ_MAX, p.rate + (Math.max(0, now - p.rateAt) / 1000) * GATE_HIT_HZ_MAX);
-  p.rateAt = now;
-  if (p.rate < 1) return out;
-  p.rate -= 1;
+  if (!spendBlow(p, now, seq, `x${c}`)) return out;   // his hand (AUDIT WB11 W3: once a blow)
   if (!pose || !Number.isFinite(pose.x) || !Number.isFinite(pose.z) || !onFloor(pose.x, pose.z, f.xa, now, POSE_SLACK)) return out;
   if (!inCourt(pose.x, pose.z, f.court, POSE_SLACK)) return out;   // AUDIT WB9 (brain F1): from his court, as a blow on him
   if (r === HIT_KINDS.Melee && dist(pose.x, pose.z, q.x, q.z) - CRYSTAL_R > MELEE_REACH + POSE_SLACK) return out;
@@ -1016,6 +1088,376 @@ export function applyCrystalHit(f, sub, c, d, r, pose, now) {
   return out;
 }
 
+// ── WB11b: HIS HOST - the Legion-Lord trial ─────────────────────────────
+/**
+ * WB11b (2026-10-01 - Mac, offered adds in three kinds and asked four questions: "1. All three 2. Your choice 3. Your
+ * choice 4. Trial rotation"): HIS HOST - the bodies the relay runs beside him under the Legion-Lord trial (net/gateMods.js
+ * `legion`; bible/11-Multiplayer/World-Bosses.md section 17). Section 9 left it: "No adds ... the relay could own simple
+ * ones as it owns the boss - later". Simple, as he is: each a point on an open floor, a health, a walk said once and
+ * carried by every screen, and a blow wound up and laid on the ground. By wire id:
+ *   0 the HARRIER - an Imp: in waves in the first phase, it runs at the challenger who stands farthest from him, and Bites
+ *   1 the SAPPER - an Atronach: in waves in the second phase, it walks at him; one that reaches him is drunk and heals him
+ *   2 the WARD-BEARER - a Daedra: rises in each new court as he lands there; his ward holds while one stands, and it
+ *     Pulses at whoever comes near
+ * `r` its body's radius and `h` its height (a blow's reach is measured to its body, as to his), `speed` metres a second
+ * (a player runs 7.6 - a runner always outruns them). Who each one IS by his aspect is the screen's (world/gateBoss.js
+ * HOST_LOOKS); the relay knows bodies, not faces.
+ */
+export const HOST_KINDS = Object.freeze([
+  Object.freeze({ id: 0, key: 'harrier', r: 0.5, h: 1.5, speed: 5 }),
+  Object.freeze({ id: 1, key: 'sapper', r: 0.7, h: 2.3, speed: 1.6 }),
+  Object.freeze({ id: 2, key: 'bearer', r: 0.6, h: 2.2, speed: 0 }),
+]);
+/** The kinds by name. */
+export const HOST = Object.freeze({ harrier: 0, sapper: 1, bearer: 2 });
+/**
+ * THE HOST'S BLOWS, by the kind that strikes them (a Sapper strikes nobody - null): each a disc `r` about the body that
+ * strikes it, laid where it stands at its word, wound up `windup`, landing over `active`, the body still `recover` after;
+ * a share of the struck player's own health and points beside it (WBX4's law), its element - `aspect` his aspect's (the
+ * saving throw answers it), null plain. Resolved on the struck player's machine, as his are (net/gateStrike.js
+ * hostVerdict). From the body's own feet a runner is out of either disc in a fraction of its wind-up (pinned).
+ */
+export const HOST_BLOWS = Object.freeze([
+  Object.freeze({ kind: 0, key: 'bite', name: 'Bite', windup: 900, active: 200, recover: 900, r: 2, pct: 0.12, base: 4, el: null }),
+  null,
+  Object.freeze({ kind: 2, key: 'pulse', name: 'Ward Pulse', windup: 1400, active: 200, recover: 0, r: 3.5, pct: 0.18, base: 6, el: 'aspect' }),
+]);
+/** A host blow under a fight's profile: its element his aspect's where it takes one, and Vengeful's weight on its share
+ *  and base (no other mark touches its blows - AUDIT WB11 D11: the host itself is touched through him, Colossal's body
+ *  being what a Sapper reaches and Unyielding's ward the one the bearers' gives way to). Null for a kind that strikes
+ *  nobody. Pure. */
+export function hostBlowUnder(k, P = BASE_PROFILE) {
+  const B = HOST_BLOWS[k] ?? null;
+  return B ? { ...B, el: B.el === 'aspect' ? P.el : B.el, pct: B.pct * P.dmgX, base: B.base * P.dmgX } : null;
+}
+/** The least health any of his host stands with. */
+export const HOST_HP_MIN = 20;
+/** A Harrier's health: HARRIER_S seconds of the court's MEAN reference damage - three of a challenger's own blows. */
+export const HARRIER_S = 3;
+/** A Sapper's and a Ward-Bearer's: their team seconds of the court's WHOLE reference damage, shared over the wave - the
+ *  crystals' law: a court that splits up breaks them, one that stands together round one does not. */
+export const SAPPER_TEAM_S = 6;
+export const BEARER_TEAM_S = 8;
+/** How many rise a wave for `n` living challengers in his court (the Ward-Bearers: in the fight - it follows him over),
+ *  and the most of a kind standing at once. */
+export const harrierCountFor = (n) => Math.max(2, Math.min(5, 1 + Math.ceil(Math.max(0, n) / 3)));
+export const sapperCountFor = (n) => Math.max(1, Math.min(4, 1 + Math.floor(Math.max(0, n) / 4)));
+export const bearerCountFor = (n) => Math.max(2, Math.min(4, 2 + Math.floor(Math.max(0, n) / 6)));
+export const HARRIERS_MAX = 6;
+export const SAPPERS_MAX = 6;
+/** The most of his host standing at once. The kinds never stand together - each is its phase's or its new court's, and
+ *  every one crumbles at a phase's turn - so it is the most of one kind (net/wire.js GATE_HOST_MAX bounds every list on
+ *  the wire - pinned over it). */
+export const HOST_STANDING_MAX = Math.max(HARRIERS_MAX, SAPPERS_MAX, bearerCountFor(Infinity));
+/** Each one's health for a wave over the levels `lvs` of the living challengers that size it (`k` how many rise). */
+export const harrierHpFor = (lvs) => Math.max(HOST_HP_MIN, Math.round(lvs.length ? (HARRIER_S * lvs.reduce((s, lv) => s + dpsRef(lv), 0)) / lvs.length : 0));
+export const hostTeamHpFor = (teamS, lvs, k) => Math.max(HOST_HP_MIN, Math.round((teamS * lvs.reduce((s, lv) => s + dpsRef(lv), 0)) / Math.max(1, k)));
+/** When the waves come: the Harriers' first HARRY_FIRST_MS after the fight began (16 s after he first moves - OPENING_MS),
+ *  then every HARRY_EVERY_MS while the first phase lasts; the Sappers' first SAP_FIRST_MS after the Burning Court's turn
+ *  is done, then every SAP_EVERY_MS while the second lasts. A wave due with nobody in his court waits for somebody. */
+export const HARRY_FIRST_MS = 24_000;
+export const HARRY_EVERY_MS = 28_000;
+export const SAP_FIRST_MS = 10_000;
+export const SAP_EVERY_MS = 32_000;
+/** A Harrier keeps its mark this long before it looks again (a mark who fell or left is dropped at once); it stops
+ *  HARRIER_STOP_M short of the mark's feet, and Bites within HARRIER_BITE_REACH of them. */
+export const HOST_RETARGET_MS = 3000;
+export const HARRIER_STOP_M = 1;
+export const HARRIER_BITE_REACH = 1.8;
+/** Where a wave rises: on a ring HOST_RIM_R about the court's heart (out of the fire at its rim), never within
+ *  HOST_SPAWN_CLEAR of a living challenger nor HOST_GAP_M of another of the wave. The Sappers' on the rim's far side from
+ *  him - within SAP_SPREAD radians of the point opposite him, never within SAP_FROM_HIM of him. */
+export const HOST_RIM_R = COURT_R - 2;
+export const HOST_SPAWN_CLEAR = 5;
+export const HOST_GAP_M = 2.5;
+export const SAP_SPREAD = 1.2;
+export const SAP_FROM_HIM = 12;
+/** A Sapper rises this clear of every challenger, wider than a Harrier's HOST_SPAWN_CLEAR: he leaps at whoever stands far
+ *  off, and a Sapper risen beside them was drunk the moment he landed there (the first simulated court: 2.75 s after it
+ *  rose). */
+export const SAP_SPAWN_CLEAR = 8;
+/** How long each kind takes to RISE out of the fire before it moves or strikes (by wire id) - seen rising on every screen;
+ *  a Sapper still rising is not drunk, whatever lands beside it. A blow meets each from its first moment. */
+export const HOST_RISE_MS = Object.freeze([800, 2500, 1500]);
+/** A Sapper reaches him at his body, its own and this slack; while his feedings last (SAP_FEEDS_MAX a fight) he drinks it
+ *  - SAP_HEAL of the health he stands for, never past it - and past them it burns out against him (crumbled). */
+export const SAP_REACH_SLACK = 0.6;
+export const SAP_HEAL = 0.02;
+export const SAP_FEEDS_MAX = 6;
+/** The Ward-Bearers: a ring BEARER_RING_R about the new court's heart; his ward held while one stands, BEARER_WARD_MAX_MS
+ *  at most from the first challenger's arrival; each one Pulses every BEARER_PULSE_MS while a challenger stands within
+ *  BEARER_PULSE_NEAR of it - its first BEARER_PULSE_FIRST_MS after it rose, each next one's first BEARER_PULSE_STAGGER_MS
+ *  behind the one before (AUDIT WB11 D9: their first ones staggered - said "never all at once", and two a challenger
+ *  walks up to between them Pulse together). */
+export const BEARER_RING_R = 9;
+export const BEARER_WARD_MAX_MS = 25_000;
+export const BEARER_PULSE_MS = 6000;
+export const BEARER_PULSE_FIRST_MS = 3000;
+export const BEARER_PULSE_STAGGER_MS = 900;
+export const BEARER_PULSE_NEAR = 6;
+/** How one of his host left the floor, on the wire (`adie`'s `w`): slain by a challenger, drunk by him (a Sapper), or
+ *  crumbled (a phase's turn, the bearers' cap, a Sapper past his feedings, Dagon's Wrath gathering). */
+export const HOST_GONE = Object.freeze({ slain: 0, fed: 1, crumbled: 2 });
+
+/** WB11b: a fight's host, made at its first beat under the trial: the last number given (each body's own, for the
+ *  fight - a room woken from its checkpoint goes on from it), those standing (each `{i, k, h, m, x, z, mv, atk, tg, tgAt,
+ *  up, next}` - its number, kind, health and whole, spot, walk, blow in flight, mark and when it was taken, when it has
+ *  risen, when it may strike next), when each kind's next wave comes (0 not armed), the Sappers he has drunk, the court
+ *  whose Ward-Bearers have risen (-1 none), and the health last said. */
+export const newHost = () => ({ n: 0, ads: [], harryAt: 0, sapAt: 0, fed: 0, wardCt: -1, hSent: '', hSentAt: 0 });
+/** Where one of his host stands at `now`: its walk carried on from its word (every screen carries it so - net/gateLink.js
+ *  reads this same law), else where it stands. Pure. */
+export function hostAt(a, now) {
+  const m = a?.mv;
+  if (!m || !(m.v > 0)) return [a.x, a.z];
+  const len = Math.hypot(m.tx - m.x, m.tz - m.z);
+  if (len < 1e-6) return [m.tx, m.tz];
+  const along = Math.min(len, (Math.max(0, now - m.at) / 1000) * m.v);
+  return [m.x + ((m.tx - m.x) / len) * along, m.z + ((m.tz - m.z) / len) * along];
+}
+/** Do any of his Ward-Bearers stand? */
+export const bearersStand = (f) => !!f.lg?.ads?.some((a) => a.k === HOST.bearer);
+
+/** A walk said to (gx, gz), `stop` short of it and kept to court C's floor - a new word only when its goal moved past
+ *  MOVE_RESAY_M or MOVE_RESAY_MS has passed (his own walk's law), into the beat's `moves`. */
+function walkHost(a, gx, gz, stop, now, C, moves) {
+  const K = HOST_KINDS[a.k];
+  const dx = gx - a.x, dz = gz - a.z, d = Math.hypot(dx, dz), go = Math.max(0, d - stop);
+  const [tx, tz] = keepInCourt(a.x + (d > 0 ? (dx / d) * go : 0), a.z + (d > 0 ? (dz / d) * go : 0), COURT_R - K.r, C);
+  const m = a.mv;
+  if (m && Math.hypot(m.tx - tx, m.tz - tz) < MOVE_RESAY_M && now - m.at < MOVE_RESAY_MS) return;
+  if (!m && Math.hypot(tx - a.x, tz - a.z) < 0.05) return;   // there already, and still
+  a.mv = { x: r2(a.x), z: r2(a.z), tx: r2(tx), tz: r2(tz), v: K.speed, at: now };
+  a.x = a.mv.x; a.z = a.mv.z;
+  moves.push([a.i, a.mv.x, a.mv.z, a.mv.tx, a.mv.tz, K.speed, now]);
+}
+/** A walk ended where it has come to: said once, a word of no pace. */
+function stopHost(a, now, moves) {
+  if (!a.mv) return;
+  a.mv = null;
+  a.x = r2(a.x); a.z = r2(a.z);
+  moves.push([a.i, a.x, a.z, a.x, a.z, 0, now]);
+}
+/** AUDIT WB11 B1: how finely a rim too crowded for the dice is swept for a clear spot (the ring's circumference over
+ *  this, about 2 m - under HOST_GAP_M, so no clear stretch of the rim is stepped over). */
+export const RIM_SWEEP = 72;
+/** At most `n` spots for a wave on court C's rim ring - each HOST_SPAWN_CLEAR from the living challengers `live` and
+ *  HOST_GAP_M from the wave's others (and where `ok` says), on the dice's angles: anywhere round it, or within `spread` of
+ *  `about`. AUDIT WB11 B1: a floor too crowded for the dice is SWEPT - the arc, then the whole rim - and a spot is never
+ *  taken unchecked: what no spot clears rises fewer, or none (the rest went evenly round the arc, beside whoever stood
+ *  there - four archers on the far rim had every Atronach rise inside their 8 m). */
+function rimSpots(C, n, live, rng, about = null, spread = Math.PI, ok = null) {
+  /** @type {(a: number) => [number, number]} */
+  const at = (a) => [r2(C[0] + Math.sin(a) * HOST_RIM_R), r2(C[1] + Math.cos(a) * HOST_RIM_R)];
+  const spots = [];
+  /** @param {[number, number]} p */
+  const take = ([x, z]) => {
+    if (live.some((b) => dist(b.x, b.z, x, z) < HOST_SPAWN_CLEAR) || spots.some((q) => dist(q[0], q[1], x, z) < HOST_GAP_M) || (ok && !ok(x, z))) return;
+    spots.push([x, z]);
+  };
+  for (let tries = 0; spots.length < n && tries < n * 40; tries++) take(at(about === null ? rng() * 2 * Math.PI : about + (rng() * 2 - 1) * spread));
+  const sweep = (a0, half) => { for (let k = 0; spots.length < n && k < RIM_SWEEP; k++) take(at(a0 + ((k + 0.5) / RIM_SWEEP - 0.5) * 2 * half)); };
+  if (spots.length < n && about !== null && spread < Math.PI) sweep(about, spread);
+  if (spots.length < n) sweep(about ?? 0, Math.PI);
+  return spots;
+}
+/** A wave risen: kind `k` at each spot with `m` health each, said in one word (`ad`). */
+function raiseHost(f, k, spots, m, now, out) {
+  const H = f.lg, a = [];
+  for (const [x, z] of spots) {
+    const i = ++H.n;
+    H.ads.push({ i, k, h: m, m, x, z, mv: null, atk: null, tg: null, tgAt: 0, up: now + HOST_RISE_MS[k], next: k === HOST.bearer ? now + BEARER_PULSE_FIRST_MS + a.length * BEARER_PULSE_STAGGER_MS : now });
+    a.push([i, x, z]);
+  }
+  if (!a.length) return;
+  out.push({ k: 'ad', w: k, m, a, at: now });
+  // the rising says ITS health - the risen's alone (AUDIT WB11 R2: the whole host's key here swallowed a blow on one
+  // standing before, never said until the next state)
+  H.hSent = [H.hSent, ...a.map(([i]) => `${i}:${Math.ceil(m)}`)].filter(Boolean).join(','); H.hSentAt = now;
+}
+/** Those of his host `which` picks (every one, by default) gone in one word - `w` how (HOST_GONE).
+ * @param {any} f @param {number} now @param {any[]} out @param {number} w @param {(a: any) => boolean} [which] */
+function hostGone(f, now, out, w, which = (a) => !!a) {
+  const H = f.lg;
+  if (!H?.ads?.length) return;
+  const is = [];
+  H.ads = H.ads.filter((a) => (which(a) ? (is.push(a.i), false) : true));
+  if (is.length) out.push({ k: 'adie', is, w, at: now });
+}
+/** WB11b: HIS WARD-BEARERS RISE in the court the bound lands him in - bearerCountFor(the fight's challengers in the room:
+ *  the whole court follows him over) on a ring BEARER_RING_R about its heart, evenly from the dice's turn - once a court.
+ *  AUDIT WB11 B4: the FALLEN counted too - a court wiped as he landed had two Ward-Bearers of HOST_HP_MIN, one blow each,
+ *  when it walked back in. */
+function raiseBearers(f, now, bodies, rng, out) {
+  const H = (f.lg ??= newHost());
+  if (H.wardCt === f.court) return;
+  H.wardCt = f.court;
+  const fighters = bodies.filter((b) => f.players[b.sub]);
+  const n = bearerCountFor(fighters.length), C = hisCourt(f), a0 = rng() * 2 * Math.PI, spots = [];
+  for (let k = 0; k < n; k++) { const a = a0 + (k / n) * 2 * Math.PI; spots.push([r2(C[0] + Math.sin(a) * BEARER_RING_R), r2(C[1] + Math.cos(a) * BEARER_RING_R)]); }
+  raiseHost(f, HOST.bearer, spots, hostTeamHpFor(BEARER_TEAM_S, fighters.map((b) => f.players[b.sub].lv), n), now, out);
+}
+/** A Harrier's beat: a Bite in flight runs out; its mark - the living challenger in his court standing farthest from him,
+ *  kept HOST_RETARGET_MS - Bitten within reach (it stands, and the ground about it is struck), else run at. */
+function harrierBeat(f, a, now, here, C, moves, blows) {
+  if (a.atk) { if (now < a.atk.until) return; a.atk = null; }
+  let mark = a.tg ? here.find((b) => b.sub === a.tg) ?? null : null;
+  if (!mark || now - a.tgAt >= HOST_RETARGET_MS) {
+    mark = null;
+    for (const b of here) if (!mark || dist(b.x, b.z, f.pos[0], f.pos[1]) > dist(mark.x, mark.z, f.pos[0], f.pos[1])) mark = b;
+    a.tg = mark?.sub ?? null; a.tgAt = now;
+  }
+  if (!mark) { stopHost(a, now, moves); return; }
+  if (dist(a.x, a.z, mark.x, mark.z) <= HARRIER_BITE_REACH) {
+    stopHost(a, now, moves);
+    const B = HOST_BLOWS[HOST.harrier];
+    a.atk = { at: now + B.windup, x: a.x, z: a.z, until: now + B.windup + B.active + B.recover };
+    blows.push([a.i, a.atk.at, a.x, a.z]);
+    return;
+  }
+  walkHost(a, mark.x, mark.z, HARRIER_STOP_M, now, C, moves);
+}
+/** A Sapper's beat: reaching him it is gone - drunk while his feedings last (his health after, said with it), else burnt
+ *  out against him; short of him, it walks at him. */
+function sapperBeat(f, a, now, C, moves, out, P) {
+  const H = f.lg, reach = P.bossR + HOST_KINDS[HOST.sapper].r + SAP_REACH_SLACK;
+  if (dist(a.x, a.z, f.pos[0], f.pos[1]) <= reach) {
+    H.ads = H.ads.filter((o) => o !== a);
+    if (H.fed < SAP_FEEDS_MAX && f.max > 0) {
+      H.fed++;
+      f.hp = Math.min(f.max, f.hp + SAP_HEAL * f.max);
+      const h = Math.round(f.hp), m = Math.round(f.max);
+      out.push({ k: 'adie', is: [a.i], w: HOST_GONE.fed, h, m, at: now });
+      f.lastHpSent = h; f.lastHpAt = now;   // the word says his health: no `hp` beside it this beat
+    } else out.push({ k: 'adie', is: [a.i], w: HOST_GONE.crumbled, at: now });
+    return;
+  }
+  walkHost(a, f.pos[0], f.pos[1], reach - 0.3, now, C, moves);
+}
+/** A Ward-Bearer's beat: a Pulse in flight runs out; the next due with a challenger near is begun. */
+function bearerBeat(a, now, here, blows) {
+  if (a.atk) { if (now < a.atk.until) return; a.atk = null; }
+  if (now < a.next || !here.some((b) => dist(b.x, b.z, a.x, a.z) <= BEARER_PULSE_NEAR)) return;
+  const B = HOST_BLOWS[HOST.bearer];
+  a.atk = { at: now + B.windup, x: a.x, z: a.z, until: now + B.windup + B.active + B.recover };
+  a.next = now + BEARER_PULSE_MS;
+  blows.push([a.i, a.atk.at, a.x, a.z]);
+}
+const hostHealthKey = (H) => H.ads.map((a) => `${a.i}:${Math.ceil(a.h)}`).join(',');
+/** The host's health, at most every HP_SEND_MS, when it has moved (`ah` - every one standing). */
+function hostHpFrame(f, now, out) {
+  const H = f.lg;
+  if (!H || now - (H.hSentAt ?? 0) < HP_SEND_MS) return;
+  const key = hostHealthKey(H);
+  if (key === H.hSent) return;
+  H.hSent = key; H.hSentAt = now;
+  if (H.ads.length) out.push({ k: 'ah', h: H.ads.map((a) => [a.i, Math.ceil(a.h)]) });
+}
+/**
+ * WB11b: HIS HOST'S BEAT - under the Legion-Lord alone: nothing of it runs, rolls or is said in any other fight. Each one
+ * standing carried to `now`; a wave due rises (the Harriers' in the first phase and court; the Sappers' in the second,
+ * once its turn is done and his ward is down); each Harrier at its mark and its Bite, each Sapper at him (drunk on
+ * reaching him), each Ward-Bearer's Pulse at whoever comes near; the beat's walks and blows one word each (`amv`,
+ * `aatk`), the health as it falls (`ah`). `here` the living challengers in his court.
+ */
+function stepHost(f, now, here, rng, out, P) {
+  if (!P.legion || f.fell || f.wrath) return;
+  const H = (f.lg ??= newHost());
+  const C = hisCourt(f);
+  for (const a of H.ads) if (a.mv) { const [x, z] = hostAt(a, now); a.x = x; a.z = z; }
+  const levels = () => here.map((b) => f.players[b.sub].lv);
+  if (f.phase === 1 && f.court === 0) {
+    if (!H.harryAt) H.harryAt = f.startedAt + HARRY_FIRST_MS;
+    if (now >= H.harryAt && here.length) {
+      const n = Math.min(harrierCountFor(here.length), HARRIERS_MAX - H.ads.filter((a) => a.k === HOST.harrier).length);
+      const spots = n > 0 ? rimSpots(C, n, here, rng) : [];
+      // AUDIT WB11 B1: a rim with no clear spot holds the wave a beat (it asks again), never raises it beside them
+      if (n <= 0 || spots.length) { H.harryAt = now + HARRY_EVERY_MS; if (spots.length) raiseHost(f, HOST.harrier, spots, harrierHpFor(levels()), now, out); }
+    }
+  }
+  if (f.phase === 2 && f.court === 1 && !f.pending && !f.queue.length && now >= f.shieldUntil) {
+    if (!H.sapAt) H.sapAt = now + SAP_FIRST_MS;
+    else if (now >= H.sapAt && here.length) {
+      const n = Math.min(sapperCountFor(here.length), SAPPERS_MAX - H.ads.filter((a) => a.k === HOST.sapper).length);
+      // the rim's far side from him: from where he stands through the court's heart (behind him, when he stands on it)
+      const away = dist(f.pos[0], f.pos[1], C[0], C[1]) < 1 ? f.yaw + Math.PI : Math.atan2(C[0] - f.pos[0], C[1] - f.pos[1]);
+      const clear = (x, z) => dist(x, z, f.pos[0], f.pos[1]) >= SAP_FROM_HIM && !here.some((b) => dist(b.x, b.z, x, z) < SAP_SPAWN_CLEAR);
+      const spots = n > 0 ? rimSpots(C, n, here, rng, away, SAP_SPREAD, clear) : [];
+      // AUDIT WB11 B1: held a beat on a rim with no clear spot; fewer risen share the wave's whole health
+      if (n <= 0 || spots.length) { H.sapAt = now + SAP_EVERY_MS; if (spots.length) raiseHost(f, HOST.sapper, spots, hostTeamHpFor(SAPPER_TEAM_S, levels(), spots.length), now, out); }
+    }
+  }
+  const moves = [], blows = [];
+  for (const a of [...H.ads]) {
+    if (now < (a.up ?? 0)) continue;   // still rising out of the fire
+    if (a.k === HOST.harrier) harrierBeat(f, a, now, here, C, moves, blows);
+    else if (a.k === HOST.sapper) sapperBeat(f, a, now, C, moves, out, P);
+    else bearerBeat(a, now, here, blows);
+  }
+  if (moves.length) out.push({ k: 'amv', m: moves });
+  if (blows.length) out.push({ k: 'aatk', a: blows });
+  hostHpFrame(f, now, out);
+}
+
+/** WB11b: a blow's hand - the blow rate's token spent (one hand for a blow on him, on a crystal and on his host), false
+ *  past GATE_HIT_HZ_MAX a second. AUDIT WB11 W3: ONCE A BLOW - a frame under the sequence `seq` (the wire's `q`) of the blow just charged,
+ *  within BLOW_GROUP_MS, on a body `who` it has not met, rides on it (BLOW_BODIES_MAX bodies at most); every other frame
+ *  is charged, and opens a blow of its own. */
+function spendBlow(p, now, seq = null, who = '') {
+  if (seq != null && p.bq === seq && now - (p.bqAt ?? -Infinity) <= BLOW_GROUP_MS && Array.isArray(p.bqWho) && p.bqWho.length < BLOW_BODIES_MAX && !p.bqWho.includes(who)) {
+    p.bqWho.push(who);
+    return true;
+  }
+  p.rate = Math.min(GATE_HIT_HZ_MAX, p.rate + (Math.max(0, now - p.rateAt) / 1000) * GATE_HIT_HZ_MAX);
+  p.rateAt = now;
+  if (!(p.rate >= 1)) return false;
+  p.rate -= 1;
+  p.bq = seq; p.bqAt = now; p.bqWho = [who];
+  return true;
+}
+/** WB11b: a blow's purse - `d` capped a blow (HIT_CAP_X), by the bucket and by what is `left` of the body it meets; the
+ *  clipping counted, what lands dealt. Answers what landed. */
+function spendPurse(p, d, left, now) {
+  const ref = dpsRef(p.lv);
+  p.bucket = Math.min(BUCKET_DEPTH_X * ref, p.bucket + (Math.max(0, now - p.bucketAt) / 1000) * BUCKET_RATE_X * ref);
+  p.bucketAt = now;
+  const got = Math.max(0, Math.min(d, HIT_CAP_X * ref, p.bucket, left));
+  p.bucket -= got;
+  p.clipped += d - got;
+  p.dealt += got;
+  return got;
+}
+/**
+ * WB11b: A BLOW ON ONE OF HIS HOST from `sub`, standing at `pose` ({x, z}, the court's frame), of kind `r`, claiming `d`
+ * on body `i`: judged by the hand and the purse a blow on him and on a crystal is (his blow rate and the bucket), a melee
+ * blow within MELEE_REACH of its body, from the floor and from his court; counted as dealt (a part in the fight) and
+ * apart (`hd`, the chart's share), never his threat. Answers the frames to fan: its fall (`adie`, by the striker's name) -
+ * the beat says its health.
+ */
+export function applyHostHit(f, sub, i, d, r, pose, now, seq = null) {
+  const out = [];
+  const p = f.players[sub], H = f.lg, a = H && Number.isSafeInteger(i) ? H.ads.find((o) => o.i === i) ?? null : null;
+  if (!p || f.fell || f.wrath || !a || !(a.h > 0) || !Number.isFinite(d) || !(d > 0) || now >= f.wrathAt) return out;
+  if (!spendBlow(p, now, seq, `a${i}`)) return out;
+  if (!pose || !Number.isFinite(pose.x) || !Number.isFinite(pose.z) || !onFloor(pose.x, pose.z, f.xa, now, POSE_SLACK)) return out;
+  if (!inCourt(pose.x, pose.z, f.court, POSE_SLACK)) return out;
+  const [ax, az] = hostAt(a, now);
+  if (r === HIT_KINDS.Melee && dist(pose.x, pose.z, ax, az) - HOST_KINDS[a.k].r > MELEE_REACH + POSE_SLACK) return out;
+  const got = spendPurse(p, d, a.h, now);
+  p.hd = (p.hd ?? 0) + got;
+  a.h -= got;
+  if (a.h > 1e-6) return out;
+  H.ads = H.ads.filter((o) => o !== a);
+  out.push({ k: 'adie', is: [a.i], w: HOST_GONE.slain, n: p.name, at: now });
+  return out;
+}
+/** WB11b: his host as the state says it - each one standing `[i, k, h, m, x, z, tx, tz, v, at, la, lx, lz]`: its walk
+ *  (from (x, z) at `at` toward (tx, tz) at v; v 0 standing at (x, z)) and the blow in flight (`la` when it lands - 0 none -
+ *  and the disc's centre). Pure. */
+export const hostStateOf = (H) => (H?.ads ?? []).map((a) => [a.i, a.k, Math.ceil(a.h), a.m,
+  ...(a.mv ? [a.mv.x, a.mv.z, a.mv.tx, a.mv.tz, a.mv.v, a.mv.at] : [r2(a.x), r2(a.z), r2(a.x), r2(a.z), 0, 0]),
+  ...(a.atk ? [a.atk.at, a.atk.x, a.atk.z] : [0, 0, 0])]);
+
 const r2 = (v) => Math.round(v * 100) / 100;
 /** An attack as the wire says it: its sequence, which, when it lands (the relay's clock), where he stood, his facing,
  *  its targets. */
@@ -1026,6 +1468,8 @@ function hpFrame(f, now, out) {
   const h = Math.round(f.hp);
   if (h !== f.lastHpSent && now - f.lastHpAt >= HP_SEND_MS) { f.lastHpSent = h; f.lastHpAt = now; out.push({ k: 'hp', h, m: Math.round(f.max) }); }
 }
+/** WB11b: a beat that holds - its health and its state said, nothing more done. */
+function heldBeat(f, now, out) { hpFrame(f, now, out); stateFrame(f, now, out); return out; }
 function stateFrame(f, now, out) {
   if (now - f.lastStateAt < STATE_SEND_MS) return;
   f.lastStateAt = now;
@@ -1044,5 +1488,6 @@ export function stateOf(f) {
     ct: f.court | 0, xa: (Array.isArray(f.xa) ? f.xa : []).filter(Number.isFinite),
     cx: f.cx ? { i: f.cx.i, m: f.cx.m, c: f.cx.c.map((q) => [q.x, q.z, Math.ceil(q.h)]) } : null,
     su: f.stunUntil > 0 ? f.stunUntil : 0, rk: f.rk > 0 ? f.rk : 0,
+    ...(f.lg ? { lg: hostStateOf(f.lg) } : {}),   // WB11b: his host standing - said only under the Legion-Lord
   };
 }

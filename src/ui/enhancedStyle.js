@@ -1145,6 +1145,12 @@ img.fit { image-rendering: pixelated; }   /* AUDIT UI A1: a fitted picture drawn
   font-size: 12.5px; color: var(--dim);
 }
 .card .acctglyphart { width: 15px; height: 15px; display: block; }
+/* PATREON-LINK - THE PATRON'S ROW. Link Patreon is a LINK (the account read carries it, so the press opens it at once,
+   as TERMS1's document links do), worn as an .act so it reads as the button it is; what the pledge holds is a fact
+   beside it, drawn as the glyphs' facts are - quiet, not pressable. */
+.card a.act { display: inline-flex; align-items: center; text-decoration: none; }
+.card .acctpatreon .acctwearrow { align-items: center; }
+.card .acctpatreonstate { display: inline-flex; align-items: center; font-size: 12.5px; color: var(--dim); }
 /* One rule per title and per glyph, WALKED out of the vocabulary in
    ui/playerBadge.js - so the gold on this card and the gold over a
    head are one fact, and a title added to the token gets a colour

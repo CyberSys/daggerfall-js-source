@@ -91,6 +91,11 @@ export function harvestXp(tier, rank, clean) {
   if (tier < topTierOf(rank) - 2) xp = Math.floor(xp / 4);
   return xp;
 }
+/** HERB-XP (2026-10-01 part four - Mac: "XP follows your rank"): a herb is picked at the highest tier the rank opens, as
+ *  a haul is worked (haulTier). Herbs stop at tier 3, and harvestXp quarters a tier more than two below the rank's, so
+ *  past rank 70 every herb was worth a quarter (3, 11 and 16 XP) and 70 to 100 took 107 full days. The herb's own tier
+ *  still opens it (tierOpen) and is the harvest's; the Basket's food keeps its tier. */
+export const herbXpTier = (rank) => topTierOf(rank);
 /** A writ's XP: twice its Mark value - its pay (PROF0 3.2), to the profession its material is gathered by. */
 export const writXp = (pay) => 2 * pay;
 /** The crafter's limit (PROF0 3.2): two crafts above Journeyman. The crafts come with PROF3; the tab says it now. */
@@ -218,6 +223,18 @@ export const HARVESTS_PER_ACCOUNT_DAY = 2 * HARVESTS_PER_DAY;
 export const DEEP_UNCONFIRMED_PER_DAY = 4;
 /** The Stores hold at most this many of any one material, own and bought together. */
 export const STORES_MAX = 5000;
+/** REFUSALS-LEARNED (AUDIT 2026-10-01 part four): the profession each node kind is worked under - the service's own
+ *  (server-account/src/professions.js NODE_HARVESTS), so a refusal heard for a node names its profession. */
+export const NODE_PROFESSIONS = Object.freeze({ herb: 'herbalism', vein: 'mining', boulder: 'mining', dvein: 'mining', tree: 'logging', body: 'hunting', haul: 'fishing' });
+/** STORES-ROOM (AUDIT 2026-10-01 part four): WHETHER A MATERIAL'S STORES ARE FULL AS THE SERVICE COUNTS THEM - every
+ *  origin, own, bought and gold-bought alike (professions.js cuts a yield to the room over all three). The gathering
+ *  kinds read `held` - what a station may spend, never gold's (GOLD-MARKET's wall) - so with 4,000 own and 1,000 bought
+ *  with gold the prompt said ready, the act played, the tool wore, and the service said `stores-full`. `book` the
+ *  client's (its `store`, its caps; a book that keeps no origins answers by `held`). */
+export function storesFullIn(book, material) {
+  const s = book.store?.(material) ?? { own: book.held(material) };
+  return (s.own | 0) + (s.bought | 0) + (s.gold | 0) >= (book.state?.caps?.stores ?? STORES_MAX);
+}
 /** One withdrawal to the pack, at most. */
 export const WITHDRAW_MAX = 200;
 /** Professions writes an account may make an hour (a harvest, a withdrawal, a delivery, a choice each count). */

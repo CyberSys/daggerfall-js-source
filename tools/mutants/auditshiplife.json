@@ -72,7 +72,7 @@
   {
     "name": "ASL-A4-lurk-ring-unchecked",
     "file": "src/systems/naval/shipLife.js",
-    "old": "          if (clear(e.at, q)) ring.push(q);",
+    "old": "          if (clear(at, q)) ring.push(q);",
     "new": "          ring.push(q);",
     "tests": [
       "test/auditshiplife.test.js",

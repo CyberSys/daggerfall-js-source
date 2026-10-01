@@ -161,7 +161,7 @@ test('GATE-UX 4 the chart at the kill: every fighter with a part, most dealt fir
   const relay = read('server/src/index.js');
   assert.match(relay, /this\._gateFan\(\[\{ k: 'fell', at: f\.fell\.at, top: f\.fell\.top, n: f\.fell\.n, \.\.\.\(f\.fell\.dm \? \{ dm: f\.fell\.dm \} : \{\}\) \}\]\);/);
   assert.match(relay, /_gateTellHub\(\{ d: f\.day, at: f\.fell\.at, top: f\.fell\.top, n: f\.fell\.n, rc:/, 'the hub\'s word carries no chart');
-  assert.equal(RELAY_VERSION, 'world138');   // CLIMB5 moved it on last (world138: the pose fields `cl` and `cw`, the climb and the way the body faces on it); before it KEPT-KILL moved it on (world137: the party pose field `qk`); GATE-UX's chart rides from world136
+  assert.equal(RELAY_VERSION, 'world141');   // CLIMB5 and CLIMB6 moved it on last (world141: the pose's climb - `cl`, `cw` and a move's `ck`, `cy`, `cd`); before it WB11 moved it on (world140: the Legion-Lord's host, and the chart row's `a`; GATE-HEAL's `heal` and a chart row's `hl` with it - main's HERALD and LOOT7 took world138 and world139 first); before it LOOT7 moved it on (world139: the street foe record field `cp`, a champion trait - HERALD took world138 first); before it HERALD moved it on (world138: `herald` joins the titles and glyphs a token carries, the Patreon tier between Disciple and Hierophant); before it KEPT-KILL moved it on (world137: the party pose field `qk`); GATE-UX's chart rides from world136
 });
 
 test('GATE-UX 4 the chart on the wire: each row a name and its whole numbers, most dealt first, at most GATE_CHART_MAX; names cleaned; anything malformed is no chart - and never costs the kill its word (mutants: a junk chart taken; the fall dropped with a bad chart)', () => {
@@ -263,14 +263,14 @@ test('GATE-UX 4 the chart\'s node: made once, its rows written when the chart ch
   const [title, sub, head, ...rest] = root.children;
   assert.equal(title.textContent, 'Damage Dealt');
   assert.equal(sub.textContent, `${BOSS.name} has fallen - 14 challengers`);
-  assert.deepEqual(head.children.map((c) => c.textContent), DAMAGE_CHART_TEXT.head);
+  assert.deepEqual(head.children.map((c) => c.textContent), [...DAMAGE_CHART_TEXT.head, '', ''], 'WB11c: and the host\'s cell, empty (and hidden) outside a Legion-Lord\'s court; GATE-HEAL: and the healed\'s, in a court nobody healed in');
   const rows = rest.slice(0, DAMAGE_CHART_ROWS), [gap, mine, more] = rest.slice(DAMAGE_CHART_ROWS);
   const cells = (r) => r.children.map((c, i) => (i === 1 ? c.children[0].children.map((x) => x.textContent).join('|') : c.textContent));
-  assert.deepEqual(cells(rows[0]), ['1', 'P1|Lv 10|', '14,000', '13%', '20', '900', '400', '0']);
+  assert.deepEqual(cells(rows[0]), ['1', 'P1|Lv 10|', '14,000', '13%', '20', '900', '400', '0', '', '']);
   assert.equal(rows[0].children[1].children[1].children[0].style.width, '100.0%', 'the most dealt fills its bar');
   assert.equal(rows[1].children[1].children[1].children[0].style.width, `${((13 / 14) * 100).toFixed(1)}%`);
   assert.equal(gap.style.display, '');
-  assert.deepEqual(cells(mine), ['12', 'P12|Lv 21|(you)', '3,000', '3%', '9', '889', '0', '2']);
+  assert.deepEqual(cells(mine), ['12', 'P12|Lv 21|(you)', '3,000', '3%', '9', '889', '0', '2', '', '']);
   assert.equal(mine.className, 'wb-dmg-row wb-dmg-mine');
   assert.equal(more.textContent, DAMAGE_CHART_TEXT.more(14 - DAMAGE_CHART_ROWS - 1));
   const before = rows.map((r) => r.children[2].textContent);

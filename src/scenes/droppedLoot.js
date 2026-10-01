@@ -20,6 +20,7 @@
 // The dungeon host rides piles through collectWorld/applyWorld
 // via restorePiles below (AUDIT 23).
 
+import { lootCrown } from './lootLines.js';   // LOOT11: a pile's line of light
 import { FlatAnimator, armFlatAnim } from '../render/flatAnimation.js';   // FA1 slice 3
 import { billboardSize } from '../world/rmbFlats.js';
 import { RANDOM_TREASURE_ARCHIVE, RANDOM_TREASURE_ICONS } from '../systems/loot.js';
@@ -396,5 +397,8 @@ export function createDroppedLoot({ renderer, getTexture, uploadRecordFrame, pic
   const contents = (key) => piles.find((p) => `droppedLoot:${p.id}` === key && !p.dead)?.items ?? null;
   /** DW-E5: a live, drawable-elsewhere pile (not emptied into its deactivation) - the other pass's draw list. */
   const undrawnPiles = () => piles.filter((p) => p.drawn === false && alive(p));
-  return { contents, dropPile, seedPile, removePile, restorePiles, collectPixel, takePixel, snapshotWorld, restoreWorld, batches, tickFlats, lootTargets, pileFor, activePiles, undrawnPiles, containerSeeded, snapshotScene, releaseEmptied, offsetAll, _piles: piles };
+  /** LOOT11 (the Loot arc): the piles a line of light may stand over - a dropped pile, a house's or a camp's treasure - each
+   *  its crown and its list, read live (scenes/lootLines.js picks the Rare-or-better). */
+  const lootFinds = () => piles.filter((p) => alive(p) && p.items?.length).map((p) => ({ root: lootCrown(p.pos, p.size), items: p.items }));
+  return { contents, dropPile, seedPile, removePile, restorePiles, collectPixel, takePixel, snapshotWorld, restoreWorld, batches, tickFlats, lootTargets, pileFor, activePiles, undrawnPiles, containerSeeded, snapshotScene, releaseEmptied, offsetAll, lootFinds, _piles: piles };
 }

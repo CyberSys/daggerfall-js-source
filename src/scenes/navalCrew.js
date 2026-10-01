@@ -71,7 +71,7 @@ export function createNavalCrew({ renderer, getTexture, uploadRecordFrame, rand 
   // AUDIT NAV2 F59: a crewman's frame minted no garbage (about 550 bytes of it a crewman a frame) - his unit's motion one
   // object for the host, the texture cache's key memoised on its three numbers (PERF-TOWN1's) and his record's,
   // `record#frame` (MAC4's shape), once a record and frame
-  const _motion = { moving: false };
+  const _motion = { moving: false, striking: false };
   const textureKey = createPersonTextureKeys();
   const _records = new Map();
   const recordKey = (record, frame) => { const k = record * 1024 + frame; let v = _records.get(k); if (v === undefined) { v = `${record}#${frame}`; _records.set(k, v); } return v; };
@@ -133,6 +133,7 @@ export function createNavalCrew({ renderer, getTexture, uploadRecordFrame, rand 
       ship.battle = !!w.battle;
       ship.struck = !!w.struck;   // AUDIT NAV2 F46: her colours down - no song, no talk
       ship.mine = w.mine ?? null;   // SHIP-CREW: a boat of the player's - her crew's order, spirits and lines (navalHost myCrew)
+      ship.work = Number.isFinite(w.work) ? w.work : 0;   // SHIP-WATCH: what her hurts leave her crew to mend (the sea's ships)
       // AUDIT NAV2 F40: a boarding at hand (a ship closing to board her, a struck one in my reach): her crew to the rail
       // toward it within CREW_MUSTER_M of her - the grapple's 2.2 s alone saw nobody reach it
       const at = w.boat.GameObject?.position;
@@ -166,12 +167,13 @@ export function createNavalCrew({ renderer, getTexture, uploadRecordFrame, rand 
       for (const [member, s] of ship.sprites) {
         if (!s) continue;
         if (member.gone) { drop(s); ship.sprites.set(member, null); continue; }
-        if (!s.unit || !s.batch) continue;
+        if (member.below || !s.unit || !s.batch) continue;   // SHIP-WATCH: turned in below her deck - kept, not drawn
         outOfDeck(m, member.pos, s.origin);
         // his facing, out of her frame: her node's turn of his forward
         _fw[0] = Math.sin(member.yaw); _fw[1] = 0; _fw[2] = Math.cos(member.yaw);
         _dir[0] = m[0] * _fw[0] + m[8] * _fw[2]; _dir[2] = m[2] * _fw[0] + m[10] * _fw[2];
         _motion.moving = member.moving;
+        _motion.striking = !!member.swing;   // SHIP-WATCH: a swing at his work - his class's attack
         const out = s.unit.update(dt, _motion, Math.atan2(_dir[0], _dir[2]), s.origin, eye);
         if (!renderer.textures?.has?.(textureKey(s.archive, out.record, out.frame))) uploadRecordFrame(s.archive, out.record, out.frame);
         const sz = mobileBillboardSize(s.tex, out.record);
@@ -189,7 +191,7 @@ export function createNavalCrew({ renderer, getTexture, uploadRecordFrame, rand 
   /** Every standing crewman's sprite, for the world's people pass. */
   function batches() {
     const out = [];
-    for (const ship of ships.values()) for (const s of ship.sprites.values()) if (s?.batch && s.unit) out.push(s.batch);
+    for (const ship of ships.values()) for (const [m, s] of ship.sprites) if (s?.batch && s.unit && !m.below) out.push(s.batch);   // SHIP-WATCH: none below her deck
     return out;
   }
 

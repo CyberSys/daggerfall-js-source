@@ -707,7 +707,7 @@ and silent.
   move in flight; `cw` the way the body faces on it (`climbFacing`: into the wall held, the wall a move ends on, else
   the move's own way). Both omitted off the wall, so a ground pose keeps the bytes it always had; `validPose` bounds
   and wraps them, `poseChanged` sends a hold, a move and a turn on the wall at once (compared as an angle), `lerpPose`
-  carries them whole. RELAY_VERSION world138, not yet deployed - a relay before it strips both, and the others draw a
+  carries them whole. RELAY_VERSION world141 (world138 on the branch, renumbered at the merge of main), not yet deployed - a relay before it strips both, and the others draw a
   climber as before.
 - **The others** (`net/peerClimb.js`): the Morrowind body faces the wall and takes the in-air pose the local third
   person takes there; no walk on the wall (a shimmy is hands, not strides) for the bodies, the billboards, the riders'
@@ -851,8 +851,8 @@ retail-shaped `xbase_anim_sh.nif` (Weapon Sheathing).
   (`climbRequestToRig`). The own body and every peer's body take the same law. A peer's track is rebuilt from its
   pose (`PeerClimbTrack`), and a move in flight reaches the others as `ck`/`cy`/`cd` on the wire (`climbOf`: a kind
   out of range is no move, and a lip or a time out of bounds is dropped), so their bodies climb it as the climber's does.
-  RELAY_VERSION world138, with CLIMB5's fields, is not yet deployed. PR #482 also claims world138-143 on its branch, so
-  whichever lands second renumbers.
+  RELAY_VERSION world141, with CLIMB5's fields, is not yet deployed (written as world138, renumbered at the merge of main,
+  whose HERALD, LOOT7 and WB11 took world138-140 first).
 - **Hosts**: world, exterior, worldModes and dungeon each pass `climbRigInput(player, cam.yaw)` to the weapon rig's camera
   and to the body draws (the FOUR HOSTS RULE).
 - **Pinned**: `test/climb6.test.js` (16): retail IK, convention-free, the algebra, the fit, the hang, the shimmy and its fuzz,
@@ -864,9 +864,19 @@ retail-shaped `xbase_anim_sh.nif` (Weapon Sheathing).
 - **Not yet seen in game**: the shapes were checked on the CC0 OpenMW example body in a scratch renderer, and the pins
   hold the geometry. A look on a real install, with the arms on screen, is still owed.
 
+## CLIMB-NODE (FIELD BUGS 2026-10-01) - THE FREE CLIMB HOLDS AT A NODE
+
+Found answering "minig is broken doesnt work" (`01-Overview/Field-Bugs-2026-10-01.md` part four): a vein stands at its
+rock's foot (PROF2), and the free climb's walk-in start (Forward held against a face for `freeStartSeconds`) climbed the
+rock under a player who walked into it to reach the ore - the target and the act lost. Asked, Mac: *"Hold it at
+nodes"*. While a profession's node is under the look (the gathering host's target, its prompt up) or an act plays, the
+walk-in start is held (`player/motor.js` _freeStart, `pk.hold` - `scenes/shared.js` parkourDeps' third argument, the
+world host's), and its count begins again when it lets go. A jump's grab, a mantle, the hang and the shimmy are not
+held. `test/fb1001_climbnode.test.js` (4); `tools/mutants/fb1001_climbnode.json` (6, all dead).
+
 ## Still open
 
 - **Real geometry**: `test/climbreal.test.js`'s real half ran with the freeware ARENA2 (`tools/fetch-data.sh`) during
   AUDIT CLIMB-ARC and passed. The full real-data suite has not been run end to end.
 - **CLIMB6 in game**: the climb on the Morrowind body is pinned and shaped, but not yet looked at on a real install.
-- **The relay**: world138 is not yet deployed; until it is, the others see a climber as before.
+- **The relay**: world141 is not yet deployed; until it is, the others see a climber as before.

@@ -379,6 +379,7 @@ import { createNavalFlames } from './navalFlames.js';   // NAV-B: a burning ship
 import { NavalRenderer } from '../render/navalRender.js';   // NAV-B: the smoke, the spray, the balls in flight and the aim
 import { drawNavalHud, navalTouchBrace, navalPadPrompts, drawNavalTags, drawCrewBars, CREW_BAR_RANGE, drawCrewLines, CREW_SAY_RANGE } from '../ui/navalHud.js';   // AUDIT NAV1 (#14): and the ships' tags - SHIPMATES: and the crew's bars - LIVING CREW: and their lines
 import { createNavalCrew, CREW_RANGE, CREW_KEEP } from './navalCrew.js';   // LIVING CREW: the crews on the decks near the eye
+import { asleepHour } from '../systems/naval/shipWatch.js';   // SHIP-WATCH: the crews' sleeping hours
 import { crewRoster, crewCount } from '../systems/naval/crewLife.js';
 import { createCrewAshore } from './crewAshore.js';   // CREW-COMPANIONS: the party ashore, stood in every place
 import { hullBuild } from '../systems/naval/navalShips.js';   // LIVING CREW: a room's boat's crew, her hull's own
@@ -424,7 +425,7 @@ import { preloadPrisonScreenArt, preloadCourtScreenArt } from '../ui/prisonScree
 import { TerrainGenClient } from '../world/terrainGenClient.js';   // EV7: the pixel kernel, off the main thread (samples/blend/tiles/grid/nature moved whole to terrainGen.js)
 import { getPref } from '../systems/uiPrefs.js';
 import { landViewRead } from '../world/landView.js';   // LV1: the enhanced lane's own streamed radius; FT2: the read is the module's
-import { CityLightAnimator, SUN_RIG_COLOR, INDIRECT_LIGHT_COLOR, INDIRECT_LIGHT_RANGE, exteriorAmbient, indirectLightScale, isCityLightsOn, isNight, daylightScale, parseTimeOfDay, sunDirection, sunScale, windowStyleForTime } from '../world/worldClock.js';
+import { CityLightAnimator, SUN_RIG_COLOR, INDIRECT_LIGHT_COLOR, INDIRECT_LIGHT_RANGE, exteriorAmbient, indirectLightScale, isCityLightsOn, isNight, hourOf, daylightScale, parseTimeOfDay, sunDirection, sunScale, windowStyleForTime } from '../world/worldClock.js';
 import { dungeonLocationFor } from '../world/smallerDungeons.js';   // AUDIT 28 F-B2: the quest layer sees the sized dungeon
 import { audio, QuestAudioSource, logarithmicRolloff, plainSourceGain } from '../systems/audio.js';   // E6: the QuestMachine's own DaggerfallAudioSource (PlaySound's busy-skip)
 import { music } from '../systems/music.js';
@@ -446,7 +447,7 @@ import { SOUND } from '../systems/soundClips.js';
 import { createWeaponRig, autoBuildArms, armIdentityOf, armBuiltFor, armsReady, sheetHolderOf, buildArmsFor, prebuildArmsForSave } from '../combat/weaponRig.js';   // MWA1: the arms at boot; MWA3: the identity the arm should stand for, beside the one it does; MW-EARLY: and before the world is read
 import { weaponPoseOf, applyWeaponPose, mergeWeaponPose, playerMeleeCanHit } from '../combat/playerWeapon.js';   // HARD2c: the sheath+hand pair as ONE law, and SL-2's per-field merge with the mode host's live rig
 import { ArrowFlight, playerArrowHitFoe } from '../combat/arrowFlight.js';   // C13: visible exterior arrows; AUDIT 39 (#64): and the shaft that LANDS
-import { addItem, addGoldPieces, spendAmmoFor, carriedWeight } from '../systems/inventory.js';
+import { addItem, addGoldPieces, isGoldPieces, spendAmmoFor, carriedWeight } from '../systems/inventory.js';
 import { storesIn, spendStore, mintStores } from '../systems/naval/navalStores.js';
 import { orderRows } from '../systems/naval/shipCrew.js';   // SHIP-CREW: the orders list   // SEA-REPAIR: carpenter's stores in a hold   // E4: PlayerEntity.CarriedWeight carries the gold counter's own term
 import { calculateAttackDamage } from '../combat/formulas.js';   // X2-slice: enemy-arrow impacts
@@ -474,7 +475,7 @@ import { createOnlineHomes } from '../systems/onlineHomes.js';   // HOME1: the a
 import { townBoardRows, townHomeRows } from '../ui/townMapMarks.js';   // TOWN-MARKS: the Notice Boards and the player housing on the town map
 import { setSigilOnline, setSigilRenown } from '../systems/sigil.js';   // SIGIL1: a weapon won online carries a sigil, woken by my Renown
 import { setSetsDueling, setsDueling, drinkWorn, setSetsWearer } from '../systems/sigilSets.js';   // SET2: the duel's word - sets sleep in one; SET4: the drink, whole; SET5: the wearer a tooltip reads
-import { setSetPowersVoice, setHudChips, heldPlayerBlow, remarkPlayerBlow } from '../systems/sigilSetPowers.js';   // SET3: what the sets DO - every power registered at import; its voice is this host's; SET5: its chips
+import { lootHudChips } from '../systems/lootPowers.js'; import { setSetPowersVoice, setHudChips, heldPlayerBlow, remarkPlayerBlow } from '../systems/sigilSetPowers.js'; import '../systems/lootDrought.js'; import '../systems/lootCodex.js'; import { createLootLines } from './lootLines.js';   // SET3: what the sets DO - every power registered at import; its voice is this host's; SET5: its chips; LOOT4: and lootPowers.js beside it, what a loot piece DOES (the Loot arc), every kind registered at import; LOOT8: lootDrought.js, the drought's finder and take listener, registered at import; LOOT10: lootCodex.js, the codex's take listener, round sweep and record; LOOT11: the lines of light over a find
 import { computeEntityMods } from '../systems/entityMods.js';   // SET3: the sets' stat fold, recomputed the moment they wake or sleep
 import { SPELL_CAST_SOUND } from '../systems/enemySpells.js';   // SET3: the Wrath's and Eventide's sounds are the cast sounds of their schools
 import { itemLongName } from '../systems/itemInfo.js';   // SIGIL1: the weapon's name as its tooltip reads it
@@ -788,7 +789,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // SET3: THE SETS' VOICE - a power's line on the HUD (the default), and its sound: Unbroken's the parry's ring, the
   // Wrath's a fire cast (element 0), Eventide's a magic cast (element 4 - Chameleon's own, as its bundle carries)
   setSetsWearer(() => playerEntity);   // SET5: the classic tooltip's and a plaque's set lines read my worn sets
-  setHudSetChips(setHudChips);   // SET5: the set powers' windows and recoveries, as chips after the HUD's effects
+  setHudSetChips((e) => [...setHudChips(e), ...lootHudChips(e)]);   // SET5: the set powers' windows and recoveries, as chips after the HUD's effects; LOOT5: and the Legendary powers' beside them
   setSetPowersVoice({ sound: (name) => {
     if (name === 'unbroken') audio.playOneShot(SOUND.Parry6, 1);
     else if (name === 'wrath') audio.playOneShotId(SPELL_CAST_SOUND[0], 1);
@@ -3091,7 +3092,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  streamer is behind. A horse at the shipped default limit of sixty
    *  covers ~65 units in a 10 fps frame and ~120 at the mod's ceiling of
    *  a hundred - past a 64-unit probe, off the built world, and once the
-   *  motor is airborne `airControl` is false (motor.js:3054) so zeroing
+   *  motor is airborne `airControl` is false (motor.js:2951) so zeroing
    *  the drive on the NEXT frame no longer steers: the fall is already
    *  paid for. `travelLookahead` measures the frame that is about to
    *  run instead, and keeps 64 as its floor. */
@@ -4558,7 +4559,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const shotMode = params.has('shot');
   const walkMode = params.has('play') || (!params.has('fly') && !shotMode);
   const startKey = `${startPixel.x},${startPixel.y}`;
-  const player = new PlayerMotor(collider, motorStats(playerEntity), { jumpBoost: () => jumpSpeedMultiplier(playerEntity), enhancedJumping: () => isEnhancedJumping(playerEntity), carriedWeight: () => carriedWeight(playerEntity), climbing: climbingDeps(playerEntity, (l) => townTalk?.say(l)), parkour: parkourDeps(playerEntity, (l) => townTalk?.say(l)) });   // AcrobatMotor skill jump (P14) + M3 climbing; motorStats = the LIVE entity (PlayerSpeedChanger reads LiveSpeed/Running/Swimming every step)
+  const player = new PlayerMotor(collider, motorStats(playerEntity), { jumpBoost: () => jumpSpeedMultiplier(playerEntity), enhancedJumping: () => isEnhancedJumping(playerEntity), carriedWeight: () => carriedWeight(playerEntity), climbing: climbingDeps(playerEntity, (l) => townTalk?.say(l)), parkour: parkourDeps(playerEntity, (l) => townTalk?.say(l), { hold: () => !!gatherHost && (gatherHost.acting() || !!gatherHost.target) }) });   // CLIMB-NODE: a node under the look, or an act, holds the free climb's walk-in start (the street's, the dungeon's and a building's - one motor)   // AcrobatMotor skill jump (P14) + M3 climbing; motorStats = the LIVE entity (PlayerSpeedChanger reads LiveSpeed/Running/Swimming every step)
   // AUDIT 21 (hosts lane, F3): onLevelUp. Without it advancement.js takes its
   // HEADLESS arm - `spendPoolLowest`, which dumps every point into your LOWEST
   // stats with no message and no choice. Cross a level threshold walking a
@@ -5257,6 +5258,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     }).catch((e) => console.warn('[chargen] CLASS*.CFG unavailable; the interim entity stands in', e));
   }
   const droppedLoot = createDroppedLoot({ renderer, getTexture, uploadRecordFrame });   // U8e
+  const lootLines = createLootLines(renderer.gl);   // LOOT11: the lines of light over a find, one pass for every mode
   // FindGroundPosition (CreateDroppedLootContainer): the pile lands
   // on the ground BELOW the player, not at the motor's height
   const dropFeet = () => {
@@ -6075,6 +6077,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   }
   /** CSA-K: the others' words standing them on this boat of mine (the pack's refusal; OWS2: and a landfall's pack). */
   const csaPassengersOn = (boat) => { const i = csaRuntime?.AllBoats.filter((b) => b.GameObject?.activeSelf).indexOf(boat) ?? -1; return i < 0 || !online?.id ? 0 : csaAboard.passengersOn(online.id, i); };
+  /** SerializeItems / DeserializeItems: the save's own item copy (save.js) - AUDIT WK-D11: ONE codec, the cargo's and
+   *  the companions' packs both (two identical literals stood in step only while nobody touched one). */
+  const packedItemsCodec = Object.freeze({ serialize: (items) => (items ?? []).map((it) => ({ ...it })), deserialize: (records) => (records ?? []).map((it) => setItemFields({ ...it })) });
   const csaRuntime = csaOn() ? createComeSailAwayRuntime({
     pool: csa,
     passengersAboard: csaPassengersOn,
@@ -6107,7 +6112,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     weatherType: () => WEATHER_TYPES.indexOf(currentWeather()),   // CSA-E: PlayerWeather.WeatherType (the port's eighth word, the sandstorm, is none of UpdateWind's three)
     hour: () => Math.floor(minuteNow() / 60),   // CSA-E: WorldTime.Now.Hour
     persistentDungeonBoats: () => { try { return modSetting('come-sail-away', 'Compatibility.PersistentDungeonBoats') === true; } catch { return false; } },
-    packedItems: { serialize: (items) => (items ?? []).map((it) => ({ ...it })), deserialize: (records) => (records ?? []).map((it) => setItemFields({ ...it })) },   // SerializeItems / DeserializeItems: the save's own item copy (save.js)
+    packedItems: packedItemsCodec,   // SerializeItems / DeserializeItems: the save's own item copy (save.js)
     // CSA-D: the helm's seams
     dt: () => _csaDt,
     setting: (key) => { try { return modSetting(COME_SAIL_AWAY_VENDOR, key); } catch { return undefined; } },
@@ -6262,6 +6267,20 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!inventoryDoorReady()) return;
     const w = makeInventoryWindow({ loot: cargoLootTarget(cargo) });
     if (w && !modes?.mountWindow?.(w)) (w.dispose?.bind(w) ?? w._closeSilently?.bind(w))?.();   // a slot already held: the pack built for it is put away again
+  };
+  /** COMPANION-KIT (2026-10-01, Mac: companions "act as storage"): my companion activated - his pack (the party's live
+   *  list, naval.companionPack) opened as a storage beside mine, over whatever the mode draws (a building's, a dungeon's
+   *  or the street's slot). Answers whether it opened. */
+  const openCompanionPack = (rec) => {
+    const key = rec?.companion;
+    if (!naval?.companionPack?.(key) || !inventoryDoorReady()) return false;
+    // AUDIT WK-P3: his pack read by his key at every look - a quickload under the window stands a restored party, and a
+    // list taken once kept the unloaded pack's items to be taken again (each F9/F11 a duplicate)
+    let orphan = null;
+    const w = makeInventoryWindow({ loot: { items: () => naval?.companionPack?.(key)?.items ?? (orphan ??= []), containerImage: () => CONTAINER_IMAGES.Backpack, playerOwned: true, storage: true } });
+    if (!w) return false;
+    if (!modes?.mountWindow?.(w)) { (w.dispose?.bind(w) ?? w._closeSilently?.bind(w))?.(); return false; }
+    return true;
   };
   /** A DaggerfallListPickerWindow over the top window, one row each; the pick handed back by index. Its backdrop is
    *  DaggerfallPopupWindow.Draw's: the window it was pushed over drawn, then ScreenDimColor, which is Color.clear. */
@@ -6643,6 +6662,16 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  words the Controls page shows it (AUDIT DEEP T1-12's reading, the travel view's hint); a pad's button is no key
    *  to print, so the hint names the action instead (CSA-L's helm panel, csaKeyLabel's law). */
   const navalKeyName = (action) => { const c = codeForAction(bindings(), action); return c && !/^Joystick/.test(c) ? buttonText(c, true) : null; };
+  /** TOUCH-HOLD (2026-10-01 part four - Mac: "Interact button + knife Use"): an action's key as the professions' prompts
+   *  and lines name it - with a pad in hand the pad button it is on (B, LT, Circle), as the sea's readout names its own
+   *  (AUDIT NAV1); else the key; null for none. The prompt said "[E]" to a hand holding no keyboard. */
+  const actKeyWord = (action) => {
+    const padHeld = controllerLook() ? padFamily() : null;   // the pad's family, while it is the hand on the game
+    const pad = padHeld ? getBinding(bindings(), action, false) : null;
+    if (pad && /^Joystick/.test(pad)) return hdGlyphName(padHeld, pad);
+    const c = getBinding(bindings(), action);
+    return c ? tagText(c) : null;
+  };
   /** Open water deep enough for a hull at a scene point: a water tile of a built pixel - and, where Iliac Puddle No
    *  More carved the sea, a floor at least that hull's draft under the surface (-1: the surface alone). */
   const navalIsWater = (x, z, hull = 0) => {
@@ -6863,17 +6892,22 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (handle.foe?.ai && !handle.foe.dead) handle.foe.ai.isHostile = false;
   };
   /** The hold's goods into a boat's own hold (Come Sail Away's cargo) - or with no boat, into the pack as far as it
-   *  carries (the pack's own gate, itemTransfer.js planTake). Answers what would not go. */
-  const navalGiveItems = (items, boat) => {
-    if (boat?.Cargo?.Items) { for (const it of items) addItem(boat.Cargo.Items, it); surfacePlayer(); return { left: [] }; }
+   *  carries (the pack's own gate, itemTransfer.js planTake). Answers what would not go. AUDIT WK-P5: gold pieces into
+   *  the purse (DoTransferItem's counter - a pile in the pack was gold nobody could spend), and with `force` what the
+   *  pack will not carry goes in past its gate (a companion's pack is never thrown away) - `over` how many. */
+  const navalGiveItems = (items, boat, { force = false } = {}) => {
+    if (boat?.Cargo?.Items) { for (const it of items) addItem(boat.Cargo.Items, it); surfacePlayer(); return { left: [], over: 0 }; }
     playerEntity.items = playerEntity.items || [];
     const left = [];
+    let over = 0;
     for (const it of items) {
+      if (isGoldPieces(it)) { addGoldPieces(playerEntity, it.stackCount ?? 1); continue; }
       if (planTake(it, { bag: playerEntity.items, entity: playerEntity, dryRun: true }).ok) addItem(playerEntity.items, it);
+      else if (force) { addItem(playerEntity.items, it); over++; }
       else left.push(it);
     }
     surfacePlayer();
-    return { left };
+    return { left, over };
   };
   /** The plunder window over the world, the hold's loot window between two of its presses (navalPlunderDoor.js). */
   function navalOpenPlunder(model) {
@@ -6902,6 +6936,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const navalCrew = createNavalCrew({ renderer, getTexture, uploadRecordFrame });   // LIVING CREW: the crews on the decks near the eye
   const navalRender = new NavalRenderer(renderer);
   naval = createNavalHost({
+    packedItems: packedItemsCodec,   // COMPANION-KIT: the companions' packs saved as the cargo's are - AUDIT WK-D11: the one codec
     pool: csa,
     csa: () => (navalOn() ? csaRuntime : null),
     seaY: () => tvSeaY(),
@@ -6914,7 +6949,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       dir: [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)],
     }),
     level: () => playerEntity.level ?? 1,
-    where: () => { const p = playerTravelPixel(); return { px: p.x, py: p.y, region: _questRegionIndex(), day: Math.floor(worldMinutes() / 1440), nearPort: navalNearPort(), capitals: navalCapitals(), cityLights: isCityLightsOn(minuteNow()) }; },
+    where: () => { const p = playerTravelPixel(); return { px: p.x, py: p.y, region: _questRegionIndex(), day: Math.floor(worldMinutes() / 1440), nearPort: navalNearPort(), capitals: navalCapitals(), cityLights: isCityLightsOn(minuteNow()), night: isNight(minuteNow()) }; },   // AUDIT WK-N5: the lanterns' hours and the dark's, apart
     say: (text, seconds) => townTalk.say(text, seconds),
     mid: (text, seconds) => setMidScreenText(text, seconds),
     shake: (amount) => betterAmbience.weaponKick(amount),   // FIELD-GUN6's door: a shake that is not a wound, under the player's own maxShake
@@ -7081,7 +7116,12 @@ export async function bootWorld(canvas, renderer, params, status) {
         if (key == null) { key = `crew:${++_crewKey}`; _crewKeys.set(f, key); }
         if (crewSight.blocked(player.collider, eye, key, head)) continue;
         const max = f.entity.maxHealth;
-        points.push({ x: at.x, y: at.y, share: max > 0 ? Math.max(0, f.entity.health) / max : 1, distance: d });
+        // COMPANION-KIT: a companion's bar says who he is, his health and his effects (mine live here; another player's
+        // companion is a puppet whose effects are his owner's - his name alone)
+        const mate = f.companion != null;
+        points.push({ x: at.x, y: at.y, share: max > 0 ? Math.max(0, f.entity.health) / max : 1, distance: d,
+          // AUDIT WK-U3: another player's companion, his own name as his owner's frame gives it (his class's never) and no more
+          ...(mate ? (f.puppet ? { name: f.companionName || 'Companion', fx: [] } : { name: f.entity.name || 'Companion', hp: f.entity.health, hpMax: max, fx: composePartyFx(f.entity) }) : {}) });
       }
     }
     drawCrewBars(points, { covered, scale: enhancedHudScale() });
@@ -7103,7 +7143,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   };
   /** AUDIT CC-A5: my boats always say who is away - an empty set brings the last of the party home onto her deck. */
   const NO_HANDS_AWAY = new Set();
-  const _crewCtx = { battle: false, struck: false, muster: 0, avoid: null, order: null, sings: true, line: null }, _crewMe = [0, 0, 0], _crewThem = [0, 0, 0];
+  const _crewCtx = { battle: false, struck: false, muster: 0, avoid: null, order: null, sings: true, line: null, asleep: false, work: 0, call: null, lookout: -1 }, _crewMe = [0, 0, 0], _crewThem = [0, 0, 0];
   const _crewSeed = (s) => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193); return h >>> 0; };
   /** AUDIT NAV2 F9: my boat's crew seeded as a room seeds her (comeSailAwayPeers peerKey, `${whose}:${which}` - which,
    *  her place among my word's boats: csaWord's order, the active ones) so her owner and every reader stand one crew;
@@ -7137,18 +7177,25 @@ export async function bootWorld(canvas, renderer, params, status) {
       // crew, at peace, until it does
       const word = naval?.peerBoat?.(_crewOwner(boat)) ?? null;
       const crew = Math.round(hullBuild(boat.hull).crew * (word?.crewShare ?? 1)), seed = _crewSeed(boat.peerKey ?? '');
-      list.push({ key: boat, boat, deck: csa.deckOf(boat.hull, boat.variant ?? 0), count: crewCount({ hull: boat.hull, crew }), rosterOf: () => crewRoster({ hull: boat.hull, seed, crew }), seed, faction: null, battle: !!word?.battle });
+      list.push({ key: boat, boat, deck: csa.deckOf(boat.hull, boat.variant ?? 0), count: crewCount({ hull: boat.hull, crew }), rosterOf: () => crewRoster({ hull: boat.hull, seed, crew }), seed, faction: null, battle: !!word?.battle, work: word?.work ?? 0 });   // AUDIT WK-W12: her hurts as her word says them, mended on every screen
     }
     for (const s of naval?.crewShips?.() ?? []) {
       if (!near(s.key, s.pos)) continue;
-      list.push({ key: s.key, boat: s.boat, deck: csa.deckOf(s.boat.hull, s.boat.variant ?? 0), count: crewCount({ hull: s.boat.hull, shipClass: s.shipClass, crewShare: s.crewShare }), rosterOf: () => crewRoster({ hull: s.boat.hull, seed: s.seed, shipClass: s.shipClass, crewShare: s.crewShare }), seed: s.seed, faction: s.faction, battle: s.battle, struck: s.struck, toward: s.toward, hold: s.hold });
+      list.push({ key: s.key, boat: s.boat, deck: csa.deckOf(s.boat.hull, s.boat.variant ?? 0), count: crewCount({ hull: s.boat.hull, shipClass: s.shipClass, crewShare: s.crewShare }), rosterOf: () => crewRoster({ hull: s.boat.hull, seed: s.seed, shipClass: s.shipClass, crewShare: s.crewShare }), seed: s.seed, faction: s.faction, battle: s.battle, struck: s.struck, toward: s.toward, hold: s.hold, work: s.work ?? 0 });   // SHIP-WATCH: her hurts, mended
     }
     navalCrew.sync(list);
     const grapple = b?.phase === 'grapple' ? b : null;
+    const asleep = asleepHour(hourOf(minuteNow()));   // SHIP-WATCH: every crew's night, but its watch
     navalCrew.frame(dt, eye, (key, ship) => {
       const m = ship.boat.MeshObject.worldMatrix();
       _crewCtx.battle = ship.battle; _crewCtx.struck = ship.struck; _crewCtx.muster = 0; _crewCtx.avoid = null;
       _crewCtx.order = ship.mine?.order ?? null; _crewCtx.sings = ship.mine?.sings ?? true; _crewCtx.line = ship.mine?.line ?? null;   // SHIP-CREW
+      // SHIP-WATCH: the night, her work (mine's off her hurts and her order, the sea's off hers) and my lookout's cry -
+      // said once (the host hands it over once)
+      _crewCtx.asleep = asleep; _crewCtx.work = ship.mine ? ship.mine.work ?? 0 : ship.work ?? 0;
+      _crewCtx.call = ship.mine?.call ?? null;
+      if (ship.mine) ship.mine.call = null;
+      _crewCtx.lookout = ship.mine?.lookout ?? -1;   // AUDIT WK-W10: her card's Lookout at her bow (the sea's and a peer's: none named)
       if (walkMode && playerSpawned) {   // me on her deck: never walked through
         intoDeck(m, player.pos, _crewMe);
         if (Math.abs(_crewMe[1] - (ship.deck.heightAt(_crewMe[0], _crewMe[2]) || 0)) < 2) _crewCtx.avoid = _crewMe;
@@ -7277,7 +7324,40 @@ export async function bootWorld(canvas, renderer, params, status) {
   let _companionPruneN = 0;
   /** CREW-COMPANIONS: the companion layer's frame, in every mode (the street's frame and the modal one) - and the party
    *  kept to the living hands once a second. */
+  /** COMPANION-KIT (Mac: "an integration into the party UI"): my companions as the party panel's cards - each his
+   *  name, role and effects, his health off his body where one stands here (else as the party carries it, a share of
+   *  his whole); none with the arc off. */
+  function partyCompanions() {
+    // AUDIT WK-U5: none while I sail - the party is lifted aboard (it stood its cards over the ship's plate on a phone)
+    const party = navalOn() && !csaRuntime?.isSailing?.() ? naval?.companions?.party ?? [] : [];
+    if (!party.length) return [];
+    const bodies = new Map(crewAshore.bodies().map((r) => [r.companion, r]));
+    return party.map((c) => {
+      const key = `${c.boat}:${c.name}`, rec = bodies.get(key);
+      const e = rec && !rec.dead ? rec.entity : null;
+      const hm = e?.maxHealth ?? c.maxHealth ?? 100, h = e ? e.health : c.health ?? hm;
+      return { key, name: c.name, role: c.role, h, hm, fx: e ? composePartyFx(e) : [] };
+    });
+  }
+  /** COMPANION-KIT: offline (no chat links, which draw the panel online) the party panel stands for my companions alone -
+   *  made the first time one is ashore, drawn under the HUD's own covering word. */
+  /** SOC4: THE party HUD, made in this one place - over `social` in socialStart, or (COMPANION-KIT) over none for my
+   *  companions alone offline - with my companions under its seats either way. */
+  function makePartyPanel(social) {
+    partyPanel = createPartyPanel({ social, art: { fetchBytes, palette }, here: () => _partyPose });
+    partyPanel.setCompanions(partyCompanions);   // COMPANION-KIT
+    return partyPanel;
+  }
+  function companionPanelFrame() {
+    if (chatLinks && social) return;   // AUDIT WK-U7: the social picture's panel draws them - online with no account there is none
+    if (!partyPanel) {
+      if (!partyCompanions().length) return;
+      makePartyPanel(null);
+    }
+    partyPanel.render({ covered: townTalk.hudCovered || (modes?.hudCovered ?? false) || gamePaused() });
+  }
   function crewAshoreTick() {
+    try { companionPanelFrame(); } catch (e) { console.warn('[companions] panel', e?.message ?? e); }   // COMPANION-KIT
     if (!navalOn()) { crewAshore.clear(); return; }
     if (gamePaused()) return;   // AUDIT CC-A10: no knock, no stand, no catch-up under a window
     if (++_companionPruneN >= 60) { _companionPruneN = 0; naval?.pruneCompanions?.(); }
@@ -8031,8 +8111,10 @@ export async function bootWorld(canvas, renderer, params, status) {
         view: () => ({ yaw: (cam.yaw * 180) / Math.PI, pitch: (cam.pitch * 180) / Math.PI }),
         feet: () => (walkMode ? player.pos : cam.pos),
         entity: () => playerEntity,
-        keyLabel: (a) => { const c = getBinding(bindings(), a); return c ? tagText(c) : '?'; },
-        input: () => ({ held: held(keys, 'Interact'), attack: pressed(latch.edge, keys, 'SwingWeapon'), choice: !csaRuntime?.isSailing() && pressed(latch.edge, keys, 'ActChoice') }),   // HELM-KEYS: a helm's hands are on the wheel - the up arrow there is More sail's (inputActions.js DEFAULT_SHARES)
+        keyLabel: (a) => actKeyWord(a) ?? '?',   // TOUCH-HOLD: a pad in hand, its button
+        // ACT-CLICK (FIELD BUGS 2026-10-01, "minig is broken doesnt work"): the act's strike is the swing's button OR the
+        // activation's - mid-act a click was the act's and nothing else (AUDIT 32 H5), so a player who clicked struck nothing
+        input: () => ({ held: held(keys, 'Interact'), attack: pressed(latch.edge, keys, 'SwingWeapon') || pressed(latch.edge, keys, 'ActivateCenterObject'), choice: !csaRuntime?.isSailing() && pressed(latch.edge, keys, 'ActChoice') }),   // HELM-KEYS: a helm's hands are on the wheel - the up arrow there is More sail's (inputActions.js DEFAULT_SHARES)
         active: () => walkMode && modeNow() === 'exterior' && !townTalk.overlayActive && !modes?.deathUp?.() && !modes?.transitioning && !travelView?.active,   // AUDIT 32 H10: never from under the travel view (its ray is the hidden head's - AUDIT OW5 V2's law for E)
         activeDungeon: () => walkMode && modeNow() === 'dungeon' && !modes?.dungeonCtx?.uiOverlayActive && !modes?.deathUp?.() && !modes?.transitioning,   // PROF2: a dungeon's veins
         onSettle: () => { profBook.settle(profMint, profMintCraft).catch(() => {}); },
@@ -8165,6 +8247,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     renderer, audio, getTexture, uploadRecord, uploadRecordFrame,
     allyMarks: (sp) => allyMarksNear(sp),   // AID1 onto ALLY-CAST: the party mates' bodies, for a beneficial touch, missile or blast (declared beside allyTargetPick, below) - SPELL-GIFT: the spell rides, for the strangers its list may reach
     peerBodies: () => peersNear(),   // SPELLFX1: every player's body, where a peer's drawn missile stops (declared below this engine's build)
+    companionBodies: () => crewAshore.bodies(),   // COMPANION-KIT: my companions here - my healing and buffs reach them
     // DUEL1: my duel opponent's body, for my harmful spells alone, while we fight - and the door the blow leaves by
     duelMark: () => { if (!duelMgr.fighting) return null; const b = duelBody(duelMgr.opponent); return b ? { ...b, name: peerName(b.id) ?? 'your opponent' } : null; },
     castAtDuel: (id, sp) => duelSpellOut(id, sp),
@@ -8289,10 +8372,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2756 mounts the same one, gated on
+  // and dungeonContext.js:2761 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6574
+  // that context through modes.dungeonCtx - so worldModes.js:6587
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -8387,7 +8470,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // through the one that owns the billboard - `exteriorFoePool` is
     // the watch AND the encounter foes, and this arm reached the
     // encounter pool's remover for both. That was not a leak: removeFoe
-    // (exteriorFoes.js:514-519) never looks the record up in `foes`, and
+    // (exteriorFoes.js:532-537) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
     // got exactly what removeGuard (cityGuards.js:1627-1645) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
@@ -8814,7 +8897,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       foeSinks: (f) => enchantFoeSinks(f),
       feet: () => enchantFeet(),
       standLooseFoe: _standLooseFoe,
-      bossSpell: (record) => { modes?.dungeonCtx?.spellOnBoss?.(record); },   // WARDEN-STRIKE: a Cast When Strikes spell on the Gate's Warden, by the court's own spell door (AUDIT WBX F2's, hosted)
+      bossSpell: (record, target) => { modes?.dungeonCtx?.spellOnBoss?.(record, target); },   // WARDEN-STRIKE: a Cast When Strikes spell on the Gate's Warden, by the court's own spell door (AUDIT WBX F2's, hosted; AUDIT WB11 W1: the stand-in it met with it)
       spellToOwner: (f, record, level) => enchantSpellToOwner(f, record, level),   // STRIKE-SHARED: routed by membership, below
       // V3: Azura's TEXT.RSC popup.
       // ENH-NOTICE3: through the one door, and the ROUTING CHANGES -
@@ -10875,7 +10958,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7703), so exterior mode and a
+    // composer, dungeonContext.js:7780), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -13030,7 +13113,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     // TI1: the swipe is the RMB drag - the mousemove arm above, on a
     // finger: the exterior rig here, the modal rig through worldModes
     // indoors, the M2 cast gate in front of both.
-    attack: (dx, dy, held) => {
+    attack: (dx, dy, held, o = null) => {
+      gatherHost?.strike(held, o?.repeat === true);   // ACT-TOUCH: mid-act the press is the act's strike (below it is refused for the act, street and modal); PAD-PULSE: never a held stroke's repeat
       if (!walkMode) { swipeHeld = false; return; }
       if (modeNow() === 'exterior') {
         if (yards?.flying()) { swipeHeld = false; return; }   // HOME-YARD (AUDIT): a swipe under the yard's decorator turns the eye, never swings
@@ -13051,6 +13135,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     tap: (x, y, opts = null) => {
       if (modes?.decorFlying?.() || yards?.flying()) return;   // DECOR1e: under the decorator's flight a tap is no press - the bar's Place places; HOME-YARD (AUDIT): the yard's too
       if (!ndcFromScreen(x, y, canvas.clientWidth, canvas.clientHeight, worldViewportRect(canvas.clientWidth, canvas.clientHeight))) return;
+      if (gatherHost?.acting() && !opts?.lockOnly) { gatherHost.strike(true); gatherHost.strike(false); return; }   // ACT-TOUCH: mid-act a tap is the act's strike - the click's, which ACT-CLICK made one (the activation it armed did nothing mid-act); STICK-TAP (AUDIT 2026-10-01 part four): never the stick's lock-only tap (TS1: a thumb re-placed on the stick is the lock pick and nothing below it), nor a tap off the world's view (the docked bar's strip, which the line above throws away)
       _tapPoint = [x, y]; _tapArmed = 2;   // AUDIT 62 F8: the arm IS the press - see _tapArmed at the gate below
       _tapLockOnly = !!opts?.lockOnly;   // TS1: touch.js's stick-half tap (TI1b) - the lock pick and nothing below it
     },
@@ -13528,7 +13613,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10071-10135 -
+  // worldModes answers it in BOTH modes (worldModes.js:10094-10158 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -14737,7 +14822,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     },
     // FIELD BUGS 2026-09-30b (TOOL-SAID, TOOL-USE): the professions this account's, the keys the prompt names, and a tool's Use at its own node E there
     professionsOpen: () => profBook?.state.open === true,
-    keyLabel: (a) => { const c = getBinding(bindings(), a); return c ? tagText(c) : null; },
+    keyLabel: (a) => actKeyWord(a),   // TOUCH-HOLD: a pad in hand, its button
     professionUse: (t) => gatherHost?.useTool(t) ?? false,   // the gathering host's act, or what the node needs
   });
   // WA1: the mod's reaches into GameManager and DaggerfallBankManager, answered by this host (systems/warmAshesShips.js)
@@ -15510,6 +15595,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       magic.applySpellToPlayer(spell, d.level, null, { allyCast: true, strangerCast: !mate });   // AUDIT SPELL-GIFT B6: a stranger's Cure leaves an infection be
       const healed = Math.max(0, Math.trunc(playerEntity.health - before));
       if (healed > 0 && loud) townTalk.say(`You are healed ${healed} points.`);
+      if (healed > 0) gateCourt?.healedBy?.(id, healed);   // GATE-HEAL: in a gate's court, the caster's healing (the round-up's)
       surfacePlayer();
     };
     // INSPECT1: A CARD FRAME AT ME. An ASK is answered with my card - what my own sheet shows and what I wear now
@@ -16004,7 +16090,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     // classic record this host reads, so a portrait is the same CIF the paper doll draws and nothing is loaded twice.
     // PARTY8-B: `here` is the pose partyFrame last SENT - the HUD draws a seat's place only when it is not mine,
     // and reads the composed pose rather than composing one (AUDIT SOC B18: that read is twice a second, not per frame)
-    partyPanel = createPartyPanel({ social, art: { fetchBytes, palette }, here: () => _partyPose });
+    partyPanel?.destroy?.();   // COMPANION-KIT: the offline panel my companions stood gives way to the party's
+    makePartyPanel(social);
     // SOC5 (Mac: "which should show options to add as a friend or invite to a party"): the F-menu, over the same
     // picture and the same link. Its acts leave through `socialLink()` and not the `link` captured above, because a
     // reconnect replaces the session object and a captured one would send into a closed socket for the rest of the
@@ -16595,6 +16682,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     veiled: () => !!gateVeil?.busy,   // WB9a: the marks' card waits under the step's fire (the veil is made just below - read at a frame, never at the build)
     send: (hit) => !!online?.sendGate?.({ k: 'hit', ...hit }),   // WB4b: a blow of mine on him, to the court's room
     sendCrystal: (hit) => !!online?.sendGate?.({ k: 'xhit', ...hit }),   // WB9c: a blow of mine on a crystal of Oblivion
+    sendHost: (hit) => !!online?.sendGate?.({ k: 'ahit', ...hit }),   // WB11c: a blow of mine on one of his host
+    sendHeal: (heal) => !!online?.sendGate?.({ k: 'heal', ...heal }),   // GATE-HEAL: what my mates' spells healed in me, and whose
     portalDoor: (door) => { modes?.dungeonCtx?.exitDoors?.push?.(door); },   // WBX2: its door, for the exit's ray and name - and (SS3) its press, the one way through it
     // WBX7: a soul trap of mine still on him as he fell - the port's own kill roll (EnemyEntity.AttemptSoulTrap), his soul
     // into an empty gem of my pack, its words; the tether's arm is not his (the relay has already killed him)
@@ -19531,6 +19620,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     bossTrapNow: () => gateCourt?.trapNow?.() ?? null,   // AUDIT WBX F6: my trap running on him, for a recast to stack onto
     gateCrystals: () => gateCourt?.crystalTargets() ?? null,   // WB9c: the Reckoning's crystals as bodies my blows meet
     onCrystalHit: (hit) => !!gateCourt?.crystalHit(hit),   // WB9c: a blow's number on one, out to the room
+    gateHost: () => gateCourt?.hostTargets() ?? null,   // WB11c: his host as bodies my blows meet
+    onHostHit: (hit) => !!gateCourt?.hostHit(hit),   // WB11c: a blow's number on one, out to the room
     // WB9f: HIS SPOILS ON THE FLOOR, pressed - the pool's resting pieces as targets, their words and their items for the
     // plaque, and the press that takes one into the pack (the court's dungeon arm, worldModes.js standCourt)
     spoilTargets: () => spoilsPool?.targets() ?? null,
@@ -19562,6 +19653,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     drawPeerNames: ({ proj, view, eye }) => drawPeerNames(proj, view, eye),
     drawCompanionBars: ({ proj, view, eye }) => navalCrewBars(proj, view, eye),   // CREW-COMPANIONS: my companions' green bars indoors and underground
     drawPeerBodies: ({ proj, view, eye }) => drawPeerBodies(proj, view, eye),
+    // LOOT11 (the Loot arc): the lines of light over a body or a pile holding a Rare or better, in the dungeon arm's and the
+    // interior arm's world passes - the mode's own finds, fogged as the renderer set the mode's air
+    drawLootLines: ({ proj, view, eye, finds }) => {
+      if (lootLines.draw(finds, proj, view, eye, performance.now() / 1000, { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, color: renderer._fogColor, camPos: renderer._camPos, focus: renderer._focus })) renderer.markForeignPass();
+    },
     peerLights: (o) => peerTorchLights(o),   // PEERLIGHT1: the others' torches, for the dungeon's and the interior's light lists   // MWBODY1: the others' bodies, after the player's own
     drawVeiledPeerBodies: () => drawVeiledPeerBodies(),   // INVIS-LOOK: and the concealed ones, after the opaque world
     // PEER-PLAQUE1: the plaque names another player in a building and underground too - the SAME pick and the SAME
@@ -19620,6 +19716,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     postItem: (text) => postItemInChat(text), canPostItem: () => canPostItemInChat(),   // CHAT-POST: the building's and the dungeon's packs post too
     partyNear: () => partyOnMaps(), professionMarks: (feet) => professionMarks(feet),   // DISC23-A: the party's bodies, for the dungeon's and the building's plans (AUDIT pre-merge I-E: those drawn here); NODE-MARKS: the dungeon's veins (and a body the knife may skin) on its compass, at its own feet
     allyMarks: (sp) => allyMarksNear(sp),   // AID1 onto ALLY-CAST: the dungeon's own cast engine gives to the same mates - SPELL-GIFT: and strangers, by the spell
+    companionBodies: () => crewAshore.bodies(),   // COMPANION-KIT: my companions underground, for the dungeon's own cast engine
+    openCompanionPack: (rec) => openCompanionPack(rec),   // COMPANION-KIT: a companion activated indoors or underground - his pack
     selfId: () => online?.id ?? null,
     dungeonAuthority,   // WORLD2: a dungeon built while another hosts starts as puppets
     // TTL1: the two spawned-dungeon clocks, from the mode machine's
@@ -19656,6 +19754,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     profNeed: () => gatherHost?.sayNeed() ?? false,   // VEIN-NEED: E opened nothing underground - the vein it passed on says what it needs
     profActTool: () => gatherHost?.handTool() ?? null,
     profActing: () => gatherHost?.acting() ?? false,
+    profClickTaken: (down) => gatherHost?.clickTaken(down) ?? false,   // CLICK-LIFT: the click an act took, to its release (the dungeon's ladder)
     currentRegionIndex: () => _questRegionIndex(),   // UL1: PlayerGPS.CurrentRegionIndex for the mode machine's mods
     climateIndex: () => maps.getClimateIndex(playerTravelPixel().x, playerTravelPixel().y),   // SURV5: PlayerGPS.CurrentClimateIndex, for the tavern's menu
     survivalEnv: () => survivalEnvNow(),   // SURV7: the interior ticker's and the dungeon's env; each overrides the flags it owns
@@ -19877,7 +19976,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // CSA-J (the audit): the same-dungeon load's three doors - SaveLoadManager's OnStartLoad AHEAD of the save's player
     // (:1378, before the restore at :1497: Come Sail Away's StopSailing hands a lent ship back, and after the restore it
     // took the loaded character's own), the records, and OnLoad once the load has landed (:1554 - the boats' visibility)
-    modStartLoad: () => { if (csaRuntime) csaCall(() => csaRuntime.OnStartLoad()); },
+    modStartLoad: () => { crewAshore.clear(); if (csaRuntime) csaCall(() => csaRuntime.OnStartLoad()); },   // AUDIT WK-P4: a same-dungeon load lifts the party first too, as worldQuickLoad does (AUDIT CC-A8)
     modSaveLoad: (modData) => { restoreModSaveRecords(modData, csaModLoadFailed); },   // WA1: ...and a same-dungeon load hands back
     modLoaded: () => { if (csaRuntime) csaCall(() => csaRuntime.OnLoad()); },
     // PX17c: the pause window's journal seams ride into the interior
@@ -22830,8 +22929,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // is the raw right button - DFU's own 'Mouse1' (:1010) - but
         // never read through held(), so a SwingWeapon rebind is inert.
 
+        const _activateDown = held(keys, 'ActivateCenterObject') || _tapArmed > 0;   // AUDIT 62 F8: the touch tap is the ACTION, not a synthesized 'Mouse0' - a rebind off Mouse0 must not kill the finger, and no key code can honestly stand for a mouse binding
         const _act = activateFrame((latch.activate ??= createActivateGate()), {
-          down: held(keys, 'ActivateCenterObject') || _tapArmed > 0,   // AUDIT 62 F8: the touch tap is the ACTION, not a synthesized 'Mouse0' - a rebind off Mouse0 must not kill the finger, and no key code can honestly stand for a mouse binding
+          down: _activateDown,
           hasReadySpell: magic.spellArmed(),
           touchSpell: magic.readied()?.rangeType === 1,   // rangeType 1 is ByTouch (spellcast.js:206)
           hudBlocked: activeMouseOverLargeHUD(),
@@ -22846,10 +22946,12 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         const _holdFire = (_act.activate || _act.cast || useEdge) && !!naval?.aiming && naval.holdFire();
         if (_act.cast && !_holdFire && !gatherHost?.acting()) magic.interceptAttack(true);   // the frame's firePending sends it down the live look; AUDIT 29 D2: never a readied spell mid-act (the dungeon held it off already)
         // PROF1: E at an herb patch is the patch's - an act started, or what it needs said - spent before the ladder
-        const nodeTook = useEdge && !_holdFire && !modes.transitioning && (gatherHost?.press() ?? false);   // PROF2: a patch's, a vein's or a boulder's
+        const nodeTook = useEdge && !_holdFire && !modes.transitioning && !naval?.takesActivate?.() && (gatherHost?.press() ?? false);   // PROF2: a patch's, a vein's or a boulder's; NAVAL-E (AUDIT 2026-10-01 part four): never a press the sea takes - the net's cast stood in the look while the readout said "E: board her"
         // AUDIT 32 H5: a click mid-act is the act's too (AUDIT 29 D3's law for E) - it opened the body's loot under the
-        // knife and ended the trace
-        if (((_act.activate && !gatherHost?.acting()) || (useEdge && !nodeTook)) && !modes.transitioning && !_holdFire) {
+        // knife and ended the trace. CLICK-LIFT (AUDIT 2026-10-01 part four): to its release - the click that struck the
+        // act's last blow lifts after the act has ended
+        const _actClick = gatherHost?.clickTaken(_activateDown) ?? false;
+        if (((_act.activate && !gatherHost?.acting() && !_actClick) || (useEdge && !nodeTook)) && !modes.transitioning && !_holdFire) {
           // T3b: a townsperson under the ray wins the activation (the
           // PlayerActivate nearest-hit order); G3: a guard corpse next
           // (loot pickup on the dungeon's S2 shape); doors otherwise.
@@ -22867,7 +22969,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           // TI1: a tap on a live foe is the LOCK (player/lockOn.js),
           // toggled, and the activation ends there - the ladder has no
           // arm for a living enemy but the quest one above, which ran.
-          const _lockFoe = _tapDir ? pickFoe(cam.pos, useFwd, [...exteriorFoes.foes, ...cityGuards.guards], collider, LOCK_PICK_DISTANCE) : null;
+          const _lockFoe = _tapDir ? pickFoe(cam.pos, useFwd, [...exteriorFoes.foes, ...cityGuards.guards].filter((f) => f.companion == null), collider, LOCK_PICK_DISTANCE) : null;   // COMPANION-KIT: a tap on my companion opens his pack, never a lock-on
           // AUDIT 63 F33: ActivateMobileEnemy (PlayerActivate.cs
           // :800-841) - the LIVING-foe arm the ladder never had.
           // AUDIT 63 F33 (review round): the NEAR call is decided
@@ -22889,6 +22991,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
               hud: (t) => townTalk.say(t),
               modal: (t) => townTalk.showOverlay(new ActionTextBox(String(t).split('\n'))),
               makeEnemiesHostile: _makeEnemiesHostile,
+              openCompanion: (rec) => openCompanionPack(rec),   // COMPANION-KIT: my companion's pack
               playerFeet: walkMode ? player.pos : cam.pos,
               nothingText: () => townTalk.randomText(FOUND_NOTHING_VALUABLE_TEXT_ID) || 'You found nothing valuable.',
             });
@@ -24299,6 +24402,10 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // the horns in front of the fire hide it
     if (gatePool?.stands() && gatePool.drawPass(proj, view, new Float32Array(mwv.eye), now / 1000,   // AUDIT WB C7: its arguments built only when a gate stands
       { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, color: renderer._fogColor, camPos: renderer._camPos, focus: renderer._focus })) renderer.markForeignPass();   // AUDIT DEEP R-1: the travel view's focus
+    // LOOT11 (the Loot arc): THE LINES OF LIGHT over my bodies and the street's piles holding a Rare or better - after the
+    // gate's fire, the same eye and fog (scenes/lootLines.js: the nearest eight within 40 m)
+    if (lootLines.draw(() => [...exteriorFoes.lootFinds(), ...droppedLoot.lootFinds()], proj, view, new Float32Array(mwv.eye), now / 1000,
+      { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, color: renderer._fogColor, camPos: renderer._camPos, focus: renderer._focus })) renderer.markForeignPass();
     // TV4 (bible/06-Systems/Travel-View.md): THE CURTAINS FROM ABOVE - the weather map's falling cells as veils stood in
     // the world, under the travel view alone (at the eye the sky map's own curtains stand on the horizon); the same
     // cells the clouds draw, at the shared minute (render/rainCurtains.js)

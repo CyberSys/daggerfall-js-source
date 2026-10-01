@@ -208,7 +208,7 @@ function placingRig() {
   const rt = createComeSailAwayRuntime(deps);
   const scope = {
     _tapArmed: 0, _tapPoint: null, _tapDir: null, _tapLockOnly: false, _tapClick: false, _lastProj: null, _lastView: null,
-    modes: null, yards: null, canvas: CANVAS, cam: { pos: [0, 0, 0] }, ndcFromScreen: () => [0, 0], worldViewportRect: () => null, rayDirFromScreen: () => [0, 0, 1],   // HOME-YARD (AUDIT): the hook asks the yards' flight too - none offline
+    modes: null, yards: null, gatherHost: null, canvas: CANVAS, cam: { pos: [0, 0, 0] }, ndcFromScreen: () => [0, 0], worldViewportRect: () => null, rayDirFromScreen: () => [0, 0, 1],   // HOME-YARD (AUDIT): the hook asks the yards' flight too - none offline; ACT-TOUCH: and the gathering host's act - none here
     released, latch: { edge: keyEdges() }, keys: new Set(),
   };
   const hookSrc = grab(WORLD, /\n    tap: (\(x, y, opts = null\) => \{\n[\s\S]*?\n    \}),\n/, 'the touch layer\'s tap hook');

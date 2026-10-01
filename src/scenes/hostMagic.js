@@ -51,7 +51,7 @@ import { potionBundle } from '../systems/potions.js';   // U44: DrinkPotion's bu
 import { SPELL_CAST_SOUND } from '../systems/enemySpells.js';
 import { tallySkill } from '../systems/skills.js';
 import { morphSelf } from '../systems/lycanthropy.js';   // V2a: the MorphSelf arm the ONE cast engine wires
-import { allyCastable, allyReachFor, allyCastFrame, allyCastCasterLine, allyCastCasterLineMany, ALLY_TOUCH_REACH, ALLY_ARM_RADIUS, ALLY_ARMED_LINE } from '../systems/allyCast.js';   // SPELL-GIFT: the arm near a mate, the line it says, and the area's one line
+import { allyCastable, allyReachFor, allyCastFrame, allyCastCasterLine, allyCastCasterLineMany, allyCastSpell, PERSON_RADIUS, ALLY_TOUCH_REACH, ALLY_ARM_RADIUS, ALLY_ARMED_LINE, COMPANION_ARMED_LINE, companionCastable } from '../systems/allyCast.js';   // SPELL-GIFT: the arm near a mate, the line it says, and the area's one line; AUDIT WK-M4: what my companion can use
 import { hasResurrect, RESURRECT_REACH, RESURRECT_TEXT, pickFallenBody } from '../systems/resurrect.js';   // RESURRECT1: a fallen party member's body is the target   // ALLY-CAST: a beneficial spell at the party mate under the crosshair
 import { billboardSize, centredBase } from '../world/rmbFlats.js';
 import { createMagicCandle } from './magicCandle.js';   // X11: the Light effect's candle
@@ -148,11 +148,21 @@ export function createPlayerMagic({
   castAtBoss = null,
   crystalMarks = null,
   castAtCrystal = null,
+  // WB11c: the Legion-Lord's host as marks a harmful spell meets (`hostMarks()` - each one standing, its number `i`, its
+  // name, its body), and the door a spell that met one leaves through (`castAtHost(spell, i)`)
+  hostMarks = null,
+  castAtHost = null,
   // HOME-MAGIC (2026-09-27, Discord: "Players can use magic in player non owned houses"): THE HOST'S WORD ON THE PLACE -
   // a sentence refusing any cast where the player stands (a visitor in another's online home: worldModes.js
   // visitorMagicRefusal), or null. Asked at the ready, at the click (a spell readied outside is fired inside) and by an
   // item's cast; a host that hands none casts anywhere, as ever.
   castRefusal = null,
+  // COMPANION-KIT (2026-10-01, Mac: "crew member companions need the ability to gain the players healing spells/buffs"):
+  // MY COMPANIONS' BODIES in this scene (scenes/crewAshore.js - foe records, `rec.companion`), or none. A beneficial
+  // spell (ALLY-CAST's own test, allyCastable) reaches them as it reaches a party mate - under the crosshair, by touch,
+  // in a blast, struck by a missile - but lands HERE (they are mine to simulate), as a gift: ALLY-CAST's receiver's own
+  // record (a self-cast, no save) tagged as an ally's bundle, through the foe's own sinks and never as my blow.
+  companionBodies = null,
 }) {
   const playerCaster = () => ({ entity: playerEntity, sinks: playerSinks });
   /** HOME-MAGIC: the place's refusal SAID, and the ready dropped with it (the silence gate's own shape) - true when a
@@ -192,6 +202,85 @@ export function createPlayerMagic({
     }
     return out;
   }
+  /** COMPANION-KIT: my companions as foe-shaped marks ({companion, rec, name, ai}) for a spell that may be given and is
+   *  not a free ready - ALLY-CAST's own gate; [] for anything else, or with no seam.
+   *  AUDIT WK-M4: given to HIM - a gift carrying something he can use (allyCast.js companionCastable): a Light, a Detect or
+   *  a Comprehend Languages alone is read off the player only, and armed for him it was spent on nothing.
+   *  AUDIT WK-M6: never a man KNOCKED OUT - the pools' death arm holds him at 1 and marks him (`_knockedOut`), and he
+   *  stands to the layer's next frame only to be carried aboard (crewAshore.js); a heal that frame was spent on a man
+   *  already gone. */
+  function companionMarksFor(sp, free = readiedFree) {
+    if (!companionBodies || !sp || free || !companionCastable(sp)) return [];
+    let list = null;
+    try { list = companionBodies() ?? null; } catch { return []; }
+    if (!Array.isArray(list)) return [];
+    const out = [];
+    for (const rec of list) {
+      const f = rec?.ai?.feet;
+      if (!rec || rec.dead || rec._knockedOut || !rec.entity || rec.puppet || !Array.isArray(f) || f.length !== 3 || !f.every(Number.isFinite)) continue;
+      out.push({ companion: true, rec, name: rec.entity.name || 'your companion', dead: false, ai: { feet: f, height: Number.isFinite(rec.ai.height) && rec.ai.height > 0 ? rec.ai.height : CAPSULE_HEIGHT } });
+    }
+    return out;
+  }
+  /** COMPANION-KIT: a gift landed on my companion - applied here, ALLY-CAST's receiver's record (its beneficial effects as
+   *  a self-cast: no save, the caster's level), tagged an ally's bundle (a buff on his bar and his card), through his own
+   *  sinks as no blow of mine. Answers whether anything landed.
+   *  AUDIT WK-M1: AND WITH NO CASTER, the receiver's own call (world.js online.onCast hands applySpellToPlayer `null`).
+   *  Handed me as its caster, applySpell ran the incoming spell's chain (effects.js: absorption, REFLECTION, resistance -
+   *  gated on a caster) that a gift never meets (AUDIT ALLY-CAST B6, C1): a companion wearing a Spell Reflection I gave
+   *  him bounced my next heal onto me, and a Heal + Fortify landed on both of us, mine tagged an ally's.
+   *  AUDIT WK-M4: what lands is what he can use (`companion`: the Light, Detect and Comprehend Languages stripped).
+   *  AUDIT WK-M6: and never on a man knocked out. */
+  function giveToCompanion(mark, sp, { quiet = false } = {}) {
+    const rec = mark?.rec;
+    if (!rec || rec.dead || rec._knockedOut || !rec.entity) return false;
+    const gift = allyCastSpell({ name: sp?.name, element: sp?.element, effects: sp?.effects, icon: sp?.icon }, { companion: true });
+    if (!gift) return false;
+    applySpellToFoe(gift, effectiveLevel(playerEntity), rec, null, { allyCast: true }, foeSinks(rec, false));
+    if (!quiet) say(allyCastCasterLine(sp.name, mark.name));
+    return true;
+  }
+  /** COMPANION-KIT: a blast's gift to every companion in it - one line for all of them, as SPELL-GIFT's. */
+  function giveToCompanions(marks, sp) {
+    const names = [];
+    for (const t of marks) if (giveToCompanion(t, sp, { quiet: true })) names.push(t.name);
+    const line = allyCastCasterLineMany(sp.name, names);
+    if (line) say(line);
+    return names.length;
+  }
+  /** COMPANION-KIT: the companion the crosshair is on within `reach` - the aim passing within his body's radius of his
+   *  axis, his own line of sight clear (a touch never crosses a wall); the nearest along the aim, or null. */
+  function companionInReach(eye, dir, reach, sp = readiedSpell) {
+    if (!eye || !dir || !(reach > 0)) return null;
+    const l = Math.hypot(dir[0], dir[1], dir[2]) || 1, ux = dir[0] / l, uy = dir[1] / l, uz = dir[2] / l;
+    let best = null, bestT = Infinity;
+    for (const m of companionMarksFor(sp)) {
+      const [x, y, z] = m.ai.feet;
+      const t = (x - eye[0]) * ux + (z - eye[2]) * uz;   // along the aim, on the ground's plane
+      const flat = Math.hypot(ux, uz);
+      if (!(flat > 1e-6)) continue;
+      const along = t / (flat * flat);   // the ray's own parameter at his axis
+      if (!(along > 0) || along > reach) continue;
+      const px = eye[0] + ux * along, py = eye[1] + uy * along, pz = eye[2] + uz * along;
+      if (Math.hypot(px - x, pz - z) > PERSON_RADIUS + 0.15 || py < y - 0.2 || py > y + m.ai.height + 0.2) continue;
+      if (along >= bestT) continue;
+      const hit = collider.raycast(eye, [ux, uy, uz], along);
+      if (Number.isFinite(hit) && hit < along - 1e-3) continue;
+      best = m; bestT = along;
+    }
+    return best;
+  }
+  /** COMPANION-KIT: whether a companion the spell may be given to stands within ALLY_ARM_RADIUS of the caster's eye. */
+  function companionNear(eye, sp) {
+    if (!eye) return false;
+    for (const m of companionMarksFor(sp)) {
+      const [x, y, z] = m.ai.feet;
+      const cy = Math.min(Math.max(eye[1], y), y + m.ai.height);
+      const off = Math.hypot(eye[0] - x, eye[1] - cy, eye[2] - z);
+      if (off <= ALLY_ARM_RADIUS) return true;
+    }
+    return false;
+  }
   /** DUEL1: the duel opponent as a foe-shaped mark ({duel, id, name, ai:{feet, height}}) for a spell with a harmful
    *  family in it (duelSpellOf), a free ready's included (an enchanted item's strike is a duellist's too); [] for
    *  anything else, outside a fighting duel, or with no seam. */
@@ -207,7 +296,7 @@ export function createPlayerMagic({
    *  for anything else, outside a fight, or with no seam. */
   function bossMarksFor(sp) {
     if (!bossMark || !castAtBoss || !sp || !(duelSpellOf(sp) || (sp.effects ?? []).some((e) => e && isSoulTrapEffect(e)) || spellSways(sp))) return [];   // WB8a: a Pacify or a Charm stops at him too - and is refused there
-    const crystals = crystalMarksFor(sp);   // WB9c: the Reckoning's crystals meet a harmful spell as he does (a harmful one alone)
+    const crystals = [...crystalMarksFor(sp), ...hostMarksFor(sp)];   // WB9c: the Reckoning's crystals meet a harmful spell as he does (a harmful one alone); WB11c: and his host
     let q = null;
     try { q = bossMark() ?? null; } catch { return crystals; }
     if (!q || !Array.isArray(q.feet) || q.feet.length !== 3 || !q.feet.every(Number.isFinite) || !(q.height > 0) || !(q.radius > 0)) return crystals;
@@ -223,10 +312,21 @@ export function createPlayerMagic({
     return list.filter((q) => Number.isInteger(q?.c) && Array.isArray(q.feet) && q.feet.length === 3 && q.feet.every(Number.isFinite) && q.height > 0 && q.radius > 0)
       .map((q) => ({ boss: true, crystal: q.c, name: 'Crystal of Oblivion', dead: false, ai: { feet: q.feet, height: q.height, radius: q.radius } }));
   }
+  /** WB11c: HIS HOST as foe-shaped marks for a spell with a harmful family - each its number and the boss's door (`boss`,
+   *  so a touch and a blast route them as they route him and his crystals); [] otherwise. */
+  function hostMarksFor(sp) {
+    if (!hostMarks || !castAtHost || !sp || !duelSpellOf(sp)) return [];
+    let list = null;
+    try { list = hostMarks() ?? null; } catch { return []; }
+    if (!Array.isArray(list)) return [];
+    return list.filter((q) => Number.isInteger(q?.i) && Array.isArray(q.feet) && q.feet.length === 3 && q.feet.every(Number.isFinite) && q.height > 0 && q.radius > 0)
+      .map((q) => ({ boss: true, host: q.i, name: q.name || 'Daedra', dead: false, ai: { feet: q.feet, height: q.height, radius: q.radius } }));
+  }
   /** WB4b: a spell met him: out through the court's door. Nothing lands here - the relay holds his health. WB9c: or one
-   *  of the Reckoning's crystals, by its number. */
+   *  of the Reckoning's crystals, by its number; WB11c: or one of his host, by its number. */
   function giveToBoss(mark, sp) {
     if (mark?.crystal != null) { try { return !!castAtCrystal?.(sp, mark.crystal); } catch { return false; } }
+    if (mark?.host != null) { try { return !!castAtHost?.(sp, mark.host); } catch { return false; } }
     try { return !!castAtBoss?.(sp); } catch { return false; }
   }
   /** DUEL1: a blow landed on the opponent: out through the duel's door. Nothing lands here - their client resolves it. */
@@ -479,6 +579,16 @@ export function createPlayerMagic({
    *  one law with the shaft's and the swing's (combat/friendlyFire.js). */
   const sparedFromPlayer = (t) => sparedByPlayer(t);
   const playerTargets = () => foes().filter((t) => !sparedFromPlayer(t));
+  /** AREA-CASTER (FIELD BUGS 2026-10-01; asked, Mac: "Include the caster"): AN AREA SPELL MADE ONLY OF GIFTS LANDS ON ITS
+   *  CASTER TOO - an Area Around Caster's (DFU's ignoreCaster passed them by) and an Area at Range's wherever its missile
+   *  bursts, or if it bursts nowhere - as a self-cast, never saved against (ALLY-CAST C1's law for a gift), once, at the
+   *  cast: the burst passes its caster by (explodeAt). A spell with harm in it is DFU's: its caster only where its blast
+   *  reaches them, and saved against. */
+  function giveAreaToCaster(sp) {
+    if (!allyCastable(sp)) return;
+    const r = applySpellToPlayer({ ...sp, rangeType: 0 }, effectiveLevel(playerEntity), playerCaster());
+    if (r.healed > 0) say(`You are healed ${r.healed} points.`);
+  }
   function explodeAt(pos, spell, casterLevel, playerFeet, caster = null, { excludeFoe = null, playerHeight = CAPSULE_HEIGHT, allies = false, duel = false, boss = duel } = {}) {
     // SHIPMATES: a blast of the player's own crew passes the player and the rest of the crew by (combat/friendlyFire.js)
     const crewBlast = isShipmate(caster?.foe);
@@ -492,13 +602,20 @@ export function createPlayerMagic({
     // AID1 onto ALLY-CAST: MY OWN beneficial blast reaches the party mates in it too (DoAreaOfEffect's OverlapSphere meets
     // their colliders) - `allies` is the missile's own word that it may be given (not a free ready)
     if (allies && caster?.entity === playerEntity) giveToAllies(sweepFoes(pos, EXPLOSION_RADIUS, allyMarksFor(spell, false)), spell);   // SPELL-GIFT: one line for all of them
+    if (allies && caster?.entity === playerEntity) giveToCompanions(sweepFoes(pos, EXPLOSION_RADIUS, companionMarksFor(spell, false)), spell);   // COMPANION-KIT: and my companions in it
     // DUEL1: and MY blast reaches my duel opponent standing in it (`duel`: the missile's own word it is mine)
     if (duel && caster?.entity === playerEntity) for (const t of sweepFoes(pos, EXPLOSION_RADIUS, duelMarksFor(spell))) giveToDuel(t, spell);
     // WB4b: and the court's boss, whose flank is in it (his own radius)
     if (boss && caster?.entity === playerEntity) for (const t of sweepFoes(pos, EXPLOSION_RADIUS, bossMarksFor(spell))) giveToBoss(t, spell);   // AUDIT WBX F5: `boss` - a Soul Trap is no duel spell, and it meets him too
     // ROAD-H H2: the player is a COLLIDER in DFU's OverlapSphere like every foe (DaggerfallMissile.cs:481) - its CharacterController capsule, at the LIVE height PlayerHeightChanger keeps (:54-57/:475-478). This measured ONE POINT at the STANDING half-capsule, feet + 0.9: a metre and a half wrong on a mount, half a metre wrong crouched, and short of DFU's catch by a whole body radius in every stance. AUDIT 65 CV-2: and that body is the PLAYER's 0.35 (PlayerAdvanced.prefab:82), not the foe's 0.45 - the rim is 4.35.
     if (playerFeet && !crewBlast && sphereOverlapsCapsule(pos, EXPLOSION_RADIUS, playerFeet, playerHeight, PLAYER_BODY_RADIUS)) {
-      applySpellToPlayer(spell, casterLevel, caster);
+      // AREA-SELF (FIELD BUGS 2026-10-01, Opaldes: "Big Regen Spell doesnt do anything" - Area at Range, Regenerate and
+      // Fortify): MY OWN BLAST OF GIFTS IS NEVER SAVED AGAINST BY ME - DFU save-scales every bundle that is not
+      // CasterOnly, so its caster resisted their own Regenerate round by round (two rounds in three for a Breton) and
+      // their own Fortify at the landing. AREA-CASTER: it landed on me at the cast, as a self-cast (giveAreaToCaster),
+      // so the burst passes me by. A blast that is not all gifts (allyCastable), and a foe's, are saved against as before.
+      const gift = caster?.entity === playerEntity && allyCastable(spell);
+      if (!gift) applySpellToPlayer(spell, casterLevel, caster);
     }
   }
 
@@ -530,6 +647,7 @@ export function createPlayerMagic({
   function pickTouch(eye, dir, sp = null) {
     if (!eye || !dir) return null;
     const marks = [...allyMarksFor(sp), ...duelMarksFor(sp), ...bossMarksFor(sp)];   // AID1 onto ALLY-CAST: a beneficial touch may land on a party mate - the nearest along the aim wins; DUEL1: a harmful one on my duel opponent; WB4b: or on the court's boss
+    marks.push(...companionMarksFor(sp));   // COMPANION-KIT: or on my companion
     return pickTouchTarget(eye, dir, marks.length ? [...playerTargets(), ...marks] : playerTargets(), (c, d) => {   // DISC19-F (AUDIT DISC19): my touch meets no defender
       const l = d || 1, dx = (c[0] - eye[0]) / l, dy = (c[1] - eye[1]) / l, dz = (c[2] - eye[2]) / l;
       const hit = collider.raycast(eye, [dx, dy, dz], d);
@@ -649,6 +767,15 @@ export function createPlayerMagic({
       say(allyCastCasterLine(sp.name, ally.name));
       return done(true);
     }
+    // COMPANION-KIT: ...or MY COMPANION under the crosshair - the same reach, given here
+    const mine = !readiedFree && allyReach !== null && allyCastable(sp) ? companionInReach(eye, dir, allyReach) : null;
+    if (mine) {
+      lastCastCost = cost;
+      tallyCastSkills(sp);
+      surfacePlayer();
+      giveToCompanion(mine, sp);
+      return done(true);
+    }
     if (sp.rangeType === 0) {
       // S7: CasterOnly applies to SELF (Balyna's Balm heals) - no
       // missile; AssignBundle at :2117.
@@ -675,6 +802,7 @@ export function createPlayerMagic({
       // Nothing in reach when the hands open: the spell is spent and
       // gone, exactly as DFU's touch missile that finds no entity.
       if (t?.ally) giveToAlly(t, sp);   // AID1 onto ALLY-CAST: the touch met a mate the crosshair pick did not name
+      else if (t?.companion) giveToCompanion(t, sp);   // COMPANION-KIT: the touch met my companion
       else if (t?.duel) giveToDuel(t, sp);   // DUEL1: the touch met my duel opponent
       else if (t?.boss) giveToBoss(t, sp);   // WB4b: the touch met the court's boss
       else if (t) applySpellToFoe(sp, effectiveLevel(playerEntity), t, playerCaster());
@@ -689,8 +817,10 @@ export function createPlayerMagic({
         applySpellToFoe(sp, effectiveLevel(playerEntity), t, playerCaster());
       }
       giveToAllies(sweepFoes(eye, EXPLOSION_RADIUS, allyMarksFor(sp)), sp);   // AID1 onto ALLY-CAST: the mates around me - SPELL-GIFT: one line for all of them
+      giveToCompanions(sweepFoes(eye, EXPLOSION_RADIUS, companionMarksFor(sp)), sp);   // COMPANION-KIT: and my companions
       for (const t of sweepFoes(eye, EXPLOSION_RADIUS, duelMarksFor(sp))) giveToDuel(t, sp);   // DUEL1: and my duel opponent, if they stand in it
       for (const t of sweepFoes(eye, EXPLOSION_RADIUS, bossMarksFor(sp))) giveToBoss(t, sp);   // WB4b: and the court's boss, if any of him stands in it
+      giveAreaToCaster(sp);   // AREA-CASTER: and me, when it is all gifts
       return done(true);
     }
     if (sp.rangeType !== 2 && sp.rangeType !== 4) return done(false);
@@ -698,6 +828,7 @@ export function createPlayerMagic({
     tallyCastSkills(sp);
     surfacePlayer();
     missiles.push({ spell: sp, pos: [eye[0], eye[1], eye[2]], dir: [...dir], age: 0, batch: null, fromPlayer: true, ally: !readiedFree && allyCastable(sp), duel: !!duelSpellOf(sp), boss: !!duelSpellOf(sp) || (sp.effects ?? []).some((e) => e && isSoulTrapEffect(e)) || spellSways(sp) });   // AID1 onto ALLY-CAST: may be given to a party mate it strikes (never a free ready's); DUEL1: may strike my duel opponent; AUDIT WBX F5: may meet the court's boss - a harmful spell, or a Soul Trap (at range or bursting, as by touch)
+    if (sp.rangeType === 4) giveAreaToCaster(sp);   // AREA-CASTER: an Area at Range spell of gifts lands on me too, wherever it bursts
     return done(true);
   }
 
@@ -749,7 +880,10 @@ export function createPlayerMagic({
       // rule was wrong and died at its audit).
       // ALLY-CAST: the touch probe admits a party mate in touch reach as it admits a foe - the release frame (the
       // ally arm there) is where the cast is aimed, but CastReadySpell's own gate runs first
-      if (!pickTouch(eye, dir, sp) && !(!readiedFree && allyCastable(sp) && allyInReach(eye, dir, ALLY_TOUCH_REACH))) return false;   // AID1 onto ALLY-CAST: a mate's body the touch meets is a target too
+      // AUDIT WK-M2: and MY COMPANION by the release frame's own pick (companionInReach - the aim anywhere along his
+      // height, the gate's twin of the mate's). pickTouch's sphere meets a body at its centre point alone, so a level aim
+      // at his face was refused here - nothing spent, the spell still readied - while the release would have given it him
+      if (!pickTouch(eye, dir, sp) && !(!readiedFree && allyCastable(sp) && (allyInReach(eye, dir, ALLY_TOUCH_REACH) || companionInReach(eye, dir, ALLY_TOUCH_REACH)))) return false;   // AID1 onto ALLY-CAST: a mate's body the touch meets is a target too
     }
     // :423-425 DecreaseMagicka - the spend is at the CAST, before a
     // single frame of hand motion has run.
@@ -807,11 +941,20 @@ export function createPlayerMagic({
       // the CasterOnly arm as ever if they moved. A free ready (A7) fires on the spot as DFU's does; so does one
       // with nobody there.
       if (!free && allyCastable(sp) && allyInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); return true; }
+      // COMPANION-KIT: a CasterOnly gift ARMS with my companion under the crosshair, or near - the two arms of ALLY-CAST
+      // here for a body of mine (companionMarksFor holds a free ready and a spell not his to him): the click gives it to
+      // him, or, aimed anywhere else, to me.
+      // AUDIT WK-M9: IN THE CLICK'S OWN ORDER - releaseFrame asks the mate under the crosshair first, then my companion -
+      // and both crosshair arms before either near arm. My companion's two used to stand ahead of all of ALLY-CAST's, so a
+      // ready with a mate under the crosshair and my companion near said "Aim at your companion..." and the click gave it
+      // to the mate; with a mate near as well, the near line is the mate's (ALLY_ARMED_LINE).
+      if (companionInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); return true; }
       // SPELL-GIFT (2026-09-27, Tabitha: "a LARGE amount of buffs & spells just don't work when cast on another person"):
       // ...AND WITH A MATE NEAR, not only one already under the crosshair (systems/allyCast.js ALLY_ARM_RADIUS). Readied
       // first and aimed after - the way anyone casts - the buff had gone off on the caster on the spot. Armed, the click
       // gives it to the mate under the crosshair, or, aimed anywhere else, to the caster, as CasterOnly always does.
       if (!free && allyCastable(sp) && allyNear(lastAim?.eye ?? null, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); say(ALLY_ARMED_LINE); return true; }
+      if (companionNear(lastAim?.eye ?? null, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); say(COMPANION_ARMED_LINE); return true; }
       if (!free && hasResurrect(sp)) { say(fallenInReach(lastAim?.eye ?? null, lastAim?.dir ?? null) ? PRESS_BUTTON_TO_FIRE_SPELL : RESURRECT_TEXT.aim); return true; }   // RESURRECT1: a caster-only Resurrect waits for the click, aimed at the body
       return castInput(null, null) !== false;
     }
@@ -936,10 +1079,12 @@ export function createPlayerMagic({
       // (DaggerfallMissile's SphereCast hits whatever collider is there) - an AreaAtRange one bursts, the rest are given
       // to that mate alone
       if (m.ally) {
-        const hitMate = allyMarksFor(m.spell, false).find((p) => missileHitsCapsule(m.pos, p.ai.feet, p.ai.height, PLAYER_BODY_RADIUS));
+        // COMPANION-KIT: my companion's body meets it as a mate's does
+        const hitMate = [...allyMarksFor(m.spell, false), ...companionMarksFor(m.spell, false)].find((p) => missileHitsCapsule(m.pos, p.ai.feet, p.ai.height, PLAYER_BODY_RADIUS));
         if (hitMate) {
           const at = [m.pos[0], m.pos[1], m.pos[2]];
           if (m.spell.rangeType === 4) explodeAt(at, m.spell, effectiveLevel(playerEntity), playerFeet, playerCaster(), { playerHeight, allies: true, duel: !!m.duel, boss: m.boss ?? !!m.duel });
+          else if (hitMate.companion) giveToCompanion(hitMate, m.spell);   // COMPANION-KIT
           else giveToAlly(hitMate, m.spell);
           showImpactFlash(m, at);
           retireMissile(m);

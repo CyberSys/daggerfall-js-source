@@ -345,7 +345,7 @@ test('TOOL-USE: no node of its own kind in reach - each of the five says where i
     assert.match(lineOf(FT.PickAxe), /ore vein or a boulder .* press E \(or use the Pick-Axe\)\.$/);
     assert.match(lineOf(FT.Sickle), /herb patch .* press E \(or use the Sickle\)\.$/);
     assert.match(lineOf(FT.Basket), /herb patch in the wilderness for food: .* then use the Basket \(or press Up for the Basket, then E\)\.$/);
-    assert.match(lineOf(FT.FishingNet), /in water by daylight: .* press E \(or use the Fishing-Net\)\.$/);
+    assert.match(lineOf(FT.FishingNet), /^Fishing is done in water: .* press E \(or use the Fishing-Net\)\.$/);   // PIN MOVED (ANY-HOUR): "in water by daylight" - at any hour now
     // the Wood-Axe at a patch: the patch is Herbalism's
     heard.length = 0;
     s.face(s.nodes('herb')[0]);
@@ -417,7 +417,8 @@ test('TOOL-USE keeps the lanes: offline, and online with the professions closed 
     assert.match(s.started[0] ?? '', /^GraveRobbingQuest/, 'the Spade robs the grave (FORAGE0 14.2, 14.8)');
     assert.equal(r?.text ?? null, null);
     assert.deepEqual([professionToolLine(FT.Spade), s.used], [null, 0]);
-    assert.deepEqual(Object.keys(PROFESSION_TOOL_HOW).map(Number).sort((a, b) => a - b), [...PROFESSION_TOOLS].sort((a, b) => a - b));
+    // PIN MOVED (2026-10-01 part four, TOUCH-HOLD - Mac: "Interact button + knife Use"): and the Skinning Knife's, 603
+    assert.deepEqual(Object.keys(PROFESSION_TOOL_HOW).map(Number).sort((a, b) => a - b), [...PROFESSION_TOOLS, 603].sort((a, b) => a - b));
   } finally { s.done(); }
 });
 
@@ -443,7 +444,9 @@ test('TOOL-USE: the world host hands Foraging the professions, the keys, and the
   assert.ok(at > 0);
   const host = w.slice(at, w.indexOf('\n  });', at));
   assert.match(host, /professionsOpen: \(\) => profBook\?\.state\.open === true,/);
-  assert.match(host, /keyLabel: \(a\) => \{ const c = getBinding\(bindings\(\), a\); return c \? tagText\(c\) : null; \},/);
+  // PIN MOVED (2026-10-01 part four, TOUCH-HOLD): the key as the hand holds it - a pad in hand, its button (world.js
+  // actKeyWord, pinned whole in test/fb1001_touchhold.test.js); else the key, as before
+  assert.match(host, /keyLabel: \(a\) => actKeyWord\(a\),/);
   assert.match(host, /\n {4}professionUse: \(t\) => gatherHost\?\.useTool\(t\) \?\? false,/);
 });
 
@@ -455,7 +458,8 @@ test('TOOL-USE: the Professions page says a tool\'s Use at the node is the key\'
   assert.match(GATHER_HOW.mining, /Using the Pick-Axe from your hotbar or quick slot there is the same as the key\. Used from your pack, it only points the way\.$/);
   assert.match(GATHER_HOW.logging, /Using the Wood-Axe from your hotbar or quick slot there is the same as the key\. Used from your pack, it only points the way\.$/);
   for (const k of ['herbalism', 'mining', 'logging']) assert.doesNotMatch(GATHER_HOW[k], /Foraging|earns no XP/);
-  assert.match(STORES_EMPTY_LINE, /or use the Sickle, Basket, Pick-Axe, Wood-Axe or Fishing-Net from your hotbar or quick slot there\. A tool used from your pack gathers nothing: it only points the way\.$/);
+  // PIN MOVED (2026-10-01 part four, TOUCH-HOLD): and the Skinning Knife's Use
+  assert.match(STORES_EMPTY_LINE, /or use the Sickle, Basket, Pick-Axe, Wood-Axe, Skinning Knife or Fishing-Net from your hotbar or quick slot there\. A tool used from your pack gathers nothing: it only points the way\.$/);
   const src = readFileSync(new URL('../src/ui/profPages.js', import.meta.url), 'utf8');
   assert.match(src, /if \(GATHER_HOW\[_sel\]\) pane\.append\(el\('p', 'px-note', GATHER_HOW\[_sel\]\)\);/);
   assert.match(src, /: STORES_EMPTY_LINE\)\);/);

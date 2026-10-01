@@ -28,7 +28,7 @@ Five tiers, three of which Daggerfall already had:
 | Common | a plain item | DFU's own mint, untouched |
 | Magic | one or two affixes; or one of DFU's own MAGIC.DEF items | a roll on an eligible item; or derived from any enchanted item |
 | Rare | three or four affixes, a two-part name, ONE of DFU's own catalogue enchantments | a roll |
-| Legendary | a fixed record: a name a player learns, a set affix signature, its own DFU enchantment, a line of lore | a roll, from `LEGENDARIES` (ten records over the three groups) |
+| Legendary | a fixed record: a name a player learns, a set affix signature, its own DFU enchantment, a line of lore | a roll, from `LEGENDARIES` (ten records over the three groups; thirty since LOOT3, `Loot-Arc.md`) |
 | Artifact | DFU's artifacts, untouched | DFU's own; the ceiling |
 
 REPLACE, DON'T LAYER (decided, 2026-09-14). With the switch on there is
@@ -408,3 +408,14 @@ its OFF half through a helper that was a bare `_resetForTests()`. With
 the row shipping ON, that helper stops meaning "off" - every "off is
 DFU exactly" pin in the file would have gone on testing the ON path, in
 silence, and passing. The helper presses the switch off explicitly now.
+
+## RARITY-WEAR (FIELD BUGS 2026-10-01) - NO SLOT, NO TIER
+
+Cruor's King's Mark came out a Wand and could not be worn (`01-Overview/Field-Bugs-2026-10-01.md` part four #4). A
+Legendary record names the piece a maker minted and never picks the base; the Gate's spoils and a town's thanks drew a
+jewel over all eight Jewellery templates (`systems/gateSpoils.js` spoilsBase), and the eighth, the Wand, has no slot
+(GetJewelleryEquipSlot's None). Every affix and a Held enchantment read worn pieces alone, so one jewel in eight was a
+tier read by nothing. Now `systems/equip.js` wearableItem (GetEquipSlot on an empty table) is the one law: the ladder
+grades no piece it refuses (`rarityEligible`), the spoils' base is made again on one, and a save's rolled wands load as
+the Amulet - the same weight and condition (`repairRarityBases`, `RARITY_HOME`). The Jewellery records still name no
+templates: a King's Mark lands on any wearable jewel. `test/fb1001_wand.test.js`.

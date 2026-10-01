@@ -168,14 +168,22 @@ export function hasDamagedAttributes(entity) {
 /** CureAllAttributes (:1548-1557) - ConfirmStatReset's Yes branch.
  *  DFU calls CureAttributeDamage on every live effect, which zeroes
  *  that effect's statMods without ending the effect. The port's
- *  equivalent is to drop the attribute contribution and leave the
- *  entry: a drain becomes magnitude 0, a disease's negative columns
- *  clear. Returns the number of contributions cured. */
+ *  equivalent is to drop the attribute contribution: a drain becomes
+ *  magnitude 0, a disease's negative columns clear. Returns the number
+ *  of contributions cured.
+ *  CURE-ENDS (AUDIT 2026-10-01 part four): A CURED DRAIN ENDS, as a
+ *  healed-out one does (effects.js healAttributeDamage) - left, the
+ *  spell's bundle kept it on the HUD as a debuff that did nothing,
+ *  blinking as expiring and never ending (only a Dispel took it), on
+ *  the party's cards and in the dispel list, through every save: after
+ *  this stat reset, and after a vampire's or a werewolf's turn
+ *  (lycanthropy.js endOldLifeEffects). The disease keeps its own end. */
 export function cureAllAttributes(entity) {
   let n = 0;
   for (const a of entity?.activeEffects ?? []) {
     if (a.kind === 'drainAttribute' || a.kind === 'transferAttribute') {
       if ((a.magnitude ?? 0) > 0) { a.magnitude = 0; n++; }
+      a.ended = true;
       continue;
     }
     if (a.kind === 'disease' || a.kind === 'poison') {

@@ -17,7 +17,7 @@ import { EMPIRE_BANK_OF } from '../world/buildingNames.js';
 import { portWindow, centreOf } from './enhancedPort.js';
 import { itemIconUrl, itemName, spellIconUrl, paintFrame } from './enhancedArt.js';
 import { serviceLabel } from '../systems/guildServiceFlow.js';
-import { GUILD_RECTS, PANEL_X as GUILD_X, PANEL_Y as GUILD_Y } from './guildServiceWindow.js';
+import { GUILD_RECTS, PANEL_X as GUILD_X, PANEL_Y as GUILD_Y, REFORGE_ROW } from './guildServiceWindow.js';
 import { COVEN_RECTS, COVEN_PANEL_X, COVEN_PANEL_Y } from './covenWindow.js';
 import { BANK_RECTS, BANK_PANEL_X, BANK_PANEL_Y, MARKS_ENTRY } from './bankWindow.js';
 import { MARKS_BANK, marksText } from '../net/marksLaw.js';   // MARKS1: the Bank's Marks, online
@@ -53,6 +53,7 @@ const guild = {
         ...(member ? [] : [{ label: 'Join guild', act: press(GUILD_RECTS.join), primary: true }]),
         { label: 'Talk', act: press(GUILD_RECTS.talk) },
         { label: serviceLabel(w.hooks.service?.()) || 'Service', act: press(GUILD_RECTS.service), primary: member },
+        ...(w.hooks.reforge ? [{ label: REFORGE_ROW, act: () => w._reforge() }] : []),   // LOOT9: the Mages Guild's Reforge, beside its Identify
       ] }],
       foot: [{ label: 'Exit', act: press(GUILD_RECTS.exit) }],
     };
