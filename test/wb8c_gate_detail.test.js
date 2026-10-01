@@ -240,7 +240,7 @@ test('WB8c the ground drawn and the bar: the telegraph shows Colossal\'s slam at
 // ═══ THE WORD BEFORE THE GATE ════════════════════════════════════════════════════════════════════════════════════
 
 test('WB8c tonight\'s marks before the gate opens: the chat\'s line (his aspect\'s omen, each trial by name and in words), the map\'s card while he stands (his epithet and his trials), the Discord omen in the tables\' words alone (mutants: the card without them; a trial unsaid)', () => {
-  const day = 3;
+  const day = 112;   // WB11a: the nine-trial rotation moved the Rime-Wrought, Colossal and Unyielding from day 3 to day 112
   assert.deepEqual(gateModsOf(day), ['rime', 'colossal', 'unyielding']);
   assert.equal(marksLine({ boss: 'Valkynaz Ruhn', md: gateModsOf(day) }),
     'Valkynaz Ruhn comes the Rime-Wrought tonight. His fire burns cold - frost, not flame. Colossal: larger and harder to fell; his Ground Slam reaches further. Unyielding: his ward holds twice as long, and every blow on him lands 15% lighter.');

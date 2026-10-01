@@ -434,13 +434,16 @@ test('AUDIT 62 F16/F28: the world hosts publish the lock doors and worldModes ar
     assert.ok(!/modeNow\(\) === 'exterior'[^\n]*lockOn\.tick/.test(s), `${h}: the tick must not be gated on the mode`);
   }
   const wm = read('src/scenes/worldModes.js');
-  assert.match(wm, /if \(host\.activateDir\?\.\(\) && interiorCtx\) \{\s*\n\s*const f = pickFoe\(eye, dir, interiorFoePool\(\), interiorCtx\.collider, LOCK_PICK_DISTANCE\);\s*\n\s*if \(f\) \{ host\.lockToggle\?\.\(f\); return true; \}/,
+  // PIN MOVED (AUDIT WATCH-KIT WK-P2, 2026-10-01): each arm's pool passes my companion by (`.filter((f) => f.companion ==
+  // null)`, the street's law - test/auditwatchkit_ui.test.js runs both arms); re-aimed by content, the arms' own pool
+  // and collider as before
+  assert.match(wm, /if \(host\.activateDir\?\.\(\) && interiorCtx\) \{\s*\n\s*const f = pickFoe\(eye, dir, interiorFoePool\(\)\.filter\(\(f\) => f\.companion == null\), interiorCtx\.collider, LOCK_PICK_DISTANCE\);[^\n]*\n\s*if \(f\) \{ host\.lockToggle\?\.\(f\); return true; \}/,
     'the interior ladder locks on a finger tap, over its OWN pool and collider');
-  assert.match(wm, /if \(host\.activateDir\?\.\(\) && dungeonCtx\) \{\s*\n\s*const f = pickFoe\(eye, dir, dungeonCtx\.foes, dungeonCtx\.collider, LOCK_PICK_DISTANCE\);\s*\n\s*if \(f\) \{ host\.lockToggle\?\.\(f\); return true; \}/,
+  assert.match(wm, /if \(host\.activateDir\?\.\(\) && dungeonCtx\) \{\s*\n\s*const f = pickFoe\(eye, dir, dungeonCtx\.foes\.filter\(\(f\) => f\.companion == null\), dungeonCtx\.collider, LOCK_PICK_DISTANCE\);[^\n]*\n\s*if \(f\) \{ host\.lockToggle\?\.\(f\); return true; \}/,
     'and so does the world-hosted dungeon - the ladder the classic start runs through');
   // the arm sits AFTER the quest click, whose fall-through must survive
-  for (const [arm, quest] of [[wm.indexOf('interiorFoePool(), interiorCtx.collider, LOCK_PICK_DISTANCE'), wm.indexOf('pickQuestFoe(eye, dir, interiorFoePool()')],
-    [wm.indexOf('dungeonCtx.foes, dungeonCtx.collider, LOCK_PICK_DISTANCE'), wm.indexOf('pickQuestFoe(eye, dir, dungeonCtx.foes')]]) {
+  for (const [arm, quest] of [[wm.indexOf('interiorFoePool().filter((f) => f.companion == null), interiorCtx.collider, LOCK_PICK_DISTANCE'), wm.indexOf('pickQuestFoe(eye, dir, interiorFoePool()')],
+    [wm.indexOf('dungeonCtx.foes.filter((f) => f.companion == null), dungeonCtx.collider, LOCK_PICK_DISTANCE'), wm.indexOf('pickQuestFoe(eye, dir, dungeonCtx.foes')]]) {
     assert.ok(quest > 0 && arm > quest, 'QG1\'s non-consuming quest arm still runs first');
   }
   assert.match(wm, /host\.reportFrame\?\.\(proj, view\);/, 'the modal frame reports its camera, so the tap ray and the dot stop riding the last street frame');

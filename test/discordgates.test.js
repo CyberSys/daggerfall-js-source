@@ -46,8 +46,8 @@ test('DISCORD-GATES law: THE OMEN\'S POST - the role pinged first and the ONLY m
   const p = omenPost({ day: DAY, place: 'Copperham, Wrothgarian Mountains', role: ROLE });
   assert.ok(p.content.startsWith(`<@&${ROLE}> `), 'the role, first');
   assert.deepEqual(p.allowed_mentions, { roles: [ROLE] }, 'that role and nothing else - no @everyone, no user, whatever the text holds');
-  assert.equal(p.content, `<@&${ROLE}> **The sky burns near Copperham, Wrothgarian Mountains.** An Oblivion Gate opens <t:${s(TT.openAt)}:R> (<t:${s(TT.openAt)}:t>) and seals at <t:${s(TT.sealAt)}:t>. ${gateBossOf(DAY).name}, ${gateBossOf(DAY).title}, holds it. Tonight he comes **the Burning**, Soul-Hungry and Echoing.`);
-  assert.deepEqual(gateModsOf(DAY), ['burning', 'soulhungry', 'echoing'], 'WB8c: the day\'s own marks, in the tables\' words - never a player\'s');
+  assert.equal(p.content, `<@&${ROLE}> **The sky burns near Copperham, Wrothgarian Mountains.** An Oblivion Gate opens <t:${s(TT.openAt)}:R> (<t:${s(TT.openAt)}:t>) and seals at <t:${s(TT.sealAt)}:t>. ${gateBossOf(DAY).name}, ${gateBossOf(DAY).title}, holds it. Tonight he comes **the Storm-Crowned**, Unyielding and Soul-Hungry.`);   // WB11a: the nine-trial rotation moved the day's marks (it was the Burning, Soul-Hungry and Echoing)
+  assert.deepEqual(gateModsOf(DAY), ['storm', 'unyielding', 'soulhungry'], 'WB8c: the day\'s own marks, in the tables\' words - never a player\'s');
   assert.equal(TT.openAt - TT.omenAt, 15 * 60_000, 'Mac\'s "15 min before": the omen is the gate\'s own, fifteen real minutes before it opens');
   const q = omenPost({ day: DAY });
   assert.deepEqual(q.allowed_mentions, { parse: [] }, 'no role: nobody pinged');

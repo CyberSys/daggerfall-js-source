@@ -30,7 +30,7 @@ Houseguest", is the other tiger in the pack: a house, and a kill.)
 `scenes/world.js` questShareSeam):
 
 - The quest's own mount stands it on its player's machine alone (`systems/quest/sceneMount.js:118` - only while
-  `killCount < spawnCount`), past the layout's run (`dungeonContext.js:1442` spawnQuestFoe). The room's stream carries
+  `killCount < spawnCount`), past the layout's run (`dungeonContext.js:1443` spawnQuestFoe). The room's stream carries
   the layout alone (`foesFrame`), and a peer's blow past the run is refused (`applyHit`, `i >= _layoutFoes`).
 - Shared with the party (QUEST-PARTY), it rides the room's own lane to the party alone, stood as a puppet for a LINKED
   copy only (DISC28-J's `accepts`), struck only by the party, hunting only the party (`isPrivateQuestFoe`,
@@ -1038,8 +1038,8 @@ Foraging's food search, not a herb.
 
 **The service's version.** HERB-XP is the account service's law, and so was ANY-HOUR - which shipped in part four's
 first audit commit without moving `ACCOUNT_VERSION` (its law says every change to the Worker's moves it, or a deploy
-that did not happen looks like one that did). Both ride **acct45** (`server-account/src/service.js`, `wrangler.toml`);
-no migration, no route changed.
+that did not happen looks like one that did). Both ride **acct46** (`server-account/src/service.js`, `wrangler.toml` -
+acct45 on this branch, renumbered past main's PATREON-LINK at the merge); no migration, no route changed.
 
 Pins: `test/fb1001_touchhold.test.js` (7), `test/fb1001_herbxp.test.js` (3); mutants
 `tools/mutants/fb1001_touchhold.json` (21), `fb1001_herbxp.json` (6) - all dead. PIN MOVED, each by content: `prof1_service`
@@ -1047,6 +1047,6 @@ Pins: `test/fb1001_touchhold.test.js` (7), `test/fb1001_herbxp.test.js` (3); mut
 `padplus1` PADPLUS3 (right's tap on its release), `touchbuttons` (the law; the default corner), `renown4b` (the corner
 16..344), `touchinput` TI1 (the defaults), `fb0930b_toolsaid` (the knife's line among the tools'; the empty Stores' words),
 `prof7_client` (the key named unless the knife's Use holds it), `audit0928_input` (Controls.md's Interact row - its Pad
-cell, from the registry), and the nine account-version pins (acct45). Mutant record re-aimed by content, dead:
+cell, from the registry), and the nine account-version pins (acct46, past PATREON-LINK's acct45 at the merge). Mutant record re-aimed by content, dead:
 `fb0930b_toolsaid.json` TOOL-SAID-the-world-never-says-the-professions-are-open. `actKeyWord`'s pad line is worded its
 own so `navaudit_presentation.json` NAVP-pad-keys-named-as-keys names one site still (MUT-AIM).

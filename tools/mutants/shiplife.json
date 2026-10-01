@@ -110,7 +110,7 @@
   {
     "name": "SHIPLIFE-moored-for-good",
     "file": "src/systems/naval/shipLife.js",
-    "old": "      if (ship.clock >= e.until) {",
+    "old": "      if (ship.clock >= e.until && !(ctx.night && ship.cls?.faction === 'merchant')) {",
     "new": "      if (false) {",
     "tests": [
       "test/shiplife.test.js"

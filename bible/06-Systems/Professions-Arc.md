@@ -2607,7 +2607,7 @@ four (its last section). What the arc's laws now say, by section:
   (layout 2 - Recast the d-pad's right held); the professions' prompts name the pad's button while it is in hand; the
   Skinning Knife's Use from the hotbar or a quick slot is E at a body and holds the knife - the line drawn by the look
   alone (5's acts, as the Sickle's Use holds the steady hand). **HERB-XP** - Mac: "XP follows your rank": a herb is
-  picked at the highest tier the rank opens, as a haul is worked (3.2). Both, with ANY-HOUR, are the service's acct45.
+  picked at the highest tier the rank opens, as a haul is worked (3.2). Both, with ANY-HOUR, are the service's acct46 (past main's PATREON-LINK, acct45).
 
 ## Appendix A - a day of a gatherer
 

@@ -394,13 +394,13 @@ test('WB3 receipt: the relay\'s key from its secret - PKCS8 in base64 (the accou
 // ═══ THE WIRE ════════════════════════════════════════════════════════════════════════════════════════════════════
 
 test('WB3 wire: the client says two things - `in` with a level claim, `hit` with a sequence, a damage and a kind - projected field by field, after a hello alone; the room says its closed list of kinds, each bounded; the first relay that runs a boss room is GATE_RELAY_MIN (mutants: an extra field carried; a damage past the wire\'s bound; a refusal word invented)', () => {
-  assert.deepEqual(GATE_KINDS, ['in', 'hit', 'spent', 'site', 'xhit']);   // AUDIT WBX S1: and the hub's `spent`; DISCORD-GATES: and its `site`; WB9c: a blow on a crystal
+  assert.deepEqual(GATE_KINDS, ['in', 'hit', 'spent', 'site', 'xhit', 'ahit', 'heal']);   // AUDIT WBX S1: and the hub's `spent`; DISCORD-GATES: and its `site`; WB9c: a blow on a crystal; WB11b: on one of his host; GATE-HEAL: what healed me
   // AUDIT WBX R7: the brain's law on `in` (a whole number, carried when said); AUDIT WBX S1: a day spent, whole
   assert.deepEqual(validGateIn({ k: 'in', lv: 12, bv: GATE_BRAIN_V }), { k: 'in', lv: 12, bv: GATE_BRAIN_V });
   assert.deepEqual(validGateIn({ k: 'in', lv: 12, bv: 1.5 }), { k: 'in', lv: 12 });
   assert.deepEqual(validGateIn({ k: 'spent', d: 514, x: 1 }), { k: 'spent', d: 514 });
   for (const bad of [{ k: 'spent' }, { k: 'spent', d: -1 }, { k: 'spent', d: 1.5 }]) assert.equal(validGateIn(bad), null);
-  assert.deepEqual(GATE_OUT_KINDS, ['st', 'mv', 'atk', 'hp', 'ph', 'wrath', 'fell', 'rcpt', 'no', 'fed', 'cx', 'cxh', 'cxb', 'stun']);   // WB8b: a Soul-Hungry Warden's feeding; WB9c: the crystals and the stun
+  assert.deepEqual(GATE_OUT_KINDS, ['st', 'mv', 'atk', 'hp', 'ph', 'wrath', 'fell', 'rcpt', 'no', 'fed', 'cx', 'cxh', 'cxb', 'stun', 'ad', 'amv', 'aatk', 'ah', 'adie']);   // WB8b: a Soul-Hungry Warden's feeding; WB9c: the crystals and the stun; WB11b: his host
   assert.deepEqual(validGateIn({ k: 'in', lv: 12, x: 1 }), { k: 'in', lv: 12 });
   assert.deepEqual(validGateIn({ k: 'hit', q: 3, d: 12.5, r: 2, extra: true }), { k: 'hit', q: 3, d: 12.5, r: 2 });
   for (const bad of [{ k: 'in' }, { k: 'in', lv: 0 }, { k: 'in', lv: GATE_LV_WIRE_MAX + 1 }, { k: 'in', lv: 1.5 }, { k: 'hit', q: -1, d: 1, r: 0 }, { k: 'hit', q: 1, d: 0, r: 0 },
@@ -486,7 +486,7 @@ test('WB3 relay: THE JOIN - `in` answers the whole state to the one who said it,
     await r.hello(a, 'peer-0001', at(0, 4)); await r.hello(b, 'peer-0002', at(3, 4));
     await say(a, { k: 'in', lv: 10, bv: GATE_BRAIN_V });
     const st = gates(a, 'st')[0];
-    assert.equal(st.d, DAY); assert.equal(st.b, gateBossOf(DAY).id); assert.equal(st.n, 1); assert.equal(st.m, BOSS_TTK_S * dpsRef(10));
+    assert.equal(st.d, DAY); assert.equal(st.b, gateBossOf(DAY).id); assert.equal(st.n, 1); assert.equal(st.m, BOSS_TTK_S * dpsRef(10) * profileOf(r.room._fight).hpX);   // WB11a: the day's marks moved with the nine-trial rotation - a Colossal Warden's share is a quarter more
     assert.equal(gates(b).length, 0, 'the state went to its asker alone');
     assert.equal(r.alarm.at, now() + BRAIN_TICK_MS);
     assert.ok(r.room._fight.players['acct-peer-0001'], 'the fight knows the account the token verified');

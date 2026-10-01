@@ -112,9 +112,11 @@ test('F140: bank EXIT clicks are a no-op while an amount is typed', () => {
 
 test('F141/F145: the guild and tavern buttons all click; F146: the teleport Yes/No stay silent', () => {
   const guild = src('ui/guildServiceWindow.js');
-  // four handlers, four sounds (Join :501, Talk :293, Service :457, Exit :477)
+  // four handlers, four sounds (Join :501, Talk :293, Service :457, Exit :477) - PIN MOVED (LOOT9): and the Mages Guild's
+  // Reforge row, the port's own fifth (drawn under DFU's panel), which clicks as its four do
   const guildClick = guild.slice(guild.indexOf('click(vx, vy)'));
-  assert.equal((guildClick.match(/audio\.playOneShot\(SOUND\.ButtonClick, 1\);/g) ?? []).length, 4);
+  assert.equal((guildClick.match(/audio\.playOneShot\(SOUND\.ButtonClick, 1\);/g) ?? []).length, 5);
+  assert.match(guildClick, /if \(this\.hooks\.reforge && inRect\(REFORGE_RECT, vx, vy\)\) \{ audio\.playOneShot\(SOUND\.ButtonClick, 1\); this\._reforge\(\); return true; \}/);
 
   const tavern = src('ui/tavernWindow.js');
   // four buttons (:135, :155, :264, :339) + the food picker (:307)

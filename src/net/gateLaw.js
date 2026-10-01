@@ -248,28 +248,35 @@ const marksApart = (x, y) => x.a !== y.a && !x.t.some((k) => y.t.includes(k));
 
 /**
  * WB8b (2026-09-28, Mac: "give him unique and different modifers on every 2 hour spawn"): THE CYCLE OF MARKS - every
- * aspect with every pair of trials, ONCE EACH (4 x 28 = 112 gates, nine and a third real days), in an order where no two
- * gates running share an aspect or a trial, each round of four gates (gates 4k to 4k+3) brings all four aspects and all
- * eight trials, and a pair of trials rests 25 gates at least (fifty real hours) before it comes back, under another
- * aspect each time. (AUDIT PRE-MERGE 0929 W1-4: this said "every four gates" - any four running do NOT, gates 1-4 are
- * venom, storm, rime, storm, and no cycle of 112 different sets could - and "every 28 gates", where 25 is the least.)
- * Built so: the eight trials
- * (relabelled by the salt's shuffle) fall into the round-robin's seven perfect matchings - four pairs each, every pair in
- * exactly one; a ROUND is one matching under one turn of the aspects (pair j wears aspect j + s), so its four gates share
- * nothing; the seven matchings, in the salt's order, run under the first turn, then the same seven under the next, and
- * so on - the 112. Each round's gates stand in its own shuffled order, its first and last chosen, depth first, so the
- * seam between two rounds shares nothing either - the cycle's last gate and its first included, for it comes round again. The same cycle on every
- * client and the relay; made once. It needs the tables' shape - twice as many trials as aspects, two a gate (pinned).
+ * aspect with every pair of trials, ONCE EACH, in an order where no two gates running share an aspect or a trial, each
+ * round of four gates (gates 4k to 4k+3) brings all four aspects and two trials a gate, and a pair of trials rests a
+ * long while before it comes back, under another aspect each time. (AUDIT PRE-MERGE 0929 W1-4: this said "every four
+ * gates" - any four running do NOT, and no cycle of every set once could.)
+ * Built so: the trials (relabelled by the salt's shuffle) sit at the round-robin's SEATS and fall into its perfect
+ * matchings - every pair in exactly one; a ROUND is one matching under one turn of the aspects (pair j wears aspect
+ * j + s), so its four gates share nothing; the matchings, in the salt's order, run under the first turn, then the same
+ * ones under the next, and so on. Each round's gates stand in its own shuffled order, its first and last chosen, depth
+ * first, so the seam between two rounds shares nothing either - the cycle's last gate and its first included, for it
+ * comes round again. The same cycle on every client and the relay; made once.
+ * WB11a (2026-10-01, Mac: "4. Trial rotation" - the ninth trial, Legion-Lord): NINE TRIALS. An odd count cannot be
+ * paired whole, so the circle method sits one out: a BYE takes the last seat, and the trial a matching pairs with it
+ * RESTS that round - nine matchings of four real pairs, 4 x 36 = 144 gates (twelve real days); each round brings every
+ * aspect and eight of the nine trials, the ninth a different one each round; a pair rests 33 gates at least. (Eight
+ * trials, WB8b's, were seven matchings and 4 x 28 = 112, every trial each round, a pair resting 25.) It needs the
+ * tables' shape - a pair of trials for every aspect in a round, one trial over at most, two a gate (pinned).
  * @returns {ReadonlyArray<ReadonlyArray<string>>}
  */
 function marksCycle() {
   if (_marksCycle) return _marksCycle;
   const nA = GATE_ASPECTS.length, nT = GATE_TRIALS.length;
-  const pi = shuffledRound(0, TRIAL_BAG, nT), sig = shuffledRound(0, ASPECT_BAG, nA), fo = shuffledRound(0, ROUND_BAG, nT - 1);
+  // WB11a: the seats - the trials, and the bye beside an odd count of them (the last seat; its pair is no gate)
+  const nS = nT + (nT % 2);
+  if (Math.floor(nT / 2) !== nA) throw new Error('gateLaw: the marks need two trials an aspect, or one over');
+  const pi = shuffledRound(0, TRIAL_BAG, nT), sig = shuffledRound(0, ASPECT_BAG, nA), fo = shuffledRound(0, ROUND_BAG, nS - 1);
   const matchings = fo.map((i) => {
-    const pairs = [[i, nT - 1]];
-    for (let j = 1; j < nT / 2; j++) pairs.push([(i + j) % (nT - 1), (i - j + nT - 1) % (nT - 1)]);
-    return pairs.map(([x, y]) => [pi[x], pi[y]].sort((u, v) => u - v));
+    const pairs = [[i, nS - 1]];
+    for (let j = 1; j < nS / 2; j++) pairs.push([(i + j) % (nS - 1), (i - j + nS - 1) % (nS - 1)]);
+    return pairs.filter((q) => q[0] < nT && q[1] < nT).map(([x, y]) => [pi[x], pi[y]].sort((u, v) => u - v));   // WB11a: the trial paired with the bye rests
   });
   const rounds = [];
   for (let s = 0; s < nA; s++) for (const m of matchings) rounds.push(m.map((t, j) => ({ a: sig[(j + s) % nA], t })));
@@ -299,7 +306,8 @@ export const gateMarksCycleLength = () => marksCycle().length;
 /**
  * WB8b: THE WARDEN'S MARKS for a gate's day - `[aspect, trial, trial]` (net/gateMods.js ids), what the relay's brain
  * fights under (net/gateBrain.js fightProfile) and every screen names before the gate opens: its place in the cycle
- * (marksCycle - no set of marks comes again for 112 gates, and no two gates running share one), from the day alone.
+ * (marksCycle - no set of marks comes again until the cycle does, 144 gates since WB11a, and no two gates running share
+ * one), from the day alone.
  * @param {number} day
  * @returns {ReadonlyArray<string>}
  */

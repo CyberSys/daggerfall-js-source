@@ -512,9 +512,19 @@ export function takeOneInto(entity, fromList, item) {
   if (isGoldPieces(item)) addGoldPieces(entity, item.stackCount ?? 1);
   else {
     entity.items = entity.items || [];
-    addItem(entity.items, item);
+    addItem(entity.items, item); tellTaken(item);   // LOOT8: a piece taken into the pack - a body's bulk take, a peer's grant
   }
   return item;
+}
+/** LOOT8 (the Loot arc, bible/06-Systems/Loot-Arc.md section 10): NAMED listeners told of every piece the player TAKES
+ *  out of a container into the pack, once it has landed - the loot window's and quick loot's take (itemTransfer.js
+ *  applyTransfer's `toPlayer`), a body's bulk take and a peer's grant (takeOneInto) - never gold. A name re-registered
+ *  replaces, `null` removes; an answer is ignored, a throw swallowed (a listener is not the take's problem). */
+const _takeListeners = new Map();
+export function registerTakeListener(name, fn) { if (typeof fn === 'function') _takeListeners.set(name, fn); else _takeListeners.delete(name); }
+export function tellTaken(item) {
+  if (!item) return;   // gold never gets here: both takes spend a pile into the counter before they would tell
+  for (const fn of _takeListeners.values()) { try { fn(item); } catch { /* a listener is not the take's problem */ } }
 }
 
 /** Leather armor weight AS CODED in DFU (audit F13): the Erisceres

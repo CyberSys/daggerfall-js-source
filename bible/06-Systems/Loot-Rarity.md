@@ -28,7 +28,7 @@ Five tiers, three of which Daggerfall already had:
 | Common | a plain item | DFU's own mint, untouched |
 | Magic | one or two affixes; or one of DFU's own MAGIC.DEF items | a roll on an eligible item; or derived from any enchanted item |
 | Rare | three or four affixes, a two-part name, ONE of DFU's own catalogue enchantments | a roll |
-| Legendary | a fixed record: a name a player learns, a set affix signature, its own DFU enchantment, a line of lore | a roll, from `LEGENDARIES` (ten records over the three groups) |
+| Legendary | a fixed record: a name a player learns, a set affix signature, its own DFU enchantment, a line of lore | a roll, from `LEGENDARIES` (ten records over the three groups; thirty since LOOT3, `Loot-Arc.md`) |
 | Artifact | DFU's artifacts, untouched | DFU's own; the ceiling |
 
 REPLACE, DON'T LAYER (decided, 2026-09-14). With the switch on there is

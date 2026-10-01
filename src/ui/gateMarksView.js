@@ -43,6 +43,7 @@ export const MARK_TIPS = Object.freeze({
   soulhungry: 'Every challenger who falls heals him - keep each other standing.',
   favoured: 'Hellfire and meteors come from the first phase - never stand still.',
   echoing: 'The second falls where you stand when the first lands - keep moving.',
+  legion: 'Guard the far ones from his Imps, stop each Atronach, break his Ward-Bearers.',   // WB11a (AUDIT WB11 U1: as short as the others - 138 characters made the tallest card, off a landscape phone)
 });
 
 const hex = (c) => `#${c.map((v) => Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16).padStart(2, '0')).join('')}`;
@@ -66,6 +67,8 @@ export const MARK_ICONS = Object.freeze({
   soulhungry: Object.freeze({ fill: true, d: 'M12 1.8c-5 0-8.5 3.5-8.5 8.1 0 2.9 1.4 4.9 3.3 6.1v3.3c0 1 .8 1.9 1.9 1.9h6.6c1.1 0 1.9-.9 1.9-1.9V16c1.9-1.2 3.3-3.2 3.3-6.1 0-4.6-3.5-8.1-8.5-8.1zM8.6 8.9a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm6.8 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4zM12 13.6l1.3 2.4h-2.6z' }),
   favoured: Object.freeze({ fill: true, d: 'M12 1.5l3 6.9 7.4.7-5.6 4.9 1.7 7.3L12 17.5l-6.5 3.8 1.7-7.3-5.6-4.9 7.4-.7z' }),
   echoing: Object.freeze({ fill: false, d: 'M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6zM12 2.5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 0 0 0-19z' }),
+  // WB11a: Legion-Lord - his host, three figures abreast
+  legion: Object.freeze({ fill: false, d: 'M12 3.2a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8zM7.6 14.6c.6-3 2.3-4.6 4.4-4.6s3.8 1.6 4.4 4.6M5.4 8.6a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM2.1 18.4c.5-2.5 1.7-3.7 3.3-3.7s2.8 1.2 3.3 3.7M18.6 8.6a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM15.3 18.4c.5-2.5 1.7-3.7 3.3-3.7s2.8 1.2 3.3 3.7M2 21.4h20' }),
 });
 /** A sign as markup - static text of the port's own (no word of a player's ever reaches it), `size` pixels square. */
 export function markIconSvg(id, size = 14) {

@@ -49,5 +49,5 @@ test('WARDEN-STRIKE: the fixed-city host\'s (?town) enchant ctx the same (mutant
 test('WARDEN-STRIKE: the premise - the hosted court mounts no ctx of its own, and hands its spell door to the outer host (mutants: the door not on the api; opened outside a court)', () => {
   assert.match(read('src/scenes/worldModes.js'), /\n\s*enchantCtx: false,/, 'hosted, the dungeon context mounts none');
   const d = read('src/scenes/dungeonContext.js');
-  assert.match(d, /const api = \{\n(?:\s*\/\/[^\n]*\n)*\s*spellOnBoss: \(record\) => \(opts\.gateBoss \? spellOnBoss\(record\) : false\),/, 'the api carries the door, shut outside a court');
+  assert.match(d, /const api = \{\n(?:\s*\/\/[^\n]*\n)*\s*spellOnBoss: \(record, target = null\) => \(opts\.gateBoss \? spellOnStandIn\(record, target\) : false\),/, 'the api carries the door, shut outside a court (AUDIT WB11 W1: by the stand-in it met)');
 });

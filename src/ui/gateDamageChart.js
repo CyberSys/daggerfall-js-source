@@ -15,6 +15,11 @@
 // The first DAMAGE_CHART_ROWS are shown; when I am further down, my own row is shown under them at my rank, and the
 // fighters not shown are counted. `damageChartModel` is pure - the pins' door.
 //
+// GATE-HEAL (2026-10-01, Mac: "Can we add a line on the damage round up showing the amount healed?" - each challenger's;
+// "Like for healers" - allies only): a Healed column, last, whenever anyone in the court healed another - what each
+// challenger healed in others (net/gateBrain.js applyHeal: each one healed says it, the caster is credited); on a narrow
+// screen it takes the share's place. The ranking is the damage's still.
+//
 // Not a DFU member. Ledger A (WB).
 
 /** The chart stands from this long after the fall was first seen on this screen (his body's fall and the spoils' burst
@@ -30,6 +35,8 @@ export const DAMAGE_CHART_TEXT = Object.freeze({
   title: 'Damage Dealt',
   sub: (boss, n) => `${boss} has fallen - ${n} ${n === 1 ? 'challenger' : 'challengers'}`,
   head: Object.freeze(['#', 'Challenger', 'Damage', 'Share', 'Blows', 'Best', 'Crystals', 'Falls']),
+  host: 'Host',   // WB11c: the column of his host's share - a Legion-Lord's court's alone
+  heal: 'Healed',   // GATE-HEAL: the column of what each healed in others - a court someone healed another in alone
   level: (lv) => `Lv ${lv}`,
   you: '(you)',
   more: (k) => `and ${k} more`,
@@ -49,7 +56,9 @@ const sameName = (a, b) => typeof a === 'string' && typeof b === 'string' && a.t
  * What the chart shows now, or null (nothing to show). `fell` the court's fall (net/gateLink.js - its `dm` the relay's
  * chart, its `n` the fighters the fight held), `boss` his name, `me` my name on the relay (net/online.js `name`), `since`
  * when this screen first saw the fall and `now`, on one clock. Each row: its rank, name, level, damage (and the bar's
- * share of the most anyone dealt), share of the whole, blows, best, crystals, falls, and whether it is mine. Pure.
+ * share of the most anyone dealt), share of the whole, blows, best, crystals, falls, and whether it is mine. WB11c: under
+ * the Legion-Lord (a row carries `a`), `hosted` and each row's share of his host, a column after the falls. GATE-HEAL:
+ * where anyone healed another (a row carries `hl`), `healed` and what each row healed in others, the last column. Pure.
  * @param {any} fell @param {{ boss?: string, me?: string|null, since?: number, now?: number }} [o]
  */
 export function damageChartModel(fell, { boss = 'The Warden', me = null, since = 0, now = 0 } = {}) {
@@ -60,9 +69,13 @@ export function damageChartModel(fell, { boss = 'The Warden', me = null, since =
   const shown = age - DAMAGE_CHART_DELAY_MS;
   const alpha = Math.min(1, shown / 250, (DAMAGE_CHART_MS - shown) / DAMAGE_CHART_FADE_MS);
   const whole = dm.reduce((s, r) => s + (r.d > 0 ? r.d : 0), 0), most = dm[0].d > 0 ? dm[0].d : 0;
+  const hosted = dm.some((r) => r.a !== undefined);   // WB11c: his host stood in this court
+  const healed = dm.some((r) => r.hl !== undefined);   // GATE-HEAL: someone healed another in it
   const row = (r, i) => ({
     rank: i + 1, name: r.n, level: DAMAGE_CHART_TEXT.level(r.l), damage: chartNumber(r.d), frac: most > 0 ? Math.max(0, Math.min(1, r.d / most)) : 0,
     share: chartShare(r.d, whole), blows: chartNumber(r.h), best: chartNumber(r.b), crystals: chartNumber(r.x), falls: chartNumber(r.f), mine: sameName(r.n, me),
+    ...(hosted ? { host: chartNumber(r.a ?? 0) } : {}),
+    ...(healed ? { heal: chartNumber(r.hl ?? 0) } : {}),
   });
   const rows = dm.slice(0, DAMAGE_CHART_ROWS).map(row);
   const at = dm.findIndex((r) => sameName(r.n, me));
@@ -70,9 +83,10 @@ export function damageChartModel(fell, { boss = 'The Warden', me = null, since =
   const n = Math.max(Number.isSafeInteger(fell.n) ? fell.n : 0, dm.length);
   const more = n - rows.length - (mine ? 1 : 0);
   return {
-    key: `${dm.length}:${dm.map((r) => `${r.n}|${r.l}|${r.d}|${r.x}|${r.h}|${r.b}|${r.f}`).join(';')}:${at}:${n}`,
+    key: `${dm.length}:${dm.map((r) => `${r.n}|${r.l}|${r.d}|${r.x}|${r.h}|${r.b}|${r.f}|${r.a ?? ''}|${r.hl ?? ''}`).join(';')}:${at}:${n}`,
     alpha: Math.round(alpha * 100) / 100,
-    title: DAMAGE_CHART_TEXT.title, sub: DAMAGE_CHART_TEXT.sub(boss, n), head: DAMAGE_CHART_TEXT.head,
+    title: DAMAGE_CHART_TEXT.title, sub: DAMAGE_CHART_TEXT.sub(boss, n), hosted, healed,
+    head: healed ? [...DAMAGE_CHART_TEXT.head, hosted ? DAMAGE_CHART_TEXT.host : '', DAMAGE_CHART_TEXT.heal] : hosted ? [...DAMAGE_CHART_TEXT.head, DAMAGE_CHART_TEXT.host] : DAMAGE_CHART_TEXT.head,
     rows, mine, more: more > 0 ? DAMAGE_CHART_TEXT.more(more) : '',
   };
 }
@@ -105,15 +119,40 @@ export const DAMAGE_CHART_CSS = `
 .wb-dmg-mine { outline: 1px solid rgba(255,210,122,0.75); background: rgba(255,190,90,0.10); }
 .wb-dmg-gap { height: 6px; }
 .wb-dmg-more { font-size: 11px; text-align: center; opacity: 0.8; margin-top: 4px; font-style: italic; }
+.wb-dmg-row > .wb-dmg-host { display: none; }
+.wb-dmg-chart.wb-dmg-hosted { width: 590px; }
+.wb-dmg-hosted .wb-dmg-row { grid-template-columns: 20px minmax(0, 1fr) 60px 46px 46px 44px 62px 42px 46px; }
+.wb-dmg-hosted .wb-dmg-row > .wb-dmg-host { display: block; }
+.wb-dmg-row > .wb-dmg-heal { display: none; }
+.wb-dmg-chart.wb-dmg-healed { width: 596px; }
+.wb-dmg-healed .wb-dmg-row { grid-template-columns: 20px minmax(0, 1fr) 60px 46px 46px 44px 62px 42px 56px; }
+.wb-dmg-chart.wb-dmg-hosted.wb-dmg-healed { width: 646px; }
+.wb-dmg-hosted.wb-dmg-healed .wb-dmg-row { grid-template-columns: 20px minmax(0, 1fr) 60px 46px 46px 44px 62px 42px 46px 56px; }
+.wb-dmg-healed .wb-dmg-row > .wb-dmg-heal { display: block; }
 @media (max-width: 640px) {
   .wb-dmg-chart { width: 340px; }
   .wb-dmg-row { grid-template-columns: 18px minmax(0, 1fr) 58px 44px 40px; }
   .wb-dmg-row > .wb-dmg-blows, .wb-dmg-row > .wb-dmg-best, .wb-dmg-row > .wb-dmg-cx { display: none; }
+  .wb-dmg-chart.wb-dmg-hosted { width: 340px; }
+  /* AUDIT WB11 C9/U5: a Legion-Lord night's chart keeps its Host column on a narrow screen, in the place of the falls
+     (it folded away whole, and the patch's word was a Host column on those nights) - wider than the falls', for a
+     host's five figures in the pixel face */
+  .wb-dmg-hosted .wb-dmg-row { grid-template-columns: 18px minmax(0, 1fr) 58px 44px 50px; }
+  .wb-dmg-hosted .wb-dmg-row > .wb-dmg-falls { display: none; }
+  .wb-dmg-hosted .wb-dmg-row > .wb-dmg-host { display: block; }
+  /* GATE-HEAL: what each healed keeps its column on a narrow screen too, in the share's place - as wide as the damage's
+     (six figures in the Plus skin's pixel face) */
+  .wb-dmg-chart.wb-dmg-healed { width: 340px; }
+  .wb-dmg-healed .wb-dmg-row { grid-template-columns: 18px minmax(0, 1fr) 58px 40px 58px; }
+  .wb-dmg-hosted.wb-dmg-healed .wb-dmg-row { grid-template-columns: 18px minmax(0, 1fr) 58px 50px 58px; }
+  .wb-dmg-healed .wb-dmg-row > .wb-dmg-share { display: none; }
+  .wb-dmg-healed .wb-dmg-row > .wb-dmg-heal { display: block; }
 }
 `;
 
-/** The cells of a row, in the head's order (the rank, the challenger, then the numbers). */
-const CELLS = Object.freeze(['rank', 'who', 'damage', 'share', 'blows', 'best', 'cx', 'falls']);
+/** The cells of a row, in the head's order (the rank, the challenger, then the numbers) - WB11c: the host's, shown only
+ *  for a court his host stood in; GATE-HEAL: the healed, last, shown only for a court someone healed in. */
+const CELLS = Object.freeze(['rank', 'who', 'damage', 'share', 'blows', 'best', 'cx', 'falls', 'host', 'heal']);
 
 let root = null, parts = null;
 let shown = { vis: '', key: '', alpha: -1, sub: '' };
@@ -172,6 +211,8 @@ function writeRow(r, m) {
   r.cells[5].textContent = m.best;
   r.cells[6].textContent = m.crystals;
   r.cells[7].textContent = m.falls;
+  r.cells[8].textContent = m.host ?? '';   // WB11c
+  r.cells[9].textContent = m.heal ?? '';   // GATE-HEAL
 }
 
 /** Draw the chart for a model (null hides it); `hidden` is the HUD's own hide. */
@@ -187,7 +228,8 @@ export function drawGateDamageChart(model, { hidden = false, doc = globalThis.do
   if (model.key !== shown.key) {
     shown.key = model.key;
     parts.title.textContent = model.title;
-    model.head.forEach((h, i) => { parts.head.cells[i].textContent = h; });
+    root.className = `wb-dmg-chart${model.hosted ? ' wb-dmg-hosted' : ''}${model.healed ? ' wb-dmg-healed' : ''}`;   // WB11c: the host's column shown or not; GATE-HEAL: the healed
+    parts.head.cells.forEach((c, i) => { c.textContent = model.head[i] ?? ''; });
     parts.rows.forEach((r, i) => writeRow(r, model.rows[i] ?? null));
     parts.gap.style.display = model.mine ? '' : 'none';
     writeRow(parts.mine, model.mine);

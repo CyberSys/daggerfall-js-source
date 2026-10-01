@@ -1,0 +1,68 @@
+// @ts-check
+// ═══════════════════════════════════════════════════════════════════
+// LOOT11 (2026-10-01) — A LINE OF LIGHT OVER EVERY FIND.
+//
+// The Loot arc (bible/06-Systems/Loot-Arc.md section 13; Mac: "Do you
+// wanna turn this into an arc and do all of the above?" - "tier beams on
+// Rare+ drops"). A body or a pile holding a Rare or better stands a thin
+// line of its BEST tier's colour - WBX3's form (a line out of the find's
+// own top, never a beam beside it), through the gate spoils' own renderer
+// (render/spoilsGlow.js: additive, fogged, no light, no new program), a
+// Legendary's and better pulsing. The nearest LOOT_LINES_MAX within
+// LOOT_LINES_REACH of the eye, in the dungeon, the street and a building;
+// gone the moment its best is taken below Rare (the pick reads the list
+// every frame). A peer's body in the street shows none - its list lives
+// on its owner's side (scenes/exteriorFoes.js lootFinds says so). OFF IS
+// DFU EXACTLY: with the loot-rarity row off, nothing draws.
+//
+// A find is `{ root, items }`: the crown of its sprite (a billboard is
+// bottom-anchored - render/bounds.js - so its crown is its feet and its
+// height) and the list it holds, read live.
+// ═══════════════════════════════════════════════════════════════════
+
+import { SpoilsGlowRenderer } from '../render/spoilsGlow.js';
+import { bestRarity, RARITIES, lootRarityOn } from '../systems/lootRarity.js';
+
+/** The most lines a frame stands, and how far from the eye a find may be (metres). */
+export const LOOT_LINES_MAX = 8;
+export const LOOT_LINES_REACH = 40;
+/** A sprite whose height is not known yet stands its line this high. */
+export const LOOT_LINE_CROWN = 0.6;
+
+/** A find's crown: its feet and its sprite's height. */
+export const lootCrown = (pos, size) => (Array.isArray(pos) && pos.length >= 3 ? [pos[0], pos[1] + (Number.isFinite(size?.h) ? size.h : LOOT_LINE_CROWN), pos[2]] : null);
+
+/** THE PICK: the finds whose best is Rare or better, the nearest `max` within `reach` of the eye, nearest first -
+ *  `[{ root, tier, alpha }]` as the renderer takes them. None with the row off. */
+export function pickLootLines(finds, eye, { max = LOOT_LINES_MAX, reach = LOOT_LINES_REACH } = {}) {
+  if (!lootRarityOn() || !Array.isArray(finds) || (!Array.isArray(eye) && !(eye instanceof Float32Array))) return [];
+  const out = [];
+  for (const f of finds) {
+    const root = f?.root;
+    if (!Array.isArray(root) || root.length !== 3 || !root.every(Number.isFinite) || !Array.isArray(f.items) || !f.items.length) continue;
+    const tier = bestRarity(f.items);
+    if (!tier || (RARITIES[tier]?.rank ?? 0) < RARITIES.rare.rank) continue;
+    const d = Math.hypot(root[0] - eye[0], root[1] - eye[1], root[2] - eye[2]);
+    if (!(d <= reach)) continue;
+    out.push({ root, tier, alpha: 1, d });
+  }
+  out.sort((a, b) => a.d - b.d);
+  return out.slice(0, max).map(({ root, tier, alpha }) => ({ root, tier, alpha }));
+}
+
+/** THE HOST'S PASS - one renderer a GL context, built once (a context that will not build it draws nothing). `draw`
+ *  answers whether it lit a line (the host marks its foreign pass when it did). */
+export function createLootLines(gl) {
+  let glow = null;
+  try { glow = gl ? new SpoilsGlowRenderer(gl) : null; } catch (e) { console.warn('[loot] the lines would not build', /** @type {any} */ (e)?.message ?? e); glow = null; }
+  return {
+    /** `finds` the list, or a function answering it - asked only while the row is on, so an off frame gathers nothing. */
+    draw(finds, proj, view, eye, seconds, fog = null) {
+      if (!glow || !lootRarityOn()) return false;
+      const lines = pickLootLines(typeof finds === 'function' ? finds() : finds, eye);
+      if (!lines.length) return false;
+      glow.draw(lines, proj, view, eye, seconds, fog);
+      return glow.drawn > 0;
+    },
+  };
+}
