@@ -153,8 +153,6 @@ import { staticDoorName, npcHoverName, questResourceName, worldTooltipsOn, hideI
 import { LOCATION_TYPES, REGION_NAMES } from '../formats/mapsFile.js';   // WORLD-HOVER: .cs:777-782 - a dungeon exit names its town, or the region   // WORLD-HOVER: the texture record is DERIVED at its one reader, off the stored model id
 import { isShop, isRepairShop, stockShopShelf, stockHouseContainer, PRIVATE_PROPERTY_TEXT_ID, privatePropertyRows, calculateCost, calculateTradePrice, regionPriceAdjustment, SHOP_BUYS_GROUPS, shopBuysItem, stockSoulGems, stockGuildMagicItems, stockGuildPotions, dayShelf, createStockedDate, needsRestock, stockSearched } from '../systems/shopStock.js';   // X6: the soul-gem shelf; G4: the two guild shelves; A2: the daily restock
 import { identifySpellPass, identifiedTallyText, NOT_ENOUGH_SPELL_POINTS_TEXT, tradeCost, getTradePrice } from '../systems/tradeModes.js';   // X7: the Identify SPELL's per-item roll; F067: its magicka refusal; FB0929: the keyed rows' prices are the counter's
-import { restorePowerCost, restorePowerStack, RESTORE_POWER_SHELF, magesSellRestorePower } from '../systems/restorePower.js';   // MANA-SHOP: Restore Power's price and the Mages Guild's counter
-import { effectiveLevel } from '../systems/mentorMode.js';   // MANA-SHOP: the level a bottle is priced by is the level it is drunk at
 import { liveBundles, dispelBundle, dispellableBundles, DISPEL_MAGIC_TEXT } from '../systems/mysticism.js';   // X10: the Dispel Magic picker
 import { ListPickerWindow, listPickerArtLoaded } from '../ui/listPicker.js';   // X10
 import { createItemLabels, grantCreatedItem, lastCreateItemIndex, setLastCreateItemIndex } from '../systems/createItem.js';   // X11b
@@ -2507,7 +2505,6 @@ export function createWorldModes(host) {
         // Repair window needs for the same reason the keyed list did.
         reducedRepairCost: repairDiscount,
         skills: skills(),
-        buyerLevel: effectiveLevel(playerEntity),   // MANA-SHOP: online, Restore Power is priced by what it restores at my level
       }),
       // AUDIT 58: the trade window asks about money TWICE and both
       // readings are GetGoldAmount - the cost strip's gold label
@@ -2721,7 +2718,7 @@ export function createWorldModes(host) {
     const b = interiorBuilding;
     // FB0929: the counter's own law, not a second copy of it - the walk's cost and pieces, and GetTradePrice's floor
     // of a gold a piece, so the keyed row's price is the price it charges and the trade window's
-    const lot = tradeCost('Buy', [it], { quality: b.quality, priceAdjustment: regionPriceAdjustment(playerEntity, b.regionIndex ?? 0), buyerLevel: effectiveLevel(playerEntity) });   // MANA-SHOP: the level Restore Power is priced by
+    const lot = tradeCost('Buy', [it], { quality: b.quality, priceAdjustment: regionPriceAdjustment(playerEntity, b.regionIndex ?? 0) });
     return getTradePrice('Buy', lot.cost, b.quality, {
       mercantile: skillValue(playerEntity, SKILLS.Mercantile),
       personality: playerEntity.stats?.personality == null ? 50 : liveStat(playerEntity, 'personality'),
@@ -2732,8 +2729,7 @@ export function createWorldModes(host) {
   // GetTradePrice; DFU's condition parameter is declared-but-unused).
   function sellPrice(it) {
     const b = interiorBuilding;
-    // MANA-SHOP: online a bottle of Restore Power is costed as the counter sells it (tradeModes.js's Sell arm)
-    const cost = (restorePowerCost(it, effectiveLevel(playerEntity)) ?? calculateCost(itemValue(it), b.quality, regionPriceAdjustment(playerEntity, b.regionIndex ?? 0))) * (it.stackCount ?? 1);
+    const cost = calculateCost(itemValue(it), b.quality, regionPriceAdjustment(playerEntity, b.regionIndex ?? 0)) * (it.stackCount ?? 1);
     return calculateTradePrice(cost, b.quality, {
       mercantile: skillValue(playerEntity, SKILLS.Mercantile),
       personality: playerEntity.stats?.personality == null ? 50 : liveStat(playerEntity, 'personality'),
@@ -4267,16 +4263,13 @@ export function createWorldModes(host) {
       onTalk: () => talkToStaticNpcHere({ isSpyMaster: false, returnTo: win }),
       onService: () => {
         const access = serviceAccess(guild, membershipOf(memberships, guild), service);
-        // MANA-SHOP (systems/restorePower.js): online the Mages Guild's magic-items merchant sells Restore Power to
-        // anyone its magic shelf is closed to
-        const manaOnly = !access.allowed && magesSellRestorePower(guild, service);
-        if (!access.allowed && !manaOnly) {
+        if (!access.allowed) {
           return { rows: access.textId ? rows(access.textId) : [access.text] };
         }
         // U24 could perform three of these. DR2 closed the last of
         // the twenty, so guildServiceFlow.SERVICE_DESTINATION maps
         // every arm and there is no null left to name.
-        const flow = openServiceFlow(manaOnly ? 'guildServiceBuyRestorePower' : serviceDestination(service), {
+        const flow = openServiceFlow(serviceDestination(service), {
           guild, memberships, store, rows, route,
           // G6: the greeting's dismissal IS the service - the same
           // talk door the popup's own Talk button opens, with
@@ -4418,12 +4411,6 @@ export function createWorldModes(host) {
       flow = openTradeWindow(shelf, b ?? {}, 'Buy', { guildFactionId: guild?.factionId ?? null });
       return flow ?? DOOR_REFUSED;   // DISC10-E L3
     }
-    if (destination === 'guildServiceBuyRestorePower' && tradeDoorReady()) {
-      // MANA-SHOP: the Mages Guild's potions alone, for one its magic shelf is closed to - the day's, as every guild shelf
-      const shelf = guildShelf('BuyRestorePower', () => [restorePowerStack(RESTORE_POWER_SHELF)]);
-      flow = openTradeWindow(shelf, b ?? {}, 'Buy', { guildFactionId: guild?.factionId ?? null });
-      return flow ?? DOOR_REFUSED;   // DISC10-E L3
-    }
     if (destination === 'guildServiceBuyMagicItems' && tradeDoorReady()) {
       // The soul-gem arm rides ALONG when this guild also sells them
       // (:248) - one shelf, two services' stock - and it walks the
@@ -4442,7 +4429,7 @@ export function createWorldModes(host) {
         playerLevel,
         gender,
         soulPointsOf: (t) => ENEMY_BASICS[t]?.soulPts ?? 0,
-      }).concat(magesSellRestorePower(guild, 'BuyMagicItems') ? [restorePowerStack(RESTORE_POWER_SHELF)] : []));   // MANA-SHOP: online the Mages Guild's magic shelf carries Restore Power too, after the day's draws
+      }));
       flow = openTradeWindow(shelf, b ?? {}, 'Buy', { guildFactionId: guild?.factionId ?? null });
       return flow ?? DOOR_REFUSED;   // DISC10-E L3
     }
@@ -8483,7 +8470,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:14335's own wave-46 note); the interior
+          // a blow (world.js:14333's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -11118,7 +11105,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3472-3494), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:10783). So an F9 pressed in a shop
+     *  unconditionally (world.js:10781). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -11157,7 +11144,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:10898)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:10896)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors

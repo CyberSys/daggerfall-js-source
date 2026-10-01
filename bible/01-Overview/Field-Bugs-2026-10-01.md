@@ -102,8 +102,8 @@ One list of seven, relayed as it was written:
 The rule of the last batch stands (Mac, `Field-Bugs-2026-09-30b.md` part two: *"I dont care about DFU. We're our own
 thing now"*): every report root-caused on the real modules with a reproduction before anything changed, the faults
 fixed wherever they failed the player, each fix pinned red on the code before it and mutation-checked. Five lanes ran
-at once, one a report (the yard and the road together); 6 is a design ask, not a fault, and was asked before it was
-built; 2 was both.
+at once, one a report (the yard and the road together); 6 was a design ask, asked before it was built - and
+withdrawn after it shipped; 2 was both.
 
 | | Report | What it was | Done |
 |---|---|---|---|
@@ -112,7 +112,7 @@ built; 2 was both.
 | 3 | "Switching textures on houses doesnt stay and resets" | three: the painter's "Paint it", "Put back" and "The town's own" were never drawn (they stood in the rent tab's row, which the decorator's sheet hides in every other tab), so a look could only be tried and was put away on leaving the tab; a town's read in flight when a look was painted landed over it and was believed for a minute; closing the panel left the tried look in the painter | fixed (LOOK-BUTTONS, LOOK-STALE, LOOK-TRIED) |
 | 4 | "Room renting is buggy" | six: a tenant could not rest in the room they rented; the renewal window offered days the service refuses, after the purse had paid; the owner's rooms were read once a visit; a house one room again hid its offers from its owner; the owner's "Room 2" was "Room 1" at the door; a rent that landed under a plaque's read kept the door shut a minute | fixed (RENT-REST, RENT-RENEW, RENT-FRESH, RENT-ORPHANS, RENT-NUMBER, HOMES-FORCE) |
 | 5 | "Exterior placement bounds shouldnt touch roads/pathways" | the lot was the house's box and six metres round it, and nothing read the ground: a piece stood in the street, and the marked edge ran across it | fixed (ROAD-LOT) |
-| 6 | "Potions are durability ... Gold sink Same as repairs for melee" | a design ask: online a rest gave magicka back whole and free for every career in four seconds, while the one potion that gives it back was sold only to temple and Brotherhood members, a random handful a day, at a flat price; asked, rest gives "Half the pool" and Restore Power sells "Everywhere, 1 g/point" | built (MANA-HALF, MANA-SHOP) |
+| 6 | "Potions are durability ... Gold sink Same as repairs for melee" | a design ask: online a rest gave magicka back whole and free; asked, rest gave "Half the pool" and Restore Power sold "Everywhere, 1 g/point" | built (MANA-HALF, MANA-SHOP), shipped in #498, then withdrawn (Mac: "Revert all the potion and magic stuff") |
 | 7 | "Running jumping climbing dint work passed 100" | the report reproduces whole on the code before MOVE-REAL (#475, merged the day before); on today's two remained: past 100 a run stopped counting at DFU's 20,000-use bucket - some 83 minutes between rests - and a rest's leftover was capped; Climbing past 100 bought nothing (its one law is certain at 95) | fixed (MOVE-BANK, CLIMB-PAST) |
 
 ## LOOK-BUTTONS: the painter's buttons drawn (3)
@@ -244,58 +244,23 @@ the welcome line), so a clock a day off locks out a paying tenant; the fix needs
 change and a deploy. After a renewal the line names the days added, not the total left. `collectHomeRent`'s comment says
 "the purse takes"; the gold goes to the region's account.
 
-## MANA-HALF: online, a rest gives magicka back up to half the pool (6)
+## MANA-HALF, MANA-SHOP: built, shipped, withdrawn (6)
 
-**The ask, measured first** (scratch scripts over the real modules, nothing changed): every way magicka came back
-online was free but the potion. A rested hour pays `floor(maxMagicka / 8)` (CalculateSpellPointRecoveryRate), so a
-pool fills in eight or nine rested hours - 0.45 real seconds an hour, about 3.6 s for the whole pool - in the
-wilderness, a dungeon or any interior the player may stand in; online every career rests it back, the Sorcerer too
-(REST-MANA1). The collapse pays the same hour; a cautious journey arrives with a full pool. A sword's wear, by contrast,
-is paid at a smith every fight, and its bill climbs with the gear (at quality 10, a dwarven fighter's repairs run some
-30 gold a fight, an ebony one's 300-575).
+Asked how much of the pool a rest should give back online and how Restore Power should be sold, Mac chose "Half the
+pool" and "Everywhere, 1 g/point": online every rested hour (the rest window's, the collapse's, a cautious journey's)
+filled magicka up to half the pool, and Restore Power cost what it restored at the buyer's level, a gold a point, shelved
+by every alchemist and sold at the Mages Guild's magic-items counter to anyone. It shipped in PR #498 and was withdrawn
+the same day - Mac: *"Revert all the potion and magic stuff"*. The revert takes all of it out (`systems/rest.js`,
+`scenes/shared.js`, `scenes/world.js`, `systems/shopStock.js`, `systems/tradeModes.js`, `scenes/worldModes.js`;
+`systems/restorePower.js`, `test/fb1001_mana.test.js` and `tools/mutants/fb1001_mana.json` DELETED; the pins and mutant
+records it re-aimed put back; the Ledger's two rows removed). Online rest gives magicka back as REST-MANA1 left it,
+and Restore Power is sold and priced as before.
 
-**Asked** (Mac, two questions with the measures beside them): how much of the pool a rest restores online - "Half the
-pool"; and how Restore Power is sold and priced - "Everywhere, 1 g/point".
-
-**The law** (`systems/rest.js` `ONLINE_REST_MAGICKA_SHARE`, `restMagickaCap`, `restedMagicka`): online every hour that
-rests fills magicka up to half the pool (floored) and no further, and never takes back what stands above it (a potion
-drunk). The three doors that pay a rested hour read it: the rest window's (`scenes/shared.js` `restVitals`), the
-collapse's (`exhaustionOutcome` - the four hosts add what it answers), and a cautious journey's nights
-(`scenes/world.js`). "Rest until healed" (`restFullyHealed`) ends at the cap online, or it would never end for a caster
-below a full pool. Offline the cap is the pool: Daggerfall's numbers, unchanged.
-
-**Found on the way, not changed.** The other whole refills stand: a duel's end, the court's acquittal and the Thieves
-Guild's rescue (`fillVitalSigns`, DFU's own), the staff's `/heal`, and the Mages Guild's free recharge for a member who
-cannot regenerate (DFU's Sorcerer service, a walk to the hall). The rest window says nothing of the cap - the patch notes
-do. The rest window's header says eight hours take six seconds; the code takes about 3.6.
-
-## MANA-SHOP: online, Restore Power is the mage's repair bill (6)
-
-**Measured first.** Restore Power (HealSpellPoints, `potions.js`: 5 + 4 a level) was sold only by the temples whose
-divine sells potions (Arkay, Dibella, Zenithar from rank 1; Mara, Stendarr from 2; Akatosh from 4) and the Dark
-Brotherhood from rank 1 - never to a non-member - from a shelf of quality + 1 potions drawn from twenty recipes a day:
-some 0.1 to 1 bottle a temple a day. Alchemists sold ingredients and recipes, and the Mages Guild no potions at all. At
-a flat 75 (half online, ESSENTIALS-HALF), its gold a point fell as the drinker rose: 5.0 at level 1, 1.0 at 10, 0.5 at
-20.
-
-**The law** (`systems/restorePower.js`, Ledger A):
-- **The price** (`tradeModes.js` `buyItemPrice`, `tradeCost`): online a bottle costs what it restores at the buyer's
-  level (`effectiveLevel` - the level it is drunk at, a mentor's too), a gold a point - 9 at level 1, 45 at 10, 85 at
-  20 - before the haggle, in place of the shop's quality multiplier and ESSENTIALS-HALF; a holiday's half still lands.
-  **A sale reads the same cost** (the Sell arm, and the keyed counter's `sellPrice`), so REALM P0.4's half of the least
-  the counter asks keeps buying a bottle to sell back from paying - pinned over levels 1-60, qualities 1-20 and haggles
-  0-100. The trade window's price context, the keyed purchase and the keyed sale carry `buyerLevel`.
-- **The supply.** Every alchemist shelves twenty a day online (`shopStock.js` `stockShopShelf`), after the classic
-  shelf and drawing no roll, so the day's classic stock is the stock it always was. At the Mages Guild the magic-items
-  merchant (MG_BuyMagicItems - the hall's one counter that hands over goods) sells them to anyone online: a member of
-  rank 3 and up sees them beside the day's magic shelf; anyone else, member or not, is sold the potions alone where
-  Daggerfall answers "members only" or 3100 (`scenes/worldModes.js` - `magesSellRestorePower`, the
-  `guildServiceBuyRestorePower` shelf, the day's as every guild shelf).
-
-**Found on the way, not changed.** There is no drink cooldown - a fight can drink the pool back as fast as the hotbar
-is pressed. The Alchemy station costs 50,000 in code (STATION-FEES) and 5,000 in an older patch note.
-
-`test/fb1001_mana.test.js` (8), red on the code before. `tools/mutants/fb1001_mana.json` (25, 25 dead).
+What the measuring found stands for whoever asks again: every way magicka comes back online is free but the potion;
+a whole pool rests back in about 3.6 real seconds, almost anywhere; Restore Power is sold only on the temples' and the
+Dark Brotherhood's potion shelves, to members, a random handful a day, at a flat price whose gold a point falls as its
+drinker rises (5 at level 1, 0.5 at 20). The rest window's header says eight hours take six seconds; the code takes
+about 3.6.
 
 ## ROAD-LOT: a yard's lot is no road (5)
 
