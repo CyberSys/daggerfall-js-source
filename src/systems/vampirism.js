@@ -31,8 +31,9 @@
 // instead of constant damage taken they should get reduced stats in
 // day and get the bonus at night"; asked, "Day -20 / night +20"): THE
 // PORT'S DEPARTURE. The sun no longer burns a vampire. The curse's
-// stat advantages are the NIGHT's; from 06:00 to 18:00, wherever the
-// vampire stands, the same stats are 20 DOWN (vampireStatMod) - held
+// stat advantages are the NIGHT's; from 06:00 to 18:00, in the sun the
+// burn struck in - never under a roof or underground (FIELD BUGS
+// 2026-10-01b, vampireStatMod) - the same stats are 20 DOWN - held
 // where the stat is read so a day never zeroes one (statMods.js
 // liveStat: a live 0 kills). The skills' +30, holy ground's burn, the
 // feeding and the rest it gates, and the travel rules the sunDamage
@@ -48,8 +49,10 @@
 // law - the sun does not reach the curse, so the map's door opens by
 // day and an arrival is not pushed to dusk. Online that is the whole
 // complaint: the shared clock's day is one real hour, and neither a
-// rest nor a trip moves that clock. The day's -20 is the hour's, not
-// the sun's (it holds indoors and underground), so a hood leaves it.
+// rest nor a trip moves that clock. The hood is the travel rules'
+// alone: the day's -20 is the street's sun on the stats (indoors and
+// underground there is none - FIELD BUGS 2026-10-01b), and a hood
+// leaves it.
 //
 // THE QUESTS went live in V2d (racialQuests.js): P0A01L00 on the
 // first 50% hit of the 38-day arm with hasStartedInitialVampireQuest
@@ -81,6 +84,7 @@ import { SOUND } from './soundClips.js';   // V5: the gendered attack voices
 import { endVampireQuests } from './racialQuests.js';   // V2d: the cure's P0* tombstone sweep
 import { cloakState } from './survival/temperature.js';   // VAMP-HOOD: the ONE "is the hood up" - the felt temperature's, never a second list
 import { isEnhanced } from './uiSkin.js';   // HOOD-SAID: the hint names the skin's own button
+import { playerInSunlight } from './passiveSpecials.js';   // FIELD BUGS 2026-10-01b: the day's -20 is the SUN's - IsPlayerInSunlight, the one seam every host registers
 
 /** VampirismEffect.VampirismCurseKey (:33). */
 export const VAMPIRISM_CURSE_KEY = 'Vampirism-Curse';
@@ -89,9 +93,19 @@ export const VAMPIRISM_CURSE_KEY = 'Vampirism-Curse';
  *  every stat but Intelligence, which only the Anthotis add - and
  *  +30 on six skills (no Swimming: the dead do not float better). */
 export const VAMPIRE_STAT_MOD = 20;
-/** VAMP-DAY: the curse's stat mod at a clock minute - DFU's +20 by night, the same 20 DOWN by day (06:00-18:00,
- *  isDayFromMinutes: the hour, never the sky or a roof). */
-export const vampireStatMod = (clockMinutes) => (isDayFromMinutes(clockMinutes) ? -VAMPIRE_STAT_MOD : VAMPIRE_STAT_MOD);
+/** VAMP-DAY: the curse's stat mod at a clock minute - DFU's +20 out of the sun, the same 20 DOWN in it (06:00-18:00,
+ *  outside).
+ *  FIELD BUGS 2026-10-01b (Mac: "Sunlight debuff applies in interior (Should be buffed in interiors) (Vampires)"): THE
+ *  DAY'S -20 IS THE SUN'S, NEVER THE HOUR'S ALONE. It read isDayFromMinutes - "the hour, never the sky or a roof" - so
+ *  at noon a vampire in a tavern, a guild hall or a crypt was 20 down where DFU gives him 20 up. The -20 took the
+ *  burn's place, and the burn was DamageFromSunlight (PassiveSpecialsEffect.cs:149-172), which strikes only
+ *  `if (GameManager.Instance.PlayerEnterExit.IsPlayerInSunlight)` (:168) - `IsDay && !IsPlayerInside &&
+ *  !PlayerEntity.InPrison` (PlayerEnterExit.cs:371), IsPlayerInside raised by a building's EnableInteriorParent (:1086)
+ *  and a dungeon's EnableDungeonParent (:1110). So the penalty asks that same flag through the seam every host
+ *  registers (passiveSpecials.js playerInSunlight: worldModes for the street and its buildings, dungeonContext for a
+ *  dungeon), and out of the sun - indoors, underground, in a cell, or by night - the vampire has what DFU gives him at
+ *  every hour: ApplyVampireAdvantages' +20 (VampirismEffect.cs:349-359). No bonus past it. */
+export const vampireStatMod = (clockMinutes) => (playerInSunlight(clockMinutes) ? -VAMPIRE_STAT_MOD : VAMPIRE_STAT_MOD);
 export const VAMPIRE_SKILL_MOD = 30;
 export const VAMPIRE_STATS = Object.freeze(['strength', 'willpower', 'agility', 'endurance', 'personality', 'speed', 'luck']);
 export const VAMPIRE_SKILLS = Object.freeze([
@@ -225,9 +239,10 @@ export function consumeVampirismPending(entity, { now = 0 } = {}) {
  * ConstantEffect (:97-107) + MagicRound (:109-113) at the round
  * cadence: both immunities, silver ALWAYS (no beast form to toggle
  * it), and the advantages re-applied - the Anthotis alone add
- * Intelligence (:295-296). VAMP-DAY: at the clock's hour - the
- * night's +20, the day's -20 on the same stats (`nowMinutes` is the
- * world clock, worldTick's `clockMinutes`).
+ * Intelligence (:295-296). VAMP-DAY: the sun's -20 on the same stats,
+ * DFU's +20 out of it - FIELD BUGS 2026-10-01b: by day only where the
+ * sun reaches, the host's roof read through vampireStatMod
+ * (`nowMinutes` is the world clock, worldTick's `clockMinutes`).
  */
 export function vampirismMagicRound(entity, { nowMinutes = 0, skyMinutes = nowMinutes } = {}) {
   const entry = liveVampirism(entity);
