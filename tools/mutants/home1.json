@@ -236,7 +236,7 @@
   {
     "name": "HOME1-two-asks-in-flight",
     "file": "src/systems/onlineHomes.js",
-    "old": "    const flying = asking.get(id);\n    if (flying) return flying;\n",
+    "old": "    const flying = asking.get(id);\n    // FB1001 LOOK-STALE: a forced ask behind a flight that set out before my last write is asked AFTER it - never\n    // dropped (ASYNC NEVER DROPS): that flight's answer is older than what I wrote, and is not believed (below)\n    if (flying) return force && askedAt.get(id) !== writesTo(id) ? flying.then(() => ensure(id, { force: true })) : flying;\n",
     "new": "",
     "tests": [
       "test/home1.test.js"
