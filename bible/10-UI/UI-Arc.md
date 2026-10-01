@@ -17191,7 +17191,7 @@ what it describes.
 **F2 - AN UNSPENT LEVEL SHOUTED ONCE PER REST.** The one that would
 have reached a player. `RaiseSkills`' tail sits OUTSIDE the skill loop
 (:1413) and `checkForLevelUp` stays true for as long as `level` is
-behind the calculated level (`systems/advancement.js:208`, whose own
+behind the calculated level (`systems/advancement.js:215`, whose own
 comment says it "re-offers the sheet"), so EVERY later pass that clears
 the 360-minute gate reaches the level-up arm again. Re-opening a window
 the player must answer is that law and it is right. RE-ANNOUNCING is a
@@ -17321,7 +17321,7 @@ reading the LAB's own window, which the door lane never shuts); and an
 Oghma Infinium read while a level is already owed DOES eat that level's
 `Level++` through `applyLevelUp`'s oghma arm, but `checkForLevelUp`
 re-raises the flag on the next pass because `level` is still behind the
-calculated one - the mechanism `advancement.js:197-203` was written for,
+calculated one - the mechanism `advancement.js:204-210` was written for,
 verified by running it rather than by reading it.
 
 ## PAD1 - THE PAD PASS (2026-09-21)

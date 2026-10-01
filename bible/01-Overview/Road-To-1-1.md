@@ -228,7 +228,7 @@ locations rather than open sea, and the boarding became an ordinary
 location arrival. **ROAD-F then took three more**: GS1 closed the
 guild-service popup above ground (`scenes/worldModes.js:2619`) with the
 replace-mode mount door plus the sweep of the subtree under it, and GS2
-reworded `systems/skills.js:258` - a RETIREMENT RECORD whose only claim
+reworded `systems/skills.js:263` - a RETIREMENT RECORD whose only claim
 on the list was that it wrote the marker down in the past tense.
 DR1 (2026-09-03) took another
 (`scenes/dungeonContext.js:2548`, the standalone dungeon host's two

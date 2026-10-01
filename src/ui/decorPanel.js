@@ -770,7 +770,7 @@ export function createDecorPanel({
     if (mode === 'rent') {   // HOME-RENT
       const rows = view.rent.rows ?? [];
       if (rentKey && !rows.some((it) => rentKeyOf(it) === rentKey)) rentKey = null;
-      list.replaceChildren(...(rows.length ? rows.map(rentRow) : [el('div', 'dfdecor-empty', view.rent.rooms ? DECOR_RENT_FINDING : DECOR_RENT_ONE_ROOM)]));
+      list.replaceChildren(...(rows.length ? rows.map(rentRow) : [el('div', 'dfdecor-empty', view.rent.finding ? DECOR_RENT_FINDING : DECOR_RENT_ONE_ROOM)]));   // RENT-ORPHANS: while the rooms are found, it says so
     } else if (mode === 'room') {
       const placed = roomed(view.placed ?? []);   // DECOR-ROOMS: the chosen room's
       if (placedId && !placed.some((it) => it.piece.id === placedId)) placedId = null;   // removed, or gone from the room
@@ -809,7 +809,7 @@ export function createDecorPanel({
     (view?.rooms ?? []).map((r) => `${r.id}:${r.name}`).join(','), view?.roomId ?? '', view?.doorways ?? '',
     view?.yard ? 'y' : '', view?.paint ? homeLookSig(view.paint.current) : '-',   // HOME-YARD; HOME-LOOK
     paintPart === 'roof' || paintPart === 'door' ? String(lookRecordsOf(paintPart, (paintLook?.[paintPart] ?? decorLookStart(paintPart)).climate)) : '',   // HOME-LOOK (AUDIT): a family's count answered
-    view?.rent ? `${view.rent.due}:${view.rent.busy ? 1 : 0}:${(view.rent.rows ?? []).map((r) => `${rentKeyOf(r)}:${r.offer ? `${r.offer.price}.${r.offer.taken ? 1 : 0}.${r.offer.listed ? 1 : 0}.${r.offer.until ?? ''}` : '-'}`).join(',')}` : ''].join('|');   // HOME-RENT   // DECOR-ROOMS: the tabs, and the one chosen; HOME-DOORS: the doorways free
+    view?.rent ? `${view.rent.due}:${view.rent.busy ? 1 : 0}${view.rent.loaded ? 1 : 0}${view.rent.finding ? 1 : 0}:${(view.rent.rows ?? []).map((r) => `${rentKeyOf(r)}:${r.offer ? `${r.offer.price}.${r.offer.taken ? 1 : 0}.${r.offer.listed ? 1 : 0}.${r.offer.until ?? ''}` : '-'}`).join(',')}` : ''].join('|');   // HOME-RENT (RENT-FRESH, RENT-ORPHANS: read, and still finding - each changes what the view says)   // DECOR-ROOMS: the tabs, and the one chosen; HOME-DOORS: the doorways free
 
   function paintSide() {
     const e = shown();
