@@ -423,8 +423,8 @@
  {
   "name": "SEAT1d-plan-no-unrest",
   "file": "src/net/townSeatLaw.js",
-  "old": "const total = claimTotal({ ...g, influence: unrestInfluence(g.influence, s.holder.standing) });",
-  "new": "const total = claimTotal(g);",
+  "old": "const risen = { ...g, influence: unrestInfluence(g.influence, s.holder.standing) }, total = claimTotal(risen);",
+  "new": "const risen = { ...g }, total = claimTotal(risen);",
   "tests": [
    "test/seat1d_client.test.js",
    "test/seat1d_service.test.js"

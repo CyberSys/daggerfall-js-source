@@ -41,8 +41,8 @@
   {
     "name": "SEAT1a-ignored-at-two",
     "file": "src/net/townSeatLaw.js",
-    "old": "n >= SEAT_WITNESS_UNMATCHED_MAX)",
-    "new": "n >= SEAT_WITNESS_UNMATCHED_MAX - 1)",
+    "old": "  const n = SEAT_WITNESS_UNMATCHED_MAX;\n",
+    "new": "  const n = SEAT_WITNESS_UNMATCHED_MAX - 1;\n",
     "tests": [
       "test/seat1a_client.test.js",
       "test/seat1a_service.test.js"
@@ -51,10 +51,11 @@
   {
     "name": "SEAT1a-ignored-for-ever",
     "file": "src/net/townSeatLaw.js",
-    "old": " || r.at < nowS - SEAT_WITNESS_IGNORED_S) continue;",
-    "new": ") continue;",
+    "old": "&& nowS < ts[i] + SEAT_WITNESS_IGNORED_S) { out.add(a); break; }",
+    "new": ") { out.add(a); break; }",
     "tests": [
-      "test/seat1a_client.test.js"
+      "test/seat1a_client.test.js",
+      "test/audit_seats_law.test.js"
     ]
   },
   {
@@ -69,8 +70,8 @@
   {
     "name": "SEAT1a-arrival-unsaid-unheld",
     "file": "src/net/townSeatLaw.js",
-    "old": ": `${seat.name}. Its Charter is unheld.`;",
-    "new": ": `${seat.name}.`;",
+    "old": ": `${seat.name}. Its Charter is unheld.`) + siege;",
+    "new": ": `${seat.name}.`) + siege;",
     "tests": [
       "test/seat1a_client.test.js"
     ]

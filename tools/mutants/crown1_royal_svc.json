@@ -32,7 +32,7 @@
  {
   "name": "CROWN1S-champion-season",
   "file": "src/net/townSeatLaw.js",
-  "old": "    case 'champion': return kingdom ? `Champion of ${kingdom}, Season ${ts[1]}` : null;",
+  "old": "    case 'champion': return kingdom ? `Champion of ${kingdom}${seasonTail(ts[1])}` : null;",
   "new": "    case 'champion': return kingdom ? `Champion of ${kingdom}` : null;",
   "tests": [
    "test/crown1_royal_law.test.js",

@@ -218,8 +218,8 @@
   {
     "name": "PROF6-svc-guild-room-unasked",
     "file": "server-account/src/writs.js",
-    "old": "        AND COALESCE((SELECT SUM(qty) FROM guild_prof_stores WHERE guild_id = w.guild_id AND material = w.material), 0) + ?4 <= ?13\n",
-    "new": "        AND ?13 = ?13\n",
+    "old": "        AND (w.seat IS NOT NULL OR COALESCE((SELECT SUM(qty) FROM guild_prof_stores WHERE guild_id = w.guild_id AND material = w.material), 0) + ?4 <= ?13)",
+    "new": "        AND (w.seat IS NOT NULL OR ?13 = ?13)",
     "tests": [
       "test/prof6_service.test.js"
     ]

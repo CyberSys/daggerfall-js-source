@@ -2,8 +2,8 @@
  {
   "name": "TIDE3-law-cap",
   "file": "src/net/townSeatLaw.js",
-  "old": "const o = Math.min(TIDE_EFFECTS.orcsInfluenceWeek, Math.max(0, raid));",
-  "new": "const o = Math.max(0, raid);",
+  "old": "const o = Math.min(TIDE_EFFECTS.orcsInfluenceWeek, amountOf(raid));",
+  "new": "const o = amountOf(raid);",
   "tests": [
    "test/tide_orcs.test.js"
   ]
@@ -11,8 +11,8 @@
  {
   "name": "TIDE3-law-floor",
   "file": "src/net/townSeatLaw.js",
-  "old": "const o = Math.min(TIDE_EFFECTS.orcsInfluenceWeek, Math.max(0, raid));",
-  "new": "const o = Math.min(TIDE_EFFECTS.orcsInfluenceWeek, raid);",
+  "old": "const o = Math.min(TIDE_EFFECTS.orcsInfluenceWeek, amountOf(raid));",
+  "new": "const o = Math.min(TIDE_EFFECTS.orcsInfluenceWeek, Number(raid));",
   "tests": [
    "test/tide_orcs.test.js"
   ]

@@ -444,7 +444,7 @@
  {
   "name": "AUDIT32-P8-silk-unsaid",
   "file": "src/ui/profPages.js",
-  "old": "  if (_loom.family === 'clothing' && UNYIELDED.includes(_loom.cloth))",
+  "old": "  if (_loom.family === 'clothing' && _loom.cloth === STANDARD_SILK.key)",
   "new": "  if (false)",
   "tests": [
    "test/audit32_pages.test.js"

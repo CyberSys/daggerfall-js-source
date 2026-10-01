@@ -60,8 +60,8 @@
   {
     "name": "SEAT1c-law-claim-no-legacy",
     "file": "src/net/townSeatLaw.js",
-    "old": "export const claimTotal = (g) => Math.max(0, g.influence) + Math.max(0, g.legacy ?? 0);",
-    "new": "export const claimTotal = (g) => Math.max(0, g.influence);",
+    "old": "export const claimTotal = (g) => amountOf(g.influence) + amountOf(g.legacy);",
+    "new": "export const claimTotal = (g) => amountOf(g.influence);",
     "tests": [
       "test/seat1c_service.test.js",
       "test/seat1c_client.test.js"

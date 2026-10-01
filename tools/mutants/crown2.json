@@ -320,8 +320,8 @@
  {
   "name": "CROWN2-chron-marks",
   "file": "src/net/townSeatLaw.js",
-  "old": "paid ${Number(d.marks ?? 0).toLocaleString('en-US')} Marks of tribute",
-  "new": "paid ${d.marks} Marks of tribute",
+  "old": "paid ${marksText(Number(d.marks ?? 0))} of tribute",
+  "new": "paid ${d.marks} Drakes of tribute",
   "tests": [
    "test/crown2_law.test.js"
   ]
@@ -746,7 +746,7 @@
  {
   "name": "CROWN2-tu-chron-tribute",
   "file": "server-account/src/seatTurning.js",
-  "old": "      if (k != null) stmts.push(history(k, 'fealty-tribute', { vassal: names.get(f.vassal), liege: names.get(f.liege), marks: owed }));\n",
+  "old": "      if (k != null) stmts.push(paidHistory(k, 'fealty-tribute', { vassal: names.get(f.vassal), liege: names.get(f.liege) }, `fealty-${week}-${f.vassal}`));   // AUDIT-SEATS: what was paid\n",
   "new": "",
   "tests": [
    "test/crown2_service.test.js"
@@ -854,8 +854,8 @@
  {
   "name": "CROWN2-book-announced",
   "file": "src/net/townSeatBook.js",
-  "old": "(d.announced ? `Your guild has broken its Pact with <${tag}>. Everyone has been told.` :",
-  "new": "(true ? `Your guild has broken its Pact with <${tag}>. Everyone has been told.` :",
+  "old": "(d.announced ? `Your guild has broken its Pact with <${tag}>. Everyone has been told.` : `The offer of a Pact with <${tag}> is withdrawn.`)",
+  "new": "(true ? `Your guild has broken its Pact with <${tag}>. Everyone has been told.` : `The offer of a Pact with <${tag}> is withdrawn.`)",
   "tests": [
    "test/crown2_client.test.js"
   ]
@@ -998,8 +998,8 @@
  {
   "name": "CROWN2-tab-lever",
   "file": "src/ui/seatTab.js",
-  "old": "      if (lever && r.act) {",
-  "new": "      if (r.act) {",
+  "old": "      for (const k of lever ? [r.act, r.alt] : []) {",
+  "new": "      for (const k of [r.act, r.alt]) {",
   "tests": [
    "test/crown2_client.test.js"
   ]
@@ -1007,8 +1007,8 @@
  {
   "name": "CROWN2-tab-tag",
   "file": "src/ui/seatTab.js",
-  "old": "act(() => acts[r.act](r.tag))",
-  "new": "act(() => acts[r.act](null))",
+  "old": "act(() => acts[k](r.tag))",
+  "new": "act(() => acts[k](null))",
   "tests": [
    "test/crown2_client.test.js"
   ]

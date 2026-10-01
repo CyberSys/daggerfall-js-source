@@ -154,7 +154,7 @@
  {
   "name": "SEAT2a-law-unordered",
   "file": "src/net/townSeatLaw.js",
-  "old": "  for (const b of [...battles].sort((x, y) => x.key - y.key)) {",
+  "old": "  for (const b of [...battles].sort((x, y) => crownFirst(x) - crownFirst(y) || x.key - y.key)) {",
   "new": "  for (const b of [...battles]) {",
   "tests": [
    "test/seat2a_client.test.js"

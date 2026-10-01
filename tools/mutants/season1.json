@@ -221,8 +221,8 @@
  {
   "name": "SEASON1-titles-keeper",
   "file": "src/net/townSeatLaw.js",
-  "old": "    if (Number(h.since) <= season.start) out.push(",
-  "new": "    if (Number(h.since) < season.start) out.push(",
+  "old": "Number(since) <= season.start + (season.n === 1 ? 1 : 0);",
+  "new": "Number(since) < season.start + (season.n === 1 ? 1 : 0);",
   "tests": [
    "test/season1_law.test.js"
   ]
@@ -394,7 +394,7 @@
  {
   "name": "SEASON1-tu-kept",
   "file": "server-account/src/seatTurning.js",
-  "old": "season: ending.n, kept: h.since <= ending.start }));",
+  "old": "season: ending.n, kept: keptWholeSeason(ending, h.since) }));",
   "new": "season: ending.n, kept: true }));",
   "tests": [
    "test/season1_service.test.js"

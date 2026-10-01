@@ -187,8 +187,8 @@
   {
     "name": "AUDIT31-svc-writ-room",
     "file": "server-account/src/writs.js",
-    "old": "        AND ${guildHeldSql('?4', '?8')} + ${reservedSql('?4', '?8', '?12')} + ?9 <= ?18\n",
-    "new": "        AND ?18 = ?18 AND ?9 = ?9\n",
+    "old": "        AND (?19 IS NOT NULL OR ${guildHeldSql('?4', '?8')} + ${reservedSql('?4', '?8', '?12')} + ?9 <= ?18)",
+    "new": "        AND (?19 IS NOT NULL OR (?18 = ?18 AND ?9 = ?9))",
     "tests": [
       "test/audit31_service.test.js"
     ]
@@ -196,8 +196,8 @@
   {
     "name": "AUDIT31-svc-writ-reserve-ignored",
     "file": "server-account/src/writs.js",
-    "old": "        AND ${guildHeldSql('?4', '?8')} + ${reservedSql('?4', '?8', '?12')} + ?9 <= ?18\n",
-    "new": "        AND ${guildHeldSql('?4', '?8')} + ?9 <= ?18\n",
+    "old": "        AND (?19 IS NOT NULL OR ${guildHeldSql('?4', '?8')} + ${reservedSql('?4', '?8', '?12')} + ?9 <= ?18)",
+    "new": "        AND (?19 IS NOT NULL OR ${guildHeldSql('?4', '?8')} + ?9 <= ?18)",
     "tests": [
       "test/audit31_service.test.js"
     ]
@@ -277,8 +277,8 @@
   {
     "name": "AUDIT31-svc-writ-room-view",
     "file": "server-account/src/writs.js",
-    "old": "  room: Math.max(0, GUILD_STORES_MAX - Number(w.guild_held ?? 0)),",
-    "new": "  room: GUILD_STORES_MAX,",
+    "old": "  room: w.seat == null ? Math.max(0, GUILD_STORES_MAX - Number(w.guild_held ?? 0)) : null,",
+    "new": "  room: w.seat == null ? GUILD_STORES_MAX : null,",
     "tests": [
       "test/audit31_service.test.js"
     ]

@@ -265,8 +265,8 @@
   {
     "name": "SEAT1b-law-gate-cap-off",
     "file": "src/net/townSeatLaw.js",
-    "old": "  const g = Math.min(GATE_WEEK_CAP, Math.max(0, gates) * GATE_INFLUENCE) * (tide === 'daedra' ? TIDE_EFFECTS.daedraGates : 1);",
-    "new": "  const g = Math.max(0, gates) * GATE_INFLUENCE * (tide === 'daedra' ? TIDE_EFFECTS.daedraGates : 1);",
+    "old": "  const g = Math.min(GATE_WEEK_CAP, amountOf(gates) * GATE_INFLUENCE) * (tide === 'daedra' ? TIDE_EFFECTS.daedraGates : 1);",
+    "new": "  const g = amountOf(gates) * GATE_INFLUENCE * (tide === 'daedra' ? TIDE_EFFECTS.daedraGates : 1);",
     "tests": [
       "test/seat1b_service.test.js",
       "test/seat1b_client.test.js"
@@ -275,8 +275,8 @@
   {
     "name": "SEAT1b-law-renown-cap-off",
     "file": "src/net/townSeatLaw.js",
-    "old": "  const r = Math.min(RENOWN_WEEK_CAP, Math.floor(Math.max(0, renownXp) / RENOWN_XP_PER_INFLUENCE));",
-    "new": "  const r = Math.floor(Math.max(0, renownXp) / RENOWN_XP_PER_INFLUENCE);",
+    "old": "  const r = Math.min(RENOWN_WEEK_CAP, Math.floor(amountOf(renownXp) / RENOWN_XP_PER_INFLUENCE));",
+    "new": "  const r = Math.floor(amountOf(renownXp) / RENOWN_XP_PER_INFLUENCE);",
     "tests": [
       "test/seat1b_service.test.js",
       "test/seat1b_client.test.js"
@@ -285,8 +285,8 @@
   {
     "name": "SEAT1b-law-tribute-a-fifth-of-the-rest",
     "file": "src/net/townSeatLaw.js",
-    "old": "  const cap = Math.floor((Math.max(0, others) * TRIBUTE_SHARE_MAX) / (1 - TRIBUTE_SHARE_MAX) + 1e-9);",
-    "new": "  const cap = Math.floor(Math.max(0, others) * TRIBUTE_SHARE_MAX + 1e-9);",
+    "old": "  const cap = Math.floor((amountOf(others) * TRIBUTE_SHARE_MAX) / (1 - TRIBUTE_SHARE_MAX) + 1e-9);",
+    "new": "  const cap = Math.floor(amountOf(others) * TRIBUTE_SHARE_MAX + 1e-9);",
     "tests": [
       "test/seat1b_service.test.js",
       "test/seat1b_client.test.js"

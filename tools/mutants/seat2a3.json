@@ -62,7 +62,7 @@
  {
   "name": "SEAT2a3-law-held",
   "file": "src/net/townSeatLaw.js",
-  "old": "export const SIEGE_STANDING = Object.freeze({ held: 15, forfeit: 10 });",
+  "old": "export const SIEGE_STANDING = Object.freeze({ held: STANDING_CHANGES.siegeHeld, forfeit: 10 });",
   "new": "export const SIEGE_STANDING = Object.freeze({ held: 10, forfeit: 10 });",
   "tests": [
    "test/seat2a_siege_service.test.js",
@@ -72,8 +72,8 @@
  {
   "name": "SEAT2a3-law-forfeit",
   "file": "src/net/townSeatLaw.js",
-  "old": "export const SIEGE_STANDING = Object.freeze({ held: 15, forfeit: 10 });",
-  "new": "export const SIEGE_STANDING = Object.freeze({ held: 15, forfeit: 15 });",
+  "old": "export const SIEGE_STANDING = Object.freeze({ held: STANDING_CHANGES.siegeHeld, forfeit: 10 });",
+  "new": "export const SIEGE_STANDING = Object.freeze({ held: STANDING_CHANGES.siegeHeld, forfeit: 15 });",
   "tests": [
    "test/seat2a_siege_service.test.js",
    "test/seat2a_siege_client.test.js"
@@ -112,8 +112,8 @@
  {
   "name": "SEAT2a3-law-spoils",
   "file": "src/net/townSeatLaw.js",
-  "old": "export const SIEGE_SPOILS = Object.freeze(['ingot:warforged', 'cloth:standard']);",
-  "new": "export const SIEGE_SPOILS = Object.freeze(['ingot:warforged', 'cloth:silk']);",
+  "old": "export const SIEGE_SPOILS = Object.freeze(['ingot:warforged', 'cloth:standard', 'gem:siege']);",
+  "new": "export const SIEGE_SPOILS = Object.freeze(['ingot:warforged', 'cloth:silk', 'gem:siege']);",
   "tests": [
    "test/seat2a_siege_service.test.js",
    "test/seat2a_siege_client.test.js"
@@ -242,8 +242,8 @@
  {
   "name": "SEAT2a3-law-chron-taken",
   "file": "src/net/townSeatLaw.js",
-  "old": "    case 'siege-taken': return `${when}, ${guildWords(d.guild)} took ${c} by siege from ${guildWords(d.from)}.`;",
-  "new": "    case 'siege-taken': return `${when}, ${guildWords(d.guild)} took ${c} by siege.`;",
+  "old": "      : `${when}, ${guildWords(d.guild)} took ${c} by siege from ${guildWords(d.from)}.`;",
+  "new": "      : `${when}, ${guildWords(d.guild)} took ${c} by siege.`;",
   "tests": [
    "test/seat2a_siege_service.test.js",
    "test/seat2a_siege_client.test.js"

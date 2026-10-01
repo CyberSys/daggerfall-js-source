@@ -219,8 +219,8 @@
  {
   "name": "TIDE-acc-daedra",
   "file": "src/net/townSeatLaw.js",
-  "old": "Math.min(GATE_WEEK_CAP, Math.max(0, gates) * GATE_INFLUENCE) * (tide === 'daedra' ? TIDE_EFFECTS.daedraGates : 1);",
-  "new": "Math.min(GATE_WEEK_CAP, Math.max(0, gates) * GATE_INFLUENCE * (tide === 'daedra' ? TIDE_EFFECTS.daedraGates : 1));",
+  "old": "Math.min(GATE_WEEK_CAP, amountOf(gates) * GATE_INFLUENCE) * (tide === 'daedra' ? TIDE_EFFECTS.daedraGates : 1);",
+  "new": "Math.min(GATE_WEEK_CAP, amountOf(gates) * GATE_INFLUENCE * (tide === 'daedra' ? TIDE_EFFECTS.daedraGates : 1));",
   "tests": [
    "test/tide_law.test.js"
   ]
@@ -330,8 +330,8 @@
  {
   "name": "TIDE-inf-tides",
   "file": "server-account/src/seatInfluence.js",
-  "old": "    tides: season ? { now: tideAt(week, seat.region, true), next:",
-  "new": "    tides: null ? { now: tideAt(week, seat.region, true), next:",
+  "old": "return season || nextCounted ? { now: tideAt(week, seat.region, !!season), next:",
+  "new": "return null ? { now: tideAt(week, seat.region, !!season), next:",
   "tests": [
    "test/tide_service.test.js",
    "test/tide_client.test.js"
@@ -340,8 +340,8 @@
  {
   "name": "TIDE-inf-next",
   "file": "server-account/src/seatInfluence.js",
-  "old": "next: tideAt(week + 1, seat.region, !!seasonOf(week + 1, seasonZeroOf(env?.SEASON_ZERO_WEEK))) } : null,",
-  "new": "next: tideAt(week, seat.region, true) } : null,",
+  "old": "next: tideAt(week + 1, seat.region, nextCounted) } : null;",
+  "new": "next: tideAt(week, seat.region, true) } : null;",
   "tests": [
    "test/tide_service.test.js"
   ]
