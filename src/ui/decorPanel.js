@@ -92,6 +92,7 @@ ${PIXELIFY_FIVE_FACE}
 .dfdecor-card[data-mode="paint"] .dfdecor-room-actions, .dfdecor-card[data-mode="paint"] .dfdecor-base-actions,
 .dfdecor-card[data-mode="paint"] .dfdecor-rent-actions, .dfdecor-card:not([data-mode="paint"]) .dfdecor-paint-actions { display: none; }
 .dfdecor-paint-actions { display: flex; flex-direction: column; gap: 6px; }
+.dfdecor-paint-btns { display: flex; flex-wrap: wrap; gap: 4px; }   /* FB1001 LOOK-BUTTONS: the painter's own row, never the rent's */
 .dfdecor-card[data-mode="look"] .dfdecor-room-actions, .dfdecor-card[data-mode="look"] .dfdecor-kinds,
 .dfdecor-card[data-mode="look"] .dfdecor-has { display: none; }
 .dfdecor-room-actions { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -404,7 +405,9 @@ export function createDecorPanel({
   const paintActions = el('div', 'dfdecor-paint-actions');
   const paintClimates = el('div', 'dfdecor-chips');
   const paintKinds = el('div', 'dfdecor-chips');
-  const paintBtns = el('div', 'dfdecor-rent-actions');
+  // FB1001 LOOK-BUTTONS: a row of its own - classed as the rent's, the sheet hid it in every tab but "Rooms to rent", so
+  // a look could be tried and never painted
+  const paintBtns = el('div', 'dfdecor-paint-btns');
   const ownBtn = act("The town's own", () => { if (!paintPart || !paintLook) return; delete paintLook[paintPart]; tryLook(); });
   const paintBtn = act('Paint it', () => { if (!paintBtn.disabled) onPaint('commit', homeLookOf(paintLook)); });
   const backBtn = act('Put back', () => { paintLook = { ...(view?.paint?.current ?? {}) }; tryLook(); });
@@ -945,6 +948,9 @@ export function createDecorPanel({
     open = false;
     root.dataset.state = 'closed';
     hoverKey = null;
+    // FB1001 LOOK-TRIED: closing is leaving the tab - the house puts a tried look away (the host's onClose), and so does
+    // the painter, or it opened again on a look "tried on your house" that the house no longer wore
+    if (mode === 'paint') paintLook = null;
     unregister();
     unregister = () => {};
     onClose();   // once an opening: a closed panel returns above

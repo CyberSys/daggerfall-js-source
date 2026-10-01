@@ -209,6 +209,12 @@ export function createOnlineHomes({ api, character = () => null, now = () => Dat
   const asking = new Map();
   /** @type {Map<number, number>} */
   const failed = new Map();
+  /** @type {Map<number, number>} FB1001 LOOK-STALE: my answered writes to each town, counted - and the count each town's
+   *  ask in flight set out under. An answer that set out before a write of mine landed is older than the row I wrote. */
+  const writes = new Map();
+  /** @type {Map<number, number>} */
+  const askedAt = new Map();
+  const writesTo = (id) => writes.get(id) ?? 0;
   let version = 0;
   const idOf = (mapId) => (Number.isFinite(Number(mapId)) ? Number(mapId) >>> 0 : 0);
 
@@ -219,14 +225,21 @@ export function createOnlineHomes({ api, character = () => null, now = () => Dat
     const had = towns.get(id);
     if (!force && had && now() - had.at < ttlMs) return Promise.resolve(true);
     const flying = asking.get(id);
-    if (flying) return flying;
+    // FB1001 LOOK-STALE: a forced ask behind a flight that set out before my last write is asked AFTER it - never
+    // dropped (ASYNC NEVER DROPS): that flight's answer is older than what I wrote, and is not believed (below)
+    if (flying) return force && askedAt.get(id) !== writesTo(id) ? flying.then(() => ensure(id, { force: true })) : flying;
     if (!force && now() - (failed.get(id) ?? -Infinity) < HOME_RETRY_MS) return Promise.resolve(!!had);
+    const gen = writesTo(id);
     const p = Promise.resolve()
       .then(() => api.town(id, character()))   // HOME-RENT: the playing character's own tenancies ride the answer
       .then((r) => {
         const list = r?.ok ? r.data?.homes : null;
         // unanswered: what was known stands, nothing new is believed, and the next ask waits a little
         if (!Array.isArray(list)) { failed.set(id, now()); return towns.has(id); }
+        // FB1001 LOOK-STALE: the service answered before a write of mine landed - a painted look, a door's entry, a claim
+        // - so the town as it stood then is never believed over it (it put a painted house back for a minute); the
+        // write's own ask follows this one
+        if (writesTo(id) !== gen) return towns.has(id);
         const homes = new Map();
         for (const h of list) {
           if (!homeBuildingKeyOk(h?.buildingKey) || typeof h.owner !== 'string') continue;
@@ -246,8 +259,9 @@ export function createOnlineHomes({ api, character = () => null, now = () => Dat
         version++;
         return true;
       }, () => { failed.set(id, now()); return towns.has(id); })
-      .finally(() => { asking.delete(id); });
+      .finally(() => { asking.delete(id); askedAt.delete(id); });
     asking.set(id, p);
+    askedAt.set(id, gen);
     return p;
   }
 
@@ -272,6 +286,7 @@ export function createOnlineHomes({ api, character = () => null, now = () => Dat
 
   /** A change I made, shown now and read back from the service after (the owner's name, the others' doors). */
   function wrote(id, buildingKey, row) {
+    writes.set(id, writesTo(id) + 1);   // FB1001 LOOK-STALE: an ask already out answers the town from before this
     const t = towns.get(id);
     if (t) {
       if (row) t.homes.set(buildingKey, row);
