@@ -56,20 +56,22 @@
   {
     "name": "SC-port-uncapped",
     "file": "src/systems/naval/shipCrew.js",
-    "old": "        if (morale < PORT_CAP && (portT += dt) >= PORT_RISE_S) { portT -= PORT_RISE_S; morale = Math.min(PORT_CAP, morale + 1); }",
-    "new": "        if ((portT += dt) >= PORT_RISE_S) { portT -= PORT_RISE_S; morale = Math.min(MORALE_MAX, morale + 1); }",
+    "old": "        if (morale < PORT_CAP) { portT += dt; const k = Math.floor(portT / PORT_RISE_S); if (k > 0) { portT -= k * PORT_RISE_S; morale = Math.min(PORT_CAP, morale + k); } } else portT = 0;",
+    "new": "        { portT += dt; const k = Math.floor(portT / PORT_RISE_S); if (k > 0) { portT -= k * PORT_RISE_S; morale = Math.min(MORALE_MAX, morale + k); } }",
     "tests": [
       "test/shipcrew.test.js"
-    ]
+    ],
+    "note": "AUDIT CREW (PIN MOVED): re-aimed by content at the line the audit changed."
   },
   {
     "name": "SC-sea-clock-unkept",
     "file": "src/systems/naval/shipCrew.js",
-    "old": "        if ((seaT += dt) >= SEA_DECAY_S) { seaT -= SEA_DECAY_S; bump(-1); }",
-    "new": "        if ((seaT += dt) >= SEA_DECAY_S) { seaT = 0; bump(-1); }",
+    "old": "        seaT += dt; const k = Math.floor(seaT / SEA_DECAY_S); if (k > 0) { seaT -= k * SEA_DECAY_S; bump(-k); }",
+    "new": "        seaT += dt; const k = Math.floor(seaT / SEA_DECAY_S); if (k > 0) { seaT = 0; bump(-k); }",
     "tests": [
       "test/shipcrew.test.js"
-    ]
+    ],
+    "note": "AUDIT CREW (PIN MOVED): re-aimed by content at the line the audit changed."
   },
   {
     "name": "SC-reload-unscaled",
@@ -146,20 +148,22 @@
   {
     "name": "SR-budget-unread",
     "file": "src/systems/naval/navalYard.js",
-    "old": "  left = Math.min(left, Math.max(0, budget));",
-    "new": "",
+    "old": "  if (out.work > cap) {",
+    "new": "  if (false) {",
     "tests": [
       "test/shipcrew.test.js"
-    ]
+    ],
+    "note": "AUDIT CREW (PIN MOVED): re-aimed by content at the line the audit changed."
   },
   {
     "name": "SR-alone-full",
     "file": "src/systems/naval/navalYard.js",
-    "old": "(crewed ? Math.max(0, Math.min(1, crewShare)) : SEA_REPAIR_ALONE) * Math.max(0, scale) * Math.max(0, dt);\n  left",
-    "new": "(crewed ? Math.max(0, Math.min(1, crewShare)) : 1) * Math.max(0, scale) * Math.max(0, dt);\n  left",
+    "old": "  const share = crewed && crewShare > 0 ? Math.min(1, crewShare) : SEA_REPAIR_ALONE;   // AUDIT CC-D2",
+    "new": "  const share = crewed && crewShare > 0 ? Math.min(1, crewShare) : 1;   // AUDIT CC-D2",
     "tests": [
       "test/shipcrew.test.js"
-    ]
+    ],
+    "note": "AUDIT CREW (PIN MOVED): re-aimed by content at the line the audit changed."
   },
   {
     "name": "SR-grog-crewless",
@@ -218,20 +222,22 @@
   {
     "name": "SCH-grog-unfelt",
     "file": "src/scenes/navalHost.js",
-    "old": "      if (id === 'grog') st.crew.event('grog');",
-    "new": "",
+    "old": "      if (id === 'grog') { st.crew.event('grog'); st.crew.drankGrog(where().day ?? null); }",
+    "new": "      if (id === 'grog') { st.crew.drankGrog(where().day ?? null); }",
     "tests": [
       "test/shipcrew.test.js"
-    ]
+    ],
+    "note": "AUDIT CREW (PIN MOVED): re-aimed by content at the line the audit changed."
   },
   {
     "name": "SCH-stores-unspent",
     "file": "src/scenes/navalHost.js",
-    "old": "      while (s.credit < -1e-12 && deps.stores?.spend?.(b)) s.credit += STORE_SHARE;",
-    "new": "      while (s.credit < -1e-12) s.credit += STORE_SHARE;",
+    "old": "      while (s.credit < -1e-9 && deps.stores?.spend?.(b)) s.credit += STORE_POINTS;",
+    "new": "      while (s.credit < -1e-9) s.credit += STORE_POINTS;",
     "tests": [
       "test/shipcrew.test.js"
-    ]
+    ],
+    "note": "AUDIT CREW (PIN MOVED): re-aimed by content at the line the audit changed."
   },
   {
     "name": "SCH-quiet-unread",

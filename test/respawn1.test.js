@@ -45,7 +45,7 @@ function strippedFoeKeys() {
  *  source - so this pin follows the publisher rather than a copy of it. */
 function publishedFoeKeys() {
   const src = read('src/scenes/dungeonContext.js');
-  const at = src.indexOf('      foes: foes.filter((f) => f._ownFrom == null).map((f) => ({');   // QUEST-PARTY phase 3c: a party member's quest foe is in no record of mine
+  const at = src.indexOf('      foes: foes.filter((f) => f._ownFrom == null && f.companion == null).map((f) => ({');   // QUEST-PARTY phase 3c: a party member's quest foe is in no record of mine - PIN MOVED (CREW-COMPANIONS): nor my companion
   assert.ok(at > 0, 'collectWorld no longer opens its foe record where this pin looks');
   const end = src.indexOf('\n      })),', at);
   assert.ok(end > at, 'the foe record no longer closes where this pin looks');

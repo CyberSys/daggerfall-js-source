@@ -846,12 +846,12 @@
   {
     "name": "NAV1H-the-wreck-hint-unsaid",
     "file": "src/ui/navalHud.js",
-    "old": "      : ship.wrecked ? (ship.repairing ? 'Crippled - her crew at the repairs' : ship.stores > 0 ? 'Crippled - order repairs, or make port' : 'Crippled - make port for a shipwright')   // AUDIT NAV1: the way out of a wreck, said - SEA-REPAIR: her stores the other\n",
+    "old": "      : ship.wrecked ? (ship.repairing ? 'Crippled - her crew at the repairs' : ship.repairOrdered ? 'Crippled - her crew stands to the repairs' : ship.stores > 0 ? 'Crippled - order repairs, or make port' : 'Crippled - make port for a shipwright')   // AUDIT NAV1: the way out of a wreck, said - SEA-REPAIR: her stores the other\n",
     "new": "",
     "tests": [
       "test/navaudit_helm.test.js"
     ],
-    "note": "SHIP-CREW (PIN MOVED): re-aimed at the moved line."
+    "note": "SHIP-CREW (PIN MOVED): re-aimed at the moved line. AUDIT CREW (PIN MOVED): re-aimed by content at the line the audit changed."
   },
   {
     "name": "NAV1H-the-yard-a-ship-to-board",

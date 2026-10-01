@@ -191,11 +191,12 @@
   {
     "name": "AUDIT-NAV2-F42-a-fights-men-back",
     "file": "src/systems/naval/crewLife.js",
-    "old": "if (!m.gone || m.taken) continue;",
-    "new": "if (!m.gone) continue;",
+    "old": "if (!m.gone || m.taken || m.ashore) continue;",
+    "new": "if (!m.gone || m.ashore) continue;",
     "tests": [
       "test/auditnav2_crew.test.js"
-    ]
+    ],
+    "note": "CREW-COMPANIONS (PIN MOVED): re-aimed by content at the line the companions' change moved."
   },
   {
     "name": "AUDIT-NAV2-F42-grown-men-unseen",
@@ -510,12 +511,12 @@
   {
     "name": "AUDIT-NAV2-F43-raid-crew-not-held",
     "file": "src/scenes/world.js",
-    "old": "toward: mine?.toward ?? null, hold: raid, mine });",
-    "new": "toward: mine?.toward ?? null, hold: false, mine });",
+    "old": "toward: mine?.toward ?? null, hold: raid, mine, away:",
+    "new": "toward: mine?.toward ?? null, hold: false, mine, away:",
     "tests": [
       "test/auditnav2_crew.test.js"
     ],
-    "note": "SHIP-CREW (PIN MOVED): re-aimed at the moved line."
+    "note": "SHIP-CREW (PIN MOVED): re-aimed at the moved line. CREW-COMPANIONS (PIN MOVED): re-aimed by content at the line the companions' change moved."
   },
   {
     "name": "AUDIT-NAV2-F43-any-boarding-holds",

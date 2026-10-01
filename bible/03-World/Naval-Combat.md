@@ -1233,27 +1233,95 @@ immersion list's first; and of the choices put to him, morale *"Gentle"* (no wag
   (`reloadScaleOf`, `MORALE_RELOAD` either way - the gun deck's `reloadScale`), her hands' mending (`mendScaleOf`), a
   boarding's hands (`handsBonusOf` - one more at `HIGH_SPIRITS`, one fewer at `LOW_SPIRITS`), their lines (high, low)
   and their song (none under `SING_MIN`). No wages, no desertion.
-- **Deck orders** (`ORDERS`): *Man the guns* (a quicker reload, `GUNS_RELOAD`; her crew at the guns as in a fight),
+- **Deck orders** (`CREW_ORDERS`): *Man the guns* (a quicker reload, `GUNS_RELOAD`; her crew at the guns as in a fight),
   *All hands to the rail* (a boarding's hand more; the crew musters at the rail), *Make repairs* (below), *Stand down*.
   Her First Mate answers by name. Given from the Plus helm panel's Orders button (`enhancedHelm.js`, a `hook`) or the
   boat's menu (`csaBoatMenu.js` Crew and Give orders, with the naval arc on); a boat with no crew has the repairs and
   standing down alone. The crew's card (Crew) lists her spirits, her order and each hand with his deeds. DECLARED: no
   keybinding - the port's key registry pins its actions' order and defaults, and the panel and the menu give the orders.
 - **Repairs at sea** (`navalYard.js seaRepair`, the host's `repairStep`). CARPENTER'S STORES (`navalStores.js`, template
-  1330, 10 kg, stacking) are bought at the shipwright's (Provisions: `STORE_PRICE` each, to `STORES_STOCK` in her hold)
-  and sit in her hold as Come Sail Away's cargo. *Make repairs*, while nothing threatens her (the free mending's own
-  quiet), sets her hands to work: `SEA_REPAIR_PER_S` of the whole a second by her crew's share and spirits, her hull
-  first then her canvas, **all the way to whole**, a store spent for every `STORE_SHARE` of a whole made good (a store's
-  part-spent share kept in the save, `credit`). A wreck floats again past `FIELD_REFLOAT`. Whole, or her stores spent,
-  the order stands down with her First Mate's word. The free mending to `FIELD_MEND_CAP` stands beside it. The plate
-  says REPAIRING; a wreck's hint names the order when she has stores.
+  1330, 10 kg, stacking) are bought at the shipwright's and sit in her hold as Come Sail Away's cargo. AUDIT CREW CC-D1
+  (Mac: *"Priced per hull, no port use"*): a store makes good `STORE_POINTS` of WORK - a hull point a point, canvas at
+  its yard price's share of the hull's (`SAIL_WORK`) - and costs `STORE_YARD_SHARE` (70%) of what the yard asks for that
+  work (`storePrice`); the yard stocks her hold to what her wreck takes to be whole (`storesToWhole`, at least
+  `STORES_STOCK`), so a bigger ship carries more of them. *Make repairs*, out of port and while nothing threatens her
+  (the free mending's own quiet), sets her hands to work: `SEA_REPAIR_PER_S` of the whole a second by her crew's share
+  (`SEA_REPAIR_ALONE` with none aboard - and with every hand lost, her captain at it alone) and spirits, her hull first
+  then her canvas, **all the way to whole**, a store spent for every `STORE_POINTS` made good (the part-spent store's
+  `credit` kept in the save). In port the order is refused in her First Mate's words - the shipwright is there. A wreck
+  floats again past `FIELD_REFLOAT`. Whole, or her stores spent, the order stands down with a word; the plate says
+  REPAIRING, and a wreck's hint says when the order stands in the quiet before the work.
 - **The yard** sells PROVISIONS apart from her needs (never part of making her whole): the stores, and a round of grog
-  (`grogPrice`, a gold a hand) for a crewed boat whose spirits are short of the top.
-- **The save**: her crew (`mates` - the damage's own `crew` is her count) and her store's credit beside her hurts, by
-  her deed's UID; an older save's boat musters a new crew.
+  (`grogPrice`, a gold a hand, at least `GROG_MIN`) for a crewed boat whose spirits are short of the top - one round a
+  port day (AUDIT CREW CC-D5, Mac: *"Once per port day"*). A prize's hold cheers her crew once, however it is emptied.
+- **The save**: her crew (`mates` - the damage's own `crew` is her count; with it her standing order and the grog's
+  day) and her store's credit beside her hurts, by her deed's UID; an older save's boat musters a new crew. A fight's
+  losses count as one while each comes within `LOSSES_WINDOW_S` of the last. Her deck stands each hand as he was named
+  (his class and sex off `mates`, not the session's crew seed).
 
 Pins: `test/shipcrew.test.js` (the laws, the living crew's answer on her real deck, the real host's repairs, falls,
 spirits, orders, yard and save). `tools/mutants/shipcrew.json`: 40 mutants, all dead.
+
+## CREW-COMPANIONS (2026-09-30) - the crew ashore, following and fighting through every door - DECLARED
+
+Mac: *"Just to add to this. I think this is a good opportunity to introduce the ability to take them along as
+companions in the world that travel with you and can fight by your side"* - and of the choices put to him, *"Up to 2"*,
+*"Knocked out"* (never killed), and through every door: *"#2, maybe this is a time for a refactor?"*. Daggerfall has no
+followers and Come Sail Away's crew never leaves the boat; all of this is the port's own.
+
+- **The party** (`systems/naval/crewCompanions.js`, pure; the host keeps one, saved as the naval save's `party`). Up to
+  `COMPANION_MAX` of the player's named hands ashore at once, each by his boat's deed UID and his name (a name is his
+  for life - `shipCrew.js handName`). Taken and sent back from the boat's menu (**Companions** - a crewed boat of mine,
+  the naval arc on: `companionRows`, the host's `companionPress`). A hand ashore is off her deck (`crewLife.js away`:
+  no walk, no talk, no song, no muster, never mended back or sent to a boarding) and home again stands on it.
+- **Knocked out, never killed.** Both pools' death arms (`exteriorFoes.js`, `dungeonContext.js damageFoe`) hold a
+  companion at 1 and mark him `_knockedOut` before every other arm - the soul trap, the kill notice, the corpse, the
+  loot. The layer carries him back aboard: he rests `REST_MIN` (8 hours of the world's clock) before he will come
+  ashore again, and his crew's spirits take `MORALE_EVENT.knocked` (her saved crew's, when a load has not yet stood
+  her). A hand fallen from her roster leaves the party (`prune`, once a second). While the player sails, every hand is
+  aboard - the party lifted, walking her deck with the rest (Mac: *"Back on deck while sailing"*), and ashore again
+  behind the player at the first step off.
+- **THE REFACTOR: one layer over the places' own pools** (`scenes/crewAshore.js`). The street and a building share one
+  pool factory (`exteriorFoes.js`, minted per building), a dungeon has its own (`dungeonContext.js`); each hands the
+  layer an ADAPTER (`world.js companionPlace`: its key - the pool itself - how a companion stands there, how he goes,
+  and where behind the player a body may stand, the place's collider swept from the player's feet). Each frame, in
+  every mode, the layer reads the place's key: a new key (a door, a dungeon, the helm) lifts every body out of the old
+  place - his health already in the party, as a SHARE of his whole (each place rolls his pool afresh) - and stands the
+  party behind the player in the new one. No door hook; a body a place swept itself - culled, removed, or (AUDIT CREW
+  CC-A1) cleared out of its list with nobody marked, as the street's `clearLive` does on a fast travel, a Recall, a
+  passage or a respawn - is missing from the place's `has` and stands again the same way. A stand that lands after its
+  place was left is taken back, and a quickload lifts the party before the save lands. A pause holds the layer.
+- **The follow brain** is the motor's: `ai.follow` (the leader's live feet and how near to keep - `HEEL_M`, a pace
+  further for the second). No foe to fight - or a fight that has drawn him past `FOLLOW_LEASH` - a companion turns and
+  walks to the leader (`enemyMotor.js _followTicks`: the pursuit's own turn-then-walk, standing inside `stop`, off
+  again past `stop + FOLLOW_SLACK`); the pathing motor routes it round walls on the navmesh (`enhancedMotor.js
+  _followGoal`, the route dropped as he turns between following and fighting). AUDIT CREW CC-B3/B4: he fights only a
+  foe within the leash of his LEADER that he can pursue; drawn past the leash he is RETURNING - every target dropped,
+  the secondary one too - until he is home; a foe never seen, or given up on, leaves him following. Left `CATCH_UP_M`
+  behind, or `CATCH_UP_DY` a floor away while the leader stands on one, he is stood behind the player again, his motor
+  resumed (no fall billed from the ledge he left).
+- **Fighting.** Each stands as the player's ally (`allied`: team PlayerAlly), a `shipmate` none of the player's blows
+  reach (`combat/friendlyFire.js`, now the dungeon's swing, door and shaft, and a torch indoors and underground too),
+  whose team no blow of the player's turns (both pools' attack door - AUDIT CREW CC-B1 - and the layer puts it back
+  regardless), a `companion` every hostile may fight - with infighting off as well (`enemyTargets.js getTargets`'
+  else-arm; a plain summon keeps DFU's chain) - and a quest's foes too; never the player's foe nor an ally's. A monster
+  fighting him keeps the town's watch. The layer's catch-up (`CATCH_UP_M`) comes long before the street's cull
+  (`ENCOUNTER_CULL_DISTANCE`); he takes no encounter slot; he is `transient` (no place's save) and the room's save skips
+  him. His green bar shows in every mode (`navalCrewBars`, the host's `drawCompanionBars`, under a dungeon window too),
+  a peer's companion's indoors and underground as well.
+- **CO-OP** (AUDIT CREW CC-E, Mac: *"Full co-op combat now"*). The owner simulates and the striker reports, as for the
+  player's own blows: a companion's blow on a foe another client stands goes to its owner as an ALLY's (`al`, `ac` his
+  number - the owner's foe turns on him, never on his player); a foe's blow on another's companion goes to the
+  companion's owner (`fb`, `sf` the striker's number), where he is real and his knock-out is. The frames name each
+  owner's companions (`cp`) - the street's and a building's foes frames, and the room's own lane underground, which a
+  dungeon companion now rides as a loose stand, stood by everyone as that player's ally; the other clients' bodies
+  join each side's hunt. A lifted companion makes the next street frame whole. Nothing of `server/src` or `src/net`:
+  the hit and the frame carry what they always passed through. Said: another's foe fighting my companion swings at him
+  only on its owner's screen (a record names no companion as its target).
+
+Pins: `test/crewcompanions.test.js` and `test/auditcrew.test.js` (AUDIT CREW, `01-Overview/Audit-Crew.md`) (the party's laws, the follow brain on a flat and round a wall on a real navmesh,
+the targets, the layer through doors, sweeps, knocks and catch-ups, the deck, the menu, the wiring by source).
+`tools/mutants/crewcompanions.json`: 47 mutants, all dead.
 
 ## The tests
 

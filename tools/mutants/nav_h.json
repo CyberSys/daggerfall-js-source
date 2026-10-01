@@ -137,11 +137,12 @@
   {
     "name": "NAV-H-the-raids-forgotten",
     "file": "src/scenes/navalHost.js",
-    "old": "day: lastDecayDay, raids: [...raidUids] };",
-    "new": "day: lastDecayDay, raids: [] };",
+    "old": "day: lastDecayDay, raids: [...raidUids], party:",
+    "new": "day: lastDecayDay, raids: [], party:",
     "tests": [
       "test/nav_h_host.test.js"
-    ]
+    ],
+    "note": "CREW-COMPANIONS (PIN MOVED): re-aimed by content at the line the companions' change moved."
   },
   {
     "name": "NAV-H-a-boat-keyed-by-nothing",

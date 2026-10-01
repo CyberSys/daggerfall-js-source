@@ -326,7 +326,8 @@ test('NAV-H the save: each boat of mine by its deed\'s UID (its hurts and barrel
   assert.ok(Math.abs(h.host.hudModel().ship.hull - 100 / hullBuild(2).hullHp) < 1e-3, 'her hurts as saved (AUDIT NAV1: her hands mending from there - test/navaudit_helm.test.js)');
   assert.equal(h.host.leaveShipGate({ uid: 777 }), 'naval', 'a raid of mine a load carried: thrown back, nothing sailed');
   assert.deepEqual(h.host.getSaveData().raids, []);
-  assert.deepEqual(h.host.newSaveData(), { v: NAVAL_SAVE_VERSION, boats: {}, notoriety: {}, day: null, raids: [] });
+  assert.deepEqual(d.party, { party: [], resting: [] }, 'CREW-COMPANIONS: an older save carries no party - nobody ashore');
+  assert.deepEqual(h.host.newSaveData(), { v: NAVAL_SAVE_VERSION, boats: {}, notoriety: {}, day: null, raids: [], party: { party: [], resting: [] } });   // PIN MOVED (CREW-COMPANIONS): the party ashore
   assert.equal(NAVAL_SAVE_VENDOR, 'NavalCombat');
   h.host.spawnShip('pirateBrig', { range: 300 });
   h.host.restoreSaveData(null);

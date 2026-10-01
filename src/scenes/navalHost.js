@@ -62,7 +62,8 @@ import { mulberry32 } from '../combat/bloodArt.js';
 import { orientedBox, arcPoints, flatUnit, NAVAL_DEG, rangeAt, segmentBoxEntry, shotPosition, landing } from '../systems/naval/navalBallistics.js';
 import { lawOf, createNotoriety, crownRegion, notorietyLevel, WITNESS_RANGE, KNIGHTLY_FACTION, TEMPLE_FACTION } from '../systems/naval/navalLaw.js';
 import { drawHold, flotsamKeys, choiceEffect, choiceOffer, holdTier, CHOICES } from '../systems/naval/navalPlunder.js';
-import { yardOffer, yardAll, fieldMend, FIELD_QUIET_S, FIELD_REFLOAT, YARD_PRICE, provisionOffer, seaRepair, wantsRepair, STORE_SHARE } from '../systems/naval/navalYard.js';
+import { yardOffer, yardAll, fieldMend, FIELD_QUIET_S, FIELD_REFLOAT, YARD_PRICE, provisionOffer, seaRepair, wantsRepair, STORE_POINTS, STORES_STOCK, storesToWhole } from '../systems/naval/navalYard.js';
+import { createCompanions, companionRows } from '../systems/naval/crewCompanions.js';   // CREW-COMPANIONS
 import { createShipCrew, reloadScaleOf, mendScaleOf, handsBonusOf, crewCard, CREW_ORDERS, ORDER_TEXT, spiritsOf } from '../systems/naval/shipCrew.js';   // SHIP-CREW
 import { crewRoster, playerCrewCount } from '../systems/naval/crewLife.js';   // AUDIT NAV1: the shipwright, the mending at sea
 import { createBoarding, berthPose, musterOf, crewTeamOf, handsOf, repelPartyOf, raidQuestOf, raidQuestWon, raidQuestRetreated, boardingWon, BOARD_RANGE, BOARD_SPEED, ABANDON_RANGE, HAND, SURRENDER_SHARE, CREW_PER_HAND } from '../systems/naval/navalBoarding.js';
@@ -438,6 +439,9 @@ export function createNavalHost(deps) {
   const boatState = new Map();   // uid (non-zero) -> { damage, guns }
   const boatStateByObj = new WeakMap();   // uid 0: the boat object
   const pendingBoats = new Map();   // a save's records waiting for their boat
+  /** AUDIT CC-A5: nobody of hers ashore (never mutated). */
+  const NO_HANDS_AWAY = new Set();
+  let companions = createCompanions();   // CREW-COMPANIONS: the party ashore (crewCompanions.js), saved beside the crews
   function myBoatState(boat) {
     if (!boat) return null;
     const keyed = boat.uid ? boatState.get(boat.uid) : boatStateByObj.get(boat);
@@ -453,7 +457,7 @@ export function createNavalHost(deps) {
     if (saved) { st.damage.restore(saved); if (Number.isFinite(saved.barrels)) st.guns.barrels = saved.barrels; pendingBoats.delete(boat.uid); }
     // SHIP-CREW: her crew as people (names, spirits, the order standing), and SEA-REPAIR's store part-spent
     st.crew = createShipCrew({ seed: (deps.crewSeed?.(boat) ?? boat.uid ?? 1) >>> 0, regionIndex: where().region ?? 17, record: saved?.mates ?? null });
-    st.credit = Number.isFinite(saved?.credit) ? Math.max(0, Math.min(STORE_SHARE, saved.credit)) : 0;
+    st.credit = Number.isFinite(saved?.credit) ? Math.max(0, Math.min(STORE_POINTS, saved.credit)) : 0;   // AUDIT CC-D1: in work points (an older save's share of a whole reads as next to none)
     st.lastCrew = st.damage.crew; st.wasWrecked = st.damage.state === SHIP_STATES.wrecked; st.inFight = false; st.mustered = !!saved?.mates; st.repairing = false;
     if (boat.uid) boatState.set(boat.uid, st); else boatStateByObj.set(boat, st);
     return st;
@@ -1574,17 +1578,23 @@ export function createNavalHost(deps) {
   }
   /** SEA-REPAIR: her hands at the repairs she was ordered to make - her carpenter's stores spent as the work is done
    *  (navalYard.js seaRepair), all the way to whole; done, or her stores gone, the order stands down with a word. */
+  /** AUDIT CC-D8: the hand who answers for her - her First Mate, or the first of her crew aboard while he walks ashore. */
+  const mateOf = (boat, st) => {
+    const away = boat?.uid ? companions.awayOf(boat.uid) : null;
+    return st.crew.hands.find((h) => !away?.has(h.name))?.name ?? null;
+  };
   function repairStep(b, s, d) {
+    if (where().nearPort) return;   // AUDIT CC-D1: in port the shipwright is the repairs (the order stands for the open sea)
     const stores = deps.stores?.count?.(b) ?? 0;
-    const r = seaRepair(s.damage, d, { crewed: !!b.crewed, crewShare: s.damage.crewShare(), scale: b.crewed ? mendScaleOf(s.crew.morale) : 1, budget: s.credit + stores * STORE_SHARE });
+    const r = seaRepair(s.damage, d, { crewed: !!b.crewed, crewShare: s.damage.crewShare(), scale: b.crewed ? mendScaleOf(s.crew.morale) : 1, budget: s.credit + stores * STORE_POINTS });
     if (r.hull > 0 || r.sail > 0) {
       s.damage.repair({ hull: r.hull, sail: r.sail, crew: 0 }, { refloat: FIELD_REFLOAT });
       s.repairing = true;
       s.credit -= r.work;
-      while (s.credit < -1e-12 && deps.stores?.spend?.(b)) s.credit += STORE_SHARE;
+      while (s.credit < -1e-9 && deps.stores?.spend?.(b)) s.credit += STORE_POINTS;
       s.credit = Math.max(0, s.credit);
     }
-    const mate = s.crew.nameOf(0);
+    const mate = mateOf(b, s);
     if (!wantsRepair(s.damage)) { s.crew.give(CREW_ORDERS.stand); deps.say?.(`${mate ? `${mate}: ` : ''}Repairs done, Captain. She's sound.`, 4); }
     else if (s.credit <= 1e-9 && (deps.stores?.count?.(b) ?? 0) <= 0) { s.crew.give(CREW_ORDERS.stand); deps.say?.(`${mate ? `${mate}: ` : ''}The carpenter's stores are spent, Captain.`, 4); }
   }
@@ -1596,10 +1606,11 @@ export function createNavalHost(deps) {
   function giveOrder(boat, order) {
     const st = myBoatState(boat);
     if (!st || !ORDER_TEXT[order]) return { ok: false, said: null };
-    const mate = st.crew.nameOf(0), who = mate ? `${mate}: ` : '';
+    const mate = mateOf(boat, st), who = mate ? `${mate}: ` : '';
     let said = null;
     if (order === CREW_ORDERS.repair) {
       if (!wantsRepair(st.damage)) said = `${who}She needs no repairs, Captain.`;
+      else if (where().nearPort) said = `${who}We're in port, Captain - the shipwright will see to her.`;   // AUDIT CC-D1
       else if (st.credit <= 1e-9 && (deps.stores?.count?.(boat) ?? 0) <= 0) said = `${who}We've no carpenter's stores aboard, Captain.`;
       if (said) { deps.say?.(said, 4); return { ok: false, said }; }
     }
@@ -1634,14 +1645,15 @@ export function createNavalHost(deps) {
       return { ok: cost > 0, cost, bought: plan, whole: offer().whole === 0 };
     };
     // SEA-REPAIR / SHIP-CREW: her provisions - carpenter's stores into her hold, a round of grog for her crew
-    const provisions = () => provisionOffer({ stores: deps.stores?.count?.(boat) ?? 0, morale: boat.crewed ? st.crew.morale : null, crew: d.crew, crewed: !!boat.crewed, gold: deps.gold?.() ?? 0 });
+    // AUDIT CC-D1: her hold stocked to what her wreck takes to be whole; CC-D5: one round of grog a port day
+    const provisions = () => provisionOffer({ stores: deps.stores?.count?.(boat) ?? 0, stock: Math.max(STORES_STOCK, storesToWhole({ hull: 0, maxHull: d.maxHull, sail: 0, maxSail: d.maxSail })), morale: boat.crewed ? st.crew.morale : null, crew: d.crew, crewed: !!boat.crewed, gold: deps.gold?.() ?? 0, grogToday: st.crew.grogOn(where().day ?? null) });
     const buyProvision = (id) => {
       const r = provisions().rows.find((x) => x.id === id);
       if (!r || r.missing <= 0) return { ok: false, id, n: 0, cost: 0 };
       if (r.afford <= 0) return { ok: false, id, n: 0, cost: 0, short: r.price };
       if (id === 'stores' && !deps.stores?.add?.(boat, r.afford)) return { ok: false, id, n: 0, cost: 0 };
       deps.pay?.(r.cost);
-      if (id === 'grog') st.crew.event('grog');
+      if (id === 'grog') { st.crew.event('grog'); st.crew.drankGrog(where().day ?? null); }
       return { ok: true, id, n: r.afford, cost: r.cost, whole: r.afford === r.missing };
     };
     return {
@@ -2190,13 +2202,14 @@ export function createNavalHost(deps) {
    * A hold emptied into a boat's hold (Come Sail Away's cargo - its weight slows her, as the mod weighs it), or with no
    * boat into the pack as far as the pack will carry; what will not go stays where it was. Answers the tally.
    */
+  const _plundered = new WeakSet();   // AUDIT CC-D5: the prizes' holds her crew has cheered
   function takeInto(hold, boat) {
     if (!hold.length) return { taken: 0, left: 0, where: boat ? 'hold' : 'pack' };
     const all = hold.splice(0);
     const r = deps.board?.giveItems?.(all, boat) ?? { left: all };
     const left = Array.isArray(r.left) ? r.left : [];
     for (const it of left) hold.push(it);
-    if (all.length > left.length) crewEvent(boat ?? boatInPlay(), 'plunder');   // SHIP-CREW: a hold filled
+    if (all.length > left.length && !_plundered.has(hold)) { _plundered.add(hold); crewEvent(boat ?? boatInPlay(), 'plunder'); }   // SHIP-CREW: a hold filled - AUDIT CC-D5: once a prize (an item put back and taken again was +3 a time)
     return { taken: all.length - left.length, left: left.length, where: boat ? 'hold' : 'pack' };
   }
   /**
@@ -2945,6 +2958,9 @@ export function createNavalHost(deps) {
       // she went down in their word: if my blows were on her, the sinking is mine to answer for too (the law, a reward)
       const down = (st) => st === SHIP_STATES.sinking || st === SHIP_STATES.sunk;
       if (!down(was) && down(dmg.state) && clock - (e.myBlowAt ?? -Infinity) <= SINK_CREDIT_S) chargePlayer('sink', e);
+      // AUDIT CC-E4: a ship another stands struck to MY guns - her stander's strike is the one that runs, and it pays the
+      // win to nobody's crew but the shooter's, so my crew heard of it never
+      if (was === SHIP_STATES.afloat && dmg.state === SHIP_STATES.struck && clock - (e.myBlowAt ?? -Infinity) <= SINK_CREDIT_S) crewEvent(boatInPlay() ?? myBoat(), 'win');
       e.ship.boarded = w.state === 'boarded' && boarding?.shipId !== id;
       if (w.fire) igniteShip(e);
       // AUDIT NAV2 F1/F3/F5: her captain as her stander sails her - an older build's word says none, and she keeps her
@@ -3145,7 +3161,7 @@ export function createNavalHost(deps) {
     return {
       ship: { name: HULL_NAMES[boat.hull], hull: st.damage.hullShare(), sail: st.damage.maxSail > 0 ? st.damage.sailShare() : null, crew: st.damage.maxCrew > 0 ? st.damage.crewShare() : null, fire: st.damage.fire > 0, wrecked: st.damage.state === SHIP_STATES.wrecked, braced: st.guns.braced, repair: repairCost(st.damage), mending,
         // SHIP-CREW, SEA-REPAIR: her crew's spirits and standing order, her repairs under way, her stores
-        spirits: boat.crewed ? spiritsOf(st.crew.morale).label : null, order: boat.crewed && st.crew.order !== CREW_ORDERS.stand ? ORDER_TEXT[st.crew.order].label : null, repairing: !!st.repairing, stores: deps.stores?.count?.(boat) ?? 0 },
+        spirits: boat.crewed ? spiritsOf(st.crew.morale).label : null, order: boat.crewed && st.crew.order !== CREW_ORDERS.stand ? ORDER_TEXT[st.crew.order].label : null, repairing: !!st.repairing, repairOrdered: st.crew.order === CREW_ORDERS.repair, stores: deps.stores?.count?.(boat) ?? 0 },   // AUDIT CC-D8: her order standing (the hint says so in the quiet before the work)
       armed: batteries.length > 0,
       batteries,
       aim: aim ? { side: aim.side, gun: aim.gun, range: Math.round(aim.range), max: Math.round(aim.maxRange), hot, barrel: aim.barrel, state, left: state === 'reloading' ? +st.guns.left(aim.side).toFixed(1) : 0 } : null,
@@ -3292,13 +3308,37 @@ export function createNavalHost(deps) {
     director.reset();
   }
 
+  // ── CREW-COMPANIONS: the party ashore ──────────────────────────────────────────────────────────────────────────────
+  /** A boat of mine's hands as the save or her live crew says them, by her uid (null: no such boat of mine). */
+  function handsByUid(uid) {
+    const st = boatState.get(uid);
+    if (st) return st.crew.hands;
+    const rec = pendingBoats.get(uid);
+    return rec ? (Array.isArray(rec.mates?.hands) ? rec.mates.hands : []) : null;
+  }
+  /** Whether a hand of a boat of mine still lives (on her roster) - the party's `prune`. */
+  const handLives = (uid, name) => !!handsByUid(uid)?.some((h) => h?.name === name);
+  /** Take a hand of a boat of mine ashore, or send one back: the picker's row pressed. Answers what was said. */
+  function companionPress(boat, name, now) {
+    const st = myBoatState(boat);
+    if (!st || !boat?.uid) return null;
+    const hand = st.crew.hands.find((h) => h.name === name);
+    if (!hand) return null;
+    if (companions.sendBack(boat.uid, name)) { deps.say?.(`${name} goes back aboard.`, 3); return 'back'; }
+    const why = companions.why(boat.uid, hand, now, !!boat.crewed);
+    if (why) { deps.say?.(`${name} cannot come ashore - ${why}.`, 3); return null; }
+    if (!companions.take(boat.uid, hand, now)) return null;
+    deps.say?.(`${name}, ${hand.role}, comes ashore with you.`, 3);
+    return 'take';
+  }
+
   // ── the save (systems/modSaveData.js) ────────────────────────────────────────────────────────────────────────────
-  const newSaveData = () => ({ v: NAVAL_SAVE_VERSION, boats: {}, notoriety: {}, day: null, raids: [] });
+  const newSaveData = () => ({ v: NAVAL_SAVE_VERSION, boats: {}, notoriety: {}, day: null, raids: [], party: { party: [], resting: [] } });
   function getSaveData() {
     const boats = {};
     for (const [uid, rec] of pendingBoats) boats[uid] = rec;
     for (const [uid, st] of boatState) boats[uid] = { ...st.damage.snapshot(), barrels: st.guns.barrels, mates: st.crew.snapshot(), credit: st.credit };   // SHIP-CREW (`mates`: the damage's own `crew` is her count), SEA-REPAIR
-    return { v: NAVAL_SAVE_VERSION, boats, notoriety: notoriety.snapshot(), day: lastDecayDay, raids: [...raidUids] };
+    return { v: NAVAL_SAVE_VERSION, boats, notoriety: notoriety.snapshot(), day: lastDecayDay, raids: [...raidUids], party: companions.snapshot() };   // CREW-COMPANIONS: `party`
   }
   function restoreSaveData(r) {
     boatState.clear();
@@ -3312,6 +3352,7 @@ export function createNavalHost(deps) {
       if (!Number.isSafeInteger(key) || key <= 0 || !rec || typeof rec !== 'object') continue;
       pendingBoats.set(key, rec);
     }
+    companions = createCompanions(r?.party ?? null);   // CREW-COMPANIONS: an older save's, nobody ashore
     clear();
   }
 
@@ -3326,6 +3367,40 @@ export function createNavalHost(deps) {
     },
     leaveShipGate, raidEnded, placeQuestFoe,
     newSaveData, getSaveData, restoreSaveData,
+    /** CREW-COMPANIONS: the party ashore (crewCompanions.js) - the companion layer's (crewAshore.js). */
+    get companions() { return companions; },
+    /** CREW-COMPANIONS: a boat of mine's companions picker rows (crewCompanions.js companionRows), or null. */
+    companionRows(boat, now) {
+      const st = myBoatState(boat);
+      if (!st || !boat?.uid) return null;
+      return companionRows({ boat: boat.uid, crewed: !!boat.crewed, hands: st.crew.hands, now, companions });
+    },
+    companionPress,
+    /** CREW-COMPANIONS: a companion knocked out - carried back aboard, and his crew's spirits take it. */
+    companionKnocked(c) {
+      const live = boatState.get(c.boat);
+      if (live) live.crew.event('knocked');
+      else {
+        // AUDIT CC-D7: a boat not stood since the load - the knock lands on her saved crew
+        const rec = pendingBoats.get(c.boat);
+        if (rec?.mates) { const crew = createShipCrew({ seed: c.boat >>> 0, record: rec.mates }); crew.event('knocked'); rec.mates = crew.snapshot(); }
+      }
+      deps.say?.(`${c.name} is knocked senseless - your crew carries ${c.gender === 'female' ? 'her' : 'him'} back aboard to rest.`, 4);
+    },
+    /** CREW-COMPANIONS: the party's hands no longer anyone's (fallen, the boat gone) out of it - answers them. */
+    pruneCompanions: () => companions.prune(handLives),
+    /** CREW-COMPANIONS: a boat of mine's roster places ashore - her deck stands without them (navalCrew.js `away`). */
+    awayOf(boat) {
+      // AUDIT CC-A5: none away is an EMPTY set, never null - null left the last hand home off her deck for good; and
+      // while I sail, every hand of mine is aboard (Mac: "Back on deck while sailing")
+      if (!boat?.uid || !companions.party.length || sailing()) return NO_HANDS_AWAY;
+      const names = companions.awayOf(boat.uid);
+      if (!names.size) return NO_HANDS_AWAY;
+      const hands = myBoatState(boat)?.crew.hands ?? [];
+      const out = new Set();
+      hands.forEach((h, i) => { if (names.has(h.name)) out.add(i); });
+      return out;
+    },
     raiders, raiderShipOf, raiderHeld,   // NAV-R; THE MERGE (OW6): the raiders I hold, for the raider word
     /** Whether a hostile ship is near - Come Sail Away's time scale refuses to run with one (AreEnemiesNearby). */
     hostileNear: () => hostileNearMe(),
@@ -3424,7 +3499,7 @@ export function createNavalHost(deps) {
       const c = st.crew;
       return {
         crewed: !!boat.crewed, morale: c.morale, spirits: spiritsOf(c.morale), order: c.order, hands: c.hands.map((h) => ({ ...h })),
-        card: crewCard(c, { ship: `The ${HULL_NAMES[boat.hull]}`, order: c.order }), nameOf: (i) => c.nameOf(i), stores: deps.stores?.count?.(boat) ?? 0,
+        card: crewCard(c, { ship: `The ${HULL_NAMES[boat.hull]}`, order: c.order, ashore: boat.uid ? companions.awayOf(boat.uid) : null }), nameOf: (i) => c.nameOf(i), stores: deps.stores?.count?.(boat) ?? 0,
       };
     },
     /** The sea ships' boats standing near enough to be struck and walked on (the world's collider takes them). */
