@@ -10470,6 +10470,67 @@ Pinned: `test/seat1a_service.test.js` (4), `test/seat1a_client.test.js` (8); re-
 `test/auditguild1d.test.js` and `test/tv4_weather_above.test.js` (the banners hung together), `test/accountworker.test.js`
 (the schema). `tools/mutants/seat1a.json` (44, all dead); four HUB1 records re-aimed, all dead.
 
+### SEAT1b - influence: the pledge, the Watch, gate kills, homes, Renown's region, Tribute, the standings
+
+Rides the undeployed `acct44` (migration 0047) and a relay deploy, `world136` (the Watch's tick). Behind `SEATS_OPEN`
+with the rest of the seats. Influence is counted per guild, per seat, per seat week, summed on read from one row an
+event (Seats-Arc 4.1-4.2, 12: "summed on read, capped on write"); every number is Appendix B's, in
+`src/net/townSeatLaw.js`.
+
+- **The pledge** (`server-account/src/seatInfluence.js` pledgeSeat, `/v1/seats/pledge`): an Officer or the
+  guildmaster pledges the guild to one confirmed seat a region, in at most five regions, during the Muster; a second
+  seat in a region replaces the first; a region's pledge is taken down by its region. The rank and the five are asked
+  inside the INSERT; the Reckoning refuses (`seat-reckoning`); 30 an account an hour. A guild holding a seat is pledged
+  to it by SEAT1c, which makes holders.
+- **Who counts** (`warOf`, `countsAt`): a character 7 days in its guild; the account BOUND to that guild for the week
+  by its first contribution (`town_seat_binds`, per-account war - Mac: "Yes"); a contribution where the war-guild
+  pledged nothing in the region is answered and banks nothing (`no-pledge`). A receipt names an account, not a
+  character, so the Watch's ticks and a gate's kill count for the account's war-guild through any of its seasoned
+  members; Renown is a character's and counts only through that character. Every influence row asks, in its own
+  statement, that the account is bound to the guild it credits and that the guild's pledge still stands there.
+- **The Watch** (`src/net/watchReceipt.js`, the relay's third signature beside the gate's `r1` and the raid's `w1`;
+  `server/src/index.js` `_watchTick`): a verified account standing in a cell room, having moved in the last five
+  minutes, is sent a `watch` frame every two minutes - a `k1` receipt naming the account, the map pixel its pose stands
+  in (`mapPixelOfWire`, no game data) and a nonce, signed with the gate's key. The tick's rhythm (`watchDue`) lives
+  beside the receipt so the relay's bundle holds none of the rest of the seats' law. The client (`net/online.js`
+  onWatch, `net/townSeatBook.js` keepWatch) keeps a signed tick for the signed-in account in a seat's own pixel as its
+  own derivation draws the seats, on the device, and claims them (`/v1/seats/watch`, `claimWatch`) 12 at a time - what
+  one 4 KiB request holds - or ten minutes after the oldest; the service counts each once (`UNIQUE (source, ref)`), in
+  the week it was stood, at most 60 an account a UTC day of issue, asked in the INSERT.
+- **Gate kills** (`creditGate`): a gate claim now carries the region the claiming client's own scan puts the day's gate
+  in (`systems/gateSite.js` findGateSite) and the claiming character; `gate_kills.region` keeps it, and a recorded kill
+  in this week is written for the war-guild where it pledged in that region - 300, counted on read only where at least
+  three of the day's claims agree on the region (a level top agrees on neither), 900 an account a week.
+- **Renown's region** (`creditRenown`; `net/renownTracker.js`): the tracker keeps XP by the region it was earned in and
+  each report names one (`region`); the service keeps what the report CREDITED - never what it asked, nothing for a
+  repeat - for the character's war-guild where it pledged there (`town_seat_renown`): 1 per 20, 400 an account a week.
+- **Homes** (read, never written): a 7-day member's home in the seat's town (never a guild's hall), its account bound to
+  the guild - 25 a whole day it stood this week, the guild's five longest-standing.
+- **Tribute** (`payTribute`, `/v1/seats/tribute`): the guildmaster burns Drakes from the guild's Drake treasury on its
+  pledge - a `guild -> burn` line of kind `tribute` under the request's id, 1 influence per 10, never past a fifth of the
+  guild's week there (a quarter of the rest, `tributeRoom`); the treasury, the id, the rank and the pledge are asked in
+  the line's INSERT and the influence row rides its batch. The book keeps ONE request id a payment until an answer comes.
+- **The standings** (`standingsOf`, pure; `readStandings`, `/v1/seats/standings`): each pledged guild's accounts, each
+  source at its own cap and then 2,000 an account a seat a week, plus its Tribute inside its room; with the week's clock
+  and the reader's own guild (rank, pledges, war, whether it counts yet, its own week here, Tribute's room).
+- **The Seat tab** (`src/ui/seatTab.js`, Seats-Arc 7.9): at a seat town's rumour board while the seats are open to this
+  account (never a guild's hall, never a bounty board) - the Charter, the week's clock, every pledged guild under its
+  banner (the reader's marked), the reader's lines, an Officer's or the guildmaster's pledge buttons in the Muster, and
+  the guildmaster's Tribute with its room.
+- **Four hosts**: `world.js` WIRED (the board's seat, the Watch's book, the gate claim's region, the Renown report's
+  region); `worldModes.js` and `dungeonContext.js` stand no rumour board's seat (the Watch ticks wherever a cell room
+  is, and the book keeps only a seat's pixel); `exterior.js` (the fixed city) FLAGGED with the rest of the seats.
+
+Departures, recorded: Seats-Arc 12 drew the Watch as "presence minutes ... in signed batches" from the relay to the
+service; the relay has no door to the account service, so each tick is a receipt the account's own client carries, as
+the gate's and the raid's are. The stockpile's deliveries (the Writs source) ride SEAT1c with the Siege Camp they fill
+and the Turning that spends it; the sources' table admits their rows already, and the law reads them.
+
+Pinned: `test/seat1b_service.test.js` (7), `test/seat1b_client.test.js` (9); re-aimed by content in
+`test/wb5b_gate_claim.test.js` and `test/seat1a_client.test.js` (the claim's region, the book's door), the relay
+version pins (`world136`) and `test/accountworker.test.js` (the schema). `tools/mutants/seat1b.json` (56, all dead); six
+RENOWN1, AUDIT RENOWN1 and WB5b records re-aimed by content, all dead.
+
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 
 Mac, asked how quest enemies should work online (each player's quests are their own, so two party members on the

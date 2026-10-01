@@ -9,6 +9,7 @@ import { standService, T0 } from './accountDb.mjs';
 import { mintWatchReceipt } from '../src/net/watchReceipt.js';
 import { mintReceipt } from '../src/net/gateReceipt.js';
 import { gameDayAt, gateTimes } from '../src/net/gateLaw.js';
+import { RENOWN_XP_HOUR_MAX } from '../src/net/renown.js';
 import {
   seatReportText, seatWeekOf, seatWeekStartMs, SEAT_MEMBER_WAIT_S, WATCH_DAY_CAP, SEAT_WATCH_CLAIM_MAX, SEAT_PLEDGE_REGIONS_MAX, ACCOUNT_SEAT_WEEK_CAP,
 } from '../src/net/townSeatLaw.js';
@@ -85,6 +86,7 @@ test('SEAT1b THE PLEDGE: an Officer\'s or the guildmaster\'s, a confirmed seat, 
   now = T0 + 11 * 3600;   // Friday 19:00 UTC - the Reckoning
   const late = await pledge(gm, WAYREST.key);
   assert.deepEqual([late.status, late.body.error], [409, 'seat-reckoning'], 'pledges lock at the Reckoning');
+  assert.equal((await pledge(mem, WAYREST.key)).body.error, 'guild-rank', 'a Member is told its rank before the week');
 });
 
 test('SEAT1b THE WATCH: relay-signed ticks in a confirmed seat\'s own pixel count 1 each for the war-guild at its pledge, each receipt once, 60 an account a UTC day; another\'s, an unsigned, another pixel\'s, a last week\'s, and a new member\'s count nothing (mutants: the signature; the account; the pixel; the week; the day cap; the ref; the 7-day wait; the pledge)', async (t) => {
@@ -192,6 +194,10 @@ test('SEAT1b GATE KILLS: a claim names its region; a kill counts 300 for the war
   // the week's cap: four agreed kills, 900
   for (const d of days.slice(2)) { await kill(gm, d, 21); for (const o of others.slice(2, 4)) await kill(o, d, 21); }
   assert.equal((await standings(gm)).standings[0].influence, 900, 'four agreed kills: 900 an account a week');
+  const weekStart = seatWeekStartMs(seatWeekOf(T0 * 1000));
+  let lastWeeks = gameDayAt(weekStart);
+  while (gateTimes(lastWeeks).riseAt >= weekStart) lastWeeks--;   // the last gate day to rise before the Turning
+  assert.deepEqual((await kill(gm, lastWeeks, 21)).body.seat, { counted: false, why: 'old-week' }, 'a kill counts in its own game day\'s week');
   const noRegion = await kill(others[4], days[4], null);
   assert.equal(noRegion.body.seat, undefined, 'a claim naming no region is answered as before');
 });
@@ -204,9 +210,11 @@ test('SEAT1b RENOWN AND HOMES: a report\'s region keeps what it CREDITED for the
   const gm = await svc.registered('Gamal', { renown: 12 });
   const gid = await guild(gm, 'Silver Hand', 'SH');
   await pledge(gm, ANTICLERE.key);
+  // the hour nearly spent: the report asks 390 and is credited 100
+  raw.prepare('UPDATE players SET renown_hour = ?, renown_hour_xp = ? WHERE id = ?').run(Math.floor(T0 / 3600), RENOWN_XP_HOUR_MAX - 100, gm.id);
   const r = await svc.call('/v1/renown/xp', { character: gm.character, xp: 390, rid: 'a1b2c3d4e5f60001', region: 21 }, gm.secret);
-  assert.equal(r.status, 200);
-  assert.equal((await standings(gm)).standings[0].influence, Math.floor(r.body.credited / 20), '1 per 20 XP credited');
+  assert.deepEqual([r.status, r.body.credited], [200, 100]);
+  assert.equal((await standings(gm)).standings[0].influence, 5, '1 per 20 XP CREDITED, never asked');
   const again = await svc.call('/v1/renown/xp', { character: gm.character, xp: 390, rid: 'a1b2c3d4e5f60001', region: 21 }, gm.secret);
   assert.equal(again.body.repeat, true);
   assert.equal(raw.prepare('SELECT xp FROM town_seat_renown WHERE account = ?').get(gm.id).xp, r.body.credited, 'a repeat keeps nothing more');
@@ -228,9 +236,11 @@ test('SEAT1b RENOWN AND HOMES: a report\'s region keeps what it CREDITED for the
   const s = (await standings(gm)).standings[0];
   // homes stood 4 whole days (the week's start to Friday 08:00, less hours) - five of them, 25 a day, plus six ticks
   assert.equal(s.influence, 5 * 4 * 25 + 6, 'the five longest-standing homes, 25 a day each');
-  // a member of six days: its home counts nothing
+  // a member of six days: its home counts nothing - the sixth home steps in, and with it gone too, four stand
   raw.prepare('UPDATE guild_members SET joined_at = ? WHERE player = ?').run(T0 - SEAT_MEMBER_WAIT_S + DAY, owners[0].id);
   assert.equal((await standings(gm)).standings[0].influence, 5 * 4 * 25 + 6, 'the sixth home steps in for the new member\'s');
+  raw.prepare('DELETE FROM homes WHERE player = ?').run(owners[5].id);
+  assert.equal((await standings(gm)).standings[0].influence, 4 * 4 * 25 + 6, 'a new member\'s home is no home of the guild\'s');
 });
 
 test('SEAT1b TRIBUTE: the guildmaster burns Drakes from the treasury on a pledge, 1 influence per 10, never past a fifth of the guild\'s week; a repeat is answered, an Officer and a short treasury refused (mutants: the rank; the room; the burn line; the repeat; the balance guard)', async (t) => {

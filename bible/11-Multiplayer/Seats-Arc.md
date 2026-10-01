@@ -246,6 +246,9 @@ A region may hold several seats, so a guild's work in a region needs a target.
 | **Renown in the region** | Client-reported, bounded | **1 per 20 Renown XP**, capped **400 an account a week** | The Renown report grows `region` (0-61); the service keeps a per-account, per-region, per-week sum beside the tracks |
 | **Tribute** | Service-witnessed (Marks) | **1 per 10 Marks**, capped at **20%** of the guild's week at that seat | Marks from the guild's Marks treasury, spent on the pledge by the Guildmaster, and **burnt** - a sink: the town's favour is bought, and nobody pockets it |
 
+- **BUILT** (SEAT1b, 2026-09-30, `06-Systems/Online-Arc.md` SEAT1b): the pledge, the Watch, gate kills, homes, Renown in
+  the region and Tribute, with every cap below, per-account war and the new member's wait, and the standings on the
+  board's Seat tab. The Writs (the stockpile's deliveries) ride SEAT1c, with the Siege Camp they fill.
 - **Per-account caps**: one ACCOUNT contributes at most **2,000 influence a seat a week** from all sources, whatever
   number of its characters play (the Watch and Renown caps above are per account too). A cap per character would be
   multiplied by an account's characters in one guild - fifty characters at Renown's 400 is 20,000 influence a week.
@@ -797,10 +800,15 @@ Season with titles at the end; a Chronicle that remembers; and the Professions e
   - `guild_fealty` (vassal, liege, since); `guild_pacts` (a, b, season)
   - `guilds` gains `colour1`, `colour2`, `device`; the Marks treasury is PROF0's
   - the Renown report gains `region`; `renown_region_week` (player, char_id, region, week, xp)
+  - BUILT (SEAT1b, migration 0047): `town_seat_pledges`, `town_seat_binds` (the account's war-guild a week),
+    `town_seat_influence` (week, key, guild_id, account, char_id, source, amount, region, day, ref - one row an event,
+    `UNIQUE (source, ref)`), `town_seat_renown` (the name this page drew as `renown_region_week`), `gate_kills.region`
 - **Endpoints** (`/v1/seats/...`): `witness`, `list`, `standings`, `pledge`, `tribute`, `window`, `edict`,
   `tithe`, `fealty`, `pact`, `siege/sign`, `siege/claim` (a receipt), `fort/fund`, `history`.
 - **Relay**: `siege:<key>:<week>` rooms stepped by Durable Object alarms (the gate's brain); PVP-REF's referee; the
-  Watch counter in cell rooms (reporting presence minutes to the service in signed batches); `s1.` siege receipts;
+  Watch counter in cell rooms (reporting presence minutes to the service in signed batches - BUILT otherwise, SEAT1b:
+  the relay has no door to the account service, so each two-minute tick is a `k1` receipt the account's own client
+  carries, as a gate's and a raid's are; `src/net/watchReceipt.js`); `s1.` siege receipts;
   the Rebel Captain's brain; `{t:'tseat'}` frames for banner state, the Throne, the Gatehouse, the Ram.
 - **Law modules, pure, shared by client, relay and service**: src/net/townSeatLaw.js (to be written) (Appendix B, the week, the
   phases, the windows, the Chronicle's templates, `KINGDOM_OF`), src/net/siegeRef.js (to be written) (6.1's buckets),
@@ -821,7 +829,7 @@ bible updated in the same change, mutants recorded.
 | **GUILD1d** | Guild halls, the guild entry, heraldry (8) - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` GUILD1d; the hall's board is GUILD1e) | A guild buys a hall, members enter, the banner draws on a test layout |
 | **GUILD1e** | The hall's private guild board (8.2: the board's Guilds tab, members only) - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` GUILD1e) | A member posts a note only its guild reads, at a board in its hall |
 | **SEAT1a** | The derivation; the registry; the map rings; arrival lines; banners (unheld: the kingdom's) - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` SEAT1a; behind SEATS_OPEN at `dev`) | Pins over a fixture MAPS set: every Palace record is a seat, capitals are crowns, mod rows never count; three witnesses confirm |
-| **SEAT1b** | Influence: pledges, the Watch, gate kills, homes, Renown's region, Tribute; the standings on the board | Each source's cap pinned; per-account war and the 7-day wait pinned |
+| **SEAT1b** | Influence: pledges, the Watch, gate kills, homes, Renown's region, Tribute; the standings on the board - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` SEAT1b; the stockpile's deliveries ride SEAT1c) | Each source's cap pinned; per-account war and the 7-day wait pinned |
 | **SEAT1c** | The Turning; claims; Contested; the Charter; titles and glyphs (relay first); the Seat tab | `settleWeek` idempotent under two racing readers; a held seat's banners in the guild's colours |
 | **SEAT1d** | Upkeep, Overreach, Tithe, discounts, Standing, Edicts, Neglect; the economy model as a tool reading townSeatLaw.js and professionLaw.js (PROF0 Appendix C) | Every Standing row pinned; the Tithe routes only Marks; the model re-runs Appendix C's table. The Tithe needs PROF5 (the market) |
 | **PVP-REF** | The refereed blow and step; the 40-fighter measurement | 6.1's buckets pinned against DFU's damage ranges; the measurement recorded |

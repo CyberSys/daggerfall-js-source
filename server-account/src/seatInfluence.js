@@ -195,17 +195,17 @@ export async function claimWatch({ db, nowS, subtle }, player, env, { character,
   let counted = 0;
   /** @type {Record<string, number>} */
   const why = {};
-  const no = (w) => { why[w] = (why[w] ?? 0) + 1; };
+  const tally = (w) => { why[w] = (why[w] ?? 0) + 1; };   // why a receipt counted nothing - an answer, never a refusal
   for (const r of receipts) {
     const v = await verifyWatchReceipt(r, publicKey, { subtle, nowS });
-    if (!v.ok) { no(v.why); continue; }
+    if (!v.ok) { tally(v.why); continue; }
     const c = v.claims;
-    if (c.s !== player.id) { no('not-yours'); continue; }
-    if (weekAt(c.i) !== week) { no('old-week'); continue; }
+    if (c.s !== player.id) { tally('not-yours'); continue; }
+    if (weekAt(c.i) !== week) { tally('old-week'); continue; }
     const seat = byPixel.get(`${c.x},${c.y}`);
-    if (!seat) { no('no-seat'); continue; }
+    if (!seat) { tally('no-seat'); continue; }
     const at = await countsAt(db, player, character, seat.region, nowS, { key: seat.key, anyCharacter: true });
-    if ('counted' in at) { no(at.why); continue; }
+    if ('counted' in at) { tally(at.why); continue; }
     const day = utcDay(c.i);
     const ref = `${c.s}:${c.c}:${c.i}`;
     const [, ins] = await db.batch([
@@ -217,7 +217,7 @@ export async function claimWatch({ db, nowS, subtle }, player, env, { character,
         .bind(week, seat.key, at.guild, player.id, at.char, seat.region, day, ref, nowS, WATCH_DAY_CAP),
     ]);
     if (ins?.meta?.changes) counted++;
-    else no((await db.prepare("SELECT 1 FROM town_seat_influence WHERE source = 'watch' AND ref = ?").bind(ref).first()) ? 'claimed' : 'capped');
+    else tally((await db.prepare("SELECT 1 FROM town_seat_influence WHERE source = 'watch' AND ref = ?").bind(ref).first()) ? 'claimed' : 'capped');
   }
   return { ok: true, counted, ...(Object.keys(why).length ? { why } : {}) };
 }

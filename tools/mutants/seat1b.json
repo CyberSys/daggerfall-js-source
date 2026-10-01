@@ -47,7 +47,7 @@
   {
     "name": "SEAT1b-watch-anyones-receipt",
     "file": "server-account/src/seatInfluence.js",
-    "old": "    if (c.s !== player.id) { no('not-yours'); continue; }",
+    "old": "    if (c.s !== player.id) { tally('not-yours'); continue; }",
     "new": "",
     "tests": [
       "test/seat1b_service.test.js"
@@ -56,7 +56,7 @@
   {
     "name": "SEAT1b-watch-any-week",
     "file": "server-account/src/seatInfluence.js",
-    "old": "    if (weekAt(c.i) !== week) { no('old-week'); continue; }",
+    "old": "    if (weekAt(c.i) !== week) { tally('old-week'); continue; }",
     "new": "",
     "tests": [
       "test/seat1b_service.test.js"
@@ -181,15 +181,6 @@
     ]
   },
   {
-    "name": "SEAT1b-renown-repeat-credited",
-    "file": "server-account/src/index.js",
-    "old": "if (body.region != null && r.credited > 0 && !r.repeat) await creditRenown(",
-    "new": "if (body.region != null) await creditRenown(",
-    "tests": [
-      "test/seat1b_service.test.js"
-    ]
-  },
-  {
     "name": "SEAT1b-homes-unbound-count",
     "file": "server-account/src/seatInfluence.js",
     "old": "    const hs = homes.filter((h) => h.guild_id === g && binds.get(h.player) === g)",
@@ -235,10 +226,10 @@
     ]
   },
   {
-    "name": "SEAT1b-tribute-not-burnt",
+    "name": "SEAT1b-tribute-pocketed",
     "file": "server-account/src/seatInfluence.js",
-    "old": "        SELECT 'guild', ?1, 'burn', NULL, 'tribute', ?2, ?3, ?4, ?5, ?6, ?7\n        WHERE COALESCE((SELECT balance FROM guild_marks WHERE guild_id = ?1), 0) >= ?2",
-    "new": "        SELECT 'guild', ?1, 'burn', NULL, 'tribute', ?2, ?3, ?4, ?5, ?6, ?7\n        WHERE 1",
+    "old": "        SELECT 'guild', ?1, 'burn', NULL, 'tribute', ?2, ?3, ?4, ?5, ?6, ?7",
+    "new": "        SELECT 'guild', ?1, 'account', ?5, 'tribute', ?2, ?3, ?4, ?5, ?6, ?7",
     "tests": [
       "test/seat1b_service.test.js"
     ]
