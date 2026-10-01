@@ -6,7 +6,7 @@ import './modsOff.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { createCompanions } from '../src/systems/naval/crewCompanions.js';
+import { createCompanions, REST_MIN } from '../src/systems/naval/crewCompanions.js';
 import { createCrewAshore, CATCH_UP_M } from '../src/scenes/crewAshore.js';
 import { boatMenuRows, BOAT_VERB } from '../src/systems/csaBoatMenu.js';
 
@@ -211,6 +211,19 @@ test('AUDIT CC-B3 (major): drawn past the leash a companion comes all the way ho
   const d = Math.hypot(mate.ai.feet[0], mate.ai.feet[2]);
   assert.ok(d <= 2.5 + FOLLOW_SLACK + 0.5, `home (${d.toFixed(1)} m)`);
   assert.equal(mate.ai.secondaryTarget, null);
+  // the latch: once past the leash he walks all the way home - a foe met inside the leash on the way is not taken up
+  const m3 = body([0, 0, FOLLOW_LEASH + 5], { team: 'PlayerAlly', companion: 'k' });
+  m3.ai.follow = { feet: () => leader, stop: 2.5 };
+  const wolf = body([0, 0, 12], { team: 'Orcs' });
+  m3.ai.target = wolf; m3.ai.predictedTargetPos = [0, 0, 12]; m3.ai.giveUpTimer = 200;
+  assert.equal(m3.ai._followWanted(), true, 'past the leash: home');
+  m3.ai.feet[2] = 10;   // inside the leash, not yet home
+  m3.ai.target = wolf; m3.ai.predictedTargetPos = [0, 0, 12]; m3.ai.giveUpTimer = 200;
+  assert.equal(m3.ai._followWanted(), true, 'still returning');
+  assert.equal(m3.ai.target, null, 'and the foe let go');
+  m3.ai.feet[2] = 2;   // home
+  m3.ai.target = wolf; m3.ai.predictedTargetPos = [0, 0, 12]; m3.ai.giveUpTimer = 200;
+  assert.equal(m3.ai._followWanted(), false, 'home: he fights again');
 });
 
 test('AUDIT CC-B4 (major): a companion never runs out past the leash at a foe standing off there (an archer at 30 m), and never stands idle holding a foe he has never seen', () => {
@@ -264,14 +277,16 @@ test('AUDIT CC-B7: companions fight a quest\'s foes and its foes fight them', ()
 
 import { sea } from './navalSea.mjs';
 import { HULL } from '../src/systems/naval/navalShips.js';
-import { createShipCrew, CREW_ORDERS, MORALE_EVENT, LOSSES_WINDOW_S, crewCard } from '../src/systems/naval/shipCrew.js';
+import { createShipCrew, CREW_ORDERS, MORALE_EVENT, LOSSES_WINDOW_S, crewCard, SEA_DECAY_S as SEA_DECAY_S_ } from '../src/systems/naval/shipCrew.js';
 import { seaRepair, provisionOffer, storePrice, storesToWhole, STORE_POINTS, STORE_YARD_SHARE } from '../src/systems/naval/navalYard.js';
 import { repairCost, REPAIR_PRICE } from '../src/systems/naval/navalDamage.js';
 import { mintStores, storesIn, spendStore } from '../src/systems/naval/navalStores.js';
 import { hullBuild } from '../src/systems/naval/navalShips.js';
 
 async function atSea({ hull = 420, sail = 160, crew = 24, state = 'afloat', stores = 0, nearPort = false, mates = null } = {}) {
-  const h = await sea({ hull: HULL.SmallShip, settings: { ShipsAtSea: 'off', Boarders: false }, where: { nearPort } });
+  const where = { nearPort };
+  const h = await sea({ hull: HULL.SmallShip, settings: { ShipsAtSea: 'off', Boarders: false }, where });
+  h.where = where;
   h.boat.crewed = true;
   h.host.restoreSaveData({ v: 1, boats: { 42: { hull, sail, crew, fire: 0, state, barrels: 4, ...(mates ? { mates } : {}) } }, notoriety: {}, day: 1, raids: [] });
   const hold = stores ? [mintStores(stores)] : [];
@@ -300,6 +315,14 @@ test('AUDIT CC-D1 (major): a store is a fixed share of the WORK, priced at STORE
   const h = await atSea({ hull: 210, stores: 10, nearPort: true });
   assert.equal(h.host.giveOrder(h.boat, CREW_ORDERS.repair).ok, false);
   assert.ok(h.log.say.some((l) => /shipwright/.test(l)), 'the yard is here');
+  // an order given at sea stands down in port: the work stops where the yard is
+  const h2 = await atSea({ hull: 210, stores: 10 });
+  assert.equal(h2.host.giveOrder(h2.boat, CREW_ORDERS.repair).ok, true);
+  h2.where.nearPort = true;
+  const before = h2.host.hudModel().ship.hull;
+  for (let t = 0; t < 60; t += 0.1) h2.host.frame(0.1);
+  assert.equal(h2.host.hudModel().ship.hull, before, 'no mending in port');
+  assert.equal(storesIn(h2.hold), 10, 'and no store spent');
 });
 
 test('AUDIT CC-D2: a crewed boat with every hand lost still mends - her captain at the work alone - and never holds an order that does nothing', async () => {
@@ -352,6 +375,7 @@ test('AUDIT CC-D5: one round of grog a port day, and a prize\'s hold lifts spiri
 
 test('AUDIT CC-D6: the hands stand on her deck as they were named - their class and sex off her saved crew, not a seed that moves with the session', () => {
   assert.match(rd('src/scenes/world.js'), /rosterOf: \(\) => navalMyRoster\(boat, seed, crew\)/);
+  assert.match(rd('src/scenes/world.js'), /return crewRoster\(\{ hull: boat\.hull, seed, crew \}\)\.map\(\(r, i\) => \(hands\[i\] \? \{ mobile: hands\[i\]\.mobile, gender: hands\[i\]\.gender === 'female' \? 'female' : 'male' \} : r\)\);/, 'each place the hand named there');
 });
 
 test('AUDIT CC-D7: a knock after a load still costs her crew - the event lands on the saved record of a boat not yet stood', async () => {
@@ -468,4 +492,176 @@ test('AUDIT CC-E3/E4: a companion lifted on the street makes the next frame whol
   A.removeFoe(mate);
   assert.equal(A.foesFrame(false)?.full, 1, 'whole');
   assert.match(rd('src/scenes/navalHost.js'), /if \(was === SHIP_STATES\.afloat && dmg\.state === SHIP_STATES\.struck && clock - \(e\.myBlowAt \?\? -Infinity\) <= SINK_CREDIT_S\) crewEvent\(boatInPlay\(\) \?\? myBoat\(\), 'win'\);/);
+});
+
+// ── CC-F: the safety net - behaviour the audit's mutants found unpinned ──────────────────────────────────────────
+
+import { companionRows } from '../src/systems/naval/crewCompanions.js';
+import { grogPrice, GROG_MIN, wantsRepair } from '../src/systems/naval/navalYard.js';
+import { storesIn as storesCount, mintStores as mint } from '../src/systems/naval/navalStores.js';
+import { createCrewLife } from '../src/systems/naval/crewLife.js';
+
+test('AUDIT CC-F1: the host\'s companion API on the real host - a press takes a hand ashore and sends him back, an uncrewed boat sends none, the rows read her crew, the prune keeps the living and drops the fallen, the away set names his place, the knock is said', async () => {
+  const h = await atSea({});
+  h.host.frame(0.1);
+  const hands = h.host.crewOf(h.boat).hands;
+  assert.ok(hands.length >= 3, 'a mustered crew');
+  const [a, b] = hands;
+  assert.equal(h.host.companionPress(h.boat, a.name, 0), 'take');
+  assert.ok(h.log.say.some((l) => l.includes(`${a.name}, ${a.role}, comes ashore with you.`)));
+  assert.equal(h.host.companions.isAshore(42, a.name), true);
+  assert.deepEqual([...h.host.awayOf(h.boat)], [], 'aboard while I sail (Mac: back on deck)');
+  h.runtime.sailing = false;
+  assert.deepEqual([...h.host.awayOf(h.boat)], [0], 'his place on her deck, by roster');
+  const rows = h.host.companionRows(h.boat, 0);
+  assert.equal(rows.find((r) => r.id === a.name).back, true);
+  assert.equal(h.host.companionPress(h.boat, a.name, 0), 'back', 'pressed again: back aboard');
+  assert.ok(h.log.say.some((l) => l.includes(`${a.name} goes back aboard.`)));
+  assert.equal(h.host.companions.party.length, 0);
+  // the prune: a living hand stays, one fallen from her roster goes
+  h.host.companionPress(h.boat, b.name, 0);
+  assert.deepEqual(h.host.pruneCompanions(), [], 'her live hands live');
+  h.host.companions.take(42, { name: 'Nobody Aboard', role: 'Cook', mobile: 144, gender: 'male' }, 0);
+  assert.deepEqual(h.host.pruneCompanions().map((c) => c.name), ['Nobody Aboard'], 'a name off her roster goes');
+  assert.equal(h.host.companions.isAshore(42, b.name), true);
+  // the knock is said, with the hand's own pronoun
+  h.host.companionKnocked({ boat: 42, name: b.name, gender: 'female' });
+  assert.ok(h.log.say.some((l) => l.includes(`${b.name} is knocked senseless - your crew carries her back aboard to rest.`)));
+  // an uncrewed boat: her rows refuse, her press sends nobody
+  h.boat.crewed = false;
+  assert.ok(h.host.companionRows(h.boat, 0).filter((r) => !r.back).every((r) => r.disabled), 'no crew, nobody to take (one ashore may still go back)');
+  assert.equal(h.host.companionPress(h.boat, hands[2].name, 0), null);
+  assert.equal(h.host.companions.isAshore(42, hands[2].name), false);
+});
+
+test('AUDIT CC-F2: the follow brain\'s guards - no follow while paralyzed, paused or knocked back; no leader, no walk; a detour aims round the obstacle; the navmesh\'s last leg aims at the live leader', () => {
+  const leader = [20, 0, 0];
+  const make = () => { const m = body([0, 0, 0], { team: 'PlayerAlly', companion: 'k' }); m.ai.follow = { feet: () => leader, stop: 2.5 }; return m; };
+  const step = (m, o = {}) => m.ai.update(1 / 60, leader, mkSenses({ targeting: armed([m]) }), !!o.paralyzed, !!o.paused);
+  const p = make(); for (let i = 0; i < 60; i++) step(p, { paralyzed: true });
+  assert.equal(p.ai._following, false, 'paralyzed');
+  assert.deepEqual(p.ai.feet.map((v) => Math.round(v * 100) / 100), [0, 0, 0]);
+  const q = make(); for (let i = 0; i < 60; i++) step(q, { paused: true });
+  assert.equal(q.ai._following, false, 'paused');
+  const k = make(); k.ai.knockbackSpeed = 10; step(k);
+  assert.equal(k.ai._following, false, 'knocked back');
+  const n = make(); n.ai.follow = { feet: () => null, stop: 2.5 }; n.ai.moving = true;
+  n.ai._followTicks(4, 1 / 60);
+  assert.equal(n.ai.moving, false, 'no leader: standing');
+  n.ai.target = null;
+  assert.equal(n.ai._followWanted(), true, 'no leader and no foe: he keeps to nobody, standing');
+  const d = make(); d.ai.avoidObstaclesTimer = 1; d.ai.detourDestination = [0, 0, 20]; d.ai.yaw = 0;
+  d.ai._followTicks(1, 1 / 60);
+  assert.equal(d.ai.moving, true, 'the detour aims ahead (+z), the leader is to the side (+x): it walks the detour');
+  const rd2 = rd('src/ai/enhancedMotor.js');
+  assert.match(rd2, /if \(this\.navBroken \|\| this\.avoidObstaclesTimer > 0\) return leader;/, 'a detour runs the classic way round');
+  assert.match(rd2, /return this\.pathI === this\.path\.length - 1 \? leader : wp;/, 'the last leg at the leader\'s live feet');
+});
+
+test('AUDIT CC-F3: grog and provisions by number - a gold a hand at least GROG_MIN, none at the top of their spirits, the cost what the purse pays for', () => {
+  assert.equal(GROG_MIN, 10);
+  assert.equal(grogPrice(24), 24);
+  assert.equal(grogPrice(3), GROG_MIN);
+  const top = provisionOffer({ stores: 0, morale: 100, crew: 24, crewed: true, gold: 1e4 });
+  assert.equal(top.rows.find((r) => r.id === 'grog').missing, 0);
+  const o = provisionOffer({ stores: 0, stock: 13, morale: 40, crew: 24, crewed: true, gold: 1000 });
+  for (const r of o.rows) assert.equal(r.cost, r.afford * r.price);
+  assert.equal(o.rows[0].afford, 2, 'two stores in a purse of 1000');
+  assert.equal(wantsRepair({ hull: 100, maxHull: 100, sail: 50, maxSail: 100 }), true, 'her canvas alone wants it');
+  assert.equal(storesCount([mint(1), { ...mint(1), stackCount: 0 }]), 2, 'a stack of none counts one');
+});
+
+test('AUDIT CC-F4: the party\'s small print - hours round up and say hour or hours, a take ends a rest record, a save\'s role and sex are the law\'s, the rows read her crew', () => {
+  const p = createCompanions();
+  p.take(7, hand('A'), 0); p.knock(7, 'A', 0);
+  const at = (now) => companionRows({ boat: 7, crewed: true, hands: [hand('A')], now, companions: p })[0].why;
+  assert.equal(at(REST_MIN - 90), 'resting, 2 hours', '1.5 hours left reads 2');
+  assert.equal(at(REST_MIN - 30), 'resting, 1 hour');
+  p.take(7, hand('A'), REST_MIN);   // his rest is over; no wake ran
+  assert.equal(p.resting.length, 0, 'the take ends the stale rest record');
+  const q = createCompanions({ party: [{ boat: 7, name: 'B', role: 7, gender: 'other', mobile: 1 }] });
+  assert.deepEqual([q.party[0].role, q.party[0].gender], ['Deckhand', 'male']);
+  assert.ok(companionRows({ boat: 7, crewed: false, hands: [hand('C')], now: 0, companions: q }).every((r) => r.disabled));
+});
+
+test('AUDIT CC-F5: the layer\'s small print - a body stands where the place\'s own sweep says, never past his whole; a stand landing after he went back, or after a load swapped the party, is taken back; clear lifts every body', async () => {
+  const { party, state, mkPlace, layer } = world();
+  party.take(7, hand('Aldric'), 0);
+  const street = mkPlace('street');
+  street.spot = (from, dx, dz) => [from[0] + dx * 0.5, from[1] + 0.25, from[2] + dz * 0.5];   // a wall halfway, a step up
+  state.place = street;
+  layer.frame(); await settle();
+  const rec = street.live[0];
+  assert.ok(Math.abs(rec.ai.feet[1] - 0.25) < 1e-9, 'stood where the sweep stopped');
+  party.of(7, 'Aldric').health = 999; party.of(7, 'Aldric').maxHealth = 40;
+  const other = mkPlace('shop');
+  state.place = other;
+  layer.frame(); await settle();
+  assert.equal(other.live[0].entity.health, other.live[0].entity.maxHealth, 'never past his whole');
+  // a stand in flight when he goes back aboard is taken back on landing
+  const cellar = mkPlace('cellar');
+  state.place = cellar;
+  layer.frame();
+  party.sendBack(7, 'Aldric');
+  await settle();
+  assert.equal(cellar.live.length, 0, 'taken back on landing');
+  // clear lifts what stands
+  party.take(7, hand('Brand'), 0);
+  layer.frame(); await settle();
+  assert.equal(cellar.live.length, 1);
+  layer.clear();
+  assert.equal(cellar.live.length, 0);
+});
+
+test('AUDIT CC-F6: the crew\'s small print - their lines by spirits and a third of the time, the card\'s counts and its empty deck, a save\'s spirits clamped and its hires never under its hands, the clocks that reset, an order not theirs refused', () => {
+  const c = createShipCrew({ seed: 9, record: { morale: 400, hires: 0, hands: [{ name: 'A', role: 'Bosun', mobile: 144, gender: 'male', fights: 1, boardings: 2 }] } });
+  assert.equal(c.morale, 100, 'clamped');
+  assert.equal(c.snapshot().hires, 1, 'never fewer hires than hands');
+  assert.equal(c.give('mutiny'), false);
+  assert.equal(c.order, CREW_ORDERS.stand);
+  let said = 0;
+  for (let i = 0; i < 300; i++) if (c.line()) said++;
+  assert.ok(said > 50 && said < 150, `high spirits speak about a third of the time (${said}/300)`);
+  const mid = createShipCrew({ seed: 9, record: { morale: 50, hands: [] } });
+  for (let i = 0; i < 50; i++) assert.equal(mid.line(), null, 'steady spirits keep their own words');
+  const card = crewCard({ morale: 60, hands: [{ name: 'A', role: 'Bosun', fights: 1, boardings: 2 }] });
+  assert.ok(card.some((l) => l === 'A, Bosun - 1 fight, 2 boardings'));
+  assert.ok(crewCard({ morale: 60, hands: [] }).includes('No hands aboard.'));
+  // a port stay resets the sea's clock and the sea the port's
+  const t = createShipCrew({ seed: 9 });
+  t.tick(SEA_DECAY_S_ * 0.9, { atSea: true });
+  t.tick(1, { inPort: true });
+  t.tick(SEA_DECAY_S_ * 0.2, { atSea: true });
+  assert.equal(t.morale, 60, 'the sea\'s clock began again');
+});
+
+test('AUDIT CC-F7: the deck\'s away - a hand going ashore ends his talk and drops a song he led; one a boarding took is not stood back by coming home', () => {
+  const deck = { walkable: () => true, nearest: () => [0, 0, 0], clamp: (x, z) => [x, 0, z], path: () => null, heightAt: () => 0, spots: (n) => Array.from({ length: n }, (_, i) => [i, 0, 3]), count: 1 };
+  const roster = [{ mobile: 144, gender: 'male' }, { mobile: 134, gender: 'male' }, { mobile: 141, gender: 'male' }];
+  const life = createCrewLife({ deck, roster, seed: 1, places: [[0, 0, 0], [1, 0, 0], [2, 0, 0]] });
+  const [a, b] = life.members;
+  a.mate = b; b.mate = a; a.talk = {}; b.talk = {};
+  life.away(new Set([0]));
+  assert.equal(b.mate, null, 'his talk ended');
+  life.away(new Set([1]));
+  assert.ok(life.members[1].gone);
+  life.members[1].taken = true;   // a boarding took him while ashore (by the roster's place)
+  life.away(new Set());
+  assert.equal(life.members[1].gone, true, 'a taken hand is the fight\'s to bring home');
+  assert.equal(life.members[0].gone, false);
+});
+
+test('AUDIT CC-F8: the world\'s wiring - the arc off lifts every body, the prune runs, none stand at the helm, the spot is the collider\'s sweep, the picker says why a row is refused; a peaceful foe fights no companion', () => {
+  const w = rd('src/scenes/world.js');
+  assert.match(w, /if \(!navalOn\(\)\) \{ crewAshore\.clear\(\); return; \}/);
+  assert.match(w, /if \(\+\+_companionPruneN >= 60\) \{ _companionPruneN = 0; naval\?\.pruneCompanions\?\.\(\); \}/);
+  assert.match(w, /\|\| csaRuntime\?\.isSailing\?\.\(\)\) return null;/);
+  assert.match(w, /try \{ col\?\.move\(p, dx, 0, dz, 1\.8\); \}/);
+  assert.match(w, /csaOpenListPicker\(rows\.map\(\(r\) => \(r\.disabled \? `\$\{r\.label\} \(\$\{r\.why\}\)` : r\.label\)\), \(i\) => \{\n[^\n]*\n\s*if \(rows\[i\]\) naval\.companionPress/, 'the companions\' own picker');
+  const pf = [0, 0, 30];
+  const calm = body([0, 0, 0], { team: 'Orcs', hostile: false });
+  const mate = body([0, 0, 3], { team: 'PlayerAlly', yaw: Math.PI, companion: 'k' });
+  assert.equal(getTargets(calm, [calm, mate], pf, { infighting: false }).target, null);
+  mate.entity.team = 'Humanoid';   // a blow's reset, the frame before the layer puts him back
+  assert.equal(getTargets(calm, [calm, mate], pf, { infighting: false }).target, null, 'by what he is, not his team');
 });

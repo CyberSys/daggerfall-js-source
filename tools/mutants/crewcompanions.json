@@ -209,7 +209,7 @@
   {
     "name": "CA-catch-up-keeps-target",
     "file": "src/scenes/crewAshore.js",
-    "old": "          if (typeof rec.ai.resumeLive === 'function') rec.ai.resumeLive();\n",
+    "old": "          if (typeof rec.ai.resumeLive === 'function') rec.ai.resumeLive();\n          else { rec.ai.target = null; rec.ai.path = null; rec.ai.velY = 0; }\n",
     "new": "",
     "tests": [
       "test/crewcompanions.test.js"

@@ -134,8 +134,6 @@ export function createCrewAshore(deps) {
     frame,
     /** The companions standing here - their bodies (the bars' list). */
     bodies: () => [...stood.values()].map((s) => s.rec),
-    /** Whether a body is one of the party's. @param {any} rec */
-    isCompanion: (rec) => rec?.companion != null && [...stood.values()].some((s) => s.rec === rec),
     /** Everyone out of the place (the naval arc switched off, a new game) - the party keeps them. */
     clear() { liftAll(); placeKey = undefined; epoch++; },
   };

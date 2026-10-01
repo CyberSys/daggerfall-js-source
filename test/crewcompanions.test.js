@@ -169,6 +169,13 @@ test('CREW-COMPANIONS fight, then heel: a companion fights a hostile before foll
   orc.ai.feet[2] = 60; mate.ai.feet[2] = FOLLOW_LEASH + 5;
   mate.ai.update(1 / 60, leader, mkSenses({ targeting: armed([mate, orc]) }));
   assert.equal(mate.ai._following, true, 'drawn past the leash: home');
+  // past the leash himself, though his foe stands by the leader: home first, the foe let go
+  const m2 = mkBody([0, 0, FOLLOW_LEASH + 5], { team: 'PlayerAlly', companion: 'k' });
+  m2.ai.follow = { feet: () => leader, stop: 2.5 };
+  m2.ai.target = orc; orc.ai.feet[2] = -3;
+  m2.ai.predictedTargetPos = [0, 0, -3]; m2.ai.giveUpTimer = 200;
+  assert.equal(m2.ai._followWanted(), true, 'he is past the leash');
+  assert.equal(m2.ai.target, null);
 });
 
 test('CREW-COMPANIONS targets: with infighting off a hostile still fights a companion; a companion never takes another ally', () => {
@@ -273,7 +280,6 @@ test('CREW-COMPANIONS the layer: the party stood behind the player as allies non
   assert.equal(b.ai.follow.stop, HEEL_M + HEEL_STEP_M, 'the second a pace further');
   assert.deepEqual(a.ai.follow.feet(), [0, 0, 0], 'the leader\'s live feet');
   assert.deepEqual(layer.bodies(), [a, b]);
-  assert.ok(layer.isCompanion(a));
 });
 
 test('CREW-COMPANIONS through a door: lifted out of the old place with their health, stood in the new', async () => {

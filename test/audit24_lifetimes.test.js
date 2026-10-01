@@ -56,7 +56,7 @@ test('audit24 lifetimes: an encounter foe frees its billboard batch on BOTH ends
   // spares corpses), so the batch would be unreachable and undead
   // AUDIT 26 F035/F041 grew the header: the door takes a provenance
   // flag (fromPlayer), defaulting true.
-  const dmg = bodyOf(src, "function damageFoe(f, damage, playerFeet, knockDir = null, { fromPlayer = true, bypassShield = false, kind = 'melee', peer = false, peerId = null, whole = false, spell = null } = {})");   // WORLD6b: the blow's kind and a peer's provenance, the dungeon door's own
+  const dmg = bodyOf(src, "function damageFoe(f, damage, playerFeet, knockDir = null, { fromPlayer = true, bypassShield = false, kind = 'melee', peer = false, peerId = null, whole = false, spell = null, striker = null } = {})");   // PIN MOVED (AUDIT CC-E1: and the striking foe)   // WORLD6b: the blow's kind and a peer's provenance, the dungeon door's own
   // The window is a PROXIMITY bound, not a law - it exists so the
   // release cannot drift out of the death branch entirely. X5 put the
   // Soul Trap intercept between the two points (the trap can refuse
