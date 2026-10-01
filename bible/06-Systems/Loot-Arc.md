@@ -488,8 +488,9 @@ street's: an ordinary encounter's foe (`capped` - never a quest's, a summons, a 
 the pool's stream (its loot, its kit) draws as it did, and a seeded test's street stands the same foes every run
 (the row is on by default, so a draw would have made every street pin a one-in-twenty flake). The foe
 record carries the trait (`cp`, `net/wire.js` `validFoeRecord`, at most `CHAMPION_TRAIT_MAX`; RELAY_VERSION
-**world138**, NOT YET DEPLOYED - a relay before it strips the field and a peer's puppet of a champion stands as an
-ordinary foe, the owner's health word still ruling it); a puppet and an heir's adoption stand the same champion; a
+**world139** since the merge with main - world138 on the branch, main's HERALD took world138 first - NOT YET DEPLOYED;
+a relay before it strips the field and a peer's puppet of a champion stands as an ordinary foe, the owner's health
+word still ruling it); a puppet and an heir's adoption stand the same champion; a
 save keeps it (`champion` on the pool's record) and a load stands it again, never rolled. The gate's Warden is the
 relay's and never a pool foe.
 
@@ -750,7 +751,7 @@ is its class's, so the Human guard); the seeded doors - the gate's spoils and a 
 the Regalia and the set piece, the Broker's `applyRarity` and a Masterwork's roll never reach it, `pickLegendary` and the
 lean are one roll each; the Exalted's pool holds the proc kinds (section 6's Legendary band is the Exalted line's); the
 drought counted once at the take and none in a new game; the codex's silent backfill; `cp` bounded by
-`CHAMPION_TRAIT_MAX` (world138); the four item fields declared and the Broker's wares bound (no salvage); the guild
+`CHAMPION_TRAIT_MAX` (world139); the four item fields declared and the Broker's wares bound (no salvage); the guild
 popup's F free of DFU's four letters; the lines' finds never a peer's street body.
 
 Pinned: `test/auditloot.test.js` (8), driven where it can be - F1 the fits, the choices and the wire; F2 a Masterwork's
@@ -760,3 +761,11 @@ imprint's card (its tier's line, its word, said);
 F7 the pack and the Codex over it, keyed; F8 every record's power, the Last Lock's shots, its row and the count; F9 a
 minted and a promoted champion's Rare. `tools/mutants/auditloot.json` (30, all dead). LOOT10's page pins read every
 record; seven records in `loot5.json` and `loot10.json` re-aimed by content (`powerIds`, `powerFits`, `allLegendaries`).
+
+**THE MERGE with main (PATREON-LINK + HERALD, #505).** Main's HERALD took world138 first, so the merged relay is
+**world139** - LOOT7's `cp` beside HERALD's word (the law's row, its hash over the merged bundle; every version pin
+re-chained "LOOT7 moved it on last (world139 ...); before it HERALD moved it on (world138 ...)", HERALD's own pin,
+disc7's list, soc1.json's S38 and BOUNTY1 B4). HERALD's account service (acct45) needs a relay that knows its word -
+world138 or world139. REL6 (#503, Mac: "Remove patch notes from the codebase"): the arc's player notes ride its pull
+request, never a file in the tree; GROWTH1's caps (#503): the Loot rows say what each file pins now, in at most 1,000
+characters, and the arc's Active-Arcs entry stands in 700, so the branch lands the same either side of it.

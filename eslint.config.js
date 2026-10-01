@@ -10,7 +10,7 @@ export default [
     files: ['server/src/**/*.js', 'server-account/src/**/*.js'],
     languageOptions: {
       ecmaVersion: 'latest', sourceType: 'module',
-      globals: { console: 'readonly', Response: 'readonly', Request: 'readonly', URL: 'readonly', WebSocketPair: 'readonly', WebSocketRequestResponsePair: 'readonly', crypto: 'readonly', TextEncoder: 'readonly', TextDecoder: 'readonly', atob: 'readonly', btoa: 'readonly', fetch: 'readonly', AbortSignal: 'readonly' },   // DISCORD-GATES: the hub posts to a Discord webhook
+      globals: { console: 'readonly', Response: 'readonly', Request: 'readonly', URL: 'readonly', WebSocketPair: 'readonly', WebSocketRequestResponsePair: 'readonly', crypto: 'readonly', TextEncoder: 'readonly', TextDecoder: 'readonly', atob: 'readonly', btoa: 'readonly', fetch: 'readonly', AbortSignal: 'readonly', URLSearchParams: 'readonly' },   // DISCORD-GATES: the hub posts to a Discord webhook; PATREON-LINK: the account service speaks Patreon's OAuth forms
     },
     rules: { 'no-undef': 'error', 'no-unused-vars': ['error', { argsIgnorePattern: '^_', caughtErrors: 'none' }], 'no-dupe-keys': 'error', 'no-dupe-class-members': 'error' },
   },
