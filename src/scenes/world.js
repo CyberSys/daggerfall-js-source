@@ -8808,7 +8808,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       foeSinks: (f) => enchantFoeSinks(f),
       feet: () => enchantFeet(),
       standLooseFoe: _standLooseFoe,
-      bossSpell: (record) => { modes?.dungeonCtx?.spellOnBoss?.(record); },   // WARDEN-STRIKE: a Cast When Strikes spell on the Gate's Warden, by the court's own spell door (AUDIT WBX F2's, hosted)
+      bossSpell: (record, target) => { modes?.dungeonCtx?.spellOnBoss?.(record, target); },   // WARDEN-STRIKE: a Cast When Strikes spell on the Gate's Warden, by the court's own spell door (AUDIT WBX F2's, hosted; AUDIT WB11 W1: the stand-in it met with it)
       spellToOwner: (f, record, level) => enchantSpellToOwner(f, record, level),   // STRIKE-SHARED: routed by membership, below
       // V3: Azura's TEXT.RSC popup.
       // ENH-NOTICE3: through the one door, and the ROUTING CHANGES -
@@ -10868,7 +10868,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7753), so exterior mode and a
+    // composer, dungeonContext.js:7765), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {

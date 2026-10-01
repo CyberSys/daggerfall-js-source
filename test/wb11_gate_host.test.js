@@ -397,10 +397,10 @@ test('WB11 the checkpoint and the state: the host is plain numbers - a fight tha
   for (const [k, a] of f.lg.ads.entries()) {
     const q = st.lg[k];
     assert.deepEqual(q.slice(0, 4), [a.i, a.k, Math.ceil(a.h), a.m]);
-    if (a.mv) assert.deepEqual(q.slice(4, 10), [a.mv.x, a.mv.z, a.mv.tx, a.mv.tz, a.mv.v, a.mv.at]);
-    assert.equal(q[10], a.atk ? a.atk.at : 0);
+    const r2 = (v) => Math.round(v * 100) / 100;
+    assert.deepEqual(q.slice(4, 10), a.mv ? [a.mv.x, a.mv.z, a.mv.tx, a.mv.tz, a.mv.v, a.mv.at] : [r2(a.x), r2(a.z), r2(a.x), r2(a.z), 0, 0]);
+    assert.deepEqual(q.slice(10), a.atk ? [a.atk.at, a.atk.x, a.atk.z] : [0, 0, 0]);   // AUDIT WB11 D7: read off the fight, not hostStateOf's own word again
   }
-  assert.deepEqual(hostStateOf(f.lg), st.lg);
   assert.deepEqual(validGateOut(JSON.parse(JSON.stringify(st))).lg, st.lg, 'through JSON and the wire');
 });
 
@@ -497,7 +497,7 @@ test('WB11 the link: his host folded - a wave risen (when, facing into the court
   assert.equal(t.lg.gone.at(-1).w, HOST_GONE.fed);
   // the Ward-Bearers' rising says how many hold the ward
   t = foldGate(t, { k: 'ad', w: 2, m: 120, a: [[6, 9, 0], [7, -9, 0], [8, 0, 9]], at: 5000 }, 5000);
-  assert.deepEqual(t.lg.ward, { n: 3, at: 5000 });
+  assert.deepEqual(t.lg.ward, { n: 3, at: 5000, is: [6, 7, 8] });   // AUDIT WB11 C5: and which rose
   // at most HOST_GONE_KEPT
   for (let k = 0; k < HOST_GONE_KEPT + 5; k++) { t = foldGate(t, { k: 'ad', w: 0, m: 9, a: [[100 + k, 0, 0]], at: 6000 + k }, 6000); t = foldGate(t, { k: 'adie', is: [100 + k], w: 2, at: 6000 + k }, 6000); }
   assert.equal(t.lg.gone.length, HOST_GONE_KEPT);
@@ -581,7 +581,9 @@ test('WB11 the court: a wave\'s rising said once and heard where each rises (whi
   // the targets: each standing one, from his court
   const T = h.c.hostTargets();
   assert.deepEqual(T.map((q) => q.i), [1, 2]);
-  assert.deepEqual(T[0].feet, courtToDungeon(20, hostLookOf(0, 'burning').hover, 6));
+  // AUDIT WB11 W4: met where it is drawn - 200 ms into its rise it is still under the floor by its sink
+  const want = courtToDungeon(20, hostLookOf(0, 'burning').hover - HOST_KINDS[0].h * (1 - 200 / HOST_RISE_MS[0]), 6);
+  assert.ok(T[0].feet.every((v, k) => Math.abs(v - want[k]) < 1e-9), `${T[0].feet} at ${want}`);
   assert.deepEqual([T[0].height, T[0].radius, T[0].mobile, T[0].name, T[0].entity.name], [HOST_KINDS[0].h, HOST_KINDS[0].r, 1, 'Imp', 'Imp']);
   const away = court({ feet: [COURTS[2][0], 0, COURTS[2][1]] });
   away.link.st = stOf({ lg: { ads: [ad({ i: 1 })], gone: [] } }); away.clock.t = 1; away.c.frame();
@@ -610,7 +612,7 @@ test('WB11 the court: a wave\'s rising said once and heard where each rises (whi
   h.said.length = 0;
   tick(14_000, stOf({ phase: 2, shieldUntil: 40_000, lg: { ads: [], gone: [{ i: 5, k: 2, x: 9, z: 0, w: 0, n: 'Bran', at: 13_990 }, { i: 6, k: 2, x: -9, z: 0, w: 0, n: 'Bran', at: 13_995 }] } }));
   assert.ok(h.said.includes(COURT_HOST_TEXT.felled('Bran', 0)));
-  assert.equal(COURT_HOST_TEXT.felled('Bran', 0), 'The last Ward-Bearer falls - his ward breaks!');
+  assert.equal(COURT_HOST_TEXT.felled('Bran', 0), 'The last Ward-Bearer falls - his ward is failing!');   // AUDIT WB11 D1
   h.c.leave();
   assert.deepEqual(h.c.state().host.bodies, []);
 });
@@ -665,7 +667,7 @@ test('WB11 the plumbing, read: the world host sends a blow on one of his host as
   assert.match(d, /const landOnHost = \(hb, damage, r\) => !!opts\.onHostHit\?\.\(\{ i: hb\.host, d: damage, r \}\);/);
   assert.match(g, /const crystals = \[\.\.\.crystalMarksFor\(sp\), \.\.\.hostMarksFor\(sp\)\];/);
   assert.match(g, /if \(mark\?\.host != null\) \{ try \{ return !!castAtHost\?\.\(sp, mark\.host\); \} catch \{ return false; \} \}/);
-  assert.match(r, /if \(m\.k === 'ahit'\) \{ this\._gateFan\(applyHostHit\(f, a\.sub, m\.i, m\.d, m\.r, a\.pose && !a\.pose\.dd \? this\._courtOf\(a\.pose\) : null, now\)\); return; \}/, 'the relay judges it');
+  assert.match(r, /else if \(m\.k === 'ahit'\) this\._gateFan\(applyHostHit\(f, a\.sub, m\.i, m\.d, m\.r, a\.pose && !a\.pose\.dd \? this\._courtOf\(a\.pose\) : null, now, m\.q\)\);/, 'the relay judges it (AUDIT WB11 W3: by its blow\'s sequence)');
 });
 
 test('WB11 a whole Legion-Lord fight, stepped: Harriers in the first court, crumbled at the turn; Ward-Bearers as he lands in the second; Sappers there once its turn is done; Ward-Bearers again in the third - every word of the host the wire takes, and never more standing than the wire can name (mutants: a kind out of its phase)', () => {

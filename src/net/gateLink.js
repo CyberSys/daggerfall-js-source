@@ -20,7 +20,7 @@ import { ATTACKS, nearestCourt, COURTS, hostAt } from './gateBrain.js';   // WB9
  *   xa: ReadonlyArray<number>, cx: {i: number, m: number, c: number[][], broke: ReadonlyArray<{c: number, n: string, at: number}>}|null,
  *   stunUntil: number, stunAt: number, rk: number, lg: GateHost|null}} GateState
  * @typedef {{ads: ReadonlyArray<{i: number, k: number, h: number, m: number, x: number, z: number, mv: any, atk: {at: number, x: number, z: number}|null, rose: number, yaw: number}>,
- *   gone: ReadonlyArray<{i: number, k: number, x: number, z: number, w: number, n: string|null, at: number}>, ward?: {n: number, at: number}}} GateHost
+ *   gone: ReadonlyArray<{i: number, k: number, x: number, z: number, w: number, n: string|null, at: number}>, ward?: {n: number, at: number, is?: ReadonlyArray<number>}}} GateHost
  *   GATE-UX: `fell` carries `dm`, the kill's damage chart (net/gateBrain.js damageChart), from a relay that makes one.
  *   WB8b: `md` his marks (net/gateMods.js - the fight's profile is made from them, net/gateBrain.js fightProfile), `fed`
  *   the last fallen challenger a Soul-Hungry Warden fed on (their name, the relay's moment). WB9b: `xa` the crossings'
@@ -52,7 +52,10 @@ function hostOfState(lg, prev) {
     return { i: t[0], k: t[1], h: t[2], m: t[3], x: t[4], z: t[5], mv, atk: t[10] ? { at: t[10], x: t[11], z: t[12] } : null,
       rose: had ? had.rose : -Infinity, yaw: mv ? Math.atan2(mv.tx - mv.x, mv.tz - mv.z) : had ? had.yaw : facingIn(t[4], t[5]) };
   });
-  return { ads, gone: prev?.gone ?? [], ...(prev?.ward ? { ward: prev.ward } : {}) };
+  // AUDIT WB11 C5/U3: the count of a wave of Ward-Bearers kept only while one of THAT wave stands - a state after a lost
+  // socket kept the last court's ("3 of 4 stand" where three rose); without it the bar says how many stand
+  const ward = prev?.ward && ads.some((a) => a.k === 2 && prev.ward.is?.includes(a.i)) ? prev.ward : null;
+  return { ads, gone: prev?.gone ?? [], ...(ward ? { ward } : {}) };
 }
 /** WB11b: ONE WORD OF HIS HOST folded into the state's `lg` (its health, for a Sapper he drank) - its rising, its
  *  walks, its blows, its health, its gone. A word of a host this screen holds none of starts one (the relay says the
@@ -61,7 +64,7 @@ function foldHost(s, g, now) {
   const H = s.lg ?? { ads: [], gone: [] };
   switch (g.k) {
     case 'ad': return { ...s, lg: { ...H, ads: [...H.ads.filter((a) => !g.a.some((q) => q[0] === a.i)), ...g.a.map(([i, x, z]) => ({ i, k: g.w, h: g.m, m: g.m, x, z, mv: null, atk: null, rose: g.at, yaw: facingIn(x, z) }))],
-      ...(g.w === 2 ? { ward: { n: g.a.length, at: g.at } } : {}) }, heardAt: now };   // a Ward-Bearers' rising: how many hold his ward
+      ...(g.w === 2 ? { ward: { n: g.a.length, at: g.at, is: g.a.map((q) => q[0]) } } : {}) }, heardAt: now };   // a Ward-Bearers' rising: how many hold his ward (and which - AUDIT WB11 C5)
     case 'amv': {
       const by = new Map(g.m.map((t) => [t[0], t]));
       return { ...s, lg: { ...H, ads: H.ads.map((a) => {

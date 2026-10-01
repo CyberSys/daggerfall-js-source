@@ -4238,7 +4238,7 @@ export async function bootExterior(canvas, renderer, params, status) {
       foeSinks: (f) => enchantFoeSinks(f),
       feet: () => enchantFeet(),
       standLooseFoe: _standLooseFoe,
-      bossSpell: (record) => { modes?.dungeonCtx?.spellOnBoss?.(record); },   // WARDEN-STRIKE: a Cast When Strikes spell on the Gate's Warden, by the court's own spell door (AUDIT WBX F2's, hosted)
+      bossSpell: (record, target) => { modes?.dungeonCtx?.spellOnBoss?.(record, target); },   // WARDEN-STRIKE: a Cast When Strikes spell on the Gate's Warden, by the court's own spell door (AUDIT WBX F2's, hosted; AUDIT WB11 W1: the stand-in it met with it)
       spellToOwner: (f, record, level) => !!modes?.dungeonCtx?.spellToOwner?.(f, record, level),   // STRIKE-SHARED: a strike on a foe another player runs goes to that player (the dungeon's door; this host's own foes stream to no one)
       // V3: Azura's TEXT.RSC popup.
       // ENH-NOTICE3: through the one door, and the ROUTING CHANGES

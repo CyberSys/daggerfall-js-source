@@ -43,7 +43,7 @@ export const MARK_TIPS = Object.freeze({
   soulhungry: 'Every challenger who falls heals him - keep each other standing.',
   favoured: 'Hellfire and meteors come from the first phase - never stand still.',
   echoing: 'The second falls where you stand when the first lands - keep moving.',
-  legion: 'Cut down the Imps off whoever stands far from him, stop each Atronach before it reaches him, and break his Ward-Bearers to break his ward.',   // WB11a
+  legion: 'Guard the far ones from his Imps, stop each Atronach, break his Ward-Bearers.',   // WB11a (AUDIT WB11 U1: as short as the others - 138 characters made the tallest card, off a landscape phone)
 });
 
 const hex = (c) => `#${c.map((v) => Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16).padStart(2, '0')).join('')}`;

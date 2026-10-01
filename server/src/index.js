@@ -2274,15 +2274,18 @@ export class Room {
     if (!f || !f.players[a.sub]) { this._junk(ws); return; }
     // WB9c: a blow on a crystal of Oblivion - the brain's caps as a blow on him; a crystal broken, and the Reckoning
     // broken with the last of them, said to the court at once (its health goes out on the beat)
-    if (m.k === 'xhit') { this._gateFan(applyCrystalHit(f, a.sub, m.c, m.d, m.r, a.pose && !a.pose.dd ? this._courtOf(a.pose) : null, now)); return; }
+    if (m.k === 'xhit') this._gateFan(applyCrystalHit(f, a.sub, m.c, m.d, m.r, a.pose && !a.pose.dd ? this._courtOf(a.pose) : null, now, m.q));
     // WB11b: a blow on one of his host (the Legion-Lord's) - the same caps; one slain said to the court at once (its
     // health goes out on the beat)
-    if (m.k === 'ahit') { this._gateFan(applyHostHit(f, a.sub, m.i, m.d, m.r, a.pose && !a.pose.dd ? this._courtOf(a.pose) : null, now)); return; }
-    applyHit(f, a.sub, m.d, m.r, a.pose && !a.pose.dd ? this._courtOf(a.pose) : null, now);
-    if (f.fell && !f.said) await this._gateFall(f, now);
+    else if (m.k === 'ahit') this._gateFan(applyHostHit(f, a.sub, m.i, m.d, m.r, a.pose && !a.pose.dd ? this._courtOf(a.pose) : null, now, m.q));
+    else {
+      applyHit(f, a.sub, m.d, m.r, a.pose && !a.pose.dd ? this._courtOf(a.pose) : null, now, m.q);   // AUDIT WB11 W3: the blow's sequence - once a blow
+      if (f.fell && !f.said) { await this._gateFall(f, now); return; }
+    }
     // AUDIT WBX R6: a blow keeps the beat as an `in` does - a court that emptied slept until its day's end, and a client
-    // that struck without a word first fought a Warden who never answered
-    else if (!f.fell && !f.wrath && !(this._beatArmedTo > now)) { this._beatArmedTo = now + BRAIN_TICK_MS; await this._gateArm(now); }
+    // that struck without a word first fought a Warden who never answered. AUDIT WB11 R1: a blow on a crystal or on one
+    // of his host too - they returned before it, and a host struck so stood frozen, never walking or Biting
+    if (!f.fell && !f.wrath && !(this._beatArmedTo > now)) { this._beatArmedTo = now + BRAIN_TICK_MS; await this._gateArm(now); }
   }
   /** ONE BEAT of a gate room's alarm: the brain stepped over the bodies in the court, its frames fanned, the kill said
    *  once, the fight checkpointed - and the next beat armed while the fight lives and someone is here (a room nobody

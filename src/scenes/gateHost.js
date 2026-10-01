@@ -17,7 +17,7 @@
 // has already cued, judged and said.
 //
 // Not a DFU member. Ledger A (WB11).
-import { HOST, HOST_KINDS, HOST_BLOWS, COURT_CENTRE, hostAt, hostBlowUnder, nearestCourt } from '../net/gateBrain.js';
+import { HOST, HOST_KINDS, HOST_BLOWS, COURT_CENTRE, ATTACKS, hostAt, hostBlowUnder, nearestCourt } from '../net/gateBrain.js';
 import { hostVerdict, hostTelegraphAt } from '../net/gateStrike.js';
 import { hostLookOf, hostAct, hostFallAct, hostStandIn, hostCue, bossFrame, bossPlace, HOST_BITE_COLOR, hostPulseColor, emberColor, WARD_COLOR, BOSS_CUES } from '../world/gateBoss.js';
 import { courtToDungeon } from '../world/gateArena.js';
@@ -32,8 +32,10 @@ export const COURT_HOST_TEXT = Object.freeze({
   sappers: (boss, plural) => `${plural} march on ${boss} - cut them down before they reach him!`,
   bearers: () => 'His Ward-Bearers hold his ward - break them to break it!',
   drunk: (boss, name) => `${an(name)} reaches ${boss} - he drinks it in.`,
-  felled: (who, left) => (left > 0 ? `${who || 'A challenger'} cuts down a Ward-Bearer - ${left} ${left === 1 ? 'stands' : 'stand'}.` : 'The last Ward-Bearer falls - his ward breaks!'),
-  crumbled: 'His Ward-Bearers crumble - his ward breaks!',
+  // AUDIT WB11 D1: "his ward breaks" was said where his own ward follows the bearers' for its breath (SHIELD_MS,
+  // Unyielding's 6 s - the signature is cast under it): every blow in it still turned
+  felled: (who, left) => (left > 0 ? `${who || 'A challenger'} cuts down a Ward-Bearer - ${left} ${left === 1 ? 'stands' : 'stand'}.` : 'The last Ward-Bearer falls - his ward is failing!'),
+  crumbled: 'His Ward-Bearers crumble - his ward is failing!',
 });
 /** A rising, a blow, a fall or a word heard later than this after it happened is neither said nor sounded (the court's
  *  FED_LATE_MS law - heard live, never a stale one). */
@@ -50,6 +52,12 @@ export const HOST_LIGHT_RANGE = 6;
 export const HOST_LIGHT_Y = 1.5;
 /** A hurt is heard no closer together than this, a body. */
 export const HOST_HURT_GAP_MS = 500;
+/** AUDIT WB11 C6: the clock a path and a tether seethe by (the pass's pool throb, 1.5 a second) - the page's clock in
+ *  seconds overflowed a float's precision (the epoch: it moved every 128 s and never throbbed). A whole number of throbs,
+ *  so its wrap is unseen. */
+export const HOST_LANE_CLOCK_MS = 60_000;
+/** AUDIT WB11 C8: the shapes' slots, one array of them a list the court refills (AUDIT WB D10's law: refilled, never made). */
+const SHAPE_SLOTS = new WeakMap();
 
 /**
  * THE SHAPES OF HIS HOST on the floor at `now`, in the telegraph pass's own shape (render/gateTelegraph.js - the court's
@@ -63,6 +71,15 @@ export function hostShapes(s, now, P, out = []) {
   out.length = 0;
   const ads = s?.lg?.ads;
   if (!ads?.length || s.fell || s.wrath != null) return out;
+  let slots = SHAPE_SLOTS.get(out);
+  if (!slots) SHAPE_SLOTS.set(out, (slots = []));
+  /** the next shape, its slot refilled whole (AUDIT WB11 C8: a new object and four arrays a shape a frame) */
+  const next = () => {
+    const sh = (slots[out.length] ??= { kind: 0, origin: [0, 0], yaw: 0, r: 0, halfArc: 0, body: 0, end: [0, 0], halfW: 0, r0: 0, r1: 0, points: [], n: 0,
+      t: 0, flash: 0, alpha: 0, color: HOST_BITE_COLOR, court: 0, style: 0, since: 0, span: 1, after: -1, pool: false });
+    out.push(sh);
+    return sh;
+  };
   const [bx, bz] = bossPlace(s, now);
   for (const a of ads) {
     if (out.length >= HOST_SHAPES_MAX) break;
@@ -70,18 +87,18 @@ export function hostShapes(s, now, P, out = []) {
     if (!tel || tel.since >= Math.max(B.active, 1) + TELEGRAPH_FLASH_MS) continue;
     const start = a.atk.at - B.windup, span = Math.max(B.active, 1);
     const fadeIn = Math.max(0, Math.min(1, (now - start) / TELEGRAPH_FADE_IN_MS)), fadeOut = tel.since > span ? 1 - (tel.since - span) / TELEGRAPH_FLASH_MS : 1;
-    const pulse = a.k === HOST.bearer, el = hostBlowUnder(a.k, P).el;
-    out.push({
-      kind: TELEGRAPH_KIND.disc, origin: [a.atk.x, a.atk.z], yaw: 0, r: B.r, halfArc: 0, body: 0, end: [a.atk.x, a.atk.z], halfW: 0, r0: 0, r1: 0, points: [], n: 0,
-      t: tel.t, flash: tel.since >= 0 ? 1 : 0, alpha: fadeIn * Math.max(0, fadeOut), color: pulse ? hostPulseColor(P) : HOST_BITE_COLOR,
-      court: nearestCourt(a.atk.x, a.atk.z), style: pulse ? TELEGRAPH_STYLE[el] ?? TELEGRAPH_STYLE.weight : TELEGRAPH_STYLE.weight,
-      since: Math.max(0, (now - start) / 1000), span: B.windup / 1000, after: tel.since >= 0 ? tel.since / 1000 : -1,
-    });
+    const pulse = a.k === HOST.bearer, el = hostBlowUnder(a.k, P).el, sh = next();
+    sh.kind = TELEGRAPH_KIND.disc; sh.origin[0] = sh.end[0] = a.atk.x; sh.origin[1] = sh.end[1] = a.atk.z; sh.r = B.r; sh.halfW = 0;
+    sh.t = tel.t; sh.flash = tel.since >= 0 ? 1 : 0; sh.alpha = fadeIn * Math.max(0, fadeOut); sh.color = pulse ? hostPulseColor(P) : HOST_BITE_COLOR;
+    sh.court = nearestCourt(a.atk.x, a.atk.z); sh.style = pulse ? TELEGRAPH_STYLE[el] ?? TELEGRAPH_STYLE.weight : TELEGRAPH_STYLE.weight;
+    sh.since = Math.max(0, (now - start) / 1000); sh.span = B.windup / 1000; sh.after = tel.since >= 0 ? tel.since / 1000 : -1; sh.pool = false;
   }
+  const seethe = (now % HOST_LANE_CLOCK_MS) / 1000;   // AUDIT WB11 C6
   const lane = (a, color, alpha) => {
-    const [x, z] = hostAt(a, now);
-    out.push({ kind: TELEGRAPH_KIND.lane, origin: [x, z], yaw: 0, r: 0, halfArc: 0, body: 0, end: [bx, bz], halfW: HOST_PATH_HALF_W, r0: 0, r1: 0, points: [], n: 0,
-      t: 1, flash: 0, alpha, color, court: nearestCourt(x, z), style: TELEGRAPH_STYLE.weight, since: now / 1000, span: 1, after: -1, pool: true });
+    const [x, z] = hostAt(a, now), sh = next();
+    sh.kind = TELEGRAPH_KIND.lane; sh.origin[0] = x; sh.origin[1] = z; sh.end[0] = bx; sh.end[1] = bz; sh.r = 0; sh.halfW = HOST_PATH_HALF_W;
+    sh.t = 1; sh.flash = 0; sh.alpha = alpha; sh.color = color; sh.court = nearestCourt(x, z); sh.style = TELEGRAPH_STYLE.weight;
+    sh.since = seethe; sh.span = 1; sh.after = -1; sh.pool = true;
   };
   if (now < s.shieldUntil) for (const a of ads) { if (out.length >= HOST_SHAPES_MAX) break; if (a.k === HOST.bearer) lane(a, WARD_COLOR, HOST_TETHER_ALPHA); }
   for (const a of ads) { if (out.length >= HOST_SHAPES_MAX) break; if (a.k === HOST.sapper && a.mv) lane(a, emberColor(P), HOST_PATH_ALPHA); }
@@ -94,22 +111,23 @@ export function hostShapes(s, now, P, out = []) {
  *   audio?: any, cam?: () => number[]|null, feet?: () => number[]|null, player?: () => any,
  *   land?: (blow: { pct: number, base: number, el: string|null, name: string }) => void,
  *   say?: (text: string) => void, send?: (hit: { i: number, q: number, d: number, r: number }) => boolean,
+ *   blowQ?: (who: string) => number,
  * }} deps
  *   `land` the court's door a blow on me lands through (its share and base of my health, its element through my saving
- *   throw - scenes/gateCourt.js landBlow); `send` a blow of mine on one of them, to the court's room (the wire's `ahit`).
+ *   throw - scenes/gateCourt.js landBlow); `send` a blow of mine on one of them, to the court's room (the wire's `ahit`);
+ *   `blowQ` the court's one sequence of my blows (AUDIT WB11 W3 - `a<i>` the body met; alone, a sequence of its own).
  */
-export function createGateHost({ renderer = null, getTexture = null, uploadRecordFrame = null, audio = null, cam = () => null, feet = () => null, player = () => null, land = () => {}, say = () => {}, send = () => false } = {}) {
+export function createGateHost({ renderer = null, getTexture = null, uploadRecordFrame = null, audio = null, cam = () => null, feet = () => null, player = () => null, land = () => {}, say = () => {}, send = () => false, blowQ = null } = {}) {
   /** the fight this driver is on (its day); each body standing by its number - its look, its batch, what it has cued,
    *  landed and judged, the health last seen and when a blow of mine last met it; the gone still falling, by their word */
   let day = null;
   const bodies = new Map(), falling = new Map(), goneSeen = new Set(), wavesSaid = new Set(), crumbleSaid = new Set();
   /** the sprites' textures by archive (the promise while it loads, `{failed}` for one that would not) */
   const textures = new Map();
-  /** the stand-ins a blow on each look is computed against (world/gateBoss.js hostStandIn) - one a mobile */
-  const standIns = new Map();
-  /** AUDIT WB D10's law: the frame's lists, refilled, never made */
-  const _targets = [], _batches = [], _lights = [], _shapes = [];
+  /** AUDIT WB D10's law: the frame's lists, refilled, never made (AUDIT WB11 C8: the standing ones' numbers too) */
+  const _targets = [], _batches = [], _lights = [], _shapes = [], _live = new Set();
   let blowSeq = 0;
+  const seqOf = blowQ ?? (() => ++blowSeq);
 
   function play(cue, p) {
     if (!cue || !audio || !p) return;
@@ -175,7 +193,8 @@ export function createGateHost({ renderer = null, getTexture = null, uploadRecor
       if (s.day !== day) { clear(); day = s.day; }
       _targets.length = 0; _batches.length = 0; _lights.length = 0;
       const f = feet(), me = player(), standing = !!f && !!me && me.health > 0 && !s.fell && s.wrath == null;
-      const live = new Set();
+      const live = _live;
+      live.clear();
       for (const a of s.lg.ads) {
         live.add(a.i);
         let b = bodies.get(a.i);
@@ -196,9 +215,9 @@ export function createGateHost({ renderer = null, getTexture = null, uploadRecor
         b.hp = a.h;
         // its blow: cued at its word, heard landing, judged against my feet at its landing (co-op's law)
         if (a.atk) {
-          const at = a.atk.at, p = courtToDungeon(a.atk.x, 1, a.atk.z);
-          if (b.wound !== at) { b.wound = at; if (t < at && at - t <= HOST_BLOWS[a.k].windup + HOST_LATE_MS) play(hostCue('windup', b.look.mobile), p); }
-          if (b.landed !== at && t >= at) { b.landed = at; if (t - at <= HOST_LATE_MS) play(hostCue('land', b.look.mobile), p); }
+          const at = a.atk.at, p = () => courtToDungeon(a.atk.x, 1, a.atk.z);   // AUDIT WB11 C8: its place only when heard
+          if (b.wound !== at) { b.wound = at; if (t < at && at - t <= HOST_BLOWS[a.k].windup + HOST_LATE_MS) play(hostCue('windup', b.look.mobile), p()); }
+          if (b.landed !== at && t >= at) { b.landed = at; if (t - at <= HOST_LATE_MS) play(hostCue('land', b.look.mobile), p()); }
           if (b.judged !== at && standing) {
             const v = hostVerdict(a.atk, a.k, f[0] - COURT_CENTRE[0], f[2] - COURT_CENTRE[2], t);
             if (v !== 'wait') { b.judged = at; if (v === 'hit') land(hostBlowUnder(a.k, P)); }
@@ -206,13 +225,17 @@ export function createGateHost({ renderer = null, getTexture = null, uploadRecor
         }
         const [x, z] = hostAt(a, t);
         const yaw = a.k === HOST.bearer && t < s.shieldUntil ? (() => { const [bx, bz] = bossPlace(s, t); return Math.atan2(bx - x, bz - z); })() : a.yaw;
-        draw(b, hostAct(a, t, b.look, b.hurtAt), x, z, yaw, t);
+        const act = hostAct(a, t, b.look, b.hurtAt);
+        b.yaw = yaw;   // AUDIT WB11 C2: its facing kept for its fall
+        draw(b, act, x, z, yaw, t);
         if (b.shown && b.batch) _batches.push(b.batch);
         // the body my blows meet - its feet in the dungeon's frame, its own body (the relay measures a blow to the same);
-        // one a body, its feet refilled
-        if (!standIns.has(b.look.mobile)) standIns.set(b.look.mobile, hostStandIn(b.look));
-        const T = (b.target ??= { i: a.i, feet: [0, 0, 0], height: HOST_KINDS[a.k].h, radius: HOST_KINDS[a.k].r, entity: standIns.get(b.look.mobile), mobile: b.look.mobile, name: b.look.name });
-        T.feet[0] = COURT_CENTRE[0] + x; T.feet[1] = COURT_CENTRE[1] + b.look.hover; T.feet[2] = COURT_CENTRE[2] + z;
+        // one a body, its feet refilled, its stand-in its own (AUDIT WB11 W1: naming it - a Cast When Strikes spell on it
+        // is this body's)
+        const T = (b.target ??= { i: a.i, feet: [0, 0, 0], height: HOST_KINDS[a.k].h, radius: HOST_KINDS[a.k].r, entity: hostStandIn(b.look, a.i), mobile: b.look.mobile, name: b.look.name, m: a.m });
+        // AUDIT WB11 W4: where it is DRAWN - one still rising out of the stone is met only above the floor (its whole body
+        // stood offered from its first moment, a shaft stopped by nothing seen)
+        T.feet[0] = COURT_CENTRE[0] + x; T.feet[1] = COURT_CENTRE[1] + b.look.hover - act.sink; T.feet[2] = COURT_CENTRE[2] + z;
         _targets.push(T);
         // a Ward-Bearer holding his ward glows in its gold
         if (a.k === HOST.bearer && t < s.shieldUntil) {
@@ -225,12 +248,18 @@ export function createGateHost({ renderer = null, getTexture = null, uploadRecor
       }
       // THE GONE, each once: its body handed to its fall (a Sapper he drank goes into him at once), its sound and words
       // while it is news - a Sapper drunk, a Ward-Bearer cut down (by name, and how many stand), his Ward-Bearers crumbled
+      // AUDIT WB11 C3: how many stand counted down as each falls - from those standing and this frame's own cut down, so
+      // two cut down between two of my frames are said 2 and 1, never the count after both twice
       let bearersLeft = 0;
       for (const a of s.lg.ads) if (a.k === HOST.bearer) bearersLeft++;
+      for (const g of s.lg.gone) if (g.k === HOST.bearer && g.w === 0 && !goneSeen.has(`${g.i}@${g.at}`)) bearersLeft++;
+      // AUDIT WB11 C4: as the Wrath gathers his host crumbles, and his ward does not break - nothing said of it then
+      const wrathGathers = s.atk?.a === ATTACKS.wrath.id;
       for (const g of s.lg.gone) {
         const key = `${g.i}@${g.at}`;
         if (goneSeen.has(key)) continue;
         goneSeen.add(key);
+        if (g.k === HOST.bearer && g.w === 0) bearersLeft--;
         const b = bodies.get(g.i) ?? { look: hostLookOf(g.k, P.aspect.id), batch: null, shown: false, seed: 0 };
         bodies.delete(g.i);
         if (g.w === 1) destroyBatch(b);
@@ -245,7 +274,7 @@ export function createGateHost({ renderer = null, getTexture = null, uploadRecor
         } else {
           play(hostCue('fall', b.look.mobile), p);
           if (g.k === HOST.bearer && g.w === 0) say(COURT_HOST_TEXT.felled(g.n, bearersLeft));
-          else if (g.k === HOST.bearer && g.w === 2 && !s.fell && s.wrath == null && !crumbleSaid.has(g.at)) { crumbleSaid.add(g.at); say(COURT_HOST_TEXT.crumbled); }
+          else if (g.k === HOST.bearer && g.w === 2 && !s.fell && s.wrath == null && !wrathGathers && !crumbleSaid.has(g.at)) { crumbleSaid.add(g.at); say(COURT_HOST_TEXT.crumbled); }
         }
       }
       // the bodies no longer standing nor falling are put away
@@ -253,7 +282,7 @@ export function createGateHost({ renderer = null, getTexture = null, uploadRecor
       for (const [key, b] of falling) {
         const act = hostFallAct(b.g, t, b.look);
         if (act.act === 'gone') { destroyBatch(b); falling.delete(key); continue; }
-        draw(b, act, b.g.x, b.g.z, 0, t);
+        draw(b, act, b.g.x, b.g.z, b.yaw ?? 0, t);   // AUDIT WB11 C2: falling as it last faced (it turned to +z)
         if (b.shown && b.batch) _batches.push(b.batch);
       }
       hostShapes(s, t, P, _shapes);
@@ -266,8 +295,8 @@ export function createGateHost({ renderer = null, getTexture = null, uploadRecor
     shapes: () => _shapes,
     /**
      * A BLOW OF MINE MET ONE OF THEM at `t` (the relay's clock) - `i` its number, `d` the formula's number on this machine,
-     * `r` its kind. It flinches here at once, and the number goes out as the wire's `ahit` (whole points, its own
-     * sequence); the relay's caps decide what lands and say its health back. A blow under one point is none, and one on a
+     * `r` its kind. It flinches here at once, and the number goes out as the wire's `ahit` (whole points, my blow's
+     * sequence - the court's, AUDIT WB11 W3); the relay's caps decide what lands and say its health back. A blow under one point is none, and one on a
      * body not standing goes nowhere. Answers whether it went.
      */
     hit({ i, d, r } = /** @type {any} */ ({}), t = 0) {
@@ -275,7 +304,7 @@ export function createGateHost({ renderer = null, getTexture = null, uploadRecor
       const dmg = Math.round(d);
       if (!b || !(dmg >= 1)) return false;
       b.hurtAt = t;
-      return !!send({ i, q: ++blowSeq, d: dmg, r });
+      return !!send({ i, q: seqOf(`a${i}`), d: dmg, r });
     },
     /** What the driver holds, for the tests and the stats. */
     state: () => ({ day, bodies: [...bodies.keys()], falling: [...falling.keys()], shown: _batches.length, targets: _targets.length, shapes: _shapes.length, lights: _lights.length }),

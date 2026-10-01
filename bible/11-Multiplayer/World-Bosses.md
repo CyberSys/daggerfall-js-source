@@ -487,7 +487,8 @@ ships in ONE slice.
 
 ## 9. What it does not do (v1), said so
 
-- No adds. Every add would need an owner to run it; the relay could own simple ones as it owns the boss - later.
+- No adds. Every add would need an owner to run it; the relay could own simple ones as it owns the boss - later. (WB11:
+  later came - under the Legion-Lord trial the relay runs his host, section 17; every other fight has none.)
 - The boss does not path. The arena is an open disc so that it never needs to.
 - A modified client can refuse the boss's damage to itself, and a modified client can give itself anything offline
   (saves are the player's). What Option B protects is the SHARED outcome and the RECORD: nobody kills the boss alone
@@ -814,13 +815,14 @@ wrap too), each round of four gates (gates 4k to 4k+3) brings all four aspects a
 coming back under another aspect. Built from the round-robin's seven perfect matchings of the eight trials (relabelled
 by the salt's shuffle), each under the four turns of the aspects, each round's gates in its own shuffled order and its
 first and last chosen depth first so the seams share nothing. A function of the day alone: every client and the relay
-draw the same marks, and every screen can name them from the omen on.
+draw the same marks, and every screen can name them from the omen on. (WB11a: NINE trials since the Legion-Lord - a bye
+seat, 4 x 36 = 144 gates, each round every aspect and eight of the nine, a pair resting 33; section 17.)
 
 THE RELAY'S WORD: the fight is born on the day's marks (`server/src/index.js`, `newFight(..., gateModsOf(day))`) and
 keeps them (`md`, checkpointed with it); every `st` says them, and the client fights the fight's own marks, whatever
 the day's draw would say. A fight checkpointed before WB8, or an older relay's, is the Warden unmarked - the profile of
-no marks is the constants exactly (BASE_PROFILE), so nothing about an unmarked fight moved. The brain's law is 3
-(GATE_BRAIN_V, GATE_BRAIN_MIN): a game that does not know the marks would judge a colossus's slam at the old reach and
+no marks is the constants exactly (BASE_PROFILE), so nothing about an unmarked fight moved. The brain's law was 3
+(GATE_BRAIN_V, GATE_BRAIN_MIN - 4 at WB9, 5 at WB11): a game that does not know the marks would judge a colossus's slam at the old reach and
 his frost as fire, so it is told to reload (GATE-RELOAD's words). Relay world128 (world126 on its branch, one relay past main's OW6L - world127 - at the merge): `net/gateMods.js` joins the bundle
 (wire.js validates `md` - known words, one aspect at most - and projects `fed` field by field, the name as every name).
 
@@ -1270,10 +1272,11 @@ his profile's own ward while the turn's signature is cast - WB9b's order kept, t
 
 ### The trial, and the rotation for nine (WB11a)
 
-`net/gateMods.js` GATE_TRIALS gains its ninth: **Legion-Lord** (`legion`) - *"His host fights beside him - Imps harry
-whoever stands far from him, Atronachs march to heal him, and his Ward-Bearers hold his ward in each new court"*. Its
-sign is three figures; its tip (MARK_TIPS) says what to do: cut the Imps down off the far ones, stop each Atronach
-before it reaches him, break the Ward-Bearers to break the ward. The profile (`fightProfile`) carries `legion`; the
+`net/gateMods.js` GATE_TRIALS gains its ninth: **Legion-Lord** (`legion`) - *"His Imps harry whoever stands far off, his
+Atronachs march to heal him, his Ward-Bearers hold his ward"* (AUDIT WB11 M1/D6: this page quoted a line the code never
+carried, and the code's began "Imps", which the chat's line lowers). Its sign is three figures; its tip (MARK_TIPS) says
+what to do - *"Guard the far ones from his Imps, stop each Atronach, break his Ward-Bearers."* (AUDIT WB11 U1: 138
+characters made the tallest marks card of all, off a landscape phone's foot). The profile (`fightProfile`) carries `legion`; the
 Warden unmarked and every set without it carry none, and NOTHING of the host runs, rolls or is said in such a fight - an
 unmarked fight's beats, frames and dice are what they were.
 
@@ -1305,19 +1308,24 @@ goes to 5 (below), and a game that does not know it is told to reload, as at eve
 | 2 | **Ward-Bearer** | a Fire Daedra, a Frost Daedra, a Daedra Seducer (her winged form) or a Daedroth | rise as he lands in each new court | r 0.6, h 2.2 | stands | BEARER_TEAM_S (8) s of the court's whole reference damage, shared |
 
 Counted by the living challengers in HIS court (`n`), as the crystals are: Harriers `clamp(1 + ceil(n/3), 2, 5)` a wave
-and no more than 6 standing; Sappers `clamp(1 + floor(n/4), 1, 4)` a wave and no more than 6; Ward-Bearers
-`clamp(2 + floor(n/6), 2, 4)`. Every health at least HOST_HP_MIN. Sized so: a Harrier is three of a challenger's own
+and no more than 6 standing; Sappers `clamp(1 + floor(n/4), 1, 4)` a wave and no more than 6. Ward-Bearers
+`clamp(2 + floor(n/6), 2, 4)` by every challenger of the fight in the room as he lands - they rise before anyone has
+crossed after him - the fallen too (AUDIT WB11 B4/D5: this said his court's living, and the code counted the room's
+living - a court wiped as he landed had two Ward-Bearers at HOST_HP_MIN, a blow each). Every health at least HOST_HP_MIN. Sized so: a Harrier is three of a challenger's own
 blows; a court that splits up breaks a wave of Sappers, or the Ward-Bearers, in about their team seconds over the
 groups it splits into, and one that stands together round one does not.
 
 - **The Harriers** rise out of the fire at the first court's rim (HOST_RIM_R, 2 m in), never within HOST_SPAWN_CLEAR of a
-  challenger: the first wave HARRY_FIRST_MS after the fight began, then one every HARRY_EVERY_MS while the first phase
+  challenger nor HOST_GAP_M of each other - a rim too crowded for the dice is swept (RIM_SWEEP), and what no spot clears
+  rises fewer, or the wave waits a beat (AUDIT WB11 B1/D4: the rest went evenly round the rim, beside whoever stood
+  there): the first wave HARRY_FIRST_MS after the fight began, then one every HARRY_EVERY_MS while the first phase
   lasts. Each runs at the living challenger in his court who stands farthest from HIM - the archer, the caster, the
   healer at the edge - and keeps that mark HOST_RETARGET_MS. In reach it **Bites**: a 2 m disc about itself, a 0.9 s
   wind-up, 12% and 4, plain - stepped out of in half a second. Melee peels them; a ranged fighter who stands off is
   their mark.
 - **The Sappers** rise at the second court's rim on the side away from him (SAP_SPREAD either side of the point
-  opposite him, never within SAP_FROM_HIM), SAP_FIRST_MS after the Burning Court's turn is done and every SAP_EVERY_MS
+  opposite him), SAP_SPAWN_CLEAR of every challenger and never within SAP_FROM_HIM of him - that side crowded, the rest of
+  the rim is swept (AUDIT WB11 B1), and fewer risen share the wave's health - SAP_FIRST_MS after the Burning Court's turn is done and every SAP_EVERY_MS
   after, while the second phase lasts. Each walks straight at him, its path drawn on the floor. One that reaches him
   (his body, its own and SAP_REACH_SLACK) is CONSUMED, and while his feedings last (SAP_FEEDS_MAX a fight) he drinks
   it: SAP_HEAL of the health he stands for, never past it. They strike nobody - they are the objective.
@@ -1329,8 +1337,9 @@ groups it splits into, and one that stands together round one does not.
   with a challenger within BEARER_PULSE_NEAR **Pulses**: a 3.5 m disc about itself, a 1.4 s wind-up, 18% and 6 of his
   aspect's element (the saving throw answers it). The ward's two words are WB9b's `ph`: at the arrival it says the
   longest the bearers can hold it, at the break the profile's ward.
-- **Crumbled**: at every phase's turn every one standing crumbles (each kind is its phase's or its court's); at his fall
-  and at the Wrath the host is gone with him (those words say it - no word of its own).
+- **Crumbled**: at every phase's turn every one standing crumbles (each kind is its phase's or its court's), and as the
+  Wrath gathers (`adie`, crumbled, beside its word); at his fall the host is gone with him (the fall's word says it - no
+  word of its own). (AUDIT WB11 R3: this said the Wrath had no word of its own either.)
 - **A blow on one** (`applyHostHit`) is judged by the hand and the purse a blow on him is - his blow rate and his bucket,
   a melee blow within MELEE_REACH of its body, from the floor and from HIS court - and counts as dealt (the receipt's
   bar). It is never his threat. The chart counts it apart (`hd`, the row's `a`), as the crystals' `x`. Vengeful's weight
@@ -1348,7 +1357,7 @@ groups it splits into, and one that stands together round one does not.
 | `{k:'aatk', a: [[i, at, x, z]...]}` | room -> all | the beat's blows begun - which body, when it lands, the disc's centre |
 | `{k:'ah', h: [[i, h]...]}` | room -> all | the host's health, at most every HP_SEND_MS, when it has moved |
 | `{k:'adie', is, w, n?, h?, m?, at}` | room -> all | gone: slain (by `n`), fed to him (his health after) or crumbled |
-| the state's `lg` | room -> one | every one standing: `[i, k, h, m, x, z, tx, tz, v, at, la, lx, lz]` - its walk and the blow in flight (`la` 0, none) |
+| the state's `lg` | room -> one at its `in`, the court every STATE_SEND_MS (AUDIT WB11 D10: it said one) | every one standing: `[i, k, h, m, x, z, tx, tz, v, at, la, lx, lz]` - its walk and the blow in flight (`la` 0, none) |
 
 GATE_HOST_MAX (16) bounds every list (the brain's HOST_STANDING_MAX pinned under it). GATE_BRAIN_V and GATE_BRAIN_MIN
 go to 5: a game that knows neither the host nor the nine-trial rotation would stand in an Imp's bite, never see an
@@ -1369,7 +1378,8 @@ reload (GATE-RELOAD's words). The bump redeploys the relay and drops every conne
 - **The words**: a wave's rising ("Valkynaz Ruhn calls his host - Imps rise from the fire!", "Fire Atronachs march on
   Valkynaz Ruhn - cut them down before they reach him!"), the bearers' ("His Ward-Bearers hold his ward - break them to
   break it!"), a Sapper drunk ("A Fire Atronach reaches Valkynaz Ruhn - he drinks it in."), a Ward-Bearer cut down by
-  name and the last ("The last Ward-Bearer falls - his ward breaks!") - each said while it is news, never a stale one.
+  name and the last ("The last Ward-Bearer falls - his ward is failing!" - his own ward follows for its breath; AUDIT WB11
+  D1: it said "breaks") - each said while it is news, never a stale one.
 - **The bar**: while the bearers hold his ward, its callout counts them ("Ward-Bearers - 2 of 3 stand"); the foot counts
   the rest of his host standing. The damage chart's row shows the host's share.
 - **The sound**: each one's own bark rising, winding up and striking, its hurt and its fall - Daggerfall's clips; his
@@ -1383,7 +1393,88 @@ reload (GATE-RELOAD's words). The bump redeploys the relay and drops every conne
 - Offline there is no gate, and so no host.
 
 Pinned (WB11a-c): `test/wb11_gate_host.test.js`, with the rotation's own pins moved in `test/wb8b_gate_marks.test.js`;
-the slices' record is under Shipped.
+the slices' record is under Shipped, the audit's below.
+
+### AUDIT WB11 (2026-10-01, Mac: "Definitely want to perform a comprehensive audit on this and ensure it's perfect")
+
+The slice audited by six lenses over a frozen tree (`94d91bdb`) before the merge - the brain's law for the host (B), the
+relay and the wire on the real Room (R), the court's client - the link, the bodies, the bar and the chart (C), the
+player's blows on the host - the swing, the shaft and the spell against the paths to him and the crystals (W), a real
+browser - the floor's shapes, the bar, the chart and the marks' card in headless Chromium at 1280x720, 390x844 and
+844x390 (U) - and the record: this section, the patch notes, the Testing row and the cite shift against the code (D).
+Each finding was reproduced by a script against the real modules before anything changed, and the fixes were made in a
+worktree of their own until the last lens had reported. Thirty were real; one two lenses found is written once, under
+both names.
+
+| # | found | now |
+|---|---|---|
+| W1 | **a Cast When Strikes blade that cut one of his host cast its spell on HIM**, wherever he stood: every stand-in of the court carried `spareGear`, and the enchant door sent any such target to his spell door - an Imp cut at the rim put Wizard's Fire on him 36 m off (his ward turning it through the bearers' wait), a Soul Trap was laid on him; a crystal's the same since WB9c | each body of his host and each crystal has a stand-in of its own, naming it (`hostI`, `crystalC`); the door hands the stand-in it met to the court's (`bossSpell(record, target)`), and the dungeon context lands the spell on the body it names (`spellOnStandIn`) |
+| B1, D4 | **the rise spots ignored the clearance whenever the dice failed** (the rest went evenly round the arc): four archers on the second court's far rim had every Atronach rise inside their 8 m, and two on top of each other; a first court ringed by fourteen raised Imps beside them | a rim too crowded for the dice is SWEPT (RIM_SWEEP) - the arc, then the whole rim, never within SAP_FROM_HIM of him - and a spot is never taken unchecked: fewer rise, sharing the wave's health, or the wave waits a beat |
+| W3 | **the blow rate counted bodies, not blows**: a swing through five Imps landed four - the fifth shown struck, taking nothing - and starved the next blows (a fast weapon at the same five lost half its blows) | ONE TOKEN A BLOW: the frames of one blow (the wire's `q`) on bodies it has not met ride on its token, BLOW_BODIES_MAX at most within BLOW_GROUP_MS - him, a crystal and his host alike (`spendBlow`, the one hand of all three arms); the court gives one `q` to every frame one frame of mine sends (`blowQ`); the gate's frame bucket GATE_HZ_MAX 16 (8) |
+| W2 | a shaft on one of his host was judged for a backstab against a facing nobody keeps (`yaw` 0): from its -z side every shaft was x3 and a Backstabbing use; a crystal's the same since WB9c | no backstab on either (a swing on one had none already) |
+| C1 | **the Imps rose and idled on animation records they do not have** (IDLE_ANIMS - an Imp has no idle frames, HasIdle false, and idles on its move loop): with an archive of fifteen records, 13% of their frames a blank billboard | his host's tables and clocks are the port's own for each mobile (`stateAnims`, the flyer's FLY_ANIM_SPEED) |
+| U1 | the Legion-Lord's tip (138 characters, the next longest 81) made the tallest marks card of all - off a landscape phone's foot on every Legion night, the tip itself the part lost | a tip as short as the others' |
+| D1 | "The last Ward-Bearer falls - his ward breaks!", the crumbling's line and the patch notes said his ward breaks - his own ward follows for its breath (SHIELD_MS, Unyielding's 6 s, the signature cast under it), and every blow in it still turned | "his ward is failing!"; the notes say it fails a few seconds later, and that he drinks a few times a fight at most |
+| D2 | the slice's Testing row and its tests' names claimed pins its file did not hold: the purse's cap and bucket, the blow rate, the Sappers armed once the turn is done, no dice outside the trial | each pinned |
+| B4, D5 | the Ward-Bearers were sized by the room's LIVING: a court wiped through the bound's wind-up had two of HOST_HP_MIN, one blow each, when it walked back in; this page said "his court's living" | every challenger of the fight in the room as he lands, the fallen too |
+| B2, C4 | as Dagon's Wrath gathered his host's crumbling went out before his word, and the court read it as the bearers' cap: "His Ward-Bearers crumble - his ward breaks!" over the wind-up, his ward standing | his word first, and nothing said of his ward under the Wrath |
+| B3, R2 | a blow on one of his host the beat before a wave rose was never said: the rising took the whole host's health as said, and the screens held the old until the next whole state | the rising says only its own |
+| R1 | a blow on one of his host - or a crystal - did not keep the beat (AUDIT WBX R6's law, his alone): a fighter come back without a word fought a host that never moved | every blow keeps it |
+| R3, D3 | this page said the Wrath takes his host with no word of its own | it crumbles (`adie`) as the Wrath gathers; only his fall is silent |
+| R4 | a new game on a relay not yet deployed names the nine trials' marks over a fight the old relay runs on the eight's | the deploy, below |
+| W4 | one still rising out of the stone was met whole from its first moment - a shaft stopped by nothing seen | met where it is drawn |
+| W5 | its blood was laddered against its stand-in's health nothing can empty - the lowest rung at every blow | against its own whole (`bloodOf`) |
+| C2 | one of his host fell facing +z whatever it faced - a side view gone to its back | as it last faced |
+| C3 | two Ward-Bearers cut down between two of my frames were said with the count after both ("1 stands" twice, or "the last" twice) | each with the count it left |
+| C5, U3 | after a lost socket the bar's "of how many rose" kept the last court's wave ("3 of 4 stand" where three rose) | kept only while one of that wave stands |
+| C6, U4 | a Sapper's path and a Ward-Bearer's tether seethed by the page's clock in seconds - in the pass's float it moved every 128 s, and never throbbed | a clock a float holds (HOST_LANE_CLOCK_MS) |
+| C7 | the winged Seducer idled at a walker's clock (4 a second; a flyer's is 10) | a flyer's |
+| C8 | his host's shapes were new objects, four arrays each, every frame - the driver's own comment claimed AUDIT WB D10's law | refilled into their slots; one set of the standing; a blow's place made only when it is heard |
+| C9, U5 | on a narrow screen a Legion-Lord night's chart folded its Host column away - the patch promised one on those nights | kept, in the falls' place |
+| U2 | under the Burning a Ward-Bearer's Pulse - the disc that hurts - was the ward's own gold (hue 43, both), the tether beside it | the fire's orange (HOST_PULSE_FIRE) |
+| M1, D6 | the trial's line began "Imps", and the chat lowers a line's first letter: "imps harry ... Atronachs"; this page quoted a line the code never carried | "His Imps harry whoever stands far off, his Atronachs march to heal him, his Ward-Bearers hold his ward" |
+| D7 | behaviours no pin and no mutant held - HARRIERS_MAX standing, HOST_RETARGET_MS, SAP_HEAL past his whole, BEARER_PULSE_MS, `ah`'s HP_SEND_MS, the bearers' and the crumbling's lines, the foot's count; eight mutants the titles named and no record held; the bye's mutant dying only by a crash; the state's pin a tautology | pinned and recorded; the bye's mutant re-aimed so the cycle's pin kills it; the state read off the fight |
+| D8 | the WB8b row still said 112 sets and every mark a round | as it is since WB11a |
+| D9-D11 | the comments: "never all at once" (the first Pulses alone are staggered), "no other mark touches his host", "by this much more than a Harrier", "`adie` (one gone)", "its bark, its attack, its move"; the wire table's state "room -> one"; this page's section 9 ("No adds") and section 13 (eight trials, 112 gates, the law 3) in the present tense | as the code is |
+
+Checked and sound: the rotation, by script (144 sets, every aspect with every pair once, no mark shared by two gates
+running - the wrap too - every round every aspect and eight of the nine, the resting trial never twice running, each
+trial 32 times, a pair back no sooner than 33 gates, under four aspects); 3,072 whole Legion-Lord fights fuzzed - every
+legion set, 1-24 fighters joining, leaving and falling, blows on him, his host and the crystals, a twentieth of the beats
+checkpointed through JSON and structured clone (5.86M beats, 9.38M frames: every one valid on the wire, no NaN, nothing
+stuck, the checkpointed twins byte-identical); the real Room - an old game refused, nineteen malformed `ahit`s refused
+and a flood closed, eight fights to the kill (46,224 frames) folded by the real link without one desync beat, the
+largest state 2,152 bytes, splitting damage over him and his host no exploit (the purse bounds it), `hd` feeding the
+receipt's bar and the chart, never the share; a non-Legion fight's beats, frames, dice and the court's whole draw
+byte-identical to main's; the telegraph program and every host shape on the floor in a real browser, where the state
+says, in its colour; the bar and the chart at three screens; no billboard left behind.
+
+Not changed, and why: a joiner sees a body still rising already risen (the state carries no rise time - cosmetic);
+several Bites may land on one challenger together (balance, as the Warden's blows can); the host does not path and may
+stand inside him beside a melee mark (said so above); a Soul Trap struck into one of his host traps nothing (they carry
+no soul a gem keeps). Pre-existing on main, named here: the marks' card runs off a landscape phone on most nights and
+the damage chart's title on one (both UI's own pass); the bar has no plate ("Warded" 2.1:1 over a Nova-lit floor);
+several cites main carries name lines that had already moved before this slice.
+
+THE KILL RUN. With every fix in, every committed record on the gate's own files and in every gate list (693, from 61
+lists) and the audit's own (60). Two were findings: `WB8b-the-wrap-unchecked`, recorded equivalent ("the walk's first
+full path already closes the wrap"), now DIES - nine trials made the wrap's check load-bearing (WB11a's), so the record
+is an ordinary mutant now; and `WB3-a-blow-from-off-the-court` SURVIVED, on main too - since AUDIT WB9 F1 a blow on him
+must come from his court, and the floor's check is all that turns one from his new court before the walkway into it is
+laid (he lands 2.4 s after the bound's word, the walkway is whole at 5 s), which no pin held: pinned (K1, below). Then
+753 records: 747 dead, the six equivalents as recorded.
+
+THE DEPLOY. RELAY_VERSION world138 (not yet deployed) holds these - its law re-hashed in place. The relay deploys itself
+on the push that carries a new version (`relay-deploy.yml`), and the site's deploy waits on the account service alone,
+so the two can cross: an old game on the new relay is refused at `in` and told to reload (the law 5); a new game on a
+relay still on world137 names the nine trials' marks on the omen and the gate's card while the relay fights the eight's
+(the court reads the fight's own `md`, so the fight itself is right) - for the minutes the relay's job takes.
+
+Pinned in `test/audit_wb11.test.js` (23, one a finding - twenty failed on the unfixed tree for their finding's reason;
+the three of what was already so, D2/D7's and K1, were proven red by their mutants); mutants
+`tools/mutants/audit_wb11.json` (60, all dead). Re-aimed: the WB11 pins' feet of a rising body, the ward's count and the state's tautology; the WB9c
+court's one crystal stand-in, its relay seam and its two records; WB3's and WB4b's records of the hand and the
+sequence; AUDIT WBX's beat and its door; WARDEN-STRIKE's four door records and its api pin; BLOOD1b's shaft record; WB3's off-the-court record now names the K1 pin, and WB8b's wrap record is no longer equivalent.
 
 ## Shipped
 

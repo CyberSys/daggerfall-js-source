@@ -118,8 +118,12 @@ export const DAMAGE_CHART_CSS = `
   .wb-dmg-row { grid-template-columns: 18px minmax(0, 1fr) 58px 44px 40px; }
   .wb-dmg-row > .wb-dmg-blows, .wb-dmg-row > .wb-dmg-best, .wb-dmg-row > .wb-dmg-cx { display: none; }
   .wb-dmg-chart.wb-dmg-hosted { width: 340px; }
-  .wb-dmg-hosted .wb-dmg-row { grid-template-columns: 18px minmax(0, 1fr) 58px 44px 40px; }
-  .wb-dmg-hosted .wb-dmg-row > .wb-dmg-host { display: none; }
+  /* AUDIT WB11 C9/U5: a Legion-Lord night's chart keeps its Host column on a narrow screen, in the place of the falls
+     (it folded away whole, and the patch's word was a Host column on those nights) - wider than the falls', for a
+     host's five figures in the pixel face */
+  .wb-dmg-hosted .wb-dmg-row { grid-template-columns: 18px minmax(0, 1fr) 58px 44px 50px; }
+  .wb-dmg-hosted .wb-dmg-row > .wb-dmg-falls { display: none; }
+  .wb-dmg-hosted .wb-dmg-row > .wb-dmg-host { display: block; }
 }
 `;
 

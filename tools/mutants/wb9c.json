@@ -49,7 +49,7 @@
   {
     "name": "WB9c-the-rate-unshared",
     "file": "src/net/gateBrain.js",
-    "old": "  if (p.rate < 1) return out;\n  p.rate -= 1;",
+    "old": "  if (!spendBlow(p, now, seq, `x${c}`)) return out;",
     "new": "",
     "tests": [
       "test/wb9c_gate_reckoning.test.js"
@@ -139,8 +139,8 @@
   {
     "name": "WB9c-the-blow-judged-as-a-blow-on-him",
     "file": "server/src/index.js",
-    "old": "    if (m.k === 'xhit') { this._gateFan(applyCrystalHit(f, a.sub, m.c, m.d, m.r, a.pose && !a.pose.dd ? this._courtOf(a.pose) : null, now)); return; }",
-    "new": "",
+    "old": "    if (m.k === 'xhit') this._gateFan(applyCrystalHit(",
+    "new": "    if (m.k === 'never') this._gateFan(applyCrystalHit(",
     "tests": [
       "test/wb9c_gate_reckoning.test.js"
     ]
@@ -148,8 +148,8 @@
   {
     "name": "WB9c-the-breaking-kept-for-the-beat",
     "file": "server/src/index.js",
-    "old": "{ this._gateFan(applyCrystalHit(f, a.sub, m.c, m.d, m.r,",
-    "new": "{ (applyCrystalHit(f, a.sub, m.c, m.d, m.r,",
+    "old": "this._gateFan(applyCrystalHit(f, a.sub, m.c, m.d, m.r,",
+    "new": "(applyCrystalHit(f, a.sub, m.c, m.d, m.r,",
     "tests": [
       "test/wb9c_gate_reckoning.test.js"
     ]

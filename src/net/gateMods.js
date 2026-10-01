@@ -3,8 +3,9 @@
 // his encounters, and give him unique and different modifers on every 2 hour spawn"): THE WARDEN'S MARKS - what each
 // gate's Warden comes marked with. Every gate (one a game day, every two real hours - net/gateLaw.js) he wears ONE
 // ASPECT - which of Oblivion's powers his elemental blows carry - and TWO TRIALS - what else the court asks of his
-// challengers. The day's marks are drawn from shuffle bags (net/gateLaw.js gateModsOf): no two gates running share an
-// aspect or a trial, and every one comes round in turn. WB11a: nine trials - the ninth, Legion-Lord, brings his host.
+// challengers. The day's marks are its place in the cycle of marks (net/gateLaw.js gateModsOf, marksCycle): no two gates
+// running share an aspect or a trial, and every one comes round in turn. WB11a: nine trials - the ninth, Legion-Lord,
+// brings his host.
 //
 // A MARK IS NAMES AND NUMBERS HERE; its law is the fight's profile (net/gateBrain.js fightProfile), read by the relay
 // that runs him and by every screen that draws and resolves his blows - one law, both ends. The relay says a fight's
@@ -71,7 +72,7 @@ export const GATE_TRIALS = Object.freeze([
   // WB11a (2026-10-01, Mac: "1. All three ... 4. Trial rotation"): THE NINTH - his host fights beside him (net/gateBrain.js
   // HOST_KINDS: the Harriers of the first phase, the Sappers of the second, the Ward-Bearers of each new court). The
   // rotation is built for nine (net/gateLaw.js marksCycle - a bye beside an odd count of trials)
-  Object.freeze({ id: 'legion', name: 'Legion-Lord', text: 'Imps harry whoever stands far from him, Atronachs march to heal him, and Ward-Bearers hold his ward', legion: true }),
+  Object.freeze({ id: 'legion', name: 'Legion-Lord', text: 'His Imps harry whoever stands far off, his Atronachs march to heal him, his Ward-Bearers hold his ward', legion: true }),   // AUDIT WB11 M1: the chat's line lowers the first letter - "imps harry ... Atronachs" read wrong
 ]);
 /** How many trials a gate's Warden bears. */
 export const GATE_TRIALS_A_DAY = 2;

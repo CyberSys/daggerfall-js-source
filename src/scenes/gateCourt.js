@@ -171,7 +171,7 @@ export function createGateCourt({
   /** WB11c: HIS HOST (scenes/gateHost.js) - its blows land on me through the door his own do (`land`), each its share,
    *  its base and its element through my saving throw; a Ward-Bearer's Pulse flares the rim in his element's colour */
   const host = createGateHost({
-    renderer, getTexture, uploadRecordFrame, audio, cam, feet, player, say, send: sendHost,
+    renderer, getTexture, uploadRecordFrame, audio, cam, feet, player, say, send: sendHost, blowQ: (who) => blowQ(who),   // AUDIT WB11 W3: my blows' one sequence
     land: (B) => { const P = profileOf(link.state()); land(null, P, { pct: B.pct, base: B.base, el: B.el, name: B.name, saved: B.el != null }, B.el ? hostPulseColor(P) : null); },
   });
   /** the sprite: its texture once loaded (or the promise, or a failure), its batch while drawn */
@@ -182,6 +182,16 @@ export function createGateCourt({
   let prevT = -Infinity, hurtAt = -Infinity, shape = null;
   /** WB4b: his stand-in for the formulas (made once a fight), and my blows' sequence (the wire's `q`) */
   let standIn = null, blowSeq = 0;
+  /** AUDIT WB11 W3: ONE SEQUENCE A BLOW - every frame one swing, shaft or blast of mine sends between two of my frames
+   *  carries the same `q` (the relay's hand charges a blow once, whatever it met: him, a crystal, his host - a token a body
+   *  met starved my blows); a second frame on a body already met is a blow of its own. `who` the body: 'b' him, `x<c>`
+   *  a crystal, `a<i>` one of his host. */
+  const blowMet = new Set();
+  function blowQ(who) {
+    if (!blowMet.size || blowMet.has(who)) { blowSeq++; blowMet.clear(); }
+    blowMet.add(who);
+    return blowSeq;
+  }
   /** WB5: whether this fight's spoils have left him, and whether their absence has been said */
   let spewed = false, spoilsSaid = false;
   /** WB7: his body's sounds - where he stood last frame and how far he has come since his last step, when he growls
@@ -214,7 +224,9 @@ export function createGateCourt({
    *  (null standing) and when I last struck it, its turn and seed, when its Reckoning lands; `ended` once the relay has
    *  done with it (broken or landed) - kept until the last shard has flown. The last one ended (never seen again as new),
    *  the stun last heard, the stand-in every crystal shares (made once a fight), and the pass. */
-  let rk = null, rkDone = null, stunHeard = 0, crystalIn = null, crystalPass = null, crystalTried = false;
+  let rk = null, rkDone = null, stunHeard = 0, crystalPass = null, crystalTried = false;
+  /** AUDIT WB11 W1: the crystals' stand-ins, one a crystal, each naming its own (world/gateBoss.js crystalStandIn) */
+  const crystalIns = [];
   const _targets = [], _crystalDraw = [], _crystalSlots = [], _crystalLights = [], _chest = [0, 0, 0];
   /** AUDIT WB9 (court F4): how far each walkway is laid this frame (net/gateBrain.js walkFormed) - refilled, never made */
   const _walked = WALKS.map(() => 0);
@@ -233,7 +245,7 @@ export function createGateCourt({
     pools = []; pooled = noMark(); burnAt = -Infinity; inFire = false; outAt = -Infinity; mark = null; poolDraw = [];
     marksSaid = false; fedHeard = null; marksAt = null; chartAt = null;   // GATE-UX
     portal = null; spin = 0; portalLaid = false; portalSaid = false;
-    rk = null; rkDone = null; stunHeard = 0; crystalIn = null; _targets.length = 0; _crystalDraw.length = 0;   // WB9c
+    rk = null; rkDone = null; stunHeard = 0; crystalIns.length = 0; _targets.length = 0; _crystalDraw.length = 0;   // WB9c
     _bursts.length = 0; _fxLive.length = 0; meteorNow = null;   // WB9e
     groundName = ''; groundColor = null; biteAt = -Infinity; biteColor = null;   // WB9d
     if (d !== null && trapMark?.day !== d) trapMark = null;   // AUDIT WBX F6: a trap of this day's fight outlives a cast-out and a walk back in
@@ -499,8 +511,7 @@ export function createGateCourt({
     const X = s.cx;
     if (X && X.c.length && !sameCx(rk, X) && !(rkDone && rkDone.i === X.i && rkDone.x0 === X.c[0][0] && rkDone.z0 === X.c[0][1])) {
       rk = crystalsOf(X, s, t);
-      crystalIn ??= crystalStandIn(bossLookOf(s.boss));
-      for (const q of rk.targets) q.entity = crystalIn;
+      for (const q of rk.targets) q.entity = (crystalIns[q.c] ??= crystalStandIn(bossLookOf(s.boss), q.c));
       // its call said while it is still to land (news to a fighter come in late through the wind-up too); each crystal
       // heard grinding up out of the stone as it grows, never long after
       let left = 0;
@@ -597,6 +608,7 @@ export function createGateCourt({
   return {
     /** One frame of the court: the verdicts, the voice, the body, the ground's shape and the bar. */
     frame() {
+      blowMet.clear();   // AUDIT WB11 W3: a frame ends my blow
       const s = link.state(), t = now();
       if (!s || s.day === null) { if (day !== null) this.leave(); return; }
       if (s.day !== day) reset(s.day);
@@ -648,7 +660,7 @@ export function createGateCourt({
     },
     /**
      * WB4b: A BLOW OF MINE MET HIM - `d` the formula's number on this machine, `r` its kind (net/gateBrain.js
-     * HIT_KINDS). Out to the relay as the wire's hit (whole points, a sequence of its own), and he flinches. The ward
+     * HIT_KINDS). Out to the relay as the wire's hit (whole points, my blow's sequence - blowQ), and he flinches. The ward
      * turns it (nothing sent - the relay would refuse it); a blow under one point is none. Answers whether it went.
      */
     hit({ d, r }) {
@@ -659,7 +671,7 @@ export function createGateCourt({
       const dmg = Math.round(d);
       if (!(dmg >= 1)) return false;
       hurtAt = t;
-      return !!send({ q: ++blowSeq, d: dmg, r });
+      return !!send({ q: blowQ('b'), d: dmg, r });
     },
     /** A blow of mine landed on him: he flinches. */
     struck() { hurtAt = now(); },
@@ -675,8 +687,8 @@ export function createGateCourt({
     },
     /**
      * WB9c: A BLOW OF MINE MET A CRYSTAL - `c` its number, `d` the formula's number on this machine, `r` its kind. It
-     * flashes and rings here at once, and the number goes out as the wire's `xhit` (whole points, my blows' own
-     * sequence); the relay's caps decide what lands and say its health back. A blow under one point is none. Answers
+     * flashes and rings here at once, and the number goes out as the wire's `xhit` (whole points, my blow's
+     * sequence - blowQ); the relay's caps decide what lands and say its health back. A blow under one point is none. Answers
      * whether it went.
      */
     crystalHit({ c, d, r } = /** @type {any} */ ({})) {
@@ -688,7 +700,7 @@ export function createGateCourt({
       if (!(dmg >= 1)) return false;
       rk.flashAt[c] = t;
       sound(BOSS_CUES.crystalHit, s, t, null, rk.feet[c]);
-      return !!sendCrystal({ c, q: ++blowSeq, d: dmg, r });
+      return !!sendCrystal({ c, q: blowQ(`x${c}`), d: dmg, r });
     },
     /**
      * WBX7: A SOUL TRAP OF MINE LAID ON HIM (the dungeon context's spell door - scenes/dungeonContext.js spellOnBoss): its

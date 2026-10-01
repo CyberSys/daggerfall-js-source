@@ -47,8 +47,8 @@
   {
     "name": "WB11-sappers-anywhere",
     "file": "src/net/gateBrain.js",
-    "old": "raiseHost(f, HOST.sapper, rimSpots(C, n, here, rng, away, SAP_SPREAD, clear),",
-    "new": "raiseHost(f, HOST.sapper, rimSpots(C, n, here, rng),",
+    "old": "rimSpots(C, n, here, rng, away, SAP_SPREAD, clear)",
+    "new": "rimSpots(C, n, here, rng)",
     "tests": [
       "test/wb11_gate_host.test.js"
     ]
@@ -119,8 +119,8 @@
   {
     "name": "WB11-host-through-the-wrath",
     "file": "src/net/gateBrain.js",
-    "old": "    hostGone(f, now, out, HOST_GONE.crumbled);   // WB11b: and his host - it crumbles as Dagon gathers\n",
-    "new": "",
+    "old": "    // crumbling first read it as the Ward-Bearers' cap and said his ward broke - it stands through the wind-up)\n    hostGone(f, now, out, HOST_GONE.crumbled);\n",
+    "new": "    // crumbling first read it as the Ward-Bearers' cap and said his ward broke - it stands through the wind-up)\n",
     "tests": [
       "test/wb11_gate_host.test.js"
     ]
@@ -318,7 +318,7 @@
     "name": "WB11-the-bye-a-gate",
     "file": "src/net/gateLaw.js",
     "old": "return pairs.filter((q) => q[0] < nT && q[1] < nT).map(",
-    "new": "return pairs.map(",
+    "new": "return pairs.filter((q) => q[0] < nT - 1 && q[1] < nT - 1).map(",
     "tests": [
       "test/wb8b_gate_marks.test.js",
       "test/wb11_gate_host.test.js"
@@ -327,8 +327,8 @@
   {
     "name": "WB11-the-blow-judged-on-him",
     "file": "server/src/index.js",
-    "old": "if (m.k === 'ahit') { this._gateFan(applyHostHit(f, a.sub, m.i, m.d, m.r, a.pose && !a.pose.dd ? this._courtOf(a.pose) : null, now)); return; }",
-    "new": "if (m.k === 'ahit') { applyHit(f, a.sub, m.d, m.r, a.pose && !a.pose.dd ? this._courtOf(a.pose) : null, now); return; }",
+    "old": "else if (m.k === 'ahit') this._gateFan(applyHostHit(f, a.sub, m.i, m.d, m.r, a.pose && !a.pose.dd ? this._courtOf(a.pose) : null, now, m.q));",
+    "new": "else if (m.k === 'ahit') applyHit(f, a.sub, m.d, m.r, a.pose && !a.pose.dd ? this._courtOf(a.pose) : null, now, m.q);",
     "tests": [
       "test/wb11_gate_host.test.js"
     ]
