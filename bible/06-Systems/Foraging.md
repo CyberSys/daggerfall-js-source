@@ -63,7 +63,9 @@ and the Features row together, as `vendor/foraging/`:
 1. **1:1, IN BOTH LANES** - DECIDED (Mac). What a tool does from the inventory, what the quests do, what the loot and
    shop hooks add, and every message, are the mod's, offline and online. Every quirk the build carries is kept and
    recorded (section 12) - a Ledger B row, "verbatim quirks preserved" - but the six a player would call broken,
-   which FORAGE-FIX mends (Mac: "Your lead").
+   which FORAGE-FIX mends (Mac: "Your lead"). **SUPERSEDED ONLINE for the five profession tools** (FIELD BUGS
+   2026-09-30b TOOL-USE - Mac: "I dont care about DFU. We're our own thing now"): with the professions the account's,
+   their Use is the professions' (law 4, below). Offline, and a guest's lane, stay 1:1.
 2. **THE BUILD, NOT THE README** - FACT: the readme and the build disagree in places (the Pick-Axe reads Agility, not
    Endurance; the readme names four foods the build has no template for). The port follows the build, as DFU would
    run it.
@@ -78,7 +80,11 @@ and the Features row together, as `vendor/foraging/`:
    built it: `systems/foragingInstall.js` foragingCustomItemsForGroup.)
 4. **ONE ITEM, TWO GESTURES** - DECIDED. A Foraging tool **used from the inventory** is Foraging, both lanes. The same
    tool, **carried to a node** online, is the profession's tool: Interact at the node plays the profession's act
-   (section 14). Neither gesture changes the other.
+   (section 14). Neither gesture changes the other. **SUPERSEDED ONLINE** (FIELD BUGS 2026-09-30b TOOL-USE): with the
+   professions the account's, the Wood-Axe, the Pick-Axe, the Sickle, the Basket and the Fishing-Net have one gesture -
+   their Use from the hotbar or a quick slot at a node of their own kind is Interact there, and anywhere else (or from
+   the open pack) it gives none of Foraging's yields, quests or wear and says where the profession is done
+   (`systems/foragingInstall.js` useForagingTool, `scenes/gatherHost.js` useTool). The Spade stays Foraging's.
 5. **THE AUTHOR'S ART IS VENDORED WORK, NOT NEW ART.** The seven textures are Harbinger451's, to be carried with
    Mac's word of permission, as Handheld Torches' 39 are RedRoryOTheGlen's. PROF0's law 6 ("no new committed art") is about art
    the port would make; it is not broken by a vendored mod's own.

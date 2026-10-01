@@ -31,6 +31,9 @@
 //   passes E on to the door, the chest or the foe (AUDIT 29 C1), and
 //   when the press opened nothing else the host hands it back: the node
 //   says what it needs (VEIN-NEED, sayNeed).
+//   THE TOOL'S USE (TOOL-USE). The Wood-Axe, the Pick-Axe, the Sickle,
+//   the Basket and the Fishing-Net used from the hotbar or a quick slot
+//   are E at a node of their own kind (useTool) - the act, or its need.
 //
 // One owner: the host builds it online, and disposes it with the page.
 // ═══════════════════════════════════════════════════════════════════
@@ -116,9 +119,12 @@ export function aimAt(eyePos, at, view) {
  * @property {(ctx: any) => any[]} [dungeonNodesOf] a dungeon's nodes today (PROF2's veins), in the dungeon's own space
  * @property {(node: any) => Array<{ archive: number, record: number, scale: number, centers: number[][] }>} flatsOf
  * @property {(node: any) => boolean} gone whether every harvest of the node is taken today
- * @property {(node: any, ctx: any) => any} plan what E does: `{ harvest, verb, rest, ready, both?, alt? }`
- * @property {(node: any, plan: any, ctx: any) => any} start the act: `{ act, harvest, tool, profession, label, hand? }`
- *   or `{ refused: text }`
+ * @property {(node: any, ctx: any) => any} plan what E does: `{ harvest, verb, rest, ready, both?, alt? }` - TOOL-USE:
+ *   `ctx.tool` the template of a tool whose Use asks (the Sickle the herbs, the Basket the food), null for E
+ * @property {(node: any, plan: any, ctx: any) => any} start the act: `{ act, harvest, tool, profession, label, hand?,
+ *   heldByUse? }` or `{ refused: text }` - `heldByUse`, TOOL-USE: a Use started it, and the Use holds it (E's level unasked)
+ * @property {readonly number[]} [tools] TOOL-USE: the Foraging tools whose Use (the hotbar's, a quick slot's) at this
+ *   kind's node is E there
  * @property {(node: any) => void} [choose] the act choice key at this node
  * @property {() => void} [retarget] a new node is targeted
  * @property {(a: any, data: any) => string} cleanNote what a clean act is called in the XP toast
@@ -280,7 +286,8 @@ export function createGatherHost(deps) {
     const tr = deps.pixelTranslation(s.entry.px, s.entry.py, _t);
     return [n.local[0] + tr[0], n.local[1] + tr[1] + (n.lift ?? 0.3), n.local[2] + tr[2]];
   };
-  function findTarget() {
+  /** The node in reach nearest the look - TOOL-USE: of `own`'s kinds alone, for a tool's Use. */
+  function findTarget(own = kinds) {
     const { pos, dir } = deps.eye();
     const dl = Math.hypot(dir[0], dir[1], dir[2]) || 1;
     let best = null, bestAng = NODE_AIM_DEG;
@@ -291,7 +298,7 @@ export function createGatherHost(deps) {
     const places = under ? [{ nodes: dungeon.nodes, entry: null, info: dungeon.info, at: (n) => [n.local[0], n.local[1] + (n.lift ?? 0.3), n.local[2]] }]
       : nearPixels(pos, reachBox).map((s) => ({ nodes: s.nodes, entry: s.entry, info: s.info, at: (n) => worldOf(s, n) }));
     // PROF7: the loose nodes - each its own place (Hunting's bodies), above ground or below
-    for (const k of kinds) {
+    for (const k of own) {
       if (!k.looseNodesOf) continue;
       const nodes = k.looseNodesOf({ entity: deps.entity(), dungeon: under }).map((n) => ({ ...n, kind: k.id }));
       if (nodes.length) places.push({ nodes, entry: null, info: null, loose: true, at: looseAt });   // AUDIT 32 H9: its own place names no ground
@@ -300,7 +307,7 @@ export function createGatherHost(deps) {
       if (!s.nodes.length) continue;
       for (const n of s.nodes) {
         const k = kindOf(n);
-        if (!k || k.gone(n)) continue;
+        if (!k || !own.includes(k) || k.gone(n)) continue;
         const w = s.at(n);
         if (!w) continue;
         const dx = w[0] - pos[0], dy = w[1] - pos[1], dz = w[2] - pos[2];
@@ -353,18 +360,21 @@ export function createGatherHost(deps) {
     const w = n.at?.();
     return Array.isArray(w) ? [w[0], w[1] + (n.lift ?? 0.3), w[2]] : null;
   }
-  const ctxFor = (t) => ({ entity: deps.entity(), info: t.info, book, rank, specs, keyLabel: deps.keyLabel, pitch: t.pitch ?? null });
-  const planFor = (t) => kindOf(t.node)?.plan(t.node, ctxFor(t)) ?? null;
+  /** TOOL-USE: `tool` - the template whose Use asks, null for E. */
+  const ctxFor = (t, tool = null) => ({ entity: deps.entity(), info: t.info, book, rank, specs, keyLabel: deps.keyLabel, pitch: t.pitch ?? null, tool });
+  const planFor = (t, tool = null) => kindOf(t.node)?.plan(t.node, ctxFor(t, tool)) ?? null;
 
   // ─── THE ACT ───────────────────────────────────────────────────────
-  function start(t, plan) {
+  /** The act at `t` started - true - or its checks' refusal said. TOOL-USE: `tool`, the template whose Use started it. */
+  function start(t, plan, tool = null) {
     const k = kindOf(t.node);
-    const a = k?.start(t.node, plan, ctxFor(t));
-    if (!a) return;
-    if (a.refused) { hud.toast(a.refused); return; }
+    const a = k?.start(t.node, plan, ctxFor(t, tool));
+    if (!a) return false;
+    if (a.refused) { hud.toast(a.refused); return false; }
     act = { ...a, node: t.node, px: t.px, py: t.py, dungeon: t.dungeon, loose: !!t.loose, info: t.info, world: t.world };
     chipProfession = a.profession;
     chipLeft = CHIP_S;
+    return true;
   }
   function finish(a) {
     const report = a.act.report();
@@ -486,6 +496,26 @@ export function createGatherHost(deps) {
       hud.toast(line);
       return true;
     },
+    /**
+     * TOOL-USE (FIELD BUGS 2026-09-30b #2): A PROFESSION TOOL'S USE - the hotbar's or a quick slot's, nothing over the
+     * world - IS E AT A NODE OF THE TOOL'S OWN KIND: the Wood-Axe's a tree, the Pick-Axe's a vein or a boulder (above
+     * ground or below), the Sickle's a patch's herbs and the Basket's its food (whatever the choice key picked, which is
+     * left as it was), the Fishing-Net's the cast. The act starts, or what the node needs is said at once - no door stands
+     * behind a Use to pass it on to. 'started' - an act started; 'taken' - the node's, nothing started (its need or its
+     * checks said, or an act already playing - AUDIT 29 D3's law for E); false - no node of its kind in reach, or no world
+     * to reach (a window over it - the pack's own Use - or the professions shut): Foraging's side says the way.
+     * @param {number} templateIndex @returns {false|'started'|'taken'}
+     */
+    useTool(templateIndex) {
+      const own = kinds.filter((k) => k.tools?.includes(templateIndex));
+      if (!own.length || !(deps.active() || inDungeon()) || book.state.open !== true) return false;
+      if (act) return 'taken';
+      const t = findTarget(own);
+      if (!t) return false;
+      const plan = planFor(t, templateIndex);
+      if (!plan?.ready) { const line = needLine(plan, rank); if (line) hud.toast(line); return 'taken'; }
+      return start(t, plan, templateIndex) ? 'started' : 'taken';
+    },
     /** Escape: the act ends, nothing lost. True when there was one. */
     cancel() { if (!act) return false; act.act.cancel(); act = null; hud.setMeter(null); return true; },
     /** Every frame the host is in the streaming world. */
@@ -527,7 +557,7 @@ export function createGatherHost(deps) {
         const w = actWorld(act);
         act.world = w ?? act.world;
         const gone = act.loose ? !w : !act.dungeon && !stood.has(pixelKey(act.px, act.py));   // its pixel torn down under it; PROF7: its body let go
-        act.act.tick(dt, { held: input.held, attack: input.attack, view: v, pos: { x: feet[0], z: feet[2] }, aim: aimAt(pos, act.world, v) });
+        act.act.tick(dt, { held: input.held || act.heldByUse === true, attack: input.attack, view: v, pos: { x: feet[0], z: feet[2] }, aim: aimAt(pos, act.world, v) });   // TOOL-USE: a hold the Use made
         const away = gone || Math.hypot(act.world[0] - pos[0], act.world[2] - pos[2]) > (act.node.reach ?? NODE_REACH) + 1;
         const here = act.dungeon ? inDungeon() : deps.active();
         if (act.act.state.cancelled || away || !here) { act = null; hud.setMeter(null); hud.toast(ACT_STOPPED_LINE); }   // GATHER-SAID: said, never only the meter gone (Escape ends it in `cancel`, unsaid)
