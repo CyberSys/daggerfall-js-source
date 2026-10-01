@@ -39,9 +39,12 @@ import { itemIsIdentified } from './tradeModes.js';
 
 /** What a piece salvages into, by its tier (an Exalted Legendary its own). */
 export const SALVAGE_SHARDS = Object.freeze({ magic: 1, rare: 3, legendary: 8, exalted: 15 });
-/** The shards a piece salvages into - 0 for one the ladder never graded (Common, DFU's own magic, a made piece), an
- *  Aetheric piece and an artifact. */
+/** The shards a piece salvages into - 0 for one the ladder never graded (Common, DFU's own magic), a made piece (AUDIT
+ *  LOOT F2: a Superior or a Masterwork carries the ladder's `rarity` too - its quality's roll, smithItems.js mintPiece -
+ *  and broke for shards, a bench turning ore into the Reforge's coin; its `provenance` says it was made), an Aetheric
+ *  piece and an artifact. */
 export function salvageShards(item) {
+  if (typeof item?.provenance === 'string') return 0;
   const t = item?.rarity;
   if (t === 'legendary') return item.exalted === true ? SALVAGE_SHARDS.exalted : SALVAGE_SHARDS.legendary;
   return t === 'magic' || t === 'rare' ? SALVAGE_SHARDS[t] : 0;

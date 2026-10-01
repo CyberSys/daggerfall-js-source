@@ -26,7 +26,7 @@ import { isAmmunition } from '../systems/itemTemplates.js';   // LOOT7: a champi
 import { enemyLootSpawned } from '../characters/enemyEntity.js';   // OH-E: EnemyEntity.OnLootSpawned
 import { conditionBasedPricesOn, randomConditionLootItems } from '../systems/rriRealism.js';   // RRI2: EnemyEntity.OnLootSpawned's subscriber
 import { isHumanoid } from '../systems/survival/loot.js';   // MOD: the same humanoid test SURV2's corpse food already draws its line with
-import { rollCorpseLoot, lootRarityOn, rarityRank, RARITIES, rarityEligible, applyRarity } from '../systems/lootRarity.js';   // RF2: and the port's, after it; LOOT7: a champion's guarantee
+import { rollCorpseLoot, lootRarityOn, rarityRank, RARITIES, rarityEligible, applyRarity, lastPass } from '../systems/lootRarity.js';   // RF2: and the port's, after it; LOOT7: a champion's guarantee
 import { championOf } from '../systems/champions.js';   // LOOT7: the champions' traits register at import
 import { liveStat, FATIGUE_DRAIN_SCALE } from '../systems/statMods.js';   // RF2: the player's live luck for the roll   // AUDIT 58: ItemHelper's EquipItem half - a foe's equip table is what DamageEquipment's struck side reads
 import { GLOBAL_SCALE } from '../world/meshReader.js';
@@ -131,7 +131,9 @@ export function spawnEnemyLoot(entity, mobileType, basics, player, { rolls = Mat
 /** LOOT7 (the Loot arc, bible/06-Systems/Loot-Arc.md section 9): A CHAMPION ALWAYS CARRIES A RARE OR BETTER - when its
  *  own roll found none, its most valuable piece that could be (a plain one, or one the ladder made Magic) is made Rare;
  *  carrying none, a weapon (never ammunition) or a piece of armour at its level is minted onto it and made Rare. Never
- *  its worn kit (LR4's law: the sword it swings stays DFU's). Answers the piece, or null. */
+ *  its worn kit (LR4's law: the sword it swings stays DFU's). AUDIT LOOT F9: the Rare it makes takes the door's last
+ *  pass (LOOT4's chance at a line that does something), which its corpse door ran before it - the last draws of the
+ *  spawn. Answers the piece, or null. */
 export function ensureChampionLoot(entity, level, rolls = Math.random) {
   if (!lootRarityOn() || !entity) return null;
   const worn = new Set(entity.equip ? equipTableOf(entity).filter(Boolean) : []);
@@ -144,7 +146,9 @@ export function ensureChampionLoot(entity, level, rolls = Math.random) {
     if (!piece || isAmmunition(piece)) return null;
     piece.untaken = true; (entity.items ??= []).push(piece);   // LOOT8: a found piece, counted at its take
   }
-  return applyRarity(piece, 'rare', rolls);
+  applyRarity(piece, 'rare', rolls);
+  lastPass([piece], rolls);
+  return piece;
 }
 
 // ---- EnemyEntity.SetEnemyCareer, the equipment chain (EnemyEntity.cs:330-347) ----

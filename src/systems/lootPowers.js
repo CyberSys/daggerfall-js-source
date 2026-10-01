@@ -141,6 +141,8 @@ let _say = (line) => { hudText(line); };
 export function setLootPowersVoice({ say = null } = {}) { if (typeof say === 'function') _say = say; }
 const say = (line) => { try { _say(line); } catch { /* a line is not the power's problem */ } };
 
+/** The power ids a piece carries: a Legendary's own record, and (LOOT10) a Rare's imprint - none on anything else. */
+const powerIds = (it) => [it?.rarity === 'legendary' ? it.legendary : null, it?.rarity === 'rare' ? it.imprint : null];
 /** Every power MY entity's worn pieces carry - `[{ id, power, item }]`, ONE entry an id (a power counts once): a
  *  Legendary's own record, and (LOOT10) a Rare's imprint. None for anyone but me, with the switch off, or in a duel. */
 export function wornPowers(entity) {
@@ -148,8 +150,7 @@ export function wornPowers(entity) {
   const out = [];
   const seen = new Set();
   for (const it of wornPieces(entity)) {
-    const ids = [it.rarity === 'legendary' ? it.legendary : null, it.rarity === 'rare' ? it.imprint : null];
-    for (const id of ids) {
+    for (const id of powerIds(it)) {
       if (typeof id !== 'string' || seen.has(id)) continue;
       const power = powerOf(id);
       if (!power) continue;
@@ -162,8 +163,10 @@ export function wornPowers(entity) {
 /** The first worn power of a kind, or null. */
 export const powerKind = (entity, kind) => wornPowers(entity).find((p) => p.power.kind === kind)?.power ?? null;
 const isWeapon = (it) => it?.group === 'Weapons';
-/** The powers that ride THIS blow: a weapon's only when it is the one that struck; armour's and jewellery's always. */
-const blowPowers = (entity, weapon) => wornPowers(entity).filter((p) => !isWeapon(p.item) || p.item === weapon || (weapon && weapon.legendary === p.id));
+/** The powers that ride THIS blow: a weapon's only when it is the one that struck - or the weapon that struck carries
+ *  the same power (AUDIT LOOT F4: a Legendary in one hand and a Rare imprinted with its power in the other are one entry,
+ *  its piece the first the table lists, and the other's blows rode nothing); armour's and jewellery's always. */
+const blowPowers = (entity, weapon) => wornPowers(entity).filter((p) => !isWeapon(p.item) || p.item === weapon || (!!weapon && powerIds(weapon).includes(p.id)));
 const share = (e) => (Number.isFinite(e?.health) && e.maxHealth > 0 ? e.health / e.maxHealth : 1);
 const ranged = (w) => !!w && weaponSkillUsed(w.templateIndex) === SKILLS.Archery;
 export const flowStacks = (now = _now()) => (now < _s.flowUntil ? _s.flow : 0);

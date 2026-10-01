@@ -9,7 +9,8 @@
 // character has TAKEN is in its CODEX, with the day it was first found.
 // The first find is said and heard (the HUD's line and the level-up's
 // fanfare): "Wyrmbane - a Legendary! It joins your codex." The Codex
-// page (ui/reforgeWindow.js's third) lists all thirty and the Aetheric
+// page (ui/reforgeWindow.js's fourth) lists every Legendary record (the
+// thirty and the Thunderlock's own, AUDIT LOOT F8) and the Aetheric
 // sets - a found record whole, an unfound one by where it is found.
 //
 // HOW A FIND IS SEEN. A piece taken from a body or a pile is told at the
@@ -32,7 +33,7 @@
 // find is said, no imprint is made, and an imprint sleeps.
 // ═══════════════════════════════════════════════════════════════════
 
-import { lootRarityOn, LEGENDARIES, legendaryById, powerOf, foundAmong } from './lootRarity.js';
+import { lootRarityOn, allLegendaries, legendaryById, powerOf, foundAmong, powerFits } from './lootRarity.js';
 import { AETHERIC_RECORDS, aethericById } from './aetheric.js';
 import { registerTakeListener } from './inventory.js';
 import { registerModSaveData } from './modSaveData.js';
@@ -130,12 +131,14 @@ export const FAMILY_HINT = Object.freeze({
   caster: 'Said to be kept by mages and witches', rogue: 'Said to pass among thieves and assassins', warrior: 'Said to be borne by warriors and knights',
 });
 /** The codex's Legendary rows, the table's order: `{ id, name, group, found, day, hint, power }` - a found record's
- *  name and power, an unfound one's name withheld ("A Legendary of the weapons") and its hint. */
+ *  name and power, an unfound one's name withheld ("A Legendary of the weapons") and its hint. AUDIT LOOT F8: EVERY
+ *  record the tables hold - the thirty and a registered one (the Thunderlock's Last Lock), whose find the codex already
+ *  took and said - a record of no family saying its own `hint`. */
 export function codexRows() {
-  return LEGENDARIES.map((r) => {
+  return allLegendaries().map((r) => {
     const day = foundDay('legendary', r.id);
     const p = powerOf(r.id);
-    return { id: r.id, kind: 'legendary', name: day != null ? r.name : null, group: r.group, found: day != null, day, hint: FAMILY_HINT[foundAmong(r.id)] ?? '', power: day != null ? p : null, lore: day != null ? r.lore : null };
+    return { id: r.id, kind: 'legendary', name: day != null ? r.name : null, group: r.group, found: day != null, day, hint: FAMILY_HINT[foundAmong(r.id)] ?? r.hint ?? '', power: day != null ? p : null, lore: day != null ? r.lore : null };
   });
 }
 /** The Aetheric sets' rows: `{ set, pieces: [{ id, name, found, day }] }`, in the records' order. */
@@ -149,13 +152,14 @@ export function codexSets() {
   return [...sets].map(([set, pieces]) => ({ set, pieces }));
 }
 /** How many found, of how many. */
-export const codexCount = () => ({ legendary: foundIds('legendary').length, legendaries: LEGENDARIES.length, aetheric: foundIds('aetheric').length, aetherics: AETHERIC_RECORDS.length });
+export const codexCount = () => ({ legendary: codexRows().filter((r) => r.found).length, legendaries: allLegendaries().length, aetheric: foundIds('aetheric').length, aetherics: AETHERIC_RECORDS.length });   // AUDIT LOOT F8: of the rows the page lists
 
 // ── the imprint ─────────────────────────────────────────────────────
 export const IMPRINT_PRICE = Object.freeze({ shards: 20, gold: 5000 });
-/** The found Legendaries a Rare may take the power of: its own group's, with a power. */
+/** The found Legendaries a Rare may take the power of: its own group's, with a power it can use (AUDIT LOOT F1 - never
+ *  Chain Lightning on a sword or Earthshaker on a bow: lootRarity.js powerFits). */
 export const imprintChoices = (item) => (item?.rarity === 'rare'
-  ? LEGENDARIES.filter((r) => r.group === item.group && foundDay('legendary', r.id) != null && powerOf(r.id))
+  ? allLegendaries().filter((r) => r.group === item.group && foundDay('legendary', r.id) != null && powerFits(item, powerOf(r.id)))
   : []);
 /** Why a Rare may not take that record's power now, or null: 'off', 'not' (not a Rare), 'unknown', 'worn', 'imprinted',
  *  'unfound' (a record the codex has not, of another group, or with no power), 'shards', 'gold'. */

@@ -173,7 +173,7 @@
   {
     "name": "LOOT10-no-hint",
     "file": "src/systems/lootCodex.js",
-    "old": "hint: FAMILY_HINT[foundAmong(r.id)] ?? '',",
+    "old": "hint: FAMILY_HINT[foundAmong(r.id)] ?? r.hint ?? '',",
     "new": "hint: '',",
     "tests": [
       "test/loot10_codex.test.js"
@@ -182,8 +182,8 @@
   {
     "name": "LOOT10-imprint-any-group",
     "file": "src/systems/lootCodex.js",
-    "old": "  ? LEGENDARIES.filter((r) => r.group === item.group && foundDay('legendary', r.id) != null && powerOf(r.id))",
-    "new": "  ? LEGENDARIES.filter((r) => foundDay('legendary', r.id) != null && powerOf(r.id))",
+    "old": "  ? allLegendaries().filter((r) => r.group === item.group && foundDay('legendary', r.id) != null && powerFits(item, powerOf(r.id)))",
+    "new": "  ? allLegendaries().filter((r) => foundDay('legendary', r.id) != null && powerFits(item, powerOf(r.id)))",
     "tests": [
       "test/loot10_codex.test.js"
     ]
@@ -191,8 +191,8 @@
   {
     "name": "LOOT10-imprint-unfound",
     "file": "src/systems/lootCodex.js",
-    "old": "  ? LEGENDARIES.filter((r) => r.group === item.group && foundDay('legendary', r.id) != null && powerOf(r.id))",
-    "new": "  ? LEGENDARIES.filter((r) => r.group === item.group && powerOf(r.id))",
+    "old": "  ? allLegendaries().filter((r) => r.group === item.group && foundDay('legendary', r.id) != null && powerFits(item, powerOf(r.id)))",
+    "new": "  ? allLegendaries().filter((r) => r.group === item.group && powerFits(item, powerOf(r.id)))",
     "tests": [
       "test/loot10_codex.test.js"
     ]
@@ -290,8 +290,8 @@
   {
     "name": "LOOT10-wire-another-group",
     "file": "src/systems/lootRarity.js",
-    "old": "legendaryById(item.imprint)?.group === item.group && !!powerOf(item.imprint)",
-    "new": "!!legendaryById(item.imprint) && !!powerOf(item.imprint)",
+    "old": "legendaryById(item.imprint)?.group === item.group && powerFits(item, powerOf(item.imprint))",
+    "new": "!!legendaryById(item.imprint) && powerFits(item, powerOf(item.imprint))",
     "tests": [
       "test/loot10_codex.test.js"
     ]
@@ -317,7 +317,7 @@
   {
     "name": "LOOT10-power-sleeps",
     "file": "src/systems/lootPowers.js",
-    "old": "it.rarity === 'rare' ? it.imprint : null]",
+    "old": "it?.rarity === 'rare' ? it.imprint : null]",
     "new": "null]",
     "tests": [
       "test/loot10_codex.test.js"

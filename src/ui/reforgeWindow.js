@@ -25,7 +25,8 @@ import { SLOT_BOX, screenDpr } from './iconFit.js';
 import { closeOnOutsideTap } from './enhancedOverlays.js';
 import { overlayAction } from './input.js';
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
-import { brokerSkinCss } from './brokerWindow.js';
+import { brokerSkinCss, BROKER_SKIN_STYLE_ID } from './brokerWindow.js';
+import { REFORGE_CSS } from './enhancedPlusStyle.js';   // AUDIT LOOT F6: the window's own rules, beside the Broker's sheet
 import { isEnhancedPlus } from '../systems/uiSkin.js';
 
 /** @param {string} tag @param {string|null} [cls] @param {string|null} [text] */
@@ -58,9 +59,10 @@ export const REFORGE_REFUSALS = Object.freeze({
   gone: 'No longer in your pack', aetheric: 'An Aetheric piece is the Broker\'s to dismantle', artifact: 'An artifact will not break',
   quest: 'A quest\'s item will not break', bound: 'Bound - it will not break', locked: 'Locked - unlock it first',
 });
-/** A line's press word - "Reforge", or why not in a word or two that fits the button. */
-export function reforgeLabel(why, price, have) {
-  if (!why) return 'Reforge';
+/** A line's press word - "Reforge" (the imprint's "Imprint" - AUDIT LOOT F6: its presses said Reforge), or why not in a
+ *  word or two that fits the button. */
+export function reforgeLabel(why, price, have, verb = 'Reforge') {
+  if (!why) return verb;
   if (why === 'shards') return `Need ${price.shards - have.shards} more shards`;
   if (why === 'gold') return `Need ${price.gold - have.gold} more gold`;
   if (why === 'unknown') return 'Not identified';
@@ -79,14 +81,21 @@ function classicPicture(item, wearer, onReady) {
   return img?.archive ? requestFittedIcon(img.archive, img.record, { box: SLOT_BOX.broker, dpr: screenDpr(), dye: img.dye, dyeTarget: img.dyeTarget, onReady }) : null;
 }
 
-/** The classic skin wears the Broker's own sheet (its rows are his classes). */
-const REFORGE_SKIN_STYLE_ID = 'broker-skin-style';
+/** The classic skin wears the Broker's own sheet (its rows are his classes) - and, AUDIT LOOT F6, the window's own rules
+ *  beside it, under their own id (the Broker's window may have laid his first). The Plus sheet carries both. */
+export const REFORGE_SKIN_STYLE_ID = 'reforge-skin-style';
 function injectSkinStyle(doc = document) {
-  if (isEnhancedPlus() || doc.getElementById?.(REFORGE_SKIN_STYLE_ID) || [...(doc.head?.children ?? [])].some((c) => c.id === REFORGE_SKIN_STYLE_ID)) return;
-  const st = doc.createElement('style');
-  st.id = REFORGE_SKIN_STYLE_ID;
-  st.textContent = brokerSkinCss();
-  (doc.head ?? doc.body).append(st);
+  if (isEnhancedPlus()) return;
+  const has = (id) => !!doc.getElementById?.(id) || [...(doc.head?.children ?? [])].some((c) => c.id === id);
+  /** @type {Array<[string, () => string]>} */
+  const sheets = [[BROKER_SKIN_STYLE_ID, brokerSkinCss], [REFORGE_SKIN_STYLE_ID, () => REFORGE_CSS]];
+  for (const [id, css] of sheets) {
+    if (has(id)) continue;
+    const st = doc.createElement('style');
+    st.id = id;
+    st.textContent = css();
+    (doc.head ?? doc.body).append(st);
+  }
 }
 
 /**
@@ -182,7 +191,7 @@ export function mountReforgeWindow(host, deps) {
     noteLine.textContent = note ? note.text : '';
     noteLine.className = `broker-note${note?.ok ? ' ok' : ''}`;
     if (!note) noteLine.setAttribute('hidden', ''); else noteLine.removeAttribute?.('hidden');
-    for (const [id, t] of Object.entries(tabOf)) t.setAttribute('aria-selected', id === page ? 'true' : 'false');
+    for (const [id, t] of Object.entries(tabOf)) { t.setAttribute('aria-selected', id === page ? 'true' : 'false'); t.classList.toggle('on', id === page); }   // AUDIT LOOT F6: the chosen page the kit's brass
     for (const c of [...list.children]) c.remove();
     card?.remove();
     card = null;
@@ -275,7 +284,7 @@ export function mountReforgeWindow(host, deps) {
     else if (price) card.append(el('p', 'boundline', `A reforge costs ${reforgePriceText(price)}. Once a line is reforged, only it may be again.`));
     body.append(card);
   };
-  /** LOOT10: THE CODEX - the thirty, found and not, then the Aetheric sets; a row pressed shows it whole. */
+  /** LOOT10: THE CODEX - every Legendary record, found and not, then the Aetheric sets; a row pressed shows it whole. */
   let pickedRec = null;
   const head2 = (text) => { const h = el('li', 'broker-insignia-head codex-head', text); h.setAttribute('role', 'presentation'); return h; };
   function renderCodex() {
@@ -343,14 +352,16 @@ export function mountReforgeWindow(host, deps) {
     if (now) { card.append(el('p', null, now), el('p', 'boundline', IMPRINT_ONCE)); body.append(card); return; }
     const choices = imprintChoices(it);
     const ul = el('ul', 'rarity');
+    ul.append(el('li', null, tierLabel(it)));   // AUDIT LOOT F6: the tier's line first, as the Reforge's card - the first choice wore its header's dress
     if (!choices.length) ul.append(el('li', null, IMPRINT_NONE));
     for (const rec of choices) {
       const p = powerOf(rec.id);
       const li = el('li', 'imprint-choice', `${p?.name ?? ''} (of ${rec.name})${p?.brief ? ` - ${p.brief}` : ''}`);
       li.dataset.record = rec.id;
       const why = imprintRefusal(it, rec.id, payer);
-      const btn = el('button', 'act broker-buy imprint-press', reforgeLabel(why, IMPRINT_PRICE, have));
+      const btn = el('button', 'act broker-buy imprint-press', reforgeLabel(why, IMPRINT_PRICE, have, 'Imprint'));
       btn.setAttribute('type', 'button');
+      btn.setAttribute('aria-label', why ? `${p?.name ?? rec.name}: ${REFORGE_REFUSALS[why] ?? ''}` : `Imprint ${p?.name ?? rec.name} on ${nameOf(it)} for ${reforgePriceText(IMPRINT_PRICE)}`);   // AUDIT LOOT F6: said, as the Reforge's press is
       if (why) { btn.setAttribute('disabled', ''); btn.setAttribute('title', REFORGE_REFUSALS[why] ?? ''); }
       btn.onclick = (e) => {
         e.stopPropagation();

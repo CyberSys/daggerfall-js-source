@@ -133,7 +133,7 @@ import { overlayAction, eventActions } from './input.js';   // MAC-C: and the RE
 import { audio } from '../systems/audio.js';   // MAC-O6: the pack's own transfer cue - this window carried none at all
 import { dismantleStones, dismantleRefusal, dismantleWare, dismantleAsk, DISMANTLED, DISMANTLE_WORN } from '../systems/sigilBroker.js';   // SS5: a Broker ware back into stones
 import { salvageShards, salvageRefusal, salvagePiece, shardsText } from '../systems/reforge.js';   // LOOT9: a laddered piece broken into Welkynd Shards
-import { createReforgeOverlay } from './reforgeDoor.js';   // LOOT10: the Codex, from the pack
+import { createReforgeOverlay, reforgeDoorOpen, closeReforgeDoor } from './reforgeDoor.js';   // LOOT10: the Codex, from the pack
 import { SOUND } from '../systems/soundClips.js';
 
 import { expandRowValues } from '../systems/quest/questMacros.js';   // MACROS1: a used item's record through its own context (%map)
@@ -3446,6 +3446,10 @@ function onKey(e) {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const t = e.target;
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+  // AUDIT LOOT F7: THE CODEX OVER THE PACK HAS THE KEYS. Its window's own capture listener was laid after this one, so
+  // Back closed the pack under it (and its Inventory key left the Codex standing over the world): Back puts the Codex
+  // away and keeps the pack, as the Info box's does, and no other key reaches the pack while it stands
+  if (reforgeDoorOpen()) { if (overlayAction(e) === 'back') { e.preventDefault(); e.stopPropagation(); closeReforgeDoor(); } return; }
   // DROPS-AUDIT F5: Escape with the PLUS7 menu open puts the MENU away, not the pack - this handler hears the key
   // first (window capture runs before the menu's own document listener), so it answers for the menu here
   if (menuEl && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeMenu(); return; }

@@ -828,10 +828,21 @@ export function imprintLine(item) {
   const p = powerOf(item.imprint);
   return rec && p?.name ? `Imprint: ${p.name} (of ${rec.name})${p.brief ? ` - ${p.brief}` : ''}` : '';
 }
+/** AUDIT LOOT F1: WHETHER A POWER CAN WORK ON A PIECE - Chain Lightning arcs off an arrow (lootPowers.js lootStrike: a
+ *  weapon of the Archery skill, the Thunderlock's too) and Earthshaker shakes off a melee blow (any other weapon); every
+ *  other power works on any piece of its group. The imprint offers and the wire takes no power its piece could not use. */
+export function powerFits(item, power) {
+  if (!item || !power) return false;
+  const shoots = item.group === 'Weapons' && weaponSkillUsed(item.templateIndex) === SKILLS.Archery;
+  if (power.kind === 'chain') return shoots;
+  if (power.kind === 'quake') return item.group === 'Weapons' && !shoots;
+  return true;
+}
 /** LOOT10: an imprint only as the Reforge makes one - on a Rare, a Legendary record of the piece's own group, with a
- *  power - or none at all. The wire's cross-check (systems/loot.js validLootItem): a forged one is no item. */
+ *  power the piece can use (AUDIT LOOT F1) - or none at all. The wire's cross-check (systems/loot.js validLootItem): a
+ *  forged one is no item. */
 export const validImprint = (item) => item?.imprint === undefined
-  || (item.rarity === 'rare' && typeof item.imprint === 'string' && legendaryById(item.imprint)?.group === item.group && !!powerOf(item.imprint));
+  || (item.rarity === 'rare' && typeof item.imprint === 'string' && legendaryById(item.imprint)?.group === item.group && powerFits(item, powerOf(item.imprint)));
 
 /** DFU-shaped, but not DFU's - the pool is the port's own, so it is
  *  allowed to grow (registerLegendary, below). */

@@ -20,8 +20,8 @@
   {
     "name": "LOOT5-any-tier-wakes-it",
     "file": "src/systems/lootPowers.js",
-    "old": "    const ids = [it.rarity === 'legendary' ? it.legendary : null, it.rarity === 'rare' ? it.imprint : null];",
-    "new": "    const ids = [it.legendary, it.rarity === 'rare' ? it.imprint : null];",
+    "old": "const powerIds = (it) => [it?.rarity === 'legendary' ? it.legendary : null, it?.rarity === 'rare' ? it.imprint : null];",
+    "new": "const powerIds = (it) => [it?.legendary, it?.rarity === 'rare' ? it.imprint : null];",
     "tests": [
       "test/loot5_powers.test.js"
     ]
@@ -29,7 +29,7 @@
   {
     "name": "LOOT5-a-weapons-power-on-every-blow",
     "file": "src/systems/lootPowers.js",
-    "old": "const blowPowers = (entity, weapon) => wornPowers(entity).filter((p) => !isWeapon(p.item) || p.item === weapon || (weapon && weapon.legendary === p.id));",
+    "old": "const blowPowers = (entity, weapon) => wornPowers(entity).filter((p) => !isWeapon(p.item) || p.item === weapon || (!!weapon && powerIds(weapon).includes(p.id)));",
     "new": "const blowPowers = (entity, weapon) => wornPowers(entity);",
     "tests": [
       "test/loot5_powers.test.js"

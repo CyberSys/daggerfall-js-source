@@ -690,3 +690,73 @@ Pinned: `test/loot11_lines.test.js` (4) - the pick (the best tier, the nearest e
 malformed skipped, off none), the pass (the crown, the renderer's own calls - its roots and its pulse - the finds never
 gathered off, no context no pass), the finds (a pile put down, the street's bodies never a peer's, the dungeon's bodies,
 piles and drops), and every host's pass; `tools/mutants/loot11.json` (15, all dead).
+
+## 16. AUDIT LOOT - the whole arc, audited (2026-10-01)
+
+Mac: *"let's do a deep comprehensive audit on this and ensure it's perfection"*. Seven lanes read the arc end to end -
+the depth (LOOT1-3: the lean, the bands, the Exalted, the thirty), the powers (LOOT4-5 and the champions' traits, every
+seam), the chase (LOOT6-8), the loop (LOOT9-11), online (the item's four fields, the relay's `cp`, the mod records, the
+seeded doors' draws), the bible against the code, and the screens and keys. Nine findings are fixed; one is stated.
+
+- **F1 - an imprint offered a power its piece could not use.** Chain Lightning arcs off an arrow and Earthshaker shakes
+  off a melee blow (LOOT5's own seams), and the imprint offered both to every Rare weapon: a sword took the arc for 20
+  shards and 5,000 gold and it never fired. `lootRarity.js` `powerFits` - the arc on a weapon of the Archery skill (a
+  bow, the Thunderlock), the quake on any other weapon, every other power on any piece of its group; `imprintChoices`
+  offers no other and the wire (`validImprint`) takes no other.
+- **F2 - a made piece broke for shards.** A Superior's and a Masterwork's quality roll is the ladder's own `rarity`
+  (Professions' law 7), so a Masterwork Rare salvaged for 3 shards - a bench turning ore into the Reforge's coin, against
+  LOOT9's own word (shards come from what was found). `reforge.js` `salvageShards` is 0 for a piece with a
+  `provenance`, so the pack card offers no Salvage on one and the Salvage page lists none.
+- **F3 - a reforged or imprinted made piece could be listed.** The market mints a crafted piece again from its record at
+  the other end (AUDIT 30 C2's `smithItems.js` `asMinted`), and the record mints neither a reforged line nor an imprint:
+  the buyer had a piece without them, and the seller had paid for them. `asMinted` says no to either, as it does to an
+  enchanted piece.
+- **F4 - a weapon's power rode one hand.** A Legendary in one hand and a Rare imprinted with its power in the other are
+  one entry (a power counts once), its piece the first the equip table lists; `blowPowers` let the other hand's blows
+  ride it only when that hand held a Legendary of the record, so the imprinted Rare's blows rode nothing. The ids a
+  piece carries are one helper (`lootPowers.js` `powerIds` - a Legendary's record, a Rare's imprint, nothing on anything
+  else), read by `wornPowers` and `blowPowers` alike.
+- **F6 - the Reforge's window was laid as the Broker's alone.** Its own classes had no rule: the Codex's rows of words
+  fell into the Broker's 48px picture column (every name an ellipsis), the salvage's Keep into the next row's (on a
+  phone it sat exactly on Break it - the Broker's phone rule spans every press over two rows), a hint was cut on a
+  phone, the tabs said no page, and a card's line pushed its press a full width under it. `enhancedPlusStyle.js`
+  `REFORGE_CSS`: the Plus sheet carries it, and on the classic skin the window lays it beside the Broker's sheet under
+  its own id (`reforge-skin-style` - the Broker's window may have laid his first); the chosen tab is the kit's brass
+  `.on`. The imprint's card is its own: the tier's line first (its first choice wore the header's dress, uppercase and
+  small), its presses say Imprint (they said Reforge - `reforgeLabel`'s verb) and are said (`aria-label`), as the
+  Reforge's are. Measured on Chromium at a desktop and a phone, both skins: a Codex name 922px of its 944px row, a
+  phone's Keep its own row under Break it.
+- **F7 - Back with the Codex over the pack closed the pack.** The pack's capture listener was laid first and heard every
+  key: Back put both away, and the pack's Inventory key left the Codex standing over the world. The pack yields while
+  the Codex stands (`ui/enhancedInventory.js` `onKey`, `reforgeDoor.js` `reforgeDoorOpen`): Back puts the Codex away and
+  keeps the pack, as the Info box's does, and no other key reaches the pack under it.
+- **F8 - the thirty-first Legendary had no power, and the codex took it and never listed it.** The Thunderlock's own
+  record, *The Last Lock* (registered by `systems/thunderlock.js`, `exclusive` to the gun), is found as a Legendary and
+  was said ("It joins your codex") and counted - "3 of 30" with two rows found - but never shown, and it was powerless
+  against section 7's own title. It carries **Dwemer Defiance** - +50% vs daedra and atronachs, its shots at the daedra
+  family (LOOT5's bane; the Dwemer knelt to none of them) - and its own codex hint ("Said to turn up anywhere, once in a
+  great while": a unique find of no family). The codex lists every record the tables hold (`allLegendaries`), a record
+  of no family saying its own `hint`, its count the rows'; the imprint offers any found record.
+- **F9 - a champion's Rare never took the last pass.** `scenes/hostCombat.js` `ensureChampionLoot` makes its Rare after
+  the corpse door's last pass, so the one Rare most champions carry never had LOOT4's chance at a line that does
+  something. It takes the pass now (`lastPass`) - the spawn's last draws, after every draw before them.
+- **Stated - the Vampiric drinks on its owner's side.** A peer's champion's blow on me resolves on my side (WORLD6b-ii)
+  and its drink lands on my copy of the foe, which its owner's next health word overwrites: against a champion another
+  player holds, the Vampiric's heal is lost. Carrying it would take a heal on the relay's hit word, a relay of its own
+  for one trait's half-blow.
+
+**Read and sound.** The families against DFU's MobileTypes and DungeonTypes, and the bane's career index (a class foe's
+is its class's, so the Human guard); the seeded doors - the gate's spoils and a town's thanks take the last pass after
+the Regalia and the set piece, the Broker's `applyRarity` and a Masterwork's roll never reach it, `pickLegendary` and the
+lean are one roll each; the Exalted's pool holds the proc kinds (section 6's Legendary band is the Exalted line's); the
+drought counted once at the take and none in a new game; the codex's silent backfill; `cp` bounded by
+`CHAMPION_TRAIT_MAX` (world138); the four item fields declared and the Broker's wares bound (no salvage); the guild
+popup's F free of DFU's four letters; the lines' finds never a peer's street body.
+
+Pinned: `test/auditloot.test.js` (8), driven where it can be - F1 the fits, the choices and the wire; F2 a Masterwork's
+and a Superior's piece refused with nothing taken; F3 a reforge and an imprint off the market; F4 both hands, either
+order; F6 the sheet's rules (a phone's Keep), both skins' sheets (the classic's beside the Broker's), the brass tab, the
+imprint's card (its tier's line, its word, said);
+F7 the pack and the Codex over it, keyed; F8 every record's power, the Last Lock's shots, its row and the count; F9 a
+minted and a promoted champion's Rare. `tools/mutants/auditloot.json` (30, all dead). LOOT10's page pins read every
+record; seven records in `loot5.json` and `loot10.json` re-aimed by content (`powerIds`, `powerFits`, `allLegendaries`).

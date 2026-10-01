@@ -865,6 +865,24 @@ export const BROKER_CSS = `/* ── SET7: THE SIGIL BROKER'S WINDOW (ui/brokerW
   .broker-offer .broker-price { grid-column: 2; grid-row: 2; }
   .broker-offer .broker-buy { grid-column: 3; grid-row: 1 / span 2; padding-left: 6px; padding-right: 6px; letter-spacing: 0.03em; }
 }`;
+/** AUDIT LOOT F6: THE REFORGE'S WINDOW (ui/reforgeWindow.js) - the Broker's shape, so his sheet lays it; these are the rules
+ *  his window never needed: the pages' tabs (the chosen one the kit's brass `.on`), the Codex's rows of words alone (his
+ *  grid put them in its 48px picture column), the salvage's Keep under its Break, and a card's line with its press. The
+ *  classic skin lays it beside his sheet (reforgeWindow.js), the Plus sheet carries it. */
+export const REFORGE_CSS = `/* ── LOOT9/LOOT10: THE REFORGE'S WINDOW (ui/reforgeWindow.js) ── */
+.reforge-tabs { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 16px 0; }
+.reforge-tabs[hidden] { display: none; }
+.broker-offer.codex-row, .broker-offer.codex-set { grid-template-columns: minmax(0, 1fr); }
+.broker-offer.codex-set { cursor: default; }
+.broker-offer.codex-row .broker-set, .broker-offer.codex-set .broker-set { white-space: normal; }   /* a hint and a set's pieces read whole, a phone's too */
+.broker-offer.codex-row:not(.found) .broker-name { color: #8d8270; }
+.broker-offer > .reforge-keep { grid-column: 4; }
+.reforge-card .reforge-line, .imprint-card .imprint-choice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 8px; margin: 2px 0; }
+.reforge-card .reforge-press, .imprint-card .imprint-press { width: auto; flex: 0 0 auto; }
+@media (max-width: 720px) {
+  .reforge-tabs { padding: 6px 12px 0; }
+  .broker-offer > .reforge-keep { grid-column: 3; grid-row: 3; }   /* the Broker's phone rule spans every press over two rows: Keep sat on Break it */
+}`;
 /** BOUNTY1 (2026-09-28): THE BOUNTY BOARD'S WINDOW and the payday notice (ui/bountyWindow.js) - the Broker's kind: a
  *  stone window over the world, the town's notices in a list, the one pressed read whole beside it (under it on a
  *  phone). The kit dresses the window, the card, the rows, the header and the presses (ui/enhancedFrame.js); this is
@@ -1407,6 +1425,7 @@ ${SET_BLOCK_CSS}
 .setline-stage { min-width: 64px; text-align: right; color: #b9ab93; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
 @media (pointer: coarse) { .setline { min-height: 40px; } .setstrip { max-height: 216px; } }   /* AUDIT SET U14: a line a thumb presses, as every other press on a touch screen */
 ${BROKER_CSS}
+${REFORGE_CSS}
 ${BOUNTY_CSS}
 ${NOTICE_CSS}
 ${PROF_CSS}

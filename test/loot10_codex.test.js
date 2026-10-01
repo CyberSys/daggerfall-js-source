@@ -109,11 +109,12 @@ test('LOOT10: the record - saved, restored, a forged one cleaned, a new game non
   assert.deepEqual(CX.foundIds('legendary'), [], 'a new game: none');
 });
 
-test('LOOT10: the page - the thirty, a found one whole and an unfound one by its hint; the Aetheric sets piece by piece; the count', () => {
+test('LOOT10: the page - every record (the thirty, and AUDIT LOOT F8 a registered one), a found one whole and an unfound one by its hint; the Aetheric sets piece by piece; the count', () => {
   on();
   CX.noteFind(legend('nightwhisper'), { quiet: true });
   const rows = CX.codexRows();
-  assert.equal(rows.length, 30);
+  assert.equal(rows.length, LR.allLegendaries().length, 'every record the tables hold');
+  assert.ok(LR.LEGENDARIES.every((r) => rows.some((x) => x.id === r.id)), 'the thirty among them');
   const nw = rows.find((r) => r.id === 'nightwhisper');
   assert.deepEqual([nw.found, nw.name, nw.power?.name, !!nw.lore], [true, 'Nightwhisper', 'Silent Death', true]);
   const wb = rows.find((r) => r.id === 'wyrmbane');
@@ -122,7 +123,7 @@ test('LOOT10: the page - the thirty, a found one whole and an unfound one by its
   for (const r of rows) assert.ok(r.hint, `${r.id}: a hint`);
   const sets = CX.codexSets();
   assert.equal(sets.reduce((n, s) => n + s.pieces.length, 0), AETHERIC_RECORDS.length);
-  assert.deepEqual(CX.codexCount(), { legendary: 1, legendaries: 30, aetheric: 0, aetherics: AETHERIC_RECORDS.length });
+  assert.deepEqual(CX.codexCount(), { legendary: 1, legendaries: LR.allLegendaries().length, aetheric: 0, aetherics: AETHERIC_RECORDS.length });
 });
 
 test('LOOT10: the imprint - a known, unworn Rare takes a found power of its group, once, for 20 shards and 5,000 gold; its card and its power', () => {
@@ -184,7 +185,7 @@ test('LOOT10: the pages - the Codex alone from the pack, the Imprint at the guil
       assert.equal(shell.attrs['aria-label'], CODEX_TITLE);
       assert.equal(one(shell, 'reforge-tabs').attrs.hidden, '', 'one page: no tabs');
       const rows = kids(shell, 'codex-row');
-      assert.equal(rows.length, 30);
+      assert.equal(rows.length, LR.allLegendaries().length);
       assert.equal(rows.filter((r) => r.classList.contains('found')).length, 1);
       const nw = rows.find((r) => r.dataset.record === 'nightwhisper');
       assert.equal(one(nw, 'broker-name').textContent, 'Nightwhisper');
