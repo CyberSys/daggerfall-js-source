@@ -194,8 +194,8 @@
  {
   "name": "SEAT2b2-works-unfrozen",
   "file": "server-account/src/seatForts.js",
-  "old": "  if (b.works != null) return JSON.parse(String(b.works));",
-  "new": "  if (false) return JSON.parse(String(b.works));",
+  "old": "await db.prepare('UPDATE town_seat_battles SET works = ? WHERE week = ? AND key = ? AND works IS NULL').bind(JSON.stringify(sx), b.week, b.key).run();",
+  "new": "await db.prepare('UPDATE town_seat_battles SET works = ? WHERE week = ? AND key = ?').bind(JSON.stringify(sx), b.week, b.key).run();",
   "tests": [
    "test/seat2b2_service.test.js"
   ]

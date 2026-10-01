@@ -380,6 +380,7 @@ test('SEAT2b2 THE RAM KIT TO A CAMP: a challenger pledged at a seat posts a writ
   assert.equal(w.status, 200, JSON.stringify(w.body));
   assert.equal((await post(sh.gm, { seat: ANTICLERE.key })).body.error, 'bad-material', 'a held seat\'s stockpile asks the works\' materials');
   assert.equal((await post(eo.gm, {})).body.error, 'bad-material', 'no market sells a Ram Kit');
+  assert.equal((await post(eo.gm, { seat: ANTICLERE.key, material: 'metal:iron' })).body.error, 'bad-material', 'a camp asks the works\' materials and Ram Kits alone');
   const maker = await s.svc.registered('Wright');
   // made into the Stores and kept there: the room asked in the craft's decision, never withdrawn to the pack
   s.setXp(maker, xpForRank(60), 'carpentry');
