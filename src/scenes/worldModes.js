@@ -280,7 +280,7 @@ import { HOME_ENTRIES, homePriceOk, rentCost, rentDaysLeft } from '../net/homeLa
 // HOME-RENT: a home's rooms, rented at its door and offered, priced and collected in its owner's decorator
 import {
   homeRooms, rentable, rentHomeRoom, collectHomeRent, rentPickLines, rentDaysLines, rentConfirmLines, rentDoneLine, rentShortLine,
-  RENT_NONE_FREE, RENT_REALM_ONLY, RENT_DAY_ROWS, rentWelcomeLine,
+  RENT_NONE_FREE, RENT_REALM_ONLY, rentWelcomeLine, homeBedIsMine, rentDayRows, rentNoneLine, RENT_FULL_LINE,   // FIELD BUGS 2026-10-01: RENT-REST, RENT-RENEW
 } from '../systems/homeRent.js';
 // DECOR1c: the pieces a room's owner placed (their law, and the pool that stands them in the room)
 import { decorPieceOf, decorSaleBack, DECOR_STATION_SERVICES, DECOR_STATION_NAMES } from '../net/decorLaw.js';
@@ -6049,25 +6049,25 @@ export function createWorldModes(host) {
     if (!api) return;
     const got = await homeRooms(api, homeTownOf(bd), bd.buildingKey, host.decorCharacter?.() ?? null);
     if (!got.ok) { townTalk?.say?.(got.error === 'no-home' ? RENT_NONE_FREE : accountRefusalText(got.error)); return; }   // AUDIT: a home gone from under the door has no rooms - never "not yours any more"
-    const list = rentable(got.rooms).slice(0, 9);
-    if (!list.length) { townTalk?.say?.(RENT_NONE_FREE); return; }
+    const list = rentable(got.rooms).slice(0, 9), nowS = got.now || Math.floor(Date.now() / 1000);   // RENT-RENEW: and the service's clock, which a tenancy's end is on
+    if (!list.length) { townTalk?.say?.(rentNoneLine(got.rooms, nowS)); return; }   // RENT-RENEW: my own room off the offer says so
     townTalk?.showOverlay?.(new ChoiceWindow({
       lines: rentPickLines(got.owner || home.owner),
       options: [
         ...list.map((r, i) => ({
           code: `Digit${i + 1}`, label: `${i + 1} - Room ${r.room}: ${r.price} gold a day${r.yours ? ' (yours - renew it)' : ''}`,
-          action: () => openHomeRentDays(bd, r),
+          action: () => { const days = rentDayRows(r, nowS); if (days.length) openHomeRentDays(bd, r, days); else townTalk?.say?.(RENT_FULL_LINE); },   // RENT-RENEW: only the days the service takes - none left, said
         })),
         { code: 'Escape', label: 'Esc - close', action: () => {} },
       ],
     }));
   }
-  /** For how many days - each with what it costs. */
-  function openHomeRentDays(bd, room) {
+  /** For how many days - each with what it costs. RENT-RENEW (FIELD BUGS 2026-10-01): `days`, only those the service takes - my own room renews from its end, never past thirty days ahead (the window offered all five, and a renewal past it was paid from the purse and refused, `rent-long`). */
+  function openHomeRentDays(bd, room, days) {
     townTalk?.showOverlay?.(new ChoiceWindow({
       lines: rentDaysLines(room.room, room.price),
       options: [
-        ...RENT_DAY_ROWS.map((d, i) => ({
+        ...days.map((d, i) => ({
           code: `Digit${i + 1}`, label: `${i + 1} - ${d} day${d === 1 ? '' : 's'}: ${rentCost(room.price, d)} gold`,
           action: () => openHomeRentConfirm(bd, room, d),
         })),
@@ -9499,7 +9499,7 @@ export function createWorldModes(host) {
       // that lets you sleep in it" - and that moment arrived in the
       // same merge: DaggerfallBankManager.IsHouseOwned is live over
       // the region's own registry slot.
-      houseOwned: interiorHome ? (interiorHome.own || rentDaysLeft(interiorHome.tenant, Math.floor(Date.now() / 1000)) > 0) : isHouseOwned(playerEntity.houses ?? [], b?.regionIndex ?? 0, b?.buildingKey ?? 0),   // HOME1: my online home's bed is mine; HOME-RENT: and a tenant rests in the home they rent in
+      houseOwned: !interiorHome && isHouseOwned(playerEntity.houses ?? [], b?.regionIndex ?? 0, b?.buildingKey ?? 0), homeBed: homeBedIsMine(interiorHome, Math.floor(Date.now() / 1000)),   // HOME1: my online home's bed is mine; HOME-RENT: and a tenant rests in the home they rent in - RENT-REST (FIELD BUGS 2026-10-01): handed as the home's BED (homeBed), which the bag stands where a bought house stands (a tenant's visit is no permanent scene, and houseOwned alone was asked inside that test - refused); an online home never asks the offline bank's houses
       // GetRentedRoom(mapId, buildingKey), through the SAME finder the
       // tavern window rents with - so the bed this answers is the bed
       // that was sold (tavern.js's own flag, retired here).
