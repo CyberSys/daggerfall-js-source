@@ -68,7 +68,7 @@ import {
   SEAT_PLEDGES_HOUR, SEAT_WATCH_CLAIM_MAX, WATCH_DAY_CAP, GATE_INFLUENCE, GATE_REGION_AGREE, HOMES_SEAT_MAX, TRIBUTE_MARKS_PER_INFLUENCE,
   SEAT_WEEK_MS, SEAT_RECKONING_MS,
   accountSeatInfluence, guildSeatInfluence, tributeRoom, homeDaysIn, seatDefence, SEAT_CHRONICLE_SHOWN,
-  overreachOf, unrestInfluence, crownsHeld, seatReach, withReach, FREE_LAND_WATCH_BONUS, pledgeBarred, fealtyKingdom,
+  overreachOf, unrestInfluence, crownsHeld, seatReach, withReach, FREE_LAND_WATCH_BONUS, pledgeBarred, fealtyKingdom, seasonOf, seasonZeroOf,
 } from '../../src/net/townSeatLaw.js';
 import { isFreeLand } from '../../src/net/kingdomLaw.js';
 import { holdingOf } from './seatHolding.js';   // SEAT1d: the holder's own view of its Charter
@@ -428,7 +428,7 @@ export async function readStandings({ db, nowS }, player, env, { key, character 
     }
   }
   return {
-    seat, week, phase: seatPhaseOf(nowS * 1000),
+    seat, week, phase: seatPhaseOf(nowS * 1000), season: seasonOf(week, seasonZeroOf(env?.SEASON_ZERO_WEEK)),   // SEASON1: the Season this week falls in, or null
     reckoningAt: Math.floor((start + SEAT_WEEK_MS - SEAT_RECKONING_MS) / 1000), turningAt: Math.floor((start + SEAT_WEEK_MS) / 1000),
     standings: list.map((s) => {
       const g = byId.get(s.guild);

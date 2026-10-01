@@ -25,7 +25,7 @@ import { accountKind, overRate } from './accounts.js';
 import { guildActorOf } from './guilds.js';
 import { seatsOpenFor } from './townSeats.js';
 import {
-  seatWeekOf, fealtyKingdom, pactUntil, pactBrokenText, SEAT_LEVER_RANKS, SEAT_EDICTS_HOUR, SEAT_RED_S,
+  seatWeekOf, fealtyKingdom, pactUntil, pactBrokenText, SEAT_LEVER_RANKS, SEAT_EDICTS_HOUR, SEAT_RED_S, seasonZeroOf,
 } from '../../src/net/townSeatLaw.js';
 
 const weekAt = (nowS) => seatWeekOf(nowS * 1000);
@@ -141,16 +141,17 @@ export async function offerPact({ db, nowS }, player, env, { character, tag } = 
   if (other.id === a.gid) return { error: 'pact-self' };
   const week = weekAt(nowS);
   if (await pledgedAgainst(db, week, a.gid, other.id)) return { error: 'pact-pledged' };
+  const until = pactUntil(week, seasonZeroOf(env?.SEASON_ZERO_WEEK));   // SEASON1: the Season's own end, once one is counted
   const [x, y] = pair(a.gid, other.id);
   const was = await db.prepare('SELECT state, offered_by, until_week FROM guild_pacts WHERE a = ? AND b = ?').bind(x, y).first();
   if (was && was.state === 'signed' && Number(was.until_week) > week) return { error: 'pact-signed' };
   if (was && was.state === 'offered' && was.offered_by === other.id) {
-    await db.prepare("UPDATE guild_pacts SET state = 'signed', until_week = ?3, at = ?4 WHERE a = ?1 AND b = ?2 AND state = 'offered'").bind(x, y, pactUntil(week), nowS).run();
-    return { ok: true, signed: true, until: pactUntil(week) };
+    await db.prepare("UPDATE guild_pacts SET state = 'signed', until_week = ?3, at = ?4 WHERE a = ?1 AND b = ?2 AND state = 'offered'").bind(x, y, until, nowS).run();
+    return { ok: true, signed: true, until: until };
   }
   await db.prepare(`INSERT INTO guild_pacts (a, b, state, offered_by, until_week, at) VALUES (?1, ?2, 'offered', ?3, ?4, ?5)
     ON CONFLICT (a, b) DO UPDATE SET state = 'offered', offered_by = excluded.offered_by, until_week = excluded.until_week, at = excluded.at`)
-    .bind(x, y, a.gid, pactUntil(week), nowS).run();
+    .bind(x, y, a.gid, until, nowS).run();
   return { ok: true, signed: false };
 }
 

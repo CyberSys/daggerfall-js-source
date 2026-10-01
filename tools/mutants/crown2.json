@@ -574,8 +574,8 @@
  {
   "name": "CROWN2-svc-pact-until",
   "file": "server-account/src/seatPolitics.js",
-  "old": "SET state = 'signed', until_week = ?3, at = ?4 WHERE a = ?1 AND b = ?2 AND state = 'offered'\").bind(x, y, pactUntil(week), nowS)",
-  "new": "SET state = 'signed', until_week = ?3, at = ?4 WHERE a = ?1 AND b = ?2 AND state = 'offered'\").bind(x, y, week, nowS)",
+  "old": "  const until = pactUntil(week, seasonZeroOf(env?.SEASON_ZERO_WEEK));",
+  "new": "  const until = week;",
   "tests": [
    "test/crown2_service.test.js"
   ]

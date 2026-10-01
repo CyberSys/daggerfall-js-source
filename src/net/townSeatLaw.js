@@ -508,6 +508,8 @@ export function chronicleLine(row, seat) {
     case 'contested': return `${when}, ${c} was Contested between ${guildWords(d.a)} and ${guildWords(d.b)}. A Tourney decides it.`;
     case 'right': return `${when}, ${guildWords(d.guild)} won a Right of Siege against ${guildWords(d.holder)} at ${seat.name}.`;
     case 'held': return `${when}, ${guildWords(d.guild)} held ${seat.name} unchallenged.`;
+    // SEASON1 (9.1): a Season's end at every seat held through it
+    case 'season-end': return `At the end of ${seatSeasonName(Number(d.season)) ?? 'the Season'}, ${guildWords(d.guild)} held ${seat.name}${d.kept ? ', as it had the whole Season through' : ''}.`;
     case 'relinquish': return `${when}, ${guildWords(d.guild)} gave up ${c}.`;
     case 'strike': return `${when}, ${seat.name} was struck from the registry.`;
     // SEAT1d: the upkeep's and the Edicts' rows
@@ -573,14 +575,14 @@ export function seatGlyphsOf(holds) {
   return ['tower', 'crownDF', 'crownWR', 'crownSN'].filter((g) => out.has(g));
 }
 /** The title a guild's Charters give its guildmaster - "Protector of <Kingdom>" for a crown it holds (the lowest key),
- *  else "Warden of <Town>" for a palace seat (the lowest key) - `{ title, ts }`, or null for none. The Season is SEASON1's
- *  (0 until then). */
-export function seatTitleOf(holds) {
+ *  else "Warden of <Town>" for a palace seat (the lowest key) - `{ title, ts }`, or null for none. SEASON1: `season` the
+ *  Season counted now (0 with none). */
+export function seatTitleOf(holds, season = 0) {
   const by = (tier) => (holds ?? []).filter((h) => h.tier === tier).sort((a, b) => a.key - b.key)[0] ?? null;
   const crown = by('crown');
-  if (crown) return { title: 'protector', ts: [crown.key, 0] };
+  if (crown) return { title: 'protector', ts: [crown.key, season] };
   const palace = by('palace');
-  return palace ? { title: 'warden', ts: [palace.key, 0] } : null;
+  return palace ? { title: 'warden', ts: [palace.key, season] } : null;
 }
 /** A seat title in words, off its claim - `place(key)` the client's own seat by key (its name and region), or null:
  *  "Warden of Anticlere", "Protector of Wayrest"; null where the place is not this client's to name. */
@@ -1162,11 +1164,11 @@ export function fealtyReckoning(rows, charters) {
 }
 /** A vassal's tribute off its week's Tithe, rounded down. */
 export const fealtyTribute = (tithe) => Math.floor(Math.max(0, Number(tithe) || 0) * FEALTY.tribute + 1e-9);
-/** THE SEASON a Pact runs to (7.8: "for the rest of a Season") - DECIDED: until SEASON1 counts Seasons, a Season is each
- *  SEASON_WEEKS-week block of seat weeks from week 0, so a Pact signed in week `w` stands through the week before
- *  pactUntil(w). */
+/** THE SEASON a Pact runs to (7.8: "for the rest of a Season") - the first week of the next Season (seasonOf), so a Pact
+ *  signed in week `w` stands through the week before pactUntil(w, zero). DECIDED: with no Season counted (`zero` null, or
+ *  before Season 0), a Season is each SEASON_WEEKS-week block of seat weeks from week 0. */
 export const SEASON_WEEKS = 8;
-export const pactUntil = (week) => (Math.floor(Math.max(0, week) / SEASON_WEEKS) + 1) * SEASON_WEEKS;
+export const pactUntil = (week, zero = null) => seasonOf(week, zero)?.end ?? (Math.floor(Math.max(0, week) / SEASON_WEEKS) + 1) * SEASON_WEEKS;   // SEASON1: the Season's own end, once one is counted
 /** Whether guild `g` may pledge at a seat `holder` holds, its liege, vassals and Pact partners known - a reason, or null. */
 export function pledgeBarred(g, holder, { liege = null, vassals = [], pacts = [] } = {}) {
   if (!holder || holder === g) return null;
@@ -1223,3 +1225,59 @@ export function politicsRows(p) {
   }
   return rows;
 }
+
+// ═══ SEASON1: THE SEASONS (SEAT0 9.1, 18) ═══════════════════════════════════════════════════════════════════════════
+// A Season is SEASON_WEEKS seat weeks; Season 0, the open beta, SEASON_ZERO_WEEKS, from the week the service's
+// SEASON_ZERO_WEEK names - until it names one, no Season is counted (every Season-bound rule keeps its 8-week stand-in).
+
+/** Season 0's length, weeks (18: "The first Season is a four-week open beta"). */
+export const SEASON_ZERO_WEEKS = 4;
+/** The months the Seasons are named for, in order (9.1). */
+export const SEASON_MONTHS = Object.freeze(['Morning Star', 'Sun\'s Dawn', 'First Seed', 'Rain\'s Hand', 'Second Seed', 'Midyear', 'Sun\'s Height', 'Last Seed', 'Hearthfire', 'Frostfall', 'Sun\'s Dusk', 'Evening Star']);
+/** The seat week Season 0 begins, off the service's `SEASON_ZERO_WEEK` (a whole week number) - or null: none counted. */
+export const seasonZeroOf = (v) => (/^\d{1,7}$/.test(String(v ?? '').trim()) ? Number(String(v).trim()) : null);
+/** THE SEASON seat week `week` falls in, Season 0 beginning at `zero` - `{ n, start, end }` (`end` the next Season's first
+ *  week) - or null before Season 0, or with none counted. */
+export function seasonOf(week, zero) {
+  if (zero == null || !Number.isSafeInteger(week) || week < zero) return null;
+  if (week < zero + SEASON_ZERO_WEEKS) return { n: 0, start: zero, end: zero + SEASON_ZERO_WEEKS };
+  const n = 1 + Math.floor((week - zero - SEASON_ZERO_WEEKS) / SEASON_WEEKS);
+  const start = zero + SEASON_ZERO_WEEKS + (n - 1) * SEASON_WEEKS;
+  return { n, start, end: start + SEASON_WEEKS };
+}
+/** @type {Array<[number, string]>} */
+const ROMAN = [[1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']];
+const roman = (k) => { let out = ''; for (const [v, s] of ROMAN) while (k >= v) { out += s; k -= v; } return out; };
+/** A SEASON'S NAME (9.1): "Season 0" for the beta; then "the Season of Morning Star" ... "the Season of Evening Star", the
+ *  names repeating with a numeral ("the Season of Morning Star II"). Null for no Season. */
+export function seatSeasonName(n) {
+  if (!Number.isSafeInteger(n) || n < 0) return null;
+  if (n === 0) return 'Season 0';
+  const round = Math.floor((n - 1) / SEASON_MONTHS.length) + 1;
+  return `the Season of ${SEASON_MONTHS[(n - 1) % SEASON_MONTHS.length]}${round > 1 ? ` ${roman(round)}` : ''}`;
+}
+/** The Season `week` closes - its last week's Turning ends it - or null. */
+export const seasonEndingAt = (week, zero) => { const s = seasonOf(week, zero); return s && s.end === week + 1 ? s : null; };
+/** THE FIRST WEEK OF "THIS SEASON" for the once-a-Season rules (6.5, 6.8: Honours, a forfeit's Standing) - the Season's own
+ *  first week, or, with none counted, the last SIEGE_PAIR_WEEKS weeks' first (their stand-in). */
+export const seasonFloor = (week, zero) => seasonOf(week, zero)?.start ?? week - SIEGE_PAIR_WEEKS + 1;
+/** THE SOFT RESET'S STANDING (9.1: "Standing moves halfway back toward 50") - rounded toward 50. */
+export const seasonStanding = (standing) => STANDING_START + Math.trunc((Number(standing) - STANDING_START) / 2);
+/**
+ * THE SEASON'S TITLES (9.1) - at the Turning that ends Season `season` (`{ n, start }`), over the Charters standing
+ * through its last week (`[{ key, guild, tier, since }]`, `since` the first week held): every crown's guild "Crowned in
+ * Season N", every guild that held a seat the whole Season "Keeper of <Town>, Season N" - `[{ guild, title, key }]`, each
+ * its guildmaster's. DECIDED: Season 0, the beta, crowns no one.
+ */
+export function seasonTitles(season, holds) {
+  if (!season || season.n < 1) return [];
+  const out = [];
+  for (const h of [...(holds ?? [])].sort((a, b) => a.key - b.key)) {
+    if (h.tier === 'crown') out.push({ guild: h.guild, title: 'crowned', key: h.key });
+    if (Number(h.since) <= season.start) out.push({ guild: h.guild, title: 'keeper', key: h.key });
+  }
+  return out;
+}
+/** The Seat tab's Season line off the standings' `season` (seasonOf's): "Week 3 of 8 of the Season of Morning Star." -
+ *  or null for none counted. */
+export const seasonLine = (week, s) => (s ? `Week ${week - s.start + 1} of ${s.end - s.start} of ${seatSeasonName(s.n)}.` : null);

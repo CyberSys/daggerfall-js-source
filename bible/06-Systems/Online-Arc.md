@@ -11141,6 +11141,51 @@ tribute with no Conscription ruling, an offer accepted on the tab). PIN MOVED: t
 (`seat1c_client`), Standing's rows (`seat1d_client`), the chat's greeting (`chathelp`), the schema list (`accountworker`), the version pins; nine older mutant
 records re-aimed by content (SEAT1c's list and its defence's two, SEAT2a part three's two, CROWN1's two, SURVTIERS3's two cites), all still dead.
 
+### SEASON1 (part one) - the Seasons: the calendar, a Season's end, Season 0's wipe
+
+2026-10-01, Mac: "Finish the seats"; "Continue"; "Hurry up". Service, law and client; `acct52`, no migration
+(`town_seat_titles` admitted `crowned` and `keeper` at CROWN1 part two; the token's vocabulary has carried both since
+`world139`, so the relay does not move). Seats-Arc 9.1, 18.
+
+- **The calendar** (`townSeatLaw.js` `seasonOf`, `seasonZeroOf`): Season 0 - the four-week open beta - from the seat week
+  the account service's new `SEASON_ZERO_WEEK` names, then 8-week Seasons. DECIDED: 9.1 begins Season 0 "at the first
+  Turning after SEAT1c ships"; nothing is deployed, so it begins at a week set when the seats open to everyone. Empty
+  (as shipped), no Season is counted and every Season-bound rule keeps the 8-week stand-in CROWN2 and SEAT2a part three
+  used.
+- **The names** (`seatSeasonName`): "Season 0"; then "the Season of Morning Star" to "the Season of Evening Star", the
+  Tamrielic months in order; then again with a numeral ("the Season of Morning Star II").
+- **A Season's end** (`settleWeek`, the Turning that closes its last week, `seasonEndingAt`), in the Turning's own batch:
+  - its titles (`seasonTitles`), each kept for good by the guild's guildmaster at that Turning: "Crowned in Season N"
+    for every crown's guild, "Keeper of <Town>, Season N" for a seat held from the Season's first week. DECIDED: a
+    Charter lapsing at that Turning, or a guild with no guildmaster, earns none;
+  - Legacy cleared (none carried into the next week); Standing halfway back toward 50, rounded toward it
+    (`seasonStanding`); the Charters stand;
+  - the Chronicle's line at every seat held ("At the end of the Season of First Seed, the Silver Hand <SH> held
+    Alcaire Keep, as it had the whole Season through.").
+- **Season 0's end** (18): its own week settled (its upkeep, a Conscription's or a vassal's share, a Royal Tourney's
+  prize), nothing set up for the next (no claim, Right, battle, Edict or Legacy - an Edict proclaimed for it void), then
+  the seats wiped (`SEASON_ZERO_WIPED`: the Charters, influence, pledges, binds, Legacy, Rights, the sieges' memory,
+  windows, stockpiles and Levies, history, fealty, Pacts). DECIDED: what money is still owed out of (a battle's
+  contracts, an Edict's escrow, a Royal Tourney's prize), the titles and Honours earned, and the red lines stay; the
+  beta crowns no one.
+- **The rules that read it**: a Pact runs to its Season's end (`pactUntil(week, zero)`); a forfeit's Standing and the
+  pair's Honours come once a Season (`seasonFloor` - the Season's first week, or the last 8 weeks with none counted).
+- **The titles' claims**: a Charter's title carries the Season now (`seatTitleOf(holds, season)`); a title kept for good
+  - a Season's crowned and keeper, the Royal Tourney's champion - carries the Season it was won in (`seatRoyal.js`
+  `keptTitleOf`, `KEPT_TITLES`, which the mint and the wardrobe read for all three).
+- **The Seat tab**: the Season's week above the week's clock ("Week 3 of 8 of the Season of First Seed.", the standings'
+  `season`), none where none is counted.
+- **Not yet**: the banner ribbon a Keeper's guild wears (the token and the name tag - part two, with the Tides); the
+  fortifications' wear (SEAT2b has none); the Chronicle as a Hall of Records book (part three).
+
+Pinned: `test/season1_law.test.js` (4), `test/season1_service.test.js` (3 - a Season's end set against a twin service
+counting none), `test/season1_client.test.js` (1). `tools/mutants/season1.json` (61, all dead - two survived the first run, each a vacuous pin: a
+week that is not whole was tested before Season 0, where every week is none; and an account's two kept titles shared
+their key and week, so a title's own row was never told apart - now a champion's from Season 0 beside them). PIN MOVED: the
+standings' shape (`seat1b_service`), the Turnings due and the mint's kept titles by source (`seat1c_client`,
+`seat1c_titles`), the plan's line (`seat1d_client`), the account version pins; twelve older mutant records re-aimed by
+content (SEAT1c's four, SEAT2a part three's four, CROWN1 part two's three, CROWN2's Pact).
+
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 
 Mac, asked how quest enemies should work online (each player's quests are their own, so two party members on the

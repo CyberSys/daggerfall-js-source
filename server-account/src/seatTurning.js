@@ -45,8 +45,16 @@ import { mustChange } from './realm.js';
 import { utcDay } from '../../src/net/marksLaw.js';
 import { GUILD_RANK_MASTER } from '../../src/net/guildLaw.js';
 import { seatWeekOf, seatWeekStartMs, seatKeyOk, turningPlan, seatGlyphsOf, seatTitleOf, SEAT_WEEK_MS, STANDING_START, placeBattles, CROWN_SEAT_REGIONS, conscriptionDue,
-  fealtyReckoning, fealtyTribute } from '../../src/net/townSeatLaw.js';
+  fealtyReckoning, fealtyTribute, seasonEndingAt, seasonStanding, seasonTitles } from '../../src/net/townSeatLaw.js';
 import { MARKS_MAX } from '../../src/net/marksLaw.js';
+
+/** SEASON1 (18: "At its end seats, influence, fortifications and history are wiped; Marks, the Stores and profession
+ *  tracks are kept"): what Season 0's last Turning clears, after it has settled its own week. DECIDED: what money is
+ *  still owed out of - a battle's contracts, an Edict's escrow, a Royal Tourney's prize - and the titles and Honours
+ *  earned stay, and so does every red line. */
+export const SEASON_ZERO_WIPED = Object.freeze(['town_seat_holds', 'town_seat_legacy', 'town_seat_pledges', 'town_seat_binds', 'town_seat_influence',
+  'town_seat_renown', 'town_seat_rights', 'town_seat_aftermath', 'town_seat_windows', 'town_seat_stockpile', 'town_seat_levies', 'town_seat_history',
+  'guild_fealty', 'guild_pacts']);
 
 /** The most weeks one read settles - a service asleep for longer starts its count again from there. */
 export const SETTLE_WEEKS_MAX = 8;
@@ -66,16 +74,20 @@ async function namesOf(db, ids) {
  * SETTLE WEEK `week` (SEAT0 5.2) - the plan over its standings, written in one batch keyed on the week. Answers
  * `{ settled: true, plan }`, or `{ settled: false }` when another reader settled it first (or the batch rolled back -
  * the next read settles it again).
+ * SEASON1: `zero` the week Season 0 began (townSeatLaw.js seasonZeroOf), or null - no Season counted. A Turning that ends a
+ * Season names its titles and moves every Standing halfway back toward 50, with no Legacy carried; Season 0's end
+ * settles its own week, names nothing for the next and wipes the seats (SEASON_ZERO_WIPED).
  * @param {any} db
  * @param {number} week
  * @param {number} nowS
+ * @param {number|null} [zero]
  */
-export async function settleWeek(db, week, nowS) {
+export async function settleWeek(db, week, nowS, zero = null) {
   if (await db.prepare('SELECT 1 FROM town_seat_weeks WHERE week = ?').bind(week).first()) return { settled: false };
   const atS = turningOf(week);
   const registry = await confirmedSeats(db, nowS);
   const { results: pledgedKeys = [] } = await db.prepare('SELECT DISTINCT key FROM town_seat_pledges WHERE week = ?').bind(week).all();
-  const { results: holdRows = [] } = await db.prepare('SELECT key, guild_id, region, tier, standing, truce_week, tithe, owed FROM town_seat_holds').all();
+  const { results: holdRows = [] } = await db.prepare('SELECT key, guild_id, region, tier, standing, truce_week, tithe, owed, since_week FROM town_seat_holds').all();
   const holds = new Map(holdRows.map((h) => [Number(h.key), h]));
   const keys = [...new Set([...pledgedKeys.map((p) => Number(p.key)), ...holds.keys()])].filter((k) => registry.has(k)).sort((a, b) => a - b);
   const { results: legacyRows = [] } = await db.prepare('SELECT key, guild_id, amount FROM town_seat_legacy WHERE week = ?').bind(week).all();
@@ -149,7 +161,12 @@ export async function settleWeek(db, week, nowS) {
   const purseIds = [...new Set([...guildIds, ...holdRows.map((h) => h.guild_id)])];
   const { results: purses = [] } = purseIds.length
     ? await db.prepare(`SELECT guild_id, balance FROM guild_marks WHERE guild_id IN (${purseIds.map(() => '?').join(', ')})`).bind(...purseIds).all() : { results: [] };
-  const plan = turningPlan({ week, seats, treasuries: new Map(purses.map((p) => [p.guild_id, Number(p.balance)])), active: await activeIn(db, week) });
+  const reckonedPlan = turningPlan({ week, seats, treasuries: new Map(purses.map((p) => [p.guild_id, Number(p.balance)])), active: await activeIn(db, week) });
+  // SEASON1 (9.1, 18): the Season this Turning ends, if it ends one - Season 0's end settles its own week and sets nothing
+  // up for the next (no Charter claimed, no Right, no battle, no Edict, no Legacy), then wipes the seats
+  const ending = seasonEndingAt(week, zero);
+  const wipe = ending?.n === 0;
+  const plan = wipe ? { ...reckonedPlan, claims: [], contested: [], rights: [], edicts: [], standings: [], held: [], legacy: [] } : reckonedPlan;
   const names = await namesOf(db, [...purseIds, ...fealties.flatMap((f) => [f.vassal, f.liege])]);   // CROWN2: a lapsed liege may hold nothing now
   const history = (key, kind, data) => db.prepare('INSERT INTO town_seat_history (key, week, kind, data, at) VALUES (?, ?, ?, ?, ?)')
     .bind(key, week, kind, JSON.stringify(data), nowS);
@@ -272,18 +289,44 @@ export async function settleWeek(db, week, nowS) {
   }
   // CROWN1 part two (7.6): THE WEEK'S ROYAL TOURNEYS - each champion named, paid its prize and titled; none, the prize home
   stmts.push(...(await royalTurning(db, week, nowS, history, registry)));
-  // every held seat's Standing after its week (7.3); the unchallenged in the Chronicle
+  // every held seat's Standing after its week (7.3) - SEASON1: halfway back toward 50 at a Season's end; the unchallenged
+  // in the Chronicle
   for (const w of plan.standings) {
-    stmts.push(db.prepare('UPDATE town_seat_holds SET standing = ? WHERE key = ? AND guild_id = ?').bind(w.standing, w.key, w.guild));
+    stmts.push(db.prepare('UPDATE town_seat_holds SET standing = ? WHERE key = ? AND guild_id = ?').bind(ending ? seasonStanding(w.standing) : w.standing, w.key, w.guild));
   }
   for (const h of plan.held) {
     stmts.push(history(h.key, 'held', { guild: names.get(h.guild), standing: h.standing }));
   }
-  for (const l of plan.legacy) {
+  for (const l of ending ? [] : plan.legacy) {   // SEASON1 (9.1): "Legacy is cleared"
     stmts.push(db.prepare('INSERT INTO town_seat_legacy (week, key, guild_id, amount) VALUES (?, ?, ?, ?)').bind(next, l.key, l.guild, l.amount));
   }
+  // SEASON1 (9.1): A SEASON'S END - its titles, each its guild's guildmaster's for good ("Crowned in Season N" for every
+  // crown's, "Keeper of <Town>, Season N" for a seat held the whole Season), over the Charters that stood its last week
+  // through (none lapsed now); and the Chronicle's line at every one of them (Season 0's titles none, its lines wiped below)
+  if (ending) {
+    const lapsed = new Set(plan.upkeep.filter((u) => u.state === 'lapse').map((u) => u.key));
+    const stood = holdRows.filter((h) => !lapsed.has(Number(h.key))).map((h) => ({ key: Number(h.key), guild: h.guild_id, tier: h.tier, since: Number(h.since_week) }));
+    const titles = seasonTitles(ending, stood);
+    const masters = await guildmastersOf(db, [...new Set(titles.map((t) => t.guild))]);
+    for (const t of titles) {
+      if (masters.has(t.guild)) stmts.push(db.prepare('INSERT OR IGNORE INTO town_seat_titles (account, title, key, week, at) VALUES (?, ?, ?, ?, ?)').bind(masters.get(t.guild), t.title, t.key, week, nowS));
+    }
+    for (const h of stood) stmts.push(history(h.key, 'season-end', { guild: names.get(h.guild), season: ending.n, kept: h.since <= ending.start }));
+  }
+  // SEASON1 (18): SEASON 0'S END - the Edicts proclaimed for the next week void (none was paid), then the seats wiped
+  if (wipe) {
+    stmts.push(db.prepare("UPDATE town_seat_edicts SET state = 'void' WHERE week = ? AND state = 'proclaimed'").bind(next));
+    for (const t of SEASON_ZERO_WIPED) stmts.push(db.prepare(`DELETE FROM ${t}`));
+  }
   try { await db.batch(stmts); } catch { return { settled: false }; }
-  return { settled: true, plan };
+  return { settled: true, plan, season: ending };
+}
+
+/** SEASON1: each guild's guildmaster's account, by guild. */
+async function guildmastersOf(db, guilds) {
+  if (!guilds.length) return new Map();
+  const { results = [] } = await db.prepare(`SELECT guild_id, player FROM guild_members WHERE rank = ? AND guild_id IN (${guilds.map(() => '?').join(', ')})`).bind(GUILD_RANK_MASTER, ...guilds).all();
+  return new Map(results.map((r) => [r.guild_id, r.player]));
 }
 
 /** THE SEATS AS THE MAP AND THE ARRIVAL NEED THEM: each listed seat with its holder and this week's battle at it (a
@@ -306,13 +349,14 @@ export async function seatsWithHolders(db, seats, nowS) {
  * alone), at most SETTLE_WEEKS_MAX back. Cheap when nothing is due: one read.
  * @param {any} db
  * @param {number} nowS
+ * @param {number|null} [zero] SEASON1: the week Season 0 began, or null
  */
-export async function settleDue(db, nowS) {
+export async function settleDue(db, nowS, zero = null) {
   const current = weekAt(nowS);
   const last = (await db.prepare('SELECT MAX(week) AS w FROM town_seat_weeks').first())?.w;
   const from = Math.max(last == null ? current - 1 : Number(last) + 1, current - SETTLE_WEEKS_MAX);
   let n = 0;
-  for (let w = from; w < current; w++) if ((await settleWeek(db, w, nowS)).settled) n++;
+  for (let w = from; w < current; w++) if ((await settleWeek(db, w, nowS, zero)).settled) n++;
   return n;
 }
 
@@ -342,13 +386,13 @@ export async function relinquishSeat({ db, nowS }, player, env, { character, key
  * (seatGlyphsOf), its guildmaster the title (seatTitleOf). `{ glyphs, title, ts }` - empty and null for a character in no
  * guild, or one holding none.
  */
-export async function seatBadgeOf(db, playerId, character) {
+export async function seatBadgeOf(db, playerId, character, season = 0) {   // SEASON1: the Season counted, on the title's claim
   const m = typeof character === 'string'
     ? await db.prepare('SELECT guild_id, rank FROM guild_members WHERE player = ? AND char_id = ?').bind(playerId, character).first() : null;
   if (!m) return { glyphs: [], title: null, ts: null };
   const { results = [] } = await db.prepare('SELECT key, tier, region FROM town_seat_holds WHERE guild_id = ? ORDER BY key').bind(m.guild_id).all();
   const holds = results.map((h) => ({ key: Number(h.key), tier: h.tier, region: Number(h.region) }));
-  const t = Number(m.rank) === GUILD_RANK_MASTER ? seatTitleOf(holds) : null;
+  const t = Number(m.rank) === GUILD_RANK_MASTER ? seatTitleOf(holds, season) : null;
   return { glyphs: seatGlyphsOf(holds), title: t?.title ?? null, ts: t?.ts ?? null };
 }
 /** SEAT1c: the seat titles an ACCOUNT may choose to wear - those its guildmaster characters' guilds' Charters give. The
@@ -358,7 +402,8 @@ export async function seatTitlesOf(db, playerId) {
   const { results = [] } = await db.prepare(`SELECT h.key, h.tier, h.region FROM town_seat_holds h
     JOIN guild_members m ON m.guild_id = h.guild_id WHERE m.player = ? AND m.rank = ?`).bind(playerId, GUILD_RANK_MASTER).all();
   const out = new Set(results.map((h) => (h.tier === 'crown' ? 'protector' : 'warden')));
-  // CROWN1 part two: and a Royal Tourney's champion, the account's own for good
-  if (await db.prepare("SELECT 1 FROM town_seat_titles WHERE account = ? AND title = 'champion' LIMIT 1").bind(playerId).first()) out.add('champion');
-  return ['warden', 'protector', 'champion'].filter((t) => out.has(t));
+  // CROWN1 part two: and a Royal Tourney's champion, the account's own for good; SEASON1: and a Season's crowned and keeper
+  const { results: kept = [] } = await db.prepare('SELECT DISTINCT title FROM town_seat_titles WHERE account = ?').bind(playerId).all();
+  for (const k of kept) out.add(k.title);
+  return ['warden', 'protector', 'crowned', 'keeper', 'champion'].filter((t) => out.has(t));
 }

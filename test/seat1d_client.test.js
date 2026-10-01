@@ -260,7 +260,8 @@ test('SEAT1d THE HOSTS BY SOURCE: the service\'s routes and the Turning\'s write
   assert.match(idx, /'\/v1\/seats\/bounty': \(\) => claimBounty\(ctx, who\.player, env, body\),/);
   assert.match(idx, /const r = await homesInTown\(ctx, who\.player, body, \{ seats: seatsOpenFor\(who\.player, env\) \}\);/);
   const tu = rd('server-account/src/seatTurning.js');
-  assert.match(tu, /const plan = turningPlan\(\{ week, seats, treasuries: new Map\(purses\.map\(\(p\) => \[p\.guild_id, Number\(p\.balance\)\]\)\), active: await activeIn\(db, week\) \}\);/);
+  // PIN MOVED (SEASON1): the plan reckoned, then Season 0's end stripping what it sets up for the next
+  assert.match(tu, /const reckonedPlan = turningPlan\(\{ week, seats, treasuries: new Map\(purses\.map\(\(p\) => \[p\.guild_id, Number\(p\.balance\)\]\)\), active: await activeIn\(db, week\) \}\);/);
   const mk = rd('server-account/src/market.js');
   assert.match(mk, /const tt = await titheAt\(db, nowS, from, rowBoard\(l\)\);/);
   assert.match(mk, /const ct = road\.courier > 0 \? await titheAt\(db, nowS, region, boardOf\(board\)\) : null;/);

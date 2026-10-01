@@ -464,8 +464,8 @@
  {
   "name": "SEAT2a3-forfeit-pair",
   "file": "server-account/src/seatSiege.js",
-  "old": "WHERE r.result = 'forfeit' AND x.attacker = ? AND x.defender = ? AND r.week > ? AND r.week < ? LIMIT 1`).bind(b.attacker, b.defender, W - SIEGE_PAIR_WEEKS, W).first());",
-  "new": "WHERE r.result = 'forfeit' AND x.attacker = ? AND x.defender = ? AND r.week > ? AND r.week < ? LIMIT 1`).bind(b.attacker, b.defender, W, W).first());",
+  "old": "AND r.week >= ? AND r.week < ? LIMIT 1`).bind(b.attacker, b.defender, seasonFloor(W, zero), W).first());",
+  "new": "AND r.week >= ? AND r.week < ? LIMIT 1`).bind(b.attacker, b.defender, W, W).first());",
   "tests": [
    "test/seat2a_siege_service.test.js",
    "test/seat2a_siege_client.test.js"
@@ -564,8 +564,8 @@
  {
   "name": "SEAT2a3-claim-once",
   "file": "server-account/src/seatSiege.js",
-  "old": "  const applied = !r && await applyResult(db, b, c, nowS);",
-  "new": "  const applied = await applyResult(db, b, c, nowS);",
+  "old": "  const applied = !r && await applyResult(db, b, c, nowS, zero);",
+  "new": "  const applied = await applyResult(db, b, c, nowS, zero);",
   "tests": [
    "test/seat2a_siege_service.test.js",
    "test/seat2a_siege_client.test.js"
@@ -596,8 +596,8 @@
  {
   "name": "SEAT2a3-honours-pair",
   "file": "server-account/src/seatSiege.js",
-  "old": "      AND ((x.attacker = ?3 AND x.defender = ?4) OR (x.attacker = ?4 AND x.defender = ?3)) LIMIT 1`).bind(c.sw - SIEGE_PAIR_WEEKS, c.sw, b.attacker, b.defender, c.sk).first());",
-  "new": "      AND ((x.attacker = ?3 AND x.defender = ?4) OR (x.attacker = ?4 AND x.defender = ?3)) LIMIT 1`).bind(c.sw, c.sw, b.attacker, b.defender, c.sk).first());",
+  "old": "LIMIT 1`).bind(seasonFloor(c.sw, zero), c.sw, b.attacker, b.defender, c.sk).first());",
+  "new": "LIMIT 1`).bind(c.sw + 1, c.sw, b.attacker, b.defender, c.sk).first());",
   "tests": [
    "test/seat2a_siege_service.test.js",
    "test/seat2a_siege_client.test.js"
@@ -606,8 +606,8 @@
  {
   "name": "SEAT2a3-honours-pair-marks",
   "file": "server-account/src/seatSiege.js",
-  "old": "    WHERE h.marks > 0 AND h.week > ?1 AND h.week <= ?2",
-  "new": "    WHERE h.week > ?1 AND h.week <= ?2",
+  "old": "    WHERE h.marks > 0 AND h.week >= ?1 AND h.week <= ?2",
+  "new": "    WHERE h.week >= ?1 AND h.week <= ?2",
   "tests": [
    "test/seat2a_siege_service.test.js",
    "test/seat2a_siege_client.test.js"

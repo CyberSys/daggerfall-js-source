@@ -830,6 +830,18 @@ anyone's note. The Guilds tab also hangs the town's recruitment notes as their g
   - the Charters stand - holding across Seasons is a story the server should be able to tell;
   - the Season's **Chronicle** is written (9.2).
 
+BUILT (SEASON1 part one, 2026-10-01, `acct52`; `06-Systems/Online-Arc.md` SEASON1): the calendar (`townSeatLaw.js`
+`seasonOf`) from the week the account service's `SEASON_ZERO_WEEK` names - DECIDED: Season 0 begins at a week set when
+the seats open to everyone, not at SEAT1c's shipping, and with none set no Season is counted (every Season-bound rule
+keeps its 8-week stand-in); the names (`seatSeasonName` - "Season 0", then the months, then "the Season of Morning Star
+II"); the soft reset at the Turning that closes a Season's last week - its titles kept for good (`town_seat_titles`) by
+the guild's guildmaster at that Turning (DECIDED: a Charter lapsing at that Turning, or a guild with no guildmaster,
+earns none; "held all 8 weeks" is held from the Season's first week), Legacy cleared, Standing halfway back toward 50
+(rounded toward it), the Charters standing, and the Chronicle's line at every seat held; a Pact to its Season's end and
+the once-a-Season rules (Honours, a forfeit's Standing) over the Season itself; the Season on every seat title's claim
+(`ts`) and on the Seat tab. NOT YET: the banner ribbon (it needs the token and the name tag - with the Tides, SEASON1
+part two); the fortifications' wear (SEAT2b has none to wear); the Chronicle as a book (9.2, part three).
+
 ### 9.2 The Chronicle and the Hall of Records
 
 Every claim, siege, Tourney, revolt, Edict, fealty and change of hands is a `town_seat_history` row. A **Hall of
@@ -960,7 +972,7 @@ bible updated in the same change, mutants recorded.
 | **SEAT2b** | Fortifications, the Barracks' guards, the Gatehouse, the Ram, revolts | Needs PROF11 (Masonry), PROF4 (Carpentry), PROF3 (Smithing's ingots for the Ram) and PROF8 (the Pearls tier-2 Shrine and Apothecary ask) |
 | **CROWN1** | The crown tier: reach, the Marches, the Free Lands, crown glyphs, the Saturday slots, Royal Tourney, Conscription - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` CROWN1: reach, the Marches' share, the Free Lands' Watch, Conscription; `acct49`; the crown glyphs were SEAT1c's, the Saturday slots SEAT2a's); **PART TWO (the Royal Tourney) SHIPPED** - the relay (`world142`), the service (`acct50`) and the client; CROWN1 is whole. Built before SEAT2b, which waits on PROF11 (Masonry) and which CROWN1 does not read | 4.4's worked example pinned to the unit; every Conscription share pinned |
 | **CROWN2** | Fealty and Pacts - **SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` CROWN2; `acct51`, migration `0055`) | The tribute, the half-reach and the break's Standing pinned at the Turning; the pledges barred; a Pact broken early in red |
-| **SEASON1** | Seasons, the Chronicle, the Hall of Records, Tides | - |
+| **SEASON1** | Seasons, the Chronicle, the Hall of Records, Tides - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` SEASON1: the calendar from `SEASON_ZERO_WEEK`, the names, a Season's end - its titles, the soft reset, the Chronicle's line - Season 0's wipe, the Season on the rules and the titles; `acct52`); the Tides and the banner ribbon are part two, the Hall of Records part three | A Season's end set against a twin counting none; Season 0's wipe |
 
 ## 14. What remains to measure
 
@@ -1083,7 +1095,12 @@ Every law in Home.md's Process section, and what it demands of this arc:
   glyph see seats, so each slice is played on the live servers before anyone else sees it.
 - **Season 0.** The first Season is a four-week open beta. At its end seats, influence, fortifications and history
   are wiped; Marks, the Stores and profession tracks are kept (players' effort is never wiped). Season 1 begins at
-  the next Turning (9.1).
+  the next Turning (9.1). BUILT (SEASON1 part one): Season 0's last Turning settles its own week (its upkeep, Tithe
+  shares, a Royal Tourney's prize), sets nothing up for the next (no claim, Right, battle, Edict or Legacy - the Edicts
+  proclaimed for it void) and wipes the Charters, influence, pledges, binds, Legacy, Rights, the sieges' memory,
+  windows, stockpiles and Levies, history, fealty and Pacts (`seatTurning.js` `SEASON_ZERO_WIPED`). DECIDED: what money is
+  still owed out of (a battle's contracts, an Edict's escrow, a Royal Tourney's prize), the titles and Honours earned,
+  and the red lines stay; the beta crowns no one.
 - **Patch notes** for every slice, in the house style (`PATCH-NOTES-*.md`, Discord-sized, player-facing).
 - **Moderation.** Guild names and tags pass the name filter they already pass; heraldry is a fixed palette and fixed
   devices, so nothing offensive can be drawn on a banner. Moderators (MOD1) may **void a siege** (`/siege void`) - a

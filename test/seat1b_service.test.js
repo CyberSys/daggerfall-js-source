@@ -294,7 +294,7 @@ test('SEAT1b THE ACCOUNT\'S CAP AND THE STANDINGS\' SHAPE: 2,000 an account a se
   }
   const s = await standings(gm);
   assert.equal(s.standings[0].influence, ACCOUNT_SEAT_WEEK_CAP, 'one account, 2,000 a seat a week');
-  assert.deepEqual(Object.keys(s).sort(), ['battle', 'chronicle', 'defence', 'fight', 'holder', 'mine', 'phase', 'reckoningAt', 'royal', 'seat', 'standings', 'turningAt', 'week']);   // SEAT1c: the holder, its defence, the week's battle, the Chronicle; SEAT2a (PIN MOVED): the battle placed and its sides (`fight`, null where none); CROWN1 part two (PIN MOVED): a crown's Royal Tourney (`royal`, null where none)
+  assert.deepEqual(Object.keys(s).sort(), ['battle', 'chronicle', 'defence', 'fight', 'holder', 'mine', 'phase', 'reckoningAt', 'royal', 'season', 'seat', 'standings', 'turningAt', 'week']);   // SEAT1c: the holder, its defence, the week's battle, the Chronicle; SEAT2a (PIN MOVED): the battle placed and its sides (`fight`, null where none); CROWN1 part two (PIN MOVED): a crown's Royal Tourney (`royal`, null where none); SEASON1 (PIN MOVED): the Season counted (`season`, null where none)
   assert.deepEqual([s.phase, s.week, s.seat.key], ['muster', week, ANTICLERE.key]);
   assert.deepEqual(s.standings[0].guild, { id: gid, name: 'Silver Hand', tag: 'SH', heraldry: null });
   // CROWN2 (PIN MOVED): the guild's crown politics ride `mine` too

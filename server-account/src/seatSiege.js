@@ -31,7 +31,7 @@ import { verifySiegeReceipt } from '../../src/net/siegeReceipt.js';
 import { RENOWN_XP_MAX, RENOWN_TRACKS_MAX } from '../../src/net/renown.js';
 import {
   seatWeekOf, seatKeyOk, settleField, passWindowEnds, passOpens, siegeWinner, siegeAftermath, spoilsOf, SIEGE_HONOURS,
-  SIEGE_PAIR_WEEKS, CLAIM_FEE, STANDING_START, STANDING_MAX,
+  CLAIM_FEE, STANDING_START, STANDING_MAX, seasonFloor, seasonZeroOf,
 } from '../../src/net/townSeatLaw.js';
 
 const weekAt = (nowS) => seatWeekOf(nowS * 1000);
@@ -112,7 +112,7 @@ async function higherOf(db, b) {
  *   the Sellswords: a signed contract's escrowed fee paid to its Sellsword, an unsigned one's home to its guild.
  * Answers whether this request wrote it (a racing one finds it written).
  */
-async function applyResult(db, b, c, nowS) {
+async function applyResult(db, b, c, nowS, zero) {
   const W = b.week, K = b.key, result = c.r, raised = c.a === 1 ? 1 : 0;
   const names = new Map();
   const { results: gs = [] } = await db.prepare('SELECT id, name, tag FROM guilds WHERE id IN (?, ?)').bind(b.attacker, b.defender).all();
@@ -158,7 +158,7 @@ async function applyResult(db, b, c, nowS) {
     return run([...head(null), history('tourney-unheld', {}), ...swords]);
   }
   const forfeitPaid = result === 'forfeit' && !!(await db.prepare(`SELECT 1 FROM town_seat_results r JOIN town_seat_battles x ON x.week = r.week AND x.key = r.key
-    WHERE r.result = 'forfeit' AND x.attacker = ? AND x.defender = ? AND r.week > ? AND r.week < ? LIMIT 1`).bind(b.attacker, b.defender, W - SIEGE_PAIR_WEEKS, W).first());
+    WHERE r.result = 'forfeit' AND x.attacker = ? AND x.defender = ? AND r.week >= ? AND r.week < ? LIMIT 1`).bind(b.attacker, b.defender, seasonFloor(W, zero), W).first());   // SEASON1: this Season's
   const after = siegeAftermath('siege', result, raised, { forfeitPaid });
   const stmts = [...head(siegeWinner(result))];
   if (after.taken) {
@@ -192,7 +192,7 @@ async function applyResult(db, b, c, nowS) {
  * result written by the first to arrive (applyResult), and this fighter's Honours where it earned them: on the winning
  * side 50 Marks and 2,000 Renown XP to `character`, on the losing 25 and 1,000, and a roll on the Spoils of War into that
  * character's Stores - once a battle an account; nothing but the row where the two guilds' Honours were spent this Season
- * (townSeatLaw.js SIEGE_PAIR_WEEKS). Answers `{ result, winner, applied, honours }` - `honours` null where the receipt
+ * (townSeatLaw.js seasonFloor - SEASON1). Answers `{ result, winner, applied, honours }` - `honours` null where the receipt
  * earned none.
  * @param {{db: any, nowS: number, subtle: SubtleCrypto}} ctx
  * @param {CryptoKey|null} publicKey
@@ -208,17 +208,19 @@ export async function claimSiege({ db, nowS, subtle }, player, env, { receipt, c
   const b = await battleAt(db, c.sw, c.sk);
   if (!b || b.state === 'void') return { error: 'battle-none' };
   let r = await resultAt(db, c.sw, c.sk);
-  const applied = !r && await applyResult(db, b, c, nowS);
+  const zero = seasonZeroOf(env?.SEASON_ZERO_WEEK);   // SEASON1: the once-a-Season rules read the Season counted
+  const applied = !r && await applyResult(db, b, c, nowS, zero);
   r = await resultAt(db, c.sw, c.sk);
   if (!r) throw new Error('claimSiege: the result was neither written nor found');   // a 500, never a quiet loss
   const out = { result: r.result, winner: r.winner ?? null, applied };
   if (c.h !== 1) return { ...out, honours: null };
   if (typeof character !== 'string' || !character || character.length > 64) return { error: 'honours-character' };
   if (await db.prepare('SELECT 1 FROM town_seat_honours WHERE week = ? AND key = ? AND account = ?').bind(c.sw, c.sk, player.id).first()) return { error: 'honours-twice' };
-  // the pair's Honours this Season: any other battle between the two guilds, either way round, in the last 8 weeks
+  // the pair's Honours this Season: any other battle between the two guilds, either way round, since the Season began (SEASON1;
+  // with none counted, in the last 8 weeks)
   const spent = !!(await db.prepare(`SELECT 1 FROM town_seat_honours h JOIN town_seat_battles x ON x.week = h.week AND x.key = h.key
-    WHERE h.marks > 0 AND h.week > ?1 AND h.week <= ?2 AND NOT (h.week = ?2 AND h.key = ?5)
-      AND ((x.attacker = ?3 AND x.defender = ?4) OR (x.attacker = ?4 AND x.defender = ?3)) LIMIT 1`).bind(c.sw - SIEGE_PAIR_WEEKS, c.sw, b.attacker, b.defender, c.sk).first());
+    WHERE h.marks > 0 AND h.week >= ?1 AND h.week <= ?2 AND NOT (h.week = ?2 AND h.key = ?5)
+      AND ((x.attacker = ?3 AND x.defender = ?4) OR (x.attacker = ?4 AND x.defender = ?3)) LIMIT 1`).bind(seasonFloor(c.sw, zero), c.sw, b.attacker, b.defender, c.sk).first());
   const won = r.winner === c.sd;
   const give = spent ? { marks: 0, xp: 0 } : won ? SIEGE_HONOURS.win : SIEGE_HONOURS.lose;
   const spoil = spent ? null : spoilsOf(c.sw, c.sk, player.id);

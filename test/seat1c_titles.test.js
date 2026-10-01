@@ -108,5 +108,6 @@ test('SEAT1c THE SERVICE\'S MINT AND WARDROBE: a palace seat\'s guildmaster may 
   assert.deepEqual([m3.title, m3.glyphs.includes('tower')], [null, false], 'the guildmaster\'s other character: neither');
   assert.equal((await svc.call('/v1/account/title', { title: 'warden' }, outsider.secret)).status, 403);
   // PIN MOVED (CROWN1 part two): the champion's title is the account's own, before the guildmaster's seat titles
-  assert.match(rd('server-account/src/index.js'), /const seatT = wornT === 'champion' \? \(champ \? \{ t: wornT, ts: champ\.ts \} : \{\}\)\s*: SEAT_TITLES\.includes\(wornT\) \? \(seatBadge\?\.title === wornT \? \{ t: wornT, ts: seatBadge\.ts \} : \{\}\) : \(wornT \? \{ t: wornT \} : \{\}\);/);
+  // PIN MOVED (SEASON1): every title kept for good - a Season's crowned and keeper beside the champion - worn off its own row
+  assert.match(rd('server-account/src/index.js'), /const seatT = KEPT_TITLES\.includes\(wornT\) \? \(kept \? \{ t: wornT, ts: kept\.ts \} : \{\}\)\s*: SEAT_TITLES\.includes\(wornT\) \? \(seatBadge\?\.title === wornT \? \{ t: wornT, ts: seatBadge\.ts \} : \{\}\) : \(wornT \? \{ t: wornT \} : \{\}\);/);
 });

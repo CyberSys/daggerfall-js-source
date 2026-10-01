@@ -20,7 +20,7 @@ import {
   SEAT_PLEDGE_WORDS, SEAT_PLEDGE_REGIONS_MAX, TRIBUTE_MARKS_PER_INFLUENCE,
   seatHolderLine, seatBattleLine, seatClaimLine, chronicleLine, SEAT_RELINQUISH_WORDS,
   seatRuleLine, seatHoldingLines, edictLine, edictMayFollow, edictForTier, royalTourneyLines, EDICTS, TITHE_CAP, SEAT_LEVER_RANKS, BOUNTY_MARKS,
-  politicsRows, POLITICS_ACTS,
+  politicsRows, POLITICS_ACTS, seasonLine,
   battleAnnouncement, sideLine, siegeWindowText, SIEGE_WINDOW_DAYS, SIEGE_WINDOW_HOURS, SIEGE_WINDOW_DEFAULT, SELLSWORD_FEE_MAX, passOpens, passWindowEnds,
 } from '../net/townSeatLaw.js';
 import { GUILD_RANK_MASTER } from '../net/guildLaw.js';
@@ -361,6 +361,8 @@ export function createSeatTab(host, ui) {
       if (data.royal) body.append(royalNode(data.royal));   // CROWN1 part two: the Royal Tourney ruling here
       // SEAT2a: the holder's window, its Officers' and guildmaster's to set
       if (holder && data.mine?.guild === holder.guild.id && SEAT_LEVER_RANKS.includes(data.mine?.rank)) body.append(windowNode(data.fight?.window ?? null));
+      const season = seasonLine(data.week, data.season ?? null);   // SEASON1
+      if (season) body.append(el('p', 'notice-seat-week notice-seat-season', season));
       body.append(el('p', 'notice-seat-week', seatWeekLine(data, ui.nowS())));
       body.append(el('p', 'notice-section', 'This week\'s standings'));
       body.append(standingsNode());

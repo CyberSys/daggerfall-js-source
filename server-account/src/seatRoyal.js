@@ -26,7 +26,7 @@ import { utcDay, MARKS_MAX } from '../../src/net/marksLaw.js';
 import { mintSiegeOrder, siegeFieldValid } from '../../src/net/identityToken.js';
 import { verifyRoyalReceipt } from '../../src/net/siegeReceipt.js';
 import {
-  seatWeekOf, seatWeekStartMs, seatKeyOk, SEAT_WEEK_MS, ROYAL_PAIR_DAY, ROYAL_LADDER_ROWS, settleRing, royalStandings, CROWN_SEAT_REGIONS,
+  seatWeekOf, seatWeekStartMs, seatKeyOk, SEAT_WEEK_MS, ROYAL_PAIR_DAY, ROYAL_LADDER_ROWS, settleRing, royalStandings, CROWN_SEAT_REGIONS, seasonOf,
 } from '../../src/net/townSeatLaw.js';
 
 const weekAt = (nowS) => seatWeekOf(nowS * 1000);
@@ -171,9 +171,13 @@ export async function royalTurning(db, week, nowS, history, registry) {
   return out;
 }
 
-/** THE CHAMPION'S TITLE an account wears (7.6, "Champion of <Kingdom>, Season N" for good): its newest - `{ ts }` the
- *  crown's key and the Season (0 until SEASON1 counts them, as every seat title's) - or null. */
-export async function championOf(db, playerId) {
-  const r = await db.prepare("SELECT key FROM town_seat_titles WHERE account = ? AND title = 'champion' ORDER BY week DESC, key LIMIT 1").bind(playerId).first();
-  return r ? { ts: [Number(r.key), 0] } : null;
+/** The titles an account keeps for good (`town_seat_titles`): a Season's crowned and keeper (SEASON1, 9.1), the Royal
+ *  Tourney's champion (7.6). */
+export const KEPT_TITLES = Object.freeze(['crowned', 'keeper', 'champion']);
+/** A TITLE KEPT FOR GOOD an account wears: its newest of `title` - `{ ts }` its seat's key and the Season of the week it
+ *  was won (SEASON1 - seasonOf over `zero`, 0 where none was counted) - or null. */
+export async function keptTitleOf(db, playerId, title, zero = null) {
+  if (!KEPT_TITLES.includes(title)) return null;
+  const r = await db.prepare('SELECT key, week FROM town_seat_titles WHERE account = ? AND title = ? ORDER BY week DESC, key LIMIT 1').bind(playerId, title).first();
+  return r ? { ts: [Number(r.key), seasonOf(Number(r.week), zero)?.n ?? 0] } : null;
 }

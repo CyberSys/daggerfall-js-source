@@ -266,7 +266,7 @@
   {
     "name": "SEAT1c-settle-standing-kept",
     "file": "server-account/src/seatTurning.js",
-    "old": "    stmts.push(db.prepare('UPDATE town_seat_holds SET standing = ? WHERE key = ? AND guild_id = ?').bind(w.standing, w.key, w.guild));",
+    "old": "    stmts.push(db.prepare('UPDATE town_seat_holds SET standing = ? WHERE key = ? AND guild_id = ?').bind(ending ? seasonStanding(w.standing) : w.standing, w.key, w.guild));",
     "new": "    stmts.push(db.prepare('SELECT ?, ?, ?').bind(w.standing, w.key, w.guild));",
     "tests": [
       "test/seat1c_service.test.js"
@@ -338,7 +338,7 @@
   {
     "name": "SEAT1c-no-settle-on-read",
     "file": "server-account/src/index.js",
-    "old": "        if (seatsOpenFor(who.player, env)) await settleDue(ctx.db, nowS);\n",
+    "old": "        if (seatsOpenFor(who.player, env)) await settleDue(ctx.db, nowS, seasonZeroOf(env.SEASON_ZERO_WEEK));   // SEASON1: a Season's end at its Turning\n",
     "new": "",
     "tests": [
       "test/seat1c_service.test.js"
@@ -464,7 +464,7 @@
   {
     "name": "SEAT1c-law-crown-not-first",
     "file": "src/net/townSeatLaw.js",
-    "old": "  if (crown) return { title: 'protector', ts: [crown.key, 0] };",
+    "old": "  if (crown) return { title: 'protector', ts: [crown.key, season] };",
     "new": "",
     "tests": [
       "test/seat1c_titles.test.js"
@@ -509,8 +509,8 @@
   {
     "name": "SEAT1c-badge-member-title",
     "file": "server-account/src/seatTurning.js",
-    "old": "  const t = Number(m.rank) === GUILD_RANK_MASTER ? seatTitleOf(holds) : null;",
-    "new": "  const t = seatTitleOf(holds);",
+    "old": "  const t = Number(m.rank) === GUILD_RANK_MASTER ? seatTitleOf(holds, season) : null;",
+    "new": "  const t = seatTitleOf(holds, season);",
     "tests": [
       "test/seat1c_titles.test.js"
     ]

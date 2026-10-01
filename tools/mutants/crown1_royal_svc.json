@@ -351,8 +351,8 @@
  {
   "name": "CROWN1S-champ-ts",
   "file": "server-account/src/seatRoyal.js",
-  "old": "  return r ? { ts: [Number(r.key), 0] } : null;",
-  "new": "  return r ? { ts: [0, 0] } : null;",
+  "old": "  return r ? { ts: [Number(r.key), seasonOf(Number(r.week), zero)?.n ?? 0] } : null;",
+  "new": "  return r ? { ts: [0, seasonOf(Number(r.week), zero)?.n ?? 0] } : null;",
   "tests": [
    "test/crown1_royal_service.test.js"
   ]
@@ -378,7 +378,7 @@
  {
   "name": "CROWN1S-titles-champion",
   "file": "server-account/src/seatTurning.js",
-  "old": "  if (await db.prepare(\"SELECT 1 FROM town_seat_titles WHERE account = ? AND title = 'champion' LIMIT 1\").bind(playerId).first()) out.add('champion');\n",
+  "old": "  for (const k of kept) out.add(k.title);\n",
   "new": "",
   "tests": [
    "test/crown1_royal_service.test.js"
@@ -387,8 +387,8 @@
  {
   "name": "CROWN1S-mint-champion",
   "file": "server-account/src/index.js",
-  "old": "        const seatT = wornT === 'champion' ? (champ ? { t: wornT, ts: champ.ts } : {})",
-  "new": "        const seatT = wornT === 'champion' ? (champ ? { t: wornT } : {})",
+  "old": "        const seatT = KEPT_TITLES.includes(wornT) ? (kept ? { t: wornT, ts: kept.ts } : {})",
+  "new": "        const seatT = KEPT_TITLES.includes(wornT) ? (kept ? { t: wornT } : {})",
   "tests": [
    "test/crown1_royal_service.test.js"
   ]

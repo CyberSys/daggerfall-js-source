@@ -168,7 +168,8 @@ test('SEAT1c THE BOOK AND THE SEAT TAB: a derived seat dressed in its holder and
 
 test('SEAT1c THE HOSTS BY SOURCE: the service settles the Turning before any seat answer, decorates the list with holders and battles, routes relinquish; a guild holding a Charter or named in a battle to come does not go; the holder counts at its seat and pledges nowhere else in its region; the client\'s seats are dressed, the arrival names the holder, the banners fly its colours (mutants: each seam)', () => {
   const idx = rd('server-account/src/index.js');
-  assert.match(idx, /if \(seatsOpenFor\(who\.player, env\)\) await settleDue\(ctx\.db, nowS\);\n\s*const act = \{/);
+  // PIN MOVED (SEASON1): the Turnings due read the Season counted
+  assert.match(idx, /if \(seatsOpenFor\(who\.player, env\)\) await settleDue\(ctx\.db, nowS, seasonZeroOf\(env\.SEASON_ZERO_WEEK\)\);[^\n]*\n\s*const act = \{/);
   // PIN MOVED (CROWN2): the list carries the server's red lines too
   assert.match(idx, /return 'error' in r \? r : \{ \.\.\.r, seats: await seatsWithHolders\(ctx\.db, r\.seats, nowS\), red: await redOf\(ctx\.db, nowS\) \};/);
   assert.match(idx, /'\/v1\/seats\/relinquish': \(\) => relinquishSeat\(ctx, who\.player, env, body\),/);

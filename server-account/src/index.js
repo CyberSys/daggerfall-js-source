@@ -155,7 +155,8 @@ import { settleDue, seatsWithHolders, relinquishSeat, seatBadgeOf, seatTitlesOf 
 import { setTithe, proclaimEdict, claimBounty } from './seatHolding.js';   // SEAT1d: the holder's levers, a Bounty's camp
 import { setWindow, signBattle, unsignBattle, hireSellsword, withdrawHire, siegesLive } from './seatBattles.js';   // SEAT2a: the battles' week
 import { siegePass, claimSiege } from './seatSiege.js';   // SEAT2a part three: the pass, the result, Honours
-import { royalPass, claimRoyal, championOf } from './seatRoyal.js';   // CROWN1 part two: the Royal Tourney's pass, its bouts, its champion's title
+import { royalPass, claimRoyal, keptTitleOf, KEPT_TITLES } from './seatRoyal.js';   // CROWN1 part two: the Royal Tourney's pass, its bouts, its champion's title (SEASON1: every title kept)
+import { seatWeekOf, seasonOf, seasonZeroOf } from '../../src/net/townSeatLaw.js';   // SEASON1: the Season counted
 import { offerFealty, acceptFealty, breakFealty, offerPact, breakPact, redOf } from './seatPolitics.js';   // CROWN2: fealty and Pacts, the red lines
 
 /** SEAT1c: the account's row with the Charter titles it may wear laid on it (`seatTitles`, titles.js titlesHeld), while the
@@ -555,11 +556,13 @@ const service = {
         // title worn only by the guildmaster character this token is minted for, with its claim (`ts`) beside it
         const seats = seatsOpenFor(who.player, env);
         const worn = seats ? { ...who.player, seatTitles: await seatTitlesOf(ctx.db, who.player.id) } : who.player;
-        const seatBadge = seats && renownCharacterOk(body.character) ? await seatBadgeOf(ctx.db, who.player.id, body.character) : null;
+        const zero = seasonZeroOf(env.SEASON_ZERO_WEEK);   // SEASON1: the Season on a title's claim
+        const seatBadge = seats && renownCharacterOk(body.character) ? await seatBadgeOf(ctx.db, who.player.id, body.character, seasonOf(seatWeekOf(nowS * 1000), zero)?.n ?? 0) : null;
         const wornT = titleWorn(worn, env);
-        // CROWN1 part two: the champion's is the account's own, kept for good (seatRoyal.js championOf) - no guildmaster's
-        const champ = seats && wornT === 'champion' ? await championOf(ctx.db, who.player.id) : null;
-        const seatT = wornT === 'champion' ? (champ ? { t: wornT, ts: champ.ts } : {})
+        // CROWN1 part two: the champion's is the account's own, kept for good - no guildmaster's; SEASON1: and so are a
+        // Season's crowned and keeper (seatRoyal.js keptTitleOf)
+        const kept = seats && KEPT_TITLES.includes(wornT) ? await keptTitleOf(ctx.db, who.player.id, wornT, zero) : null;
+        const seatT = KEPT_TITLES.includes(wornT) ? (kept ? { t: wornT, ts: kept.ts } : {})
           : SEAT_TITLES.includes(wornT) ? (seatBadge?.title === wornT ? { t: wornT, ts: seatBadge.ts } : {}) : (wornT ? { t: wornT } : {});
         const wardrobe = {
           ...seatT,
@@ -877,7 +880,7 @@ const service = {
         if (request.method !== 'POST') return no('method', 405, origin);
         // SEAT1c (Seats-Arc 5.2): "the account service settles week N the first time anything asks about any seat after
         // N's boundary" - every Turning due, before the ask is answered (one read when none is)
-        if (seatsOpenFor(who.player, env)) await settleDue(ctx.db, nowS);
+        if (seatsOpenFor(who.player, env)) await settleDue(ctx.db, nowS, seasonZeroOf(env.SEASON_ZERO_WEEK));   // SEASON1: a Season's end at its Turning
         const act = {
           '/v1/seats/list': async () => {
             const r = await listSeats(ctx, who.player, env);

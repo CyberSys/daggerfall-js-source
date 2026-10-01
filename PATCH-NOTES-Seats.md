@@ -110,6 +110,15 @@ The first part of guild town control is in. It is open to the developers first, 
 - **Pacts.** Any two guilds can sign a **Pact of non-aggression**. One side offers it on the Seat tab, and the other offers it back to sign it. It lasts to the end of the Season (every 8 weeks for now). Neither guild can pledge against a seat the other holds. A Pact can be broken early, but the whole server is told in red.
 - None of this can be sworn or signed while either guild is pledged against the other's seat that week.
 
+## Seasons (online)
+- **The Seasons.** The war runs in **Seasons of 8 weeks**, after a **four-week Season 0** (the open beta). They are named for the months: the Season of Morning Star, of Sun's Dawn, and on through the year. The Seat tab shows the week of the Season you're in.
+- **At a Season's end**, at its last Turning:
+  - every guild holding a crown earns **"Crowned in Season N"**, and every guild that held a seat for the whole Season earns **"Keeper of <Town>, Season N"**. The titles go to the Guildmaster and are kept for good.
+  - Legacy is cleared, and every seat's Standing moves **halfway back toward 50**.
+  - The Charters stand, and every seat's Chronicle records who held it at the Season's end.
+- **Season 0's end** wipes the seats, influence, Chronicles, fealty and Pacts. Your Marks, Stores, profession tracks, titles and Honours are kept.
+- **Once a Season** now means the Season itself. A Pact lasts to the Season's end, and the same two guilds earn Honours from each other once a Season.
+
 ## Behind the scenes
 - **The registry.** Each client works out the seats from its own game files. When you stand in a seat town, your game reports it to the server once a day. The server trusts a seat once three players whose accounts are at least a week old agree on it exactly.
 - **Fair sieges.** In a siege the server keeps every fighter's health and checks every blow, spell and step: a blow lands only if the weapon you carry can reach and deal it, nobody heals or strikes faster than the game allows, and nobody runs faster than the fastest legal runner. A siege's health is its own (300, more with your Renown) and never touches your character's health, items or gold. A siege room lets in only the fighters each side signed, and spectators.
@@ -118,10 +127,11 @@ The first part of guild town control is in. It is open to the developers first, 
 ---
 
 ### For the team
-- Apply migrations **`0047_town_seats.sql`**, **`0048_seat_influence.sql`**, **`0049_seat_turning.sql`**, **`0050_seat_holding.sql`**, **`0051_seat_battles.sql`**, **`0052_seat_siege_results.sql`**, **`0053_crown_edicts.sql`**, **`0054_royal_tourney.sql`** and **`0055_fealty_pacts.sql`** (with the guild halls' 0045 and 0046, after main's 0044) to production D1 and deploy the account service (**`acct51`**).
+- Apply migrations **`0047_town_seats.sql`**, **`0048_seat_influence.sql`**, **`0049_seat_turning.sql`**, **`0050_seat_holding.sql`**, **`0051_seat_battles.sql`**, **`0052_seat_siege_results.sql`**, **`0053_crown_edicts.sql`**, **`0054_royal_tourney.sql`** and **`0055_fealty_pacts.sql`** (with the guild halls' 0045 and 0046, after main's 0044) to production D1 and deploy the account service (**`acct52`**).
 - **The siege blackout.** The relay's deploy now waits while a siege is live or starts within 30 minutes (it asks the account service's public `/v1/seats/sieges/live`). Dispatch it with **force** to deploy at once - a forced deploy during a siege voids it. The account deploy now waits up to five and a half hours for the relay.
 - **The economy model**: `node tools/seatEconomy.mjs` re-runs the guild-week table from the live law files (`--runs`, `--seed`, `--json`).
 - **Deploy the relay (`world142`).** It sends the Watch's ticks (world138), carries the seats' titles (world139), referees a siege's room (world140), fights its battle by the service's pass (world141) and keeps a Royal Tourney's room (world142). Deploy it before the account service: an older relay refuses a token with a seat title in it.
 - Seats are behind **`SEATS_OPEN = "dev"`** in `server-account/wrangler.toml`. Change it to `"on"` to open them to everyone.
+- **Seasons** count from **`SEASON_ZERO_WEEK`** in `server-account/wrangler.toml`, the seat week Season 0 begins. It ships empty, so no Season is counted. Set it to a week not yet past when the seats open, and never move it once a Season has begun. Season 0's last Turning wipes the seats.
 - **SEAT-COUNT**: run `ARENA2_PATH=/path/to/arena2 node tools/seatCount.mjs` to list every seat and the totals.
 - A developer can strike a false seat from the registry in chat: `/seat strike <map id>`.
