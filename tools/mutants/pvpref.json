@@ -920,8 +920,8 @@
  {
   "name": "PVPREF-relay-wave-off-clock",
   "file": "server/src/index.js",
-  "old": "      to.upAt = siegeNextWave(now, SIEGE_WAVE_MS[b?.tier] ?? SIEGE_WAVE_MS.palace);",
-  "new": "      to.upAt = now + SIEGE_WAVE_MS.palace;",
+  "old": "      to.upAt = siegeNextWave(now, siegeSideWaveMs(b?.tier, to.side, b?.walls));",
+  "new": "      to.upAt = now + 20000;",
   "tests": [
    "test/pvpref_relay.test.js"
   ]

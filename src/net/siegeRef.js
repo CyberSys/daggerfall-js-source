@@ -276,9 +276,11 @@ export function siegeRise(f, now) {
 /** A BANNER (6.2): stand within 8 m with no living enemy there - 20 seconds raises it; a contested point freezes; an
  *  abandoned half-raised banner falls back at 1 second a second. */
 export const SIEGE_BANNER = Object.freeze({ radiusM: 8, raiseS: 20, decayPerS: 1 });
-/** THE THRONE (6.2): open to the attackers while they hold 2 of a palace's 3 banners (3 of a crown's 4 - DECIDED: until
- *  SEAT2b raises the Gatehouse, the banners alone open a crown's Throne); held uncontested 120 seconds at a palace, 180
- *  at a crown, takes the seat; its progress decays 1 second a second while it is not held. */
+/** THE THRONE (6.2): open to the attackers while they hold 2 of a palace's 3 banners (3 of a crown's 4) - SEAT2b part
+ *  two: AND, where a Gatehouse stands, once it is breached (battleStep; a crown's always stands, a palace's where its
+ *  Gatehouse was raised - the pass's `sx`; a pass with none, an older service's, opens on the banners alone as SEAT2a's
+ *  DECIDED did); held uncontested 120 seconds at a palace, 180 at a crown, takes the seat; its progress decays 1 second
+ *  a second while it is not held. */
 export const SIEGE_THRONE = Object.freeze({ palace: Object.freeze({ banners: 2, holdS: 120 }), crown: Object.freeze({ banners: 3, holdS: 180 }), decayPerS: 1 });
 /** How long a battle runs, ms (6.2, 6.7 - net/townSeatLaw.js BATTLE_LENGTH_MS, pinned equal: the relay bundles this leaf);
  *  SEAT2b part two: a revolt the window's two hours (7.7). */
@@ -306,15 +308,18 @@ export function fieldOf(sf, tier, kind = 'siege') {
 }
 
 /** A NEW BATTLE: a siege's banners start the holder's (`defend`), a Tourney's no one's. CROWN1 part two: a Royal
- *  Tourney's ladder, open from `startMs` to `endMs` (its pass's week). */
-export function newBattle({ kind, tier, startMs, field, endMs = 0 }) {
+ *  Tourney's ladder, open from `startMs` to `endMs` (its pass's week). SEAT2b part two: a REVOLT's banners the holder's
+ *  too, and inert (battleStep raises none); its two hours (7.7); and every battle's WORKS and FIGURES off its pass's `sx`
+ *  (`works` - siegeWorksOf; none, an older service's pass, fights as it did before them). */
+export function newBattle({ kind, tier, startMs, field, endMs = 0, works = null }) {
   if (kind === 'royal') return newRoyal({ startMs, endMs, field });
-  const length = kind === 'tourney' ? SIEGE_LENGTH_MS.tourney : (SIEGE_LENGTH_MS[tier] ?? SIEGE_LENGTH_MS.palace);
+  const length = kind === 'tourney' || kind === 'revolt' ? SIEGE_LENGTH_MS[kind] : (SIEGE_LENGTH_MS[tier] ?? SIEGE_LENGTH_MS.palace);
   return {
     kind, tier, startMs, endMs: startMs + length, field,
     banners: field.banners.map(() => ({ side: kind === 'tourney' ? null : 'defend', raise: 0, by: null })),
     throne: 0, raised: false, attackSeen: false, defendSeen: false, at: startMs, result: null,
     reached: false,   // AUDIT-SEATS T1: whether the attackers ever stood alone at the open Throne (battleStep)
+    ...siegeWorksOf({ kind, startMs, field, works }),   // SEAT2b part two: the Walls, the Gatehouse, the Rams, the figures
   };
 }
 const flat = (p, q) => Math.hypot((p.x - q[0]) / SIEGE_UNITS_PER_M, (p.z - q[1]) / SIEGE_UNITS_PER_M);
@@ -366,6 +371,13 @@ function presentAt(fighters, point, ground = null) {
  * siege's - a Tourney's absent contender simply holds no banners at its end). Each fighter in the room is credited its
  * seconds there (`stood`, Honours' half). Answers the beat's events (`{ k: 'banner', i, side }`, `{ k: 'end', result }`);
  * the battle's `result` once ended.
+ *
+ * SEAT2b part two (6.2, 7.5, 7.7): a standing Barracks' guard at a banner or the Throne CONTESTS it - frozen, as a
+ * defender there freezes it - and RAISES NOTHING (a banner it stands at alone falls back, as an empty one does); where a
+ * Gatehouse stands the Throne opens only once it is breached; and a REVOLT raises no banner, holds no Throne and is
+ * forfeited by no one - its Rebel Captain felled puts it down (`defend`), the window's end with him standing is the
+ * rebels' (`attack`: the Charter lapses). The beat keeps the field's ground (`b.ground`) for a blow at a figure or a work
+ * between beats (siegeFigureBlow, siegeWorkBlow).
  */
 export function battleStep(b, fighters, nowMs) {
   if (b.result || nowMs < b.startMs) return [];
@@ -378,9 +390,15 @@ export function battleStep(b, fighters, nowMs) {
     if (f.side === 'attack') b.attackSeen = true; else b.defendSeen = true;
   }
   const ground = siegeGround(fighters);   // AUDIT-SEATS R1: the field's ground, this beat
+  b.ground = ground;   // SEAT2b part two: kept for a blow at a figure or a work between beats
+  if (b.kind === 'revolt') {   // SEAT2b part two (7.7): the Captain's fall, or the clock - nothing else ends a revolt
+    if (b.figures?.some((g) => g.kind === 'captain' && g.down)) return end(b, 'defend', out);
+    return nowMs >= b.endMs ? end(b, 'attack', out) : out;
+  }
   b.banners.forEach((bn, i) => {
     const p = presentAt(fighters, b.field.banners[i], ground);
     const alone = p.attack && !p.defend ? 'attack' : p.defend && !p.attack ? 'defend' : null;
+    p.defend += guardsAt(b, b.field.banners[i]);   // SEAT2b part two: a standing guard contests - counted past `alone`, so it raises nothing
     if (p.attack && p.defend) return;   // contested: frozen
     if (alone && bn.side !== alone) {
       if (bn.by !== alone) { bn.by = alone; bn.raise = 0; }
@@ -397,8 +415,11 @@ export function battleStep(b, fighters, nowMs) {
   });
   if (b.kind === 'siege') {
     const rule = SIEGE_THRONE[b.tier] ?? SIEGE_THRONE.palace;
-    const open = b.banners.filter((bn) => bn.side === 'attack').length >= rule.banners;
+    // SEAT2b part two (6.2: "opens while the attackers hold 3 of 4 banners AND the Gatehouse is breached"): behind a
+    // Gatehouse, only once it is breached - a palace whose Gatehouse stands too; none standing, the banners alone
+    const open = b.banners.filter((bn) => bn.side === 'attack').length >= rule.banners && (!b.gate || b.breached);
     const p = presentAt(fighters, b.field.throne, ground);
+    p.defend += guardsAt(b, b.field.throne);   // SEAT2b part two: a standing guard at the Throne contests the attackers' hold
     if (open && p.attack && !p.defend) b.throne += dt;
     else if (!(open && p.attack && p.defend)) b.throne = Math.max(0, b.throne - SIEGE_THRONE.decayPerS * dt);
     // AUDIT-SEATS T1 (7.3: "A siege held only after the Throne was reached: -5"; 9.2: "The Throne was never reached"):
@@ -428,10 +449,13 @@ export const honoured = (f, b) => (f.felled ?? 0) > 0 || (f.stood ?? 0) * 1000 >
 /** The room's door opens this long before the battle is joined - the sides gather at their camps (6.4: signing closes
  *  ten minutes before the start; DECIDED here: the door opens as it closes). */
 export const SIEGE_OPENS_MS = 10 * 60_000;
+/** SEAT2b part two: THE CAMP A SIDE MUSTERS AT - its own; in a REVOLT the holder's side at the ATTACKERS' (the contract's
+ *  DECIDED, 7.7: the rebels hold the palace door, where the defenders' camp is, and the holder's side marches on them). */
+export const siegeCampSide = (b, side) => (b?.kind === 'revolt' ? 'attack' : side);
 /** A side's camp as a pose (6.2: the fallen rise there, a fighter enters there) - the height and facing kept from `was`,
  *  the ground's to settle. */
 export const siegeCampPose = (b, side, was) => {
-  const c = b.field.camps[side];
+  const c = b.field.camps[siegeCampSide(b, side)];
   return { x: c[0], y: Number.isFinite(was?.y) ? was.y : 0, z: c[1], yaw: Number.isFinite(was?.yaw) ? was.yaw : 0, pitch: 0 };
 };
 
@@ -458,7 +482,8 @@ export function siegePlaceFree(fighters, side, tier, here, now, except = null) {
  * until its side's next wave, when it rises whole and protected as any fallen fighter does (siegeRise; a fighter that
  * fell before it dropped keeps its own wave). Before the start it simply stands at its camp; after the end nothing moves
  * (it came for its receipt). So a drop is never a way out of a fall: the place is kept, the ground is not. Answers
- * whether it waits for a wave (`f.upAt`).
+ * whether it waits for a wave (`f.upAt`). SEAT2b part two: its own side's wave (siegeSideWaveMs - the defenders'
+ * faster behind the Walls).
  */
 export function siegeReturn(b, f, now) {
   delete f.goneAt;
@@ -466,7 +491,7 @@ export function siegeReturn(b, f, now) {
   f.pose = siegeCampPose(b, f.side, f.pose); f.poseAt = now;
   if (now < b.startMs || f.down) return false;
   f.down = true;
-  f.upAt = siegeNextWave(now, SIEGE_WAVE_MS[b.tier] ?? SIEGE_WAVE_MS.palace);
+  f.upAt = siegeNextWave(now, siegeSideWaveMs(b.tier, f.side, b.walls));
   return true;
 }
 const sideCode = (s) => (s === 'attack' ? 1 : s === 'defend' ? 2 : 0);
@@ -479,13 +504,331 @@ export const siegeFieldFrame = (b, n) => ({
   k: 'f', b: b.banners.map((bn) => [sideCode(bn.side), Math.floor(bn.raise), sideCode(bn.by)]), th: Math.floor(b.throne), s: b.startMs, e: b.endMs, n,
 });
 /** The battle's next beat after `now`: a second on, or sooner where its start, a siege's forfeit mark or its end falls
- *  first - so a battle ends on its own clock, never a beat late. */
+ *  first - so a battle ends on its own clock, never a beat late. SEAT2b part two: half a second on (SIEGE_FIGURE_TICK_MS)
+ *  while the battle is joined and a figure stands or a Ram is crewed, so a figure's walk and swing read well; and a
+ *  fallen figure's wave and the next Ram's are marks too. */
 export function siegeNextBeat(b, now) {
-  let next = now + SIEGE_TICK_MS;
+  const busy = now >= b.startMs && !b.result && ((b.figures ?? []).some((g) => !g.down) || (b.ram?.crew ?? 0) >= SIEGE_RAM.crew);
+  let next = now + (busy ? SIEGE_FIGURE_TICK_MS : SIEGE_TICK_MS);
   const marks = [b.startMs, b.endMs];
   if (b.kind === 'siege' && !b.attackSeen) marks.push(b.startMs + SIEGE_FORFEIT_MS);
+  for (const g of b.figures ?? []) if (g.down && g.upAt != null) marks.push(g.upAt);
+  if (siegeRamDue(b)) marks.push(b.ramAt);
   for (const m of marks) if (m > now && m < next) next = m;
   return next;
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// SEAT2b part two (2026-10-01, Mac: "I want to finish the inprogress") -
+// THE WORKS AND THE FIGURES IN BATTLE (Seats-Arc 6.2, 7.5, 7.7): the Walls'
+// wave, the Gatehouse and its breach, the Rams, the Barracks' guards, and a
+// revolt's Rebel Captain and his twelve. The numbers are net/fortLaw.js's,
+// COPIED here and pinned EQUAL by test (test/seat2b2_battle.test.js):
+// fortLaw reads professionLaw.js, which the relay must never bundle, and
+// this leaf imports nothing - the way SIEGE_LENGTH_MS is townSeatLaw.js's.
+// Pure, as above: every `now` an argument, every random draw the caller's
+// `rand01`, the state on the battle (JSON-plain - the room checkpoints it).
+// Online's own (Ledger A): DFU's towns have no siege.
+// ═════════════════════════════════════════════════════════════════════
+
+/** THE WALLS (7.5: "the defenders' respawn wave 3 s faster" a tier) - never under 5 s; three tiers (fortLaw.js
+ *  WALLS_WAVE_STEP_MS and WALLS_WAVE_MIN_MS, pinned equal). */
+export const SIEGE_WALLS = Object.freeze({ stepMs: 3000, minMs: 5000, tiers: 3 });
+/** The defenders' wave behind `walls` tiers of Walls (fortLaw.js defendersWaveMs, pinned equal). */
+export const siegeDefendersWaveMs = (baseMs, walls) => Math.max(SIEGE_WALLS.minMs, baseMs - SIEGE_WALLS.stepMs * Math.max(0, Math.min(SIEGE_WALLS.tiers, Number(walls) || 0)));
+/**
+ * A SIDE'S WAVE (6.2, 7.5): the attackers' every SIEGE_WAVE_MS of the seat's tier; the defenders' - a revolt's holder's
+ * side too, which keeps its Walls (fortLaw.js siegeWorksPass) - faster behind `walls` tiers (the pass's `sx[0]`). The room
+ * reads it at a fall and at a return (siegeReturn); DECIDED here: the client's countdown reads the same law off the pass
+ * it holds (`siegeSideWaveMs(tier, side, sx?.[0] ?? 0)` - the `f` frame is unchanged and says no wave).
+ */
+export const siegeSideWaveMs = (tier, side, walls = 0) => {
+  const base = SIEGE_WAVE_MS[tier] ?? SIEGE_WAVE_MS.palace;
+  return side === 'defend' ? siegeDefendersWaveMs(base, walls) : base;
+};
+/** THE GATEHOUSE (6.2: "a blow deals a tenth of its damage to it" - fortLaw.js GATEHOUSE.blowShare, pinned equal). Its
+ *  vitality rides the pass (`sx[1]`, fortLaw.js gatehouseVitality - the service's word); it stands AT THE THRONE'S POINT
+ *  (the contract's DECIDED: 6.2 places a crown's Gatehouse and its Throne both at the castle's entrance, and a palace's own
+ *  gate stands at its palace door). */
+export const SIEGE_GATEHOUSE = Object.freeze({ blowShare: 0.1 });
+/** A RAM (6.2: "500 every 10 seconds while two attackers stand within 3 m of it ... one Ram at a time") - fortLaw.js RAM's
+ *  damage, everyMs, crew and crewM, and RAM_OFFSET_M (`offsetM`: it stands so far before the Gatehouse, on the line to the
+ *  attackers' camp), pinned equal. Its vitality rides the pass (`sx[4]` - a Siegewright's half more, the service's). */
+export const SIEGE_RAM = Object.freeze({ damage: 500, everyMs: 10000, crew: 2, crewM: 3, offsetM: 4 });
+/** THE RELAY-RUN FIGURES (7.5's Barracks' guards, 7.7's rebels and their Captain) - each kind's `{ renown, blow, swingMs,
+ *  reachM, speedMps, leashM, aggroM }`, fortLaw.js SIEGE_FIGURES pinned equal (its DECIDED says why each). */
+export const SIEGE_FIGURE_KINDS = Object.freeze({
+  guard: Object.freeze({ renown: 25, blow: Object.freeze([10, 30]), swingMs: 1500, reachM: 2.5, speedMps: 5, leashM: 16, aggroM: 12 }),
+  rebel: Object.freeze({ renown: 1, blow: Object.freeze([8, 22]), swingMs: 1600, reachM: 2.5, speedMps: 4.5, leashM: 24, aggroM: 16 }),
+  captain: Object.freeze({ renown: 50, blow: Object.freeze([16, 36]), swingMs: 1300, reachM: 2.5, speedMps: 4.5, leashM: 8, aggroM: 10 }),
+});
+/** A figure's kind on the wire's `n` rows (net/wire.js siegeFigureKind, by its id's letter). */
+export const SIEGE_FIGURE_CODE = Object.freeze({ guard: 0, rebel: 1, captain: 2 });
+/** A figure's vitality: a siege fighter's at its kind's Renown (siegeVitality - fortLaw.js figureVitality, pinned equal). */
+export const siegeFigureVitality = (kind) => siegeVitality(SIEGE_FIGURE_KINDS[kind]?.renown ?? 1);
+/** THE REVOLT (7.7): a Rebel Captain and twelve rebels; a felled rebel rises at the door every 30 seconds, the Captain
+ *  never (fortLaw.js REVOLT's rebels and rebelsWaveMs, pinned equal). */
+export const SIEGE_REVOLT = Object.freeze({ rebels: 12, rebelsWaveMs: 30000 });
+/** The Barracks' guards at most (fortLaw.js barracksGuards at tier 3, and guardPosts' own bound - pinned equal). */
+export const SIEGE_GUARDS_MAX = 6;
+/** DECIDED here: the twelve rebels stand on a ring this far about the palace door (the Throne's point), the Captain at the
+ *  door itself - 7.7 puts them all "at the palace door" and names no ring; six metres keeps the twelve a man's width apart
+ *  (a ring of 37.7 m) and every one within its aggro of the door's approach. */
+export const SIEGE_REBEL_RING_M = 6;
+/** DECIDED here: THE FIGURES' BEAT - half a second while the battle is joined and a figure stands or a Ram is crewed
+ *  (siegeNextBeat): a figure walks at most 2.5 m a beat and its swing (every 1.3 to 1.6 s) lands within a quarter of its
+ *  own length, where the battle's second would show a guard leap five metres and strike late; the `w` and `n` frames go
+ *  each beat at most. The field's `f` keeps its second. */
+export const SIEGE_FIGURE_TICK_MS = 500;
+/** THE WORKS a pass carries none of (an older service's, a Royal Tourney's): `[walls, gate, guards, rams, ramHp]`. */
+export const SIEGE_NO_WORKS = Object.freeze([0, 0, 0, 0, 0]);
+
+/** THE GUARDS' POSTS (fortLaw.js guardPosts, pinned equal): the Throne first - the door the holder must keep - then the
+ *  banners in the field's order, round again: guard i at posts[i % posts.length], `n` at most SIEGE_GUARDS_MAX. */
+export function siegeGuardPosts(field, n) {
+  const posts = [field?.throne, ...(field?.banners ?? [])].filter(Boolean);
+  if (!posts.length) return [];
+  return Array.from({ length: Math.max(0, Math.min(SIEGE_GUARDS_MAX, Math.floor(Number(n) || 0))) }, (_, i) => [posts[i % posts.length][0], posts[i % posts.length][1]]);
+}
+/** A REVOLT'S POSTS (7.7: "a Rebel Captain ... and 12 rebels at the palace door"): the Captain at the Throne's point, rebel
+ *  i on the ring SIEGE_REBEL_RING_M about it at i twelfths of a turn (whole room units). */
+export function siegeRebelPosts(field) {
+  const [x, z] = field.throne, r = SIEGE_REBEL_RING_M * SIEGE_UNITS_PER_M;
+  const at = (i) => { const a = (2 * Math.PI * i) / SIEGE_REVOLT.rebels; return [Math.round(x + r * Math.cos(a)) || 0, Math.round(z + r * Math.sin(a)) || 0]; };   // never a -0
+  return { captain: [x, z], rebels: Array.from({ length: SIEGE_REVOLT.rebels }, (_, i) => at(i)) };
+}
+/** A figure as the battle keeps it: standing whole at its post. `upAt` its rise once fallen (null: never), `safeTo` the
+ *  end of its protection, `swingAt` its next swing, `target` the account it engages, `act` 0 stands, 1 walks, 2 strikes. */
+const newFigure = (id, kind, post) => {
+  const max = siegeFigureVitality(kind);
+  return { id, kind, post: [post[0], post[1]], x: post[0], z: post[1], tx: post[0], tz: post[1], hp: max, max, down: false, upAt: 0, safeTo: 0, swingAt: 0, target: null, act: 0 };
+};
+/**
+ * A BATTLE'S WORKS AND FIGURES off its pass's `sx` (`works`: `[walls, gate, guards, rams, ramHp]` - net/identityToken.js
+ * siegeWorksValid; absent, none): the Walls' tier; the Gatehouse `{ hp, max }` (a siege's alone, or none); the Ram Kits
+ * still to field and each one's vitality, the first due at the start; the figures - a siege's Barracks' guards at their
+ * posts (`~g1`..), a revolt's Captain (`~c`) and twelve (`~r1`..), never a Tourney's.
+ */
+export function siegeWorksOf({ kind, startMs, field, works }) {
+  const [walls, gate, guards, rams, ramHp] = Array.isArray(works) && works.length === 5 ? works : SIEGE_NO_WORKS;
+  const gated = kind === 'siege' && gate > 0;
+  let figures = [];
+  if (kind === 'siege') figures = siegeGuardPosts(field, guards).map((p, i) => newFigure(`~g${i + 1}`, 'guard', p));
+  else if (kind === 'revolt') { const p = siegeRebelPosts(field); figures = [newFigure('~c', 'captain', p.captain), ...p.rebels.map((q, i) => newFigure(`~r${i + 1}`, 'rebel', q))]; }
+  return {
+    walls, gate: gated ? { hp: gate, max: gate } : null, breached: false,
+    ramsLeft: gated ? rams : 0, ramHp: gated ? ramHp : 0, ram: null, ramAt: startMs, worksAt: startMs,
+    figures, figAt: startMs, ground: null,
+  };
+}
+/** The Barracks' guards standing within a point's radius - each on the field's ground, so its flat distance alone. */
+function guardsAt(b, point) {
+  let n = 0;
+  for (const g of b.figures ?? []) if (g.kind === 'guard' && !g.down && Math.hypot((g.x - point[0]) / SIEGE_UNITS_PER_M, (g.z - point[1]) / SIEGE_UNITS_PER_M) <= SIEGE_BANNER.radiusM) n++;
+  return n;
+}
+/** WHERE A RAM STANDS (6.2; RAM_OFFSET_M's DECIDED): SIEGE_RAM.offsetM before the Gatehouse - the Throne's point - on the
+ *  line to the attackers' camp, in whole room units (at the camp itself where the camp is nearer - at the gate where the
+ *  camp stands on it). */
+export function siegeRamPoint(field) {
+  const [gx, gz] = field.throne, [cx, cz] = field.camps.attack;
+  const k = Math.min(1, (SIEGE_RAM.offsetM * SIEGE_UNITS_PER_M) / Math.hypot(cx - gx, cz - gz));
+  return [Math.round(gx + (cx - gx) * k), Math.round(gz + (cz - gz) * k)];
+}
+/** Whether a Ram waits to be fielded: none standing, and kits left - never where no Gatehouse stands (siegeWorksOf), nor
+ *  past its breach (breach spends them). */
+export const siegeRamDue = (b) => !b.ram && (b.ramsLeft ?? 0) > 0;
+/** BREACHED, for good (6.2): the Gatehouse at nought; its Ram's work done - gone - and none fielded after (the contract:
+ *  "No Rams where no Gatehouse stands, nor once it is breached"). */
+function breach(b) { b.breached = true; b.ram = null; b.ramsLeft = 0; }
+/** A RAM DESTROYED (6.2: "a destroyed Ram is gone"): the next fielded at the attackers' next wave. */
+function ramGone(b, now) { b.ram = null; b.ramAt = siegeNextWave(now, siegeSideWaveMs(b.tier, 'attack', b.walls)); }
+
+/**
+ * THE WORKS, ONE BEAT (6.2): `fighters` as battleStep takes them. A Ram is fielded when its time comes (the first at the
+ * start, each next at the attackers' next wave after the last fell) while kits are left and the Gatehouse stands; its
+ * CREW is the standing attackers in the room within SIEGE_RAM.crewM of it (flat, and within SIEGE_HEIGHT_M of the field's
+ * ground); while two or more crew it its swing fills by the crewed time (paused, never emptied, while it is not - a beat
+ * counts five seconds at most, as battleStep's), and each SIEGE_RAM.everyMs of it strikes the Gatehouse for its damage - at
+ * nought it is breached. Answers the beat's events: `{ k: 'ram' }` (fielded), `{ k: 'rammed', hp }`, `{ k: 'breach' }`.
+ */
+export function siegeWorksStep(b, fighters, nowMs) {
+  if (!b.gate || b.result) return [];   // before the start no Ram stands, nor is one due (the first comes at the start)
+  const dt = Math.max(0, Math.min(nowMs - Math.max(b.worksAt ?? b.startMs, b.startMs), 5 * SIEGE_TICK_MS));
+  b.worksAt = nowMs;
+  const out = [];
+  let fresh = false;
+  if (siegeRamDue(b) && nowMs >= b.ramAt) {
+    b.ramsLeft -= 1;
+    b.ram = { hp: b.ramHp, max: b.ramHp, swing: 0, crew: 0, at: siegeRamPoint(b.field) };
+    fresh = true;
+    out.push({ k: 'ram' });
+  }
+  if (!b.ram) return out;
+  const ground = siegeGround(fighters);
+  let crew = 0;
+  for (const f of fighters) {
+    if (f.down || !f.pose || !f.here || f.side !== 'attack') continue;
+    if (flat(f.pose, b.ram.at) > SIEGE_RAM.crewM) continue;
+    if (Math.abs(f.pose.y - ground) / SIEGE_UNITS_PER_M > SIEGE_HEIGHT_M) continue;   // a crewman is one the ground counts
+    crew++;
+  }
+  b.ram.crew = crew;
+  if (fresh || crew < SIEGE_RAM.crew) return out;   // a Ram just fielded swings from now; an uncrewed one waits, its swing kept
+  b.ram.swing += dt;
+  while (b.ram && b.ram.swing >= SIEGE_RAM.everyMs) {
+    b.ram.swing -= SIEGE_RAM.everyMs;
+    b.gate.hp = Math.max(0, b.gate.hp - SIEGE_RAM.damage);
+    out.push({ k: 'rammed', hp: b.gate.hp });
+    if (b.gate.hp <= 0) { breach(b); out.push({ k: 'breach' }); }
+  }
+  return out;
+}
+
+/** WHO MAY STRIKE A FIGURE OR A WORK (`id`, net/wire.js's figure and work ids) of battle `b`: a sided fighter - the
+ *  attackers the Gatehouse and the Barracks' guards (they fight for the holder), the defenders (a revolt's holder's side)
+ *  a Ram, the rebels and their Captain; never a spectator, an unsided fighter or a Royal Tourney's contender. */
+export function siegeMayStrike(b, by, id) {
+  if (!b || !by) return false;
+  if (id === '~gate') return by.side === 'attack' && !!b.gate;
+  if (id === '~ram') return by.side === 'defend' && !!b.ram;
+  const g = (b.figures ?? []).find((x) => x.id === id);
+  return !!g && by.side === (g.kind === 'guard' ? 'attack' : 'defend');
+}
+const refused = (why) => ({ ok: false, dealt: 0, fell: false, why });
+/**
+ * A BLOW AT A WORK, JUDGED (6.2) beside refereeBlow and BY it: the referee's own checks (both standing, the striker's
+ * bucket, the weapon held and its kind, the reach from `from` to the work's point `at`) on a stand-in that takes any
+ * blow, its damage clipped as any blow's; the work then takes its `share` of the clipped damage - rounded, at least 1 (the
+ * Gatehouse a tenth; a Ram the whole). Answers `{ ok, dealt, fell, why }` - `dealt` what the work took, `fell` it at
+ * nought.
+ * @param {any} by @param {any} work
+ * @param {{ from?: any, at?: any, held?: any, d?: number, r?: number, share?: number }} o
+ * @param {number} now
+ */
+export function refereeWorkBlow(by, work, { from = null, at = null, held = null, d = 0, r = SIEGE_HIT.Melee, share = 1 } = {}, now) {
+  if (!by || !work || !(work.hp > 0)) return refused('no-work');
+  const res = refereeBlow(by, { hp: Infinity, max: Infinity, down: false, safeTo: 0 }, { from, at, held, d, r }, now);
+  if (!res.ok) return res;
+  const got = res.dealt > 0 ? Math.min(work.hp, Math.max(1, Math.round(res.dealt * share))) : 0;
+  by.dealt += got - res.dealt;   // the striker's count is what the work took
+  work.hp -= got;
+  return { ok: true, dealt: got, fell: work.hp <= 0, why: null };
+}
+/**
+ * A FIGHTER'S BLOW AT A WORK OF THE BATTLE (`id` '~gate' or '~ram'), while the battle runs (nothing lands at or past its
+ * end) and by its side (siegeMayStrike): judged from the striker's pose `from` to the Gatehouse at the Throne's point or
+ * a Ram at its own, each at the field's ground (`b.ground`; the striker's own height before the first beat keeps one).
+ * The Gatehouse at nought is BREACHED for good; a Ram at nought is gone, the next fielded at the attackers' next wave.
+ * `{ ok, dealt, fell, why }`.
+ */
+export function siegeWorkBlow(b, by, id, { from = null, held = null, d = 0, r = SIEGE_HIT.Melee } = {}, now) {
+  if (!b || b.result || now < b.startMs || now >= b.endMs) return refused('time');
+  if (!siegeMayStrike(b, by, id)) return refused('side');
+  const gate = id === '~gate';
+  const work = gate ? b.gate : b.ram;
+  const p = work ? (gate ? b.field.throne : b.ram.at) : null;
+  const at = p ? { x: p[0], y: b.ground ?? from?.y, z: p[1] } : null;
+  const res = refereeWorkBlow(by, work, { from, at, held, d, r, share: gate ? SIEGE_GATEHOUSE.blowShare : 1 }, now);
+  if (res.fell) { if (gate) breach(b); else ramGone(b, now); }
+  return res;
+}
+/** When a fallen figure rises (7.5, 7.7): a guard at the defenders' next wave (the Walls' own), a rebel at the revolt's
+ *  thirty seconds, the Captain never (null). */
+export const siegeFigureRise = (b, g, now) => (g.kind === 'captain' ? null
+  : siegeNextWave(now, g.kind === 'guard' ? siegeSideWaveMs(b.tier, 'defend', b.walls) : SIEGE_REVOLT.rebelsWaveMs));
+/**
+ * A FIGHTER'S BLOW OR CAST AT A FIGURE (`id`): judged by the referee itself - refereeBlow or refereeCast, the figure the
+ * target, its pose the field's ground at its feet - while the battle runs and by its side (siegeMayStrike); never a heal
+ * (no figure is a side-mate). A fall is the striker's `felled` (6.8: "felled a foe") and sets the figure's rise
+ * (siegeFigureRise). `{ ok, dealt, fell, why }`.
+ */
+export function siegeFigureBlow(b, by, id, { from = null, held = null, d = 0, r = SIEGE_HIT.Melee, cast = false } = {}, now) {
+  if (!b || b.result || now < b.startMs || now >= b.endMs) return refused('time');
+  if (!siegeMayStrike(b, by, id)) return refused('side');
+  const g = b.figures.find((x) => x.id === id);
+  const at = { x: g.x, y: b.ground ?? from?.y, z: g.z };
+  const res = cast ? refereeCast(by, g, { from, at, d }, now) : refereeBlow(by, g, { from, at, held, d, r }, now);
+  if (res.fell) {
+    by.felled = (by.felled ?? 0) + 1;
+    Object.assign(g, { upAt: siegeFigureRise(b, g, now), act: 0, tx: g.x, tz: g.z });
+  }
+  return res;
+}
+
+/**
+ * THE FIGURES' BRAIN, ONE BEAT (7.5: "relay-run town guards fight for the holder ... the gate's brain with adds"; 7.7) -
+ * `fighters` the room's `{ [account]: { side, pose, down, here, safeTo, hp, max } }`, `rand01` the room's draw. A fallen
+ * figure whose wave has come rises at its post, whole, protected SIEGE_PROTECT_MS. A standing one keeps its foe while that
+ * foe is FAIR - standing, here, of the side it fights (a guard the attackers; a rebel and the Captain the defenders),
+ * unprotected, within SIEGE_HEIGHT_M of the field's ground - and within its leash of the post; else engages the nearest
+ * fair fighter within its aggro (DECIDED here: aggro to engage, leash to let go - the gate's brain keeps its target a while
+ * too, so a figure does not turn from one fighter to the next each beat); it walks at its pace toward its foe, stopping
+ * at its reach, or home to its post; and strikes its foe within its reach and the referee's slack (SIEGE_REACH, from its
+ * feet on the ground) when its swing is due - a roll in its blow, never past the vitality left; a fall's wave the
+ * fighter's own side's. Nothing before the start or after the end. Answers the beat's events: `{ k: 'hit', id, to, h, m,
+ * fell }` (a fighter struck - `to` its account, `h` and `m` its vitality), `{ k: 'rise', id }`.
+ */
+export function siegeFiguresStep(b, fighters, nowMs, rand01 = Math.random) {
+  if (!b.figures?.length || b.result || nowMs < b.startMs) return [];
+  const dt = Math.max(0, Math.min(nowMs - Math.max(b.figAt ?? b.startMs, b.startMs), 5 * SIEGE_TICK_MS)) / 1000;
+  b.figAt = nowMs;
+  const all = Object.entries(fighters ?? {});
+  const ground = siegeGround(all.map(([, f]) => f));
+  const out = [];
+  for (const g of b.figures) {
+    if (g.down) {
+      if (g.upAt == null || nowMs < g.upAt) continue;
+      Object.assign(g, { down: false, hp: g.max, x: g.post[0], z: g.post[1], tx: g.post[0], tz: g.post[1], upAt: 0, safeTo: nowMs + SIEGE_PROTECT_MS, target: null, act: 0 });
+      out.push({ k: 'rise', id: g.id });
+      continue;
+    }
+    const law = SIEGE_FIGURE_KINDS[g.kind];
+    const foeSide = g.kind === 'guard' ? 'attack' : 'defend';
+    const fair = (f) => !!f && !f.down && !!f.pose && !!f.here && f.side === foeSide && nowMs >= (f.safeTo ?? 0)
+      && Math.abs(f.pose.y - ground) / SIEGE_UNITS_PER_M <= SIEGE_HEIGHT_M && flat(f.pose, g.post) <= law.leashM;   // one fair is one the ground counts
+    let foe = g.target != null && fair(fighters[g.target]) ? g.target : null;
+    if (foe == null) {
+      let best = Infinity;
+      for (const [sub, f] of all) {
+        if (!fair(f)) continue;
+        const d = flat(f.pose, [g.x, g.z]);
+        if (d <= law.aggroM && d < best) { best = d; foe = sub; }
+      }
+    }
+    g.target = foe;
+    const f = foe == null ? null : fighters[foe];
+    const goal = f ? [f.pose.x, f.pose.z] : g.post;
+    const gap = Math.hypot((goal[0] - g.x) / SIEGE_UNITS_PER_M, (goal[1] - g.z) / SIEGE_UNITS_PER_M);
+    const walk = Math.min(Math.max(0, gap - (f ? law.reachM : 0)), law.speedMps * dt);
+    g.tx = goal[0]; g.tz = goal[1]; g.act = 0;
+    if (walk > 0) { g.x += ((goal[0] - g.x) * walk) / gap; g.z += ((goal[1] - g.z) * walk) / gap; g.act = 1; }
+    if (!f || nowMs < g.swingAt || metres({ x: g.x, y: ground, z: g.z }, f.pose) > law.reachM + SIEGE_REACH.slack) continue;
+    const [lo, hi] = law.blow;
+    const got = Math.min(f.hp, lo + Math.floor(rand01() * (hi - lo + 1)));   // the draw in [0, 1): lo to hi, whole
+    f.hp -= got;
+    const fell = f.hp <= 0;
+    if (fell) { f.down = true; f.upAt = siegeNextWave(nowMs, siegeSideWaveMs(b.tier, f.side, b.walls)); }
+    g.swingAt = nowMs + law.swingMs; g.act = 2;
+    out.push({ k: 'hit', id: g.id, to: foe, h: f.hp, m: f.max, fell });
+  }
+  return out;
+}
+
+/** THE WORKS' FRAME (net/wire.js `w`, each beat while a battle has a Gatehouse - a Ram and its kits are a Gatehouse's
+ *  alone, siegeWorksOf): the Gatehouse `[hp, max]`, breached 1 or 0, the standing Ram `[hp, max, crew, swing]` (its crew
+ *  at most a roll call's, its swing in whole crewed seconds - drained below SIEGE_RAM.everyMs each beat) or 0, the Ram
+ *  Kits still to field - or null for a battle with no Gatehouse. */
+export function siegeWorksFrame(b) {
+  if (!b?.gate) return null;
+  const ram = b.ram ? [b.ram.hp, b.ram.max, Math.min(SIEGE_FIGHTERS_MAX, b.ram.crew), Math.floor(b.ram.swing / 1000)] : 0;
+  return { k: 'w', g: [b.gate.hp, b.gate.max], br: b.breached ? 1 : 0, r: ram, rl: b.ramsLeft };
+}
+/** THE FIGURES' FRAME (net/wire.js `n`, each beat while any stands): each `[id, kind, x, z, tx, tz, hp, max, down, act]`,
+ *  in whole room units - or null for a battle with none. */
+export function siegeFiguresFrame(b) {
+  if (!b?.figures?.length) return null;
+  return { k: 'n', n: b.figures.map((g) => [g.id, SIEGE_FIGURE_CODE[g.kind], Math.round(g.x), Math.round(g.z), Math.round(g.tx), Math.round(g.tz), g.hp, g.max, g.down ? 1 : 0, g.act]) };
 }
 
 // ═════════════════════════════════════════════════════════════════════

@@ -679,8 +679,8 @@
  {
   "name": "CROWN1R-relay-admit-end",
   "file": "server/src/index.js",
-  "old": "startMs: c.sb * 1000, endMs: c.se * 1000, field })",
-  "new": "startMs: c.sb * 1000, field })",
+  "old": "startMs: c.sb * 1000, endMs: c.se * 1000, field, works: c.sx })",
+  "new": "startMs: c.sb * 1000, field, works: c.sx })",
   "tests": [
    "test/crown1_royal_relay.test.js"
   ]
