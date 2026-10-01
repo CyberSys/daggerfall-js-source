@@ -438,9 +438,9 @@
     ]
   },
   {
-    "name": "PROF3-kit-past-whole",
+    "name": "PROF3-kit-unclamped",
     "file": "src/systems/smithItems.js",
-    "old": "  it.currentCondition = Math.min(it.maxCondition, it.currentCondition + Math.ceil(it.maxCondition * (kit.fieldKit === true ? FIELD_KIT_REPAIR : KIT_REPAIR)));",
+    "old": "  it.currentCondition = Math.min(kitCeiling(it), it.currentCondition + Math.ceil(it.maxCondition * (kit.fieldKit === true ? FIELD_KIT_REPAIR : KIT_REPAIR)));   // KIT-CEILING: never past three quarters",
     "new": "  it.currentCondition = it.currentCondition + Math.ceil(it.maxCondition * (kit.fieldKit === true ? FIELD_KIT_REPAIR : KIT_REPAIR));",
     "tests": [
       "test/prof3_client.test.js"

@@ -14,11 +14,11 @@ import { FIELD_KIT_REPAIR, KIT_REPAIR, REPAIR_KIT_TEMPLATE, pieceLines } from '.
 import { addPileLootExtras, addEnemyLootExtras } from '../src/systems/loot.js';
 import { validItemField } from '../src/systems/itemFields.js';
 
-test('REPAIR-EASE: a repair costs two thirds of Daggerfall\'s price, rounded, never under 1 - and nothing at full condition', () => {
-  assert.equal(REPAIR_COST_SCALE, 2 / 3);
+test('REPAIR-EASE, REPAIR-RATE: a repair costs a THIRD of Daggerfall\'s price (REPAIR-EASE\'s two thirds until REPAIR-RATE, repair_rate.test.js), rounded, never under 1 - and nothing at full condition', () => {
+  assert.equal(REPAIR_COST_SCALE, 1 / 3);
   for (const [value, q, cond, max] of [[300, 10, 500, 1000], [1000, 20, 1, 100], [40, 5, 10, 100], [5, 1, 0, 100]]) {
     const dfu = dfuItemRepairCost(value, q, cond, max, { instantRepairs: false });
-    assert.equal(calculateItemRepairCost(value, q, cond, max, { instantRepairs: false }), Math.max(1, Math.round(dfu * 2 / 3)), `${value}/${q}`);
+    assert.equal(calculateItemRepairCost(value, q, cond, max, { instantRepairs: false }), Math.max(1, Math.round(dfu / 3)), `${value}/${q}`);
   }
   assert.equal(calculateItemRepairCost(300, 10, 1000, 1000), 0, 'free at full condition');
   assert.equal(calculateItemRepairCost(300, 10, 500, 1000, { reducedRepairCost: () => 0 }), 0, 'a guild\'s free repair stays free');
@@ -48,7 +48,7 @@ test('REPAIR-EASE: a Field Repair Kit mends ANY metal\'s weapon or armour by 15%
   assert.ok(!items.includes(kit), 'spent');
   const none = mintFieldRepairKit();
   assert.equal(repairKitUse(none, [none, sword(1, 100)]).text, 'Nothing here wants mending.');
-  assert.deepEqual(pieceLines(kit), ['Mends 15% of a weapon\'s or armour\'s condition, once']);
+  assert.deepEqual(pieceLines(kit), ['Mends 15% of a weapon\'s or armour\'s condition, up to 75%, once'], 'KIT-CEILING');
   assert.equal(validItemField('fieldKit', true), true);
 });
 
@@ -69,10 +69,10 @@ test('REPAIR-EASE: field kits turn up in dungeon piles J-O and on looting foes, 
   assert.equal(at(0.06), 0);
 });
 
-test('AUDIT REPAIR-EASE F4: the live price carries no instant-repair premium - the default does not undo the two thirds', () => {
+test('AUDIT REPAIR-EASE F4: the live price carries no instant-repair premium - the default does not undo the scale (a third, REPAIR-RATE)', () => {
   for (const [value, q, cond, max] of [[1000, 10, 50, 100], [300, 5, 10, 100]]) {
     const plain = calculateItemRepairCost(value, q, cond, max, { instantRepairs: false });
     assert.equal(calculateItemRepairCost(value, q, cond, max, { instantRepairs: true }), plain);
-    assert.equal(plain, Math.max(1, Math.round(dfuItemRepairCost(value, q, cond, max, { instantRepairs: false }) * 2 / 3)));
+    assert.equal(plain, Math.max(1, Math.round(dfuItemRepairCost(value, q, cond, max, { instantRepairs: false }) / 3)));
   }
 });

@@ -136,6 +136,11 @@ export function questTransferRefused(item, { fromLocal, toWagon = false, getQues
  *  verbatim ("Your wagon could only hold {0} gold pieces."), formatted
  *  with wagonCanHold at DaggerfallInventoryWindow.cs:1303. */
 export const wagonFullGoldText = (n) => `Your wagon could only hold ${n} gold pieces.`;
+/** COMPANION-WEIGHT (2026-10-01): a storage with its own limit - a companion's pack (inventorySession storeCapacityOf) -
+ *  refuses in its own words, the port's: DFU has no companion to name. */
+export const packFullText = (name) => `${name || 'Your companion'} cannot carry any more.`;
+export const packFullGoldText = (name, n) => `${name || 'Your companion'} could only carry ${n} gold pieces.`;
+const packFull = (capacity) => ({ reason: 'packFull', text: packFullText(capacity?.name) });
 
 /**
  * DropGoldPopup_OnGotUserInput (:1269-1303). The GOLD arm of the same
@@ -150,12 +155,20 @@ export const wagonFullGoldText = (n) => `Your wagon could only hold ${n} gold pi
  * @returns {{ok:true, amount:number, notice:string|null}
  *          |{ok:false, refusal:object, notice:string|null}}
  */
-export function planDropGold(text, { carried = 0, usingWagon = false, remote = [], groundRefusal = null } = {}) {
+export function planDropGold(text, { carried = 0, usingWagon = false, remote = [], groundRefusal = null, capacity = null } = {}) {
   if (groundRefusal && !usingWagon) return { ok: false, refusal: { reason: 'ground', text: groundRefusal }, notice: null };   // HOUSE-DROP: gold on a floor that refuses it
   // A numeric field of 8 opening on "0": anything that is not a run of
   // digits is not a number, and 0 fails the range below.
   const asked = /^[0-9]+$/.test(String(text)) ? Number(text) : 0;
   if (asked < 1 || asked > carried) return { ok: false, refusal: REFUSAL.badAmount, notice: null };
+  if (!usingWagon && capacity) {
+    // COMPANION-WEIGHT: a companion's pack clamps gold the way the wagon does, by its own limit and in its own words
+    const canCarry = canHoldAmount(carried, GOLD_PIECE_WEIGHT_KG, capacity.kg, totalWeight(remote));
+    const notice = asked > canCarry ? packFullGoldText(capacity.name, Math.max(0, canCarry)) : null;
+    const amount = Math.min(asked, canCarry);
+    if (amount < 1) return { ok: false, refusal: packFull(capacity), notice };
+    return { ok: true, amount, notice };
+  }
   if (!usingWagon) return { ok: true, amount: asked, notice: null };
   // :1296-1303 - the 750kg headroom in COINS, and the box names it.
   const canHold = canHoldAmount(carried, GOLD_PIECE_WEIGHT_KG, WAGON_KG_LIMIT, totalWeight(remote));
@@ -184,7 +197,7 @@ export function planDropGold(text, { carried = 0, usingWagon = false, remote = [
  * @returns {{ok:false, refusal:object}|{ok:true, amount:number, sound:'click'}}
  */
 export function planStore(item, {
-  remote = [], usingWagon = false, chooseOne = null, getQuest = null, dryRun = false, groundRefusal = null,
+  remote = [], usingWagon = false, chooseOne = null, getQuest = null, dryRun = false, groundRefusal = null, capacity = null,
 } = {}) {
   if (!item) return { ok: false, refusal: REFUSAL.missing };
   // HOUSE-DROP (2026-09-27): the ground itself refuses - the window hands the host's word (inventorySession
@@ -220,6 +233,13 @@ export function planStore(item, {
     // exactly what fits.
     const canHold = canHoldAmount(stack, effectiveUnitWeightInKg(item), WAGON_KG_LIMIT, totalWeight(remote));
     if (canHold <= 0) return { ok: false, refusal: REFUSAL.wagonFull };
+    return { ok: true, amount: Math.min(canHold, stack), sound: 'click' };
+  }
+  if (capacity) {
+    // COMPANION-WEIGHT: a storage with its own limit takes what fits, the wagon's law under its own number - a load
+    // already over it (a pack filled before the limit) refuses everything more, and taking out is never gated
+    const canHold = canHoldAmount(stack, effectiveUnitWeightInKg(item), capacity.kg, totalWeight(remote));
+    if (canHold <= 0) return { ok: false, refusal: packFull(capacity) };
     return { ok: true, amount: Math.min(canHold, stack), sound: 'click' };
   }
   return { ok: true, amount: stack, sound: 'click' };   // DoTransferItem (:1583)

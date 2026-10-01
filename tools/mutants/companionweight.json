@@ -1,0 +1,102 @@
+[
+  {
+    "name": "COMPANION-WEIGHT-law-unread",
+    "file": "src/systems/naval/crewCompanions.js",
+    "old": "export const packCapacityKg = (entity) => (Number(entity?.stats?.strength) > 0 ? entityMaxEncumbrance(entity) : maxEncumbrance(PACK_DEFAULT_STRENGTH));",
+    "new": "export const packCapacityKg = (entity) => maxEncumbrance(PACK_DEFAULT_STRENGTH);",
+    "tests": [
+      "test/companion_weight.test.js"
+    ]
+  },
+  {
+    "name": "COMPANION-WEIGHT-default-lost",
+    "file": "src/systems/naval/crewCompanions.js",
+    "old": "export const PACK_DEFAULT_STRENGTH = 50;",
+    "new": "export const PACK_DEFAULT_STRENGTH = 0;",
+    "tests": [
+      "test/companion_weight.test.js"
+    ]
+  },
+  {
+    "name": "COMPANION-WEIGHT-store-gate-dropped",
+    "file": "src/systems/itemTransfer.js",
+    "old": "  if (capacity) {\n    // COMPANION-WEIGHT: a storage with its own limit takes what fits",
+    "new": "  if (false) {\n    // COMPANION-WEIGHT: a storage with its own limit takes what fits",
+    "tests": [
+      "test/companion_weight.test.js"
+    ]
+  },
+  {
+    "name": "COMPANION-WEIGHT-split-lost",
+    "file": "src/systems/itemTransfer.js",
+    "old": "    if (canHold <= 0) return { ok: false, refusal: packFull(capacity) };\n    return { ok: true, amount: Math.min(canHold, stack), sound: 'click' };",
+    "new": "    if (canHold <= 0) return { ok: false, refusal: packFull(capacity) };\n    return { ok: true, amount: stack, sound: 'click' };",
+    "tests": [
+      "test/companion_weight.test.js"
+    ]
+  },
+  {
+    "name": "COMPANION-WEIGHT-refusal-unnamed",
+    "file": "src/systems/itemTransfer.js",
+    "old": "const packFull = (capacity) => ({ reason: 'packFull', text: packFullText(capacity?.name) });",
+    "new": "const packFull = (capacity) => ({ reason: 'packFull', text: packFullText(null) });",
+    "tests": [
+      "test/companion_weight.test.js"
+    ]
+  },
+  {
+    "name": "COMPANION-WEIGHT-gold-gate-dropped",
+    "file": "src/systems/itemTransfer.js",
+    "old": "  if (!usingWagon && capacity) {",
+    "new": "  if (false) {",
+    "tests": [
+      "test/companion_weight.test.js"
+    ]
+  },
+  {
+    "name": "COMPANION-WEIGHT-asked-of-the-wagon",
+    "file": "src/systems/inventorySession.js",
+    "old": "  if (state.usingWagon || state.chooseOne || !deps.loot) return null;\n  const cap = deps.loot.capacity?.();",
+    "new": "  if (!deps.loot) return null;\n  const cap = deps.loot.capacity?.();",
+    "tests": [
+      "test/companion_weight.test.js"
+    ]
+  },
+  {
+    "name": "COMPANION-WEIGHT-enhanced-store-without-it",
+    "file": "src/ui/enhancedInventory.js",
+    "old": "    capacity: storeCapacityOf(deps, session),   // COMPANION-WEIGHT: a companion's pack takes what fits\n",
+    "new": "",
+    "tests": [
+      "test/companion_weight.test.js"
+    ]
+  },
+  {
+    "name": "COMPANION-WEIGHT-classic-store-without-it",
+    "file": "src/ui/nativeInventory.js",
+    "old": "        capacity: storeCapacityOf(this.hooks, { usingWagon: this.usingWagon, chooseOne: this.chooseOne }),   // COMPANION-WEIGHT: a companion's pack takes what fits\n",
+    "new": "",
+    "tests": [
+      "test/companion_weight.test.js"
+    ]
+  },
+  {
+    "name": "COMPANION-WEIGHT-header-without-it",
+    "file": "src/ui/enhancedInventory.js",
+    "old": "    capacity: kind === 'wagon' ? WAGON_KG_LIMIT : (storeCapacityOf(deps, state)?.kg ?? null),",
+    "new": "    capacity: kind === 'wagon' ? WAGON_KG_LIMIT : null,",
+    "tests": [
+      "test/companion_weight.test.js"
+    ]
+  },
+  {
+    "name": "COMPANION-WEIGHT-host-without-it",
+    "file": "src/scenes/world.js",
+    "old": "containerImage: () => CONTAINER_IMAGES.Backpack, playerOwned: true, storage: true, capacity } });",
+    "new": "containerImage: () => CONTAINER_IMAGES.Backpack, playerOwned: true, storage: true } });",
+    "tests": [
+      "test/companion_weight.test.js",
+      "test/companionkit.test.js"
+    ]
+  }
+]

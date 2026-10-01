@@ -1,0 +1,69 @@
+[
+  {
+    "name": "REPAIR-RATE-scale-back-at-two-thirds",
+    "file": "src/systems/repairService.js",
+    "old": "export const REPAIR_COST_SCALE = 1 / 3;",
+    "new": "export const REPAIR_COST_SCALE = 2 / 3;",
+    "tests": [
+      "test/repair_rate.test.js",
+      "test/repair_ease.test.js"
+    ]
+  },
+  {
+    "name": "KIT-CEILING-at-whole",
+    "file": "src/net/recipeLaw.js",
+    "old": "export const KIT_CEILING = 0.75;",
+    "new": "export const KIT_CEILING = 1;",
+    "tests": [
+      "test/repair_rate.test.js"
+    ]
+  },
+  {
+    "name": "KIT-CEILING-targets-unfiltered",
+    "file": "src/systems/smithItems.js",
+    "old": "kitMends(metal, it) && it.currentCondition < kitCeiling(it))",
+    "new": "kitMends(metal, it) && it.currentCondition < it.maxCondition)",
+    "tests": [
+      "test/repair_rate.test.js",
+      "test/mend_aim.test.js"
+    ]
+  },
+  {
+    "name": "KIT-CEILING-cap-dropped",
+    "file": "src/systems/smithItems.js",
+    "old": "  it.currentCondition = Math.min(kitCeiling(it), it.currentCondition",
+    "new": "  it.currentCondition = Math.min(it.maxCondition, it.currentCondition",
+    "tests": [
+      "test/repair_rate.test.js",
+      "test/prof3_client.test.js"
+    ]
+  },
+  {
+    "name": "KIT-CEILING-refusal-dropped",
+    "file": "src/systems/smithItems.js",
+    "old": "  if (!done && kitCeilingHeld(item, pack)) return { kind: 'repairKit', text: KIT_CEILING_TEXT };\n",
+    "new": "",
+    "tests": [
+      "test/repair_rate.test.js"
+    ]
+  },
+  {
+    "name": "KIT-CEILING-refusal-never-fires",
+    "file": "src/systems/smithItems.js",
+    "old": "kitMends(metal, it) && it.currentCondition < it.maxCondition);",
+    "new": "kitMends(metal, it) && it.currentCondition < kitCeiling(it));",
+    "tests": [
+      "test/repair_rate.test.js"
+    ]
+  },
+  {
+    "name": "KIT-CEILING-field-line-silent",
+    "file": "src/net/recipeLaw.js",
+    "old": "condition, up to ${Math.round(KIT_CEILING * 100)}%, once`];   // REPAIR-EASE",
+    "new": "condition, once`];   // REPAIR-EASE",
+    "tests": [
+      "test/repair_rate.test.js",
+      "test/repair_ease.test.js"
+    ]
+  }
+]

@@ -54,7 +54,7 @@
 // the Skinning Knife the port's (603), each a tool, its quality its life.
 // ═══════════════════════════════════════════════════════════════════
 import {
-  recipeById, QUALITY_EFFECTS, TOOL_LIFE, MASTERWORK, REPAIR_KIT_TEMPLATE, KIT_REPAIR, FIELD_KIT_REPAIR, INGOT_MATERIAL, ARMOR_PLATE,
+  recipeById, QUALITY_EFFECTS, TOOL_LIFE, MASTERWORK, REPAIR_KIT_TEMPLATE, KIT_REPAIR, FIELD_KIT_REPAIR, KIT_CEILING, INGOT_MATERIAL, ARMOR_PLATE,
   ARMOR_CHAIN, PROVENANCE_RE, makerName, QUALITY_NAMES,
 } from '../net/recipeLaw.js';
 import { minedMaterial } from '../net/professionLaw.js';
@@ -198,6 +198,8 @@ export function kitMends(m, item) {
   return false;
 }
 const conditionShare = (it) => it.currentCondition / it.maxCondition;
+/** KIT-CEILING: the condition no kit mends a piece past - three quarters of it (recipeLaw.js KIT_CEILING). */
+export const kitCeiling = (it) => Math.floor(it.maxCondition * KIT_CEILING);
 /**
  * MEND-AIM: THE PIECES A KIT COULD MEND in `items`, in the order it takes them unaimed - what is WORN first (the player's
  * own gear, never a piece of loot carried to sell), then the rest, each the lowest share of its condition left first.
@@ -209,7 +211,7 @@ export function repairKitTargets(kit, items) {
   if (!kit || kit.templateIndex !== REPAIR_KIT_TEMPLATE || !Array.isArray(items)) return [];
   const metal = kit.fieldKit === true ? FIELD_KIT : kit.kitMetal;   // REPAIR-EASE: a field kit mends any metal, by less
   const worn = (it) => (it.equipSlot != null ? 1 : 0);
-  return items.filter((it) => it !== kit && kitMends(metal, it) && it.currentCondition < it.maxCondition)
+  return items.filter((it) => it !== kit && kitMends(metal, it) && it.currentCondition < kitCeiling(it))   // KIT-CEILING: below it, or a kit has nothing to give
     .sort((a, b) => worn(b) - worn(a) || conditionShare(a) - conditionShare(b));
 }
 /**
@@ -228,11 +230,18 @@ export function useRepairKit(kit, items, { target = null, pack = items } = {}) {
   const it = target == null ? want[0] : want.includes(target) ? target : null;
   if (!it) return null;
   const before = conditionShare(it);
-  it.currentCondition = Math.min(it.maxCondition, it.currentCondition + Math.ceil(it.maxCondition * (kit.fieldKit === true ? FIELD_KIT_REPAIR : KIT_REPAIR)));
+  it.currentCondition = Math.min(kitCeiling(it), it.currentCondition + Math.ceil(it.maxCondition * (kit.fieldKit === true ? FIELD_KIT_REPAIR : KIT_REPAIR)));   // KIT-CEILING: never past three quarters
   const i = items.indexOf(kit);
   if (i >= 0) items.splice(i, 1);
   return { item: it, before, after: conditionShare(it) };
 }
+/** KIT-CEILING: the refusal when every worn piece the kit could take is already at three quarters or more. */
+export const KIT_CEILING_TEXT = `A kit mends nothing past ${Math.round(KIT_CEILING * 100)}%. A smith can do the rest.`;
+const kitCeilingHeld = (kit, items) => {
+  if (!kit || kit.templateIndex !== REPAIR_KIT_TEMPLATE || !Array.isArray(items)) return false;
+  const metal = kit.fieldKit === true ? FIELD_KIT : kit.kitMetal;
+  return items.some((it) => it !== kit && kitMends(metal, it) && it.currentCondition < it.maxCondition);
+};
 /** The kit's metal's word, for its refusal ("Nothing of Mithril here wants mending."). */
 export const kitMetalName = (kit) => METALS[kit?.kitMetal] ?? 'its metal';
 
@@ -253,6 +262,8 @@ export function repairKitUse(item, collection, { target = null, chooseTarget = f
     if (targets.length > 1) return { kind: 'chooseTarget', item, targets, title: MEND_WHICH_TEXT, labels: targets.map(mendTargetLabel) };
   }
   const done = useRepairKit(item, collection, { target, pack });
+  // KIT-CEILING: worn pieces the kit could take, all at three quarters or more - say so, rather than that none wants mending
+  if (!done && kitCeilingHeld(item, pack)) return { kind: 'repairKit', text: KIT_CEILING_TEXT };
   if (!done) return { kind: 'repairKit', text: item?.fieldKit === true ? 'Nothing here wants mending.' : `Nothing of ${kitMetalName(item)} here wants mending.` };   // REPAIR-EASE
   // AUDIT 30 C8: a marked piece's name is its maker's - "Silverthorn's Longsword", never "The Silverthorn's"
   const long = itemLongName(done.item);

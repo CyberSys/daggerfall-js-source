@@ -363,6 +363,7 @@ import { mintPieces, mintPiece, craftedText, CRAFT_KEPT_TEXT, BENCH_KEPT_TEXT, L
 import { heatBand, planeBand, stitchBand, recipeById } from '../net/recipeLaw.js';   // PROF3: the heat's attribute band; PROF4: the plane's, and a recipe's station; PROF7: the stitch's
 import { questActionsExtensionTemplates } from '../systems/quest/questActionsExtension.js';   // FORAGE1: QAE's four actions, which Foraging's quests say
 import { entityMaxEncumbrance } from '../combat/formulas.js';   // FORAGE1: PlayerEntity.MaxEncumbrance, for Foraging's last check
+import { packCapacityKg } from '../systems/naval/crewCompanions.js';   // COMPANION-WEIGHT: what his pack carries
 import { createComeSailAwayPool, CULL_DETAIL_PX } from './comeSailAwayPool.js';   // CSA-B: Come Sail Away's boats, drawn
 import { createComeSailAwayPeers } from './comeSailAwayPeers.js';   // CSA-J: another player's boats, seen
 import { createComeSailAwayAboard, CSA_ABOARD_GRACE, deckPose as csaDeckPose, helmWord as csaHelmWordOf, localOf as csaLocalOf } from './comeSailAwayAboard.js';   // CSA-K: another player's boat, boarded; FIELD BUGS 2026-09-29 (the sea) #1: the deck's frame, the helmsman's place
@@ -6277,7 +6278,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     // AUDIT WK-P3: his pack read by his key at every look - a quickload under the window stands a restored party, and a
     // list taken once kept the unloaded pack's items to be taken again (each F9/F11 a duplicate)
     let orphan = null;
-    const w = makeInventoryWindow({ loot: { items: () => naval?.companionPack?.(key)?.items ?? (orphan ??= []), containerImage: () => CONTAINER_IMAGES.Backpack, playerOwned: true, storage: true } });
+    // COMPANION-WEIGHT: and it carries what a person of his strength can - his body's, read at every store
+    const capacity = () => ({ kg: packCapacityKg(rec?.entity ?? null), name: naval?.companionPack?.(key)?.name ?? null });
+    const w = makeInventoryWindow({ loot: { items: () => naval?.companionPack?.(key)?.items ?? (orphan ??= []), containerImage: () => CONTAINER_IMAGES.Backpack, playerOwned: true, storage: true, capacity } });
     if (!w) return false;
     if (!modes?.mountWindow?.(w)) { (w.dispose?.bind(w) ?? w._closeSilently?.bind(w))?.(); return false; }
     return true;
