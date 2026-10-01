@@ -7206,7 +7206,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   }
   /** CREW-COMPANIONS: the place the player stands in, as the companion layer (crewAshore.js) asks it - its key (the
    *  pool itself: the street's, a building's, a dungeon's), how a companion stands there (the player's ally, loose of
-   *  every cap, out of the place's own save - the street's cull passes a `companion` by) and goes, and where behind the player a
+   *  every cap, out of the place's own save - the layer's catch-up comes long before the street's cull) and goes, and where behind the player a
    *  body may stand (the place's collider swept from the player's feet). None while the player is not afoot in it: a
    *  door or a load in flight, at a helm, in the travel view, or the naval arc off. */
   function companionPlace() {
@@ -7217,7 +7217,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (mode === 'exterior') return { key: exteriorFoes, spawn: standIn(exteriorFoes), remove: (f) => exteriorFoes.removeFoe(f), spot: spotOf(collider) };
     if (mode === 'interior') {
       const pool = modes?.interiorPool?.();
-      return pool ? { key: pool, spawn: standIn(pool), remove: (f) => pool.removeFoe(f), spot: spotOf(modes.interiorCollider) } : null;
+      return pool ? { key: pool, spawn: standIn(pool), remove: (f) => pool.removeFoe(f), spot: spotOf(modes?.interiorCollider) } : null;
     }
     const d = _dungeonPool();
     if (!d?.spawnLooseFoe || !d.removeLooseFoe) return null;
@@ -8248,7 +8248,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2754 mounts the same one, gated on
+  // and dungeonContext.js:2753 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
   // that context through modes.dungeonCtx - so worldModes.js:6565
@@ -10833,7 +10833,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7619), so exterior mode and a
+    // composer, dungeonContext.js:7617), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {

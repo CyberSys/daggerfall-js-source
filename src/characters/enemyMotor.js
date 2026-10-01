@@ -1606,7 +1606,7 @@ export class EnemyAI {
 
   /** CREW-COMPANIONS: one step of keeping to the leader - stand inside `stop`, walk once past `stop + FOLLOW_SLACK`
    *  (the slack keeps a companion from stuttering at the edge), turning in place on the classic ticks as a pursuer
-   *  does. `_followGoal` is the seam the navmesh motor routes through. */
+   *  does. `_followGoal` is the seam the pathing motor (src/ai) routes through. */
   _followTicks(classicTicks, dt) {
     const leader = this.follow.feet?.();
     if (!leader) { this.moving = false; return; }
@@ -1625,7 +1625,7 @@ export class EnemyAI {
     this.moving = withinYaw(this.yaw, dx, dz, MOVE_YAW_GATE_DEG);
   }
 
-  /** CREW-COMPANIONS: where a following companion heads - straight at the leader (the navmesh motor routes). */
+  /** CREW-COMPANIONS: where a following companion heads - straight at the leader (the pathing motor routes it). */
   _followGoal(leader, dt) { return leader; }
 
   /** WERE-FRIGHT: one fixed step of the run (flee, above). */

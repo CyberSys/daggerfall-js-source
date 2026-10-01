@@ -1255,6 +1255,47 @@ immersion list's first; and of the choices put to him, morale *"Gentle"* (no wag
 Pins: `test/shipcrew.test.js` (the laws, the living crew's answer on her real deck, the real host's repairs, falls,
 spirits, orders, yard and save). `tools/mutants/shipcrew.json`: 40 mutants, all dead.
 
+## CREW-COMPANIONS (2026-09-30) - the crew ashore, following and fighting through every door - DECLARED
+
+Mac: *"Just to add to this. I think this is a good opportunity to introduce the ability to take them along as
+companions in the world that travel with you and can fight by your side"* - and of the choices put to him, *"Up to 2"*,
+*"Knocked out"* (never killed), and through every door: *"#2, maybe this is a time for a refactor?"*. Daggerfall has no
+followers and Come Sail Away's crew never leaves the boat; all of this is the port's own.
+
+- **The party** (`systems/naval/crewCompanions.js`, pure; the host keeps one, saved as the naval save's `party`). Up to
+  `COMPANION_MAX` of the player's named hands ashore at once, each by his boat's deed UID and his name (a name is his
+  for life - `shipCrew.js handName`). Taken and sent back from the boat's menu (**Companions** - a crewed boat of mine,
+  the naval arc on: `companionRows`, the host's `companionPress`). A hand ashore is off her deck (`crewLife.js away`:
+  no walk, no talk, no song, no muster, never mended back or sent to a boarding) and home again stands on it.
+- **Knocked out, never killed.** Both pools' death arms (`exteriorFoes.js`, `dungeonContext.js damageFoe`) hold a
+  companion at 1 and mark him `_knockedOut` before every other arm - the soul trap, the kill notice, the corpse, the
+  loot. The layer carries him back aboard: he rests `REST_MIN` (8 hours of the world's clock) before he will come
+  ashore again, and his crew's spirits take `MORALE_EVENT.knocked`. A hand fallen from her roster, or her boat gone,
+  leaves the party (`prune`, once a second).
+- **THE REFACTOR: one layer over the places' own pools** (`scenes/crewAshore.js`). The street and a building share one
+  pool factory (`exteriorFoes.js`, minted per building), a dungeon has its own (`dungeonContext.js`); each hands the
+  layer an ADAPTER (`world.js companionPlace`: its key - the pool itself - how a companion stands there, how he goes,
+  and where behind the player a body may stand, the place's collider swept from the player's feet). Each frame, in
+  every mode, the layer reads the place's key: a new key (a door, a dungeon, a fast travel, a load, the helm) lifts
+  every body out of the old place - his health already in the party - and stands the party behind the player in the
+  new one. No door hook; a body a place swept itself (a fast travel's `clearLive`) stands again the same way. A stand
+  that lands after its place was left is taken back.
+- **The follow brain** is the motor's: `ai.follow` (the leader's live feet and how near to keep - `HEEL_M`, a pace
+  further for the second). No foe to fight - or a fight that has drawn him past `FOLLOW_LEASH` - a companion turns and
+  walks to the leader (`enemyMotor.js _followTicks`: the pursuit's own turn-then-walk, standing inside `stop`, off
+  again past `stop + FOLLOW_SLACK`); the pathing motor routes it round walls on the navmesh (`enhancedMotor.js
+  _followGoal`). Left `CATCH_UP_M` behind, or `CATCH_UP_DY` a floor away, he is stood behind the player again.
+- **Fighting.** Each stands as the player's ally (`allied`: team PlayerAlly), a `shipmate` none of the player's blows
+  reach (`combat/friendlyFire.js`, now the dungeon's swing and door too), a `companion` every hostile may fight - with
+  infighting off as well (`enemyTargets.js getTargets`' else-arm; a plain summon keeps DFU's chain) - and never an
+  ally's foe. The layer's catch-up (`CATCH_UP_M`) comes long before the street's cull (`ENCOUNTER_CULL_DISTANCE`); he is `transient` (no place's save), and underground he rides
+  no room lane (`_loose` off - the room's stream would stand him as everyone's foe) and the room's save skips him.
+  His green bar shows in every mode (`navalCrewBars`, the host's `drawCompanionBars`).
+
+Pins: `test/crewcompanions.test.js` (the party's laws, the follow brain on a flat and round a wall on a real navmesh,
+the targets, the layer through doors, sweeps, knocks and catch-ups, the deck, the menu, the wiring by source).
+`tools/mutants/crewcompanions.json`: 47 mutants, all dead.
+
 ## The tests
 
 One suite a slice - `test/nav_a_guns.test.js` (the flight, the aim, the volley, the reload, a ball's hurt, a ship's

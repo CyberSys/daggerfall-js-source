@@ -274,5 +274,5 @@ test('SHIP-CREW, SEA-REPAIR: THE WORLD\'S WIRING - the stores are her hold\'s (C
   const rows = boatMenuRows({ boxes: new Set(['drive']), packable: true, naval: true, crewed: true }).map((r) => r.id);
   assert.ok(rows.includes(BOAT_VERB.crew) && rows.includes(BOAT_VERB.orders));
   assert.ok(!boatMenuRows({ boxes: new Set(['drive']), packable: true }).map((r) => r.id).includes(BOAT_VERB.orders), 'none with the naval arc off');
-  assert.match(WORLD, /if \(verb === BOAT_VERB\.crew \|\| verb === BOAT_VERB\.orders\) \{/);
+  assert.match(WORLD, /if \(verb === BOAT_VERB\.crew \|\| verb === BOAT_VERB\.orders(?: \|\| verb === BOAT_VERB\.companions)?\) \{/);   // PIN MOVED (CREW-COMPANIONS): the Companions row rides the same dispatch
 });
