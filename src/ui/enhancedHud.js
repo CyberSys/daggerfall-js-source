@@ -91,7 +91,7 @@ import { inventoryItemImage } from '../systems/itemTemplates.js';
 import { quickslotTag, quickslotOffTag, quickslotSpellTag, tagKey, CELL_ACTIONS } from './quickslotTags.js';   // QS6: the caption's spell chip names its own action
 import { glyphSvg, padFamily } from './padGlyphs.js';
 import { hdGlyphSvg } from './padGlyphsHD.js';   // PADPLUS1: Plus draws the pad's buttons as vectors
-import { rarityAttr } from '../systems/lootRarity.js';   // RARITY-UI: a quickslot cell's frame wears its item's tier
+import { rarityAttr, RARITIES } from '../systems/lootRarity.js';   // RARITY-UI: a quickslot cell's frame wears its item's tier; LOOT5: a power chip the Legendary's colour
 import { validSigil } from '../systems/sigil.js';   // SIGIL-UI: and a sigil weapon's rune
 import { markSetFrame, setShades } from './setCard.js';   // SET5: a set piece's rune in its set's colour; a set power's chip in it
 import { setIdOf, setById } from '../systems/sigilSets.js';
@@ -1208,9 +1208,10 @@ function statTile(t, dpr, box) {
     pic.style.display = 'none';   // "+N": its foot is the whole of it, in the tile's middle
   } else if (t.set) {
     const set = setById(t.set);
+    const colour = set?.colour ?? (t.set === 'legendary' ? RARITIES.legendary.colour : undefined);   // LOOT5: a Legendary power's chip wears the tier's own orange
     cell.dataset.set = t.set;
-    for (const [k, v] of Object.entries(setShades(set?.colour))) cell.style.setProperty(k, v);
-    pic.src = sigilRuneTileSrc(set?.colour);
+    for (const [k, v] of Object.entries(setShades(colour))) cell.style.setProperty(k, v);
+    pic.src = sigilRuneTileSrc(colour);
   } else if (t.glyph) {
     cell.dataset.glyph = t.glyph;
     pic.src = statusGlyphSrc(t.glyph) ?? '';

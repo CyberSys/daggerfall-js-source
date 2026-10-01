@@ -137,11 +137,12 @@
   {
     "name": "PENITENT-lozenge-filled",
     "file": "src/ui/playerBadge.js",
-    "old": "hierophant: true, shadowfang: false, penitent: true });",
-    "new": "hierophant: true, shadowfang: false, penitent: false });",
+    "old": "shadowfang: false, penitent: true, herald: true });",
+    "new": "shadowfang: false, penitent: false, herald: true });",
     "tests": [
       "test/penitent.test.js"
-    ]
+    ],
+    "note": "HERALD (RE-AIMED by content: the lists end with herald now)."
   },
   {
     "name": "PENITENT-mark-another-glyphs",
@@ -173,11 +174,12 @@
   {
     "name": "PENITENT-glyph-without-the-title",
     "file": "server-account/src/titles.js",
-    "old": "shadowfang: 'shadowfang', penitent: 'penitent' });",
-    "new": "shadowfang: 'shadowfang', penitent: 'shadowfang' });",
+    "old": "penitent: 'penitent', herald: 'herald' });",
+    "new": "penitent: 'shadowfang', herald: 'herald' });",
     "tests": [
       "test/penitent.test.js"
-    ]
+    ],
+    "note": "HERALD (RE-AIMED by content: the lists end with herald now)."
   },
   {
     "name": "PENITENT-granted-to-another-account",
@@ -191,20 +193,22 @@
   {
     "name": "PENITENT-title-not-in-the-vocabulary",
     "file": "src/net/identityToken.js",
-    "old": "'shadowfang', 'penitent', 'gatebreaker']);   // TITLE-N (2026-09-24, Mac)",
-    "new": "'shadowfang', 'gatebreaker']);   // TITLE-N (2026-09-24, Mac)",
+    "old": "'shadowfang', 'penitent', 'gatebreaker', 'herald']);",
+    "new": "'shadowfang', 'gatebreaker', 'herald']);",
     "tests": [
       "test/penitent.test.js"
-    ]
+    ],
+    "note": "HERALD (RE-AIMED by content: the lists end with herald now)."
   },
   {
     "name": "PENITENT-glyph-not-in-the-vocabulary",
     "file": "src/net/identityToken.js",
-    "old": "'hierophant', 'shadowfang', 'penitent']);   // TITLE-N: each new title has its own glyph",
-    "new": "'hierophant', 'shadowfang']);   // TITLE-N: each new title has its own glyph",
+    "old": "'hierophant', 'shadowfang', 'penitent', 'herald']);",
+    "new": "'hierophant', 'shadowfang', 'herald']);",
     "tests": [
       "test/penitent.test.js"
-    ]
+    ],
+    "note": "HERALD (RE-AIMED by content: the lists end with herald now)."
   },
   {
     "name": "PENITENT-staff",

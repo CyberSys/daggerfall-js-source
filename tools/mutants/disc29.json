@@ -56,8 +56,8 @@
   {
     "name": "DISC29-B-repair-unguarded-affix",
     "file": "src/systems/lootRarity.js",
-    "old": "  const pre = affixes.find((a) => AFFIX_KINDS[a?.id]?.slot === 'prefix');",
-    "new": "  const pre = affixes.find((a) => AFFIX_KINDS[a.id].slot === 'prefix');",
+    "old": "  const names = (a, slot) => AFFIX_KINDS[a?.id]?.slot === slot && !AFFIX_KINDS[a.id].proc;",
+    "new": "  const names = (a, slot) => AFFIX_KINDS[a.id].slot === slot && !AFFIX_KINDS[a.id].proc;",
     "tests": [
       "test/disc29_rarity.test.js"
     ]

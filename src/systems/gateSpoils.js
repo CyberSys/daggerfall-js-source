@@ -31,7 +31,7 @@
 import { seededRng } from './wind.js';
 import { createRandomWeapon, createRandomArmor, ITEM_GROUPS } from './loot.js';
 import { setItemFields, isAmmunition, mintCondition, registerCustomTemplates, templateByIndex } from './itemTemplates.js';
-import { applyRarity, rarityChances } from './lootRarity.js';
+import { applyRarity, rarityChances, lastPass } from './lootRarity.js';
 import { rollRegalia } from './aetheric.js';   // SET6: Ruhn's Regalia - the spoils' last roll
 import { stacksWith } from './inventory.js';   // SS1: the fold of a pack saved before the stone stacked
 
@@ -62,6 +62,31 @@ export const SIGIL_STONE_TEMPLATES = Object.freeze([{
 }]);
 registerCustomTemplates(SIGIL_STONE_TEMPLATES);
 export const isSigilStone = (item) => item?.templateIndex === SIGIL_STONE_TEMPLATE;
+/** LOOT9 (the Loot arc, bible/06-Systems/Loot-Arc.md section 11): THE WELKYND SHARD - a sliver of Ayleid
+ *  magicka-crystal, what a laddered piece is salvaged into and the Reforge's only coin (systems/reforge.js). Its own row
+ *  beside the Stone's, on the Stone's laws: it stacks with its own kind alone, and it is BOUND - never sold, traded,
+ *  dropped or listed (systems/itemBound.js; net/realmTradeLaw.js BOUND_TEMPLATES names it). The Sapphire's art
+ *  (TEXTURE.254 record 2): a Welkynd stone's blue. */
+export const WELKYND_SHARD_TEMPLATE = 571;
+export const WELKYND_SHARD = Object.freeze({ name: 'Welkynd Shard', value: 250 });
+export const WELKYND_SHARD_TEMPLATES = Object.freeze([{
+  index: WELKYND_SHARD_TEMPLATE,
+  name: WELKYND_SHARD.name,
+  baseWeight: 0.1,
+  hitPoints: 1000,
+  basePrice: WELKYND_SHARD.value,
+  rarity: 20,
+  worldTextureArchive: 254,
+  worldTextureRecord: 2,
+  bound: true,
+  stackable: true,
+}]);
+registerCustomTemplates(WELKYND_SHARD_TEMPLATES);
+export const isWelkyndShard = (item) => item?.templateIndex === WELKYND_SHARD_TEMPLATE;
+/** `n` shards (at least one), one stack, minted on their own row. */
+export function welkyndShards(n = 1) {
+  return Object.assign(mintCondition(setItemFields({ group: 'Gems', templateIndex: WELKYND_SHARD_TEMPLATE })), { stackCount: Math.max(1, Math.trunc(Number(n) || 1)) });
+}
 
 /** SS1: STONES WON BEFORE THEY STACKED ARE ONE STACK. A pack saved before the row stacked holds a record a stone; each
  *  goes into the first record before it that it stacks with (a locked stone into a locked one - inventory.js
@@ -136,6 +161,9 @@ export function rollSpoils(seed, level) {
   // sixth of the time - rolled LAST, so every spoils before it is what it was for its seed; it leaves him last
   const regalia = rollRegalia(rolls);
   if (regalia) pieces.push({ item: regalia, tier: regalia.rarity });
+  // LOOT2 (bible/06-Systems/Loot-Arc.md section 4): the ladder's last pass - a Legendary among them Exalted one time in
+  // ten - rolled after the Regalia, so every spoils before it is what it was for its seed
+  lastPass(pieces.map((p) => p.item), rolls);
   return { gold, pieces, sigil: sigilStone() };
 }
 

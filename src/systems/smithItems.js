@@ -162,6 +162,7 @@ export function mintPiece({ recipe, quality, seed, maker = null, marked = false,
  */
 export function asMinted(item) {
   if (!item?.provenance || item.legendary || item.customEnchantments?.length) return false;
+  if (item.reforged !== undefined || item.imprint !== undefined) return false;   // AUDIT LOOT F3: a line the Reforge rolled again, a power imprinted - the record mints neither
   const e = item.enchantments ?? [];
   if (item.rarity !== 'rare') return e.length === 0;
   const roll = RARE_FLAVOURS[item.group] ?? RARE_FLAVOURS.Jewellery;

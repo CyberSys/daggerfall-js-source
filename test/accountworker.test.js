@@ -167,8 +167,12 @@ test('ACC1b: the migration is the real schema, and applying it twice changes not
   // (a sale is a fact that happened, never a rule a row satisfies - so it
   // is recorded, and what is held is still read off it at every ask), and
   // `aura`, the aura WORN, the one choice about it, as `title` is.
+  // PATREON-LINK added FOUR - the Patreon account this one linked and what Patreon last said of its membership (0045):
+  // `patreon_user` (UNIQUE: one pledge dresses one account), `patreon_tiers`, `patreon_status` and `patreon_at`. Patreon's
+  // word, stored as WB9g's sale is because nothing here can derive it; the title is still read off it at every ask.
   assert.deepEqual(cols.sort(), ['aura', 'created_at', 'email', 'guest_name', 'handle', 'handle_lc', 'id', 'insignia', 'insignia_spent',
-    'last_seen', 'legal_accepted_at', 'muted_by', 'muted_until', 'password', 'played_at', 'played_s', 'privacy_version', 'recovery_hash',
+    'last_seen', 'legal_accepted_at', 'muted_by', 'muted_until', 'password', 'patreon_at', 'patreon_status', 'patreon_tiers', 'patreon_user',
+    'played_at', 'played_s', 'privacy_version', 'recovery_hash',
     'registered_at', 'renown_hour', 'renown_hour_xp', 'renown_last_credit', 'terms_version', 'title']);
   assert.ok(!cols.some((c) => /founder|developer|sprout|glyph|grant/i.test(c)), `a grant became a column: ${cols}`);
   // SAVES AND PROVIDER LINKS ARE STILL NOT HERE. They arrive as their
