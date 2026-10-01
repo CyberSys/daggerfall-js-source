@@ -281,7 +281,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   const _peerCands = new Map();   // id -> { isPlayer, isPeer, id, feet, height, health }
   let _peerFrame = 0, _peerRead = -1;
 
-  const activeCount = () => foes.filter((f) => !f.dead && !f.puppet && !f.placed).length;   // WORLD6b: a puppet is its owner's, not this cap's; WOD3: nor is a foe a mod PLACED
+  const activeCount = () => foes.filter((f) => !f.dead && !f.puppet && !f.placed && f.companion == null).length;   // AUDIT CC-A7: a companion is the player's, never one of the place's encounter slots   // WORLD6b: a puppet is its owner's, not this cap's; WOD3: nor is a foe a mod PLACED
 
   /** One encounter foe at a world position - the dungeon load chain's
    *  shape, host-owned. B1 opts: a QUEST foe rides the same chain -

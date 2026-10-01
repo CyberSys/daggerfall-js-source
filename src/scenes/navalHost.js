@@ -439,6 +439,8 @@ export function createNavalHost(deps) {
   const boatState = new Map();   // uid (non-zero) -> { damage, guns }
   const boatStateByObj = new WeakMap();   // uid 0: the boat object
   const pendingBoats = new Map();   // a save's records waiting for their boat
+  /** AUDIT CC-A5: nobody of hers ashore (never mutated). */
+  const NO_HANDS_AWAY = new Set();
   let companions = createCompanions();   // CREW-COMPANIONS: the party ashore (crewCompanions.js), saved beside the crews
   function myBoatState(boat) {
     if (!boat) return null;
@@ -3371,9 +3373,11 @@ export function createNavalHost(deps) {
     pruneCompanions: () => companions.prune(handLives),
     /** CREW-COMPANIONS: a boat of mine's roster places ashore - her deck stands without them (navalCrew.js `away`). */
     awayOf(boat) {
-      if (!boat?.uid || !companions.party.length) return null;
+      // AUDIT CC-A5: none away is an EMPTY set, never null - null left the last hand home off her deck for good; and
+      // while I sail, every hand of mine is aboard (Mac: "Back on deck while sailing")
+      if (!boat?.uid || !companions.party.length || sailing()) return NO_HANDS_AWAY;
       const names = companions.awayOf(boat.uid);
-      if (!names.size) return null;
+      if (!names.size) return NO_HANDS_AWAY;
       const hands = myBoatState(boat)?.crew.hands ?? [];
       const out = new Set();
       hands.forEach((h, i) => { if (names.has(h.name)) out.add(i); });

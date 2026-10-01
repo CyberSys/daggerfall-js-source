@@ -232,14 +232,19 @@ test('CREW-COMPANIONS follow on the navmesh: the pathing motor takes a companion
 function world() {
   const party = createCompanions();
   const state = { place: null, leader: { feet: [0, 0, 0], yaw: 0 }, now: 0, knocked: [] };
-  const mkPlace = (key) => {
-    const pool = { key, bodies: [], removed: [] };
+  // A place as the pools are: a live list a body is in while it stands (`has`), a remove that marks it dead, and a
+  // SWEEP the way exteriorFoes' clearLive does one - the list emptied, nobody marked (AUDIT CC-A1)
+  const mkPlace = (key, { maxHealth = 40 } = {}) => {
+    const pool = { key, bodies: [], removed: [], live: [] };
     pool.spawn = (mobile, feet, o) => {
-      const rec = { mobile, gender: o.gender, ai: { feet: [...feet], yaw: o.yaw }, entity: { health: 40, maxHealth: 40 }, dead: false };
+      const rec = { mobile, gender: o.gender, ai: { feet: [...feet], yaw: o.yaw }, entity: { health: maxHealth, maxHealth }, dead: false };
       pool.bodies.push(rec);
+      pool.live.push(rec);
       return Promise.resolve(rec);
     };
-    pool.remove = (rec) => { rec.dead = true; pool.removed.push(rec); };
+    pool.remove = (rec) => { rec.dead = true; pool.removed.push(rec); pool.live = pool.live.filter((r) => r !== rec); };
+    pool.has = (rec) => pool.live.includes(rec);
+    pool.sweep = () => { pool.live.length = 0; };
     return pool;
   };
   const layer = createCrewAshore({
@@ -304,8 +309,8 @@ test('CREW-COMPANIONS knocked out, swept, sent back, left behind', async () => {
   const street = mkPlace('street');
   state.place = street;
   layer.frame(); await settle();
-  // swept by the place (a fast travel's clear): stood again, no knock
-  street.bodies[0].dead = true;
+  // swept by the place (a fast travel's clearLive - the list emptied, nobody marked dead: AUDIT CC-A1): stood again, no knock
+  street.sweep();
   layer.frame(); await settle();
   assert.equal(street.bodies.length, 2, 'stood again');
   assert.equal(state.knocked.length, 0);
@@ -389,13 +394,13 @@ test('CREW-COMPANIONS by source: the world stands the party in every place and e
   assert.match(w, /if \(mode === 'interior'\) \{\n\s*const pool = modes\?\.interiorPool\?\.\(\);/);
   assert.match(w, /spawn: \(mobile, feet, o\) => d\.spawnLooseFoe\(mobile, feet, \{ yawRad: o\.yaw, allied: true, gender: o\.gender \}\)\.then\(\(f\) => \{ if \(f\) f\._loose = false; return f; \}\)/, 'a companion rides no room lane');
   assert.match(w, /allied: true, loose: true, transient: true \}\)/);
-  assert.match(w, /crewAshoreTick\(gamePaused\(\) \? 0 : dt\);   \/\/ CREW-COMPANIONS: the party stood indoors and underground too/);
-  assert.match(w, /crewAshoreTick\(gamePaused\(\) \? 0 : dt\);   \/\/ CREW-COMPANIONS: the party stood on the street/);
+  assert.match(w, /crewAshoreTick\(\);   \/\/ CREW-COMPANIONS: the party stood indoors and underground too/);
+  assert.match(w, /crewAshoreTick\(\);   \/\/ CREW-COMPANIONS: the party stood on the street/);
   assert.match(w, /onKnocked: \(c\) => naval\?\.companionKnocked\?\.\(c\),/);
   assert.match(w, /else navalCompanions\(pick\.boat\);/);
-  assert.match(w, /away: naval\?\.awayOf\?\.\(boat\) \?\? null \}\);/);
+  assert.match(w, /away: naval\?\.awayOf\?\.\(boat\) \?\? NO_HANDS_AWAY \}\);/);
   const m = rd('src/scenes/worldModes.js');
-  assert.equal((m.match(/host\.drawCompanionBars\?\.\(\{ proj, view, eye: mwv\.eye \}\);/g) ?? []).length, 2, 'the bars indoors and underground');
+  assert.equal((m.match(/host\.drawCompanionBars\?\.\(\{ proj, view, eye: mwv\.eye \}\);/g) ?? []).length, 3, 'the bars indoors and underground - and under a dungeon window (AUDIT CC-A6)');
   const n = rd('src/scenes/navalHost.js');
   assert.match(n, /raids: \[\.\.\.raidUids\], party: companions\.snapshot\(\) \};/);
   assert.match(n, /companions = createCompanions\(r\?\.party \?\? null\);/);

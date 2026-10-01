@@ -71,7 +71,7 @@ export function boatTriggers(root, modelOf, models) {
 /**
  * A boat of mine's rows, in the plaque's shape ({id, label, disabled, why}).
  * @param {{ boxes: Map<string, any[]>|Set<string>, packable?: boolean, sailingThis?: boolean, sailing?: boolean,
- *   aboard?: boolean, passengers?: number, variants?: boolean, naval?: boolean, crewed?: boolean }} s
+ *   aboard?: boolean, passengers?: number, variants?: boolean, naval?: boolean, crewed?: boolean, companions?: boolean }} s
  */
 export function boatMenuRows(s) {
   const has = (b) => s.boxes.has(b);
@@ -90,7 +90,7 @@ export function boatMenuRows(s) {
   if (s.naval) {
     if (s.crewed) rows.push({ id: BOAT_VERB.crew, label: BOAT_MENU_TEXT.crew });
     rows.push({ id: BOAT_VERB.orders, label: BOAT_MENU_TEXT.orders });
-    if (s.crewed) rows.push({ id: BOAT_VERB.companions, label: BOAT_MENU_TEXT.companions });   // CREW-COMPANIONS
+    if (s.crewed && s.companions !== false) rows.push({ id: BOAT_VERB.companions, label: BOAT_MENU_TEXT.companions });   // CREW-COMPANIONS - AUDIT CC-A9: not on a boat with no deed number (`companions` false)
   }
   return rows;
 }

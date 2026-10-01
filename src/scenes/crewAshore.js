@@ -33,15 +33,15 @@ export const companionKeyOf = (c) => `${c.boat}:${c.name}`;
  * @param {{
  *   party: () => (ReturnType<typeof import('../systems/naval/crewCompanions.js').createCompanions> | null),
  *   place: () => ({ key: any, spawn: (mobile: number, feet: number[], o: { yaw: number, gender: string }) => Promise<any>,
- *     remove: (rec: any) => void, spot?: (from: number[], dx: number, dz: number) => number[] } | null),
- *   leader: () => ({ feet: number[], yaw: number } | null),
+ *     remove: (rec: any) => void, has?: (rec: any) => boolean, spot?: (from: number[], dx: number, dz: number) => number[] } | null),
+ *   leader: () => ({ feet: number[], yaw: number, grounded?: boolean } | null),
  *   now: () => number,
  *   onKnocked?: (c: any) => void,
  *   onStood?: (c: any, rec: any) => void,
  * }} deps
  */
 export function createCrewAshore(deps) {
-  /** @type {Map<string, { c: any, rec: any, remove: (rec: any) => void }>} */
+  /** @type {Map<string, { c: any, rec: any, remove: (rec: any) => void, has: ((rec: any) => boolean) | null }>} */
   const stood = new Map();
   const pending = new Set();
   let placeKey, epoch = 0;
@@ -76,16 +76,30 @@ export function createCrewAshore(deps) {
         if (party.knock(s.c.boat, s.c.name, now)) deps.onKnocked?.(s.c);
         continue;
       }
-      if (rec.dead || !rec.ai) { stood.delete(k); continue; }   // the place swept it (a clear, a cull): it stands again below
+      // the place swept it - a cull, a remove, or (AUDIT CC-A1) a clear that empties the list and marks nobody (the
+      // street's clearLive: a fast travel, a Recall, a passage, a respawn): it stands again below
+      if (rec.dead || !rec.ai || (s.has && !s.has(rec))) { stood.delete(k); continue; }
       if (i < 0) { stood.delete(k); lift(s); continue; }   // sent back aboard
-      if (rec.entity) party.hurt(s.c.boat, s.c.name, rec.entity.health, rec.entity.maxHealth);
+      if (rec.entity) {
+        party.hurt(s.c.boat, s.c.name, rec.entity.health, rec.entity.maxHealth);
+        // AUDIT CC-A4: the player's, whatever turned him (a blow of mine that reached him, a reset of an ally's team)
+        rec.entity.team = 'PlayerAlly'; rec.entity.mobileTeam = 'PlayerAlly';
+      }
+      rec.shipmate = true;
       rec.ai.follow = followOf(i);
       if (place && L) {
         const f = rec.ai.feet;
-        if (Math.hypot(f[0] - L.feet[0], f[2] - L.feet[2]) > CATCH_UP_M || Math.abs(f[1] - L.feet[1]) > CATCH_UP_DY) {
+        // AUDIT CC-A3: a floor away counts only while the leader stands on one - levitating, swimming or in the air, the
+        // body stood at his height would only fall and be stood up there again
+        const away = Math.hypot(f[0] - L.feet[0], f[2] - L.feet[2]) > CATCH_UP_M || (L.grounded !== false && Math.abs(f[1] - L.feet[1]) > CATCH_UP_DY);
+        if (away) {
           const at = slotFeet(place, L, i, list.length);
           f[0] = at[0]; f[1] = at[1]; f[2] = at[2];
-          rec.ai.target = null; rec.ai.path = null; rec.ai.velY = 0; rec.ai._restGrounded = false;
+          // AUDIT CC-A3: stood afresh - the motor resumes as a puppet handed back does (enemyMotor.js resumeLive: its
+          // grounding, so no fall is billed from the ledge he left; its target and senses; the route)
+          if (typeof rec.ai.resumeLive === 'function') rec.ai.resumeLive();
+          else { rec.ai.target = null; rec.ai.path = null; rec.ai.velY = 0; }
+          rec.ai._restGrounded = false;
         }
       }
     }
@@ -104,10 +118,13 @@ export function createCrewAshore(deps) {
         rec.shipmate = true;
         if (rec.entity) {
           rec.entity.name = c.name;
-          if (c.health != null) rec.entity.health = Math.min(rec.entity.maxHealth ?? c.health, c.health);
+          // AUDIT CC-A2: his hurt as a SHARE of the whole - each place rolls a class's pool afresh, and an absolute
+          // carry healed him through a door into a smaller one
+          const max = rec.entity.maxHealth;
+          if (c.health != null && c.maxHealth > 0 && max > 0) rec.entity.health = Math.max(1, Math.min(max, Math.round(c.health / c.maxHealth * max)));
         }
         if (rec.ai) rec.ai.follow = followOf(Math.max(0, party.party.indexOf(c)));
-        stood.set(k, { c, rec, remove: place.remove });
+        stood.set(k, { c, rec, remove: place.remove, has: place.has ?? null });
         deps.onStood?.(c, rec);
       }).catch((e) => { pending.delete(k); console.warn('[companions] a companion would not stand', e?.message ?? e); });
     });

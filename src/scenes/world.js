@@ -5869,7 +5869,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const rows = boatMenuRows({
       boxes, packable: !!boat.packable, sailingThis, sailing: !!csaRuntime?.isSailing(), aboard: csaStandsOn(boat),
       passengers: csaPassengersOn(boat), variants: boat.VariantObject != null && boat.GetVariantCount >= 1,
-      naval: navalOn(), crewed: !!boat.crewed,   // SHIP-CREW: her crew's card and her orders
+      naval: navalOn(), crewed: !!boat.crewed, companions: !!boat.uid,   // SHIP-CREW: her crew's card and her orders - AUDIT CC-A9: hands go ashore by her deed's number
     });
     return { boxes, rows };
   };
@@ -7046,7 +7046,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!covered) {
       const w = canvas.clientWidth, h = canvas.clientHeight, rect = worldViewportRect(w, h);
       // CREW-COMPANIONS: indoors and underground, my companions' (the street's pool holds them outdoors, with the rest)
-      for (const f of _mode() === 'exterior' ? exteriorFoes.foes : crewAshore.bodies()) {   // mine on a deck, and a room's crew its owner names (exteriorFoes.js `cw`)
+      for (const f of _mode() === 'exterior' ? exteriorFoes.foes : _insidePool()) {   // AUDIT CC-A10: indoors and underground the place's own list - a peer's companions too   // mine on a deck, and a room's crew its owner names (exteriorFoes.js `cw`)
         const feet = f.ai?.feet;
         if (!isShipmate(f) || !feet || !f.entity) continue;
         const d = Math.hypot(feet[0] - eye[0], feet[1] - eye[1], feet[2] - eye[2]);
@@ -7071,6 +7071,8 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  facing the other) and where I stand on her (never walked through). A Warm Ashes raid holds my crew off my deck
    *  (its own allies are them), and a fight's end brings my hands home; the arc off, none stands. */
   let _crewBoarding = null;
+  /** AUDIT CC-A5: my boats always say who is away - an empty set brings the last of the party home onto her deck. */
+  const NO_HANDS_AWAY = new Set();
   const _crewCtx = { battle: false, struck: false, muster: 0, avoid: null, order: null, sings: true, line: null }, _crewMe = [0, 0, 0], _crewThem = [0, 0, 0];
   const _crewSeed = (s) => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193); return h >>> 0; };
   /** AUDIT NAV2 F9: my boat's crew seeded as a room seeds her (comeSailAwayPeers peerKey, `${whose}:${which}` - which,
@@ -7097,7 +7099,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // AUDIT NAV2 F43: a Warm Ashes raid on her deck is fought by its own `_ally_`, her crew (AUDIT NAV1 B2) - her living
       // crew held off her deck till it ends, never walking and singing among the raiders
       const raid = !!b?.quest && b.boat === boat;
-      list.push({ key: boat, boat, deck: csa.deckOf(boat.hull, boat.variant ?? 0), count: crewCount({ hull: boat.hull, crew }), rosterOf: () => crewRoster({ hull: boat.hull, seed, crew }), seed, faction: null, battle: !!mine?.battle, toward: mine?.toward ?? null, hold: raid, mine, away: naval?.awayOf?.(boat) ?? null });   // SHIP-CREW: `mine` her order, spirits and lines - CREW-COMPANIONS: `away` her hands ashore, off her deck
+      list.push({ key: boat, boat, deck: csa.deckOf(boat.hull, boat.variant ?? 0), count: crewCount({ hull: boat.hull, crew }), rosterOf: () => crewRoster({ hull: boat.hull, seed, crew }), seed, faction: null, battle: !!mine?.battle, toward: mine?.toward ?? null, hold: raid, mine, away: naval?.awayOf?.(boat) ?? NO_HANDS_AWAY });   // SHIP-CREW: `mine` her order, spirits and lines - CREW-COMPANIONS: `away` her hands ashore, off her deck
     }
     for (const boat of csa.peerBoats) {
       if (!boat?.crewed || !boat.GameObject?.activeSelf || !near(boat, boat.GameObject.position)) continue;
@@ -7215,13 +7217,15 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  door or a load in flight, at a helm, in the travel view, or the naval arc off. */
   function companionPlace() {
     if (!navalOn() || !walkMode || !playerSpawned || _loading || modes?.transitioning || travelView?.active || csaRuntime?.isSailing?.()) return null;
-    const spotOf = (col) => (from, dx, dz) => { const p = [from[0], from[1], from[2]]; try { col?.move(p, dx, 0, dz, 1.8); } catch { /* the leader's own spot */ } return [p[0], from[1], p[2]]; };
+    const spotOf = (col) => (from, dx, dz) => { const p = [from[0], from[1], from[2]]; try { col?.move(p, dx, 0, dz, 1.8); } catch { /* the leader's own spot */ } return [p[0], p[1], p[2]]; };   // AUDIT CC-A3: the swept spot's own height (a slope's, a stair's)
     const mode = _mode();
     const standIn = (pool) => (mobile, feet, o) => pool.spawnFoe(mobile, feet, { yaw: o.yaw, gender: o.gender, allied: true, loose: true, transient: true });
-    if (mode === 'exterior') return { key: exteriorFoes, spawn: standIn(exteriorFoes), remove: (f) => exteriorFoes.removeFoe(f), spot: spotOf(collider) };
+    // AUDIT CC-A1: `has` - a place's clear empties its list and marks nobody (the street's clearLive), so the layer
+    // asks the list itself whether a body still stands there
+    if (mode === 'exterior') return { key: exteriorFoes, spawn: standIn(exteriorFoes), remove: (f) => exteriorFoes.removeFoe(f), has: (f) => exteriorFoes.foes.includes(f), spot: spotOf(collider) };
     if (mode === 'interior') {
       const pool = modes?.interiorPool?.();
-      return pool ? { key: pool, spawn: standIn(pool), remove: (f) => pool.removeFoe(f), spot: spotOf(modes?.interiorCollider) } : null;
+      return pool ? { key: pool, spawn: standIn(pool), remove: (f) => pool.removeFoe(f), has: (f) => pool.foes.includes(f), spot: spotOf(modes?.interiorCollider) } : null;
     }
     const d = _dungeonPool();
     if (!d?.spawnLooseFoe || !d.removeLooseFoe) return null;
@@ -7229,22 +7233,23 @@ export async function bootWorld(canvas, renderer, params, status) {
       key: d,
       // a companion rides no room lane (`_loose` off: the room's stream would stand him as everyone's foe) - he is mine
       spawn: (mobile, feet, o) => d.spawnLooseFoe(mobile, feet, { yawRad: o.yaw, allied: true, gender: o.gender }).then((f) => { if (f) f._loose = false; return f; }),
-      remove: (f) => d.removeLooseFoe(f), spot: spotOf(d.collider),
+      remove: (f) => d.removeLooseFoe(f), has: (f) => d.foes.includes(f), spot: spotOf(d.collider),
     };
   }
   const crewAshore = createCrewAshore({
     party: () => (navalOn() ? naval?.companions ?? null : null),
     place: companionPlace,
-    leader: () => (playerSpawned ? { feet: [player.pos[0], player.pos[1], player.pos[2]], yaw: cam.yaw } : null),
+    leader: () => (playerSpawned ? { feet: [player.pos[0], player.pos[1], player.pos[2]], yaw: cam.yaw, grounded: !!player.grounded && !player.levitating && !player.swimming } : null),   // AUDIT CC-A3: on a floor or not
     now: () => Math.floor(playerTicker.ownMinutes),
     onKnocked: (c) => naval?.companionKnocked?.(c),
   });
-  let _companionPruneT = 0;
+  let _companionPruneN = 0;
   /** CREW-COMPANIONS: the companion layer's frame, in every mode (the street's frame and the modal one) - and the party
    *  kept to the living hands once a second. */
-  function crewAshoreTick(dt) {
+  function crewAshoreTick() {
     if (!navalOn()) { crewAshore.clear(); return; }
-    if ((_companionPruneT -= dt) <= 0) { _companionPruneT = 1; naval?.pruneCompanions?.(); }
+    if (gamePaused()) return;   // AUDIT CC-A10: no knock, no stand, no catch-up under a window
+    if (++_companionPruneN >= 60) { _companionPruneN = 0; naval?.pruneCompanions?.(); }
     try { crewAshore.frame(); } catch (e) { console.warn('[companions]', e?.message ?? e); }
   }
   /** CREW-COMPANIONS: a boat of mine's hands to take ashore (two at most) or send back aboard - a picker of her roster,
@@ -10969,6 +10974,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // this hook and the hook was never wired.
     travelOptions?.clearTravelDestination();
     if (worldTimeScale() !== 1) resetTimeScale();
+    crewAshore.clear();   // AUDIT CC-A8: the party out of every pool before the save lands - a dungeon's patches its foes by number, and a companion in the list took another's record
     // AUDIT-MACL F2: THE LATCH GOES UP BEFORE THE FIRST AWAIT, and MAC-L4
     // is why it has to be said out loud. This guard and the latch below
     // it used to be separated by straight-line code alone - one
@@ -22186,7 +22192,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       warmAshesFrame(gamePaused() ? 0 : dt * worldTimeScale());   // WA1: the mod's coroutine clock, in every mode (a MonoBehaviour's Time.deltaTime)
       raidingPartiesFrame(gamePaused() ? 0 : dt);   // RAID1: indoors too - the day's roll, the region's news, a raid running out; nothing is stood (FindCurrentRaid wants the street)
       if (_bandChase.size) bandDrop();   // AUDIT OW4 B5: a door ends every chase, spent - the band frame never runs indoors, and a chase froze there to take up again on the way out
-      crewAshoreTick(gamePaused() ? 0 : dt);   // CREW-COMPANIONS: the party stood indoors and underground too
+      crewAshoreTick();   // CREW-COMPANIONS: the party stood indoors and underground too
       hccTick(dt, now);   // AUDIT HCC H1: the runtime's LateUpdate indoors too - the hotkeys' "outdoors only", the settings, the switch
       townTalk.frame(dt);
       renderer.resolveFrame();   // AUDIT RETRO1 E5/C8: a frame that drew no screen quad (the enhanced skin, a sheathed weapon) is shown NOW, not at the next beginFrame
@@ -23471,7 +23477,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     }
     csaPoolFrame(dt);   // CSA-B/C: the sails' FixDeformations (LateUpdate) and the lanterns' two behaviours, on Time.deltaTime; the lights they decide reach the next frame's list (the mod's own Update and LateUpdate ran after the motor: csaUpdate)
     warmAshesFrame(gamePaused() ? 0 : dt * worldTimeScale());   // WA1: TransportToShipWithDelay's WaitForSeconds, held by a pause, scaled with the world
-    crewAshoreTick(gamePaused() ? 0 : dt);   // CREW-COMPANIONS: the party stood on the street
+    crewAshoreTick();   // CREW-COMPANIONS: the party stood on the street
     hccTick(dt, now);   // AUDIT HCC H1: LateUpdate - after the motor and the recentre, before the world pass draws the wagon
     renderer.setClearColor(SKY_CLEAR);   // INCIDENT 2026-09-04 / REVIEW 2026-09-05: this frame is the EXTERIOR's (the mode frames returned above and clear black in worldModes) - CameraClearManager.cs:51-57
     renderer.setFlashLight(sky.lightningLight() ?? boltFrame.flash);   // DS1: Dynamic Skies' LightningFlash, composed first on the point-light channel just stored; BOLT: else a near ground strike's own light, from where it struck
