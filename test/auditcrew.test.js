@@ -2,6 +2,7 @@
 // CREW-COMPANIONS (#493): six lenses (the companion layer's runtime, combat and the death roads, online, the crew's
 // logic and economy, the UI and the wiring, the tests' integrity), each finding verified and pinned red here before
 // its fix. Ids: CC-A* the companion layer, CC-B* combat and AI, CC-D* the crew and the repairs, CC-E* co-op.
+import './modsOff.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -257,4 +258,114 @@ test('AUDIT CC-B7: companions fight a quest\'s foes and its foes fight them', ()
   quest.isQuestFoe = true;
   assert.equal(getTargets(mate, [mate, quest], pf, { infighting: true }).target, quest);
   assert.equal(getTargets(quest, [quest, mate], pf, { infighting: true }).target, mate);
+});
+
+// ── CC-D: the crew and the repairs ───────────────────────────────────────────────────────────────────────────────
+
+import { sea } from './navalSea.mjs';
+import { HULL } from '../src/systems/naval/navalShips.js';
+import { createShipCrew, CREW_ORDERS, MORALE_EVENT, LOSSES_WINDOW_S, crewCard } from '../src/systems/naval/shipCrew.js';
+import { seaRepair, provisionOffer, storePrice, storesToWhole, STORE_POINTS, STORE_YARD_SHARE } from '../src/systems/naval/navalYard.js';
+import { repairCost, REPAIR_PRICE } from '../src/systems/naval/navalDamage.js';
+import { mintStores, storesIn, spendStore } from '../src/systems/naval/navalStores.js';
+import { hullBuild } from '../src/systems/naval/navalShips.js';
+
+async function atSea({ hull = 420, sail = 160, crew = 24, state = 'afloat', stores = 0, nearPort = false, mates = null } = {}) {
+  const h = await sea({ hull: HULL.SmallShip, settings: { ShipsAtSea: 'off', Boarders: false }, where: { nearPort } });
+  h.boat.crewed = true;
+  h.host.restoreSaveData({ v: 1, boats: { 42: { hull, sail, crew, fire: 0, state, barrels: 4, ...(mates ? { mates } : {}) } }, notoriety: {}, day: 1, raids: [] });
+  const hold = stores ? [mintStores(stores)] : [];
+  h.deps.stores = { count: () => storesIn(hold), spend: () => spendStore(hold), add: (b, n) => { hold.push(mintStores(n)); return true; } };
+  h.hold = hold;
+  return h;
+}
+
+test('AUDIT CC-D1 (major): a store is a fixed share of the WORK, priced at STORE_YARD_SHARE of the yard\'s - never a fraction of a whole ship for 25 gold - and repairs at sea refuse in port, where the shipwright is', async () => {
+  assert.equal(STORE_YARD_SHARE, 0.7);
+  assert.equal(storePrice(), Math.round(STORE_POINTS * REPAIR_PRICE.hull * STORE_YARD_SHARE), 'a store costs 70% of what the yard asks for its work');
+  // the work of a whole Small Ship wreck in stores, against the yard's price for it
+  const b = hullBuild(HULL.SmallShip);
+  const dmg = { hull: 0, maxHull: b.hullHp, sail: 0, maxSail: b.sailHp, crew: 0, maxCrew: 0 };
+  const n = storesToWhole(dmg);
+  const yard = repairCost(dmg);
+  assert.ok(n * storePrice() >= 0.6 * yard && n * storePrice() <= 0.8 * yard, `the stores for a whole wreck (${n} at ${storePrice()}) cost about 70% of the yard's ${yard}`);
+  // the yard stocks her hold to what makes her whole from nothing
+  const o = provisionOffer({ stores: 0, stock: storesToWhole({ ...dmg }), morale: null, crew: 0, crewed: false, gold: 1e9 });
+  assert.equal(o.rows[0].missing, n);
+  assert.equal(o.rows[0].price, storePrice());
+  // seaRepair counts its work in points (canvas at its yard price's share of the hull's)
+  const r = seaRepair({ hull: 0, maxHull: 100, sail: 0, maxSail: 100 }, 1000, { crewed: true, crewShare: 1, budget: Infinity });
+  assert.ok(Math.abs(r.work - (100 + 100 * REPAIR_PRICE.sail / REPAIR_PRICE.hull)) < 1e-6, 'hull points and canvas points at half');
+  // in port: refused, with the shipwright named
+  const h = await atSea({ hull: 210, stores: 10, nearPort: true });
+  assert.equal(h.host.giveOrder(h.boat, CREW_ORDERS.repair).ok, false);
+  assert.ok(h.log.say.some((l) => /shipwright/.test(l)), 'the yard is here');
+});
+
+test('AUDIT CC-D2: a crewed boat with every hand lost still mends - her captain at the work alone - and never holds an order that does nothing', async () => {
+  const h = await atSea({ hull: 210, crew: 0, stores: 10 });
+  assert.equal(h.host.giveOrder(h.boat, CREW_ORDERS.repair).ok, true);
+  const before = h.host.hudModel().ship.hull;
+  for (let t = 0; t < 60; t += 0.1) h.host.frame(0.1);
+  assert.ok(h.host.hudModel().ship.hull > before, 'mended');
+});
+
+test('AUDIT CC-D3: the standing order rides the save', () => {
+  const c = createShipCrew({ seed: 3 });
+  c.give(CREW_ORDERS.guns);
+  const back = createShipCrew({ seed: 3, record: JSON.parse(JSON.stringify(c.snapshot())) });
+  assert.equal(back.order, CREW_ORDERS.guns);
+  assert.equal(createShipCrew({ seed: 3, record: { ...c.snapshot(), order: 'mutiny' } }).order, CREW_ORDERS.stand, 'a bad one stands down');
+});
+
+test('AUDIT CC-D4: a fight\'s losses cap lapses LOSSES_WINDOW_S after the last loss - a boarding\'s dead no longer spend the next fight\'s', () => {
+  const c = createShipCrew({ seed: 3 });
+  c.event('handLost', 5);
+  const after = c.morale;
+  c.event('handLost', 5);
+  assert.equal(c.morale, after, 'one fight, capped');
+  c.tick(LOSSES_WINDOW_S + 1, {});
+  c.event('handLost', 5);
+  assert.ok(c.morale < after, 'a new fight costs again');
+  c.event('handLost', NaN);
+  assert.ok(Number.isFinite(c.morale), 'no NaN');
+  const d = createShipCrew({ seed: 3 });
+  d.tick(1e6, { atSea: true });
+  const m = d.morale;
+  d.tick(0.01, { atSea: true });
+  assert.equal(d.morale, m, 'a huge step spent at once, no backlog drained a point a frame');
+});
+
+test('AUDIT CC-D5: one round of grog a port day, and a prize\'s hold lifts spirits once', async () => {
+  assert.equal(provisionOffer({ stores: 0, morale: 40, crew: 24, crewed: true, gold: 1e4, grogToday: true }).rows.find((r) => r.id === 'grog').missing, 0, 'today\'s round drunk');
+  const h = await atSea({ stores: 0, nearPort: true });
+  h.deps.gold = () => 1e4; h.deps.pay = () => {};
+  let y = null;
+  h.deps.openYard = (m) => { y = m; return true; };
+  h.host.frame(0.1);
+  h.host.activate();
+  assert.ok(y, 'the yard\'s window');
+  assert.equal(y.buyProvision('grog').ok, true);
+  assert.equal(y.buyProvision('grog').ok, false, 'not twice a day');
+  assert.match(rd('src/scenes/navalHost.js'), /if \(all\.length > left\.length && !_plundered\.has\(hold\)\) \{ _plundered\.add\(hold\); crewEvent\(boat \?\? boatInPlay\(\), 'plunder'\); \}/);
+});
+
+test('AUDIT CC-D6: the hands stand on her deck as they were named - their class and sex off her saved crew, not a seed that moves with the session', () => {
+  assert.match(rd('src/scenes/world.js'), /rosterOf: \(\) => navalMyRoster\(boat, seed, crew\)/);
+});
+
+test('AUDIT CC-D7: a knock after a load still costs her crew - the event lands on the saved record of a boat not yet stood', async () => {
+  const h = await atSea({ mates: { morale: 60, hires: 2, hands: [{ name: 'Aldric', role: 'First Mate', mobile: 144, gender: 'male', fights: 0, boardings: 0 }, { name: 'Brand', role: 'Bard', mobile: 134, gender: 'male', fights: 0, boardings: 0 }] } });
+  h.host.companionKnocked({ boat: 99, name: 'x', gender: 'male' });   // no such boat: nothing
+  h.host.restoreSaveData({ v: 1, boats: { 42: { hull: 420, sail: 160, crew: 24, fire: 0, state: 'afloat', barrels: 4, mates: { morale: 60, hires: 2, hands: [{ name: 'Aldric', role: 'First Mate', mobile: 144, gender: 'male', fights: 0, boardings: 0 }] } } }, notoriety: {}, day: 1, raids: [] });
+  h.host.companionKnocked({ boat: 42, name: 'Aldric', gender: 'male' });
+  assert.equal(h.host.getSaveData().boats[42].mates.morale, 60 + MORALE_EVENT.knocked);
+});
+
+test('AUDIT CC-D8: the plate says her repairs while the order stands; the card marks a hand ashore; the next hand answers for a First Mate ashore', () => {
+  assert.match(rd('src/scenes/navalHost.js'), /repairing: !!st\.repairing, repairOrdered: st\.crew\.order === CREW_ORDERS\.repair,/);
+  assert.match(rd('src/ui/navalHud.js'), /ship\.repairOrdered \? 'Crippled - her crew stands to the repairs'/);
+  const lines = crewCard({ morale: 60, hands: [{ name: 'Aldric', role: 'First Mate', fights: 0, boardings: 0 }, { name: 'Brand', role: 'Bard', fights: 1, boardings: 0 }] }, { ashore: new Set(['Aldric']) });
+  assert.ok(lines.some((l) => /^Aldric, First Mate.*ashore with you/.test(l)));
+  assert.match(rd('src/scenes/navalHost.js'), /const mateOf = \(boat, st\) =>/);
 });

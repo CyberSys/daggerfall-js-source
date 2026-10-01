@@ -451,7 +451,7 @@ export function navalHudText(model, keys = {}, { touch = false } = {}) {
       : model.board ? (model.board.kind === 'heave' && model.board.heaving ? `Heaving to beside ${model.board.name}`
       : `${boardKey}: ${model.board.kind === 'hold' ? `open ${model.board.name}'s hold` : model.board.kind === 'yard' ? model.board.name
         : model.board.kind === 'heave' ? `heave to beside ${model.board.name}` : `board ${model.board.name}`}`)
-      : ship.wrecked ? (ship.repairing ? 'Crippled - her crew at the repairs' : ship.stores > 0 ? 'Crippled - order repairs, or make port' : 'Crippled - make port for a shipwright')   // AUDIT NAV1: the way out of a wreck, said - SEA-REPAIR: her stores the other
+      : ship.wrecked ? (ship.repairing ? 'Crippled - her crew at the repairs' : ship.repairOrdered ? 'Crippled - her crew stands to the repairs' : ship.stores > 0 ? 'Crippled - order repairs, or make port' : 'Crippled - make port for a shipwright')   // AUDIT NAV1: the way out of a wreck, said - SEA-REPAIR: her stores the other
       : !model.armed ? 'No guns aboard'
       : `${touch ? 'Hold and drag' : `Hold ${aimKey}`} to aim - ${bracePress}`,
     brace: touch && !!model.armed,

@@ -404,5 +404,5 @@ test('CREW-COMPANIONS by source: the world stands the party in every place and e
   const n = rd('src/scenes/navalHost.js');
   assert.match(n, /raids: \[\.\.\.raidUids\], party: companions\.snapshot\(\) \};/);
   assert.match(n, /companions = createCompanions\(r\?\.party \?\? null\);/);
-  assert.match(n, /boatState\.get\(c\.boat\)\?\.crew\.event\('knocked'\);/);
+  assert.match(n, /const live = boatState\.get\(c\.boat\);\n\s*if \(live\) live\.crew\.event\('knocked'\);/);
 });

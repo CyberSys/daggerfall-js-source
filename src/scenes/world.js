@@ -7071,6 +7071,13 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  facing the other) and where I stand on her (never walked through). A Warm Ashes raid holds my crew off my deck
    *  (its own allies are them), and a fight's end brings my hands home; the arc off, none stands. */
   let _crewBoarding = null;
+  /** AUDIT CC-D6: a boat of mine's deck roster - each place the class and sex of the hand her saved crew named there
+   *  (shipCrew.js), the seed's roll only past them. The crew seed moves with the session (online the tab's id and the
+   *  boat's place among the active), and "Hilda, Bard" floated over a male Warrior. */
+  const navalMyRoster = (boat, seed, crew) => {
+    const hands = naval?.crewOf?.(boat)?.hands ?? [];
+    return crewRoster({ hull: boat.hull, seed, crew }).map((r, i) => (hands[i] ? { mobile: hands[i].mobile, gender: hands[i].gender === 'female' ? 'female' : 'male' } : r));
+  };
   /** AUDIT CC-A5: my boats always say who is away - an empty set brings the last of the party home onto her deck. */
   const NO_HANDS_AWAY = new Set();
   const _crewCtx = { battle: false, struck: false, muster: 0, avoid: null, order: null, sings: true, line: null }, _crewMe = [0, 0, 0], _crewThem = [0, 0, 0];
@@ -7099,7 +7106,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // AUDIT NAV2 F43: a Warm Ashes raid on her deck is fought by its own `_ally_`, her crew (AUDIT NAV1 B2) - her living
       // crew held off her deck till it ends, never walking and singing among the raiders
       const raid = !!b?.quest && b.boat === boat;
-      list.push({ key: boat, boat, deck: csa.deckOf(boat.hull, boat.variant ?? 0), count: crewCount({ hull: boat.hull, crew }), rosterOf: () => crewRoster({ hull: boat.hull, seed, crew }), seed, faction: null, battle: !!mine?.battle, toward: mine?.toward ?? null, hold: raid, mine, away: naval?.awayOf?.(boat) ?? NO_HANDS_AWAY });   // SHIP-CREW: `mine` her order, spirits and lines - CREW-COMPANIONS: `away` her hands ashore, off her deck
+      list.push({ key: boat, boat, deck: csa.deckOf(boat.hull, boat.variant ?? 0), count: crewCount({ hull: boat.hull, crew }), rosterOf: () => navalMyRoster(boat, seed, crew), seed, faction: null, battle: !!mine?.battle, toward: mine?.toward ?? null, hold: raid, mine, away: naval?.awayOf?.(boat) ?? NO_HANDS_AWAY });   // SHIP-CREW: `mine` her order, spirits and lines - CREW-COMPANIONS: `away` her hands ashore, off her deck
     }
     for (const boat of csa.peerBoats) {
       if (!boat?.crewed || !boat.GameObject?.activeSelf || !near(boat, boat.GameObject.position)) continue;

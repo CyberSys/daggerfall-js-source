@@ -15,7 +15,7 @@ import {
   MORALE_START, MORALE_EVENT, LOSSES_CAP, SEA_DECAY_S, PORT_RISE_S, PORT_CAP, SING_MIN, GUNS_RELOAD, HIGH_SPIRITS, LOW_SPIRITS,
 } from '../src/systems/naval/shipCrew.js';
 import { crewRoster, createCrewLife, CHANTY_FIRST_S } from '../src/systems/naval/crewLife.js';
-import { seaRepair, wantsRepair, provisionOffer, grogPrice, SEA_REPAIR_PER_S, STORE_SHARE, STORE_PRICE, STORES_STOCK, FIELD_QUIET_S, FIELD_MEND_CAP } from '../src/systems/naval/navalYard.js';
+import { seaRepair, wantsRepair, provisionOffer, grogPrice, SEA_REPAIR_PER_S, STORE_POINTS, STORE_PRICE, STORES_STOCK, FIELD_QUIET_S, FIELD_MEND_CAP, storesToWhole } from '../src/systems/naval/navalYard.js';
 import { mintStores, storesIn, spendStore, STORES_TEMPLATE } from '../src/systems/naval/navalStores.js';
 import { createGunDeck } from '../src/systems/naval/navalGunnery.js';
 import { yardText } from '../src/ui/navalYardWindow.js';
@@ -79,9 +79,9 @@ test('SHIP-CREW: THEIR SPIRITS (GENTLE) - a win, a prize, a hold filled and a ro
   assert.equal(k.morale, MORALE_START - 2, 'the carry kept');
   const t = createShipCrew({ seed: 1 });
   t.tick(SEA_DECAY_S * 3 + 1, { atSea: true });
-  assert.equal(t.morale, MORALE_START - 1, 'one point for one tick past the clock (the clock carries)');
+  assert.equal(t.morale, MORALE_START - 3, 'a long step\'s points spent at once (PIN MOVED: AUDIT CC-D4 - a backlog drained a point a frame)');
   for (let i = 0; i < 10; i++) t.tick(SEA_DECAY_S, { atSea: true });
-  assert.equal(t.morale, MORALE_START - 11);
+  assert.equal(t.morale, MORALE_START - 13);
   for (let i = 0; i < 100; i++) t.tick(PORT_RISE_S, { inPort: true });
   assert.equal(t.morale, PORT_CAP, 'a port lifts them as far as PORT_CAP');
   t.event('grog'); t.tick(PORT_RISE_S * 5, { inPort: true });
@@ -124,7 +124,7 @@ test('SHIP-CREW: THE CREW_ORDERS AND THE LIVING CREW - a crewed boat\'s four, a 
   assert.ok(!guns.said.some((l) => l.kind === 'sing'), 'no song at the guns');
 });
 
-test('SEA-REPAIR: THE REPAIRS AND THE STORES - her hull first, then her canvas, all the way to whole, at SEA_REPAIR_PER_S of the whole a second by her crew and spirits; a store for every STORE_SHARE of a whole; none past the stores\' budget; the item stacks and spends one at a time (mutants: the canvas first, the cap kept, the budget unread, the stack spent whole)', () => {
+test('SEA-REPAIR: THE REPAIRS AND THE STORES - her hull first, then her canvas, all the way to whole, at SEA_REPAIR_PER_S of the whole a second by her crew and spirits; a store for every STORE_POINTS of work (PIN MOVED: AUDIT CC-D1); none past the stores\' budget; the item stacks and spends one at a time (mutants: the canvas first, the cap kept, the budget unread, the stack spent whole)', () => {
   const d = { hull: 100, maxHull: 400, sail: 50, maxSail: 100 };
   const r = seaRepair(d, 10, { crewed: true, crewShare: 1 });
   assert.ok(Math.abs(r.hull - 400 * SEA_REPAIR_PER_S * 10) < 1e-9 && r.sail === 0, 'her hull first');
@@ -133,8 +133,8 @@ test('SEA-REPAIR: THE REPAIRS AND THE STORES - her hull first, then her canvas, 
   const past = seaRepair({ hull: 390, maxHull: 400, sail: 100, maxSail: 100 }, 1000, { crewed: true, crewShare: 1 });
   assert.ok(Math.abs(past.hull - 10) < 1e-9, 'never past whole - and past FIELD_MEND_CAP');
   assert.ok(FIELD_MEND_CAP < 1);
-  const poor = seaRepair(d, 1000, { crewed: true, crewShare: 1, budget: STORE_SHARE });
-  assert.ok(Math.abs(poor.work - STORE_SHARE) < 1e-9, 'a store\'s worth and no more');
+  const poor = seaRepair(d, 1000, { crewed: true, crewShare: 1, budget: STORE_POINTS });
+  assert.ok(Math.abs(poor.work - STORE_POINTS) < 1e-9 && Math.abs(poor.hull - STORE_POINTS) < 1e-9, 'a store\'s worth and no more - on her hull first');
   assert.ok(Math.abs(seaRepair(d, 10, { crewed: false, crewShare: 0 }).hull - r.hull * 0.5) < 1e-9, 'alone, half');
   assert.equal(wantsRepair({ hull: 400, maxHull: 400, sail: 100, maxSail: 100 }), false);
   const items = [mintStores(3)];
@@ -144,8 +144,8 @@ test('SEA-REPAIR: THE REPAIRS AND THE STORES - her hull first, then her canvas, 
   assert.equal(spendStore(items) && spendStore(items), true); assert.equal(storesIn(items), 0);
   assert.equal(spendStore(items), false);
   // the yard's provisions
-  const o = provisionOffer({ stores: 3, morale: 40, crew: 24, crewed: true, gold: 100 });
-  assert.deepEqual(o.rows.map((x) => [x.id, x.missing, x.price, x.afford]), [['stores', STORES_STOCK - 3, STORE_PRICE, 4], ['grog', 1, grogPrice(24), 1]]);
+  const o = provisionOffer({ stores: 3, morale: 40, crew: 24, crewed: true, gold: STORE_PRICE * 2 + 50 });
+  assert.deepEqual(o.rows.map((x) => [x.id, x.missing, x.price, x.afford]), [['stores', STORES_STOCK - 3, STORE_PRICE, 2], ['grog', 1, grogPrice(24), 1]]);
   assert.deepEqual(provisionOffer({ stores: 0, morale: null, crew: 0, crewed: false, gold: 0 }).rows.map((x) => x.id), ['stores'], 'no grog for no crew');
 });
 
@@ -241,7 +241,7 @@ test('SHIP-CREW on the host: A HAND LOST FALLS BY NAME and wears their spirits; 
   assert.deepEqual(back.host.crewOf(back.boat).hands.map((x) => x.name), w.host.crewOf(w.boat).hands.map((x) => x.name), 'the same names after a load');
   // the yard's provisions
   const y = await atSea({ stores: 2 });
-  let purse = 1000; const paid = [];
+  let purse = 100000; const paid = [];
   y.deps.gold = () => purse; y.deps.pay = (n) => { paid.push(n); purse -= n; };
   y.host.frame(0.1);
   let model = null;
@@ -252,7 +252,7 @@ test('SHIP-CREW on the host: A HAND LOST FALLS BY NAME and wears their spirits; 
   assert.ok(model, 'the yard\'s window');
   {
     const r = model.buyProvision('stores');
-    assert.equal(r.ok, true); assert.equal(storesIn(y.hold), STORES_STOCK);
+    assert.equal(r.ok, true); assert.equal(storesIn(y.hold), Math.max(STORES_STOCK, storesToWhole({ hull: 0, maxHull: 420, sail: 0, maxSail: 160 })), 'her hold stocked to what her wreck takes (PIN MOVED: AUDIT CC-D1)');
     const m0 = y.host.crewOf(y.boat).morale;
     assert.equal(model.buyProvision('grog').ok, true);
     assert.equal(y.host.crewOf(y.boat).morale, m0 + MORALE_EVENT.grog);
