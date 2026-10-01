@@ -265,13 +265,11 @@
   {
     "name": "N4-the-body-chases-a-turning-view (the d92a75a13 law)",
     "file": "src/player/motor.js",
-    "old": "    const off = wrap(this._bodyYaw - viewYaw) * (1 - k);\n    this._bodyYaw = Math.abs(off) < 1e-3 ? null : viewYaw + off;",
-    "new": "    const next = this._bodyYaw + wrap(viewYaw - this._bodyYaw) * k;\n    this._bodyYaw = Math.abs(wrap(viewYaw - next)) < 1e-3 ? null : next;",
+    "old": "    if (this._bodyYaw != null) { this._bodyYawOff = wrap(this._bodyYaw - viewYaw); this._bodyYaw = null; }\n    const off = this._bodyYawOff * (1 - k);\n    this._bodyYawOff = Math.abs(off) < 1e-3 ? null : off;",
+    "new": "    if (this._bodyYaw != null) { this._bodyYawOff = wrap(this._bodyYaw - viewYaw); this._bodyYaw = null; }\n    const off = this._bodyYawOff * (1 - k);\n    this._bodyYawOff = null;\n    if (Math.abs(off) >= 1e-3) this._bodyYaw = viewYaw + off;",
     "tests": [
       "test/auditclimbarc.test.js"
-    ],
-    "equivalent": true,
-    "why": "AUDIT CLIMB-ARC N4 IS NOT FIXED: the new offset is taken against THIS frame's view, (b - v') (1 - k), and the old step's b + (v' - b) k is the same number - a view turning w rad/s still leaves the body w dt (1 - k) / k behind (0.216 rad at 3 rad/s, 60 fps) on both. The pin is a todo in test/auditclimbarc.test.js; this record dies the day the fix is real."
+    ]
   },
   {
     "name": "D2-the-drawn-ground-stood-on",
@@ -629,6 +627,15 @@
     "file": "src/player/collider.js",
     "old": "if (FIXED_POINT_STOP && low[0] === sx && low[1] === sy && low[2] === sz) break;",
     "new": "if (FIXED_POINT_STOP && low[1] === sy && low[2] === sz) break;",
+    "tests": [
+      "test/auditclimbarc.test.js"
+    ]
+  },
+  {
+    "name": "F9-the-held-arrival-untold",
+    "file": "src/player/motor.js",
+    "old": "        this._pkEmit('hold', { mode: 'hang', normal: [w.normal[0], 0, w.normal[2]] });\n",
+    "new": "",
     "tests": [
       "test/auditclimbarc.test.js"
     ]

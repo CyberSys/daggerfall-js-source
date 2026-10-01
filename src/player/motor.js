@@ -458,6 +458,7 @@ export class PlayerMotor {
     this.parkoured = null;       // 'mantle' | 'vault' for the frame a move starts (the fatigue/tally consumer, as `jumped`)
     this.climbEvents = [];       // CLIMB4: the frame's climb events ({ type, ... }) - the feel's and the sounds' (climbFeel.js, climbSounds.js)
     this._bodyYaw = null;        // CLIMB5: the body's own yaw while it is not the view's (bodyYawFor) - null when it is
+    this._bodyYawOff = null;     // AUDIT CLIMB-ARC N4: off the wall, the body's offset from the view, decaying - null when none
     this._pkJumpLatch = false;   // AUDIT CLIMB1 F7: Jump held through a move is spent on it - the next jump is a fresh press
     this._pkArm = null;          // the tap catch: a fresh Jump's catch armed for its jump ({ t, air }) - PARKOUR_ARM_GRACE_S
     this._pkJumpWas = false;     // ...the key's last step, for the press's edge
@@ -1452,18 +1453,21 @@ export class PlayerMotor {
    *  then let go of it (null), so off the wall the body is the view's yaw exactly, as it always was. */
   _stepBodyYaw(dt, viewYaw) {
     const face = this.climbFacing;
-    if (face == null && this._bodyYaw == null) return;
+    if (face == null && this._bodyYaw == null && this._bodyYawOff == null) return;
     const k = 1 - Math.exp(-Math.max(0, dt) / BODY_TURN_TAU);
     const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
     if (face != null) {
-      const from = this._bodyYaw ?? viewYaw;
+      const from = this._bodyYaw ?? viewYaw + (this._bodyYawOff ?? 0);
       this._bodyYaw = from + wrap(face - from) * k;
+      this._bodyYawOff = null;
       return;
     }
-    // AUDIT CLIMB-ARC N4: off the wall the body's offset FROM THE VIEW decays - a view still turning was chased, the
-    // body trailing it for as long as it turned; now it is the view's yaw exactly within a few time constants
-    const off = wrap(this._bodyYaw - viewYaw) * (1 - k);
-    this._bodyYaw = Math.abs(off) < 1e-3 ? null : viewYaw + off;
+    // AUDIT CLIMB-ARC N4: off the wall the body is handed back to the view by an OFFSET from it that decays on the
+    // clock alone - the view's own turning never feeds it (a body chasing a turning view trails it by w * tau for as
+    // long as it turns); the view's yaw exactly within a few time constants of the let-go
+    if (this._bodyYaw != null) { this._bodyYawOff = wrap(this._bodyYaw - viewYaw); this._bodyYaw = null; }
+    const off = this._bodyYawOff * (1 - k);
+    this._bodyYawOff = Math.abs(off) < 1e-3 ? null : off;
   }
 
   /** MAC1 (Mac, 2026-09-10: "Fix Jittery hills and stairs"). The step
@@ -1674,7 +1678,7 @@ export class PlayerMotor {
   }
   /** CLIMB5: the yaw the body is drawn at (third person) for a view at `viewYaw` - the view's own, except on the climb
    *  and the moment after it, when it turns to the wall and back (BODY_TURN_TAU). */
-  bodyYawFor(viewYaw) { return this._bodyYaw ?? viewYaw; }
+  bodyYawFor(viewYaw) { return this._bodyYaw ?? (this._bodyYawOff == null ? viewYaw : viewYaw + this._bodyYawOff); }
   /** CLIMB2: hanging from a lip. */
   get hanging() { return this._wall?.mode === 'hang'; }
   /** CLIMB2: the grip the HUD shows ({ amount, low }) - on the wall, and while it comes back after; null otherwise. */
@@ -2544,6 +2548,9 @@ export class PlayerMotor {
         w.upRefused = false;
         w.cornerRefused = 0;
         this._pkHold();
+        // AUDIT CLIMB-ARC F9: the hands land on the hold the move ends in - told, as a catch is, though the wall goes on
+        // (the feel's leap dip is its arrival's; the sounds' is the move's own last cue, flushed)
+        this._pkEmit('hold', { mode: 'hang', normal: [w.normal[0], 0, w.normal[2]] });
       } else if (m.hang) {
         this._wallBegin('hang', m.hang.normal, m.hang.lipY, m.key);   // CLIMB2: a catch ends held, under the lip
         // AUDIT CLIMB-ARC D1: the lower was walked into with Forward held, and Forward in the hang climbs up - held on, it

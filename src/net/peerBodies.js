@@ -281,6 +281,7 @@ export class PeerBodies {
    * @param {Function} [p.now]
    * @param {() => number} [p.generation] HARD3: the Morrowind data's generation. Destructured since MWBODY1 and never documented, which is how a caller finds out a parameter exists - by reading the destructuring.
    * @param {(m: string) => void} [p.warn] HARD3: likewise - the injected warn a test reads instead of the console.
+   * @param {() => any} [p.collider] CLIMB6: the scene's collider, for a peer's floor under its climb (climbPose.js floorGapAt).
    */
   constructor({ renderer, enabled = () => true, createRig = createFpArm, buildOpts = peerBuildOpts, now = () => Date.now(), generation = () => 0, warn = (m) => console.warn(m), collider = () => null }) {
     this.renderer = renderer;

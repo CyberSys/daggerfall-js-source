@@ -654,7 +654,7 @@ export function createBloodMarks({ renderer = null, collider = null, settings = 
     // A BLOODLESS FOE MARKS NOTHING. DFU's own bloodIndex says which
     // six, and characters/enemyBasics.js has carried it since long
     // before this arc.
-
+    if (!marksBlood(bloodIndex)) return null;
     const col = liveCollider();
     if (!col?.surfaceHit) return null;   // between two worlds: a pixel unloaded, a mode half changed   // MAC-BUG W5: surfaceHit, not raycastHit - the ground outside is `heightAt`, not a mesh
     const damage = hit?.damage ?? 0, maxHealth = hit?.maxHealth ?? 0;

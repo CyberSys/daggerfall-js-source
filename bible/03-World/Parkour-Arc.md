@@ -743,9 +743,130 @@ flags. It stops there now; a pass the low-head-low round trip's rounding moved b
 - **Pinned**: `test/climbperf.test.js` (3).
 - **Mutants**: `tools/mutants/climbperf.json` (3), all dead - the stop gone, taken after every first pass, blind to y.
 
+## AUDIT CLIMB-ARC (2026-10-01): "a detailed audit on this to make sure it's perfect"
+
+Mac on PR #504 (CLIMB-DOWN, CLIMB3, CLIMB4, CLIMB5, PERF-CLIMB): "Want to do a detailed audit on this to make sure it's
+perfect". Four lenses over the PR's 2-dot diff against main (the feel, the leaps, the way down, the others' view and the
+perf stop). Every finding was reproduced on d92a75a13 before it was fixed, and each one's pin went red there and green after.
+`test/auditclimbarc.test.js` (34) asks the real producers: PlayerMotor over a Collider, ClimbFeel and its host, the
+look filter, the weapon rig, PeerClimbSounds, the riders, RemotePlayers, `mwViewDrawBody`, the ticker and
+`validPose`. The hosts' wiring is held by source pins.
+
+### Findings (each pinned red, each fixed)
+
+- **The feel (CLIMB4)**. F1: the corner's turn mirrored, so the view paid out away from the next wall. It now ends facing the wall the
+  hands hold. F2/F4: a held frame (a menu, the season card) replayed the climb's events and stepped the feel. `holdFrame`
+  clears them and the feel takes `frame(dt, held)` in all four hosts (world, exterior, worldModes, dungeon; the FOUR HOSTS
+  RULE). F3: the feel read the motor's 60 Hz step, so a 144 Hz frame bobbed back and forth. It reads `climbTrackPos` (the
+  render feet, less a moving hold's carry). F5: the springs were a dt-step Euler. They are exact critically damped now,
+  and a catch dips the same at 20, 60 and 240 Hz. F6: a teleport or a load carried a turn or a cue over; the feel resets.
+  F7: a swing in flight as the hands took the wall still landed its hit frame. The climbing return skips it. F8: a hold
+  carried by what moves (a deck, a platform) bobbed as travel. F9: a leap dipped the eye as it pushed off. It dips on
+  arrival, and a leap between two holds now tells the hold it ends in (`hold`, though the wall goes on). Before,
+  the dip never fired in real play. F10/F11: the dungeons aimed the look, the ears, the spell and the blow with the
+  felt view. They aim with `aimView`, the view before the feel, and ?exterior's interiors and dungeons take the feel as the
+  world's do. F13: a held swing swallowed the game's own turn. The look filter owes it apart (`turnYaw`). Nit:
+  `_turnTo` asked twice landed short by what was still owed.
+- **The leaps (CLIMB3)**. L1: a staircase read as an edge. `senseDrop` asks each sample from the last floor found. L2/L3: a running
+  leap could be shorter than the plain jump it replaced (a fast runner, Jumping past 100, the Jump spell). It is never
+  shorter, and the spell's air control keeps a leap's launch. L4/L5: the late press steered with the view and fired off a
+  0.9 m step or a crouched run. It is the at-edge leap: armed only running at pace, standing, off a drop proven from
+  the last floor, and launched along the run. L6: a placement (spawn under its freeze, mid-eject, `pinFeet`) kept the late
+  press and the flight. L7/L8: a Jump held from the water counted as a fresh press, and a running Jump leapt under Slowfall or
+  wading outdoor water. L9: a side leap took the very lip the shimmy follows (a sloped coping, a tower's ring). L10: Run held at a wall from a
+  standstill wall-ran (`moveSpeed` is the applied speed, so the pace is now measured: `_pkPace`). L11/L12: a lipless wall run left
+  its hull, and a save mid-run lost the hold. L13: a frame that began two moves billed one. `parkoured` is a list and the
+  ticker bills each. The leap's own bill site, in `_pkLaunch`, is unreachable as a second bill (a launch needs a fresh
+  press, and any earlier move latches Jump); the catch's and the move's sites are pinned. L15: the wall run's height read the raw
+  skill, not the climb's (a Khajiit's, the Climbing spell's). L16: a leap's first step charged the grip twice.
+- **The way down (CLIMB-DOWN)**. D1: Forward still held into the lower's hang climbed straight back up and walked off the edge. The hang
+  asks a fresh Forward (`upRefused`) at 60, 30 and 10 fps. D2: a ledge topped by the drawn ground 6-8 cm under the
+  capsule's floor was not mantled (`landingAt` lifts to `restFloor`). D3: a 1.3 m parapet over a 1.6-1.7 m outer drop was a trap.
+  Forward and Jump clamber over it (a fallback bounded by VAULT_MAX, the drop and HANG_DROP + VAULT_CLEAR). D4: the
+  crouched Jump over a parapet hung crouched. It hangs standing, its eye at the lip.
+- **The others (CLIMB5)**. N1: the sprite lane drew the body on the body's yaw where it wanted the view's (`viewYaw`, all four hosts). N2: a
+  beast on the wall strode and faced the camera. N3: the classic climb faced the view. It faces the wall the motor latched
+  (`_climbWallDir`). N4: off the wall the body chased a view still turning, trailing it by w x tau for as long as it
+  turned. The body now carries an offset from the view that decays on the clock alone (`_bodyYawOff`), and is the view's
+  yaw exactly within 0.75 s. The first fix decayed the offset against each frame's view, which is the same number as the chase;
+  the pins caught that, and it is fixed for real now. N5: the peers' sounds' switch blinded the law, so
+  switched back on it replayed what happened while off. N6: a hostile pose stream could make one peer sound every frame.
+  Floors are `PEER_CUE_MS` 150 and `PEER_RHYTHM_MS` 100. N7: the widest-pose pins measure the climb's fields too.
+- **The perf stop (PERF-CLIMB)**. P1: the fixed-point stop read all three axes. The pin presses along x as well as z.
+- **The records**. The arc's patch notes said all of the climb's feel was first person only. The view half (the jolts, the
+  sway, the tilt: `applyClimbView`) is, but the turns are headings paid through the look filter, so a corner's and an
+  eject's turn the view in third person too. The notes say so now.
+
+### What the pins could not reach
+
+- `_pkOffEdge = null` in `_wallBegin` and `_parkourBegin` (L6) stay as belts. The late press's clock runs on the wall and
+  is 0.15 s (`PARKOUR_COYOTE_S`). A move that ends in the air ends jumping, which clears it, and no scenario found
+  holds it past both. Their mutants survive, so they are not in the JSON.
+
+### Records
+
+- **Pinned**: `test/auditclimbarc.test.js` (34). `test/climbing.test.js` XL-5 re-anchored on `_parkourAdvance(dt, spent)`.
+- **Mutants**: `tools/mutants/auditclimbarc.json` (71): 70 dead, 1 recorded equivalent (L13's `_pkLaunch` bill site,
+  above). The audit's source edits moved code that records in older lists named. Those records were re-aimed, each
+  still putting back the behaviour its name says.
+
+## CLIMB6 (2026-10-01): THE CLIMB ON THE MORROWIND BODY - SHIPPED
+
+Mac: "Definitely want you to use the morrowind model to get correct animations for everything." The climb had a camera
+and a sound but no body: the arms and the third-person body played their ground animation on the wall. CLIMB6 poses the
+Morrowind rig's own bones from the climb, every frame, in first and third person, for the own player and every peer.
+No Morrowind or ARENA2 data enters the repo. The rig is the player's own install; the pins use the vendored,
+retail-shaped `xbase_anim_sh.nif` (Weapon Sheathing).
+
+- **The rig** (`combat/climbRig.js applyClimbRig`): it runs after the animation's pose and before the skin, in this order. The
+  offset; the pendulum swing about the holds; the spine's lean; the clavicles' shrug toward a hand over the head; the
+  fit, which lets the body down (within the request's bound, never into the floor under the feet) until the farther hand
+  is at 97 % of its bones; the arms (a two-bone reach on the elbow's pole, then the hand's frame: fingers and palm, and the
+  fingers' curl over the stone); the legs (a two-bone reach let out to a share of their length, and the toes); and the
+  head's look. CONVENTION-FREE: it reads the joints, never a bone axis, so a retail X-along-bone rig, a Y-along-bone one and
+  random rest frames solve alike (pinned on 40 random chains). The hand's palm is read off the thumb's side. Bones by
+  their Bip01 names with the held-bone aliases.
+- **The law** (`player/climbPose.js ClimbPose`): one per body. It turns the climb's snapshot (`climbRigInput`: the motor's
+  hold, its lip, the move in flight by its own object, the grip, a leap's flight) into world targets.
+  - **The hang**: both hands on the lip, `HANDS_APART`, the wrists over the top and past the face, palms down, elbows out
+    and back. The feet on the face below with the knees forward. The body in to the wall and let down to straight arms.
+  - **The shimmy** (`shimmyGait`): the stones on a grid twice the span apart, the body square over stone 0 when a hold is
+    taken (each new lip, or coming in from a move, starts it again). The leading hand reaches first the way the body
+    goes, and the other closes up after it, so a grip lands every `FEEL.SHIMMY_SPAN`, in step with the ear's.
+    One hand is off the stone at a time, and the hands never cross or slide. A hand stopped mid-reach finishes onto
+    the nearer stone and stays there going on or back (`_settled`). The first gait sent it to the next stone and then
+    back to the one it had left. A 60-run stop-and-go fuzz holds all of it.
+  - **The free climb**: a diagonal gait, a hand every `FEEL.REACH` climbed, the opposite foot half a reach after. The
+    hands over the head, the knees turned out.
+  - **The moves**: a catch or reach comes in to the hang, and a leap reaches for the hold it flies to. A corner goes round from
+    the first face. The lower squats to the edge with the feet planted, takes it, and the drawn body goes down at once to
+    meet the hang. A vault tucks the knees past the top, a wall run puts its feet on the face, and a pull-up keeps the hands
+    on the edge through the rise and then lets go as the body stands.
+  - **Grip and flight**: a failing grip trembles the hands and scrabbles the feet. A catch rings a damped pendulum.
+  - **Smoothing**: a limb's target jumping more than 0.15 m (a new hold) is eased; a swing's own frames are not.
+- **First person** (`fpArm.js`): the arms are drawn in their own 60-degree lens, so each hand is put on its screen ray to
+  the stone at a depth the arm reaches (`climbRequestToFirstPerson`, `RAY_REACH` 0.9). The weapon, the arrow and the torch
+  are hidden while the hands are on the stone, and the weapon rig neither lowers nor returns them (`climbPosed`).
+- **Third person** maps the world targets into the rig's space under the body's feet and yaw
+  (`climbRequestToRig`). The own body and every peer's body take the same law. A peer's track is rebuilt from its
+  pose (`PeerClimbTrack`), and a move in flight reaches the others as `ck`/`cy`/`cd` on the wire (`climbOf`: a kind
+  out of range is no move, and a lip or a time out of bounds is dropped), so their bodies climb it as the climber's does.
+  RELAY_VERSION world138, with CLIMB5's fields, is not yet deployed. PR #482 also claims world138-143 on its branch, so
+  whichever lands second renumbers.
+- **Hosts**: world, exterior, worldModes and dungeon each pass `climbRigInput(player, cam.yaw)` to the weapon rig's camera
+  and to the body draws (the FOUR HOSTS RULE).
+- **Pinned**: `test/climb6.test.js` (16): retail IK, convention-free, the algebra, the fit, the hang, the shimmy and its fuzz,
+  the free climb, the moves, failing/flight/pendulum, the 3P and FP maps, `poseAssembly`'s hook, the wire, the peer
+  track, `climbRigInput`, the four hosts.
+- **Mutants**: `tools/mutants/climb6.json` (25), all dead. The first run left 5 alive: the palm's handedness (now read off
+  the thumb's bone), the fit's 97 % and the farther hand deciding (the window was too loose), the hands in step and the
+  feet's diagonal (a hedge accepted either phase). Each one is pinned now.
+- **Not yet seen in game**: the shapes were checked on the CC0 OpenMW example body in a scratch renderer, and the pins
+  hold the geometry. A look on a real install, with the arms on screen, is still owed.
+
 ## Still open
 
-- **Real geometry**: `test/climbreal.test.js`'s real half has never run - no session has had the game data
-  (`ARENA2_PATH`). It runs the moment one does.
-- **The Morrowind arms on the lip**: a per-bone reach, tuned with the arms on screen (above).
+- **Real geometry**: `test/climbreal.test.js`'s real half ran with the freeware ARENA2 (`tools/fetch-data.sh`) during
+  AUDIT CLIMB-ARC and passed. The full real-data suite has not been run end to end.
+- **CLIMB6 in game**: the climb on the Morrowind body is pinned and shaped, but not yet looked at on a real install.
 - **The relay**: world138 is not yet deployed; until it is, the others see a climber as before.

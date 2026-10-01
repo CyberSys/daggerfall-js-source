@@ -79,12 +79,22 @@ Leaps have their own longer, flatter arc, set by your **Jumping** skill. The ord
 - A leap trains **Jumping**; a wall run trains **Climbing**.
 
 ## How it feels
-- **The view moves with you.** A catch jolts the view down, harder after a long fall. Hanging sways a little. Shimmying and climbing rock from one hand to the other. Pulling up, you look up at the edge and then over it. A vault dips over the top, lowering yourself looks down over the edge, and corners turn the view with the wall. Leaps kick the view outward. A failing grip shakes. All of this is first person only.
+- **The view moves with you.** A catch jolts the view down, harder after a long fall. Hanging sways a little. Shimmying and climbing rock from one hand to the other. Pulling up, you look up at the edge and then over it. A vault dips over the top, lowering yourself looks down over the edge, and corners turn the view with the wall. Leaps kick the view outward. A failing grip shakes. The jolts, sways and tilts are first person only; the turns (a corner's, a leap's) turn your view in third person too.
 - **You can hear it.** Hands slap onto stone, boots scrape for footholds, you haul yourself over edges, and grit crumbles away when your grip starts to go. Every hand and foot hold is heard, never the same sound twice in a row. Hard pulls, leaps and long catches can make your character grunt (with combat voices on). These are part of **Enhanced sounds**.
-- **Your weapon goes down** while your hands are on the wall, and comes back up when you let go. You can't swing while climbing, as in Daggerfall.
+- **Your weapon goes down** while your hands are on the wall, and comes back up when you let go. You can't swing while climbing, as in Daggerfall. With the Morrowind-style arms, your weapon is put away and you see your own hands on the stone instead.
+
+## Your body climbs
+With a Morrowind body (first-person arms or third person), your character really climbs:
+- **Hanging:** both hands grip the ledge, palms down, elbows out, with the feet against the wall below.
+- **Shimmying:** hand over hand. The leading hand reaches out first and the other closes up behind it, one hand off the ledge at a time. Stop part-way through a reach and the hand settles on the nearer handhold.
+- **Climbing a wall:** hands reach up in turn, with the opposite foot following each hand.
+- **Moves:** you reach for the ledge you leap at, push up and over when you pull yourself onto a ledge, tuck your knees when you vault, squat and lower yourself over an edge, and run your feet up a wall.
+- **A failing grip** makes the hands tremble and the feet scrabble. A hard catch swings the body under the hands.
+- In first person the hands reach the ledge you see.
+- Other players see your body climb the same way, including the moves.
 
 ## Other players, and third person
-- In third person your character turns to face the wall while climbing and turns back after.
+- In third person your character turns to face the wall while climbing and turns back after, even if you are still turning the view.
 - Online, other players see you facing the wall you're climbing, posed off the ground rather than walking in the air, and hear you climb. (This needs the updated server.)
 
 ## Saving on a wall
@@ -109,5 +119,17 @@ Carrying more than half of what you can carry shortens your reach. With a full p
 ## Performance
 Climbing over very detailed walls is faster, and so is every collision check in the game that finds nothing to push against.
 
-## Not yet
-In the Morrowind-style first-person view, the arms lower out of sight while you climb rather than reaching for the ledge.
+## Fixes
+- Pausing (a menu, the season card) during a climb no longer replays the climb's jolts and sounds when you come back.
+- Climbing feels the same at any frame rate, and a high refresh rate no longer makes the view jitter while shimmying.
+- A teleport or a load no longer carries a climb's turn or sound with it.
+- A swing that was mid-air when you grabbed a wall no longer hits.
+- Running down a steep staircase and pressing Jump is a plain jump, not a leap.
+- A running leap is never shorter than the jump it replaces, even with a Jump spell or Jumping past 100.
+- Pressing Jump just after running off an edge leaps the way you were running, wherever you have turned the view. It no longer happens off a low step or when you were crouched.
+- No leaps under Slowfall or while wading outdoors, and holding Jump as you grab a wall from the water no longer leaps.
+- Holding Run against a wall from a standstill no longer runs up it.
+- Lowering yourself off a roof with Forward still held no longer climbs you straight back up.
+- A 1.3 m parapet over a short drop can now be climbed over instead of trapping you.
+- Ledges where the ground's drawn surface sits a few centimetres below its collision are now climbable.
+- Other players' climbing sounds are limited, and turning the peers' sounds back on doesn't replay what you missed.

@@ -313,15 +313,20 @@ test('AUDIT CLIMB-ARC F9: a leap dips the eye where it lands, never as it pushes
   for (let i = 0; i < 240 && !m.hanging; i++) m.update(1 / 60, { ...blank, jump: i > 5 && i < 40 }, 0);
   const feel = new ClimbFeel();
   for (let i = 0; i < 90; i++) { m.update(1 / 60, blank, 0); feel.update(1 / 60, m, 0); }
-  let leap = null, low = Infinity;
-  for (let i = 0; i < 20; i++) {
+  let leap = null, low = Infinity, held = null, landed = Infinity;
+  for (let i = 0; i < 120; i++) {
     m.update(1 / 60, i < 3 ? { ...blank, strafe: 1, jump: true } : blank, 0);
     leap ??= m.climbEvents.find((e) => e.type === 'move' && e.kind === 'leap') ?? null;
+    if (leap && held == null && m.climbEvents.some((e) => e.type === 'hold')) held = i;
     const o = feel.update(1 / 60, m, 0);
-    if (leap) low = Math.min(low, o.eye[1]);
+    if (leap && held == null) low = Math.min(low, o.eye[1]);
+    if (held != null) landed = Math.min(landed, o.eye[1]);
   }
   assert.ok(leap, 'a side leap');
+  // the real arrival: the wall held goes on, and the motor tells the hold the leap lands on - the eye dips there
+  assert.ok(held != null && m.hanging, 'the leap lands held, told');
   assert.ok(low > -0.002, `the push-off dips the eye ${(low * 100).toFixed(2)} cm`);
+  assert.ok(landed < -0.01, `the dip at the real arrival (${(landed * 100).toFixed(2)} cm)`);
   // the arrival: the leap's own event, then the hold it ends in
   const f = new ClimbFeel();
   const fake = { climbEvents: [leap], pos: [0, 0, 0], onWall: true, hanging: true, climbMove: { t: 0 }, wallNormal: leap.normal, grip: 1 };
@@ -941,7 +946,7 @@ test('AUDIT CLIMB-ARC N3: the classic climb faces its wall - climbFacing and the
 // against THIS frame's view, so a view turning w rad/s still leaves the body w * dt * (1 - k) / k behind it (0.216 rad
 // at 3 rad/s, 60 fps), exactly as on d92a75a13. Carried as a todo - it reports, it does not fail - until the body keeps
 // its offset from the view it last had.
-test('AUDIT CLIMB-ARC N4: off the wall the body is handed back to a view still turning - the view\'s yaw exactly within 0.75 s of the let-go (mutant: the view chased)', { todo: 'N4 is not fixed: the body still trails a turning view by w * tau' }, () => {
+test('AUDIT CLIMB-ARC N4: off the wall the body is handed back to a view still turning - the view\'s yaw exactly within 0.75 s of the let-go (mutant: the view chased)', () => {
   const { m } = hungOn(3);
   let yaw = 1.5;
   for (let i = 0; i < 10; i++) m.update(1 / 60, blank, yaw);

@@ -59,9 +59,10 @@ export const PEER_RHYTHM_MS = 100;
 
 export class PeerClimbSounds {
   /**
-   * @param {{ audio?: any, profile?: any, on?: () => boolean, rand?: () => number, install?: boolean }} [opts]
+   * @param {{ audio?: any, profile?: any, on?: () => boolean, rand?: () => number, install?: boolean, now?: () => number }} [opts]
    *   `audio` the bus (play3d); `profile` the peers' falloff (remotePlayers.js PEER_SOUND_PROFILE); `on` the port's own
-   *   sounds' switch; `rand` the variety's dice (the pins' seam); `install` false keeps the clips unloaded.
+   *   sounds' switch; `rand` the variety's dice (the pins' seam); `install` false keeps the clips unloaded; `now` the
+   *   clock (ms) the sound floors read (AUDIT CLIMB-ARC N6 - the pins' seam).
    */
   constructor({ audio = null, profile = null, on = enhancedSoundsOn, rand = Math.random, install = true, now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now()) } = {}) {
     this.audio = audio;
