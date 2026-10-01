@@ -239,7 +239,11 @@ test('SEAT2a THE RECEIPT: `s1` - the account, the seat and week, its side, the r
   assert.deepEqual(readSiegeReceipt(unsigned), { ...what, i: nowS, e: nowS + SIEGE_RECEIPT_TTL_S, signed: false });
   assert.equal(readSiegeReceipt(rc).signed, true);
   const [, body, sig] = rc.split('.');
-  assert.deepEqual(await verifySiegeReceipt(`s1.${body}.${sig.slice(0, -2)}AA`, kp.publicKey, { subtle, nowS }), { ok: false, why: 'signature' });
+  // a signature changed in its first character - never the same signature (CROWN1's fix: replacing the last two with
+  // `AA` left one signature in 256 unchanged, and that run verified)
+  const forged = `${sig[0] === 'A' ? 'B' : 'A'}${sig.slice(1)}`;
+  assert.notEqual(forged, sig);
+  assert.deepEqual(await verifySiegeReceipt(`s1.${body}.${forged}`, kp.publicKey, { subtle, nowS }), { ok: false, why: 'signature' });
   assert.deepEqual(await verifySiegeReceipt(`r1.${body}.${sig}`, kp.publicKey, { subtle, nowS }), { ok: false, why: 'version' });
   assert.equal((await verifyReceipt(rc, kp.publicKey, { subtle, nowS })).ok, false, 'never a gate\'s');
   assert.equal((await verifyWatchReceipt(rc, kp.publicKey, { subtle, nowS })).ok, false, 'never a Watch\'s');
