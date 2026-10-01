@@ -102,7 +102,8 @@ export function standLooseFoe({ collider, feet, yawRad, fovDegrees, foes, spawn 
  * @param sinks             { hurt, heal } - the payload's own two doors
  * @param playerSpellSinks  the FULL player bundle, for a REFLECTED cast
  * @param say               (line) => the host's text channel
- * @param magic             the host's player-magic engine (M3)
+ * @param magic             the host's player-magic engine (M3), or a GETTER of
+ *                          the live one (CAST-USE: shared.js liveCastEngine)
  * @param foes              () => the live foe pool
  * @param foeSinks          (foe) => that foe's sinks
  * @param feet              () => the player's feet
@@ -126,7 +127,7 @@ export function createEnchantCtx({
   sinks,
   playerSpellSinks = null,
   say = null,
-  magic,
+  magic: engine,
   foes = () => [],
   foeSinks = () => ({}),
   feet = () => [0, 0, 0],
@@ -139,6 +140,17 @@ export function createEnchantCtx({
   bossSpell = null,
   spellToOwner = null,
 } = {}) {
+  // CAST-USE: an item's spell goes through the engine whose click FIRES it. A host whose modes run different
+  // engines (world.js / exterior.js: their own above ground and indoors, dungeonContext's underground) hands a GETTER;
+  // a fixed engine still works as before.
+  const live = typeof engine === 'function' ? engine : () => engine;
+  const magic = {
+    castByItemSelf: (...a) => live().castByItemSelf(...a),
+    barCast: () => live().barCast?.(),
+    readySpell: (...a) => live().readySpell(...a),
+    applySpellToPlayer: (...a) => live().applySpellToPlayer(...a),
+    applySpellToFoe: (...a) => live().applySpellToFoe(...a),
+  };
   return {
     spellsByIndex,
     now,

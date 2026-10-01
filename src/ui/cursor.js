@@ -11,6 +11,17 @@ import { DFPalette } from '../formats/dfPalette.js';
 import { bitmapToColor32 } from '../formats/color32Order.js';   // BOOT2: from the formats leaf - through hud.js this one line put the whole HUD and the world tick on the boot path
 
 const SCALE = 2;   // the 32x16 source reads too small at modern DPI
+// CURSOR-EDGE: and no further than 32 DIP a side - Chromium shows a larger custom cursor only while the whole image lies
+// inside the viewport, and the OS arrow anywhere else (64 px wide was the arrow within 64 px of the right edge). The
+// image is cropped to what it draws first; the hotspot is (0,0), so the crop keeps it.
+export const MAX_CURSOR_DIP = 32;
+export const cursorScale = (w, h) => Math.max(1, Math.min(SCALE, Math.floor(MAX_CURSOR_DIP / Math.max(w, h))));
+/** The drawn extent from the (0,0) corner: one past the right- and bottom-most pixel with any alpha (RGBA bytes). */
+export function drawnExtent(rgba, w, h) {
+  let dw = 0, dh = 0;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (rgba[(y * w + x) * 4 + 3]) { dw = Math.max(dw, x + 1); dh = y + 1; }
+  return dw ? [dw, dh] : [w, h];
+}
 
 export async function installCursor(fetchBytes) {
   try {
@@ -23,12 +34,15 @@ export async function installCursor(fetchBytes) {
     if (!width || !height) return false;
     const src = document.createElement('canvas');
     src.width = width; src.height = height;
-    src.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(colors.buffer), width, height), 0, 0);
+    const rgba = new Uint8ClampedArray(colors.buffer);
+    src.getContext('2d').putImageData(new ImageData(rgba, width, height), 0, 0);
+    const [w, h] = drawnExtent(rgba, width, height);
+    const k = cursorScale(w, h);
     const out = document.createElement('canvas');
-    out.width = width * SCALE; out.height = height * SCALE;
+    out.width = w * k; out.height = h * k;
     const ctx = out.getContext('2d');
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(src, 0, 0, out.width, out.height);
+    ctx.drawImage(src, 0, 0, w, h, 0, 0, out.width, out.height);
     document.documentElement.style.cursor = `url(${out.toDataURL()}) 0 0, auto`;
     return true;
   } catch (e) {

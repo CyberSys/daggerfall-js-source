@@ -7573,6 +7573,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // (restoreSaved, above), just callable on its own for a respawn that
     // never calls quickLoad at all.
     clearDeathOverlay: () => { if (activeOverlay instanceof DeathScreen) { activeOverlay.restoreView(); activeOverlay = null; } },   // AUDIT CONTRIB A4: a rise in place hands the fall's pitch back, as the interior's own clear does
+    castEngine: magic,   // CAST-USE: the engine whose click fires a ready here - the hosted enchant ctx readies an item's spell on it
     readiedSpell: () => magic.readied(),   // ROAD-Ar: PlayerEffectManager.ReadySpell - the gate needs its TargetType for the ByTouch exception (PlayerActivate.cs:250-258)
     allyInReach: (eye, dir, reach) => magic.allyInReach(eye, dir, reach),   // AUDIT ALLY-CAST A5: the plaque asks THIS engine, with its own collider
     toggleSheath: weaponRig.toggleSheath,

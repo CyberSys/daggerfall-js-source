@@ -2409,6 +2409,14 @@ export function liveEnchantFoes(mode, dungeonCtx, exteriorPool, insidePool) {
   return [];
 }
 
+/** CAST-USE (FIELD BUGS 2026-10-01): the player-cast engine live in `mode` - the one whose click and frame fire
+ *  a ready. Underground that is the dungeon context's OWN (dungeonContext.js builds one and drives it: its
+ *  playerAttackInput eats the click, its frame calls firePending); above ground and indoors it is the host's `own`
+ *  (worldModes takes the host's for the interior arm). A context left from a descent never answers outside one. */
+export function liveCastEngine(mode, dungeonCtx, own) {
+  return (mode === 'dungeon' ? dungeonCtx?.castEngine : null) ?? own;
+}
+
 /** The sinks for a record liveEnchantFoes handed out.
  *  Routed by POOL MEMBERSHIP ALONE. A dungeon record sent through the
  *  exterior pool's damage door would knock back and kill against the

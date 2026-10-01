@@ -1567,6 +1567,7 @@ export class PlayerMotor {
       back: input.forward < 0,
       anyMove: input.forward !== 0 || input.strafe !== 0,
       falling: this.falling,
+      slowFalling: this.slowFalling,   // SLOW-GRASP: no airborne grasp begins on a slow fall (climbing.js)
       grounded: this.grounded,
       levitating: this.levitating,
       riding: isRiding(this.transportMode),   // TR1: ClimbingMotor :398 - no climbing from a saddle
@@ -1609,7 +1610,11 @@ export class PlayerMotor {
       // billed here - the machine sees slippedToGround next step,
       // stops, and the normal grounded bookkeeping bills the drop.
       if (!this.falling) { this.falling = true; this.fallStart = this.pos[1]; this.velY = 0; }
-      this.velY -= GRAVITY * dt;
+      // SLOW-SLIP (FIELD BUGS 2026-10-01): ApplyGravity's slowfall arm rides the slip too - the flat 2.1 m/s with the
+      // fall re-anchored each tick, as the walk arm's below. The slip integrated plain gravity and anchored its fall
+      // once, at the let-go: a slip under the spell hit the floor at ~20 m/s and billed the whole slip.
+      if (this.slowFalling) { this.fallStart = this.pos[1]; this.velY = -SLOWFALL_VELOCITY; }
+      else this.velY -= GRAVITY * dt;
       const r = this.collider.move(this.pos, 0, this.velY * dt, 0, this.height);
       this.grounded = r.grounded;
       if (r.grounded) this.velY = 0;
@@ -3064,7 +3069,16 @@ export class PlayerMotor {
     // Snap is withheld while `jumping` (AcrobatMotor's Jumping: set at
     // takeoff, cleared on the next grounded frame) so the ballistic
     // descent integrates instead of teleporting onto the floor probe.
+    const x0 = this.pos[0], z0 = this.pos[2];
     const r = this.collider.move(this.pos, vx * dt, dy, vz * dt, this.height, !this.jumping);
+    // SLOW-PRESS (FIELD BUGS 2026-10-01): on a slow fall the frozen liftoff momentum keeps only what the collider let it
+    // do - the press into a face it was stopped by is spent. Kept, it pinned the body to whatever wall the (five times
+    // longer) glide reached, and on a face past the slope limit its push-out lifted the capsule more than the spell's
+    // 0.035 m a step lowered it: the body hung there, or crept up it, until the spell ran out.
+    if (this.slowFalling && this.falling && !r.grounded) {
+      const ax = (this.pos[0] - x0) / dt, az = (this.pos[2] - z0) / dt;
+      if (ax * ax + az * az < vx * vx + vz * vz - 1e-6) { this._airVelX = ax; this._airVelZ = az; }
+    }
     this.groundKey = r.grounded ? (r.groundKey ?? null) : null;   // platform riding: what holds us up
     this.grounded = r.grounded;
     if (r.grounded && this.velY < 0) this.velY = 0;
