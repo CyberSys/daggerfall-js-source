@@ -604,7 +604,8 @@ export function createPlayerMagic({
    *  (DaggerfallMissile.cs:273-275). Both reads live here. */
   function pickTouch(eye, dir, sp = null) {
     if (!eye || !dir) return null;
-    const marks = [...allyMarksFor(sp), ...companionMarksFor(sp), ...duelMarksFor(sp), ...bossMarksFor(sp)];   // COMPANION-KIT: or on my companion   // AID1 onto ALLY-CAST: a beneficial touch may land on a party mate - the nearest along the aim wins; DUEL1: a harmful one on my duel opponent; WB4b: or on the court's boss
+    const marks = [...allyMarksFor(sp), ...duelMarksFor(sp), ...bossMarksFor(sp)];   // AID1 onto ALLY-CAST: a beneficial touch may land on a party mate - the nearest along the aim wins; DUEL1: a harmful one on my duel opponent; WB4b: or on the court's boss
+    marks.push(...companionMarksFor(sp));   // COMPANION-KIT: or on my companion
     return pickTouchTarget(eye, dir, marks.length ? [...playerTargets(), ...marks] : playerTargets(), (c, d) => {   // DISC19-F (AUDIT DISC19): my touch meets no defender
       const l = d || 1, dx = (c[0] - eye[0]) / l, dy = (c[1] - eye[1]) / l, dz = (c[2] - eye[2]) / l;
       const hit = collider.raycast(eye, [dx, dy, dz], d);
@@ -884,6 +885,12 @@ export function createPlayerMagic({
     readiedFree = free;
     readiedCost = spellPointCost;
     onNewReadySpell?.(sp);   // :348 - after the assignment, before the CasterOnly instant cast
+    // COMPANION-KIT: a CasterOnly gift ARMS with my companion under the crosshair, or near - ALLY-CAST's own two arms (below)
+    // for a body of mine: the click gives it to him, or, aimed anywhere else, to me
+    if (sp.rangeType === 0 && !free && allyCastable(sp)) {
+      if (companionInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); return true; }
+      if (companionNear(lastAim?.eye ?? null, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); say(COMPANION_ARMED_LINE); return true; }
+    }
     if (sp.rangeType === 0) {
       // AUDIT ALLY-CAST A1: a CasterOnly spell with a PARTY MATE under the crosshair ARMS instead of firing on the
       // spot. The instant arm (:350-351) gave the player no sign of where the cast would land - a Heal readied while
@@ -892,8 +899,6 @@ export function createPlayerMagic({
       // the mate says "Cast Heal on Bran", and the next click resolves through releaseFrame's ally arm, or through
       // the CasterOnly arm as ever if they moved. A free ready (A7) fires on the spot as DFU's does; so does one
       // with nobody there.
-      if (!free && allyCastable(sp) && companionInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); return true; }   // COMPANION-KIT: my companion under the crosshair arms it, as a mate does
-      if (!free && allyCastable(sp) && companionNear(lastAim?.eye ?? null, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); say(COMPANION_ARMED_LINE); return true; }   // COMPANION-KIT: and with my companion near
       if (!free && allyCastable(sp) && allyInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); return true; }
       // SPELL-GIFT (2026-09-27, Tabitha: "a LARGE amount of buffs & spells just don't work when cast on another person"):
       // ...AND WITH A MATE NEAR, not only one already under the crosshair (systems/allyCast.js ALLY_ARM_RADIUS). Readied
