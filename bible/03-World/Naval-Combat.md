@@ -1504,6 +1504,57 @@ longer given.
 
 Pins: `test/shipcredit.test.js`. `tools/mutants/shipcredit.json`: 30 mutants (SHIP-PRICE's two with them), all dead.
 
+## SHIP-CLAIM (2026-10-01) - a prize claimed as the captor's own boat - DECLARED
+
+Mac: *"provide more accessibility options to acquiring"* ships - and of the choices put to him, *"Claim captured prizes -
+Keep a ship you take by boarding as your own boat, instead of scuttling her or casting her adrift"* (the hulls were made
+about a quarter as dear the same day - SHIP-PRICE). Daggerfall has no ships and Come Sail Away no captured one; the
+claim is the port's own, and the boat she becomes is the mod's.
+
+- **Her third fate** (`ui/navalPlunderWindow.js`): HER FATE has CLAIM HER beside Scuttle her and Cast her adrift, and
+  under the three a line saying what she becomes ("Keep her as your own Small Ship: her deed to your pack, her hold
+  aboard her. She has no crew."; a small boat's "Keep her as your own Large Boat where she lies, her hold aboard
+  her."). Offered (the model's `claimOffer`, `navalHost.js claimable`) for a prize I stand - one another player stands
+  is theirs to settle - and only where Come Sail Away can place her: its runtime's placing and the world's mint and
+  pack (none with the mod off). A voyage raid's window has none (its one way on is Sail on). The press asks the host
+  again; a refusal stays, with a word. Her fate answers a boolean from every exit (THE MODAL CONTRACT).
+- **Her deed** (`systems/comeSailAwayItems.js mintDeed`): the shelf's own deed - the mod's items' UID off the world's
+  mint (`mintUid`), her hull and variant in its message and name ("Deed to Small Ship 'I'") - worth `PRIZE_DEED_SHARE`
+  (a quarter) of her hull's shelf price (`navalPlunder.js prizeDeedValue`: 625 a Large Boat, 6,250 a Small Ship,
+  12,500 a Large Galley, 9,375 a Carrack): her papers - a taken ship is no bought one, and a full-price deed would make
+  every pirate a fortune to sell. Into the pack as the mod adds its items (`packDeed`: AddItem, no weight's gate).
+- **Her boat where she lies** (`systems/comeSailAway.js LaunchFromDeed`, LaunchFromParts' sibling for a deed):
+  PlaceBoat at her place, her bow along her heading, on the terrain under her (`terrainAt`), then the item's half
+  (takePlaceItem): the deed's UID on her, so the deed answers her. A bought deed's port rule is untouched - a deed whose
+  boat stands is refused there, the port's to move. A hull the mod spends a deed on placing (not `crewed`: the Large
+  Boat - a pirate sloop or a coaster) spends this one too: she is the mod's small boat, picked up into her parts and
+  placed again like any other.
+- **Her hold**, what is left of it, aboard her as her cargo.
+- **Her hurts, as shares**, on her state as a boat of mine (`myBoatState`, by her deed's UID): her hull - never under
+  one point, she floats - and her canvas, so she wants a shipwright; her crew gone - NO hands aboard (the yard sells
+  them), and a crewed hull with nobody aboard mends nothing alone; her fire barrels what she has left; no hand of hers
+  counted against her spirits. WHAT WAS TAKEN FROM HER IS GONE FROM HER: her timber that made good my hull and canvas
+  is out of hers, and her powder taken leaves her no barrels.
+- **ALL OR NOTHING**: a placing that throws or stands no boat takes her deed back out of the pack; she lies a prize
+  still.
+- **Let go from the sea unsunk** (`drop`): no bell, no casks, no reward. Her living crew go with her record; her dead
+  lie on her deck still (the world's `redeck` - my hull stands where hers was). A harbour's moored ship claimed is not
+  stood at her berth again that day. I am back at my own helm, as her other fates put me. Said: "The Red Wake is yours
+  - her deed is in your pack. She has no crew: hire hands at a shipwright." - a small boat's "... is yours - she lies
+  where you took her."
+- **The saves**: the naval save keeps her state by her UID as every boat of mine (`NavalCombat` v1, no new field);
+  Come Sail Away's keeps her boat (UID, hull, variant, place, heading, hold).
+- **Online**: only my own stood prize. My word stops saying her and every other player lets her go at once (a prize
+  is no sinking); her boat is one of mine on Come Sail Away's own word. Nothing under `server/src` or `src/net`.
+- **THE FOUR HOSTS RULE**: the seams are the naval host's board in `scenes/world.js` (`mintUid`, `packDeed`,
+  `terrainAt`, `redeck`); `scenes/exterior.js` (no Come Sail Away runtime), `scenes/worldModes.js` and
+  `scenes/dungeonContext.js` (no sea) stand none - pinned by a sweep.
+
+OPEN for Mac: a claimed Large Boat is the mod's small boat to the letter - her deed spent on placing, and Pick up packs
+her into Parts at PackBoat's full price (2,500), not her papers' quarter.
+
+Pins: `test/shipclaim.test.js` (12). `tools/mutants/shipclaim.json`: 58 mutants, all dead.
+
 ## The tests
 
 One suite a slice - `test/nav_a_guns.test.js` (the flight, the aim, the volley, the reload, a ball's hurt, a ship's

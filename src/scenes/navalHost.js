@@ -34,7 +34,11 @@
 //            endRaid(quest, { withdraw }) (AUDIT NAV1: a raid let go of ends with it - its boarders withdrawn),
 //            standDown(handle) (AUDIT NAV1: a foe who yields - hostile no more, standing where he is),
 //            takeHelm(boat) (AUDIT NAV1: Come Sail Away's StartSailing - back at her wheel),
-//            openPlunder(model) -> bool (false: no window could open), giveItems(items, boat | null) -> { left: items } }
+//            openPlunder(model) -> bool (false: no window could open), giveItems(items, boat | null) -> { left: items },
+//            SHIP-CLAIM (optional - without the first two no prize is claimed): mintUid() (the mod's items' UID,
+//            DaggerfallUnity.NextUID), packDeed(item) -> () => items (the item into the pack as the mod adds one -
+//            AddItem, no weight's gate - and the pack's live list the placing spends from), terrainAt(pos) -> terrain |
+//            null (the placing's nodes and pixel), redeck(from, to) (the bodies on one hull's deck stood on another's) }
 //   hold(key, tier) -> items                   DFU's loot roll at the player's level (systems/loot.js generateItems), its
 //                                              rarity at the lot's tier (navalPlunder.js holdTier)
 //   online: { id() -> string|null, peers() -> [{ id, feet }] } | null
@@ -62,7 +66,8 @@ import { hash32 } from '../world/spawnedDungeons.js';
 import { mulberry32 } from '../combat/bloodArt.js';
 import { orientedBox, arcPoints, flatUnit, NAVAL_DEG, rangeAt, segmentBoxEntry, shotPosition, landing } from '../systems/naval/navalBallistics.js';
 import { lawOf, createNotoriety, crownRegion, notorietyLevel, WITNESS_RANGE, KNIGHTLY_FACTION, TEMPLE_FACTION } from '../systems/naval/navalLaw.js';
-import { drawHold, flotsamKeys, choiceEffect, choiceOffer, holdTier, CHOICES } from '../systems/naval/navalPlunder.js';
+import { drawHold, flotsamKeys, choiceEffect, choiceOffer, holdTier, CHOICES, prizeDeedValue } from '../systems/naval/navalPlunder.js';
+import { mintDeed } from '../systems/comeSailAwayItems.js';   // SHIP-CLAIM: a claimed prize's deed, the shelf's own mint
 import { yardOffer, yardAll, fieldMend, FIELD_QUIET_S, FIELD_REFLOAT, YARD_PRICE, provisionOffer, seaRepair, wantsRepair, STORE_POINTS, STORES_STOCK, storesToWhole } from '../systems/naval/navalYard.js';
 import { createCompanions, companionRows } from '../systems/naval/crewCompanions.js';   // CREW-COMPANIONS
 import { createShipCrew, reloadScaleOf, mendScaleOf, handsBonusOf, crewCard, CREW_ORDERS, ORDER_TEXT, spiritsOf, LOOKOUT_ROLE } from '../systems/naval/shipCrew.js';   // SHIP-CREW
@@ -2393,7 +2398,11 @@ export function createNavalHost(deps) {
         const fx = choiceEffect(choice, numbers(), { barrelStock: BARREL.stock, notoriety: notoriety.get(crownName) });
         pz.chosen = choice;
         if (fx.notoriety) notoriety.add(crownName, fx.notoriety);
-        if (fx.repair) st.damage.repair({ hull: fx.repair.hull, sail: fx.repair.sail, crew: 0 });
+        if (fx.repair) {
+          const was = [st.damage.hull, st.damage.sail];
+          st.damage.repair({ hull: fx.repair.hull, sail: fx.repair.sail, crew: 0 });
+          pz.took = { hull: st.damage.hull - was[0], sail: st.damage.sail - was[1] };   // SHIP-CLAIM: what her timber made good of mine, out of her
+        }
         if (fx.barrels != null) st.guns.barrels = Math.max(st.guns.barrels, fx.barrels);
         if (fx.reload) st.guns.restore({ clocks: {}, barrels: st.guns.barrels });   // every battery loaded
         if (fx.crew) st.damage.repair({ hull: 0, sail: 0, crew: fx.crew });
@@ -2402,18 +2411,80 @@ export function createNavalHost(deps) {
             : lawful ? `Her papers burn - no witness is left to name you in ${crownName}'s waters.` : `Her crew go in irons to the crown of ${crownName}, and the crown remembers it.`, 3);
         return true;
       },
+      /** SHIP-CLAIM: her third fate while it stands - `{ detail }`, what claiming her makes of her - or null. */
+      claimOffer: () => (claimable(entry) ? { detail: claimDetail(entry) } : null),
+      /** Her fate: 'scuttle', 'adrift' or SHIP-CLAIM's 'claim' - answers whether it was decided (THE MODAL CONTRACT: a
+       *  boolean from every exit; a fate already decided, or a claim refused, false). */
       fate(which) {
-        if (pz.fate) return;
+        if (pz.fate) return false;
+        if (which === 'claim') return claimPrize(entry, boat);   // SHIP-CLAIM: she is mine
         pz.fate = which === 'scuttle' ? 'scuttle' : 'adrift';
         if (pz.fate === 'scuttle') { s.damage.scuttle(); s.damage.apply({ hull: 0, sail: 0, crew: 0, fire: true }, clock); igniteShip(entry); deps.say?.(`You put a torch to ${s.names?.name ?? 'her'}. She burns to the waterline.`, 4); sound(NAVAL_CLASSIC.bubbles, s.pos, 1); }   // a sinking ship's fire burns on until she is gone (navalDamage.js step)
         else { s.adrift = true; deps.say?.(`You cast ${s.names?.name ?? 'her'} off to drift.`, 3); }   // AUDIT NAV1 (B11): she drifts off downwind
         if (boat) returnAboard(boat);
+        return true;
       },
       /** AUDIT NAV1 (B11): Leave her - she lies taken where she is (Activate opens her again), and I am back at my helm,
        *  never left on her deck with the water between the hulls. */
       leave() { if (boat) returnAboard(boat); },
     }) !== false;
   }
+
+  /**
+   * SHIP-CLAIM (2026-10-01, Mac: "provide more accessibility options to acquiring" ships - and of the choices put to
+   * him, "Claim captured prizes - Keep a ship you take by boarding as your own boat, instead of scuttling her or casting
+   * her adrift"). HER THIRD FATE: CLAIMED, SHE IS MY BOAT - Come Sail Away's own, as a bought one is.
+   * - OFFERED (`claimable`) for a prize I stand - one another stands is theirs to settle (online, only my own) - and
+   *   never a voyage raid's (its window's one way on is Sail on: leaveShipGate's model offers none), only where Come Sail
+   *   Away can place her: its runtime's LaunchFromDeed and the host's mint and pack (none with the mod off).
+   * - HER DEED: the shelf's own deed (comeSailAwayItems.js mintDeed, a fresh UID off the host's mint) for her hull and
+   *   variant, worth navalPlunder.js PRIZE_DEED_SHARE of her hull's price - her papers: a taken ship is no bought one -
+   *   into my pack as the mod puts its items there (`packDeed`: AddItem, no weight's gate).
+   * - HER BOAT where she lies, heading as she lies, linked to that deed by the mod's own placing (LaunchFromDeed:
+   *   PlaceBoat and the item's half), on the terrain under her. A hull the mod spends a deed on placing (one not
+   *   `crewed`: the Large Boat) spends this one too - she is the mod's small boat, packed and placed again as any.
+   * - HER HOLD, what is left of it, in her own hold (her cargo) - never lost.
+   * - HER HURTS, as SHARES, onto her state as a boat of mine (myBoatState, by her deed's UID - saved as every boat of
+   *   mine is): her hull, never under a point (she floats), and her canvas, each less what her timber made good of mine
+   *   when that was my choice; her fire barrels what she has left (none, her powder taken); her crew gone - NO hands
+   *   aboard: they are hired at a shipwright, and a crewed hull with none mends nothing alone.
+   * - LET GO from the sea WITHOUT SINKING (`drop`): no bell, no casks, no reward - she is mine. Her living crew go with
+   *   her record; her dead lie on her deck still (the world's `redeck`: my hull stands in hers); a harbour's moored ship
+   *   is not stood at her berth again today. And I am back at my own helm, as her other fates put me (`returnAboard`).
+   * Answers whether she was claimed.
+   */
+  function claimPrize(entry, captor) {
+    const r = claimable(entry) ? csa() : null;
+    if (!r) return false;
+    const s = entry.ship, pz = entry.prize, d = s.damage, hers = entry.boat;
+    const at = [s.pos[0], deps.seaY(), s.pos[2]];
+    const deed = mintDeed(s.hull, s.variant, deps.board.mintUid(), prizeDeedValue(s.hull));
+    const pack = deps.board.packDeed(deed);
+    // ALL OR NOTHING: a placing that fails (it throws, or stands no boat) takes her deed back out of the pack, and she
+    // lies a prize still - never a deed with no boat, nor a second deed for her
+    let boat = null;
+    try { boat = r.LaunchFromDeed(deed, pack, at, forwardOfYaw(s.yaw), deps.board.terrainAt?.(at)); } catch (err) { console.warn('[naval] a claimed prize would not be placed', err); }
+    if (!boat) { const list = pack(), i = list.indexOf(deed); if (i >= 0) list.splice(i, 1); return false; }
+    pz.fate = 'claim';
+    if (pz.hold.length) deps.board?.giveItems?.(pz.hold.splice(0), boat);
+    const st = myBoatState(boat);
+    const took = pz.took ?? { hull: 0, sail: 0 };
+    st.damage.restore({ hull: Math.max(1, ((d.hull - took.hull) / d.maxHull) * st.damage.maxHull), sail: ((d.sail - took.sail) / d.maxSail) * st.damage.maxSail, crew: 0 });
+    st.lastCrew = st.damage.crew;   // no hand of hers ever lost to my crew's spirits
+    st.guns.barrels = pz.chosen === 'powder' ? 0 : s.guns.barrels;
+    if (entry.fromHarbour) departedOf(entry.fromHarbour, where().day ?? 0).add(s.seed);
+    drop(entry);
+    deps.board?.redeck?.(hers, boat);
+    const name = s.names?.name ?? 'She';
+    deps.say?.(boat.crewed ? `${name} is yours - her deed is in your pack. She has no crew: hire hands at a shipwright.` : `${name} is yours - she lies where you took her.`, 5);
+    if (captor) returnAboard(captor);
+    return true;
+  }
+  /** SHIP-CLAIM: whether a prize can be claimed - mine to settle, and Come Sail Away here to place her. */
+  const claimable = (entry) => !entry.owner && typeof csa()?.LaunchFromDeed === 'function' && typeof deps.board?.mintUid === 'function' && typeof deps.board?.packDeed === 'function';
+  /** SHIP-CLAIM: what claiming her makes of her, in the window's words. */
+  const claimDetail = (entry) => (entry.boat?.crewed ? `Keep her as your own ${HULL_NAMES[entry.ship.hull]}: her deed to your pack, her hold aboard her. She has no crew.`
+    : `Keep her as your own ${HULL_NAMES[entry.ship.hull]} where she lies, her hold aboard her.`);
 
   /** Back over the rail onto your own deck - AUDIT NAV1 (B11): and at her helm, as Black Flag hands you the wheel when
    *  the prize is settled (Come Sail Away's StartSailing: a wreck rows). */

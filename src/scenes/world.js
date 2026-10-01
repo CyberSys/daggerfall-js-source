@@ -6980,6 +6980,14 @@ export async function bootWorld(canvas, renderer, params, status) {
       },
       openPlunder: (model) => navalOpenPlunder(model),
       giveItems: navalGiveItems,
+      // SHIP-CLAIM: a prize claimed as my own boat - her deed's UID off the mod's items' own mint (DaggerfallUnity.NextUID),
+      // the deed into the pack as the mod adds its items (AddItem: no weight's gate) answering the pack's live list the
+      // placing spends a small boat's deed from, the terrain under her for her placing, and her dead kept on her deck as
+      // my hull takes her place in the water (navalCarry carries them on it)
+      mintUid: () => csaNewItemUid(),
+      packDeed: (item) => { addItem((playerEntity.items ??= []), item); surfacePlayer(); return () => playerEntity.items; },
+      terrainAt: (p) => csaTerrainOf(csaPixelAt(p[0], p[2])),
+      redeck: (from, to) => { for (const f of _deckBodies) if (f.deckBoat === from) f.deckBoat = to; },
     },
     // AUDIT NAV1 (the helm): the shipwright's yard - the purse as a shop reads it (coins and letters of credit), paid as
     // DFU's DeductGoldAmount pays, and his window over the world

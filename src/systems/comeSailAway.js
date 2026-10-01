@@ -2050,6 +2050,25 @@ export function createComeSailAwayRuntime(deps) {
     StopPlacing();
     return boat;
   }
+  /**
+   * SHIP-CLAIM (2026-10-01, the port's own - bible/03-World/Naval-Combat.md SHIP-CLAIM): A DEED'S BOAT STOOD WHERE A
+   * PRIZE LIES. LaunchFromParts' sibling for a DEED: the placing click's own two halves - PlaceBoat, then the item's
+   * (takePlaceItem: the deed's UID on her, so the deed answers her - GetPlacedBoatWithUID - and the deed spent unless she
+   * is crewed, as the mod spends every small boat's on placing) - at `position` on the water, her bow along `direction`:
+   * a ship taken by boarding and claimed (scenes/navalHost.js claimPrize), heading as she lies. The port's rule for a
+   * deed is untouched (useBoatDeed: a bought deed's boat stands where a port puts it) - a deed whose boat already stands
+   * is the port's to move, and is refused here. It says nothing: the claim's words are its caller's. What the click
+   * would have been placing is let go with it (the closing StopPlacing). Returns the boat, or null.
+   */
+  function LaunchFromDeed(deed, itemCollection, position, direction, terrain = null) {
+    if (deed?.templateIndex !== BOAT_DEED_TEMPLATE || GetPlacedBoatWithUID(deed.UID) != null) return null;
+    state.placeItem = deed;
+    state.placeItemCollection = itemCollection;
+    const placed = PlaceBoat([...position], [...direction], hullFromMessage(deed.message), variantFromMessage(deed.message), terrain);
+    takePlaceItem(placed);
+    StopPlacing();
+    return placed;
+  }
   /** PlaceBoat(Boat, Vector3, Vector3, Terrain) (6171-6178). */
   function PlaceBoatOnTerrain(newBoat, position, direction, terrain = null) {
     SpawnBoat(newBoat);
@@ -2796,6 +2815,7 @@ export function createComeSailAwayRuntime(deps) {
     turnDoor,   // CSA-K: TriggerDoor's arm, for a door on another player's boat
     CanSail, IsBeached, IsNodeOnWater, CanTurnLeft, CanTurnRight, ResetTimeScale,
     LaunchFromParts, nodeReadingAt,   // OWS2: the Overworld's crossing - a launch aimed by the journey, and the node's law it probes with
+    LaunchFromDeed,   // SHIP-CLAIM: a claimed prize's deed, her boat stood where she lies
     activate, OnStartLoad, OnPreFastTravel, OnPostFastTravel, OnPlayerDeath, OnNewMagicRound,
     UpdateWind, OnNewHour, OnWeatherChange,
     GetSailPower, ToggleSails, RaiseSails, LowerSails, ToggleSquareSails, HasLargeSquareSailWithGaff,
