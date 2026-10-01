@@ -65,6 +65,19 @@ test('CLIMB5 C1: the motor says where the body faces on the climb - into the wal
   const p = climbPoseOf(f);
   assert.equal(p.cl, 2);
   assert.ok(Math.abs(wrap(p.cw - Math.PI / 2)) < 1e-3, `facing +x (${p.cw})`);
+  // a move that ends on a hold faces the wall it ends on, not its own way: crouched off a roof's edge (CLIMB-DOWN's
+  // lower), the body goes out over the drop and faces back into the wall all the way
+  const roof = world();
+  roof.box(-3, 0, 1, 3, 2.3, 4);
+  const r = climber(roof.col);
+  r.spawn(0, 2.32, 2.5);
+  let lowering = null;
+  for (let i = 0; i < 200 && !lowering; i++) {
+    r.update(1 / 60, { ...blank, crouch: i === 0, forward: i > 0 ? 1 : 0 }, Math.PI);
+    if (r.mantling && r.climbMove?.kind === 'lower') lowering = climbPoseOf(r);
+  }
+  assert.equal(lowering?.cl, 3, 'lowering over the edge: a move');
+  assert.ok(Math.abs(wrap(lowering.cw)) < 1e-3, `facing back into the wall (+z), not out over the drop (${lowering?.cw})`);
   // the classic climb names the climb, and no facing it does not know
   assert.deepEqual(climbPoseOf({ mantling: false, hanging: false, onWall: false, climb: { isClimbing: true }, climbFacing: null }), { cl: 2 });
 });
@@ -196,6 +209,18 @@ test('CLIMB5 C5: the others HEAR the climb, at the climber - a catch, the hands 
     for (let i = 1; i <= 100; i++) law.update('d', { cl: HANG }, [0.01 * i, 2, 0]);   // 1 m along
     assert.equal(shots.length - n, Math.floor(1 / FEEL.SHIMMY_SPAN + 1e-9), 'a hand per span');
   }
+  // the rhythm starts afresh with each hold: 0.40 m up a face (no hand yet), onto a lip and back to the face, 0.10 m
+  // more - no hand: the reach climbed before the change is not carried across it
+  {
+    const { shots, law } = peerEar();
+    law.update('h', { cl: FACE }, [0, 0, 0]);
+    for (let i = 1; i <= 40; i++) law.update('h', { cl: FACE }, [0, 0.01 * i, 0]);
+    law.update('h', { cl: HANG }, [0, 0.4, 0]);
+    law.update('h', { cl: FACE }, [0, 0.4, 0]);
+    const n = shots.length;
+    for (let i = 1; i <= 10; i++) law.update('h', { cl: FACE }, [0, 0.4 + 0.01 * i, 0]);
+    assert.equal(shots.slice(n).filter((s) => s[1] === C.STEP).length, 0, 'no hand for a reach begun on another hold');
+  }
   // out of earshot, switched off, forgotten, rebased
   {
     const { shots, law } = peerEar();
@@ -228,6 +253,7 @@ test('CLIMB5 C6: every host says the climb and draws its own body at the climb\'
   const rp = rd('src/net/remotePlayers.js');
   assert.match(rp, /this\._syncFootsteps\(peer, toScene, eye\);\s*\n\s*this\._syncClimbSound\(peer, toScene, eye\);/, 'heard beside the stride');
   assert.match(rp, /_syncClimbSound\(peer, toScene, eye\) \{\s*\n\s*if \(!this\.deps\?\.audio\?\.play3d \|\| getPref\('peerFootsteps'\) === false\) return;/, 'behind the peers\' sounds\' own switch');
+  assert.match(rp, /this\._climbSounds\.update\(peer\.id, peer\.shown, f, peerInEarshot\(f, eye\)\);/, 'past the peers\' far edge nothing is made (the earshot, as the stride\'s)');
   assert.match(rp, /if \(!seen\.has\(id\)\) this\._climbSounds\.forget\(id\);/, 'a peer gone is forgotten');
   assert.match(rp, /this\._climbSounds\.rebase\(\);/, 'and the recentre is no climb');
 });
