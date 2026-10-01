@@ -403,8 +403,8 @@
   {
     "name": "AUDIT29-C11-a-foot-inside-a-neighbour",
     "file": "src/scenes/mineHost.js",
-    "old": "        if (insideRocks(pieces, foot[0], foot[1])) continue;\n",
-    "new": "",
+    "old": "        if (!onPixel(foot[0], foot[1]) || insideRocks(pieces, foot[0], foot[1])) continue;   // FOOT-IN\n",
+    "new": "        if (!onPixel(foot[0], foot[1])) continue;   // FOOT-IN\n",
     "tests": [
       "test/audit29_host.test.js",
       "test/fb1001_rockfoot.test.js"

@@ -246,5 +246,23 @@
       "test/fb1001_lifeskills.test.js",
       "test/fb0930b_fishtired.test.js"
     ]
+  },
+  {
+    "name": "FOOT-IN-the-pixel-unasked",
+    "file": "src/scenes/mineHost.js",
+    "old": "        if (!onPixel(foot[0], foot[1]) || insideRocks(pieces, foot[0], foot[1])) continue;   // FOOT-IN\n",
+    "new": "        if (insideRocks(pieces, foot[0], foot[1])) continue;   // FOOT-IN\n",
+    "tests": [
+      "test/fb1001_rockfoot.test.js"
+    ]
+  },
+  {
+    "name": "FOOT-IN-the-far-edges-unasked",
+    "file": "src/scenes/mineHost.js",
+    "old": "x <= TERRAIN_SIZE - FOOT_INSET_M && z >= FOOT_INSET_M && z <= TERRAIN_SIZE - FOOT_INSET_M;",
+    "new": "z >= FOOT_INSET_M;",
+    "tests": [
+      "test/fb1001_rockfoot.test.js"
+    ]
   }
 ]

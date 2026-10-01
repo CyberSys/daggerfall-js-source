@@ -49,6 +49,13 @@ export const STONE_SCALE = 1.8;
 export const ROCK_OFFSET = 0.4;
 /** ROCK-SHARE: two nodes at a rock field stand at least this far apart (m) - on one piece's different sides, or two. */
 export const NODE_SPACING_M = 6;
+/** FOOT-IN (AUDIT of ROCK-FOOT): a node's foot stands at least this far inside its own pixel (m). A field's pieces reach
+ *  past the pixel's edge, and a node stood on the next pixel's ground was lit and on the compass but no look found it -
+ *  the gathering host asks only the pixels whose ground is in reach (gatherHost nearPixels) - and its height was read
+ *  off the edge's samples. */
+export const FOOT_INSET_M = 0.5;
+/** Whether a pixel-local (x, z) stands on the pixel's own ground, FOOT_INSET_M in. */
+const onPixel = (x, z) => x >= FOOT_INSET_M && x <= TERRAIN_SIZE - FOOT_INSET_M && z >= FOOT_INSET_M && z <= TERRAIN_SIZE - FOOT_INSET_M;
 export const VEIN_STONE_REACH = 24;
 /** A Prospector's compass marks the veins stood within this many metres (PROF0 3.3). */
 export const PROSPECT_M = 200;
@@ -135,7 +142,7 @@ export function standMineNodes({ px, py, day, climate, region = null, confirmed 
     for (const { i } of order) {
       for (const [tx, tz] of footTargets(pieces[i], x, z)) {
         const foot = rockFoot(pieces[i], tx, tz);
-        if (insideRocks(pieces, foot[0], foot[1])) continue;
+        if (!onPixel(foot[0], foot[1]) || insideRocks(pieces, foot[0], foot[1])) continue;   // FOOT-IN
         if (taken.some((t) => Math.hypot(t[0] - foot[0], t[1] - foot[1]) < NODE_SPACING_M)) continue;
         taken.push(foot);
         return { rock: pieces[i], foot };

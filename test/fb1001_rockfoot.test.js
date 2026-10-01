@@ -16,10 +16,13 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 
 import { rockFootprint, groundAt, insideRocks } from '../src/world/terrainNature.js';
-import { standMineNodes, ROCK_OFFSET, NODE_SPACING_M } from '../src/scenes/mineHost.js';
+import { standMineNodes, mineKind, ROCK_OFFSET, NODE_SPACING_M, FOOT_INSET_M } from '../src/scenes/mineHost.js';
+import { createGatherHost } from '../src/scenes/gatherHost.js';
 import { boulders, veins, nodeCount } from '../src/net/nodeLaw.js';
 import { objectMatrix } from '../src/world/wodLocationObjects.js';
 import { loadLocationPrefab } from '../src/world/wodLocationData.js';
+import { LocationSession, pickLocations, placeObjects, WOD_TERRAIN_HEIGHT_MAX } from '../src/world/wodLocationLoader.js';
+import { decodeRegionPack } from '../src/world/wodLocationPack.js';
 import { transformedAabb } from '../src/render/frustum.js';
 import { CLIMATES } from '../src/formats/mapsFile.js';
 import { HEIGHTMAP_DIMENSION, TERRAIN_SIZE } from '../src/world/terrainSampler.js';
@@ -118,32 +121,88 @@ test('ROCK-SHARE: a piece holds a node on each of its sides NODE_SPACING_M apart
   assert.deepEqual(few.map((n) => n.what), [...vs.map(() => 'vein'), 'boulder'], 'the list in its order, the veins first');
 });
 
-test('ROCK-FOOT over the shipped rock fields: most of the law\'s boulders stand, every one at a rock that shows and outside every piece (before: under one in ten, and one in sixteen at a rock)', () => {
-  const dir = new URL('../vendor/world-of-daggerfall/LocationPrefab/', import.meta.url);
-  const layouts = readdirSync(dir).filter((f) => /^WOD_(?:Rocks_(?!Cave)|Mountain_)/.test(f));
-  assert.ok(layouts.length >= 40, `the rock and mountain layouts (${layouts.length})`);
-  const c = TERRAIN_SIZE / 2;
+test('FOOT-IN (the audit of ROCK-FOOT): a node stands on its own pixel - a piece over the edge holds it on the inside, a piece past the edge none; and the gathering host finds it from the next pixel (mutant: the pixel unasked)', async () => {
+  const law = boulders({ x: PX, y: PY, day: DAY, climate: WOODS });
+  const bz = law[0].v * TERRAIN_SIZE;
+  const stand = (rocks) => standMineNodes({ px: PX, py: PY, day: DAY, climate: WOODS, region: GLENUMBRA, samples, tilemap: grass, rocks });
+  // the boulder's point near the east edge, and a piece straddling it: its east side is the next pixel's ground
+  const E = TERRAIN_SIZE;
+  const over = [[E - 2, G, bz - 3, E + 40, G + 5, bz + 3]];
+  for (const n of stand(over)) {
+    assert.ok(n.local[0] >= FOOT_INSET_M && n.local[0] <= E - FOOT_INSET_M && n.local[2] >= FOOT_INSET_M && n.local[2] <= E - FOOT_INSET_M, `${n.key} on the pixel (${n.local[0].toFixed(1)}, ${n.local[2].toFixed(1)})`);
+  }
+  assert.ok(stand(over).some((n) => n.what === 'boulder' && n.rock === over[0]), 'the piece over the edge holds a boulder, on its inside');
+  // a piece wholly past the edge: no boulder at it, every node on the pixel
+  const past = [[E + 5, G, bz - 3, E + 40, G + 5, bz + 3]];
+  const p = stand(past);
+  assert.equal(p.filter((n) => n.what === 'boulder').length, 0, 'none at a piece on the next pixel\'s ground');
+  assert.ok(p.every((n) => n.local[0] >= 0 && n.local[0] <= E && n.local[2] >= 0 && n.local[2] <= E));
+  // the real gathering host over the pixel with the piece over its edge: the player on the next pixel's ground, a metre
+  // and a half from the boulder, looking at it - the target (a node past the edge was lit and never found)
+  const book = { state: { open: true, today: {}, caps: { harvests: 60, stores: 5000 } }, stale: () => false, refresh: async () => ({ ok: true }), pixel: () => ({ state: 'none' }),
+    askPixels: async () => [], pump: () => {}, dungeon: () => null, askDungeon: async () => false, held: () => 0, taken: () => false, counting: () => false,
+    track: () => ({ rank: 100, specs: { 50: null, 100: null } }), harvest: () => new Promise(() => {}) };
+  const entry = { px: PX, py: PY, samples, tilemap: grass, locationRect: null, batches: [], rocks: over };
+  const feet = [0, 0, 0], view = { yaw: 0, pitch: 0 };
+  const eye = () => ({ pos: [feet[0], feet[1] + 1.6, feet[2]], dir: [Math.sin(view.yaw * Math.PI / 180) * Math.cos(view.pitch * Math.PI / 180), Math.sin(view.pitch * Math.PI / 180), Math.cos(view.yaw * Math.PI / 180) * Math.cos(view.pitch * Math.PI / 180)] });
+  const host = createGatherHost({
+    book, kinds: [mineKind({ book })], hud: { setPrompt: () => {}, setMeter: () => {}, toast: () => {}, banner: () => {}, setChip: () => {}, frame: () => {}, dispose: () => {} },
+    renderer: { createBillboardBatch: () => ({}), destroyBatch: () => {} }, getTexture: async () => ({ recordCount: 999 }), uploadRecord: () => {}, billboardSize: () => ({ w: 0.3, h: 0.3 }), flatBatchAabb: () => [0, 0, 0, 0, 0, 0],
+    built: () => new Map([[`${PX},${PY}`, entry]]), pixelTranslation: (x, y, out) => { out[0] = 0; out[1] = 0; out[2] = 0; return out; },
+    pixelInfo: () => ({ climate: WOODS, region: GLENUMBRA }), nowMs: () => (DAY * 86_400 + 43_200) * 1000, eye, view: () => view, feet: () => feet, entity: () => ({ items: [] }),
+    keyLabel: () => 'E', input: () => ({ held: false, attack: false, choice: false }), active: () => true,
+  });
+  try {
+    host.onBuilt(entry);
+    await new Promise((r) => setImmediate(r)); await new Promise((r) => setImmediate(r));
+    const b = host.nodesOf(PX, PY).find((n) => n.what === 'boulder' && n.rock === over[0]);
+    assert.ok(b && b.local[0] > E - 3, `a boulder near the edge (${b?.local[0] - E} m)`);
+    feet[0] = E + 0.5; feet[1] = b.local[1]; feet[2] = b.local[2];   // just over the edge, on the next pixel
+    const dx = b.local[0] - feet[0], dz = b.local[2] - feet[2], dy = b.local[1] + b.lift - (feet[1] + 1.6);
+    view.yaw = Math.atan2(dx, dz) * 180 / Math.PI; view.pitch = Math.atan2(dy, Math.hypot(dx, dz)) * 180 / Math.PI;
+    host.tick(0.016);
+    assert.equal(host.target?.node.key, b.key, 'found from the next pixel');
+  } finally { host.dispose(); }
+});
+
+test('ROCK-FOOT over the shipped rock fields, where the game stands them (FOOT-IN: the real sites, picked and placed by the loader): most of the law\'s boulders stand, every one at a rock that shows, outside every piece and on its own pixel (before: under one in ten, and a fifth of those off the pixel)', () => {
+  const V = new URL('../vendor/world-of-daggerfall/', import.meta.url);
+  const prefabs = new Map();
+  for (const f of readdirSync(new URL('LocationPrefab/', V))) prefabs.set(f.replace(/\.txt$/, ''), loadLocationPrefab(readFileSync(new URL(`LocationPrefab/${f}`, V), 'utf8')));
+  const session = new LocationSession();
+  for (const f of readdirSync(new URL('Locations/', V)).sort((a, b) => parseInt(a, 10) - parseInt(b, 10))) session.appendRegion(parseInt(f, 10), decodeRegionPack(new Uint8Array(readFileSync(new URL(`Locations/${f}`, V)))));
+  const ROCKY = /^WOD_(?:Rocks_(?!Cave)|Mountain_)/;
+  const pixels = new Map();
+  for (let i = 0; i < session.count; i++) if (ROCKY.test(session.prefab[i] ?? '')) pixels.set(`${session.worldX[i]},${session.worldY[i]}`, [session.worldX[i], session.worldY[i]]);
+  const sample = [...pixels.values()].filter((_, i) => i % 97 === 0);
+  assert.ok(sample.length > 300, `${sample.length} rock-field pixels`);
   // a model a metre across, its origin at its middle and at its foot: what a real rock's is lies between
   for (const [label, mesh] of [['centred', boxMesh(-0.5, -0.5, -0.5, 0.5, 0.5, 0.5)], ['on its origin', boxMesh(-0.5, 0, -0.5, 0.5, 1, 0.5)]]) {
-    let want = 0, stood = 0, shut = 0;
-    for (const f of layouts) {
-      const p = loadLocationPrefab(readFileSync(new URL(f, dir), 'utf8'));
-      const rocks = p.obj.filter((o) => o.type === 0 && o.scale.x < 1e5)   // never object 2, the mountains' rock a million times over (AUDIT BRANCH B1 - the road's test refuses it)
-        .map((o) => rockFootprint(mesh.positions, mesh.indices, objectMatrix([o.pos.x + c, o.pos.y + G, o.pos.z + c], o.rot, o.scale), samples)).filter(Boolean);
+    let want = 0, stood = 0;
+    for (const [x, y] of sample) {
+      const picks = pickLocations({ mapPixelX: x, mapPixelY: y, hasLocation: false, mapRegionIndex: -1, worldHeight: 10 }, session, (nm) => prefabs.get(nm) ?? null, null);
+      const rocks = [];
+      for (const pick of picks) {
+        if (!ROCKY.test(session.prefab[pick.index] ?? '')) continue;
+        for (const { obj, pos } of placeObjects(pick, G / WOD_TERRAIN_HEIGHT_MAX, () => true)) {
+          if (obj.type !== 0 || obj.scale.x >= 1e5) continue;   // never object 2, the mountains' rock a million times over (the road's test refuses it)
+          const r = rockFootprint(mesh.positions, mesh.indices, objectMatrix(pos, obj.rot, obj.scale), samples);
+          if (r) rocks.push(r);
+        }
+      }
+      if (!rocks.length) continue;
       for (const climate of [WOODS, CLIMATES.MountainWoods, MOUNTAIN, CLIMATES.Desert]) {
-        for (let day = DAY; day < DAY + 10; day++) {
-          want += nodeCount(climate, 'boulder');
-          for (const n of standMineNodes({ px: PX, py: PY, day, climate, region: GLENUMBRA, samples, tilemap: grass, rocks })) {
-            if (n.what !== 'boulder') continue;
-            stood++;
-            if (insideRocks(rocks, n.local[0], n.local[2])) shut++;
-            const d = Math.hypot(Math.max(n.rock[0] - n.local[0], 0, n.local[0] - n.rock[3]), Math.max(n.rock[2] - n.local[2], 0, n.local[2] - n.rock[5]));
-            assert.ok(d > 0 && d <= ROCK_OFFSET + 1e-9, `${f}: a boulder's stones at the foot of its rock as it shows (${d.toFixed(2)} m)`);
-          }
+        want += nodeCount(climate, 'boulder');
+        for (const n of standMineNodes({ px: x, py: y, day: DAY, climate, region: GLENUMBRA, samples, tilemap: grass, rocks })) {
+          if (n.what !== 'boulder') continue;
+          stood++;
+          assert.equal(insideRocks(rocks, n.local[0], n.local[2]), false, `${x},${y}: no boulder inside a piece`);
+          assert.ok(n.local[0] >= FOOT_INSET_M && n.local[0] <= TERRAIN_SIZE - FOOT_INSET_M && n.local[2] >= FOOT_INSET_M && n.local[2] <= TERRAIN_SIZE - FOOT_INSET_M, `${x},${y}: on its own pixel`);
+          const d = Math.hypot(Math.max(n.rock[0] - n.local[0], 0, n.local[0] - n.rock[3]), Math.max(n.rock[2] - n.local[2], 0, n.local[2] - n.rock[5]));
+          assert.ok(d > 0 && d <= ROCK_OFFSET + 1e-9, `${x},${y}: a boulder's stones at the foot of its rock as it shows (${d.toFixed(2)} m)`);
         }
       }
     }
-    assert.equal(shut, 0, `${label}: no boulder inside a piece`);
     assert.ok(stood / want > 0.85, `${label}: ${stood} of ${want} boulders stand`);   // ROCK-SHARE: a field's pieces hold one on each side
   }
 });

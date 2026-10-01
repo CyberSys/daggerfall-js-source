@@ -1140,3 +1140,20 @@ reach only the boulder law, the service's slot bound and two "any boulders" test
 Stone) whose answers are unchanged; a slot's law point is its own hash, so slot 0 stands where it stood. The settlement
 test reads the location index filled at boot, before any pixel builds. `rockFootprint` reads the build's own `samples`
 (the entry's), costs some 0.15 ms a piece for a thousand-vertex mesh, warm, and the build yields between pieces.
+
+**FOOT-IN (found by the audit's independent pass, fixed).** Nothing kept a rock's foot on its own pixel: a field's pieces
+reach past the edge, and a vein or a boulder stood on the next pixel's ground - lit and on the compass (the marks walk
+256 m of pixels) but never the target, since the host asks only the pixels whose ground is in reach (`nearPixels`, 4.2
+m), and its height read off the edge's samples. Over the real sites as the loader places them (cube stand-ins, a
+seventh of the rock-field pixels): before the branch 20% of the few boulders that stood were off their pixel by more
+than the reach; after ROCK-FOOT and ROCK-SHARE 15% of the boulders and 19% of the veins. A foot now stands FOOT_INSET_M
+(0.5 m) inside its pixel (`scenes/mineHost.js` onPixel): none off it, 96% of the law's boulders standing, and the veins
+with no foot on the pixel on its own stone instead (93% stand - the rest stood where no look reached them). Pins:
+`test/fb1001_rockfoot.test.js` FOOT-IN (the host finds an edge boulder from the next pixel) and the shipped-fields test
+now over the real sites, every node on its pixel; mutants `fb1001_boulders.json` FOOT-IN 2, dead; `audit29.json` C11
+re-aimed by content, dead.
+
+**Noted, not changed.** A rock piece over the pixel's edge is measured against the edge's heights for its vertices past
+it (`groundAt` clamps) - its footprint there is approximate. A location a mod adds is a settlement on the client that
+has the mod, and its own act refuses there alike. The cast yields to any node in the cone, a node the player cannot work
+among them (E then says what that node needs) - as before when that node was nearer the look; looking away casts.
