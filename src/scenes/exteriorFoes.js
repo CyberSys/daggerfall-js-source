@@ -1492,7 +1492,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     // exterior door's is a bare NUMBER.
     const f = liveFoeFor(foes, key, 'mobileFoe', { idOf });
     if (!f) return null;
-    const t = mobileEntityName(liveEntityName(f, enemyDisplayName(f.mobileType)), { hostile: !!f.ai?.isHostile });
+    const t = mobileEntityName(liveEntityName(f, enemyDisplayName(f.mobileType)), { hostile: !!f.ai?.isHostile, champion: !!f.entity?.champion });   // LOOT7-CHECK CHAMP-HOVER: a champion named while hostile
     return t ? { title: t } : null;
   };
   // MAC-E: and the general arm is the WINDOW now (PlayerActivate.cs:957),

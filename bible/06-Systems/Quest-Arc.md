@@ -4287,6 +4287,11 @@ risking the import cycle this arc has now hit three times.
 `quest/foe.js` already imports anyway - and `quest/foe.js` re-exports
 them, so the edge got shorter rather than longer.
 
+(LOOT7-CHECK DUNGEON-DIED, 2026-10-01: the notice reached the two street pools here and never the dungeon -
+`dungeonContext.js` `damageFoe`'s death arm had no line, so no dungeon foe's death was ever said. It is said now,
+the street's law: mine alone, and online at the striker the host's record names. `06-Systems/Loot-Arc.md`
+section 17.)
+
 That move turned up its own bug. The dungeon's pacification line reads
 
 ```js
