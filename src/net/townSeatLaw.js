@@ -136,8 +136,8 @@ export function charterName(seat) {
   if (seat?.tier === 'crown') return `the Crown Charter of ${kingdomName(CROWN_SEAT_REGIONS[seat.region]) ?? seat.name}`;
   return `the Charter of ${seat?.name ?? 'the town'}`;
 }
-/** A guild as the arrival line names it: "the Silver Hand <SH>". */
-const guildWords = (g) => `${/^the /i.test(g.name) ? `the ${g.name.slice(4)}` : g.name} <${g.tag}>`;
+/** A guild as the arrival line names it: "the Silver Hand <SH>" (SEAT2b part two: exported - the Watchtowers' word says it too). */
+export const guildWords = (g) => `${/^the /i.test(g.name) ? `the ${g.name.slice(4)}` : g.name} <${g.tag}>`;
 /** CROWN2: the same, opening a sentence (SEAT2a's announcement too, which had opened one with "the"). */
 const GuildWords = (g) => { const w = guildWords(g); return `${w[0].toUpperCase()}${w.slice(1)}`; };
 /**
@@ -684,9 +684,11 @@ export function hallOfRecordsChapters(rows, seat, zero = null) {
 export const seatHolderLine = (holder) => (holder
   ? `Held by ${guildWords(holder.guild)} since ${seatWeekName(holder.since)}. Standing ${holder.standing}.`
   : 'No guild holds this Charter.');
-/** This week's battle at a seat, in words - a Contested seat's Tourney, or a Right of Siege - or null. */
-export function seatBattleLine(battle) {
+/** This week's battle at a seat, in words - a Contested seat's Tourney, a Right of Siege, or a revolt - or null. */
+export function seatBattleLine(battle, seatName = 'The town') {
   if (!battle) return null;
+  // SEAT2b part two (7.7): a revolt names no challenger (`guild` none) - the town rose against its holder (`against`)
+  if (battle.kind === 'revolt') return battle.against ? `${seatName} has risen against ${guildWords(battle.against)} this week.` : null;
   if (battle.kind === 'tourney') return `${GuildWords(battle.guild)} and ${guildWords(battle.against)} meet in a Tourney for the Charter this week.`;
   return `${GuildWords(battle.guild)} has won a Right of Siege against ${guildWords(battle.against)} this week.`;
 }

@@ -388,5 +388,32 @@
   "tests": [
    "test/seat2b2_law.test.js"
   ]
+ },
+ {
+  "name": "SEAT2b2-battle-line-revolt-as-siege",
+  "file": "src/net/townSeatLaw.js",
+  "old": "  if (battle.kind === 'revolt') return battle.against ? `${seatName} has risen against ${guildWords(battle.against)} this week.` : null;\n",
+  "new": "",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-battle-line-revolt-no-holder",
+  "file": "src/net/townSeatLaw.js",
+  "old": "return battle.against ? `${seatName} has risen against",
+  "new": "return true ? `${seatName} has risen against",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
+ },
+ {
+  "name": "SEAT2b2-battle-line-revolt-unnamed",
+  "file": "src/net/townSeatLaw.js",
+  "old": "export function seatBattleLine(battle, seatName = 'The town') {",
+  "new": "export function seatBattleLine(battle, seatName = 'The town') { seatName = 'The town';",
+  "tests": [
+   "test/seat2b2_law.test.js"
+  ]
  }
 ]

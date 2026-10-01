@@ -199,11 +199,12 @@
   },
   {
     "name": "SEAT2b2C-watch-the-kept",
-    "file": "src/net/memberWorks.js",
+    "file": "src/net/townSeatLaw.js",
     "old": "/^the /i.test(g.name) ? `the ${g.name.slice(4)}` : g.name",
     "new": "g.name",
     "tests": [
-      "test/seat2b2_holding_client.test.js"
+      "test/seat2b2_holding_client.test.js",
+      "test/seat1c_client.test.js"
     ]
   },
   {

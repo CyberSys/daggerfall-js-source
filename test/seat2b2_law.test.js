@@ -20,7 +20,7 @@ import {
 import { RAM_KIT_INPUTS, RAM_KIT_VALUE, RAM_KIT_TEMPLATE_INDEX, materialOf, MINED_KEYS, MATERIAL_FAMILIES, specOk, professionOfFamily, withdrawable } from '../src/net/professionLaw.js';
 import { recipeById, recipeOpen, takesQuality, RAM_KIT_TEMPLATE, qualitySteps, craftQuality } from '../src/net/recipeLaw.js';
 import { marketCatalogue } from '../src/net/marketLaw.js';
-import { BATTLE_LENGTH_MS, battleLengthMs, battlePreferredMs, battleSpanMs, siegeStartMs, battleAnnouncement, chronicleLine, placeBattles } from '../src/net/townSeatLaw.js';
+import { BATTLE_LENGTH_MS, battleLengthMs, battlePreferredMs, battleSpanMs, siegeStartMs, battleAnnouncement, chronicleLine, placeBattles, seatBattleLine } from '../src/net/townSeatLaw.js';
 import { SIEGE_LENGTH_MS, siegeVitality } from '../src/net/siegeRef.js';
 
 const { subtle } = webcrypto;
@@ -172,7 +172,7 @@ test('SEAT2b2 THE RAM KIT MADE: Carpentry rank 60, open now - 40 Oak Planks, 20 
   assert.equal(specOk('carpentry', 100, 'siegewright'), true);
 });
 
-test('SEAT2b2 A REVOLT AS THE SEAT LAW NAMES IT: two hours in the holder\'s window (a crown\'s too), its block two hours, placed beside the holder\'s other battles; its announcement, and the Chronicle\'s three lines - 9.2\'s own sentence for one put down (mutants: the length; the window; the announcement; each line)', () => {
+test('SEAT2b2 A REVOLT AS THE SEAT LAW NAMES IT: two hours in the holder\'s window (a crown\'s too), its block two hours, placed beside the holder\'s other battles; its announcement, the Chronicle\'s three lines - 9.2\'s own sentence for one put down - and the week\'s line (mutants: the length; the window; the announcement; each line; the week\'s revolt arm)', () => {
   assert.equal(BATTLE_LENGTH_MS.revolt, REVOLT.windowMs);
   assert.deepEqual(SIEGE_LENGTH_MS, BATTLE_LENGTH_MS, 'the relay\'s copy, pinned equal');
   assert.equal(battleLengthMs({ kind: 'revolt', tier: 'crown' }), 7200000);
@@ -194,4 +194,8 @@ test('SEAT2b2 A REVOLT AS THE SEAT LAW NAMES IT: two hours in the holder\'s wind
   assert.equal(line('revolt'), 'In week 5, Anticlere rose against the Silver Hand <SH>.');
   assert.equal(line('revolt-down'), 'In week 5, Anticlere rose against the Silver Hand <SH>. The rebel captain fell at the palace door, and the Charter held.');
   assert.equal(line('revolt-lapsed'), 'In week 5, Anticlere rose against the Silver Hand <SH>. The rebels held the palace door, and the Charter of Anticlere lapsed.');
+  // the week's line (the seats' list's `battle` - a revolt's `guild` none, `against` the holder): never a Right of Siege's,
+  // never a throw on the missing challenger; nothing where no holder is named
+  assert.equal(seatBattleLine({ kind: 'revolt', guild: null, against: { name: 'the Silver Hand', tag: 'SH' } }, 'Anticlere'), 'Anticlere has risen against the Silver Hand <SH> this week.');
+  assert.equal(seatBattleLine({ kind: 'revolt', guild: null, against: null }, 'Anticlere'), null);
 });

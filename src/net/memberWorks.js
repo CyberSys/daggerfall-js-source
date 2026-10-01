@@ -21,7 +21,7 @@
 // ═══════════════════════════════════════════════════════════════════
 import { FORT_WORKS, fortMaxTier, fortWork, harbourPort, watchtowerShare, stationSteps, STATION_PROFESSIONS } from './fortLaw.js';
 import { qualitySteps, takesQuality } from './recipeLaw.js';
-import { seatKeyOk } from './townSeatLaw.js';
+import { seatKeyOk, guildWords } from './townSeatLaw.js';   // a guild in the middle of a sentence, as the seats' words say one
 
 /** No works standing - what an unheld, unread or bare seat is dressed in. */
 export const NO_WORKS = Object.freeze({});
@@ -91,13 +91,10 @@ export function watchRowOf(r) {
 }
 /** The list's `watch`, each row read (watchRowOf), the rest dropped. */
 export const watchRowsOf = (raw) => (Array.isArray(raw) ? raw.map(watchRowOf).filter(Boolean) : []);
-/** A guild in the middle of a sentence, as the seats' words say one: "the Silver Hand <SH>" (net/townSeatLaw.js's own
- *  guildWords - unexported there, so said here the same way; one export when the integrator lifts it). */
-const guildNamed = (g) => `${/^the /i.test(g.name) ? `the ${g.name.slice(4)}` : g.name} <${g.tag}>`;
 /** THE WORD (7.5: "the holder is told when a challenger passes half its defence (tier 1) or a quarter (tier 2)"), in the
  *  seat's name as this client's own derivation says it: "Your Watchtowers at Anticlere: the Silver Hand <SH> has passed
  *  half your defence." */
-export const watchtowerLine = (row, seatName) => `Your Watchtowers at ${seatName}: ${guildNamed(row.guild)} has passed ${WATCH_SHARE_WORDS[String(row.share)]} your defence.`;
+export const watchtowerLine = (row, seatName) => `Your Watchtowers at ${seatName}: ${guildWords(row.guild)} has passed ${WATCH_SHARE_WORDS[String(row.share)]} your defence.`;
 /** ONCE A (WEEK, SEAT, GUILD, SHARE) - the word's id: a challenger by its tag (unique, `guilds.tag`), so a challenger
  *  passing half and then (the Watchtowers raised) a quarter is told twice, and each week anew. */
 export const watchtowerWordId = (week, row) => `${week}|${row.key}|${row.guild.tag}|${row.share}`;
