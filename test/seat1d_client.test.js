@@ -278,7 +278,7 @@ test('SEAT1d THE HOSTS BY SOURCE: the service\'s routes and the Turning\'s write
   const wm = rd('src/scenes/worldModes.js');
   assert.match(wm, /const f = mode === 'Buy' \|\| mode === 'Repair' \? host\.seatShopFactor\?\.\(b\) \?\? 1 : 1;/);
   assert.match(wm, /priceAdjustment: shopAdjustment\(b, mode\),/);
-  assert.match(wm, /priceAdjustment: shopAdjustment\(b, 'Buy'\) \}\);/);
+  assert.match(wm, /priceAdjustment: shopAdjustment\(b, 'Buy'\), buyerLevel: effectiveLevel\(playerEntity\) \}\);/);   // PIN MOVED (the merge of main's MANA-SHOP): the buyer's level beside the seat's price
   assert.match(wm, /priceAdjustment: shopAdjustment\(b, 'Repair'\),/);
   const cg = rd('src/scenes/cityGuards.js');
   assert.match(cg, /level \?\? effectiveLevel\(playerEntity\) \+ \(levelBonus\?\.\(\) \?\? 0\)/);
