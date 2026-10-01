@@ -47,8 +47,8 @@
   {
     "name": "AQP-D2-dungeon-mark-dropped",
     "file": "src/scenes/dungeonContext.js",
-    "old": "companionPuppet(f, lo && comp.has(r.i)); f._heirElse = ownHeirElse(r); if (ownHeirIsMe(r)",
-    "new": "companionPuppet(f, lo && comp.has(r.i)); if (ownHeirIsMe(r)",
+    "old": "companionPuppet(f, lo && comp.has(r.i), compNames.get(r.i)); f._heirElse = ownHeirElse(r); if (ownHeirIsMe(r)",
+    "new": "companionPuppet(f, lo && comp.has(r.i), compNames.get(r.i)); if (ownHeirIsMe(r)",
     "tests": [
       "test/questparty3c.test.js"
     ],

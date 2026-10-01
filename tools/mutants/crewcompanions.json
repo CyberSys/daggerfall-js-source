@@ -173,7 +173,7 @@
   {
     "name": "CA-swept-never-restood",
     "file": "src/scenes/crewAshore.js",
-    "old": "      if (rec.dead || !rec.ai || (s.has && !s.has(rec))) { stood.delete(k); continue; }",
+    "old": "      if (rec.dead || !rec.ai || (s.has && !s.has(rec))) { carry(s); stood.delete(k); continue; }",
     "new": "      if (rec.dead || !rec.ai || (s.has && !s.has(rec))) continue;",
     "tests": [
       "test/crewcompanions.test.js"
@@ -245,8 +245,8 @@
   {
     "name": "CA-health-not-carried",
     "file": "src/scenes/crewAshore.js",
-    "old": "          if (c.health != null && c.maxHealth > 0 && max > 0) rec.entity.health =",
-    "new": "          if (false) rec.entity.health =",
+    "old": "          if (c.maxHealth > 0) { rec.entity.maxHealth = c.maxHealth;",
+    "new": "          if (false) { rec.entity.maxHealth = c.maxHealth;",
     "tests": [
       "test/crewcompanions.test.js"
     ]
