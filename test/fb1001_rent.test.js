@@ -202,7 +202,10 @@ test('RENT-FRESH: the owner\'s rooms are read again as the panel opens and while
   assert.equal(o.rig.tool.openPanel(), true);
   await o.until(() => !!o.tab());
   o.tab().fire('click');
-  assert.ok(await o.until(() => collectText(o) === 'No rent to collect' && o.rows().length === 2), 'read: nothing held');
+  // THE SEATS ARC'S MERGE: the visit's read and the opening's are both in flight here, and the rows can stand on the first
+  // answer while the second is still out - so the wait is for the asking line too, not a frame count after the rows
+  // (under the full suite's load the second answer outran the forty frames: a race in the pin, not the panel)
+  assert.ok(await o.until(() => collectText(o) === 'No rent to collect' && o.rows().length === 2 && o.why() === ''), 'read: nothing held');
   assert.equal(o.why(), '', 'the asking line goes once the answer is in');
   // a tenant pays at the door while the owner stands inside - and the owner closes the panel and opens it again
   assert.equal((await H.rentHomeRoom({ api: w.api, homes: w.homes, realm: actFor(w.T), wallet: walletOf(playerWith(5000), 17), mapId: 7, buildingKey: 300, character: w.T.id, room: 1, days: 3, price: 50 })).ok, true);
