@@ -525,6 +525,9 @@ export function chronicleLine(row, seat) {
     // CROWN1: Conscription paid (7.6) - at the crown, and at each seat that paid it
     case 'conscription': return `${when}, the crown's Conscription brought ${guildWords(d.guild)} ${Number(d.marks ?? 0).toLocaleString('en-US')} Marks of its kingdom's Tithe.`;
     case 'conscripted': return `${when}, ${guildWords(d.guild)} paid ${Number(d.marks ?? 0).toLocaleString('en-US')} Marks of its Tithe to ${guildWords(d.crown)}'s Conscription.`;
+    // CROWN1 part two: the Royal Tourney's end
+    case 'royal-champion': return `${when}, ${d.name || 'a contender'} won the Royal Tourney at ${seat.name} with ${Number(d.wins ?? 0)} bouts - Champion of ${kingdomName(d.kingdom) ?? seat.name}.`;
+    case 'royal-none': return `${when}, no bout of the Royal Tourney at ${seat.name} was won; its prize went home.`;
     default: return null;
   }
 }
@@ -581,7 +584,7 @@ export function seatTitleText(title, ts, place) {
     case 'protector': return kingdom ? `Protector of ${kingdom}` : null;
     case 'crowned': return `Crowned in Season ${ts[1]}`;
     case 'keeper': return seat ? `Keeper of ${seat.name}, Season ${ts[1]}` : null;
-    case 'champion': return kingdom ? `Champion of ${kingdom}` : null;
+    case 'champion': return kingdom ? `Champion of ${kingdom}, Season ${ts[1]}` : null;   // CROWN1 part two: 7.6's words
     default: return null;
   }
 }
@@ -690,6 +693,8 @@ export const EDICTS = Object.freeze({
   bounty: Object.freeze({ name: 'Bounty', standing: 0, cost: null, repeat: false }),
   // CROWN1 (SEAT0 7.6): a crown's alone - the kingdom's palace seats held by other guilds pay it a share of their Tithe
   conscription: Object.freeze({ name: 'Conscription', standing: 0, cost: null, repeat: false, crown: true }),
+  // CROWN1 part two (7.6): a duel ladder all week at the crown, its prize escrowed at the Turning that makes it law
+  'royal-tourney': Object.freeze({ name: 'Royal Tourney', standing: 0, cost: Object.freeze({ crown: 5000 }), repeat: false, crown: true }),
 });
 export const edictOk = (e) => typeof e === 'string' && Object.hasOwn(EDICTS, e);
 /** CROWN1: whether `edict` may be proclaimed at a seat of `tier` - a crown's Edicts at a crown seat alone. */
@@ -748,6 +753,7 @@ export const EDICT_WORDS = Object.freeze({
   levy: 'A tenth of what is gathered near the town goes to its stockpile. Standing -2.',
   bounty: 'Camps in the region yield double, and the treasury pays 20 Drakes a camp cleared, from what is set aside.',
   conscription: 'The kingdom\'s palace seats held by other guilds pay the crown 2% of their week\'s Tithe, a March\'s 1%. Standing -5 at every seat that pays.',
+  'royal-tourney': 'A duel ladder all week at the castle\'s square, every blow refereed; the week\'s champion takes the prize and the title Champion of the kingdom for good.',
 });
 /** An Edict's line in the Seat tab, with its cost at a seat of `tier`. */
 export function edictLine(edict, tier) {
@@ -1051,3 +1057,48 @@ export function conscriptionDue({ kingdom, crownGuild, holds, tithes }) {
   return out.sort((a, b) => (a.guild < b.guild ? -1 : a.guild > b.guild ? 1 : 0));
 }
 
+
+// ═══ CROWN1 part two: THE ROYAL TOURNEY (SEAT0 7.6) - the service's half ═══════════════════════════════════════════
+// The bouts are the relay's (net/siegeRef.js royal*); the service counts each winner's receipt by the room's own rule
+// and names the week's champion at the Turning.
+
+/** The same two contenders' bouts counted a UTC day (net/siegeRef.js ROYAL_PAIR_DAY_MAX, pinned equal). */
+export const ROYAL_PAIR_DAY = 3;
+/** The ladder's rows the Seat tab shows. */
+export const ROYAL_LADDER_ROWS = 10;
+/** Why the service will not let a player into a Royal Tourney, or count its bout, in its own words. */
+export const ROYAL_WHY = Object.freeze({
+  'royal-none': 'No Royal Tourney is proclaimed here this week.',
+  'royal-over': 'That week\'s Royal Tourney has its champion already.',
+  'ring-unsettled': 'Waiting for another contender\'s scouts to agree on the ring - try again in a moment.',
+});
+/**
+ * THE RING SETTLED - DECIDED (CROWN1 part two): a Royal Tourney has no sides, so where a siege's field waits on an
+ * attacker's and a defender's agreeing (settleField), its ring waits on TWO DIFFERENT CONTENDERS' - the first point a
+ * second account sent alike, its JSON. `rows` `[{ account, field, at }]` oldest first; null until two agree.
+ */
+export function settleRing(rows) {
+  const seen = new Map();
+  for (const r of rows ?? []) {
+    const by = seen.get(r.field);
+    if (by && by !== r.account) return r.field;
+    seen.set(r.field, r.account);
+  }
+  return null;
+}
+/**
+ * THE LADDER'S STANDINGS off a week's counted bouts (`[{ winner, loser, at }]`): each account's wins and losses, the most
+ * wins first, then the fewest losses, then whoever reached its wins first (its last win the earlier), then the account -
+ * the first is the week's champion (DECIDED: 7.6 names "the week's winner"; its ties are broken here).
+ */
+export function royalStandings(bouts) {
+  const by = new Map();
+  const row = (a) => { let r = by.get(a); if (!r) by.set(a, r = { account: a, wins: 0, losses: 0, last: 0 }); return r; };
+  for (const b of bouts ?? []) {
+    const w = row(b.winner);
+    w.wins++; w.last = Math.max(w.last, Number(b.at) || 0);
+    row(b.loser).losses++;
+  }
+  return [...by.values()].filter((r) => r.wins > 0 || r.losses > 0)
+    .sort((x, y) => y.wins - x.wins || x.losses - y.losses || x.last - y.last || (x.account < y.account ? -1 : 1));
+}

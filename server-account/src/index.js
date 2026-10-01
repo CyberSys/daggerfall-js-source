@@ -155,6 +155,7 @@ import { settleDue, seatsWithHolders, relinquishSeat, seatBadgeOf, seatTitlesOf 
 import { setTithe, proclaimEdict, claimBounty } from './seatHolding.js';   // SEAT1d: the holder's levers, a Bounty's camp
 import { setWindow, signBattle, unsignBattle, hireSellsword, withdrawHire, siegesLive } from './seatBattles.js';   // SEAT2a: the battles' week
 import { siegePass, claimSiege } from './seatSiege.js';   // SEAT2a part three: the pass, the result, Honours
+import { royalPass, claimRoyal, championOf } from './seatRoyal.js';   // CROWN1 part two: the Royal Tourney's pass, its bouts, its champion's title
 
 /** SEAT1c: the account's row with the Charter titles it may wear laid on it (`seatTitles`, titles.js titlesHeld), while the
  *  seats are open to it - for the wardrobe's read and its write. */
@@ -277,6 +278,8 @@ const SEAT_STATUS = Object.freeze({
   // SEAT2a part three: the field's door, its window, an unsettled field, a second Honours 409; a receipt another account's
   // 403; a bad field, a receipt not the relay's, no character for the XP 400 (the default)
   'pass-early': 409, 'pass-late': 409, 'field-unsettled': 409, 'honours-twice': 409, 'not-yours': 403,
+  // CROWN1 part two: no Royal Tourney here 404; its week's champion named, its ring unsettled 409
+  'royal-none': 404, 'royal-over': 409, 'ring-unsettled': 409,
 });
 /** PROF1: each professions refusal's status - not this account's (a guest, the switch, the Marks' switch, the rank) 403,
  *  no such writ 404, a conflict with what stands (the day, the hour, the cap, the Stores, a node or writ taken) 409, the
@@ -550,7 +553,10 @@ const service = {
         const worn = seats ? { ...who.player, seatTitles: await seatTitlesOf(ctx.db, who.player.id) } : who.player;
         const seatBadge = seats && renownCharacterOk(body.character) ? await seatBadgeOf(ctx.db, who.player.id, body.character) : null;
         const wornT = titleWorn(worn, env);
-        const seatT = SEAT_TITLES.includes(wornT) ? (seatBadge?.title === wornT ? { t: wornT, ts: seatBadge.ts } : {}) : (wornT ? { t: wornT } : {});
+        // CROWN1 part two: the champion's is the account's own, kept for good (seatRoyal.js championOf) - no guildmaster's
+        const champ = seats && wornT === 'champion' ? await championOf(ctx.db, who.player.id) : null;
+        const seatT = wornT === 'champion' ? (champ ? { t: wornT, ts: champ.ts } : {})
+          : SEAT_TITLES.includes(wornT) ? (seatBadge?.title === wornT ? { t: wornT, ts: seatBadge.ts } : {}) : (wornT ? { t: wornT } : {});
         const wardrobe = {
           ...seatT,
           g: [...glyphsOf(who.player, env, nowS), ...(seatBadge?.glyphs ?? [])],
@@ -894,6 +900,9 @@ const service = {
           // SEAT2a part three: a battle's pass (the field the fighter's game derived); a fighter's receipt claimed
           '/v1/seats/siege/pass': async () => siegePass(ctx, who.player, env, body, await signingKey(env, subtle)),
           '/v1/seats/siege/claim': async () => claimSiege(ctx, who.player, env, body, await gatePublicKey(env, subtle)),
+          // CROWN1 part two: a Royal Tourney's pass (the ring the contender's game derived); a bout's receipt claimed
+          '/v1/seats/royal/pass': async () => royalPass(ctx, who.player, env, body, await signingKey(env, subtle)),
+          '/v1/seats/royal/claim': async () => claimRoyal(ctx, who.player, env, body, await gatePublicKey(env, subtle)),
         }[path];
         if (!act) return no('not-found', 404, origin);
         const r = await act();

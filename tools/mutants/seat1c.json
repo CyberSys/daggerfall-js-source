@@ -482,8 +482,8 @@
   {
     "name": "SEAT1c-mint-title-for-any-character",
     "file": "server-account/src/index.js",
-    "old": "const seatT = SEAT_TITLES.includes(wornT) ? (seatBadge?.title === wornT ? { t: wornT, ts: seatBadge.ts } : {}) : (wornT ? { t: wornT } : {});",
-    "new": "const seatT = SEAT_TITLES.includes(wornT) ? { t: wornT, ts: seatBadge?.ts ?? [0, 0] } : (wornT ? { t: wornT } : {});",
+    "old": ": SEAT_TITLES.includes(wornT) ? (seatBadge?.title === wornT ? { t: wornT, ts: seatBadge.ts } : {}) : (wornT ? { t: wornT } : {});",
+    "new": ": SEAT_TITLES.includes(wornT) ? { t: wornT, ts: seatBadge?.ts ?? [0, 0] } : (wornT ? { t: wornT } : {});",
     "tests": [
       "test/seat1c_titles.test.js"
     ]

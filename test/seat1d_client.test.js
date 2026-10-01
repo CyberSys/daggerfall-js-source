@@ -88,8 +88,8 @@ test('SEAT1d STANDING: every row of 7.3 - the Tithe\'s two (at or below half its
 
 test('SEAT1d THE EDICTS AND THEIR NUMBERS: six for a palace (the crown\'s two CROWN1\'s), none twice running but Market Day; a Festival 2,500 / 10,000; the Levy a tenth (its fraction kept by the harvest\'s roll), the Bounty 20 a camp and 5 a day, the Festive +5 a game day, Curfew 5 levels and twice the reputation; levers for the Guildmaster and Officers, five an hour; a camp\'s pixel off its id (mutants: the list; the repeat; the costs; the shares; the caps; the pixel)', () => {
   // PIN MOVED (CROWN1): the crown's Conscription joins them, proclaimed at a crown alone (test/crown1_law.test.js)
-  assert.deepEqual(Object.keys(EDICTS), ['market-day', 'open-gates', 'curfew', 'festival', 'levy', 'bounty', 'conscription']);
-  assert.deepEqual([edictOk('festival'), edictOk('royal-tourney'), edictOk('toString'), edictOk(null)], [true, false, false, false]);
+  assert.deepEqual(Object.keys(EDICTS), ['market-day', 'open-gates', 'curfew', 'festival', 'levy', 'bounty', 'conscription', 'royal-tourney']);   // PIN MOVED (CROWN1 part two): and the Royal Tourney
+  assert.deepEqual([edictOk('festival'), edictOk('royal-tourney'), edictOk('feast'), edictOk('toString'), edictOk(null)], [true, true, false, false, false]);   // PIN MOVED (CROWN1 part two): the Royal Tourney is an Edict now
   assert.deepEqual([edictMayFollow('market-day', 'market-day'), edictMayFollow('festival', 'festival'), edictMayFollow('festival', 'curfew'), edictMayFollow('festival', null), edictMayFollow('nope', null)], [true, false, true, true, false]);
   assert.deepEqual([edictCost('festival', 'palace'), edictCost('festival', 'crown'), edictCost('market-day', 'crown'), edictCost('nope', 'palace')], [2500, 10000, 0, 0]);
   assert.deepEqual([LEVY_SHARE, BOUNTY_MARKS, BOUNTY_CAMPS_DAY, FESTIVE.attributes, FESTIVE.gameDays, CURFEW.guardLevels, CURFEW.crimeFactor, SEAT_EDICTS_HOUR], [0.1, 20, 5, 5, 1, 5, 2, 5]);

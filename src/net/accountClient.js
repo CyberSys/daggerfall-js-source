@@ -45,7 +45,7 @@ import { HOME_CAP, RENT_ROOMS_MAX, RENT_HELD_MAX, RENT_DAYS_MAX } from './homeLa
 import { DECOR_CAP, DECOR_YARD_CAP } from './decorLaw.js';   // DECOR1: the cap its refusal names; HOME-YARD: a yard's
 import { MARKS_MAX, MARKS_BANK, MARKS_MOVE_MAX } from './marksLaw.js';   // MARKS1: the bounds its refusals name
 import { NOTES_LIVE_MAX, NOTE_DAYS, NOTICE_DAYS_MAX } from './boardLaw.js';   // NOTICE1: the bounds its refusals name
-import { SIGN_WHY, SIEGE_WHY, SELLSWORD_FEE_MAX } from './townSeatLaw.js';   // SEAT2a: the rosters' refusals in the board's own words; the fee's bound
+import { SIGN_WHY, SIEGE_WHY, ROYAL_WHY, SELLSWORD_FEE_MAX } from './townSeatLaw.js';   // SEAT2a: the rosters' refusals in the board's own words; the fee's bound
 import {
   HARVESTS_PER_DAY, HARVESTS_PER_ACCOUNT_DAY, DEEP_UNCONFIRMED_PER_DAY, STORES_MAX, WITHDRAW_MAX, COURT_WRITS_PER_DAY, RESPEC,
   HIDES_PER_DAY, HIGH_HIDES_PER_DAY, HAULS_PER_DAY,
@@ -282,6 +282,7 @@ export const REFUSALS = Object.freeze({
   'hire-twice': 'That account has a contract here already.',
   ...SIGN_WHY,
   ...SIEGE_WHY,   // SEAT2a part three: the pass and the Honours
+  ...ROYAL_WHY,   // CROWN1 part two: the Royal Tourney's pass and bouts
   // NOTICE1: the Notice Board (server-account/src/board.js)
   'board-need-account': 'Notes are pinned by registered accounts. Add a username to pin one.',
   'board-closed': 'The notice board is not open yet.',

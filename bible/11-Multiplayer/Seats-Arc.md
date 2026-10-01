@@ -648,7 +648,8 @@ mints them - once, never per town or per Season.
 BUILT (SEAT1c, 2026-09-30; `06-Systems/Online-Arc.md` SEAT1c): the five ids and `ts` in the token at `world139`; the
 Warden's and the Protector's minted now, the tower and the crowns on every member; the Season's titles (SEASON1) and
 the champion's (CROWN1) wait only on their slices. The tower wears the Warden's bronze - the token carries no guild
-colours.
+colours. BUILT (CROWN1 part two): the champion's - the account's own, kept for good in `town_seat_titles` (SEASON1's
+Crowned and Keeper will join it there), worn whatever character the account brings.
 
 ### 7.5 Fortifications - a seat's memory
 
@@ -707,6 +708,12 @@ BUILT (CROWN1 part two, the relay, `world142`; Online-Arc CROWN1 part two): the 
 challenge, its accept, the marks, the countdown, the bout's two alone, the ring held by the step, a fall's end, a draw,
 a walkover - every blow the referee's; the room's ladder (the same two three times a UTC day) and the winner's signed
 `t1` receipt.
+
+BUILT (CROWN1 part two, the service, `acct50`; Online-Arc CROWN1 part two): the Edict's 5,000 escrowed as it is made law;
+the pass over the ring two contenders' games agree; each bout counted once off its winner's receipt (the same two
+three times a UTC day, by the bout's own day); the ladder on the Seat tab; the champion named at the Turning that ends
+its week - the prize to its account, "Champion of <Kingdom>, Season N" kept for good - or, no bout won, the prize home.
+DECIDED: the ladder's ties go to fewer losses, then to whoever reached its wins first.
 
 ### 7.7 Revolt
 
@@ -934,7 +941,8 @@ bible updated in the same change, mutants recorded.
 | **PVP-REF** | The refereed blow and step; the 40-fighter measurement - **SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` PVP-REF; relay `world140`, the developers alone until SEAT2a; the step's ceiling MEASURED to 18 m/s) | 6.1's buckets pinned against DFU's damage ranges; the measurement recorded (every budget under 60% - the sizes stand) |
 | **SEAT2a** | Siege rooms, banners, the Throne, windows, forfeits, spectators, the Tourney, Honours - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` SEAT2a: the window, the schedule, the sides and their Sellswords; `acct47`); **PART TWO SHIPPED** 2026-10-01 (the relay's battle - the pass, the sides, the banners and the Throne, the no-shows, the `s1` receipts; `world141`); **PART THREE SHIPPED** 2026-10-01 (the service - the pass and the field, the result and all it gives, Honours, the deploy blackout; `acct48`); **PART FOUR SHIPPED** 2026-10-01 (the client - the field from the town, the room and its pass, the HUD and the card, blows, the camp, the receipts carried) - **SEAT2a SHIPPED** | A headless 10v10 siege runs to both endings |
 | **SEAT2b** | Fortifications, the Barracks' guards, the Gatehouse, the Ram, revolts | Needs PROF11 (Masonry), PROF4 (Carpentry), PROF3 (Smithing's ingots for the Ram) and PROF8 (the Pearls tier-2 Shrine and Apothecary ask) |
-| **CROWN1** | The crown tier: reach, the Marches, the Free Lands, crown glyphs, the Saturday slots, Royal Tourney, Conscription - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` CROWN1: reach, the Marches' share, the Free Lands' Watch, Conscription; `acct49`; the crown glyphs were SEAT1c's, the Saturday slots SEAT2a's); the Royal Tourney is part two. Built before SEAT2b, which waits on PROF11 (Masonry) and which CROWN1 does not read | 4.4's worked example pinned to the unit; every Conscription share pinned |
+| **CROWN1** | The crown tier: reach, the Marches, the Free Lands, crown glyphs, the Saturday slots, Royal Tourney, Conscription - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` CROWN1: reach, the Marches' share, the Free Lands' Watch, Conscription; `acct49`; the crown glyphs were SEAT1c's, the Saturday slots SEAT2a's); **PART TWO (the Royal Tourney) SHIPPED** in the relay
+(`world142`) and the service (`acct50`), its client to follow. Built before SEAT2b, which waits on PROF11 (Masonry) and which CROWN1 does not read | 4.4's worked example pinned to the unit; every Conscription share pinned |
 | **CROWN2** | Fealty and Pacts | - |
 | **SEASON1** | Seasons, the Chronicle, the Hall of Records, Tides | - |
 

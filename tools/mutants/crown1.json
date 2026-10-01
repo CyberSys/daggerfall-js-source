@@ -120,8 +120,8 @@
  {
   "name": "CROWN1-edict-crown",
   "file": "src/net/townSeatLaw.js",
-  "old": "repeat: false, crown: true }),",
-  "new": "repeat: false }),",
+  "old": "  conscription: Object.freeze({ name: 'Conscription', standing: 0, cost: null, repeat: false, crown: true }),",
+  "new": "  conscription: Object.freeze({ name: 'Conscription', standing: 0, cost: null, repeat: false }),",
   "tests": [
    "test/crown1_law.test.js",
    "test/crown1_client.test.js",

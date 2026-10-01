@@ -26,7 +26,9 @@
 // Charter neglected twice, writes every Standing, and sends a Bounty's
 // unspent escrow home. SEAT2a: the battles a Right or a Contested seat names placed in
 // the coming week (step 8) - their fighting is the relay's. CROWN1: a crown's Conscription
-// that ruled the week paid out of the conscripted guilds' Tithe (7.6), after their upkeep.
+// that ruled the week paid out of the conscripted guilds' Tithe (7.6), after their upkeep;
+// and part two: a Royal Tourney's prize escrowed as it is made law, and the week's champion
+// named, paid and titled as its week settles.
 //
 // EVERY CLOCK IS AN ARGUMENT, as in accounts.js.
 // ═════════════════════════════════════════════════════════════════════
@@ -34,6 +36,7 @@ import { confirmedSeats, seatsOpenFor } from './townSeats.js';
 import { gatherStandings, seatGuildsOf, holdsOf, battlesOf, agreedGateRegions } from './seatInfluence.js';
 import { activeIn, edictsOf } from './seatHolding.js';
 import { windowOf } from './seatBattles.js';   // SEAT2a: the holder's window, frozen into its battle
+import { royalTurning } from './seatRoyal.js';   // CROWN1 part two: a Royal Tourney's champion named
 import { gameDayAt, gateTimes } from '../../src/net/gateLaw.js';
 import { guildActorOf } from './guilds.js';
 import { mustChange } from './realm.js';
@@ -198,10 +201,11 @@ export async function settleWeek(db, week, nowS) {
   for (const e of plan.edicts) {
     if (e.state === 'law') {
       if (e.cost > 0) {
-        stmts.push(e.edict === 'bounty'
+        const held = e.edict === 'bounty' ? 'bounty' : e.edict === 'royal-tourney' ? 'royal' : null;   // CROWN1 part two: a Royal Tourney's prize held for its champion
+        stmts.push(held
           ? db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
-              SELECT 'guild', ?1, 'escrow', ?2, 'bounty-escrow', ?3, ?4, ?5, 'seats', 'The Turning', ?2
-              WHERE COALESCE((SELECT balance FROM guild_marks WHERE guild_id = ?1), 0) >= ?3`).bind(e.guild, `bounty:${e.key}:${next}`, e.cost, utcDay(nowS), nowS)
+              SELECT 'guild', ?1, 'escrow', ?2, ?6, ?3, ?4, ?5, 'seats', 'The Turning', ?2
+              WHERE COALESCE((SELECT balance FROM guild_marks WHERE guild_id = ?1), 0) >= ?3`).bind(e.guild, `${held}:${e.key}:${next}`, e.cost, utcDay(nowS), nowS, `${held}-escrow`)
           : burn(e.guild, 'seat-edict', e.cost, `edict-${next}-${e.key}`), mustChange(db));
       }
       stmts.push(db.prepare("UPDATE town_seat_edicts SET state = 'law', cost = ? WHERE key = ? AND week = ? AND guild_id = ? AND state = 'proclaimed'").bind(e.cost, e.key, next, e.guild));
@@ -231,6 +235,8 @@ export async function settleWeek(db, week, nowS) {
     stmts.push(history(c.crownKey, 'conscription', { guild: names.get(c.crown), from: names.get(c.guild), marks: c.amount }));
     for (const k of c.keys) stmts.push(history(k, 'conscripted', { guild: names.get(c.guild), crown: names.get(c.crown), marks: c.amount }));
   }
+  // CROWN1 part two (7.6): THE WEEK'S ROYAL TOURNEYS - each champion named, paid its prize and titled; none, the prize home
+  stmts.push(...(await royalTurning(db, week, nowS, history, registry)));
   // every held seat's Standing after its week (7.3); the unchallenged in the Chronicle
   for (const w of plan.standings) {
     stmts.push(db.prepare('UPDATE town_seat_holds SET standing = ? WHERE key = ? AND guild_id = ?').bind(w.standing, w.key, w.guild));
@@ -311,10 +317,13 @@ export async function seatBadgeOf(db, playerId, character) {
   return { glyphs: seatGlyphsOf(holds), title: t?.title ?? null, ts: t?.ts ?? null };
 }
 /** SEAT1c: the seat titles an ACCOUNT may choose to wear - those its guildmaster characters' guilds' Charters give. The
- *  wardrobe offers them; a token wears one only for the guildmaster character it is minted for. */
+ *  wardrobe offers them; a token wears one only for the guildmaster character it is minted for. CROWN1 part two: and the
+ *  Royal Tourney's champion, which is the account's own (worn whatever character it brings). */
 export async function seatTitlesOf(db, playerId) {
   const { results = [] } = await db.prepare(`SELECT h.key, h.tier, h.region FROM town_seat_holds h
     JOIN guild_members m ON m.guild_id = h.guild_id WHERE m.player = ? AND m.rank = ?`).bind(playerId, GUILD_RANK_MASTER).all();
   const out = new Set(results.map((h) => (h.tier === 'crown' ? 'protector' : 'warden')));
-  return ['warden', 'protector'].filter((t) => out.has(t));
+  // CROWN1 part two: and a Royal Tourney's champion, the account's own for good
+  if (await db.prepare("SELECT 1 FROM town_seat_titles WHERE account = ? AND title = 'champion' LIMIT 1").bind(playerId).first()) out.add('champion');
+  return ['warden', 'protector', 'champion'].filter((t) => out.has(t));
 }

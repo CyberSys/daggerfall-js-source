@@ -9,6 +9,9 @@ import {
   royalMayStrike, royalStepOk, royalEnd, royalStep, royalLadder, royalNextBeat, ROYAL_RING, ROYAL_PAIR_DAY_MAX, ROYAL_LADDER_SHOWN, SIEGE_UNITS_PER_M,
   SIEGE_TICK_MS,
 } from '../src/net/siegeRef.js';
+import {
+  settleRing, royalStandings, ROYAL_PAIR_DAY, ROYAL_LADDER_ROWS, ROYAL_WHY, EDICTS, edictForTier, edictCost, edictLine, chronicleLine, seatTitleText,
+} from '../src/net/townSeatLaw.js';
 import { siegePassValid, siegeFieldValid, siegePassPoints, SIEGE_PASS_SIDES, ROYAL_PASS_SPAN_S, SIEGE_PASS_SPAN_S, orderValid } from '../src/net/identityToken.js';
 import { validSiegeIn, validSiegeOut, ROYAL_RELAY_MIN, relayRunsRoyal, ROYAL_LADDER_MAX } from '../src/net/wire.js';
 import {
@@ -202,4 +205,35 @@ test('CROWN1 THE BOUT\'S RECEIPT: `t1` - the winner, the loser, the crown, the w
   assert.equal(readRoyalReceipt(s1), null);
   const s1c = { s: 'acct-a', sk: 5023, sw: 20, sd: 'attack', r: 'attack', a: 1, h: 1, i: 10, e: 10 + SIEGE_RECEIPT_TTL_S };
   assert.deepEqual([siegeReceiptValid(s1c), siegeReceiptValid({ ...s1c, l: 'acct-b' })], [true, false], 'a siege\'s refuses a bout\'s loser');
+});
+
+test('CROWN1 THE SERVICE\'S LAW: the ring settled by two different contenders\' agreeing; the ladder\'s standings - most wins, fewest losses, the earlier last win, the account; the pair\'s cap pinned equal to the room\'s; the Edict, its words, its Chronicle rows and the champion\'s title (mutants: the two; the order; the cap; the cost; the words)', () => {
+  const ring = JSON.stringify([[4000, 2000]]), other = JSON.stringify([[4001, 2000]]);
+  assert.equal(settleRing([{ account: 'a', field: ring, at: 1 }]), null, 'one contender');
+  assert.equal(settleRing([{ account: 'a', field: ring, at: 1 }, { account: 'a', field: ring, at: 2 }]), null, 'one contender twice');
+  assert.equal(settleRing([{ account: 'a', field: ring, at: 1 }, { account: 'b', field: other, at: 2 }]), null, 'two that differ');
+  assert.equal(settleRing([{ account: 'a', field: ring, at: 1 }, { account: 'b', field: other, at: 2 }, { account: 'c', field: other, at: 3 }, { account: 'd', field: ring, at: 4 }]), other, 'the first point a second account sent alike');
+  assert.equal(settleRing(null), null);
+  const st = royalStandings([
+    { winner: 'b', loser: 'a', at: 5 }, { winner: 'a', loser: 'b', at: 6 }, { winner: 'c', loser: 'd', at: 3 },
+    { winner: 'e', loser: 'f', at: 1 }, { winner: 'e', loser: 'g', at: 2 }, { winner: 'h', loser: 'g', at: 9 }, { winner: 'h', loser: 'e', at: 10 },
+  ]);
+  assert.deepEqual(st.map((r) => [r.account, r.wins, r.losses]), [['h', 2, 0], ['e', 2, 1], ['c', 1, 0], ['b', 1, 1], ['a', 1, 1], ['d', 0, 1], ['f', 0, 1], ['g', 0, 2]]);
+  assert.deepEqual(st.slice(0, 3).map((r) => r.account), ['h', 'e', 'c'], 'two wins and no loss before two and one; then one and none');
+  assert.deepEqual(royalStandings([{ winner: 'x', loser: 'y', at: 9 }, { winner: 'z', loser: 'w', at: 4 }]).slice(0, 2).map((r) => r.account), ['z', 'x'], 'the same: the earlier last win');
+  assert.deepEqual(royalStandings([{ winner: 'q', loser: 'p', at: 4 }, { winner: 'o', loser: 'n', at: 4 }]).slice(0, 2).map((r) => r.account), ['o', 'q'], 'then the account');
+  assert.deepEqual(royalStandings([]), []);
+  assert.deepEqual(royalStandings([{ winner: 'x', loser: 'p', at: 9 }, { winner: 'x', loser: 'q', at: 2 }, { winner: 'z', loser: 'p', at: 5 }, { winner: 'z', loser: 'q', at: 6 }]).slice(0, 2).map((r) => r.account),
+    ['z', 'x'], 'a win\'s time is its latest, whatever order the rows come in');
+  assert.equal(ROYAL_PAIR_DAY, ROYAL_PAIR_DAY_MAX, 'the service counts as the room does');
+  assert.equal(ROYAL_LADDER_ROWS, 10);
+  assert.deepEqual({ ...EDICTS['royal-tourney'], cost: { ...EDICTS['royal-tourney'].cost } }, { name: 'Royal Tourney', standing: 0, cost: { crown: 5000 }, repeat: false, crown: true });
+  assert.deepEqual([edictForTier('royal-tourney', 'crown'), edictForTier('royal-tourney', 'palace'), edictCost('royal-tourney', 'crown')], [true, false, 5000]);
+  assert.match(edictLine('royal-tourney', 'crown'), /^Royal Tourney: A duel ladder all week .* Costs 5,000 Drakes\.$/);
+  const seat = { key: 5023, name: 'Wayrest', tier: 'crown', region: 23 };
+  assert.equal(chronicleLine({ kind: 'royal-champion', week: 9, data: { name: 'Arden', kingdom: 'wayrest', wins: 4, prize: 5000 } }, seat), 'In week 9, Arden won the Royal Tourney at Wayrest with 4 bouts - Champion of Wayrest.');
+  assert.equal(chronicleLine({ kind: 'royal-none', week: 9, data: { kingdom: 'wayrest' } }, seat), 'In week 9, no bout of the Royal Tourney at Wayrest was won; its prize went home.');
+  assert.equal(seatTitleText('champion', [5023, 2], (k) => (k === 5023 ? seat : null)), 'Champion of Wayrest, Season 2');
+  assert.equal(seatTitleText('champion', [9, 2], () => null), null, 'a crown this client cannot name');
+  assert.deepEqual(Object.keys(ROYAL_WHY), ['royal-none', 'royal-over', 'ring-unsettled']);
 });

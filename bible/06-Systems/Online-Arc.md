@@ -11014,6 +11014,42 @@ loser and the heal between a bout's two were pinned; the accept's restore of bot
 since a contender's vitality moves in a bout alone and every bout ends both whole - removed). PIN MOVED: the siege's
 kinds (`test/pvpref_law.test.js`), the step's source pin (`test/chat1.test.js`), the relay version pins.
 
+### CROWN1 (part two, the service) - the Royal Tourney's Edict, pass, bouts and champion
+
+2026-10-01, Mac: "Finish the seats"; "Continue"; "Hurry up". Service and law; `acct50`, migration
+`0054_royal_tourney.sql`. Seats-Arc 7.4, 7.6. New: `server-account/src/seatRoyal.js`.
+
+- **The Edict** (`EDICTS['royal-tourney']`, a crown's alone): 5,000 Drakes, ESCROWED - not burnt - at the Turning that
+  makes it law (`royal-escrow`, the Bounty's way), so its week's champion can be paid out of it.
+- **The pass** (`/v1/seats/royal/pass`, `royalPass`): only where the Royal Tourney rules this week at a confirmed crown;
+  a contender (`duel`) or a spectator (`watch: true`); its window the seat week. The ring's centre is the contenders'
+  games' own derivation - DECIDED: a Royal Tourney has no sides, so where a siege's field waits on an attacker's and a
+  defender's agreeing, its ring waits on TWO DIFFERENT CONTENDERS' (`settleRing`); settled once, every pass carries it.
+  Until then `ring-unsettled` (asked again).
+- **A bout** (`/v1/seats/royal/claim`, `claimRoyal`): the winner's own `t1` receipt, verified with the relay's public
+  half - written once a bout (its week, crown and room number), counted where the same two have fewer than
+  `ROYAL_PAIR_DAY` (3, pinned equal to the room's) that UTC day - the BOUT's day, off the receipt, whenever it is carried
+  - asked inside its own INSERT. Refused once its week's Turning has named the champion (`royal-over`).
+- **The ladder** on the Seat tab (`readStandings`' `royal`, `royalView`): the prize, the window and the top ten - most
+  counted wins, then fewest losses, then whoever reached its wins first, then the account (`royalStandings`; DECIDED:
+  7.6 names "the week's winner" and leaves its ties open).
+- **The champion** (`royalTurning`, in settleWeek's own batch): the ladder's first - the escrowed prize paid to its
+  ACCOUNT's Marks (burnt where that purse is full; the receipts name accounts, so the prize and the title are the
+  account's, not a character's), the title kept for good (`town_seat_titles`), the Chronicle's row; no bout won, the
+  prize home to the crown's treasury. The edict row's state ends `returned` either way.
+- **The title** (`championOf`, `seatTitlesOf`, the token's mint): "Champion of <Kingdom>, Season N" for good - the
+  account's newest, worn with its crown's key and the Season (`ts` `[key, 0]` - 0 until SEASON1 counts Seasons, as
+  every seat title's), whatever character the account brings; `seatTitleText` now says the Season.
+
+Pinned: `test/crown1_royal_service.test.js` (4); `test/crown1_royal_law.test.js` grew a tenth (the service's law).
+`tools/mutants/crown1_royal_svc.json` (48, all dead - seven survived the first run: two were dead code (the ring's
+guard on a field's first account and the claim's `counted = 1` - past the third bout a day every row is uncounted),
+removed; five were sharpened pins (a ladder's rows out of order, a palace whose rows claim a Royal Tourney, a
+contender changing its ring after it settled, a crown with no tourney, a bout won today and carried tomorrow)). PIN
+MOVED: the Edicts' list (`seat1d_client`, `crown1_law`, `crown1_client`), the standings' shape (`seat1b_service`), the
+mint's source pin (`seat1c_titles`), the schema list (`accountworker`), the account version pins; two older mutant
+records re-aimed by content.
+
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 
 Mac, asked how quest enemies should work online (each player's quests are their own, so two party members on the

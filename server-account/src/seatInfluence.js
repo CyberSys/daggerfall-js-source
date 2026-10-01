@@ -73,6 +73,7 @@ import {
 import { isFreeLand } from '../../src/net/kingdomLaw.js';
 import { holdingOf } from './seatHolding.js';   // SEAT1d: the holder's own view of its Charter
 import { fightOf } from './seatBattles.js';   // SEAT2a: the battle as the Seat tab shows it
+import { royalView } from './seatRoyal.js';   // CROWN1 part two: a Royal Tourney's ladder
 
 const weekAt = (nowS) => seatWeekOf(nowS * 1000);
 /** Whether a member row has stood its 7 days (SEAT0 4.2: "A new member waits"). */
@@ -426,6 +427,7 @@ export async function readStandings({ db, nowS }, player, env, { key, character 
     }).sort((x, y) => y.influence - x.influence),
     holder: holder && holding ? { ...holder, edict: holding.edict } : holder, defence, battle: (await battlesOf(db, week)).get(key) ?? null, chronicle: await chronicleOf(db, key),
     fight: await fightOf(db, key, player, character, nowS),   // SEAT2a: the week's battle placed, its sides, the reader's place; the holder's window
+    royal: seat.tier === 'crown' ? await royalView(db, key, nowS) : null,   // CROWN1 part two: the Royal Tourney ruling here this week, its prize and ladder
     ...(holding && mine?.guild === holder?.guild.id ? { holding } : {}),
     ...(mine ? { mine } : {}),
   };
