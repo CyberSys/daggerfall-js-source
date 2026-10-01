@@ -475,11 +475,12 @@
   {
     "name": "AD28Q-J2-own-landing-not-taken",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    if ((ownHeirIsMe(newest) || !!newest._orphanMine) && !adoptOwn(from, f, share) && heirOrphan) dropOwnPuppet(key, f);",
-    "new": "    if (ownHeirIsMe(newest) && !adoptOwn(from, f, share) && heirOrphan) dropOwnPuppet(key, f);",
+    "old": "    if (f.companion == null && (ownHeirIsMe(newest) || !!newest._orphanMine) && !adoptOwn(from, f, share) && heirOrphan) dropOwnPuppet(key, f);",
+    "new": "    if (f.companion == null && ownHeirIsMe(newest) && !adoptOwn(from, f, share) && heirOrphan) dropOwnPuppet(key, f);",
     "tests": [
       "test/questparty3c.test.js"
-    ]
+    ],
+    "note": "AUDIT CREW (PIN MOVED): re-aimed by content at the line the co-op change extended."
   },
   {
     "name": "AD28Q-J2-own-return-leaves-the-build-mine",

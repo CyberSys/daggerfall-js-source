@@ -46,8 +46,8 @@
   {
     "name": "QP3C-empty-full-silent",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    if (!out.length && !whole) return null;\n    const qf = [], lf = [];",
-    "new": "    if (!out.length) return null;\n    const qf = [], lf = [];",
+    "old": "    if (!out.length && !whole) return null;\n    const qf = [], lf = [], cp = [];",
+    "new": "    if (!out.length) return null;\n    const qf = [], lf = [], cp = [];",
     "tests": ["test/questparty3c.test.js"]
   },
   {
@@ -60,8 +60,8 @@
   {
     "name": "QP3C-stale-lands",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    if (Number.isFinite(data.n)) { if (data.n <= o.n) return false; o.n = data.n; }\n    o.at = performance.now();\n    const tags = validQuestTags(data.qf), loose = validLooseSeqs(data.lf);",
-    "new": "    if (Number.isFinite(data.n)) o.n = data.n;\n    o.at = performance.now();\n    const tags = validQuestTags(data.qf), loose = validLooseSeqs(data.lf);",
+    "old": "    if (Number.isFinite(data.n)) { if (data.n <= o.n) return false; o.n = data.n; }\n    o.at = performance.now();\n    const tags = validQuestTags(data.qf), loose = validLooseSeqs(data.lf), comp",
+    "new": "    if (Number.isFinite(data.n)) o.n = data.n;\n    o.at = performance.now();\n    const tags = validQuestTags(data.qf), loose = validLooseSeqs(data.lf), comp",
     "tests": ["test/questparty3c.test.js"]
   },
   {
@@ -88,8 +88,8 @@
   {
     "name": "QP3C-heir-ignored",
     "file": "src/scenes/dungeonContext.js",
-    "old": "      if (f) { applyOwnRecord(f, r, share); f._heirElse = ownHeirElse(r); if (ownHeirIsMe(r)) adoptOwn(from, f, share); continue; }",
-    "new": "      if (f) { applyOwnRecord(f, r, share); continue; }",
+    "old": "      if (f) { applyOwnRecord(f, r, share); if ((lo && comp.has(r.i)) || f.companion != null) companionPuppet(f, lo && comp.has(r.i)); f._heirElse = ownHeirElse(r); if (ownHeirIsMe(r) && f.companion == null) adoptOwn(from, f, share); continue; }",
+    "new": "      if (f) { applyOwnRecord(f, r, share); if ((lo && comp.has(r.i)) || f.companion != null) companionPuppet(f, lo && comp.has(r.i)); continue; }",
     "tests": ["test/questparty3c.test.js"]
   },
   {
@@ -249,9 +249,10 @@
   {
     "name": "QP3C-save-holds-theirs",
     "file": "src/scenes/dungeonContext.js",
-    "old": "      foes: foes.filter((f) => f._ownFrom == null).map((f) => ({",
-    "new": "      foes: foes.map((f) => ({",
-    "tests": ["test/questparty3c.test.js"]
+    "old": "      foes: foes.filter((f) => f._ownFrom == null && f.companion == null).map((f) => ({",
+    "new": "      foes: foes.filter((f) => f.companion == null).map((f) => ({",
+    "tests": ["test/questparty3c.test.js"],
+    "note": "CREW-COMPANIONS (PIN MOVED): re-aimed by content at the line the companions' change moved."
   },
   {
     "name": "QP3C-marker-stand-unflagged",

@@ -490,7 +490,7 @@ test('AUDIT FONT F3: the dungeon hosts\' overlay branch takes BOTH DOM surfaces 
   // BOTH dungeon hosts say it, ON the branch, BEFORE the return - the
   // branch is an early return and a hide written after it is dead code.
   assert.match(rd('src/scenes/worldModes.js'),
-    /if \(dungeonCtx\.uiOverlayActive\) \{ dungeonCtx\.hideHudText\?\.\(\); hideWorldPlaque\(\); dungeonCtx\.tickOverlay\(dt\); host\.drawPeerNames\?\.\(\{ proj, view, eye: mwv\.eye \}\); dungeonCtx\.drawOverlay\(canvas\); return true; \}/,   // AUDIT NAME1 F1 runs the name pass on the same arm, between the clock and the overlay; AUDIT-WH H4 puts the world plaque - a THIRD DOM surface, and the same law - beside the two
+    /if \(dungeonCtx\.uiOverlayActive\) \{ dungeonCtx\.hideHudText\?\.\(\); hideWorldPlaque\(\); dungeonCtx\.tickOverlay\(dt\); host\.drawPeerNames\?\.\(\{ proj, view, eye: mwv\.eye \}\); host\.drawCompanionBars\?\.\(\{ proj, view, eye: mwv\.eye \}\); dungeonCtx\.drawOverlay\(canvas\); return true; \}/,   // PIN MOVED (AUDIT CC-A6: the companions' bars ride the same arm, beside the names)   // AUDIT NAME1 F1 runs the name pass on the same arm, between the clock and the overlay; AUDIT-WH H4 puts the world plaque - a THIRD DOM surface, and the same law - beside the two
     'mutants: the hide door dropped from ?world\'s dungeon arm, or written after the return where nothing runs it');
   const dg = rd('src/scenes/dungeon.js');
   const branch = dg.indexOf('if (ctx.uiOverlayActive) {');

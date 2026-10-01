@@ -534,10 +534,11 @@
   {
     "name": "SHIPMATES-cw-flip-ignored",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "alliedWatchPuppet(f, allied.has(r.i)); crewPuppet(f, crew.has(r.i)); continue; }",
+    "old": "alliedWatchPuppet(f, allied.has(r.i)); crewPuppet(f, crew.has(r.i), comp.has(r.i)); continue; }",
     "new": "alliedWatchPuppet(f, allied.has(r.i)); continue; }",
     "tests": [
       "test/deckwalk.test.js"
-    ]
+    ],
+    "note": "AUDIT CREW (PIN MOVED): re-aimed by content at the line the co-op change extended."
   }
 ]

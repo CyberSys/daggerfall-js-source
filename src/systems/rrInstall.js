@@ -8,6 +8,7 @@
 // the one that imports the seams they hang on.
 import { registerFormulaOverride, formulaOverride, entityMaxEncumbrance } from '../combat/formulas.js';
 import { registerClimbingChanceOverride } from '../player/climbing.js';
+import { registerParkourGate } from '../player/parkour.js';   // AUDIT CLIMB1 F10: the enhanced climb's gate
 import { currentWeaponPose } from '../combat/playerWeapon.js';
 import { WEAPON_TYPES } from '../combat/fpsWeapon.js';
 import { registerMeleeWeaponAnimTime } from '../characters/weaponStates.js';
@@ -35,7 +36,7 @@ import { addIntoQuestTables } from './quest/tables.js';
 import { registerCustomFaction } from '../formats/factionFile.js';
 import { RR_QUEST_LIST, RR_CUSTOM_FACTIONS, RR_PLACES_TABLE, RR_FACTIONS_TABLE, RR_FACTION_IDS, RR_TEXT, rrCustomArmorService } from './rrQuestLine.js';
 import {
-  rrEnabled, rrModule, rrAdjustWeaponHitChanceMod, rrAdjustWeaponAttackDamage, rrClimbingChance, rrMeleeWeaponAnimTime,
+  rrEnabled, rrModule, rrAdjustWeaponHitChanceMod, rrAdjustWeaponAttackDamage, rrClimbingChance, rrParkourRefusal, rrMeleeWeaponAnimTime,
   rrWeaponToHit, rrConditionDamageThroughPhysicalHit, rrDamageModifierClassic, rrMaxBankLoan, rrShipAvailable,
   rrEncumbranceEffect, RR_POTION_RECIPES, applyEnemyAppearance, rrUnderworldRule,
   rrRidingOn, rrRidingSetting, rrCanRunRiding, rrRidingInputLimits,
@@ -115,6 +116,12 @@ export function installRoleplayRealism() {
     if (!rrModule('climbingRestriction')) return null;
     const pose = currentWeaponPose();
     return rrClimbingChance(base, { ...inputs, weaponDrawn: !!pose?.weaponDrawn, weaponMelee: pose == null || pose.weaponType === WEAPON_TYPES.Melee });
+  });
+  // AUDIT CLIMB1 F10: ...and for the enhanced climb's mantle and clamber, which the chance above never sees
+  registerParkourGate(() => {
+    if (!rrModule('climbingRestriction')) return null;
+    const pose = currentWeaponPose();
+    return rrParkourRefusal({ weaponDrawn: !!pose?.weaponDrawn, weaponMelee: pose == null || pose.weaponType === WEAPON_TYPES.Melee });
   });
 
   // weaponSpeed (:174-177): GetMeleeWeaponAnimTime, registered only when Roleplay &
