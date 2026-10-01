@@ -191,6 +191,11 @@ test('SEAT2b2 A HEADLESS CROWN SIEGE WITH ITS WORKS: a Gatehouse of 20,000, two 
     const frames = allValid([eye, ...att, dfn]);
     assert.ok(frames > 1000, `every one of ${frames} frames the client's own`);
     assert.ok(sieges(eye, 'n').length > 300 && sieges(eye, 'w').length > 300, 'the figures and the works each beat');
+    const all = sieges(eye, 'w'), at0 = all.findIndex((w) => w.br === 1);
+    assert.ok(all.slice(0, at0).every((w) => w.br === 0 && w.g[0] > 0) && all.slice(at0).every((w) => w.br === 1 && w.g[0] === 0), '`br` 1 exactly from the frame the gate stands at nought, and 1 after');
+    const ids = ['~g1', '~g2', '~g3', '~g4', '~g5', '~g6'];
+    assert.ok(sieges(eye, 'n').every((x) => x.n.map((q) => q[0]).join() === ids.join()), 'every `n` names every figure, standing or down');
+    assert.ok(sieges(eye, 'n').some((x) => x.n.some((q) => q[8] === 1)), 'a fallen one among them');
   });
 });
 
@@ -317,6 +322,8 @@ test('SEAT2b2 A REVOLT IN THE RELAY (7.7): the holder\'s side enters at the ATTA
     }
     assert.ok(hs.some((ws) => readSiegeReceipt(sieges(ws, 'end').at(-1).rc).h === 1), 'a foe felled: Honours as the law reads them (the service grants none for a revolt)');
     assert.ok(sieges(eye, 'f').every((x) => x.b.every((bn) => bn[0] === 2 && bn[1] === 0) && x.th === 0), 'its banners the holder\'s, inert');
+    const thirteen = ['~c', ...Array.from({ length: 12 }, (_, i) => `~r${i + 1}`)].join();
+    assert.ok(sieges(eye, 'n').every((x) => x.n.map((q) => q[0]).join() === thirteen), 'every `n` names all thirteen, standing or down');
     allValid([...hs, eye]);
   });
   await withRoom(async (h) => {
