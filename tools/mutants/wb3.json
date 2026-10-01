@@ -92,8 +92,8 @@
   {
     "name": "WB3-the-top-unordered",
     "file": "src/net/gateBrain.js",
-    "old": "    .sort((a, b) => b.dealt - a.dealt || a.joinedAt - b.joinedAt)",
-    "new": "    .sort((a, b) => a.joinedAt - b.joinedAt)",
+    "old": "  return Object.values(f.players).filter((q) => q.dealt > 0)\n    .sort((a, b) => b.dealt - a.dealt || a.joinedAt - b.joinedAt)",
+    "new": "  return Object.values(f.players).filter((q) => q.dealt > 0)\n    .sort((a, b) => a.joinedAt - b.joinedAt)",
     "tests": [
       "test/wb3_gate_room.test.js"
     ]

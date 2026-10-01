@@ -10,7 +10,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  newFight, joinFight, applyHit, stepBrain, stateOf, earned, earnedBy, topDealers, pickTarget, attacksFor, chooseAttack, windupOf,
+  newFight, joinFight, applyHit, stepBrain, stateOf, earned, earnedBy, topDealers, damageChart, pickTarget, attacksFor, chooseAttack, windupOf,
   keepInCourt, dpsRef, clampLv, COURT_CENTRE, COURT_R, BOSS_R, BOSS_REACH_R, BOSS_SPEED, BRAIN_TICK_MS, CHECKPOINT_MS, OPENING_MS,
   STATE_SEND_MS, HP_SEND_MS, SHIELD_MS, PHASE_AT, PHASE3_WINDUP, BOSS_TTK_S, BUCKET_RATE_X, BUCKET_DEPTH_X, HIT_CAP_X,
   GATE_HIT_HZ_MAX, MELEE_REACH, POSE_SLACK, HIT_KINDS, ATTACKS, ATTACK_BY_ID, THREAT_PICK, RECEIPT_SHARE, STOOD_SHARE,
@@ -115,7 +115,8 @@ test('WB3 brain: the kill - at zero the fight stamps its fall once (when, the th
   f.hp = 1;
   t += 300;
   applyHit(f, 's3', 50, 0, near, t);
-  assert.deepEqual(f.fell, { at: t, top: ['P2', 'P4', 'P1'], n: 4 });
+  assert.deepEqual(f.fell, { at: t, top: ['P2', 'P4', 'P1'], n: 4, dm: damageChart(f) });   // GATE-UX: and its damage chart (test/gateux_gate.test.js)
+  assert.deepEqual(f.fell.dm.map((r) => r.n), ['P2', 'P4', 'P1', 'P3'], 'every part, ranked - the last blow too');
   assert.equal(f.hp, 0);
   assert.equal(applyHit(f, 's1', 50, 0, near, t + 500), 0, 'a blow on the fallen');
   assert.equal(f.fell.at, t, 'and the fall is stamped once');
