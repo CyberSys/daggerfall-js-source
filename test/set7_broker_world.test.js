@@ -249,7 +249,7 @@ test('SET7 the gate falls under her open window: the host shuts it and she says 
   b.frame(0);
   assert.equal(shuts, 1);
   assert.deepEqual(said, [BROKER_TEXT.gone]);
-  assert.equal(BROKER_TEXT.gone, 'The Sigil Broker is gone with the breach.');
+  assert.equal(BROKER_TEXT.gone, 'The Sigil Broker leaves with the breach.');
   b.frame(0);
   assert.equal(shuts, 1, 'once');
   place = placeOf();

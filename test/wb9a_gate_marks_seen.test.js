@@ -84,7 +84,7 @@ test('WB9a the card\'s clock: stepping in it stands MARKS_CARD_ARRIVE_MS - in ov
   assert.equal(marksCardModel(md, BOSS, { since: 1000, now: 1000 + MARKS_CARD_ARRIVE_MS }), null, 'gone');
   const gate = marksCardModel(md, BOSS, { mode: 'gate', now: 9e12 });
   assert.equal(gate.mode, 'gate'); assert.equal(gate.alpha, 1);
-  assert.equal(gate.sub, 'Beyond the breach Valkynaz Ruhn waits, the Venom-Blooded');
+  assert.equal(gate.sub, 'Valkynaz Ruhn comes the Venom-Blooded tonight', 'WB13b: one subtitle near the gate and inside');
   assert.ok(MARKS_CARD_ARRIVE_MS >= OPENING_MS, 'the card stands at least while he does');
 });
 
@@ -139,7 +139,7 @@ test('WB9a the bar\'s row: the night\'s marks under his health, a chip a mark - 
   const head = (i) => row.children[i].children[0];
   assert.deepEqual(row.children.map((c, i) => head(i).children[1].textContent), ['Burning', 'Vengeful', 'Soul-Hungry']);
   assert.equal(row.children[0].children[1].textContent, 'His blows carry fire');
-  assert.equal(row.children[1].children[1].textContent, 'His blows and his ground take a quarter more');
+  assert.equal(row.children[1].children[1].textContent, 'His blows and his ground deal 25% more');
   assert.equal(head(0).children[1].style.color, aspectCss('burning'));
   assert.match(head(0).children[0].innerHTML, /<svg/);
   const writes = made.reduce((n, x) => n + x.writes, 0);

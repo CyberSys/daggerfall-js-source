@@ -16532,7 +16532,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const gateLink = params.has('online') ? createGateLink({
     now: () => Date.now() + _sharedOffsetMs,
     say: (text) => setMidScreenText(text),
-    onFell: (day, f) => { const site = gateOmen?.current?.()?.site; chatNotice(fellLine({ near: site?.day === day ? site.near : 'the wilds', boss: gateBossOf(day).name, top: f.top })); },
+    onFell: (day, f) => { const site = gateOmen?.current?.()?.site; chatNotice(fellLine({ near: site?.day === day ? site.near : null, boss: gateBossOf(day).name, top: f.top })); },   // WB13b: no place found - "in the wilds"
     onReceipt: (r) => { gateClaims?.add(r); grantSpoilsOutside(r); },   // WB5b: to the account service, kept until it is counted; AUDIT WB A2: and its spoils, when no court's floor will give them
     onRefused: (why) => { if (modes?.gateArenaDay?.() != null) ejectFromCourt(gateRefusalText(why)); },   // AUDIT WB B5: the relay will not have me in this fight - out before the gate, not left in an empty court; GATE-RELOAD: in what its word means (an outdated game is told to reload, never that an open gate is closed)
     place: bossPlace,   // AUDIT WBX F3: his fall frozen where he fell, as the court draws him
@@ -16851,12 +16851,12 @@ export async function bootWorld(canvas, renderer, params, status) {
     adoptSessionIdentity(appStorage(), { glyphs: answer?.glyphs, aura: _insignia.aura, secret });
   };
   async function insigniaBuy(offer) {
-    if (_insignia.busy) return { ok: false, text: 'The Broker is already writing up a sale.' };
+    if (_insignia.busy) return { ok: false, text: 'The Broker is busy.' };   // WB13b
     const io = insigniaIo();
     const why = insigniaRefusal(offer, { held: _insignia.held, stones: stoneCount(spendableStonesIn(playerEntity.items ?? [])), online: !!io && !!online });
     if (why === 'owned') return { ok: false, text: 'Your account already owns that.' };
-    if (why === 'offline') return { ok: false, text: 'Insignia is kept by your account - sign in and go online to buy it.' };
-    if (why === 'stones') return { ok: false, text: `Not enough Deadlands Embers - it asks ${stonesText(offer.price)}.` };
+    if (why === 'offline') return { ok: false, text: 'Sign in and go online to buy insignia.' };
+    if (why === 'stones') return { ok: false, text: `You need ${stonesText(offer.price)}.` };
     if (why) return { ok: false, text: 'The Broker will not sell that.' };
     _insignia.busy = true;
     try {
@@ -16867,18 +16867,18 @@ export async function bootWorld(canvas, renderer, params, status) {
         items: playerEntity.items, buy: (id) => buyInsignia(io, id), save: () => saveSoon.changed(),
         held: async (id) => { const a = await readAccount(io); const w = a.ok ? a.data?.wardrobe : null; return Array.isArray(w?.insignia) && w.insignia.includes(id) ? w : null; },
       });
-      if (!r.ok) return { ok: false, text: r.error === 'stones' ? `Not enough Deadlands Embers - it asks ${stonesText(offer.price)}.` : r.error === 'short' ? `${accountRefusalText('short')} It asks ${stonesText(offer.price)}.` : accountRefusalText(r.error) };
+      if (!r.ok) return { ok: false, text: r.error === 'stones' ? `You need ${stonesText(offer.price)}.` : r.error === 'short' ? accountRefusalText('short') : accountRefusalText(r.error) };
       insigniaAdopt(r.data);
       audio.playOneShot(SOUND.GoldPieces, 1);
       surfacePlayer();
       const name = insigniaRows().find((x) => x.id === offer.id)?.name ?? offer.key;
-      return { ok: true, text: `Bought: ${name}, for ${stonesText(offer.price)}. It is your account's for good - wear it here or on your account card.` };
+      return { ok: true, text: `Bought: ${name}, for ${stonesText(offer.price)}.` };   // WB13b: BROKER_SOLD's own - the button turns to Wear
     } catch { return { ok: false, text: accountRefusalText('offline') }; } finally { _insignia.busy = false; }
   }
   async function insigniaWear(offer) {
-    if (_insignia.busy) return { ok: false, text: 'A moment - the Broker is busy.' };
+    if (_insignia.busy) return { ok: false, text: 'The Broker is busy.' };
     const io = insigniaIo();
-    if (!io) return { ok: false, text: 'Insignia is kept by your account - sign in to wear it.' };
+    if (!io) return { ok: false, text: 'Sign in to wear insignia.' };
     const row = insigniaRows().find((x) => x.id === offer.id);
     if (!row?.owned) return { ok: false, text: 'Your account does not own that.' };
     _insignia.busy = true;
@@ -16888,7 +16888,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (!r.ok) return { ok: false, text: accountRefusalText(r.error) };
       insigniaAdopt(r.data);
       insigniaSelf(r.data, io.secret);
-      return { ok: true, text: want ? `Wearing ${row.name}. Others see it from your next step into a new place.` : `${row.name} put away.` };
+      return { ok: true, text: want ? `Wearing ${row.name}. Others see it once you change area.` : `${row.name} taken off.` };
     } catch { return { ok: false, text: accountRefusalText('offline') }; } finally { _insignia.busy = false; }
   }
   const openBroker = () => {
@@ -18187,7 +18187,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   const noticeGateCard = () => {
     const mark = gateOmen?.mapMark?.();
     const near = gateOmen?.current?.()?.site?.near;
-    return mark && near ? { subject: 'Dagon\'s Breach', body: `${mark.label}. It stands near ${near}.` } : null;   // WB12a
+    if (!mark || !near) return null;
+    // WB13b: where, then the countdown's state ("Near Copperham. Opens in 4:07.") - the subject is the name
+    const state = String(mark.label ?? '').replace(/^Dagon's Breach(?: - )?/, '');
+    return { subject: 'Dagon\'s Breach', body: state ? `Near ${near}. ${state.charAt(0).toUpperCase()}${state.slice(1)}.` : `Near ${near}.` };   // WB12a
   };
   /** NOTICE1: A NOTE'S ONE BUTTON (net/boardLaw.js NOTE_BUTTONS), answered through the doors that stand: a duel
    *  challenge where the author stands within DUEL1's reach outdoors (its own challenge); otherwise - and for a party

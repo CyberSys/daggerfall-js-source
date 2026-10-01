@@ -265,7 +265,7 @@ test('WB1 the chat: each moment\'s line ONCE, in order, and a late arrival hears
   for (let ms = clock.now; ms <= t.wrathAt + GATE_COLLAPSE_MS + 5000; ms += 1000) { clock.now = ms; omen.frame(); }
   assert.equal(lines.length, 6, lines.join('\n'));
   assert.equal(lines[0], omenLine({ place: 'Copperham, Wrothgarian Mountains', at: `L${600 * 1440 + 1200}` }));
-  assert.match(lines[0], /^The sky burns over the wilds near Copperham, Wrothgarian Mountains\. Dagon's faithful are calling a door to the Deadlands: the breach opens there at 20:00 \(L\d+ your time\)\. It is marked on your map\.$/);
+  assert.match(lines[0], /^The sky burns near Copperham, Wrothgarian Mountains\. Dagon's faithful open a breach at 20:00 \(L\d+ your time\)\.$/);   // WB13b
   assert.equal(lines[1], marksLine({ boss: 'Valkynaz Ruhn', md: gateModsOf(600) }), 'WB8c: tonight\'s marks, beside the omen - once');
   assert.equal(lines[2], riseLine({ near: 'Copperham', left: '5:00' }));
   assert.equal(lines[3], openLine({ near: 'Copperham', at: `L${600 * 1440 + 1320}` }));

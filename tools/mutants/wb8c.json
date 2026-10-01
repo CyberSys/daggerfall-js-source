@@ -83,8 +83,8 @@
   {
     "name": "WB8c-the-resist-said-as-fire",
     "file": "src/scenes/gateCourt.js",
-    "old": "    if (dmg <= 0) { say(COURT_STRIKE_TEXT.resisted(so.name, so.el)); return; }",
-    "new": "    if (dmg <= 0) { say(COURT_STRIKE_TEXT.resisted(so.name)); return; }",
+    "old": "    if (dmg <= 0) { say(COURT_STRIKE_TEXT.resisted(so.name)); return; }",
+    "new": "    if (dmg <= 0) { say(COURT_STRIKE_TEXT.resisted('Hellfire')); return; }",
     "tests": [
       "test/wb8c_gate_detail.test.js"
     ]
@@ -119,12 +119,14 @@
   {
     "name": "WB8c-an-unmarked-warden-speaks",
     "file": "src/scenes/gateCourt.js",
-    "old": "if (P.md && !s.fell && s.wrath == null) { say(COURT_MARKS_TEXT.arrive(P)); marksAt = t; } }",
-    "new": "if (!s.fell && s.wrath == null) { say(COURT_MARKS_TEXT.arrive(P)); marksAt = t; } }",
+    "old": "if (P.md && !s.fell && s.wrath == null) marksAt = t; }",
+    "new": "if (!s.fell && s.wrath == null) marksAt = t; }",
     "tests": [
       "test/wb8c_gate_detail.test.js",
       "test/wbx_gate_fixes.test.js"
-    ]
+    ],
+    "equivalent": true,
+    "why": "WB13b: nothing is said on stepping in any more, and an unmarked Warden's card is no card (marksViewOf(null) is null) - the P.md check is belt and braces, kept"
   },
   {
     "name": "WB8c-a-stale-feeding-said",
@@ -318,8 +320,8 @@
   {
     "name": "WB8c-the-herald-mute-on-marks",
     "file": "src/net/gateHerald.js",
-    "old": "holds it.${marks}`,",
-    "new": "holds it.`,",
+    "old": ".${map}${marks}`,",
+    "new": ".${map}`,",
     "tests": [
       "test/wb8c_gate_detail.test.js",
       "test/discordgates.test.js"

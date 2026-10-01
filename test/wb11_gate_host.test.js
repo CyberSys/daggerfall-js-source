@@ -572,12 +572,12 @@ test('WB11 the court: a wave\'s rising said once and heard where each rises (whi
   // a wave, fresh: said once, each heard rising where it rises
   tick(10_000, stOf({ lg: { ads: [ad({ i: 1, x: 20, z: 6, rose: 9_900 }), ad({ i: 2, x: -20, z: 6, rose: 9_900 })], gone: [] } }));
   tick(10_100);
-  assert.deepEqual(h.said.filter((t) => t.startsWith('Valkynaz')), [COURT_HOST_TEXT.harriers('Valkynaz Ruhn', 'Imps')]);
+  assert.deepEqual(h.said.filter((t) => t.startsWith('Imps')), [COURT_HOST_TEXT.harriers('Valkynaz Ruhn', 'Imps')]);   // WB13b: "Imps rise from the fire!"
   assert.equal(h.sounds.filter((s) => s[1] === ENEMY_BASICS[1].barkSound).length, 2, 'each heard rising');
   // a stale wave (a screen come in late) is not said
   const late = court();
   late.link.st = stOf({ lg: { ads: [ad({ i: 9, rose: 0 })], gone: [] } }); late.clock.t = 50_000; late.c.frame();
-  assert.equal(late.said.length, 1, 'only the marks\' arrival line');
+  assert.equal(late.said.length, 0, 'nothing - the wave is stale (WB13b: and the marks are the card\'s, never a line)');
   // the targets: each standing one, from his court
   const T = h.c.hostTargets();
   assert.deepEqual(T.map((q) => q.i), [1, 2]);
@@ -608,11 +608,11 @@ test('WB11 the court: a wave\'s rising said once and heard where each rises (whi
   tick(13_000, stOf({ phase: 2, shieldUntil: 40_000, lg: { ...ward, gone: [{ i: 4, k: HOST.bearer, x: 9, z: 0, w: 0, n: 'Ann', at: 12_990 }, { i: 3, k: HOST.sapper, x: 0, z: 2, w: 1, n: null, at: 12_995 }] } }));
   assert.ok(h.said.includes(COURT_HOST_TEXT.felled('Ann', 2)), 'cut down by name, how many stand');
   assert.ok(h.said.includes(COURT_HOST_TEXT.drunk('Valkynaz Ruhn', 'Fire Atronach')));
-  assert.equal(COURT_HOST_TEXT.drunk('Valkynaz Ruhn', 'Ice Atronach'), 'An Ice Atronach reaches Valkynaz Ruhn - he drinks it in.');
+  assert.equal(COURT_HOST_TEXT.drunk('Valkynaz Ruhn', 'Ice Atronach'), 'An Ice Atronach reaches Valkynaz Ruhn and heals him.');   // WB13b: the effect
   h.said.length = 0;
   tick(14_000, stOf({ phase: 2, shieldUntil: 40_000, lg: { ads: [], gone: [{ i: 5, k: 2, x: 9, z: 0, w: 0, n: 'Bran', at: 13_990 }, { i: 6, k: 2, x: -9, z: 0, w: 0, n: 'Bran', at: 13_995 }] } }));
   assert.ok(h.said.includes(COURT_HOST_TEXT.felled('Bran', 0)));
-  assert.equal(COURT_HOST_TEXT.felled('Bran', 0), 'The last Ward-Bearer falls - his ward is failing!');   // AUDIT WB11 D1
+  assert.equal(COURT_HOST_TEXT.felled('Bran', 0), 'The last Ward-Bearer falls. His ward is failing!');   // AUDIT WB11 D1
   h.c.leave();
   assert.deepEqual(h.c.state().host.bodies, []);
 });

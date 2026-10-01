@@ -65,44 +65,45 @@ test('WB12a the guard: no shipped string names an Oblivion Gate or a Sigil Stone
   assert.deepEqual(left, []);
 });
 
-test('WB12a the chat\'s lines: the omen calls Dagon\'s faithful, the breach tears open and stands open while the Covenant suffers it, the Covenant seals it and tears it shut, and his fall collapses the breach (mutants: a line of the old frame)', () => {
+test('WB12a the chat\'s lines (WB13b: each the event, where and when): Dagon\'s faithful open a breach, it rises and opens, the Covenant seals it and tears it shut, and his fall collapses the breach (mutants: a line of the old frame)', () => {
   assert.equal(omenLine({ place: 'Copperham, Wrothgarian Mountains', at: '14:32' }),
-    'The sky burns over the wilds near Copperham, Wrothgarian Mountains. Dagon\'s faithful are calling a door to the Deadlands: the breach opens there at 20:00 (14:32 your time). It is marked on your map.');
-  assert.equal(riseLine({ near: 'Copperham', left: '4:07' }), 'Dagon\'s Breach has torn open near Copperham. It opens in 4:07.');
-  assert.equal(openLine({ near: 'Copperham', at: '16:32' }), 'Dagon\'s Breach near Copperham stands open until 22:00 (16:32 your time). The Covenant will not suffer it long.');
+    'The sky burns near Copperham, Wrothgarian Mountains. Dagon\'s faithful open a breach at 20:00 (14:32 your time).');
+  assert.equal(riseLine({ near: 'Copperham', left: '4:07' }), 'Dagon\'s Breach rises near Copperham. It opens in 4:07.');
+  assert.equal(openLine({ near: 'Copperham', at: '16:32' }), 'Dagon\'s Breach near Copperham is open. The Covenant seals it at 22:00 (16:32 your time).');
   assert.equal(sealLine({ near: 'Copperham', at: '16:52' }), 'The Covenant has sealed Dagon\'s Breach near Copperham. It collapses at 00:00 (16:52 your time).');
   assert.equal(wrathLine({ near: 'Copperham', boss: 'Valkynaz Ruhn' }), 'The Covenant tears Dagon\'s Breach near Copperham shut. Valkynaz Ruhn is cast back into the Deadlands.');
-  assert.equal(fellLine({ near: 'Copperham', boss: 'Valkynaz Ruhn', top: ['Mac', 'Bran'] }), 'Valkynaz Ruhn has fallen at Dagon\'s Breach near Copperham - struck down by Mac and Bran. The breach collapses.');
+  assert.equal(fellLine({ near: 'Copperham', boss: 'Valkynaz Ruhn', top: ['Mac', 'Bran'] }), 'Valkynaz Ruhn has fallen at Dagon\'s Breach near Copperham, struck down by Mac and Bran. The breach collapses.');
+  assert.equal(fellLine({ near: null, boss: 'Valkynaz Ruhn', top: [] }), 'Valkynaz Ruhn has fallen at Dagon\'s Breach in the wilds. The breach collapses.', 'WB13b: a screen that never found the site says what Discord says');
 });
 
 test('WB12a Discord: the omen post says Dagon\'s faithful open a breach and the Covenant seals it; his fall\'s post names Dagon\'s Breach and the breach collapsing; his title is his (mutants: the old post)', () => {
   const day = 700, boss = gateBossOf(day);
   const p = omenPost({ day, place: 'Copperham, Wrothgarian Mountains' }).content;
-  assert.match(p, /^\*\*The sky burns near Copperham, Wrothgarian Mountains\.\*\* Dagon's faithful open a breach <t:\d+:R> \(<t:\d+:t>\) and the Covenant seals it at <t:\d+:t>\. /);
-  assert.ok(p.includes(`${boss.name}, ${boss.title}, holds it.`));
+  assert.match(p, /^\*\*The sky burns near Copperham, Wrothgarian Mountains\.\*\* Dagon's faithful open a breach <t:\d+:R> \(<t:\d+:t>\)\. The Covenant seals it at <t:\d+:t>\. /);
+  assert.ok(p.includes(`${boss.name} comes **`) && !p.includes('holds it'), 'WB13b: the marks in the chat\'s sentence');
   assert.equal(boss.title, 'Warden of the Burning Gate', 'the faithful\'s name for the arch the breach wears stays his');
-  assert.equal(fellPost({ day, place: 'Copperham', top: ['Ann'], n: 1 }).content, `**${boss.name} has fallen** at Dagon's Breach near Copperham - struck down by Ann. The breach collapses.`);
+  assert.equal(fellPost({ day, place: 'Copperham', top: ['Ann'], n: 1 }).content, `**${boss.name} has fallen** at Dagon's Breach near Copperham, struck down by Ann. The breach collapses.`);
 });
 
 test('WB12a the names on screen: the plaque, the banner and the map\'s legend say Dagon\'s Breach; the marks card, the record, the Drakes line, the profile, the account\'s refusal, the Broker\'s plaque and her insignia speak of breaches; the notice card names it (mutants: a name left)', () => {
   assert.equal(GATE_TEXT.name, 'Dagon\'s Breach');
   assert.equal(GATE_LEGEND_TEXT, 'Dagon\'s Breach');
-  assert.equal(MARKS_CARD_TEXT.gate('Valkynaz Ruhn', 'the Rime-Wrought'), 'Beyond the breach Valkynaz Ruhn waits, the Rime-Wrought');
-  assert.equal(GATE_CLAIM_TEXT.recorded(4), 'The breach is closed in your name. Breaches closed: 4.');
-  assert.match(GATE_CLAIM_TEXT.guest, /^This breach is not on your record yet/);
-  assert.equal(MARKS_TEXT.capped, 'The breach is on your record. The counting-houses strike Drakes for two breaches a day.');
+  assert.equal(MARKS_CARD_TEXT.gate('Valkynaz Ruhn', 'the Rime-Wrought'), 'Valkynaz Ruhn comes the Rime-Wrought tonight', 'WB13b: one subtitle near the gate and inside');
+  assert.equal(GATE_CLAIM_TEXT.recorded(4), 'Breach recorded. Breaches closed: 4.');
+  assert.equal(GATE_CLAIM_TEXT.guest, 'Breach not recorded. Add a username within a week to keep it.');
+  assert.equal(MARKS_TEXT.capped, 'No Drakes for this breach. The counting-houses strike them for two breaches a day.');
   assert.equal(profileGateLine({ gates: { closed: 3 } }), 'Breaches closed: 3');
   assert.match(read('src/ui/enhancedAccount.js'), /if \(gates\) row\('Breaches closed', gates\);/);
-  assert.equal(accountRefusalText('short'), 'Your account has not closed enough of Dagon\'s Breaches to pay for that. Each breach closed pays its Deadlands Embers.');
-  assert.deepEqual([BROKER_TEXT.trade, BROKER_TEXT.steal, BROKER_TEXT.gone], ['Trades in Deadlands Embers', 'The Broker\'s eyes never leave her embers.', 'The Sigil Broker is gone with the breach.']);
-  assert.equal(INSIGNIA_LINE.title, 'A title worn over your name, in the fire of the breach that bore it');
-  assert.ok(INSIGNIA_CARD.title[1].endsWith('the ember of a breach closed.') && /closed enough breaches/.test(INSIGNIA_CARD.title[2]) && /closed enough breaches/.test(INSIGNIA_CARD.aura[2]));
-  assert.match(read('src/scenes/world.js'), /return mark && near \? \{ subject: 'Dagon\\'s Breach', body: `\$\{mark\.label\}\. It stands near \$\{near\}\.` \} : null;/);
-  assert.match(read('src/systems/sigilSetPowers.js'), /Wrath of the Warden! The breach's fire bursts from you \(\$\{struck\} struck\)\./);
+  assert.equal(accountRefusalText('short'), 'Your account has too few breaches closed for that.');
+  assert.deepEqual([BROKER_TEXT.trade, BROKER_TEXT.steal, BROKER_TEXT.gone], ['Trades in Deadlands Embers', 'The Broker\'s eyes never leave her embers.', 'The Sigil Broker leaves with the breach.']);
+  assert.equal(INSIGNIA_LINE.title, 'A title worn over your name');
+  assert.ok(INSIGNIA_CARD.title[1].includes('the breach\'s fire') && /breaches closed/.test(INSIGNIA_CARD.title[2]) && /breaches closed/.test(INSIGNIA_CARD.aura[2]));
+  assert.match(read('src/scenes/world.js'), /return \{ subject: 'Dagon\\'s Breach', body: state \? `Near \$\{near\}\. /);
+  assert.match(read('src/systems/sigilSetPowers.js'), /Wrath of the Warden! \$\{struck\} \$\{struck === 1 \? 'foe' : 'foes'\} struck\./);
 });
 
 test('WB12a the arch is still the gate: pressed it answers as a gate, the relay\'s refusal words are protocol and keep their bytes, the Gatebreaker title and the Burning Court stay (mutants: the protocol renamed)', () => {
-  assert.equal(GATE_TEXT.opensIn('3:12'), 'The gate is sealed. It opens in 3:12.');
+  assert.equal(GATE_TEXT.opensIn('3:12'), 'The gate opens in 3:12.');
   assert.equal(GATE_TEXT.notYet, 'The gate will not open to you yet.');
   assert.deepEqual([...GATE_NO_WORDS], ['the gate is closed', 'the gate is sealed', 'the gate is closing', 'the court is full']);
   assert.equal(INSIGNIA_CARD.title[0], 'Gatebreaker');

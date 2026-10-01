@@ -52,7 +52,8 @@ test('WB8b the tables: four aspects, each an element, an epithet, a name for eac
   ]);
   for (const a of GATE_ASPECTS) {
     assert.deepEqual(Object.keys(a.names).sort(), ['hellfire', 'meteor', 'nova', 'spokes'], `${a.id}: a name for each elemental blow`);
-    for (const k of ['omen', 'arrive', 'ground', 'floor', 'stuff']) assert.ok(typeof a[k] === 'string' && a[k].length > 1, `${a.id}.${k}`);
+    for (const k of ['omen', 'ground', 'stuff']) assert.ok(typeof a[k] === 'string' && a[k].length > 1, `${a.id}.${k}`);   // WB13b: the arrival's line and the floor's verb gone with the lines that said them
+    assert.ok(!('arrive' in a) && !('floor' in a));
   }
   assert.deepEqual(gateAspectOf('burning').names, { hellfire: 'Hellfire', nova: 'Flame Nova', meteor: 'Meteor of Oblivion', spokes: 'Spokes of Dagon' }, 'the Burning Warden\'s are the attacks\' own');
   for (const [k, A] of Object.entries(gateAspectOf('burning').names)) assert.equal(A, ATTACKS[k].name);

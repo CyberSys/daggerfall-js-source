@@ -1817,6 +1817,25 @@ What changes beyond the wording:
 - A phase turn is a title and one order (WB13e).
 - A screen that never found the site says "in the wilds", as Discord does, not "near the wilds".
 
+**As built:**
+- The omen, rise and open lines say the event, where and when (*"The sky burns near Copperham. Dagon's faithful open a
+  breach at 20:00 (14:32 your time)."*).
+- The rise line no longer contradicts itself ("has torn open... It opens in").
+- The marks line names the marks. The aspects' omens lose their "X, not Y"; the arrival and floor words are gone.
+- Every trial reads as one statement with its number ("deal 25% more", "heals him 3%"). Every tip is one order.
+- The court's strike, Reckoning, host and refusal lines are one event each, the dash asides now full stops.
+- The Discord omen has two sentences for the two times and the chat's marks sentence; the kill post is the chat's own
+  sentence.
+- The claim, Drakes and account refusals are shorter. The Broker's window, insignia, dismantle and set powers say the
+  event and stop.
+- The notice board's card says where and the countdown's state.
+- The relay's protocol words, the save and token keys and Daggerfall's own lines are unchanged.
+- Pinned:
+  - `test/wb13b_words.test.js`: the style as a law over 85 lines of the tables, and the design changes.
+  - 30 older pins re-aimed to the new words.
+- Mutants: `tools/mutants/wb13b.json` (11); eight older records re-aimed. AUDIT WB11 M1's law (Imps capitalised) holds
+  on the trial's line.
+
 ### WB13c. The HUD
 
 **Broken, fixed first:**
@@ -2307,3 +2326,13 @@ Mehrunes Dagon's day (WB12b) was dropped before it shipped (Mac: *"Let's forgoe 
   `tools/mutants/wb13a.json` (22), with seven older records re-aimed.
 - Seen in Chromium over the stand-in court: every attack, at a fighter's eye and from above, in all four aspects.
 - Not seen: the game's own art and a live fight.
+
+**WB13b (2026-10-01) - the words.** Section 20 above (Mac: *"clean up text to be less explanatory and less AI"*):
+- Every line the breach, the court and the Broker say now says one thing and stops.
+- The chat names the marks; the line said on stepping into the court is gone.
+- One card subtitle; a phase turn is its name and two orders.
+- Discord and the chat share their sentences, and a screen without the site says "in the wilds".
+- world141 re-hashed in place.
+- Pins `test/wb13b_words.test.js` (5), with 30 older pins re-aimed; mutants `tools/mutants/wb13b.json` (11), with eight
+  older records re-aimed.
+

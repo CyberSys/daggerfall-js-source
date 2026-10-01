@@ -83,7 +83,7 @@ export function gateSkyNear(distM) {
 export const gateSkyWeight = (t, nowMs, fellAt, distM) => gateSkyPhaseWeight(t, nowMs, fellAt) * gateSkyNear(distM);
 
 /** WB3b: the kill, said to everyone online (the hub's word): who stood where, and who struck hardest. */
-export const fellLine = ({ near, boss, top }) => `${boss} has fallen at Dagon's Breach near ${near}${top?.length ? ` - struck down by ${top.length > 1 ? `${top.slice(0, -1).join(', ')} and ${top[top.length - 1]}` : top[0]}` : ''}. The breach collapses.`;
+export const fellLine = ({ near, boss, top }) => `${boss} has fallen at Dagon's Breach ${near ? `near ${near}` : 'in the wilds'}${top?.length ? `, struck down by ${top.length > 1 ? `${top.slice(0, -1).join(', ')} and ${top[top.length - 1]}` : top[0]}` : ''}. The breach collapses.`;   // WB13b: "in the wilds" where this screen never found the site, as Discord says it
 
 /**
  * EVENT-TIP (2026-09-28, Mac: "I also want to add a tooltip to the map for these type of events"): THE GATE'S CARD on

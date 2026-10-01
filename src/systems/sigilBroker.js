@@ -334,7 +334,7 @@ export function dismantleWare(item, { items }) {
 }
 /** The dismantle's words: the question (the enhanced pack's), the classic pack's offer where its drop was refused, the
  *  worn piece's refusal, and what was done (BROKER_SOLD's shape). */
-export const dismantleAsk = (name, n) => [`Dismantle ${name}?`, `It is gone for good, and you get ${stonesText(n)} back.`];
+export const dismantleAsk = (name, n) => [`Dismantle ${name}?`, `You get ${stonesText(n)} back. This cannot be undone.`];   // WB13b: the gain, then the warning
 export const DISMANTLE_INSTEAD = (n) => `Dismantle it for ${stonesText(n)} instead?`;
 export const DISMANTLE_WORN = (name) => `Take off ${name} before dismantling it.`;
 export const DISMANTLED = (name, n) => `Dismantled: ${name}, for ${stonesText(n)}.`;

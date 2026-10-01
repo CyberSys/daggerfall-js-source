@@ -221,7 +221,7 @@ test('WB3b the link: the relay\'s words folded into one state - a whole state st
   assert.equal(link.receipt(200), r); assert.equal(link.receipt(199), null);
   link.leave();
   assert.equal(link.state(), GATE_STATE_EMPTY); assert.equal(link.fellAt(200), 4000, 'the falls outlive the court');
-  assert.equal(fellLine({ near: 'Copperham', boss: 'Valkynaz Ruhn', top: ['Mac', 'Bran', 'Ysolde'] }), 'Valkynaz Ruhn has fallen at Dagon\'s Breach near Copperham - struck down by Mac, Bran and Ysolde. The breach collapses.');
+  assert.equal(fellLine({ near: 'Copperham', boss: 'Valkynaz Ruhn', top: ['Mac', 'Bran', 'Ysolde'] }), 'Valkynaz Ruhn has fallen at Dagon\'s Breach near Copperham, struck down by Mac, Bran and Ysolde. The breach collapses.');
   assert.equal(fellLine({ near: 'X', boss: 'B', top: [] }), 'B has fallen at Dagon\'s Breach near X. The breach collapses.');
 });
 

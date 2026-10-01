@@ -405,7 +405,7 @@ test('MARKS1 the gate\'s line: a counted gate says the Marks struck, or that the
   });
   claims.add(receipt);
   await claims.flush();
-  assert.deepEqual(said, ['The breach is closed in your name. Breaches closed: 4.', MARKS_TEXT.struck(50, 200)]);
+  assert.deepEqual(said, ['Breach recorded. Breaches closed: 4.', MARKS_TEXT.struck(50, 200)]);   // WB13b
 });
 
 test('MARKS1 the wiring: online the streaming host holds the book and hands it to the Bank, the guild and the gate; the Bank face, the Guild tab and the account card show Marks', () => {

@@ -276,7 +276,7 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
         b.type = 'button';
         b.disabled = !!flow.busy;
         b.setAttribute('aria-pressed', worn ? 'true' : 'false');
-        b.title = worn ? 'Wearing this - press to take it off' : `Wear ${TITLE_TEXT[key] ?? key}`;
+        b.title = worn ? 'Worn. Press to take it off.' : `Wear ${TITLE_TEXT[key] ?? key}`;   // WB13b
         b.onclick = () => flow.equip(key);
         row.append(b);
       }
@@ -294,7 +294,7 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
         b.type = 'button';
         b.disabled = !!flow.busy;
         b.setAttribute('aria-pressed', worn ? 'true' : 'false');
-        b.title = worn ? 'Wearing this - press to take it off' : `Wear ${AURA_TEXT[key] ?? key}`;
+        b.title = worn ? 'Worn. Press to take it off.' : `Wear ${AURA_TEXT[key] ?? key}`;
         b.onclick = () => flow.wearAura(key);
         row.append(b);
       }

@@ -269,7 +269,7 @@ test('SET7 the window: the purse (and its locked stones) and the turn of the day
       assert.ok(shell, 'the window stands in the door\'s host');
       assert.equal(shell.attrs.role, 'dialog');
       assert.equal(one(shell, 'broker-purse').textContent, '7 Deadlands Embers · 1 locked', 'SS1: the purse counts its stacks whole');
-      assert.equal(one(shell, 'broker-sub').textContent, 'Deadlands Embers buy the day\'s stock · it turns in 5h 00m');
+      assert.equal(one(shell, 'broker-sub').textContent, 'New stock in 5h 00m');
       const noteLine = one(shell, 'broker-note');
       assert.equal(noteLine.textContent, '', 'no word before a press');
       assert.equal(noteLine.attrs.hidden, '', 'and the line hidden');

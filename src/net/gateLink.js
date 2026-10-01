@@ -186,9 +186,9 @@ export function bossAt(s, now) {
 /** The gate refusals' words as the player reads them (net/wire.js GATE_NO_WORDS). */
 export const GATE_NO_TEXT = Object.freeze({
   'the gate is closed': 'The gate is closed.',
-  'the gate is sealed': 'The gate has sealed behind the ones inside.',
-  'the gate is closing': 'The gate is closing - its master has fallen.',
-  'the court is full': 'The Burning Court can hold no more.',
+  'the gate is sealed': 'The gate has sealed.',   // WB13b: the event, then stop
+  'the gate is closing': 'The Warden has fallen. The gate is closing.',
+  'the court is full': 'The Burning Court is full.',
 });
 
 /** GATE-RELOAD (2026-09-26, volo on Discord: "the oblivion gate is bugged rn" - "you cant enter it" - "it kicks you out

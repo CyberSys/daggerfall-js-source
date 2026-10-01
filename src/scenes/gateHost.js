@@ -28,14 +28,14 @@ import { mobileBillboardSize } from '../world/rmbFlats.js';
 /** The words his host says that the bar and the blows do not. `boss` his name, `plural`/`name` the body's (its look's). */
 const an = (name) => `${/^[AEIOU]/i.test(name) ? 'An' : 'A'} ${name}`;
 export const COURT_HOST_TEXT = Object.freeze({
-  harriers: (boss, plural) => `${boss} calls his host - ${plural} rise from the fire!`,
-  sappers: (boss, plural) => `${plural} march on ${boss} - cut them down before they reach him!`,
-  bearers: () => 'His Ward-Bearers hold his ward - break them to break it!',
-  drunk: (boss, name) => `${an(name)} reaches ${boss} - he drinks it in.`,
+  harriers: (boss, plural) => `${plural} rise from the fire!`,   // WB13b: the event and the order, no more
+  sappers: (boss, plural) => `Stop the ${plural} before they reach him!`,
+  bearers: () => 'Ward-Bearers hold his ward. Break them!',
+  drunk: (boss, name) => `${an(name)} reaches ${boss} and heals him.`,
   // AUDIT WB11 D1: "his ward breaks" was said where his own ward follows the bearers' for its breath (SHIELD_MS,
   // Unyielding's 6 s - the signature is cast under it): every blow in it still turned
-  felled: (who, left) => (left > 0 ? `${who || 'A challenger'} cuts down a Ward-Bearer - ${left} ${left === 1 ? 'stands' : 'stand'}.` : 'The last Ward-Bearer falls - his ward is failing!'),
-  crumbled: 'His Ward-Bearers crumble - his ward is failing!',
+  felled: (who, left) => (left > 0 ? `${who || 'A challenger'} cuts down a Ward-Bearer. ${left} ${left === 1 ? 'stands' : 'stand'}.` : 'The last Ward-Bearer falls. His ward is failing!'),
+  crumbled: 'The Ward-Bearers crumble. His ward is failing!',
 });
 /** A rising, a blow, a fall or a word heard later than this after it happened is neither said nor sounded (the court's
  *  FED_LATE_MS law - heard live, never a stale one). */

@@ -39,33 +39,32 @@ import { createGateHost } from './gateHost.js';   // WB11c: the Legion-Lord's ho
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { mobileBillboardSize } from '../world/rmbFlats.js';
 
-/** WB8b: what a resisted strike's element is called in its line. */
-const RESISTED_WHAT = Object.freeze({ fire: 'flames', frost: 'frost', shock: 'lightning', poison: 'venom' });
-/** The words a strike says that the hurt itself does not; and the fall's, to a player the receipt never came for. */
+/** The words a strike says that the hurt itself does not; and the fall's, to a player the receipt never came for.
+ *  WB13b: the event and stop - "Frost Nova resisted." */
 export const COURT_STRIKE_TEXT = Object.freeze({
-  resisted: (name, el = 'fire') => `You resist the ${RESISTED_WHAT[el] ?? 'flames'} of the ${name}.`,   // WB8b: the element his aspect gives it
-  noSpoils: (name) => `${name}'s spoils are not yours - you did not stand the fight.`,
+  resisted: (name) => `${name} resisted.`,   // WB8b: its name under his aspect - "Frost Nova"
+  noSpoils: () => 'No spoils. Your part in the fight was too small.',
   // WBX3 (Swololo on Discord: "loot was not distributed, was instantly pillaged by others"): said at the burst - every
   // fighter's spoils are their own, on their own screen, and nobody else can see or take them
-  spilled: (name) => `${name}'s spoils spill across the floor - yours alone to take.`,
+  spilled: () => 'Your spoils spill across the floor.',
   burning: 'burning ground',
 });
 /** WBX5: THE TURN OF A PHASE, said over the screen as he leaps into the court's heart - each phase by its name
- *  (net/gateBrain.js PHASE_NAMES), and what it brings. WB8b: in his aspect's words (net/gateMods.js `floor`, `stuff`) -
- *  the Burning Warden's are these. */
-export const courtPhaseText = (n, aspect) => (n === 2 ? `${PHASE_NAMES[1]}: he bounds across the fire - follow him over the walkway. There the floor will ${aspect.floor} - keep out of the ${aspect.stuff}.`
-  : n === 3 ? `${PHASE_NAMES[2]}: he bounds to the last court and calls on Dagon - stand between the spokes of ${aspect.stuff}, and shatter the crystals when he calls his Reckoning.` : null);   // WB9b/c: the turn crosses to the next court; the last brings the Reckoning
+ *  (net/gateBrain.js PHASE_NAMES), and what it asks. WB8b: in his aspect's words (net/gateMods.js `stuff`) - the Burning
+ *  Warden's are these. WB13b: its name and two orders (WB9c: the Reckoning has its own call when it comes). */
+export const courtPhaseText = (n, aspect) => (n === 2 ? `${PHASE_NAMES[1]}. Follow him over the walkway. Keep out of the ${aspect.stuff}.`
+  : n === 3 ? `${PHASE_NAMES[2]}. Follow him to the last court. Stand between the spokes of ${aspect.stuff}.` : null);   // WB9b/c: the turn crosses to the next court
 export const COURT_PHASE_TEXT = Object.freeze({
-  2: `${PHASE_NAMES[1]}: he bounds across the fire - follow him over the walkway. There the floor will burn - keep out of the fire.`,
-  3: `${PHASE_NAMES[2]}: he bounds to the last court and calls on Dagon - stand between the spokes of fire, and shatter the crystals when he calls his Reckoning.`,
+  2: `${PHASE_NAMES[1]}. Follow him over the walkway. Keep out of the fire.`,
+  3: `${PHASE_NAMES[2]}. Follow him to the last court. Stand between the spokes of fire.`,
 });
 /** WB9c (2026-09-30, Mac: "a detailed wipe mechanic on the final phase that should require players to destroy oblivion
  *  crystaline formations ... which then stuns his wipe mechanic"): DAGON'S RECKONING, said - its call (how many crystals
  *  there are to break), each crystal broken (by whom, and how many stand), and the Reckoning broken (he is stunned). */
 export const COURT_RECKON_TEXT = Object.freeze({
-  call: (n) => `Dagon's Reckoning! Shatter all ${n} crystals of Oblivion before it lands!`,
-  shattered: (who, left) => (left > 0 ? `${who || 'A challenger'} shatters a crystal - ${left} ${left === 1 ? 'remains' : 'remain'}.` : `${who || 'A challenger'} shatters the last crystal!`),
-  broken: (boss) => `The Reckoning breaks! ${boss} is stunned - strike now!`,
+  call: (n) => `Dagon's Reckoning! Shatter all ${n} crystals!`,   // WB13b: the bar counts it down
+  shattered: (who, left) => (left > 0 ? `${who || 'A challenger'} shatters a crystal. ${left} ${left === 1 ? 'remains' : 'remain'}.` : `${who || 'A challenger'} shatters the last crystal!`),
+  broken: () => 'The Reckoning breaks! Strike now!',   // the bar says "Stunned - 5s"
 });
 /** WB9c: a crystal's word, or the stun's, heard later than this after it happened is neither said nor sounded
  *  (FED_LATE_MS's law - heard live, never a stale one). */
@@ -75,10 +74,9 @@ export const RECKON_LATE_MS = 2000;
 export const CRYSTAL_STRIKE_GROWN = 0.5;
 export const CRYSTAL_LIGHT_RANGE = 9;
 export const CRYSTAL_LIGHT_Y = 1.6;
-/** WB8c: THE WARDEN'S MARKS, said as a fighter steps into his court (his aspect's own line, and his trials by name), and
- *  a Soul-Hungry Warden's feeding on a fallen challenger - by their name (the relay's `fed`), or none it may say. */
+/** WB8c: a Soul-Hungry Warden's feeding on a fallen challenger - by their name (the relay's `fed`), or none it may say.
+ *  WB13b: the line his marks were said in as a fighter stepped in is gone - the marks' card stands at that moment. */
 export const COURT_MARKS_TEXT = Object.freeze({
-  arrive: (P) => `${P.aspect.arrive}${P.trials.length ? ` His marks tonight: ${P.trials.map((t) => t.name).join(', ')}.` : ''}`,
   // AUDIT PRE-MERGE 0929 W1-3: the beat's feedings, every name - "on Ann's soul", "on the souls of Ann and Bran"
   fed: (boss, names) => {
     const ns = (Array.isArray(names) ? names : [names]).filter(Boolean);
@@ -378,7 +376,7 @@ export function createGateCourt({
     if (!e || !so || !(e.health > 0)) return;
     let dmg = strikeDamage(so.pct, e.maxHealth, so.base);
     if (so.saved) dmg = savedShare(dmg, save(e, so.el));
-    if (dmg <= 0) { say(COURT_STRIKE_TEXT.resisted(so.name, so.el)); return; }
+    if (dmg <= 0) { say(COURT_STRIKE_TEXT.resisted(so.name)); return; }
     strike(dmg, { fire: so.el === 'fire', el: so.el, name: so.name });
     if (so.el) { biteAt = now(); biteColor = color ?? attackColor(ATTACK_BY_ID[atk.a], P); }   // WB9d: an elemental blow flares the screen's rim in its colour (DFU's red flash is a blow's alone)
   }
@@ -437,8 +435,9 @@ export function createGateCourt({
     if (A && !marked(quaked, atk) && t >= atk.at && QUAKE_ON.includes(A.key)) { setMark(quaked, atk); if (t < atk.at + Math.max(A.active, 1) + 400) sound(BOSS_CUES.quake, s, t, atk); }   // WB7: the ground's shock under a heavy landing
     if (s.phase > thunderPhase) { if (thunderPhase > 0) sound(BOSS_CUES.thunder, s, t, null); thunderPhase = s.phase; }   // WB7: thunder over his roar as a phase turns
     if (s.phase > phaseHeard) { if (phaseHeard > 0) { sound(BOSS_CUES.roar, s, t, null); const line = courtPhaseText(s.phase, P.aspect); if (line) say(line); } phaseHeard = s.phase; }   // WBX5: and the turn said, by its name; WB8b: in his aspect's words
-    // WB8c: his marks said as I step into his court (never to a court whose Warden has already gone), and a feeding said
-    if (!marksSaid) { marksSaid = true; if (P.md && !s.fell && s.wrath == null) { say(COURT_MARKS_TEXT.arrive(P)); marksAt = t; } }   // an unmarked Warden (an older relay's) says nothing new; WB9a: and the card stands from now
+    // WB9a: his marks' card from the moment I step into his court (never a court whose Warden has already gone); WB13b:
+    // the card alone (the line said beside it is gone); and a feeding said
+    if (!marksSaid) { marksSaid = true; if (P.md && !s.fell && s.wrath == null) marksAt = t; }   // an unmarked Warden (an older relay's) shows no card
     // AUDIT PRE-MERGE 0929 W2-3: a feeding is said while it is news, judged by its age alone - "the first of this
     // entry" stood in for "stale", and a tab hidden through a second feeding said it, and growled, a minute late
     if (s.fed && s.fed.at !== fedHeard) { fedHeard = s.fed.at; if (t - s.fed.at <= FED_LATE_MS) { say(COURT_MARKS_TEXT.fed(bossOf(s).name, s.fed.ns)); sound(BOSS_CUES.growl, s, t, null); } }
@@ -482,7 +481,7 @@ export function createGateCourt({
     if (!spoils || !s.fell || spewed || t < s.fell.at + SPEW_AT_MS) return;
     const r = link.receipt?.(s.day) ?? null, claims = r ? readReceipt(r) : null;
     if (!claims) {
-      if (!spoilsSaid && t >= s.fell.at + RECEIPT_WAIT_MS) { spoilsSaid = true; say(COURT_STRIKE_TEXT.noSpoils(bossOf(s).name)); }
+      if (!spoilsSaid && t >= s.fell.at + RECEIPT_WAIT_MS) { spoilsSaid = true; say(COURT_STRIKE_TEXT.noSpoils()); }
       return;
     }
     spewed = true;
@@ -491,7 +490,7 @@ export function createGateCourt({
     const bearing = f ? Math.atan2(f[0] - at[0], f[2] - at[2]) : s.yaw;
     const keep = spoilsKeep(x, z);   // WB9f: on the floor of the court he fell in, never off its edge into the fire
     if (spoils.spew({ day: s.day, seed: claims.c, level: spoilsLevel(player()?.level ?? 1, claims.l), at, bearing, acct: claims.s, keep })) {   // AUDIT WBX S2: never past the level the fight admitted   // AUDIT WB A9: once a receipt - its day and account
-      say(COURT_STRIKE_TEXT.spilled(bossOf(s).name));   // WBX3: and said to be theirs
+      say(COURT_STRIKE_TEXT.spilled());   // WBX3: and said to be theirs
       addBurst(at, t, FX_KINDS.spoils, SPOILS_BURST_COLOR, keep.floorY);   // WB9f: his chest bursts in gold as they leave it
     }
   }
@@ -625,7 +624,7 @@ export function createGateCourt({
     // the screen's one label and the stun's was never read
     if (s.stunAt && s.stunAt !== stunHeard && t < s.stunUntil) {
       stunHeard = s.stunAt;
-      if (t - s.stunAt <= RECKON_LATE_MS) { say(COURT_RECKON_TEXT.broken(bossOf(s).name)); sound(BOSS_CUES.stunned, s, t, null); }
+      if (t - s.stunAt <= RECKON_LATE_MS) { say(COURT_RECKON_TEXT.broken()); sound(BOSS_CUES.stunned, s, t, null); }
     }
     if (!rk) return;
     if (rk.ended && t - rk.endAt > CRYSTAL_SHATTER_MS + 250) { rk = null; return; }
@@ -892,6 +891,7 @@ export function createGateCourt({
       // WB9e: the sparks flying and the meteor falling
       bursts: _fxLive.map((b) => ({ at: [...b.at], t: b.t, kind: b.kind, color: b.color })), meteor: meteorNow ? { at: [...meteorNow.at] } : null,
       host: host.state(),   // WB11c: his host as this screen holds it
+      marksAt,   // WB13b: when the marks' card stood up (the step into the court) - held, never moved by a frame
     }),
     /** WBX2: the portal home, while it stands - where (the court's frame) and how far it has risen - or null. */
     portal: () => (portal ? { at: [...portal.at], rise: portal.rise } : null),

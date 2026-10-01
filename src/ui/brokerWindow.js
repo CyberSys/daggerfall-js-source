@@ -59,14 +59,14 @@ export const BROKER_REPAINT_MS = 30_000;
 /** WB9g (2026-09-30, Mac: "Add a brand new title to the broker and a new addition (the aura) ... These items should be
  *  expensive and sought after"): THE INSIGNIA'S WORDS - its heading, each piece's line, and its card. */
 export const INSIGNIA_HEAD = 'Insignia';
-export const INSIGNIA_SUB = 'Kept by your account, worn by every character of it - bought once';
+export const INSIGNIA_SUB = 'Account-wide. Bought once.';   // WB13b: each line says one thing
 export const INSIGNIA_LINE = Object.freeze({
-  title: 'A title worn over your name, in the fire of the breach that bore it',   // WB12a
-  aura: 'A ring of Dagon\'s fire burning about your feet, for every player to see',
+  title: 'A title worn over your name',   // WB12a
+  aura: 'A ring of Dagon\'s fire at your feet',
 });
 export const INSIGNIA_CARD = Object.freeze({
-  title: ['Gatebreaker', 'Worn over your name for every player to read - the coal, the fire and the ember of a breach closed.', 'The Broker sells it once, to an account that has closed enough breaches to pay for it. Wear it here or on your account card; take it off and put it on again as often as you like.'],
-  aura: ['Dagon\'s Fire', 'A ring of fire that circles the ground where you stand - its flames chasing round it, embers wheeling in it, a glow in the stone within - seen by every player near you.', 'The Broker sells it once, to an account that has closed enough breaches to pay for it. Wear it here or on your account card.'],
+  title: ['Gatebreaker', 'Worn over your name in the breach\'s fire.', 'Paid from your account\'s breaches closed. Wear it here or on your account card.'],
+  aura: ['Dagon\'s Fire', 'A ring of Dagon\'s fire at your feet, seen by every player near you.', 'Paid from your account\'s breaches closed. Wear it here or on your account card.'],
 });
 /** WB9g: an insignia row's button word - why not, or what a press will do. */
 export function insigniaLabel(row, { have, busy, pending }) {
@@ -200,7 +200,7 @@ export function mountBrokerWindow(host, deps) {
     const offers = deps.stock();
     const state = { items: deps.items(), bought: deps.bought(), day: deps.day() };
     const picture = deps.picture !== undefined ? deps.picture : (it) => classicPicture(it, deps.wearer, () => render());
-    sub.textContent = `Deadlands Embers buy the day's stock · it turns in ${brokerTurnText(brokerTurnsIn(deps.now()))}`;   // WB12a
+    sub.textContent = `New stock in ${brokerTurnText(brokerTurnsIn(deps.now()))}`;   // WB12a; WB13b: the prices say Embers
     noteLine.textContent = note ? note.text : '';
     noteLine.className = `broker-note${note?.ok ? ' ok' : ''}`;
     if (!note) noteLine.setAttribute('hidden', ''); else noteLine.removeAttribute?.('hidden');
@@ -293,7 +293,7 @@ export function mountBrokerWindow(host, deps) {
       hero.append(insigniaSign(pickedG, true));
       const [name, what, kept] = INSIGNIA_CARD[pickedG.kind] ?? [pickedG.name, '', ''];
       card.append(hero, el('h3', null, name), el('p', 'insignia-what', what), el('p', 'insignia-kept', kept));
-      card.append(el('p', 'boundline', pickedG.owned ? (pickedG.worn ? 'Your account owns this, and you are wearing it.' : 'Your account owns this.') : `${stonesText(pickedG.price)} - once, for your account.`));
+      card.append(el('p', 'boundline', pickedG.owned ? (pickedG.worn ? 'Owned and worn.' : 'Owned.') : `${stonesText(pickedG.price)}. One per account.`));   // WB13b
       body.append(card);
       if (reveal && globalThis.matchMedia?.('(max-width: 720px)')?.matches) card.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
       return;

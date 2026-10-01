@@ -31,19 +31,19 @@ export const ASPECT_ELEMENT = Object.freeze({ burning: 'Fire', rime: 'Frost', st
  * and all his ground (net/gateStrike.js blowOf, scenes/world.js GATE_SAVES).
  */
 export const MARK_TIPS = Object.freeze({
-  burning: 'Resist fire, and his fire and his burning ground bite less.',
-  rime: 'Resist frost, and his frost and his rime bite less.',
-  storm: 'Resist shock, and his lightning and his scorched ground bite less.',
-  venom: 'Resist poison, and his venom and his poisoned ground bite less.',
-  colossal: 'Give his slam a wider berth - and bring the whole court: he takes longer to fell.',
-  unyielding: 'Hold your strongest blows until his ward breaks at each phase.',
-  vengeful: 'Everything he lands hurts more - heal before you are low, not after.',
-  scarring: 'Where his slam and his leap land, the floor stays hostile - fight away from it.',
-  grudge: 'He hunts whoever hurts him most - the heaviest hitter should expect him.',
-  soulhungry: 'Every challenger who falls heals him - keep each other standing.',
-  favoured: 'Hellfire and meteors come from the first phase - never stand still.',
-  echoing: 'The second falls where you stand when the first lands - keep moving.',
-  legion: 'Guard the far ones from his Imps, stop each Atronach, break his Ward-Bearers.',   // WB11a (AUDIT WB11 U1: as short as the others - 138 characters made the tallest card, off a landscape phone)
+  burning: 'Resist fire to blunt his flames and burning ground.',
+  rime: 'Resist frost to blunt his frost and rime.',
+  storm: 'Resist shock to blunt his lightning and scorched ground.',
+  venom: 'Resist poison to blunt his venom and poisoned ground.',
+  colossal: 'Give his Ground Slam a wider berth.',
+  unyielding: 'Save your heaviest blows for when his ward falls.',
+  vengeful: 'Heal before you run low.',
+  scarring: 'Fight clear of the scarred floor.',
+  grudge: 'If you hit hardest, expect him.',
+  soulhungry: 'Keep each other standing.',
+  favoured: 'Keep moving from the first phase.',
+  echoing: 'Move as each meteor lands.',
+  legion: 'Stop the Atronachs. Break the Ward-Bearers.',   // WB11a (AUDIT WB11 U1: as short as the others - 138 characters made the tallest card, off a landscape phone)
 });
 
 const hex = (c) => `#${c.map((v) => Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16).padStart(2, '0')).join('')}`;
@@ -105,7 +105,7 @@ const _views = new WeakMap();
 /** The card's words. */
 export const MARKS_CARD_TEXT = Object.freeze({
   title: 'The Warden\'s Marks',
-  gate: (boss, epithet) => `Beyond the breach ${boss} waits, ${epithet}`,   // WB12a
+  gate: (boss, epithet) => `${boss} comes ${epithet} tonight`,   // WB13b: one subtitle near the gate and inside
   arrive: (boss, epithet) => `${boss} comes ${epithet} tonight`,
   element: (el) => `His blows carry ${el.toLowerCase()}`,
 });

@@ -295,7 +295,7 @@ export function setDeathSave(entity) {
   _s.unbrokenReady = now + v.recover;
   _s.halvedUntil = now + v.halved;
   _s.recovering.add('unbroken');
-  say(`Unbroken! Malacath will not let you fall - all damage halved for ${v.halved} s.`);
+  say(`Unbroken! Damage halved for ${v.halved} s.`);   // WB13b
   sound('unbroken');
   return true;
 }
@@ -340,7 +340,7 @@ export function setHurt(entity, { before, after }) {
   _s.wrathUntil = now + WRATH_SECONDS;
   _s.recovering.add('wrath');
   const struck = nova(v.nova);
-  say(struck ? `Wrath of the Warden! The breach's fire bursts from you (${struck} struck).` : 'Wrath of the Warden! The breach\'s fire bursts from you.');   // WB12a
+  say(struck ? `Wrath of the Warden! ${struck} ${struck === 1 ? 'foe' : 'foes'} struck.` : 'Wrath of the Warden!');   // WB12a; WB13b: the burst is seen - the count is the news
   sound('wrath');
 }
 /** RAID4b: A FOE'S BLOW TOOK MY HEALTH - Riposte's window opens (the next blow of mine inside it is sharpened), and
@@ -408,7 +408,7 @@ export function setKill(entity = null) {
     _s.eventideReady = now + noc.recover;
     _s.recovering.add('eventide');
     door.castOnPlayer(eventideBundle(noc.rounds));
-    say('Eventide - Nocturnal\'s shadows take you.');
+    say('Eventide! Nocturnal\'s shadows take you.');   // WB13b: the procs one shape
     sound('eventide');
   }
   if (entity && _s.marked === entity) _s.markUntil = 0;   // AUDIT SETS L1: the marked foe's own death ends its mark (its chip counted on over a body)

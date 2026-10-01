@@ -254,7 +254,7 @@ test('WB9g the client\'s doors: the aura and the sale through the one call door,
     const s = accountRefusalText(w);
     assert.ok(typeof s === 'string' && s.length > 20 && !s.includes(w), `${w}: a sentence, never the machine word`);
   }
-  assert.match(accountRefusalText('short'), /Each breach closed pays its Deadlands Embers\./);
+  assert.equal(accountRefusalText('short'), 'Your account has too few breaches closed for that.');   // WB13b: the card says the rule
   // the stored session
   const st = memStorage();
   keepSession(st, { id: me.id, name: 'Doors', kind: 'linked', sessionId: 's1', secret: me.secret, glyphs: [] });

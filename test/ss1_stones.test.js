@@ -473,7 +473,7 @@ test('SS5 the law: every ware carries its price, and dismantles for half of it, 
   assert.equal(validLootItem({ ...wired, stonesPaid: 0 }), null, 'a price under one is no item');
   assert.equal(validLootItem({ ...wired, stonesPaid: 'twelve' }), null);
   assert.equal(windowStonesText, stonesText, 'the window says the law\'s own words');
-  assert.deepEqual(dismantleAsk('Ebony Cuirass', 2), ['Dismantle Ebony Cuirass?', 'It is gone for good, and you get 2 Deadlands Embers back.']);
+  assert.deepEqual(dismantleAsk('Ebony Cuirass', 2), ['Dismantle Ebony Cuirass?', 'You get 2 Deadlands Embers back. This cannot be undone.']);   // WB13b
   assert.equal(DISMANTLE_INSTEAD(3), 'Dismantle it for 3 Deadlands Embers instead?');
   assert.equal(DISMANTLE_WORN('Ebony Cuirass'), 'Take off Ebony Cuirass before dismantling it.');
   assert.equal(DISMANTLED('Ebony Cuirass', 1), 'Dismantled: Ebony Cuirass, for 1 Deadlands Ember.');

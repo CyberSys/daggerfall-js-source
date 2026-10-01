@@ -48,7 +48,7 @@ export const BROKER_TEXT = Object.freeze({
   trade: 'Trades in Deadlands Embers',   // WB12a
   info: presentNpcInfoText('the Sigil Broker'),
   steal: 'The Broker\'s eyes never leave her embers.',
-  gone: 'The Sigil Broker is gone with the breach.',
+  gone: 'The Sigil Broker leaves with the breach.',   // WB13b
 });
 /** The one empty answer for no Broker - the host asks for the targets and the batches every frame. */
 const NONE = Object.freeze([]);

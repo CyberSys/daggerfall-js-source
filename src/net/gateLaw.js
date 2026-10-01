@@ -322,16 +322,19 @@ export function gateModsOf(day) {
 // section 2). `place` is where ("Copperham, Wrothgarian Mountains"), `near` the town alone; `at` is a real time
 // on this machine's clock ("14:32"); `left` a countdown ("4:07").
 const clock = (minute) => `${String(Math.floor(minute / 60) % 24).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
-export const omenLine = ({ place, at }) => `The sky burns over the wilds near ${place}. Dagon's faithful are calling a door to the Deadlands: the breach opens there at ${clock(GATE_OPEN_MINUTE)} (${at} your time). It is marked on your map.`;
-export const riseLine = ({ near, left }) => `Dagon's Breach has torn open near ${near}. It opens in ${left}.`;
-export const openLine = ({ near, at }) => `Dagon's Breach near ${near} stands open until ${clock(GATE_SEAL_MINUTE)} (${at} your time). The Covenant will not suffer it long.`;
+// WB13b (2026-10-01, Mac: "clean up text to be less explanatory and less AI"): each line the event, where and when -
+// the map's ring, the banner and the countdowns say the rest
+export const omenLine = ({ place, at }) => `The sky burns near ${place}. Dagon's faithful open a breach at ${clock(GATE_OPEN_MINUTE)} (${at} your time).`;
+export const riseLine = ({ near, left }) => `Dagon's Breach rises near ${near}. It opens in ${left}.`;
+export const openLine = ({ near, at }) => `Dagon's Breach near ${near} is open. The Covenant seals it at ${clock(GATE_SEAL_MINUTE)} (${at} your time).`;
 export const sealLine = ({ near, at }) => `The Covenant has sealed Dagon's Breach near ${near}. It collapses at ${clock(GATE_WRATH_MINUTE)} (${at} your time).`;   // GATE-COLLAPSE: and says when it goes
 export const wrathLine = ({ near, boss }) => `The Covenant tears Dagon's Breach near ${near} shut. ${boss} is cast back into the Deadlands.`;
-/** WB8c: the Warden's marks said beside the omen (and to a player who comes in later, beside the line they hear first):
- *  his aspect's omen and each trial by its name and its words - "Valkynaz Ruhn comes the Rime-Wrought tonight. His fire
- *  burns cold - frost, not flame. Colossal: larger and harder to fell; ... Echoing: every meteor falls twice." */
+/** WB8c: the Warden's marks said beside the omen (and to a player who comes in later, beside the line they hear first).
+ *  WB13b: by name - "Valkynaz Ruhn comes the Rime-Wrought tonight, Colossal and Echoing." - the marks' card and the bar
+ *  say what each does; Discord says the same sentence. */
 export const marksLine = ({ boss, md }) => {
   const { aspect, trials } = readGateMods(md);
-  const said = trials.map((t) => `${t.name}: ${t.text.charAt(0).toLowerCase()}${t.text.slice(1)}.`).join(' ');
-  return `${boss} comes ${aspect.epithet} tonight. ${aspect.omen}${said ? ` ${said}` : ''}`;
+  const names = trials.map((t) => t.name);
+  const said = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0] ?? '';
+  return `${boss} comes ${aspect.epithet} tonight${said ? `, ${said}` : ''}.`;
 };
