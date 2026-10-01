@@ -273,6 +273,8 @@ import {
   PARKOUR_HANG_DROP, PARKOUR_HANG_GAP, PARKOUR_HANG_LOW, PARKOUR_HAND_SPAN, PARKOUR_GRIP_MIN, PARKOUR_GRIP_LOW,
   PARKOUR_GRIP_LOW_TEXT, PARKOUR_GRIP_REST, PARKOUR_GRIP_REGEN_S,
   PARKOUR_CORNER_PROBE, PARKOUR_FACE_FOLLOW, PARKOUR_ARM_GRACE_S, PARKOUR_CORNER_OFF, PARKOUR_CORNER_IN, PARKOUR_CORNER_CLEAR, PARKOUR_WALL_REACH, PARKOUR_CONTACT,
+  // CLIMB-DOWN: the way down
+  senseEdge, planLower, senseOverHang, planOverHang,
 } from './parkour.js';
 // A6: PlayerMoveScanner is a component on the player object in DFU
 // (PlayerMotor.Start :265 GetComponent), so the motor owns one. Same
@@ -423,6 +425,7 @@ export class PlayerMotor {
     this._pkArm = null;          // the tap catch: a fresh Jump's catch armed for its jump ({ t, air }) - PARKOUR_ARM_GRACE_S
     this._pkJumpWas = false;     // ...the key's last step, for the press's edge
     this._pkSaid = false;        // AUDIT CLIMB1 F10: a refused climb's line said once a press
+    this._pkEdgeSaid = false;    // CLIMB-DOWN: a refused lower's, once a walk to the edge
     this._pkQuiet = 0;           // steps the air catch and the top-out rest after a refused lip (PARKOUR_QUIET_STEPS)
     this._wall = null;           // CLIMB2: on the wall - { mode: 'hang' | 'climb', normal, lipY, key, carrier, warned }
     this.grip = 1;               // CLIMB2: the grip, 0..1 - spent on the wall, back on the ground (parkour.js gripSeconds)
@@ -904,7 +907,9 @@ export class PlayerMotor {
     // the body where it hung with nothing under it - a quicksave twelve metres up a tower loaded into a twelve-metre
     // fall. The hold is kept instead, and a move in flight as where it ends and the hold it ends in, all against the
     // feet, with the grip (a load is no rest); restoreFall takes the hold again (_pkRetake).
-    const m = this._pkMove, w = this._wall;
+    let m = this._pkMove;
+    while (m?.next) m = m.next;   // CLIMB-DOWN: a chained move ends where its last part does (over a parapet: the hang)
+    const w = this._wall;
     if (m || w) {
       const end = m ? m.to : this.pos;
       const hold = m ? (m.hang ? { mode: 'hang', normal: m.hang.normal, lipY: m.hang.lipY } : null) : w;
@@ -1643,7 +1648,7 @@ export class PlayerMotor {
       if (!this.grounded) mode = 'air';
       else if (input.jump && (this.climb?.wasClimbing || this.groundedTime >= GROUNDED_JUMP_GATE_S)) mode = 'ground';
     }
-    if (!mode) return this._freeStart(dt, input, yaw, pk);
+    if (!mode) return this._pkLowerStart(dt, input, yaw, pk) || this._freeStart(dt, input, yaw, pk);
     this._fcStart = null;
     const air = mode === 'air';
     if (air && this._pkQuiet > 0) { this._pkQuiet--; return false; }
@@ -1668,6 +1673,12 @@ export class PlayerMotor {
       if (!move && !(high && !fwd)) move = this._pkOnto(ledge, geo, skill);
       if (!move && high) move = this._pkCatch(ledge);
       if (!move && high && !fwd) move = this._pkOnto(ledge, geo, skill);   // no hang fits there: climbed onto, as at CLIMB1
+      // CLIMB-DOWN: a thin top over a drop the clamber will not step down - a parapet walling a roof in, a rail over a
+      // street - is climbed over into a hang on its far side, where it was a plain jump that could not clear it
+      if (!move && !air) {
+        const oh = senseOverHang(this.collider, this.pos, ledge, geo);
+        if (oh) move = planOverHang(this.pos, ledge, oh, skill);
+      }
     }
     if (!move && air && fwd && !tapOnly && this._pkGrab(look, pk)) return true;
     if (!move) {
@@ -1743,6 +1754,39 @@ export class PlayerMotor {
     this._pkJumpLatch = true;
     this.parkoured = 'catch';
     this._wallBegin('climb', c.normal, null, c.key);
+    return true;
+  }
+
+  /** CLIMB-DOWN: CROUCH WALKED TO AN EDGE - the floor ending at the body's front over a drop the walk would fall -
+   *  lowers the body over it into a hang from its lip (senseEdge), where it walked off and fell: the way down from a
+   *  roof, a wall top or a parapet the climb went up. Asks Roleplay & Realism's gate as every climb does (refused, the
+   *  body holds at the edge); no lip to hang from there, the walk goes on as ever. */
+  _pkLowerStart(dt, input, yaw, pk) {
+    // crouched, or the crouch pressed and on its way down (the press is the intent: a body crouching as it steps toward
+    // a parapet's outer edge a hand away was over it before the crouch landed)
+    const f = input.forward || 0, st = input.strafe || 0;
+    if (!this.grounded || !(this.crouching || this.heightAction === 'crouch') || this.swimming || this.sunk || this.grip < PARKOUR_GRIP_MIN || (!f && !st)) {
+      this._pkEdgeSaid = false;
+      return false;
+    }
+    const sin = Math.sin(yaw), cos = Math.cos(yaw);
+    const dx = sin * f + cos * st, dz = cos * f - sin * st, l = Math.hypot(dx, dz);
+    const edge = senseEdge(this.collider, this.pos, [dx / l, 0, dz / l], this._pkGeo());
+    if (!edge) { this._pkEdgeSaid = false; return false; }
+    const refusal = parkourRefusal();
+    if (refusal) {
+      // refused (a weapon out under Roleplay & Realism), the crouched body stops at the edge it meant to climb down -
+      // the line said once - rather than walking on off it: sheathed, the next step lowers; stood up, the walk goes on
+      if (!this._pkEdgeSaid) { pk.say?.(refusal); this._pkEdgeSaid = true; }
+      this.moveForward = 0;
+      this.moveStrafe = 0;
+      this.moveSpeed = 0;
+      this.standing = true;   // the cached pair's writers sit below the return (AUDIT 65 XL-5): held, still, on the floor
+      this.movingLessThanHalfSpeed = true;
+      return true;
+    }
+    this._parkourBegin(planLower(this.pos, edge.grip, parkourSkill(pk.inputs?.() ?? {})));
+    this._parkourAdvance(dt);
     return true;
   }
 
@@ -2168,6 +2212,15 @@ export class PlayerMotor {
       if (now) { carryMove(m, m.carrier, now); m.carrier = now; }
     }
     m.t = Math.min(1, m.t + dt / m.dur);
+    if (m.stand && this.crouching && m.t >= m.split) {
+      // CLIMB-DOWN: the lower ends hanging, the standing body's hold - stood as the drop begins (the whole path proven
+      // at the standing height), the eye rising on the stand's own clock while the feet go down the face
+      this.standingHeightAdjustment = 0;
+      this.crouching = false;
+      this.heightAction = 'stand';
+      this.heightTimer = 0;
+      this.heightTimerMax = m.dur * (1 - m.split);
+    }
     movePoint(m, m.t, this.pos);
     this.velY = 0;
     this._airVelX = 0;
@@ -2177,7 +2230,13 @@ export class PlayerMotor {
     this.fallStart = this.pos[1];
     this.grounded = false;
     this.groundKey = null;
-    if (m.t >= 1) {
+    if (m.t >= 1 && m.next) {
+      // CLIMB-DOWN: a move chained on (over a parapet, then down into the hang on its far side) goes on from where this
+      // one ended, as one move: no new bill, the body never set down between them
+      const nx = m.next;
+      nx.carrier = nx.key != null ? (this.collider.bucketPose?.(nx.key) ?? null) : null;
+      this._pkMove = nx;
+    } else if (m.t >= 1) {
       this._pkMove = null;
       if (m.hang && this._wall) {
         // AUDIT CLIMB2 C7: A CORNER IS THE SAME HOLD GOING ON. Let go of and taken afresh, each corner said the grip's

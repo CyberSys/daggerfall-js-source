@@ -1877,8 +1877,11 @@ export class Collider {
         out.grounded = true;
       }
     }
-    // Terrain/ground floor beneath everything.
-    if (feet[1] < floor + SKIN) {
+    // Terrain/ground floor beneath everything. CLIMB-DOWN T1: what it holds up is a body under the floor or settling
+    // into its skin - never one RISING clear of it, which it took back down whenever the rise was under the skin: a
+    // climb at a third of a slow walk (the classic climb below Speed 25, the free climb at low Climbing) never left the
+    // terrain, as Unity's controller, which has no such clamp, leaves it.
+    if (feet[1] < floor + SKIN && !(dy > 0 && feet[1] >= floor)) {
       if (dy <= 0) out.grounded = true;
       feet[1] = floor;
     }
