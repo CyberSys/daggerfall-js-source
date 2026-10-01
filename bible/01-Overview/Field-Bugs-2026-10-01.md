@@ -14,17 +14,17 @@ The rule of the last batch stands (Mac, `Field-Bugs-2026-09-30b.md` part two: *"
 thing now"*): every report root-caused on the real modules with a reproduction before anything changed, the faults
 fixed wherever they failed the player, each fix pinned red on the code before it and mutation-checked. Five lanes ran
 at once, one a report (the yard and the road together); 6 is a design ask, not a fault, and was asked before it was
-built.
+built; 2's lane is the last out.
 
 | | Report | What it was | Done |
 |---|---|---|---|
-| 1 | "Decorating the exterior is bugged for houses." | (its lane is still out) | open |
+| 1 | "Decorating the exterior is bugged for houses." | three: a long piece turned at an angle could stand through the house's corner (the lot asked a piece's corners, not its ground); the town's minute read, answered before a place or a remove and landing after it, stood a removed piece back and dropped a new one for a minute; at a pixel crossing every yard piece was drawn 819 m off for a frame and not at all the next | fixed (YARD-CORNER, YARD-STALE, YARD-RECENTRE) |
 | 2 | "The market doesn't allow you to list any item that isnt bound, also it's bugged" | (its lane is still out) | open |
 | 3 | "Switching textures on houses doesnt stay and resets" | three: the painter's "Paint it", "Put back" and "The town's own" were never drawn (they stood in the rent tab's row, which the decorator's sheet hides in every other tab), so a look could only be tried and was put away on leaving the tab; a town's read in flight when a look was painted landed over it and was believed for a minute; closing the panel left the tried look in the painter | fixed (LOOK-BUTTONS, LOOK-STALE, LOOK-TRIED) |
 | 4 | "Room renting is buggy" | six: a tenant could not rest in the room they rented; the renewal window offered days the service refuses, after the purse had paid; the owner's rooms were read once a visit; a house one room again hid its offers from its owner; the owner's "Room 2" was "Room 1" at the door; a rent that landed under a plaque's read kept the door shut a minute | fixed (RENT-REST, RENT-RENEW, RENT-FRESH, RENT-ORPHANS, RENT-NUMBER, HOMES-FORCE) |
-| 5 | "Exterior placement bounds shouldnt touch roads/pathways" | (its lane is still out, with 1) | open |
+| 5 | "Exterior placement bounds shouldnt touch roads/pathways" | the lot was the house's box and six metres round it, and nothing read the ground: a piece stood in the street, and the marked edge ran across it | fixed (ROAD-LOT) |
 | 6 | "Potions are durability ... Gold sink Same as repairs for melee" | a design ask: online a rest gave magicka back whole and free for every career in four seconds, while the one potion that gives it back was sold only to temple and Brotherhood members, a random handful a day, at a flat price; asked, rest gives "Half the pool" and Restore Power sells "Everywhere, 1 g/point" | built (MANA-HALF, MANA-SHOP) |
-| 7 | "Running jumping climbing dint work passed 100" | (its lane is still out) | open |
+| 7 | "Running jumping climbing dint work passed 100" | the report reproduces whole on the code before MOVE-REAL (#475, merged the day before); on today's two remained: past 100 a run stopped counting at DFU's 20,000-use bucket - some 83 minutes between rests - and a rest's leftover was capped; Climbing past 100 bought nothing (its one law is certain at 95) | fixed (MOVE-BANK, CLIMB-PAST) |
 
 ## LOOK-BUTTONS: the painter's buttons drawn (3)
 
@@ -207,3 +207,124 @@ a flat 75 (half online, ESSENTIALS-HALF), its gold a point fell as the drinker r
 is pressed. The Alchemy station costs 50,000 in code (STATION-FEES) and 5,000 in an older patch note.
 
 `test/fb1001_mana.test.js` (8), red on the code before. `tools/mutants/fb1001_mana.json` (25, 25 dead).
+
+## ROAD-LOT: a yard's lot is no road (5)
+
+**Reproduced first** (`test/fb1001_yard.test.js`: the real yard - `createHomeYards`, the decorator, the panel, `decorRoom`,
+the real `Collider` and the real account Worker over node:sqlite through `accountDecor` - over a town of the producers'
+own, `test/fb1001Town.mjs`: `layoutLocation`/`layoutRmbBlock`, `setLocationTiles`, the terrain kernel with the road
+painter's mask): house A's lot runs onto the street on its north (record 46) and a road-grass edge (55) cuts into its
+east. A chair on the street was placed and written with nothing said; on the 55 edge the same. The marked edge was the
+lot's four sides, its north band standing 2.6 m inside the street.
+
+**Why.** The lot was the house's box and six metres round it, never inside the house nor on another building's
+footprint (HOME-YARD). Nothing read the ground: `yardWhyNot` and `yardLotQuads` knew no road.
+
+**The fix** (`scenes/homeYards.js`). The road is read off the built pixel's own tilemap - the one its terrain draws and
+the feet read (`world.js` playerGroundSample): Daggerfall's path records 46, 47 and 55 (PlayerMotor.OnPathTile -
+`player/exteriorSurface.js` onPathTile, the family `cityNavigation.js` and the grass placer already keep off: the town's
+streets and the ring the road painter lays round a town), or a tile the road painter's own mask says it wrote (GRASS-PATH1:
+a painted track writes record 11, which a field's dirt edge writes too, so only the mask can tell them apart).
+`yardRoadsOf` turns them into squares in the lot's frame and `ownYardHere` hands them over as `cur.roads`. `yardWhyNot`
+refuses a piece whose turned box meets one - "That is the road - keep the street and its paths clear." (`YARD_ON_ROAD`) -
+touching the road's side is not on it (a 5 cm pad). The marked edge is the lot with the road cut out, run along the
+road's side, each band facing into the lot (`yardLotEdges`; `scenes/decorTool.js` `DECOR_LOT_MARKS`, the batch's room).
+Dirt (1) and stone (3) are ground, as Daggerfall's navigation reads them: a dirt yard stays a yard.
+
+**Found on the way, not changed.** A flat's ground is a square of its whole radius, so a tall flat is refused well clear
+of a road or a wall. The house's and the neighbours' footprints are not marked (their walls show them). The client's
+lot is not clamped to the service's 48 m yard bound (`decorLaw.js`): a building whose models spread wide (Roleplay
+Realism's fort block stands props 55 m from its origin) could have a lot the client takes and the service refuses
+`bad-decor` - not measurable without ARENA2.
+
+## YARD-CORNER: a piece's ground, not its corners (1)
+
+**Reproduced first:** a 3 m bench turned 45 degrees across the house's north-east corner - none of its corners and not
+its middle inside the house, the house's corner 16 cm inside the bench - was placed and written. **Why.** The housing
+audit asked a piece's corners and middle; a convex piece covers a wall's corner with none of its own points in the
+house. **The fix** (`scenes/homeYards.js` `yardFootMeets`): the separating axes of the piece's turned box against a
+footprint - the house's, a neighbour's ground and the road's alike.
+
+## YARD-STALE: a read from before a write stands nothing back (1)
+
+**Reproduced first:** the town's minute read was answered before the owner placed a second piece and removed the first,
+and landed after: the yard stood the removed piece again and dropped the new one while the service held the new one
+alone - for the town's minute. **Why.** The answer replaced the town's whole cache, `sync` stood the yard from it, and
+`keep()` covered only the writes made before the read set out. **The fix** (`scenes/homeYards.js`): the owner's writes
+are kept by turn, and an answer asked before a write keeps the owner's latest list for that building - LOOK-STALE's law,
+for the yards' own registry.
+
+**Found on the way, not changed.** Where the town's answer names no pieces for the owner's yard, the yard keeps its own
+pool, so a piece removed from another tab stands on this screen until the yard is made again.
+
+## YARD-RECENTRE: yards move with the shift, in place (1)
+
+**Reproduced first:** at a pixel crossing a yard's piece was drawn 819.2 m off on the crossing's frame, not at all on
+the next, and right on the third. **Why.** The host runs the yards' frame above the motor and the recentre below it, then
+draws, so the yards stood at the old offset when drawn; the next frame's re-stand put every piece again, and a model
+stands only once its model's promise resolves - after that frame is drawn. The housing audit's "stood again the frame
+the world recentres" held only in a test that shifted first. **The fix** (`scenes/decorRoom.js` `restand`,
+`scenes/homeYards.js` `rebase`, `scenes/world.js`): the recentre moves every yard piece in place - its matrix, collider
+bucket, billboard origin and light, a flat whose picture is still loading included - on the recentre's own line, so no
+line cite into world.js moved.
+
+**Found on the way, not changed.** Any other re-stand (the minute read finding a list in another order) still leaves a
+yard's models undrawn for a frame.
+
+`test/fb1001_yard.test.js` (5), each red on the code before on its own assertion. `tools/mutants/fb1001_yard.json` (34,
+34 dead); `decor1` (2), `fieldbugs27g` DECOR-FLIP and `housing` (3) re-aimed by content, all dead; `homeyard`'s
+lot-marks pin re-aimed at `DECOR_LOT_MARKS` (PIN MOVED). Four hosts: `world.js` WIRED (the rebase; the road read off its
+built pixel); `worldModes.js` shares `createDecorRoom` (`restand` never called indoors); `dungeonContext.js` has no
+street and `exterior.js` (the bench) no online homes - both FLAGGED, not wired.
+
+## MOVE-BANK: past 100 a run is counted whole (7)
+
+**Reproduced first** (the real chargen, `masterSkill`, `PlayerMotor`, `Collider`, `tickPlayerMinutes`, `raiseSkills`).
+On the code before MOVE-REAL (#475, merged 2026-09-30) the report reproduces whole: ten minutes' running at a mastered
+Running 110 counted 41 uses (2,398 now), 79 jumps counted 21, 70 climbing checks 20 - the spam weight's burst of six,
+which MOVE-REAL took off the motion tallies. The chain MOVE-REAL built was walked again link by link - the odometer in
+metres, the four hosts handing it to the tick, the tick's three tallies and the climb check through
+`tallyMovementSkill`, the credit's mark, the masteries (all four can be mastered as primary, major or minor), mentor mode
+- and holds. Two faults stood: a level-30 master ran 100 minutes and rested, and the pass banked 20,000 uses - 0.68 of
+the first point - of a 24,000-use run; a 60,000-use day at level 20 landed one point and kept 0.009, and the next rest,
+with no new running, landed nothing.
+
+**Why.** `tallySkill` still clamped a mastered skill past 100 at PlayerEntity.TallySkill's 20,000 - a clamp that exists
+to keep `(uses * reflexesMod) >> 16` inside an int32, where the past-100 arm spends progress in float - and
+`raiseSkills` capped the carry at 0.99 and skipped any pass with no new uses. At four uses a second the bucket fills in
+83 minutes; a full bucket at level 30 is 0.68 point at 100, 0.27 at 125 and 0.11 at 150, however long the run. The
+notes' "if you run constantly" table held only for a player who rested every 83 minutes.
+
+**The fix** (`systems/skills.js` tallySkill, `systems/advancement.js` raiseSkills): past 100, for a skill that can pass
+it, there is no bucket; the past-100 arm reads the shift in float (`floor(uses * mod / 65536)`, the same number up to
+20,000); what a pass does not land is carried whole, re-priced at the next point's cost (nothing at 200), so the next
+pass lands it - still one point a pass. Below 100, unmastered, or with Master Skills off, DFU's clamp and carry stand.
+
+**Found on the way, not changed.** Offline, switching Master Skills off with more than 20,000 uses banked leaves the
+excess for the next tally's clamp. Climbing's credit is the odometer's vertical since its last check, so a hop in place
+banks up to two Climbing uses for the next wall. The Master Skills boxes (`MASTER_SKILLS_INFO_ROWS`, `OFFER_ROWS`,
+`INTRO_ROWS`, `ABOUT`) still say a skill past 100 learns only from tough foes, which the four movement skills do not.
+Past 100 the movement gains are small (Running's speed +2.2% at 125, +4.6% at 150), and the integer `effectiveSkill`
+reads 101-103 as 100: a player at 100-110 feels no difference - the global 25% law, for Mac.
+
+## CLIMB-PAST: a mastered Climbing climbs faster past 100 (7)
+
+**Reproduced first** (the real motor and collider, `climbingDeps` on a chargen'd, mastered character, online): Climbing
+200 and Climbing 100 each climbed 7.76 m in the five seconds after the climb took hold, and `climbingChance` read the
+same at 95 and at 140 - certain from Luck 40.
+
+**Why.** In Daggerfall the skill drives one thing, CalculateClimbingChance, which clamps it to 5..95 and is certain at
+95; GetClimbingSpeed reads no skill. A Climbing mastery - one of five a character has - bought nothing; Running, Swimming
+and Jumping already read `effectiveSkill` in their speeds (`scenes/shared.js` motorStats, `skills.js`
+jumpSpeedMultiplier), as combat does.
+
+**The fix** (`systems/skillSoftcap.js` `CLIMB_OVERCAP_SPEED_PER_POINT`, `overcapClimbSpeed`; `player/climbing.js`
+`climbingSpeed`; `player/motor.js`, the climb's move, with the live Climbing the check reads): past 100 each effective
+point climbs 1% faster - x1.08 at 125, x1.17 at 150, x1.4 at 200 - bounded at the effective cap. To 100 the climb is
+DFU's base/3, and the spell still doubles it. The 1% a point is the lane's own number, one constant to tune. A curse or
+a Fortify that lifts the live Climbing past 100 speeds the climb as it already speeds the run.
+
+`test/fb1001_move.test.js` (2) and `test/fb1001_climb.test.js` (2), red on the code before. `tools/mutants/fb1001_move.json`
+(16, 16 dead). Four hosts: none needed wiring - MOVE-BANK lives in `skills.js` and `advancement.js`, CLIMB-PAST in the
+motor and `climbing.js`; `world.js`, `exterior.js`, `worldModes.js` and `dungeonContext.js` each hand the odometer and
+the climbing deps as before.

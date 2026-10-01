@@ -10,6 +10,12 @@ Melee fighters pay a smith to keep their gear in shape. Now casters pay to keep 
 - Selling a Restore Power potion back is priced the same way, so buying potions to resell never pays.
 - **Offline, nothing changes.**
 
+## Decorating outside your home
+- **Yard pieces stay off the road.** A piece could be set down on the street, on its edges or on a track running past town, and the blue lot edge ran across the road. A piece on the road is now refused with a message, and the lot edge runs along the side of the road. Pieces can still touch the road's edge.
+- **No more furniture through your walls outside.** A long piece turned at an angle could be placed cutting through the corner of your house. It's now refused until it's clear of the wall.
+- **Yard changes stick.** A piece you had just placed could vanish, or one you had removed could come back, for about a minute. Your changes now stay put.
+- **Yards don't blink at map edges.** Walking across a map boundary near decorated yards made their pieces disappear for a moment. They now stay in place.
+
 ## Painting your house
 - **You can paint your house's outside again.** In the Decorate panel's Exterior tab, the "Paint it", "Put back" and "The town's own" buttons were hidden. A look you tried disappeared as soon as you left the tab. Press "Paint it" to keep a look for everyone.
 - A look you just painted no longer flips back to the old one for up to a minute. That could happen when the town's list of homes refreshed at the same moment, or when you painted twice in a row.
@@ -24,6 +30,12 @@ Melee fighters pay a smith to keep their gear in shape. Now casters pay to keep 
 - **The door opens right after you rent.** Before, it could stay locked for up to a minute.
 - If the owner stops offering your room, the door now says your room can't be renewed and how many days you have left.
 
+## Skills past 100
+- **Running keeps every step past 100.** A mastered skill past 100 stopped counting after about an hour and a half of running between rests, and the extra progress from a long run was thrown away. Now all of it counts, and whatever a rest doesn't turn into a point is kept for the next rest.
+- **Climbing past 100 does something now.** Climbing is already a sure thing at 95, so a mastered Climbing gained nothing past 100. Now each point past 100 makes you climb faster: about 8% faster at 125, 17% at 150 and 40% at 200.
+- If your Running, Jumping or Climbing seemed stuck past 100 before the "Running past 100" update, that update already fixed it. Real movement counts again.
+- Below 100, nothing changes.
+
 ---
 
 ## For developers
@@ -32,5 +44,9 @@ Melee fighters pay a smith to keep their gear in shape. Now casters pay to keep 
 - `src/ui/decorPanel.js` (LOOK-BUTTONS, LOOK-TRIED): the painter's row has its own class, `dfdecor-paint-btns`. Closing the panel puts the tried look away.
 - `src/systems/onlineHomes.js` (LOOK-STALE, HOMES-FORCE): one rule. A forced town read is asked after the read in flight, unless that read was itself forced after the last write. An answer from before a write is not believed.
 - `src/systems/homeRent.js`, `src/systems/restSession.js`, `src/scenes/decorTool.js`, `src/scenes/worldModes.js` (RENT-REST, RENT-RENEW, RENT-FRESH, RENT-ORPHANS, RENT-NUMBER).
+- `src/scenes/homeYards.js` (ROAD-LOT, YARD-CORNER, YARD-STALE): `yardRoadsOf` reads the built pixel's tilemap. Road is path records 46/47/55, or a tile the road painter's mask marks. `yardWhyNot` refuses a piece that meets the road (`YARD_ON_ROAD`) or a footprint (`yardFootMeets`, separating axes). `yardLotEdges` marks the lot with the road cut out (`decorTool.js` `DECOR_LOT_MARKS`). The owner's writes are kept by turn against stale town reads.
+- `src/scenes/decorRoom.js` `restand` and `homeYards.js` `rebase` (YARD-RECENTRE): a world recentre moves every yard piece in place. `world.js` calls it on the recentre's own line.
+- `src/systems/skills.js` and `src/systems/advancement.js` (MOVE-BANK): past 100, a skill that can pass the cap has no 20,000-use bucket. The shift is read in float, and the carry is kept whole and re-priced at the next point's cost.
+- `src/systems/skillSoftcap.js` `overcapClimbSpeed` (CLIMB-PAST), `src/player/climbing.js` `climbingSpeed` and `src/player/motor.js`: climb speed is ×(1 + (effective − 100) / 100) past 100, bounded at effective 140.
 - The account service is unchanged: no deploy.
 - Record: `bible/01-Overview/Field-Bugs-2026-10-01.md`. Tests: `test/fb1001_*.test.js`. Mutants: `tools/mutants/fb1001_*.json`.
