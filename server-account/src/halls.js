@@ -33,6 +33,8 @@
 // free; every change after it burns HERALDRY_CHANGE_DRAKES from the
 // guild's Drake treasury, its line and the change in one batch. The
 // request's id makes a change asked twice one line (marks.js).
+// AUDIT-SEATS S10: a change is refused in a week the guild fights a
+// battle for a seat (Seats-Arc 8.1's "siege week").
 //
 // EVERY CLOCK IS AN ARGUMENT, as in accounts.js.
 // ═══════════════════════════════════════════════════════════════════
@@ -45,6 +47,7 @@ import { GUILD_HALL_ENTRY_DEFAULT, HALL_POWERS, hallMay, guildHallPrice, guildHa
 import { HOME_CLAIMS_MAX, HOME_CLAIMS_WINDOW_S, homeMapIdOk, homeBuildingKeyOk, homeRegionOk, homePriceOk, homeSaleRefund } from '../../src/net/homeLaw.js';
 import { HERALDRY_CHANGE_DRAKES, heraldryOf, heraldrySame } from '../../src/net/heraldryLaw.js';
 import { MARKS_RID_RE, utcDay } from '../../src/net/marksLaw.js';
+import { seatWeekOf } from '../../src/net/townSeatLaw.js';   // AUDIT-SEATS S10: a siege week refuses a change
 
 /** A guild's hall, as its members read it - or null. */
 export async function hallViewOf(db, guildId) {
@@ -193,6 +196,14 @@ export async function setHeraldry(ctx, player, { character, heraldry, rid } = {}
   // asked again: the line it made - AUDIT GUILD1d S4: whatever the heraldry is now (a later change may stand over it)
   if (paidLine) return paidLine.kind === 'heraldry' ? { ok: true, repeat: true, heraldry: was } : { error: 'marks-rid' };
   if (heraldrySame(was, next)) return { error: 'heraldry-same' };
+  // AUDIT-SEATS S10 (Seats-Arc 8.1: "changing either costs 500 Marks and is refused in a siege week"): a CHANGE, while the
+  // guild is a side of a battle for a seat this seat week (a siege or a Tourney - its banners on the field and the HUD; one
+  // its Turning voided is none) - asked here and again in the write. DECIDED: the first choice, free, is no change, and
+  // stands (a guild with no heraldry fights under plain colours either way)
+  const week = seatWeekOf(nowS * 1000);
+  const noBattle = `NOT EXISTS (SELECT 1 FROM town_seat_battles WHERE week = ${week} AND (attacker = guilds.id OR defender = guilds.id) AND state <> 'void')`;
+  const inBattle = async () => !!(await db.prepare("SELECT 1 FROM town_seat_battles WHERE week = ? AND (attacker = ? OR defender = ?) AND state <> 'void'").bind(week, gid, gid).first());
+  if (was && await inBattle()) return { error: 'heraldry-siege' };
   if (await overRate({ db, nowS }, `guild:${player.id}`, GUILD_OPS_MAX, GUILD_OPS_WINDOW_S)) return { error: 'guild-rate' };
   const json = JSON.stringify(next);
   // AUDIT GUILD1d S7: the guildmaster's still, in the write - one handed the guild on since the read changes nothing
@@ -213,13 +224,14 @@ export async function setHeraldry(ctx, player, { character, heraldry, rid } = {}
           AND NOT EXISTS (SELECT 1 FROM marks_ledger WHERE actor = ?5 AND rid = ?7)`)
         .bind(gid, HERALDRY_CHANGE_DRAKES, utcDay(nowS), nowS, player.id, displayName(player), rid),
       mustChange(db),
-      db.prepare(`UPDATE guilds SET heraldry = ? WHERE id = ? AND heraldry = ? AND ${stillMaster}`).bind(json, gid, row.heraldry),
+      db.prepare(`UPDATE guilds SET heraldry = ? WHERE id = ? AND heraldry = ? AND ${stillMaster} AND ${noBattle}`).bind(json, gid, row.heraldry),
       mustChange(db),
     ]);
   } catch {
     // AUDIT GUILD1d S4: the same change raced by itself - its line is the one that landed
     const landed = await db.prepare('SELECT kind FROM marks_ledger WHERE actor = ? AND rid = ?').bind(player.id, rid).first();
     if (landed?.kind === 'heraldry') return { ok: true, repeat: true, heraldry: heraldryOfRow((await db.prepare('SELECT heraldry FROM guilds WHERE id = ?').bind(gid).first())?.heraldry) };
+    if (await inBattle()) return { error: 'heraldry-siege' };   // AUDIT-SEATS S10: a Turning placed a battle meanwhile
     const bal = await db.prepare('SELECT balance FROM guild_marks WHERE guild_id = ?').bind(gid).first();
     return { error: Number(bal?.balance ?? 0) < HERALDRY_CHANGE_DRAKES ? 'heraldry-drakes' : await whyNot() };
   }

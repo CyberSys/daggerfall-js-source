@@ -15,8 +15,10 @@
 // (a guild founded before GUILD1d has none, and a guild is not charged
 // for its first banner); every change after it burns
 // HERALDRY_CHANGE_DRAKES from the guild's Drake treasury - a sink, as
-// the market's tax is. The record's "refused in a siege week" waits on
-// SEAT2: no siege stands yet.
+// the market's tax is. The record's "refused in a siege week" is the
+// service's (AUDIT-SEATS S10, server-account/src/halls.js setHeraldry):
+// a change, while the guild is a side of a battle for a seat that week
+// (SEAT2a's sieges and Tourneys) - `heraldry-siege`.
 //
 // The shapes BOTH ends read - the account service
 // (server-account/src/halls.js), which keeps each guild's, and the

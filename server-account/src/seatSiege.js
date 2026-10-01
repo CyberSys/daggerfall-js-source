@@ -25,13 +25,14 @@
 import { accountKind, displayName, overRate } from './accounts.js';
 import { seatsOpenFor, confirmedSeats } from './townSeats.js';
 import { mustChange } from './realm.js';
-import { utcDay } from '../../src/net/marksLaw.js';
+import { gatherStandings } from './seatInfluence.js';   // AUDIT-SEATS S8: a Tourney's dead heat as the Turning counted it
+import { utcDay, MARKS_MAX } from '../../src/net/marksLaw.js';
 import { mintSiegeOrder, siegeFieldValid } from '../../src/net/identityToken.js';
 import { verifySiegeReceipt, SIEGE_RECEIPT_TTL_S } from '../../src/net/siegeReceipt.js';   // AUDIT-SEATS R6: a late pass lives the receipt's week
 import { RENOWN_XP_MAX, RENOWN_TRACKS_MAX } from '../../src/net/renown.js';
 import {
   seatWeekOf, seatKeyOk, settleField, passWindowEnds, passOpens, siegeWinner, siegeAftermath, spoilsOf, SIEGE_HONOURS,
-  CLAIM_FEE, STANDING_START, STANDING_MAX, seasonFloor, seasonZeroOf, siegeMinutes,
+  CLAIM_FEE, STANDING_START, STANDING_MAX, seasonFloor, seasonZeroOf, siegeMinutes, seatWeekStartMs, seasonOf,
 } from '../../src/net/townSeatLaw.js';
 
 const weekAt = (nowS) => seatWeekOf(nowS * 1000);
@@ -102,20 +103,55 @@ export async function siegePass({ db, nowS, subtle }, player, env, { key, field,
   return { ...out, pass };
 }
 
-/** Each contender's influence at the seat in the battle's week - a Tourney's dead heat goes to the higher (6.7). */
-async function higherOf(db, b) {
-  const { results: rows = [] } = await db.prepare('SELECT guild_id, SUM(amount) AS n FROM town_seat_influence WHERE week = ? AND key = ? AND guild_id IN (?, ?) GROUP BY guild_id')
-    .bind(b.week, b.key, b.attacker, b.defender).all();
-  const of = (g) => Number(rows.find((r) => r.guild_id === g)?.n ?? 0);
+/** Each contender's influence at the seat - a Tourney's dead heat goes to the higher (6.7). AUDIT-SEATS S8: as the Turning
+ *  that made the seat Contested counted it (5.2 steps 1-2) - the standings' total of the week before the Tourney's (each
+ *  source at its caps, reach, Tribute inside its room - never the rows' raw sum, where a Tribute row is Marks and a gate
+ *  row counts unagreed), at that Turning's clock, and the Legacy each carried into that week. */
+async function higherOf(db, b, nowS, zero) {
+  const seat = (await confirmedSeats(db, nowS)).get(b.key);
+  if (!seat) return null;
+  const w = b.week - 1;
+  const list = await gatherStandings(db, seat, w, Math.floor(seatWeekStartMs(b.week) / 1000), !!seasonOf(w, zero));
+  const { results: legacy = [] } = await db.prepare('SELECT guild_id, amount FROM town_seat_legacy WHERE week = ? AND key = ?').bind(w, b.key).all();
+  const of = (g) => (list.find((s) => s.guild === g)?.total ?? 0) + Number(legacy.find((l) => l.guild_id === g)?.amount ?? 0);
   const a = of(b.attacker), d = of(b.defender);
   return a > d ? 'attack' : d > a ? 'defend' : null;
+}
+
+/**
+ * THE SELLSWORDS' ESCROW SETTLED (6.4: "an optional Marks fee, escrowed, paid at the siege's end") - each contract of the
+ * battle at `key` in `week` its own statement, in order, so each asks the purse it pays as the last left it: a signed
+ * contract's fee to its Sellsword, an offered one's home to its guild, every contract not paid withdrawn.
+ * AUDIT-SEATS S2: burnt where the account or the treasury it goes to is full (MARKS_MAX, the balances' CHECK) or gone, as
+ * a Tithe is - never a statement that fails, so a result is never rolled back by a Sellsword's purse (a defender filling
+ * its treasury could otherwise keep its seat by hiring a dummy). S3: `voided` - a battle its Turning voided pays no fee
+ * (16: a void siege, "nobody earns Honours"): every contract, offered or SIGNED, goes home.
+ */
+export async function swordsSettled(db, week, key, nowS, { voided = false } = {}) {
+  const { results: hires = [] } = await db.prepare("SELECT account, state FROM town_seat_hires WHERE week = ? AND key = ? AND state IN ('offered', 'signed') AND fee > 0 ORDER BY at, account")
+    .bind(week, key).all();
+  const day = utcDay(nowS), out = [];
+  for (const h of hires) {
+    const paid = h.state === 'signed' && !voided;
+    const fits = paid
+      ? `EXISTS (SELECT 1 FROM players WHERE id = h.account) AND COALESCE((SELECT balance FROM marks WHERE account = h.account), 0) + h.fee <= ${MARKS_MAX}`
+      : `EXISTS (SELECT 1 FROM guilds WHERE id = h.guild_id) AND COALESCE((SELECT balance FROM guild_marks WHERE guild_id = h.guild_id), 0) + h.fee <= ${MARKS_MAX}`;
+    out.push(db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
+      SELECT 'escrow', 'hire:' || h.week || ':' || h.key || ':' || h.account || ':' || h.at, CASE WHEN ${fits} THEN ?5 ELSE 'burn' END,
+        CASE WHEN ${fits} THEN ${paid ? 'h.account' : 'h.guild_id'} END, ?6, h.fee, ?7, ?8, 'seats', 'A siege', 'hire:' || h.week || ':' || h.key || ':' || h.account || ':' || h.at || ?9
+      FROM town_seat_hires h WHERE h.week = ?1 AND h.key = ?2 AND h.account = ?3 AND h.state = ?4 AND h.fee > 0`)
+      .bind(week, key, h.account, h.state, paid ? 'account' : 'guild', paid ? 'sellsword-fee' : 'sellsword-return', day, nowS, paid ? ':fee' : ':return'));
+  }
+  out.push(db.prepare(`UPDATE town_seat_hires SET state = 'withdrawn' WHERE week = ? AND key = ? AND state IN ('offered'${voided ? ", 'signed'" : ''})`).bind(week, key));
+  return out;
 }
 
 /**
  * THE RESULT (6.5-6.8), written once a battle - what it gave, in the result's own batch:
  *   a seat taken: the Charter the attacker's (Standing 50, in truce at the next Turning, its Tithe and arrears its own -
  *     none), the old holder's Legacy at the seat cleared;
- *   a seat held: the holder's Standing +15 and its next defence x1.2 where a banner was raised; a forfeit: +10 (once a
+ *   a seat held: the holder's Standing +15 and its next defence x1.2 where a banner was raised (AUDIT-SEATS T1: +15 less 5
+ *     where the receipt says the attackers reached the Throne, `th`); a forfeit: +10 (once a
  *     Season against the same challenger) and x1.2; either way the challenger's influence at the seat this week cleared
  *     and the seat barred to it at the next Turning;
  *   a Tourney: the winner takes the Charter and pays the claim fee - else the other if it can - else the seat stays
@@ -131,24 +167,19 @@ async function applyResult(db, b, c, nowS, zero) {
   const nameOf = (id) => names.get(id) ?? { name: '', tag: '' };
   const history = (kind, data) => db.prepare('INSERT INTO town_seat_history (key, week, kind, data, at) VALUES (?, ?, ?, ?, ?)').bind(K, W, kind, JSON.stringify(data), nowS);
   const day = utcDay(nowS);
-  const swords = [
-    db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
-      SELECT 'escrow', 'hire:' || week || ':' || key || ':' || account || ':' || at, 'account', account, 'sellsword-fee', fee, ?3, ?4, 'seats', 'A siege',
-        'hire:' || week || ':' || key || ':' || account || ':' || at || ':fee'
-      FROM town_seat_hires WHERE week = ?1 AND key = ?2 AND state = 'signed' AND fee > 0`).bind(W, K, day, nowS),
-    db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
-      SELECT 'escrow', 'hire:' || week || ':' || key || ':' || account || ':' || at, 'guild', guild_id, 'sellsword-return', fee, ?3, ?4, 'seats', 'A siege',
-        'hire:' || week || ':' || key || ':' || account || ':' || at || ':return'
-      FROM town_seat_hires WHERE week = ?1 AND key = ?2 AND state = 'offered' AND fee > 0`).bind(W, K, day, nowS),
-    db.prepare("UPDATE town_seat_hires SET state = 'withdrawn' WHERE week = ? AND key = ? AND state = 'offered'").bind(W, K),
-  ];
+  const swords = await swordsSettled(db, W, K, nowS);   // AUDIT-SEATS S2: each contract its own statement, burnt where full
+  // AUDIT-SEATS S3 (17): the result only for a battle still scheduled, its week not yet settled - a Turning that came first
+  // voided it (seatTurning.js), and a late receipt moves no Charter it has already reckoned without
   const head = (winner) => [
-    db.prepare('INSERT INTO town_seat_results (week, key, result, raised, winner, rid, at) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(W, K, result, raised, winner, ridOf(), nowS),
+    db.prepare(`INSERT INTO town_seat_results (week, key, result, raised, winner, rid, at) SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7
+      WHERE EXISTS (SELECT 1 FROM town_seat_battles WHERE week = ?1 AND key = ?2 AND state = 'scheduled')
+        AND NOT EXISTS (SELECT 1 FROM town_seat_weeks WHERE week = ?1)`).bind(W, K, result, raised, winner, ridOf(), nowS),
+    mustChange(db),
     db.prepare("UPDATE town_seat_battles SET state = ? WHERE week = ? AND key = ?").bind(result === 'forfeit' ? 'forfeit' : 'fought', W, K),
   ];
   const run = async (stmts) => { try { await db.batch(stmts); return true; } catch { return false; } };
   if (b.kind === 'tourney') {
-    const higher = result === 'tie' ? await higherOf(db, b) : null;
+    const higher = result === 'tie' ? await higherOf(db, b, nowS, zero) : null;
     const winner = siegeWinner(result, higher);
     const order = winner === 'defend' ? [b.defender, b.attacker] : winner === 'attack' ? [b.attacker, b.defender] : [];
     const seat = (await confirmedSeats(db, nowS)).get(K);
@@ -170,7 +201,8 @@ async function applyResult(db, b, c, nowS, zero) {
   }
   const forfeitPaid = result === 'forfeit' && !!(await db.prepare(`SELECT 1 FROM town_seat_results r JOIN town_seat_battles x ON x.week = r.week AND x.key = r.key
     WHERE r.result = 'forfeit' AND x.attacker = ? AND x.defender = ? AND r.week >= ? AND r.week < ? LIMIT 1`).bind(b.attacker, b.defender, seasonFloor(W, zero), W).first());   // SEASON1: this Season's
-  const after = siegeAftermath('siege', result, raised, { forfeitPaid });
+  const throne = c.th === 1 ? 1 : 0;   // AUDIT-SEATS T1: the attackers reached the Throne (the receipt's `th`; absent, 0)
+  const after = siegeAftermath('siege', result, raised, { forfeitPaid, throne: throne === 1 });
   const stmts = [...head(siegeWinner(result))];
   if (after.taken) {
     const seat = (await confirmedSeats(db, nowS)).get(K);
@@ -189,12 +221,14 @@ async function applyResult(db, b, c, nowS, zero) {
     if (after.barred) {
       stmts.push(
         db.prepare("INSERT OR IGNORE INTO town_seat_aftermath (week, key, guild_id, what) VALUES (?, ?, ?, 'barred')").bind(W, K, b.attacker),
-        db.prepare('DELETE FROM town_seat_influence WHERE week = ? AND key = ? AND guild_id = ?').bind(W, K, b.attacker),
+        // AUDIT-SEATS S9: voided, never deleted - the Watch's day cap and the Orc Raids' caps count these rows still
+        db.prepare('UPDATE town_seat_influence SET voided = 1 WHERE week = ? AND key = ? AND guild_id = ?').bind(W, K, b.attacker),
         db.prepare('DELETE FROM town_seat_legacy WHERE week = ? AND key = ? AND guild_id = ?').bind(W, K, b.attacker),
       );
     }
     const kind = result === 'forfeit' ? 'siege-forfeit' : result === 'absent' ? 'siege-absent' : 'siege-held';
-    stmts.push(history(kind, { guild: nameOf(b.defender), against: nameOf(b.attacker) }));
+    // AUDIT-SEATS T1 (9.2): a held siege's row keeps whether the Throne was reached
+    stmts.push(history(kind, { guild: nameOf(b.defender), against: nameOf(b.attacker), ...(kind === 'siege-held' ? { throne } : {}) }));
   }
   return run([...stmts, ...swords]);
 }
@@ -218,12 +252,21 @@ export async function claimSiege({ db, nowS, subtle }, player, env, { receipt, c
   const c = v.claims;
   if (c.s !== player.id) return { error: 'not-yours' };
   const b = await battleAt(db, c.sw, c.sk);
-  if (!b || b.state === 'void') return { error: 'battle-none' };
+  if (!b) return { error: 'battle-none' };
+  // AUDIT-SEATS S3 (17; 16: a void siege - "the holder keeps the seat and nobody earns Honours"): a battle its week's Turning
+  // voided, no result having come (or a strike voided), is refused whole - no Charter moved, no Honours (DECIDED: the pair's
+  // once-a-Season Honours stay unspent for the siege its carried Right fights next week)
+  if (b.state === 'void') return { error: 'battle-void' };
   let r = await resultAt(db, c.sw, c.sk);
   const zero = seasonZeroOf(env?.SEASON_ZERO_WEEK);   // SEASON1: the once-a-Season rules read the Season counted
   const applied = !r && await applyResult(db, b, c, nowS, zero);
   r = await resultAt(db, c.sw, c.sk);
-  if (!r) throw new Error('claimSiege: the result was neither written nor found');   // a 500, never a quiet loss
+  if (!r) {
+    // AUDIT-SEATS S3: the Turning came between the read and the write - the battle void, or its week settled without it
+    const settled = await db.prepare('SELECT 1 FROM town_seat_weeks WHERE week = ?').bind(c.sw).first();
+    if (settled || (await battleAt(db, c.sw, c.sk))?.state === 'void') return { error: 'battle-void' };
+    throw new Error('claimSiege: the result was neither written nor found');   // a 500, never a quiet loss
+  }
   const out = { result: r.result, winner: r.winner ?? null, applied };
   if (c.h !== 1) return { ...out, honours: null };
   if (typeof character !== 'string' || !character || character.length > 64) return { error: 'honours-character' };

@@ -187,8 +187,8 @@
   {
     "name": "SEAT1a-strike-unrecorded",
     "file": "server-account/src/townSeats.js",
-    "old": "VALUES (?, ?, 'strike', ?, ?)",
-    "new": "VALUES (?, ?, 'struck', ?, ?)",
+    "old": "SELECT ?1, ?2, 'strike', json_set(",
+    "new": "SELECT ?1, ?2, 'struck', json_set(",
     "tests": [
       "test/seat1a_service.test.js"
     ]
@@ -196,8 +196,8 @@
   {
     "name": "SEAT1a-audit-any-count",
     "file": "server-account/src/townSeats.js",
-    "old": "s.agreeing.length === SEAT_WITNESSES_AUDIT;",
-    "new": "s.agreeing.length >= SEAT_WITNESSES_AUDIT;",
+    "old": "s.agreeing.length === SEAT_WITNESSES_AUDIT) ||",
+    "new": "s.agreeing.length >= SEAT_WITNESSES_AUDIT) ||",
     "tests": [
       "test/seat1a_service.test.js"
     ]

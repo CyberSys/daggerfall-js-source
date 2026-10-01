@@ -172,8 +172,8 @@
  {
   "name": "SEAT2a3-law-raised",
   "file": "src/net/townSeatLaw.js",
-  "old": "  if (result === 'defend') return { bonus: !!raised, barred: true, standing: raised ? SIEGE_STANDING.held : 0, taken: false };",
-  "new": "  if (result === 'defend') return { bonus: true, barred: true, standing: SIEGE_STANDING.held, taken: false };",
+  "old": "  if (result === 'defend') return { bonus: !!raised, barred: true, standing: raised ? SIEGE_STANDING.held + (throne ? STANDING_CHANGES.throneReached : 0) : 0, taken: false };",
+  "new": "  if (result === 'defend') return { bonus: true, barred: true, standing: SIEGE_STANDING.held + (throne ? STANDING_CHANGES.throneReached : 0), taken: false };",
   "tests": [
    "test/seat2a_siege_service.test.js",
    "test/seat2a_siege_client.test.js"
@@ -182,8 +182,8 @@
  {
   "name": "SEAT2a3-law-barred",
   "file": "src/net/townSeatLaw.js",
-  "old": "  if (result === 'defend') return { bonus: !!raised, barred: true, standing: raised ? SIEGE_STANDING.held : 0, taken: false };",
-  "new": "  if (result === 'defend') return { bonus: !!raised, barred: !!raised, standing: raised ? SIEGE_STANDING.held : 0, taken: false };",
+  "old": "  if (result === 'defend') return { bonus: !!raised, barred: true, standing: raised ? SIEGE_STANDING.held + (throne ? STANDING_CHANGES.throneReached : 0) : 0, taken: false };",
+  "new": "  if (result === 'defend') return { bonus: !!raised, barred: !!raised, standing: raised ? SIEGE_STANDING.held + (throne ? STANDING_CHANGES.throneReached : 0) : 0, taken: false };",
   "tests": [
    "test/seat2a_siege_service.test.js",
    "test/seat2a_siege_client.test.js"
@@ -404,8 +404,8 @@
  {
   "name": "SEAT2a3-swords-pay",
   "file": "server-account/src/seatSiege.js",
-  "old": "FROM town_seat_hires WHERE week = ?1 AND key = ?2 AND state = 'signed' AND fee > 0`).bind(W, K, day, nowS),",
-  "new": "FROM town_seat_hires WHERE week = ?1 AND key = ?2 AND state = 'nobody' AND fee > 0`).bind(W, K, day, nowS),",
+  "old": "    const paid = h.state === 'signed' && !voided;",
+  "new": "    const paid = false;",
   "tests": [
    "test/seat2a_siege_service.test.js",
    "test/seat2a_siege_client.test.js"
@@ -414,8 +414,8 @@
  {
   "name": "SEAT2a3-swords-home",
   "file": "server-account/src/seatSiege.js",
-  "old": "FROM town_seat_hires WHERE week = ?1 AND key = ?2 AND state = 'offered' AND fee > 0`).bind(W, K, day, nowS),",
-  "new": "FROM town_seat_hires WHERE week = ?1 AND key = ?2 AND state = 'nobody' AND fee > 0`).bind(W, K, day, nowS),",
+  "old": "state IN ('offered', 'signed') AND fee > 0 ORDER BY at, account",
+  "new": "state IN ('signed') AND fee > 0 ORDER BY at, account",
   "tests": [
    "test/seat2a_siege_service.test.js",
    "test/seat2a_siege_client.test.js"
@@ -534,7 +534,7 @@
  {
   "name": "SEAT2a3-held-clear",
   "file": "server-account/src/seatSiege.js",
-  "old": "        db.prepare('DELETE FROM town_seat_influence WHERE week = ? AND key = ? AND guild_id = ?').bind(W, K, b.attacker),",
+  "old": "        db.prepare('UPDATE town_seat_influence SET voided = 1 WHERE week = ? AND key = ? AND guild_id = ?').bind(W, K, b.attacker),",
   "new": "        db.prepare('SELECT 1'),",
   "tests": [
    "test/seat2a_siege_service.test.js",

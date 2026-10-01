@@ -168,7 +168,9 @@ test('SEAT2a part three A SEAT HELD AND THE TURNING\'S MEMORY: held with a banne
   assert.deepEqual([r.body.result, r.body.winner, r.body.honours.won, r.body.honours.marks], ['defend', 'defend', true, SIEGE_HONOURS.win.marks]);
   assert.equal(s.holdOf().standing, standing0 + 15);
   assert.deepEqual(s.raw.prepare('SELECT guild_id, what FROM town_seat_aftermath WHERE week = ? AND key = ? ORDER BY what').all(W + 1, ANTICLERE.key).map((x) => [x.guild_id, x.what]), [[eo.gid, 'barred'], [sh.gid, 'bonus']]);
-  assert.equal(s.raw.prepare('SELECT COUNT(*) AS n FROM town_seat_influence WHERE week = ? AND key = ? AND guild_id = ?').get(W + 1, ANTICLERE.key, eo.gid).n, 0, 'the challenger\'s week here cleared');
+  // PIN MOVED (AUDIT-SEATS): cleared by voiding, never deleting (S9) - the caps that count an account's rows still count them
+  assert.equal(s.raw.prepare('SELECT COUNT(*) AS n FROM town_seat_influence WHERE week = ? AND key = ? AND guild_id = ? AND voided = 0').get(W + 1, ANTICLERE.key, eo.gid).n, 0, 'the challenger\'s week here cleared');
+  assert.ok(s.raw.prepare('SELECT COUNT(*) AS n FROM town_seat_influence WHERE week = ? AND key = ? AND guild_id = ? AND voided = 1').get(W + 1, ANTICLERE.key, eo.gid).n > 0, 'kept, voided');
   assert.ok(s.raw.prepare("SELECT 1 FROM town_seat_history WHERE key = ? AND kind = 'siege-held'").get(ANTICLERE.key));
   // the standings' defence carries the x1.2
   await s.earn(sh.gid, ANTICLERE, 1000, W + 1);
@@ -238,7 +240,10 @@ test('SEAT2a part three THE TOURNEY AND THE BLACKOUT: the side with more banners
   // a dead heat: the higher influence
   tourney(ASHFIELD.key, W + 3);
   s.treasury(rw.gid, CLAIM_FEE.palace); s.treasury(rv.gid, CLAIM_FEE.palace);
-  await s.earn(rw.gid, ASHFIELD, 3000, W + 3); await s.earn(rv.gid, ASHFIELD, 2000, W + 3);
+  // PIN MOVED (AUDIT-SEATS): the dead heat reads the week that made the seat Contested - the Tourney's week less one - as its
+  // Turning counted it, the two pledged there (S8: the standings' totals and the Legacy, never the rows' raw sum)
+  for (const g of [rw, rv]) s.raw.prepare('INSERT INTO town_seat_pledges (week, guild_id, region, key, set_by, at) VALUES (?, ?, ?, ?, ?, ?)').run(W + 2, g.gid, ASHFIELD.region, ASHFIELD.key, 'x', s.getNow());
+  await s.earn(rw.gid, ASHFIELD, 3000, W + 2); await s.earn(rv.gid, ASHFIELD, 2000, W + 2);
   const c = await tclaim(r1, 'attack', 'tie', W + 3);
   assert.deepEqual([c.body.result, c.body.winner, held()], ['tie', 'defend', rw.gid], 'the Wolves\' higher influence');
   // a dead heat at equal influence: nobody won it, and the seat stays unheld

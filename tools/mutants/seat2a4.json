@@ -452,8 +452,8 @@
  {
   "name": "SEAT2a4-claims-twice",
   "file": "src/net/siegeClaims.js",
-  "old": "  if (r?.error === 'honours-twice' || r?.error === 'battle-none') return true;",
-  "new": "  if (r?.error === 'battle-none') return true;",
+  "old": "  if (r?.error === 'honours-twice' || r?.error === 'battle-none' || r?.error === 'battle-void') return true;",
+  "new": "  if (r?.error === 'battle-none' || r?.error === 'battle-void') return true;",
   "tests": [
    "test/seat2a_siege_play.test.js"
   ]
@@ -461,8 +461,8 @@
  {
   "name": "SEAT2a4-claims-mend",
   "file": "src/net/siegeClaims.js",
-  "old": "  if (r?.error === 'honours-twice' || r?.error === 'battle-none') return true;\n  if (r?.error === 'receipt') return !MENDABLE.includes(r?.why);",
-  "new": "  if (r?.error === 'honours-twice' || r?.error === 'battle-none') return true;\n  if (r?.error === 'receipt') return true;",
+  "old": "|| r?.error === 'battle-void') return true;   // AUDIT-SEATS S3: void at its Turning\n  if (r?.error === 'receipt') return !MENDABLE.includes(r?.why);",
+  "new": "|| r?.error === 'battle-void') return true;   // AUDIT-SEATS S3: void at its Turning\n  if (r?.error === 'receipt') return true;",
   "tests": [
    "test/seat2a_siege_play.test.js"
   ]

@@ -498,8 +498,8 @@
  {
   "name": "SEAT1d-settle-no-return",
   "file": "server-account/src/seatTurning.js",
-  "old": "SELECT 'escrow', ?1, 'guild', guild_id, 'bounty-return', set_aside - spent,",
-  "new": "SELECT 'escrow', ?1, 'burn', NULL, 'bounty-return', set_aside - spent,",
+  "old": "CASE WHEN ${home} THEN 'guild' ELSE 'burn' END, CASE WHEN ${home} THEN e.guild_id END, 'bounty-return'",
+  "new": "'burn', NULL, 'bounty-return'",
   "tests": [
    "test/seat1d_service.test.js"
   ]

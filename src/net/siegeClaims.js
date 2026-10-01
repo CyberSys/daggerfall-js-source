@@ -6,7 +6,7 @@
 // net/townSeatBook.js claimSiege) at once, and again while it is kept, at most every SIEGE_CLAIM_RETRY_MS.
 //
 // AN ANSWER THAT SETTLES IT lets it go: claimed (with Honours or without), claimed before (`honours-twice`), its battle
-// void or gone (`battle-none`), not a receipt the relay signed (`receipt`, but for the refusals the SERVICE can mend:
+// gone (`battle-none`) or void at its Turning (`battle-void`, AUDIT-SEATS S3), not a receipt the relay signed (`receipt`, but for the refusals the SERVICE can mend:
 // its public half not the relay's pair, or a clock - `signature`, `verify-threw`, `future`, `clock`). Anything else keeps
 // it: the network, no session yet, the service without its key, another account signed in here (`not-yours` - it waits
 // for its own). A receipt carries a week and an expired one is let go unasked; an UNSIGNED one is never kept.
@@ -30,7 +30,7 @@ const MENDABLE = Object.freeze(['signature', 'verify-threw', 'future', 'clock'])
 /** Whether an answer settles a receipt (let go) or keeps it. */
 export function siegeClaimSettles(r) {
   if (r?.ok) return true;
-  if (r?.error === 'honours-twice' || r?.error === 'battle-none') return true;
+  if (r?.error === 'honours-twice' || r?.error === 'battle-none' || r?.error === 'battle-void') return true;   // AUDIT-SEATS S3: void at its Turning
   if (r?.error === 'receipt') return !MENDABLE.includes(r?.why);
   return false;
 }
