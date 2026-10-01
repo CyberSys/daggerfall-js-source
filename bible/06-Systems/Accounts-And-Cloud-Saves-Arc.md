@@ -4301,7 +4301,7 @@ stroked glyph in it.
 - **The vocabulary** (`src/net/identityToken.js`, in the relay bundle): `herald` joins TITLES and GLYPHS, last. A relay
   from before it refuses a token carrying it (`claimsValid`), so the relay is **world138**; the account service rides
   acct45 with PATREON-LINK (both undeployed), and its deploy waits for the relay's `/health` to serve world138
-  (SHADOW-FANG's AUDIT B1).
+  (SHADOW-FANG's AUDIT B1) - or world139, the Loot arc's merge, which carries the word too.
 - **The grant** (`server-account/src/titles.js`): `TIER_LISTS.herald = 'HERALD_HANDLES'` (empty - nobody by name yet)
   and `TIER_GLYPH.herald`, so the list and the pledge each grant the title and its glyph together. `herald` is a
   Patreon title (`patreon.js PATREON_TITLES`), and Mac's Herald tier (29666234) is mapped to it in `PATREON_TIERS`.

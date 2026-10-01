@@ -209,7 +209,7 @@ import { trs, multiply, identity, UP_Y } from '../world/mat4.js';
 import { StaticBatchBuilder, keyResolver, SHADOW_CELL_SIZE } from '../render/staticBatch.js';   // PERF5: the level's static models as one mesh; LA-AUDIT A1: with its shadow cells
 import { Collider } from '../player/collider.js';
 import { ActionSystem } from '../world/actionSystem.js';
-import { collectDungeonEnemies, expandEliteEnemies, enemyHierarchyOrder } from '../characters/dungeonEnemies.js';
+import { collectDungeonEnemies, expandEliteEnemies, enemyHierarchyOrder } from '../characters/dungeonEnemies.js'; import { markDungeonChampions, applyChampion, championName } from '../systems/champions.js'; import { lootCrown } from './lootLines.js';   // LOOT7: the layout's champions; LOOT11: a find's line of light
 import { ELITE_FOE_MULTIPLIER, ELITE_HEALTH_SCALE, ELITE_DAMAGE_SCALE, ELITE_LOOT_DROP_MULT, ELITE_LOOT_QUALITY_MULT } from '../world/spawnedDungeons.js';   // ELITE: an elite spawn's foe count and strength
 import { ENEMY_BASICS, enemyDisplayName } from '../characters/enemyBasics.js';
 import { bloodDecalDeps } from '../combat/bloodSwitch.js';   // BLOOD1a
@@ -248,7 +248,7 @@ const REMOTE_KILL = Object.freeze({ kind: 'remote' });
  *  the Burning clip, as it was. */
 const GATE_STRIKE_CAST = Object.freeze({ frost: SPELL_CAST_SOUND[1], poison: SPELL_CAST_SOUND[2], shock: SPELL_CAST_SOUND[3] });
 import { lootPile } from '../player/lootStack.js';   // LOOT-STACK: the pile under the reticle, as the loot window's tabs
-import { rollLootRarity, pileSource, dungeonRarityTier, stampWonWeapons } from '../systems/lootRarity.js';   // LR1: the item ladder over every list this host mints (a foe's through hostCombat.spawnEnemyLoot, RF2)
+import { rollLootRarity, pileSource, dungeonRarityTier, dungeonFamily, stampWonWeapons } from '../systems/lootRarity.js';   // LR1: the item ladder over every list this host mints (a foe's through hostCombat.spawnEnemyLoot, RF2)
 import { foeHitFlash, setBatchHitFlash, puppetHurtStep } from '../systems/hitFlash.js';   // HITFLASH1
 
 
@@ -277,7 +277,7 @@ const q3 = (v) => Math.round(v * 1000) / 1000; const GENDER_BIT = ['male', 'fema
 const HIT_POS_MAX = 1e6;
 // AUDIT FOES FOE5: the most damage one peer's blow may claim. The host TRUSTS the number (it never recomputes - the
 // striker's own calc is the game's), so without a bound any joiner could one-shot every foe in the room and empty it
-// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2428); the dungeon
+// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2433); the dungeon
 // had none. Past anything a legal swing, shaft or blast can roll.
 const HIT_DMG_MAX = 10000;
 /** REST-SYNC: a joiner's ask is answered - or given up on - inside this long: its rest breaks once, at the next hour. */
@@ -925,6 +925,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       floor: (at) => { const d = collider.raycast([at[0], at[1] + 1, at[2]], [0, -1, 0], 3); return Number.isFinite(d) ? at[1] + 1 - d : null; },
     })
     : _layoutEnemies;
+  markDungeonChampions(enemies, dfLocation.dungeon.recordElement.header.locationId);   // LOOT7: the layout's champions, a hash of the place and the marker - every client the same, no wire word
   // C8 E1 (?foes): CLASS enemies (mobileType > 43, human morphology)
   // spawn as canonical rigs instead of their C3 billboards - one rig
   // per enemy (individual animation state), floor-snapped through the
@@ -1148,11 +1149,11 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     foeDeps.applyProgressionScaling?.(entity, scaling);   // lazily loaded beside makeEnemyEntity; the dungeon's own deps (the import used `D`, which only the spawn builders below bind)
   }
   function applyEliteScaling(entity, e) {
-    if (!e?.elite || !entity) return;
+    if (!e?.elite || !entity) return void applyChampion(entity, e?.champion);   // LOOT7: a plain dungeon's champion (its loot reads the mark, so before it)
     entity.maxHealth = Math.max(1, Math.round(entity.maxHealth * ELITE_HEALTH_SCALE));
     entity.health = entity.maxHealth;
     entity.damageScale = ELITE_DAMAGE_SCALE;
-    entity.elite = true;
+    entity.elite = true; applyChampion(entity, e.champion);   // LOOT7: an elite dungeon's champion - its scale on the elite's
   }
   async function buildFoeAt(e, fallbackFlat = true, { at = -1, puppet = false, feetGiven = false } = {}) {   // DISC28-H: `feetGiven` - the position is already a motor's FEET (a streamed puppet), not a marker's sprite centre
     const basics = ENEMY_BASICS[e.mobileType];
@@ -1910,7 +1911,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:14633 / exterior.js:3758), set
+  // host's own townTalk sink (world.js:14634 / exterior.js:3758), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -3035,7 +3036,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1112 against :1142; worldModes.js:7789 against :7816).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1112 against :1142; worldModes.js:7804 against :7831).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -3073,7 +3074,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const elite = !!dfLocation?.elite;   // ELITE: the piles get the same +20% drops and +20% quality as the foes
     const items = generateLootItems(lootKey, { level: effectiveLevel(playerEntity), gender: playerEntity.gender }, undefined, elite ? { itemChanceScale: ELITE_LOOT_DROP_MULT } : {});
     addPileLootExtras(items, lootKey, Math.random, { locationIndex: dfLocation.mapTableData.dungeonType, luck: liveStat(playerEntity, 'luck'), level: effectiveLevel(playerEntity), where: 'dungeon' });   // FORAGE3: OnLootSpawned at the dungeon type's index; REALM P0.4: online, the level's gold divided back; AUDIT OH-F B3: the dungeon's own
-    rollLootRarity(items, { ...pileSource(dungeonRarityTier(dfLocation.mapTableData.dungeonType)), qualityMult: elite ? ELITE_LOOT_QUALITY_MULT : 1 }, { luck: liveStat(playerEntity, 'luck') });
+    rollLootRarity(items, { ...pileSource(dungeonRarityTier(dfLocation.mapTableData.dungeonType)), qualityMult: elite ? ELITE_LOOT_QUALITY_MULT : 1, family: dungeonFamily(dfLocation.mapTableData.dungeonType) }, { luck: liveStat(playerEntity, 'luck') });
     stampWonWeapons(items, 1);   // SIGIL1: a pile found online, its weapons' sigils rolled at the mint
     return items;
   }
@@ -3788,8 +3789,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:24349,
-              // exterior.js:5374 and worldModes.js:8501 already ran;
+              // playerArrowHitFoe is the one copy world.js:24359,
+              // exterior.js:5374 and worldModes.js:8517 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -4665,7 +4666,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const i = data.i | 0, dmg = Number(data.dmg);
     const xs = data.xs === 1;   // REST-SYNC: a shared encounter, by the room's number - not a layout index
     const f = xs ? (_sharedById.get(i) ?? null) : foes[i];
-    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2428). The number is a peer's
+    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2433). The number is a peer's
     // word and the host trusts it without recomputing, so an unbounded one let any joiner one-shot every foe in the
     // room - and, through the kill door, empty it. 10000 is past anything a legal swing, shaft or blast can roll.
     if (!f || (!xs && i >= _layoutFoes) || f.dead || !Number.isFinite(dmg) || dmg < 0 || dmg > HIT_DMG_MAX) return false;
@@ -5239,7 +5240,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // InstantiatePrefab's a fresh GameObject per saved record, so
     // EnemyEntity's `PickpocketByPlayerAttempted` default is the loaded
     // truth for every enemy. The re-minting pools match that by
-    // construction (exteriorFoes.js:1808's restoreWorld goes through
+    // construction (exteriorFoes.js:1812's restoreWorld goes through
     // spawnFoe), but this host patches the LIVE foes in place, so a
     // same-dungeon reload kept a raised latch and a failed pickpocket
     // could never be retried - falsifying the law
@@ -6947,7 +6948,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (key.startsWith('corpse:')) {
       const f = foes[Number(key.split(':')[1])];
       // .cs:526 - the entity's name and "(dead)".
-      return lootableBody(f) ? { title: corpseName(enemyDisplayName(f.mobileType)) } : null;   // AUDIT 68 S19-removed-foe-lootable
+      return lootableBody(f) ? { title: corpseName(championName(f.entity, enemyDisplayName(f.mobileType))) } : null;   // AUDIT 68 S19-removed-foe-lootable; LOOT7: a champion's body by its name
     }
     if (key.startsWith('loot:') || key.startsWith('droppedLoot:')) {
       // .cs:534-548 - a pile of ONE is named by that one item; the
@@ -7037,6 +7038,13 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // context mounts none (`enchantCtx: false`), so its own `bossSpell` never ran and a Cast When Strikes spell on the
     // Warden went nowhere in the real game. Outside a court, nobody: false.
     spellOnBoss: (record) => (opts.gateBoss ? spellOnBoss(record) : false),
+    // LOOT11 (the Loot arc): the finds a line of light may stand over - a searchable body (the room's on every client: its
+    // list is the room's record) and a treasure pile, each its crown and its list read live (scenes/lootLines.js picks)
+    lootFinds: () => [
+      ...foes.filter((f) => lootableBody(f) && f.corpsePos && f.entity?.items?.length).map((f) => ({ root: lootCrown(f.corpsePos, f.corpseBatch?.size), items: f.entity.items })),
+      ...lootPiles.filter((p) => p.items?.length).map((p) => ({ root: lootCrown(p.pos, p.batch?.size), items: p.items })),
+      ...droppedLoot.lootFinds(),   // and what was put down here
+    ],
     spellToOwner,   // STRIKE-SHARED: a strike spell of mine on a foe another player runs, to that player
     // AUDIT 19 / 1:1: SelectCurrentSong's dungeon arm seeds DFRandom with
     // the dungeon record header's Unknown2 XOR the region byte

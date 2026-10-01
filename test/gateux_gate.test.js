@@ -161,7 +161,7 @@ test('GATE-UX 4 the chart at the kill: every fighter with a part, most dealt fir
   const relay = read('server/src/index.js');
   assert.match(relay, /this\._gateFan\(\[\{ k: 'fell', at: f\.fell\.at, top: f\.fell\.top, n: f\.fell\.n, \.\.\.\(f\.fell\.dm \? \{ dm: f\.fell\.dm \} : \{\}\) \}\]\);/);
   assert.match(relay, /_gateTellHub\(\{ d: f\.day, at: f\.fell\.at, top: f\.fell\.top, n: f\.fell\.n, rc:/, 'the hub\'s word carries no chart');
-  assert.equal(RELAY_VERSION, 'world138');   // HERALD moved it on last (world138: `herald` joins the titles and glyphs a token carries, the Patreon tier between Disciple and Hierophant); before it KEPT-KILL moved it on (world137: the party pose field `qk`); GATE-UX's chart rides from world136
+  assert.equal(RELAY_VERSION, 'world139');   // LOOT7 moved it on last (world139: the street foe record field `cp`, a champion trait - HERALD took world138 first); before it HERALD moved it on (world138: `herald` joins the titles and glyphs a token carries, the Patreon tier between Disciple and Hierophant); before it KEPT-KILL moved it on (world137: the party pose field `qk`); GATE-UX's chart rides from world136
 });
 
 test('GATE-UX 4 the chart on the wire: each row a name and its whole numbers, most dealt first, at most GATE_CHART_MAX; names cleaned; anything malformed is no chart - and never costs the kill its word (mutants: a junk chart taken; the fall dropped with a bad chart)', () => {
