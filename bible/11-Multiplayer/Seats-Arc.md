@@ -203,7 +203,8 @@ Kingdom of Wayrest. Its Crown Charter is unheld.", the record naming only a held
 town's gate (a hub that is no seat keeps HUB1's line); the unheld ring, a crown's crown, a March's and a Free Land's
 second ring on the held map (ui/inkMap.js paintSeatRing, under the glyph, round a hub's circle), and the Charter in the
 map's box. The held, Contested and siege-week marks: built by SEAT1c (ui/inkMap.js paintSeatRing's held, Contested and siege
-rings).
+rings) - the siege week's edge held at its orange until AUDIT-SEATS II D9 made it burn as written, orange to red a beat a
+second on the held map's overlay (`paintSiegeEdge`).
 
 ### 3.4 Banners and heraldry in the town
 

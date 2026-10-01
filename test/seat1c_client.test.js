@@ -13,7 +13,7 @@ import {
   SEAT_RING_SIEGE,
 } from '../src/net/townSeatLaw.js';
 import { createTownSeatBook } from '../src/net/townSeatBook.js';
-import { paintSeatRing } from '../src/ui/inkMap.js';
+import { paintSeatRing, paintInkOverlay, siegeEdgeBeat, siegeEdgeColor, SEAT_RING_SIEGE_PEAK } from '../src/ui/inkMap.js';
 import { mountNoticeBoard } from '../src/ui/noticeWindow.js';
 import { SEAT_RELINQUISH_ARM_MS } from '../src/ui/seatTab.js';
 
@@ -191,4 +191,22 @@ test('SEAT1c THE HOSTS BY SOURCE: the service settles the Turning before any sea
   assert.match(w, /townTalk\.say\(seatArrivalLine\(seat\), 5\)/);
   assert.equal(seatArrivalLine({ ...ANTICLERE, holder: { guild: SH } }), 'Anticlere, held by the Silver Hand <SH>.', 'a dressed seat names its own holder');
   assert.match(rd('src/scenes/seatBanners.js'), /const h = seat \? seatBannerOf\(seat\) : null;/);
+});
+
+test('AUDIT-SEATS II D9 A SIEGE WEEK\'S RING BURNS (3.3: "a slow orange-to-red pulse, one beat a second"): the overlay strokes each siege week\'s ring at the beat\'s colour - its orange at the trough, its red at the crest, a beat a second off the sheet\'s clock - and the held map hands it the marks\' siege rings, made once a model (mutants: the beat\'s rate; the colour\'s ends; the overlay\'s pass; the host\'s list)', () => {
+  assert.equal(siegeEdgeColor(0), SEAT_RING_SIEGE);
+  assert.equal(siegeEdgeColor(1), SEAT_RING_SIEGE_PEAK);
+  assert.equal(siegeEdgeColor(0.5), '#ce3925', 'halfway between (217-194, 83-31, 43-31)');
+  assert.equal(siegeEdgeBeat(0.25), 1, 'the crest a quarter of a second in');
+  assert.equal(siegeEdgeBeat(0.75), 0, 'the trough three quarters in');
+  assert.ok(Math.abs(siegeEdgeBeat(1.25) - 1) < 1e-9, 'one beat a second');
+  const calls = [];
+  const ctx = new Proxy({}, { get: (_, k) => (typeof k === 'string' && !['strokeStyle', 'fillStyle', 'lineWidth', 'globalAlpha', 'lineCap', 'lineJoin', 'font', 'textAlign', 'textBaseline'].includes(k) ? (...a) => calls.push([k, ...a]) : undefined), set: (_, k, v) => { calls.push(['set', k, v]); return true; } });
+  const view = { ox: 0, oy: 0, scale: 2 };
+  paintInkOverlay(ctx, view, { paperW: 400, paperH: 400, dpr: 1, sieges: [{ x: 50, y: 60, r: 9 }], siegeBeat: 1 });
+  assert.deepEqual(calls.find((c) => c[0] === 'arc'), ['arc', 100, 120, 9, 0, Math.PI * 2], 'at the mark, its ring\'s radius');
+  assert.ok(calls.some((c) => c[0] === 'set' && c[1] === 'strokeStyle' && c[2] === SEAT_RING_SIEGE_PEAK), 'burning at the crest');
+  const src = readFileSync(new URL('../src/ui/heldMap.js', import.meta.url), 'utf8');
+  assert.match(src, /sieges: this\._siegeEdges\(env\.model\), siegeBeat: siegeEdgeBeat\(env\.clock\),/);
+  assert.match(src, /\(marks \?\? \[\]\)\.filter\(\(m\) => m\.seatMark\?\.siege\)\.map\(\(m\) => \(\{ x: m\.x, y: m\.y, r: markReach\(m\) \}\)\);/);
 });

@@ -1062,6 +1062,8 @@ export function paintInkOverlay(ctx, view, opts) {
   ctx.lineJoin = 'round';
   const { visible } = penOf(ctx, view, paperW, paperH);
   const pulse = opts.pulse ?? 0;
+  // AUDIT-SEATS II D9: each siege week's ring burns orange to red, a beat a second, under everything else that breathes
+  for (const sg of opts.sieges ?? []) if (visible(sg.x, sg.y)) paintSiegeEdge(ctx, view, sg, opts.siegeBeat ?? 0);
   // WB1: the gate's ring under everything else that breathes - a party member standing in it reads over it
   if (opts.gate && visible(opts.gate.cx, opts.gate.cy, opts.gate.r + 2)) paintGateRing(ctx, view, opts.gate, pulse);
   // BOUNTY1: each held bounty's black circle, under the party too
@@ -1140,6 +1142,27 @@ export function inkShip(ctx, x, y) {
  * @param {CanvasRenderingContext2D} ctx @param {{ox:number, oy:number, scale:number}} view
  * @param {{cx:number, cy:number, r:number, label?:string}} g @param {number} [pulse] 0..1
  */
+/** AUDIT-SEATS II D9 (SEAT0 3.3: a siege week's ring "a slow orange-to-red pulse, one beat a second"): the edge's red at
+ *  the beat's height - the static layer keeps the ring at its orange (SEAT_RING_SIEGE), and the overlay burns over it. */
+export const SEAT_RING_SIEGE_PEAK = '#c21f1f';
+/** One beat a second, 0..1 off the sheet's clock (seconds). */
+export const siegeEdgeBeat = (clockS) => 0.5 + 0.5 * Math.sin((Number(clockS) || 0) * 2 * Math.PI);
+const hexRgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+/** The edge's colour at `beat` (0 its orange, 1 its red), `#rrggbb`. */
+export function siegeEdgeColor(beat) {
+  const t = Math.max(0, Math.min(1, Number(beat) || 0)), a = hexRgb(SEAT_RING_SIEGE), b = hexRgb(SEAT_RING_SIEGE_PEAK);
+  return `#${a.map((v, i) => Math.round(v + (b[i] - v) * t).toString(16).padStart(2, '0')).join('')}`;
+}
+/** One siege week's burning edge on the overlay - `s` `{ x, y, r }` (the mark's map point, its ring's radius in paper
+ *  pixels, markReach's), at the beat's colour, the static ring's width. */
+export function paintSiegeEdge(ctx, view, s, beat) {
+  const [x, y] = toPaper(view, s.x, s.y);
+  ctx.beginPath();
+  ctx.arc(x, y, s.r, 0, Math.PI * 2);
+  ctx.strokeStyle = siegeEdgeColor(beat);
+  ctx.lineWidth = 2.2;
+  ctx.stroke();
+}
 export function paintGateRing(ctx, view, g, pulse = 0) {
   const [x, y] = toPaper(view, g.cx, g.cy);
   const r = Math.max(10, g.r * view.scale);

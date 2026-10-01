@@ -523,5 +523,50 @@
     "tests": [
       "test/seat1c_titles.test.js"
     ]
+  },
+  {
+    "name": "AS2-D9-edge-beat-rate",
+    "file": "src/ui/inkMap.js",
+    "old": "export const siegeEdgeBeat = (clockS) => 0.5 + 0.5 * Math.sin((Number(clockS) || 0) * 2 * Math.PI);",
+    "new": "export const siegeEdgeBeat = (clockS) => 0.5 + 0.5 * Math.sin((Number(clockS) || 0) * 3);",
+    "tests": [
+      "test/seat1c_client.test.js"
+    ]
+  },
+  {
+    "name": "AS2-D9-edge-peak",
+    "file": "src/ui/inkMap.js",
+    "old": "export const SEAT_RING_SIEGE_PEAK = '#c21f1f';",
+    "new": "export const SEAT_RING_SIEGE_PEAK = '#d9532b';",
+    "tests": [
+      "test/seat1c_client.test.js"
+    ]
+  },
+  {
+    "name": "AS2-D9-edge-colour-flat",
+    "file": "src/ui/inkMap.js",
+    "old": "Math.round(v + (b[i] - v) * t)",
+    "new": "Math.round(v)",
+    "tests": [
+      "test/seat1c_client.test.js"
+    ]
+  },
+  {
+    "name": "AS2-D9-edge-unpainted",
+    "file": "src/ui/inkMap.js",
+    "old": "  for (const sg of opts.sieges ?? []) if (visible(sg.x, sg.y)) paintSiegeEdge(ctx, view, sg, opts.siegeBeat ?? 0);\n",
+    "new": "",
+    "tests": [
+      "test/seat1c_client.test.js"
+    ]
+  },
+  {
+    "name": "AS2-D9-host-list",
+    "file": "src/ui/heldMap.js",
+    "old": ".filter((m) => m.seatMark?.siege).map((m) => ({ x: m.x, y: m.y, r: markReach(m) }));",
+    "new": ".filter((m) => m.seatMark).map((m) => ({ x: m.x, y: m.y, r: markReach(m) }));",
+    "tests": [
+      "test/seat1c_client.test.js"
+    ]
   }
 ]

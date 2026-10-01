@@ -111,6 +111,7 @@ import {
   viewCentredOn, zoomAt, toPaper, toMap, BAND_MARKS, PARTY_LABEL_STACK,
   markKind, markInks, mapKeyGroups, KIND_WORD, paintKeyChip, KEY_CHIP_PX,   // MAP-KEY: the key, and each kind in its classic hue
   PEN,   // AUDIT GUIDE U16: the followed quest's diamond is the pen's ink, in the legend as on the sheet
+  markReach, siegeEdgeBeat,   // AUDIT-SEATS II D9: a siege week's ring burns on the overlay
 } from './inkMap.js';
 // SOC6: the party's marks, read the one way both maps read them.
 import {
@@ -594,6 +595,7 @@ export class HeldMapWindow {
     this._handsLost = 0;       // AUDIT-MAP2: ticks in the hands lane without corners
     this._handsMisfit = null;  // MAP-FIT1: the corners that did not fit the screen, when the hands lane was left for that
     this._model = null;     // the ink model, minted on the first layout
+    this._siegeEdgesOf = undefined; this._siegeEdgesList = [];   // AUDIT-SEATS II D9: the siege weeks' rings, made once a model's marks
     this._marksDirty = true;
     this._marksVersion = 0;
     this._layer = null;         // the kept static ink (a canvas), and its key
@@ -1182,6 +1184,7 @@ export class HeldMapWindow {
           quests: this._quests,   // GUIDE5: where the quests point
           travellers: this._trav.map((t) => ({ x: t.x, y: t.y, name: t.name, color: TRAVELLER_MARK_CSS, journey: t.journey, ship: t.ship })),   // TV3; OWS1: at sea, a ship
           pulse: env.pulse,
+          sieges: this._siegeEdges(env.model), siegeBeat: siegeEdgeBeat(env.clock),   // AUDIT-SEATS II D9
         });
       },
       // the bay's keys stay with the WINDOW: I, H, P, the travel
@@ -1963,6 +1966,16 @@ export class HeldMapWindow {
   /** The ports button shows only while the mod restricts ship travel to
    *  ports (:148). */
   _portsShown() { return !!this._to?.settings?.shipTravelPortsOnly; }
+  /** AUDIT-SEATS II D9: the siege weeks' rings to burn on the overlay - `[{ x, y, r }]`, made once a model's marks (a
+   *  frame allocates nothing; a new list only when the marks are minted again). */
+  _siegeEdges(model) {
+    const marks = model?.marks ?? null;
+    if (this._siegeEdgesOf !== marks) {
+      this._siegeEdgesOf = marks;
+      this._siegeEdgesList = (marks ?? []).filter((m) => m.seatMark?.siege).map((m) => ({ x: m.x, y: m.y, r: markReach(m) }));
+    }
+    return this._siegeEdgesList;
+  }
 
   _togglePorts() {
     this.portsFilter = !this.portsFilter;
