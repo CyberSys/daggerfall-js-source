@@ -186,6 +186,18 @@ notes: <title>` - the template asks, the release reads it there
 archive. Never commit a patch-notes file: 113 piled up at the root, each
 read once, and `test/rel4_release.test.js` now fails the suite on one.
 
+THE BIBLE GROWS BY ITS RECORDS, NOT ITS INDEXES (GROWTH1, 2026-10-01,
+Mac: "bible cleanup", then "Growth rules"). Active-Arcs and Testing.md
+are the ways in; the pages they name are the records. A new Active-Arcs
+entry stands above its GROWTH1 marker in at most 700 characters; a
+Testing.md row says what its file pins now in at most 1,000, rewritten,
+never appended to; a dated page in 01-Overview (field bugs, an audit, a
+bug list, a handoff) is at most 32 KB - a batch that outgrows its page
+starts the next one. What was longer on the day is frozen at its length
+(`tools/bibleGrowth.json`; `node tools/bibleGrowth.mjs --write` only
+ever lowers it), and `test/growth1_bible.test.js` fails the suite on
+growth.
+
 ## Sections
 
 - `01-Overview/` - vision, port doctrine, phase plan, Port-Ledger (departures/quirks/unported)
