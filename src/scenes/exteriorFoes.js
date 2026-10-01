@@ -52,6 +52,7 @@ import { onMonsterHit, SPIDER_TOUCH_SPELL_INDEX } from '../systems/diseases.js';
 import { MINUTES_PER_DAY, playerWeaponHitEntity, playerWeaponKillReported } from '../systems/worldTick.js';   // DISC10-D H1: OnWeaponHitEntity's one dispatcher
 import { FOES_MS } from '../net/online.js';   // AUDIT ALL B2: the watchman moved since the frame the striker swung at
 import { applyChampion, rollStreetChampion, championIndex, championName } from '../systems/champions.js';   // LOOT7: the street's champions
+import { lootCrown } from './lootLines.js';   // LOOT11: a body's line of light
 import { validFoeRecord, CELL_PUPPETS_MAX, CELL_WATCH_PUPPETS_MAX, CELL_FRAME_RECORDS_MAX, FOE_SEQ_MAX, POSE_BOUND, POSE_Y_BOUND, tokenGate, FOE_HEALTH_MAX, hitPoisonOf, hitSpellOf, hitSpellFields, HIT_ARROWS_MAX } from '../net/wire.js';   // STRIKE-SHARED: a strike spell rides the hit
 import { CORPSE_ACTIVATION_DISTANCE, liveFoeTargets, liveFoeFor } from '../player/activate.js';   // WORLD-HOVER H2: the LIVE bodies, in the shape the hover's one seam takes
 import { WEAPON_REACH } from '../combat/playerWeapon.js';   // AUDIT WATCH1 B2: a peer's melee blow on my watch lands from the player's own reach, no farther   // AUDIT WORLD6b-iii(c) A1/C7: the owner reads the taker's reach
@@ -2596,6 +2597,9 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     clearLive: destroy,
     collectPixel, arrowHitFoe, removeFoe: questPoolOps.removeFoe,
     moveCorpse, removeCorpse,   // AUDIT NAV2 F11: a deck's dead ride her and go down with her
+    // LOOT11 (the Loot arc): the bodies a line of light may stand over - my own, still searchable, with their lists read
+    // live (scenes/lootLines.js picks the Rare-or-better); a peer's body shows none - its list lives on its owner's side
+    lootFinds: () => foes.filter((f) => f.dead && f.corpseMarker && !f.puppet && !f.corpseDisabled && f.entity?.items?.length).map((f) => ({ root: lootCrown(f.corpseMarker.pos, f.corpseMarker.size), items: f.entity.items })),
     // WORLD6b: the cell's stream - the net installed, my foes out, a peer's in, a peer's blow in, the puppets pruned
     setNet, foesFrame, applyFoes, applyHit, spellToOwner, pruneOwners, clearPuppets, handOverFrame, dropOwnLive,
     deepPuppetsNear,   // DEEP-SHARE: the deep's foes others stand near a point

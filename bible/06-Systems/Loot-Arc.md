@@ -658,3 +658,35 @@ game's import), the record (saved, restored, cleaned, junk, a new game), the pag
 unfound one's hint, the sets, the count), the imprint (choices of its group, every refusal with nothing taken, paid,
 once, its card, its power worn), the wire (a forged imprint refused), and both pages in the window with the pack's
 button and the guild's hook; `tools/mutants/loot10.json` (40, all dead).
+
+### LOOT11 - a line of light over every find (2026-10-01)
+
+**`scenes/lootLines.js`** (new): `pickLootLines` - a find (`{ root, items }`) stands a line when its BEST piece is Rare
+or better (lootRarity.js `bestRarity`), in that tier's colour; the nearest `LOOT_LINES_MAX` (8) within
+`LOOT_LINES_REACH` (40 m) of the eye, nearest first; the list read live every frame, so a find goes dark the moment its
+best is taken below Rare; off, none. `createLootLines(gl)` is the pass - WBX3's line through the spoils' own renderer
+(`render/spoilsGlow.js` SpoilsGlowRenderer: additive, fogged, depth-tested, no light, no new program), a Legendary's and
+better pulsing - and asks for its finds only while the row is on, so an off frame gathers nothing. `lootCrown` roots each
+line at its sprite's crown: a billboard is bottom-anchored (render/bounds.js), so its feet and its height
+(`LOOT_LINE_CROWN`, 0.6, for one whose art has not landed).
+
+**The finds** - each pool says its own (`lootFinds`):
+- THE STREET (`scenes/exteriorFoes.js`): my own searchable bodies - never a peer's (its list lives on its owner's side,
+  the street's own law) - and the piles put down (`scenes/droppedLoot.js`).
+- A BUILDING: its treasure piles (`seedInteriorTreasure` seeds them into the interior's dropped-loot pool) and the bodies
+  of its foe pool (the street pool's kind).
+- THE DUNGEON (`scenes/dungeonContext.js`): a searchable body (`lootableBody` - the room's, whose list the room's record
+  keeps on every client; never a party member's own), its treasure piles (rolled at the build) and what was put down.
+
+**The passes.** `world.js` builds the one pass (`createLootLines(renderer.gl)`), draws the street's after the gate's
+fire with the same eye and fog, and hands the modes `drawLootLines` (scenes/worldModes.js: the dungeon arm's after its
+billboards, the interior arm's after its characters - each in the air the renderer set for it).
+
+**Along the way.** The world host's foreign-pass counts read the two new seams (AUDIT 39r, EV6, EV8, PERF2: 17 and 22);
+INVIS-LOOK's building order keeps the veiled bodies right after the last opaque draw (the lines follow them); `lootCrown`
+for a name the naval ships already used; 194 cites shifted and 26 struck ones by hand.
+
+Pinned: `test/loot11_lines.test.js` (4) - the pick (the best tier, the nearest eight within 40 m, gone below Rare, the
+malformed skipped, off none), the pass (the crown, the renderer's own calls - its roots and its pulse - the finds never
+gathered off, no context no pass), the finds (a pile put down, the street's bodies never a peer's, the dungeon's bodies,
+piles and drops), and every host's pass; `tools/mutants/loot11.json` (15, all dead).

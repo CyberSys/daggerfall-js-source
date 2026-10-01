@@ -209,7 +209,7 @@ import { trs, multiply, identity, UP_Y } from '../world/mat4.js';
 import { StaticBatchBuilder, keyResolver, SHADOW_CELL_SIZE } from '../render/staticBatch.js';   // PERF5: the level's static models as one mesh; LA-AUDIT A1: with its shadow cells
 import { Collider } from '../player/collider.js';
 import { ActionSystem } from '../world/actionSystem.js';
-import { collectDungeonEnemies, expandEliteEnemies, enemyHierarchyOrder } from '../characters/dungeonEnemies.js'; import { markDungeonChampions, applyChampion, championName } from '../systems/champions.js';   // LOOT7: the layout's champions
+import { collectDungeonEnemies, expandEliteEnemies, enemyHierarchyOrder } from '../characters/dungeonEnemies.js'; import { markDungeonChampions, applyChampion, championName } from '../systems/champions.js'; import { lootCrown } from './lootLines.js';   // LOOT7: the layout's champions; LOOT11: a find's line of light
 import { ELITE_FOE_MULTIPLIER, ELITE_HEALTH_SCALE, ELITE_DAMAGE_SCALE, ELITE_LOOT_DROP_MULT, ELITE_LOOT_QUALITY_MULT } from '../world/spawnedDungeons.js';   // ELITE: an elite spawn's foe count and strength
 import { ENEMY_BASICS, enemyDisplayName } from '../characters/enemyBasics.js';
 import { bloodDecalDeps } from '../combat/bloodSwitch.js';   // BLOOD1a
@@ -277,7 +277,7 @@ const q3 = (v) => Math.round(v * 1000) / 1000; const GENDER_BIT = ['male', 'fema
 const HIT_POS_MAX = 1e6;
 // AUDIT FOES FOE5: the most damage one peer's blow may claim. The host TRUSTS the number (it never recomputes - the
 // striker's own calc is the game's), so without a bound any joiner could one-shot every foe in the room and empty it
-// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2432); the dungeon
+// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2433); the dungeon
 // had none. Past anything a legal swing, shaft or blast can roll.
 const HIT_DMG_MAX = 10000;
 /** REST-SYNC: a joiner's ask is answered - or given up on - inside this long: its rest breaks once, at the next hour. */
@@ -1911,7 +1911,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:14633 / exterior.js:3758), set
+  // host's own townTalk sink (world.js:14634 / exterior.js:3758), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -3789,8 +3789,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:24349,
-              // exterior.js:5374 and worldModes.js:8516 already ran;
+              // playerArrowHitFoe is the one copy world.js:24359,
+              // exterior.js:5374 and worldModes.js:8517 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -4666,7 +4666,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const i = data.i | 0, dmg = Number(data.dmg);
     const xs = data.xs === 1;   // REST-SYNC: a shared encounter, by the room's number - not a layout index
     const f = xs ? (_sharedById.get(i) ?? null) : foes[i];
-    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2432). The number is a peer's
+    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2433). The number is a peer's
     // word and the host trusts it without recomputing, so an unbounded one let any joiner one-shot every foe in the
     // room - and, through the kill door, empty it. 10000 is past anything a legal swing, shaft or blast can roll.
     if (!f || (!xs && i >= _layoutFoes) || f.dead || !Number.isFinite(dmg) || dmg < 0 || dmg > HIT_DMG_MAX) return false;
@@ -5240,7 +5240,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // InstantiatePrefab's a fresh GameObject per saved record, so
     // EnemyEntity's `PickpocketByPlayerAttempted` default is the loaded
     // truth for every enemy. The re-minting pools match that by
-    // construction (exteriorFoes.js:1811's restoreWorld goes through
+    // construction (exteriorFoes.js:1812's restoreWorld goes through
     // spawnFoe), but this host patches the LIVE foes in place, so a
     // same-dungeon reload kept a raised latch and a failed pickpocket
     // could never be retried - falsifying the law
@@ -7038,6 +7038,13 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // context mounts none (`enchantCtx: false`), so its own `bossSpell` never ran and a Cast When Strikes spell on the
     // Warden went nowhere in the real game. Outside a court, nobody: false.
     spellOnBoss: (record) => (opts.gateBoss ? spellOnBoss(record) : false),
+    // LOOT11 (the Loot arc): the finds a line of light may stand over - a searchable body (the room's on every client: its
+    // list is the room's record) and a treasure pile, each its crown and its list read live (scenes/lootLines.js picks)
+    lootFinds: () => [
+      ...foes.filter((f) => lootableBody(f) && f.corpsePos && f.entity?.items?.length).map((f) => ({ root: lootCrown(f.corpsePos, f.corpseBatch?.size), items: f.entity.items })),
+      ...lootPiles.filter((p) => p.items?.length).map((p) => ({ root: lootCrown(p.pos, p.batch?.size), items: p.items })),
+      ...droppedLoot.lootFinds(),   // and what was put down here
+    ],
     spellToOwner,   // STRIKE-SHARED: a strike spell of mine on a foe another player runs, to that player
     // AUDIT 19 / 1:1: SelectCurrentSong's dungeon arm seeds DFRandom with
     // the dungeon record header's Unknown2 XOR the region byte

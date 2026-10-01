@@ -473,7 +473,7 @@ import { createOnlineHomes } from '../systems/onlineHomes.js';   // HOME1: the a
 import { townBoardRows, townHomeRows } from '../ui/townMapMarks.js';   // TOWN-MARKS: the Notice Boards and the player housing on the town map
 import { setSigilOnline, setSigilRenown } from '../systems/sigil.js';   // SIGIL1: a weapon won online carries a sigil, woken by my Renown
 import { setSetsDueling, setsDueling, drinkWorn, setSetsWearer } from '../systems/sigilSets.js';   // SET2: the duel's word - sets sleep in one; SET4: the drink, whole; SET5: the wearer a tooltip reads
-import { lootHudChips } from '../systems/lootPowers.js'; import { setSetPowersVoice, setHudChips, heldPlayerBlow, remarkPlayerBlow } from '../systems/sigilSetPowers.js'; import '../systems/lootDrought.js'; import '../systems/lootCodex.js';   // SET3: what the sets DO - every power registered at import; its voice is this host's; SET5: its chips; LOOT4: and lootPowers.js beside it, what a loot piece DOES (the Loot arc), every kind registered at import; LOOT8: lootDrought.js, the drought's finder and take listener, registered at import; LOOT10: lootCodex.js, the codex's take listener, round sweep and record
+import { lootHudChips } from '../systems/lootPowers.js'; import { setSetPowersVoice, setHudChips, heldPlayerBlow, remarkPlayerBlow } from '../systems/sigilSetPowers.js'; import '../systems/lootDrought.js'; import '../systems/lootCodex.js'; import { createLootLines } from './lootLines.js';   // SET3: what the sets DO - every power registered at import; its voice is this host's; SET5: its chips; LOOT4: and lootPowers.js beside it, what a loot piece DOES (the Loot arc), every kind registered at import; LOOT8: lootDrought.js, the drought's finder and take listener, registered at import; LOOT10: lootCodex.js, the codex's take listener, round sweep and record; LOOT11: the lines of light over a find
 import { computeEntityMods } from '../systems/entityMods.js';   // SET3: the sets' stat fold, recomputed the moment they wake or sleep
 import { SPELL_CAST_SOUND } from '../systems/enemySpells.js';   // SET3: the Wrath's and Eventide's sounds are the cast sounds of their schools
 import { itemLongName } from '../systems/itemInfo.js';   // SIGIL1: the weapon's name as its tooltip reads it
@@ -5252,6 +5252,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     }).catch((e) => console.warn('[chargen] CLASS*.CFG unavailable; the interim entity stands in', e));
   }
   const droppedLoot = createDroppedLoot({ renderer, getTexture, uploadRecordFrame });   // U8e
+  const lootLines = createLootLines(renderer.gl);   // LOOT11: the lines of light over a find, one pass for every mode
   // FindGroundPosition (CreateDroppedLootContainer): the pile lands
   // on the ground BELOW the player, not at the motor's height
   const dropFeet = () => {
@@ -8381,7 +8382,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // through the one that owns the billboard - `exteriorFoePool` is
     // the watch AND the encounter foes, and this arm reached the
     // encounter pool's remover for both. That was not a leak: removeFoe
-    // (exteriorFoes.js:516-521) never looks the record up in `foes`, and
+    // (exteriorFoes.js:517-522) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
     // got exactly what removeGuard (cityGuards.js:1627-1645) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
@@ -10868,7 +10869,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7694), so exterior mode and a
+    // composer, dungeonContext.js:7701), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -13520,7 +13521,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10078-10142 -
+  // worldModes answers it in BOTH modes (worldModes.js:10080-10144 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -19552,6 +19553,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     drawPeerNames: ({ proj, view, eye }) => drawPeerNames(proj, view, eye),
     drawCompanionBars: ({ proj, view, eye }) => navalCrewBars(proj, view, eye),   // CREW-COMPANIONS: my companions' green bars indoors and underground
     drawPeerBodies: ({ proj, view, eye }) => drawPeerBodies(proj, view, eye),
+    // LOOT11 (the Loot arc): the lines of light over a body or a pile holding a Rare or better, in the dungeon arm's and the
+    // interior arm's world passes - the mode's own finds, fogged as the renderer set the mode's air
+    drawLootLines: ({ proj, view, eye, finds }) => {
+      if (lootLines.draw(finds, proj, view, eye, performance.now() / 1000, { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, color: renderer._fogColor, camPos: renderer._camPos, focus: renderer._focus })) renderer.markForeignPass();
+    },
     peerLights: (o) => peerTorchLights(o),   // PEERLIGHT1: the others' torches, for the dungeon's and the interior's light lists   // MWBODY1: the others' bodies, after the player's own
     drawVeiledPeerBodies: () => drawVeiledPeerBodies(),   // INVIS-LOOK: and the concealed ones, after the opaque world
     // PEER-PLAQUE1: the plaque names another player in a building and underground too - the SAME pick and the SAME
@@ -24287,6 +24293,10 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // the horns in front of the fire hide it
     if (gatePool?.stands() && gatePool.drawPass(proj, view, new Float32Array(mwv.eye), now / 1000,   // AUDIT WB C7: its arguments built only when a gate stands
       { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, color: renderer._fogColor, camPos: renderer._camPos, focus: renderer._focus })) renderer.markForeignPass();   // AUDIT DEEP R-1: the travel view's focus
+    // LOOT11 (the Loot arc): THE LINES OF LIGHT over my bodies and the street's piles holding a Rare or better - after the
+    // gate's fire, the same eye and fog (scenes/lootLines.js: the nearest eight within 40 m)
+    if (lootLines.draw(() => [...exteriorFoes.lootFinds(), ...droppedLoot.lootFinds()], proj, view, new Float32Array(mwv.eye), now / 1000,
+      { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, color: renderer._fogColor, camPos: renderer._camPos, focus: renderer._focus })) renderer.markForeignPass();
     // TV4 (bible/06-Systems/Travel-View.md): THE CURTAINS FROM ABOVE - the weather map's falling cells as veils stood in
     // the world, under the travel view alone (at the eye the sky map's own curtains stand on the horizon); the same
     // cells the clouds draw, at the shared minute (render/rainCurtains.js)
