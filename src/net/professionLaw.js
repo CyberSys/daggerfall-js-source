@@ -154,7 +154,9 @@ export const SPECIALISATIONS = Object.freeze({
   carpentry: Object.freeze({
     50: pair(spec('bowyer', 'Bowyer', 'Bows +1 quality step (arrows take none).'),
       spec('joiner', 'Joiner', 'Furniture at half the planks.')),
-    100: pair(spec('siegewright', 'Siegewright', 'Rams +50% vitality; siege works a day sooner.', 'SEAT2'),   // PROF4: the sieges are SEAT2's
+    // SEAT2b part two: chosen since the Rams came - its Rams on a siege's attacking roster (fortLaw.js ramVitality), its
+    // fortification projects a day sooner (fortLaw.js fortStandsAt); PROF4 had it `later` (the sieges were SEAT2's)
+    100: pair(spec('siegewright', 'Siegewright', 'Rams +50% vitality; siege works a day sooner.'),
       spec('master-joiner', 'Master Joiner', "Furniture carries the maker's mark.")),
   }),
   masonry: Object.freeze({
@@ -256,6 +258,7 @@ export const MATERIAL_FAMILIES = Object.freeze([
   Object.freeze(['metals', 'Ores and Metals']), Object.freeze(['wood', 'Wood']), Object.freeze(['herbs', 'Herbs']),
   Object.freeze(['hides', 'Hides and Cloth']), Object.freeze(['food', 'Food']), Object.freeze(['stone', 'Stone']),
   Object.freeze(['gems', 'Gems']), Object.freeze(['essences', 'Essences']), Object.freeze(['spoils', 'Spoils of War']),
+  Object.freeze(['works', 'Siege Works']),   // SEAT2b part two: the Ram Kit (PROF0 4.8: "Stores (a siege work)")
 ]);
 /** DFU's two plant groups (itemTemplatesData.js GROUP_TEMPLATE_INDICES), as the material keys write them. */
 export const PLANT_GROUPS = Object.freeze({ p1: 'PlantIngredients1', p2: 'PlantIngredients2' });
@@ -587,13 +590,30 @@ export const STOCK_MAX = 100;
 /** The materials with no pack form yet - none since PROF7, which registered the hides', the leathers' and the cloth's
  *  templates (PROF4 the planks' and Charcoal's before it): every material the Stores hold withdraws. */
 export const NO_PACK_FORM = Object.freeze([]);
-/** Whether the Stores may give a material to the pack. */
-export const withdrawable = (key) => !NO_PACK_FORM.includes(key);
+/** Whether the Stores may give a material to the pack. SEAT2b part two: never a Ram Kit - a siege work is the Stores'
+ *  and its camp's (Seats-Arc 4.2), never a pack piece, whatever its template. */
+export const withdrawable = (key) => !NO_PACK_FORM.includes(key) && key !== RAM_KIT_KEY;
 const MINED = new Map([...METALS, ...ORES, ...INGOTS, ...STONES, ...GEMS, SIEGE_GEM, PEARL, ...WOOD_TEMPLATES, ...HIDE_TEMPLATES, ...PARTS, ...MASONRY_TEMPLATES].map((m) => [m.key, m]));   // PROF7: the hides, leathers, cloth and a body's DFU parts; PROF8: the sea's Pearl; AUDIT-SEATS: the Siege-cracked Gem; PROF11: the bench's Mortar
 /** A mined (or smelted) material's row, or null. */
 export const minedMaterial = (key) => MINED.get(key) ?? null;
 /** PROF5: every registered material's key, in the registry's order - the market's catalogue beside the herbs and foods. */
 export const MINED_KEYS = Object.freeze([...MINED.keys()]);
+
+/**
+ * SEAT2b part two: THE RAM KIT AS THE STORES HOLD IT (PROF0 4.8's 690: "Ram Kit | Stores (a siege work)"; 9.3: Carpentry
+ * rank 60 - 40 Oak Planks, 20 Iron Ingots, 4 Bear Hide). Made at the workbench INTO the crafter's Stores (never a pack
+ * piece: a siege work is the camp's, Seats-Arc 4.2), delivered to a challenger's Siege Camp by a seat writ like any
+ * material, never on the market (MINED_KEYS, the catalogue's, does not hold it). DECIDED: its value - a writ's pay, a
+ * delivery's influence - is its inputs' (40 x 2 + 20 x 1 + 4 x 2 = 108 Marks); its tier the recipe's (5); its writ's XP
+ * Carpentry's (professionOfFamily). The recipe (recipeLaw.js `ramkit:oak`) asks these inputs.
+ */
+export const RAM_KIT_KEY = 'work:ram';
+export const RAM_KIT_TEMPLATE_INDEX = 690;
+export const RAM_KIT_TIER = 5;
+/** @type {(key: string, n: number) => readonly [string, number]} */
+const kitInput = (key, n) => Object.freeze(/** @type {[string, number]} */ ([key, n]));
+export const RAM_KIT_INPUTS = Object.freeze([kitInput('plank:oak', 40), kitInput('ingot:iron', 20), kitInput(BEAR_HIDE.key, 4)]);
+export const RAM_KIT_VALUE = RAM_KIT_INPUTS.reduce((v, [k, n]) => v + TIER_VALUES[(MINED.get(k)?.tier ?? 1) - 1] * n, 0);
 
 /**
  * A material's standing: `{ key, family, tier, value, group?, templateIndex? }`, or null for a key the Stores never
@@ -616,11 +636,13 @@ export function materialOf(key, herbTier) {
   if (FOOD_KEYS.includes(key)) return { key, family: 'food', tier: 1, value: TIER_VALUES[0] };
   const r = MINED.get(key);
   if (r) return { key, family: r.family, tier: r.tier, value: TIER_VALUES[r.tier - 1], ...(r.group ? { group: r.group } : {}), templateIndex: r.templateIndex };
+  if (key === RAM_KIT_KEY) return { key, family: 'works', tier: RAM_KIT_TIER, value: RAM_KIT_VALUE, templateIndex: RAM_KIT_TEMPLATE_INDEX };   // SEAT2b part two
   return null;
 }
 /** Which profession gathers a material - a writ's XP goes to it. PROF4: wood is Logging's (a writ asks only logs). */
 export const professionOfFamily = (family) => (family === 'herbs' || family === 'food' ? 'herbalism'
-  : family === 'metals' || family === 'stone' || family === 'gems' ? 'mining' : family === 'wood' ? 'logging' : null);
+  : family === 'metals' || family === 'stone' || family === 'gems' ? 'mining' : family === 'wood' ? 'logging'
+    : family === 'works' ? 'carpentry' : null);   // SEAT2b part two: a Ram Kit's writ is its maker's craft's
 
 // ─── MINING'S ACT (PROF0 5.2, 23; FORAGE0 14.4) ──────────────────────
 

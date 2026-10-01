@@ -231,7 +231,7 @@ test('PROF4 service: a Small Oak Table made - three Oak Planks spent, the piece 
   assert.equal(both.body.quality, 1, 'one step, not two');
 });
 
-test('PROF4 service: arrows are twenty at no quality (their record -1), one piece; the Ram Kit is refused - it waits for the sieges; Carpentry\'s rank; the bed\'s Linen from the furnisher for Marks, a `stock` line', async () => {
+test('PROF4 service: arrows are twenty at no quality (their record -1), one piece; the Ram Kit made into the Stores - no piece, no quality (SEAT2b part two; PROF4 refused it); Carpentry\'s rank; the bed\'s Linen from the furnisher for Marks, a `stock` line', async () => {
   const s = await stand();
   const mac = await s.registered('Mac');
   s.give(mac, 'plank:pine', 'own', 1); s.give(mac, 'ingot:iron', 'own', 1); s.give(mac, 'p1:8', 'own', 4);
@@ -241,7 +241,13 @@ test('PROF4 service: arrows are twenty at no quality (their record -1), one piec
   assert.deepEqual(s.stores(mac, 'p1:8'), []);
   assert.deepEqual((await s.call('/v1/prof/craft', craft(mac, 'arrows:south'), mac.secret)).body.error, 'stores-short', 'the southern Twigs are another material');
   s.setXp(mac, xpForRank(RAM_KIT_RANK), 'carpentry');
-  assert.deepEqual((await s.call('/v1/prof/craft', craft(mac, 'ramkit:oak'), mac.secret)).body, { error: 'prof-later' });
+  // PIN MOVED (SEAT2b part two): the Ram Kit is made - into the crafter's Stores as its own units, no piece, no record,
+  // no quality (PROF0 4.8: "Stores (a siege work)"); PROF4 refused it (`prof-later`)
+  s.give(mac, 'plank:oak', 'own', 40); s.give(mac, 'hide:bear', 'own', 4); s.give(mac, 'ingot:iron', 'own', 20);
+  const kit = await s.call('/v1/prof/craft', craft(mac, 'ramkit:oak'), mac.secret);
+  assert.equal(kit.status, 200, JSON.stringify(kit.body));
+  assert.deepEqual([kit.body.quality, kit.body.count, kit.body.pieces.map((p) => p.record), s.stores(mac, 'work:ram'), s.stores(mac, 'plank:oak')], [-1, 1, [null], [['own', 1]], []]);
+  assert.ok(kit.body.stores.some((st) => st.material === 'work:ram'), 'the answer carries the kit\'s Stores row');
   s.setXp(mac, 0, 'carpentry');
   s.give(mac, 'plank:oak', 'own', 3);
   assert.deepEqual((await s.call('/v1/prof/craft', craft(mac, 'table-small:oak'), mac.secret)).body, { error: 'prof-rank' }, 'Oak asks Carpentry 10');

@@ -38,8 +38,8 @@
  {
   "name": "SEAT2a4-wire-fell",
   "file": "src/net/wire.js",
-  "old": "    case 'fell': return isId(m.id) && isId(m.by) ?",
-  "new": "    case 'fell': return isId(m.id) ?",
+  "old": "&& (isId(m.by) || isSiegeFigure(m.by)) && m.id !== m.by ?",
+  "new": "&& m.id !== m.by ?",
   "tests": [
    "test/seat2a_siege_play.test.js"
   ]

@@ -730,8 +730,8 @@
  {
   "name": "PVPREF-wire-any-to",
   "file": "src/net/wire.js",
-  "old": "  if (typeof m.to !== 'string' || !ID_RE.test(m.to)) return null;\n  if (m.k === 'ask' || m.k === 'yes')",
-  "new": "  if (typeof m.to !== 'string') return null;\n  if (m.k === 'ask' || m.k === 'yes')",
+  "old": "const peer = typeof m.to === 'string' && ID_RE.test(m.to);",
+  "new": "const peer = typeof m.to === 'string';",
   "tests": [
    "test/pvpref_law.test.js"
   ]

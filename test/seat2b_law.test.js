@@ -93,6 +93,6 @@ test('SEAT2b THE SIEGE CAMP AT THE TURNING: a camp that won the Right sends its 
 });
 
 test('SEAT2b THE REVOLT\'S NUMBERS: a Rebel Captain of Renown 50, twelve rebels, the window\'s two hours; due at Standing nought (mutants: the numbers; the due)', () => {
-  assert.deepEqual({ ...REVOLT }, { captainRenown: 50, rebels: 12, windowMs: 7_200_000 });
+  assert.deepEqual({ ...REVOLT }, { captainRenown: 50, rebels: 12, windowMs: 7_200_000, rebelsWaveMs: 30_000 });   // PIN MOVED (SEAT2b part two): the rebels' wave
   assert.deepEqual([revoltDue(0), revoltDue(1), revoltDue(-3)], [true, false, true]);
 });

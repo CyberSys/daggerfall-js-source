@@ -19,6 +19,7 @@
 import {
   INGOTS, TIER_RANKS, topTierOf, actBand, minedMaterial, WOODS, PINE_PLANK, RESIN, HEARTWOOD, LINEN, WOOL, BEAR_HIDE, CLOTHS, HIDES,
   CURED_LEATHER, HARDENED_LEATHER, SKINNING_KNIFE, COUNTER_ONLY, CUT_STONE, MORTAR, PROF_RANK_MAX,   // PROF11: the mason's stone
+  RAM_KIT_TEMPLATE_INDEX, RAM_KIT_TIER, RAM_KIT_INPUTS,   // SEAT2b part two: the Ram Kit, one home
 } from './professionLaw.js';
 import { CLOTHING_DYES } from '../characters/dyes.js';   // DFU's ten clothing dyes (DyeColors 0-9), one home
 
@@ -140,8 +141,9 @@ export const STAFF_TEMPLATE = 115, SHORT_BOW_TEMPLATE = 129, LONG_BOW_TEMPLATE =
 export const ARROWS_STACK = 20;
 /** DFU's Twigs (a plant of both lands - PlantIngredients1 and 2, template 8), as the Stores keep it twice. */
 export const TWIGS_NORTH = 'p1:8', TWIGS_SOUTH = 'p2:8';
-/** The Ram Kit (PROF0 4.8's 690) - a siege work, rank 60 (9.3). */
-export const RAM_KIT_TEMPLATE = 690;
+/** The Ram Kit (PROF0 4.8's 690) - a siege work, rank 60 (9.3); SEAT2b part two: made, into the crafter's Stores
+ *  (professionLaw.js RAM_KIT_KEY - its inputs and value one home there). */
+export const RAM_KIT_TEMPLATE = RAM_KIT_TEMPLATE_INDEX;
 export const RAM_KIT_RANK = 60;
 const woodName = (id) => WOODS.find((w) => w.id === id)?.name ?? id;
 const woodTier = (id) => WOODS.find((w) => w.id === id)?.tier ?? 1;
@@ -181,7 +183,8 @@ export const CARPENTRY_RECIPES = Object.freeze([
   ...FURNITURE_WOODS.map(([w, i]) => carpentry({ id: `chair:${w}`, name: `${woodName(w)} Chair`, kind: 'furniture', family: 'furniture', templateIndex: 229 + i, wood: w, inputs: [[plank(w), 2]] })),
   ...BEDS.map(([p, name, t, w]) => carpentry({ id: `${p}:${w}`, name, kind: 'furniture', family: 'furniture', templateIndex: t, wood: w, inputs: [[plank(w), 8], [LINEN.key, 2]] })),
   carpentry({ id: 'basket:pine', name: 'Basket', kind: 'tool', family: 'tools', templateIndex: 1607, wood: 'pine', inputs: [[PINE_PLANK.key, 2]] }),
-  carpentry({ id: 'ramkit:oak', name: 'Ram Kit', kind: 'siege', family: 'siege', templateIndex: RAM_KIT_TEMPLATE, wood: 'oak', tier: 5, rank: RAM_KIT_RANK, later: 'sieges', inputs: [[plank('oak'), 40], ['ingot:iron', 20], [BEAR_HIDE.key, 4]] }),
+  // SEAT2b part two: made (PROF4 had it `later: 'sieges'`) - its inputs professionLaw.js's RAM_KIT_INPUTS
+  carpentry({ id: 'ramkit:oak', name: 'Ram Kit', kind: 'siege', family: 'siege', templateIndex: RAM_KIT_TEMPLATE, wood: 'oak', tier: RAM_KIT_TIER, rank: RAM_KIT_RANK, inputs: RAM_KIT_INPUTS.map(([k, n]) => [k, n]) }),
 ]);
 // ─── OUTFITTING (PROF0 9.3, 29) ──────────────────────────────────────
 
@@ -371,9 +374,12 @@ export function rollQuality(u, odds) {
 /** The steps a craft takes, each source at most one (PROF0 9.2): the clean act (the honest bound, 5.1), the family's
  *  specialisation (Weaponsmith the weapons, Armoursmith the plate, the chain and the shields; PROF4: Bowyer the bows;
  *  PROF7: Tailor the clothing, Leatherworker the leather armour), a Warforged ingot, a Heartwood or (PROF7) Hardened
- *  Leather - one step between them (9.2's "Heartwood or a Warforged ingot"; 9.3's "the tier 4-6 leathers' step"). */
-export function qualitySteps(r, { clean = false, spec50 = null, heartwood = false } = {}) {
-  let steps = clean ? 1 : 0;
+ *  Leather - one step between them (9.2's "Heartwood or a Warforged ingot"; 9.3's "the tier 4-6 leathers' step").
+ *  SEAT2b part two: and `station` - the steps a seat's Forge, Workshop or Apothecary gives a member crafting in its town
+ *  (fortLaw.js stationSteps - a step a tier, Seats-Arc 7.5's "Effect per tier"; DECIDED there, 9.2's "at most one" the
+ *  other sources' alone). */
+export function qualitySteps(r, { clean = false, spec50 = null, heartwood = false, station = 0 } = {}) {
+  let steps = (clean ? 1 : 0) + Math.max(0, Math.min(3, Math.floor(Number(station) || 0)));
   if ((spec50 === 'weaponsmith' && r.family === 'weapons') || (spec50 === 'armoursmith' && r.family === 'armour')
     || (spec50 === 'bowyer' && r.family === 'bows') || (spec50 === 'tailor' && r.family === 'clothing')
     || (spec50 === 'leatherworker' && r.family === 'leather')) steps++;

@@ -62,8 +62,8 @@
  {
   "name": "SEAT2a2-law-lengths",
   "file": "src/net/siegeRef.js",
-  "old": "export const SIEGE_LENGTH_MS = Object.freeze({ palace: 30 * 60_000, crown: 45 * 60_000, tourney: 20 * 60_000 });",
-  "new": "export const SIEGE_LENGTH_MS = Object.freeze({ palace: 30 * 60_000, crown: 30 * 60_000, tourney: 20 * 60_000 });",
+  "old": "export const SIEGE_LENGTH_MS = Object.freeze({ palace: 30 * 60_000, crown: 45 * 60_000, tourney: 20 * 60_000, revolt: 2 * 3600_000 });",
+  "new": "export const SIEGE_LENGTH_MS = Object.freeze({ palace: 30 * 60_000, crown: 30 * 60_000, tourney: 20 * 60_000, revolt: 2 * 3600_000 });",
   "tests": [
    "test/seat2a_battle.test.js",
    "test/seat2a_relay.test.js"

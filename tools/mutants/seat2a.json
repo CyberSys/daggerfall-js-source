@@ -88,8 +88,8 @@
  {
   "name": "SEAT2a-law-palace-length",
   "file": "src/net/townSeatLaw.js",
-  "old": "export const BATTLE_LENGTH_MS = Object.freeze({ palace: 30 * 60_000, crown: 45 * 60_000, tourney: 20 * 60_000 });",
-  "new": "export const BATTLE_LENGTH_MS = Object.freeze({ palace: 45 * 60_000, crown: 45 * 60_000, tourney: 20 * 60_000 });",
+  "old": "export const BATTLE_LENGTH_MS = Object.freeze({ palace: 30 * 60_000, crown: 45 * 60_000, tourney: 20 * 60_000, revolt: REVOLT.windowMs });",
+  "new": "export const BATTLE_LENGTH_MS = Object.freeze({ palace: 45 * 60_000, crown: 45 * 60_000, tourney: 20 * 60_000, revolt: REVOLT.windowMs });",
   "tests": [
    "test/seat2a_client.test.js",
    "test/seat2a_service.test.js"
@@ -98,8 +98,8 @@
  {
   "name": "SEAT2a-law-tourney-length",
   "file": "src/net/townSeatLaw.js",
-  "old": "export const BATTLE_LENGTH_MS = Object.freeze({ palace: 30 * 60_000, crown: 45 * 60_000, tourney: 20 * 60_000 });",
-  "new": "export const BATTLE_LENGTH_MS = Object.freeze({ palace: 30 * 60_000, crown: 45 * 60_000, tourney: 30 * 60_000 });",
+  "old": "export const BATTLE_LENGTH_MS = Object.freeze({ palace: 30 * 60_000, crown: 45 * 60_000, tourney: 20 * 60_000, revolt: REVOLT.windowMs });",
+  "new": "export const BATTLE_LENGTH_MS = Object.freeze({ palace: 30 * 60_000, crown: 45 * 60_000, tourney: 30 * 60_000, revolt: REVOLT.windowMs });",
   "tests": [
    "test/seat2a_client.test.js",
    "test/seat2a_service.test.js"
@@ -108,8 +108,8 @@
  {
   "name": "SEAT2a-law-tourney-own-length",
   "file": "src/net/townSeatLaw.js",
-  "old": "export const battleLengthMs = (b) => (b.kind === 'tourney' ? BATTLE_LENGTH_MS.tourney : BATTLE_LENGTH_MS[b.tier] ?? BATTLE_LENGTH_MS.palace);",
-  "new": "export const battleLengthMs = (b) => (BATTLE_LENGTH_MS[b.tier] ?? BATTLE_LENGTH_MS.palace);",
+  "old": "export const battleLengthMs = (b) => (b.kind === 'tourney' ? BATTLE_LENGTH_MS.tourney : b.kind === 'revolt' ? BATTLE_LENGTH_MS.revolt : BATTLE_LENGTH_MS[b.tier] ?? BATTLE_LENGTH_MS.palace);",
+  "new": "export const battleLengthMs = (b) => (b.kind === 'revolt' ? BATTLE_LENGTH_MS.revolt : BATTLE_LENGTH_MS[b.tier] ?? BATTLE_LENGTH_MS.palace);",
   "tests": [
    "test/seat2a_client.test.js",
    "test/seat2a_service.test.js"
@@ -136,7 +136,7 @@
  {
   "name": "SEAT2a-law-tourney-at-window",
   "file": "src/net/townSeatLaw.js",
-  "old": "  const w = b.kind === 'siege' && b.window && siegeWindowOk(b.window.day, b.window.hour) ? b.window : SIEGE_WINDOW_DEFAULT;",
+  "old": "  const w = (b.kind === 'siege' || b.kind === 'revolt') && b.window && siegeWindowOk(b.window.day, b.window.hour) ? b.window : SIEGE_WINDOW_DEFAULT;",
   "new": "  const w = b.window && siegeWindowOk(b.window.day, b.window.hour) ? b.window : SIEGE_WINDOW_DEFAULT;",
   "tests": [
    "test/seat2a_client.test.js"
@@ -145,8 +145,8 @@
  {
   "name": "SEAT2a-law-window-unchecked",
   "file": "src/net/townSeatLaw.js",
-  "old": "  const w = b.kind === 'siege' && b.window && siegeWindowOk(b.window.day, b.window.hour) ? b.window : SIEGE_WINDOW_DEFAULT;",
-  "new": "  const w = b.kind === 'siege' && b.window ? b.window : SIEGE_WINDOW_DEFAULT;",
+  "old": "  const w = (b.kind === 'siege' || b.kind === 'revolt') && b.window && siegeWindowOk(b.window.day, b.window.hour) ? b.window : SIEGE_WINDOW_DEFAULT;",
+  "new": "  const w = (b.kind === 'siege' || b.kind === 'revolt') && b.window ? b.window : SIEGE_WINDOW_DEFAULT;",
   "tests": [
    "test/seat2a_client.test.js"
   ]

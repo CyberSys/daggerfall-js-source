@@ -182,7 +182,7 @@ test('PROF11 law: the Sculptor\'s four (9.3) - a column, a bench, a font, a stat
   assert.deepEqual([recipeOpen(col, 100), recipeOpen(col, 100, { 50: null, 100: null }), recipeOpen(col, 100, { 100: 'fortifier' }), recipeOpen(col, 100, { 100: 'sculptor' }), recipeOpen(col, 9, { 100: 'sculptor' }), recipeOpen(col, 100, { 50: 'sculptor' })],
     [false, false, false, true, false, false]);
   assert.equal(recipeOpen(recipeById('dagger:iron'), 0), true, 'a recipe that asks no choice is the rank\'s alone');
-  assert.equal(recipeOpen(recipeById('ramkit:oak'), 100, { 100: 'sculptor' }), false, 'the Ram Kit still waits for the sieges');
+  assert.equal(recipeOpen(recipeById('ramkit:oak'), 100, { 100: 'sculptor' }), true, 'the Ram Kit is the rank\'s alone - made since SEAT2b part two');   // PIN MOVED (SEAT2b part two): it waited for the sieges
   // its quality, steps, mark: furniture's - the clean chisel a step, no family choice, the mark a Masterwork's alone
   assert.equal(takesQuality(col), true);
   assert.equal(takesHeartwood(col), false);

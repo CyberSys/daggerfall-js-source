@@ -661,7 +661,7 @@ are the **narrowed remainders** Wave D recorded rather than shipped
   CLASSIC-PAGES (2026-09-30, Mac: "Enhanced pages + key"): a door pressed for a professions page - the Professions key
   (the down arrow) or a station - opens them on either skin (`ui/pauseDoor.js` openPauseFlow), and the stations are
   offered on both; the flag is gone from the site (`06-Systems/Online-Arc.md` CLASSIC-PAGES).
-- **`src/net/professionLaw.js:381`** - the woods' pictures, untinted (PROF4, 2026-09-28). *A log and Heartwood
+- **`src/net/professionLaw.js:384`** - the woods' pictures, untinted (PROF4, 2026-09-28). *A log and Heartwood
   borrow DFU's Twigs picture and a plank the Staff's, dyed Iron; the seven woods are not tinted apart, because DFU's two
   dye swatches are clothing's and metal's and a twig's picture is neither's. Whether they read apart in the Stores and
   the pack wants the player's data on screen - Mac's eye. The professions are a Ledger A departure, so no C# line is

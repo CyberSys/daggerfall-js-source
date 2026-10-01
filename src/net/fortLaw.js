@@ -13,7 +13,13 @@
 //
 // Pure (it reads professionLaw.js's materials and its Builder). Not a DFU member: Daggerfall's towns have no player
 // works. Ledger A (EVERY PALACE A SEAT's row).
-import { fortificationStone, minedMaterial } from './professionLaw.js';
+//
+// SEAT2b part two (2026-10-01, Mac: "I want to finish the inprogress"): the works' effects and their part in battle -
+// the numbers the relay's referee COPIES (net/siegeRef.js is a leaf the relay bundles; this module reads professionLaw,
+// which the relay never bundles - so siegeRef holds each number again, pinned EQUAL to this one by test, as its
+// SIEGE_LENGTH_MS is to townSeatLaw.js's), the pass's works (siegeWorksPass), the relay-run figures (SIEGE_FIGURES -
+// the Barracks' guards, the revolt's rebels and its Captain), the Siege Camp's Ram Kits and the Siegewright's day.
+import { fortificationStone, minedMaterial, RAM_KIT_KEY } from './professionLaw.js';
 
 /** The days a tier stands after its last delivery (7.5): tier 1, 2, 3. */
 export const FORT_TIER_DAYS = Object.freeze([2, 4, 7]);
@@ -85,8 +91,14 @@ export function fortNeeds(id, t, { builder = false } = {}) {
   if (!row) return null;
   return { marks: row.marks, needs: row.needs.map(([k, n]) => [k, isStone(k) ? fortificationStone(n, builder) : n]) };
 }
-/** When a project of tier `t` stands: its last delivery (s) and the tier's days (7.5), or null. */
-export const fortStandsAt = (lastDeliveryS, t) => (Number.isFinite(lastDeliveryS) && t >= 1 && t <= 3 ? lastDeliveryS + FORT_TIER_DAYS[t - 1] * 86400 : null);
+/** SEAT2b part two: THE SIEGEWRIGHT'S DAY (Carpentry 100, Professions-Arc 3.3: "siege works a day sooner") - DECIDED: a
+ *  fortification project BEGUN by a Siegewright stands a day sooner (2, 4, 7 days - 1, 3, 6), the starter's craft as the
+ *  Builder's stone is (seatForts.js keeps who began it). */
+export const SIEGEWRIGHT_SOONER_DAYS = 1;
+/** When a project of tier `t` stands: its last delivery (s) and the tier's days (7.5) - a Siegewright's a day sooner -
+ *  or null. */
+export const fortStandsAt = (lastDeliveryS, t, { siegewright = false } = {}) => (Number.isFinite(lastDeliveryS) && t >= 1 && t <= 3
+  ? lastDeliveryS + (FORT_TIER_DAYS[t - 1] - (siegewright ? SIEGEWRIGHT_SOONER_DAYS : 0)) * 86400 : null);
 /** How much of each need is still wanting, given what the project holds (`held`: material -> units). */
 export const fortWanting = (needs, held) => (needs ?? []).map(([k, n]) => [k, Math.max(0, n - Math.max(0, Number(held?.get?.(k) ?? held?.[k] ?? 0)))]);
 /** Whether every need is met. */
@@ -147,13 +159,20 @@ export function stationSteps(profession, forts) {
   for (const [id, profs] of Object.entries(STATION_PROFESSIONS)) if (profs.includes(profession)) steps += Math.max(0, Number(forts?.[id] ?? 0) || 0);
   return steps;
 }
-/** The Harbour: a port for members (the Travel Options' port) at tier 1 or more. */
+/** The Harbour: a port for members (the Travel Options' port, and a harbour ships dock at) at tier 1 or more.
+ *  SEAT2b part two - DECIDED, CORRECTING PART ONE: "coastal seats only" is a seat whose town's map pixel touches the sea
+ *  (a sea pixel among its eight neighbours) - part one asked DFU's port flag, and every DFU port is already one of Travel
+ *  Options' 378, so a Harbour changed nothing; now it makes a coastal town that is no port a port, for the holder's own. */
 export const harbourPort = (t) => Number(t) >= 1;
 
 // ─── THE SIEGE CAMP (4.2, 5.2 step 7) ─────────────────────────────────
 
-/** A Ram Kit as the Stores hold it (PROF0 4.8's 690, a siege work). */
-export const RAM_KIT_KEY = 'work:ram';
+/** A Ram Kit as the Stores hold it (PROF0 4.8's 690, a siege work) - professionLaw.js's own key (its Stores row and value
+ *  live there), said here for the camp. */
+export { RAM_KIT_KEY };
+/** SEAT2b part two: WHAT A SIEGE CAMP'S WRIT MAY ASK (4.2: "its siege works (a Ram Kit) go to the siege it won") - a
+ *  material some work asks, or a Ram Kit; a held seat's stockpile asks the works' materials alone (fortMaterialOk). */
+export const campGoodOk = (key) => fortMaterialOk(key) || key === RAM_KIT_KEY;
 /**
  * A CHALLENGER'S SIEGE CAMP AT THE TURNING (4.2: "its siege works (a Ram Kit) go to the siege it won, and everything
  * else is burnt; a camp that won no Right of Siege is burnt whole"): `camp` `[[material, units]]`, `won` whether its
@@ -176,10 +195,67 @@ export function campSpent(camp, { won = false, gated = false } = {}) {
 
 /** A seat at Standing 0 revolts at its next siege window: a Rebel Captain (vitality as a siege fighter of Renown 50)
  *  and 12 rebels at the palace door; the holder must fell the Captain inside the window's two hours - fail, and the
- *  Charter lapses; succeed, and Standing returns to 20 (townSeatLaw.js STANDING_CHANGES.revoltTo). */
-export const REVOLT = Object.freeze({ captainRenown: 50, rebels: 12, windowMs: 2 * 3600 * 1000 });
+ *  Charter lapses; succeed, and Standing returns to 20 (townSeatLaw.js STANDING_CHANGES.revoltTo). SEAT2b part two -
+ *  DECIDED: a felled rebel rises at the door every 30 seconds (the uprising's strength is its twelve, not a count to clear
+ *  one by one); the Captain never rises - his fall ends it. */
+export const REVOLT = Object.freeze({ captainRenown: 50, rebels: 12, windowMs: 2 * 3600 * 1000, rebelsWaveMs: 30000 });
 /** Whether a seat revolts at its next window: its Standing at nought. */
 export const revoltDue = (standing) => Number(standing) <= 0;
+
+// ─── SEAT2b part two: THE WORKS IN BATTLE AND THE RELAY-RUN FIGURES (6.2, 7.5, 7.7) ───
+
+/** A Ram stands this far before the Gatehouse, on the line to the attackers' camp (DECIDED: 6.2 names its crew's 3 m and
+ *  never its place - before the gate it strikes, where the defenders must come out to it). */
+export const RAM_OFFSET_M = 4;
+/**
+ * THE RELAY-RUN FIGURES (7.5's Barracks: "relay-run town guards fight for the holder ... the gate's brain with adds";
+ * 7.7's Rebel Captain and his twelve). DECIDED (the record named the Captain's vitality alone): each kind's vitality as a
+ * siege fighter's of its Renown (net/siegeRef.js siegeVitality: 300 + 2 x the level) - a guard 25 (350), a rebel 1
+ * (302), the Captain 50 (400, 7.7's own); its blow a roll in `blow` (DFU-scaled to a fighter's 302-400: a guard's sword
+ * fells a lone fighter in some twenty-five seconds), one every `swingMs`, within `reachM` (melee's 2.5); its walk
+ * `speedMps`; it engages the nearest standing enemy within `aggroM` of itself while that enemy is within `leashM` of its
+ * post, and walks home otherwise. Online's own (Ledger A): DFU's towns have no siege.
+ */
+export const SIEGE_FIGURES = Object.freeze({
+  guard: Object.freeze({ renown: 25, blow: Object.freeze([10, 30]), swingMs: 1500, reachM: 2.5, speedMps: 5, leashM: 16, aggroM: 12 }),
+  rebel: Object.freeze({ renown: 1, blow: Object.freeze([8, 22]), swingMs: 1600, reachM: 2.5, speedMps: 4.5, leashM: 24, aggroM: 16 }),
+  captain: Object.freeze({ renown: 50, blow: Object.freeze([16, 36]), swingMs: 1300, reachM: 2.5, speedMps: 4.5, leashM: 8, aggroM: 10 }),
+});
+/** A figure's vitality: a siege fighter's at its kind's Renown (300 + 2 x it - siegeRef.js siegeVitality's law). */
+export const figureVitality = (kind) => 300 + 2 * (SIEGE_FIGURES[kind]?.renown ?? 1);
+/**
+ * THE GUARDS' POSTS (DECIDED): the Throne first - the door the holder must keep - then the banners in the field's order,
+ * round again: guard i at posts[i % posts.length]. `field` `{ banners: [[x, z]], throne: [x, z] }` (siegeRef.js fieldOf's
+ * shape); answers each guard's post, `n` of them.
+ */
+export function guardPosts(field, n) {
+  const posts = [field?.throne, ...(field?.banners ?? [])].filter(Boolean);
+  if (!posts.length) return [];
+  return Array.from({ length: Math.max(0, Math.min(6, Math.floor(Number(n) || 0))) }, (_, i) => [posts[i % posts.length][0], posts[i % posts.length][1]]);
+}
+/**
+ * THE WORKS A BATTLE'S PASS CARRIES (net/identityToken.js `sx`): `[walls, gate, guards, rams, ramHp]` - the Walls' tier
+ * (the defenders' wave), the Gatehouse's vitality (0 none: a palace whose Gatehouse never stood), the Barracks' guards,
+ * the Ram Kits the Siege Camp sent and a Ram's vitality (a Siegewright on the attacking roster's +50%). `kind` the
+ * battle's ('siege' | 'tourney' | 'revolt'), `tier` the seat's, `forts` its standing tiers (`{ [work]: tier }`), `rams`
+ * the battle's kits, `siegewright` whether one stands on the attacking roster. A Tourney fights over no works (DECIDED:
+ * the seat is unheld - its works wait for the winner); a revolt keeps the Walls alone (the holder's side is the
+ * defenders; DECIDED: no guard draws on the town, no Ram, no gate); a Ram needs a Gatehouse to strike.
+ */
+export function siegeWorksPass({ kind, tier, forts = {}, rams = 0, siegewright = false }) {
+  const t = (id) => Math.max(0, Math.min(fortMaxTier(id), Math.floor(Number(forts?.[id] ?? 0) || 0)));
+  if (kind === 'revolt') return [t('walls'), 0, 0, 0, 0];
+  if (kind !== 'siege') return [0, 0, 0, 0, 0];
+  const gate = tier === 'crown' || t('gatehouse') >= 1 ? gatehouseVitality(t('gatehouse')) : 0;
+  const kits = gate ? Math.max(0, Math.min(99, Math.floor(Number(rams) || 0))) : 0;
+  return [t('walls'), gate, barracksGuards(t('barracks')), kits, kits ? ramVitality(siegewright) : 0];
+}
+/** THE WATCHTOWERS' WORD (7.5: "the holder is told when a challenger passes half its defence (tier 1) or a quarter
+ *  (tier 2)"): whether a challenger's `influence` at the seat has passed - strictly - its share of the holder's `defence`. */
+export const watchtowerPassed = (influence, defence, t) => {
+  const share = watchtowerShare(Math.floor(Number(t) || 0));
+  return share != null && Number(defence) > 0 && Number(influence) > Number(defence) * share;
+};
 
 // ─── THE WORKS' WORDS (7.9: "the stockpile: every fortification project and what it still needs") ───
 

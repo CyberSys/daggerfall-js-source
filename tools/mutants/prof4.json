@@ -185,8 +185,8 @@
   {
     "name": "PROF4-wood-no-profession",
     "file": "src/net/professionLaw.js",
-    "old": ": family === 'wood' ? 'logging' : null);",
-    "new": ": null);",
+    "old": "family === 'wood' ? 'logging'",
+    "new": "family === 'woodx' ? 'logging'",
     "tests": [
       "test/prof4_law.test.js"
     ]

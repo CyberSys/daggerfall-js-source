@@ -95,8 +95,8 @@
   {
     "name": "PROF3-law-clean-two-steps",
     "file": "src/net/recipeLaw.js",
-    "old": "  let steps = clean ? 1 : 0;",
-    "new": "  let steps = clean ? 2 : 0;",
+    "old": "  let steps = (clean ? 1 : 0) + Math.max(0, Math.min(3, Math.floor(Number(station) || 0)));",
+    "new": "  let steps = (clean ? 2 : 0) + Math.max(0, Math.min(3, Math.floor(Number(station) || 0)));",
     "tests": [
       "test/prof3_law.test.js",
       "test/prof3_service.test.js"
@@ -200,8 +200,8 @@
   {
     "name": "PROF3-stock-withdrawn",
     "file": "src/net/professionLaw.js",
-    "old": "export const withdrawable = (key) => !NO_PACK_FORM.includes(key);",
-    "new": "export const withdrawable = (key) => !!key;",
+    "old": "export const withdrawable = (key) => !NO_PACK_FORM.includes(key) && key !== RAM_KIT_KEY;",
+    "new": "export const withdrawable = (key) => !!key && key !== RAM_KIT_KEY;",
     "tests": [
       "test/prof3_law.test.js",
       "test/prof3_service.test.js"

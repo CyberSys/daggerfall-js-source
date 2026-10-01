@@ -469,8 +469,8 @@
  {
   "name": "CROWN1R-pass-kind",
   "file": "src/net/identityToken.js",
-  "old": "(c.sn !== 'siege' && c.sn !== 'tourney' && !royal)) return false;",
-  "new": "(c.sn !== 'siege' && c.sn !== 'tourney')) return false;",
+  "old": "export const SIEGE_PASS_KINDS = Object.freeze(['siege', 'tourney', 'royal', 'revolt']);",
+  "new": "export const SIEGE_PASS_KINDS = Object.freeze(['siege', 'tourney', 'revolt']);",
   "tests": [
    "test/crown1_royal_law.test.js",
    "test/crown1_royal_relay.test.js"

@@ -51,8 +51,8 @@
   {
     "name": "SEAT2b-stands-a-day-early",
     "file": "src/net/fortLaw.js",
-    "old": "lastDeliveryS + FORT_TIER_DAYS[t - 1] * 86400",
-    "new": "lastDeliveryS + (FORT_TIER_DAYS[t - 1] - 1) * 86400",
+    "old": "(FORT_TIER_DAYS[t - 1] - (siegewright ? SIEGEWRIGHT_SOONER_DAYS : 0)) * 86400",
+    "new": "(FORT_TIER_DAYS[t - 1] - 1 - (siegewright ? SIEGEWRIGHT_SOONER_DAYS : 0)) * 86400",
     "tests": [
       "test/seat2b_law.test.js",
       "test/seat2b_client.test.js",

@@ -21,7 +21,7 @@ import { KINGDOMS, MARCHES, kingdomOf, isMarch, isFreeLand } from './kingdomLaw.
 import { TIDE_EFFECTS } from './tideLaw.js';   // SEASON1 part two: the Tides' numbers (9.3)
 import { HERALDRY_COLOURS } from './heraldryLaw.js';
 import { marksText } from './marksLaw.js';   // AUDIT-SEATS L7: "1,200 Drakes"
-import { fortWork } from './fortLaw.js';   // SEAT2b: a work's name in the Chronicle
+import { fortWork, REVOLT } from './fortLaw.js';   // SEAT2b: a work's name in the Chronicle; part two: a revolt's window
 
 /** A heraldry colour key's hex (heraldryLaw.js's palette), or null. */
 const heraldryHex = (key) => HERALDRY_COLOURS.find((c) => c.key === key)?.hex ?? null;
@@ -611,6 +611,11 @@ export function chronicleLine(row, seat, zero = null) {
     case 'fort-begun': return `${when}, ${guildWords(d.guild)} began raising ${seat.name}'s ${fortWork(d.work)?.name ?? 'works'} to ${theirOf(d.work)} ${TIER_WORDS[d.tier] ?? 'next'} tier.`;
     case 'walls-kept': return `${when}, a Fortifier's work kept ${seat.name}'s Walls standing as the seat was taken.`;
     case 'fort-raised': return `${when}, ${seat.name}'s ${fortWork(d.work)?.name ?? 'works'} stood at ${theirOf(d.work)} ${TIER_WORDS[d.tier] ?? 'next'} tier.`;
+    // SEAT2b part two (7.7; 9.2: "Anticlere rose against the Silver Hand. The rebel captain fell at the palace door, and
+    // the Charter held."): a revolt called at the Turning, put down, or lapsing the Charter
+    case 'revolt': return `${when}, ${seat.name} rose against ${guildWords(d.guild)}.`;
+    case 'revolt-down': return `${when}, ${seat.name} rose against ${guildWords(d.guild)}. The rebel captain fell at the palace door, and the Charter held.`;
+    case 'revolt-lapsed': return `${when}, ${seat.name} rose against ${guildWords(d.guild)}. The rebels held the palace door, and ${c} lapsed.`;
     default: return null;
   }
 }
@@ -981,18 +986,20 @@ export const siegeStartMs = (week, day, hour) => seatWeekStartMs(week) + WEDNESD
 export const CROWN_SIEGE_SLOT = Object.freeze({
   daggerfall: Object.freeze({ day: 3, hour: 20 }), wayrest: Object.freeze({ day: 3, hour: 21 }), sentinel: Object.freeze({ day: 3, hour: 22 }),
 });
-/** How long a battle runs (6.2, 6.7): a palace siege 30 minutes, a crown's 45, a Tourney 20. */
-export const BATTLE_LENGTH_MS = Object.freeze({ palace: 30 * 60_000, crown: 45 * 60_000, tourney: 20 * 60_000 });
-export const battleLengthMs = (b) => (b.kind === 'tourney' ? BATTLE_LENGTH_MS.tourney : BATTLE_LENGTH_MS[b.tier] ?? BATTLE_LENGTH_MS.palace);
+/** How long a battle runs (6.2, 6.7): a palace siege 30 minutes, a crown's 45, a Tourney 20; SEAT2b part two: a revolt
+ *  the window's two hours (7.7: "The holder's side must fell the Captain inside the window's two hours"). */
+export const BATTLE_LENGTH_MS = Object.freeze({ palace: 30 * 60_000, crown: 45 * 60_000, tourney: 20 * 60_000, revolt: REVOLT.windowMs });
+export const battleLengthMs = (b) => (b.kind === 'tourney' ? BATTLE_LENGTH_MS.tourney : b.kind === 'revolt' ? BATTLE_LENGTH_MS.revolt : BATTLE_LENGTH_MS[b.tier] ?? BATTLE_LENGTH_MS.palace);
 /** WHAT A BATTLE HOLDS OF ITS GUILDS' WEEK (6.3: "No guild fights twice at once") - DECIDED: a palace siege and a
  *  Tourney their two-hour window; a crown siege the hour its slot keeps from the next crown's (45 minutes and the 10 a
  *  side may arrive late), so a guild holding one crown and challenging another fights both. */
 export const BATTLE_BLOCK_MS = 2 * H;
 export const battleSpanMs = (b) => (b.kind === 'siege' && b.tier === 'crown' ? H : BATTLE_BLOCK_MS);
-/** The battle's first start in its week: a crown siege's slot, a Tourney's Wednesday 20:00, a siege's frozen window. */
+/** The battle's first start in its week: a crown siege's slot, a Tourney's Wednesday 20:00, a siege's frozen window -
+ *  SEAT2b part two: and a revolt's (6.3: "a revolt takes the holder's window"; a crown's too - its slot is a siege's). */
 export function battlePreferredMs(week, b) {
   if (b.kind === 'siege' && b.tier === 'crown' && CROWN_SIEGE_SLOT[b.kingdom]) { const s = CROWN_SIEGE_SLOT[b.kingdom]; return siegeStartMs(week, s.day, s.hour); }
-  const w = b.kind === 'siege' && b.window && siegeWindowOk(b.window.day, b.window.hour) ? b.window : SIEGE_WINDOW_DEFAULT;
+  const w = (b.kind === 'siege' || b.kind === 'revolt') && b.window && siegeWindowOk(b.window.day, b.window.hour) ? b.window : SIEGE_WINDOW_DEFAULT;
   return siegeStartMs(week, w.day, w.hour);
 }
 /** Every start a battle may take in `week`, in time order: each window hour of Wednesday to Saturday. */
@@ -1061,6 +1068,8 @@ export function battleAnnouncement(b, seatName) {
   const when = battleWhenText(b.startsAt);
   const moved = b.moved ? ' (moved, so that no guild fights twice at once)' : '';
   if (b.kind === 'tourney') return `${GuildWords(b.attackerGuild)} and ${guildWords(b.defenderGuild)} meet in a Tourney for ${seatName}. Battle is joined ${when}${moved}.`;
+  // SEAT2b part two (7.7): a revolt - the town against its holder
+  if (b.kind === 'revolt') return `${seatName} has risen against ${guildWords(b.defenderGuild)}. Its rebels hold the palace door; the Rebel Captain must fall by the window's end, or the Charter lapses. Battle is joined ${when}${moved}.`;
   return `${GuildWords(b.attackerGuild)} has won the Right of Siege at ${seatName}. ${GuildWords(b.defenderGuild)} holds its Charter. Battle is joined ${when}${moved}.`;
 }
 /** A side's line: "Attackers: 7 of 10 signed (1 Sellsword)." */

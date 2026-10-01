@@ -54,6 +54,7 @@ import {
   stockOf, STOCK_MAX, withdrawable, cutsMax, workPer, workSpecRank, hideOfFoe, HIDES_PER_DAY, HIGH_HIDES_PER_DAY, HIGH_HIDE_TIER,
   HAULS_PER_DAY, HAUL_YIELD, FISH_KEY, haulTier,   // PROF8
   workOpen,   // PROF11: a mason's work asks its rank
+  RAM_KIT_KEY,   // SEAT2b part two: the Ram Kit made into the Stores
 } from '../../src/net/professionLaw.js';
 import {
   recipeById, recipeOpen, qualityOdds, rollQuality, qualitySteps, craftQuality, takesQuality, craftXp, craftCount,
@@ -820,7 +821,8 @@ async function craftAnswer(db, player, row, nowS, extra = {}) {
   const { results = [] } = await db.prepare(`SELECT provenance, record, maker, marked FROM products WHERE provenance IN (${ids.map((_, i) => `?${i + 1}`).join(', ')})`).bind(...ids).all();
   const by = new Map(results.map((p) => [p.provenance, p]));
   const prof = r?.profession ?? 'smithing';
-  const spent = r ? [...new Set([...r.inputs.map((i) => i.key), ...recipeInputs(r, { heartwood: Number(row.heartwood) === 1 }).map((i) => i.key)])] : [];
+  const spent = r ? [...new Set([...r.inputs.map((i) => i.key), ...recipeInputs(r, { heartwood: Number(row.heartwood) === 1 }).map((i) => i.key),
+    ...(r.kind === 'siege' ? [RAM_KIT_KEY] : [])])] : [];   // SEAT2b part two: a siege work's Stores row beside its inputs'
   return {
     ok: true, ...extra, recipe: row.recipe, quality: Number(row.quality), count: Number(row.count), seed: Number(row.seed),
     maker: by.get(row.provenance)?.maker ?? null, marked: Number(by.get(row.provenance)?.marked ?? 0) === 1, xp: Number(row.xp), first: Number(row.first) === 1,
@@ -837,7 +839,8 @@ async function craftAnswer(db, player, row, nowS, extra = {}) {
  * garment's colour (recipeLaw GARMENT_DYES) - signed into the record, kept on the piece; asked of anything else,
  * refused (`prof-dye`). The service cannot see the anvil, the workbench or the loom (as it cannot see the forge,
  * PROF0 23): the inputs are the Stores' and their units are the bound. The recipe's rank is the
- * character's rank in its profession to reach; a recipe whose slice is to come is refused (`prof-later` - the Ram Kit).
+ * character's rank in its profession to reach; a recipe whose slice is to come is refused (`prof-later` - none now: the
+ * Ram Kit is made since SEAT2b part two, INTO the crafter's Stores - a siege work, no piece, no record, no mark).
  * The quality is the service's roll on the margin (9.2), then a step each for the act the client reports clean (the
  * honest bound: one step, 5.1), the family's specialisation, and a Warforged ingot or a Heartwood (one step between
  * them); a Masterwright's points; nothing past Masterwork - a Repair Kit and arrows take none, and a Quartermaster's kit
@@ -859,7 +862,10 @@ export async function craftAtAnvil(ctx, player, env, { character, recipe: id, cl
   if (closed) return closed;
   const r = recipeById(id);
   if (!r) return { error: 'bad-recipe' };
-  if (r.later) return { error: 'prof-later' };   // PROF4: the Ram Kit - named, made with the sieges (PROF0 25)
+  if (r.later) return { error: 'prof-later' };   // PROF4: a recipe named before its slice (the Ram Kit was, until SEAT2b part two)
+  // SEAT2b part two (PROF0 4.8: "Ram Kit | Stores (a siege work)"; Seats-Arc 4.2): a siege work is made INTO the crafter's
+  // Stores - never a piece, so no record, no mark; the decision asks the Stores' room for it, as a smelt's product does
+  const siege = r.kind === 'siege';
   if (!dyeOk(r, dye)) return { error: 'prof-dye' };   // PROF7: a garment's dye, of its ten - nothing else is dyed
   if (await overRate(ctx, `prof:${player.id}`, PROF_OPS_MAX, PROF_OPS_WINDOW_S)) return { error: 'prof-rate' };
   const { results: tracks = [] } = await db.prepare('SELECT * FROM prof_tracks WHERE player = ?1 AND char_id = ?2').bind(player.id, character).all();
@@ -882,7 +888,7 @@ export async function craftAtAnvil(ctx, player, env, { character, recipe: id, cl
   const provs = Array.from({ length: count }, () => provenanceId(rand));
   const key = await signingKey(env, subtle);
   const u = dye ?? null;
-  const records = await Promise.all(provs.map((p) => mintProductRecord({ p, s: player.id, h: character, r: r.id, q: quality, m: maker, c: seed, a: marked === 1 && maker !== null, u }, key, { subtle, nowS })));   // AUDIT 30 L4: the mark signed; PROF7: the dye
+  const records = siege ? [] : await Promise.all(provs.map((p) => mintProductRecord({ p, s: player.id, h: character, r: r.id, q: quality, m: maker, c: seed, a: marked === 1 && maker !== null, u }, key, { subtle, nowS })));   // AUDIT 30 L4: the mark signed; PROF7: the dye
   const nonce = mintId(rand);
   // ?1 player ?2 character ?3 rid ?4 recipe ?5 quality ?6 count ?7 provenance ?8 provenance2 ?9 seed ?10 the XP before the
   // first craft's ?13 (AUDIT 32 S1: none for a recipe wholly of goods only a counter sells) ?11 now ?12 nonce ?14 the
@@ -893,6 +899,7 @@ export async function craftAtAnvil(ctx, player, env, { character, recipe: id, cl
     binds.push(inp.key, inp.n);
     held.push(`${spendableSql('?1', '?2', `?${17 + 2 * i}`)} >= ?${18 + 2 * i}`);   // GOLD-MARKET: never gold's units
   });
+  if (siege) held.push(`COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?2 AND material = '${RAM_KIT_KEY}'), 0) + ?6 <= ${Number(STORES_MAX)}`);   // SEAT2b part two: the kit's room
   const decided = 'EXISTS (SELECT 1 FROM prof_crafts WHERE player = ?1 AND rid = ?5 AND n = ?6)';
   await db.batch([
     // THE DECISION: every input held - and the XP what the track can take under the crafter's limit, the first craft's
@@ -907,10 +914,14 @@ export async function craftAtAnvil(ctx, player, env, { character, recipe: id, cl
     ...inputs.flatMap((inp) => spendStatements(db, {
       player: player.id, character, materialSql: '?3', qtySql: '?4', guard: decided, binds: [inp.key, inp.n, rid, nonce],
     })),
-    // the pieces, each its provenance id, its owner (this account), its signed record, its mark and (PROF7) its dye
-    ...provs.map((p, i) => db.prepare(`INSERT INTO products (provenance, owner, char_id, maker, recipe, template, material, quality, seed, record, made_at, marked, dye)
-      SELECT ?4, ?1, ?2, ?6, ?7, ?8, ?9, quality, seed, ?10, at, ?11, dye FROM prof_crafts WHERE player = ?1 AND rid = ?3 AND n = ?5`)
-      .bind(player.id, character, rid, p, nonce, maker, r.id, r.templateIndex, r.material, records[i], marked)),
+    // the pieces, each its provenance id, its owner (this account), its signed record, its mark and (PROF7) its dye -
+    // SEAT2b part two: a siege work none, its units into the crafter's Stores (own, as a smelt's are)
+    ...(siege ? [db.prepare(`INSERT INTO prof_stores (player, char_id, material, origin, qty)
+      SELECT ?1, ?2, ?4, 'own', count FROM prof_crafts WHERE player = ?1 AND rid = ?3 AND n = ?5
+      ON CONFLICT (player, char_id, material, origin) DO UPDATE SET qty = prof_stores.qty + excluded.qty`).bind(player.id, character, rid, RAM_KIT_KEY, nonce)]
+      : provs.map((p, i) => db.prepare(`INSERT INTO products (provenance, owner, char_id, maker, recipe, template, material, quality, seed, record, made_at, marked, dye)
+        SELECT ?4, ?1, ?2, ?6, ?7, ?8, ?9, quality, seed, ?10, at, ?11, dye FROM prof_crafts WHERE player = ?1 AND rid = ?3 AND n = ?5`)
+        .bind(player.id, character, rid, p, nonce, maker, r.id, r.templateIndex, r.material, records[i], marked))),
     // the XP the decision credited, under the crafter's limit - the recipe's profession's
     db.prepare(`INSERT INTO prof_tracks (player, char_id, profession, xp, updated_at)
       SELECT ?1, ?2, ?7, MIN(?4, xp), ?5 FROM prof_crafts WHERE player = ?1 AND rid = ?3 AND n = ?6
@@ -924,6 +935,7 @@ export async function craftAtAnvil(ctx, player, env, { character, recipe: id, cl
     const st = await storeOf(db, player.id, character, inp.key);
     if (st.own + st.bought < inp.n) return { error: st.own + st.bought + (st.gold ?? 0) >= inp.n ? 'stores-gold' : 'stores-short', material: inp.key };   // GOLD-MARKET
   }
+  if (siege) return { error: 'stores-full', material: RAM_KIT_KEY };   // SEAT2b part two: every input held - the kit's room was not
   return { error: 'stores-short' };
 }
 

@@ -520,9 +520,14 @@ export function orderValid(c) {
  * agrees, part four). Its carrier is the account it names: the room refuses a pass whose `s` is not the hello's own.
  * CROWN1 part two: a Royal Tourney's pass is the same order - `sn` 'royal' at a crown, its side a contender's `duel` or a
  * spectator's `watch`, its window the week the Edict rules (to ROYAL_PASS_SPAN_S), its field the ring's centre alone.
+ * SEAT2b part two: a REVOLT's pass - `sn` 'revolt' (Seats-Arc 7.7: the holder's side against the relay's rebels), its
+ * side `defend` (the holder's) or `watch`, its window two hours, its field a siege's; and THE WORKS (`sx`, fortLaw.js
+ * siegeWorksPass): `[walls, gate, guards, rams, ramHp]` - the Walls' tier, the Gatehouse's vitality (0 none), the
+ * Barracks' guards, the Ram Kits and a Ram's vitality - the service's frozen word for the battle, so every pass of it
+ * agrees (the room refuses one that does not). Optional: no Royal Tourney carries it, nor a pass an older service minted.
  */
 /** A pass's fields - never on another kind. */
-export const SIEGE_PASS_FIELDS = Object.freeze(['sk', 'sw', 'sd', 'st', 'sn', 'sb', 'se', 'sf']);
+export const SIEGE_PASS_FIELDS = Object.freeze(['sk', 'sw', 'sd', 'st', 'sn', 'sb', 'se', 'sf', 'sx']);
 /** The sides a pass may name: the two sides' fighters, and a spectator's - CROWN1 part two: and a Royal Tourney's
  *  contender. */
 export const SIEGE_PASS_SIDES = Object.freeze(['attack', 'defend', 'watch', 'duel']);
@@ -531,8 +536,28 @@ export const SIEGE_PASS_SIDES = Object.freeze(['attack', 'defend', 'watch', 'due
 export const siegePassPoints = (tier, kind = 'siege') => (kind === 'royal' ? 1 : tier === 'crown' ? 7 : 6);
 /** A field's coordinates' bound, in the room's units. */
 export const SIEGE_PASS_COORD_MAX = 1e9;
-/** The longest a battle's window may run on a pass (a palace siege's or a Tourney's two hours). */
+/** The longest a battle's window may run on a pass (a palace siege's, a Tourney's or a revolt's two hours). */
 export const SIEGE_PASS_SPAN_S = 2 * 3600;
+/** SEAT2b part two: the kinds of battle a pass may name. */
+export const SIEGE_PASS_KINDS = Object.freeze(['siege', 'tourney', 'royal', 'revolt']);
+/** SEAT2b part two: THE WORKS' BOUNDS on a pass (`sx`): the Walls' top tier; a Gatehouse's vitality (fortLaw.js
+ *  gatehouseVitality at tier 3 is 50,000 - room above it); the Barracks' most guards; the Ram Kits; a Ram's vitality (a
+ *  Siegewright's 4,500 - room above it). */
+export const SIEGE_PASS_WORKS = Object.freeze({ walls: 3, gate: 60_000, guards: 6, rams: 99, ramHp: 9_000 });
+const intTo = (v, max) => Number.isSafeInteger(v) && v >= 0 && v <= max;
+/** Whether a pass's works (`sx`) are a pass's, for a battle of `kind`: five whole numbers in their bounds; Rams only where
+ *  a Gatehouse stands, each with a vitality; a Tourney's and a revolt's gate, guards and Rams none (a revolt keeps its
+ *  Walls); never on a Royal Tourney's. */
+export function siegeWorksValid(sx, kind) {
+  if (sx === undefined) return true;
+  if (kind === 'royal' || !Array.isArray(sx) || sx.length !== 5) return false;
+  const [walls, gate, guards, rams, ramHp] = sx;
+  const W = SIEGE_PASS_WORKS;
+  if (!intTo(walls, W.walls) || !intTo(gate, W.gate) || !intTo(guards, W.guards) || !intTo(rams, W.rams) || !intTo(ramHp, W.ramHp)) return false;
+  if ((rams > 0) !== (ramHp > 0) || (rams > 0 && gate === 0)) return false;
+  if (kind !== 'siege' && (gate !== 0 || guards !== 0 || rams !== 0 || (kind === 'tourney' && walls !== 0))) return false;
+  return true;
+}
 /** CROWN1 part two: a Royal Tourney's - its seat week. */
 export const ROYAL_PASS_SPAN_S = 7 * 24 * 3600;
 const coordOk = (v) => Number.isSafeInteger(v) && Math.abs(v) <= SIEGE_PASS_COORD_MAX;
@@ -540,8 +565,10 @@ const coordOk = (v) => Number.isSafeInteger(v) && Math.abs(v) <= SIEGE_PASS_COOR
 export function siegePassValid(c) {
   if (!Number.isSafeInteger(c.sk) || c.sk < 0 || c.sk > 0xffffffff || !Number.isSafeInteger(c.sw) || c.sw < 0) return false;
   const royal = c.sn === 'royal';
-  if (!SIEGE_PASS_SIDES.includes(c.sd) || (c.st !== 'palace' && c.st !== 'crown') || (c.sn !== 'siege' && c.sn !== 'tourney' && !royal)) return false;
+  if (!SIEGE_PASS_SIDES.includes(c.sd) || (c.st !== 'palace' && c.st !== 'crown') || !SIEGE_PASS_KINDS.includes(c.sn)) return false;
   if (royal ? c.st !== 'crown' || (c.sd !== 'duel' && c.sd !== 'watch') : c.sd === 'duel') return false;   // a contender is a Royal Tourney's alone
+  if (c.sn === 'revolt' && c.sd === 'attack') return false;   // SEAT2b part two: a revolt's attackers are the relay's rebels
+  if (!siegeWorksValid(c.sx, c.sn)) return false;
   if (!Number.isSafeInteger(c.sb) || c.sb <= 0 || !Number.isSafeInteger(c.se) || c.se <= c.sb || c.se - c.sb > (royal ? ROYAL_PASS_SPAN_S : SIEGE_PASS_SPAN_S)) return false;
   return siegeFieldValid(c.sf, c.st, c.sn);
 }
@@ -553,9 +580,9 @@ export function siegeFieldValid(sf, tier, kind = 'siege') {
 }
 
 /** SEAT2a: MINT A SIEGE PASS - the service's word that account `s` may enter seat `sk`'s battle of week `sw` on side `sd`. */
-export async function mintSiegeOrder({ s, sk, sw, sd, st, sn, sb, se, sf }, privateKey, { subtle, nowS, ttlS = ORDER_TTL_S }) {
+export async function mintSiegeOrder({ s, sk, sw, sd, st, sn, sb, se, sf, sx }, privateKey, { subtle, nowS, ttlS = ORDER_TTL_S }) {
   if (!Number.isSafeInteger(nowS)) throw new TypeError('mintSiegeOrder needs an integer epoch-seconds clock');
-  const claims = { o: 'siege', s, sk, sw, sd, st, sn, sb, se, sf, i: nowS, e: nowS + ttlS };
+  const claims = { o: 'siege', s, sk, sw, sd, st, sn, sb, se, sf, ...(sx !== undefined ? { sx } : {}), i: nowS, e: nowS + ttlS };   // SEAT2b part two: the works
   if (!orderValid(claims)) throw new TypeError('mintSiegeOrder refused an order it could not verify');
   return sealClaims(claims, privateKey, subtle);
 }
