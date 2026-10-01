@@ -15,6 +15,7 @@ import {
 import { standService, T0 } from './accountDb.mjs';
 import { decorWhyNot } from '../src/ui/decorPanel.js';
 import { toolRig, fakeDoc, fakeWin, fakeBlocks, rmb, TOWN, settle } from './decorFakes.mjs';
+import { DECOR_LOT_MARKS } from '../src/scenes/decorTool.js';   // FB1001 ROAD-LOT (PIN MOVED): the lot's edge is marked in as many bands as it has sides
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const piece = (over = {}) => ({ id: 'yard1', model: 41000, flat: null, pos: [8, 0, 2], rot: [0, 0, 0], scale: 1, light: null, storage: false, paid: 120, ...over });
@@ -224,7 +225,7 @@ test('HOME-YARD the decorator outside: the owner\'s own lot found under their fe
   // the rig's eye meets a surface 2 m ahead of (10, 1.6, 10), facing +z: in the house's footprint here
   assert.equal(rig.tool.why(), YARD_IN_HOUSE, 'refused where it cannot stand');
   assert.equal(await rig.tool.commit(), false);
-  assert.ok(rig.decals.some((d) => d.cap === 4 && d.writes.length), 'the lot\'s edge marked');
+  assert.ok(rig.decals.some((d) => d.cap === DECOR_LOT_MARKS && d.writes.length), 'the lot\'s edge marked');   // FB1001 ROAD-LOT: PIN MOVED - four sides, and the road's
 });
 
 test('HOME-YARD the world host by source: each building\'s own place and footprint recorded at the build, the yards made online alone, brought in line every frame (stood down indoors), their models, flats and lot marks in the world\'s passes, the free eye and the stick the decorator\'s while it flies, and the service\'s writes carry `yard` (mutants: the frame unrecorded; the pass unwired; the flag lost)', () => {

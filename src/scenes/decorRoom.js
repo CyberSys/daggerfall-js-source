@@ -168,7 +168,7 @@ export function createDecorRoom({
   meshes, renderer, getTexture, uploadRecord, uploadRecordFrame, flatAnims = () => null, collider, origin, roomLights = () => null,
   mwPicture = null, later = setTimeout, doors = null,
 }) {
-  /** @type {Map<string, {piece: any, gpu: any, box: any, matrix: Float32Array, batch: any, anims: any, size: any, light: any, mount: any, door: any}>} */
+  /** @type {Map<string, {piece: any, o: number[], gpu: any, box: any, cpu: any, matrix: Float32Array, batch: any, anims: any, size: any, light: any, mount: any, door: any}>} */
   const standing = new Map();
   const models = new Map();   // model id -> Promise<{gpu, cpu, box}>
   const flats = new Map();    // "a.r" -> Promise<{t, w, h} | null>
@@ -270,7 +270,8 @@ export function createDecorRoom({
   function put(piece) {
     unmount(standing.get(piece.id));
     const o = origin?.() ?? [0, 0, 0];
-    const entry = { piece, gpu: null, box: null, matrix: decorMatrix(piece, o), batch: null, anims: null, size: null, light: null, mount: null, door: null };
+    // FB1001 YARD-RECENTRE: `o`, the origin it stands from, and `cpu`, its model's (once stood) - restand() moves it
+    const entry = { piece, o: [o[0], o[1], o[2]], gpu: null, box: null, cpu: null, matrix: decorMatrix(piece, o), batch: null, anims: null, size: null, light: null, mount: null, door: null };
     standing.set(piece.id, entry);
     if (decorIsMount(piece)) {   // DECOR2c: hung flat on its surface, as its pack picture (MW-MOUNT: or its Morrowind one)
       artOf(piece).then((art) => {
@@ -295,7 +296,7 @@ export function createDecorRoom({
         // piece of furniture in the doorway
         if (decorIsDoor(piece) && doors && m.cpu?.positions && m.cpu?.indices) { entry.door = doors.add(piece, m, entry.matrix) ?? null; if (entry.door) return; }
         entry.gpu = m.gpu;
-        if (m.cpu?.positions && m.cpu?.indices) collider?.()?.addMesh?.(decorKeyOf(piece.id), m.cpu.positions, m.cpu.indices, entry.matrix);
+        if (m.cpu?.positions && m.cpu?.indices) { entry.cpu = m.cpu; collider?.()?.addMesh?.(decorKeyOf(piece.id), m.cpu.positions, m.cpu.indices, entry.matrix); }
       });
       stand();
     } else {
@@ -311,10 +312,11 @@ export function createDecorRoom({
         // DECOR-FLIP: turned half round, the picture faces the other way - the renderer's flip is the sign of its width
         // (the size the eye's box reads stays whole)
         const drawn = decorFlatMirrored(piece) ? { w: -entry.size.w, h: entry.size.h } : entry.size;
-        entry.batch = renderer.createBillboardBatch(da, dr, drawn, [[o[0] + piece.pos[0], o[1] + piece.pos[1], o[2] + piece.pos[2]]]);
+        const at = entry.o;   // FB1001 YARD-RECENTRE: where it stands now - a restand() before its picture landed moved it
+        entry.batch = renderer.createBillboardBatch(da, dr, drawn, [[at[0] + piece.pos[0], at[1] + piece.pos[1], at[2] + piece.pos[2]]]);
         const anims = flatAnims?.() ?? null;
         if (!pic && armFlatAnim(entry.batch, f.t, a, r, anims, uploadRecordFrame ?? null)) entry.anims = anims;   // FA1: a lamp's flame moves as the room's own do
-        mountLight(entry, o, decorLightLift(piece, entry.size));
+        mountLight(entry, at, decorLightLift(piece, entry.size));
       });
     }
     return entry;
@@ -325,6 +327,30 @@ export function createDecorRoom({
     unmount(e);
     standing.delete(id);
     return e?.piece ?? null;
+  }
+
+  /**
+   * FB1001 YARD-RECENTRE: EVERY PIECE STOOD AGAIN WHERE `origin()` STANDS NOW, AT ONCE - its matrix, its solid bucket,
+   * its picture's place and its light moved, nothing let go or asked again. A world that recentres moves its yards so:
+   * put again, a model stands only when its model's answer runs - after the frame that put it is drawn - so every
+   * piece went missing for that frame. A hung piece or a door is put again (none stands in a yard).
+   */
+  function restand() {
+    const o = origin?.() ?? [0, 0, 0];
+    for (const e of [...standing.values()]) {
+      const d = [o[0] - e.o[0], o[1] - e.o[1], o[2] - e.o[2]];
+      if (!d[0] && !d[1] && !d[2]) continue;
+      if (e.mount || e.door || decorIsMount(e.piece)) { put(e.piece); continue; }
+      e.o = [o[0], o[1], o[2]];
+      e.matrix = decorMatrix(e.piece, o);
+      if (e.batch) { const b = e.batch.origin ?? [0, 0, 0]; e.batch.origin = [b[0] + d[0], b[1] + d[1], b[2] + d[2]]; }
+      if (e.light) { e.light.x += d[0]; e.light.y += d[1]; e.light.z += d[2]; }
+      if (e.cpu) {
+        const c = collider?.();
+        c?.removeBucket?.(decorKeyOf(e.piece.id));
+        c?.addMesh?.(decorKeyOf(e.piece.id), e.cpu.positions, e.cpu.indices, e.matrix);
+      }
+    }
   }
 
   /** Replace every piece (a visit's load). */
@@ -475,7 +501,7 @@ export function createDecorRoom({
   }
 
   return {
-    put, remove, set, destroyAll, draw, batches, drawMounts, lights, targets, pieceOf, list, size: () => standing.size,
+    put, remove, set, restand, destroyAll, draw, batches, drawMounts, lights, targets, pieceOf, list, size: () => standing.size,
     itemsOf, holdsAny, itemsSnapshot, setItems, keep, kept: () => kept,
     ownOf, keepOwn, takeOwn, ownSnapshot, setOwn, ownIds, refreshMounts, mountPicture, standPicture, onRefresh,
   };

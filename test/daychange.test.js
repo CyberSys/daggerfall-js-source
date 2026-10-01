@@ -487,7 +487,7 @@ test('S41 re-entrancy: the exhaustion collapse re-enters the tick, and one midni
       try { collapses++; ticker.advance(60); e.fatigue = 1e9; }
       finally { onExhausted.busy = false; }
     };
-    const sinks = {                                 // shared.js:884-892
+    const sinks = {                                 // shared.js:888-896
       drainFatigue: (n) => {
         if (n <= 0) return;
         e.fatigue = Math.max(0, (e.fatigue ?? 0) - n);
@@ -500,7 +500,7 @@ test('S41 re-entrancy: the exhaustion collapse re-enters the tick, and one midni
           entity: e, classicMinutes: worldMinutes(), dt, sinks,
           rolls: () => 0.99, say: () => {},
         });
-        setWorldMinutes(r.classicMinutes);          // shared.js:925 - the write-back
+        setWorldMinutes(r.classicMinutes);          // shared.js:929 - the write-back
         return r;
       },
       advance(m) { return m > 0 ? this.tick(m / CLASSIC_MINUTES_PER_SECOND) : null; },

@@ -110,7 +110,7 @@
   {
     "name": "AUDIT30-S7-the-stuck-rows-first",
     "file": "server-account/src/market.js",
-    "old": "      AND (kind = 'piece' OR COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = market_listings.seller AND char_id = market_listings.char_id\n        AND material = market_listings.material), 0) + own + bought <= ?2)\n    ORDER BY closed_at",
+    "old": "      AND (kind IN ('piece', 'item') OR COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = market_listings.seller AND char_id = market_listings.char_id\n        AND material = market_listings.material), 0) + own + bought <= ?2)\n    ORDER BY closed_at",
     "new": "\n    ORDER BY closed_at",
     "tests": [
       "test/audit30_service.test.js"
@@ -364,7 +364,7 @@
   {
     "name": "AUDIT30-U2-the-search-filtered-on-the-client",
     "file": "src/ui/marketTab.js",
-    "old": "...(found ? { materials: found } : {})",
+    "old": " ...(found ? { materials: found } : {}),",
     "new": "",
     "tests": [
       "test/audit30_client.test.js"
@@ -409,8 +409,8 @@
   {
     "name": "AUDIT30-U16-the-listed-order",
     "file": "src/ui/marketTab.js",
-    "old": ".sort((a, b) => landed(a) - landed(b) || a.price - b.price)",
-    "new": ".sort((a, b) => a.price - b.price)",
+    "old": ".sort((a, b) => landed(a) - landed(b) || a.price - b.price);\n      const list = el('div', 'market-rows');\n      for (const r of rows) {\n        list.append(st.view === 'materials'",
+    "new": ".sort((a, b) => a.price - b.price);\n      const list = el('div', 'market-rows');\n      for (const r of rows) {\n        list.append(st.view === 'materials'",
     "tests": [
       "test/audit30_client.test.js"
     ]

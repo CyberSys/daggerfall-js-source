@@ -94,6 +94,19 @@ export function effectiveSkill(v) {
 /** The highest effective value a skill can reach (a HUD bar's full width). */
 export const EFFECTIVE_SKILL_MAX = effectiveSkill(SKILL_HARD_CAP);
 
+// CLIMB-PAST (FIELD BUGS 2026-10-01 #7, "Running jumping climbing dint work passed 100"; Mac: "I dont care about DFU.
+// We're our own thing now"). The run, the swim and the jump read the effective value in their own speed laws, so their
+// points past 100 move the body. Climbing drives one thing in Daggerfall - CalculateClimbingChance, which clamps the
+// skill to 5..95 and is certain at 95 (Luck 40 or more) - and GetClimbingSpeed reads no skill, so a Climbing mastered
+// to 200 climbed exactly as a 95. Past 100 its points go to the climb's SPEED: each effective point over 100 climbs this
+// much faster (x1.4 at 200, effective 140), from the same live value the check reads; to 100 the climb is base / 3.
+export const CLIMB_OVERCAP_SPEED_PER_POINT = 0.01;
+/** The climb speed's multiplier for a LIVE Climbing value (skills.js skillValue): 1 to 100, bounded at the effective cap. */
+export function overcapClimbSpeed(liveClimbing) {
+  const gain = Math.min(EFFECTIVE_SKILL_MAX, liveClimbing) - SKILL_SOFT_CAP;
+  return gain > 0 ? 1 + gain * CLIMB_OVERCAP_SPEED_PER_POINT : 1;   // a missing value (NaN) climbs as DFU's
+}
+
 // ---- the real-use law -------------------------------------------------
 
 /** Skill ids, kept numeric here so this leaf needs no import (skills.js SKILLS). */
