@@ -81,15 +81,29 @@ export function spellPointRecoveryRate(entity) {
 export const EXHAUSTED_SAFE_TEXT_ID = 1071;
 export const EXHAUSTED_ENEMIES_TEXT_ID = 1072;
 export const EXHAUSTED_IN_WATER = 'Fatigue overcomes you and sends you to a watery grave....';
+/**
+ * FIELD BUGS 2026-09-30b (SWIM-SPENT; Mac: "you can get instakilled when fishing" - "I dont care about DFU. We're our
+ * own thing now"): A SWIMMER WHO RUNS OUT OF FATIGUE DROWNS, NOT AT ONCE. DFU's OnExhausted SetHealth(0)s a swimmer
+ * whatever the health, and says so after (EXHAUSTED_IN_WATER). Now each drain to nothing in the water - one a game
+ * minute while the swimmer stays in it, five real seconds - costs this share of the health pool, said on the HUD with
+ * no box to hold the swimmer still: some fifty seconds from full health to reach the shore, where the collapse is the
+ * rest hour it always was.
+ */
+export const EXHAUSTED_SWIM_SHARE = 0.1;
+export const EXHAUSTED_SWIMMING_LINE = 'You are too exhausted to swim - get out of the water!';
 
 /**
  * The OnExhausted outcome, pure (the scene owns the popup and the
  * clock): returns what must happen. deps = { enemiesNearby, swimming,
  * entity, day, inside }. Safe: one rest hour - the caller advances
  * the clock 60 classic minutes, applies the three rates (clamped)
- * and tallies Medical. Otherwise: death.
+ * and tallies Medical. In the water (SWIM-SPENT): `drown` - `damage`
+ * off the health, `line` on the HUD, no box. Otherwise: death.
  */
 export function exhaustionOutcome({ enemiesNearby = false, swimming = false, entity, day = false, inside = true }) {
+  if (swimming) {
+    return { kind: 'drown', damage: Math.max(1, Math.ceil((entity?.maxHealth ?? 0) * EXHAUSTED_SWIM_SHARE)), line: EXHAUSTED_SWIMMING_LINE, textId: null, inWater: true };
+  }
   if (!enemiesNearby && !swimming) {
     // LIVED1: every collapse costs its hour and pays it in full, online as offline - the host's RaiseTime moves the
     // character's own clock (worldTick.js advanceOwnMinutes through the ticker), so the hour is charged: the needs,
@@ -103,5 +117,5 @@ export function exhaustionOutcome({ enemiesNearby = false, swimming = false, ent
       magicka: spellPointRecoveryRate(entity),
     };
   }
-  return { kind: 'death', textId: swimming ? null : EXHAUSTED_ENEMIES_TEXT_ID, inWater: swimming };
+  return { kind: 'death', textId: EXHAUSTED_ENEMIES_TEXT_ID, inWater: false };   // foes about, on dry feet (the water's is `drown`, above)
 }

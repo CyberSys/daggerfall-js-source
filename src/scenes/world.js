@@ -94,7 +94,7 @@ import { tallySwingSkills, SWING_FATIGUE_COST, playerPainVoice, playPlayerVoice,
 import { flashPlayerDamage } from '../ui/damageFlash.js';
 import { resetVitalsDetector } from '../ui/hudVitals.js';   // BLOOD AUDIT 5: the load's detector reset   // AUDIT 24 (wave 46): the arrow owes the flash too   // AUDIT 23 (C14)
 import { hudFade } from '../ui/fadeLayer.js';   // D4: performFastTravel's and TeleportAway's fade from black
-import { exhaustionOutcome, EXHAUSTED_IN_WATER } from '../systems/rest.js';   // AUDIT 23 (C5)
+import { exhaustionOutcome } from '../systems/rest.js';   // AUDIT 23 (C5); SWIM-SPENT: the water's line is the outcome's
 import { bloodDecalDeps } from '../combat/bloodSwitch.js';
 import { createBloodMarks } from '../combat/bloodMarks.js';   // BLOOD1a: the ring, owned by this host and ended by its own name
 import { preloadRestArt } from '../ui/restWindow.js';   // S40: rest above ground   // D3: REST00I0/01I0/02I0
@@ -107,7 +107,7 @@ import { maxFatigue, FATIGUE_MULTIPLIER, liveStat } from '../systems/statMods.js
 // finished since U7; what was missing was a host outside the dungeon
 // that opens one, and CanRest's whole town half.
 import { restDecision, getPreventedRestMessage, REST_TEXT } from '../systems/restSession.js';   // U48: the DISPATCH (DaggerfallUI.cs:651-688) above the rest window   // ROAD-B B5: GetPreventedRestMessage   // PARTY-REST5: enemiesNearby's own textId, for a follower's own relayed break
-import { isHouseOwned, shipCoords, ownsShip, assignShipToPlayer, resetShip, SHIP_COORDS, SHIP_INTERIOR_MAP_IDS, SHIP_TYPES, createBankAccounts, BANK_REGION_COUNT, forgiveLoans, loanAmnestyLines } from '../systems/banking.js';   // H1: the quest residence filter; GetShipCoords for the map-pixel scene clear; OwnsShip for the travel popup   // AUDIT 58: AssignShipToPlayer's permanent half, which the classic import owed
+import { isHouseOwned, shipCoords, ownsShip, assignShipToPlayer, resetShip, SHIP_COORDS, SHIP_INTERIOR_MAP_IDS, SHIP_TYPES, createBankAccounts, BANK_REGION_COUNT, forgiveLoans, loanAmnestyLines, foldEmpireAccounts, empireAccountLines, goldRegion } from '../systems/banking.js';   // H1: the quest residence filter; GetShipCoords for the map-pixel scene clear; OwnsShip for the travel popup   // AUDIT 58: AssignShipToPlayer's permanent half, which the classic import owed
 import {
   clearSceneCache,           // P1: SaveLoadManager.ClearSceneCache, at PlayerGPS's map-pixel seam
   createSceneCache, cacheScene, restoreCachedScene, worldSceneName, LOOT_CONTAINER_TYPES,   // A10: the ship arm's Cache/RestoreCachedScene pair (TransportManager.cs:382-398)
@@ -765,6 +765,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   if (testRoomOffline) { params.delete('online'); publishBootParams(params); }
   if (testRoomOffline && realmSession) { setRealmNotice(globalThis.sessionStorage, realmRefusalText('test-room')); exitToTitleMenu(); return; }   // REALM P1.3: never the realm's
   const loansForgiven = realmBoot ? forgiveLoans(bootSnapRead) : null;   // LOAN-AMNESTY: the Empire's amnesty, into the one parse before it is restored and before the join settles a loan (systems/banking.js)
+  const empireFolded = realmBoot ? foldEmpireAccounts(bootSnapRead) : null;   // EMPIRE-ACCOUNT: every branch's gold into the Empire's one account, before it is restored and before the join settles a loan (systems/banking.js)
   if (refuseOnlinePowerFlags(params).length) publishBootParams(params);   // REALM P0.1: ?shot, ?fly, ?nofoes and the rest - dropped online before anything below reads them
   const regionName = params.get('region') || 'Daggerfall';
   const locationName = params.get('loc') || 'Daggerfall';
@@ -1129,7 +1130,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       realm: realmSession ? { act: (o) => realmGoldAct({ ...o, session: realmSession, checkpoint: () => onlineCheckpoint() }) } : null,
       wallet: realmSession ? (region) => {
         playerEntity.bankAccounts ??= createBankAccounts(BANK_REGION_COUNT);
-        const account = playerEntity.bankAccounts[region] ?? null;
+        const account = playerEntity.bankAccounts[goldRegion(playerEntity.bankAccounts, region)] ?? null;   // EMPIRE-ACCOUNT: the Empire's account
         return {
           gold: () => totalGoldAmount(playerEntity) + Math.max(0, account?.accountGold ?? 0),
           pay: (n) => { const owed = deductGold(playerEntity, n); if (account && owed > 0) account.accountGold -= owed; },
@@ -4568,7 +4569,6 @@ export async function bootWorld(canvas, renderer, params, status) {
   function onExhaustedExterior() {
     if (_inExhaustion || (sharedClockOn() && exhaustedShowing())) return;
     _inExhaustion = true;
-    if (csaRuntime) csaCall(() => csaRuntime.OnPlayerDeath());   // CSA-D: PlayerEntity.OnExhausted -> ComeSailAway.OnPlayerDeath
     try {
       const out = exhaustionOutcome({
         // CollapseFromExhaustion (PlayerEntity.cs:2397) asks
@@ -4581,7 +4581,11 @@ export async function bootWorld(canvas, renderer, params, status) {
         swimming: !!player.isPlayerSwimming, entity: playerEntity,   // XL-1: PlayerEntity.cs:2406/:2426 read PlayerEnterExit.IsPlayerSwimming - PlayerMotor.IsSwimming is false outdoors (:421)
         day: !isNight(minuteNow()), inside: false,
       });
-      const lines = out.inWater ? [EXHAUSTED_IN_WATER] : ['You collapse from exhaustion.'];
+      // SWIM-SPENT (rest.js): in the water the drain to nothing is a share of the health and a line - no box, so the
+      // swimmer can make for the shore; Come Sail Away hears no death
+      if (out.kind === 'drown') { townTalk.say(out.line); hurtPlayer(playerEntity, out.damage, { bypassShield: true }); return; }
+      if (csaRuntime) csaCall(() => csaRuntime.OnPlayerDeath());   // CSA-D: PlayerEntity.OnExhausted -> ComeSailAway.OnPlayerDeath
+      const lines = ['You collapse from exhaustion.'];
       // ROAD-B B5: a PUSH. PlayerEntity's OnExhausted handler is a plain
       // DaggerfallUI.MessageBox, and DaggerfallUI.MessageBox is
       // `new DaggerfallMessageBox(...); mb.Show()` -> uiManager
@@ -7445,7 +7449,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   ];
   const _makeEnemiesHostile = () => makeEnemiesHostile(_liveEnemyDatabase());
   const cityGuards = createCityGuards({
-    renderer, collider, fetchBytes, getTexture, uploadRecordFrame, playerEntity, audio, hitEffects,
+    renderer, collider, fetchBytes, getTexture, uploadRecordFrame, playerEntity, audio, hitEffects, groundStands: (x, z) => Number.isFinite(heightAt(x, z)),   // FALL-HOLD: a watchman over a pixel not built is held, not stepped
     playerWeaponSheathed: () => !!weaponRig.playerWeapon.sheathed,   // AUDIT 24 (wave 42): pacification's drawn-weapon penalty
     raidHere: () => raidDefendingHere(),   // RAID-GUARDS: a raid on in this town spares its defenders every blow of the player's
     fightHere: () => areEnemiesNearby([...cityGuards.guards, ...exteriorFoes.foes]),   // PROTECT-FIGHT: under the protection, a fight spares the street's walkers
@@ -7488,7 +7492,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // LIVE. Same damage door shape as the guards; no crime machinery.
   const exteriorFoes = createExteriorFoes({
     inLocation: () => _musicInLocationRect(),   // SOFTCAP5: only the wilderness scales its foes (towns and cities never)
-    renderer, collider, fetchBytes, getTexture, uploadRecordFrame, playerEntity, audio, hitEffects,
+    renderer, collider, fetchBytes, getTexture, uploadRecordFrame, playerEntity, audio, hitEffects, groundStands: (x, z) => Number.isFinite(heightAt(x, z)),   // FALL-HOLD: a foe over a pixel not built is held, not stepped
     playerWeaponSheathed: () => !!weaponRig.playerWeapon.sheathed,   // AUDIT 24 (wave 42): pacification's drawn-weapon penalty
     currentMinute: () => Math.floor(playerTicker.ownMinutes),
     currentPixelKey: () => `${playerTravelPixel().x},${playerTravelPixel().y}`,   // TrackLooseObject's stamp
@@ -8191,10 +8195,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2753 mounts the same one, gated on
+  // and dungeonContext.js:2755 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6565
+  // that context through modes.dungeonCtx - so worldModes.js:6569
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -8508,7 +8512,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // it refused). HOME-LOOK rides its panel: "Exterior", the house's outside painted. Online alone.
   const homeYardWallet = (region) => {
     playerEntity.bankAccounts ??= createBankAccounts(BANK_REGION_COUNT);
-    const a = playerEntity.bankAccounts[region] ?? null;
+    const a = playerEntity.bankAccounts[goldRegion(playerEntity.bankAccounts, region)] ?? null;   // EMPIRE-ACCOUNT: the Empire's account
     return {
       gold: totalGoldAmount(playerEntity) + (a?.accountGold ?? 0),
       pay: (n) => { const short = deductGold(playerEntity, n); if (a) a.accountGold -= short; },
@@ -10776,7 +10780,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7615), so exterior mode and a
+    // composer, dungeonContext.js:7617), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -13427,7 +13431,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10056-10120 -
+  // worldModes answers it in BOTH modes (worldModes.js:10060-10124 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -13895,7 +13899,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  all fixed forever. The port cloned first and re-expanded from
    *  source every time, which is the port being more correct than
    *  the game it is a port of. The answer pipeline's caller clones
-   *  BEFORE calling (answerPipeline.js:660, C#'s own `.Clone()` at
+   *  BEFORE calling (answerPipeline.js:665, C#'s own `.Clone()` at
    *  :3552), so the in-place pass is right for both. Also: C# calls
    *  this whether or not GetQuest found anything - the null-parent arm
    *  is a DFU forum-bug fix INSIDE ExpandQuestMessage, not a caller
@@ -14634,6 +14638,10 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (quest) questBridge.machine.startQuestImmediate(quest);
       return !!quest;
     },
+    // FIELD BUGS 2026-09-30b (TOOL-SAID, TOOL-USE): the professions this account's, the keys the prompt names, and a tool's Use at its own node E there
+    professionsOpen: () => profBook?.state.open === true,
+    keyLabel: (a) => { const c = getBinding(bindings(), a); return c ? tagText(c) : null; },
+    professionUse: (t) => gatherHost?.useTool(t) ?? false,   // the gathering host's act, or what the node needs
   });
   // WA1: the mod's reaches into GameManager and DaggerfallBankManager, answered by this host (systems/warmAshesShips.js)
   setWarmAshesHost({
@@ -15847,7 +15855,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       },
       wallet: () => {
         playerEntity.bankAccounts ??= createBankAccounts(BANK_REGION_COUNT);
-        const account = playerEntity.bankAccounts[_questRegionIndex() ?? 0] ?? null;
+        const account = playerEntity.bankAccounts[goldRegion(playerEntity.bankAccounts, _questRegionIndex() ?? 0)] ?? null;   // EMPIRE-ACCOUNT: the Empire's account
         return {
           gold: () => totalGoldAmount(playerEntity) + (account?.accountGold ?? 0),
           pay: (n) => { const short = deductGold(playerEntity, n); if (account && short > 0) account.accountGold -= short; },
@@ -20022,6 +20030,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   if (realmBoot?.restored && realmBoot.missed) townTalk.say(REALM_RESTORED_TEXT);   // RESCUE-SAVE: the device's copy of a save the realm refused or never answered, played on (AUDIT A8: an ordinary close's, silently)
   for (const line of reclaimLines(realmGiven)) townTalk.say(line);   // RESTORE: what came back, said once the world stands
   for (const line of loanAmnestyLines(loansForgiven)) townTalk.say(line);   // LOAN-AMNESTY: said once the world stands
+  for (const line of empireAccountLines(empireFolded)) townTalk.say(line);   // EMPIRE-ACCOUNT: said once the world stands
   // EOTB-IL: StartGameBehaviour.OnNewGame (the mod's handler, IL_0930) -
   // a boot that loaded nothing is a new game, wherever it starts
   if (!_loadedGame) mwViewNewGame((modes?.mode ?? 'exterior') !== 'exterior');
@@ -23633,7 +23642,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (dwDecor) drawDeepWatersDecorations(groundQueue);   // DW-E2: the decorations, cut-out (the AlphaTest queue), on the floors they stand on
     if (dwFish) drawDeepWatersFish();   // DW-E3: the fish - the same material, their own facing (FaceY) and cut-out (0.1)
     if (dwLoot) drawDeepWatersLoot();   // DW-E5: the sunken piles - the same material, a DaggerfallBillboard's facing, the billboard's cut-out (0.5)
-    csaDrawWaves();   // CSA-F: Come Sail Away's waves along the coasts - opaque, cut out and dithered
+    // CSA-F: Come Sail Away's waves along the coasts - opaque, cut out and dithered. FIELD BUGS 2026-09-30b (TV-SURF):
+    // never under the travel view - from 150-450 m up a breaker strip is its whole plan, a pixel-aligned half-tone sheet
+    // on open water and low shore (the screenshot's light-blue rectangles); the surf waits for the traveller's eye, as
+    // the grass does
+    if (!tvf) csaDrawWaves();
     csaDrawParticlesOpaque();   // CSA-F: its wakes, splashes and flags
     const _bbYaw = tvf ? tvf.yaw : cam.yaw;   // TV1: the flats face the view's eye
     _camRight[0] = Math.cos(_bbYaw); _camRight[1] = 0; _camRight[2] = -Math.sin(_bbYaw);

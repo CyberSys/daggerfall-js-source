@@ -165,7 +165,7 @@ import { liveStat, killIfAnyLiveStatZero } from '../systems/statMods.js';
 import { breathStep } from '../systems/breath.js';
 import { onMonsterHit, SPIDER_TOUCH_SPELL_INDEX } from '../systems/diseases.js';
 import { inflictPoison } from '../systems/poisons.js';
-import { exhaustionOutcome, EXHAUSTED_IN_WATER } from '../systems/rest.js';
+import { exhaustionOutcome } from '../systems/rest.js';
 import { restDecision, getPreventedRestMessage } from '../systems/restSession.js';   // the scene-free open gate, one home   // ROAD-B B5: GetPreventedRestMessage
 import { giveOffer } from '../ui/pendingOffer.js';   // AUDIT 58: DaggerfallUI.GiveOffer, the rung in front of the rest press
 import { intermittentEnemySpawn, setEnemyAlert, decayEnemyAlert, areEnemiesNearby } from '../systems/encounters.js';   // E-slice; S40: the resting test, one home
@@ -1909,7 +1909,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:14540 / exterior.js:3755), set
+  // host's own townTalk sink (world.js:14544 / exterior.js:3757), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -2410,7 +2410,6 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
    *  collapse KILLS. The text box is click-anywhere-to-close and
    *  holds the motor like every overlay. */
   function onExhausted() {
-    opts.csaOnPlayerDeath?.();   // CSA-J (the audit): PlayerEntity.OnExhausted -> ComeSailAway.OnPlayerDeath, underground too
     // GameManager.AreEnemiesNearby() (PlayerEntity.cs:2397) - the
     // STRICT variant, through the ONE home the three hosts ask.
     const enemiesNearby = areEnemiesNearby(foes);
@@ -2418,7 +2417,10 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       enemiesNearby, swimming: _activity.swimming, entity: playerEntity,
       day: false, inside: true,   // a dungeon rest: inside, no daylight (the InLight case pends exteriors with the rest UI)
     });
-    const lines = out.inWater ? [EXHAUSTED_IN_WATER] : rscLines(out.textId);
+    // SWIM-SPENT (rest.js): in the dungeon's water a share of the health and a line - no box, no death heard
+    if (out.kind === 'drown') { hudText.add(out.line); hurtEntity(playerEntity, out.damage, { bypassShield: true }); surfacePlayer(); return; }
+    opts.csaOnPlayerDeath?.();   // CSA-J (the audit): PlayerEntity.OnExhausted -> ComeSailAway.OnPlayerDeath, underground too
+    const lines = rscLines(out.textId);
     // AUDIT 68 S19-exhaustion-latch-stuck: a PUSH (ROAD-B B5) - DaggerfallUI.MessageBox never asks what else is open.
     if (lines) { _exhaustedBox = new ActionTextBox(lines); pushDungeonWindow(_exhaustedBox); }
     if (out.kind === 'rest') {
@@ -2494,7 +2496,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // copied mount would have diverged the first time an arm grew.
   /** DR1: THE TWO SPELL WINDOWS THIS HOST MOUNTS NOW, and the one door
    *  they go through. `mountSpellWindow` is worldModes'
-   *  mountSpellWindow DUNGEON ARM (worldModes.js:1378,
+   *  mountSpellWindow DUNGEON ARM (worldModes.js:1379,
    *  `dungeonCtx?.showOverlay(win)`) resolved to what it actually
    *  calls here - this file's own pushDungeonWindow, which IS
    *  UserInterfaceManager.PushWindow. So a spell window raised over an
@@ -3032,7 +3034,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1112 against :1142; worldModes.js:7784 against :7811).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1112 against :1142; worldModes.js:7788 against :7815).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -3785,8 +3787,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:24186,
-              // exterior.js:5371 and worldModes.js:8495 already ran;
+              // playerArrowHitFoe is the one copy world.js:24199,
+              // exterior.js:5373 and worldModes.js:8499 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that

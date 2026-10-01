@@ -149,7 +149,8 @@ import { seededRng } from './wind.js';   // WORLD6b: the shared day's own genera
 import { removeExpiredRooms } from './tavern.js';                 // PlayerEntity.RemoveExpiredRentedRooms (:257)
 import { removeExpiredItems } from './createItem.js';             // X11b: ItemCollection.RemoveExpiredItems (:125), the per-minute sweep
 import { tickPlayerTorch } from './playerTorch.js';               // T1: EnablePlayerTorch.Update, on the REAL clock
-import { checkOverdueLoans, settleOverdueLoan, callInEmpireDebt, empireCallInLines, calculateMaxBankLoan } from './banking.js';   // LoanChecker.CheckOverdueLoans (:17); REALM P0.3: the Empire's call at the join
+import { checkOverdueLoans, settleOverdueLoan, callInEmpireDebt, empireCallInLines, calculateMaxBankLoan, bankedGold, empireDrawLines } from './banking.js';   // LoanChecker.CheckOverdueLoans (:17); REALM P0.3: the Empire's call at the join; EMPIRE-ACCOUNT: what it draws, said
+import { isOnlinePage } from './onlineLane.js';   // EMPIRE-ACCOUNT: the Empire's draw is said online
 import { lowerRepForCrime, deductGold } from './court.js';                    // OverdueLoan's LowerRepForCrime (:70); REALM P0.3: the call's purse
 import { REGION_NAMES } from '../formats/mapsFile.js';            // loanReminder2's %s
 
@@ -556,13 +557,22 @@ export function runDayChange({ entity, lastMinutes, nowMinutes, rolls = Math.ran
     for (const regionIndex of overdue) {
       // OverdueLoan (:53-72): the account is raided first, and only a
       // loan still standing after that is a default.
-      const outcome = settleOverdueLoan(entity.bankAccounts, regionIndex, entity);
+      const outcome = settleSaid(entity, regionIndex, say);
       if (outcome.kind !== 'defaulted') continue;
       lowerRepForCrime(entity, regionIndex, outcome.crime);
       loanDefaults.push(regionIndex);
     }
   }
   return { daysPast, loanReminders, loanDefaults };
+}
+
+/** EMPIRE-ACCOUNT: AN OVERDUE LOAN SETTLED (banking.js settleOverdueLoan, on the character's own accounts), and online
+ *  what the Empire drew for it said - the account, then every branch, which a default took without a word. */
+function settleSaid(entity, regionIndex, say) {
+  const banked = bankedGold(entity.bankAccounts);
+  const outcome = settleOverdueLoan(entity.bankAccounts, regionIndex, entity);
+  if (isOnlinePage()) for (const line of empireDrawLines(banked - bankedGold(entity.bankAccounts), REGION_NAMES[regionIndex] ?? '')) say(line, LOAN_REMINDER_HUD_DELAY);
+  return outcome;
 }
 
 /** REALM P0.3: THE EMPIRE'S CALL AS A CHARACTER JOINS (banking.js callInEmpireDebt). The debt brought online past the
@@ -581,12 +591,12 @@ export function empireJoin({ entity, nowMinutes, say = () => {} } = {}) {
   for (let r = 0; r < accounts.length; r++) {
     const due = accounts[r]?.loanDueDate;
     if (!(accounts[r]?.loanTotal > 0) || !due || due > now) continue;
-    const outcome = settleOverdueLoan(accounts, r, entity);
+    const outcome = settleSaid(entity, r, say);
     if (outcome.kind === 'defaulted') lowerRepForCrime(entity, r, outcome.crime);
   }
   const call = callInEmpireDebt(accounts, { deductGold: (n) => deductGold(entity, n) }, { cap: calculateMaxBankLoan(entity.level ?? 1), nowMinutes: now });
   for (const regionIndex of call.unpaid) {
-    const outcome = settleOverdueLoan(accounts, regionIndex, entity);
+    const outcome = settleSaid(entity, regionIndex, say);
     if (outcome.kind === 'defaulted') lowerRepForCrime(entity, regionIndex, outcome.crime);
   }
   for (const line of empireCallInLines(call)) say(line, LOAN_REMINDER_HUD_DELAY);
