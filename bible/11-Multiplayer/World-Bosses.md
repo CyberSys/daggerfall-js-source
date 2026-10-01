@@ -1005,7 +1005,7 @@ below it), the plaque (`contentsOf`) and the press (`pick` - into the pack, said
 court stands the family where it is stood (`scenes/worldModes.js standCourt` - the fourth `addActivationTargets`, its
 namer beside it), the dungeon arm's press takes a `spoil` key through the host after the reach is judged and before
 any loot rung, the context's `lootContents` asks the host for the plaque's list, and the world host hands the pool to
-all four. Walking over a piece still takes it (WBX3's SPOILS_TAKE_AFTER_MS after its rest).
+all four. Walking over a piece still takes it (WBX3's SPOILS_TAKE_AFTER_MS after its rest). GATE-UX (section 16): no longer - the press is the only take.
 
 THE SIGHT (`render/gateFx.js`, `scenes/gateCourt.js`): as they leave him his chest bursts in gold (FX_KINDS.spoils) -
 the sparks falling to the floor under it (a burst's `floor`: `uFloor`, `sparkAt`'s `floorRel`), not hanging at his
@@ -1185,6 +1185,72 @@ WB7's Neapolitan mutant re-aimed at the new progression). `tools/gateScoreProbe.
 raised to a decibel and more under the table's, each peak under its ceiling, and one player through the whole fight - the
 three war songs, the fall, then a song without a press - in one context. Not heard by a person before it shipped: the
 probe's `--wav` writes each song for listening.
+
+## 16. The court less in the way, and the damage chart (GATE-UX, 2026-10-01)
+
+Mac: *"1. In the oblivion boss gate, move the modifer panel that shows away from center of the screen, it's obstructive
+2. Remove the text below each boss health bar that shows phase details 3. Loot at the end can still be walked over and
+picked up 4. Develop a detailed damage chart after the boss kill, showing and ranking everyone's damage"*.
+
+**The marks' card to the side.** WB9a stood the card over the middle of the screen as a fighter stepped into the court
+(`max(30%, 206px)` from the top, centred) for MARKS_CARD_ARRIVE_MS - over the crosshair, over the Warden, at the moment
+the fight opened. The arrive mode now stands low on the right (`ui/gateMarksView.js MARKS_CARD_CSS`: 18 px in, at
+`max(96px, 14vh)` from the bottom, 340 px wide), clear of the bar at the top, the chat at the top left and the party
+panel at the top right; the street's card keeps its own place under the compass line. Nothing else about it moved: its
+clock, its fade, its rows.
+
+**No phase under his health.** WBX5 wrote the phase he fights in ("II - The Burning Court") first in the bar's foot. It
+is gone (`ui/gateBossBar.js` - `BOSS_BAR_TEXT.phase` and the model's `phaseName` with it): the two marks cut in his
+health say where the phases turn, and each turn is still said over the screen as it comes (`scenes/gateCourt.js
+courtPhaseText`). The foot keeps the court's fighters, the next Reckoning (WB9c) and the Wrath's countdown.
+
+**The spoils by the press alone.** WB9f made each resting piece an activation target and kept the walk-over beside it;
+a fighter crossing the court to the piece they wanted swept up every piece in their path, unlooked at. The pool now
+takes a piece when it is pressed (`scenes/spoilsPool.js pick`) and no other way: `frame` flies, clatters and rests them,
+and stops there; the pool asks the host for no feet, and the world host hands it none. WBX3's wait after a rest
+(SPOILS_TAKE_AFTER_MS) and the walk-over's reach (SPOILS_TAKE_M) went with it - a piece is a target only once it rests,
+and the press's reach is a loot pile's (TREASURE_ACTIVATION_DISTANCE). Leaving the court still gathers what is left
+(`gather`), so nothing is ever lost to a door, a death or the day's end.
+
+**The damage chart.** The relay already counted what each fighter dealt (`dealt` - the receipts' bar and the herald's
+three names, `topDealers`), and said only the three names at the kill. Now:
+
+- THE COUNTS (`net/gateBrain.js`): each fighter's record keeps `hits` (blows that landed on him), `best` (the heaviest
+  of them), `cxd` (what of `dealt` went into the crystals of Oblivion - `applyCrystalHit`) and `falls` (a fall counted
+  the beat its body is first seen dead in the court, again only after it has stood up alive - `down`). A fight
+  checkpointed before them reads each as none.
+- THE CHART (`damageChart`): made at the kill and kept on the fall (`fell.dm`) - every fighter with a part (a blow
+  landed, or a moment stood alive in the court; one who joined and did nothing is not listed), most dealt first, ties by
+  the earlier to join (topDealers' own order), each row whole numbers: `n` the name, `l` the level claimed, `d` all they
+  dealt, `x` the crystals' share of it, `h` the blows, `b` the heaviest, `f` the falls. At most DAMAGE_CHART_MAX (32)
+  rows; `fell.n` still says how many fought.
+- THE WIRE (relay world136): the court's `fell` word and the state's fall carry `dm`; the hub's word of the kill (the
+  world's collapse, Discord's post) never does - it goes to everyone online, and the chart is the court's. `validGateOut`
+  projects a chart of at most GATE_CHART_MAX rows (pinned equal), each row's numbers whole and bounded, the crystals and
+  the heaviest no more than the whole, the rows ranked, the names cleaned as every name is - and anything else is NO
+  CHART, never a refused kill: the fall's word stands without it. A relay before world136 says no chart, and none is
+  drawn.
+- THE FOLD (`net/gateLink.js`): the chart is kept with the fall; when the hub's chartless echo of the kill came first,
+  the court's word brings it after.
+- THE READOUT (`ui/gateDamageChart.js`): from DAMAGE_CHART_DELAY_MS (1.5 s) after this screen first saw the fall - his
+  body's fall and the spoils' burst first - for DAMAGE_CHART_MS (a minute), in over a quarter second and out over its
+  last second; to the side, where the marks' card stood (gone by the fall), never the middle; no click, no key, hidden
+  with the HUD and under the step's fire. A title, "<boss> has fallen - N challengers", a head row, then each fighter:
+  rank, name and level, a bar of what they dealt against the most anyone dealt (one hue - the court's fire), the number,
+  the share of the court's whole, blows, best, crystals, falls. My row - by my name on the relay (`net/online.js`
+  `name`, the host's `me`) - is ringed and says "(you)" in words, never in colour alone. The first DAMAGE_CHART_ROWS
+  (10) are shown; when I am further down, my own row stands under them at my rank, and the fighters not shown are
+  counted. One node, written only when the chart changes; dressed under Plus (`ui/enhancedPlusStyle.js`). On a narrow
+  screen the blows, the best and the crystals fold away. Seen in headless Chromium in both skins and at phone width (a
+  mock court of fifteen) before it shipped; not yet seen over a real fight.
+
+Pinned: `test/gateux_gate.test.js` (11); the walk-over's own pins moved with it (`test/wb5_gate_spoils.test.js`,
+`test/wb9f_gate_spoils.test.js`, `test/wbx_gate_fixes.test.js`), the bar's phase pin (`wbx_gate_fixes`), the kill's
+shape (`wb3_gate_room`), every relay-version pin and the SLAM8 law row (world136). Mutants `tools/mutants/gateux.json`
+(31, all dead); the walk-over's records in `wb5.json` and `wbx.json` re-aimed at the press, WB3's top-unordered at
+topDealers' own sort (the chart's sort reads the same). Found on the way, not this change's: `wb3.json`'s
+WB3-a-blow-from-off-the-court survives on the base too (WB9's in-court check after the floor's makes the floor's slack
+unreachable from its pins).
 
 ## Shipped
 
@@ -1531,3 +1597,11 @@ press's graph - the compressor, its drive, the ceiling's soft clip - built once 
 without one starts), `systems/gateScore.js` (`SCORE_PRESS`; the war songs rewritten on their old key, tempos, lengths,
 voices and law - the villain's harmony, the brass pedal, open fifths, the low bell, the kit without its hat). Measured
 through the real player by `tools/gateScoreProbe.mjs`; not heard by a person before it shipped.
+
+**GATE-UX (2026-10-01) - the court less in the way, and the damage chart.** Section 16 above: `ui/gateMarksView.js` (the
+arrive card to the side), `ui/gateBossBar.js` (no phase line), `scenes/spoilsPool.js` and `scenes/world.js` (the press
+the only take; no feet), `net/gateBrain.js` (the counts, `damageChart`, the chart on the fall and the state),
+`net/wire.js` (GATE_CHART_MAX, the chart's projection, RELAY_VERSION world136), `server/src/index.js` (the court's
+`fell` carries it), `net/gateLink.js` (the fold), `ui/gateDamageChart.js` (the readout), `scenes/gateCourt.js` (drawn
+from the fall, put away on leaving), `ui/enhancedPlusStyle.js` (its dress). Not seen over a real fight or on the
+deployed relay: the readout was looked at in headless Chromium over a mock court.

@@ -9,7 +9,8 @@
 //     `marksViewOf`).
 //   - THE MARKS' CARD, a popup over the screen: near the gate before it is entered (while it stands, from the omen's
 //     ground - scenes/gatePool.js), and as a fighter steps into the court, before he moves (net/gateBrain.js OPENING_MS
-//     is the time to read it). Each mark with its sign, its line, and how to meet it.
+//     is the time to read it). Each mark with its sign, its line, and how to meet it. GATE-UX: never over the middle of
+//     the screen - to the side in both places (MARKS_CARD_CSS).
 //
 // A READOUT, NOT A WINDOW (the gate banner's and the bar's law): no click, no overlay stack, no key taken - a popup that
 // can never trap a fighter in a fight. One node made on the first card and UPDATED, NOT REBUILT: each part written only
@@ -108,7 +109,9 @@ export const MARKS_CARD_TEXT = Object.freeze({
 /** The card, stepping through: how long it stands over the court before it has gone (its last MARKS_CARD_FADE_MS a fade). */
 export const MARKS_CARD_ARRIVE_MS = 9000;
 export const MARKS_CARD_FADE_MS = 700;
-/** Where it stands - 'arrive' over the middle of the screen, 'gate' to the side, under the compass line. */
+/** Where it stands - 'arrive' low on the right, clear of the crosshair and his bar (GATE-UX, 2026-10-01, Mac: "move
+ *  the modifer panel that shows away from center of the screen, it's obstructive" - it stood over the middle of the
+ *  court as the fight began), 'gate' to the side, under the compass line. */
 export const MARKS_CARD_MODES = Object.freeze(['arrive', 'gate']);
 
 /**
@@ -140,7 +143,7 @@ export const MARKS_CARD_CSS = `
   padding: 12px 16px 10px; font: 600 13px 'Cormorant', Georgia, serif; letter-spacing: 0.04em; color: #f3d9c4;
   background: linear-gradient(180deg, rgba(34,6,3,0.93), rgba(14,3,2,0.9)); border: 1px solid rgba(255,120,60,0.6);
   box-shadow: 0 0 22px rgba(0,0,0,0.85), inset 0 0 18px rgba(120,20,6,0.45); text-shadow: 0 0 3px #000; }
-.wb-marks-card.wb-marks-arrive { left: 50%; top: max(30%, 206px); transform: translateX(-50%); }
+.wb-marks-card.wb-marks-arrive { right: 18px; bottom: max(96px, 14vh); width: 340px; }
 .wb-marks-card.wb-marks-gate { right: 18px; top: 104px; width: 340px; }
 .wb-marks-title { font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: #ff8a4a; text-align: center; }
 .wb-marks-sub { font-size: 16px; text-align: center; margin: 2px 0 8px; color: #ffe2c8; }

@@ -237,5 +237,5 @@ test('WB9a the seams, by source: the world host hands the pool the card beside i
   assert.match(world, /marks: \(card\) => drawGateMarksCard\(card, \{ hidden: gamePaused\(\) \|\| !!townTalk\.hudHidden \|\| !!gateVeil\?\.busy \}\),/);
   assert.match(world, /if \(gatePool && \(modes\?\.mode \?\? 'exterior'\) !== 'exterior' && modes\?\.gateArenaDay\?\.\(\) == null\) drawGateMarksCard\(null\);/);
   assert.match(world, /veiled: \(\) => !!gateVeil\?\.busy,/);
-  assert.match(world, /drawGateBanner\(null\); drawGateMarksCard\(null\);( drawGateGround\(null\);)? travelView/, 'a held frame takes it with the banner');   // WB9d: and his ground's rim
+  assert.match(world, /drawGateBanner\(null\); drawGateMarksCard\(null\);( drawGateDamageChart\(null\);)?( drawGateGround\(null\);)? travelView/, 'a held frame takes it with the banner');   // WB9d: and his ground's rim; GATE-UX: and the damage chart
 });
