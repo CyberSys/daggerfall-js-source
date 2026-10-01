@@ -1117,7 +1117,7 @@ export class OnlineSession {
     // token rather than an absent one, and wire.js refuses that - which
     // is right, and is why the key is not written at all when empty.
     if (this.token) frame.tok = this.token;
-    if (this.acct && this.asecret) { frame.acct = this.acct; frame.asecret = this.asecret; }
+    if (this.acct && this.asecret) { frame.acct = this.acct; frame.asecret = this.asecret; frame.ps = 1; }   // AUDIT FRIENDS-SYNC F5: this build reads the player's picture
     if (this.claim) frame.cl = 1;   // ONE-SEAT: a tab going online takes the seat; a reconnect does not
     return frame;
   }

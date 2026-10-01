@@ -220,11 +220,11 @@ test('AUDIT SOC A10/B9: ACCOUNT_TABS_MAX is the hub\'s own bound - a row names n
   assert.ok(tabs.slice(0, -1).every((t) => t.closed) && !newest.closed, 'each claim closed the tab before it - one open tab');
   assert.ok(tabs.every((t) => r.sockets.includes(t)), 'and the runtime lists all ACCOUNT_TABS_MAX + 1 still');
   const row = lastOf(a, 'presence');
-  assert.ok(row.online && row.peers.length <= ACCOUNT_TABS_MAX, 'the row names ACCOUNT_TABS_MAX at most');
+  assert.ok(row.online && row.peers.length <= ACCOUNT_TABS_MAX && row.peers.length >= ACCOUNT_TABS_MAX - 1, 'the row names ACCOUNT_TABS_MAX at most - and no fewer than the bound less the tab whose leave said it');
   assert.ok(row.peers.includes(`peer-b${ACCOUNT_TABS_MAX - 1}`) && !row.peers.includes('peer-b'), 'the newest named, the stalest past the bound');
   for (const t of tabs) t.tries = 0;
   await pose(a); tick();
-  assert.ok(tabs.filter((t) => t.tries > 0).length <= ACCOUNT_TABS_MAX, 'the fan tries ACCOUNT_TABS_MAX of b\'s sockets at most');
+  assert.equal(tabs.filter((t) => t.tries > 0).length, ACCOUNT_TABS_MAX, 'the fan tries ACCOUNT_TABS_MAX of b\'s sockets - no more, no fewer');
   assert.equal(b.tries, 0, 'the stalest is the one past the bound');
   assert.equal(poses(newest).at(-1)?.acct, 'acct-a', 'and the tab holding the seat hears it');
   // the newest speaks: a pose from an older socket (sent before its close landed) is kept and fanned to nobody

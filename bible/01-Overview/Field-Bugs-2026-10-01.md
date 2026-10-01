@@ -1199,3 +1199,24 @@ stale save - the HUD's first frame is drawn after the boot's load, so a load at 
 **Asked**, for Leafen through Mac: one device or several (a browser, the desktop app, a guest)? Was "Online in another
 tab or device" or "Your last save had not reached the realm" said? At the login, does the bar start at 6%, or at 100%
 and fall? A werewolf or wereboar? Any `[online] checkpoint failed` on the console? No code changed.
+
+## The audit of part five (Mac: "audit this")
+
+Lanes over part five's diff, one a fix (CAST-USE; FRIENDS-SYNC; SLOW-SLIP, SLOW-GRASP, SLOW-PRESS; ORBIT-FREE with
+CURSOR-EDGE; the record and its housekeeping; WOD-ROCK as it lands), each reproducing on the real modules. Every finding
+pinned red on the branch before its fix (a gap pin's mutants are its claim) and mutation-checked.
+
+| Tag | Lane | What it was | Done |
+|---|---|---|---|
+| F1 | FRIENDS-SYNC | under the live law a hub `acct` is any id, and a player's id is public (every roster carries `sub`): a profile hello naming a player's id planted `acct:<player>` and its secret, and after world142 the player's first hello INHERITED the planted record (the planter's alt befriended, hearing the player's presence and peers), and the planter's later hello merged it away from them | a profile secret at the player's own id is a forgery: the record is retired whole, every record it names forgetting it (`server/src/index.js` `_retireForged`) |
+| F2 | FRIENDS-SYNC | the union was cut at FRIENDS_MAX (and PENDING_MAX) but every record it named was renamed onto the player: a cut friend kept the player, saw their presence, and could not be removed by them | what the player's record kept of a friend is what the friend's keeps of the player (`_mergeLegacy`) |
+| F5 | FRIENDS-SYNC | a client built before world142 expects its picture under the profile's id (AUDIT SOC B19) and refused every one the hub sent: no friends, no party, no word why - and SRV-N's notice baselines on the first version a page hears | the hub hello carries `ps` (1 or nothing; `net/online.js`, `net/wire.js` parseClient); a hello without it is told "update the game to see your friends and party" in the words its chat prints |
+| F3 | FRIENDS-SYNC | the reconnect-replace leave's new compare was right and unpinned - `b.acct !== m.acct` survived every suite (every reconnect a logout, a party of one deleted) | pinned |
+| F4 | FRIENDS-SYNC | the A10/B9 rewrite pinned the bound with `<=`: three bound mutants that died before lived | pinned exactly again (`test/auditsoc.test.js`) |
+| F6 | FRIENDS-SYNC | the merge's bounds - 129 records over the 128-record write, a friend's request, my own other device, an online friend's picture - unpinned | pinned |
+
+The relay's bytes moved with F1, F2 and F5, before any deploy: world142's LAW row is rewritten in place (never shipped).
+Mutant records re-aimed by content: `soc1.json` S11-state-to-every-tab and `soc2.json` C2-one-half-sent. Pin moved:
+`soc2_session` (the hello's `ps`); the harness's hello with an account says `ps` unless a pin asks for an old build.
+`test/fb1001_friendsaudit.test.js`; `tools/mutants/fb1001_friendsaudit.json` (15, all dead). Seen and left (main's
+own): `auditworld34` A1 fails one run in two or three on main as on the branch (its 25 ms windows).

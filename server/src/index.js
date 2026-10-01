@@ -3092,7 +3092,13 @@ export class Room {
       const held = await this.state.storage.get(acctSecretKey(m.acct));
       if (held && held !== m.asecret) { this._sayError(ws, 'account taken'); return; }
       if (!held) await this.state.storage.put(acctSecretKey(m.acct), m.asecret);
-    } else await this._mergeLegacy(me, m, this._attach(ws).name, now);
+    } else {
+      // AUDIT FRIENDS-SYNC F1: a profile secret held at the PLAYER's own id was minted by a profile hello that NAMED that
+      // id under the old law (a player's id is public: every roster carries `sub`) - that record is nobody's: never
+      // inherited by the player, never merged away later by whoever planted its secret.
+      await this._retireForged(me, now);
+      await this._mergeLegacy(me, m, this._attach(ws).name, now);
+    }
     if (!this._alarmArmed) {   // AUDIT SOC A3: the room is marked a hub (its alarm is the sweep's, whoever is in it) and the sweep armed - once per instance life, and never over an alarm already set
       this._alarmArmed = true;
       await this.state.storage.put('hub', 1);
@@ -3116,6 +3122,7 @@ export class Room {
     a = this._attach(ws);
     if (a.id !== m.id || !this._setAttach(ws, { ...a, acct: me, party: rec.party })) return;
     await this._sayState(me, rec, now, ws);
+    if (me !== m.acct && !m.ps) this._sayError(ws, 'update the game to see your friends and party');   // AUDIT FRIENDS-SYNC F5: a build before world142 refuses the picture (B19) - said in words its chat prints
     this._sayPresence(me, rec, now);
     if (party) await this._sayParty(party, now);
   }
@@ -3142,13 +3149,32 @@ export class Room {
         out: rows([...mine.out, ...legacy.out], me, PENDING_MAX).filter((e) => !fr.has(e.acct)) };
       // every record that names the old id names the player now (a friend of both is one friend)
       const named = await this._accts([...legacy.friends, ...legacy.in.map((e) => e.acct), ...legacy.out.map((e) => e.acct)]);
-      for (const [id, r] of named) if (id !== me) { const f = ids(r.friends, id), rf = new Set(f); puts[id] = { ...r, friends: f, in: rows(r.in, id, PENDING_MAX).filter((e) => !rf.has(e.acct)), out: rows(r.out, id, PENDING_MAX).filter((e) => !rf.has(e.acct)) }; }
+      // AUDIT FRIENDS-SYNC F2: what the player's record kept of them is what theirs keeps of the player - a friend or a
+      // request the bounds cut is forgotten both ways, never renamed into a one-way friendship
+      const myIn = new Set(puts[me].in.map((e) => e.acct)), myOut = new Set(puts[me].out.map((e) => e.acct));
+      for (const [id, r] of named) if (id !== me) { const f = ids(r.friends, id).filter((x) => x !== me || fr.has(id)), rf = new Set(f); puts[id] = { ...r, friends: f, in: rows(r.in, id, PENDING_MAX).filter((e) => !rf.has(e.acct) && (e.acct !== me || myOut.has(id))), out: rows(r.out, id, PENDING_MAX).filter((e) => !rf.has(e.acct) && (e.acct !== me || myIn.has(id))) }; }
       const all = Object.entries(puts);
       for (let i = 0; i < all.length; i += 128) await this._putAccts(Object.fromEntries(all.slice(i, i + 128)));   // SLAM5's wall: 1 + 64 friends + 2 x 32 requests is 129 records
     }
     this._recs.set(old, null);
     await this.state.storage.delete([acctKey(old), acctSecretKey(old)]);
     for (const [id, r] of Object.entries(puts)) if (id !== me) await this._sayState(id, r, now);   // the others' pictures name the player now (no socket, no frame)
+  }
+  /** AUDIT FRIENDS-SYNC F1: a record at the player's own id holding a profile secret (planted under the old law), retired
+   *  whole - every record it names forgets it, so nothing it befriended keeps the player's presence. */
+  async _retireForged(me, now) {
+    if ((await this.state.storage.get(acctSecretKey(me))) == null) return;
+    const forged = await this._acct(me);
+    const puts = {};
+    if (forged) {
+      const named = await this._accts([...(forged.friends ?? []), ...(forged.in ?? []).map((e) => e.acct), ...(forged.out ?? []).map((e) => e.acct)]);
+      for (const [id, r] of named) if (id !== me) puts[id] = { ...r, friends: r.friends.filter((x) => x !== me), in: r.in.filter((e) => e.acct !== me), out: r.out.filter((e) => e.acct !== me) };
+      const all = Object.entries(puts);
+      for (let i = 0; i < all.length; i += 128) await this._putAccts(Object.fromEntries(all.slice(i, i + 128)));
+    }
+    this._recs.set(me, null);
+    await this.state.storage.delete([acctKey(me), acctSecretKey(me)]);
+    for (const [id, r] of Object.entries(puts)) await this._sayState(id, r, now);
   }
   /** The account behind a closing socket: last seen stamped when its last tab went, the friends and the party told (a
    *  seat is kept `away` for PARTY_OFFLINE_MS - a refresh brings it straight back). */

@@ -178,7 +178,8 @@ export function fakeRoom(key, { now = () => Date.now(), ROOMS = null } = {}) {
     // about its own badge, and a harness that could set one on the
     // frame would be testing the wrong half forever.
     const tok = 'tok' in over ? over.tok : await token(id, { s: over.tokenSub ?? over.acct, n: over.name ?? String(id), t: over.title, g: over.glyphs, mu: over.mu, lv: over.lv, gi: over.gi, gt: over.gt, gm: over.gm, rc: over.rc });   // AUDIT HCC-PARK: `tokenSub` names the verified account the token carries (default acct-<id>; never a frame field - a social hello's own `acct` is the hub's) - one player in a second tab is one account under two ids
-    const frame = { t: 'hello', id, secret: 'secret-of-' + id, name: id, look, pose, ...over };
+    // AUDIT FRIENDS-SYNC F5: a hello with an account is a current build's - it says `ps` - unless the pin asks for an old one (`ps: undefined`)
+    const frame = { t: 'hello', id, secret: 'secret-of-' + id, name: id, look, pose, ...(over.acct && !('ps' in over) ? { ps: 1 } : {}), ...over };
     delete frame.title; delete frame.glyphs; delete frame.mu; delete frame.lv; delete frame.tokenSub; delete frame.gi; delete frame.gt; delete frame.gm; delete frame.rc;   // ACC3/MOD1/RENOWN1/GUILD1c/REALM-DOOR: they went into the token above; the wire has no such hello field
     if (tok == null) delete frame.tok; else frame.tok = tok;
     return room.webSocketMessage(ws, JSON.stringify(frame));
