@@ -146,8 +146,9 @@ test('CREW-COMPANIONS follow: a companion with no foe walks to its leader and st
   assert.equal(mate.ai.target, null, 'an ally never takes the player');
   // the slack: a leader stepping a little away is not followed at once
   leader[0] += 1.2;
+  const was = [...mate.ai.feet];
   run([mate], leader, 0.5);
-  assert.equal(mate.ai.moving, false, 'inside stop + FOLLOW_SLACK he waits');
+  assert.ok(Math.hypot(mate.ai.feet[0] - was[0], mate.ai.feet[2] - was[2]) < 1e-6, 'inside stop + FOLLOW_SLACK he waits where he stands');
   leader[0] += 10;
   run([mate], leader, 0.5);
   assert.equal(mate.ai.moving, true, 'past it, he sets off');
@@ -326,14 +327,18 @@ test('CREW-COMPANIONS knocked out, swept, sent back, left behind', async () => {
   assert.ok(street.removed.includes(rec), 'no corpse - out of the place');
   assert.equal(party.party.length, 0);
   assert.equal(party.resting[0].until, 500 + REST_MIN);
-  // sent back
+  // sent back - one of two, the other walking on
   party.take(7, hand('Brand'), 0);
+  party.take(7, hand('Cale', 'Cook'), 0);
   layer.frame(); await settle();
-  const brand = street.bodies.at(-1);
+  const [brand, cale] = street.bodies.slice(-2);
   party.sendBack(7, 'Brand');
   layer.frame();
-  assert.ok(street.removed.includes(brand));
-  assert.deepEqual(layer.bodies(), []);
+  assert.ok(street.removed.includes(brand), 'he goes');
+  assert.deepEqual(layer.bodies(), [cale], 'his mate stays');
+  party.sendBack(7, 'Cale');
+  layer.frame();
+  assert.deepEqual(layer.bodies(), [], 'nobody ashore, nobody stands');
 });
 
 // ── the deck without them ─────────────────────────────────────────────────────────────────────────────────────────
