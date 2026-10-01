@@ -1680,13 +1680,12 @@ export class PlayerMotor {
 
   /** The ledge sensor's opts for this body: the band, and the stair check. */
   _pkGeo(low = 0, high = 0, footing = false) {
-    // AUDIT CLIMB2 C2: a swimmer's way out is a whole body's - the hold or the move it takes unsinks the 0.3 m capsule
-    const height = this.sunk ? CAPSULE_HEIGHT : this.height;
-    return { low, high, radius: CAPSULE_RADIUS, stand: CAPSULE_HEIGHT, crouch: CROUCH_HEIGHT, height, footing };
+    return { low, high, radius: CAPSULE_RADIUS, stand: CAPSULE_HEIGHT, crouch: CROUCH_HEIGHT, height: this.height, footing };
   }
 
   /** AUDIT CLIMB2 C2: the hands take the body out of the water - a sunk swimmer is stood whole (DoUnsinking's arming,
-   *  as the water's own edge has it) the moment a hold or a move begins. */
+   *  as the water's own edge has it) the moment a hold or a move begins, so the way up is planned for a whole body,
+   *  and a crouched move begun in the same frame is not stood up by the frame's unsink after it. */
   _pkUnsink() {
     if (!this.sunk) return;
     this._beginUnsink();

@@ -6,7 +6,7 @@
 // never through the collider's own resolve.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PlayerMotor, CAPSULE_RADIUS, CAPSULE_HEIGHT, SYSTEM_TIMER_UPDATES_DIVISOR } from '../src/player/motor.js';
+import { PlayerMotor, CAPSULE_RADIUS, CAPSULE_HEIGHT, SYSTEM_TIMER_UPDATES_DIVISOR, HOLD_CARRY_MAX } from '../src/player/motor.js';
 import { Collider } from '../src/player/collider.js';
 import { senseGrip, PARKOUR_GRIP_LOW_TEXT } from '../src/player/parkour.js';
 import { CONTINUE_CLIMBING_SKILL_CHECK_FREQUENCY } from '../src/player/climbing.js';
@@ -134,6 +134,10 @@ test('AUDIT CLIMB2 H1: a save on the wall keeps the hold - the load takes it aga
   const f = motor(h.col, { skill: 100, y: 5, z: -2 });
   for (let i = 0; i < 10; i++) step(f, {});
   assert.ok(Number.isFinite(f.fallSnapshot()?.above), 'a fall is the fall\'s own record');
+  // the carry is bounded, as a fall's is: a forged or corrupt record moves the body a few metres at most
+  const b = motor(h.col, { skill: 100, z: -3 });
+  b.restoreFall({ to: [1e6, 0, 0], hold: null, grip: 1 });
+  assert.ok(near(b.pos[0], HOLD_CARRY_MAX), `carried ${b.pos[0]} m`);
 });
 
 test('AUDIT CLIMB2 H2: a spent grip comes back treading water - the free climb is the only way out of the water on this lane', () => {
@@ -216,6 +220,11 @@ test('AUDIT CLIMB2 C1: a pitched roof\'s eave is a hand-hold up to 45 degrees - 
     }
   }
   assert.equal(senseGrip(roofed(50).col, [0, 0, 1], [0, 0, -1], 3, geo), null, 'a roof over 45 degrees is no top (CLIMB1\'s)');
+  // the depth is read up a top that rises, not across a wall that stands up again: a moulding 6 cm deep, its wall set
+  // back a further 4 cm a hand above it, is no hold (the grip's 8 cm)
+  const mo = scene();
+  mo.box(-3, 0, 1, 3, 3, 4); mo.box(-3, 3, 1.06, 3, 3.07, 4); mo.box(-3, 3.07, 1.1, 3, 4, 4);
+  for (let k = -5; k <= 5; k++) assert.equal(senseGrip(mo.col, [0, 0, 1], [0, 0, -1], 3.01 + k * 0.01, geo), null, `no hold on the moulding (${k})`);
   // live: a jump at a wall under a 40 degree roof catches the eave, hangs, and shimmies along it
   const s = roofed(40, 2.3);
   const m = motor(s.col, { skill: 100 });
@@ -241,14 +250,19 @@ test('AUDIT CLIMB2 C2: on the wall over deep water the hands hold the body out o
   const boxes = [[-3, -1, 1, 3, 2.3, 4], [-3, 3.4, 1.3, 3, 3.8, 4]];
   boxes.forEach((b, i) => col.addMesh(`q${i}`, BOX(...b), BOX_IDX, I));
   const w = motor(col, { skill: 100, z: 0.6 });
-  let moved = false, topped = false;
+  let moved = false, topped = false, taken = null;
   for (let i = 0; i < 400; i++) {
     const cy = w.pos[1] + w.height / 2, mesh = col.raycast([w.pos[0], cy, w.pos[2]], [0, -1, 0], 2);
     w.onExteriorWater = cy <= 2 && cy < mesh;
     moved ||= w._pkMove?.kind === 'mantle';
     topped ||= moved && !w._pkMove;
+    const was = w.sunk;
     step(w, { forward: topped ? 0 : 1 });
+    if (taken == null && w.onWall) taken = { was, sunk: w.sunk, height: w.height };
   }
+  // stood whole on the very step the wall is taken - not a frame later, when a crouched move begun in a frame of
+  // several steps would be stood up under the roof by the frame's unsink
+  assert.deepEqual(taken, { was: true, sunk: false, height: CAPSULE_HEIGHT }, 'the swimmer taken out of the water by the hold itself');
   assert.ok(moved && Math.abs(w.pos[1] - 2.3) < 0.02, `climbed out onto the quay (feet y ${w.pos[1].toFixed(2)})`);
   assert.equal(w.crouching, true, 'crouched under the roof');
   assert.ok(overlap(boxes, w.pos, 0.9) < 1e-3, `clear of the quay and the roof (${overlap(boxes, w.pos, 0.9).toFixed(3)})`);

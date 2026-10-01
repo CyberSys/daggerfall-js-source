@@ -681,6 +681,10 @@ function carryPoint(p, was, now, turn = false) {
 
 /** The hand-hold's rungs: level rays this far apart down the lip's window. */
 export const PARKOUR_GRIP_RUNG = 0.05;
+/** What two rays at one surface may differ by and still read it as the
+ *  surface it is (a 45-degree roof's rungs, a rung's height apart, are a
+ *  rung back each; the float of the hit, not a centimetre of the shape). */
+export const PARKOUR_RAY_SCATTER = 0.001;
 /** A face the free climber's hands and feet press: its normal's y at most
  *  this (the classic probe took any hit; a floor or a ceiling is no wall). */
 export const PARKOUR_WALL_MAX_NY = 0.7;
@@ -731,10 +735,11 @@ export function senseGrip(collider, face, normal, lipY, opts, fit = true) {
     if (Math.abs(dist - back) > PARKOUR_LIP_FOLLOW || at(i - 1) - dist < PARKOUR_EDGE_INSET) continue;
     if (dist - at(i + 1) > PARKOUR_EDGE_INSET) continue;   // a rung on a top rising away from the edge, not on the face
     // AUDIT CLIMB2 C1: the step's depth, up the rungs a top no steeper than 45 degrees rises through (each a rung's
-    // height or more back - this inset or more); a level top or a set-back wall is the depth at the first
+    // height or more back, less the rays' scatter - a wall standing up again, or set back a few centimetres a rung, is
+    // no such top); a level top or a set-back wall is the depth at the first
     let deep = at(i - 1);
     for (let j = i - 2; j >= i - 3 && deep - dist < PARKOUR_GRIP_DEPTH; j--) {
-      if (at(j) - deep < PARKOUR_EDGE_INSET) break;
+      if (at(j) - deep < PARKOUR_GRIP_RUNG - PARKOUR_RAY_SCATTER) break;
       deep = at(j);
     }
     if (deep - dist >= PARKOUR_GRIP_DEPTH) { hiY = rungY(i - 1); loY = rungY(i); }
