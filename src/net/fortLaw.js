@@ -183,3 +183,35 @@ export function campSpent(camp, { won = false, gated = false } = {}) {
 export const REVOLT = Object.freeze({ captainRenown: 50, rebels: 12, windowMs: 2 * 3600 * 1000 });
 /** Whether a seat revolts at its next window: its Standing at nought. */
 export const revoltDue = (standing) => Number(standing) <= 0;
+
+// ─── THE WORKS' WORDS (7.9: "the stockpile: every fortification project and what it still needs") ───
+
+/** What a work's tier does, as the Seat tab says it. */
+export const FORT_EFFECT_WORDS = Object.freeze({
+  walls: (t) => `the defenders' wave ${(WALLS_WAVE_STEP_MS / 1000) * t} s faster`,
+  gatehouse: (t) => `its vitality ${gatehouseVitality(t).toLocaleString('en-US')}`,
+  watchtowers: (t) => `the holder told when a challenger passes ${t >= 2 ? 'a quarter' : 'half'} of its defence`,
+  barracks: (t) => `${barracksGuards(t)} town guards fight for the holder`,
+  market: (t) => `the town's boards list ${25 * t}% more, the Tithe's cap ${t} ${t === 1 ? 'point' : 'points'} higher`,
+  shrine: (t) => `Standing +${shrineStanding(t)} a week, +${shrineGateInfluence(t)} influence for each gate felled in the region`,
+  forge: (t) => `members smithing here ${t === 1 ? 'a quality step' : `${t} quality steps`} better`,
+  workshop: (t) => `members' carpentry, outfitting and masonry here ${t === 1 ? 'a quality step' : `${t} quality steps`} better`,
+  apothecary: (t) => `members' alchemy, cooking and jewelcrafting here ${t === 1 ? 'a quality step' : `${t} quality steps`} better`,
+  harbour: () => 'a port for the holder\'s members',
+});
+/**
+ * A WORK'S LINE on the Seat tab - `w` its row as the service reads it (`{ tier, building, standsAt, needs, held }`):
+ * "Walls: tier 1 - the defenders' wave 3 s faster. Raising tier 2: 320 Cut Stone, 200 Iron Ingots still wanted." -
+ * `nameOf` a material's name for a count, `whenOf` a moment's words (ms).
+ */
+export function fortWorkLine(id, w, { nameOf = (k, n) => `${k}`, whenOf = (ms) => new Date(ms).toISOString() } = {}) {
+  const work = fortWork(id);
+  if (!work) return '';
+  const t = Math.max(0, Number(w?.tier ?? 0) || 0);
+  const head = t > 0 ? `${work.name}: tier ${t} - ${FORT_EFFECT_WORDS[id](t)}.` : `${work.name}: none raised.`;
+  if (w?.building == null) return head;
+  if (w.standsAt != null) return `${head} Tier ${w.building} stands ${whenOf(Number(w.standsAt) * 1000)}.`;
+  const held = new Map(w.held ?? []);
+  const wanted = fortWanting(w.needs ?? [], held).filter(([, n]) => n > 0).map(([k, n]) => `${n.toLocaleString('en-US')} ${nameOf(k, n)}`);
+  return `${head} Raising tier ${w.building}: ${wanted.length ? `${wanted.join(', ')} still wanted` : 'every need met'}.`;
+}
