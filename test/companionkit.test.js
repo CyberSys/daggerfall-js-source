@@ -314,15 +314,20 @@ test('COMPANION-KIT THE WORLD\'S WIRING: both cast engines are handed my compani
   assert.equal((w.match(/companionBodies: \(\) => crewAshore\.bodies\(\),/g) ?? []).length, 2, 'the world\'s engine and the dungeon\'s');
   assert.match(m, /companionBodies: \(\) => host\.companionBodies\?\.\(\) \?\? null,/);
   assert.match(d, /companionBodies: opts\.companionBodies \? \(\) => opts\.companionBodies\(\) : null,/);
-  assert.match(w, /const w = makeInventoryWindow\(\{ loot: \{ items: \(\) => pack\.items, containerImage: \(\) => CONTAINER_IMAGES\.Backpack, playerOwned: true, storage: true \} \}\);/);
+  // AUDIT WK-P3 (PIN MOVED): his pack read by his key at every look, never a list taken once
+  assert.match(w, /const w = makeInventoryWindow\(\{ loot: \{ items: \(\) => naval\?\.companionPack\?\.\(key\)\?\.items \?\? \(orphan \?\?= \[\]\), containerImage: \(\) => CONTAINER_IMAGES\.Backpack, playerOwned: true, storage: true \} \}\);/);
   assert.match(w, /openCompanion: \(rec\) => openCompanionPack\(rec\),/);
   assert.match(w, /openCompanionPack: \(rec\) => openCompanionPack\(rec\),/);
   assert.equal((m.match(/openCompanion: \(rec\) => !!host\.openCompanionPack\?\.\(rec\),/g) ?? []).length, 2, 'a building and a dungeon');
   assert.match(w, /\[\.\.\.exteriorFoes\.foes, \.\.\.cityGuards\.guards\]\.filter\(\(f\) => f\.companion == null\), collider, LOCK_PICK_DISTANCE\)/);
-  assert.match(w, /\.\.\.\(mate \? \{ name: f\.entity\.name \|\| 'Companion', hp: f\.entity\.health, hpMax: max, fx: f\.puppet \? \[\] : composePartyFx\(f\.entity\) \} : \{\}\)/);
+  // AUDIT WK-U3 (PIN MOVED): mine his name, health and effects; another player's his own name alone
+  assert.match(w, /\.\.\.\(mate \? \(f\.puppet \? \{ name: f\.companionName \|\| 'Companion', fx: \[\] \} : \{ name: f\.entity\.name \|\| 'Companion', hp: f\.entity\.health, hpMax: max, fx: composePartyFx\(f\.entity\) \}\) : \{\}\)/);
   assert.equal((w.match(/createPartyPanel\(/g) ?? []).length, 1);
   assert.match(w, /partyPanel\.setCompanions\(partyCompanions\);/);
   assert.match(w, /if \(!partyCompanions\(\)\.length\) return;\n\s*makePartyPanel\(null\);/);
   assert.match(n, /packedItems \?\? null\);   \/\/ CREW-COMPANIONS: the party ashore/);
-  assert.match(w, /packedItems: \{ serialize: [^\n]*COMPANION-KIT/);
+  // AUDIT WK-D11 (PIN MOVED): the one codec, the cargo's and the packs' both
+  assert.match(w, /const packedItemsCodec = Object\.freeze\(\{ serialize: \(items\) => \(items \?\? \[\]\)\.map\(\(it\) => \(\{ \.\.\.it \}\)\), deserialize: \(records\) => \(records \?\? \[\]\)\.map\(\(it\) => setItemFields\(\{ \.\.\.it \}\)\) \}\);/);
+  assert.equal((w.match(/packedItems: packedItemsCodec,/g) ?? []).length, 2, 'Come Sail Away\'s and the naval host\'s');
+  assert.match(w, /packedItems: packedItemsCodec,   \/\/ COMPANION-KIT/);
 });

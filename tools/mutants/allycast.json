@@ -11,7 +11,7 @@
   {
     "name": "AC-receiver-keeps-everything",
     "file": "src/systems/allyCast.js",
-    "old": "  const effects = d.effects.filter(stranger ? strangerEffect : allyEffect).slice(0, MAX_EFFECTS_PER_SPELL);",
+    "old": "  const effects = d.effects.filter(stranger ? strangerEffect : companion ? companionEffect : allyEffect).slice(0, MAX_EFFECTS_PER_SPELL);",
     "new": "  const effects = d.effects.slice(0, MAX_EFFECTS_PER_SPELL);",
     "tests": [
       "test/allycast.test.js"
@@ -119,7 +119,7 @@
   {
     "name": "AC-host-touch-gate-shut",
     "file": "src/scenes/hostMagic.js",
-    "old": "      if (!pickTouch(eye, dir, sp) && !(!readiedFree && allyCastable(sp) && allyInReach(eye, dir, ALLY_TOUCH_REACH))) return false;",
+    "old": "      if (!pickTouch(eye, dir, sp) && !(!readiedFree && allyCastable(sp) && (allyInReach(eye, dir, ALLY_TOUCH_REACH) || companionInReach(eye, dir, ALLY_TOUCH_REACH)))) return false;",
     "new": "      if (!pickTouch(eye, dir, sp)) return false;",
     "tests": [
       "test/allycast.test.js"

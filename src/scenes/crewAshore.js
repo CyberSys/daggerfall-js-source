@@ -45,9 +45,19 @@ export function createCrewAshore(deps) {
   const stood = new Map();
   const pending = new Set();
   let placeKey, epoch = 0;
+  /** AUDIT WK-M3: HIS SPELLS RIDE WITH HIM, as his health does. Each place stands a fresh body, so every effect on him -
+   *  a gift of mine (COMPANION-KIT), a foe's poison - was lost at every door, dungeon, helm and sweep (a fast travel, a
+   *  Recall, a respawn). A body leaving its place (lifted at a change of place, or swept by the place itself) leaves its
+   *  live entries here, keyed by the party member, and his next body stands with them (the same entries: the body they
+   *  leave is out of its pool, and no round of a pool ticks it again - every leaving writes the list afresh, so a list
+   *  once stood is never stood twice). Keyed by the member, so a hand sent back aboard or knocked out - dropped from the
+   *  party - takes none to his next turn ashore. In memory alone: a save carries his health, not his spells, so a load
+   *  (a quickload too - the party is the save's) stands him without them, as ever. */
+  const carried = new WeakMap();
+  const carry = (s) => { const fx = s.rec?.entity?.activeEffects; carried.set(s.c, Array.isArray(fx) ? fx.filter((a) => a && !a.ended) : []); };
 
   const lift = (s) => { try { s.remove(s.rec); } catch (e) { console.warn('[companions] a body would not lift', e?.message ?? e); } };
-  function liftAll() { for (const s of stood.values()) lift(s); stood.clear(); }
+  function liftAll() { for (const s of stood.values()) { carry(s); lift(s); } stood.clear(); }
   /** Where the `i`th of `n` stands behind the leader, walked out from the leader's feet (the place's `spot`: never in a wall). */
   function slotFeet(place, L, i, n) {
     const [dx, dz] = companionSlot(L.yaw, i, n);
@@ -78,7 +88,7 @@ export function createCrewAshore(deps) {
       }
       // the place swept it - a cull, a remove, or (AUDIT CC-A1) a clear that empties the list and marks nobody (the
       // street's clearLive: a fast travel, a Recall, a passage, a respawn): it stands again below
-      if (rec.dead || !rec.ai || (s.has && !s.has(rec))) { stood.delete(k); continue; }
+      if (rec.dead || !rec.ai || (s.has && !s.has(rec))) { carry(s); stood.delete(k); continue; }   // AUDIT WK-M3: with his spells
       if (i < 0) { stood.delete(k); lift(s); continue; }   // sent back aboard
       if (rec.entity) {
         party.hurt(s.c.boat, s.c.name, rec.entity.health, rec.entity.maxHealth);
@@ -118,10 +128,13 @@ export function createCrewAshore(deps) {
         rec.shipmate = true;
         if (rec.entity) {
           rec.entity.name = c.name;
-          // AUDIT CC-A2: his hurt as a SHARE of the whole - each place rolls a class's pool afresh, and an absolute
-          // carry healed him through a door into a smaller one
-          const max = rec.entity.maxHealth;
-          if (c.health != null && c.maxHealth > 0 && max > 0) rec.entity.health = Math.max(1, Math.min(max, Math.round(c.health / c.maxHealth * max)));
+          // AUDIT CC-A2: a door neither heals nor hurts him - each place rolls his class's pool afresh.
+          // AUDIT WK-U2: so his WHOLE rides with him too, not a share of the new roll: carried as a share, his maximum
+          // changed at every door (94, 86, 76, 105...) and his card and bar read each re-roll as a blow or a heal
+          if (c.maxHealth > 0) { rec.entity.maxHealth = c.maxHealth; rec.entity.health = Math.max(1, Math.min(c.maxHealth, c.health ?? c.maxHealth)); }
+          // AUDIT WK-M3: and his spells, as he left the last place
+          const fx = carried.get(c);
+          if (fx?.length) rec.entity.activeEffects = [...(rec.entity.activeEffects ?? []), ...fx];
         }
         if (rec.ai) rec.ai.follow = followOf(Math.max(0, party.party.indexOf(c)));
         stood.set(k, { c, rec, remove: place.remove, has: place.has ?? null });

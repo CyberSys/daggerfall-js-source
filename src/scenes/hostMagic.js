@@ -51,7 +51,7 @@ import { potionBundle } from '../systems/potions.js';   // U44: DrinkPotion's bu
 import { SPELL_CAST_SOUND } from '../systems/enemySpells.js';
 import { tallySkill } from '../systems/skills.js';
 import { morphSelf } from '../systems/lycanthropy.js';   // V2a: the MorphSelf arm the ONE cast engine wires
-import { allyCastable, allyReachFor, allyCastFrame, allyCastCasterLine, allyCastCasterLineMany, allyCastSpell, PERSON_RADIUS, ALLY_TOUCH_REACH, ALLY_ARM_RADIUS, ALLY_ARMED_LINE, COMPANION_ARMED_LINE } from '../systems/allyCast.js';   // SPELL-GIFT: the arm near a mate, the line it says, and the area's one line
+import { allyCastable, allyReachFor, allyCastFrame, allyCastCasterLine, allyCastCasterLineMany, allyCastSpell, PERSON_RADIUS, ALLY_TOUCH_REACH, ALLY_ARM_RADIUS, ALLY_ARMED_LINE, COMPANION_ARMED_LINE, companionCastable } from '../systems/allyCast.js';   // SPELL-GIFT: the arm near a mate, the line it says, and the area's one line; AUDIT WK-M4: what my companion can use
 import { hasResurrect, RESURRECT_REACH, RESURRECT_TEXT, pickFallenBody } from '../systems/resurrect.js';   // RESURRECT1: a fallen party member's body is the target   // ALLY-CAST: a beneficial spell at the party mate under the crosshair
 import { billboardSize, centredBase } from '../world/rmbFlats.js';
 import { createMagicCandle } from './magicCandle.js';   // X11: the Light effect's candle
@@ -199,29 +199,40 @@ export function createPlayerMagic({
     return out;
   }
   /** COMPANION-KIT: my companions as foe-shaped marks ({companion, rec, name, ai}) for a spell that may be given and is
-   *  not a free ready - ALLY-CAST's own gate; [] for anything else, or with no seam. */
+   *  not a free ready - ALLY-CAST's own gate; [] for anything else, or with no seam.
+   *  AUDIT WK-M4: given to HIM - a gift carrying something he can use (allyCast.js companionCastable): a Light, a Detect or
+   *  a Comprehend Languages alone is read off the player only, and armed for him it was spent on nothing.
+   *  AUDIT WK-M6: never a man KNOCKED OUT - the pools' death arm holds him at 1 and marks him (`_knockedOut`), and he
+   *  stands to the layer's next frame only to be carried aboard (crewAshore.js); a heal that frame was spent on a man
+   *  already gone. */
   function companionMarksFor(sp, free = readiedFree) {
-    if (!companionBodies || !sp || free || !allyCastable(sp)) return [];
+    if (!companionBodies || !sp || free || !companionCastable(sp)) return [];
     let list = null;
     try { list = companionBodies() ?? null; } catch { return []; }
     if (!Array.isArray(list)) return [];
     const out = [];
     for (const rec of list) {
       const f = rec?.ai?.feet;
-      if (!rec || rec.dead || !rec.entity || rec.puppet || !Array.isArray(f) || f.length !== 3 || !f.every(Number.isFinite)) continue;
+      if (!rec || rec.dead || rec._knockedOut || !rec.entity || rec.puppet || !Array.isArray(f) || f.length !== 3 || !f.every(Number.isFinite)) continue;
       out.push({ companion: true, rec, name: rec.entity.name || 'your companion', dead: false, ai: { feet: f, height: Number.isFinite(rec.ai.height) && rec.ai.height > 0 ? rec.ai.height : CAPSULE_HEIGHT } });
     }
     return out;
   }
   /** COMPANION-KIT: a gift landed on my companion - applied here, ALLY-CAST's receiver's record (its beneficial effects as
    *  a self-cast: no save, the caster's level), tagged an ally's bundle (a buff on his bar and his card), through his own
-   *  sinks as no blow of mine. Answers whether anything landed. */
+   *  sinks as no blow of mine. Answers whether anything landed.
+   *  AUDIT WK-M1: AND WITH NO CASTER, the receiver's own call (world.js online.onCast hands applySpellToPlayer `null`).
+   *  Handed me as its caster, applySpell ran the incoming spell's chain (effects.js: absorption, REFLECTION, resistance -
+   *  gated on a caster) that a gift never meets (AUDIT ALLY-CAST B6, C1): a companion wearing a Spell Reflection I gave
+   *  him bounced my next heal onto me, and a Heal + Fortify landed on both of us, mine tagged an ally's.
+   *  AUDIT WK-M4: what lands is what he can use (`companion`: the Light, Detect and Comprehend Languages stripped).
+   *  AUDIT WK-M6: and never on a man knocked out. */
   function giveToCompanion(mark, sp, { quiet = false } = {}) {
     const rec = mark?.rec;
-    if (!rec || rec.dead || !rec.entity) return false;
-    const gift = allyCastSpell({ name: sp?.name, element: sp?.element, effects: sp?.effects, icon: sp?.icon });
+    if (!rec || rec.dead || rec._knockedOut || !rec.entity) return false;
+    const gift = allyCastSpell({ name: sp?.name, element: sp?.element, effects: sp?.effects, icon: sp?.icon }, { companion: true });
     if (!gift) return false;
-    applySpellToFoe(gift, effectiveLevel(playerEntity), rec, playerCaster(), { allyCast: true }, foeSinks(rec, false));
+    applySpellToFoe(gift, effectiveLevel(playerEntity), rec, null, { allyCast: true }, foeSinks(rec, false));
     if (!quiet) say(allyCastCasterLine(sp.name, mark.name));
     return true;
   }
@@ -836,7 +847,10 @@ export function createPlayerMagic({
       // rule was wrong and died at its audit).
       // ALLY-CAST: the touch probe admits a party mate in touch reach as it admits a foe - the release frame (the
       // ally arm there) is where the cast is aimed, but CastReadySpell's own gate runs first
-      if (!pickTouch(eye, dir, sp) && !(!readiedFree && allyCastable(sp) && allyInReach(eye, dir, ALLY_TOUCH_REACH))) return false;   // AID1 onto ALLY-CAST: a mate's body the touch meets is a target too
+      // AUDIT WK-M2: and MY COMPANION by the release frame's own pick (companionInReach - the aim anywhere along his
+      // height, the gate's twin of the mate's). pickTouch's sphere meets a body at its centre point alone, so a level aim
+      // at his face was refused here - nothing spent, the spell still readied - while the release would have given it him
+      if (!pickTouch(eye, dir, sp) && !(!readiedFree && allyCastable(sp) && (allyInReach(eye, dir, ALLY_TOUCH_REACH) || companionInReach(eye, dir, ALLY_TOUCH_REACH)))) return false;   // AID1 onto ALLY-CAST: a mate's body the touch meets is a target too
     }
     // :423-425 DecreaseMagicka - the spend is at the CAST, before a
     // single frame of hand motion has run.
@@ -885,12 +899,6 @@ export function createPlayerMagic({
     readiedFree = free;
     readiedCost = spellPointCost;
     onNewReadySpell?.(sp);   // :348 - after the assignment, before the CasterOnly instant cast
-    // COMPANION-KIT: a CasterOnly gift ARMS with my companion under the crosshair, or near - ALLY-CAST's own two arms (below)
-    // for a body of mine: the click gives it to him, or, aimed anywhere else, to me
-    if (sp.rangeType === 0 && !free && allyCastable(sp)) {
-      if (companionInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); return true; }
-      if (companionNear(lastAim?.eye ?? null, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); say(COMPANION_ARMED_LINE); return true; }
-    }
     if (sp.rangeType === 0) {
       // AUDIT ALLY-CAST A1: a CasterOnly spell with a PARTY MATE under the crosshair ARMS instead of firing on the
       // spot. The instant arm (:350-351) gave the player no sign of where the cast would land - a Heal readied while
@@ -900,11 +908,20 @@ export function createPlayerMagic({
       // the CasterOnly arm as ever if they moved. A free ready (A7) fires on the spot as DFU's does; so does one
       // with nobody there.
       if (!free && allyCastable(sp) && allyInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); return true; }
+      // COMPANION-KIT: a CasterOnly gift ARMS with my companion under the crosshair, or near - the two arms of ALLY-CAST
+      // here for a body of mine (companionMarksFor holds a free ready and a spell not his to him): the click gives it to
+      // him, or, aimed anywhere else, to me.
+      // AUDIT WK-M9: IN THE CLICK'S OWN ORDER - releaseFrame asks the mate under the crosshair first, then my companion -
+      // and both crosshair arms before either near arm. My companion's two used to stand ahead of all of ALLY-CAST's, so a
+      // ready with a mate under the crosshair and my companion near said "Aim at your companion..." and the click gave it
+      // to the mate; with a mate near as well, the near line is the mate's (ALLY_ARMED_LINE).
+      if (companionInReach(lastAim?.eye ?? null, lastAim?.dir ?? null, ALLY_TOUCH_REACH, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); return true; }
       // SPELL-GIFT (2026-09-27, Tabitha: "a LARGE amount of buffs & spells just don't work when cast on another person"):
       // ...AND WITH A MATE NEAR, not only one already under the crosshair (systems/allyCast.js ALLY_ARM_RADIUS). Readied
       // first and aimed after - the way anyone casts - the buff had gone off on the caster on the spot. Armed, the click
       // gives it to the mate under the crosshair, or, aimed anywhere else, to the caster, as CasterOnly always does.
       if (!free && allyCastable(sp) && allyNear(lastAim?.eye ?? null, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); say(ALLY_ARMED_LINE); return true; }
+      if (companionNear(lastAim?.eye ?? null, sp)) { say(PRESS_BUTTON_TO_FIRE_SPELL); say(COMPANION_ARMED_LINE); return true; }
       if (!free && hasResurrect(sp)) { say(fallenInReach(lastAim?.eye ?? null, lastAim?.dir ?? null) ? PRESS_BUTTON_TO_FIRE_SPELL : RESURRECT_TEXT.aim); return true; }   // RESURRECT1: a caster-only Resurrect waits for the click, aimed at the body
       return castInput(null, null) !== false;
     }

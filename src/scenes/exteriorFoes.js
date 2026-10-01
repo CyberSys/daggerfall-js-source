@@ -109,6 +109,21 @@ export function validQuestTags(qf) {
  *  owner's LOOSE stands (a summon's foe, a Wabbajack's change), which ride to the whole room; the deep's `dz` shape, and
  *  a malformed entry names nothing. */
 export const validLooseSeqs = (lf) => validDeepIds(lf);
+/** AUDIT WK-U3: the names of an owner's companions on the foes frames (`cn`, beside `cp` and in its order) - his own
+ *  name, never his class's (another player's companion wore "Warrior" over his head). Each at most COMPANION_NAME_MAX
+ *  characters, control characters dropped; anything else stands for none. `Map<number, string>` by number. */
+export const COMPANION_NAME_MAX = 40;
+export function companionNames(cp, cn) {
+  const out = new Map();
+  if (!Array.isArray(cp) || !Array.isArray(cn)) return out;
+  for (let k = 0; k < cp.length && k < cn.length; k++) {
+    const i = cp[k], n = cn[k];
+    if (!Number.isInteger(i) || typeof n !== 'string') continue;
+    const name = n.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, COMPANION_NAME_MAX);
+    if (name) out.set(i, name);
+  }
+  return out;
+}
 /** QUEST-PARTY phase 3 (2026-09-26, Mac: "Dungeons and buildings"): A MARKER'S FOE STANDS ONCE FOR THE PARTY. A quest
  *  marker stands its foe in every copy of the quest at the same spot - the palace's imp, the dungeon's vampire - so two
  *  members in the room stood two, each seeing both. My untouched copy stands down for a party member's live one that a
@@ -1928,8 +1943,10 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     const cz = campTagsOf(out, (r) => src.get(r));   // OW6: a camp's members, by number, camp and kind - a reader marks the camp on its Overworld, an heir takes it as one
     const al = out.filter((r) => r.t === KNIGHT_CITYWATCH_ID && r.d !== 1 && src.get(r)?.defender).map((r) => r.i);   // RAID2: the watchmen who are MY allies (DISC19-F's defenders, a raid's among them) - a reader stands them as its allies, where a watch record carried no team
     const cw = out.filter((r) => r.d !== 1 && isShipmate(src.get(r))).map((r) => r.i);
-    const cp = out.filter((r) => r.d !== 1 && src.get(r)?.companion != null).map((r) => r.i);   // AUDIT CC-E1: my companions, by number - a reader marks them so its foes may fight them   // SHIPMATES: my crew on a deck (combat/friendlyFire.js) - a reader stands them as its allies and its own harm passes them by
-    return { n: ++_foesSeq, k: _net.room?.() ?? null, full: full ? 1 : 0, f: out, ...(rz.length ? { rz } : {}), ...(cz.length ? { cz } : {}), ...(al.length ? { al } : {}), ...(cw.length ? { cw } : {}), ...(cp.length ? { cp } : {}), ...(st.length ? { st } : {}), ...(sp.length ? { sp } : {}), ...(dz.length ? { dz } : {}), ...(qf.length ? { qf } : {}) };
+    const mates = out.filter((r) => r.d !== 1 && src.get(r)?.companion != null);
+    const cp = mates.map((r) => r.i);   // AUDIT CC-E1: my companions, by number - a reader marks them so its foes may fight them
+    const cn = mates.map((r) => src.get(r)?.entity?.name ?? '');   // AUDIT WK-U3: and their names, in that order   // SHIPMATES: my crew on a deck (combat/friendlyFire.js) - a reader stands them as its allies and its own harm passes them by
+    return { n: ++_foesSeq, k: _net.room?.() ?? null, full: full ? 1 : 0, f: out, ...(rz.length ? { rz } : {}), ...(cz.length ? { cz } : {}), ...(al.length ? { al } : {}), ...(cw.length ? { cw } : {}), ...(cp.length ? { cp, cn } : {}), ...(st.length ? { st } : {}), ...(sp.length ? { sp } : {}), ...(dz.length ? { dz } : {}), ...(qf.length ? { qf } : {}) };
   }
   /** The owner's record (AUDIT WORLD6b B4/C3), minted on its first frame. */
   function ownerOf(from) { let o = _owners.get(from); if (!o) { o = { n: -1, at: _now(), gen: ++_ownerGen, k: null }; _owners.set(from, o); } return o; }   // WORLD6b-iii(b): k the cell the owner's frames are keyed to - its own
@@ -1991,6 +2008,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     const allied = validAlliedIds(data.al);   // RAID2: which watchmen are the owner's allies
     const crew = validAlliedIds(data.cw);   // SHIPMATES: which are the owner's crew on a deck
     const comp = validAlliedIds(data.cp);   // AUDIT CC-E1: and which of them are the owner's companions
+    const compNames = companionNames(data.cp, data.cn);   // AUDIT WK-U3: and their names
     const stood = new Set(), refused = new Set();   // AUDIT WOD7: a site whose every record the allowance refused is not spent here
     const liveMarks = [];   // QUEST-PARTY phase 3: the owner's live marker foes of a quest the party shares
     let adopted = 0;   // AUDIT CONTRIB P1: the foes this frame hands to me
@@ -2022,7 +2040,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       if (site && (f || _pupPending.has(key))) stood.add(site);   // AUDIT WOD7: standing or building here
       if (f) {
         if ((r.t !== undefined && r.t !== f.mobileType) || (r.d === 0 && f.dead) || (r.l !== undefined && f.mobileType >= 128 && r.l !== (f.builtLevel | 0))) removePuppet(f);   // AUDIT WORLD6b-ii B2: a CLASS foe's level is its owner's word (its skills and health are built from it) - a monster's is its species' (makeEnemyEntity), whatever the record says; AUDIT FOES FOE8: against the level it was BUILT at, which a City Watch's constructor re-rolls
-        else { if (campTags.has(r.i)) f._pupCamp = campTags.get(r.i); applyPuppetRecord(f, r); f._heirElse = heirElse(r); if (heirIsMe(r)) adopted += adopt(from, f); if (f.mobileType === KNIGHT_CITYWATCH_ID) alliedWatchPuppet(f, allied.has(r.i)); crewPuppet(f, crew.has(r.i), comp.has(r.i)); continue; }   // OW6: its camp, as the owner last said it
+        else { if (campTags.has(r.i)) f._pupCamp = campTags.get(r.i); applyPuppetRecord(f, r); f._heirElse = heirElse(r); if (heirIsMe(r)) adopted += adopt(from, f); if (f.mobileType === KNIGHT_CITYWATCH_ID) alliedWatchPuppet(f, allied.has(r.i)); crewPuppet(f, crew.has(r.i), comp.has(r.i)); f.companionName = compNames.get(r.i) ?? null; continue; }   // OW6: its camp, as the owner last said it
       }
       // AUDIT (the pre-merge audit, D2): a foe of theirs I took, streamed ALIVE by them again (a socket back under the
       // same id, a tab that woke) - theirs again: mine goes, and their record stands it here as their puppet
@@ -2044,7 +2062,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         .then((nf) => {
           if (!nf) return;
           if (shipmate) nf.shipmate = true;
-          if (comp.has(r.i)) nf.companion = `peer:${from}:${r.i}`;   // AUDIT CC-E1: another's companion - my foes may fight it
+          if (comp.has(r.i)) { nf.companion = `peer:${from}:${r.i}`; nf.companionName = compNames.get(r.i) ?? null; }   // AUDIT CC-E1: another's companion - my foes may fight it; WK-U3: his name
           const owner = _owners.get(from);
           const kept = _pupPending.get(key) ?? null;   // null once a room change cleared it (clearPuppets)
           // AUDIT (the pre-merge audit, F3): the owner's leave pruned it while this build was in flight, and its last

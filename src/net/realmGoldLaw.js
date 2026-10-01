@@ -139,6 +139,9 @@ const lists = (/** @type {any[]} */ ...ls) => ls.filter(Array.isArray);
 /** Come Sail Away's record in a save's per-mod slot (systems/comeSailAway.js COME_SAIL_AWAY_VENDOR, pinned equal - that
  *  module is the mod's runtime, which neither the Online door nor the Worker loads). */
 const CSA_VENDOR = 'come-sail-away';
+/** The sea fight's record in a save's per-mod slot (scenes/navalHost.js NAVAL_SAVE_VENDOR, pinned equal - the sea's host,
+ *  which neither the Online door nor the Worker loads): AUDIT WK-P1, where my companions' packs ride. */
+const NAVAL_VENDOR = 'NavalCombat';
 
 /**
  * AUDIT REALM F2: WHAT THE PLAYER LEFT IN THE WORLD - every list of the character's own things a save carries outside its
@@ -155,6 +158,10 @@ const CSA_VENDOR = 'come-sail-away';
  * it, and a dungeon's fallen (`foes` with `dead`: a body is a container; a living foe's purse is its own).
  * AUDIT REALM2 T2: AND A BOAT'S HOLD - each placed boat's `Items` and each packed boat's cargo (comeSailAway.js
  * getSaveData), the mod's record in the save: an ordinary container the pack fills, which customs never read.
+ * AUDIT WK-P1: AND MY COMPANIONS' PACKS - each companion ashore carries a pack the player stores into (COMPANION-KIT's
+ * storage, systems/naval/crewCompanions.js), saved with the party in the sea's record (navalHost.js getSaveData `party`,
+ * each companion's `items`): a container like the hold beside it, which customs and the service's first save never
+ * read - a million gold in his pack crossed whole while the same million in the hold was capped.
  * @param {any} snap
  */
 export function stashedItemLists(snap) {
@@ -170,6 +177,8 @@ export function stashedItemLists(snap) {
   const csa = snap?.modData?.[CSA_VENDOR];
   for (const boat of csa?.placedBoats ?? []) out.push(...lists(boat?.Items));
   out.push(...lists(...Object.values(csa?.packedCargoes ?? {})));
+  const party = snap?.modData?.[NAVAL_VENDOR]?.party?.party;   // AUDIT WK-P1
+  for (const c of Array.isArray(party) ? party : []) out.push(...lists(c?.items));
   return out;
 }
 /** Every list of the character's own things where liquid wealth can lie, in the order customs takes from them: the

@@ -446,7 +446,7 @@ import { SOUND } from '../systems/soundClips.js';
 import { createWeaponRig, autoBuildArms, armIdentityOf, armBuiltFor, armsReady, sheetHolderOf, buildArmsFor, prebuildArmsForSave } from '../combat/weaponRig.js';   // MWA1: the arms at boot; MWA3: the identity the arm should stand for, beside the one it does; MW-EARLY: and before the world is read
 import { weaponPoseOf, applyWeaponPose, mergeWeaponPose, playerMeleeCanHit } from '../combat/playerWeapon.js';   // HARD2c: the sheath+hand pair as ONE law, and SL-2's per-field merge with the mode host's live rig
 import { ArrowFlight, playerArrowHitFoe } from '../combat/arrowFlight.js';   // C13: visible exterior arrows; AUDIT 39 (#64): and the shaft that LANDS
-import { addItem, addGoldPieces, spendAmmoFor, carriedWeight } from '../systems/inventory.js';
+import { addItem, addGoldPieces, isGoldPieces, spendAmmoFor, carriedWeight } from '../systems/inventory.js';
 import { storesIn, spendStore, mintStores } from '../systems/naval/navalStores.js';
 import { orderRows } from '../systems/naval/shipCrew.js';   // SHIP-CREW: the orders list   // SEA-REPAIR: carpenter's stores in a hold   // E4: PlayerEntity.CarriedWeight carries the gold counter's own term
 import { calculateAttackDamage } from '../combat/formulas.js';   // X2-slice: enemy-arrow impacts
@@ -6071,6 +6071,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   }
   /** CSA-K: the others' words standing them on this boat of mine (the pack's refusal; OWS2: and a landfall's pack). */
   const csaPassengersOn = (boat) => { const i = csaRuntime?.AllBoats.filter((b) => b.GameObject?.activeSelf).indexOf(boat) ?? -1; return i < 0 || !online?.id ? 0 : csaAboard.passengersOn(online.id, i); };
+  /** SerializeItems / DeserializeItems: the save's own item copy (save.js) - AUDIT WK-D11: ONE codec, the cargo's and
+   *  the companions' packs both (two identical literals stood in step only while nobody touched one). */
+  const packedItemsCodec = Object.freeze({ serialize: (items) => (items ?? []).map((it) => ({ ...it })), deserialize: (records) => (records ?? []).map((it) => setItemFields({ ...it })) });
   const csaRuntime = csaOn() ? createComeSailAwayRuntime({
     pool: csa,
     passengersAboard: csaPassengersOn,
@@ -6103,7 +6106,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     weatherType: () => WEATHER_TYPES.indexOf(currentWeather()),   // CSA-E: PlayerWeather.WeatherType (the port's eighth word, the sandstorm, is none of UpdateWind's three)
     hour: () => Math.floor(minuteNow() / 60),   // CSA-E: WorldTime.Now.Hour
     persistentDungeonBoats: () => { try { return modSetting('come-sail-away', 'Compatibility.PersistentDungeonBoats') === true; } catch { return false; } },
-    packedItems: { serialize: (items) => (items ?? []).map((it) => ({ ...it })), deserialize: (records) => (records ?? []).map((it) => setItemFields({ ...it })) },   // SerializeItems / DeserializeItems: the save's own item copy (save.js)
+    packedItems: packedItemsCodec,   // SerializeItems / DeserializeItems: the save's own item copy (save.js)
     // CSA-D: the helm's seams
     dt: () => _csaDt,
     setting: (key) => { try { return modSetting(COME_SAIL_AWAY_VENDOR, key); } catch { return undefined; } },
@@ -6263,9 +6266,12 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  list, naval.companionPack) opened as a storage beside mine, over whatever the mode draws (a building's, a dungeon's
    *  or the street's slot). Answers whether it opened. */
   const openCompanionPack = (rec) => {
-    const pack = naval?.companionPack?.(rec?.companion) ?? null;
-    if (!pack || !inventoryDoorReady()) return false;
-    const w = makeInventoryWindow({ loot: { items: () => pack.items, containerImage: () => CONTAINER_IMAGES.Backpack, playerOwned: true, storage: true } });
+    const key = rec?.companion;
+    if (!naval?.companionPack?.(key) || !inventoryDoorReady()) return false;
+    // AUDIT WK-P3: his pack read by his key at every look - a quickload under the window stands a restored party, and a
+    // list taken once kept the unloaded pack's items to be taken again (each F9/F11 a duplicate)
+    let orphan = null;
+    const w = makeInventoryWindow({ loot: { items: () => naval?.companionPack?.(key)?.items ?? (orphan ??= []), containerImage: () => CONTAINER_IMAGES.Backpack, playerOwned: true, storage: true } });
     if (!w) return false;
     if (!modes?.mountWindow?.(w)) { (w.dispose?.bind(w) ?? w._closeSilently?.bind(w))?.(); return false; }
     return true;
@@ -6870,17 +6876,22 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (handle.foe?.ai && !handle.foe.dead) handle.foe.ai.isHostile = false;
   };
   /** The hold's goods into a boat's own hold (Come Sail Away's cargo) - or with no boat, into the pack as far as it
-   *  carries (the pack's own gate, itemTransfer.js planTake). Answers what would not go. */
-  const navalGiveItems = (items, boat) => {
-    if (boat?.Cargo?.Items) { for (const it of items) addItem(boat.Cargo.Items, it); surfacePlayer(); return { left: [] }; }
+   *  carries (the pack's own gate, itemTransfer.js planTake). Answers what would not go. AUDIT WK-P5: gold pieces into
+   *  the purse (DoTransferItem's counter - a pile in the pack was gold nobody could spend), and with `force` what the
+   *  pack will not carry goes in past its gate (a companion's pack is never thrown away) - `over` how many. */
+  const navalGiveItems = (items, boat, { force = false } = {}) => {
+    if (boat?.Cargo?.Items) { for (const it of items) addItem(boat.Cargo.Items, it); surfacePlayer(); return { left: [], over: 0 }; }
     playerEntity.items = playerEntity.items || [];
     const left = [];
+    let over = 0;
     for (const it of items) {
+      if (isGoldPieces(it)) { addGoldPieces(playerEntity, it.stackCount ?? 1); continue; }
       if (planTake(it, { bag: playerEntity.items, entity: playerEntity, dryRun: true }).ok) addItem(playerEntity.items, it);
+      else if (force) { addItem(playerEntity.items, it); over++; }
       else left.push(it);
     }
     surfacePlayer();
-    return { left };
+    return { left, over };
   };
   /** The plunder window over the world, the hold's loot window between two of its presses (navalPlunderDoor.js). */
   function navalOpenPlunder(model) {
@@ -6909,7 +6920,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const navalCrew = createNavalCrew({ renderer, getTexture, uploadRecordFrame });   // LIVING CREW: the crews on the decks near the eye
   const navalRender = new NavalRenderer(renderer);
   naval = createNavalHost({
-    packedItems: { serialize: (items) => (items ?? []).map((it) => ({ ...it })), deserialize: (records) => (records ?? []).map((it) => setItemFields({ ...it })) },   // COMPANION-KIT: the companions' packs saved as the cargo's are (save.js's item copy)
+    packedItems: packedItemsCodec,   // COMPANION-KIT: the companions' packs saved as the cargo's are - AUDIT WK-D11: the one codec
     pool: csa,
     csa: () => (navalOn() ? csaRuntime : null),
     seaY: () => tvSeaY(),
@@ -6922,7 +6933,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       dir: [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)],
     }),
     level: () => playerEntity.level ?? 1,
-    where: () => { const p = playerTravelPixel(); return { px: p.x, py: p.y, region: _questRegionIndex(), day: Math.floor(worldMinutes() / 1440), nearPort: navalNearPort(), capitals: navalCapitals(), cityLights: isCityLightsOn(minuteNow()) }; },
+    where: () => { const p = playerTravelPixel(); return { px: p.x, py: p.y, region: _questRegionIndex(), day: Math.floor(worldMinutes() / 1440), nearPort: navalNearPort(), capitals: navalCapitals(), cityLights: isCityLightsOn(minuteNow()), night: isNight(minuteNow()) }; },   // AUDIT WK-N5: the lanterns' hours and the dark's, apart
     say: (text, seconds) => townTalk.say(text, seconds),
     mid: (text, seconds) => setMidScreenText(text, seconds),
     shake: (amount) => betterAmbience.weaponKick(amount),   // FIELD-GUN6's door: a shake that is not a wound, under the player's own maxShake
@@ -7093,7 +7104,8 @@ export async function bootWorld(canvas, renderer, params, status) {
         // companion is a puppet whose effects are his owner's - his name alone)
         const mate = f.companion != null;
         points.push({ x: at.x, y: at.y, share: max > 0 ? Math.max(0, f.entity.health) / max : 1, distance: d,
-          ...(mate ? { name: f.entity.name || 'Companion', hp: f.entity.health, hpMax: max, fx: f.puppet ? [] : composePartyFx(f.entity) } : {}) });
+          // AUDIT WK-U3: another player's companion, his own name as his owner's frame gives it (his class's never) and no more
+          ...(mate ? (f.puppet ? { name: f.companionName || 'Companion', fx: [] } : { name: f.entity.name || 'Companion', hp: f.entity.health, hpMax: max, fx: composePartyFx(f.entity) }) : {}) });
       }
     }
     drawCrewBars(points, { covered, scale: enhancedHudScale() });
@@ -7115,7 +7127,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   };
   /** AUDIT CC-A5: my boats always say who is away - an empty set brings the last of the party home onto her deck. */
   const NO_HANDS_AWAY = new Set();
-  const _crewCtx = { battle: false, struck: false, muster: 0, avoid: null, order: null, sings: true, line: null, asleep: false, work: 0, call: null }, _crewMe = [0, 0, 0], _crewThem = [0, 0, 0];
+  const _crewCtx = { battle: false, struck: false, muster: 0, avoid: null, order: null, sings: true, line: null, asleep: false, work: 0, call: null, lookout: -1 }, _crewMe = [0, 0, 0], _crewThem = [0, 0, 0];
   const _crewSeed = (s) => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193); return h >>> 0; };
   /** AUDIT NAV2 F9: my boat's crew seeded as a room seeds her (comeSailAwayPeers peerKey, `${whose}:${which}` - which,
    *  her place among my word's boats: csaWord's order, the active ones) so her owner and every reader stand one crew;
@@ -7149,7 +7161,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // crew, at peace, until it does
       const word = naval?.peerBoat?.(_crewOwner(boat)) ?? null;
       const crew = Math.round(hullBuild(boat.hull).crew * (word?.crewShare ?? 1)), seed = _crewSeed(boat.peerKey ?? '');
-      list.push({ key: boat, boat, deck: csa.deckOf(boat.hull, boat.variant ?? 0), count: crewCount({ hull: boat.hull, crew }), rosterOf: () => crewRoster({ hull: boat.hull, seed, crew }), seed, faction: null, battle: !!word?.battle });
+      list.push({ key: boat, boat, deck: csa.deckOf(boat.hull, boat.variant ?? 0), count: crewCount({ hull: boat.hull, crew }), rosterOf: () => crewRoster({ hull: boat.hull, seed, crew }), seed, faction: null, battle: !!word?.battle, work: word?.work ?? 0 });   // AUDIT WK-W12: her hurts as her word says them, mended on every screen
     }
     for (const s of naval?.crewShips?.() ?? []) {
       if (!near(s.key, s.pos)) continue;
@@ -7167,6 +7179,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       _crewCtx.asleep = asleep; _crewCtx.work = ship.mine ? ship.mine.work ?? 0 : ship.work ?? 0;
       _crewCtx.call = ship.mine?.call ?? null;
       if (ship.mine) ship.mine.call = null;
+      _crewCtx.lookout = ship.mine?.lookout ?? -1;   // AUDIT WK-W10: her card's Lookout at her bow (the sea's and a peer's: none named)
       if (walkMode && playerSpawned) {   // me on her deck: never walked through
         intoDeck(m, player.pos, _crewMe);
         if (Math.abs(_crewMe[1] - (ship.deck.heightAt(_crewMe[0], _crewMe[2]) || 0)) < 2) _crewCtx.avoid = _crewMe;
@@ -7299,7 +7312,8 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  name, role and effects, his health off his body where one stands here (else as the party carries it, a share of
    *  his whole); none with the arc off. */
   function partyCompanions() {
-    const party = navalOn() ? naval?.companions?.party ?? [] : [];
+    // AUDIT WK-U5: none while I sail - the party is lifted aboard (it stood its cards over the ship's plate on a phone)
+    const party = navalOn() && !csaRuntime?.isSailing?.() ? naval?.companions?.party ?? [] : [];
     if (!party.length) return [];
     const bodies = new Map(crewAshore.bodies().map((r) => [r.companion, r]));
     return party.map((c) => {
@@ -7319,7 +7333,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     return partyPanel;
   }
   function companionPanelFrame() {
-    if (chatLinks) return;
+    if (chatLinks && social) return;   // AUDIT WK-U7: the social picture's panel draws them - online with no account there is none
     if (!partyPanel) {
       if (!partyCompanions().length) return;
       makePartyPanel(null);
@@ -8437,7 +8451,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // through the one that owns the billboard - `exteriorFoePool` is
     // the watch AND the encounter foes, and this arm reached the
     // encounter pool's remover for both. That was not a leak: removeFoe
-    // (exteriorFoes.js:514-519) never looks the record up in `foes`, and
+    // (exteriorFoes.js:529-534) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
     // got exactly what removeGuard (cityGuards.js:1627-1645) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
@@ -10924,7 +10938,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7694), so exterior mode and a
+    // composer, dungeonContext.js:7695), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -19926,7 +19940,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // CSA-J (the audit): the same-dungeon load's three doors - SaveLoadManager's OnStartLoad AHEAD of the save's player
     // (:1378, before the restore at :1497: Come Sail Away's StopSailing hands a lent ship back, and after the restore it
     // took the loaded character's own), the records, and OnLoad once the load has landed (:1554 - the boats' visibility)
-    modStartLoad: () => { if (csaRuntime) csaCall(() => csaRuntime.OnStartLoad()); },
+    modStartLoad: () => { crewAshore.clear(); if (csaRuntime) csaCall(() => csaRuntime.OnStartLoad()); },   // AUDIT WK-P4: a same-dungeon load lifts the party first too, as worldQuickLoad does (AUDIT CC-A8)
     modSaveLoad: (modData) => { restoreModSaveRecords(modData, csaModLoadFailed); },   // WA1: ...and a same-dungeon load hands back
     modLoaded: () => { if (csaRuntime) csaCall(() => csaRuntime.OnLoad()); },
     // PX17c: the pause window's journal seams ride into the interior

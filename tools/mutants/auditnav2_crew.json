@@ -330,8 +330,8 @@
   {
     "name": "AUDIT-NAV2-F47-leader-taken-to-talk",
     "file": "src/systems/naval/crewLife.js",
-    "old": "if (o === m || o.gone || o.below || o.state !== 'idle' || o.mate || o === chanty?.leader) continue;",
-    "new": "if (o === m || o.gone || o.below || o.state !== 'idle' || o.mate) continue;",
+    "old": "|| o.mate || o === chanty?.leader || o === lookout) continue;",
+    "new": "|| o.mate || o === lookout) continue;",
     "tests": [
       "test/auditnav2_crew.test.js"
     ]
@@ -493,8 +493,8 @@
   {
     "name": "AUDIT-NAV2-F9-reader-at-peace",
     "file": "src/scenes/world.js",
-    "old": "faction: null, battle: !!word?.battle });",
-    "new": "faction: null, battle: false });",
+    "old": "faction: null, battle: !!word?.battle, work: word?.work ?? 0 });",
+    "new": "faction: null, battle: false, work: word?.work ?? 0 });",
     "tests": [
       "test/auditnav2_crew.test.js"
     ]

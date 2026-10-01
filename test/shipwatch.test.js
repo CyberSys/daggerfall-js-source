@@ -131,13 +131,15 @@ test('SHIP-WATCH ALL HANDS: the guns or a muster call every hand up at once out 
   run(life, 40, { asleep: true });
   life.step(0.05, { asleep: true, struck: true });
   assert.equal(life.belowCount(), 0, 'her colours down');
-  // the morning
+  // the morning - PIN MOVED (AUDIT WK-W8): one at a time out of her hatch (auditwatchkit_crew), every hand up within
+  // seconds, and quietly all the while
   const m2 = crewOf(5);
   run(m2, 40, { asleep: true });
   for (const m of m2.members) m.line = null;
-  m2.step(0.05, { asleep: false });
+  let shouted = false;
+  run(m2, 10, { asleep: false }, (l) => { if (l.speech().some((s) => s.text === ALL_HANDS)) shouted = true; });
   assert.equal(m2.belowCount(), 0, 'the morning brings them up');
-  assert.ok(!m2.speech().some((s) => s.text === ALL_HANDS), 'quietly');
+  assert.equal(shouted, false, 'quietly');
   // taken while below - up out of her hatch
   const m3 = crewOf(6);
   run(m3, 40, { asleep: true });
@@ -314,7 +316,7 @@ test('SHIP-WATCH THE ERRANDS BY NIGHT: a merchantman whose dwell is spent after 
 // ── the host ─────────────────────────────────────────────────────────────────────────────────────────────────────
 
 test('SHIP-WATCH THE LANTERNS ON THE REAL HOST: at the lights\' hour a merchantman and a navy light theirs and a pirate keeps hers out - a merchantman running douses hers; by day none; the captains\' contacts say who shows a light, mine my own lantern switch; the captains are told the night (mutants: every ship lit, the pirate lit, the contacts unlit, the night untold)', async () => {
-  const h = await sea({ hull: HULL.SmallShip, where: { cityLights: true } });
+  const h = await sea({ hull: HULL.SmallShip, where: { cityLights: true, night: true } });   // AUDIT WK-N5 (PIN MOVED): the dark's hours named apart from the lanterns'
   const ids = { m: h.host.spawnShip('merchantGalleon', { range: 300, bearing: 1 }), n: h.host.spawnShip('navyCutter', { range: 320, bearing: -1 }), p: h.host.spawnShip('pirateBrig', { range: 700, bearing: Math.PI, temper: 'bold' }) };
   h.run(0.5);
   const e = (k) => h.host._sea.get(ids[k]);
@@ -330,9 +332,10 @@ test('SHIP-WATCH THE LANTERNS ON THE REAL HOST: at the lights\' hour a merchantm
   assert.equal(e('m').boat.LightOn, false, 'running, she douses hers');
   // the contacts the captains see
   assert.match(HOST, /ship: e\.ship, lit: shipLit\(e\) \}\);/);
-  assert.match(HOST, /lit: !!boat\.LightOn,/);
-  assert.match(HOST, /lit: !!p\.boat\?\.LightOn,/);
-  assert.match(HOST, /const night = !!where\(\)\.cityLights;[^\n]*\n\s*const world = \{/);
+  // AUDIT WK-N4 (PIN MOVED): a boat lit only by lanterns she carries; WK-N5: the captains' night is the dark's
+  assert.match(HOST, /lit: !!boat\.LightOn && carriesLanterns\(boat, boat\.hull\),/);
+  assert.match(HOST, /lit: !!p\.boat\?\.LightOn && carriesLanterns\(p\.boat, p\.hull\),/);
+  assert.match(HOST, /const night = !!where\(\)\.night;[^\n]*\n\s*const world = \{/);
   assert.match(HOST, /\n\s*night,[^\n]*\n\s*\};\n\s*life\.night = night;/);
   const d = await sea({ hull: HULL.SmallShip, where: { cityLights: false } });
   const dm = d.host._sea.get(d.host.spawnShip('merchantGalleon', { range: 300, bearing: 1 }));
@@ -341,7 +344,7 @@ test('SHIP-WATCH THE LANTERNS ON THE REAL HOST: at the lights\' hour a merchantm
 });
 
 test('SHIP-WATCH THE LOOKOUT\'S CRY ON THE REAL HOST: by night a dark pirate is hailed only within NIGHT_DARK_SIGHT (by day at SAIL_HO_RANGE); the cry goes to my crewed boat\'s lookout, taken once through myCrew, which also says her work - all hands to it under a repair order, else her hurts\' (mutants: the night unread, the cry never handed, handed every frame, the work unread)', async () => {
-  const h = await sea({ hull: HULL.SmallShip, where: { cityLights: true } });
+  const h = await sea({ hull: HULL.SmallShip, where: { cityLights: true, night: true } });   // AUDIT WK-N5 (PIN MOVED)
   h.boat.crewed = true;
   const p = h.host._sea.get(h.host.spawnShip('pirateBrig', { range: (SAIL_HO_RANGE + NIGHT_DARK_SIGHT) / 2, bearing: Math.PI / 2, temper: 'bold' }));
   p.ship.speed = 0;

@@ -57,7 +57,7 @@ export async function sea(o = {}) {
   const view = { look: { origin: [0, 5, 0], dir: [1, -0.05, 0] }, feet: [0, 0, 0] };
   const deps = {
     pool, csa: () => runtime, seaY: () => 0, isWater: (x, z) => (o.water ? o.water(x, z) : true), feet: () => view.feet, look: () => view.look, level: () => o.level ?? 5,
-    where: () => ({ px: 100, py: 100, region: 23, day: 1, nearPort: false, capitals: [{ region: 23, x: 100, y: 100 }], cityLights: false, ...o.where }),
+    where: () => ({ px: 100, py: 100, region: 23, day: 1, nearPort: false, capitals: [{ region: 23, x: 100, y: 100 }], cityLights: false, night: false, ...o.where }),
     say: (t) => log.say.push(t), mid: (t) => log.mid.push(t),
     audio: { play3d: (k, p, v, opts) => log.sounds.push([k, opts]), loop3d: () => ({ move() {}, stop() {} }) },
     flame: () => ({ move() {}, retire() {} }),

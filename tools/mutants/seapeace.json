@@ -227,7 +227,7 @@
   {
     "name": "SEAPEACE-the-report-unkept",
     "file": "src/scenes/navalHost.js",
-    "old": "      if ((e.index ?? 0) === 0) heardGun(e.pos, e.shooter);",
+    "old": "      if ((e.index ?? 0) === 0) heardGun(e.pos, gunfireBy(e.shooter));",
     "new": "",
     "tests": [
       "test/seapeace.test.js"

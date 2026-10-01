@@ -83,8 +83,8 @@
   {
     "name": "AUDIT-NAV2-F2-contacts-full-crew",
     "file": "src/scenes/navalHost.js",
-    "old": "        power: peerPowerOf(p, self),\n        lit: !!p.boat?.LightOn,   // SHIP-WATCH: as their word lights her\n      });",
-    "new": "        power: p.hull == null ? null : fightingPower({ hull: p.hull, hullHp: hullBuild(p.hull).hullHp, hullShare: share }),\n        lit: !!p.boat?.LightOn,   // SHIP-WATCH: as their word lights her\n      });",
+    "old": "        power: peerPowerOf(p, self),\n        lit: !!p.boat?.LightOn && carriesLanterns(p.boat, p.hull),   // SHIP-WATCH: as their word lights her\n      });",
+    "new": "        power: p.hull == null ? null : fightingPower({ hull: p.hull, hullHp: hullBuild(p.hull).hullHp, hullShare: share }),\n        lit: !!p.boat?.LightOn && carriesLanterns(p.boat, p.hull),   // SHIP-WATCH: as their word lights her\n      });",
     "tests": [
       "test/auditnav2_online.test.js"
     ]
@@ -92,7 +92,7 @@
   {
     "name": "AUDIT-NAV2-F3-boat-battle-unsaid",
     "file": "src/scenes/navalHost.js",
-    "old": "crew: st.damage.crew, battle: aiming || hostileNearMe(), boatHull: b.hull }",
+    "old": "crew: st.damage.crew, battle: aiming || crewAlarm(), boatHull: b.hull }",
     "new": "crew: st.damage.crew, battle: false, boatHull: b.hull }",
     "tests": [
       "test/auditnav2_online.test.js"
@@ -101,8 +101,8 @@
   {
     "name": "AUDIT-NAV2-F3-peerBoat-null",
     "file": "src/scenes/navalHost.js",
-    "old": "      const said = peerSelf.get(owner)?.boat;\n      return said ? {",
-    "new": "      const said = null;\n      return said ? {",
+    "old": "      const self = peerSelf.get(owner), said = self?.boat;\n      return said ? {",
+    "new": "      const self = peerSelf.get(owner), said = null;\n      return said ? {",
     "tests": [
       "test/auditnav2_online.test.js"
     ]

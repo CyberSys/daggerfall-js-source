@@ -12,8 +12,8 @@
   {
     "name": "AUDIT-CC-A2-health-absolute",
     "file": "src/scenes/crewAshore.js",
-    "old": "Math.round(c.health / c.maxHealth * max)",
-    "new": "Math.round(c.health)",
+    "old": "rec.entity.maxHealth = c.maxHealth; rec.entity.health = Math.max(1, Math.min(c.maxHealth, c.health ?? c.maxHealth));",
+    "new": "rec.entity.health = Math.max(1, Math.min(rec.entity.maxHealth, c.health ?? c.maxHealth));",
     "tests": [
       "test/auditcrew.test.js",
       "test/crewcompanions.test.js"
@@ -467,7 +467,7 @@
   {
     "name": "AUDIT-CC-E1-cp-unsent",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "...(cp.length ? { cp } : {}),",
+    "old": "...(cp.length ? { cp, cn } : {}), ",
     "new": "",
     "tests": [
       "test/auditcrew.test.js",
@@ -477,8 +477,8 @@
   {
     "name": "AUDIT-CC-E1-cp-unread",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "          if (comp.has(r.i)) nf.companion = `peer:${from}:${r.i}`;",
-    "new": "          // unread",
+    "old": "if (comp.has(r.i)) { nf.companion = `peer:${from}:${r.i}`; nf.companionName = compNames.get(r.i) ?? null; }",
+    "new": "// unread",
     "tests": [
       "test/auditcrew.test.js",
       "test/crewcompanions.test.js"
@@ -667,8 +667,8 @@
   {
     "name": "AUDIT-CC-F-layer-over-max",
     "file": "src/scenes/crewAshore.js",
-    "old": "Math.max(1, Math.min(max, Math.round(c.health / c.maxHealth * max)))",
-    "new": "Math.max(1, Math.round(c.health / c.maxHealth * max))",
+    "old": "Math.max(1, Math.min(c.maxHealth, c.health ?? c.maxHealth))",
+    "new": "Math.max(1, c.health ?? c.maxHealth)",
     "tests": [
       "test/auditcrew.test.js",
       "test/crewcompanions.test.js"

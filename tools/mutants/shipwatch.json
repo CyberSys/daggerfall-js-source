@@ -83,7 +83,7 @@
   {
     "name": "CL-nobody-below",
     "file": "src/systems/naval/crewLife.js",
-    "old": "if (asleep) turnIn(); else allUp(battle || struck);",
+    "old": "if (asleep) turnIn(fresh); else allUp(battle || struck);",
     "new": "if (!asleep) allUp(battle || struck);",
     "tests": [
       "test/shipwatch.test.js"
@@ -128,8 +128,8 @@
   {
     "name": "CL-fight-leaves-them-below",
     "file": "src/systems/naval/crewLife.js",
-    "old": "const sleep = !!ctx.asleep && !battle && !struck;",
-    "new": "const sleep = !!ctx.asleep;",
+    "old": "const sleep = !!ctx.asleep && !battle && !struck && ctx.order !== 'repair';",
+    "new": "const sleep = !!ctx.asleep && ctx.order !== 'repair';",
     "tests": [
       "test/shipwatch.test.js"
     ]
@@ -137,8 +137,8 @@
   {
     "name": "CL-no-cry",
     "file": "src/systems/naval/crewLife.js",
-    "old": "if (asleep) turnIn(); else allUp(battle || struck);",
-    "new": "if (asleep) turnIn(); else allUp(false);",
+    "old": "if (asleep) turnIn(fresh); else allUp(battle || struck);",
+    "new": "if (asleep) turnIn(fresh); else allUp(false);",
     "tests": [
       "test/shipwatch.test.js"
     ]
@@ -164,8 +164,8 @@
   {
     "name": "CL-bard-lookout",
     "file": "src/systems/naval/crewLife.js",
-    "old": "!m.station && m.mobile !== MOBILE.Bard);",
-    "new": "!m.station);",
+    "old": "!m.station && m.mobile !== MOBILE.Bard && m.state !== 'turnIn';",
+    "new": "!m.station && m.state !== 'turnIn';",
     "tests": [
       "test/shipwatch.test.js"
     ]
@@ -191,8 +191,8 @@
   {
     "name": "CL-no-work",
     "file": "src/systems/naval/crewLife.js",
-    "old": "rng() < (work > 0 ? WORK_SHARE * Math.min(1, work) + CHORE_SHARE : CHORE_SHARE)",
-    "new": "rng() < CHORE_SHARE",
+    "old": "(work > 0 ? WORK_SHARE * Math.min(1, work) : 0) + (asleep ? 0 : CHORE_SHARE)",
+    "new": "(asleep ? 0 : CHORE_SHARE)",
     "tests": [
       "test/shipwatch.test.js"
     ]
@@ -200,8 +200,8 @@
   {
     "name": "CL-no-chores",
     "file": "src/systems/naval/crewLife.js",
-    "old": "WORK_SHARE * Math.min(1, work) + CHORE_SHARE : CHORE_SHARE)",
-    "new": "WORK_SHARE * Math.min(1, work) + CHORE_SHARE : 0)",
+    "old": "+ (asleep ? 0 : CHORE_SHARE);",
+    "new": "+ (asleep || !(work > 0) ? 0 : CHORE_SHARE);",
     "tests": [
       "test/shipwatch.test.js"
     ]
@@ -227,7 +227,7 @@
   {
     "name": "CL-work-through-guns",
     "file": "src/systems/naval/crewLife.js",
-    "old": "          if (battle || asleep) { m.state = 'idle'; m.t = within(rng, CREW_IDLE_S) * 0.3; break; }\n",
+    "old": "          if (quiet || asleep && !(work > 0)) { m.state = 'idle'; m.t = within(rng, CREW_IDLE_S) * 0.3; break; }\n",
     "new": "",
     "tests": [
       "test/shipwatch.test.js"
@@ -236,7 +236,7 @@
   {
     "name": "CL-no-hatch",
     "file": "src/systems/naval/crewLife.js",
-    "old": "if (hatch && walkTo(m, hatch)) m.state = 'turnIn';",
+    "old": "if (!now && hatch && walkTo(m, hatch)) m.state = 'turnIn';",
     "new": "if (false) m.state = 'turnIn';",
     "tests": [
       "test/shipwatch.test.js"
@@ -371,8 +371,8 @@
   {
     "name": "H-my-lanterns-unread",
     "file": "src/scenes/navalHost.js",
-    "old": "        lit: !!boat.LightOn,",
-    "new": "        lit: true,",
+    "old": "lit: !!boat.LightOn && carriesLanterns(boat, boat.hull),",
+    "new": "lit: carriesLanterns(boat, boat.hull),",
     "tests": [
       "test/shipwatch.test.js"
     ]
@@ -380,8 +380,8 @@
   {
     "name": "H-night-untold",
     "file": "src/scenes/navalHost.js",
-    "old": "    const night = !!where().cityLights;   // SHIP-WATCH: the lanterns' hours are the night's",
-    "new": "    const night = false;",
+    "old": "    const night = !!where().night;   // SHIP-WATCH: the dark hours",
+    "new": "    const night = false;   // SHIP-WATCH: the dark hours",
     "tests": [
       "test/shipwatch.test.js"
     ]
@@ -389,7 +389,7 @@
   {
     "name": "H-hail-night-unread",
     "file": "src/scenes/navalHost.js",
-    "old": "d > nightSight(SAIL_HO_RANGE, { night, lit: shipLit(e) })",
+    "old": "d > nightSight(SAIL_HO_RANGE, { night, lit: showsLight(e) })",
     "new": "d > SAIL_HO_RANGE",
     "tests": [
       "test/shipwatch.test.js"

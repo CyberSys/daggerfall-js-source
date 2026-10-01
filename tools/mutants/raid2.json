@@ -128,8 +128,8 @@
   {
     "name": "RAID2-ally-never-turned",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "if (f.mobileType === KNIGHT_CITYWATCH_ID) alliedWatchPuppet(f, allied.has(r.i)); crewPuppet(f, crew.has(r.i), comp.has(r.i)); continue; }",
-    "new": "crewPuppet(f, crew.has(r.i), comp.has(r.i)); continue; }",
+    "old": "if (f.mobileType === KNIGHT_CITYWATCH_ID) alliedWatchPuppet(f, allied.has(r.i)); crewPuppet(f, crew.has(r.i), comp.has(r.i)); f.companionName",
+    "new": "crewPuppet(f, crew.has(r.i), comp.has(r.i)); f.companionName",
     "tests": ["test/raid2_raidsOnline.test.js"]
   },
   {

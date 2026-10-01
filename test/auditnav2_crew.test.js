@@ -325,7 +325,10 @@ test('AUDIT NAV2 F41 A TALK BEGUN ON ONE SPOT, AND A SHIPMATE IN THE WAY: two me
   // the talk: every man but two stood at the rail aft (a muster's `ready` - nothing moves him), the two on one point
   const life = createCrewLife({ deck, roster: crewRoster({ hull: 3, seed: 2, shipClass: pirate }), seed: 2 });
   for (const m of life.members) { m.pos = [-3.25, 2, -11 + m.i * 1.3]; m.state = 'ready'; m.path = null; }
-  const [a, b] = life.members;
+  // PIN MOVED (AUDIT WK-W1): her lookout (#1 here) stands from her first step and nobody talks with him - the man
+  // talked to is #2
+  const [a, , b] = life.members;
+  assert.notEqual(b, life.lookout());
   b.pos = [2, 2, -5]; b.state = 'idle'; b.t = 1e9;
   let tries = 0;
   while (!a.mate && tries++ < 400) { a.pos = [2, 2, -5]; a.path = null; a.state = 'idle'; a.t = 0; life.step(0.01, {}); }
@@ -339,7 +342,8 @@ test('AUDIT NAV2 F41 A TALK BEGUN ON ONE SPOT, AND A SHIPMATE IN THE WAY: two me
   ], { minX: -6, maxX: 6, minZ: -14, maxZ: 14 });
   const l3 = createCrewLife({ deck: hatch, roster: crewRoster({ hull: 3, seed: 3, shipClass: pirate }), seed: 3 });
   for (const m of l3.members) { m.pos = [-3.25, 2, -11 + m.i * 1.3]; m.state = 'ready'; m.path = null; }
-  const [c, e] = l3.members;
+  const [c, , e] = l3.members;   // PIN MOVED (AUDIT WK-W1): #2, never her lookout
+  assert.notEqual(e, l3.lookout());
   e.pos = [0, 2, -3.25]; e.state = 'idle'; e.t = 1e9;   // just aft of the hatch; he comes from forward of it
   tries = 0;
   while (!c.mate && tries++ < 400) { c.pos = [0, 2, 3.25]; c.path = null; c.state = 'idle'; c.t = 0; l3.step(0.01, {}); }

@@ -37,7 +37,9 @@ import { stepGhost, chunkFrame } from './barLoss.js';   // AUDIT NAV1 (the prese
 import { injectEnhancedFonts } from './enhancedStyle.js';   // AUDIT NAV1 (the presentation): the kit's face on the classic skin too
 import { READY_FLASH_S } from '../systems/naval/navalGunnery.js';   // AUDIT NAV1 (the presentation): a battery's flash, the host's word
 import { PARTY_GREEN_CSS } from '../net/social.js';   // SHIPMATES: the crew's bars in the party's one green
-import { spellIconUrl } from './enhancedArt.js';   // COMPANION-KIT: a companion's effects' icons over his bar
+import { spellIconPicture } from './enhancedArt.js';   // COMPANION-KIT: a companion's effects' icons over his bar - AUDIT WK-U8: fitted to their tiles
+import { showFitted } from './textureCanvas.js';   // AUDIT WK-U8: a fitted picture into its <img>, as every fitted slot puts one
+import { clampDpr, screenDpr } from './iconFit.js';   // AUDIT WK-U8: the tiles' device pixels - the screen's, times the HUD's scale the bar rides
 import { partyFxKey, partyFxAbbrev } from '../net/partyBuffs.js';   // COMPANION-KIT: the party card's own effect row's key and words
 
 export const NAVAL_HUD_STYLE_ID = 'dagger-naval-hud-style';
@@ -79,9 +81,11 @@ export const NAVAL_TAG_BAR_W = 44;
  *  whole to CREW_FADE_FROM metres, TAG_FADE_TO of it at CREW_BAR_RANGE (the tags' own fade over the crew's reach - the
  *  ships' starts at 150 m, past every bar). */
 export const CREW_BAR_W = 30;
-/** COMPANION-KIT: a companion's bar is wider (px), and its effects row holds this many tiles at the most. */
+/** COMPANION-KIT: a companion's bar is wider (px), and its effects row holds this many tiles at the most. AUDIT WK-U8:
+ *  each tile the spell icon's own 16px (the party card's, ui/partyPanel.js .dfparty-fxe), its picture fitted to it. */
 export const MATE_BAR_W = 52;
 export const MATE_FX_MAX = 6;
+export const MATE_FX_BOX = 16;
 export const CREW_GREEN = PARTY_GREEN_CSS;
 export const CREW_BAR_RANGE = 45;
 export const CREW_FADE_FROM = 15;
@@ -343,10 +347,15 @@ body:has(.hud-foe.on.blade) .dfnaval-hud { --nc-top: ${NAVAL_CARD_TOP_BLADE}; }
 .dfnaval-crew-hp { margin-left: 4px; color: #e8f6e2; font-size: 9px; }
 .dfnaval-crew-hp:empty { display: none; }
 .dfnaval-crew-fx { position: absolute; left: 50%; top: calc(100% + 2px); transform: translateX(-50%); display: flex; gap: 1px; }
-.dfnaval-crew-fxe { position: relative; width: 12px; height: 12px; box-shadow: 0 0 0 1px #050608; background: #1b2618; overflow: hidden;
-  font-size: 7px; line-height: 12px; text-align: center; color: #e8f6e2; }
-.dfnaval-crew-fxe.debuff { box-shadow: 0 0 0 1px #6b1d14; }
-.dfnaval-crew-fxe > img { width: 12px; height: 12px; image-rendering: pixelated; display: block; }
+.dfnaval-crew-fxe { position: relative; width: ${MATE_FX_BOX}px; height: ${MATE_FX_BOX}px; box-shadow: 0 0 0 1px #050608; background: #1b2618; overflow: hidden;
+  display: grid; place-items: center; font-size: 7px; line-height: ${MATE_FX_BOX}px; text-align: center; color: #e8f6e2; }
+/* AUDIT WK-U9: a debuff's ring in the party card's own red (.dfparty-fxe.debuff), 5.4:1 against a buff's black ring -
+   #6b1d14 was 1.75:1, a debuff told from a buff by its hue alone */
+.dfnaval-crew-fxe.debuff { box-shadow: 0 0 0 1px #e2554c; }
+/* AUDIT WK-U8: THE FIT LAW (ui/iconFit.js) - the picture is made at the device size it is drawn at (drawCrewBars,
+   spellIconPicture) and sized by its own numbers (showFitted), so it is copied pixel for pixel; never the 2x cut forced
+   into a box under pixelated rendering */
+.dfnaval-crew-fxe > img { image-rendering: pixelated; display: block; }
 .dfnaval-tally.miss .dfnaval-tally-hits { color: #b3a684; }
 .dfnaval-say { position: absolute; left: 0; top: 0; max-width: ${CREW_SAY_W}px; padding: 2px 7px 3px; font-size: 11px; line-height: 1.3;
   color: #efe8d6; text-shadow: ${OUTLINED}; text-align: center; white-space: normal; text-wrap: balance;
@@ -845,9 +854,11 @@ export function drawNavalTags(points, { covered = false, doc = globalThis.docume
 /** SHIPMATES: the player's own crew's bars (the constants beside the ships' tags, whose sheet they share). COMPANION-KIT
  *  (2026-10-01, Mac: "improved detailed health bar with buffs and their name"): a companion's point carries `name`, `hp`
  *  and `hpMax` and `fx` (partyBuffs.js composePartyFx's - his live effects) - his bar is wider, his name and health over
- *  it and his effects' icons under it (the spell's icon, its first letters while the sheet is on its way). */
+ *  it and his effects' icons under it (the spell's icon, its first letters while the sheet is on its way).
+ *  AUDIT WK-U8: `fxPicture(i, { box, dpr })` is an effect's picture fitted to its tile (`{ src, w, h, smooth }` or null) -
+ *  spellIconPicture's own; a seam so the pins can hand one in without the sheet (the party card's `fxIcon` hands a URL). */
 let crewSlots = [];
-export function drawCrewBars(points, { covered = false, doc = globalThis.document, scale = 1 } = {}) {
+export function drawCrewBars(points, { covered = false, doc = globalThis.document, scale = 1, fxPicture = null } = {}) {
   const want = covered ? [] : points ?? [];
   if (!tagRoot) {
     if (!want.length || !doc?.createElement) return;
@@ -864,6 +875,10 @@ export function drawCrewBars(points, { covered = false, doc = globalThis.documen
     tagRoot.append(n);
     crewSlots.push({ n, fill, word, hp, fx, k: {} });
   }
+  // AUDIT WK-U8: the tiles' device pixels - the screen's times the HUD's scale, which the bar rides as its transform (the
+  // HUD's spell chip reads its own so, ui/enhancedHud.js)
+  const dpr = clampDpr(screenDpr() * scale);
+  const iconOf = fxPicture ?? spellIconPicture;
   crewSlots.forEach((slot, i) => {
     const p = want[i];
     const on = !!p;
@@ -877,12 +892,15 @@ export function drawCrewBars(points, { covered = false, doc = globalThis.documen
     set('name', mate ? p.name : '', (v) => { slot.word.textContent = v; });
     set('hp', mate && Number.isFinite(p.hp) && Number.isFinite(p.hpMax) && p.hpMax > 0 ? `${Math.max(0, Math.round(p.hp))}/${Math.round(p.hpMax)}` : '', (v) => { slot.hp.textContent = v; });
     const fx = mate && Array.isArray(p.fx) ? p.fx.slice(0, MATE_FX_MAX) : [];
-    const urls = fx.map((e) => { try { return spellIconUrl(e.i); } catch { return null; } });
-    set('fx', `${partyFxKey(fx)}#${urls.map((u) => (u ? 1 : 0)).join('')}`, () => {
+    // AUDIT WK-U8: THE FIT LAW (ui/iconFit.js) - the spell's 16px icon fitted to its tile at the tile's own device pixels:
+    // whole ones where they keep the box, a smooth reduction under one, never a pixelated one. The bar drew the icon's
+    // 2x cut squeezed into 12px under `pixelated` - 0.375 of the cut on a 1x screen, and of 16 columns a few stood.
+    const pics = fx.map((e) => { try { return iconOf(e.i, { box: MATE_FX_BOX, dpr }); } catch { return null; } });
+    set('fx', `${partyFxKey(fx)}#${pics.map((u) => (u ? 1 : 0)).join('')}@${dpr}`, () => {
       slot.fx.replaceChildren?.();
       fx.forEach((e, k) => {
         const tile = el(doc, 'span', `dfnaval-crew-fxe${e.d ? ' debuff' : ''}`);
-        if (urls[k]) { const img = el(doc, 'img'); img.src = urls[k]; img.alt = ''; tile.append(img); } else tile.textContent = partyFxAbbrev(e.n);
+        if (pics[k]) { const img = el(doc, 'img'); img.alt = ''; tile.append(showFitted(img, pics[k])); } else tile.textContent = partyFxAbbrev(e.n);
         tile.setAttribute?.('title', `${e.n || 'Spell'} - ${e.r} rounds`);
         slot.fx.append(tile);
       });

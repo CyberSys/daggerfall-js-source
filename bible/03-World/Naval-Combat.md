@@ -1329,32 +1329,48 @@ Mac: *"crew member companions need the ability to gain the players healing spell
 detailed health bar with buffs and their name, and also an integration into the party UI"*. Daggerfall has no
 followers; all of this is the port's own, over CREW-COMPANIONS.
 
-- **The gifts** (`scenes/hostMagic.js`, its `companionBodies` seam - my companions' bodies in the scene, both cast
-  engines handed them). A spell ALLY-CAST would give a party mate (`allyCastable`: every real effect beneficial) reaches
-  my companion the same ways: under the crosshair within the cast's reach (`allyReachFor`: a CasterOnly or ByTouch one
-  at touch reach, a SingleTargetAtRange one at range), armed while one stands within `ALLY_ARM_RADIUS`
-  (`COMPANION_ARMED_LINE`), by touch, in my AreaAroundCaster blast, struck by my beneficial missile or its burst. It
-  lands HERE - he is mine to simulate - as ALLY-CAST's receiver's own record (`allyCastSpell`: the beneficial effects as
-  a self-cast, so no save scales it), tagged an ally's bundle (`allyCast`: a buff on his bar and card), through his own
-  sinks as no blow of mine. Never a harmful or mixed spell, a free ready, a wall between us, or another player's
-  companion (a puppet - his effects are his owner's).
+- **The gifts** (`scenes/hostMagic.js`, its `companionBodies` seam - my companions' bodies in the scene, handed to each
+  host's cast engine: `world.js`'s (the street, and a building's mode through `worldModes.js`), `dungeonContext.js`'s
+  own; `exterior.js`'s FLAGGED - no Come Sail Away runtime stands there, so no companion does). A spell ALLY-CAST would
+  give a party mate reaches my companion the same ways, when it carries something he can use (`allyCast.js
+  companionCastable` - every real effect beneficial, and never Light, Detect or Comprehend Languages alone,
+  `COMPANION_UNREAD_TYPES`: only a player reads them): under the crosshair within the cast's reach (`allyReachFor`: a
+  CasterOnly or ByTouch one at touch reach, a SingleTargetAtRange one at range), armed while one stands within
+  `ALLY_ARM_RADIUS` (`COMPANION_ARMED_LINE`; a party mate under the crosshair or near first, `ALLY_ARMED_LINE`), by
+  touch (his whole height - `companionInReach` at the click's gate too), in my AreaAroundCaster blast, struck by my
+  beneficial missile or its burst. It lands HERE - he is mine to simulate - as ALLY-CAST's receiver's own record
+  (`allyCastSpell` with `companion`: what he can use, the beneficial effects as a self-cast, so no save scales it), with
+  no caster, so nothing of his reflects it back (AUDIT ALLY-CAST B6's law), tagged an ally's bundle (`allyCast`: a buff
+  on his bar and card), through his own sinks as no blow of mine. The crosshair, the arming and the touch never cross a
+  wall; a blast and a burst meet him as they meet a foe (DFU's OverlapSphere). Never a harmful or mixed spell, a free
+  ready, a companion knocked out (`_knockedOut`, the frame before he is carried aboard), or another player's companion
+  (a puppet - his effects are his owner's). His spells and his whole ride with him from place to place
+  (`crewAshore.js`: each new body stands with the last one's live entries and its max health) - not through a save.
 - **The pack** (`crewCompanions.js` - each companion's live `items`, saved with the party through the host's item
-  codec, `packedItems`, the cargo's own). Activating my companion in Info, Grab or Talk opens it (`player/
-  mobileEnemyActivate.js openCompanion`, every host's foe arm - the street, a building, a dungeon) as a Backpack storage
-  over whatever the mode draws; a tap never locks onto him. Sent back aboard, knocked out or fallen from her roster, he
-  gives it up (`takePack`) and the host stows it in his boat's hold (`stowPack`, the board's `giveItems`), what will not
-  go in into my pack. No weight cap - a storage window has none, the hold's neither.
+  codec, `packedItemsCodec`, the cargo's own). Activating my companion in Info, Grab or Talk within
+  `TREASURE_ACTIVATION_DISTANCE` (else "You are too far away", as any storage) opens it (`player/
+  mobileEnemyActivate.js openCompanion`; every host's foe arm - `world.js`'s street, `worldModes.js`'s building and
+  dungeon) as a Backpack storage over whatever the mode draws, his list read by his key at every look; a tap never
+  locks onto him (each host's tap pick passes him by). Sent back aboard he gives it up (`takePack`); knocked out or
+  fallen from her roster, the host empties it; and the host stows it (`stowPack`): his boat's hold first (the board's
+  `giveItems`), what will not go in into my pack - past its weight if it must, said ("more than you can carry") - his
+  gold to my purse. Never thrown away. Realm customs and the account service's first save count his pack as the hold
+  (`net/realmGoldLaw.js stashedItemLists`). No weight cap - a storage window has none, the hold's neither.
 - **The bar** (`ui/navalHud.js drawCrewBars`): a companion's is wider (`MATE_BAR_W`), his name and health in digits
-  over it and his live effects' icons under it (`MATE_FX_MAX`, the party card's own row: `composePartyFx`); a deck
-  hand's stays bare. Another player's companion: his name alone.
+  over it and his live effects' icons under it (`MATE_FX_MAX`, the party card's own row: `composePartyFx`; fitted by
+  `iconFit.js`'s law, a harmful one ringed as the card rings it); a deck hand's stays bare. Another player's companion:
+  his name (his owner's foes frame names him, `cn` beside `cp`, on the street's lane and the dungeon's) and no digits
+  or effects.
 - **The party panel** (`ui/partyPanel.js`, its `companions` seam - `setCompanions` after the build): a card each under
-  the party's seats - the green name, the role where a member's place goes, the role's letter on the plate (the crew
-  have no portrait), the health bar (no stamina or magicka), its digits while low, the flare and the "+N", the effects
-  row - repainted only when his card's words move (`companionKey`). Offline, the panel stands for my companions alone
-  (`world.js makePartyPanel`, the one place a panel is made).
+  the party's seats, in their own list the seats give way to at the panel's height - the green name, the role where a
+  member's place goes, the role's letter on the plate (the crew have no portrait; full contrast, hidden from a screen
+  reader), the health bar (no stamina or magicka), its digits while low, the flare and the "+N" (a new whole a new
+  baseline, never a blow or a heal), the effects row - repainted only when his card's words move (`companionKey`), and
+  once as a window lifts. None while I sail: the party is aboard. Offline, the panel stands for my companions alone;
+  online it stands down only for the social one (`world.js makePartyPanel`, the one place a panel is made).
 
-Pins: `test/companionkit.test.js`. `tools/mutants/companionkit.json`: 40 mutants - 39 dead, 1 equivalent as recorded
-(the touch arm the wider crosshair pick always reaches first).
+Pins: `test/companionkit.test.js`; AUDIT WATCH-KIT's `test/auditwatchkit_magic.test.js`, `auditwatchkit_ui.test.js`,
+`auditwatchkit_world.test.js`. `tools/mutants/companionkit.json`: 43 mutants, all dead.
 
 ## SHIP-WATCH (2026-10-01) - life aboard between fights, and the sea by night - DECLARED
 
@@ -1365,45 +1381,60 @@ any of it; all of this is the port's own (`systems/naval/shipWatch.js`, pure, an
 arms below).
 
 - **The night watch** (`crewLife.js`, `ctx.asleep` - the world's hour through `shipWatch.js asleepHour`,
-  `SLEEP_FROM_HOUR` to `SLEEP_TO_HOUR`). Every crew turns in but its watch (`watchCount`, a third, one at least): her
-  stations, her lookout, then the roster's first. The rest walk to her HATCH (her main deck's middle) and go below -
-  `below`, never `gone`: the count stands whole, the guns' trim and the mending's restore read them as they were, a
-  man taken off her deck while below comes up out of her hatch and one going ashore comes home on her deck. Below is
-  not drawn (`navalCrew.js`). No song in the night watch; the watch talks low (`CREW_BLURBS.night`). The guns, a muster
-  or her colours struck bring every hand up at once to `ALL_HANDS` ("All hands on deck!"); the morning brings them up
-  quietly.
-- **The lookout** - one walker (never her Bard, who leads the song, nor her station; her first man only if none else),
-  at her BOW (`LOOKOUT_BACK` from her stem on her centre line, off her deck's own cells), facing out over her stem and
-  talking to nobody; at the guns he is a gunner like the rest. AUDIT NAV1's SAIL HO! (`navalHost.js hailSails`) is
-  cried by him from the bow now - handed over once through the host's `myCrew` `call` and shouted over his head beside
-  the HUD's line. Not up the mast, as the list put it: Come Sail Away's masts carry no top to stand him on.
+  `SLEEP_FROM_HOUR` to `SLEEP_TO_HOUR`). Every crew turns in but its watch (`watchCount`, a third of her whole crew, one
+  at least): her stations, her lookout, then the roster's first. The rest walk to her HATCH (the middle of her whole
+  deck's extent) and go below - `below`, never `gone`: the count stands whole, the guns' trim and the mending's restore
+  read them as they were (one the guns take below is up again when mended), a man taken off her deck while below comes
+  up out of her hatch and one going ashore comes home on her deck. A crew first stood by night (a ship come into range,
+  a load, my hands home after a fight) has its sleepers below at once, no walk. Below is not drawn (`navalCrew.js`). No
+  song in the night watch; the watch talks low (`CREW_BLURBS.night`). The guns, a muster or her colours struck bring
+  every hand up at once to `ALL_HANDS` ("All hands on deck!") - at the hatch or a clear point beside it, at a run; the
+  morning brings them up quietly, one at a time out of her hatch (never two on one point, nor into the player standing
+  on it), each straight to a free spot. Under a repair order every hand stays up.
+- **The lookout** - one walker (never her Bard, who leads the song, nor her station, nor a man on his way below; her
+  first man only if none else), asked at every step, by day as by night - another takes the bow the step he falls, goes
+  ashore or below; on my boat the hand her card names Lookout (SHIP-CREW's role, `ctx.lookout` - the host's `myCrew`)
+  whenever he can keep it. At her BOW (`LOOKOUT_BACK` from her stem, the deck's foremost cell nearest her centre line -
+  the Carrack's waist is decked forward only at its sides, so hers stands 1.68 m to port), facing out over her stem;
+  nobody draws him into talk. At the guns he is a gunner like the rest: they end his watch at once. AUDIT NAV1's SAIL
+  HO! (`navalHost.js hailSails`) is cried by him from the bow now - handed over once through the host's `myCrew` `call`
+  and shouted over his head beside the HUD's line. Not up the mast, as the list put it: Come Sail Away's masts carry no
+  top to stand him on.
 - **At work** (`ctx.work`, 0..1 - `navalHost.js workOf`: her hull's loss and half her canvas's; all hands under a
-  repair order). An idle man takes up a job at a free spot of her deck - `WORK_SHARE` of his choices at the most, plus
-  a `CHORE_SHARE` chore at peace - for `WORK_S`, swinging at it every `WORK_SWING_S` (his class's attack, `swing` ->
-  the mobile unit's `striking`), saying the work's words (`CREW_BLURBS.work`, `chore`); the guns end it. The sea's ships
-  as well as mine.
-- **The lanterns by night.** Every sea ship lights hers at the city lights' hour (as Come Sail Away's boats do) - but
-  `runsDark`: a pirate afloat keeps hers out, and a merchantman running (`flee`) douses hers (`navalHost.js shipLit`).
-  A lit ship past `LAMP_NEAR_M` of the eye is drawn as up to `LAMP_MAX` added points of light at her lanterns
-  (`lampsInto`, on the naval pass - `lampSize`: `LAMP_ANGLE` of the view, never under `LAMP_MIN_M`; `lampAlpha` fading
-  in over `LAMP_FADE_M`): her lantern flats are a pixel at range and the light list holds the nearest eight, so a
-  ship at night was her black hull against the black water. Mine too, as their switch has them.
-- **The captains by night** (`navalAI.js`, `world.night`; AUDIT NAV1's lookout reach otherwise unchanged). A contact
-  is seen by night only as far as its lanterns show it (`nightSight`: a lit one `NIGHT_LIT_SIGHT`, a dark one
-  `NIGHT_DARK_SIGHT`, never farther than by day - `c.lit`: a sea ship's `shipLit`, my boat's lantern switch, a peer's
-  as their word lights her); a ship that fired within `GUNS_SEEN_S` is seen by her flashes; and a threat to run from
-  no farther. A pirate running dark comes up on a merchantman unseen; a player who douses their lanterns slips past a
-  pirate at a cable's length. The guns are heard as ever (`HEAR_GUNS_M`). My lookout's SAIL HO! keeps the same law.
-- **The errands by night** (`shipLife.js`, `ctx.night`). A merchantman whose dwell is spent after dark keeps her berth
-  till the morning; a navy does not wait. A pirate's lurk closes on the mouth to `NIGHT_LURK_K` of her day's reach,
-  her ring laid afresh at the turn and back out by day.
+  repair order, by night too). An idle man takes up a job at a free spot of her deck - `WORK_SHARE` of his choices at
+  the most, plus a `CHORE_SHARE` chore at peace - for `WORK_S`, swinging at it every `WORK_SWING_S` (his class's
+  attack, `swing` -> the mobile unit's `striking`), saying the work's words (`CREW_BLURBS.work`, `chore`). By night
+  the watch works her hurts and takes no chore. The guns end it, a walk to it too; a struck or sinking crew takes up
+  neither. The sea's ships as well as mine, and another player's boat by her word's hull (`peerBoat`'s `work`).
+- **The lanterns by night.** Every sea ship lights hers at the city lights' hour (as Come Sail Away's boats do) - the
+  lanterns she carries (`carriesLanterns`: Come Sail Away's carrack carries none, so she sails dark) - but `runsDark`:
+  a pirate afloat keeps hers out, and a merchantman running (`flee`) douses hers (`navalHost.js shipLit`). A lit ship
+  past `LAMP_NEAR_M` of the eye is drawn as up to `LAMP_MAX` added points of light at her lanterns (`lampsInto`, on the
+  naval pass - `lampSize`: `LAMP_ANGLE` of the view, never under `LAMP_MIN_M`; `lampAlpha` fading in over
+  `LAMP_FADE_M`): her lantern flats are a pixel at range and the light list holds the nearest eight, so a ship at night
+  was her black hull against the black water. Mine too, and another player's, as their switch has them.
+- **The captains by night** (`navalAI.js`, `world.night` - the dark's own hours, DFU's `isNight` through
+  `where().night`; the lanterns keep theirs; AUDIT NAV1's lookout reach otherwise unchanged). A contact is seen by night
+  only as far as its lanterns show it (`nightSight`: a lit one `NIGHT_LIT_SIGHT`, a dark one `NIGHT_DARK_SIGHT`, never
+  farther than by day - `c.lit`: a sea ship's `shipLit`, my boat's lantern switch, a peer's as their word lights her); a
+  ship that fired within `GUNS_SEEN_S` is seen by her flashes (her report heard under her contact's own id, `gunfireBy`
+  - mine and a peer's too); and a threat to run from no farther - a merchantman that ran by night runs on `RUN_ON_S`
+  from where she last saw it, dark, the day ending it. A pirate running dark comes up on a merchantman unseen; a player
+  who douses their lanterns slips past a pirate at a cable's length. The guns are heard as ever (`HEAR_GUNS_M`), and
+  sailed for until within half the lookout the night lets her see a dark ship by. My lookout's SAIL HO! keeps the same
+  law, lanterns and flashes (`showsLight`), and so does my crew's call to the guns by night (`crewAlarm`): a hostile the
+  night shows, or one coming for me - a rest and a journey still read every hostile near.
+- **The errands by night** (`shipLife.js`, `ctx.night`, the same dark). A merchantman whose dwell is spent after dark
+  keeps her berth till the morning; a navy does not wait. A pirate's lurk closes on the mouth to `NIGHT_LURK_K` of her
+  day's reach, her ring laid afresh at the turn and back out by day.
 
 Said: a player's boat stands dark until its lanterns are lit (Come Sail Away's own switch, off when she is built), so
 by night a pirate sees her only close aboard unless they are.
 
 Pins: `test/shipwatch.test.js` (the laws, the watch below and every hand up, the lookout, the work and its swing, the
 host drawing none below, the captains and the errands by night, the lanterns, the cry and the lamps on the real host,
-the world's wiring). `tools/mutants/shipwatch.json`: 54 mutants, all dead.
+the world's wiring); AUDIT WATCH-KIT's `test/auditwatchkit_crew.test.js` and `auditwatchkit_sea.test.js`.
+`tools/mutants/shipwatch.json`: 54 mutants, all dead.
 
 ## The tests
 

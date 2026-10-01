@@ -20,12 +20,15 @@
 // SHIP-WATCH (2026-10-01, Mac: "Do #3" - life aboard between fights; shipWatch.js): BY NIGHT (`ctx.asleep`) her crew
 // turns in but its watch (shipWatch.js watchCount - her stations, her lookout, then the roster's first): the rest walk
 // to her HATCH (her main deck's middle) and go below, off her deck but still hers (`below` - never `gone`: the count
-// stands whole and the guns' trim and the mending's restore read them as they were); the guns, a muster or her colours
-// struck call every hand up at once ("All hands on deck!"), and the morning does. HER LOOKOUT (one walker - never her
-// Bard, nor her captain at his post) keeps the bow, facing out, and the host gives him the calls (`ctx.call`: "Sail ho!
-// Off the starboard bow!"). AT WORK (`ctx.work`, 0..1 - what a fight left to mend): an idle man takes up a job at a free
-// spot more often the more there is, swinging at it (his sprite's attack, `swing`) - and now and then a chore at peace
-// (CHORE_SHARE), swabbing and hauling.
+// stands whole and the guns' trim and the mending's restore read them as they were) - at once, never a walk, when she
+// first stands by night; the guns, a muster or her colours struck call every hand up at once ("All hands on deck!"),
+// and the morning one at a time out of her hatch - never two on one point; a repair order keeps every hand at the work.
+// HER LOOKOUT (one walker - never her Bard, nor her captain at his post; her card's Lookout when he can, `ctx.lookout`)
+// keeps the bow from the moment she stands, another the moment he is gone, facing out and talking to nobody, and the
+// host gives him the calls (`ctx.call`: "Sail ho! Off the starboard bow!"). AT WORK (`ctx.work`, 0..1 - what a fight
+// left to mend): an idle man takes up a job at a free spot more often the more there is, swinging at it (his sprite's
+// attack, `swing`) - the night watch too - and now and then a chore at peace and by day (CHORE_SHARE), swabbing and
+// hauling; the guns or her colours end it.
 
 import { musterOf, MOBILE, CREW_PER_HAND, MUSTER_MIN, MUSTER_MAX } from './navalBoarding.js';
 import { seededRng } from '../wind.js';
@@ -257,13 +260,32 @@ export function createCrewLife({ deck, roster, seed, places = [], faction = null
   const hatch = deck?.count ? deck.nearest?.(0, ext ? (ext[0] + ext[1]) / 2 : 0) ?? null : null;
   /** @type {any} */ let lookout = null;
   let asleep = false, work = 0;
-  /** SHIP-WATCH: her lookout - a walker standing, never her Bard (she leads the song) nor her first man if another
-   *  will do (her captain); kept while he stands. */
+  // AUDIT WK-W10: the roster place of the hand her card names Lookout (`ctx.lookout`), -1 for none; AUDIT WK-W7: whether
+  // she has taken a step; AUDIT WK-W8: whether hands wait below to come up
+  let named = -1, stood = false, rising = false;
+  /** SHIP-WATCH: whether `m` can keep her bow - a walker standing, never her Bard (she leads the song); AUDIT WK-W1: nor
+   *  a man on his way below. */
+  const canLook = (m) => !!m && !m.gone && !m.below && !m.station && m.mobile !== MOBILE.Bard && m.state !== 'turnIn';
+  /** SHIP-WATCH: her lookout - never her first man if another will do (her captain); kept while he stands. AUDIT WK-W1:
+   *  asked at every step from her first (a loop, no list made), so her bow is kept by day too and another takes it the
+   *  step he falls or goes ashore. AUDIT WK-W10: the hand her card names Lookout whenever he can keep it - the one who
+   *  kept it for him sent off it (never two at her bow). */
   function pickLookout() {
+    const want = members[named];
+    if (want !== lookout && canLook(want)) {
+      if (lookout && (lookout.state === 'watch' || lookout.state === 'walk')) { lookout.path = null; lookout.state = 'idle'; lookout.t = 0; }
+      lookout = want;
+    }
     if (lookout && !lookout.gone && !lookout.below) return lookout;
-    const can = members.filter((m) => !m.gone && !m.below && !m.station && m.mobile !== MOBILE.Bard);
-    lookout = can.find((m) => m.i > 0) ?? can[0] ?? null;
-    return lookout;
+    let first = null;
+    lookout = null;
+    for (let k = 0; k < members.length; k++) {
+      const m = members[k];
+      if (!canLook(m)) continue;
+      if (m.i > 0) return (lookout = m);
+      first = first ?? m;
+    }
+    return (lookout = first);
   }
 
   const live = () => members.filter((m) => !m.gone && !m.below);
@@ -320,35 +342,71 @@ export function createCrewLife({ deck, roster, seed, places = [], faction = null
   /** SHIP-WATCH: a man at a job where he stands, for WORK_S, facing his work. */
   function startWork(m) { m.state = 'work'; m.t = within(rng, WORK_S); m.swingT = within(rng, WORK_SWING_S) * rng(); m.face = rng() * TAU; }
   /** SHIP-WATCH: the crew turns in but its watch - her stations, her lookout, then the roster's first - the rest to
-   *  her hatch and below. */
-  function turnIn() {
+   *  her hatch and below. AUDIT WK-W7: below at once (`now`) when she stands for the first time in the night - a ship
+   *  coming in range, a load, my hands home from a fight never walk to her hatch before the eye. */
+  function turnIn(now) {
     const crew = live();
     const keep = new Set(crew.filter((m) => m.station));
     const lk = pickLookout();
     if (lk) keep.add(lk);
-    // the watch: a third of them - its first places already the stations' and the lookout's
-    const want = watchCount(crew.length);
+    // the watch: a third of them - its first places already the stations' and the lookout's; AUDIT WK-W8: a third of
+    // her whole crew, the hands still waiting below to come up counted (a night falling on the morning's)
+    let n = 0;
+    for (const m of members) if (!m.gone) n++;
+    const want = watchCount(n);
     for (const m of crew) { if (keep.size >= want) break; keep.add(m); }
     for (const m of crew) {
       if (keep.has(m)) continue;
       if (m.mate) endTalk(m);
       dropLeader(m);
       m.line = null; m.swing = false;
-      if (hatch && walkTo(m, hatch)) m.state = 'turnIn';
+      if (!now && hatch && walkTo(m, hatch)) m.state = 'turnIn';
       else { m.below = true; m.state = 'below'; m.path = null; }
     }
   }
   /** SHIP-WATCH: every hand up - out of her hatch to a free spot of her deck; `alarm` a fight's call, said by the first
-   *  of the watch. */
+   *  of the watch. AUDIT WK-W8: the ones below wait their turn at her hatch (`rise`, `bringUp`) - all stood up on its
+   *  one point, they stood merged there up to five seconds. */
   function allUp(alarm) {
     let woke = false;
     for (const m of members) {
       if (m.gone || (!m.below && m.state !== 'turnIn')) continue;
       woke = true;
-      if (m.below) { const at = hatch ?? m.post; m.pos = [...at]; }
-      m.below = false; m.path = null; m.state = 'idle'; m.t = within(rng, CREW_IDLE_S) * (alarm ? 0.1 : 0.5); m.face = null;
+      if (m.below) { m.state = 'rise'; rising = true; continue; }
+      m.path = null; m.state = 'idle'; m.t = within(rng, CREW_IDLE_S) * (alarm ? 0.1 : 0.5); m.face = null;   // on his way down: up where he stands
     }
     if (woke && alarm) { const caller = live()[0]; if (caller) say(caller, ALL_HANDS, 'shout'); }
+  }
+  /** AUDIT WK-W8: whether nobody stands within 0.6 m of `p` - no shipmate on her deck, nor the one to avoid (the player). */
+  function clearAt(p, avoid) {
+    if (avoid && Math.hypot(avoid[0] - p[0], avoid[2] - p[2]) < 0.6) return false;
+    for (let k = 0; k < members.length; k++) {
+      const o = members[k];
+      if (!o.gone && !o.below && Math.hypot(o.pos[0] - p[0], o.pos[2] - p[2]) < 0.6) return false;
+    }
+    return true;
+  }
+  /** AUDIT WK-W8: the hands waiting below come up, never two on one point: the morning's one at a time, each once
+   *  nobody stands at her hatch; the alarm's (`all`) at once, each at her hatch or beside it where nobody stands - rings
+   *  of six round it, 0.8 m apart - else a free spot. Each goes straight off to a free spot, at a run to an alarm. */
+  function bringUp(all, avoid) {
+    rising = false;
+    for (const m of members) {
+      if (m.gone || !m.below || m.state !== 'rise') continue;
+      const from = hatch ?? m.post;
+      let at = clearAt(from, avoid) ? from : null;
+      if (!at && !all) { rising = true; return; }   // the morning: he waits his turn
+      for (let r = 0.8; r < 2.5 && !at; r += 0.8) {
+        for (const turn of TALK_TURNS) {
+          const q = deck?.clamp?.(from[0] + Math.sin(turn) * r, from[2] + Math.cos(turn) * r);
+          if (q && clearAt(q, avoid)) { at = q; break; }
+        }
+      }
+      at = at ?? freeSpot() ?? from;
+      m.below = false; m.pos = [...at]; m.path = null; m.face = null; m.state = 'idle'; m.t = within(rng, CREW_IDLE_S) * (all ? 0.1 : 0.5);
+      const s = freeSpot();
+      if (s) walkTo(m, s, all ? CREW_HURRY : CREW_WALK);
+    }
   }
   /** What an idle man does next. */
   function decide(m) {
@@ -359,18 +417,22 @@ export function createCrewLife({ deck, roster, seed, places = [], faction = null
       m.state = 'watch'; m.face = 0; m.t = within(rng, CREW_IDLE_S) * 2;
       return;
     }
-    // SHIP-WATCH: a job of work - the more a fight left her to mend, the likelier; a chore now and then at peace; never
-    // the night watch's (they keep the watch)
-    if (!asleep && rng() < (work > 0 ? WORK_SHARE * Math.min(1, work) + CHORE_SHARE : CHORE_SHARE)) {
+    // SHIP-WATCH: a job of work - the more a fight left her to mend, the likelier; a chore now and then at peace. AUDIT
+    // WK-W3: the night watch takes up the work, never a chore (nobody mended by night); AUDIT WK-W4: a struck crew
+    // neither (AUDIT NAV2 F46's quiet - they swabbed and swung after she struck)
+    const share = quiet ? 0 : (work > 0 ? WORK_SHARE * Math.min(1, work) : 0) + (asleep ? 0 : CHORE_SHARE);
+    if (share > 0 && rng() < share) {
       const s = freeSpot();
       if (s && walkTo(m, s)) { m.state = 'toWork'; return; }
       if (s || !deck?.count) { startWork(m); return; }
     }
-    // AUDIT NAV2 F46, F47: no talk begun by a struck crew, nor by her song's leader or with him while he sings
+    // AUDIT NAV2 F46, F47: no talk begun by a struck crew, nor by her song's leader or with him while he sings; AUDIT
+    // WK-W1: nor with her lookout - he talks to nobody, on his way to his post too (one chosen as she stood was talked
+    // into two talks before he reached it)
     if (rng() < 0.35 && !quiet && m !== chanty?.leader) {
       let best = null, bestD = CREW_TALK_SEEK;
       for (const o of members) {
-        if (o === m || o.gone || o.below || o.state !== 'idle' || o.mate || o === chanty?.leader) continue;
+        if (o === m || o.gone || o.below || o.state !== 'idle' || o.mate || o === chanty?.leader || o === lookout) continue;
         const d = Math.hypot(o.pos[0] - m.pos[0], o.pos[2] - m.pos[2]);
         if (d < bestD) { bestD = d; best = o; }
       }
@@ -390,12 +452,17 @@ export function createCrewLife({ deck, roster, seed, places = [], faction = null
    * 'stand' their own work; `ctx.sings` false - their spirits too low for a song; `ctx.line()` a line of theirs by
    * their spirits or their order (shipCrew.js line), or null for the crew's own. SHIP-WATCH: `ctx.asleep` the night's
    * sleeping hours (all but the watch below); `ctx.work` what a fight left to mend (0..1); `ctx.call` a lookout's call
-   * to shout this step (his, or the first man's).
+   * to shout this step (his, or the first man's); AUDIT WK-W10: `ctx.lookout` the roster place of the hand her card
+   * names Lookout (shipCrew.js ROLES), who keeps her bow whenever he can.
    * @param {number} dt
-   * @param {{ battle?: boolean, struck?: boolean, muster?: number, avoid?: number[] | null, order?: string | null, sings?: boolean, line?: (() => string | null) | null, asleep?: boolean, work?: number, call?: string | null }} [ctx]
+   * @param {{ battle?: boolean, struck?: boolean, muster?: number, avoid?: number[] | null, order?: string | null, sings?: boolean, line?: (() => string | null) | null, asleep?: boolean, work?: number, call?: string | null, lookout?: number }} [ctx]
    */
   function step(dt, ctx = {}) {
-    if (!(dt > 0)) return;
+    // AUDIT WK-W7: her first step is taken in a frame of no time too (stood under a pause or a window) - nothing moves in
+    // it, but the night's sleepers are below before she is ever drawn; a frame of none after it changes nothing
+    if (!(dt > 0)) { if (stood) return; dt = 0; }
+    const fresh = !stood;
+    stood = true;
     const muster = ctx.muster === 1 || ctx.muster === -1 ? ctx.muster : ctx.order === 'rail' ? 1 : 0;
     const battle = !!ctx.battle || !!muster || ctx.order === 'guns';
     const struck = !!ctx.struck && !muster;
@@ -403,13 +470,18 @@ export function createCrewLife({ deck, roster, seed, places = [], faction = null
     // under the guns, only the muster ended one)
     if ((battle || struck) && !quiet) for (const m of members) if (m.mate && !m.gone) endTalk(m);
     quiet = battle || struck;
-    // SHIP-WATCH: the night - turned in but the watch; the guns, a muster or her colours down call every hand up
+    // AUDIT WK-W1: her lookout every step - by day as by night, another the step he is gone (AUDIT WK-W10: her card's)
+    named = Number.isInteger(ctx.lookout) ? /** @type {number} */ (ctx.lookout) : -1;
+    pickLookout();
+    // SHIP-WATCH: the night - turned in but the watch; the guns, a muster or her colours down call every hand up. AUDIT
+    // WK-W3: and a repair order keeps every hand at the work (nobody worked by night under one)
     work = Number.isFinite(ctx.work) ? Math.max(0, ctx.work) : 0;
-    const sleep = !!ctx.asleep && !battle && !struck;
+    const sleep = !!ctx.asleep && !battle && !struck && ctx.order !== 'repair';
     if (sleep !== asleep) {
       asleep = sleep;
-      if (asleep) turnIn(); else allUp(battle || struck);
-    }
+      if (asleep) turnIn(fresh); else allUp(battle || struck);
+    } else if (rising && quiet && !asleep) allUp(true);   // the guns while the morning's hands come up
+    if (rising && !asleep) bringUp(quiet, ctx.avoid ?? null);   // AUDIT WK-W8
     if (ctx.call) { const by = pickLookout() ?? live()[0]; if (by) { if (by.mate) endTalk(by); say(by, ctx.call, 'shout'); by.blurbT = Math.max(by.blurbT, CREW_LINE_S * 2); } }
     // a muster: every man to the rail on that side, spread along it
     const key = muster ? String(muster) : '';
@@ -478,21 +550,25 @@ export function createCrewLife({ deck, roster, seed, places = [], faction = null
           else m.t = within(rng, CREW_IDLE_S);
           break;
         case 'watch':   // SHIP-WATCH: the lookout at the bow, facing out over her stem
+          if (battle) { m.state = 'idle'; m.t = 0; break; }   // AUDIT WK-W5: at the guns at once, a gunner like the rest (he kept his watch up to 22 s)
           m.face = 0;
           if ((m.t -= dt) > 0) break;
-          if (battle) { m.state = 'idle'; m.t = 0; } else decide(m);
+          decide(m);
           break;
-        case 'work':   // SHIP-WATCH: at a job - a swing at it now and then; the guns end it
-          if (battle || asleep) { m.state = 'idle'; m.t = within(rng, CREW_IDLE_S) * 0.3; break; }
+        case 'work':   // SHIP-WATCH: at a job - a swing at it now and then; the guns end it - AUDIT WK-W4: her colours
+          // struck too; AUDIT WK-W3: the night a chore, never the work
+          if (quiet || asleep && !(work > 0)) { m.state = 'idle'; m.t = within(rng, CREW_IDLE_S) * 0.3; break; }
           if ((m.swingT -= dt) <= 0) { m.swing = true; m.swingT = within(rng, WORK_SWING_S); }
           if ((m.t -= dt) <= 0) { m.state = 'idle'; m.t = within(rng, CREW_IDLE_S) * 0.5; }
           break;
         case 'walk': case 'toTalk': case 'toMuster': case 'toWork': case 'turnIn':
+          // AUDIT WK-W5: the guns (or her colours) end a walk to a job as they end the job (he ambled on up to 58 s)
+          if (quiet && m.state === 'toWork') { m.path = null; m.state = 'idle'; m.t = 0; break; }
           // someone in his way too long: somewhere else - AUDIT NAV2 F48: a talk given up, a muster stood to where he is
           // (only a plain walk gave up: the other two waited on the player 23 to 29 s)
           if (advance(m, dt, ctx.avoid ?? null)) { m.blockT = 0; } else if ((m.blockT = (m.blockT ?? 0) + dt) > CREW_BLOCKED_S) { m.path = null; m.blockT = 0; if (m.state === 'toTalk') endTalk(m); }
-          if (m.state === 'walk' && !m.path) { m.state = 'idle'; m.t = within(rng, CREW_IDLE_S) * (m === lookout ? 0 : 1); }   // SHIP-WATCH: the lookout at his post at once
-          else if (m.state === 'toWork' && !m.path) { if (battle || asleep) { m.state = 'idle'; m.t = 0; } else startWork(m); }
+          if (m.state === 'walk' && !m.path) { m.state = 'idle'; m.t = within(rng, CREW_IDLE_S) * (m === lookout && !battle ? 0 : 1); }   // SHIP-WATCH: the lookout at his post at once - AUDIT WK-D5: at the guns he stands at each as the rest do (he ran post to post without a stop)
+          else if (m.state === 'toWork' && !m.path) { if (asleep && !(work > 0)) { m.state = 'idle'; m.t = 0; } else startWork(m); }
           else if (m.state === 'turnIn' && !m.path) { m.below = true; m.state = 'below'; m.line = null; continue; }
           else if (m.state === 'toTalk' && !m.path) m.state = 'talk';
           else if (m.state === 'toMuster' && !m.path) m.state = 'ready';
@@ -600,7 +676,7 @@ export function createCrewLife({ deck, roster, seed, places = [], faction = null
         if (m.gone) continue;
         if (m.mate) endTalk(m);
         dropLeader(m);
-        m.gone = true; m.line = null; alive--;
+        m.gone = true; m.below = false; m.line = null; alive--;   // AUDIT WK-W9: gone is never below - mended back, he stood unseen till the morning
       }
     },
     /**
