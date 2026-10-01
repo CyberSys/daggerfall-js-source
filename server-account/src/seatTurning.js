@@ -40,6 +40,7 @@ import { activeIn, edictsOf } from './seatHolding.js';
 import { windowOf } from './seatBattles.js';   // SEAT2a: the holder's window, frozen into its battle
 import { royalTurning } from './seatRoyal.js';   // CROWN1 part two: a Royal Tourney's champion named
 import { incursionStatements } from './seatIncursion.js';   // AUDIT-SEATS: a Daedric Incursion's Marks
+import { fortsSeasonStatements, campsSpent } from './seatForts.js';   // SEAT2b: a Season's wear, the Siege Camps spent
 import { swordsSettled } from './seatSiege.js';   // AUDIT-SEATS S3: a void battle's Sellsword escrow home
 import { gameDayAt, gateTimes } from '../../src/net/gateLaw.js';
 import { guildActorOf } from './guilds.js';
@@ -57,7 +58,10 @@ import { MARKS_MAX } from '../../src/net/marksLaw.js';
  *  earned stay, and so does every red line. */
 export const SEASON_ZERO_WIPED = Object.freeze(['town_seat_holds', 'town_seat_legacy', 'town_seat_pledges', 'town_seat_binds', 'town_seat_influence',
   'town_seat_renown', 'town_seat_rights', 'town_seat_aftermath', 'town_seat_windows', 'town_seat_stockpile', 'town_seat_levies', 'town_seat_history',
-  'guild_fealty', 'guild_pacts']);
+  'guild_fealty', 'guild_pacts',
+  // SEAT2b (18: "At its end seats, influence, fortifications and history are wiped"): the works, their projects' holds, the
+  // Fortifiers' saves and the Siege Camps
+  'town_seat_forts', 'town_seat_fort_held', 'town_seat_fortifier', 'town_seat_camps']);
 /** AUDIT-SEATS S5 (3.2: "a struck key is never witnessed again" - the strike's own history row says so, townSeats.js
  *  struck): what the wipe keeps of a table it clears - every strike, so a seat struck in Season 0 stays struck. */
 export const SEASON_ZERO_KEPT = Object.freeze({ town_seat_history: "kind = 'strike'" });
@@ -245,6 +249,10 @@ export async function settleWeek(db, week, nowS, zero = null) {
     if (p.moved) stmts.push(history(p.key, 'battle-moved', { at: Math.floor(p.startsAt / 1000) }));
   }
   for (const u of schedule.unplaced) stmts.push(history(u.key, 'battle-void', { kind: u.kind }));
+  // SEAT2b (4.2, 5.2 step 7): THE SIEGE CAMPS SPENT - a challenger's camp at a seat sends its Ram Kits to the siege it won
+  // there (where a Gatehouse stands for a Ram to strike: a crown's always, a palace's once raised), and everything else
+  // in every camp of the week is burnt; nothing is ever withdrawn
+  stmts.push(...(await campsSpent(db, week, next, plan.rights, (k) => registry.get(k)?.tier ?? 'palace')));
   // SEAT1d (7.1, 5.2 step 5): THE UPKEEP - burnt where the treasury holds it (or the settle rolls back whole), Neglect's
   // debt written, a Charter neglected twice lapsed and its coming Edict void
   const burn = (guild, kind, amount, rid) => db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
@@ -381,6 +389,8 @@ export async function settleWeek(db, week, nowS, zero = null) {
     // SEASON1 part two (9.1): the banner ribbon - each keeper's guild, for its members as they stand at this Turning
     for (const g of seasonRibbons(titles)) stmts.push(db.prepare('INSERT OR IGNORE INTO town_seat_ribbons (season, guild_id, at) VALUES (?, ?, ?)').bind(ending.n, g, atS));
     for (const h of stood) stmts.push(history(h.key, 'season-end', { guild: names.get(h.guild), season: ending.n, kept: keptWholeSeason(ending, h.since) }));
+    // SEAT2b (9.1: "fortifications decay one tier"): every seat's works a tier down (Season 0's are wiped below)
+    if (!wipe) stmts.push(...fortsSeasonStatements(db));
   }
   // SEASON1 (18): SEASON 0'S END - the Edicts proclaimed for the next week void (none was paid), then the seats wiped
   if (wipe) {

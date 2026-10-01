@@ -29,6 +29,7 @@ import { accountRefusalText } from './accountClient.js';
 import { readWatchReceipt } from './watchReceipt.js';
 import { mintMarksRid } from './marksBook.js';
 import { tideAt } from './tideLaw.js';   // SEASON1 part two: the Tides
+import { fortWork } from './fortLaw.js';   // SEAT2b: the works
 
 /** How long a list read is kept before the next is asked, ms. */
 export const SEAT_LIST_CACHE_MS = 5 * 60_000;
@@ -144,6 +145,9 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
   const recordsAt = new Map();
   /** @type {{ ask: string, rid: string }|null} */
   let tributeAsk = null;
+  /** SEAT2b: a project begun - its ask and its one request id, as the Tribute's */
+  /** @type {{ ask: string, rid: string }|null} */
+  let fortAsk = null;
   /** SEAT1b: the Watch's receipts held - read from the device once, kept in memory where the store refuses writes */
   let watchList = null, watchBusy = false;
   const watchHeld = () => {
@@ -396,6 +400,34 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
       }
       if (SHUT.includes(r?.error)) open = false;
       return { data: null, error: r?.error ?? 'server' };
+    },
+    /** SEAT2b (Seats-Arc 7.9): A SEAT'S WORKS (`/v1/seats/forts`) - each work's tier and the project raising it, and the
+     *  stockpile, `{ data: { works, stockpile }, error }`. Read afresh each time the tab is: a delivery moves it. */
+    async forts(key) {
+      if (open !== true) return { data: null, error: 'seats-closed' };
+      let r;
+      try { r = await door.forts(key); } catch { r = { ok: false, error: 'offline' }; }
+      if (r?.ok) return { data: { works: r.data?.works ?? {}, stockpile: Array.isArray(r.data?.stockpile) ? r.data.stockpile : [] }, error: null };
+      if (SHUT.includes(r?.error)) open = false;
+      return { data: null, error: r?.error ?? 'server' };
+    },
+    /** SEAT2b (7.5): a project begun on `work` at `seat` - its tier's Drakes burnt from the holder's treasury (an Officer's
+     *  or the guildmaster's), `port` whether DFU names the town a port (a Harbour's ask). `{ ok, text, forts }`. ONE
+     *  REQUEST ID A PROJECT, as the Tribute's: the same work asked again after an answer that never came carries the same
+     *  id, and the service answers it `repeat` rather than burning twice. */
+    async fortFund(seat, work, port = false) {
+      const ask = `${seat.key}:${work}`;
+      if (fortAsk?.ask !== ask) fortAsk = { ask, rid: rid() };
+      const id = fortAsk.rid;
+      let r;
+      try { r = await door.fortFund(character(), seat.key, work, id, port); } catch { r = { ok: false, error: 'offline' }; }
+      if (r?.ok || (r?.error && !['offline', 'server', 'timeout'].includes(r.error))) { if (fortAsk?.rid === id) fortAsk = null; }
+      standingsAt.clear();
+      if (!r?.ok) return { ok: false, text: accountRefusalText(r?.error) };
+      const name = fortWork(work)?.name ?? 'work';
+      const forts = r.data?.forts ?? null;
+      if (r.data?.repeat) return { ok: true, text: `Work on the ${name} at ${seat.name} was already begun.`, forts };
+      return { ok: true, text: `Work on the ${name} at ${seat.name} is begun toward tier ${r.data?.tier}: ${Number(r.data?.marks ?? 0).toLocaleString('en-US')} Drakes from the treasury. Seat writs deliver what they need.`, forts };
     },
     /** A pledge to `seat` for this week (an Officer's or the guildmaster's) - `{ ok, text }`, the standings read afresh after. */
     async pledge(seat) {

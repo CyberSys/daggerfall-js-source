@@ -2,7 +2,7 @@
 
 **Status: DESIGN RECORD, every question decided; being built (2026-09-30, Mac: "Finish the seats"; "Or we could go ahead
 and do sieges") - GUILD1d, GUILD1e, SEAT1a-SEAT1d, PVP-REF, SEAT2a, CROWN1, CROWN2 and SEASON1 SHIPPED, AUDIT-SEATS
-(2026-10-01) over all of them, SEAT2b being built (section 13; AUDIT-SEATS corrected this line, which named three)** -
+(2026-10-01) over all of them, SEAT2b part one and PROF11 built beside it, part two being built (section 13; AUDIT-SEATS corrected this line, which named three)** -
 the two slices it stands on are:
 MARKS1 (PROF0's currency) and NOTICE1 (PROF0's board) SHIPPED on the professions branch (AUDIT 28 corrected this line,
 which said nothing was). Opened 2026-09-28. This page is the whole
@@ -678,6 +678,16 @@ after its last delivery. Costs (PROF0 section 4 names every material):
 | **Apothecary** | 100 Cut Stone, 100 Oak Planks, 1,000 Marks | 200 Cut Stone, 20 Pearls, 2,500 Marks | - | members in Alchemy, Cooking, Jewelcrafting here: +1 step |
 | **Harbour** (coastal seats only) | 400 Oak Planks, 200 Cut Stone, 2,000 Marks | 800 Teak Planks, 400 Cut Stone, 5,000 Marks | - | ships (the Sea update) dock at the seat; the town is a Travel Options port for members |
 
+BUILT (SEAT2b part one, 2026-10-01, `acct58`, migration 0060; `06-Systems/Online-Arc.md` SEAT2b): the table whole
+(`src/net/fortLaw.js` FORT_WORKS); a project begun at the board by the holder's Guildmaster or an Officer (its Marks
+burnt from the treasury), supplied from the stockpile in the table's order and standing its days after its last need is
+met; a Builder's stone nine tenths; the drops (a capture - the Walls kept where a Fortifier stood on the defending
+roster, once a Season a seat; a Season's end; a project falling with the Charter, its units back to the stockpile);
+seat writs to the stockpile; the Market Hall's Tithe point and its town's listings. DECIDED: a Harbour is raised where the
+funding client names its town a port (DFU's own flag); one project a work at a time. NOT YET (part two): the Shrine, the
+Watchtowers, the Forge, the Workshop, the Apothecary and the Harbour's effects; the Walls', the Gatehouse's and the
+Barracks' in battle (the relay's).
+
 ### 7.6 Edicts
 
 At each Turning the holder proclaims **one Edict** for the coming week (Guildmaster or Officer, on the board). No
@@ -1026,7 +1036,7 @@ bible updated in the same change, mutants recorded.
 | **SEAT1d** | Upkeep, Overreach, Tithe, discounts, Standing, Edicts, Neglect; the economy model as a tool reading townSeatLaw.js and professionLaw.js (PROF0 Appendix C) - **SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` SEAT1d; `tools/seatEconomy.mjs`, its re-run in Appendix C) | Every Standing row pinned; the Tithe routes only Marks; the model re-runs Appendix C's table. The Tithe needs PROF5 (the market) |
 | **PVP-REF** | The refereed blow and step; the 40-fighter measurement - **SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` PVP-REF; relay `world140`, the developers alone until SEAT2a; the step's ceiling MEASURED to 18 m/s) | 6.1's buckets pinned against DFU's damage ranges; the measurement recorded (every budget under 60% - the sizes stand) |
 | **SEAT2a** | Siege rooms, banners, the Throne, windows, forfeits, spectators, the Tourney, Honours - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` SEAT2a: the window, the schedule, the sides and their Sellswords; `acct47`); **PART TWO SHIPPED** 2026-10-01 (the relay's battle - the pass, the sides, the banners and the Throne, the no-shows, the `s1` receipts; `world141`); **PART THREE SHIPPED** 2026-10-01 (the service - the pass and the field, the result and all it gives, Honours, the deploy blackout; `acct48`); **PART FOUR SHIPPED** 2026-10-01 (the client - the field from the town, the room and its pass, the HUD and the card, blows, the camp, the receipts carried) - **SEAT2a SHIPPED** | A headless 10v10 siege runs to both endings |
-| **SEAT2b** | Fortifications, the Barracks' guards, the Gatehouse, the Ram, revolts - **BEING BUILT** (AUDIT-SEATS: PROF3, PROF4 and PROF8 have shipped; PROF11, Masonry, is built beside it; the law `src/net/fortLaw.js`) | Needs PROF11 (Masonry), PROF4 (Carpentry), PROF3 (Smithing's ingots for the Ram) and PROF8 (the Pearls tier-2 Shrine and Apothecary ask) |
+| **SEAT2b** | Fortifications, the Barracks' guards, the Gatehouse, the Ram, revolts - **PART ONE BUILT** 2026-10-01 (`06-Systems/Online-Arc.md` SEAT2b: the works, projects and the stockpile, seat writs and the Siege Camp, the drops, the Market Hall; PROF3, PROF4, PROF8 and PROF11 shipped or built beside it; the law `src/net/fortLaw.js`). Part two: the other works' effects, the relay's (the Walls' wave, the Gatehouse and Rams, the Barracks' guards, revolts) | Needs PROF11 (Masonry), PROF4 (Carpentry), PROF3 (Smithing's ingots for the Ram) and PROF8 (the Pearls tier-2 Shrine and Apothecary ask) |
 | **CROWN1** | The crown tier: reach, the Marches, the Free Lands, crown glyphs, the Saturday slots, Royal Tourney, Conscription - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` CROWN1: reach, the Marches' share, the Free Lands' Watch, Conscription; `acct49`; the crown glyphs were SEAT1c's, the Saturday slots SEAT2a's); **PART TWO (the Royal Tourney) SHIPPED** - the relay (`world142`), the service (`acct50`) and the client; CROWN1 is whole. Built before SEAT2b, which waits on PROF11 (Masonry) and which CROWN1 does not read | 4.4's worked example pinned to the unit; every Conscription share pinned |
 | **CROWN2** | Fealty and Pacts - **SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` CROWN2; `acct51`, migration `0055`) | The tribute, the half-reach and the break's Standing pinned at the Turning; the pledges barred; a Pact broken early in red |
 | **SEASON1** | Seasons, the Chronicle, the Hall of Records, Tides - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` SEASON1: the calendar from `SEASON_ZERO_WEEK`, the names, a Season's end - its titles, the soft reset, the Chronicle's line - Season 0's wipe, the Season on the rules and the titles; `acct52`); **PART TWO SHIPPED** - the roll and the seat's own effects, on the Seat tab (`acct53`); the economy's Tides (`acct54`); the Orc Raids and the stormy sea (`acct55`); the banner ribbon (`acct56`, `world143`); **PART THREE SHIPPED** - the Hall of Records (`acct57`); the castles' copies and the board's book with AUDIT-SEATS | A Season's end set against a twin counting none; Season 0's wipe |

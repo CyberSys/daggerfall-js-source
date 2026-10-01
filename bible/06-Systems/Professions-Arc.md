@@ -979,7 +979,7 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 | **PROF8** - BUILT 2026-09-30 (section 30) | Fishing with the net (the throw, the tug, the haul) | A haul of Raw Fish from a river, its species named; a Pearl at sea on confirmed ground; forty hauls an account a day. Needs FORAGE1-2 (shipped: the net, and the three-valued water state in both exterior hosts) |
 | **PROF9** | Cooking | - |
 | **PROF10** | Jewelcrafting | - |
-| **PROF11** | Masonry | Needs PROF2 (quarrying); SEAT2b and PLOT1 consume what it makes |
+| **PROF11** - BUILT 2026-10-01 (section 32) | Masonry | Cut Stone and Mortar at the mason's bench, the chisel clean; the Sculptor's four stone pieces in a home; the Builder's stone and the Fortifier's Walls at a seat's works (SEAT2b). Needs PROF2 (quarrying); SEAT2b and PLOT1 consume what it makes |
 | **PROF12** | Alchemy and Enchanting layers; Disenchanting | - |
 
 ## 16. What remains to measure
@@ -2573,6 +2573,41 @@ nothing; the edits to the cited hosts line-neutral. The author's own: a solid qu
 U10); a school's glow stands over the water's film (WATER1 a hand's breadth, the sea's mods 3-10 cm up); a dungeon
 vein's base is its ore's own; the large HUD's compass is DFU's needle alone, which marks neither a Detect nor a mate.
 NOT CHANGED, named: the large HUD marks no node, as it marks no mate.
+
+## 32. PROF11 - Masonry, as built (BUILT 2026-10-01)
+
+Mac: **"We need to do a comprehensive audit on everything and finish the not done"** (2026-10-01, with the Seats arc's
+audit - Masonry is 15's next slice and SEAT2b's need). What sections 3.2, 3.3, 4.5, 4.8, 9.3 and 9.4 left open for
+PROF11, DECIDED here, and what was found (FACT):
+
+- **What PROF11 is.** 15's row - Masonry - whole: the mason's bench and its two works (the cut, the mix), the chisel,
+  Mortar, the Sculptor's stone decor; the Masonry track and its four specialisations practised (the Quarryman's cut, the
+  Sculptor's decor at once; the Builder and the Fortifier with SEAT2b's works - `06-Systems/Online-Arc.md` SEAT2b).
+- **Mortar** (4.5; 675): the stone family, tier 2, 2 Marks; FACT: Lodestone's grey lump is the picture Rough and Cut Stone
+  already wear, undyed - Mortar wears it too. Registered, withdrawn as an item, listed on the market.
+- **The mason's bench** (4.8): a General Store's - 50 gold a cut, a mix or a carving, as the forge's counter - or a home's
+  `mason` station (50,000, the seventh). Its works ride the forge's route with a craft's law: the cut (Rough Stone to Cut
+  Stone 2:1; a Quarryman's 1:1 at 50) at rank 0, the mix (1 Sulphur, 1 Lead and 5 Rough Stone to 10 Mortar) at rank 10.
+- **XP FOLLOWS THE RANK** (PROF8's law, Mac's): a unit worked at the rank's own tier - 20 x the tier a unit, half again
+  for a clean chisel, +500 the first time a character makes it - kept with the row (migration `0059_masonry.sql`:
+  `prof_smelts.first`, `prof_smelts.clean`, `idx_prof_smelts_recipe`). FLAGGED to Mac: Masonry's XP follows the rank's
+  tier, not the material's (the cut is tier 1 at every rank otherwise, and Masonry would never climb).
+- **The chisel** (5.1; `systems/chiselAct.js`): five scored lines, one marked for 1.2 s (2.0 at Master) x (STR + END) / 2's
+  band, moved by the glint's rule after every strike too; four strikes a work, seven a carving; every one true a clean
+  act. The arrows, a digit, Space or a press on a line; Gentle acts, Escape and one act a page as the other acts.
+- **The Sculptor's four** (3.3, 9.4; 696-699): a column, a bench, a font and a statue plinth of Cut Stone and Mortar -
+  DFU's Furniture group, delivered among the home's things and set down as their one DFU model (62315, 62322, 41220,
+  74091 - FLAGGED: the models want Mac's eye); Stonework lists on the market; refused to all but a Sculptor at 100
+  (`prof-sculptor`, 403).
+- **The Builder and the Fortifier** (3.3): named by PROF11 and chosen since SEAT2b - a Builder's fortification project asks
+  nine tenths of the stone, rounded up (`fortificationStone`, the seat's works' one law); a Fortifier on a seat's
+  defending roster keeps its Walls from a capture's drop, once a Season a seat (`server-account/src/seatForts.js`
+  fortifierAt).
+- **The pages**: the Stores page's Mason's Bench; Masonry practised on the Professions page; a work's XP said as its own
+  profession's (FOUND: it said Smithing's).
+- **Pinned**: `test/prof11_law.test.js` (11), `test/prof11_service.test.js` (7, through the real Worker),
+  `test/prof11_client.test.js` (7). Mutants: `tools/mutants/prof11.json` (138, all dead). Patch notes:
+  `PATCH-NOTES-Masonry.md`.
 
 ## Appendix A - a day of a gatherer
 

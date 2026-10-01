@@ -51,6 +51,7 @@ import { seatKeyOk } from '../../src/net/townSeatLaw.js';
 import { confirmedSeats } from './townSeats.js';
 import { supplyForts } from './seatForts.js';   // SEAT2b: a stockpile's delivery moved into its projects
 import { heraldryOfRow } from './halls.js';   // AUDIT-SEATS G11: a writ's guild's banner
+import { creditSeatWrit } from './seatInfluence.js';   // SEAT2b: a seat writ's delivery as influence
 import { saleTax, saleTaxOn, provenanceOk, pieceListable, UNYIELDED, WEAR_WHOLE } from '../../src/net/marketLaw.js';
 import {
   WRIT_S, GUILD_WRITS_MAX, WRIT_POSTS_MAX, WRIT_OPS_MAX, WRIT_WINDOW_S, WRIT_SETTLE_MAX, WRIT_SHOWN, WRIT_RECENT_S, WRIT_RID_RE,
@@ -392,6 +393,8 @@ export async function supplyGuildWrit(ctx, player, env, { character, region, wri
   if (units > Number(w.left_units)) return { error: 'writ-short' };
   if (!(await deliverMay(db, me, w.guild_id))) return { error: 'writ-own-guild' };
   const total = units * Number(w.pay);
+  // SEAT2b: what of the delivery is bought (spent first) - a seat writ's influence counts its own and its bought apart
+  const boughtSpent = w.seat != null ? Math.min(units, Math.max(0, Number((await storeOf(db, me, character, w.material)).bought ?? 0))) : 0;
   // the tax of the writ's running total - what it has bought before this delivery (AUDIT 30 L6's law)
   const tax = saleTaxOn((Number(w.units) - Number(w.left_units)) * Number(w.pay), total);
   const pay = total - tax;
@@ -438,7 +441,12 @@ export async function supplyGuildWrit(ctx, player, env, { character, region, wri
   ]);
   const made = await db.prepare('SELECT * FROM guild_writ_fills WHERE filler = ?1 AND rid = ?2').bind(me, rid).first();
   if (made?.n === nonce) {
-    if (w.seat != null && Number(w.camp) !== 1) await supplyForts(db, Number(w.seat), nowS);   // SEAT2b: into the seat's projects
+    if (w.seat != null) {
+      if (Number(w.camp) !== 1) await supplyForts(db, Number(w.seat), nowS);   // SEAT2b: into the seat's projects
+      // SEAT2b (4.2): the delivery's influence - its own units at their value, the bought at Tribute's rate (spent first)
+      await creditSeatWrit(ctx, player, env, { character, key: Number(w.seat), region: Number(w.region), guild: w.guild_id,
+        own: units - boughtSpent, bought: boughtSpent, value: material(w.material)?.value ?? 0, ref: `fill:${me}:${rid}` });
+    }
     return answer(made);
   }
   if (made) return answer(made, { repeat: true });

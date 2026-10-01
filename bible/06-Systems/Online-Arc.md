@@ -4406,7 +4406,7 @@ room exists.
 
 **The boundary that makes that safe is `_layoutFoes`** - the dungeon
 host's index of where the layout's own run ends. Every foe past it "is
-this player's own" (`dungeonContext.js:1350`, AUDIT WORLD B2): a quest
+this player's own" (`dungeonContext.js:1355`, AUDIT WORLD B2): a quest
 foe is minted above it, never streamed, never puppet-ised by the room's
 authority switch, and never touched by a joiner's stream. So a joiner's
 quest foe really does spawn and really can be killed by the player whose
@@ -4775,7 +4775,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7384` read, on one physical line:
+`src/scenes/worldModes.js:7408` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4790,7 +4790,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:5359`). With the property missing that call is a
+(`dungeonContext.js:5364`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4917,9 +4917,9 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:8311` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:8347` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
-  provenance argument `applySpellToFoe` hands them (`hostMagic.js:352`)
+  provenance argument `applySpellToFoe` hands them (`hostMagic.js:372`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
   Threading it touches four hosts.
 - **A building interior streams no foes at all.** `makeInteriorFoes`
@@ -7140,7 +7140,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1108`, `src/net/online.js:2368`):**
+**Now (`src/net/wire.js:1108`, `src/net/online.js:2370`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -11356,6 +11356,158 @@ read, its bound and order, the standings' own eight; the page and the wiring by 
 eight, which no seat test had more than eight rows to tell). PIN MOVED: the account version pins; SEAT1c's Chronicle
 record and SURVTIERS3's two cites of world.js's seed (the cite shift moved them) re-aimed by content (still dead). The reader's one door held: the palace's window is opened in
 `ui/hallOfRecords.js`, never in the modes host.
+
+### AUDIT-SEATS - the Seats arc audited whole, its open items finished
+
+2026-10-01, Mac: "We need to do a comprehensive audit on everything and finish the not done". Five review lanes over
+everything PR #482 built from GUILD1d to SEASON1 (the account service, the relay and the wire, the shared law against
+the design, the client and the world's wiring, the design's coverage); every finding verified before it was fixed, each
+fix pinned and mutated. `acct58` (with PROF11 and SEAT2b part one, below); `world143` re-recorded (undeployed); the
+service lane's migration `0058_audit_seats.sql`.
+
+**The open items, finished** (`test/seats_finish.test.js`, 7):
+- an offer of fealty or of a Pact declined by the guild it was made to (`breakFealty`'s decline; the Seat tab's Decline
+  beside each Accept);
+- a taken siege's length in the Chronicle (`minutes`, the battle's start to the end its receipts were signed at - 9.2's
+  "after thirty-one minutes" verbatim), and what Conscription and fealty PAID (`paidHistory`, the ledger's own amount);
+- a guild taken off a socket takes its banner ribbon (the relay's `_unguild`, the client's guild frame); the Overworld
+  travel badge draws the ribbon (`TRAVEL_VIEW_RIBBON`);
+- the Hall of Records from every seat's board ("Read the Hall of Records") and on a crown castle's shelves
+  (`dungeonContext.js` castleShelves, a fifth activation family in the modes host);
+- the Siege-cracked Gem (template 678, the Diamond's picture - DECIDED: undyed, no overlay: the icon's one door is a
+  dye) in the Spoils, a roll a third each; UNYIELDED keeps the Daedric Ingot alone, the sieges yielding the Warforged
+  ingot and Standard-bearer's Silk.
+
+**The shared law** (`test/audit_seats_law.test.js`, 12):
+- L1 Season 1's Keepers - Season 0's last Turning claims nothing, so a Charter from Season 1's first Turning held it
+  whole (`keptWholeSeason`); without it, no guild could be Keeper in Season 1 nor wear a ribbon in Season 2;
+- L2 the Rights of Siege ranked by the Unrest-risen influence (5.2 step 4);
+- L4 a split sale's Tithe of the listing's running total (`saleTitheOn`), as the tax's - ten 9-Drake units bought singly
+  paid the holder nothing;
+- L5 the crown sieges placed first, their Saturday slots fixed (6.3);
+- L6 the week before the first counted one hears next week's Tide (the Festival's price as the Turning asks it);
+- L7 the words: "1 bout", Drakes on every sum, an Edict's article ("proclaimed a Festival"), no "Season 0" on a title;
+- L8 an ignored witness is ignored a week from its third unmatched answer, not until the first ages out;
+- L10 NaN-proof counts (`amountOf`), a negative sale's Tithe none, `isMarch` reads a number, the held siege's Standing
+  and the map's colours written once; the dead exports gone;
+- G2 the arrival line calls the week's siege ("A siege is called for Wednesday at 20:00 UTC." - `siegeCalledClause`:
+  never a Tourney's, a void battle's or one already over); the seats' list carries each battle's start and end in the
+  service's seconds, as the herald reads them;
+- a Daedric Incursion's Marks (9.3) - paid at the Turning once three claims agree on the gate day's region
+  (`seatIncursion.js`, `gate-incursion`, a mint); MARKS_KINDS names every kind the service writes - the Seats' three
+  mints (`siege-honours`, `gate-incursion`, `seat-strike-refund`), the `fort` burn, the escrows and fees (a sweep of
+  every ledger INSERT in `server-account/src` pins it; PROF5's "no new faucet" pin moved to name them).
+
+**The relay** (`test/audit_seats_relay.test.js`, 15): R1 the climb judged with the run (falls free), and a fighter more
+than 8 m off the field's ground stands at no point; R2 the step's allowance carried on the fighter, the pose gate spent
+before the referee judges; R3 a battle room's hello gate spent only after the token and the pass verify, by account;
+R4 a refused step spends the gate; R5 the Royal Tourney's bound counts contenders in the room; R6 a rostered fighter
+is signed a LATE pass until its receipt's week is out (admitted past the window only to collect a held receipt); R7 the
+Watch ticks in the pose's own cell; R8 a weapon held in a hand slot; R9 once a battle stands, blows, casts and asks are
+between sided fighters alone; R10 the ladder's ties broken by the earlier last win, the service's champion rule.
+T1 `th` - the attackers ever alone at the open Throne - on every `s1` receipt; T2 a spectator is no body (its pose its
+own camera's, told to nobody); T3 a side's place held five minutes for a fighter gone, then a substitute's - one back
+returns at its camp, down until its side's next wave.
+
+**The service** (`test/audit_seats_service.test.js`, 16): S1 a Bounty's unspent escrow burnt where its treasury is full,
+so the Turning never rolls back forever (`failed`, and the settle stops at that week); S2 each Sellsword contract its
+own statement; S3 every battle no result reached is VOID at its Turning - its escrow home, a siege's Right carried to
+next week as the challenger's one Right, a later result refused whole (`battle-void`); S4 a struck held seat's Charter
+voids in the strike's batch, its claim fee minted back within the Season (`seat-strike-refund`); S5 Season 0's wipe
+keeps the strikes; S7 gate claims (3) and Renown XP (8,000) capped an account a week, every seat together; S8 a
+Tourney's dead heat read on the week that made it Contested; S9 a barred challenger's influence voided (`voided`,
+migration 0058), still counted by the caps; S10 windows move in the Muster alone, heraldry frozen in a guild's battle
+week (`heraldry-siege`); S11 the standings summed in SQL, the old rows pruned at the Turning. T1 a siege held after the
+Throne was reached +10 Standing, not +15, and the Chronicle's "The Throne was never reached."; T2 a disputed seat on the
+audit at once.
+
+**The client** (`test/audit_seats_client.test.js`, 22): C1 a battle or a Royal Tourney can be LEFT (the HUD's Leave, the
+card's Close, `/leave`, five seconds from the seat's town, a socket closed for good, a death); C2 one mint slot; C3 an
+unsettled field said once and asked again on a backing-off wait; C4 the arrival line waits on the seats' read; C5 the
+receipts offered again from the gate's frame; C6 both sessions on the relay's clock; C7 every claim answer reaches the
+card; C8 "You are signed for the first contender."; C9 a reload asked mid-read queued, the book's cache a generation
+on every clear; C10 the Watch's receipts kept through `auth`; C11 the Hall of Records read once at a time; C12 no
+per-frame Promise for the Watch's claim; C13 the relinquish button disarms itself. G1 `net/siegeHerald.js`: each battle
+announced in red at the Turning, 24 h, 1 h and 5 min before; G5 arrows and harmful spells on a battle's foe go to the
+referee, Teleport, Recall and Levitate refused in a siege's room; G4 a spectator's free camera; G21 a crown's Throne,
+camp and Palace square placed before its castle's entrance where the town stands one (`siegeField.js` `castle` - the
+world's door to it is NOT YET wired: SEAT2b's relay part).
+
+DECIDED: G14 (the Turning's notice on the boards and the hub) is the client's red line at the Turning (G1); G17 (a
+pledge from the Guild tab) stays the board's - 7.9: "A seat is run from its town's board, in person"; G19 the levers'
+rate limits (windows, Edicts, the Tithe) share one five-an-hour bucket, a fort its own; G22 the frames are
+`{t:'siege'}` and the strike keeps the seat's history (the Chronicle says it was struck). The fixed city stays FLAGGED
+(a development host - Home.md's flags).
+
+Mutants: `tools/mutants/audit_seats_law.json` (40, one equivalent recorded), `audit_seats_open.json` (31, one),
+`audit_seats_relay.json` (94, three), `audit_seats_service.json` (84, seven), `audit_seats_client.json` (113); the
+rest dead. Thirty-nine older records re-aimed by content where the arc's own fixes moved their text (every one still
+dead). PIN MOVED (AUDIT-SEATS): the account version pins, WORLD-HOVER's activation families (five), PROF5's faucets,
+SEAT1b's host line (the town's port and the material words), the module counts.
+
+### PROF11 - Masonry: the mason's bench, the chisel, Mortar and the Sculptor's stone
+
+2026-10-01, Mac: "We need to do a comprehensive audit on everything and finish the not done" (Masonry was 15's next
+slice, and SEAT2b's need). `06-Systems/Professions-Arc.md` 32 holds the whole record; in short:
+
+- **Mortar** (675): the stone family, tier 2, 2 Marks; registered, withdrawn, on the market.
+- **The mason's bench**: a General Store's (50 gold a work) or a home's `mason` station (50,000, the seventh). The cut
+  (Rough Stone 2:1, a Quarryman's 1:1) at rank 0, the mix (1 Sulphur, 1 Lead, 5 Rough Stone to 10 Mortar) at rank 10;
+  XP follows the rank's tier, half again for a clean chisel, +500 the first time (migration `0059_masonry.sql`).
+- **The chisel** (`systems/chiselAct.js`): five scored lines, one marked and moved by the glint's rule; four strikes a
+  work, seven a carving; every one true a clean act.
+- **The Sculptor's four** (696-699): a column, a bench, a font, a statue plinth - DFU's Furniture group, among the
+  home's things; refused to all but a Sculptor (`prof-sculptor`).
+- **The Builder and the Fortifier** chosen since SEAT2b (below): a Builder's project asks nine tenths of the stone; a
+  Fortifier on the defending roster keeps the Walls once a Season a seat.
+
+Pinned: `test/prof11_law.test.js` (11), `test/prof11_service.test.js` (7), `test/prof11_client.test.js` (7). Mutants:
+`tools/mutants/prof11.json` (138, all dead - the two that held the Builder and Fortifier LOCKED re-aimed to lock them
+again, still dead). Patch notes: `PATCH-NOTES-Masonry.md`.
+
+### SEAT2b (part one) - the works: a seat's fortifications, its stockpile, seat writs and the Siege Camp
+
+2026-10-01, Mac: "Finish the seats"; "We need to do a comprehensive audit on everything and finish the not done".
+Seats-Arc 7.5, 7.9, 4.2. Law (`src/net/fortLaw.js`), service (`server-account/src/seatForts.js`, migration
+`0060_seat_forts.sql`) and client (`src/ui/seatWorks.js`, the Seat tab, the Work tab). `acct58`.
+
+- **The works** (7.5's table whole, `FORT_WORKS`): ten - the Walls, the Gatehouse, the Watchtowers, the Barracks, the
+  Market Hall, the Shrine, the Forge, the Workshop, the Apothecary, the Harbour - each its tiers' Drakes and materials.
+  A Gatehouse at a crown, or at a palace whose Walls stand at tier 3; a Harbour where the funding client names its town a
+  port (DFU's own flag - bounded: a lie spends the liar's treasury on a harbour nothing docks at); the rest anywhere.
+- **A project** (`/v1/seats/fort/fund`): the holder's Guildmaster or an Officer begins the next tier of a work not
+  already building - its Drakes BURNT from the treasury in the row's own batch (`fort`, once a request id), its own
+  five-an-hour bucket (`seat-fort:`), asked only once the board would take it. A Builder's (Masonry 50) asks nine tenths
+  of the stone, rounded up (PROF11's `fortificationStone`).
+- **The stockpile and the supply**: the Levy's tenth and SEAT WRITS fill a seat's stockpile; each read and each delivery
+  moves what it holds into the building projects, the works in the table's order; the day the last need is met a project
+  stands 2, 4 or 7 days on, its tier then (`riseDue`), the Chronicle's "fort-begun" and "fort-raised".
+- **Seat writs** (the Work tab's "For": the guild Stores, a held seat's stockpile, or a pledged seat's Siege Camp): a writ
+  for a confirmed seat of the region asking a material some work asks; the holder's fills the stockpile (and its projects
+  at once), a challenger pledged there this week fills its SIEGE CAMP; a seat writ's units are never the guild Stores'
+  (nor reserved against their room); the card says where they go, under its guild's banner (AUDIT-SEATS G11). A
+  delivery by a 7-day member of the posting guild raises its week at the seat by the units' value - the bought at
+  Tribute's rate (`creditSeatWrit`, bound to that war); an outsider earns the pay alone.
+- **The Siege Camp at the Turning** (4.2): a camp that won the Right sends its Ram Kits (`work:ram`) to next week's
+  battle where a Gatehouse stands (a crown's, or one raised) - `town_seat_battles.rams`; everything else burnt, every
+  camp of the week emptied.
+- **The drops**: a capture takes every work a tier down and a building project falls, its units back to the stockpile -
+  the Walls kept where a Fortifier stood on the defending roster (once a Season a seat, `town_seat_fortifier`, the
+  Chronicle's "walls-kept"); a Season's end every work a tier down; Season 0's end wipes them. A Charter relinquished
+  keeps them.
+- **The Market Hall**: the holder's Tithe may stand a point higher a tier (`titheCapAt`); an account listing at a board
+  in its town holds a quarter more listings a tier (`listingsCapAt` - the board's town, not its bailiwick).
+- **The Seat tab's Works** (`ui/seatWorks.js`, drawn under a held seat): each work the seat may raise, its tier and what
+  it does, the project and what it still wants or its day, the stockpile in the Stores' words; the holder's Officers'
+  lever a work at its next tier ("Raise the Walls to tier 2 (3,000 Drakes)") through the book's `fortFund` (one request
+  id a project, as the Tribute's), the board read again after.
+- NOT YET (part two): the Shrine's Standing and gate influence, the Watchtowers' word to the holder, the Forge's, the
+  Workshop's and the Apothecary's quality steps, the Harbour's port, the Ram Kit made (still `later`); and the relay's
+  part - the Walls' wave, the Gatehouse and its Rams, the Throne behind a breach, the Barracks' guards, the revolt.
+
+Pinned: `test/seat2b_law.test.js` (7), `test/seat2b_service.test.js` (11, through the real Worker), `test/seat2b_client
+.test.js` (5). Mutants: `tools/mutants/seat2b.json` (79: 78 dead, 1 equivalent recorded - the raise's own UPDATE holds
+the day the JS check spares). Patch notes: `PATCH-NOTES-Seats.md` (Fortifications).
 
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 

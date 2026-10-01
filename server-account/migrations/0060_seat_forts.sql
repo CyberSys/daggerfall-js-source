@@ -49,3 +49,6 @@ CREATE TABLE IF NOT EXISTS town_seat_camps (
 -- (`camp` 0), a pledged challenger's to its Siege Camp (`camp` 1); its deliveries go there, not to the guild Stores
 ALTER TABLE guild_writs ADD COLUMN seat INTEGER;
 ALTER TABLE guild_writs ADD COLUMN camp INTEGER NOT NULL DEFAULT 0 CHECK (camp IN (0, 1));
+-- A battle's Rams (6.2): the Ram Kits its attacker's Siege Camp sent it at the Turning that placed it - a side fields one
+-- at a time, a destroyed one is gone (the relay counts them down)
+ALTER TABLE town_seat_battles ADD COLUMN rams INTEGER NOT NULL DEFAULT 0 CHECK (rams >= 0);

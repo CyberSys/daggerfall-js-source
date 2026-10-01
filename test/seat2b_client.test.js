@@ -105,3 +105,86 @@ test('SEAT2b SEAT WRITS ON THE WORK TAB: the guild\'s seats of the region offere
   assert.equal(cards[1].querySelectorAll('*').filter((n) => n.className?.includes?.('writ-banner')).length, 0, 'none without heraldry');
   assert.deepEqual([seatWritPlace({ name: 'Silas', camp: false }), seatWritFor({ camp: true })], ["Silas' stockpile", 'for the Siege Camp at the seat']);
 });
+
+test('SEAT2b THE WORKS ON THE SEAT TAB: read with the standings and drawn under a held seat; the holder\'s Officer begins a work through the book with the town\'s port, and the board is read again; another guild\'s reader sees the works without a lever; an unheld seat draws none (mutants: the read; the holder gate; the lever\'s rank and guild; the port; the reload)', async () => {
+  const { createSeatTab } = await import('../src/ui/seatTab.js');
+  const { GUILD_RANK_MASTER } = await import('../src/net/guildLaw.js');
+  const SEAT = { key: 3021, name: 'Anticlere', region: 17, tier: 'palace' };
+  const SH = { id: 'g1', name: 'The Silver Hand', tag: 'SH', heraldry: null };
+  const settle = async (n = 8) => { for (let i = 0; i < n; i++) await Promise.resolve(); };
+  const FORTS = { works: { walls: { tier: 1, building: null } }, stockpile: [['stone:cut', 40]] };
+  const rig = ({ holder = SH, guild = 'g1', rank = GUILD_RANK_MASTER, port = false } = {}) => {
+    const t = { reads: 0, forced: 0, funded: [] };
+    const data = { seat: SEAT, week: 6, phase: 'muster', reckoningAt: 1_800_003_600, turningAt: 1_800_086_400, defence: 4500, holder: holder ? { guild: holder, since: 3, standing: 55, tithe: 6, edict: null } : null,
+      battle: null, standings: [], chronicle: [], mine: { guild, rank, seasoned: true, bound: guild, pledges: [], influence: 0, tributeRoom: 0 } };
+    const book = {
+      zero: null,
+      standings: async (k, o) => { t.reads++; if (o?.force) t.forced++; return { data, error: null }; },
+      forts: async (k) => { assert.equal(k, 3021); return { data: FORTS, error: null }; },
+      fortFund: async (seat, work, p) => { t.funded.push([seat.key, work, p]); return { ok: true, text: 'begun' }; },
+    };
+    const ui = { busy: () => false, run: (start) => start(), rerender: () => {}, nowS: () => 1_800_000_000, alive: () => true };
+    t.tab = createSeatTab({ seat: SEAT, book, port, countName: (k, n) => (k === 'stone:cut' ? 'Cut Stone' : k) }, ui);
+    return t;
+  };
+  const t = rig({ port: true });
+  await t.tab.open(); await settle();
+  let body = t.tab.body();
+  assert.equal(byClass(body, 'notice-seat-works').length, 1, 'the panel, under a held seat');
+  assert.ok(body.textContent.includes('The stockpile: 40 Cut Stone.'), 'the stockpile in the host\'s words');
+  const lever = byClass(body, 'notice-seat-fort-walls')[0];
+  assert.equal(lever?.textContent, fortLeverText('walls', 2));
+  assert.equal(byClass(body, 'notice-seat-fort-harbour').length, 1, 'a port\'s Harbour offered');
+  const before = t.forced;
+  await lever.onclick({}); await settle();
+  assert.deepEqual(t.funded, [[3021, 'walls', true]], 'the book asked for that work, with the town\'s port');
+  assert.equal(t.forced, before + 1, 'and the board read afresh after');
+  // a reader of another guild: the works, no lever
+  const o = rig({ guild: 'g2' });
+  await o.tab.open(); await settle();
+  body = o.tab.body();
+  assert.equal(byClass(body, 'notice-seat-works').length, 1);
+  assert.equal(byClass(body, 'act').filter((b) => /notice-seat-fort-/.test(b.className)).length, 0, 'no lever for another guild');
+  assert.equal(byClass(body, 'notice-seat-fort-harbour').length, 0, 'an inland town offers no Harbour');
+  // the holder's member below an Officer: no lever
+  const m = rig({ rank: 3 });
+  await m.tab.open(); await settle();
+  assert.equal(byClass(m.tab.body(), 'notice-seat-fort-walls').length, 0, 'no lever below an Officer');
+  assert.ok(!m.tab.body().textContent.includes('Harbour'), 'an inland town shows no Harbour');
+  // an unheld seat: no panel
+  const u = rig({ holder: null });
+  await u.tab.open(); await settle();
+  assert.equal(byClass(u.tab.body(), 'notice-seat-works').length, 0, 'none at an unheld seat');
+});
+
+test('SEAT2b THE BOOK\'S WORKS: the read is refused while the seats are shut; a project begun carries one request id until an answer comes - the same work asked after a lost answer carries it again, a refusal or an answer lets it go - and says the work, its tier and its Drakes (mutants: the gate; the id kept; the id let go; the words)', async () => {
+  const { createTownSeatBook } = await import('../src/net/townSeatBook.js');
+  const SEAT = { key: 3021, name: 'Anticlere', region: 17, tier: 'palace' };
+  const asks = [];
+  let answer = { ok: false, error: 'offline' };
+  const door = {
+    list: async () => ({ ok: true, data: { seats: [] } }),
+    forts: async () => ({ ok: true, data: { works: { walls: { tier: 1 } }, stockpile: [['stone:cut', 4]] } }),
+    fortFund: async (c, key, work, rid, port) => { asks.push([c, key, work, rid, port]); return answer; },
+  };
+  let n = 0;
+  const book = createTownSeatBook({ door: /** @type {any} */ (door), character: () => 'c1', storage: null, nowMs: () => 1_800_000_000_000, rid: () => `rid-0000-${++n}` });
+  assert.deepEqual(await book.forts(3021), { data: null, error: 'seats-closed' }, 'shut before the list is read');
+  await book.read();
+  assert.deepEqual((await book.forts(3021)).data, { works: { walls: { tier: 1 } }, stockpile: [['stone:cut', 4]] });
+  assert.equal((await book.fortFund(SEAT, 'walls', true)).ok, false);
+  await book.fortFund(SEAT, 'walls', true);
+  assert.equal(asks[0][3], asks[1][3], 'a lost answer: the same id asked again');
+  assert.deepEqual(asks[0], ['c1', 3021, 'walls', 'rid-0000-1', true]);
+  answer = { ok: true, data: { work: 'walls', tier: 2, marks: 3000 } };
+  const r = await book.fortFund(SEAT, 'walls', true);
+  assert.equal(r.text, 'Work on the Walls at Anticlere is begun toward tier 2: 3,000 Drakes from the treasury. Seat writs deliver what they need.');
+  await book.fortFund(SEAT, 'walls', true);
+  assert.notEqual(asks[3][3], asks[2][3], 'an answer lets the id go');
+  answer = { ok: false, error: 'fort-building' };
+  await book.fortFund(SEAT, 'shrine');
+  await book.fortFund(SEAT, 'shrine');
+  assert.notEqual(asks[5][3], asks[4][3], 'a refusal lets it go');
+  answer = { ok: true, data: { repeat: true, work: 'walls' } };
+  assert.equal((await book.fortFund(SEAT, 'walls')).text, 'Work on the Walls at Anticlere was already begun.');
+});

@@ -191,14 +191,15 @@ test('AUDIT-SEATS L10 THE LAW\'S DRIFT: a NaN is no count; a negative sale pays 
 
 test('AUDIT-SEATS G2 THE ARRIVAL LINE\'S SIEGE: a seat under siege this week gains " A siege is called for Wednesday at 20:00 UTC." (3.3) until its battle ends - not a Tourney\'s, not one no hour held; the seats\' list carries each battle\'s start and end (mutants: the clause; its end; the service\'s times)', async (t) => {
   const start = siegeStartMs(W, 0, 20), end = start + 30 * 60_000;
-  const siege = { kind: 'siege', startsAt: start, endsAt: end };
+  const siege = { kind: 'siege', startsAt: start / 1000, endsAt: end / 1000 };   // seconds, as the service sends them
   const SH = { name: 'The Silver Hand', tag: 'SH' };
   assert.equal(seatArrivalLine({ ...ANTICLERE, battle: siege }, SH, start - 1), `Anticlere, held by the Silver Hand <SH>. A siege is called for ${battleWhenText(start)}.`);
   assert.match(battleWhenText(start), /^Wednesday at 20:00 UTC$/);
   assert.equal(seatArrivalLine({ ...ANTICLERE, battle: siege }, SH, start + 60_000), `Anticlere, held by the Silver Hand <SH>. A siege is called for ${battleWhenText(start)}.`, 'while it is fought');
   assert.equal(seatArrivalLine({ ...ANTICLERE, battle: siege }, SH, end), 'Anticlere, held by the Silver Hand <SH>.', 'over');
   assert.match(seatArrivalLine({ ...WAYREST, battle: siege }, null, start), /^Wayrest, capital of the Kingdom of Wayrest\. Its Crown Charter is unheld\. A siege is called for /);
-  assert.equal(siegeCalledClause({ kind: 'tourney', startsAt: start, endsAt: end }, start), '', 'a Tourney is no siege');
+  assert.equal(siegeCalledClause({ kind: 'tourney', startsAt: start / 1000, endsAt: end / 1000 }, start), '', 'a Tourney is no siege');
+  assert.equal(siegeCalledClause({ ...siege, state: 'void' }, start), '', 'a void battle calls nothing');
   assert.equal(siegeCalledClause({ kind: 'siege', startsAt: null, endsAt: null }, start), '', 'a battle no hour held');
   assert.equal(siegeCalledClause(null, start), '');
   assert.equal(seatArrivalLine(ANTICLERE, null, start), 'Anticlere. Its Charter is unheld.');
@@ -212,7 +213,7 @@ test('AUDIT-SEATS G2 THE ARRIVAL LINE\'S SIEGE: a seat under siege this week gai
   s.raw.prepare("INSERT INTO town_seat_battles (week, key, kind, tier, attacker, defender, starts_at, ends_at, moved, at) VALUES (?, ?, 'siege', 'palace', ?, ?, ?, ?, 0, ?)")
     .run(W, ANTICLERE.key, eoGid, s.gid, start / 1000, end / 1000, T0);
   const b = (await s.svc.call('/v1/seats/list', {}, s.gm.secret)).body.seats.find((x) => x.key === ANTICLERE.key).battle;
-  assert.deepEqual([b.kind, b.guild.tag, b.startsAt, b.endsAt], ['siege', 'EO', start, end]);
+  assert.deepEqual([b.kind, b.guild.tag, b.startsAt, b.endsAt, b.moved, b.state], ['siege', 'EO', start / 1000, end / 1000, false, 'scheduled']);
 });
 
 // ─── THE INCURSION'S MARKS (9.3) ─────────────────────────────────────
@@ -274,6 +275,8 @@ test('AUDIT-SEATS THE LEDGER\'S KINDS: every kind a service statement writes to 
     const text = readFileSync(new URL(f, dir), 'utf8');
     for (const m of text.matchAll(/'(?:mint|account|guild|escrow)', [^,]+, (?:'(?:burn|account|guild|escrow)'|CASE[^']*'[a-z]+'[^']*'[a-z]+' END), [^,]+, '([a-z-]+)'/g)) written.add(m[1]);
     for (const m of text.matchAll(/END, '([a-z-]+)', /g)) written.add(m[1]);
+    // AUDIT-SEATS S2: the Sellswords' settle binds its kind - a paid fee's or a fee home's (seatSiege.js swordsSettled)
+    for (const m of text.matchAll(/paid \? 'sellsword-([a-z]+)' : 'sellsword-([a-z]+)'/g)) { written.add(`sellsword-${m[1]}`); written.add(`sellsword-${m[2]}`); }
   }
   for (const k of ['gate-incursion', 'siege-honours', 'fealty-tribute', 'conscription', 'royal-prize', 'heraldry', 'sellsword-fee', 'tribute', 'seat-claim']) assert.ok(written.has(k), `the sweep finds ${k}`);
   for (const k of written) assert.ok(Object.hasOwn(MARKS_KINDS, k), `${k} is written to the ledger and named nowhere`);

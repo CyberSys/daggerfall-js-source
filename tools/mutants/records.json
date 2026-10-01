@@ -264,8 +264,8 @@
  {
   "name": "RECORDS-bk-shut",
   "file": "src/net/townSeatBook.js",
-  "old": "      if (SHUT.includes(r?.error)) open = false;\n      return { data: null, error: r?.error ?? 'server' };",
-  "new": "      return { data: null, error: r?.error ?? 'server' };",
+  "old": "        recordsAt.set(key, { at: nowMs(), data });\n        return { data, error: null };\n      }\n      if (SHUT.includes(r?.error)) open = false;",
+  "new": "        recordsAt.set(key, { at: nowMs(), data });\n        return { data, error: null };\n      }",
   "tests": [
    "test/season1_records.test.js"
   ]

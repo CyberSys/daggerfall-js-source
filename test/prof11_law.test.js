@@ -108,16 +108,16 @@ test('PROF11 law: the bench\'s XP - 20 a tier a unit of work at the RANK\'s own 
 
 // ─── THE SPECIALISATIONS (3.3) ───────────────────────────────────────
 
-test('PROF11 law: Masonry\'s four (3.3) - the Quarryman (50) and the Sculptor (100) chosen now, the bench\'s; the Builder (50) and the Fortifier (100) named and never chosen until SEAT2b builds the fortifications they act on (AUDIT 29 A17, the Siegewright\'s law)', () => {
+test('PROF11 law: Masonry\'s four (3.3) - the Quarryman (50) and the Sculptor (100) chosen now, the bench\'s; the Builder (50) and the Fortifier (100) chosen since SEAT2b built the fortifications they act on (AUDIT 29 A17, the Siegewright\'s law, until then)', () => {
   assert.deepEqual(SPECIALISATIONS.masonry[50].map((s) => [s.id, s.name, s.text, s.later ?? null]), [
-    ['quarryman', 'Quarryman', 'Rough Stone cuts 1:1, not 2:1.', null], ['builder', 'Builder', 'Fortification projects need 10% less stone.', 'SEAT2b'],
+    ['quarryman', 'Quarryman', 'Rough Stone cuts 1:1, not 2:1.', null], ['builder', 'Builder', 'Fortification projects need 10% less stone.', null],   // PIN MOVED (SEAT2b): chosen now
   ]);
   assert.deepEqual(SPECIALISATIONS.masonry[100].map((s) => [s.id, s.name, s.text, s.later ?? null]), [
-    ['fortifier', 'Fortifier', 'Once a Season a seat\'s Walls skip their drop on capture.', 'SEAT2b'], ['sculptor', 'Sculptor', 'Stone decor pieces.', null],
+    ['fortifier', 'Fortifier', 'Once a Season a seat\'s Walls skip their drop on capture.', null], ['sculptor', 'Sculptor', 'Stone decor pieces.', null],   // PIN MOVED (SEAT2b)
   ]);
   assert.deepEqual([specOk('masonry', 50, 'quarryman'), specOk('masonry', 50, 'builder'), specOk('masonry', 100, 'fortifier'), specOk('masonry', 100, 'sculptor'), specOk('masonry', 50, 'sculptor')],
-    [true, false, false, true, false]);
-  assert.equal(specOf('masonry', 100, 'fortifier').later, 'SEAT2b');
+    [true, true, true, true, false]);   // PIN MOVED (SEAT2b): the Builder and the Fortifier chosen
+  assert.equal(specOf('masonry', 100, 'fortifier').later, undefined);   // PIN MOVED (SEAT2b): the fortifications stand
   assert.equal(SCULPTOR, 'sculptor');
 });
 

@@ -105,7 +105,10 @@ test('PROF5 law: the ledger\'s market kinds - the fee, the tax and the courier b
   for (const [k, way] of [['market-fee', 'burn'], ['market-tax', 'burn'], ['courier', 'burn'], ['market-sale', 'move'], ['order-escrow', 'move'], ['order-fill', 'move'], ['order-return', 'move']]) {
     assert.equal(MARKS_KINDS[k], way, k);
   }
-  assert.deepEqual(Object.entries(MARKS_KINDS).filter(([, w]) => w === 'mint').map(([k]) => k), ['gate', 'writ'], 'the market strikes no Mark');
+  // The faucets are the gate, the writ and the Seats' three (a siege's Honours, an Incursion's second half, a struck
+  // seat's fee given back) - none of them the market's
+  assert.deepEqual(Object.entries(MARKS_KINDS).filter(([, w]) => w === 'mint').map(([k]) => k),
+    ['gate', 'writ', 'siege-honours', 'gate-incursion', 'seat-strike-refund'], 'the market strikes no Mark');
   const sql = src('server-account/migrations/0032_market.sql');
   assert.match(sql, /src_kind TEXT NOT NULL CHECK \(src_kind IN \('mint', 'account', 'guild', 'escrow'\)\)/);
   assert.match(sql, /dst_kind TEXT NOT NULL CHECK \(dst_kind IN \('burn', 'account', 'guild', 'escrow'\)\)/);

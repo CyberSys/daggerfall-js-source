@@ -26,10 +26,10 @@ import { seatsOpenFor, confirmedSeats } from './townSeats.js';
 import { mustChange } from './realm.js';
 import { utcDay } from '../../src/net/marksLaw.js';
 import { seatWeekOf, seatKeyOk, SEAT_LEVER_RANKS, SEAT_EDICTS_HOUR } from '../../src/net/townSeatLaw.js';
-import { FORT_WORKS, fortWork, fortMaxTier, fortMayRaise, fortNeeds, fortStandsAt, fortWanting, marketHallListings, marketHallTitheCap } from '../../src/net/fortLaw.js';
+import { FORT_WORKS, fortWork, fortMaxTier, fortMayRaise, fortNeeds, fortStandsAt, fortWanting, marketHallListings, marketHallTitheCap, campSpent } from '../../src/net/fortLaw.js';
 import { MARKET_LISTINGS_MAX } from '../../src/net/marketLaw.js';
 import { TITHE_CAP } from '../../src/net/townSeatLaw.js';
-import { specsAt } from '../../src/net/professionLaw.js';
+import { specsAt, isBuilder as isBuilderSpec, isFortifier as isFortifierSpec } from '../../src/net/professionLaw.js';
 
 const weekAt = (nowS) => seatWeekOf(nowS * 1000);
 const ORDER = new Map(FORT_WORKS.map((w, i) => [w.id, i]));
@@ -131,7 +131,7 @@ export async function fortTiersOf(db, key, nowS) {
 async function isBuilder(db, player, character, nowS) {
   const row = await db.prepare("SELECT spec50, spec100, respec_rank, respec_to, respec_at FROM prof_tracks WHERE player = ? AND char_id = ? AND profession = 'masonry'")
     .bind(player, character).first();
-  return specsAt(row ? { ...row, respec_rank: row.respec_rank == null ? null : Number(row.respec_rank), respec_at: row.respec_at == null ? null : Number(row.respec_at) } : null, nowS)[50] === 'builder';
+  return isBuilderSpec(specsAt(row ? { ...row, respec_rank: row.respec_rank == null ? null : Number(row.respec_rank), respec_at: row.respec_at == null ? null : Number(row.respec_at) } : null, nowS));   // PROF11's law
 }
 
 /**
@@ -217,6 +217,61 @@ export function fortsCapturedStatements(db, key, { fortifier = false } = {}) {
     db.prepare(`UPDATE town_seat_forts SET tier = CASE WHEN ?2 = 1 AND work = 'walls' THEN tier ELSE MAX(0, tier - 1) END,
       building = NULL, stands_at = NULL, builder = 0, guild_id = NULL WHERE key = ?1`).bind(key, fortifier ? 1 : 0),
   ];
+}
+/**
+ * THE FORTIFIER'S SAVE AT A CAPTURE (Masonry 100, Professions-Arc 3.3: "once a Season a seat's Walls skip their drop on
+ * capture") - DECIDED: a Fortifier who stood on the losing side's roster of that siege (the fortifications are the seat's,
+ * so the save is a defender's craft at the walls it defended), once a Season a seat (`town_seat_fortifier`, keyed by the
+ * Season's first week - seasonFloor's stand-in where none is counted), and only Walls that stand. Answers the account
+ * whose save it is, or null.
+ */
+export async function fortifierAt(db, week, key, nowS, seasonWeek) {
+  const walls = Number((await db.prepare("SELECT tier FROM town_seat_forts WHERE key = ? AND work = 'walls'").bind(key).first())?.tier ?? 0);
+  if (walls <= 0) return null;
+  if (await db.prepare('SELECT 1 FROM town_seat_fortifier WHERE season = ? AND key = ?').bind(seasonWeek, key).first()) return null;
+  const { results = [] } = await db.prepare(`SELECT r.account, t.spec50, t.spec100, t.respec_rank, t.respec_to, t.respec_at FROM town_seat_rosters r
+    JOIN prof_tracks t ON t.player = r.account AND t.char_id = r.char_id AND t.profession = 'masonry'
+    WHERE r.week = ? AND r.key = ? AND r.side = 'defend' ORDER BY r.at, r.account`).bind(week, key).all();
+  for (const row of results) {
+    const specs = specsAt({ ...row, respec_rank: row.respec_rank == null ? null : Number(row.respec_rank), respec_at: row.respec_at == null ? null : Number(row.respec_at) }, nowS);
+    if (isFortifierSpec(specs)) return row.account;
+  }
+  return null;
+}
+/** The capture's statements with the Fortifier's save written beside them (its Season's one), and the Chronicle's word. */
+export function fortsCaptureWithSave(db, key, { nowS, seasonWeek, fortifier = null, history }) {
+  return [
+    ...fortsCapturedStatements(db, key, { fortifier: !!fortifier }),
+    ...(fortifier ? [
+      db.prepare('INSERT OR IGNORE INTO town_seat_fortifier (season, key, account, at) VALUES (?, ?, ?, ?)').bind(seasonWeek, key, fortifier, nowS),
+      history('walls-kept', {}),
+    ] : []),
+  ];
+}
+/**
+ * THE SIEGE CAMPS AT THE TURNING (4.2: "its siege works (a Ram Kit) go to the siege it won, and everything else is burnt;
+ * a camp that won no Right of Siege is burnt whole"): the week's camps read, each guild's Ram Kits (fortLaw.js campSpent)
+ * set on the battle the Turning placed for `next` where its Right was won and a Gatehouse stands (`tierOf` the seat's
+ * tier), and every camp of the week emptied.
+ */
+export async function campsSpent(db, week, next, rights, tierOf) {
+  const { results = [] } = await db.prepare('SELECT key, guild_id, material, qty FROM town_seat_camps WHERE week = ? AND qty > 0').bind(week).all();
+  if (!results.length) return [];
+  const camps = new Map();
+  for (const r of results) {
+    const k = `${r.key}\n${r.guild_id}`;
+    if (!camps.has(k)) camps.set(k, { key: Number(r.key), guild: r.guild_id, items: [] });
+    camps.get(k).items.push([r.material, Number(r.qty)]);
+  }
+  const out = [];
+  for (const c of camps.values()) {
+    const won = (rights ?? []).some((r) => r.key === c.key && r.guild === c.guild);
+    const gate = Number((await db.prepare("SELECT tier FROM town_seat_forts WHERE key = ? AND work = 'gatehouse'").bind(c.key).first())?.tier ?? 0);
+    const { rams } = campSpent(c.items, { won, gated: tierOf(c.key) === 'crown' || gate >= 1 });
+    if (rams > 0) out.push(db.prepare('UPDATE town_seat_battles SET rams = rams + ? WHERE week = ? AND key = ? AND attacker = ?').bind(rams, next, c.key, c.guild));
+  }
+  out.push(db.prepare('DELETE FROM town_seat_camps WHERE week = ?').bind(week));
+  return out;
 }
 /** A Season's end (9.1): every seat's works a tier down; a building project keeps building. */
 export const fortsSeasonStatements = (db) => [db.prepare('UPDATE town_seat_forts SET tier = MAX(0, tier - 1) WHERE tier > 0')];

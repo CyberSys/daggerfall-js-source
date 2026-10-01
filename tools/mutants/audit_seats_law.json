@@ -218,7 +218,7 @@
  {
   "name": "ASL-G2-clause",
   "file": "src/net/townSeatLaw.js",
-  "old": "  return ` A siege is called for ${battleWhenText(battle.startsAt)}.`;",
+  "old": "  return ` A siege is called for ${battleWhenText(battle.startsAt * 1000)}.`;",
   "new": "  return '';",
   "tests": [
    "test/audit_seats_law.test.js"
@@ -227,8 +227,8 @@
  {
   "name": "ASL-G2-end",
   "file": "src/net/townSeatLaw.js",
-  "old": "if (Number.isFinite(battle.endsAt) && nowMs >= battle.endsAt) return '';",
-  "new": "if (Number.isFinite(battle.endsAt) && nowMs > battle.endsAt) return '';",
+  "old": "if (Number.isFinite(battle.endsAt) && nowMs >= battle.endsAt * 1000) return '';",
+  "new": "if (Number.isFinite(battle.endsAt) && nowMs > battle.endsAt * 1000) return '';",
   "tests": [
    "test/audit_seats_law.test.js"
   ]
@@ -236,8 +236,8 @@
  {
   "name": "ASL-G2-kind",
   "file": "src/net/townSeatLaw.js",
-  "old": "if (battle?.kind !== 'siege' || !Number.isFinite(battle.startsAt)) return '';",
-  "new": "if (!battle || !Number.isFinite(battle.startsAt)) return '';",
+  "old": "if (battle?.kind !== 'siege' || !Number.isFinite(battle.startsAt) || battle.state === 'void') return '';",
+  "new": "if (!battle || !Number.isFinite(battle.startsAt) || battle.state === 'void') return '';",
   "tests": [
    "test/audit_seats_law.test.js"
   ]
@@ -245,8 +245,8 @@
  {
   "name": "ASL-G2-svc",
   "file": "server-account/src/seatInfluence.js",
-  "old": "startsAt: r.starts_at == null ? null : Number(r.starts_at) * 1000,",
-  "new": "startsAt: null,",
+  "old": "startsAt: r.starts_at == null ? null : Number(r.starts_at), endsAt:",
+  "new": "startsAt: null, endsAt:",
   "tests": [
    "test/audit_seats_law.test.js"
   ]

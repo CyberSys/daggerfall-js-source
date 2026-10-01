@@ -27,6 +27,7 @@ import {
 import { fightAnnouncement } from '../net/siegeHerald.js';   // AUDIT-SEATS G1: the battle's line, its start in the service's seconds
 import { GUILD_RANK_MASTER } from '../net/guildLaw.js';
 import { tideLine } from '../net/tideLaw.js';
+import { drawSeatWorks } from './seatWorks.js';   // SEAT2b: the works
 
 /** SEAT1c: how long the relinquish button stays armed after its first press, ms. */
 export const SEAT_RELINQUISH_ARM_MS = 4000;
@@ -59,7 +60,7 @@ const SHUT = new Set(['seats-closed', 'no-session', 'auth', 'seat-unconfirmed'])
  *   book: ReturnType<typeof import('../net/townSeatBook.js').createTownSeatBook>,
  *   nameOf?: (key: number) => (string|null), banner?: (heraldry: any, width: number) => (Node|null),
  *   enterBattle?: (seat: any, fight: any) => boolean, enterRoyal?: (seat: any, royal: any, watch: boolean) => boolean,
- *   readRecords?: (seat: any) => Promise<boolean> }} host   AUDIT-SEATS: the Hall of Records, opened from the board   SEAT2a part four: the world's door into the battle   CROWN1 part two: and into a Royal Tourney
+ *   readRecords?: (seat: any) => Promise<boolean>, port?: boolean, countName?: (key: string, n: number) => string }} host   AUDIT-SEATS: the Hall of Records, opened from the board   SEAT2a part four: the world's door into the battle   CROWN1 part two: and into a Royal Tourney
  * @param {{ busy: () => boolean, run: (start: () => Promise<any>) => any, rerender: () => void, nowS: () => number,
  *   alive?: () => boolean }} ui
  */
@@ -75,17 +76,21 @@ export function createSeatTab(host, ui) {
   let titheAsk = null, edictAsk = null, bountyAside = 200;   // SEAT1d: the levers' own choices, kept across redraws
   let windowAsk = null, hireHandle = '', hireFee = 0;   // SEAT2a: the window and the contract asked, kept across redraws
   let politicsTag = '';   // CROWN2: the guild an offer is made to, kept across redraws
+  let forts = null;   // SEAT2b: the works as last read, read with the standings
 
   async function load(force) {
     // AUDIT-SEATS C9: a reload asked mid-read is queued - the act's read after another act's was dropped, and the tab
     // stood on the earlier act's answer (an Edict just proclaimed read as none)
     if (loading) { queued = !!(queued || force); return; }
     loading = true; ui.rerender();
-    let r;
+    let r, f;
     try { r = await book.standings(seat.key, { force }); } catch { r = { data: null, error: 'offline' }; }
+    // SEAT2b: the works beside them - a reader who cannot read them sees the board without its panel
+    try { f = r.data && book.forts ? await book.forts(seat.key) : null; } catch { f = null; }
     loading = false;
     if (ui.alive && !ui.alive()) { queued = null; return; }
     if (r.data) data = r.data;
+    if (f?.data) forts = f.data;
     error = r.error;
     if (queued !== null) { const again = queued; queued = null; load(again); return; }
     ui.rerender();
@@ -370,6 +375,15 @@ export function createSeatTab(host, ui) {
       if (data.holding) {
         for (const line of seatHoldingLines(seat, data.holding)) body.append(el('p', 'notice-seat-mine', line));
         if (SEAT_LEVER_RANKS.includes(data.mine?.rank)) body.append(holdingNode(data.holding));
+      }
+      // SEAT2b (Seats-Arc 7.9): the works and the stockpile - a holder's Officers and guildmaster begin a project here
+      if (holder && forts) {
+        drawSeatWorks(body, {
+          forts, seat, port: host.port === true, busy: ui.busy(),
+          lever: data.mine?.guild === holder.guild.id && SEAT_LEVER_RANKS.includes(data.mine?.rank),
+          nameOf: host.countName ?? ((k) => k),
+          onBegin: (work) => act(() => book.fortFund(seat, work, host.port === true)),
+        });
       }
       // SEAT2a: the battle placed in the week, with its sides - or the Turning's line where none is placed (an older week)
       if (data.fight?.kind) body.append(fightNode(data.fight));

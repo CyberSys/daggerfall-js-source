@@ -8,9 +8,9 @@ import {
   FORT_WORKS, FORT_TIER_DAYS, fortWork, fortMaxTier, fortTierRow, fortMayRaise, fortNeeds, fortStandsAt, fortWanting, fortMet,
   fortDropped, fortsAfterCapture, fortsAfterSeason, defendersWaveMs, GATEHOUSE, gatehouseVitality, RAM, ramVitality, watchtowerShare,
   barracksGuards, marketHallListings, marketHallTitheCap, shrineStanding, shrineGateInfluence, stationSteps, harbourPort,
-  RAM_KIT_KEY, campSpent, REVOLT, revoltDue, BUILDER_STONE_SHARE, WALLS_WAVE_MIN_MS,
+  RAM_KIT_KEY, campSpent, REVOLT, revoltDue, WALLS_WAVE_MIN_MS,
 } from '../src/net/fortLaw.js';
-import { minedMaterial } from '../src/net/professionLaw.js';
+import { minedMaterial, fortificationStone } from '../src/net/professionLaw.js';
 import { SIEGE_WAVE_MS } from '../src/net/siegeRef.js';
 
 test('SEAT2b THE WORKS: the 7.5 table whole - ten works, their tiers\' Marks and materials in the order written, every material one the Stores know (mutants: a cost; a material; a tier\'s count)', () => {
@@ -41,14 +41,13 @@ test('SEAT2b WHO MAY RAISE WHAT: a Gatehouse at a crown, or a palace whose Walls
 });
 
 test('SEAT2b A PROJECT\'S NEEDS AND ITS DAYS: a Builder\'s stone at nine tenths rounded up, nothing else cut; a tier stands 2, 4 or 7 days after its last delivery; what is wanting of what is held (mutants: the share; the rounding; stone only; the days)', () => {
-  assert.equal(BUILDER_STONE_SHARE, 0.9);
   assert.deepEqual(fortNeeds('walls', 1), { marks: 1000, needs: [['stone:cut', 400], ['plank:oak', 100]] });
   assert.deepEqual(fortNeeds('walls', 1, { builder: true }), { marks: 1000, needs: [['stone:cut', 360], ['plank:oak', 100]] }, 'the planks whole');
   assert.deepEqual(fortNeeds('shrine', 1, { builder: true }).needs, [['stone:cut', 90], ['metal:silver', 20]]);
   assert.deepEqual(fortNeeds('apothecary', 2, { builder: true }).needs, [['stone:cut', 180], ['gem:pearl', 20]]);
   assert.equal(fortNeeds('walls', 4), null);
-  // rounded up: 7.5's numbers are all tens, so a share's fraction never shows there - the rule does at an odd count
-  assert.equal(Math.ceil(333 * BUILDER_STONE_SHARE - 1e-9), 300);
+  // rounded up - PROF11's fortificationStone, the Builder's one law: 7.5's counts are tens, a fraction shows at an odd one
+  assert.equal(fortificationStone(333, true), 300);
   assert.deepEqual([fortStandsAt(1000, 1), fortStandsAt(1000, 2), fortStandsAt(1000, 3), fortStandsAt(1000, 4), fortStandsAt(NaN, 1)], [1000 + 2 * 86400, 1000 + 4 * 86400, 1000 + 7 * 86400, null, null]);
   const needs = fortNeeds('walls', 1).needs;
   assert.deepEqual(fortWanting(needs, new Map([['stone:cut', 150]])), [['stone:cut', 250], ['plank:oak', 100]]);

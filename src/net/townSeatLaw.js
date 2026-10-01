@@ -144,7 +144,7 @@ const GuildWords = (g) => { const w = guildWords(g); return `${w[0].toUpperCase(
  * THE ARRIVAL LINE (SEAT0 3.3 - HUB1's five-second line, extended to every seat): "Anticlere. Its Charter is unheld."; a
  * held one "Anticlere, held by the Silver Hand <SH>."; a crown "Wayrest, capital of the Kingdom of Wayrest, held by the
  * Ebon Oath <EO>." (unheld: "... Its Crown Charter is unheld.").
- * @param {{ name: string, tier: string, region: number, holder?: any }} seat
+ * @param {{ name: string, tier: string, region: number, holder?: any, battle?: any }} seat   AUDIT-SEATS G2: and the week's battle
  * @param {{ name: string, tag: string }|null} [holder]
  */
 export function seatArrivalLine(seat, holder = seat?.holder?.guild ?? null, nowMs = Date.now()) {   // SEAT1c: a dressed seat names its own holder
@@ -156,12 +156,12 @@ export function seatArrivalLine(seat, holder = seat?.holder?.guild ?? null, nowM
   return (holder ? `${seat.name}, held by ${guildWords(holder)}.` : `${seat.name}. Its Charter is unheld.`) + siege;
 }
 /** AUDIT-SEATS G2 (3.3: "under siege this week: the line gains ' A siege is called for Wednesday at 20:00.' in the
- *  siege's own words"): the clause for a dressed seat's battle (`{ kind, startsAt, endsAt }`, ms) - a siege placed and not
- *  yet over - or nothing. */
+ *  siege's own words"): the clause for a dressed seat's battle (`{ kind, startsAt, endsAt, state }`, seconds, as the
+ *  service sends them) - a siege placed, not void and not yet over - or nothing. */
 export function siegeCalledClause(battle, nowMs) {
-  if (battle?.kind !== 'siege' || !Number.isFinite(battle.startsAt)) return '';
-  if (Number.isFinite(battle.endsAt) && nowMs >= battle.endsAt) return '';
-  return ` A siege is called for ${battleWhenText(battle.startsAt)}.`;
+  if (battle?.kind !== 'siege' || !Number.isFinite(battle.startsAt) || battle.state === 'void') return '';
+  if (Number.isFinite(battle.endsAt) && nowMs >= battle.endsAt * 1000) return '';
+  return ` A siege is called for ${battleWhenText(battle.startsAt * 1000)}.`;
 }
 
 /** The map's line for a seat, in its box: "The Charter of Anticlere: unheld" (SEAT1c: "held by the Silver Hand <SH>"). */
@@ -609,6 +609,7 @@ export function chronicleLine(row, seat, zero = null) {
     case 'fealty-lapsed': return `${when}, the fealty between ${guildWords(d.vassal)} and ${guildWords(d.liege)} lapsed.`;
     // SEAT2b (7.5): a fortification's project begun, and its tier standing
     case 'fort-begun': return `${when}, ${guildWords(d.guild)} began raising ${seat.name}'s ${fortWork(d.work)?.name ?? 'works'} to ${theirOf(d.work)} ${TIER_WORDS[d.tier] ?? 'next'} tier.`;
+    case 'walls-kept': return `${when}, a Fortifier's work kept ${seat.name}'s Walls standing as the seat was taken.`;
     case 'fort-raised': return `${when}, ${seat.name}'s ${fortWork(d.work)?.name ?? 'works'} stood at ${theirOf(d.work)} ${TIER_WORDS[d.tier] ?? 'next'} tier.`;
     default: return null;
   }

@@ -159,11 +159,11 @@ export const SPECIALISATIONS = Object.freeze({
   }),
   masonry: Object.freeze({
     // PROF11: the Quarryman's cut and the Sculptor's decor are the bench's (MASON_RECIPES, recipeLaw MASONRY_RECIPES); the
-    // Builder's and the Fortifier's act on the fortifications SEAT2b builds - named and never chosen until then (AUDIT
-    // 29 A17's law, the Siegewright's), their law and helpers standing below (fortificationStone, wallsOnCapture)
+    // Builder's and the Fortifier's act on the fortifications SEAT2b builds (server-account/src/seatForts.js) - chosen
+    // since SEAT2b, their law and helpers standing below (fortificationStone, wallsOnCapture)
     50: pair(spec('quarryman', 'Quarryman', 'Rough Stone cuts 1:1, not 2:1.'),
-      spec('builder', 'Builder', 'Fortification projects need 10% less stone.', 'SEAT2b')),
-    100: pair(spec('fortifier', 'Fortifier', "Once a Season a seat's Walls skip their drop on capture.", 'SEAT2b'),
+      spec('builder', 'Builder', 'Fortification projects need 10% less stone.')),
+    100: pair(spec('fortifier', 'Fortifier', "Once a Season a seat's Walls skip their drop on capture."),
       spec('sculptor', 'Sculptor', 'Stone decor pieces.')),
   }),
   alchemy: Object.freeze({

@@ -667,8 +667,10 @@ test('WORLD-HOVER: the dungeon\'s target list has ONE builder, and the hover rea
   const wm = read('src/scenes/worldModes.js');
   // WB9f: and a FOURTH, the Burning Court's own - his spoils on its floor - registered where the court is stood, beside
   // the court's own namer (a family the court alone can answer: the dungeon arm's `spoil` rung)
-  assert.equal((wm.match(/ctx\.addActivationTargets\(/g) ?? []).length, 4,
-    'the exit doors, the quest stands and the static NPCs - three, named - and the court\'s spoils');
+  // AUDIT-SEATS: and a FIFTH, the Hall of Records' shelves in a seat's castle (`records:` - empty off a castle
+  // that keeps them, so a dungeon without the Hall offers nothing)
+  assert.equal((wm.match(/ctx\.addActivationTargets\(/g) ?? []).length, 5,
+    'the exit doors, the quest stands, the Records shelves and the static NPCs - four, named - and the court\'s spoils');
   assert.match(wm, /ctx\.addActivationTargets\(\(\) => host\.spoilTargets\?\.\(\) \?\? NO_TARGETS\);\n\s*ctx\.addActivationNamer\(\(key\) => \(typeof key === 'string' && key\.startsWith\('spoil'\) \? host\.spoilName\?\.\(key\) \?\? null : null\)\);/,
     'the spoils stood with their words');
   assert.doesNotMatch(read('src/scenes/dungeon.js'), /addActivationTargets/,

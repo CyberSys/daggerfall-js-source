@@ -308,6 +308,33 @@ export async function claimOrcCamp({ db, nowS }, player, env, { character, site,
   return { ok: true, counted: false, why: 'capped' };
 }
 
+/**
+ * SEAT2b (4.2: "Writs ... 1 per Mark of the materials' value"): A SEAT WRIT'S DELIVERY AS INFLUENCE - `own` units at the
+ * materials' value (`value` a unit's Marks, never the writ's pay, so a guild paying itself mints nothing) and `bought`
+ * units at Tribute's rate inside Tribute's cap (their value as a `bought` row, read as Tribute's Marks); for the posting
+ * guild alone, through a 7-day member whose account is bound to it this week (warOf) - anyone else's delivery earns the
+ * pay alone and binds nobody's war - and only while that guild still holds or is pledged to the seat. `ref` the delivery's
+ * own id (a fill's rid), so a delivery counts once. Answers `{ counted, why? }`; never refuses the delivery it rode on.
+ * @param {{db: any, nowS: number}} ctx
+ */
+export async function creditSeatWrit({ db, nowS }, player, env, { character, key, region, guild, own = 0, bought = 0, value = 0, ref } = {}) {
+  if (!seatsOpenFor(player, env)) return { counted: false, why: 'seats-closed' };
+  const week = weekAt(nowS);
+  const war = await warOf(db, player, character, nowS, week);
+  if ('why' in war) return { counted: false, why: war.why };
+  if (war.guild !== guild) return { counted: false, why: 'not-its-guild' };
+  const at = { guild, char: war.char, key, week };
+  const rows = [['writ', Math.max(0, own) * value], ['bought', Math.max(0, bought) * value]].filter(([, n]) => n > 0);
+  if (!rows.length) return { counted: false, why: 'nothing' };
+  const done = await db.batch([
+    bindStatement(db, at, player.id, nowS),
+    ...rows.map(([source, amount]) => db.prepare(`INSERT OR IGNORE INTO town_seat_influence (week, key, guild_id, account, char_id, source, amount, region, day, ref, at)
+      SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11 WHERE ${STILL_COUNTS}`)
+      .bind(week, key, guild, player.id, war.char, source, amount, region, utcDay(nowS), `${ref}:${source}`, nowS)),
+  ]);
+  return done.slice(1).some((r) => r?.meta?.changes) ? { counted: true } : { counted: false, why: 'bound-elsewhere' };
+}
+
 /** Each gate day's region, where GATE_REGION_AGREE of its claims agree on it - the most agreeing; two regions level at
  *  the top agree on neither. */
 export async function agreedGateRegions(db, days) {
@@ -514,17 +541,19 @@ export async function holdsOf(db) {
     guild: guildView(h.guild_id, h.name, h.tag, h.heraldry), since: Number(h.since_week), standing: Number(h.standing), tithe: Number(h.tithe ?? 0),
   }]));
 }
-/** THE WEEK'S BATTLES the last Turning named, by key: `{ kind, guild, against, startsAt, endsAt }` - a Right of Siege's
- *  challenger and holder, or a Contested seat's two contenders; AUDIT-SEATS G2: and when the schedule placed it (ms, or
- *  null for a battle no hour could hold), so the arrival line can call the siege (3.3). */
+/** THE WEEK'S BATTLES the last Turning named, by key: `{ kind, guild, against, startsAt, endsAt, moved, state }` - a
+ *  Right of Siege's challenger and holder, or a Contested seat's two contenders; AUDIT-SEATS G2: and when the schedule
+ *  placed it (seconds, as the standings' `fight` - null for a battle no hour could hold), whether it was moved and its
+ *  state, so the arrival line can call the siege (3.3) and the client's herald say it (G1) without a standings read. */
 export async function battlesOf(db, week) {
   const { results = [] } = await db.prepare(`SELECT r.key, r.kind, r.guild_id, r.against, a.name AS an, a.tag AS at, a.heraldry AS ah,
-      b.name AS bn, b.tag AS bt, b.heraldry AS bh, x.starts_at, x.ends_at FROM town_seat_rights r JOIN guilds a ON a.id = r.guild_id
+      b.name AS bn, b.tag AS bt, b.heraldry AS bh, x.starts_at, x.ends_at, x.moved, x.state FROM town_seat_rights r JOIN guilds a ON a.id = r.guild_id
       LEFT JOIN guilds b ON b.id = r.against LEFT JOIN town_seat_battles x ON x.week = r.week AND x.key = r.key
     WHERE r.week = ?`).bind(week).all();
   return new Map(results.map((r) => [Number(r.key), {
     kind: r.kind, guild: guildView(r.guild_id, r.an, r.at, r.ah), against: r.against ? guildView(r.against, r.bn, r.bt, r.bh) : null,
-    startsAt: r.starts_at == null ? null : Number(r.starts_at) * 1000, endsAt: r.ends_at == null ? null : Number(r.ends_at) * 1000,
+    startsAt: r.starts_at == null ? null : Number(r.starts_at), endsAt: r.ends_at == null ? null : Number(r.ends_at),
+    moved: Number(r.moved ?? 0) === 1, state: r.state ?? null,
   }]));
 }
 /** A seat's Chronicle, newest first - `{ kind, week, data }`, at most `max` (SEAT_CHRONICLE_SHOWN, the Seat tab's). */

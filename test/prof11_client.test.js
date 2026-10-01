@@ -425,9 +425,9 @@ test('PROF11 pages: the Sculptor\'s stone decor - shut to all but a Sculptor ("a
     assert.doesNotMatch(text, /not practised/);
     const cards = [...root.querySelectorAll('button')].filter((b) => b.className.includes('prof-spec'));
     const card = (name) => cards.find((b) => b.textContent.startsWith(name));
-    assert.deepEqual([card('Quarryman').disabled, card('Builder').disabled, card('Fortifier').disabled, card('Sculptor').disabled], [false, true, true, true], 'at 50: the Quarryman chosen; the Builder waits');
-    assert.match(card('Builder').textContent, /Comes with the fortifications/);
-    assert.match(card('Fortifier').textContent, /Comes with the fortifications/);
+    assert.deepEqual([card('Quarryman').disabled, card('Builder').disabled, card('Fortifier').disabled, card('Sculptor').disabled], [false, false, true, true], 'at 50: either - PIN MOVED (SEAT2b): the Builder is chosen now');
+    assert.doesNotMatch(card('Builder').textContent, /Comes with the fortifications/);
+    assert.doesNotMatch(card('Fortifier').textContent, /Comes with the fortifications/);
     assert.match(text, /Cut Stone, from Rough Stonerank 0/);
     assert.match(text, /Mortar, from Sulphur, Lead and Rough Stonerank 10/);
   } finally { root.remove(); setProfessionsPages(null); }

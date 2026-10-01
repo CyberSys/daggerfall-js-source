@@ -11,7 +11,9 @@
 // DECIDED: the table's bare "Silver" and "Gold" are the raw metals `metal:silver` and `metal:gold` - it names an ingot
 // "Ingots" wherever it means one, and no gold ingot exists.
 //
-// Pure, a leaf. Not a DFU member: Daggerfall's towns have no player works. Ledger A (EVERY PALACE A SEAT's row).
+// Pure (it reads professionLaw.js's materials and its Builder). Not a DFU member: Daggerfall's towns have no player
+// works. Ledger A (EVERY PALACE A SEAT's row).
+import { fortificationStone, minedMaterial } from './professionLaw.js';
 
 /** The days a tier stands after its last delivery (7.5): tier 1, 2, 3. */
 export const FORT_TIER_DAYS = Object.freeze([2, 4, 7]);
@@ -45,7 +47,7 @@ export const FORT_WORKS = Object.freeze([
   Object.freeze({ id: 'harbour', name: 'Harbour', where: 'coast', tiers: Object.freeze([
     tier(2000, ['plank:oak', 400], ['stone:cut', 200]), tier(5000, ['plank:teak', 800], ['stone:cut', 400])]) }),
 ]);
-const BY_ID = new Map(FORT_WORKS.map((w) => [w.id, w]));
+const BY_ID = new Map(FORT_WORKS.map((w) => [/** @type {string} */ (w.id), w]));
 /** Every material a work's tier asks - what a seat writ may ask for its stockpile or a Siege Camp (Professions-Arc 11:
  *  "A seat's writs build its fortifications"). */
 export const FORT_MATERIALS = Object.freeze([...new Set(FORT_WORKS.flatMap((w) => w.tiers.flatMap((t) => t.needs.map(([k]) => k))))].sort());
@@ -70,23 +72,18 @@ export function fortMayRaise(id, seat) {
   return true;
 }
 
-/** The share of its stone a Builder's project asks (Masonry 50, Professions-Arc 3.3: "fortification projects need 10%
- *  less stone"). */
-export const BUILDER_STONE_SHARE = 0.9;
-/** Whether a material is the stone a Builder saves: Cut Stone (and Rough, should a work ever ask it). */
-const isStone = (key) => typeof key === 'string' && key.startsWith('stone:');
+/** Whether a material is the stone a Builder saves: the Stores' stone family (Cut Stone; Rough Stone and Mortar should a
+ *  work ever ask them) - professionLaw.js's own test, so the Builder has one law. */
+const isStone = (key) => minedMaterial(key)?.family === 'stone';
 /**
- * WHAT A PROJECT ASKS (7.5): tier `t` of a work, its needs as `[[material, units]]` - a Builder's (`builder`) stone at
- * nine tenths, rounded UP (a project never asks a fraction, and a Builder never asks more than the table) - and its
- * Marks; or null for no such tier.
+ * WHAT A PROJECT ASKS (7.5): tier `t` of a work, its needs as `[[material, units]]` - a Builder's (`builder`, Masonry 50,
+ * Professions-Arc 3.3: "fortification projects need 10% less stone") stone a tenth less, rounded UP
+ * (professionLaw.js fortificationStone, PROF11's) - and its Marks; or null for no such tier.
  */
 export function fortNeeds(id, t, { builder = false } = {}) {
   const row = fortTierRow(id, t);
   if (!row) return null;
-  return {
-    marks: row.marks,
-    needs: row.needs.map(([k, n]) => [k, builder && isStone(k) ? Math.ceil(n * BUILDER_STONE_SHARE - 1e-9) : n]),
-  };
+  return { marks: row.marks, needs: row.needs.map(([k, n]) => [k, isStone(k) ? fortificationStone(n, builder) : n]) };
 }
 /** When a project of tier `t` stands: its last delivery (s) and the tier's days (7.5), or null. */
 export const fortStandsAt = (lastDeliveryS, t) => (Number.isFinite(lastDeliveryS) && t >= 1 && t <= 3 ? lastDeliveryS + FORT_TIER_DAYS[t - 1] * 86400 : null);

@@ -241,20 +241,20 @@
     ]
   },
   {
-    "name": "PROF11-builder-chosen-now",
+    "name": "PROF11-builder-locked-again",
     "file": "src/net/professionLaw.js",
-    "old": "spec('builder', 'Builder', 'Fortification projects need 10% less stone.', 'SEAT2b')",
-    "new": "spec('builder', 'Builder', 'Fortification projects need 10% less stone.')",
+    "old": "spec('builder', 'Builder', 'Fortification projects need 10% less stone.')",
+    "new": "spec('builder', 'Builder', 'Fortification projects need 10% less stone.', 'SEAT2b')",
     "tests": [
       "test/prof11_law.test.js",
       "test/prof11_client.test.js"
     ]
   },
   {
-    "name": "PROF11-fortifier-chosen-now",
+    "name": "PROF11-fortifier-locked-again",
     "file": "src/net/professionLaw.js",
-    "old": "\"Once a Season a seat's Walls skip their drop on capture.\", 'SEAT2b')",
-    "new": "\"Once a Season a seat's Walls skip their drop on capture.\")",
+    "old": "\"Once a Season a seat's Walls skip their drop on capture.\")",
+    "new": "\"Once a Season a seat's Walls skip their drop on capture.\", 'SEAT2b')",
     "tests": [
       "test/prof11_law.test.js",
       "test/prof11_client.test.js"

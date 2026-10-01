@@ -79,12 +79,12 @@ The first part of guild town control is in. It is open to the developers first, 
   - **Your receipt.** At the end every fighter gets a receipt signed by the server: the result, and whether you earned Honours (you stood for half the battle or felled a foe). Lost your connection at the end? Come back within the battle's window and it's waiting for you.
 - **What a battle gives.**
   - **Attackers win:** the Charter is theirs, at Standing 50, and it can't be challenged at the next Turning. The old holder's carried-over influence there is gone.
-  - **The holder holds:** +15 Standing and a fifth more defence at the next Turning - but only if the attackers raised at least one banner. The attackers lose their influence there that week and can't challenge the seat at the next Turning.
+  - **The holder holds:** +15 Standing (+10 if the attackers ever reached the Throne) and a fifth more defence at the next Turning - but only if the attackers raised at least one banner. The attackers lose their influence there that week and can't challenge the seat at the next Turning.
   - **A forfeit:** +10 Standing (once a Season against the same challenger) and the same fifth more defence; the challenger is shut out the same way.
   - **A Tourney:** the side holding more banners takes the Charter and pays the claim fee. If it can't pay, the other side may; if neither can, the seat stays unheld. A dead heat goes to the guild with more influence there that week.
   - **Sellswords** are paid their fee when the battle ends; an unsigned contract's fee goes back to the guild.
 - **Fighting it.** From ten minutes before the battle until its window closes, the town's Notice Board offers **Enter the battle** (or **Watch the battle** if you didn't sign). You fight in the town's own streets. The bar across the top shows each banner (^ attackers, o defenders, ~ being raised), the Throne, the clock and each side's fighters; your vitality and your next wave sit at the lower right. When it ends, a result card shows who holds the seat, and your Honours once your receipt is claimed (the game claims it for you, and keeps it to try again if the server can't answer).
-- **Honours.** Fight on the winning side and earn **50 Marks and 2,000 Renown XP**; on the losing side **25 Marks and 1,000**. Every honoured fighter also rolls on the **Spoils of War**: a Warforged Steel Ingot or a Standard-bearer's Silk, into your Stores. The same two guilds earn Honours from each other once a Season (8 weeks).
+- **Honours.** Fight on the winning side and earn **50 Drakes and 2,000 Renown XP**; on the losing side **25 Drakes and 1,000**. Every honoured fighter also rolls on the **Spoils of War**: a Warforged Steel Ingot, a Standard-bearer's Silk or a **Siege-cracked Gem** (a third each), into your Stores. The same two guilds earn Honours from each other once a Season (8 weeks).
 
 ## The crowns (online)
 - **Kingdom reach.** A guild holding a crown - Daggerfall, Wayrest or Sentinel - earns **a quarter more** influence from every source but Tribute at that kingdom's palace seats, its own included, so a crown defends its realm better.
@@ -138,15 +138,39 @@ The first part of guild town control is in. It is open to the developers first, 
 - **Orc Raids**: World of Daggerfall camps in the land hold twice the foes. Each camp you clear gives your guild 50 influence at its seat in the region, up to 5 camps a day and 250 influence a week.
 - **Storm Season** also slows the sea: a voyage into the land takes half again as long on the water.
 
+## Fortifications (online)
+- **The works.** A held seat can raise ten works, each in tiers: the **Walls**, the **Gatehouse** (at a crown, or once a palace's Walls reach tier 3), the **Watchtowers**, the **Barracks**, the **Market Hall**, the **Shrine**, the **Forge**, the **Workshop**, the **Apothecary** and, in a port town, the **Harbour**.
+- **Beginning a work.** The holder's guildmaster or an Officer begins the next tier of a work from the **Seat tab** at the town's board, for example *"Raise the Walls to tier 2 (3,000 Drakes)"*. The Drakes are spent from the guild treasury. One tier of each work can be building at a time.
+- **The stockpile.** A work also needs materials (Cut Stone, planks, ingots and more). They come from the seat's **stockpile**: the Levy's tenth, and **seat writs**. Each delivery moves straight into the works being built, in the table's order. When the last need is met, the tier stands **2, 4 or 7 days** later. The Seat tab shows each work, what it still needs, the day it stands, and the stockpile.
+- **Seat writs.** On the **Work tab**, a writ's new **For** choice sends its units to a seat your guild holds (its stockpile), or to a seat it's pledged to this week (its **Siege Camp**). A seat writ only asks for a material a work needs. The card says where the units go and shows the guild's banner. A guild member of 7 days who delivers their own units also raises the guild's influence at the seat by the units' value.
+- **The Siege Camp.** At the Turning, a camp whose guild won the Right of Siege sends its **Ram Kits** to the coming battle if the seat has a Gatehouse. Everything else in every camp is burnt.
+- **Losing them.** A captured seat's works each drop a tier, and anything being built is lost (its materials go back to the stockpile). A **Fortifier** on the defending side keeps the Walls from dropping, once a Season at each seat. At a Season's end every work drops a tier. A relinquished Charter keeps its works.
+- **The Market Hall** works at once: the holder's Tithe can go a point higher for each tier, and anyone listing at a board in its town may hold a quarter more listings for each tier.
+
+## Fixes (online)
+- **Leaving a battle.** You can now leave a siege or a Royal Tourney: the bar's **Leave** button, the result card's **Close**, `/leave` in chat, walking out of the seat's town, or dying.
+- **Battle announcements.** Each battle at a seat is announced in red at the Turning, a day before, an hour before and five minutes before.
+- **Arrows and spells in a siege** now count: an arrow or a harmful spell on a foe goes to the referee, and a heal on your own side. Teleport, Recall and Levitate don't work in a siege.
+- **Spectators** get a free camera while they watch, and no longer stand on the field.
+- **A dropped fighter's place** is held for five minutes. Back in time, you return at your side's camp.
+- **Declining an offer.** An offer of fealty or a Pact made to your guild can now be declined from the Seat tab.
+- **The Chronicle** now says how long a captured seat's siege lasted, and what Conscription and fealty actually paid.
+- **The Hall of Records** can be read from every seat's board, and from the shelves in the three crown castles.
+- **A battle nobody finished** is void at the Turning: the Sellswords' fees go home, and the challenger keeps its Right for next week.
+- **A seat struck from the registry** returns its holder's claim fee.
+- **Season 1's Keepers.** A Charter won at Season 1's first Turning now counts as held for the whole Season.
+- **The Tithe on a split sale** is now taken on the whole sale, as the market tax is.
+- **The Seat tab** reloads after every act, and the Relinquish button resets itself after four seconds.
+
 ## Behind the scenes
 - **The registry.** Each client works out the seats from its own game files. When you stand in a seat town, your game reports it to the server once a day. The server trusts a seat once three players whose accounts are at least a week old agree on it exactly.
 - **Fair sieges.** In a siege the server keeps every fighter's health and checks every blow, spell and step: a blow lands only if the weapon you carry can reach and deal it, nobody heals or strikes faster than the game allows, and nobody runs faster than the fastest legal runner. A siege's health is its own (300, more with your Renown) and never touches your character's health, items or gold. A siege room lets in only the fighters each side signed, and spectators.
-- Fortifications, deliveries to a seat's stockpile and the Siege Camp come in a later update.
+- The fortifications' effects in battle (the Walls' faster waves, the Gatehouse and its Rams, the Barracks' guards), the Shrine, the Watchtowers, the crafting halls, the Harbour and revolts come in a later update.
 
 ---
 
 ### For the team
-- Apply migrations **`0047_town_seats.sql`**, **`0048_seat_influence.sql`**, **`0049_seat_turning.sql`**, **`0050_seat_holding.sql`**, **`0051_seat_battles.sql`**, **`0052_seat_siege_results.sql`**, **`0053_crown_edicts.sql`**, **`0054_royal_tourney.sql`**, **`0055_fealty_pacts.sql`**, **`0056_orc_raids.sql`** and **`0057_season_ribbons.sql`** (with the guild halls' 0045 and 0046, after main's 0044) to production D1 and deploy the account service (**`acct57`**).
+- Apply migrations **`0047_town_seats.sql`**, **`0048_seat_influence.sql`**, **`0049_seat_turning.sql`**, **`0050_seat_holding.sql`**, **`0051_seat_battles.sql`**, **`0052_seat_siege_results.sql`**, **`0053_crown_edicts.sql`**, **`0054_royal_tourney.sql`**, **`0055_fealty_pacts.sql`**, **`0056_orc_raids.sql`** **`0057_season_ribbons.sql`**, **`0058_audit_seats.sql`**, **`0059_masonry.sql`** and **`0060_seat_forts.sql`** (with the guild halls' 0045 and 0046, after main's 0044) to production D1 and deploy the account service (**`acct58`**).
 - **The siege blackout.** The relay's deploy now waits while a siege is live or starts within 30 minutes (it asks the account service's public `/v1/seats/sieges/live`). Dispatch it with **force** to deploy at once - a forced deploy during a siege voids it. The account deploy now waits up to five and a half hours for the relay.
 - **The economy model**: `node tools/seatEconomy.mjs` re-runs the guild-week table from the live law files (`--runs`, `--seed`, `--json`).
 - **Deploy the relay (`world143`).** It sends the Watch's ticks (world138), carries the seats' titles (world139), referees a siege's room (world140), fights its battle by the service's pass (world141), keeps a Royal Tourney's room (world142) and carries a Season's banner ribbon, with a wider token bound (world143). Deploy it before the account service: an older relay refuses a token with a seat title in it.

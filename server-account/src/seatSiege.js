@@ -24,6 +24,7 @@
 // ═════════════════════════════════════════════════════════════════════
 import { accountKind, displayName, overRate } from './accounts.js';
 import { seatsOpenFor, confirmedSeats } from './townSeats.js';
+import { fortifierAt, fortsCaptureWithSave } from './seatForts.js';   // SEAT2b: a capture's drop, a Fortifier's save
 import { mustChange } from './realm.js';
 import { gatherStandings } from './seatInfluence.js';   // AUDIT-SEATS S8: a Tourney's dead heat as the Turning counted it
 import { utcDay, MARKS_MAX } from '../../src/net/marksLaw.js';
@@ -206,6 +207,10 @@ async function applyResult(db, b, c, nowS, zero) {
   const stmts = [...head(siegeWinner(result))];
   if (after.taken) {
     const seat = (await confirmedSeats(db, nowS)).get(K);
+    // SEAT2b (6.8, 7.5): the seat's works a tier down with the Charter - a Fortifier's save keeping the Walls once a Season
+    const seasonWeek = seasonFloor(W, zero);
+    const fortifier = await fortifierAt(db, W, K, nowS, seasonWeek);
+    stmts.push(...fortsCaptureWithSave(db, K, { week: W, nowS, seasonWeek, fortifier, history }));
     stmts.push(
       db.prepare(`INSERT INTO town_seat_holds (key, guild_id, region, tier, since_week, standing, truce_week, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (key) DO UPDATE SET guild_id = excluded.guild_id, since_week = excluded.since_week, standing = excluded.standing,
